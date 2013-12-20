@@ -153,6 +153,7 @@ begin
   end generate;
 
   process(clock)
+      variable operand_is_from_ram : boolean;             
     begin
       report "foo" severity note;
       if rising_edge(clock) then
@@ -246,6 +247,62 @@ begin
               -- Lookup instruction and addressing mode
               op_instruction <= instruction_lut(to_integer(unsigned(temp_opcode)));
               op_mode <= mode_lut(to_integer(unsigned(temp_opcode)));
+
+              if op_mode=M_implied then
+                -- implied mode, handle instruction now, add one to PC, and
+                -- go to fetch next instruction
+                operand_is_from_ram := false;
+              elsif op_mode=M_accumulator then
+                -- accumulator mode, so no need to read from memory
+                operand_is_from_ram := false;
+              elsif op_mode=M_relative then
+                -- a relative branch, work out whether to take the branch
+                -- and act accordingly
+                if (op_instruction=I_BCC and flag_c='0')
+                   or (op_instruction=I_BCS and flag_c='1')
+                   or (op_instruction=I_BVC and flag_v='0')
+                   or (op_instruction=I_BVS and flag_v='1')
+                   or (op_instruction=I_BEQ and flag_z='0')
+                   or (op_instruction=I_BNE and flag_z='1') then
+                  -- take branch
+                  if temp_operand(7)='0' then
+                    -- branch forwards. Add two to address because this is a two
+                    -- byte instruction
+                    reg_pc <= reg_pcplus2 + unsigned(temp_operand(6 downto 0));
+                  else
+                    -- branch backwards.
+                    reg_pc <= reg_pcplus2 - 128 + unsigned(not temp_operand(6 downto 0));
+                  end if;
+                  reg_pcplus1 <= reg_pc + 1;
+                  reg_pcplus2 <= reg_pc + 2;
+                else
+                  -- don't take branch, just advance program counter
+                  reg_pc <= reg_pc + 2;
+                  reg_pcplus1 <= reg_pc + 3;
+                  reg_pcplus2 <= reg_pc + 4;
+                end if;
+                state <= InstructionFetch;
+                operand_is_from_ram := false;
+              elsif op_mode=M_zeropage then
+                temp_addr(7 downto 0) <= temp_operand(7 downto 0);
+                temp_addr(15 downto 8) <= "00000000";
+                operand_is_from_ram := true;
+              elsif op_mode=M_zeropageX then
+                temp_addr(7 downto 0) <= std_logic_vector(unsigned(temp_operand(7 downto 0)) + unsigned(reg_x));
+                temp_addr(15 downto 8) <= "00000000";
+                operand_is_from_ram := true;
+              elsif op_mode=M_zeropageY then
+                temp_addr(7 downto 0) <= std_logic_vector(unsigned(temp_operand(7 downto 0)) + unsigned(reg_y));
+                temp_addr(15 downto 8) <= "00000000";
+                operand_is_from_ram := true;
+              elsif op_mode=M_absolute then
+                temp_addr(15 downto 0) <= temp_operand;
+              elsif op_mode=M_absoluteX then
+                temp_addr(15 downto 0) <= std_logic_vector(unsigned(temp_operand) + unsigned(reg_x));
+              elsif op_mode=M_absoluteY then
+                temp_addr(15 downto 0) <= std_logic_vector(unsigned(temp_operand) + unsigned(reg_y));
+                operand_is_from_ram := true;
+              end if;
               
             when others => null;
           end case;
