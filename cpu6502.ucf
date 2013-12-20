@@ -1,0 +1,3 @@
+net "CLK_IN" loc = "E3" | IOSTANDARD "LVCMOS33"; #100MHz clock on Nexys4 board
+net "irq" loc = "U8"; #SW1
+net "reset" loc = "R7"; #SW2

@@ -1,0 +1,23 @@
+net "CLK_IN" loc = "E3" | IOSTANDARD = "LVCMOS33"; #100MHz clock on Nexys4 board
+net "CLK_IN" TNM_NET = sys_clk_pin;
+TIMESPEC TS_sys_clk_pin = PERIOD sys_clk_pin 100MHz HIGH 50%;
+
+net "irq" loc = "U8"  | IOSTANDARD = "LVCMOS33"; #SW1
+net "reset" loc = "R7" | IOSTANDARD = "LVCMOS33"; #SW2
+
+net "monitor_pc<0>" loc = "B13" | IOSTANDARD = "LVCMOS33"; #JA0
+net "monitor_pc<1>" loc = "F14" | IOSTANDARD = "LVCMOS33"; #JA1
+net "monitor_pc<2>" loc = "D17" | IOSTANDARD = "LVCMOS33"; #JA2
+net "monitor_pc<3>" loc = "E17" | IOSTANDARD = "LVCMOS33"; #JA3
+net "monitor_pc<4>" loc = "G13" | IOSTANDARD = "LVCMOS33"; #JA4
+net "monitor_pc<5>" loc = "C17" | IOSTANDARD = "LVCMOS33"; #JA5
+net "monitor_pc<6>" loc = "D18" | IOSTANDARD = "LVCMOS33"; #JA6
+net "monitor_pc<7>" loc = "E18" | IOSTANDARD = "LVCMOS33"; #JA7
+net "monitor_pc<8>" loc = "G14" | IOSTANDARD = "LVCMOS33"; #JB0
+net "monitor_pc<9>" loc = "P15" | IOSTANDARD = "LVCMOS33"; #JB1
+net "monitor_pc<10>" loc = "V11" | IOSTANDARD = "LVCMOS33"; #JB2
+net "monitor_pc<11>" loc = "V15" | IOSTANDARD = "LVCMOS33"; #JB3
+net "monitor_pc<12>" loc = "K16" | IOSTANDARD = "LVCMOS33"; #JB4
+net "monitor_pc<13>" loc = "R16" | IOSTANDARD = "LVCMOS33"; #JB5
+net "monitor_pc<14>" loc = "T9" | IOSTANDARD = "LVCMOS33"; #JB6
+net "monitor_pc<15>" loc = "U11" | IOSTANDARD = "LVCMOS33"; #JB7
