@@ -65,55 +65,79 @@ type processor_state is (
   PullP,PullA,PullPC,TakeBranch);
 signal state : processor_state := ResetLow;  -- start processor in reset state
 
-type addressing_mode is (
-  Relative,Accumulator,Implied,Immediate,
-  ZeroPage,ZeroPageX,ZeroPageY,IZeroPageX,IZeroPageY,
-  Absolute,AbsoluteX,AbsoluteY,Indirect);
-signal op_mode : addressing_mode;
 type instruction is (
-  I_ADC,I_AND,I_ASL,
-  I_BCC,I_BCS,I_BNE,I_BEQ,I_BMI,I_BPL,I_BVC,I_BVS,
-  I_BIT,I_BRK,I_CLC,I_CLD,I_CLI,I_CLV,
-  I_CMP,I_CPX,I_CPY,I_DEC,I_DEX,I_DEY,I_EOR,I_INC,I_INX,I_INY,
-  I_JMP,I_JSR,I_LDA,I_LDX,I_LDY,I_LSR,I_NOP,I_ORA,I_PHA,I_PHP,
-  I_PLA,I_PLP,I_ROL,I_ROR,I_RTI,I_RTS,I_SBC,I_SEC,I_SED,I_SEI,
-  I_STA,I_STX,I_STY,I_TAX,I_TAY,I_TSX,I_TXA,I_TXS,I_TYA,
-  I_ILL
-  );
-type lut8bit is array(0 to 255) of instruction;
-constant instruction_lut : lut8bit := (
-I_BRK,  I_ORA,  I_ILL,  I_ILL,  I_ILL,  I_ORA,  I_ASL,  I_ILL, 
-I_PHP,  I_ORA,  I_ASL,  I_ILL,  I_ILL,  I_ORA,  I_ASL,  I_ILL, 
-I_BPL,  I_ORA,  I_ILL,  I_ILL,  I_ILL,  I_ORA,  I_ASL,  I_ILL, 
-I_CLC,  I_ORA,  I_ILL,  I_ILL,  I_ILL,  I_ORA,  I_ASL,  I_ILL, 
-I_JSR,  I_AND,  I_ILL,  I_ILL,  I_BIT,  I_AND,  I_ROL,  I_ILL, 
-I_ILL,  I_AND,  I_ROL,  I_ILL,  I_BIT,  I_AND,  I_ROL,  I_ILL, 
-I_BMI,  I_AND,  I_ILL,  I_ILL,  I_ILL,  I_AND,  I_ROL,  I_ILL, 
-I_SEC,  I_AND,  I_ILL,  I_ILL,  I_ILL,  I_AND,  I_ROL,  I_ILL, 
-I_RTI,  I_EOR,  I_ILL,  I_ILL,  I_ILL,  I_EOR,  I_LSR,  I_ILL, 
-I_PHA,  I_EOR,  I_LSR,  I_ILL,  I_JMP,  I_EOR,  I_LSR,  I_ILL, 
-I_BVC,  I_EOR,  I_ILL,  I_ILL,  I_ILL,  I_EOR,  I_LSR,  I_ILL, 
-I_CLI,  I_EOR,  I_ILL,  I_ILL,  I_ILL,  I_EOR,  I_LSR,  I_ILL, 
-I_RTS,  I_ADC,  I_ILL,  I_ILL,  I_ILL,  I_ADC,  I_ROR,  I_ILL, 
-I_PLA,  I_ADC,  I_ROR,  I_ILL,  I_JMP,  I_ADC,  I_ROR,  I_ILL, 
-I_ILL,  I_ADC,  I_ILL,  I_ILL,  I_ILL,  I_ADC,  I_ROR,  I_ILL, 
-I_SEI,  I_ADC,  I_ILL,  I_ILL,  I_ILL,  I_ADC,  I_ROR,  I_ILL, 
-I_ILL,  I_STA,  I_ILL,  I_ILL,  I_STY,  I_STA,  I_STX,  I_ILL, 
-I_ILL,  I_ILL,  I_TXA,  I_ILL,  I_STY,  I_STA,  I_STX,  I_ILL, 
-I_BCC,  I_STA,  I_ILL,  I_ILL,  I_STY,  I_STA,  I_STX,  I_ILL, 
-I_TYA,  I_STA,  I_TXS,  I_ILL,  I_ILL,  I_STA,  I_ILL,  I_ILL, 
-I_LDY,  I_LDA,  I_LDX,  I_ILL,  I_LDY,  I_LDA,  I_LDX,  I_ILL, 
-I_TAY,  I_LDA,  I_TAX,  I_ILL,  I_LDY,  I_LDA,  I_LDX,  I_ILL, 
-I_BCS,  I_LDA,  I_ILL,  I_ILL,  I_LDY,  I_LDA,  I_LDX,  I_ILL, 
-I_CLV,  I_LDA,  I_TSX,  I_ILL,  I_LDY,  I_LDA,  I_LDX,  I_ILL, 
-I_CPY,  I_CMP,  I_ILL,  I_ILL,  I_CPY,  I_CMP,  I_DEC,  I_ILL, 
-I_INY,  I_CMP,  I_ILL,  I_ILL,  I_CPY,  I_CMP,  I_DEC,  I_ILL, 
-I_BNE,  I_CMP,  I_ILL,  I_ILL,  I_ILL,  I_CMP,  I_DEC,  I_ILL, 
-I_CLD,  I_CMP,  I_ILL,  I_ILL,  I_ILL,  I_CMP,  I_DEC,  I_ILL, 
-I_CPX,  I_SBC,  I_ILL,  I_ILL,  I_CPX,  I_SBC,  I_INC,  I_ILL, 
-I_INX,  I_SBC,  I_NOP,  I_ILL,  I_CPX,  I_SBC,  I_INC,  I_ILL, 
-I_BEQ,  I_SBC,  I_ILL,  I_ILL,  I_ILL,  I_SBC,  I_INC,  I_ILL, 
-I_SED,  I_SBC,  I_ILL,  I_ILL,  I_ILL,  I_SBC,  I_INC,  I_ILL);
+I_ADC,I_AHX,I_ALR,I_ANC,I_AND,I_ARR,I_ASL,I_AXS,
+I_BCC,I_BCS,I_BEQ,I_BIT,I_BMI,I_BNE,I_BPL,I_BRK,
+I_BVC,I_BVS,I_CLC,I_CLD,I_CLI,I_CLV,I_CMP,I_CPX,
+I_CPY,I_DCP,I_DEC,I_DEX,I_DEY,I_EOR,I_INC,I_INX,
+I_INY,I_ISC,I_JMP,I_JSR,I_KIL,I_LAS,I_LAX,I_LDA,
+I_LDX,I_LDY,I_LSR,I_NOP,I_ORA,I_PHA,I_PHP,I_PLA,
+I_PLP,I_RLA,I_ROL,I_ROR,I_RRA,I_RTI,I_RTS,I_SAX,
+I_SBC,I_SEC,I_SED,I_SEI,I_SHX,I_SHY,I_SLO,I_SRE,
+I_STA,I_STX,I_STY,I_TAS,I_TAX,I_TAY,I_TSX,I_TXA,
+I_TXS,I_TYA,I_XAA);
+signal op_instruction : instruction;
+
+type ilut8bit is array(0 to 255) of instruction;
+constant instruction_lut : ilut8bit := (
+I_BRK,  I_ORA,  I_KIL,  I_SLO,  I_NOP,  I_ORA,  I_ASL,  I_SLO,  I_PHP,  I_ORA,  I_ASL,  I_ANC,  I_NOP,  I_ORA,  I_ASL,  I_SLO, 
+I_BPL,  I_ORA,  I_KIL,  I_SLO,  I_NOP,  I_ORA,  I_ASL,  I_SLO,  I_CLC,  I_ORA,  I_NOP,  I_SLO,  I_NOP,  I_ORA,  I_ASL,  I_SLO, 
+I_JSR,  I_AND,  I_KIL,  I_RLA,  I_BIT,  I_AND,  I_ROL,  I_RLA,  I_PLP,  I_AND,  I_ROL,  I_ANC,  I_BIT,  I_AND,  I_ROL,  I_RLA, 
+I_BMI,  I_AND,  I_KIL,  I_RLA,  I_NOP,  I_AND,  I_ROL,  I_RLA,  I_SEC,  I_AND,  I_NOP,  I_RLA,  I_NOP,  I_AND,  I_ROL,  I_RLA, 
+I_RTI,  I_EOR,  I_KIL,  I_SRE,  I_NOP,  I_EOR,  I_LSR,  I_SRE,  I_PHA,  I_EOR,  I_LSR,  I_ALR,  I_JMP,  I_EOR,  I_LSR,  I_SRE, 
+I_BVC,  I_EOR,  I_KIL,  I_SRE,  I_NOP,  I_EOR,  I_LSR,  I_SRE,  I_CLI,  I_EOR,  I_NOP,  I_SRE,  I_NOP,  I_EOR,  I_LSR,  I_SRE, 
+I_RTS,  I_ADC,  I_KIL,  I_RRA,  I_NOP,  I_ADC,  I_ROR,  I_RRA,  I_PLA,  I_ADC,  I_ROR,  I_ARR,  I_JMP,  I_ADC,  I_ROR,  I_RRA, 
+I_BVS,  I_ADC,  I_KIL,  I_RRA,  I_NOP,  I_ADC,  I_ROR,  I_RRA,  I_SEI,  I_ADC,  I_NOP,  I_RRA,  I_NOP,  I_ADC,  I_ROR,  I_RRA, 
+I_NOP,  I_STA,  I_KIL,  I_SAX,  I_STY,  I_STA,  I_STX,  I_SAX,  I_DEY,  I_NOP,  I_TXA,  I_XAA,  I_STY,  I_STA,  I_STX,  I_SAX, 
+I_BCC,  I_STA,  I_NOP,  I_AHX,  I_STY,  I_STA,  I_STX,  I_SAX,  I_TYA,  I_STA,  I_TXS,  I_TAS,  I_SHY,  I_STA,  I_SHX,  I_AHX, 
+I_LDY,  I_LDA,  I_LDX,  I_LAX,  I_LDY,  I_LDA,  I_LDX,  I_LAX,  I_TAY,  I_LDA,  I_TAX,  I_LAX,  I_LDY,  I_LDA,  I_LDX,  I_LAX, 
+I_BCS,  I_LDA,  I_NOP,  I_LAX,  I_LDY,  I_LDA,  I_LDX,  I_LAX,  I_CLV,  I_LDA,  I_TSX,  I_LAS,  I_LDY,  I_LDA,  I_LDX,  I_LAX, 
+I_CPY,  I_CMP,  I_KIL,  I_DCP,  I_CPY,  I_CMP,  I_DEC,  I_DCP,  I_INY,  I_CMP,  I_DEX,  I_AXS,  I_CPY,  I_CMP,  I_DEC,  I_DCP, 
+I_BNE,  I_CMP,  I_NOP,  I_DCP,  I_NOP,  I_CMP,  I_DEC,  I_DCP,  I_CLD,  I_CMP,  I_NOP,  I_DCP,  I_NOP,  I_CMP,  I_DEC,  I_DCP, 
+I_CPX,  I_SBC,  I_KIL,  I_ISC,  I_CPX,  I_SBC,  I_INC,  I_ISC,  I_INX,  I_SBC,  I_NOP,  I_SBC,  I_CPX,  I_SBC,  I_INC,  I_ISC, 
+I_BEQ,  I_SBC,  I_NOP,  I_ISC,  I_NOP,  I_SBC,  I_INC,  I_ISC,  I_SED,  I_SBC,  I_NOP,  I_ISC,  I_NOP,  I_SBC,  I_INC,  I_ISC);
+
+type addressingmode is (
+M_implied,M_immidiate,M_accumulator,
+M_zeropage,M_zeropageX,M_zeropageY,
+M_absolute,M_absoluteY,M_absoluteX,
+M_relative,M_indirect,M_indirectX,M_indirectY);
+signal op_mode : addressingmode;
+
+type mlut8bit is array(0 to 255) of addressingmode;
+constant mode_lut : mlut8bit := (
+M_implied,  M_indirectX,  M_immidiate,  M_indirectX,  M_zeropage,  M_zeropage,  M_zeropage,  M_zeropage, 
+M_implied,  M_immidiate,  M_accumulator,  M_immidiate,  M_absolute,  M_absolute,  M_absolute,  M_absolute, 
+M_relative,  M_indirectY,  M_immidiate,  M_indirectY,  M_zeropageX,  M_zeropageX,  M_zeropageX,  M_zeropageX, 
+M_implied,  M_absoluteY,  M_accumulator,  M_absoluteY,  M_absoluteX,  M_absoluteX,  M_absoluteX,  M_absoluteX, 
+M_absolute,  M_indirectX,  M_immidiate,  M_indirectX,  M_zeropage,  M_zeropage,  M_zeropage,  M_zeropage, 
+M_implied,  M_immidiate,  M_accumulator,  M_immidiate,  M_absolute,  M_absolute,  M_absolute,  M_absolute, 
+M_relative,  M_indirectY,  M_immidiate,  M_indirectY,  M_zeropageX,  M_zeropageX,  M_zeropageX,  M_zeropageX, 
+M_implied,  M_absoluteY,  M_accumulator,  M_absoluteY,  M_absoluteX,  M_absoluteX,  M_absoluteX,  M_absoluteX, 
+M_implied,  M_indirectX,  M_immidiate,  M_indirectX,  M_zeropage,  M_zeropage,  M_zeropage,  M_zeropage, 
+M_implied,  M_immidiate,  M_accumulator,  M_immidiate,  M_absolute,  M_absolute,  M_absolute,  M_absolute, 
+M_relative,  M_indirectY,  M_immidiate,  M_indirectY,  M_zeropageX,  M_zeropageX,  M_zeropageX,  M_zeropageX, 
+M_implied,  M_absoluteY,  M_accumulator,  M_absoluteY,  M_absoluteX,  M_absoluteX,  M_absoluteX,  M_absoluteX, 
+M_implied,  M_indirectX,  M_immidiate,  M_indirectX,  M_zeropage,  M_zeropage,  M_zeropage,  M_zeropage, 
+M_implied,  M_immidiate,  M_accumulator,  M_immidiate,  M_indirect,  M_absolute,  M_absolute,  M_absolute, 
+M_relative,  M_indirectY,  M_immidiate,  M_indirectY,  M_zeropageX,  M_zeropageX,  M_zeropageX,  M_zeropageX, 
+M_implied,  M_absoluteY,  M_accumulator,  M_absoluteY,  M_absoluteX,  M_absoluteX,  M_absoluteX,  M_absoluteX, 
+M_immidiate,  M_indirectX,  M_immidiate,  M_indirectX,  M_zeropage,  M_zeropage,  M_zeropage,  M_zeropage, 
+M_implied,  M_immidiate,  M_implied,  M_immidiate,  M_absolute,  M_absolute,  M_absolute,  M_absolute, 
+M_relative,  M_indirectY,  M_immidiate,  M_indirectY,  M_zeropageX,  M_zeropageX,  M_zeropageY,  M_zeropageY, 
+M_implied,  M_absoluteY,  M_implied,  M_absoluteY,  M_absoluteX,  M_absoluteX,  M_implied,  M_absoluteY, 
+M_immidiate,  M_indirectX,  M_immidiate,  M_indirectX,  M_zeropage,  M_zeropage,  M_zeropage,  M_zeropage, 
+M_implied,  M_immidiate,  M_implied,  M_immidiate,  M_absolute,  M_absolute,  M_absolute,  M_absolute, 
+M_relative,  M_indirectY,  M_immidiate,  M_indirectY,  M_zeropageX,  M_zeropageX,  M_zeropageY,  M_zeropageY, 
+M_implied,  M_absoluteY,  M_implied,  M_absoluteY,  M_absoluteX,  M_absoluteX,  M_absoluteY,  M_absoluteY, 
+M_immidiate,  M_indirectX,  M_immidiate,  M_indirectX,  M_zeropage,  M_zeropage,  M_zeropage,  M_zeropage, 
+M_implied,  M_immidiate,  M_implied,  M_immidiate,  M_absolute,  M_absolute,  M_absolute,  M_absolute, 
+M_relative,  M_indirectY,  M_immidiate,  M_indirectY,  M_zeropageX,  M_zeropageX,  M_zeropageX,  M_zeropageX, 
+M_implied,  M_absoluteY,  M_implied,  M_absoluteY,  M_absoluteX,  M_absoluteX,  M_absoluteX,  M_absoluteX, 
+M_immidiate,  M_indirectX,  M_immidiate,  M_indirectX,  M_zeropage,  M_zeropage,  M_zeropage,  M_zeropage, 
+M_implied,  M_immidiate,  M_implied,  M_immidiate,  M_absolute,  M_absolute,  M_absolute,  M_absolute, 
+M_relative,  M_indirectY,  M_immidiate,  M_indirectY,  M_zeropageX,  M_zeropageX,  M_zeropageX,  M_zeropageX, 
+M_implied,  M_absoluteY,  M_implied,  M_absoluteY,  M_absoluteX,  M_absoluteX,  M_absoluteX,  M_absoluteX);
 
 begin
   -- Each block portram is 2Kx8bits, so we need 32 of them
@@ -218,7 +242,10 @@ begin
               temp_opcode <= ram_data_o(to_integer(op_mem_slot));
               temp_operand(15 downto 8) <= ram_data_o(to_integer(operand2_mem_slot));
               temp_operand(7 downto 0) <= ram_data_o(to_integer(operand1_mem_slot));
+
               -- Lookup instruction and addressing mode
+              op_instruction <= instruction_lut(to_integer(unsigned(temp_opcode)));
+              op_mode <= mode_lut(to_integer(unsigned(temp_opcode)));
               
             when others => null;
           end case;
