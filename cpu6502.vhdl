@@ -14,13 +14,26 @@ entity cpu6502 is
   
 end cpu6502;
 
-architecture Behavioral of cpu6502 is 
-type unsigned_array_32 is array(0 to 31) of std_logic_vector(10 downto 0);
+architecture Behavioral of cpu6502 is
+
+-- 512KB RAM as 64K x 64bit
+-- The wide databus allows us to read entire instructions in one go,
+-- and potentially to write operands to memory while fetching the next
+-- instruction if the lower 3 bits don't conflict
+type unsigned_array_8 is array(0 to 7) of std_logic_vector(15 downto 0);
 type stdlogic_array_8 is array (natural range <>) of std_logic_vector(7 downto 0);
-signal ram_address : unsigned_array_32;
-signal ram_we : std_logic_vector(0 to 31);
-signal ram_data_i : stdlogic_array_8(0 to 31);
-signal ram_data_o : stdlogic_array_8(0 to 31);
+signal ram_address : unsigned_array_8;
+signal ram_we : std_logic_vector(0 to 7);
+signal ram_data_i : stdlogic_array_8(0 to 7);
+signal ram_data_o : stdlogic_array_8(0 to 7);
+
+-- CPU RAM bank selection registers.
+-- Each 4KB (12 address bits) can be made to point to a section of memory.
+-- Sections have 16bit addresses, for a total of 28bits (256MB) of address
+-- space.  It also makes it possible to multiple 4KB banks point to the same
+-- block of RAM.
+type bank_register_set is array (0 to 15) of std_logic_vector(15 downto 0);
+signal ram_bank_registers : bank_register_set;
 
 -- CPU internal state
 signal flag_c : std_logic;        -- carry flag
@@ -45,9 +58,9 @@ signal temp_addr : std_logic_vector(15 downto 0);
 signal temp_opcode : std_logic_vector(7 downto 0);
 signal temp_operand : std_logic_vector(15 downto 0);
 -- Other temporary variables
-signal op_mem_slot : unsigned(4 downto 0);
-signal operand1_mem_slot : unsigned(4 downto 0);
-signal operand2_mem_slot : unsigned(4 downto 0);
+signal op_mem_slot : unsigned(2 downto 0);
+signal operand1_mem_slot : unsigned(2 downto 0);
+signal operand2_mem_slot : unsigned(2 downto 0);
 signal vector : std_logic_vector(15 downto 0);
 
 type processor_state is (
@@ -140,9 +153,9 @@ M_relative,  M_indirectY,  M_immidiate,  M_indirectY,  M_zeropageX,  M_zeropageX
 M_implied,  M_absoluteY,  M_implied,  M_absoluteY,  M_absoluteX,  M_absoluteX,  M_absoluteX,  M_absoluteX);
 
 begin
-  -- Each block portram is 2Kx8bits, so we need 32 of them
-  -- to make 64KB.
-  gen_ram: for i in 0 to 31 generate
+  -- Each block portram is 64KBx8bits, so we need 8 of them
+  -- to make 512KB, approximately the total available on this FPGA.
+  gen_ram: for i in 0 to 7 generate
     ramx: entity spartan6blockram
     port map (
       Clk   => clock,
@@ -153,9 +166,10 @@ begin
   end generate;
 
   process(clock)
-      variable operand_is_from_ram : boolean;             
+      variable operand_is_from_ram : boolean;
+      variable temp_address : std_logic_vector(15 downto 0);
+      variable temp_bank_block : std_logic_vector(15 downto 0);
     begin
-      report "foo" severity note;
       if rising_edge(clock) then
 		  monitor_pc <= std_logic_vector(reg_pc);
         report "tick" severity note;
@@ -173,9 +187,18 @@ begin
           flag_z <= '0';
           flag_n <= '0';
           flag_v <= '0';
-          for i  in 0 to 31 loop
-            ram_address(i)<="00000000000";
-          end loop;  -- i 
+          -- Read nothingness from RAM
+          for i  in 0 to 7 loop
+            ram_address(i)<="0000000000000000";
+            ram_we(i) <= '0';
+          end loop;  -- i
+          -- Reset memory bank to first 64KB
+          -- bank at 0x0000-0x0FFF points to 0x0000000-0x0000FFF = block 0x0000
+          -- bank at 0x1000-0x1FFF points to 0x0001000-0x0001FFF = block 0x0001
+          -- and so on.          
+          for i in 0 to 15 loop
+            ram_bank_registers(i)<=std_logic_vector(to_unsigned(i,16));
+          end loop;  -- i
         else
           -- act based on state
           case state is
@@ -188,28 +211,33 @@ begin
               -- we can do this fairly easily by setting all six relevant
               -- memories to read their last cell, and then pick the right one
               -- out in processor_state'VectorLoadPC
-              for i in 0 to 31 loop
+              -- The vectors always live in the natural memory locations
+              -- 0x000FFFA - 0x000FFF, and ignore bank switching
+              for i in 0 to 7 loop
                 ram_we(i) <= '0';
               end loop;  -- i
-              for i in 26 to 31 loop
-                ram_address(i)<=std_logic_vector(to_unsigned(ram_address(i)'high,11));
+              -- Memory banks are 8x64KB.
+              -- So we want addresses shifted down log2(8)=3 bits
+              -- which for all of them corresponds to addres 0x1FFF
+              for i in 2 to 7 loop
+                ram_address(i)<=x"1FFF";
               end loop;  -- i              
               state<=VectorLoadPC;
             when VectorLoadPC =>
                 case vector is
                   when x"FFFA" =>
-                    temp_addr(7 downto 0) <=  ram_data_o(26);
-                    temp_addr(15 downto 8) <= ram_data_o(27);
+                    temp_addr(7 downto 0) <=  ram_data_o(2);
+                    temp_addr(15 downto 8) <= ram_data_o(3);
                   when x"FFFC" =>
-                    temp_addr(7 downto 0) <=  ram_data_o(28);
-                    temp_addr(15 downto 8) <= ram_data_o(29);
+                    temp_addr(7 downto 0) <=  ram_data_o(4);
+                    temp_addr(15 downto 8) <= ram_data_o(5);
                   when x"FFFE" =>
-                    temp_addr(7 downto 0) <=  ram_data_o(30);
-                    temp_addr(15 downto 8) <= ram_data_o(31);
+                    temp_addr(7 downto 0) <=  ram_data_o(6);
+                    temp_addr(15 downto 8) <= ram_data_o(7);
                   when others =>
                     -- unknown vector, so use reset vector
-                    temp_addr(7 downto 0) <=  ram_data_o(28);
-                    temp_addr(15 downto 8) <= ram_data_o(29);
+                    temp_addr(7 downto 0) <=  ram_data_o(6);
+                    temp_addr(15 downto 8) <= ram_data_o(7);
                 end case;
                 reg_pc<=unsigned(temp_addr);
                 reg_pcplus1<=unsigned(temp_addr)+1;
@@ -224,17 +252,26 @@ begin
                 -- Work out which three bytes to fetch.
                 -- Probably easiest to do a parallel calculation based on lower
                 -- bits of reg_pc, reg_pcplus1, reg_pcplus2
-                for i in 0 to 31 loop
+                for i in 0 to 7 loop
                   ram_we(i)<='0';
-                  if reg_pc(4 downto 0)=i then
-                    ram_address(i)<=std_logic_vector(reg_pc(15 downto 5));
-                    op_mem_slot<=to_unsigned(i,5);
-                  elsif reg_pcplus1(4 downto 0)=i then
-                    ram_address(i)<=std_logic_vector(reg_pcplus1(15 downto 5));
-                    operand1_mem_slot<=to_unsigned(i,5);
-                  elsif reg_pcplus2(4 downto 0)=i then
-                    ram_address(i)<=std_logic_vector(reg_pcplus2(15 downto 5));
-                    operand2_mem_slot<=to_unsigned(i,5);
+                  if reg_pc(2 downto 0)=i then
+                    temp_bank_block :=ram_bank_registers(to_integer(unsigned(reg_pc(15 downto 12))));
+                    temp_address(15 downto 13 ):=temp_bank_block(2 downto 0);
+                    temp_address(12 downto 0):=std_logic_vector(reg_pc(15 downto 3));
+                    ram_address(i) <= temp_address;
+                    op_mem_slot<=to_unsigned(i,3);
+                  elsif reg_pcplus1(2 downto 0)=i then
+                    temp_bank_block :=ram_bank_registers(to_integer(unsigned(reg_pcplus1(15 downto 12))));
+                    temp_address(15 downto 13 ):=temp_bank_block(2 downto 0);
+                    temp_address(12 downto 0):=std_logic_vector(reg_pcplus1(15 downto 3));
+                    ram_address(i) <= temp_address;
+                    operand1_mem_slot<=to_unsigned(i,3);
+                  elsif reg_pcplus2(2 downto 0)=i then
+                    temp_bank_block :=ram_bank_registers(to_integer(unsigned(reg_pcplus2(15 downto 12))));
+                    temp_address(15 downto 13 ):=temp_bank_block(2 downto 0);
+                    temp_address(12 downto 0):=std_logic_vector(reg_pcplus2(15 downto 3));
+                    ram_address(i) <= temp_address;
+                    operand2_mem_slot<=to_unsigned(i,3);
                   end if;
                 end loop;  -- i
                 state<=OperandResolve;

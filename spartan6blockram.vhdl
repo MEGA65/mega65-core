@@ -17,7 +17,7 @@ use ieee.numeric_std.all;
 -- access ports.
 entity spartan6blockram is
 port (Clk : in std_logic;
-        address : in std_logic_vector(10 downto 0);
+        address : in std_logic_vector(15 downto 0);
         we : in std_logic;
         data_i : in std_logic_vector(7 downto 0);
         data_o : out std_logic_vector(7 downto 0)
@@ -26,9 +26,9 @@ end spartan6blockram;
 
 architecture Behavioral of spartan6blockram is
 
---Declaration of type and signal of a 2KB element RAM
+--Declaration of type and signal of a 64KB element RAM
 --with each element being 8 bit wide.
-type ram_t is array (0 to 2047) of std_logic_vector(7 downto 0);
+type ram_t is array (0 to 65535) of std_logic_vector(7 downto 0);
 signal ram : ram_t := (others => (others => '0'));
 
 begin
