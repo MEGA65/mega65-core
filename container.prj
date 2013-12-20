@@ -1,0 +1,5 @@
+vhdl work "spartan6blockram.vhdl"
+vhdl work "vga_clock.vhd"
+vhdl work "fpga_clock.vhd"
+vhdl work "cpu6502.vhdl"
+vhdl work "container.vhd"
