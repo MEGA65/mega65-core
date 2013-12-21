@@ -85,8 +85,8 @@ type processor_state is (
   PullA,                                -- PLA
   PullP,                                -- PLP
   BRKPushPCH,BRKPushPCL,PRKPushP,       -- BRK
-  RTIPullP,RTIPullPCH,RTIPullPCL,       -- RTI
-  RTSPullPCH,RTSPullPCL,                -- RTS
+  RTIPull,                              -- RTI
+  RTSPull,                              -- RTS
   Halt                                  -- KIL
   );
 signal state : processor_state := ResetLow;  -- start processor in reset state
@@ -219,7 +219,7 @@ begin
         variable ram_bank : std_logic_vector(2 downto 0);
         variable bank_address : std_logic_vector(15 downto 0);
       begin
-        if long_address(27 downto 19)="00000000000" then
+        if long_address(27 downto 19)="000000000" then
           -- we have RAM to write to
           ram_bank := long_address(2 downto 0);
           bank_address := long_address(18 downto 3);
@@ -236,8 +236,9 @@ begin
         push_long_address(11 downto 8) := "0001";
         -- Now append stack pointer
         push_long_address(7 downto 0) := std_logic_vector(reg_sp);
-
         write_to_long_address(push_long_address,value);
+        -- decrement stack pointer
+        reg_sp <= reg_sp - 1;
       end procedure push_byte;        
       
       procedure pull_byte is
@@ -328,13 +329,85 @@ begin
           -- If missing, generates an error, if present, generates a warning :/
           when others => null;
         end case;
+        op_mem_slot <= unsigned(long_pc(2 downto 0));
         operand1_mem_slot <= unsigned(long_pc1(2 downto 0));
         operand2_mem_slot <= unsigned(long_pc2(2 downto 0));
         request_read_long_address(long_pc);
         request_read_long_address(long_pc1);
         request_read_long_address(long_pc2);
       end procedure fetch_next_instruction;
-        
+
+      procedure fetch_stack_bytes is 
+       variable long_pc : std_logic_vector(27 downto 0);
+       variable long_pc1 : std_logic_vector(27 downto 0);
+       variable long_pc2 : std_logic_vector(27 downto 0);
+       variable temp_sp : std_logic_vector(15 downto 0);
+       variable stack_pointer : std_logic_vector(15 downto 0);
+      begin
+        -- Work out stack pointer address, bug compatible with 6502
+        -- that always keeps stack within memory page $01
+        stack_pointer(15 downto 8) := "00000001";
+        stack_pointer(7 downto 0) := std_logic_vector(reg_sp +1);
+        long_pc := resolve_address_to_long(std_logic_vector(stack_pointer),ram_bank_registers);
+        case stack_pointer(2 downto 0) is
+          when "000" =>
+            long_pc1(27 downto 2) := long_pc(27 downto 2);
+            long_pc1(2 downto 0) := "001";
+            long_pc2(27 downto 2) := long_pc(27 downto 2);
+            long_pc2(2 downto 0) := "010";
+          when "001" =>
+            long_pc1(27 downto 2) := long_pc(27 downto 2);
+            long_pc1(2 downto 0) := "010";
+            long_pc2(27 downto 2) := long_pc(27 downto 2);
+            long_pc2(2 downto 0) := "011";
+          when "010" =>
+            long_pc1(27 downto 2) := long_pc(27 downto 2);
+            long_pc1(2 downto 0) := "011";
+            long_pc2(27 downto 2) := long_pc(27 downto 2);
+            long_pc2(2 downto 0) := "100";
+          when "011" =>
+            long_pc1(27 downto 2) := long_pc(27 downto 2);
+            long_pc1(2 downto 0) := "100";
+            long_pc2(27 downto 2) := long_pc(27 downto 2);
+            long_pc2(2 downto 0) := "101";
+          when "100" =>
+            long_pc1(27 downto 2) := long_pc(27 downto 2);
+            long_pc1(2 downto 0) := "101";
+            long_pc2(27 downto 2) := long_pc(27 downto 2);
+            long_pc2(2 downto 0) := "110";
+          when "101" =>
+            long_pc1(27 downto 2) := long_pc(27 downto 2);
+            long_pc1(2 downto 0) := "110";
+            long_pc2(27 downto 2) := long_pc(27 downto 2);
+            long_pc2(2 downto 0) := "111";
+          when "110" =>
+            long_pc1(27 downto 2) := long_pc(27 downto 2);
+            long_pc1(2 downto 0) := "111";
+            temp_sp(15 downto 8) := stack_pointer(15 downto 8);
+            temp_sp(7 downto 0):=std_logic_vector(unsigned(stack_pointer(7 downto 0))+2);
+            long_pc2 := resolve_address_to_long(temp_sp,ram_bank_registers);
+            long_pc2(27 downto 2) := long_pc(27 downto 2);
+            long_pc2(2 downto 0) := "000";
+          when "111" =>
+            temp_sp(15 downto 8) := stack_pointer(15 downto 8);
+            temp_sp(7 downto 0):=std_logic_vector(unsigned(stack_pointer(7 downto 0))+1);
+            long_pc1 := resolve_address_to_long(temp_sp,ram_bank_registers);
+            long_pc1(27 downto 2) := long_pc(27 downto 2);
+            long_pc1(2 downto 0) := "000";
+            long_pc2(27 downto 2) := long_pc(27 downto 2);
+            long_pc2(2 downto 0) := "001";
+          -- If missing, generates an error, if present, generates a warning :/
+          when others => null;
+        end case;
+        op_mem_slot <= unsigned(long_pc(2 downto 0));
+        operand1_mem_slot <= unsigned(long_pc1(2 downto 0));
+        operand2_mem_slot <= unsigned(long_pc2(2 downto 0));
+        request_read_long_address(long_pc);
+        request_read_long_address(long_pc1);
+        request_read_long_address(long_pc2);
+      end procedure fetch_stack_bytes;
+
+      
     begin
       if rising_edge(clock) then
 		  monitor_pc <= std_logic_vector(reg_pc);
@@ -485,13 +558,16 @@ begin
                     normal_instruction := false;
                   when I_RTI =>
                     -- XXX Should be able to read all three bytes at once
-                    pull_byte;
-                    state <= RTIPullP;
+                    -- Could use fetch_next_instruction to read all three, saving
+                    -- a couple of cycles.  Would also save some code.
+                    fetch_stack_bytes;
+                    reg_sp <= reg_sp + 3;
+                    state <= RTIPull;
                     normal_instruction := false;
                   when I_RTS =>
                     -- XXX Should be able to read both bytes at once
-                    pull_byte;
-                    state <= RTSPullPCH;
+                    fetch_stack_bytes;
+                    state <= RTSPull;
                     normal_instruction := false;
                   when I_SEC => flag_c <= '1';
                   when I_SED => flag_d <= '1';
@@ -513,11 +589,13 @@ begin
                   -- touch the stack taking only one cycle.
                   operand_is_from_ram := false;
                   fetch_next_instruction(reg_pcplus1);
+                  state <= OperandResolve;
                 end if;
               elsif op_mode=M_accumulator then
                 -- accumulator mode, so no need to read from memory
                 operand_is_from_ram := false;
                 fetch_next_instruction(reg_pcplus1);
+                state <= OperandResolve;
               elsif op_mode=M_relative then
                 -- a relative branch, work out whether to take the branch
                 -- and act accordingly. We don't need to do anything further
@@ -572,6 +650,7 @@ begin
               -- the stack.
               reg_a <= unsigned(ram_data_o(to_integer(pull_bank)));
               fetch_next_instruction(reg_pcplus1);
+              state <= OperandResolve;
             when PullP =>
               -- PLA - Pull Accumulator from the stack
               -- In the previous cycle we asked for the byte to be read from
@@ -584,6 +663,7 @@ begin
               flag_z <= temp_operand(1);
               flag_c <= temp_operand(0);
               fetch_next_instruction(reg_pcplus1);
+              state <= OperandResolve;
             when others => null;
           end case;
         end if;
