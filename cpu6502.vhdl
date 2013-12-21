@@ -187,7 +187,7 @@ begin
       variable temp_bank_block : std_logic_vector(15 downto 0);
       variable temp_operand : std_logic_vector(7 downto 0);
       variable temp_operand_address : std_logic_vector(15 downto 0);
-      
+
       -- Memory read and write routines assume that they are contention free.
       -- This way, multiple refernces to write_to_long_address() can be made in a single
       -- cycle, provided that they map to different RAM units.
@@ -557,16 +557,13 @@ begin
                     advance_pc(1);
                     normal_instruction := false;
                   when I_RTI =>
-                    -- XXX Should be able to read all three bytes at once
-                    -- Could use fetch_next_instruction to read all three, saving
-                    -- a couple of cycles.  Would also save some code.
                     fetch_stack_bytes;
                     reg_sp <= reg_sp + 3;
                     state <= RTIPull;
                     normal_instruction := false;
                   when I_RTS =>
-                    -- XXX Should be able to read both bytes at once
                     fetch_stack_bytes;
+                    reg_sp <= reg_sp + 2;
                     state <= RTSPull;
                     normal_instruction := false;
                   when I_SEC => flag_c <= '1';
@@ -664,7 +661,24 @@ begin
               flag_c <= temp_operand(0);
               fetch_next_instruction(reg_pcplus1);
               state <= OperandResolve;
-            when others => null;
+            when RTIPull =>
+              -- All values needed have been read in one go
+              temp_operand := ram_data_o(to_integer(unsigned(op_mem_slot)));
+              flag_n <= temp_operand(7);
+              flag_v <= temp_operand(6);
+              flag_d <= temp_operand(3);
+              flag_i <= temp_operand(2);
+              flag_z <= temp_operand(1);
+              flag_c <= temp_operand(0);
+              reg_pc(7 downto 0) <= unsigned(ram_data_o(to_integer(unsigned(operand1_mem_slot))));
+              reg_pc(15 downto 8) <= unsigned(ram_data_o(to_integer(unsigned(operand2_mem_slot))));
+              state <= InstructionFetch;
+            when RTSPull =>
+              -- All values needed have been read in one go
+              temp_address(7 downto 0) := ram_data_o(to_integer(unsigned(op_mem_slot)));
+              temp_address(15 downto 8) := ram_data_o(to_integer(unsigned(operand1_mem_slot)));
+              reg_pc <= unsigned(temp_address) + 1;
+              state <= InstructionFetch;            when others => null;
           end case;
         end if;
       end if;
