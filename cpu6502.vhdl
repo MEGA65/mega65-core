@@ -48,15 +48,21 @@ signal reg_x : unsigned(7 downto 0);
 signal reg_y : unsigned(7 downto 0);
 signal reg_sp : unsigned(7 downto 0);
 signal reg_pc : unsigned(15 downto 0);
--- We also keep copies of the program counter+1 and +2 for reading instruction
--- plus operands in in parallel
+
+-- Keep incremented versions of PC around for fast hopping over instructions
+-- (note these are not used for instruction fetching, as that code operates
+--  differently).
 signal reg_pcplus1 : unsigned(15 downto 0);
 signal reg_pcplus2 : unsigned(15 downto 0);
+
+-- When pulling a value from the stack, remember which of the 8 RAM banks it will
+-- come from.
+signal pull_bank : unsigned(2 downto 0);
 
 -- Temporary address used in various states
 signal temp_addr : std_logic_vector(15 downto 0);
 signal temp_opcode : std_logic_vector(7 downto 0);
-signal temp_operand : std_logic_vector(15 downto 0);
+signal temp_value : std_logic_vector(7 downto 0);
 -- Other temporary variables
 signal op_mem_slot : unsigned(2 downto 0);
 signal operand1_mem_slot : unsigned(2 downto 0);
@@ -76,6 +82,8 @@ type processor_state is (
   -- Special states used for special instructions
   PushP,                                -- PHP
   PushA,                                -- PHA
+  PullA,                                -- PLA
+  PullP,                                -- PLP
   BRKPushPCH,BRKPushPCL,PRKPushP,       -- BRK
   RTIPullP,RTIPullPCH,RTIPullPCL,       -- RTI
   RTSPullPCH,RTSPullPCL,                -- RTS
@@ -178,14 +186,27 @@ begin
       variable temp_address : std_logic_vector(15 downto 0);
       variable temp_bank_block : std_logic_vector(15 downto 0);
       variable temp_operand : std_logic_vector(7 downto 0);
-
+      variable temp_operand_address : std_logic_vector(15 downto 0);
       
       -- Memory read and write routines assume that they are contention free.
       -- This way, multiple refernces to write_to_long_address() can be made in a single
       -- cycle, provided that they map to different RAM units.
 
+      -- purpose: Convert a 16-bit C64 address to native RAM (or I/O or ROM) address
+      function resolve_address_to_long(short_address : std_logic_vector(15 downto 0); ram_bank_registers : bank_register_set)
+        return std_logic_vector is 
+       variable temp_address : std_logic_vector(27 downto 0);
+       variable temp_bank_block : std_logic_vector(15 downto 0);
+      begin  -- resolve_long_address
+        temp_bank_block :=ram_bank_registers(to_integer(unsigned(short_address(15 downto 12))));
+        temp_address(27 downto 12):= temp_bank_block;
+        temp_address(11 downto 0):=std_logic_vector(short_address(11 downto 0));
+
+        return temp_address;
+      end resolve_address_to_long;
+      
       procedure request_read_long_address(long_address : std_logic_vector(27 downto 0)) is
-        variable ram_bank : std_logic_vector(2 downtoto 0);
+        variable ram_bank : std_logic_vector(2 downto 0);
         variable bank_address : std_logic_vector(15 downto 0);
       begin
           ram_bank := long_address(2 downto 0);
@@ -232,6 +253,7 @@ begin
         request_read_long_address(long_address);
         -- increment SP
         reg_sp <= reg_sp + 1;
+        pull_bank <= unsigned(long_address(2 downto 0));
       end procedure pull_byte;
       
       procedure set_cpu_flags_inc (value : in unsigned(7 downto 0)) is
@@ -250,6 +272,69 @@ begin
         reg_pcplus1 <= reg_pc + value + 1;
         reg_pcplus2 <= reg_pc + value + 2;
       end procedure advance_pc;
+
+      procedure fetch_next_instruction(pc : unsigned(15 downto 0)) is 
+       variable long_pc : std_logic_vector(27 downto 0);
+       variable long_pc1 : std_logic_vector(27 downto 0);
+       variable long_pc2 : std_logic_vector(27 downto 0);
+       variable temp_pc : std_logic_vector(15 downto 0);
+      begin
+        long_pc := resolve_address_to_long(std_logic_vector(pc),ram_bank_registers);
+        case pc(2 downto 0) is
+          when "000" =>
+            long_pc1(27 downto 2) := long_pc(27 downto 2);
+            long_pc1(2 downto 0) := "001";
+            long_pc2(27 downto 2) := long_pc(27 downto 2);
+            long_pc2(2 downto 0) := "010";
+          when "001" =>
+            long_pc1(27 downto 2) := long_pc(27 downto 2);
+            long_pc1(2 downto 0) := "010";
+            long_pc2(27 downto 2) := long_pc(27 downto 2);
+            long_pc2(2 downto 0) := "011";
+          when "010" =>
+            long_pc1(27 downto 2) := long_pc(27 downto 2);
+            long_pc1(2 downto 0) := "011";
+            long_pc2(27 downto 2) := long_pc(27 downto 2);
+            long_pc2(2 downto 0) := "100";
+          when "011" =>
+            long_pc1(27 downto 2) := long_pc(27 downto 2);
+            long_pc1(2 downto 0) := "100";
+            long_pc2(27 downto 2) := long_pc(27 downto 2);
+            long_pc2(2 downto 0) := "101";
+          when "100" =>
+            long_pc1(27 downto 2) := long_pc(27 downto 2);
+            long_pc1(2 downto 0) := "101";
+            long_pc2(27 downto 2) := long_pc(27 downto 2);
+            long_pc2(2 downto 0) := "110";
+          when "101" =>
+            long_pc1(27 downto 2) := long_pc(27 downto 2);
+            long_pc1(2 downto 0) := "110";
+            long_pc2(27 downto 2) := long_pc(27 downto 2);
+            long_pc2(2 downto 0) := "111";
+          when "110" =>
+            long_pc1(27 downto 2) := long_pc(27 downto 2);
+            long_pc1(2 downto 0) := "111";
+            temp_pc:=std_logic_vector(unsigned(pc)+2);
+            long_pc2 := resolve_address_to_long(temp_pc,ram_bank_registers);
+            long_pc2(27 downto 2) := long_pc(27 downto 2);
+            long_pc2(2 downto 0) := "000";
+          when "111" =>
+            temp_pc:=std_logic_vector(unsigned(pc)+1);
+            long_pc1 := resolve_address_to_long(temp_pc,ram_bank_registers);
+            long_pc1(27 downto 2) := long_pc(27 downto 2);
+            long_pc1(2 downto 0) := "000";
+            long_pc2(27 downto 2) := long_pc(27 downto 2);
+            long_pc2(2 downto 0) := "001";
+          -- If missing, generates an error, if present, generates a warning :/
+          when others => null;
+        end case;
+        operand1_mem_slot <= unsigned(long_pc1(2 downto 0));
+        operand2_mem_slot <= unsigned(long_pc2(2 downto 0));
+        request_read_long_address(long_pc);
+        request_read_long_address(long_pc1);
+        request_read_long_address(long_pc2);
+      end procedure fetch_next_instruction;
+        
     begin
       if rising_edge(clock) then
 		  monitor_pc <= std_logic_vector(reg_pc);
@@ -333,34 +418,13 @@ begin
                 -- Work out which three bytes to fetch.
                 -- Probably easiest to do a parallel calculation based on lower
                 -- bits of reg_pc, reg_pcplus1, reg_pcplus2
-                for i in 0 to 7 loop
-                  ram_we(i)<='0';
-                  if reg_pc(2 downto 0)=i then
-                    temp_bank_block :=ram_bank_registers(to_integer(unsigned(reg_pc(15 downto 12))));
-                    temp_address(15 downto 13 ):=temp_bank_block(2 downto 0);
-                    temp_address(12 downto 0):=std_logic_vector(reg_pc(15 downto 3));
-                    ram_address(i) <= temp_address;
-                    op_mem_slot<=to_unsigned(i,3);
-                  elsif reg_pcplus1(2 downto 0)=i then
-                    temp_bank_block :=ram_bank_registers(to_integer(unsigned(reg_pcplus1(15 downto 12))));
-                    temp_address(15 downto 13 ):=temp_bank_block(2 downto 0);
-                    temp_address(12 downto 0):=std_logic_vector(reg_pcplus1(15 downto 3));
-                    ram_address(i) <= temp_address;
-                    operand1_mem_slot<=to_unsigned(i,3);
-                  elsif reg_pcplus2(2 downto 0)=i then
-                    temp_bank_block :=ram_bank_registers(to_integer(unsigned(reg_pcplus2(15 downto 12))));
-                    temp_address(15 downto 13 ):=temp_bank_block(2 downto 0);
-                    temp_address(12 downto 0):=std_logic_vector(reg_pcplus2(15 downto 3));
-                    ram_address(i) <= temp_address;
-                    operand2_mem_slot<=to_unsigned(i,3);
-                  end if;
-                end loop;  -- i
-                state<=OperandResolve;
+              fetch_next_instruction(reg_pc);
+              state<=OperandResolve;
             when OperandResolve =>
               -- Get opcode and operands
               temp_opcode <= ram_data_o(to_integer(op_mem_slot));
-              temp_operand(15 downto 8) := ram_data_o(to_integer(operand2_mem_slot));
-              temp_operand(7 downto 0) := ram_data_o(to_integer(operand1_mem_slot));
+              temp_operand_address(15 downto 8) := ram_data_o(to_integer(operand2_mem_slot));
+              temp_operand_address(7 downto 0) := ram_data_o(to_integer(operand1_mem_slot));
 
               -- Lookup instruction and addressing mode
               op_instruction <= instruction_lut(to_integer(unsigned(temp_opcode)));
@@ -415,18 +479,18 @@ begin
                     advance_pc(1);
                     normal_instruction := false;
                   when I_PLP =>
-                    pull_byte();
+                    pull_byte;
                     state <= PullP;
                     advance_pc(1);
                     normal_instruction := false;
                   when I_RTI =>
                     -- XXX Should be able to read all three bytes at once
-                    pull_byte();
+                    pull_byte;
                     state <= RTIPullP;
                     normal_instruction := false;
                   when I_RTS =>
                     -- XXX Should be able to read both bytes at once
-                    pull_byte();
+                    pull_byte;
                     state <= RTSPullPCH;
                     normal_instruction := false;
                   when I_SEC => flag_c <= '1';
@@ -447,14 +511,13 @@ begin
                   -- bypass going through InstructionFetch.
                   -- This will result in implied mode instructions that don't
                   -- touch the stack taking only one cycle.
-                  advance_pc(1);
                   operand_is_from_ram := false;
-                  state <= InstructionFetch;
+                  fetch_next_instruction(reg_pcplus1);
                 end if;
               elsif op_mode=M_accumulator then
                 -- accumulator mode, so no need to read from memory
                 operand_is_from_ram := false;
-                state <= InstructionFetch;
+                fetch_next_instruction(reg_pcplus1);
               elsif op_mode=M_relative then
                 -- a relative branch, work out whether to take the branch
                 -- and act accordingly. We don't need to do anything further
@@ -465,13 +528,13 @@ begin
                    or (op_instruction=I_BEQ and flag_z='0')
                    or (op_instruction=I_BNE and flag_z='1') then
                   -- take branch
-                  if temp_operand(7)='0' then
+                  if temp_operand_address(7)='0' then
                     -- branch forwards. Add two to address because this is a two
                     -- byte instruction
-                    reg_pc <= reg_pcplus2 + unsigned(temp_operand(6 downto 0));
+                    reg_pc <= reg_pcplus2 + unsigned(temp_operand_address(6 downto 0));
                   else
                     -- branch backwards.
-                    reg_pc <= reg_pcplus2 - 128 + unsigned(not temp_operand(6 downto 0));
+                    reg_pc <= reg_pcplus2 - 128 + unsigned(not temp_operand_address(6 downto 0));
                   end if;
                   reg_pcplus1 <= reg_pc + 1;
                   reg_pcplus2 <= reg_pc + 2;
@@ -484,26 +547,43 @@ begin
                 state <= InstructionFetch;
                 operand_is_from_ram := false;
               elsif op_mode=M_zeropage then
-                temp_addr(7 downto 0) <= temp_operand(7 downto 0);
+                temp_addr(7 downto 0) <= temp_operand_address(7 downto 0);
                 temp_addr(15 downto 8) <= "00000000";
                 operand_is_from_ram := true;
               elsif op_mode=M_zeropageX then
-                temp_addr(7 downto 0) <= std_logic_vector(unsigned(temp_operand(7 downto 0)) + unsigned(reg_x));
+                temp_addr(7 downto 0) <= std_logic_vector(unsigned(temp_operand_address(7 downto 0)) + unsigned(reg_x));
                 temp_addr(15 downto 8) <= "00000000";
                 operand_is_from_ram := true;
               elsif op_mode=M_zeropageY then
-                temp_addr(7 downto 0) <= std_logic_vector(unsigned(temp_operand(7 downto 0)) + unsigned(reg_y));
+                temp_addr(7 downto 0) <= std_logic_vector(unsigned(temp_operand_address(7 downto 0)) + unsigned(reg_y));
                 temp_addr(15 downto 8) <= "00000000";
                 operand_is_from_ram := true;
               elsif op_mode=M_absolute then
-                temp_addr(15 downto 0) <= temp_operand;
+                temp_addr(15 downto 0) <= temp_operand_address;
               elsif op_mode=M_absoluteX then
-                temp_addr(15 downto 0) <= std_logic_vector(unsigned(temp_operand) + unsigned(reg_x));
+                temp_addr(15 downto 0) <= std_logic_vector(unsigned(temp_operand_address) + unsigned(reg_x));
               elsif op_mode=M_absoluteY then
-                temp_addr(15 downto 0) <= std_logic_vector(unsigned(temp_operand) + unsigned(reg_y));
+                temp_addr(15 downto 0) <= std_logic_vector(unsigned(temp_operand_address) + unsigned(reg_y));
                 operand_is_from_ram := true;
               end if;
-              
+            when PullA =>
+              -- PLA - Pull Accumulator from the stack
+              -- In the previous cycle we asked for the byte to be read from
+              -- the stack.
+              reg_a <= unsigned(ram_data_o(to_integer(pull_bank)));
+              fetch_next_instruction(reg_pcplus1);
+            when PullP =>
+              -- PLA - Pull Accumulator from the stack
+              -- In the previous cycle we asked for the byte to be read from
+              -- the stack.
+              temp_operand := ram_data_o(to_integer(unsigned(pull_bank)));
+              flag_n <= temp_operand(7);
+              flag_v <= temp_operand(6);
+              flag_d <= temp_operand(3);
+              flag_i <= temp_operand(2);
+              flag_z <= temp_operand(1);
+              flag_c <= temp_operand(0);
+              fetch_next_instruction(reg_pcplus1);
             when others => null;
           end case;
         end if;
