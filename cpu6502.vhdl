@@ -74,8 +74,13 @@ type processor_state is (
   InstructionFetch,OperandResolve,MemoryRead,
   Calculate,MemoryWrite,
   -- Special states used for special instructions
-  PushP,PushA,PushPC,PushPCPlusOne,
-  PullP,PullA,PullPC,TakeBranch);
+  PushP,                                -- PHP
+  PushA,                                -- PHA
+  BRKPushPCH,BRKPushPCL,PRKPushP,       -- BRK
+  RTIPullP,RTIPullPCH,RTIPullPCL,       -- RTI
+  RTSPullPCH,RTSPullPCL,                -- RTS
+  Halt                                  -- KIL
+  );
 signal state : processor_state := ResetLow;  -- start processor in reset state
 
 type instruction is (
@@ -152,6 +157,7 @@ M_implied,  M_immidiate,  M_implied,  M_immidiate,  M_absolute,  M_absolute,  M_
 M_relative,  M_indirectY,  M_immidiate,  M_indirectY,  M_zeropageX,  M_zeropageX,  M_zeropageX,  M_zeropageX, 
 M_implied,  M_absoluteY,  M_implied,  M_absoluteY,  M_absoluteX,  M_absoluteX,  M_absoluteX,  M_absoluteX);
 
+
 begin
   -- Each block portram is 64KBx8bits, so we need 8 of them
   -- to make 512KB, approximately the total available on this FPGA.
@@ -164,11 +170,86 @@ begin
       data_i  => ram_data_i(i),
       data_o  => ram_data_o(i));
   end generate;
-
+  
   process(clock)
+      variable normal_instruction : boolean;
       variable operand_is_from_ram : boolean;
+
       variable temp_address : std_logic_vector(15 downto 0);
       variable temp_bank_block : std_logic_vector(15 downto 0);
+      variable temp_operand : std_logic_vector(7 downto 0);
+
+      
+      -- Memory read and write routines assume that they are contention free.
+      -- This way, multiple refernces to write_to_long_address() can be made in a single
+      -- cycle, provided that they map to different RAM units.
+
+      procedure request_read_long_address(long_address : std_logic_vector(27 downto 0)) is
+        variable ram_bank : std_logic_vector(2 downtoto 0);
+        variable bank_address : std_logic_vector(15 downto 0);
+      begin
+          ram_bank := long_address(2 downto 0);
+          bank_address := long_address(18 downto 3);
+          ram_address(to_integer(unsigned(ram_bank))) <= bank_address;
+          ram_we(to_integer(unsigned(ram_bank))) <= '0';
+      end request_read_long_address;
+      procedure write_to_long_address(long_address : std_logic_vector(27 downto 0);
+                                  value : in std_logic_vector(7 downto 0)) is
+        variable ram_bank : std_logic_vector(2 downto 0);
+        variable bank_address : std_logic_vector(15 downto 0);
+      begin
+        if long_address(27 downto 19)="00000000000" then
+          -- we have RAM to write to
+          ram_bank := long_address(2 downto 0);
+          bank_address := long_address(18 downto 3);
+          ram_address(to_integer(unsigned(ram_bank))) <= bank_address;
+          ram_we(to_integer(unsigned(ram_bank))) <= '1';
+        end if;
+      end procedure write_to_long_address;
+      
+      procedure push_byte(value : in std_logic_vector(7 downto 0)) is
+        variable push_long_address : std_logic_vector(27 downto 0);
+      begin
+        -- Stack is page 1, which is in the first 4KB bank of RAM
+        push_long_address(27 downto 12) := ram_bank_registers(0);
+        push_long_address(11 downto 8) := "0001";
+        -- Now append stack pointer
+        push_long_address(7 downto 0) := std_logic_vector(reg_sp);
+
+        write_to_long_address(push_long_address,value);
+      end procedure push_byte;        
+      
+      procedure pull_byte is
+        variable long_address : std_logic_vector(27 downto 0);
+      begin
+        -- pre-increment SP before using
+        -- Stack is page 1, which is in the first 4KB bank of RAM
+        long_address(27 downto 12) := ram_bank_registers(0);
+        long_address(11 downto 8) := "0001";
+        -- Now append stack pointer
+        long_address(7 downto 0) := std_logic_vector(reg_sp+1);
+
+        request_read_long_address(long_address);
+        -- increment SP
+        reg_sp <= reg_sp + 1;
+      end procedure pull_byte;
+      
+      procedure set_cpu_flags_inc (value : in unsigned(7 downto 0)) is
+      begin
+        if value=x"00" then
+          flag_z <='1';
+        else
+          flag_z <='0';
+        end if;
+        flag_n <= value(7);
+      end procedure set_cpu_flags_inc;
+
+      procedure advance_pc(value : integer) is
+      begin
+        reg_pc <= reg_pc + value;
+        reg_pcplus1 <= reg_pc + value + 1;
+        reg_pcplus2 <= reg_pc + value + 2;
+      end procedure advance_pc;
     begin
       if rising_edge(clock) then
 		  monitor_pc <= std_logic_vector(reg_pc);
@@ -278,8 +359,8 @@ begin
             when OperandResolve =>
               -- Get opcode and operands
               temp_opcode <= ram_data_o(to_integer(op_mem_slot));
-              temp_operand(15 downto 8) <= ram_data_o(to_integer(operand2_mem_slot));
-              temp_operand(7 downto 0) <= ram_data_o(to_integer(operand1_mem_slot));
+              temp_operand(15 downto 8) := ram_data_o(to_integer(operand2_mem_slot));
+              temp_operand(7 downto 0) := ram_data_o(to_integer(operand1_mem_slot));
 
               -- Lookup instruction and addressing mode
               op_instruction <= instruction_lut(to_integer(unsigned(temp_opcode)));
@@ -288,13 +369,95 @@ begin
               if op_mode=M_implied then
                 -- implied mode, handle instruction now, add one to PC, and
                 -- go to fetch next instruction
-                operand_is_from_ram := false;
+                normal_instruction := true;
+                case op_instruction is
+                  when I_BRK =>
+                    -- break instruction. Push state and jump to the appropriate
+                    -- vector.
+                    -- push high(PC+2) first
+                    
+                    push_byte(std_logic_vector(reg_pcplus2(15 downto 8)));
+                    
+                    state <= BRKPushPCL;              
+                    normal_instruction := false;
+                    null;
+                  when I_CLC => flag_c <= '0';
+                  when I_CLD => flag_d <= '0';
+                  when I_CLI => flag_i <= '0';
+                  when I_CLV => flag_v <= '0';
+                  when I_DEX => reg_x <= reg_x - 1; set_cpu_flags_inc(reg_x);
+                  when I_DEY => reg_y <= reg_y - 1; set_cpu_flags_inc(reg_y);
+                  when I_INX => reg_x <= reg_x + 1; set_cpu_flags_inc(reg_x);
+                  when I_INY => reg_y <= reg_y + 1; set_cpu_flags_inc(reg_y);
+                  when I_KIL => state <= Halt; normal_instruction:= false;
+                  when I_NOP => null;
+                  when I_PHA =>
+                    push_byte(std_logic_vector(reg_a));
+                    advance_pc(1);
+                    normal_instruction := false;
+                    state <= InstructionFetch;
+                  when I_PHP =>
+                    temp_operand(7) := flag_n;
+                    temp_operand(6) := flag_v;
+                    temp_operand(5) := '1';  -- unused bit
+                    temp_operand(4) := '0';  -- BRK flag
+                    temp_operand(3) := flag_d;
+                    temp_operand(2) := flag_i;
+                    temp_operand(1) := flag_z;
+                    temp_operand(0) := flag_c;
+                    push_byte(temp_operand);
+                    advance_pc(1);
+                    normal_instruction := false;
+                    state <= InstructionFetch;
+                  when I_PLA =>
+                    pull_byte;
+                    state <= PullA;
+                    advance_pc(1);
+                    normal_instruction := false;
+                  when I_PLP =>
+                    pull_byte();
+                    state <= PullP;
+                    advance_pc(1);
+                    normal_instruction := false;
+                  when I_RTI =>
+                    -- XXX Should be able to read all three bytes at once
+                    pull_byte();
+                    state <= RTIPullP;
+                    normal_instruction := false;
+                  when I_RTS =>
+                    -- XXX Should be able to read both bytes at once
+                    pull_byte();
+                    state <= RTSPullPCH;
+                    normal_instruction := false;
+                  when I_SEC => flag_c <= '1';
+                  when I_SED => flag_d <= '1';
+                  when I_SEI => flag_i <= '1';
+                  when I_TAX => reg_x <= reg_a;
+                  when I_TAY => reg_y <= reg_a;
+                  when I_TSX => reg_x <= reg_sp;
+                  when I_TXA => reg_a <= reg_x;
+                  when I_TXS => reg_sp <= reg_x;
+                  when I_TYA => reg_a <= reg_a;
+                  when others => null;
+                    -- unsupported instruction, just advance PC
+                end case;
+                if normal_instruction=true then
+                  -- advance PC to next instruction, and fetch it.
+                  -- XXX We can actually pre-fetch the instruction and
+                  -- bypass going through InstructionFetch.
+                  -- This will result in implied mode instructions that don't
+                  -- touch the stack taking only one cycle.
+                  advance_pc(1);
+                  operand_is_from_ram := false;
+                  state <= InstructionFetch;
+                end if;
               elsif op_mode=M_accumulator then
                 -- accumulator mode, so no need to read from memory
                 operand_is_from_ram := false;
+                state <= InstructionFetch;
               elsif op_mode=M_relative then
                 -- a relative branch, work out whether to take the branch
-                -- and act accordingly
+                -- and act accordingly. We don't need to do anything further
                 if (op_instruction=I_BCC and flag_c='0')
                    or (op_instruction=I_BCS and flag_c='1')
                    or (op_instruction=I_BVC and flag_v='0')
