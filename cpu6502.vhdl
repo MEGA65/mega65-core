@@ -684,6 +684,44 @@ begin
                 state <= JMPIndirectFetch;
               elsif op_mode=M_accumulator then
                 -- accumulator mode, so no need to read from memory
+                -- There are only four accumulator mode instructions that do anything.
+                -- They are all bit shifting operations.
+                -- There are also four NOPs
+                -- We handle the accumulator mode instructions as a special case
+                -- basically because we can execute them faster (in 1 cycle) that
+                -- way.  The memory based versions will take 3 cycles since they
+                -- need to read and write a memory location.
+                if op_instruction = I_ASL or op_instruction = I_ROL then
+                  -- shift left
+                  temp_operand(7 downto 1) := std_logic_vector(reg_a(6 downto 0));
+                  if op_instruction = I_ROL then
+                    temp_operand(0) := flag_c;
+                  else
+                    temp_operand(0) := '0';
+                  end if;
+                  flag_c <= reg_a(7);
+                end if;
+                if op_instruction = I_LSR or op_instruction = I_ROR then
+                  -- shift left
+                  temp_operand(6 downto 0) := std_logic_vector(reg_a(7 downto 1));
+                  if op_instruction = I_ROR then
+                    temp_operand(7) := flag_c;
+                  else
+                    temp_operand(7) := '0';
+                  end if;
+                  flag_c <= reg_a(0);
+                end if;
+                if op_instruction = I_NOP then
+                  null;
+                else
+                  flag_n <= temp_operand(7);
+                  if temp_operand = x"00" then
+                    flag_z <= '1';
+                  else
+                    flag_z <= '0';
+                  end if;
+                  reg_a <= unsigned(temp_operand);
+                end if;
                 operand_is_from_ram := false;
                 fetch_next_instruction(reg_pcplus1);
                 state <= OperandResolve;
