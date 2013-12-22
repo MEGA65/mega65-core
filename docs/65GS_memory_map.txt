@@ -1,0 +1,146 @@
+OVERVIEW
+--------
+
+The C65GS computer is designed to be reimagination of the C65/C64DX
+computer using a modern FPGA to implement most functions.
+
+The C65GS differs from the C65 in that it aims to offer a near 100%
+C64-compatible mode by providing a dedicated 6510+VIC-II emulation
+independent of the additional more capable processor and video chips.
+Both functions operate in parallel, and input and output is switched
+dynamically between the two under programmer control.
+
+The C65GS computer has several processing cores and video cores:
+
+For C64 mode:
+- 6510 (BlobFish) compatible processor from the FPGA64 project.
+- 6567/9 (VIC-II) compatible video generator from the FPGA64 projects.
+For C65GS mode:
+- 65GS02 (SailFish), a 6502 instruction-compatible processor with
+integrated MMU capable of addressing 256MB of RAM.  This processor
+uses a wide internal memory bus to minimise cycle counts.  Most
+instructions complete in 1 or 2 cycles.
+- 65GS69 (VampireSquid), a 6569-inspired video controller, directly
+driving a 1600x1200 VGA output, supporting a 256-colour palette drawn
+from a 24-bit* colour space, and higher-resolution modes, upto
+1600x1200.  All higher-resolution modes are text modes, using standard
+or 256-colour colour character glyphs, so that high resolution modes
+can be used without consuming too much memory.
+
+* On the prototype Nexys4 FPGA and some other FPGA boards the colour
+  depth is limited to 12-bit due to limitations in the VGA interface
+  hardware. 
+
+
+MEMORY MAP
+-----------
+
+The C65GS computer supports a 256MB memory map using bank switch
+registers to map 4KB pieces of that memory map into the 64KB 6502
+address space of the sailfish primary processor.
+
+Memory is banked independently for instruction reads, memory reads and
+memory writes. This means that it is possible to have 64KB of code
+co-exist with 64KB of data.  
+
+The video chip also banks independently from the processor, but is
+only able to access the 512KB fast ram.
+
+Long 28-bit addresses are expressed as a 16-bit bank prefix followed
+by the 12-bit intra-page address.  For example, $0001.0000 refers to
+the first byte in the second 64KB of RAM.
+
+The 256MB memory map is laid out as follows:
+
+$FFFE.000 - $FFFF.FFF - Reserved.
+$FFFD.000 - $FFFD.FFF - C64-style I/O page.
+$9000.000 - $EFFF.FFF - Reserved for slow-RAM expansion.
+$8000.000 - $8FFF.FFF - 16MB slow RAM (approximately 14MHz).
+$0080.000 - $7FFF.FFF - Reserved for fast-RAM expansion.
+$0000.000 - $007F.FFF - Fast RAM.
+
+Note that there is no provision for ROMs in the memory map.  ROMs on
+the C65GS are implemented as pre-initialised RAM blocks, and by
+mapping those blocks for read and execute, with writes directed to
+another block of RAM.  In this way the C64 style semantic of reading
+from ROM and writing to "underlying" RAM can be directly supported.
+
+The C64 side memory map is as for a standard C64.
+
+IO MEMORY MAP
+-------------
+
+The IO memory map (mapped addressed $D000 - $DFFF) differs between the
+fast and slow sides.  
+
+The slow side shows a standard C64 IO memory map, with the addition of
+two or more REU register sets in the $DF00 IO page.
+
+The fast side shows a more C65/C64DX like IO memory map, again with
+REU registers in the $DF00 IO page.
+
+MEMORY TYPES
+------------
+
+Similar to the Amiga(tm) series of computers, the C65GS has two main
+types of RAM, fast RAM and slow RAM.  However, the function of these
+memory types differs significantly from the Amiga, as described below.
+
+Fast RAM is a 64-bit wide fast memory bus accessible by the SailFish
+processor and VampireSquid video controller. Fast RAM is dual port,
+allowing both processor and video controller to access it
+simultaneously.  In this way, fast RAM on the C65GS combines the
+advantages of Amiga-style fast and chip RAM.
+
+Whereas fast RAM can be used by the processor and video controller on
+the "fast side" of the C65GS, the slow RAM can be used by the "slow
+side" of the C65GS.  The 6510 and 6569 can only access the slow RAM.
+
+The link between the two processors and types of RAM are through the
+SailFish processor's ability to read and write slow RAM directly.
+That is, the SailFish processor can map slow RAM into its address
+space, and read and write from it.  
+
+However, at the time of writing it is not possible to execute
+instructions in slow RAM, as the slow RAM does not support the wide
+memory interface required by the SailFish instruction decode logic.
+
+REU MODE MEMORY ACCESS
+----------------------
+
+Slow RAM is accessible to both the slow and fast side of the system.
+Both processors are able to access the first 16MB of slow RAM by REU
+emulation registers at $DF00 - $DF0F.
+
+Fast RAM is similarly accessible to both the slow and fast side of the
+system by use of the REU emulation registers at $DF80 - $DF8F.
+
+If more than 16MB of slow or fast RAM are available, they will be
+accessible via additional REU emulation registers.  For example, the
+2nd 16MB of slow ram would be accessed by REU registers at $DF10 -
+$DF1F.
+
+Note that REU-emulation DMA operations do not occur at C64 REU
+transfer speeds.  Rather, transfers occur at the maximum speed for the
+particular transfer type.
+
+Approximate REU DMA transfer speeds:
+
++-------+-------+------------+
+|Source |Target |Speed       |
++-------+-------+------------+
+|FastRAM|FastRAM|~1GB/sec*   |
+|FastRAM|SlowRAM|~28MB/sec^  |
+|SlowRAM|SlowRAM|~28MB/sec^  |
+|SlowRAM|FastRAM|~28MB/sec^  |
+|FastRAM|Fast IO|~100MB/sec% |
+|SlowRAM|Slow IO|~1MB/sec#   |
+|Fast IO|FastRAM|~100MB/sec% |
+|Slow IO|SlowRAM|~1MB/sec#   |
+|Slow IO|FastRAM|Not possible|
+|Fast IO|SlowRAM|Not possible|
++-------+-------+------------+
+* Transfers are 64bits wide at fast clock speed.
+^ Transfers are 16bits wide at slow clock speed.
+% Transfers are 8bits wide at fast (C65GS) IO clock speed.
+# Transfers are 8bits wide at slow (C64) IO clock speed.
