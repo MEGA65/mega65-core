@@ -19,13 +19,15 @@ For C65GS mode:
 - 65GS02 (SailFish), a 6502 instruction-compatible processor with
 integrated MMU capable of addressing 256MB of RAM.  This processor
 uses a wide internal memory bus to minimise cycle counts.  Most
-instructions complete in 1 or 2 cycles.
+instructions complete in 1 or 2 cycles.  More than one core may be
+present on architectures that support it.
 - 65GS69 (VampireSquid), a 6569-inspired video controller, directly
 driving a 1600x1200 VGA output, supporting a 256-colour palette drawn
 from a 24-bit* colour space, and higher-resolution modes, upto
 1600x1200.  All higher-resolution modes are text modes, using standard
 or 256-colour colour character glyphs, so that high resolution modes
-can be used without consuming too much memory.
+can be used without consuming too much memory. Only one core will be
+present. 
 
 * On the prototype Nexys4 FPGA and some other FPGA boards the colour
   depth is limited to 12-bit due to limitations in the VGA interface
@@ -74,7 +76,9 @@ The IO memory map (mapped addressed $D000 - $DFFF) differs between the
 fast and slow sides.  
 
 The slow side shows a standard C64 IO memory map, with the addition of
-two or more REU register sets in the $DF00 IO page.
+two or more REU register sets in the $DF00 IO page, if enabled by the
+fast side.  The fast side can disable access to the fast RAM REU(s) to
+isolate the fast side from memory effects caused by the slow side.
 
 The fast side shows a more C65/C64DX like IO memory map, again with
 REU registers in the $DF00 IO page.
@@ -91,6 +95,11 @@ processor and VampireSquid video controller. Fast RAM is dual port,
 allowing both processor and video controller to access it
 simultaneously.  In this way, fast RAM on the C65GS combines the
 advantages of Amiga-style fast and chip RAM.
+
+On architectures that contain multiple SailFish cores, fast RAM access
+will be allowed by all cores simultaneously.  Multiple simultaneous
+writes to a memory address have undefined result.  In practice, the
+writes will likely be serialised in an architecture-dependent manner.
 
 Whereas fast RAM can be used by the processor and video controller on
 the "fast side" of the C65GS, the slow RAM can be used by the "slow
