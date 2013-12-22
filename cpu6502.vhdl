@@ -69,6 +69,18 @@ signal operand1_mem_slot : unsigned(2 downto 0);
 signal operand2_mem_slot : unsigned(2 downto 0);
 signal vector : std_logic_vector(15 downto 0);
 
+-- Indicate source of operand for instructions
+-- Note that ROM is actually implemented using
+-- power-on initialised RAM in the FPGA.  This
+-- allows fast parallel fetching of instructions
+-- and their arguments.
+-- For FPGAs that don't support pre-initialisation
+-- of RAM, we can easily have a reset routine that
+-- copies a real ROM into RAM.
+signal operand_from_io : std_logic;
+signal operand_from_ram : std_logic;
+signal operand_from_slowram : std_logic;
+
 type processor_state is (
   -- When CPU first powers up, or reset is bought low
   ResetLow,
@@ -198,7 +210,6 @@ begin
   
   process(clock)
       variable normal_instruction : boolean;
-      variable operand_is_from_ram : boolean;
 
       variable temp_address : std_logic_vector(15 downto 0);
       variable temp_bank_block : std_logic_vector(15 downto 0);
@@ -307,6 +318,42 @@ begin
         reg_pcplus2 <= addr + 2;
       end procedure set_pc;
 
+      procedure fetch_direct_operand (
+        address           : std_logic_vector(15 downto 0);
+        ram_bank_registers : bank_register_set) is
+        variable long_addr : std_logic_vector(27 downto 0);
+      begin
+        -- Fetch the byte at the specified address, and remember the slot it
+        -- will be fetched into.
+        long_addr := resolve_address_to_long(address,ram_bank_registers);
+        operand1_mem_slot <= unsigned(address(2 downto 0));
+        if long_addr(27 downto 12) = x"FFFD" then
+          -- Read from I/O block
+          operand_from_io <= '1';
+          operand_from_ram <= '0';
+          operand_from_slowram <= '0';        
+        elsif long_addr(27 downto 12) > x"8000"
+              and long_addr(27 downto 12) < x"9000" then
+          -- Read from slow 16MB cellular RAM
+          operand_from_io <= '0';
+          operand_from_ram <= '0';
+          operand_from_slowram <= '1';
+        elsif long_addr(27 downto 12) < x"0008" then
+          -- Read from RAM
+          -- (Note that reading
+          operand_from_io <= '0';
+          operand_from_ram <= '1';
+          operand_from_slowram <= '0';
+        else
+          -- Reading from unmapped address space
+          -- XXX Trigger a page-fault?
+          operand_from_io <= '0';
+          operand_from_ram <= '0';
+          operand_from_slowram <= '0';
+        end if;
+        state <= MemoryRead;
+      end procedure fetch_direct_operand;
+      
       procedure fetch_next_instruction(pc : unsigned(15 downto 0)) is 
        variable long_pc : std_logic_vector(27 downto 0);
        variable long_pc1 : std_logic_vector(27 downto 0);
@@ -617,7 +664,6 @@ begin
                   -- bypass going through InstructionFetch.
                   -- This will result in implied mode instructions that don't
                   -- touch the stack taking only one cycle.
-                  operand_is_from_ram := false;
                   fetch_next_instruction(reg_pcplus1);
                   state <= OperandResolve;
                 end if;
@@ -648,7 +694,6 @@ begin
                   reg_pcplus2 <= reg_pc + 4;
                 end if;
                 state <= InstructionFetch;
-                operand_is_from_ram := false;
               -- JMP and JSR require special treatment
               elsif op_instruction=I_JSR then
                 -- Push both operands, bump SP and set PC all in one
@@ -722,28 +767,29 @@ begin
                   end if;
                   reg_a <= unsigned(temp_operand);
                 end if;
-                operand_is_from_ram := false;
                 fetch_next_instruction(reg_pcplus1);
                 state <= OperandResolve;
               elsif op_mode=M_zeropage then
                 temp_addr(7 downto 0) <= temp_operand_address(7 downto 0);
                 temp_addr(15 downto 8) <= "00000000";
-                operand_is_from_ram := true;
+                fetch_direct_operand(temp_addr,ram_bank_registers);
               elsif op_mode=M_zeropageX then
                 temp_addr(7 downto 0) <= std_logic_vector(unsigned(temp_operand_address(7 downto 0)) + unsigned(reg_x));
                 temp_addr(15 downto 8) <= "00000000";
-                operand_is_from_ram := true;
+                fetch_direct_operand(temp_addr,ram_bank_registers);
               elsif op_mode=M_zeropageY then
                 temp_addr(7 downto 0) <= std_logic_vector(unsigned(temp_operand_address(7 downto 0)) + unsigned(reg_y));
                 temp_addr(15 downto 8) <= "00000000";
-                operand_is_from_ram := true;
+                fetch_direct_operand(temp_addr,ram_bank_registers);
               elsif op_mode=M_absolute then
                 temp_addr(15 downto 0) <= temp_operand_address;
+                fetch_direct_operand(temp_addr,ram_bank_registers);
               elsif op_mode=M_absoluteX then
                 temp_addr(15 downto 0) <= std_logic_vector(unsigned(temp_operand_address) + unsigned(reg_x));
+                fetch_direct_operand(temp_addr,ram_bank_registers);
               elsif op_mode=M_absoluteY then
                 temp_addr(15 downto 0) <= std_logic_vector(unsigned(temp_operand_address) + unsigned(reg_y));
-                operand_is_from_ram := true;
+                fetch_direct_operand(temp_addr,ram_bank_registers);
               end if;
             when JMPIndirectFetch =>
               -- Fetched indirect address, so copy it into the programme counter
