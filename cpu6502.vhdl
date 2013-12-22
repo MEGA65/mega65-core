@@ -87,6 +87,7 @@ type processor_state is (
   BRKPushPCH,BRKPushPCL,PRKPushP,       -- BRK
   RTIPull,                              -- RTI
   RTSPull,                              -- RTS
+  JMPIndirectFetch,                     -- JMP absolute indirect
   Halt                                  -- KIL
   );
 signal state : processor_state := ResetLow;  -- start processor in reset state
@@ -132,38 +133,54 @@ signal op_mode : addressingmode;
 
 type mlut8bit is array(0 to 255) of addressingmode;
 constant mode_lut : mlut8bit := (
-M_implied,  M_indirectX,  M_immidiate,  M_indirectX,  M_zeropage,  M_zeropage,  M_zeropage,  M_zeropage, 
-M_implied,  M_immidiate,  M_accumulator,  M_immidiate,  M_absolute,  M_absolute,  M_absolute,  M_absolute, 
-M_relative,  M_indirectY,  M_immidiate,  M_indirectY,  M_zeropageX,  M_zeropageX,  M_zeropageX,  M_zeropageX, 
-M_implied,  M_absoluteY,  M_accumulator,  M_absoluteY,  M_absoluteX,  M_absoluteX,  M_absoluteX,  M_absoluteX, 
-M_absolute,  M_indirectX,  M_immidiate,  M_indirectX,  M_zeropage,  M_zeropage,  M_zeropage,  M_zeropage, 
-M_implied,  M_immidiate,  M_accumulator,  M_immidiate,  M_absolute,  M_absolute,  M_absolute,  M_absolute, 
-M_relative,  M_indirectY,  M_immidiate,  M_indirectY,  M_zeropageX,  M_zeropageX,  M_zeropageX,  M_zeropageX, 
-M_implied,  M_absoluteY,  M_accumulator,  M_absoluteY,  M_absoluteX,  M_absoluteX,  M_absoluteX,  M_absoluteX, 
-M_implied,  M_indirectX,  M_immidiate,  M_indirectX,  M_zeropage,  M_zeropage,  M_zeropage,  M_zeropage, 
-M_implied,  M_immidiate,  M_accumulator,  M_immidiate,  M_absolute,  M_absolute,  M_absolute,  M_absolute, 
-M_relative,  M_indirectY,  M_immidiate,  M_indirectY,  M_zeropageX,  M_zeropageX,  M_zeropageX,  M_zeropageX, 
-M_implied,  M_absoluteY,  M_accumulator,  M_absoluteY,  M_absoluteX,  M_absoluteX,  M_absoluteX,  M_absoluteX, 
-M_implied,  M_indirectX,  M_immidiate,  M_indirectX,  M_zeropage,  M_zeropage,  M_zeropage,  M_zeropage, 
-M_implied,  M_immidiate,  M_accumulator,  M_immidiate,  M_indirect,  M_absolute,  M_absolute,  M_absolute, 
-M_relative,  M_indirectY,  M_immidiate,  M_indirectY,  M_zeropageX,  M_zeropageX,  M_zeropageX,  M_zeropageX, 
-M_implied,  M_absoluteY,  M_accumulator,  M_absoluteY,  M_absoluteX,  M_absoluteX,  M_absoluteX,  M_absoluteX, 
-M_immidiate,  M_indirectX,  M_immidiate,  M_indirectX,  M_zeropage,  M_zeropage,  M_zeropage,  M_zeropage, 
-M_implied,  M_immidiate,  M_implied,  M_immidiate,  M_absolute,  M_absolute,  M_absolute,  M_absolute, 
-M_relative,  M_indirectY,  M_immidiate,  M_indirectY,  M_zeropageX,  M_zeropageX,  M_zeropageY,  M_zeropageY, 
-M_implied,  M_absoluteY,  M_implied,  M_absoluteY,  M_absoluteX,  M_absoluteX,  M_implied,  M_absoluteY, 
-M_immidiate,  M_indirectX,  M_immidiate,  M_indirectX,  M_zeropage,  M_zeropage,  M_zeropage,  M_zeropage, 
-M_implied,  M_immidiate,  M_implied,  M_immidiate,  M_absolute,  M_absolute,  M_absolute,  M_absolute, 
-M_relative,  M_indirectY,  M_immidiate,  M_indirectY,  M_zeropageX,  M_zeropageX,  M_zeropageY,  M_zeropageY, 
-M_implied,  M_absoluteY,  M_implied,  M_absoluteY,  M_absoluteX,  M_absoluteX,  M_absoluteY,  M_absoluteY, 
-M_immidiate,  M_indirectX,  M_immidiate,  M_indirectX,  M_zeropage,  M_zeropage,  M_zeropage,  M_zeropage, 
-M_implied,  M_immidiate,  M_implied,  M_immidiate,  M_absolute,  M_absolute,  M_absolute,  M_absolute, 
-M_relative,  M_indirectY,  M_immidiate,  M_indirectY,  M_zeropageX,  M_zeropageX,  M_zeropageX,  M_zeropageX, 
-M_implied,  M_absoluteY,  M_implied,  M_absoluteY,  M_absoluteX,  M_absoluteX,  M_absoluteX,  M_absoluteX, 
-M_immidiate,  M_indirectX,  M_immidiate,  M_indirectX,  M_zeropage,  M_zeropage,  M_zeropage,  M_zeropage, 
-M_implied,  M_immidiate,  M_implied,  M_immidiate,  M_absolute,  M_absolute,  M_absolute,  M_absolute, 
-M_relative,  M_indirectY,  M_immidiate,  M_indirectY,  M_zeropageX,  M_zeropageX,  M_zeropageX,  M_zeropageX, 
-M_implied,  M_absoluteY,  M_implied,  M_absoluteY,  M_absoluteX,  M_absoluteX,  M_absoluteX,  M_absoluteX);
+  -- 00
+  M_implied,  M_indirectX,  M_immidiate,  M_indirectX,  M_zeropage,  M_zeropage,  M_zeropage,  M_zeropage,
+  M_implied,  M_immidiate,  M_accumulator,  M_immidiate,  M_absolute,  M_absolute,  M_absolute,  M_absolute, 
+  -- 10
+  M_relative,  M_indirectY,  M_immidiate,  M_indirectY,  M_zeropageX,  M_zeropageX,  M_zeropageX,  M_zeropageX, 
+  M_implied,  M_absoluteY,  M_accumulator,  M_absoluteY,  M_absoluteX,  M_absoluteX,  M_absoluteX,  M_absoluteX,
+  -- 20
+  M_absolute,  M_indirectX,  M_immidiate,  M_indirectX,  M_zeropage,  M_zeropage,  M_zeropage,  M_zeropage, 
+  M_implied,  M_immidiate,  M_accumulator,  M_immidiate,  M_absolute,  M_absolute,  M_absolute,  M_absolute,
+  -- 30
+  M_relative,  M_indirectY,  M_immidiate,  M_indirectY,  M_zeropageX,  M_zeropageX,  M_zeropageX,  M_zeropageX, 
+  M_implied,  M_absoluteY,  M_accumulator,  M_absoluteY,  M_absoluteX,  M_absoluteX,  M_absoluteX,  M_absoluteX, 
+  -- 40
+  M_implied,  M_indirectX,  M_immidiate,  M_indirectX,  M_zeropage,  M_zeropage,  M_zeropage,  M_zeropage, 
+  M_implied,  M_immidiate,  M_accumulator,  M_immidiate,  M_absolute,  M_absolute,  M_absolute,  M_absolute,
+  -- 50
+  M_relative,  M_indirectY,  M_immidiate,  M_indirectY,  M_zeropageX,  M_zeropageX,  M_zeropageX,  M_zeropageX, 
+  M_implied,  M_absoluteY,  M_accumulator,  M_absoluteY,  M_absoluteX,  M_absoluteX,  M_absoluteX,  M_absoluteX, 
+  -- 60
+  M_implied,  M_indirectX,  M_immidiate,  M_indirectX,  M_zeropage,  M_zeropage,  M_zeropage,  M_zeropage, 
+  M_implied,  M_immidiate,  M_accumulator,  M_immidiate,  M_indirect,  M_absolute,  M_absolute,  M_absolute,
+  -- 70
+  M_relative,  M_indirectY,  M_immidiate,  M_indirectY,  M_zeropageX,  M_zeropageX,  M_zeropageX,  M_zeropageX, 
+  M_implied,  M_absoluteY,  M_accumulator,  M_absoluteY,  M_absoluteX,  M_absoluteX,  M_absoluteX,  M_absoluteX,
+  -- 80
+  M_immidiate,  M_indirectX,  M_immidiate,  M_indirectX,  M_zeropage,  M_zeropage,  M_zeropage,  M_zeropage, 
+  M_implied,  M_immidiate,  M_implied,  M_immidiate,  M_absolute,  M_absolute,  M_absolute,  M_absolute,
+  -- 90
+  M_relative,  M_indirectY,  M_immidiate,  M_indirectY,  M_zeropageX,  M_zeropageX,  M_zeropageY,  M_zeropageY, 
+  M_implied,  M_absoluteY,  M_implied,  M_absoluteY,  M_absoluteX,  M_absoluteX,  M_implied,  M_absoluteY,
+  -- A0
+  M_immidiate,  M_indirectX,  M_immidiate,  M_indirectX,  M_zeropage,  M_zeropage,  M_zeropage,  M_zeropage, 
+  M_implied,  M_immidiate,  M_implied,  M_immidiate,  M_absolute,  M_absolute,  M_absolute,  M_absolute,
+  -- B0
+  M_relative,  M_indirectY,  M_immidiate,  M_indirectY,  M_zeropageX,  M_zeropageX,  M_zeropageY,  M_zeropageY, 
+  M_implied,  M_absoluteY,  M_implied,  M_absoluteY,  M_absoluteX,  M_absoluteX,  M_absoluteY,  M_absoluteY,
+  -- C0
+  M_immidiate,  M_indirectX,  M_immidiate,  M_indirectX,  M_zeropage,  M_zeropage,  M_zeropage,  M_zeropage, 
+  M_implied,  M_immidiate,  M_implied,  M_immidiate,  M_absolute,  M_absolute,  M_absolute,  M_absolute,
+  -- D0
+  M_relative,  M_indirectY,  M_immidiate,  M_indirectY,  M_zeropageX,  M_zeropageX,  M_zeropageX,  M_zeropageX, 
+  M_implied,  M_absoluteY,  M_implied,  M_absoluteY,  M_absoluteX,  M_absoluteX,  M_absoluteX,  M_absoluteX,
+  -- E0
+  M_immidiate,  M_indirectX,  M_immidiate,  M_indirectX,  M_zeropage,  M_zeropage,  M_zeropage,  M_zeropage, 
+  M_implied,  M_immidiate,  M_implied,  M_immidiate,  M_absolute,  M_absolute,  M_absolute,  M_absolute,
+  -- F0
+  M_relative,  M_indirectY,  M_immidiate,  M_indirectY,  M_zeropageX,  M_zeropageX,  M_zeropageX,  M_zeropageX, 
+  M_implied,  M_absoluteY,  M_implied,  M_absoluteY,  M_absoluteX,  M_absoluteX,  M_absoluteX,  M_absoluteX);
 
 
 begin
@@ -227,6 +244,15 @@ begin
           ram_we(to_integer(unsigned(ram_bank))) <= '1';
         end if;
       end procedure write_to_long_address;
+
+      procedure write_to_short_address(short_address : std_logic_vector(15 downto 0);
+                                       value : in std_logic_vector(7 downto 0);
+                                       ram_bank_registers : bank_register_set) is
+        variable long_address : std_logic_vector(27 downto 0);
+      begin
+        long_address := resolve_address_to_long(short_address,ram_bank_registers);
+        write_to_long_address(long_address,value);
+      end procedure;
       
       procedure push_byte(value : in std_logic_vector(7 downto 0)) is
         variable push_long_address : std_logic_vector(27 downto 0);
@@ -273,6 +299,13 @@ begin
         reg_pcplus1 <= reg_pc + value + 1;
         reg_pcplus2 <= reg_pc + value + 2;
       end procedure advance_pc;
+
+      procedure set_pc(addr : unsigned(15 downto 0)) is
+      begin
+        reg_pc <= addr;
+        reg_pcplus1 <= addr + 1;
+        reg_pcplus2 <= addr + 2;
+      end procedure set_pc;
 
       procedure fetch_next_instruction(pc : unsigned(15 downto 0)) is 
        variable long_pc : std_logic_vector(27 downto 0);
@@ -407,7 +440,7 @@ begin
         request_read_long_address(long_pc2);
       end procedure fetch_stack_bytes;
 
-      
+      variable temp_sp_addr : std_logic_vector(15 downto 0);
     begin
       if rising_edge(clock) then
 		  monitor_pc <= std_logic_vector(reg_pc);
@@ -588,11 +621,6 @@ begin
                   fetch_next_instruction(reg_pcplus1);
                   state <= OperandResolve;
                 end if;
-              elsif op_mode=M_accumulator then
-                -- accumulator mode, so no need to read from memory
-                operand_is_from_ram := false;
-                fetch_next_instruction(reg_pcplus1);
-                state <= OperandResolve;
               elsif op_mode=M_relative then
                 -- a relative branch, work out whether to take the branch
                 -- and act accordingly. We don't need to do anything further
@@ -621,6 +649,44 @@ begin
                 end if;
                 state <= InstructionFetch;
                 operand_is_from_ram := false;
+              -- JMP and JSR require special treatment
+              elsif op_instruction=I_JSR then
+                -- Push both operands, bump SP and set PC all in one
+                -- cycle.
+                -- We push (pc+2) since we have not yet incremented it, but
+                -- not (pc+3) because RTS adds one to the popped value.
+                temp_sp_addr(15 downto 8) := x"01";
+                temp_sp_addr(7 downto 0) := std_logic_vector(reg_sp);
+                write_to_short_address(temp_sp_addr,
+                                       std_logic_vector(reg_pcplus2(15 downto 8)),
+                                       ram_bank_registers);
+                temp_sp_addr(7 downto 0) := std_logic_vector(reg_sp -1);
+                write_to_short_address(temp_sp_addr,
+                                       std_logic_vector(reg_pcplus2(7 downto 0)),
+                                       ram_bank_registers);
+                reg_sp <= reg_sp - 2;
+                set_pc(unsigned(temp_operand_address));
+                fetch_next_instruction(unsigned(temp_operand_address));
+                state <= OperandResolve;
+              elsif op_instruction=I_JMP and op_mode=M_absolute then
+                -- JMP absolute mode: very simple, just overwrite the
+                -- programme counter.
+                set_pc(unsigned(temp_operand_address));
+                fetch_next_instruction(unsigned(temp_operand_address));
+                state <= OperandResolve;
+              elsif op_instruction=I_JMP and op_mode=M_indirect then
+                -- JMP indirect absolute.
+                -- Fetch the two bytes, and then do the jump next cycle
+                -- We can use fetch_next_instruction to do this for us
+                -- (although it will read the byte before as a pretend
+                --  opcode).
+                fetch_next_instruction(unsigned(temp_operand_address)-1);
+                state <= JMPIndirectFetch;
+              elsif op_mode=M_accumulator then
+                -- accumulator mode, so no need to read from memory
+                operand_is_from_ram := false;
+                fetch_next_instruction(reg_pcplus1);
+                state <= OperandResolve;
               elsif op_mode=M_zeropage then
                 temp_addr(7 downto 0) <= temp_operand_address(7 downto 0);
                 temp_addr(15 downto 8) <= "00000000";
@@ -641,6 +707,11 @@ begin
                 temp_addr(15 downto 0) <= std_logic_vector(unsigned(temp_operand_address) + unsigned(reg_y));
                 operand_is_from_ram := true;
               end if;
+            when JMPIndirectFetch =>
+              -- Fetched indirect address, so copy it into the programme counter
+              set_pc(unsigned(temp_operand_address));
+              fetch_next_instruction(unsigned(temp_operand_address));
+              state <= OperandResolve;
             when PullA =>
               -- PLA - Pull Accumulator from the stack
               -- In the previous cycle we asked for the byte to be read from
