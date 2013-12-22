@@ -338,7 +338,7 @@ begin
           operand_from_io <= '0';
           operand_from_ram <= '0';
           operand_from_slowram <= '1';
-        elsif long_addr(27 downto 12) < x"0008" then
+        elsif long_addr(27 downto 12) < x"0080" then
           -- Read from RAM
           -- (Note that reading
           operand_from_io <= '0';
