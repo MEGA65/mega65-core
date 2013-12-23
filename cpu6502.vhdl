@@ -60,7 +60,6 @@ signal reg_pcplus2 : unsigned(15 downto 0);
 signal pull_bank : unsigned(2 downto 0);
 
 -- Temporary address used in various states
-signal temp_addr : std_logic_vector(15 downto 0);
 signal temp_opcode : std_logic_vector(7 downto 0);
 signal temp_value : std_logic_vector(7 downto 0);
 -- Other temporary variables
@@ -545,22 +544,22 @@ begin
             when VectorLoadPC =>
                 case vector is
                   when x"FFFA" =>
-                    temp_addr(7 downto 0) <=  ram_data_o(2);
-                    temp_addr(15 downto 8) <= ram_data_o(3);
+                    temp_address(7 downto 0) :=  ram_data_o(2);
+                    temp_address(15 downto 8) := ram_data_o(3);
                   when x"FFFC" =>
-                    temp_addr(7 downto 0) <=  ram_data_o(4);
-                    temp_addr(15 downto 8) <= ram_data_o(5);
+                    temp_address(7 downto 0) :=  ram_data_o(4);
+                    temp_address(15 downto 8) := ram_data_o(5);
                   when x"FFFE" =>
-                    temp_addr(7 downto 0) <=  ram_data_o(6);
-                    temp_addr(15 downto 8) <= ram_data_o(7);
+                    temp_address(7 downto 0) :=  ram_data_o(6);
+                    temp_address(15 downto 8) := ram_data_o(7);
                   when others =>
                     -- unknown vector, so use reset vector
-                    temp_addr(7 downto 0) <=  ram_data_o(6);
-                    temp_addr(15 downto 8) <= ram_data_o(7);
+                    temp_address(7 downto 0) :=  ram_data_o(6);
+                    temp_address(15 downto 8) := ram_data_o(7);
                 end case;
-                reg_pc<=unsigned(temp_addr);
-                reg_pcplus1<=unsigned(temp_addr)+1;
-                reg_pcplus2<=unsigned(temp_addr)+2;
+                reg_pc<=unsigned(temp_address);
+                reg_pcplus1<=unsigned(temp_address)+1;
+                reg_pcplus2<=unsigned(temp_address)+2;
                 -- We have loaded the program counter (and operand addresses
                 -- derived from that), so now we can proceed to instruction fetch.
                 -- (XXX We could save one cycle for every interrupt here by doing
@@ -770,26 +769,28 @@ begin
                 fetch_next_instruction(reg_pcplus1);
                 state <= OperandResolve;
               elsif op_mode=M_zeropage then
-                temp_addr(7 downto 0) <= temp_operand_address(7 downto 0);
-                temp_addr(15 downto 8) <= "00000000";
-                fetch_direct_operand(temp_addr,ram_bank_registers);
+                temp_address(7 downto 0) := temp_operand_address(7 downto 0);
+                temp_address(15 downto 8) := "00000000";
+                fetch_direct_operand(temp_address,ram_bank_registers);
               elsif op_mode=M_zeropageX then
-                temp_addr(7 downto 0) <= std_logic_vector(unsigned(temp_operand_address(7 downto 0)) + unsigned(reg_x));
-                temp_addr(15 downto 8) <= "00000000";
-                fetch_direct_operand(temp_addr,ram_bank_registers);
+                temp_address(7 downto 0) := std_logic_vector(unsigned(temp_operand_address(7 downto 0)) + unsigned(reg_x));
+                temp_address(15 downto 8) := "00000000";
+                fetch_direct_operand(temp_address,ram_bank_registers);
               elsif op_mode=M_zeropageY then
-                temp_addr(7 downto 0) <= std_logic_vector(unsigned(temp_operand_address(7 downto 0)) + unsigned(reg_y));
-                temp_addr(15 downto 8) <= "00000000";
-                fetch_direct_operand(temp_addr,ram_bank_registers);
+                temp_address(7 downto 0) := std_logic_vector(unsigned(temp_operand_address(7 downto 0)) + unsigned(reg_y));
+                temp_address(15 downto 8) := "00000000";
+                fetch_direct_operand(temp_address,ram_bank_registers);
               elsif op_mode=M_absolute then
-                temp_addr(15 downto 0) <= temp_operand_address;
-                fetch_direct_operand(temp_addr,ram_bank_registers);
+                temp_address(15 downto 0) := temp_operand_address;
+                fetch_direct_operand(temp_address,ram_bank_registers);
               elsif op_mode=M_absoluteX then
-                temp_addr(15 downto 0) <= std_logic_vector(unsigned(temp_operand_address) + unsigned(reg_x));
-                fetch_direct_operand(temp_addr,ram_bank_registers);
+                temp_address(15 downto 0) := std_logic_vector(unsigned(temp_operand_address) + unsigned(reg_x));
+                fetch_direct_operand(temp_address,ram_bank_registers);
               elsif op_mode=M_absoluteY then
-                temp_addr(15 downto 0) <= std_logic_vector(unsigned(temp_operand_address) + unsigned(reg_y));
-                fetch_direct_operand(temp_addr,ram_bank_registers);
+                temp_address(15 downto 0) := std_logic_vector(unsigned(temp_operand_address) + unsigned(reg_y));
+                fetch_direct_operand(temp_address,ram_bank_registers);
+              elsif op_mode=M_indirectX then
+                -- Pre-indexed ZP indirect, wrapping from $FF to $00, not $100
               end if;
             when JMPIndirectFetch =>
               -- Fetched indirect address, so copy it into the programme counter
