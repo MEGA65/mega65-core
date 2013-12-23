@@ -247,7 +247,7 @@ begin
         variable bank_address : std_logic_vector(15 downto 0);
       begin
         if long_address(27 downto 19)="000000000" then
-          -- we have RAM to write to
+          -- we have RAM to read from
           ram_bank := long_address(2 downto 0);
           bank_address := long_address(18 downto 3);
           ram_address(to_integer(unsigned(ram_bank))) <= bank_address;
@@ -325,7 +325,6 @@ begin
         -- Fetch the byte at the specified address, and remember the slot it
         -- will be fetched into.
         long_addr := resolve_address_to_long(address,ram_bank_registers);
-        operand1_mem_slot <= unsigned(address(2 downto 0));
         if long_addr(27 downto 12) = x"FFFD" then
           -- Read from I/O block
           operand_from_io <= '1';
@@ -338,11 +337,13 @@ begin
           operand_from_ram <= '0';
           operand_from_slowram <= '1';
         elsif long_addr(27 downto 12) < x"0080" then
-          -- Read from RAM
+          -- Read from fast RAM
           -- (Note that reading
           operand_from_io <= '0';
           operand_from_ram <= '1';
           operand_from_slowram <= '0';
+          operand1_mem_slot <= unsigned(address(2 downto 0));
+          request_read_long_address(long_addr);
         else
           -- Reading from unmapped address space
           -- XXX Trigger a page-fault?
