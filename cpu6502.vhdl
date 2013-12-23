@@ -317,14 +317,39 @@ begin
         reg_pcplus2 <= addr + 2;
       end procedure set_pc;
 
-      procedure fetch_direct_operand (
-        address           : std_logic_vector(15 downto 0);
+      procedure read_indirect_operand (
+        address           : std_logic_vector(7 downto 0);
         ram_bank_registers : bank_register_set) is
         variable long_addr : std_logic_vector(27 downto 0);
       begin
+        -- Read indirect zero page operand and leave state so that
+        -- instruction executation can continue as though the operand
+        -- were direct.
+        -- XXX - Not implemented
+      end procedure read_indirect_operand;
+      
+      procedure do_direct_operand (
+        address           : std_logic_vector(15 downto 0);
+        ram_bank_registers : bank_register_set;
+        instruction : instruction) is
+        variable long_addr : std_logic_vector(27 downto 0);
+        variable writeP : boolean;
+        variable write_value : std_logic_vector(7 downto 0);
+      begin
         -- Fetch the byte at the specified address, and remember the slot it
         -- will be fetched into.
+        -- Or, for write instructions, write to the address.
+
+        -- In any case, first work out the actual address in question.
         long_addr := resolve_address_to_long(address,ram_bank_registers);
+
+        case instruction is
+          when I_STA => writeP:=true; write_value:=std_logic_vector(reg_a);
+          when I_STX => writeP:=true; write_value:=std_logic_vector(reg_x);
+          when I_STY => writeP:=true; write_value:=std_logic_vector(reg_y);                   
+          when others => writeP:=false;
+        end case;
+        
         if long_addr(27 downto 12) = x"FFFD" then
           -- Read from I/O block
           operand_from_io <= '1';
@@ -343,7 +368,17 @@ begin
           operand_from_ram <= '1';
           operand_from_slowram <= '0';
           operand1_mem_slot <= unsigned(address(2 downto 0));
-          request_read_long_address(long_addr);
+          if writeP then
+            write_to_long_address(long_addr,write_value);
+            -- XXX If the memory slot doesn't conflict with the
+            -- slots for instruction fetch, then we can fetch the
+            -- next instruction, saving a cycle.
+            -- but care is required because PC isn't updated until
+            -- the end of this cycle, which makes life interesting.
+            state <= InstructionFetch;
+          else
+            request_read_long_address(long_addr);
+          end if;
         else
           -- Reading from unmapped address space
           -- XXX Trigger a page-fault?
@@ -352,7 +387,7 @@ begin
           operand_from_slowram <= '0';
         end if;
         state <= MemoryRead;
-      end procedure fetch_direct_operand;
+      end procedure do_direct_operand;
       
       procedure fetch_next_instruction(pc : unsigned(15 downto 0)) is 
        variable long_pc : std_logic_vector(27 downto 0);
@@ -772,26 +807,46 @@ begin
               elsif op_mode=M_zeropage then
                 temp_address(7 downto 0) := temp_operand_address(7 downto 0);
                 temp_address(15 downto 8) := "00000000";
-                fetch_direct_operand(temp_address,ram_bank_registers);
+                advance_pc(2);
+                do_direct_operand(temp_address,ram_bank_registers,op_instruction);
               elsif op_mode=M_zeropageX then
                 temp_address(7 downto 0) := std_logic_vector(unsigned(temp_operand_address(7 downto 0)) + unsigned(reg_x));
                 temp_address(15 downto 8) := "00000000";
-                fetch_direct_operand(temp_address,ram_bank_registers);
+                advance_pc(2);
+                do_direct_operand(temp_address,ram_bank_registers,op_instruction);
               elsif op_mode=M_zeropageY then
                 temp_address(7 downto 0) := std_logic_vector(unsigned(temp_operand_address(7 downto 0)) + unsigned(reg_y));
                 temp_address(15 downto 8) := "00000000";
-                fetch_direct_operand(temp_address,ram_bank_registers);
+                advance_pc(2);
+                do_direct_operand(temp_address,ram_bank_registers,op_instruction);
               elsif op_mode=M_absolute then
                 temp_address(15 downto 0) := temp_operand_address;
-                fetch_direct_operand(temp_address,ram_bank_registers);
+                advance_pc(3);
+                do_direct_operand(temp_address,ram_bank_registers,op_instruction);
               elsif op_mode=M_absoluteX then
                 temp_address(15 downto 0) := std_logic_vector(unsigned(temp_operand_address) + unsigned(reg_x));
-                fetch_direct_operand(temp_address,ram_bank_registers);
+                advance_pc(3);
+                do_direct_operand(temp_address,ram_bank_registers,op_instruction);
               elsif op_mode=M_absoluteY then
                 temp_address(15 downto 0) := std_logic_vector(unsigned(temp_operand_address) + unsigned(reg_y));
-                fetch_direct_operand(temp_address,ram_bank_registers);
+                advance_pc(3);
+                do_direct_operand(temp_address,ram_bank_registers,op_instruction);
               elsif op_mode=M_indirectX then
                 -- Pre-indexed ZP indirect, wrapping from $FF to $00, not $100
+                -- if operand+X=$FF
+                temp_address(7 downto 0) := std_logic_vector(unsigned(temp_operand_address(7 downto 0)) + reg_x);
+                advance_pc(2);
+                read_indirect_operand(temp_address(7 downto 0),ram_bank_registers);
+                op_mode<=M_absolute;
+                state <= OperandResolve;
+              elsif op_mode=M_indirectY then
+                -- Post-indexed ZP indirect, wrapping from $FF to $00, not $100
+                -- if operand=$FF
+                temp_address(7 downto 0) := temp_operand_address(7 downto 0);
+                advance_pc(2);
+                read_indirect_operand(temp_address(7 downto 0),ram_bank_registers);
+                op_mode<=M_absoluteY;
+                state <= OperandResolve;
               end if;
             when JMPIndirectFetch =>
               -- Fetched indirect address, so copy it into the programme counter
