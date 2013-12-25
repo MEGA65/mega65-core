@@ -321,11 +321,27 @@ begin
         address           : std_logic_vector(7 downto 0);
         ram_bank_registers : bank_register_set) is
         variable long_addr : std_logic_vector(27 downto 0);
+        variable addr_lo : std_logic_vector(15 downto 0);
+        variable addr_hi : std_logic_vector(15 downto 0);
       begin
         -- Read indirect zero page operand and leave state so that
         -- instruction executation can continue as though the operand
-        -- were direct.
-        -- XXX - Not implemented
+        -- were direct.  The caller will have already change op_mode
+        -- to the appropriate absolute or absolute indexed mode, and
+        -- adjusted the address passed in here for any pre-indexing.
+
+        addr_lo(15 downto 8) := x"00";
+        addr_lo(7 downto 0) := address;
+        long_addr := resolve_address_to_long(addr_lo,ram_bank_registers);
+        operand1_mem_slot <= unsigned(long_addr(2 downto 0));
+        request_read_long_address(long_addr);
+        
+        addr_hi(15 downto 8) := x"00";
+        addr_hi(7 downto 0) := std_logic_vector(unsigned(address) + 1);
+        long_addr := resolve_address_to_long(addr_hi,ram_bank_registers);
+        operand2_mem_slot <= unsigned(long_addr(2 downto 0));
+        request_read_long_address(long_addr);        
+
       end procedure read_indirect_operand;
       
       procedure do_direct_operand (
