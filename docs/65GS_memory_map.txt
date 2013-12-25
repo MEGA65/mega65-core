@@ -111,8 +111,15 @@ That is, the SailFish processor can map slow RAM into its address
 space, and read and write from it.  
 
 However, at the time of writing it is not possible to execute
-instructions in slow RAM, as the slow RAM does not support the wide
-memory interface required by the SailFish instruction decode logic.
+instructions in slow RAM or I/O, as the slow RAM and I/O interfaces do
+not support the wide memory interface required by the SailFish
+instruction decode logic.  This limitation also applies to zero page
+and the stack, which must also be located in a fast RAM
+page. Attempting to execute instructions or fetch indirect operands
+via any source other than fast RAM will result in undefined behaviour,
+and any observed behaviour should not be depended upon, as it is
+subject to change in future core revisions.  The long-term goal is to
+allow execution of instructions from I/O and slow RAM.
 
 REU MODE MEMORY ACCESS
 ----------------------
