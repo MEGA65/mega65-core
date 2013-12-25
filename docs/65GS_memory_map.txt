@@ -119,15 +119,26 @@ REU MODE MEMORY ACCESS
 
 Slow RAM is accessible to both the slow and fast side of the system.
 Both processors are able to access the first 16MB of slow RAM by REU
-emulation registers at $DF00 - $DF0F.
+emulation registers at $DF00 - $DF0A.
 
-Fast RAM is similarly accessible to both the slow and fast side of the
-system by use of the REU emulation registers at $DF80 - $DF8F.
+To access any additional slow RAM or the fast RAM via the REU DMA
+controller an additional REU register is involved.
 
-If more than 16MB of slow or fast RAM are available, they will be
-accessible via additional REU emulation registers.  For example, the
-2nd 16MB of slow ram would be accessed by REU registers at $DF10 -
-$DF1F.
+$DF0B contains the high order nybl of the DMA address that selects
+which 16MB bank the REU will access.  That is the complete DMA address
+is formed from the following REU registers:
+
+$DF04 - bits 0 - 7 of DMA address
+$DF05 - bits 8 - 15 of DMA address
+$DF06 - bits 16 - 23 of DMA address
+$DF0B - bits 24 - 24 of DMA address
+
+That is the complete long address is formed according to $B665.544,
+where the digits refer to the REU register numbers.
+
+Values $00-$07 access fast RAM (upto 128MB), $08-$0E access slow
+RAM (up to  112MB), and $0F accesses the special address space
+$F000.000 - $FFFF.FFF, which includes the fast IO address space. 
 
 Note that REU-emulation DMA operations do not occur at C64 REU
 transfer speeds.  Rather, transfers occur at the maximum speed for the
