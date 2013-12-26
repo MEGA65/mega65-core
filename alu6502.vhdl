@@ -1,18 +1,13 @@
+use WORK.ALL;
+
 library IEEE;
 use IEEE.std_logic_1164.all;
+use ieee.numeric_std.all;
 
 entity ALU6502 is
   port (
     -- select operation to perform
-    AAND : in std_logic;
-    AOR : in std_logic;
-    AXOR : in std_logic;
-    ASL : in std_logic;
-    ARL : in std_logic;
-    ASR : in std_logic;
-    ARR : in std_logic;
-    AADD : in std_logic;
-    ASUB : in std_logic;
+    AFUNC : in std_logic_vector(3 downto 0);
 
     -- input flags and values
     IC : in std_logic;
@@ -71,7 +66,7 @@ begin
         o => bcd2o
         );
     
-    if AAND = '1' then
+    if afunc = "0001" then              -- AND
       O <= I1 and I2;
       OZ <= (I1(7) and I2(7))
             or (I1(6) and I2(6))
@@ -84,7 +79,7 @@ begin
       ONEG <= I1(7) and I2(7);
       OC <= IC;
       OV <= IV;
-    elsif AOR = '1' then
+    elsif afunc = "0010" then                -- OR
       O <= I1 or I2;
       OZ <= (I1(7) or I2(7))
             or (I1(6) or I2(6))
@@ -97,7 +92,7 @@ begin
       ONEG <= I1(7) or I2(7);
       OC <= IC;
       OV <= IV;
-    elsif AXOR = '1' then
+    elsif afunc = "0011" then               -- XOR
       O <= I1 xor I2;
       OZ <= (I1(7) xor I2(7))
             or (I1(6) xor I2(6))
@@ -110,35 +105,35 @@ begin
       ONEG <= I2(6);
       OC <= IC;
       OV <= IV;
-    elsif AASL = '1' then
+    elsif afunc = "0100" then               -- shift left
       O(7 downto 1) <= I2(6 downto 0);
       O(0) <= '0';
       OC <= I2(7);
       OZ <= I2(6) or I2(5) or I2(4) or I2(3) or I2(2) or I2(1) or I2(0);
       ONEG <= I2(6);
       OV <= IV;
-    elsif AARL = '1' then
+    elsif afunc = "0101" then               -- rotate left
       O(7 downto 1) <= I2(6 downto 0);
       O(0) <= IC;
       OC <= I2(7);
       OZ <= I2(6) or I2(5) or I2(4) or I2(3) or I2(2) or I2(1) or I2(0) or IC;
       ONEG <= I2(6);
       OV <= IV;
-    elsif AASR = '1' then
+    elsif afunc = "0110" then               -- shift right
       O(6 downto 0) <= I2(7 downto 1);
       O(7) <= '0';
       OC <= I2(0);
       OZ <= I2(7) or I2(6) or I2(5) or I2(4) or I2(3) or I2(2) or I2(1);
       ONEG <= INEG;
       OV <= IV;
-    elsif AARR = '1' then
+    elsif afunc = "0111" then               -- rotate right
       O(6 downto 0) <= I2(7 downto 1);
       O(7) <= IC;
       OC <= I2(0);
       OZ <= I2(7) or I2(6) or I2(5) or I2(4) or I2(3) or I2(2) or I2(1);
       ONEG <= IC;
       OV <= IV;
-    elsif AADD = '1' then
+    elsif afunc = "1000" then               -- ADD
       if ID = '0' then
         -- binary mode: simple binary addition with carry in and out
         if IC = '0' then
@@ -160,6 +155,15 @@ begin
         -- we should ideally be bug-compatible with the 6502 here.
         -- XXX use two four bit BCD adders
       end if;
+    elsif afunc = "1001" then               -- SUB then
+      -- XXX not implemented
+    else
+      OC <= '0';
+      OV <= '0';
+      ONEG <= '0';
+      OZ <= '0';
+      O <= x"FF";
+      null;
     end if;
   end process;
 end architecture RTL;
