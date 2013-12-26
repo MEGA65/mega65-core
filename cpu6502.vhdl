@@ -913,6 +913,28 @@ begin
               temp_operand := x"FF";
             end if;
             -- XXX Use ALU and progress instruction
+            case op_instruction is
+              when I_ADC =>
+                alu_i1 <= temp_operand;
+                alu_i2 <= std_logic_vector(reg_a);
+                alu_function <= "1000";
+                -- need to store result next cycle, not now as ALU is not latched.
+              when I_AND => null;
+              when I_ASL => null;
+              when I_BIT => null;
+              when I_CMP => null;
+              when I_CPX => null;
+              when I_CPY => null;
+              when I_DEC => null;
+              when I_EOR => null;
+              when I_INC => null;
+              when I_LSR => null;
+              when I_ORA => null;
+              when I_ROL => null;
+              when I_ROR => null;
+              when I_SBC => null;
+              when others => null;
+            end case;
           when JMPIndirectFetch =>
             -- Fetched indirect address, so copy it into the programme counter
             set_pc(unsigned(temp_operand_address));
