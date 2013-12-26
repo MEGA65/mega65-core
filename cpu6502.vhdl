@@ -867,15 +867,23 @@ begin
             -- This is an instruction that operates on a byte fetched from memory.
             -- We do need to grab the byte from the appropriate memory type.
             if operand_from_io = '1' then
-              -- I/O currently not wired in, so just read all ones for now
+              -- XXX I/O currently not wired in, so just read all ones for now             
               temp_operand := x"FF";
             elsif operand_from_slowram = '1' then
               -- Memory read from slow RAM.  We assume here that the slow RAM has
               -- finished the read cycle before we get here.  This means that
               -- do_direct_operand() has to manage the state machine so that the
               -- processor stalls while reading from slow RAM.
+              -- XXX Not yet implemented.
+              temp_operand := x"FF";
+            elsif operand_from_ram = '1' then
+              -- Memory read from fast RAM.
+              temp_operand := ram_data_o(to_integer(operand1_mem_slot));
+            else
+              -- Read is from somewhere else, possibly an unmapped address
+              temp_operand := x"FF";
             end if;
-            temp_operand 
+            -- XXX Use ALU and progress instruction
           when JMPIndirectFetch =>
             -- Fetched indirect address, so copy it into the programme counter
             set_pc(unsigned(temp_operand_address));
