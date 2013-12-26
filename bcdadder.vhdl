@@ -1,5 +1,6 @@
 library IEEE;
 use IEEE.std_logic_1164.all;
+use ieee.numeric_std.all;
 
 entity bcdadder is
   
@@ -16,15 +17,17 @@ architecture rtl of bcdadder is
 
 begin  -- rtl
   
-  process
+  process(cin, i1,i2)
+      variable c : std_logic_vector(0 downto 0);
     begin
-      if (i1+i2+unsigned(cin))<9 then
-        o <= i1+i2+unsigned(cin);
+      c(0) := cin;
+      if (i1+i2+unsigned(c))<9 then
+        o <= i1+i2+unsigned(c);
         cout <= '0';
       else
-        o <= i1+i2+unsigned(cin)+5;
+        o <= i1+i2+unsigned(c)+5;
         cout <= '1';
       end if;
-    end process
+    end process;
 
 end rtl;
