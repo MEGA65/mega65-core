@@ -46,7 +46,7 @@ architecture behavioural of ALU6502 is
 
 begin  -- behavioural
 
-    bcd1 : entity bcdadder      
+  bcd1 : entity bcdadder      
     port map (
       cin => bcd1cin,
       i1 => bcd1in1,
@@ -69,10 +69,11 @@ end behavioural;
 -- this is the architecture
 architecture RTL of ALU6502 is
 begin
-  process(afunc,I2,I2,IC,IV,INEG,ID)
+  process(afunc,I1,I2,IC,IV,INEG,ID,IZ,bcd1cout,bcd2cout,bcd2o,bcd1o)
     variable temp : std_logic_vector(8 downto 0);
     variable i18 : std_logic_vector(8 downto 0);
     variable i28 : std_logic_vector(8 downto 0);
+    variable ctemp : std_logic_vector(0 downto 0);
   begin
     
     if afunc = "0001" then              -- AND
@@ -166,7 +167,29 @@ begin
       else
         -- decimal mode with all it's bizarreness
         -- we should ideally be bug-compatible with the 6502 here.
-        -- XXX use two four bit BCD adders
+        -- XXX use two four bit BCD adders.  This may make the calculation
+        -- of N and V differ from the real 6502 where the N & V calculations
+        -- occur before the BCD fixup in the low nybl, which can cause the
+        -- upper nybl to increment.  We might be able to subtract bcd1cout from
+        -- the upper nybl to provide 100% accuracy with the 6502's bizarre
+        -- calculation of these flags when in decimal mode.
+        bcd1cin <= IC;
+        bcd1in1 <= unsigned(I1(3 downto 0));
+        bcd1in2 <= unsigned(I2(3 downto 0));
+        bcd2cin <= bcd1cout;
+        bcd2in1 <= unsigned(I1(7 downto 4));
+        bcd2in2 <= unsigned(I2(7 downto 4));
+        OC <= bcd2cout;
+        ctemp(0) := IC;
+        if unsigned(I1) + unsigned(I2) + unsigned(ctemp) = x"00" then
+          OZ <= '1';
+        else
+          OZ <= '0';
+        end if;
+        ONEG <= bcd2o(3);
+        OV <= bcd2cout;
+        O(7 downto 4) <= std_logic_vector(bcd2o);
+        O(3 downto 0) <= std_logic_vector(bcd1o);
       end if;
     elsif afunc = "1001" then               -- SUB then
         -- subtraction does not support BCD mode, so we only need binary
