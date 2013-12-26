@@ -27,44 +27,51 @@ entity ALU6502 is
     OZ : out std_logic;
     O  : out std_logic_vector(7 downto 0)
   );
-  
+
+  -- BCD 4 bit adders for ADC instruction
+  signal bcd1cin : std_logic;
+  signal bcd1in1 : unsigned(3 downto 0);
+  signal bcd1in2 : unsigned(3 downto 0);
+  signal bcd1cout : std_logic;
+  signal bcd1o : unsigned(3 downto 0);
+  signal bcd2cin : std_logic;
+  signal bcd2in1 : unsigned(3 downto 0);
+  signal bcd2in2 : unsigned(3 downto 0);
+  signal bcd2cout : std_logic;
+  signal bcd2o : unsigned(3 downto 0);  
+
 end entity ALU6502;
+
+architecture behavioural of ALU6502 is
+
+begin  -- behavioural
+
+    bcd1 : entity bcdadder      
+    port map (
+      cin => bcd1cin,
+      i1 => bcd1in1,
+      i2 => bcd1in2,
+      cout => bcd1cout,
+      o => bcd1o
+      );
+  bcd2 : entity bcdadder      
+    port map (
+      cin => bcd2cin,
+      i1 => bcd2in1,
+      i2 => bcd2in2,
+      cout => bcd2cout,
+      o => bcd2o
+      );
+
+
+end behavioural;
 
 -- this is the architecture
 architecture RTL of ALU6502 is
 begin
-  process
+  process(afunc,I2,I2,IC,IV,INEG,ID)
     variable temp : std_logic_vector(8 downto 0);
   begin
-
-    -- BCD 4 bit adders for ADC instruction
-    signal bcd1cin : out std_logic;
-    signal bcd1i1 : out unsigned(3 downto 0);
-    signal bcd1i2 : out unsigned(3 downto 0);
-    signal bcd1cout : in std_logic;
-    signal bcd1o : in unsigned(3 downto 0);
-    signal bcd2cin : out std_logic;
-    signal bcd2i1 : out unsigned(3 downto 0);
-    signal bcd2i2 : out unsigned(3 downto 0);
-    signal bcd2cout : in std_logic;
-    signal bcd2o : in unsigned(3 downto 0);
-    
-    bcd1 : entity bcdadder      
-      port map (
-        cin => bcd1cin,
-        i1 => bcd1in1,
-        i2 => bcd1in2,
-        cout => bcd1cout,
-        o => bcd1o
-        );
-    bcd2 : entity bcdadder      
-      port map (
-        cin => bcd2cin,
-        i1 => bcd2in1,
-        i2 => bcd2in2,
-        cout => bcd2cout,
-        o => bcd2o
-        );
     
     if afunc = "0001" then              -- AND
       O <= I1 and I2;
