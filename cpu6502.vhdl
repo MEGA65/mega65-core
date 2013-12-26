@@ -49,6 +49,16 @@ architecture Behavioral of cpu6502 is
   signal reg_sp : unsigned(7 downto 0);
   signal reg_pc : unsigned(15 downto 0);
 
+  -- interface to ALU
+  signal alu_function : std_logic_vector(3 downto 0);
+  signal alu_i1 : std_logic_vector(7 downto 0);
+  signal alu_i2 : std_logic_vector(7 downto 0);
+  signal alu_c : std_logic;
+  signal alu_neg : std_logic;
+  signal alu_v : std_logic;
+  signal alu_z : std_logic;
+  signal alu_o : std_logic_vector(7 downto 0);
+  
 -- Keep incremented versions of PC around for fast hopping over instructions
 -- (note these are not used for instruction fetching, as that code operates
 --  differently).
@@ -195,6 +205,25 @@ architecture Behavioral of cpu6502 is
 
 
 begin
+  
+  -- 6502 compatible ALU, with BCD support for ADC.
+  alu: entity alu6502
+    port map (
+      AFUNC => alu_function,
+      IC => flag_c,
+      ID => flag_d,
+      ineg => flag_n,
+      iv => flag_v,
+      iz => flag_z,
+      i1 => alu_i1,
+      i2 => alu_i2,
+      oc => alu_c,
+      oneg => alu_neg,
+      ov => alu_v,
+      oz => alu_z,
+      o => alu_o
+      );
+  
   -- Each block portram is 64KBx8bits, so we need 8 of them
   -- to make 512KB, approximately the total available on this FPGA.
   gen_ram: for i in 0 to 7 generate
