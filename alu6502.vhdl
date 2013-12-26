@@ -169,12 +169,31 @@ begin
         -- XXX use two four bit BCD adders
       end if;
     elsif afunc = "1001" then               -- SUB then
-      -- XXX not implemented
+        -- subtraction does not support BCD mode, so we only need binary
+        -- subtraction.
+        i18(7 downto 0) := I1;
+        i18(8) := '0';
+        i28(7 downto 0) := I2;
+        i28(8) := '0';
+        if IC = '0' then
+          temp := std_logic_vector(unsigned(i18)-unsigned(i28)-1);
+        else
+          temp := std_logic_vector(unsigned(i18)-unsigned(i28));
+        end if;
+        O <= temp(7 downto 0);
+        if temp(7 downto 0) = x"00" then
+          OZ <= '1';
+        else
+          OZ <= '0';
+        end if;
+        OC <= temp(8);
+        OV <= temp(8);
+        ONEG <= temp(7);
     else
-      OC <= '0';
-      OV <= '0';
-      ONEG <= '0';
-      OZ <= '0';
+      OC <= IC;
+      OV <= IV;
+      ONEG <= INEG;
+      OZ <= IZ;
       O <= x"FF";
       null;
     end if;
