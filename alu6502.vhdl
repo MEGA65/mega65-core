@@ -71,6 +71,8 @@ architecture RTL of ALU6502 is
 begin
   process(afunc,I2,I2,IC,IV,INEG,ID)
     variable temp : std_logic_vector(8 downto 0);
+    variable i18 : std_logic_vector(8 downto 0);
+    variable i28 : std_logic_vector(8 downto 0);
   begin
     
     if afunc = "0001" then              -- AND
@@ -143,12 +145,16 @@ begin
     elsif afunc = "1000" then               -- ADD
       if ID = '0' then
         -- binary mode: simple binary addition with carry in and out
+        i18(7 downto 0) := I1;
+        i18(8) := '0';
+        i28(7 downto 0) := I2;
+        i28(8) := '0';
         if IC = '0' then
-          temp := std_logic_vector(unsigned(I1) + unsigned(I2));
+          temp := std_logic_vector(unsigned(i18)+unsigned(i28));
         else
-          temp := std_logic_vector(unsigned(I1) + unsigned(I2)+1);
+          temp := std_logic_vector(unsigned(i18)+unsigned(i28)+1);
         end if;
-        O <= temp;
+        O <= temp(7 downto 0);
         if temp(7 downto 0) = x"00" then
           OZ <= '1';
         else
