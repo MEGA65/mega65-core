@@ -826,7 +826,7 @@ begin
                 flag_c <= reg_a(7);
               end if;
               if op_instruction = I_LSR or op_instruction = I_ROR then
-                -- shift left
+                -- shift right
                 temp_operand(6 downto 0) := std_logic_vector(reg_a(7 downto 1));
                 if op_instruction = I_ROR then
                   temp_operand(7) := flag_c;
@@ -845,6 +845,7 @@ begin
                   flag_z <= '0';
                 end if;
                 reg_a <= unsigned(temp_operand);
+                flag_n <= temp_operand(6);
               end if;
               fetch_next_instruction(reg_pcplus1);
               state <= OperandResolve;
@@ -933,7 +934,27 @@ begin
                 flag_z <= alu_z;
                 fetch_next_instruction(reg_pc);
               when I_ASL => null;
-                -- XXX Modify and write back.
+                -- Modify and write back.
+                if operand_from_io = '1' then
+                  -- Operand is from I/O, so need to write back original value
+                  ram_data_i(to_integer(operand1_mem_slot)) <= temp_operand;
+                  ram_we(to_integer(operand1_mem_slot)) <= '1';
+                  -- Then schedule altered value to be written next cycle
+                  temp_value(7 downto 1) <= std_logic_vector(temp_operand(6 downto 0));
+                  temp_value(0) <= '0';
+                  flag_c <= temp_operand(7);
+                  flag_n <= temp_operand(6);
+                  if temp_operand(6 downto 0) = "0000000" then
+                    flag_z <= '1';
+                  else
+                    flag_z <= '0';
+                  end if;
+                  state <= MemoryWrite;
+                else
+                  -- Operand is not from I/O, so can just write back
+                  -- XXX If address low bits don't conflict, can pre-fetch next
+                  -- instruction.
+                end if;
               when I_BIT => 
                 alu_i1 <= temp_operand;
                 alu_i2 <= std_logic_vector(reg_a);
