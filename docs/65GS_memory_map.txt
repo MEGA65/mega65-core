@@ -54,20 +54,27 @@ the first byte in the second 64KB of RAM.
 
 The 256MB memory map is laid out as follows:
 
-$FFFE.000 - $FFFF.FFF - Reserved.
-$FFFD.000 - $FFFD.FFF - C64-style I/O page.
-$9000.000 - $EFFF.FFF - Reserved for slow-RAM expansion.
+$FFF0.000 - $FFFF.FFF - Reserved (most likely will be used for ROMs).
+$FFE0.000 - $FFEF.FFF - Reserved (most likely will be used for ROMs).
+$FFD4.000 - $FFDF.FFF - Reserved for additional I/O (ethernet, USB,
+microSD etc)
+$FFD3.000 - $FFD3.FFF - I/O page, with extra registers and features enabled.
+$FFD2.000 - $FFD2.FFF - C64-style I/O page, extra features enabled (eg REU).
+$FFD1.000 - $FFD1.FFF - C65-style I/O page, with extra registers enabled.
+$FFD0.000 - $FFD0.FFF - C64-style I/O page.
+$9000.000 - $EFFF.FFF - Reserved for slow-RAM expansion (allows 112MB total).
 $8000.000 - $8FFF.FFF - 16MB slow RAM (approximately 14MHz).
-$0080.000 - $7FFF.FFF - Reserved for fast-RAM expansion.
-$0000.000 - $007F.FFF - Fast RAM.
+$0080.000 - $7FFF.FFF - Reserved for fast-RAM expansion (allows 128MB total).
+$0000.000 - $007F.FFF - 512KB Fast RAM (full clock speed, ~100MHz - 200MHz).
 
-Note that there is no provision for ROMs in the memory map.  ROMs on
-the C65GS are implemented as pre-initialised RAM blocks, and by
-mapping those blocks for read and execute, with writes directed to
-another block of RAM.  In this way the C64 style semantic of reading
-from ROM and writing to "underlying" RAM can be directly supported.
+ROMs on the C65GS will initially be implemented as pre-initialised RAM
+blocks, and by mapping those blocks for read and execute, with writes
+directed to another block of RAM.  In this way the C64 style semantic
+of reading from ROM and writing to "underlying" RAM can be directly
+supported.
 
-The C64 side memory map is as for a standard C64.
+The C64 side memory map is as for a standard C64, using FPGA64 for its'
+implementation.
 
 IO MEMORY MAP
 -------------

@@ -11,6 +11,21 @@ next instruction, and the removal of all page-crossing penalties
 allows for an increased IPC compared with an identically clocked
 6502/6510 or even 65C02/4510.
 
+C64 Compatability
+---------------
+
+Any CPU with altered cycle timing cannot be 100% C64 compatible. That
+said, care can be taken to reduce difference in the effects of
+instructions, regardless of the time they take to execute.  The 65GS02
+design takes some care in this matter, as differences in the
+read-modify-write instructions on the 4510 were a source of
+considerable incompatibility of C64 software with the
+C65. Specifically, the 4510 did not write the original operand before
+writing the final value of the operand when executing
+read-modify-write instructions. This prevented the common idiom of
+using DEC $D019 or LSR $D019 to acknowledge interrupts from the
+VIC-II.
+
 Memory Write Pipelining
 -------------------
 
@@ -38,18 +53,19 @@ Instruction cycle counts
 -------------------
 
 The primary driver for cycle counts are the addressing mode
-concerned. The following table is for normal instructions.
+concerned. The following table is for normal instructions.  Notes
+following the table describe deviations from this table.
 
 Cycles Addressing Mode
 ----- --------------
 1     Implied
 1     Accumulator
 1     Immediate
-1     Relative
+1     Relative (including if the branch is taken)
 2     Zero Page
 2     Zero Page,X
 2     Zero Page,Y
-2     Absolute
+2     Absolute (including JMP)
 2     Absolute,X
 2     Absolute,Y
 3     (ZP,X)
@@ -64,4 +80,14 @@ addresses, one additional cycle is required to allow for writing the
 original value back to the source address. This allows the DEC $D019
 or LSR $D019 video interrupt acknowledgement idiom to continue to
 work, thus addressing a major source of incompatibility on the C65.
- 
+* JSR takes 3 cycles, as the 16-bit return address is written in
+parallel.
+* RTS and RTI take 2 cycles, as the return address (and processor
+flags for RTI) are read in a single cycle.
+* BRK takes 
+* For accesses to slow RAM and I/O substantial delays may be incurred
+due to the access time of those address types. Slow RAM has an access
+time of 70ns (7 cycles at 100MHz, 11 cycles at 150MHz).  This penalty
+applies to each such memory access.  For example, executing LSR $4000
+where $4000 is a slow RAM address will incur the penalty twice, as
+location $4000 must be read and then written to.
