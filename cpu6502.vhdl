@@ -419,7 +419,7 @@ begin
           -- next instruction, saving a cycle.
           -- but care is required because PC isn't updated until
           -- the end of this cycle, which makes life interesting.
-          state <= InstructionFetch;
+          state <= InstructionFetch;          
         else
           request_read_long_address(long_addr);
           state <= Calculate;
@@ -896,7 +896,7 @@ begin
             -- This is an instruction that operates on a byte fetched from memory.
             -- We do need to grab the byte from the appropriate memory type.
             if operand_from_io = '1' then
-              -- XXX I/O currently not wired in, so just read all ones for now             
+              -- XXX I/O currently not wired in, so just read all ones for now
               temp_operand := x"FF";
             elsif operand_from_slowram = '1' then
               -- Memory read from slow RAM.  We assume here that the slow RAM has
@@ -918,13 +918,54 @@ begin
                 alu_i1 <= temp_operand;
                 alu_i2 <= std_logic_vector(reg_a);
                 alu_function <= "1000";
-                -- need to store result next cycle, not now as ALU is not latched.
-              when I_AND => null;
+                reg_a <= unsigned(alu_o);
+                flag_c <= alu_c;
+                flag_n <= alu_neg;
+                flag_z <= alu_z;
+                flag_v <= alu_v;
+                fetch_next_instruction(reg_pc);
+              when I_AND => 
+                alu_i1 <= temp_operand;
+                alu_i2 <= std_logic_vector(reg_a);
+                alu_function <= "0001";
+                reg_a <= unsigned(alu_o);
+                flag_n <= alu_neg;
+                flag_z <= alu_z;
+                fetch_next_instruction(reg_pc);
               when I_ASL => null;
-              when I_BIT => null;
-              when I_CMP => null;
-              when I_CPX => null;
-              when I_CPY => null;
+                -- XXX Modify and write back.
+              when I_BIT => 
+                alu_i1 <= temp_operand;
+                alu_i2 <= std_logic_vector(reg_a);
+                alu_function <= "0001";
+                flag_n <= temp_operand(7);
+                flag_z <= alu_z;
+                flag_v <= temp_operand(6);
+                fetch_next_instruction(reg_pc);                
+              when I_CMP =>
+                alu_i1 <= std_logic_vector(reg_a);
+                alu_i2 <= temp_operand;
+                alu_function <= "1001";
+                flag_c <= alu_c;
+                flag_n <= alu_neg;
+                flag_z <= alu_z;
+                fetch_next_instruction(reg_pc);
+              when I_CPX =>
+                alu_i1 <= std_logic_vector(reg_x);
+                alu_i2 <= temp_operand;
+                alu_function <= "1001";
+                flag_c <= alu_c;
+                flag_n <= alu_neg;
+                flag_z <= alu_z;
+                fetch_next_instruction(reg_pc);
+              when I_CPY =>
+                alu_i1 <= std_logic_vector(reg_y);
+                alu_i2 <= temp_operand;
+                alu_function <= "1001";
+                flag_c <= alu_c;
+                flag_n <= alu_neg;
+                flag_z <= alu_z;
+                fetch_next_instruction(reg_pc);
               when I_DEC => null;
               when I_EOR => null;
               when I_INC => null;
