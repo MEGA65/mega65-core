@@ -952,8 +952,23 @@ begin
                   state <= MemoryWrite;
                 else
                   -- Operand is not from I/O, so can just write back
+                  ram_data_i(to_integer(operand1_mem_slot)) <= temp_operand;
+                  ram_we(to_integer(operand1_mem_slot)) <= '1';
+                  -- Then schedule altered value to be written next cycle
+                  flag_c <= temp_operand(7);
+                  flag_n <= temp_operand(6);
+                  if temp_operand(6 downto 0) = "0000000" then
+                    flag_z <= '1';
+                  else
+                    flag_z <= '0';
+                  end if;
+                  temp_operand(7 downto 1) := std_logic_vector(temp_operand(6 downto 0));
+                  temp_operand(0) := '0';
+                  ram_data_i(to_integer(operand1_mem_slot)) <= temp_operand;
+                  ram_we(to_integer(operand1_mem_slot)) <= '1';
                   -- XXX If address low bits don't conflict, can pre-fetch next
                   -- instruction.
+                  state <= InstructionFetch;
                 end if;
               when I_BIT => 
                 alu_i1 <= temp_operand;
