@@ -955,7 +955,7 @@ begin
                 flag_n <= alu_neg;
                 flag_z <= alu_z;
                 fetch_next_instruction(reg_pc);
-              when I_ASL => null;
+              when I_ASL =>
                 -- Modify and write back.
                 if operand_from_io = '1' then
                   -- Operand is from I/O, so need to write back original value
@@ -1059,7 +1059,7 @@ begin
                   -- instruction.
                   state <= InstructionFetch;
                 end if;
-              when I_EOR => null;
+              when I_EOR =>
                 alu_i1 <= temp_operand;
                 alu_i2 <= std_logic_vector(reg_a);
                 alu_function <= "0011";
@@ -1139,7 +1139,7 @@ begin
                   -- instruction.
                   state <= InstructionFetch;
                 end if;
-              when I_ORA => null;
+              when I_ORA =>
                 alu_i1 <= temp_operand;
                 alu_i2 <= std_logic_vector(reg_a);
                 alu_function <= "0010";
