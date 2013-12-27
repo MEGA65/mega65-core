@@ -973,7 +973,15 @@ begin
               when I_ORA => null;
               when I_ROL => null;
               when I_ROR => null;
-              when I_SBC => null;
+              when I_SBC =>
+                alu_i1 <= std_logic_vector(reg_a);
+                alu_i2 <= temp_operand;
+                alu_function <= "1001";
+                flag_c <= alu_c;
+                flag_n <= alu_neg;
+                flag_z <= alu_z;
+                reg_a <= unsigned(alu_o);
+                fetch_next_instruction(reg_pc);
               when others => null;
             end case;
           when JMPIndirectFetch =>
