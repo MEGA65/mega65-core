@@ -94,7 +94,7 @@ architecture Behavioral of cpu6502 is
     -- When CPU first powers up, or reset is bought low
     ResetLow,
     -- States for handling interrupts and reset
-    VectorPushPC,VectorPushP,VectorRead,VectorLoadPC,
+    VectorRead,VectorLoadPC,
     -- Normal instruction states.  Many states will be skipped
     -- by any given instruction.
     -- When an instruction completes, we move back to InstructionFetch
@@ -105,7 +105,6 @@ architecture Behavioral of cpu6502 is
     PushA,                                -- PHA
     PullA,                                -- PLA
     PullP,                                -- PLP
-    BRKPushPCH,BRKPushPCL,BRKPushP,       -- BRK
     RTIPull,                              -- RTI
     RTSPull,                              -- RTS
     JMPIndirectFetch,                     -- JMP absolute indirect
@@ -673,10 +672,31 @@ begin
                   -- push high(PC+2) first
                   -- XXX Need to complete implementation, and push all values
                   -- at once.
-                  
-                  push_byte(std_logic_vector(reg_pcplus2(15 downto 8)));
-                  
-                  state <= BRKPushPCL;              
+
+                  temp_sp_addr(15 downto 8) := x"01";
+                  temp_sp_addr(7 downto 0) := std_logic_vector(reg_sp);
+                  write_to_short_address(temp_sp_addr,
+                                         std_logic_vector(reg_pcplus2(15 downto 8)),
+                                         ram_bank_registers);
+                  temp_sp_addr(7 downto 0) := std_logic_vector(reg_sp -1);
+                  write_to_short_address(temp_sp_addr,
+                                         std_logic_vector(reg_pcplus2(7 downto 0)),
+                                         ram_bank_registers);
+                                    temp_operand(7) := flag_n;
+                  temp_operand(6) := flag_v;
+                  temp_operand(5) := '1';  -- unused bit
+                  temp_operand(4) := '1';  -- BRK flag
+                  temp_operand(3) := flag_d;
+                  temp_operand(2) := flag_i;
+                  temp_operand(1) := flag_z;
+                  temp_operand(0) := flag_c;
+                  temp_sp_addr(7 downto 0) := std_logic_vector(reg_sp -2);
+                  write_to_short_address(temp_sp_addr,
+                                         std_logic_vector(temp_operand),
+                                         ram_bank_registers);
+                  reg_sp <= reg_sp - 3;
+                  vector <= x"FFFE";    -- BRK follows the IRQ vector
+                  state <= VectorRead;
                   normal_instruction := false;
                   null;
                 when I_CLC => flag_c <= '0';
@@ -781,6 +801,8 @@ begin
               -- cycle.
               -- We push (pc+2) since we have not yet incremented it, but
               -- not (pc+3) because RTS adds one to the popped value.
+              -- (actually this means that JSR and BRK can use the same logic for
+              -- pushing the programme counter
               temp_sp_addr(15 downto 8) := x"01";
               temp_sp_addr(7 downto 0) := std_logic_vector(reg_sp);
               write_to_short_address(temp_sp_addr,
