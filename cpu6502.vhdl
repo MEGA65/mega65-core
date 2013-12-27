@@ -105,7 +105,7 @@ architecture Behavioral of cpu6502 is
     PushA,                                -- PHA
     PullA,                                -- PLA
     PullP,                                -- PLP
-    BRKPushPCH,BRKPushPCL,PRKPushP,       -- BRK
+    BRKPushPCH,BRKPushPCL,BRKPushP,       -- BRK
     RTIPull,                              -- RTI
     RTSPull,                              -- RTS
     JMPIndirectFetch,                     -- JMP absolute indirect
@@ -671,6 +671,8 @@ begin
                   -- break instruction. Push state and jump to the appropriate
                   -- vector.
                   -- push high(PC+2) first
+                  -- XXX Need to complete implementation, and push all values
+                  -- at once.
                   
                   push_byte(std_logic_vector(reg_pcplus2(15 downto 8)));
                   
@@ -1014,8 +1016,43 @@ begin
                 fetch_next_instruction(reg_pc);
               when I_INC => null;
                 -- XXX Modify and write back.
-              when I_LSR => null;
-                -- XXX Modify and write back.
+              when I_LSR =>
+                -- Modify and write back.
+                if operand_from_io = '1' then
+                  -- Operand is from I/O, so need to write back original value
+                  ram_data_i(to_integer(operand1_mem_slot)) <= temp_operand;
+                  ram_we(to_integer(operand1_mem_slot)) <= '1';
+                  -- Then schedule altered value to be written next cycle
+                  temp_value(6 downto 0) <= std_logic_vector(temp_operand(7 downto 1));
+                  temp_value(7) <= '0';
+                  flag_c <= temp_operand(0);
+                  flag_n <= '0';
+                  if temp_operand(7 downto 1) = "0000000" then
+                    flag_z <= '1';
+                  else
+                    flag_z <= '0';
+                  end if;
+                  state <= MemoryWrite;
+                else
+                  -- Operand is not from I/O, so can just write back
+                  ram_data_i(to_integer(operand1_mem_slot)) <= temp_operand;
+                  ram_we(to_integer(operand1_mem_slot)) <= '1';
+                  -- Then schedule altered value to be written next cycle
+                  flag_c <= temp_operand(0);
+                  flag_n <= '0';
+                  if temp_operand(7 downto 1) = "0000000" then
+                    flag_z <= '1';
+                  else
+                    flag_z <= '0';
+                  end if;
+                  temp_operand(6 downto 0) := std_logic_vector(temp_operand(7 downto 1));
+                  temp_operand(7) := '0';
+                  ram_data_i(to_integer(operand1_mem_slot)) <= temp_operand;
+                  ram_we(to_integer(operand1_mem_slot)) <= '1';
+                  -- XXX If address low bits don't conflict, can pre-fetch next
+                  -- instruction.
+                  state <= InstructionFetch;
+                end if;
               when I_ORA => null;
                 alu_i1 <= temp_operand;
                 alu_i2 <= std_logic_vector(reg_a);
