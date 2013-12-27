@@ -1025,7 +1025,40 @@ begin
                 flag_z <= alu_z;
                 fetch_next_instruction(reg_pc);
               when I_DEC => null;
-                -- XXX Modify and write back.
+                -- Modify and write back.
+                if operand_from_io = '1' then
+                  -- Operand is from I/O, so need to write back original value
+                  ram_data_i(to_integer(operand1_mem_slot)) <= temp_operand;
+                  ram_we(to_integer(operand1_mem_slot)) <= '1';
+                  -- Then schedule altered value to be written next cycle
+                  temp_value(7 downto 0) <= std_logic_vector(unsigned(temp_operand(7 downto 0))-1);
+                  temp_value(7) <= '0';
+                  flag_n <= temp_operand(7);
+                  if temp_value(7 downto 0) = x"00" then
+                    flag_z <= '1';
+                  else
+                    flag_z <= '0';
+                  end if;
+                  state <= MemoryWrite;
+                else
+                  -- Operand is not from I/O, so can just write back
+                  ram_data_i(to_integer(operand1_mem_slot)) <= temp_operand;
+                  ram_we(to_integer(operand1_mem_slot)) <= '1';
+                  -- Then schedule altered value to be written next cycle
+                  temp_operand(7 downto 0) := std_logic_vector(unsigned(temp_operand(7 downto 0))-1);
+                  temp_operand(7) := '0';
+                  flag_n <= temp_operand(7);
+                  if temp_operand(7 downto 0) = x"00" then
+                    flag_z <= '1';
+                  else
+                    flag_z <= '0';
+                  end if;
+                  ram_data_i(to_integer(operand1_mem_slot)) <= temp_operand;
+                  ram_we(to_integer(operand1_mem_slot)) <= '1';
+                  -- XXX If address low bits don't conflict, can pre-fetch next
+                  -- instruction.
+                  state <= InstructionFetch;
+                end if;
               when I_EOR => null;
                 alu_i1 <= temp_operand;
                 alu_i2 <= std_logic_vector(reg_a);
