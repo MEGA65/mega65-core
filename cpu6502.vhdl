@@ -967,12 +967,31 @@ begin
                 flag_z <= alu_z;
                 fetch_next_instruction(reg_pc);
               when I_DEC => null;
+                -- XXX Modify and write back.
               when I_EOR => null;
+                alu_i1 <= temp_operand;
+                alu_i2 <= std_logic_vector(reg_a);
+                alu_function <= "0011";
+                reg_a <= unsigned(alu_o);
+                flag_n <= alu_neg;
+                flag_z <= alu_z;
+                fetch_next_instruction(reg_pc);
               when I_INC => null;
+                -- XXX Modify and write back.
               when I_LSR => null;
+                -- XXX Modify and write back.
               when I_ORA => null;
+                alu_i1 <= temp_operand;
+                alu_i2 <= std_logic_vector(reg_a);
+                alu_function <= "0010";
+                reg_a <= unsigned(alu_o);
+                flag_n <= alu_neg;
+                flag_z <= alu_z;
+                fetch_next_instruction(reg_pc);
               when I_ROL => null;
+                -- XXX Modify and write back.
               when I_ROR => null;
+                -- XXX Modify and write back.
               when I_SBC =>
                 alu_i1 <= std_logic_vector(reg_a);
                 alu_i2 <= temp_operand;
