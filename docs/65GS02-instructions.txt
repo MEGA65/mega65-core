@@ -1,0 +1,67 @@
+Introduction
+----------
+
+The 65GS02 is the fast CPU core of the C65GS computer.  It is
+basically a fast 6502 with increased IPC through the use of a 64bit
+memory bus.  The memory bus is separated into eight separately
+addressable columns, allowing the fetching of instructions in a single
+cycle, regardless of length.  This, combined with pipelining the
+writing of operands back to registers or memory while fetching the
+next instruction, and the removal of all page-crossing penalties
+allows for an increased IPC compared with an identically clocked
+6502/6510 or even 65C02/4510.
+
+Memory Write Pipelining
+-------------------
+
+Memory write pipelining is possible only when the PC to (PC+2) and the
+memory address being written to do not share the same lower 3 bits,
+and the memory write and instruction fetch are both from fast RAM, as
+it is implemented through the separate addressing of the memory
+columns.  This allows memory write pipelining to occur approximately
+5/8 of the time.
+
+For example the RTS instruction in the code fragment below would be
+fetched while writing the accumulator to location $0401 because the
+lowest three bits of that address are %001, while the lowest three
+bits of the PC through PC+2 are %101, %110 and %111. As none of these
+match %001, the instruction at $2005 can be fetched while committing
+the write.
+
+2000 A9 01     LDA #$01
+2002 8D 01 04  STA $0401
+2005 60        RTS
+
+XXX At the time of writing this feature has not been implemented.
+
+Instruction cycle counts
+-------------------
+
+The primary driver for cycle counts are the addressing mode
+concerned. The following table is for normal instructions.
+
+Cycles Addressing Mode
+----- --------------
+1     Implied
+1     Accumulator
+1     Immediate
+1     Relative
+2     Zero Page
+2     Zero Page,X
+2     Zero Page,Y
+2     Absolute
+2     Absolute,X
+2     Absolute,Y
+3     (ZP,X)
+3     (ZP,Y)
+3     (Absolute)
+
+Notes:
+* For read-modify-write instructions, one additional cycle is required
+to accommodate the memory read.
+* For read-modify-write instructions operating on I/O memory
+addresses, one additional cycle is required to allow for writing the
+original value back to the source address. This allows the DEC $D019
+or LSR $D019 video interrupt acknowledgement idiom to continue to
+work, thus addressing a major source of incompatibility on the C65.
+ 
