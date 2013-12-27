@@ -101,8 +101,6 @@ architecture Behavioral of cpu6502 is
     InstructionFetch,OperandResolve,
     Calculate,MemoryWrite,
     -- Special states used for special instructions
-    PushP,                                -- PHP
-    PushA,                                -- PHA
     PullA,                                -- PLA
     PullP,                                -- PLP
     RTIPull,                              -- RTI
