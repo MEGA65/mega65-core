@@ -1234,6 +1234,11 @@ begin
                 -- unimplemented/illegal ops do nothing
                 state <= InstructionFetch;
             end case;
+          when MemoryWrite =>
+            ram_data_i(to_integer(operand1_mem_slot)) <= temp_value;
+            ram_we(to_integer(operand1_mem_slot)) <= '1';
+            -- XXX can prefetch next instruction if lower bits don't clash
+            state <= InstructionFetch;
           when JMPIndirectFetch =>
             -- Fetched indirect address, so copy it into the programme counter
             set_pc(unsigned(temp_operand_address));
