@@ -49,6 +49,9 @@ architecture Behavioral of cpu6502 is
   signal reg_sp : unsigned(7 downto 0);
   signal reg_pc : unsigned(15 downto 0);
 
+  signal nmi_pending : std_logic := '0';
+  signal irq_pending : std_logic := '0';
+
   -- interface to ALU
   signal alu_function : std_logic_vector(3 downto 0);
   signal alu_i1 : std_logic_vector(7 downto 0);
@@ -94,7 +97,7 @@ architecture Behavioral of cpu6502 is
     -- When CPU first powers up, or reset is bought low
     ResetLow,
     -- States for handling interrupts and reset
-    VectorRead,VectorLoadPC,
+    Interrupt,VectorRead,VectorLoadPC,
     -- Normal instruction states.  Many states will be skipped
     -- by any given instruction.
     -- When an instruction completes, we move back to InstructionFetch
@@ -369,7 +372,7 @@ begin
       request_read_long_address(long_addr);        
 
     end procedure read_indirect_operand;
-  
+    
     procedure fetch_next_instruction(pc : unsigned(15 downto 0)) is 
       variable long_pc : std_logic_vector(27 downto 0);
       variable long_pc1 : std_logic_vector(27 downto 0);
@@ -504,7 +507,7 @@ begin
         operand_from_slowram <= '0';
       end if;
     end procedure do_direct_operand;
-      
+    
     procedure fetch_stack_bytes is 
       variable long_pc : std_logic_vector(27 downto 0);
       variable long_pc1 : std_logic_vector(27 downto 0);
@@ -577,6 +580,12 @@ begin
 
     variable temp_sp_addr : std_logic_vector(15 downto 0);
   begin
+    if falling_edge(nmi) then
+      nmi_pending <= '1';
+    end if;
+    if falling_edge(irq) then
+      irq_pending <= '1';
+    end if;
     if rising_edge(clock) then
       monitor_pc <= std_logic_vector(reg_pc);
       report "tick" severity note;
@@ -609,6 +618,32 @@ begin
       else
         -- act based on state
         case state is
+          when Interrupt =>
+            -- break instruction. Push state and jump to the appropriate
+            -- vector.
+            temp_sp_addr(15 downto 8) := x"01";
+            temp_sp_addr(7 downto 0) := std_logic_vector(reg_sp);
+            write_to_short_address(temp_sp_addr,
+                                   std_logic_vector(reg_pcplus2(15 downto 8)),
+                                   ram_bank_registers);
+            temp_sp_addr(7 downto 0) := std_logic_vector(reg_sp -1);
+            write_to_short_address(temp_sp_addr,
+                                   std_logic_vector(reg_pcplus2(7 downto 0)),
+                                   ram_bank_registers);
+            temp_operand(7) := flag_n;
+            temp_operand(6) := flag_v;
+            temp_operand(5) := '1';  -- unused bit
+            temp_operand(4) := '0';  -- BRK flag
+            temp_operand(3) := flag_d;
+            temp_operand(2) := flag_i;
+            temp_operand(1) := flag_z;
+            temp_operand(0) := flag_c;
+            temp_sp_addr(7 downto 0) := std_logic_vector(reg_sp -2);
+            write_to_short_address(temp_sp_addr,
+                                   std_logic_vector(temp_operand),
+                                   ram_bank_registers);
+            reg_sp <= reg_sp - 3;
+            state <= VectorRead;
           when VectorRead =>
             report "state=VectorRead" severity note;
             -- Read PC from vector,vector+1
@@ -666,266 +701,279 @@ begin
             fetch_next_instruction(reg_pc);
             state<=OperandResolve;
           when OperandResolve =>
-            -- Get opcode and operands
-            temp_opcode <= ram_data_o(to_integer(op_mem_slot));
-            temp_operand_address(15 downto 8) := ram_data_o(to_integer(operand2_mem_slot));
-            temp_operand_address(7 downto 0) := ram_data_o(to_integer(operand1_mem_slot));
+            -- Get opcode and operands, or initiate an interrupt
+            -- IRQ is level triggered
+            if nmi_pending = '1' then
+              state <= Interrupt;
+              vector <= x"FFFA";
+              nmi_pending <= '0';
+            elsif irq_pending = '1' and flag_i = '0' then
+              flag_i <= '1';
+              state <= Interrupt;
+              vector <= x"FFFE";
+              irq_pending <= '0';
+            else
+              temp_opcode <= ram_data_o(to_integer(op_mem_slot));
+              temp_operand_address(15 downto 8) := ram_data_o(to_integer(operand2_mem_slot));
+              temp_operand_address(7 downto 0) := ram_data_o(to_integer(operand1_mem_slot));
 
-            -- Lookup instruction and addressing mode
-            op_instruction <= instruction_lut(to_integer(unsigned(temp_opcode)));
-            op_mode <= mode_lut(to_integer(unsigned(temp_opcode)));
+              -- Lookup instruction and addressing mode
+              op_instruction <= instruction_lut(to_integer(unsigned(temp_opcode)));
+              op_mode <= mode_lut(to_integer(unsigned(temp_opcode)));
 
-            if op_mode=M_implied then
-              -- implied mode, handle instruction now, add one to PC, and
-              -- go to fetch next instruction
-              normal_instruction := true;
-              case op_instruction is
-                when I_BRK =>
-                  -- break instruction. Push state and jump to the appropriate
-                  -- vector.
-                  temp_sp_addr(15 downto 8) := x"01";
-                  temp_sp_addr(7 downto 0) := std_logic_vector(reg_sp);
-                  write_to_short_address(temp_sp_addr,
-                                         std_logic_vector(reg_pcplus2(15 downto 8)),
-                                         ram_bank_registers);
-                  temp_sp_addr(7 downto 0) := std_logic_vector(reg_sp -1);
-                  write_to_short_address(temp_sp_addr,
-                                         std_logic_vector(reg_pcplus2(7 downto 0)),
-                                         ram_bank_registers);
-                                    temp_operand(7) := flag_n;
-                  temp_operand(6) := flag_v;
-                  temp_operand(5) := '1';  -- unused bit
-                  temp_operand(4) := '1';  -- BRK flag
-                  temp_operand(3) := flag_d;
-                  temp_operand(2) := flag_i;
-                  temp_operand(1) := flag_z;
-                  temp_operand(0) := flag_c;
-                  temp_sp_addr(7 downto 0) := std_logic_vector(reg_sp -2);
-                  write_to_short_address(temp_sp_addr,
-                                         std_logic_vector(temp_operand),
-                                         ram_bank_registers);
-                  reg_sp <= reg_sp - 3;
-                  vector <= x"FFFE";    -- BRK follows the IRQ vector
-                  state <= VectorRead;
-                  normal_instruction := false;
+              if op_mode=M_implied then
+                -- implied mode, handle instruction now, add one to PC, and
+                -- go to fetch next instruction
+                normal_instruction := true;
+                case op_instruction is
+                  when I_BRK =>
+                    -- break instruction. Push state and jump to the appropriate
+                    -- vector.
+                    temp_sp_addr(15 downto 8) := x"01";
+                    temp_sp_addr(7 downto 0) := std_logic_vector(reg_sp);
+                    write_to_short_address(temp_sp_addr,
+                                           std_logic_vector(reg_pcplus2(15 downto 8)),
+                                           ram_bank_registers);
+                    temp_sp_addr(7 downto 0) := std_logic_vector(reg_sp -1);
+                    write_to_short_address(temp_sp_addr,
+                                           std_logic_vector(reg_pcplus2(7 downto 0)),
+                                           ram_bank_registers);
+                    temp_operand(7) := flag_n;
+                    temp_operand(6) := flag_v;
+                    temp_operand(5) := '1';  -- unused bit
+                    temp_operand(4) := '1';  -- BRK flag
+                    temp_operand(3) := flag_d;
+                    temp_operand(2) := flag_i;
+                    temp_operand(1) := flag_z;
+                    temp_operand(0) := flag_c;
+                    temp_sp_addr(7 downto 0) := std_logic_vector(reg_sp -2);
+                    write_to_short_address(temp_sp_addr,
+                                           std_logic_vector(temp_operand),
+                                           ram_bank_registers);
+                    reg_sp <= reg_sp - 3;
+                    vector <= x"FFFE";    -- BRK follows the IRQ vector
+                    flag_i <= '1';      -- Disable further IRQs while the
+                                        -- interrupt is being handled.
+                    state <= VectorRead;
+                    normal_instruction := false;                 
+                  when I_CLC => flag_c <= '0';
+                  when I_CLD => flag_d <= '0';
+                  when I_CLI => flag_i <= '0';
+                  when I_CLV => flag_v <= '0';
+                  when I_DEX => reg_x <= reg_x - 1; set_cpu_flags_inc(reg_x);
+                  when I_DEY => reg_y <= reg_y - 1; set_cpu_flags_inc(reg_y);
+                  when I_INX => reg_x <= reg_x + 1; set_cpu_flags_inc(reg_x);
+                  when I_INY => reg_y <= reg_y + 1; set_cpu_flags_inc(reg_y);
+                  when I_KIL => state <= Halt; normal_instruction:= false;
+                  when I_NOP => null;
+                  when I_PHA =>
+                    push_byte(std_logic_vector(reg_a));
+                    advance_pc(1);
+                    normal_instruction := false;
+                    state <= InstructionFetch;
+                  when I_PHP =>
+                    temp_operand(7) := flag_n;
+                    temp_operand(6) := flag_v;
+                    temp_operand(5) := '1';  -- unused bit
+                    temp_operand(4) := '0';  -- BRK flag
+                    temp_operand(3) := flag_d;
+                    temp_operand(2) := flag_i;
+                    temp_operand(1) := flag_z;
+                    temp_operand(0) := flag_c;
+                    push_byte(temp_operand);
+                    advance_pc(1);
+                    normal_instruction := false;
+                    state <= InstructionFetch;
+                  when I_PLA =>
+                    pull_byte;
+                    state <= PullA;
+                    advance_pc(1);
+                    normal_instruction := false;
+                  when I_PLP =>
+                    pull_byte;
+                    state <= PullP;
+                    advance_pc(1);
+                    normal_instruction := false;
+                  when I_RTI =>
+                    fetch_stack_bytes;
+                    reg_sp <= reg_sp + 3;
+                    state <= RTIPull;
+                    normal_instruction := false;
+                  when I_RTS =>
+                    fetch_stack_bytes;
+                    reg_sp <= reg_sp + 2;
+                    state <= RTSPull;
+                    normal_instruction := false;
+                  when I_SEC => flag_c <= '1';
+                  when I_SED => flag_d <= '1';
+                  when I_SEI => flag_i <= '1';
+                  when I_TAX => reg_x <= reg_a;
+                  when I_TAY => reg_y <= reg_a;
+                  when I_TSX => reg_x <= reg_sp;
+                  when I_TXA => reg_a <= reg_x;
+                  when I_TXS => reg_sp <= reg_x;
+                  when I_TYA => reg_a <= reg_a;
+                  when others => null;
+                                 -- unsupported instruction, just advance PC
+                end case;
+                if normal_instruction=true then
+                  -- advance PC to next instruction, and fetch it.
+                  -- We can actually pre-fetch the instruction and
+                  -- bypass going through InstructionFetch.
+                  -- This will result in implied mode instructions that don't
+                  -- touch the stack taking only one cycle.
+                  fetch_next_instruction(reg_pcplus1);
+                  state <= OperandResolve;
+                end if;
+              elsif op_mode=M_relative then
+                -- a relative branch, work out whether to take the branch
+                -- and act accordingly. We don't need to do anything further
+                if (op_instruction=I_BCC and flag_c='0')
+                  or (op_instruction=I_BCS and flag_c='1')
+                  or (op_instruction=I_BVC and flag_v='0')
+                  or (op_instruction=I_BVS and flag_v='1')
+                  or (op_instruction=I_BEQ and flag_z='0')
+                  or (op_instruction=I_BNE and flag_z='1') then
+                  -- take branch
+                  if temp_operand_address(7)='0' then
+                    -- branch forwards. Add two to address because this is a two
+                    -- byte instruction
+                    reg_pc <= reg_pcplus2 + unsigned(temp_operand_address(6 downto 0));
+                  else
+                    -- branch backwards.
+                    reg_pc <= reg_pcplus2 - 128 + unsigned(not temp_operand_address(6 downto 0));
+                  end if;
+                  reg_pcplus1 <= reg_pc + 1;
+                  reg_pcplus2 <= reg_pc + 2;
+                else
+                  -- don't take branch, just advance program counter
+                  reg_pc <= reg_pc + 2;
+                  reg_pcplus1 <= reg_pc + 3;
+                  reg_pcplus2 <= reg_pc + 4;
+                end if;
+                state <= InstructionFetch;
+                -- JMP and JSR require special treatment
+              elsif op_instruction=I_JSR then
+                -- Push both operands, bump SP and set PC all in one
+                -- cycle.
+                -- We push (pc+2) since we have not yet incremented it, but
+                -- not (pc+3) because RTS adds one to the popped value.
+                -- (actually this means that JSR and BRK can use the same logic for
+                -- pushing the programme counter
+                temp_sp_addr(15 downto 8) := x"01";
+                temp_sp_addr(7 downto 0) := std_logic_vector(reg_sp);
+                write_to_short_address(temp_sp_addr,
+                                       std_logic_vector(reg_pcplus2(15 downto 8)),
+                                       ram_bank_registers);
+                temp_sp_addr(7 downto 0) := std_logic_vector(reg_sp -1);
+                write_to_short_address(temp_sp_addr,
+                                       std_logic_vector(reg_pcplus2(7 downto 0)),
+                                       ram_bank_registers);
+                reg_sp <= reg_sp - 2;
+                set_pc(unsigned(temp_operand_address));
+                fetch_next_instruction(unsigned(temp_operand_address));
+                state <= OperandResolve;
+              elsif op_instruction=I_JMP and op_mode=M_absolute then
+                -- JMP absolute mode: very simple, just overwrite the
+                -- programme counter.
+                set_pc(unsigned(temp_operand_address));
+                fetch_next_instruction(unsigned(temp_operand_address));
+                state <= OperandResolve;
+              elsif op_instruction=I_JMP and op_mode=M_indirect then
+                -- JMP indirect absolute.
+                -- Fetch the two bytes, and then do the jump next cycle
+                -- We can use fetch_next_instruction to do this for us
+                -- (although it will read the byte before as a pretend
+                --  opcode).
+                fetch_next_instruction(unsigned(temp_operand_address)-1);
+                state <= JMPIndirectFetch;
+              elsif op_mode=M_accumulator then
+                -- accumulator mode, so no need to read from memory
+                -- There are only four accumulator mode instructions that do anything.
+                -- They are all bit shifting operations.
+                -- There are also four NOPs
+                -- We handle the accumulator mode instructions as a special case
+                -- basically because we can execute them faster (in 1 cycle) that
+                -- way.  The memory based versions will take 3 cycles since they
+                -- need to read and write a memory location.
+                if op_instruction = I_ASL or op_instruction = I_ROL then
+                  -- shift left
+                  temp_operand(7 downto 1) := std_logic_vector(reg_a(6 downto 0));
+                  if op_instruction = I_ROL then
+                    temp_operand(0) := flag_c;
+                  else
+                    temp_operand(0) := '0';
+                  end if;
+                  flag_c <= reg_a(7);
+                end if;
+                if op_instruction = I_LSR or op_instruction = I_ROR then
+                  -- shift right
+                  temp_operand(6 downto 0) := std_logic_vector(reg_a(7 downto 1));
+                  if op_instruction = I_ROR then
+                    temp_operand(7) := flag_c;
+                  else
+                    temp_operand(7) := '0';
+                  end if;
+                  flag_c <= reg_a(0);
+                end if;
+                if op_instruction = I_NOP then
                   null;
-                when I_CLC => flag_c <= '0';
-                when I_CLD => flag_d <= '0';
-                when I_CLI => flag_i <= '0';
-                when I_CLV => flag_v <= '0';
-                when I_DEX => reg_x <= reg_x - 1; set_cpu_flags_inc(reg_x);
-                when I_DEY => reg_y <= reg_y - 1; set_cpu_flags_inc(reg_y);
-                when I_INX => reg_x <= reg_x + 1; set_cpu_flags_inc(reg_x);
-                when I_INY => reg_y <= reg_y + 1; set_cpu_flags_inc(reg_y);
-                when I_KIL => state <= Halt; normal_instruction:= false;
-                when I_NOP => null;
-                when I_PHA =>
-                  push_byte(std_logic_vector(reg_a));
-                  advance_pc(1);
-                  normal_instruction := false;
-                  state <= InstructionFetch;
-                when I_PHP =>
-                  temp_operand(7) := flag_n;
-                  temp_operand(6) := flag_v;
-                  temp_operand(5) := '1';  -- unused bit
-                  temp_operand(4) := '0';  -- BRK flag
-                  temp_operand(3) := flag_d;
-                  temp_operand(2) := flag_i;
-                  temp_operand(1) := flag_z;
-                  temp_operand(0) := flag_c;
-                  push_byte(temp_operand);
-                  advance_pc(1);
-                  normal_instruction := false;
-                  state <= InstructionFetch;
-                when I_PLA =>
-                  pull_byte;
-                  state <= PullA;
-                  advance_pc(1);
-                  normal_instruction := false;
-                when I_PLP =>
-                  pull_byte;
-                  state <= PullP;
-                  advance_pc(1);
-                  normal_instruction := false;
-                when I_RTI =>
-                  fetch_stack_bytes;
-                  reg_sp <= reg_sp + 3;
-                  state <= RTIPull;
-                  normal_instruction := false;
-                when I_RTS =>
-                  fetch_stack_bytes;
-                  reg_sp <= reg_sp + 2;
-                  state <= RTSPull;
-                  normal_instruction := false;
-                when I_SEC => flag_c <= '1';
-                when I_SED => flag_d <= '1';
-                when I_SEI => flag_i <= '1';
-                when I_TAX => reg_x <= reg_a;
-                when I_TAY => reg_y <= reg_a;
-                when I_TSX => reg_x <= reg_sp;
-                when I_TXA => reg_a <= reg_x;
-                when I_TXS => reg_sp <= reg_x;
-                when I_TYA => reg_a <= reg_a;
-                when others => null;
-                               -- unsupported instruction, just advance PC
-              end case;
-              if normal_instruction=true then
-                -- advance PC to next instruction, and fetch it.
-                -- We can actually pre-fetch the instruction and
-                -- bypass going through InstructionFetch.
-                -- This will result in implied mode instructions that don't
-                -- touch the stack taking only one cycle.
+                else
+                  flag_n <= temp_operand(7);
+                  if temp_operand = x"00" then
+                    flag_z <= '1';
+                  else
+                    flag_z <= '0';
+                  end if;
+                  reg_a <= unsigned(temp_operand);
+                  flag_n <= temp_operand(6);
+                end if;
                 fetch_next_instruction(reg_pcplus1);
                 state <= OperandResolve;
+              elsif op_mode=M_zeropage then
+                temp_address(7 downto 0) := temp_operand_address(7 downto 0);
+                temp_address(15 downto 8) := "00000000";
+                advance_pc(2);
+                do_direct_operand(temp_address,ram_bank_registers,op_instruction);
+              elsif op_mode=M_zeropageX then
+                temp_address(7 downto 0) := std_logic_vector(unsigned(temp_operand_address(7 downto 0)) + unsigned(reg_x));
+                temp_address(15 downto 8) := "00000000";
+                advance_pc(2);
+                do_direct_operand(temp_address,ram_bank_registers,op_instruction);
+              elsif op_mode=M_zeropageY then
+                temp_address(7 downto 0) := std_logic_vector(unsigned(temp_operand_address(7 downto 0)) + unsigned(reg_y));
+                temp_address(15 downto 8) := "00000000";
+                advance_pc(2);
+                do_direct_operand(temp_address,ram_bank_registers,op_instruction);
+              elsif op_mode=M_absolute then
+                temp_address(15 downto 0) := temp_operand_address;
+                advance_pc(3);
+                do_direct_operand(temp_address,ram_bank_registers,op_instruction);
+              elsif op_mode=M_absoluteX then
+                temp_address(15 downto 0) := std_logic_vector(unsigned(temp_operand_address) + unsigned(reg_x));
+                advance_pc(3);
+                do_direct_operand(temp_address,ram_bank_registers,op_instruction);
+              elsif op_mode=M_absoluteY then
+                temp_address(15 downto 0) := std_logic_vector(unsigned(temp_operand_address) + unsigned(reg_y));
+                advance_pc(3);
+                do_direct_operand(temp_address,ram_bank_registers,op_instruction);
+              elsif op_mode=M_indirectX then
+                -- Pre-indexed ZP indirect, wrapping from $FF to $00, not $100
+                -- if operand+X=$FF
+                temp_address(7 downto 0) := std_logic_vector(unsigned(temp_operand_address(7 downto 0)) + reg_x);
+                advance_pc(2);
+                read_indirect_operand(temp_address(7 downto 0),ram_bank_registers);
+                op_mode<=M_absolute;
+                state <= OperandResolve;
+              elsif op_mode=M_indirectY then
+                -- Post-indexed ZP indirect, wrapping from $FF to $00, not $100
+                -- if operand=$FF
+                temp_address(7 downto 0) := temp_operand_address(7 downto 0);
+                advance_pc(2);
+                read_indirect_operand(temp_address(7 downto 0),ram_bank_registers);
+                op_mode<=M_absoluteY;
+                state <= OperandResolve;
               end if;
-            elsif op_mode=M_relative then
-              -- a relative branch, work out whether to take the branch
-              -- and act accordingly. We don't need to do anything further
-              if (op_instruction=I_BCC and flag_c='0')
-                or (op_instruction=I_BCS and flag_c='1')
-                or (op_instruction=I_BVC and flag_v='0')
-                or (op_instruction=I_BVS and flag_v='1')
-                or (op_instruction=I_BEQ and flag_z='0')
-                or (op_instruction=I_BNE and flag_z='1') then
-                -- take branch
-                if temp_operand_address(7)='0' then
-                  -- branch forwards. Add two to address because this is a two
-                  -- byte instruction
-                  reg_pc <= reg_pcplus2 + unsigned(temp_operand_address(6 downto 0));
-                else
-                  -- branch backwards.
-                  reg_pc <= reg_pcplus2 - 128 + unsigned(not temp_operand_address(6 downto 0));
-                end if;
-                reg_pcplus1 <= reg_pc + 1;
-                reg_pcplus2 <= reg_pc + 2;
-              else
-                -- don't take branch, just advance program counter
-                reg_pc <= reg_pc + 2;
-                reg_pcplus1 <= reg_pc + 3;
-                reg_pcplus2 <= reg_pc + 4;
-              end if;
-              state <= InstructionFetch;
-              -- JMP and JSR require special treatment
-            elsif op_instruction=I_JSR then
-              -- Push both operands, bump SP and set PC all in one
-              -- cycle.
-              -- We push (pc+2) since we have not yet incremented it, but
-              -- not (pc+3) because RTS adds one to the popped value.
-              -- (actually this means that JSR and BRK can use the same logic for
-              -- pushing the programme counter
-              temp_sp_addr(15 downto 8) := x"01";
-              temp_sp_addr(7 downto 0) := std_logic_vector(reg_sp);
-              write_to_short_address(temp_sp_addr,
-                                     std_logic_vector(reg_pcplus2(15 downto 8)),
-                                     ram_bank_registers);
-              temp_sp_addr(7 downto 0) := std_logic_vector(reg_sp -1);
-              write_to_short_address(temp_sp_addr,
-                                     std_logic_vector(reg_pcplus2(7 downto 0)),
-                                     ram_bank_registers);
-              reg_sp <= reg_sp - 2;
-              set_pc(unsigned(temp_operand_address));
-              fetch_next_instruction(unsigned(temp_operand_address));
-              state <= OperandResolve;
-            elsif op_instruction=I_JMP and op_mode=M_absolute then
-              -- JMP absolute mode: very simple, just overwrite the
-              -- programme counter.
-              set_pc(unsigned(temp_operand_address));
-              fetch_next_instruction(unsigned(temp_operand_address));
-              state <= OperandResolve;
-            elsif op_instruction=I_JMP and op_mode=M_indirect then
-              -- JMP indirect absolute.
-              -- Fetch the two bytes, and then do the jump next cycle
-              -- We can use fetch_next_instruction to do this for us
-              -- (although it will read the byte before as a pretend
-              --  opcode).
-              fetch_next_instruction(unsigned(temp_operand_address)-1);
-              state <= JMPIndirectFetch;
-            elsif op_mode=M_accumulator then
-              -- accumulator mode, so no need to read from memory
-              -- There are only four accumulator mode instructions that do anything.
-              -- They are all bit shifting operations.
-              -- There are also four NOPs
-              -- We handle the accumulator mode instructions as a special case
-              -- basically because we can execute them faster (in 1 cycle) that
-              -- way.  The memory based versions will take 3 cycles since they
-              -- need to read and write a memory location.
-              if op_instruction = I_ASL or op_instruction = I_ROL then
-                -- shift left
-                temp_operand(7 downto 1) := std_logic_vector(reg_a(6 downto 0));
-                if op_instruction = I_ROL then
-                  temp_operand(0) := flag_c;
-                else
-                  temp_operand(0) := '0';
-                end if;
-                flag_c <= reg_a(7);
-              end if;
-              if op_instruction = I_LSR or op_instruction = I_ROR then
-                -- shift right
-                temp_operand(6 downto 0) := std_logic_vector(reg_a(7 downto 1));
-                if op_instruction = I_ROR then
-                  temp_operand(7) := flag_c;
-                else
-                  temp_operand(7) := '0';
-                end if;
-                flag_c <= reg_a(0);
-              end if;
-              if op_instruction = I_NOP then
-                null;
-              else
-                flag_n <= temp_operand(7);
-                if temp_operand = x"00" then
-                  flag_z <= '1';
-                else
-                  flag_z <= '0';
-                end if;
-                reg_a <= unsigned(temp_operand);
-                flag_n <= temp_operand(6);
-              end if;
-              fetch_next_instruction(reg_pcplus1);
-              state <= OperandResolve;
-            elsif op_mode=M_zeropage then
-              temp_address(7 downto 0) := temp_operand_address(7 downto 0);
-              temp_address(15 downto 8) := "00000000";
-              advance_pc(2);
-              do_direct_operand(temp_address,ram_bank_registers,op_instruction);
-            elsif op_mode=M_zeropageX then
-              temp_address(7 downto 0) := std_logic_vector(unsigned(temp_operand_address(7 downto 0)) + unsigned(reg_x));
-              temp_address(15 downto 8) := "00000000";
-              advance_pc(2);
-              do_direct_operand(temp_address,ram_bank_registers,op_instruction);
-            elsif op_mode=M_zeropageY then
-              temp_address(7 downto 0) := std_logic_vector(unsigned(temp_operand_address(7 downto 0)) + unsigned(reg_y));
-              temp_address(15 downto 8) := "00000000";
-              advance_pc(2);
-              do_direct_operand(temp_address,ram_bank_registers,op_instruction);
-            elsif op_mode=M_absolute then
-              temp_address(15 downto 0) := temp_operand_address;
-              advance_pc(3);
-              do_direct_operand(temp_address,ram_bank_registers,op_instruction);
-            elsif op_mode=M_absoluteX then
-              temp_address(15 downto 0) := std_logic_vector(unsigned(temp_operand_address) + unsigned(reg_x));
-              advance_pc(3);
-              do_direct_operand(temp_address,ram_bank_registers,op_instruction);
-            elsif op_mode=M_absoluteY then
-              temp_address(15 downto 0) := std_logic_vector(unsigned(temp_operand_address) + unsigned(reg_y));
-              advance_pc(3);
-              do_direct_operand(temp_address,ram_bank_registers,op_instruction);
-            elsif op_mode=M_indirectX then
-              -- Pre-indexed ZP indirect, wrapping from $FF to $00, not $100
-              -- if operand+X=$FF
-              temp_address(7 downto 0) := std_logic_vector(unsigned(temp_operand_address(7 downto 0)) + reg_x);
-              advance_pc(2);
-              read_indirect_operand(temp_address(7 downto 0),ram_bank_registers);
-              op_mode<=M_absolute;
-              state <= OperandResolve;
-            elsif op_mode=M_indirectY then
-              -- Post-indexed ZP indirect, wrapping from $FF to $00, not $100
-              -- if operand=$FF
-              temp_address(7 downto 0) := temp_operand_address(7 downto 0);
-              advance_pc(2);
-              read_indirect_operand(temp_address(7 downto 0),ram_bank_registers);
-              op_mode<=M_absoluteY;
-              state <= OperandResolve;
             end if;
           when Calculate =>
             -- This is an instruction that operates on a byte fetched from memory.
