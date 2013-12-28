@@ -667,10 +667,6 @@ begin
                 when I_BRK =>
                   -- break instruction. Push state and jump to the appropriate
                   -- vector.
-                  -- push high(PC+2) first
-                  -- XXX Need to complete implementation, and push all values
-                  -- at once.
-
                   temp_sp_addr(15 downto 8) := x"01";
                   temp_sp_addr(7 downto 0) := std_logic_vector(reg_sp);
                   write_to_short_address(temp_sp_addr,
