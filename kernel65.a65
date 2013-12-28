@@ -1,0 +1,32 @@
+	.org $E000
+
+
+reset:	; reset entry point
+	LDA $0401
+	ADC #$01
+        STA $0401
+        LDA $0402
+	ADC #$00
+	STA $0402
+	LDA $0403
+	ADC #$00
+	STA $0403
+	LDA $0404
+	ADC #$00
+	STA $0404
+	LDA $0405
+	ADC #$00
+	STA $0405
+	JMP reset
+
+irq:	RTI
+
+nmi:	RTI
+
+	; 6502 interrupt and reset vectors
+	.advance $FFFA
+	.word nmi
+	.word reset
+	.word irq
+
+	.outfile "kernel65.bin"
