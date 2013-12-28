@@ -483,11 +483,32 @@ begin
         when others => writeP:=false;
       end case;
 
-      if long_addr(27 downto 12) = x"FFFD" then
-        -- To/From I/O block
+      if long_addr(27 downto 24) = x"F" then
+        -- To/From fast I/O block
+        -- (also used for 8-bit wide ROMs)
         operand_from_io <= '1';
         operand_from_ram <= '0';
-        operand_from_slowram <= '0';   
+        operand_from_slowram <= '0';
+
+        fastio_addr <= long_addr(19 downto 0);
+        if writeP then
+          fastio_write <= '1';
+          fastio_read <= '0';
+          fastio_wdata <= write_value;
+          -- Can always prefetch here if PC does not map to fastio,
+          -- but never if PC does map to fastio
+          -- XXX implement PC fastIO check so that we can save a cycle here
+          state <= InstructionFetch;
+        else
+          fastio_write <= '0';
+          fastio_read <= '1';
+          state <= Calculate;
+        end if;
+        
+        -- clear any access to fast ram
+        for i in 0 to 7 loop
+          ram_we(i) <= '0';
+        end loop;  -- i
       elsif long_addr(27 downto 12) > x"8000"
         and long_addr(27 downto 12) < x"9000" then
         -- To/From slow 16MB cellular RAM
@@ -507,6 +528,9 @@ begin
           request_read_long_address(long_addr);
           state <= Calculate;
         end if;
+        -- Clear any previous access to IO space
+        fastio_write <= '0';
+        fastio_read <= '0';
       else
         -- Reading from unmapped address space
         -- XXX Trigger a page-fault?
@@ -999,6 +1023,9 @@ begin
             elsif operand_from_ram = '1' then
               -- Memory read from fast RAM.
               temp_operand := ram_data_o(to_integer(operand1_mem_slot));
+            elsif operand_from_io = '1' then
+              -- Memory read from fast IO.
+              temp_operand := fastio_rdata;
             else
               -- Read is from somewhere else, possibly an unmapped address
               temp_operand := x"FF";
