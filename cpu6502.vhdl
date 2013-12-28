@@ -654,8 +654,11 @@ begin
             -- We save one cycle for every interrupt here by doing
             -- the instruction fetch here, and then passing into OperandResolve
             -- next cycle.
-            fetch_next_instruction(unsigned(temp_address));
-            state <= OperandResolve;
+            -- Saving a cylce here costs ~16MHz in clock speed:
+            -- fetch_next_instruction(unsigned(temp_address));
+            -- state <= OperandResolve;
+            -- So instead, let's wear the extra cycle and allow for a faster clock:
+            state <= InstructionFetch;
           when InstructionFetch =>
             -- Work out which three bytes to fetch.
             -- Probably easiest to do a parallel calculation based on lower
