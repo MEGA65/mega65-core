@@ -31,10 +31,11 @@ use IEEE.STD_LOGIC_1164.ALL;
 
 entity container is
     Port ( CLK_IN : STD_LOGIC;
-	        reset : in  STD_LOGIC;
+           reset : in  STD_LOGIC;
            irq : in  STD_LOGIC;
            nmi : in  STD_LOGIC;
-			  monitor_pc : out STD_LOGIC_VECTOR(15 downto 0));
+           monitor_pc : out STD_LOGIC_VECTOR(15 downto 0)
+           );
 end container;
 
 architecture Behavioral of container is
@@ -43,8 +44,27 @@ architecture Behavioral of container is
            reset : in  STD_LOGIC;
            irq : in  STD_LOGIC;
            nmi : in  STD_LOGIC;
-			  monitor_pc : out STD_LOGIC_VECTOR(15 downto 0));
+           monitor_pc : out STD_LOGIC_VECTOR(15 downto 0);
+
+           -- fast IO port (clocked at core clock)
+           fastio_addr : out std_logic_vector(19 downto 0);
+           fastio_read : out std_logic;
+           fastio_write : out std_logic;
+           fastio_wdata : out std_logic_vector(7 downto 0);
+           fastio_rdata : in std_logic_vector(7 downto 0)
+           );      
   end component;
+  
+  component iomapper is
+    port (Clk : in std_logic;
+        address : in std_logic_vector(19 downto 0);
+        r : in std_logic;
+        w : in std_logic;
+        data_i : in std_logic_vector(7 downto 0);
+        data_o : out std_logic_vector(7 downto 0)
+     );
+  end component;
+    
   component fpga_clock is
   port
    (-- Clock in ports
@@ -72,10 +92,25 @@ architecture Behavioral of container is
 
    signal clock : STD_LOGIC;
 	signal VGA_PIXEL_CLOCK : STD_LOGIC;
+
+  signal fastio_addr : std_logic_vector(19 downto 0);
+  signal fastio_read : std_logic;
+  signal fastio_write : std_logic;
+  signal fastio_wdata : std_logic_vector(7 downto 0);
+  signal fastio_rdata : std_logic_vector(7 downto 0);
+
    
 begin
   cpu0: cpu6502 port map(clock => clock,reset =>reset,irq => irq,
-                         nmi => nmi,monitor_pc => monitor_pc);
+                         nmi => nmi,monitor_pc => monitor_pc,
+                         fastio_addr => fastio_addr,
+                         fastio_read => fastio_read,
+                         fastio_write => fastio_write,
+                         fastio_wdata => fastio_wdata,
+                         fastio_rdata => fastio_wdata);
+  iomapper0: iomapper port map (
+    clk => clock, address => fastio_addr, r => fastio_read, w => fastio_write,
+    data_i => fastio_wdata, data_o => fastio_rdata);
   fast_clock: fpga_clock port map(CLK_IN1 => CLK_IN,
                                   CLK_OUT2 => clock,reset => reset);
   pixel_clock: vga_clock port map(CLK_IN1 => CLK_IN,

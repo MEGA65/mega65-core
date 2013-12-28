@@ -10,7 +10,15 @@ entity cpu6502 is
     reset : in std_logic;
     irq : in std_logic;
     nmi : in std_logic;
-    monitor_pc : out std_logic_vector(15 downto 0));
+    monitor_pc : out std_logic_vector(15 downto 0);
+
+    -- fast IO port (clocked at core clock). 1MB address space
+    fastio_addr : out std_logic_vector(19 downto 0);
+    fastio_read : out std_logic;
+    fastio_write : out std_logic;
+    fastio_wdata : out std_logic_vector(7 downto 0);
+    fastio_rdata : in std_logic_vector(7 downto 0)
+    );
   
 end cpu6502;
 

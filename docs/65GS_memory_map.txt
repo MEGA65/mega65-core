@@ -64,6 +64,8 @@ $FFD3.000 - $FFD3.FFF - I/O page, with extra registers and features enabled.
 $FFD2.000 - $FFD2.FFF - C64-style I/O page, extra features enabled (eg REU).
 $FFD1.000 - $FFD1.FFF - C65-style I/O page, with extra registers enabled.
 $FFD0.000 - $FFD0.FFF - C64-style I/O page.
+$FFC0.000 - $FFCF.FFF - Reserved (most likely will be used for I/O pages).
+$F000.000 - $FFBF.FFF - Reserved (most likely will be used for I/O)
 $9000.000 - $EFFF.FFF - Reserved for slow-RAM expansion (allows 112MB total).
 $8000.000 - $8FFF.FFF - 16MB slow RAM (approximately 14MHz).
 $0080.000 - $7FFF.FFF - Reserved for fast-RAM expansion (allows 128MB total).
