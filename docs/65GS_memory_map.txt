@@ -99,12 +99,16 @@ REU registers in the $DF00 IO page.
 
 MEMORY MAP ON RESET
 -------------------
-On reset the SailFish CPU provides the following memory map:
+On reset the SailFish CPU provides the following memory map for read
+and instruction fetching:
 
 $0000 - $CFFF to $0000.000 - $000C.FFF (fast RAM)
 $D000 - $DFFF to $FFD3.000 - $FFD3.FFF (enhanced IO page)
 $E000 - $FFFF to $FFFE.000 - $FFFF.FFF (kernel65 ROM)
 
+Write to $E000 - $FFFF direct to $000E.000 - $000F.FFF, providing
+similar semantics to the C64, and to protect the kernel ROM from being
+overwritten, since ROMs are mutable on the 65GS.
 
 MEMORY TYPES
 ------------
