@@ -248,7 +248,7 @@ begin
         data_o  => ram_data_o(i));
   end generate;
   
-  process(clock)
+  process(clock,irq,nmi)
     variable normal_instruction : boolean;
 
     variable temp_address : std_logic_vector(15 downto 0);
