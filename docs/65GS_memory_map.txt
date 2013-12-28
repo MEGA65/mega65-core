@@ -54,7 +54,9 @@ the first byte in the second 64KB of RAM.
 
 The 256MB memory map is laid out as follows:
 
-$FFF0.000 - $FFFF.FFF - Reserved (most likely will be used for ROMs).
+$FFFD.000 - $FFFF.FFF - 12KB boot ROM.
+$FFFC.000 - $FFFC.FFF - C65GS char set ROM (not the copyright C64 character ROM)
+$FFF0.000 - $FFFB.FFF - Reserved (most likely will be used for ROMs).
 $FFE0.000 - $FFEF.FFF - Reserved (most likely will be used for ROMs).
 $FFD4.000 - $FFDF.FFF - Reserved for additional I/O (ethernet, USB,
 microSD etc)
@@ -76,11 +78,14 @@ supported.
 The C64 side memory map is as for a standard C64, using FPGA64 for its'
 implementation.
 
+C64 ROMs will be loaded from microSD to avoid copyright problems in
+FPGA configuration bitstream.
+
 IO MEMORY MAP
 -------------
 
-The IO memory map (mapped addressed $D000 - $DFFF) differs between the
-fast and slow sides.  
+The IO memory map (usually mapped addressed $D000 - $DFFF) differs
+between the fast and slow sides.  
 
 The slow side shows a standard C64 IO memory map, with the addition of
 two or more REU register sets in the $DF00 IO page, if enabled by the
@@ -89,6 +94,12 @@ isolate the fast side from memory effects caused by the slow side.
 
 The fast side shows a more C65/C64DX like IO memory map, again with
 REU registers in the $DF00 IO page.
+
+MEMORY MAP ON RESET
+-------------------
+On reset the SailFish CPU maps $FFF0.000 - $FFFF.FFF for execute, and
+$0000.000 - $000F.FFF for read and write. Note that only $FFFC.000 -
+$FFFF.FFF maps to ROM, the remainder will be unmapped addresses.
 
 MEMORY TYPES
 ------------
