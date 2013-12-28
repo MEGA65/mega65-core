@@ -654,13 +654,8 @@ begin
             -- We save one cycle for every interrupt here by doing
             -- the instruction fetch here, and then passing into OperandResolve
             -- next cycle.
-            -- XXX I don't understand why, but if we use fetch_next_instruction()
-            -- here to save a cycle on interrupts, synthesis breaks, claiming that
-            -- FSM state InstructionFetch (and all children thereof) are never
-            -- reached.  So instead we just set the state to InstructionFetch
-            -- and pay the extra cycle.
-            -- fetch_next_instruction(unsigned(temp_address));
-            state <= InstructionFetch;
+            fetch_next_instruction(unsigned(temp_address));
+            state <= OperandResolve;
           when InstructionFetch =>
             -- Work out which three bytes to fetch.
             -- Probably easiest to do a parallel calculation based on lower
