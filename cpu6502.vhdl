@@ -680,13 +680,14 @@ begin
           ram_address(i)<="0000000000000000";
           ram_we(i) <= '0';
         end loop;  -- i
-        -- Reset memory bank to first 64KB
-        -- bank at 0x0000-0x0FFF points to 0x0000000-0x0000FFF = block 0x0000
-        -- bank at 0x1000-0x1FFF points to 0x0001000-0x0001FFF = block 0x0001
-        -- and so on.          
-        for i in 0 to 15 loop
+        -- Reset memory bank registers.
+        -- Map first bank of fast RAM at $0000 - $CFFF
+        for i in 0 to 12 loop
           ram_bank_registers(i)<=std_logic_vector(to_unsigned(i,16));
         end loop;  -- i
+        ram_bank_registers(13) <= x"FFD3";  -- enhanced IO at $D000-$DFFF
+        ram_bank_registers(14) <= x"FFFE";  -- Kernel65 ROM at $E000-$FFFF
+        ram_bank_registers(15) <= x"FFFF";
       else
         -- act based on state
         case state is
