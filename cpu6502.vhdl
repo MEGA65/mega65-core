@@ -35,6 +35,8 @@ architecture Behavioral of cpu6502 is
   signal ram_data_i : stdlogic_array_8(0 to 7);
   signal ram_data_o : stdlogic_array_8(0 to 7);
 
+  signal iovalue : std_logic_vector(7 downto 0);
+  
 -- CPU RAM bank selection registers.
 -- Each 4KB (12 address bits) can be made to point to a section of memory.
 -- Sections have 16bit addresses, for a total of 28bits (256MB) of address
@@ -110,7 +112,7 @@ architecture Behavioral of cpu6502 is
     -- by any given instruction.
     -- When an instruction completes, we move back to InstructionFetch
     InstructionFetch,OperandResolve,
-    Calculate,MemoryWrite,
+    Calculate,MemoryWrite,IOWrite,
     -- Special states used for special instructions
     PullA,                                -- PLA
     PullP,                                -- PLP
@@ -387,6 +389,16 @@ begin
       variable long_pc2 : std_logic_vector(27 downto 0);
       variable temp_pc : std_logic_vector(15 downto 0);
     begin
+      -- Stop writing to IO if we were in the previous cycle.
+      -- Note that we DO NOT clear the write lines on the fast ram, as they
+      -- can be set to write back operands/push registers from the previous
+      -- instruction.
+      -- XXX There are almost certainly situations where the write lines on
+      -- fast ram remain asserted longer than necessary.  They should only
+      -- continue to write the same correct value, but it should still be fixed
+      -- so that multiple cores can access the fast ram simultaneously.
+      fastio_write <= '0';
+
       long_pc := resolve_address_to_long(std_logic_vector(pc),ram_bank_registers);
       case pc(2 downto 0) is
         when "000" =>
@@ -539,6 +551,34 @@ begin
         operand_from_slowram <= '0';
       end if;
     end procedure do_direct_operand;
+
+    -- operand1_mem_slot must already be set before calling
+    procedure rmw_operand_commit(
+      temp_operand : std_logic_vector(7 downto 0)) is
+      begin
+        if operand_from_io = '1' then
+          -- Operand is from I/O, so need to write back original value
+          -- .. then schedule writing of the final result next cycle
+          fastio_read <= '0';
+          fastio_write <= '1';
+          fastio_wdata <= fastio_rdata;
+          iovalue <= temp_operand;          
+          state <= IOWrite;
+        elsif operand_from_ram = '1' then
+          -- operand is for fast ram
+          ram_data_i(to_integer(operand1_mem_slot)) <= temp_operand;
+          ram_we(to_integer(operand1_mem_slot)) <= '1';
+          try_prefetch_next_instruction(reg_pc,operand1_mem_slot);
+        elsif operand_from_slowram = '1' then
+          -- Commit to slow ram.
+          -- XXX not currently implemented
+          state <= InstructionFetch;
+        else
+          -- commit to unknown memory type/unmapped memory.
+          -- Just move along to next instruction
+          state <= InstructionFetch;
+        end if;
+      end procedure rmw_operand_commit;
     
     procedure fetch_stack_bytes is 
       variable long_pc : std_logic_vector(27 downto 0);
@@ -1052,39 +1092,16 @@ begin
                 fetch_next_instruction(reg_pc);
               when I_ASL =>
                 -- Modify and write back.
-                if operand_from_io = '1' then
-                  -- Operand is from I/O, so need to write back original value
-                  ram_data_i(to_integer(operand1_mem_slot)) <= temp_operand;
-                  ram_we(to_integer(operand1_mem_slot)) <= '1';
-                  -- Then schedule altered value to be written next cycle
-                  temp_value(7 downto 1) <= std_logic_vector(temp_operand(6 downto 0));
-                  temp_value(0) <= '0';
-                  flag_c <= temp_operand(7);
-                  flag_n <= temp_operand(6);
-                  if temp_operand(6 downto 0) = "0000000" then
-                    flag_z <= '1';
-                  else
-                    flag_z <= '0';
-                  end if;
-                  state <= MemoryWrite;
+                flag_c <= temp_operand(7);
+                flag_n <= temp_operand(6);
+                if temp_operand(6 downto 0) = "0000000" then
+                  flag_z <= '1';
                 else
-                  -- Operand is not from I/O, so can just write back
-                  ram_data_i(to_integer(operand1_mem_slot)) <= temp_operand;
-                  ram_we(to_integer(operand1_mem_slot)) <= '1';
-                  -- Then schedule altered value to be written next cycle
-                  flag_c <= temp_operand(7);
-                  flag_n <= temp_operand(6);
-                  if temp_operand(6 downto 0) = "0000000" then
-                    flag_z <= '1';
-                  else
-                    flag_z <= '0';
-                  end if;
-                  temp_operand(7 downto 1) := std_logic_vector(temp_operand(6 downto 0));
-                  temp_operand(0) := '0';
-                  ram_data_i(to_integer(operand1_mem_slot)) <= temp_operand;
-                  ram_we(to_integer(operand1_mem_slot)) <= '1';
-                  try_prefetch_next_instruction(reg_pc,operand1_mem_slot);
+                  flag_z <= '0';
                 end if;
+                temp_operand(7 downto 1) := std_logic_vector(temp_operand(6 downto 0)); 
+                temp_operand(0) := '0';
+                rmw_operand_commit(temp_operand);
               when I_BIT => 
                 alu_i1 <= temp_operand;
                 alu_i2 <= std_logic_vector(reg_a);
@@ -1119,37 +1136,15 @@ begin
                 fetch_next_instruction(reg_pc);
               when I_DEC =>
                 -- Modify and write back.
-                if operand_from_io = '1' then
-                  -- Operand is from I/O, so need to write back original value
-                  ram_data_i(to_integer(operand1_mem_slot)) <= temp_operand;
-                  ram_we(to_integer(operand1_mem_slot)) <= '1';
-                  -- Then schedule altered value to be written next cycle
-                  temp_value(7 downto 0) <= std_logic_vector(unsigned(temp_operand(7 downto 0))-1);
-                  temp_value(7) <= '0';
-                  flag_n <= temp_operand(7);
-                  if temp_value(7 downto 0) = x"00" then
-                    flag_z <= '1';
-                  else
-                    flag_z <= '0';
-                  end if;
-                  state <= MemoryWrite;
+                temp_operand(7 downto 0) := std_logic_vector(unsigned(temp_operand(7 downto 0))-1);     
+                temp_operand(7) := '0';
+                flag_n <= temp_operand(7);
+                if temp_operand(7 downto 0) = x"00" then
+                  flag_z <= '1';
                 else
-                  -- Operand is not from I/O, so can just write back
-                  ram_data_i(to_integer(operand1_mem_slot)) <= temp_operand;
-                  ram_we(to_integer(operand1_mem_slot)) <= '1';
-                  -- Then schedule altered value to be written next cycle
-                  temp_operand(7 downto 0) := std_logic_vector(unsigned(temp_operand(7 downto 0))-1);
-                  temp_operand(7) := '0';
-                  flag_n <= temp_operand(7);
-                  if temp_operand(7 downto 0) = x"00" then
-                    flag_z <= '1';
-                  else
-                    flag_z <= '0';
-                  end if;
-                  ram_data_i(to_integer(operand1_mem_slot)) <= temp_operand;
-                  ram_we(to_integer(operand1_mem_slot)) <= '1';
-                  try_prefetch_next_instruction(reg_pc,operand1_mem_slot);
+                  flag_z <= '0';
                 end if;
+                rmw_operand_commit(temp_operand);
               when I_EOR =>
                 alu_i1 <= temp_operand;
                 alu_i2 <= std_logic_vector(reg_a);
@@ -1160,72 +1155,27 @@ begin
                 fetch_next_instruction(reg_pc);
               when I_INC =>
                 -- Modify and write back.
-                if operand_from_io = '1' then
-                  -- Operand is from I/O, so need to write back original value
-                  ram_data_i(to_integer(operand1_mem_slot)) <= temp_operand;
-                  ram_we(to_integer(operand1_mem_slot)) <= '1';
-                  -- Then schedule altered value to be written next cycle
-                  temp_value(7 downto 0) <= std_logic_vector(unsigned(temp_operand(7 downto 0))+1);
-                  temp_value(7) <= '0';
-                  flag_n <= temp_operand(7);
-                  if temp_value(7 downto 0) = x"00" then
-                    flag_z <= '1';
-                  else
-                    flag_z <= '0';
-                  end if;
-                  state <= MemoryWrite;
+                temp_operand(7 downto 0) := std_logic_vector(unsigned(temp_operand(7 downto 0))+1);
+                temp_operand(7) := '0';
+                flag_n <= temp_operand(7);
+                if temp_operand(7 downto 0) = x"00" then
+                  flag_z <= '1';
                 else
-                  -- Operand is not from I/O, so can just write back
-                  ram_data_i(to_integer(operand1_mem_slot)) <= temp_operand;
-                  ram_we(to_integer(operand1_mem_slot)) <= '1';
-                  -- Then schedule altered value to be written next cycle
-                  temp_operand(7 downto 0) := std_logic_vector(unsigned(temp_operand(7 downto 0))+1);
-                  temp_operand(7) := '0';
-                  flag_n <= temp_operand(7);
-                  if temp_operand(7 downto 0) = x"00" then
-                    flag_z <= '1';
-                  else
-                    flag_z <= '0';
-                  end if;
-                  ram_data_i(to_integer(operand1_mem_slot)) <= temp_operand;
-                  ram_we(to_integer(operand1_mem_slot)) <= '1';
-                  try_prefetch_next_instruction(reg_pc,operand1_mem_slot);
+                  flag_z <= '0';
                 end if;
+                rmw_operand_commit(temp_operand);
               when I_LSR =>
                 -- Modify and write back.
-                if operand_from_io = '1' then
-                  -- Operand is from I/O, so need to write back original value
-                  ram_data_i(to_integer(operand1_mem_slot)) <= temp_operand;
-                  ram_we(to_integer(operand1_mem_slot)) <= '1';
-                  -- Then schedule altered value to be written next cycle
-                  temp_value(6 downto 0) <= std_logic_vector(temp_operand(7 downto 1));
-                  temp_value(7) <= '0';
-                  flag_c <= temp_operand(0);
-                  flag_n <= '0';
-                  if temp_operand(7 downto 1) = "0000000" then
-                    flag_z <= '1';
-                  else
-                    flag_z <= '0';
-                  end if;
-                  state <= MemoryWrite;
+                flag_c <= temp_operand(0);
+                flag_n <= '0';
+                if temp_operand(7 downto 1) = "0000000" then
+                  flag_z <= '1';
                 else
-                  -- Operand is not from I/O, so can just write back
-                  ram_data_i(to_integer(operand1_mem_slot)) <= temp_operand;
-                  ram_we(to_integer(operand1_mem_slot)) <= '1';
-                  -- Then schedule altered value to be written next cycle
-                  flag_c <= temp_operand(0);
-                  flag_n <= '0';
-                  if temp_operand(7 downto 1) = "0000000" then
-                    flag_z <= '1';
-                  else
-                    flag_z <= '0';
-                  end if;
-                  temp_operand(6 downto 0) := std_logic_vector(temp_operand(7 downto 1));
-                  temp_operand(7) := '0';
-                  ram_data_i(to_integer(operand1_mem_slot)) <= temp_operand;
-                  ram_we(to_integer(operand1_mem_slot)) <= '1';
-                  try_prefetch_next_instruction(reg_pc,operand1_mem_slot);
+                  flag_z <= '0';
                 end if;
+                temp_operand(6 downto 0) := std_logic_vector(temp_operand(7 downto 1));
+                temp_operand(7) := '0';
+                rmw_operand_commit(temp_operand);
               when I_ORA =>
                 alu_i1 <= temp_operand;
                 alu_i2 <= std_logic_vector(reg_a);
@@ -1236,74 +1186,28 @@ begin
                 fetch_next_instruction(reg_pc);
               when I_ROL =>
                 -- Modify and write back.
-                if operand_from_io = '1' then
-                  -- Operand is from I/O, so need to write back original value
-                  ram_data_i(to_integer(operand1_mem_slot)) <= temp_operand;
-                  ram_we(to_integer(operand1_mem_slot)) <= '1';
-                  -- Then schedule altered value to be written next cycle
-                  temp_value(7 downto 1) <= std_logic_vector(temp_operand(6 downto 0));
-                  temp_value(0) <= flag_c;
-                  flag_c <= temp_operand(7);
-                  flag_n <= temp_operand(6);
-                  if temp_operand(6 downto 0) = "0000000" and flag_c = '0' then
-                    flag_z <= '1';
-                  else
-                    flag_z <= '0';
-                  end if;
-                  state <= MemoryWrite;
+                flag_c <= temp_operand(7);
+                flag_n <= temp_operand(6);
+                if temp_operand(6 downto 0) = "0000000" and flag_c = '0' then
+                  flag_z <= '1';
                 else
-                  -- Operand is not from I/O, so can just write back
-                  ram_data_i(to_integer(operand1_mem_slot)) <= temp_operand;
-                  ram_we(to_integer(operand1_mem_slot)) <= '1';
-                  -- Then schedule altered value to be written next cycle
-                  flag_c <= temp_operand(7);
-                  flag_n <= temp_operand(6);
-                  if temp_operand(6 downto 0) = "0000000" and flag_c = '0' then
-                    flag_z <= '1';
-                  else
-                    flag_z <= '0';
-                  end if;
-                  temp_operand(7 downto 1) := std_logic_vector(temp_operand(6 downto 0));
-                  temp_operand(0) := flag_c;
-                  ram_data_i(to_integer(operand1_mem_slot)) <= temp_operand;
-                  ram_we(to_integer(operand1_mem_slot)) <= '1';
-                  try_prefetch_next_instruction(reg_pc,operand1_mem_slot);
+                  flag_z <= '0';
                 end if;
+                temp_operand(7 downto 1) := std_logic_vector(temp_operand(6 downto 0)); 
+                temp_operand(0) := flag_c;
+                rmw_operand_commit(temp_operand);
               when I_ROR =>
                 -- Modify and write back.
-                if operand_from_io = '1' then
-                  -- Operand is from I/O, so need to write back original value
-                  ram_data_i(to_integer(operand1_mem_slot)) <= temp_operand;
-                  ram_we(to_integer(operand1_mem_slot)) <= '1';
-                  -- Then schedule altered value to be written next cycle
-                  temp_value(6 downto 0) <= std_logic_vector(temp_operand(7 downto 1));
-                  temp_value(7) <= flag_c;
-                  flag_c <= temp_operand(0);
-                  flag_n <= '0';
-                  if temp_operand(7 downto 1) = "0000000" and flag_c = '0' then
-                    flag_z <= '1';
-                  else
-                    flag_z <= '0';
-                  end if;
-                  state <= MemoryWrite;
+                flag_c <= temp_operand(0);
+                flag_n <= '0';
+                if temp_operand(7 downto 1) = "0000000" and flag_c = '0' then
+                  flag_z <= '1';
                 else
-                  -- Operand is not from I/O, so can just write back
-                  ram_data_i(to_integer(operand1_mem_slot)) <= temp_operand;
-                  ram_we(to_integer(operand1_mem_slot)) <= '1';
-                  -- Then schedule altered value to be written next cycle
-                  flag_c <= temp_operand(0);
-                  flag_n <= '0';
-                  if temp_operand(7 downto 1) = "0000000" and flag_c = '0' then
-                    flag_z <= '1';
-                  else
-                    flag_z <= '0';
-                  end if;
-                  temp_operand(6 downto 0) := std_logic_vector(temp_operand(7 downto 1));
-                  temp_operand(7) := flag_c;
-                  ram_data_i(to_integer(operand1_mem_slot)) <= temp_operand;
-                  ram_we(to_integer(operand1_mem_slot)) <= '1';
-                  try_prefetch_next_instruction(reg_pc,operand1_mem_slot);
+                  flag_z <= '0';
                 end if;
+                temp_operand(6 downto 0) := std_logic_vector(temp_operand(7 downto 1)); 
+                temp_operand(7) := flag_c;
+                rmw_operand_commit(temp_operand);
               when I_SBC =>
                 alu_i1 <= std_logic_vector(reg_a);
                 alu_i2 <= temp_operand;
@@ -1321,6 +1225,19 @@ begin
             ram_data_i(to_integer(operand1_mem_slot)) <= temp_value;
             ram_we(to_integer(operand1_mem_slot)) <= '1';
             try_prefetch_next_instruction(reg_pc,operand1_mem_slot);
+          when IOWrite =>
+            -- Write back value, then fetch instruction next cycle.
+            -- NOTE: Assumes fastio_addr has already been set. Only used in
+            -- Calculate state for Read-Modify-Write instructions for writing
+            -- back the final value.
+            -- XXX We could feasibly prefetch here, but then it would be
+            -- harder to clear fastio_write immediately, and would also
+            -- make life trickier when the instruction will be fetched from
+            -- IO/ROM space.
+            fastio_wdata <= iovalue;
+            fastio_write <= '1';
+            fastio_read <= '0';
+            state <= InstructionFetch;
           when JMPIndirectFetch =>
             -- Fetched indirect address, so copy it into the programme counter
             set_pc(unsigned(temp_operand_address));
