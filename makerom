@@ -17,7 +17,7 @@ for b in bytes_read:
     if first:
         first=False
     else:
-        romdata=romdata+";"
+        romdata=romdata+","
     if c==8:
         c=0;
     if c==0:
