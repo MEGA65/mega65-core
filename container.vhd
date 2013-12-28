@@ -107,7 +107,7 @@ begin
                          fastio_read => fastio_read,
                          fastio_write => fastio_write,
                          fastio_wdata => fastio_wdata,
-                         fastio_rdata => fastio_wdata);
+                         fastio_rdata => fastio_rdata);
   iomapper0: iomapper port map (
     clk => clock, address => fastio_addr, r => fastio_read, w => fastio_write,
     data_i => fastio_wdata, data_o => fastio_rdata);
