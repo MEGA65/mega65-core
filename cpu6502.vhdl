@@ -43,7 +43,9 @@ architecture Behavioral of cpu6502 is
 -- space.  It also makes it possible to multiple 4KB banks point to the same
 -- block of RAM.
   type bank_register_set is array (0 to 15) of std_logic_vector(15 downto 0);
-  signal ram_bank_registers : bank_register_set;
+  signal ram_bank_registers_read : bank_register_set;
+  signal ram_bank_registers_write : bank_register_set;
+  signal ram_bank_registers_instructions : bank_register_set;
 
 -- CPU internal state
   signal flag_c : std_logic;        -- carry flag
@@ -307,7 +309,7 @@ begin
       variable push_long_address : std_logic_vector(27 downto 0);
     begin
       -- Stack is page 1, which is in the first 4KB bank of RAM
-      push_long_address(27 downto 12) := ram_bank_registers(0);
+      push_long_address(27 downto 12) := ram_bank_registers_write(0);
       push_long_address(11 downto 8) := "0001";
       -- Now append stack pointer
       push_long_address(7 downto 0) := std_logic_vector(reg_sp);
@@ -321,7 +323,7 @@ begin
     begin
       -- pre-increment SP before using
       -- Stack is page 1, which is in the first 4KB bank of RAM
-      long_address(27 downto 12) := ram_bank_registers(0);
+      long_address(27 downto 12) := ram_bank_registers_read(0);
       long_address(11 downto 8) := "0001";
       -- Now append stack pointer
       long_address(7 downto 0) := std_logic_vector(reg_sp+1);
@@ -399,7 +401,7 @@ begin
       -- so that multiple cores can access the fast ram simultaneously.
       fastio_write <= '0';
 
-      long_pc := resolve_address_to_long(std_logic_vector(pc),ram_bank_registers);
+      long_pc := resolve_address_to_long(std_logic_vector(pc),ram_bank_registers_instructions);
       case pc(2 downto 0) is
         when "000" =>
           long_pc1(27 downto 2) := long_pc(27 downto 2);
@@ -435,12 +437,12 @@ begin
           long_pc1(27 downto 2) := long_pc(27 downto 2);
           long_pc1(2 downto 0) := "111";
           temp_pc:=std_logic_vector(unsigned(pc)+2);
-          long_pc2 := resolve_address_to_long(temp_pc,ram_bank_registers);
+          long_pc2 := resolve_address_to_long(temp_pc,ram_bank_registers_instructions);
           long_pc2(27 downto 2) := long_pc(27 downto 2);
           long_pc2(2 downto 0) := "000";
         when "111" =>
           temp_pc:=std_logic_vector(unsigned(pc)+1);
-          long_pc1 := resolve_address_to_long(temp_pc,ram_bank_registers);
+          long_pc1 := resolve_address_to_long(temp_pc,ram_bank_registers_instructions);
           long_pc1(27 downto 2) := long_pc(27 downto 2);
           long_pc1(2 downto 0) := "000";
           long_pc2(27 downto 2) := long_pc(27 downto 2);
@@ -475,7 +477,6 @@ begin
     
     procedure do_direct_operand (
       address           : std_logic_vector(15 downto 0);
-      ram_bank_registers : bank_register_set;
       instruction : instruction) is
       variable long_addr : std_logic_vector(27 downto 0);
       variable writeP : boolean;
@@ -485,15 +486,19 @@ begin
       -- will be fetched into.
       -- Or, for write instructions, write to the address.
 
-      -- In any case, first work out the actual address in question.
-      long_addr := resolve_address_to_long(address,ram_bank_registers);
-
       case instruction is
         when I_STA => writeP:=true; write_value:=std_logic_vector(reg_a);
         when I_STX => writeP:=true; write_value:=std_logic_vector(reg_x);
         when I_STY => writeP:=true; write_value:=std_logic_vector(reg_y);                   
         when others => writeP:=false;
       end case;
+
+      -- In any case, first work out the actual address in question.
+      if writeP then
+        long_addr := resolve_address_to_long(address,ram_bank_registers_write);
+      else
+        long_addr := resolve_address_to_long(address,ram_bank_registers_read);
+      end if;
 
       if long_addr(27 downto 24) = x"F" then
         -- To/From fast I/O block
@@ -591,7 +596,7 @@ begin
       -- that always keeps stack within memory page $01
       stack_pointer(15 downto 8) := "00000001";
       stack_pointer(7 downto 0) := std_logic_vector(reg_sp +1);
-      long_pc := resolve_address_to_long(std_logic_vector(stack_pointer),ram_bank_registers);
+      long_pc := resolve_address_to_long(std_logic_vector(stack_pointer),ram_bank_registers_read);
       case stack_pointer(2 downto 0) is
         when "000" =>
           long_pc1(27 downto 2) := long_pc(27 downto 2);
@@ -628,13 +633,13 @@ begin
           long_pc1(2 downto 0) := "111";
           temp_sp(15 downto 8) := stack_pointer(15 downto 8);
           temp_sp(7 downto 0):=std_logic_vector(unsigned(stack_pointer(7 downto 0))+2);
-          long_pc2 := resolve_address_to_long(temp_sp,ram_bank_registers);
+          long_pc2 := resolve_address_to_long(temp_sp,ram_bank_registers_read);
           long_pc2(27 downto 2) := long_pc(27 downto 2);
           long_pc2(2 downto 0) := "000";
         when "111" =>
           temp_sp(15 downto 8) := stack_pointer(15 downto 8);
           temp_sp(7 downto 0):=std_logic_vector(unsigned(stack_pointer(7 downto 0))+1);
-          long_pc1 := resolve_address_to_long(temp_sp,ram_bank_registers);
+          long_pc1 := resolve_address_to_long(temp_sp,ram_bank_registers_read);
           long_pc1(27 downto 2) := long_pc(27 downto 2);
           long_pc1(2 downto 0) := "000";
           long_pc2(27 downto 2) := long_pc(27 downto 2);
@@ -683,11 +688,21 @@ begin
         -- Reset memory bank registers.
         -- Map first bank of fast RAM at $0000 - $CFFF
         for i in 0 to 12 loop
-          ram_bank_registers(i)<=std_logic_vector(to_unsigned(i,16));
+          ram_bank_registers_read(i)<=std_logic_vector(to_unsigned(i,16));
+          ram_bank_registers_write(i)<=std_logic_vector(to_unsigned(i,16));
+          ram_bank_registers_instructions(i)<=std_logic_vector(to_unsigned(i,16));
         end loop;  -- i
-        ram_bank_registers(13) <= x"FFD3";  -- enhanced IO at $D000-$DFFF
-        ram_bank_registers(14) <= x"FFFE";  -- Kernel65 ROM at $E000-$FFFF
-        ram_bank_registers(15) <= x"FFFF";
+        -- enhanced IO at $D000-$DFFF
+        ram_bank_registers_read(13) <= x"FFD3";  
+        ram_bank_registers_write(13) <= x"FFD3";
+        ram_bank_registers_instructions(13) <= x"FFD3";
+        -- Kernel65 ROM at $E000-$FFFF (writes redirect to "underlying" fast RAM)
+        ram_bank_registers_read(14) <= x"FFFE";
+        ram_bank_registers_write(14) <= x"000E";
+        ram_bank_registers_instructions(14) <= x"FFFE";
+        ram_bank_registers_read(15) <= x"FFFF";
+        ram_bank_registers_write(15) <= x"000F";
+        ram_bank_registers_instructions(15) <= x"FFFF";
       else
         -- act based on state
         case state is
@@ -698,11 +713,11 @@ begin
             temp_sp_addr(7 downto 0) := std_logic_vector(reg_sp);
             write_to_short_address(temp_sp_addr,
                                    std_logic_vector(reg_pcplus2(15 downto 8)),
-                                   ram_bank_registers);
+                                   ram_bank_registers_write);
             temp_sp_addr(7 downto 0) := std_logic_vector(reg_sp -1);
             write_to_short_address(temp_sp_addr,
                                    std_logic_vector(reg_pcplus2(7 downto 0)),
-                                   ram_bank_registers);
+                                   ram_bank_registers_write);
             temp_operand(7) := flag_n;
             temp_operand(6) := flag_v;
             temp_operand(5) := '1';  -- unused bit
@@ -714,7 +729,7 @@ begin
             temp_sp_addr(7 downto 0) := std_logic_vector(reg_sp -2);
             write_to_short_address(temp_sp_addr,
                                    std_logic_vector(temp_operand),
-                                   ram_bank_registers);
+                                   ram_bank_registers_write);
             reg_sp <= reg_sp - 3;
             state <= VectorRead;
           when VectorRead =>
@@ -806,11 +821,11 @@ begin
                     temp_sp_addr(7 downto 0) := std_logic_vector(reg_sp);
                     write_to_short_address(temp_sp_addr,
                                            std_logic_vector(reg_pcplus2(15 downto 8)),
-                                           ram_bank_registers);
+                                           ram_bank_registers_write);
                     temp_sp_addr(7 downto 0) := std_logic_vector(reg_sp -1);
                     write_to_short_address(temp_sp_addr,
                                            std_logic_vector(reg_pcplus2(7 downto 0)),
-                                           ram_bank_registers);
+                                           ram_bank_registers_write);
                     temp_operand(7) := flag_n;
                     temp_operand(6) := flag_v;
                     temp_operand(5) := '1';  -- unused bit
@@ -822,7 +837,7 @@ begin
                     temp_sp_addr(7 downto 0) := std_logic_vector(reg_sp -2);
                     write_to_short_address(temp_sp_addr,
                                            std_logic_vector(temp_operand),
-                                           ram_bank_registers);
+                                           ram_bank_registers_write);
                     reg_sp <= reg_sp - 3;
                     vector <= x"FFFE";    -- BRK follows the IRQ vector
                     flag_i <= '1';      -- Disable further IRQs while the
@@ -937,11 +952,11 @@ begin
                 temp_sp_addr(7 downto 0) := std_logic_vector(reg_sp);
                 write_to_short_address(temp_sp_addr,
                                        std_logic_vector(reg_pcplus2(15 downto 8)),
-                                       ram_bank_registers);
+                                       ram_bank_registers_write);
                 temp_sp_addr(7 downto 0) := std_logic_vector(reg_sp -1);
                 write_to_short_address(temp_sp_addr,
                                        std_logic_vector(reg_pcplus2(7 downto 0)),
-                                       ram_bank_registers);
+                                       ram_bank_registers_write);
                 reg_sp <= reg_sp - 2;
                 set_pc(unsigned(temp_operand_address));
                 fetch_next_instruction(unsigned(temp_operand_address));
@@ -1007,35 +1022,35 @@ begin
                 temp_address(7 downto 0) := temp_operand_address(7 downto 0);
                 temp_address(15 downto 8) := "00000000";
                 advance_pc(2);
-                do_direct_operand(temp_address,ram_bank_registers,op_instruction);
+                do_direct_operand(temp_address,op_instruction);
               elsif op_mode=M_zeropageX then
                 temp_address(7 downto 0) := std_logic_vector(unsigned(temp_operand_address(7 downto 0)) + unsigned(reg_x));
                 temp_address(15 downto 8) := "00000000";
                 advance_pc(2);
-                do_direct_operand(temp_address,ram_bank_registers,op_instruction);
+                do_direct_operand(temp_address,op_instruction);
               elsif op_mode=M_zeropageY then
                 temp_address(7 downto 0) := std_logic_vector(unsigned(temp_operand_address(7 downto 0)) + unsigned(reg_y));
                 temp_address(15 downto 8) := "00000000";
                 advance_pc(2);
-                do_direct_operand(temp_address,ram_bank_registers,op_instruction);
+                do_direct_operand(temp_address,op_instruction);
               elsif op_mode=M_absolute then
                 temp_address(15 downto 0) := temp_operand_address;
                 advance_pc(3);
-                do_direct_operand(temp_address,ram_bank_registers,op_instruction);
+                do_direct_operand(temp_address,op_instruction);
               elsif op_mode=M_absoluteX then
                 temp_address(15 downto 0) := std_logic_vector(unsigned(temp_operand_address) + unsigned(reg_x));
                 advance_pc(3);
-                do_direct_operand(temp_address,ram_bank_registers,op_instruction);
+                do_direct_operand(temp_address,op_instruction);
               elsif op_mode=M_absoluteY then
                 temp_address(15 downto 0) := std_logic_vector(unsigned(temp_operand_address) + unsigned(reg_y));
                 advance_pc(3);
-                do_direct_operand(temp_address,ram_bank_registers,op_instruction);
+                do_direct_operand(temp_address,op_instruction);
               elsif op_mode=M_indirectX then
                 -- Pre-indexed ZP indirect, wrapping from $FF to $00, not $100
                 -- if operand+X=$FF
                 temp_address(7 downto 0) := std_logic_vector(unsigned(temp_operand_address(7 downto 0)) + reg_x);
                 advance_pc(2);
-                read_indirect_operand(temp_address(7 downto 0),ram_bank_registers);
+                read_indirect_operand(temp_address(7 downto 0),ram_bank_registers_read);
                 op_mode<=M_absolute;
                 state <= OperandResolve;
               elsif op_mode=M_indirectY then
@@ -1043,7 +1058,7 @@ begin
                 -- if operand=$FF
                 temp_address(7 downto 0) := temp_operand_address(7 downto 0);
                 advance_pc(2);
-                read_indirect_operand(temp_address(7 downto 0),ram_bank_registers);
+                read_indirect_operand(temp_address(7 downto 0),ram_bank_registers_read);
                 op_mode<=M_absoluteY;
                 state <= OperandResolve;
               end if;
