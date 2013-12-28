@@ -369,67 +369,7 @@ begin
       request_read_long_address(long_addr);        
 
     end procedure read_indirect_operand;
-    
-    procedure do_direct_operand (
-      address           : std_logic_vector(15 downto 0);
-      ram_bank_registers : bank_register_set;
-      instruction : instruction) is
-      variable long_addr : std_logic_vector(27 downto 0);
-      variable writeP : boolean;
-      variable write_value : std_logic_vector(7 downto 0);
-    begin
-      -- Fetch the byte at the specified address, and remember the slot it
-      -- will be fetched into.
-      -- Or, for write instructions, write to the address.
-
-      -- In any case, first work out the actual address in question.
-      long_addr := resolve_address_to_long(address,ram_bank_registers);
-
-      case instruction is
-        when I_STA => writeP:=true; write_value:=std_logic_vector(reg_a);
-        when I_STX => writeP:=true; write_value:=std_logic_vector(reg_x);
-        when I_STY => writeP:=true; write_value:=std_logic_vector(reg_y);                   
-        when others => writeP:=false;
-      end case;
-
-      if long_addr(27 downto 12) = x"FFFD" then
-        -- To/From I/O block
-        operand_from_io <= '1';
-        operand_from_ram <= '0';
-        operand_from_slowram <= '0';   
-      elsif long_addr(27 downto 12) > x"8000"
-        and long_addr(27 downto 12) < x"9000" then
-        -- To/From slow 16MB cellular RAM
-        operand_from_io <= '0';
-        operand_from_ram <= '0';
-        operand_from_slowram <= '1';
-      elsif long_addr(27 downto 12) < x"0080" then
-        -- To/From from fast RAM
-        operand_from_io <= '0';
-        operand_from_ram <= '1';
-        operand_from_slowram <= '0';
-        operand1_mem_slot <= unsigned(address(2 downto 0));
-        if writeP then
-          write_to_long_address(long_addr,write_value);
-          -- XXX If the memory slot doesn't conflict with the
-          -- slots for instruction fetch, then we can fetch the
-          -- next instruction, saving a cycle.
-          -- but care is required because PC isn't updated until
-          -- the end of this cycle, which makes life interesting.
-          state <= InstructionFetch;          
-        else
-          request_read_long_address(long_addr);
-          state <= Calculate;
-        end if;
-      else
-        -- Reading from unmapped address space
-        -- XXX Trigger a page-fault?
-        operand_from_io <= '0';
-        operand_from_ram <= '0';
-        operand_from_slowram <= '0';
-      end if;
-    end procedure do_direct_operand;
-    
+  
     procedure fetch_next_instruction(pc : unsigned(15 downto 0)) is 
       variable long_pc : std_logic_vector(27 downto 0);
       variable long_pc1 : std_logic_vector(27 downto 0);
@@ -493,6 +433,78 @@ begin
       request_read_long_address(long_pc2);
     end procedure fetch_next_instruction;
 
+    procedure try_prefetch_next_instruction(pc : unsigned(15 downto 0);
+                                            last_address_column : unsigned(2 downto 0)) is
+      variable column : unsigned(2 downto 0);
+    begin
+      column := pc(2 downto 0);
+      if column = last_address_column 
+        or (column+1) = last_address_column
+        or (column+2) = last_address_column then
+        -- cannot prefetch
+        state <= InstructionFetch;
+      else
+        -- can prefetch
+        fetch_next_instruction(pc);
+        state <= OperandResolve;
+      end if;
+    end procedure try_prefetch_next_instruction;
+    
+    procedure do_direct_operand (
+      address           : std_logic_vector(15 downto 0);
+      ram_bank_registers : bank_register_set;
+      instruction : instruction) is
+      variable long_addr : std_logic_vector(27 downto 0);
+      variable writeP : boolean;
+      variable write_value : std_logic_vector(7 downto 0);
+    begin
+      -- Fetch the byte at the specified address, and remember the slot it
+      -- will be fetched into.
+      -- Or, for write instructions, write to the address.
+
+      -- In any case, first work out the actual address in question.
+      long_addr := resolve_address_to_long(address,ram_bank_registers);
+
+      case instruction is
+        when I_STA => writeP:=true; write_value:=std_logic_vector(reg_a);
+        when I_STX => writeP:=true; write_value:=std_logic_vector(reg_x);
+        when I_STY => writeP:=true; write_value:=std_logic_vector(reg_y);                   
+        when others => writeP:=false;
+      end case;
+
+      if long_addr(27 downto 12) = x"FFFD" then
+        -- To/From I/O block
+        operand_from_io <= '1';
+        operand_from_ram <= '0';
+        operand_from_slowram <= '0';   
+      elsif long_addr(27 downto 12) > x"8000"
+        and long_addr(27 downto 12) < x"9000" then
+        -- To/From slow 16MB cellular RAM
+        operand_from_io <= '0';
+        operand_from_ram <= '0';
+        operand_from_slowram <= '1';
+      elsif long_addr(27 downto 12) < x"0080" then
+        -- To/From from fast RAM
+        operand_from_io <= '0';
+        operand_from_ram <= '1';
+        operand_from_slowram <= '0';
+        operand1_mem_slot <= unsigned(address(2 downto 0));
+        if writeP then
+          write_to_long_address(long_addr,write_value);
+          try_prefetch_next_instruction(reg_pc,unsigned(long_addr(2 downto 0)));
+        else
+          request_read_long_address(long_addr);
+          state <= Calculate;
+        end if;
+      else
+        -- Reading from unmapped address space
+        -- XXX Trigger a page-fault?
+        operand_from_io <= '0';
+        operand_from_ram <= '0';
+        operand_from_slowram <= '0';
+      end if;
+    end procedure do_direct_operand;
+      
     procedure fetch_stack_bytes is 
       variable long_pc : std_logic_vector(27 downto 0);
       variable long_pc1 : std_logic_vector(27 downto 0);
@@ -639,10 +651,10 @@ begin
             reg_pcplus2<=unsigned(temp_address)+2;
             -- We have loaded the program counter (and operand addresses
             -- derived from that), so now we can proceed to instruction fetch.
-            -- (XXX We could save one cycle for every interrupt here by doing
+            -- We save one cycle for every interrupt here by doing
             -- the instruction fetch here, and then passing into OperandResolve
             -- next cycle.
-            state<=InstructionFetch;
+            fetch_next_instruction(unsigned(temp_address));
           when InstructionFetch =>
             -- Work out which three bytes to fetch.
             -- Probably easiest to do a parallel calculation based on lower
@@ -755,7 +767,7 @@ begin
               end case;
               if normal_instruction=true then
                 -- advance PC to next instruction, and fetch it.
-                -- XXX We can actually pre-fetch the instruction and
+                -- We can actually pre-fetch the instruction and
                 -- bypass going through InstructionFetch.
                 -- This will result in implied mode instructions that don't
                 -- touch the stack taking only one cycle.
@@ -931,7 +943,7 @@ begin
               -- Read is from somewhere else, possibly an unmapped address
               temp_operand := x"FF";
             end if;
-            -- XXX Use ALU and progress instruction
+            -- Use ALU and progress instruction
             case op_instruction is
               when I_ADC =>
                 alu_i1 <= temp_operand;
@@ -984,9 +996,7 @@ begin
                   temp_operand(0) := '0';
                   ram_data_i(to_integer(operand1_mem_slot)) <= temp_operand;
                   ram_we(to_integer(operand1_mem_slot)) <= '1';
-                  -- XXX If address low bits don't conflict, can pre-fetch next
-                  -- instruction.
-                  state <= InstructionFetch;
+                  try_prefetch_next_instruction(reg_pc,operand1_mem_slot);
                 end if;
               when I_BIT => 
                 alu_i1 <= temp_operand;
@@ -1051,9 +1061,7 @@ begin
                   end if;
                   ram_data_i(to_integer(operand1_mem_slot)) <= temp_operand;
                   ram_we(to_integer(operand1_mem_slot)) <= '1';
-                  -- XXX If address low bits don't conflict, can pre-fetch next
-                  -- instruction.
-                  state <= InstructionFetch;
+                  try_prefetch_next_instruction(reg_pc,operand1_mem_slot);
                 end if;
               when I_EOR =>
                 alu_i1 <= temp_operand;
@@ -1094,9 +1102,7 @@ begin
                   end if;
                   ram_data_i(to_integer(operand1_mem_slot)) <= temp_operand;
                   ram_we(to_integer(operand1_mem_slot)) <= '1';
-                  -- XXX If address low bits don't conflict, can pre-fetch next
-                  -- instruction.
-                  state <= InstructionFetch;
+                  try_prefetch_next_instruction(reg_pc,operand1_mem_slot);
                 end if;
               when I_LSR =>
                 -- Modify and write back.
@@ -1131,9 +1137,7 @@ begin
                   temp_operand(7) := '0';
                   ram_data_i(to_integer(operand1_mem_slot)) <= temp_operand;
                   ram_we(to_integer(operand1_mem_slot)) <= '1';
-                  -- XXX If address low bits don't conflict, can pre-fetch next
-                  -- instruction.
-                  state <= InstructionFetch;
+                  try_prefetch_next_instruction(reg_pc,operand1_mem_slot);
                 end if;
               when I_ORA =>
                 alu_i1 <= temp_operand;
@@ -1176,9 +1180,7 @@ begin
                   temp_operand(0) := flag_c;
                   ram_data_i(to_integer(operand1_mem_slot)) <= temp_operand;
                   ram_we(to_integer(operand1_mem_slot)) <= '1';
-                  -- XXX If address low bits don't conflict, can pre-fetch next
-                  -- instruction.
-                  state <= InstructionFetch;
+                  try_prefetch_next_instruction(reg_pc,operand1_mem_slot);
                 end if;
               when I_ROR =>
                 -- Modify and write back.
@@ -1213,9 +1215,7 @@ begin
                   temp_operand(7) := flag_c;
                   ram_data_i(to_integer(operand1_mem_slot)) <= temp_operand;
                   ram_we(to_integer(operand1_mem_slot)) <= '1';
-                  -- XXX If address low bits don't conflict, can pre-fetch next
-                  -- instruction.
-                  state <= InstructionFetch;
+                  try_prefetch_next_instruction(reg_pc,operand1_mem_slot);
                 end if;
               when I_SBC =>
                 alu_i1 <= std_logic_vector(reg_a);
@@ -1233,8 +1233,7 @@ begin
           when MemoryWrite =>
             ram_data_i(to_integer(operand1_mem_slot)) <= temp_value;
             ram_we(to_integer(operand1_mem_slot)) <= '1';
-            -- XXX can prefetch next instruction if lower bits don't clash
-            state <= InstructionFetch;
+            try_prefetch_next_instruction(reg_pc,operand1_mem_slot);
           when JMPIndirectFetch =>
             -- Fetched indirect address, so copy it into the programme counter
             set_pc(unsigned(temp_operand_address));
