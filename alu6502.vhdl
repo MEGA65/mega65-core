@@ -42,11 +42,11 @@ entity ALU6502 is
 
 end entity ALU6502;
 
-architecture behavioural of ALU6502 is
+-- this is the architecture
+architecture RTL of ALU6502 is
+begin
 
-begin  -- behavioural
-
-  bcd1 : entity bcdadder      
+    bcd1 : entity bcdadder      
     port map (
       cin => bcd1cin,
       i1 => bcd1in1,
@@ -62,13 +62,7 @@ begin  -- behavioural
       cout => bcd2cout,
       o => bcd2o
       );
-
-
-end behavioural;
-
--- this is the architecture
-architecture RTL of ALU6502 is
-begin
+  
   process(afunc,I1,I2,IC,IV,INEG,ID,IZ,bcd1cout,bcd2cout,bcd2o,bcd1o)
     variable temp : std_logic_vector(8 downto 0);
     variable i18 : std_logic_vector(8 downto 0);
