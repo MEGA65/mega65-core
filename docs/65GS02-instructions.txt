@@ -76,7 +76,8 @@ to accommodate the memory read.
 * Where memory writes are to fast RAM and do not conflict with the
 address of the next instruction, cycle counts may be reduced by one
 cycle due to memory write pipe-lining.
-* For read-modify-write instructions operating on I/O memory
+* For all instructions fetched from I/O memory add 2 cycles.
+* For read-modify-write instructions pointing to I/O memory
 addresses, one additional cycle is required to allow for writing the
 original value back to the source address. This allows the DEC $D019
 or LSR $D019 video interrupt acknowledgement idiom to continue to
