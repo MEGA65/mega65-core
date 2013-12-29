@@ -11,8 +11,10 @@ signal clock : std_logic := '0';
 signal reset : std_logic := '0';
 signal irq : std_logic := '1';
 signal nmi : std_logic := '1';
+signal monitor_pc : std_logic_vector(15 downto 0);
+
 begin  -- behavior
-  CPU1: entity cpu6502 port map (clock,reset,irq,nmi);      
+  CPU0: entity container port map (clock,reset,irq,nmi,monitor_pc);      
   process
   begin  -- process tb
     for i in 1 to 10 loop
