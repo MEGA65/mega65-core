@@ -44,9 +44,18 @@ end entity ALU6502;
 
 -- this is the architecture
 architecture RTL of ALU6502 is
+
+  component bcdadder port (
+    cin  : in  std_logic;
+    i1   : in  unsigned(3 downto 0);
+    i2   : in  unsigned(3 downto 0);
+    o   : out  unsigned(3 downto 0);
+    cout : out std_logic);
+  end component;
+
 begin
 
-    bcd1 : entity bcdadder      
+    bcd1 : component bcdadder      
     port map (
       cin => bcd1cin,
       i1 => bcd1in1,
@@ -54,7 +63,7 @@ begin
       cout => bcd1cout,
       o => bcd1o
       );
-  bcd2 : entity bcdadder      
+  bcd2 : component bcdadder      
     port map (
       cin => bcd2cin,
       i1 => bcd2in1,

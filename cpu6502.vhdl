@@ -48,6 +48,14 @@ architecture Behavioral of cpu6502 is
       );
   end component ALU6502;
 
+  component spartan6blockram port (Clk : in std_logic;
+        address : in std_logic_vector(15 downto 0);
+        we : in std_logic;
+        data_i : in std_logic_vector(7 downto 0);
+        data_o : out std_logic_vector(7 downto 0)
+     );
+  end component spartan6blockram;
+
 
   
 -- 512KB RAM as 64K x 64bit
@@ -89,7 +97,9 @@ architecture Behavioral of cpu6502 is
 
   signal nmi_pending : std_logic := '0';
   signal irq_pending : std_logic := '0';
-
+  signal nmi_state : std_logic := '1';
+  signal irq_state : std_logic := '1';
+  
   -- interface to ALU
   signal alu_function : std_logic_vector(3 downto 0);
   signal alu_i1 : std_logic_vector(7 downto 0);
@@ -274,7 +284,7 @@ begin
   -- Each block portram is 64KBx8bits, so we need 8 of them
   -- to make 512KB, approximately the total available on this FPGA.
   gen_ram: for i in 0 to 7 generate
-    ramx: entity spartan6blockram
+    ramx: component spartan6blockram
       port map (
         Clk   => clock,
         address => ram_address(i),
@@ -283,7 +293,7 @@ begin
         data_o  => ram_data_o(i));
   end generate;
   
-  process(clock,irq,nmi)
+  process(clock)
     variable normal_instruction : boolean;
 
     variable temp_address : std_logic_vector(15 downto 0);
@@ -716,13 +726,17 @@ begin
 
     variable temp_sp_addr : std_logic_vector(15 downto 0);
   begin
-    if falling_edge(nmi) then
-      nmi_pending <= '1';
-    end if;
-    if falling_edge(irq) then
-      irq_pending <= '1';
-    end if;
     if rising_edge(clock) then
+      -- Check for interrupts
+      if nmi = '0' and nmi_state = '1' then
+        nmi_pending <= '1';        
+      end if;
+      nmi_state <= nmi;
+      if irq = '0' and irq_state = '1' then
+        irq_pending <= '1';        
+      end if;
+      irq_state <= irq;
+
       monitor_pc <= std_logic_vector(reg_pc);
       report "tick" severity note;
       if reset = '0' or state = ResetLow then
