@@ -122,5 +122,6 @@ begin
                                   CLK_OUT1 => clock,reset => reset);
   pixel_clock: vga_clock port map(CLK_IN1 => CLK_IN,
                                   CLK_OUT2 => vga_pixel_clock,reset => reset);
+
 end Behavioral;
 

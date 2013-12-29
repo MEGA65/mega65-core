@@ -727,6 +727,9 @@ begin
     variable temp_sp_addr : std_logic_vector(15 downto 0);
   begin
     if rising_edge(clock) then
+
+      report "tick in cpu" severity note;
+      
       -- Check for interrupts
       if nmi = '0' and nmi_state = '1' then
         nmi_pending <= '1';        
@@ -737,6 +740,8 @@ begin
       end if;
       irq_state <= irq;
 
+      report "state = " & processor_state'image(state) severity note;
+      
       monitor_pc <= std_logic_vector(reg_pc);
       report "tick" severity note;
       if reset = '0' or state = ResetLow then
