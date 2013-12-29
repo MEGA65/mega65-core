@@ -23,7 +23,33 @@ entity cpu6502 is
 end cpu6502;
 
 architecture Behavioral of cpu6502 is
+  component ALU6502 is
+    port (
+      -- select operation to perform
+      AFUNC : in std_logic_vector(3 downto 0);
 
+      -- input flags and values
+      IC : in std_logic;
+      ID : in std_logic;
+      INEG : in std_logic;
+      IV : in std_logic;
+      IZ : in std_logic;
+      -- Typically a register
+      I1  : in std_logic_vector(7 downto 0);
+      -- Typically memory
+      I2  : in std_logic_vector(7 downto 0);
+
+      -- output flags and value
+      OC : out std_logic;
+      ONEG : out std_logic;
+      OV : out std_logic;
+      OZ : out std_logic;
+      O  : out std_logic_vector(7 downto 0)
+      );
+  end component ALU6502;
+
+
+  
 -- 512KB RAM as 64K x 64bit
 -- The wide databus allows us to read entire instructions in one go,
 -- and potentially to write operands to memory while fetching the next
@@ -224,7 +250,7 @@ architecture Behavioral of cpu6502 is
 begin
   
   -- 6502 compatible ALU, with BCD support for ADC.
-  alu: entity alu6502
+  alu: component alu6502
     port map (
       AFUNC => alu_function,
       IC => flag_c,

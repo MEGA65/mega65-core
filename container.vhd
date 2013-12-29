@@ -70,8 +70,13 @@ architecture Behavioral of container is
    (-- Clock in ports
     CLK_IN1           : in     std_logic;
     -- Clock out ports
-    CLK_OUT1          : out    std_logic;
-    CLK_OUT2          : out    std_logic;
+    CLK_OUT1          : out    std_logic;  -- 100MHz
+    CLK_OUT2          : out    std_logic;  -- 300MHz
+    CLK_OUT3          : out    std_logic;  -- 240MHz
+    CLK_OUT4          : out    std_logic;  -- 200MHz
+    CLK_OUT5          : out    std_logic;  -- 171.429MHz
+    CLK_OUT6          : out    std_logic;  -- 133.33MHz
+    CLK_OUT7          : out    std_logic;  -- 120MHz
     -- Status and control signals
     RESET             : in     std_logic;
     LOCKED            : out    std_logic
@@ -111,8 +116,10 @@ begin
   iomapper0: iomapper port map (
     clk => clock, address => fastio_addr, r => fastio_read, w => fastio_write,
     data_i => fastio_wdata, data_o => fastio_rdata);
+
+  -- Use 133.333MHz CPU clock for now
   fast_clock: fpga_clock port map(CLK_IN1 => CLK_IN,
-                                  CLK_OUT2 => clock,reset => reset);
+                                  CLK_OUT6 => clock,reset => reset);
   pixel_clock: vga_clock port map(CLK_IN1 => CLK_IN,
                                   CLK_OUT2 => vga_pixel_clock,reset => reset);
 end Behavioral;
