@@ -102,3 +102,20 @@ update) from slow RAM.  However, the entire instruction including its
 operands must be fetched from the same memory type.  Instructions that
 cross the boundary between pages of differing memory types will result
 in undefined operand byte(s) being fetched.
+
+SPECIAL INSTRUCTIONS
+------------------
+
+SETMAP Set MMU bank register
+
+(A<<8)|X) -> MMU[Y]        N Z C I D V
+                                      - - - - - -
+
+     addressing    assembler    opc  bytes  cyles
+     --------------------------------------------
+     implied  SETMAP         02    1     1
+
+
+
+
+

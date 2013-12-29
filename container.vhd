@@ -117,9 +117,9 @@ begin
     clk => clock, address => fastio_addr, r => fastio_read, w => fastio_write,
     data_i => fastio_wdata, data_o => fastio_rdata);
 
-  -- Use 133.333MHz CPU clock for now
+  -- Use 100MHz CPU clock for now
   fast_clock: fpga_clock port map(CLK_IN1 => CLK_IN,
-                                  CLK_OUT6 => clock,reset => reset);
+                                  CLK_OUT1 => clock,reset => reset);
   pixel_clock: vga_clock port map(CLK_IN1 => CLK_IN,
                                   CLK_OUT2 => vga_pixel_clock,reset => reset);
 end Behavioral;

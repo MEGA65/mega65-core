@@ -157,6 +157,7 @@ architecture Behavioral of cpu6502 is
   signal state : processor_state := ResetLow;  -- start processor in reset state
 
   type instruction is (
+    -- 6502/6510 legal and illegal ops
     I_ADC,I_AHX,I_ALR,I_ANC,I_AND,I_ARR,I_ASL,I_AXS,
     I_BCC,I_BCS,I_BEQ,I_BIT,I_BMI,I_BNE,I_BPL,I_BRK,
     I_BVC,I_BVS,I_CLC,I_CLD,I_CLI,I_CLV,I_CMP,I_CPX,
@@ -166,12 +167,15 @@ architecture Behavioral of cpu6502 is
     I_PLP,I_RLA,I_ROL,I_ROR,I_RRA,I_RTI,I_RTS,I_SAX,
     I_SBC,I_SEC,I_SED,I_SEI,I_SHX,I_SHY,I_SLO,I_SRE,
     I_STA,I_STX,I_STY,I_TAS,I_TAX,I_TAY,I_TSX,I_TXA,
-    I_TXS,I_TYA,I_XAA);
+    I_TXS,I_TYA,I_XAA,
+    -- 65GS02 special ops
+    I_SETMAP
+    );
   signal op_instruction : instruction;
 
   type ilut8bit is array(0 to 255) of instruction;
   constant instruction_lut : ilut8bit := (
-    I_BRK,  I_ORA,  I_KIL,  I_SLO,  I_NOP,  I_ORA,  I_ASL,  I_SLO,  I_PHP,  I_ORA,  I_ASL,  I_ANC,  I_NOP,  I_ORA,  I_ASL,  I_SLO, 
+    I_BRK,  I_ORA,  I_SETMAP,  I_SLO,  I_NOP,  I_ORA,  I_ASL,  I_SLO,  I_PHP,  I_ORA,  I_ASL,  I_ANC,  I_NOP,  I_ORA,  I_ASL,  I_SLO, 
     I_BPL,  I_ORA,  I_KIL,  I_SLO,  I_NOP,  I_ORA,  I_ASL,  I_SLO,  I_CLC,  I_ORA,  I_NOP,  I_SLO,  I_NOP,  I_ORA,  I_ASL,  I_SLO, 
     I_JSR,  I_AND,  I_KIL,  I_RLA,  I_BIT,  I_AND,  I_ROL,  I_RLA,  I_PLP,  I_AND,  I_ROL,  I_ANC,  I_BIT,  I_AND,  I_ROL,  I_RLA, 
     I_BMI,  I_AND,  I_KIL,  I_RLA,  I_NOP,  I_AND,  I_ROL,  I_RLA,  I_SEC,  I_AND,  I_NOP,  I_RLA,  I_NOP,  I_AND,  I_ROL,  I_RLA, 
@@ -198,7 +202,7 @@ architecture Behavioral of cpu6502 is
   type mlut8bit is array(0 to 255) of addressingmode;
   constant mode_lut : mlut8bit := (
     -- 00
-    M_implied,  M_indirectX,  M_immidiate,  M_indirectX,  M_zeropage,  M_zeropage,  M_zeropage,  M_zeropage,
+    M_implied,  M_indirectX,  M_implied,  M_indirectX,  M_zeropage,  M_zeropage,  M_zeropage,  M_zeropage,
     M_implied,  M_immidiate,  M_accumulator,  M_immidiate,  M_absolute,  M_absolute,  M_absolute,  M_absolute, 
     -- 10
     M_relative,  M_indirectY,  M_immidiate,  M_indirectY,  M_zeropageX,  M_zeropageX,  M_zeropageX,  M_zeropageX, 
@@ -899,6 +903,25 @@ begin
                 -- go to fetch next instruction
                 normal_instruction := true;
                 case op_instruction is
+                  when I_SETMAP =>
+                    -- load RAM map register
+                    -- Sets map register $YY to $AAXX
+                    -- Registers are:
+                    -- $00 - $0F for instruction fetch
+                    -- $10 - $1F for memory read
+                    -- $20 - $2F for memory write
+                    temp_bank_block(15 downto 8) := std_logic_vector(reg_a);
+                    temp_bank_block(7 downto 0) := std_logic_vector(reg_x);
+                    if reg_y(7 downto 4) = x"0" then
+                      ram_bank_registers_instructions(to_integer(reg_y(3 downto 0)))
+                        <= temp_bank_block;
+                    elsif reg_y(7 downto 4) = x"1" then
+                      ram_bank_registers_read(to_integer(reg_y(3 downto 0)))
+                        <= temp_bank_block;
+                    elsif reg_y(7 downto 4) = x"2" then
+                      ram_bank_registers_write(to_integer(reg_y(3 downto 0)))
+                        <= temp_bank_block;
+                    end if;
                   when I_BRK =>
                     -- break instruction. Push state and jump to the appropriate
                     -- vector.
