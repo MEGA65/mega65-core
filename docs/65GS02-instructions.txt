@@ -92,3 +92,12 @@ time of 70ns (7 cycles at 100MHz, 11 cycles at 150MHz).  This penalty
 applies to each such memory access.  For example, executing LSR $4000
 where $4000 is a slow RAM address will incur the penalty twice, as
 location $4000 must be read and then written to.
+
+CAVEATS
+-------
+
+Instructions can be fetched from fast RAM or I/O (and in a future
+update) from slow RAM.  However, the entire instruction including its
+operands must be fetched from the same memory type.  Instructions that
+cross the boundary between pages of differing memory types will result
+in undefined operand byte(s) being fetched.

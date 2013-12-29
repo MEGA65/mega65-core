@@ -105,6 +105,11 @@ architecture Behavioral of cpu6502 is
   signal operand_from_ram : std_logic;
   signal operand_from_slowram : std_logic;
 
+  -- similarly for fetching the instruction bytes
+  signal instruction_from_io : std_logic;
+  signal instruction_from_ram : std_logic;
+  signal instruction_from_slowram : std_logic;
+  
   type processor_state is (
     -- When CPU first powers up, or reset is bought low
     ResetLow,
@@ -113,8 +118,8 @@ architecture Behavioral of cpu6502 is
     -- Normal instruction states.  Many states will be skipped
     -- by any given instruction.
     -- When an instruction completes, we move back to InstructionFetch
-    InstructionFetch,OperandResolve,
-    Calculate,MemoryWrite,IOWrite,
+    InstructionFetch,InstructionFetchIO,Operand1FetchIO,
+    OperandResolve,Calculate,IOWrite,
     -- Special states used for special instructions
     PullA,                                -- PLA
     PullP,                                -- PLP
@@ -255,7 +260,8 @@ begin
     variable temp_bank_block : std_logic_vector(15 downto 0);
     variable temp_operand : std_logic_vector(7 downto 0);
     variable temp_operand_address : std_logic_vector(15 downto 0);
-
+    variable long_address : std_logic_vector(27 downto 0);
+    
     -- Memory read and write routines assume that they are contention free.
     -- This way, multiple refernces to write_to_long_address() can be made in a single
     -- cycle, provided that they map to different RAM units.
@@ -402,60 +408,83 @@ begin
       fastio_write <= '0';
 
       long_pc := resolve_address_to_long(std_logic_vector(pc),ram_bank_registers_instructions);
-      case pc(2 downto 0) is
-        when "000" =>
-          long_pc1(27 downto 2) := long_pc(27 downto 2);
-          long_pc1(2 downto 0) := "001";
-          long_pc2(27 downto 2) := long_pc(27 downto 2);
-          long_pc2(2 downto 0) := "010";
-        when "001" =>
-          long_pc1(27 downto 2) := long_pc(27 downto 2);
-          long_pc1(2 downto 0) := "010";
-          long_pc2(27 downto 2) := long_pc(27 downto 2);
-          long_pc2(2 downto 0) := "011";
-        when "010" =>
-          long_pc1(27 downto 2) := long_pc(27 downto 2);
-          long_pc1(2 downto 0) := "011";
-          long_pc2(27 downto 2) := long_pc(27 downto 2);
-          long_pc2(2 downto 0) := "100";
-        when "011" =>
-          long_pc1(27 downto 2) := long_pc(27 downto 2);
-          long_pc1(2 downto 0) := "100";
-          long_pc2(27 downto 2) := long_pc(27 downto 2);
-          long_pc2(2 downto 0) := "101";
-        when "100" =>
-          long_pc1(27 downto 2) := long_pc(27 downto 2);
-          long_pc1(2 downto 0) := "101";
-          long_pc2(27 downto 2) := long_pc(27 downto 2);
-          long_pc2(2 downto 0) := "110";
-        when "101" =>
-          long_pc1(27 downto 2) := long_pc(27 downto 2);
-          long_pc1(2 downto 0) := "110";
-          long_pc2(27 downto 2) := long_pc(27 downto 2);
-          long_pc2(2 downto 0) := "111";
-        when "110" =>
-          long_pc1(27 downto 2) := long_pc(27 downto 2);
-          long_pc1(2 downto 0) := "111";
-          temp_pc:=std_logic_vector(unsigned(pc)+2);
-          long_pc2 := resolve_address_to_long(temp_pc,ram_bank_registers_instructions);
-          long_pc2(27 downto 2) := long_pc(27 downto 2);
-          long_pc2(2 downto 0) := "000";
-        when "111" =>
-          temp_pc:=std_logic_vector(unsigned(pc)+1);
-          long_pc1 := resolve_address_to_long(temp_pc,ram_bank_registers_instructions);
-          long_pc1(27 downto 2) := long_pc(27 downto 2);
-          long_pc1(2 downto 0) := "000";
-          long_pc2(27 downto 2) := long_pc(27 downto 2);
-          long_pc2(2 downto 0) := "001";
-          -- If missing, generates an error, if present, generates a warning :/
-        when others => null;
-      end case;
-      op_mem_slot <= unsigned(long_pc(2 downto 0));
-      operand1_mem_slot <= unsigned(long_pc1(2 downto 0));
-      operand2_mem_slot <= unsigned(long_pc2(2 downto 0));
-      request_read_long_address(long_pc);
-      request_read_long_address(long_pc1);
-      request_read_long_address(long_pc2);
+
+      if long_pc(27 downto 24) = x"F" then
+        -- Fetch is from fast I/O (which is also how ROMs are implemented)
+        instruction_from_ram <= '0';
+        instruction_from_io <= '1';
+        instruction_from_slowram <= '0';
+
+        fastio_addr <= long_pc(19 downto 0);
+        fastio_read <= '1';
+        fastio_write <= '0';
+        
+        state <= InstructionFetchIO;
+      elsif long_pc(27 downto 24) > x"7" then
+        -- Fetch is from slow RAM
+        instruction_from_ram <= '0';
+        instruction_from_io <= '0';
+        instruction_from_slowram <= '1';
+      else
+        -- If not from elsewhere, fetch from fast RAM
+        case pc(2 downto 0) is
+          when "000" =>
+            long_pc1(27 downto 2) := long_pc(27 downto 2);
+            long_pc1(2 downto 0) := "001";
+            long_pc2(27 downto 2) := long_pc(27 downto 2);
+            long_pc2(2 downto 0) := "010";
+          when "001" =>
+            long_pc1(27 downto 2) := long_pc(27 downto 2);
+            long_pc1(2 downto 0) := "010";
+            long_pc2(27 downto 2) := long_pc(27 downto 2);
+            long_pc2(2 downto 0) := "011";
+          when "010" =>
+            long_pc1(27 downto 2) := long_pc(27 downto 2);
+            long_pc1(2 downto 0) := "011";
+            long_pc2(27 downto 2) := long_pc(27 downto 2);
+            long_pc2(2 downto 0) := "100";
+          when "011" =>
+            long_pc1(27 downto 2) := long_pc(27 downto 2);
+            long_pc1(2 downto 0) := "100";
+            long_pc2(27 downto 2) := long_pc(27 downto 2);
+            long_pc2(2 downto 0) := "101";
+          when "100" =>
+            long_pc1(27 downto 2) := long_pc(27 downto 2);
+            long_pc1(2 downto 0) := "101";
+            long_pc2(27 downto 2) := long_pc(27 downto 2);
+            long_pc2(2 downto 0) := "110";
+          when "101" =>
+            long_pc1(27 downto 2) := long_pc(27 downto 2);
+            long_pc1(2 downto 0) := "110";
+            long_pc2(27 downto 2) := long_pc(27 downto 2);
+            long_pc2(2 downto 0) := "111";
+          when "110" =>
+            long_pc1(27 downto 2) := long_pc(27 downto 2);
+            long_pc1(2 downto 0) := "111";
+            temp_pc:=std_logic_vector(unsigned(pc)+2);
+            long_pc2 := resolve_address_to_long(temp_pc,ram_bank_registers_instructions);
+            long_pc2(27 downto 2) := long_pc(27 downto 2);
+            long_pc2(2 downto 0) := "000";
+          when "111" =>
+            temp_pc:=std_logic_vector(unsigned(pc)+1);
+            long_pc1 := resolve_address_to_long(temp_pc,ram_bank_registers_instructions);
+            long_pc1(27 downto 2) := long_pc(27 downto 2);
+            long_pc1(2 downto 0) := "000";
+            long_pc2(27 downto 2) := long_pc(27 downto 2);
+            long_pc2(2 downto 0) := "001";
+            -- If missing, generates an error, if present, generates a warning :/
+          when others => null;
+        end case;
+        instruction_from_ram <= '1';
+        instruction_from_io <= '0';
+        instruction_from_slowram <= '0';
+        op_mem_slot <= unsigned(long_pc(2 downto 0));
+        operand1_mem_slot <= unsigned(long_pc1(2 downto 0));
+        operand2_mem_slot <= unsigned(long_pc2(2 downto 0));
+        request_read_long_address(long_pc);
+        request_read_long_address(long_pc1);
+        request_read_long_address(long_pc2);
+      end if;
     end procedure fetch_next_instruction;
 
     procedure try_prefetch_next_instruction(pc : unsigned(15 downto 0);
@@ -788,6 +817,28 @@ begin
             -- bits of reg_pc, reg_pcplus1, reg_pcplus2
             fetch_next_instruction(reg_pc);
             state<=OperandResolve;
+          when InstructionFetchIO =>
+            temp_opcode <= fastio_rdata;
+            
+            long_address := resolve_address_to_long(std_logic_vector(reg_pcplus1),
+                                                    ram_bank_registers_instructions);
+            fastio_addr <= long_address(19 downto 0);
+            fastio_read <= '1';
+            fastio_write <= '0';
+
+            -- XXX Can save a cycle or two by not fetching operand bytes that
+            -- we don't need based on addressing mode.
+            state <= Operand1FetchIO;
+          when Operand1FetchIO =>
+            temp_value <= fastio_rdata;
+            
+            long_address := resolve_address_to_long(std_logic_vector(reg_pcplus2),
+                                                    ram_bank_registers_instructions);
+            fastio_addr <= long_address(19 downto 0);
+            fastio_read <= '1';
+            fastio_write <= '0';
+
+            state <= OperandResolve;
           when OperandResolve =>
             -- Get opcode and operands, or initiate an interrupt
             -- IRQ is level triggered
@@ -801,9 +852,17 @@ begin
               vector <= x"FFFE";
               irq_pending <= '0';
             else
-              temp_opcode <= ram_data_o(to_integer(op_mem_slot));
-              temp_operand_address(15 downto 8) := ram_data_o(to_integer(operand2_mem_slot));
-              temp_operand_address(7 downto 0) := ram_data_o(to_integer(operand1_mem_slot));
+              if instruction_from_ram = '1' then
+                temp_opcode <= ram_data_o(to_integer(op_mem_slot));
+                temp_operand_address(15 downto 8) := ram_data_o(to_integer(operand2_mem_slot));
+                temp_operand_address(7 downto 0) := ram_data_o(to_integer(operand1_mem_slot));
+              elsif instruction_from_io = '1' then                
+                temp_operand_address(15 downto 8) := fastio_rdata;
+                temp_operand_address(7 downto 0) := temp_value;
+              else
+                -- slow ram or unmapped address
+                temp_operand_address := x"FFFF";
+              end if;
 
               -- Lookup instruction and addressing mode
               op_instruction <= instruction_lut(to_integer(unsigned(temp_opcode)));
@@ -1237,10 +1296,6 @@ begin
                 -- unimplemented/illegal ops do nothing
                 state <= InstructionFetch;
             end case;
-          when MemoryWrite =>
-            ram_data_i(to_integer(operand1_mem_slot)) <= temp_value;
-            ram_we(to_integer(operand1_mem_slot)) <= '1';
-            try_prefetch_next_instruction(reg_pc,operand1_mem_slot);
           when IOWrite =>
             -- Write back value, then fetch instruction next cycle.
             -- NOTE: Assumes fastio_addr has already been set. Only used in
