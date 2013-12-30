@@ -464,6 +464,8 @@ begin
 
       long_pc := resolve_address_to_long(std_logic_vector(pc),ram_bank_registers_instructions);
 
+      report "fetch next instruction from long address " & to_string(long_pc) severity note;
+      
       if long_pc(27 downto 24) = x"F" then
         -- Fetch is from fast I/O (which is also how ROMs are implemented)
         instruction_from_ram <= '0';
@@ -1295,8 +1297,10 @@ begin
             else
               -- Read is from somewhere else, possibly an unmapped address
               temp_operand := x"FF";
+              report "read operand value from unmapped memory" severity warning;
             end if;
             -- Use ALU and progress instruction
+            report "calculating result of " & instruction'image(op_instruction) severity note;
             case op_instruction is
               when I_ADC =>
                 alu_i1 <= temp_operand;
@@ -1398,6 +1402,7 @@ begin
                 else
                   flag_z <= '0';
                 end if;
+                fetch_next_instruction(reg_pc); 
               when I_LDX =>
                 reg_x <= unsigned(temp_operand);
                 flag_n <= temp_operand(7);
@@ -1406,6 +1411,7 @@ begin
                 else
                   flag_z <= '0';
                 end if;
+                fetch_next_instruction(reg_pc);
               when I_LDY =>
                 reg_y <= unsigned(temp_operand);
                 flag_n <= temp_operand(7);
@@ -1414,6 +1420,7 @@ begin
                 else
                   flag_z <= '0';
                 end if;
+                fetch_next_instruction(reg_pc);
               when I_LSR =>
                 -- Modify and write back.
                 flag_c <= temp_operand(0);
@@ -1469,7 +1476,7 @@ begin
                 fetch_next_instruction(reg_pc);
               when others =>
                 -- unimplemented/illegal ops do nothing
-                state <= InstructionFetch;
+                fetch_next_instruction(reg_pc);
             end case;
           when IOWrite =>
             -- Write back value, then fetch instruction next cycle.
