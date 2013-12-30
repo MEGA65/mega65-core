@@ -34,7 +34,6 @@ entity ALU6502 is
   signal bcd1in2 : unsigned(3 downto 0);
   signal bcd1cout : std_logic;
   signal bcd1o : unsigned(3 downto 0);
-  signal bcd2cin : std_logic;
   signal bcd2in1 : unsigned(3 downto 0);
   signal bcd2in2 : unsigned(3 downto 0);
   signal bcd2cout : std_logic;
@@ -65,7 +64,7 @@ begin
       );
   bcd2 : component bcdadder      
     port map (
-      cin => bcd2cin,
+      cin => bcd1cout,
       i1 => bcd2in1,
       i2 => bcd2in2,
       cout => bcd2cout,
@@ -78,6 +77,12 @@ begin
     variable i28 : std_logic_vector(8 downto 0);
     variable ctemp : std_logic_vector(0 downto 0);
   begin
+    -- Set inputs to BCD adders to stop latches being inferred
+    bcd1cin <= '0';
+    bcd1in1 <= x"0";
+    bcd1in2 <= x"0";
+    bcd2in1 <= x"0";
+    bcd2in2 <= x"0";
     
     if afunc = "0001" then              -- AND
       O <= I1 and I2;
@@ -178,8 +183,7 @@ begin
         -- calculation of these flags when in decimal mode.
         bcd1cin <= IC;
         bcd1in1 <= unsigned(I1(3 downto 0));
-        bcd1in2 <= unsigned(I2(3 downto 0));
-        bcd2cin <= bcd1cout;
+        bcd1in2 <= unsigned(I2(3 downto 0));        
         bcd2in1 <= unsigned(I1(7 downto 4));
         bcd2in2 <= unsigned(I2(7 downto 4));
         OC <= bcd2cout;
@@ -220,7 +224,7 @@ begin
       OV <= IV;
       ONEG <= INEG;
       OZ <= IZ;
-      O <= x"FF";
+      O <= x"99";
       null;
     end if;
   end process;
