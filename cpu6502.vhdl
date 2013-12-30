@@ -745,6 +745,7 @@ begin
     end procedure fetch_stack_bytes;
 
     variable temp_sp_addr : std_logic_vector(15 downto 0);
+    variable opcode_now : std_logic_vector(7 downto 0);
   begin
     if rising_edge(clock) then
 
@@ -975,19 +976,22 @@ begin
             else
               if instruction_from_ram = '1' then
                 temp_opcode <= ram_data_o(to_integer(op_mem_slot));
+                opcode_now := ram_data_o(to_integer(op_mem_slot));
                 temp_operand_address(15 downto 8) := ram_data_o(to_integer(operand2_mem_slot));
                 temp_operand_address(7 downto 0) := ram_data_o(to_integer(operand1_mem_slot));
               elsif instruction_from_io = '1' then                
                 temp_operand_address(15 downto 8) := fastio_rdata;
                 temp_operand_address(7 downto 0) := temp_value;
+                opcode_now := temp_opcode;
               else
                 -- slow ram or unmapped address
                 temp_operand_address := x"FFFF";
+                opcode_now := temp_opcode;
               end if;
 
               -- Lookup instruction and addressing mode
-              op_instruction <= instruction_lut(to_integer(unsigned(temp_opcode)));
-              op_mode <= mode_lut(to_integer(unsigned(temp_opcode)));
+              op_instruction <= instruction_lut(to_integer(unsigned(opcode_now)));
+              op_mode <= mode_lut(to_integer(unsigned(opcode_now)));
 
               if op_mode=M_implied then
                 -- implied mode, handle instruction now, add one to PC, and
@@ -1264,7 +1268,9 @@ begin
           when Calculate =>
             -- This is an instruction that operates on a byte fetched from memory.
             -- We do need to grab the byte from the appropriate memory type.
-            if operand_from_io = '1' then
+            if op_mode = M_immidiate then              
+              temp_operand := ram_data_o(to_integer(operand1_mem_slot));
+            elsif operand_from_io = '1' then
               -- XXX I/O currently not wired in, so just read all ones for now
               temp_operand := x"FF";
             elsif operand_from_slowram = '1' then
@@ -1378,6 +1384,30 @@ begin
                   flag_z <= '0';
                 end if;
                 rmw_operand_commit(temp_operand);
+              when I_LDA =>
+                reg_a <= unsigned(temp_operand);
+                flag_n <= temp_operand(7);
+                if temp_operand = x"00" then
+                  flag_z <= '1';
+                else
+                  flag_z <= '0';
+                end if;
+              when I_LDX =>
+                reg_x <= unsigned(temp_operand);
+                flag_n <= temp_operand(7);
+                if temp_operand = x"00" then
+                  flag_z <= '1';
+                else
+                  flag_z <= '0';
+                end if;
+              when I_LDY =>
+                reg_y <= unsigned(temp_operand);
+                flag_n <= temp_operand(7);
+                if temp_operand = x"00" then
+                  flag_z <= '1';
+                else
+                  flag_z <= '0';
+                end if;
               when I_LSR =>
                 -- Modify and write back.
                 flag_c <= temp_operand(0);
