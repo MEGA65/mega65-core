@@ -160,7 +160,7 @@ architecture Behavioral of cpu6502 is
     -- Normal instruction states.  Many states will be skipped
     -- by any given instruction.
     -- When an instruction completes, we move back to InstructionFetch
-    InstructionFetch,InstructionFetchIO,
+    InstructionFetch,InstructionFetchIO,InstructionFetchIOWait,
     Operand1FetchIO,Operand1FetchIOWait,
     OperandResolve,OperandResolveIOWait,Calculate,IOWrite,
     -- Special states used for special instructions
@@ -476,14 +476,17 @@ begin
         fastio_read <= '1';
         fastio_write <= '0';
         
-        state <= InstructionFetchIO;
+        state <= InstructionFetchIOWait;
+        report "fetching instruction from IO" severity note;
       elsif long_pc(27 downto 24) > x"7" then
         -- Fetch is from slow RAM
         instruction_from_ram <= '0';
         instruction_from_io <= '0';
         instruction_from_slowram <= '1';
+        report "fetching instruction from slow RAM" severity note;
       else
         -- If not from elsewhere, fetch from fast RAM
+        report "fetching instruction from fast RAM" severity note;
         case pc(2 downto 0) is
           when "000" =>
             long_pc1(27 downto 2) := long_pc(27 downto 2);
@@ -541,6 +544,7 @@ begin
         request_read_long_address(long_pc);
         request_read_long_address(long_pc1);
         request_read_long_address(long_pc2);
+        state <= OperandResolve;
       end if;
     end procedure fetch_next_instruction;
 
@@ -557,7 +561,6 @@ begin
       else
         -- can prefetch
         fetch_next_instruction(pc);
-        state <= OperandResolve;
       end if;
     end procedure try_prefetch_next_instruction;
     
@@ -757,6 +760,7 @@ begin
 
       report "state = " & processor_state'image(state) severity note;
       
+      monitor_opcode <= std_logic_vector(temp_opcode);
       monitor_pc <= std_logic_vector(reg_pc);
       monitor_sp <= std_logic_vector(reg_sp);
       monitor_a <= std_logic_vector(reg_a);
@@ -927,8 +931,10 @@ begin
             -- Probably easiest to do a parallel calculation based on lower
             -- bits of reg_pc, reg_pcplus1, reg_pcplus2
             fetch_next_instruction(reg_pc);
-            state<=OperandResolve;
+            when InstructionFetchIOWait =>
+            state <= InstructionFetchIO;
           when InstructionFetchIO =>
+            report "instruction from I/O is " & to_string(fastio_rdata) severity note;
             temp_opcode <= fastio_rdata;
             
             long_address := resolve_address_to_long(std_logic_vector(reg_pcplus1),
@@ -1104,7 +1110,6 @@ begin
                   -- This will result in implied mode instructions that don't
                   -- touch the stack taking only one cycle.
                   fetch_next_instruction(reg_pcplus1);
-                  state <= OperandResolve;
                 end if;
               elsif op_mode=M_relative then
                 -- a relative branch, work out whether to take the branch
@@ -1153,19 +1158,19 @@ begin
                 reg_sp <= reg_sp - 2;
                 set_pc(unsigned(temp_operand_address));
                 fetch_next_instruction(unsigned(temp_operand_address));
-                state <= OperandResolve;
               elsif op_instruction=I_JMP and op_mode=M_absolute then
                 -- JMP absolute mode: very simple, just overwrite the
                 -- programme counter.
                 set_pc(unsigned(temp_operand_address));
                 fetch_next_instruction(unsigned(temp_operand_address));
-                state <= OperandResolve;
               elsif op_instruction=I_JMP and op_mode=M_indirect then
                 -- JMP indirect absolute.
                 -- Fetch the two bytes, and then do the jump next cycle
                 -- We can use fetch_next_instruction to do this for us
                 -- (although it will read the byte before as a pretend
                 --  opcode).
+                -- XXX Will not work from I/O or slow RAM
+                report "JMP (indirect) needs to be modified to work with I/O & slow RAM" severity failure;
                 fetch_next_instruction(unsigned(temp_operand_address)-1);
                 state <= JMPIndirectFetch;
               elsif op_mode=M_accumulator then
