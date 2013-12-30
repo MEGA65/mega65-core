@@ -20,7 +20,7 @@ entity cpu6502 is
     monitor_p : out std_logic_vector(7 downto 0);
 
     -- fast IO port (clocked at core clock). 1MB address space
-    fastio_addr : inout std_logic_vector(19 downto 0);
+    fastio_addr : out std_logic_vector(19 downto 0);
     fastio_read : out std_logic;
     fastio_write : out std_logic;
     fastio_wdata : out std_logic_vector(7 downto 0);
@@ -173,7 +173,8 @@ architecture Behavioral of cpu6502 is
     Halt                                  -- KIL
     );
   signal state : processor_state := ResetLow;  -- start processor in reset state
-
+  signal lohi : std_logic;
+  
   type instruction is (
     -- 6502/6510 legal and illegal ops
     I_ADC,I_AHX,I_ALR,I_ANC,I_AND,I_ARR,I_ASL,I_AXS,
@@ -953,9 +954,12 @@ begin
     variable opcode_now : std_logic_vector(7 downto 0);
 
     variable virtual_reg_p : std_logic_vector(7 downto 0);
+
   begin
     if rising_edge(clock) then
-
+      -- Prevent a latch being inferred for alu_func 
+      alu_function <= "1111";
+      
       -- Check for interrupts
       if nmi = '0' and nmi_state = '1' then
         nmi_pending <= '1';        
@@ -1087,6 +1091,7 @@ begin
               fastio_addr(19 downto 12) <= ram_bank_registers_instructions(15)(15 downto 8);
               fastio_addr(11 downto 1) <= vector(11 downto 1);
               fastio_addr(0) <= '0';
+              lohi <= '0';
               fastio_write <= '0';
               fastio_read <= '1';
               state <= VectorReadIOWait;
@@ -1103,11 +1108,11 @@ begin
             state <= VectorReadIO;
           when VectorReadIO =>
             report "read value $" & to_hstring(fastio_rdata) severity note;
-            if fastio_addr(0) = '0' then              
+            if lohi = '0' then              
               reg_pc(7 downto 0) <= unsigned(fastio_rdata);
               reg_pcplus1(7 downto 0) <= (unsigned(fastio_rdata) +1);
               reg_pcplus2(7 downto 0) <= (unsigned(fastio_rdata) +2);
-              fastio_addr(0) <= '1';
+              lohi <= '1';
               state <= VectorReadIOWait;
             else
               reg_pc(15 downto 8) <= unsigned(fastio_rdata);
