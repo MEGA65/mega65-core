@@ -30,31 +30,6 @@ entity cpu6502 is
 end cpu6502;
 
 architecture Behavioral of cpu6502 is
-  component ALU6502 is
-    port (
-      -- select operation to perform
-      AFUNC : in std_logic_vector(3 downto 0);
-
-      -- input flags and values
-      IC : in std_logic;
-      ID : in std_logic;
-      INEG : in std_logic;
-      IV : in std_logic;
-      IZ : in std_logic;
-      -- Typically a register
-      I1  : in std_logic_vector(7 downto 0);
-      -- Typically memory
-      I2  : in std_logic_vector(7 downto 0);
-
-      -- output flags and value
-      OC : out std_logic;
-      ONEG : out std_logic;
-      OV : out std_logic;
-      OZ : out std_logic;
-      O  : out std_logic_vector(7 downto 0)
-      );
-  end component ALU6502;
-
   component spartan6blockram port (Clk : in std_logic;
                                    address : in std_logic_vector(15 downto 0);
                                    we : in std_logic;
@@ -106,16 +81,6 @@ architecture Behavioral of cpu6502 is
   signal irq_pending : std_logic := '0';
   signal nmi_state : std_logic := '1';
   signal irq_state : std_logic := '1';
-  
-  -- interface to ALU
-  signal alu_function : std_logic_vector(3 downto 0);
-  signal alu_i1 : std_logic_vector(7 downto 0);
-  signal alu_i2 : std_logic_vector(7 downto 0);
-  signal alu_c : std_logic;
-  signal alu_neg : std_logic;
-  signal alu_v : std_logic;
-  signal alu_z : std_logic;
-  signal alu_o : std_logic_vector(7 downto 0);
   
 -- Keep incremented versions of PC around for fast hopping over instructions
 -- (note these are not used for instruction fetching, as that code operates
@@ -269,24 +234,6 @@ architecture Behavioral of cpu6502 is
 
 
 begin
-  
-  -- 6502 compatible ALU, with BCD support for ADC.
-  alu: component alu6502
-    port map (
-      AFUNC => alu_function,
-      IC => flag_c,
-      ID => flag_d,
-      ineg => flag_n,
-      iv => flag_v,
-      iz => flag_z,
-      i1 => alu_i1,
-      i2 => alu_i2,
-      oc => alu_c,
-      oneg => alu_neg,
-      ov => alu_v,
-      oz => alu_z,
-      o => alu_o
-      );
   
   -- Each block portram is 64KBx8bits, so we need 8 of them
   -- to make 512KB, approximately the total available on this FPGA.
@@ -855,7 +802,6 @@ begin
           flag_c<='0';
         end if;
       end if;
-
       -- Return final value
       report "add result of "
         & "$" & to_hstring(std_logic_vector(i1)) 
@@ -866,6 +812,31 @@ begin
         & " = " & to_hstring(std_logic_vector(o)) severity note;
       return o;
     end function alu_op_add;
+
+    impure function alu_op_sub (
+      i1 : in unsigned(7 downto 0);
+      i2 : in unsigned(7 downto 0)) return unsigned is
+      variable o : unsigned(7 downto 0);
+      variable s2 : unsigned(7 downto 0);
+    begin
+      -- calculate ones-complement
+      s2 := not i1;
+      -- Then do add.
+      -- Z and C should get set correctly.
+      -- XXX Will this work for decimal mode?
+      o := alu_op_add(i1,s2);
+      return o;
+      
+      -- Return final value
+      report "sub result of "
+        & "$" & to_hstring(std_logic_vector(i1)) 
+        & " - "
+        & "$" & to_hstring(std_logic_vector(i2)) 
+        & " - 1 + "
+        & "$" & std_logic'image(flag_c)
+        & " = " & to_hstring(std_logic_vector(o)) severity note;
+      return o;
+    end function alu_op_sub;
 
     impure function alu_op_and (
       i1 : unsigned(7 downto 0);
@@ -878,6 +849,29 @@ begin
       return o;
     end alu_op_and;
     
+    impure function alu_op_or (
+      i1 : unsigned(7 downto 0);
+      i2 : unsigned(7 downto 0))
+      return unsigned is
+      variable o : unsigned(7 downto 0);  
+    begin
+      o := i1 or i2;
+      set_nz(o);
+      return o;
+    end alu_op_or;
+    
+    impure function alu_op_xor (
+      i1 : unsigned(7 downto 0);
+      i2 : unsigned(7 downto 0))
+      return unsigned is
+      variable o : unsigned(7 downto 0);  
+    begin
+      o := i1 xor i2;
+      set_nz(o);
+      return o;
+    end alu_op_xor;
+    
+
     procedure execute_normal_instruction(op_instruction : instruction;
                                          temp_operand : std_logic_vector(7 downto 0)) is
       variable new_value : unsigned(7 downto 0);
@@ -885,7 +879,7 @@ begin
       report "execute instruction with operand $" & to_hstring(temp_operand) severity note;
       case op_instruction is
         when I_ADC =>
-          reg_a<=alu_op_add(unsigned(temp_operand),reg_a);
+          reg_a<=alu_op_add(reg_a,unsigned(temp_operand));
           fetch_next_instruction(reg_pc);
         when I_AND => 
           reg_a<=alu_op_and(unsigned(temp_operand),reg_a);
@@ -903,28 +897,13 @@ begin
           flag_v <= temp_operand(6);
           fetch_next_instruction(reg_pc);                
         when I_CMP =>
-          alu_i1 <= std_logic_vector(reg_a);
-          alu_i2 <= temp_operand;
-          alu_function <= "1001";
-          flag_c <= alu_c;
-          flag_n <= alu_neg;
-          flag_z <= alu_z;
+          set_nz(alu_op_sub(reg_a,unsigned(temp_operand)));
           fetch_next_instruction(reg_pc);
         when I_CPX =>
-          alu_i1 <= std_logic_vector(reg_x);
-          alu_i2 <= temp_operand;
-          alu_function <= "1001";
-          flag_c <= alu_c;
-          flag_n <= alu_neg;
-          flag_z <= alu_z;
+          set_nz(alu_op_sub(reg_x,unsigned(temp_operand)));
           fetch_next_instruction(reg_pc);
         when I_CPY =>
-          alu_i1 <= std_logic_vector(reg_y);
-          alu_i2 <= temp_operand;
-          alu_function <= "1001";
-          flag_c <= alu_c;
-          flag_n <= alu_neg;
-          flag_z <= alu_z;
+          set_nz(alu_op_sub(reg_y,unsigned(temp_operand)));
           fetch_next_instruction(reg_pc);
         when I_DEC =>
           -- Modify and write back.
@@ -933,12 +912,7 @@ begin
           set_nz(new_value);
           rmw_operand_commit(std_logic_vector(new_value));
         when I_EOR =>
-          alu_i1 <= temp_operand;
-          alu_i2 <= std_logic_vector(reg_a);
-          alu_function <= "0011";
-          reg_a <= unsigned(alu_o);
-          flag_n <= alu_neg;
-          flag_z <= alu_z;
+          reg_a<=alu_op_xor(reg_a,unsigned(temp_operand));
           fetch_next_instruction(reg_pc);
         when I_INC =>
           -- Modify and write back.
@@ -967,12 +941,7 @@ begin
           set_nz(new_value);
           rmw_operand_commit(std_logic_vector(new_value));
         when I_ORA =>
-          alu_i1 <= temp_operand;
-          alu_i2 <= std_logic_vector(reg_a);
-          alu_function <= "0010";
-          reg_a <= unsigned(alu_o);
-          flag_n <= alu_neg;
-          flag_z <= alu_z;
+          reg_a<=alu_op_or(reg_a,unsigned(temp_operand));
           fetch_next_instruction(reg_pc);
         when I_ROL =>
           -- Modify and write back.
@@ -989,13 +958,7 @@ begin
           set_nz(new_value);          
           rmw_operand_commit(std_logic_vector(new_value));
         when I_SBC =>
-          alu_i1 <= std_logic_vector(reg_a);
-          alu_i2 <= temp_operand;
-          alu_function <= "1001";
-          flag_c <= alu_c;
-          flag_n <= alu_neg;
-          flag_z <= alu_z;
-          reg_a <= unsigned(alu_o);
+          reg_a<=alu_op_sub(reg_a,unsigned(temp_operand));
           fetch_next_instruction(reg_pc);
         when others =>
           -- unimplemented/illegal ops do nothing
@@ -1012,11 +975,7 @@ begin
 
   begin
     if rising_edge(clock) then
-      -- Prevent a latch being inferred for ALU inputs
-      alu_function <= "1111";
-      alu_i1 <= x"42";
-      alu_i2 <= x"42";
-      -- Also prevent latches on fastio
+      -- Try to prevent latches on fastio
       fastio_addr <= x"00000";
       fastio_read <= '0';
       fastio_write <= '0';
