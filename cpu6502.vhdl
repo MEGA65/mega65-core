@@ -1225,6 +1225,13 @@ begin
                 end if;
                 fetch_next_instruction(reg_pcplus1);
                 state <= OperandResolve;
+              elsif op_mode=M_immidiate then
+                -- This path costs an extra cycle for an immediate mode operation
+                -- XXX Implement short-cut for immediate mode fetching, at
+                -- least when fetching from fast RAM
+                advance_pc(2);
+                temp_value <=temp_operand(7 downto 0);
+                state <= Calculate;
               elsif op_mode=M_zeropage then
                 temp_address(7 downto 0) := temp_operand_address(7 downto 0);
                 temp_address(15 downto 8) := "00000000";
