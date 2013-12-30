@@ -957,8 +957,10 @@ begin
 
   begin
     if rising_edge(clock) then
-      -- Prevent a latch being inferred for alu_func 
+      -- Prevent a latch being inferred for ALU inputs
       alu_function <= "1111";
+      alu_i1 <= x"42";
+      alu_i2 <= x"42";      
       
       -- Check for interrupts
       if nmi = '0' and nmi_state = '1' then

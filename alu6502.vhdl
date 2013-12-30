@@ -26,7 +26,7 @@ entity ALU6502 is
     OV : out std_logic;
     OZ : out std_logic;
     O  : out std_logic_vector(7 downto 0)
-  );
+    );
 
   -- BCD 4 bit adders for ADC instruction
   signal bcd1cin : std_logic;
@@ -54,7 +54,7 @@ architecture RTL of ALU6502 is
 
 begin
 
-    bcd1 : component bcdadder      
+  bcd1 : component bcdadder      
     port map (
       cin => bcd1cin,
       i1 => bcd1in1,
@@ -83,6 +83,12 @@ begin
     bcd1in2 <= x"0";
     bcd2in1 <= x"0";
     bcd2in2 <= x"0";
+    -- Similarly assign all outputs to stop latches being inferred
+    OC <= '0';
+    OV <= '0';
+    ONEG <= '0';
+    OZ <= '0';
+    O <= x"99";
     
     if afunc = "0001" then              -- AND
       O <= I1 and I2;
@@ -199,33 +205,26 @@ begin
         O(3 downto 0) <= std_logic_vector(bcd1o);
       end if;
     elsif afunc = "1001" then               -- SUB then
-        -- subtraction does not support BCD mode, so we only need binary
-        -- subtraction.
-        i18(7 downto 0) := I1;
-        i18(8) := '0';
-        i28(7 downto 0) := I2;
-        i28(8) := '0';
-        if IC = '0' then
-          temp := std_logic_vector(unsigned(i18)-unsigned(i28)-1);
-        else
-          temp := std_logic_vector(unsigned(i18)-unsigned(i28));
-        end if;
-        O <= temp(7 downto 0);
-        if temp(7 downto 0) = x"00" then
-          OZ <= '1';
-        else
-          OZ <= '0';
-        end if;
-        OC <= temp(8);
-        OV <= temp(8);
-        ONEG <= temp(7);
-    else
-      OC <= IC;
-      OV <= IV;
-      ONEG <= INEG;
-      OZ <= IZ;
-      O <= x"99";
-      null;
+      -- subtraction does not support BCD mode, so we only need binary
+      -- subtraction.
+      i18(7 downto 0) := I1;
+      i18(8) := '0';
+      i28(7 downto 0) := I2;
+      i28(8) := '0';
+      if IC = '0' then
+        temp := std_logic_vector(unsigned(i18)-unsigned(i28)-1);
+      else
+        temp := std_logic_vector(unsigned(i18)-unsigned(i28));
+      end if;
+      O <= temp(7 downto 0);
+      if temp(7 downto 0) = x"00" then
+        OZ <= '1';
+      else
+        OZ <= '0';
+      end if;
+      OC <= temp(8);
+      OV <= temp(8);
+      ONEG <= temp(7);
     end if;
   end process;
 end architecture RTL;
