@@ -1,7 +1,7 @@
 	.org $E000
 
 	; make reset vector address not contain any $00 bytes for easier debugging
-	.advance $E234
+	.advance $E001
 
 reset:	; reset entry point
 	LDA $0401

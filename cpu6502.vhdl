@@ -879,18 +879,23 @@ begin
     
 
     procedure execute_normal_instruction(op_instruction : instruction;
-                                         temp_operand : std_logic_vector(7 downto 0)) is
+                                         temp_operand : std_logic_vector(7 downto 0);
+                                         advance2 : boolean) is
       variable new_value : unsigned(7 downto 0);
+      variable new_pc : unsigned(15 downto 0) := reg_pc;
     begin
       report "execute instruction with operand $" & to_hstring(temp_operand) severity note;
+      if advance2 then
+        new_pc := reg_pcplus2;
+      end if;
       case op_instruction is
         when I_ADC =>
           report "ADD reg_a = $" & to_hstring(std_logic_vector(reg_a)) & ", operand=$" & to_hstring(temp_operand) severity note;
           reg_a<=alu_op_add(reg_a,unsigned(temp_operand));
-          fetch_next_instruction(reg_pc);
+          fetch_next_instruction(new_pc);
         when I_AND => 
           reg_a<=alu_op_and(unsigned(temp_operand),reg_a);
-          fetch_next_instruction(reg_pc);
+          fetch_next_instruction(new_pc);
         when I_ASL =>
           -- Modify and write back.
           flag_c <= temp_operand(7);
@@ -902,16 +907,16 @@ begin
           set_nz(alu_op_and(unsigned(temp_operand),reg_a));
           flag_n <= temp_operand(7);
           flag_v <= temp_operand(6);
-          fetch_next_instruction(reg_pc);                
+          fetch_next_instruction(new_pc);                
         when I_CMP =>
           set_nz(alu_op_sub(reg_a,unsigned(temp_operand)));
-          fetch_next_instruction(reg_pc);
+          fetch_next_instruction(new_pc);
         when I_CPX =>
           set_nz(alu_op_sub(reg_x,unsigned(temp_operand)));
-          fetch_next_instruction(reg_pc);
+          fetch_next_instruction(new_pc);
         when I_CPY =>
           set_nz(alu_op_sub(reg_y,unsigned(temp_operand)));
-          fetch_next_instruction(reg_pc);
+          fetch_next_instruction(new_pc);
         when I_DEC =>
           -- Modify and write back.
           new_value(7 downto 0) := unsigned(temp_operand(7 downto 0))-1;
@@ -920,7 +925,7 @@ begin
           rmw_operand_commit(std_logic_vector(new_value));
         when I_EOR =>
           reg_a<=alu_op_xor(reg_a,unsigned(temp_operand));
-          fetch_next_instruction(reg_pc);
+          fetch_next_instruction(new_pc);
         when I_INC =>
           -- Modify and write back.
           new_value(7 downto 0) := unsigned(temp_operand(7 downto 0))+1;
@@ -931,15 +936,15 @@ begin
           reg_a <= unsigned(temp_operand);
           report "set accumulator to $" & to_hstring(temp_operand) severity note;
           set_nz(unsigned(temp_operand));
-          fetch_next_instruction(reg_pc); 
+          fetch_next_instruction(new_pc); 
         when I_LDX =>
           reg_x <= unsigned(temp_operand);
           set_nz(unsigned(temp_operand));
-          fetch_next_instruction(reg_pc);
+          fetch_next_instruction(new_pc);
         when I_LDY =>
           reg_y <= unsigned(temp_operand);
           set_nz(unsigned(temp_operand));
-          fetch_next_instruction(reg_pc);
+          fetch_next_instruction(new_pc);
         when I_LSR =>
           -- Modify and write back.
           flag_c <= temp_operand(0);
@@ -949,7 +954,7 @@ begin
           rmw_operand_commit(std_logic_vector(new_value));
         when I_ORA =>
           reg_a<=alu_op_or(reg_a,unsigned(temp_operand));
-          fetch_next_instruction(reg_pc);
+          fetch_next_instruction(new_pc);
         when I_ROL =>
           -- Modify and write back.
           flag_c <= temp_operand(7);
@@ -966,10 +971,10 @@ begin
           rmw_operand_commit(std_logic_vector(new_value));
         when I_SBC =>
           reg_a<=alu_op_sub(reg_a,unsigned(temp_operand));
-          fetch_next_instruction(reg_pc);
+          fetch_next_instruction(new_pc);
         when others =>
           -- unimplemented/illegal ops do nothing
-          fetch_next_instruction(reg_pc);
+          fetch_next_instruction(new_pc);
       end case;
     end procedure execute_normal_instruction;
     
@@ -1194,6 +1199,11 @@ begin
             -- bits of reg_pc, reg_pcplus1, reg_pcplus2
             fetch_next_instruction(reg_pc);
           when InstructionFetchIOWait =>
+            report "read opcode from io @ $" & to_hstring(std_logic_vector(reg_pc)) severity note;
+            long_address := resolve_address_to_long(std_logic_vector(reg_pc),ram_bank_registers_instructions);
+            fastio_addr <= long_address(19 downto 0);
+            fastio_read <= '1';
+            fastio_write <= '0';
             state <= InstructionFetchIO;
           when InstructionFetchIO =>
             report "instruction from I/O is $" & to_hstring(fastio_rdata) severity note;
@@ -1490,7 +1500,7 @@ begin
                   & addressingmode'image(op_mode)
                   & " $" & to_hstring(temp_operand_address)
                   severity note;
-                execute_normal_instruction(op_instruction,temp_operand_address(7 downto 0));
+                execute_normal_instruction(op_instruction,temp_operand_address(7 downto 0),True);
               elsif op_mode=M_zeropage then
                 temp_address(7 downto 0) := temp_operand_address(7 downto 0);
                 temp_address(15 downto 8) := "00000000";
@@ -1569,7 +1579,7 @@ begin
               & addressingmode'image(op_mode)
               & " $" & to_hstring(temp_operand_address)
               severity note;
-            execute_normal_instruction(op_instruction,temp_operand);
+            execute_normal_instruction(op_instruction,temp_operand,False);
           when IOWrite =>
             -- Write back value, then fetch instruction next cycle.
             -- NOTE: Assumes fastio_addr has already been set. Only used in
