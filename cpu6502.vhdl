@@ -160,8 +160,9 @@ architecture Behavioral of cpu6502 is
     -- Normal instruction states.  Many states will be skipped
     -- by any given instruction.
     -- When an instruction completes, we move back to InstructionFetch
-    InstructionFetch,InstructionFetchIO,Operand1FetchIO,
-    OperandResolve,Calculate,IOWrite,
+    InstructionFetch,InstructionFetchIO,
+    Operand1FetchIO,Operand1FetchIOWait,
+    OperandResolve,OperandResolveIOWait,Calculate,IOWrite,
     -- Special states used for special instructions
     PullA,                                -- PLA
     PullP,                                -- PLP
@@ -938,6 +939,8 @@ begin
 
             -- XXX Can save a cycle or two by not fetching operand bytes that
             -- we don't need based on addressing mode.
+            state <= Operand1FetchIOWait;
+          when Operand1FetchIOWait =>
             state <= Operand1FetchIO;
           when Operand1FetchIO =>
             temp_value <= fastio_rdata;
@@ -948,6 +951,8 @@ begin
             fastio_read <= '1';
             fastio_write <= '0';
 
+            state <= OperandResolveIOWait;
+          when OperandResolveIOWait =>
             state <= OperandResolve;
           when OperandResolve =>
             -- Get opcode and operands, or initiate an interrupt
