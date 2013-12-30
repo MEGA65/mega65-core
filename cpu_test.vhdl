@@ -101,7 +101,7 @@ begin
       report "clock=1, pc=" & to_string(monitor_pc) severity note;
       report "op=" & to_string(monitor_opcode)
         & ", sp=" & to_string(monitor_sp)
-        & ", a=" & to_string(monitor_sp)
+        & ", a=" & to_string(monitor_a)
         severity note;
 
       wait for 10 ns;

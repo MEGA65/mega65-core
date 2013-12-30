@@ -919,6 +919,7 @@ begin
       monitor_pc <= std_logic_vector(reg_pc);
       monitor_sp <= std_logic_vector(reg_sp);
       monitor_a <= std_logic_vector(reg_a);
+      report "accumulator = " & to_string(std_logic_vector(reg_a)) severity note;
       monitor_x <= std_logic_vector(reg_x);
       monitor_y <= std_logic_vector(reg_y);
       monitor_p(0) <= flag_c;
