@@ -762,15 +762,21 @@ begin
       -- Whether in decimal mode or not, calculate normal sum,
       -- so that Z can be set correctly (Z in decimal mode =
       -- Z in binary mode).
-      o := i1+i2;
+      report "i1=$" & to_hstring(std_logic_vector(i1)) severity note;
+      report "i2=$" & to_hstring(std_logic_vector(i2)) severity note;
+      -- XXX Why doesn't just i1+i2 work here?
+      o := to_unsigned(to_integer(i1) + to_integer(i2),8);
+      report "interim result = $" & to_hstring(std_logic_vector(o)) severity note;
       if flag_c='1' then
-        o := o+1;
+        o := o + 1;
       end if;  
       set_nz(o);
       if unsigned(o)<unsigned(i1) then
         flag_v <= '1';
+        flag_c <= '1';
       else
         flag_v <= '0';
+        flag_c <= '0';
       end if;
       if flag_d='1' then
         -- Decimal mode. Flags are set weirdly.
@@ -879,6 +885,7 @@ begin
       report "execute instruction with operand $" & to_hstring(temp_operand) severity note;
       case op_instruction is
         when I_ADC =>
+          report "ADD reg_a = $" & to_hstring(std_logic_vector(reg_a)) & ", operand=$" & to_hstring(temp_operand) severity note;
           reg_a<=alu_op_add(reg_a,unsigned(temp_operand));
           fetch_next_instruction(reg_pc);
         when I_AND => 
@@ -1477,12 +1484,13 @@ begin
                 fetch_next_instruction(reg_pcplus1);
                 state <= OperandResolve;
               elsif op_mode=M_immediate then
-                -- This path costs an extra cycle for an immediate mode operation
-                -- XXX Implement short-cut for immediate mode fetching, at
-                -- least when fetching from fast RAM
                 advance_pc(2);
-                temp_value <=temp_operand(7 downto 0);
-                state <= Calculate;
+                report "calculating result of "
+                  & instruction'image(op_instruction) & " "
+                  & addressingmode'image(op_mode)
+                  & " $" & to_hstring(temp_operand_address)
+                  severity note;
+                execute_normal_instruction(op_instruction,temp_operand_address(7 downto 0));
               elsif op_mode=M_zeropage then
                 temp_address(7 downto 0) := temp_operand_address(7 downto 0);
                 temp_address(15 downto 8) := "00000000";
@@ -1535,6 +1543,7 @@ begin
           when Calculate =>
             -- This is an instruction that operates on a byte fetched from memory.
             -- We do need to grab the byte from the appropriate memory type.
+            assert not (op_mode = M_immediate) report "Immediate mode should not get passed here" severity failure;
             if operand_from_io = '1' then
               -- XXX I/O currently not wired in, so just read all ones for now
               report "read operand from io as $" & to_hstring(temp_value) severity note;
@@ -1549,16 +1558,17 @@ begin
             elsif operand_from_ram = '1' then
               -- Memory read from fast RAM.
               temp_operand := ram_data_o(to_integer(operand1_mem_slot));
-            elsif operand_from_io = '1' then
-              -- Memory read from fast IO.
-              temp_operand := fastio_rdata;
             else
               -- Read is from somewhere else, possibly an unmapped address
               temp_operand := x"FF";
               report "read operand value from unmapped memory" severity warning;
             end if;
             -- Use ALU and progress instruction
-            report "calculating result of " & instruction'image(op_instruction) severity note;
+            report "calculating result of "
+              & instruction'image(op_instruction) & " "
+              & addressingmode'image(op_mode)
+              & " $" & to_hstring(temp_operand_address)
+              severity note;
             execute_normal_instruction(op_instruction,temp_operand);
           when IOWrite =>
             -- Write back value, then fetch instruction next cycle.
