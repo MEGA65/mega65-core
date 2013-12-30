@@ -91,7 +91,7 @@ begin
       report "clock=1 (reset)" severity note;
       wait for 10 ns;
       clock <= '0';
-      report "clock=0 (reset)" severity note;
+      -- report "clock=0 (reset)" severity note;
       wait for 10 ns;      
     end loop;  -- i
     reset <= '1';
@@ -99,11 +99,7 @@ begin
     for i in 1 to 100 loop
       clock <= '1';
       wait for 10 ns;     
-      report "clock=" & std_logic'image(clock) & ", pc=" & to_string(monitor_pc) severity note;
-      report "op=" & to_string(monitor_opcode)
-        & ", sp=" & to_string(monitor_sp)
-        & ", a=" & to_string(monitor_a)
-        severity note;
+      report "clock=1" severity note;
       clock <= '0';
 
       -- report "clock=0 (run)" severity note;

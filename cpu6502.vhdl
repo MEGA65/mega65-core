@@ -3,6 +3,7 @@ use WORK.ALL;
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use ieee.numeric_std.all;
+use Std.TextIO.all;
 
 entity cpu6502 is
   port (
@@ -311,15 +312,64 @@ begin
     -- This way, multiple refernces to write_to_long_address() can be made in a single
     -- cycle, provided that they map to different RAM units.
 
+    procedure HWRITE(L:inout LINE; VALUE:in BIT_VECTOR;
+    JUSTIFIED:in SIDE := RIGHT; FIELD:in WIDTH := 0) is      
+      variable quad: bit_vector(0 to 3);
+      constant ne:   integer := value'length/4;
+      variable bv:   bit_vector(0 to value'length-1) := value;
+      variable s:    string(1 to ne);
+    begin
+      if value'length mod 4 /= 0 then
+        assert FALSE report 
+          "HWRITE Error: Trying to read vector " &
+          "with an odd (non multiple of 4) length";
+        return;
+      end if;
+      
+      for i in 0 to ne-1 loop
+        quad := bv(4*i to 4*i+3);
+        case quad is
+          when x"0" => s(i+1) := '0';
+          when x"1" => s(i+1) := '1';
+          when x"2" => s(i+1) := '2';
+          when x"3" => s(i+1) := '3';
+          when x"4" => s(i+1) := '4';
+          when x"5" => s(i+1) := '5';
+          when x"6" => s(i+1) := '6';
+          when x"7" => s(i+1) := '7';
+          when x"8" => s(i+1) := '8';
+          when x"9" => s(i+1) := '9';
+          when x"A" => s(i+1) := 'A';
+          when x"B" => s(i+1) := 'B';
+          when x"C" => s(i+1) := 'C';
+          when x"D" => s(i+1) := 'D';
+          when x"E" => s(i+1) := 'E';
+          when x"F" => s(i+1) := 'F';
+        end case;
+      end loop;
+      write(L, s, JUSTIFIED, FIELD);
+    end HWRITE; 
+
     function to_string(sv: Std_Logic_Vector) return string is
       use Std.TextIO.all;
+      
       variable bv: bit_vector(sv'range) := to_bitvector(sv);
       variable lp: line;
     begin
       write(lp, bv);
       return lp.all;
     end;
-    
+
+    function to_hstring(sv: Std_Logic_Vector) return string is
+      use Std.TextIO.all;
+      
+      variable bv: bit_vector(sv'range) := to_bitvector(sv);
+      variable lp: line;
+    begin
+      hwrite(lp, bv);
+      return lp.all;
+    end;
+
     -- purpose: Convert a 16-bit C64 address to native RAM (or I/O or ROM) address
     function resolve_address_to_long(short_address : std_logic_vector(15 downto 0); ram_bank_registers : bank_register_set)
       return std_logic_vector is 
@@ -464,7 +514,7 @@ begin
 
       long_pc := resolve_address_to_long(std_logic_vector(pc),ram_bank_registers_instructions);
 
-      report "fetch next instruction from long address " & to_string(long_pc) severity note;
+      report "fetch next instruction from long address $" & to_hstring(long_pc) severity note;
       
       if long_pc(27 downto 24) = x"F" then
         -- Fetch is from fast I/O (which is also how ROMs are implemented)
@@ -623,7 +673,7 @@ begin
         operand_from_slowram <= '1';
       elsif long_addr(27 downto 12) < x"0080" then
         -- To/From from fast RAM
-        report "read/write fast RAM at " & to_string(address) severity note;
+        report "read/write fast RAM at $" & to_hstring(address) severity note;
         operand_from_io <= '0';
         operand_from_ram <= '1';
         operand_from_slowram <= '0';
@@ -760,7 +810,7 @@ begin
                                          temp_operand : std_logic_vector(7 downto 0)) is
       variable new_value : std_logic_vector(7 downto 0);
     begin
-      report "execute instruction with operand " & to_string(temp_operand) severity note;
+      report "execute instruction with operand $" & to_hstring(temp_operand) severity note;
       case op_instruction is
         when I_ADC =>
           alu_i1 <= temp_operand;
@@ -841,7 +891,7 @@ begin
           rmw_operand_commit(new_value);
         when I_LDA =>
           reg_a <= unsigned(temp_operand);
-          report "set accumulator to " & to_string(temp_operand) severity note;
+          report "set accumulator to $" & to_hstring(temp_operand) severity note;
           set_nz(temp_operand);
           fetch_next_instruction(reg_pc); 
         when I_LDX =>
@@ -901,6 +951,7 @@ begin
     variable op_mode : addressingmode;
     variable opcode_now : std_logic_vector(7 downto 0);
 
+    variable virtual_reg_p : std_logic_vector(7 downto 0);
   begin
     if rising_edge(clock) then
 
@@ -914,13 +965,30 @@ begin
       end if;
       irq_state <= irq;
 
+      virtual_reg_p(7) := flag_n;
+      virtual_reg_p(6) := flag_v;
+      virtual_reg_p(5) := '1';
+      virtual_reg_p(4) := '0';
+      virtual_reg_p(3) := flag_c;
+      virtual_reg_p(2) := flag_i;
+      virtual_reg_p(1) := flag_d;
+      virtual_reg_p(0) := flag_z;
+
       report "state = " & processor_state'image(state) severity note;
+      report ""
+        & "  pc=$" & to_hstring(std_logic_vector(reg_pc))
+        & ", a=$" & to_hstring(std_logic_vector(reg_a))
+        & ", x=$" & to_hstring(std_logic_vector(reg_x))
+        & ", y=$" & to_hstring(std_logic_vector(reg_y))
+        & ", sp=$" & to_hstring(std_logic_vector(reg_sp))
+        & ", p=%" & to_string(std_logic_vector(virtual_reg_p))
+        severity note;
+
       
       monitor_opcode <= std_logic_vector(temp_opcode);
       monitor_pc <= std_logic_vector(reg_pc);
       monitor_sp <= std_logic_vector(reg_sp);
       monitor_a <= std_logic_vector(reg_a);
-      report "accumulator = " & to_string(std_logic_vector(reg_a)) severity note;
       monitor_x <= std_logic_vector(reg_x);
       monitor_y <= std_logic_vector(reg_y);
       monitor_p(0) <= flag_c;
@@ -1014,7 +1082,7 @@ begin
             end loop;  -- i
             if ram_bank_registers_instructions(15)(15 downto 12) = x"F" then
               -- vector is in fast IO (eg ROM)
-              report "reading vector from " & to_string(vector) severity note;
+              report "reading vector from $" & to_hstring(vector) severity note;
               fastio_addr(19 downto 12) <= ram_bank_registers_instructions(15)(15 downto 8);
               fastio_addr(11 downto 1) <= vector(11 downto 1);
               fastio_addr(0) <= '0';
@@ -1033,7 +1101,7 @@ begin
           when VectorReadIOWait =>
             state <= VectorReadIO;
           when VectorReadIO =>
-            report "read value " & to_string(fastio_rdata) severity note;
+            report "read value $" & to_hstring(fastio_rdata) severity note;
             if fastio_addr(0) = '0' then              
               reg_pc(7 downto 0) <= unsigned(fastio_rdata);
               reg_pcplus1(7 downto 0) <= (unsigned(fastio_rdata) +1);
@@ -1091,7 +1159,7 @@ begin
           when InstructionFetchIOWait =>
             state <= InstructionFetchIO;
           when InstructionFetchIO =>
-            report "instruction from I/O is " & to_string(fastio_rdata) severity note;
+            report "instruction from I/O is $" & to_hstring(fastio_rdata) severity note;
             temp_opcode <= fastio_rdata;
             
             long_address := resolve_address_to_long(std_logic_vector(reg_pcplus1),
@@ -1149,7 +1217,7 @@ begin
               op_instruction := instruction_lut(to_integer(unsigned(opcode_now)));
               op_mode := mode_lut(to_integer(unsigned(opcode_now)));
 
-              report "op mode=" & addressingmode'image(op_mode) & ", op_address=" & to_string(temp_operand_address) severity note;
+              report "op mode=" & addressingmode'image(op_mode) & ", op_address=$" & to_hstring(temp_operand_address) severity note;
 
               if op_mode=M_implied then
                 -- implied mode, handle instruction now, add one to PC, and
@@ -1439,7 +1507,7 @@ begin
             -- We do need to grab the byte from the appropriate memory type.
             if operand_from_io = '1' then
               -- XXX I/O currently not wired in, so just read all ones for now
-              report "read operand from io as " & to_string(temp_value) severity note;
+              report "read operand from io as $" & to_hstring(temp_value) severity note;
               temp_operand := temp_value;
             elsif operand_from_slowram = '1' then
               -- Memory read from slow RAM.  We assume here that the slow RAM has
