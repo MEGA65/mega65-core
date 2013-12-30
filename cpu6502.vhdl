@@ -11,6 +11,12 @@ entity cpu6502 is
     irq : in std_logic;
     nmi : in std_logic;
     monitor_pc : out std_logic_vector(15 downto 0);
+    monitor_opcode : out std_logic_vector(7 downto 0);
+    monitor_a : out std_logic_vector(7 downto 0);
+    monitor_x : out std_logic_vector(7 downto 0);
+    monitor_y : out std_logic_vector(7 downto 0);
+    monitor_sp : out std_logic_vector(7 downto 0);
+    monitor_p : out std_logic_vector(7 downto 0);
 
     -- fast IO port (clocked at core clock). 1MB address space
     fastio_addr : out std_logic_vector(19 downto 0);
@@ -728,8 +734,6 @@ begin
   begin
     if rising_edge(clock) then
 
-      report "tick in cpu" severity note;
-      
       -- Check for interrupts
       if nmi = '0' and nmi_state = '1' then
         nmi_pending <= '1';        
@@ -743,7 +747,19 @@ begin
       report "state = " & processor_state'image(state) severity note;
       
       monitor_pc <= std_logic_vector(reg_pc);
-      report "tick" severity note;
+      monitor_sp <= std_logic_vector(reg_sp);
+      monitor_a <= std_logic_vector(reg_a);
+      monitor_x <= std_logic_vector(reg_x);
+      monitor_y <= std_logic_vector(reg_y);
+      monitor_p(0) <= flag_c;
+      monitor_p(1) <= flag_z;
+      monitor_p(2) <= flag_i;
+      monitor_p(3) <= flag_d;
+      monitor_p(4) <= '0';
+      monitor_p(5) <= '1';
+      monitor_p(6) <= flag_v;
+      monitor_p(7) <= flag_n;
+
       if reset = '0' or state = ResetLow then
         state <= VectorRead;
         vector <= x"FFFC";

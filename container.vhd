@@ -45,6 +45,12 @@ architecture Behavioral of container is
            irq : in  STD_LOGIC;
            nmi : in  STD_LOGIC;
            monitor_pc : out STD_LOGIC_VECTOR(15 downto 0);
+           monitor_opcode : out std_logic_vector(7 downto 0);
+           monitor_a : out std_logic_vector(7 downto 0);
+           monitor_x : out std_logic_vector(7 downto 0);
+           monitor_y : out std_logic_vector(7 downto 0);
+           monitor_sp : out std_logic_vector(7 downto 0);
+           monitor_p : out std_logic_vector(7 downto 0);
 
            -- fast IO port (clocked at core clock)
            fastio_addr : out std_logic_vector(19 downto 0);
