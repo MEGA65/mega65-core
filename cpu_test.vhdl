@@ -34,7 +34,7 @@ architecture behavior of cpu_test is
              monitor_p : out std_logic_vector(7 downto 0);
 
              -- fast IO port (clocked at core clock)
-             fastio_addr : out std_logic_vector(19 downto 0);
+             fastio_addr : inout std_logic_vector(19 downto 0);
              fastio_read : out std_logic;
              fastio_write : out std_logic;
              fastio_wdata : out std_logic_vector(7 downto 0);
@@ -96,7 +96,7 @@ begin
     end loop;  -- i
     reset <= '1';
     report "reset released" severity note;
-    for i in 1 to 1000 loop
+    for i in 1 to 100 loop
       clock <= '1';
       report "clock=1, pc=" & to_string(monitor_pc) severity note;
       report "op=" & to_string(monitor_opcode)

@@ -29,7 +29,7 @@ begin
 PROCESS(Clk)
 BEGIN
     if(rising_edge(Clk)) then 
-      if cs='0' then
+      if cs='1' then
         if(we='1') then
           ram(to_integer(unsigned(address))) <= data_i;
         end if;

@@ -19,7 +19,7 @@ entity cpu6502 is
     monitor_p : out std_logic_vector(7 downto 0);
 
     -- fast IO port (clocked at core clock). 1MB address space
-    fastio_addr : out std_logic_vector(19 downto 0);
+    fastio_addr : inout std_logic_vector(19 downto 0);
     fastio_read : out std_logic;
     fastio_write : out std_logic;
     fastio_wdata : out std_logic_vector(7 downto 0);
@@ -156,7 +156,7 @@ architecture Behavioral of cpu6502 is
     -- When CPU first powers up, or reset is bought low
     ResetLow,
     -- States for handling interrupts and reset
-    Interrupt,VectorRead,VectorLoadPC,
+    Interrupt,VectorRead,VectorReadIO,VectorReadIOWait,VectorLoadPC,
     -- Normal instruction states.  Many states will be skipped
     -- by any given instruction.
     -- When an instruction completes, we move back to InstructionFetch
@@ -312,6 +312,15 @@ begin
     -- This way, multiple refernces to write_to_long_address() can be made in a single
     -- cycle, provided that they map to different RAM units.
 
+    function to_string(sv: Std_Logic_Vector) return string is
+      use Std.TextIO.all;
+      variable bv: bit_vector(sv'range) := to_bitvector(sv);
+      variable lp: line;
+    begin
+      write(lp, bv);
+      return lp.all;
+    end;
+    
     -- purpose: Convert a 16-bit C64 address to native RAM (or I/O or ROM) address
     function resolve_address_to_long(short_address : std_logic_vector(15 downto 0); ram_bank_registers : bank_register_set)
       return std_logic_vector is 
@@ -452,6 +461,7 @@ begin
       -- continue to write the same correct value, but it should still be fixed
       -- so that multiple cores can access the fast ram simultaneously.
       fastio_write <= '0';
+      fastio_read <= '0';
 
       long_pc := resolve_address_to_long(std_logic_vector(pc),ram_bank_registers_instructions);
 
@@ -803,6 +813,7 @@ begin
           when Interrupt =>
             -- break instruction. Push state and jump to the appropriate
             -- vector.
+            -- XXX requires ZP & stack to be in fast ram.
             temp_sp_addr(15 downto 8) := x"01";
             temp_sp_addr(7 downto 0) := std_logic_vector(reg_sp);
             write_to_short_address(temp_sp_addr,
@@ -827,7 +838,6 @@ begin
             reg_sp <= reg_sp - 3;
             state <= VectorRead;
           when VectorRead =>
-            report "state=VectorRead" severity note;
             -- Read PC from vector,vector+1
             -- Reading memory is a bit interesting because we have
             -- to work out which of the 32 memories to read from
@@ -840,13 +850,48 @@ begin
             for i in 0 to 7 loop
               ram_we(i) <= '0';
             end loop;  -- i
-            -- Memory banks are 8x64KB.
-            -- So we want addresses shifted down log2(8)=3 bits
-            -- which for all of them corresponds to addres 0x1FFF
-            for i in 2 to 7 loop
-              ram_address(i)<=x"1FFF";
-            end loop;  -- i              
-            state<=VectorLoadPC;
+            if ram_bank_registers_instructions(15)(15 downto 12) = x"F" then
+              -- vector is in fast IO (eg ROM)
+              report "reading vector from " & to_string(vector) severity note;
+              fastio_addr(19 downto 12) <= ram_bank_registers_instructions(15)(15 downto 8);
+              fastio_addr(11 downto 1) <= vector(11 downto 1);
+              fastio_addr(0) <= '0';
+              fastio_write <= '0';
+              fastio_read <= '1';
+              state <= VectorReadIOWait;
+            else
+              -- Memory banks are 8x64KB.
+              -- So we want addresses shifted down log2(8)=3 bits
+              -- which for all of them corresponds to addres 0x1FFF
+              for i in 2 to 7 loop
+                ram_address(i)<=x"1FFF";
+              end loop;  -- i              
+              state<=VectorLoadPC;
+            end if;
+          when VectorReadIOWait =>
+            state <= VectorReadIO;
+          when VectorReadIO =>
+            report "read value " & to_string(fastio_rdata) severity note;
+            if fastio_addr(0) = '0' then              
+              reg_pc(7 downto 0) <= unsigned(fastio_rdata);
+              reg_pcplus1(7 downto 0) <= (unsigned(fastio_rdata) +1);
+              reg_pcplus2(7 downto 0) <= (unsigned(fastio_rdata) +2);
+              fastio_addr(0) <= '1';
+              state <= VectorReadIOWait;
+            else
+              reg_pc(15 downto 8) <= unsigned(fastio_rdata);
+              if reg_pc(7 downto 0) = x"FF" then
+                reg_pcplus1(15 downto 8) <= (unsigned(fastio_rdata) +1);
+                reg_pcplus2(15 downto 8) <= (unsigned(fastio_rdata) +1);
+              elsif reg_pc(7 downto 0) = x"FE" then
+                reg_pcplus1(15 downto 8) <= unsigned(fastio_rdata);
+                reg_pcplus2(15 downto 8) <= (unsigned(fastio_rdata) +1);
+              else
+                reg_pcplus1(15 downto 8) <= unsigned(fastio_rdata);
+                reg_pcplus2(15 downto 8) <= unsigned(fastio_rdata);
+              end if;
+              state <= InstructionFetch;
+            end if;
           when VectorLoadPC =>
             case vector is
               when x"FFFA" =>

@@ -148,6 +148,10 @@ and any observed behaviour should not be depended upon, as it is
 subject to change in future core revisions.  The long-term goal is to
 allow execution of instructions from I/O and slow RAM.
 
+The stack MUST be in fast RAM.  If non-fast RAM is mapped to the
+$0000-$0FFF, stack accesses will occur in fast RAM at an alias address
+that corresponds to the lower 27 bits of the address specification.
+
 REU MODE MEMORY ACCESS
 ----------------------
 
