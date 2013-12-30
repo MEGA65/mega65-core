@@ -188,7 +188,6 @@ architecture Behavioral of cpu6502 is
     -- 65GS02 special ops
     I_SETMAP
     );
-  signal op_instruction : instruction;
 
   type ilut8bit is array(0 to 255) of instruction;
   constant instruction_lut : ilut8bit := (
@@ -214,7 +213,6 @@ architecture Behavioral of cpu6502 is
     M_zeropage,M_zeropageX,M_zeropageY,
     M_absolute,M_absoluteY,M_absoluteX,
     M_relative,M_indirect,M_indirectX,M_indirectY);
-  signal op_mode : addressingmode;
 
   type mlut8bit is array(0 to 255) of addressingmode;
   constant mode_lut : mlut8bit := (
@@ -745,7 +743,10 @@ begin
     end procedure fetch_stack_bytes;
 
     variable temp_sp_addr : std_logic_vector(15 downto 0);
+    variable op_instruction : instruction;
+    variable op_mode : addressingmode;
     variable opcode_now : std_logic_vector(7 downto 0);
+
   begin
     if rising_edge(clock) then
 
@@ -988,10 +989,12 @@ begin
                 temp_operand_address := x"FFFF";
                 opcode_now := temp_opcode;
               end if;
-
+              
               -- Lookup instruction and addressing mode
-              op_instruction <= instruction_lut(to_integer(unsigned(opcode_now)));
-              op_mode <= mode_lut(to_integer(unsigned(opcode_now)));
+              op_instruction := instruction_lut(to_integer(unsigned(opcode_now)));
+              op_mode := mode_lut(to_integer(unsigned(opcode_now)));
+
+              report "op mode=" & addressingmode'image(op_mode) & ", op_address=" & to_string(temp_operand_address) severity note;
 
               if op_mode=M_implied then
                 -- implied mode, handle instruction now, add one to PC, and
@@ -1253,7 +1256,9 @@ begin
                 temp_address(7 downto 0) := std_logic_vector(unsigned(temp_operand_address(7 downto 0)) + reg_x);
                 advance_pc(2);
                 read_indirect_operand(temp_address(7 downto 0),ram_bank_registers_read);
-                op_mode<=M_absolute;
+                -- turn (indirect,X) into absolute addressing mode
+                -- XXX Relies on addressing mode structure of 6502 opcode table
+                temp_opcode(3 downto 0) <= x"d";
                 state <= OperandResolve;
               elsif op_mode=M_indirectY then
                 -- Post-indexed ZP indirect, wrapping from $FF to $00, not $100
@@ -1261,18 +1266,19 @@ begin
                 temp_address(7 downto 0) := temp_operand_address(7 downto 0);
                 advance_pc(2);
                 read_indirect_operand(temp_address(7 downto 0),ram_bank_registers_read);
-                op_mode<=M_absoluteY;
+                -- turn (indirect),Y into absolute,Y addressing mode
+                -- XXX Relies on addressing mode structure of 6502 opcode table
+                temp_opcode(3) <= '1';
                 state <= OperandResolve;
               end if;
             end if;
           when Calculate =>
             -- This is an instruction that operates on a byte fetched from memory.
             -- We do need to grab the byte from the appropriate memory type.
-            if op_mode = M_immidiate then              
-              temp_operand := ram_data_o(to_integer(operand1_mem_slot));
-            elsif operand_from_io = '1' then
+            if operand_from_io = '1' then
               -- XXX I/O currently not wired in, so just read all ones for now
-              temp_operand := x"FF";
+              report "read operand from io as " & to_string(temp_value) severity note;
+              temp_operand := temp_value;
             elsif operand_from_slowram = '1' then
               -- Memory read from slow RAM.  We assume here that the slow RAM has
               -- finished the read cycle before we get here.  This means that
