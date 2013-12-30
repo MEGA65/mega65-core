@@ -806,6 +806,66 @@ begin
         flag_z <= '0';
       end if;
     end set_nz;
+
+    impure function alu_op_add (
+      i1 : in unsigned(7 downto 0);
+      i2 : in unsigned(7 downto 0)) return unsigned is
+      variable o : unsigned(7 downto 0);
+    begin
+      -- Whether in decimal mode or not, calculate normal sum,
+      -- so that Z can be set correctly (Z in decimal mode =
+      -- Z in binary mode).
+      o := i1+i2;
+      if flag_c='1' then
+        o := o+1;
+      end if;  
+      set_nz(std_logic_vector(o));
+      if unsigned(o)<unsigned(i1) then
+        flag_v <= '1';
+      else
+        flag_v <= '0';
+      end if;
+      if flag_d='1' then
+        -- Decimal mode. Flags are set weirdly.
+
+        -- First, Z is set based on normal addition above.
+        
+        -- Now do BCD fix up on lower nybl.
+        if o(3 downto 0) > x"9" then
+          o:= o+6;
+        end if;
+
+        -- Then set N & V *before* upper nybl BCD fixup
+        flag_n<=o(7);
+        if o<i1 then
+          flag_v<='1';
+        else
+          flag_v<='0';
+        end if;
+
+        -- Now do BCD fixup on upper nybl
+        if o(7 downto 4)>x"9" then
+          o(7 downto 4):=o(7 downto 4)+x"6";
+        end if;
+
+        -- Finally set carry flag based on result
+        if o<i1 then
+          flag_c<='1';
+        else
+          flag_c<='0';
+        end if;
+      end if;
+
+      -- Return final value
+      report "add result of "
+        & "$" & to_hstring(std_logic_vector(i1)) 
+        & " + "
+        & "$" & to_hstring(std_logic_vector(i2)) 
+        & " + "
+        & "$" & std_logic'image(flag_c)
+        & " = " & to_hstring(std_logic_vector(o)) severity note;
+      return o;
+    end function alu_op_add;
     
     procedure execute_normal_instruction(op_instruction : instruction;
                                          temp_operand : std_logic_vector(7 downto 0)) is
@@ -814,17 +874,10 @@ begin
       report "execute instruction with operand $" & to_hstring(temp_operand) severity note;
       case op_instruction is
         when I_ADC =>
-          alu_i1 <= temp_operand;
-          alu_i2 <= std_logic_vector(reg_a);
-          alu_function <= "1000";
-          reg_a <= unsigned(alu_o);
-          report "alu_o=$" & to_hstring(alu_o) severity note;
-          flag_c <= alu_c;
-          flag_n <= alu_neg;
-          flag_z <= alu_z;
-          flag_v <= alu_v;
+          reg_a<=alu_op_add(unsigned(temp_operand),reg_a);
           fetch_next_instruction(reg_pc);
-        when I_AND => 
+        when I_AND =>
+          alu_a<=temp_operand and reg_a;
           alu_i1 <= temp_operand;
           alu_i2 <= std_logic_vector(reg_a);
           alu_function <= "0001";
@@ -960,7 +1013,12 @@ begin
       -- Prevent a latch being inferred for ALU inputs
       alu_function <= "1111";
       alu_i1 <= x"42";
-      alu_i2 <= x"42";      
+      alu_i2 <= x"42";
+      -- Also prevent latches on fastio
+      fastio_addr <= x"00000";
+      fastio_read <= '0';
+      fastio_write <= '0';
+      fastio_wdata <= x"00";
       
       -- Check for interrupts
       if nmi = '0' and nmi_state = '1' then
@@ -972,15 +1030,17 @@ begin
       end if;
       irq_state <= irq;
 
+      -- Generate virtual processor status register for convenience
       virtual_reg_p(7) := flag_n;
       virtual_reg_p(6) := flag_v;
       virtual_reg_p(5) := '1';
       virtual_reg_p(4) := '0';
-      virtual_reg_p(3) := flag_c;
+      virtual_reg_p(3) := flag_d;
       virtual_reg_p(2) := flag_i;
-      virtual_reg_p(1) := flag_d;
-      virtual_reg_p(0) := flag_z;
+      virtual_reg_p(1) := flag_z;
+      virtual_reg_p(0) := flag_c;
 
+      -- Show CPU state for debugging
       report "state = " & processor_state'image(state) severity note;
       report ""
         & "  pc=$" & to_hstring(std_logic_vector(reg_pc))
@@ -991,21 +1051,14 @@ begin
         & ", p=%" & to_string(std_logic_vector(virtual_reg_p))
         severity note;
 
-      
+      -- Output debug signals
       monitor_opcode <= std_logic_vector(temp_opcode);
       monitor_pc <= std_logic_vector(reg_pc);
       monitor_sp <= std_logic_vector(reg_sp);
       monitor_a <= std_logic_vector(reg_a);
       monitor_x <= std_logic_vector(reg_x);
       monitor_y <= std_logic_vector(reg_y);
-      monitor_p(0) <= flag_c;
-      monitor_p(1) <= flag_z;
-      monitor_p(2) <= flag_i;
-      monitor_p(3) <= flag_d;
-      monitor_p(4) <= '0';
-      monitor_p(5) <= '1';
-      monitor_p(6) <= flag_v;
-      monitor_p(7) <= flag_n;
+      monitor_p <= virtual_reg_p;
 
       if reset = '0' or state = ResetLow then
         state <= VectorRead;
@@ -1107,6 +1160,10 @@ begin
               state<=VectorLoadPC;
             end if;
           when VectorReadIOWait =>
+            report "on wait state read value $" & to_hstring(fastio_rdata) severity note;
+            fastio_addr(11 downto 1) <= vector(11 downto 1);
+            fastio_addr(0) <= lohi;
+            fastio_read <= '1';
             state <= VectorReadIO;
           when VectorReadIO =>
             report "read value $" & to_hstring(fastio_rdata) severity note;
@@ -1115,7 +1172,10 @@ begin
               reg_pcplus1(7 downto 0) <= (unsigned(fastio_rdata) +1);
               reg_pcplus2(7 downto 0) <= (unsigned(fastio_rdata) +2);
               lohi <= '1';
+              fastio_addr(19 downto 12) <= ram_bank_registers_instructions(15)(15 downto 8);
+              fastio_addr(11 downto 1) <= vector(11 downto 1);
               fastio_addr(0) <= '1';
+              fastio_read <= '1';
               state <= VectorReadIOWait;
             else
               reg_pc(15 downto 8) <= unsigned(fastio_rdata);
