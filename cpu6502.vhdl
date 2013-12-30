@@ -797,7 +797,7 @@ begin
     end procedure fetch_stack_bytes;
 
     procedure set_nz (
-      value : std_logic_vector(7 downto 0)) is
+      value : unsigned(7 downto 0)) is
     begin  -- set_nz
       flag_n <= value(7);
       if value(7 downto 0) = x"00" then
@@ -819,7 +819,7 @@ begin
       if flag_c='1' then
         o := o+1;
       end if;  
-      set_nz(std_logic_vector(o));
+      set_nz(o);
       if unsigned(o)<unsigned(i1) then
         flag_v <= '1';
       else
@@ -866,38 +866,40 @@ begin
         & " = " & to_hstring(std_logic_vector(o)) severity note;
       return o;
     end function alu_op_add;
+
+    impure function alu_op_and (
+      i1 : unsigned(7 downto 0);
+      i2 : unsigned(7 downto 0))
+      return unsigned is
+      variable o : unsigned(7 downto 0);  
+    begin  -- alu_op_and
+      o := i1 and i2;
+      set_nz(o);
+      return o;
+    end alu_op_and;
     
     procedure execute_normal_instruction(op_instruction : instruction;
                                          temp_operand : std_logic_vector(7 downto 0)) is
-      variable new_value : std_logic_vector(7 downto 0);
+      variable new_value : unsigned(7 downto 0);
     begin
       report "execute instruction with operand $" & to_hstring(temp_operand) severity note;
       case op_instruction is
         when I_ADC =>
           reg_a<=alu_op_add(unsigned(temp_operand),reg_a);
           fetch_next_instruction(reg_pc);
-        when I_AND =>
-          alu_a<=temp_operand and reg_a;
-          alu_i1 <= temp_operand;
-          alu_i2 <= std_logic_vector(reg_a);
-          alu_function <= "0001";
-          reg_a <= unsigned(alu_o);
-          flag_n <= alu_neg;
-          flag_z <= alu_z;
+        when I_AND => 
+          reg_a<=alu_op_and(unsigned(temp_operand),reg_a);
           fetch_next_instruction(reg_pc);
         when I_ASL =>
           -- Modify and write back.
           flag_c <= temp_operand(7);
-          new_value(7 downto 1) := std_logic_vector(temp_operand(6 downto 0)); 
+          new_value(7 downto 1) := unsigned(temp_operand(6 downto 0)); 
           new_value(0) := '0';
           set_nz(new_value);
-          rmw_operand_commit(new_value);
-        when I_BIT => 
-          alu_i1 <= temp_operand;
-          alu_i2 <= std_logic_vector(reg_a);
-          alu_function <= "0001";
+          rmw_operand_commit(std_logic_vector(new_value));
+        when I_BIT =>
+          set_nz(alu_op_and(unsigned(temp_operand),reg_a));
           flag_n <= temp_operand(7);
-          flag_z <= alu_z;
           flag_v <= temp_operand(6);
           fetch_next_instruction(reg_pc);                
         when I_CMP =>
@@ -926,10 +928,10 @@ begin
           fetch_next_instruction(reg_pc);
         when I_DEC =>
           -- Modify and write back.
-          new_value(7 downto 0) := std_logic_vector(unsigned(temp_operand(7 downto 0))-1);     
+          new_value(7 downto 0) := unsigned(temp_operand(7 downto 0))-1;
           new_value(7) := '0';
           set_nz(new_value);
-          rmw_operand_commit(new_value);
+          rmw_operand_commit(std_logic_vector(new_value));
         when I_EOR =>
           alu_i1 <= temp_operand;
           alu_i2 <= std_logic_vector(reg_a);
@@ -940,30 +942,30 @@ begin
           fetch_next_instruction(reg_pc);
         when I_INC =>
           -- Modify and write back.
-          new_value(7 downto 0) := std_logic_vector(unsigned(temp_operand(7 downto 0))+1);
+          new_value(7 downto 0) := unsigned(temp_operand(7 downto 0))+1;
           new_value(7) := '0';
           set_nz(new_value);
-          rmw_operand_commit(new_value);
+          rmw_operand_commit(std_logic_vector(new_value));
         when I_LDA =>
           reg_a <= unsigned(temp_operand);
           report "set accumulator to $" & to_hstring(temp_operand) severity note;
-          set_nz(temp_operand);
+          set_nz(unsigned(temp_operand));
           fetch_next_instruction(reg_pc); 
         when I_LDX =>
           reg_x <= unsigned(temp_operand);
-          set_nz(temp_operand);
+          set_nz(unsigned(temp_operand));
           fetch_next_instruction(reg_pc);
         when I_LDY =>
           reg_y <= unsigned(temp_operand);
-          set_nz(temp_operand);
+          set_nz(unsigned(temp_operand));
           fetch_next_instruction(reg_pc);
         when I_LSR =>
           -- Modify and write back.
           flag_c <= temp_operand(0);
-          new_value(6 downto 0) := std_logic_vector(temp_operand(7 downto 1));
+          new_value(6 downto 0) := unsigned(temp_operand(7 downto 1));
           new_value(7) := '0';
           set_nz(new_value);
-          rmw_operand_commit(new_value);
+          rmw_operand_commit(std_logic_vector(new_value));
         when I_ORA =>
           alu_i1 <= temp_operand;
           alu_i2 <= std_logic_vector(reg_a);
@@ -975,17 +977,17 @@ begin
         when I_ROL =>
           -- Modify and write back.
           flag_c <= temp_operand(7);
-          new_value(7 downto 1) := std_logic_vector(temp_operand(6 downto 0)); 
+          new_value(7 downto 1) := unsigned(temp_operand(6 downto 0)); 
           new_value(0) := flag_c;
           set_nz(new_value);
-          rmw_operand_commit(new_value);
+          rmw_operand_commit(std_logic_vector(new_value));
         when I_ROR =>
           -- Modify and write back.
           flag_c <= temp_operand(0);
-          new_value(6 downto 0) := std_logic_vector(temp_operand(7 downto 1)); 
+          new_value(6 downto 0) := unsigned(temp_operand(7 downto 1)); 
           new_value(7) := flag_c;
           set_nz(new_value);          
-          rmw_operand_commit(new_value);
+          rmw_operand_commit(std_logic_vector(new_value));
         when I_SBC =>
           alu_i1 <= std_logic_vector(reg_a);
           alu_i2 <= temp_operand;
