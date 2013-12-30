@@ -1113,6 +1113,7 @@ begin
               reg_pcplus1(7 downto 0) <= (unsigned(fastio_rdata) +1);
               reg_pcplus2(7 downto 0) <= (unsigned(fastio_rdata) +2);
               lohi <= '1';
+              fastio_addr(0) <= '1';
               state <= VectorReadIOWait;
             else
               reg_pc(15 downto 8) <= unsigned(fastio_rdata);
