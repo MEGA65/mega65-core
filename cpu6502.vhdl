@@ -55,11 +55,11 @@ architecture Behavioral of cpu6502 is
   end component ALU6502;
 
   component spartan6blockram port (Clk : in std_logic;
-        address : in std_logic_vector(15 downto 0);
-        we : in std_logic;
-        data_i : in std_logic_vector(7 downto 0);
-        data_o : out std_logic_vector(7 downto 0)
-     );
+                                   address : in std_logic_vector(15 downto 0);
+                                   we : in std_logic;
+                                   data_i : in std_logic_vector(7 downto 0);
+                                   data_o : out std_logic_vector(7 downto 0)
+                                   );
   end component spartan6blockram;
 
 
@@ -649,30 +649,30 @@ begin
     -- operand1_mem_slot must already be set before calling
     procedure rmw_operand_commit(
       temp_operand : std_logic_vector(7 downto 0)) is
-      begin
-        if operand_from_io = '1' then
-          -- Operand is from I/O, so need to write back original value
-          -- .. then schedule writing of the final result next cycle
-          fastio_read <= '0';
-          fastio_write <= '1';
-          fastio_wdata <= fastio_rdata;
-          iovalue <= temp_operand;          
-          state <= IOWrite;
-        elsif operand_from_ram = '1' then
-          -- operand is for fast ram
-          ram_data_i(to_integer(operand1_mem_slot)) <= temp_operand;
-          ram_we(to_integer(operand1_mem_slot)) <= '1';
-          try_prefetch_next_instruction(reg_pc,operand1_mem_slot);
-        elsif operand_from_slowram = '1' then
-          -- Commit to slow ram.
-          -- XXX not currently implemented
-          state <= InstructionFetch;
-        else
-          -- commit to unknown memory type/unmapped memory.
-          -- Just move along to next instruction
-          state <= InstructionFetch;
-        end if;
-      end procedure rmw_operand_commit;
+    begin
+      if operand_from_io = '1' then
+        -- Operand is from I/O, so need to write back original value
+        -- .. then schedule writing of the final result next cycle
+        fastio_read <= '0';
+        fastio_write <= '1';
+        fastio_wdata <= fastio_rdata;
+        iovalue <= temp_operand;          
+        state <= IOWrite;
+      elsif operand_from_ram = '1' then
+        -- operand is for fast ram
+        ram_data_i(to_integer(operand1_mem_slot)) <= temp_operand;
+        ram_we(to_integer(operand1_mem_slot)) <= '1';
+        try_prefetch_next_instruction(reg_pc,operand1_mem_slot);
+      elsif operand_from_slowram = '1' then
+        -- Commit to slow ram.
+        -- XXX not currently implemented
+        state <= InstructionFetch;
+      else
+        -- commit to unknown memory type/unmapped memory.
+        -- Just move along to next instruction
+        state <= InstructionFetch;
+      end if;
+    end procedure rmw_operand_commit;
     
     procedure fetch_stack_bytes is 
       variable long_pc : std_logic_vector(27 downto 0);
@@ -744,6 +744,157 @@ begin
       request_read_long_address(long_pc2);
     end procedure fetch_stack_bytes;
 
+    procedure set_nz (
+      value : std_logic_vector(7 downto 0)) is
+    begin  -- set_nz
+      flag_n <= value(7);
+      if value(7 downto 0) = x"00" then
+        flag_z <= '1';
+      else
+        flag_z <= '0';
+      end if;
+    end set_nz;
+    
+    procedure execute_normal_instruction(op_instruction : instruction;
+                                         temp_operand : std_logic_vector(7 downto 0)) is
+      variable new_value : std_logic_vector(7 downto 0);
+    begin
+      report "execute instruction with operand " & to_string(temp_operand) severity note;
+      case op_instruction is
+        when I_ADC =>
+          alu_i1 <= temp_operand;
+          alu_i2 <= std_logic_vector(reg_a);
+          alu_function <= "1000";
+          reg_a <= unsigned(alu_o);
+          flag_c <= alu_c;
+          flag_n <= alu_neg;
+          flag_z <= alu_z;
+          flag_v <= alu_v;
+          fetch_next_instruction(reg_pc);
+        when I_AND => 
+          alu_i1 <= temp_operand;
+          alu_i2 <= std_logic_vector(reg_a);
+          alu_function <= "0001";
+          reg_a <= unsigned(alu_o);
+          flag_n <= alu_neg;
+          flag_z <= alu_z;
+          fetch_next_instruction(reg_pc);
+        when I_ASL =>
+          -- Modify and write back.
+          flag_c <= temp_operand(7);
+          new_value(7 downto 1) := std_logic_vector(temp_operand(6 downto 0)); 
+          new_value(0) := '0';
+          set_nz(new_value);
+          rmw_operand_commit(new_value);
+        when I_BIT => 
+          alu_i1 <= temp_operand;
+          alu_i2 <= std_logic_vector(reg_a);
+          alu_function <= "0001";
+          flag_n <= temp_operand(7);
+          flag_z <= alu_z;
+          flag_v <= temp_operand(6);
+          fetch_next_instruction(reg_pc);                
+        when I_CMP =>
+          alu_i1 <= std_logic_vector(reg_a);
+          alu_i2 <= temp_operand;
+          alu_function <= "1001";
+          flag_c <= alu_c;
+          flag_n <= alu_neg;
+          flag_z <= alu_z;
+          fetch_next_instruction(reg_pc);
+        when I_CPX =>
+          alu_i1 <= std_logic_vector(reg_x);
+          alu_i2 <= temp_operand;
+          alu_function <= "1001";
+          flag_c <= alu_c;
+          flag_n <= alu_neg;
+          flag_z <= alu_z;
+          fetch_next_instruction(reg_pc);
+        when I_CPY =>
+          alu_i1 <= std_logic_vector(reg_y);
+          alu_i2 <= temp_operand;
+          alu_function <= "1001";
+          flag_c <= alu_c;
+          flag_n <= alu_neg;
+          flag_z <= alu_z;
+          fetch_next_instruction(reg_pc);
+        when I_DEC =>
+          -- Modify and write back.
+          new_value(7 downto 0) := std_logic_vector(unsigned(temp_operand(7 downto 0))-1);     
+          new_value(7) := '0';
+          set_nz(new_value);
+          rmw_operand_commit(new_value);
+        when I_EOR =>
+          alu_i1 <= temp_operand;
+          alu_i2 <= std_logic_vector(reg_a);
+          alu_function <= "0011";
+          reg_a <= unsigned(alu_o);
+          flag_n <= alu_neg;
+          flag_z <= alu_z;
+          fetch_next_instruction(reg_pc);
+        when I_INC =>
+          -- Modify and write back.
+          new_value(7 downto 0) := std_logic_vector(unsigned(temp_operand(7 downto 0))+1);
+          new_value(7) := '0';
+          set_nz(new_value);
+          rmw_operand_commit(new_value);
+        when I_LDA =>
+          reg_a <= unsigned(temp_operand);
+          report "set accumulator to " & to_string(temp_operand) severity note;
+          set_nz(temp_operand);
+          fetch_next_instruction(reg_pc); 
+        when I_LDX =>
+          reg_x <= unsigned(temp_operand);
+          set_nz(temp_operand);
+          fetch_next_instruction(reg_pc);
+        when I_LDY =>
+          reg_y <= unsigned(temp_operand);
+          set_nz(temp_operand);
+          fetch_next_instruction(reg_pc);
+        when I_LSR =>
+          -- Modify and write back.
+          flag_c <= temp_operand(0);
+          new_value(6 downto 0) := std_logic_vector(temp_operand(7 downto 1));
+          new_value(7) := '0';
+          set_nz(new_value);
+          rmw_operand_commit(new_value);
+        when I_ORA =>
+          alu_i1 <= temp_operand;
+          alu_i2 <= std_logic_vector(reg_a);
+          alu_function <= "0010";
+          reg_a <= unsigned(alu_o);
+          flag_n <= alu_neg;
+          flag_z <= alu_z;
+          fetch_next_instruction(reg_pc);
+        when I_ROL =>
+          -- Modify and write back.
+          flag_c <= temp_operand(7);
+          new_value(7 downto 1) := std_logic_vector(temp_operand(6 downto 0)); 
+          new_value(0) := flag_c;
+          set_nz(new_value);
+          rmw_operand_commit(new_value);
+        when I_ROR =>
+          -- Modify and write back.
+          flag_c <= temp_operand(0);
+          new_value(6 downto 0) := std_logic_vector(temp_operand(7 downto 1)); 
+          new_value(7) := flag_c;
+          set_nz(new_value);          
+          rmw_operand_commit(new_value);
+        when I_SBC =>
+          alu_i1 <= std_logic_vector(reg_a);
+          alu_i2 <= temp_operand;
+          alu_function <= "1001";
+          flag_c <= alu_c;
+          flag_n <= alu_neg;
+          flag_z <= alu_z;
+          reg_a <= unsigned(alu_o);
+          fetch_next_instruction(reg_pc);
+        when others =>
+          -- unimplemented/illegal ops do nothing
+          fetch_next_instruction(reg_pc);
+      end case;
+    end procedure execute_normal_instruction;
+    
     variable temp_sp_addr : std_logic_vector(15 downto 0);
     variable op_instruction : instruction;
     variable op_mode : addressingmode;
@@ -935,7 +1086,7 @@ begin
             -- Probably easiest to do a parallel calculation based on lower
             -- bits of reg_pc, reg_pcplus1, reg_pcplus2
             fetch_next_instruction(reg_pc);
-            when InstructionFetchIOWait =>
+          when InstructionFetchIOWait =>
             state <= InstructionFetchIO;
           when InstructionFetchIO =>
             report "instruction from I/O is " & to_string(fastio_rdata) severity note;
@@ -1308,183 +1459,7 @@ begin
             end if;
             -- Use ALU and progress instruction
             report "calculating result of " & instruction'image(op_instruction) severity note;
-            case op_instruction is
-              when I_ADC =>
-                alu_i1 <= temp_operand;
-                alu_i2 <= std_logic_vector(reg_a);
-                alu_function <= "1000";
-                reg_a <= unsigned(alu_o);
-                flag_c <= alu_c;
-                flag_n <= alu_neg;
-                flag_z <= alu_z;
-                flag_v <= alu_v;
-                fetch_next_instruction(reg_pc);
-              when I_AND => 
-                alu_i1 <= temp_operand;
-                alu_i2 <= std_logic_vector(reg_a);
-                alu_function <= "0001";
-                reg_a <= unsigned(alu_o);
-                flag_n <= alu_neg;
-                flag_z <= alu_z;
-                fetch_next_instruction(reg_pc);
-              when I_ASL =>
-                -- Modify and write back.
-                flag_c <= temp_operand(7);
-                flag_n <= temp_operand(6);
-                if temp_operand(6 downto 0) = "0000000" then
-                  flag_z <= '1';
-                else
-                  flag_z <= '0';
-                end if;
-                temp_operand(7 downto 1) := std_logic_vector(temp_operand(6 downto 0)); 
-                temp_operand(0) := '0';
-                rmw_operand_commit(temp_operand);
-              when I_BIT => 
-                alu_i1 <= temp_operand;
-                alu_i2 <= std_logic_vector(reg_a);
-                alu_function <= "0001";
-                flag_n <= temp_operand(7);
-                flag_z <= alu_z;
-                flag_v <= temp_operand(6);
-                fetch_next_instruction(reg_pc);                
-              when I_CMP =>
-                alu_i1 <= std_logic_vector(reg_a);
-                alu_i2 <= temp_operand;
-                alu_function <= "1001";
-                flag_c <= alu_c;
-                flag_n <= alu_neg;
-                flag_z <= alu_z;
-                fetch_next_instruction(reg_pc);
-              when I_CPX =>
-                alu_i1 <= std_logic_vector(reg_x);
-                alu_i2 <= temp_operand;
-                alu_function <= "1001";
-                flag_c <= alu_c;
-                flag_n <= alu_neg;
-                flag_z <= alu_z;
-                fetch_next_instruction(reg_pc);
-              when I_CPY =>
-                alu_i1 <= std_logic_vector(reg_y);
-                alu_i2 <= temp_operand;
-                alu_function <= "1001";
-                flag_c <= alu_c;
-                flag_n <= alu_neg;
-                flag_z <= alu_z;
-                fetch_next_instruction(reg_pc);
-              when I_DEC =>
-                -- Modify and write back.
-                temp_operand(7 downto 0) := std_logic_vector(unsigned(temp_operand(7 downto 0))-1);     
-                temp_operand(7) := '0';
-                flag_n <= temp_operand(7);
-                if temp_operand(7 downto 0) = x"00" then
-                  flag_z <= '1';
-                else
-                  flag_z <= '0';
-                end if;
-                rmw_operand_commit(temp_operand);
-              when I_EOR =>
-                alu_i1 <= temp_operand;
-                alu_i2 <= std_logic_vector(reg_a);
-                alu_function <= "0011";
-                reg_a <= unsigned(alu_o);
-                flag_n <= alu_neg;
-                flag_z <= alu_z;
-                fetch_next_instruction(reg_pc);
-              when I_INC =>
-                -- Modify and write back.
-                temp_operand(7 downto 0) := std_logic_vector(unsigned(temp_operand(7 downto 0))+1);
-                temp_operand(7) := '0';
-                flag_n <= temp_operand(7);
-                if temp_operand(7 downto 0) = x"00" then
-                  flag_z <= '1';
-                else
-                  flag_z <= '0';
-                end if;
-                rmw_operand_commit(temp_operand);
-              when I_LDA =>
-                reg_a <= unsigned(temp_operand);
-                flag_n <= temp_operand(7);
-                if temp_operand = x"00" then
-                  flag_z <= '1';
-                else
-                  flag_z <= '0';
-                end if;
-                fetch_next_instruction(reg_pc); 
-              when I_LDX =>
-                reg_x <= unsigned(temp_operand);
-                flag_n <= temp_operand(7);
-                if temp_operand = x"00" then
-                  flag_z <= '1';
-                else
-                  flag_z <= '0';
-                end if;
-                fetch_next_instruction(reg_pc);
-              when I_LDY =>
-                reg_y <= unsigned(temp_operand);
-                flag_n <= temp_operand(7);
-                if temp_operand = x"00" then
-                  flag_z <= '1';
-                else
-                  flag_z <= '0';
-                end if;
-                fetch_next_instruction(reg_pc);
-              when I_LSR =>
-                -- Modify and write back.
-                flag_c <= temp_operand(0);
-                flag_n <= '0';
-                if temp_operand(7 downto 1) = "0000000" then
-                  flag_z <= '1';
-                else
-                  flag_z <= '0';
-                end if;
-                temp_operand(6 downto 0) := std_logic_vector(temp_operand(7 downto 1));
-                temp_operand(7) := '0';
-                rmw_operand_commit(temp_operand);
-              when I_ORA =>
-                alu_i1 <= temp_operand;
-                alu_i2 <= std_logic_vector(reg_a);
-                alu_function <= "0010";
-                reg_a <= unsigned(alu_o);
-                flag_n <= alu_neg;
-                flag_z <= alu_z;
-                fetch_next_instruction(reg_pc);
-              when I_ROL =>
-                -- Modify and write back.
-                flag_c <= temp_operand(7);
-                flag_n <= temp_operand(6);
-                if temp_operand(6 downto 0) = "0000000" and flag_c = '0' then
-                  flag_z <= '1';
-                else
-                  flag_z <= '0';
-                end if;
-                temp_operand(7 downto 1) := std_logic_vector(temp_operand(6 downto 0)); 
-                temp_operand(0) := flag_c;
-                rmw_operand_commit(temp_operand);
-              when I_ROR =>
-                -- Modify and write back.
-                flag_c <= temp_operand(0);
-                flag_n <= '0';
-                if temp_operand(7 downto 1) = "0000000" and flag_c = '0' then
-                  flag_z <= '1';
-                else
-                  flag_z <= '0';
-                end if;
-                temp_operand(6 downto 0) := std_logic_vector(temp_operand(7 downto 1)); 
-                temp_operand(7) := flag_c;
-                rmw_operand_commit(temp_operand);
-              when I_SBC =>
-                alu_i1 <= std_logic_vector(reg_a);
-                alu_i2 <= temp_operand;
-                alu_function <= "1001";
-                flag_c <= alu_c;
-                flag_n <= alu_neg;
-                flag_z <= alu_z;
-                reg_a <= unsigned(alu_o);
-                fetch_next_instruction(reg_pc);
-              when others =>
-                -- unimplemented/illegal ops do nothing
-                fetch_next_instruction(reg_pc);
-            end case;
+            execute_normal_instruction(op_instruction,temp_operand);
           when IOWrite =>
             -- Write back value, then fetch instruction next cycle.
             -- NOTE: Assumes fastio_addr has already been set. Only used in
