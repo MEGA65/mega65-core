@@ -817,6 +817,7 @@ begin
           alu_i2 <= std_logic_vector(reg_a);
           alu_function <= "1000";
           reg_a <= unsigned(alu_o);
+          report "alu_o=$" & to_hstring(alu_o) severity note;
           flag_c <= alu_c;
           flag_n <= alu_neg;
           flag_z <= alu_z;
