@@ -623,6 +623,7 @@ begin
         operand_from_slowram <= '1';
       elsif long_addr(27 downto 12) < x"0080" then
         -- To/From from fast RAM
+        report "read/write fast RAM at " & to_string(address) severity note;
         operand_from_io <= '0';
         operand_from_ram <= '1';
         operand_from_slowram <= '0';
@@ -935,9 +936,9 @@ begin
         state <= VectorRead;
         vector <= x"FFFC";
         -- reset cpu
-        reg_a <= x"00";
-        reg_x <= x"00";
-        reg_y <= x"00";
+        reg_a <= x"AA";
+        reg_x <= x"11";
+        reg_y <= x"22";
         reg_sp <= x"ff";
         flag_c <= '0';
         flag_d <= '0';
