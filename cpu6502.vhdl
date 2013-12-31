@@ -399,12 +399,13 @@ begin
     begin
       -- pre-increment SP before using
       -- Stack is page 1, which is in the first 4KB bank of RAM
+      -- XXX We should allow the stack to be in slowRAM or fastIO
       long_address(27 downto 12) := ram_bank_registers_read(0);
       long_address(11 downto 8) := "0001";
       -- Now append stack pointer
       long_address(7 downto 0) := std_logic_vector(reg_sp+1);
 
-      request_read_long_address(long_address);
+      request_read_long_address_from_fastram(long_address);
       -- increment SP
       reg_sp <= reg_sp + 1;
       pull_bank <= unsigned(long_address(2 downto 0));
@@ -450,18 +451,19 @@ begin
       -- were direct.  The caller will have already change op_mode
       -- to the appropriate absolute or absolute indexed mode, and
       -- adjusted the address passed in here for any pre-indexing.
-
+      -- XXX Should support ZP being in sources other than fast RAM.
+      
       addr_lo(15 downto 8) := x"00";
       addr_lo(7 downto 0) := address;
       long_addr := resolve_address_to_long(addr_lo,ram_bank_registers);
       operand1_mem_slot <= unsigned(long_addr(2 downto 0));
-      request_read_long_address(long_addr);
+      request_read_long_address_from_fastram(long_addr);
       
       addr_hi(15 downto 8) := x"00";
       addr_hi(7 downto 0) := std_logic_vector(unsigned(address) + 1);
       long_addr := resolve_address_to_long(addr_hi,ram_bank_registers);
       operand2_mem_slot <= unsigned(long_addr(2 downto 0));
-      request_read_long_address(long_addr);        
+      request_read_long_address_from_fastram(long_addr);        
 
     end procedure read_indirect_operand;
     
@@ -615,7 +617,7 @@ begin
           write_to_long_address(long_addr,write_value);
           try_prefetch_next_instruction(next_pc,unsigned(long_addr(2 downto 0)));
         else
-          request_read_long_address(long_addr);
+          request_read_long_address_from_fastram(long_addr);
           state <= Calculate;
         end if;
         -- Clear any previous access to IO space
@@ -667,6 +669,7 @@ begin
     begin
       -- Work out stack pointer address, bug compatible with 6502
       -- that always keeps stack within memory page $01
+      -- XXX Stack must be in fast ram
       stack_pointer(15 downto 8) := "00000001";
       stack_pointer(7 downto 0) := std_logic_vector(reg_sp +1);
       long_pc := resolve_address_to_long(std_logic_vector(stack_pointer),ram_bank_registers_read);
@@ -723,9 +726,9 @@ begin
       op_mem_slot <= unsigned(long_pc(2 downto 0));
       operand1_mem_slot <= unsigned(long_pc1(2 downto 0));
       operand2_mem_slot <= unsigned(long_pc2(2 downto 0));
-      request_read_long_address(long_pc);
-      request_read_long_address(long_pc1);
-      request_read_long_address(long_pc2);
+      request_read_long_address_from_fastram(long_pc);
+      request_read_long_address_from_fastram(long_pc1);
+      request_read_long_address_from_fastram(long_pc2);
     end procedure fetch_stack_bytes;
 
     procedure set_nz (
