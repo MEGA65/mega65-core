@@ -55,13 +55,13 @@
 -- "Output    Output      Phase     Duty      Pk-to-Pk        Phase"
 -- "Clock    Freq (MHz) (degrees) Cycle (%) Jitter (ps)  Error (ps)"
 ------------------------------------------------------------------------------
--- CLK_OUT1___100.000______0.000______50.0______115.831_____87.180
--- CLK_OUT2___300.000______0.000______50.0_______94.862_____87.180
--- CLK_OUT3___240.000______0.000______50.0_______98.767_____87.180
--- CLK_OUT4___200.000______0.000______50.0______102.086_____87.180
--- CLK_OUT5___171.429______0.000______50.0______104.985_____87.180
--- CLK_OUT6___133.333______0.000______50.0______109.902_____87.180
--- CLK_OUT7___120.000______0.000______50.0______112.035_____87.180
+-- CLK_OUT1___100.000______0.000______50.0______137.681____105.461
+-- CLK_OUT2____90.000______0.000______50.0______140.709____105.461
+-- CLK_OUT3____81.818______0.000______50.0______143.527____105.461
+-- CLK_OUT4____81.818______0.000______50.0______143.527____105.461
+-- CLK_OUT5____69.231______0.000______50.0______148.662____105.461
+-- CLK_OUT6____60.000______0.000______50.0______153.276____105.461
+-- CLK_OUT7____50.000______0.000______50.0______159.475____105.461
 --
 ------------------------------------------------------------------------------
 -- "Input Clock   Freq (MHz)    Input Jitter (UI)"
@@ -97,7 +97,7 @@ end fpga_clock;
 
 architecture xilinx of fpga_clock is
   attribute CORE_GENERATION_INFO : string;
-  attribute CORE_GENERATION_INFO of xilinx : architecture is "fpga_clock,clk_wiz_v3_6,{component_name=fpga_clock,use_phase_alignment=true,use_min_o_jitter=false,use_max_i_jitter=false,use_dyn_phase_shift=false,use_inclk_switchover=false,use_dyn_reconfig=false,feedback_source=FDBK_AUTO,primtype_sel=MMCM_ADV,num_out_clk=7,clkin1_period=10.0,clkin2_period=10.0,use_power_down=false,use_reset=true,use_locked=true,use_inclk_stopped=false,use_status=false,use_freeze=false,use_clk_valid=false,feedback_type=SINGLE,clock_mgr_type=MANUAL,manual_override=false}";
+  attribute CORE_GENERATION_INFO of xilinx : architecture is "fpga_clock,clk_wiz_v3_6,{component_name=fpga_clock,use_phase_alignment=true,use_min_o_jitter=false,use_max_i_jitter=false,use_dyn_phase_shift=false,use_inclk_switchover=false,use_dyn_reconfig=false,feedback_source=FDBK_AUTO,primtype_sel=MMCM_ADV,num_out_clk=7,clkin1_period=10.000,clkin2_period=10.000,use_power_down=false,use_reset=true,use_locked=true,use_inclk_stopped=false,use_status=false,use_freeze=false,use_clk_valid=false,feedback_type=SINGLE,clock_mgr_type=MANUAL,manual_override=false}";
   -- Input clock buffering / unused connectors
   signal clkin1      : std_logic;
   -- Output clock buffering / unused connectors
@@ -143,38 +143,38 @@ begin
     COMPENSATION         => "ZHOLD",
     STARTUP_WAIT         => FALSE,
     DIVCLK_DIVIDE        => 1,
-    CLKFBOUT_MULT_F      => 12.000,
+    CLKFBOUT_MULT_F      => 9.000,
     CLKFBOUT_PHASE       => 0.000,
     CLKFBOUT_USE_FINE_PS => FALSE,
-    CLKOUT0_DIVIDE_F     => 12.000,
+    CLKOUT0_DIVIDE_F     => 9.000,
     CLKOUT0_PHASE        => 0.000,
     CLKOUT0_DUTY_CYCLE   => 0.500,
     CLKOUT0_USE_FINE_PS  => FALSE,
-    CLKOUT1_DIVIDE       => 4,
+    CLKOUT1_DIVIDE       => 10,
     CLKOUT1_PHASE        => 0.000,
     CLKOUT1_DUTY_CYCLE   => 0.500,
     CLKOUT1_USE_FINE_PS  => FALSE,
-    CLKOUT2_DIVIDE       => 5,
+    CLKOUT2_DIVIDE       => 11,
     CLKOUT2_PHASE        => 0.000,
     CLKOUT2_DUTY_CYCLE   => 0.500,
     CLKOUT2_USE_FINE_PS  => FALSE,
-    CLKOUT3_DIVIDE       => 6,
+    CLKOUT3_DIVIDE       => 11,
     CLKOUT3_PHASE        => 0.000,
     CLKOUT3_DUTY_CYCLE   => 0.500,
     CLKOUT3_USE_FINE_PS  => FALSE,
-    CLKOUT4_DIVIDE       => 7,
+    CLKOUT4_DIVIDE       => 13,
     CLKOUT4_PHASE        => 0.000,
     CLKOUT4_DUTY_CYCLE   => 0.500,
     CLKOUT4_USE_FINE_PS  => FALSE,
-    CLKOUT5_DIVIDE       => 9,
+    CLKOUT5_DIVIDE       => 15,
     CLKOUT5_PHASE        => 0.000,
     CLKOUT5_DUTY_CYCLE   => 0.500,
     CLKOUT5_USE_FINE_PS  => FALSE,
-    CLKOUT6_DIVIDE       => 10,
+    CLKOUT6_DIVIDE       => 18,
     CLKOUT6_PHASE        => 0.000,
     CLKOUT6_DUTY_CYCLE   => 0.500,
     CLKOUT6_USE_FINE_PS  => FALSE,
-    CLKIN1_PERIOD        => 10.0,
+    CLKIN1_PERIOD        => 10.000,
     REF_JITTER1          => 0.010)
   port map
     -- Output clocks

@@ -77,12 +77,12 @@ architecture Behavioral of container is
     CLK_IN1           : in     std_logic;
     -- Clock out ports
     CLK_OUT1          : out    std_logic;  -- 100MHz
-    CLK_OUT2          : out    std_logic;  -- 300MHz
-    CLK_OUT3          : out    std_logic;  -- 240MHz
-    CLK_OUT4          : out    std_logic;  -- 200MHz
-    CLK_OUT5          : out    std_logic;  -- 171.429MHz
-    CLK_OUT6          : out    std_logic;  -- 133.33MHz
-    CLK_OUT7          : out    std_logic;  -- 120MHz
+    CLK_OUT2          : out    std_logic;  -- 90MHz
+    CLK_OUT3          : out    std_logic;  -- 85MHz
+    CLK_OUT4          : out    std_logic;  -- 80MHz
+    CLK_OUT5          : out    std_logic;  -- 70MHz
+    CLK_OUT6          : out    std_logic;  -- 60MHz
+    CLK_OUT7          : out    std_logic;  -- 50MHz
     -- Status and control signals
     RESET             : in     std_logic;
     LOCKED            : out    std_logic
@@ -110,8 +110,13 @@ architecture Behavioral of container is
   signal fastio_wdata : std_logic_vector(7 downto 0);
   signal fastio_rdata : std_logic_vector(7 downto 0);
 
-   
+   signal halved_clock : std_logic := '1';
 begin
+  fast_clock: fpga_clock port map(CLK_IN1 => CLK_IN,
+                                  CLK_OUT7 => clock,reset => reset);
+  pixel_clock: vga_clock port map(CLK_IN1 => CLK_IN,
+                                  CLK_OUT2 => vga_pixel_clock,reset => reset);
+  
   cpu0: cpu6502 port map(clock => clock,reset =>reset,irq => irq,
                          nmi => nmi,monitor_pc => monitor_pc,
                          fastio_addr => fastio_addr,
@@ -122,12 +127,6 @@ begin
   iomapper0: iomapper port map (
     clk => clock, address => fastio_addr, r => fastio_read, w => fastio_write,
     data_i => fastio_wdata, data_o => fastio_rdata);
-
-  -- Use 100MHz CPU clock for now
-  fast_clock: fpga_clock port map(CLK_IN1 => CLK_IN,
-                                  CLK_OUT1 => clock,reset => reset);
-  pixel_clock: vga_clock port map(CLK_IN1 => CLK_IN,
-                                  CLK_OUT2 => vga_pixel_clock,reset => reset);
 
 end Behavioral;
 
