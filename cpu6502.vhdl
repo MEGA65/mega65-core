@@ -117,6 +117,21 @@ architecture Behavioral of cpu6502 is
   signal instruction_from_io : std_logic;
   signal instruction_from_ram : std_logic;
   signal instruction_from_slowram : std_logic;
+
+  -- Small instruction buffer because pulling bytes in from fast ram is
+  -- actually not that fast. Well, it is fast in terms of maximum clock
+  -- speed, but the combinational logic to arrange and interpret the output
+  -- as an instruction.
+  -- We won't have to pay the penalty cycle every
+  -- instruction because we can buffer several bytes.  We can also top the
+  -- buffer up in the background when no other memory access is required.
+  -- We can also effectively cache the result of resolving MMU remapping.
+  type ibuf is array (0 to 7) of std_logic_vector(7 downto 0);
+  signal instruction_buffer : ibuf;
+  signal instruction_buffer_pc : unsigned(15 downto 0);
+  signal instruction_buffer_count : integer := 0;  -- number of bytes loaded in instruction buffer
+  signal instruction_fetch_count : unsigned(3 downto 0);  -- number of instruction bytes being fetched this cycle (for fastram and slowram that can do multi-byte reads)
+  
   
   type processor_state is (
     -- When CPU first powers up, or reset is bought low
@@ -333,7 +348,7 @@ begin
       return temp_address;
     end resolve_address_to_long;
     
-    procedure request_read_long_address(long_address : std_logic_vector(27 downto 0)) is
+    procedure request_read_long_address_from_fastram(long_address : std_logic_vector(27 downto 0)) is
       variable ram_bank : std_logic_vector(2 downto 0);
       variable bank_address : std_logic_vector(15 downto 0);
     begin
@@ -341,7 +356,8 @@ begin
       bank_address := long_address(18 downto 3);
       ram_address(to_integer(unsigned(ram_bank))) <= bank_address;
       ram_we(to_integer(unsigned(ram_bank))) <= '0';
-    end request_read_long_address;
+    end request_read_long_address_from_fastram;
+    
     procedure write_to_long_address(long_address : std_logic_vector(27 downto 0);
                                     value : in std_logic_vector(7 downto 0)) is
       variable ram_bank : std_logic_vector(2 downto 0);
@@ -454,101 +470,64 @@ begin
       variable long_pc1 : std_logic_vector(27 downto 0);
       variable long_pc2 : std_logic_vector(27 downto 0);
       variable temp_pc : std_logic_vector(15 downto 0);
+      variable fetch_count : unsigned(3 downto 0);
     begin
-      -- Stop writing to IO if we were in the previous cycle.
-      -- Note that we DO NOT clear the write lines on the fast ram, as they
-      -- can be set to write back operands/push registers from the previous
-      -- instruction.
-      -- XXX There are almost certainly situations where the write lines on
-      -- fast ram remain asserted longer than necessary.  They should only
-      -- continue to write the same correct value, but it should still be fixed
-      -- so that multiple cores can access the fast ram simultaneously.
-      fastio_write <= '0';
-      fastio_read <= '0';
-
-      long_pc := resolve_address_to_long(std_logic_vector(pc),ram_bank_registers_instructions);
-
-      report "fetch next instruction from long address $" & to_hstring(long_pc) severity note;
-      
-      if long_pc(27 downto 24) = x"F" then
-        -- Fetch is from fast I/O (which is also how ROMs are implemented)
-        instruction_from_ram <= '0';
-        instruction_from_io <= '1';
-        instruction_from_slowram <= '0';
-
-        fastio_addr <= long_pc(19 downto 0);
-        fastio_read <= '1';
-        fastio_write <= '0';
-        
-        state <= InstructionFetchIOWait;
-        report "fetching instruction from IO" severity note;
-      elsif long_pc(27 downto 24) > x"7" then
-        -- Fetch is from slow RAM
-        instruction_from_ram <= '0';
-        instruction_from_io <= '0';
-        instruction_from_slowram <= '1';
-        report "fetching instruction from slow RAM" severity note;
-      else
-        -- If not from elsewhere, fetch from fast RAM
-        report "fetching instruction from fast RAM" severity note;
-        case pc(2 downto 0) is
-          when "000" =>
-            long_pc1(27 downto 2) := long_pc(27 downto 2);
-            long_pc1(2 downto 0) := "001";
-            long_pc2(27 downto 2) := long_pc(27 downto 2);
-            long_pc2(2 downto 0) := "010";
-          when "001" =>
-            long_pc1(27 downto 2) := long_pc(27 downto 2);
-            long_pc1(2 downto 0) := "010";
-            long_pc2(27 downto 2) := long_pc(27 downto 2);
-            long_pc2(2 downto 0) := "011";
-          when "010" =>
-            long_pc1(27 downto 2) := long_pc(27 downto 2);
-            long_pc1(2 downto 0) := "011";
-            long_pc2(27 downto 2) := long_pc(27 downto 2);
-            long_pc2(2 downto 0) := "100";
-          when "011" =>
-            long_pc1(27 downto 2) := long_pc(27 downto 2);
-            long_pc1(2 downto 0) := "100";
-            long_pc2(27 downto 2) := long_pc(27 downto 2);
-            long_pc2(2 downto 0) := "101";
-          when "100" =>
-            long_pc1(27 downto 2) := long_pc(27 downto 2);
-            long_pc1(2 downto 0) := "101";
-            long_pc2(27 downto 2) := long_pc(27 downto 2);
-            long_pc2(2 downto 0) := "110";
-          when "101" =>
-            long_pc1(27 downto 2) := long_pc(27 downto 2);
-            long_pc1(2 downto 0) := "110";
-            long_pc2(27 downto 2) := long_pc(27 downto 2);
-            long_pc2(2 downto 0) := "111";
-          when "110" =>
-            long_pc1(27 downto 2) := long_pc(27 downto 2);
-            long_pc1(2 downto 0) := "111";
-            temp_pc:=std_logic_vector(unsigned(pc)+2);
-            long_pc2 := resolve_address_to_long(temp_pc,ram_bank_registers_instructions);
-            long_pc2(27 downto 2) := long_pc(27 downto 2);
-            long_pc2(2 downto 0) := "000";
-          when "111" =>
-            temp_pc:=std_logic_vector(unsigned(pc)+1);
-            long_pc1 := resolve_address_to_long(temp_pc,ram_bank_registers_instructions);
-            long_pc1(27 downto 2) := long_pc(27 downto 2);
-            long_pc1(2 downto 0) := "000";
-            long_pc2(27 downto 2) := long_pc(27 downto 2);
-            long_pc2(2 downto 0) := "001";
-            -- If missing, generates an error, if present, generates a warning :/
-          when others => null;
-        end case;
-        instruction_from_ram <= '1';
-        instruction_from_io <= '0';
-        instruction_from_slowram <= '0';
-        op_mem_slot <= unsigned(long_pc(2 downto 0));
-        operand1_mem_slot <= unsigned(long_pc1(2 downto 0));
-        operand2_mem_slot <= unsigned(long_pc2(2 downto 0));
-        request_read_long_address(long_pc);
-        request_read_long_address(long_pc1);
-        request_read_long_address(long_pc2);
+      if instruction_buffer_count >2 then
+        -- We already have enough instructions in the buffer, so nothing more
+        -- to do.
         state <= OperandResolve;
+      else
+        -- Read bytes into the instruction buffer as fast as possible.
+        -- For fast ram we can read 8 bytes at once.
+        -- For I/O and slow RAM the process is slower, and so we just read
+        -- enough bytes for now.
+        long_pc := resolve_address_to_long(std_logic_vector(pc+instruction_buffer_count),ram_bank_registers_instructions);
+        report "fetch next instruction from long address $" & to_hstring(long_pc) severity note;
+      
+        if long_pc(27 downto 24) = x"F" then
+          -- Fetch is from fast I/O (which is also how ROMs are implemented)
+          instruction_from_ram <= '0';
+          instruction_from_io <= '1';
+          instruction_from_slowram <= '0';
+
+          fastio_addr <= long_pc(19 downto 0);
+          fastio_read <= '1';
+          fastio_write <= '0';
+
+          report "fetching instruction byte from IO" severity note;
+        
+          state <= InstructionFetchIOWait;
+        elsif long_pc(27 downto 24) > x"7" then
+          -- Fetch is from slow RAM
+          instruction_from_ram <= '0';
+          instruction_from_io <= '0';
+          instruction_from_slowram <= '1';
+          report "fetching instruction byte from slow RAM unimplemented" severity failure;
+        else
+          -- If not from elsewhere, fetch from fast RAM.
+          -- Fetch only to the end of page, so work out now many bytes
+          -- we can read.
+          fetch_count := to_unsigned(8,4);
+          if long_pc(11 downto 0)>x"ff8" then
+            fetch_count := fetch_count - unsigned('0' & long_pc(2 downto 0));
+          end if;
+          instruction_fetch_count <= fetch_count;
+          -- But trigger reads from all memory banks so that
+          -- we don't end up with any latches.
+          for i in 0 to 7 loop
+            long_pc1 := std_logic_vector(unsigned(long_pc) + to_unsigned(i,28));
+            request_read_long_address_from_fastram(long_pc1);              
+          end loop;  -- i            
+          state <= InstructionFetchFastRam;        
+
+          report "fetching "
+            & integer'image(to_integer(fetch_count))
+            & "instruction bytes from fast RAM" severity note;
+
+          instruction_from_ram <= '1';
+          instruction_from_io <= '0';
+          instruction_from_slowram <= '0';
+        end if;
       end if;
     end procedure fetch_next_instruction;
 
