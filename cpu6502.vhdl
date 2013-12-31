@@ -129,8 +129,8 @@ architecture Behavioral of cpu6502 is
   type ibuf is array (0 to 7) of std_logic_vector(7 downto 0);
   signal instruction_buffer : ibuf;
   signal instruction_buffer_pc : unsigned(15 downto 0);
-  signal instruction_buffer_count : integer := 0;  -- number of bytes loaded in instruction buffer
-  signal instruction_fetch_count : unsigned(3 downto 0);  -- number of instruction bytes being fetched this cycle (for fastram and slowram that can do multi-byte reads)
+  signal instruction_buffer_count : unsigned(3 downto 0) := x"0";  -- number of bytes loaded in instruction buffer
+  signal instruction_fetch_count : unsigned(2 downto 0);  -- number of instruction bytes being fetched this cycle minus 1 (for fastram and slowram that can do multi-byte reads)
   
   
   type processor_state is (
@@ -141,7 +141,8 @@ architecture Behavioral of cpu6502 is
     -- Normal instruction states.  Many states will be skipped
     -- by any given instruction.
     -- When an instruction completes, we move back to InstructionFetch
-    InstructionFetch,InstructionFetchIO,InstructionFetchIOWait,
+    InstructionFetch,InstructionFetchFastRam,
+    InstructionFetchIO,InstructionFetchIOWait,
     Operand1FetchIO,Operand1FetchIOWait,
     OperandResolve,OperandResolveIOWait,Calculate,IOWrite,
     -- Special states used for special instructions
@@ -265,6 +266,7 @@ begin
   process(clock)
     variable normal_instruction : boolean;
 
+    variable ram_bank : unsigned(2 downto 0);
     variable temp_address : std_logic_vector(15 downto 0);
     variable temp_bank_block : std_logic_vector(15 downto 0);
     variable temp_operand : std_logic_vector(7 downto 0);
@@ -513,7 +515,9 @@ begin
           if long_pc(11 downto 0)>x"ff8" then
             fetch_count := fetch_count - unsigned('0' & long_pc(2 downto 0));
           end if;
-          instruction_fetch_count <= fetch_count;
+          -- reduce by one to make it the top of the range to fetch
+          fetch_count := fetch_count - 1;
+          instruction_fetch_count <= fetch_count(2 downto 0);
           -- But trigger reads from all memory banks so that
           -- we don't end up with any latches.
           for i in 0 to 7 loop
@@ -1178,6 +1182,29 @@ begin
             -- Probably easiest to do a parallel calculation based on lower
             -- bits of reg_pc, reg_pcplus1, reg_pcplus2
             fetch_next_instruction(reg_pc);
+          when InstructionFetchFastRam =>
+            -- Reading one or more instruction bytes from fastram into instruction
+            -- buffer.
+            -- We can't short-cut to instruction execution here, because the whole
+            -- point is that reading from the 8x8bit memory system requires a lot
+            -- of combinational logic (and routing delay because we are using
+            -- almost all of the block RAMs).
+            -- instruction_fetch_count indicates the number of bytes we can read
+            -- from the program counter onwards.  We may have some bytes in
+            -- the buffer already, which we should not overwrite in case they were
+            -- fetched from.
+            for i in to_integer(instruction_buffer_count(2 downto 0))
+              to to_integer(instruction_fetch_count) loop
+              ram_bank := reg_pc(2 downto 0) + i;
+              instruction_buffer(i) <= ram_data_o(to_integer(ram_bank));
+            end loop;  -- i
+            -- Update number of instructions we have fetched
+            instruction_buffer_count <= instruction_fetch_count + 1;
+            if instruction_fetch_count>2 then
+              state <= OperandResolve;
+            else
+              state <= InstructionFetch;
+            end if;
           when InstructionFetchIOWait =>
             report "read opcode from io @ $" & to_hstring(std_logic_vector(reg_pc)) severity note;
             long_address := resolve_address_to_long(std_logic_vector(reg_pc),ram_bank_registers_instructions);
