@@ -99,9 +99,8 @@ begin
     for i in 1 to 100 loop
       clock <= '1';
       wait for 10 ns;     
-      report "clock=1" severity note;
+      -- report "clock=1" severity note;
       clock <= '0';
-
       -- report "clock=0 (run)" severity note;
       wait for 10 ns;      
     end loop;  -- i
