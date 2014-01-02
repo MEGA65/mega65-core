@@ -1257,11 +1257,15 @@ begin
               -- the next byte next cycle, which we can do without a wait state
               -- because in InstructionFetchIOWait we prime the fastio system to
               -- be already reading from that address.
+              long_address := resolve_address_to_long(std_logic_vector(reg_pc+instruction_buffer_count+1+1),ram_bank_registers_instructions);
+              fastio_addr <= long_address(19 downto 0);
+              fastio_read <= '1';
+              fastio_write <= '0';
               state <= InstructionFetchIO;
             else
-              -- If on the other hand we have enough bytes, then proceed directly
+              -- If on the other hand we have enough bytes, then proceed
               -- to executing the instruction.
-              state <= OperandResolve;
+              state <= InstructionFetch;
             end if;
             instruction_buffer_count <= instruction_buffer_count +1;
           when Operand1FetchIOWait =>
