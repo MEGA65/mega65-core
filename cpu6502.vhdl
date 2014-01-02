@@ -125,7 +125,6 @@ architecture Behavioral of cpu6502 is
   signal instruction_buffer_count : unsigned(3 downto 0) := x"0";  -- number of bytes loaded in instruction buffer
   signal instruction_fetch_top : unsigned(3 downto 0);  -- number of instruction bytes being fetched this cycle minus 1 (for fastram and slowram that can do multi-byte reads)
   
-  
   type processor_state is (
     -- When CPU first powers up, or reset is bought low
     ResetLow,
@@ -136,8 +135,7 @@ architecture Behavioral of cpu6502 is
     -- When an instruction completes, we move back to InstructionFetch
     InstructionFetch,InstructionFetchFastRam,
     InstructionFetchIO,InstructionFetchIOWait,
-    Operand1FetchIO,Operand1FetchIOWait,
-    OperandResolve,OperandResolveIOWait,Calculate,IOWrite,
+    OperandResolve,Calculate,IOWrite,
     -- Special states used for special instructions
     PullA,                                -- PLA
     PullP,                                -- PLP
@@ -424,6 +422,7 @@ begin
         -- We don't have enough bytes to accommodate this shift, so invalidate
         -- buffer entirely.
         instruction_buffer_count <= (others => '0');
+        report "invalidating instruction buffer" severity note;
       else
         -- calculate new count of bytes remaining
         instruction_buffer_count <= instruction_buffer_count - count(2 downto 0);
@@ -434,6 +433,18 @@ begin
             instruction_buffer(i) <= instruction_buffer(index); 
           end if;
         end loop;  -- i
+        report "instruction buffer contents after shift:"
+          & " " & to_hstring(instruction_buffer(0))
+          & " " & to_hstring(instruction_buffer(1))
+          & " " & to_hstring(instruction_buffer(2))
+          & " " & to_hstring(instruction_buffer(3))
+          & " " & to_hstring(instruction_buffer(4))
+          & " " & to_hstring(instruction_buffer(5))
+          & " " & to_hstring(instruction_buffer(6))
+          & " " & to_hstring(instruction_buffer(7))
+          & " (count = " &  integer'image(to_integer(instruction_buffer_count-count(2 downto 0)))
+          & ")"
+          severity note;
       end if;
     end procedure shift_instruction_buffer_by_count;
     
@@ -1268,20 +1279,6 @@ begin
               state <= InstructionFetch;
             end if;
             instruction_buffer_count <= instruction_buffer_count +1;
-          when Operand1FetchIOWait =>
-            state <= Operand1FetchIO;
-          when Operand1FetchIO =>
-            temp_value <= fastio_rdata;
-            
-            long_address := resolve_address_to_long(std_logic_vector(reg_pcplus2),
-                                                    ram_bank_registers_instructions);
-            fastio_addr <= long_address(19 downto 0);
-            fastio_read <= '1';
-            fastio_write <= '0';
-
-            state <= OperandResolveIOWait;
-          when OperandResolveIOWait =>
-            state <= OperandResolve;
           when OperandResolve =>
             -- Get opcode and operands, or initiate an interrupt
             -- IRQ is level triggered
@@ -1294,10 +1291,28 @@ begin
               state <= Interrupt;
               vector <= x"FFFE";
               irq_pending <= '0';
+            elsif instruction_buffer_count < x"3" then
+              -- Sometimes we need an extra cycle for the instruction buffer
+              -- state to propagate, and we miss doing the fetch.  In that
+              -- case, we get here, but need to go back to InstructionFetch                                                       
+              state <= InstructionFetch;
             else
               -- Now that we are using the instruction buffer, we can simply
               -- grab the first byes of the instruction buffer, and make
               -- instruction execution agnostic of the memory source.
+              report "instruction buffer contents after load:"
+                & " " & to_hstring(instruction_buffer(0))
+                & " " & to_hstring(instruction_buffer(1))
+                & " " & to_hstring(instruction_buffer(2))
+                & " " & to_hstring(instruction_buffer(3))
+                & " " & to_hstring(instruction_buffer(4))
+                & " " & to_hstring(instruction_buffer(5))
+                & " " & to_hstring(instruction_buffer(6))
+                & " " & to_hstring(instruction_buffer(7))
+                & " (count = " &  integer'image(to_integer(instruction_fetch_top)+1)
+                & ")"
+                severity note;
+
               opcode_now := instruction_buffer(0);
               temp_operand_address(15 downto 8) := instruction_buffer(2);
               temp_operand_address(7 downto 0) := instruction_buffer(1);
