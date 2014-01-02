@@ -93,7 +93,6 @@ architecture Behavioral of cpu6502 is
   signal pull_bank : unsigned(2 downto 0);
 
 -- Temporary address used in various states
-  signal temp_opcode : std_logic_vector(7 downto 0);
   signal temp_value : std_logic_vector(7 downto 0);
 -- Other temporary variables
   signal op_mem_slot : unsigned(2 downto 0);
@@ -498,7 +497,20 @@ begin
           fastio_read <= '1';
           fastio_write <= '0';
 
-          report "fetching instruction byte from IO" severity note;
+          -- When executing from IO, we should only read the current instruction,
+          -- since the current instruction could cause changes to the IO registers.
+          fetch_count := to_unsigned(3-instruction_buffer_count,4);
+          -- Make sure we don't fetch over an MMU page boundary.
+          -- XXX For now just play it safe and only fetch one byte in this
+          -- situation.
+          if long_pc(11 downto 0)>x"ffd" then
+            fetch_count := 1;
+          end if;
+          -- reduce by one to make it the top of the range to fetch
+          fetch_count := instruction_buffer_count+fetch_count-1;
+          instruction_fetch_count <= fetch_count(2 downto 0);
+          
+          report "fetching instruction bytes from IO" severity note;
         
           state <= InstructionFetchIOWait;
         elsif long_pc(27 downto 24) > x"7" then
@@ -1009,7 +1021,7 @@ begin
         severity note;
 
       -- Output debug signals
-      monitor_opcode <= std_logic_vector(temp_opcode);
+      monitor_opcode <= std_logic_vector(instruction_buffer(0));
       monitor_pc <= std_logic_vector(reg_pc);
       monitor_sp <= std_logic_vector(reg_sp);
       monitor_a <= std_logic_vector(reg_a);
@@ -1206,25 +1218,29 @@ begin
               state <= InstructionFetch;
             end if;
           when InstructionFetchIOWait =>
-            report "read opcode from io @ $" & to_hstring(std_logic_vector(reg_pc)) severity note;
-            long_address := resolve_address_to_long(std_logic_vector(reg_pc),ram_bank_registers_instructions);
+            -- Here we can advance long_address so that we can avoid
+            -- wait states when reading from sequential IO addresses.
+            report "read instruction byte from io @ $" & to_hstring(std_logic_vector(reg_pc)) severity note;
+            long_address := resolve_address_to_long(std_logic_vector(pc+instruction_buffer_count+1),ram_bank_registers_instructions);
             fastio_addr <= long_address(19 downto 0);
             fastio_read <= '1';
             fastio_write <= '0';
             state <= InstructionFetchIO;
           when InstructionFetchIO =>
             report "instruction from I/O is $" & to_hstring(fastio_rdata) severity note;
-            temp_opcode <= fastio_rdata;
-            
-            long_address := resolve_address_to_long(std_logic_vector(reg_pcplus1),
-                                                    ram_bank_registers_instructions);
-            fastio_addr <= long_address(19 downto 0);
-            fastio_read <= '1';
-            fastio_write <= '0';
-
-            -- XXX Can save a cycle or two by not fetching operand bytes that
-            -- we don't need based on addressing mode.
-            state <= Operand1FetchIOWait;
+            instruction_buffer(instruction_buffer_count) <= fastio_rdata;
+            if ((instruction_buffer_count+1)<3) then
+              -- If after this fetch we still don't have enough bytes, then read
+              -- the next byte next cycle, which we can do without a wait state
+              -- because in InstructionFetchIOWait we prime the fastio system to
+              -- be already reading from that address.
+              state <= InstructionFetchIO;
+            else
+              -- If on the other hand we have enough bytes, then proceed directly
+              -- to executing the instruction.
+              state <= OperandResolve;
+            end if;
+            instruction_buffer_count <= instruction_buffer_count +1;
           when Operand1FetchIOWait =>
             state <= Operand1FetchIO;
           when Operand1FetchIO =>
