@@ -112,11 +112,6 @@ architecture Behavioral of cpu6502 is
   signal operand_from_ram : std_logic;
   signal operand_from_slowram : std_logic;
 
-  -- similarly for fetching the instruction bytes
-  signal instruction_from_io : std_logic;
-  signal instruction_from_ram : std_logic;
-  signal instruction_from_slowram : std_logic;
-
   -- Small instruction buffer because pulling bytes in from fast ram is
   -- actually not that fast. Well, it is fast in terms of maximum clock
   -- speed, but the combinational logic to arrange and interpret the output
@@ -127,9 +122,8 @@ architecture Behavioral of cpu6502 is
   -- We can also effectively cache the result of resolving MMU remapping.
   type ibuf is array (0 to 7) of std_logic_vector(7 downto 0);
   signal instruction_buffer : ibuf;
-  signal instruction_buffer_pc : unsigned(15 downto 0);
   signal instruction_buffer_count : unsigned(3 downto 0) := x"0";  -- number of bytes loaded in instruction buffer
-  signal instruction_fetch_count : unsigned(2 downto 0);  -- number of instruction bytes being fetched this cycle minus 1 (for fastram and slowram that can do multi-byte reads)
+  signal instruction_fetch_top : unsigned(3 downto 0);  -- number of instruction bytes being fetched this cycle minus 1 (for fastram and slowram that can do multi-byte reads)
   
   
   type processor_state is (
@@ -422,6 +416,27 @@ begin
       flag_n <= value(7);
     end procedure set_cpu_flags_inc;
 
+    procedure shift_instruction_buffer_by_count (
+      count : in unsigned(6 downto 0)) is
+      variable index : integer;
+    begin
+      if count>=instruction_buffer_count then
+        -- We don't have enough bytes to accommodate this shift, so invalidate
+        -- buffer entirely.
+        instruction_buffer_count <= (others => '0');
+      else
+        -- calculate new count of bytes remaining
+        instruction_buffer_count <= instruction_buffer_count - count(2 downto 0);
+        -- Shift instruction bytes down in buffer
+        for i in 0 to 7 loop
+          index := i+to_integer(count(2 downto 0));
+          if index<8 then
+            instruction_buffer(i) <= instruction_buffer(index); 
+          end if;
+        end loop;  -- i
+      end if;
+    end procedure shift_instruction_buffer_by_count;
+    
     procedure advance_pc(value : integer) is
     begin
       next_pc := reg_pc + value;
@@ -429,14 +444,22 @@ begin
       reg_pc <= next_pc;
       reg_pcplus1 <= next_pc + 1;
       reg_pcplus2 <= next_pc + 2;
+      
+      -- Advance instruction buffer
+      shift_instruction_buffer_by_count(to_unsigned(value,7));
     end procedure advance_pc;
 
     procedure set_pc(addr : unsigned(15 downto 0)) is
     begin
+      -- Set PC and related meta-registers
       reg_pc <= addr;
       reg_pcplus1 <= addr + 1;
       reg_pcplus2 <= addr + 2;
       next_pc := addr;
+
+      -- Invalidate instruction buffer
+      instruction_buffer_count <= "0000";
+      
       report "next pc set to $" & to_hstring(std_logic_vector(next_pc)) severity note;
     end procedure set_pc;
 
@@ -489,35 +512,28 @@ begin
       
         if long_pc(27 downto 24) = x"F" then
           -- Fetch is from fast I/O (which is also how ROMs are implemented)
-          instruction_from_ram <= '0';
-          instruction_from_io <= '1';
-          instruction_from_slowram <= '0';
-
           fastio_addr <= long_pc(19 downto 0);
           fastio_read <= '1';
           fastio_write <= '0';
 
           -- When executing from IO, we should only read the current instruction,
           -- since the current instruction could cause changes to the IO registers.
-          fetch_count := to_unsigned(3-instruction_buffer_count,4);
+          fetch_count := to_unsigned(3-to_integer(instruction_buffer_count),4);
           -- Make sure we don't fetch over an MMU page boundary.
           -- XXX For now just play it safe and only fetch one byte in this
           -- situation.
           if long_pc(11 downto 0)>x"ffd" then
-            fetch_count := 1;
+            fetch_count := "0001";
           end if;
           -- reduce by one to make it the top of the range to fetch
           fetch_count := instruction_buffer_count+fetch_count-1;
-          instruction_fetch_count <= fetch_count(2 downto 0);
+          instruction_fetch_top <= fetch_count(3 downto 0);
           
           report "fetching instruction bytes from IO" severity note;
         
           state <= InstructionFetchIOWait;
         elsif long_pc(27 downto 24) > x"7" then
           -- Fetch is from slow RAM
-          instruction_from_ram <= '0';
-          instruction_from_io <= '0';
-          instruction_from_slowram <= '1';
           report "fetching instruction byte from slow RAM unimplemented" severity failure;
         else
           -- If not from elsewhere, fetch from fast RAM.
@@ -527,9 +543,15 @@ begin
           if long_pc(11 downto 0)>x"ff8" then
             fetch_count := fetch_count - unsigned('0' & long_pc(2 downto 0));
           end if;
+          -- XXX But only read upto 8 bytes, so that we can copy into instruction
+          -- buffer in phase. If we allowed copying 8 extra bytes it would
+          -- complicate the decode logic.          
+          if fetch_count>8 then
+            fetch_count := x"8";
+          end if;
           -- reduce by one to make it the top of the range to fetch
           fetch_count := fetch_count - 1;
-          instruction_fetch_count <= fetch_count(2 downto 0);
+          instruction_fetch_top <= fetch_count;
           -- But trigger reads from all memory banks so that
           -- we don't end up with any latches.
           for i in 0 to 7 loop
@@ -541,10 +563,6 @@ begin
           report "fetching "
             & integer'image(to_integer(fetch_count))
             & "instruction bytes from fast RAM" severity note;
-
-          instruction_from_ram <= '1';
-          instruction_from_io <= '0';
-          instruction_from_slowram <= '0';
         end if;
       end if;
     end procedure fetch_next_instruction;
@@ -1205,30 +1223,35 @@ begin
             -- from the program counter onwards.  We may have some bytes in
             -- the buffer already, which we should not overwrite in case they were
             -- fetched from.
-            for i in to_integer(instruction_buffer_count(2 downto 0))
-              to to_integer(instruction_fetch_count) loop
-              ram_bank := reg_pc(2 downto 0) + i;
-              instruction_buffer(i) <= ram_data_o(to_integer(ram_bank));
+            for i in 0 to 7 loop
+              if i>= to_integer(instruction_buffer_count(2 downto 0))
+                and i<=to_integer(instruction_fetch_top) then
+                ram_bank := reg_pc(2 downto 0) + i;
+                instruction_buffer(i) <= ram_data_o(to_integer(ram_bank));
+              end if;
             end loop;  -- i
             -- Update number of instructions we have fetched
-            instruction_buffer_count <= instruction_fetch_count + 1;
-            if instruction_fetch_count>2 then
+            instruction_buffer_count <= instruction_fetch_top + 1;
+            if instruction_fetch_top>2 then
+              -- We have enough bytes to execute the next instruction
               state <= OperandResolve;
             else
+              -- We don't have enough bytes yet, so fetch some more.
               state <= InstructionFetch;
             end if;
           when InstructionFetchIOWait =>
             -- Here we can advance long_address so that we can avoid
             -- wait states when reading from sequential IO addresses.
             report "read instruction byte from io @ $" & to_hstring(std_logic_vector(reg_pc)) severity note;
-            long_address := resolve_address_to_long(std_logic_vector(pc+instruction_buffer_count+1),ram_bank_registers_instructions);
+            long_address := resolve_address_to_long(std_logic_vector(reg_pc+instruction_buffer_count+1),ram_bank_registers_instructions);
             fastio_addr <= long_address(19 downto 0);
             fastio_read <= '1';
             fastio_write <= '0';
             state <= InstructionFetchIO;
           when InstructionFetchIO =>
             report "instruction from I/O is $" & to_hstring(fastio_rdata) severity note;
-            instruction_buffer(instruction_buffer_count) <= fastio_rdata;
+            instruction_buffer(to_integer(instruction_buffer_count))
+              <= fastio_rdata;
             if ((instruction_buffer_count+1)<3) then
               -- If after this fetch we still don't have enough bytes, then read
               -- the next byte next cycle, which we can do without a wait state
@@ -1268,20 +1291,12 @@ begin
               vector <= x"FFFE";
               irq_pending <= '0';
             else
-              if instruction_from_ram = '1' then
-                temp_opcode <= ram_data_o(to_integer(op_mem_slot));
-                opcode_now := ram_data_o(to_integer(op_mem_slot));
-                temp_operand_address(15 downto 8) := ram_data_o(to_integer(operand2_mem_slot));
-                temp_operand_address(7 downto 0) := ram_data_o(to_integer(operand1_mem_slot));
-              elsif instruction_from_io = '1' then                
-                temp_operand_address(15 downto 8) := fastio_rdata;
-                temp_operand_address(7 downto 0) := temp_value;
-                opcode_now := temp_opcode;
-              else
-                -- slow ram or unmapped address
-                temp_operand_address := x"FFFF";
-                opcode_now := temp_opcode;
-              end if;
+              -- Now that we are using the instruction buffer, we can simply
+              -- grab the first byes of the instruction buffer, and make
+              -- instruction execution agnostic of the memory source.
+              opcode_now := instruction_buffer(0);
+              temp_operand_address(15 downto 8) := instruction_buffer(2);
+              temp_operand_address(7 downto 0) := instruction_buffer(1);
               
               -- Lookup instruction and addressing mode
               op_instruction := instruction_lut(to_integer(unsigned(opcode_now)));
@@ -1425,9 +1440,18 @@ begin
                     -- branch forwards. Add two to address because this is a two
                     -- byte instruction
                     reg_pc <= reg_pcplus2 + unsigned(temp_operand_address(6 downto 0));
+                    -- Shift instruction buffer accordingly.
+                    -- (For short forward branches we might be able to keep a few
+                    -- instruction bytes. But don't forget to add 2 bytes for the
+                    -- instruction length).
+                    shift_instruction_buffer_by_count("0010"+unsigned(temp_operand_address(6 downto 0)));
                   else
                     -- branch backwards.
                     reg_pc <= reg_pcplus2 - 128 + unsigned(not temp_operand_address(6 downto 0));
+                    -- Invalidate instruction buffer
+                    -- (When branching backwards we have no way to preserve bytes
+                    -- in the instruction buffer yet).
+                    instruction_buffer_count <= (others => '0');
                   end if;
                   reg_pcplus1 <= reg_pc + 1;
                   reg_pcplus2 <= reg_pc + 2;
@@ -1559,7 +1583,7 @@ begin
                 read_indirect_operand(temp_address(7 downto 0),ram_bank_registers_read);
                 -- turn (indirect,X) into absolute addressing mode
                 -- XXX Relies on addressing mode structure of 6502 opcode table
-                temp_opcode(3 downto 0) <= x"d";
+                instruction_buffer(0)(3 downto 0) <= x"d";
                 state <= OperandResolve;
               elsif op_mode=M_indirectY then
                 -- Post-indexed ZP indirect, wrapping from $FF to $00, not $100
@@ -1569,7 +1593,7 @@ begin
                 read_indirect_operand(temp_address(7 downto 0),ram_bank_registers_read);
                 -- turn (indirect),Y into absolute,Y addressing mode
                 -- XXX Relies on addressing mode structure of 6502 opcode table
-                temp_opcode(3) <= '1';
+                instruction_buffer(0)(3) <= '1';
                 state <= OperandResolve;
               end if;
             end if;
