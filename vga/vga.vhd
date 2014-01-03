@@ -134,10 +134,13 @@ architecture Behavioral of vga is
   -- Delayed versions of signals to allow character fetching pipeline
   signal card_x_t1 : unsigned(11 downto 0);
   signal card_x_t2 : unsigned(11 downto 0);
+  signal card_x_t3 : unsigned(11 downto 0);
   signal card_number_t1 : unsigned(15 downto 0);
   signal card_number_t2 : unsigned(15 downto 0);
+  signal card_number_t3 : unsigned(15 downto 0);
   signal indisplay_t1 : std_logic;
   signal indisplay_t2 : std_logic;
+  signal indisplay_t3 : std_logic;
   
   signal dotclock : std_logic;
   
@@ -344,18 +347,21 @@ begin
       -- to fetch character row data.
       card_x_t1 <= card_x;
       card_x_t2 <= card_x_t1;
+      card_x_t3 <= card_x_t2;
       card_number_t1 <= card_number;
       card_number_t2 <= card_number_t1;
+      card_number_t3 <= card_number_t1;
       indisplay_t1 <= indisplay;
       indisplay_t2 <= indisplay;
+      indisplay_t3 <= indisplay;
 
-      if indisplay_t2='1' then
+      if indisplay_t3='1' then
         -- Display character in white on a background colour chosen by card number
         -- Using only the upper 8 colours so that we don't have white on white.
 
-        if charrow(to_integer(not card_x_t2(2 downto 0))) = '0' then
+        if charrow(to_integer(not card_x_t3(2 downto 0))) = '0' then
           pixel_colour(7 downto 3) <= "00001";
-          pixel_colour(2 downto 0) <= card_number_t2(2 downto 0);
+          pixel_colour(2 downto 0) <= card_number_t3(2 downto 0);
         else
           pixel_colour <= x"01";
         end if;
