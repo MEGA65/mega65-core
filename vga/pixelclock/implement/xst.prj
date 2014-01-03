@@ -1,0 +1,2 @@
+vhdl work ../../pixelclock.vhd
+vhdl work ../example_design/pixelclock_exdes.vhd

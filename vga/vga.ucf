@@ -1,0 +1,24 @@
+NET "clk"   LOC = "E3" | IOSTANDARD = "LVCMOS33";                                      #Bank = 35, Pin name = IO_L12P_T1_MRCC_35,                                      Sch name = CLK100MHZ
+NET "clk" TNM_NET = sys_clk_pin;
+TIMESPEC TS_sys_clk_pin = PERIOD sys_clk_pin 100 MHz HIGH 50%; 
+
+## VGA Connector
+NET "vgaRed<0>"                LOC = "A3"      | IOSTANDARD = "LVCMOS33";              #Bank = 35, Pin name = IO_L8N_T1_AD14N_35,                                      Sch name = VGA_R0
+NET "vgaRed<1>"                LOC = "B4"      | IOSTANDARD = "LVCMOS33";              #Bank = 35, Pin name = IO_L7N_T1_AD6N_35,                                       Sch name = VGA_R1
+NET "vgaRed<2>"                LOC = "C5"      | IOSTANDARD = "LVCMOS33";              #Bank = 35, Pin name = IO_L1N_T0_AD4N_35,                                       Sch name = VGA_R2
+NET "vgaRed<3>"                LOC = "A4"      | IOSTANDARD = "LVCMOS33";              #Bank = 35, Pin name = IO_L8P_T1_AD14P_35,                                      Sch name = VGA_R3
+NET "vgaBlue<0>"               LOC = "B7"      | IOSTANDARD = "LVCMOS33";              #Bank = 35, Pin name = IO_L2P_T0_AD12P_35,                                      Sch name = VGA_B0
+NET "vgaBlue<1>"               LOC = "C7"      | IOSTANDARD = "LVCMOS33";              #Bank = 35, Pin name = IO_L4N_T0_35,                                            Sch name = VGA_B1
+NET "vgaBlue<2>"               LOC = "D7"      | IOSTANDARD = "LVCMOS33";              #Bank = 35, Pin name = IO_L6N_T0_VREF_35,                                       Sch name = VGA_B2
+NET "vgaBlue<3>"               LOC = "D8"      | IOSTANDARD = "LVCMOS33";              #Bank = 35, Pin name = IO_L4P_T0_35,                                            Sch name = VGA_B3
+NET "vgaGreen<0>"              LOC = "C6"      | IOSTANDARD = "LVCMOS33";              #Bank = 35, Pin name = IO_L1P_T0_AD4P_35,                                       Sch name = VGA_G0
+NET "vgaGreen<1>"              LOC = "A5"      | IOSTANDARD = "LVCMOS33";              #Bank = 35, Pin name = IO_L3N_T0_DQS_AD5N_35,                           Sch name = VGA_G1
+NET "vgaGreen<2>"              LOC = "B6"      | IOSTANDARD = "LVCMOS33";              #Bank = 35, Pin name = IO_L2N_T0_AD12N_35,                                      Sch name = VGA_G2
+NET "vgaGreen<3>"              LOC = "A6"      | IOSTANDARD = "LVCMOS33";              #Bank = 35, Pin name = IO_L3P_T0_DQS_AD5P_35,                           Sch name = VGA_G3
+NET "Hsync"                    LOC = "B11"     | IOSTANDARD = "LVCMOS33";              #Bank = 15, Pin name = IO_L4P_T0_15,                                            Sch name = VGA_HS
+NET "Vsync"                    LOC = "B12"     | IOSTANDARD = "LVCMOS33";              #Bank = 15, Pin name = IO_L3N_T0_DQS_AD1N_15,                           Sch name = VGA_BVS
+
+NET "led0"                   LOC = "T8"      | IOSTANDARD = "LVCMOS33";              #Bank = 34, Pin name = IO_L24N_T3_34,                                           Sch name = LED0
+NET "led1"                   LOC = "V9"      | IOSTANDARD = "LVCMOS33";              #Bank = 34, Pin name = IO_L21N_T3_DQS_34,                                       Sch name = LED1
+NET "led2"                   LOC = "R8"      | IOSTANDARD = "LVCMOS33";              #Bank = 34, Pin name = IO_L24P_T3_34,                                           Sch name = LED2
+NET "led3"                   LOC = "T6"      | IOSTANDARD = "LVCMOS33";              #Bank = 34, Pin name = IO_L23N_T3_34,                                           Sch name = LED3

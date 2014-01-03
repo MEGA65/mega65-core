@@ -1,0 +1,299 @@
+----------------------------------------------------------------------------------
+-- Company: 
+-- Engineer: 
+-- 
+-- Create Date:    19:11:30 01/02/2014 
+-- Design Name: 
+-- Module Name:    vga - Behavioral 
+-- Project Name: 
+-- Target Devices: 
+-- Tool versions: 
+-- Description: 
+--
+-- Dependencies: 
+--
+-- Revision: 
+-- Revision 0.01 - File Created
+-- Additional Comments: 
+--
+----------------------------------------------------------------------------------
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+use ieee.numeric_std.all;
+
+-- Uncomment the following library declaration if using
+-- arithmetic functions with Signed or Unsigned values
+--use IEEE.NUMERIC_STD.ALL;
+
+-- Uncomment the following library declaration if instantiating
+-- any Xilinx primitives in this code.
+--library UNISIM;
+--use UNISIM.VComponents.all;
+
+entity vga is
+    Port ( clk : in  STD_LOGIC;
+           vsync : out  STD_LOGIC;
+           hsync : out  STD_LOGIC;
+			  led0 : out std_logic;
+			  led1 : out std_logic;
+			  led2 : out std_logic;
+			  led3 : out std_logic;
+           vgared : out  UNSIGNED (3 downto 0);
+           vgagreen : out  UNSIGNED (3 downto 0);
+           vgablue : out  UNSIGNED (3 downto 0));
+end vga;
+
+architecture Behavioral of vga is
+
+	component pixelclock is
+	port
+	 (-- Clock in ports
+	  CLK_IN1           : in     std_logic;
+	  -- Clock out ports
+	  CLK_OUT1          : out    std_logic;
+	  CLK_OUT2          : out    std_logic;
+	  CLK_OUT3          : out    std_logic;
+	  -- Status and control signals
+	  RESET             : in     std_logic;
+	  LOCKED            : out    std_logic
+	 );
+	end component pixelclock;
+
+	component charrom is
+      port (Clk : in std_logic;
+        address : in std_logic_vector(11 downto 0);
+        -- Yes, we do have a write enable, because we allow modification of ROMs
+        -- in the running machine, unless purposely disabled.  This gives us
+        -- something like the WOM that the Amiga had.
+        we : in std_logic;
+        -- chip select, active high       
+        cs : in std_logic;
+        data_i : in std_logic_vector(7 downto 0);
+        data_o : out std_logic_vector(7 downto 0)
+     );
+   end component charrom;
+
+	component fastram IS
+	  PORT (
+		 clka : IN STD_LOGIC;
+		 ena : IN STD_LOGIC;
+		 wea : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
+		 addra : IN STD_LOGIC_VECTOR(15 DOWNTO 0);
+		 dina : IN STD_LOGIC_VECTOR(63 DOWNTO 0);
+		 douta : OUT STD_LOGIC_VECTOR(63 DOWNTO 0);
+		 clkb : IN STD_LOGIC;
+		 web : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
+		 addrb : IN STD_LOGIC_VECTOR(15 DOWNTO 0);
+		 dinb : IN STD_LOGIC_VECTOR(63 DOWNTO 0);
+		 doutb : OUT STD_LOGIC_VECTOR(63 DOWNTO 0)
+	  );
+	END component fastram;
+
+  -- Video mode definition
+  constant width : integer := 1920;
+  constant height : integer := 1200;
+  
+  constant frame_width : integer := 2592;
+  constant frame_h_front : integer := 200;  -- 128 should be ok
+  constant frame_h_syncwidth : integer := 208;
+  
+  constant frame_height : integer := 1242;
+  constant frame_v_front : integer := 1;
+  constant frame_v_syncheight : integer := 3;
+  
+  -- Frame generator counters
+  signal xcounter : unsigned(11 downto 0) := (others => '0');
+  signal ycounter : unsigned(11 downto 0) := (others => '0');
+  
+  -- Actual pixel positions in the frame
+  signal displayx : unsigned(11 downto 0);
+  signal displayy : unsigned(11 downto 0);
+  signal display_active : std_logic;
+  signal card_number : unsigned(15 downto 0);
+  signal first_card_of_row : unsigned(15 downto 0);
+  
+  signal dotclock : std_logic;
+  
+  signal counter : unsigned(24 downto 0);
+  signal slow_clock : std_logic := '0';
+  
+  signal reset_counter : integer := 16;
+  signal reset : std_logic := '0';
+  
+  -- Interface to fastram: 64bits wide
+  signal ramwriteenable : std_logic_vector(7 downto 0) := (others => '0');
+  signal ramaddress : std_logic_vector(15 downto 0);
+  signal ramdata : std_logic_vector(63 downto 0);
+  
+  -- Interface to character generator rom
+  signal charaddress : std_logic_vector(11 downto 0);
+  signal chardata : std_logic_vector(7 downto 0);
+  
+  type rgb is
+  record
+	red   : unsigned(7 downto 0);
+	green : unsigned(7 downto 0);
+	blue  : unsigned(7 downto 0);
+  end record;
+  type rgb_pallete is array(0 to 255) of rgb;
+  signal pallete : rgb_pallete := (
+     -- Default C64 palette from unusedino.de/ec64/technical/misc/vic656x/colors/
+     0 => ( red => x"00", green => x"00", blue => x"00"),
+     1 => ( red => x"ff", green => x"ff", blue => x"ff"),
+     2 => ( red => x"68", green => x"37", blue => x"2b"),
+     3 => ( red => x"70", green => x"a4", blue => x"b2"),
+     4 => ( red => x"6f", green => x"3d", blue => x"86"),
+     5 => ( red => x"58", green => x"8d", blue => x"43"),
+     6 => ( red => x"35", green => x"28", blue => x"79"),
+     7 => ( red => x"b8", green => x"c7", blue => x"6f"),
+     8 => ( red => x"6f", green => x"4f", blue => x"25"),
+     9 => ( red => x"43", green => x"39", blue => x"00"),
+     10 => ( red => x"9a", green => x"67", blue => x"59"),
+     11 => ( red => x"44", green => x"44", blue => x"44"),
+     12 => ( red => x"6c", green => x"6c", blue => x"6c"),
+     13 => ( red => x"9a", green => x"d2", blue => x"84"),
+     14 => ( red => x"6c", green => x"5e", blue => x"b5"),
+     15 => ( red => x"95", green => x"95", blue => x"95"),
+	  others => ( red => x"00", green => x"00", blue => x"00")
+	  );
+begin
+
+	pixelclock1: component pixelclock
+		port map ( clk_in1 => clk,
+		           reset => reset,					  
+					  -- CLK_OUT2 = 60Hz, CLK_OUT1 = 50Hz
+					  -- 60Hz works fine, but 50Hz is not well supported by monitors.
+					  -- so I guess we will go with an NTSC-style 60Hz display.
+					  -- For C64 mode it would be nice to have PAL or NTSC selectable.
+					  -- Perhaps consider a different video mode for that, or buffer
+ 					  -- the generated frames somewhere?
+		           clk_out2 => dotclock); 
+	
+	charrom1 : charrom
+      port map (Clk => dotclock,
+        address => charaddress,
+        we => '0',  -- read
+        cs => '1',  -- active
+        data_i => (others => '1'),
+        data_o => chardata
+     );
+
+	fastram1 : component fastram
+		PORT MAP (
+		   -- XXX both ports require a clock.  Use this here until we pull the CPU in.
+		   clka => dotclock,
+			ena => '0',
+			wea => (others => '0'),
+			addra => ( others => '0'),
+			dina => (others => '0'),
+		   -- We use port b of the dual-port fast ram.
+			-- The CPU uses port a
+			clkb => dotclock,
+			web => ramwriteenable,
+			addrb => ramaddress,
+			dinb => (others => '0'),
+			doutb => ramdata
+    );
+
+	process(dotclock) is
+	  variable indisplay : std_logic;
+	begin
+	   if rising_edge(dotclock) then
+		   counter <= counter + 1;
+			if counter = x"000000" then
+			   slow_clock <= not slow_clock;
+				led3 <= slow_clock;
+		   end if;
+			if xcounter>=(frame_h_front+width) and xcounter<(frame_h_front+width+frame_h_syncwidth) then
+			  hsync <= '0';
+			  led0 <= '0';
+			else
+			  hsync <= '1';
+			  led0 <= '1';
+			end if;
+			indisplay :='1';
+			if xcounter<frame_width then
+			  xcounter <= xcounter + 1;
+			else
+			  xcounter <= (others => '0');
+			  if ycounter<frame_height then
+				 ycounter <= ycounter + 1;
+			  else
+				 ycounter <= (others =>'0');
+			  end if;	
+			end if;
+			if xcounter<frame_h_front then
+				displayx <= (others => '0');
+				indisplay := '0';
+				if ycounter(2 downto 0) > "000" or ycounter=0 then
+				   -- reset card number when within a character
+				   card_number <= first_card_of_row;
+			   else
+				   -- Increment card number every "bad line"
+				   first_card_of_row <= card_number +1;
+				   card_number <= card_number +1;
+			   end if;
+			elsif xcounter<(frame_h_front+width) then
+				if displayx(2 downto 0) = "111" then
+				  card_number <= card_number + 1;
+				end if;
+				displayx <= displayx + 1;
+			else
+				displayx <= (others => '1');
+				indisplay := '0';
+			end if;			
+			
+			if ycounter>=(frame_v_front+height) and ycounter<(frame_v_front+height+frame_v_syncheight) then
+			  vsync <= '1';
+			  led1 <= '1';
+			else
+			  vsync <= '0';
+			  led1 <= '0';
+			end if;
+			if xcounter = 0 then
+				if ycounter<frame_v_front then
+					displayy <= (others => '0');
+					indisplay := '0';
+					first_card_of_row <= x"0000";	
+				elsif ycounter<(frame_v_front+height) then
+					displayy <= displayy + 1;
+				else
+					displayy <= (others => '1');
+					indisplay := '0';
+				end if;
+			end if;
+			
+			led2 <= displayy(9);
+			
+			display_active <= indisplay;
+			
+			if indisplay='1' then
+			
+				-- Read byte from character ROM
+				if displayx(2 downto 0) = "111" then
+				   charaddress(10 downto 3) <= std_logic_vector(card_number(7 downto 0));
+				   charaddress(2 downto 0) <= std_logic_vector(displayy(2 downto 0));
+			   end if;
+			
+				if chardata(to_integer(not displayx(2 downto 0))) = '1' then
+					vgared <= x"f";
+					vgagreen <= x"f";
+					vgablue <= x"f";
+			   else
+			      vgared <= card_number(3 downto 0);
+			      vgagreen <= card_number(7 downto 4);
+			      vgablue <= card_number(11 downto 8);
+				   vgared <= pallete(to_integer(card_number(3 downto 0))).red(7 downto 4);
+				   vgagreen <= pallete(to_integer(card_number(3 downto 0))).green(7 downto 4);
+				   vgablue <= pallete(to_integer(card_number(3 downto 0))).blue(7 downto 4);
+				end if;
+			else
+			   vgared <= "0000";
+				vgagreen <= "0000";
+				vgablue <= "0000";
+		   end if;
+		end if;
+	end process;
+
+end Behavioral;
+

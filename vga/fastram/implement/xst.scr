@@ -1,0 +1,13 @@
+run
+-ifmt VHDL
+-ent fastram_exdes
+-p xc7a100t-csg324-1
+-ifn xst.prj
+-write_timing_constraints No
+-iobuf YES
+-max_fanout 100
+-ofn fastram_exdes 
+-ofmt NGC
+-bus_delimiter ()
+-hierarchy_separator /
+-case Maintain

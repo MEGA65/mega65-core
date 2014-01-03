@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- IMPORTANT: This is an internal file that has been generated
+     by the Xilinx ISE software.  Any direct editing or
+     changes made to this file may result in unpredictable
+     behavior or data corruption.  It is strongly advised that
+     users do not edit the contents of this file. -->
+<messages>
+<msg type="info" file="Par" num="469" delta="old" >Although the Overall Effort Level (-ol) for this implementation has been set to Standard, Placer will run at effort level High. To override this, please set the Placer Effort Level (-pl) to Standard.
+</msg>
+
+</messages>
+

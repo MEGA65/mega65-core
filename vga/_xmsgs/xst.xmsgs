@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- IMPORTANT: This is an internal file that has been generated
+     by the Xilinx ISE software.  Any direct editing or
+     changes made to this file may result in unpredictable
+     behavior or data corruption.  It is strongly advised that
+     users do not edit the contents of this file. -->
+<messages>
+<msg type="warning" file="HDLCompiler" num="871" delta="old" >"/home/gardners/vga/vga.vhd" Line 121: Using initial value <arg fmt="%s" index="1">&apos;0&apos;</arg> for <arg fmt="%s" index="2">reset</arg> since it is never assigned
+</msg>
+
+<msg type="warning" file="HDLCompiler" num="871" delta="old" >"/home/gardners/vga/vga.vhd" Line 124: Using initial value <arg fmt="%s" index="1">&quot;00000000&quot;</arg> for <arg fmt="%s" index="2">ramwriteenable</arg> since it is never assigned
+</msg>
+
+<msg type="warning" file="HDLCompiler" num="871" delta="old" >"/home/gardners/vga/vga.vhd" Line 139: Using initial value <arg fmt="%s" index="1">((&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;11111111&quot;,&quot;11111111&quot;,&quot;11111111&quot;),(&quot;01101000&quot;,&quot;00110111&quot;,&quot;00101011&quot;),(&quot;01110000&quot;,&quot;10100100&quot;,&quot;10110010&quot;),(&quot;01101111&quot;,&quot;00111101&quot;,&quot;10000110&quot;),(&quot;01011000&quot;,&quot;10001101&quot;,&quot;01000011&quot;),(&quot;00110101&quot;,&quot;00101000&quot;,&quot;01111001&quot;),(&quot;10111000&quot;,&quot;11000111&quot;,&quot;01101111&quot;),(&quot;01101111&quot;,&quot;01001111&quot;,&quot;00100101&quot;),(&quot;01000011&quot;,&quot;00111001&quot;,&quot;00000000&quot;),(&quot;10011010&quot;,&quot;01100111&quot;,&quot;01011001&quot;),(&quot;01000100&quot;,&quot;01000100&quot;,&quot;01000100&quot;),(&quot;01101100&quot;,&quot;01101100&quot;,&quot;01101100&quot;),(&quot;10011010&quot;,&quot;11010010&quot;,&quot;10000100&quot;),(&quot;01101100&quot;,&quot;01011110&quot;,&quot;10110101&quot;),(&quot;10010101&quot;,&quot;10010101&quot;,&quot;10010101&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;),(&quot;00000000&quot;,&quot;00000000&quot;,&quot;00000000&quot;))</arg> for <arg fmt="%s" index="2">pallete</arg> since it is never assigned
+</msg>
+
+<msg type="warning" file="HDLCompiler" num="1127" delta="old" >"/home/gardners/vga/vga.vhd" Line 198: Assignment to <arg fmt="%s" index="1">display_active</arg> ignored, since the identifier is never used
+</msg>
+
+<msg type="warning" file="HDLCompiler" num="634" delta="old" >"/home/gardners/vga/vga.vhd" Line 125: Net &lt;<arg fmt="%s" index="1">ramaddress[15]</arg>&gt; does not have a driver.
+</msg>
+
+<msg type="warning" file="HDLCompiler" num="634" delta="old" >"/home/gardners/vga/vga.vhd" Line 129: Net &lt;<arg fmt="%s" index="1">charaddress[11]</arg>&gt; does not have a driver.
+</msg>
+
+<msg type="info" file="Xst" num="3210" delta="old" >&quot;<arg fmt="%s" index="1">/home/gardners/vga/vga.vhd</arg>&quot; line <arg fmt="%s" index="2">161</arg>: Output port &lt;<arg fmt="%s" index="3">CLK_OUT1</arg>&gt; of the instance &lt;<arg fmt="%s" index="4">pixelclock1</arg>&gt; is unconnected or connected to loadless signal.
+</msg>
+
+<msg type="info" file="Xst" num="3210" delta="old" >&quot;<arg fmt="%s" index="1">/home/gardners/vga/vga.vhd</arg>&quot; line <arg fmt="%s" index="2">161</arg>: Output port &lt;<arg fmt="%s" index="3">CLK_OUT3</arg>&gt; of the instance &lt;<arg fmt="%s" index="4">pixelclock1</arg>&gt; is unconnected or connected to loadless signal.
+</msg>
+
+<msg type="info" file="Xst" num="3210" delta="old" >&quot;<arg fmt="%s" index="1">/home/gardners/vga/vga.vhd</arg>&quot; line <arg fmt="%s" index="2">161</arg>: Output port &lt;<arg fmt="%s" index="3">LOCKED</arg>&gt; of the instance &lt;<arg fmt="%s" index="4">pixelclock1</arg>&gt; is unconnected or connected to loadless signal.
+</msg>
+
+<msg type="info" file="Xst" num="3210" delta="old" >&quot;<arg fmt="%s" index="1">/home/gardners/vga/vga.vhd</arg>&quot; line <arg fmt="%s" index="2">181</arg>: Output port &lt;<arg fmt="%s" index="3">douta</arg>&gt; of the instance &lt;<arg fmt="%s" index="4">fastram1</arg>&gt; is unconnected or connected to loadless signal.
+</msg>
+
+<msg type="info" file="Xst" num="3210" delta="old" >&quot;<arg fmt="%s" index="1">/home/gardners/vga/vga.vhd</arg>&quot; line <arg fmt="%s" index="2">181</arg>: Output port &lt;<arg fmt="%s" index="3">doutb</arg>&gt; of the instance &lt;<arg fmt="%s" index="4">fastram1</arg>&gt; is unconnected or connected to loadless signal.
+</msg>
+
+<msg type="warning" file="Xst" num="653" delta="old" >Signal &lt;<arg fmt="%s" index="1">ramaddress</arg>&gt; is used but never assigned. This sourceless signal will be automatically connected to value <arg fmt="%s" index="2">GND</arg>.
+</msg>
+
+<msg type="warning" file="Xst" num="653" delta="old" >Signal &lt;<arg fmt="%s" index="1">charaddress&lt;11&gt;</arg>&gt; is used but never assigned. This sourceless signal will be automatically connected to value <arg fmt="%s" index="2">GND</arg>.
+</msg>
+
+<msg type="warning" file="Xst" num="2404" delta="new" > FFs/Latches &lt;<arg fmt="%s" index="1">cs_Clk_DFF_9</arg>&lt;<arg fmt="%d" index="2">0</arg>:<arg fmt="%d" index="3">0</arg>&gt;&gt; (without init value) have a constant value of <arg fmt="%c" index="4">1</arg> in block &lt;<arg fmt="%s" index="5">charrom</arg>&gt;.
+</msg>
+
+<msg type="info" file="Xst" num="3226" delta="old" >The RAM &lt;<arg fmt="%s" index="1">Mram_ram</arg>&gt; will be implemented as a BLOCK RAM, absorbing the following register(s):</msg>
+
+<msg type="info" file="Xst" num="3231" delta="old" >The small RAM &lt;<arg fmt="%s" index="1">Mram__n0249</arg>&gt; will be implemented on LUTs in order to maximize performance and save block RAM resources. If you want to force its implementation on block, use option/constraint ram_style.
+</msg>
+
+<msg type="warning" file="Xst" num="2677" delta="old" >Node &lt;<arg fmt="%s" index="1">first_card_of_row_8</arg>&gt; of sequential type is unconnected in block &lt;<arg fmt="%s" index="2">vga</arg>&gt;.
+</msg>
+
+<msg type="warning" file="Xst" num="2677" delta="old" >Node &lt;<arg fmt="%s" index="1">first_card_of_row_9</arg>&gt; of sequential type is unconnected in block &lt;<arg fmt="%s" index="2">vga</arg>&gt;.
+</msg>
+
+<msg type="warning" file="Xst" num="2677" delta="old" >Node &lt;<arg fmt="%s" index="1">first_card_of_row_10</arg>&gt; of sequential type is unconnected in block &lt;<arg fmt="%s" index="2">vga</arg>&gt;.
+</msg>
+
+<msg type="warning" file="Xst" num="2677" delta="old" >Node &lt;<arg fmt="%s" index="1">first_card_of_row_11</arg>&gt; of sequential type is unconnected in block &lt;<arg fmt="%s" index="2">vga</arg>&gt;.
+</msg>
+
+<msg type="warning" file="Xst" num="2677" delta="old" >Node &lt;<arg fmt="%s" index="1">first_card_of_row_12</arg>&gt; of sequential type is unconnected in block &lt;<arg fmt="%s" index="2">vga</arg>&gt;.
+</msg>
+
+<msg type="warning" file="Xst" num="2677" delta="old" >Node &lt;<arg fmt="%s" index="1">first_card_of_row_13</arg>&gt; of sequential type is unconnected in block &lt;<arg fmt="%s" index="2">vga</arg>&gt;.
+</msg>
+
+<msg type="warning" file="Xst" num="2677" delta="old" >Node &lt;<arg fmt="%s" index="1">first_card_of_row_14</arg>&gt; of sequential type is unconnected in block &lt;<arg fmt="%s" index="2">vga</arg>&gt;.
+</msg>
+
+<msg type="warning" file="Xst" num="2677" delta="old" >Node &lt;<arg fmt="%s" index="1">first_card_of_row_15</arg>&gt; of sequential type is unconnected in block &lt;<arg fmt="%s" index="2">vga</arg>&gt;.
+</msg>
+
+<msg type="warning" file="Xst" num="2677" delta="old" >Node &lt;<arg fmt="%s" index="1">card_number_8</arg>&gt; of sequential type is unconnected in block &lt;<arg fmt="%s" index="2">vga</arg>&gt;.
+</msg>
+
+<msg type="warning" file="Xst" num="2677" delta="old" >Node &lt;<arg fmt="%s" index="1">card_number_9</arg>&gt; of sequential type is unconnected in block &lt;<arg fmt="%s" index="2">vga</arg>&gt;.
+</msg>
+
+<msg type="warning" file="Xst" num="2677" delta="old" >Node &lt;<arg fmt="%s" index="1">card_number_10</arg>&gt; of sequential type is unconnected in block &lt;<arg fmt="%s" index="2">vga</arg>&gt;.
+</msg>
+
+<msg type="warning" file="Xst" num="2677" delta="old" >Node &lt;<arg fmt="%s" index="1">card_number_11</arg>&gt; of sequential type is unconnected in block &lt;<arg fmt="%s" index="2">vga</arg>&gt;.
+</msg>
+
+<msg type="warning" file="Xst" num="2677" delta="old" >Node &lt;<arg fmt="%s" index="1">card_number_12</arg>&gt; of sequential type is unconnected in block &lt;<arg fmt="%s" index="2">vga</arg>&gt;.
+</msg>
+
+<msg type="warning" file="Xst" num="2677" delta="old" >Node &lt;<arg fmt="%s" index="1">card_number_13</arg>&gt; of sequential type is unconnected in block &lt;<arg fmt="%s" index="2">vga</arg>&gt;.
+</msg>
+
+<msg type="warning" file="Xst" num="2677" delta="old" >Node &lt;<arg fmt="%s" index="1">card_number_14</arg>&gt; of sequential type is unconnected in block &lt;<arg fmt="%s" index="2">vga</arg>&gt;.
+</msg>
+
+<msg type="warning" file="Xst" num="2677" delta="old" >Node &lt;<arg fmt="%s" index="1">card_number_15</arg>&gt; of sequential type is unconnected in block &lt;<arg fmt="%s" index="2">vga</arg>&gt;.
+</msg>
+
+<msg type="warning" file="Xst" num="2677" delta="old" >Node &lt;<arg fmt="%s" index="1">displayy_10</arg>&gt; of sequential type is unconnected in block &lt;<arg fmt="%s" index="2">vga</arg>&gt;.
+</msg>
+
+<msg type="warning" file="Xst" num="2677" delta="old" >Node &lt;<arg fmt="%s" index="1">displayy_11</arg>&gt; of sequential type is unconnected in block &lt;<arg fmt="%s" index="2">vga</arg>&gt;.
+</msg>
+
+<msg type="warning" file="Xst" num="2677" delta="old" >Node &lt;<arg fmt="%s" index="1">displayx_3</arg>&gt; of sequential type is unconnected in block &lt;<arg fmt="%s" index="2">vga</arg>&gt;.
+</msg>
+
+<msg type="warning" file="Xst" num="2677" delta="old" >Node &lt;<arg fmt="%s" index="1">displayx_4</arg>&gt; of sequential type is unconnected in block &lt;<arg fmt="%s" index="2">vga</arg>&gt;.
+</msg>
+
+<msg type="warning" file="Xst" num="2677" delta="old" >Node &lt;<arg fmt="%s" index="1">displayx_5</arg>&gt; of sequential type is unconnected in block &lt;<arg fmt="%s" index="2">vga</arg>&gt;.
+</msg>
+
+<msg type="warning" file="Xst" num="2677" delta="old" >Node &lt;<arg fmt="%s" index="1">displayx_6</arg>&gt; of sequential type is unconnected in block &lt;<arg fmt="%s" index="2">vga</arg>&gt;.
+</msg>
+
+<msg type="warning" file="Xst" num="2677" delta="old" >Node &lt;<arg fmt="%s" index="1">displayx_7</arg>&gt; of sequential type is unconnected in block &lt;<arg fmt="%s" index="2">vga</arg>&gt;.
+</msg>
+
+<msg type="warning" file="Xst" num="2677" delta="old" >Node &lt;<arg fmt="%s" index="1">displayx_8</arg>&gt; of sequential type is unconnected in block &lt;<arg fmt="%s" index="2">vga</arg>&gt;.
+</msg>
+
+<msg type="warning" file="Xst" num="2677" delta="old" >Node &lt;<arg fmt="%s" index="1">displayx_9</arg>&gt; of sequential type is unconnected in block &lt;<arg fmt="%s" index="2">vga</arg>&gt;.
+</msg>
+
+<msg type="warning" file="Xst" num="2677" delta="old" >Node &lt;<arg fmt="%s" index="1">displayx_10</arg>&gt; of sequential type is unconnected in block &lt;<arg fmt="%s" index="2">vga</arg>&gt;.
+</msg>
+
+<msg type="warning" file="Xst" num="2677" delta="old" >Node &lt;<arg fmt="%s" index="1">displayx_11</arg>&gt; of sequential type is unconnected in block &lt;<arg fmt="%s" index="2">vga</arg>&gt;.
+</msg>
+
+<msg type="warning" file="Xst" num="1293" delta="new" >FF/Latch &lt;<arg fmt="%s" index="1">ycounter_11</arg>&gt; has a constant value of <arg fmt="%d" index="2">0</arg> in block &lt;<arg fmt="%s" index="3">vga</arg>&gt;. This FF/Latch will be trimmed during the optimization process.
+</msg>
+
+</messages>
+

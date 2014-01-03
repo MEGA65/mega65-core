@@ -1,0 +1,599 @@
+Release 14.7 - xst P.20131013 (lin)
+Copyright (c) 1995-2013 Xilinx, Inc.  All rights reserved.
+--> 
+Parameter TMPDIR set to xst/projnav.tmp
+
+
+Total REAL time to Xst completion: 2.00 secs
+Total CPU time to Xst completion: 0.09 secs
+ 
+--> 
+Parameter xsthdpdir set to xst
+
+
+Total REAL time to Xst completion: 2.00 secs
+Total CPU time to Xst completion: 0.09 secs
+ 
+--> 
+Reading design: vga.prj
+
+TABLE OF CONTENTS
+  1) Synthesis Options Summary
+  2) HDL Parsing
+  3) HDL Elaboration
+  4) HDL Synthesis
+       4.1) HDL Synthesis Report
+  5) Advanced HDL Synthesis
+       5.1) Advanced HDL Synthesis Report
+  6) Low Level Synthesis
+  7) Partition Report
+  8) Design Summary
+       8.1) Primitive and Black Box Usage
+       8.2) Device utilization summary
+       8.3) Partition Resource Summary
+       8.4) Timing Report
+            8.4.1) Clock Information
+            8.4.2) Asynchronous Control Signals Information
+            8.4.3) Timing Summary
+            8.4.4) Timing Details
+            8.4.5) Cross Clock Domains Report
+
+
+=========================================================================
+*                      Synthesis Options Summary                        *
+=========================================================================
+---- Source Parameters
+Input File Name                    : "vga.prj"
+Ignore Synthesis Constraint File   : NO
+
+---- Target Parameters
+Output File Name                   : "vga"
+Output Format                      : NGC
+Target Device                      : xc7a100t-1-csg324
+
+---- Source Options
+Top Module Name                    : vga
+Automatic FSM Extraction           : YES
+FSM Encoding Algorithm             : Auto
+Safe Implementation                : No
+FSM Style                          : LUT
+RAM Extraction                     : Yes
+RAM Style                          : Auto
+ROM Extraction                     : Yes
+Shift Register Extraction          : YES
+ROM Style                          : Auto
+Resource Sharing                   : YES
+Asynchronous To Synchronous        : NO
+Shift Register Minimum Size        : 2
+Use DSP Block                      : Auto
+Automatic Register Balancing       : No
+
+---- Target Options
+LUT Combining                      : Auto
+Reduce Control Sets                : Auto
+Add IO Buffers                     : YES
+Global Maximum Fanout              : 100000
+Add Generic Clock Buffer(BUFG)     : 32
+Register Duplication               : YES
+Optimize Instantiated Primitives   : NO
+Use Clock Enable                   : Auto
+Use Synchronous Set                : Auto
+Use Synchronous Reset              : Auto
+Pack IO Registers into IOBs        : Auto
+Equivalent register Removal        : YES
+
+---- General Options
+Optimization Goal                  : Speed
+Optimization Effort                : 0
+Power Reduction                    : NO
+Keep Hierarchy                     : No
+Netlist Hierarchy                  : As_Optimized
+RTL Output                         : Yes
+Global Optimization                : AllClockNets
+Read Cores                         : YES
+Write Timing Constraints           : NO
+Cross Clock Analysis               : NO
+Hierarchy Separator                : /
+Bus Delimiter                      : <>
+Case Specifier                     : Maintain
+Slice Utilization Ratio            : 100
+BRAM Utilization Ratio             : 100
+DSP48 Utilization Ratio            : 100
+Auto BRAM Packing                  : NO
+Slice Utilization Ratio Delta      : 5
+
+=========================================================================
+
+
+=========================================================================
+*                          HDL Parsing                                  *
+=========================================================================
+Parsing VHDL file "/home/gardners/vga/pixelclock.vhd" into library work
+Parsing entity <pixelclock>.
+Parsing architecture <xilinx> of entity <pixelclock>.
+Parsing VHDL file "/home/gardners/vga/fastram.vhd" into library work
+Parsing entity <fastram>.
+Parsing architecture <fastram_a> of entity <fastram>.
+Parsing VHDL file "/home/gardners/vga/charrom.vhdl" into library work
+Parsing entity <charrom>.
+Parsing architecture <Behavioral> of entity <charrom>.
+Parsing VHDL file "/home/gardners/vga/vga.vhd" into library work
+Parsing entity <vga>.
+Parsing architecture <Behavioral> of entity <vga>.
+
+=========================================================================
+*                            HDL Elaboration                            *
+=========================================================================
+
+Elaborating entity <vga> (architecture <Behavioral>) from library <work>.
+WARNING:HDLCompiler:871 - "/home/gardners/vga/vga.vhd" Line 121: Using initial value '0' for reset since it is never assigned
+WARNING:HDLCompiler:871 - "/home/gardners/vga/vga.vhd" Line 124: Using initial value "00000000" for ramwriteenable since it is never assigned
+WARNING:HDLCompiler:871 - "/home/gardners/vga/vga.vhd" Line 139: Using initial value
+   (("00000000","00000000","00000000"),("11111111","11111111","11111111"),("01101000","00110111","00101011"),("01110000","10100100","10110010"),("01101111","00111101","10000110"),("01011000","10001101","01000011"),("00110101","00101000","01111001"),("10111000","11000111","01101111"),("01101111","01001111","00100101"),("01000011","00111001","00000000"),("10011010","01100111","01011001"),("01000100","01000100","01000100"),("01101100","01101100","01101100"),("10011010","11010010","10000100"),("01101100","01011110","10110101"),("10010101","10010101","10010101"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("000
+   00000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000"
+   ,"00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","0000
+   0000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000",
+   "00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000
+   000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),
+   ("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("0000
+   0000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000",
+   "00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000"),("00000000","00000000","00000000") for pallete since it is never assigned
+
+Elaborating entity <pixelclock> (architecture <xilinx>) from library <work>.
+
+Elaborating entity <charrom> (architecture <Behavioral>) from library <work>.
+
+Elaborating entity <fastram> (architecture <fastram_a>) from library <work>.
+WARNING:HDLCompiler:1127 - "/home/gardners/vga/vga.vhd" Line 198: Assignment to display_active ignored, since the identifier is never used
+WARNING:HDLCompiler:634 - "/home/gardners/vga/vga.vhd" Line 125: Net <ramaddress[15]> does not have a driver.
+WARNING:HDLCompiler:634 - "/home/gardners/vga/vga.vhd" Line 129: Net <charaddress[11]> does not have a driver.
+
+=========================================================================
+*                           HDL Synthesis                               *
+=========================================================================
+
+Synthesizing Unit <vga>.
+    Related source file is "/home/gardners/vga/vga.vhd".
+INFO:Xst:3210 - "/home/gardners/vga/vga.vhd" line 161: Output port <CLK_OUT1> of the instance <pixelclock1> is unconnected or connected to loadless signal.
+INFO:Xst:3210 - "/home/gardners/vga/vga.vhd" line 161: Output port <CLK_OUT3> of the instance <pixelclock1> is unconnected or connected to loadless signal.
+INFO:Xst:3210 - "/home/gardners/vga/vga.vhd" line 161: Output port <LOCKED> of the instance <pixelclock1> is unconnected or connected to loadless signal.
+INFO:Xst:3210 - "/home/gardners/vga/vga.vhd" line 181: Output port <douta> of the instance <fastram1> is unconnected or connected to loadless signal.
+INFO:Xst:3210 - "/home/gardners/vga/vga.vhd" line 181: Output port <doutb> of the instance <fastram1> is unconnected or connected to loadless signal.
+WARNING:Xst:653 - Signal <ramaddress> is used but never assigned. This sourceless signal will be automatically connected to value GND.
+WARNING:Xst:653 - Signal <charaddress<11>> is used but never assigned. This sourceless signal will be automatically connected to value GND.
+    Register <led0> equivalent to <hsync> has been removed
+    Register <led1> equivalent to <vsync> has been removed
+    Found 1-bit register for signal <slow_clock>.
+    Found 1-bit register for signal <led3>.
+    Found 1-bit register for signal <hsync>.
+    Found 12-bit register for signal <xcounter>.
+    Found 12-bit register for signal <ycounter>.
+    Found 12-bit register for signal <displayx>.
+    Found 16-bit register for signal <card_number>.
+    Found 16-bit register for signal <first_card_of_row>.
+    Found 1-bit register for signal <vsync>.
+    Found 12-bit register for signal <displayy>.
+    Found 1-bit register for signal <led2>.
+    Found 1-bit register for signal <charaddress<10>>.
+    Found 1-bit register for signal <charaddress<9>>.
+    Found 1-bit register for signal <charaddress<8>>.
+    Found 1-bit register for signal <charaddress<7>>.
+    Found 1-bit register for signal <charaddress<6>>.
+    Found 1-bit register for signal <charaddress<5>>.
+    Found 1-bit register for signal <charaddress<4>>.
+    Found 1-bit register for signal <charaddress<3>>.
+    Found 1-bit register for signal <charaddress<2>>.
+    Found 1-bit register for signal <charaddress<1>>.
+    Found 1-bit register for signal <charaddress<0>>.
+    Found 4-bit register for signal <vgared>.
+    Found 4-bit register for signal <vgagreen>.
+    Found 4-bit register for signal <vgablue>.
+    Found 25-bit register for signal <counter>.
+    Found 25-bit adder for signal <counter[24]_GND_4_o_add_0_OUT> created at line 1241.
+    Found 12-bit adder for signal <xcounter[11]_GND_4_o_add_5_OUT> created at line 1241.
+    Found 12-bit adder for signal <ycounter[11]_GND_4_o_add_7_OUT> created at line 1241.
+    Found 16-bit adder for signal <card_number[15]_GND_4_o_add_20_OUT> created at line 1241.
+    Found 12-bit adder for signal <displayx[11]_GND_4_o_add_22_OUT> created at line 1241.
+    Found 12-bit adder for signal <displayy[11]_GND_4_o_add_33_OUT> created at line 1241.
+    Found 16x24-bit Read Only RAM for signal <_n0249>
+    Found 1-bit 8-to-1 multiplexer for signal <displayx[2]_chardata[7]_Mux_40_o> created at line 278.
+    Found 12-bit comparator greater for signal <n0005> created at line 207
+    Found 12-bit comparator greater for signal <xcounter[11]_PWR_4_o_LessThan_4_o> created at line 207
+    Found 12-bit comparator greater for signal <xcounter[11]_PWR_4_o_LessThan_5_o> created at line 215
+    Found 12-bit comparator lessequal for signal <ycounter[11]_GND_4_o_LessThan_7_o> created at line 219
+    Found 12-bit comparator greater for signal <xcounter[11]_GND_4_o_LessThan_12_o> created at line 225
+    Found 3-bit comparator greater for signal <GND_4_o_ycounter[2]_LessThan_13_o> created at line 228
+    Found 12-bit comparator greater for signal <n0033> created at line 246
+    Found 12-bit comparator greater for signal <ycounter[11]_GND_4_o_LessThan_30_o> created at line 246
+    Found 12-bit comparator greater for signal <ycounter[11]_GND_4_o_LessThan_32_o> created at line 254
+    Summary:
+	inferred   1 RAM(s).
+	inferred   6 Adder/Subtractor(s).
+	inferred 133 D-type flip-flop(s).
+	inferred   9 Comparator(s).
+	inferred   7 Multiplexer(s).
+Unit <vga> synthesized.
+
+Synthesizing Unit <pixelclock>.
+    Related source file is "/home/gardners/vga/pixelclock.vhd".
+    Summary:
+	no macro.
+Unit <pixelclock> synthesized.
+
+Synthesizing Unit <charrom>.
+    Related source file is "/home/gardners/vga/charrom.vhdl".
+    Found 4096x8-bit single-port RAM <Mram_ram> for signal <ram>.
+    Found 8-bit register for signal <Z_9_o_dff_3_OUT>.
+    Found 1-bit tristate buffer for signal <data_o<7>> created at line 1053
+    Found 1-bit tristate buffer for signal <data_o<6>> created at line 1053
+    Found 1-bit tristate buffer for signal <data_o<5>> created at line 1053
+    Found 1-bit tristate buffer for signal <data_o<4>> created at line 1053
+    Found 1-bit tristate buffer for signal <data_o<3>> created at line 1053
+    Found 1-bit tristate buffer for signal <data_o<2>> created at line 1053
+    Found 1-bit tristate buffer for signal <data_o<1>> created at line 1053
+    Found 1-bit tristate buffer for signal <data_o<0>> created at line 1053
+    WARNING:Xst:2404 -  FFs/Latches <cs_Clk_DFF_9<0:0>> (without init value) have a constant value of 1 in block <charrom>.
+    Summary:
+	inferred   1 RAM(s).
+	inferred   8 D-type flip-flop(s).
+	inferred   8 Tristate(s).
+Unit <charrom> synthesized.
+
+=========================================================================
+HDL Synthesis Report
+
+Macro Statistics
+# RAMs                                                 : 2
+ 16x24-bit single-port Read Only RAM                   : 1
+ 4096x8-bit single-port RAM                            : 1
+# Adders/Subtractors                                   : 6
+ 12-bit adder                                          : 4
+ 16-bit adder                                          : 1
+ 25-bit adder                                          : 1
+# Registers                                            : 27
+ 1-bit register                                        : 16
+ 12-bit register                                       : 4
+ 16-bit register                                       : 2
+ 25-bit register                                       : 1
+ 4-bit register                                        : 3
+ 8-bit register                                        : 1
+# Comparators                                          : 9
+ 12-bit comparator greater                             : 7
+ 12-bit comparator lessequal                           : 1
+ 3-bit comparator greater                              : 1
+# Multiplexers                                         : 7
+ 1-bit 2-to-1 multiplexer                              : 4
+ 1-bit 8-to-1 multiplexer                              : 1
+ 16-bit 2-to-1 multiplexer                             : 2
+# Tristates                                            : 8
+ 1-bit tristate buffer                                 : 8
+
+=========================================================================
+
+=========================================================================
+*                       Advanced HDL Synthesis                          *
+=========================================================================
+
+Reading core <fastram.ngc>.
+Loading core <fastram> for timing and area information for instance <fastram1>.
+
+Synthesizing (advanced) Unit <charrom>.
+INFO:Xst:3226 - The RAM <Mram_ram> will be implemented as a BLOCK RAM, absorbing the following register(s): <data_o>
+    -----------------------------------------------------------------------
+    | ram_type           | Block                               |          |
+    -----------------------------------------------------------------------
+    | Port A                                                              |
+    |     aspect ratio   | 4096-word x 8-bit                   |          |
+    |     mode           | write-first                         |          |
+    |     clkA           | connected to signal <Clk>           | rise     |
+    |     weA            | connected to signal <GND>           | high     |
+    |     addrA          | connected to signal <address>       |          |
+    |     diA            | connected to signal <VCC>           |          |
+    |     doA            | connected to internal node          |          |
+    -----------------------------------------------------------------------
+    | optimization       | speed                               |          |
+    -----------------------------------------------------------------------
+Unit <charrom> synthesized (advanced).
+
+Synthesizing (advanced) Unit <vga>.
+The following registers are absorbed into counter <counter>: 1 register on signal <counter>.
+The following registers are absorbed into counter <xcounter>: 1 register on signal <xcounter>.
+The following registers are absorbed into counter <displayx>: 1 register on signal <displayx>.
+The following registers are absorbed into counter <ycounter>: 1 register on signal <ycounter>.
+The following registers are absorbed into counter <displayy>: 1 register on signal <displayy>.
+INFO:Xst:3231 - The small RAM <Mram__n0249> will be implemented on LUTs in order to maximize performance and save block RAM resources. If you want to force its implementation on block, use option/constraint ram_style.
+    -----------------------------------------------------------------------
+    | ram_type           | Distributed                         |          |
+    -----------------------------------------------------------------------
+    | Port A                                                              |
+    |     aspect ratio   | 16-word x 24-bit                    |          |
+    |     weA            | connected to signal <GND>           | high     |
+    |     addrA          | connected to signal <card_number<3:0>> |          |
+    |     diA            | connected to signal <GND>           |          |
+    -----------------------------------------------------------------------
+Unit <vga> synthesized (advanced).
+
+=========================================================================
+Advanced HDL Synthesis Report
+
+Macro Statistics
+# RAMs                                                 : 2
+ 16x24-bit single-port distributed Read Only RAM       : 1
+ 4096x8-bit single-port block RAM                      : 1
+# Adders/Subtractors                                   : 1
+ 16-bit adder                                          : 1
+# Counters                                             : 5
+ 12-bit up counter                                     : 4
+ 25-bit up counter                                     : 1
+# Registers                                            : 60
+ Flip-Flops                                            : 60
+# Comparators                                          : 9
+ 12-bit comparator greater                             : 7
+ 12-bit comparator lessequal                           : 1
+ 3-bit comparator greater                              : 1
+# Multiplexers                                         : 7
+ 1-bit 2-to-1 multiplexer                              : 4
+ 1-bit 8-to-1 multiplexer                              : 1
+ 16-bit 2-to-1 multiplexer                             : 2
+
+=========================================================================
+
+=========================================================================
+*                         Low Level Synthesis                           *
+=========================================================================
+WARNING:Xst:2677 - Node <first_card_of_row_8> of sequential type is unconnected in block <vga>.
+WARNING:Xst:2677 - Node <first_card_of_row_9> of sequential type is unconnected in block <vga>.
+WARNING:Xst:2677 - Node <first_card_of_row_10> of sequential type is unconnected in block <vga>.
+WARNING:Xst:2677 - Node <first_card_of_row_11> of sequential type is unconnected in block <vga>.
+WARNING:Xst:2677 - Node <first_card_of_row_12> of sequential type is unconnected in block <vga>.
+WARNING:Xst:2677 - Node <first_card_of_row_13> of sequential type is unconnected in block <vga>.
+WARNING:Xst:2677 - Node <first_card_of_row_14> of sequential type is unconnected in block <vga>.
+WARNING:Xst:2677 - Node <first_card_of_row_15> of sequential type is unconnected in block <vga>.
+WARNING:Xst:2677 - Node <card_number_8> of sequential type is unconnected in block <vga>.
+WARNING:Xst:2677 - Node <card_number_9> of sequential type is unconnected in block <vga>.
+WARNING:Xst:2677 - Node <card_number_10> of sequential type is unconnected in block <vga>.
+WARNING:Xst:2677 - Node <card_number_11> of sequential type is unconnected in block <vga>.
+WARNING:Xst:2677 - Node <card_number_12> of sequential type is unconnected in block <vga>.
+WARNING:Xst:2677 - Node <card_number_13> of sequential type is unconnected in block <vga>.
+WARNING:Xst:2677 - Node <card_number_14> of sequential type is unconnected in block <vga>.
+WARNING:Xst:2677 - Node <card_number_15> of sequential type is unconnected in block <vga>.
+WARNING:Xst:2677 - Node <displayy_10> of sequential type is unconnected in block <vga>.
+WARNING:Xst:2677 - Node <displayy_11> of sequential type is unconnected in block <vga>.
+WARNING:Xst:2677 - Node <displayx_3> of sequential type is unconnected in block <vga>.
+WARNING:Xst:2677 - Node <displayx_4> of sequential type is unconnected in block <vga>.
+WARNING:Xst:2677 - Node <displayx_5> of sequential type is unconnected in block <vga>.
+WARNING:Xst:2677 - Node <displayx_6> of sequential type is unconnected in block <vga>.
+WARNING:Xst:2677 - Node <displayx_7> of sequential type is unconnected in block <vga>.
+WARNING:Xst:2677 - Node <displayx_8> of sequential type is unconnected in block <vga>.
+WARNING:Xst:2677 - Node <displayx_9> of sequential type is unconnected in block <vga>.
+WARNING:Xst:2677 - Node <displayx_10> of sequential type is unconnected in block <vga>.
+WARNING:Xst:2677 - Node <displayx_11> of sequential type is unconnected in block <vga>.
+
+Optimizing unit <vga> ...
+WARNING:Xst:1293 - FF/Latch <ycounter_11> has a constant value of 0 in block <vga>. This FF/Latch will be trimmed during the optimization process.
+
+Mapping all equations...
+Building and optimizing final netlist ...
+Found area constraint ratio of 100 (+ 5) on block vga, actual ratio is 1.
+
+Final Macro Processing ...
+
+=========================================================================
+Final Register Report
+
+Macro Statistics
+# Registers                                            : 105
+ Flip-Flops                                            : 105
+
+=========================================================================
+
+=========================================================================
+*                           Partition Report                            *
+=========================================================================
+
+Partition Implementation Status
+-------------------------------
+
+  No Partitions were found in this design.
+
+-------------------------------
+
+=========================================================================
+*                            Design Summary                             *
+=========================================================================
+
+Top Level Output File Name         : vga.ngc
+
+Primitive and Black Box Usage:
+------------------------------
+# BELS                             : 1226
+#      GND                         : 2
+#      INV                         : 7
+#      LUT1                        : 63
+#      LUT2                        : 12
+#      LUT3                        : 19
+#      LUT4                        : 29
+#      LUT5                        : 33
+#      LUT6                        : 542
+#      MUXCY                       : 63
+#      MUXF7                       : 257
+#      MUXF8                       : 128
+#      VCC                         : 2
+#      XORCY                       : 69
+# FlipFlops/Latches                : 113
+#      FD                          : 46
+#      FDE                         : 29
+#      FDR                         : 16
+#      FDRE                        : 22
+# RAMS                             : 129
+#      RAMB36E1                    : 129
+# Clock Buffers                    : 4
+#      BUFG                        : 4
+# IO Buffers                       : 19
+#      IBUFG                       : 1
+#      OBUF                        : 18
+# Others                           : 1
+#      MMCME2_ADV                  : 1
+
+Device utilization summary:
+---------------------------
+
+Selected Device : 7a100tcsg324-1 
+
+
+Slice Logic Utilization: 
+ Number of Slice Registers:             113  out of  126800     0%  
+ Number of Slice LUTs:                  705  out of  63400     1%  
+    Number used as Logic:               705  out of  63400     1%  
+
+Slice Logic Distribution: 
+ Number of LUT Flip Flop pairs used:    715
+   Number with an unused Flip Flop:     602  out of    715    84%  
+   Number with an unused LUT:            10  out of    715     1%  
+   Number of fully used LUT-FF pairs:   103  out of    715    14%  
+   Number of unique control sets:        12
+
+IO Utilization: 
+ Number of IOs:                          19
+ Number of bonded IOBs:                  19  out of    210     9%  
+
+Specific Feature Utilization:
+ Number of Block RAM/FIFO:              129  out of    135    95%  
+    Number using Block RAM only:        129
+ Number of BUFG/BUFGCTRLs:                4  out of     32    12%  
+
+---------------------------
+Partition Resource Summary:
+---------------------------
+
+  No Partitions were found in this design.
+
+---------------------------
+
+
+=========================================================================
+Timing Report
+
+NOTE: THESE TIMING NUMBERS ARE ONLY A SYNTHESIS ESTIMATE.
+      FOR ACCURATE TIMING INFORMATION PLEASE REFER TO THE TRACE REPORT
+      GENERATED AFTER PLACE-and-ROUTE.
+
+Clock Information:
+------------------
+-----------------------------------+------------------------+-------+
+Clock Signal                       | Clock buffer(FF name)  | Load  |
+-----------------------------------+------------------------+-------+
+pixelclock1/clkout1                | BUFG                   | 242   |
+-----------------------------------+------------------------+-------+
+
+Asynchronous Control Signals Information:
+----------------------------------------
+-----------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------+-------+
+Control Signal                     | Buffer(FF name)                                                                                                                                       | Load  |
+-----------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------+-------+
+fastram1/N1(fastram1/XST_GND:G)    | NONE(fastram1/U0/xst_blk_mem_generator/gnativebmg.native_blk_mem_gen/valid.cstr/ramloop[23].ram.r/v6_noinit.ram/NO_BMM_INFO.TRUE_DP.SIMPLE_PRIM36.ram)| 256   |
+-----------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------+-------+
+
+Timing Summary:
+---------------
+Speed Grade: -1
+
+   Minimum period: 4.072ns (Maximum Frequency: 245.580MHz)
+   Minimum input arrival time before clock: No path found
+   Maximum output required time after clock: 0.883ns
+   Maximum combinational path delay: 0.001ns
+
+Timing Details:
+---------------
+All values displayed in nanoseconds (ns)
+
+=========================================================================
+Timing constraint: Default period analysis for Clock 'pixelclock1/clkout1'
+  Clock period: 4.072ns (frequency: 245.580MHz)
+  Total number of paths / destination ports: 3707 / 186
+-------------------------------------------------------------------------
+Delay:               4.072ns (Levels of Logic = 4)
+  Source:            xcounter_6 (FF)
+  Destination:       charaddress_0 (FF)
+  Source Clock:      pixelclock1/clkout1 rising
+  Destination Clock: pixelclock1/clkout1 rising
+
+  Data Path: xcounter_6 to charaddress_0
+                                Gate     Net
+    Cell:in->out      fanout   Delay   Delay  Logical Name (Net Name)
+    ----------------------------------------  ------------
+     FDR:C->Q              4   0.478   0.796  xcounter_6 (xcounter_6)
+     LUT4:I0->O            3   0.124   0.435  n000521 (n00052)
+     LUT6:I5->O           22   0.124   1.055  xcounter[11]_GND_4_o_LessThan_12_o11 (xcounter[11]_GND_4_o_LessThan_12_o)
+     LUT5:I0->O           11   0.124   0.782  _n0189_inv3_rstpot (_n0189_inv3_rstpot)
+     LUT3:I0->O            1   0.124   0.000  charaddress_0_dpot (charaddress_0_dpot)
+     FDE:D                     0.030          charaddress_0
+    ----------------------------------------
+    Total                      4.072ns (1.004ns logic, 3.068ns route)
+                                       (24.7% logic, 75.3% route)
+
+=========================================================================
+Timing constraint: Default OFFSET OUT AFTER for Clock 'pixelclock1/clkout1'
+  Total number of paths / destination ports: 18 / 18
+-------------------------------------------------------------------------
+Offset:              0.883ns (Levels of Logic = 1)
+  Source:            vsync (FF)
+  Destination:       vsync (PAD)
+  Source Clock:      pixelclock1/clkout1 rising
+
+  Data Path: vsync to vsync
+                                Gate     Net
+    Cell:in->out      fanout   Delay   Delay  Logical Name (Net Name)
+    ----------------------------------------  ------------
+     FDR:C->Q              2   0.478   0.405  vsync (led1_OBUF)
+     OBUF:I->O                 0.000          vsync_OBUF (vsync)
+    ----------------------------------------
+    Total                      0.883ns (0.478ns logic, 0.405ns route)
+                                       (54.1% logic, 45.9% route)
+
+=========================================================================
+Timing constraint: Default path analysis
+  Total number of paths / destination ports: 1 / 1
+-------------------------------------------------------------------------
+Delay:               0.001ns (Levels of Logic = 1)
+  Source:            clk (PAD)
+  Destination:       pixelclock1/mmcm_adv_inst:CLKIN1 (PAD)
+
+  Data Path: clk to pixelclock1/mmcm_adv_inst:CLKIN1
+                                Gate     Net
+    Cell:in->out      fanout   Delay   Delay  Logical Name (Net Name)
+    ----------------------------------------  ------------
+     IBUFG:I->O            0   0.001   0.000  pixelclock1/clkin1_buf (pixelclock1/clkin1)
+    MMCME2_ADV:CLKIN1          0.000          pixelclock1/mmcm_adv_inst
+    ----------------------------------------
+    Total                      0.001ns (0.001ns logic, 0.000ns route)
+                                       (100.0% logic, 0.0% route)
+
+=========================================================================
+
+Cross Clock Domains Report:
+--------------------------
+
+Clock to Setup on destination clock pixelclock1/clkout1
+-------------------+---------+---------+---------+---------+
+                   | Src:Rise| Src:Fall| Src:Rise| Src:Fall|
+Source Clock       |Dest:Rise|Dest:Rise|Dest:Fall|Dest:Fall|
+-------------------+---------+---------+---------+---------+
+pixelclock1/clkout1|    4.072|         |         |         |
+-------------------+---------+---------+---------+---------+
+
+=========================================================================
+
+
+Total REAL time to Xst completion: 47.00 secs
+Total CPU time to Xst completion: 34.89 secs
+ 
+--> 
+
+
+Total memory usage is 224756 kilobytes
+
+Number of errors   :    0 (   0 filtered)
+Number of warnings :   37 (   0 filtered)
+Number of infos    :    7 (   0 filtered)
+

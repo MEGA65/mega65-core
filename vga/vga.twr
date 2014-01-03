@@ -1,0 +1,556 @@
+--------------------------------------------------------------------------------
+Release 14.7 Trace  (lin)
+Copyright (c) 1995-2013 Xilinx, Inc.  All rights reserved.
+
+/opt/Xilinx/14.7/ISE_DS/ISE/bin/lin/unwrapped/trce -intstyle ise -v 3 -s 1 -n 3
+-fastpaths -xml vga.twx vga.ncd -o vga.twr vga.pcf -ucf vga.ucf
+
+Design file:              vga.ncd
+Physical constraint file: vga.pcf
+Device,package,speed:     xc7a100t,csg324,C,-1 (PRODUCTION 1.10 2013-10-13)
+Report level:             verbose report
+
+Environment Variable      Effect 
+--------------------      ------ 
+NONE                      No environment variables were set
+--------------------------------------------------------------------------------
+
+INFO:Timing:3412 - To improve timing, see the Timing Closure User Guide (UG612).
+INFO:Timing:2752 - To get complete path coverage, use the unconstrained paths 
+   option. All paths that are not constrained will be reported in the 
+   unconstrained paths section(s) of the report.
+INFO:Timing:3339 - The clock-to-out numbers in this timing report are based on 
+   a 50 Ohm transmission line loading model.  For the details of this model, 
+   and for more information on accounting for different loading conditions, 
+   please see the device datasheet.
+
+================================================================================
+Timing constraint: TS_sys_clk_pin = PERIOD TIMEGRP "sys_clk_pin" 100 MHz HIGH 
+50%;
+For more information, see Period Analysis in the Timing Closure User Guide (UG612).
+
+ 0 paths analyzed, 0 endpoints analyzed, 0 failing endpoints
+ 0 timing errors detected. (0 component switching limit errors)
+ Minimum period is   4.000ns.
+--------------------------------------------------------------------------------
+
+Component Switching Limit Checks: TS_sys_clk_pin = PERIOD TIMEGRP "sys_clk_pin" 100 MHz HIGH 50%;
+--------------------------------------------------------------------------------
+Slack: 3.946ns (period - min period limit)
+  Period: 5.195ns
+  Min period limit: 1.249ns (800.641MHz) (Tmmcmper_CLKOUT(Foutmax))
+  Physical resource: pixelclock1/mmcm_adv_inst/CLKOUT1
+  Logical resource: pixelclock1/mmcm_adv_inst/CLKOUT1
+  Location pin: MMCME2_ADV_X1Y2.CLKOUT1
+  Clock network: pixelclock1/clkout1
+--------------------------------------------------------------------------------
+Slack: 6.000ns (period - (min low pulse limit / (low pulse / period)))
+  Period: 10.000ns
+  Low pulse: 5.000ns
+  Low pulse limit: 2.000ns (Tmmcmpw_CLKIN1_100_150)
+  Physical resource: pixelclock1/mmcm_adv_inst/CLKIN1
+  Logical resource: pixelclock1/mmcm_adv_inst/CLKIN1
+  Location pin: MMCME2_ADV_X1Y2.CLKIN1
+  Clock network: pixelclock1/clkin1
+--------------------------------------------------------------------------------
+Slack: 6.000ns (period - (min high pulse limit / (high pulse / period)))
+  Period: 10.000ns
+  High pulse: 5.000ns
+  High pulse limit: 2.000ns (Tmmcmpw_CLKIN1_100_150)
+  Physical resource: pixelclock1/mmcm_adv_inst/CLKIN1
+  Logical resource: pixelclock1/mmcm_adv_inst/CLKIN1
+  Location pin: MMCME2_ADV_X1Y2.CLKIN1
+  Clock network: pixelclock1/clkin1
+--------------------------------------------------------------------------------
+
+================================================================================
+Timing constraint: TS_pixelclock1_clkout1 = PERIOD TIMEGRP 
+"pixelclock1_clkout1" TS_sys_clk_pin *         1.925 HIGH 50%;
+For more information, see Period Analysis in the Timing Closure User Guide (UG612).
+
+ 3825 paths analyzed, 477 endpoints analyzed, 0 failing endpoints
+ 0 timing errors detected. (0 setup errors, 0 hold errors, 0 component switching limit errors)
+ Minimum period is   4.810ns.
+--------------------------------------------------------------------------------
+
+Paths for end point vgablue_0 (SLICE_X72Y127.A6), 13 paths
+--------------------------------------------------------------------------------
+Slack (setup path):     0.384ns (requirement - (data path - clock path skew + uncertainty))
+  Source:               charrom1/Mram_ram (RAM)
+  Destination:          vgablue_0 (FF)
+  Requirement:          5.194ns
+  Data Path Delay:      4.676ns (Levels of Logic = 2)
+  Clock Path Skew:      -0.067ns (0.156 - 0.223)
+  Source Clock:         dotclock rising at 0.000ns
+  Destination Clock:    dotclock rising at 5.194ns
+  Clock Uncertainty:    0.067ns
+
+  Clock Uncertainty:          0.067ns  ((TSJ^2 + DJ^2)^1/2) / 2 + PE
+    Total System Jitter (TSJ):  0.070ns
+    Discrete Jitter (DJ):       0.114ns
+    Phase Error (PE):           0.000ns
+
+  Maximum Data Path at Slow Process Corner: charrom1/Mram_ram to vgablue_0
+    Location             Delay type         Delay(ns)  Physical Resource
+                                                       Logical Resource(s)
+    -------------------------------------------------  -------------------
+    RAMB36_X2Y25.DOADO0  Trcko_DOA             2.454   charrom1/Mram_ram
+                                                       charrom1/Mram_ram
+    SLICE_X73Y127.D3     net (fanout=1)        0.994   chardata<0>
+    SLICE_X73Y127.CMUX   Topdc                 0.536   displayx[2]_chardata[7]_Mux_40_o
+                                                       Mmux_displayx[2]_chardata[7]_Mux_40_o_4
+                                                       Mmux_displayx[2]_chardata[7]_Mux_40_o_2_f7
+    SLICE_X72Y127.A6     net (fanout=12)       0.597   displayx[2]_chardata[7]_Mux_40_o
+    SLICE_X72Y127.CLK    Tas                   0.095   vgablue_3
+                                                       vgablue_0_rstpot
+                                                       vgablue_0
+    -------------------------------------------------  ---------------------------
+    Total                                      4.676ns (3.085ns logic, 1.591ns route)
+                                                       (66.0% logic, 34.0% route)
+
+--------------------------------------------------------------------------------
+Slack (setup path):     0.386ns (requirement - (data path - clock path skew + uncertainty))
+  Source:               charrom1/Mram_ram (RAM)
+  Destination:          vgablue_0 (FF)
+  Requirement:          5.194ns
+  Data Path Delay:      4.674ns (Levels of Logic = 2)
+  Clock Path Skew:      -0.067ns (0.156 - 0.223)
+  Source Clock:         dotclock rising at 0.000ns
+  Destination Clock:    dotclock rising at 5.194ns
+  Clock Uncertainty:    0.067ns
+
+  Clock Uncertainty:          0.067ns  ((TSJ^2 + DJ^2)^1/2) / 2 + PE
+    Total System Jitter (TSJ):  0.070ns
+    Discrete Jitter (DJ):       0.114ns
+    Phase Error (PE):           0.000ns
+
+  Maximum Data Path at Slow Process Corner: charrom1/Mram_ram to vgablue_0
+    Location             Delay type         Delay(ns)  Physical Resource
+                                                       Logical Resource(s)
+    -------------------------------------------------  -------------------
+    RAMB36_X2Y25.DOADO7  Trcko_DOA             2.454   charrom1/Mram_ram
+                                                       charrom1/Mram_ram
+    SLICE_X73Y127.C3     net (fanout=1)        0.985   chardata<7>
+    SLICE_X73Y127.CMUX   Tilo                  0.543   displayx[2]_chardata[7]_Mux_40_o
+                                                       Mmux_displayx[2]_chardata[7]_Mux_40_o_3
+                                                       Mmux_displayx[2]_chardata[7]_Mux_40_o_2_f7
+    SLICE_X72Y127.A6     net (fanout=12)       0.597   displayx[2]_chardata[7]_Mux_40_o
+    SLICE_X72Y127.CLK    Tas                   0.095   vgablue_3
+                                                       vgablue_0_rstpot
+                                                       vgablue_0
+    -------------------------------------------------  ---------------------------
+    Total                                      4.674ns (3.092ns logic, 1.582ns route)
+                                                       (66.2% logic, 33.8% route)
+
+--------------------------------------------------------------------------------
+Slack (setup path):     0.435ns (requirement - (data path - clock path skew + uncertainty))
+  Source:               charrom1/Mram_ram (RAM)
+  Destination:          vgablue_0 (FF)
+  Requirement:          5.194ns
+  Data Path Delay:      4.625ns (Levels of Logic = 2)
+  Clock Path Skew:      -0.067ns (0.156 - 0.223)
+  Source Clock:         dotclock rising at 0.000ns
+  Destination Clock:    dotclock rising at 5.194ns
+  Clock Uncertainty:    0.067ns
+
+  Clock Uncertainty:          0.067ns  ((TSJ^2 + DJ^2)^1/2) / 2 + PE
+    Total System Jitter (TSJ):  0.070ns
+    Discrete Jitter (DJ):       0.114ns
+    Phase Error (PE):           0.000ns
+
+  Maximum Data Path at Slow Process Corner: charrom1/Mram_ram to vgablue_0
+    Location             Delay type         Delay(ns)  Physical Resource
+                                                       Logical Resource(s)
+    -------------------------------------------------  -------------------
+    RAMB36_X2Y25.DOADO2  Trcko_DOA             2.454   charrom1/Mram_ram
+                                                       charrom1/Mram_ram
+    SLICE_X73Y127.D5     net (fanout=1)        0.943   chardata<2>
+    SLICE_X73Y127.CMUX   Topdc                 0.536   displayx[2]_chardata[7]_Mux_40_o
+                                                       Mmux_displayx[2]_chardata[7]_Mux_40_o_4
+                                                       Mmux_displayx[2]_chardata[7]_Mux_40_o_2_f7
+    SLICE_X72Y127.A6     net (fanout=12)       0.597   displayx[2]_chardata[7]_Mux_40_o
+    SLICE_X72Y127.CLK    Tas                   0.095   vgablue_3
+                                                       vgablue_0_rstpot
+                                                       vgablue_0
+    -------------------------------------------------  ---------------------------
+    Total                                      4.625ns (3.085ns logic, 1.540ns route)
+                                                       (66.7% logic, 33.3% route)
+
+--------------------------------------------------------------------------------
+
+Paths for end point vgablue_1 (SLICE_X72Y127.B6), 13 paths
+--------------------------------------------------------------------------------
+Slack (setup path):     0.389ns (requirement - (data path - clock path skew + uncertainty))
+  Source:               charrom1/Mram_ram (RAM)
+  Destination:          vgablue_1 (FF)
+  Requirement:          5.194ns
+  Data Path Delay:      4.671ns (Levels of Logic = 2)
+  Clock Path Skew:      -0.067ns (0.156 - 0.223)
+  Source Clock:         dotclock rising at 0.000ns
+  Destination Clock:    dotclock rising at 5.194ns
+  Clock Uncertainty:    0.067ns
+
+  Clock Uncertainty:          0.067ns  ((TSJ^2 + DJ^2)^1/2) / 2 + PE
+    Total System Jitter (TSJ):  0.070ns
+    Discrete Jitter (DJ):       0.114ns
+    Phase Error (PE):           0.000ns
+
+  Maximum Data Path at Slow Process Corner: charrom1/Mram_ram to vgablue_1
+    Location             Delay type         Delay(ns)  Physical Resource
+                                                       Logical Resource(s)
+    -------------------------------------------------  -------------------
+    RAMB36_X2Y25.DOADO0  Trcko_DOA             2.454   charrom1/Mram_ram
+                                                       charrom1/Mram_ram
+    SLICE_X73Y127.D3     net (fanout=1)        0.994   chardata<0>
+    SLICE_X73Y127.CMUX   Topdc                 0.536   displayx[2]_chardata[7]_Mux_40_o
+                                                       Mmux_displayx[2]_chardata[7]_Mux_40_o_4
+                                                       Mmux_displayx[2]_chardata[7]_Mux_40_o_2_f7
+    SLICE_X72Y127.B6     net (fanout=12)       0.594   displayx[2]_chardata[7]_Mux_40_o
+    SLICE_X72Y127.CLK    Tas                   0.093   vgablue_3
+                                                       vgablue_1_rstpot
+                                                       vgablue_1
+    -------------------------------------------------  ---------------------------
+    Total                                      4.671ns (3.083ns logic, 1.588ns route)
+                                                       (66.0% logic, 34.0% route)
+
+--------------------------------------------------------------------------------
+Slack (setup path):     0.391ns (requirement - (data path - clock path skew + uncertainty))
+  Source:               charrom1/Mram_ram (RAM)
+  Destination:          vgablue_1 (FF)
+  Requirement:          5.194ns
+  Data Path Delay:      4.669ns (Levels of Logic = 2)
+  Clock Path Skew:      -0.067ns (0.156 - 0.223)
+  Source Clock:         dotclock rising at 0.000ns
+  Destination Clock:    dotclock rising at 5.194ns
+  Clock Uncertainty:    0.067ns
+
+  Clock Uncertainty:          0.067ns  ((TSJ^2 + DJ^2)^1/2) / 2 + PE
+    Total System Jitter (TSJ):  0.070ns
+    Discrete Jitter (DJ):       0.114ns
+    Phase Error (PE):           0.000ns
+
+  Maximum Data Path at Slow Process Corner: charrom1/Mram_ram to vgablue_1
+    Location             Delay type         Delay(ns)  Physical Resource
+                                                       Logical Resource(s)
+    -------------------------------------------------  -------------------
+    RAMB36_X2Y25.DOADO7  Trcko_DOA             2.454   charrom1/Mram_ram
+                                                       charrom1/Mram_ram
+    SLICE_X73Y127.C3     net (fanout=1)        0.985   chardata<7>
+    SLICE_X73Y127.CMUX   Tilo                  0.543   displayx[2]_chardata[7]_Mux_40_o
+                                                       Mmux_displayx[2]_chardata[7]_Mux_40_o_3
+                                                       Mmux_displayx[2]_chardata[7]_Mux_40_o_2_f7
+    SLICE_X72Y127.B6     net (fanout=12)       0.594   displayx[2]_chardata[7]_Mux_40_o
+    SLICE_X72Y127.CLK    Tas                   0.093   vgablue_3
+                                                       vgablue_1_rstpot
+                                                       vgablue_1
+    -------------------------------------------------  ---------------------------
+    Total                                      4.669ns (3.090ns logic, 1.579ns route)
+                                                       (66.2% logic, 33.8% route)
+
+--------------------------------------------------------------------------------
+Slack (setup path):     0.440ns (requirement - (data path - clock path skew + uncertainty))
+  Source:               charrom1/Mram_ram (RAM)
+  Destination:          vgablue_1 (FF)
+  Requirement:          5.194ns
+  Data Path Delay:      4.620ns (Levels of Logic = 2)
+  Clock Path Skew:      -0.067ns (0.156 - 0.223)
+  Source Clock:         dotclock rising at 0.000ns
+  Destination Clock:    dotclock rising at 5.194ns
+  Clock Uncertainty:    0.067ns
+
+  Clock Uncertainty:          0.067ns  ((TSJ^2 + DJ^2)^1/2) / 2 + PE
+    Total System Jitter (TSJ):  0.070ns
+    Discrete Jitter (DJ):       0.114ns
+    Phase Error (PE):           0.000ns
+
+  Maximum Data Path at Slow Process Corner: charrom1/Mram_ram to vgablue_1
+    Location             Delay type         Delay(ns)  Physical Resource
+                                                       Logical Resource(s)
+    -------------------------------------------------  -------------------
+    RAMB36_X2Y25.DOADO2  Trcko_DOA             2.454   charrom1/Mram_ram
+                                                       charrom1/Mram_ram
+    SLICE_X73Y127.D5     net (fanout=1)        0.943   chardata<2>
+    SLICE_X73Y127.CMUX   Topdc                 0.536   displayx[2]_chardata[7]_Mux_40_o
+                                                       Mmux_displayx[2]_chardata[7]_Mux_40_o_4
+                                                       Mmux_displayx[2]_chardata[7]_Mux_40_o_2_f7
+    SLICE_X72Y127.B6     net (fanout=12)       0.594   displayx[2]_chardata[7]_Mux_40_o
+    SLICE_X72Y127.CLK    Tas                   0.093   vgablue_3
+                                                       vgablue_1_rstpot
+                                                       vgablue_1
+    -------------------------------------------------  ---------------------------
+    Total                                      4.620ns (3.083ns logic, 1.537ns route)
+                                                       (66.7% logic, 33.3% route)
+
+--------------------------------------------------------------------------------
+
+Paths for end point vgagreen_2 (SLICE_X73Y126.D6), 13 paths
+--------------------------------------------------------------------------------
+Slack (setup path):     0.445ns (requirement - (data path - clock path skew + uncertainty))
+  Source:               charrom1/Mram_ram (RAM)
+  Destination:          vgagreen_2 (FF)
+  Requirement:          5.194ns
+  Data Path Delay:      4.614ns (Levels of Logic = 2)
+  Clock Path Skew:      -0.068ns (0.155 - 0.223)
+  Source Clock:         dotclock rising at 0.000ns
+  Destination Clock:    dotclock rising at 5.194ns
+  Clock Uncertainty:    0.067ns
+
+  Clock Uncertainty:          0.067ns  ((TSJ^2 + DJ^2)^1/2) / 2 + PE
+    Total System Jitter (TSJ):  0.070ns
+    Discrete Jitter (DJ):       0.114ns
+    Phase Error (PE):           0.000ns
+
+  Maximum Data Path at Slow Process Corner: charrom1/Mram_ram to vgagreen_2
+    Location             Delay type         Delay(ns)  Physical Resource
+                                                       Logical Resource(s)
+    -------------------------------------------------  -------------------
+    RAMB36_X2Y25.DOADO0  Trcko_DOA             2.454   charrom1/Mram_ram
+                                                       charrom1/Mram_ram
+    SLICE_X73Y127.D3     net (fanout=1)        0.994   chardata<0>
+    SLICE_X73Y127.CMUX   Topdc                 0.536   displayx[2]_chardata[7]_Mux_40_o
+                                                       Mmux_displayx[2]_chardata[7]_Mux_40_o_4
+                                                       Mmux_displayx[2]_chardata[7]_Mux_40_o_2_f7
+    SLICE_X73Y126.D6     net (fanout=12)       0.538   displayx[2]_chardata[7]_Mux_40_o
+    SLICE_X73Y126.CLK    Tas                   0.092   vgagreen_2
+                                                       vgagreen_2_rstpot
+                                                       vgagreen_2
+    -------------------------------------------------  ---------------------------
+    Total                                      4.614ns (3.082ns logic, 1.532ns route)
+                                                       (66.8% logic, 33.2% route)
+
+--------------------------------------------------------------------------------
+Slack (setup path):     0.447ns (requirement - (data path - clock path skew + uncertainty))
+  Source:               charrom1/Mram_ram (RAM)
+  Destination:          vgagreen_2 (FF)
+  Requirement:          5.194ns
+  Data Path Delay:      4.612ns (Levels of Logic = 2)
+  Clock Path Skew:      -0.068ns (0.155 - 0.223)
+  Source Clock:         dotclock rising at 0.000ns
+  Destination Clock:    dotclock rising at 5.194ns
+  Clock Uncertainty:    0.067ns
+
+  Clock Uncertainty:          0.067ns  ((TSJ^2 + DJ^2)^1/2) / 2 + PE
+    Total System Jitter (TSJ):  0.070ns
+    Discrete Jitter (DJ):       0.114ns
+    Phase Error (PE):           0.000ns
+
+  Maximum Data Path at Slow Process Corner: charrom1/Mram_ram to vgagreen_2
+    Location             Delay type         Delay(ns)  Physical Resource
+                                                       Logical Resource(s)
+    -------------------------------------------------  -------------------
+    RAMB36_X2Y25.DOADO7  Trcko_DOA             2.454   charrom1/Mram_ram
+                                                       charrom1/Mram_ram
+    SLICE_X73Y127.C3     net (fanout=1)        0.985   chardata<7>
+    SLICE_X73Y127.CMUX   Tilo                  0.543   displayx[2]_chardata[7]_Mux_40_o
+                                                       Mmux_displayx[2]_chardata[7]_Mux_40_o_3
+                                                       Mmux_displayx[2]_chardata[7]_Mux_40_o_2_f7
+    SLICE_X73Y126.D6     net (fanout=12)       0.538   displayx[2]_chardata[7]_Mux_40_o
+    SLICE_X73Y126.CLK    Tas                   0.092   vgagreen_2
+                                                       vgagreen_2_rstpot
+                                                       vgagreen_2
+    -------------------------------------------------  ---------------------------
+    Total                                      4.612ns (3.089ns logic, 1.523ns route)
+                                                       (67.0% logic, 33.0% route)
+
+--------------------------------------------------------------------------------
+Slack (setup path):     0.496ns (requirement - (data path - clock path skew + uncertainty))
+  Source:               charrom1/Mram_ram (RAM)
+  Destination:          vgagreen_2 (FF)
+  Requirement:          5.194ns
+  Data Path Delay:      4.563ns (Levels of Logic = 2)
+  Clock Path Skew:      -0.068ns (0.155 - 0.223)
+  Source Clock:         dotclock rising at 0.000ns
+  Destination Clock:    dotclock rising at 5.194ns
+  Clock Uncertainty:    0.067ns
+
+  Clock Uncertainty:          0.067ns  ((TSJ^2 + DJ^2)^1/2) / 2 + PE
+    Total System Jitter (TSJ):  0.070ns
+    Discrete Jitter (DJ):       0.114ns
+    Phase Error (PE):           0.000ns
+
+  Maximum Data Path at Slow Process Corner: charrom1/Mram_ram to vgagreen_2
+    Location             Delay type         Delay(ns)  Physical Resource
+                                                       Logical Resource(s)
+    -------------------------------------------------  -------------------
+    RAMB36_X2Y25.DOADO2  Trcko_DOA             2.454   charrom1/Mram_ram
+                                                       charrom1/Mram_ram
+    SLICE_X73Y127.D5     net (fanout=1)        0.943   chardata<2>
+    SLICE_X73Y127.CMUX   Topdc                 0.536   displayx[2]_chardata[7]_Mux_40_o
+                                                       Mmux_displayx[2]_chardata[7]_Mux_40_o_4
+                                                       Mmux_displayx[2]_chardata[7]_Mux_40_o_2_f7
+    SLICE_X73Y126.D6     net (fanout=12)       0.538   displayx[2]_chardata[7]_Mux_40_o
+    SLICE_X73Y126.CLK    Tas                   0.092   vgagreen_2
+                                                       vgagreen_2_rstpot
+                                                       vgagreen_2
+    -------------------------------------------------  ---------------------------
+    Total                                      4.563ns (3.082ns logic, 1.481ns route)
+                                                       (67.5% logic, 32.5% route)
+
+--------------------------------------------------------------------------------
+
+Hold Paths: TS_pixelclock1_clkout1 = PERIOD TIMEGRP "pixelclock1_clkout1" TS_sys_clk_pin *
+        1.925 HIGH 50%;
+--------------------------------------------------------------------------------
+
+Paths for end point charrom1/Mram_ram (RAMB36_X2Y25.ADDRARDADDRU7), 1 path
+--------------------------------------------------------------------------------
+Slack (hold path):      0.115ns (requirement - (clock path skew + uncertainty - data path))
+  Source:               charaddress_4 (FF)
+  Destination:          charrom1/Mram_ram (RAM)
+  Requirement:          0.000ns
+  Data Path Delay:      0.221ns (Levels of Logic = 0)
+  Clock Path Skew:      0.106ns (0.371 - 0.265)
+  Source Clock:         dotclock rising at 0.000ns
+  Destination Clock:    dotclock rising at 0.000ns
+  Clock Uncertainty:    0.000ns
+
+  Minimum Data Path at Fast Process Corner: charaddress_4 to charrom1/Mram_ram
+    Location                   Delay type         Delay(ns)  Physical Resource
+                                                             Logical Resource(s)
+    -------------------------------------------------------  -------------------
+    SLICE_X71Y128.BQ           Tcko                  0.141   charaddress_6
+                                                             charaddress_4
+    RAMB36_X2Y25.ADDRARDADDRU7 net (fanout=3)        0.263   charaddress_4
+    RAMB36_X2Y25.CLKARDCLKU    Trckc_ADDRA (-Th)     0.183   charrom1/Mram_ram
+                                                             charrom1/Mram_ram
+    -------------------------------------------------------  ---------------------------
+    Total                                            0.221ns (-0.042ns logic, 0.263ns route)
+                                                             (-19.0% logic, 119.0% route)
+
+--------------------------------------------------------------------------------
+
+Paths for end point charrom1/Mram_ram (RAMB36_X2Y25.ADDRARDADDRL7), 1 path
+--------------------------------------------------------------------------------
+Slack (hold path):      0.116ns (requirement - (clock path skew + uncertainty - data path))
+  Source:               charaddress_4 (FF)
+  Destination:          charrom1/Mram_ram (RAM)
+  Requirement:          0.000ns
+  Data Path Delay:      0.222ns (Levels of Logic = 0)
+  Clock Path Skew:      0.106ns (0.371 - 0.265)
+  Source Clock:         dotclock rising at 0.000ns
+  Destination Clock:    dotclock rising at 0.000ns
+  Clock Uncertainty:    0.000ns
+
+  Minimum Data Path at Fast Process Corner: charaddress_4 to charrom1/Mram_ram
+    Location                   Delay type         Delay(ns)  Physical Resource
+                                                             Logical Resource(s)
+    -------------------------------------------------------  -------------------
+    SLICE_X71Y128.BQ           Tcko                  0.141   charaddress_6
+                                                             charaddress_4
+    RAMB36_X2Y25.ADDRARDADDRL7 net (fanout=3)        0.264   charaddress_4
+    RAMB36_X2Y25.CLKARDCLKL    Trckc_ADDRA (-Th)     0.183   charrom1/Mram_ram
+                                                             charrom1/Mram_ram
+    -------------------------------------------------------  ---------------------------
+    Total                                            0.222ns (-0.042ns logic, 0.264ns route)
+                                                             (-18.9% logic, 118.9% route)
+
+--------------------------------------------------------------------------------
+
+Paths for end point charrom1/Mram_ram (RAMB36_X2Y25.ADDRARDADDRU8), 1 path
+--------------------------------------------------------------------------------
+Slack (hold path):      0.165ns (requirement - (clock path skew + uncertainty - data path))
+  Source:               charaddress_5 (FF)
+  Destination:          charrom1/Mram_ram (RAM)
+  Requirement:          0.000ns
+  Data Path Delay:      0.271ns (Levels of Logic = 0)
+  Clock Path Skew:      0.106ns (0.371 - 0.265)
+  Source Clock:         dotclock rising at 0.000ns
+  Destination Clock:    dotclock rising at 0.000ns
+  Clock Uncertainty:    0.000ns
+
+  Minimum Data Path at Fast Process Corner: charaddress_5 to charrom1/Mram_ram
+    Location                   Delay type         Delay(ns)  Physical Resource
+                                                             Logical Resource(s)
+    -------------------------------------------------------  -------------------
+    SLICE_X71Y128.CQ           Tcko                  0.141   charaddress_6
+                                                             charaddress_5
+    RAMB36_X2Y25.ADDRARDADDRU8 net (fanout=3)        0.313   charaddress_5
+    RAMB36_X2Y25.CLKARDCLKU    Trckc_ADDRA (-Th)     0.183   charrom1/Mram_ram
+                                                             charrom1/Mram_ram
+    -------------------------------------------------------  ---------------------------
+    Total                                            0.271ns (-0.042ns logic, 0.313ns route)
+                                                             (-15.5% logic, 115.5% route)
+
+--------------------------------------------------------------------------------
+
+Component Switching Limit Checks: TS_pixelclock1_clkout1 = PERIOD TIMEGRP "pixelclock1_clkout1" TS_sys_clk_pin *
+        1.925 HIGH 50%;
+--------------------------------------------------------------------------------
+Slack: 2.618ns (period - min period limit)
+  Period: 5.194ns
+  Min period limit: 2.576ns (388.199MHz) (Trper_CLKA)
+  Physical resource: charrom1/Mram_ram/CLKARDCLKL
+  Logical resource: charrom1/Mram_ram/CLKARDCLKL
+  Location pin: RAMB36_X2Y25.CLKARDCLKL
+  Clock network: dotclock
+--------------------------------------------------------------------------------
+Slack: 2.618ns (period - min period limit)
+  Period: 5.194ns
+  Min period limit: 2.576ns (388.199MHz) (Trper_CLKA)
+  Physical resource: charrom1/Mram_ram/CLKARDCLKU
+  Logical resource: charrom1/Mram_ram/CLKARDCLKU
+  Location pin: RAMB36_X2Y25.CLKARDCLKU
+  Clock network: dotclock
+--------------------------------------------------------------------------------
+Slack: 3.039ns (period - min period limit)
+  Period: 5.194ns
+  Min period limit: 2.155ns (464.037MHz) (Tbcper_I(Fmax))
+  Physical resource: pixelclock1/clkout2_buf/I0
+  Logical resource: pixelclock1/clkout2_buf/I0
+  Location pin: BUFGCTRL_X0Y30.I0
+  Clock network: pixelclock1/clkout1
+--------------------------------------------------------------------------------
+
+
+Derived Constraint Report
+Derived Constraints for TS_sys_clk_pin
++-------------------------------+-------------+-------------+-------------+-------------+-------------+-------------+-------------+
+|                               |   Period    |       Actual Period       |      Timing Errors        |      Paths Analyzed       |
+|           Constraint          | Requirement |-------------+-------------|-------------+-------------|-------------+-------------|
+|                               |             |   Direct    | Derivative  |   Direct    | Derivative  |   Direct    | Derivative  |
++-------------------------------+-------------+-------------+-------------+-------------+-------------+-------------+-------------+
+|TS_sys_clk_pin                 |     10.000ns|      4.000ns|      9.259ns|            0|            0|            0|         3825|
+| TS_pixelclock1_clkout1        |      5.195ns|      4.810ns|          N/A|            0|            0|         3825|            0|
++-------------------------------+-------------+-------------+-------------+-------------+-------------+-------------+-------------+
+
+All constraints were met.
+
+
+Data Sheet report:
+-----------------
+All values displayed in nanoseconds (ns)
+
+Clock to Setup on destination clock clk
+---------------+---------+---------+---------+---------+
+               | Src:Rise| Src:Fall| Src:Rise| Src:Fall|
+Source Clock   |Dest:Rise|Dest:Rise|Dest:Fall|Dest:Fall|
+---------------+---------+---------+---------+---------+
+clk            |    4.810|         |         |         |
+---------------+---------+---------+---------+---------+
+
+
+Timing summary:
+---------------
+
+Timing errors: 0  Score: 0  (Setup/Max: 0, Hold: 0)
+
+Constraints cover 3825 paths, 0 nets, and 554 connections
+
+Design statistics:
+   Minimum period:   4.810ns{1}   (Maximum frequency: 207.900MHz)
+
+
+------------------------------------Footnotes-----------------------------------
+1)  The minimum period statistic assumes all single cycle delays.
+
+Analysis completed Fri Jan  3 19:38:01 2014 
+--------------------------------------------------------------------------------
+
+Trace Settings:
+-------------------------
+Trace Settings 
+
+Peak Memory Usage: 399 MB
+
+
+
