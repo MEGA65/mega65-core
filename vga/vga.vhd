@@ -90,12 +90,12 @@ architecture Behavioral of vga is
       );
   END component fastram;
 
-  -- Buffer (and delay by one cycle) VGA signal to save some time
-  -- (separates memory & palette lookup from pad output. Can save
-  -- even more time by pipelining palette lookup as well.)
+  -- Buffer VGA signal to save some time. Similarly pipeline
+  -- palette lookup.
   signal vga_buffer_red : UNSIGNED (3 downto 0);
   signal vga_buffer_green : UNSIGNED (3 downto 0);
   signal vga_buffer_blue : UNSIGNED (3 downto 0);
+  signal pixel_colour : unsigned(7 downto 0);
   
   -- Video mode definition
   constant width : integer := 1920;
@@ -147,6 +147,10 @@ architecture Behavioral of vga is
   -- Interface to character generator rom
   signal charaddress : std_logic_vector(11 downto 0);
   signal chardata : std_logic_vector(7 downto 0);
+  -- buffer of read data to improve timing
+  signal charrow : std_logic_vector(7 downto 0);
+  signal charread : std_logic := '0';   -- if 1, we are reading and need to
+                                        -- store the value.
   
   type rgb is
   record
@@ -216,6 +220,9 @@ begin
 
   process(dotclock) is
     variable indisplay : std_logic;
+    variable next_card_number : unsigned(15 downto 0);
+    variable next_card_x : unsigned(11 downto 0);
+    variable next_card_y : unsigned(11 downto 0);
   begin
     if rising_edge(dotclock) then
 
@@ -240,15 +247,15 @@ begin
         xcounter <= xcounter + 1;
       else
         xcounter <= (others => '0');
-        card_x <= (others => '0');
+        next_card_x := (others => '0');
         card_x_sub <= (others => '0');
         if ycounter<frame_height then
           ycounter <= ycounter + 1;
         else
           ycounter <= (others =>'0');
-          card_y <= (others => '0');
+          next_card_y := (others => '0');
           card_y_sub <= (others => '0');
-          card_number <= (others => '0');
+          next_card_number := (others => '0');
           first_card_of_row <= (others => '0');
         end if;	
       end if;
@@ -257,10 +264,10 @@ begin
         indisplay := '0';
       elsif xcounter<(frame_h_front+width) then
         if card_x_sub=card_x_scale then
-          card_x <= card_x + 1;
+          next_card_x := card_x + 1;
           card_x_sub <= (others => '0');
           if card_x(2 downto 0) = "000" then
-            card_number <= card_number + 1;
+            next_card_number := card_number + 1;
           end if;
         else
           card_x_sub <= card_x_sub + 1;
@@ -285,13 +292,13 @@ begin
           first_card_of_row <= x"0000";	
         elsif ycounter<(frame_v_front+height) then
           displayy <= displayy + 1;
-          card_number <= first_card_of_row;
+          next_card_number := first_card_of_row;
           if card_y_sub=card_y_scale then
-            card_y <= card_y + 1;
+            next_card_y := card_y + 1;
             if card_y(2 downto 0) = "111" then
               -- Increment card number every "bad line"
               first_card_of_row <= card_number +1;
-              card_number <= card_number +1;              
+              next_card_number := card_number +1;              
             end if;
             card_y_sub <= (others => '0');
           else
@@ -306,38 +313,54 @@ begin
       led2 <= displayy(9);
       
       display_active <= indisplay;
+
+      -- Read character row data
+      if charread='1' then
+        -- mono characters
+        charrow <= chardata;
+        -- XXX one byte per pixel characters?
+      end if;
       
       if indisplay='1' then        
         -- Read byte from character ROM
-        -- XXX Need to read with new values of card_number and card_y, not old
+        -- Need to read with new values of card_number and card_y, not old
         -- values.
-        if card_x=4 then
-          charaddress(10 downto 3) <= std_logic_vector(card_x_scale(7 downto 0));
-        elsif card_x=5 then
-          charaddress(10 downto 3) <= std_logic_vector(card_y_scale(7 downto 0));
-        else
-          charaddress(10 downto 3) <= std_logic_vector(card_number(7 downto 0));    
-        end if;
-        charaddress(2 downto 0) <= std_logic_vector(card_y(2 downto 0));        
+        charaddress(10 downto 3) <= std_logic_vector(next_card_number(7 downto 0));
+        charaddress(2 downto 0) <= std_logic_vector(next_card_y(2 downto 0));
+        -- XXX need to trigger read TWO CYCLES before next character starts.
+        -- XXX Currently we are just forcing reading all the time, and we will
+        -- end up reading pixels from the wrong character.  Also have yet to
+        -- check that this actually solves the timing contraints.
+        charread <= '1';        
         
-        if chardata(to_integer(not card_x(2 downto 0))) = '1' then
-          vga_buffer_red <= x"f";
-          vga_buffer_green <= x"f";
-          vga_buffer_blue <= x"f";
+        card_x <= next_card_x;
+        card_y <= next_card_y;
+        card_number <= next_card_number;
+
+        -- Display character in white on a background colour chosen by card number
+        -- Using only the upper 8 colours so that we don't have white on white.
+
+        if charrow(to_integer(not card_x(2 downto 0))) = '0' then
+          pixel_colour(7 downto 3) <= "00001";
+          pixel_colour(2 downto 0) <= card_number(2 downto 0);
         else
-          vga_buffer_red <= pallete(to_integer(card_number(3 downto 0))).red(7 downto 4);
-          vga_buffer_green <= pallete(to_integer(card_number(3 downto 0))).green(7 downto 4);
-          vga_buffer_blue <= pallete(to_integer(card_number(3 downto 0))).blue(7 downto 4);
+          pixel_colour <= x"01";
         end if;
       else
-        vga_buffer_red <= "0000";
-        vga_buffer_green <= "0000";
-        vga_buffer_blue <= "0000";
+        pixel_colour <= x"00";
       end if;
 
+      -- Pixels have a two cycle pipeline to help keep timing contraints:
+      
+      -- 1. From pixel colour lookup RGB
+      vga_buffer_red <= pallete(to_integer(pixel_colour)).red(7 downto 4);   
+      vga_buffer_green <= pallete(to_integer(pixel_colour)).green(7 downto 4); 
+      vga_buffer_blue <= pallete(to_integer(pixel_colour)).blue(7 downto 4);
+      -- 2. From RGB, push out to pins
       vgared <= vga_buffer_red;
       vgagreen <= vga_buffer_green;
       vgablue <= vga_buffer_blue;
+      
     end if;
   end process;
 
