@@ -102,7 +102,7 @@ architecture Behavioral of vga is
   constant height : integer := 1200;
   
   constant frame_width : integer := 2592;
-  constant frame_h_front : integer := 200;  -- 128 should be ok
+  constant frame_h_front : integer := 128;
   constant frame_h_syncwidth : integer := 208;
   
   constant frame_height : integer := 1242;
@@ -130,6 +130,14 @@ architecture Behavioral of vga is
   -- fractional pixel position for scaling
   signal card_y_sub : unsigned(7 downto 0);
   signal card_x_sub : unsigned(7 downto 0);
+
+  -- Delayed versions of signals to allow character fetching pipeline
+  signal card_x_t1 : unsigned(11 downto 0);
+  signal card_x_t2 : unsigned(11 downto 0);
+  signal card_number_t1 : unsigned(15 downto 0);
+  signal card_number_t2 : unsigned(15 downto 0);
+  signal indisplay_t1 : std_logic;
+  signal indisplay_t2 : std_logic;
   
   signal dotclock : std_logic;
   
@@ -320,29 +328,34 @@ begin
         charrow <= chardata;
         -- XXX one byte per pixel characters?
       end if;
-      
-      if indisplay='1' then        
-        -- Read byte from character ROM
-        -- Need to read with new values of card_number and card_y, not old
-        -- values.
-        charaddress(10 downto 3) <= std_logic_vector(next_card_number(7 downto 0));
-        charaddress(2 downto 0) <= std_logic_vector(next_card_y(2 downto 0));
-        -- XXX need to trigger read TWO CYCLES before next character starts.
-        -- XXX Currently we are just forcing reading all the time, and we will
-        -- end up reading pixels from the wrong character.  Also have yet to
-        -- check that this actually solves the timing contraints.
-        charread <= '1';        
-        
-        card_x <= next_card_x;
-        card_y <= next_card_y;
-        card_number <= next_card_number;
 
+      -- Read byte from character ROM
+      if card_number_t1 /= card_number then
+        charaddress(10 downto 3) <= std_logic_vector(card_number(7 downto 0));
+        charaddress(2 downto 0) <= std_logic_vector(card_y(2 downto 0));
+        charread <= '1';                   
+      end if;
+
+      card_x <= next_card_x;
+      card_y <= next_card_y;
+      card_number <= next_card_number;
+      
+      -- Make delayed versions of card number and x position so that we have time
+      -- to fetch character row data.
+      card_x_t1 <= card_x;
+      card_x_t2 <= card_x_t1;
+      card_number_t1 <= card_number;
+      card_number_t2 <= card_number_t1;
+      indisplay_t1 <= indisplay;
+      indisplay_t2 <= indisplay;
+
+      if indisplay_t2='1' then
         -- Display character in white on a background colour chosen by card number
         -- Using only the upper 8 colours so that we don't have white on white.
 
-        if charrow(to_integer(not card_x(2 downto 0))) = '0' then
+        if charrow(to_integer(not card_x_t2(2 downto 0))) = '0' then
           pixel_colour(7 downto 3) <= "00001";
-          pixel_colour(2 downto 0) <= card_number(2 downto 0);
+          pixel_colour(2 downto 0) <= card_number_t2(2 downto 0);
         else
           pixel_colour <= x"01";
         end if;
@@ -360,7 +373,6 @@ begin
       vgared <= vga_buffer_red;
       vgagreen <= vga_buffer_green;
       vgablue <= vga_buffer_blue;
-      
     end if;
   end process;
 
