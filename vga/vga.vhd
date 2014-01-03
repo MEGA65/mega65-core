@@ -329,14 +329,16 @@ begin
       if charread='1' then
         -- mono characters
         charrow <= chardata;
-        -- XXX one byte per pixel characters?
+        -- XXX what about one byte per pixel characters?
       end if;
 
       -- Read byte from character ROM
       if card_number_t1 /= card_number then
         charaddress(10 downto 3) <= std_logic_vector(card_number(7 downto 0));
         charaddress(2 downto 0) <= std_logic_vector(card_y(2 downto 0));
-        charread <= '1';                   
+        charread <= '1';
+      else
+        charread <= '0';
       end if;
 
       card_x <= next_card_x;
@@ -359,9 +361,15 @@ begin
         -- Display character in white on a background colour chosen by card number
         -- Using only the upper 8 colours so that we don't have white on white.
 
+        -- For some reason we end up rotated left by one pixel, so need to
+        -- adjust for this.
         if charrow(to_integer(not card_x_t3(2 downto 0))) = '0' then
           pixel_colour(7 downto 3) <= "00001";
-          pixel_colour(2 downto 0) <= card_number_t3(2 downto 0);
+          if card_y < 4 then            
+            pixel_colour(2 downto 0) <= card_x_t3(2 downto 0);
+          else
+            pixel_colour(2 downto 0) <= card_number_t3(2 downto 0);
+          end if;
         else
           pixel_colour <= x"01";
         end if;
