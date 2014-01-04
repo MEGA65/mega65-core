@@ -373,11 +373,11 @@ begin
         -- For some reason we end up rotated left by one pixel, so need to
         -- adjust for this.
         if charrow(to_integer(not card_x_t3(2 downto 0))) = '0' then
-          pixel_colour(7 downto 3) <= "00001";
+          pixel_colour(7 downto 3) <= "0000";
           if card_y < 4 then            
-            pixel_colour(2 downto 0) <= card_x_t3(2 downto 0);
+            pixel_colour(2 downto 0) <= card_x_t3(3 downto 0);
           else
-            pixel_colour(2 downto 0) <= card_number_t3(2 downto 0);
+            pixel_colour(2 downto 0) <= card_number_t3(3 downto 0);
           end if;
         else
           pixel_colour <= x"01";
@@ -392,7 +392,7 @@ begin
       vga_buffer_red <= pallete(to_integer(pixel_colour)).red(7 downto 4);   
       vga_buffer_green <= pallete(to_integer(pixel_colour)).green(7 downto 4); 
       vga_buffer_blue <= pallete(to_integer(pixel_colour)).blue(7 downto 4);
-      -- 2. From RGB, push out to pins
+      -- 2. From RGB, push out to pins (also draw border)
       if displayx<border_x_left or displayx>border_x_right
         or displayy<border_y_top or displayy>border_y_bottom then
         -- In border - just draw border colour
@@ -403,8 +403,10 @@ begin
         -- XXX Complicated by character reading pipeline
         card_x <= (others => '0');
         card_x_sub <= (others => '0');
-        card_y <= (others => '0');
-        card_y_sub <= (others => '0');
+        if displayy<border_y_top then
+          card_y <= (others => '0');
+          card_y_sub <= (others => '0');
+        end if;
       else
         -- In normal display area, draw normally
         vgared <= vga_buffer_red;
