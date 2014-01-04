@@ -41,3 +41,9 @@ NET "SW<12>"                    LOC = "T1"      | IOSTANDARD = "LVCMOS33";      
 NET "SW<13>"                    LOC = "R3"      | IOSTANDARD = "LVCMOS33";              #Bank = 34, Pin name = IO_L11P_T1_SRCC_34,                                      Sch name = SW13
 NET "SW<14>"                    LOC = "P3"      | IOSTANDARD = "LVCMOS33";              #Bank = 34, Pin name = IO_L14N_T2_SRCC_34,                                      Sch name = SW14
 NET "SW<15>"                    LOC = "P4"      | IOSTANDARD = "LVCMOS33";              #Bank = 34, Pin name = IO_L14P_T2_SRCC_34,                                      Sch name = SW15
+
+NET "BTN<4>"                            LOC = "E16"     | IOSTANDARD = "LVCMOS33";              #Bank = 15, Pin name = IO_L11N_T1_SRCC_15, Sch name = BTNC
+NET "BTN<2>"                            LOC = "F15"     | IOSTANDARD = "LVCMOS33";              #Bank = 15, Pin name = IO_L14P_T2_SRCC_15, Sch name = BTNU
+NET "BTN<3>"                            LOC = "T16"     | IOSTANDARD = "LVCMOS33";              #Bank = CONFIG, Pin name = IO_L15N_T2_DQS_DOUT_CSO_B_14, Sch name = BTNL
+NET "BTN<0>"                            LOC = "R10"     | IOSTANDARD = "LVCMOS33";              #Bank = 14, Pin name = IO_25_14, Sch name = BTNR
+NET "BTN<1>"                            LOC = "V10"     | IOSTANDARD = "LVCMOS33";              #Bank = 14, Pin name = IO_L21P_T3_DQS_14, Sch name = BTND

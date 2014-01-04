@@ -39,6 +39,7 @@ entity vga is
          led2 : out std_logic;
          led3 : out std_logic;
          sw : in std_logic_vector(15 downto 0);
+         btn : in std_logic_vector(4 downto 0);
          vgared : out  UNSIGNED (3 downto 0);
          vgagreen : out  UNSIGNED (3 downto 0);
          vgablue : out  UNSIGNED (3 downto 0));
@@ -121,12 +122,20 @@ architecture Behavioral of vga is
   -----------------------------------------------------------------------------
   -- Video controller registers
   -----------------------------------------------------------------------------
-  -- Number added to card number for each row of characters
+
+  -- Number added to card number for each row of characters, i.e., virtual
+  -- character display width.
   signal virtual_row_width : unsigned(15 downto 0) := to_unsigned(40,16);
   -- Each character pixel will be (n+1) pixels wide  
   signal card_x_scale : unsigned(7 downto 0) := x"04";
   -- Each character pixel will be (n+1) pixels high
   signal card_y_scale : unsigned(7 downto 0) := x"04";
+  -- smooth scrolling position in whole and part pixels
+  signal x_smooth_scroll_offset : unsigned(7 downto 0) := x"00";
+  signal x_smooth_scroll_sub_offset : unsigned(7 downto 0) := x"00";
+  signal y_smooth_scroll_offset : unsigned(7 downto 0) := x"00";  
+  signal y_smooth_scroll_sub_offset : unsigned(7 downto 0) := x"00";  
+  
   -- Border dimensions
   signal border_x_left : unsigned(11 downto 0) := to_unsigned(160,12);
   signal border_x_right : unsigned(11 downto 0) := to_unsigned(1920-160,12);
@@ -134,7 +143,8 @@ architecture Behavioral of vga is
   signal border_y_bottom : unsigned(11 downto 0) := to_unsigned(1200-101,12);
   -- Border colour
   signal border_colour : unsigned(7 downto 0) := x"0e";  -- light blue border
-  -- Screen background colour
+
+-- Screen background colour
   signal screen_colour : unsigned(7 downto 0) := x"06";  -- dark blue centre
   -----------------------------------------------------------------------------
   
@@ -293,11 +303,28 @@ begin
         if ycounter<frame_height then
           ycounter <= ycounter + 1;
         else
+          -- Start of next frame
           ycounter <= (others =>'0');
           next_card_y := (others => '0');
           card_y_sub <= (others => '0');
           next_card_number := (others => '0');
           first_card_of_row <= (others => '0');
+          if btn(0) = '1' then
+            -- Right button: trim smooth scrolling right a pixel
+            x_smooth_scroll_offset <= x_smooth_scroll_offset + 1;
+          end if;
+          if btn(1) = '1' then
+            -- Down button: trim smooth scrolling right a pixel
+            y_smooth_scroll_offset <= y_smooth_scroll_offset - 1;
+          end if;
+          if btn(2) = '1' then
+            -- Up button: trim smooth scrolling right a pixel
+            y_smooth_scroll_offset <= y_smooth_scroll_offset + 1;
+          end if;
+          if btn(3) = '1' then
+            -- Left button: trim smooth scrolling right a pixel
+            x_smooth_scroll_offset <= x_smooth_scroll_offset - 1;
+          end if;         
         end if;	
       end if;
       if xcounter<frame_h_front then
@@ -339,7 +366,7 @@ begin
             if card_y(2 downto 0) = "111" then
               -- Increment card number every "bad line"
               first_card_of_row <= first_card_of_row + virtual_row_width;
-              next_card_number := card_number +1;              
+              next_card_number := first_card_of_row + virtual_row_width;
             end if;
             card_y_sub <= (others => '0');
           else
@@ -388,12 +415,14 @@ begin
       indisplay_t3 <= indisplay_t2;
 
       if displayy<=border_y_top then
-        card_y <= (others => '0');
-        card_y_sub <= (others => '0');               
+        card_y(11 downto 8) <= (others => '0');
+        card_y(7 downto 0) <= y_smooth_scroll_offset;
+        card_y_sub <= y_smooth_scroll_sub_offset;
       end if;
       if displayx<=border_x_left then
-        card_x <= (others => '0');
-        card_x_sub <= (others => '0');                      
+        card_x(11 downto 8) <= (others => '0');
+        card_x(7 downto 0) <= x_smooth_scroll_offset;
+        card_x_sub <= x_smooth_scroll_sub_offset;           
       end if;
       if displayx<border_x_left or displayx>border_x_right or
         displayy<border_y_top or displayy>border_y_bottom then
