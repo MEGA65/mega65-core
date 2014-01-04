@@ -199,7 +199,7 @@ architecture Behavioral of vga is
   signal border_x_left : unsigned(11 downto 0) := to_unsigned(160,12);
   signal border_x_right : unsigned(11 downto 0) := to_unsigned(1920-160,12);
   signal border_y_top : unsigned(11 downto 0) := to_unsigned(100,12);
-  signal border_y_bottom : unsigned(11 downto 0) := to_unsigned(1200-100,12);
+  signal border_y_bottom : unsigned(11 downto 0) := to_unsigned(1200-101,12);
   signal border_colour : unsigned(7 downto 0) := x"0e";  -- light blue border
 
   signal inborder : std_logic;
