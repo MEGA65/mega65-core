@@ -196,8 +196,8 @@ architecture Behavioral of vga is
     );
   
   -- Border generation
-  signal border_x_left : unsigned(11 downto 0) := to_unsigned(163,12);
-  signal border_x_right : unsigned(11 downto 0) := to_unsigned(1920-163,12);
+  signal border_x_left : unsigned(11 downto 0) := to_unsigned(160,12);
+  signal border_x_right : unsigned(11 downto 0) := to_unsigned(1920-160,12);
   signal border_y_top : unsigned(11 downto 0) := to_unsigned(100,12);
   signal border_y_bottom : unsigned(11 downto 0) := to_unsigned(1200-100,12);
   signal border_colour : unsigned(7 downto 0) := x"0e";  -- light blue border
@@ -374,15 +374,17 @@ begin
       indisplay_t2 <= indisplay_t1;
       indisplay_t3 <= indisplay_t2;
 
-      if displayy<border_y_top then
+      if displayy<=border_y_top then
         card_y <= (others => '0');
         card_y_sub <= (others => '0');               
+      end if;
+      if displayx<=border_x_left then
+        card_x <= (others => '0');
+        card_x_sub <= (others => '0');                      
       end if;
       if displayx<border_x_left or displayx>border_x_right or
         displayy<border_y_top or displayy>border_y_bottom then
         inborder<='1';
-        card_x <= (others => '0');
-        card_x_sub <= (others => '0');                      
       else
         inborder<='0';
       end if;
