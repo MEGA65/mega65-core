@@ -196,8 +196,8 @@ architecture Behavioral of vga is
     );
   
   -- Border generation
-  signal border_x_left : unsigned(11 downto 0) := to_unsigned(160,12);
-  signal border_x_right : unsigned(11 downto 0) := to_unsigned(1920-160,12);
+  signal border_x_left : unsigned(11 downto 0) := to_unsigned(163,12);
+  signal border_x_right : unsigned(11 downto 0) := to_unsigned(1920-163,12);
   signal border_y_top : unsigned(11 downto 0) := to_unsigned(100,12);
   signal border_y_bottom : unsigned(11 downto 0) := to_unsigned(1200-100,12);
   signal border_colour : unsigned(7 downto 0) := x"0e";  -- light blue border
@@ -390,10 +390,10 @@ begin
       inborder_t2 <= inborder_t1;
       inborder_t3 <= inborder_t2;
       
-      if indisplay_t3='1' then
-        if inborder_t3='1' then
+      if indisplay_t2='1' then
+        if inborder_t2='1' then
           pixel_colour <= border_colour;
-        elsif charrow(to_integer(not card_x_t3(2 downto 0))) = '0' then
+        elsif charrow(to_integer(not card_x_t3(2 downto 0))) = '1' then
           -- Display character in white on a background colour chosen by card number
         -- Using only the upper 8 colours so that we don't have white on white.
 
@@ -407,7 +407,7 @@ begin
             pixel_colour(3 downto 0) <= card_number_t3(3 downto 0);
           end if;
         else
-          pixel_colour <= x"01";
+          pixel_colour <= x"0e";
         end if;
       else
         pixel_colour <= x"00";
