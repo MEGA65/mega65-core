@@ -285,6 +285,26 @@ begin
       if counter = x"000000" then
         slow_clock <= not slow_clock;
         led3 <= slow_clock;
+        if btn(0) = '1' then
+          -- Right button: trim smooth scrolling right a pixel
+          x_smooth_scroll_offset(2 downto 0) <= x_smooth_scroll_offset(2 downto 0) + 1;
+        end if;
+        if btn(1) = '1' then
+          -- Down button: trim smooth scrolling right a pixel
+          y_smooth_scroll_offset(2 downto 0) <= y_smooth_scroll_offset(2 downto 0) - 1;
+        end if;
+        if btn(2) = '1' then
+          -- Up button: trim smooth scrolling right a pixel
+          y_smooth_scroll_offset(2 downto 0) <= y_smooth_scroll_offset(2 downto 0) + 1;
+        end if;
+        if btn(3) = '1' then
+          -- Left button: trim smooth scrolling right a pixel
+          x_smooth_scroll_offset(2 downto 0) <= x_smooth_scroll_offset(2 downto 0) - 1;
+        end if;
+        if btn(4) = '1' then
+          x_smooth_scroll_offset <= (others => '0');
+          y_smooth_scroll_offset <= (others => '0');
+        end if;
       end if;
       if xcounter>=(frame_h_front+width) and xcounter<(frame_h_front+width+frame_h_syncwidth) then
         hsync <= '0';
@@ -309,22 +329,6 @@ begin
           card_y_sub <= (others => '0');
           next_card_number := (others => '0');
           first_card_of_row <= (others => '0');
-          if btn(0) = '1' then
-            -- Right button: trim smooth scrolling right a pixel
-            x_smooth_scroll_offset <= x_smooth_scroll_offset + 1;
-          end if;
-          if btn(1) = '1' then
-            -- Down button: trim smooth scrolling right a pixel
-            y_smooth_scroll_offset <= y_smooth_scroll_offset - 1;
-          end if;
-          if btn(2) = '1' then
-            -- Up button: trim smooth scrolling right a pixel
-            y_smooth_scroll_offset <= y_smooth_scroll_offset + 1;
-          end if;
-          if btn(3) = '1' then
-            -- Left button: trim smooth scrolling right a pixel
-            x_smooth_scroll_offset <= x_smooth_scroll_offset - 1;
-          end if;         
         end if;	
       end if;
       if xcounter<frame_h_front then
@@ -438,12 +442,6 @@ begin
         if inborder_t2='1' then
           pixel_colour <= border_colour;
         elsif charrow(to_integer(not card_x_t3(2 downto 0))) = '1' then
-          -- Display character in white on a background colour chosen by card number
-        -- Using only the upper 8 colours so that we don't have white on white.
-
-        -- For some reason we end up rotated left by one pixel, so need to
-        -- adjust for this.
-
           pixel_colour(7 downto 4) <= "0000";
           pixel_colour(3 downto 0) <= card_number_t3(3 downto 0);
         else
