@@ -118,12 +118,30 @@ architecture Behavioral of vga is
   signal displayy : unsigned(11 downto 0);
   signal display_active : std_logic;
 
+  -----------------------------------------------------------------------------
+  -- Video controller registers
+  -----------------------------------------------------------------------------
+  -- Number added to card number for each row of characters
+  signal virtual_row_width : unsigned(15 downto 0) := to_unsigned(40,16);
+  -- Each character pixel will be (n+1) pixels wide  
+  signal card_x_scale : unsigned(7 downto 0) := x"04";
+  -- Each character pixel will be (n+1) pixels high
+  signal card_y_scale : unsigned(7 downto 0) := x"04";
+  -- Border dimensions
+  signal border_x_left : unsigned(11 downto 0) := to_unsigned(160,12);
+  signal border_x_right : unsigned(11 downto 0) := to_unsigned(1920-160,12);
+  signal border_y_top : unsigned(11 downto 0) := to_unsigned(100,12);
+  signal border_y_bottom : unsigned(11 downto 0) := to_unsigned(1200-101,12);
+  -- Border colour
+  signal border_colour : unsigned(7 downto 0) := x"0e";  -- light blue border
+  -- Screen background colour
+  signal screen_colour : unsigned(7 downto 0) := x"06";  -- dark blue centre
+  -----------------------------------------------------------------------------
+  
   -- Character generator state. Also used for graphics modes, since graphics
   -- modes on the C64 are all card-based, anyway.
   signal card_number : unsigned(15 downto 0);
   signal first_card_of_row : unsigned(15 downto 0);
-  signal card_x_scale : unsigned(7 downto 0) := x"05";  -- how many pixels wide each character/graphics pixel is
-  signal card_y_scale : unsigned(7 downto 0) := x"05";  -- how many pixels high each character/graphics pixel is
   -- coordinates after applying the above scaling factors
   signal card_x : unsigned(11 downto 0);
   signal card_y : unsigned(11 downto 0);
@@ -195,13 +213,8 @@ architecture Behavioral of vga is
     others => ( red => x"00", green => x"00", blue => x"00")
     );
   
-  -- Border generation
-  signal border_x_left : unsigned(11 downto 0) := to_unsigned(160,12);
-  signal border_x_right : unsigned(11 downto 0) := to_unsigned(1920-160,12);
-  signal border_y_top : unsigned(11 downto 0) := to_unsigned(100,12);
-  signal border_y_bottom : unsigned(11 downto 0) := to_unsigned(1200-101,12);
-  signal border_colour : unsigned(7 downto 0) := x"0e";  -- light blue border
-
+  -- Border generation signals
+  -- (see video registers section for the registers that define the border size)
   signal inborder : std_logic;
   signal inborder_t1 : std_logic;
   signal inborder_t2 : std_logic;
@@ -325,7 +338,7 @@ begin
             next_card_y := card_y + 1;
             if card_y(2 downto 0) = "111" then
               -- Increment card number every "bad line"
-              first_card_of_row <= card_number +1;
+              first_card_of_row <= first_card_of_row + virtual_row_width;
               next_card_number := card_number +1;              
             end if;
             card_y_sub <= (others => '0');
@@ -403,13 +416,9 @@ begin
         -- adjust for this.
 
           pixel_colour(7 downto 4) <= "0000";
-          if card_y < 4 then            
-            pixel_colour(3 downto 0) <= card_x_t3(3 downto 0);
-          else
-            pixel_colour(3 downto 0) <= card_number_t3(3 downto 0);
-          end if;
+          pixel_colour(3 downto 0) <= card_number_t3(3 downto 0);
         else
-          pixel_colour <= x"06";
+          pixel_colour <= screen_colour;
         end if;
       else
         pixel_colour <= x"00";
