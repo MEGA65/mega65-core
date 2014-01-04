@@ -172,31 +172,35 @@ architecture Behavioral of vga is
   type rgb_pallete is array(0 to 255) of rgb;
   signal pallete : rgb_pallete := (
     -- Default C64 palette from unusedino.de/ec64/technical/misc/vic656x/colors/
+    -- looked too gammad, so now using the C65 values, which I know will be a bit
+    -- too bold.  Compromise is to use the "PAL corrected C65 palette" proposed
+    -- at
+    -- http://www.lemon64.com/forum/viewtopic.php?t=38987&sid=1368bf8d473afcaba988ebb2f00f8534
     0 => ( red => x"00", green => x"00", blue => x"00"),
     1 => ( red => x"ff", green => x"ff", blue => x"ff"),
-    2 => ( red => x"68", green => x"37", blue => x"2b"),
-    3 => ( red => x"70", green => x"a4", blue => x"b2"),
-    4 => ( red => x"6f", green => x"3d", blue => x"86"),
-    5 => ( red => x"58", green => x"8d", blue => x"43"),
-    6 => ( red => x"35", green => x"28", blue => x"79"),
-    7 => ( red => x"b8", green => x"c7", blue => x"6f"),
-    8 => ( red => x"6f", green => x"4f", blue => x"25"),
-    9 => ( red => x"43", green => x"39", blue => x"00"),
-    10 => ( red => x"9a", green => x"67", blue => x"59"),
-    11 => ( red => x"44", green => x"44", blue => x"44"),
-    12 => ( red => x"6c", green => x"6c", blue => x"6c"),
-    13 => ( red => x"9a", green => x"d2", blue => x"84"),
-    14 => ( red => x"6c", green => x"5e", blue => x"b5"),
-    15 => ( red => x"95", green => x"95", blue => x"95"),
+    2 => ( red => x"ab", green => x"31", blue => x"26"),
+    3 => ( red => x"66", green => x"da", blue => x"ff"),
+    4 => ( red => x"bb", green => x"3f", blue => x"b8"),
+    5 => ( red => x"55", green => x"ce", blue => x"58"),
+    6 => ( red => x"1d", green => x"0e", blue => x"97"),
+    7 => ( red => x"ea", green => x"f5", blue => x"7c"),
+    8 => ( red => x"b9", green => x"74", blue => x"18"),
+    9 => ( red => x"78", green => x"73", blue => x"00"),
+    10 => ( red => x"dd", green => x"93", blue => x"87"),
+    11 => ( red => x"5b", green => x"5b", blue => x"5b"),
+    12 => ( red => x"8b", green => x"8b", blue => x"8b"),
+    13 => ( red => x"b0", green => x"f4", blue => x"ac"),
+    14 => ( red => x"aa", green => x"9d", blue => x"ef"),
+    15 => ( red => x"b8", green => x"b8", blue => x"b8"),
     others => ( red => x"00", green => x"00", blue => x"00")
     );
   
   -- Border generation
-  signal border_x_left : unsigned(11 downto 0) := to_unsigned(96,12);
-  signal border_x_right : unsigned(11 downto 0) := to_unsigned(1920-96,12);
+  signal border_x_left : unsigned(11 downto 0) := to_unsigned(160,12);
+  signal border_x_right : unsigned(11 downto 0) := to_unsigned(1920-160,12);
   signal border_y_top : unsigned(11 downto 0) := to_unsigned(100,12);
   signal border_y_bottom : unsigned(11 downto 0) := to_unsigned(1200-100,12);
-  signal border_colour : unsigned(7 downto 0) := x"06";  -- blue border
+  signal border_colour : unsigned(7 downto 0) := x"0e";  -- light blue border
 
   signal inborder : std_logic;
   signal inborder_t1 : std_logic;
@@ -370,9 +374,15 @@ begin
       indisplay_t2 <= indisplay_t1;
       indisplay_t3 <= indisplay_t2;
 
+      if displayy<border_y_top then
+        card_y <= (others => '0');
+        card_y_sub <= (others => '0');               
+      end if;
       if displayx<border_x_left or displayx>border_x_right or
         displayy<border_y_top or displayy>border_y_bottom then
         inborder<='1';
+        card_x <= (others => '0');
+        card_x_sub <= (others => '0');                      
       else
         inborder<='0';
       end if;
