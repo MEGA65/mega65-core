@@ -333,7 +333,7 @@ begin
       end if;
 
       -- Read byte from character ROM
-      if card_number_t1 /= card_number then
+      if card_number_t3 /= card_number then
         charaddress(10 downto 3) <= std_logic_vector(card_number(7 downto 0));
         charaddress(2 downto 0) <= std_logic_vector(card_y(2 downto 0));
         charread <= '1';
@@ -352,10 +352,10 @@ begin
       card_x_t3 <= card_x_t2;
       card_number_t1 <= card_number;
       card_number_t2 <= card_number_t1;
-      card_number_t3 <= card_number_t1;
+      card_number_t3 <= card_number_t2;
       indisplay_t1 <= indisplay;
-      indisplay_t2 <= indisplay;
-      indisplay_t3 <= indisplay;
+      indisplay_t2 <= indisplay_t1;
+      indisplay_t3 <= indisplay_t2;
 
       if indisplay_t3='1' then
         -- Display character in white on a background colour chosen by card number
