@@ -190,6 +190,14 @@ architecture Behavioral of vga is
     15 => ( red => x"95", green => x"95", blue => x"95"),
     others => ( red => x"00", green => x"00", blue => x"00")
     );
+  
+  -- Border generation
+  signal border_x_left : unsigned(11 downto 0) := to_unsigned(96,12);
+  signal border_x_right : unsigned(11 downto 0) := to_unsigned(1920-96,12);
+  signal border_y_top : unsigned(11 downto 0) := to_unsigned(96,12);
+  signal border_y_bottom : unsigned(11 downto 0) := to_unsigned(1200-96,12);
+  signal border_colour : rgb := ( red => x"35", green => x"28", blue => x"79");
+
 begin
 
   pixelclock1: component pixelclock
@@ -358,6 +366,7 @@ begin
       indisplay_t3 <= indisplay_t2;
 
       if indisplay_t3='1' then
+        
         -- Display character in white on a background colour chosen by card number
         -- Using only the upper 8 colours so that we don't have white on white.
 
@@ -384,9 +393,25 @@ begin
       vga_buffer_green <= pallete(to_integer(pixel_colour)).green(7 downto 4); 
       vga_buffer_blue <= pallete(to_integer(pixel_colour)).blue(7 downto 4);
       -- 2. From RGB, push out to pins
-      vgared <= vga_buffer_red;
-      vgagreen <= vga_buffer_green;
-      vgablue <= vga_buffer_blue;
+      if displayx<border_x_left or displayx>border_x_right
+        or displayy<border_y_top or displayy>border_y_bottom then
+        -- In border - just draw border colour
+        vgared <= border_colour.red(7 downto 4);
+        vgagreen <= border_colour.green(7 downto 4);
+        vgablue <= border_colour.blue(7 downto 4);
+        -- Reset character drawing status.
+        -- XXX Complicated by character reading pipeline
+        card_x <= (others => '0');
+        card_x_sub <= (others => '0');
+        card_y <= (others => '0');
+        card_y_sub <= (others => '0');
+      else
+        -- In normal display area, draw normally
+        vgared <= vga_buffer_red;
+        vgagreen <= vga_buffer_green;
+        vgablue <= vga_buffer_blue;
+      end if;
+
     end if;
   end process;
 
