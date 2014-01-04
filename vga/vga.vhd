@@ -277,7 +277,7 @@ begin
         if card_x_sub=card_x_scale then
           next_card_x := card_x + 1;
           card_x_sub <= (others => '0');
-          if card_x(2 downto 0) = "000" then
+          if next_card_x(2 downto 0) = "000" then
             next_card_number := card_number + 1;
           end if;
         else
