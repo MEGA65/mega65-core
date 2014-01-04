@@ -194,8 +194,8 @@ architecture Behavioral of vga is
   -- Border generation
   signal border_x_left : unsigned(11 downto 0) := to_unsigned(96,12);
   signal border_x_right : unsigned(11 downto 0) := to_unsigned(1920-96,12);
-  signal border_y_top : unsigned(11 downto 0) := to_unsigned(96,12);
-  signal border_y_bottom : unsigned(11 downto 0) := to_unsigned(1200-96,12);
+  signal border_y_top : unsigned(11 downto 0) := to_unsigned(100,12);
+  signal border_y_bottom : unsigned(11 downto 0) := to_unsigned(1200-100,12);
   signal border_colour : rgb := ( red => x"35", green => x"28", blue => x"79");
 
 begin
@@ -373,11 +373,11 @@ begin
         -- For some reason we end up rotated left by one pixel, so need to
         -- adjust for this.
         if charrow(to_integer(not card_x_t3(2 downto 0))) = '0' then
-          pixel_colour(7 downto 3) <= "0000";
+          pixel_colour(7 downto 4) <= "0000";
           if card_y < 4 then            
-            pixel_colour(2 downto 0) <= card_x_t3(3 downto 0);
+            pixel_colour(3 downto 0) <= card_x_t3(3 downto 0);
           else
-            pixel_colour(2 downto 0) <= card_number_t3(3 downto 0);
+            pixel_colour(3 downto 0) <= card_number_t3(3 downto 0);
           end if;
         else
           pixel_colour <= x"01";
