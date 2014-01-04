@@ -196,8 +196,13 @@ architecture Behavioral of vga is
   signal border_x_right : unsigned(11 downto 0) := to_unsigned(1920-96,12);
   signal border_y_top : unsigned(11 downto 0) := to_unsigned(100,12);
   signal border_y_bottom : unsigned(11 downto 0) := to_unsigned(1200-100,12);
-  signal border_colour : rgb := ( red => x"35", green => x"28", blue => x"79");
+  signal border_colour : unsigned(7 downto 0) := x"06";  -- blue border
 
+  signal inborder : std_logic;
+  signal inborder_t1 : std_logic;
+  signal inborder_t2 : std_logic;
+  signal inborder_t3 : std_logic;
+  
 begin
 
   pixelclock1: component pixelclock
@@ -365,14 +370,26 @@ begin
       indisplay_t2 <= indisplay_t1;
       indisplay_t3 <= indisplay_t2;
 
+      if displayx<border_x_left or displayx>border_x_right or
+        displayy<border_y_top or displayy>border_y_bottom then
+        inborder<='1';
+      else
+        inborder<='0';
+      end if;
+      inborder_t1 <= inborder;
+      inborder_t2 <= inborder_t1;
+      inborder_t3 <= inborder_t2;
+      
       if indisplay_t3='1' then
-        
-        -- Display character in white on a background colour chosen by card number
+        if inborder_t3='1' then
+          pixel_colour <= border_colour;
+        elsif charrow(to_integer(not card_x_t3(2 downto 0))) = '0' then
+          -- Display character in white on a background colour chosen by card number
         -- Using only the upper 8 colours so that we don't have white on white.
 
         -- For some reason we end up rotated left by one pixel, so need to
         -- adjust for this.
-        if charrow(to_integer(not card_x_t3(2 downto 0))) = '0' then
+
           pixel_colour(7 downto 4) <= "0000";
           if card_y < 4 then            
             pixel_colour(3 downto 0) <= card_x_t3(3 downto 0);
@@ -392,28 +409,11 @@ begin
       vga_buffer_red <= pallete(to_integer(pixel_colour)).red(7 downto 4);   
       vga_buffer_green <= pallete(to_integer(pixel_colour)).green(7 downto 4); 
       vga_buffer_blue <= pallete(to_integer(pixel_colour)).blue(7 downto 4);
-      -- 2. From RGB, push out to pins (also draw border)
-      if displayx<border_x_left or displayx>border_x_right
-        or displayy<border_y_top or displayy>border_y_bottom then
-        -- In border - just draw border colour
-        vgared <= border_colour.red(7 downto 4);
-        vgagreen <= border_colour.green(7 downto 4);
-        vgablue <= border_colour.blue(7 downto 4);
-        -- Reset character drawing status.
-        -- XXX Complicated by character reading pipeline
-        card_x <= (others => '0');
-        card_x_sub <= (others => '0');
-        if displayy<border_y_top then
-          card_y <= (others => '0');
-          card_y_sub <= (others => '0');
-        end if;
-      else
-        -- In normal display area, draw normally
-        vgared <= vga_buffer_red;
-        vgagreen <= vga_buffer_green;
-        vgablue <= vga_buffer_blue;
-      end if;
 
+      -- 2. From RGB, push out to pins (also draw border)
+      vgared <= vga_buffer_red;
+      vgagreen <= vga_buffer_green;
+      vgablue <= vga_buffer_blue;
     end if;
   end process;
 
