@@ -390,7 +390,7 @@ begin
       inborder_t2 <= inborder_t1;
       inborder_t3 <= inborder_t2;
       
-      if indisplay_t2='1' then
+      if indisplay_t3='1' then
         if inborder_t2='1' then
           pixel_colour <= border_colour;
         elsif charrow(to_integer(not card_x_t3(2 downto 0))) = '1' then
@@ -407,7 +407,7 @@ begin
             pixel_colour(3 downto 0) <= card_number_t3(3 downto 0);
           end if;
         else
-          pixel_colour <= x"0e";
+          pixel_colour <= x"06";
         end if;
       else
         pixel_colour <= x"00";
