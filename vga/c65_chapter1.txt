@@ -1,0 +1,897 @@
+C64DX SYSTEM SPECIFICATION
+
+o Design Concepts
+o Hardware Specifications
+o Software Specifications
+
+Requires ROM Version 0.9A.910228 or later.
+
+
+COPYRIGHT 1991 COMMODORE BUSINESS MACNINES, INC.
+ALL RIGHTS RESERVED.
+
+INFORMATION  CONTAINED  HEREIN  IS  THE  UNPUBLISHED  AND CONFIDENTIAL
+PROPERTY  OF  COMMODORE  BUSINESS MACHINES, INC. USE, REPRODUCTION, OR
+DISCLOSURE OF THIS INFORMATION WITHOUT THE PRIOR WRITTEN PERMISSION OF
+COMMODORE IS PROHIBITED.
+
+
+ CCCC       666     555555
+C    C     6        5
+C         6         5
+C         6         55555
+C         66666     5    5
+C         6    6         5
+C         6    6         5
+C    C    6    6    5    5
+ CCCC      6666      5555
+
+Copyright 1991 Commodore Business Machines, Inc.
+
+All Rights Reserved.
+
+This documentation contains confidential, proprietary, and unpublished
+information  of  Commodore  Business  Machines, Inc. The reproduction,
+dissemination, disclosure or translation of this information to others
+without the prior written consent of Commodore Business Machines, Inc.
+is strictly prohibited.
+
+Notice  is  hereby given that the works of authorship contained herein
+are  owned  by  Commodore  Business  Machines,  Inc.  pursuant to U.S.
+Copyright Law, Title 17 U.S.C. 3101 et. seq.
+
+This system specification reflects the latest information available at
+this  time.  Updates  will  occur  as  the  system  evolves. Commodore
+Business Machines, Inc. makes no warranties, expressed or implied with
+regard  to  the  information  contained  herein including the quality,
+performance,  merchantability,  or  fitness of this information or the
+system as described.
+
+This system specification contains the contributions of several people
+including: Fred Bowen, Paul Lassa, Bill Gardei, and Victor Andrade.
+
+Portions of the BASIC ROM code are Copyright 1977 Microsoft.
+
+
+PPPP   RRRR   EEEE  L     I  M   M  I  N   N    A    RRRR  Y   Y
+P   P  R   R  E     L     I  MM MM  I  NN  N   A A   R   R  Y Y
+PPPP   RRRR   EEE   L     I  M M M  I  N N N  AAAAA  RRRR    Y
+P      R   R  E     L     I  M   M  I  N  NN  A   A  R   R   Y
+P      R   R  EEEE  LLLL  I  M   M  I  N   N  A   A  R   R   Y
+
+Revision 0.2   (pilot release)         January 31, 1991
+
+At  this  time,  Pilot  Production,  the C65 system consists of either
+revision 2A or 2B PCB, 4510R3, 4567R5 (PAL only), F011B/C FDC, and 018
+DMAgic  chips.  There  will  be  changes  to  all  these  chips before
+Production Release.
+
+This work is by:
+
+        Fred Bowen              System Software -   C65
+        Paul Lassa              Hardware engineer - C65, DMagic
+        Bill Gardei             LSI engineer -      4567, FDC
+        Victor Andrade          LSI engineer -      4510
+
+Included  are  contributions by contractors hired by Commodore for the
+C65 project. These contributions include the DOS, Graphics, Audio, and
+Memory management areas.
+
+Several 4502 assembler systems are available:
+
+       VAX, Amiga, and PC based BSO-compatible cross assemblers.
+
+       PC based custom cross assembler by Memocom, compatible
+       with Memocom 4502 emulator and Mem-ulator systems.
+
+       C128-based BSO compatible cross assembler by Commodore.
+
+Custom   software   support  is  available  for  the  following  logic
+analyzers:
+
+       Hewlett Packard HP655x A and B logic analyzers.
+
+
+Table of Contents
+-----------------
+
+1.0. Introduction
+
+    1.1. System Concept
+    1.2. System Overview
+    1.3. System Components
+    1.4. System Concerns
+
+        1.4.1. C64 Compatibility
+               1.4.1.1. Software
+               1.4.1.2. Hardware
+        1.4.2. 1581 DOS Compatibility
+        1.4.3. Modes of Operation
+
+    1.5. System Maps
+
+        1.5.1. Composite System Memory Map
+        1.5.2. C65 System Memory Map
+        1.5.3. C65 System Memory Layout
+        1.5.4. C65 I/O Memory Map
+
+2.0. System Hardware
+
+    2.1. Keyboard
+
+        2.1.1. Keyboard Layout
+        2.1.2. Keyboard Matrix
+
+    2.2. External Ports & Form-Factor
+    2.3. Microcontroller
+
+        2.3.1. Description
+        2.3.2. Configuration
+        2.3.3. Functional Description
+
+              2.3.3.1. Pin Description
+              2.3.3.2. Timing Description
+              2.3.3.3. Register Description
+
+        2.3.4. Mapper
+        2.3.5. Peripheral Control
+
+              2.3.5.1. I/O Ports
+              2.3.5.2. Handshaking
+              2.3.5.3. Timers
+              2.3.5.4. TOD Clocks
+              2.3.5.5. Serial Ports
+              2.3.5.6. Fast Serial Ports
+              2.3.5.7. Interrupt Control
+              2.3.5.8. Control Registers
+
+        2.3.6. UART
+
+              2.3.6.1. Control Registers
+              2.3.6.2. Status Register
+              2.3.6.3. Character Configuration
+              2.3.6.4. Register Map
+
+        2.3.7. CPU
+
+              2.3.7.1. Introduction
+              2.3.7.2. CPU Operation
+              2.3.7.3. Interrupt Handling
+              2.3.7.4. Addressing Modes
+              2.3.7.5. Instruction Set
+              2.3.7.6. Opcode Table
+
+    2.4. Video Controller
+
+        2.4.1. Description
+        2.4.2. Configuration
+        2.4.3. Functional Description
+        2.4.4. Programming
+        2.4.5. Registers
+
+    2.5. Disk Controller
+
+        2.5.1. Description
+        2.5.2. Configuration
+        2.5.3. Registers
+        2.5.4. Functional Description
+        2.5.5. Expansion port protocol
+        2.5.6. Timing diagrams
+
+    2.6. Expansion Disk Controller (option)
+
+        2.6.1. Description
+        2.6.2. Expansion port protocol
+
+    2.7. DMAgic Controller
+
+        2.7.1. Description
+        2.7.2. Registers
+
+    2.8. RAM Expansion Controller (option)
+
+        2.8.1. Description
+
+    2.9. Audio Controller
+
+3.0. System Software
+
+    3.1. BASIC 10.0
+
+        3.1.1. Introduction
+        3.1.2. List of Commands
+        3.1.3. Command Descriptions
+        3.1.4. Variables
+        3.1.5. Operators
+        3.1.6. Error Messages
+
+              3.1.6.1. BASIC Error Messages
+              3.1.6.2. DOS Error Messages
+
+    3.2. Monitor
+
+        3.2.1. Introduction
+        3.2.2. Commands and Conventions
+        3.2.3. Command Descriptions
+
+    3.3. Editor
+
+        3.3.1. Escape Sequences
+        3.3.2. Control Characters
+
+    3.4. Kernel
+
+        3.4.1. Kernel Jump Table
+        3.4.2. BASIC Jump Table
+        3.4.3. Editor Jump Table
+        3.4.4. Indirect Vectors
+        3.4.5. Kernel Documentation
+        3.4.6. BASIC Math Package Documentation
+        3.4.7. I/O Devices
+
+    3.5. DOS
+    3.6. RS-232
+
+4.0. Development Support
+
+
+
+1.0. Introduction
+
+This  specification  describes  the  requirements for a low-cost 8-bit
+microcomputer system with excellent graphic capabilities.
+
+
+1.1. System Concept
+
+The  C65  microcomputer  is a low-cost, versatile, competitive product
+designed for the international home computer and game market.
+
+The C65 is well suited for first time computer buyers, and provides an
+excellent  upgrade  path  for  owners  of  the commercially successful
+C64. The C65 is composed of concepts inherent in the C64 and C128.
+
+The  purpose of the C65 is to modernize and revitalize the 10 year old
+C64  market  while still taking advantage of the developed base of C64
+software.  To  accomplish  this,  the  C65  will provide a C64 mode of
+operation,  offering a reasonable degree of C64 software compatibility
+and a moderate degree of add-on hardware and peripheral compatibility.
+Compatibility can be sacrificed when it impedes enhanced functionality
+and expandability, much as the C64 sacrificed VIC-20 compatibility.
+
+It  is  anticipated that the many features and capabilities of the new
+C65  mode  will  quickly  attract  the  attention  of  developers  and
+consumers  alike,  thereby  revitalizing  the  low-end  home  computer
+market.  The  C65  incorporates  features  that  are normally found on
+today's more expensive machines, continuing the Commodore tradition of
+maximizing  performance  for  the price. The C65 will provide many new
+opportunities  for  third  party  software  and  hardware  developers,
+including  telecommunications,  video,  instrument  control (including
+MIDI), and productivity as well as entertainment software.
+
+
+1.2. System Overview
+
+   o  CPU -- Commodore CSG4510 running at 1.02 or 3.5 Mhz
+
+        o  New instructions, including Rockwell and GTE extensions
+
+        o  Memory Mapper supporting up to 1 Megabyte address space
+
+        o  R6511-type UART (3-wire RS-232) device, programmable baud
+           rate (50-56K baud, MIDI-capable), parity, word size, sync
+           and async. modes.  XD/RD wire ORed/ANDed with user port.
+
+        o  Two CSG6526-type CIA devices, each with 2 I/O ports
+           programmable TOD clocks, interval timers, interrupt control
+
+
+   o  Memory
+
+        o  RAM -- 128K bytes (DRAM)
+             Externally expandable from additional 512K bytes to 4MB
+             using dedicated RAM expansion port.
+
+        o  ROM -- 128K bytes
+             C64 Kernel and BASIC 2.2
+             C65 Kernel, Editor, BASIC 10.0, ML Monitor (like C128)
+             DOS v10 (1581 subset)
+             Multiple character sets: 40 and 80 column versions
+             National keyboards/charsets for foreign language systems
+             Externally expandable by conventional C64 ROM cartridges
+             via cartridge/expansion port using C64 decodes.
+             Externally expandable by additional 128K bytes or more
+             via cartridge/expansion port using new system decodes.
+
+        o  DMA -- Custom DMAgic controller chip built-in
+             Absolute address access to entire 8MB system map
+             including I/O devices, both ROM & RAM expansion ports.
+             List-based DMA structures can be chained together
+             Copy (up,down,invert), Fill, Swap, Mix (boolean Minterms)
+             Hold, Modulus (window), Interrupt, and Resume modes,
+             Block operations from 1 byte to 64K bytes
+             DRQ handshaking for I/O devices
+             Built-in support for (optional) expansion RAM controller
+
+
+    o  Video -- Commodore CSG 4567 enhanced VIC chip
+
+        o   RGBA with sync on all colors or digital sync
+
+        o   Composite NTSC or PAL video, separate chroma/luma
+
+        o   Composite NTSC or PAL digital monochrome
+
+        o   RF TV output via NTSC or PAL modulator
+
+        o   Digital foreground/background control (genlock)
+
+        o   All original C64 video modes:
+            40x25 standard character mode
+            Extended background color mode
+            320x200 bitmap mode
+            Multi-color mode
+            16 colors
+            8 sprites, 24x21
+
+        o   40 and 80 character columns by 25 rows:
+               Color, blink, bold, inverse video, underline attributes
+
+        o   True bitplane graphics:
+                 320 x 200 x 256  (8-bitplane)  non-interlaced
+                 640 x 200 x 16*  (4-bitplane)  non-interlaced
+                1280 x 200 x 4*   (2-bitplane)  non-interlaced
+                 320 x 400 x 256  (8-bitplane)  interlaced
+                 640 x 400 x 16*  (4-bitplane)  interlaced
+                1280 x 400 x 4*   (2-bitplane)  interlaced
+                        *plus sprite and border colors
+
+        o   Color palettes:
+               Standard 16-color C64 ROM palette
+               Programmable 256-color RAM palette, with 16 intensity
+               levels per primary color (yielding 4096 colors)
+
+        o   Horizontal and vertical screen positioning verniers
+
+        o   Display Address Translator (DAT) allows programmer to
+            access bitplanes easily and directly.
+
+        o   Access to optional expansion RAM
+
+        o   Operates at either clock speed without blanking
+
+
+    o  Audio -- Commodore CSG8580 SID chips
+
+        o  Stereo SID chips:
+              Total of 6 voices, 3 per channel
+              Programmable ADSR envelope for each voice
+              Filter, modulation, audio inputs, potentiometer
+              Separate left/right volume, filter, modulation control
+
+
+    o  Disk, Printer support --
+
+        o  FDC custom MFM controller chip built in, with 512-byte
+           buffer, sector or full track read/write/format, LED and
+           motor control, copy protection.
+
+        o  Built-in 3.5" double sided, 1MB MFM capacity drive
+
+        o  Media & file system compatible with 1581 disk drive
+
+        o  Supports one additional "dumb" drive externally.
+
+        o  Standard CBM bus serial (all modes, about 4800 baud)
+
+        o  Fast serial bus (C65 mode only, about 20K baud)
+
+        o  Burst serial (C65 mode only, about 50K baud)
+
+
+    o  External ports --
+
+        o  50-pin Cartridge/expansion port (ROM cartridges, etc.)
+
+        o  24-pin User/parallel port (modem (1670), RS-232 serial)
+
+        o  Composite video/audio port (8-pin DIN)
+
+        o  Analog RGB video port (DB-9)
+
+        o  RF video output jack
+
+        o  Serial bus port (disks (1541/1571/1581), printers, etc.)
+
+        o  External floppy drive port (mini DIN8)
+
+        o  2 DB9 control ports (joystick, mouse, tablets, lightpen)
+
+        o  Left and right stereo audio output jacks
+
+        o  RAM expansion port, built-in support for RAM controller
+
+
+   o  Keyboard -- 77 keys, including standard C64 keyboard plus:
+
+        o  Total of 8 function keys, F1-F16, shifted and nonshifted
+
+        o  TAB, escape, ALT, CAPS lock, no scroll, help (F15/16)
+
+        o  Power, disk activity LEDs
+
+   o  Power supply -- external, brick type
+
+        o  +5VDC at 2.2A  and  +12VDC at .85A
+
+
+
+1.3. System Components
+
+Microcontroller:     4510 (65CE02, 2x6526, 6511 UART, Mapper,
+                           Fast serial)
+
+Memory:              4464   DRAM (128K bytes)
+                     271001 ROM  (128K bytes)
+
+Video controller:    4567 (extended VIC, DAT, PLA)
+
+Audio controllers:   6581 (SID)
+
+Memory control:      41xx-F018 (DMA)
+
+Disk controller:     41xx-F011 (FDC, supports 2 DSDD drives, MFM,
+                                RAM buffer)
+
+
+KEYS
+ + USER PORT
+ | + CONTROL PORTS                      EXPANSION PORT
+ | | +                                      + + +  +---+
+ | | |                                      | | |  |   | +MOD-> RFOUT
+++-+-++                                     | | |  |   +-+----> COMP,CHROMA/LUMA
+|     |                                     | | |  |   +------> RGBA
+|     +-------------------------------------+------+   |      +---+
+|     +--------------------------------------------+   +--...-+ R +--+
+|     |                                       | |  |   |        E    | EXPANSION
+|     |     +---+  +---+  +---+  +---+  +---+ | |  |   +--...-+ C +--+   MEMORY
+|  4  |     |   |  |   |  |   |  |   |  |   | | |  | 4 |      +---+
+|  5  +-----+ D +--+ F +--+ S +--+ S +--+ R +-+----+ 5 |  +--+  +--+  +--+  +--+
+|  1  +-----+ M +--+ D +--+ I +--+ I +--+ O +------+ 6 |  |  |  |  |  |  |  |  |
+|  0  | ADR | A |  | C |  | D |  | D |  | M |   |  | 7 +--+  +--+  +--+  +--+  |
+|     |     | G |  |   |  |   |  |   |  |   |   |  |   +--+  +--+  +--+  +--+  |
+|     +-----+ I +--+   +--+   +--+   +--+   +---+--+   +--+  +--+  +--+  +--+  |
+|     +-----+ C +--+   +--+   +--+   +--+   +------+   +--+  +--+  +--+  +--+  |
+|     | DAT |   |  |   |  |   |  |   |  |   |      |   |  |  |  |  |  |  |  |  |
++--+--+     +---+  +++-+  +-+-+  +-+-+  +---+      +---+  +--+  +--+  +--+  +--+
+   |                ||      |      |                               128K
+   +                ||      R      L                           RAM INTERNAL
+SERIAL BUS          ||      SPEAKERS
+                    ++
+                FLOPPY PORT
+
+
+
+1.4. System Concerns
+
+
+1.4.1. C64 Compatibility Issues
+
+1.4.1.1. Software
+
+C64 software compatibility is an important goal. To this end, when the
+system  is in "C64 mode" the processor will operate at average 1.02MHz
+speed  and  dummy "dead" cycles are emulated by the processor. The C64
+ROM  is  the  same  except  for  patches to serial bus routines in the
+kernel  (to  interface  built-in  drive), the removal of cassette code
+(there  is  no  cassette  port), and patches to the C64 initialization
+routines  to  boot C65 mode if there is no reason (eg., cartridges) to
+stay in C64 mode.
+
+Compatibility  with  C64  software  that uses previously unimplemented
+6502  opcodes  (often associated with many copy-protection schemes) or
+that implements extremely timing dependent "fast loaders" is iherently
+impossible. Because the VIC-III timing is slightly different, programs
+that  are  extremely  timing  dependant  may  not  work properly. Also
+because  the  VIC-III does not change display modes until the end of a
+character  line, programs that change displays based strictly upon the
+raster  position  may not display things properly. The aspect ratio of
+the  VIC-III display is slightly different than the VIC-II. The use of
+a  1541-II disk drive (optional) will improve compatibility. C64 BASIC
+2.2  compatibility  will be 100%  (within hardware constraints).  C128
+BASIC   10  compatibility  will  be  moderate  (graphic  commands  are
+different,  some  command parameters different, and there are many new
+commands).
+
+1.4.1.2. Hardware
+
+C64  hardware  compatibility  is  limited. Serial bus and control port
+devices  (mouse, joysticks, etc.) are fully supported.  Some user port
+devices  are  supported  such as the newer (4-DIP switch) 1670 modems,
+but  there's  no  9VAC  so  devices  which require 9VAC won't function
+correctly.  The expansion port has additional pins (50 total), and the
+pin  spacing is closer than the C64 (it's like the PLUS/4). An adaptor
+("WIDGET")  will  be necessary to utilize C64 cartridges and expansion
+port devices. Furthermore, timing differences between some C64 and C65
+expansion port signals will affect many C64 expansion devices (such as
+the 1764).
+
+
+1.4.2. DOS Compatibility
+
+The  built-in  C65  DOS is a subset of Commodore 1581 DOS. There is no
+track  cache,  index  sensor, etc. To load and run existing 1541-based
+applications,  the  consumer must add a 1541 drive to the system. Many
+commercial  applications cannot be easily ported from 1541/5.25" media
+to 1581/3.5" media, due to copy protection or "fast loaders". Most C64
+applications  that  directly  address DOS memory, specific disk tracks
+or  sectors, or rely on DOS job queues and timing characteristics will
+not work with the built-in drive and new DOS.
+
+
+1.4.3. Operating Modes
+
+The  C65 powers up in the C64 mode. If there are no conditions present
+which  indicate that C64 mode is desired, such as the C= key depressed
+or   a   C64   cartridge  signature  found,  then  C65  mode  will  be
+automatically  brought  into  context. Unlike the C128, "C6 4 mode" is
+escapable.  Like  the  C128,  all  of the extended features of the C65
+system  are  accessible  from "C64 mode" via custom software. Whenever
+the  system initiates C64 mode, new VIC mode is always disabled except
+when the DOS is required.
+
+
+1.5. System Maps
+
+1.5.1. Composite System Memory Map
+
+     C64 CARTRIDGES     C64           C65          RAM-LO        RAM-HI
+$FFFF+-----------+ +-----------+ +-----------+ +-----------+ +-----------+
+     |           | |           | |           | |           | |COLOR NYBS |
+$F800|   GAME    | |  KERNEL   | |  KERNEL   | |           | +-----------+
+     |           | |    &      | |    &      | |           | |           |
+     |   CARD    | |  EDITOR   | |  EDITOR   | |           | |           |
+     |           | |           | |           | |.......... | | ......... |
+$E000+-----------+ +-----------+ +-----------+ | C65 EVEN  | | C65 ODD   |
+                   |COLOR NYBS | |COLOR NYBS | | BITPLANES | | BITPLANES |
+                   |I/O & CHARS| |I/O & CHARS| |.......... | | ......... |
+$D000 ------------ +-----------+ +-----------+ |           | |           |
+                                 |           | |           | |           |
+                                 |  KERNEL   | |           | |           |
+                                 |           | | C65 BASIC | | C65 VARS &|
+$C000+-----------+ +-----------+ +-----------+ |   TEXT    | |   STRINGS |
+     |           | |           | |           | |$2000-$FEFF| |$2000-$F7FF|
+     |APPLICATION| |           | |           | |           | |           |
+     |           | |   BASIC   | |           | |           | |           |
+     | CARD _ HI | |           | |   BASIC   | |           | |           |
+     |           | |           | |  GRAPHICS | |           | |           |
+$A000+-----------+ +-----------+ |           | +-----------+ |           |
+     |           |               |           | |           | |           |
+     |APPLICATION|               |    DOS    | |           | |           |
+     |           |               |  (MAPPED) | |           | |           |
+     | CARD _ LOW|               |           | |           | |           |
+     |           |               |           | | C64 VARS &| |           |
+$8000+-----------+ ------------- +-----------+ |   STRINGS | |           |
+                                 |COLOR NYBS | | TEXT-$BFFF| |           |
+                                 |I/O & CHARS| |           | |           |
+$6000 -------------------------- +-----------+ | C64 BASIC | |           |
+                                 |           | |   TEXT    | |           |
+                                 |           | |$0800-VARS | |           |
+                                 |           | |           | |           |
+                                 |           | |           | |           |
+                                 |   BASIC   | |           | |           |
+                                 |           | |           | |           |
+                                 |           | |           | |           |
+                                 |           | |           | |           |
+$2000 -------------------------- +-----------+ +-----------+ +-----------+
+                                               | C65 SYSTEM| | C64 & C65 |
+                                               |TEXTSCREENS| |    DOS    |
+$0000 ---------------------------------------- +-----------+ +-----------+
+
+
+1.5.2. C65 System Memory Map
+
+         MAPPER BANK
+         -----+-----
+              |
+              |
+       1M    $F,FFFF  +-------------+ ----------
+                      |             |
+                      +-           -+
+                      |     RAM     |     512K BLOCK APPEARING
+       768K  $C,0000  +-           -+     HERE IS DETERMINED BY
+                      |  EXPANSION  |     THE RAM EXPANDER CTLR
+                      +-           -+     (UP TO 8MB TOTAL MAP)
+                      |             |
+       512K  $8,0000  +-------------+ ----------
+                      |             |
+                      +-  RESERVED -+     FUTURE CARTRIDGES
+                      |             |
+       256K  $4,0000  +-------------+ ----------
+                      | SYSTEM ROMS |
+       128K  $2,0000  +-------------+     SEE SYSTEM MEMORY
+                      | SYSTEM ROMS |     LAYOUT, BELOW
+             $0,0000  +-------------+ ----------
+
+
+1.5.3. C65 System Memory Layout
+
+            BANK 0          BANK 1          BANK 2          BANK 3
+            RAM-LO          RAM-HI          ROM-LO          ROM-HI
+$FFFF  +-------------+ +-------------+ +-------------+ +-------------+
+$F800  |             | |  COLOR NYBS | |     C64     | |     C65     |
+       |             | +-------------+ |    KERNEL   | |    KERNEL   |
+$E000  |  BITPLANES  | |             | +-------------+ +-------------+
+       |    (EVEN)   | |             | |  C64 CHRSET | |             |
+$D000  |             | |  BITPLANES  | +-------------+ |   RESERVED  |
+       |             | |    (ODD)    | |  INTERFACE  | |             |
+$C000  +.............+ +.............+ +-------------+ +-------------+
+       |             | |             | |     C64     | |             |
+       |             | |             | |    BASIC    | |             |
+$A000  | STRUCTURES  | |   STRINGS   | +-------------+ |   GRAPHICS  |
+       |    ???      | |             | |     C65     | |             |
+       |             | |             | |    CHRSET   | |             |
+$8000  +.............+ +.............+ +-------------+ +-------------+
+       |             | |             | |             | |             |
+       |             | |             | |             | |             |
+       |             | |             | |             | |             |
+       |             | |             | |             | |             |
+       |    BASIC    | |    BASIC    | |   RESERVED  | |  C65 BASIC  |
+       |    TEXT     | |  VARIABLES  | |             | |             |
+       |             | |             | |             | |             |
+       |             | |             | |             | |             |
+$4000  |             | |             | +-------------+ |             |
+       |             | |             | |             | |             |
+       |             | |             | |             | |             |
+       |             | |             | |             | |             |
+$2000  +-------------+ +-------------+ |             | +-------------+
+       | TEXT SCREEN | |     DOS     | |     DOS     | |   MONITOR   |
+       +-------------+ |             | |             | |             |
+       |             | |   BUFFERS   | |  (MAPS TO   | |  (MAPS TO   |
+       | SYSTEM VARS | |    & VARS   | |   $8000)    | |   $6000)    |
+       |             | |             | |             | |             |
+$0000  +-------------+ +-------------+ +-------------+ +-------------+
+
+
+What  does  this mean?   Here is what the 64K memory map looks like in
+various configurations (i.e., as seen by the processor):
+
+C64 mode:      $E000-$FFFF     Kernel, Editor, Basic overflow area
+---------      $D000-$DFFF     I/O and Color Nybbles, Character ROM
+               $C000-$CFFF     Application RAM
+               $A000-$BFFF     BASIC 2.2
+               $0002-$9FFF     RAMLO.  VIC screen at $0400-$07FF
+                               BASIC program & vars from $0800-$9FFF
+
+C65 mode:      $E000-$FFFF     Kernel, Editor ROM code
+---------      $D000-$DFFF     I/O and Color Bytes (CHRROM at $29000)
+               $C000-$CFFF     Kernel Interface, DOS ROM overflow area
+               $8000-$BFFF     BASIC 10.0 Graphics & Sprite ROM code
+               $2000-$7FFF     BASIC 10.0 ROM code
+               $0002-$1FFF     RAMLO.  VIC screen at $0800-$0FFF
+                               BASIC prgs mapped from $02000-$0FF00
+                               BASIC vars mapped from $12000-$1F7FF
+
+C65 DOS mode:  $E000-$FFFF     Kernel, Editor ROM code
+-------------  $D000-$DFFF     I/O (CIA's mapped out), Color Bytes
+               $C800-$CFFF     Kernel Interface
+               $8000-$C3FF     DOS ROM code
+               $2000-$7FFF      (don't care)
+               $0000-$1FFF     DOS RAMHI
+
+C65 Monitor:   $E000-$FFFF     Kernel, Editor ROM code
+------------   $D000-$DFFF     I/O and Color Bytes
+               $C000-$CFFF     Kernel Interface
+               $8000-$BFFF      (don't care)
+               $6000-$7FFF     Monitor ROM code
+               $0002-$5FFF     RAMLO
+
+It's  done  this  way  for  a  reason.  The  CPU  MAPPER restricts the
+programmer  to  one offset for each 32Kbyte half of a 64Kbyte segment.
+For  one chunk of ROM to MAP in another chunk with a different offset,
+it  must  do  so  into  the  other  half  of  memory  from which it is
+executing.  The  OS  does  this  by  never mapping the chunk of ROM at
+$C000-$DFFF, which allows this chunk to contain the Interface/MAP code
+and I/O (having I/O in context is usually desirable, and you can't map
+I/O  anyhow).  The  Interface/MAP ROM can be turned on and off via VIC
+register $30,  bit 5 (ROM @ $C000),  and therefore does not need to be
+mapped itself.  Generally,  OS functions  (such as the Kernel, Editor,
+and  DOS)  live in the upper 32K half of memory, and applications such
+as BASIC  or  the  Monitor)  live in the lower 32K half.  For example,
+when  Monitor  mode is entered,  the OS maps out BASIC and maps in the
+Monitor.  Each  has ready access to the OS,  but no built-in access to
+each other.  When a DOS call is made,  the OS overlays itself with the
+DOS  (except  for  the  magical  $C000 code)  in the upper 32K half of
+memory,  and  overlays  the application area with DOS RAM in the lower
+32K half of memory.
+
+
+1.5.4. C65 System I/O Memory Map
+
+            +-------------+
+    $DF00   |    I/O-2    |     EXTERNAL I/O SELECT
+    $DE00   |    I/O-1    |     EXTERNAL I/O SELECT
+            +-------------+
+    $DD00   |    CIA-2    |     SERIAL, USER PORT
+    $DC00   |    CIA-1    |     KEYBOARD, JOYSTICK, MOUSE CONTROL
+            +-------------+
+    $D800   |  COLOR NYB  |     COLOR MATRIX (*FROM $1F800-$1FFFF)
+            +-------------+
+    $D700   |     DMA     |     *DMA CONTROLLER
+            +-------------+
+    $D600   |    UART     |     *RS-232, FAST SERIAL, NEW KEY LINES
+            +-------------+
+    $D440   |   SID (L)   |     AUDIO CONTROLLER (LEFT)
+    $D400   |   SID (R)   |     AUDIO CONTROLLER (RIGHT)
+            +-------------+
+    $D300   | BLU PALETTE |
+    $D200   | GRN PALETTE |     *COLOR PALETTES (NYBBLES)
+    $D100   | RED PALETTE |
+            +-------------+
+    $D0A0   |     REC     |     *RAM EXPANSION CTRL (OPTIONAL)
+            +-------------+
+    $D080   |     FDC     |     *DISK CONTROLLER
+            +-------------+
+    $D000   |  VIC-4567   |     VIDEO CONTROLLER
+            +-------------+
+                .
+                .
+                .
+            +-------------+
+    $0000   |    4510     |     MEMORY CONTROL FOR C64 MODE
+            +-------------+    (this register is actually in
+                                  the VIC-4567 in the C65)
+
+*NOTE:  VIC must be in "new" mode to address these devices
+
+
+
+2.0. C65 System Hardware
+
+
+2.1.1. Keyboard Layout
+
++----+   +----+----+----+----+   +----+----+----+----+   +----+----+----+----+
+|RUN |   |ESC |ALT |ASC | NO |   | F1 | F3 | F5 | F7 |   | F9 | F11| F13|HELP|
+|STOP|   |    |    |DIN |SCRL|   | F2 | F4 | F6 | F8 |   | F10| F12| F14|    |
++----+   +----+----+----+----+   +----+----+----+----+   +----+----+----+----+
+
++----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+
+| <- | !  | "  | #  | $  | %  | &  | '  | (  | )  |    |    |    |    |CLR |INST|
+|    | 1  | 2  | 3  | 4  | 5  | 6  | 7  | 8  | 9  | 0  | +  | -  | œ  |HOME|DEL |
++----+--+-+--+-+--+-+--+-+--+-+--+-+--+-+--+-+--+-+--+-+--+-+--+-+--+-+--+-+----+
+|  TAB  |    |    |    |    |    |    |    |    |    |    |    |    | ã  | RSTR |
+|       | Q  | W  | E  | R  | T  | Y  | U  | I  | O  | P  | @  | *  | ^  |      |
++----+--+-+--+-+--+-+--+-+--+-+--+-+--+-+--+-+--+-+--+-+--+-+--+-+--+-+--+------+
+|CTRL|SHFT|    |    |    |    |    |    |    |    |    | [  | ]  |    |  RETURN |
+|    |LOCK| A  | S  | D  | F  | G  | H  | J  | K  | L  | :  | ;  | =  |         |
++----+----+--+-+--+-+--+-+--+-+--+-+--+-+--+-+--+-+--+-+--+-+--+-+----+----+----+
+| C= | SHIFT |    |    |    |    |    |    |    | <  | >  | ?  | SHIFT|CRSR|
+|    |       | Z  | X  | C  | V  | B  | N  | M  | ,  | .  | /  |      | UP |
++----+-------+-+--+----+----+----+----+----+----+----+----+-+--+-+----+----+----+
+               |                   SPACE                    |    |CRSR|CRSR|CRSR|
+               |                                            |    |LEFT|DOWN|RITE|
+               +--------------------------------------------+    +----+----+----+
+
+Notes:
+
+1/ The  cursor  keys  are special -- the shifted cursor keys appear as
+   separate  keys,  but  in  actuality pressing them generates a SHIFT
+   plus  the normal cursor code,  making them totally compatible with,
+   and therefore functional in, C64 mode.
+
+2/ There are a total of 77 keys, two of which are locking keys.
+
+3/ The NATIONAL keyboards are similar,  and their layout and operation
+   is identical to their C128 implementation.
+
+
+2.1.2. Keyboard Matrix
+
+            +-----+-----+-----+-----+-----+-----+-----+-----+-----+            +-----+
+            | C0  | C1  | C2  | C3  | C4  | C5  | C6  | C7  | C8  |            | GND |
+            |PIN20|PIN19|PIN18|PIN17|PIN16|PIN15|PIN14|PIN13|PIN-4|            |PIN-1|
+            +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+            +--+--+
+               |     |     |     |     |     |     |     |     |                  |
+               |     |     |     |     |     |     |     |     |                  |
+               V     V     V     V     V     V     V     V     V                  |
++-----+     +-----+-----+-----+-----+-----+-----+-----+-----+-----+               |
+| R0  |<----+ INS |  #  |  %  |  '  |  )  |  +  | œ   |  !  | NO  |               |
+|PIN12|     | DEL |  3  |  5  |  7  |  9  |     |     |  1  | SCRL|               |
++-----+     +-----+-----+-----+-----+-----+-----+-----+-----+-----+               |
+| R1  |<----+ RET |  W  |  R  |  Y  |  I  |  P  |  *  | <-- | TAB |               |
+|PIN11|     |     |     |     |     |     |     |     |     |     |               |
++-----+     +-----+-----+-----+-----+-----+-----+-----+-----+-----+               |
+| R2  |<----+ HORZ|  A  |  D  |  G  |  J  |  L  |  ]  | CTRL| ALT |               |
+|PIN10|     | CRSR|     |     |     |     |     |  ;  |     |     +----------+    |
++-----+     +-----+-----+-----+-----+-----+-----+-----+-----+-----+          |    |
+| R3  |<----+ F8  |  $  |  &  |  {  |  0  |  -  | CLR |  "  | HELP|          |    |
+|PIN-9|     | F7  |  4  |  6  |  8  |     |     | HOM |  2  |     |          |    |
++-----+     +-----+-----+-----+-----+-----+-----+-----+-----+-----+          |    |
+| R4  |<----+ F2  |  Z  |  C  |  B  |  M  |  >  |RIGHT|SPACE| F10 |          |    |
+|PIN-8|     | F1  |     |     |     |     |  .  |SHIFT| BAR | F9  |          |    |
++-----+     +-----+-----+-----+-----+-----+-----+-----+-----+-----+          |    |
+| R5  |<----+ F4  |  S  |  F  |  H  |  K  |  [  |  =  | C=  | F12 |          |    |
+|PIN-7|     | F3  |     |     |     |     |  :  |     |     | F11 |          |    |
++-----+     +-----+-----+-----+-----+-----+-----+-----+-----+-----+          |    |
+| R6  |<----+ F6  |  E  |  T  |  U  |  O  |  @  |  ã  |  Q  | F14 |          |    |
+|PIN-6|     | F5  |     |     |     |     |     |  ^  |     | F13 |          |    |
++-----+     +-----+-----+-----+-----+-----+-----+-----+-----+-----+          |    |
+| R7  |<----+ VERT|LEFT |  X  |  V  |  N  |  <  |  ?  | RUN | ESC +------+   |    |
+|PIN-5|     | CRSR|SHIFT|     |     |     |  ,  |  /  | STOP|     +--+   |   |    |
++-----+     +--+--+--+--+-----+-----+-----+-----+--+--+-----+-----+  |   |   |    |
+               |     |                             |                 |   |   |    |
+               |     |                             |                 |   |   |    |
+               |  +--+--+     /      (LOCKING)     |                 |   |   |    |
+               |  |SHIFT+----+  +------------------------------------+   |   |    |
+               |  | LOCK|                          |                     |   |    |
+               |  +-----+                          |                     |   |    |
+               |                             +-----+-----+               |   |    |
+            +--+--+                          |           |               |   |    |
+            |CRSR +------------+-------------+           +---------------+   |    |
+            | UP  |        K1 PIN-21         |           |                   |    |
+            +--+--+                          |   4066    |                   |    |
+               |                             |  DECODER  |                   |    |
+            +--+--+                          |           |                   |    |
+            |CRSR +------------+-------------+           +-------------------+    |
+            |LEFT |        K2 PIN-22         |           |                        |
+            +-----+                          +-----------+                        |
+                                                                                  |
++-----+           +-----+     /                                                   |
+| NMI | <---------+RESTR+----+  +-------------------------------------------------+
+|PIN-3|           |     |                                                         |
++-----+           +-----+                                                         |
+                                                                                  |
+                                                                                  |
++-----+           +-----+     /      (LOCKING)                                    |
+| R8  | <---------+CAPS +----+  +-------------------------------------------------+
+|PIN-2|           |LOCK |
++-----+           +-----+
+
+Keyboard Notes:
+
+1/ The  64 keys under C0 through C7 occupy the same matrix position as
+   in the C/64,  as does the RESTORE key.  Including SHIFT-LOCK, there
+   are 66 such keys.
+
+2/ The  extended  keyboard consists of the 8 keys under the C8 output.
+   Counting the CAPS-LOCK key, there are 9 new keys. The C/64 does not
+   scan these keys.
+
+3/ The new CURSOR LEFT and CURSOR UP keys simulate a CURSOR plus RIGHT
+   SHIFT key combination.
+
+4/ The  keyboard mechanism will be mechanically similar to that of the
+   C128.
+
+
+2.2. Form Factor
+
+   EXPANSION  SERIAL  USER PORT    STEREO     RGBA    RF   COMPOSITE FAST DISK
+     PORT      BUS    (PARALLEL)   L    R    VIDEO   VIDEO   VIDEO     PORT
+
+   #########   ####   #########    #    #    #####    ###    #####     ####
+ |~         ~~~    ~~~         ~~~~ ~~~~ ~~~~     ~~~~   ~~~~     ~~~~~    ~~|
+#                                                                            |
+#    POWER CONNECTOR                                                         |
+ |                                                        +------------------+
+##   POWER SWITCH                                         |                  |
+ |                                                        |                  |
+#                                                         |                  |
+#    CONTROL PORT #2                                      |                  |
+#                                                         |       3.5"       |
+ |                        +--------------------------+    |                  |
+#                         |                          |    |    DISK DRIVE    |
+#    CONTROL PORT #1      |                          |    |                  |
+#                         |  RAM EXPANSION (BOTTOM)  |    |                  |
+ |                        |                          |    |                  |
+##   RESET                |                          |    |            EJECT |
+ |                        +--------------------------+    +------------+---+-+
+ |                                                                     +---+ |
+ |                                                                           |
+ +---------------------------------------------------------------------------+
+
+NOTES:
+
+ 1. Dimensions:  about 18" wide,  8" deep,  2" high.
+ 2. Disk unit faces forward.
