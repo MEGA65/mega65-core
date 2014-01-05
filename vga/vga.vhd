@@ -482,7 +482,7 @@ begin
         else
           -- In graphics mode it is set order, thus saving the need for screen
           -- RAM
-          next_glyph_number_buffer <= card_number;
+          next_glyph_number_buffer <= std_logic_vector(card_number);
         end if;
         -- As RAM is slow to read from, we buffer it, and then extract the
         -- right byte/word next cycle, so no more work here.
