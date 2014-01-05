@@ -134,17 +134,20 @@ architecture Behavioral of vga is
   -- Set in the same way as the border
   signal x_chargen_start : unsigned(11 downto 0) := to_unsigned(160,12);
   signal y_chargen_start : unsigned(11 downto 0) := to_unsigned(100,12);  
+
+  signal multicolour_mode : std_logic := '0';
   
   -- Border dimensions
   signal border_x_left : unsigned(11 downto 0) := to_unsigned(160,12);
   signal border_x_right : unsigned(11 downto 0) := to_unsigned(1920-160,12);
   signal border_y_top : unsigned(11 downto 0) := to_unsigned(100,12);
   signal border_y_bottom : unsigned(11 downto 0) := to_unsigned(1200-101,12);
-  -- Border colour
-  signal border_colour : unsigned(7 downto 0) := x"0e";  -- light blue border
 
--- Screen background colour
+  -- Colour registers
+  signal border_colour : unsigned(7 downto 0) := x"0e";  -- light blue border
   signal screen_colour : unsigned(7 downto 0) := x"06";  -- dark blue centre
+  signal multi1_colour : unsigned(7 downto 0) := x"01";  -- multi-colour mode #1
+  signal multi2_colour : unsigned(7 downto 0) := x"02";  -- multi-colour mode #2
   -----------------------------------------------------------------------------
   
   -- Character generator state. Also used for graphics modes, since graphics
@@ -273,12 +276,15 @@ begin
     variable next_card_number : unsigned(15 downto 0);
     variable next_card_x : unsigned(11 downto 0);
     variable next_card_y : unsigned(11 downto 0);
+    variable multicolour_bits : std_logic_vector(1 downto 0);
   begin
     if rising_edge(dotclock) then
 
       -- Allow fiddling of scale by switching switches
-      card_x_scale <= unsigned(sw(15 downto 8));
-      card_y_scale <= unsigned(sw(7 downto 0));
+      card_x_scale(3 downto 0) <= unsigned(sw(7 downto 4));
+      card_y_scale(3 downto 0) <= unsigned(sw(3 downto 0));
+
+      multicolour_mode <= sw(8);
       
       counter <= counter + 1;
       if counter = x"000000" then
@@ -440,6 +446,16 @@ begin
       if indisplay_t3='1' then
         if inborder_t2='1' then
           pixel_colour <= border_colour;
+        elsif multicolour_mode='1' then
+          multicolour_bits(0) := charrow(to_integer((not card_x_t3(2 downto 1))&'0'));
+          multicolour_bits(1) := charrow(to_integer((not card_x_t3(2 downto 1))&'1'));
+          case multicolour_bits is
+            when "00" => pixel_colour <= screen_colour;
+            when "01" => pixel_colour <= multi1_colour;
+            when "10" => pixel_colour <= multi2_colour;
+            when "11" => pixel_colour <= "0000" & card_number_t3(3 downto 0);
+            when others => pixel_colour <= screen_colour;
+          end case;
         elsif charrow(to_integer(not card_x_t3(2 downto 0))) = '1' then
           pixel_colour(7 downto 4) <= "0000";
           pixel_colour(3 downto 0) <= card_number_t3(3 downto 0);
