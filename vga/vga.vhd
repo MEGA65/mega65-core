@@ -135,7 +135,13 @@ architecture Behavioral of vga is
   signal x_chargen_start : unsigned(11 downto 0) := to_unsigned(160,12);
   signal y_chargen_start : unsigned(11 downto 0) := to_unsigned(100,12);  
 
+  -- Mode control bits (correspond to bits in $D016 etc)
+  -- -- Text/graphics mode select
+  signal text_mode : std_logic := '1';
+  -- -- Basic multicolour mode bit
   signal multicolour_mode : std_logic := '0';
+  -- -- Extended background colour mode (reduces charset to 64 entries)
+  signal extended_background_mode : std_logic := '0';
   
   -- Border dimensions
   signal border_x_left : unsigned(11 downto 0) := to_unsigned(160,12);
@@ -143,11 +149,12 @@ architecture Behavioral of vga is
   signal border_y_top : unsigned(11 downto 0) := to_unsigned(100,12);
   signal border_y_bottom : unsigned(11 downto 0) := to_unsigned(1200-101,12);
 
-  -- Colour registers
-  signal border_colour : unsigned(7 downto 0) := x"0e";  -- light blue border
+  -- Colour registers ($D020 - $D024)
   signal screen_colour : unsigned(7 downto 0) := x"06";  -- dark blue centre
+  signal border_colour : unsigned(7 downto 0) := x"0e";  -- light blue border
   signal multi1_colour : unsigned(7 downto 0) := x"01";  -- multi-colour mode #1
   signal multi2_colour : unsigned(7 downto 0) := x"02";  -- multi-colour mode #2
+  signal multi3_colour : unsigned(7 downto 0) := x"02";  -- multi-colour mode #3
   -----------------------------------------------------------------------------
   
   -- Character generator state. Also used for graphics modes, since graphics
@@ -277,14 +284,18 @@ begin
     variable next_card_x : unsigned(11 downto 0);
     variable next_card_y : unsigned(11 downto 0);
     variable multicolour_bits : std_logic_vector(1 downto 0);
+    variable card_bg_colour : unsigned(7 downto 0);
+    variable card_fg_colour : unsigned(7 downto 0);
   begin
     if rising_edge(dotclock) then
 
       -- Allow fiddling of scale by switching switches
       card_x_scale(3 downto 0) <= unsigned(sw(7 downto 4));
       card_y_scale(3 downto 0) <= unsigned(sw(3 downto 0));
-
+      -- And video mode
       multicolour_mode <= sw(8);
+      extended_background_mode <= sw(9);
+      text_mode <= sw(10);
       
       counter <= counter + 1;
       if counter = x"000000" then
@@ -397,10 +408,16 @@ begin
         charrow <= chardata;
         -- XXX what about one byte per pixel characters?
       end if;
-
+      
       -- Read byte from character ROM
       if card_number_t3 /= card_number then
-        charaddress(10 downto 3) <= std_logic_vector(card_number(7 downto 0));
+        if extended_background_mode='1' then
+          -- bit 6 and 7 of character is used for colour
+          charaddress(10 downto 9) <= "00";
+          charaddress(8 downto 3) <= std_logic_vector(card_number(5 downto 0));
+        else
+          charaddress(10 downto 3) <= std_logic_vector(card_number(7 downto 0));
+        end if;
         charaddress(2 downto 0) <= std_logic_vector(card_y(2 downto 0));
         charread <= '1';
       else
@@ -442,20 +459,42 @@ begin
       inborder_t1 <= inborder;
       inborder_t2 <= inborder_t1;
       inborder_t3 <= inborder_t2;
+
+      -- XXX Until we support reading colour RAM, we are using the card number
+      -- as the source of the foreground colour for the card.
+      card_fg_colour(7 downto 4) := "0000";
+      card_fg_colour(3 downto 0) := card_number_t3(3 downto 0);
+
+      card_bg_colour := screen_colour;
+      if extended_background_mode='1' then
+        -- XXX Until we support reading screen memory, use card number
+        -- as the source of the extended background colour
+        case card_number_t3(7 downto 6) is
+          when "00" => card_bg_colour := screen_colour;
+          when "01" => card_bg_colour := multi1_colour;
+          when "10" => card_bg_colour := multi2_colour;
+          when "11" => card_bg_colour := multi3_colour;
+          when others => null;
+        end case;
+      end if;
       
       if indisplay_t3='1' then
         if inborder_t2='1' then
-          pixel_colour <= border_colour;
-        elsif multicolour_mode='1' then
+          pixel_colour <= border_colour;          
+        elsif multicolour_mode='1' and text_mode='1' and card_fg_colour(3)='1' then
+          -- Multicolour character mode only engages for characters with bit 3
+          -- of their foreground colour set.
           multicolour_bits(0) := charrow(to_integer((not card_x_t3(2 downto 1))&'0'));
           multicolour_bits(1) := charrow(to_integer((not card_x_t3(2 downto 1))&'1'));
           case multicolour_bits is
             when "00" => pixel_colour <= screen_colour;
             when "01" => pixel_colour <= multi1_colour;
             when "10" => pixel_colour <= multi2_colour;
-            when "11" => pixel_colour <= "0000" & card_number_t3(3 downto 0);
+            when "11" => pixel_colour <= card_fg_colour;
             when others => pixel_colour <= screen_colour;
           end case;
+        elsif multicolour_mode='1' and text_mode='0' then
+          -- Multicolour bitmap mode.          
         elsif charrow(to_integer(not card_x_t3(2 downto 0))) = '1' then
           pixel_colour(7 downto 4) <= "0000";
           pixel_colour(3 downto 0) <= card_number_t3(3 downto 0);
