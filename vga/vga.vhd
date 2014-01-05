@@ -334,6 +334,14 @@ begin
       sixteenbit_charset <= sw(11);
       fullcolour_8bitchars <= sw(12);
       fullcolour_extendedchars <= sw(13);
+      -- And adjust screen length
+      case sw(15 downto 14) is
+        when "00" => virtual_row_width <= to_unsigned(32,16);
+        when "01" => virtual_row_width <= to_unsigned(40,16);
+        when "10" => virtual_row_width <= to_unsigned(108,16);
+        when "11" => virtual_row_width <= to_unsigned(256,16);
+        when others => null;
+      end case;
       
       counter <= counter + 1;
       if counter = x"000000" then
