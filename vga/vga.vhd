@@ -487,19 +487,22 @@ begin
           multicolour_bits(0) := charrow(to_integer((not card_x_t3(2 downto 1))&'0'));
           multicolour_bits(1) := charrow(to_integer((not card_x_t3(2 downto 1))&'1'));
           case multicolour_bits is
-            when "00" => pixel_colour <= screen_colour;
+            when "00" => pixel_colour <= card_bg_colour;
             when "01" => pixel_colour <= multi1_colour;
             when "10" => pixel_colour <= multi2_colour;
             when "11" => pixel_colour <= card_fg_colour;
             when others => pixel_colour <= screen_colour;
           end case;
         elsif multicolour_mode='1' and text_mode='0' then
-          -- Multicolour bitmap mode.          
+          -- Multicolour bitmap mode.
+          -- XXX Not yet implemented
+          pixel_colour(7 downto 4) <= "0000";
+          pixel_colour(3 downto 0) <= card_number_t3(3 downto 0);
         elsif charrow(to_integer(not card_x_t3(2 downto 0))) = '1' then
           pixel_colour(7 downto 4) <= "0000";
           pixel_colour(3 downto 0) <= card_number_t3(3 downto 0);
         else
-          pixel_colour <= screen_colour;
+          pixel_colour <= card_bg_colour;
         end if;
       else
         pixel_colour <= x"00";
