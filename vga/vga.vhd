@@ -197,10 +197,12 @@ architecture Behavioral of vga is
   signal next_glyph_pixeldata : std_logic_vector(63 downto 0);
   signal next_glyph_number_buffer : std_logic_vector(63 downto 0);
   signal next_glyph_colour_buffer : std_logic_vector(63 downto 0);
+  signal next_glyph_full_colour : std_logic;
   -- data for current card
   signal glyph_number : unsigned(15 downto 0);
   signal glyph_colour : unsigned(7 downto 0);
   signal glyph_pixeldata : std_logic_vector(63 downto 0);
+  signal glyph_full_colour : std_logic;
   
   -- Delayed versions of signals to allow character fetching pipeline
   signal card_x_t1 : unsigned(11 downto 0);
@@ -476,14 +478,8 @@ begin
       end if;
       if char_fetch_cycle=1 then
         -- Store character number
-        if text_mode='1' then
-          -- In text mode, the glyph order is flexible
-          next_glyph_number_buffer <= ramdata;
-        else
-          -- In graphics mode it is set order, thus saving the need for screen
-          -- RAM
-          next_glyph_number_buffer <= std_logic_vector(card_number);
-        end if;
+        -- In text mode, the glyph order is flexible
+        next_glyph_number_buffer <= ramdata;
         -- As RAM is slow to read from, we buffer it, and then extract the
         -- right byte/word next cycle, so no more work here.
         char_fetch_cycle <= 2;
@@ -522,7 +518,11 @@ begin
         else
           next_glyph_number_temp := std_logic_vector(next_glyph_number8);
         end if;
-        next_glyph_number <= unsigned(next_glyph_number_temp);
+        if text_mode='1' then
+          next_glyph_number <= unsigned(next_glyph_number_temp);
+        else
+          next_glyph_number <= card_number;
+        end if;
         -- Request colour RAM (only the relevant byte is used)
         -- 16bit charset has no effect on the colour RAM size
         long_address(31 downto 28) := x"0";
@@ -538,8 +538,10 @@ begin
         elsif fullcolour_8bitchars='0' and fullcolour_extendedchars='1' then
           if next_glyph_number<256 then
             long_address := character_set_address+(next_glyph_number*8)+card_y(2 downto 0);
+            next_glyph_full_colour <= '1';
           else
             long_address := character_set_address+(256*8)+((next_glyph_number-256)*64)+card_y(2 downto 0)*8;            
+            next_glyph_full_colour <= '0';
           end if;
         else
           -- if fullcolour_8bitchars='1' then all chars are full-colour          
@@ -594,6 +596,7 @@ begin
         glyph_pixeldata <= next_glyph_pixeldata;
         glyph_colour <= next_glyph_colour;
         glyph_number <= next_glyph_number;
+        glyph_full_colour <= next_glyph_full_colour;
         -- Trigger loading data for next character, and then sprite data.
         char_fetch_cycle <= 0;
       end if;
