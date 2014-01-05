@@ -154,7 +154,7 @@ architecture Behavioral of vga is
   signal border_colour : unsigned(7 downto 0) := x"0e";  -- light blue border
   signal multi1_colour : unsigned(7 downto 0) := x"01";  -- multi-colour mode #1
   signal multi2_colour : unsigned(7 downto 0) := x"02";  -- multi-colour mode #2
-  signal multi3_colour : unsigned(7 downto 0) := x"02";  -- multi-colour mode #3
+  signal multi3_colour : unsigned(7 downto 0) := x"03";  -- multi-colour mode #3
   -----------------------------------------------------------------------------
   
   -- Character generator state. Also used for graphics modes, since graphics
