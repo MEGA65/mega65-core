@@ -123,6 +123,7 @@ architecture Behavioral of vga is
   -- Video controller registers
   -----------------------------------------------------------------------------
 
+  -- New control registers
   -- Number added to card number for each row of characters, i.e., virtual
   -- character display width.
   signal virtual_row_width : unsigned(15 downto 0) := to_unsigned(40,16);
@@ -133,9 +134,15 @@ architecture Behavioral of vga is
   -- smooth scrolling position in natural pixels.
   -- Set in the same way as the border
   signal x_chargen_start : unsigned(11 downto 0) := to_unsigned(160,12);
-  signal y_chargen_start : unsigned(11 downto 0) := to_unsigned(100,12);  
-
-  -- Mode control bits (correspond to bits in $D016 etc)
+  signal y_chargen_start : unsigned(11 downto 0) := to_unsigned(100,12);
+  -- Charset is 16bit (2 bytes per char) when this mode is enabled.
+  signal sixteenbit_charset : std_logic := '0';
+  -- Characters >255 are full-colour blocks when enabled.
+  signal fullcolour_extendedchars : std_logic := '0';
+  -- Characters <256 are full-colour blocks when enabled
+  signal fullcolour_8bitchars : std_logic := '0';
+  
+  -- VIC-II style Mode control bits (correspond to bits in $D016 etc)
   -- -- Text/graphics mode select
   signal text_mode : std_logic := '1';
   -- -- Basic multicolour mode bit
@@ -155,6 +162,19 @@ architecture Behavioral of vga is
   signal multi1_colour : unsigned(7 downto 0) := x"01";  -- multi-colour mode #1
   signal multi2_colour : unsigned(7 downto 0) := x"02";  -- multi-colour mode #2
   signal multi3_colour : unsigned(7 downto 0) := x"03";  -- multi-colour mode #3
+
+  -- NOTE: The following registers require 64-bit alignment. Default addresses
+  -- are fairly arbitrary.
+  -- Colour RAM offset (we just use some normal RAM for colour RAM, since in the
+  -- worst case we can need >32KB of it.  Must correspond to a FastRAM address,
+  -- so the MSB is irrelevant.
+  signal colour_ram_base : unsigned(27 downto 0) := x"0018000";
+  -- Screen RAM offset
+  signal screen_ram_base : unsigned(27 downto 0) := x"0010000";
+  -- Character set address.
+  -- Size of character set depends on resolution of characters, and whether
+  -- full-colour characters are enabled.
+  signal character_set_address : unsigned(27 downto 0) := x"0020000";
   -----------------------------------------------------------------------------
   
   -- Character generator state. Also used for graphics modes, since graphics
