@@ -191,6 +191,8 @@ architecture Behavioral of vga is
   signal char_fetch_cycle : integer := 0;
   -- data for next card
   signal next_glyph_number : unsigned(15 downto 0);
+  signal next_glyph_number8 : unsigned(15 downto 0);
+  signal next_glyph_number16 : unsigned(15 downto 0);
   signal next_glyph_colour : unsigned(7 downto 0);
   signal next_glyph_pixeldata : std_logic_vector(63 downto 0);
   signal next_glyph_number_buffer : std_logic_vector(63 downto 0);
@@ -480,27 +482,38 @@ begin
         char_fetch_cycle <= 2;
       elsif char_fetch_cycle=2 then
         -- Decode next character number from 64bit vector
-        if sixteenbit_charset='0' then
-          next_glyph_number_temp(15 downto 8) := x"00";
-          case card_number(2 downto 0) is
-            when "000" => next_glyph_number_temp(7 downto 0) := next_glyph_number_buffer(63 downto 56);
-            when "001" => next_glyph_number_temp(7 downto 0) := next_glyph_number_buffer(55 downto 48);
-            when "010" => next_glyph_number_temp(7 downto 0) := next_glyph_number_buffer(47 downto 40);
-            when "011" => next_glyph_number_temp(7 downto 0) := next_glyph_number_buffer(39 downto 32);
-            when "100" => next_glyph_number_temp(7 downto 0) := next_glyph_number_buffer(31 downto 24);
-            when "101" => next_glyph_number_temp(7 downto 0) := next_glyph_number_buffer(23 downto 16);
-            when "110" => next_glyph_number_temp(7 downto 0) := next_glyph_number_buffer(15 downto  8);
-            when "111" => next_glyph_number_temp(7 downto 0) := next_glyph_number_buffer( 7 downto  0);
-              when others => next_glyph_number_temp(7 downto 0) := x"00";
-          end case;
+        -- This is a bit too complex to do in a single cycle if we also have to
+        -- choose the 16bit or 8 bit version.  So this cycle we calculate the
+        -- 8bit and 16bit versions.  Then next cycle we can select the correct
+        -- one.
+        next_glyph_number_temp(15 downto 8) := x"00";
+        case card_number(2 downto 0) is
+          when "000" => next_glyph_number_temp(7 downto 0) := next_glyph_number_buffer(63 downto 56);
+          when "001" => next_glyph_number_temp(7 downto 0) := next_glyph_number_buffer(55 downto 48);
+          when "010" => next_glyph_number_temp(7 downto 0) := next_glyph_number_buffer(47 downto 40);
+          when "011" => next_glyph_number_temp(7 downto 0) := next_glyph_number_buffer(39 downto 32);
+          when "100" => next_glyph_number_temp(7 downto 0) := next_glyph_number_buffer(31 downto 24);
+          when "101" => next_glyph_number_temp(7 downto 0) := next_glyph_number_buffer(23 downto 16);
+          when "110" => next_glyph_number_temp(7 downto 0) := next_glyph_number_buffer(15 downto  8);
+          when "111" => next_glyph_number_temp(7 downto 0) := next_glyph_number_buffer( 7 downto  0);
+          when others => next_glyph_number_temp(7 downto 0) := x"00";
+        end case;
+        next_glyph_number8 <= unsigned(next_glyph_number_temp);
+        case card_number(1 downto 0) is
+          when "00" => next_glyph_number_temp := next_glyph_number_buffer(63 downto 48);        
+          when "01" => next_glyph_number_temp := next_glyph_number_buffer(47 downto 32);        
+          when "10" => next_glyph_number_temp := next_glyph_number_buffer(31 downto 16);        
+          when "11" => next_glyph_number_temp := next_glyph_number_buffer(15 downto  0);        
+          when others => next_glyph_number_temp := x"0000";
+        end case;
+        next_glyph_number16 <= unsigned(next_glyph_number_temp);
+        char_fetch_cycle <= 3;
+        ramaddress <= (others => '0');
+      elsif char_fetch_cycle=3 then
+        if sixteenbit_charset='1' then
+          next_glyph_number_temp := std_logic_vector(next_glyph_number16);
         else
-          case card_number(1 downto 0) is
-            when "00" => next_glyph_number_temp := next_glyph_number_buffer(63 downto 48);
-            when "01" => next_glyph_number_temp := next_glyph_number_buffer(47 downto 32);
-            when "10" => next_glyph_number_temp := next_glyph_number_buffer(31 downto 16);
-            when "11" => next_glyph_number_temp := next_glyph_number_buffer(15 downto  0);
-            when others => next_glyph_number_temp := x"0000";
-          end case;
+          next_glyph_number_temp := std_logic_vector(next_glyph_number8);
         end if;
         next_glyph_number <= unsigned(next_glyph_number_temp);
         -- Request colour RAM (only the relevant byte is used)
@@ -508,8 +521,8 @@ begin
         long_address(31 downto 28) := x"0";
         long_address(27 downto 0) := colour_ram_base+unsigned(next_glyph_number_temp);
         ramaddress <= std_logic_vector(long_address(18 downto 3));
-        char_fetch_cycle <= 3;
-      elsif char_fetch_cycle=3 then
+        char_fetch_cycle <= 4;
+      elsif char_fetch_cycle=4 then
         -- Store colour bytes (will decode next cycle to keep logic shallow)
         next_glyph_colour_buffer <= ramdata;
         -- Character pixels (only 8 bits used if not in full colour mode)
@@ -526,8 +539,8 @@ begin
           long_address := character_set_address+(next_glyph_number*64)+card_y(2 downto 0)*8;
         end if;
         ramaddress <= std_logic_vector(long_address(18 downto 3));
-        char_fetch_cycle <= 4;
-      elsif char_fetch_cycle=4 then
+        char_fetch_cycle <= 5;
+      elsif char_fetch_cycle=5 then
         -- Decode colour byte
         case card_number(2 downto 0) is
           when "000" => next_glyph_colour_temp := next_glyph_number_buffer(63 downto 56);
