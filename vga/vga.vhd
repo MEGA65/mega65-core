@@ -130,11 +130,10 @@ architecture Behavioral of vga is
   signal card_x_scale : unsigned(7 downto 0) := x"04";
   -- Each character pixel will be (n+1) pixels high
   signal card_y_scale : unsigned(7 downto 0) := x"04";
-  -- smooth scrolling position in whole and part pixels
-  signal x_smooth_scroll_offset : unsigned(7 downto 0) := x"00";
-  signal x_smooth_scroll_sub_offset : unsigned(7 downto 0) := x"00";
-  signal y_smooth_scroll_offset : unsigned(7 downto 0) := x"00";  
-  signal y_smooth_scroll_sub_offset : unsigned(7 downto 0) := x"00";  
+  -- smooth scrolling position in natural pixels.
+  -- Set in the same way as the border
+  signal x_chargen_start : unsigned(11 downto 0) := to_unsigned(160,12);
+  signal y_chargen_start : unsigned(11 downto 0) := to_unsigned(100,12);  
   
   -- Border dimensions
   signal border_x_left : unsigned(11 downto 0) := to_unsigned(160,12);
@@ -287,23 +286,23 @@ begin
         led3 <= slow_clock;
         if btn(0) = '1' then
           -- Right button: trim smooth scrolling right a pixel
-          x_smooth_scroll_offset(2 downto 0) <= x_smooth_scroll_offset(2 downto 0) + 1;
+          x_chargen_start <= x_chargen_start + 1;
         end if;
         if btn(1) = '1' then
-          -- Down button: trim smooth scrolling right a pixel
-          y_smooth_scroll_offset(2 downto 0) <= y_smooth_scroll_offset(2 downto 0) - 1;
+          -- Down button: trim smooth scrolling down a pixel
+          y_chargen_start <= y_chargen_start + 1;
         end if;
         if btn(2) = '1' then
           -- Up button: trim smooth scrolling right a pixel
-          y_smooth_scroll_offset(2 downto 0) <= y_smooth_scroll_offset(2 downto 0) + 1;
+          y_chargen_start <= y_chargen_start - 1;
         end if;
         if btn(3) = '1' then
           -- Left button: trim smooth scrolling right a pixel
-          x_smooth_scroll_offset(2 downto 0) <= x_smooth_scroll_offset(2 downto 0) - 1;
+          x_chargen_start <= x_chargen_start - 1;
         end if;
         if btn(4) = '1' then
-          x_smooth_scroll_offset <= (others => '0');
-          y_smooth_scroll_offset <= (others => '0');
+          x_chargen_start <= to_unsigned(160,12); 
+          y_chargen_start <= to_unsigned(100,12);  
         end if;
       end if;
       if xcounter>=(frame_h_front+width) and xcounter<(frame_h_front+width+frame_h_syncwidth) then
@@ -418,15 +417,15 @@ begin
       indisplay_t2 <= indisplay_t1;
       indisplay_t3 <= indisplay_t2;
 
-      if displayy<=border_y_top then
+      if displayy<=y_chargen_start then
         card_y(11 downto 8) <= (others => '0');
-        card_y(7 downto 0) <= y_smooth_scroll_offset;
-        card_y_sub <= y_smooth_scroll_sub_offset;
+        card_y(7 downto 0) <= (others => '0');
+        card_y_sub <= (others => '0');
       end if;
-      if displayx<=border_x_left then
+      if displayx<=x_chargen_start then
         card_x(11 downto 8) <= (others => '0');
-        card_x(7 downto 0) <= x_smooth_scroll_offset;
-        card_x_sub <= x_smooth_scroll_sub_offset;           
+        card_x(7 downto 0) <= (others => '0');
+        card_x_sub <= (others => '0');
       end if;
       if displayx<border_x_left or displayx>border_x_right or
         displayy<border_y_top or displayy>border_y_bottom then
