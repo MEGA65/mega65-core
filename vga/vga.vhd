@@ -476,7 +476,14 @@ begin
       end if;
       if char_fetch_cycle=1 then
         -- Store character number
-        next_glyph_number_buffer <= ramdata;
+        if text_mode='1' then
+          -- In text mode, the glyph order is flexible
+          next_glyph_number_buffer <= ramdata;
+        else
+          -- In graphics mode it is set order, thus saving the need for screen
+          -- RAM
+          next_glyph_number_buffer <= card_number;
+        end if;
         -- As RAM is slow to read from, we buffer it, and then extract the
         -- right byte/word next cycle, so no more work here.
         char_fetch_cycle <= 2;
