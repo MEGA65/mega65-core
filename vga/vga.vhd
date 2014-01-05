@@ -316,6 +316,9 @@ begin
       multicolour_mode <= sw(8);
       extended_background_mode <= sw(9);
       text_mode <= sw(10);
+      sixteenbit_charset <= sw(11);
+      fullcolour_8bitchars <= sw(12);
+      fullcolour_extendedchars <= sw(13);
       
       counter <= counter + 1;
       if counter = x"000000" then
