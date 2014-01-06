@@ -877,6 +877,10 @@ begin
         card_x(7 downto 0) <= (others => '0');
         card_x_sub <= (others => '0');
       end if;
+      if displayx=(x_chargen_start-8) then
+        -- Start fetching first character of the row
+        char_fetch_cycle <= 0;
+      end if;
       if displayx<border_x_left or displayx>border_x_right or
         displayy<border_y_top or displayy>border_y_bottom then
         inborder<='1';
