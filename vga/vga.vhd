@@ -396,7 +396,7 @@ begin
     variable register_number : unsigned(11 downto 0);
   begin
     if rising_edge(dotclock) then
-      if fastio_read='1' then
+      if fastio_read='1' or fastio_write='1' then
         register_number := x"FFF";
         register_bank := unsigned(fastio_addr(19 downto 12));
         register_page := unsigned(fastio_addr(11 downto 8));
@@ -413,10 +413,18 @@ begin
         end if;
         if register_num<8 then
           -- compatibility sprite coordinates
-          fastio_rdata <= std_logic_vector(sprite_x(to_integer(register_num(2 downto 0))));
+          if fastio_read='1' then
+            fastio_rdata <= std_logic_vector(sprite_x(to_integer(register_num(2 downto 0))));
+          else
+            sprite_x(to_integer(register_num(2 downto 0))) <= fastio_wdata;
+          end if;
         elsif register_num<16 then
           -- compatibility sprite coordinates
-          fastio_rdata <= std_logic_vector(sprite_y(to_integer(register_num(2 downto 0))));
+          if fastio_read='1' then
+            fastio_rdata <= std_logic_vector(sprite_y(to_integer(register_num(2 downto 0))));
+          else
+            sprite_y(to_integer(register_num(2 downto 0))) <= fastio_wdata;
+          end if;
         elsif register_number=16 then
           -- compatibility sprite x position MSB
         elsif register_number=17 then             -- $D011
