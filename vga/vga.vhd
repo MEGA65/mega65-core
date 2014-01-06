@@ -132,6 +132,15 @@ architecture Behavioral of vga is
   signal display_active : std_logic;
 
   -----------------------------------------------------------------------------
+  -- FastIO interface for accessing video registers
+  -----------------------------------------------------------------------------
+  signal fastio_addr : std_logic_vector(19 downto 0);
+  signal fastio_read : std_logic;
+  signal fastio_write : std_logic;
+  signal fastio_wdata : std_logic_vector(7 downto 0);
+  signal fastio_rdata : std_logic_vector(7 downto 0);
+  
+  -----------------------------------------------------------------------------
   -- Video controller registers
   -----------------------------------------------------------------------------
 
@@ -164,7 +173,7 @@ architecture Behavioral of vga is
   
   -- Border dimensions
   signal border_x_left : unsigned(11 downto 0) := to_unsigned(160,12);
-  signal border_x_right : unsigned(11 downto 0) := to_unsigned(1920-160,12);
+  signal border_x_right : unsigned(11 downto 0) := to_unsigned(1600-160,12);
   signal border_y_top : unsigned(11 downto 0) := to_unsigned(100,12);
   signal border_y_bottom : unsigned(11 downto 0) := to_unsigned(1200-101,12);
 
