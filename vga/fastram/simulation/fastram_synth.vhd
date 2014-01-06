@@ -107,7 +107,6 @@ ARCHITECTURE fastram_synth_ARCH OF fastram_synth IS
 COMPONENT fastram_exdes 
   PORT (
       --Inputs - Port A
-    ENA            : IN STD_LOGIC;  --opt port
     WEA            : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
     ADDRA          : IN STD_LOGIC_VECTOR(15 DOWNTO 0);
     DINA           : IN STD_LOGIC_VECTOR(63 DOWNTO 0);
@@ -128,8 +127,6 @@ END COMPONENT;
 
   SIGNAL CLKA: STD_LOGIC := '0';
   SIGNAL RSTA: STD_LOGIC := '0';
-  SIGNAL ENA: STD_LOGIC := '0';
-  SIGNAL ENA_R: STD_LOGIC := '0';
   SIGNAL WEA: STD_LOGIC_VECTOR(7 DOWNTO 0) := (OTHERS => '0');
   SIGNAL WEA_R: STD_LOGIC_VECTOR(7 DOWNTO 0) := (OTHERS => '0');
   SIGNAL ADDRA: STD_LOGIC_VECTOR(15 DOWNTO 0) := (OTHERS => '0');
@@ -276,7 +273,6 @@ STATUS(7 DOWNTO 0) <= ISSUE_FLAG_STATUS;
      	TB_RST => RSTA,
         ADDRA  => ADDRA,
         DINA => DINA,
-        ENA => ENA,
         WEA => WEA,
         WEB => WEB,
         ADDRB => ADDRB,
@@ -318,7 +314,6 @@ STATUS(7 DOWNTO 0) <= ISSUE_FLAG_STATUS;
       BEGIN
         IF(RISING_EDGE(CLKA)) THEN
 		  IF(RESET_SYNC_R3='1') THEN
-            ENA_R <= '0' AFTER 50 ns;
             WEA_R  <= (OTHERS=>'0') AFTER 50 ns;
             DINA_R <= (OTHERS=>'0') AFTER 50 ns;
   
@@ -327,7 +322,6 @@ STATUS(7 DOWNTO 0) <= ISSUE_FLAG_STATUS;
           
 
            ELSE
-          ENA_R <= ENA AFTER 50 ns;
             WEA_R  <= WEA AFTER 50 ns;
             DINA_R <= DINA AFTER 50 ns;
   
@@ -355,7 +349,6 @@ STATUS(7 DOWNTO 0) <= ISSUE_FLAG_STATUS;
 
     BMG_PORT: fastram_exdes PORT MAP ( 
       --Port A
-      ENA        => ENA_R,
       WEA        => WEA_R,
       ADDRA      => ADDRA_R,
       DINA       => DINA_R,

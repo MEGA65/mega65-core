@@ -16,7 +16,6 @@ quietly WaveActivateNextPane {} 0
       add wave -noupdate /fastram_tb/fastram_synth_inst/bmg_port/ADDRA
       add wave -noupdate /fastram_tb/fastram_synth_inst/bmg_port/DINA
       add wave -noupdate /fastram_tb/fastram_synth_inst/bmg_port/WEA
-      add wave -noupdate /fastram_tb/fastram_synth_inst/bmg_port/ENA
       add wave -noupdate /fastram_tb/fastram_synth_inst/bmg_port/DOUTA
       add wave -noupdate /fastram_tb/fastram_synth_inst/bmg_port/CLKB
       add wave -noupdate /fastram_tb/fastram_synth_inst/bmg_port/ADDRB

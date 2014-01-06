@@ -58,7 +58,6 @@ wave add /fastram_tb/status
       wave add  /fastram_tb/fastram_synth_inst/BMG_PORT/ADDRA
       wave add  /fastram_tb/fastram_synth_inst/BMG_PORT/DINA
       wave add  /fastram_tb/fastram_synth_inst/BMG_PORT/WEA
-      wave add  /fastram_tb/fastram_synth_inst/BMG_PORT/ENA
       wave add  /fastram_tb/fastram_synth_inst/BMG_PORT/DOUTA
       wave add  /fastram_tb/fastram_synth_inst/BMG_PORT/CLKB
       wave add  /fastram_tb/fastram_synth_inst/BMG_PORT/ADDRB

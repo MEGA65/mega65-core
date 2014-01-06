@@ -78,7 +78,6 @@ architecture Behavioral of vga is
   component fastram IS
     PORT (
       clka : IN STD_LOGIC;
-      ena : IN STD_LOGIC;
       wea : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
       addra : IN STD_LOGIC_VECTOR(15 DOWNTO 0);
       dina : IN STD_LOGIC_VECTOR(63 DOWNTO 0);
@@ -91,6 +90,21 @@ architecture Behavioral of vga is
       );
   END component fastram;
 
+  component ram64x16k
+    PORT (
+      clka : IN STD_LOGIC;
+      wea : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
+      addra : IN STD_LOGIC_VECTOR(13 DOWNTO 0);
+      dina : IN STD_LOGIC_VECTOR(63 DOWNTO 0);
+      douta : OUT STD_LOGIC_VECTOR(63 DOWNTO 0);
+      clkb : IN STD_LOGIC;
+      web : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
+      addrb : IN STD_LOGIC_VECTOR(13 DOWNTO 0);
+      dinb : IN STD_LOGIC_VECTOR(63 DOWNTO 0);
+      doutb : OUT STD_LOGIC_VECTOR(63 DOWNTO 0)
+      );
+  end component;
+
   -- Buffer VGA signal to save some time. Similarly pipeline
   -- palette lookup.
   signal vga_buffer_red : UNSIGNED (3 downto 0);
@@ -99,28 +113,27 @@ architecture Behavioral of vga is
   signal pixel_colour : unsigned(7 downto 0);
   
   -- Video mode definition
-  constant width : integer := 1600;
-  constant height : integer := 1200;
-  
-  constant frame_width : integer := 2160;
-  constant frame_h_front : integer := 64;
-  constant frame_h_syncwidth : integer := 192;
-  
-  constant frame_height : integer := 1250;
-  constant frame_v_front : integer := 1;
-  constant frame_v_syncheight : integer := 3;
-
---  constant width : integer := 1920;
+--  constant width : integer := 1600;
 --  constant height : integer := 1200;
 --  
---  constant frame_width : integer := 2592;
---  constant frame_h_front : integer := 128;
---  constant frame_h_syncwidth : integer := 208;
+--  constant frame_width : integer := 2160;
+--  constant frame_h_front : integer := 64;
+--  constant frame_h_syncwidth : integer := 192;
 --  
---  constant frame_height : integer := 1242;
+--  constant frame_height : integer := 1250;
 --  constant frame_v_front : integer := 1;
 --  constant frame_v_syncheight : integer := 3;
 
+  constant width : integer := 1920;
+  constant height : integer := 1200;
+  
+  constant frame_width : integer := 2592;
+  constant frame_h_front : integer := 128;
+  constant frame_h_syncwidth : integer := 208;
+  
+  constant frame_height : integer := 1242;
+  constant frame_v_front : integer := 1;
+  constant frame_v_syncheight : integer := 3;
   
   -- Frame generator counters
   signal xcounter : unsigned(11 downto 0) := (others => '0');
@@ -130,7 +143,7 @@ architecture Behavioral of vga is
   signal displayx : unsigned(11 downto 0);
   signal displayy : unsigned(11 downto 0);
   signal display_active : std_logic;
-
+  
   -----------------------------------------------------------------------------
   -- FastIO interface for accessing video registers
   -----------------------------------------------------------------------------
@@ -173,7 +186,7 @@ architecture Behavioral of vga is
   
   -- Border dimensions
   signal border_x_left : unsigned(11 downto 0) := to_unsigned(160,12);
-  signal border_x_right : unsigned(11 downto 0) := to_unsigned(1600-160,12);
+  signal border_x_right : unsigned(11 downto 0) := to_unsigned(1920-160,12);
   signal border_y_top : unsigned(11 downto 0) := to_unsigned(100,12);
   signal border_y_bottom : unsigned(11 downto 0) := to_unsigned(1200-101,12);
   signal blank : std_logic := '0';
@@ -337,7 +350,7 @@ begin
                                         -- For C64 mode it would be nice to have PAL or NTSC selectable.
                                         -- Perhaps consider a different video mode for that, or buffer
                                         -- the generated frames somewhere?
-               clk_out3 => dotclock); 
+               clk_out2 => dotclock); 
   
   charrom1 : charrom
     port map (Clk => dotclock,
@@ -348,11 +361,12 @@ begin
               data_o => chardata
               );
 
-  fastram1 : component fastram
+  -- XXX For now just use 128KB FastRAM instead of 512KB which causes major routing
+  -- headaches.
+  fastram1 : component ram64x16k
     PORT MAP (
       -- XXX both ports require a clock.  Use this here until we pull the CPU in.
       clka => dotclock,
-      ena => '0',
       wea => (others => '0'),
       addra => ( others => '0'),
       dina => (others => '0'),
@@ -360,7 +374,7 @@ begin
       -- The CPU uses port a
       clkb => dotclock,
       web => ramwriteenable,
-      addrb => ramaddress,
+      addrb => ramaddress(13 downto 0),
       dinb => (others => '0'),
       doutb => ramdata
       );
@@ -415,9 +429,9 @@ begin
         elsif register_number=18 then          -- $D012 current raster low 8 bits
           fastio_rdata <= vicii_raster(7 downto 0);
         elsif register_number=19 then          -- $D013 lightpen X (coarse rasterX)
-          fastio_rdata <= std_logic_vector(displayx(10 downto 4));
+          fastio_rdata <= std_logic_vector(displayx(11 downto 4));
         elsif register_number=20 then          -- $D014 lightpen Y (coarse rasterY)
-          fastio_rdata <= std_logic_vector(displayy(10 downto 4));
+          fastio_rdata <= std_logic_vector(displayy(11 downto 4));
         elsif register_number=21 then          -- $D015 compatibility sprite enable
           fastio_rdata <= vicii_sprite_enables;
         elsif register_number=22 then          -- $D016
@@ -475,7 +489,14 @@ begin
           fastio_rdata <= std_logic_vector(sprite_multi1_colour);
         elsif register_number>=39 and register_number<=46 then
           fastio_rdata <= std_logic_vector(sprite_colours(to_integer(register_number)-39));
-          -- NEW VIDEO REGISTERS        
+          -- Skip $D02F - $D03F to avoid real C65/C128 programs trying to
+          -- fiddle with registers in this range.
+          -- NEW VIDEO REGISTERS
+          -- ($D040 - $D047 is the same as VIC-III DAT ports on C65.
+          --  This is tolerable, since the registers most likely used to detect a
+          --  C65 are made non-functional.  See:
+          -- http://www.devili.iki.fi/Computers/Commodore/C65/System_Specification/Chapter_2/page101.html
+          -- http://www.devili.iki.fi/Computers/Commodore/C65/System_Specification/Chapter_2/page102.html
         elsif register_number=64 then
           fastio_rdata <= std_logic_vector(virtual_row_width(7 downto 0));
         elsif register_number=65 then

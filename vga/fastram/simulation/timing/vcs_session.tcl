@@ -78,7 +78,6 @@ gui_list_add_group -id Wave.1 {fastram_Group}
       gui_sg_addsignal -group fastram_Group  /fastram_tb/fastram_synth_inst/bmg_port/ADDRA
       gui_sg_addsignal -group fastram_Group  /fastram_tb/fastram_synth_inst/bmg_port/DINA
       gui_sg_addsignal -group fastram_Group  /fastram_tb/fastram_synth_inst/bmg_port/WEA
-      gui_sg_addsignal -group fastram_Group  /fastram_tb/fastram_synth_inst/bmg_port/ENA
       gui_sg_addsignal -group fastram_Group  /fastram_tb/fastram_synth_inst/bmg_port/DOUTA
       gui_sg_addsignal -group fastram_Group  /fastram_tb/fastram_synth_inst/bmg_port/CLKB
       gui_sg_addsignal -group fastram_Group  /fastram_tb/fastram_synth_inst/bmg_port/ADDRB
