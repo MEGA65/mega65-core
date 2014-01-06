@@ -155,7 +155,7 @@ architecture Behavioral of vga is
   -- smooth scrolling position in natural pixels.
   -- Set in the same way as the border
   signal x_chargen_start : unsigned(11 downto 0) := to_unsigned(160,12);
-  signal y_chargen_start : unsigned(11 downto 0) := to_unsigned(70,12);
+  signal y_chargen_start : unsigned(11 downto 0) := to_unsigned(100,12);
   -- Charset is 16bit (2 bytes per char) when this mode is enabled.
   signal sixteenbit_charset : std_logic := '0';
   -- Characters >255 are full-colour blocks when enabled.
@@ -174,8 +174,8 @@ architecture Behavioral of vga is
   -- Border dimensions
   signal border_x_left : unsigned(11 downto 0) := to_unsigned(160,12);
   signal border_x_right : unsigned(11 downto 0) := to_unsigned(1600-160,12);
-  signal border_y_top : unsigned(11 downto 0) := to_unsigned(70,12);
-  signal border_y_bottom : unsigned(11 downto 0) := to_unsigned(1200-131,12);
+  signal border_y_top : unsigned(11 downto 0) := to_unsigned(100,12);
+  signal border_y_bottom : unsigned(11 downto 0) := to_unsigned(1200-101,12);
 
   -- Colour registers ($D020 - $D024)
   signal screen_colour : unsigned(7 downto 0) := x"06";  -- dark blue centre
