@@ -45,7 +45,7 @@
 # PART OF THIS FILE AT ALL TIMES.
 
 
-set device xc6vlx75tff484-3
+set device xc7a100tcsg324-1
 set projName ram64x16k
 set design ram64x16k
 set projDir [file dirname [info script]]

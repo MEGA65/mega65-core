@@ -87,7 +87,7 @@ END COMPONENT;
       c_disable_warn_bhv_coll => 0,
       c_disable_warn_bhv_range => 0,
       c_enable_32bit_address => 0,
-      c_family => "virtex6",
+      c_family => "artix7",
       c_has_axi_id => 0,
       c_has_ena => 0,
       c_has_enb => 0,
@@ -135,7 +135,7 @@ END COMPONENT;
       c_write_mode_b => "WRITE_FIRST",
       c_write_width_a => 64,
       c_write_width_b => 64,
-      c_xdevicefamily => "virtex6"
+      c_xdevicefamily => "artix7"
     );
 -- synthesis translate_on
 BEGIN

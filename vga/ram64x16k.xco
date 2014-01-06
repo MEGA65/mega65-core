@@ -1,7 +1,7 @@
 ##############################################################
 #
 # Xilinx Core Generator version 14.7
-# Date: Mon Jan  6 09:53:40 2014
+# Date: Mon Jan  6 10:55:19 2014
 #
 ##############################################################
 #
@@ -22,16 +22,16 @@ SET asysymbol = true
 SET busformat = BusFormatAngleBracketNotRipped
 SET createndf = false
 SET designentry = VHDL
-SET device = xc6vlx75t
-SET devicefamily = virtex6
+SET device = xc7a100t
+SET devicefamily = artix7
 SET flowvendor = Other
 SET formalverification = false
 SET foundationsym = false
 SET implementationfiletype = Ngc
-SET package = ff484
+SET package = csg324
 SET removerpms = false
 SET simulationfiles = Behavioral
-SET speedgrade = -3
+SET speedgrade = -1
 SET verilogsim = false
 SET vhdlsim = true
 # END Project Options
@@ -105,4 +105,4 @@ CSET write_width_b=64
 MISC pkg_timestamp=2012-11-19T16:22:25Z
 # END Extra information
 GENERATE
-# CRC: 5a749cfb
+# CRC: 2098d6e8

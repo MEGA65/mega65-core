@@ -2,9 +2,9 @@
  
  
 
-
-
  
+
+
 
 
 --------------------------------------------------------------------------------
@@ -75,8 +75,8 @@
 -- Configured Core Parameter Values:
 -- (Refer to the SIM Parameters table in the datasheet for more information on
 -- the these parameters.)
---    C_FAMILY                    :  virtex6 
---    C_XDEVICEFAMILY             :  virtex6 
+--    C_FAMILY                    :  artix7 
+--    C_XDEVICEFAMILY             :  artix7 
 --    C_INTERFACE_TYPE            :  0 
 --    C_ENABLE_32BIT_ADDRESS      :  0 
 --    C_AXI_TYPE                  :  1 

@@ -1,7 +1,7 @@
 run
 -ifmt VHDL
 -ent ram64x16k_exdes
--p xc6vlx75t-ff484-3
+-p xc7a100t-csg324-1
 -ifn xst.prj
 -write_timing_constraints No
 -iobuf YES

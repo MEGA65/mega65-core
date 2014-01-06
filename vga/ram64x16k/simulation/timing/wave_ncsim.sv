@@ -3,9 +3,9 @@
  
  
 
-
-
  
+
+
 
 window new WaveWindow  -name  "Waves for BMG Example Design"
 waveform  using  "Waves for BMG Example Design"
