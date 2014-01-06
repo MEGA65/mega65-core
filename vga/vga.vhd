@@ -416,14 +416,14 @@ begin
           if fastio_read='1' then
             fastio_rdata <= std_logic_vector(sprite_x(to_integer(register_num(2 downto 0))));
           else
-            sprite_x(to_integer(register_num(2 downto 0))) <= fastio_wdata;
+            sprite_x(to_integer(register_num(2 downto 0))) <= unsigned(fastio_wdata);
           end if;
         elsif register_num<16 then
           -- compatibility sprite coordinates
           if fastio_read='1' then
             fastio_rdata <= std_logic_vector(sprite_y(to_integer(register_num(2 downto 0))));
           else
-            sprite_y(to_integer(register_num(2 downto 0))) <= fastio_wdata;
+            sprite_y(to_integer(register_num(2 downto 0))) <= unsigned(fastio_wdata);
           end if;
         elsif register_number=16 then
           -- compatibility sprite x position MSB
