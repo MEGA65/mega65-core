@@ -99,16 +99,28 @@ architecture Behavioral of vga is
   signal pixel_colour : unsigned(7 downto 0);
   
   -- Video mode definition
-  constant width : integer := 1920;
+  constant width : integer := 1600;
   constant height : integer := 1200;
   
-  constant frame_width : integer := 2592;
-  constant frame_h_front : integer := 128;
-  constant frame_h_syncwidth : integer := 208;
+  constant frame_width : integer := 2160;
+  constant frame_h_front : integer := 64;
+  constant frame_h_syncwidth : integer := 192;
   
-  constant frame_height : integer := 1242;
+  constant frame_height : integer := 1250;
   constant frame_v_front : integer := 1;
   constant frame_v_syncheight : integer := 3;
+
+--  constant width : integer := 1920;
+--  constant height : integer := 1200;
+--  
+--  constant frame_width : integer := 2592;
+--  constant frame_h_front : integer := 128;
+--  constant frame_h_syncwidth : integer := 208;
+--  
+--  constant frame_height : integer := 1242;
+--  constant frame_v_front : integer := 1;
+--  constant frame_v_syncheight : integer := 3;
+
   
   -- Frame generator counters
   signal xcounter : unsigned(11 downto 0) := (others => '0');
@@ -280,13 +292,14 @@ begin
   pixelclock1: component pixelclock
     port map ( clk_in1 => clk,
                reset => reset,					  
-                                        -- CLK_OUT2 = 60Hz, CLK_OUT1 = 50Hz
+                                        -- CLK_OUT2 is good for 1920x1200@60Hz, CLK_OUT3
+                                        -- for 1600x1200@60Hz
                                         -- 60Hz works fine, but 50Hz is not well supported by monitors.
                                         -- so I guess we will go with an NTSC-style 60Hz display.
                                         -- For C64 mode it would be nice to have PAL or NTSC selectable.
                                         -- Perhaps consider a different video mode for that, or buffer
                                         -- the generated frames somewhere?
-               clk_out2 => dotclock); 
+               clk_out3 => dotclock); 
   
   charrom1 : charrom
     port map (Clk => dotclock,
