@@ -208,9 +208,11 @@ architecture Behavioral of vga is
   signal twentyfourlines : std_logic := '0';
   signal thirtyninecolumns : std_logic := '0';
   signal vicii_raster : std_logic_vector(8 downto 0);
+  signal vicii_raster_compare : std_logic_vector(8 downto 0);
   signal vicii_x_smoothscroll : std_logic_vector(2 downto 0);
   signal vicii_y_smoothscroll : std_logic_vector(2 downto 0);
   signal vicii_sprite_enables : std_logic_vector(7 downto 0);
+  signal vicii_sprite_xmsbs : std_logic_vector(7 downto 0);
   signal vicii_sprite_x_expand : std_logic_vector(7 downto 0);
   signal vicii_sprite_y_expand : std_logic_vector(7 downto 0);
   signal vicii_sprite_priorty_bits : std_logic_vector(7 downto 0);
@@ -427,13 +429,37 @@ begin
           end if;
         elsif register_number=16 then
           -- compatibility sprite x position MSB
+          if fastio_read='1' then
+            fastio_rdata <= vicii_sprite_xmsbs;
+          else
+            vicii_sprite_xmsbs <= fastio_wdata;
+          end if;
         elsif register_number=17 then             -- $D011
-          fastio_rdata(7) <= vicii_raster(8);
-          fastio_rdata(6) <= extended_background_mode;
-          fastio_rdata(5) <= not text_mode;
-          fastio_rdata(4) <= not blank;
-          fastio_rdata(3) <= not twentyfourlines;
-          fastio_rdata(2 downto 0) <= vicii_y_smoothscroll;
+          if fastio_read='1' then
+            fastio_rdata(7) <= vicii_raster(8);
+            fastio_rdata(6) <= extended_background_mode;
+            fastio_rdata(5) <= not text_mode;
+            fastio_rdata(4) <= not blank;
+            fastio_rdata(3) <= not twentyfourlines;
+            fastio_rdata(2 downto 0) <= vicii_y_smoothscroll;
+          else
+            vicii_raster_compare(8) <= fastio_wdata(7);
+            extended_background_mode <= fastio_wdata(6);
+            text_mode <= not fastio_wdata(5);
+            blank <= not fastio_wdata(4);
+            twentyfourlines <= not fastio_wdata(3);
+            -- set vertical borders based on twentyfourlines
+            if twentyfourlines='0' then
+              border_y_top <= to_unsigned(100,12);
+              border_y_bottom <= to_unsigned(1200-101,12);
+            else  
+              border_y_top <= to_unsigned(100+(4*5),12);
+              border_y_bottom <= to_unsigned(1200-101-(4*5),12);
+            end if;
+            vicii_y_smoothscroll <= fastio_wdata(2 downto 0);
+            -- set y_chargen_start based on twentyfourlines
+            y_chargen_start <= to_unsigned((100-3*5)+to_integer(unsigned(vicii_y_smoothscroll))*5,12);
+          end if;
         elsif register_number=18 then          -- $D012 current raster low 8 bits
           fastio_rdata <= vicii_raster(7 downto 0);
         elsif register_number=19 then          -- $D013 lightpen X (coarse rasterX)
@@ -891,10 +917,8 @@ begin
       inborder_t2 <= inborder_t1;
       inborder_t3 <= inborder_t2;
 
-      -- XXX Until we support reading colour RAM, we are using the card number
-      -- as the source of the foreground colour for the card.
-      card_fg_colour(7 downto 4) := "0000";
-      card_fg_colour(3 downto 0) := card_number_t3(3 downto 0);
+      -- Fetch card foreground colour from colour RAM
+      card_fg_colour(7 downto 0) := glyph_colour;
 
       card_bg_colour := screen_colour;
       if extended_background_mode='1' then
@@ -910,8 +934,8 @@ begin
       end if;
       
       if indisplay_t3='1' then
-        if inborder_t2='1' then
-          pixel_colour <= border_colour;          
+        if inborder_t2='1' or blank='1' then
+          pixel_colour <= border_colour;        
         elsif multicolour_mode='1' and text_mode='1' and card_fg_colour(3)='1' then
           -- Multicolour character mode only engages for characters with bit 3
           -- of their foreground colour set.
@@ -929,10 +953,15 @@ begin
           -- XXX Not yet implemented
           pixel_colour(7 downto 4) <= "0000";
           pixel_colour(3 downto 0) <= card_number_t3(3 downto 0);
-        elsif charrow(to_integer(not card_x_t3(2 downto 0))) = '1' then
+        elsif multicolour_mode='0' and text_mode='0' then
           -- hires/bi-colour mode
-          pixel_colour(7 downto 4) <= "0000";
-          pixel_colour(3 downto 0) <= glyph_colour(3 downto 0);
+          if charrow(to_integer(not card_x_t3(2 downto 0))) = '1' then
+            pixel_colour(7 downto 4) <= "0000";
+            pixel_colour(3 downto 0) <= card_fg_colour(3 downto 0);
+          else
+            pixel_colour(7 downto 4) <= "0000";
+            pixel_colour(3 downto 0) <= card_bg_colour(3 downto 0);
+          end if;
         else
           pixel_colour <= card_bg_colour;
         end if;
