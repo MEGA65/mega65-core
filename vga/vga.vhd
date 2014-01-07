@@ -31,18 +31,50 @@ use ieee.numeric_std.all;
 --use UNISIM.VComponents.all;
 
 entity vga is
-  Port ( clk : in  STD_LOGIC;
+  Port (
+         ----------------------------------------------------------------------
+         -- 100MHz Nexys4 master clock from which we drive the dotclock
+         ----------------------------------------------------------------------
+         clk : in  STD_LOGIC;
+
+         ----------------------------------------------------------------------
+         -- VGA output
+         ----------------------------------------------------------------------
          vsync : out  STD_LOGIC;
          hsync : out  STD_LOGIC;
+         vgared : out  UNSIGNED (3 downto 0);
+         vgagreen : out  UNSIGNED (3 downto 0);
+         vgablue : out  UNSIGNED (3 downto 0);
+
+         -----------------------------------------------------------------------------
+         -- External interface to 128KB fastram insantiated inside us
+         -----------------------------------------------------------------------------
+         fastram_clk : IN STD_LOGIC;
+         fastram_wea : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
+         fastram_address : IN STD_LOGIC_VECTOR(13 DOWNTO 0);
+         fastram_datain : IN STD_LOGIC_VECTOR(63 DOWNTO 0);
+         fastram_dataout : OUT STD_LOGIC_VECTOR(63 DOWNTO 0);
+         
+         -----------------------------------------------------------------------------
+         -- FastIO interface for accessing video registers
+         -----------------------------------------------------------------------------
+         fastio_addr : in std_logic_vector(19 downto 0);
+         fastio_read : in std_logic;
+         fastio_write : in std_logic;
+         fastio_wdata : in std_logic_vector(7 downto 0);
+         fastio_rdata : out std_logic_vector(7 downto 0);
+
+         ----------------------------------------------------------------------
+         -- Debug interfaces on Nexys4 board
+         ----------------------------------------------------------------------
          led0 : out std_logic;
          led1 : out std_logic;
          led2 : out std_logic;
          led3 : out std_logic;
          sw : in std_logic_vector(15 downto 0);
-         btn : in std_logic_vector(4 downto 0);
-         vgared : out  UNSIGNED (3 downto 0);
-         vgagreen : out  UNSIGNED (3 downto 0);
-         vgablue : out  UNSIGNED (3 downto 0));
+         btn : in std_logic_vector(4 downto 0)
+
+         );
 end vga;
 
 architecture Behavioral of vga is
@@ -144,14 +176,6 @@ architecture Behavioral of vga is
   signal displayy : unsigned(11 downto 0);
   signal display_active : std_logic;
   
-  -----------------------------------------------------------------------------
-  -- FastIO interface for accessing video registers
-  -----------------------------------------------------------------------------
-  signal fastio_addr : std_logic_vector(19 downto 0);
-  signal fastio_read : std_logic;
-  signal fastio_write : std_logic;
-  signal fastio_wdata : std_logic_vector(7 downto 0);
-  signal fastio_rdata : std_logic_vector(7 downto 0);
   
   -----------------------------------------------------------------------------
   -- Video controller registers
@@ -368,10 +392,11 @@ begin
   fastram1 : component ram64x16k
     PORT MAP (
       -- XXX both ports require a clock.  Use this here until we pull the CPU in.
-      clka => dotclock,
-      wea => (others => '0'),
-      addra => ( others => '0'),
-      dina => (others => '0'),
+      clka => fastram_clk,
+      wea => fastram_wea,
+      addra => fastram_address,
+      dina => fastram_datain,
+      douta => fastram_dataout,
       -- We use port b of the dual-port fast ram.
       -- The CPU uses port a
       clkb => dotclock,
@@ -935,7 +960,15 @@ begin
       
       if indisplay_t3='1' then
         if inborder_t2='1' or blank='1' then
-          pixel_colour <= border_colour;        
+          pixel_colour <= border_colour;
+        elsif (fullcolour_extendedchars='1' and text_mode='1' and card_number(15 downto 8) /= x"00")
+        or (fullcolour_8bitchars='1' and text_mode='1') then
+          -- Full colour glyph
+          -- Pixels come from each 8 bits of character memory.
+          pixel_colour <= unsigned(glyph_pixeldata(63 downto 56));
+          if card_x_t1 /= card_x then
+            glyph_pixeldata(63 downto 8) <= glyph_pixeldata(55 downto 0);
+          end if;
         elsif multicolour_mode='1' and text_mode='1' and card_fg_colour(3)='1' then
           -- Multicolour character mode only engages for characters with bit 3
           -- of their foreground colour set.
@@ -953,8 +986,11 @@ begin
           -- XXX Not yet implemented
           pixel_colour(7 downto 4) <= "0000";
           pixel_colour(3 downto 0) <= card_number_t3(3 downto 0);
-        elsif multicolour_mode='0' and text_mode='0' then
-          -- hires/bi-colour mode
+        elsif multicolour_mode='0' then
+          -- hires/bi-colour mode/normal text mode
+          -- XXX Still using character generator ROM for now.
+          -- XXX Replace with correct byte from glyph_pixelddata
+          -- once we have things settled down a bit more.
           if charrow(to_integer(not card_x_t3(2 downto 0))) = '1' then
             pixel_colour(7 downto 4) <= "0000";
             pixel_colour(3 downto 0) <= card_fg_colour(3 downto 0);
