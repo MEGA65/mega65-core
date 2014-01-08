@@ -169,9 +169,6 @@ architecture Behavioral of container is
         );
   end component;
 
-  signal clock : STD_LOGIC;
-  signal VGA_PIXEL_CLOCK : STD_LOGIC;
-
   signal irq : std_logic := '1';
   signal nmi : std_logic := '1';
   
@@ -191,8 +188,6 @@ architecture Behavioral of container is
 begin
   fast_clock: fpga_clock port map(CLK_IN1 => CLK_IN,
                                   CLK_OUT7 => clock,reset => reset);
-  pixel_clock: vga_clock port map(CLK_IN1 => CLK_IN,
-                                  CLK_OUT2 => vga_pixel_clock,reset => reset);
   
   cpu0: cpu6502 port map(clock => clock,reset =>reset,irq => irq,
                          nmi => nmi,monitor_pc => monitor_pc,
