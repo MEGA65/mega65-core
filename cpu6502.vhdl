@@ -19,7 +19,19 @@ entity cpu6502 is
     monitor_sp : out std_logic_vector(7 downto 0);
     monitor_p : out std_logic_vector(7 downto 0);
 
+    ---------------------------------------------------------------------------
+    -- Interface to FastRAM in video controller (just 128KB for now)
+    ---------------------------------------------------------------------------
+    fastram_clk : OUT STD_LOGIC;
+    fastram_wea : OUT STD_LOGIC_VECTOR(7 DOWNTO 0);
+    fastram_address : OUT STD_LOGIC_VECTOR(13 DOWNTO 0);
+    fastram_datain : OUT STD_LOGIC_VECTOR(63 DOWNTO 0);
+    fastram_dataout : IN STD_LOGIC_VECTOR(63 DOWNTO 0);
+    
+    ---------------------------------------------------------------------------
     -- fast IO port (clocked at core clock). 1MB address space
+    ---------------------------------------------------------------------------
+    fastio_clk : out std_logic;
     fastio_addr : out std_logic_vector(19 downto 0);
     fastio_read : out std_logic;
     fastio_write : out std_logic;
@@ -30,27 +42,12 @@ entity cpu6502 is
 end cpu6502;
 
 architecture Behavioral of cpu6502 is
-  component spartan6blockram port (Clk : in std_logic;
-                                   address : in std_logic_vector(15 downto 0);
-                                   we : in std_logic;
-                                   data_i : in std_logic_vector(7 downto 0);
-                                   data_o : out std_logic_vector(7 downto 0)
-                                   );
-  end component spartan6blockram;
-
-
   
--- 512KB RAM as 64K x 64bit
--- The wide databus allows us to read entire instructions in one go,
--- and potentially to write operands to memory while fetching the next
--- instruction if the lower 3 bits don't conflict
   type unsigned_array_8 is array(0 to 7) of std_logic_vector(15 downto 0);
   type stdlogic_array_8 is array (natural range <>) of std_logic_vector(7 downto 0);
-  signal ram_address : unsigned_array_8;
-  signal ram_we : std_logic_vector(0 to 7);
-  signal ram_data_i : stdlogic_array_8(0 to 7);
-  signal ram_data_o : stdlogic_array_8(0 to 7);
 
+  -- FastRAM is now hosted in the video controller.
+  
   signal iovalue : std_logic_vector(7 downto 0);
   
 -- CPU RAM bank selection registers.
@@ -102,12 +99,7 @@ architecture Behavioral of cpu6502 is
 
 -- Indicate source of operand for instructions
 -- Note that ROM is actually implemented using
--- power-on initialised RAM in the FPGA.  This
--- allows fast parallel fetching of instructions
--- and their arguments.
--- For FPGAs that don't support pre-initialisation
--- of RAM, we can easily have a reset routine that
--- copies a real ROM into RAM.
+-- power-on initialised RAM in the FPGA mapped via our io interface.
   signal operand_from_io : std_logic;
   signal operand_from_ram : std_logic;
   signal operand_from_slowram : std_logic;

@@ -16,5 +16,9 @@ kernel65.bin:	kernel65.a65
 kernel65.vhdl:	rom_template.vhdl kernel65.bin makerom
 	./makerom rom_template.vhdl kernel65.bin kernel65
 
+transfer:
+	scp *.xise *.prj *vhd *vhdl 192.168.56.102:c64accel/
+
+
 simulate:	bcdadder.vhdl alu6502.vhdl cpu6502.vhdl kernel65.vhdl iomapper.vhdl container.vhd cpu_test.vhdl
 	ghdl -c bcdadder.vhdl alu6502.vhdl cpu6502.vhdl kernel65.vhdl iomapper.vhdl container.vhd cpu_test.vhdl -r cpu_test
