@@ -234,18 +234,6 @@ architecture Behavioral of cpu6502 is
 
 begin
   
-  -- Each block portram is 64KBx8bits, so we need 8 of them
-  -- to make 512KB, approximately the total available on this FPGA.
-  gen_ram: for i in 0 to 7 generate
-    ramx: component spartan6blockram
-      port map (
-        Clk   => clock,
-        address => ram_address(i),
-        we      => ram_we(i),
-        data_i  => ram_data_i(i),
-        data_o  => ram_data_o(i));
-  end generate;
-  
   process(clock)
     variable normal_instruction : boolean;
 
