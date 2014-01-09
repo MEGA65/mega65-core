@@ -33,7 +33,7 @@ use Std.TextIO.all;
 --use UNISIM.VComponents.all;
 
 entity container is
-  Port ( CLK_IN : STD_LOGIC;
+  Port ( CLK_IN : STD_LOGIC;         
          reset : in  STD_LOGIC;
 --         irq : in  STD_LOGIC;
 --         nmi : in  STD_LOGIC;
@@ -61,6 +61,20 @@ entity container is
 end container;
 
 architecture Behavioral of container is
+
+  component dotclock is
+    port
+      (-- Clock in ports
+        CLK_IN1           : in     std_logic;
+        -- Clock out ports
+        CLK_OUT1          : out    std_logic;
+        CLK_OUT2          : out    std_logic;
+        CLK_OUT3          : out    std_logic;
+        CLK_OUT4          : out    std_logic;
+        CLK_OUT5          : out    std_logic
+        );
+  end component;
+  
   component cpu6502
     port (
       Clock : in std_logic;
@@ -101,7 +115,7 @@ architecture Behavioral of container is
       ----------------------------------------------------------------------
       -- 100MHz Nexys4 master clock from which we drive the dotclock
       ----------------------------------------------------------------------
-      clk : in  STD_LOGIC;
+      pixelclock : in  STD_LOGIC;
 
       ----------------------------------------------------------------------
       -- VGA output
@@ -154,66 +168,67 @@ architecture Behavioral of container is
           );
   end component;
   
-  component fpga_clock is
-    port
-      (-- Clock in ports
-        CLK_IN1           : in     std_logic;
-        -- Clock out ports
-        CLK_OUT1          : out    std_logic;  -- 100MHz
-        CLK_OUT2          : out    std_logic;  -- 90MHz
-        CLK_OUT3          : out    std_logic;  -- 85MHz
-        CLK_OUT4          : out    std_logic;  -- 80MHz
-        CLK_OUT5          : out    std_logic;  -- 70MHz
-        CLK_OUT6          : out    std_logic;  -- 60MHz
-        CLK_OUT7          : out    std_logic;  -- 50MHz
-        -- Status and control signals
-        RESET             : in     std_logic;
-        LOCKED            : out    std_logic
-        );
-  end component;
-
   signal irq : std_logic := '1';
   signal nmi : std_logic := '1';
   
-  signal fastio_clock : std_logic;
+--  signal fastio_clock : std_logic;
   signal fastio_addr : std_logic_vector(19 downto 0);
   signal fastio_read : std_logic;
   signal fastio_write : std_logic;
   signal fastio_wdata : std_logic_vector(7 downto 0);
   signal fastio_rdata : std_logic_vector(7 downto 0);
 
-  signal fastram_clock : STD_LOGIC;
+--  signal fastram_clock : STD_LOGIC;
   signal fastram_we : STD_LOGIC_VECTOR(7 DOWNTO 0);
   signal fastram_address : STD_LOGIC_VECTOR(13 DOWNTO 0);
   signal fastram_datain : STD_LOGIC_VECTOR(63 DOWNTO 0);
   signal fastram_dataout : STD_LOGIC_VECTOR(63 DOWNTO 0);
 
-  signal clock : std_logic;
+  signal cpuclock : std_logic;
+  signal pixelclock : std_logic;
   signal monitor_pc : std_logic_vector(15 downto 0);
   
 begin
-  fast_clock: fpga_clock port map(CLK_IN1 => CLK_IN,
-                                  CLK_OUT1 => clock,reset => reset);
-  
-  cpu0: cpu6502 port map(clock => clock,reset =>reset,irq => irq,
-                         nmi => nmi,monitor_pc => monitor_pc,
-                         fastio_clock => fastio_clock,
-                         fastio_addr => fastio_addr,
-                         fastio_read => fastio_read,
-                         fastio_write => fastio_write,
-                         fastio_wdata => fastio_wdata,
-                         fastio_rdata => fastio_rdata,
 
-                         fastram_clock => fastram_clock,
-                         fastram_we => fastram_we,
-                         fastram_address => fastram_address,
-                         fastram_datain => fastram_datain,
-                         fastram_dataout => fastram_dataout                         
-                         );
+  process(pixelclock)
+  begin
+     if rising_edge(pixelclock) then
+        cpuclock <= not cpuclock;
+     end if;
+  end process;
+  
+  dotclock1: component dotclock
+    port map ( clk_in1 => CLK_IN,
+--               -- 100MHz clock for CPU
+--               clk_out1 => cpuclock,
+               -- CLK_OUT2 is good for 1920x1200@60Hz, CLK_OUT3___160
+               -- for 1600x1200@60Hz
+               -- 60Hz works fine, but 50Hz is not well supported by monitors. 
+               -- so I guess we will go with an NTSC-style 60Hz display.       
+               -- For C64 mode it would be nice to have PAL or NTSC selectable.                    -- Perhaps consider a different video mode for that, or buffering
+               -- the generated frames somewhere?
+               clk_out2 => pixelclock);   
+
+  
+  --cpu0: cpu6502 port map(clock => cpuclock,reset =>reset,irq => irq,
+  --                       nmi => nmi,monitor_pc => monitor_pc,
+  --                       fastio_clock => fastio_clock,
+  --                       fastio_addr => fastio_addr,
+  --                       fastio_read => fastio_read,
+  --                       fastio_write => fastio_write,
+  --                       fastio_wdata => fastio_wdata,
+  --                       fastio_rdata => fastio_rdata,
+
+  --                       fastram_clock => fastram_clock,
+  --                       fastram_we => fastram_we,
+  --                       fastram_address => fastram_address,
+  --                       fastram_datain => fastram_datain,
+  --                       fastram_dataout => fastram_dataout                         
+  --                       );
 
   vga0: vga
     port map (
-      clk             => CLK_IN,
+      pixelclock      => pixelclock,
       
       vsync           => vsync,
       hsync           => hsync,
@@ -221,13 +236,13 @@ begin
       vgagreen        => vgagreen,
       vgablue         => vgablue,
       
-      fastram_clock   => fastram_clock,
+      fastram_clock   => cpuclock,
       fastram_we      => fastram_we,
       fastram_address => fastram_address,
       fastram_datain  => fastram_datain,
       fastram_dataout => fastram_dataout,
       
-      fastio_clock    => fastio_clock,
+      fastio_clock    => cpuclock,
       fastio_addr     => fastio_addr,
       fastio_read     => fastio_read,
       fastio_write    => fastio_write,
@@ -242,7 +257,7 @@ begin
       btn             => btn);
   
   iomapper0: iomapper port map (
-    clk => fastio_clock, address => fastio_addr,
+    clk => cpuclock, address => fastio_addr,
     r => fastio_read, w => fastio_write,
     data_i => fastio_wdata, data_o => fastio_rdata);
 

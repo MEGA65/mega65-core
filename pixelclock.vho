@@ -57,6 +57,8 @@
 -- CLK_OUT1___100.000______0.000______50.0______131.270____100.243
 -- CLK_OUT2___192.500______0.000______50.0______115.975____100.243
 -- CLK_OUT3___160.417______0.000______50.0______119.963____100.243
+-- CLK_OUT4___137.500______0.000______50.0______123.449____100.243
+-- CLK_OUT5___120.312______0.000______50.0______126.555____100.243
 --
 ------------------------------------------------------------------------------
 -- "Input Clock   Freq (MHz)    Input Jitter (UI)"
@@ -74,6 +76,8 @@ port
   CLK_OUT1          : out    std_logic;
   CLK_OUT2          : out    std_logic;
   CLK_OUT3          : out    std_logic;
+  CLK_OUT4          : out    std_logic;
+  CLK_OUT5          : out    std_logic;
   -- Status and control signals
   RESET             : in     std_logic;
   LOCKED            : out    std_logic
@@ -92,6 +96,8 @@ your_instance_name : pixelclock
     CLK_OUT1 => CLK_OUT1,
     CLK_OUT2 => CLK_OUT2,
     CLK_OUT3 => CLK_OUT3,
+    CLK_OUT4 => CLK_OUT4,
+    CLK_OUT5 => CLK_OUT5,
     -- Status and control signals
     RESET  => RESET,
     LOCKED => LOCKED);

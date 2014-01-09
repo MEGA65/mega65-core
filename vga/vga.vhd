@@ -33,9 +33,9 @@ use ieee.numeric_std.all;
 entity vga is
   Port (
          ----------------------------------------------------------------------
-         -- 100MHz Nexys4 master clock from which we drive the dotclock
+         -- dot clock
          ----------------------------------------------------------------------
-         clk : in  STD_LOGIC;
+         pixelclock : in  STD_LOGIC;
 
          ----------------------------------------------------------------------
          -- VGA output
@@ -79,20 +79,6 @@ entity vga is
 end vga;
 
 architecture Behavioral of vga is
-
-  component pixelclock is
-    port
-      (-- Clock in ports
-        CLK_IN1           : in     std_logic;
-        -- Clock out ports
-        CLK_OUT1          : out    std_logic;
-        CLK_OUT2          : out    std_logic;
-        CLK_OUT3          : out    std_logic;
-        -- Status and control signals
-        RESET             : in     std_logic;
-        LOCKED            : out    std_logic
-        );
-  end component pixelclock;
 
   component charrom is
     port (Clk : in std_logic;
@@ -305,12 +291,9 @@ architecture Behavioral of vga is
   signal indisplay_t2 : std_logic;
   signal indisplay_t3 : std_logic;
   
-  signal dotclock : std_logic;
-  
   signal counter : unsigned(24 downto 0);
   signal slow_clock : std_logic := '0';
   
-  signal reset_counter : integer := 16;
   signal reset : std_logic := '0';
   
   -- Interface to fastram: 64bits wide
@@ -367,20 +350,8 @@ architecture Behavioral of vga is
   
 begin
 
-  pixelclock1: component pixelclock
-    port map ( clk_in1 => clk,
-               reset => reset,					  
-                                        -- CLK_OUT2 is good for 1920x1200@60Hz, CLK_OUT3
-                                        -- for 1600x1200@60Hz
-                                        -- 60Hz works fine, but 50Hz is not well supported by monitors.
-                                        -- so I guess we will go with an NTSC-style 60Hz display.
-                                        -- For C64 mode it would be nice to have PAL or NTSC selectable.
-                                        -- Perhaps consider a different video mode for that, or buffer
-                                        -- the generated frames somewhere?
-               clk_out2 => dotclock); 
-  
   charrom1 : charrom
-    port map (Clk => dotclock,
+    port map (Clk => pixelclock,
               address => charaddress,
               we => '0',  -- read
               cs => '1',  -- active
@@ -400,7 +371,7 @@ begin
       douta => fastram_dataout,
       -- We use port b of the dual-port fast ram.
       -- The CPU uses port a
-      clkb => dotclock,
+      clkb => pixelclock,
       web => ramwriteenable,
       addrb => ramaddress(13 downto 0),
       dinb => (others => '0'),
@@ -668,7 +639,7 @@ begin
     end if;
   end process;
   
-  process(dotclock) is
+  process(pixelclock) is
     variable indisplay : std_logic;
     variable next_card_number : unsigned(15 downto 0);
     variable next_card_x : unsigned(11 downto 0);
@@ -681,7 +652,7 @@ begin
     variable next_glyph_colour_temp : std_logic_vector(7 downto 0);
   begin
     
-    if rising_edge(dotclock) then            
+    if rising_edge(pixelclock) then            
       if xcounter>=(frame_h_front+width) and xcounter<(frame_h_front+width+frame_h_syncwidth) then
         hsync <= '0';
         led0 <= '0';

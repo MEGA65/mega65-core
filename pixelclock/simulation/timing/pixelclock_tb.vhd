@@ -88,7 +88,7 @@ architecture test of pixelclock_tb is
   -- Declare the input clock signals
   signal CLK_IN1       : std_logic := '1';
   -- The high bits of the sampling counters
-  signal COUNT         : std_logic_vector(3 downto 1);
+  signal COUNT         : std_logic_vector(5 downto 1);
   -- Status and control signals
   signal RESET         : std_logic := '0';
   signal LOCKED        : std_logic;
@@ -96,7 +96,7 @@ architecture test of pixelclock_tb is
   signal timeout_counter : std_logic_vector (13 downto 0) := (others => '0');
 --  signal defined to stop mti simulation without severity failure in the report
   signal end_of_sim : std_logic := '0';
-  signal CLK_OUT : std_logic_vector(3 downto 1);
+  signal CLK_OUT : std_logic_vector(5 downto 1);
 --Freq Check using the M & D values setting and actual Frequency generated
   signal period1 : time := 0 ps;
 constant  ref_period1_clkin1 : time := (10.000*1*9.625/9.625)*1000 ps;
@@ -107,6 +107,12 @@ constant  ref_period2_clkin1 : time := (10.000*1*5/9.625)*1000 ps;
   signal period3 : time := 0 ps;
 constant  ref_period3_clkin1 : time := (10.000*1*6/9.625)*1000 ps;
    signal prev_rise3 : time := 0 ps;
+  signal period4 : time := 0 ps;
+constant  ref_period4_clkin1 : time := (10.000*1*7/9.625)*1000 ps;
+   signal prev_rise4 : time := 0 ps;
+  signal period5 : time := 0 ps;
+constant  ref_period5_clkin1 : time := (10.000*1*8/9.625)*1000 ps;
+   signal prev_rise5 : time := 0 ps;
 
 component pixelclock_exdes
 port
@@ -114,9 +120,9 @@ port
   CLK_IN1           : in  std_logic;
   -- Reset that only drives logic in example design
   COUNTER_RESET     : in  std_logic;
-  CLK_OUT           : out std_logic_vector(3 downto 1) ;
+  CLK_OUT           : out std_logic_vector(5 downto 1) ;
   -- High bits of counters driven by clocks
-  COUNT             : out std_logic_vector(3 downto 1);
+  COUNT             : out std_logic_vector(5 downto 1);
   -- Status and control signals
   RESET             : in  std_logic;
   LOCKED            : out std_logic
@@ -183,6 +189,10 @@ begin
     assert (((period2 - ref_period2_clkin1) >= -100 ps) and ((period2 - ref_period2_clkin1) <= 100 ps)) report "ERROR: Freq of CLK_OUT(2) is not correct"  severity note;
     simfreqprint(period3, 3);
     assert (((period3 - ref_period3_clkin1) >= -100 ps) and ((period3 - ref_period3_clkin1) <= 100 ps)) report "ERROR: Freq of CLK_OUT(3) is not correct"  severity note;
+    simfreqprint(period4, 4);
+    assert (((period4 - ref_period4_clkin1) >= -100 ps) and ((period4 - ref_period4_clkin1) <= 100 ps)) report "ERROR: Freq of CLK_OUT(4) is not correct"  severity note;
+    simfreqprint(period5, 5);
+    assert (((period5 - ref_period5_clkin1) >= -100 ps) and ((period5 - ref_period5_clkin1) <= 100 ps)) report "ERROR: Freq of CLK_OUT(5) is not correct"  severity note;
 
 
     simtimeprint;
@@ -256,6 +266,24 @@ begin
        period3 <= NOW - prev_rise3;
      end if;
      prev_rise3 <= NOW; 
+   end if;
+   end process;
+   process(CLK_OUT(4))
+   begin
+   if (CLK_OUT(4)'event and CLK_OUT(4) = '1') then
+     if (prev_rise4 /= 0 ps) then
+       period4 <= NOW - prev_rise4;
+     end if;
+     prev_rise4 <= NOW; 
+   end if;
+   end process;
+   process(CLK_OUT(5))
+   begin
+   if (CLK_OUT(5)'event and CLK_OUT(5) = '1') then
+     if (prev_rise5 /= 0 ps) then
+       period5 <= NOW - prev_rise5;
+     end if;
+     prev_rise5 <= NOW; 
    end if;
    end process;
 

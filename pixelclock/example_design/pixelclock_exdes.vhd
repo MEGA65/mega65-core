@@ -71,9 +71,9 @@ port
   CLK_IN1           : in  std_logic;
   -- Reset that only drives logic in example design
   COUNTER_RESET     : in  std_logic;
-  CLK_OUT           : out std_logic_vector(3 downto 1) ;
+  CLK_OUT           : out std_logic_vector(5 downto 1) ;
   -- High bits of counters driven by clocks
-  COUNT             : out std_logic_vector(3 downto 1);
+  COUNT             : out std_logic_vector(5 downto 1);
   -- Status and control signals
   RESET             : in  std_logic;
   LOCKED            : out std_logic
@@ -88,7 +88,7 @@ architecture xilinx of pixelclock_exdes is
   constant C_W        : integer := 16;
 
   -- Number of counters
-  constant NUM_C      : integer := 3;
+  constant NUM_C      : integer := 5;
   -- Array typedef
   type ctrarr is array (1 to NUM_C) of std_logic_vector(C_W-1 downto 0);
 
@@ -114,6 +114,8 @@ port
   CLK_OUT1          : out    std_logic;
   CLK_OUT2          : out    std_logic;
   CLK_OUT3          : out    std_logic;
+  CLK_OUT4          : out    std_logic;
+  CLK_OUT5          : out    std_logic;
   -- Status and control signals
   RESET             : in     std_logic;
   LOCKED            : out    std_logic
@@ -155,6 +157,8 @@ end generate counters_1;
     CLK_OUT1           => clk_int(1),
     CLK_OUT2           => clk_int(2),
     CLK_OUT3           => clk_int(3),
+    CLK_OUT4           => clk_int(4),
+    CLK_OUT5           => clk_int(5),
     -- Status and control signals
     RESET              => RESET,
     LOCKED             => locked_int);
@@ -178,6 +182,8 @@ end generate counters_1;
   clk(1) <= clk_int(1);
   clk(2) <= clk_int(2);
   clk(3) <= clk_int(3);
+  clk(4) <= clk_int(4);
+  clk(5) <= clk_int(5);
 
   -- Output clock sampling
   -------------------------------------
