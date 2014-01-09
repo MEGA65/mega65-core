@@ -124,6 +124,7 @@ architecture Behavioral of container is
       -----------------------------------------------------------------------------
       -- FastIO interface for accessing video registers
       -----------------------------------------------------------------------------
+      fastio_clock : in std_logic;
       fastio_addr : in std_logic_vector(19 downto 0);
       fastio_read : in std_logic;
       fastio_write : in std_logic;
@@ -142,7 +143,6 @@ architecture Behavioral of container is
 
       );
   end component;
-
   
   component iomapper is
     port (Clk : in std_logic;
@@ -212,29 +212,34 @@ begin
                          );
 
   vga0: vga
-      port map (
-        clk             => CLK_IN,
-        vsync           => vsync,
-        hsync           => hsync,
-        vgared          => vgared,
-        vgagreen        => vgagreen,
-        vgablue         => vgablue,
-        fastram_clock     => fastram_clock,
-        fastram_we     => fastram_we,
-        fastram_address => fastram_address,
-        fastram_datain  => fastram_datain,
-        fastram_dataout => fastram_dataout,
-        fastio_addr     => fastio_addr,
-        fastio_read     => fastio_read,
-        fastio_write    => fastio_write,
-        fastio_wdata    => fastio_wdata,
-        fastio_rdata    => fastio_rdata,
-        led0            => led0,
-        led1            => led1,
-        led2            => led2,
-        led3            => led3,
-        sw              => sw,
-        btn             => btn);
+    port map (
+      clk             => CLK_IN,
+      
+      vsync           => vsync,
+      hsync           => hsync,
+      vgared          => vgared,
+      vgagreen        => vgagreen,
+      vgablue         => vgablue,
+      
+      fastram_clock   => fastram_clock,
+      fastram_we      => fastram_we,
+      fastram_address => fastram_address,
+      fastram_datain  => fastram_datain,
+      fastram_dataout => fastram_dataout,
+      
+      fastio_clock    => fastio_clock,
+      fastio_addr     => fastio_addr,
+      fastio_read     => fastio_read,
+      fastio_write    => fastio_write,
+      fastio_wdata    => fastio_wdata,
+      fastio_rdata    => fastio_rdata,
+      
+      led0            => led0,
+      led1            => led1,
+      led2            => led2,
+      led3            => led3,
+      sw              => sw,
+      btn             => btn);
   
   iomapper0: iomapper port map (
     clk => fastio_clock, address => fastio_addr,

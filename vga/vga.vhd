@@ -49,8 +49,8 @@ entity vga is
          -----------------------------------------------------------------------------
          -- External interface to 128KB fastram insantiated inside us
          -----------------------------------------------------------------------------
-         fastram_clk : IN STD_LOGIC;
-         fastram_wea : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
+         fastram_clock : IN STD_LOGIC;
+         fastram_we : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
          fastram_address : IN STD_LOGIC_VECTOR(13 DOWNTO 0);
          fastram_datain : IN STD_LOGIC_VECTOR(63 DOWNTO 0);
          fastram_dataout : OUT STD_LOGIC_VECTOR(63 DOWNTO 0);
@@ -58,6 +58,7 @@ entity vga is
          -----------------------------------------------------------------------------
          -- FastIO interface for accessing video registers
          -----------------------------------------------------------------------------
+         fastio_clock : in std_logic;
          fastio_addr : in std_logic_vector(19 downto 0);
          fastio_read : in std_logic;
          fastio_write : in std_logic;
@@ -392,8 +393,8 @@ begin
   fastram1 : component ram64x16k
     PORT MAP (
       -- XXX both ports require a clock.  Use this here until we pull the CPU in.
-      clka => fastram_clk,
-      wea => fastram_wea,
+      clka => fastram_clock,
+      wea => fastram_we,
       addra => fastram_address,
       dina => fastram_datain,
       douta => fastram_dataout,
@@ -406,23 +407,14 @@ begin
       doutb => ramdata
       );
 
-  process(dotclock) is
-    variable indisplay : std_logic;
-    variable next_card_number : unsigned(15 downto 0);
-    variable next_card_x : unsigned(11 downto 0);
-    variable next_card_y : unsigned(11 downto 0);
-    variable multicolour_bits : std_logic_vector(1 downto 0);
-    variable card_bg_colour : unsigned(7 downto 0);
-    variable card_fg_colour : unsigned(7 downto 0);
-    variable long_address : unsigned(31 downto 0);
-    variable next_glyph_number_temp : std_logic_vector(15 downto 0);
-    variable next_glyph_colour_temp : std_logic_vector(7 downto 0);
+  process(fastio_clock) is
     variable register_bank : unsigned(7 downto 0);
     variable register_page : unsigned(3 downto 0);
     variable register_num : unsigned(7 downto 0);
     variable register_number : unsigned(11 downto 0);
   begin
-    if rising_edge(dotclock) then
+    if rising_edge(fastio_clock) then
+      fastio_rdata <= "ZZZZZZZZ";
       if fastio_read='1' or fastio_write='1' then
         register_number := x"FFF";
         register_bank := unsigned(fastio_addr(19 downto 12));
@@ -624,11 +616,25 @@ begin
         elsif register_number>=768 and register_number<1024 then
           -- blue palette
           fastio_rdata <= std_logic_vector(palette(to_integer(register_num)).blue);
-        else
-          fastio_rdata <= "ZZZZZZZZ";
         end if;
-      end if;
-      
+      end if;      
+    end if;
+  end process;
+  
+  process(dotclock) is
+    variable indisplay : std_logic;
+    variable next_card_number : unsigned(15 downto 0);
+    variable next_card_x : unsigned(11 downto 0);
+    variable next_card_y : unsigned(11 downto 0);
+    variable multicolour_bits : std_logic_vector(1 downto 0);
+    variable card_bg_colour : unsigned(7 downto 0);
+    variable card_fg_colour : unsigned(7 downto 0);
+    variable long_address : unsigned(31 downto 0);
+    variable next_glyph_number_temp : std_logic_vector(15 downto 0);
+    variable next_glyph_colour_temp : std_logic_vector(7 downto 0);
+  begin
+    
+    if rising_edge(dotclock) then      
       -- Allow fiddling of scale by switching switches
       card_x_scale(3 downto 0) <= unsigned(sw(7 downto 4));
       card_y_scale(3 downto 0) <= unsigned(sw(3 downto 0));
