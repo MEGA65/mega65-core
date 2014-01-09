@@ -19,6 +19,9 @@
 ----------------------------------------------------------------------------------
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
+use ieee.numeric_std.all;
+use Std.TextIO.all;
+
 
 -- Uncomment the following library declaration if using
 -- arithmetic functions with Signed or Unsigned values
@@ -75,8 +78,8 @@ architecture Behavioral of container is
       ---------------------------------------------------------------------------
       -- Interface to FastRAM in video controller (just 128KB for now)
       ---------------------------------------------------------------------------
-      fastram_clk : OUT STD_LOGIC;
-      fastram_wea : OUT STD_LOGIC_VECTOR(7 DOWNTO 0);
+      fastram_clock : OUT STD_LOGIC;
+      fastram_we : OUT STD_LOGIC_VECTOR(7 DOWNTO 0);
       fastram_address : OUT STD_LOGIC_VECTOR(13 DOWNTO 0);
       fastram_datain : OUT STD_LOGIC_VECTOR(63 DOWNTO 0);
       fastram_dataout : IN STD_LOGIC_VECTOR(63 DOWNTO 0);
@@ -84,7 +87,7 @@ architecture Behavioral of container is
       ---------------------------------------------------------------------------
       -- fast IO port (clocked at core clock). 1MB address space
       ---------------------------------------------------------------------------
-      fastio_clk : out std_logic;
+      fastio_clock : out std_logic;
       fastio_addr : out std_logic_vector(19 downto 0);
       fastio_read : out std_logic;
       fastio_write : out std_logic;
@@ -112,8 +115,8 @@ architecture Behavioral of container is
       -----------------------------------------------------------------------------
       -- External interface to 128KB fastram insantiated inside us
       -----------------------------------------------------------------------------
-      fastram_clk : IN STD_LOGIC;
-      fastram_wea : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
+      fastram_clock : IN STD_LOGIC;
+      fastram_we : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
       fastram_address : IN STD_LOGIC_VECTOR(13 DOWNTO 0);
       fastram_datain : IN STD_LOGIC_VECTOR(63 DOWNTO 0);
       fastram_dataout : OUT STD_LOGIC_VECTOR(63 DOWNTO 0);
@@ -179,15 +182,18 @@ architecture Behavioral of container is
   signal fastio_wdata : std_logic_vector(7 downto 0);
   signal fastio_rdata : std_logic_vector(7 downto 0);
 
-  signal fastram_clk : STD_LOGIC;
-  signal fastram_wea : STD_LOGIC_VECTOR(7 DOWNTO 0);
+  signal fastram_clock : STD_LOGIC;
+  signal fastram_we : STD_LOGIC_VECTOR(7 DOWNTO 0);
   signal fastram_address : STD_LOGIC_VECTOR(13 DOWNTO 0);
   signal fastram_datain : STD_LOGIC_VECTOR(63 DOWNTO 0);
   signal fastram_dataout : STD_LOGIC_VECTOR(63 DOWNTO 0);
-      
+
+  signal clock : std_logic;
+  signal monitor_pc : std_logic_vector(15 downto 0);
+  
 begin
   fast_clock: fpga_clock port map(CLK_IN1 => CLK_IN,
-                                  CLK_OUT7 => clock,reset => reset);
+                                  CLK_OUT1 => clock,reset => reset);
   
   cpu0: cpu6502 port map(clock => clock,reset =>reset,irq => irq,
                          nmi => nmi,monitor_pc => monitor_pc,
@@ -198,8 +204,8 @@ begin
                          fastio_wdata => fastio_wdata,
                          fastio_rdata => fastio_rdata,
 
-                         fastram_clk => fastram_clk,
-                         fastram_wea => fastram_wea,
+                         fastram_clock => fastram_clock,
+                         fastram_we => fastram_we,
                          fastram_address => fastram_address,
                          fastram_datain => fastram_datain,
                          fastram_dataout => fastram_dataout                         
@@ -207,14 +213,14 @@ begin
 
   vga0: vga
       port map (
-        clk             => clk,
+        clk             => CLK_IN,
         vsync           => vsync,
         hsync           => hsync,
         vgared          => vgared,
         vgagreen        => vgagreen,
         vgablue         => vgablue,
-        fastram_clk     => fastram_clk,
-        fastram_wea     => fastram_wea,
+        fastram_clock     => fastram_clock,
+        fastram_we     => fastram_we,
         fastram_address => fastram_address,
         fastram_datain  => fastram_datain,
         fastram_dataout => fastram_dataout,

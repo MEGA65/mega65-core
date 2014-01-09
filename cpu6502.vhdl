@@ -22,8 +22,8 @@ entity cpu6502 is
     ---------------------------------------------------------------------------
     -- Interface to FastRAM in video controller (just 128KB for now)
     ---------------------------------------------------------------------------
-    fastram_clk : OUT STD_LOGIC;
-    fastram_wea : OUT STD_LOGIC_VECTOR(7 DOWNTO 0);
+    fastram_clock : OUT STD_LOGIC;
+    fastram_we : OUT STD_LOGIC_VECTOR(7 DOWNTO 0);
     fastram_address : OUT STD_LOGIC_VECTOR(13 DOWNTO 0);
     fastram_datain : OUT STD_LOGIC_VECTOR(63 DOWNTO 0);
     fastram_dataout : IN STD_LOGIC_VECTOR(63 DOWNTO 0);
@@ -31,7 +31,7 @@ entity cpu6502 is
     ---------------------------------------------------------------------------
     -- fast IO port (clocked at core clock). 1MB address space
     ---------------------------------------------------------------------------
-    fastio_clk : out std_logic;
+    fastio_clock : out std_logic;
     fastio_addr : out std_logic_vector(19 downto 0);
     fastio_read : out std_logic;
     fastio_write : out std_logic;
@@ -131,8 +131,8 @@ architecture Behavioral of cpu6502 is
     -- Special states used for special instructions
     PullA,                                -- PLA
     PullP,                                -- PLP
-    RTIPull,                              -- RTI
-    RTSPull,                              -- RTS
+    RTIPullP,                             -- RTI
+    RTSPullPCL,RTSPullPCH,                -- RTS
     JMPIndirectFetch,                     -- JMP absolute indirect
     Halt                                  -- KIL
     );
@@ -233,6 +233,10 @@ architecture Behavioral of cpu6502 is
 
 
 begin
+
+  -- Keep everything clocked at same rate if possible
+  fastio_clock <= clock;
+  fastram_clock <= clock;
   
   process(clock)
     variable normal_instruction : boolean;
@@ -287,7 +291,7 @@ begin
       end loop;
       write(L, s, JUSTIFIED, FIELD);
     end HWRITE; 
-
+    
     function to_string(sv: Std_Logic_Vector) return string is
       use Std.TextIO.all;
       
@@ -308,6 +312,23 @@ begin
       return lp.all;
     end;
 
+    impure function fastram_byte (
+      n : unsigned(2 downto 0))
+      return unsigned is
+    begin
+      case n is
+        when "111" => return unsigned(fastram_dataout(63 downto 56));
+        when "110" => return unsigned(fastram_dataout(55 downto 48));
+        when "101" => return unsigned(fastram_dataout(47 downto 40));
+        when "100" => return unsigned(fastram_dataout(39 downto 32));
+        when "011" => return unsigned(fastram_dataout(31 downto 24));
+        when "010" => return unsigned(fastram_dataout(23 downto 16));
+        when "001" => return unsigned(fastram_dataout(15 downto  8));
+        when "000" => return unsigned(fastram_dataout( 7 downto  0));
+        when others => return x"FF";
+      end case;
+    end function fastram_byte;
+    
     -- purpose: Convert a 16-bit C64 address to native RAM (or I/O or ROM) address
     function resolve_address_to_long(short_address : std_logic_vector(15 downto 0); ram_bank_registers : bank_register_set)
       return std_logic_vector is 
@@ -323,25 +344,29 @@ begin
     
     procedure request_read_long_address_from_fastram(long_address : std_logic_vector(27 downto 0)) is
       variable ram_bank : std_logic_vector(2 downto 0);
-      variable bank_address : std_logic_vector(15 downto 0);
     begin
       ram_bank := long_address(2 downto 0);
-      bank_address := long_address(18 downto 3);
-      ram_address(to_integer(unsigned(ram_bank))) <= bank_address;
-      ram_we(to_integer(unsigned(ram_bank))) <= '0';
+      fastram_address(13 downto 0) <= long_address(16 downto 3);
+      -- Clear all read/write lines
+      fastram_we <= (others => '0');
     end request_read_long_address_from_fastram;
     
     procedure write_to_long_address(long_address : std_logic_vector(27 downto 0);
                                     value : in std_logic_vector(7 downto 0)) is
       variable ram_bank : std_logic_vector(2 downto 0);
-      variable bank_address : std_logic_vector(15 downto 0);
     begin
-      if long_address(27 downto 19)="000000000" then
-        -- we have RAM to read from
+      if long_address(27 downto 17)="00000000000" then
+        -- Write to 128KB FastRAM
         ram_bank := long_address(2 downto 0);
-        bank_address := long_address(18 downto 3);
-        ram_address(to_integer(unsigned(ram_bank))) <= bank_address;
-        ram_we(to_integer(unsigned(ram_bank))) <= '1';
+        fastram_address(13 downto 0) <= long_address(16 downto 3);        
+        fastram_we <= (others => '0');
+        fastram_we(to_integer(unsigned(ram_bank))) <= '1';
+      elsif long_address(27 downto 24) = x"F" then
+        -- Write to 16MB FastIO space
+        null;
+      elsif long_address(27 downto 24) = x"8" then
+        -- Write to 16MB of SlowRAM
+        null;
       end if;
     end procedure write_to_long_address;
 
@@ -620,11 +645,9 @@ begin
           fastio_read <= '1';
           state <= Calculate;
         end if;
-        
+
         -- clear any access to fast ram
-        for i in 0 to 7 loop
-          ram_we(i) <= '0';
-        end loop;  -- i
+        fastram_we <= (others => '0');
       elsif long_addr(27 downto 12) > x"8000"
         and long_addr(27 downto 12) < x"9000" then
         -- To/From slow 16MB cellular RAM
@@ -671,8 +694,20 @@ begin
         state <= IOWrite;
       elsif operand_from_ram = '1' then
         -- operand is for fast ram
-        ram_data_i(to_integer(operand1_mem_slot)) <= temp_operand;
-        ram_we(to_integer(operand1_mem_slot)) <= '1';
+        fastram_datain <= (others => '0');
+        case operand1_mem_slot is
+          when "111" => fastram_datain(63 downto 56) <= temp_operand;
+          when "110" => fastram_datain(55 downto 48) <= temp_operand;
+          when "101" => fastram_datain(47 downto 40) <= temp_operand;
+          when "100" => fastram_datain(39 downto 32) <= temp_operand;
+          when "011" => fastram_datain(31 downto 24) <= temp_operand;
+          when "010" => fastram_datain(23 downto 16) <= temp_operand;
+          when "001" => fastram_datain(15 downto  8) <= temp_operand;
+          when "000" => fastram_datain( 7 downto  0) <= temp_operand;
+          when others => fastram_datain( 7 downto  0) <= temp_operand;
+        end case;
+        fastram_we <= (others => '0');
+        fastram_we(to_integer(operand1_mem_slot)) <= '1';
         try_prefetch_next_instruction(reg_pc,operand1_mem_slot);
       elsif operand_from_slowram = '1' then
         -- Commit to slow ram.
@@ -685,77 +720,6 @@ begin
       end if;
     end procedure rmw_operand_commit;
     
-    procedure fetch_stack_bytes is 
-      variable long_pc : std_logic_vector(27 downto 0);
-      variable long_pc1 : std_logic_vector(27 downto 0);
-      variable long_pc2 : std_logic_vector(27 downto 0);
-      variable temp_sp : std_logic_vector(15 downto 0);
-      variable stack_pointer : std_logic_vector(15 downto 0);
-    begin
-      -- Work out stack pointer address, bug compatible with 6502
-      -- that always keeps stack within memory page $01
-      -- XXX Stack must be in fast ram
-      stack_pointer(15 downto 8) := "00000001";
-      stack_pointer(7 downto 0) := std_logic_vector(reg_sp +1);
-      long_pc := resolve_address_to_long(std_logic_vector(stack_pointer),ram_bank_registers_read);
-      case stack_pointer(2 downto 0) is
-        when "000" =>
-          long_pc1(27 downto 2) := long_pc(27 downto 2);
-          long_pc1(2 downto 0) := "001";
-          long_pc2(27 downto 2) := long_pc(27 downto 2);
-          long_pc2(2 downto 0) := "010";
-        when "001" =>
-          long_pc1(27 downto 2) := long_pc(27 downto 2);
-          long_pc1(2 downto 0) := "010";
-          long_pc2(27 downto 2) := long_pc(27 downto 2);
-          long_pc2(2 downto 0) := "011";
-        when "010" =>
-          long_pc1(27 downto 2) := long_pc(27 downto 2);
-          long_pc1(2 downto 0) := "011";
-          long_pc2(27 downto 2) := long_pc(27 downto 2);
-          long_pc2(2 downto 0) := "100";
-        when "011" =>
-          long_pc1(27 downto 2) := long_pc(27 downto 2);
-          long_pc1(2 downto 0) := "100";
-          long_pc2(27 downto 2) := long_pc(27 downto 2);
-          long_pc2(2 downto 0) := "101";
-        when "100" =>
-          long_pc1(27 downto 2) := long_pc(27 downto 2);
-          long_pc1(2 downto 0) := "101";
-          long_pc2(27 downto 2) := long_pc(27 downto 2);
-          long_pc2(2 downto 0) := "110";
-        when "101" =>
-          long_pc1(27 downto 2) := long_pc(27 downto 2);
-          long_pc1(2 downto 0) := "110";
-          long_pc2(27 downto 2) := long_pc(27 downto 2);
-          long_pc2(2 downto 0) := "111";
-        when "110" =>
-          long_pc1(27 downto 2) := long_pc(27 downto 2);
-          long_pc1(2 downto 0) := "111";
-          temp_sp(15 downto 8) := stack_pointer(15 downto 8);
-          temp_sp(7 downto 0):=std_logic_vector(unsigned(stack_pointer(7 downto 0))+2);
-          long_pc2 := resolve_address_to_long(temp_sp,ram_bank_registers_read);
-          long_pc2(27 downto 2) := long_pc(27 downto 2);
-          long_pc2(2 downto 0) := "000";
-        when "111" =>
-          temp_sp(15 downto 8) := stack_pointer(15 downto 8);
-          temp_sp(7 downto 0):=std_logic_vector(unsigned(stack_pointer(7 downto 0))+1);
-          long_pc1 := resolve_address_to_long(temp_sp,ram_bank_registers_read);
-          long_pc1(27 downto 2) := long_pc(27 downto 2);
-          long_pc1(2 downto 0) := "000";
-          long_pc2(27 downto 2) := long_pc(27 downto 2);
-          long_pc2(2 downto 0) := "001";
-          -- If missing, generates an error, if present, generates a warning :/
-        when others => null;
-      end case;
-      op_mem_slot <= unsigned(long_pc(2 downto 0));
-      operand1_mem_slot <= unsigned(long_pc1(2 downto 0));
-      operand2_mem_slot <= unsigned(long_pc2(2 downto 0));
-      request_read_long_address_from_fastram(long_pc);
-      request_read_long_address_from_fastram(long_pc1);
-      request_read_long_address_from_fastram(long_pc2);
-    end procedure fetch_stack_bytes;
-
     procedure set_nz (
       value : unsigned(7 downto 0)) is
     begin  -- set_nz
@@ -1053,10 +1017,8 @@ begin
         flag_n <= '0';
         flag_v <= '0';
         -- Read nothingness from RAM
-        for i  in 0 to 7 loop
-          ram_address(i)<="0000000000000000";
-          ram_we(i) <= '0';
-        end loop;  -- i
+        fastram_address <= (others => '0');
+        fastram_we <= (others => '0');
         -- Reset memory bank registers.
         -- Map first bank of fast RAM at $0000 - $CFFF
         for i in 0 to 12 loop
@@ -1115,9 +1077,6 @@ begin
             -- out in processor_state'VectorLoadPC
             -- The vectors always live in the natural memory locations
             -- 0x000FFFA - 0x000FFF, and ignore bank switching
-            for i in 0 to 7 loop
-              ram_we(i) <= '0';
-            end loop;  -- i
             if ram_bank_registers_instructions(15)(15 downto 12) = x"F" then
               -- vector is in fast IO (eg ROM)
               report "reading vector from $" & to_hstring(vector) severity note;
@@ -1129,12 +1088,9 @@ begin
               fastio_read <= '1';
               state <= VectorReadIOWait;
             else
-              -- Memory banks are 8x64KB.
-              -- So we want addresses shifted down log2(8)=3 bits
-              -- which for all of them corresponds to addres 0x1FFF
-              for i in 2 to 7 loop
-                ram_address(i)<=x"1FFF";
-              end loop;  -- i              
+              -- Ask for the 64-bits of RAM beginning at $0FFF
+              -- (Vectors always load from that PHYSICAL RAM address)
+              fastram_address <= "01111111111111";
               state<=VectorLoadPC;
             end if;
           when VectorReadIOWait =>
@@ -1171,19 +1127,12 @@ begin
             end if;
           when VectorLoadPC =>
             case vector is
-              when x"FFFA" =>
-                temp_address(7 downto 0) :=  ram_data_o(2);
-                temp_address(15 downto 8) := ram_data_o(3);
-              when x"FFFC" =>
-                temp_address(7 downto 0) :=  ram_data_o(4);
-                temp_address(15 downto 8) := ram_data_o(5);
-              when x"FFFE" =>
-                temp_address(7 downto 0) :=  ram_data_o(6);
-                temp_address(15 downto 8) := ram_data_o(7);
+              when x"FFFA" => temp_address :=  fastram_dataout(31 downto 16);
+              when x"FFFC" => temp_address :=  fastram_dataout(47 downto 32);
+              when x"FFFE" => temp_address :=  fastram_dataout(63 downto 48);
               when others =>
                 -- unknown vector, so use reset vector
-                temp_address(7 downto 0) :=  ram_data_o(6);
-                temp_address(15 downto 8) := ram_data_o(7);
+                temp_address :=  fastram_dataout(63 downto 48);
             end case;
             reg_pc<=unsigned(temp_address);
             reg_pcplus1<=unsigned(temp_address)+1;
@@ -1213,12 +1162,16 @@ begin
             -- instruction_fetch_count indicates the number of bytes we can read
             -- from the program counter onwards.  We may have some bytes in
             -- the buffer already, which we should not overwrite in case they were
-            -- fetched from.
+            -- fetched from IO.  Now that FastRAM is fixed on a single address
+            -- for the 64-bits read, this is no longer an issue, as MMU pages
+            -- are 4K aligned, and thus are always 64-bit aligned.
             for i in 0 to 7 loop
               if i>= to_integer(instruction_buffer_count(2 downto 0))
                 and i<=to_integer(instruction_fetch_top) then
                 ram_bank := reg_pc(2 downto 0) + i;
-                instruction_buffer(i) <= ram_data_o(to_integer(ram_bank));
+                instruction_buffer(i)
+                  <= fastram_dataout((to_integer(ram_bank)*8+7)
+                                     downto to_integer(ram_bank)*8);
               end if;
             end loop;  -- i
             -- Update number of instructions we have fetched
@@ -1396,14 +1349,13 @@ begin
                     advance_pc(1);
                     normal_instruction := false;
                   when I_RTI =>
-                    fetch_stack_bytes;
-                    reg_sp <= reg_sp + 3;
-                    state <= RTIPull;
+                    pull_byte;
+                    state <= RTIPullP;
                     normal_instruction := false;
                   when I_RTS =>
-                    fetch_stack_bytes;
+                    pull_byte;
                     reg_sp <= reg_sp + 2;
-                    state <= RTSPull;
+                    state <= RTSPullPCL;
                     normal_instruction := false;
                   when I_SEC => flag_c <= '1';
                   when I_SED => flag_d <= '1';
@@ -1613,7 +1565,8 @@ begin
               temp_operand := x"FF";
             elsif operand_from_ram = '1' then
               -- Memory read from fast RAM.
-              temp_operand := ram_data_o(to_integer(operand1_mem_slot));
+              temp_operand := fastram_dataout(to_integer(operand1_mem_slot)*8+7
+                                              downto to_integer(operand1_mem_slot)*8);
             else
               -- Read is from somewhere else, possibly an unmapped address
               temp_operand := x"FF";
@@ -1648,14 +1601,14 @@ begin
             -- PLA - Pull Accumulator from the stack
             -- In the previous cycle we asked for the byte to be read from
             -- the stack.
-            reg_a <= unsigned(ram_data_o(to_integer(pull_bank)));
+            reg_a <= fastram_byte(pull_bank);
             fetch_next_instruction(reg_pcplus1);
             state <= OperandResolve;
           when PullP =>
             -- PLA - Pull Accumulator from the stack
             -- In the previous cycle we asked for the byte to be read from
             -- the stack.
-            temp_operand := ram_data_o(to_integer(unsigned(pull_bank)));
+            temp_operand := std_logic_vector(fastram_byte(pull_bank));
             flag_n <= temp_operand(7);
             flag_v <= temp_operand(6);
             flag_d <= temp_operand(3);
@@ -1664,24 +1617,32 @@ begin
             flag_c <= temp_operand(0);
             fetch_next_instruction(reg_pcplus1);
             state <= OperandResolve;
-          when RTIPull =>
+          when RTIPullP =>
             -- All values needed have been read in one go
-            temp_operand := ram_data_o(to_integer(unsigned(op_mem_slot)));
+            temp_operand := std_logic_vector(fastram_byte(pull_bank));
             flag_n <= temp_operand(7);
             flag_v <= temp_operand(6);
             flag_d <= temp_operand(3);
             flag_i <= temp_operand(2);
             flag_z <= temp_operand(1);
             flag_c <= temp_operand(0);
-            reg_pc(7 downto 0) <= unsigned(ram_data_o(to_integer(unsigned(operand1_mem_slot))));
-            reg_pc(15 downto 8) <= unsigned(ram_data_o(to_integer(unsigned(operand2_mem_slot))));
-            state <= InstructionFetch;
-          when RTSPull =>
+            pull_byte;
+            state <= RTSPullPCL;
+          when RTSPullPCL =>
+            temp_operand := std_logic_vector(fastram_byte(pull_bank));
+            reg_pc(7 downto 0) <= unsigned(temp_operand)+1;
+            pull_byte;            
+            state <= RTSPullPCH;
+          when RTSPullPCH =>
             -- All values needed have been read in one go
-            temp_address(7 downto 0) := ram_data_o(to_integer(unsigned(op_mem_slot)));
-            temp_address(15 downto 8) := ram_data_o(to_integer(unsigned(operand1_mem_slot)));
-            reg_pc <= unsigned(temp_address) + 1;
-            state <= InstructionFetch;            when others => null;
+            temp_operand := std_logic_vector(fastram_byte(pull_bank));
+            if reg_pc(7 downto 0) = x"00" then
+              reg_pc(15 downto 8) <= unsigned(temp_operand)+1;
+            else
+              reg_pc(15 downto 8) <= unsigned(temp_operand);              
+            end if;
+            state <= InstructionFetch;
+          when others => null;
         end case;
       end if;
     end if;
