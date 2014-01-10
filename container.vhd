@@ -92,7 +92,6 @@ architecture Behavioral of container is
       ---------------------------------------------------------------------------
       -- Interface to FastRAM in video controller (just 128KB for now)
       ---------------------------------------------------------------------------
-      fastram_clock : OUT STD_LOGIC;
       fastram_we : OUT STD_LOGIC_VECTOR(7 DOWNTO 0);
       fastram_address : OUT STD_LOGIC_VECTOR(13 DOWNTO 0);
       fastram_datain : OUT STD_LOGIC_VECTOR(63 DOWNTO 0);
@@ -101,7 +100,6 @@ architecture Behavioral of container is
       ---------------------------------------------------------------------------
       -- fast IO port (clocked at core clock). 1MB address space
       ---------------------------------------------------------------------------
-      fastio_clock : out std_logic;
       fastio_addr : out std_logic_vector(19 downto 0);
       fastio_read : out std_logic;
       fastio_write : out std_logic;
@@ -110,12 +108,28 @@ architecture Behavioral of container is
       );
   end component;
 
+  component ram64x16k
+    PORT (
+      clka : IN STD_LOGIC;
+      wea : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
+      addra : IN STD_LOGIC_VECTOR(13 DOWNTO 0);
+      dina : IN STD_LOGIC_VECTOR(63 DOWNTO 0);
+      douta : OUT STD_LOGIC_VECTOR(63 DOWNTO 0);
+      clkb : IN STD_LOGIC;
+      web : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
+      addrb : IN STD_LOGIC_VECTOR(13 DOWNTO 0);
+      dinb : IN STD_LOGIC_VECTOR(63 DOWNTO 0);
+      doutb : OUT STD_LOGIC_VECTOR(63 DOWNTO 0)
+      );
+  end component;
+  
   component vga is
     Port (
       ----------------------------------------------------------------------
       -- 100MHz Nexys4 master clock from which we drive the dotclock
       ----------------------------------------------------------------------
       pixelclock : in  STD_LOGIC;
+      cpuclock : in std_logic;
 
       ----------------------------------------------------------------------
       -- VGA output
@@ -127,18 +141,14 @@ architecture Behavioral of container is
       vgablue : out  UNSIGNED (3 downto 0);
 
       -----------------------------------------------------------------------------
-      -- External interface to 128KB fastram insantiated inside us
+      -- Interface to 128KB fastram
       -----------------------------------------------------------------------------
-      fastram_clock : IN STD_LOGIC;
-      fastram_we : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
-      fastram_address : IN STD_LOGIC_VECTOR(13 DOWNTO 0);
-      fastram_datain : IN STD_LOGIC_VECTOR(63 DOWNTO 0);
-      fastram_dataout : OUT STD_LOGIC_VECTOR(63 DOWNTO 0);
+      ramaddress : OUT STD_LOGIC_VECTOR(13 DOWNTO 0);
+      ramdata : IN STD_LOGIC_VECTOR(63 DOWNTO 0);
       
       -----------------------------------------------------------------------------
       -- FastIO interface for accessing video registers
       -----------------------------------------------------------------------------
-      fastio_clock : in std_logic;
       fastio_addr : in std_logic_vector(19 downto 0);
       fastio_read : in std_logic;
       fastio_write : in std_logic;
@@ -171,19 +181,20 @@ architecture Behavioral of container is
   signal irq : std_logic := '1';
   signal nmi : std_logic := '1';
   
---  signal fastio_clock : std_logic;
   signal fastio_addr : std_logic_vector(19 downto 0);
   signal fastio_read : std_logic;
   signal fastio_write : std_logic;
   signal fastio_wdata : std_logic_vector(7 downto 0);
   signal fastio_rdata : std_logic_vector(7 downto 0);
 
---  signal fastram_clock : STD_LOGIC;
   signal fastram_we : STD_LOGIC_VECTOR(7 DOWNTO 0);
   signal fastram_address : STD_LOGIC_VECTOR(13 DOWNTO 0);
   signal fastram_datain : STD_LOGIC_VECTOR(63 DOWNTO 0);
   signal fastram_dataout : STD_LOGIC_VECTOR(63 DOWNTO 0);
 
+  signal vga_fastramaddress : std_logic_vector(13 downto 0);
+  signal vga_fastramdata : std_logic_vector(63 downto 0);
+  
   signal cpuclock : std_logic;
   signal pixelclock : std_logic;
   signal monitor_pc : std_logic_vector(15 downto 0);
@@ -209,26 +220,48 @@ begin
                -- the generated frames somewhere?
                clk_out2 => pixelclock);   
 
+    -- XXX For now just use 128KB FastRAM instead of 512KB which causes major routing
+  -- headaches.
+  fastram1 : component ram64x16k
+    PORT MAP (
+      clka => cpuclock,
+      wea => fastram_we,
+      addra => fastram_address,
+      dina => fastram_datain,
+      douta => fastram_dataout,
+      -- video controller use port b of the dual-port fast ram.
+      -- The CPU uses port a
+      clkb => pixelclock,
+      web => (others => '0'),
+      addrb => vga_fastramaddress,
+      dinb => (others => '0'),
+      doutb => vga_fastramdata
+      );
+
   
-  --cpu0: cpu6502 port map(clock => cpuclock,reset =>reset,irq => irq,
-  --                       nmi => nmi,monitor_pc => monitor_pc,
-  --                       fastio_clock => fastio_clock,
-  --                       fastio_addr => fastio_addr,
-  --                       fastio_read => fastio_read,
-  --                       fastio_write => fastio_write,
-  --                       fastio_wdata => fastio_wdata,
-  --                       fastio_rdata => fastio_rdata,
+  cpu0: cpu6502 port map(clock => cpuclock,reset =>reset,irq => irq,
+                         nmi => nmi,monitor_pc => monitor_pc,
 
-  --                       fastram_clock => fastram_clock,
-  --                       fastram_we => fastram_we,
-  --                       fastram_address => fastram_address,
-  --                       fastram_datain => fastram_datain,
-  --                       fastram_dataout => fastram_dataout                         
-  --                       );
+--                       fastio_addr => fastio_addr,
+--                         fastio_read => fastio_read,
+--                         fastio_write => fastio_write,
+--                         fastio_wdata => fastio_wdata,
+--                         fastio_rdata => fastio_rdata,
+                         fastio_rdata => (others => '0'),
 
+                         fastram_we => fastram_we,
+                         fastram_address => fastram_address,
+                         fastram_datain => fastram_datain,
+                         fastram_dataout => fastram_dataout
+--                         fastram_dataout => (others => '0')
+                         );
+
+
+  
   vga0: vga
     port map (
       pixelclock      => pixelclock,
+      cpuclock        => cpuclock,
       
       vsync           => vsync,
       hsync           => hsync,
@@ -236,13 +269,9 @@ begin
       vgagreen        => vgagreen,
       vgablue         => vgablue,
       
-      fastram_clock   => cpuclock,
-      fastram_we      => fastram_we,
-      fastram_address => fastram_address,
-      fastram_datain  => fastram_datain,
-      fastram_dataout => fastram_dataout,
+      ramaddress      => vga_fastramaddress,
+      ramdata         => vga_fastramdata,
       
-      fastio_clock    => cpuclock,
       fastio_addr     => fastio_addr,
       fastio_read     => fastio_read,
       fastio_write    => fastio_write,

@@ -22,7 +22,6 @@ entity cpu6502 is
     ---------------------------------------------------------------------------
     -- Interface to FastRAM in video controller (just 128KB for now)
     ---------------------------------------------------------------------------
-    fastram_clock : OUT STD_LOGIC;
     fastram_we : OUT STD_LOGIC_VECTOR(7 DOWNTO 0);
     fastram_address : OUT STD_LOGIC_VECTOR(13 DOWNTO 0);
     fastram_datain : OUT STD_LOGIC_VECTOR(63 DOWNTO 0);
@@ -31,7 +30,6 @@ entity cpu6502 is
     ---------------------------------------------------------------------------
     -- fast IO port (clocked at core clock). 1MB address space
     ---------------------------------------------------------------------------
-    fastio_clock : out std_logic;
     fastio_addr : out std_logic_vector(19 downto 0);
     fastio_read : out std_logic;
     fastio_write : out std_logic;
@@ -234,10 +232,6 @@ architecture Behavioral of cpu6502 is
 
 begin
 
-  -- Keep everything clocked at same rate if possible
-  fastio_clock <= clock;
-  fastram_clock <= clock;
-  
   process(clock)
     variable normal_instruction : boolean;
 
@@ -486,6 +480,8 @@ begin
       variable addr_lo : std_logic_vector(15 downto 0);
       variable addr_hi : std_logic_vector(15 downto 0);
     begin
+      -- XXX Disabled indirect operands until reimplmented
+      return;
       -- Read indirect zero page operand and leave state so that
       -- instruction executation can continue as though the operand
       -- were direct.  The caller will have already change op_mode
@@ -493,17 +489,17 @@ begin
       -- adjusted the address passed in here for any pre-indexing.
       -- XXX Should support ZP being in sources other than fast RAM.
       
-      addr_lo(15 downto 8) := x"00";
-      addr_lo(7 downto 0) := address;
-      long_addr := resolve_address_to_long(addr_lo,ram_bank_registers);
-      operand1_mem_slot <= unsigned(long_addr(2 downto 0));
-      request_read_long_address_from_fastram(long_addr);
+--      addr_lo(15 downto 8) := x"00";
+--      addr_lo(7 downto 0) := address;
+--      long_addr := resolve_address_to_long(addr_lo,ram_bank_registers);
+--      operand1_mem_slot <= unsigned(long_addr(2 downto 0));
+--      request_read_long_address_from_fastram(long_addr);
       
-      addr_hi(15 downto 8) := x"00";
-      addr_hi(7 downto 0) := std_logic_vector(unsigned(address) + 1);
-      long_addr := resolve_address_to_long(addr_hi,ram_bank_registers);
-      operand2_mem_slot <= unsigned(long_addr(2 downto 0));
-      request_read_long_address_from_fastram(long_addr);        
+--      addr_hi(15 downto 8) := x"00";
+--      addr_hi(7 downto 0) := std_logic_vector(unsigned(address) + 1);
+--      long_addr := resolve_address_to_long(addr_hi,ram_bank_registers);
+--      operand2_mem_slot <= unsigned(long_addr(2 downto 0));
+--      request_read_long_address_from_fastram(long_addr);        
 
     end procedure read_indirect_operand;
     
@@ -568,12 +564,7 @@ begin
           -- reduce by one to make it the top of the range to fetch
           fetch_count := fetch_count - 1;
           instruction_fetch_top <= fetch_count;
-          -- But trigger reads from all memory banks so that
-          -- we don't end up with any latches.
-          for i in 0 to 7 loop
-            long_pc1 := std_logic_vector(unsigned(long_pc) + to_unsigned(i,28));
-            request_read_long_address_from_fastram(long_pc1);              
-          end loop;  -- i            
+          request_read_long_address_from_fastram(long_pc);
           state <= InstructionFetchFastRam;        
 
           report "fetching "
@@ -654,7 +645,7 @@ begin
         operand_from_io <= '0';
         operand_from_ram <= '0';
         operand_from_slowram <= '1';
-      elsif long_addr(27 downto 12) < x"0080" then
+      elsif long_addr(27 downto 12) < x"0020" then
         -- To/From from fast RAM
         report "read/write fast RAM at $" & to_hstring(address) severity note;
         operand_from_io <= '0';
@@ -708,7 +699,7 @@ begin
         end case;
         fastram_we <= (others => '0');
         fastram_we(to_integer(operand1_mem_slot)) <= '1';
-        try_prefetch_next_instruction(reg_pc,operand1_mem_slot);
+        state <= InstructionFetch;
       elsif operand_from_slowram = '1' then
         -- Commit to slow ram.
         -- XXX not currently implemented
@@ -1091,6 +1082,7 @@ begin
               -- Ask for the 64-bits of RAM beginning at $0FFF
               -- (Vectors always load from that PHYSICAL RAM address)
               fastram_address <= "01111111111111";
+              fastram_we <= (others => '0');
               state<=VectorLoadPC;
             end if;
           when VectorReadIOWait =>

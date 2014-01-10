@@ -36,6 +36,10 @@ entity vga is
          -- dot clock
          ----------------------------------------------------------------------
          pixelclock : in  STD_LOGIC;
+         ----------------------------------------------------------------------
+         -- CPU clock (used for fastram and fastio interfaces)
+         ----------------------------------------------------------------------
+         cpuclock : in std_logic;
 
          ----------------------------------------------------------------------
          -- VGA output
@@ -47,18 +51,14 @@ entity vga is
          vgablue : out  UNSIGNED (3 downto 0);
 
          -----------------------------------------------------------------------------
-         -- External interface to 128KB fastram insantiated inside us
+         -- Interface to 128KB external fastram
          -----------------------------------------------------------------------------
-         fastram_clock : IN STD_LOGIC;
-         fastram_we : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
-         fastram_address : IN STD_LOGIC_VECTOR(13 DOWNTO 0);
-         fastram_datain : IN STD_LOGIC_VECTOR(63 DOWNTO 0);
-         fastram_dataout : OUT STD_LOGIC_VECTOR(63 DOWNTO 0);
+         ramaddress : OUT STD_LOGIC_VECTOR(13 DOWNTO 0);
+         ramdata : IN STD_LOGIC_VECTOR(63 DOWNTO 0);
          
          -----------------------------------------------------------------------------
          -- FastIO interface for accessing video registers
          -----------------------------------------------------------------------------
-         fastio_clock : in std_logic;
          fastio_addr : in std_logic_vector(19 downto 0);
          fastio_read : in std_logic;
          fastio_write : in std_logic;
@@ -93,36 +93,6 @@ architecture Behavioral of vga is
           data_o : out std_logic_vector(7 downto 0)
           );
   end component charrom;
-
-  component fastram IS
-    PORT (
-      clka : IN STD_LOGIC;
-      wea : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
-      addra : IN STD_LOGIC_VECTOR(15 DOWNTO 0);
-      dina : IN STD_LOGIC_VECTOR(63 DOWNTO 0);
-      douta : OUT STD_LOGIC_VECTOR(63 DOWNTO 0);
-      clkb : IN STD_LOGIC;
-      web : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
-      addrb : IN STD_LOGIC_VECTOR(15 DOWNTO 0);
-      dinb : IN STD_LOGIC_VECTOR(63 DOWNTO 0);
-      doutb : OUT STD_LOGIC_VECTOR(63 DOWNTO 0)
-      );
-  END component fastram;
-
-  component ram64x16k
-    PORT (
-      clka : IN STD_LOGIC;
-      wea : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
-      addra : IN STD_LOGIC_VECTOR(13 DOWNTO 0);
-      dina : IN STD_LOGIC_VECTOR(63 DOWNTO 0);
-      douta : OUT STD_LOGIC_VECTOR(63 DOWNTO 0);
-      clkb : IN STD_LOGIC;
-      web : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
-      addrb : IN STD_LOGIC_VECTOR(13 DOWNTO 0);
-      dinb : IN STD_LOGIC_VECTOR(63 DOWNTO 0);
-      doutb : OUT STD_LOGIC_VECTOR(63 DOWNTO 0)
-      );
-  end component;
 
   -- Buffer VGA signal to save some time. Similarly pipeline
   -- palette lookup.
@@ -295,12 +265,7 @@ architecture Behavioral of vga is
   signal slow_clock : std_logic := '0';
   
   signal reset : std_logic := '0';
-  
-  -- Interface to fastram: 64bits wide
-  signal ramwriteenable : std_logic_vector(7 downto 0) := (others => '0');
-  signal ramaddress : std_logic_vector(15 downto 0);
-  signal ramdata : std_logic_vector(63 downto 0);
-  
+    
   -- Interface to character generator rom
   signal charaddress : std_logic_vector(11 downto 0);
   signal chardata : std_logic_vector(7 downto 0);
@@ -359,33 +324,14 @@ begin
               data_o => chardata
               );
 
-  -- XXX For now just use 128KB FastRAM instead of 512KB which causes major routing
-  -- headaches.
-  fastram1 : component ram64x16k
-    PORT MAP (
-      -- XXX both ports require a clock.  Use this here until we pull the CPU in.
-      clka => fastram_clock,
-      wea => fastram_we,
-      addra => fastram_address,
-      dina => fastram_datain,
-      douta => fastram_dataout,
-      -- We use port b of the dual-port fast ram.
-      -- The CPU uses port a
-      clkb => pixelclock,
-      web => ramwriteenable,
-      addrb => ramaddress(13 downto 0),
-      dinb => (others => '0'),
-      doutb => ramdata
-      );
-
-  process(fastio_clock) is
+  process(cpuclock) is
     variable register_bank : unsigned(7 downto 0);
     variable register_page : unsigned(3 downto 0);
     variable register_num : unsigned(7 downto 0);
     variable register_number : unsigned(11 downto 0);
   begin
     
-    if rising_edge(fastio_clock) then
+    if rising_edge(cpuclock) then
 
           -- Allow fiddling of scale by switching switches
     card_x_scale(3 downto 0) <= unsigned(sw(7 downto 4));
@@ -752,7 +698,7 @@ begin
         if sixteenbit_charset='1' then
           long_address := long_address+card_number;
         end if;
-        ramaddress <= std_logic_vector(long_address(18 downto 3));
+        ramaddress <= std_logic_vector(long_address(16 downto 3));
         char_fetch_cycle <= 1;
       else
         char_fetch_cycle <= 0;
@@ -808,7 +754,7 @@ begin
         -- 16bit charset has no effect on the colour RAM size
         long_address(31 downto 28) := x"0";
         long_address(27 downto 0) := colour_ram_base+unsigned(next_glyph_number_temp);
-        ramaddress <= std_logic_vector(long_address(18 downto 3));
+        ramaddress <= std_logic_vector(long_address(16 downto 3));
         char_fetch_cycle <= 4;
       elsif char_fetch_cycle=4 then
         -- Store colour bytes (will decode next cycle to keep logic shallow)
@@ -828,7 +774,7 @@ begin
           -- if fullcolour_8bitchars='1' then all chars are full-colour          
           long_address := character_set_address+(next_glyph_number*64)+card_y(2 downto 0)*8;
         end if;
-        ramaddress <= std_logic_vector(long_address(18 downto 3));
+        ramaddress <= std_logic_vector(long_address(16 downto 3));
         char_fetch_cycle <= 5;
       elsif char_fetch_cycle=5 then
         -- Decode colour byte
