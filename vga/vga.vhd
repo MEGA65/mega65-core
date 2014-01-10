@@ -96,10 +96,10 @@ architecture Behavioral of vga is
 
   -- Buffer VGA signal to save some time. Similarly pipeline
   -- palette lookup.
-  signal vga_buffer_red : UNSIGNED (3 downto 0);
-  signal vga_buffer_green : UNSIGNED (3 downto 0);
-  signal vga_buffer_blue : UNSIGNED (3 downto 0);
-  signal pixel_colour : unsigned(7 downto 0);
+  signal vga_buffer_red : UNSIGNED (3 downto 0) := (others => '0');
+  signal vga_buffer_green : UNSIGNED (3 downto 0) := (others => '0');
+  signal vga_buffer_blue : UNSIGNED (3 downto 0) := (others => '0');
+  signal pixel_colour : unsigned(7 downto 0) := x"00";
   
   -- Video mode definition
 --  constant width : integer := 1600;
@@ -129,9 +129,9 @@ architecture Behavioral of vga is
   signal ycounter : unsigned(11 downto 0) := (others => '0');
   
   -- Actual pixel positions in the frame
-  signal displayx : unsigned(11 downto 0);
-  signal displayy : unsigned(11 downto 0);
-  signal display_active : std_logic;
+  signal displayx : unsigned(11 downto 0) := (others => '0');
+  signal displayy : unsigned(11 downto 0) := (others => '0');
+  signal display_active : std_logic := '0';
   
   
   -----------------------------------------------------------------------------
@@ -225,11 +225,11 @@ architecture Behavioral of vga is
   
   -- Character generator state. Also used for graphics modes, since graphics
   -- modes on the C64 are all card-based, anyway.
-  signal card_number : unsigned(15 downto 0);
+  signal card_number : unsigned(15 downto 0) := x"0000";
   signal first_card_of_row : unsigned(15 downto 0);
   -- coordinates after applying the above scaling factors
-  signal card_x : unsigned(11 downto 0);
-  signal card_y : unsigned(11 downto 0);
+  signal card_x : unsigned(11 downto 0) := (others => '0');
+  signal card_y : unsigned(11 downto 0) := (others => '0');
   -- fractional pixel position for scaling
   signal card_y_sub : unsigned(7 downto 0);
   signal card_x_sub : unsigned(7 downto 0);
@@ -251,15 +251,15 @@ architecture Behavioral of vga is
   signal glyph_full_colour : std_logic;
   
   -- Delayed versions of signals to allow character fetching pipeline
-  signal card_x_t1 : unsigned(11 downto 0);
-  signal card_x_t2 : unsigned(11 downto 0);
-  signal card_x_t3 : unsigned(11 downto 0);
-  signal card_number_t1 : unsigned(15 downto 0);
-  signal card_number_t2 : unsigned(15 downto 0);
-  signal card_number_t3 : unsigned(15 downto 0);
-  signal indisplay_t1 : std_logic;
-  signal indisplay_t2 : std_logic;
-  signal indisplay_t3 : std_logic;
+  signal card_x_t1 : unsigned(11 downto 0) := (others => '0');
+  signal card_x_t2 : unsigned(11 downto 0) := (others => '0');
+  signal card_x_t3 : unsigned(11 downto 0) := (others => '0');
+  signal card_number_t1 : unsigned(15 downto 0) := (others => '0');
+  signal card_number_t2 : unsigned(15 downto 0) := (others => '0');
+  signal card_number_t3 : unsigned(15 downto 0) := (others => '0');
+  signal indisplay_t1 : std_logic := '0';
+  signal indisplay_t2 : std_logic := '0';
+  signal indisplay_t3 : std_logic := '0';
   
   signal counter : unsigned(24 downto 0);
   signal slow_clock : std_logic := '0';
@@ -586,16 +586,16 @@ begin
   end process;
   
   process(pixelclock) is
-    variable indisplay : std_logic;
-    variable next_card_number : unsigned(15 downto 0);
-    variable next_card_x : unsigned(11 downto 0);
-    variable next_card_y : unsigned(11 downto 0);
-    variable multicolour_bits : std_logic_vector(1 downto 0);
-    variable card_bg_colour : unsigned(7 downto 0);
-    variable card_fg_colour : unsigned(7 downto 0);
-    variable long_address : unsigned(31 downto 0);
-    variable next_glyph_number_temp : std_logic_vector(15 downto 0);
-    variable next_glyph_colour_temp : std_logic_vector(7 downto 0);
+    variable indisplay : std_logic := '0';
+    variable next_card_number : unsigned(15 downto 0) := (others => '0');
+    variable next_card_x : unsigned(11 downto 0) := (others => '0');
+    variable next_card_y : unsigned(11 downto 0) := (others => '0');
+    variable multicolour_bits : std_logic_vector(1 downto 0) := (others => '0');
+    variable card_bg_colour : unsigned(7 downto 0) := (others => '0');
+    variable card_fg_colour : unsigned(7 downto 0) := (others => '0');
+    variable long_address : unsigned(31 downto 0) := (others => '0');
+    variable next_glyph_number_temp : std_logic_vector(15 downto 0) := (others => '0');
+    variable next_glyph_colour_temp : std_logic_vector(7 downto 0) := (others => '0');
   begin
     
     if rising_edge(pixelclock) then            
@@ -932,7 +932,7 @@ begin
       end if;
 
       -- Pixels have a two cycle pipeline to help keep timing contraints:
-      
+     
       -- 1. From pixel colour lookup RGB
       vga_buffer_red <= palette(to_integer(pixel_colour)).red(7 downto 4);   
       vga_buffer_green <= palette(to_integer(pixel_colour)).green(7 downto 4); 
@@ -942,6 +942,7 @@ begin
       vgared <= vga_buffer_red;
       vgagreen <= vga_buffer_green;
       vgablue <= vga_buffer_blue;
+
     end if;
   end process;
 
