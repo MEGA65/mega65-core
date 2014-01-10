@@ -119,12 +119,12 @@ architecture Behavioral of cpu6502 is
     -- When CPU first powers up, or reset is bought low
     ResetLow,
     -- States for handling interrupts and reset
-    Interrupt,VectorRead,VectorReadIO,VectorReadIOWait,VectorLoadPC,
+    Interrupt,VectorRead,VectorReadIO,VectorLoadPC,
     -- Normal instruction states.  Many states will be skipped
     -- by any given instruction.
     -- When an instruction completes, we move back to InstructionFetch
     InstructionFetch,InstructionFetchFastRam,
-    InstructionFetchIO,InstructionFetchIOWait,
+    InstructionFetchIO,
     OperandResolve,Calculate,IOWrite,
     -- Special states used for special instructions
     PullA,                                -- PLA
@@ -543,7 +543,7 @@ begin
           
           report "fetching instruction bytes from IO" severity note;
         
-          state <= InstructionFetchIOWait;
+          state <= InstructionFetchIO;
         elsif long_pc(27 downto 24) > x"7" then
           -- Fetch is from slow RAM
           report "fetching instruction byte from slow RAM unimplemented" severity failure;
@@ -1169,25 +1169,14 @@ begin
               -- We don't have enough bytes yet, so fetch some more.
               state <= InstructionFetch;
             end if;
-          when InstructionFetchIOWait =>
-            -- Here we can advance long_address so that we can avoid
-            -- wait states when reading from sequential IO addresses.
-            report "read instruction byte from io @ $" & to_hstring(std_logic_vector(reg_pc)) severity note;
-            long_address := resolve_address_to_long(std_logic_vector(reg_pc+instruction_buffer_count+1),ram_bank_registers_instructions);
-            fastio_addr <= long_address(19 downto 0);
-            fastio_read <= '1';
-            fastio_write <= '0';
-            state <= InstructionFetchIO;
           when InstructionFetchIO =>
             report "instruction from I/O is $" & to_hstring(fastio_rdata) severity note;
             instruction_buffer(to_integer(instruction_buffer_count))
               <= fastio_rdata;
             if ((instruction_buffer_count+1)<3) then
               -- If after this fetch we still don't have enough bytes, then read
-              -- the next byte next cycle, which we can do without a wait state
-              -- because in InstructionFetchIOWait we prime the fastio system to
-              -- be already reading from that address.
-              long_address := resolve_address_to_long(std_logic_vector(reg_pc+instruction_buffer_count+1+1),ram_bank_registers_instructions);
+              -- the next byte next cycle.
+              long_address := resolve_address_to_long(std_logic_vector(reg_pc+instruction_buffer_count+1),ram_bank_registers_instructions);
               fastio_addr <= long_address(19 downto 0);
               fastio_read <= '1';
               fastio_write <= '0';
