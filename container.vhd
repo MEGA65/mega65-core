@@ -252,7 +252,6 @@ begin
                          fastram_address => fastram_address,
                          fastram_datain => fastram_datain,
                          fastram_dataout => fastram_dataout
-                         fastram_dataout => (others => '0')
                          );
 
 
