@@ -20,6 +20,7 @@
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use ieee.numeric_std.all;
+use Std.TextIO.all;
 
 -- Uncomment the following library declaration if using
 -- arithmetic functions with Signed or Unsigned values
@@ -314,7 +315,7 @@ architecture Behavioral of vga is
   signal inborder_t3 : std_logic;
   
 begin
-
+  
   charrom1 : charrom
     port map (Clk => pixelclock,
               address => charaddress,
@@ -329,6 +330,16 @@ begin
     variable register_page : unsigned(3 downto 0);
     variable register_num : unsigned(7 downto 0);
     variable register_number : unsigned(11 downto 0);
+    
+    function to_string(sv: Std_Logic_Vector) return string is
+      use Std.TextIO.all;
+      
+      variable bv: bit_vector(sv'range) := to_bitvector(sv);
+      variable lp: line;
+    begin
+      write(lp, bv);
+      return lp.all;
+    end;
   begin
     
     if rising_edge(cpuclock) then
@@ -379,8 +390,8 @@ begin
       end if;
       
       fastio_rdata <= "ZZZZZZZZ";
+      register_number := x"FFF";
       if fastio_read='1' or fastio_write='1' then
-        register_number := x"FFF";
         register_bank := unsigned(fastio_addr(19 downto 12));
         register_page := unsigned(fastio_addr(11 downto 8));
         register_num := unsigned(fastio_addr(7 downto 0));
@@ -397,14 +408,15 @@ begin
         else
           report "IO access DOES NOT resolve to video register" severity note;
         end if;
-        if register_num<8 then
+        report "register_number = " & to_string(std_logic_vector(register_number)) severity note;
+        if register_number>=0 and register_number<8 then
           -- compatibility sprite coordinates
           if fastio_read='1' then
             fastio_rdata <= std_logic_vector(sprite_x(to_integer(register_num(2 downto 0))));
           else
             sprite_x(to_integer(register_num(2 downto 0))) <= unsigned(fastio_wdata);
           end if;
-        elsif register_num<16 then
+        elsif register_number<16 then
           -- compatibility sprite coordinates
           if fastio_read='1' then
             fastio_rdata <= std_logic_vector(sprite_y(to_integer(register_num(2 downto 0))));
@@ -568,7 +580,7 @@ begin
           fastio_rdata(7 downto 3) <= (others => '1');
           fastio_rdata(2) <= fullcolour_extendedchars;
           fastio_rdata(1) <= fullcolour_8bitchars;
-          fastio_rdata(0) <= sixteenbit_charset;          
+          fastio_rdata(0) <= sixteenbit_charset;
           -- Fill in unused register space
         elsif register_number<256 then
           -- reserved register
@@ -585,6 +597,7 @@ begin
           fastio_rdata <= std_logic_vector(palette(to_integer(register_num)).blue);
         else
           report "IO request does not match a video register" severity note;
+          fastio_rdata <= "ZZZZZZZZ";
         end if;
       end if;      
     end if;
