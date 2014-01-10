@@ -242,18 +242,17 @@ begin
   cpu0: cpu6502 port map(clock => cpuclock,reset =>reset,irq => irq,
                          nmi => nmi,monitor_pc => monitor_pc,
 
---                       fastio_addr => fastio_addr,
---                         fastio_read => fastio_read,
---                         fastio_write => fastio_write,
---                         fastio_wdata => fastio_wdata,
---                         fastio_rdata => fastio_rdata,
-                         fastio_rdata => (others => '0'),
+                         fastio_addr => fastio_addr,
+                         fastio_read => fastio_read,
+                         fastio_write => fastio_write,
+                         fastio_wdata => fastio_wdata,
+                         fastio_rdata => fastio_rdata,
 
                          fastram_we => fastram_we,
                          fastram_address => fastram_address,
                          fastram_datain => fastram_datain,
                          fastram_dataout => fastram_dataout
---                         fastram_dataout => (others => '0')
+                         fastram_dataout => (others => '0')
                          );
 
 
