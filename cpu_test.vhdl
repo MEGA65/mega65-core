@@ -175,7 +175,7 @@ begin
       
       ramaddress      => vga_fastramaddress,
       ramdata         => vga_fastramdata,
-      
+
       fastio_addr     => fastio_addr,
       fastio_read     => fastio_read,
       fastio_write    => fastio_write,

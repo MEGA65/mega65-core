@@ -28,16 +28,21 @@ begin
 --process for read and write operation.
 PROCESS(Clk)
 BEGIN
-    if(rising_edge(Clk)) then 
+   if(rising_edge(Clk)) then 
       if cs='1' then
         if(we='1') then
           ram(to_integer(unsigned(address))) <= data_i;
         end if;
         data_o <= ram(to_integer(unsigned(address)));
-      else
-        data_o <= "ZZZZZZZZ";
       end if;
-    end if; 
-END PROCESS;
+    end if;
+    if cs='1' then
+      data_o <= ram(to_integer(unsigned(address)));
+      report "IO access is reading from ROM" severity note;
+    else
+      data_o <= "ZZZZZZZZ";
+      report "IO access is NOT reading from ROM" severity note;
+    end if;
+ END PROCESS;
 
 end Behavioral;

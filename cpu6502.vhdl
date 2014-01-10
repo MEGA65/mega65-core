@@ -46,7 +46,7 @@ architecture Behavioral of cpu6502 is
 
   -- FastRAM is now hosted in the video controller.
   
-  signal iovalue : std_logic_vector(7 downto 0);
+  signal iovalue : std_logic_vector(7 downto 0) := x"00";
   
 -- CPU RAM bank selection registers.
 -- Each 4KB (12 address bits) can be made to point to a section of memory.
@@ -1077,7 +1077,7 @@ begin
               lohi <= '0';
               fastio_write <= '0';
               fastio_read <= '1';
-              state <= VectorReadIOWait;
+              state <= VectorReadIO;
             else
               -- Ask for the 64-bits of RAM beginning at $0FFF
               -- (Vectors always load from that PHYSICAL RAM address)
@@ -1085,12 +1085,6 @@ begin
               fastram_we <= (others => '0');
               state<=VectorLoadPC;
             end if;
-          when VectorReadIOWait =>
-            report "on wait state read value $" & to_hstring(fastio_rdata) severity note;
-            fastio_addr(11 downto 1) <= vector(11 downto 1);
-            fastio_addr(0) <= lohi;
-            fastio_read <= '1';
-            state <= VectorReadIO;
           when VectorReadIO =>
             report "read value $" & to_hstring(fastio_rdata) severity note;
             if lohi = '0' then              
@@ -1102,7 +1096,7 @@ begin
               fastio_addr(11 downto 1) <= vector(11 downto 1);
               fastio_addr(0) <= '1';
               fastio_read <= '1';
-              state <= VectorReadIOWait;
+              state <= VectorReadIO;
             else
               reg_pc(15 downto 8) <= unsigned(fastio_rdata);
               if reg_pc(7 downto 0) = x"FF" then

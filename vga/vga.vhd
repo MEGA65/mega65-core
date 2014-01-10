@@ -32,50 +32,50 @@ use ieee.numeric_std.all;
 
 entity vga is
   Port (
-         ----------------------------------------------------------------------
-         -- dot clock
-         ----------------------------------------------------------------------
-         pixelclock : in  STD_LOGIC;
-         ----------------------------------------------------------------------
-         -- CPU clock (used for fastram and fastio interfaces)
-         ----------------------------------------------------------------------
-         cpuclock : in std_logic;
+    ----------------------------------------------------------------------
+    -- dot clock
+    ----------------------------------------------------------------------
+    pixelclock : in  STD_LOGIC;
+    ----------------------------------------------------------------------
+    -- CPU clock (used for fastram and fastio interfaces)
+    ----------------------------------------------------------------------
+    cpuclock : in std_logic;
 
-         ----------------------------------------------------------------------
-         -- VGA output
-         ----------------------------------------------------------------------
-         vsync : out  STD_LOGIC;
-         hsync : out  STD_LOGIC;
-         vgared : out  UNSIGNED (3 downto 0);
-         vgagreen : out  UNSIGNED (3 downto 0);
-         vgablue : out  UNSIGNED (3 downto 0);
+    ----------------------------------------------------------------------
+    -- VGA output
+    ----------------------------------------------------------------------
+    vsync : out  STD_LOGIC;
+    hsync : out  STD_LOGIC;
+    vgared : out  UNSIGNED (3 downto 0);
+    vgagreen : out  UNSIGNED (3 downto 0);
+    vgablue : out  UNSIGNED (3 downto 0);
 
-         -----------------------------------------------------------------------------
-         -- Interface to 128KB external fastram
-         -----------------------------------------------------------------------------
-         ramaddress : OUT STD_LOGIC_VECTOR(13 DOWNTO 0);
-         ramdata : IN STD_LOGIC_VECTOR(63 DOWNTO 0);
-         
-         -----------------------------------------------------------------------------
-         -- FastIO interface for accessing video registers
-         -----------------------------------------------------------------------------
-         fastio_addr : in std_logic_vector(19 downto 0);
-         fastio_read : in std_logic;
-         fastio_write : in std_logic;
-         fastio_wdata : in std_logic_vector(7 downto 0);
-         fastio_rdata : out std_logic_vector(7 downto 0);
+    -----------------------------------------------------------------------------
+    -- Interface to 128KB external fastram
+    -----------------------------------------------------------------------------
+    ramaddress : OUT STD_LOGIC_VECTOR(13 DOWNTO 0);
+    ramdata : IN STD_LOGIC_VECTOR(63 DOWNTO 0);
+    
+    -----------------------------------------------------------------------------
+    -- FastIO interface for accessing video registers
+    -----------------------------------------------------------------------------
+    fastio_addr : in std_logic_vector(19 downto 0);
+    fastio_read : in std_logic;
+    fastio_write : in std_logic;
+    fastio_wdata : in std_logic_vector(7 downto 0);
+    fastio_rdata : out std_logic_vector(7 downto 0);
 
-         ----------------------------------------------------------------------
-         -- Debug interfaces on Nexys4 board
-         ----------------------------------------------------------------------
-         led0 : out std_logic;
-         led1 : out std_logic;
-         led2 : out std_logic;
-         led3 : out std_logic;
-         sw : in std_logic_vector(15 downto 0);
-         btn : in std_logic_vector(4 downto 0)
+    ----------------------------------------------------------------------
+    -- Debug interfaces on Nexys4 board
+    ----------------------------------------------------------------------
+    led0 : out std_logic;
+    led1 : out std_logic;
+    led2 : out std_logic;
+    led3 : out std_logic;
+    sw : in std_logic_vector(15 downto 0);
+    btn : in std_logic_vector(4 downto 0)
 
-         );
+    );
 end vga;
 
 architecture Behavioral of vga is
@@ -265,7 +265,7 @@ architecture Behavioral of vga is
   signal slow_clock : std_logic := '0';
   
   signal reset : std_logic := '0';
-    
+  
   -- Interface to character generator rom
   signal charaddress : std_logic_vector(11 downto 0);
   signal chardata : std_logic_vector(7 downto 0);
@@ -333,24 +333,24 @@ begin
     
     if rising_edge(cpuclock) then
 
-          -- Allow fiddling of scale by switching switches
-    card_x_scale(3 downto 0) <= unsigned(sw(7 downto 4));
-    card_y_scale(3 downto 0) <= unsigned(sw(3 downto 0));
-    -- And video mode
-    multicolour_mode <= sw(8);
-    extended_background_mode <= sw(9);
-    text_mode <= sw(10);
-    sixteenbit_charset <= sw(11);
-    fullcolour_8bitchars <= sw(12);
-    fullcolour_extendedchars <= sw(13);
-    -- And adjust screen length
-    case sw(15 downto 14) is
-      when "00" => virtual_row_width <= to_unsigned(32,16);
-      when "01" => virtual_row_width <= to_unsigned(40,16);
-      when "10" => virtual_row_width <= to_unsigned(108,16);
-      when "11" => virtual_row_width <= to_unsigned(256,16);
-      when others => null;
-    end case;    
+      -- Allow fiddling of scale by switching switches
+      card_x_scale(3 downto 0) <= unsigned(sw(7 downto 4));
+      card_y_scale(3 downto 0) <= unsigned(sw(3 downto 0));
+      -- And video mode
+      multicolour_mode <= sw(8);
+      extended_background_mode <= sw(9);
+      text_mode <= sw(10);
+      sixteenbit_charset <= sw(11);
+      fullcolour_8bitchars <= sw(12);
+      fullcolour_extendedchars <= sw(13);
+      -- And adjust screen length
+      case sw(15 downto 14) is
+        when "00" => virtual_row_width <= to_unsigned(32,16);
+        when "01" => virtual_row_width <= to_unsigned(40,16);
+        when "10" => virtual_row_width <= to_unsigned(108,16);
+        when "11" => virtual_row_width <= to_unsigned(256,16);
+        when others => null;
+      end case;    
 
       counter <= counter + 1;
       if counter = x"000000" then
@@ -384,15 +384,18 @@ begin
         register_bank := unsigned(fastio_addr(19 downto 12));
         register_page := unsigned(fastio_addr(11 downto 8));
         register_num := unsigned(fastio_addr(7 downto 0));
-        if register_bank=x"00" and register_page<0 then
+        if register_bank=x"00" and register_page=0 then
           -- First 1KB of normal C64 IO space maps to r$0 - r$3F
           register_number(5 downto 0) := unsigned(fastio_addr(5 downto 0));
           register_number(11 downto 6) := (others => '0');
-        end if;
-        if (register_bank = x"01" or register_bank = x"03") and register_page<4 then
+          report "IO access resolves to video register number " & integer'image(to_integer(register_number)) severity note;        
+        elsif (register_bank = x"01" or register_bank = x"03") and register_page<4 then
           register_number(11 downto 10) := "00";
           register_number(9 downto 8) := register_page(1 downto 0);
-          register_number(7 downto 0) := register_num;          
+          register_number(7 downto 0) := register_num;
+          report "IO access resolves to video register number " & integer'image(to_integer(register_number)) severity note;
+        else
+          report "IO access DOES NOT resolve to video register" severity note;
         end if;
         if register_num<8 then
           -- compatibility sprite coordinates
@@ -580,9 +583,22 @@ begin
         elsif register_number>=768 and register_number<1024 then
           -- blue palette
           fastio_rdata <= std_logic_vector(palette(to_integer(register_num)).blue);
+        else
+          report "IO request does not match a video register" severity note;
         end if;
       end if;      
     end if;
+    report "fastio_rdata from video controller is "
+      & std_logic'image(fastio_rdata(7))
+      & std_logic'image(fastio_rdata(6))
+      & std_logic'image(fastio_rdata(5))
+      & std_logic'image(fastio_rdata(4))
+      & std_logic'image(fastio_rdata(3))
+      & std_logic'image(fastio_rdata(2))
+      & std_logic'image(fastio_rdata(1))
+      & std_logic'image(fastio_rdata(0))
+      severity note;
+
   end process;
   
   process(pixelclock) is
@@ -888,7 +904,7 @@ begin
         if inborder_t2='1' or blank='1' then
           pixel_colour <= border_colour;
         elsif (fullcolour_extendedchars='1' and text_mode='1' and card_number(15 downto 8) /= x"00")
-        or (fullcolour_8bitchars='1' and text_mode='1') then
+          or (fullcolour_8bitchars='1' and text_mode='1') then
           -- Full colour glyph
           -- Pixels come from each 8 bits of character memory.
           pixel_colour <= unsigned(glyph_pixeldata(63 downto 56));
@@ -932,7 +948,7 @@ begin
       end if;
 
       -- Pixels have a two cycle pipeline to help keep timing contraints:
-     
+      
       -- 1. From pixel colour lookup RGB
       vga_buffer_red <= palette(to_integer(pixel_colour)).red(7 downto 4);   
       vga_buffer_green <= palette(to_integer(pixel_colour)).green(7 downto 4); 
