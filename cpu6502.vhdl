@@ -1151,15 +1151,17 @@ begin
             -- fetched from IO.  Now that FastRAM is fixed on a single address
             -- for the 64-bits read, this is no longer an issue, as MMU pages
             -- are 4K aligned, and thus are always 64-bit aligned.
-            for i in 0 to 7 loop
-              if i>= to_integer(instruction_buffer_count(2 downto 0))
-                and i<=to_integer(instruction_fetch_top) then
-                ram_bank := reg_pc(2 downto 0) + i;
-                instruction_buffer(i)
-                  <= fastram_dataout((to_integer(ram_bank)*8+7)
-                                     downto to_integer(ram_bank)*8);
-              end if;
-            end loop;  -- i
+            
+            --for i in 0 to 7 loop
+            --  if i>= to_integer(instruction_buffer_count(2 downto 0))
+            --    and i<=to_integer(instruction_fetch_top) then
+            --    ram_bank := reg_pc(2 downto 0) + i;
+            --    instruction_buffer(i)
+            --      <= fastram_dataout((to_integer(ram_bank)*8+7)
+            --                         downto to_integer(ram_bank)*8);
+            --  end if;
+            --end loop;  -- i
+            
             -- Update number of instructions we have fetched
             instruction_buffer_count <= instruction_fetch_top + 1;
             if instruction_fetch_top>2 then

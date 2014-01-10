@@ -62,6 +62,22 @@ end container;
 
 architecture Behavioral of container is
 
+  component pllclock is
+      port
+          (-- Clock in ports
+            CLK_IN1           : in     std_logic;
+            -- Clock out ports
+            CLK_OUT1          : out    std_logic;
+            pixelclock          : out    std_logic;
+            CLK_OUT3          : out    std_logic;
+            CLK_OUT4          : out    std_logic;
+            CLK_OUT5          : out    std_logic;
+            -- Status and control signals
+            RESET             : in     std_logic;
+            LOCKED            : out    std_logic
+            );
+  end component;
+  
   component dotclock is
     port
       (-- Clock in ports
@@ -208,8 +224,8 @@ begin
      end if;
   end process;
   
-  dotclock1: component dotclock
-    port map ( clk_in1 => CLK_IN,
+--  dotclock1: component dotclock
+--    port map ( clk_in1 => CLK_IN,
 --               -- 100MHz clock for CPU
 --               clk_out1 => cpuclock,
                -- CLK_OUT2 is good for 1920x1200@60Hz, CLK_OUT3___160
@@ -218,27 +234,38 @@ begin
                -- so I guess we will go with an NTSC-style 60Hz display.       
                -- For C64 mode it would be nice to have PAL or NTSC selectable.                    -- Perhaps consider a different video mode for that, or buffering
                -- the generated frames somewhere?
-               clk_out2 => pixelclock);   
+--               clk_out2 => pixelclock);
+
+  pllclock1: component pllclock
+    port map (
+      CLK_IN1 => CLK_IN,
+      -- Clock out ports
+-- cpuclock is 1/2 pixel clock to keep simple 2:1 relationship for crossing clock
+-- domains for video registers.  In time can improve this.
+--      CLK_OUT1 => cpuclock,
+      pixelclock => pixelclock,
+      -- Status and control signals
+      RESET => '1'
+      );
 
     -- XXX For now just use 128KB FastRAM instead of 512KB which causes major routing
   -- headaches.
   fastram1 : component ram64x16k
     PORT MAP (
-      clka => cpuclock,
+      clka => pixelclock,
       wea => fastram_we,
       addra => fastram_address,
       dina => fastram_datain,
       douta => fastram_dataout,
       -- video controller use port b of the dual-port fast ram.
       -- The CPU uses port a
-      clkb => pixelclock,
+      clkb => cpuclock,
       web => (others => '0'),
       addrb => vga_fastramaddress,
       dinb => (others => '0'),
       doutb => vga_fastramdata
       );
 
-  
   cpu0: cpu6502 port map(clock => cpuclock,reset =>reset,irq => irq,
                          nmi => nmi,monitor_pc => monitor_pc,
 
@@ -253,8 +280,6 @@ begin
                          fastram_datain => fastram_datain,
                          fastram_dataout => fastram_dataout
                          );
-
-
   
   vga0: vga
     port map (
