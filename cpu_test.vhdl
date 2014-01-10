@@ -189,7 +189,7 @@ begin
       sw              => sw,
       btn             => btn);
   
-  cpu0: cpu6502 port map(clock => clock,reset =>reset,irq => irq,
+  cpu0: cpu6502 port map(clock => cpuclock,reset =>reset,irq => irq,
                          nmi => nmi,monitor_pc => monitor_pc,
                          monitor_opcode => monitor_opcode,
                          monitor_a => monitor_a,
@@ -223,21 +223,21 @@ begin
     for i in 1 to 10 loop
       clock <= '1';
       report "clock=1 (reset)" severity note;
-      wait for 10 ns;
+      wait for 5 ns;
       clock <= '0';
       -- report "clock=0 (reset)" severity note;
-      wait for 10 ns;      
+      wait for 5 ns;      
     end loop;  -- i
     reset <= '1';
     report "reset released" severity note;
     for i in 1 to 100 loop
       clock <= '1';
       cpuclock <= not cpuclock;
-      wait for 10 ns;     
+      wait for 5 ns;     
       -- report "clock=1" severity note;
       clock <= '0';
       -- report "clock=0 (run)" severity note;
-      wait for 10 ns;
+      wait for 5 ns;
     end loop;  -- i
     assert false report "End of simulation" severity failure;
   end process;
