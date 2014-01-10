@@ -217,7 +217,7 @@ architecture Behavioral of vga is
   -- so the MSB is irrelevant.
   signal colour_ram_base : unsigned(27 downto 0) := x"0018000";
   -- Screen RAM offset
-  signal screen_ram_base : unsigned(27 downto 0) := x"0010000";
+  signal screen_ram_base : unsigned(27 downto 0) := x"0000400";
   -- Character set address.
   -- Size of character set depends on resolution of characters, and whether
   -- full-colour characters are enabled.
@@ -351,16 +351,13 @@ begin
       -- First 1KB of normal C64 IO space maps to r$0 - r$3F
       register_number(5 downto 0) := unsigned(fastio_addr(5 downto 0));
       register_number(11 downto 6) := (others => '0');
-      report "IO access resolves to video register number " & integer'image(to_integer(register_number)) severity note;        
+      -- report "IO access resolves to video register number " & integer'image(to_integer(register_number)) severity note;        
     elsif (register_bank = x"01" or register_bank = x"03") and register_page<4 then
       register_number(11 downto 10) := "00";
       register_number(9 downto 8) := register_page(1 downto 0);
       register_number(7 downto 0) := register_num;
-      report "IO access resolves to video register number " & integer'image(to_integer(register_number)) severity note;
-    else
-      report "IO access DOES NOT resolve to video register" severity note;
+      -- report "IO access resolves to video register number " & integer'image(to_integer(register_number)) severity note;
     end if;
-    report "register_number = " & to_string(std_logic_vector(register_number)) severity note;
 
     if fastio_read='0' then
       fastio_rdata <= (others => 'Z');
@@ -521,7 +518,7 @@ begin
         -- blue palette
         fastio_rdata <= std_logic_vector(palette(to_integer(register_num)).blue);
       else
-        report "IO request does not match a video register" severity note;
+        -- report "IO request does not match a video register" severity note;
         fastio_rdata <= "ZZZZZZZZ";
       end if;
     end if;
@@ -715,30 +712,37 @@ begin
         elsif register_number<256 then
           -- reserved register
           null;
+          -- XXX Palette registers are in a RAM, so we need to schedule the writes
+          -- clocked by the pixelclock, and when we are not in frame.
+          -- Downside is not being able to change the palette registers quickly.
+          -- Else, we implement the palette as a lot of registers.
+          -- Downside is that routing could get very bad.
+          -- Else we implement the palette as dual-port RAM.  Probably the best
+          -- approach.
         elsif register_number>=256 and register_number<512 then
           -- red palette
-          palette(to_integer(register_num)).red <= unsigned(fastio_wdata);
+          -- palette(to_integer(register_num)).red <= unsigned(fastio_wdata);
         elsif register_number>=512 and register_number<768 then
           -- green palette
-          palette(to_integer(register_num)).green <= unsigned(fastio_wdata);
+          -- palette(to_integer(register_num)).green <= unsigned(fastio_wdata);
         elsif register_number>=768 and register_number<1024 then
           -- blue palette
-          palette(to_integer(register_num)).blue <= unsigned(fastio_wdata);
+          -- palette(to_integer(register_num)).blue <= unsigned(fastio_wdata);
         else
           null;
         end if;
       end if;      
     end if;
-    report "fastio_rdata from video controller is "
-      & std_logic'image(fastio_rdata(7))
-      & std_logic'image(fastio_rdata(6))
-      & std_logic'image(fastio_rdata(5))
-      & std_logic'image(fastio_rdata(4))
-      & std_logic'image(fastio_rdata(3))
-      & std_logic'image(fastio_rdata(2))
-      & std_logic'image(fastio_rdata(1))
-      & std_logic'image(fastio_rdata(0))
-      severity note;
+    --report "fastio_rdata from video controller is "
+    --  & std_logic'image(fastio_rdata(7))
+    --  & std_logic'image(fastio_rdata(6))
+    --  & std_logic'image(fastio_rdata(5))
+    --  & std_logic'image(fastio_rdata(4))
+    --  & std_logic'image(fastio_rdata(3))
+    --  & std_logic'image(fastio_rdata(2))
+    --  & std_logic'image(fastio_rdata(1))
+    --  & std_logic'image(fastio_rdata(0))
+    --  severity note;
 
   end process;
   
