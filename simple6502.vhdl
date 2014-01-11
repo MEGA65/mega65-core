@@ -442,19 +442,26 @@ begin
         when I_NOP => null;
         when others => null;
       end case;
-      if normal_instruction=true then
-        -- XXX Can pre-fetch now like on 4510
-        state <= InstructionFetch;
-      end if;
+    elsif mode=M_accumulator then
+      -- We have a separate path for these so that they can be executed in 1
+      -- cycle instead of incurring an extra cycle delay if passed through the
+      -- normal memory-based instruction path. 
+      case instruction is
+        when I_ASL => reg_a <= reg_a(6 downto 0) & '0'; flag_c <= reg_a(7);
+        when I_ROL => reg_a <= reg_a(6 downto 0) & flag_c; flag_c <= reg_a(7);
+        when I_LSR => reg_a <= '0' & reg_a(7 downto 1); flag_c <= reg_a(0);
+        when I_ROR => reg_a <= flag_c & reg_a(7 downto 1); flag_c <= reg_a(0);
+        when others => null;
+      end case;
     end if;
-  end procedure execute_implied_instruction;      
+  end procedure execute_implied_instruction;
 
-  procedure execute_instruction (
+  procedure execute_instruction (      
     opcode : in unsigned(7 downto 0);
     arg1 : in unsigned(7 downto 0);
     arg2 : in unsigned(7 downto 0)
     ) is
-  begin
+  begin        
     -- XXX Not implemented, so just fetch the next instruction.
     state <= InstructionFetch;
   end procedure execute_instruction;      
