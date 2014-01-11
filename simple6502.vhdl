@@ -270,6 +270,8 @@ begin
       accessing_fastio <= '1';
       fastio_addr <= std_logic_vector(long_address(19 downto 0));
       fastio_read <= '1';
+      -- No wait states in fastio system, so proceed directly to next state
+      state <= next_state;
     end if;
     -- Once read, we then resume processing from the specified state.
     pending_state <= next_state;
