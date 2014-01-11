@@ -268,12 +268,13 @@ begin
       elsif segled_counter(19 downto 17)=3 then
         digit := monitor_pc(3 downto 0);
       elsif segled_counter(19 downto 17)=4 then
-        digit := std_logic_vector(segled_counter(23 downto 20));
+        digit := "UUUU";
       elsif segled_counter(19 downto 17)=5 then
-        digit := std_logic_vector(segled_counter(27 downto 24));
+        digit := std_logic_vector(segled_counter(23 downto 20));
       elsif segled_counter(19 downto 17)=6 then
-        digit := std_logic_vector(segled_counter(31 downto 28));
+        digit := std_logic_vector(segled_counter(27 downto 24));
       elsif segled_counter(19 downto 17)=7 then
+        digit := std_logic_vector(segled_counter(31 downto 28));
       else
         digit := "UUUU";
       end if;
