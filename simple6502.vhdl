@@ -61,24 +61,27 @@ architecture Behavioural of simple6502 is
   signal nmi_state : std_logic := '1';
   signal irq_state : std_logic := '1';
   -- Interrupt/reset vector being used
-  signal vector : std_logic_vector(15 downto 0);
-
+  signal vector : unsigned(15 downto 0);
   
 -- Indicate source of operand for instructions
 -- Note that ROM is actually implemented using
 -- power-on initialised RAM in the FPGA mapped via our io interface.
-  signal operand_from_io : std_logic;
-  signal operand_from_ram : std_logic;
-  signal operand_from_slowram : std_logic;
+  signal accessing_fastio : std_logic;
+  signal accessing_ram : std_logic;
+  signal accessing_slowram : std_logic;
 
   type processor_state is (
     -- When CPU first powers up, or reset is bought low
     ResetLow,
     -- States for handling interrupts and reset
-    Interrupt,VectorRead,VectorReadIO,VectorLoadPC
+    Interrupt,VectorRead,VectorRead1,VectorRead2,VectorRead3,
+    InstructionFetch
     );
   signal state : processor_state := ResetLow;  -- start processor in reset state
-
+  -- For memory access we push the processor state to follow once the memory
+  -- access is complete.
+  signal pending_state : processor_state;
+  
   type instruction is (
     -- 6502/6510 legal and illegal ops
     I_ADC,I_AHX,I_ALR,I_ANC,I_AND,I_ARR,I_ASL,I_AXS,
@@ -221,6 +224,27 @@ begin
     end if;
     irq_state <= irq;
   end procedure check_for_interrupts;
+
+  -- purpose: read from a 16-bit CPU address
+  procedure read_address (
+    address    : in unsigned(15 downto 0);
+    next_state : in processor_state) is
+  begin  -- read_address
+    -- Schedule the memory read from the appropriate source.
+    -- Once read, we then resume processing from the specified state.
+    pending_state <= next_state;
+  end read_address;
+
+  -- purpose: obtain the byte of memory that has been read
+  impure function read_data
+    return unsigned is
+  begin  -- read_data
+    if accessing_fastio='1' then
+      return unsigned(fastio_rdata);
+    else
+      return x"FF";
+    end if;
+  end read_data;
   
   variable virtual_reg_p : std_logic_vector(7 downto 0);
   begin
@@ -249,7 +273,9 @@ begin
         -- CPU running, so do CPU state machine
         check_for_interrupts;
         case state is
-          when VectorRead => null;
+          when VectorRead => read_address(vector,VectorRead2);
+          when VectorRead2 => reg_pc(7 downto 0) <= read_data; read_address(vector+1,VectorRead3);
+          when VectorRead3 => reg_pc(15 downto 8) <= read_data; state <= InstructionFetch;
           when others => null;
         end case;
       end if;

@@ -34,7 +34,31 @@ architecture behavior of cpu_test is
   signal sw : std_logic_vector(15 downto 0) := (others => '0');
   signal btn : std_logic_vector(4 downto 0) := (others => '0');
   
-  
+  component simple6502
+    port (
+      Clock : in std_logic;
+      reset : in std_logic;
+      irq : in std_logic;
+      nmi : in std_logic;
+      monitor_pc : out std_logic_vector(15 downto 0);
+      monitor_opcode : out std_logic_vector(7 downto 0);
+      monitor_a : out std_logic_vector(7 downto 0);
+      monitor_x : out std_logic_vector(7 downto 0);
+      monitor_y : out std_logic_vector(7 downto 0);
+      monitor_sp : out std_logic_vector(7 downto 0);
+      monitor_p : out std_logic_vector(7 downto 0);
+      
+      ---------------------------------------------------------------------------
+      -- fast IO port (clocked at core clock). 1MB address space
+      ---------------------------------------------------------------------------
+      fastio_addr : out std_logic_vector(19 downto 0);
+      fastio_read : out std_logic;
+      fastio_write : out std_logic;
+      fastio_wdata : out std_logic_vector(7 downto 0);
+      fastio_rdata : in std_logic_vector(7 downto 0)
+      );
+  end component;
+
   component vga is
     Port (
       ----------------------------------------------------------------------
@@ -189,23 +213,35 @@ begin
       sw              => sw,
       btn             => btn);
   
-  cpu0: cpu6502 port map(clock => cpuclock,reset =>reset,irq => irq,
-                         nmi => nmi,monitor_pc => monitor_pc,
-                         monitor_opcode => monitor_opcode,
-                         monitor_a => monitor_a,
-                         monitor_x => monitor_x,
-                         monitor_y => monitor_y,
-                         monitor_sp => monitor_sp,
-                         monitor_p => monitor_p,
-                         fastio_addr => fastio_addr,
-                         fastio_read => fastio_read,
-                         fastio_write => fastio_write,
-                         fastio_wdata => fastio_wdata,
-                         fastio_rdata => fastio_rdata,
-                         fastram_we => fastram_we,
-                         fastram_address => fastram_address,
-                         fastram_dataout => fastram_dataout,
-                         fastram_datain => fastram_datain);
+  --cpu0: cpu6502 port map(clock => cpuclock,reset =>reset,irq => irq,
+  --                       nmi => nmi,monitor_pc => monitor_pc,
+  --                       monitor_opcode => monitor_opcode,
+  --                       monitor_a => monitor_a,
+  --                       monitor_x => monitor_x,
+  --                       monitor_y => monitor_y,
+  --                       monitor_sp => monitor_sp,
+  --                       monitor_p => monitor_p,
+  --                       fastio_addr => fastio_addr,
+  --                       fastio_read => fastio_read,
+  --                       fastio_write => fastio_write,
+  --                       fastio_wdata => fastio_wdata,
+  --                       fastio_rdata => fastio_rdata,
+  --                       fastram_we => fastram_we,
+  --                       fastram_address => fastram_address,
+  --                       fastram_dataout => fastram_dataout,
+  --                       fastram_datain => fastram_datain);
+
+  cpu0: simple6502 port map(
+    clock => cpuclock,reset =>'1',irq => irq,
+    nmi => nmi,
+
+    fastio_addr => fastio_addr,
+    fastio_read => fastio_read,
+    fastio_write => fastio_write,
+    fastio_wdata => fastio_wdata,
+    fastio_rdata => fastio_rdata
+    );
+  
   iomapper0: iomapper port map (
     clk => clock, address => fastio_addr, r => fastio_read, w => fastio_write,
     data_i => fastio_wdata, data_o => fastio_rdata);

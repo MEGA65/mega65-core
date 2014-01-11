@@ -148,7 +148,6 @@ architecture Behavioral of container is
       fastio_rdata : in std_logic_vector(7 downto 0)
       );
   end component;
-
   
   component ram64x16k
     PORT (
