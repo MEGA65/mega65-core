@@ -259,21 +259,21 @@ begin
       sseg_an <= (others => '1');
       sseg_an(to_integer(segled_counter(19 downto 17))) <= '0';
 
-      if segled_counter(2 downto 0)=0 then
+      if segled_counter(19 downto 17)=0 then
         digit := monitor_pc(15 downto 12);
-      elsif segled_counter(2 downto 0)=1 then
+      elsif segled_counter(19 downto 17)=1 then
         digit := monitor_pc(11 downto 8);
-      elsif segled_counter(2 downto 0)=2 then
+      elsif segled_counter(19 downto 17)=2 then
         digit := monitor_pc(7 downto 4);
-      elsif segled_counter(2 downto 0)=3 then
+      elsif segled_counter(19 downto 17)=3 then
         digit := monitor_pc(3 downto 0);
-      elsif segled_counter(2 downto 0)=4 then
+      elsif segled_counter(19 downto 17)=4 then
         digit := std_logic_vector(segled_counter(23 downto 20));
-      elsif segled_counter(2 downto 0)=5 then
+      elsif segled_counter(19 downto 17)=5 then
         digit := std_logic_vector(segled_counter(27 downto 24));
-      elsif segled_counter(2 downto 0)=6 then
+      elsif segled_counter(19 downto 17)=6 then
         digit := std_logic_vector(segled_counter(31 downto 28));
-      elsif segled_counter(2 downto 0)=7 then
+      elsif segled_counter(19 downto 17)=7 then
       else
         digit := "UUUU";
       end if;
