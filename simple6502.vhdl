@@ -75,7 +75,9 @@ architecture Behavioural of simple6502 is
     ResetLow,
     -- States for handling interrupts and reset
     Interrupt,VectorRead,VectorRead1,VectorRead2,VectorRead3,
-    InstructionFetch,InstructionFetch2,InstructionFetch3,InstructionFetch4
+    InstructionFetch,InstructionFetch2,InstructionFetch3,InstructionFetch4,
+    BRK1,BRK2,
+    Halt
     );
   signal state : processor_state := ResetLow;  -- start processor in reset state
   -- For memory access we push the processor state to follow once the memory
@@ -272,6 +274,41 @@ begin
     pending_state <= next_state;
   end read_address;
 
+  procedure write_byte (
+    memmap             : in bank_register_set;
+    address            : in unsigned(15 downto 0);
+    value              : in unsigned(7 downto 0);
+    next_state         : in processor_state) is
+    variable long_address : unsigned(27 downto 0);
+  begin
+    -- Schedule the memory write to the appropriate destination.
+    accessing_ram <= '0'; accessing_slowram <= '0'; accessing_fastio <= '0';
+    long_address := resolve_address_to_long(address,memmap);
+    if long_address(27 downto 17)="00000000000" then
+      accessing_ram <= '1';
+    elsif long_address(27 downto 24) = x"8" then
+      accessing_slowram <= '1';
+    elsif long_address(27 downto 24) = x"F" then
+      accessing_fastio <= '1';
+      fastio_addr <= std_logic_vector(long_address(19 downto 0));
+      fastio_write <= '1';
+      fastio_wdata <= std_logic_vector(value);
+      -- No wait states on I/O write, so proceed directly to the next state
+      state <= next_state;
+    end if;
+    -- Once read, we then resume processing from the specified state.
+    pending_state <= next_state;
+  end procedure write_byte;
+
+  -- purpose: push a byte onto the stack
+  procedure push_byte (
+    value : in unsigned(7 downto 0);
+    next_state : in processor_state) is
+  begin  -- push_byte
+    reg_sp <= reg_sp - 1;
+    write_byte(ram_bank_registers_write,x"01" & reg_sp,value,next_state);
+  end push_byte;
+  
   procedure read_instruction_byte (
     address : in unsigned(15 downto 0);
     next_state : in processor_state) is
@@ -296,11 +333,79 @@ begin
       return x"FF";
     end if;
   end read_data; 
+  
+  procedure set_cpu_flags_inc (value : in unsigned(7 downto 0)) is
+  begin
+    if value=x"00" then
+      flag_z <='1';
+    else
+      flag_z <='0';
+    end if;
+    flag_n <= value(7);
+  end procedure set_cpu_flags_inc;
 
   procedure execute_implied_instruction (
     opcode : in unsigned(7 downto 0)) is
+    variable instruction : instruction := instruction_lut(to_integer(opcode));
+    variable mode : addressingmode := mode_lut(to_integer(opcode));
+    -- False if handling a special instruction
+    variable normal_instruction : boolean := true;
   begin
-    null;
+    if mode=M_implied then
+      case instruction is
+        when I_SETMAP =>
+          -- load RAM map register
+          -- Sets map register $YY to $AAXX
+          -- Registers are:
+          -- $00 - $0F for instruction fetch
+          -- $10 - $1F for memory read
+          -- $20 - $2F for memory write
+          if reg_y(7 downto 4) = x"0" then
+            ram_bank_registers_instructions(to_integer(reg_y(3 downto 0)))
+              <= reg_a & reg_x;
+          elsif reg_y(7 downto 4) = x"1" then
+            ram_bank_registers_read(to_integer(reg_y(3 downto 0)))
+              <= reg_a & reg_x;
+          elsif reg_y(7 downto 4) = x"2" then
+            ram_bank_registers_write(to_integer(reg_y(3 downto 0)))
+              <= reg_a & reg_x;
+          end if;
+        when I_BRK =>
+          -- break instruction. Push state and jump to the appropriate
+          -- vector.
+          vector <= x"FFFE";    -- BRK follows the IRQ vector
+          flag_i <= '1';      -- Disable further IRQs while the
+                                        -- interrupt is being handled.
+          push_byte(reg_pc(15 downto 8),BRK1);
+          normal_instruction := false;
+        when I_CLC => flag_c <= '0';
+        when I_CLD => flag_d <= '0';
+        when I_CLI => flag_i <= '0';
+        when I_CLV => flag_v <= '0';
+        when I_DEX => reg_x <= reg_x - 1; set_cpu_flags_inc(reg_x);
+        when I_DEY => reg_y <= reg_y - 1; set_cpu_flags_inc(reg_y);
+        when I_INX => reg_x <= reg_x + 1; set_cpu_flags_inc(reg_x);
+        when I_INY => reg_y <= reg_y + 1; set_cpu_flags_inc(reg_y);
+        when I_KIL => state <= Halt; normal_instruction:= false;
+
+        when I_SEC => flag_c <= '1';
+        when I_SED => flag_d <= '1';
+        when I_SEI => flag_i <= '1';
+        when I_TAX => reg_x <= reg_a;
+        when I_TAY => reg_y <= reg_a;
+        when I_TSX => reg_x <= reg_sp;
+        when I_TXA => reg_a <= reg_x;
+        when I_TXS => reg_sp <= reg_x;
+        when I_TYA => reg_a <= reg_a;
+                      
+        when I_NOP => null;
+        when others => null;
+      end case;
+      if normal_instruction=true then
+        -- XXX Can pre-fetch now like on 4510
+        state <= InstructionFetch;
+      end if;
+    end if;
   end procedure execute_implied_instruction;      
 
   procedure execute_instruction (
@@ -315,6 +420,8 @@ begin
   variable virtual_reg_p : std_logic_vector(7 downto 0);
   begin
     if rising_edge(clock) then
+      monitor_pc <= std_logic_vector(reg_pc);
+      
       -- Clear memory access interfaces
       fastio_addr <= (others => '1');
       fastio_read <= '0';
@@ -348,7 +455,7 @@ begin
           when InstructionFetch2 =>
             -- Keep reading bytes if necessary
             if mode_lut(to_integer(read_data))=M_implied
-               or mode_lut(to_integer(read_data))=M_accumulator then
+              or mode_lut(to_integer(read_data))=M_accumulator then
               -- 1-byte instruction, process now
               execute_implied_instruction(read_data);
             else
@@ -366,6 +473,11 @@ begin
           when InstructionFetch4 =>
             reg_pc <= reg_pc + 1;
             execute_instruction(opcode,arg1,read_data);
+          when BRK1 =>
+            push_byte(reg_pc(7 downto 0),BRK2);
+          when BRK2 =>
+            virtual_reg_p(5) := '1';    -- set B flag in P before pushing
+            push_byte(unsigned(virtual_reg_p),VectorRead);
           when others => null;
         end case;
       end if;
