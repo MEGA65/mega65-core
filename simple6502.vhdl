@@ -247,8 +247,17 @@ begin
     variable long_address : unsigned(27 downto 0);
   begin  -- read_address
     -- Schedule the memory read from the appropriate source.
+    accessing_ram <= '0'; accessing_slowram <= '0'; accessing_fastio <= '0';
     long_address := resolve_address_to_long(address,memmap);
-        
+    if long_address(27 downto 17)="00000000000" then
+      accessing_ram <= '1';
+    elsif long_address(27 downto 24) = x"8" then
+      accessing_slowram <= '1';
+    elsif long_address(27 downto 24) = x"F" then
+      accessing_fastio <= '1';
+      fastio_addr <= std_logic_vector(long_address(19 downto 0));
+      fastio_read <= '1';
+    end if;
     -- Once read, we then resume processing from the specified state.
     pending_state <= next_state;
   end read_address;
