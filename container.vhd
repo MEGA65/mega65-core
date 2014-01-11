@@ -252,10 +252,10 @@ begin
     if rising_edge(pixelclock) then
       cpuclock <= not cpuclock;
 
-      if segled_counter<8 then
-        segled_counter <= segled_counter + 1;
-      else
+      if segled_counter=7 then
         segled_counter <= 0;
+      else
+        segled_counter <= segled_counter + 1;
       end if;
 
       sseg_an <= (others => '1');
@@ -270,7 +270,7 @@ begin
       elsif segled_counter=0 then
         digit := monitor_pc(3 downto 0);
       else
-        digit := x"F";
+        digit := "UUUU";
       end if;
 
       -- segments are:
