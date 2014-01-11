@@ -75,12 +75,15 @@ architecture Behavioural of simple6502 is
     ResetLow,
     -- States for handling interrupts and reset
     Interrupt,VectorRead,VectorRead1,VectorRead2,VectorRead3,
-    InstructionFetch
+    InstructionFetch,InstructionFetch2,InstructionFetch3,InstructionFetch4
     );
   signal state : processor_state := ResetLow;  -- start processor in reset state
   -- For memory access we push the processor state to follow once the memory
   -- access is complete.
   signal pending_state : processor_state;
+  -- Information about instruction currently being executed
+  signal opcode : unsigned(7 downto 0);
+  signal arg1 : unsigned(7 downto 0);
   
   type instruction is (
     -- 6502/6510 legal and illegal ops
@@ -123,6 +126,14 @@ architecture Behavioural of simple6502 is
     M_absolute,M_absoluteY,M_absoluteX,
     M_relative,M_indirect,M_indirectX,M_indirectY);
 
+  -- Number of argument bytes required for each addressing mode
+  type mode_list is array(addressingmode'low to addressingmode'high) of integer;
+  constant mode_bytes_lut : mode_list := (
+    M_implied => 0, M_immediate => 1, M_accumulator => 0,
+    M_zeropage => 1, M_zeropageX => 1, M_zeropageY => 1,
+    M_absolute => 2, M_absoluteX => 2, M_absoluteY => 2,
+    M_relative => 1, M_indirect => 2, M_indirectX => 1, M_indirectY => 1);
+  
   type mlut8bit is array(0 to 255) of addressingmode;
   constant mode_lut : mlut8bit := (
     -- 00
@@ -237,7 +248,6 @@ begin
 
     return temp_address;
   end resolve_address_to_long;
-
   
   -- purpose: read from a 16-bit CPU address
   procedure read_address (
@@ -286,7 +296,22 @@ begin
       return x"FF";
     end if;
   end read_data; 
-  
+
+  procedure execute_implied_instruction (
+    opcode : in unsigned(7 downto 0)) is
+  begin
+    null;
+  end procedure execute_implied_instruction;      
+
+  procedure execute_instruction (
+    opcode : in unsigned(7 downto 0);
+    arg1 : in unsigned(7 downto 0);
+    arg2 : in unsigned(7 downto 0)
+    ) is
+  begin
+    null;
+  end procedure execute_instruction;      
+
   variable virtual_reg_p : std_logic_vector(7 downto 0);
   begin
     if rising_edge(clock) then
@@ -317,6 +342,30 @@ begin
           when VectorRead => read_instruction_byte(vector,VectorRead2);
           when VectorRead2 => reg_pc(7 downto 0) <= read_data; read_instruction_byte(vector+1,VectorRead3);
           when VectorRead3 => reg_pc(15 downto 8) <= read_data; state <= InstructionFetch;
+          when InstructionFetch =>
+            read_instruction_byte(reg_pc,InstructionFetch2);
+            reg_pc <= reg_pc + 1;
+          when InstructionFetch2 =>
+            -- Keep reading bytes if necessary
+            if mode_lut(to_integer(read_data))=M_implied
+               or mode_lut(to_integer(read_data))=M_accumulator then
+              -- 1-byte instruction, process now
+              execute_implied_instruction(read_data);
+            else
+              opcode <= read_data;
+              read_instruction_byte(reg_pc,InstructionFetch3);
+            end if;
+          when InstructionFetch3 =>
+            reg_pc <= reg_pc + 1;
+            if mode_bytes_lut(mode_lut(to_integer(opcode)))=2 then
+              arg1 <= read_data;
+              read_instruction_byte(reg_pc,InstructionFetch4);
+            else
+              execute_instruction(opcode,read_data,x"FF");
+            end if;
+          when InstructionFetch4 =>
+            reg_pc <= reg_pc + 1;
+            execute_instruction(opcode,arg1,read_data);
           when others => null;
         end case;
       end if;
