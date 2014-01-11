@@ -447,6 +447,7 @@ begin
         & ", y=$" & to_hstring(std_logic_vector(reg_y))
         & ", sp=$" & to_hstring(std_logic_vector(reg_sp))
         & ", p=%" & to_string(std_logic_vector(virtual_reg_p))
+        & ", state=" & processor_state'image(state)
         severity note;
       
       if reset = '0' or state = ResetLow then
