@@ -499,7 +499,7 @@ begin
         -- CPU running, so do CPU state machine
         check_for_interrupts;
         case state is
-          when VectorRead => read_instruction_byte(vector,VectorRead2);
+          when VectorRead => reg_pc <= vector; read_instruction_byte(vector,VectorRead2);
           when VectorRead2 => reg_pc(7 downto 0) <= read_data; read_instruction_byte(vector+1,VectorRead3);
           when VectorRead3 => reg_pc(15 downto 8) <= read_data; state <= InstructionFetch;
           when InstructionFetch =>
