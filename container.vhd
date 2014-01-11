@@ -68,13 +68,13 @@ architecture Behavioral of container is
             CLK_IN1           : in     std_logic;
             -- Clock out ports
             CLK_OUT1          : out    std_logic;
-            pixelclock          : out    std_logic;
-            CLK_OUT3          : out    std_logic;
-            CLK_OUT4          : out    std_logic;
-            CLK_OUT5          : out    std_logic;
-            -- Status and control signals
-            RESET             : in     std_logic;
-            LOCKED            : out    std_logic
+            pixelclock          : out    std_logic
+            --CLK_OUT3          : out    std_logic;
+            --CLK_OUT4          : out    std_logic;
+            --CLK_OUT5          : out    std_logic;
+            ---- Status and control signals
+            --RESET             : in     std_logic;
+            --LOCKED            : out    std_logic
             );
   end component;
   
@@ -124,6 +124,32 @@ architecture Behavioral of container is
       );
   end component;
 
+  component simple6502
+    port (
+      Clock : in std_logic;
+      reset : in std_logic;
+      irq : in std_logic;
+      nmi : in std_logic;
+      monitor_pc : out std_logic_vector(15 downto 0);
+      monitor_opcode : out std_logic_vector(7 downto 0);
+      monitor_a : out std_logic_vector(7 downto 0);
+      monitor_x : out std_logic_vector(7 downto 0);
+      monitor_y : out std_logic_vector(7 downto 0);
+      monitor_sp : out std_logic_vector(7 downto 0);
+      monitor_p : out std_logic_vector(7 downto 0);
+      
+      ---------------------------------------------------------------------------
+      -- fast IO port (clocked at core clock). 1MB address space
+      ---------------------------------------------------------------------------
+      fastio_addr : out std_logic_vector(19 downto 0);
+      fastio_read : out std_logic;
+      fastio_write : out std_logic;
+      fastio_wdata : out std_logic_vector(7 downto 0);
+      fastio_rdata : in std_logic_vector(7 downto 0)
+      );
+  end component;
+
+  
   component ram64x16k
     PORT (
       clka : IN STD_LOGIC;
@@ -224,29 +250,27 @@ begin
      end if;
   end process;
   
---  dotclock1: component dotclock
---    port map ( clk_in1 => CLK_IN,
---               -- 100MHz clock for CPU
---               clk_out1 => cpuclock,
+  dotclock1: component dotclock
+    port map ( clk_in1 => CLK_IN,
                -- CLK_OUT2 is good for 1920x1200@60Hz, CLK_OUT3___160
                -- for 1600x1200@60Hz
                -- 60Hz works fine, but 50Hz is not well supported by monitors. 
                -- so I guess we will go with an NTSC-style 60Hz display.       
                -- For C64 mode it would be nice to have PAL or NTSC selectable.                    -- Perhaps consider a different video mode for that, or buffering
                -- the generated frames somewhere?
---               clk_out2 => pixelclock);
+               clk_out2 => pixelclock);
 
-  pllclock1: component pllclock
-    port map (
-      CLK_IN1 => CLK_IN,
+--  pllclock1: component pllclock
+--    port map (
+--      CLK_IN1 => CLK_IN,
       -- Clock out ports
--- cpuclock is 1/2 pixel clock to keep simple 2:1 relationship for crossing clock
--- domains for video registers.  In time can improve this.
+      -- cpuclock is 1/2 pixel clock to keep simple 2:1 relationship for crossing clock
+      -- domains for video registers.  In time can improve this.
 --      CLK_OUT1 => cpuclock,
-      pixelclock => pixelclock,
+--      pixelclock => pixelclock
       -- Status and control signals
-      RESET => '1'
-      );
+--      RESET => '0'
+--      );
 
     -- XXX For now just use 128KB FastRAM instead of 512KB which causes major routing
   -- headaches.
@@ -266,20 +290,31 @@ begin
       doutb => vga_fastramdata
       );
 
-  cpu0: cpu6502 port map(clock => cpuclock,reset =>reset,irq => irq,
-                         nmi => nmi,monitor_pc => monitor_pc,
+  --cpu0: cpu6502 port map(clock => cpuclock,reset =>'1',irq => irq,
+  --                       nmi => nmi,monitor_pc => monitor_pc,
 
-                         fastio_addr => fastio_addr,
-                         fastio_read => fastio_read,
-                         fastio_write => fastio_write,
-                         fastio_wdata => fastio_wdata,
-                         fastio_rdata => fastio_rdata,
+  --                       fastio_addr => fastio_addr,
+  --                       fastio_read => fastio_read,
+  --                       fastio_write => fastio_write,
+  --                       fastio_wdata => fastio_wdata,
+  --                       fastio_rdata => fastio_rdata,
 
-                         fastram_we => fastram_we,
-                         fastram_address => fastram_address,
-                         fastram_datain => fastram_datain,
-                         fastram_dataout => fastram_dataout
-                         );
+  --                       fastram_we => fastram_we,
+  --                       fastram_address => fastram_address,
+  --                       fastram_datain => fastram_datain,
+  --                       fastram_dataout => fastram_dataout
+  --                       );
+
+  cpu0: simple6502 port map(
+    clock => cpuclock,reset =>'1',irq => irq,
+    nmi => nmi,
+
+    fastio_addr => fastio_addr,
+    fastio_read => fastio_read,
+    fastio_write => fastio_write,
+    fastio_wdata => fastio_wdata,
+    fastio_rdata => fastio_rdata
+    );
   
   vga0: vga
     port map (
