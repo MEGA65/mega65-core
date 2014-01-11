@@ -242,7 +242,7 @@ architecture Behavioral of container is
   signal pixelclock : std_logic;
   signal monitor_pc : std_logic_vector(15 downto 0);
 
-  signal segled_counter : integer := 0;
+  signal segled_counter : unsigned(19 downto 0) := (others => '0');
   
 begin
 
@@ -252,14 +252,10 @@ begin
     if rising_edge(pixelclock) then
       cpuclock <= not cpuclock;
 
-      if segled_counter=7 then
-        segled_counter <= 0;
-      else
-        segled_counter <= segled_counter + 1;
-      end if;
+      segled_counter <= segled_counter + 1;
 
       sseg_an <= (others => '1');
-      sseg_an(segled_counter) <= '0';
+      sseg_an(to_integer(segled_counter(19 downto 17))) <= '0';
 
       if segled_counter=0 then
         digit := monitor_pc(15 downto 12);
