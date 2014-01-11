@@ -78,6 +78,8 @@ architecture Behavioural of simple6502 is
     Interrupt,VectorRead,VectorRead1,VectorRead2,VectorRead3,
     InstructionFetch,InstructionFetch2,InstructionFetch3,InstructionFetch4,
     BRK1,BRK2,
+    PLA1,
+    PLP1,
     Halt
     );
   signal state : processor_state := ResetLow;  -- start processor in reset state
@@ -311,6 +313,14 @@ begin
     reg_sp <= reg_sp - 1;
     write_byte(ram_bank_registers_write,x"01" & reg_sp,value,next_state);
   end push_byte;
+
+  -- purpose: pull a byte from the stack
+  procedure pull_byte (
+    next_state : in processor_state) is
+  begin  -- pull_byte
+    reg_sp <= reg_sp + 1;
+    read_address(ram_bank_registers_read,x"01" & (reg_sp + 1),next_state);
+  end pull_byte;
   
   procedure read_instruction_byte (
     address : in unsigned(15 downto 0);
@@ -404,7 +414,8 @@ begin
         when I_KIL => state <= Halt; normal_instruction:= false;
         when I_PHA => push_byte(reg_a,InstructionFetch);
         when I_PHP => push_byte(virtual_reg_p,InstructionFetch);
-
+        when I_PLA => pull_byte(PLA1);
+        when I_PLP => pull_byte(PLP1);
         when I_SEC => flag_c <= '1';
         when I_SED => flag_d <= '1';
         when I_SEI => flag_i <= '1';
@@ -508,6 +519,18 @@ begin
           when BRK2 =>
             virtual_reg_p(5) := '1';    -- set B flag in P before pushing
             push_byte(unsigned(virtual_reg_p),VectorRead);
+          when PLA1 =>
+            reg_a<=read_data;
+            state <= InstructionFetch;
+          when PLP1 =>
+            virtual_reg_p := std_logic_vector(read_data);
+            flag_n <= virtual_reg_p(7);
+            flag_v <= virtual_reg_p(6);
+            flag_d <= virtual_reg_p(3);
+            flag_i <= virtual_reg_p(2);
+            flag_z <= virtual_reg_p(1);
+            flag_c <= virtual_reg_p(0);
+            state <= InstructionFetch;
           when others => null;
         end case;
       end if;
