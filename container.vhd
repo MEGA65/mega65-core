@@ -139,6 +139,7 @@ architecture Behavioral of container is
       monitor_y : out std_logic_vector(7 downto 0);
       monitor_sp : out std_logic_vector(7 downto 0);
       monitor_p : out std_logic_vector(7 downto 0);
+      monitor_state : out std_logic_vector(7 downto 0);
       
       ---------------------------------------------------------------------------
       -- fast IO port (clocked at core clock). 1MB address space
@@ -241,6 +242,7 @@ architecture Behavioral of container is
   signal cpuclock : std_logic;
   signal pixelclock : std_logic;
   signal monitor_pc : std_logic_vector(15 downto 0);
+  signal monitor_state : std_logic_vector(7 downto 0);
 
   signal segled_counter : unsigned(31 downto 0) := (others => '0');
   
@@ -259,18 +261,18 @@ begin
       sseg_an <= (others => '1');
       sseg_an(to_integer(segled_counter(19 downto 17))) <= '0';
 
-      if segled_counter(19 downto 17)=0 then
+      if segled_counter(19 downto 17)=3 then
         digit := monitor_pc(15 downto 12);
-      elsif segled_counter(19 downto 17)=1 then
-        digit := monitor_pc(11 downto 8);
       elsif segled_counter(19 downto 17)=2 then
+        digit := monitor_pc(11 downto 8);
+      elsif segled_counter(19 downto 17)=1 then
         digit := monitor_pc(7 downto 4);
-      elsif segled_counter(19 downto 17)=3 then
+      elsif segled_counter(19 downto 17)=0 then
         digit := monitor_pc(3 downto 0);
-      elsif segled_counter(19 downto 17)=4 then
-        digit := "UUUU";
       elsif segled_counter(19 downto 17)=5 then
-        digit := std_logic_vector(segled_counter(23 downto 20));
+        digit := monitor_state(7 downto 4);
+      elsif segled_counter(19 downto 17)=4 then
+        digit := monitor_state(3 downto 0);
       elsif segled_counter(19 downto 17)=6 then
         digit := std_logic_vector(segled_counter(27 downto 24));
       elsif segled_counter(19 downto 17)=7 then
@@ -369,7 +371,9 @@ begin
   cpu0: simple6502 port map(
     clock => cpuclock,reset =>'1',irq => irq,
     nmi => nmi,
-
+    monitor_pc => monitor_pc,
+    monitor_state => monitor_state,
+    
     fastio_addr => fastio_addr,
     fastio_read => fastio_read,
     fastio_write => fastio_write,

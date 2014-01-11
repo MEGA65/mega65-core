@@ -19,6 +19,7 @@ entity simple6502 is
     monitor_y : out std_logic_vector(7 downto 0);
     monitor_sp : out std_logic_vector(7 downto 0);
     monitor_p : out std_logic_vector(7 downto 0);
+    monitor_state : out std_logic_vector(7 downto 0);
     
     ---------------------------------------------------------------------------
     -- fast IO port (clocked at core clock). 1MB address space
@@ -461,6 +462,7 @@ begin
   variable virtual_reg_p : std_logic_vector(7 downto 0);
   begin
     if rising_edge(clock) then
+      monitor_state <= std_logic_vector(to_unsigned(processor_state'pos(state),8));
       monitor_pc <= std_logic_vector(reg_pc);
       
       -- Clear memory access interfaces
