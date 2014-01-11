@@ -50,3 +50,23 @@ NET "BTN<2>"                            LOC = "F15"     | IOSTANDARD = "LVCMOS33
 NET "BTN<3>"                            LOC = "T16"     | IOSTANDARD = "LVCMOS33";              #Bank = CONFIG, Pin name = IO_L15N_T2_DQS_DOUT_CSO_B_14, Sch name = BTNL
 NET "BTN<0>"                            LOC = "R10"     | IOSTANDARD = "LVCMOS33";              #Bank = 14, Pin name = IO_25_14, Sch name = BTNR
 NET "BTN<1>"                            LOC = "V10"     | IOSTANDARD = "LVCMOS33";              #Bank = 14, Pin name = IO_L21P_T3_DQS_14, Sch name = BTND
+
+## 7 segment display
+NET "SSEG_CA<0>"                        LOC = "L3"      | IOSTANDARD = "LVCMOS33";              #Bank = 34, Pin name = IO_L2N_T0_34, Sch name = CA
+NET "SSEG_CA<1>"                        LOC = "N1"      | IOSTANDARD = "LVCMOS33";              #Bank = 34, Pin name = IO_L3N_T0_DQS_34, Sch name = CB
+NET "SSEG_CA<2>"                        LOC = "L5"      | IOSTANDARD = "LVCMOS33";              #Bank = 34, Pin name = IO_L6N_T0_VREF_34, Sch name = CC
+NET "SSEG_CA<3>"                        LOC = "L4"      | IOSTANDARD = "LVCMOS33";              #Bank = 34, Pin name = IO_L5N_T0_34, Sch name = CD
+NET "SSEG_CA<4>"                        LOC = "K3"      | IOSTANDARD = "LVCMOS33";              #Bank = 34, Pin name = IO_L2P_T0_34, Sch name = CE
+NET "SSEG_CA<5>"                        LOC = "M2"      | IOSTANDARD = "LVCMOS33";              #Bank = 34, Pin name = IO_L4N_T0_34, Sch name = CF
+NET "SSEG_CA<6>"                        LOC = "L6"      | IOSTANDARD = "LVCMOS33";              #Bank = 34, Pin name = IO_L6P_T0_34, Sch name = CG
+
+NET "SSEG_CA<7>"                                LOC = "M4"      | IOSTANDARD = "LVCMOS33";              #Bank = 34, Pin name = IO_L16P_T2_34, Sch name = DP
+
+NET "SSEG_AN<0>"                        LOC = "N6"      | IOSTANDARD = "LVCMOS33";              #Bank = 34, Pin name = IO_L18N_T2_34, Sch name = AN0
+NET "SSEG_AN<1>"                        LOC = "M6"      | IOSTANDARD = "LVCMOS33";              #Bank = 34, Pin name = IO_L18P_T2_34, Sch name = AN1
+NET "SSEG_AN<2>"                        LOC = "M3"      | IOSTANDARD = "LVCMOS33";              #Bank = 34, Pin name = IO_L4P_T0_34, Sch name = AN2
+NET "SSEG_AN<3>"                        LOC = "N5"      | IOSTANDARD = "LVCMOS33";              #Bank = 34, Pin name = IO_L13_T2_MRCC_34, Sch name = AN3
+NET "SSEG_AN<4>"                        LOC = "N2"      | IOSTANDARD = "LVCMOS33";              #Bank = 34, Pin name = IO_L3P_T0_DQS_34, Sch name = AN4
+NET "SSEG_AN<5>"                        LOC = "N4"      | IOSTANDARD = "LVCMOS33";              #Bank = 34, Pin name = IO_L16N_T2_34, Sch name = AN5
+NET "SSEG_AN<6>"                        LOC = "L1"      | IOSTANDARD = "LVCMOS33";              #Bank = 34, Pin name = IO_L1P_T0_34, Sch name = AN6
+NET "SSEG_AN<7>"                        LOC = "M1"      | IOSTANDARD = "LVCMOS33";              #Bank = 34, Pin name = IO_L1N_T034, Sch name = AN7

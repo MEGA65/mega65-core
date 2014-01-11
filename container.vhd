@@ -55,27 +55,29 @@ entity container is
          led2 : out std_logic;
          led3 : out std_logic;
          sw : in std_logic_vector(15 downto 0);
-         btn : in std_logic_vector(4 downto 0)
+         btn : in std_logic_vector(4 downto 0);
 
+         sseg_ca : out std_logic_vector(7 downto 0);
+         sseg_an : out std_logic_vector(7 downto 0)
          );
 end container;
 
 architecture Behavioral of container is
 
   component pllclock is
-      port
-          (-- Clock in ports
-            CLK_IN1           : in     std_logic;
-            -- Clock out ports
-            CLK_OUT1          : out    std_logic;
-            pixelclock          : out    std_logic
-            --CLK_OUT3          : out    std_logic;
-            --CLK_OUT4          : out    std_logic;
-            --CLK_OUT5          : out    std_logic;
-            ---- Status and control signals
-            --RESET             : in     std_logic;
-            --LOCKED            : out    std_logic
-            );
+    port
+      (-- Clock in ports
+        CLK_IN1           : in     std_logic;
+        -- Clock out ports
+        CLK_OUT1          : out    std_logic;
+        pixelclock          : out    std_logic
+        --CLK_OUT3          : out    std_logic;
+        --CLK_OUT4          : out    std_logic;
+        --CLK_OUT5          : out    std_logic;
+        ---- Status and control signals
+        --RESET             : in     std_logic;
+        --LOCKED            : out    std_logic
+        );
   end component;
   
   component dotclock is
@@ -239,14 +241,68 @@ architecture Behavioral of container is
   signal cpuclock : std_logic;
   signal pixelclock : std_logic;
   signal monitor_pc : std_logic_vector(15 downto 0);
+
+  signal segled_counter : integer := 0;
   
 begin
 
   process(pixelclock)
+    variable digit : std_logic_vector(3 downto 0);
   begin
-     if rising_edge(pixelclock) then
-        cpuclock <= not cpuclock;
-     end if;
+    if rising_edge(pixelclock) then
+      cpuclock <= not cpuclock;
+
+      if segled_counter<8 then
+        segled_counter <= segled_counter + 1;
+      else
+        segled_counter <= 0;
+      end if;
+
+      sseg_an <= (others => '1');
+      sseg_an(segled_counter) <= '0';
+
+      if segled_counter=0 then
+        digit := monitor_pc(15 downto 12);
+      elsif segled_counter=1 then
+        digit := monitor_pc(11 downto 8);
+      elsif segled_counter=0 then
+        digit := monitor_pc(7 downto 4);
+      elsif segled_counter=0 then
+        digit := monitor_pc(3 downto 0);
+      else
+        digit := x"F";
+      end if;
+
+      -- segments are:
+      -- 7 - decimal point
+      -- 6 - middle
+      -- 5 - upper left
+      -- 4 - lower left
+      -- 3 - bottom
+      -- 2 - lower right
+      -- 1 - upper right
+      -- 0 - top
+      case digit is
+        when x"0" => sseg_ca <= "11000000";
+        when x"1" => sseg_ca <= "11111001";
+        when x"2" => sseg_ca <= "10100100";
+        when x"3" => sseg_ca <= "10110000";
+        when x"4" => sseg_ca <= "10011001";
+        when x"5" => sseg_ca <= "10010010";
+        when x"6" => sseg_ca <= "10000010";
+        when x"7" => sseg_ca <= "11111000";
+        when x"8" => sseg_ca <= "10000000";
+        when x"9" => sseg_ca <= "10010000";
+        when x"A" => sseg_ca <= "10001000";
+        when x"B" => sseg_ca <= "10000011";
+        when x"C" => sseg_ca <= "11000110";
+        when x"D" => sseg_ca <= "10100001";
+        when x"E" => sseg_ca <= "10000110";
+        when x"F" => sseg_ca <= "10001110";
+        when others => sseg_ca <= "11011111";
+      end case; 
+      
+    end if;
   end process;
   
   dotclock1: component dotclock
@@ -262,16 +318,16 @@ begin
 --  pllclock1: component pllclock
 --    port map (
 --      CLK_IN1 => CLK_IN,
-      -- Clock out ports
-      -- cpuclock is 1/2 pixel clock to keep simple 2:1 relationship for crossing clock
-      -- domains for video registers.  In time can improve this.
+  -- Clock out ports
+  -- cpuclock is 1/2 pixel clock to keep simple 2:1 relationship for crossing clock
+  -- domains for video registers.  In time can improve this.
 --      CLK_OUT1 => cpuclock,
 --      pixelclock => pixelclock
-      -- Status and control signals
+  -- Status and control signals
 --      RESET => '0'
 --      );
 
-    -- XXX For now just use 128KB FastRAM instead of 512KB which causes major routing
+  -- XXX For now just use 128KB FastRAM instead of 512KB which causes major routing
   -- headaches.
   fastram1 : component ram64x16k
     PORT MAP (
