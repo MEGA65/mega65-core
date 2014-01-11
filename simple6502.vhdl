@@ -353,7 +353,19 @@ begin
     variable mode : addressingmode := mode_lut(to_integer(opcode));
     -- False if handling a special instruction
     variable normal_instruction : boolean := true;
+    variable virtual_reg_p : unsigned(7 downto 0);
   begin
+
+    -- Generate virtual processor status register for BRK
+    virtual_reg_p(7) := flag_n;
+    virtual_reg_p(6) := flag_v;
+    virtual_reg_p(5) := '1';
+    virtual_reg_p(4) := '0';
+    virtual_reg_p(3) := flag_d;
+    virtual_reg_p(2) := flag_i;
+    virtual_reg_p(1) := flag_z;
+    virtual_reg_p(0) := flag_c;
+
     if mode=M_implied then
       case instruction is
         when I_SETMAP =>
@@ -390,6 +402,8 @@ begin
         when I_INX => reg_x <= reg_x + 1; set_cpu_flags_inc(reg_x);
         when I_INY => reg_y <= reg_y + 1; set_cpu_flags_inc(reg_y);
         when I_KIL => state <= Halt; normal_instruction:= false;
+        when I_PHA => push_byte(reg_a,InstructionFetch);
+        when I_PHP => push_byte(virtual_reg_p,InstructionFetch);
 
         when I_SEC => flag_c <= '1';
         when I_SED => flag_d <= '1';
