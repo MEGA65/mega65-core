@@ -242,7 +242,7 @@ architecture Behavioral of container is
   signal pixelclock : std_logic;
   signal monitor_pc : std_logic_vector(15 downto 0);
 
-  signal segled_counter : unsigned(19 downto 0) := (others => '0');
+  signal segled_counter : unsigned(31 downto 0) := (others => '0');
   
 begin
 
@@ -250,7 +250,8 @@ begin
     variable digit : std_logic_vector(3 downto 0);
   begin
     if rising_edge(pixelclock) then
-      cpuclock <= not cpuclock;
+--      cpuclock <= not cpuclock;
+      cpuclock <= segled_counter(27);   -- CPU clocked at slightly >1Hz
 
       segled_counter <= segled_counter + 1;
 
@@ -261,10 +262,17 @@ begin
         digit := monitor_pc(15 downto 12);
       elsif segled_counter=1 then
         digit := monitor_pc(11 downto 8);
-      elsif segled_counter=0 then
+      elsif segled_counter=2 then
         digit := monitor_pc(7 downto 4);
-      elsif segled_counter=0 then
+      elsif segled_counter=3 then
         digit := monitor_pc(3 downto 0);
+      elsif segled_counter=4 then
+        digit := std_logic_vector(segled_counter(23 downto 20));
+      elsif segled_counter=5 then
+        digit := std_logic_vector(segled_counter(27 downto 24));
+      elsif segled_counter=6 then
+        digit := std_logic_vector(segled_counter(31 downto 28));
+      elsif segled_counter=7 then
       else
         digit := "UUUU";
       end if;
@@ -295,7 +303,7 @@ begin
         when x"D" => sseg_ca <= "10100001";
         when x"E" => sseg_ca <= "10000110";
         when x"F" => sseg_ca <= "10001110";
-        when others => sseg_ca <= "11011111";
+        when others => sseg_ca <= "10100001";
       end case; 
       
     end if;
