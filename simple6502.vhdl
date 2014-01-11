@@ -417,7 +417,8 @@ begin
     arg2 : in unsigned(7 downto 0)
     ) is
   begin
-    null;
+    -- XXX Not implemented, so just fetch the next instruction.
+    state <= InstructionFetch;
   end procedure execute_instruction;      
 
   variable virtual_reg_p : std_logic_vector(7 downto 0);
