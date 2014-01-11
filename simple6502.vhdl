@@ -36,7 +36,7 @@ architecture Behavioural of simple6502 is
 -- Sections have 16bit addresses, for a total of 28bits (256MB) of address
 -- space.  It also makes it possible to multiple 4KB banks point to the same
 -- block of RAM.
-  type bank_register_set is array (0 to 15) of std_logic_vector(15 downto 0);
+  type bank_register_set is array (0 to 15) of unsigned(15 downto 0);
   signal ram_bank_registers_read : bank_register_set;
   signal ram_bank_registers_write : bank_register_set;
   signal ram_bank_registers_instructions : bank_register_set;
@@ -196,9 +196,9 @@ begin
     -- Default memory map (C64 like, but with enhanced IO and kernel)
     -- Map first bank of fast RAM at $0000 - $CFFF
     for i in 0 to 12 loop
-      ram_bank_registers_read(i)<=std_logic_vector(to_unsigned(i,16));
-      ram_bank_registers_write(i)<=std_logic_vector(to_unsigned(i,16));
-      ram_bank_registers_instructions(i)<=std_logic_vector(to_unsigned(i,16));
+      ram_bank_registers_read(i)<=to_unsigned(i,16);
+      ram_bank_registers_write(i)<=to_unsigned(i,16);
+      ram_bank_registers_instructions(i)<=to_unsigned(i,16);
     end loop;  -- i
     -- enhanced IO at $D000-$DFFF
     ram_bank_registers_read(13) <= x"FFD3";  
@@ -225,15 +225,47 @@ begin
     irq_state <= irq;
   end procedure check_for_interrupts;
 
+  -- purpose: Convert a 16-bit C64 address to native RAM (or I/O or ROM) address
+  function resolve_address_to_long(short_address : unsigned(15 downto 0); ram_bank_registers : bank_register_set)
+    return unsigned is 
+    variable temp_address : unsigned(27 downto 0);
+    variable temp_bank_block : unsigned(15 downto 0);
+  begin  -- resolve_long_address
+    temp_bank_block :=ram_bank_registers(to_integer(short_address(15 downto 12)));
+    temp_address(27 downto 12):= temp_bank_block;
+    temp_address(11 downto 0):=short_address(11 downto 0);
+
+    return temp_address;
+  end resolve_address_to_long;
+
+  
   -- purpose: read from a 16-bit CPU address
   procedure read_address (
-    address    : in unsigned(15 downto 0);
+    memmap     : in bank_register_set;
+    address    : in unsigned(15 downto 0);    
     next_state : in processor_state) is
+    variable long_address : unsigned(27 downto 0);
   begin  -- read_address
     -- Schedule the memory read from the appropriate source.
+    long_address := resolve_address_to_long(address,memmap);
+        
     -- Once read, we then resume processing from the specified state.
     pending_state <= next_state;
   end read_address;
+
+  procedure read_instruction_byte (
+    address : in unsigned(15 downto 0);
+    next_state : in processor_state) is
+  begin
+    read_address(ram_bank_registers_instructions,address,next_state);
+  end read_instruction_byte;
+
+  procedure read_data_byte (
+    address : in unsigned(15 downto 0);
+    next_state : in processor_state) is
+  begin
+    read_address(ram_bank_registers_read,address,next_state);
+  end read_data_byte;
 
   -- purpose: obtain the byte of memory that has been read
   impure function read_data
@@ -244,7 +276,7 @@ begin
     else
       return x"FF";
     end if;
-  end read_data;
+  end read_data; 
   
   variable virtual_reg_p : std_logic_vector(7 downto 0);
   begin
@@ -273,8 +305,8 @@ begin
         -- CPU running, so do CPU state machine
         check_for_interrupts;
         case state is
-          when VectorRead => read_address(vector,VectorRead2);
-          when VectorRead2 => reg_pc(7 downto 0) <= read_data; read_address(vector+1,VectorRead3);
+          when VectorRead => read_instruction_byte(vector,VectorRead2);
+          when VectorRead2 => reg_pc(7 downto 0) <= read_data; read_instruction_byte(vector+1,VectorRead3);
           when VectorRead3 => reg_pc(15 downto 8) <= read_data; state <= InstructionFetch;
           when others => null;
         end case;
