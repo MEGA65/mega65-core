@@ -461,7 +461,24 @@ begin
     arg1 : in unsigned(7 downto 0);
     arg2 : in unsigned(7 downto 0)
     ) is
-  begin        
+    variable instruction : instruction := instruction_lut(to_integer(opcode));
+    variable mode : addressingmode := mode_lut(to_integer(opcode));
+  begin
+    if mode=M_relative then
+      if (instruction=I_BCC and flag_c='0')
+        or (instruction=I_BCS and flag_c='1')
+        or (instruction=I_BVC and flag_v='0')
+        or (instruction=I_BVS and flag_v='1')
+        or (instruction=I_BEQ and flag_z='0')
+        or (instruction=I_BNE and flag_z='1') then
+        -- take branch
+        if arg1(7)='0' then -- branch forwards.
+          reg_pc <= reg_pc + unsigned(arg1(6 downto 0));
+        else -- branch backwards.
+          reg_pc <= reg_pc - 128 + unsigned(not arg1(6 downto 0));
+        end if;
+      end if;
+    end if;
     -- XXX Not implemented, so just fetch the next instruction.
     state <= InstructionFetch;
   end procedure execute_instruction;      
