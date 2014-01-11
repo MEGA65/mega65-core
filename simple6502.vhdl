@@ -77,9 +77,7 @@ architecture Behavioural of simple6502 is
     -- States for handling interrupts and reset
     Interrupt,VectorRead,VectorRead1,VectorRead2,VectorRead3,
     InstructionFetch,InstructionFetch2,InstructionFetch3,InstructionFetch4,
-    BRK1,BRK2,
-    PLA1,
-    PLP1,
+    BRK1,BRK2,PLA1,PLP1,RTI1,RTI2,RTI3,RTS1,RTS2,
     Halt
     );
   signal state : processor_state := ResetLow;  -- start processor in reset state
@@ -346,7 +344,19 @@ begin
       return x"FF";
     end if;
   end read_data; 
-  
+
+  -- purpose: set processor flags from a byte (eg for PLP or RTI)
+  procedure load_processor_flags (
+    value : in unsigned(7 downto 0)) is
+  begin  -- load_processor_flags
+    flag_n <= value(7);
+    flag_v <= value(6);
+    flag_d <= value(3);
+    flag_i <= value(2);
+    flag_z <= value(1);
+    flag_c <= value(0);
+  end procedure load_processor_flags;
+    
   procedure set_cpu_flags_inc (value : in unsigned(7 downto 0)) is
   begin
     if value=x"00" then
@@ -416,6 +426,8 @@ begin
         when I_PHP => push_byte(virtual_reg_p,InstructionFetch);
         when I_PLA => pull_byte(PLA1);
         when I_PLP => pull_byte(PLP1);
+        when I_RTI => pull_byte(RTI1);
+        when I_RTS => pull_byte(RTS1);
         when I_SEC => flag_c <= '1';
         when I_SED => flag_d <= '1';
         when I_SEI => flag_i <= '1';
@@ -501,36 +513,37 @@ begin
               execute_implied_instruction(read_data);
             else
               opcode <= read_data;
+              reg_pc <= reg_pc + 1;
               read_instruction_byte(reg_pc,InstructionFetch3);
             end if;
           when InstructionFetch3 =>
-            reg_pc <= reg_pc + 1;
             if mode_bytes_lut(mode_lut(to_integer(opcode)))=2 then
               arg1 <= read_data;
+              reg_pc <= reg_pc + 1;
               read_instruction_byte(reg_pc,InstructionFetch4);
             else
               execute_instruction(opcode,read_data,x"FF");
             end if;
           when InstructionFetch4 =>
-            reg_pc <= reg_pc + 1;
             execute_instruction(opcode,arg1,read_data);
-          when BRK1 =>
-            push_byte(reg_pc(7 downto 0),BRK2);
+          when BRK1 => push_byte(reg_pc(7 downto 0),BRK2);
           when BRK2 =>
             virtual_reg_p(5) := '1';    -- set B flag in P before pushing
             push_byte(unsigned(virtual_reg_p),VectorRead);
-          when PLA1 =>
-            reg_a<=read_data;
-            state <= InstructionFetch;
-          when PLP1 =>
-            virtual_reg_p := std_logic_vector(read_data);
-            flag_n <= virtual_reg_p(7);
-            flag_v <= virtual_reg_p(6);
-            flag_d <= virtual_reg_p(3);
-            flag_i <= virtual_reg_p(2);
-            flag_z <= virtual_reg_p(1);
-            flag_c <= virtual_reg_p(0);
-            state <= InstructionFetch;
+          when PLA1 => reg_a<=read_data; state <= InstructionFetch;
+          when PLP1 => load_processor_flags(read_data); state <= InstructionFetch;
+          when RTI1 => load_processor_flags(read_data); pull_byte(RTI2);
+          when RTI2 => reg_pc(7 downto 0) <= read_data+1; pull_byte(RTI3);
+          when RTI3 => reg_pc(15 downto 8) <= read_data; state<=InstructionFetch;
+          when RTS1 => reg_pc(7 downto 0) <= read_data+1; pull_byte(RTS2);
+          when RTS2 =>
+            if reg_pc(7 downto 0)=x"00" then
+              -- adding one to PCL wrapped, so need to increment PCH also
+              reg_pc(15 downto 8) <= read_data + 1;
+            else
+              reg_pc(15 downto 8) <= read_data;
+            end if;
+              state<=InstructionFetch;                       
           when others => null;
         end case;
       end if;
