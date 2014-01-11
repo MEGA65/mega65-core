@@ -262,7 +262,7 @@ architecture Behavioral of vga is
   signal indisplay_t2 : std_logic := '0';
   signal indisplay_t3 : std_logic := '0';
   
-  signal counter : unsigned(24 downto 0);
+  signal counter : unsigned(24 downto 0) := (others => '0');
   signal slow_clock : std_logic := '0';
   
   signal reset : std_logic := '0';
@@ -344,9 +344,18 @@ begin
 
     -- Calculate register number asynchronously
     register_number := x"FFF";
-    register_bank := unsigned(fastio_addr(19 downto 12));
-    register_page := unsigned(fastio_addr(11 downto 8));
-    register_num := unsigned(fastio_addr(7 downto 0));
+    if fastio_addr(19) = '0' or fastio_addr(19) = '1' then
+      register_bank := unsigned(fastio_addr(19 downto 12));
+      register_page := unsigned(fastio_addr(11 downto 8));
+      register_num := unsigned(fastio_addr(7 downto 0));
+    else
+      -- Give values when inputs are bad to supress warnings cluttering output
+      -- when simulating
+      register_bank := x"FF";
+      register_page := x"F";
+      register_num := x"FF";
+    end if;
+
     if register_bank=x"00" and register_page=0 then
       -- First 1KB of normal C64 IO space maps to r$0 - r$3F
       register_number(5 downto 0) := unsigned(fastio_addr(5 downto 0));
@@ -522,7 +531,7 @@ begin
         fastio_rdata <= "ZZZZZZZZ";
       end if;
     end if;
-    
+
     if rising_edge(cpuclock) then
 
       -- Allow fiddling of scale by switching switches
@@ -543,6 +552,7 @@ begin
         when "11" => virtual_row_width <= to_unsigned(256,16);
         when others => null;
       end case;    
+
 
       counter <= counter + 1;
       if counter = x"000000" then
@@ -570,7 +580,8 @@ begin
         end if;
       end if;
 
-      if fastio_write='1' then
+      if fastio_write='1'
+        and (fastio_addr(19) = '0' or fastio_addr(19) = '1') then
         if register_number>=0 and register_number<8 then
           -- compatibility sprite coordinates
           sprite_x(to_integer(register_num(2 downto 0))) <= unsigned(fastio_wdata);
@@ -743,7 +754,7 @@ begin
     --  & std_logic'image(fastio_rdata(1))
     --  & std_logic'image(fastio_rdata(0))
     --  severity note;
-
+    
   end process;
   
   process(pixelclock) is
@@ -758,8 +769,9 @@ begin
     variable next_glyph_number_temp : std_logic_vector(15 downto 0) := (others => '0');
     variable next_glyph_colour_temp : std_logic_vector(7 downto 0) := (others => '0');
   begin
-    
-    if rising_edge(pixelclock) then            
+
+    if rising_edge(pixelclock) then
+
       if xcounter>=(frame_h_front+width) and xcounter<(frame_h_front+width+frame_h_syncwidth) then
         hsync <= '0';
         led0 <= '0';
@@ -1105,6 +1117,7 @@ begin
       vgablue <= vga_buffer_blue;
 
     end if;
+
   end process;
 
 end Behavioral;

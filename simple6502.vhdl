@@ -4,6 +4,7 @@ library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use ieee.numeric_std.all;
 use Std.TextIO.all;
+use work.debugtools.all;
 
 entity simple6502 is
   port (
@@ -437,6 +438,17 @@ begin
       virtual_reg_p(1) := flag_z;
       virtual_reg_p(0) := flag_c;
 
+      -- Show CPU state for debugging
+      -- report "state = " & processor_state'image(state) severity note;
+      report ""
+        & "  pc=$" & to_hstring(std_logic_vector(reg_pc))
+        & ", a=$" & to_hstring(std_logic_vector(reg_a))
+        & ", x=$" & to_hstring(std_logic_vector(reg_x))
+        & ", y=$" & to_hstring(std_logic_vector(reg_y))
+        & ", sp=$" & to_hstring(std_logic_vector(reg_sp))
+        & ", p=%" & to_string(std_logic_vector(virtual_reg_p))
+        severity note;
+      
       if reset = '0' or state = ResetLow then
         -- reset cpu
         state <= VectorRead;
