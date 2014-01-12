@@ -492,13 +492,24 @@ begin
           reg_pc <= reg_pc - 128 + unsigned(not arg1(6 downto 0));
         end if;
       end if;
+    -- Treat jump instructions specially, since they are rather different to
+    -- the rest.
     elsif i=I_JSR then
       reg_pc <= arg2 & arg1; push_byte(reg_pc_jsr(7 downto 0),JSR1);
     elsif i=I_JMP and mode=M_absolute then
       reg_pc <= arg2 & arg1; state<=InstructionFetch;
     elsif i=I_JMP and mode=M_indirect then
       reg_addr <= arg2 & (arg1 +1);
-      read_instruction_byte(arg2 & arg1,JMP1);
+      read_data_byte(arg2 & arg1,JMP1);    
+    elsif mode=M_indirectX then
+      -- Read ZP indirect from data memory map, since ZP is written into that
+      -- map.
+      read_data_byte(
+    elsif mode=M_indirectY then
+    else
+      -- Instruction using a direct addressing mode
+      
+      
     end if;
   end procedure execute_instruction;      
 
