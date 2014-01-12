@@ -318,6 +318,21 @@ begin
     long_address := resolve_address_to_long(address,memmap);
     if long_address(27 downto 17)="00000000000" then
       accessing_ram <= '1';
+      fastram_address <= std_logic_vector(long_address(16 downto 3));
+      fastram_write <= '1';
+      fastram_we <= (others => '0');
+      fastram_datain <= (others => '0');
+      case long_address(2 downto 0) is
+        when "000" => fastram_we<="00000001"; fastram_datain(7 downto 0) <= std_logic_vector(value);
+        when "001" => fastram_we<="00000010"; fastram_datain(15 downto 8) <= std_logic_vector(value);
+        when "010" => fastram_we<="00000100"; fastram_datain(23 downto 16) <= std_logic_vector(value);
+        when "011" => fastram_we<="00001000"; fastram_datain(31 downto 24) <= std_logic_vector(value);
+        when "100" => fastram_we<="00010000"; fastram_datain(39 downto 32) <= std_logic_vector(value);
+        when "101" => fastram_we<="00100000"; fastram_datain(47 downto 40) <= std_logic_vector(value);
+        when "110" => fastram_we<="01000000"; fastram_datain(55 downto 48) <= std_logic_vector(value);
+        when "111" => fastram_we<="10000000"; fastram_datain(63 downto 56) <= std_logic_vector(value);
+        when others => null;
+      end case;
     elsif long_address(27 downto 24) = x"8" then
       accessing_slowram <= '1';
     elsif long_address(27 downto 24) = x"F" then
