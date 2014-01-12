@@ -4,13 +4,19 @@
 	.advance $E001
 
 reset:	; reset entry point
-	LDA $0401
+	LDA $1001
 	ADC #$01
-        STA $0401
+        STA $1001
 	inc $d020
-        LDA $0402
+        LDA $1002
 	ADC #$00
-	STA $0402
+	STA $1002
+        LDA $1003
+	ADC #$00
+	STA $1003
+        LDA $1004
+	ADC #$00
+	STA $1004
 	JMP reset
 
 irq:	RTI
