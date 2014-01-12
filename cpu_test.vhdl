@@ -2,6 +2,7 @@ library ieee;
 USE ieee.std_logic_1164.ALL;
 use ieee.numeric_std.all;
 use work.all;
+use work.debugtools.all;
 
 entity cpu_test is
   
@@ -114,35 +115,7 @@ architecture behavior of cpu_test is
       );
   end component;
   
-  component cpu6502
-    port (   clock : in STD_LOGIC;
-             reset : in  STD_LOGIC;
-             irq : in  STD_LOGIC;
-             nmi : in  STD_LOGIC;
-             monitor_pc : out STD_LOGIC_VECTOR(15 downto 0);
-             monitor_opcode : out std_logic_vector(7 downto 0);
-             monitor_a : out std_logic_vector(7 downto 0);
-             monitor_x : out std_logic_vector(7 downto 0);
-             monitor_y : out std_logic_vector(7 downto 0);
-             monitor_sp : out std_logic_vector(7 downto 0);
-             monitor_p : out std_logic_vector(7 downto 0);
-
-             -- fast IO port (clocked at core clock)
-             fastio_addr : inout std_logic_vector(19 downto 0);
-             fastio_read : out std_logic;
-             fastio_write : out std_logic;
-             fastio_wdata : out std_logic_vector(7 downto 0);
-             fastio_rdata : in std_logic_vector(7 downto 0);
-
-             -- fastram port
-             fastram_we : OUT STD_LOGIC_VECTOR(7 DOWNTO 0);
-             fastram_address : OUT STD_LOGIC_VECTOR(13 DOWNTO 0);
-             fastram_datain : OUT STD_LOGIC_VECTOR(63 DOWNTO 0);
-             fastram_dataout : IN STD_LOGIC_VECTOR(63 DOWNTO 0)
-             );      
-  end component;
-
- component ram64x16k
+  component ram64x16k IS
     PORT (
       clka : IN STD_LOGIC;
       wea : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
@@ -155,8 +128,8 @@ architecture behavior of cpu_test is
       dinb : IN STD_LOGIC_VECTOR(63 DOWNTO 0);
       doutb : OUT STD_LOGIC_VECTOR(63 DOWNTO 0)
       );
-  end component;
-  
+  END component;
+ 
   component iomapper is
     port (Clk : in std_logic;
           address : in std_logic_vector(19 downto 0);
@@ -191,7 +164,8 @@ begin
       addra => fastram_address,
       dina => fastram_datain,
       douta => fastram_dataout,
-      clkb => '0',
+      
+      clkb => clock,
       web => (others => '0'),
       addrb => vga_fastramaddress,
       dinb => (others => '0'),
@@ -225,24 +199,6 @@ begin
       sw              => sw,
       btn             => btn);
   
-  --cpu0: cpu6502 port map(clock => cpuclock,reset =>reset,irq => irq,
-  --                       nmi => nmi,monitor_pc => monitor_pc,
-  --                       monitor_opcode => monitor_opcode,
-  --                       monitor_a => monitor_a,
-  --                       monitor_x => monitor_x,
-  --                       monitor_y => monitor_y,
-  --                       monitor_sp => monitor_sp,
-  --                       monitor_p => monitor_p,
-  --                       fastio_addr => fastio_addr,
-  --                       fastio_read => fastio_read,
-  --                       fastio_write => fastio_write,
-  --                       fastio_wdata => fastio_wdata,
-  --                       fastio_rdata => fastio_rdata,
-  --                       fastram_we => fastram_we,
-  --                       fastram_address => fastram_address,
-  --                       fastram_dataout => fastram_dataout,
-  --                       fastram_datain => fastram_datain);
-
   cpu0: simple6502 port map(
     clock => cpuclock,reset =>'1',irq => irq,
     nmi => nmi,
@@ -266,14 +222,6 @@ begin
     data_i => fastio_wdata, data_o => fastio_rdata);
 
   process
-    function to_string(sv: Std_Logic_Vector) return string is
-      use Std.TextIO.all;
-      variable bv: bit_vector(sv'range) := to_bitvector(sv);
-      variable lp: line;
-    begin
-      write(lp, bv);
-      return lp.all;
-    end;
   begin  -- process tb
     for i in 1 to 10 loop
       clock <= '1';
