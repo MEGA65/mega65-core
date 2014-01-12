@@ -316,6 +316,8 @@ begin
     -- Schedule the memory write to the appropriate destination.
     accessing_ram <= '0'; accessing_slowram <= '0'; accessing_fastio <= '0';
     long_address := resolve_address_to_long(address,memmap);
+    report "Writing $" & to_hstring(value) & " @ $" & to_hstring(address)
+      & " (resolves to $" & to_hstring(long_address) & ")" severity note;
     if long_address(27 downto 17)="00000000000" then
       accessing_ram <= '1';
       fastram_address <= std_logic_vector(long_address(16 downto 3));
@@ -639,6 +641,9 @@ begin
     first_value : in unsigned(7 downto 0);
     final_value : in unsigned(7 downto 0)) is
   begin
+    report "first_value = $" & to_hstring(first_value)
+      & ", final_value = $" & to_hstring(final_value)
+    severity note;
     reg_addr <= address;
     reg_value <= final_value;
     write_data_byte(address,first_value,RMWCommit);
@@ -665,7 +670,9 @@ begin
       when I_CPY => bitbucket := with_nz(alu_op_add(reg_y,operand));
       when I_DEC => rmw_operand_commit(address,operand,operand-1);
       when I_EOR => reg_a <= with_nz(reg_a xor operand);        
-      when I_INC => rmw_operand_commit(address,operand,operand+1);
+      when I_INC =>
+        report "INC of $" & to_hstring(operand) & " to $" & to_hstring(operand+1) severity note;
+        rmw_operand_commit(address,operand,(operand+1));
       when I_LSR => flag_c <= operand(0); rmw_operand_commit(address,operand,operand(6 downto 0)&'0');
       when I_ORA => reg_a <= with_nz(reg_a or operand);
       when I_ROL => flag_c <= operand(7); rmw_operand_commit(address,operand,operand(6 downto 0)&flag_c);

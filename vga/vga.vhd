@@ -21,6 +21,7 @@ library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use ieee.numeric_std.all;
 use Std.TextIO.all;
+use work.debugtools.all;
 
 -- Uncomment the following library declaration if using
 -- arithmetic functions with Signed or Unsigned values
@@ -356,21 +357,27 @@ begin
       register_num := x"FF";
     end if;
 
-    if register_bank=x"00" and register_page=0 then
+    if (register_bank=x"D0" or register_bank=x"D2") and register_page<4 then
       -- First 1KB of normal C64 IO space maps to r$0 - r$3F
       register_number(5 downto 0) := unsigned(fastio_addr(5 downto 0));
       register_number(11 downto 6) := (others => '0');
-      -- report "IO access resolves to video register number " & integer'image(to_integer(register_number)) severity note;        
-    elsif (register_bank = x"01" or register_bank = x"03") and register_page<4 then
+      report "IO access resolves to video register number " & integer'image(to_integer(register_number)) severity note;        
+    elsif (register_bank = x"D1" or register_bank = x"D3") and register_page<4 then
       register_number(11 downto 10) := "00";
       register_number(9 downto 8) := register_page(1 downto 0);
       register_number(7 downto 0) := register_num;
-      -- report "IO access resolves to video register number " & integer'image(to_integer(register_number)) severity note;
+      report "IO access resolves to video register number " & integer'image(to_integer(register_number)) severity note;
     end if;
 
     if fastio_read='0' then
       fastio_rdata <= (others => 'Z');
     else
+      report "read from fastio detect in video controller. " &
+       "register number = " & integer'image(to_integer(register_number)) &
+       ", fastio_addr = " & to_hstring(fastio_addr) &
+       ", register_bank = " & to_hstring(register_bank) &
+       ", register_page = " & to_hstring(register_page)
+        severity note;
       if register_number>=0 and register_number<8 then
         -- compatibility sprite coordinates
         fastio_rdata <= std_logic_vector(sprite_x(to_integer(register_num(2 downto 0))));
