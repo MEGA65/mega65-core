@@ -252,11 +252,13 @@ architecture Behavioral of container is
   signal vga_fastramdata : std_logic_vector(63 downto 0);
   
   signal cpuclock : std_logic;
+  signal cpuclock_divisor : integer := 0;
   signal pixelclock : std_logic;
   signal monitor_pc : std_logic_vector(15 downto 0);
   signal monitor_state : std_logic_vector(7 downto 0);
 
   signal segled_counter : unsigned(31 downto 0) := (others => '0');
+
   
 begin
 
@@ -265,6 +267,12 @@ begin
   begin
     if rising_edge(pixelclock) then
 --      cpuclock <= not cpuclock;
+      if cpuclock_divisor<2 then
+        cpuclock_divisor <= cpuclock_divisor + 1;
+      else
+        cpuclock_divisor <= 0;
+        cpuclock <= not cpuclock;
+      end if;
       cpuclock <= segled_counter(2);   -- CPU clocked at dotclock/4 (~50MHz)
       led0 <= cpuclock;
       
