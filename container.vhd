@@ -264,8 +264,8 @@ begin
     variable digit : std_logic_vector(3 downto 0);
   begin
     if rising_edge(pixelclock) then
-      cpuclock <= not cpuclock;
---      cpuclock <= segled_counter(23);   -- CPU clocked at slightly <16Hz
+--      cpuclock <= not cpuclock;
+      cpuclock <= segled_counter(2);   -- CPU clocked at dotclock/4 (~50MHz)
       led0 <= cpuclock;
       
       segled_counter <= segled_counter + 1;
