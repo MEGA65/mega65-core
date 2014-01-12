@@ -53,6 +53,8 @@ architecture Behavioural of simple6502 is
   signal ram_bank_registers_write : bank_register_set;
   signal ram_bank_registers_instructions : bank_register_set;
 
+  signal fastram_byte_number : unsigned(2 DOWNTO 0);
+  
 -- CPU internal state
   signal flag_c : std_logic;        -- carry flag
   signal flag_z : std_logic;        -- zero flag
@@ -287,7 +289,10 @@ begin
     long_address := resolve_address_to_long(address,memmap);
     if long_address(27 downto 17)="00000000000" then
       accessing_ram <= '1';
-      
+      fastram_address <= std_logic_vector(long_address(16 downto 3));
+      fastram_byte_number <= long_address(2 downto 0);
+      fastram_read <= '1';
+      -- No wait states in fastram system, so proceed directly to next state
     elsif long_address(27 downto 24) = x"8" then
       accessing_slowram <= '1';
     elsif long_address(27 downto 24) = x"F" then
@@ -372,6 +377,19 @@ begin
   begin  -- read_data
     if accessing_fastio='1' then
       return unsigned(fastio_rdata);
+    if accessing_ram='1' then
+      case fastram_byte_number is
+        when "000" => return unsigned(fastram_dataout( 7 downto 0));
+        when "001" => return unsigned(fastram_dataout(15 downto 8));
+        when "010" => return unsigned(fastram_dataout(23 downto 16));
+        when "011" => return unsigned(fastram_dataout(31 downto 24));
+        when "100" => return unsigned(fastram_dataout(39 downto 32));
+        when "101" => return unsigned(fastram_dataout(47 downto 40));
+        when "110" => return unsigned(fastram_dataout(55 downto 48));
+        when "111" => return unsigned(fastram_dataout(63 downto 56));
+        when others => return x"FF";
+      end case;
+    end if;
     else
       return x"FF";
     end if;
