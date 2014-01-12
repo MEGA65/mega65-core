@@ -331,16 +331,6 @@ begin
     variable register_page : unsigned(3 downto 0);
     variable register_num : unsigned(7 downto 0);
     variable register_number : unsigned(11 downto 0);
-    
-    function to_string(sv: Std_Logic_Vector) return string is
-      use Std.TextIO.all;
-      
-      variable bv: bit_vector(sv'range) := to_bitvector(sv);
-      variable lp: line;
-    begin
-      write(lp, bv);
-      return lp.all;
-    end;
   begin
 
     -- Calculate register number asynchronously
