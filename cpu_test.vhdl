@@ -285,7 +285,7 @@ begin
     end loop;  -- i
     reset <= '1';
     report "reset released" severity note;
-    for i in 1 to 100 loop
+    for i in 1 to 200 loop
       clock <= '1';
       cpuclock <= not cpuclock;
       wait for 5 ns;     
