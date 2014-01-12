@@ -215,14 +215,14 @@ architecture Behavioral of vga is
   -- are fairly arbitrary.
   -- Colour RAM offset (we just use some normal RAM for colour RAM, since in the
   -- worst case we can need >32KB of it.  Must correspond to a FastRAM address,
-  -- so the MSB is irrelevant.
-  signal colour_ram_base : unsigned(27 downto 0) := x"0018000";
+  -- so the MSBs are irrelevant.
+  signal colour_ram_base : unsigned(27 downto 0) := x"0005000";
   -- Screen RAM offset
-  signal screen_ram_base : unsigned(27 downto 0) := x"0000400";
+  signal screen_ram_base : unsigned(27 downto 0) := x"0001000";
   -- Character set address.
   -- Size of character set depends on resolution of characters, and whether
   -- full-colour characters are enabled.
-  signal character_set_address : unsigned(27 downto 0) := x"0020000";
+  signal character_set_address : unsigned(27 downto 0) := x"0009000";
   -----------------------------------------------------------------------------
   
   -- Character generator state. Also used for graphics modes, since graphics
@@ -974,13 +974,28 @@ begin
         --  cannot require more than 16 cycles).
         ramaddress <= (others => '0');
       end if;
+      -- When moving to the next card read the appropriate character set rom entry.
+      -- Note that character set ROM has only 256 entries, so 16-bit charsets
+      -- will wrap.
+      -- In bitmap mode the card numbers are ordinal, whereas in textmode
+      -- screen RAM picks the character.
+      -- XXX Bitmap mode should not use the character ROM.  This combination is
+      -- for debugging of text mode character fetching only.
       if card_number_t3 /= card_number then
         if extended_background_mode='1' then
           -- bit 6 and 7 of character is used for colour
           charaddress(10 downto 9) <= "00";
-          charaddress(8 downto 3) <= std_logic_vector(card_number(5 downto 0));
+          if text_mode='1' then
+            charaddress(8 downto 3) <= std_logic_vector(next_glyph_number(5 downto 0));
+          else
+            charaddress(8 downto 3) <= std_logic_vector(card_number(5 downto 0));            
+          end if;
         else
-          charaddress(10 downto 3) <= std_logic_vector(card_number(7 downto 0));
+          if text_mode='1' then
+            charaddress(10 downto 3) <= std_logic_vector(next_glyph_number(7 downto 0));
+          else
+            charaddress(10 downto 3) <= std_logic_vector(card_number(7 downto 0));
+          end if;
         end if;
         charaddress(2 downto 0) <= std_logic_vector(card_y(2 downto 0));
         charread <= '1';
