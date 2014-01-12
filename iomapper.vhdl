@@ -3,6 +3,7 @@ use WORK.ALL;
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use ieee.numeric_std.all;
+use work.debugtools.all;
 
 entity iomapper is
   port (Clk : in std_logic;
@@ -36,14 +37,6 @@ begin
     data_o  => data_o);
 
   process (clk)
-    function to_string(sv: Std_Logic_Vector) return string is
-      use Std.TextIO.all;
-      variable bv: bit_vector(sv'range) := to_bitvector(sv);
-      variable lp: line;
-    begin
-      write(lp, bv);
-      return lp.all;
-    end;  
   begin  -- process
 --    if clk='1' then
 --      if kernel65cs = '1' then
