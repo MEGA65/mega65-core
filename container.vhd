@@ -265,7 +265,7 @@ begin
   begin
     if rising_edge(pixelclock) then
 --      cpuclock <= not cpuclock;
-      cpuclock <= segled_counter(25);   -- CPU clocked at slightly <4Hz
+      cpuclock <= segled_counter(23);   -- CPU clocked at slightly <16Hz
       led0 <= cpuclock;
       
       segled_counter <= segled_counter + 1;
