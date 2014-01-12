@@ -351,14 +351,14 @@ begin
   -- headaches.
   fastram1 : component ram64x16k
     PORT MAP (
-      clka => pixelclock,
+      clka => cpuclock,
       wea => fastram_we,
       addra => fastram_address,
       dina => fastram_datain,
       douta => fastram_dataout,
       -- video controller use port b of the dual-port fast ram.
       -- The CPU uses port a
-      clkb => cpuclock,
+      clkb => pixelclock,
       web => (others => '0'),
       addrb => vga_fastramaddress,
       dinb => (others => '0'),
