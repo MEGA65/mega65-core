@@ -277,10 +277,8 @@ begin
   begin  -- process tb
     for i in 1 to 10 loop
       clock <= '1';
-      report "clock=1 (reset)" severity note;
       wait for 5 ns;
       clock <= '0';
-      -- report "clock=0 (reset)" severity note;
       wait for 5 ns;      
     end loop;  -- i
     reset <= '1';
@@ -289,9 +287,7 @@ begin
       clock <= '1';
       cpuclock <= not cpuclock;
       wait for 5 ns;     
-      -- report "clock=1" severity note;
       clock <= '0';
-      -- report "clock=0 (run)" severity note;
       wait for 5 ns;
     end loop;  -- i
     assert false report "End of simulation" severity failure;

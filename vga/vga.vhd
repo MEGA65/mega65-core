@@ -372,12 +372,12 @@ begin
     if fastio_read='0' then
       fastio_rdata <= (others => 'Z');
     else
-      report "read from fastio detect in video controller. " &
-       "register number = " & integer'image(to_integer(register_number)) &
-       ", fastio_addr = " & to_hstring(fastio_addr) &
-       ", register_bank = " & to_hstring(register_bank) &
-       ", register_page = " & to_hstring(register_page)
-        severity note;
+      --report "read from fastio detect in video controller. " &
+      -- "register number = " & integer'image(to_integer(register_number)) &
+      -- ", fastio_addr = " & to_hstring(fastio_addr) &
+      -- ", register_bank = " & to_hstring(register_bank) &
+      -- ", register_page = " & to_hstring(register_page)
+      --  severity note;
       if register_number>=0 and register_number<8 then
         -- compatibility sprite coordinates
         fastio_rdata <= std_logic_vector(sprite_x(to_integer(register_num(2 downto 0))));
