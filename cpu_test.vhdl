@@ -47,6 +47,16 @@ architecture behavior of cpu_test is
       monitor_y : out std_logic_vector(7 downto 0);
       monitor_sp : out std_logic_vector(7 downto 0);
       monitor_p : out std_logic_vector(7 downto 0);
+
+      ---------------------------------------------------------------------------
+      -- Interface to FastRAM in video controller (just 128KB for now)
+      ---------------------------------------------------------------------------
+      fastram_we : OUT STD_LOGIC_VECTOR(7 DOWNTO 0);
+      fastram_read : OUT STD_LOGIC;
+      fastram_write : OUT STD_LOGIC;
+      fastram_address : OUT STD_LOGIC_VECTOR(13 DOWNTO 0);
+      fastram_datain : OUT STD_LOGIC_VECTOR(63 DOWNTO 0);
+      fastram_dataout : IN STD_LOGIC_VECTOR(63 DOWNTO 0);
       
       ---------------------------------------------------------------------------
       -- fast IO port (clocked at core clock). 1MB address space
@@ -164,6 +174,8 @@ architecture behavior of cpu_test is
   signal fastio_rdata : std_logic_vector(7 downto 0);
 
   signal fastram_we : std_logic_vector(7 downto 0);
+  signal fastram_read: std_logic;
+  signal fastram_write : std_logic;
   signal fastram_address : std_logic_vector(13 downto 0);
   signal fastram_dataout : std_logic_vector(63 downto 0);
   signal fastram_datain : std_logic_vector(63 downto 0);
@@ -235,6 +247,13 @@ begin
     clock => cpuclock,reset =>'1',irq => irq,
     nmi => nmi,
 
+    fastram_we => fastram_we,
+    fastram_read => fastram_read,
+    fastram_write => fastram_write,
+    fastram_address => fastram_address,
+    fastram_datain => fastram_datain,
+    fastram_dataout => fastram_dataout,
+    
     fastio_addr => fastio_addr,
     fastio_read => fastio_read,
     fastio_write => fastio_write,

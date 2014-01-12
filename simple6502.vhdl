@@ -20,7 +20,17 @@ entity simple6502 is
     monitor_sp : out std_logic_vector(7 downto 0);
     monitor_p : out std_logic_vector(7 downto 0);
     monitor_state : out std_logic_vector(7 downto 0);
-    
+
+    ---------------------------------------------------------------------------
+    -- Interface to FastRAM in video controller (just 128KB for now)
+    ---------------------------------------------------------------------------
+    fastram_we : OUT STD_LOGIC_VECTOR(7 DOWNTO 0);
+    fastram_read : OUT STD_LOGIC;
+    fastram_write : OUT STD_LOGIC;
+    fastram_address : OUT STD_LOGIC_VECTOR(13 DOWNTO 0);
+    fastram_datain : OUT STD_LOGIC_VECTOR(63 DOWNTO 0);
+    fastram_dataout : IN STD_LOGIC_VECTOR(63 DOWNTO 0);
+
     ---------------------------------------------------------------------------
     -- fast IO port (clocked at core clock). 1MB address space
     ---------------------------------------------------------------------------
@@ -277,6 +287,7 @@ begin
     long_address := resolve_address_to_long(address,memmap);
     if long_address(27 downto 17)="00000000000" then
       accessing_ram <= '1';
+      
     elsif long_address(27 downto 24) = x"8" then
       accessing_slowram <= '1';
     elsif long_address(27 downto 24) = x"F" then
@@ -495,6 +506,7 @@ begin
       end case;
     else
       -- Instruction requires reading from memory
+      report "reading operand from memory" severity note;
       reg_instruction <= i;
       reg_addr <= address; -- remember address for writeback
       read_data_byte(address,ExecuteDirect);
@@ -605,6 +617,7 @@ begin
     address : in unsigned(15 downto 0)) is
     variable bitbucket : unsigned(7 downto 0);
   begin
+    report "Calculating result for " & instruction'image(i) & " operand=$" & to_hstring(operand) severity note;
     state <= InstructionFetch;
     case i is
       when I_LDA => reg_a <= with_nz(operand);
@@ -675,6 +688,7 @@ begin
       reg_addr <= x"00" & (arg1 + 1);
       read_data_byte(x"00" & arg1,IndirectY1);
     else
+      report "executing direct instruction" severity note;
       case mode is
         -- Direct modes
         when M_zeropage => execute_direct_instruction(i,arg2&arg1);

@@ -140,6 +140,16 @@ architecture Behavioral of container is
       monitor_sp : out std_logic_vector(7 downto 0);
       monitor_p : out std_logic_vector(7 downto 0);
       monitor_state : out std_logic_vector(7 downto 0);
+
+      ---------------------------------------------------------------------------
+      -- Interface to FastRAM in video controller (just 128KB for now)
+      ---------------------------------------------------------------------------
+      fastram_we : OUT STD_LOGIC_VECTOR(7 DOWNTO 0);
+      fastram_read : OUT STD_LOGIC;
+      fastram_write : OUT STD_LOGIC;
+      fastram_address : OUT STD_LOGIC_VECTOR(13 DOWNTO 0);
+      fastram_datain : OUT STD_LOGIC_VECTOR(63 DOWNTO 0);
+      fastram_dataout : IN STD_LOGIC_VECTOR(63 DOWNTO 0);
       
       ---------------------------------------------------------------------------
       -- fast IO port (clocked at core clock). 1MB address space
@@ -232,6 +242,8 @@ architecture Behavioral of container is
   signal fastio_rdata : std_logic_vector(7 downto 0);
 
   signal fastram_we : STD_LOGIC_VECTOR(7 DOWNTO 0);
+  signal fastram_read : STD_LOGIC;
+  signal fastram_write : STD_LOGIC;
   signal fastram_address : STD_LOGIC_VECTOR(13 DOWNTO 0);
   signal fastram_datain : STD_LOGIC_VECTOR(63 DOWNTO 0);
   signal fastram_dataout : STD_LOGIC_VECTOR(63 DOWNTO 0);
@@ -373,6 +385,13 @@ begin
     nmi => nmi,
     monitor_pc => monitor_pc,
     monitor_state => monitor_state,
+
+    fastram_we => fastram_we,
+    fastram_read => fastram_read,
+    fastram_write => fastram_write,
+    fastram_address => fastram_address,
+    fastram_datain => fastram_datain,
+    fastram_dataout => fastram_dataout,
     
     fastio_addr => fastio_addr,
     fastio_read => fastio_read,

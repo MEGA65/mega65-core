@@ -1,11 +1,13 @@
 library ieee;
 use Std.TextIO.all;
 use ieee.STD_LOGIC_1164.all;
+use ieee.numeric_std.all;
 
 package debugtools is
 
     function to_string(sv: Std_Logic_Vector) return string;
     function to_hstring(sv: Std_Logic_Vector) return string;
+    function to_hstring(sv: unsigned) return string;
     procedure HWRITE(L:inout LINE; VALUE:in BIT_VECTOR;
     JUSTIFIED:in SIDE := RIGHT; FIELD:in WIDTH := 0);
 
@@ -71,4 +73,12 @@ package body debugtools is
       return lp.all;
     end;
 
+    function to_hstring(sv: unsigned) return string is
+      use Std.TextIO.all;
+      
+    begin
+      return to_hstring(std_logic_vector(sv));
+    end;
+
+      
 end debugtools;
