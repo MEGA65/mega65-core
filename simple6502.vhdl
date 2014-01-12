@@ -288,10 +288,12 @@ begin
     accessing_ram <= '0'; accessing_slowram <= '0'; accessing_fastio <= '0';
     long_address := resolve_address_to_long(address,memmap);
     if long_address(27 downto 17)="00000000000" then
+      report "Reading from fastram address $" & to_hstring(long_address(19 downto 0)) severity note;
       accessing_ram <= '1';
       fastram_address <= std_logic_vector(long_address(16 downto 3));
       fastram_byte_number <= long_address(2 downto 0);
       fastram_read <= '1';
+      state <= next_state;
       -- No wait states in fastram system, so proceed directly to next state
     elsif long_address(27 downto 24) = x"8" then
       accessing_slowram <= '1';
@@ -394,7 +396,8 @@ begin
   begin  -- read_data
     if accessing_fastio='1' then
       return unsigned(fastio_rdata);
-    if accessing_ram='1' then
+    elsif accessing_ram='1' then
+      report "Extracting fastram value from 64-bit read $" & to_hstring(fastram_dataout) severity note;
       case fastram_byte_number is
         when "000" => return unsigned(fastram_dataout( 7 downto 0));
         when "001" => return unsigned(fastram_dataout(15 downto 8));
@@ -406,7 +409,6 @@ begin
         when "111" => return unsigned(fastram_dataout(63 downto 56));
         when others => return x"FF";
       end case;
-    end if;
     else
       return x"FF";
     end if;
