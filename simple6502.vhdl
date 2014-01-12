@@ -288,7 +288,8 @@ begin
     accessing_ram <= '0'; accessing_slowram <= '0'; accessing_fastio <= '0';
     long_address := resolve_address_to_long(address,memmap);
     if long_address(27 downto 17)="00000000000" then
-      report "Reading from fastram address $" & to_hstring(long_address(19 downto 0)) severity note;
+      report "Reading from fastram address $" & to_hstring(long_address(19 downto 0))
+        & ", word $" & to_hstring(long_address(18 downto 3)) severity note;
       accessing_ram <= '1';
       fastram_address <= std_logic_vector(long_address(16 downto 3));
       fastram_byte_number <= long_address(2 downto 0);
@@ -323,7 +324,8 @@ begin
     if long_address(27 downto 17)="00000000000" then
       accessing_ram <= '1';
       fastram_address <= std_logic_vector(long_address(16 downto 3));
-      fastram_write <= '1'; fastram_read <= '0';
+      fastram_write <= '1';
+      fastram_read <= '0';
       fastram_we <= (others => '0');
       fastram_datain <= (others => '1');
       case long_address(2 downto 0) is
@@ -760,6 +762,11 @@ begin
       fastio_addr <= (others => '1');
       fastio_read <= '0';
       fastio_write <= '0';
+      fastram_read <= '0';
+      fastram_write <= '0';
+      fastram_we <= (others => '0');
+      fastram_address <= "00000000000000";
+      fastram_datain <= x"123456789abcdef0";
       
       -- Generate virtual processor status register for convenience
       virtual_reg_p(7) := flag_n;
