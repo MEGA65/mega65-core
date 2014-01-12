@@ -38,10 +38,8 @@ BEGIN
     end if;
     if cs='1' then
       data_o <= ram(to_integer(unsigned(address)));
-      report "IO access is reading from ROM" severity note;
     else
       data_o <= "ZZZZZZZZ";
-      report "IO access is NOT reading from ROM" severity note;
     end if;
  END PROCESS;
 
