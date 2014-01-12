@@ -64,27 +64,15 @@ architecture Behavioural of simple6502 is
   signal irq_state : std_logic := '1';
   -- Interrupt/reset vector being used
   signal vector : unsigned(15 downto 0);
-  -- PC used for JSR is the value of reg_pc after reading only one of
-  -- of the argument bytes.  We could subtract one, but it is less logic to
-  -- just remember PC after reading one argument byte.
-  signal reg_pc_jsr : unsigned(15 downto 0);
-  -- Temporary address register (used for indirect modes)
-  signal reg_addr : unsigned(15 downto 0);
   
--- Indicate source of operand for instructions
--- Note that ROM is actually implemented using
--- power-on initialised RAM in the FPGA mapped via our io interface.
-  signal accessing_fastio : std_logic;
-  signal accessing_ram : std_logic;
-  signal accessing_slowram : std_logic;
-
   type processor_state is (
     -- When CPU first powers up, or reset is bought low
     ResetLow,
     -- States for handling interrupts and reset
     Interrupt,VectorRead,VectorRead1,VectorRead2,VectorRead3,
-    InstructionFetch,InstructionFetch2,InstructionFetch3,InstructionFetch4,
+    InstructionFetch,InstructionFetch2,InstructionFetch3,InstructionFetch4,    
     BRK1,BRK2,PLA1,PLP1,RTI1,RTI2,RTI3,RTS1,RTS2,JSR1,JMP1,JMP2,
+    IndirectX1,IndirectY1,ExecuteDirect,RMWCommit,
     Halt
     );
   signal state : processor_state := ResetLow;  -- start processor in reset state
@@ -194,6 +182,24 @@ architecture Behavioural of simple6502 is
     -- F0
     M_relative,  M_indirectY,  M_immediate,  M_indirectY,  M_zeropageX,  M_zeropageX,  M_zeropageX,  M_zeropageX, 
     M_implied,  M_absoluteY,  M_implied,  M_absoluteY,  M_absoluteX,  M_absoluteX,  M_absoluteX,  M_absoluteX);
+
+  -- PC used for JSR is the value of reg_pc after reading only one of
+  -- of the argument bytes.  We could subtract one, but it is less logic to
+  -- just remember PC after reading one argument byte.
+  signal reg_pc_jsr : unsigned(15 downto 0);
+  -- Temporary address register (used for indirect modes)
+  signal reg_addr : unsigned(15 downto 0);
+  -- Temporary instruction register (used for many modes)
+  signal reg_instruction : instruction;
+  -- Temporary value holder (used for RMW instructions)
+  signal reg_value : unsigned(7 downto 0);
+  
+-- Indicate source of operand for instructions
+-- Note that ROM is actually implemented using
+-- power-on initialised RAM in the FPGA mapped via our io interface.
+  signal accessing_fastio : std_logic;
+  signal accessing_ram : std_logic;
+  signal accessing_slowram : std_logic;
   
 begin
   process(clock)
@@ -310,6 +316,14 @@ begin
     pending_state <= next_state;
   end procedure write_byte;
 
+  procedure write_data_byte (
+    address            : in unsigned(15 downto 0);
+    value              : in unsigned(7 downto 0);
+    next_state         : in processor_state) is
+  begin
+    write_byte(ram_bank_registers_write,address,value,next_state);
+  end procedure write_data_byte;
+  
   -- purpose: push a byte onto the stack
   procedure push_byte (
     value : in unsigned(7 downto 0);
@@ -363,16 +377,18 @@ begin
     flag_z <= value(1);
     flag_c <= value(0);
   end procedure load_processor_flags;
-  
-  procedure set_cpu_flags_inc (value : in unsigned(7 downto 0)) is
+
+  impure function with_nz (
+    value : unsigned(7 downto 0)) return unsigned is
   begin
-    if value=x"00" then
-      flag_z <='1';
-    else
-      flag_z <='0';
-    end if;
     flag_n <= value(7);
-  end procedure set_cpu_flags_inc;
+    if value(7 downto 0) = x"00" then
+      flag_z <= '1';
+    else
+      flag_z <= '0';
+    end if;
+    return value;
+  end with_nz;        
 
   procedure execute_implied_instruction (
     opcode : in unsigned(7 downto 0)) is
@@ -426,10 +442,10 @@ begin
         when I_CLD => flag_d <= '0';
         when I_CLI => flag_i <= '0';
         when I_CLV => flag_v <= '0';
-        when I_DEX => reg_x <= reg_x - 1; set_cpu_flags_inc(reg_x);
-        when I_DEY => reg_y <= reg_y - 1; set_cpu_flags_inc(reg_y);
-        when I_INX => reg_x <= reg_x + 1; set_cpu_flags_inc(reg_x);
-        when I_INY => reg_y <= reg_y + 1; set_cpu_flags_inc(reg_y);
+        when I_DEX => reg_x <= with_nz(reg_x - 1);
+        when I_DEY => reg_y <= with_nz(reg_y - 1);
+        when I_INX => reg_x <= with_nz(reg_x + 1);
+        when I_INY => reg_y <= with_nz(reg_y + 1);
         when I_KIL => state <= Halt; normal_instruction:= false;
         when I_PHA => push_byte(reg_a,InstructionFetch);
         when I_PHP => push_byte(virtual_reg_p,InstructionFetch);
@@ -464,6 +480,155 @@ begin
     end if;
   end procedure execute_implied_instruction;
 
+  procedure execute_direct_instruction (
+    i       : in instruction;
+    address : in unsigned(15 downto 0)) is
+  begin  -- execute_direct_instruction
+    -- Instruction using a direct addressing mode
+    if i=I_STA or i=I_STX or i=I_STY then
+      -- Store instruction, so just write
+      case i is
+        when I_STA => write_data_byte(address,reg_a,InstructionFetch);
+        when I_STX => write_data_byte(address,reg_x,InstructionFetch);
+        when I_STY => write_data_byte(address,reg_y,InstructionFetch);
+        when others => state <= InstructionFetch;
+      end case;
+    else
+      -- Instruction requires reading from memory
+      reg_instruction <= i;
+      reg_addr <= address; -- remember address for writeback
+      read_data_byte(address,ExecuteDirect);
+    end if;
+  end execute_direct_instruction;
+
+  impure function alu_op_add (
+    i1 : in unsigned(7 downto 0);
+    i2 : in unsigned(7 downto 0)) return unsigned is
+    variable o : unsigned(7 downto 0);
+  begin
+    -- Whether in decimal mode or not, calculate normal sum,
+    -- so that Z can be set correctly (Z in decimal mode =
+    -- Z in binary mode).
+    -- XXX Why doesn't just i1+i2 work here?
+    o := to_unsigned(to_integer(i1) + to_integer(i2),8);
+    report "interim result = $" & to_hstring(std_logic_vector(o)) severity note;
+    if flag_c='1' then
+      o := o + 1;
+    end if;  
+    o := with_nz(o);
+    if unsigned(o)<unsigned(i1) then
+      flag_v <= '1';
+      flag_c <= '1';
+    else
+      flag_v <= '0';
+      flag_c <= '0';
+    end if;
+    if flag_d='1' then
+      -- Decimal mode. Flags are set weirdly.
+
+      -- First, Z is set based on normal addition above.
+      
+      -- Now do BCD fix up on lower nybl.
+      if o(3 downto 0) > x"9" then
+        o:= o+6;
+      end if;
+
+      -- Then set N & V *before* upper nybl BCD fixup
+      flag_n<=o(7);
+      if o<i1 then
+        flag_v<='1';
+      else
+        flag_v<='0';
+      end if;
+
+      -- Now do BCD fixup on upper nybl
+      if o(7 downto 4)>x"9" then
+        o(7 downto 4):=o(7 downto 4)+x"6";
+      end if;
+
+      -- Finally set carry flag based on result
+      if o<i1 then
+        flag_c<='1';
+      else
+        flag_c<='0';
+      end if;
+    end if;
+    -- Return final value
+    report "add result of "
+      & "$" & to_hstring(std_logic_vector(i1)) 
+      & " + "
+      & "$" & to_hstring(std_logic_vector(i2)) 
+      & " + "
+      & "$" & std_logic'image(flag_c)
+      & " = " & to_hstring(std_logic_vector(o)) severity note;
+    return o;
+  end function alu_op_add;
+
+  impure function alu_op_sub (
+    i1 : in unsigned(7 downto 0);
+    i2 : in unsigned(7 downto 0)) return unsigned is
+    variable o : unsigned(7 downto 0);
+    variable s2 : unsigned(7 downto 0);
+  begin
+    -- calculate ones-complement
+    s2 := not i1;
+    -- Then do add.
+    -- Z and C should get set correctly.
+    -- XXX Will this work for decimal mode?
+    o := alu_op_add(i1,s2);
+    return o;
+    
+    -- Return final value
+    report "sub result of "
+      & "$" & to_hstring(std_logic_vector(i1)) 
+      & " - "
+      & "$" & to_hstring(std_logic_vector(i2)) 
+      & " - 1 + "
+      & "$" & std_logic'image(flag_c)
+      & " = " & to_hstring(std_logic_vector(o)) severity note;
+    return o;
+  end function alu_op_sub;
+
+  procedure rmw_operand_commit (
+    address : in unsigned(15 downto 0);
+    first_value : in unsigned(7 downto 0);
+    final_value : in unsigned(7 downto 0)) is
+  begin
+    reg_addr <= address;
+    reg_value <= final_value;
+    write_data_byte(address,first_value,RMWCommit);
+  end procedure rmw_operand_commit;
+  
+  procedure execute_operand_instruction (
+    i       : in instruction;
+    operand : in unsigned(7 downto 0);
+    address : in unsigned(15 downto 0)) is
+    variable bitbucket : unsigned(7 downto 0);
+  begin
+    state <= InstructionFetch;
+    case i is
+      when I_LDA => reg_a <= with_nz(operand);
+      when I_LDX => reg_x <= with_nz(operand);
+      when I_LDY => reg_y <= with_nz(operand);
+      when I_ADC => reg_a <= alu_op_add(reg_a,operand);
+      when I_AND => reg_a <= with_nz(reg_a and operand);
+      when I_ASL => flag_c <= operand(7); rmw_operand_commit(address,operand,operand(6 downto 0)&'0');
+      when I_BIT => bitbucket := with_nz(reg_a and operand);
+      when I_CMP => bitbucket := with_nz(alu_op_add(reg_a,operand));
+      when I_CPX => bitbucket := with_nz(alu_op_add(reg_x,operand));
+      when I_CPY => bitbucket := with_nz(alu_op_add(reg_y,operand));
+      when I_DEC => rmw_operand_commit(address,operand,operand-1);
+      when I_EOR => reg_a <= with_nz(reg_a xor operand);        
+      when I_INC => rmw_operand_commit(address,operand,operand+1);
+      when I_LSR => flag_c <= operand(0); rmw_operand_commit(address,operand,operand(6 downto 0)&'0');
+      when I_ORA => reg_a <= with_nz(reg_a or operand);
+      when I_ROL => flag_c <= operand(7); rmw_operand_commit(address,operand,operand(6 downto 0)&flag_c);
+      when I_ROR => flag_c <= operand(0); rmw_operand_commit(address,operand,operand(6 downto 0)&flag_c);
+      when I_SBC => reg_a <= alu_op_sub(reg_a,operand);
+      when others => null;
+    end case;
+  end procedure execute_operand_instruction;
+  
   procedure execute_instruction (      
     opcode : in unsigned(7 downto 0);
     arg1 : in unsigned(7 downto 0);
@@ -492,8 +657,8 @@ begin
           reg_pc <= reg_pc - 128 + unsigned(not arg1(6 downto 0));
         end if;
       end if;
-    -- Treat jump instructions specially, since they are rather different to
-    -- the rest.
+      -- Treat jump instructions specially, since they are rather different to
+      -- the rest.
     elsif i=I_JSR then
       reg_pc <= arg2 & arg1; push_byte(reg_pc_jsr(7 downto 0),JSR1);
     elsif i=I_JMP and mode=M_absolute then
@@ -504,12 +669,25 @@ begin
     elsif mode=M_indirectX then
       -- Read ZP indirect from data memory map, since ZP is written into that
       -- map.
-      read_data_byte(
+      reg_addr <= x"00" & (arg1 + reg_x +1);
+      read_data_byte(x"00" & (arg1 + reg_x),IndirectX1);
     elsif mode=M_indirectY then
+      reg_addr <= x"00" & (arg1 + 1);
+      read_data_byte(x"00" & arg1,IndirectY1);
     else
-      -- Instruction using a direct addressing mode
-      
-      
+      case mode is
+        -- Direct modes
+        when M_zeropage => execute_direct_instruction(i,arg2&arg1);
+        when M_zeropageX => execute_direct_instruction(i,arg2&(arg1+reg_x));
+        when M_zeropageY => execute_direct_instruction(i,arg2&(arg1+reg_y));
+        when M_absolute => execute_direct_instruction(i,arg2&arg1);
+        when M_absoluteX => execute_direct_instruction(i,(arg2&arg1)+reg_x);
+        when M_absoluteY => execute_direct_instruction(i,(arg2&arg1)+reg_y);
+        when M_immediate => execute_operand_instruction(i,arg1,x"0000");
+        when others =>
+          assert false report "Uncaught instruction mode" severity failure;
+          assert true report "Uncaught instruction mode" severity failure;
+      end case;
     end if;
   end procedure execute_instruction;      
 
@@ -579,7 +757,7 @@ begin
               reg_pc_jsr <= reg_pc;     -- keep PC after one operand for JSR
               read_instruction_byte(reg_pc,InstructionFetch4);
             else
-              execute_instruction(opcode,read_data,x"FF");
+              execute_instruction(opcode,read_data,x"00");
             end if;
           when InstructionFetch4 =>
             execute_instruction(opcode,arg1,read_data);
@@ -604,6 +782,9 @@ begin
           when JSR1 => push_byte(reg_pc_jsr(15 downto 8),InstructionFetch);
           when JMP1 => read_instruction_byte(reg_addr,JMP2); reg_pc(7 downto 0)<=read_data;
           when JMP2 => reg_pc(15 downto 8) <= read_data; state<=InstructionFetch;
+          when ExecuteDirect =>
+            execute_operand_instruction(reg_instruction,read_data,reg_addr);
+          when RMWCommit => write_data_byte(reg_addr,reg_value,InstructionFetch);
           when others => null;
         end case;
       end if;
