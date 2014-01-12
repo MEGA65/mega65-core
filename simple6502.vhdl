@@ -64,6 +64,12 @@ architecture Behavioural of simple6502 is
   signal irq_state : std_logic := '1';
   -- Interrupt/reset vector being used
   signal vector : unsigned(15 downto 0);
+  -- PC used for JSR is the value of reg_pc after reading only one of
+  -- of the argument bytes.  We could subtract one, but it is less logic to
+  -- just remember PC after reading one argument byte.
+  signal reg_pc_jsr : unsigned(15 downto 0);
+  -- Temporary address register (used for indirect modes)
+  signal reg_addr : unsigned(15 downto 0);
   
 -- Indicate source of operand for instructions
 -- Note that ROM is actually implemented using
@@ -78,7 +84,7 @@ architecture Behavioural of simple6502 is
     -- States for handling interrupts and reset
     Interrupt,VectorRead,VectorRead1,VectorRead2,VectorRead3,
     InstructionFetch,InstructionFetch2,InstructionFetch3,InstructionFetch4,
-    BRK1,BRK2,PLA1,PLP1,RTI1,RTI2,RTI3,RTS1,RTS2,
+    BRK1,BRK2,PLA1,PLP1,RTI1,RTI2,RTI3,RTS1,RTS2,JSR1,JMP1,JMP2,
     Halt
     );
   signal state : processor_state := ResetLow;  -- start processor in reset state
@@ -357,7 +363,7 @@ begin
     flag_z <= value(1);
     flag_c <= value(0);
   end procedure load_processor_flags;
-    
+  
   procedure set_cpu_flags_inc (value : in unsigned(7 downto 0)) is
   begin
     if value=x"00" then
@@ -370,12 +376,14 @@ begin
 
   procedure execute_implied_instruction (
     opcode : in unsigned(7 downto 0)) is
-    variable instruction : instruction := instruction_lut(to_integer(opcode));
+    variable i : instruction := instruction_lut(to_integer(opcode));
     variable mode : addressingmode := mode_lut(to_integer(opcode));
     -- False if handling a special instruction
     variable normal_instruction : boolean := true;
     variable virtual_reg_p : unsigned(7 downto 0);
   begin
+
+    report "Executing " & instruction'image(i) & " mode " & addressingmode'image(mode) severity note;
 
     -- Generate virtual processor status register for BRK
     virtual_reg_p(7) := flag_n;
@@ -388,7 +396,7 @@ begin
     virtual_reg_p(0) := flag_c;
 
     if mode=M_implied then
-      case instruction is
+      case i is
         when I_SETMAP =>
           -- load RAM map register
           -- Sets map register $YY to $AAXX
@@ -446,7 +454,7 @@ begin
       -- We have a separate path for these so that they can be executed in 1
       -- cycle instead of incurring an extra cycle delay if passed through the
       -- normal memory-based instruction path. 
-      case instruction is
+      case i is
         when I_ASL => reg_a <= reg_a(6 downto 0) & '0'; flag_c <= reg_a(7);
         when I_ROL => reg_a <= reg_a(6 downto 0) & flag_c; flag_c <= reg_a(7);
         when I_LSR => reg_a <= '0' & reg_a(7 downto 1); flag_c <= reg_a(0);
@@ -461,16 +469,22 @@ begin
     arg1 : in unsigned(7 downto 0);
     arg2 : in unsigned(7 downto 0)
     ) is
-    variable instruction : instruction := instruction_lut(to_integer(opcode));
+    variable i : instruction := instruction_lut(to_integer(opcode));
     variable mode : addressingmode := mode_lut(to_integer(opcode));
   begin
+    -- By default fetch next instruction
+    state <= InstructionFetch;
+
+    report "Executing " & instruction'image(i)
+      & " mode " & addressingmode'image(mode) severity note;
+    
     if mode=M_relative then
-      if (instruction=I_BCC and flag_c='0')
-        or (instruction=I_BCS and flag_c='1')
-        or (instruction=I_BVC and flag_v='0')
-        or (instruction=I_BVS and flag_v='1')
-        or (instruction=I_BEQ and flag_z='0')
-        or (instruction=I_BNE and flag_z='1') then
+      if (i=I_BCC and flag_c='0')
+        or (i=I_BCS and flag_c='1')
+        or (i=I_BVC and flag_v='0')
+        or (i=I_BVS and flag_v='1')
+        or (i=I_BEQ and flag_z='0')
+        or (i=I_BNE and flag_z='1') then
         -- take branch
         if arg1(7)='0' then -- branch forwards.
           reg_pc <= reg_pc + unsigned(arg1(6 downto 0));
@@ -478,9 +492,14 @@ begin
           reg_pc <= reg_pc - 128 + unsigned(not arg1(6 downto 0));
         end if;
       end if;
+    elsif i=I_JSR then
+      reg_pc <= arg2 & arg1; push_byte(reg_pc_jsr(7 downto 0),JSR1);
+    elsif i=I_JMP and mode=M_absolute then
+      reg_pc <= arg2 & arg1; state<=InstructionFetch;
+    elsif i=I_JMP and mode=M_indirect then
+      reg_addr <= arg2 & (arg1 +1);
+      read_instruction_byte(arg2 & arg1,JMP1);
     end if;
-    -- XXX Not implemented, so just fetch the next instruction.
-    state <= InstructionFetch;
   end procedure execute_instruction;      
 
   variable virtual_reg_p : std_logic_vector(7 downto 0);
@@ -546,6 +565,7 @@ begin
             if mode_bytes_lut(mode_lut(to_integer(opcode)))=2 then
               arg1 <= read_data;
               reg_pc <= reg_pc + 1;
+              reg_pc_jsr <= reg_pc;     -- keep PC after one operand for JSR
               read_instruction_byte(reg_pc,InstructionFetch4);
             else
               execute_instruction(opcode,read_data,x"FF");
@@ -569,7 +589,10 @@ begin
             else
               reg_pc(15 downto 8) <= read_data;
             end if;
-              state<=InstructionFetch;                       
+            state<=InstructionFetch;
+          when JSR1 => push_byte(reg_pc_jsr(15 downto 8),InstructionFetch);
+          when JMP1 => read_instruction_byte(reg_addr,JMP2); reg_pc(7 downto 0)<=read_data;
+          when JMP2 => reg_pc(15 downto 8) <= read_data; state<=InstructionFetch;
           when others => null;
         end case;
       end if;
