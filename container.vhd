@@ -276,6 +276,16 @@ begin
     variable digit : std_logic_vector(3 downto 0);
   begin
     if rising_edge(pixelclock) then
+
+      led1 <= '0';
+      led2 <= '0';
+      led3 <= '0';
+      vgared <= (others => '0');
+      vgagreen <= (others => '0');
+      vgablue <= (others => '0');
+      hsync <= '0';
+      vsync <= '0';
+      
 --      cpuclock <= not cpuclock;
       if cpuclock_divisor<2 then
         cpuclock_divisor <= cpuclock_divisor + 1;
