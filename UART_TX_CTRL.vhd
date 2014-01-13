@@ -37,7 +37,7 @@
 ----------------------------------------------------------------------------
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
-use IEEE.std_logic_unsigned.all;
+use ieee.numeric_std.all;
 
 entity UART_TX_CTRL is
     Port ( SEND : in  STD_LOGIC;
@@ -53,12 +53,12 @@ type TX_STATE_TYPE is (RDY, LOAD_BIT, SEND_BIT);
 
 -- Input clock = 192MHz, baudrate = 230400
 -- 192MHz/2/230400 -1 = 416
-constant BIT_TMR_MAX : std_logic_vector(13 downto 0) := "00001101000000";
+constant BIT_TMR_MAX : unsigned(13 downto 0) := "00001101000000";
 constant BIT_INDEX_MAX : natural := 10;
 
 --Counter that keeps track of the number of clock cycles the current bit has been held stable over the
 --UART TX line. It is used to signal when the ne
-signal bitTmr : std_logic_vector(13 downto 0) := (others => '0');
+signal bitTmr : unsigned(13 downto 0) := (others => '0');
 
 --combinatorial logic that goes high when bitTmr has counted to the proper value to ensure
 --a 9600 baud rate
