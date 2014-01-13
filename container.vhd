@@ -71,7 +71,8 @@ architecture Behavioral of container is
     port (
       dotclock : in std_logic;
       tx : out std_logic;
-      rx : in  std_logic);
+      rx : in  std_logic;
+      activity : out std_logic);
   end component;
 
   component pllclock is
@@ -277,7 +278,6 @@ begin
   begin
     if rising_edge(pixelclock) then
 
-      led1 <= '0';
       led2 <= '0';
       led3 <= '0';
       vgared <= (others => '0');
@@ -438,7 +438,8 @@ begin
   monitor0 : uart_monitor port map (
     dotclock => pixelclock,
     tx       => UART_TXD,
-    rx       => RsRx);
+    rx       => RsRx,
+    activity => led1);
   
 end Behavioral;
 
