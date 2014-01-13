@@ -119,15 +119,20 @@ begin
           cmdbuffer(cmdlen) <= char;
           cmdlen <= cmdlen + 1;
         else
+          -- Input buffer full, so ring bell.
           tx_data <= to_std_logic_vector(bel);
           tx_trigger <= '1';
-        end if;        
+        end if;
+      else
+        -- Non-printable character, for now print ?
+        tx_data <= to_std_logic_vector('?');
+        tx_trigger <= '1';        
       end if;
     end character_received;
     
 
   begin  -- process testclock
-    if reset='1' then
+    if reset='0' then
       state <= Reseting;      
     elsif rising_edge(dotclock) then
       -- Update counter and clear outputs
