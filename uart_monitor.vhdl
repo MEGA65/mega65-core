@@ -113,6 +113,7 @@ begin
           cmdlen <= cmdlen + 1;
         else
           tx_data <= to_std_logic_vector(bel);
+          tx_trigger <= '1';
         end if;        
       end if;
     end character_received;
