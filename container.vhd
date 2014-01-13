@@ -75,22 +75,6 @@ architecture Behavioral of container is
       activity : out std_logic);
   end component;
 
-  component pllclock is
-    port
-      (-- Clock in ports
-        CLK_IN1           : in     std_logic;
-        -- Clock out ports
-        CLK_OUT1          : out    std_logic;
-        pixelclock          : out    std_logic
-        --CLK_OUT3          : out    std_logic;
-        --CLK_OUT4          : out    std_logic;
-        --CLK_OUT5          : out    std_logic;
-        ---- Status and control signals
-        --RESET             : in     std_logic;
-        --LOCKED            : out    std_logic
-        );
-  end component;
-  
   component dotclock is
     port
       (-- Clock in ports
@@ -437,6 +421,9 @@ begin
   -----------------------------------------------------------------------------
   monitor0 : uart_monitor port map (
     dotclock => pixelclock,
+-- Need to use the following during simulation in ghdl, as dotclock1 doesn't
+-- elaborate in GHDL as it depends on Xilinx libraries.
+--    dotclock => CLK_IN,
     tx       => UART_TXD,
     rx       => RsRx,
     activity => led1);
