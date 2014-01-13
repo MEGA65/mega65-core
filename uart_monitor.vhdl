@@ -49,8 +49,9 @@ architecture behavioural of uart_monitor is
   signal blink : std_logic := '1';
 
 -- Buffer to hold entered command
-  signal cmdbuffer : String(1 to 256);
+  signal cmdbuffer : String(1 to 64);
   signal cmdlen : integer := 0;
+  signal redraw_position : integer;
 
   constant crlf : string := cr & lf;
   constant bannerMessage : String :=
@@ -67,7 +68,12 @@ architecture behavioural of uart_monitor is
     "s <address> <value>     - Set memory." & crlf &
     "m <address>             - Display contents of memory" & crlf;
 
-  type monitor_state is (Reseting,PrintBanner,PrintPrompt,AcceptingInput);
+  type monitor_state is (Reseting,
+                         PrintBanner,PrintPrompt,PrintHelp,
+                         AcceptingInput,
+                         RedrawInputBuffer,RedrawInputBuffer2,RedrawInputBuffer3,
+                         EnterPressed,
+                         EraseInputBuffer,EraseInputBuffer2);
   signal state : monitor_state := Reseting;
 
 begin
@@ -111,7 +117,7 @@ begin
     procedure character_received (char : in character) is
     begin  -- character_received
       if char >=' ' and char < del then
-        if cmdlen<255 then
+        if cmdlen<63 then
           -- Echo character back to user
           tx_data <= to_std_logic_vector(char);
           tx_trigger <= '1';
@@ -125,11 +131,48 @@ begin
         end if;
       else
         -- Non-printable character, for now print ?
-        tx_data <= to_std_logic_vector('?');
-        tx_trigger <= '1';        
+        case char is
+          when dc2 =>
+            -- Redraw line
+            redraw_position <= 1;
+            state <= RedrawInputBuffer;
+          when nak =>
+            -- Erase line
+            state <= EraseInputBuffer;            
+          when bs =>
+            if cmdlen>1 then
+              -- Delete character from end of line
+              tx_data <= to_std_logic_vector(del);
+              tx_trigger <= '1';                    
+              cmdlen <= cmdlen - 1;
+            end if;
+          when del =>
+            if cmdlen>1 then
+              -- Delete character from end of line
+              tx_data <= to_std_logic_vector(del);
+              tx_trigger <= '1';                    
+              cmdlen <= cmdlen - 1;
+            end if;
+          when cr => state <= EnterPressed;
+          when lf => state <= EnterPressed;
+          when others =>
+            tx_data <= to_std_logic_vector(bel);
+            tx_trigger <= '1';                    
+        end case;
       end if;
     end character_received;
-    
+
+    -- purpose: If we can write a character, do so and advance the state
+    procedure try_output_char (
+      char       : in character;
+      next_state : in monitor_state) is
+    begin  -- try_output_char
+      if tx_ready='1' then
+        tx_data <= to_std_logic_vector(char);
+        tx_trigger <= '1';
+        state <= next_state;
+      end if;
+    end try_output_char;
 
   begin  -- process testclock
     if reset='0' then
@@ -141,14 +184,6 @@ begin
       rx_acknowledge <= '0';
       tx_trigger<='0';
 
-      -- If there is a character waiting
-      if rx_ready = '1' then
-        blink <= not blink;
-        activity <= blink;
-        rx_acknowledge<='1';
-        character_received(to_character(rx_data));
-      end if;
-
       -- 1 cycle delay after sending characters
       if tx_trigger/='1' then      
         -- General state machine
@@ -156,6 +191,17 @@ begin
           when Reseting =>
             banner_position <= 1;
             state <= PrintBanner;
+          when PrintHelp =>
+            if tx_ready='1' then
+              tx_data <= to_std_logic_vector(helpMessage(banner_position));
+              tx_trigger <= '1';
+              if banner_position<helpMessage'length then
+                banner_position <= banner_position + 1;
+              else
+                state <= PrintPrompt;
+                cmdlen <= 1;
+              end if;
+            end if;
           when PrintBanner =>
             if tx_ready='1' then
               tx_data <= to_std_logic_vector(bannerMessage(banner_position));
@@ -164,15 +210,44 @@ begin
                 banner_position <= banner_position + 1;
               else
                 state <= PrintPrompt;
+                cmdlen <= 1;
               end if;
             end if;
-          when PrintPrompt =>
-            if tx_ready='1' then
-              tx_data <= to_std_logic_vector('.');
-              tx_trigger <= '1';
-              cmdlen <= 1;
+          when PrintPrompt => try_output_char(cr,AcceptingInput);
+          when AcceptingInput =>
+            -- If there is a character waiting
+            if rx_ready = '1' and rx_acknowledge='0' then
+              blink <= not blink;
+              activity <= blink;
+              rx_acknowledge<='1';
+              character_received(to_character(rx_data));
+            end if;
+          when RedrawInputBuffer => try_output_char(cr,RedrawInputBuffer2);
+          when RedrawInputBuffer2 => try_output_char('.',RedrawInputBuffer3);
+          when RedrawInputBuffer3 =>
+            if redraw_position<cmdlen then
+              try_output_char(cmdbuffer(redraw_position),RedrawInputBuffer3);
+              redraw_position <= redraw_position + 1;
+            else
               state <= AcceptingInput;
             end if;
+          when EraseInputBuffer => redraw_position<=1; try_output_char(cr,EraseInputBuffer2);
+          when EraseInputBuffer2 =>
+            if redraw_position<cmdlen then
+              try_output_char(' ',EraseInputBuffer2);
+              redraw_position <= redraw_position + 1;
+            else
+              cmdlen <= 1;
+              try_output_char(cr,PrintPrompt);
+            end if;
+          when EnterPressed =>
+            if cmdlen>1 and
+              (cmdbuffer(1) = 'h' or cmdbuffer(1) = 'H' or cmdbuffer(1) = '?') then
+              banner_position <= 1;
+              state <= PrintHelp;
+            end if;
+            cmdlen <= 1;
+            state <= PrintPrompt;
           when others => null;
         end case;
       end if;
