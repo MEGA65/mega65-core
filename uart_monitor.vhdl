@@ -71,14 +71,17 @@ architecture behavioural of uart_monitor is
   constant errorMessage : string := crlf & "? SYNTAX  ERROR" & crlf;
   
   type monitor_state is (Reseting,
-                         PrintBanner,PrintPrompt,PrintHelp,PrintError,
+                         PrintBanner,PrintHelp,PrintError,
+                         NextCommand,NextCommand2,PrintPrompt,
                          AcceptingInput,
                          RedrawInputBuffer,RedrawInputBuffer2,RedrawInputBuffer3,
                          EnterPressed,
                          EraseInputBuffer,EraseInputBuffer2,
                          SyntaxError,
                          ParseHex,
-                         SetMemory1,SetMemory2,SetMemory3,SetMemory4
+                         PrintHex,
+                         SetMemory1,SetMemory2,SetMemory3,SetMemory4,SetMemory5,
+                         SetMemory6,SetMemory7,SetMemory8,SetMemory9
                          );
   signal state : monitor_state := Reseting;
 
@@ -88,6 +91,7 @@ architecture behavioural of uart_monitor is
   signal target_address : unsigned(27 downto 0);
   signal target_value : unsigned(7 downto 0);
   signal hex_digits_read : integer;
+  signal hex_digits_output : integer;
   signal success_state : monitor_state;
   
 begin
@@ -130,7 +134,7 @@ begin
     -- purpose: Process a character typed by the user.
     procedure character_received (char : in character) is
     begin  -- character_received
-      if char >=' ' and char < del then
+      if (char >= ' ' and char < del) or char > c159 then
         if cmdlen<63 then
           -- Echo character back to user
           tx_data <= to_std_logic_vector(char);
@@ -188,6 +192,31 @@ begin
       end if;
     end try_output_char;
 
+    -- purpose: output a hex string
+    procedure print_hex (
+      value      : in unsigned(31 downto 0);
+      digits     : in integer;
+      next_state : in monitor_state) is
+    begin  -- print_hex
+      hex_value <= value;
+      hex_digits_read <= digits;
+      hex_digits_output <= 0;
+      success_state <= next_state;
+      state <= PrintHex;
+    end print_hex;
+    procedure print_hex_addr (
+      value      : in unsigned(27 downto 0);
+      next_state : in monitor_state) is
+    begin  -- print_hex
+      print_hex(value & x"0",7,next_state);
+    end print_hex_addr;
+    procedure print_hex_byte (
+      value      : in unsigned(7 downto 0);
+      next_state : in monitor_state) is
+    begin  -- print_hex
+      print_hex(value & x"000000",2,next_state);
+    end print_hex_byte;
+    
     -- purpose: accept one hex digit
     procedure got_hex_digit (
       digit : in unsigned(3 downto 0)) is
@@ -228,6 +257,23 @@ begin
         end case;
       end if;
     end parse_hex_digit;
+
+    function hex_char (
+      nybl : unsigned(3 downto 0))
+      return character is
+    begin
+      case nybl is
+        when x"0" => return '0'; when x"1" => return '1';
+        when x"2" => return '2'; when x"3" => return '3';
+        when x"4" => return '4'; when x"5" => return '5';
+        when x"6" => return '6'; when x"7" => return '7';
+        when x"8" => return '8'; when x"9" => return '9';
+        when x"a" => return 'A'; when x"b" => return 'B';
+        when x"c" => return 'C'; when x"d" => return 'D';
+        when x"e" => return 'E'; when x"f" => return 'F';
+        when others => return '?';
+      end case;
+    end hex_char;
     
     -- purpose: parse a hex string from the command buffer
     procedure parse_hex (
@@ -313,6 +359,8 @@ begin
                 cmdlen <= 1;
               end if;
             end if;
+          when NextCommand => cmdlen <= 1; try_output_char(cr,NextCommand2);
+          when NextCommand2 => try_output_char(lf,PrintPrompt);
           when PrintPrompt => try_output_char(cr,AcceptingInput);
           when AcceptingInput =>
             -- If there is a character waiting
@@ -363,8 +411,23 @@ begin
           when SetMemory4 =>
             -- Set contents of memory location <target_address> to <target_value>
             -- XXX Not implemented
-            state <= AcceptingInput;
+            print_hex_addr(target_address,SetMemory5);
+          when SetMemory5 => try_output_char(' ',SetMemory6);
+          when SetMemory6 => try_output_char('<',SetMemory7);
+          when SetMemory7 => try_output_char('=',SetMemory8);
+          when SetMemory8 => try_output_char(' ',SetMemory9);
+          when SetMemory9 => print_hex_byte(target_value,NextCommand);            
           when ParseHex => parse_hex_digit;
+          when PrintHex =>
+            if hex_digits_output<hex_digits_read then
+              if tx_ready='1' then
+                try_output_char(hex_char(hex_value(31 downto 28)),PrintHex);
+                hex_digits_output <= hex_digits_output + 1;
+                hex_value <= hex_value(27 downto 0) & x"0";
+              end if;
+            else
+              state <= success_state;
+            end if;
           when SyntaxError =>
             banner_position <= 1; state <= PrintError;
           when others => null;

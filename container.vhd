@@ -278,7 +278,6 @@ begin
         cpuclock_divisor <= 0;
         cpuclock <= not cpuclock;
       end if;
-      cpuclock <= segled_counter(2);   -- CPU clocked at dotclock/4 (~50MHz)
       led0 <= cpuclock;
       
       segled_counter <= segled_counter + 1;
