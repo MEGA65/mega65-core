@@ -70,7 +70,7 @@ architecture Behavioral of container is
   component uart_monitor
     port (
       reset : in std_logic;
-      dotclock : in std_logic;
+      clock : in std_logic;
       tx : out std_logic;
       rx : in  std_logic;
       activity : out std_logic);
@@ -422,7 +422,7 @@ begin
   -----------------------------------------------------------------------------
   monitor0 : uart_monitor port map (
     reset => btnCpuReset,
-    dotclock => pixelclock,
+    clock => cpuclock,
 -- Need to use the following during simulation in ghdl, as dotclock1 doesn't
 -- elaborate in GHDL as it depends on Xilinx libraries.
 --    dotclock => CLK_IN,
