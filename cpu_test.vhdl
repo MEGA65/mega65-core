@@ -9,6 +9,12 @@ entity cpu_test is
 end cpu_test;
 
 architecture behavior of cpu_test is
+
+  signal uart_bit_stream : std_logic_vector(0 to 29)
+    := "111" & "0100000100" &
+    "11111" & "0010000100" &
+    "11";
+  
   signal clock : std_logic := '0';
   signal cpuclock : std_logic := '0';
   signal reset : std_logic := '0';
@@ -110,6 +116,25 @@ begin
     reset <= '1';
     report "reset released" severity note;
     for i in 1 to 200 loop
+      clock <= '1';
+      cpuclock <= not cpuclock;
+      wait for 5 ns;     
+      clock <= '0';
+      wait for 5 ns;
+    end loop;  -- i
+    for j in 0 to uart_bit_stream'high loop
+      rsrx<=uart_bit_stream(j);
+      report "Writing bit to UART" severity note;
+      for i in 1 to 832 loop
+        clock <= '1';
+        cpuclock <= not cpuclock;
+        wait for 5 ns;     
+        clock <= '0';
+        wait for 5 ns;
+      end loop;  -- i
+    end loop;  -- j
+    rsrx <= '1';
+    for i in 1 to 832 loop
       clock <= '1';
       cpuclock <= not cpuclock;
       wait for 5 ns;     
