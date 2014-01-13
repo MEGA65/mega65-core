@@ -34,7 +34,7 @@ use Std.TextIO.all;
 
 entity container is
   Port ( CLK_IN : STD_LOGIC;         
-         reset : in  STD_LOGIC;
+         btnCpuReset : in  STD_LOGIC;
 --         irq : in  STD_LOGIC;
 --         nmi : in  STD_LOGIC;
 
@@ -69,6 +69,7 @@ architecture Behavioral of container is
 
   component uart_monitor
     port (
+      reset : in std_logic;
       dotclock : in std_logic;
       tx : out std_logic;
       rx : in  std_logic;
@@ -420,6 +421,7 @@ begin
   -- UART interface for monitor debugging and loading data
   -----------------------------------------------------------------------------
   monitor0 : uart_monitor port map (
+    reset => btnCpuReset,
     dotclock => pixelclock,
 -- Need to use the following during simulation in ghdl, as dotclock1 doesn't
 -- elaborate in GHDL as it depends on Xilinx libraries.

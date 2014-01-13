@@ -49,7 +49,7 @@ architecture behavior of cpu_test is
   
 component container is
   Port ( CLK_IN : STD_LOGIC;         
-         reset : in  STD_LOGIC;
+         btnCpuReset : in  STD_LOGIC;
 --         irq : in  STD_LOGIC;
 --         nmi : in  STD_LOGIC;
 
@@ -84,7 +84,7 @@ begin
   core0: container
   port map (
       clk_in      => clock,
-      reset      => '0',
+      btnCpuReset      => '0',
       
       vsync           => vsync,
       hsync           => hsync,

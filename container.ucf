@@ -3,7 +3,7 @@ net "CLK_IN" TNM_NET = sys_clk_pin;
 TIMESPEC TS_sys_clk_pin = PERIOD sys_clk_pin 100MHz HIGH 50%;
 
 #net "irq" loc = "U8"  | IOSTANDARD = "LVCMOS33"; #SW1
-#net "reset" loc = "R7" | IOSTANDARD = "LVCMOS33"; #SW2
+NET "btnCpuReset"              LOC = "C12"     | IOSTANDARD = "LVCMOS33";              #Bank = 15, Pin name = IO_L3P_T0_DQS_AD1P_15,                           Sch name = CPU_RESET
 
 ## VGA Connector
 NET "vgaRed<0>"                LOC = "A3"      | IOSTANDARD = "LVCMOS33";              #Bank = 35, Pin name = IO_L8N_T1_AD14N_35,                                      Sch name = VGA_R0
