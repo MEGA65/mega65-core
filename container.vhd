@@ -57,12 +57,22 @@ entity container is
          sw : in std_logic_vector(15 downto 0);
          btn : in std_logic_vector(4 downto 0);
 
+         UART_TXD : out std_logic;
+         RsRx : in std_logic;
+         
          sseg_ca : out std_logic_vector(7 downto 0);
          sseg_an : out std_logic_vector(7 downto 0)
          );
 end container;
 
 architecture Behavioral of container is
+
+  component uart_monitor
+    port (
+      dotclock : in std_logic;
+      tx : out std_logic;
+      rx : in  std_logic);
+  end component;
 
   component pllclock is
     port
@@ -343,102 +353,82 @@ begin
                -- the generated frames somewhere?
                clk_out2 => pixelclock);
 
---  pllclock1: component pllclock
---    port map (
---      CLK_IN1 => CLK_IN,
-  -- Clock out ports
-  -- cpuclock is 1/2 pixel clock to keep simple 2:1 relationship for crossing clock
-  -- domains for video registers.  In time can improve this.
---      CLK_OUT1 => cpuclock,
---      pixelclock => pixelclock
-  -- Status and control signals
---      RESET => '0'
---      );
-
   -- XXX For now just use 128KB FastRAM instead of 512KB which causes major routing
   -- headaches.
-  fastram1 : component ram64x16k
-    PORT MAP (
-      clka => cpuclock,
-      wea => fastram_we,
-      addra => fastram_address,
-      dina => fastram_datain,
-      douta => fastram_dataout,
-      -- video controller use port b of the dual-port fast ram.
-      -- The CPU uses port a
-      clkb => pixelclock,
-      web => (others => '0'),
-      addrb => vga_fastramaddress,
-      dinb => (others => '0'),
-      doutb => vga_fastramdata
-      );
+  --fastram1 : component ram64x16k
+  --  PORT MAP (
+  --    clka => cpuclock,
+  --    wea => fastram_we,
+  --    addra => fastram_address,
+  --    dina => fastram_datain,
+  --    douta => fastram_dataout,
+  --    -- video controller use port b of the dual-port fast ram.
+  --    -- The CPU uses port a
+  --    clkb => pixelclock,
+  --    web => (others => '0'),
+  --    addrb => vga_fastramaddress,
+  --    dinb => (others => '0'),
+  --    doutb => vga_fastramdata
+  --    );
 
-  --cpu0: cpu6502 port map(clock => cpuclock,reset =>'1',irq => irq,
-  --                       nmi => nmi,monitor_pc => monitor_pc,
+  --cpu0: simple6502 port map(
+  --  clock => cpuclock,reset =>'1',irq => irq,
+  --  nmi => nmi,
+  --  monitor_pc => monitor_pc,
+  --  monitor_state => monitor_state,
 
-  --                       fastio_addr => fastio_addr,
-  --                       fastio_read => fastio_read,
-  --                       fastio_write => fastio_write,
-  --                       fastio_wdata => fastio_wdata,
-  --                       fastio_rdata => fastio_rdata,
-
-  --                       fastram_we => fastram_we,
-  --                       fastram_address => fastram_address,
-  --                       fastram_datain => fastram_datain,
-  --                       fastram_dataout => fastram_dataout
-  --                       );
-
-  cpu0: simple6502 port map(
-    clock => cpuclock,reset =>'1',irq => irq,
-    nmi => nmi,
-    monitor_pc => monitor_pc,
-    monitor_state => monitor_state,
-
-    fastram_we => fastram_we,
-    fastram_read => fastram_read,
-    fastram_write => fastram_write,
-    fastram_address => fastram_address,
-    fastram_datain => fastram_datain,
-    fastram_dataout => fastram_dataout,
+  --  fastram_we => fastram_we,
+  --  fastram_read => fastram_read,
+  --  fastram_write => fastram_write,
+  --  fastram_address => fastram_address,
+  --  fastram_datain => fastram_datain,
+  --  fastram_dataout => fastram_dataout,
     
-    fastio_addr => fastio_addr,
-    fastio_read => fastio_read,
-    fastio_write => fastio_write,
-    fastio_wdata => fastio_wdata,
-    fastio_rdata => fastio_rdata
-    );
+  --  fastio_addr => fastio_addr,
+  --  fastio_read => fastio_read,
+  --  fastio_write => fastio_write,
+  --  fastio_wdata => fastio_wdata,
+  --  fastio_rdata => fastio_rdata
+  --  );
   
-  vga0: vga
-    port map (
-      pixelclock      => pixelclock,
-      cpuclock        => cpuclock,
+  --vga0: vga
+  --  port map (
+  --    pixelclock      => pixelclock,
+  --    cpuclock        => cpuclock,
       
-      vsync           => vsync,
-      hsync           => hsync,
-      vgared          => vgared,
-      vgagreen        => vgagreen,
-      vgablue         => vgablue,
+  --    vsync           => vsync,
+  --    hsync           => hsync,
+  --    vgared          => vgared,
+  --    vgagreen        => vgagreen,
+  --    vgablue         => vgablue,
       
-      ramaddress      => vga_fastramaddress,
-      ramdata         => vga_fastramdata,
+  --    ramaddress      => vga_fastramaddress,
+  --    ramdata         => vga_fastramdata,
       
-      fastio_addr     => fastio_addr,
-      fastio_read     => fastio_read,
-      fastio_write    => fastio_write,
-      fastio_wdata    => fastio_wdata,
-      fastio_rdata    => fastio_rdata,
+  --    fastio_addr     => fastio_addr,
+  --    fastio_read     => fastio_read,
+  --    fastio_write    => fastio_write,
+  --    fastio_wdata    => fastio_wdata,
+  --    fastio_rdata    => fastio_rdata,
       
---      led0            => led0,
-      led1            => led1,
-      led2            => led2,
-      led3            => led3,
-      sw              => sw,
-      btn             => btn);
+  --    led1            => led1,
+  --    led2            => led2,
+  --    led3            => led3,
+  --    sw              => sw,
+  --    btn             => btn);
   
   iomapper0: iomapper port map (
     clk => cpuclock, address => fastio_addr,
     r => fastio_read, w => fastio_write,
     data_i => fastio_wdata, data_o => fastio_rdata);
 
+  -----------------------------------------------------------------------------
+  -- UART interface for monitor debugging and loading data
+  -----------------------------------------------------------------------------
+  monitor0 : uart_monitor port map (
+    dotclock => pixelclock,
+    tx       => UART_TXD,
+    rx       => RsRx);
+  
 end Behavioral;
 
