@@ -82,12 +82,39 @@ begin
 
   -- purpose: test uart output
   testclock: process (dotclock)
+    -- purpose: turn character into std_logic_vector(7 downto 0)
+    function to_std_logic_vector (
+      c : character)
+      return std_logic_vector is
+      variable i : integer := character'pos(c);
+      variable u : unsigned(7 downto 0) := to_unsigned(i,8);
+    begin  -- to_std_logic_vector
+      return std_logic_vector(u);
+    end to_std_logic_vector;
+
+    -- purpose: convert ascii value in a std_logic_vector to a VHDL character
+    function to_character (
+      v : std_logic_vector(7 downto 0))
+      return character is
+    begin  -- to_character
+      return character'val(to_integer(unsigned(v)));   
+    end to_character;
+    
     -- purpose: Process a character typed by the user.
     procedure character_received (char : in character) is
     begin  -- character_received
-      -- Echo character back to user
-      tx_data <= std_logic_vector(to_unsigned(natural(character'pos(char)), 8));
-      tx_trigger <= '1';
+      if char >=' ' and char < del then
+        if cmdlen<255 then
+          -- Echo character back to user
+          tx_data <= to_std_logic_vector(char);
+          tx_trigger <= '1';
+          -- Append to input buffer
+          cmdbuffer(cmdlen) <= char;
+          cmdlen <= cmdlen + 1;
+        else
+          tx_data <= to_std_logic_vector(bel);
+        end if;        
+      end if;
     end character_received;
     
 
@@ -106,7 +133,7 @@ begin
         blink <= not blink;
         activity <= blink;
         rx_acknowledge<='1';
-        character_received(character'val(to_integer(unsigned(rx_data))));
+        character_received(to_character(rx_data));
       end if;
 
       -- General state machine
@@ -116,7 +143,7 @@ begin
           state <= PrintBanner;
         when PrintBanner =>
           if tx_ready='1' then
-            tx_data <= std_logic_vector(to_unsigned(natural(character'pos(bannerMessage(banner_position))), 8));
+            tx_data <= to_std_logic_vector(bannerMessage(banner_position));
             tx_trigger <= '1';
             if banner_position<bannerMessage'length then
               banner_position <= banner_position + 1;
@@ -126,8 +153,9 @@ begin
           end if;
         when PrintPrompt =>
           if tx_ready='1' then
-            tx_data <= std_logic_vector(to_unsigned(natural(character'pos('.')), 8));
+            tx_data <= to_std_logic_vector('.');
             tx_trigger <= '1';
+            cmdlen <= 1;
             state <= AcceptingInput;
           end if;
         when others => null;
