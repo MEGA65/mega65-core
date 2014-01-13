@@ -52,13 +52,20 @@ architecture behavioural of uart_monitor is
   signal cmdbuffer : String(1 to 256);
   signal cmdlen : integer := 0;
 
-  constant bannerMessage : String := "\r\n\r\n--------------------------------\r\n65GS Serial Monitor\r\n---------------------------------\r\nType ? for help.\r\n";
+  constant crlf : string := cr & lf;
+  constant bannerMessage : String :=
+    crlf &
+    crlf &
+    "--------------------------------" & crlf &
+    "65GS Serial Monitor" & crlf &
+    "---------------------------------" & crlf &
+    "Type ? for help." & crlf;
   signal banner_position : integer := 1;
   constant helpMessage : String :=
-    "?                       - Display this help\r\n" &
-    "r                       - Print processor state.\r\n" &
-    "s <address> <value>     - Set memory.\r\n" &
-    "m <address>             - Display contents of memory\r\n";
+    "?                       - Display this help" & crlf &
+    "r                       - Print processor state." & crlf &
+    "s <address> <value>     - Set memory." & crlf &
+    "m <address>             - Display contents of memory" & crlf;
 
   type monitor_state is (Reseting,PrintBanner,PrintPrompt,AcceptingInput);
   signal state : monitor_state := Reseting;
@@ -137,30 +144,33 @@ begin
         character_received(to_character(rx_data));
       end if;
 
-      -- General state machine
-      case state is
-        when Reseting =>
-          banner_position <= 1;
-          state <= PrintBanner;
-        when PrintBanner =>
-          if tx_ready='1' then
-            tx_data <= to_std_logic_vector(bannerMessage(banner_position));
-            tx_trigger <= '1';
-            if banner_position<bannerMessage'length then
-              banner_position <= banner_position + 1;
-            else
-              state <= PrintPrompt;
+      -- 1 cycle delay after sending characters
+      if tx_trigger/='1' then      
+        -- General state machine
+        case state is
+          when Reseting =>
+            banner_position <= 1;
+            state <= PrintBanner;
+          when PrintBanner =>
+            if tx_ready='1' then
+              tx_data <= to_std_logic_vector(bannerMessage(banner_position));
+              tx_trigger <= '1';
+              if banner_position<bannerMessage'length then
+                banner_position <= banner_position + 1;
+              else
+                state <= PrintPrompt;
+              end if;
             end if;
-          end if;
-        when PrintPrompt =>
-          if tx_ready='1' then
-            tx_data <= to_std_logic_vector('.');
-            tx_trigger <= '1';
-            cmdlen <= 1;
-            state <= AcceptingInput;
-          end if;
-        when others => null;
-      end case;
+          when PrintPrompt =>
+            if tx_ready='1' then
+              tx_data <= to_std_logic_vector('.');
+              tx_trigger <= '1';
+              cmdlen <= 1;
+              state <= AcceptingInput;
+            end if;
+          when others => null;
+        end case;
+      end if;
     end if;
   end process testclock;
   
