@@ -47,6 +47,11 @@ signal tx_counter : std_logic;
 
 signal blink : std_logic := '1';
 
+-- Buffer to hold entered command
+type buffer256 is array (0 to 255) of std_logic_vector(7 downto 0);
+signal cmdbuffer : buffer256;
+signal cmdlen : integer := 0;
+
 begin
 
   uart_tx0: uart_tx_ctrl
@@ -70,11 +75,13 @@ begin
     if rising_edge(dotclock) then
       counter <= counter + 1;
       tx_counter <= std_logic(counter(27));
+      rx_acknowledge <= '0';
       if std_logic(counter(27))='1' and tx_counter='0' then
         tx_data <= "0100" & std_logic_vector(counter(31 downto 28));
         tx_trigger<='1';    
       else
         tx_trigger<='0';
+        rx_acknowledge <= '0';
         if rx_ready = '1' then
           rx_acknowledge<='1';
           tx_data <= rx_data;
