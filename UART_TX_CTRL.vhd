@@ -52,8 +52,8 @@ architecture Behavioral of UART_TX_CTRL is
 type TX_STATE_TYPE is (RDY, LOAD_BIT, SEND_BIT);
 
 -- Input clock = 192MHz, baudrate = 230400
--- 192MHz/230400 -1 = 832
-constant BIT_TMR_MAX : std_logic_vector(13 downto 0) := "00011010000000";
+-- 192MHz/2/230400 -1 = 416
+constant BIT_TMR_MAX : std_logic_vector(13 downto 0) := "00001101000000";
 constant BIT_INDEX_MAX : natural := 10;
 
 --Counter that keeps track of the number of clock cycles the current bit has been held stable over the
