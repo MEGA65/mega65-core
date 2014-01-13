@@ -24,5 +24,5 @@ transfer:
 	scp -p Makefile makerom kernel65.a65 *.ucf *.xise *.prj *vhd *vhdl 192.168.56.101:c64accel/
 
 
-simulate:	bcdadder.vhdl alu6502.vhdl cpu6502.vhdl kernel65.vhdl iomapper.vhdl container.vhd cpu_test.vhdl vga.vhd simple6502.vhdl debugtools.vhdl uart_tx_ctrl.vhdl
-	ghdl -c kernel65.vhdl iomapper.vhdl container.vhd cpu_test.vhdl vga.vhd simple6502.vhdl debugtools.vhdl uart_tx_ctrl.vhdl  -r cpu_test
+simulate:	bcdadder.vhdl alu6502.vhdl cpu6502.vhdl kernel65.vhdl iomapper.vhdl container.vhd cpu_test.vhdl vga.vhd simple6502.vhdl debugtools.vhdl UART_TX_CTRL.vhd
+	ghdl -c kernel65.vhdl iomapper.vhdl container.vhd cpu_test.vhdl vga.vhd simple6502.vhdl debugtools.vhdl UART_TX_CTRL.vhd -r cpu_test
