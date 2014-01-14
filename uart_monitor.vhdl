@@ -556,7 +556,7 @@ begin
             byte_number <= 0;
             end_of_command(ShowMemory2);              
           when ShowMemory2 =>
-            if byte_number>15 then
+            if byte_number=16 then
               state <= ShowMemory4;
             else
               monitor_mem_read <= '1';
@@ -570,9 +570,6 @@ begin
               membuf(byte_number) <= monitor_mem_rdata;
               byte_number <= byte_number +1;
               state <= ShowMemory2;
-              -- XXX Some debug output so that we know how many chars get read
-              -- before things jam up.
-              try_output_char('-',ShowMemory2);
             end if;
           when ShowMemory4 => try_output_char(' ',ShowMemory5);
           when ShowMemory5 => try_output_char(':',ShowMemory6); byte_number <= 0;
