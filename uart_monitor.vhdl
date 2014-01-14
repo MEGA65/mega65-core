@@ -94,10 +94,10 @@ architecture behavioural of uart_monitor is
                          );
 
   -- XXX For debugging parser, preload a command
-  signal state : monitor_state := EnterPressed3; -- Reseting;
+  signal state : monitor_state := Reseting;
 -- Buffer to hold entered command
-  signal cmdbuffer : String(1 to 64) := "m1234567                                                        ";
-  signal cmdlen : integer := 8;
+  signal cmdbuffer : String(1 to 64);
+  signal cmdlen : integer := 0;
   signal redraw_position : integer;
   
   -- For parsing commands
@@ -400,6 +400,7 @@ begin
                 try_output_char(cmdbuffer(parse_position),PrintError2);
               end if;
             else
+              cmdlen <= 1;
               state <= NextCommand;
             end if;
           when PrintTimeoutError =>
@@ -506,13 +507,10 @@ begin
             -- XXX Need to actually read memory from the CPU
             target_address <= hex_value(27 downto 0);
             end_of_command(ShowMemory2);
-          when ShowMemory2 =>
-            report "target_address=$" & to_hstring(target_address) severity note;
-            print_hex_addr(target_address,ShowMemory3);
-          when ShowMemory3 => try_output_char(' ',ShowMemory4);
-          when ShowMemory4 => try_output_char(':',ShowMemory5); byte_number <= 0;
-          when ShowMemory5 => print_hex_addr(target_address,ShowMemory6);
-          when ShowMemory6 =>
+          when ShowMemory2 => try_output_char(' ',ShowMemory3);
+          when ShowMemory3 => try_output_char(':',ShowMemory4); byte_number <= 0;
+          when ShowMemory4 => print_hex_addr(target_address,ShowMemory4);
+          when ShowMemory5 =>
             if byte_number = 16 then
               state<=NextCommand;
             else
