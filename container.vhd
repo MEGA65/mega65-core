@@ -305,15 +305,6 @@ begin
   begin
     if rising_edge(pixelclock) then
 
-      led2 <= '0';
-      led3 <= '0';
-      vgared <= (others => '0');
-      vgagreen <= (others => '0');
-      vgablue <= (others => '0');
-      hsync <= '0';
-      vsync <= '0';
-      
---      cpuclock <= not cpuclock;
       if cpuclock_divisor<2 then
         cpuclock_divisor <= cpuclock_divisor + 1;
       else
@@ -477,7 +468,7 @@ begin
 --    clock => CLK_IN,
     tx       => UART_TXD,
     rx       => RsRx,
-    activity => led1,
+--    activity => led1,
 
     monitor_pc => monitor_pc,
     monitor_opcode => monitor_opcode,
