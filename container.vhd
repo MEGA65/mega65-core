@@ -73,7 +73,16 @@ architecture Behavioral of container is
       clock : in std_logic;
       tx : out std_logic;
       rx : in  std_logic;
-      activity : out std_logic);
+      activity : out std_logic;
+
+      monitor_mem_address : out std_logic_vector(27 downto 0);
+      monitor_mem_rdata : in unsigned(7 downto 0);
+      monitor_mem_wdata : out unsigned(7 downto 0);
+      monitor_mem_register : in unsigned(15 downto 0);
+      monitor_mem_read : out std_logic := '0';
+      monitor_mem_write : out std_logic := '0';
+      monitor_mem_ready_toggle : in std_logic
+      );
   end component;
 
   component dotclock is
@@ -136,6 +145,17 @@ architecture Behavioral of container is
       monitor_sp : out std_logic_vector(7 downto 0);
       monitor_p : out std_logic_vector(7 downto 0);
       monitor_state : out std_logic_vector(7 downto 0);
+
+      ---------------------------------------------------------------------------
+      -- Memory access interface used by monitor
+      ---------------------------------------------------------------------------
+      monitor_mem_address : in std_logic_vector(27 downto 0);
+      monitor_mem_rdata : out unsigned(7 downto 0);
+      monitor_mem_wdata : in unsigned(7 downto 0);
+      monitor_mem_register : out unsigned(15 downto 0);
+      monitor_mem_read : in std_logic;
+      monitor_mem_write : in std_logic;
+      monitor_mem_ready_toggle : out std_logic := '1';
 
       ---------------------------------------------------------------------------
       -- Interface to FastRAM in video controller (just 128KB for now)
@@ -250,12 +270,19 @@ architecture Behavioral of container is
   signal cpuclock : std_logic;
   signal cpuclock_divisor : integer := 0;
   signal pixelclock : std_logic;
+
   signal monitor_pc : std_logic_vector(15 downto 0);
   signal monitor_state : std_logic_vector(7 downto 0);
-
+  signal monitor_mem_address : std_logic_vector(27 downto 0);
+  signal monitor_mem_rdata : unsigned(7 downto 0);
+  signal monitor_mem_wdata : unsigned(7 downto 0);
+  signal monitor_mem_register : unsigned(15 downto 0);
+  signal monitor_mem_read : std_logic;
+  signal monitor_mem_write : std_logic;
+  signal monitor_mem_ready_toggle : std_logic;
+  
   signal segled_counter : unsigned(31 downto 0) := (others => '0');
 
-  
 begin
 
   process(pixelclock)
@@ -371,6 +398,14 @@ begin
   --  monitor_pc => monitor_pc,
   --  monitor_state => monitor_state,
 
+  --  monitor_mem_address => monitor_mem_address,
+  --  monitor_mem_rdata => monitor_mem_rdata,
+  --  monitor_mem_wdata => monitor_mem_wdata,
+  --  monitor_mem_register => monitor_mem_register,
+  --  monitor_mem_read => monitor_mem_read,
+  --  monitor_mem_write => monitor_mem_write,
+  --  monitor_mem_ready_toggle => monitor_mem_ready_toggle,
+  
   --  fastram_we => fastram_we,
   --  fastram_read => fastram_read,
   --  fastram_write => fastram_write,
@@ -427,7 +462,16 @@ begin
 --    dotclock => CLK_IN,
     tx       => UART_TXD,
     rx       => RsRx,
-    activity => led1);
+    activity => led1,
+
+    monitor_mem_address => monitor_mem_address,
+    monitor_mem_rdata => monitor_mem_rdata,
+    monitor_mem_wdata => monitor_mem_wdata,
+    monitor_mem_register => monitor_mem_register,
+    monitor_mem_read => monitor_mem_read,
+    monitor_mem_write => monitor_mem_write,
+    monitor_mem_ready_toggle => monitor_mem_ready_toggle
+);
   
 end Behavioral;
 

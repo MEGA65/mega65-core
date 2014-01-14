@@ -9,7 +9,16 @@ entity uart_monitor is
     clock : in std_logic;
     tx : out std_logic;
     rx : in  std_logic;
-    activity : out std_logic);
+    activity : out std_logic;
+
+    monitor_mem_address : out std_logic_vector(27 downto 0);
+    monitor_mem_rdata : in unsigned(7 downto 0);
+    monitor_mem_wdata : out unsigned(7 downto 0);
+    monitor_mem_register : in unsigned(15 downto 0);
+    monitor_mem_read : out std_logic := '0';
+    monitor_mem_write : out std_logic := '0';
+    monitor_mem_ready_toggle : in std_logic
+    );
 end uart_monitor;
 
 architecture behavioural of uart_monitor is
@@ -71,17 +80,19 @@ architecture behavioural of uart_monitor is
   constant errorMessage : string := crlf & "? SYNTAX  ERROR" & crlf;
   
   type monitor_state is (Reseting,
-                         PrintBanner,PrintHelp,PrintError,
+                         PrintBanner,PrintHelp,PrintError,PrintError2,
                          NextCommand,NextCommand2,PrintPrompt,
                          AcceptingInput,
                          RedrawInputBuffer,RedrawInputBuffer2,RedrawInputBuffer3,
-                         EnterPressed,
+                         EnterPressed,EnterPressed2,EnterPressed3,
                          EraseInputBuffer,EraseInputBuffer2,
                          SyntaxError,
                          ParseHex,
                          PrintHex,
                          SetMemory1,SetMemory2,SetMemory3,SetMemory4,SetMemory5,
-                         SetMemory6,SetMemory7,SetMemory8,SetMemory9
+                         SetMemory6,SetMemory7,SetMemory8,SetMemory9,
+                         ShowMemory1,ShowMemory2,ShowMemory3,ShowMemory4,
+                         ShowMemory5,ShowMemory6,ShowMemory7
                          );
   signal state : monitor_state := Reseting;
 
@@ -93,6 +104,10 @@ architecture behavioural of uart_monitor is
   signal hex_digits_read : integer;
   signal hex_digits_output : integer;
   signal success_state : monitor_state;
+
+  type sixteenbytes is array (0 to 15) of unsigned(7 downto 0);
+  signal membuf : sixteenbytes;
+  signal byte_number : integer;
   
 begin
 
@@ -355,13 +370,20 @@ begin
               if banner_position<errorMessage'length then
                 banner_position <= banner_position + 1;
               else
-                state <= PrintPrompt;
-                cmdlen <= 1;
+                state <= PrintError2;
               end if;
+            end if;
+          when PrintError2 =>
+            if parse_position<cmdlen then
+              if tx_ready='1' then
+                try_output_char(cmdbuffer(parse_position),PrintError2);
+              end if;
+            else
+              state <= NextCommand;
             end if;
           when NextCommand => cmdlen <= 1; try_output_char(cr,NextCommand2);
           when NextCommand2 => try_output_char(lf,PrintPrompt);
-          when PrintPrompt => try_output_char(cr,AcceptingInput);
+          when PrintPrompt => try_output_char('.',AcceptingInput);
           when AcceptingInput =>
             -- If there is a character waiting
             if rx_ready = '1' and rx_acknowledge='0' then
@@ -388,14 +410,19 @@ begin
               cmdlen <= 1;
               try_output_char(cr,PrintPrompt);
             end if;
-          when EnterPressed =>
+          when EnterPressed => try_output_char(cr,EnterPressed2);
+          when EnterPressed2 => try_output_char(lf,EnterPressed3);
+          when EnterPressed3 =>
             if cmdlen>1 then
               if (cmdbuffer(1) = 'h' or cmdbuffer(1) = 'H' or cmdbuffer(1) = '?') then
                 banner_position <= 1;
                 state <= PrintHelp;
               elsif cmdbuffer(1) = 's' or cmdbuffer(1) = 'S' then
-                parse_position <= 1;
+                parse_position <= 2;
                 parse_hex(SetMemory1);
+              elsif cmdbuffer(1) = 'm' or cmdbuffer(1) = 'M' then
+                parse_position <= 2;
+                parse_hex(ShowMemory1);
               else
                 state <= SyntaxError;
               end if;
@@ -411,12 +438,10 @@ begin
           when SetMemory4 =>
             -- Set contents of memory location <target_address> to <target_value>
             -- XXX Not implemented
-            print_hex_addr(target_address,SetMemory5);
-          when SetMemory5 => try_output_char(' ',SetMemory6);
-          when SetMemory6 => try_output_char('<',SetMemory7);
-          when SetMemory7 => try_output_char('=',SetMemory8);
-          when SetMemory8 => try_output_char(' ',SetMemory9);
-          when SetMemory9 => print_hex_byte(target_value,NextCommand);            
+            try_output_char('=',SetMemory5);
+          when SetMemory5 => print_hex_addr(target_address,SetMemory5);
+          when SetMemory6 => try_output_char(' ',SetMemory7);
+          when SetMemory7 => print_hex_byte(target_value,NextCommand);            
           when ParseHex => parse_hex_digit;
           when PrintHex =>
             if hex_digits_output<hex_digits_read then
@@ -428,6 +453,23 @@ begin
             else
               state <= success_state;
             end if;
+          when ShowMemory1 =>
+            -- XXX Need to actually read memory from the CPU
+            target_address <= hex_value(27 downto 0);
+            end_of_command(ShowMemory2);
+          when ShowMemory2 => print_hex_addr(target_address,ShowMemory3);
+          when ShowMemory3 => try_output_char(' ',ShowMemory4);
+          when ShowMemory4 => try_output_char(':',ShowMemory5); byte_number <= 0;
+          when ShowMemory5 => print_hex_addr(target_address,ShowMemory6);
+          when ShowMemory6 =>
+            if byte_number = 16 then
+              state<=NextCommand;
+            else
+              try_output_char(' ',ShowMemory7);
+            end if;
+          when ShowMemory7 =>
+            byte_number <= byte_number + 1;
+            print_hex_byte(membuf(byte_number),ShowMemory6);
           when SyntaxError =>
             banner_position <= 1; state <= PrintError;
           when others => null;

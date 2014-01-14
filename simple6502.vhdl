@@ -22,6 +22,17 @@ entity simple6502 is
     monitor_state : out std_logic_vector(7 downto 0);
 
     ---------------------------------------------------------------------------
+    -- Memory access interface used by monitor
+    ---------------------------------------------------------------------------
+    monitor_mem_address : in std_logic_vector(27 downto 0);
+    monitor_mem_rdata : out unsigned(7 downto 0);
+    monitor_mem_wdata : in unsigned(7 downto 0);
+    monitor_mem_read : in std_logic;
+    monitor_mem_write : in std_logic;
+    monitor_mem_register : out unsigned(15 downto 0);
+    monitor_mem_ready_toggle : out std_logic := '1';
+    
+    ---------------------------------------------------------------------------
     -- Interface to FastRAM in video controller (just 128KB for now)
     ---------------------------------------------------------------------------
     fastram_we : OUT STD_LOGIC_VECTOR(7 DOWNTO 0);
