@@ -91,7 +91,7 @@ architecture behavioural of uart_monitor is
                          SetMemory1,SetMemory2,SetMemory3,SetMemory4,SetMemory5,
                          SetMemory6,SetMemory7,SetMemory8,SetMemory9,
                          ShowMemory1,ShowMemory2,ShowMemory3,ShowMemory4,
-                         ShowMemory5,ShowMemory6,ShowMemory7
+                         ShowMemory5,ShowMemory6,ShowMemory7,ShowMemory8
                          );
 
   -- XXX For debugging parser, preload a command
@@ -515,19 +515,43 @@ begin
           when ShowMemory1 =>
             -- XXX Need to actually read memory from the CPU
             target_address <= hex_value(27 downto 0);
+            byte_number <= 0;
             end_of_command(ShowMemory2);
-          when ShowMemory2 => try_output_char(' ',ShowMemory3);
-          when ShowMemory3 => try_output_char(':',ShowMemory4); byte_number <= 0;
-          when ShowMemory4 => print_hex_addr(target_address,ShowMemory5);
-          when ShowMemory5 =>
+          when ShowMemory2 =>
+            if byte_number>15 then
+              state <= ShowMemory4;
+            end if;
+            old_ready_value <= monitor_mem_ready_toggle;
+            monitor_mem_read <= '1';
+            monitor_mem_write <= '0';
+            monitor_mem_address <= std_logic_vector(target_address + to_unsigned(byte_number,28));
+            timeout <= 65535;
+            state <= ShowMemory3;
+          when ShowMemory3 =>
+            monitor_mem_read <= '0';
+            if old_ready_value /= monitor_mem_ready_toggle then
+              state <= ShowMemory2;
+              membuf(byte_number) <= monitor_mem_rdata;
+              byte_number <= byte_number +1;
+            else
+              if timeout=0 then
+                state <= TimeoutError;
+              else
+                timeout <= timeout - 1;
+              end if;
+            end if;
+          when ShowMemory4 => try_output_char(' ',ShowMemory5);
+          when ShowMemory5 => try_output_char(':',ShowMemory6); byte_number <= 0;
+          when ShowMemory6 => print_hex_addr(target_address,ShowMemory7);
+          when ShowMemory7 =>
             if byte_number = 16 then
               state<=NextCommand;
             else
-              try_output_char(' ',ShowMemory6);
+              try_output_char(' ',ShowMemory8);
             end if;
-          when ShowMemory6 =>
+          when ShowMemory8 =>
             byte_number <= byte_number + 1;
-            print_hex_byte(membuf(byte_number),ShowMemory5);
+            print_hex_byte(membuf(byte_number),ShowMemory7);
           when SyntaxError =>
             banner_position <= 1; state <= PrintError;
           when TimeoutError =>
