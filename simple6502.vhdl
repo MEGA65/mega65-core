@@ -946,6 +946,8 @@ begin
       else
         fastio_rdata <= std_logic_vector(value(15 downto 8));
       end if;
+    else
+      fastio_rdata <= (others => 'Z');
     end if;
   end process fastio;
 end Behavioural;
