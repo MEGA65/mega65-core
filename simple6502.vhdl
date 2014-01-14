@@ -835,13 +835,13 @@ begin
       elsif monitor_mem_attention_request='1'
             and state = InstructionFetch then
         -- Memory access by serial monitor.
-        if monitor_mem_read = '1' then
-          -- Read from specified long address
-          read_long_address(unsigned(monitor_mem_address),MonitorAccessDone);
-        elsif monitor_mem_write='1' then
+        if monitor_mem_write='1' then
           -- Write to specified long address
           write_long_byte(unsigned(monitor_mem_address),monitor_mem_wdata,
                           MonitorAccessDone);
+        else
+          -- Read from specified long address
+          read_long_address(unsigned(monitor_mem_address),MonitorAccessDone);
         end if;   
       else
         -- CPU running, so do CPU state machine
