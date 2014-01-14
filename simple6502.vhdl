@@ -860,9 +860,15 @@ begin
           when VectorRead3 => reg_pc(15 downto 8) <= read_data; state <= InstructionFetch;
           when InstructionFetch =>
             monitor_mem_attention_granted <= '0';
-            
-            read_instruction_byte(reg_pc,InstructionFetch2);
-            reg_pc <= reg_pc + 1;
+
+            if nmi_pending='1' then
+              vector <= x"FFFA"; state <=VectorRead;
+            elsif irq_pending='1' and flag_i='0' then
+              vector <= x"FFFE"; state <=VectorRead;                                
+            else
+              read_instruction_byte(reg_pc,InstructionFetch2);
+              reg_pc <= reg_pc + 1;
+            end if;
           when InstructionFetch2 =>
             -- Keep reading bytes if necessary
             if mode_lut(to_integer(read_data))=M_implied
