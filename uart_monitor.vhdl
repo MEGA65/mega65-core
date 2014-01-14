@@ -374,6 +374,11 @@ begin
       rx_acknowledge <= '0';
       tx_trigger<='0';
 
+      -- Make sure we don't leave the CPU locked
+      if rx_ready='1' or state <= AcceptingInput then
+        monitor_mem_read <= '0';
+        monitor_mem_write <= '0';
+      end if;
       
       -- 1 cycle delay after sending characters
       if tx_trigger/='1' then      
@@ -475,7 +480,7 @@ begin
                 parse_position <= 2;
                 parse_hex(SetMemory1);
               elsif cmdbuffer(1) = 'r' or cmdbuffer(1) = 'R' then
-                state <= ShowRegisters;
+                state <= ShowRegisters;                
               elsif cmdbuffer(1) = 'm' or cmdbuffer(1) = 'M' then
                 report "read memory command" severity note;
                 parse_position <= 2;
