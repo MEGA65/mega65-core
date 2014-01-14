@@ -91,7 +91,7 @@ architecture behavioural of uart_monitor is
                          PrintError,PrintError2,PrintError3,PrintError4,
                          PrintTimeoutError,
                          NextCommand,NextCommand2,PrintPrompt,
-                         AcceptingInput,
+                         AcceptingInput,EraseCharacter,EraseCharacter1,
                          RedrawInputBuffer,RedrawInputBuffer2,RedrawInputBuffer3,
                          EnterPressed,EnterPressed2,EnterPressed3,
                          EraseInputBuffer,EraseInputBuffer2,
@@ -202,6 +202,7 @@ begin
               tx_data <= to_std_logic_vector(bs);
               tx_trigger <= '1';                    
               cmdlen <= cmdlen - 1;
+              state <= EraseCharacter;
             end if;
           when del =>
             if cmdlen>1 then
@@ -209,6 +210,7 @@ begin
               tx_data <= to_std_logic_vector(bs);
               tx_trigger <= '1';                    
               cmdlen <= cmdlen - 1;
+              state <= EraseCharacter;
             end if;
           when cr => state <= EnterPressed;
           when lf => state <= EnterPressed;
@@ -601,6 +603,8 @@ begin
           when ShowRegisters12 => try_output_char(' ',ShowRegisters13);
           when ShowRegisters13 => print_hex_byte(unsigned(monitor_p),ShowRegisters14);
           when ShowRegisters14 => try_output_char(' ',NextCommand);
+          when EraseCharacter => try_output_char(' ',EraseCharacter1);
+          when EraseCharacter1 => try_output_char(bs,AcceptingInput);
           when SyntaxError =>
             banner_position <= 1; state <= PrintError;
           when TimeoutError =>
