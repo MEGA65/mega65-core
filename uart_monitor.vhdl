@@ -102,6 +102,7 @@ architecture behavioural of uart_monitor is
                          SetMemory6,SetMemory7,SetMemory8,SetMemory9,
                          ShowMemory1,ShowMemory2,ShowMemory3,ShowMemory4,
                          ShowMemory5,ShowMemory6,ShowMemory7,ShowMemory8,
+                         ShowRegisters,
                          ShowRegisters1,ShowRegisters2,ShowRegisters3,ShowRegisters4,
                          ShowRegisters5,ShowRegisters6,ShowRegisters7,ShowRegisters8,
                          ShowRegisters9,ShowRegisters10,ShowRegisters11,ShowRegisters12,
@@ -475,7 +476,7 @@ begin
                 parse_position <= 2;
                 parse_hex(SetMemory1);
               elsif cmdbuffer(1) = 'r' or cmdbuffer(1) = 'R' then
-                state <= ShowRegisters1;
+                state <= ShowRegisters;
               elsif cmdbuffer(1) = 'm' or cmdbuffer(1) = 'M' then
                 report "read memory command" severity note;
                 parse_position <= 2;
@@ -568,8 +569,9 @@ begin
           when ShowMemory8 =>
             byte_number <= byte_number + 1;
             print_hex_byte(membuf(byte_number),ShowMemory7);
+          when ShowRegisters =>
+            banner_position <= 1; state<= ShowRegisters1;
           when ShowRegisters1 =>
-            banner_position <= 1; state<= ShowRegisters2;
             if tx_ready='1' then
               tx_data <= to_std_logic_vector(registerMessage(banner_position));
               tx_trigger <= '1';
