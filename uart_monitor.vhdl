@@ -94,6 +94,7 @@ architecture behavioural of uart_monitor is
                          NextCommand,NextCommand2,PrintPrompt,
                          AcceptingInput,EraseCharacter,EraseCharacter1,
                          RedrawInputBuffer,RedrawInputBuffer2,RedrawInputBuffer3,
+                         RedrawInputBuffer4,
                          EnterPressed,EnterPressed2,EnterPressed3,
                          EraseInputBuffer,EraseInputBuffer2,
                          SyntaxError,TimeoutError,
@@ -468,9 +469,24 @@ begin
           when RedrawInputBuffer => try_output_char(cr,RedrawInputBuffer2);
           when RedrawInputBuffer2 => redraw_position <= 1; try_output_char('.',RedrawInputBuffer3);
           when RedrawInputBuffer3 =>
-            if redraw_position<cmdlen then
-              try_output_char(cmdbuffer(redraw_position),RedrawInputBuffer3);
-              redraw_position <= redraw_position + 1;
+            if redraw_position<64 then
+              if tx_ready='1' then
+                if redraw_position<cmdlen then
+                  try_output_char(cmdbuffer(redraw_position),RedrawInputBuffer3);
+                else
+                  try_output_char(' ',RedrawInputBuffer3);
+                end if;
+                redraw_position <= redraw_position + 1;                
+              end if;
+            else
+              state <= RedrawInputBuffer4;
+            end if;
+          when RedrawInputBuffer4 =>
+            if redraw_position>cmdlen then
+              if tx_ready='1' then
+                try_output_char(bs,RedrawInputBuffer4);
+                redraw_position <= redraw_position - 1;
+              end if;
             else
               state <= AcceptingInput;
             end if;
