@@ -31,7 +31,7 @@ entity simple6502 is
     monitor_mem_write : in std_logic;
     monitor_mem_register : out unsigned(15 downto 0);
     monitor_mem_attention_request : in std_logic;
-    monitor_mem_attention_granted : out std_logic := '1';
+    monitor_mem_attention_granted : out std_logic := '0';
 
     
     ---------------------------------------------------------------------------
@@ -859,6 +859,7 @@ begin
           when VectorRead2 => reg_pc(7 downto 0) <= read_data; read_instruction_byte(vector+1,VectorRead3);
           when VectorRead3 => reg_pc(15 downto 8) <= read_data; state <= InstructionFetch;
           when InstructionFetch =>
+            monitor_mem_attention_granted <= '0';
             read_instruction_byte(reg_pc,InstructionFetch2);
             reg_pc <= reg_pc + 1;
           when InstructionFetch2 =>
