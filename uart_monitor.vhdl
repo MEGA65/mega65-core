@@ -89,7 +89,7 @@ architecture behavioural of uart_monitor is
                          ParseHex,
                          PrintHex,
                          SetMemory1,SetMemory2,SetMemory3,SetMemory4,SetMemory5,
-                         SetMemory6,SetMemory7,SetMemory8,
+                         SetMemory6,SetMemory7,SetMemory8,SetMemory9,
                          ShowMemory1,ShowMemory2,ShowMemory3,ShowMemory4,
                          ShowMemory5,ShowMemory6,ShowMemory7
                          );
@@ -497,10 +497,10 @@ begin
             end if;
             -- Set contents of memory location <target_address> to <target_value>
             -- XXX Not implemented
-            try_output_char('=',SetMemory5);
-          when SetMemory6 => print_hex_addr(target_address,SetMemory7);
-          when SetMemory7 => try_output_char(' ',SetMemory8);
-          when SetMemory8 => print_hex_byte(target_value,NextCommand);            
+            when SetMemory6 => try_output_char('=',SetMemory7);
+          when SetMemory7 => print_hex_addr(target_address,SetMemory8);
+          when SetMemory8 => try_output_char(' ',SetMemory9);
+          when SetMemory9 => print_hex_byte(target_value,NextCommand);            
           when ParseHex => parse_hex_digit;
           when PrintHex =>
             if hex_digits_output<hex_digits_read then
