@@ -12,6 +12,14 @@ entity uart_monitor is
     rx : in  std_logic;
     activity : out std_logic;
 
+    monitor_pc : in std_logic_vector(15 downto 0);
+    monitor_opcode : in std_logic_vector(7 downto 0);
+    monitor_a : in std_logic_vector(7 downto 0);
+    monitor_x : in std_logic_vector(7 downto 0);
+    monitor_y : in std_logic_vector(7 downto 0);
+    monitor_sp : in std_logic_vector(7 downto 0);
+    monitor_p : in std_logic_vector(7 downto 0);
+    
     monitor_mem_address : out std_logic_vector(27 downto 0);
     monitor_mem_rdata : in unsigned(7 downto 0);
     monitor_mem_wdata : out unsigned(7 downto 0);

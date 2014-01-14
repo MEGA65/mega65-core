@@ -75,6 +75,14 @@ architecture Behavioral of container is
       rx : in  std_logic;
       activity : out std_logic;
 
+      monitor_pc : in std_logic_vector(15 downto 0);
+      monitor_opcode : in std_logic_vector(7 downto 0);
+      monitor_a : in std_logic_vector(7 downto 0);
+      monitor_x : in std_logic_vector(7 downto 0);
+      monitor_y : in std_logic_vector(7 downto 0);
+      monitor_sp : in std_logic_vector(7 downto 0);
+      monitor_p : in std_logic_vector(7 downto 0);
+
       monitor_mem_address : out std_logic_vector(27 downto 0);
       monitor_mem_rdata : in unsigned(7 downto 0);
       monitor_mem_wdata : out unsigned(7 downto 0);
@@ -280,6 +288,13 @@ architecture Behavioral of container is
   signal monitor_mem_read : std_logic;
   signal monitor_mem_write : std_logic;
   signal monitor_mem_ready_toggle : std_logic;
+
+  signal monitor_a : std_logic_vector(7 downto 0);
+  signal monitor_x : std_logic_vector(7 downto 0);
+  signal monitor_y : std_logic_vector(7 downto 0);
+  signal monitor_sp : std_logic_vector(7 downto 0);
+  signal monitor_p : std_logic_vector(7 downto 0);
+  signal monitor_opcode : std_logic_vector(7 downto 0);
   
   signal segled_counter : unsigned(31 downto 0) := (others => '0');
 
@@ -464,6 +479,14 @@ begin
     rx       => RsRx,
     activity => led1,
 
+    monitor_pc => monitor_pc,
+    monitor_opcode => monitor_opcode,
+    monitor_a => monitor_a,
+    monitor_x => monitor_x,
+    monitor_y => monitor_y,
+    monitor_sp => monitor_sp,
+    monitor_p => monitor_p,
+    
     monitor_mem_address => monitor_mem_address,
     monitor_mem_rdata => monitor_mem_rdata,
     monitor_mem_wdata => monitor_mem_wdata,
