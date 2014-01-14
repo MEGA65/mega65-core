@@ -73,7 +73,7 @@ architecture behavioural of uart_monitor is
     "s <address> <value>     - Set memory." & crlf &
     "m <address>             - Display contents of memory" & crlf;
 
-  constant errorMessage : string := crlf & "?SYNTAX  ERROR" & crlf;
+  constant errorMessage : string := crlf & "?SYNTAX  ERROR ";
   constant timeoutMessage : string := crlf & "?TIMEOUT  ERROR" & crlf;
   
   type monitor_state is (Reseting,
@@ -108,6 +108,7 @@ architecture behavioural of uart_monitor is
   signal hex_digits_read : integer;
   signal hex_digits_output : integer;
   signal success_state : monitor_state;
+  signal errorCode : unsigned(7 downto 0) := x"FF";
 
   signal timeout : integer;
   signal old_ready_value : std_logic;
@@ -245,6 +246,7 @@ begin
       digit : in unsigned(3 downto 0)) is
     begin  -- got_hex_digit
       if hex_digits_read=8 then
+        errorCode <= x"01";
         state <= SyntaxError;
       end if;
       hex_value <= hex_value(27 downto 0) & digit;
@@ -259,6 +261,7 @@ begin
       if parse_position>=cmdlen then
         if hex_digits_read = 0 then
           -- If we reach end of command and have parsed no digit, it's an error
+          errorCode <= x"02";
           state <= SyntaxError;
         else
           state <= success_state;
@@ -280,6 +283,7 @@ begin
           when 'f' => got_hex_digit(x"f"); when 'F' => got_hex_digit(x"f");
           when others =>
             if hex_digits_read = 0 then
+              errorCode <= x"03";
               state <= SyntaxError;
             else
               state <= success_state;
@@ -327,6 +331,7 @@ begin
         parse_position <= parse_position + 1;
         state <= next_state;
       else
+        errorCode <= x"04";
         state <= SyntaxError;
       end if;
     end skip_space;
@@ -338,6 +343,7 @@ begin
       if parse_position>=cmdlen then
         state <= next_state;
       else
+        errorCode <= x"05";        
         state <= SyntaxError;
       end if;
     end end_of_command;
@@ -390,7 +396,7 @@ begin
               if banner_position<errorMessage'length then
                 banner_position <= banner_position + 1;
               else
-                state <= PrintError2;
+                print_hex_byte(errorCode,PrintError2);
               end if;
             end if;
           when PrintError2 =>
@@ -457,6 +463,7 @@ begin
                 report "trying to parse hex" severity note;
                 parse_hex(ShowMemory1);
               else
+                errorCode <= x"06";
                 state <= SyntaxError;
               end if;
             else
