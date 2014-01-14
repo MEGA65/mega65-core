@@ -336,7 +336,6 @@ begin
       state <= ParseHex;
       hex_value <= (others => '0');
       hex_digits_read <= 0;    
-      parse_hex_digit;
     end parse_hex;
 
     -- purpose: skip one space in command buffer
