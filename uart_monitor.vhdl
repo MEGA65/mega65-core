@@ -520,11 +520,11 @@ begin
             if byte_number = 16 then
               state<=NextCommand;
             else
-              try_output_char(' ',ShowMemory7);
+              try_output_char(' ',ShowMemory6);
             end if;
-          when ShowMemory7 =>
+          when ShowMemory6 =>
             byte_number <= byte_number + 1;
-            print_hex_byte(membuf(byte_number),ShowMemory6);
+            print_hex_byte(membuf(byte_number),ShowMemory5);
           when SyntaxError =>
             banner_position <= 1; state <= PrintError;
           when TimeoutError =>
