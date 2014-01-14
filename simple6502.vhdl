@@ -860,6 +860,7 @@ begin
           when VectorRead3 => reg_pc(15 downto 8) <= read_data; state <= InstructionFetch;
           when InstructionFetch =>
             monitor_mem_attention_granted <= '0';
+            
             read_instruction_byte(reg_pc,InstructionFetch2);
             reg_pc <= reg_pc + 1;
           when InstructionFetch2 =>

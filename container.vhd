@@ -201,18 +201,7 @@ architecture Behavioral of container is
       fastio_read : in std_logic;
       fastio_write : in std_logic;
       fastio_wdata : in std_logic_vector(7 downto 0);
-      fastio_rdata : out std_logic_vector(7 downto 0);
-
-      ----------------------------------------------------------------------
-      -- Debug interfaces on Nexys4 board
-      ----------------------------------------------------------------------
-      led0 : out std_logic;
-      led1 : out std_logic;
-      led2 : out std_logic;
-      led3 : out std_logic;
-      sw : in std_logic_vector(15 downto 0);
-      btn : in std_logic_vector(4 downto 0)
-
+      fastio_rdata : out std_logic_vector(7 downto 0)
       );
   end component;
   
@@ -425,13 +414,8 @@ begin
       fastio_read     => fastio_read,
       fastio_write    => fastio_write,
       fastio_wdata    => fastio_wdata,
-      fastio_rdata    => fastio_rdata,
-      
---      led1            => led1,
---      led2            => led2,
---      led3            => led3,
-      sw              => sw,
-      btn             => btn);
+      fastio_rdata    => fastio_rdata
+      );
   
   iomapper0: iomapper port map (
     clk => cpuclock, address => fastio_addr,

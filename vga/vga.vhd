@@ -65,18 +65,7 @@ entity vga is
     fastio_read : in std_logic;
     fastio_write : in std_logic;
     fastio_wdata : in std_logic_vector(7 downto 0);
-    fastio_rdata : out std_logic_vector(7 downto 0);
-
-    ----------------------------------------------------------------------
-    -- Debug interfaces on Nexys4 board
-    ----------------------------------------------------------------------
-    led0 : out std_logic;
-    led1 : out std_logic;
-    led2 : out std_logic;
-    led3 : out std_logic;
-    sw : in std_logic_vector(15 downto 0);
-    btn : in std_logic_vector(4 downto 0)
-
+    fastio_rdata : out std_logic_vector(7 downto 0)
     );
 end vga;
 
@@ -262,9 +251,6 @@ architecture Behavioral of vga is
   signal indisplay_t1 : std_logic := '0';
   signal indisplay_t2 : std_logic := '0';
   signal indisplay_t3 : std_logic := '0';
-  
-  signal counter : unsigned(24 downto 0) := (others => '0');
-  signal slow_clock : std_logic := '0';
   
   signal reset : std_logic := '0';
   
@@ -531,51 +517,51 @@ begin
 
     if rising_edge(cpuclock) then
 
-      -- Allow fiddling of scale by switching switches
-      card_x_scale(3 downto 0) <= unsigned(sw(7 downto 4));
-      card_y_scale(3 downto 0) <= unsigned(sw(3 downto 0));
-      -- And video mode
-      multicolour_mode <= sw(8);
-      extended_background_mode <= sw(9);
-      text_mode <= sw(10);
-      sixteenbit_charset <= sw(11);
-      fullcolour_8bitchars <= sw(12);
-      fullcolour_extendedchars <= sw(13);
-      -- And adjust screen length
-      case sw(15 downto 14) is
-        when "00" => virtual_row_width <= to_unsigned(32,16);
-        when "01" => virtual_row_width <= to_unsigned(40,16);
-        when "10" => virtual_row_width <= to_unsigned(108,16);
-        when "11" => virtual_row_width <= to_unsigned(256,16);
-        when others => null;
-      end case;    
+      ---- Allow fiddling of scale by switching switches
+      --card_x_scale(3 downto 0) <= unsigned(sw(7 downto 4));
+      --card_y_scale(3 downto 0) <= unsigned(sw(3 downto 0));
+      ---- And video mode
+      --multicolour_mode <= sw(8);
+      --extended_background_mode <= sw(9);
+      --text_mode <= sw(10);
+      --sixteenbit_charset <= sw(11);
+      --fullcolour_8bitchars <= sw(12);
+      --fullcolour_extendedchars <= sw(13);
+      ---- And adjust screen length
+      --case sw(15 downto 14) is
+      --  when "00" => virtual_row_width <= to_unsigned(32,16);
+      --  when "01" => virtual_row_width <= to_unsigned(40,16);
+      --  when "10" => virtual_row_width <= to_unsigned(108,16);
+      --  when "11" => virtual_row_width <= to_unsigned(256,16);
+      --  when others => null;
+      --end case;    
 
 
-      counter <= counter + 1;
-      if counter = x"000000" then
-        slow_clock <= not slow_clock;
-        led3 <= slow_clock;
-        if btn(0) = '1' then
-          -- Right button: trim smooth scrolling right a pixel
-          x_chargen_start <= x_chargen_start + 1;
-        end if;
-        if btn(1) = '1' then
-          -- Down button: trim smooth scrolling down a pixel
-          y_chargen_start <= y_chargen_start + 1;
-        end if;
-        if btn(2) = '1' then
-          -- Up button: trim smooth scrolling right a pixel
-          y_chargen_start <= y_chargen_start - 1;
-        end if;
-        if btn(3) = '1' then
-          -- Left button: trim smooth scrolling right a pixel
-          x_chargen_start <= x_chargen_start - 1;
-        end if;
-        if btn(4) = '1' then
-          x_chargen_start <= to_unsigned(160,12); 
-          y_chargen_start <= to_unsigned(100,12);  
-        end if;
-      end if;
+      --counter <= counter + 1;
+      --if counter = x"000000" then
+      --  slow_clock <= not slow_clock;
+      --  led3 <= slow_clock;
+      --  if btn(0) = '1' then
+      --    -- Right button: trim smooth scrolling right a pixel
+      --    x_chargen_start <= x_chargen_start + 1;
+      --  end if;
+      --  if btn(1) = '1' then
+      --    -- Down button: trim smooth scrolling down a pixel
+      --    y_chargen_start <= y_chargen_start + 1;
+      --  end if;
+      --  if btn(2) = '1' then
+      --    -- Up button: trim smooth scrolling right a pixel
+      --    y_chargen_start <= y_chargen_start - 1;
+      --  end if;
+      --  if btn(3) = '1' then
+      --    -- Left button: trim smooth scrolling right a pixel
+      --    x_chargen_start <= x_chargen_start - 1;
+      --  end if;
+      --  if btn(4) = '1' then
+      --    x_chargen_start <= to_unsigned(160,12); 
+      --    y_chargen_start <= to_unsigned(100,12);  
+      --  end if;
+      --end if;
 
       if fastio_write='1'
         and (fastio_addr(19) = '0' or fastio_addr(19) = '1') then
@@ -771,10 +757,8 @@ begin
 
       if xcounter>=(frame_h_front+width) and xcounter<(frame_h_front+width+frame_h_syncwidth) then
         hsync <= '0';
-        led0 <= '0';
       else
         hsync <= '1';
-        led0 <= '1';
       end if;
       indisplay :='1';
       if xcounter<frame_width then
@@ -815,10 +799,8 @@ begin
       
       if ycounter>=(frame_v_front+height) and ycounter<(frame_v_front+height+frame_v_syncheight) then
         vsync <= '1';
-        led1 <= '1';
       else
         vsync <= '0';
-        led1 <= '0';
       end if;
       if xcounter = 0 then
         if ycounter<frame_v_front then
@@ -844,8 +826,6 @@ begin
           indisplay := '0';
         end if;
       end if;
-      
-      led2 <= displayy(9);
       
       display_active <= indisplay;
 
