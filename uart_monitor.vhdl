@@ -503,6 +503,7 @@ begin
             timeout <= 65535;
             state <= SetMemory5;
           when SetMemory5 =>
+            monitor_mem_write <= '0';
             if old_ready_value /= monitor_mem_ready_toggle then
               state <= SetMemory6;
             else
