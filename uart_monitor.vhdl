@@ -82,7 +82,7 @@ architecture behavioural of uart_monitor is
     "m <address>             - Display contents of memory" & crlf;
 
   constant errorMessage : string := crlf & "?SYNTAX  ERROR ";
-  constant timeoutMessage : string := crlf & "?TIMEOUT  ERROR" & crlf;
+  constant timeoutMessage : string := crlf & "?DEVICE NOT FOUND  ERROR" & crlf;
 
   constant registerMessage : string := crlf & "PC   A  X  Y  SP  P" & crlf;
   
