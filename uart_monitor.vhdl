@@ -2,6 +2,7 @@ library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use ieee.numeric_std.all;
 use Std.TextIO.all;
+use work.debugtools.all;
 
 entity uart_monitor is
   port (
@@ -57,11 +58,6 @@ architecture behavioural of uart_monitor is
 
   signal blink : std_logic := '1';
 
--- Buffer to hold entered command
-  signal cmdbuffer : String(1 to 64);
-  signal cmdlen : integer := 0;
-  signal redraw_position : integer;
-
   constant crlf : string := cr & lf;
   constant bannerMessage : String :=
     crlf &
@@ -94,10 +90,16 @@ architecture behavioural of uart_monitor is
                          ShowMemory1,ShowMemory2,ShowMemory3,ShowMemory4,
                          ShowMemory5,ShowMemory6,ShowMemory7
                          );
-  signal state : monitor_state := Reseting;
 
+  -- XXX For debugging parser, preload a command
+  signal state : monitor_state := EnterPressed3; -- Reseting;
+-- Buffer to hold entered command
+  signal cmdbuffer : String(1 to 64) := "m1234567                                                        ";
+  signal cmdlen : integer := 8;
+  signal redraw_position : integer;
+  
   -- For parsing commands
-  signal parse_position : integer;
+  signal parse_position : integer := 2;
   signal hex_value : unsigned(31 downto 0);
   signal target_address : unsigned(27 downto 0);
   signal target_value : unsigned(7 downto 0);
@@ -213,6 +215,7 @@ begin
       digits     : in integer;
       next_state : in monitor_state) is
     begin  -- print_hex
+      report "asked to print " & integer'image(digits) & " digits of " & to_hstring(value) severity note;
       hex_value <= value;
       hex_digits_read <= digits;
       hex_digits_output <= 0;
@@ -242,15 +245,21 @@ begin
       hex_value <= hex_value(27 downto 0) & digit;
       hex_digits_read <= hex_digits_read + 1;
     end got_hex_digit;
+    
     -- purpose: parse a hex digit
     procedure parse_hex_digit is
     begin  -- parse_hex_digit
-      if parse_position>=cmdlen then
+      report "parse_hex_digit " & character'image(cmdbuffer(parse_position)) severity note;
+      if parse_position>cmdlen then
         if hex_digits_read = 0 then
           -- If we reach end of command and have parsed no digit, it's an error
           state <= SyntaxError;
+        else
+          state <= success_state;
         end if;
       else
+        report "checkpoint parse_position=" & integer'image(parse_position)
+          severity note;
         case cmdbuffer(parse_position) is
           when '0' => got_hex_digit(x"0"); when '1' => got_hex_digit(x"1");
           when '2' => got_hex_digit(x"2"); when '3' => got_hex_digit(x"3");
@@ -270,6 +279,10 @@ begin
               state <= success_state;
             end if;
         end case;
+        parse_position <= parse_position + 1;
+        report "checkpoint: hex_value = $" & to_hstring(hex_value)
+          severity note;
+
       end if;
     end parse_hex_digit;
 
@@ -297,7 +310,7 @@ begin
       success_state <= next_state;
       state <= ParseHex;
       hex_value <= (others => '0');
-      hex_digits_read <= 0;
+      hex_digits_read <= 0;    
       parse_hex_digit;
     end parse_hex;
 
@@ -326,14 +339,16 @@ begin
 
   begin  -- process testclock
     if reset='0' then
-      state <= Reseting;      
+      state <= Reseting;   
     elsif rising_edge(clock) then
+
       -- Update counter and clear outputs
       counter <= counter + 1;
       tx_counter <= std_logic(counter(27));
       rx_acknowledge <= '0';
       tx_trigger<='0';
 
+      
       -- 1 cycle delay after sending characters
       if tx_trigger/='1' then      
         -- General state machine
@@ -411,10 +426,10 @@ begin
               cmdlen <= 1;
               try_output_char(cr,PrintPrompt);
             end if;
-          when EnterPressed => try_output_char(cr,EnterPressed2);
+          when EnterPressed => parse_position<=2; try_output_char(cr,EnterPressed2);
           when EnterPressed2 => try_output_char(lf,EnterPressed3);
           when EnterPressed3 =>
-            if cmdlen>1 then
+            if cmdlen>1 then              
               if (cmdbuffer(1) = 'h' or cmdbuffer(1) = 'H' or cmdbuffer(1) = '?') then
                 banner_position <= 1;
                 state <= PrintHelp;
@@ -422,7 +437,9 @@ begin
                 parse_position <= 2;
                 parse_hex(SetMemory1);
               elsif cmdbuffer(1) = 'm' or cmdbuffer(1) = 'M' then
+                report "read memory command" severity note;
                 parse_position <= 2;
+                report "trying to parse hex" severity note;
                 parse_hex(ShowMemory1);
               else
                 state <= SyntaxError;
@@ -458,7 +475,9 @@ begin
             -- XXX Need to actually read memory from the CPU
             target_address <= hex_value(27 downto 0);
             end_of_command(ShowMemory2);
-          when ShowMemory2 => print_hex_addr(target_address,ShowMemory3);
+          when ShowMemory2 =>
+            report "target_address=$" & to_hstring(target_address) severity note;
+            print_hex_addr(target_address,ShowMemory3);
           when ShowMemory3 => try_output_char(' ',ShowMemory4);
           when ShowMemory4 => try_output_char(':',ShowMemory5); byte_number <= 0;
           when ShowMemory5 => print_hex_addr(target_address,ShowMemory6);
