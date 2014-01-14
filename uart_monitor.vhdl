@@ -424,7 +424,7 @@ begin
               character_received(to_character(rx_data));
             end if;
           when RedrawInputBuffer => try_output_char(cr,RedrawInputBuffer2);
-          when RedrawInputBuffer2 => try_output_char('.',RedrawInputBuffer3);
+          when RedrawInputBuffer2 => redraw_position <= 1; try_output_char('.',RedrawInputBuffer3);
           when RedrawInputBuffer3 =>
             if redraw_position<cmdlen then
               try_output_char(cmdbuffer(redraw_position),RedrawInputBuffer3);
