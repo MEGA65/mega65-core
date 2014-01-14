@@ -79,7 +79,7 @@ begin  -- behavioural
         and bit_timer = '0' & bit_rate_divisor(13 downto 1) then
         report "reached mid bit point, bit = " & integer'image(bit_position) severity note;
         -- Reached mid bit
-        rx_data(bit_position) <= average_bits(UART_RX_debounced);
+        rx_data(bit_position) <= uart_rx; -- average_bits(UART_RX_debounced);
         if bit_position<9 then
           -- More bits to get
           bit_position <= bit_position + 1;
