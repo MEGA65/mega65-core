@@ -508,7 +508,7 @@ begin
             end_of_command(ShowMemory2);
           when ShowMemory2 => try_output_char(' ',ShowMemory3);
           when ShowMemory3 => try_output_char(':',ShowMemory4); byte_number <= 0;
-          when ShowMemory4 => print_hex_addr(target_address,ShowMemory4);
+          when ShowMemory4 => print_hex_addr(target_address,ShowMemory5);
           when ShowMemory5 =>
             if byte_number = 16 then
               state<=NextCommand;
