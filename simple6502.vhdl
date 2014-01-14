@@ -47,11 +47,11 @@ entity simple6502 is
     ---------------------------------------------------------------------------
     -- fast IO port (clocked at core clock). 1MB address space
     ---------------------------------------------------------------------------
-    fastio_addr : out std_logic_vector(19 downto 0);
-    fastio_read : out std_logic;
+    fastio_addr : inout std_logic_vector(19 downto 0);
+    fastio_read : inout std_logic;
     fastio_write : out std_logic;
     fastio_wdata : out std_logic_vector(7 downto 0);
-    fastio_rdata : in std_logic_vector(7 downto 0)
+    fastio_rdata : inout std_logic_vector(7 downto 0)
     );
 end entity simple6502;
 
@@ -922,4 +922,30 @@ begin
       end if;
     end if;
   end process;
+
+  -- purpose: present MMU registers to fastio interface
+  -- type   : combinational
+  -- inputs : ram_bank_registers_read
+  -- outputs: fastio_*
+  fastio: process (ram_bank_registers_read,fastio_addr)
+    variable address : unsigned(19 downto 0) := unsigned(fastio_addr);
+    variable rwx : integer := to_integer(address(7 downto 5));
+    variable lohi : std_logic := fastio_addr(0);
+    variable value : unsigned(15 downto 0);
+    variable reg_num : integer := to_integer(address(4 downto 1));
+  begin  -- process fastio
+    if fastio_read='1' and address(19 downto 8) = x"FFC0" then
+      case rwx is
+        when 0 => value := ram_bank_registers_read(reg_num);
+        when 1 => value := ram_bank_registers_read(reg_num);
+        when 2 => value := ram_bank_registers_read(reg_num);
+        when others => value := x"FFFF";
+      end case;
+      if lohi='0' then
+        fastio_rdata <= std_logic_vector(value(7 downto 0));
+      else
+        fastio_rdata <= std_logic_vector(value(15 downto 8));
+      end if;
+    end if;
+  end process fastio;
 end Behavioural;
