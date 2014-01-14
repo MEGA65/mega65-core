@@ -27,8 +27,7 @@ entity uart_monitor is
     monitor_mem_attention_request : out std_logic := '0';
     monitor_mem_attention_granted : in std_logic;
     monitor_mem_read : out std_logic := '0';
-    monitor_mem_write : out std_logic := '0';
-    monitor_mem_ready_toggle : in std_logic
+    monitor_mem_write : out std_logic := '0'
     );
 end uart_monitor;
 
@@ -98,10 +97,11 @@ architecture behavioural of uart_monitor is
                          EnterPressed,EnterPressed2,EnterPressed3,
                          EraseInputBuffer,EraseInputBuffer2,
                          SyntaxError,TimeoutError,
+                         CPUTransaction1,CPUTransaction2,CPUTransaction3,
                          ParseHex,
                          PrintHex,
                          SetMemory1,SetMemory2,SetMemory3,SetMemory4,SetMemory5,
-                         SetMemory6,SetMemory7,SetMemory8,SetMemory9,
+                         SetMemory6,SetMemory7,SetMemory8,
                          ShowMemory1,ShowMemory2,ShowMemory3,ShowMemory4,
                          ShowMemory5,ShowMemory6,ShowMemory7,ShowMemory8,
                          ShowRegisters,
@@ -111,7 +111,6 @@ architecture behavioural of uart_monitor is
                          ShowRegisters13,ShowRegisters14,ShowRegisters15
                          );
 
-  -- XXX For debugging parser, preload a command
   signal state : monitor_state := Reseting;
 -- Buffer to hold entered command
   signal cmdbuffer : String(1 to 64);
@@ -126,10 +125,10 @@ architecture behavioural of uart_monitor is
   signal hex_digits_read : integer;
   signal hex_digits_output : integer;
   signal success_state : monitor_state;
+  signal post_transaction_state : monitor_state;
   signal errorCode : unsigned(7 downto 0) := x"FF";
 
   signal timeout : integer;
-  signal old_ready_value : std_logic;
   
   type sixteenbytes is array (0 to 15) of unsigned(7 downto 0);
   signal membuf : sixteenbytes;
@@ -367,6 +366,16 @@ begin
       end if;
     end end_of_command;
 
+    -- purpose: perform a memory read or write from the CPU
+    procedure cpu_transaction (
+      next_state : in monitor_state) is
+    begin  -- cpu_transaction
+      monitor_mem_attention_request <= '0';
+      post_transaction_state <= next_state;
+      timeout <= 65535;
+      state <= CPUTransaction1;
+    end cpu_transaction;
+    
   begin  -- process testclock
     if reset='0' then
       state <= Reseting;   
@@ -502,36 +511,18 @@ begin
           when SetMemory1 => target_address <= hex_value(27 downto 0);
                              skip_space(SetMemory2);
           when SetMemory2 => parse_hex(SetMemory3);
-                             monitor_mem_attention_request <= '1';
           when SetMemory3 =>
             target_value <= hex_value(7 downto 0);
-            if monitor_mem_attention_granted = '1' then
-              end_of_command(SetMemory4);
-            end if;
+            end_of_command(SetMemory4);
           when SetMemory4 =>
             monitor_mem_write <= '1';
             monitor_mem_address <= std_logic_vector(target_address);
             monitor_mem_wdata <= target_value;
-            old_ready_value <= monitor_mem_ready_toggle;
-            timeout <= 65535;
-            state <= SetMemory5;
-          when SetMemory5 =>
-            monitor_mem_write <= '0';
-            if old_ready_value /= monitor_mem_ready_toggle then
-              state <= SetMemory6;
-            else
-              if timeout=0 then
-                state <= TimeoutError;
-              else
-                timeout <= timeout - 1;
-              end if;
-            end if;
-            -- Set contents of memory location <target_address> to <target_value>
-            -- XXX Not implemented
-            when SetMemory6 => try_output_char('=',SetMemory7);
-          when SetMemory7 => print_hex_addr(target_address,SetMemory8);
-          when SetMemory8 => try_output_char(' ',SetMemory9);
-          when SetMemory9 => print_hex_byte(target_value,NextCommand);            
+            cpu_transaction(SetMemory5);
+          when SetMemory5 => try_output_char('=',SetMemory6);
+          when SetMemory6 => print_hex_addr(target_address,SetMemory7);
+          when SetMemory7 => try_output_char(' ',SetMemory8);
+          when SetMemory8 => print_hex_byte(target_value,NextCommand);            
           when ParseHex => parse_hex_digit;
           when PrintHex =>
             if hex_digits_output<hex_digits_read then
@@ -547,32 +538,20 @@ begin
             -- XXX Need to actually read memory from the CPU
             target_address <= hex_value(27 downto 0);
             byte_number <= 0;
-            monitor_mem_attention_request <= '1';
-            if monitor_mem_attention_granted = '1' then
-              end_of_command(ShowMemory2);              
-            end if;
+            end_of_command(ShowMemory2);              
           when ShowMemory2 =>
             if byte_number>15 then
               state <= ShowMemory4;
             end if;
-            old_ready_value <= monitor_mem_ready_toggle;
             monitor_mem_read <= '1';
             monitor_mem_write <= '0';
             monitor_mem_address <= std_logic_vector(target_address + to_unsigned(byte_number,28));
             timeout <= 65535;
-            state <= ShowMemory3;
+            cpu_transaction(ShowMemory3);
           when ShowMemory3 =>
-            if old_ready_value /= monitor_mem_ready_toggle then
-              state <= ShowMemory2;
-              membuf(byte_number) <= monitor_mem_rdata;
-              byte_number <= byte_number +1;
-            else
-              if timeout=0 then
-                state <= TimeoutError;
-              else
-                timeout <= timeout - 1;
-              end if;
-            end if;
+            state <= ShowMemory2;
+            membuf(byte_number) <= monitor_mem_rdata;
+            byte_number <= byte_number +1;
           when ShowMemory4 => try_output_char(' ',ShowMemory5);
           when ShowMemory5 => try_output_char(':',ShowMemory6); byte_number <= 0;
           when ShowMemory6 => print_hex_addr(target_address,ShowMemory7);
@@ -618,6 +597,38 @@ begin
             banner_position <= 1; state <= PrintError;
           when TimeoutError =>
             banner_position <= 1; state <= PrintTimeoutError;
+          when CPUTransaction1 =>
+            if monitor_mem_attention_granted='0' then
+              monitor_mem_attention_request <= '1';
+              timeout <= 65535;
+              state <=CPUTransaction2;
+            else
+              if timeout=0 then
+                state <= TimeoutError;
+              end if;
+              timeout <= timeout - 1;
+            end if;
+          when CPUTransaction2 =>
+            if monitor_mem_attention_granted='1' then
+              -- Attention being granted implies that request has been fulfilled.
+              monitor_mem_attention_request <= '0';
+              timeout <= 65535;
+              state <= CPUTransaction3;
+            else
+              if timeout=0 then
+                state <= TimeoutError;
+              end if;
+              timeout <= timeout - 1;
+            end if;
+          when CPUTransaction3 =>
+            if monitor_mem_attention_granted = '0' then
+              state <= post_transaction_state;
+            else
+              if timeout=0 then
+                state <= TimeoutError;
+              end if;
+              timeout <= timeout - 1;              
+            end if;
           when others => null;
         end case;
       end if;

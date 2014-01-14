@@ -30,7 +30,6 @@ entity simple6502 is
     monitor_mem_read : in std_logic;
     monitor_mem_write : in std_logic;
     monitor_mem_register : out unsigned(15 downto 0);
-    monitor_mem_ready_toggle : out std_logic := '1';
     monitor_mem_attention_request : in std_logic;
     monitor_mem_attention_granted : out std_logic := '1';
 
@@ -57,9 +56,6 @@ entity simple6502 is
 end entity simple6502;
 
 architecture Behavioural of simple6502 is
-
-  signal monitor_mem_ready_toggle_internal : std_logic := '1';
-
   
 -- CPU RAM bank selection registers.
 -- Each 4KB (12 address bits) can be made to point to a section of memory.
@@ -104,7 +100,7 @@ architecture Behavioural of simple6502 is
     BRK1,BRK2,PLA1,PLP1,RTI1,RTI2,RTI3,RTS1,RTS2,JSR1,JMP1,JMP2,
     IndirectX1,IndirectY1,ExecuteDirect,RMWCommit,
     Halt,
-    MonitorAccess,MonitorAccessReadDone,MonitorAccessWriteDone
+    MonitorAccessDone
     );
   signal state : processor_state := ResetLow;  -- start processor in reset state
   -- For memory access we push the processor state to follow once the memory
@@ -839,46 +835,26 @@ begin
       elsif monitor_mem_attention_request='1'
             and state = InstructionFetch then
         -- Memory access by serial monitor.
-        state <= MonitorAccess;
+        if monitor_mem_read = '1' then
+          -- Read from specified long address
+          read_long_address(unsigned(monitor_mem_address),MonitorAccessDone);
+        elsif monitor_mem_write='1' then
+          -- Write to specified long address
+          write_long_byte(unsigned(monitor_mem_address),monitor_mem_wdata,
+                          MonitorAccessDone);
+        end if;   
       else
         -- CPU running, so do CPU state machine
-        if state /= MonitorAccess
-          and state /= MonitorAccessReadDone
-          and state /= MonitorAccessWriteDone then
+        if monitor_mem_attention_request='0' then
           check_for_interrupts;
         end if;
         case state is
-          when MonitorAccess =>
+          when MonitorAccessDone =>
             monitor_mem_attention_granted <= '1';
-            if monitor_mem_attention_request='1' then
-              if monitor_mem_read = '1' then
-                -- Read from specified long address
-                read_long_address(unsigned(monitor_mem_address),MonitorAccessReadDone);
-              elsif monitor_mem_write='1' then
-                -- Write to specified long address
-                write_long_byte(unsigned(monitor_mem_address),monitor_mem_wdata,
-                                MonitorAccessWriteDone);
-              end if;
-           else
-              -- Monitor has released us, so resume
+            if monitor_mem_attention_request='0' then
               monitor_mem_attention_granted <= '0';
-              monitor_mem_ready_toggle_internal <= '0';
-              monitor_mem_ready_toggle <= '0';
               state <= InstructionFetch;
             end if;
-          when MonitorAccessReadDone =>
-            monitor_mem_rdata <= read_data;
-            monitor_mem_ready_toggle_internal
-              <= not monitor_mem_ready_toggle_internal;
-            monitor_mem_ready_toggle
-              <= not monitor_mem_ready_toggle_internal;
-            state <= MonitorAccess;
-          when MonitorAccessWriteDone =>
-            monitor_mem_ready_toggle_internal
-              <= not monitor_mem_ready_toggle_internal;
-            monitor_mem_ready_toggle
-              <= not monitor_mem_ready_toggle_internal;
-            state <= MonitorAccess;
           when VectorRead => reg_pc <= vector; read_instruction_byte(vector,VectorRead2);
           when VectorRead2 => reg_pc(7 downto 0) <= read_data; read_instruction_byte(vector+1,VectorRead3);
           when VectorRead3 => reg_pc(15 downto 8) <= read_data; state <= InstructionFetch;
