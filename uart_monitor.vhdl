@@ -77,7 +77,7 @@ architecture behavioural of uart_monitor is
     "s <address> <value>     - Set memory." & crlf &
     "m <address>             - Display contents of memory" & crlf;
 
-  constant errorMessage : string := crlf & "? SYNTAX  ERROR" & crlf;
+  constant errorMessage : string := crlf & "?SYNTAX  ERROR" & crlf;
   
   type monitor_state is (Reseting,
                          PrintBanner,PrintHelp,PrintError,PrintError2,
@@ -251,7 +251,7 @@ begin
           state <= SyntaxError;
         end if;
       else
-        case cmdbuffer(cmdlen) is
+        case cmdbuffer(parse_position) is
           when '0' => got_hex_digit(x"0"); when '1' => got_hex_digit(x"1");
           when '2' => got_hex_digit(x"2"); when '3' => got_hex_digit(x"3");
           when '4' => got_hex_digit(x"4"); when '5' => got_hex_digit(x"5");
@@ -359,7 +359,7 @@ begin
               if banner_position<bannerMessage'length then
                 banner_position <= banner_position + 1;
               else
-                state <= PrintPrompt;
+                state <= NextCommand;
                 cmdlen <= 1;
               end if;
             end if;
