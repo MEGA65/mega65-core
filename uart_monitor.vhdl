@@ -68,7 +68,7 @@ architecture behavioural of uart_monitor is
     crlf &
     "--------------------------------" & crlf &
     "65GS Serial Monitor" & crlf &
-    "---------------------------------" & crlf &
+    "--------------------------------" & crlf &
     "Type ? for help." & crlf;
   signal banner_position : integer := 1;
   constant helpMessage : String :=
@@ -376,6 +376,7 @@ begin
           when PrintError2 =>
             if parse_position<cmdlen then
               if tx_ready='1' then
+                parse_position <= parse_position + 1;
                 try_output_char(cmdbuffer(parse_position),PrintError2);
               end if;
             else
