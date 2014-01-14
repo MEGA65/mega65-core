@@ -77,7 +77,8 @@ architecture behavioural of uart_monitor is
   constant timeoutMessage : string := crlf & "?TIMEOUT  ERROR" & crlf;
   
   type monitor_state is (Reseting,
-                         PrintBanner,PrintHelp,PrintError,PrintError2,
+                         PrintBanner,PrintHelp,
+                         PrintError,PrintError2,PrintError3,PrintError4,
                          PrintTimeoutError,
                          NextCommand,NextCommand2,PrintPrompt,
                          AcceptingInput,
@@ -399,11 +400,13 @@ begin
                 print_hex_byte(errorCode,PrintError2);
               end if;
             end if;
-          when PrintError2 =>
+          when PrintError2 => try_output_char(cr,PrintError3);
+          when PrintError3 => try_output_char(lf,PrintError4);
+          when PrintError4 =>
             if parse_position<cmdlen then
               if tx_ready='1' then
                 parse_position <= parse_position + 1;
-                try_output_char(cmdbuffer(parse_position),PrintError2);
+                try_output_char(cmdbuffer(parse_position),PrintError3);
               end if;
             else
               state <= NextCommand;
