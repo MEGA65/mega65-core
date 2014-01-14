@@ -287,17 +287,13 @@ begin
 
     return temp_address;
   end resolve_address_to_long;
-  
-  -- purpose: read from a 16-bit CPU address
-  procedure read_address (
-    memmap     : in bank_register_set;
-    address    : in unsigned(15 downto 0);    
+
+  procedure read_long_address(
+    long_address : in unsigned(27 downto 0);
     next_state : in processor_state) is
-    variable long_address : unsigned(27 downto 0);
-  begin  -- read_address
+  begin
     -- Schedule the memory read from the appropriate source.
     accessing_ram <= '0'; accessing_slowram <= '0'; accessing_fastio <= '0';
-    long_address := resolve_address_to_long(address,memmap);
     if long_address(27 downto 17)="00000000000" then
       report "Reading from fastram address $" & to_hstring(long_address(19 downto 0))
         & ", word $" & to_hstring(long_address(18 downto 3)) severity note;
@@ -318,18 +314,26 @@ begin
     end if;
     -- Once read, we then resume processing from the specified state.
     pending_state <= next_state;
+  end read_long_address;
+  
+  -- purpose: read from a 16-bit CPU address
+  procedure read_address (
+    memmap     : in bank_register_set;
+    address    : in unsigned(15 downto 0);    
+    next_state : in processor_state) is
+    variable long_address : unsigned(27 downto 0);
+  begin  -- read_address
+    long_address := resolve_address_to_long(address,memmap);
+    read_long_address(long_address,next_state);
   end read_address;
 
-  procedure write_byte (
-    memmap             : in bank_register_set;
-    address            : in unsigned(15 downto 0);
+  procedure write_long_byte(
+    long_address       : in unsigned(27 downto 0);
     value              : in unsigned(7 downto 0);
     next_state         : in processor_state) is
-    variable long_address : unsigned(27 downto 0);
   begin
     -- Schedule the memory write to the appropriate destination.
     accessing_ram <= '0'; accessing_slowram <= '0'; accessing_fastio <= '0';
-    long_address := resolve_address_to_long(address,memmap);
     report "Writing $" & to_hstring(value) & " @ $" & to_hstring(address)
       & " (resolves to $" & to_hstring(long_address) & ")" severity note;
     if long_address(27 downto 17)="00000000000" then
@@ -365,6 +369,17 @@ begin
     end if;
     -- Once read, we then resume processing from the specified state.
     pending_state <= next_state;
+  end write_long_byte;
+    
+  procedure write_byte (
+    memmap             : in bank_register_set;
+    address            : in unsigned(15 downto 0);
+    value              : in unsigned(7 downto 0);
+    next_state         : in processor_state) is
+    variable long_address : unsigned(27 downto 0);
+  begin
+    long_address := resolve_address_to_long(address,memmap);
+    write_long_byte(long_address,value,next_state);
   end procedure write_byte;
 
   procedure write_data_byte (
@@ -806,10 +821,36 @@ begin
         state <= VectorRead;
         vector <= x"FFFC";
         reset_cpu_state;
+      elsif (monitor_mem_read='1' or monitor_mem_write='1')
+            and state = InstructionFetch then
+        -- Memory access by serial monitor.
+        state <= MonitorAccess;
       else
         -- CPU running, so do CPU state machine
-        check_for_interrupts;
+        if state /= MonitorAccess
+          and state /= MonitorAccessReadDone
+          and state /= MonitorAccessWriteDone then
+          check_for_interrupts;
+        end if;
         case state is
+          when MonitorAccess =>
+            if monitor_mem_read = '1' then
+              -- Read from specified long address
+              read_long_address(monitor_mem_address,MonitorAccessReadDone);
+            elsif monitor_mem_write='1' then
+              -- Write to specified long address
+              write_long_byte(monitor_mem_address,MonitorAccessWriteDone);
+            else
+              -- Monitor has released us, so resume
+              state <= InstructionFetch;
+            end if;
+          when MonitorAccessReadDone =>
+            monitor_mem_rdata <= read_data;
+            monitor_mem_ready_toggle <= not monitor_mem_ready_toggle;
+            state <= MonitorAccess;
+          when MonitorAccessWriteDone =>
+            monitor_mem_ready_toggle <= not monitor_mem_ready_toggle;
+            state <= MonitorAccess;
           when VectorRead => reg_pc <= vector; read_instruction_byte(vector,VectorRead2);
           when VectorRead2 => reg_pc(7 downto 0) <= read_data; read_instruction_byte(vector+1,VectorRead3);
           when VectorRead3 => reg_pc(15 downto 8) <= read_data; state <= InstructionFetch;
