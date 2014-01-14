@@ -565,9 +565,14 @@ begin
             timeout <= 65535;
             cpu_transaction(ShowMemory3);
           when ShowMemory3 =>
-            state <= ShowMemory2;
-            membuf(byte_number) <= monitor_mem_rdata;
-            byte_number <= byte_number +1;
+            if tx_ready='1' then
+              membuf(byte_number) <= monitor_mem_rdata;
+              byte_number <= byte_number +1;
+              state <= ShowMemory2;
+              -- XXX Some debug output so that we know how many chars get read
+              -- before things jam up.
+              try_output_char('-',ShowMemory2);
+            end if;
           when ShowMemory4 => try_output_char(' ',ShowMemory5);
           when ShowMemory5 => try_output_char(':',ShowMemory6); byte_number <= 0;
           when ShowMemory6 => print_hex_addr(target_address,ShowMemory7);
