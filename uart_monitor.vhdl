@@ -24,6 +24,8 @@ entity uart_monitor is
     monitor_mem_rdata : in unsigned(7 downto 0);
     monitor_mem_wdata : out unsigned(7 downto 0);
     monitor_mem_register : in unsigned(15 downto 0);
+    monitor_mem_attention_request : out std_logic := '0';
+    monitor_mem_attention_granted : in std_logic;
     monitor_mem_read : out std_logic := '0';
     monitor_mem_write : out std_logic := '0';
     monitor_mem_ready_toggle : in std_logic
@@ -380,6 +382,7 @@ begin
       if rx_ready='1' then
         monitor_mem_read <= '0';
         monitor_mem_write <= '0';
+        monitor_mem_attention_request <= '0';
       end if;
       
       -- 1 cycle delay after sending characters
@@ -499,8 +502,12 @@ begin
           when SetMemory1 => target_address <= hex_value(27 downto 0);
                              skip_space(SetMemory2);
           when SetMemory2 => parse_hex(SetMemory3);
-          when SetMemory3 => target_value <= hex_value(7 downto 0);
-                             end_of_command(SetMemory4);
+                             monitor_mem_attention_request <= '1';
+          when SetMemory3 =>
+            target_value <= hex_value(7 downto 0);
+            if monitor_mem_attention_granted = '1' then
+              end_of_command(SetMemory4);
+            end if;
           when SetMemory4 =>
             monitor_mem_write <= '1';
             monitor_mem_address <= std_logic_vector(target_address);
@@ -540,7 +547,10 @@ begin
             -- XXX Need to actually read memory from the CPU
             target_address <= hex_value(27 downto 0);
             byte_number <= 0;
-            end_of_command(ShowMemory2);
+            monitor_mem_attention_request <= '1';
+            if monitor_mem_attention_granted = '1' then
+              end_of_command(ShowMemory2);              
+            end if;
           when ShowMemory2 =>
             if byte_number>15 then
               state <= ShowMemory4;

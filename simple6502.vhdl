@@ -31,6 +31,9 @@ entity simple6502 is
     monitor_mem_write : in std_logic;
     monitor_mem_register : out unsigned(15 downto 0);
     monitor_mem_ready_toggle : out std_logic := '1';
+    monitor_mem_attention_request : in std_logic;
+    monitor_mem_attention_granted : out std_logic := '1';
+
     
     ---------------------------------------------------------------------------
     -- Interface to FastRAM in video controller (just 128KB for now)
@@ -833,7 +836,7 @@ begin
         state <= VectorRead;
         vector <= x"FFFC";
         reset_cpu_state;
-      elsif (monitor_mem_read='1' or monitor_mem_write='1')
+      elsif monitor_mem_attention_request='1'
             and state = InstructionFetch then
         -- Memory access by serial monitor.
         state <= MonitorAccess;
@@ -846,15 +849,21 @@ begin
         end if;
         case state is
           when MonitorAccess =>
-            if monitor_mem_read = '1' then
-              -- Read from specified long address
-              read_long_address(unsigned(monitor_mem_address),MonitorAccessReadDone);
-            elsif monitor_mem_write='1' then
-              -- Write to specified long address
-              write_long_byte(unsigned(monitor_mem_address),monitor_mem_wdata,
-                              MonitorAccessWriteDone);
-            else
+            monitor_mem_attention_granted <= '1';
+            if monitor_mem_attention_request='1' then
+              if monitor_mem_read = '1' then
+                -- Read from specified long address
+                read_long_address(unsigned(monitor_mem_address),MonitorAccessReadDone);
+              elsif monitor_mem_write='1' then
+                -- Write to specified long address
+                write_long_byte(unsigned(monitor_mem_address),monitor_mem_wdata,
+                                MonitorAccessWriteDone);
+              end if;
+           else
               -- Monitor has released us, so resume
+              monitor_mem_attention_granted <= '0';
+              monitor_mem_ready_toggle_internal <= '0';
+              monitor_mem_ready_toggle <= '0';
               state <= InstructionFetch;
             end if;
           when MonitorAccessReadDone =>

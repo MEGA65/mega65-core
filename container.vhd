@@ -89,7 +89,9 @@ architecture Behavioral of container is
       monitor_mem_register : in unsigned(15 downto 0);
       monitor_mem_read : out std_logic := '0';
       monitor_mem_write : out std_logic := '0';
-      monitor_mem_ready_toggle : in std_logic
+      monitor_mem_ready_toggle : in std_logic;
+      monitor_mem_attention_request : out std_logic;
+      monitor_mem_attention_granted : in std_logic
       );
   end component;
 
@@ -131,6 +133,9 @@ architecture Behavioral of container is
       monitor_mem_read : in std_logic;
       monitor_mem_write : in std_logic;
       monitor_mem_ready_toggle : out std_logic := '1';
+      monitor_mem_attention_request : in std_logic;
+      monitor_mem_attention_granted : out std_logic;
+
 
       ---------------------------------------------------------------------------
       -- Interface to FastRAM in video controller (just 128KB for now)
@@ -255,6 +260,8 @@ architecture Behavioral of container is
   signal monitor_mem_read : std_logic;
   signal monitor_mem_write : std_logic;
   signal monitor_mem_ready_toggle : std_logic;
+  signal monitor_mem_attention_request : std_logic;
+  signal monitor_mem_attention_granted : std_logic;
 
   signal monitor_a : std_logic_vector(7 downto 0);
   signal monitor_x : std_logic_vector(7 downto 0);
@@ -279,8 +286,9 @@ begin
         cpuclock <= not cpuclock;
       end if;
       led0 <= monitor_mem_read;
-      led1 <= monitor_mem_write;
-      led2 <= monitor_mem_ready_toggle;
+      led1 <= monitor_mem_ready_toggle;
+      led2 <= monitor_mem_attention_request;
+      led3 <= monitor_mem_attention_granted;
       
       segled_counter <= segled_counter + 1;
 
@@ -386,7 +394,9 @@ begin
     monitor_mem_read => monitor_mem_read,
     monitor_mem_write => monitor_mem_write,
     monitor_mem_ready_toggle => monitor_mem_ready_toggle,
-  
+    monitor_mem_attention_request => monitor_mem_attention_request,
+    monitor_mem_attention_granted => monitor_mem_attention_granted,
+
     fastram_we => fastram_we,
     fastram_read => fastram_read,
     fastram_write => fastram_write,
@@ -423,7 +433,7 @@ begin
       
 --      led1            => led1,
 --      led2            => led2,
-      led3            => led3,
+--      led3            => led3,
       sw              => sw,
       btn             => btn);
   
@@ -459,7 +469,9 @@ begin
     monitor_mem_register => monitor_mem_register,
     monitor_mem_read => monitor_mem_read,
     monitor_mem_write => monitor_mem_write,
-    monitor_mem_ready_toggle => monitor_mem_ready_toggle
+    monitor_mem_ready_toggle => monitor_mem_ready_toggle,
+    monitor_mem_attention_request => monitor_mem_attention_request,
+    monitor_mem_attention_granted => monitor_mem_attention_granted
 );
   
 end Behavioral;
