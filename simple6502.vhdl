@@ -100,7 +100,7 @@ architecture Behavioural of simple6502 is
     BRK1,BRK2,PLA1,PLP1,RTI1,RTI2,RTI3,RTS1,RTS2,JSR1,JMP1,JMP2,
     IndirectX1,IndirectY1,ExecuteDirect,RMWCommit,
     Halt,
-    MonitorAccessDone
+    MonitorAccessDone,MonitorReadDone
     );
   signal state : processor_state := ResetLow;  -- start processor in reset state
   -- For memory access we push the processor state to follow once the memory
@@ -843,7 +843,7 @@ begin
                           MonitorAccessDone);
         else
           -- Read from specified long address
-          read_long_address(unsigned(monitor_mem_address),MonitorAccessDone);
+          read_long_address(unsigned(monitor_mem_address),MonitorReadDone);
         end if;   
       else
         -- CPU running, so do CPU state machine
@@ -851,6 +851,9 @@ begin
           check_for_interrupts;
         end if;
         case state is
+          when MonitorReadDone =>
+            monitor_mem_rdata <= read_data;
+            state <= MonitorAccessDone;
           when MonitorAccessDone =>
             monitor_mem_attention_granted <= '1';
             if monitor_mem_attention_request='0' then
