@@ -271,6 +271,11 @@ begin
         cpuclock_divisor <= 0;
         cpuclock <= not cpuclock;
       end if;
+
+      -- Hardware buttons for triggering IRQ & NMI
+      irq <= not btn(0);
+      nmi <= not btn(4);
+      
       led0 <= monitor_mem_read;
       led1 <= monitor_mem_write;
       led2 <= monitor_mem_attention_request;
