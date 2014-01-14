@@ -377,7 +377,7 @@ begin
       tx_trigger<='0';
 
       -- Make sure we don't leave the CPU locked
-      if rx_ready='1' or state <= AcceptingInput then
+      if rx_ready='1' then
         monitor_mem_read <= '0';
         monitor_mem_write <= '0';
       end if;
@@ -552,7 +552,6 @@ begin
             timeout <= 65535;
             state <= ShowMemory3;
           when ShowMemory3 =>
-            monitor_mem_read <= '0';
             if old_ready_value /= monitor_mem_ready_toggle then
               state <= ShowMemory2;
               membuf(byte_number) <= monitor_mem_rdata;
