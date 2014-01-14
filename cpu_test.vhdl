@@ -43,55 +43,55 @@ architecture behavior of cpu_test is
 
   signal UART_TXD : std_logic;
   signal RsRx : std_logic;
-         
+  
   signal sseg_ca : std_logic_vector(7 downto 0);
   signal sseg_an : std_logic_vector(7 downto 0);
   
-component container is
-  Port ( CLK_IN : STD_LOGIC;         
-         btnCpuReset : in  STD_LOGIC;
+  component container is
+    Port ( CLK_IN : STD_LOGIC;         
+           btnCpuReset : in  STD_LOGIC;
 --         irq : in  STD_LOGIC;
 --         nmi : in  STD_LOGIC;
 
-         ----------------------------------------------------------------------
-         -- VGA output
-         ----------------------------------------------------------------------
-         vsync : out  STD_LOGIC;
-         hsync : out  STD_LOGIC;
-         vgared : out  UNSIGNED (3 downto 0);
-         vgagreen : out  UNSIGNED (3 downto 0);
-         vgablue : out  UNSIGNED (3 downto 0);
+           ----------------------------------------------------------------------
+           -- VGA output
+           ----------------------------------------------------------------------
+           vsync : out  STD_LOGIC;
+           hsync : out  STD_LOGIC;
+           vgared : out  UNSIGNED (3 downto 0);
+           vgagreen : out  UNSIGNED (3 downto 0);
+           vgablue : out  UNSIGNED (3 downto 0);
 
-         ----------------------------------------------------------------------
-         -- Debug interfaces on Nexys4 board
-         ----------------------------------------------------------------------
-         led0 : out std_logic;
-         led1 : out std_logic;
-         led2 : out std_logic;
-         led3 : out std_logic;
-         sw : in std_logic_vector(15 downto 0);
-         btn : in std_logic_vector(4 downto 0);
+           ----------------------------------------------------------------------
+           -- Debug interfaces on Nexys4 board
+           ----------------------------------------------------------------------
+           led0 : out std_logic;
+           led1 : out std_logic;
+           led2 : out std_logic;
+           led3 : out std_logic;
+           sw : in std_logic_vector(15 downto 0);
+           btn : in std_logic_vector(4 downto 0);
 
-         UART_TXD : out std_logic;
-         RsRx : in std_logic;
-         
-         sseg_ca : out std_logic_vector(7 downto 0);
-         sseg_an : out std_logic_vector(7 downto 0)
-         );
-end component;
+           UART_TXD : out std_logic;
+           RsRx : in std_logic;
+           
+           sseg_ca : out std_logic_vector(7 downto 0);
+           sseg_an : out std_logic_vector(7 downto 0)
+           );
+  end component;
 
 begin
   core0: container
-  port map (
+    port map (
       clk_in      => clock,
-      btnCpuReset      => '0',
+      btnCpuReset      => reset,
       
       vsync           => vsync,
       hsync           => hsync,
       vgared          => vgared,
       vgagreen        => vgagreen,
       vgablue         => vgablue,
-            
+      
       led0            => led0,
       led1            => led1,
       led2            => led2,
@@ -123,8 +123,8 @@ begin
       wait for 5 ns;
     end loop;  -- i
     for j in 0 to uart_bit_stream'high loop
-      rsrx<=uart_bit_stream(j);
-      report "Writing bit to UART" severity note;
+--      rsrx<=uart_bit_stream(j);
+--      report "Writing bit to UART" severity note;
       for i in 1 to 832 loop
         clock <= '1';
         cpuclock <= not cpuclock;
@@ -134,13 +134,15 @@ begin
       end loop;  -- i
     end loop;  -- j
     rsrx <= '1';
-    for i in 1 to 832 loop
-      clock <= '1';
-      cpuclock <= not cpuclock;
-      wait for 5 ns;     
-      clock <= '0';
-      wait for 5 ns;
-    end loop;  -- i
+    for j in 0 to 1000000 loop
+      for i in 1 to 832 loop
+        clock <= '1';
+        cpuclock <= not cpuclock;
+        wait for 5 ns;     
+        clock <= '0';
+        wait for 5 ns;
+      end loop;  -- i          
+    end loop;  -- j
     assert false report "End of simulation" severity failure;
   end process;
 end behavior;
