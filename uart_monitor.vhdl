@@ -74,19 +74,21 @@ architecture behavioural of uart_monitor is
     "m <address>             - Display contents of memory" & crlf;
 
   constant errorMessage : string := crlf & "?SYNTAX  ERROR" & crlf;
+  constant timeoutMessage : string := crlf & "?TIMEOUT  ERROR" & crlf;
   
   type monitor_state is (Reseting,
                          PrintBanner,PrintHelp,PrintError,PrintError2,
+                         PrintTimeoutError,
                          NextCommand,NextCommand2,PrintPrompt,
                          AcceptingInput,
                          RedrawInputBuffer,RedrawInputBuffer2,RedrawInputBuffer3,
                          EnterPressed,EnterPressed2,EnterPressed3,
                          EraseInputBuffer,EraseInputBuffer2,
-                         SyntaxError,
+                         SyntaxError,TimeoutError,
                          ParseHex,
                          PrintHex,
                          SetMemory1,SetMemory2,SetMemory3,SetMemory4,SetMemory5,
-                         SetMemory6,SetMemory7,SetMemory8,SetMemory9,
+                         SetMemory6,SetMemory7,SetMemory8,
                          ShowMemory1,ShowMemory2,ShowMemory3,ShowMemory4,
                          ShowMemory5,ShowMemory6,ShowMemory7
                          );
@@ -107,6 +109,9 @@ architecture behavioural of uart_monitor is
   signal hex_digits_output : integer;
   signal success_state : monitor_state;
 
+  signal timeout : integer;
+  signal old_ready_value : std_logic;
+  
   type sixteenbytes is array (0 to 15) of unsigned(7 downto 0);
   signal membuf : sixteenbytes;
   signal byte_number : integer;
@@ -250,7 +255,7 @@ begin
     procedure parse_hex_digit is
     begin  -- parse_hex_digit
       report "parse_hex_digit " & character'image(cmdbuffer(parse_position)) severity note;
-      if parse_position>cmdlen then
+      if parse_position>=cmdlen then
         if hex_digits_read = 0 then
           -- If we reach end of command and have parsed no digit, it's an error
           state <= SyntaxError;
@@ -397,6 +402,16 @@ begin
             else
               state <= NextCommand;
             end if;
+          when PrintTimeoutError =>
+            if tx_ready='1' then
+              tx_data <= to_std_logic_vector(timeoutMessage(banner_position));
+              tx_trigger <= '1';
+              if banner_position<timeoutMessage'length then
+                banner_position <= banner_position + 1;
+              else
+                state <= NextCommand;
+              end if;
+            end if;
           when NextCommand => cmdlen <= 1; try_output_char(cr,NextCommand2);
           when NextCommand2 => try_output_char(lf,PrintPrompt);
           when PrintPrompt => try_output_char('.',AcceptingInput);
@@ -454,12 +469,28 @@ begin
           when SetMemory3 => target_value <= hex_value(7 downto 0);
                              end_of_command(SetMemory4);
           when SetMemory4 =>
+            monitor_mem_write <= '1';
+            monitor_mem_address <= std_logic_vector(target_address);
+            monitor_mem_wdata <= target_value;
+            old_ready_value <= monitor_mem_ready_toggle;
+            timeout <= 65535;
+            state <= SetMemory5;
+          when SetMemory5 =>
+            if old_ready_value /= monitor_mem_ready_toggle then
+              state <= SetMemory6;
+            else
+              if timeout=0 then
+                state <= TimeoutError;
+              else
+                timeout <= timeout - 1;
+              end if;
+            end if;
             -- Set contents of memory location <target_address> to <target_value>
             -- XXX Not implemented
             try_output_char('=',SetMemory5);
-          when SetMemory5 => print_hex_addr(target_address,SetMemory5);
-          when SetMemory6 => try_output_char(' ',SetMemory7);
-          when SetMemory7 => print_hex_byte(target_value,NextCommand);            
+          when SetMemory6 => print_hex_addr(target_address,SetMemory7);
+          when SetMemory7 => try_output_char(' ',SetMemory8);
+          when SetMemory8 => print_hex_byte(target_value,NextCommand);            
           when ParseHex => parse_hex_digit;
           when PrintHex =>
             if hex_digits_output<hex_digits_read then
@@ -492,6 +523,8 @@ begin
             print_hex_byte(membuf(byte_number),ShowMemory6);
           when SyntaxError =>
             banner_position <= 1; state <= PrintError;
+          when TimeoutError =>
+            banner_position <= 1; state <= PrintTimeoutError;
           when others => null;
         end case;
       end if;
