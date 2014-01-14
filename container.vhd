@@ -459,7 +459,7 @@ begin
     clock => cpuclock,
 -- Need to use the following during simulation in ghdl, as dotclock1 doesn't
 -- elaborate in GHDL as it depends on Xilinx libraries.
---    dotclock => CLK_IN,
+--    clock => CLK_IN,
     tx       => UART_TXD,
     rx       => RsRx,
     activity => led1,
