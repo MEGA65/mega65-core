@@ -249,6 +249,7 @@ begin
       end if;
       hex_value <= hex_value(27 downto 0) & digit;
       hex_digits_read <= hex_digits_read + 1;
+      parse_position <= parse_position + 1;
     end got_hex_digit;
     
     -- purpose: parse a hex digit
@@ -284,7 +285,6 @@ begin
               state <= success_state;
             end if;
         end case;
-        parse_position <= parse_position + 1;
         report "checkpoint: hex_value = $" & to_hstring(hex_value)
           severity note;
 
