@@ -50,6 +50,13 @@ the write.
 Instruction cycle counts
 -------------------
 
+The following section is horribly wrong, as the CPU core has been
+completely re-written, and does not yet support the fast RAM multiple
+reads that shave the cycle counts down.  ASL, INC etc perform the
+expected dummy writes for compatibility with many interrupt handlers
+that use instructions like ASL $D019 or INC $D019 to acknowledge
+interrupts without requiring a register.
+
 The primary driver for cycle counts are the addressing mode
 concerned. The following table is for normal instructions.  Notes
 following the table describe deviations from this table.
@@ -89,10 +96,10 @@ flags for RTI) are read in a single cycle.
 * BRK takes 
 * For accesses to slow RAM and I/O substantial delays may be incurred
 due to the access time of those address types. Slow RAM has an access
-time of 70ns (7 cycles at 100MHz, 11 cycles at 150MHz).  This penalty
-applies to each such memory access.  For example, executing LSR $4000
-where $4000 is a slow RAM address will incur the penalty twice, as
-location $4000 must be read and then written to.
+time of 70ns (14MHz, 5 cycles at 64MHz).  This penalty applies to each
+such memory access.  For example, executing LSR $4000 where $4000 is a
+slow RAM address will incur the penalty twice, as location $4000 must
+be read and then written to. 
 
 CAVEATS
 -------
@@ -108,7 +115,7 @@ SPECIAL INSTRUCTIONS
 
 SETMAP Set MMU bank register
 
-(A<<8)|X) -> MMU[Y]        N Z C I D V
+(A<<8)|X -> MMU[Y]        N Z C I D V
                                       - - - - - -
 
      addressing    assembler    opc  bytes  cyles

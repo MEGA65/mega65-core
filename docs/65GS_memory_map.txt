@@ -22,12 +22,12 @@ uses a wide internal memory bus to minimise cycle counts.  Most
 instructions complete in 1 or 2 cycles.  More than one core may be
 present on architectures that support it.
 - 65GS69 (VampireSquid), a 6569-inspired video controller, directly
-driving a 1600x1200 VGA output, supporting a 256-colour palette drawn
-from a 24-bit* colour space, and higher-resolution modes, upto
-1600x1200.  All higher-resolution modes are text modes, using standard
-or 256-colour colour character glyphs, so that high resolution modes
-can be used without consuming too much memory. Only one core will be
-present. 
+driving a 1920x1200@60Hz VGA output, supporting a 256-colour palette
+drawn from a 24-bit* colour space, and higher-resolution modes, upto
+1920x1200.  All higher-resolution modes are normally text modes, using
+standard or 256-colour colour character glyphs, so that high
+resolution modes can be used without consuming too much memory. Only
+one core will be present. 
 
 * On the prototype Nexys4 FPGA and some other FPGA boards the colour
   depth is limited to 12-bit due to limitations in the VGA interface
@@ -46,7 +46,8 @@ memory writes. This means that it is possible to have 64KB of code
 co-exist with 64KB of data.  
 
 The video chip also banks independently from the processor, but is
-only able to access the 512KB fast ram.
+only able to access the 128KB fast ram, plus some other special IO
+memories.
 
 Long 28-bit addresses are expressed as a 16-bit bank prefix followed
 by the 12-bit intra-page address.  For example, $0001.0000 refers to
@@ -64,24 +65,26 @@ $FFD3.000 - $FFD3.FFF - I/O page, with extra registers and features enabled.
 $FFD2.000 - $FFD2.FFF - C64-style I/O page, extra features enabled (eg REU).
 $FFD1.000 - $FFD1.FFF - C65-style I/O page, with extra registers enabled.
 $FFD0.000 - $FFD0.FFF - C64-style I/O page.
-$FFC0.000 - $FFCF.FFF - Reserved (most likely will be used for I/O pages).
+$FFC0.060 - $FFCF.FFF - Reserved (most likely will be used for I/O
+pages).
+$FFC0.000 - $FFC0.05F - Alternate access to CPU MMU registers.
 $F000.000 - $FFBF.FFF - Reserved (most likely will be used for I/O)
 $9000.000 - $EFFF.FFF - Reserved for slow-RAM expansion (allows 112MB total).
 $8000.000 - $8FFF.FFF - 16MB slow RAM (approximately 14MHz).
 $0080.000 - $7FFF.FFF - Reserved for fast-RAM expansion (allows 128MB total).
-$0000.000 - $007F.FFF - 512KB Fast RAM (full clock speed, ~100MHz - 200MHz).
+$0000.000 - $001F.FFF - 128KB Fast RAM (full clock speed, 64MHz at present).
 
 ROMs on the C65GS will initially be implemented as pre-initialised RAM
-blocks, and by mapping those blocks for read and execute, with writes
-directed to another block of RAM.  In this way the C64 style semantic
-of reading from ROM and writing to "underlying" RAM can be directly
-supported.
+block in the fastio space, and by mapping those blocks for read and
+execute, with writes directed to another block of RAM.  In this way
+the C64 style semantic of reading from ROM and writing to "underlying"
+RAM can be directly supported.
 
 The C64 side memory map is as for a standard C64, using FPGA64 for its'
 implementation.
 
-C64 ROMs will be loaded from microSD to avoid copyright problems in
-FPGA configuration bitstream.
+C64 ROMs will be loaded from microSD to avoid any potential copyright
+problems in FPGA configuration bitstream.
 
 IO MEMORY MAP
 -------------
@@ -187,18 +190,18 @@ Approximate REU DMA transfer speeds:
 +-------+-------+------------+
 |Source |Target |Speed       |
 +-------+-------+------------+
-|FastRAM|FastRAM|~1GB/sec*   |
+|FastRAM|FastRAM|~512MB/sec*   |
 |FastRAM|SlowRAM|~28MB/sec^  |
 |SlowRAM|SlowRAM|~28MB/sec^  |
 |SlowRAM|FastRAM|~28MB/sec^  |
-|FastRAM|Fast IO|~100MB/sec% |
+|FastRAM|Fast IO|~64MB/sec% |
 |SlowRAM|Slow IO|~1MB/sec#   |
-|Fast IO|FastRAM|~100MB/sec% |
+|Fast IO|FastRAM|~64MB/sec% |
 |Slow IO|SlowRAM|~1MB/sec#   |
 |Slow IO|FastRAM|Not possible|
 |Fast IO|SlowRAM|Not possible|
 +-------+-------+------------+
-* Transfers are 64bits wide at fast clock speed.
-^ Transfers are 16bits wide at slow clock speed.
-% Transfers are 8bits wide at fast (C65GS) IO clock speed.
+* Transfers are 64bits wide at fast RAM clock speed (64MHz).
+^ Transfers are 16bits wide at slow RAM clock speed (~14MHz).
+% Transfers are 8bits wide at fast (C65GS) IO clock speed (64MHz).
 # Transfers are 8bits wide at slow (C64) IO clock speed.
