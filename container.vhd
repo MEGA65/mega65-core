@@ -391,75 +391,75 @@ begin
 
   -- XXX For now just use 128KB FastRAM instead of 512KB which causes major routing
   -- headaches.
-  --fastram1 : component ram64x16k
-  --  PORT MAP (
-  --    clka => cpuclock,
-  --    wea => fastram_we,
-  --    addra => fastram_address,
-  --    dina => fastram_datain,
-  --    douta => fastram_dataout,
-  --    -- video controller use port b of the dual-port fast ram.
-  --    -- The CPU uses port a
-  --    clkb => pixelclock,
-  --    web => (others => '0'),
-  --    addrb => vga_fastramaddress,
-  --    dinb => (others => '0'),
-  --    doutb => vga_fastramdata
-  --    );
+  fastram1 : component ram64x16k
+    PORT MAP (
+      clka => cpuclock,
+      wea => fastram_we,
+      addra => fastram_address,
+      dina => fastram_datain,
+      douta => fastram_dataout,
+      -- video controller use port b of the dual-port fast ram.
+      -- The CPU uses port a
+      clkb => pixelclock,
+      web => (others => '0'),
+      addrb => vga_fastramaddress,
+      dinb => (others => '0'),
+      doutb => vga_fastramdata
+      );
 
-  --cpu0: simple6502 port map(
-  --  clock => cpuclock,reset =>'1',irq => irq,
-  --  nmi => nmi,
-  --  monitor_pc => monitor_pc,
-  --  monitor_state => monitor_state,
+  cpu0: simple6502 port map(
+    clock => cpuclock,reset =>btnCpuReset,irq => irq,
+    nmi => nmi,
+    monitor_pc => monitor_pc,
+    monitor_state => monitor_state,
 
-  --  monitor_mem_address => monitor_mem_address,
-  --  monitor_mem_rdata => monitor_mem_rdata,
-  --  monitor_mem_wdata => monitor_mem_wdata,
-  --  monitor_mem_register => monitor_mem_register,
-  --  monitor_mem_read => monitor_mem_read,
-  --  monitor_mem_write => monitor_mem_write,
-  --  monitor_mem_ready_toggle => monitor_mem_ready_toggle,
+    monitor_mem_address => monitor_mem_address,
+    monitor_mem_rdata => monitor_mem_rdata,
+    monitor_mem_wdata => monitor_mem_wdata,
+    monitor_mem_register => monitor_mem_register,
+    monitor_mem_read => monitor_mem_read,
+    monitor_mem_write => monitor_mem_write,
+    monitor_mem_ready_toggle => monitor_mem_ready_toggle,
   
-  --  fastram_we => fastram_we,
-  --  fastram_read => fastram_read,
-  --  fastram_write => fastram_write,
-  --  fastram_address => fastram_address,
-  --  fastram_datain => fastram_datain,
-  --  fastram_dataout => fastram_dataout,
+    fastram_we => fastram_we,
+    fastram_read => fastram_read,
+    fastram_write => fastram_write,
+    fastram_address => fastram_address,
+    fastram_datain => fastram_datain,
+    fastram_dataout => fastram_dataout,
     
-  --  fastio_addr => fastio_addr,
-  --  fastio_read => fastio_read,
-  --  fastio_write => fastio_write,
-  --  fastio_wdata => fastio_wdata,
-  --  fastio_rdata => fastio_rdata
-  --  );
+    fastio_addr => fastio_addr,
+    fastio_read => fastio_read,
+    fastio_write => fastio_write,
+    fastio_wdata => fastio_wdata,
+    fastio_rdata => fastio_rdata
+  );
   
-  --vga0: vga
-  --  port map (
-  --    pixelclock      => pixelclock,
-  --    cpuclock        => cpuclock,
+  vga0: vga
+    port map (
+      pixelclock      => pixelclock,
+      cpuclock        => cpuclock,
       
-  --    vsync           => vsync,
-  --    hsync           => hsync,
-  --    vgared          => vgared,
-  --    vgagreen        => vgagreen,
-  --    vgablue         => vgablue,
+      vsync           => vsync,
+      hsync           => hsync,
+      vgared          => vgared,
+      vgagreen        => vgagreen,
+      vgablue         => vgablue,
+     
+      ramaddress      => vga_fastramaddress,
+      ramdata         => vga_fastramdata,
       
-  --    ramaddress      => vga_fastramaddress,
-  --    ramdata         => vga_fastramdata,
+      fastio_addr     => fastio_addr,
+      fastio_read     => fastio_read,
+      fastio_write    => fastio_write,
+      fastio_wdata    => fastio_wdata,
+      fastio_rdata    => fastio_rdata,
       
-  --    fastio_addr     => fastio_addr,
-  --    fastio_read     => fastio_read,
-  --    fastio_write    => fastio_write,
-  --    fastio_wdata    => fastio_wdata,
-  --    fastio_rdata    => fastio_rdata,
-      
-  --    led1            => led1,
-  --    led2            => led2,
-  --    led3            => led3,
-  --    sw              => sw,
-  --    btn             => btn);
+      led1            => led1,
+      led2            => led2,
+      led3            => led3,
+      sw              => sw,
+      btn             => btn);
   
   iomapper0: iomapper port map (
     clk => cpuclock, address => fastio_addr,
