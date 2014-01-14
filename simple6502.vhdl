@@ -309,6 +309,8 @@ begin
       -- No wait states in fastram system, so proceed directly to next state
     elsif long_address(27 downto 24) = x"8" then
       accessing_slowram <= '1';
+      -- XXX Need to do actual slow ram access here.
+      state <= next_state;
     elsif long_address(27 downto 24) = x"F" then
       accessing_fastio <= '1';
       fastio_addr <= std_logic_vector(long_address(19 downto 0));
