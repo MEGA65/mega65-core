@@ -558,12 +558,13 @@ begin
           when ShowMemory2 =>
             if byte_number>15 then
               state <= ShowMemory4;
+            else
+              monitor_mem_read <= '1';
+              monitor_mem_write <= '0';
+              monitor_mem_address <= std_logic_vector(target_address + to_unsigned(byte_number,28));
+              timeout <= 65535;
+              cpu_transaction(ShowMemory3);
             end if;
-            monitor_mem_read <= '1';
-            monitor_mem_write <= '0';
-            monitor_mem_address <= std_logic_vector(target_address + to_unsigned(byte_number,28));
-            timeout <= 65535;
-            cpu_transaction(ShowMemory3);
           when ShowMemory3 =>
             if tx_ready='1' then
               membuf(byte_number) <= monitor_mem_rdata;
