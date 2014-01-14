@@ -105,39 +105,6 @@ architecture Behavioral of container is
         CLK_OUT5          : out    std_logic
         );
   end component;
-  
-  component cpu6502
-    port (
-      Clock : in std_logic;
-      reset : in std_logic;
-      irq : in std_logic;
-      nmi : in std_logic;
-      monitor_pc : out std_logic_vector(15 downto 0);
-      monitor_opcode : out std_logic_vector(7 downto 0);
-      monitor_a : out std_logic_vector(7 downto 0);
-      monitor_x : out std_logic_vector(7 downto 0);
-      monitor_y : out std_logic_vector(7 downto 0);
-      monitor_sp : out std_logic_vector(7 downto 0);
-      monitor_p : out std_logic_vector(7 downto 0);
-
-      ---------------------------------------------------------------------------
-      -- Interface to FastRAM in video controller (just 128KB for now)
-      ---------------------------------------------------------------------------
-      fastram_we : OUT STD_LOGIC_VECTOR(7 DOWNTO 0);
-      fastram_address : OUT STD_LOGIC_VECTOR(13 DOWNTO 0);
-      fastram_datain : OUT STD_LOGIC_VECTOR(63 DOWNTO 0);
-      fastram_dataout : IN STD_LOGIC_VECTOR(63 DOWNTO 0);
-      
-      ---------------------------------------------------------------------------
-      -- fast IO port (clocked at core clock). 1MB address space
-      ---------------------------------------------------------------------------
-      fastio_addr : out std_logic_vector(19 downto 0);
-      fastio_read : out std_logic;
-      fastio_write : out std_logic;
-      fastio_wdata : out std_logic_vector(7 downto 0);
-      fastio_rdata : in std_logic_vector(7 downto 0)
-      );
-  end component;
 
   component simple6502
     port (
@@ -311,7 +278,9 @@ begin
         cpuclock_divisor <= 0;
         cpuclock <= not cpuclock;
       end if;
-      led0 <= cpuclock;
+      led0 <= monitor_mem_read;
+      led1 <= monitor_mem_write;
+      led2 <= monitor_mem_ready_toggle;
       
       segled_counter <= segled_counter + 1;
 
@@ -402,6 +371,12 @@ begin
     clock => cpuclock,reset =>btnCpuReset,irq => irq,
     nmi => nmi,
     monitor_pc => monitor_pc,
+    monitor_opcode => monitor_opcode,
+    monitor_a => monitor_a,
+    monitor_x => monitor_x,
+    monitor_y => monitor_y,
+    monitor_sp => monitor_sp,
+    monitor_p => monitor_p,
     monitor_state => monitor_state,
 
     monitor_mem_address => monitor_mem_address,
@@ -446,8 +421,8 @@ begin
       fastio_wdata    => fastio_wdata,
       fastio_rdata    => fastio_rdata,
       
-      led1            => led1,
-      led2            => led2,
+--      led1            => led1,
+--      led2            => led2,
       led3            => led3,
       sw              => sw,
       btn             => btn);
