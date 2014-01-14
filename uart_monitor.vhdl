@@ -177,14 +177,14 @@ begin
           when bs =>
             if cmdlen>1 then
               -- Delete character from end of line
-              tx_data <= to_std_logic_vector(del);
+              tx_data <= to_std_logic_vector(bs);
               tx_trigger <= '1';                    
               cmdlen <= cmdlen - 1;
             end if;
           when del =>
             if cmdlen>1 then
               -- Delete character from end of line
-              tx_data <= to_std_logic_vector(del);
+              tx_data <= to_std_logic_vector(bs);
               tx_trigger <= '1';                    
               cmdlen <= cmdlen - 1;
             end if;
