@@ -83,6 +83,8 @@ architecture behavioural of uart_monitor is
 
   constant errorMessage : string := crlf & "?SYNTAX  ERROR ";
   constant timeoutMessage : string := crlf & "?TIMEOUT  ERROR" & crlf;
+
+  constant registerMessage : string := crlf & "PC   A  X  Y  SP  P" & crlf;
   
   type monitor_state is (Reseting,
                          PrintBanner,PrintHelp,
@@ -99,7 +101,11 @@ architecture behavioural of uart_monitor is
                          SetMemory1,SetMemory2,SetMemory3,SetMemory4,SetMemory5,
                          SetMemory6,SetMemory7,SetMemory8,SetMemory9,
                          ShowMemory1,ShowMemory2,ShowMemory3,ShowMemory4,
-                         ShowMemory5,ShowMemory6,ShowMemory7,ShowMemory8
+                         ShowMemory5,ShowMemory6,ShowMemory7,ShowMemory8,
+                         ShowRegisters1,ShowRegisters2,ShowRegisters3,ShowRegisters4,
+                         ShowRegisters5,ShowRegisters6,ShowRegisters7,ShowRegisters8,
+                         ShowRegisters9,ShowRegisters10,ShowRegisters11,ShowRegisters12,
+                         ShowRegisters13,ShowRegisters14,ShowRegisters15
                          );
 
   -- XXX For debugging parser, preload a command
@@ -468,6 +474,8 @@ begin
               elsif cmdbuffer(1) = 's' or cmdbuffer(1) = 'S' then
                 parse_position <= 2;
                 parse_hex(SetMemory1);
+              elsif cmdbuffer(1) = 'r' or cmdbuffer(1) = 'R' then
+                state <= ShowRegisters1;
               elsif cmdbuffer(1) = 'm' or cmdbuffer(1) = 'M' then
                 report "read memory command" severity note;
                 parse_position <= 2;
@@ -560,6 +568,32 @@ begin
           when ShowMemory8 =>
             byte_number <= byte_number + 1;
             print_hex_byte(membuf(byte_number),ShowMemory7);
+          when ShowRegisters1 =>
+            banner_position <= 1; state<= ShowRegisters2;
+            if tx_ready='1' then
+              tx_data <= to_std_logic_vector(registerMessage(banner_position));
+              tx_trigger <= '1';
+              if banner_position<registerMessage'length then
+                banner_position <= banner_position + 1;
+              else
+                state <= ShowRegisters2;
+              end if;
+            end if;
+          when ShowRegisters2 =>
+            print_hex_byte(unsigned(monitor_pc(15 downto 8)),ShowRegisters3);
+          when ShowRegisters3 =>
+            print_hex_byte(unsigned(monitor_pc(7 downto 0)),ShowRegisters4);
+          when ShowRegisters4 => try_output_char(' ',ShowRegisters5);
+          when ShowRegisters5 => print_hex_byte(unsigned(monitor_a),ShowRegisters6);
+          when ShowRegisters6 => try_output_char(' ',ShowRegisters7);
+          when ShowRegisters7 => print_hex_byte(unsigned(monitor_x),ShowRegisters8);
+          when ShowRegisters8 => try_output_char(' ',ShowRegisters9);
+          when ShowRegisters9 => print_hex_byte(unsigned(monitor_y),ShowRegisters10);
+          when ShowRegisters10 => try_output_char(' ',ShowRegisters11);
+          when ShowRegisters11 => print_hex_byte(unsigned(monitor_sp),ShowRegisters12);
+          when ShowRegisters12 => try_output_char(' ',ShowRegisters13);
+          when ShowRegisters13 => print_hex_byte(unsigned(monitor_p),ShowRegisters14);
+          when ShowRegisters14 => try_output_char(' ',NextCommand);
           when SyntaxError =>
             banner_position <= 1; state <= PrintError;
           when TimeoutError =>
