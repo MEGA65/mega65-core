@@ -788,6 +788,10 @@ begin
     if rising_edge(clock) then
       monitor_state <= std_logic_vector(to_unsigned(processor_state'pos(state),8));
       monitor_pc <= std_logic_vector(reg_pc);
+      monitor_a <= std_logic_vector(reg_a);
+      monitor_x <= std_logic_vector(reg_x);
+      monitor_y <= std_logic_vector(reg_y);
+      monitor_sp <= std_logic_vector(reg_sp);
       
       -- Clear memory access interfaces
       fastio_addr <= (others => '1');
@@ -808,6 +812,9 @@ begin
       virtual_reg_p(2) := flag_i;
       virtual_reg_p(1) := flag_z;
       virtual_reg_p(0) := flag_c;
+
+      monitor_p <= std_logic_vector(virtual_reg_p);
+
 
       -- Show CPU state for debugging
       -- report "state = " & processor_state'image(state) severity note;
