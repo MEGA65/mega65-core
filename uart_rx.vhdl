@@ -31,22 +31,6 @@ begin  -- behavioural
 
   process (CLK)
     -- purpose: based on last 8 samples of uart_rx, decide if the average signal is a 1 or a 0
-    function average_bits (
-      samples : std_logic_vector(7 downto 0))
-      return std_logic is
-      variable ones : integer := 0;
-    begin  -- average_bits
-      for i in 0 to 7 loop
-        if samples(i)='1' then
-          ones := ones + 1;
-        end if;
-        if ones>4 then
-          return '1';
-        else
-          return '0';
-        end if;
-      end loop;  -- i
-    end average_bits;
   begin
     if rising_edge(CLK) then
       uart_rx_debounced <= uart_rx_debounced(6 downto 0) & uart_rx;
@@ -79,7 +63,7 @@ begin  -- behavioural
         and bit_timer = '0' & bit_rate_divisor(13 downto 1) then
         report "reached mid bit point, bit = " & integer'image(bit_position) severity note;
         -- Reached mid bit
-        rx_data(bit_position) <= uart_rx; -- average_bits(UART_RX_debounced);
+        rx_data(bit_position) <= uart_rx;
         if bit_position<9 then
           -- More bits to get
           bit_position <= bit_position + 1;
