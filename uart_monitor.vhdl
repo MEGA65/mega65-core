@@ -97,7 +97,7 @@ architecture behavioural of uart_monitor is
   signal state : monitor_state := Reseting;
 -- Buffer to hold entered command
   signal cmdbuffer : String(1 to 64);
-  signal cmdlen : integer := 0;
+  signal cmdlen : integer := 1;
   signal redraw_position : integer;
   
   -- For parsing commands
@@ -400,7 +400,6 @@ begin
                 try_output_char(cmdbuffer(parse_position),PrintError2);
               end if;
             else
-              cmdlen <= 1;
               state <= NextCommand;
             end if;
           when PrintTimeoutError =>
@@ -415,7 +414,7 @@ begin
             end if;
           when NextCommand => cmdlen <= 1; try_output_char(cr,NextCommand2);
           when NextCommand2 => try_output_char(lf,PrintPrompt);
-          when PrintPrompt => try_output_char('.',AcceptingInput);
+          when PrintPrompt => cmdlen <= 1; try_output_char('.',AcceptingInput);
           when AcceptingInput =>
             -- If there is a character waiting
             if rx_ready = '1' and rx_acknowledge='0' then
