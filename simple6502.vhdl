@@ -99,7 +99,7 @@ architecture Behavioural of simple6502 is
     InstructionFetch,InstructionFetch2,InstructionFetch3,InstructionFetch4,    
     BRK1,BRK2,PLA1,PLP1,RTI1,RTI2,RTI3,RTS1,RTS2,JSR1,JMP1,JMP2,
     IndirectX1,IndirectY1,ExecuteDirect,RMWCommit,
-    Halt,
+    Halt,WaitOneCycle,
     MonitorAccessDone,MonitorReadDone
     );
   signal state : processor_state := ResetLow;  -- start processor in reset state
@@ -305,7 +305,8 @@ begin
       fastram_address <= std_logic_vector(long_address(16 downto 3));
       fastram_byte_number <= long_address(2 downto 0);
       fastram_read <= '1';
-      state <= next_state;
+      pending_state <= next_state;
+      state <= WaitOneCycle;
       -- No wait states in fastram system, so proceed directly to next state
     elsif long_address(27 downto 24) = x"8" then
       accessing_slowram <= '1';
@@ -801,8 +802,8 @@ begin
       fastram_read <= '0';
       fastram_write <= '0';
       fastram_we <= (others => '0');
-      fastram_address <= "00000000000000";
-      fastram_datain <= x"123456789abcdef0";
+      fastram_address <= "11111111111111";
+      fastram_datain <= x"d0d1d2d3d4d5d6d7";
       
       -- Generate virtual processor status register for convenience
       virtual_reg_p(7) := flag_n;
@@ -815,7 +816,6 @@ begin
       virtual_reg_p(0) := flag_c;
 
       monitor_p <= std_logic_vector(virtual_reg_p);
-
 
       -- Show CPU state for debugging
       -- report "state = " & processor_state'image(state) severity note;
@@ -834,8 +834,7 @@ begin
         state <= VectorRead;
         vector <= x"FFFC";
         reset_cpu_state;
-      elsif monitor_mem_attention_request='1'
-            and state = InstructionFetch then
+      elsif monitor_mem_attention_request='1' and state = InstructionFetch then
         -- Memory access by serial monitor.
         if monitor_mem_write='1' then
           -- Write to specified long address
@@ -855,6 +854,7 @@ begin
             monitor_mem_rdata <= read_data;
             state <= MonitorAccessDone;
           when MonitorAccessDone =>
+            fastram_we <= (others => '0');
             monitor_mem_attention_granted <= '1';
             if monitor_mem_attention_request='0' then
               monitor_mem_attention_granted <= '0';
@@ -867,8 +867,10 @@ begin
             monitor_mem_attention_granted <= '0';
 
             if nmi_pending='1' then
+              nmi_pending <= '0';
               vector <= x"FFFA"; state <=VectorRead;
             elsif irq_pending='1' and flag_i='0' then
+              irq_pending <= '0';
               vector <= x"FFFE"; state <=VectorRead;                                
             else
               read_instruction_byte(reg_pc,InstructionFetch2);
@@ -920,7 +922,11 @@ begin
           when ExecuteDirect =>
             execute_operand_instruction(reg_instruction,read_data,reg_addr);
           when RMWCommit => write_data_byte(reg_addr,reg_value,InstructionFetch);
-          when others => null;
+
+          when WaitOneCycle => state <= pending_state;
+          when others =>
+            -- Don't allow CPU to stay stuck
+            state<= InstructionFetch;
         end case;
       end if;
     end if;
@@ -942,7 +948,7 @@ begin
         when 0 => value := ram_bank_registers_read(reg_num);
         when 1 => value := ram_bank_registers_read(reg_num);
         when 2 => value := ram_bank_registers_read(reg_num);
-        when others => value := x"FFFF";
+        when others => value := x"F00D";
       end case;
       if lohi='0' then
         fastio_rdata <= std_logic_vector(value(7 downto 0));
