@@ -364,7 +364,7 @@ begin
               data_o => chardata
               );
 
-  process(cpuclock) is
+  process(cpuclock,fastio_addr) is
     variable register_bank : unsigned(7 downto 0);
     variable register_page : unsigned(3 downto 0);
     variable register_num : unsigned(7 downto 0);
