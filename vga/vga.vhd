@@ -1034,22 +1034,22 @@ begin
           -- one.
           next_glyph_number_temp(15 downto 8) := x"00";
           case card_number(2 downto 0) is
-            when "000" => next_glyph_number_temp(7 downto 0) := next_glyph_number_buffer(63 downto 56);
-            when "001" => next_glyph_number_temp(7 downto 0) := next_glyph_number_buffer(55 downto 48);
-            when "010" => next_glyph_number_temp(7 downto 0) := next_glyph_number_buffer(47 downto 40);
-            when "011" => next_glyph_number_temp(7 downto 0) := next_glyph_number_buffer(39 downto 32);
-            when "100" => next_glyph_number_temp(7 downto 0) := next_glyph_number_buffer(31 downto 24);
-            when "101" => next_glyph_number_temp(7 downto 0) := next_glyph_number_buffer(23 downto 16);
-            when "110" => next_glyph_number_temp(7 downto 0) := next_glyph_number_buffer(15 downto  8);
-            when "111" => next_glyph_number_temp(7 downto 0) := next_glyph_number_buffer( 7 downto  0);
+            when "111" => next_glyph_number_temp(7 downto 0) := next_glyph_number_buffer(63 downto 56);
+            when "110" => next_glyph_number_temp(7 downto 0) := next_glyph_number_buffer(55 downto 48);
+            when "101" => next_glyph_number_temp(7 downto 0) := next_glyph_number_buffer(47 downto 40);
+            when "100" => next_glyph_number_temp(7 downto 0) := next_glyph_number_buffer(39 downto 32);
+            when "011" => next_glyph_number_temp(7 downto 0) := next_glyph_number_buffer(31 downto 24);
+            when "010" => next_glyph_number_temp(7 downto 0) := next_glyph_number_buffer(23 downto 16);
+            when "001" => next_glyph_number_temp(7 downto 0) := next_glyph_number_buffer(15 downto  8);
+            when "000" => next_glyph_number_temp(7 downto 0) := next_glyph_number_buffer( 7 downto  0);
             when others => next_glyph_number_temp(7 downto 0) := x"00";
           end case;
           next_glyph_number8 <= unsigned(next_glyph_number_temp);
           case card_number(1 downto 0) is
-            when "00" => next_glyph_number_temp := next_glyph_number_buffer(63 downto 48);        
-            when "01" => next_glyph_number_temp := next_glyph_number_buffer(47 downto 32);        
-            when "10" => next_glyph_number_temp := next_glyph_number_buffer(31 downto 16);        
-            when "11" => next_glyph_number_temp := next_glyph_number_buffer(15 downto  0);        
+            when "11" => next_glyph_number_temp := next_glyph_number_buffer(63 downto 48);        
+            when "10" => next_glyph_number_temp := next_glyph_number_buffer(47 downto 32);        
+            when "01" => next_glyph_number_temp := next_glyph_number_buffer(31 downto 16);        
+            when "00" => next_glyph_number_temp := next_glyph_number_buffer(15 downto  0);        
           when others => next_glyph_number_temp := x"0000";
           end case;
           next_glyph_number16 <= unsigned(next_glyph_number_temp);
@@ -1107,14 +1107,14 @@ begin
         when 7 =>
           -- Decode colour byte
           case card_number(2 downto 0) is
-            when "000" => next_glyph_colour_temp := next_glyph_number_buffer(63 downto 56);
-            when "001" => next_glyph_colour_temp := next_glyph_number_buffer(55 downto 48);
-            when "010" => next_glyph_colour_temp := next_glyph_number_buffer(47 downto 40);
-            when "011" => next_glyph_colour_temp := next_glyph_number_buffer(39 downto 32);
-            when "100" => next_glyph_colour_temp := next_glyph_number_buffer(31 downto 24);
-            when "101" => next_glyph_colour_temp := next_glyph_number_buffer(23 downto 16);
-            when "110" => next_glyph_colour_temp := next_glyph_number_buffer(15 downto  8);
-            when "111" => next_glyph_colour_temp := next_glyph_number_buffer( 7 downto  0);
+            when "111" => next_glyph_colour_temp := next_glyph_number_buffer(63 downto 56);
+            when "110" => next_glyph_colour_temp := next_glyph_number_buffer(55 downto 48);
+            when "101" => next_glyph_colour_temp := next_glyph_number_buffer(47 downto 40);
+            when "100" => next_glyph_colour_temp := next_glyph_number_buffer(39 downto 32);
+            when "011" => next_glyph_colour_temp := next_glyph_number_buffer(31 downto 24);
+            when "010" => next_glyph_colour_temp := next_glyph_number_buffer(23 downto 16);
+            when "001" => next_glyph_colour_temp := next_glyph_number_buffer(15 downto  8);
+            when "000" => next_glyph_colour_temp := next_glyph_number_buffer( 7 downto  0);
             when others => next_glyph_colour_temp := x"00";
           end case;
           next_glyph_colour <= unsigned(next_glyph_colour_temp);
