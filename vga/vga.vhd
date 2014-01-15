@@ -274,7 +274,7 @@ architecture Behavioral of vga is
   signal indisplay_t3 : std_logic := '0';
   signal next_card_number : unsigned(15 downto 0) := (others => '0');
   signal next_card_x : unsigned(11 downto 0) := (others => '0');
-
+  signal cycles_to_next_card : unsigned(7 downto 0);
   
   signal reset : std_logic := '0';
   
@@ -897,14 +897,25 @@ begin
 
       if xfrontporch='1' then
         displayx <= (others => '0');
+        -- trigger next card just after front porch ends
+        cycles_to_next_card <= "00000010";
         indisplay := '0';
       elsif xbackporch='0' then
         if card_x_sub=card_x_scale then
-          next_card_x <= card_x + 1;
+          cycles_to_next_card <= cycles_to_next_card - 1;
+          -- cycles_to_next_card counts down to 1, not 0.
+          -- update one cycle earlier since next_card_x is a signal not a variable.
+          if cycles_to_next_card = 2 then
+            next_card_x <= card_x + 1;            
+          end if;
+          if cycles_to_next_card = 1 then
+            -- 8 cycles x (scale + 1)
+            cycles_to_next_card <= (card_x_scale(4 downto 0)+1) & "000";
+          end if;
           card_x_sub <= (others => '0');
           if next_card_x(2 downto 0) = "000" then
             next_card_number <= card_number + 1;
-          end if;
+          end if;          
         else
           card_x_sub <= card_x_sub + 1;
         end if;
