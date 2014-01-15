@@ -323,6 +323,10 @@ architecture Behavioral of vga is
 
   signal ramaddress : std_logic_vector(13 downto 0);
   signal ramdata : std_logic_vector(63 downto 0);
+
+  -- Precalculated mono/multicolour pixel bits
+  signal multicolour_bits : std_logic_vector(1 downto 0) := (others => '0');
+  signal monobit : std_logic := '0';
   
 begin
 
@@ -844,7 +848,6 @@ begin
     variable next_card_number : unsigned(15 downto 0) := (others => '0');
     variable next_card_x : unsigned(11 downto 0) := (others => '0');
     variable next_card_y : unsigned(11 downto 0) := (others => '0');
-    variable multicolour_bits : std_logic_vector(1 downto 0) := (others => '0');
     variable card_bg_colour : unsigned(7 downto 0) := (others => '0');
     variable card_fg_colour : unsigned(7 downto 0) := (others => '0');
     variable long_address : unsigned(31 downto 0) := (others => '0');
@@ -1147,6 +1150,11 @@ begin
           when others => null;
         end case;
       end if;
+
+      -- Calculate pixel bit/bits for next cycle to keep logic depth shallow
+      multicolour_bits(0) <= charrow(to_integer((not card_x_t2(2 downto 1))&'0'));
+      multicolour_bits(1) <= charrow(to_integer((not card_x_t2(2 downto 1))&'1'));
+      monobit <= charrow(to_integer(not card_x_t2(2 downto 0)));
       
       if indisplay_t3='1' then
         if inborder_t2='1' or blank='1' then
@@ -1162,8 +1170,6 @@ begin
         elsif multicolour_mode='1' and text_mode='1' and card_fg_colour(3)='1' then
           -- Multicolour character mode only engages for characters with bit 3
           -- of their foreground colour set.
-          multicolour_bits(0) := charrow(to_integer((not card_x_t3(2 downto 1))&'0'));
-          multicolour_bits(1) := charrow(to_integer((not card_x_t3(2 downto 1))&'1'));
           case multicolour_bits is
             when "00" => pixel_colour <= card_bg_colour;
             when "01" => pixel_colour <= multi1_colour;
@@ -1181,7 +1187,7 @@ begin
           -- XXX Still using character generator ROM for now.
           -- XXX Replace with correct byte from glyph_pixelddata
           -- once we have things settled down a bit more.
-          if charrow(to_integer(not card_x_t3(2 downto 0))) = '1' then
+          if monobit = '1' then
             pixel_colour(7 downto 4) <= "0000";
             pixel_colour(3 downto 0) <= card_fg_colour(3 downto 0);
           else
