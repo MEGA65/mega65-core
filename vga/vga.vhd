@@ -237,6 +237,7 @@ architecture Behavioral of vga is
   -- Character generator state. Also used for graphics modes, since graphics
   -- modes on the C64 are all card-based, anyway.
   signal card_number : unsigned(15 downto 0) := x"0000";
+  signal card_number_is_extended : std_logic;  -- set if card_number > $00FF
   signal first_card_of_row : unsigned(15 downto 0);
   -- coordinates after applying the above scaling factors
   signal card_x : unsigned(11 downto 0) := (others => '0');
@@ -1112,6 +1113,11 @@ begin
       card_x <= next_card_x;
       card_y <= next_card_y;
       card_number <= next_card_number;
+      if next_card_number(15 downto 8) /= x"00" then
+        card_number_is_extended <= '1';
+      else
+        card_number_is_extended <= '0';
+      end if;
       
       -- Make delayed versions of card number and x position so that we have time
       -- to fetch character row data.
@@ -1173,7 +1179,7 @@ begin
       if indisplay_t3='1' then
         if inborder_t2='1' or blank='1' then
           pixel_colour <= border_colour;
-        elsif (fullcolour_extendedchars='1' and text_mode='1' and card_number(15 downto 8) /= x"00")
+        elsif (fullcolour_extendedchars='1' and text_mode='1' and card_number_is_extended='1')
           or (fullcolour_8bitchars='1' and text_mode='1') then
           -- Full colour glyph
           -- Pixels come from each 8 bits of character memory.
