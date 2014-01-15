@@ -96,7 +96,7 @@ architecture behavioural of uart_monitor is
                          RedrawInputBuffer,RedrawInputBuffer2,RedrawInputBuffer3,
                          RedrawInputBuffer4,
                          EnterPressed,EnterPressed2,EnterPressed3,
-                         EraseInputBuffer,EraseInputBuffer2,
+                         EraseInputBuffer,
                          SyntaxError,TimeoutError,
                          CPUTransaction1,CPUTransaction2,CPUTransaction3,
                          ParseHex,
@@ -116,6 +116,7 @@ architecture behavioural of uart_monitor is
 -- Buffer to hold entered command
   signal cmdbuffer : String(1 to 64);
   signal cmdlen : integer := 1;
+  signal prev_cmdlen : integer := 1;
   signal redraw_position : integer;
   
   -- For parsing commands
@@ -191,19 +192,24 @@ begin
       else
         -- Non-printable character, for now print ?
         case char is
+          when dle =>
+            -- Recall previous command (^P)
+            cmdlen <= prev_cmdlen;
+          redraw_position <= 1;
+          state <= RedrawInputBuffer;
           when dc2 =>
-            -- Redraw line
+            -- Redraw line (^R)
             redraw_position <= 1;
             state <= RedrawInputBuffer;
           when nak =>
-            -- Erase line
-            state <= EraseInputBuffer;            
+            -- Erase line (^U)
+            state <= EraseInputBuffer;
           when bs =>
             if cmdlen>1 then
               -- Delete character from end of line
               tx_data <= to_std_logic_vector(bs);
-              tx_trigger <= '1';                    
-              cmdlen <= cmdlen - 1;
+              tx_trigger <= '1';
+              cmdlen <= cmdlen - 1;          
               state <= EraseCharacter;
             end if;
           when del =>
@@ -211,9 +217,15 @@ begin
               -- Delete character from end of line
               tx_data <= to_std_logic_vector(bs);
               tx_trigger <= '1';                    
-              cmdlen <= cmdlen - 1;
+              cmdlen <= cmdlen - 1;          
               state <= EraseCharacter;
             end if;
+          when ack =>
+            -- ^F move forward one character
+            -- XXX not implemented
+          when std =>
+            -- ^B move backward one character
+            -- XXX not implemented
           when cr => state <= EnterPressed;
           when lf => state <= EnterPressed;
           when others =>
@@ -490,16 +502,13 @@ begin
             else
               state <= AcceptingInput;
             end if;
-          when EraseInputBuffer => redraw_position<=1; try_output_char(cr,EraseInputBuffer2);
-          when EraseInputBuffer2 =>
-            if redraw_position<cmdlen then
-              try_output_char(' ',EraseInputBuffer2);
-              redraw_position <= redraw_position + 1;
-            else
-              cmdlen <= 1;
-              try_output_char(cr,PrintPrompt);
-            end if;
-          when EnterPressed => parse_position<=2; try_output_char(cr,EnterPressed2);
+          when EraseInputBuffer =>
+            redraw_position<=1;
+            cmdlen <= 1;
+            state <= RedrawInputBuffer;
+          when EnterPressed =>
+            prev_cmdlen <= cmdlen;
+            parse_position<=2; try_output_char(cr,EnterPressed2);
           when EnterPressed2 => try_output_char(lf,EnterPressed3);
           when EnterPressed3 =>
             if cmdlen>1 then              
@@ -532,6 +541,7 @@ begin
             end_of_command(SetMemory4);
           when SetMemory4 =>
             monitor_mem_write <= '1';
+            monitor_mem_read <= '0';
             monitor_mem_address <= std_logic_vector(target_address);
             monitor_mem_wdata <= target_value;
             cpu_transaction(SetMemory5);
