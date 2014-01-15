@@ -897,37 +897,60 @@ begin
       else
         xbackporch <= '1';
       end if;
+      
+      -- Work out if the border is active
+      if displayx<border_x_left or displayx>border_x_right or
+        displayy<border_y_top or displayy>border_y_bottom then
+        inborder<='1';
+      else
+        inborder<='0';
+      end if;
+      inborder_t1 <= inborder;
+      inborder_t2 <= inborder_t1;
+      inborder_t3 <= inborder_t2;
 
-      chargen_x <= next_chargen_x;
-      chargen_y <= next_chargen_y;
-      card_number <= next_card_number;
+      -- Work out if the next card has a character number >255
       if next_card_number(15 downto 8) /= x"00" then
         card_number_is_extended <= '1';
       else
         card_number_is_extended <= '0';
       end if;
-      
-      -- Make delayed versions of card number and x position so that we have time
-      -- to fetch character row data.
-      chargen_x_t1 <= chargen_x;
-      chargen_x_t2 <= chargen_x_t1;
-      chargen_x_t3 <= chargen_x_t2;
-      card_number_t1 <= card_number;
-      card_number_t2 <= card_number_t1;
-      card_number_t3 <= card_number_t2;
-      indisplay_t1 <= indisplay;
-      indisplay_t2 <= indisplay_t1;
-      indisplay_t3 <= indisplay_t2;
 
+      -- By default, copy in replacement values
+      -- These assignments may be overriden further down the process.
+      chargen_x <= next_chargen_x;
+      chargen_y <= next_chargen_y;
+      card_number <= next_card_number;
+      
+      -- Reset character generator position for start of frame/raster
+      if displayy<=y_chargen_start then
+        chargen_y <= (others => '0');
+        chargen_y_sub <= (others => '0');
+      end if;
+      if displayx<=x_chargen_start then
+        chargen_x <= (others => '0');
+        chargen_x_sub <= (others => '0');
+      end if;
+      if displayx=(x_chargen_start-8) then
+        -- Start fetching first character of the row
+        -- (8 cycles is plenty of time to fetch it)       
+        char_fetch_cycle <= 0;
+        cycles_to_next_card <= (others => '1');
+      end if;
       if displayx = (x_chargen_start - 1) then
         -- trigger next card at start of chargen row
         cycles_to_next_card <= "00000010";        
       end if;
 
+      -- Raster control.
+      -- Work out if in front porch, back porch or active part of raster.
+      -- If we are in the active part of the display, work out if we have
+      -- reached the start of a new character (or are about to).
+      -- If so, copy in the new glyph and colour data for display.
       if xfrontporch='1' then
         displayx <= (others => '0');
         indisplay := '0';
-      elsif xbackporch='0' then
+      elsif xbackporch='0' then         -- In active part of raster
         -- Work out if we are at the end of a character
         cycles_to_next_card <= cycles_to_next_card - 1;
         -- cycles_to_next_card counts down to 1, not 0.
@@ -970,10 +993,10 @@ begin
           end if;
         end if;
 
-
         -- Increase horizonal physical pixel position
         displayx <= displayx + 1;
       else
+        -- In back porch, so set displayx all high
         displayx <= (others => '1');
         indisplay := '0';
       end if;
@@ -1173,29 +1196,6 @@ begin
         charread <= '0';
       end if;
 
-      if displayy<=y_chargen_start then
-        chargen_y(11 downto 8) <= (others => '0');
-        chargen_y(7 downto 0) <= (others => '0');
-        chargen_y_sub <= (others => '0');
-      end if;
-      if displayx<=x_chargen_start then
-        chargen_x <= (others => '0');
-        chargen_x_sub <= (others => '0');
-      end if;
-      if displayx=(x_chargen_start-8) then
-        -- Start fetching first character of the row
-        char_fetch_cycle <= 0;
-      end if;
-      if displayx<border_x_left or displayx>border_x_right or
-        displayy<border_y_top or displayy>border_y_bottom then
-        inborder<='1';
-      else
-        inborder<='0';
-      end if;
-      inborder_t1 <= inborder;
-      inborder_t2 <= inborder_t1;
-      inborder_t3 <= inborder_t2;
-
       -- Fetch card foreground colour from colour RAM
       card_fg_colour(7 downto 0) := glyph_colour;
 
@@ -1261,6 +1261,18 @@ begin
       else
         pixel_colour <= x"00";
       end if;
+      
+      -- Make delayed versions of card number and x position so that we have time
+      -- to fetch character row data.
+      chargen_x_t1 <= chargen_x;
+      chargen_x_t2 <= chargen_x_t1;
+      chargen_x_t3 <= chargen_x_t2;
+      card_number_t1 <= card_number;
+      card_number_t2 <= card_number_t1;
+      card_number_t3 <= card_number_t2;
+      indisplay_t1 <= indisplay;
+      indisplay_t2 <= indisplay_t1;
+      indisplay_t3 <= indisplay_t2;
 
       -- Pixels have a two cycle pipeline to help keep timing contraints:
       
