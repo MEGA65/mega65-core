@@ -916,11 +916,14 @@ begin
       indisplay_t1 <= indisplay;
       indisplay_t2 <= indisplay_t1;
       indisplay_t3 <= indisplay_t2;
-      
+
+      if displayx = (x_chargen_start - 1) then
+        -- trigger next card at start of chargen row
+        cycles_to_next_card <= "00000010";        
+      end if;
+
       if xfrontporch='1' then
         displayx <= (others => '0');
-        -- trigger next card just after front porch ends
-        cycles_to_next_card <= "00000010";
         indisplay := '0';
       elsif xbackporch='0' then
         -- Work out if we are at the end of a character
