@@ -933,7 +933,7 @@ begin
         -- not a variable.
         if cycles_to_next_card = 2 then
           -- We are one cycle before the start of a character
-          next_card_number <= card_number + 1;
+          next_card_number <= card_number + 1;            
         end if;
         if cycles_to_next_card = 1 then
           -- We are at the start of a character
@@ -1020,9 +1020,10 @@ begin
         when 0 => 
           -- Load card number
           long_address(31 downto 17) := (others => '0');
-          long_address(16 downto 0) := screen_ram_base(16 downto 0)+card_number;
           if sixteenbit_charset='1' then
-            long_address(16 downto 0) := long_address(16 downto 0)+card_number;
+            long_address(16 downto 0) := screen_ram_base(16 downto 0)+card_number&'0';
+          else
+            long_address(16 downto 0) := screen_ram_base(16 downto 0)+card_number;
           end if;
           ramaddress <= std_logic_vector(long_address(16 downto 3));
         when 1 =>
