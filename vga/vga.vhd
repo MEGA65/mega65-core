@@ -240,7 +240,7 @@ architecture Behavioral of vga is
   signal card_number_is_extended : std_logic;  -- set if card_number > $00FF
   signal first_card_of_row : unsigned(15 downto 0);
   -- coordinates after applying the above scaling factors
-  signal chargen_x : unsigned(11 downto 0) := (others => '0');
+  signal chargen_x : unsigned(2 downto 0) := (others => '0');
   signal chargen_y : unsigned(11 downto 0) := (others => '0');
   -- fractional pixel position for scaling
   signal chargen_y_sub : unsigned(4 downto 0);
@@ -256,7 +256,7 @@ architecture Behavioral of vga is
   signal next_glyph_number_buffer : std_logic_vector(63 downto 0);
   signal next_glyph_colour_buffer : std_logic_vector(63 downto 0);
   signal next_glyph_full_colour : std_logic;
-  signal next_chargen_x : unsigned(11 downto 0) := (others => '0');
+  signal next_chargen_x : unsigned(2 downto 0) := (others => '0');
 
   -- data for current card
   signal glyph_number : unsigned(15 downto 0);
@@ -265,9 +265,9 @@ architecture Behavioral of vga is
   signal glyph_full_colour : std_logic;
   
   -- Delayed versions of signals to allow character fetching pipeline
-  signal chargen_x_t1 : unsigned(11 downto 0) := (others => '0');
-  signal chargen_x_t2 : unsigned(11 downto 0) := (others => '0');
-  signal chargen_x_t3 : unsigned(11 downto 0) := (others => '0');
+  signal chargen_x_t1 : unsigned(2 downto 0) := (others => '0');
+  signal chargen_x_t2 : unsigned(2 downto 0) := (others => '0');
+  signal chargen_x_t3 : unsigned(2 downto 0) := (others => '0');
   signal card_number_t1 : unsigned(15 downto 0) := (others => '0');
   signal card_number_t2 : unsigned(15 downto 0) := (others => '0');
   signal card_number_t3 : unsigned(15 downto 0) := (others => '0');
@@ -948,21 +948,28 @@ begin
           glyph_number <= next_glyph_number;
           glyph_full_colour <= next_glyph_full_colour;
           -- ... and then start fetching data for the character after that
-          char_fetch_cycle <= 0;          
+          char_fetch_cycle <= 0;
+          chargen_x <= "000";
+          if chargen_x_scale=0
+            or chargen_x_sub = (chargen_x_scale - 1)
+          then
+            next_chargen_x <= "001";
+          end if;
+        else
+          -- Update current horizontal sub-pixel and pixel position
+          if chargen_x_sub=chargen_x_scale then
+            chargen_x_sub <= (others => '0');
+          else
+            chargen_x_sub <= chargen_x_sub + 1;
+          end if;
+          -- Work out if a new logical pixel starts on the next physical pixel
+          if chargen_x_scale=0
+            or chargen_x_sub = (chargen_x_scale - 1)
+          then
+            next_chargen_x <= chargen_x + 1;
+          end if;
         end if;
 
-        -- Update current horizontal sub-pixel and pixel position
-        if chargen_x_sub=chargen_x_scale then
-          chargen_x_sub <= (others => '0');
-        else
-          chargen_x_sub <= chargen_x_sub + 1;
-        end if;
-        -- Work out if a new logical pixel starts on the next physical pixel
-        if chargen_x_scale=0
-          or chargen_x_sub = (chargen_x_scale - 1)
-        then
-          next_chargen_x <= chargen_x + 1;
-        end if;
 
         -- Increase horizonal physical pixel position
         displayx <= displayx + 1;
