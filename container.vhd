@@ -156,21 +156,6 @@ architecture Behavioral of container is
       );
   end component;
   
-  component ram64x16k
-    PORT (
-      clka : IN STD_LOGIC;
-      wea : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
-      addra : IN STD_LOGIC_VECTOR(13 DOWNTO 0);
-      dina : IN STD_LOGIC_VECTOR(63 DOWNTO 0);
-      douta : OUT STD_LOGIC_VECTOR(63 DOWNTO 0);
-      clkb : IN STD_LOGIC;
-      web : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
-      addrb : IN STD_LOGIC_VECTOR(13 DOWNTO 0);
-      dinb : IN STD_LOGIC_VECTOR(63 DOWNTO 0);
-      doutb : OUT STD_LOGIC_VECTOR(63 DOWNTO 0)
-      );
-  end component;
-  
   component vga is
     Port (
       ----------------------------------------------------------------------
@@ -188,11 +173,15 @@ architecture Behavioral of container is
       vgagreen : out  UNSIGNED (3 downto 0);
       vgablue : out  UNSIGNED (3 downto 0);
 
-      -----------------------------------------------------------------------------
-      -- Interface to 128KB fastram
-      -----------------------------------------------------------------------------
-      ramaddress : OUT STD_LOGIC_VECTOR(13 DOWNTO 0);
-      ramdata : IN STD_LOGIC_VECTOR(63 DOWNTO 0);
+      ---------------------------------------------------------------------------
+      -- CPU Interface to FastRAM in video controller (just 128KB for now)
+      ---------------------------------------------------------------------------
+      fastram_we : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
+      fastram_read : IN STD_LOGIC;
+      fastram_write : IN STD_LOGIC;
+      fastram_address : IN STD_LOGIC_VECTOR(13 DOWNTO 0);
+      fastram_datain : IN STD_LOGIC_VECTOR(63 DOWNTO 0);
+      fastram_dataout : OUT STD_LOGIC_VECTOR(63 DOWNTO 0);
       
       -----------------------------------------------------------------------------
       -- FastIO interface for accessing video registers
@@ -259,7 +248,7 @@ architecture Behavioral of container is
   signal segled_counter : unsigned(31 downto 0) := (others => '0');
 
 begin
-
+  
   process(pixelclock)
     variable digit : std_logic_vector(3 downto 0);
   begin
@@ -352,24 +341,6 @@ begin
                -- the generated frames somewhere?
                clk_out2 => pixelclock);
 
-  -- XXX For now just use 128KB FastRAM instead of 512KB which causes major routing
-  -- headaches.
-  fastram1 : component ram64x16k
-    PORT MAP (
-      clka => cpuclock,
-      wea => fastram_we,
-      addra => fastram_address,
-      dina => fastram_datain,
-      douta => fastram_dataout,
-      -- video controller use port b of the dual-port fast ram.
-      -- The CPU uses port a
-      clkb => pixelclock,
-      web => (others => '0'),
-      addrb => vga_fastramaddress,
-      dinb => (others => '0'),
-      doutb => vga_fastramdata
-      );
-
   cpu0: simple6502 port map(
     clock => cpuclock,reset =>btnCpuReset,irq => irq,
     nmi => nmi,
@@ -415,10 +386,14 @@ begin
       vgared          => vgared,
       vgagreen        => vgagreen,
       vgablue         => vgablue,
-     
-      ramaddress      => vga_fastramaddress,
-      ramdata         => vga_fastramdata,
-      
+
+      fastram_we => fastram_we,
+      fastram_read => fastram_read,
+      fastram_write => fastram_write,
+      fastram_address => fastram_address,
+      fastram_datain => fastram_datain,
+      fastram_dataout => fastram_dataout,    
+           
       fastio_addr     => fastio_addr,
       fastio_read     => fastio_read,
       fastio_write    => fastio_write,

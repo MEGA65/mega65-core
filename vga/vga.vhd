@@ -52,11 +52,15 @@ entity vga is
     vgagreen : out  UNSIGNED (3 downto 0);
     vgablue : out  UNSIGNED (3 downto 0);
 
-    -----------------------------------------------------------------------------
-    -- Interface to 128KB external fastram
-    -----------------------------------------------------------------------------
-    ramaddress : OUT STD_LOGIC_VECTOR(13 DOWNTO 0);
-    ramdata : IN STD_LOGIC_VECTOR(63 DOWNTO 0);
+    ---------------------------------------------------------------------------
+    -- CPU Interface to FastRAM in video controller (just 128KB for now)
+    ---------------------------------------------------------------------------
+    fastram_we : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
+    fastram_read : IN STD_LOGIC;
+    fastram_write : IN STD_LOGIC;
+    fastram_address : IN STD_LOGIC_VECTOR(13 DOWNTO 0);
+    fastram_datain : IN STD_LOGIC_VECTOR(63 DOWNTO 0);
+    fastram_dataout : OUT STD_LOGIC_VECTOR(63 DOWNTO 0);      
     
     -----------------------------------------------------------------------------
     -- FastIO interface for accessing video registers
@@ -85,6 +89,22 @@ architecture Behavioral of vga is
           );
   end component charrom;
 
+  -- 128KB internal chip RAM
+  component ram64x16k
+    PORT (
+      clka : IN STD_LOGIC;
+      wea : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
+      addra : IN STD_LOGIC_VECTOR(13 DOWNTO 0);
+      dina : IN STD_LOGIC_VECTOR(63 DOWNTO 0);
+      douta : OUT STD_LOGIC_VECTOR(63 DOWNTO 0);
+      clkb : IN STD_LOGIC;
+      web : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
+      addrb : IN STD_LOGIC_VECTOR(13 DOWNTO 0);
+      dinb : IN STD_LOGIC_VECTOR(63 DOWNTO 0);
+      doutb : OUT STD_LOGIC_VECTOR(63 DOWNTO 0)
+      );
+  end component;
+    
   -- Buffer VGA signal to save some time. Similarly pipeline
   -- palette lookup.
   signal vga_buffer_red : UNSIGNED (3 downto 0) := (others => '0');
@@ -300,8 +320,29 @@ architecture Behavioral of vga is
   signal inborder_t1 : std_logic;
   signal inborder_t2 : std_logic;
   signal inborder_t3 : std_logic;
+
+  signal ramaddress : std_logic_vector(13 downto 0);
+  signal ramdata : std_logic_vector(63 downto 0);
   
 begin
+
+    -- XXX For now just use 128KB FastRAM instead of 512KB which causes major routing
+  -- headaches.
+  fastram1 : component ram64x16k
+    PORT MAP (
+      clka => cpuclock,
+      wea => fastram_we,
+      addra => fastram_address,
+      dina => fastram_datain,
+      douta => fastram_dataout,
+      -- video controller use port b of the dual-port fast ram.
+      -- The CPU uses port a
+      clkb => pixelclock,
+      web => (others => '0'),
+      addrb => ramaddress,
+      dinb => (others => '0'),
+      doutb => ramdata
+      );
   
   charrom1 : charrom
     port map (Clk => pixelclock,
