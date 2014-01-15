@@ -77,10 +77,10 @@ architecture behavioural of uart_monitor is
     "Type ? for help." & crlf;
   signal banner_position : integer := 1;
   constant helpMessage : String :=
-    "?                       - Display this help" & crlf &
-    "r                       - Print processor state." & crlf &
-    "s <address> <value>     - Set memory." & crlf &
-    "m <address>             - Display contents of memory" & crlf;
+    "? or h[elp]            - Display this help" & crlf &
+    "r                      - Print processor state." & crlf &
+    "s<address> <value>     - Set memory." & crlf &
+    "m<address>             - Display contents of memory" & crlf;
 
   constant errorMessage : string := crlf & "?SYNTAX  ERROR ";
   constant timeoutMessage : string := crlf & "?DEVICE NOT FOUND  ERROR" & crlf;
