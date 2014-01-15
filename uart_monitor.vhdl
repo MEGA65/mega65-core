@@ -579,7 +579,7 @@ begin
             parse_hex(FillMemory5);            
           when FillMemory5 =>
             -- hex_value(7 downto 0) has the fill value
-            if target_address > top_address then
+            if target_address = top_address then
               state <= NextCommand;
             else
               monitor_mem_write <= '1';
