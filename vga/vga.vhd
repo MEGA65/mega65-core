@@ -549,6 +549,8 @@ begin
         fastio_rdata(0) <= sixteenbit_charset;
       elsif register_number=85 then
         fastio_rdata <= std_logic_vector(to_unsigned(char_fetch_cycle,8));
+      elsif register_number=86 then
+        fastio_rdata <= std_logic_vector(cycles_to_next_card);
       elsif register_number=128 then
         fastio_rdata <= std_logic_vector(screen_ram_base(7 downto 0));
       elsif register_number=129 then
@@ -927,10 +929,6 @@ begin
         chargen_y <= (others => '0');
         chargen_y_sub <= (others => '0');
       end if;
-      if displayx<=x_chargen_start then
-        chargen_x <= (others => '0');
-        chargen_x_sub <= (others => '0');
-      end if;
       if displayx=(x_chargen_start-8) then
         -- Start fetching first character of the row
         -- (8 cycles is plenty of time to fetch it)       
@@ -940,6 +938,8 @@ begin
       if displayx = (x_chargen_start - 1) then
         -- trigger next card at start of chargen row
         cycles_to_next_card <= "00000010";        
+        chargen_x <= (others => '0');
+        chargen_x_sub <= (others => '0');
       end if;
 
       -- Raster control.
@@ -973,6 +973,7 @@ begin
           -- ... and then start fetching data for the character after that
           char_fetch_cycle <= 0;
           chargen_x <= "000";
+          chargen_x_sub <= (others => '0');
           if chargen_x_scale=0
             or chargen_x_sub = (chargen_x_scale - 1)
           then
@@ -1059,12 +1060,19 @@ begin
           end if;
           ramaddress <= std_logic_vector(long_address(16 downto 3));
         when 1 =>
+          -- FastRAM wait state
+          -- XXX Can schedule a sprite fetch here.
+          ramaddress <= (others => '0');
+        when 2 =>
           -- Store character number
           -- In text mode, the glyph order is flexible
           next_glyph_number_buffer <= ramdata;
           -- As RAM is slow to read from, we buffer it, and then extract the
           -- right byte/word next cycle, so no more work here.
-        when 2 =>
+
+          -- XXX Can schedule a sprite fetch here.
+          ramaddress <= (others => '0');
+        when 3 =>
           -- Decode next character number from 64bit vector
           -- This is a bit too complex to do in a single cycle if we also have to
           -- choose the 16bit or 8 bit version.  So this cycle we calculate the
@@ -1091,9 +1099,10 @@ begin
           when others => next_glyph_number_temp := x"0000";
           end case;
           next_glyph_number16 <= unsigned(next_glyph_number_temp);
-          -- XXX Spare cycle where we could be fetching sprite data
+
+          -- XXX Can schedule a sprite fetch here.
           ramaddress <= (others => '0');
-        when 3 =>
+        when 4 =>
           -- Calculate the actual character number
           if sixteenbit_charset='1' then
             next_glyph_number_temp := std_logic_vector(next_glyph_number16);
@@ -1111,9 +1120,7 @@ begin
           long_address(31 downto 17) := (others => '0');
           long_address(16 downto 0) := colour_ram_base(16 downto 0)+unsigned(next_glyph_number_temp);
           ramaddress <= std_logic_vector(long_address(16 downto 3));
-        when 4 =>
-          -- Store colour bytes (will decode next cycle to keep logic shallow)
-          next_glyph_colour_buffer <= ramdata;
+        when 5 =>
           -- Character pixels (only 8 bits used if not in full colour mode)
           if fullcolour_8bitchars='0' and fullcolour_extendedchars='0' then
             long_address(16 downto 0) := character_set_address(16 downto 0)+(next_glyph_number(7 downto 0)&chargen_y(2 downto 0));
@@ -1138,7 +1145,12 @@ begin
           end if;
           -- Request pixel data
           ramaddress <= std_logic_vector(long_address(16 downto 3));
-        when 5 =>
+        when 6 =>
+          -- Store colour bytes (will decode next cycle to keep logic shallow)
+          next_glyph_colour_buffer <= ramdata;
+          -- XXX Can schedule a sprite fetch here.
+          ramaddress <= (others => '0');
+        when 7 =>
           -- Decode colour byte
           case card_number(2 downto 0) is
             when "000" => next_glyph_colour_temp := next_glyph_number_buffer(63 downto 56);
