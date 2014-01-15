@@ -599,52 +599,6 @@ begin
 
     if rising_edge(cpuclock) then
 
-      ---- Allow fiddling of scale by switching switches
-      --chargen_x_scale(3 downto 0) <= unsigned(sw(7 downto 4));
-      --chargen_y_scale(3 downto 0) <= unsigned(sw(3 downto 0));
-      ---- And video mode
-      --multicolour_mode <= sw(8);
-      --extended_background_mode <= sw(9);
-      --text_mode <= sw(10);
-      --sixteenbit_charset <= sw(11);
-      --fullcolour_8bitchars <= sw(12);
-      --fullcolour_extendedchars <= sw(13);
-      ---- And adjust screen length
-      --case sw(15 downto 14) is
-      --  when "00" => virtual_row_width <= to_unsigned(32,16);
-      --  when "01" => virtual_row_width <= to_unsigned(40,16);
-      --  when "10" => virtual_row_width <= to_unsigned(108,16);
-      --  when "11" => virtual_row_width <= to_unsigned(256,16);
-      --  when others => null;
-      --end case;    
-
-
-      --counter <= counter + 1;
-      --if counter = x"000000" then
-      --  slow_clock <= not slow_clock;
-      --  led3 <= slow_clock;
-      --  if btn(0) = '1' then
-      --    -- Right button: trim smooth scrolling right a pixel
-      --    x_chargen_start <= x_chargen_start + 1;
-      --  end if;
-      --  if btn(1) = '1' then
-      --    -- Down button: trim smooth scrolling down a pixel
-      --    y_chargen_start <= y_chargen_start + 1;
-      --  end if;
-      --  if btn(2) = '1' then
-      --    -- Up button: trim smooth scrolling right a pixel
-      --    y_chargen_start <= y_chargen_start - 1;
-      --  end if;
-      --  if btn(3) = '1' then
-      --    -- Left button: trim smooth scrolling right a pixel
-      --    x_chargen_start <= x_chargen_start - 1;
-      --  end if;
-      --  if btn(4) = '1' then
-      --    x_chargen_start <= to_unsigned(160,12); 
-      --    y_chargen_start <= to_unsigned(100,12);  
-      --  end if;
-      --end if;
-
       if fastio_write='1'
         and (fastio_addr(19) = '0' or fastio_addr(19) = '1') then
         if register_number>=0 and register_number<8 then
