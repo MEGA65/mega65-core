@@ -135,6 +135,8 @@ architecture behavioural of uart_monitor is
   type sixteenbytes is array (0 to 15) of unsigned(7 downto 0);
   signal membuf : sixteenbytes;
   signal byte_number : integer;
+
+  signal key_state : integer := 0;
   
 begin
 
@@ -191,46 +193,67 @@ begin
         end if;
       else
         -- Non-printable character, for now print ?
-        case char is
-          when dle =>
-            -- Recall previous command (^P)
-            cmdlen <= prev_cmdlen;
-          redraw_position <= 1;
-          state <= RedrawInputBuffer;
-          when dc2 =>
-            -- Redraw line (^R)
-            redraw_position <= 1;
-            state <= RedrawInputBuffer;
-          when nak =>
-            -- Erase line (^U)
-            state <= EraseInputBuffer;
-          when bs =>
-            if cmdlen>1 then
-              -- Delete character from end of line
-              tx_data <= to_std_logic_vector(bs);
-              tx_trigger <= '1';
-              cmdlen <= cmdlen - 1;          
-              state <= EraseCharacter;
-            end if;
-          when del =>
-            if cmdlen>1 then
-              -- Delete character from end of line
-              tx_data <= to_std_logic_vector(bs);
-              tx_trigger <= '1';                    
-              cmdlen <= cmdlen - 1;          
-              state <= EraseCharacter;
-            end if;
-          when ack =>
-            -- ^F move forward one character
-            -- XXX not implemented
-          when stx =>
-            -- ^B move backward one character
-            -- XXX not implemented
-          when cr => state <= EnterPressed;
-          when lf => state <= EnterPressed;
+        case key_state is
+          when 2 =>
+            key_state <= 0;
+            case char is
+              when 'A' => -- cursor UP
+                -- Recall previous command (^P)
+                cmdlen <= prev_cmdlen;
+                redraw_position <= 1;
+                state <= RedrawInputBuffer;                
+              when others => null;
+            end case;
+          when 1 =>                     -- ESC mode
+            case char is
+              when '[' => key_state<=2;
+              when others => key_state<=0;
+            end case;
+          when 0 =>                     -- Normal key input
+            case char is
+              when dle =>
+                -- Recall previous command (^P)
+                cmdlen <= prev_cmdlen;
+                redraw_position <= 1;
+                state <= RedrawInputBuffer;
+              when dc2 =>
+                -- Redraw line (^R)
+                redraw_position <= 1;
+                state <= RedrawInputBuffer;
+              when nak =>
+                -- Erase line (^U)
+                state <= EraseInputBuffer;
+              when esc => key_state <= 1;
+              when bs =>
+                if cmdlen>1 then
+                  -- Delete character from end of line
+                  tx_data <= to_std_logic_vector(bs);
+                  tx_trigger <= '1';
+                  cmdlen <= cmdlen - 1;          
+                  state <= EraseCharacter;
+                end if;
+              when del =>
+                if cmdlen>1 then
+                  -- Delete character from end of line
+                  tx_data <= to_std_logic_vector(bs);
+                  tx_trigger <= '1';                    
+                  cmdlen <= cmdlen - 1;          
+                  state <= EraseCharacter;
+                end if;
+              when ack =>
+                -- ^F move forward one character
+                -- XXX not implemented
+              when stx =>
+                -- ^B move backward one character
+                -- XXX not implemented
+              when cr => state <= EnterPressed;
+              when lf => state <= EnterPressed;
+              when others =>
+                tx_data <= to_std_logic_vector(bel);
+                tx_trigger <= '1';                    
+            end case;
           when others =>
-            tx_data <= to_std_logic_vector(bel);
-            tx_trigger <= '1';                    
+            null;
         end case;
       end if;
     end character_received;
@@ -391,7 +414,8 @@ begin
     
   begin  -- process testclock
     if reset='0' then
-      state <= Reseting;   
+      state <= Reseting;
+      key_state <= 0;
     elsif rising_edge(clock) then
 
       -- Update counter and clear outputs
