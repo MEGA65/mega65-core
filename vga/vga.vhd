@@ -795,7 +795,7 @@ begin
       else
         displayx <= (others => '1');
         indisplay := '0';
-      end if;			
+      end if;
       
       if ycounter>=(frame_v_front+height) and ycounter<(frame_v_front+height+frame_v_syncheight) then
         vsync <= '1';
