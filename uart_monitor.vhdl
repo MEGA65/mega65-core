@@ -587,7 +587,7 @@ begin
               monitor_mem_address <= std_logic_vector(target_address);
               monitor_mem_wdata <= hex_value(7 downto 0);
               target_address <= target_address + 1;
-              cpu_transaction(FillMemory4);
+              cpu_transaction(FillMemory5);
             end if;
           when SetMemory1 => target_address <= hex_value(27 downto 0);
                              skip_space(SetMemory2);
