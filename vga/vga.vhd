@@ -1074,7 +1074,7 @@ begin
           -- Request colour RAM (only the relevant byte is used)
           -- 16bit charset has no effect on the colour RAM size
           long_address(31 downto 17) := (others => '0');
-          long_address(16 downto 0) := colour_ram_base(16 downto 0)+unsigned(next_glyph_number_temp);
+          long_address(16 downto 0) := colour_ram_base(16 downto 0)+unsigned(card_number);
           ramaddress <= std_logic_vector(long_address(16 downto 3));
         when 5 =>
           -- Character pixels (only 8 bits used if not in full colour mode)
