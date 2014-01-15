@@ -888,6 +888,8 @@ begin
         -- (8 cycles is plenty of time to fetch it)       
         char_fetch_cycle <= 0;
         cycles_to_next_card <= (others => '1');
+        -- Start displaying from the correct character
+        next_card_number <= first_card_of_row;
       end if;
       if displayx = (x_chargen_start - 1) then
         -- trigger next card at start of chargen row
