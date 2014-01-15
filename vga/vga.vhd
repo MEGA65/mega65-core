@@ -536,9 +536,35 @@ begin
         fastio_rdata(2) <= fullcolour_extendedchars;
         fastio_rdata(1) <= fullcolour_8bitchars;
         fastio_rdata(0) <= sixteenbit_charset;
-        -- Fill in unused register space
+      elsif register_number=128 then
+        fastio_rdata <= std_logic_vector(screen_ram_base(7 downto 0));
+      elsif register_number=129 then
+        fastio_rdata <= std_logic_vector(screen_ram_base(15 downto 8));
+      elsif register_number=130 then
+        fastio_rdata <= std_logic_vector(screen_ram_base(23 downto 16));
+      elsif register_number=131 then
+        fastio_rdata(7 downto 4) <= x"0";
+        fastio_rdata(3 downto 0) <= std_logic_vector(screen_ram_base(27 downto 23));
+      elsif register_number=132 then
+        fastio_rdata <= std_logic_vector(colour_ram_base(7 downto 0));
+      elsif register_number=133 then
+        fastio_rdata <= std_logic_vector(colour_ram_base(15 downto 8));
+      elsif register_number=134 then
+        fastio_rdata <= std_logic_vector(colour_ram_base(23 downto 16));
+      elsif register_number=135 then
+        fastio_rdata(7 downto 4) <= x"0";
+        fastio_rdata(3 downto 0) <= std_logic_vector(colour_ram_base(27 downto 23));
+      elsif register_number=136 then
+        fastio_rdata <= std_logic_vector(character_set_address(7 downto 0));
+      elsif register_number=137 then
+        fastio_rdata <= std_logic_vector(character_set_address(15 downto 8));
+      elsif register_number=138 then
+        fastio_rdata <= std_logic_vector(character_set_address(23 downto 16));
+      elsif register_number=139 then
+        fastio_rdata(7 downto 4) <= x"0";
+        fastio_rdata(3 downto 0) <= std_logic_vector(character_set_address(27 downto 23));
       elsif register_number<256 then
-        -- reserved register
+        -- Fill in unused register space
         fastio_rdata <= x"ff";
         -- C65 style palette registers
       elsif register_number>=256 and register_number<512 then
@@ -744,6 +770,30 @@ begin
           fullcolour_extendedchars <= fastio_wdata(2);
           fullcolour_8bitchars <= fastio_wdata(1);
           sixteenbit_charset <= fastio_wdata(0);
+        elsif register_number=128 then
+          screen_ram_base(7 downto 0) <= unsigned(fastio_wdata);
+        elsif register_number=129 then
+          screen_ram_base(15 downto 8) <= unsigned(fastio_wdata);
+        elsif register_number=130 then
+          screen_ram_base(23 downto 16) <= unsigned(fastio_wdata);
+        elsif register_number=131 then
+          screen_ram_base(27 downto 23) <= unsigned(fastio_wdata(3 downto 0));
+        elsif register_number=132 then
+          colour_ram_base(7 downto 0) <= unsigned(fastio_wdata);
+        elsif register_number=133 then
+          colour_ram_base(15 downto 8) <= unsigned(fastio_wdata);
+        elsif register_number=134 then
+          colour_ram_base(23 downto 16) <= unsigned(fastio_wdata);
+        elsif register_number=135 then
+          colour_ram_base(27 downto 23) <= unsigned(fastio_wdata(3 downto 0));
+        elsif register_number=136 then
+          character_set_address(7 downto 0) <= unsigned(fastio_wdata);
+        elsif register_number=137 then
+          character_set_address(15 downto 8) <= unsigned(fastio_wdata);
+        elsif register_number=138 then
+          character_set_address(23 downto 16) <= unsigned(fastio_wdata);
+        elsif register_number=139 then
+          character_set_address(27 downto 23) <= unsigned(fastio_wdata(3 downto 0));
         elsif register_number<256 then
           -- reserved register
           null;
