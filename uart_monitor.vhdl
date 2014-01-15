@@ -201,7 +201,10 @@ begin
                 -- Recall previous command (^P)
                 cmdlen <= prev_cmdlen;
                 redraw_position <= 1;
-                state <= RedrawInputBuffer;                
+                state <= RedrawInputBuffer;
+              when 'B' => null; -- cursor down
+              when 'D' => null; -- cursor left
+              when 'C' => null; -- cursor right                
               when others => null;
             end case;
           when 1 =>                     -- ESC mode
