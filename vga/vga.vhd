@@ -547,6 +547,8 @@ begin
         fastio_rdata(2) <= fullcolour_extendedchars;
         fastio_rdata(1) <= fullcolour_8bitchars;
         fastio_rdata(0) <= sixteenbit_charset;
+      elsif register_number=85 then
+        fastio_rdata <= std_logic_vector(to_unsigned(char_fetch_cycle,8));
       elsif register_number=128 then
         fastio_rdata <= std_logic_vector(screen_ram_base(7 downto 0));
       elsif register_number=129 then
@@ -1021,7 +1023,7 @@ begin
           -- Load card number
           long_address(31 downto 17) := (others => '0');
           if sixteenbit_charset='1' then
-            long_address(16 downto 0) := screen_ram_base(16 downto 0)+card_number&'0';
+            long_address(16 downto 0) := screen_ram_base(16 downto 0)+(card_number&'0');
           else
             long_address(16 downto 0) := screen_ram_base(16 downto 0)+card_number;
           end if;
