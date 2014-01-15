@@ -80,7 +80,8 @@ architecture behavioural of uart_monitor is
     "? or h[elp]            - Display this help" & crlf &
     "r                      - Print processor state." & crlf &
     "s<address> <value>     - Set memory." & crlf &
-    "m<address>             - Display contents of memory" & crlf;
+    "m<address>             - Display contents of memory" & crlf &
+    "f<low> <high> <byte>   - Fill memory from <low> to <high> with value <byte>" & crlf;
 
   constant errorMessage : string := crlf & "?SYNTAX  ERROR ";
   constant timeoutMessage : string := crlf & "?DEVICE NOT FOUND  ERROR" & crlf;
@@ -105,6 +106,7 @@ architecture behavioural of uart_monitor is
                          SetMemory6,SetMemory7,SetMemory8,
                          ShowMemory1,ShowMemory2,ShowMemory3,ShowMemory4,
                          ShowMemory5,ShowMemory6,ShowMemory7,ShowMemory8,
+                         FillMemory1,FillMemory2,FillMemory3,FillMemory4,
                          ShowRegisters,
                          ShowRegisters1,ShowRegisters2,ShowRegisters3,ShowRegisters4,
                          ShowRegisters5,ShowRegisters6,ShowRegisters7,ShowRegisters8,
@@ -123,6 +125,7 @@ architecture behavioural of uart_monitor is
   signal parse_position : integer := 2;
   signal hex_value : unsigned(31 downto 0);
   signal target_address : unsigned(27 downto 0);
+  signal top_address : unsigned(27 downto 0);
   signal target_value : unsigned(7 downto 0);
   signal hex_digits_read : integer;
   signal hex_digits_output : integer;
@@ -545,6 +548,9 @@ begin
               elsif cmdbuffer(1) = 's' or cmdbuffer(1) = 'S' then
                 parse_position <= 2;
                 parse_hex(SetMemory1);
+              elsif cmdbuffer(1) = 'f' or cmdbuffer(1) = 'F' then
+                parse_position <= 2;
+                parse_hex(FillMemory1);
               elsif cmdbuffer(1) = 'r' or cmdbuffer(1) = 'R' then
                 state <= ShowRegisters;                
               elsif cmdbuffer(1) = 'm' or cmdbuffer(1) = 'M' then
@@ -559,6 +565,26 @@ begin
             else
               cmdlen <= 1;
               state <= PrintPrompt;
+            end if;
+          when FillMemory1 =>
+            target_address <= hex_value(27 downto 0);
+            skip_space(FillMemory2);
+          when FillMemory2 =>
+            parse_hex(FillMemory3);
+          when FillMemory3 =>
+            top_address <= hex_value(27 downto 0);
+            skip_space(FillMemory4);
+          when FillMemory4 =>
+            -- hex_value(7 downto 0) has the fill value
+            if target_address < top_address then
+              monitor_mem_write <= '1';
+              monitor_mem_read <= '0';
+              monitor_mem_address <= std_logic_vector(target_address);
+              monitor_mem_wdata <= hex_value(7 downto 0);
+              target_address <= target_address + 1;
+              cpu_transaction(FillMemory4);
+            else
+              state <= NextCommand;
             end if;
           when SetMemory1 => target_address <= hex_value(27 downto 0);
                              skip_space(SetMemory2);
