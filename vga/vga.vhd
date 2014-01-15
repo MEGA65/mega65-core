@@ -682,7 +682,7 @@ begin
           thirtyninecolumns <= fastio_wdata(3);
           vicii_x_smoothscroll <= fastio_wdata(2 downto 0);
           -- set horizontal borders based on twentyfourlines
-          if thirtyninecolumns='0' then
+          if fastio_wdata(3)='0' then
             border_x_left <= to_unsigned(160,12);
             border_x_right <= to_unsigned(1920-160,12);
           else  
