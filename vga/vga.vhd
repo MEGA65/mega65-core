@@ -242,8 +242,8 @@ architecture Behavioral of vga is
   signal card_x : unsigned(11 downto 0) := (others => '0');
   signal card_y : unsigned(11 downto 0) := (others => '0');
   -- fractional pixel position for scaling
-  signal card_y_sub : unsigned(7 downto 0);
-  signal card_x_sub : unsigned(7 downto 0);
+  signal card_y_sub : unsigned(4 downto 0);
+  signal card_x_sub : unsigned(4 downto 0);
   -- character data fetch FSM
   signal char_fetch_cycle : integer := 0;
   -- data for next card
@@ -271,6 +271,9 @@ architecture Behavioral of vga is
   signal indisplay_t1 : std_logic := '0';
   signal indisplay_t2 : std_logic := '0';
   signal indisplay_t3 : std_logic := '0';
+  signal next_card_number : unsigned(15 downto 0) := (others => '0');
+  signal next_card_x : unsigned(11 downto 0) := (others => '0');
+
   
   signal reset : std_logic := '0';
   
@@ -320,6 +323,8 @@ architecture Behavioral of vga is
   signal inborder_t1 : std_logic;
   signal inborder_t2 : std_logic;
   signal inborder_t3 : std_logic;
+  signal xfrontporch : std_logic;
+  signal xbackporch : std_logic;
 
   signal ramaddress : std_logic_vector(13 downto 0);
   signal ramdata : std_logic_vector(63 downto 0);
@@ -845,8 +850,6 @@ begin
   
   process(pixelclock) is
     variable indisplay : std_logic := '0';
-    variable next_card_number : unsigned(15 downto 0) := (others => '0');
-    variable next_card_x : unsigned(11 downto 0) := (others => '0');
     variable next_card_y : unsigned(11 downto 0) := (others => '0');
     variable card_bg_colour : unsigned(7 downto 0) := (others => '0');
     variable card_fg_colour : unsigned(7 downto 0) := (others => '0');
@@ -867,7 +870,7 @@ begin
         xcounter <= xcounter + 1;
       else
         xcounter <= (others => '0');
-        next_card_x := (others => '0');
+        next_card_x <= (others => '0');
         card_x_sub <= (others => '0');
         if ycounter<frame_height then
           ycounter <= ycounter + 1;
@@ -876,19 +879,30 @@ begin
           ycounter <= (others =>'0');
           next_card_y := (others => '0');
           card_y_sub <= (others => '0');
-          next_card_number := (others => '0');
+          next_card_number <= (others => '0');
           first_card_of_row <= (others => '0');
         end if;	
       end if;
       if xcounter<frame_h_front then
+        xfrontporch <= '1';
+      else
+        xfrontporch <= '0';
+      end if;
+      if xcounter<(frame_h_front+width) then
+        xbackporch <= '0';
+      else
+        xbackporch <= '1';
+      end if;
+
+      if xfrontporch='1' then
         displayx <= (others => '0');
         indisplay := '0';
-      elsif xcounter<(frame_h_front+width) then
+      elsif xbackporch='0' then
         if card_x_sub=card_x_scale then
-          next_card_x := card_x + 1;
+          next_card_x <= card_x + 1;
           card_x_sub <= (others => '0');
           if next_card_x(2 downto 0) = "000" then
-            next_card_number := card_number + 1;
+            next_card_number <= card_number + 1;
           end if;
         else
           card_x_sub <= card_x_sub + 1;
@@ -911,13 +925,13 @@ begin
           first_card_of_row <= x"0000";	
         elsif ycounter<(frame_v_front+height) then
           displayy <= displayy + 1;
-          next_card_number := first_card_of_row;
+          next_card_number <= first_card_of_row;
           if card_y_sub=card_y_scale then
             next_card_y := card_y + 1;
             if card_y(2 downto 0) = "111" then
               -- Increment card number every "bad line"
               first_card_of_row <= first_card_of_row + virtual_row_width;
-              next_card_number := first_card_of_row + virtual_row_width;
+              next_card_number <= first_card_of_row + virtual_row_width;
             end if;
             card_y_sub <= (others => '0');
           else
