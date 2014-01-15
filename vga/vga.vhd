@@ -256,6 +256,8 @@ architecture Behavioral of vga is
   signal next_glyph_number_buffer : std_logic_vector(63 downto 0);
   signal next_glyph_colour_buffer : std_logic_vector(63 downto 0);
   signal next_glyph_full_colour : std_logic;
+  signal next_chargen_x : unsigned(11 downto 0) := (others => '0');
+
   -- data for current card
   signal glyph_number : unsigned(15 downto 0);
   signal glyph_colour : unsigned(7 downto 0);
@@ -273,7 +275,6 @@ architecture Behavioral of vga is
   signal indisplay_t2 : std_logic := '0';
   signal indisplay_t3 : std_logic := '0';
   signal next_card_number : unsigned(15 downto 0) := (others => '0');
-  signal next_chargen_x : unsigned(11 downto 0) := (others => '0');
   signal cycles_to_next_card : unsigned(7 downto 0);
   
   signal reset : std_logic := '0';
@@ -925,11 +926,15 @@ begin
         -- Work out if we are at the end of a character
         cycles_to_next_card <= cycles_to_next_card - 1;
         -- cycles_to_next_card counts down to 1, not 0.
-        -- update one cycle earlier since next_chargen_x is a signal not a variable.
+        -- update one cycle earlier since next_card_number is a signal
+        -- not a variable.
         if cycles_to_next_card = 2 then
+          -- We are one cycle before the start of a character
           next_card_number <= card_number + 1;
         end if;
         if cycles_to_next_card = 1 then
+          -- We are at the start of a character
+          
           -- Reset counter to next character to 8 cycles x (scale + 1)
           cycles_to_next_card <= (chargen_x_scale(4 downto 0)+1) & "000";
           -- Move preloaded glyph data into position when advancing to the next character
@@ -940,16 +945,21 @@ begin
           -- ... and then start fetching data for the character after that
           char_fetch_cycle <= 0;          
         end if;
-        
+
+        -- Update current horizontal sub-pixel and pixel position
         if chargen_x_sub=chargen_x_scale then
           chargen_x_sub <= (others => '0');
-          next_chargen_x <= chargen_x + 1;
-          if next_chargen_x(2 downto 0) = "000" then
-            next_card_number <= card_number + 1;
-          end if;          
         else
           chargen_x_sub <= chargen_x_sub + 1;
         end if;
+        -- Work out if a new logical pixel starts on the next physical pixel
+        if chargen_x_scale=0
+          or chargen_x_sub = (chargen_x_scale - 1)
+        then
+          next_chargen_x <= chargen_x + 1;
+        end if;
+
+        -- Increase horizonal physical pixel position
         displayx <= displayx + 1;
       else
         displayx <= (others => '1');
@@ -1004,10 +1014,10 @@ begin
       case char_fetch_cycle is
         when 0 => 
           -- Load card number
-          long_address(31 downto 28) := x"0";
-          long_address(27 downto 0) := screen_ram_base+card_number;
+          long_address(31 downto 17) := (others => '0');
+          long_address(16 downto 0) := screen_ram_base(16 downto 0)+card_number;
           if sixteenbit_charset='1' then
-            long_address := long_address+card_number;
+            long_address(16 downto 0) := long_address(16 downto 0)+card_number;
           end if;
           ramaddress <= std_logic_vector(long_address(16 downto 3));
         when 1 =>
@@ -1060,26 +1070,34 @@ begin
 
           -- Request colour RAM (only the relevant byte is used)
           -- 16bit charset has no effect on the colour RAM size
-          long_address(31 downto 28) := x"0";
-          long_address(27 downto 0) := colour_ram_base+unsigned(next_glyph_number_temp);
+          long_address(31 downto 17) := (others => '0');
+          long_address(16 downto 0) := colour_ram_base(16 downto 0)+unsigned(next_glyph_number_temp);
           ramaddress <= std_logic_vector(long_address(16 downto 3));
         when 4 =>
           -- Store colour bytes (will decode next cycle to keep logic shallow)
           next_glyph_colour_buffer <= ramdata;
           -- Character pixels (only 8 bits used if not in full colour mode)
+          long_address(31 downto 17) := (others => '0');
           if fullcolour_8bitchars='0' and fullcolour_extendedchars='0' then
-            long_address := character_set_address+(next_glyph_number*8)+chargen_y(2 downto 0);
+            long_address(16 downto 0) := character_set_address(16 downto 0)+(next_glyph_number(7 downto 0)*8)+chargen_y(2 downto 0);
           elsif fullcolour_8bitchars='0' and fullcolour_extendedchars='1' then
             if next_glyph_number<256 then
-              long_address := character_set_address+(next_glyph_number*8)+chargen_y(2 downto 0);
-              next_glyph_full_colour <= '1';
-            else
-              long_address := character_set_address+(256*8)+((next_glyph_number-256)*64)+chargen_y(2 downto 0)*8;            
+              long_address(16 downto 0) := character_set_address(16 downto 0)+(next_glyph_number*8)+chargen_y(2 downto 0);
               next_glyph_full_colour <= '0';
+            else
+              -- Full colour characters are direct mapped in memory on 64 byte
+              -- boundaries.
+              long_address(16 downto 0) :=
+                next_glyph_number(10 downto 0)&chargen_y(2 downto 0)&"000";
+              next_glyph_full_colour <= '1';
             end if;
           else
             -- if fullcolour_8bitchars='1' then all chars are full-colour          
-            long_address := character_set_address+(next_glyph_number*64)+chargen_y(2 downto 0)*8;
+            -- Full colour characters are direct mapped in memory on 64 byte
+            -- boundaries.
+            long_address(16 downto 0) :=
+              next_glyph_number(10 downto 0)&chargen_y(2 downto 0)&"000";
+            next_glyph_full_colour <= '1';
           end if;
           -- Request pixel data
           ramaddress <= std_logic_vector(long_address(16 downto 3));
