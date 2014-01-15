@@ -948,7 +948,7 @@ begin
     variable value : unsigned(15 downto 0);
     variable reg_num : integer := to_integer(address(4 downto 1));
   begin  -- process fastio
-    if fastio_read='1' and address(19 downto 8) = x"FFC0" then
+    if fastio_read='1' and address(19 downto 8) = x"FC0" then
       case rwx is
         when 0 => value := ram_bank_registers_read(reg_num);
         when 1 => value := ram_bank_registers_read(reg_num);
