@@ -223,7 +223,7 @@ begin
           when ack =>
             -- ^F move forward one character
             -- XXX not implemented
-          when std =>
+          when stx =>
             -- ^B move backward one character
             -- XXX not implemented
           when cr => state <= EnterPressed;
