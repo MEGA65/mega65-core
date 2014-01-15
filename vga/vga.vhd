@@ -1179,8 +1179,7 @@ begin
         chargen_y_sub <= (others => '0');
       end if;
       if displayx<=x_chargen_start then
-        chargen_x(11 downto 8) <= (others => '0');
-        chargen_x(7 downto 0) <= (others => '0');
+        chargen_x <= (others => '0');
         chargen_x_sub <= (others => '0');
       end if;
       if displayx=(x_chargen_start-8) then
