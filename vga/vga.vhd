@@ -1010,7 +1010,9 @@ begin
       -- sprite data once we implement them.
       -- We need the character number, the colour byte, and the
       -- 8x8 data bits (only 8 used if character is not in full colour mode).
-      char_fetch_cycle <= char_fetch_cycle + 1;
+      if char_fetch_cycle<16 then
+        char_fetch_cycle <= char_fetch_cycle + 1;        
+      end if;
       case char_fetch_cycle is
         when 0 => 
           -- Load card number
@@ -1077,12 +1079,11 @@ begin
           -- Store colour bytes (will decode next cycle to keep logic shallow)
           next_glyph_colour_buffer <= ramdata;
           -- Character pixels (only 8 bits used if not in full colour mode)
-          long_address(31 downto 17) := (others => '0');
           if fullcolour_8bitchars='0' and fullcolour_extendedchars='0' then
-            long_address(16 downto 0) := character_set_address(16 downto 0)+(next_glyph_number(7 downto 0)*8)+chargen_y(2 downto 0);
+            long_address(16 downto 0) := character_set_address(16 downto 0)+(next_glyph_number(7 downto 0)&chargen_y(2 downto 0));
           elsif fullcolour_8bitchars='0' and fullcolour_extendedchars='1' then
             if next_glyph_number<256 then
-              long_address(16 downto 0) := character_set_address(16 downto 0)+(next_glyph_number*8)+chargen_y(2 downto 0);
+              long_address(16 downto 0) := character_set_address(16 downto 0)+(next_glyph_number(10 downto 0)&chargen_y(2 downto 0));
               next_glyph_full_colour <= '0';
             else
               -- Full colour characters are direct mapped in memory on 64 byte
