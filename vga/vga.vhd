@@ -665,7 +665,7 @@ begin
           end if;
           vicii_y_smoothscroll <= fastio_wdata(2 downto 0);
           -- set y_chargen_start based on twentyfourlines
-          y_chargen_start <= to_unsigned((100-3*5)+to_integer(unsigned(vicii_y_smoothscroll))*5,12);
+          y_chargen_start <= to_unsigned((100-3*5)+to_integer(unsigned(fastio_wdata(2 downto 0)))*5,12);
         elsif register_number=18 then          -- $D012 current raster low 8 bits
           vicii_raster(7 downto 0) <= fastio_wdata;
         elsif register_number=19 then          -- $D013 lightpen X (coarse rasterX)
