@@ -265,6 +265,10 @@ begin
   begin
     if rising_edge(pixelclock) then
 
+      -- 2 = 64MHz
+      -- 3 = 48MHz
+      -- 191 = 1MHz
+      -- (don't forget to update uart_monitor baudrate divisor as well)
       if cpuclock_divisor<2 then
         cpuclock_divisor <= cpuclock_divisor + 1;
       else
