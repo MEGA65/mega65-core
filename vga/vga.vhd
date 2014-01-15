@@ -154,9 +154,9 @@ architecture Behavioral of vga is
   -- character display width.
   signal virtual_row_width : unsigned(15 downto 0) := to_unsigned(40,16);
   -- Each character pixel will be (n+1) pixels wide  
-  signal card_x_scale : unsigned(7 downto 0) := x"04";
+  signal chargen_x_scale : unsigned(7 downto 0) := x"04";
   -- Each character pixel will be (n+1) pixels high
-  signal card_y_scale : unsigned(7 downto 0) := x"04";
+  signal chargen_y_scale : unsigned(7 downto 0) := x"04";
   -- smooth scrolling position in natural pixels.
   -- Set in the same way as the border
   signal x_chargen_start : unsigned(11 downto 0) := to_unsigned(160,12);
@@ -240,11 +240,11 @@ architecture Behavioral of vga is
   signal card_number_is_extended : std_logic;  -- set if card_number > $00FF
   signal first_card_of_row : unsigned(15 downto 0);
   -- coordinates after applying the above scaling factors
-  signal card_x : unsigned(11 downto 0) := (others => '0');
-  signal card_y : unsigned(11 downto 0) := (others => '0');
+  signal chargen_x : unsigned(11 downto 0) := (others => '0');
+  signal chargen_y : unsigned(11 downto 0) := (others => '0');
   -- fractional pixel position for scaling
-  signal card_y_sub : unsigned(4 downto 0);
-  signal card_x_sub : unsigned(4 downto 0);
+  signal chargen_y_sub : unsigned(4 downto 0);
+  signal chargen_x_sub : unsigned(4 downto 0);
   -- character data fetch FSM
   signal char_fetch_cycle : integer := 0;
   -- data for next card
@@ -263,9 +263,9 @@ architecture Behavioral of vga is
   signal glyph_full_colour : std_logic;
   
   -- Delayed versions of signals to allow character fetching pipeline
-  signal card_x_t1 : unsigned(11 downto 0) := (others => '0');
-  signal card_x_t2 : unsigned(11 downto 0) := (others => '0');
-  signal card_x_t3 : unsigned(11 downto 0) := (others => '0');
+  signal chargen_x_t1 : unsigned(11 downto 0) := (others => '0');
+  signal chargen_x_t2 : unsigned(11 downto 0) := (others => '0');
+  signal chargen_x_t3 : unsigned(11 downto 0) := (others => '0');
   signal card_number_t1 : unsigned(15 downto 0) := (others => '0');
   signal card_number_t2 : unsigned(15 downto 0) := (others => '0');
   signal card_number_t3 : unsigned(15 downto 0) := (others => '0');
@@ -273,7 +273,7 @@ architecture Behavioral of vga is
   signal indisplay_t2 : std_logic := '0';
   signal indisplay_t3 : std_logic := '0';
   signal next_card_number : unsigned(15 downto 0) := (others => '0');
-  signal next_card_x : unsigned(11 downto 0) := (others => '0');
+  signal next_chargen_x : unsigned(11 downto 0) := (others => '0');
   signal cycles_to_next_card : unsigned(7 downto 0);
   
   signal reset : std_logic := '0';
@@ -497,9 +497,9 @@ begin
       elsif register_number=65 then
         fastio_rdata <= std_logic_vector(virtual_row_width(15 downto 8));
       elsif register_number=66 then
-        fastio_rdata <= std_logic_vector(card_x_scale);
+        fastio_rdata <= std_logic_vector(chargen_x_scale);
       elsif register_number=67 then
-        fastio_rdata <= std_logic_vector(card_y_scale);
+        fastio_rdata <= std_logic_vector(chargen_y_scale);
       elsif register_number=68 then
         fastio_rdata <= std_logic_vector(border_x_left(7 downto 0));
       elsif register_number=69 then
@@ -595,8 +595,8 @@ begin
     if rising_edge(cpuclock) then
 
       ---- Allow fiddling of scale by switching switches
-      --card_x_scale(3 downto 0) <= unsigned(sw(7 downto 4));
-      --card_y_scale(3 downto 0) <= unsigned(sw(3 downto 0));
+      --chargen_x_scale(3 downto 0) <= unsigned(sw(7 downto 4));
+      --chargen_y_scale(3 downto 0) <= unsigned(sw(3 downto 0));
       ---- And video mode
       --multicolour_mode <= sw(8);
       --extended_background_mode <= sw(9);
@@ -744,9 +744,9 @@ begin
         elsif register_number=65 then
           virtual_row_width(15 downto 8) <= unsigned(fastio_wdata);
         elsif register_number=66 then
-          card_x_scale <= unsigned(fastio_wdata);
+          chargen_x_scale <= unsigned(fastio_wdata);
         elsif register_number=67 then
-          card_y_scale <= unsigned(fastio_wdata);
+          chargen_y_scale <= unsigned(fastio_wdata);
         elsif register_number=68 then
           border_x_left(7 downto 0) <= unsigned(fastio_wdata);
         elsif register_number=69 then
@@ -851,7 +851,7 @@ begin
   
   process(pixelclock) is
     variable indisplay : std_logic := '0';
-    variable next_card_y : unsigned(11 downto 0) := (others => '0');
+    variable next_chargen_y : unsigned(11 downto 0) := (others => '0');
     variable card_bg_colour : unsigned(7 downto 0) := (others => '0');
     variable card_fg_colour : unsigned(7 downto 0) := (others => '0');
     variable long_address : unsigned(31 downto 0) := (others => '0');
@@ -871,15 +871,15 @@ begin
         xcounter <= xcounter + 1;
       else
         xcounter <= (others => '0');
-        next_card_x <= (others => '0');
-        card_x_sub <= (others => '0');
+        next_chargen_x <= (others => '0');
+        chargen_x_sub <= (others => '0');
         if ycounter<frame_height then
           ycounter <= ycounter + 1;
         else
           -- Start of next frame
           ycounter <= (others =>'0');
-          next_card_y := (others => '0');
-          card_y_sub <= (others => '0');
+          next_chargen_y := (others => '0');
+          chargen_y_sub <= (others => '0');
           next_card_number <= (others => '0');
           first_card_of_row <= (others => '0');
         end if;	
@@ -895,29 +895,60 @@ begin
         xbackporch <= '1';
       end if;
 
+      chargen_x <= next_chargen_x;
+      chargen_y <= next_chargen_y;
+      card_number <= next_card_number;
+      if next_card_number(15 downto 8) /= x"00" then
+        card_number_is_extended <= '1';
+      else
+        card_number_is_extended <= '0';
+      end if;
+      
+      -- Make delayed versions of card number and x position so that we have time
+      -- to fetch character row data.
+      chargen_x_t1 <= chargen_x;
+      chargen_x_t2 <= chargen_x_t1;
+      chargen_x_t3 <= chargen_x_t2;
+      card_number_t1 <= card_number;
+      card_number_t2 <= card_number_t1;
+      card_number_t3 <= card_number_t2;
+      indisplay_t1 <= indisplay;
+      indisplay_t2 <= indisplay_t1;
+      indisplay_t3 <= indisplay_t2;
+      
       if xfrontporch='1' then
         displayx <= (others => '0');
         -- trigger next card just after front porch ends
         cycles_to_next_card <= "00000010";
         indisplay := '0';
       elsif xbackporch='0' then
-        if card_x_sub=card_x_scale then
-          cycles_to_next_card <= cycles_to_next_card - 1;
-          -- cycles_to_next_card counts down to 1, not 0.
-          -- update one cycle earlier since next_card_x is a signal not a variable.
-          if cycles_to_next_card = 2 then
-            next_card_x <= card_x + 1;            
-          end if;
-          if cycles_to_next_card = 1 then
-            -- 8 cycles x (scale + 1)
-            cycles_to_next_card <= (card_x_scale(4 downto 0)+1) & "000";
-          end if;
-          card_x_sub <= (others => '0');
-          if next_card_x(2 downto 0) = "000" then
+        -- Work out if we are at the end of a character
+        cycles_to_next_card <= cycles_to_next_card - 1;
+        -- cycles_to_next_card counts down to 1, not 0.
+        -- update one cycle earlier since next_chargen_x is a signal not a variable.
+        if cycles_to_next_card = 2 then
+          next_card_number <= card_number + 1;
+        end if;
+        if cycles_to_next_card = 1 then
+          -- Reset counter to next character to 8 cycles x (scale + 1)
+          cycles_to_next_card <= (chargen_x_scale(4 downto 0)+1) & "000";
+          -- Move preloaded glyph data into position when advancing to the next character
+          glyph_pixeldata <= next_glyph_pixeldata;
+          glyph_colour <= next_glyph_colour;
+          glyph_number <= next_glyph_number;
+          glyph_full_colour <= next_glyph_full_colour;
+          -- ... and then start fetching data for the character after that
+          char_fetch_cycle <= 0;          
+        end if;
+        
+        if chargen_x_sub=chargen_x_scale then
+          chargen_x_sub <= (others => '0');
+          next_chargen_x <= chargen_x + 1;
+          if next_chargen_x(2 downto 0) = "000" then
             next_card_number <= card_number + 1;
           end if;          
         else
-          card_x_sub <= card_x_sub + 1;
+          chargen_x_sub <= chargen_x_sub + 1;
         end if;
         displayx <= displayx + 1;
       else
@@ -938,16 +969,16 @@ begin
         elsif ycounter<(frame_v_front+height) then
           displayy <= displayy + 1;
           next_card_number <= first_card_of_row;
-          if card_y_sub=card_y_scale then
-            next_card_y := card_y + 1;
-            if card_y(2 downto 0) = "111" then
+          if chargen_y_sub=chargen_y_scale then
+            next_chargen_y := chargen_y + 1;
+            if chargen_y(2 downto 0) = "111" then
               -- Increment card number every "bad line"
               first_card_of_row <= first_card_of_row + virtual_row_width;
               next_card_number <= first_card_of_row + virtual_row_width;
             end if;
-            card_y_sub <= (others => '0');
+            chargen_y_sub <= (others => '0');
           else
-            card_y_sub <= card_y_sub + 1;
+            chargen_y_sub <= chargen_y_sub + 1;
           end if;
         else
           displayy <= (others => '1');
@@ -969,119 +1000,118 @@ begin
       -- sprite data once we implement them.
       -- We need the character number, the colour byte, and the
       -- 8x8 data bits (only 8 used if character is not in full colour mode).
-      if char_fetch_cycle=0 then
-        -- Load card number
-        long_address(31 downto 28) := x"0";
-        long_address(27 downto 0) := screen_ram_base+card_number;
-        if sixteenbit_charset='1' then
-          long_address := long_address+card_number;
-        end if;
-        ramaddress <= std_logic_vector(long_address(16 downto 3));
-        char_fetch_cycle <= 1;
-      else
-        char_fetch_cycle <= 0;
-      end if;
-      if char_fetch_cycle=1 then
-        -- Store character number
-        -- In text mode, the glyph order is flexible
-        next_glyph_number_buffer <= ramdata;
-        -- As RAM is slow to read from, we buffer it, and then extract the
-        -- right byte/word next cycle, so no more work here.
-        char_fetch_cycle <= 2;
-      elsif char_fetch_cycle=2 then
-        -- Decode next character number from 64bit vector
-        -- This is a bit too complex to do in a single cycle if we also have to
-        -- choose the 16bit or 8 bit version.  So this cycle we calculate the
-        -- 8bit and 16bit versions.  Then next cycle we can select the correct
-        -- one.
-        next_glyph_number_temp(15 downto 8) := x"00";
-        case card_number(2 downto 0) is
-          when "000" => next_glyph_number_temp(7 downto 0) := next_glyph_number_buffer(63 downto 56);
-          when "001" => next_glyph_number_temp(7 downto 0) := next_glyph_number_buffer(55 downto 48);
-          when "010" => next_glyph_number_temp(7 downto 0) := next_glyph_number_buffer(47 downto 40);
-          when "011" => next_glyph_number_temp(7 downto 0) := next_glyph_number_buffer(39 downto 32);
-          when "100" => next_glyph_number_temp(7 downto 0) := next_glyph_number_buffer(31 downto 24);
-          when "101" => next_glyph_number_temp(7 downto 0) := next_glyph_number_buffer(23 downto 16);
-          when "110" => next_glyph_number_temp(7 downto 0) := next_glyph_number_buffer(15 downto  8);
-          when "111" => next_glyph_number_temp(7 downto 0) := next_glyph_number_buffer( 7 downto  0);
-          when others => next_glyph_number_temp(7 downto 0) := x"00";
-        end case;
-        next_glyph_number8 <= unsigned(next_glyph_number_temp);
-        case card_number(1 downto 0) is
-          when "00" => next_glyph_number_temp := next_glyph_number_buffer(63 downto 48);        
-          when "01" => next_glyph_number_temp := next_glyph_number_buffer(47 downto 32);        
-          when "10" => next_glyph_number_temp := next_glyph_number_buffer(31 downto 16);        
-          when "11" => next_glyph_number_temp := next_glyph_number_buffer(15 downto  0);        
-          when others => next_glyph_number_temp := x"0000";
-        end case;
-        next_glyph_number16 <= unsigned(next_glyph_number_temp);
-        char_fetch_cycle <= 3;
-        ramaddress <= (others => '0');
-      elsif char_fetch_cycle=3 then
-        if sixteenbit_charset='1' then
-          next_glyph_number_temp := std_logic_vector(next_glyph_number16);
-        else
-          next_glyph_number_temp := std_logic_vector(next_glyph_number8);
-        end if;
-        if text_mode='1' then
-          next_glyph_number <= unsigned(next_glyph_number_temp);
-        else
-          next_glyph_number <= card_number;
-        end if;
-        -- Request colour RAM (only the relevant byte is used)
-        -- 16bit charset has no effect on the colour RAM size
-        long_address(31 downto 28) := x"0";
-        long_address(27 downto 0) := colour_ram_base+unsigned(next_glyph_number_temp);
-        ramaddress <= std_logic_vector(long_address(16 downto 3));
-        char_fetch_cycle <= 4;
-      elsif char_fetch_cycle=4 then
-        -- Store colour bytes (will decode next cycle to keep logic shallow)
-        next_glyph_colour_buffer <= ramdata;
-        -- Character pixels (only 8 bits used if not in full colour mode)
-        if fullcolour_8bitchars='0' and fullcolour_extendedchars='0' then
-          long_address := character_set_address+(next_glyph_number*8)+card_y(2 downto 0);
-        elsif fullcolour_8bitchars='0' and fullcolour_extendedchars='1' then
-          if next_glyph_number<256 then
-            long_address := character_set_address+(next_glyph_number*8)+card_y(2 downto 0);
-            next_glyph_full_colour <= '1';
-          else
-            long_address := character_set_address+(256*8)+((next_glyph_number-256)*64)+card_y(2 downto 0)*8;            
-            next_glyph_full_colour <= '0';
+      char_fetch_cycle <= char_fetch_cycle + 1;
+      case char_fetch_cycle is
+        when 0 => 
+          -- Load card number
+          long_address(31 downto 28) := x"0";
+          long_address(27 downto 0) := screen_ram_base+card_number;
+          if sixteenbit_charset='1' then
+            long_address := long_address+card_number;
           end if;
-        else
-          -- if fullcolour_8bitchars='1' then all chars are full-colour          
-          long_address := character_set_address+(next_glyph_number*64)+card_y(2 downto 0)*8;
-        end if;
-        ramaddress <= std_logic_vector(long_address(16 downto 3));
-        char_fetch_cycle <= 5;
-      elsif char_fetch_cycle=5 then
-        -- Decode colour byte
-        case card_number(2 downto 0) is
-          when "000" => next_glyph_colour_temp := next_glyph_number_buffer(63 downto 56);
-          when "001" => next_glyph_colour_temp := next_glyph_number_buffer(55 downto 48);
-          when "010" => next_glyph_colour_temp := next_glyph_number_buffer(47 downto 40);
-          when "011" => next_glyph_colour_temp := next_glyph_number_buffer(39 downto 32);
-          when "100" => next_glyph_colour_temp := next_glyph_number_buffer(31 downto 24);
-          when "101" => next_glyph_colour_temp := next_glyph_number_buffer(23 downto 16);
-          when "110" => next_glyph_colour_temp := next_glyph_number_buffer(15 downto  8);
-          when "111" => next_glyph_colour_temp := next_glyph_number_buffer( 7 downto  0);
-          when others => next_glyph_colour_temp := x"00";
-        end case;
-        next_glyph_colour <= unsigned(next_glyph_colour_temp);
-        -- Store character pixels
-        next_glyph_pixeldata <= ramdata;
-        -- XXX Fetch full-colour sprite information
-        -- (C64 compatability sprites will be fetched during horizontal sync.
-        --  Because we can fetch 64bits at once, compatibility sprite fetching
-        --  cannot require more than 16 cycles).
-        ramaddress <= (others => '0');
-      else
-        -- XXX Fetch full-colour sprite information
-        -- (C64 compatability sprites will be fetched during horizontal sync.
-        --  Because we can fetch 64bits at once, compatibility sprite fetching
-        --  cannot require more than 16 cycles).
-        ramaddress <= (others => '0');
-      end if;
+          ramaddress <= std_logic_vector(long_address(16 downto 3));
+        when 1 =>
+          -- Store character number
+          -- In text mode, the glyph order is flexible
+          next_glyph_number_buffer <= ramdata;
+          -- As RAM is slow to read from, we buffer it, and then extract the
+          -- right byte/word next cycle, so no more work here.
+        when 2 =>
+          -- Decode next character number from 64bit vector
+          -- This is a bit too complex to do in a single cycle if we also have to
+          -- choose the 16bit or 8 bit version.  So this cycle we calculate the
+          -- 8bit and 16bit versions.  Then next cycle we can select the correct
+          -- one.
+          next_glyph_number_temp(15 downto 8) := x"00";
+          case card_number(2 downto 0) is
+            when "000" => next_glyph_number_temp(7 downto 0) := next_glyph_number_buffer(63 downto 56);
+            when "001" => next_glyph_number_temp(7 downto 0) := next_glyph_number_buffer(55 downto 48);
+            when "010" => next_glyph_number_temp(7 downto 0) := next_glyph_number_buffer(47 downto 40);
+            when "011" => next_glyph_number_temp(7 downto 0) := next_glyph_number_buffer(39 downto 32);
+            when "100" => next_glyph_number_temp(7 downto 0) := next_glyph_number_buffer(31 downto 24);
+            when "101" => next_glyph_number_temp(7 downto 0) := next_glyph_number_buffer(23 downto 16);
+            when "110" => next_glyph_number_temp(7 downto 0) := next_glyph_number_buffer(15 downto  8);
+            when "111" => next_glyph_number_temp(7 downto 0) := next_glyph_number_buffer( 7 downto  0);
+            when others => next_glyph_number_temp(7 downto 0) := x"00";
+          end case;
+          next_glyph_number8 <= unsigned(next_glyph_number_temp);
+          case card_number(1 downto 0) is
+            when "00" => next_glyph_number_temp := next_glyph_number_buffer(63 downto 48);        
+            when "01" => next_glyph_number_temp := next_glyph_number_buffer(47 downto 32);        
+            when "10" => next_glyph_number_temp := next_glyph_number_buffer(31 downto 16);        
+            when "11" => next_glyph_number_temp := next_glyph_number_buffer(15 downto  0);        
+          when others => next_glyph_number_temp := x"0000";
+          end case;
+          next_glyph_number16 <= unsigned(next_glyph_number_temp);
+          -- XXX Spare cycle where we could be fetching sprite data
+          ramaddress <= (others => '0');
+        when 3 =>
+          -- Calculate the actual character number
+          if sixteenbit_charset='1' then
+            next_glyph_number_temp := std_logic_vector(next_glyph_number16);
+          else
+            next_glyph_number_temp := std_logic_vector(next_glyph_number8);
+          end if;
+          if text_mode='1' then
+            next_glyph_number <= unsigned(next_glyph_number_temp);
+          else
+            next_glyph_number <= card_number;
+          end if;
+
+          -- Request colour RAM (only the relevant byte is used)
+          -- 16bit charset has no effect on the colour RAM size
+          long_address(31 downto 28) := x"0";
+          long_address(27 downto 0) := colour_ram_base+unsigned(next_glyph_number_temp);
+          ramaddress <= std_logic_vector(long_address(16 downto 3));
+        when 4 =>
+          -- Store colour bytes (will decode next cycle to keep logic shallow)
+          next_glyph_colour_buffer <= ramdata;
+          -- Character pixels (only 8 bits used if not in full colour mode)
+          if fullcolour_8bitchars='0' and fullcolour_extendedchars='0' then
+            long_address := character_set_address+(next_glyph_number*8)+chargen_y(2 downto 0);
+          elsif fullcolour_8bitchars='0' and fullcolour_extendedchars='1' then
+            if next_glyph_number<256 then
+              long_address := character_set_address+(next_glyph_number*8)+chargen_y(2 downto 0);
+              next_glyph_full_colour <= '1';
+            else
+              long_address := character_set_address+(256*8)+((next_glyph_number-256)*64)+chargen_y(2 downto 0)*8;            
+              next_glyph_full_colour <= '0';
+            end if;
+          else
+            -- if fullcolour_8bitchars='1' then all chars are full-colour          
+            long_address := character_set_address+(next_glyph_number*64)+chargen_y(2 downto 0)*8;
+          end if;
+          -- Request pixel data
+          ramaddress <= std_logic_vector(long_address(16 downto 3));
+        when 5 =>
+          -- Decode colour byte
+          case card_number(2 downto 0) is
+            when "000" => next_glyph_colour_temp := next_glyph_number_buffer(63 downto 56);
+            when "001" => next_glyph_colour_temp := next_glyph_number_buffer(55 downto 48);
+            when "010" => next_glyph_colour_temp := next_glyph_number_buffer(47 downto 40);
+            when "011" => next_glyph_colour_temp := next_glyph_number_buffer(39 downto 32);
+            when "100" => next_glyph_colour_temp := next_glyph_number_buffer(31 downto 24);
+            when "101" => next_glyph_colour_temp := next_glyph_number_buffer(23 downto 16);
+            when "110" => next_glyph_colour_temp := next_glyph_number_buffer(15 downto  8);
+            when "111" => next_glyph_colour_temp := next_glyph_number_buffer( 7 downto  0);
+            when others => next_glyph_colour_temp := x"00";
+          end case;
+          next_glyph_colour <= unsigned(next_glyph_colour_temp);
+          -- Store character pixels
+          next_glyph_pixeldata <= ramdata;
+          -- XXX Fetch full-colour sprite information
+          -- (C64 compatability sprites will be fetched during horizontal sync.
+          --  Because we can fetch 64bits at once, compatibility sprite fetching
+          --  cannot require more than 16 cycles).
+          ramaddress <= (others => '0');
+        when others => 
+          -- XXX Fetch full-colour sprite information
+          -- (C64 compatability sprites will be fetched during horizontal sync.
+          --  Because we can fetch 64bits at once, compatibility sprite fetching
+          --  cannot require more than 16 cycles).
+          ramaddress <= (others => '0');
+      end case;
+
       -- When moving to the next card read the appropriate character set rom entry.
       -- Note that character set ROM has only 256 entries, so 16-bit charsets
       -- will wrap.
@@ -1105,52 +1135,21 @@ begin
             charaddress(10 downto 3) <= std_logic_vector(card_number(7 downto 0));
           end if;
         end if;
-        charaddress(2 downto 0) <= std_logic_vector(card_y(2 downto 0));
+        charaddress(2 downto 0) <= std_logic_vector(chargen_y(2 downto 0));
         charread <= '1';
       else
         charread <= '0';
       end if;
 
-      -- Move preloaded glyph data into position when advancing to the next character
-      if card_x /= next_card_x then
-        glyph_pixeldata <= next_glyph_pixeldata;
-        glyph_colour <= next_glyph_colour;
-        glyph_number <= next_glyph_number;
-        glyph_full_colour <= next_glyph_full_colour;
-        -- Trigger loading data for next character, and then sprite data.
-        char_fetch_cycle <= 0;
-      end if;
-      
-      card_x <= next_card_x;
-      card_y <= next_card_y;
-      card_number <= next_card_number;
-      if next_card_number(15 downto 8) /= x"00" then
-        card_number_is_extended <= '1';
-      else
-        card_number_is_extended <= '0';
-      end if;
-      
-      -- Make delayed versions of card number and x position so that we have time
-      -- to fetch character row data.
-      card_x_t1 <= card_x;
-      card_x_t2 <= card_x_t1;
-      card_x_t3 <= card_x_t2;
-      card_number_t1 <= card_number;
-      card_number_t2 <= card_number_t1;
-      card_number_t3 <= card_number_t2;
-      indisplay_t1 <= indisplay;
-      indisplay_t2 <= indisplay_t1;
-      indisplay_t3 <= indisplay_t2;
-
       if displayy<=y_chargen_start then
-        card_y(11 downto 8) <= (others => '0');
-        card_y(7 downto 0) <= (others => '0');
-        card_y_sub <= (others => '0');
+        chargen_y(11 downto 8) <= (others => '0');
+        chargen_y(7 downto 0) <= (others => '0');
+        chargen_y_sub <= (others => '0');
       end if;
       if displayx<=x_chargen_start then
-        card_x(11 downto 8) <= (others => '0');
-        card_x(7 downto 0) <= (others => '0');
-        card_x_sub <= (others => '0');
+        chargen_x(11 downto 8) <= (others => '0');
+        chargen_x(7 downto 0) <= (others => '0');
+        chargen_x_sub <= (others => '0');
       end if;
       if displayx=(x_chargen_start-8) then
         -- Start fetching first character of the row
@@ -1183,9 +1182,9 @@ begin
       end if;
 
       -- Calculate pixel bit/bits for next cycle to keep logic depth shallow
-      multicolour_bits(0) <= charrow(to_integer((not card_x_t2(2 downto 1))&'0'));
-      multicolour_bits(1) <= charrow(to_integer((not card_x_t2(2 downto 1))&'1'));
-      monobit <= charrow(to_integer(not card_x_t2(2 downto 0)));
+      multicolour_bits(0) <= charrow(to_integer((not chargen_x_t2(2 downto 1))&'0'));
+      multicolour_bits(1) <= charrow(to_integer((not chargen_x_t2(2 downto 1))&'1'));
+      monobit <= charrow(to_integer(not chargen_x_t2(2 downto 0)));
       
       if indisplay_t3='1' then
         if inborder_t2='1' or blank='1' then
@@ -1195,7 +1194,7 @@ begin
           -- Full colour glyph
           -- Pixels come from each 8 bits of character memory.
           pixel_colour <= unsigned(glyph_pixeldata(63 downto 56));
-          if card_x_t1 /= card_x then
+          if chargen_x_t1 /= chargen_x then
             glyph_pixeldata(63 downto 8) <= glyph_pixeldata(55 downto 0);
           end if;
         elsif multicolour_mode='1' and text_mode='1' and card_fg_colour(3)='1' then
