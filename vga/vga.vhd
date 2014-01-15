@@ -544,7 +544,7 @@ begin
         fastio_rdata <= std_logic_vector(screen_ram_base(23 downto 16));
       elsif register_number=131 then
         fastio_rdata(7 downto 4) <= x"0";
-        fastio_rdata(3 downto 0) <= std_logic_vector(screen_ram_base(27 downto 23));
+        fastio_rdata(3 downto 0) <= std_logic_vector(screen_ram_base(27 downto 24));
       elsif register_number=132 then
         fastio_rdata <= std_logic_vector(colour_ram_base(7 downto 0));
       elsif register_number=133 then
@@ -553,7 +553,7 @@ begin
         fastio_rdata <= std_logic_vector(colour_ram_base(23 downto 16));
       elsif register_number=135 then
         fastio_rdata(7 downto 4) <= x"0";
-        fastio_rdata(3 downto 0) <= std_logic_vector(colour_ram_base(27 downto 23));
+        fastio_rdata(3 downto 0) <= std_logic_vector(colour_ram_base(27 downto 24));
       elsif register_number=136 then
         fastio_rdata <= std_logic_vector(character_set_address(7 downto 0));
       elsif register_number=137 then
@@ -562,7 +562,7 @@ begin
         fastio_rdata <= std_logic_vector(character_set_address(23 downto 16));
       elsif register_number=139 then
         fastio_rdata(7 downto 4) <= x"0";
-        fastio_rdata(3 downto 0) <= std_logic_vector(character_set_address(27 downto 23));
+        fastio_rdata(3 downto 0) <= std_logic_vector(character_set_address(27 downto 24));
       elsif register_number<256 then
         -- Fill in unused register space
         fastio_rdata <= x"ff";
@@ -698,9 +698,17 @@ begin
         elsif register_number=31 then          -- $D01F sprite/sprite collissions
           vicii_sprite_bitmap_colissions <= fastio_wdata;
         elsif register_number=32 then
-          border_colour <= unsigned(fastio_wdata);
+          if (register_bank=x"D0" or register_bank=x"D2") then
+            border_colour(3 downto 0) <= unsigned(fastio_wdata(3 downto 0));
+          else
+            border_colour <= unsigned(fastio_wdata);
+          end if;
         elsif register_number=33 then
-          screen_colour <= unsigned(fastio_wdata);
+          if (register_bank=x"D0" or register_bank=x"D2") then
+            screen_colour(3 downto 0) <= unsigned(fastio_wdata(3 downto 0));
+          else
+            screen_colour <= unsigned(fastio_wdata);
+          end if;
         elsif register_number=34 then
           multi1_colour <= unsigned(fastio_wdata);
         elsif register_number=35 then
@@ -777,7 +785,7 @@ begin
         elsif register_number=130 then
           screen_ram_base(23 downto 16) <= unsigned(fastio_wdata);
         elsif register_number=131 then
-          screen_ram_base(27 downto 23) <= unsigned(fastio_wdata(3 downto 0));
+          screen_ram_base(27 downto 24) <= unsigned(fastio_wdata(3 downto 0));
         elsif register_number=132 then
           colour_ram_base(7 downto 0) <= unsigned(fastio_wdata);
         elsif register_number=133 then
@@ -785,7 +793,7 @@ begin
         elsif register_number=134 then
           colour_ram_base(23 downto 16) <= unsigned(fastio_wdata);
         elsif register_number=135 then
-          colour_ram_base(27 downto 23) <= unsigned(fastio_wdata(3 downto 0));
+          colour_ram_base(27 downto 24) <= unsigned(fastio_wdata(3 downto 0));
         elsif register_number=136 then
           character_set_address(7 downto 0) <= unsigned(fastio_wdata);
         elsif register_number=137 then
@@ -793,7 +801,7 @@ begin
         elsif register_number=138 then
           character_set_address(23 downto 16) <= unsigned(fastio_wdata);
         elsif register_number=139 then
-          character_set_address(27 downto 23) <= unsigned(fastio_wdata(3 downto 0));
+          character_set_address(27 downto 24) <= unsigned(fastio_wdata(3 downto 0));
         elsif register_number<256 then
           -- reserved register
           null;
