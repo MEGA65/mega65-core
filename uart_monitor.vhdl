@@ -565,7 +565,8 @@ begin
           when SetMemory2 => parse_hex(SetMemory3);
           when SetMemory3 =>
             target_value <= hex_value(7 downto 0);
-            end_of_command(SetMemory4);
+            parse_position <= parse_position + 1;
+            state <= SetMemory4;
           when SetMemory4 =>
             monitor_mem_write <= '1';
             monitor_mem_read <= '0';
@@ -575,7 +576,13 @@ begin
           when SetMemory5 => try_output_char('=',SetMemory6);
           when SetMemory6 => print_hex_addr(target_address,SetMemory7);
           when SetMemory7 => try_output_char(' ',SetMemory8);
-          when SetMemory8 => print_hex_byte(target_value,NextCommand);            
+          when SetMemory8 =>
+            target_address <= target_address + 1;
+            if parse_position < cmdlen then
+              print_hex_byte(target_value,SetMemory2);
+            else
+              state <= NextCommand;
+            end if;
           when ParseHex => parse_hex_digit;
           when PrintHex =>
             if hex_digits_output<hex_digits_read then
