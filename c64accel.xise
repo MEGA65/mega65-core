@@ -25,7 +25,7 @@
     </file>
     <file xil_pn:name="container.vhd" xil_pn:type="FILE_VHDL">
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="93"/>
-      <association xil_pn:name="Implementation" xil_pn:seqID="7"/>
+      <association xil_pn:name="Implementation" xil_pn:seqID="12"/>
     </file>
     <file xil_pn:name="fpga_clock.vhd" xil_pn:type="FILE_VHDL">
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="126"/>
@@ -48,23 +48,23 @@
     </file>
     <file xil_pn:name="iomapper.vhdl" xil_pn:type="FILE_VHDL">
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="121"/>
-      <association xil_pn:name="Implementation" xil_pn:seqID="5"/>
+      <association xil_pn:name="Implementation" xil_pn:seqID="10"/>
     </file>
     <file xil_pn:name="kernel65.vhdl" xil_pn:type="FILE_VHDL">
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="122"/>
-      <association xil_pn:name="Implementation" xil_pn:seqID="2"/>
+      <association xil_pn:name="Implementation" xil_pn:seqID="4"/>
     </file>
     <file xil_pn:name="vga.vhd" xil_pn:type="FILE_VHDL">
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="57"/>
-      <association xil_pn:name="Implementation" xil_pn:seqID="0"/>
+      <association xil_pn:name="Implementation" xil_pn:seqID="6"/>
     </file>
     <file xil_pn:name="ram64x16k.vhd" xil_pn:type="FILE_VHDL">
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="58"/>
-      <association xil_pn:name="Implementation" xil_pn:seqID="0"/>
+      <association xil_pn:name="Implementation" xil_pn:seqID="9"/>
     </file>
     <file xil_pn:name="charrom.vhdl" xil_pn:type="FILE_VHDL">
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="59"/>
-      <association xil_pn:name="Implementation" xil_pn:seqID="0"/>
+      <association xil_pn:name="Implementation" xil_pn:seqID="5"/>
     </file>
     <file xil_pn:name="pixelclock.vhd" xil_pn:type="FILE_VHDL">
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="60"/>
@@ -72,7 +72,7 @@
     </file>
     <file xil_pn:name="dotclock.vhd" xil_pn:type="FILE_VHDL">
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="64"/>
-      <association xil_pn:name="Implementation" xil_pn:seqID="6"/>
+      <association xil_pn:name="Implementation" xil_pn:seqID="11"/>
     </file>
     <file xil_pn:name="pllclock.vhd" xil_pn:type="FILE_VHDL">
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="72"/>
@@ -80,47 +80,52 @@
     </file>
     <file xil_pn:name="simple6502.vhdl" xil_pn:type="FILE_VHDL">
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="75"/>
-      <association xil_pn:name="Implementation" xil_pn:seqID="0"/>
+      <association xil_pn:name="Implementation" xil_pn:seqID="8"/>
     </file>
     <file xil_pn:name="debugtools.vhdl" xil_pn:type="FILE_VHDL">
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="76"/>
-      <association xil_pn:name="Implementation" xil_pn:seqID="3"/>
+      <association xil_pn:name="Implementation" xil_pn:seqID="1"/>
     </file>
     <file xil_pn:name="uart_monitor.vhdl" xil_pn:type="FILE_VHDL">
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="78"/>
-      <association xil_pn:name="Implementation" xil_pn:seqID="4"/>
+      <association xil_pn:name="Implementation" xil_pn:seqID="7"/>
     </file>
     <file xil_pn:name="UART_TX_CTRL.vhd" xil_pn:type="FILE_VHDL">
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="78"/>
-      <association xil_pn:name="Implementation" xil_pn:seqID="1"/>
+      <association xil_pn:name="Implementation" xil_pn:seqID="2"/>
     </file>
     <file xil_pn:name="uart_rx.vhdl" xil_pn:type="FILE_VHDL">
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="79"/>
-      <association xil_pn:name="Implementation" xil_pn:seqID="79"/>
+      <association xil_pn:name="Implementation" xil_pn:seqID="3"/>
     </file>
   </files>
 
   <properties>
+    <property xil_pn:name="Allow Logic Optimization Across Hierarchy" xil_pn:value="true" xil_pn:valueState="non-default" xil_pn:x_locked="true"/>
     <property xil_pn:name="Auto Implementation Top" xil_pn:value="false" xil_pn:valueState="non-default"/>
+    <property xil_pn:name="Combinatorial Logic Optimization" xil_pn:value="true" xil_pn:valueState="non-default" xil_pn:x_locked="true"/>
     <property xil_pn:name="Device" xil_pn:value="xc7a100t" xil_pn:valueState="default"/>
     <property xil_pn:name="Device Family" xil_pn:value="Artix7" xil_pn:valueState="non-default"/>
-    <property xil_pn:name="Extra Effort (Highest PAR level only)" xil_pn:value="Normal" xil_pn:valueState="non-default" xil_pn:x_locked="true"/>
+    <property xil_pn:name="Extra Effort (Highest PAR level only)" xil_pn:value="Continue on Impossible" xil_pn:valueState="non-default" xil_pn:x_locked="true"/>
     <property xil_pn:name="Implementation Top" xil_pn:value="Architecture|container|Behavioral" xil_pn:valueState="non-default"/>
     <property xil_pn:name="Implementation Top File" xil_pn:value="container.vhd" xil_pn:valueState="non-default"/>
     <property xil_pn:name="Implementation Top Instance Path" xil_pn:value="/container" xil_pn:valueState="non-default"/>
     <property xil_pn:name="Last Applied Goal" xil_pn:value="Timing Performance" xil_pn:valueState="non-default"/>
-    <property xil_pn:name="Last Applied Strategy" xil_pn:value="Performance without IOB Packing;/opt/Xilinx/14.7/ISE_DS/ISE/spartan6/data/spartan6_performance_without_iobpacking.xds" xil_pn:valueState="non-default"/>
+    <property xil_pn:name="Last Applied Strategy" xil_pn:value="Tweaked for c64accel;/home/gardners/c64accel.xds" xil_pn:valueState="non-default"/>
+    <property xil_pn:name="Optimization Effort virtex6" xil_pn:value="High" xil_pn:valueState="non-default" xil_pn:x_locked="true"/>
     <property xil_pn:name="Optimization Goal" xil_pn:value="Speed" xil_pn:valueState="default" xil_pn:x_locked="true"/>
-    <property xil_pn:name="Pack I/O Registers into IOBs" xil_pn:value="No" xil_pn:valueState="non-default" xil_pn:x_locked="true"/>
-    <property xil_pn:name="Pack I/O Registers/Latches into IOBs" xil_pn:value="Off" xil_pn:valueState="default" xil_pn:x_locked="true"/>
+    <property xil_pn:name="Optimize Instantiated Primitives" xil_pn:value="true" xil_pn:valueState="non-default" xil_pn:x_locked="true"/>
+    <property xil_pn:name="Pack I/O Registers into IOBs" xil_pn:value="Yes" xil_pn:valueState="non-default" xil_pn:x_locked="true"/>
+    <property xil_pn:name="Pack I/O Registers/Latches into IOBs" xil_pn:value="For Inputs and Outputs" xil_pn:valueState="non-default" xil_pn:x_locked="true"/>
     <property xil_pn:name="Package" xil_pn:value="csg324" xil_pn:valueState="default"/>
     <property xil_pn:name="Place &amp; Route Effort Level (Overall)" xil_pn:value="High" xil_pn:valueState="default" xil_pn:x_locked="true"/>
     <property xil_pn:name="Place And Route Mode" xil_pn:value="Route Only" xil_pn:valueState="default" xil_pn:x_locked="true"/>
     <property xil_pn:name="Placer Effort Level Map" xil_pn:value="High" xil_pn:valueState="default" xil_pn:x_locked="true"/>
-    <property xil_pn:name="Placer Extra Effort Map" xil_pn:value="Normal" xil_pn:valueState="non-default" xil_pn:x_locked="true"/>
+    <property xil_pn:name="Placer Extra Effort Map" xil_pn:value="Continue on Impossible" xil_pn:valueState="non-default" xil_pn:x_locked="true"/>
     <property xil_pn:name="Preferred Language" xil_pn:value="VHDL" xil_pn:valueState="non-default"/>
     <property xil_pn:name="Property Specification in Project File" xil_pn:value="Store non-default values only" xil_pn:valueState="non-default"/>
     <property xil_pn:name="Register Balancing" xil_pn:value="Yes" xil_pn:valueState="non-default" xil_pn:x_locked="true"/>
+    <property xil_pn:name="Register Duplication Map" xil_pn:value="On" xil_pn:valueState="non-default" xil_pn:x_locked="true"/>
     <property xil_pn:name="Simulator" xil_pn:value="ISim (VHDL/Verilog)" xil_pn:valueState="default"/>
     <property xil_pn:name="Speed Grade" xil_pn:value="-1" xil_pn:valueState="non-default"/>
     <property xil_pn:name="Synthesis Tool" xil_pn:value="XST (VHDL/Verilog)" xil_pn:valueState="default"/>
