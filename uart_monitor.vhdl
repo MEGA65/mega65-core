@@ -27,7 +27,8 @@ entity uart_monitor is
     monitor_mem_attention_request : out std_logic := '0';
     monitor_mem_attention_granted : in std_logic;
     monitor_mem_read : out std_logic := '0';
-    monitor_mem_write : out std_logic := '0'
+    monitor_mem_write : out std_logic := '0';
+    monitor_mem_setpc : out std_logic := '0'
     );
 end uart_monitor;
 
@@ -79,6 +80,7 @@ architecture behavioural of uart_monitor is
   constant helpMessage : String :=
     "? or h[elp]            - Display this help" & crlf &
     "f<low> <high> <byte>   - Fill memory from <low> to <high> with value <byte>" &    crlf &
+    "g<address>             - Set PC to <address> and resume execution" & crlf &
     "m<address>             - Display contents of memory" & crlf &
     "r                      - Print processor state." & crlf &
     "s<address> <value> ... - Set memory." & crlf;
@@ -108,6 +110,7 @@ architecture behavioural of uart_monitor is
                          ShowMemory5,ShowMemory6,ShowMemory7,ShowMemory8,
                          FillMemory1,FillMemory2,FillMemory3,FillMemory4,
                          FillMemory5,
+                         SetPC1,
                          ShowRegisters,
                          ShowRegisters1,ShowRegisters2,ShowRegisters3,ShowRegisters4,
                          ShowRegisters5,ShowRegisters6,ShowRegisters7,ShowRegisters8,
@@ -552,6 +555,9 @@ begin
               elsif cmdbuffer(1) = 'f' or cmdbuffer(1) = 'F' then
                 parse_position <= 2;
                 parse_hex(FillMemory1);
+              elsif cmdbuffer(1) = 'g' or cmdbuffer(1) = 'G' then
+                parse_position <= 2;
+                parse_hex(SetPC1);
               elsif cmdbuffer(1) = 'r' or cmdbuffer(1) = 'R' then
                 state <= ShowRegisters;                
               elsif cmdbuffer(1) = 'm' or cmdbuffer(1) = 'M' then
@@ -689,6 +695,12 @@ begin
             banner_position <= 1; state <= PrintError;
           when TimeoutError =>
             banner_position <= 1; state <= PrintTimeoutError;
+          when SetPC1 =>
+            monitor_mem_address(15 downto 0) <= std_logic_vector(hex_value(15 downto 0));
+            monitor_mem_read <= '1';
+            monitor_mem_setpc <= '1';
+            monitor_mem_write <= '0';
+            cpu_transaction(ShowRegisters);
           when CPUTransaction1 =>
             if monitor_mem_attention_granted='0' then
               monitor_mem_attention_request <= '1';

@@ -29,6 +29,7 @@ entity simple6502 is
     monitor_mem_wdata : in unsigned(7 downto 0);
     monitor_mem_read : in std_logic;
     monitor_mem_write : in std_logic;
+    monitor_mem_setpc : in std_logic;
     monitor_mem_register : out unsigned(15 downto 0);
     monitor_mem_attention_request : in std_logic;
     monitor_mem_attention_granted : out std_logic := '0';
@@ -843,6 +844,10 @@ begin
         else
           -- Read from specified long address
           read_long_address(unsigned(monitor_mem_address),MonitorReadDone);
+          -- and optionally set PC
+          if monitor_mem_setpc='1' then
+            reg_pc <= unsigned(monitor_mem_address(15 downto 0));
+          end if;
         end if;   
       else
         -- CPU running, so do CPU state machine
