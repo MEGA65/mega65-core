@@ -685,7 +685,7 @@ begin
             border_x_right <= to_unsigned(1920-160-(4*5),12);
           end if;
           -- set y_chargen_start based on twentyfourlines
-          x_chargen_start <= to_unsigned((160-3*5)+to_integer(unsigned(vicii_x_smoothscroll))*5,12);
+          x_chargen_start <= to_unsigned((160-3*5)+to_integer(unsigned(fastio_wdata(2 downto 0)))*5,12);
         elsif register_number=23 then          -- $D017 compatibility sprite enable
           vicii_sprite_y_expand <= fastio_wdata;
         elsif register_number=24 then          -- $D018 compatibility RAM addresses
