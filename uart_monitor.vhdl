@@ -107,6 +107,7 @@ architecture behavioural of uart_monitor is
                          ShowMemory1,ShowMemory2,ShowMemory3,ShowMemory4,
                          ShowMemory5,ShowMemory6,ShowMemory7,ShowMemory8,
                          FillMemory1,FillMemory2,FillMemory3,FillMemory4,
+                         FillMemory5,
                          ShowRegisters,
                          ShowRegisters1,ShowRegisters2,ShowRegisters3,ShowRegisters4,
                          ShowRegisters5,ShowRegisters6,ShowRegisters7,ShowRegisters8,
@@ -575,16 +576,18 @@ begin
             top_address <= hex_value(27 downto 0);
             skip_space(FillMemory4);
           when FillMemory4 =>
+            parse_hex(FillMemory5);            
+          when FillMemory5 =>
             -- hex_value(7 downto 0) has the fill value
-            if target_address < top_address then
+            if target_address > top_address then
+              state <= NextCommand;
+            else
               monitor_mem_write <= '1';
               monitor_mem_read <= '0';
               monitor_mem_address <= std_logic_vector(target_address);
               monitor_mem_wdata <= hex_value(7 downto 0);
               target_address <= target_address + 1;
               cpu_transaction(FillMemory4);
-            else
-              state <= NextCommand;
             end if;
           when SetMemory1 => target_address <= hex_value(27 downto 0);
                              skip_space(SetMemory2);
