@@ -957,7 +957,7 @@ begin
 
         -- Increase horizonal physical pixel position
         displayx <= displayx + 1;
-      elsif back_porch ='1' then
+      elsif xbackporch ='1' then
         -- In back porch, so set displayx all high
         displayx <= (others => '1');
         indisplay := '0';
