@@ -99,7 +99,9 @@ architecture Behavioural of simple6502 is
     Interrupt,VectorRead,VectorRead1,VectorRead2,VectorRead3,
     InstructionFetch,InstructionFetch2,InstructionFetch3,InstructionFetch4,    
     BRK1,BRK2,PLA1,PLP1,RTI1,RTI2,RTI3,RTS1,RTS2,JSR1,JMP1,JMP2,
-    IndirectX1,IndirectY1,ExecuteDirect,RMWCommit,
+    IndirectX1,IndirectX2,IndirectX3,
+    IndirectY1,IndirectY2,IndirectY3,
+    ExecuteDirect,RMWCommit,
     Halt,WaitOneCycle,
     MonitorAccessDone,MonitorReadDone
     );
@@ -927,6 +929,22 @@ begin
           when JSR1 => push_byte(reg_pc_jsr(15 downto 8),InstructionFetch);
           when JMP1 => read_instruction_byte(reg_addr,JMP2); reg_pc(7 downto 0)<=read_data;
           when JMP2 => reg_pc(15 downto 8) <= read_data; state<=InstructionFetch;
+          when IndirectX1 =>
+            reg_addr(7 downto 0) <= read_data;
+            read_data_byte(reg_addr,IndirectX2);
+          when IndirectX2 =>
+            reg_addr(15 downto 8) <= read_data;
+            read_data_byte(read_data & reg_addr(7 downto 0),IndirectX3);
+          when IndirectX3 =>
+            execute_operand_instruction(reg_instruction,read_data,reg_addr);
+          when IndirectY1 =>
+            reg_addr(7 downto 0) <= read_data;
+            read_data_byte(reg_addr,IndirectY2);
+          when IndirectY2 =>
+            reg_addr <= (read_data & reg_addr(7 downto 0)) + reg_y;
+            read_data_byte((read_data & reg_addr(7 downto 0)) + reg_y,IndirectY3);
+          when IndirectY3 =>
+            execute_operand_instruction(reg_instruction,read_data,reg_addr);
           when ExecuteDirect =>
             execute_operand_instruction(reg_instruction,read_data,reg_addr);
           when RMWCommit => write_data_byte(reg_addr,reg_value,InstructionFetch);
