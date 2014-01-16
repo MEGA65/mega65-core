@@ -28,7 +28,9 @@ entity uart_monitor is
     monitor_mem_attention_granted : in std_logic;
     monitor_mem_read : out std_logic := '0';
     monitor_mem_write : out std_logic := '0';
-    monitor_mem_setpc : out std_logic := '0'
+    monitor_mem_setpc : out std_logic := '0';
+    monitor_mem_trace_mode : out std_logic := '0';
+    monitor_mem_trace_toggle : out std_logic := '0'
     );
 end uart_monitor;
 
@@ -115,7 +117,8 @@ architecture behavioural of uart_monitor is
                          ShowRegisters1,ShowRegisters2,ShowRegisters3,ShowRegisters4,
                          ShowRegisters5,ShowRegisters6,ShowRegisters7,ShowRegisters8,
                          ShowRegisters9,ShowRegisters10,ShowRegisters11,ShowRegisters12,
-                         ShowRegisters13,ShowRegisters14,ShowRegisters15
+                         ShowRegisters13,ShowRegisters14,ShowRegisters15,
+                         TraceStep,WaitOneCycle
                          );
 
   signal state : monitor_state := Reseting;
@@ -144,7 +147,8 @@ architecture behavioural of uart_monitor is
   signal byte_number : integer;
 
   signal key_state : integer := 0;
-  
+
+  signal monitor_mem_trace_toggle_internal : std_logic := '0';
 begin
 
   uart_tx0: uart_tx_ctrl
@@ -560,6 +564,17 @@ begin
                 parse_hex(SetPC1);
               elsif cmdbuffer(1) = 'r' or cmdbuffer(1) = 'R' then
                 state <= ShowRegisters;                
+              elsif cmdbuffer(1) = 't' or cmdbuffer(1) = 'T' then
+                if cmdlen=1 then
+                  state <= TraceStep;
+                elsif cmdbuffer(2)='1' then
+                  monitor_mem_trace_mode<='1';               
+                elsif cmdbuffer(2)='0' then
+                  monitor_mem_trace_mode<='0';
+                else
+                  errorCode <= x"07";
+                  state <= SyntaxError;
+                end if;
               elsif cmdbuffer(1) = 'm' or cmdbuffer(1) = 'M' then
                 report "read memory command" severity note;
                 parse_position <= 2;
@@ -733,6 +748,14 @@ begin
               end if;
               timeout <= timeout - 1;              
             end if;
+          when TraceStep =>
+            -- Toggle trace flag so that CPU knows it can do one more instruction
+            monitor_mem_trace_toggle <= not monitor_mem_trace_toggle_internal;
+            monitor_mem_trace_toggle_internal <= not monitor_mem_trace_toggle_internal;
+            -- Give CPU a couple of cycles to leave instruction fetch state
+            post_transaction_state <= ShowRegisters;
+            state <= WaitOneCycle;
+          when WaitOneCycle => state <= post_transaction_state;
           when others => null;
         end case;
       end if;

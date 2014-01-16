@@ -90,6 +90,8 @@ architecture Behavioral of container is
       monitor_mem_read : out std_logic := '0';
       monitor_mem_write : out std_logic := '0';
       monitor_mem_setpc : out std_logic := '0';
+      monitor_mem_trace_mode : out std_logic;
+      monitor_mem_trace_toggle : out std_logic;
       monitor_mem_attention_request : out std_logic;
       monitor_mem_attention_granted : in std_logic
       );
@@ -135,7 +137,8 @@ architecture Behavioral of container is
       monitor_mem_setpc : in std_logic;
       monitor_mem_attention_request : in std_logic;
       monitor_mem_attention_granted : out std_logic;
-
+      monitor_mem_trace_mode : in std_logic;
+      monitor_mem_trace_toggle : in std_logic;
 
       ---------------------------------------------------------------------------
       -- Interface to FastRAM in video controller (just 128KB for now)
@@ -240,7 +243,9 @@ architecture Behavioral of container is
   signal monitor_mem_setpc : std_logic;
   signal monitor_mem_attention_request : std_logic;
   signal monitor_mem_attention_granted : std_logic;
-
+  signal monitor_mem_trace_mode : std_logic;
+  signal monitor_mem_trace_toggle : std_logic;
+  
   signal monitor_a : std_logic_vector(7 downto 0);
   signal monitor_x : std_logic_vector(7 downto 0);
   signal monitor_y : std_logic_vector(7 downto 0);
@@ -365,6 +370,8 @@ begin
     monitor_mem_setpc => monitor_mem_setpc,
     monitor_mem_attention_request => monitor_mem_attention_request,
     monitor_mem_attention_granted => monitor_mem_attention_granted,
+    monitor_mem_trace_mode => monitor_mem_trace_mode,
+    monitor_mem_trace_toggle => monitor_mem_trace_toggle,
 
     fastram_we => fastram_we,
     fastram_read => fastram_read,
@@ -439,7 +446,9 @@ begin
     monitor_mem_write => monitor_mem_write,
     monitor_mem_setpc => monitor_mem_setpc,
     monitor_mem_attention_request => monitor_mem_attention_request,
-    monitor_mem_attention_granted => monitor_mem_attention_granted
+    monitor_mem_attention_granted => monitor_mem_attention_granted,
+    monitor_mem_trace_mode => monitor_mem_trace_mode,
+    monitor_mem_trace_toggle => monitor_mem_trace_toggle
 );
   
 end Behavioral;

@@ -33,7 +33,8 @@ entity simple6502 is
     monitor_mem_register : out unsigned(15 downto 0);
     monitor_mem_attention_request : in std_logic;
     monitor_mem_attention_granted : out std_logic := '0';
-
+    monitor_mem_trace_mode : in std_logic;
+    monitor_mem_trace_toggle : in std_logic;
     
     ---------------------------------------------------------------------------
     -- Interface to FastRAM in video controller (just 128KB for now)
@@ -230,6 +231,8 @@ architecture Behavioural of simple6502 is
   signal accessing_fastio : std_logic;
   signal accessing_ram : std_logic;
   signal accessing_slowram : std_logic;
+
+  signal monitor_mem_trace_toggle_last : std_logic := '0';
   
 begin
   process(clock)
@@ -875,16 +878,20 @@ begin
           when VectorRead3 => reg_pc(15 downto 8) <= read_data; state <= InstructionFetch;
           when InstructionFetch =>
             monitor_mem_attention_granted <= '0';
+            if monitor_mem_trace_mode='0' or
+              monitor_mem_trace_toggle /= monitor_mem_trace_toggle_last then
+              monitor_mem_trace_toggle_last <= monitor_mem_trace_toggle;
 
-            if nmi_pending='1' then
-              nmi_pending <= '0';
-              vector <= x"FFFA"; state <=VectorRead;
-            elsif irq_pending='1' and flag_i='0' then
-              irq_pending <= '0';
-              vector <= x"FFFE"; state <=VectorRead;                                
-            else
-              read_instruction_byte(reg_pc,InstructionFetch2);
-              reg_pc <= reg_pc + 1;
+              if nmi_pending='1' then
+                nmi_pending <= '0';
+                vector <= x"FFFA"; state <=VectorRead;
+              elsif irq_pending='1' and flag_i='0' then
+                irq_pending <= '0';
+                vector <= x"FFFE"; state <=VectorRead;  
+              else
+                read_instruction_byte(reg_pc,InstructionFetch2);
+                reg_pc <= reg_pc + 1;
+              end if;              
             end if;
           when InstructionFetch2 =>
             -- Keep reading bytes if necessary
