@@ -833,6 +833,7 @@ begin
         xcounter <= (others => '0');
         next_chargen_x <= (others => '0');
         chargen_x_sub <= (others => '0');
+        chargen_active <= '0';
         if ycounter<frame_height then
           ycounter <= ycounter + 1;
         else
@@ -846,7 +847,6 @@ begin
       end if;
       if xcounter<frame_h_front then
         xfrontporch <= '1';
-        chargen_active <= '0';
       else
         xfrontporch <= '0';
       end if;
@@ -862,6 +862,8 @@ begin
         inborder<='1';
       else
         inborder<='0';
+        -- Increase horizonal physical pixel position
+        displayx <= displayx + 1;
       end if;
       inborder_t1 <= inborder;
       inborder_t2 <= inborder_t1;
@@ -954,9 +956,6 @@ begin
             next_chargen_x <= chargen_x + 1;
           end if;
         end if;
-
-        -- Increase horizonal physical pixel position
-        displayx <= displayx + 1;
       elsif xbackporch ='1' then
         -- In back porch, so set displayx all high
         displayx <= (others => '1');
