@@ -233,7 +233,7 @@ architecture Behavioural of simple6502 is
   signal accessing_slowram : std_logic;
 
   signal monitor_mem_trace_toggle_last : std_logic := '0';
-  
+
 begin
   process(clock)
 
@@ -763,7 +763,7 @@ begin
         if arg1(7)='0' then -- branch forwards.
           reg_pc <= reg_pc + unsigned(arg1(6 downto 0));
         else -- branch backwards.
-          reg_pc <= (reg_pc - x"0080") + unsigned(not arg1(6 downto 0));
+          reg_pc <= (reg_pc - x"0080") + unsigned(arg1(6 downto 0));
         end if;
       end if;
       -- Treat jump instructions specially, since they are rather different to
