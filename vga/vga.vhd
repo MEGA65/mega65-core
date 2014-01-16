@@ -552,6 +552,11 @@ begin
         fastio_rdata <= std_logic_vector(to_unsigned(char_fetch_cycle,8));
       elsif register_number=86 then
         fastio_rdata <= std_logic_vector(cycles_to_next_card);
+      elsif register_number = 87 then
+        fastio_rdata(7) <= xfrontporch;
+        fastio_rdata(6) <= xbackporch;
+        fastio_rdata(5) <= chargen_active;
+        fastio_rdata(4) <= inborder;
       elsif register_number=128 then
         fastio_rdata <= std_logic_vector(screen_ram_base(7 downto 0));
       elsif register_number=129 then
