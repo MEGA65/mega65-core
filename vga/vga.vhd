@@ -487,7 +487,7 @@ begin
       elsif register_number=24 then          -- $D018 compatibility RAM addresses
         fastio_rdata <=
           std_logic_vector(character_set_address(13 downto 10))
-          & std_logic_vector(screen_ram_base(12 downto 9));
+          & std_logic_vector(screen_ram_base(13 downto 10));
       elsif register_number=25 then          -- $D019 compatibility IRQ bits
         fastio_rdata(7) <= irq_asserted;
         fastio_rdata(6) <= '1';       -- NC
@@ -715,8 +715,8 @@ begin
         elsif register_number=23 then          -- $D017 compatibility sprite enable
           vicii_sprite_y_expand <= fastio_wdata;
         elsif register_number=24 then          -- $D018 compatibility RAM addresses
-          character_set_address(13 downto 10) <= unsigned(fastio_wdata(3 downto 0));
-          screen_ram_base(12 downto 9) <= unsigned(fastio_wdata(7 downto 4));
+          character_set_address(13 downto 11) <= unsigned(fastio_wdata(3 downto 1));
+          screen_ram_base(13 downto 10) <= unsigned(fastio_wdata(7 downto 4));
         elsif register_number=25 then          -- $D019 compatibility IRQ bits
           -- Acknowledge IRQs
           -- (we need to pass this to the dotclock side to avoide multiple drivers)
