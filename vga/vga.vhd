@@ -718,10 +718,11 @@ begin
           character_set_address(13 downto 10) <= unsigned(fastio_wdata(3 downto 0));
           screen_ram_base(12 downto 9) <= unsigned(fastio_wdata(7 downto 4));
         elsif register_number=25 then          -- $D019 compatibility IRQ bits
-          -- Acknowledge IRQs          
-          irq_colissionspritesprite <= irq_colissionspritesprite and fastio_wdata(2);
-          irq_colissionspritebitmap <= irq_colissionspritebitmap and fastio_wdata(1);
-          irq_raster <= irq_raster and fastio_wdata(0);
+          -- Acknowledge IRQs
+          -- (we need to pass this to the dotclock side to avoide multiple drivers)
+          -- irq_colissionspritesprite <= irq_colissionspritesprite and fastio_wdata(2);
+          -- irq_colissionspritebitmap <= irq_colissionspritebitmap and fastio_wdata(1);
+          -- irq_raster <= irq_raster and fastio_wdata(0);
         elsif register_number=26 then          -- $D01A compatibility IRQ mask bits
           -- XXX Enable/disable IRQs
           mask_colissionspritesprite <= fastio_wdata(2);
