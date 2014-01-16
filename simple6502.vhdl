@@ -757,8 +757,8 @@ begin
         or (i=I_BCS and flag_c='1')
         or (i=I_BVC and flag_v='0')
         or (i=I_BVS and flag_v='1')
-        or (i=I_BEQ and flag_z='0')
-        or (i=I_BNE and flag_z='1') then
+        or (i=I_BEQ and flag_z='1')
+        or (i=I_BNE and flag_z='0') then
         -- take branch
         if arg1(7)='0' then -- branch forwards.
           reg_pc <= reg_pc + unsigned(arg1(6 downto 0));
