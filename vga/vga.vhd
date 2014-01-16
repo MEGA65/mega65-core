@@ -557,6 +557,7 @@ begin
         fastio_rdata(6) <= xbackporch;
         fastio_rdata(5) <= chargen_active;
         fastio_rdata(4) <= inborder;
+        fastio_rdata(3 downto 0) <= "1111";
       elsif register_number=128 then
         fastio_rdata <= std_logic_vector(screen_ram_base(7 downto 0));
       elsif register_number=129 then
