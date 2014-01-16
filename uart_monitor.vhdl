@@ -135,7 +135,7 @@ architecture behavioural of uart_monitor is
   signal hex_digits_output : integer;
   signal success_state : monitor_state;
   signal post_transaction_state : monitor_state;
-  signal errorCode : unsigned(7 downto 0) := x"FF";
+  signal errorCode : unsigned(7 downto 0) := x"00";
 
   signal timeout : integer;
   
