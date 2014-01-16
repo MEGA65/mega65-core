@@ -565,15 +565,14 @@ begin
               elsif cmdbuffer(1) = 'r' or cmdbuffer(1) = 'R' then
                 state <= ShowRegisters;                
               elsif cmdbuffer(1) = 't' or cmdbuffer(1) = 'T' then
-                if cmdlen=1 then
-                  state <= TraceStep;
-                elsif cmdbuffer(2)='1' then
-                  monitor_mem_trace_mode<='1';               
+                if cmdbuffer(2)='1' then
+                  monitor_mem_trace_mode<='1';
+                  state <= NextCommand;
                 elsif cmdbuffer(2)='0' then
                   monitor_mem_trace_mode<='0';
+                  state <= NextCommand;
                 else
-                  errorCode <= x"07";
-                  state <= SyntaxError;
+                  state <= TraceStep;
                 end if;
               elsif cmdbuffer(1) = 'm' or cmdbuffer(1) = 'M' then
                 report "read memory command" severity note;
