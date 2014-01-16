@@ -498,6 +498,9 @@ begin
     virtual_reg_p(1) := flag_z;
     virtual_reg_p(0) := flag_c;
 
+    -- By default go back to fetching the next instruction.
+    state <= InstructionFetch;
+    
     if mode=M_implied then
       case i is
         when I_SETMAP =>
