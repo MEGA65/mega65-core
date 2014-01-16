@@ -264,13 +264,20 @@ begin
     ram_bank_registers_read(13) <= x"FFD3";  
     ram_bank_registers_write(13) <= x"FFD3";
     ram_bank_registers_instructions(13) <= x"FFD3";
-    -- Kernel65 ROM at $E000-$FFFF (writes redirect to "underlying" fast RAM)
-    ram_bank_registers_read(14) <= x"FFFE";
+    -- Kernel64 ROM at $E000-$FFFF (writes redirect to "underlying" fast RAM)
+    ram_bank_registers_read(14) <= x"FFEE";
     ram_bank_registers_write(14) <= x"000E";
-    ram_bank_registers_instructions(14) <= x"FFFE";
-    ram_bank_registers_read(15) <= x"FFFF";
+    ram_bank_registers_instructions(14) <= x"FFEE";
+    ram_bank_registers_read(15) <= x"FFEF";
     ram_bank_registers_write(15) <= x"000F";
-    ram_bank_registers_instructions(15) <= x"FFFF";       
+    ram_bank_registers_instructions(15) <= x"FFEF";       
+    -- BASIC64 ROM at $A000-$BFFF (writes redirect to "underlying" fast RAM)
+    ram_bank_registers_read(10) <= x"FFEA";
+    ram_bank_registers_write(10) <= x"000A";
+    ram_bank_registers_instructions(10) <= x"FFEA";
+    ram_bank_registers_read(11) <= x"FFEB";
+    ram_bank_registers_write(11) <= x"000B";
+    ram_bank_registers_instructions(11) <= x"FFEB";
   end procedure reset_cpu_state;
 
   procedure check_for_interrupts is
