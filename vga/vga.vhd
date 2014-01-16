@@ -552,7 +552,7 @@ begin
         fastio_rdata <= std_logic_vector(to_unsigned(char_fetch_cycle,8));
       elsif register_number=86 then
         fastio_rdata <= std_logic_vector(cycles_to_next_card);
-      elsif register_number = 87 then
+      elsif register_number=87 then
         fastio_rdata(7) <= xfrontporch;
         fastio_rdata(6) <= xbackporch;
         fastio_rdata(5) <= chargen_active;
@@ -855,6 +855,7 @@ begin
       end if;
       if xcounter<frame_h_front then
         xfrontporch <= '1';
+        displayx <= (others => '0');
       else
         xfrontporch <= '0';
       end if;
@@ -862,9 +863,10 @@ begin
         xbackporch <= '0';
       else
         xbackporch <= '1';
+        displayx <= (others => '1');
       end if;
 
-      if (xfrontporch or xbackporch) = '0' then
+      if xfrontporch='0' and xbackporch = '0' then
         -- Increase horizonal physical pixel position
         displayx <= displayx + 1;
       end if;
@@ -922,7 +924,6 @@ begin
       -- reached the start of a new character (or are about to).
       -- If so, copy in the new glyph and colour data for display.
       if xfrontporch='1' then
-        displayx <= (others => '0');
         indisplay := '0';
       elsif xbackporch='0' and chargen_active='1' then         -- In active part of raster
         -- Work out if we are at the end of a character
@@ -968,8 +969,7 @@ begin
           end if;
         end if;
       elsif xbackporch ='1' then
-        -- In back porch, so set displayx all high
-        displayx <= (others => '1');
+        -- In back porch
         indisplay := '0';
       end if;
       
