@@ -845,6 +845,7 @@ begin
       end if;
       if xcounter<frame_h_front then
         xfrontporch <= '1';
+        chargen_active <= '0';
       else
         xfrontporch <= '0';
       end if;
@@ -879,10 +880,6 @@ begin
       card_number <= next_card_number;
       
       -- Reset character generator position for start of frame/raster
-      if displayy<=y_chargen_start then
-        chargen_y <= (others => '0');
-        chargen_y_sub <= (others => '0');
-      end if;
       if displayx=(x_chargen_start-8) then
         -- Start fetching first character of the row
         -- (8 cycles is plenty of time to fetch it)       
@@ -894,8 +891,15 @@ begin
       if displayx = (x_chargen_start - 1) then
         -- trigger next card at start of chargen row
         cycles_to_next_card <= "00000010";        
+        next_chargen_x <= (others => '0');
         chargen_x <= (others => '0');
         chargen_x_sub <= (others => '0');
+        chargen_active <= '1';
+      end if;
+      if displayy<=y_chargen_start then
+        chargen_y <= (others => '0');
+        chargen_y_sub <= (others => '0');
+        chargen_active <= '0';
       end if;
 
       -- Raster control.
@@ -1187,6 +1191,8 @@ begin
       if indisplay_t3='1' then
         if inborder_t2='1' or blank='1' then
           pixel_colour <= border_colour;
+        elsif chargen_active='0' then
+          pixel_colour <= screen_colour;
         elsif (fullcolour_extendedchars='1' and text_mode='1' and card_number_is_extended='1')
           or (fullcolour_8bitchars='1' and text_mode='1') then
           -- Full colour glyph
