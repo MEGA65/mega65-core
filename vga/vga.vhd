@@ -249,7 +249,7 @@ architecture Behavioral of vga is
   signal char_fetch_cycle : integer := 0;
   -- data for next card
   signal next_glyph_number : unsigned(15 downto 0);
-  signal next_glyph_number8 : unsigned(15 downto 0);
+  signal next_glyph_number8 : unsigned(7 downto 0);
   signal next_glyph_number16 : unsigned(15 downto 0);
   signal next_glyph_colour : unsigned(7 downto 0);
   signal next_glyph_pixeldata : std_logic_vector(63 downto 0);
@@ -1034,7 +1034,6 @@ begin
           -- choose the 16bit or 8 bit version.  So this cycle we calculate the
           -- 8bit and 16bit versions.  Then next cycle we can select the correct
           -- one.
-          next_glyph_number_temp(15 downto 8) := x"00";
           case card_number(2 downto 0) is
             when "111" => next_glyph_number_temp(7 downto 0) := next_glyph_number_buffer(63 downto 56);
             when "110" => next_glyph_number_temp(7 downto 0) := next_glyph_number_buffer(55 downto 48);
@@ -1046,7 +1045,7 @@ begin
             when "000" => next_glyph_number_temp(7 downto 0) := next_glyph_number_buffer( 7 downto  0);
             when others => next_glyph_number_temp(7 downto 0) := x"00";
           end case;
-          next_glyph_number8 <= unsigned(next_glyph_number_temp);
+          next_glyph_number8 <= unsigned(next_glyph_number_temp(7 downto 0));
           case card_number(1 downto 0) is
             when "11" => next_glyph_number_temp := next_glyph_number_buffer(63 downto 48);        
             when "10" => next_glyph_number_temp := next_glyph_number_buffer(47 downto 32);        
@@ -1063,7 +1062,7 @@ begin
           if sixteenbit_charset='1' then
             next_glyph_number_temp := std_logic_vector(next_glyph_number16);
           else
-            next_glyph_number_temp := std_logic_vector(next_glyph_number8);
+            next_glyph_number_temp := std_logic_vector(x"00" & next_glyph_number8);
           end if;
           if text_mode='1' then
             next_glyph_number <= unsigned(next_glyph_number_temp);
