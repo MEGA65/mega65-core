@@ -89,6 +89,17 @@ architecture Behavioral of vga is
           );
   end component charrom;
 
+  component colourram is
+    port (Clk : in std_logic;
+          address : in std_logic_vector(15 downto 0);
+          we : in std_logic;
+          -- chip select, active high       
+          cs : in std_logic;
+          data_i : in std_logic_vector(7 downto 0);
+          data_o : out std_logic_vector(7 downto 0)
+          );
+  end component colourram;
+
   -- 128KB internal chip RAM
   component ram64x16k
     PORT (
@@ -334,6 +345,10 @@ architecture Behavioral of vga is
   -- Precalculated mono/multicolour pixel bits
   signal multicolour_bits : std_logic_vector(1 downto 0) := (others => '0');
   signal monobit : std_logic := '0';
+
+  -- Colour RAM access via fastio port
+  signal colour_ram_cs : std_logic := '0';
+  signal colour_ram_address : std_logic_vector(15 downto 0);
   
 begin
 
@@ -383,20 +398,49 @@ begin
       register_bank := x"FF";
       register_page := x"F";
       register_num := x"FF";
-    end if;
-
+    end if;    
+    
     if (register_bank=x"D0" or register_bank=x"D2") and register_page<4 then
       -- First 1KB of normal C64 IO space maps to r$0 - r$3F
       register_number(5 downto 0) := unsigned(fastio_addr(5 downto 0));
       register_number(11 downto 6) := (others => '0');
-      report "IO access resolves to video register number " & integer'image(to_integer(register_number)) severity note;        
+      report "IO access resolves to video register number "
+        & integer'image(to_integer(register_number)) severity note;        
     elsif (register_bank = x"D1" or register_bank = x"D3") and register_page<4 then
       register_number(11 downto 10) := "00";
       register_number(9 downto 8) := register_page(1 downto 0);
       register_number(7 downto 0) := register_num;
-      report "IO access resolves to video register number " & integer'image(to_integer(register_number)) severity note;
+      report "IO access resolves to video register number "
+        & integer'image(to_integer(register_number)) severity note;
     end if;
 
+    -- $D800 - $DBFF colour RAM access.
+    -- This is a bit fun, because colour RAM is mapped in 3 separate places:
+    --   $D800 - $DBFF in the usual IO pages.
+    --   $DC00 - $DFFF in the enhanced IO pages when the correct VIC-III
+    --   register is set.
+    --   $FF80000-$FF8FFFF - All 64KB of colour RAM
+    -- The colour RAM has to be dual-port since the video controller needs to
+    -- access it as well, so all these have to be mapped on a single port.
+    colour_ram_cs <= '0';
+    colour_ram_address <= (others => '0');
+    if register_bank = x"D0" or register_bank = x"D1"
+      or register_bank = x"D2" or register_Bank=x"D3" then
+      if register_page>=8 and register_page<12 then
+        -- colour ram read $D800 - $DBFF
+        colour_ram_cs <= '1';
+        colour_ram_address <= "000000" & fastio_addr(9 downto 0);
+      elsif register_page>=12 and register_page<=15 then
+        -- colour ram read $DC00 - $DFFF
+        colour_ram_cs <= '1';
+        colour_ram_address <= "000001" & fastio_addr(9 downto 0);        
+      end if;
+    elsif register_bank(7 downto 4)=x"8" then
+      -- colour RAM all 64KB
+      colour_ram_cs <= '1';
+      colour_ram_address <= fastio_addr(15 downto 0);
+    end if;
+        
     if fastio_read='0' then
       fastio_rdata <= (others => 'Z');
     else
