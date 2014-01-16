@@ -891,7 +891,7 @@ begin
       end if;
       if displayx = (x_chargen_start - 1) then
         -- trigger next card at start of chargen row
-        cycles_to_next_card <= "00000010";        
+        cycles_to_next_card <= "00000001";        
         next_chargen_x <= (others => '0');
         chargen_x <= (others => '0');
         chargen_x_sub <= (others => '0');
@@ -911,7 +911,7 @@ begin
       if xfrontporch='1' then
         displayx <= (others => '0');
         indisplay := '0';
-      elsif xbackporch='0' then         -- In active part of raster
+      elsif xbackporch='0' and chargen_active='1' then         -- In active part of raster
         -- Work out if we are at the end of a character
         cycles_to_next_card <= cycles_to_next_card - 1;
         -- cycles_to_next_card counts down to 1, not 0.
