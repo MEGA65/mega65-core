@@ -558,6 +558,8 @@ begin
         fastio_rdata(5) <= chargen_active;
         fastio_rdata(4) <= inborder;
         fastio_rdata(3 downto 0) <= "1111";
+      elsif register_number=88 then
+        fastio_rdata <= std_logic_vector(card_number(7 downto 0));
       elsif register_number=128 then
         fastio_rdata <= std_logic_vector(screen_ram_base(7 downto 0));
       elsif register_number=129 then
@@ -933,7 +935,7 @@ begin
         -- not a variable.
         if cycles_to_next_card = 2 then
           -- We are one cycle before the start of a character
-          next_card_number <= card_number + 1;            
+          next_card_number <= card_number + 1;
         end if;
         if cycles_to_next_card = 1 then
           -- We are at the start of a character
@@ -956,16 +958,19 @@ begin
           end if;
         else
           -- Update current horizontal sub-pixel and pixel position
-          if chargen_x_sub=chargen_x_scale then
-            chargen_x_sub <= (others => '0');
-          else
-            chargen_x_sub <= chargen_x_sub + 1;
-          end if;
           -- Work out if a new logical pixel starts on the next physical pixel
-          if chargen_x_scale=0
-            or chargen_x_sub = (chargen_x_scale - 1)
-          then
+          -- (overrides general advance)
+          if chargen_x_scale=0 then
             next_chargen_x <= chargen_x + 1;
+          else
+            if chargen_x_sub >= (chargen_x_scale - 1) then
+              next_chargen_x <= chargen_x + 1;
+            end if;
+            if chargen_x_sub=chargen_x_scale then
+              chargen_x_sub <= (others => '0');
+            else
+              chargen_x_sub <= chargen_x_sub + 1;
+            end if;
           end if;
         end if;
       elsif xbackporch ='1' then
