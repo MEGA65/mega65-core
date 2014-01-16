@@ -257,6 +257,7 @@ architecture Behavioral of vga is
   signal next_glyph_colour_buffer : std_logic_vector(63 downto 0);
   signal next_glyph_full_colour : std_logic;
   signal next_chargen_x : unsigned(2 downto 0) := (others => '0');
+  signal chargen_active : std_logic := '0';
 
   -- data for current card
   signal glyph_number : unsigned(15 downto 0);
