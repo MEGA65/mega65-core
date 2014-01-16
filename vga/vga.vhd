@@ -836,6 +836,8 @@ begin
       if xcounter<frame_width then
         xcounter <= xcounter + 1;
       else
+        -- End of raster reached.
+        -- Bump raster number and start next raster.
         xcounter <= (others => '0');
         next_chargen_x <= (others => '0');
         chargen_x_sub <= (others => '0');
@@ -861,6 +863,11 @@ begin
       else
         xbackporch <= '1';
       end if;
+
+      if (xfrontporch or xbackporch) = '0' then
+        -- Increase horizonal physical pixel position
+        displayx <= displayx + 1;
+      end if;
       
       -- Work out if the border is active
       if displayx<border_x_left or displayx>border_x_right or
@@ -868,8 +875,6 @@ begin
         inborder<='1';
       else
         inborder<='0';
-        -- Increase horizonal physical pixel position
-        displayx <= displayx + 1;
       end if;
       inborder_t1 <= inborder;
       inborder_t2 <= inborder_t1;
