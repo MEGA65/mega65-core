@@ -586,6 +586,10 @@ begin
                 state <= SyntaxError;
               end if;
             else
+              -- On empty line toggle trace flag so that CPU knows it can do one more instruction
+              monitor_mem_trace_toggle <= not monitor_mem_trace_toggle_internal;
+              monitor_mem_trace_toggle_internal <= not monitor_mem_trace_toggle_internal;
+
               cmdlen <= 1;
               state <= PrintPrompt;
             end if;
