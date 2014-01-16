@@ -141,8 +141,10 @@ architecture Behavioral of vga is
   constant frame_width : integer := 2592;
   constant frame_h_front : integer := 128;
   constant frame_h_syncwidth : integer := 208;
-  
-  constant frame_height : integer := 1242;
+
+  -- The real mode says 1242, but we need 1248 so that 1248/312 = 4,
+  -- allowing VIC-II PAL raster numbers to be easily calculated.
+  constant frame_height : integer := 1248;
   constant frame_v_front : integer := 1;
   constant frame_v_syncheight : integer := 3;
   
@@ -195,8 +197,8 @@ architecture Behavioral of vga is
   signal blank : std_logic := '0';
 
   -- Colour registers ($D020 - $D024)
-  signal screen_colour : unsigned(7 downto 0) := x"06";  -- dark blue centre
-  signal border_colour : unsigned(7 downto 0) := x"0e";  -- light blue border
+  signal screen_colour : unsigned(7 downto 0) := x"00";  -- black
+  signal border_colour : unsigned(7 downto 0) := x"04";  -- green
   signal multi1_colour : unsigned(7 downto 0) := x"01";  -- multi-colour mode #1
   signal multi2_colour : unsigned(7 downto 0) := x"02";  -- multi-colour mode #2
   signal multi3_colour : unsigned(7 downto 0) := x"03";  -- multi-colour mode #3
@@ -460,14 +462,14 @@ begin
         -- compatibility sprite x position MSB
         fastio_rdata <= vicii_sprite_xmsbs;
       elsif register_number=17 then             -- $D011
-        fastio_rdata(7) <= vicii_raster(8);
+        fastio_rdata(7) <= ycounter(11);  -- MSB of raster
         fastio_rdata(6) <= extended_background_mode;
         fastio_rdata(5) <= not text_mode;
         fastio_rdata(4) <= not blank;
         fastio_rdata(3) <= not twentyfourlines;
         fastio_rdata(2 downto 0) <= vicii_y_smoothscroll;
       elsif register_number=18 then          -- $D012 current raster low 8 bits
-        fastio_rdata <= vicii_raster(7 downto 0);
+        fastio_rdata <= ycounter(10 downto 2);
       elsif register_number=19 then          -- $D013 lightpen X (coarse rasterX)
         fastio_rdata <= std_logic_vector(displayx(11 downto 4));
       elsif register_number=20 then          -- $D014 lightpen Y (coarse rasterY)
