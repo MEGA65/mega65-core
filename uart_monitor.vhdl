@@ -684,6 +684,7 @@ begin
             print_hex_byte(membuf(byte_number),ShowMemory7);
           when ShowRegisters =>
             banner_position <= 1; state<= ShowRegisters1;
+            monitor_mem_setpc <= '0';
           when ShowRegisters1 =>
             if tx_ready='1' then
               tx_data <= to_std_logic_vector(registerMessage(banner_position));
