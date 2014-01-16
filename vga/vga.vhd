@@ -150,7 +150,7 @@ architecture Behavioral of vga is
   
   -- Frame generator counters
   signal xcounter : unsigned(11 downto 0) := (others => '0');
-  signal ycounter : unsigned(11 downto 0) := (others => '0');
+  signal ycounter : unsigned(10 downto 0) := (others => '0');
   
   -- Actual pixel positions in the frame
   signal displayx : unsigned(11 downto 0) := (others => '0');
@@ -212,7 +212,7 @@ architecture Behavioral of vga is
   -- Compatibility registers
   signal twentyfourlines : std_logic := '0';
   signal thirtyninecolumns : std_logic := '0';
-  signal vicii_raster_compare : unsigned(8 downto 0);
+  signal vicii_raster_compare : unsigned(10 downto 0);
   signal vicii_x_smoothscroll : std_logic_vector(2 downto 0);
   signal vicii_y_smoothscroll : std_logic_vector(2 downto 0);
   signal vicii_sprite_enables : std_logic_vector(7 downto 0);
@@ -461,14 +461,14 @@ begin
         -- compatibility sprite x position MSB
         fastio_rdata <= vicii_sprite_xmsbs;
       elsif register_number=17 then             -- $D011
-        fastio_rdata(7) <= ycounter(11);  -- MSB of raster
+        fastio_rdata(7) <= ycounter(10);  -- MSB of raster
         fastio_rdata(6) <= extended_background_mode;
         fastio_rdata(5) <= not text_mode;
         fastio_rdata(4) <= not blank;
         fastio_rdata(3) <= not twentyfourlines;
         fastio_rdata(2 downto 0) <= vicii_y_smoothscroll;
       elsif register_number=18 then          -- $D012 current raster low 8 bits
-        fastio_rdata <= std_logic_vector(ycounter(10 downto 2));
+        fastio_rdata <= std_logic_vector(ycounter(9 downto 2));
       elsif register_number=19 then          -- $D013 lightpen X (coarse rasterX)
         fastio_rdata <= std_logic_vector(displayx(11 downto 4));
       elsif register_number=20 then          -- $D014 lightpen Y (coarse rasterY)
@@ -586,8 +586,8 @@ begin
       elsif register_number=82 then
         fastio_rdata <= std_logic_vector(ycounter(7 downto 0));
       elsif register_number=83 then
-        fastio_rdata(7 downto 4) <= x"0";
-        fastio_rdata(3 downto 0) <= std_logic_vector(ycounter(11 downto 8));
+        fastio_rdata(7 downto 3) <= "00000";
+        fastio_rdata(2 downto 0) <= std_logic_vector(ycounter(10 downto 8));
       elsif register_number=84 then
         -- $D054 (53332) - New mode control register
         fastio_rdata(7 downto 3) <= (others => '1');
@@ -676,7 +676,7 @@ begin
         elsif register_number=16 then
           vicii_sprite_xmsbs <= fastio_wdata;
         elsif register_number=17 then             -- $D011
-          vicii_raster_compare(8) <= fastio_wdata(7);
+          vicii_raster_compare(10) <= fastio_wdata(7);
           extended_background_mode <= fastio_wdata(6);
           text_mode <= not fastio_wdata(5);
           blank <= not fastio_wdata(4);
@@ -693,7 +693,7 @@ begin
           -- set y_chargen_start based on twentyfourlines
           y_chargen_start <= to_unsigned((99-3*5)+to_integer(unsigned(fastio_wdata(2 downto 0)))*5,12);
         elsif register_number=18 then          -- $D012 current raster low 8 bits
-          vicii_raster_compare(7 downto 0) <= unsigned(fastio_wdata);
+          vicii_raster_compare(9 downto 0) <= unsigned(fastio_wdata) & "00";
         elsif register_number=19 then          -- $D013 lightpen X (coarse rasterX)
         elsif register_number=20 then          -- $D014 lightpen Y (coarse rasterY)
         elsif register_number=21 then          -- $D015 compatibility sprite enable
@@ -808,11 +808,11 @@ begin
           -- xcounter
           null;
         elsif register_number=82 then
-          -- ycounter
-          null;
+          -- Allow setting of fine raster for IRQ (low bits)
+          vicii_raster_compare(7 downto 0) <= unsigned(fastio_wdata);
         elsif register_number=83 then
-          -- ycounter
-          null;
+          -- Allow setting of fine raster for IRQ (high bits)
+          vicii_raster_compare(10 downto 8) <= unsigned(fastio_wdata(2 downto 0));
         elsif register_number=84 then
           -- $D054 (53332) - New mode control register
           fullcolour_extendedchars <= fastio_wdata(2);
@@ -908,7 +908,7 @@ begin
         chargen_active <= '0';
         if ycounter<frame_height then
           ycounter <= ycounter + 1;
-          if ycounter = (vicii_raster_compare & "00") then
+          if ycounter = vicii_raster_compare then
             irq_raster <= '1';
           end if;
         else
