@@ -211,7 +211,6 @@ architecture Behavioral of vga is
   signal vicii_sprite_multicolour_bits : std_logic_vector(7 downto 0);
   signal vicii_sprite_sprite_colissions : std_logic_vector(7 downto 0);
   signal vicii_sprite_bitmap_colissions : std_logic_vector(7 downto 0);
-  signal vicii_screen_address : std_logic_vector(7 downto 0);
   signal irq_asserted : std_logic := '0';
   signal irq_colissionspritesprite : std_logic := '0';
   signal irq_colissionspritebitmap : std_logic := '0';
@@ -441,7 +440,9 @@ begin
       elsif register_number=23 then          -- $D017 compatibility sprite enable
         fastio_rdata <= vicii_sprite_y_expand;
       elsif register_number=24 then          -- $D018 compatibility RAM addresses
-        fastio_rdata <= vicii_screen_address;
+        fastio_rdata <=
+          std_logic_vector(character_set_address(13 downto 10))
+          & std_logic_vector(screen_ram_base(12 downto 9));
       elsif register_number=25 then          -- $D019 compatibility IRQ bits
         fastio_rdata(7) <= irq_asserted;
         fastio_rdata(6) <= '1';       -- NC
@@ -608,6 +609,18 @@ begin
 
     if rising_edge(cpuclock) then
 
+
+      -- $DD00 video bank bits
+      if fastio_write='1'
+        and fastio_addr(19 downto 12)=x"FD"
+        and fastio_addr(3 downto 0) =x"0"
+        and (fastio_addr(11 downto 10)="00")
+      then
+        screen_ram_base(15 downto 14) <=
+          not fastio_wdata(1) & not fastio_wdata(0);
+      end if;
+
+      -- $D000 registers
       if fastio_write='1'
         and (fastio_addr(19) = '0' or fastio_addr(19) = '1') then
         if register_number>=0 and register_number<8 then
@@ -657,7 +670,8 @@ begin
         elsif register_number=23 then          -- $D017 compatibility sprite enable
           vicii_sprite_y_expand <= fastio_wdata;
         elsif register_number=24 then          -- $D018 compatibility RAM addresses
-          vicii_screen_address <= fastio_wdata;
+          character_set_address(13 downto 10) <= unsigned(fastio_wdata(3 downto 0));
+          screen_ram_base(12 downto 9) <= unsigned(fastio_wdata(7 downto 4));
         elsif register_number=25 then          -- $D019 compatibility IRQ bits
           -- XXX Acknowledge IRQs
         elsif register_number=26 then          -- $D01A compatibility IRQ mask bits
