@@ -85,7 +85,9 @@ architecture behavioural of uart_monitor is
     "g<address>             - Set PC to <address> and resume execution" & crlf &
     "m<address>             - Display contents of memory" & crlf &
     "r                      - Print processor state." & crlf &
-    "s<address> <value> ... - Set memory." & crlf;
+    "s<address> <value> ... - Set memory." & crlf &
+    "t<0|1>                 - Enable/disable tracing." & crlf &
+    "t                      - Step one instruction if in trace mode." & crlf;
 
   constant errorMessage : string := crlf & "?SYNTAX  ERROR ";
   constant timeoutMessage : string := crlf & "?DEVICE NOT FOUND  ERROR" & crlf;
