@@ -212,8 +212,7 @@ architecture Behavioral of vga is
   -- Compatibility registers
   signal twentyfourlines : std_logic := '0';
   signal thirtyninecolumns : std_logic := '0';
-  signal vicii_raster : std_logic_vector(8 downto 0);
-  signal vicii_raster_compare : std_logic_vector(8 downto 0);
+  signal vicii_raster_compare : unsigned(8 downto 0);
   signal vicii_x_smoothscroll : std_logic_vector(2 downto 0);
   signal vicii_y_smoothscroll : std_logic_vector(2 downto 0);
   signal vicii_sprite_enables : std_logic_vector(7 downto 0);
@@ -469,7 +468,7 @@ begin
         fastio_rdata(3) <= not twentyfourlines;
         fastio_rdata(2 downto 0) <= vicii_y_smoothscroll;
       elsif register_number=18 then          -- $D012 current raster low 8 bits
-        fastio_rdata <= ycounter(10 downto 2);
+        fastio_rdata <= std_logic_vector(ycounter(10 downto 2));
       elsif register_number=19 then          -- $D013 lightpen X (coarse rasterX)
         fastio_rdata <= std_logic_vector(displayx(11 downto 4));
       elsif register_number=20 then          -- $D014 lightpen Y (coarse rasterY)
@@ -694,7 +693,7 @@ begin
           -- set y_chargen_start based on twentyfourlines
           y_chargen_start <= to_unsigned((99-3*5)+to_integer(unsigned(fastio_wdata(2 downto 0)))*5,12);
         elsif register_number=18 then          -- $D012 current raster low 8 bits
-          vicii_raster(7 downto 0) <= fastio_wdata;
+          vicii_raster_compare(7 downto 0) <= unsigned(fastio_wdata);
         elsif register_number=19 then          -- $D013 lightpen X (coarse rasterX)
         elsif register_number=20 then          -- $D014 lightpen Y (coarse rasterY)
         elsif register_number=21 then          -- $D015 compatibility sprite enable
@@ -719,7 +718,10 @@ begin
           character_set_address(13 downto 10) <= unsigned(fastio_wdata(3 downto 0));
           screen_ram_base(12 downto 9) <= unsigned(fastio_wdata(7 downto 4));
         elsif register_number=25 then          -- $D019 compatibility IRQ bits
-          -- XXX Acknowledge IRQs
+          -- Acknowledge IRQs          
+          irq_colissionspritesprite <= irq_colissionspritesprite and fastio_wdata(2);
+          irq_colissionspritebitmap <= irq_colissionspritebitmap and fastio_wdata(1);
+          irq_raster <= irq_raster and fastio_wdata(0);
         elsif register_number=26 then          -- $D01A compatibility IRQ mask bits
           -- XXX Enable/disable IRQs
           mask_colissionspritesprite <= fastio_wdata(2);
@@ -906,6 +908,9 @@ begin
         chargen_active <= '0';
         if ycounter<frame_height then
           ycounter <= ycounter + 1;
+          if ycounter = (vicii_raster_compare & "00") then
+            irq_raster <= '1';
+          end if;
         else
           -- Start of next frame
           ycounter <= (others =>'0');
