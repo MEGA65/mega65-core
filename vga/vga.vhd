@@ -474,7 +474,12 @@ begin
     -- The colour RAM has to be dual-port since the video controller needs to
     -- access it as well, so all these have to be mapped on a single port.
     colour_ram_cs_var := '0';
-    colour_ram_fastio_address <= (others => '0');
+    -- XXX This mostly works, but there is glitching that causes location 0
+    -- to get overwritten when writing to other addresses.  Simple work around
+    -- for now is to make default address $FFFF instead of $0000, so that can
+    -- get overwritten intead.
+    -- colour_ram_fastio_address <= (others => '0');
+    colour_ram_fastio_address <= (others => '1');
     if register_bank = x"D0" or register_bank = x"D1"
       or register_bank = x"D2" or register_Bank=x"D3" then
       if register_page>=8 and register_page<12 then
