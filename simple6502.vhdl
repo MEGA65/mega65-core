@@ -1052,7 +1052,7 @@ begin
         when 0 => value := ram_bank_registers_read(reg_num);
         when 1 => value := ram_bank_registers_read(reg_num);
         when 2 => value := ram_bank_registers_read(reg_num);
-        when 8 => value := recent_states(reg_num);
+        when 7 => value := recent_states(reg_num);
         when others => value := x"F00D";
       end case;
       if lohi='0' then

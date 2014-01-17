@@ -969,7 +969,18 @@ begin
   begin
 
     if rising_edge(pixelclock) then
-
+      if (ycounter>100) and (xcounter>250) and (xcounter<350) then
+        report
+          "VGA"
+          & " ycounter= " & integer'image(to_integer(ycounter))
+          & ", xcounter= " & integer'image(to_integer(xcounter))
+          & " displayx= " & integer'image(to_integer(displayx))
+          & ", displayy= " & integer'image(to_integer(displayy))
+          & ", cycles_to_next_card= " & integer'image(to_integer(cycles_to_next_card))
+          & ", char_fetch_cycle= " & integer'image(char_fetch_cycle)
+          severity note;        
+      end if;
+      
       if xcounter>=(frame_h_front+width) and xcounter<(frame_h_front+width+frame_h_syncwidth) then
         hsync <= '0';
       else
@@ -1094,6 +1105,7 @@ begin
                                         -- ... and then start fetching data for the character after that
           char_fetch_cycle <= 0;
           chargen_x <= "000";
+          next_chargen_x <= "000";
           chargen_x_sub <= (others => '0');
           if chargen_x_scale=0
             or chargen_x_sub = (chargen_x_scale - 1)
@@ -1105,10 +1117,10 @@ begin
                                         -- Work out if a new logical pixel starts on the next physical pixel
                                         -- (overrides general advance)
           if chargen_x_scale=0 then
-            next_chargen_x <= chargen_x + 1;
+            next_chargen_x <= next_chargen_x + 1;
           else
             if chargen_x_sub >= (chargen_x_scale - 1) then
-              next_chargen_x <= chargen_x + 1;
+              next_chargen_x <= next_chargen_x + 1;
             end if;
             if chargen_x_sub=chargen_x_scale then
               chargen_x_sub <= (others => '0');
@@ -1343,6 +1355,15 @@ begin
         end case;
       end if;
 
+      if (ycounter>100) and (xcounter>250) and (xcounter<350) then
+        report "VGA"
+          & " next_chargen_x=" & integer'image(to_integer(next_chargen_x))
+          & " chargen_x=" & integer'image(to_integer(chargen_x))
+          & " chargen_x_sub=" & integer'image(to_integer(chargen_x_sub))
+          & " glyph_number=" & integer'image(to_integer(glyph_number))
+          severity note;
+      end if;
+      
                                         -- Calculate pixel bit/bits for next cycle to keep logic depth shallow
       multicolour_bits(0) <= charrow(to_integer((not chargen_x_t2(2 downto 1))&'0'));
       multicolour_bits(1) <= charrow(to_integer((not chargen_x_t2(2 downto 1))&'1'));
