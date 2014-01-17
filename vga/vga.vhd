@@ -89,17 +89,23 @@ architecture Behavioral of vga is
           );
   end component charrom;
 
-  component colourram is
-    port (Clk : in std_logic;
-          address : in std_logic_vector(15 downto 0);
-          we : in std_logic;
-          -- chip select, active high       
-          cs : in std_logic;
-          data_i : in std_logic_vector(7 downto 0);
-          data_o : out std_logic_vector(7 downto 0)
-          );
-  end component colourram;
-
+  -- 64KB internal colour RAM
+  component ram8x64k IS
+    PORT (
+      clka : IN STD_LOGIC;
+      ena : IN STD_LOGIC;
+      wea : IN STD_LOGIC_VECTOR(0 DOWNTO 0);
+      addra : IN STD_LOGIC_VECTOR(3 DOWNTO 0);
+      dina : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
+      douta : OUT STD_LOGIC_VECTOR(7 DOWNTO 0);
+      clkb : IN STD_LOGIC;
+      web : IN STD_LOGIC_VECTOR(0 DOWNTO 0);
+      addrb : IN STD_LOGIC_VECTOR(3 DOWNTO 0);
+      dinb : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
+      doutb : OUT STD_LOGIC_VECTOR(7 DOWNTO 0)
+      );
+  END component;
+  
   -- 128KB internal chip RAM
   component ram64x16k
     PORT (
@@ -115,7 +121,7 @@ architecture Behavioral of vga is
       doutb : OUT STD_LOGIC_VECTOR(63 DOWNTO 0)
       );
   end component;
-    
+  
   -- Buffer VGA signal to save some time. Similarly pipeline
   -- palette lookup.
   signal vga_buffer_red : UNSIGNED (3 downto 0) := (others => '0');
@@ -349,11 +355,16 @@ architecture Behavioral of vga is
 
   -- Colour RAM access via fastio port
   signal colour_ram_cs : std_logic := '0';
+  signal colour_ram_write : std_logic := '0';
+  signal colour_ram_fastio_addresshi : std_logic_vector(5 downto 0);
   signal colour_ram_address : std_logic_vector(15 downto 0);
+  
+  -- Colour RAM access for video controller
+  signal colourramaddress : std_logic_vector(15 downto 0);
   
 begin
 
-    -- XXX For now just use 128KB FastRAM instead of 512KB which causes major routing
+  -- XXX For now just use 128KB FastRAM instead of 512KB which causes major routing
   -- headaches.
   fastram1 : component ram64x16k
     PORT MAP (
@@ -370,6 +381,23 @@ begin
       dinb => (others => '0'),
       doutb => ramdata
       );
+
+  --colourram1 : component ram8x64k
+  --  PORT MAP (
+  --    clka => cpuclock,
+  --    enb => colour_ram_cs,
+  --    wea => colour_ram_write,
+  --    addra => colour_ram_fastio_addresshi & fastio_address(9 downto 0),
+  --    dina => fastio_wdata,
+  --    douta => fastram_dataout,
+  --    -- video controller use port b of the dual-port colour ram.
+  --    -- The CPU uses port a via the fastio interface
+  --    clkb => pixelclock,
+  --    web => (others => '0'),
+  --    addrb => colourramaddress,
+  --    dinb => (others => '0'),
+  --    doutb => colourramdata
+  --    );
   
   charrom1 : charrom
     port map (Clk => pixelclock,
@@ -428,37 +456,37 @@ begin
     if register_bank = x"D0" or register_bank = x"D1"
       or register_bank = x"D2" or register_Bank=x"D3" then
       if register_page>=8 and register_page<12 then
-        -- colour ram read $D800 - $DBFF
+                                        -- colour ram read $D800 - $DBFF
         colour_ram_cs <= '1';
         colour_ram_address <= "000000" & fastio_addr(9 downto 0);
       elsif register_page>=12 and register_page<=15 then
-        -- colour ram read $DC00 - $DFFF
+                                        -- colour ram read $DC00 - $DFFF
         colour_ram_cs <= '1';
         colour_ram_address <= "000001" & fastio_addr(9 downto 0);        
       end if;
     elsif register_bank(7 downto 4)=x"8" then
-      -- colour RAM all 64KB
+                                        -- colour RAM all 64KB
       colour_ram_cs <= '1';
       colour_ram_address <= fastio_addr(15 downto 0);
     end if;
-        
+    
     if fastio_read='0' then
       fastio_rdata <= (others => 'Z');
     else
-      --report "read from fastio detect in video controller. " &
-      -- "register number = " & integer'image(to_integer(register_number)) &
-      -- ", fastio_addr = " & to_hstring(fastio_addr) &
-      -- ", register_bank = " & to_hstring(register_bank) &
-      -- ", register_page = " & to_hstring(register_page)
-      --  severity note;
+                                        --report "read from fastio detect in video controller. " &
+                                        -- "register number = " & integer'image(to_integer(register_number)) &
+                                        -- ", fastio_addr = " & to_hstring(fastio_addr) &
+                                        -- ", register_bank = " & to_hstring(register_bank) &
+                                        -- ", register_page = " & to_hstring(register_page)
+                                        --  severity note;
       if register_number>=0 and register_number<8 then
-        -- compatibility sprite coordinates
+                                        -- compatibility sprite coordinates
         fastio_rdata <= std_logic_vector(sprite_x(to_integer(register_num(2 downto 0))));
       elsif register_number<16 then
-        -- compatibility sprite coordinates
+                                        -- compatibility sprite coordinates
         fastio_rdata <= std_logic_vector(sprite_y(to_integer(register_num(2 downto 0))));
       elsif register_number=16 then
-        -- compatibility sprite x position MSB
+                                        -- compatibility sprite x position MSB
         fastio_rdata <= vicii_sprite_xmsbs;
       elsif register_number=17 then             -- $D011
         fastio_rdata(7) <= ycounter(10);  -- MSB of raster
@@ -532,14 +560,14 @@ begin
         fastio_rdata <= std_logic_vector(sprite_multi1_colour);
       elsif register_number>=39 and register_number<=46 then
         fastio_rdata <= std_logic_vector(sprite_colours(to_integer(register_number)-39));
-        -- Skip $D02F - $D03F to avoid real C65/C128 programs trying to
-        -- fiddle with registers in this range.
-        -- NEW VIDEO REGISTERS
-        -- ($D040 - $D047 is the same as VIC-III DAT ports on C65.
-        --  This is tolerable, since the registers most likely used to detect a
-        --  C65 are made non-functional.  See:
-        -- http://www.devili.iki.fi/Computers/Commodore/C65/System_Specification/Chapter_2/page101.html
-        -- http://www.devili.iki.fi/Computers/Commodore/C65/System_Specification/Chapter_2/page102.html
+                                        -- Skip $D02F - $D03F to avoid real C65/C128 programs trying to
+                                        -- fiddle with registers in this range.
+                                        -- NEW VIDEO REGISTERS
+                                        -- ($D040 - $D047 is the same as VIC-III DAT ports on C65.
+                                        --  This is tolerable, since the registers most likely used to detect a
+                                        --  C65 are made non-functional.  See:
+                                        -- http://www.devili.iki.fi/Computers/Commodore/C65/System_Specification/Chapter_2/page101.html
+                                        -- http://www.devili.iki.fi/Computers/Commodore/C65/System_Specification/Chapter_2/page102.html
       elsif register_number=64 then
         fastio_rdata <= std_logic_vector(virtual_row_width(7 downto 0));
       elsif register_number=65 then
@@ -589,7 +617,7 @@ begin
         fastio_rdata(7 downto 3) <= "00000";
         fastio_rdata(2 downto 0) <= std_logic_vector(ycounter(10 downto 8));
       elsif register_number=84 then
-        -- $D054 (53332) - New mode control register
+                                        -- $D054 (53332) - New mode control register
         fastio_rdata(7 downto 3) <= (others => '1');
         fastio_rdata(2) <= fullcolour_extendedchars;
         fastio_rdata(1) <= fullcolour_8bitchars;
@@ -634,20 +662,20 @@ begin
         fastio_rdata(7 downto 4) <= x"0";
         fastio_rdata(3 downto 0) <= std_logic_vector(character_set_address(27 downto 24));
       elsif register_number<256 then
-        -- Fill in unused register space
+                                        -- Fill in unused register space
         fastio_rdata <= x"ff";
-        -- C65 style palette registers
+                                        -- C65 style palette registers
       elsif register_number>=256 and register_number<512 then
-        -- red palette
+                                        -- red palette
         fastio_rdata <= std_logic_vector(palette(to_integer(register_num)).red);
       elsif register_number>=512 and register_number<768 then
-        -- green palette
+                                        -- green palette
         fastio_rdata <= std_logic_vector(palette(to_integer(register_num)).green);
       elsif register_number>=768 and register_number<1024 then
-        -- blue palette
+                                        -- blue palette
         fastio_rdata <= std_logic_vector(palette(to_integer(register_num)).blue);
       else
-        -- report "IO request does not match a video register" severity note;
+                                        -- report "IO request does not match a video register" severity note;
         fastio_rdata <= "ZZZZZZZZ";
       end if;
     end if;
@@ -655,7 +683,7 @@ begin
     if rising_edge(cpuclock) then
 
 
-      -- $DD00 video bank bits
+                                        -- $DD00 video bank bits
       if fastio_write='1'
         and fastio_addr(19 downto 12)=x"FD"
         and fastio_addr(3 downto 0) =x"0"
@@ -665,11 +693,11 @@ begin
           not fastio_wdata(1) & not fastio_wdata(0);
       end if;
 
-      -- $D000 registers
+                                        -- $D000 registers
       if fastio_write='1'
         and (fastio_addr(19) = '0' or fastio_addr(19) = '1') then
         if register_number>=0 and register_number<8 then
-          -- compatibility sprite coordinates
+                                        -- compatibility sprite coordinates
           sprite_x(to_integer(register_num(2 downto 0))) <= unsigned(fastio_wdata);
         elsif register_number<16 then
           sprite_y(to_integer(register_num(2 downto 0))) <= unsigned(fastio_wdata);
@@ -681,7 +709,7 @@ begin
           text_mode <= not fastio_wdata(5);
           blank <= not fastio_wdata(4);
           twentyfourlines <= not fastio_wdata(3);
-          -- set vertical borders based on twentyfourlines
+                                        -- set vertical borders based on twentyfourlines
           if twentyfourlines='0' then
             border_y_top <= to_unsigned(100,12);
             border_y_bottom <= to_unsigned(1200-101,12);
@@ -690,7 +718,7 @@ begin
             border_y_bottom <= to_unsigned(1200-101-(4*5),12);
           end if;
           vicii_y_smoothscroll <= fastio_wdata(2 downto 0);
-          -- set y_chargen_start based on twentyfourlines
+                                        -- set y_chargen_start based on twentyfourlines
           y_chargen_start <= to_unsigned((99-3*5)+to_integer(unsigned(fastio_wdata(2 downto 0)))*5,12);
         elsif register_number=18 then          -- $D012 current raster low 8 bits
           vicii_raster_compare(9 downto 0) <= unsigned(fastio_wdata) & "00";
@@ -702,7 +730,7 @@ begin
           multicolour_mode <= fastio_wdata(4);
           thirtyninecolumns <= fastio_wdata(3);
           vicii_x_smoothscroll <= fastio_wdata(2 downto 0);
-          -- set horizontal borders based on twentyfourlines
+                                        -- set horizontal borders based on twentyfourlines
           if fastio_wdata(3)='0' then
             border_x_left <= to_unsigned(160,12);
             border_x_right <= to_unsigned(1920-160,12);
@@ -710,7 +738,7 @@ begin
             border_x_left <= to_unsigned(160+(4*5),12);
             border_x_right <= to_unsigned(1920-160-(4*5),12);
           end if;
-          -- set y_chargen_start based on twentyfourlines
+                                        -- set y_chargen_start based on twentyfourlines
           x_chargen_start <= to_unsigned((160-3*5)+to_integer(unsigned(fastio_wdata(2 downto 0)))*5,12);
         elsif register_number=23 then          -- $D017 compatibility sprite enable
           vicii_sprite_y_expand <= fastio_wdata;
@@ -718,13 +746,13 @@ begin
           character_set_address(13 downto 11) <= unsigned(fastio_wdata(3 downto 1));
           screen_ram_base(13 downto 10) <= unsigned(fastio_wdata(7 downto 4));
         elsif register_number=25 then          -- $D019 compatibility IRQ bits
-          -- Acknowledge IRQs
-          -- (we need to pass this to the dotclock side to avoide multiple drivers)
-          -- irq_colissionspritesprite <= irq_colissionspritesprite and fastio_wdata(2);
-          -- irq_colissionspritebitmap <= irq_colissionspritebitmap and fastio_wdata(1);
-          -- irq_raster <= irq_raster and fastio_wdata(0);
+                                               -- Acknowledge IRQs
+                                               -- (we need to pass this to the dotclock side to avoide multiple drivers)
+                                               -- irq_colissionspritesprite <= irq_colissionspritesprite and fastio_wdata(2);
+                                               -- irq_colissionspritebitmap <= irq_colissionspritebitmap and fastio_wdata(1);
+                                               -- irq_raster <= irq_raster and fastio_wdata(0);
         elsif register_number=26 then          -- $D01A compatibility IRQ mask bits
-          -- XXX Enable/disable IRQs
+                                               -- XXX Enable/disable IRQs
           mask_colissionspritesprite <= fastio_wdata(2);
           mask_colissionspritebitmap <= fastio_wdata(1);
           mask_raster <= fastio_wdata(0);
@@ -762,14 +790,14 @@ begin
           sprite_multi1_colour <= unsigned(fastio_wdata);
         elsif register_number>=39 and register_number<=46 then
           sprite_colours(to_integer(register_number)-39) <= unsigned(fastio_wdata);
-          -- Skip $D02F - $D03F to avoid real C65/C128 programs trying to
-          -- fiddle with registers in this range.
-          -- NEW VIDEO REGISTERS
-          -- ($D040 - $D047 is the same as VIC-III DAT ports on C65.
-          --  This is tolerable, since the registers most likely used to detect a
-          --  C65 are made non-functional.  See:
-          -- http://www.devili.iki.fi/Computers/Commodore/C65/System_Specification/Chapter_2/page101.html
-          -- http://www.devili.iki.fi/Computers/Commodore/C65/System_Specification/Chapter_2/page102.html
+                                        -- Skip $D02F - $D03F to avoid real C65/C128 programs trying to
+                                        -- fiddle with registers in this range.
+                                        -- NEW VIDEO REGISTERS
+                                        -- ($D040 - $D047 is the same as VIC-III DAT ports on C65.
+                                        --  This is tolerable, since the registers most likely used to detect a
+                                        --  C65 are made non-functional.  See:
+                                        -- http://www.devili.iki.fi/Computers/Commodore/C65/System_Specification/Chapter_2/page101.html
+                                        -- http://www.devili.iki.fi/Computers/Commodore/C65/System_Specification/Chapter_2/page102.html
         elsif register_number=64 then
           virtual_row_width(7 downto 0) <= unsigned(fastio_wdata);
         elsif register_number=65 then
@@ -803,19 +831,19 @@ begin
         elsif register_number=79 then
           y_chargen_start(11 downto 8) <= unsigned(fastio_wdata(3 downto 0)); 
         elsif register_number=80 then
-          -- xcounter
+                                        -- xcounter
           null;
         elsif register_number=81 then
-          -- xcounter
+                                        -- xcounter
           null;
         elsif register_number=82 then
-          -- Allow setting of fine raster for IRQ (low bits)
+                                        -- Allow setting of fine raster for IRQ (low bits)
           vicii_raster_compare(7 downto 0) <= unsigned(fastio_wdata);
         elsif register_number=83 then
-          -- Allow setting of fine raster for IRQ (high bits)
+                                        -- Allow setting of fine raster for IRQ (high bits)
           vicii_raster_compare(10 downto 8) <= unsigned(fastio_wdata(2 downto 0));
         elsif register_number=84 then
-          -- $D054 (53332) - New mode control register
+                                        -- $D054 (53332) - New mode control register
           fullcolour_extendedchars <= fastio_wdata(2);
           fullcolour_8bitchars <= fastio_wdata(1);
           sixteenbit_charset <= fastio_wdata(0);
@@ -844,39 +872,39 @@ begin
         elsif register_number=139 then
           character_set_address(27 downto 24) <= unsigned(fastio_wdata(3 downto 0));
         elsif register_number<256 then
-          -- reserved register
+                                        -- reserved register
           null;
-          -- XXX Palette registers are in a RAM, so we need to schedule the writes
-          -- clocked by the pixelclock, and when we are not in frame.
-          -- Downside is not being able to change the palette registers quickly.
-          -- Else, we implement the palette as a lot of registers.
-          -- Downside is that routing could get very bad.
-          -- Else we implement the palette as dual-port RAM.  Probably the best
-          -- approach.
+                                        -- XXX Palette registers are in a RAM, so we need to schedule the writes
+                                        -- clocked by the pixelclock, and when we are not in frame.
+                                        -- Downside is not being able to change the palette registers quickly.
+                                        -- Else, we implement the palette as a lot of registers.
+                                        -- Downside is that routing could get very bad.
+                                        -- Else we implement the palette as dual-port RAM.  Probably the best
+                                        -- approach.
         elsif register_number>=256 and register_number<512 then
-          -- red palette
-          -- palette(to_integer(register_num)).red <= unsigned(fastio_wdata);
+                                        -- red palette
+                                        -- palette(to_integer(register_num)).red <= unsigned(fastio_wdata);
         elsif register_number>=512 and register_number<768 then
-          -- green palette
-          -- palette(to_integer(register_num)).green <= unsigned(fastio_wdata);
+                                        -- green palette
+                                        -- palette(to_integer(register_num)).green <= unsigned(fastio_wdata);
         elsif register_number>=768 and register_number<1024 then
-          -- blue palette
-          -- palette(to_integer(register_num)).blue <= unsigned(fastio_wdata);
+                                        -- blue palette
+                                        -- palette(to_integer(register_num)).blue <= unsigned(fastio_wdata);
         else
           null;
         end if;
       end if;      
     end if;
-    --report "fastio_rdata from video controller is "
-    --  & std_logic'image(fastio_rdata(7))
-    --  & std_logic'image(fastio_rdata(6))
-    --  & std_logic'image(fastio_rdata(5))
-    --  & std_logic'image(fastio_rdata(4))
-    --  & std_logic'image(fastio_rdata(3))
-    --  & std_logic'image(fastio_rdata(2))
-    --  & std_logic'image(fastio_rdata(1))
-    --  & std_logic'image(fastio_rdata(0))
-    --  severity note;
+                                        --report "fastio_rdata from video controller is "
+                                        --  & std_logic'image(fastio_rdata(7))
+                                        --  & std_logic'image(fastio_rdata(6))
+                                        --  & std_logic'image(fastio_rdata(5))
+                                        --  & std_logic'image(fastio_rdata(4))
+                                        --  & std_logic'image(fastio_rdata(3))
+                                        --  & std_logic'image(fastio_rdata(2))
+                                        --  & std_logic'image(fastio_rdata(1))
+                                        --  & std_logic'image(fastio_rdata(0))
+                                        --  severity note;
     
   end process;
   
@@ -901,8 +929,8 @@ begin
       if xcounter<frame_width then
         xcounter <= xcounter + 1;
       else
-        -- End of raster reached.
-        -- Bump raster number and start next raster.
+                                        -- End of raster reached.
+                                        -- Bump raster number and start next raster.
         xcounter <= (others => '0');
         next_chargen_x <= (others => '0');
         chargen_x_sub <= (others => '0');
@@ -913,7 +941,7 @@ begin
             irq_raster <= '1';
           end if;
         else
-          -- Start of next frame
+                                        -- Start of next frame
           ycounter <= (others =>'0');
           next_chargen_y := (others => '0');
           chargen_y_sub <= (others => '0');
@@ -935,11 +963,11 @@ begin
       end if;
 
       if xfrontporch='0' and xbackporch = '0' then
-        -- Increase horizonal physical pixel position
+                                        -- Increase horizonal physical pixel position
         displayx <= displayx + 1;
       end if;
       
-      -- Work out if the border is active
+                                        -- Work out if the border is active
       if displayx<border_x_left or displayx>border_x_right or
         displayy<border_y_top or displayy>border_y_bottom then
         inborder<='1';
@@ -950,30 +978,30 @@ begin
       inborder_t2 <= inborder_t1;
       inborder_t3 <= inborder_t2;
 
-      -- Work out if the next card has a character number >255
+                                        -- Work out if the next card has a character number >255
       if next_card_number(15 downto 8) /= x"00" then
         card_number_is_extended <= '1';
       else
         card_number_is_extended <= '0';
       end if;
 
-      -- By default, copy in replacement values
-      -- These assignments may be overriden further down the process.
+                                        -- By default, copy in replacement values
+                                        -- These assignments may be overriden further down the process.
       chargen_x <= next_chargen_x;
       chargen_y <= next_chargen_y;
       card_number <= next_card_number;
       
-      -- Reset character generator position for start of frame/raster
+                                        -- Reset character generator position for start of frame/raster
       if displayx=(x_chargen_start-8) then
-        -- Start fetching first character of the row
-        -- (8 cycles is plenty of time to fetch it)       
+                                        -- Start fetching first character of the row
+                                        -- (8 cycles is plenty of time to fetch it)       
         char_fetch_cycle <= 0;
         cycles_to_next_card <= (others => '1');
-        -- Start displaying from the correct character
+                                        -- Start displaying from the correct character
         next_card_number <= first_card_of_row;
       end if;
       if displayx = (x_chargen_start - 1) then
-        -- trigger next card at start of chargen row
+                                        -- trigger next card at start of chargen row
         cycles_to_next_card <= "00000001";        
         next_chargen_x <= (others => '0');
         chargen_x <= (others => '0');
@@ -986,34 +1014,34 @@ begin
         chargen_active <= '0';
       end if;
 
-      -- Raster control.
-      -- Work out if in front porch, back porch or active part of raster.
-      -- If we are in the active part of the display, work out if we have
-      -- reached the start of a new character (or are about to).
-      -- If so, copy in the new glyph and colour data for display.
+                                        -- Raster control.
+                                        -- Work out if in front porch, back porch or active part of raster.
+                                        -- If we are in the active part of the display, work out if we have
+                                        -- reached the start of a new character (or are about to).
+                                        -- If so, copy in the new glyph and colour data for display.
       if xfrontporch='1' then
         indisplay := '0';
       elsif xbackporch='0' and chargen_active='1' then         -- In active part of raster
-        -- Work out if we are at the end of a character
+                                                               -- Work out if we are at the end of a character
         cycles_to_next_card <= cycles_to_next_card - 1;
-        -- cycles_to_next_card counts down to 1, not 0.
-        -- update one cycle earlier since next_card_number is a signal
-        -- not a variable.
+                                        -- cycles_to_next_card counts down to 1, not 0.
+                                        -- update one cycle earlier since next_card_number is a signal
+                                        -- not a variable.
         if cycles_to_next_card = 2 then
-          -- We are one cycle before the start of a character
+                                        -- We are one cycle before the start of a character
           next_card_number <= card_number + 1;
         end if;
         if cycles_to_next_card = 1 then
-          -- We are at the start of a character
+                                        -- We are at the start of a character
           
-          -- Reset counter to next character to 8 cycles x (scale + 1)
+                                        -- Reset counter to next character to 8 cycles x (scale + 1)
           cycles_to_next_card <= (chargen_x_scale(4 downto 0)+1) & "000";
-          -- Move preloaded glyph data into position when advancing to the next character
+                                        -- Move preloaded glyph data into position when advancing to the next character
           glyph_pixeldata <= next_glyph_pixeldata;
           glyph_colour <= next_glyph_colour;
           glyph_number <= next_glyph_number;
           glyph_full_colour <= next_glyph_full_colour;
-          -- ... and then start fetching data for the character after that
+                                        -- ... and then start fetching data for the character after that
           char_fetch_cycle <= 0;
           chargen_x <= "000";
           chargen_x_sub <= (others => '0');
@@ -1023,9 +1051,9 @@ begin
             next_chargen_x <= "001";
           end if;
         else
-          -- Update current horizontal sub-pixel and pixel position
-          -- Work out if a new logical pixel starts on the next physical pixel
-          -- (overrides general advance)
+                                        -- Update current horizontal sub-pixel and pixel position
+                                        -- Work out if a new logical pixel starts on the next physical pixel
+                                        -- (overrides general advance)
           if chargen_x_scale=0 then
             next_chargen_x <= chargen_x + 1;
           else
@@ -1040,7 +1068,7 @@ begin
           end if;
         end if;
       elsif xbackporch ='1' then
-        -- In back porch
+                                        -- In back porch
         indisplay := '0';
       end if;
       
@@ -1060,7 +1088,7 @@ begin
           if chargen_y_sub=chargen_y_scale then
             next_chargen_y := chargen_y + 1;
             if chargen_y = "111" then
-              -- Increment card number every "bad line"
+                                        -- Increment card number every "bad line"
               first_card_of_row <= first_card_of_row + virtual_row_width;
               next_card_number <= first_card_of_row + virtual_row_width;
             end if;
@@ -1076,24 +1104,24 @@ begin
       
       display_active <= indisplay;
 
-      -- Read character row data
+                                        -- Read character row data
       if charread='1' then
-        -- mono characters
+                                        -- mono characters
         charrow <= chardata;
-        -- XXX what about one byte per pixel characters?
+                                        -- XXX what about one byte per pixel characters?
       end if;
       
-      -- As soon as we begin drawing a character, start fetching the data for the
-      -- next character.  Any left over cycles can be used for updating full-colour
-      -- sprite data once we implement them.
-      -- We need the character number, the colour byte, and the
-      -- 8x8 data bits (only 8 used if character is not in full colour mode).
+                                        -- As soon as we begin drawing a character, start fetching the data for the
+                                        -- next character.  Any left over cycles can be used for updating full-colour
+                                        -- sprite data once we implement them.
+                                        -- We need the character number, the colour byte, and the
+                                        -- 8x8 data bits (only 8 used if character is not in full colour mode).
       if char_fetch_cycle<16 then
         char_fetch_cycle <= char_fetch_cycle + 1;        
       end if;
       case char_fetch_cycle is
         when 0 => 
-          -- Load card number
+                                        -- Load card number
           long_address(31 downto 17) := (others => '0');
           if sixteenbit_charset='1' then
             long_address(16 downto 0) := screen_ram_base(16 downto 0)+(card_number&'0');
@@ -1102,24 +1130,24 @@ begin
           end if;
           ramaddress <= std_logic_vector(long_address(16 downto 3));
         when 1 =>
-          -- FastRAM wait state
-          -- XXX Can schedule a sprite fetch here.
+                                        -- FastRAM wait state
+                                        -- XXX Can schedule a sprite fetch here.
           ramaddress <= (others => '0');
         when 2 =>
-          -- Store character number
-          -- In text mode, the glyph order is flexible
+                                        -- Store character number
+                                        -- In text mode, the glyph order is flexible
           next_glyph_number_buffer <= ramdata;
-          -- As RAM is slow to read from, we buffer it, and then extract the
-          -- right byte/word next cycle, so no more work here.
+                                        -- As RAM is slow to read from, we buffer it, and then extract the
+                                        -- right byte/word next cycle, so no more work here.
 
-          -- XXX Can schedule a sprite fetch here.
+                                        -- XXX Can schedule a sprite fetch here.
           ramaddress <= (others => '0');
         when 3 =>
-          -- Decode next character number from 64bit vector
-          -- This is a bit too complex to do in a single cycle if we also have to
-          -- choose the 16bit or 8 bit version.  So this cycle we calculate the
-          -- 8bit and 16bit versions.  Then next cycle we can select the correct
-          -- one.
+                                        -- Decode next character number from 64bit vector
+                                        -- This is a bit too complex to do in a single cycle if we also have to
+                                        -- choose the 16bit or 8 bit version.  So this cycle we calculate the
+                                        -- 8bit and 16bit versions.  Then next cycle we can select the correct
+                                        -- one.
           case card_number(2 downto 0) is
             when "111" => next_glyph_number_temp(7 downto 0) := next_glyph_number_buffer(63 downto 56);
             when "110" => next_glyph_number_temp(7 downto 0) := next_glyph_number_buffer(55 downto 48);
@@ -1137,14 +1165,14 @@ begin
             when "10" => next_glyph_number_temp := next_glyph_number_buffer(47 downto 32);        
             when "01" => next_glyph_number_temp := next_glyph_number_buffer(31 downto 16);        
             when "00" => next_glyph_number_temp := next_glyph_number_buffer(15 downto  0);        
-          when others => next_glyph_number_temp := x"0000";
+            when others => next_glyph_number_temp := x"0000";
           end case;
           next_glyph_number16 <= unsigned(next_glyph_number_temp);
 
-          -- XXX Can schedule a sprite fetch here.
+                                        -- XXX Can schedule a sprite fetch here.
           ramaddress <= (others => '0');
         when 4 =>
-          -- Calculate the actual character number
+                                        -- Calculate the actual character number
           if sixteenbit_charset='1' then
             next_glyph_number_temp := std_logic_vector(next_glyph_number16);
           else
@@ -1156,13 +1184,13 @@ begin
             next_glyph_number <= card_number;
           end if;
 
-          -- Request colour RAM (only the relevant byte is used)
-          -- 16bit charset has no effect on the colour RAM size
+                                        -- Request colour RAM (only the relevant byte is used)
+                                        -- 16bit charset has no effect on the colour RAM size
           long_address(31 downto 17) := (others => '0');
           long_address(16 downto 0) := colour_ram_base(16 downto 0)+unsigned(card_number);
           ramaddress <= std_logic_vector(long_address(16 downto 3));
         when 5 =>
-          -- Character pixels (only 8 bits used if not in full colour mode)
+                                        -- Character pixels (only 8 bits used if not in full colour mode)
           if fullcolour_8bitchars='0' and fullcolour_extendedchars='0' then
             long_address(16 downto 0) := character_set_address(16 downto 0)+(next_glyph_number(7 downto 0)&chargen_y);
           elsif fullcolour_8bitchars='0' and fullcolour_extendedchars='1' then
@@ -1170,29 +1198,29 @@ begin
               long_address(16 downto 0) := character_set_address(16 downto 0)+(next_glyph_number(10 downto 0)&chargen_y);
               next_glyph_full_colour <= '0';
             else
-              -- Full colour characters are direct mapped in memory on 64 byte
-              -- boundaries.
+                                        -- Full colour characters are direct mapped in memory on 64 byte
+                                        -- boundaries.
               long_address(16 downto 0) :=
                 next_glyph_number(10 downto 0)&chargen_y&"000";
               next_glyph_full_colour <= '1';
             end if;
           else
-            -- if fullcolour_8bitchars='1' then all chars are full-colour          
-            -- Full colour characters are direct mapped in memory on 64 byte
-            -- boundaries.
+                                        -- if fullcolour_8bitchars='1' then all chars are full-colour          
+                                        -- Full colour characters are direct mapped in memory on 64 byte
+                                        -- boundaries.
             long_address(16 downto 0) :=
               next_glyph_number(10 downto 0)&chargen_y&"000";
             next_glyph_full_colour <= '1';
           end if;
-          -- Request pixel data
+                                        -- Request pixel data
           ramaddress <= std_logic_vector(long_address(16 downto 3));
         when 6 =>
-          -- Store colour bytes (will decode next cycle to keep logic shallow)
+                                        -- Store colour bytes (will decode next cycle to keep logic shallow)
           next_glyph_colour_buffer <= ramdata;
-          -- XXX Can schedule a sprite fetch here.
+                                        -- XXX Can schedule a sprite fetch here.
           ramaddress <= (others => '0');
         when 7 =>
-          -- Decode colour byte
+                                        -- Decode colour byte
           case card_number(2 downto 0) is
             when "111" => next_glyph_colour_temp := next_glyph_colour_buffer(63 downto 56);
             when "110" => next_glyph_colour_temp := next_glyph_colour_buffer(55 downto 48);
@@ -1205,31 +1233,31 @@ begin
             when others => next_glyph_colour_temp := x"00";
           end case;
           next_glyph_colour <= unsigned(next_glyph_colour_temp);
-          -- Store character pixels
+                                        -- Store character pixels
           next_glyph_pixeldata <= ramdata;
-          -- XXX Fetch full-colour sprite information
-          -- (C64 compatability sprites will be fetched during horizontal sync.
-          --  Because we can fetch 64bits at once, compatibility sprite fetching
-          --  cannot require more than 16 cycles).
+                                        -- XXX Fetch full-colour sprite information
+                                        -- (C64 compatability sprites will be fetched during horizontal sync.
+                                        --  Because we can fetch 64bits at once, compatibility sprite fetching
+                                        --  cannot require more than 16 cycles).
           ramaddress <= (others => '0');
         when others => 
-          -- XXX Fetch full-colour sprite information
-          -- (C64 compatability sprites will be fetched during horizontal sync.
-          --  Because we can fetch 64bits at once, compatibility sprite fetching
-          --  cannot require more than 16 cycles).
+                                        -- XXX Fetch full-colour sprite information
+                                        -- (C64 compatability sprites will be fetched during horizontal sync.
+                                        --  Because we can fetch 64bits at once, compatibility sprite fetching
+                                        --  cannot require more than 16 cycles).
           ramaddress <= (others => '0');
       end case;
 
-      -- When moving to the next card read the appropriate character set rom entry.
-      -- Note that character set ROM has only 256 entries, so 16-bit charsets
-      -- will wrap.
-      -- In bitmap mode the card numbers are ordinal, whereas in textmode
-      -- screen RAM picks the character.
-      -- XXX Bitmap mode should not use the character ROM.  This combination is
-      -- for debugging of text mode character fetching only.
+                                        -- When moving to the next card read the appropriate character set rom entry.
+                                        -- Note that character set ROM has only 256 entries, so 16-bit charsets
+                                        -- will wrap.
+                                        -- In bitmap mode the card numbers are ordinal, whereas in textmode
+                                        -- screen RAM picks the character.
+                                        -- XXX Bitmap mode should not use the character ROM.  This combination is
+                                        -- for debugging of text mode character fetching only.
       if card_number_t3 /= card_number then
         if extended_background_mode='1' then
-          -- bit 6 and 7 of character is used for colour
+                                        -- bit 6 and 7 of character is used for colour
           charaddress(10 downto 9) <= "00";
           if text_mode='1' then
             charaddress(8 downto 3) <= std_logic_vector(next_glyph_number(5 downto 0));
@@ -1249,13 +1277,13 @@ begin
         charread <= '0';
       end if;
 
-      -- Fetch card foreground colour from colour RAM
+                                        -- Fetch card foreground colour from colour RAM
       card_fg_colour(7 downto 0) := glyph_colour;
 
       card_bg_colour := screen_colour;
       if extended_background_mode='1' then
-        -- XXX Until we support reading screen memory, use card number
-        -- as the source of the extended background colour
+                                        -- XXX Until we support reading screen memory, use card number
+                                        -- as the source of the extended background colour
         case card_number_t3(7 downto 6) is
           when "00" => card_bg_colour := screen_colour;
           when "01" => card_bg_colour := multi1_colour;
@@ -1265,7 +1293,7 @@ begin
         end case;
       end if;
 
-      -- Calculate pixel bit/bits for next cycle to keep logic depth shallow
+                                        -- Calculate pixel bit/bits for next cycle to keep logic depth shallow
       multicolour_bits(0) <= charrow(to_integer((not chargen_x_t2(2 downto 1))&'0'));
       multicolour_bits(1) <= charrow(to_integer((not chargen_x_t2(2 downto 1))&'1'));
       monobit <= charrow(to_integer(not chargen_x_t2(2 downto 0)));
@@ -1277,15 +1305,15 @@ begin
           pixel_colour <= screen_colour;
         elsif (fullcolour_extendedchars='1' and text_mode='1' and card_number_is_extended='1')
           or (fullcolour_8bitchars='1' and text_mode='1') then
-          -- Full colour glyph
-          -- Pixels come from each 8 bits of character memory.
+                                        -- Full colour glyph
+                                        -- Pixels come from each 8 bits of character memory.
           pixel_colour <= unsigned(glyph_pixeldata(63 downto 56));
           if chargen_x_t1 /= chargen_x then
             glyph_pixeldata(63 downto 8) <= glyph_pixeldata(55 downto 0);
           end if;
         elsif multicolour_mode='1' and text_mode='1' and card_fg_colour(3)='1' then
-          -- Multicolour character mode only engages for characters with bit 3
-          -- of their foreground colour set.
+                                        -- Multicolour character mode only engages for characters with bit 3
+                                        -- of their foreground colour set.
           case multicolour_bits is
             when "00" => pixel_colour <= card_bg_colour;
             when "01" => pixel_colour <= multi1_colour;
@@ -1294,15 +1322,15 @@ begin
             when others => pixel_colour <= screen_colour;
           end case;
         elsif multicolour_mode='1' and text_mode='0' then
-          -- Multicolour bitmap mode.
-          -- XXX Not yet implemented
+                                        -- Multicolour bitmap mode.
+                                        -- XXX Not yet implemented
           pixel_colour(7 downto 4) <= "0000";
           pixel_colour(3 downto 0) <= card_number_t3(3 downto 0);
         elsif multicolour_mode='0' then
-          -- hires/bi-colour mode/normal text mode
-          -- XXX Still using character generator ROM for now.
-          -- XXX Replace with correct byte from glyph_pixelddata
-          -- once we have things settled down a bit more.
+                                        -- hires/bi-colour mode/normal text mode
+                                        -- XXX Still using character generator ROM for now.
+                                        -- XXX Replace with correct byte from glyph_pixelddata
+                                        -- once we have things settled down a bit more.
           if monobit = '1' then
             pixel_colour(7 downto 4) <= "0000";
             pixel_colour(3 downto 0) <= card_fg_colour(3 downto 0);
@@ -1317,8 +1345,8 @@ begin
         pixel_colour <= x"00";
       end if;
       
-      -- Make delayed versions of card number and x position so that we have time
-      -- to fetch character row data.
+                                        -- Make delayed versions of card number and x position so that we have time
+                                        -- to fetch character row data.
       chargen_x_t1 <= chargen_x;
       chargen_x_t2 <= chargen_x_t1;
       chargen_x_t3 <= chargen_x_t2;
@@ -1329,14 +1357,14 @@ begin
       indisplay_t2 <= indisplay_t1;
       indisplay_t3 <= indisplay_t2;
 
-      -- Pixels have a two cycle pipeline to help keep timing contraints:
+                                        -- Pixels have a two cycle pipeline to help keep timing contraints:
       
-      -- 1. From pixel colour lookup RGB
+                                        -- 1. From pixel colour lookup RGB
       vga_buffer_red <= palette(to_integer(pixel_colour)).red(7 downto 4);   
       vga_buffer_green <= palette(to_integer(pixel_colour)).green(7 downto 4); 
       vga_buffer_blue <= palette(to_integer(pixel_colour)).blue(7 downto 4);
 
-      -- 2. From RGB, push out to pins (also draw border)
+                                        -- 2. From RGB, push out to pins (also draw border)
       vgared <= vga_buffer_red;
       vgagreen <= vga_buffer_green;
       vgablue <= vga_buffer_blue;
