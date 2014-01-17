@@ -1220,6 +1220,7 @@ begin
                                         -- mono characters
         -- Apply C65/VIC-III hardware underline and blink attributes
         if chargen_y(2 downto 0)="111"
+          and viciii_extended_attributes='1'
           and glyph_attributes(3)='1'
           and viciii_blink_phase='0' then
           charrow <= x"FF";
@@ -1404,7 +1405,7 @@ begin
         else
           card_bg_colour := screen_colour;
         end if;
-        if viciii_blink_phase='1' then
+        if viciii_extended_attributes='1' and viciii_blink_phase='1' then
           if glyph_attributes="0001" then
             -- Blink alone
             card_fg_colour := screen_colour;
