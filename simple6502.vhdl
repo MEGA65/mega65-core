@@ -355,6 +355,9 @@ begin
       fastio_read <= '1';
       -- No wait states in fastio system, so proceed directly to next state
       state <= next_state;
+    else
+      -- Don't let unmapped memory jam things up
+      state <= next_state;
     end if;
     -- Once read, we then resume processing from the specified state.
     pending_state <= next_state;
@@ -407,6 +410,9 @@ begin
       fastio_write <= '1';
       fastio_wdata <= std_logic_vector(value);
       -- No wait states on I/O write, so proceed directly to the next state
+      state <= next_state;
+    else
+      -- Don't let unmapped memory jam things up
       state <= next_state;
     end if;
     -- Once read, we then resume processing from the specified state.
