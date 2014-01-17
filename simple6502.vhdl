@@ -103,15 +103,15 @@ architecture Behavioural of simple6502 is
     -- States for handling interrupts and reset
     Interrupt,VectorRead,VectorRead1,VectorRead2,VectorRead3,
     InstructionFetch,                   -- $06
-    InstructionFetch2,InstructionFetch3,InstructionFetch4,    
+    InstructionFetch2,InstructionFetch3,InstructionFetch4,  -- $09
     BRK1,BRK2,PLA1,PLP1,RTI1,RTI2,RTI3,  -- $10
     RTS1,RTS2,JSR1,JMP1, -- $14
-    JMP2,
-    IndirectX1,IndirectX2,IndirectX3,
-    IndirectY1,IndirectY2,IndirectY3,
-    ExecuteDirect,RMWCommit,
-    Halt,WaitOneCycle,
-    MonitorAccessDone,MonitorReadDone
+    JMP2,                               -- $15
+    IndirectX1,IndirectX2,IndirectX3,   -- $18
+    IndirectY1,IndirectY2,IndirectY3,   -- $1b
+    ExecuteDirect,RMWCommit,            -- $1d
+    Halt,WaitOneCycle,                  -- $1f
+    MonitorAccessDone,MonitorReadDone   -- $21
     );
   signal state : processor_state := ResetLow;  -- start processor in reset state
   -- For memory access we push the processor state to follow once the memory
@@ -829,8 +829,11 @@ begin
     elsif i=I_JMP and mode=M_absolute then
       reg_pc <= arg2 & arg1; state<=InstructionFetch;
     elsif i=I_JMP and mode=M_indirect then
-      reg_addr <= arg2 & (arg1 +1);
-      read_data_byte(arg2 & arg1,JMP1);    
+      -- Read first byte of indirect vector
+      read_data_byte(arg2 & arg1,JMP1);
+      -- Remember address of second byte of indirect vector so that
+      -- we can ask for it in JMP1
+      reg_pc <= arg2 & (arg1 +1);
     elsif mode=M_indirectX then
       -- Read ZP indirect from data memory map, since ZP is written into that
       -- map.
@@ -1006,8 +1009,16 @@ begin
           when RTS2 => reg_pc <= (reg_pc(15 downto 8) & read_data)+1;
                        state<=InstructionFetch;
           when JSR1 => push_byte(reg_pc_jsr(15 downto 8),InstructionFetch);
-          when JMP1 => read_instruction_byte(reg_addr,JMP2); reg_pc(7 downto 0)<=read_data;
-          when JMP2 => reg_pc(15 downto 8) <= read_data; state<=InstructionFetch;
+          when JMP1 =>
+            -- Request reading of high byte of vector
+            read_instruction_byte(reg_pc,JMP2);
+            -- Store low byte of vector into PCL
+            reg_pc(7 downto 0)<=read_data;
+          when JMP2 =>
+            -- Now assemble complete vector
+            reg_pc(15 downto 8) <= read_data;
+            -- And then continue executing from there
+            state<=InstructionFetch;
           when IndirectX1 =>
             reg_addr(7 downto 0) <= read_data;
             report "(ZP,x) - low byte = $" & to_hstring(read_data) severity note;
