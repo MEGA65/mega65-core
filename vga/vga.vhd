@@ -1227,7 +1227,7 @@ begin
         if chargen_y(2 downto 0)="111"
           and viciii_extended_attributes='1'
           and glyph_attributes(3)='1'
-          and viciii_blink_phase='0' then
+          and (viciii_blink_phase='0' or glyph_attributes(4)='0') then
           charrow <= x"FF";
         else
           charrow <= chardata;
@@ -1397,7 +1397,7 @@ begin
       end if;
 
 
-        card_fg_colour(7 downto 5) := "000";
+        card_fg_colour(7 downto 4) := "000";
         if viciii_extended_attributes='1' then
           -- "Bold" as for VIC-III. Simply adds 16 to the colour
           card_fg_colour(4) := glyph_attributes(2);
@@ -1474,8 +1474,8 @@ begin
                                         -- XXX Replace with correct byte from glyph_pixelddata
                                         -- once we have things settled down a bit more.
           if monobit = '1' then
-            pixel_colour(7 downto 4) <= "0000";
-            pixel_colour(3 downto 0) <= card_fg_colour(3 downto 0);
+            pixel_colour(7 downto 5) <= "000";
+            pixel_colour(4 downto 0) <= card_fg_colour(4 downto 0);
           else
             pixel_colour(7 downto 4) <= "0000";
             pixel_colour(3 downto 0) <= card_bg_colour(3 downto 0);
