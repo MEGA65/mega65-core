@@ -932,9 +932,12 @@ begin
         recent_states(0) <= to_unsigned(processor_state'pos(state),16);
         
         case state is
-          when MonitorReadDone =>
+          when MonitorReadDone =>            
             monitor_mem_rdata <= read_data;
             state <= MonitorAccessDone;
+
+            -- Don't overwrite recent states record
+            recent_states <= recent_states;
           when MonitorAccessDone =>
             fastram_we <= (others => '0');
             monitor_mem_attention_granted <= '1';
@@ -942,6 +945,8 @@ begin
               monitor_mem_attention_granted <= '0';
               state <= InstructionFetch;
             end if;
+            -- Don't overwrite recent states record
+            recent_states <= recent_states;
           when VectorRead => reg_pc <= vector; read_instruction_byte(vector,VectorRead2);
           when VectorRead2 => reg_pc(7 downto 0) <= read_data; read_instruction_byte(vector+1,VectorRead3);
           when VectorRead3 => reg_pc(15 downto 8) <= read_data; state <= InstructionFetch;
