@@ -285,6 +285,7 @@ architecture Behavioral of vga is
   signal next_glyph_pixeldata : std_logic_vector(63 downto 0);
   signal next_glyph_number_buffer : std_logic_vector(63 downto 0);
   signal next_glyph_colour_buffer : std_logic_vector(7 downto 0);
+  signal next_glyph_colour_buffer_temp : std_logic_vector(7 downto 0);
   signal next_glyph_full_colour : std_logic;
   signal next_chargen_x : unsigned(2 downto 0) := (others => '0');
   signal chargen_active : std_logic := '0';
@@ -1279,8 +1280,9 @@ begin
                                         -- In text mode, the glyph order is flexible
           next_glyph_number_buffer <= ramdata;
 
-                                                  -- Store colour byte (will decode next cycle to keep logic shallow)
-          next_glyph_colour_buffer <= colourramdata;
+                                                  -- Store colour byte (will
+                                                  -- transfer and decode next cycle to keep logic shallow)
+          next_glyph_colour_buffer_temp <= colourramdata;
 
                                         -- As RAM is slow to read from, we buffer it, and then extract the
                                         -- right byte/word next cycle, so no more work here.
@@ -1288,11 +1290,8 @@ begin
                                         -- XXX Can schedule a sprite fetch here.
           ramaddress <= (others => '0');
         when 3 =>
-
-                                        -- Decode colour byte
-          next_glyph_colour <= unsigned(next_glyph_colour_buffer(3 downto 0));
-          next_glyph_attributes <= unsigned(next_glyph_colour_buffer(7 downto 4));
-
+          next_glyph_colour_buffer <= next_glyph_colour_buffer_temp;
+          
                                         -- Decode next character number from 64bit vector
                                         -- This is a bit too complex to do in a single cycle if we also have to
                                         -- choose the 16bit or 8 bit version.  So this cycle we calculate the
@@ -1323,6 +1322,26 @@ begin
           ramaddress <= (others => '0');
         when 4 =>
 
+                                        -- Decode colour byte
+          next_glyph_colour <= unsigned(next_glyph_colour_buffer(3 downto 0));
+          next_glyph_attributes <= unsigned(next_glyph_colour_buffer(7 downto 4));
+                                        -- Calculate the actual character number
+          if sixteenbit_charset='1' then
+            next_glyph_number_temp := std_logic_vector(next_glyph_number16);
+          else
+            next_glyph_number_temp := "00000000" & std_logic_vector(next_glyph_number8);
+          end if;
+          if text_mode='1' then
+            next_glyph_number <= unsigned(next_glyph_number_temp);
+          else
+            next_glyph_number <= card_number;
+          end if;
+
+                                        -- XXX Can schedule a sprite fetch here.
+          ramaddress <= (others => '0');
+        when 5 =>
+
+          
           -- Pre-calculate the extended character attributes
           next_glyph_visible <= '1';
           next_glyph_reverse <= '0';
@@ -1357,21 +1376,7 @@ begin
               end if;
             end if;
           end if;
-                                        -- Calculate the actual character number
-          if sixteenbit_charset='1' then
-            next_glyph_number_temp := std_logic_vector(next_glyph_number16);
-          else
-            next_glyph_number_temp := "00000000" & std_logic_vector(next_glyph_number8);
-          end if;
-          if text_mode='1' then
-            next_glyph_number <= unsigned(next_glyph_number_temp);
-          else
-            next_glyph_number <= card_number;
-          end if;
 
-                                        -- XXX Can schedule a sprite fetch here.
-          ramaddress <= (others => '0');
-        when 5 =>
                                         -- Character pixels (only 8 bits used if not in full colour mode)
           if fullcolour_8bitchars='0' and fullcolour_extendedchars='0' then
             long_address(16 downto 0) := character_set_address(16 downto 0)+(next_glyph_number(7 downto 0)&chargen_y);
