@@ -399,7 +399,7 @@ begin
     PORT MAP (
       clka => cpuclock,
       ena => colour_ram_cs,
-      wea => fastio_write,
+      wea(0) => fastio_write,
       addra => colour_ram_fastio_address,
       dina => fastio_wdata,
       douta => colour_ram_fastio_rdata,
