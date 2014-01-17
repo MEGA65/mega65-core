@@ -69,7 +69,9 @@ entity vga is
     fastio_read : in std_logic;
     fastio_write : in std_logic;
     fastio_wdata : in std_logic_vector(7 downto 0);
-    fastio_rdata : out std_logic_vector(7 downto 0)
+    fastio_rdata : out std_logic_vector(7 downto 0);
+
+    colourram_at_dc00 : out std_logic
     );
 end vga;
 
@@ -304,6 +306,9 @@ architecture Behavioral of vga is
   signal charrow : std_logic_vector(7 downto 0);
   signal charread : std_logic := '0';   -- if 1, we are reading and need to
                                         -- store the value.
+
+  -- C65 style 2K colour RAM
+  signal colourram_at_dc00_internal : std_logic;
   
   type rgb is
   record
@@ -560,14 +565,56 @@ begin
         fastio_rdata <= std_logic_vector(sprite_multi1_colour);
       elsif register_number>=39 and register_number<=46 then
         fastio_rdata <= std_logic_vector(sprite_colours(to_integer(register_number)-39));
+      elsif register_number=48 then
+        -- C65 $D030 emulation
+        
+        fastio_rdata <=
+          "0"                           -- ROM @ E000
+          & "0"                         -- ROM @ 9000
+          & "0"                         -- ROM @ C000
+          & "0"                         -- ROM @ A000
+          & "0"                         -- ROM @ 8000
+          & "1"                         -- Lie and say we are PAL
+          & "0"                         -- External sync
+          & colourram_at_dc00_internal;  -- 2KB colour RAM
+      elsif register_number=49 then
+        -- XXX Can emulate VIC-III H640, V400 and H1280 by adjusting x and y scale
+        -- registers
+        fastio_rdata <=
+          "1"                           -- H640
+          & "1"                         -- FAST
+          & "1"                         -- ATTR (8bit colour RAM features)
+          & "0"                         -- BPM
+          & "1"                         -- V400
+          & "1"                         -- H1280
+          & "0"                         -- MONO
+          & "1";                        -- INT(erlaced?)
+        
+        
                                         -- Skip $D02F - $D03F to avoid real C65/C128 programs trying to
                                         -- fiddle with registers in this range.
                                         -- NEW VIDEO REGISTERS
                                         -- ($D040 - $D047 is the same as VIC-III DAT ports on C65.
                                         --  This is tolerable, since the registers most likely used to detect a
-                                        --  C65 are made non-functional.  See:
-                                        -- http://www.devili.iki.fi/Computers/Commodore/C65/System_Specification/Chapter_2/page101.html
-                                        -- http://www.devili.iki.fi/Computers/Commodore/C65/System_Specification/Chapter_2/page102.html
+                                        --  C65 are made non-functional.
+                                        --  For more C65 register info, see:
+                                        -- http://www.zimmers.net/cbmpics/cbm/c65/c65manual.txt
+        -- $D032 - Bitplane enable bits
+        -- $D033 - Bitplane 0 address
+        -- $D034 - Bitplane 1 address
+        -- $D035 - Bitplane 2 address
+        -- $D036 - Bitplane 3 address
+        -- $D037 - Bitplane 4 address
+        -- $D038 - Bitplane 5 address
+        -- $D039 - Bitplane 6 address
+        -- $D03A - Bitplane 7 address
+        -- $D03B - Set bits to NOT bitplane contents
+        -- $D03C - Bitplane X
+        -- $D03D - Bitplane Y
+        -- $D03E - Horizontal position (screen verniers?)
+        -- $D03F - Vertical position (screen verniers?)
+        -- $D040 - $D047 DAT memory ports for bitplanes 0 through 7
+        
       elsif register_number=64 then
         fastio_rdata <= std_logic_vector(virtual_row_width(7 downto 0));
       elsif register_number=65 then
@@ -798,6 +845,9 @@ begin
                                         --  C65 are made non-functional.  See:
                                         -- http://www.devili.iki.fi/Computers/Commodore/C65/System_Specification/Chapter_2/page101.html
                                         -- http://www.devili.iki.fi/Computers/Commodore/C65/System_Specification/Chapter_2/page102.html
+        elsif register_number=48 then
+          colourram_at_dc00_internal<= fastio_wdata(0);
+          colourram_at_dc00<= fastio_wdata(0);
         elsif register_number=64 then
           virtual_row_width(7 downto 0) <= unsigned(fastio_wdata);
         elsif register_number=65 then

@@ -182,17 +182,23 @@ architecture Behavioral of machine is
       fastio_read : in std_logic;
       fastio_write : in std_logic;
       fastio_wdata : in std_logic_vector(7 downto 0);
-      fastio_rdata : out std_logic_vector(7 downto 0)
+      fastio_rdata : out std_logic_vector(7 downto 0);
+
+      colourram_at_dc00 : out std_logic
       );
   end component;
   
   component iomapper is
     port (Clk : in std_logic;
+          reset : in std_logic;
+          irq : out std_logic;
+          nmi : out std_logic;
           address : in std_logic_vector(19 downto 0);
           r : in std_logic;
           w : in std_logic;
           data_i : in std_logic_vector(7 downto 0);
-          data_o : out std_logic_vector(7 downto 0)
+          data_o : out std_logic_vector(7 downto 0);
+          colourram_at_dc00 : in std_logic
           );
   end component;
   
@@ -214,6 +220,8 @@ architecture Behavioral of machine is
   
   signal cpuclock : std_logic := '1';
   signal cpuclock_divisor : integer := 0;
+
+  signal colourram_at_dc00 : std_logic := '0';
 
   signal monitor_pc : std_logic_vector(15 downto 0);
   signal monitor_state : std_logic_vector(7 downto 0);
@@ -380,13 +388,20 @@ begin
       fastio_read     => fastio_read,
       fastio_write    => fastio_write,
       fastio_wdata    => fastio_wdata,
-      fastio_rdata    => fastio_rdata
+      fastio_rdata    => fastio_rdata,
+
+      colourram_at_dc00 => colourram_at_dc00
       );
   
   iomapper0: iomapper port map (
-    clk => cpuclock, address => fastio_addr,
+    clk => cpuclock,
+    reset => btnCpuReset,
+--  irq => irq (but we might like to AND this with the hardware IRQ button)
+--  nmi => nmi (but we might like to AND this with the hardware IRQ button)
+    address => fastio_addr,
     r => fastio_read, w => fastio_write,
-    data_i => fastio_wdata, data_o => fastio_rdata);
+    data_i => fastio_wdata, data_o => fastio_rdata,
+    colourram_at_dc00 => colourram_at_dc00);
 
   -----------------------------------------------------------------------------
   -- UART interface for monitor debugging and loading data
