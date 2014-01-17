@@ -494,6 +494,7 @@ begin
   impure function with_nz (
     value : unsigned(7 downto 0)) return unsigned is
   begin
+    report "calculating N & Z flags on result $" & to_hstring(value) severity note;
     flag_n <= value(7);
     if value(7 downto 0) = x"00" then
       flag_z <= '1';
@@ -618,6 +619,25 @@ begin
     end if;
   end execute_direct_instruction;
 
+  procedure alu_op_cmp (
+    i1 : in unsigned(7 downto 0);
+    i2 : in unsigned(7 downto 0)) is
+  begin
+    if i1=i2 then
+      flag_z <= '1';
+      flag_n <= '0';
+      flag_c <= '1';
+    elsif i1<i2 then
+      flag_z <= '0';
+      flag_n <= '1';
+      flag_c <= '0';
+    elsif i1>i2 then
+      flag_z <= '0';
+      flag_n <= '0';
+      flag_c <= '1';
+    end if;
+  end alu_op_cmp;
+    
   impure function alu_op_add (
     i1 : in unsigned(7 downto 0);
     i2 : in unsigned(7 downto 0)) return unsigned is
@@ -653,9 +673,9 @@ begin
       -- Then set N & V *before* upper nybl BCD fixup
       flag_n<=o(7);
       if o<i1 then
-        flag_v<='1';
+        flag_v <='1';
       else
-        flag_v<='0';
+        flag_v <='0';
       end if;
 
       -- Now do BCD fixup on upper nybl
@@ -665,9 +685,9 @@ begin
 
       -- Finally set carry flag based on result
       if o<i1 then
-        flag_c<='1';
+        flag_c <='1';
       else
-        flag_c<='0';
+        flag_c <='0';
       end if;
     end if;
     -- Return final value
@@ -693,6 +713,7 @@ begin
     -- Z and C should get set correctly.
     -- XXX Will this work for decimal mode?
     o := alu_op_add(i1,s2);
+    report "$" & to_hstring(i1) & " - $" & to_hstring(i2) & " = $" & to_hstring(o) severity note;
     return o;
     
     -- Return final value
@@ -735,9 +756,9 @@ begin
       when I_AND => reg_a <= with_nz(reg_a and operand);
       when I_ASL => flag_c <= operand(7); rmw_operand_commit(address,operand,operand(6 downto 0)&'0');
       when I_BIT => bitbucket := with_nz(reg_a and operand);
-      when I_CMP => bitbucket := with_nz(alu_op_add(reg_a,operand));
-      when I_CPX => bitbucket := with_nz(alu_op_add(reg_x,operand));
-      when I_CPY => bitbucket := with_nz(alu_op_add(reg_y,operand));
+      when I_CMP => alu_op_cmp(reg_a,operand);
+      when I_CPX => alu_op_cmp(reg_x,operand);
+      when I_CPY => alu_op_cmp(reg_y,operand);
       when I_DEC => rmw_operand_commit(address,operand,operand-1);
       when I_EOR => reg_a <= with_nz(reg_a xor operand);        
       when I_INC =>
