@@ -278,6 +278,10 @@ architecture Behavioral of vga is
   signal next_glyph_number16 : unsigned(15 downto 0);
   signal next_glyph_colour : unsigned(3 downto 0);
   signal next_glyph_attributes : unsigned(3 downto 0);
+  signal next_glyph_visible : std_logic;
+  signal next_glyph_bold : std_logic;
+  signal next_glyph_underline : std_logic;
+  signal next_glyph_reverse : std_logic;
   signal next_glyph_pixeldata : std_logic_vector(63 downto 0);
   signal next_glyph_number_buffer : std_logic_vector(63 downto 0);
   signal next_glyph_colour_buffer : std_logic_vector(7 downto 0);
@@ -288,7 +292,10 @@ architecture Behavioral of vga is
   -- data for current card
   signal glyph_number : unsigned(15 downto 0);
   signal glyph_colour : unsigned(3 downto 0);
-  signal glyph_attributes : unsigned(3 downto 0);
+  signal glyph_visible : std_logic;
+  signal glyph_bold : std_logic;
+  signal glyph_underline : std_logic;
+  signal glyph_reverse : std_logic;
   signal glyph_pixeldata : std_logic_vector(63 downto 0);
   signal glyph_full_colour : std_logic;
   
@@ -1110,7 +1117,12 @@ begin
                                         -- Move preloaded glyph data into position when advancing to the next character          
           glyph_pixeldata <= next_glyph_pixeldata;
           glyph_colour <= next_glyph_colour;
-          glyph_attributes <= next_glyph_attributes;
+
+          glyph_visible <= next_glyph_visible;
+          glyph_reverse <= next_glyph_reverse;
+          glyph_bold <= next_glyph_bold;
+          glyph_underline <= next_glyph_underline;
+
           glyph_number <= next_glyph_number;
           glyph_full_colour <= next_glyph_full_colour;
                                         -- ... and then start fetching data for the character after that
@@ -1224,11 +1236,12 @@ begin
       if charread='1' then
                                         -- mono characters
         -- Apply C65/VIC-III hardware underline and blink attributes
-        if chargen_y(2 downto 0)="111"
-          and viciii_extended_attributes='1'
-          and glyph_attributes(3)='1'
-          and (viciii_blink_phase='0' or glyph_attributes(0)='0') then
+        if glyph_visible='0' then
+          charrow <= x"00";
+        elsif glyph_underline='1' then
           charrow <= x"FF";
+        elsif glyph_reverse='1' then
+          charrow <= not chardata;
         else
           charrow <= chardata;
         end if;
@@ -1309,6 +1322,41 @@ begin
                                         -- XXX Can schedule a sprite fetch here.
           ramaddress <= (others => '0');
         when 4 =>
+
+          -- Pre-calculate the extended character attributes
+          next_glyph_visible <= '1';
+          next_glyph_reverse <= '0';
+          next_glyph_bold <= '0';
+          next_glyph_underline <= '0';
+
+          if viciii_extended_attributes='1' then
+            if next_glyph_attributes(0)='1' then
+              -- Blinking glyph
+              if next_glyph_attributes(1)='1'
+                or next_glyph_attributes(2)='1'
+                or next_glyph_attributes(3)='1' then
+                -- Blinking attributes
+                if viciii_blink_phase='1' then
+                  next_glyph_reverse <= next_glyph_attributes(1);
+                  next_glyph_bold <= next_glyph_attributes(2);
+                  if chargen_y(2 downto 0)="111" then
+                    next_glyph_underline <= next_glyph_attributes(3);
+                  end if;
+                end if;
+              else
+                -- Just plain blinking character
+                next_glyph_visible <= viciii_blink_phase;
+              end if;
+            else
+              -- Non-blinking attributes
+              next_glyph_visible <= '1';
+              next_glyph_reverse <= next_glyph_attributes(1);
+              next_glyph_bold <= next_glyph_attributes(2);
+              if chargen_y(2 downto 0)="111" then
+                next_glyph_underline <= next_glyph_attributes(3);
+              end if;
+            end if;
+          end if;
                                         -- Calculate the actual character number
           if sixteenbit_charset='1' then
             next_glyph_number_temp := std_logic_vector(next_glyph_number16);
@@ -1398,32 +1446,12 @@ begin
 
 
       card_fg_colour(7 downto 4) := "0000";
-      if viciii_extended_attributes='1' then
-        -- "Bold" as for VIC-III. Simply adds 16 to the colour
-        card_fg_colour(4) := glyph_attributes(2);
-      end if;
+      -- "Bold" as for VIC-III. Simply adds 16 to the colour
+      card_fg_colour(4) := glyph_bold;
       card_fg_colour(3 downto 0) := glyph_colour;
-      if viciii_extended_attributes='1' and glyph_attributes(1)='1' then
-        -- Reverse as for VIC-III.          
-        card_bg_colour := card_fg_colour;
-        card_fg_colour := screen_colour;
-      else
-        card_bg_colour := screen_colour;
-      end if;
-      if viciii_extended_attributes='1' and viciii_blink_phase='1' then
-        if glyph_attributes="0001" then
-          -- Blink alone
-          card_fg_colour := screen_colour;
-          card_bg_colour := screen_colour;
-        else
-          -- Blink in combination with something, so blink the attributes,
-          -- not the character.
-          card_fg_colour := x"0" & glyph_colour;
-          card_bg_colour := screen_colour;
-        end if;          
-      end if;
+      card_bg_colour := screen_colour;
         
-        if extended_background_mode='1' then
+      if extended_background_mode='1' then
                                         -- XXX Until we support reading screen memory, use card number
                                         -- as the source of the extended background colour
         case card_number_t3(7 downto 6) is
