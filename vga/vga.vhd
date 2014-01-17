@@ -1227,7 +1227,7 @@ begin
         if chargen_y(2 downto 0)="111"
           and viciii_extended_attributes='1'
           and glyph_attributes(3)='1'
-          and (viciii_blink_phase='0' or glyph_attributes(4)='0') then
+          and (viciii_blink_phase='0' or glyph_attributes(0)='0') then
           charrow <= x"FF";
         else
           charrow <= chardata;
@@ -1397,31 +1397,31 @@ begin
       end if;
 
 
-        card_fg_colour(7 downto 4) := "000";
-        if viciii_extended_attributes='1' then
-          -- "Bold" as for VIC-III. Simply adds 16 to the colour
-          card_fg_colour(4) := glyph_attributes(2);
-        end if;
-        card_fg_colour(3 downto 0) := glyph_colour;
-        if viciii_extended_attributes='1' and glyph_attributes(1)='1' then
-          -- Reverse as for VIC-III.          
-          card_bg_colour := card_fg_colour;
+      card_fg_colour(7 downto 4) := "0000";
+      if viciii_extended_attributes='1' then
+        -- "Bold" as for VIC-III. Simply adds 16 to the colour
+        card_fg_colour(4) := glyph_attributes(2);
+      end if;
+      card_fg_colour(3 downto 0) := glyph_colour;
+      if viciii_extended_attributes='1' and glyph_attributes(1)='1' then
+        -- Reverse as for VIC-III.          
+        card_bg_colour := card_fg_colour;
+        card_fg_colour := screen_colour;
+      else
+        card_bg_colour := screen_colour;
+      end if;
+      if viciii_extended_attributes='1' and viciii_blink_phase='1' then
+        if glyph_attributes="0001" then
+          -- Blink alone
           card_fg_colour := screen_colour;
-        else
           card_bg_colour := screen_colour;
-        end if;
-        if viciii_extended_attributes='1' and viciii_blink_phase='1' then
-          if glyph_attributes="0001" then
-            -- Blink alone
-            card_fg_colour := screen_colour;
-            card_bg_colour := screen_colour;
-          else
-            -- Blink in combination with something, so blink the attributes,
-            -- not the character.
-            card_fg_colour := x"0" & glyph_colour;
-            card_bg_colour := screen_colour;
-          end if;          
-        end if;
+        else
+          -- Blink in combination with something, so blink the attributes,
+          -- not the character.
+          card_fg_colour := x"0" & glyph_colour;
+          card_bg_colour := screen_colour;
+        end if;          
+      end if;
         
         if extended_background_mode='1' then
                                         -- XXX Until we support reading screen memory, use card number
