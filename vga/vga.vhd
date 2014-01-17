@@ -181,7 +181,7 @@ architecture Behavioral of vga is
   -- smooth scrolling position in natural pixels.
   -- Set in the same way as the border
   signal x_chargen_start : unsigned(11 downto 0) := to_unsigned(160,12);
-  signal y_chargen_start : unsigned(11 downto 0) := to_unsigned(99,12);
+  signal y_chargen_start : unsigned(11 downto 0) := to_unsigned(100,12);
   -- Charset is 16bit (2 bytes per char) when this mode is enabled.
   signal sixteenbit_charset : std_logic := '0';
   -- Characters >255 are full-colour blocks when enabled.
@@ -766,7 +766,7 @@ begin
           end if;
           vicii_y_smoothscroll <= fastio_wdata(2 downto 0);
                                         -- set y_chargen_start based on twentyfourlines
-          y_chargen_start <= to_unsigned((99-3*5)+to_integer(unsigned(fastio_wdata(2 downto 0)))*5,12);
+          y_chargen_start <= to_unsigned((100-3*5)+to_integer(unsigned(fastio_wdata(2 downto 0)))*5,12);
         elsif register_number=18 then          -- $D012 current raster low 8 bits
           vicii_raster_compare(9 downto 0) <= unsigned(fastio_wdata) & "00";
         elsif register_number=19 then          -- $D013 lightpen X (coarse rasterX)
