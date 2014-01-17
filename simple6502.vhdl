@@ -795,6 +795,8 @@ begin
         or (i=I_BCS and flag_c='1')
         or (i=I_BVC and flag_v='0')
         or (i=I_BVS and flag_v='1')
+        or (i=I_BPL and flag_n='0')
+        or (i=I_BMI and flag_n='1')
         or (i=I_BEQ and flag_z='1')
         or (i=I_BNE and flag_z='0') then
         -- take branch
