@@ -116,43 +116,43 @@ begin
     data_i  => data_i,
     data_o  => data_o);
 
-  cia1: cia6526 port map (
-    cpuclock => clk,
-    todclock => clock50hz,
-    reset => reset,
-    irq => irq,
-    cs => cia1cs,
-    fastio_addr => unsigned(address(3 downto 0)),
-    fastio_write => w,
-    std_logic_vector(fastio_rdata) => data_o,
-    fastio_wdata => unsigned(data_i),
+  --cia1: cia6526 port map (
+  --  cpuclock => clk,
+  --  todclock => clock50hz,
+  --  reset => reset,
+  --  irq => irq,
+  --  cs => cia1cs,
+  --  fastio_addr => unsigned(address(3 downto 0)),
+  --  fastio_write => w,
+  --  std_logic_vector(fastio_rdata) => data_o,
+  --  fastio_wdata => unsigned(data_i),
 
-    -- CIA ports not connected by default
-    portbin => (others => '1'),
-    portain => (others => '1'),
-    flagin => '1',
-    spin => '1',
-    countin => '1'
-    );
+  --  -- CIA ports not connected by default
+  --  portbin => (others => '1'),
+  --  portain => (others => '1'),
+  --  flagin => '1',
+  --  spin => '1',
+  --  countin => '1'
+  --  );
 
-    cia2: cia6526 port map (
-    cpuclock => clk,
-    todclock => clock50hz,
-    reset => reset,
-    irq => nmi,
-    cs => cia2cs,
-    fastio_addr => unsigned(address(3 downto 0)),
-    fastio_write => w,
-    std_logic_vector(fastio_rdata) => data_o,
-    fastio_wdata => unsigned(data_i),
+  --  cia2: cia6526 port map (
+  --  cpuclock => clk,
+  --  todclock => clock50hz,
+  --  reset => reset,
+  --  irq => nmi,
+  --  cs => cia2cs,
+  --  fastio_addr => unsigned(address(3 downto 0)),
+  --  fastio_write => w,
+  --  std_logic_vector(fastio_rdata) => data_o,
+  --  fastio_wdata => unsigned(data_i),
 
-    -- CIA ports not connected by default
-    portbin => (others => '1'),
-    portain => (others => '1'),
-    flagin => '1',
-    spin => '1',
-    countin => '1'
-    );
+  --  -- CIA ports not connected by default
+  --  portbin => (others => '1'),
+  --  portain => (others => '1'),
+  --  flagin => '1',
+  --  spin => '1',
+  --  countin => '1'
+  --  );
 
   process (r,w,address)
   begin  -- process
