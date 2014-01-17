@@ -193,11 +193,11 @@ begin
       cia2cs <='0';
       if colourram_at_dc00='0' then
         case address(19 downto 8) is
-          when x"D0C" => cia1cs<='1';
+          when x"D0C" => cia1cs <='1';
           when x"D1C" => cia1cs <='1';
           when x"D2C" => cia1cs <='1';
           when x"D3C" => cia1cs <='1';
-          when x"D0D" => cia2cs<='1';
+          when x"D0D" => cia2cs <='1';
           when x"D1D" => cia2cs <='1';
           when x"D2D" => cia2cs <='1';
           when x"D3D" => cia2cs <='1';
