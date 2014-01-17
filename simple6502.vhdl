@@ -298,9 +298,9 @@ begin
     --ram_bank_registers_write(15) <= x"000F";
     --ram_bank_registers_instructions(15) <= x"FFFF";       
 
-    ram_bank_registers_read(0) <= x"FFFE";
-    ram_bank_registers_write(0) <= x"FFFE";
-    ram_bank_registers_instructions(0) <= x"FFFE";
+    --ram_bank_registers_read(0) <= x"FFFE";
+    --ram_bank_registers_write(0) <= x"FFFE";
+    --ram_bank_registers_instructions(0) <= x"FFFE";
     
   end procedure reset_cpu_state;
 
