@@ -1,9 +1,28 @@
 	.org $E000
 
-	; make reset vector address not contain any $00 bytes for easier debugging
-	.advance $E001
+	.word indirecttest
+	.word indirecttest2
+indirecttest:
+	.byte $55
+	.byte $66
+indirecttest2:
+	.byte $77
+
+	.advance $F000
 
 reset:	; reset entry point
+	ldy #$00
+	lda #$ff
+	lda ($00),Y
+	iny
+	lda ($00),Y
+	ldx #$00
+	lda ($00,X)
+	inx
+	inx
+	lda ($00,X)
+
+loop:
 	LDA $1001
 	ADC #$01
         STA $1001
@@ -17,7 +36,7 @@ reset:	; reset entry point
         LDA $1004
 	ADC #$00
 	STA $1004
-	JMP reset
+	JMP loop
 
 irq:	RTI
 
