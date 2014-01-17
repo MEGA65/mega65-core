@@ -370,6 +370,7 @@ architecture Behavioral of vga is
   signal colour_ram_cs : std_logic := '0';
   signal colour_ram_write : std_logic_vector(0 downto 0) := "0";
   signal colour_ram_fastio_address : std_logic_vector(15 downto 0);
+  signal colour_ram_fastio_rdata : std_logic_vector(7 downto 0);
   
   -- Colour RAM access for video controller
   signal colourramaddress : std_logic_vector(15 downto 0);
@@ -402,7 +403,7 @@ begin
       wea => colour_ram_write,
       addra => colour_ram_fastio_address,
       dina => fastio_wdata,
-      douta => fastio_rdata,
+      douta => colour_ram_fastio_rdata,
       -- video controller use port b of the dual-port colour ram.
       -- The CPU uses port a via the fastio interface
       clkb => pixelclock,
@@ -426,8 +427,10 @@ begin
     variable register_page : unsigned(3 downto 0);
     variable register_num : unsigned(7 downto 0);
     variable register_number : unsigned(11 downto 0);
+    variable colour_ram_cs_var : std_logic := '0';
   begin
 
+    -- C65/VIC-III style 1Hz blink attribute clock
     if rising_edge(cpuclock) then
       viciii_blink_phase_counter <= viciii_blink_phase_counter + 1;
       if viciii_blink_phase_counter = 0 then
@@ -471,28 +474,32 @@ begin
     --   $FF80000-$FF8FFFF - All 64KB of colour RAM
     -- The colour RAM has to be dual-port since the video controller needs to
     -- access it as well, so all these have to be mapped on a single port.
-    colour_ram_cs <= '0';
+    colour_ram_cs_var := '0';
     colour_ram_fastio_address <= (others => '0');
     if register_bank = x"D0" or register_bank = x"D1"
       or register_bank = x"D2" or register_Bank=x"D3" then
       if register_page>=8 and register_page<12 then
                                         -- colour ram read $D800 - $DBFF
-        colour_ram_cs <= '1';
+        colour_ram_cs_var := '1';
         colour_ram_fastio_address <= "000000" & fastio_addr(9 downto 0);
       elsif register_page>=12 and register_page<=15 then
                                         -- colour ram read $DC00 - $DFFF
-        colour_ram_cs <= '1';
+        colour_ram_cs_var := '1';
         colour_ram_fastio_address <= "000001" & fastio_addr(9 downto 0);
       else
         colour_ram_fastio_address <= (others => '0');
       end if;
     elsif register_bank(7 downto 4)=x"8" then
                                         -- colour RAM all 64KB
-      colour_ram_cs <= '1';
+      colour_ram_cs_var := '1';
       colour_ram_fastio_address <= fastio_addr(15 downto 0);
     end if;
+    colour_ram_cs <= colour_ram_cs_var;
+    if colour_ram_cs_var='1' then
+      fastio_rdata <= colour_ram_fastio_rdata;
+    end if;
     
-    if fastio_read='0' then
+    if fastio_read='0' and colour_ram_cs_var='0' then
       fastio_rdata <= (others => 'Z');
     else
                                         --report "read from fastio detect in video controller. " &
@@ -739,7 +746,7 @@ begin
       elsif register_number>=768 and register_number<1024 then
                                         -- blue palette
         fastio_rdata <= std_logic_vector(palette(to_integer(register_num)).blue);
-      else
+      elsif colour_ram_cs_var='0' then        
                                         -- report "IO request does not match a video register" severity note;
         fastio_rdata <= "ZZZZZZZZ";
       end if;
