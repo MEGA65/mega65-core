@@ -11,16 +11,8 @@ indirecttest2:
 	.advance $F000
 
 reset:	; reset entry point
-	ldy #$00
-	lda #$ff
-	lda ($00),Y
-	iny
-	lda ($00),Y
-	ldx #$00
-	lda ($00,X)
-	inx
-	inx
-	lda ($00,X)
+	lda #$03
+	cmp #$03
 
 loop:
 	LDA $1001

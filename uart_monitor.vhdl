@@ -773,6 +773,7 @@ begin
           when CPUBreak1 =>
             break_address <= hex_value(15 downto 0);
             break_enabled <= '1';
+            state <= NextCommand;
           when TraceStep =>
             -- Toggle trace flag so that CPU knows it can do one more instruction
             monitor_mem_trace_toggle <= not monitor_mem_trace_toggle_internal;
