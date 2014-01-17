@@ -69,6 +69,10 @@ architecture Behavioural of simple6502 is
   signal ram_bank_registers_write : bank_register_set;
   signal ram_bank_registers_instructions : bank_register_set;
 
+  -- For debugging, keep a log of the processor states for the last instruction.
+  -- It's a bit of a kluge to use this type of array, but it is convenient.
+  signal recent_states : bank_register_set;
+  
   signal fastram_byte_number : unsigned(2 DOWNTO 0);
   
 -- CPU internal state
@@ -98,8 +102,11 @@ architecture Behavioural of simple6502 is
     ResetLow,
     -- States for handling interrupts and reset
     Interrupt,VectorRead,VectorRead1,VectorRead2,VectorRead3,
-    InstructionFetch,InstructionFetch2,InstructionFetch3,InstructionFetch4,    
-    BRK1,BRK2,PLA1,PLP1,RTI1,RTI2,RTI3,RTS1,RTS2,JSR1,JMP1,JMP2,
+    InstructionFetch,                   -- $06
+    InstructionFetch2,InstructionFetch3,InstructionFetch4,    
+    BRK1,BRK2,PLA1,PLP1,RTI1,RTI2,RTI3,  -- $10
+    RTS1,RTS2,JSR1,JMP1, -- $14
+    JMP2,
     IndirectX1,IndirectX2,IndirectX3,
     IndirectY1,IndirectY2,IndirectY3,
     ExecuteDirect,RMWCommit,
@@ -136,14 +143,17 @@ architecture Behavioural of simple6502 is
     I_BPL,  I_ORA,  I_KIL,  I_SLO,  I_NOP,  I_ORA,  I_ASL,  I_SLO,  I_CLC,  I_ORA,  I_NOP,  I_SLO,  I_NOP,  I_ORA,  I_ASL,  I_SLO, 
     I_JSR,  I_AND,  I_KIL,  I_RLA,  I_BIT,  I_AND,  I_ROL,  I_RLA,  I_PLP,  I_AND,  I_ROL,  I_ANC,  I_BIT,  I_AND,  I_ROL,  I_RLA, 
     I_BMI,  I_AND,  I_KIL,  I_RLA,  I_NOP,  I_AND,  I_ROL,  I_RLA,  I_SEC,  I_AND,  I_NOP,  I_RLA,  I_NOP,  I_AND,  I_ROL,  I_RLA, 
+
     I_RTI,  I_EOR,  I_KIL,  I_SRE,  I_NOP,  I_EOR,  I_LSR,  I_SRE,  I_PHA,  I_EOR,  I_LSR,  I_ALR,  I_JMP,  I_EOR,  I_LSR,  I_SRE, 
     I_BVC,  I_EOR,  I_KIL,  I_SRE,  I_NOP,  I_EOR,  I_LSR,  I_SRE,  I_CLI,  I_EOR,  I_NOP,  I_SRE,  I_NOP,  I_EOR,  I_LSR,  I_SRE, 
     I_RTS,  I_ADC,  I_KIL,  I_RRA,  I_NOP,  I_ADC,  I_ROR,  I_RRA,  I_PLA,  I_ADC,  I_ROR,  I_ARR,  I_JMP,  I_ADC,  I_ROR,  I_RRA, 
     I_BVS,  I_ADC,  I_KIL,  I_RRA,  I_NOP,  I_ADC,  I_ROR,  I_RRA,  I_SEI,  I_ADC,  I_NOP,  I_RRA,  I_NOP,  I_ADC,  I_ROR,  I_RRA, 
+
     I_NOP,  I_STA,  I_KIL,  I_SAX,  I_STY,  I_STA,  I_STX,  I_SAX,  I_DEY,  I_NOP,  I_TXA,  I_XAA,  I_STY,  I_STA,  I_STX,  I_SAX, 
     I_BCC,  I_STA,  I_NOP,  I_AHX,  I_STY,  I_STA,  I_STX,  I_SAX,  I_TYA,  I_STA,  I_TXS,  I_TAS,  I_SHY,  I_STA,  I_SHX,  I_AHX, 
     I_LDY,  I_LDA,  I_LDX,  I_LAX,  I_LDY,  I_LDA,  I_LDX,  I_LAX,  I_TAY,  I_LDA,  I_TAX,  I_LAX,  I_LDY,  I_LDA,  I_LDX,  I_LAX, 
     I_BCS,  I_LDA,  I_NOP,  I_LAX,  I_LDY,  I_LDA,  I_LDX,  I_LAX,  I_CLV,  I_LDA,  I_TSX,  I_LAS,  I_LDY,  I_LDA,  I_LDX,  I_LAX, 
+
     I_CPY,  I_CMP,  I_KIL,  I_DCP,  I_CPY,  I_CMP,  I_DEC,  I_DCP,  I_INY,  I_CMP,  I_DEX,  I_AXS,  I_CPY,  I_CMP,  I_DEC,  I_DCP, 
     I_BNE,  I_CMP,  I_NOP,  I_DCP,  I_NOP,  I_CMP,  I_DEC,  I_DCP,  I_CLD,  I_CMP,  I_NOP,  I_DCP,  I_NOP,  I_CMP,  I_DEC,  I_DCP, 
     I_CPX,  I_SBC,  I_KIL,  I_ISC,  I_CPX,  I_SBC,  I_INC,  I_ISC,  I_INX,  I_SBC,  I_NOP,  I_SBC,  I_CPX,  I_SBC,  I_INC,  I_ISC, 
@@ -288,9 +298,9 @@ begin
     --ram_bank_registers_write(15) <= x"000F";
     --ram_bank_registers_instructions(15) <= x"FFFF";       
 
-    --ram_bank_registers_read(0) <= x"FFFE";
-    --ram_bank_registers_write(0) <= x"FFFE";
-    --ram_bank_registers_instructions(0) <= x"FFFE";
+    ram_bank_registers_read(0) <= x"FFFE";
+    ram_bank_registers_write(0) <= x"FFFE";
+    ram_bank_registers_instructions(0) <= x"FFFE";
     
   end procedure reset_cpu_state;
 
@@ -353,7 +363,7 @@ begin
   -- purpose: read from a 16-bit CPU address
   procedure read_address (
     memmap     : in bank_register_set;
-    address    : in unsigned(15 downto 0);    
+    address    : in unsigned(15 downto 0);
     next_state : in processor_state) is
     variable long_address : unsigned(27 downto 0);
   begin  -- read_address
@@ -911,6 +921,10 @@ begin
         if monitor_mem_attention_request='0' then
           check_for_interrupts;
         end if;
+
+        recent_states(1 to 15) <= recent_states(0 to 14);
+        recent_states(0) <= to_unsigned(processor_state'pos(state),16);
+        
         case state is
           when MonitorReadDone =>
             monitor_mem_rdata <= read_data;
@@ -940,7 +954,10 @@ begin
               else
                 read_instruction_byte(reg_pc,InstructionFetch2);
                 reg_pc <= reg_pc + 1;
-              end if;              
+              end if;
+            else
+              -- Hold recent states
+              recent_states <= recent_states;
             end if;
           when InstructionFetch2 =>
             -- Keep reading bytes if necessary
@@ -1019,7 +1036,7 @@ begin
     end if;
   end process;
 
-  -- purpose: present MMU registers to fastio interface
+  -- purpose: present MMU registers and other stuff to fastio interface
   -- type   : combinational
   -- inputs : ram_bank_registers_read
   -- outputs: fastio_*
@@ -1035,6 +1052,7 @@ begin
         when 0 => value := ram_bank_registers_read(reg_num);
         when 1 => value := ram_bank_registers_read(reg_num);
         when 2 => value := ram_bank_registers_read(reg_num);
+        when 8 => value := recent_states(reg_num);
         when others => value := x"F00D";
       end case;
       if lohi='0' then
