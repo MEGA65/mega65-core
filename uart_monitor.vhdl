@@ -120,7 +120,7 @@ architecture behavioural of uart_monitor is
                          ShowRegisters5,ShowRegisters6,ShowRegisters7,ShowRegisters8,
                          ShowRegisters9,ShowRegisters10,ShowRegisters11,ShowRegisters12,
                          ShowRegisters13,ShowRegisters14,ShowRegisters15,
-                         TraceStep,WaitOneCycle
+                         TraceStep,CPUBreak1,WaitOneCycle
                          );
 
   signal state : monitor_state := Reseting;
@@ -150,6 +150,10 @@ architecture behavioural of uart_monitor is
 
   signal key_state : integer := 0;
 
+  -- Processor break point
+  signal break_address : unsigned(15 downto 0) := x"0000";
+  signal break_enabled : std_logic := '0';
+  
   signal monitor_mem_trace_toggle_internal : std_logic := '0';
 begin
 
@@ -434,6 +438,11 @@ begin
       key_state <= 0;
     elsif rising_edge(clock) then
 
+      -- Stop CPU when we reach the specified location
+      if break_enabled='1' and break_address = unsigned(monitor_pc) then
+        monitor_mem_trace_mode <= '1';
+      end if;
+      
       -- Update counter and clear outputs
       counter <= counter + 1;
       tx_counter <= std_logic(counter(27));
@@ -576,6 +585,13 @@ begin
                 else
                   state <= TraceStep;
                 end if;
+              elsif cmdbuffer(1) = 'b' or cmdbuffer(1) = 'B' then
+                report "CPU break command" severity note;
+                parse_position <= 2;
+                report "trying to parse hex" severity note;
+                parse_hex(CPUBreak1);
+              elsif cmdbuffer(1) = 'd' or cmdbuffer(1) = 'B' then
+                break_enabled <= '0';
               elsif cmdbuffer(1) = 'm' or cmdbuffer(1) = 'M' then
                 report "read memory command" severity note;
                 parse_position <= 2;
@@ -754,6 +770,9 @@ begin
               end if;
               timeout <= timeout - 1;              
             end if;
+          when CPUBreak1 =>
+            break_address <= hex_value(15 downto 0);
+            break_enabled <= '1';
           when TraceStep =>
             -- Toggle trace flag so that CPU knows it can do one more instruction
             monitor_mem_trace_toggle <= not monitor_mem_trace_toggle_internal;
