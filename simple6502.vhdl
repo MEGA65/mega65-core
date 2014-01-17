@@ -278,6 +278,20 @@ begin
     ram_bank_registers_read(11) <= x"FFEB";
     ram_bank_registers_write(11) <= x"000B";
     ram_bank_registers_instructions(11) <= x"FFEB";
+
+    -- For simulation: our own rom at $E000 - $FFFF, also mapping to $0000-$0FFF
+    -- since fastram doesn't work in simulation with GHDL.
+    --ram_bank_registers_read(14) <= x"FFFE";
+    --ram_bank_registers_write(14) <= x"000E";
+    --ram_bank_registers_instructions(14) <= x"FFFE";
+    --ram_bank_registers_read(15) <= x"FFFF";
+    --ram_bank_registers_write(15) <= x"000F";
+    --ram_bank_registers_instructions(15) <= x"FFFF";       
+
+    --ram_bank_registers_read(0) <= x"FFFE";
+    --ram_bank_registers_write(0) <= x"FFFE";
+    --ram_bank_registers_instructions(0) <= x"FFFE";
+    
   end procedure reset_cpu_state;
 
   procedure check_for_interrupts is
@@ -778,9 +792,11 @@ begin
     elsif mode=M_indirectX then
       -- Read ZP indirect from data memory map, since ZP is written into that
       -- map.
+      reg_instruction <= i;
       reg_addr <= x"00" & (arg1 + reg_x +1);
       read_data_byte(x"00" & (arg1 + reg_x),IndirectX1);
     elsif mode=M_indirectY then
+      reg_instruction <= i;
       reg_addr <= x"00" & (arg1 + 1);
       read_data_byte(x"00" & arg1,IndirectY1);
     else
@@ -940,17 +956,27 @@ begin
           when JMP2 => reg_pc(15 downto 8) <= read_data; state<=InstructionFetch;
           when IndirectX1 =>
             reg_addr(7 downto 0) <= read_data;
+            report "(ZP,x) - low byte = $" & to_hstring(read_data) severity note;
             read_data_byte(reg_addr,IndirectX2);
           when IndirectX2 =>
             reg_addr(15 downto 8) <= read_data;
+            report "(ZP,x) - high byte = $" & to_hstring(read_data) severity note;
+            report "(ZP,x) - operand address = $"
+              & to_hstring(read_data & reg_addr(7 downto 0))
+              severity note;
             read_data_byte(read_data & reg_addr(7 downto 0),IndirectX3);
           when IndirectX3 =>
             execute_operand_instruction(reg_instruction,read_data,reg_addr);
           when IndirectY1 =>
             reg_addr(7 downto 0) <= read_data;
+            report "(ZP),y - low byte = $" & to_hstring(read_data) severity note;
             read_data_byte(reg_addr,IndirectY2);
           when IndirectY2 =>
             reg_addr <= (read_data & reg_addr(7 downto 0)) + reg_y;
+            report "(ZP),y - high byte = $" & to_hstring(read_data) severity note;
+            report "(ZP),y - operand address = $"
+              & to_hstring((read_data & reg_addr(7 downto 0)) + reg_y)
+              severity note;
             read_data_byte((read_data & reg_addr(7 downto 0)) + reg_y,IndirectY3);
           when IndirectY3 =>
             execute_operand_instruction(reg_instruction,read_data,reg_addr);
