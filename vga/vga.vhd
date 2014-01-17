@@ -1052,29 +1052,6 @@ begin
       chargen_y <= next_chargen_y;
       card_number <= next_card_number;
       
-                                        -- Reset character generator position for start of frame/raster
-      if displayx=(x_chargen_start-8) then
-                                        -- Start fetching first character of the row
-                                        -- (8 cycles is plenty of time to fetch it)       
-        char_fetch_cycle <= 0;
-        cycles_to_next_card <= (others => '1');
-                                        -- Start displaying from the correct character
-        next_card_number <= first_card_of_row;
-      end if;
-      if displayx = (x_chargen_start - 1) then
-                                        -- trigger next card at start of chargen row
-        cycles_to_next_card <= "00000001";        
-        next_chargen_x <= (others => '0');
-        chargen_x <= (others => '0');
-        chargen_x_sub <= (others => '0');
-        chargen_active <= '1';
-      end if;
-      if displayy<=y_chargen_start then
-        chargen_y <= (others => '0');
-        chargen_y_sub <= (others => '0');
-        chargen_active <= '0';
-      end if;
-
                                         -- Raster control.
                                         -- Work out if in front porch, back porch or active part of raster.
                                         -- If we are in the active part of the display, work out if we have
@@ -1119,7 +1096,7 @@ begin
           if chargen_x_scale=0 then
             next_chargen_x <= next_chargen_x + 1;
           else
-            if chargen_x_sub >= (chargen_x_scale - 1) then
+            if chargen_x_sub = (chargen_x_scale - 1) then
               next_chargen_x <= next_chargen_x + 1;
             end if;
             if chargen_x_sub=chargen_x_scale then
@@ -1133,6 +1110,49 @@ begin
                                         -- In back porch
         indisplay := '0';
       end if;
+
+                                        -- Reset character generator position for start of frame/raster
+                                        -- Start displaying from the correct character
+      if displayx=(x_chargen_start-16) then
+        next_card_number <= first_card_of_row;
+      end if;
+      if displayx=(x_chargen_start-8) then
+                                        -- Start fetching first character of the row
+                                        -- (8 cycles is plenty of time to fetch it)       
+        char_fetch_cycle <= 0;
+        cycles_to_next_card <= (others => '1');
+      end if;
+      if displayx = (x_chargen_start - 2) then
+        cycles_to_next_card <= "00000001";
+        next_chargen_x <= (others => '0');
+        chargen_x <= (others => '0');
+        chargen_x_sub <= (others => '0');
+      end if;
+      if displayx = (x_chargen_start - 1) then
+                                        -- trigger next card at start of chargen row
+        next_chargen_x <= (others => '0');
+        chargen_x <= (others => '0');
+        chargen_x_sub <= (others => '0');
+        chargen_active <= '1';
+      end if;
+      if displayx = x_chargen_start then
+        next_chargen_x <= (others => '0');
+        chargen_x <= (others => '0');
+      end if;
+      if displayy<=y_chargen_start then
+        chargen_y <= (others => '0');
+        chargen_y_sub <= (others => '0');
+        chargen_active <= '0';
+      end if;
+      
+      if (ycounter>100) and (xcounter>250) and (xcounter<350) then
+        report "VGA"
+          & " next_chargen_x=" & integer'image(to_integer(next_chargen_x))
+          & " chargen_x=" & integer'image(to_integer(chargen_x))
+          & " chargen_x_sub=" & integer'image(to_integer(chargen_x_sub))
+          & " glyph_number=" & integer'image(to_integer(glyph_number))
+          severity note;
+      end if;      
       
       if ycounter>=(frame_v_front+height) and ycounter<(frame_v_front+height+frame_v_syncheight) then
         vsync <= '1';
@@ -1355,15 +1375,6 @@ begin
         end case;
       end if;
 
-      if (ycounter>100) and (xcounter>250) and (xcounter<350) then
-        report "VGA"
-          & " next_chargen_x=" & integer'image(to_integer(next_chargen_x))
-          & " chargen_x=" & integer'image(to_integer(chargen_x))
-          & " chargen_x_sub=" & integer'image(to_integer(chargen_x_sub))
-          & " glyph_number=" & integer'image(to_integer(glyph_number))
-          severity note;
-      end if;
-      
                                         -- Calculate pixel bit/bits for next cycle to keep logic depth shallow
       multicolour_bits(0) <= charrow(to_integer((not chargen_x_t2(2 downto 1))&'0'));
       multicolour_bits(1) <= charrow(to_integer((not chargen_x_t2(2 downto 1))&'1'));
