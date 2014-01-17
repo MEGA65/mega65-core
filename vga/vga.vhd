@@ -97,12 +97,12 @@ architecture Behavioral of vga is
       clka : IN STD_LOGIC;
       ena : IN STD_LOGIC;
       wea : IN STD_LOGIC_VECTOR(0 DOWNTO 0);
-      addra : IN STD_LOGIC_VECTOR(3 DOWNTO 0);
+      addra : IN STD_LOGIC_VECTOR(15 DOWNTO 0);
       dina : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
       douta : OUT STD_LOGIC_VECTOR(7 DOWNTO 0);
       clkb : IN STD_LOGIC;
       web : IN STD_LOGIC_VECTOR(0 DOWNTO 0);
-      addrb : IN STD_LOGIC_VECTOR(3 DOWNTO 0);
+      addrb : IN STD_LOGIC_VECTOR(15 DOWNTO 0);
       dinb : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
       doutb : OUT STD_LOGIC_VECTOR(7 DOWNTO 0)
       );
@@ -231,6 +231,7 @@ architecture Behavioral of vga is
   signal vicii_sprite_multicolour_bits : std_logic_vector(7 downto 0);
   signal vicii_sprite_sprite_colissions : std_logic_vector(7 downto 0);
   signal vicii_sprite_bitmap_colissions : std_logic_vector(7 downto 0);
+  signal viciii_extended_attributes : std_logic := '1';
   signal irq_asserted : std_logic := '0';
   signal irq_colissionspritesprite : std_logic := '0';
   signal irq_colissionspritebitmap : std_logic := '0';
@@ -238,13 +239,18 @@ architecture Behavioral of vga is
   signal mask_colissionspritesprite : std_logic := '0';
   signal mask_colissionspritebitmap : std_logic := '0';
   signal mask_raster : std_logic := '0';
+
+  -- Used for hardware character blinking ala C65
+  signal viciii_blink_phase : std_logic := '0';
+  -- 64MHz/(2^25)/2 = 1Hz
+  signal viciii_blink_phase_counter : unsigned(24 downto 0) := (others => '0');
   
   -- NOTE: The following registers require 64-bit alignment. Default addresses
   -- are fairly arbitrary.
   -- Colour RAM offset (we just use some normal RAM for colour RAM, since in the
   -- worst case we can need >32KB of it.  Must correspond to a FastRAM address,
   -- so the MSBs are irrelevant.
-  signal colour_ram_base : unsigned(27 downto 0) := x"0005000";
+  signal colour_ram_base : unsigned(15 downto 0) := x"0000";
   -- Screen RAM offset
   signal screen_ram_base : unsigned(27 downto 0) := x"0001000";
   -- Character set address.
@@ -270,17 +276,19 @@ architecture Behavioral of vga is
   signal next_glyph_number : unsigned(15 downto 0);
   signal next_glyph_number8 : unsigned(7 downto 0);
   signal next_glyph_number16 : unsigned(15 downto 0);
-  signal next_glyph_colour : unsigned(7 downto 0);
+  signal next_glyph_colour : unsigned(3 downto 0);
+  signal next_glyph_attributes : unsigned(3 downto 0);
   signal next_glyph_pixeldata : std_logic_vector(63 downto 0);
   signal next_glyph_number_buffer : std_logic_vector(63 downto 0);
-  signal next_glyph_colour_buffer : std_logic_vector(63 downto 0);
+  signal next_glyph_colour_buffer : std_logic_vector(7 downto 0);
   signal next_glyph_full_colour : std_logic;
   signal next_chargen_x : unsigned(2 downto 0) := (others => '0');
   signal chargen_active : std_logic := '0';
 
   -- data for current card
   signal glyph_number : unsigned(15 downto 0);
-  signal glyph_colour : unsigned(7 downto 0);
+  signal glyph_colour : unsigned(3 downto 0);
+  signal glyph_attributes : unsigned(3 downto 0);
   signal glyph_pixeldata : std_logic_vector(63 downto 0);
   signal glyph_full_colour : std_logic;
   
@@ -360,12 +368,12 @@ architecture Behavioral of vga is
 
   -- Colour RAM access via fastio port
   signal colour_ram_cs : std_logic := '0';
-  signal colour_ram_write : std_logic := '0';
-  signal colour_ram_fastio_addresshi : std_logic_vector(5 downto 0);
-  signal colour_ram_address : std_logic_vector(15 downto 0);
+  signal colour_ram_write : std_logic_vector(0 downto 0) := "0";
+  signal colour_ram_fastio_address : std_logic_vector(15 downto 0);
   
   -- Colour RAM access for video controller
   signal colourramaddress : std_logic_vector(15 downto 0);
+  signal colourramdata : std_logic_vector(7 downto 0);
   
 begin
 
@@ -387,22 +395,22 @@ begin
       doutb => ramdata
       );
 
-  --colourram1 : component ram8x64k
-  --  PORT MAP (
-  --    clka => cpuclock,
-  --    enb => colour_ram_cs,
-  --    wea => colour_ram_write,
-  --    addra => colour_ram_fastio_addresshi & fastio_address(9 downto 0),
-  --    dina => fastio_wdata,
-  --    douta => fastram_dataout,
-  --    -- video controller use port b of the dual-port colour ram.
-  --    -- The CPU uses port a via the fastio interface
-  --    clkb => pixelclock,
-  --    web => (others => '0'),
-  --    addrb => colourramaddress,
-  --    dinb => (others => '0'),
-  --    doutb => colourramdata
-  --    );
+  colourram1 : component ram8x64k
+    PORT MAP (
+      clka => cpuclock,
+      ena => colour_ram_cs,
+      wea => colour_ram_write,
+      addra => colour_ram_fastio_address,
+      dina => fastio_wdata,
+      douta => fastio_rdata,
+      -- video controller use port b of the dual-port colour ram.
+      -- The CPU uses port a via the fastio interface
+      clkb => pixelclock,
+      web => (others => '0'),
+      addrb => colourramaddress,
+      dinb => (others => '0'),
+      doutb => colourramdata
+      );
   
   charrom1 : charrom
     port map (Clk => pixelclock,
@@ -420,6 +428,13 @@ begin
     variable register_number : unsigned(11 downto 0);
   begin
 
+    if rising_edge(cpuclock) then
+      viciii_blink_phase_counter <= viciii_blink_phase_counter + 1;
+      if viciii_blink_phase_counter = 0 then
+        viciii_blink_phase <= not viciii_blink_phase;
+      end if;
+    end if;
+    
     -- Calculate register number asynchronously
     register_number := x"FFF";
     if fastio_addr(19) = '0' or fastio_addr(19) = '1' then
@@ -457,22 +472,24 @@ begin
     -- The colour RAM has to be dual-port since the video controller needs to
     -- access it as well, so all these have to be mapped on a single port.
     colour_ram_cs <= '0';
-    colour_ram_address <= (others => '0');
+    colour_ram_fastio_address <= (others => '0');
     if register_bank = x"D0" or register_bank = x"D1"
       or register_bank = x"D2" or register_Bank=x"D3" then
       if register_page>=8 and register_page<12 then
                                         -- colour ram read $D800 - $DBFF
         colour_ram_cs <= '1';
-        colour_ram_address <= "000000" & fastio_addr(9 downto 0);
+        colour_ram_fastio_address <= "000000" & fastio_addr(9 downto 0);
       elsif register_page>=12 and register_page<=15 then
                                         -- colour ram read $DC00 - $DFFF
         colour_ram_cs <= '1';
-        colour_ram_address <= "000001" & fastio_addr(9 downto 0);        
+        colour_ram_fastio_address <= "000001" & fastio_addr(9 downto 0);
+      else
+        colour_ram_fastio_address <= (others => '0');
       end if;
     elsif register_bank(7 downto 4)=x"8" then
                                         -- colour RAM all 64KB
       colour_ram_cs <= '1';
-      colour_ram_address <= fastio_addr(15 downto 0);
+      colour_ram_fastio_address <= fastio_addr(15 downto 0);
     end if;
     
     if fastio_read='0' then
@@ -583,7 +600,7 @@ begin
         fastio_rdata <=
           "1"                           -- H640
           & "1"                         -- FAST
-          & "1"                         -- ATTR (8bit colour RAM features)
+          & viciii_extended_attributes  -- ATTR (8bit colour RAM features)
           & "0"                         -- BPM
           & "1"                         -- V400
           & "1"                         -- H1280
@@ -695,10 +712,11 @@ begin
       elsif register_number=133 then
         fastio_rdata <= std_logic_vector(colour_ram_base(15 downto 8));
       elsif register_number=134 then
-        fastio_rdata <= std_logic_vector(colour_ram_base(23 downto 16));
+        fastio_rdata <= x"00";          -- colour_ram is 64KB block, so no bits
+                                        -- 16 to 23
       elsif register_number=135 then
-        fastio_rdata(7 downto 4) <= x"0";
-        fastio_rdata(3 downto 0) <= std_logic_vector(colour_ram_base(27 downto 24));
+        fastio_rdata <= x"00";          -- colour_ram is 64KB block, so no bits
+                                        -- 24 to 27
       elsif register_number=136 then
         fastio_rdata <= std_logic_vector(character_set_address(7 downto 0));
       elsif register_number=137 then
@@ -848,6 +866,16 @@ begin
         elsif register_number=48 then
           colourram_at_dc00_internal<= fastio_wdata(0);
           colourram_at_dc00<= fastio_wdata(0);
+        elsif register_number=49 then 
+          -- H640
+          -- FAST
+          -- ATTR (8bit colour RAM features)
+          -- BPM
+          -- V400
+          -- H1280
+          -- MONO
+          -- INT(erlaced?)
+          viciii_extended_attributes <= fastio_wdata(5);
         elsif register_number=64 then
           virtual_row_width(7 downto 0) <= unsigned(fastio_wdata);
         elsif register_number=65 then
@@ -910,9 +938,9 @@ begin
         elsif register_number=133 then
           colour_ram_base(15 downto 8) <= unsigned(fastio_wdata);
         elsif register_number=134 then
-          colour_ram_base(23 downto 16) <= unsigned(fastio_wdata);
+          null;
         elsif register_number=135 then
-          colour_ram_base(27 downto 24) <= unsigned(fastio_wdata(3 downto 0));
+          null;
         elsif register_number=136 then
           character_set_address(7 downto 0) <= unsigned(fastio_wdata);
         elsif register_number=137 then
@@ -945,16 +973,6 @@ begin
         end if;
       end if;      
     end if;
-                                        --report "fastio_rdata from video controller is "
-                                        --  & std_logic'image(fastio_rdata(7))
-                                        --  & std_logic'image(fastio_rdata(6))
-                                        --  & std_logic'image(fastio_rdata(5))
-                                        --  & std_logic'image(fastio_rdata(4))
-                                        --  & std_logic'image(fastio_rdata(3))
-                                        --  & std_logic'image(fastio_rdata(2))
-                                        --  & std_logic'image(fastio_rdata(1))
-                                        --  & std_logic'image(fastio_rdata(0))
-                                        --  severity note;
     
   end process;
   
@@ -1070,13 +1088,18 @@ begin
           next_card_number <= card_number + 1;
         end if;
         if cycles_to_next_card = 1 then
-                                        -- We are at the start of a character
+                                        -- We are at the start of a character          
+          if (ycounter>100) and (xcounter>250) and (xcounter<350) then
+            report "VGA : Update glyph data"
+              severity note;
+          end if;
           
                                         -- Reset counter to next character to 8 cycles x (scale + 1)
           cycles_to_next_card <= (chargen_x_scale(4 downto 0)+1) & "000";
-                                        -- Move preloaded glyph data into position when advancing to the next character
+                                        -- Move preloaded glyph data into position when advancing to the next character          
           glyph_pixeldata <= next_glyph_pixeldata;
           glyph_colour <= next_glyph_colour;
+          glyph_attributes <= next_glyph_attributes;
           glyph_number <= next_glyph_number;
           glyph_full_colour <= next_glyph_full_colour;
                                         -- ... and then start fetching data for the character after that
@@ -1211,6 +1234,10 @@ begin
             long_address(16 downto 0) := screen_ram_base(16 downto 0)+card_number;
           end if;
           ramaddress <= std_logic_vector(long_address(16 downto 3));
+
+          -- Load colour RAM at the same time
+          long_address(15 downto 0) := colour_ram_base+card_number;
+          colourramaddress <= std_logic_vector(long_address(15 downto 0));
         when 1 =>
                                         -- FastRAM wait state
                                         -- XXX Can schedule a sprite fetch here.
@@ -1219,12 +1246,21 @@ begin
                                         -- Store character number
                                         -- In text mode, the glyph order is flexible
           next_glyph_number_buffer <= ramdata;
+
+                                                  -- Store colour byte (will decode next cycle to keep logic shallow)
+          next_glyph_colour_buffer <= colourramdata;
+
                                         -- As RAM is slow to read from, we buffer it, and then extract the
                                         -- right byte/word next cycle, so no more work here.
 
                                         -- XXX Can schedule a sprite fetch here.
           ramaddress <= (others => '0');
         when 3 =>
+
+                                        -- Decode colour byte
+          next_glyph_colour <= unsigned(next_glyph_colour_buffer(3 downto 0));
+          next_glyph_attributes <= unsigned(next_glyph_colour_buffer(7 downto 4));
+
                                         -- Decode next character number from 64bit vector
                                         -- This is a bit too complex to do in a single cycle if we also have to
                                         -- choose the 16bit or 8 bit version.  So this cycle we calculate the
@@ -1266,11 +1302,8 @@ begin
             next_glyph_number <= card_number;
           end if;
 
-                                        -- Request colour RAM (only the relevant byte is used)
-                                        -- 16bit charset has no effect on the colour RAM size
-          long_address(31 downto 17) := (others => '0');
-          long_address(16 downto 0) := colour_ram_base(16 downto 0)+unsigned(card_number);
-          ramaddress <= std_logic_vector(long_address(16 downto 3));
+                                        -- XXX Can schedule a sprite fetch here.
+          ramaddress <= (others => '0');
         when 5 =>
                                         -- Character pixels (only 8 bits used if not in full colour mode)
           if fullcolour_8bitchars='0' and fullcolour_extendedchars='0' then
@@ -1297,24 +1330,9 @@ begin
                                         -- Request pixel data
           ramaddress <= std_logic_vector(long_address(16 downto 3));
         when 6 =>
-                                        -- Store colour bytes (will decode next cycle to keep logic shallow)
-          next_glyph_colour_buffer <= ramdata;
                                         -- XXX Can schedule a sprite fetch here.
           ramaddress <= (others => '0');
         when 7 =>
-                                        -- Decode colour byte
-          case card_number(2 downto 0) is
-            when "111" => next_glyph_colour_temp := next_glyph_colour_buffer(63 downto 56);
-            when "110" => next_glyph_colour_temp := next_glyph_colour_buffer(55 downto 48);
-            when "101" => next_glyph_colour_temp := next_glyph_colour_buffer(47 downto 40);
-            when "100" => next_glyph_colour_temp := next_glyph_colour_buffer(39 downto 32);
-            when "011" => next_glyph_colour_temp := next_glyph_colour_buffer(31 downto 24);
-            when "010" => next_glyph_colour_temp := next_glyph_colour_buffer(23 downto 16);
-            when "001" => next_glyph_colour_temp := next_glyph_colour_buffer(15 downto  8);
-            when "000" => next_glyph_colour_temp := next_glyph_colour_buffer( 7 downto  0);
-            when others => next_glyph_colour_temp := x"00";
-          end case;
-          next_glyph_colour <= unsigned(next_glyph_colour_temp);
                                         -- Store character pixels
           next_glyph_pixeldata <= ramdata;
                                         -- XXX Fetch full-colour sprite information
@@ -1359,11 +1377,34 @@ begin
         charread <= '0';
       end if;
 
-                                        -- Fetch card foreground colour from colour RAM
-      card_fg_colour(7 downto 0) := glyph_colour;
 
-      card_bg_colour := screen_colour;
-      if extended_background_mode='1' then
+        card_fg_colour(7 downto 5) := "000";
+        if viciii_extended_attributes='1' then
+          -- "Bold" as for VIC-III. Simply adds 16 to the colour
+          card_fg_colour(4) := glyph_attributes(2);
+        end if;
+        card_fg_colour(3 downto 0) := glyph_colour;
+        if viciii_extended_attributes='1' and glyph_attributes(1)='1' then
+          -- Reverse as for VIC-III.          
+          card_bg_colour := card_fg_colour;
+          card_fg_colour := screen_colour;
+        else
+          card_bg_colour := screen_colour;
+        end if;
+        if viciii_blink_phase='1' then
+          if glyph_attributes="0001" then
+            -- Blink alone
+            card_fg_colour := screen_colour;
+            card_bg_colour := screen_colour;
+          else
+            -- Blink in combination with something, so blink the attributes,
+            -- not the character.
+            card_fg_colour := x"0" & glyph_colour;
+            card_bg_colour := screen_colour;
+          end if;          
+        end if;
+        
+        if extended_background_mode='1' then
                                         -- XXX Until we support reading screen memory, use card number
                                         -- as the source of the extended background colour
         case card_number_t3(7 downto 6) is
@@ -1450,7 +1491,7 @@ begin
       vgared <= vga_buffer_red;
       vgagreen <= vga_buffer_green;
       vgablue <= vga_buffer_blue;
-
+      
     end if;
 
   end process;
