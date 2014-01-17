@@ -748,6 +748,9 @@ begin
       when I_ROL => flag_c <= operand(7); rmw_operand_commit(address,operand,operand(6 downto 0)&flag_c);
       when I_ROR => flag_c <= operand(0); rmw_operand_commit(address,operand,operand(6 downto 0)&flag_c);
       when I_SBC => reg_a <= alu_op_sub(reg_a,operand);
+      when I_STA => write_data_byte(address,reg_a,InstructionFetch);
+      when I_STX => write_data_byte(address,reg_x,InstructionFetch);
+      when I_STY => write_data_byte(address,reg_y,InstructionFetch);
       when others => null;
     end case;
   end procedure execute_operand_instruction;
