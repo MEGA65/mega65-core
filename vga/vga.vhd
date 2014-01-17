@@ -368,7 +368,6 @@ architecture Behavioral of vga is
 
   -- Colour RAM access via fastio port
   signal colour_ram_cs : std_logic := '0';
-  signal colour_ram_write : std_logic_vector(0 downto 0) := "0";
   signal colour_ram_fastio_address : std_logic_vector(15 downto 0);
   signal colour_ram_fastio_rdata : std_logic_vector(7 downto 0);
   
@@ -400,7 +399,7 @@ begin
     PORT MAP (
       clka => cpuclock,
       ena => colour_ram_cs,
-      wea => colour_ram_write,
+      wea => fastio_write,
       addra => colour_ram_fastio_address,
       dina => fastio_wdata,
       douta => colour_ram_fastio_rdata,
