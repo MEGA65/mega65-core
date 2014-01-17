@@ -1212,8 +1212,15 @@ begin
                                         -- Read character row data
       if charread='1' then
                                         -- mono characters
-        charrow <= chardata;
-                                        -- XXX what about one byte per pixel characters?
+        -- Apply C65/VIC-III hardware underline and blink attributes
+        if chargen_y(2 downto 0)="111"
+          and glyph_attributes(3)='1'
+          and viciii_blink_phase='0' then
+          charrow <= x"FF";
+        else
+          charrow <= chardata;
+        end if;
+          -- XXX what about one byte per pixel characters?
       end if;
       
                                         -- As soon as we begin drawing a character, start fetching the data for the
