@@ -36,6 +36,9 @@ architecture behavioural of keymapper is
   constant ps2timeout : integer := 12800;
   signal ps2timer : integer := 0;
 
+  signal ps2clock_samples : std_logic_vector(7 downto 0) := (others => '1');
+  signal ps2clock_debounced : std_logic := '0';
+  
   signal ps2clock_prev : std_logic := '0';
 
 begin  -- behavioural
@@ -53,8 +56,15 @@ begin  -- behavioural
         ps2state <= Idle;
       end if;
 
-      -- XXX de-glitching ps2clock would be a good idea!
-      ps2clock_prev <= ps2clock;
+      ps2clock_samples <= ps2clock_samples(7 downto 1) & ps2clock;
+      if ps2clock_samples = "11111111" then
+        ps2clock_debounced <= '1';
+      end if;
+      if ps2clock_samples = "00000000" then
+        ps2clock_debounced <= '0';
+      end if;
+      
+      ps2clock_prev <= ps2clock_debounced;
       if ps2clock = '0' and ps2clock_prev = '1' then
         ps2timer <= 0;
         case ps2state is
