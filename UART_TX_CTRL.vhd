@@ -53,7 +53,9 @@ type TX_STATE_TYPE is (RDY, LOAD_BIT, SEND_BIT);
 
 -- Input clock = 64MHz, baudrate = 230400
 -- 64MHz/2/230400 -1 = 138
-constant BIT_TMR_MAX : unsigned(13 downto 0) := "00000010001010";
+-- constant BIT_TMR_MAX : unsigned(13 downto 0) := "00000010001010";
+-- 48MHz/2/230400 -1 = 105 clock ticks per bit
+constant BIT_TMR_MAX : unsigned(13 downto 0) := "00000001100111";
 constant BIT_INDEX_MAX : natural := 10;
 
 --Counter that keeps track of the number of clock cycles the current bit has been held stable over the
