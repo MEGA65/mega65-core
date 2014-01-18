@@ -833,7 +833,7 @@ begin
       read_data_byte(arg2 & arg1,JMP1);
       -- Remember address of second byte of indirect vector so that
       -- we can ask for it in JMP1
-      reg_pc <= arg2 & (arg1 +1);
+      reg_addr <= arg2 & (arg1 +1);
     elsif mode=M_indirectX then
       -- Read ZP indirect from data memory map, since ZP is written into that
       -- map.
@@ -1011,15 +1011,15 @@ begin
                        state<=InstructionFetch;
           when JSR1 => push_byte(reg_pc_jsr(15 downto 8),InstructionFetch);
           when JMP1 =>
-            -- Request reading of high byte of vector
-            read_data_byte(reg_pc,JMP2);
-            -- Store low byte of vector into PCL
-            report "read PCL as $" & to_hstring(read_data) severity note;
-            reg_pc(7 downto 0)<=read_data;
-          when JMP2 =>
             -- Add a wait state to see if it fixes our problem with not loading
             -- addresses properly for indirect jump
-            state <= JMP3;
+            reg_pc(7 downto 0)<=read_data;
+            state <= JMP2;
+          when JMP2 =>
+            -- Request reading of high byte of vector
+            read_data_byte(reg_addr,JMP3);
+            -- Store low byte of vector into PCL
+            report "read PCL as $" & to_hstring(read_data) severity note;
           when JMP3 =>
             -- Now assemble complete vector
             report "read PCH as $" & to_hstring(read_data) severity note;
