@@ -61,35 +61,35 @@ begin  -- behavioural
     end if; 
   end process;
 
-  process (clkb)
-    variable theram : ram_t;
-    variable thevalue : std_logic_vector(63 downto 0);
-  begin
-    if(rising_edge(Clkb)) then 
-      if true then
-        thevalue := dina;
-        for i in 0 to 7 loop
-          if web(i)='1' then
-            report "writing $" & to_hstring(thevalue(7 downto 0))
-              & " to $" & to_hstring("000"&addrb&std_logic_vector(to_unsigned(i,3))) severity note;
-            ram(i)(to_integer(unsigned(addrb))) <= thevalue(7 downto 0);
-          end if;
-          thevalue(55 downto 0) := thevalue(63 downto 8);
-        end loop;  -- i
+  --process (clkb)
+  --  variable theram : ram_t;
+  --  variable thevalue : std_logic_vector(63 downto 0);
+  --begin
+  --  if(rising_edge(Clkb)) then 
+  --    if true then
+  --      thevalue := dina;
+  --      for i in 0 to 7 loop
+  --        if web(i)='1' then
+  --          report "writing $" & to_hstring(thevalue(7 downto 0))
+  --            & " to $" & to_hstring("000"&addrb&std_logic_vector(to_unsigned(i,3))) severity note;
+  --          ram(i)(to_integer(unsigned(addrb))) <= thevalue(7 downto 0);
+  --        end if;
+  --        thevalue(55 downto 0) := thevalue(63 downto 8);
+  --      end loop;  -- i
 
-        for i in 0 to 7 loop
-          theram:=ram(i);          
-          thevalue(55 downto 0) := thevalue(63 downto 8);
-          thevalue(63 downto 56) := theram(to_integer(unsigned(addrb)));
-        end loop;  -- i
-        douta <= thevalue;
-        report "reading fastram at $" & to_hstring("000"&addra&"000")
-          & ", contains $" & to_hstring(thevalue)
-          severity note;
-      else
-        doutb <= (others => 'Z');
-      end if;
-    end if;
-  end process;
+  --      for i in 0 to 7 loop
+  --        theram:=ram(i);          
+  --        thevalue(55 downto 0) := thevalue(63 downto 8);
+  --        thevalue(63 downto 56) := theram(to_integer(unsigned(addrb)));
+  --      end loop;  -- i
+  --      douta <= thevalue;
+  --      report "reading fastram at $" & to_hstring("000"&addra&"000")
+  --        & ", contains $" & to_hstring(thevalue)
+  --        severity note;
+  --    else
+  --      doutb <= (others => 'Z');
+  --    end if;
+  --  end if;
+  --end process;
 
 end behavioural;
