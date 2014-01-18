@@ -589,12 +589,12 @@ begin
         when I_SEC => flag_c <= '1';
         when I_SED => flag_d <= '1';
         when I_SEI => flag_i <= '1';
-        when I_TAX => reg_x <= reg_a;
-        when I_TAY => reg_y <= reg_a;
-        when I_TSX => reg_x <= reg_sp;
-        when I_TXA => reg_a <= reg_x;
-        when I_TXS => reg_sp <= reg_x;
-        when I_TYA => reg_a <= reg_y;
+        when I_TAX => reg_x <= with_nz(reg_a);
+        when I_TAY => reg_y <= with_nz(reg_a);
+        when I_TSX => reg_x <= with_nz(reg_sp);
+        when I_TXA => reg_a <= with_nz(reg_x);
+        when I_TXS => reg_sp <= with_nz(reg_x);
+        when I_TYA => reg_a <= with_nz(reg_y);
                       
         when I_NOP => null;
         when others => null;
@@ -1036,7 +1036,7 @@ begin
           when BRK2 =>
             virtual_reg_p(5) := '1';    -- set B flag in P before pushing
             push_byte(unsigned(virtual_reg_p),VectorRead);
-          when PLA1 => reg_a<=read_data; state <= InstructionFetch;
+          when PLA1 => reg_a<=with_nz(read_data); state <= InstructionFetch;
           when PLP1 => load_processor_flags(read_data); state <= InstructionFetch;
           when RTI1 => load_processor_flags(read_data); pull_byte(RTI2);
           when RTI2 => reg_pc(15 downto 8) <= read_data; pull_byte(RTI3);
