@@ -291,12 +291,12 @@ begin
 
     -- For simulation: our own rom at $E000 - $FFFF, also mapping to $0000-$0FFF
     -- since fastram doesn't work in simulation with GHDL.
-    ram_bank_registers_read(14) <= x"FFFE";
-    ram_bank_registers_write(14) <= x"000E";
-    ram_bank_registers_instructions(14) <= x"FFFE";
-    ram_bank_registers_read(15) <= x"FFFF";
-    ram_bank_registers_write(15) <= x"000F";
-    ram_bank_registers_instructions(15) <= x"FFFF";       
+    --ram_bank_registers_read(14) <= x"FFFE";
+    --ram_bank_registers_write(14) <= x"000E";
+    --ram_bank_registers_instructions(14) <= x"FFFE";
+    --ram_bank_registers_read(15) <= x"FFFF";
+    --ram_bank_registers_write(15) <= x"000F";
+    --ram_bank_registers_instructions(15) <= x"FFFF";       
 
     --ram_bank_registers_read(0) <= x"FFFE";
     --ram_bank_registers_write(0) <= x"FFFE";
