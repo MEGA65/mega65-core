@@ -669,11 +669,22 @@ begin
       o := o + 1;
     end if;  
     o := with_nz(o);
+
+    -- Signed overflow flag
+    -- See http://www.righto.com/2012/12/the-6502-overflow-flag-explained.html
+    -- "Overflow can be computed simply in C++ from the inputs and the result.
+    -- Overflow occurs if (M^result)&(N^result)&0x80 is nonzero. That is, if the
+    -- sign of both inputs is different from the sign of the result. (Anding with
+    -- 0x80 extracts just the sign bit from the result.) Another C++ formula is
+    -- !((M^N) & 0x80) && ((M^result) & 0x80). This means there is overflow if the
+    -- inputs do not have different signs and the input sign is different from the
+    -- output sign (link)."    
     if i1(7) /= o(7) and i2(7) /= o(7) then
       flag_v <= '1';
     else
       flag_v <= '0';
     end if;
+
     if unsigned(o)<unsigned(i1) then
       flag_c <= '1';
     else
@@ -691,10 +702,10 @@ begin
 
       -- Then set N & V *before* upper nybl BCD fixup
       flag_n<=o(7);
-      if o<i1 then
-        flag_v <='1';
+      if i1(7) /= o(7) and i2(7) /= o(7) then
+        flag_v <= '1';
       else
-        flag_v <='0';
+        flag_v <= '0';
       end if;
 
       -- Now do BCD fixup on upper nybl
