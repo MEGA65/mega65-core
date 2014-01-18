@@ -111,7 +111,8 @@ architecture Behavioural of simple6502 is
     IndirectY1,IndirectY2,IndirectY3,   -- $1c
     ExecuteDirect,RMWCommit,            -- $1e
     Halt,WaitOneCycle,                  -- $20
-    MonitorAccessDone,MonitorReadDone   -- $22
+    MonitorAccessDone,MonitorReadDone,   -- $22
+    Interrupt2,Interrupt3
     );
   signal state : processor_state := ResetLow;  -- start processor in reset state
   -- For memory access we push the processor state to follow once the memory
@@ -965,6 +966,9 @@ begin
             end if;
             -- Don't overwrite recent states record
             recent_states <= recent_states;
+          when Interrupt => push_byte(reg_pc(15 downto 8),Interrupt2);
+          when Interrupt2 => push_byte(reg_pc(7 downto 0),Interrupt3);
+          when Interrupt3 => push_byte(unsigned(virtual_reg_p),VectorRead);
           when VectorRead => reg_pc <= vector; read_instruction_byte(vector,VectorRead2);
           when VectorRead2 => reg_pc(7 downto 0) <= read_data; read_instruction_byte(vector+1,VectorRead3);
           when VectorRead3 => reg_pc(15 downto 8) <= read_data; state <= InstructionFetch;
@@ -996,12 +1000,13 @@ begin
               monitor_mem_trace_toggle /= monitor_mem_trace_toggle_last then
               monitor_mem_trace_toggle_last <= monitor_mem_trace_toggle;
 
+              -- XXX Push PC & P before launching interrupt handlers
               if nmi_pending='1' then
                 nmi_pending <= '0';
-                vector <= x"FFFA"; state <=VectorRead;
+                vector <= x"FFFA"; state <=Interrupt;
               elsif irq_pending='1' and flag_i='0' then
                 irq_pending <= '0';
-                vector <= x"FFFE"; state <=VectorRead;  
+                vector <= x"FFFE"; state <=Interrupt;  
               else
                 read_instruction_byte(reg_pc,InstructionFetch2);
                 reg_pc <= reg_pc + 1;
