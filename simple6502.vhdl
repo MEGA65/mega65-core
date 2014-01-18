@@ -594,7 +594,7 @@ begin
         when I_TSX => reg_x <= reg_sp;
         when I_TXA => reg_a <= reg_x;
         when I_TXS => reg_sp <= reg_x;
-        when I_TYA => reg_a <= reg_a;
+        when I_TYA => reg_a <= reg_y;
                       
         when I_NOP => null;
         when others => null;
