@@ -106,12 +106,12 @@ architecture Behavioural of simple6502 is
     InstructionFetch2,InstructionFetch3,InstructionFetch4,  -- $09
     BRK1,BRK2,PLA1,PLP1,RTI1,RTI2,RTI3,  -- $10
     RTS1,RTS2,JSR1,JMP1, -- $14
-    JMP2,                               -- $15
-    IndirectX1,IndirectX2,IndirectX3,   -- $18
-    IndirectY1,IndirectY2,IndirectY3,   -- $1b
-    ExecuteDirect,RMWCommit,            -- $1d
-    Halt,WaitOneCycle,                  -- $1f
-    MonitorAccessDone,MonitorReadDone   -- $21
+    JMP2,JMP3,                          -- $16
+    IndirectX1,IndirectX2,IndirectX3,   -- $19
+    IndirectY1,IndirectY2,IndirectY3,   -- $1c
+    ExecuteDirect,RMWCommit,            -- $1e
+    Halt,WaitOneCycle,                  -- $20
+    MonitorAccessDone,MonitorReadDone   -- $22
     );
   signal state : processor_state := ResetLow;  -- start processor in reset state
   -- For memory access we push the processor state to follow once the memory
@@ -291,12 +291,12 @@ begin
 
     -- For simulation: our own rom at $E000 - $FFFF, also mapping to $0000-$0FFF
     -- since fastram doesn't work in simulation with GHDL.
-    --ram_bank_registers_read(14) <= x"FFFE";
-    --ram_bank_registers_write(14) <= x"000E";
-    --ram_bank_registers_instructions(14) <= x"FFFE";
-    --ram_bank_registers_read(15) <= x"FFFF";
-    --ram_bank_registers_write(15) <= x"000F";
-    --ram_bank_registers_instructions(15) <= x"FFFF";       
+    ram_bank_registers_read(14) <= x"FFFE";
+    ram_bank_registers_write(14) <= x"000E";
+    ram_bank_registers_instructions(14) <= x"FFFE";
+    ram_bank_registers_read(15) <= x"FFFF";
+    ram_bank_registers_write(15) <= x"000F";
+    ram_bank_registers_instructions(15) <= x"FFFF";       
 
     --ram_bank_registers_read(0) <= x"FFFE";
     --ram_bank_registers_write(0) <= x"FFFE";
@@ -904,6 +904,7 @@ begin
         & ", sp=$" & to_hstring(std_logic_vector(reg_sp))
         & ", p=%" & to_string(std_logic_vector(virtual_reg_p))
         & ", state=" & processor_state'image(state)
+        & ", pending_state=" & processor_state'image(pending_state)
         severity note;
       
       if reset = '0' or state = ResetLow then
@@ -1011,11 +1012,17 @@ begin
           when JSR1 => push_byte(reg_pc_jsr(15 downto 8),InstructionFetch);
           when JMP1 =>
             -- Request reading of high byte of vector
-            read_instruction_byte(reg_pc,JMP2);
+            read_data_byte(reg_pc,JMP2);
             -- Store low byte of vector into PCL
+            report "read PCL as $" & to_hstring(read_data) severity note;
             reg_pc(7 downto 0)<=read_data;
           when JMP2 =>
+            -- Add a wait state to see if it fixes our problem with not loading
+            -- addresses properly for indirect jump
+            state <= JMP3;
+          when JMP3 =>
             -- Now assemble complete vector
+            report "read PCH as $" & to_hstring(read_data) severity note;
             reg_pc(15 downto 8) <= read_data;
             -- And then continue executing from there
             state<=InstructionFetch;
