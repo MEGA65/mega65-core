@@ -118,6 +118,10 @@
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="85"/>
       <association xil_pn:name="Implementation" xil_pn:seqID="4"/>
     </file>
+    <file xil_pn:name="keymapper.vhdl" xil_pn:type="FILE_VHDL">
+      <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="86"/>
+      <association xil_pn:name="Implementation" xil_pn:seqID="86"/>
+    </file>
   </files>
 
   <properties>
