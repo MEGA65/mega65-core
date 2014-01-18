@@ -181,6 +181,11 @@ architecture Behavioral of vga is
   -- smooth scrolling position in natural pixels.
   -- Set in the same way as the border
   signal x_chargen_start : unsigned(11 downto 0) := to_unsigned(160,12);
+  signal x_chargen_start_minus1 : unsigned(11 downto 0);
+  signal x_chargen_start_minus2 : unsigned(11 downto 0);
+  signal x_chargen_start_minus8 : unsigned(11 downto 0);
+  signal x_chargen_start_minus16 : unsigned(11 downto 0);
+
   signal y_chargen_start : unsigned(11 downto 0) := to_unsigned(100,12);
   -- Charset is 16bit (2 bytes per char) when this mode is enabled.
   signal sixteenbit_charset : std_logic := '0';
@@ -1161,22 +1166,27 @@ begin
 
                                         -- Reset character generator position for start of frame/raster
                                         -- Start displaying from the correct character
-      if displayx=(x_chargen_start-16) then
+      x_chargen_start_minus16 <= x_chargen_start-16;
+      x_chargen_start_minus8 <= x_chargen_start-8;
+      x_chargen_start_minus2 <= x_chargen_start-2;
+      x_chargen_start_minus1 <= x_chargen_start-1;
+      
+      if displayx=x_chargen_start_minus16 then
         next_card_number <= first_card_of_row;
       end if;
-      if displayx=(x_chargen_start-8) then
+      if displayx=x_chargen_start_minus8 then
                                         -- Start fetching first character of the row
                                         -- (8 cycles is plenty of time to fetch it)       
         char_fetch_cycle <= 0;
         cycles_to_next_card <= (others => '1');
       end if;
-      if displayx = (x_chargen_start - 2) then
+      if displayx = x_chargen_start_minus2 then
         cycles_to_next_card <= "00000001";
         next_chargen_x <= (others => '0');
         chargen_x <= (others => '0');
         chargen_x_sub <= (others => '0');
       end if;
-      if displayx = (x_chargen_start - 1) then
+      if displayx = x_chargen_start_minus1 then
                                         -- trigger next card at start of chargen row
         next_chargen_x <= (others => '0');
         chargen_x <= (others => '0');
