@@ -669,7 +669,7 @@ begin
       o := o + 1;
     end if;  
     o := with_nz(o);
-    if i1(7) /= o(7) then
+    if i1(7) /= o(7) and i2(7) /= o(7) then
       flag_v <= '1';
     else
       flag_v <= '0';
@@ -733,6 +733,7 @@ begin
     -- XXX Will this work for decimal mode?
     o := alu_op_add(i1,s2);
     report "$" & to_hstring(i1) & " - $" & to_hstring(i2) & " = $" & to_hstring(o) severity note;
+    
     return o;
     
     -- Return final value
