@@ -1117,6 +1117,7 @@ begin
         when 0 => value := ram_bank_registers_read(reg_num);
         when 1 => value := ram_bank_registers_read(reg_num);
         when 2 => value := ram_bank_registers_read(reg_num);
+        when 6 => value := x"EEE" & irq & irq_pending & nmi & nmi_pending;
         when 7 => value := recent_states(reg_num);
         when others => value := x"F00D";
       end case;

@@ -293,10 +293,10 @@ begin
         cpuclock <= not cpuclock;
       end if;
       
-      led0 <= monitor_mem_read;
-      led1 <= monitor_mem_write;
-      led2 <= monitor_mem_attention_request;
-      led3 <= monitor_mem_attention_granted;
+      led0 <= irq;
+      led1 <= nmi;
+      led2 <= combinedirq;
+      led3 <= combinednmi;
       
       segled_counter <= segled_counter + 1;
 
