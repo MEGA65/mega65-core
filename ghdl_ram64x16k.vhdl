@@ -38,8 +38,8 @@ begin  -- behavioural
         thevalue := dina;
         for i in 0 to 7 loop
           if wea(i)='1' then
-            report "writing $" & to_hstring(thevalue(7 downto 0))
-              & " to $" & to_hstring("000"&addra&std_logic_vector(to_unsigned(i,3))) severity note;
+            --report "writing $" & to_hstring(thevalue(7 downto 0))
+            --  & " to $" & to_hstring("000"&addra&std_logic_vector(to_unsigned(i,3))) severity note;
             ram(i)(to_integer(unsigned(addra))) <= thevalue(7 downto 0);
           end if;
           thevalue(55 downto 0) := thevalue(63 downto 8);
@@ -51,9 +51,9 @@ begin  -- behavioural
           thevalue(63 downto 56) := theram(to_integer(unsigned(addra)));
         end loop;  -- i
         douta <= thevalue;
-        report "reading fastram at $" & to_hstring("000"&addra&"000")
-          & ", contains $" & to_hstring(thevalue)
-          severity note;
+        --report "reading fastram at $" & to_hstring("000"&addra&"000")
+        --  & ", contains $" & to_hstring(thevalue)
+        --  severity note;
       
       else
         douta <= (others => 'Z');
