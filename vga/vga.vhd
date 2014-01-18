@@ -164,7 +164,9 @@ architecture Behavioral of vga is
   signal displayx : unsigned(11 downto 0) := (others => '0');
   signal displayy : unsigned(11 downto 0) := (others => '0');
   signal display_active : std_logic := '0';
-  
+
+  -- Asserted if in the 1200 vetical lines of the frame
+  signal vert_in_frame : std_logic := '0';
   
   -----------------------------------------------------------------------------
   -- Video controller registers
@@ -1211,18 +1213,24 @@ begin
           & " glyph_number=" & integer'image(to_integer(glyph_number))
           severity note;
       end if;      
-      
-      if ycounter>=(frame_v_front+height) and ycounter<(frame_v_front+height+frame_v_syncheight) then
+
+      if ycounter=frame_v_front then
+        vert_in_frame <= '1';
+      end if;
+      if ycounter=(frame_v_front+height) then
         vsync <= '1';
-      else
+        vert_in_frame <= '0';
+      end if;
+      if ycounter=(frame_v_front+height+frame_v_syncheight) then
         vsync <= '0';
       end if;
+
       if xcounter = 0 then
-        if ycounter<frame_v_front then
+        if vert_in_frame='0' then
           displayy <= (others => '0');
           indisplay := '0';
           first_card_of_row <= x"0000";	
-        elsif ycounter<(frame_v_front+height) then
+        else
           displayy <= displayy + 1;
           next_card_number <= first_card_of_row;
           if chargen_y_sub=chargen_y_scale then
@@ -1236,9 +1244,6 @@ begin
           else
             chargen_y_sub <= chargen_y_sub + 1;
           end if;
-        else
-          displayy <= (others => '1');
-          indisplay := '0';
         end if;
       end if;
       
