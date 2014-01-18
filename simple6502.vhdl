@@ -250,9 +250,9 @@ begin
     procedure reset_cpu_state is
   begin
     -- Default register values
-    reg_a <= x"AA";
-    reg_x <= x"11";
-    reg_y <= x"22";
+    reg_a <= x"11";
+    reg_x <= x"22";
+    reg_y <= x"33";
     reg_sp <= x"ff";
 
     -- Default CPU flags
@@ -400,7 +400,7 @@ begin
         when others =>
           report "dud write to fastram" severity note;
       end case;
-      report "writing to fastram..." severity note;
+      -- report "writing to fastram..." severity note;
       state <= next_state;
     elsif long_address(27 downto 24) = x"8" then
       accessing_slowram <= '1';
@@ -427,8 +427,8 @@ begin
     variable long_address : unsigned(27 downto 0);
   begin
     long_address := resolve_address_to_long(address,memmap);
-    report "Writing $" & to_hstring(value) & " @ $" & to_hstring(address)
-      & " (resolves to $" & to_hstring(long_address) & ")" severity note;
+    --report "Writing $" & to_hstring(value) & " @ $" & to_hstring(address)
+    --  & " (resolves to $" & to_hstring(long_address) & ")" severity note;
     write_long_byte(long_address,value,next_state);
   end procedure write_byte;
 
@@ -510,7 +510,7 @@ begin
   impure function with_nz (
     value : unsigned(7 downto 0)) return unsigned is
   begin
-    report "calculating N & Z flags on result $" & to_hstring(value) severity note;
+    -- report "calculating N & Z flags on result $" & to_hstring(value) severity note;
     flag_n <= value(7);
     if value(7 downto 0) = x"00" then
       flag_z <= '1';
@@ -529,7 +529,7 @@ begin
     variable virtual_reg_p : unsigned(7 downto 0);
   begin
 
-    report "Executing " & instruction'image(i) & " mode " & addressingmode'image(mode) severity note;
+    -- report "Executing " & instruction'image(i) & " mode " & addressingmode'image(mode) severity note;
 
     -- Generate virtual processor status register for BRK
     virtual_reg_p(7) := flag_n;
@@ -752,7 +752,7 @@ begin
       & ", final_value = $" & to_hstring(final_value)
     severity note;
     reg_addr <= address;
-    reg_value <= final_value;
+    reg_value <= with_nz(final_value);
     write_data_byte(address,first_value,RMWCommit);
   end procedure rmw_operand_commit;
   
@@ -762,7 +762,7 @@ begin
     address : in unsigned(15 downto 0)) is
     variable bitbucket : unsigned(7 downto 0);
   begin
-    report "Calculating result for " & instruction'image(i) & " operand=$" & to_hstring(operand) severity note;
+    -- report "Calculating result for " & instruction'image(i) & " operand=$" & to_hstring(operand) severity note;
     state <= InstructionFetch;
     case i is
       when I_LDA => reg_a <= with_nz(operand);
@@ -791,6 +791,18 @@ begin
       when others => null;
     end case;
   end procedure execute_operand_instruction;
+
+  function flag_status (
+    yes : in string;
+    no : in string;
+    condition : in std_logic) return string is
+  begin
+    if condition='1' then
+      return yes;
+    else
+      return no;
+    end if;
+  end function flag_status;
   
   procedure execute_instruction (      
     opcode : in unsigned(7 downto 0);
@@ -803,8 +815,8 @@ begin
     -- By default fetch next instruction
     state <= InstructionFetch;
 
-    report "Executing " & instruction'image(i)
-      & " mode " & addressingmode'image(mode) severity note;
+    --report "Executing " & instruction'image(i)
+    --  & " mode " & addressingmode'image(mode) severity note;
     
     if mode=M_relative then
       if (i=I_BCC and flag_c='0')
@@ -845,7 +857,7 @@ begin
       reg_addr <= x"00" & (arg1 + 1);
       read_data_byte(x"00" & arg1,IndirectY1);
     else
-      report "executing direct instruction" severity note;
+      --report "executing direct instruction" severity note;
       case mode is
         -- Direct modes
         when M_zeropage => execute_direct_instruction(i,arg2&arg1);
@@ -894,19 +906,6 @@ begin
 
       monitor_p <= std_logic_vector(virtual_reg_p);
 
-      -- Show CPU state for debugging
-      -- report "state = " & processor_state'image(state) severity note;
-      report ""
-        & "  pc=$" & to_hstring(std_logic_vector(reg_pc))
-        & ", a=$" & to_hstring(std_logic_vector(reg_a))
-        & ", x=$" & to_hstring(std_logic_vector(reg_x))
-        & ", y=$" & to_hstring(std_logic_vector(reg_y))
-        & ", sp=$" & to_hstring(std_logic_vector(reg_sp))
-        & ", p=%" & to_string(std_logic_vector(virtual_reg_p))
-        & ", state=" & processor_state'image(state)
-        & ", pending_state=" & processor_state'image(pending_state)
-        severity note;
-      
       if reset = '0' or state = ResetLow then
         -- reset cpu
         state <= VectorRead;
@@ -955,6 +954,28 @@ begin
           when VectorRead2 => reg_pc(7 downto 0) <= read_data; read_instruction_byte(vector+1,VectorRead3);
           when VectorRead3 => reg_pc(15 downto 8) <= read_data; state <= InstructionFetch;
           when InstructionFetch =>
+
+            -- Show CPU state for debugging
+            -- report "state = " & processor_state'image(state) severity note;
+            -- Use a format very like that of VICE so that we can compare our boot
+            -- sequence to theirs, to find errors in our CPU etc.
+            report ""
+              & ".C:" & to_hstring(std_logic_vector(reg_pc))
+              & " - A:" & to_hstring(std_logic_vector(reg_a))
+              & " X:" & to_hstring(std_logic_vector(reg_x))
+              & " Y:" & to_hstring(std_logic_vector(reg_y))
+              & " SP:" & to_hstring(std_logic_vector(reg_sp))
+              & " "
+              & flag_status("N",".",flag_n)
+              & flag_status("V",".",flag_v)
+              & "-"
+              & "."
+              & flag_status("D",".",flag_d)
+              & flag_status("I",".",flag_i)
+              & flag_status("Z",".",flag_z)
+              & flag_status("C",".",flag_c)        
+              severity note;        
+            
             monitor_mem_attention_granted <= '0';
             if monitor_mem_trace_mode='0' or
               monitor_mem_trace_toggle /= monitor_mem_trace_toggle_last then
