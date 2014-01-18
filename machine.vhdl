@@ -244,7 +244,7 @@ architecture Behavioral of machine is
   signal monitor_p : std_logic_vector(7 downto 0);
   signal monitor_opcode : std_logic_vector(7 downto 0);
   
-  signal segled_counter : unsigned(31 downto 0) := (others => '0');
+  signal segled_counter : unsigned(19 downto 0) := (others => '0');
 
 begin
   
@@ -257,7 +257,7 @@ begin
       -- 3 = 48MHz
       -- 191 = 1MHz
       -- (don't forget to update uart_monitor baudrate divisor as well)
-      if cpuclock_divisor<3 then
+      if cpuclock_divisor<2 then
         cpuclock_divisor <= cpuclock_divisor + 1;
       else
         cpuclock_divisor <= 0;
@@ -287,9 +287,9 @@ begin
       elsif segled_counter(19 downto 17)=4 then
         digit := monitor_state(3 downto 0);
       elsif segled_counter(19 downto 17)=6 then
-        digit := std_logic_vector(segled_counter(27 downto 24));
+        digit := monitor_sp(3 downto 0);
       elsif segled_counter(19 downto 17)=7 then
-        digit := std_logic_vector(segled_counter(31 downto 28));
+        digit := monitor_sp(7 downto 4);
       else
         digit := "UUUU";
       end if;
