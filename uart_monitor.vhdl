@@ -607,7 +607,7 @@ begin
               monitor_mem_trace_toggle_internal <= not monitor_mem_trace_toggle_internal;
 
               cmdlen <= 1;
-              state <= PrintPrompt;
+              state <= ShowRegisters;
             end if;
           when FillMemory1 =>
             target_address <= hex_value(27 downto 0);
