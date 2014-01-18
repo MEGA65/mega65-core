@@ -208,7 +208,8 @@ architecture Behavioral of machine is
           colourram_at_dc00 : in std_logic;
 
           ps2data : in std_logic;
-          ps2clock : in std_logic
+          ps2clock : in std_logic;
+          last_scan_code : out unsigned(7 downto 0)
           );
   end component;
 
@@ -216,6 +217,8 @@ architecture Behavioral of machine is
   signal io_nmi : std_logic;
   signal combinedirq : std_logic;
   signal combinednmi : std_logic;
+
+  signal last_scan_code : unsigned(7 downto 0);
   
   signal fastio_addr : std_logic_vector(19 downto 0);
   signal fastio_read : std_logic;
@@ -313,9 +316,9 @@ begin
       elsif segled_counter(19 downto 17)=4 then
         digit := monitor_state(3 downto 0);
       elsif segled_counter(19 downto 17)=6 then
-        digit := monitor_sp(3 downto 0);
+        digit := std_logic_vector(last_scan_code(3 downto 0));
       elsif segled_counter(19 downto 17)=7 then
-        digit := monitor_sp(7 downto 4);
+        digit := std_logic_vector(last_scan_code(7 downto 4));
       else
         digit := "UUUU";
       end if;
@@ -429,7 +432,8 @@ begin
     data_i => fastio_wdata, data_o => fastio_rdata,
     colourram_at_dc00 => colourram_at_dc00,
     ps2data => ps2data,
-    ps2clock => ps2clock);
+    ps2clock => ps2clock,
+    last_scan_code => last_scan_code);
 
   -----------------------------------------------------------------------------
   -- UART interface for monitor debugging and loading data

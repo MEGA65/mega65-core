@@ -18,6 +18,7 @@ entity iomapper is
 
         ps2data : in std_logic;
         ps2clock : in std_logic;
+        last_scan_code : out unsigned(7 downto 0);
         
         colourram_at_dc00 : in std_logic
         );
@@ -83,6 +84,23 @@ architecture behavioral of iomapper is
       countout : out std_logic;
       countin : in std_logic);
   end component;
+  component keymapper is    
+    port (
+      clk : in std_logic;
+      
+      -- PS2 keyboard interface
+      ps2clock  : in  std_logic;
+      ps2data   : in  std_logic;
+      -- CIA ports
+      porta_in  : in  std_logic_vector(7 downto 0);
+      porta_out : out std_logic_vector(7 downto 0);
+      portb_in  : in  std_logic_vector(7 downto 0);
+      portb_out : out std_logic_vector(7 downto 0);
+
+      last_scan_code : out unsigned(7 downto 0)
+      );
+  end component;
+
 
   signal kernel65cs : std_logic;
   signal kernel64cs : std_logic;
@@ -94,6 +112,12 @@ architecture behavioral of iomapper is
   
   signal cia1cs : std_logic;
   signal cia2cs : std_logic;
+
+  signal cia1porta_out : std_logic_vector(7 downto 0);
+  signal cia1porta_in : std_logic_vector(7 downto 0);
+  signal cia1portb_out : std_logic_vector(7 downto 0);
+  signal cia1portb_in : std_logic_vector(7 downto 0);
+  
 begin         
   kernel65rom : kernel65 port map (
     clk     => clk,
@@ -157,6 +181,16 @@ begin
     countin => '1'
     );
 
+  keymapper0 : keymapper port map (
+    clk            => clk,
+    ps2clock       => ps2clock,
+    ps2data        => ps2data,
+    porta_in       => cia1porta_out,
+    porta_out      => cia1porta_in,
+    portb_in       => cia1portb_out,
+    portb_out      => cia1portb_in,
+    last_scan_code => last_scan_code);
+  
   process (r,w,address)
   begin  -- process
     if (r or w) = '1' then
