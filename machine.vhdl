@@ -48,6 +48,13 @@ entity machine is
          vgablue : out  UNSIGNED (3 downto 0);
 
          ----------------------------------------------------------------------
+         -- PS/2 adapted USB keyboard & joystick connector.
+         -- For now we will use a keyrah adapter to connect to the keyboard.
+         ----------------------------------------------------------------------
+         ps2data : in std_logic;
+         ps2clock : in std_logic;
+         
+         ----------------------------------------------------------------------
          -- Debug interfaces on Nexys4 board
          ----------------------------------------------------------------------
          led0 : out std_logic;
@@ -198,9 +205,17 @@ architecture Behavioral of machine is
           w : in std_logic;
           data_i : in std_logic_vector(7 downto 0);
           data_o : out std_logic_vector(7 downto 0);
-          colourram_at_dc00 : in std_logic
+          colourram_at_dc00 : in std_logic;
+
+          ps2data : in std_logic;
+          ps2clock : in std_logic
           );
   end component;
+
+  signal io_irq : std_logic;
+  signal io_nmi : std_logic;
+  signal combinedirq : std_logic;
+  signal combinednmi : std_logic;
   
   signal fastio_addr : std_logic_vector(19 downto 0);
   signal fastio_read : std_logic;
@@ -247,6 +262,17 @@ architecture Behavioral of machine is
   signal segled_counter : unsigned(19 downto 0) := (others => '0');
 
 begin
+
+  ----------------------------------------------------------------------------
+  -- IRQ & NMI: If either the hardware buttons on the FPGA board or an IO
+  -- device via the IOmapper pull an interrupt line down, then trigger an
+  -- interrupt.
+  -----------------------------------------------------------------------------
+  process(irq,nmi,io_irq,io_nmi)
+  begin
+    combinedirq <= irq and io_irq;
+    combinednmi <= nmi and io_nmi;
+  end process;
   
   process(pixelclock)
     variable digit : std_logic_vector(3 downto 0);
@@ -329,8 +355,8 @@ begin
   cpu0: simple6502 port map(
     clock => cpuclock,
     reset =>btnCpuReset,
-    irq => irq,
-    nmi => nmi,
+    irq => combinedirq,
+    nmi => combinednmi,
     monitor_pc => monitor_pc,
     monitor_opcode => monitor_opcode,
     monitor_a => monitor_a,
@@ -396,12 +422,14 @@ begin
   iomapper0: iomapper port map (
     clk => cpuclock,
     reset => btnCpuReset,
---  irq => irq (but we might like to AND this with the hardware IRQ button)
---  nmi => nmi (but we might like to AND this with the hardware IRQ button)
+    irq => io_irq, -- (but we might like to AND this with the hardware IRQ button)
+    nmi => io_nmi, -- (but we might like to AND this with the hardware IRQ button)
     address => fastio_addr,
     r => fastio_read, w => fastio_write,
     data_i => fastio_wdata, data_o => fastio_rdata,
-    colourram_at_dc00 => colourram_at_dc00);
+    colourram_at_dc00 => colourram_at_dc00,
+    ps2data => ps2data,
+    ps2clock => ps2clock);
 
   -----------------------------------------------------------------------------
   -- UART interface for monitor debugging and loading data

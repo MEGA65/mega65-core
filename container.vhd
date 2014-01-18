@@ -48,6 +48,12 @@ entity container is
          vgablue : out  UNSIGNED (3 downto 0);
 
          ----------------------------------------------------------------------
+         -- PS/2 keyboard interface
+         ----------------------------------------------------------------------
+         ps2clk : in std_logic;
+         ps2data : in std_logic;
+         
+         ----------------------------------------------------------------------
          -- Debug interfaces on Nexys4 board
          ----------------------------------------------------------------------
          led0 : out std_logic;
@@ -94,6 +100,13 @@ architecture Behavioral of container is
          vgared : out  UNSIGNED (3 downto 0);
          vgagreen : out  UNSIGNED (3 downto 0);
          vgablue : out  UNSIGNED (3 downto 0);
+
+         ----------------------------------------------------------------------
+         -- PS/2 adapted USB keyboard & joystick connector.
+         -- For now we will use a keyrah adapter to connect to the keyboard.
+         ----------------------------------------------------------------------
+         ps2data : in std_logic;
+         ps2clock : in std_logic;         
 
          ----------------------------------------------------------------------
          -- Debug interfaces on Nexys4 board
@@ -146,6 +159,9 @@ begin
       vgagreen        => vgagreen,
       vgablue         => vgablue,
 
+      ps2data =>      ps2data,
+      ps2clock =>     ps2clk,
+      
       led0 => led0,
       led1 => led1,
       led2 => led2,

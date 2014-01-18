@@ -16,6 +16,9 @@ entity iomapper is
         data_i : in std_logic_vector(7 downto 0);
         data_o : out std_logic_vector(7 downto 0);
 
+        ps2data : in std_logic;
+        ps2clock : in std_logic;
+        
         colourram_at_dc00 : in std_logic
         );
 end iomapper;

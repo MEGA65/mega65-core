@@ -5,6 +5,9 @@ TIMESPEC TS_sys_clk_pin = PERIOD sys_clk_pin 100MHz HIGH 50%;
 #net "irq" loc = "U8"  | IOSTANDARD = "LVCMOS33"; #SW1
 NET "btnCpuReset"              LOC = "C12"     | IOSTANDARD = "LVCMOS33";              #Bank = 15, Pin name = IO_L3P_T0_DQS_AD1P_15,                           Sch name = CPU_RESET
 
+NET "PS2Clk"                   LOC = "F4"      | PULLUP | IOSTANDARD = "LVCMOS33";     #Bank = 35, Pin name = IO_L13P_T2_MRCC_35,                                      Sch name = PS2_CLK
+NET "PS2Data"                  LOC = "B2"      | PULLUP | IOSTANDARD = "LVCMOS33";     #Bank = 35, Pin name = IO_L10N_T1_AD15N_35,                                     Sch name = PS2_DATA
+
 ## VGA Connector
 NET "vgaRed<0>"                LOC = "A3"      | IOSTANDARD = "LVCMOS33";              #Bank = 35, Pin name = IO_L8N_T1_AD14N_35,                                      Sch name = VGA_R0
 NET "vgaRed<1>"                LOC = "B4"      | IOSTANDARD = "LVCMOS33";              #Bank = 35, Pin name = IO_L7N_T1_AD6N_35,                                       Sch name = VGA_R1
