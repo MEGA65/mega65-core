@@ -307,6 +307,7 @@ architecture Behavioral of vga is
   signal card_number_t1 : unsigned(15 downto 0) := (others => '0');
   signal card_number_t2 : unsigned(15 downto 0) := (others => '0');
   signal card_number_t3 : unsigned(15 downto 0) := (others => '0');
+  signal cards_differ : std_logic;
   signal indisplay_t1 : std_logic := '0';
   signal indisplay_t2 : std_logic := '0';
   signal indisplay_t3 : std_logic := '0';
@@ -382,7 +383,7 @@ architecture Behavioral of vga is
   -- Colour RAM access for video controller
   signal colourramaddress : std_logic_vector(15 downto 0);
   signal colourramdata : std_logic_vector(7 downto 0);
-  
+
 begin
 
   -- XXX For now just use 128KB FastRAM instead of 512KB which causes major routing
@@ -1427,7 +1428,12 @@ begin
                                         -- screen RAM picks the character.
                                         -- XXX Bitmap mode should not use the character ROM.  This combination is
                                         -- for debugging of text mode character fetching only.
-      if card_number_t3 /= card_number then
+      if card_number_t2 /= card_number then
+        cards_differ<='1';
+      else
+        cards_differ<='0';
+      end if;
+      if cards_differ='1' then
         if extended_background_mode='1' then
                                         -- bit 6 and 7 of character is used for colour
           charaddress(10 downto 9) <= "00";
