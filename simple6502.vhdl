@@ -723,8 +723,9 @@ begin
     variable o : unsigned(7 downto 0);
     variable s2 : unsigned(7 downto 0);
   begin
-    -- calculate ones-complement
-    s2 := not i1;
+    -- calculate ones-complement, minus one
+    -- because SBC requires C to be set to hold constant.
+    s2 := (not i2)-1;
     -- Then do add.
     -- Z and C should get set correctly.
     -- XXX Will this work for decimal mode?
