@@ -86,12 +86,12 @@ begin  -- behavioural
           when Bit6 => ps2state <= Bit7; scan_code(7) <= ps2data;
                        parity <= parity xor ps2data;                       
           when Bit7 => ps2state <= parityBit;
-            if parity = ps2data then 
-              -- Valid PS2 symbol
-              last_scan_code <= scan_code;
-            else
-              last_scan_code <= x"FE";
-            end if;                    
+                       -- if parity = ps2data then 
+                       -- Valid PS2 symbol
+                       last_scan_code <= scan_code;
+                       --else
+                       --  last_scan_code <= x"FE";
+                       --end if;                    
           when ParityBit =>  ps2state <= StopBit; 
           when StopBit => ps2state <= Idle;
         end case;        
