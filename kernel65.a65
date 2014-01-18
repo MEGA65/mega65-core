@@ -8,11 +8,19 @@ indirecttest:
 indirecttest2:
 	.byte $77
 
+
 	.advance $F000
 
 reset:	; reset entry point
-	lda #$03
-	cmp #$03
+	lda #<loop
+	sta $0326
+	lda #>loop
+	sta $0327
+	jmp ($0326)
+	nop
+	nop
+	nop
+	nop
 
 loop:
 	LDA $1001
