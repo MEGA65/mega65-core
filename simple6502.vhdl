@@ -669,11 +669,14 @@ begin
       o := o + 1;
     end if;  
     o := with_nz(o);
-    if unsigned(o)<unsigned(i1) then
+    if i1(7) /= o(7) then
       flag_v <= '1';
-      flag_c <= '1';
     else
       flag_v <= '0';
+    end if;
+    if unsigned(o)<unsigned(i1) then
+      flag_c <= '1';
+    else
       flag_c <= '0';
     end if;
     if flag_d='1' then
@@ -723,9 +726,8 @@ begin
     variable o : unsigned(7 downto 0);
     variable s2 : unsigned(7 downto 0);
   begin
-    -- calculate ones-complement, minus one
-    -- because SBC requires C to be set to hold constant.
-    s2 := (not i2)-1;
+    -- calculate ones-complement.
+    s2 := (not i2);
     -- Then do add.
     -- Z and C should get set correctly.
     -- XXX Will this work for decimal mode?
