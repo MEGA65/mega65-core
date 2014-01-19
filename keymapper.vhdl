@@ -99,7 +99,7 @@ begin  -- behavioural
   -- (this is a read only register set)
   fastio: process (fastio_address,fastio_write)
   begin  -- process fastio
-    if fastio_address(19 downto 8) = x"FD40" and fastio_write='0' then
+    if fastio_address(19 downto 8) = x"FD4" and fastio_write='0' then
       keymem_fastio_cs <= '1';
       fastio_rdata <= douta;
     else
