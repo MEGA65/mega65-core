@@ -220,7 +220,11 @@ architecture Behavioral of machine is
   signal combinedirq : std_logic;
   signal combinednmi : std_logic;
 
-  signal last_scan_code : unsigned(7 downto 0);
+  signal last_scan_code : unsigned(7 downto 0) := x"FF";
+  signal last_scan_code1 : unsigned(7 downto 0) := x"FF";
+  signal last_scan_code2 : unsigned(7 downto 0) := x"FF";
+  signal last_scan_code3 : unsigned(7 downto 0) := x"FF";
+  signal last_scan_code4 : unsigned(7 downto 0) := x"FF";
   
   signal fastio_addr : std_logic_vector(19 downto 0);
   signal fastio_read : std_logic;
@@ -279,6 +283,16 @@ begin
     combinedirq <= irq and io_irq;
     combinednmi <= nmi and io_nmi;
   end process;
+
+  process(cpuclock,last_scan_code)
+  begin
+    if last_scan_code /= last_scan_code1 then
+      last_scan_code1 <= last_scan_code;
+      last_scan_code2 <= last_scan_code1;
+      last_scan_code3 <= last_scan_code2;
+      last_scan_code4 <= last_scan_code3;
+    end if;
+  end process;
   
   process(pixelclock)
     variable digit : std_logic_vector(3 downto 0);
@@ -306,22 +320,34 @@ begin
       sseg_an <= (others => '1');
       sseg_an(to_integer(segled_counter(19 downto 17))) <= '0';
 
-      if segled_counter(19 downto 17)=3 then
-        digit := monitor_pc(15 downto 12);
-      elsif segled_counter(19 downto 17)=2 then
-        digit := monitor_pc(11 downto 8);
+      --if segled_counter(19 downto 17)=3 then
+      --  digit := monitor_pc(15 downto 12);
+      --elsif segled_counter(19 downto 17)=2 then
+      --  digit := monitor_pc(11 downto 8);
+      --elsif segled_counter(19 downto 17)=1 then
+      --  digit := monitor_pc(7 downto 4);
+      --elsif segled_counter(19 downto 17)=0 then
+      --  digit := monitor_pc(3 downto 0);
+      --elsif segled_counter(19 downto 17)=5 then
+      --  digit := monitor_state(7 downto 4);
+      --elsif segled_counter(19 downto 17)=4 then
+      --  digit := monitor_state(3 downto 0);
+      if segled_counter(19 downto 17)=0 then
+        digit := std_logic_vector(last_scan_code4(3 downto 0));
       elsif segled_counter(19 downto 17)=1 then
-        digit := monitor_pc(7 downto 4);
-      elsif segled_counter(19 downto 17)=0 then
-        digit := monitor_pc(3 downto 0);
-      elsif segled_counter(19 downto 17)=5 then
-        digit := monitor_state(7 downto 4);
+        digit := std_logic_vector(last_scan_code4(7 downto 4));
+      elsif segled_counter(19 downto 17)=2 then
+        digit := std_logic_vector(last_scan_code3(3 downto 0));
+      elsif segled_counter(19 downto 17)=3 then
+        digit := std_logic_vector(last_scan_code3(7 downto 4));
       elsif segled_counter(19 downto 17)=4 then
-        digit := monitor_state(3 downto 0);
+        digit := std_logic_vector(last_scan_code2(3 downto 0));
+      elsif segled_counter(19 downto 17)=5 then
+        digit := std_logic_vector(last_scan_code2(7 downto 4));
       elsif segled_counter(19 downto 17)=6 then
-        digit := std_logic_vector(last_scan_code(3 downto 0));
+        digit := std_logic_vector(last_scan_code1(3 downto 0));
       elsif segled_counter(19 downto 17)=7 then
-        digit := std_logic_vector(last_scan_code(7 downto 4));
+        digit := std_logic_vector(last_scan_code1(7 downto 4));
       else
         digit := "UUUU";
       end if;
