@@ -122,12 +122,12 @@ begin  -- behavioural
       -- Generate timer for keyscan timeout
       -------------------------------------------------------------------------
       ps2timer <= ps2timer +1;
-      if ps2timer = ps2timeout then
+      if ps2timer >= ps2timeout then
         ps2timer <= 0;
         ps2state <= Idle;
       end if;
 
-      ps2clock_samples <= ps2clock_samples(7 downto 1) & ps2clock;
+      ps2clock_samples <= ps2clock_samples(6 downto 0) & ps2clock;
       if ps2clock_samples = "11111111" then
         ps2clock_debounced <= '1';
       end if;
@@ -135,7 +135,7 @@ begin  -- behavioural
         ps2clock_debounced <= '0';
       end if;
 
-      ps2data_samples <= ps2data_samples(7 downto 1) & ps2data;
+      ps2data_samples <= ps2data_samples(6 downto 0) & ps2data;
       if ps2data_samples = "11111111" then
         ps2data_debounced <= '1';
       end if;
@@ -197,6 +197,7 @@ begin  -- behavioural
 
           when StopBit => ps2state <= Idle;
                           keymem_write <= '0';
+          when others => ps2state <= Idle;
         end case;        
       end if;
       
