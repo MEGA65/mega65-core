@@ -13,6 +13,9 @@ all:	makerom kernel65.vhdl \
 	/opt/Xilinx/14.7/ISE_DS/ISE/bin/lin/map -intstyle ise -p xc7a100t-csg324-1 -w -logic_opt off -ol "$(ROUTEEFFORT)" -xe n -t 1 -xt 0 -register_duplication off -r 4 -mt off -ir off -pr off -lc off -power off -o container_map.ncd container.ngd container.pcf
 	/opt/Xilinx/14.7/ISE_DS/ISE/bin/lin/par -w -intstyle ise -ol "$(ROUTEEFFORT)" -xe n -mt off container_map.ncd container.ngd container.pcf
 
+cputest.prg:	cputest.a65
+	Ophis-2.0-standalone/ophis -o cputest.prg cputest.a65
+
 
 kernel65.bin:	kernel65.a65
 	Ophis-2.0-standalone/ophis kernel65.a65

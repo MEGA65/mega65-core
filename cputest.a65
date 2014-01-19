@@ -1,0 +1,129 @@
+	.word $0801
+         .org  $0801
+         ; BASIC program that just calls our machine language code
+         .scope
+
+        .word _next, 10		; Next line and current line number
+        .byte $9e," 2304",0	; SYS 2062
+_next:  .word 0	    		; End of program
+
+	; temporary storage
+old_nmi: .word 0
+old_irq: .word 0
+
+temp_a:	 .byte 0
+temp_x:	 .byte 0
+temp_y:	 .byte 0
+temp_p:	 .byte 0
+temp1:	 .byte 0
+
+flag:	 .byte 0
+
+.scend
+	
+.data zp ; Zero Page memory segment.
+.org $0002
+
+.text 
+      .advance $0900
+.scope
+	jsr test00
+	sta $0401
+	stx $0402
+	sty $0403
+	; write contents of Carry Flag (carry clear marks success)
+	lda #$00
+	rol
+	sta $0400
+	rts
+
+test00:	; BRK implied mode (but with "virtual immediate" operand)
+	sei
+	lda #$00
+	tax
+	tay
+	sta flag
+
+	; save IRQ vector
+	lda $0316
+	sta old_irq
+	lda $0317
+	sta old_irq+1
+
+	; insert our own IRQ routine
+	lda #<brkirq
+	sta $0316
+	lda #>brkirq
+	sta $0317
+
+	php
+	pla
+	sta temp_p
+
+	; Run BRK instruction
+
+	brk
+	.byte $42
+brkreturnaddress:
+
+	; restore IRQ vector
+	lda old_irq
+	sta $0316
+	lda old_irq+1
+	sta $0317
+
+	; check that IRQ routine was actually called.
+	lda flag
+	cmp #$01
+	bne brknoirq
+	
+	; all was fine
+	clc
+	lda #$00
+	tax
+	tay
+	rts
+
+brknoirq:
+	lda #$01
+brkcommonerror:
+	ldx #$00
+	ldy #$00
+	sec
+	rts
+brkflagwrong:
+	lda #$02
+	jmp brkcommonerror
+brkpclwrong:
+	lda #$03
+	jmp brkcommonerror
+brkpchwrong:
+	lda #$04
+	jmp brkcommonerror
+
+
+brkirq:	lda #$01
+	sta flag
+
+	; pop registers that the kernel pushes
+	pla
+	pla
+	pla
+
+	; check that P gets pushed with B flag set
+	pla
+	sta temp1
+	and #$10
+	beq brkflagwrong
+	; check that PCL gets pushed
+	pla
+	cmp #<brkreturnaddress
+	bne brkpclwrong
+	; check that PCH gets pushed
+	pla
+	cmp #>brkreturnaddress
+	bne brkpchwrong
+	; Everything seems fine, go back to where we left off.
+	jmp brkreturnaddress
+
+.scend
