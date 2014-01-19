@@ -77,6 +77,12 @@ architecture behavioural of keymapper is
   signal keymem_fastio_cs : std_logic;
 
   signal douta : std_logic_vector(7 downto 0);
+
+  signal extended : std_logic := '0';
+  signal break : std_logic := '0';
+
+  type matrix_t is array (0 to 7) of std_logic_vector(7 downto 0);
+  signal matrix : matrix_t := (others => (others =>'1'));
   
 begin  -- behavioural
 
@@ -113,6 +119,7 @@ begin  -- behavioural
 
 -- purpose: read from ps2 keyboard interface
   keyread: process (clk, ps2data,ps2clock)
+    variable full_scan_code : std_logic_vector(11 downto 0);
   begin  -- process keyread
     if rising_edge(clk) then
       -------------------------------------------------------------------------
@@ -177,6 +184,44 @@ begin  -- behavioural
                        -- so that we can have a 9-bit number to look up.
                        -- XXX also work out when a key goes down versus up by F0
                        -- byte.
+                       if scan_code = x"F0"  then
+                         -- break code
+                         break <= '1';
+                       elsif scan_code = x"E0" then
+                         extended <= '1';
+                       else
+                         full_scan_code := "000" & extended & std_logic_vector(scan_code);
+                         break <= '0';
+                         extended <= '0';
+                         
+                         -- keyboard scancodes for the more normal keys from a keyboard I have here
+                         -- (will replace these with the keyrah obtained ones)
+                         --                                      $DC01 bits
+                         --               0   1   2   3   4   5   6   7
+                         -- $DC00 values  
+                         -- Bit#0 $FE     1E0 5A  174 83  05  04  03  72
+                         -- Bit#1 $FD     26  1D  1C  25  1A  1B  24  12
+                         -- Bit#2 $FB     2E  2D  23  36  21  2B  2C  22
+                         -- Bit#3 $F7     3D  35  34  3E  32  33  3C  2A
+                         -- Bit#4 $EF     46  43  3B  45  3A  42  44  31
+                         -- Bit#5 $DF     55  4D  4B  4E  49  54  5B  41
+                         -- Bit#6 $BF     52  5D  4C  16C 59  169 75  4A
+                         -- Bit#7 $7F     16  6B  14  1E  29  11  15  76
+                         -- RESTORE - 0E (`/~ key)
+
+                         case full_scan_code is
+                           when x"1E0" => matrix(0) <= (matrix(0) and x"FE") or "0000000"&(not break);
+                           when x"05A" => matrix(0) <= (matrix(0) and x"FD") or "000000"&(not break)&"0";
+                           when x"174" => matrix(0) <= (matrix(0) and x"FB") or "00000"&(not break)&"00";
+                           when x"083" => matrix(0) <= (matrix(0) and x"F7") or "0000"&(not break)&"000";
+                           when x"005" => matrix(0) <= (matrix(0) and x"EF") or "000"&(not break)&"0000";
+                           when x"004" => matrix(0) <= (matrix(0) and x"DF") or "00"&(not break)&"00000";
+                           when x"003" => matrix(0) <= (matrix(0) and x"BF") or "0"&(not break)&"000000";
+                           when x"072" => matrix(0) <= (matrix(0) and x"7F") or (not break)&"0000000";
+                           when others => null;
+                         end case;
+                         
+                       end if;
                        
                        -- The memory of recent scan codes is 255 bytes long, as
                        -- byte 00 is used to indicate the last entry written to
