@@ -99,6 +99,9 @@ begin  -- behavioural
   -- (this is a read only register set)
   fastio: process (fastio_address,fastio_write)
   begin  -- process fastio
+    if fastio_address(19 downto 8) = x"FD5" and fastio_write='0' then
+      keymem_fastio_cs <= '0';
+      fastio_rdata <= fastio_address(7 downto 0);
     if fastio_address(19 downto 8) = x"FD4" and fastio_write='0' then
       keymem_fastio_cs <= '1';
       fastio_rdata <= douta;
@@ -128,29 +131,38 @@ begin  -- behavioural
       if ps2clock_samples = "00000000" then
         ps2clock_debounced <= '0';
       end if;
+
+      ps2data_samples <= ps2data_samples(7 downto 1) & ps2data;
+      if ps2data_samples = "11111111" then
+        ps2data_debounced <= '1';
+      end if;
+      if ps2data_samples = "00000000" then
+        ps2data_debounced <= '0';
+      end if;
       
       ps2clock_prev <= ps2clock_debounced;
-      if ps2clock = '0' and ps2clock_prev = '1' then
+      ps2clock <= ps2clock_prev;
+      if ((ps2clock = '0' and ps2clock_prev = '1') and ps2state=Idle) then
         ps2timer <= 0;
         case ps2state is
           when Idle => ps2state <= StartBit; scan_code <= x"FF"; parity <= '0';
                        keymem_write <= '0';
-          when StartBit => ps2state <= Bit0; scan_code(0) <= ps2data;
-                           parity <= parity xor ps2data;
-          when Bit0 => ps2state <= Bit1; scan_code(1) <= ps2data;
-                       parity <= parity xor ps2data;                       
-          when Bit1 => ps2state <= Bit2; scan_code(2) <= ps2data;
-                       parity <= parity xor ps2data;                       
-          when Bit2 => ps2state <= Bit3; scan_code(3) <= ps2data;
-                       parity <= parity xor ps2data;                       
-          when Bit3 => ps2state <= Bit4; scan_code(4) <= ps2data;
-                       parity <= parity xor ps2data;                       
-          when Bit4 => ps2state <= Bit5; scan_code(5) <= ps2data;
-                       parity <= parity xor ps2data;                       
-          when Bit5 => ps2state <= Bit6; scan_code(6) <= ps2data;
-                       parity <= parity xor ps2data;                       
-          when Bit6 => ps2state <= Bit7; scan_code(7) <= ps2data;
-                       parity <= parity xor ps2data;                       
+          when StartBit => ps2state <= Bit0; scan_code(0) <= ps2data_debounced;
+                           parity <= parity xor ps2data_debounced;
+          when Bit0 => ps2state <= Bit1; scan_code(1) <= ps2data_debounced;
+                       parity <= parity xor ps2data_debounced;
+          when Bit1 => ps2state <= Bit2; scan_code(2) <= ps2data_debounced;
+                       parity <= parity xor ps2data_debounced;
+          when Bit2 => ps2state <= Bit3; scan_code(3) <= ps2data_debounced;
+                       parity <= parity xor ps2data_debounced;
+          when Bit3 => ps2state <= Bit4; scan_code(4) <= ps2data_debounced;
+                       parity <= parity xor ps2data_debounced;
+          when Bit4 => ps2state <= Bit5; scan_code(5) <= ps2data_debounced;
+                       parity <= parity xor ps2data_debounced;
+          when Bit5 => ps2state <= Bit6; scan_code(6) <= ps2data_debounced;
+                       parity <= parity xor ps2data_debounced;
+          when Bit6 => ps2state <= Bit7; scan_code(7) <= ps2data_debounced;
+                       parity <= parity xor ps2data_debounced;
           when Bit7 => ps2state <= parityBit;
                        -- if parity = ps2data then 
                        -- Valid PS2 symbol
