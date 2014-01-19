@@ -98,6 +98,7 @@ architecture Behavioral of machine is
       monitor_mem_write : out std_logic := '0';
       monitor_mem_setpc : out std_logic := '0';
       monitor_mem_trace_mode : out std_logic;
+      monitor_mem_stage_trace_mode : out std_logic;
       monitor_mem_trace_toggle : out std_logic;
       monitor_mem_attention_request : out std_logic;
       monitor_mem_attention_granted : in std_logic

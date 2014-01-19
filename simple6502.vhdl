@@ -34,6 +34,7 @@ entity simple6502 is
     monitor_mem_attention_request : in std_logic;
     monitor_mem_attention_granted : out std_logic := '0';
     monitor_mem_trace_mode : in std_logic;
+    monitor_mem_stage_trace_mode : in std_logic;
     monitor_mem_trace_toggle : in std_logic;
     
     ---------------------------------------------------------------------------
@@ -792,7 +793,7 @@ begin
       when I_CPX => alu_op_cmp(reg_x,operand);
       when I_CPY => alu_op_cmp(reg_y,operand);
       when I_DEC => rmw_operand_commit(address,operand,operand-1);
-      when I_EOR => reg_a <= with_nz(reg_a xor operand);        
+      when I_EOR => reg_a <= with_nz(reg_a xor operand);    
       when I_INC =>
         report "INC of $" & to_hstring(operand) & " to $" & to_hstring(operand+1) severity note;
         rmw_operand_commit(address,operand,(operand+1));
