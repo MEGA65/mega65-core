@@ -132,6 +132,7 @@ architecture Behavioral of machine is
       monitor_mem_attention_request : in std_logic;
       monitor_mem_attention_granted : out std_logic;
       monitor_mem_trace_mode : in std_logic;
+      monitor_mem_stage_trace_mode : in std_logic;
       monitor_mem_trace_toggle : in std_logic;
 
       ---------------------------------------------------------------------------
@@ -252,6 +253,7 @@ architecture Behavioral of machine is
   signal monitor_mem_setpc : std_logic;
   signal monitor_mem_attention_request : std_logic;
   signal monitor_mem_attention_granted : std_logic;
+  signal monitor_mem_stage_trace_mode : std_logic;
   signal monitor_mem_trace_mode : std_logic;
   signal monitor_mem_trace_toggle : std_logic;
   
@@ -379,6 +381,7 @@ begin
     monitor_mem_attention_request => monitor_mem_attention_request,
     monitor_mem_attention_granted => monitor_mem_attention_granted,
     monitor_mem_trace_mode => monitor_mem_trace_mode,
+    monitor_mem_stage_trace_mode => monitor_mem_stage_trace_mode,
     monitor_mem_trace_toggle => monitor_mem_trace_toggle,
 
     fastram_we => fastram_we,
@@ -462,6 +465,7 @@ begin
     monitor_mem_attention_request => monitor_mem_attention_request,
     monitor_mem_attention_granted => monitor_mem_attention_granted,
     monitor_mem_trace_mode => monitor_mem_trace_mode,
+    monitor_mem_stage_trace_mode => monitor_mem_stage_trace_mode,
     monitor_mem_trace_toggle => monitor_mem_trace_toggle
 );
   

@@ -419,7 +419,7 @@ begin
     -- Once read, we then resume processing from the specified state.
     pending_state <= next_state;
   end write_long_byte;
-    
+  
   procedure write_byte (
     memmap             : in bank_register_set;
     address            : in unsigned(15 downto 0);
@@ -654,7 +654,7 @@ begin
       flag_c <= '1';
     end if;
   end alu_op_cmp;
-    
+  
   impure function alu_op_add (
     i1 : in unsigned(7 downto 0);
     i2 : in unsigned(7 downto 0)) return unsigned is
@@ -766,7 +766,7 @@ begin
   begin
     report "first_value = $" & to_hstring(first_value)
       & ", final_value = $" & to_hstring(final_value)
-    severity note;
+      severity note;
     reg_addr <= address;
     reg_value <= with_nz(final_value);
     write_data_byte(address,first_value,RMWCommit);
@@ -949,159 +949,163 @@ begin
 
         recent_states(1 to 15) <= recent_states(0 to 14);
         recent_states(0) <= to_unsigned(processor_state'pos(state),16);
-        
-        case state is
-          when MonitorReadDone =>            
-            monitor_mem_rdata <= read_data;
-            state <= MonitorAccessDone;
 
-            -- Don't overwrite recent states record
-            recent_states <= recent_states;
-          when MonitorAccessDone =>
-            fastram_we <= (others => '0');
-            monitor_mem_attention_granted <= '1';
-            if monitor_mem_attention_request='0' then
-              monitor_mem_attention_granted <= '0';
-              state <= InstructionFetch;
-            end if;
-            -- Don't overwrite recent states record
-            recent_states <= recent_states;
-          when Interrupt => push_byte(reg_pc(15 downto 8),Interrupt2);
-          when Interrupt2 => push_byte(reg_pc(7 downto 0),Interrupt3);
-          when Interrupt3 => push_byte(unsigned(virtual_reg_p),VectorRead);
-          when VectorRead => reg_pc <= vector; read_instruction_byte(vector,VectorRead2);
-          when VectorRead2 => reg_pc(7 downto 0) <= read_data; read_instruction_byte(vector+1,VectorRead3);
-          when VectorRead3 => reg_pc(15 downto 8) <= read_data; state <= InstructionFetch;
-          when InstructionFetch =>
+        if monitor_mem_stage_trace_mode='0' or
+          monitor_mem_trace_toggle /= monitor_mem_trace_toggle_last then
+          monitor_mem_trace_toggle_last <= monitor_mem_trace_toggle;
+          case state is
+            when MonitorReadDone =>            
+              monitor_mem_rdata <= read_data;
+              state <= MonitorAccessDone;
 
-            -- Show CPU state for debugging
-            -- report "state = " & processor_state'image(state) severity note;
-            -- Use a format very like that of VICE so that we can compare our boot
-            -- sequence to theirs, to find errors in our CPU etc.
-            report ""
-              & ".C:" & to_hstring(std_logic_vector(reg_pc))
-              & " - A:" & to_hstring(std_logic_vector(reg_a))
-              & " X:" & to_hstring(std_logic_vector(reg_x))
-              & " Y:" & to_hstring(std_logic_vector(reg_y))
-              & " SP:" & to_hstring(std_logic_vector(reg_sp))
-              & " "
-              & flag_status("N",".",flag_n)
-              & flag_status("V",".",flag_v)
-              & "-"
-              & "."
-              & flag_status("D",".",flag_d)
-              & flag_status("I",".",flag_i)
-              & flag_status("Z",".",flag_z)
-              & flag_status("C",".",flag_c)        
-              severity note;        
-            
-            monitor_mem_attention_granted <= '0';
-            if monitor_mem_trace_mode='0' or
-              monitor_mem_trace_toggle /= monitor_mem_trace_toggle_last then
-              monitor_mem_trace_toggle_last <= monitor_mem_trace_toggle;
-
-              -- XXX Push PC & P before launching interrupt handlers
-              if nmi_pending='1' then
-                nmi_pending <= '0';
-                vector <= x"FFFA"; state <=Interrupt;
-              elsif irq_pending='1' and flag_i='0' then
-                irq_pending <= '0';
-                vector <= x"FFFE"; state <=Interrupt;  
-              else
-                read_instruction_byte(reg_pc,InstructionFetch2);
-                reg_pc <= reg_pc + 1;
-              end if;
-            else
-              -- Hold recent states
+              -- Don't overwrite recent states record
               recent_states <= recent_states;
-            end if;
-          when InstructionFetch2 =>
-            -- Keep reading bytes if necessary
-            if mode_lut(to_integer(read_data))=M_implied
-              or mode_lut(to_integer(read_data))=M_accumulator then
-              -- 1-byte instruction, process now
-              execute_implied_instruction(read_data);
-            else
-              opcode <= read_data;
-              reg_pc <= reg_pc + 1;
-              read_instruction_byte(reg_pc,InstructionFetch3);
-            end if;
-          when InstructionFetch3 =>
-            if mode_bytes_lut(mode_lut(to_integer(opcode)))=2 then
-              arg1 <= read_data;
-              reg_pc <= reg_pc + 1;
-              reg_pc_jsr <= reg_pc;     -- keep PC after one operand for JSR
-              read_instruction_byte(reg_pc,InstructionFetch4);
-            else
-              execute_instruction(opcode,read_data,x"00");
-            end if;
-          when InstructionFetch4 =>
-            execute_instruction(opcode,arg1,read_data);
-          when BRK1 => push_byte(reg_pc(7 downto 0),BRK2);
-          when BRK2 =>
-            virtual_reg_p(5) := '1';    -- set B flag in P before pushing
-            push_byte(unsigned(virtual_reg_p),VectorRead);
-          when PLA1 => reg_a<=with_nz(read_data); state <= InstructionFetch;
-          when PLP1 => load_processor_flags(read_data); state <= InstructionFetch;
-          when RTI1 => load_processor_flags(read_data); pull_byte(RTI2);
-          when RTI2 => reg_pc(15 downto 8) <= read_data; pull_byte(RTI3);
-          when RTI3 => reg_pc <= (reg_pc(15 downto 8) & read_data)+1;
-                       state<=InstructionFetch;
-          when RTS1 => reg_pc(15 downto 8) <= read_data; pull_byte(RTS2);
-          when RTS2 => reg_pc <= (reg_pc(15 downto 8) & read_data)+1;
-                       state<=InstructionFetch;
-          when JSR1 => push_byte(reg_pc_jsr(15 downto 8),InstructionFetch);
-          when JMP1 =>
-            -- Add a wait state to see if it fixes our problem with not loading
-            -- addresses properly for indirect jump
-            reg_pc(7 downto 0)<=read_data;
-            state <= JMP2;
-          when JMP2 =>
-            -- Request reading of high byte of vector
-            read_data_byte(reg_addr,JMP3);
-            -- Store low byte of vector into PCL
-            report "read PCL as $" & to_hstring(read_data) severity note;
-          when JMP3 =>
-            -- Now assemble complete vector
-            report "read PCH as $" & to_hstring(read_data) severity note;
-            reg_pc(15 downto 8) <= read_data;
-            -- And then continue executing from there
-            state<=InstructionFetch;
-          when IndirectX1 =>
-            reg_addr(7 downto 0) <= read_data;
-            report "(ZP,x) - low byte = $" & to_hstring(read_data) severity note;
-            read_data_byte(reg_addr,IndirectX2);
-          when IndirectX2 =>
-            reg_addr(15 downto 8) <= read_data;
-            report "(ZP,x) - high byte = $" & to_hstring(read_data) severity note;
-            report "(ZP,x) - operand address = $"
-              & to_hstring(read_data & reg_addr(7 downto 0))
-              severity note;
-            read_data_byte(read_data & reg_addr(7 downto 0),IndirectX3);
-          when IndirectX3 =>
-            execute_operand_instruction(reg_instruction,read_data,reg_addr);
-          when IndirectY1 =>
-            reg_addr(7 downto 0) <= read_data;
-            report "(ZP),y - low byte = $" & to_hstring(read_data) severity note;
-            read_data_byte(reg_addr,IndirectY2);
-          when IndirectY2 =>
-            reg_addr <= (read_data & reg_addr(7 downto 0)) + reg_y;
-            report "(ZP),y - high byte = $" & to_hstring(read_data) severity note;
-            report "(ZP),y - operand address = $"
-              & to_hstring((read_data & reg_addr(7 downto 0)) + reg_y)
-              severity note;
-            read_data_byte((read_data & reg_addr(7 downto 0)) + reg_y,IndirectY3);
-          when IndirectY3 =>
-            execute_operand_instruction(reg_instruction,read_data,reg_addr);
-          when ExecuteDirect =>
-            execute_operand_instruction(reg_instruction,read_data,reg_addr);
-          when RMWCommit => write_data_byte(reg_addr,reg_value,InstructionFetch);
+            when MonitorAccessDone =>
+              fastram_we <= (others => '0');
+              monitor_mem_attention_granted <= '1';
+              if monitor_mem_attention_request='0' then
+                monitor_mem_attention_granted <= '0';
+                state <= InstructionFetch;
+              end if;
+              -- Don't overwrite recent states record
+              recent_states <= recent_states;
+            when Interrupt => push_byte(reg_pc(15 downto 8),Interrupt2);
+            when Interrupt2 => push_byte(reg_pc(7 downto 0),Interrupt3);
+            when Interrupt3 => push_byte(unsigned(virtual_reg_p),VectorRead);
+            when VectorRead => reg_pc <= vector; read_instruction_byte(vector,VectorRead2);
+            when VectorRead2 => reg_pc(7 downto 0) <= read_data; read_instruction_byte(vector+1,VectorRead3);
+            when VectorRead3 => reg_pc(15 downto 8) <= read_data; state <= InstructionFetch;
+            when InstructionFetch =>
 
-          when WaitOneCycle => state <= pending_state;
-          when others =>
-            -- Don't allow CPU to stay stuck
-            state<= InstructionFetch;
-        end case;
+              -- Show CPU state for debugging
+              -- report "state = " & processor_state'image(state) severity note;
+              -- Use a format very like that of VICE so that we can compare our boot
+              -- sequence to theirs, to find errors in our CPU etc.
+              report ""
+                & ".C:" & to_hstring(std_logic_vector(reg_pc))
+                & " - A:" & to_hstring(std_logic_vector(reg_a))
+                & " X:" & to_hstring(std_logic_vector(reg_x))
+                & " Y:" & to_hstring(std_logic_vector(reg_y))
+                & " SP:" & to_hstring(std_logic_vector(reg_sp))
+                & " "
+                & flag_status("N",".",flag_n)
+                & flag_status("V",".",flag_v)
+                & "-"
+                & "."
+                & flag_status("D",".",flag_d)
+                & flag_status("I",".",flag_i)
+                & flag_status("Z",".",flag_z)
+                & flag_status("C",".",flag_c)        
+                severity note;        
+              
+              monitor_mem_attention_granted <= '0';
+              if monitor_mem_trace_mode='0' or
+                monitor_mem_trace_toggle /= monitor_mem_trace_toggle_last then
+                monitor_mem_trace_toggle_last <= monitor_mem_trace_toggle;
+
+                -- XXX Push PC & P before launching interrupt handlers
+                if nmi_pending='1' then
+                  nmi_pending <= '0';
+                  vector <= x"FFFA"; state <=Interrupt;
+                elsif irq_pending='1' and flag_i='0' then
+                  irq_pending <= '0';
+                  vector <= x"FFFE"; state <=Interrupt;  
+                else
+                  read_instruction_byte(reg_pc,InstructionFetch2);
+                  reg_pc <= reg_pc + 1;
+                end if;
+              else
+                -- Hold recent states
+                recent_states <= recent_states;
+              end if;
+            when InstructionFetch2 =>
+              -- Keep reading bytes if necessary
+              if mode_lut(to_integer(read_data))=M_implied
+                or mode_lut(to_integer(read_data))=M_accumulator then
+                -- 1-byte instruction, process now
+                execute_implied_instruction(read_data);
+              else
+                opcode <= read_data;
+                reg_pc <= reg_pc + 1;
+                read_instruction_byte(reg_pc,InstructionFetch3);
+              end if;
+            when InstructionFetch3 =>
+              if mode_bytes_lut(mode_lut(to_integer(opcode)))=2 then
+                arg1 <= read_data;
+                reg_pc <= reg_pc + 1;
+                reg_pc_jsr <= reg_pc;     -- keep PC after one operand for JSR
+                read_instruction_byte(reg_pc,InstructionFetch4);
+              else
+                execute_instruction(opcode,read_data,x"00");
+              end if;
+            when InstructionFetch4 =>
+              execute_instruction(opcode,arg1,read_data);
+            when BRK1 => push_byte(reg_pc(7 downto 0),BRK2);
+            when BRK2 =>
+              virtual_reg_p(5) := '1';    -- set B flag in P before pushing
+              push_byte(unsigned(virtual_reg_p),VectorRead);
+            when PLA1 => reg_a<=with_nz(read_data); state <= InstructionFetch;
+            when PLP1 => load_processor_flags(read_data); state <= InstructionFetch;
+            when RTI1 => load_processor_flags(read_data); pull_byte(RTI2);
+            when RTI2 => reg_pc(15 downto 8) <= read_data; pull_byte(RTI3);
+            when RTI3 => reg_pc <= (reg_pc(15 downto 8) & read_data)+1;
+                         state<=InstructionFetch;
+            when RTS1 => reg_pc(15 downto 8) <= read_data; pull_byte(RTS2);
+            when RTS2 => reg_pc <= (reg_pc(15 downto 8) & read_data)+1;
+                         state<=InstructionFetch;
+            when JSR1 => push_byte(reg_pc_jsr(15 downto 8),InstructionFetch);
+            when JMP1 =>
+              -- Add a wait state to see if it fixes our problem with not loading
+              -- addresses properly for indirect jump
+              reg_pc(7 downto 0)<=read_data;
+              state <= JMP2;
+            when JMP2 =>
+              -- Request reading of high byte of vector
+              read_data_byte(reg_addr,JMP3);
+              -- Store low byte of vector into PCL
+              report "read PCL as $" & to_hstring(read_data) severity note;
+            when JMP3 =>
+              -- Now assemble complete vector
+              report "read PCH as $" & to_hstring(read_data) severity note;
+              reg_pc(15 downto 8) <= read_data;
+              -- And then continue executing from there
+              state<=InstructionFetch;
+            when IndirectX1 =>
+              reg_addr(7 downto 0) <= read_data;
+              report "(ZP,x) - low byte = $" & to_hstring(read_data) severity note;
+              read_data_byte(reg_addr,IndirectX2);
+            when IndirectX2 =>
+              reg_addr(15 downto 8) <= read_data;
+              report "(ZP,x) - high byte = $" & to_hstring(read_data) severity note;
+              report "(ZP,x) - operand address = $"
+                & to_hstring(read_data & reg_addr(7 downto 0))
+                severity note;
+              read_data_byte(read_data & reg_addr(7 downto 0),IndirectX3);
+            when IndirectX3 =>
+              execute_operand_instruction(reg_instruction,read_data,reg_addr);
+            when IndirectY1 =>
+              reg_addr(7 downto 0) <= read_data;
+              report "(ZP),y - low byte = $" & to_hstring(read_data) severity note;
+              read_data_byte(reg_addr,IndirectY2);
+            when IndirectY2 =>
+              reg_addr <= (read_data & reg_addr(7 downto 0)) + reg_y;
+              report "(ZP),y - high byte = $" & to_hstring(read_data) severity note;
+              report "(ZP),y - operand address = $"
+                & to_hstring((read_data & reg_addr(7 downto 0)) + reg_y)
+                severity note;
+              read_data_byte((read_data & reg_addr(7 downto 0)) + reg_y,IndirectY3);
+            when IndirectY3 =>
+              execute_operand_instruction(reg_instruction,read_data,reg_addr);
+            when ExecuteDirect =>
+              execute_operand_instruction(reg_instruction,read_data,reg_addr);
+            when RMWCommit => write_data_byte(reg_addr,reg_value,InstructionFetch);
+
+            when WaitOneCycle => state <= pending_state;
+            when others =>
+              -- Don't allow CPU to stay stuck
+              state<= InstructionFetch;
+          end case;
+        end if;
       end if;
     end if;
   end process;

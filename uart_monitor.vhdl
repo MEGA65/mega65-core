@@ -29,6 +29,7 @@ entity uart_monitor is
     monitor_mem_read : out std_logic := '0';
     monitor_mem_write : out std_logic := '0';
     monitor_mem_setpc : out std_logic := '0';
+    monitor_mem_stage_trace_mode : out std_logic := '0';
     monitor_mem_trace_mode : out std_logic := '0';
     monitor_mem_trace_toggle : out std_logic := '0'
     );
@@ -576,7 +577,9 @@ begin
               elsif cmdbuffer(1) = 'r' or cmdbuffer(1) = 'R' then
                 state <= ShowRegisters;                
               elsif cmdbuffer(1) = 't' or cmdbuffer(1) = 'T' then
-                if cmdbuffer(2)='1' then
+                if cmdbuffer(2)='2' then
+                  monitor_mem_stage_trace_mode<='1';
+                elsif cmdbuffer(2)='1' then
                   monitor_mem_trace_mode<='1';
                   state <= NextCommand;
                 elsif cmdbuffer(2)='0' then

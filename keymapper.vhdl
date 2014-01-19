@@ -154,7 +154,9 @@ begin  -- behavioural
           when Bit7 => ps2state <= parityBit;
                        -- if parity = ps2data then 
                        -- Valid PS2 symbol
-                       last_scan_code <= scan_code;
+                       if scan_code /= x"FF" then
+                         last_scan_code <= scan_code;                         
+                       end if;
 
                        keymem_addr <= recent_scan_code_list_index;
                        keymem_data <= scan_code;
