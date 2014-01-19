@@ -108,6 +108,16 @@ architecture behavioural of cia6526 is
   signal reg_sdr_data : std_logic_vector(7 downto 0);
   signal reg_read_sdr : std_logic_vector(7 downto 0);
   signal sdr_loaded : std_logic := '0';
+
+  -- Clock running as close as possible to 17.734475 MHz / 18 = 985248Hz
+  -- Our pixel clock is 192MHz.  195 ticks gives 984615Hz.
+  -- Or 64MHz clock / 65 gives the same, without having to route the pixel
+  -- clock through.
+  -- For NTSC, the rate is 14.31818MHz / 14 = 1022727Hz
+  -- 63 ticks at 64MHz gives 1015873Hz.
+  -- 187 ticks at 192MHz gives 1026738Hz.
+  -- So the pixel clock would be better.
+  signal phi0 : std_logic := '0';
   
 begin  -- behavioural
 
@@ -220,6 +230,7 @@ begin  -- behavioural
                 reg_timera_pulse_source <= fastio_wdata(5);
                 if fastio_wdata(4)='1' then
                   -- Force loading of timer A now from latch
+                  reg_timera <= reg_timera_latch;
                 end if;
                 reg_timera_oneshot <= fastio_wdata(3);
                 reg_timera_toggle_or_pulse <= fastio_wdata(2);
@@ -228,6 +239,10 @@ begin  -- behavioural
               when x"f" =>
                 reg_tod_alarm_edit <= std_logic(fastio_wdata(7));
                 reg_timerb_tick_source <= std_logic_vector(fastio_wdata(6 downto 5));
+                if fastio_wdata(4)='1' then
+                  -- Force loading of timer A now from latch
+                  reg_timerb <= reg_timerb_latch;
+                end if;
                 reg_timerb_oneshot <= std_logic(fastio_wdata(3));
                 reg_timerb_toggle_or_pulse <= std_logic(fastio_wdata(2));
                 reg_timerb_pb7_out <= std_logic(fastio_wdata(1));
