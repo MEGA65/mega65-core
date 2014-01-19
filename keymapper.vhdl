@@ -102,10 +102,7 @@ begin  -- behavioural
   -- (this is a read only register set)
   fastio: process (fastio_address,fastio_write)
   begin  -- process fastio
-    if fastio_address(19 downto 8) = x"FD5" and fastio_write='0' then
-      keymem_fastio_cs <= '0';
-      fastio_rdata <= fastio_address(7 downto 0);
-    elsif fastio_address(19 downto 8) = x"FD4" and fastio_write='0' then
+    if fastio_address(19 downto 8) = x"D40" and fastio_write='0' then
       keymem_fastio_cs <= '1';
       fastio_rdata <= douta;
     else
@@ -190,7 +187,9 @@ begin  -- behavioural
                        --else
                        --  last_scan_code <= x"FE";
                        --end if;                    
-          when ParityBit =>  ps2state <= StopBit;
+          when ParityBit =>  ps2state <= Idle;  -- was StopBit.  See if
+                                                -- changing this fixed munching
+                                                -- of first bit of back-to-back bytes.
                              keymem_addr <= x"00";
                              keymem_data <= recent_scan_code_list_index;
                              keymem_write <= '1';
@@ -205,6 +204,11 @@ begin  -- behavioural
       -------------------------------------------------------------------------
       -- Update C64 CIA ports
       -------------------------------------------------------------------------
+      -- Whenever a PS2 key goes down, clear the appropriate bit(s) in the
+      -- matrix.  Whenever the corresponding key goes up, set the appropriate
+      -- bit(s) again.  This matrix can then be used to emulate the matrix for
+      -- interfacing with the CIAs.
+      
       -- Keyboard rows and joystick 1
       portb_out <= "11111111";
 
