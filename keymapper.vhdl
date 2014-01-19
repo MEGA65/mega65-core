@@ -17,15 +17,39 @@ entity keymapper is
     portb_in  : in  std_logic_vector(7 downto 0);
     portb_out : out std_logic_vector(7 downto 0);
 
-    last_scan_code : out unsigned(7 downto 0) := x"FF"
+    last_scan_code : out unsigned(7 downto 0) := x"FF";
+
+    ---------------------------------------------------------------------------
+    -- Fastio interface to recent keyboard scan codes
+    ---------------------------------------------------------------------------    
+    fastio_address : in std_logic_vector(19 downto 0);
+    fastio_write : in std_logic;
+    fastio_wdata : in std_logic_vector(7 downto 0);
+    fastio_rdata : out std_logic_vector(7 downto 0)
     );
 
 end keymapper;
 
 architecture behavioural of keymapper is
 
+  component ram8x256 IS
+    PORT (
+      clka : IN STD_LOGIC;
+      ena : IN STD_LOGIC;
+      wea : IN STD_LOGIC_VECTOR(0 DOWNTO 0);
+      addra : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
+      dina : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
+      douta : OUT STD_LOGIC_VECTOR(7 DOWNTO 0);
+      clkb : IN STD_LOGIC;
+      web : IN STD_LOGIC_VECTOR(0 DOWNTO 0);
+      addrb : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
+      dinb : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
+      doutb : OUT STD_LOGIC_VECTOR(7 DOWNTO 0)
+      );
+  END component;
+
   type ps2_state is (Idle,StartBit,Bit0,Bit1,Bit2,Bit3,Bit4,Bit5,Bit6,Bit7,
-    ParityBit,StopBit);
+                     ParityBit,StopBit);
   signal ps2state : ps2_state := Idle;
 
   signal scan_code : unsigned(7 downto 0) := x"FF";
@@ -41,9 +65,46 @@ architecture behavioural of keymapper is
   
   signal ps2clock_prev : std_logic := '0';
 
-begin  -- behavioural
+  signal recent_scan_code_list_index : unsigned(7 downto 0) := x"01";
+
+  signal keymem_write : std_logic := '0';
+  signal keymem_addr : unsigned(7 downto 0) := x"00";
+  signal keymem_data : unsigned(7 downto 0) := x"00";
+
+  signal keymem_fastio_cs : std_logic;
   
-  -- purpose: read from ps2 keyboard interface
+begin  -- behavioural
+
+  keymem1: component ram8x256
+    port map (
+      -- Port for fastio system to read from.      
+      clka => clk,
+      ena => keymem_fastio_cs,
+      wea(0) => '0',
+      addra => fastio_address(7 downto 0),
+      dina => (others => '1'),
+      douta => fastio_rdata,
+
+      -- Port for us to write to
+      clkb => clk,
+      web(0) => keymem_write,
+      addrb => std_logic_vector(keymem_addr),
+      dinb => std_logic_vector(keymem_data)
+      );
+
+
+  -- Map recent key presses to $FFD4000 - $FFD40FF
+  -- (this is a read only register set)
+  fastio: process (fastio_address,fastio_write)
+  begin  -- process fastio
+    if fastio_address(19 downto 8) = x"FD40" and fastio_write='0' then
+      keymem_fastio_cs <= '1';
+    else
+      keymem_fastio_cs <= '0';
+    end if;
+  end process fastio;
+
+-- purpose: read from ps2 keyboard interface
   keyread: process (clk, ps2data,ps2clock)
   begin  -- process keyread
     if rising_edge(clk) then
@@ -69,6 +130,7 @@ begin  -- behavioural
         ps2timer <= 0;
         case ps2state is
           when Idle => ps2state <= StartBit; scan_code <= x"FF"; parity <= '0';
+                       keymem_write <= '0';
           when StartBit => ps2state <= Bit0; scan_code(0) <= ps2data;
                            parity <= parity xor ps2data;
           when Bit0 => ps2state <= Bit1; scan_code(1) <= ps2data;
@@ -89,11 +151,32 @@ begin  -- behavioural
                        -- if parity = ps2data then 
                        -- Valid PS2 symbol
                        last_scan_code <= scan_code;
+
+                       keymem_addr <= recent_scan_code_list_index;
+                       keymem_data <= scan_code;
+                       keymem_write <= '1';
+
+                       -- The memory of recent scan codes is 255 bytes long, as
+                       -- byte 00 is used to indicate the last entry written to
+                       -- As events can only arrive at <20KHz a reasonably written
+                       -- program can easily ensure it misses no key events,
+                       -- especially with a CPU at 64MHz.
+                       if recent_scan_code_list_index=x"FF" then
+                         recent_scan_code_list_index <= x"01";
+                       else
+                         recent_scan_code_list_index
+                           <= recent_scan_code_list_index + 1;
+                       end if;
                        --else
                        --  last_scan_code <= x"FE";
                        --end if;                    
-          when ParityBit =>  ps2state <= StopBit; 
+          when ParityBit =>  ps2state <= StopBit;
+                             keymem_addr <= x"00";
+                             keymem_data <= recent_scan_code_list_index;
+                             keymem_write <= '1';
+
           when StopBit => ps2state <= Idle;
+                          keymem_write <= '0';
         end case;        
       end if;
       

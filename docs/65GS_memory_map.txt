@@ -61,6 +61,7 @@ $FFF0.000 - $FFFB.FFF - Reserved (most likely will be used for ROMs).
 $FFE0.000 - $FFEF.FFF - Reserved (most likely will be used for ROMs).
 $FFD4.000 - $FFDF.FFF - Reserved for additional I/O (ethernet, USB,
 microSD etc)
+$FFD4.000 - $FFD4.0FF - Recent PS/2 compatible keyboard scan code bytes.
 $FFD3.000 - $FFD3.FFF - I/O page, with extra registers and features enabled.
 $FFD2.000 - $FFD2.FFF - C64-style I/O page, extra features enabled (eg REU).
 $FFD1.000 - $FFD1.FFF - C65-style I/O page, with extra registers enabled.
