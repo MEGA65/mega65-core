@@ -173,6 +173,11 @@ begin  -- behavioural
                        keymem_data <= scan_code;
                        keymem_write <= '1';
 
+                       -- XXX Make a little FSM to set bit 8 on E0 xx sequences
+                       -- so that we can have a 9-bit number to look up.
+                       -- XXX also work out when a key goes down versus up by F0
+                       -- byte.
+                       
                        -- The memory of recent scan codes is 255 bytes long, as
                        -- byte 00 is used to indicate the last entry written to
                        -- As events can only arrive at <20KHz a reasonably written
@@ -208,7 +213,43 @@ begin  -- behavioural
       -- matrix.  Whenever the corresponding key goes up, set the appropriate
       -- bit(s) again.  This matrix can then be used to emulate the matrix for
       -- interfacing with the CIAs.
+
+      -- We will use the VICE keyboard mapping so that we are default with the
+      -- keyrah2 C64 keyboard to USB adapter.
+
+      -- C64 keyboard matrix can be found at: http://sta.c64.org/cbm64kbdlay.html
+      --                                      $DC01 bits
+      --                0      1      2      3      4      5      6      7
+      -- $DC00 values  
+      -- Bit#0 $FE      Delete Return right  F7     F1     F3     F5     down
+      -- Bit#1 $FD      3      W      A      4      Z      S      E      left Shift
+      -- Bit#2 $FB      5      R      D      6      C      F      T      X
+      -- Bit#3 $F7      7      Y      G      8      B      H      U      V
+      -- Bit#4 $EF	9      I      J      0      M      K      O      N
+      -- Bit#5 $DF	+      P      L      –      .      :      @      ,
+      -- Bit#6 $BF      pound  *      ;	     Home   rshift =	  ↑	 /
+      -- Bit#7 $7F	1      ←      CTRL   2      Space  C=     Q      Run/Stop
+      -- RESTORE - Hardwire to NMI
       
+      -- Keyrah v2 claims to use default VICE matrix.  Yet to find that clearly
+      -- summarised.  Will probably just exhaustively explore it with my keyrah
+      -- when it arrives.
+
+      -- keyboard scancodes for the more normal keys from a keyboard I have here
+      -- (will replace these with the keyrah obtained ones)
+      --                                      $DC01 bits
+      --                0      1      2      3      4      5      6      7
+      -- $DC00 values  
+      -- Bit#0 $FE      E0 71  5A     E0 74  83     05     04     03     72
+      -- Bit#1 $FD      26     1D     1C     25     1A     1B     24     12
+      -- Bit#2 $FB      2E     2D     23     36     21     2B     2C     22
+      -- Bit#3 $F7      3D     35     34     3E     32     33     3C     2A
+      -- Bit#4 $EF	46     43     3B     45     3A     42     44     31
+      -- Bit#5 $DF	55     4D     4B     4E     49     54     5B     41
+      -- Bit#6 $BF      52     5D     4C     E0 6C  59     E0 69  75	 4A
+      -- Bit#7 $7F	16     6B     14     1E     29     11     15     76
+      -- RESTORE - 0E (`/~ key)
+
       -- Keyboard rows and joystick 1
       portb_out <= "11111111";
 
