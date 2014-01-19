@@ -102,7 +102,7 @@ begin  -- behavioural
     if fastio_address(19 downto 8) = x"FD5" and fastio_write='0' then
       keymem_fastio_cs <= '0';
       fastio_rdata <= fastio_address(7 downto 0);
-    if fastio_address(19 downto 8) = x"FD4" and fastio_write='0' then
+    elsif fastio_address(19 downto 8) = x"FD4" and fastio_write='0' then
       keymem_fastio_cs <= '1';
       fastio_rdata <= douta;
     else
