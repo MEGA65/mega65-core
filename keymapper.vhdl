@@ -120,6 +120,7 @@ begin  -- behavioural
 -- purpose: read from ps2 keyboard interface
   keyread: process (clk, ps2data,ps2clock)
     variable full_scan_code : std_logic_vector(11 downto 0);
+    variable portb_value : std_logic_vector(7 downto 0);
   begin  -- process keyread
     if rising_edge(clk) then
       -------------------------------------------------------------------------
@@ -211,13 +212,13 @@ begin  -- behavioural
 
                          case full_scan_code is
                            when x"1E0" => matrix(0) <= (matrix(0) and x"FE") or "0000000"&(not break);
-                           when x"05A" => matrix(0) <= (matrix(0) and x"FD") or "000000"&(not break)&"0";
-                           when x"174" => matrix(0) <= (matrix(0) and x"FB") or "00000"&(not break)&"00";
-                           when x"083" => matrix(0) <= (matrix(0) and x"F7") or "0000"&(not break)&"000";
-                           when x"005" => matrix(0) <= (matrix(0) and x"EF") or "000"&(not break)&"0000";
-                           when x"004" => matrix(0) <= (matrix(0) and x"DF") or "00"&(not break)&"00000";
-                           when x"003" => matrix(0) <= (matrix(0) and x"BF") or "0"&(not break)&"000000";
-                           when x"072" => matrix(0) <= (matrix(0) and x"7F") or (not break)&"0000000";
+                           when x"05A" => matrix(1) <= (matrix(1) and x"FD") or "000000"&(not break)&"0";
+                           when x"174" => matrix(2) <= (matrix(2) and x"FB") or "00000"&(not break)&"00";
+                           when x"083" => matrix(3) <= (matrix(3) and x"F7") or "0000"&(not break)&"000";
+                           when x"005" => matrix(4) <= (matrix(4) and x"EF") or "000"&(not break)&"0000";
+                           when x"004" => matrix(5) <= (matrix(5) and x"DF") or "00"&(not break)&"00000";
+                           when x"003" => matrix(6) <= (matrix(6) and x"BF") or "0"&(not break)&"000000";
+                           when x"072" => matrix(7) <= (matrix(7) and x"7F") or (not break)&"0000000";
                            when others => null;
                          end case;
                          
@@ -295,8 +296,21 @@ begin  -- behavioural
       -- Bit#7 $7F	16     6B     14     1E     29     11     15     76
       -- RESTORE - 0E (`/~ key)
 
+      -- C64 drives lines low on $DC00, and then reads $DC01
+      -- This means that we read from porta_in, to compute values for portb_out
+
+      portb_value := x"FF";
+      if porta_in(0)='0' then portb_value:=portb_value and matrix(0); end if;
+      if porta_in(1)='0' then portb_value:=portb_value and matrix(1); end if;
+      if porta_in(2)='0' then portb_value:=portb_value and matrix(2); end if;
+      if porta_in(3)='0' then portb_value:=portb_value and matrix(3); end if;
+      if porta_in(4)='0' then portb_value:=portb_value and matrix(4); end if;
+      if porta_in(5)='0' then portb_value:=portb_value and matrix(5); end if;
+      if porta_in(6)='0' then portb_value:=portb_value and matrix(6); end if;
+      if porta_in(7)='0' then portb_value:=portb_value and matrix(7); end if;
+      
       -- Keyboard rows and joystick 1
-      portb_out <= "11111111";
+      portb_out <= portb_value;
 
       -- Keyboard columns and joystick 2
       porta_out <= "11111111";
