@@ -35,6 +35,16 @@ flag:	 .byte 0
 	lda #$00
 	rol
 	sta $0400
+
+	jsr test01
+	sta $0405
+	stx $0406
+	sty $0407
+	; write contents of Carry Flag (carry clear marks success)
+	lda #$00
+	rol
+	sta $0404
+
 	rts
 
 test00:	; BRK implied mode (but with "virtual immediate" operand)
@@ -44,13 +54,13 @@ test00:	; BRK implied mode (but with "virtual immediate" operand)
 	tay
 	sta flag
 
-	; save IRQ vector
+	; save BRK vector
 	lda $0316
 	sta old_irq
 	lda $0317
 	sta old_irq+1
 
-	; insert our own IRQ routine
+	; insert our own BRK routine
 	lda #<brkirq
 	sta $0316
 	lda #>brkirq
@@ -66,13 +76,13 @@ test00:	; BRK implied mode (but with "virtual immediate" operand)
 	.byte $42
 brkreturnaddress:
 
-	; restore IRQ vector
+	; restore BRK vector
 	lda old_irq
 	sta $0316
 	lda old_irq+1
 	sta $0317
 
-	; check that IRQ routine was actually called.
+	; check that BRK routine was actually called.
 	lda flag
 	cmp #$01
 	bne brknoirq
@@ -86,20 +96,20 @@ brkreturnaddress:
 
 brknoirq:
 	lda #$01
-brkcommonerror:
+commonerror:
 	ldx #$00
 	ldy #$00
 	sec
 	rts
 brkflagwrong:
 	lda #$02
-	jmp brkcommonerror
+	jmp commonerror
 brkpclwrong:
 	lda #$03
-	jmp brkcommonerror
+	jmp commonerror
 brkpchwrong:
 	lda #$04
-	jmp brkcommonerror
+	jmp commonerror
 
 
 brkirq:	lda #$01
@@ -125,5 +135,60 @@ brkirq:	lda #$01
 	bne brkpchwrong
 	; Everything seems fine, go back to where we left off.
 	jmp brkreturnaddress
+
+test01: ; ORA ($xx,X)
+
+	; test with X zero
+	ldx #$00
+	lda #<flag
+	sta $fd
+	lda #>flag
+	sta $fe
+	lda #$55
+	sta flag
+	lda #$00
+	ORA ($fd,X)
+	cmp #$55
+	bne fail01a
+
+	; test with X non zero
+	lda #<flag
+	sta $fe
+	lda #>flag
+	sta $ff
+	lda #$aa
+	sta flag
+	ldx #$01
+	lda #$00
+	ORA ($fd,X)
+	cmp #$aa
+	bne fail01b
+	
+	; test wrapping around past the end of ZP
+	ldx #$ff
+	lda #$00
+	ORA ($ff,X)
+	cmp #$aa
+	bne fail01c
+	lda #$55
+	sta flag
+	lda #$00
+	ORA ($ff,X)
+	cmp #$55
+	bne fail01c
+
+	; all passed
+	lda #$00
+	tax
+	tay
+	clc
+	rts
+
+fail01a:	lda #$01
+		jmp commonerror
+fail01b:	lda #$02
+		jmp commonerror
+fail01c:	lda #$03
+		jmp commonerror
 
 .scend
