@@ -72,6 +72,8 @@ architecture behavioural of keymapper is
   signal keymem_data : unsigned(7 downto 0) := x"00";
 
   signal keymem_fastio_cs : std_logic;
+
+  signal douta : std_logic_vector(7 downto 0);
   
 begin  -- behavioural
 
@@ -83,7 +85,7 @@ begin  -- behavioural
       wea(0) => '0',
       addra => fastio_address(7 downto 0),
       dina => (others => '1'),
-      douta => fastio_rdata,
+      douta => douta,
 
       -- Port for us to write to
       clkb => clk,
@@ -99,8 +101,10 @@ begin  -- behavioural
   begin  -- process fastio
     if fastio_address(19 downto 8) = x"FD40" and fastio_write='0' then
       keymem_fastio_cs <= '1';
+      fastio_rdata <= douta;
     else
       keymem_fastio_cs <= '0';
+      fastio_rdata <= (others => 'Z');
     end if;
   end process fastio;
 
