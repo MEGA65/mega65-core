@@ -1115,7 +1115,8 @@ begin
   -- type   : combinational
   -- inputs : ram_bank_registers_read
   -- outputs: fastio_*
-  fastio: process (ram_bank_registers_read,fastio_addr,fastio_read)
+  fastio: process (ram_bank_registers_read,fastio_addr,fastio_read,
+                   irq,recent_states)
     variable address : unsigned(19 downto 0) := unsigned(fastio_addr);
     variable rwx : integer := to_integer(address(7 downto 5));
     variable lohi : std_logic := fastio_addr(0);
