@@ -799,7 +799,7 @@ begin
       when I_LSR => flag_c <= operand(0); rmw_operand_commit(address,operand,'0'&operand(7 downto 1));
       when I_ORA => reg_a <= with_nz(reg_a or operand);
       when I_ROL => flag_c <= operand(7); rmw_operand_commit(address,operand,operand(6 downto 0)&flag_c);
-      when I_ROR => flag_c <= operand(0); rmw_operand_commit(address,operand,_c&operandflag(7 downto 1));
+      when I_ROR => flag_c <= operand(0); rmw_operand_commit(address,operand,flag_c&operand(7 downto 1));
       when I_SBC => reg_a <= alu_op_sub(reg_a,operand);
       when I_STA => write_data_byte(address,reg_a,InstructionFetch);
       when I_STX => write_data_byte(address,reg_x,InstructionFetch);
