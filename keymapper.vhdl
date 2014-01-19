@@ -62,7 +62,10 @@ architecture behavioural of keymapper is
 
   signal ps2clock_samples : std_logic_vector(7 downto 0) := (others => '1');
   signal ps2clock_debounced : std_logic := '0';
-  
+
+  signal ps2data_samples : std_logic_vector(7 downto 0) := (others => '1');
+  signal ps2data_debounced : std_logic := '0';
+
   signal ps2clock_prev : std_logic := '0';
 
   signal recent_scan_code_list_index : unsigned(7 downto 0) := x"01";
@@ -141,8 +144,7 @@ begin  -- behavioural
       end if;
       
       ps2clock_prev <= ps2clock_debounced;
-      ps2clock <= ps2clock_prev;
-      if ((ps2clock = '0' and ps2clock_prev = '1') and ps2state=Idle) then
+      if ((ps2clock_debounced = '0' and ps2clock_prev = '1') and ps2state=Idle) then
         ps2timer <= 0;
         case ps2state is
           when Idle => ps2state <= StartBit; scan_code <= x"FF"; parity <= '0';
