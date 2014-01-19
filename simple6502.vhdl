@@ -796,7 +796,7 @@ begin
       when I_INC =>
         report "INC of $" & to_hstring(operand) & " to $" & to_hstring(operand+1) severity note;
         rmw_operand_commit(address,operand,(operand+1));
-      when I_LSR => flag_c <= operand(0); rmw_operand_commit(address,operand,operand'0'&(6 downto 0));
+      when I_LSR => flag_c <= operand(0); rmw_operand_commit(address,operand,operand'0'&(7 downto 1));
       when I_ORA => reg_a <= with_nz(reg_a or operand);
       when I_ROL => flag_c <= operand(7); rmw_operand_commit(address,operand,operand(6 downto 0)&flag_c);
       when I_ROR => flag_c <= operand(0); rmw_operand_commit(address,operand,operandflag_c&(7 downto 1));
