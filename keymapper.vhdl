@@ -144,7 +144,7 @@ begin  -- behavioural
       end if;
       
       ps2clock_prev <= ps2clock_debounced;
-      if ((ps2clock_debounced = '0' and ps2clock_prev = '1') and ps2state=Idle) then
+      if (ps2clock_debounced = '0' and ps2clock_prev = '1') then
         ps2timer <= 0;
         case ps2state is
           when Idle => ps2state <= StartBit; scan_code <= x"FF"; parity <= '0';
