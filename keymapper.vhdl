@@ -173,9 +173,6 @@ begin  -- behavioural
           when Bit7 => ps2state <= parityBit;
                        -- if parity = ps2data then 
                        -- Valid PS2 symbol
-                       if scan_code /= x"FF" then
-                         last_scan_code <= scan_code;                         
-                       end if;
 
                        keymem_addr <= recent_scan_code_list_index;
                        keymem_data <= scan_code;
@@ -299,6 +296,8 @@ begin  -- behavioural
       -- C64 drives lines low on $DC00, and then reads $DC01
       -- This means that we read from porta_in, to compute values for portb_out
 
+      last_scan_code <= unsigned(matrix(2));
+      
       portb_value := x"FF";
       if porta_in(0)='0' then portb_value:=portb_value and matrix(0); end if;
       if porta_in(1)='0' then portb_value:=portb_value and matrix(1); end if;

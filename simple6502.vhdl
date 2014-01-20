@@ -113,7 +113,7 @@ architecture Behavioural of simple6502 is
     ExecuteDirect,RMWCommit,            -- $1e
     Halt,WaitOneCycle,                  -- $20
     MonitorAccessDone,MonitorReadDone,   -- $22
-    Interrupt2,Interrupt3
+    Interrupt2,Interrupt3,FastIOWait
     );
   signal state : processor_state := ResetLow;  -- start processor in reset state
   -- For memory access we push the processor state to follow once the memory
@@ -355,8 +355,13 @@ begin
       accessing_fastio <= '1';
       fastio_addr <= std_logic_vector(long_address(19 downto 0));
       fastio_read <= '1';
-      -- No wait states in fastio system, so proceed directly to next state
-      state <= next_state;
+      -- XXX Some fastio (that referencing dual-port block rams) does require
+      -- a wait state.  For now, just apply the wait state to all fastio
+      -- addresses.
+      -- Eventually can narrow down to colour ram, palette and some of the other
+      -- IO features that use dual-port rams to provide access.
+      pending_state <= next_state;
+      state <= FastIOWait;
     else
       -- Don't let unmapped memory jam things up
       state <= next_state;
@@ -477,7 +482,7 @@ begin
   impure function read_data
     return unsigned is
   begin  -- read_data
-    if accessing_fastio='1' then
+    if accessing_fastio='1' then 
       return unsigned(fastio_rdata);
     elsif accessing_ram='1' then
       report "Extracting fastram value from 64-bit read $" & to_hstring(fastram_dataout) severity note;
@@ -902,8 +907,15 @@ begin
       monitor_sp <= std_logic_vector(reg_sp);
       
       -- Clear memory access interfaces
-      fastio_addr <= (others => '1');
-      fastio_read <= '0';
+      -- Allow fastio to continue reading to support 1 cycle wait state
+      -- for those fastio addresses that require it.
+      -- XXX This can have problems for reading from registers that have
+      -- special side effects.
+      accessing_fastio <= '0';
+      if accessing_fastio='0' then
+        fastio_addr <= (others => '1');
+        fastio_read <= '0';        
+      end if;
       fastio_write <= '0';
       fastram_read <= '0';
       fastram_write <= '0';
@@ -1102,6 +1114,7 @@ begin
             when RMWCommit => write_data_byte(reg_addr,reg_value,InstructionFetch);
 
             when WaitOneCycle => state <= pending_state;
+            when FastIOWait => state <= pending_state; accessing_fastio <= '1';
             when others =>
               -- Don't allow CPU to stay stuck
               state<= InstructionFetch;
