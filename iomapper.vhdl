@@ -163,9 +163,8 @@ begin
     std_logic_vector(fastio_rdata) => data_o,
     fastio_wdata => unsigned(data_i),
 
-    -- CIA ports not connected by default
-    portbin => (others => '1'),
-    portain => (others => '1'),
+    portbin => cia1portb_in,
+    portain => cia1porta_in,
     flagin => '1',
     spin => '1',
     countin => '1'
