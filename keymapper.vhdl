@@ -217,6 +217,33 @@ begin  -- behavioural
                            when x"003" => matrix(0) <= (matrix(0) and x"BF") or "0"&(not break)&"000000";
                            when x"072" => matrix(0) <= (matrix(0) and x"7F") or (not break)&"0000000";
 
+                           when x"026" => matrix(1) <= (matrix(1) and x"FE") or "0000000"&(not break);
+                           when x"01D" => matrix(1) <= (matrix(1) and x"FD") or "000000"&(not break)&"0";
+                           when x"01C" => matrix(1) <= (matrix(1) and x"FB") or "00000"&(not break)&"00";
+                           when x"025" => matrix(1) <= (matrix(1) and x"F7") or "0000"&(not break)&"000";
+                           when x"01A" => matrix(1) <= (matrix(1) and x"EF") or "000"&(not break)&"0000";
+                           when x"01B" => matrix(1) <= (matrix(1) and x"DF") or "00"&(not break)&"00000";
+                           when x"024" => matrix(1) <= (matrix(1) and x"BF") or "0"&(not break)&"000000";
+                           when x"012" => matrix(1) <= (matrix(1) and x"7F") or (not break)&"0000000";                                          
+                                                                                    
+                           when x"02E" => matrix(2) <= (matrix(2) and x"FE") or "0000000"&(not break);
+                           when x"02D" => matrix(2) <= (matrix(2) and x"FD") or "000000"&(not break)&"0";
+                           when x"023" => matrix(2) <= (matrix(2) and x"FB") or "00000"&(not break)&"00";
+                           when x"036" => matrix(2) <= (matrix(2) and x"F7") or "0000"&(not break)&"000";
+                           when x"021" => matrix(2) <= (matrix(2) and x"EF") or "000"&(not break)&"0000";
+                           when x"02B" => matrix(2) <= (matrix(2) and x"DF") or "00"&(not break)&"00000";
+                           when x"02C" => matrix(2) <= (matrix(2) and x"BF") or "0"&(not break)&"000000";
+                           when x"022" => matrix(2) <= (matrix(2) and x"7F") or (not break)&"0000000";
+
+                           when x"03D" => matrix(3) <= (matrix(3) and x"FE") or "0000000"&(not break);
+                           when x"035" => matrix(3) <= (matrix(3) and x"FD") or "000000"&(not break)&"0";
+                           when x"034" => matrix(3) <= (matrix(3) and x"FB") or "00000"&(not break)&"00";
+                           when x"03E" => matrix(3) <= (matrix(3) and x"F7") or "0000"&(not break)&"000";
+                           when x"032" => matrix(3) <= (matrix(3) and x"EF") or "000"&(not break)&"0000";
+                           when x"033" => matrix(3) <= (matrix(3) and x"DF") or "00"&(not break)&"00000";
+                           when x"03C" => matrix(3) <= (matrix(3) and x"BF") or "0"&(not break)&"000000";
+                           when x"02A" => matrix(3) <= (matrix(3) and x"7F") or (not break)&"0000000";                                          
+                                          
                            when x"046" => matrix(4) <= (matrix(4) and x"FE") or "0000000"&(not break);
                            when x"043" => matrix(4) <= (matrix(4) and x"FD") or "000000"&(not break)&"0";
                            when x"03B" => matrix(4) <= (matrix(4) and x"FB") or "00000"&(not break)&"00";
