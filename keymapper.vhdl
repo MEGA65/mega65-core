@@ -192,7 +192,7 @@ begin  -- behavioural
                          break <= '0';
                          extended <= '0';
 
-                         last_scan_code <= break&"00"&unsigned(full_scan_code);
+                         last_scan_code <= break&"00"&unsigned(full_scan_code(8 downto 0));
                          
                          -- keyboard scancodes for the more normal keys from a keyboard I have here
                          -- (will replace these with the keyrah obtained ones)
