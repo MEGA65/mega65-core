@@ -118,10 +118,29 @@ architecture behavioural of cia6526 is
   -- 187 ticks at 192MHz gives 1026738Hz.
   -- So the pixel clock would be better.
   signal phi0 : std_logic := '0';
-  
-begin  -- behavioural
 
+begin  -- behavioural
+  
   process(cpuclock,fastio_addr,flagin,cs) is
+    -- purpose: use DDR to show either input or output bits
+  function ddr_pick (
+    ddr                            : in std_logic_vector(7 downto 0);
+    i                              : in std_logic_vector(7 downto 0);
+    o                              : in std_logic_vector(7 downto 0))
+    return unsigned is
+    variable result : unsigned(7 downto 0);
+  begin  -- ddr_pick
+    for b in 0 to 7 loop
+      if ddr(b)='1' then
+        -- XXX implement external pull down of output bits?
+        result(b) := std_ulogic(o(b));
+      else
+        result(b) := std_ulogic(i(b));
+      end if;
+    end loop;  -- b
+    return result;
+  end ddr_pick;
+
     variable register_number : unsigned(3 downto 0) := fastio_addr(3 downto 0);
   begin
     if cs='0' then
@@ -168,8 +187,10 @@ begin  -- behavioural
           if fastio_write='1' then
             case register_number is
               when x"0" => portaout<=std_logic_vector(fastio_wdata);
+                           reg_porta_out<=std_logic_vector(fastio_wdata);
               when x"1" =>
                 portbout<=std_logic_vector(fastio_wdata);
+                reg_portb_out<=std_logic_vector(fastio_wdata);
                 pcout<='1';
                 strobe_pc<='1';
               when x"2" => reg_porta_ddr<=std_logic_vector(fastio_wdata);
@@ -257,8 +278,8 @@ begin  -- behavioural
           fastio_rdata <= (others => 'Z');
         else
           case register_number is
-            when x"0" => fastio_rdata <= unsigned(portain);
-            when x"1" => fastio_rdata <= unsigned(portbin);
+            when x"0" => fastio_rdata <= ddr_pick(reg_porta_ddr,portain,reg_porta_out);
+            when x"1" => fastio_rdata <= ddr_pick(reg_portb_ddr,portbin,reg_portb_out);
             when x"2" => fastio_rdata <= unsigned(reg_porta_ddr);
             when x"3" => fastio_rdata <= unsigned(reg_portb_ddr);
             when x"4" => fastio_rdata <= reg_timera(7 downto 0);
