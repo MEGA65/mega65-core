@@ -163,6 +163,8 @@ begin
     std_logic_vector(fastio_rdata) => data_o,
     fastio_wdata => unsigned(data_i),
 
+    portaout => cia1porta_out,
+    portbout => cia1portb_out,
     portbin => cia1portb_in,
     portain => cia1porta_in,
     flagin => '1',
