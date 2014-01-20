@@ -212,78 +212,79 @@ begin  -- behavioural
                          -- RESTORE - 0E (`/~ key)
 
                          case full_scan_code is
-                           when x"1E0" => matrix(0) <= (matrix(0) and x"FE") or "0000000"&(not break);
-                           when x"05A" => matrix(0) <= (matrix(0) and x"FD") or "000000"&(not break)&"0";
-                           when x"174" => matrix(0) <= (matrix(0) and x"FB") or "00000"&(not break)&"00";
-                           when x"083" => matrix(0) <= (matrix(0) and x"F7") or "0000"&(not break)&"000";
-                           when x"005" => matrix(0) <= (matrix(0) and x"EF") or "000"&(not break)&"0000";
-                           when x"004" => matrix(0) <= (matrix(0) and x"DF") or "00"&(not break)&"00000";
-                           when x"003" => matrix(0) <= (matrix(0) and x"BF") or "0"&(not break)&"000000";
-                           when x"072" => matrix(0) <= (matrix(0) and x"7F") or (not break)&"0000000";
+                           when x"1E0" => matrix(0) <= (matrix(0) and x"FE") or "0000000"&break;
+                           when x"05A" => matrix(0) <= (matrix(0) and x"FD") or "000000"&break&"0";
+                           when x"174" => matrix(0) <= (matrix(0) and x"FB") or "00000"&break&"00";
+                           when x"083" => matrix(0) <= (matrix(0) and x"F7") or "0000"&break&"000";
+                           when x"005" => matrix(0) <= (matrix(0) and x"EF") or "000"&break&"0000";
+                           when x"004" => matrix(0) <= (matrix(0) and x"DF") or "00"&break&"00000";
+                           when x"003" => matrix(0) <= (matrix(0) and x"BF") or "0"&break&"000000";
+                           when x"072" => matrix(0) <= (matrix(0) and x"7F") or break&"0000000";
 
-                           when x"026" => matrix(1) <= (matrix(1) and x"FE") or "0000000"&(not break);
-                           when x"01D" => matrix(1) <= (matrix(1) and x"FD") or "000000"&(not break)&"0";
-                           when x"01C" => matrix(1) <= (matrix(1) and x"FB") or "00000"&(not break)&"00";
-                           when x"025" => matrix(1) <= (matrix(1) and x"F7") or "0000"&(not break)&"000";
-                           when x"01A" => matrix(1) <= (matrix(1) and x"EF") or "000"&(not break)&"0000";
-                           when x"01B" => matrix(1) <= (matrix(1) and x"DF") or "00"&(not break)&"00000";
-                           when x"024" => matrix(1) <= (matrix(1) and x"BF") or "0"&(not break)&"000000";
-                           when x"012" => matrix(1) <= (matrix(1) and x"7F") or (not break)&"0000000";                                          
-                                                                                    
-                           when x"02E" => matrix(2) <= (matrix(2) and x"FE") or "0000000"&(not break);
-                           when x"02D" => matrix(2) <= (matrix(2) and x"FD") or "000000"&(not break)&"0";
-                           when x"023" => matrix(2) <= (matrix(2) and x"FB") or "00000"&(not break)&"00";
-                           when x"036" => matrix(2) <= (matrix(2) and x"F7") or "0000"&(not break)&"000";
-                           when x"021" => matrix(2) <= (matrix(2) and x"EF") or "000"&(not break)&"0000";
-                           when x"02B" => matrix(2) <= (matrix(2) and x"DF") or "00"&(not break)&"00000";
-                           when x"02C" => matrix(2) <= (matrix(2) and x"BF") or "0"&(not break)&"000000";
-                           when x"022" => matrix(2) <= (matrix(2) and x"7F") or (not break)&"0000000";
+                           when x"026" => matrix(1) <= (matrix(1) and x"FE") or "0000000"&break;
+                           when x"01D" => matrix(1) <= (matrix(1) and x"FD") or "000000"&break&"0";
+                           when x"01C" => matrix(1) <= (matrix(1) and x"FB") or "00000"&break&"00";
+                           when x"025" => matrix(1) <= (matrix(1) and x"F7") or "0000"&break&"000";
+                           when x"01A" => matrix(1) <= (matrix(1) and x"EF") or "000"&break&"0000";
+                           when x"01B" => matrix(1) <= (matrix(1) and x"DF") or "00"&break&"00000";
+                           when x"024" => matrix(1) <= (matrix(1) and x"BF") or "0"&break&"000000";
+                           when x"012" => matrix(1) <= (matrix(1) and x"7F") or break&"0000000";                                          
+                                          
+                           when x"02E" => matrix(2) <= (matrix(2) and x"FE") or "0000000"&break;
+                           when x"02D" => matrix(2) <= (matrix(2) and x"FD") or "000000"&break&"0";
+                           when x"023" => matrix(2) <= (matrix(2) and x"FB") or "00000"&break&"00";
+                           when x"036" => matrix(2) <= (matrix(2) and x"F7") or "0000"&break&"000";
+                           when x"021" => matrix(2) <= (matrix(2) and x"EF") or "000"&break&"0000";
+                           when x"02B" => matrix(2) <= (matrix(2) and x"DF") or "00"&break&"00000";
+                           when x"02C" => matrix(2) <= (matrix(2) and x"BF") or "0"&break&"000000";
+                           when x"022" => matrix(2) <= (matrix(2) and x"7F") or break&"0000000";
 
-                           when x"03D" => matrix(3) <= (matrix(3) and x"FE") or "0000000"&(not break);
-                           when x"035" => matrix(3) <= (matrix(3) and x"FD") or "000000"&(not break)&"0";
-                           when x"034" => matrix(3) <= (matrix(3) and x"FB") or "00000"&(not break)&"00";
-                           when x"03E" => matrix(3) <= (matrix(3) and x"F7") or "0000"&(not break)&"000";
-                           when x"032" => matrix(3) <= (matrix(3) and x"EF") or "000"&(not break)&"0000";
-                           when x"033" => matrix(3) <= (matrix(3) and x"DF") or "00"&(not break)&"00000";
-                           when x"03C" => matrix(3) <= (matrix(3) and x"BF") or "0"&(not break)&"000000";
-                           when x"02A" => matrix(3) <= (matrix(3) and x"7F") or (not break)&"0000000";                                          
+                           when x"03D" => matrix(3) <= (matrix(3) and x"FE") or "0000000"&break;
+                           when x"035" => matrix(3) <= (matrix(3) and x"FD") or "000000"&break&"0";
+                           when x"034" => matrix(3) <= (matrix(3) and x"FB") or "00000"&break&"00";
+                           when x"03E" => matrix(3) <= (matrix(3) and x"F7") or "0000"&break&"000";
+                           when x"032" => matrix(3) <= (matrix(3) and x"EF") or "000"&break&"0000";
+                           when x"033" => matrix(3) <= (matrix(3) and x"DF") or "00"&break&"00000";
+                           when x"03C" => matrix(3) <= (matrix(3) and x"BF") or "0"&break&"000000";
+                           when x"02A" => matrix(3) <= (matrix(3) and x"7F") or break&"0000000";                                          
                                           
-                           when x"046" => matrix(4) <= (matrix(4) and x"FE") or "0000000"&(not break);
-                           when x"043" => matrix(4) <= (matrix(4) and x"FD") or "000000"&(not break)&"0";
-                           when x"03B" => matrix(4) <= (matrix(4) and x"FB") or "00000"&(not break)&"00";
-                           when x"045" => matrix(4) <= (matrix(4) and x"F7") or "0000"&(not break)&"000";
-                           when x"03A" => matrix(4) <= (matrix(4) and x"EF") or "000"&(not break)&"0000";
-                           when x"042" => matrix(4) <= (matrix(4) and x"DF") or "00"&(not break)&"00000";
-                           when x"044" => matrix(4) <= (matrix(4) and x"BF") or "0"&(not break)&"000000";
-                           when x"031" => matrix(4) <= (matrix(4) and x"7F") or (not break)&"0000000";
+                           when x"046" => matrix(4) <= (matrix(4) and x"FE") or "0000000"&break;
+                           when x"043" => matrix(4) <= (matrix(4) and x"FD") or "000000"&break&"0";
+                           when x"03B" => matrix(4) <= (matrix(4) and x"FB") or "00000"&break&"00";
+                           when x"045" => matrix(4) <= (matrix(4) and x"F7") or "0000"&break&"000";
+                           when x"03A" => matrix(4) <= (matrix(4) and x"EF") or "000"&break&"0000";
+                           when x"042" => matrix(4) <= (matrix(4) and x"DF") or "00"&break&"00000";
+                           when x"044" => matrix(4) <= (matrix(4) and x"BF") or "0"&break&"000000";
+                           when x"031" => matrix(4) <= (matrix(4) and x"7F") or break&"0000000";
                                           
-                           when x"055" => matrix(5) <= (matrix(5) and x"FE") or "0000000"&(not break);
-                           when x"04D" => matrix(5) <= (matrix(5) and x"FD") or "000000"&(not break)&"0";
-                           when x"04B" => matrix(5) <= (matrix(5) and x"FB") or "00000"&(not break)&"00";
-                           when x"04E" => matrix(5) <= (matrix(5) and x"F7") or "0000"&(not break)&"000";
-                           when x"049" => matrix(5) <= (matrix(5) and x"EF") or "000"&(not break)&"0000";
-                           when x"054" => matrix(5) <= (matrix(5) and x"DF") or "00"&(not break)&"00000";
-                           when x"05B" => matrix(5) <= (matrix(5) and x"BF") or "0"&(not break)&"000000";
-                           when x"041" => matrix(5) <= (matrix(5) and x"7F") or (not break)&"0000000";
+                           when x"055" => matrix(5) <= (matrix(5) and x"FE") or "0000000"&break;
+                           when x"04D" => matrix(5) <= (matrix(5) and x"FD") or "000000"&break&"0";
+                           when x"04B" => matrix(5) <= (matrix(5) and x"FB") or "00000"&break&"00";
+                           when x"04E" => matrix(5) <= (matrix(5) and x"F7") or "0000"&break&"000";
+                           when x"049" => matrix(5) <= (matrix(5) and x"EF") or "000"&break&"0000";
+                           when x"054" => matrix(5) <= (matrix(5) and x"DF") or "00"&break&"00000";
+                           when x"05B" => matrix(5) <= (matrix(5) and x"BF") or "0"&break&"000000";
+                           when x"041" => matrix(5) <= (matrix(5) and x"7F") or break&"0000000";
                                           
-                           when x"052" => matrix(6) <= (matrix(6) and x"FE") or "0000000"&(not break);
-                           when x"05D" => matrix(6) <= (matrix(6) and x"FD") or "000000"&(not break)&"0";
-                           when x"04C" => matrix(6) <= (matrix(6) and x"FB") or "00000"&(not break)&"00";
-                           when x"16C" => matrix(6) <= (matrix(6) and x"F7") or "0000"&(not break)&"000";
-                           when x"059" => matrix(6) <= (matrix(6) and x"EF") or "000"&(not break)&"0000";
-                           when x"169" => matrix(6) <= (matrix(6) and x"DF") or "00"&(not break)&"00000";
-                           when x"075" => matrix(6) <= (matrix(6) and x"BF") or "0"&(not break)&"000000";
-                           when x"04A" => matrix(6) <= (matrix(6) and x"7F") or (not break)&"0000000";
+                           when x"052" => matrix(6) <= (matrix(6) and x"FE") or "0000000"&break;
+                           when x"05D" => matrix(6) <= (matrix(6) and x"FD") or "000000"&break&"0";
+                           when x"04C" => matrix(6) <= (matrix(6) and x"FB") or "00000"&break&"00";
+                           when x"16C" => matrix(6) <= (matrix(6) and x"F7") or "0000"&break&"000";
+                           when x"059" => matrix(6) <= (matrix(6) and x"EF") or "000"&break&"0000";
+                           when x"169" => matrix(6) <= (matrix(6) and x"DF") or "00"&break&"00000";
+                           when x"075" => matrix(6) <= (matrix(6) and x"BF") or "0"&break&"000000";
+                           when x"04A" => matrix(6) <= (matrix(6) and x"7F") or break&"0000000";
 
-                           when x"016" => matrix(7) <= (matrix(7) and x"FE") or "0000000"&(not break);
-                           when x"06B" => matrix(7) <= (matrix(7) and x"FD") or "000000"&(not break)&"0";
-                           when x"014" => matrix(7) <= (matrix(7) and x"FB") or "00000"&(not break)&"00";
-                           when x"01E" => matrix(7) <= (matrix(7) and x"F7") or "0000"&(not break)&"000";
-                           when x"029" => matrix(7) <= (matrix(7) and x"EF") or "000"&(not break)&"0000";
-                           when x"011" => matrix(7) <= (matrix(7) and x"DF") or "00"&(not break)&"00000";
-                           when x"015" => matrix(7) <= (matrix(7) and x"BF") or "0"&(not break)&"000000";
-                           when x"076" => matrix(7) <= (matrix(7) and x"7F") or (not break)&"0000000";
-when others => null;
+                           when x"016" => matrix(7) <= (matrix(7) and x"FE") or "0000000"&break;
+                           when x"06B" => matrix(7) <= (matrix(7) and x"FD") or "000000"&break&"0";
+                           when x"014" => matrix(7) <= (matrix(7) and x"FB") or "00000"&break&"00";
+                           when x"01E" => matrix(7) <= (matrix(7) and x"F7") or "0000"&break&"000";
+                           when x"029" => matrix(7) <= (matrix(7) and x"EF") or "000"&break&"0000";
+                           when x"011" => matrix(7) <= (matrix(7) and x"DF") or "00"&break&"00000";
+                           when x"015" => matrix(7) <= (matrix(7) and x"BF") or "0"&break&"000000";
+                           when x"076" => matrix(7) <= (matrix(7) and x"7F") or break&"0000000";
+
+                           when others => null;
                          end case;
                          
                        end if;
@@ -313,9 +314,8 @@ when others => null;
                           keymem_write <= '0';
           when others => ps2state <= Idle;
         end case;        
-      end if;
-      
-      
+      end if;      
+
       -------------------------------------------------------------------------
       -- Update C64 CIA ports
       -------------------------------------------------------------------------
@@ -378,7 +378,6 @@ when others => null;
 
       -- Keyboard columns and joystick 2
       porta_out <= "11111111";
-
     end if;
   end process keyread;
 
