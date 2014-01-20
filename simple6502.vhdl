@@ -360,8 +360,17 @@ begin
       -- addresses.
       -- Eventually can narrow down to colour ram, palette and some of the other
       -- IO features that use dual-port rams to provide access.
-      pending_state <= next_state;
-      state <= FastIOWait;
+      -- Probably easier just to make the single-port ROM portion of fastio fast,
+      -- and assume all else is slow, as there are many pieces of fastio that need
+      -- a wait state.
+      -- So let's just make the top 128KB of fastio fast, and assume the rest needs
+      -- the wait state.
+      if long_address(19 downto 17)="111" then 
+         state <= next_state;
+      else
+        pending_state <= next_state;
+        state <= FastIOWait;
+      end if;
     else
       -- Don't let unmapped memory jam things up
       state <= next_state;
