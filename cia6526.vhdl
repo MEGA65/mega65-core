@@ -197,8 +197,8 @@ begin  -- behavioural
               when x"3" => reg_portb_ddr<=std_logic_vector(fastio_wdata);
               when x"4" => reg_timera_latch(7 downto 0) <= fastio_wdata;
               when x"5" => reg_timera_latch(15 downto 8) <= fastio_wdata;
-              when x"6" => reg_timera_latch(7 downto 0) <= fastio_wdata;
-              when x"7" => reg_timera_latch(15 downto 8) <= fastio_wdata;
+              when x"6" => reg_timerb_latch(7 downto 0) <= fastio_wdata;
+              when x"7" => reg_timerb_latch(15 downto 8) <= fastio_wdata;
               when x"8" =>
                 if reg_tod_alarm_edit ='0' then
                   reg_tod_dsecs <= fastio_wdata; tod_running<='1';
