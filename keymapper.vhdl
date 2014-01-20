@@ -269,9 +269,9 @@ begin  -- behavioural
       -- Bit#2 $FB      5      R      D      6      C      F      T      X
       -- Bit#3 $F7      7      Y      G      8      B      H      U      V
       -- Bit#4 $EF	9      I      J      0      M      K      O      N
-      -- Bit#5 $DF	+      P      L      –      .      :      @      ,
-      -- Bit#6 $BF      pound  *      ;	     Home   rshift =	  ↑	 /
-      -- Bit#7 $7F	1      ←      CTRL   2      Space  C=     Q      Run/Stop
+      -- Bit#5 $DF	+      P      L      minus  .      :      @      ,
+      -- Bit#6 $BF      pound  *      ;	     Home   rshift =	  ^	 slash
+      -- Bit#7 $7F	1      _      CTRL   2      Space  C=     Q      Run/Stop
       -- RESTORE - Hardwire to NMI
       
       -- Keyrah v2 claims to use default VICE matrix.  Yet to find that clearly
