@@ -17,7 +17,7 @@ entity keymapper is
     portb_in  : in  std_logic_vector(7 downto 0);
     portb_out : out std_logic_vector(7 downto 0);
 
-    last_scan_code : out unsigned(7 downto 0) := x"FF";
+    last_scan_code : out unsigned(11 downto 0) := x"0FF";
 
     ---------------------------------------------------------------------------
     -- Fastio interface to recent keyboard scan codes
@@ -191,6 +191,8 @@ begin  -- behavioural
                          full_scan_code := "000" & extended & std_logic_vector(scan_code);
                          break <= '0';
                          extended <= '0';
+
+                         last_scan_code <= break&"00"&unsigned(full_scan_code);
                          
                          -- keyboard scancodes for the more normal keys from a keyboard I have here
                          -- (will replace these with the keyrah obtained ones)
@@ -358,8 +360,6 @@ when others => null;
 
       -- C64 drives lines low on $DC00, and then reads $DC01
       -- This means that we read from porta_in, to compute values for portb_out
-
-      last_scan_code <= unsigned(matrix(2));
       
       portb_value := x"FF";
       if porta_in(0)='0' then portb_value:=portb_value and matrix(0); end if;

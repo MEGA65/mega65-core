@@ -18,7 +18,7 @@ entity iomapper is
 
         ps2data : in std_logic;
         ps2clock : in std_logic;
-        last_scan_code : out unsigned(7 downto 0);
+        last_scan_code : out unsigned(11 downto 0);
         
         colourram_at_dc00 : in std_logic
         );
@@ -97,7 +97,7 @@ architecture behavioral of iomapper is
       portb_in  : in  std_logic_vector(7 downto 0);
       portb_out : out std_logic_vector(7 downto 0);
 
-      last_scan_code : out unsigned(7 downto 0);
+      last_scan_code : out unsigned(11 downto 0);
 
       ---------------------------------------------------------------------------
       -- Fastio interface to recent keyboard scan codes
