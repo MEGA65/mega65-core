@@ -94,20 +94,20 @@ brkreturnaddress:
 	tay
 	rts
 
-brknoirq:
+signalerror1:
 	lda #$01
 commonerror:
 	ldx #$00
 	ldy #$00
 	sec
 	rts
-brkflagwrong:
+signalerror2:
 	lda #$02
 	jmp commonerror
-brkpclwrong:
+signalerror3:
 	lda #$03
 	jmp commonerror
-brkpchwrong:
+signalerror4:
 	lda #$04
 	jmp commonerror
 
@@ -184,11 +184,10 @@ test01: ; ORA ($xx,X)
 	clc
 	rts
 
-fail01a:	lda #$01
-		jmp commonerror
-fail01b:	lda #$02
-		jmp commonerror
-fail01c:	lda #$03
-		jmp commonerror
+fail01a:	jmp signalerror1
+fail01b:	jmp signalerror2
+fail01c:	jmp signalerror3
+
+
 
 .scend
