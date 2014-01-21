@@ -1075,7 +1075,7 @@ begin
             when PLP1 => load_processor_flags(read_data); state <= InstructionFetch;
             when RTI1 => load_processor_flags(read_data); pull_byte(RTI2);
             when RTI2 => reg_pc(7 downto 0) <= read_data; pull_byte(RTI3);
-            when RTI3 => reg_pc <= reg_pc(15 downto 8) & read_data;
+            when RTI3 => reg_pc <= read_data & reg_pc(7 downto 0);
                          state<=InstructionFetch;
             when RTS1 => reg_pc(7 downto 0) <= read_data; pull_byte(RTS2);
             when RTS2 => reg_pc <= (read_data & reg_pc(7 downto 0))+1;
