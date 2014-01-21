@@ -84,7 +84,7 @@ begin  -- behavioural
       end if;
       -- Wait for most of a bit after receiving a byte before going back
       -- to idle state
-      if bit_timer = 0 and rx_state = WaitForRise then
+      if (bit_timer = 0 or uart_rx = '1') and rx_state = WaitForRise then
         rx_state <= Idle;
       end if;
     end if;
