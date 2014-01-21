@@ -167,7 +167,7 @@ begin
     clk     => clk,
     address => address(12 downto 0),
     we      => w,
-    cs      => basic64cs,
+    cs      => hesmonc000cs,
     data_i  => data_i,
     data_o  => data_o);
   
