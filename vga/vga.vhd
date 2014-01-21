@@ -445,6 +445,8 @@ begin
     variable colour_ram_cs_var : std_logic := '0';
   begin
 
+    fastio_rdata <= (others => 'Z');    
+
     -- C65/VIC-III style 1Hz blink attribute clock
     if rising_edge(cpuclock) then
       viciii_blink_phase_counter <= viciii_blink_phase_counter + 1;
