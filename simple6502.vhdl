@@ -873,7 +873,7 @@ begin
       -- Treat jump instructions specially, since they are rather different to
       -- the rest.
     elsif i=I_JSR then
-      reg_pc <= arg2 & arg1; push_byte(reg_pc_jsr(7 downto 0),JSR1);
+      reg_pc <= arg2 & arg1; push_byte(reg_pc_jsr(15 downto 8),JSR1);
     elsif i=I_JMP and mode=M_absolute then
       reg_pc <= arg2 & arg1; state<=InstructionFetch;
     elsif i=I_JMP and mode=M_indirect then
@@ -1075,12 +1075,12 @@ begin
             when PLP1 => load_processor_flags(read_data); state <= InstructionFetch;
             when RTI1 => load_processor_flags(read_data); pull_byte(RTI2);
             when RTI2 => reg_pc(15 downto 8) <= read_data; pull_byte(RTI3);
-            when RTI3 => reg_pc <= (reg_pc(15 downto 8) & read_data)+1;
+            when RTI3 => reg_pc <= reg_pc(15 downto 8) & read_data;
                          state<=InstructionFetch;
-            when RTS1 => reg_pc(15 downto 8) <= read_data; pull_byte(RTS2);
-            when RTS2 => reg_pc <= (reg_pc(15 downto 8) & read_data)+1;
+            when RTS1 => reg_pc(7 downto 0) <= read_data; pull_byte(RTS2);
+            when RTS2 => reg_pc <= (read_data & reg_pc(15 downto 8))+1;
                          state<=InstructionFetch;
-            when JSR1 => push_byte(reg_pc_jsr(15 downto 8),InstructionFetch);
+            when JSR1 => push_byte(reg_pc_jsr(7 downto 0),InstructionFetch);
             when JMP1 =>
               -- Add a wait state to see if it fixes our problem with not loading
               -- addresses properly for indirect jump
