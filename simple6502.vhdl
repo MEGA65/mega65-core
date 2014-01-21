@@ -291,6 +291,11 @@ begin
     ram_bank_registers_write(11) <= x"000B";
     ram_bank_registers_instructions(11) <= x"FFEB";
 
+    -- For debugging, HESMON at $C000-$CFFF
+    ram_bank_registers_read(10) <= x"FFEC";
+    ram_bank_registers_write(10) <= x"FFEC";
+    ram_bank_registers_instructions(10) <= x"FFEC";
+    
     -- For simulation: our own rom at $E000 - $FFFF, also mapping to $0000-$0FFF
     -- since fastram doesn't work in simulation with GHDL.
     --ram_bank_registers_read(14) <= x"FFFE";

@@ -52,6 +52,16 @@ architecture behavioral of iomapper is
       data_i : in std_logic_vector(7 downto 0);
       data_o : out std_logic_vector(7 downto 0));
   end component;
+  component hesmonc000 is
+    port (
+      Clk : in std_logic;
+      address : in std_logic_vector(12 downto 0);
+      we : in std_logic;
+      cs : in std_logic;
+      data_i : in std_logic_vector(7 downto 0);
+      data_o : out std_logic_vector(7 downto 0));
+  end component;
+
   component cia6526 is
     port (
       cpuclock : in std_logic;
@@ -114,6 +124,7 @@ architecture behavioral of iomapper is
   signal kernel65cs : std_logic;
   signal kernel64cs : std_logic;
   signal basic64cs : std_logic;
+  signal hesmonc000cs : std_logic;
 
   signal clock50hz : std_logic := '1';
   constant divisor50hz : integer := 640000; -- 64MHz/50Hz/2;
@@ -152,6 +163,14 @@ begin
     data_i  => data_i,
     data_o  => data_o);
 
+  hesmonc000rom : hesmonc000 port map (
+    clk     => clk,
+    address => address(12 downto 0),
+    we      => w,
+    cs      => basic64cs,
+    data_i  => data_i,
+    data_o  => data_o);
+  
   cia1: cia6526 port map (
     cpuclock => clk,
     todclock => clock50hz,
@@ -222,6 +241,11 @@ begin
         kernel64cs<= '1';
       else
         kernel64cs <='0';
+      end if;
+      if address(19 downto 12) = x"EC" then
+        hesmonc000cs<= '1';
+      else
+        hesmonc000cs <='0';
       end if;
       if address(19 downto 13)&'0' = x"EA" then
         basic64cs<= '1';
