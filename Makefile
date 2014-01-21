@@ -35,3 +35,6 @@ transfer:
 
 simulate:	bcdadder.vhdl alu6502.vhdl cpu6502.vhdl kernel65.vhdl kernel64.vhdl basic64.vhdl iomapper.vhdl container.vhd cpu_test.vhdl vga.vhd simple6502.vhdl debugtools.vhdl UART_TX_CTRL.vhd uart_rx.vhdl uart_monitor.vhdl machine.vhdl cia6526.vhdl keymapper.vhdl ghdl_ram8x64k.vhdl charrom.vhdl ghdl_ram64x16k.vhdl
 	ghdl -c kernel65.vhdl kernel64.vhdl basic64.vhdl iomapper.vhdl container.vhd cpu_test.vhdl vga.vhd simple6502.vhdl debugtools.vhdl UART_TX_CTRL.vhd uart_rx.vhdl uart_monitor.vhdl machine.vhdl cia6526.vhdl keymapper.vhdl ghdl_ram8x64k.vhdl charrom.vhdl ghdl_ram64x16k.vhdl -r cpu_test
+
+testcia:	tb_cia.vhdl cia6526.vhdl debugtools.vhdl
+	ghdl -c tb_cia.vhdl cia6526.vhdl debugtools.vhdl -r tb_cia
