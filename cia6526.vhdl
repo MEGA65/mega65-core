@@ -169,42 +169,42 @@ begin  -- behavioural
         case register_number is
           when x"0" => fastio_rdata <= ddr_pick(reg_porta_ddr,portain,reg_porta_out);
           when x"1" => -- fastio_rdata <= ddr_pick(reg_portb_ddr,portbin,reg_portb_out);
-                       if reg_portb_ddr(0)='1' and reg_portb_out(0)='1' then then
+                       if reg_portb_ddr(0)='1' and reg_portb_out(0)='1' then
                          fastio_rdata(0) <= '1';
                        else
                          fastio_rdata(0) <= portbin(0);
                        end if;
-                       if reg_portb_ddr(1)='1' and reg_portb_out(1)='1' then then
+                       if reg_portb_ddr(1)='1' and reg_portb_out(1)='1' then
                          fastio_rdata(1) <= '1';
                        else
                          fastio_rdata(1) <= portbin(1);
                        end if;
-                       if reg_portb_ddr(2)='1' and reg_portb_out(2)='1' then then
+                       if reg_portb_ddr(2)='1' and reg_portb_out(2)='1' then
                          fastio_rdata(2) <= '1';
                        else
                          fastio_rdata(2) <= portbin(2);
                        end if;
-                       if reg_portb_ddr(3)='1' and reg_portb_out(3)='1' then then
+                       if reg_portb_ddr(3)='1' and reg_portb_out(3)='1' then
                          fastio_rdata(3) <= '1';
                        else
                          fastio_rdata(3) <= portbin(3);
                        end if;
-                       if reg_portb_ddr(4)='1' and reg_portb_out(4)='1' then then
+                       if reg_portb_ddr(4)='1' and reg_portb_out(4)='1' then
                          fastio_rdata(4) <= '1';
                        else
                          fastio_rdata(4) <= portbin(4);
                        end if;
-                       if reg_portb_ddr(5)='1' and reg_portb_out(5)='1' then then
+                       if reg_portb_ddr(5)='1' and reg_portb_out(5)='1' then
                          fastio_rdata(5) <= '1';
                        else
                          fastio_rdata(5) <= portbin(5);
                        end if;
-                       if reg_portb_ddr(6)='1' and reg_portb_out(6)='1' then then
+                       if reg_portb_ddr(6)='1' and reg_portb_out(6)='1' then
                          fastio_rdata(6) <= '1';
                        else
                          fastio_rdata(6) <= portbin(6);
                        end if;
-                       if reg_portb_ddr(7)='1' and reg_portb_out(7)='1' then then
+                       if reg_portb_ddr(7)='1' and reg_portb_out(7)='1' then
                          fastio_rdata(7) <= '1';
                        else
                          fastio_rdata(7) <= portbin(7);
