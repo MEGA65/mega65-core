@@ -375,10 +375,10 @@ begin
       -- by reading registers, so reading twice would lose the ability to see
       -- the interrupt source.
       if long_address(19 downto 17)="111"
-        or long_address(19 downto 8)=x"D0C" or long_address(19 downto 8)=x"D0D"
-        or long_address(19 downto 8)=x"D1C" or long_address(19 downto 8)=x"D1D"
-        or long_address(19 downto 8)=x"D2C" or long_address(19 downto 8)=x"D2D"
-        or long_address(19 downto 8)=x"D3C" or long_address(19 downto 8)=x"D3D"
+        --or long_address(19 downto 8)=x"D0C" or long_address(19 downto 8)=x"D0D"
+        --or long_address(19 downto 8)=x"D1C" or long_address(19 downto 8)=x"D1D"
+        --or long_address(19 downto 8)=x"D2C" or long_address(19 downto 8)=x"D2D"
+        --or long_address(19 downto 8)=x"D3C" or long_address(19 downto 8)=x"D3D"
         or long_address(19 downto 8)=x"D00" or long_address(19 downto 8)=x"D10"
         or long_address(19 downto 8)=x"D20" or long_address(19 downto 8)=x"D30"
       then 
