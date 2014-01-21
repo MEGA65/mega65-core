@@ -135,12 +135,11 @@ begin  -- behavioural
       ", out_value=$" & to_hstring(o) &
       ", in_value=$" & to_hstring(i) severity note;
     result := unsigned(i);
-    for b in 0 to 7 loop
-      if ddr(b)='1' then
-        -- XXX implement external pull down of output bits?
-        result(b) := std_ulogic(o(b));
-      end if;
-    end loop;  -- b
+    --for b in 0 to 7 loop
+    --  if ddr(b)='1' and i(b)='1' then
+    --    result(b) := std_ulogic(o(b));
+    --  end if;
+    --end loop;  -- b
     return result;
   end ddr_pick;
 
