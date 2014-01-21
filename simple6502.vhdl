@@ -371,8 +371,17 @@ begin
       -- and assume all else is slow, as there are many pieces of fastio that need
       -- a wait state.
       -- So let's just make the top 128KB of fastio fast, and assume the rest needs
-      -- the wait state.
-      if long_address(19 downto 17)="111" then 
+      -- the wait state.  Also the CIAs as interrupts are acknowledged and cleared
+      -- by reading registers, so reading twice would lose the ability to see
+      -- the interrupt source.
+      if long_address(19 downto 17)="111"
+        or long_address(19 downto 8)=x"D0C" or long_address(19 downto 8)=x"D0D"
+        or long_address(19 downto 8)=x"D1C" or long_address(19 downto 8)=x"D1D"
+        or long_address(19 downto 8)=x"D2C" or long_address(19 downto 8)=x"D2D"
+        or long_address(19 downto 8)=x"D3C" or long_address(19 downto 8)=x"D3D"
+        or long_address(19 downto 8)=x"D00" or long_address(19 downto 8)=x"D10"
+        or long_address(19 downto 8)=x"D20" or long_address(19 downto 8)=x"D30"
+      then 
          state <= next_state;
       else
         pending_state <= next_state;
