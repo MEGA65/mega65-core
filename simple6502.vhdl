@@ -313,11 +313,13 @@ begin
 
   procedure check_for_interrupts is
   begin
+    -- NMI is edge triggered.
     if nmi = '0' and nmi_state = '1' then
       nmi_pending <= '1';        
     end if;
     nmi_state <= nmi;
-    if irq = '0' and irq_state = '1' then
+    -- IRQ is level triggered.
+    if irq = '0' then
       irq_pending <= '1';        
     end if;
     irq_state <= irq;
