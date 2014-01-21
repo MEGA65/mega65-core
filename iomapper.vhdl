@@ -165,8 +165,8 @@ begin
 
     portaout => cia1porta_out,
     portbout => cia1portb_out,
-    portbin => cia1portb_in,
     portain => cia1porta_in,
+    portbin => cia1portb_in,
     flagin => '1',
     spin => '1',
     countin => '1'
@@ -184,8 +184,8 @@ begin
     fastio_wdata => unsigned(data_i),
 
     -- CIA ports not connected by default
-    portbin => (others => '1'),
-    portain => (others => '1'),
+    portbin => x"20",
+    portain => x"65",
     flagin => '1',
     spin => '1',
     countin => '1'
@@ -199,7 +199,7 @@ begin
     porta_out      => cia1porta_in,
     portb_in       => cia1portb_out,
     portb_out      => cia1portb_in,
-    last_scan_code => last_scan_code,
+--    last_scan_code => last_scan_code,
 
     fastio_address => address,
     fastio_write => w,
@@ -209,6 +209,9 @@ begin
   
   process (r,w,address)
   begin  -- process
+    last_scan_code(7 downto 0) <= unsigned(cia1portb_in);
+    last_scan_code(11 downto 8) <= unsigned(cia1porta_out(3 downto 0));
+    
     if (r or w) = '1' then
       if address(19 downto 13)&'0' = x"FE" then
         kernel65cs<= '1';
