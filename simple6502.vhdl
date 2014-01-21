@@ -292,9 +292,9 @@ begin
     ram_bank_registers_instructions(11) <= x"FFEB";
 
     -- For debugging, HESMON at $C000-$CFFF
-    ram_bank_registers_read(10) <= x"FFEC";
-    ram_bank_registers_write(10) <= x"FFEC";
-    ram_bank_registers_instructions(10) <= x"FFEC";
+    ram_bank_registers_read(12) <= x"FFEC";
+    ram_bank_registers_write(12) <= x"FFEC";
+    ram_bank_registers_instructions(12) <= x"FFEC";
     
     -- For simulation: our own rom at $E000 - $FFFF, also mapping to $0000-$0FFF
     -- since fastram doesn't work in simulation with GHDL.
@@ -996,8 +996,8 @@ begin
               end if;
               -- Don't overwrite recent states record
               recent_states <= recent_states;
-            when Interrupt => push_byte(reg_pc(7 downto 0),Interrupt2);
-            when Interrupt2 => push_byte(reg_pc(15 downto 8),Interrupt3);
+            when Interrupt => push_byte(reg_pc(15 downto 8),Interrupt2);
+            when Interrupt2 => push_byte(reg_pc(7 downto 0),Interrupt3);
             when Interrupt3 => push_byte(unsigned(virtual_reg_p),VectorRead);
             when VectorRead => reg_pc <= vector; read_instruction_byte(vector,VectorRead2);
             when VectorRead2 => reg_pc(7 downto 0) <= read_data; read_instruction_byte(vector+1,VectorRead3);
