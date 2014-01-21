@@ -106,7 +106,7 @@ architecture behavioural of cia6526 is
   signal reg_serialport_direction : std_logic := '0';
   signal reg_sdr : std_logic_vector(7 downto 0);
   signal reg_sdr_data : std_logic_vector(7 downto 0);
-  signal reg_read_sdr : std_logic_vector(7 downto 0);
+  signal reg_read_sdr : std_logic_vector(7 downto 0) := x"FF";
   signal sdr_loaded : std_logic := '0';
 
   -- Clock running as close as possible to 17.734475 MHz / 18 = 985248Hz
@@ -121,7 +121,17 @@ architecture behavioural of cia6526 is
 
 begin  -- behavioural
   
-  process(cpuclock,fastio_addr,flagin,cs,portain,portbin) is
+  process(cpuclock,fastio_addr,fastio_write,flagin,cs,portain,portbin,
+          reg_porta_ddr,reg_portb_ddr,reg_porta_out,reg_portb_out,
+          reg_timera,reg_timerb,read_tod_latched,read_tod_dsecs,
+          reg_tod_secs,reg_tod_mins,reg_tod_hours,reg_tod_ampm,reg_read_sdr,
+          reg_isr,reg_60hz,reg_serialport_direction,
+          reg_timera_pulse_source,reg_timera_oneshot,
+          reg_timera_toggle_or_pulse,reg_tod_alarm_edit,
+          reg_timerb_tick_source,reg_timerb_oneshot,
+          reg_timerb_toggle_or_pulse,reg_timerb_pb7_out,
+          reg_timerb_start
+          ) is
     -- purpose: use DDR to show either input or output bits
     function ddr_pick (
       ddr                            : in std_logic_vector(7 downto 0);
@@ -135,11 +145,11 @@ begin  -- behavioural
       ", out_value=$" & to_hstring(o) &
       ", in_value=$" & to_hstring(i) severity note;
     result := unsigned(i);
-    --for b in 0 to 7 loop
-    --  if ddr(b)='1' and i(b)='1' then
-    --    result(b) := std_ulogic(o(b));
-    --  end if;
-    --end loop;  -- b
+    for b in 0 to 7 loop
+      if ddr(b)='1' and i(b)='1' then
+        result(b) := std_ulogic(o(b));
+      end if;
+    end loop;  -- b
     return result;
   end ddr_pick;
 
