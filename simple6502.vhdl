@@ -1143,13 +1143,18 @@ begin
   -- inputs : ram_bank_registers_read
   -- outputs: fastio_*
   fastio: process (ram_bank_registers_read,fastio_addr,fastio_read,
-                   irq,recent_states)
-    variable address : unsigned(19 downto 0) := unsigned(fastio_addr);
-    variable rwx : integer := to_integer(address(7 downto 5));
-    variable lohi : std_logic := fastio_addr(0);
+                   irq,irq_pending,recent_states)
+    variable address : unsigned(19 downto 0);
+    variable rwx : integer;
+    variable lohi : std_logic;
     variable value : unsigned(15 downto 0);
-    variable reg_num : integer := to_integer(address(4 downto 1));
+    variable reg_num : integer;
   begin  -- process fastio
+    address := unsigned(fastio_addr);
+    rwx := to_integer(address(7 downto 5));
+    lohi := fastio_addr(0);
+    reg_num := to_integer(address(4 downto 1));
+    
     if fastio_read='1' and address(19 downto 8) = x"FC0" then
       case rwx is
         when 0 => value := ram_bank_registers_read(reg_num);
