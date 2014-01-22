@@ -264,11 +264,11 @@ begin  -- behavioural
       end if;
       
       -- Set IRQ line status
-      if (imask_flag='1' and reg_isr(4)='1')
-        or (imask_serialport='1' and reg_isr(3)='1')
-        or (imask_alarm='1' and reg_isr(2)='1')
-        or (imask_tb='1' and reg_isr(1)='1')
-        or (imask_ta='1' and reg_isr(0)='1')
+      if (imask_flag='0' and reg_isr(4)='1')
+        or (imask_serialport='0' and reg_isr(3)='1')
+        or (imask_alarm='0' and reg_isr(2)='1')
+        or (imask_tb='0' and reg_isr(1)='1')
+        or (imask_ta='0' and reg_isr(0)='1')
       then
         reg_isr(7)<='1'; irq<='0';
       else
