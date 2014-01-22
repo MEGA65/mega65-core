@@ -143,7 +143,8 @@ begin  -- behavioural
           reg_timera_toggle_or_pulse,reg_tod_alarm_edit,
           reg_timerb_tick_source,reg_timerb_oneshot,
           reg_timerb_toggle_or_pulse,reg_timerb_pb7_out,
-          reg_timerb_start
+          reg_timerb_start,
+          reg_porta_read,reg_portb_read
           ) is
     -- purpose: use DDR to show either input or output bits
     function ddr_pick (
@@ -168,12 +169,6 @@ begin  -- behavioural
 
   variable register_number : unsigned(3 downto 0);
   begin
-
-    -- Debug port ddr stuff
-    seg_led(31 downto 24) <= unsigned(reg_portb_ddr);
-    seg_led(23 downto 16) <= unsigned(portbin);
-    seg_led(15 downto 8) <= unsigned(reg_portb_out);
-    seg_led(7 downto 0) <= unsigned(reg_portb_read);
 
     register_number := fastio_addr(3 downto 0);
     if cs='0' then
@@ -327,7 +322,12 @@ begin  -- behavioural
         -- Calculate read value for porta and portb
         reg_porta_read <= ddr_pick(reg_porta_ddr,portain,reg_porta_out);        
         reg_portb_read <= ddr_pick(reg_portb_ddr,portbin,reg_portb_out);        
-        
+        -- Debug port ddr stuff
+        seg_led(31 downto 24) <= unsigned(reg_portb_ddr);
+        seg_led(23 downto 16) <= unsigned(portbin);
+        seg_led(15 downto 8) <= unsigned(reg_portb_out);
+        seg_led(7 downto 0) <= unsigned(reg_portb_read);
+
         -- Check for negative edge on FLAG
         -- XXX We should latch this asynchronously instead of sampling it
         last_flag <= flagin;

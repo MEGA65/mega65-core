@@ -143,7 +143,7 @@ begin
     clock <= '0';
     wait for 5 ns;
     report "read port b from register 0 as $" & to_hstring(fastio_rdata) severity note;
-    assert fastio_rdata = x"A5" report "Did not read correct value from port" severity failure;
+    assert fastio_rdata = x"A0" report "Did not read correct value from port" severity failure;
 
   
     report "TEST3: Can read input bits when DDR=in, even if output bits are high." severity note;
@@ -176,26 +176,6 @@ begin
     wait for 5 ns;
     report "read port b from register 0 as $" & to_hstring(fastio_rdata) severity note;
     assert fastio_rdata = x"AA" report "Did not read correct value from port" severity failure;
-    -- Set output value for portb
-    fastio_addr <= x"1";
-    fastio_wdata <= x"00";
-    fastio_write <= '1';
-    cs <= '1';
-    clock <= '1';
-    wait for 5 ns;
-    clock <= '0';
-    wait for 5 ns;
-    -- Read from portb
-    fastio_addr <= x"1";
-    fastio_wdata <= x"00";
-    fastio_write <= '0';
-    cs <= '1';
-    clock <= '1';
-    wait for 5 ns;
-    clock <= '0';
-    wait for 5 ns;
-    report "read port b from register 0 as $" & to_hstring(fastio_rdata) severity note;
-    assert fastio_rdata = x"A0" report "Did not read correct value from port" severity failure;
 
 
     
