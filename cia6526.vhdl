@@ -442,17 +442,17 @@ begin  -- behavioural
             if fastio_wdata(7)='1' then
               -- Set interrupt mask bits
               imask_flag <= imask_flag or fastio_wdata(4);
-              imask_serialport <= imask_flag or fastio_wdata(3);
-              imask_alarm <= imask_flag or fastio_wdata(2);
-              imask_tb <= imask_flag or fastio_wdata(1);
-              imask_ta <= imask_flag or fastio_wdata(0);
+              imask_serialport <= imask_serialport or fastio_wdata(3);
+              imask_alarm <= imask_alarm or fastio_wdata(2);
+              imask_tb <= imask_tb or fastio_wdata(1);
+              imask_ta <= imask_ta or fastio_wdata(0);
             else
               -- Clear interrupt mask bits if a bit is 1.
               imask_flag <= imask_flag and (not fastio_wdata(4));
-              imask_serialport <= imask_flag and (not fastio_wdata(3));
-              imask_alarm <= imask_flag and (not fastio_wdata(2));
-              imask_tb <= imask_flag and (not fastio_wdata(1));
-              imask_ta <= imask_flag and (not fastio_wdata(0));                 
+              imask_serialport <= imask_serialport and (not fastio_wdata(3));
+              imask_alarm <= imask_alarm and (not fastio_wdata(2));
+              imask_tb <= imask_tb and (not fastio_wdata(1));
+              imask_ta <= imask_ta and (not fastio_wdata(0));                 
             end if;
           when x"e" =>
             reg_60hz <= fastio_wdata(7);
