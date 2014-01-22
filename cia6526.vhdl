@@ -105,11 +105,11 @@ architecture behavioural of cia6526 is
   signal last_flag : std_logic := '0';
   signal reg_isr : unsigned(7 downto 0);
   signal strobe_pc : std_logic;
-  signal imask_flag : std_logic := '0';
-  signal imask_serialport : std_logic := '0';
-  signal imask_alarm : std_logic := '0';
-  signal imask_tb : std_logic := '0';
-  signal imask_ta : std_logic := '0';
+  signal imask_flag : std_logic := '1';
+  signal imask_serialport : std_logic := '1';
+  signal imask_alarm : std_logic := '1';
+  signal imask_tb : std_logic := '1';
+  signal imask_ta : std_logic := '1';
 
   signal reg_serialport_direction : std_logic := '0';
   signal reg_sdr : std_logic_vector(7 downto 0);
@@ -334,7 +334,7 @@ begin  -- behavioural
                 reg_timerb <= reg_timerb - 1;
                 reg_timerb_has_ticked <= '0';
               end if;
-            end if;
+            end if; 
           when others => null;
         end case;
       end if;
@@ -391,7 +391,7 @@ begin  -- behavioural
         case register_number is
           when x"0" => portaout<=std_logic_vector(fastio_wdata);
                        reg_porta_out<=std_logic_vector(fastio_wdata);
-          when x"1" =>
+          when x"1" =>  
             portbout<=std_logic_vector(fastio_wdata);
             reg_portb_out<=std_logic_vector(fastio_wdata);
           when x"2" => reg_porta_ddr<=std_logic_vector(fastio_wdata);
