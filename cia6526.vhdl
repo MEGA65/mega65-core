@@ -237,10 +237,10 @@ begin  -- behavioural
     return unsigned is
     variable result : unsigned(7 downto 0);     
   begin  -- ddr_pick
-    report "determining read value for CIA port." &
-      "  DDR=$" & to_hstring(ddr) &
-      ", out_value=$" & to_hstring(o) &
-      ", in_value=$" & to_hstring(i) severity note;
+    --report "determining read value for CIA port." &
+    --  "  DDR=$" & to_hstring(ddr) &
+    --  ", out_value=$" & to_hstring(o) &
+    --  ", in_value=$" & to_hstring(i) severity note;
     result := unsigned(i);
     for b in 0 to 7 loop
       if ddr(b)='1' and i(b)='1' then
@@ -362,7 +362,7 @@ begin  -- behavioural
       end if;
 
       -- Check for register read side effects
-      if fastio_write='0' then
+      if fastio_write='0' and cs='1' then
         report "Performing side-effects of reading from CIA register $" & to_hstring(register_number) severity note;
 
         case register_number is
@@ -384,7 +384,7 @@ begin  -- behavioural
       end if;
       
       -- Check for register writing
-      if fastio_write='1' then
+      if fastio_write='1' and cs='1' then
         report "writing $" & to_hstring(fastio_wdata)
           & " to CIA register $" & to_hstring(register_number) severity note;
 
