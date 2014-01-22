@@ -50,21 +50,25 @@ architecture behavioural of cia6526 is
   signal reg_porta_read : unsigned(7 downto 0) := (others => '0');
   signal reg_portb_read : unsigned(7 downto 0) := (others => '0');
 
-  signal reg_timera_pulse_source : std_logic;
   signal reg_timera : unsigned(15 downto 0);
   signal reg_timera_latch : unsigned(15 downto 0);
   signal reg_timerb : unsigned(15 downto 0);
   signal reg_timerb_latch : unsigned(15 downto 0);
 
+  signal reg_timera_tick_source : std_logic;
   signal reg_timera_oneshot : std_logic := '0';
   signal reg_timera_toggle_or_pulse : std_logic := '0';
   signal reg_timera_pb6_out : std_logic := '0';
   signal reg_timera_start : std_logic := '0';
+  signal reg_timera_has_ticked : std_logic := '0';
+  signal reg_timera_underflow : std_logic := '0';
+
   signal reg_timerb_tick_source : std_logic_vector(1 downto 0) := "00";
   signal reg_timerb_oneshot : std_logic := '0';
   signal reg_timerb_toggle_or_pulse : std_logic := '0';
   signal reg_timerb_pb7_out : std_logic := '0';
   signal reg_timerb_start : std_logic := '0';
+  signal reg_timerb_has_ticked : std_logic := '0';
 
   -- TOD Alarm
   signal reg_tod_alarm_edit : std_logic := '0';
@@ -126,6 +130,8 @@ architecture behavioural of cia6526 is
   signal prev_phi0 : std_logic;
   signal prev_countin : std_logic;
 
+  signal clear_isr : std_logic := '0';  -- flag to clear ISR after reading
+
 begin  -- behavioural
   
   process(cpuclock,fastio_addr,fastio_write,flagin,cs,portain,portbin,
@@ -133,7 +139,7 @@ begin  -- behavioural
           reg_timera,reg_timerb,read_tod_latched,read_tod_dsecs,
           reg_tod_secs,reg_tod_mins,reg_tod_hours,reg_tod_ampm,reg_read_sdr,
           reg_isr,reg_60hz,reg_serialport_direction,
-          reg_timera_pulse_source,reg_timera_oneshot,
+          reg_timera_tick_source,reg_timera_oneshot,
           reg_timera_toggle_or_pulse,reg_tod_alarm_edit,
           reg_timerb_tick_source,reg_timerb_oneshot,
           reg_timerb_toggle_or_pulse,reg_timerb_pb7_out,
@@ -214,7 +220,7 @@ begin  -- behavioural
           when x"e" => 
             fastio_rdata <= reg_60hz
                             & reg_serialport_direction
-                            & reg_timera_pulse_source
+                            & reg_timera_tick_source
                             & '0'
                             & reg_timera_oneshot
                             & reg_timera_toggle_or_pulse
@@ -233,21 +239,82 @@ begin  -- behavioural
       end if;
       
       if rising_edge(cpuclock) then
+
+        -- XXX We clear ISR one cycle after the register is read so that
+        -- if fastio has a one cycle wait state, the isr can still be read on
+        -- the second cycle.
+        if clear_isr='1' then
+          reg_isr <= (others => '0');
+          clear_isr <= '0';
+        end if;
+        
+        -- Set IRQ line status
+        if (imask_flag='1' and reg_isr(4)='1')
+        or (imask_serialport='1' and reg_isr(3)='1')
+        or (imask_alarm='1' and reg_isr(2)='1')
+        or (imask_tb='1' and reg_isr(1)='1')
+        or (imask_ta='1' and reg_isr(0)='1')
+        then
+          reg_isr(7)<='1'; irq<='0';
+        else
+          reg_isr(7)<='0'; irq<='1';
+        end if;
         
         -- Look for timera and timerb tick events
         prev_phi0 <= phi0;
         prev_countin <= countin;
+        reg_timera_underflow <= '0';
         if reg_timera_start='1' then
+          if reg_timera = x"FFFF" and reg_timera_has_ticked='1' then
+            -- underflow
+            reg_isr(0) <= '1';
+            reg_timera_underflow <= '1';
+            if reg_timera_oneshot='0' then
+              reg_timera <= reg_timera_latch;
+            else
+              reg_timera_start <= '0';
+            end if;
+            reg_timera_has_ticked <= '0';
+          end if;
+          case reg_timera_tick_source is
+            when '0' =>
+              -- phi2 pulses
+              if phi0='0' and prev_phi0='1' then
+                reg_timera <= reg_timera - 1;
+                reg_timera_has_ticked <= '1';
+              end if;
+            when '1' =>
+              -- positive CNT transitions
+              if countin='1' and prev_countin='0' then
+                reg_timera <= reg_timera - 1;
+                reg_timera_has_ticked <= '1';
+              end if;
+            when others => null;
+          end case;
+        end if;
+        if reg_timerb_start='1' then
+          if reg_timerb = x"FFFF" and reg_timera_has_ticked='1' then
+            -- underflow
+            reg_isr(1) <= '1';
+            if reg_timerb_oneshot='0' then
+              reg_timerb <= reg_timerb_latch;
+            else
+              reg_timerb_start <= '0';
+            end if;
+            reg_timerb_has_ticked <= '0';
+          end if;
           case reg_timerb_tick_source is
             when "00" =>
               -- phi2 pulses
               if phi0='0' and prev_phi0='1' then
                 reg_timerb <= reg_timerb - 1;
+                reg_timerb_has_ticked <= '0';
               end if;
             when "01" =>
               -- positive CNT transitions
               if countin='1' and prev_countin='0' then
                 reg_timerb <= reg_timerb - 1;
+                reg_timerb_has_ticked <= '0';
               end if;
             when others => null;
           end case;
@@ -262,9 +329,6 @@ begin  -- behavioural
         last_flag <= flagin;
         if last_flag='1' and flagin='0' then
           reg_isr(4) <='1';
-          if imask_flag='1' then
-            reg_isr(7)<='1'; irq<='0';
-          end if;
         end if;
 
         -- Strobe PC line
@@ -290,7 +354,7 @@ begin  -- behavioural
               read_tod_dsecs <= reg_tod_dsecs;
             when x"d" =>
               -- Reading ICR/ISR clears all interrupts
-              reg_isr<= x"00"; irq<='1';
+              clear_isr <= '1';
             when others => null;
           end case;
         end if;
@@ -369,10 +433,11 @@ begin  -- behavioural
             when x"e" =>
               reg_60hz <= fastio_wdata(7);
               reg_serialport_direction <= fastio_wdata(6);
-              reg_timera_pulse_source <= fastio_wdata(5);
+              reg_timera_tick_source <= fastio_wdata(5);
               if fastio_wdata(4)='1' then
                 -- Force loading of timer A now from latch
                 reg_timera <= reg_timera_latch;
+                reg_timera_has_ticked <= '0';
               end if;
               reg_timera_oneshot <= fastio_wdata(3);
               reg_timera_toggle_or_pulse <= fastio_wdata(2);
@@ -384,6 +449,7 @@ begin  -- behavioural
               if fastio_wdata(4)='1' then
                 -- Force loading of timer A now from latch
                 reg_timerb <= reg_timerb_latch;
+                reg_timerb_has_ticked <= '0';
               end if;
               reg_timerb_oneshot <= std_logic(fastio_wdata(3));
               reg_timerb_toggle_or_pulse <= std_logic(fastio_wdata(2));
