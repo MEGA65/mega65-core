@@ -599,8 +599,6 @@ begin
           -- break instruction. Push state and jump to the appropriate
           -- vector.
           vector <= x"FFFE";    -- BRK follows the IRQ vector
-          flag_i <= '1';      -- Disable further IRQs while the
-                                        -- interrupt is being handled.
           push_byte(reg_pc(15 downto 8),BRK1);
           normal_instruction := false;
         when I_CLC => flag_c <= '0';
@@ -1009,7 +1007,7 @@ begin
               recent_states <= recent_states;
             when Interrupt => push_byte(reg_pc(15 downto 8),Interrupt2);
             when Interrupt2 => push_byte(reg_pc(7 downto 0),Interrupt3);
-            when Interrupt3 => push_byte(unsigned(virtual_reg_p),VectorRead);
+            when Interrupt3 => push_byte(unsigned(virtual_reg_p),VectorRead); flag_i <= '1';
             when VectorRead => reg_pc <= vector; read_instruction_byte(vector,VectorRead2);
             when VectorRead2 => reg_pc(7 downto 0) <= read_data; read_instruction_byte(vector+1,VectorRead3);
             when VectorRead3 => reg_pc(15 downto 8) <= read_data; state <= InstructionFetch;
@@ -1083,6 +1081,7 @@ begin
             when BRK2 =>
               virtual_reg_p(5) := '1';    -- set B flag in P before pushing
               push_byte(unsigned(virtual_reg_p),VectorRead);
+              flag_i <= '1';            -- disable interrupts while servicing BRK
             when PLA1 => reg_a<=with_nz(read_data); state <= InstructionFetch;
             when PLP1 => load_processor_flags(read_data); state <= InstructionFetch;
             when RTI1 => load_processor_flags(read_data); pull_byte(RTI2);
