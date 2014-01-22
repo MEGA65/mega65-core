@@ -19,6 +19,8 @@ entity iomapper is
         ps2data : in std_logic;
         ps2clock : in std_logic;
         last_scan_code : out unsigned(11 downto 0);
+
+        seg_led : out unsigned(31 downto 0);
         
         colourram_at_dc00 : in std_logic
         );
@@ -68,6 +70,8 @@ architecture behavioral of iomapper is
       todclock : in std_logic;
       reset : in std_logic;
       irq : out std_logic := '1';
+
+      seg_led : out unsigned(31 downto 0);
 
       ---------------------------------------------------------------------------
       -- fast IO port (clocked at core clock). 1MB address space
@@ -177,6 +181,7 @@ begin
     reset => reset,
     irq => irq,
     cs => cia1cs,
+    seg_led => seg_led,
     fastio_addr => unsigned(address(3 downto 0)),
     fastio_write => w,
     std_logic_vector(fastio_rdata) => data_o,

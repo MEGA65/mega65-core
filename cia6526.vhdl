@@ -13,6 +13,8 @@ entity cia6526 is
     reset : in std_logic;
     irq : out std_logic := '1';
 
+    seg_led : out unsigned(31 downto 0);
+    
     ---------------------------------------------------------------------------
     -- fast IO port (clocked at core clock). 1MB address space
     ---------------------------------------------------------------------------
@@ -45,6 +47,8 @@ architecture behavioural of cia6526 is
   signal reg_portb_out : std_logic_vector(7 downto 0) := (others => '1');
   signal reg_porta_ddr : std_logic_vector(7 downto 0) := (others => '0');
   signal reg_portb_ddr : std_logic_vector(7 downto 0) := (others => '0');
+  signal reg_porta_read : unsigned(7 downto 0) := (others => '0');
+  signal reg_portb_read : unsigned(7 downto 0) := (others => '0');
 
   signal reg_timera_pulse_source : std_logic;
   signal reg_timera : unsigned(15 downto 0);
@@ -155,6 +159,13 @@ begin  -- behavioural
 
   variable register_number : unsigned(3 downto 0);
   begin
+
+    -- Debug port ddr stuff
+    seg_led(31 downto 24) <= unsigned(reg_portb_ddr);
+    seg_led(23 downto 16) <= unsigned(portbin);
+    seg_led(15 downto 8) <= unsigned(reg_portb_out);
+    seg_led(7 downto 0) <= unsigned(ddr_pick(reg_portb_ddr,portbin,reg_portb_out));
+
     register_number := fastio_addr(3 downto 0);
     if cs='0' then
       -- Tri-state read lines if not selected
@@ -167,48 +178,8 @@ begin  -- behavioural
       else
         report "reading from CIA register $" & to_hstring(register_number) severity note;
         case register_number is
-          when x"0" => fastio_rdata <= ddr_pick(reg_porta_ddr,portain,reg_porta_out);
-          when x"1" => -- fastio_rdata <= ddr_pick(reg_portb_ddr,portbin,reg_portb_out);
-                       if reg_portb_ddr(0)='1' and reg_portb_out(0)='1' then
-                         fastio_rdata(0) <= '1';
-                       else
-                         fastio_rdata(0) <= portbin(0);
-                       end if;
-                       if reg_portb_ddr(1)='1' and reg_portb_out(1)='1' then
-                         fastio_rdata(1) <= '1';
-                       else
-                         fastio_rdata(1) <= portbin(1);
-                       end if;
-                       if reg_portb_ddr(2)='1' and reg_portb_out(2)='1' then
-                         fastio_rdata(2) <= '1';
-                       else
-                         fastio_rdata(2) <= portbin(2);
-                       end if;
-                       if reg_portb_ddr(3)='1' and reg_portb_out(3)='1' then
-                         fastio_rdata(3) <= '1';
-                       else
-                         fastio_rdata(3) <= portbin(3);
-                       end if;
-                       if reg_portb_ddr(4)='1' and reg_portb_out(4)='1' then
-                         fastio_rdata(4) <= '1';
-                       else
-                         fastio_rdata(4) <= portbin(4);
-                       end if;
-                       if reg_portb_ddr(5)='1' and reg_portb_out(5)='1' then
-                         fastio_rdata(5) <= '1';
-                       else
-                         fastio_rdata(5) <= portbin(5);
-                       end if;
-                       if reg_portb_ddr(6)='1' and reg_portb_out(6)='1' then
-                         fastio_rdata(6) <= '1';
-                       else
-                         fastio_rdata(6) <= portbin(6);
-                       end if;
-                       if reg_portb_ddr(7)='1' and reg_portb_out(7)='1' then
-                         fastio_rdata(7) <= '1';
-                       else
-                         fastio_rdata(7) <= portbin(7);
-                       end if;
+          when x"0" => fastio_rdata <= reg_porta_read;
+          when x"1" => fastio_rdata <= reg_portb_read;
           when x"2" => fastio_rdata <= unsigned(reg_porta_ddr);
           when x"3" => fastio_rdata <= unsigned(reg_portb_ddr);
           when x"4" => fastio_rdata <= reg_timera(7 downto 0);
@@ -260,6 +231,9 @@ begin  -- behavioural
       
       if rising_edge(cpuclock) then
 
+        reg_porta_read <= ddr_pick(reg_porta_ddr,portain,reg_porta_out);        
+        reg_portb_read <= ddr_pick(reg_portb_ddr,portbin,reg_portb_out);        
+        
         -- Check for negative edge on FLAG
         -- XXX We should latch this asynchronously instead of sampling it
         last_flag <= flagin;

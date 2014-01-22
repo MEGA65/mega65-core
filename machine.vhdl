@@ -209,6 +209,8 @@ architecture Behavioral of machine is
           data_o : out std_logic_vector(7 downto 0);
           colourram_at_dc00 : in std_logic;
 
+          seg_led : out unsigned(31 downto 0);
+
           ps2data : in std_logic;
           ps2clock : in std_logic;
           last_scan_code : out unsigned(11 downto 0)
@@ -216,6 +218,7 @@ architecture Behavioral of machine is
   end component;
 
   signal last_scan_code : unsigned(11 downto 0):=x"FFF";
+  signal seg_led_data : unsigned(31 downto 0);
   
   signal io_irq : std_logic;
   signal io_nmi : std_logic;
@@ -306,25 +309,41 @@ begin
       sseg_an <= (others => '1');
       sseg_an(to_integer(segled_counter(19 downto 17))) <= '0';
 
-      if segled_counter(19 downto 17)=3 then
-        digit := monitor_pc(15 downto 12);
-      elsif segled_counter(19 downto 17)=2 then
-        digit := monitor_pc(11 downto 8);
+      if segled_counter(19 downto 17)=0 then
+        digit := std_logic_vector(seg_led_data(3 downto 0));
       elsif segled_counter(19 downto 17)=1 then
-        digit := monitor_pc(7 downto 4);
-      elsif segled_counter(19 downto 17)=0 then
-        digit := monitor_pc(3 downto 0);
+        digit := std_logic_vector(seg_led_data(7 downto 4));
+      elsif segled_counter(19 downto 17)=2 then
+        digit := std_logic_vector(seg_led_data(11 downto 8));
+      elsif segled_counter(19 downto 17)=3 then
+        digit := std_logic_vector(seg_led_data(15 downto 12));
       elsif segled_counter(19 downto 17)=4 then
-        digit := monitor_state(3 downto 0);
-      --elsif segled_counter(19 downto 17)=5 then
-      --  digit := monitor_state(7 downto 4);
+        digit := std_logic_vector(seg_led_data(19 downto 16));
       elsif segled_counter(19 downto 17)=5 then
-        digit := std_logic_vector(last_scan_code(3 downto 0));
+        digit := std_logic_vector(seg_led_data(23 downto 20));
       elsif segled_counter(19 downto 17)=6 then
-        digit := std_logic_vector(last_scan_code(7 downto 4));
+        digit := std_logic_vector(seg_led_data(27 downto 24));
       elsif segled_counter(19 downto 17)=7 then
-        digit := std_logic_vector(last_scan_code(11 downto 8));
-      else
+        digit := std_logic_vector(seg_led_data(31 downto 28));
+      --if segled_counter(19 downto 17)=3 then
+      --  digit := monitor_pc(15 downto 12);
+      --elsif segled_counter(19 downto 17)=2 then
+      --  digit := monitor_pc(11 downto 8);
+      --elsif segled_counter(19 downto 17)=1 then
+      --  digit := monitor_pc(7 downto 4);
+      --elsif segled_counter(19 downto 17)=0 then
+      --  digit := monitor_pc(3 downto 0);
+      --elsif segled_counter(19 downto 17)=4 then
+      --  digit := monitor_state(3 downto 0);
+      ----elsif segled_counter(19 downto 17)=5 then
+      ----  digit := monitor_state(7 downto 4);
+      --elsif segled_counter(19 downto 17)=5 then
+      --  digit := std_logic_vector(last_scan_code(3 downto 0));
+      --elsif segled_counter(19 downto 17)=6 then
+      --  digit := std_logic_vector(last_scan_code(7 downto 4));
+      --elsif segled_counter(19 downto 17)=7 then
+      --  digit := std_logic_vector(last_scan_code(11 downto 8));
+      --else
         digit := "UUUU";
       end if;
 
@@ -437,6 +456,7 @@ begin
     r => fastio_read, w => fastio_write,
     data_i => fastio_wdata, data_o => fastio_rdata,
     colourram_at_dc00 => colourram_at_dc00,
+    seg_led => seg_led_data,
     ps2data => ps2data,
     ps2clock => ps2clock,
     last_scan_code => last_scan_code);
