@@ -279,7 +279,8 @@ begin
   -----------------------------------------------------------------------------
   process(irq,nmi,io_irq,io_nmi)
   begin
-    combinedirq <= irq and io_irq;
+    -- XXX Allow switch 0 to mask IRQs
+    combinedirq <= ((irq and io_irq) or sw(0));
     combinednmi <= nmi and io_nmi;
   end process;
   
