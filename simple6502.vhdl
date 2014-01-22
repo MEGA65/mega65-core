@@ -1047,6 +1047,7 @@ begin
                   vector <= x"FFFA"; state <=Interrupt;
                 elsif irq_pending='1' and flag_i='0' then
                   irq_pending <= '0';
+                  flag_i <= '1';
                   vector <= x"FFFE"; state <=Interrupt;  
                 else
                   read_instruction_byte(reg_pc,InstructionFetch2);
