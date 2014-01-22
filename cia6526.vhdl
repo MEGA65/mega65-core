@@ -196,8 +196,8 @@ begin  -- behavioural
       else
         report "reading from CIA register $" & to_hstring(register_number) severity note;
         case register_number is
-          when x"0" => fastio_rdata <= reg_porta_read;
-          when x"1" => fastio_rdata <= reg_portb_read;
+          when x"0" => fastio_rdata <= portain; -- reg_porta_read;
+          when x"1" => fastio_rdata <= portbin; -- reg_portb_read;
           when x"2" => fastio_rdata <= unsigned(reg_porta_ddr);
           when x"3" => fastio_rdata <= unsigned(reg_portb_ddr);
           when x"4" => fastio_rdata <= reg_timera(7 downto 0);
