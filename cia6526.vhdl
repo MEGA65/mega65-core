@@ -105,11 +105,11 @@ architecture behavioural of cia6526 is
   signal last_flag : std_logic := '0';
   signal reg_isr : unsigned(7 downto 0) := x"00";
   signal strobe_pc : std_logic;
-  signal imask_flag : std_logic := '1';
-  signal imask_serialport : std_logic := '1';
-  signal imask_alarm : std_logic := '1';
-  signal imask_tb : std_logic := '1';
-  signal imask_ta : std_logic := '1';
+  signal imask_flag : std_logic := '0';
+  signal imask_serialport : std_logic := '0';
+  signal imask_alarm : std_logic := '0';
+  signal imask_tb : std_logic := '0';
+  signal imask_ta : std_logic := '0';
 
   signal reg_serialport_direction : std_logic := '0';
   signal reg_sdr : std_logic_vector(7 downto 0);
@@ -126,9 +126,10 @@ architecture behavioural of cia6526 is
   -- 63 ticks at 64MHz gives 1015873Hz.
   -- 94 ticks at 96MHz gives 1021276Hz, which is pretty close.
   -- (188 ticks at 192MHz is the same).
+  -- Then divide by 2 again, since the loop toggles phi0.
   signal phi0 : std_logic := '0';
   signal phi0_counter : unsigned(15 downto 0) := x"0000";
-  constant phi0_divisor : unsigned(15 downto 0) := x"005E";
+  constant phi0_divisor : unsigned(15 downto 0) := x"002F";
 
   signal prev_phi0 : std_logic;
   signal prev_countin : std_logic;
@@ -260,17 +261,21 @@ begin  -- behavioural
       -- if fastio has a one cycle wait state, the isr can still be read on
       -- the second cycle.
       if clear_isr='1' then
-        reg_isr <= (others => '0');
+        reg_isr <= x"00";
         clear_isr <= '0';
+        report "clearing ISR" severity note;
       end if;
       
       -- Set IRQ line status
-      if (imask_flag='0' and reg_isr(4)='1')
-        or (imask_serialport='0' and reg_isr(3)='1')
-        or (imask_alarm='0' and reg_isr(2)='1')
-        or (imask_tb='0' and reg_isr(1)='1')
-        or (imask_ta='0' and reg_isr(0)='1')
+      if (imask_flag='1' and reg_isr(4)='1')
+        or (imask_serialport='1' and reg_isr(3)='1')
+        or (imask_alarm='1' and reg_isr(2)='1')
+        or (imask_tb='1' and reg_isr(1)='1')
+        or (imask_ta='1' and reg_isr(0)='1')
       then
+        report "IRQ asserted, imask_ta="
+          & std_logic'image(imask_ta)
+          severity note;
         reg_isr(7)<='1'; irq<='0';
       else
         reg_isr(7)<='0'; irq<='1';
@@ -447,6 +452,8 @@ begin  -- behavioural
               imask_alarm <= imask_alarm or fastio_wdata(2);
               imask_tb <= imask_tb or fastio_wdata(1);
               imask_ta <= imask_ta or fastio_wdata(0);
+              report "wrote to interrupt mask bits" severity note;
+              report "imask_ta = " & std_logic'image(imask_ta) severity note;
             else
               -- Clear interrupt mask bits if a bit is 1.
               imask_flag <= imask_flag and (not fastio_wdata(4));
