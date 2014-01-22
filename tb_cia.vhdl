@@ -163,6 +163,13 @@ begin
     report "TEST4: Timer A counts phi0." severity note;
     write_register(14,x"00");           -- stop timer a
     write_register(4,x"03"); write_register(5,x"00");   -- set counter for timer a
+    -- Make sure time isn't running until started
+    wait_cycles(200);
+    read_register(4);
+    assert fastio_rdata = x"03" report "timera should have ticked" severity failure;
+    report "timer doesn't count until started" severity note;
+    
+    read_register(4);
     write_register(14,x"11");           -- start timer a
     -- Check that timer value is loaded
     read_register(4);
@@ -170,23 +177,73 @@ begin
     read_register(5);
     assert fastio_rdata = x"00" report "timera low byte should be initial value" severity failure;
     -- Run CIA for some cycles to let timer a tick.
-    -- CIAs divide 96MHz CPU clock down to phi0, so need ~200 cycles
-    wait_cycles(200);
+    -- CIAs divide 96MHz CPU clock down to phi0, so need 94 cycles minus the
+    -- ones we spent from the start of testing.
+    wait_cycles(70);
     -- Check that timer value is loaded
     read_register(4);
     assert fastio_rdata /= x"03" report "timera should have ticked" severity failure;
-    report "after 200 clock cycles timera ticked downto to $" & to_hstring(fastio_rdata) severity note;
+    report "after phi0 cycles timera ticked downto to $" & to_hstring(fastio_rdata) severity note;
     -- Check that ISR is clear
     read_register(13);
     report "interrupt status register is $" & to_hstring(fastio_rdata) severity note;
     assert fastio_rdata = x"00" report "ISR should be zero" severity failure;
     -- Enable timer a interrupts
-    write_register(13,x"81");
+    write_register(13,x"01");
     -- Check that ISR is clear
     read_register(13);
     report "interrupt status register is $" & to_hstring(fastio_rdata) severity note;
     assert fastio_rdata = x"00" report "ISR should be zero" severity failure;
-    
+
+    -- Now let timer tick down to zero (interrupt is on underflow)
+    wait_cycles(91);
+    read_register(4);
+    assert fastio_rdata = x"01" report "timera should have ticked" severity failure;
+    wait_cycles(94);
+    read_register(4);
+    assert fastio_rdata = x"00" report "timera should have ticked" severity failure;
+    read_register(13);
+    report "interrupt status register is $" & to_hstring(fastio_rdata) severity note;
+    assert fastio_rdata = x"00" report "ISR should be zero" severity failure;
+
+    -- check that timer get reloaded, and ISR bit gets set
+    wait_cycles(94);
+    read_register(4);
+    assert fastio_rdata = x"03" report "timera should have ticked" severity failure;
+    read_register(13);
+    report "interrupt status register is $" & to_hstring(fastio_rdata) severity note;
+    assert fastio_rdata = x"01" report "ISR should be $01" severity failure;
+
+    assert irq = '1' report "IRQ should be high" severity failure;
+
+    read_register(13);
+    report "interrupt status register is $" & to_hstring(fastio_rdata) severity note;
+    assert fastio_rdata = x"00" report "ISR should clear after reading" severity failure;
+
+    -- check that IRQ can be asserted
+    assert irq = '1' report "IRQ should be high" severity note;
+    write_register(13,x"81");           -- enable timer a IRQ
+    write_register(14,x"11");           -- start timer a
+    wait_cycles(94);
+    wait_cycles(94);    
+    wait_cycles(94);
+    wait_cycles(94);
+    report "waited a while" severity note;
+    read_register(4);
+    assert fastio_rdata = x"03" report "timera should have underflowed" severity failure;
+
+    assert irq = '0' report "IRQ should be low" severity failure;
+
+    read_register(13);
+    report "interrupt status register is $" & to_hstring(fastio_rdata) severity note;
+    assert fastio_rdata = x"81" report "ISR should be $81" severity failure;
+
+    read_register(13);                  -- we only clear ISR one cycle after read
+    wait_cycles(1);
+    report "interrupt status register is $" & to_hstring(fastio_rdata) severity note;
+    assert fastio_rdata = x"00" report "ISR should be $00" severity failure;
+    assert irq = '1' report "IRQ should be high" severity failure;
+
     assert false report "Simulation completed successfully." severity failure;
   end process;
   
