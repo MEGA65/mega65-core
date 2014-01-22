@@ -303,18 +303,22 @@ begin  -- behavioural
             end if;
             reg_timerb_has_ticked <= '0';
           end if;
-          case reg_timerb_tick_source is
-            when "00" =>
+          case reg_timerb_tick_source(0) is
+            when '0' =>
               -- phi2 pulses
-              if phi0='0' and prev_phi0='1' then
-                reg_timerb <= reg_timerb - 1;
-                reg_timerb_has_ticked <= '0';
+              if reg_timera_underflow='1' or reg_timerb_tick_source(1)='0' then
+                if phi0='0' and prev_phi0='1' then
+                  reg_timerb <= reg_timerb - 1;
+                  reg_timerb_has_ticked <= '0';
+                end if;                
               end if;
-            when "01" =>
+            when '1' =>
               -- positive CNT transitions
-              if countin='1' and prev_countin='0' then
-                reg_timerb <= reg_timerb - 1;
-                reg_timerb_has_ticked <= '0';
+              if reg_timera_underflow='1' or reg_timerb_tick_source(1)='0' then
+                if countin='1' and prev_countin='0' then
+                  reg_timerb <= reg_timerb - 1;
+                  reg_timerb_has_ticked <= '0';
+                end if;
               end if;
             when others => null;
           end case;
