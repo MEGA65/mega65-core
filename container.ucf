@@ -28,6 +28,9 @@ NET "led0"                   LOC = "T8"      | IOSTANDARD = "LVCMOS33";         
 NET "led1"                   LOC = "V9"      | IOSTANDARD = "LVCMOS33";              #Bank = 34, Pin name = IO_L21N_T3_DQS_34,                                       Sch name = LED1
 NET "led2"                   LOC = "R8"      | IOSTANDARD = "LVCMOS33";              #Bank = 34, Pin name = IO_L24P_T3_34,                                           Sch name = LED2
 NET "led3"                   LOC = "T6"      | IOSTANDARD = "LVCMOS33";              #Bank = 34, Pin name = IO_L23N_T3_34,                                           Sch name = LED3
+NET "led4"                   LOC = "T5"      | IOSTANDARD = "LVCMOS33";              #Bank = 34, Pin name = IO_L12P_T1_MRCC_34,                                      Sch name = LED4
+NET "led5"                   LOC = "T4"      | IOSTANDARD = "LVCMOS33";              #Bank = 34, Pin name = IO_L12N_T1_MRCC_34,                                      Sch     name = LED5
+
 
 NET "RsRx"                             LOC = "C4"      | IOSTANDARD = "LVCMOS33";              #Bank = 35, Pin name = IO_L7P_T1_AD6P_35,                                       Sch name = UART_TXD_IN
 NET "UART_TXD"                          LOC = "D4"      | IOSTANDARD = "LVCMOS33";              #Bank = 35, Pin name = IO_L11N_T1_SRCC_35,                                      Sch name = UART_RXD_OUT

@@ -60,6 +60,8 @@ entity container is
          led1 : out std_logic;
          led2 : out std_logic;
          led3 : out std_logic;
+         led4 : out std_logic;
+         led5 : out std_logic;
          sw : in std_logic_vector(15 downto 0);
          btn : in std_logic_vector(4 downto 0);
 
