@@ -308,7 +308,7 @@ begin  -- behavioural
         end case;
       end if;
       if reg_timerb_start='1' then
-        if reg_timerb = x"FFFF" and reg_timera_has_ticked='1' then
+        if reg_timerb = x"FFFF" and reg_timerb_has_ticked='1' then
           -- underflow
           reg_isr(1) <= '1';
           if reg_timerb_oneshot='0' then
