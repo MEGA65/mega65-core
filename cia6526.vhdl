@@ -123,6 +123,9 @@ architecture behavioural of cia6526 is
   -- So the pixel clock would be better.
   signal phi0 : std_logic := '0';
 
+  signal prev_phi0 : std_logic;
+  signal prev_countin : std_logic;
+
 begin  -- behavioural
   
   process(cpuclock,fastio_addr,fastio_write,flagin,cs,portain,portbin,
@@ -164,7 +167,7 @@ begin  -- behavioural
     seg_led(31 downto 24) <= unsigned(reg_portb_ddr);
     seg_led(23 downto 16) <= unsigned(portbin);
     seg_led(15 downto 8) <= unsigned(reg_portb_out);
-    seg_led(7 downto 0) <= unsigned(ddr_pick(reg_portb_ddr,portbin,reg_portb_out));
+    seg_led(7 downto 0) <= unsigned(reg_portb_read);
 
     register_number := fastio_addr(3 downto 0);
     if cs='0' then
@@ -230,7 +233,27 @@ begin  -- behavioural
       end if;
       
       if rising_edge(cpuclock) then
-
+        
+        -- Look for timera and timerb tick events
+        prev_phi0 <= phi0;
+        prev_countin <= countin;
+        if reg_timera_start='1' then
+          case reg_timerb_tick_source is
+            when "00" =>
+              -- phi2 pulses
+              if phi0='0' and prev_phi0='1' then
+                reg_timerb <= reg_timerb - 1;
+              end if;
+            when "01" =>
+              -- positive CNT transitions
+              if countin='1' and prev_countin='0' then
+                reg_timerb <= reg_timerb - 1;
+              end if;
+            when others => null;
+          end case;
+        end if;
+        
+        -- Calculate read value for porta and portb
         reg_porta_read <= ddr_pick(reg_porta_ddr,portain,reg_porta_out);        
         reg_portb_read <= ddr_pick(reg_portb_ddr,portbin,reg_portb_out);        
         
@@ -287,8 +310,16 @@ begin  -- behavioural
             when x"3" => reg_portb_ddr<=std_logic_vector(fastio_wdata);
             when x"4" => reg_timera_latch(7 downto 0) <= fastio_wdata;
             when x"5" => reg_timera_latch(15 downto 8) <= fastio_wdata;
+                         if reg_timera_start='0' then
+                           -- load timer value now (CIA datasheet, page 6)
+                           reg_timera <= fastio_wdata & reg_timera_latch(7 downto 0);
+                         end if;
             when x"6" => reg_timerb_latch(7 downto 0) <= fastio_wdata;
             when x"7" => reg_timerb_latch(15 downto 8) <= fastio_wdata;
+                         if reg_timera_start='0' then
+                           -- load timer value now (CIA datasheet, page 6)
+                           reg_timerb <= fastio_wdata & reg_timerb_latch(7 downto 0);
+                         end if;
             when x"8" =>
               if reg_tod_alarm_edit ='0' then
                 reg_tod_dsecs <= fastio_wdata; tod_running<='1';
