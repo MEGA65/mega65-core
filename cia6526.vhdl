@@ -103,7 +103,7 @@ architecture behavioural of cia6526 is
 
 
   signal last_flag : std_logic := '0';
-  signal reg_isr : unsigned(7 downto 0);
+  signal reg_isr : unsigned(7 downto 0) := x"00";
   signal strobe_pc : std_logic;
   signal imask_flag : std_logic := '1';
   signal imask_serialport : std_logic := '1';
@@ -204,7 +204,8 @@ begin  -- behavioural
           when x"b" =>   
             fastio_rdata <= reg_tod_ampm & reg_tod_hours;
           when x"c" => fastio_rdata <= unsigned(reg_read_sdr);
-          when x"d" => fastio_rdata <= reg_isr;
+          when x"d" =>
+            fastio_rdata <= reg_isr;
           when x"e" => 
             fastio_rdata <= reg_60hz
                             & reg_serialport_direction
