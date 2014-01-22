@@ -121,11 +121,14 @@ architecture behavioural of cia6526 is
   -- Our pixel clock is 192MHz.  195 ticks gives 984615Hz.
   -- Or 64MHz clock / 65 gives the same, without having to route the pixel
   -- clock through.
+  -- If CPU is at 96MHz, then / 97 gives 989690Hz.
   -- For NTSC, the rate is 14.31818MHz / 14 = 1022727Hz
   -- 63 ticks at 64MHz gives 1015873Hz.
-  -- 187 ticks at 192MHz gives 1026738Hz.
-  -- So the pixel clock would be better.
+  -- 94 ticks at 96MHz gives 1021276Hz, which is pretty close.
+  -- (188 ticks at 192MHz is the same).
   signal phi0 : std_logic := '0';
+  signal phi0_counter : unsigned(15 downto 0) := x"0000";
+  constant phi0_divisor : unsigned(15 downto 0) := x"005E";
 
   signal prev_phi0 : std_logic;
   signal prev_countin : std_logic;
@@ -133,6 +136,17 @@ architecture behavioural of cia6526 is
   signal clear_isr : std_logic := '0';  -- flag to clear ISR after reading
 
 begin  -- behavioural
+
+  process(cpuclock) is
+  begin
+    if rising_edge(cpuclock) then
+      phi0_counter <= phi0_counter + 1;
+      if phi0_counter=phi0_divisor then
+        phi0_counter <= x"0000";
+        phi0 <= not phi0;
+      end if;      
+    end if;
+  end process;
   
   process(cpuclock,fastio_addr,fastio_write,flagin,cs,portain,portbin,
           reg_porta_ddr,reg_portb_ddr,reg_porta_out,reg_portb_out,
