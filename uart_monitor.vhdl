@@ -646,7 +646,7 @@ begin
             monitor_mem_read <= '0';
             monitor_mem_address <= std_logic_vector(target_address);
             monitor_mem_wdata <= target_value;
-            cpu_transaction(SetMemory5);
+            cpu_transaction(SetMemory8);
           when SetMemory5 => try_output_char('=',SetMemory6);
           when SetMemory6 => print_hex_addr(target_address,SetMemory7);
           when SetMemory7 => try_output_char(' ',SetMemory8);
