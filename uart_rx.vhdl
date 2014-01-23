@@ -31,6 +31,8 @@ type uart_rx_state is (Idle,WaitingForMidBit,WaitingForNextBit,WaitForRise);
 signal rx_state : uart_rx_state := Idle;
 signal uart_rx_debounced : std_logic_vector(7 downto 0) := (others =>'1');
 
+type uart_buffer is array (0 to 63) of std_logic_vector(7 downto 0);
+
 begin  -- behavioural
 
   process (CLK)
