@@ -557,7 +557,6 @@ begin
     variable i : instruction := instruction_lut(to_integer(opcode));
     variable mode : addressingmode := mode_lut(to_integer(opcode));
     -- False if handling a special instruction
-    variable normal_instruction : boolean := true;
     variable virtual_reg_p : unsigned(7 downto 0);
   begin
 
@@ -600,7 +599,6 @@ begin
           -- vector.
           vector <= x"FFFE";    -- BRK follows the IRQ vector
           push_byte(reg_pc(15 downto 8),BRK1);
-          normal_instruction := false;
         when I_CLC => flag_c <= '0';
         when I_CLD => flag_d <= '0';
         when I_CLI => flag_i <= '0';
@@ -609,7 +607,7 @@ begin
         when I_DEY => reg_y <= with_nz(reg_y - 1);
         when I_INX => reg_x <= with_nz(reg_x + 1);
         when I_INY => reg_y <= with_nz(reg_y + 1);
-        when I_KIL => state <= Halt; normal_instruction:= false;
+        when I_KIL => state <= Halt;
         when I_PHA => push_byte(reg_a,InstructionFetch);
         when I_PHP => push_byte(virtual_reg_p,InstructionFetch);
         when I_PLA => pull_byte(PLA1);
@@ -1084,8 +1082,9 @@ begin
               execute_instruction(opcode,arg1,read_data);
             when BRK1 => push_byte(reg_pc(7 downto 0),BRK2);
             when BRK2 =>
-              virtual_reg_p(4) := '1';    -- set B flag in P before pushing
-              push_byte(unsigned(virtual_reg_p),VectorRead);
+              -- set B flag in P before pushing
+              push_byte(unsigned(virtual_reg_p(7 downto 5)
+                                 & '1' & virtual_reg_p(3 downto 0)),VectorRead);
               flag_i <= '1';            -- disable interrupts while servicing BRK
             when PLA1 => reg_a<=with_nz(read_data); state <= InstructionFetch;
             when PLP1 => load_processor_flags(read_data); state <= InstructionFetch;
