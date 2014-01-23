@@ -174,7 +174,6 @@ begin  -- behavioural
         -- Tri-state read lines if writing
         fastio_rdata <= (others => 'Z');
       else
-        report "reading from CIA register $" & to_hstring(register_number) severity note;
         case register_number is
           when x"0" => fastio_rdata <= unsigned(portain); -- reg_porta_read;
           when x"1" => fastio_rdata <= unsigned(portbin); -- reg_portb_read;
@@ -263,7 +262,7 @@ begin  -- behavioural
       if clear_isr='1' then
         reg_isr <= x"00";
         clear_isr <= '0';
-        report "clearing ISR" severity note;
+        -- report "clearing ISR" severity note;
       end if;
       
       -- Set IRQ line status
@@ -273,9 +272,7 @@ begin  -- behavioural
         or (imask_tb='1' and reg_isr(1)='1')
         or (imask_ta='1' and reg_isr(0)='1')
       then
-        report "IRQ asserted, imask_ta="
-          & std_logic'image(imask_ta)
-          severity note;
+        -- report "IRQ asserted, imask_ta=" & std_logic'image(imask_ta) severity note;
         reg_isr(7)<='1'; irq<='0';
       else
         reg_isr(7)<='0'; irq<='1';
@@ -369,7 +366,7 @@ begin  -- behavioural
 
       -- Check for register read side effects
       if fastio_write='0' and cs='1' then
-        report "Performing side-effects of reading from CIA register $" & to_hstring(register_number) severity note;
+        --report "Performing side-effects of reading from CIA register $" & to_hstring(register_number) severity note;
 
         case register_number is
           when x"1" =>
@@ -391,8 +388,8 @@ begin  -- behavioural
       
       -- Check for register writing
       if fastio_write='1' and cs='1' then
-        report "writing $" & to_hstring(fastio_wdata)
-          & " to CIA register $" & to_hstring(register_number) severity note;
+        --report "writing $" & to_hstring(fastio_wdata)
+        --  & " to CIA register $" & to_hstring(register_number) severity note;
 
         case register_number is
           when x"0" => portaout<=std_logic_vector(fastio_wdata);
@@ -452,8 +449,8 @@ begin  -- behavioural
               imask_alarm <= imask_alarm or fastio_wdata(2);
               imask_tb <= imask_tb or fastio_wdata(1);
               imask_ta <= imask_ta or fastio_wdata(0);
-              report "wrote to interrupt mask bits" severity note;
-              report "imask_ta = " & std_logic'image(imask_ta) severity note;
+              --report "wrote to interrupt mask bits" severity note;
+              --report "imask_ta = " & std_logic'image(imask_ta) severity note;
             else
               -- Clear interrupt mask bits if a bit is 1.
               imask_flag <= imask_flag and (not fastio_wdata(4));

@@ -134,40 +134,35 @@ begin
 
     portbin <= x"AA"; 
 
-    report "TEST1: Can read input value on port with DDR=all in." severity note;
     -- Set DDR for portb to all input
     write_register(3,x"00");
     -- Read from portb
     read_register(1);
-    report "read port b from register 0 as $" & to_hstring(fastio_rdata) severity note;
     assert fastio_rdata = x"AA" report "Did not read correct value from port" severity failure;
+    report "PASS: Can read input value on port with DDR=all in." severity note;
 
     
-    report "TEST2: Can read bits of input value and output  on port DDR with mixed bits." severity note;
     write_register(3,x"0F"); -- Set DDR for portb to output on lower nybl    
     write_register(1,x"55"); -- Set output value for portb
     -- Read from portb
     read_register(1);
-    report "read port b from register 0 as $" & to_hstring(fastio_rdata) severity note;
 --    Temporarily disabled while we have merging of output and input values disabled
 --    assert fastio_rdata = x"A0" report "Did not read correct value from port" severity failure;
+    -- report "PASS: Can read bits of input value and output  on port DDR with mixed bits." severity note;
 
-    
-    report "TEST3: Can read input bits when DDR=in, even if output bits are high." severity note;
     write_register(3,x"00"); -- Set DDR for portb to all input
     write_register(1,x"FF"); -- Set output value for portb
     read_register(1); -- Read from portb
-    report "read port b from register 0 as $" & to_hstring(fastio_rdata) severity note;
     assert fastio_rdata = x"AA" report "Did not read correct value from port" severity failure;
-
-    report "TEST4: Timer A counts phi0." severity note;
+    report "PASS: Can read input bits when DDR=in, even if output bits are high." severity note;
+      
     write_register(14,x"00");           -- stop timer a
     write_register(4,x"03"); write_register(5,x"00");   -- set counter for timer a
     -- Make sure time isn't running until started
     wait_cycles(200);
     read_register(4);
-    assert fastio_rdata = x"03" report "timera should have ticked" severity failure;
-    report "timer doesn't count until started" severity note;
+    assert fastio_rdata = x"03" report "timera should not tick before timer is started" severity failure;
+    report "PASS: Timer A does not start prematurely." severity note;
     
     read_register(4);
     write_register(14,x"11");           -- start timer a
@@ -176,24 +171,29 @@ begin
     assert fastio_rdata = x"03" report "timera low byte should be initial value" severity failure;
     read_register(5);
     assert fastio_rdata = x"00" report "timera low byte should be initial value" severity failure;
+    report "PASS: Timer A loads latched value when started." severity note;
+
+    
     -- Run CIA for some cycles to let timer a tick.
     -- CIAs divide 96MHz CPU clock down to phi0, so need 94 cycles minus the
     -- ones we spent from the start of testing.
     wait_cycles(70);
     -- Check that timer value is loaded
     read_register(4);
-    assert fastio_rdata /= x"03" report "timera should have ticked" severity failure;
-    report "after phi0 cycles timera ticked downto to $" & to_hstring(fastio_rdata) severity note;
+    assert fastio_rdata = x"02" report "timera should have ticked" severity failure;
+    report "PASS: Timer A ticks on phi0." severity note;
+
     -- Check that ISR is clear
     read_register(13);
-    report "interrupt status register is $" & to_hstring(fastio_rdata) severity note;
     assert fastio_rdata = x"00" report "ISR should be zero" severity failure;
+    report "PASS: ISR starts clear." severity note;
+    
     -- Enable timer a interrupts
     write_register(13,x"01");
     -- Check that ISR is clear
     read_register(13);
-    report "interrupt status register is $" & to_hstring(fastio_rdata) severity note;
     assert fastio_rdata = x"00" report "ISR should be zero" severity failure;
+    report "PASS: Unmasking timer a interrupt does not affect clear ISR" severity note;
 
     -- Now let timer tick down to zero (interrupt is on underflow)
     wait_cycles(91);
@@ -203,22 +203,23 @@ begin
     read_register(4);
     assert fastio_rdata = x"00" report "timera should have ticked" severity failure;
     read_register(13);
-    report "interrupt status register is $" & to_hstring(fastio_rdata) severity note;
     assert fastio_rdata = x"00" report "ISR should be zero" severity failure;
-
+    report "PASS: Timer counts down to zero, but does not set ISR bits before underflow" severity note;
+    
     -- check that timer get reloaded, and ISR bit gets set
     wait_cycles(94);
     read_register(4);
     assert fastio_rdata = x"03" report "timera should have ticked" severity failure;
     read_register(13);
-    report "interrupt status register is $" & to_hstring(fastio_rdata) severity note;
     assert fastio_rdata = x"01" report "ISR should be $01" severity failure;
-
+    report "PASS: Timer sets ISR bit on underflow" severity note;
+    
     assert irq = '1' report "IRQ should be high" severity failure;
-
+    report "PASS: Masked interrupts to not assert IRQ" severity note;
+    
     read_register(13);
-    report "interrupt status register is $" & to_hstring(fastio_rdata) severity note;
     assert fastio_rdata = x"00" report "ISR should clear after reading" severity failure;
+    report "PASS: Reading ISR clears latched events" severity note;
 
     -- check that IRQ can be asserted
     assert irq = '1' report "IRQ should be high" severity note;
@@ -228,21 +229,21 @@ begin
     wait_cycles(94);    
     wait_cycles(94);
     wait_cycles(94);
-    report "waited a while" severity note;
     read_register(4);
     assert fastio_rdata = x"03" report "timera should have underflowed" severity failure;
 
     assert irq = '0' report "IRQ should be low" severity failure;
-
+    report "PASS: IRQ asserted by unmasked timer a interrupt" severity note;
+    
     read_register(13);
-    report "interrupt status register is $" & to_hstring(fastio_rdata) severity note;
     assert fastio_rdata = x"81" report "ISR should be $81" severity failure;
-
+    report "PASS: ISR indicates IRQ asserted with bit 7" severity note;
+    
     read_register(13);                  -- we only clear ISR one cycle after read
     wait_cycles(1);
-    report "interrupt status register is $" & to_hstring(fastio_rdata) severity note;
     assert fastio_rdata = x"00" report "ISR should be $00" severity failure;
-    assert irq = '1' report "IRQ should be high" severity failure;
+    assert irq = '1' report "IRQ should return high after reading ISR" severity failure;
+    report "PASS: IRQ released after ISR is read" severity note;
 
     assert false report "Simulation completed successfully." severity failure;
   end process;
