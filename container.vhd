@@ -117,6 +117,8 @@ architecture Behavioral of container is
          led1 : out std_logic;
          led2 : out std_logic;
          led3 : out std_logic;
+         led4 : out std_logic;
+         led5 : out std_logic;
          sw : in std_logic_vector(15 downto 0);
          btn : in std_logic_vector(4 downto 0);
 
@@ -168,6 +170,8 @@ begin
       led1 => led1,
       led2 => led2,
       led3 => led3,
+      led4 => led4,
+      led5 => led5,
       sw => sw,
       btn => btn,
 
