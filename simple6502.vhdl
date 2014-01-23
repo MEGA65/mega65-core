@@ -1078,7 +1078,7 @@ begin
               execute_instruction(opcode,arg1,read_data);
             when BRK1 => push_byte(reg_pc(7 downto 0),BRK2);
             when BRK2 =>
-              virtual_reg_p(5) := '1';    -- set B flag in P before pushing
+              virtual_reg_p(4) := '1';    -- set B flag in P before pushing
               push_byte(unsigned(virtual_reg_p),VectorRead);
               flag_i <= '1';            -- disable interrupts while servicing BRK
             when PLA1 => reg_a<=with_nz(read_data); state <= InstructionFetch;
