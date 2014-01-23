@@ -688,6 +688,7 @@ begin
     i1 : in unsigned(7 downto 0);
     i2 : in unsigned(7 downto 0)) return unsigned is
     variable o : unsigned(7 downto 0);
+    variable vo : unsigned(7 downto 0);
   begin
     -- Whether in decimal mode or not, calculate normal sum,
     -- so that Z can be set correctly (Z in decimal mode =
@@ -708,8 +709,13 @@ begin
     -- 0x80 extracts just the sign bit from the result.) Another C++ formula is
     -- !((M^N) & 0x80) && ((M^result) & 0x80). This means there is overflow if the
     -- inputs do not have different signs and the input sign is different from the
-    -- output sign (link)."    
-    if i1(7) /= o(7) and i2(7) /= o(7) then
+    -- output sign (link)."
+    vo := to_unsigned(to_integer('0'&i1(6 downto 0)) + to_integer('0'&i2(6 downto 0)),8);
+    if flag_c='1' then
+      vo := vo + 1;
+    end if;  
+
+    if i1(7) /= vo(7) and i2(7) /= vo(7) then
       flag_v <= '1';
     else
       flag_v <= '0';
