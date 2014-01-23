@@ -14,7 +14,6 @@ entity keymapper is
     -- CIA ports
     porta_in  : in  std_logic_vector(7 downto 0);
     porta_out : out std_logic_vector(7 downto 0);
-    portb_in  : in  std_logic_vector(7 downto 0);
     portb_out : out std_logic_vector(7 downto 0);
 
     last_scan_code : out unsigned(11 downto 0) := x"0FF";
@@ -212,7 +211,7 @@ begin  -- behavioural
                          -- RESTORE - 0E (`/~ key)
 
                          case full_scan_code is
-                           when x"1E0" => matrix(0) <= (matrix(0) and x"FE") or "0000000"&break;
+                           when x"066" => matrix(0) <= (matrix(0) and x"FE") or "0000000"&break;
                            when x"05A" => matrix(0) <= (matrix(0) and x"FD") or "000000"&break&"0";
                            when x"174" => matrix(0) <= (matrix(0) and x"FB") or "00000"&break&"00";
                            when x"083" => matrix(0) <= (matrix(0) and x"F7") or "0000"&break&"000";
