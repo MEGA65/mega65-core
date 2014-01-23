@@ -241,6 +241,7 @@ begin
     
     read_register(13);                  -- we only clear ISR one cycle after read
     wait_cycles(1);
+    read_register(13);
     assert fastio_rdata = x"00" report "ISR should be $00" severity failure;
     assert irq = '1' report "IRQ should return high after reading ISR" severity failure;
     report "PASS: IRQ released after ISR is read" severity note;
