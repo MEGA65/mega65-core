@@ -600,7 +600,7 @@ begin
                 report "load memory command" severity note;
                 parse_position <= 2;
                 report "trying to parse hex" severity note;
-                parse_hex(ShowMemory1);
+                parse_hex(LoadMemory1);
               elsif cmdbuffer(1) = 'm' or cmdbuffer(1) = 'M' then
                 report "read memory command" severity note;
                 parse_position <= 2;
