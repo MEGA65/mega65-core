@@ -111,6 +111,7 @@ architecture behavioural of uart_monitor is
                          PrintHex,
                          SetMemory1,SetMemory2,SetMemory3,SetMemory4,SetMemory5,
                          SetMemory6,SetMemory7,SetMemory8,
+                         LoadMemory1,LoadMemory2,LoadMemory3,LoadMemory4,
                          ShowMemory1,ShowMemory2,ShowMemory3,ShowMemory4,
                          ShowMemory5,ShowMemory6,ShowMemory7,ShowMemory8,
                          FillMemory1,FillMemory2,FillMemory3,FillMemory4,
@@ -595,6 +596,11 @@ begin
                 parse_hex(CPUBreak1);
               elsif cmdbuffer(1) = 'd' or cmdbuffer(1) = 'B' then
                 break_enabled <= '0';
+              elsif cmdbuffer(1) = 'l' or cmdbuffer(1) = 'L' then
+                report "load memory command" severity note;
+                parse_position <= 2;
+                report "trying to parse hex" severity note;
+                parse_hex(ShowMemory1);
               elsif cmdbuffer(1) = 'm' or cmdbuffer(1) = 'M' then
                 report "read memory command" severity note;
                 parse_position <= 2;
@@ -633,6 +639,30 @@ begin
               monitor_mem_wdata <= hex_value(7 downto 0);
               target_address <= target_address + 1;
               cpu_transaction(FillMemory5);
+            end if;
+          when LoadMemory1 => target_address <= hex_value(27 downto 0);
+                             skip_space(LoadMemory2);
+          when LoadMemory2 => parse_hex(LoadMemory3);
+          when LoadMemory3 =>
+            if target_address(15 downto 0) /= hex_value(15 downto 0) then
+              -- check for character
+              if rx_ready = '1' and rx_acknowledge='0' then
+                blink <= not blink;
+                activity <= blink;
+                rx_acknowledge<='1';
+
+                monitor_mem_read <= '0';
+                monitor_mem_write <= '1';
+                monitor_mem_address <= std_logic_vector(target_address);
+                monitor_mem_wdata <= unsigned(rx_data);
+
+                target_address(15 downto 0) <= target_address(15 downto 0) + 1;
+                
+                timeout <= 65535;
+                cpu_transaction(ShowMemory3);
+              end if;
+            else
+              state <= NextCommand;
             end if;
           when SetMemory1 => target_address <= hex_value(27 downto 0);
                              skip_space(SetMemory2);
