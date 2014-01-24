@@ -41,3 +41,6 @@ simulate:	bcdadder.vhdl alu6502.vhdl cpu6502.vhdl kernel65.vhdl kernel64.vhdl ba
 
 testcia:	tb_cia.vhdl cia6526.vhdl debugtools.vhdl
 	ghdl -c tb_cia.vhdl cia6526.vhdl debugtools.vhdl -r tb_cia
+
+monitor_drive:	monitor_drive.c
+	gcc -Wall -o monitor_drive monitor_drive.c
