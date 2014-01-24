@@ -610,7 +610,7 @@ begin
         when I_KIL => state <= Halt;
         when I_PHA => push_byte(reg_a,InstructionFetch);
         when I_PHP =>
-          virtual_reg_p(4) <= '1';      -- PHP sets BRK flag.
+          virtual_reg_p(4) := '1';      -- PHP sets BRK flag.
           push_byte(virtual_reg_p,InstructionFetch);
         when I_PLA => pull_byte(PLA1);
         when I_PLP => pull_byte(PLP1);
