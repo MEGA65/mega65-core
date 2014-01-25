@@ -278,6 +278,8 @@ architecture Behavioural of simple6502 is
   signal accessing_slowram : std_logic;
   signal accessing_cpuport : std_logic;
   signal cpuport_num : std_logic;
+  signal cpuport_ddr : unsigned(7 downto 0);
+  signal cpuport_value : unsigned(7 downto 0);
 
   signal monitor_mem_trace_toggle_last : std_logic := '0';
 
@@ -501,10 +503,18 @@ begin
     next_state         : in processor_state) is
     variable long_address : unsigned(27 downto 0);
   begin
-    long_address := resolve_address_to_long(address,memmap);
-    --report "Writing $" & to_hstring(value) & " @ $" & to_hstring(address)
-    --  & " (resolves to $" & to_hstring(long_address) & ")" severity note;
-    write_long_byte(long_address,value,next_state);
+    if address=x"0000" then
+      cpuport_ddr <= value;
+      state <= next_state;
+    elsif address=x"0001" then      
+      cpuport_value <= value;
+      state <= next_state;
+    else
+      long_address := resolve_address_to_long(address,memmap);
+      --report "Writing $" & to_hstring(value) & " @ $" & to_hstring(address)
+      --  & " (resolves to $" & to_hstring(long_address) & ")" severity note;
+      write_long_byte(long_address,value,next_state);
+    end if;
   end procedure write_byte;
 
   procedure write_data_byte (
@@ -553,9 +563,10 @@ begin
     if accessing_cpuport='1' then
       if cpuport_num='0' then
         -- DDR
+        return cpuport_ddr;
       else
         -- CPU port
-        
+        return cpuport_value;
       end if;
     elsif accessing_fastio='1' then 
       return unsigned(fastio_rdata);
@@ -734,10 +745,10 @@ begin
     end if;
   end alu_op_cmp;
   
-    impure function alu_op_add (
-      i1 : in unsigned(7 downto 0);
-      i2 : in unsigned(7 downto 0)) return unsigned is
-    variable tmp : unsigned(8 downto 0);
+  impure function alu_op_add (
+    i1 : in unsigned(7 downto 0);
+    i2 : in unsigned(7 downto 0)) return unsigned is
+  variable tmp : unsigned(8 downto 0);
   begin
     if flag_d='1' then
       tmp(8) := '0';
