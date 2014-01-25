@@ -39,54 +39,90 @@ begin  -- behaviour
     impure function alu_op_add (
       i1 : in unsigned(7 downto 0);
       i2 : in unsigned(7 downto 0)) return unsigned is
-    variable tmp : unsigned(8 downto 0);
-  begin
-    if flag_d='1' then
-      tmp(8) := '0';
-      tmp(7 downto 0) := (i1 and x"0f") + (i2 and x"0f") + ("0000000" & flag_c);
+      variable tmp : unsigned(8 downto 0);
+    begin
+      if flag_d='1' then
+        tmp(8) := '0';
+        tmp(7 downto 0) := (i1 and x"0f") + (i2 and x"0f") + ("0000000" & flag_c);
 
-      report "flag_c=" & std_logic'image(flag_c) severity note;
-      report "low nybl sum before fixing = $" & to_hstring(tmp(7 downto 0)) severity note;
-      report "i1=$" & to_hstring(i1) severity note;
-      report "i2=$" & to_hstring(i2) severity note;
-      if tmp > x"09" then
-        tmp := tmp + x"06";                                                                         
-      end if;
-      if tmp < x"10" then
-        tmp := ("0"&(tmp(7 downto 0) and x"0f")) + ("0"&(i1 and x"f0")) + ("0"&(i2 and x"f0"));
+        report "flag_c=" & std_logic'image(flag_c) severity note;
+        report "low nybl sum before fixing = $" & to_hstring(tmp(7 downto 0)) severity note;
+        report "i1=$" & to_hstring(i1) severity note;
+        report "i2=$" & to_hstring(i2) severity note;
+        if tmp > x"09" then
+          tmp := tmp + x"06";                                                                         
+        end if;
+        if tmp < x"10" then
+          tmp := ("0"&(tmp(7 downto 0) and x"0f")) + ("0"&(i1 and x"f0")) + ("0"&(i2 and x"f0"));
+        else
+          tmp := ("0"&(tmp(7 downto 0) and x"0f")) + ("0"&(i1 and x"f0")) + ("0"&(i2 and x"f0")) + ("0"&x"10");
+        end if;
+        if (i1 + i2 + ( "0000000" & flag_c )) = x"00" then
+          flag_z <= '1';
+        else
+          flag_z <= '0';
+        end if;
+        flag_n <= tmp(7);
+        flag_v <= (i1(7) xor tmp(7)) and (not (i1(7) xor i2(7)));      
+        if tmp(8 downto 4) > "01001" then
+          tmp := (("0"&tmp(7 downto 0)) + ("0"&x"60"));
+        end if;
+        flag_c <= tmp(8);
       else
-        tmp := ("0"&(tmp(7 downto 0) and x"0f")) + ("0"&(i1 and x"f0")) + ("0"&(i2 and x"f0")) + ("0"&x"10");
+        tmp := ("0"&i2)
+               + ("0"&i1)
+               + ("00000000"&flag_c);
+        tmp(7 downto 0) := with_nz(tmp(7 downto 0));
+        flag_v <= (not (i1(7) xor i2(7))) and (i1(7) xor tmp(7));
+        flag_c <= tmp(8);
       end if;
-      if (i1 + i2 + ( "0000000" & flag_c )) = x"00" then
-        flag_z <= '1';
-      else
-        flag_z <= '0';
-      end if;
-      flag_n <= tmp(7);
-      flag_v <= (i1(7) xor tmp(7)) and (not (i1(7) xor i2(7)));      
-      if tmp(8 downto 4) > "01001" then
-        tmp := (("0"&tmp(7 downto 0)) + ("0"&x"60"));
-      end if;
-      flag_c <= tmp(8);
-    else
-      tmp := ("0"&i2)
-             + ("0"&i1)
-             + ("00000000"&flag_c);
+      -- Return final value
+      report "add result of "
+        & "$" & to_hstring(std_logic_vector(i1)) 
+        & " + "
+        & "$" & to_hstring(std_logic_vector(i2)) 
+        & " + "
+        & "$" & std_logic'image(flag_c)
+        & " = " & to_hstring(std_logic_vector(tmp(7 downto 0))) severity note;
+      return tmp(7 downto 0);
+    end function alu_op_add;
+
+    impure function alu_op_sub (
+      i1 : in unsigned(7 downto 0);
+      i2 : in unsigned(7 downto 0)) return unsigned is
+      variable tmp : unsigned(8 downto 0);
+      variable tmpd : unsigned(8 downto 0);
+    begin
+      tmp := ("0"&i2) - ("0"&i1)
+             - "000000001" + ("00000000"&flag_c);
+      flag_c <= not tmp(8);
+      flag_v <= (i1(7) xor tmp(7)) and (i1(7) xor i2(7));
       tmp(7 downto 0) := with_nz(tmp(7 downto 0));
-      flag_v <= (not (i1(7) xor i2(7))) and (i1(7) xor tmp(7));
-      flag_c <= tmp(8);
-    end if;
-    -- Return final value
-    report "add result of "
-      & "$" & to_hstring(std_logic_vector(i1)) 
-      & " + "
-      & "$" & to_hstring(std_logic_vector(i2)) 
-      & " + "
-      & "$" & std_logic'image(flag_c)
-      & " = " & to_hstring(std_logic_vector(tmp(7 downto 0))) severity note;
-    return tmp(7 downto 0);
-  end function alu_op_add;
+      if flag_d='1' then
+        tmpd := (("00000"&i1(3 downto 0)) - ("00000"&i2(3 downto 0)))
+                - "000000001" + ("00000000" & flag_c);
 
+        report "i1=$" & to_hstring(i1) severity note;
+        report "i2=$" & to_hstring(i2) severity note;
+        if tmpd(4)='1' then
+          tmpd(3 downto 0) := tmpd(3 downto 0)-x"6";
+          tmpd(8 downto 4) := ("0"&i1(7 downto 4)) - ("0"&i2(7 downto 4)) - "00001";
+        else
+          tmpd(8 downto 4) := ("0"&i1(7 downto 4)) - ("0"&i2(7 downto 4));
+        end if;
+        tmp := tmpd;
+      end if;
+      -- Return final value
+      report "add result of "
+        & "$" & to_hstring(std_logic_vector(i1)) 
+        & " - "
+        & "$" & to_hstring(std_logic_vector(i2)) 
+        & " - 1 + "
+        & "$" & std_logic'image(flag_c)
+        & " = " & to_hstring(std_logic_vector(tmp(7 downto 0))) severity note;
+      return tmp(7 downto 0);
+    end function alu_op_sub;
+    
     variable result : unsigned(7 downto 0);
   begin  -- process test
     flag_c <= '0';
