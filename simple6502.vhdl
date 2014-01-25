@@ -757,7 +757,7 @@ begin
         flag_z <= '0';
       end if;
       flag_n <= tmp(7);
-      flag_v <= (i1(7) xor tmp(7)) and (not (i1(7) and i2(7)));
+      flag_v <= (i1(7) xor tmp(7)) and (not (i1(7) xor i2(7)));
       if tmp(8 downto 4) > "01001" then
         tmp := tmp + x"60";
       end if;
