@@ -748,7 +748,7 @@ begin
              + ("0"&i1)
              + ("00000000"&flag_c);
       tmp(7 downto 0) := with_nz(tmp(7 downto 0));
-      flag_v <= (i1(7) xor tmp(7)) and (not (i1(7) and i2(7)));
+      flag_v <= (not (i1(7) xor i2(7))) and (i1(7) xor tmp(7));
       flag_c <= tmp(8);
     end if;
     -- Return final value
