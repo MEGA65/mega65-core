@@ -65,7 +65,7 @@ begin  -- behaviour
       flag_n <= tmp(7);
       flag_v <= (i1(7) xor tmp(7)) and (not (i1(7) xor i2(7)));      
       if tmp(8 downto 4) > "01001" then
-        tmp := tmp + x"60";
+        tmp := (("0"&tmp(7 downto 0)) + ("0"&x"60"));
       end if;
       flag_c <= tmp(8);
     else
@@ -192,6 +192,16 @@ begin  -- behaviour
     assert result=x"88" report "result should be $88" severity failure;
     assert flag_v='0' report "v should be 0" severity failure;
 
+    flag_c <= '0';
+    flag_d <= '1';
+    wait for 1 ns;
+    result := alu_op_add(x"AA",x"FF");
+    report "result is $" & to_hstring(result) severity note;
+    wait for 1 ns;
+    report "v=" &std_logic'image(flag_v) & ", z=" &std_logic'image(flag_z) & ", c=" &std_logic'image(flag_c) & ", n=" &std_logic'image(flag_n) severity note;
+    assert result=x"0F" report "result should be $0F" severity failure;
+    assert flag_v='0' report "v should be 0" severity failure;
+    assert flag_c='1' report "c should be 1" severity failure;
     
     report "Simulation ended" severity failure;
   end process test;
