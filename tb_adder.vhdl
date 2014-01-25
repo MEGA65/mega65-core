@@ -64,9 +64,12 @@ begin  -- behaviour
         end if;
         flag_n <= tmp(7);
         flag_v <= (i1(7) xor tmp(7)) and (not (i1(7) xor i2(7)));      
+        report "before fix tmp=" & to_string(std_logic_vector(tmp)) severity note;
         if tmp(8 downto 4) > "01001" then
-          tmp := (("0"&tmp(7 downto 0)) + ("0"&x"60"));
+          tmp(7 downto 0) := tmp(7 downto 0) + x"60";
+          tmp(8) := '1';
         end if;
+        report "tmp=" & to_string(std_logic_vector(tmp)) severity note;
         flag_c <= tmp(8);
       else
         tmp := ("0"&i2)
@@ -109,6 +112,9 @@ begin  -- behaviour
           tmpd(8 downto 4) := ("0"&i1(7 downto 4)) - ("0"&i2(7 downto 4)) - "00001";
         else
           tmpd(8 downto 4) := ("0"&i1(7 downto 4)) - ("0"&i2(7 downto 4));
+        end if;
+        if tmpd(8)='1' then
+          tmpd := tmpd - ("0"&x"60");
         end if;
         tmp := tmpd;
       end if;
@@ -238,6 +244,30 @@ begin  -- behaviour
     assert result=x"0F" report "result should be $0F" severity failure;
     assert flag_v='0' report "v should be 0" severity failure;
     assert flag_c='1' report "c should be 1" severity failure;
+
+    flag_c <= '0';
+    flag_d <= '1';
+    wait for 1 ns;
+    result := alu_op_add(x"00",x"FF");
+    report "result is $" & to_hstring(result) severity note;
+    wait for 1 ns;
+    report "v=" &std_logic'image(flag_v) & ", z=" &std_logic'image(flag_z) & ", c=" &std_logic'image(flag_c) & ", n=" &std_logic'image(flag_n) severity note;
+    assert result=x"65" report "result should be $65" severity failure;
+    assert flag_v='0' report "v should be 0" severity failure;
+    assert flag_c='1' report "c should be 1" severity failure;
+
+    report "SUBTRACTION TESTS" severity note;
+    flag_c <= '0';
+    flag_d <= '1';
+    wait for 1 ns;
+    result := alu_op_sub(x"00",x"00");
+    report "result is $" & to_hstring(result) severity note;
+    wait for 1 ns;
+    report "v=" &std_logic'image(flag_v) & ", z=" &std_logic'image(flag_z) & ", c=" &std_logic'image(flag_c) & ", n=" &std_logic'image(flag_n) severity note;
+    assert result=x"99" report "result should be $99" severity failure;
+    assert flag_v='0' report "v should be 0" severity failure;
+    assert flag_c='0' report "c should be 0" severity failure;
+
     
     report "Simulation ended" severity failure;
   end process test;
