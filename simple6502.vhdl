@@ -889,7 +889,7 @@ begin
     variable tmp : unsigned(8 downto 0);
     variable tmpd : unsigned(8 downto 0);
   begin
-    tmp := ("0"&i2) - ("0"&i1)
+    tmp := ("0"&i1) - ("0"&i2)
            - "000000001" + ("00000000"&flag_c);
     flag_c <= not tmp(8);
     flag_v <= (i1(7) xor tmp(7)) and (i1(7) xor i2(7));
