@@ -504,12 +504,14 @@ begin
     page : in integer) is
     variable target : unsigned(15 downto 0);
   begin  -- map_local_ram
-    target := ram_bank_registers_instructions(0);
-    target(3 downto 0) := to_unsigned(page,4);
+    -- This routine is used for mapping RAM in place of IO,
+    -- so we can't just copy the write page to read & instructions
+    target := ram_bank_registers_write(0);
+    targer(3 downto 0) := to_unsigned(page,4);
     
     ram_bank_registers_instructions(page) <= target;
     ram_bank_registers_read(page) <= target;
-    ram_bank_registers_write(page) <= target;    
+    ram_bank_registers_write(page) <= target;
   end map_local_ram;
 
   procedure map_c64mode_rom (
@@ -521,7 +523,6 @@ begin
     
     ram_bank_registers_instructions(page) <= target;
     ram_bank_registers_read(page) <= target;
-    ram_bank_registers_write(page) <= target;    
   end map_c64mode_rom;
 
   procedure map_io (
