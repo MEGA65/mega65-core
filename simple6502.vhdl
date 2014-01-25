@@ -656,7 +656,7 @@ begin
         when I_TAY => reg_y <= with_nz(reg_a);
         when I_TSX => reg_x <= with_nz(reg_sp);
         when I_TXA => reg_a <= with_nz(reg_x);
-        when I_TXS => reg_sp <= with_nz(reg_x);
+        when I_TXS => reg_sp <= reg_x;
         when I_TYA => reg_a <= with_nz(reg_y);
                       
         when I_NOP => null;
