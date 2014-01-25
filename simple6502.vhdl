@@ -533,9 +533,9 @@ begin
     -- This should be conditional on some port knock or CPU flag
     target := x"FFD3";
     
-    ram_bank_registers_instructions(12) <= target;
-    ram_bank_registers_read(12) <= target;
-    ram_bank_registers_write(12) <= target;    
+    ram_bank_registers_instructions(13) <= target;
+    ram_bank_registers_read(13) <= target;
+    ram_bank_registers_write(13) <= target;    
   end map_io;
 
   
