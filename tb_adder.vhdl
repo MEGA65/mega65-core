@@ -128,6 +128,22 @@ begin  -- behaviour
         & " = " & to_hstring(std_logic_vector(tmp(7 downto 0))) severity note;
       return tmp(7 downto 0);
     end function alu_op_sub;
+
+    procedure alu_op_cmp (
+      i1 : in unsigned(7 downto 0);
+      i2 : in unsigned(7 downto 0)) is
+      variable result : unsigned(8 downto 0);
+    begin
+      result := ("0"&i1) - ("0"&i2);
+      flag_z <= '0'; flag_c <= '0';
+      if result(7 downto 0)=x"00" then
+        flag_z <= '1';
+      end if;
+      if result(8)='0' then
+        flag_c <= '1';
+      end if;
+      flag_n <= result(7);
+    end alu_op_cmp;
     
     variable result : unsigned(7 downto 0);
   begin  -- process test
@@ -279,6 +295,24 @@ begin  -- behaviour
     assert result=x"98" report "result should be $98" severity failure;
     assert flag_v='0' report "v should be 0" severity failure;
     assert flag_c='1' report "c should be 1" severity failure;
+
+    report "TESTING COMPARE" severity note;
+
+    wait for 1 ns;
+    alu_op_cmp(x"00",x"88");
+    wait for 1 ns;
+    report "v=" &std_logic'image(flag_v) & ", z=" &std_logic'image(flag_z) & ", c=" &std_logic'image(flag_c) & ", n=" &std_logic'image(flag_n) severity note;
+    assert flag_n='0' report "n should be 0" severity failure;
+    assert flag_c='0' report "c should be 0" severity failure;
+    assert flag_z='0' report "z should be 0" severity failure;
+    
+    wait for 1 ns;
+    alu_op_cmp(x"88",x"00");
+    wait for 1 ns;
+    report "v=" &std_logic'image(flag_v) & ", z=" &std_logic'image(flag_z) & ", c=" &std_logic'image(flag_c) & ", n=" &std_logic'image(flag_n) severity note;
+    assert flag_n='1' report "n should be 1" severity failure;
+    assert flag_c='1' report "c should be 1" severity failure;
+    assert flag_z='0' report "z should be 0" severity failure;
     
     report "Simulation ended" severity failure;
   end process test;

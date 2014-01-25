@@ -819,20 +819,17 @@ begin
   procedure alu_op_cmp (
     i1 : in unsigned(7 downto 0);
     i2 : in unsigned(7 downto 0)) is
+    variable result : unsigned(8 downto 0);
   begin
-    if i1=i2 then
+    result := ("0"&i1) - ("0"&i2);
+    flag_z <= '0'; flag_c <= '0';
+    if result(7 downto 0)=x"00" then
       flag_z <= '1';
-      flag_n <= '0';
-      flag_c <= '1';
-    elsif i1<i2 then
-      flag_z <= '0';
-      flag_n <= '1';
-      flag_c <= '0';
-    elsif i1>i2 then
-      flag_z <= '0';
-      flag_n <= '0';
+    end if;
+    if result(8)='0' then
       flag_c <= '1';
     end if;
+    flag_n <= result(7);
   end alu_op_cmp;
   
   impure function alu_op_add (
