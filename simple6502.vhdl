@@ -667,10 +667,10 @@ begin
       -- cycle instead of incurring an extra cycle delay if passed through the
       -- normal memory-based instruction path. 
       case i is
-        when I_ASL => reg_a <= reg_a(6 downto 0) & '0'; flag_c <= reg_a(7);
-        when I_ROL => reg_a <= reg_a(6 downto 0) & flag_c; flag_c <= reg_a(7);
-        when I_LSR => reg_a <= '0' & reg_a(7 downto 1); flag_c <= reg_a(0);
-        when I_ROR => reg_a <= flag_c & reg_a(7 downto 1); flag_c <= reg_a(0);
+        when I_ASL => reg_a <= with_nz(reg_a(6 downto 0) & '0'); flag_c <= reg_a(7);
+        when I_ROL => reg_a <= with_nz(reg_a(6 downto 0) & flag_c); flag_c <= reg_a(7);
+        when I_LSR => reg_a <= with_nz('0' & reg_a(7 downto 1)); flag_c <= reg_a(0);
+        when I_ROR => reg_a <= with_nz(flag_c & reg_a(7 downto 1)); flag_c <= reg_a(0);
         when others => null;
       end case;
     end if;
@@ -738,7 +738,7 @@ begin
         flag_z <= '0';
       end if;
       flag_n <= tmp(7);
-      flag_v <= (i1(7) xor tmp(7)) and (not i1(7) and i2(7));
+      flag_v <= (i1(7) xor tmp(7)) and (not (i1(7) and i2(7)));
       if tmp(8 downto 4) > "01001" then
         tmp := tmp + x"60";
       end if;
@@ -748,7 +748,7 @@ begin
              + ("0"&i1)
              + ("00000000"&flag_c);
       tmp(7 downto 0) := with_nz(tmp(7 downto 0));
-      flag_v <= (i1(7) xor tmp(7)) and (not i1(7) and i2(7));
+      flag_v <= (i1(7) xor tmp(7)) and (not (i1(7) and i2(7)));
       flag_c <= tmp(8);
     end if;
     -- Return final value
