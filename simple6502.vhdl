@@ -507,7 +507,7 @@ begin
     -- This routine is used for mapping RAM in place of IO,
     -- so we can't just copy the write page to read & instructions
     target := ram_bank_registers_write(0);
-    targer(3 downto 0) := to_unsigned(page,4);
+    target(3 downto 0) := to_unsigned(page,4);
     
     ram_bank_registers_instructions(page) <= target;
     ram_bank_registers_read(page) <= target;
@@ -885,30 +885,37 @@ begin
   impure function alu_op_sub (
     i1 : in unsigned(7 downto 0);
     i2 : in unsigned(7 downto 0)) return unsigned is
-    variable o : unsigned(7 downto 0);
-    variable s2 : unsigned(7 downto 0);
+    variable tmp : unsigned(8 downto 0);
+    variable tmpd : unsigned(8 downto 0);
   begin
-    -- calculate ones-complement.
-    s2 := (not i2);
-    -- Then do add.
-    -- Z and C should get set correctly.
-    -- XXX Will this work for decimal mode?
-    o := alu_op_add(i1,s2);
-    report "$" & to_hstring(i1) & " - $" & to_hstring(i2) & " = $" & to_hstring(o) severity note;
-    
-    return o;
-    
+    tmp := ("0"&i2) - ("0"&i1)
+           - "000000001" + ("00000000"&flag_c);
+    flag_c <= not tmp(8);
+    flag_v <= (i1(7) xor tmp(7)) and (i1(7) xor i2(7));
+    tmp(7 downto 0) := with_nz(tmp(7 downto 0));
+    if flag_d='1' then
+      tmpd := (("00000"&i1(3 downto 0)) - ("00000"&i2(3 downto 0)))
+              - "000000001" + ("00000000" & flag_c);
+
+      if tmpd(4)='1' then
+        tmpd(3 downto 0) := tmpd(3 downto 0)-x"6";
+        tmpd(8 downto 4) := ("0"&i1(7 downto 4)) - ("0"&i2(7 downto 4)) - "00001";
+      else
+        tmpd(8 downto 4) := ("0"&i1(7 downto 4)) - ("0"&i2(7 downto 4));
+      end if;
+      tmp := tmpd;
+    end if;
     -- Return final value
-    report "sub result of "
+    report "subtraction result of "
       & "$" & to_hstring(std_logic_vector(i1)) 
       & " - "
       & "$" & to_hstring(std_logic_vector(i2)) 
       & " - 1 + "
       & "$" & std_logic'image(flag_c)
-      & " = " & to_hstring(std_logic_vector(o)) severity note;
-    return o;
+      & " = " & to_hstring(std_logic_vector(tmp(7 downto 0))) severity note;
+    return tmp(7 downto 0);
   end function alu_op_sub;
-
+  
   procedure rmw_operand_commit (
     address : in unsigned(15 downto 0);
     first_value : in unsigned(7 downto 0);
