@@ -860,7 +860,8 @@ begin
       flag_n <= tmp(7);
       flag_v <= (i1(7) xor tmp(7)) and (not (i1(7) xor i2(7)));
       if tmp(8 downto 4) > "01001" then
-        tmp := (("0"&tmp(7 downto 0)) + ("0"&x"60"));
+        tmp(7 downto 0) := tmp(7 downto 0) + x"60";
+        tmp(8) := '1';
       end if;
       flag_c <= tmp(8);
     else
