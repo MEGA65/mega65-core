@@ -210,11 +210,9 @@ int main(int argc,char **argv)
   if (tcsetattr(fd, TCSANOW, &t)) perror("Failed to set terminal parameters");
 
   // Send ^U r <return> to print registers and get into a known state.
+  usleep(20000);
+  slow_write(fd,"\r",1);
   usleep(50000);
-  slow_write(fd,"\025",1);
-  usleep(20000);
-  slow_write("r\r",2);
-  usleep(20000);
   slow_write(fd,"bf4a2\r",6);   // Also setup breakpoint
   usleep(20000);
   slow_write(fd,"sffd0c01 0\r",11); // and make keyboard workaround CIA bug
