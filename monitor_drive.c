@@ -211,7 +211,9 @@ int main(int argc,char **argv)
 
   // Send ^U r <return> to print registers and get into a known state.
   usleep(50000);
-  slow_write(fd,"\025r\r",3);
+  slow_write(fd,"\025",1);
+  usleep(20000);
+  slow_write("r\r",2);
   usleep(20000);
   slow_write(fd,"bf4a2\r",6);   // Also setup breakpoint
   usleep(20000);
