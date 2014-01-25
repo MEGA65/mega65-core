@@ -42,14 +42,20 @@ begin  -- behaviour
     variable tmp : unsigned(8 downto 0);
   begin
     if flag_d='1' then
-      tmp := (i1 and x"0f") + (i2 and x"0f") + "0000000" & flag_c;                           
+      tmp(8) := '0';
+      tmp(7 downto 0) := (i1 and x"0f") + (i2 and x"0f") + ("0000000" & flag_c);
+
+      report "flag_c=" & std_logic'image(flag_c) severity note;
+      report "low nybl sum before fixing = $" & to_hstring(tmp(7 downto 0)) severity note;
+      report "i1=$" & to_hstring(i1) severity note;
+      report "i2=$" & to_hstring(i2) severity note;
       if tmp > x"09" then
         tmp := tmp + x"06";                                                                         
       end if;
       if tmp < x"10" then
-        tmp := (tmp and x"0f") + (i1 and x"f0") + (i2 and x"f0");
+        tmp := ("0"&(tmp(7 downto 0) and x"0f")) + ("0"&(i1 and x"f0")) + ("0"&(i2 and x"f0"));
       else
-        tmp := (tmp and x"0f") + (i1 and x"f0") + (i2 and x"f0") + x"10";
+        tmp := ("0"&(tmp(7 downto 0) and x"0f")) + ("0"&(i1 and x"f0")) + ("0"&(i2 and x"f0")) + "0"&x"10";
       end if;
       if (i1 + i2 + ( "0000000" & flag_c )) = x"00" then
         flag_z <= '1';
@@ -154,6 +160,17 @@ begin  -- behaviour
     wait for 1 ns;
     report "v=" &std_logic'image(flag_v) & ", z=" &std_logic'image(flag_z) & ", c=" &std_logic'image(flag_c) & ", n=" &std_logic'image(flag_n) severity note;
     assert flag_v='1' report "v should be 1" severity failure;
+
+    report "DECIMAL MODE TESTS" severity note;
+    
+    flag_c <= '0';
+    flag_d <= '1';
+    wait for 1 ns;
+    result := alu_op_add(x"00",x"11");
+    report "result is $" & to_hstring(result) severity note;
+    wait for 1 ns;
+    report "v=" &std_logic'image(flag_v) & ", z=" &std_logic'image(flag_z) & ", c=" &std_logic'image(flag_c) & ", n=" &std_logic'image(flag_n) severity note;
+    assert result=x"11" report "result should be $11" severity failure;
 
     
     report "Simulation ended" severity failure;

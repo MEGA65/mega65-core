@@ -723,7 +723,9 @@ begin
     variable tmp : unsigned(8 downto 0);
   begin
     if flag_d='1' then
-      tmp := (i1 and x"0f") + (i2 and x"0f") + "0000000" & flag_c;                           
+      tmp(8) := '0';
+      tmp(7 downto 0) := (i1 and x"0f") + (i2 and x"0f") + ("0000000" & flag_c);
+         
       if tmp > x"09" then
         tmp := tmp + x"06";                                                                         
       end if;
