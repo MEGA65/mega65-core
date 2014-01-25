@@ -96,7 +96,7 @@ begin  -- behaviour
       variable tmp : unsigned(8 downto 0);
       variable tmpd : unsigned(8 downto 0);
     begin
-      tmp := ("0"&i2) - ("0"&i1)
+      tmp := ("0"&i1) - ("0"&i2)
              - "000000001" + ("00000000"&flag_c);
       flag_c <= not tmp(8);
       flag_v <= (i1(7) xor tmp(7)) and (i1(7) xor i2(7));
@@ -257,6 +257,7 @@ begin  -- behaviour
     assert flag_c='1' report "c should be 1" severity failure;
 
     report "SUBTRACTION TESTS" severity note;
+
     flag_c <= '0';
     flag_d <= '1';
     wait for 1 ns;
@@ -268,6 +269,16 @@ begin  -- behaviour
     assert flag_v='0' report "v should be 0" severity failure;
     assert flag_c='0' report "c should be 0" severity failure;
 
+    flag_c <= '1';
+    flag_d <= '0';
+    wait for 1 ns;
+    result := alu_op_sub(x"a0",x"08");
+    report "result is $" & to_hstring(result) severity note;
+    wait for 1 ns;
+    report "v=" &std_logic'image(flag_v) & ", z=" &std_logic'image(flag_z) & ", c=" &std_logic'image(flag_c) & ", n=" &std_logic'image(flag_n) severity note;
+    assert result=x"98" report "result should be $98" severity failure;
+    assert flag_v='0' report "v should be 0" severity failure;
+    assert flag_c='1' report "c should be 1" severity failure;
     
     report "Simulation ended" severity failure;
   end process test;
