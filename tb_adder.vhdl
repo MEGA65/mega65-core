@@ -55,7 +55,7 @@ begin  -- behaviour
       if tmp < x"10" then
         tmp := ("0"&(tmp(7 downto 0) and x"0f")) + ("0"&(i1 and x"f0")) + ("0"&(i2 and x"f0"));
       else
-        tmp := ("0"&(tmp(7 downto 0) and x"0f")) + ("0"&(i1 and x"f0")) + ("0"&(i2 and x"f0")) + "0"&x"10";
+        tmp := ("0"&(tmp(7 downto 0) and x"0f")) + ("0"&(i1 and x"f0")) + ("0"&(i2 and x"f0")) + ("0"&x"10");
       end if;
       if (i1 + i2 + ( "0000000" & flag_c )) = x"00" then
         flag_z <= '1';
@@ -63,7 +63,7 @@ begin  -- behaviour
         flag_z <= '0';
       end if;
       flag_n <= tmp(7);
-      flag_v <= (i1(7) xor tmp(7)) and (not (i1(7) and i2(7)));      
+      flag_v <= (i1(7) xor tmp(7)) and (not (i1(7) xor i2(7)));      
       if tmp(8 downto 4) > "01001" then
         tmp := tmp + x"60";
       end if;
@@ -171,6 +171,26 @@ begin  -- behaviour
     wait for 1 ns;
     report "v=" &std_logic'image(flag_v) & ", z=" &std_logic'image(flag_z) & ", c=" &std_logic'image(flag_c) & ", n=" &std_logic'image(flag_n) severity note;
     assert result=x"11" report "result should be $11" severity failure;
+
+    flag_c <= '0';
+    flag_d <= '1';
+    wait for 1 ns;
+    result := alu_op_add(x"24",x"56");
+    report "result is $" & to_hstring(result) severity note;
+    wait for 1 ns;
+    report "v=" &std_logic'image(flag_v) & ", z=" &std_logic'image(flag_z) & ", c=" &std_logic'image(flag_c) & ", n=" &std_logic'image(flag_n) severity note;
+    assert result=x"80" report "result should be $80" severity failure;
+    assert flag_v='1' report "v should be 1" severity failure;
+
+    flag_c <= '0';
+    flag_d <= '1';
+    wait for 1 ns;
+    result := alu_op_add(x"00",x"88");
+    report "result is $" & to_hstring(result) severity note;
+    wait for 1 ns;
+    report "v=" &std_logic'image(flag_v) & ", z=" &std_logic'image(flag_z) & ", c=" &std_logic'image(flag_c) & ", n=" &std_logic'image(flag_n) severity note;
+    assert result=x"88" report "result should be $88" severity failure;
+    assert flag_v='0' report "v should be 0" severity failure;
 
     
     report "Simulation ended" severity failure;
