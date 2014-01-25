@@ -32,6 +32,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include <strings.h>
 #include <string.h>
 #include <ctype.h>
+#include <sys/time.h>
 
 int process_char(unsigned char c,int live);
 
@@ -56,6 +57,15 @@ int name_len,name_lo,name_hi,name_addr=-1;
 char filename[17];
 FILE *f=NULL;
 char *search_path=".";
+
+unsigned long long gettime_ms()
+{
+  struct timeval nowtv;
+  // If gettimeofday() fails or returns an invalid value, all else is lost!
+  if (gettimeofday(&nowtv, NULL) == -1)
+    perror("gettimeofday");
+  return nowtv.tv_sec * 1000LL + nowtv.tv_usec / 1000;
+}
 
 int process_line(char *line,int live)
 {
@@ -101,16 +111,16 @@ int process_line(char *line,int live)
       f=fopen(fullname,"r");
       if (f==NULL) {
 	// file not found error
-	usleep(50000);
+	usleep(10000);
 	slow_write(fd,"gf704\r",6);
-	usleep(50000);
+	usleep(10000);
 	slow_write(fd,"t0\r",3);
-	usleep(50000);
+	usleep(10000);
       } else {
 	int load_addr=fgetc(f);
 	load_addr|=fgetc(f)<<8;
 	printf("Load address is $%04x\n",load_addr);
-	usleep(50000);
+	usleep(10000);
 	unsigned char buf[1024];
 	int b=fread(buf,1,1024,f);
 	while(b>0) {
@@ -128,7 +138,7 @@ int process_line(char *line,int live)
 		    buf[i+8],buf[i+9],buf[i+10],buf[i+11],buf[i+12],buf[i+13],buf[i+14],buf[i+15]);
 
 	    slow_write(fd,cmd,strlen(cmd));
-	    usleep(10000);
+	    usleep(2000);
 	    load_addr+=n;
 
 	    {
@@ -150,13 +160,13 @@ int process_line(char *line,int live)
 	char cmd[64];
 	snprintf(cmd,64,"s9ff0 18 a9 00 a2 %02x a0 %02x 4c a9 f5\r",
 		 load_addr&0xff,(load_addr>>8)&0xff);
-	usleep(50000);
+	usleep(10000);
 	slow_write(fd,cmd,strlen(cmd));
-	usleep(50000);
+	usleep(10000);
 	slow_write(fd,"g9ff0\r",6);
-	usleep(50000);
+	usleep(10000);
 	slow_write(fd,"t0\r",3);
-	usleep(50000);
+	usleep(10000);
 
       }
     }
@@ -202,15 +212,15 @@ int main(int argc,char **argv)
   // Send ^U r <return> to print registers and get into a known state.
   usleep(50000);
   slow_write(fd,"\025r\r",3);
-  usleep(50000);
+  usleep(20000);
   slow_write(fd,"bf4a2\r",6);   // Also setup breakpoint
-  usleep(50000);
+  usleep(20000);
   slow_write(fd,"sffd0c01 0\r",11); // and make keyboard workaround CIA bug
-  usleep(50000);
+  usleep(20000);
   slow_write(fd,"t0\r",3); // and set CPU going
-  usleep(50000);
+  usleep(20000);
 
-  time_t last_check = time(0);
+  unsigned long long last_check = gettime_ms();
 
   while(1)
     {
@@ -225,9 +235,9 @@ int main(int argc,char **argv)
 	    process_char(read_buff[i],1);
 	  }
 	} else usleep(10000);
-	if (time(0)>last_check) {
+	if (gettime_ms()>last_check) {
 	  slow_write(fd,"r\r",2);
-	  last_check=time(0);
+	  last_check=gettime_ms()+50;
 	}
 	break;
       case 1: // trapped LOAD, so read file name
