@@ -42,5 +42,11 @@ simulate:	bcdadder.vhdl alu6502.vhdl cpu6502.vhdl kernel65.vhdl kernel64.vhdl ba
 testcia:	tb_cia.vhdl cia6526.vhdl debugtools.vhdl
 	ghdl -c tb_cia.vhdl cia6526.vhdl debugtools.vhdl -r tb_cia
 
+testadder:	tb_adder.vhdl debugtools.vhdl
+	ghdl -c tb_adder.vhdl debugtools.vhdl -r tb_adder
+
+adctest:	adctest.a65
+	Ophis-2.0-standalone/ophis -o adctest adctest.a65
+
 monitor_drive:	monitor_drive.c
 	gcc -Wall -o monitor_drive monitor_drive.c
