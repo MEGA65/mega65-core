@@ -1,3 +1,36 @@
+-- Accelerated 6502-like CPU for the C65GS
+--
+-- Written by
+--    Paul Gardner-Stephen <hld@c64.org>
+--
+-- * Portions derived from  6510core.c - MOS6510 emulation core.
+-- *
+-- * Written by
+-- *  Ettore Perazzoli <ettore@comm2000.it>
+-- *  Andreas Boose <viceteam@t-online.de>
+-- *
+-- * DTV sections written by
+-- *  M.Kiesel <mayne@users.sourceforge.net>
+-- *  Hannu Nuotio <hannu.nuotio@tut.fi>
+-- *
+-- * This file is part of VICE, the Versatile Commodore Emulator.
+-- * See README for copyright notice.
+-- *
+-- *  This program is free software; you can redistribute it and/or modify
+-- *  it under the terms of the GNU General Public License as published by
+-- *  the Free Software Foundation; either version 2 of the License, or
+-- *  (at your option) any later version.
+-- *
+-- *  This program is distributed in the hope that it will be useful,
+-- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+-- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+-- *  GNU General Public License for more details.
+-- *
+-- *  You should have received a copy of the GNU General Public License
+-- *  along with this program; if not, write to the Free Software
+-- *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+-- *  02111-1307  USA.
+
 use WORK.ALL;
 
 library IEEE;
@@ -684,77 +717,39 @@ begin
     end if;
   end alu_op_cmp;
   
-  impure function alu_op_add (
-    i1 : in unsigned(7 downto 0);
-    i2 : in unsigned(7 downto 0)) return unsigned is
-    variable o : unsigned(7 downto 0);
-    variable vo : unsigned(7 downto 0);
+    impure function alu_op_add (
+      i1 : in unsigned(7 downto 0);
+      i2 : in unsigned(7 downto 0)) return unsigned is
+    variable tmp : unsigned(8 downto 0);
   begin
-    -- Whether in decimal mode or not, calculate normal sum,
-    -- so that Z can be set correctly (Z in decimal mode =
-    -- Z in binary mode).
-    -- XXX Why doesn't just i1+i2 work here?
-    o := to_unsigned(to_integer(i1) + to_integer(i2),8);
-    report "interim result = $" & to_hstring(std_logic_vector(o)) severity note;
-    if flag_c='1' then
-      o := o + 1;
-    end if;  
-    o := with_nz(o);
-
-    -- Signed overflow flag
-    -- See http://www.righto.com/2012/12/the-6502-overflow-flag-explained.html
-    -- "Overflow can be computed simply in C++ from the inputs and the result.
-    -- Overflow occurs if (M^result)&(N^result)&0x80 is nonzero. That is, if the
-    -- sign of both inputs is different from the sign of the result. (Anding with
-    -- 0x80 extracts just the sign bit from the result.) Another C++ formula is
-    -- !((M^N) & 0x80) && ((M^result) & 0x80). This means there is overflow if the
-    -- inputs do not have different signs and the input sign is different from the
-    -- output sign (link)."
-    vo := to_unsigned(to_integer('0'&i1(6 downto 0)) + to_integer('0'&i2(6 downto 0)),8);
-    if flag_c='1' then
-      vo := vo + 1;
-    end if;  
-
-    if i1(7) /= vo(7) and i2(7) /= vo(7) then
-      flag_v <= '1';
-    else
-      flag_v <= '0';
-    end if;
-
-    if unsigned(o)<unsigned(i1) then
-      flag_c <= '1';
-    else
-      flag_c <= '0';
-    end if;
     if flag_d='1' then
-      -- Decimal mode. Flags are set weirdly.
-
-      -- First, Z is set based on normal addition above.
-      
-      -- Now do BCD fix up on lower nybl.
-      if o(3 downto 0) > x"9" then
-        o:= o+6;
+      tmp := (i1 and x"0f") + (i2 and x"0f") + "0000000" & flag_c;                           
+      if tmp > x"09" then
+        tmp := tmp + x"06";                                                                         
       end if;
-
-      -- Then set N & V *before* upper nybl BCD fixup
-      flag_n<=o(7);
-      if i1(7) /= o(7) and i2(7) /= o(7) then
-        flag_v <= '1';
+      if tmp < x"10" then
+        tmp := (tmp and x"0f") + (i1 and x"f0") + (i2 and x"f0");
       else
-        flag_v <= '0';
+        tmp := (tmp and x"0f") + (i1 and x"f0") + (i2 and x"f0") + x"10";
       end if;
-
-      -- Now do BCD fixup on upper nybl
-      if o(7 downto 4)>x"9" then
-        o(7 downto 4):=o(7 downto 4)+x"6";
-      end if;
-
-      -- Finally set carry flag based on result
-      if o<i1 then
-        flag_c <='1';
+      if (i1 + i2 + ( "0000000" & flag_c )) = x"00" then
+        flag_z <= '1';
       else
-        flag_c <='0';
+        flag_z <= '0';
       end if;
+      flag_n <= tmp(7);
+      flag_v <= (i1(7) xor tmp(7)) and (not i1(7) and i2(7));
+      if tmp(8 downto 4) > "01001" then
+        tmp := tmp + x"60";
+      end if;
+      flag_c <= tmp(8);
+    else
+      tmp := ("0"&i2)
+             + ("0"&i1)
+             + ("00000000"&flag_c);
+      tmp(7 downto 0) := with_nz(tmp(7 downto 0));
+      flag_v <= (i1(7) xor tmp(7)) and (not i1(7) and i2(7));
+      flag_c <= tmp(8);
     end if;
     -- Return final value
     report "add result of "
@@ -763,8 +758,8 @@ begin
       & "$" & to_hstring(std_logic_vector(i2)) 
       & " + "
       & "$" & std_logic'image(flag_c)
-      & " = " & to_hstring(std_logic_vector(o)) severity note;
-    return o;
+      & " = " & to_hstring(std_logic_vector(tmp(7 downto 0))) severity note;
+    return tmp(7 downto 0);
   end function alu_op_add;
 
   impure function alu_op_sub (
