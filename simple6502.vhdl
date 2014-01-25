@@ -278,8 +278,8 @@ architecture Behavioural of simple6502 is
   signal accessing_slowram : std_logic;
   signal accessing_cpuport : std_logic;
   signal cpuport_num : std_logic;
-  signal cpuport_ddr : unsigned(7 downto 0);
-  signal cpuport_value : unsigned(7 downto 0);
+  signal cpuport_ddr : unsigned(7 downto 0) := x"FF";
+  signal cpuport_value : unsigned(7 downto 0) := x"3F";
 
   signal monitor_mem_trace_toggle_last : std_logic := '0';
 
@@ -302,6 +302,9 @@ begin
     flag_n <= '0';
     flag_v <= '0';
 
+    cpuport_ddr <= x"FF";
+    cpuport_value <= x"3F";
+    
     -- Default memory map (C64 like, but with enhanced IO and kernel)
     -- Map first bank of fast RAM at $0000 - $CFFF
     for i in 0 to 12 loop
@@ -495,6 +498,45 @@ begin
     -- Once read, we then resume processing from the specified state.
     pending_state <= next_state;
   end write_long_byte;
+
+  -- purpose: map RAM at desired page.  RAM will be from same 64KB as mapped at $0000-$0FFF
+  procedure map_local_ram (
+    page : in integer) is
+    variable target : unsigned(15 downto 0);
+  begin  -- map_local_ram
+    target := ram_bank_registers_instructions(0);
+    target(3 downto 0) := to_unsigned(page,4);
+    
+    ram_bank_registers_instructions(page) <= target;
+    ram_bank_registers_read(page) <= target;
+    ram_bank_registers_write(page) <= target;    
+  end map_local_ram;
+
+  procedure map_c64mode_rom (
+    page : in integer) is
+    variable target : unsigned(15 downto 0);
+  begin  -- map_local_ram
+    target := x"FFE0";
+    target(3 downto 0) := to_unsigned(page,4);
+    
+    ram_bank_registers_instructions(page) <= target;
+    ram_bank_registers_read(page) <= target;
+    ram_bank_registers_write(page) <= target;    
+  end map_c64mode_rom;
+
+  procedure map_io (
+    page : in integer) is
+    variable target : unsigned(15 downto 0);
+  begin  -- map_local_ram
+    -- XXX Mapping enhanced IO page by default
+    -- This should be conditional on some port knock or CPU flag
+    target := x"FFD3";
+    
+    ram_bank_registers_instructions(12) <= target;
+    ram_bank_registers_read(12) <= target;
+    ram_bank_registers_write(12) <= target;    
+  end map_io;
+
   
   procedure write_byte (
     memmap             : in bank_register_set;
@@ -504,10 +546,57 @@ begin
     variable long_address : unsigned(27 downto 0);
   begin
     if address=x"0000" then
+      -- Setting the CPU DDR is simple, and has no real side effects.
+      -- All 8 bits can be written to.
       cpuport_ddr <= value;
       state <= next_state;
-    elsif address=x"0001" then      
-      cpuport_value <= value;
+    elsif address=x"0001" then
+      -- For CPU port, things get more interesting.
+      -- Bits 6 & 7 cannot be altered, and always read 0.
+      cpuport_value(5 downto 0) <= value(5 downto 0);
+      -- Bits 3 through 5 are datasette related, so we can mostly
+      -- ignore those for now.
+      -- Bits 0 - 2 affect the memory map, so we need to update MMU registers.
+      case value(2 downto 0) is
+        when "000" =>                   -- 64KB RAM
+          map_local_ram(10); map_local_ram(11);
+          map_local_ram(13);
+          map_local_ram(14); map_local_ram(15);          
+        when "001" =>                   -- Charrom @ $D000, No Kernel, No Basic
+          map_local_ram(10); map_local_ram(11);
+          map_c64mode_rom(13);
+          map_local_ram(14); map_local_ram(15);          
+        when "010" =>                   -- Charrom @ $D000, Kernel @ $E000, No Basic
+          map_local_ram(10); map_local_ram(11);
+          map_c64mode_rom(13);
+          map_c64mode_rom(14); map_c64mode_rom(15);          
+        when "011" =>                   -- Charrom @ $D000, Kernel @ $E000,
+                                        -- Basic @ $A000
+          map_c64mode_rom(10); map_c64mode_rom(11);
+          map_c64mode_rom(13);
+          map_c64mode_rom(14); map_c64mode_rom(15);          
+        when "100" =>                   -- 64KB RAM
+          map_local_ram(10); map_local_ram(11);
+          map_local_ram(13);
+          map_local_ram(14); map_local_ram(15);          
+        when "101" =>                   -- IO @ $D000, No Kernel, No Basic
+          map_local_ram(10); map_local_ram(11);
+          map_io(13);
+          map_local_ram(14); map_local_ram(15);          
+        when "110" =>                   -- IO @ $D000, Kernel @ $E000, No Basic
+          map_local_ram(10); map_local_ram(11);
+          map_io(13);
+          map_c64mode_rom(14); map_c64mode_rom(15);          
+        when "111" =>                   -- IO @ $D000, Kernel @ $E000,
+                                        -- Basic @ $A000
+          map_c64mode_rom(10); map_c64mode_rom(11);
+          map_io(13);
+          map_c64mode_rom(14); map_c64mode_rom(15);          
+        when others =>                
+          map_c64mode_rom(10); map_c64mode_rom(11);
+          map_io(13);
+          map_c64mode_rom(14); map_c64mode_rom(15);          
+      end case;
       state <= next_state;
     else
       long_address := resolve_address_to_long(address,memmap);
