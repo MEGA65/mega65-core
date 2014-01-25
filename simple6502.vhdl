@@ -276,6 +276,8 @@ architecture Behavioural of simple6502 is
   signal accessing_fastio : std_logic;
   signal accessing_ram : std_logic;
   signal accessing_slowram : std_logic;
+  signal accessing_cpuport : std_logic;
+  signal cpuport_num : std_logic;
 
   signal monitor_mem_trace_toggle_last : std_logic := '0';
 
@@ -376,7 +378,8 @@ begin
     next_state : in processor_state) is
   begin
     -- Schedule the memory read from the appropriate source.
-    accessing_ram <= '0'; accessing_slowram <= '0'; accessing_fastio <= '0';
+    accessing_ram <= '0'; accessing_slowram <= '0';
+    accessing_fastio <= '0'; accessing_cpuport <= '0';
     if long_address(27 downto 17)="00000000000" then
       report "Reading from fastram address $" & to_hstring(long_address(19 downto 0))
         & ", word $" & to_hstring(long_address(18 downto 3)) severity note;
@@ -435,8 +438,14 @@ begin
     next_state : in processor_state) is
     variable long_address : unsigned(27 downto 0);
   begin  -- read_address
-    long_address := resolve_address_to_long(address,memmap);
-    read_long_address(long_address,next_state);
+    if (address = x"0000") or (address = x"0001") then
+      accessing_cpuport <= '1';
+      cpuport_num <= address(0);
+      state <= next_state;
+    else
+      long_address := resolve_address_to_long(address,memmap);
+      read_long_address(long_address,next_state);
+    end if;
   end read_address;
 
   procedure write_long_byte(
@@ -445,7 +454,8 @@ begin
     next_state         : in processor_state) is
   begin
     -- Schedule the memory write to the appropriate destination.
-    accessing_ram <= '0'; accessing_slowram <= '0'; accessing_fastio <= '0';
+    accessing_ram <= '0'; accessing_slowram <= '0';
+    accessing_fastio <= '0'; accessing_cpuport <= '0';
     if long_address(27 downto 17)="00000000000" then
       accessing_ram <= '1';
       fastram_address <= std_logic_vector(long_address(16 downto 3));
@@ -540,7 +550,14 @@ begin
   impure function read_data
     return unsigned is
   begin  -- read_data
-    if accessing_fastio='1' then 
+    if accessing_cpuport='1' then
+      if cpuport_num='0' then
+        -- DDR
+      else
+        -- CPU port
+        
+      end if;
+    elsif accessing_fastio='1' then 
       return unsigned(fastio_rdata);
     elsif accessing_ram='1' then
       report "Extracting fastram value from 64-bit read $" & to_hstring(fastram_dataout) severity note;
