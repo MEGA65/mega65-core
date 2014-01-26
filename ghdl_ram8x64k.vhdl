@@ -40,7 +40,7 @@ begin  -- behavioural
       else
         douta <= "ZZZZZZZZ";
       end if;
-    end if; 
+    end if;
   end process;
 
   process (clkb)

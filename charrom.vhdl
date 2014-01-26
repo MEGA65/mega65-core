@@ -1057,11 +1057,13 @@ BEGIN
         if(we='1') then
           ram(to_integer(unsigned(address))) <= data_i;
         end if;
-        data_o <= ram(to_integer(unsigned(address)));
+        if address(0)='0' or address(0)='1' then
+          data_o <= ram(to_integer(unsigned(address)));          
+        end if;
       else
         data_o <= "ZZZZZZZZ";
       end if;
-    end if; 
+    end if;
 END PROCESS;
 
 end Behavioral;

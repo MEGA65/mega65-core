@@ -444,7 +444,6 @@ begin
     variable register_number : unsigned(11 downto 0);
     variable colour_ram_cs_var : std_logic := '0';
   begin
-
     fastio_rdata <= (others => 'Z');    
 
     -- C65/VIC-III style 1Hz blink attribute clock
@@ -1006,7 +1005,7 @@ begin
         end if;
       end if;      
     end if;
-    
+
   end process;
   
   process(pixelclock) is
@@ -1018,7 +1017,6 @@ begin
     variable next_glyph_number_temp : std_logic_vector(15 downto 0) := (others => '0');
     variable next_glyph_colour_temp : std_logic_vector(7 downto 0) := (others => '0');
   begin
-
     if rising_edge(pixelclock) then
       if (ycounter>100) and (xcounter>250) and (xcounter<350) then
         report
@@ -1572,7 +1570,6 @@ begin
       vgablue <= vga_buffer_blue;
       
     end if;
-
   end process;
 
 end Behavioral;

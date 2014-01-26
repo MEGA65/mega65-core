@@ -1299,12 +1299,12 @@ begin
     variable value : unsigned(15 downto 0);
     variable reg_num : integer;
   begin  -- process fastio
-    address := unsigned(fastio_addr);
-    rwx := to_integer(address(7 downto 5));
-    lohi := fastio_addr(0);
-    reg_num := to_integer(address(4 downto 1));
-    
     if fastio_read='1' and address(19 downto 8) = x"FC0" then
+      address := unsigned(fastio_addr);
+      rwx := to_integer(address(7 downto 5));
+      lohi := fastio_addr(0);
+      reg_num := to_integer(address(4 downto 1));
+      
       case rwx is
         when 0 => value := ram_bank_registers_read(reg_num);
         when 1 => value := ram_bank_registers_read(reg_num);

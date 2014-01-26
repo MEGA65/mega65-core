@@ -58,7 +58,7 @@ begin  -- behavioural
       else
         douta <= (others => 'Z');
       end if;
-    end if; 
+    end if;
   end process;
 
   --process (clkb)

@@ -163,16 +163,16 @@ begin  -- behavioural
           ) is
     variable register_number : unsigned(7 downto 0);
   begin
-
-    -- XXX For debugging have 32 registers, and map
-    -- reg_porta_read and portain (and same for port b)
-    -- to extra registers for debugging.
-    register_number(7 downto 5) := (others => '0');
-    register_number(4 downto 0) := fastio_addr(4 downto 0);
     if cs='0' then
       -- Tri-state read lines if not selected
       fastio_rdata <= (others => 'Z');
     else
+      -- XXX For debugging have 32 registers, and map
+      -- reg_porta_read and portain (and same for port b)
+      -- to extra registers for debugging.
+      register_number(7 downto 5) := (others => '0');
+      register_number(4 downto 0) := fastio_addr(4 downto 0);
+
       -- Reading of registers
       if fastio_write='1' then
         -- Tri-state read lines if writing
@@ -488,7 +488,7 @@ begin  -- behavioural
           when others => null;
         end case;
       end if;
-    end if;      
+    end if;
   end process;
 
 end behavioural;
