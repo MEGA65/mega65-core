@@ -260,6 +260,10 @@ architecture Behavioral of vga is
   signal colour_ram_base : unsigned(15 downto 0) := x"0000";
   -- Screen RAM offset
   signal screen_ram_base : unsigned(27 downto 0) := x"0001000";
+  -- Pointer to the VIC-II compatibility sprite source vector, usually
+  -- screen+$3F8 in 40 column mode, or +$7F8 in VIC-III 80 column mode
+  signal vicii_sprite_pointer_address : unsigned(27 downto 0) := x"0001000";
+
   -- Character set address.
   -- Size of character set depends on resolution of characters, and whether
   -- full-colour characters are enabled.
@@ -757,6 +761,15 @@ begin
       elsif register_number=139 then
         fastio_rdata(7 downto 4) <= x"0";
         fastio_rdata(3 downto 0) <= std_logic_vector(character_set_address(27 downto 24));
+      elsif register_number=140 then
+        fastio_rdata <= std_logic_vector(vicii_sprite_pointer_address(7 downto 0));
+      elsif register_number=141 then
+        fastio_rdata <= std_logic_vector(vicii_sprite_pointer_address(15 downto 8));
+      elsif register_number=142 then
+        fastio_rdata <= std_logic_vector(vicii_sprite_pointer_address(23 downto 16));
+      elsif register_number=143 then
+        fastio_rdata(7 downto 4) <= x"0";
+        fastio_rdata(3 downto 0) <= std_logic_vector(vicii_sprite_pointer_address(27 downto 24));
       elsif register_number<256 then
                                         -- Fill in unused register space
         fastio_rdata <= x"ff";
@@ -845,6 +858,19 @@ begin
         elsif register_number=24 then          -- $D018 compatibility RAM addresses
           character_set_address(13 downto 11) <= unsigned(fastio_wdata(3 downto 1));
           screen_ram_base(13 downto 10) <= unsigned(fastio_wdata(7 downto 4));
+          -- Sprites fetch from screen ram base + $3F8 (or +$7F8 in VIC-III 80
+          -- column mode).
+          -- In 80 column mode the screen base must be on a 2K boundary on the
+          -- C65, which changes the interpretation of the screen_ram_base, and
+          -- is a bit annoying, as we need to adjust these calculations based
+          -- on the current value of the H640 flag, and also to adjust them if
+          -- the H640 flag is modified later.
+          -- For now, we will just follow the 40 column semantic, and have a
+          -- VIC-IV register for directly adjusting the VIC-II sprite pointer
+          -- address.
+          vicii_sprite_pointer_address(13 downto 10)
+            <= unsigned(fastio_wdata(7 downto 4));
+          vicii_sprite_pointer_address(9 downto 0) <= "1111111000";
         elsif register_number=25 then          -- $D019 compatibility IRQ bits
                                                -- Acknowledge IRQs
                                                -- (we need to pass this to the dotclock side to avoide multiple drivers)
@@ -984,6 +1010,14 @@ begin
           character_set_address(23 downto 16) <= unsigned(fastio_wdata);
         elsif register_number=139 then
           character_set_address(27 downto 24) <= unsigned(fastio_wdata(3 downto 0));
+        elsif register_number=136 then
+          vicii_sprite_pointer_address(7 downto 0) <= unsigned(fastio_wdata);
+        elsif register_number=137 then
+          vicii_sprite_pointer_address(15 downto 8) <= unsigned(fastio_wdata);
+        elsif register_number=138 then
+          vicii_sprite_pointer_address(23 downto 16) <= unsigned(fastio_wdata);
+        elsif register_number=139 then
+          vicii_sprite_pointer_address(27 downto 24) <= unsigned(fastio_wdata(3 downto 0));
         elsif register_number<256 then
                                         -- reserved register
           null;
