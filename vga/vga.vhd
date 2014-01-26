@@ -167,6 +167,12 @@ architecture Behavioral of vga is
 
   -- Asserted if in the 1200 vetical lines of the frame
   signal vert_in_frame : std_logic := '0';
+
+
+  signal debug_x : unsigned(11 downto 0) := "111111111110";
+  signal debug_y : unsigned(11 downto 0) := "111111111110";
+  signal debug_cycles_to_next_card : unsigned(7 downto 0);
+  signal debug_next_card_number : unsigned(15 downto 0);
   
   -----------------------------------------------------------------------------
   -- Video controller registers
@@ -776,6 +782,14 @@ begin
         fastio_rdata <= std_logic_vector(x_chargen_start_minus16(7 downto 0));
       elsif register_number=241 then
         fastio_rdata <= "0000"&std_logic_vector(x_chargen_start_minus16(11 downto 8));
+      elsif register_number=240 then
+        fastio_rdata <= std_logic_vector(debug_next_card_number(7 downto 0));
+      elsif register_number=241 then
+        fastio_rdata <= std_logic_vector(debug_next_card_number(15 downto 8));
+      elsif register_number=242 then
+        fastio_rdata <= std_logic_vector(debug_cycles_to_next_card(7 downto 0));
+
+
       elsif register_number<256 then
                                         -- Fill in unused register space
         fastio_rdata <= x"ff";
@@ -1025,6 +1039,15 @@ begin
           vicii_sprite_pointer_address(23 downto 16) <= unsigned(fastio_wdata);
         elsif register_number=143 then
           vicii_sprite_pointer_address(27 downto 24) <= unsigned(fastio_wdata(3 downto 0));
+        
+        elsif register_number=252 then
+          debug_x(7 downto 0) <= unsigned(fastio_wdata);
+        elsif register_number=253 then
+          debug_x(11 downto 8) <= unsigned(fastio_wdata(3 downto 0));
+        elsif register_number=254 then
+          debug_y(7 downto 0) <= unsigned(fastio_wdata);
+        elsif register_number=255 then
+          debug_y(11 downto 8) <= unsigned(fastio_wdata(3 downto 0));
         elsif register_number<256 then
                                         -- reserved register
           null;
@@ -1230,7 +1253,7 @@ begin
       x_chargen_start_minus8 <= x_chargen_start-8;
       x_chargen_start_minus2 <= x_chargen_start-2;
       x_chargen_start_minus1 <= x_chargen_start-1;
-      
+
       if displayx=x_chargen_start_minus16 then
         report "VGA: 16 pixels before x_chargen_start. "
           & "displayx=" & integer'image(to_integer(displayx))
@@ -1633,6 +1656,15 @@ begin
       glyph_colour_t3 <= glyph_colour_t2;
       glyph_colour_t2 <= glyph_colour_t1;
       glyph_colour_t1 <= glyph_colour;
+
+      if displayx=debug_x and displayy=debug_y then
+        debug_next_card_number <= next_card_number;
+        debug_cycles_to_next_card <= cycles_to_next_card;
+      end if;     
+      if displayx=debug_x or displayy=debug_y then
+        -- Draw cross-hairs at debug coordinates
+        pixel_colour <= x"02";
+      end if;     
       
       -- Pixels have a two cycle pipeline to help keep timing contraints:
       
