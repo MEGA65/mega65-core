@@ -300,6 +300,7 @@ architecture Behavioral of vga is
   signal next_glyph_full_colour : std_logic;
   signal next_chargen_x : unsigned(2 downto 0) := (others => '0');
   signal chargen_active : std_logic := '0';
+  signal chargen_active_soon : std_logic := '0';
 
   -- data for current card
   signal glyph_number : unsigned(15 downto 0);
@@ -730,7 +731,8 @@ begin
         fastio_rdata(6) <= xbackporch;
         fastio_rdata(5) <= chargen_active;
         fastio_rdata(4) <= inborder;
-        fastio_rdata(3 downto 0) <= "1111";
+        fastio_rdata(3) <= chargen_active_soon;
+        fastio_rdata(2 downto 0) <= "111";
       elsif register_number=88 then
         fastio_rdata <= std_logic_vector(card_number(7 downto 0));
       elsif register_number=128 then
@@ -1082,6 +1084,7 @@ begin
         next_chargen_x <= (others => '0');
         chargen_x_sub <= (others => '0');
         chargen_active <= '0';
+        chargen_active_soon <= '0';
         if ycounter<frame_height then
           ycounter <= ycounter + 1;
           if ycounter = vicii_raster_compare then
@@ -1145,7 +1148,7 @@ begin
                                         -- If so, copy in the new glyph and colour data for display.
       if xfrontporch='1' then
         indisplay := '0';
-      elsif xbackporch='0' and chargen_active='1' then         -- In active part of raster
+      elsif xbackporch='0' and (chargen_active='1' or chargen_active_soon='1') then         -- In active part of raster
                                                                -- Work out if we are at the end of a character
         cycles_to_next_card <= cycles_to_next_card - 1;
                                         -- cycles_to_next_card counts down to 1, not 0.
@@ -1223,6 +1226,8 @@ begin
       
       if displayx=x_chargen_start_minus16 then
         next_card_number <= first_card_of_row;
+        -- Gets masked to 0 below if displayy is above y_chargen_start
+        chargen_active_soon <= '1';
       end if;
       if displayx=x_chargen_start_minus8 then
                                         -- Start fetching first character of the row
@@ -1252,6 +1257,7 @@ begin
         chargen_y <= (others => '0');
         chargen_y_sub <= (others => '0');
         chargen_active <= '0';
+        chargen_active_soon <= '0';
       end if;
       if displayy=y_chargen_start then
         chargen_y <= (others => '0');
