@@ -709,6 +709,7 @@ begin
     variable mode : addressingmode := mode_lut(to_integer(opcode));
     -- False if handling a special instruction
     variable virtual_reg_p : unsigned(7 downto 0);
+    variable temp_pc : unsigned(15 downto 0);
   begin
 
     -- report "Executing " & instruction'image(i) & " mode " & addressingmode'image(mode) severity note;
@@ -1052,6 +1053,7 @@ begin
   end procedure execute_instruction;      
 
   variable virtual_reg_p : std_logic_vector(7 downto 0);
+  variable temp_pc : unsigned(15 downto 0);
   begin
     if rising_edge(clock) then
       monitor_state <= std_logic_vector(to_unsigned(processor_state'pos(state),8));
