@@ -177,9 +177,9 @@ architecture Behavioral of vga is
   -- character display width.
   signal virtual_row_width : unsigned(15 downto 0) := to_unsigned(40,16);
   -- Each character pixel will be (n+1) pixels wide  
-  signal chargen_x_scale : unsigned(7 downto 0) := x"00";
+  signal chargen_x_scale : unsigned(7 downto 0) := x"04";
   -- Each character pixel will be (n+1) pixels high
-  signal chargen_y_scale : unsigned(7 downto 0) := x"00";
+  signal chargen_y_scale : unsigned(7 downto 0) := x"04";
   -- smooth scrolling position in natural pixels.
   -- Set in the same way as the border
   signal x_chargen_start : unsigned(11 downto 0) := to_unsigned(160,12);
