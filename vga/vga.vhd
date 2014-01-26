@@ -177,9 +177,9 @@ architecture Behavioral of vga is
   -- character display width.
   signal virtual_row_width : unsigned(15 downto 0) := to_unsigned(40,16);
   -- Each character pixel will be (n+1) pixels wide  
-  signal chargen_x_scale : unsigned(7 downto 0) := x"04";
+  signal chargen_x_scale : unsigned(7 downto 0) := x"00";
   -- Each character pixel will be (n+1) pixels high
-  signal chargen_y_scale : unsigned(7 downto 0) := x"04";
+  signal chargen_y_scale : unsigned(7 downto 0) := x"00";
   -- smooth scrolling position in natural pixels.
   -- Set in the same way as the border
   signal x_chargen_start : unsigned(11 downto 0) := to_unsigned(160,12);
@@ -1114,6 +1114,13 @@ begin
                                         -- cycles_to_next_card counts down to 1, not 0.
                                         -- update one cycle earlier since next_card_number is a signal
                                         -- not a variable.
+
+        -- We must update char_fetch_cycle before deciding if we are reaching
+        -- the next card, as otherwise we stop the fetching of the next character.
+        if char_fetch_cycle<16 then
+          char_fetch_cycle <= char_fetch_cycle + 1;        
+        end if;
+
         if cycles_to_next_card = 2 then
                                         -- We are one cycle before the start of a character
           next_card_number <= card_number + 1;
@@ -1274,9 +1281,6 @@ begin
                                         -- sprite data once we implement them.
                                         -- We need the character number, the colour byte, and the
                                         -- 8x8 data bits (only 8 used if character is not in full colour mode).
-      if char_fetch_cycle<16 then
-        char_fetch_cycle <= char_fetch_cycle + 1;        
-      end if;
       case char_fetch_cycle is
         when 0 => 
                                         -- Load card number
