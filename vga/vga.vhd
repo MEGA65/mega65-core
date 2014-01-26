@@ -300,6 +300,9 @@ architecture Behavioral of vga is
   -- data for current card
   signal glyph_number : unsigned(15 downto 0);
   signal glyph_colour : unsigned(3 downto 0);
+  signal glyph_colour_t1 : unsigned(3 downto 0);
+  signal glyph_colour_t2 : unsigned(3 downto 0);
+  signal glyph_colour_t3 : unsigned(3 downto 0);
   signal glyph_visible : std_logic;
   signal glyph_bold : std_logic;
   signal glyph_underline : std_logic;
@@ -1482,7 +1485,7 @@ begin
       card_fg_colour(7 downto 4) := "0000";
       -- "Bold" as for VIC-III. Simply adds 16 to the colour
       card_fg_colour(4) := glyph_bold;
-      card_fg_colour(3 downto 0) := glyph_colour;
+      card_fg_colour(3 downto 0) := glyph_colour_t3;
       card_bg_colour := screen_colour;
         
       if extended_background_mode='1' then
@@ -1560,7 +1563,10 @@ begin
       indisplay_t1 <= indisplay;
       indisplay_t2 <= indisplay_t1;
       indisplay_t3 <= indisplay_t2;
-
+      glyph_colour_t3 <= glyph_colour_t2;
+      glyph_colour_t2 <= glyph_colour_t1;
+      glyph_colour_t1 <= glyph_colour;
+      
                                         -- Pixels have a two cycle pipeline to help keep timing contraints:
       
                                         -- 1. From pixel colour lookup RGB
