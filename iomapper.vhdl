@@ -77,7 +77,7 @@ architecture behavioral of iomapper is
       -- fast IO port (clocked at core clock). 1MB address space
       ---------------------------------------------------------------------------
       cs : in std_logic;
-      fastio_addr : in unsigned(3 downto 0);
+      fastio_addr : in unsigned(7 downto 0);
       fastio_write : in std_logic;
       fastio_wdata : in unsigned(7 downto 0);
       fastio_rdata : out unsigned(7 downto 0);
@@ -181,7 +181,7 @@ begin
     irq => irq,
     cs => cia1cs,
     seg_led => seg_led,
-    fastio_addr => unsigned(address(3 downto 0)),
+    fastio_addr => unsigned(address(7 downto 0)),
     fastio_write => w,
     std_logic_vector(fastio_rdata) => data_o,
     fastio_wdata => unsigned(data_i),
@@ -201,7 +201,7 @@ begin
     reset => reset,
     irq => nmi,
     cs => cia2cs,
-    fastio_addr => unsigned(address(3 downto 0)),
+    fastio_addr => unsigned(address(7 downto 0)),
     fastio_write => w,
     std_logic_vector(fastio_rdata) => data_o,
     fastio_wdata => unsigned(data_i),
@@ -228,6 +228,23 @@ begin
     fastio_wdata => x"FF",
     std_logic_vector(fastio_rdata) => data_o
     );
+
+  process(clk)
+  begin
+    if rising_edge(clk) then
+      -- Generate 50Hz signal for TOD clock
+      -- (Note that we are a bit conflicted here, as our video mode is PALx4,
+      --  but at 50Hz.  We will make our CIAs take 50Hz like in most PAL countries
+      -- so that we don't confuse things too much.  We will probably add a 50Hz
+      -- raster interrupt filter to help music and games play at the right rate.)
+      if counter50hz<divisor50hz then
+        counter50hz <= counter50hz + 1;
+      else
+        clock50hz <= not clock50hz;
+        counter50hz <= 0;
+      end if;
+    end if;
+  end process;
   
   process (r,w,address)
   begin  -- process
@@ -258,18 +275,6 @@ begin
 
       -- Now map the CIAs.
 
-      -- Generate 50Hz signal for TOD clock
-      -- (Note that we are a bit conflicted here, as our video mode is PALx4,
-      --  but at 50Hz.  We will make our CIAs take 50Hz like in most PAL countries
-      -- so that we don't confuse things too much.  We will probably add a 50Hz
-      -- raster interrupt filter to help music and games play at the right rate.)
-      if counter50hz<divisor50hz then
-        counter50hz <= counter50hz + 1;
-      else
-        clock50hz <= not clock50hz;
-        counter50hz <= 0;
-      end if;
-      
       -- These are a bit fun, because they only get mapped if colour RAM isn't
       -- being mapped in $DC00-$DFFF using the C65 2K colour ram register
       cia1cs <='0';
