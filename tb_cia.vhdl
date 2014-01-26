@@ -21,7 +21,7 @@ architecture behavior of tb_cia is
       -- fast IO port (clocked at core clock). 1MB address space
       ---------------------------------------------------------------------------
       cs : in std_logic;
-      fastio_addr : in unsigned(3 downto 0);
+      fastio_addr : in unsigned(7 downto 0);
       fastio_write : in std_logic;
       fastio_wdata : in unsigned(7 downto 0);
       fastio_rdata : out unsigned(7 downto 0);
@@ -48,7 +48,7 @@ architecture behavior of tb_cia is
   signal reset : std_logic := '0';
   signal irq : std_logic;
   signal cs : std_logic;
-  signal fastio_addr : unsigned(3 downto 0) := (others => '1');
+  signal fastio_addr : unsigned(7 downto 0) := (others => '1');
   signal fastio_write : std_logic;
   signal fastio_wdata : unsigned(7 downto 0) := (others => '1');
   signal fastio_rdata :  unsigned(7 downto 0);
@@ -92,7 +92,7 @@ begin
       reg      : in integer;
       value    : in unsigned(7 downto 0)) is
     begin  -- write_register
-      fastio_addr <= to_unsigned(reg,4);
+      fastio_addr <= to_unsigned(reg,8);
       fastio_wdata <= value;
       fastio_write <= '1';
       cs <= '1';
@@ -106,7 +106,7 @@ begin
     procedure read_register (
       reg : integer) is
     begin  -- read_register
-      fastio_addr <= to_unsigned(reg,4);
+      fastio_addr <= to_unsigned(reg,8);
       fastio_wdata <= x"00";
       fastio_write <= '0';
       cs <= '1';
