@@ -188,7 +188,7 @@ architecture Behavioral of vga is
   signal x_chargen_start_minus8 : unsigned(11 downto 0);
   signal x_chargen_start_minus16 : unsigned(11 downto 0);
 
-  signal y_chargen_start : unsigned(11 downto 0) := to_unsigned(100,12);
+  signal y_chargen_start : unsigned(11 downto 0) := to_unsigned(100,12);  -- 100
   -- Charset is 16bit (2 bytes per char) when this mode is enabled.
   signal sixteenbit_charset : std_logic := '0';
   -- Characters >255 are full-colour blocks when enabled.
@@ -205,9 +205,9 @@ architecture Behavioral of vga is
   signal extended_background_mode : std_logic := '0';
   
   -- Border dimensions
-  signal border_x_left : unsigned(11 downto 0) := to_unsigned(160,12);
+  signal border_x_left : unsigned(11 downto 0) := to_unsigned(160,12);  -- 160
   signal border_x_right : unsigned(11 downto 0) := to_unsigned(1920-160,12);
-  signal border_y_top : unsigned(11 downto 0) := to_unsigned(100,12);
+  signal border_y_top : unsigned(11 downto 0) := to_unsigned(0,12);  -- 100
   signal border_y_bottom : unsigned(11 downto 0) := to_unsigned(1200-101,12);
   signal blank : std_logic := '0';
 
@@ -282,7 +282,7 @@ architecture Behavioral of vga is
   signal chargen_y_sub : unsigned(4 downto 0);
   signal chargen_x_sub : unsigned(4 downto 0);
   -- character data fetch FSM
-  signal char_fetch_cycle : integer := 0;
+  signal char_fetch_cycle : integer := 16;
   -- data for next card
   signal next_glyph_number : unsigned(15 downto 0);
   signal next_glyph_number8 : unsigned(7 downto 0);
@@ -842,6 +842,7 @@ begin
           thirtyeightcolumns <= not fastio_wdata(3);
           vicii_x_smoothscroll <= fastio_wdata(2 downto 0);
           -- Set x smooth scroll position
+          report "VGA: Set x_chargen_start via $D016" severity note;
           x_chargen_start
             <= to_unsigned(160
                            +(to_integer(unsigned(fastio_wdata(2 downto 0)))*5),12);
@@ -1146,6 +1147,7 @@ begin
       -- If we are in the active part of the display, work out if we have
       -- reached the start of a new character (or are about to).
       -- If so, copy in the new glyph and colour data for display.
+      report "VGA: displayx=" & integer'image(to_integer(displayx)) & ", chargen_active=" & std_logic'image(chargen_active) & ", chagen_active_soon=" & std_logic'image(chargen_active_soon) severity note;
       if xfrontporch='1' then
         indisplay := '0';
       elsif xbackporch='0' and (chargen_active='1' or chargen_active_soon='1') then         -- In active part of raster
@@ -1166,6 +1168,7 @@ begin
           next_card_number <= card_number + 1;
         end if;
         if cycles_to_next_card = 1 then
+          report "VGA: Copying next_* to glyph_*" severity note;
           -- We are at the start of a character          
           if (ycounter>100) and (xcounter>250) and (xcounter<350) then
             report "VGA : Update glyph data"
@@ -1225,9 +1228,22 @@ begin
       x_chargen_start_minus1 <= x_chargen_start-1;
       
       if displayx=x_chargen_start_minus16 then
+        report "VGA: 16 pixels before x_chargen_start. "
+          & "displayx=" & integer'image(to_integer(displayx))
+          & ", xchargen_start=" & integer'image(to_integer(x_chargen_start))
+          & ", xchargen_start_minus16=" & integer'image(to_integer(x_chargen_start_minus16))
+          severity note;
+        
         next_card_number <= first_card_of_row;
         -- Gets masked to 0 below if displayy is above y_chargen_start
         chargen_active_soon <= '1';
+      end if;
+      if displayx=border_x_right then
+        -- Stop character generator as soon as we hit the right border
+        -- so that we can switch to fetching sprite data for the next raster.
+        chargen_active <= '0';
+        chargen_active_soon <= '0';
+        cycles_to_next_card <= (others => '1');
       end if;
       if displayx=x_chargen_start_minus8 then
         -- Start fetching first character of the row
@@ -1246,6 +1262,7 @@ begin
         next_chargen_x <= (others => '0');
         chargen_x <= (others => '0');
         chargen_x_sub <= (others => '0');
+        chargen_active_soon <= '0';
         -- Gets masked to 0 below if displayy is above y_chargen_start
         chargen_active <= '1';
       end if;
@@ -1330,7 +1347,9 @@ begin
       -- We need the character number, the colour byte, and the
       -- 8x8 data bits (only 8 used if character is not in full colour mode).
       case char_fetch_cycle is
-        when 0 => 
+        when 0 =>
+          report "VGA: Fetching next_*, next_card_number=" & integer'image(to_integer(next_card_number))
+            severity note;
           -- Load card number
           long_address(31 downto 17) := (others => '0');
           if sixteenbit_charset='1' then
@@ -1549,9 +1568,11 @@ begin
       
       if indisplay_t3='1' then
         if inborder_t2='1' or blank='1' then
+          report "VGA: no character pixel data as in the border" severity note;
           pixel_colour <= border_colour;
         elsif chargen_active='0' then
           pixel_colour <= screen_colour;
+          report "VGA: no character pixel data as chargen_active=0" severity note;
         elsif (fullcolour_extendedchars='1' and text_mode='1' and card_number_is_extended='1')
           or (fullcolour_8bitchars='1' and text_mode='1') then
           -- Full colour glyph
