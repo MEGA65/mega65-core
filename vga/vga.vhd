@@ -772,6 +772,10 @@ begin
       elsif register_number=143 then
         fastio_rdata(7 downto 4) <= x"0";
         fastio_rdata(3 downto 0) <= std_logic_vector(vicii_sprite_pointer_address(27 downto 24));
+      elsif register_number=240 then
+        fastio_rdata <= std_logic_vector(x_chargen_start_minus16(7 downto 0));
+      elsif register_number=241 then
+        fastio_rdata <= "0000"&std_logic_vector(x_chargen_start_minus16(11 downto 8));
       elsif register_number<256 then
                                         -- Fill in unused register space
         fastio_rdata <= x"ff";
@@ -1013,13 +1017,13 @@ begin
           character_set_address(23 downto 16) <= unsigned(fastio_wdata);
         elsif register_number=139 then
           character_set_address(27 downto 24) <= unsigned(fastio_wdata(3 downto 0));
-        elsif register_number=136 then
+        elsif register_number=140 then
           vicii_sprite_pointer_address(7 downto 0) <= unsigned(fastio_wdata);
-        elsif register_number=137 then
+        elsif register_number=141 then
           vicii_sprite_pointer_address(15 downto 8) <= unsigned(fastio_wdata);
-        elsif register_number=138 then
+        elsif register_number=142 then
           vicii_sprite_pointer_address(23 downto 16) <= unsigned(fastio_wdata);
-        elsif register_number=139 then
+        elsif register_number=143 then
           vicii_sprite_pointer_address(27 downto 24) <= unsigned(fastio_wdata(3 downto 0));
         elsif register_number<256 then
                                         -- reserved register
