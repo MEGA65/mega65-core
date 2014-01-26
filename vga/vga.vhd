@@ -1454,7 +1454,7 @@ begin
                                         -- screen RAM picks the character.
                                         -- XXX Bitmap mode should not use the character ROM.  This combination is
                                         -- for debugging of text mode character fetching only.
-      if card_number_t2 /= card_number then
+      if card_number_t1 /= card_number then
         cards_differ<='1';
       else
         cards_differ<='0';
