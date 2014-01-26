@@ -822,7 +822,7 @@ begin
           vicii_sprite_enables <= fastio_wdata;
         elsif register_number=22 then          -- $D016
           multicolour_mode <= fastio_wdata(4);
-          thirtyninecolumns <= fastio_wdata(3);
+          thirtyninecolumns <= not fastio_wdata(3);
           vicii_x_smoothscroll <= fastio_wdata(2 downto 0);
                                         -- set horizontal borders based on twentyfourlines
           if fastio_wdata(3)='0' then
