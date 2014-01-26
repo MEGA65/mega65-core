@@ -226,7 +226,7 @@ architecture Behavioral of vga is
 
   -- Compatibility registers
   signal twentyfourlines : std_logic := '0';
-  signal thirtyninecolumns : std_logic := '0';
+  signal thirtyeightcolumns : std_logic := '0';
   signal vicii_raster_compare : unsigned(10 downto 0);
   signal vicii_x_smoothscroll : std_logic_vector(2 downto 0);
   signal vicii_y_smoothscroll : std_logic_vector(2 downto 0);
@@ -559,7 +559,7 @@ begin
         fastio_rdata(6) <= '1';
         fastio_rdata(5) <= '0';       -- no reset support, since no badlines
         fastio_rdata(4) <= multicolour_mode;
-        fastio_rdata(3) <= not thirtyninecolumns;
+        fastio_rdata(3) <= not thirtyeightcolumns;
         fastio_rdata(2 downto 0) <= vicii_x_smoothscroll;
       elsif register_number=23 then          -- $D017 compatibility sprite enable
         fastio_rdata <= vicii_sprite_y_expand;
@@ -822,15 +822,19 @@ begin
           vicii_sprite_enables <= fastio_wdata;
         elsif register_number=22 then          -- $D016
           multicolour_mode <= fastio_wdata(4);
-          thirtyninecolumns <= not fastio_wdata(3);
+          thirtyeightcolumns <= not fastio_wdata(3);
           vicii_x_smoothscroll <= fastio_wdata(2 downto 0);
-                                        -- set horizontal borders based on twentyfourlines
-          if fastio_wdata(3)='0' then
+          -- Set x smooth scroll position
+          x_chargen_start
+            <= to_unsigned(160
+                           +(to_integer(unsigned(fastio_wdata(2 downto 0)))*5),12);
+          -- set horizontal borders based on 40/38 columns
+          if fastio_wdata(3)='1' then
             border_x_left <= to_unsigned(160,12);
             border_x_right <= to_unsigned(1920-160,12);
           else  
-            border_x_left <= to_unsigned(160+(4*5),12);
-            border_x_right <= to_unsigned(1920-160-(4*5),12);
+            border_x_left <= to_unsigned(160+(7*5),12);
+            border_x_right <= to_unsigned(1920-160-(9*5),12);
           end if;
                                         -- set y_chargen_start based on twentyfourlines
           x_chargen_start <= to_unsigned((160-3*5)+to_integer(unsigned(fastio_wdata(2 downto 0)))*5,12);
