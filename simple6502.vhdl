@@ -749,7 +749,10 @@ begin
           -- break instruction. Push state and jump to the appropriate
           -- vector.
           vector <= x"FFFE";    -- BRK follows the IRQ vector
-          push_byte(reg_pc(15 downto 8),BRK1);
+          -- Reduce by one to match what a real 6502 does
+          temp_pc := reg_pc - 1;
+          reg_pc <= temp_pc;
+          push_byte(temp_pc(15 downto 8),BRK1);
         when I_CLC => flag_c <= '0';
         when I_CLD => flag_d <= '0';
         when I_CLI => flag_i <= '0';
@@ -1134,7 +1137,11 @@ begin
               end if;
               -- Don't overwrite recent states record
               recent_states <= recent_states;
-            when Interrupt => push_byte(reg_pc(15 downto 8),Interrupt2);
+            when Interrupt =>
+              -- Subtract one from PC to match 6502 idiom.
+              temp_pc := reg_pc - 1;
+              reg_pc <= temp_pc;
+              push_byte(temp_pc(15 downto 8),Interrupt2);
             when Interrupt2 => push_byte(reg_pc(7 downto 0),Interrupt3);
             when Interrupt3 => push_byte(unsigned(virtual_reg_p),VectorRead); flag_i <= '1';
             when VectorRead => reg_pc <= vector; read_instruction_byte(vector,VectorRead2);
@@ -1215,7 +1222,7 @@ begin
             when PLP1 => load_processor_flags(read_data); state <= InstructionFetch;
             when RTI1 => load_processor_flags(read_data); pull_byte(RTI2);
             when RTI2 => reg_pc(7 downto 0) <= read_data; pull_byte(RTI3);
-            when RTI3 => reg_pc <= read_data & reg_pc(7 downto 0);
+            when RTI3 => reg_pc <= (read_data & reg_pc(7 downto 0))+1;
                          state<=InstructionFetch;
             when RTS1 => reg_pc(7 downto 0) <= read_data; pull_byte(RTS2);
             when RTS2 => reg_pc <= (read_data & reg_pc(7 downto 0))+1;
