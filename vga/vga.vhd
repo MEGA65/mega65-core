@@ -1289,14 +1289,14 @@ begin
                                         -- Load card number
           long_address(31 downto 17) := (others => '0');
           if sixteenbit_charset='1' then
-            long_address(16 downto 0) := screen_ram_base(16 downto 0)+(card_number&'0');
+            long_address(16 downto 0) := screen_ram_base(16 downto 0)+(next_card_number&'0');
           else
-            long_address(16 downto 0) := screen_ram_base(16 downto 0)+card_number;
+            long_address(16 downto 0) := screen_ram_base(16 downto 0)+next_card_number;
           end if;
           ramaddress <= std_logic_vector(long_address(16 downto 3));
 
           -- Load colour RAM at the same time
-          long_address(15 downto 0) := colour_ram_base+card_number;
+          long_address(15 downto 0) := colour_ram_base+next_card_number;
           colourramaddress <= std_logic_vector(long_address(15 downto 0));
         when 1 =>
                                         -- FastRAM wait state
@@ -1324,7 +1324,7 @@ begin
                                         -- choose the 16bit or 8 bit version.  So this cycle we calculate the
                                         -- 8bit and 16bit versions.  Then next cycle we can select the correct
                                         -- one.
-          case card_number(2 downto 0) is
+          case next_card_number(2 downto 0) is
             when "111" => next_glyph_number_temp(7 downto 0) := next_glyph_number_buffer(63 downto 56);
             when "110" => next_glyph_number_temp(7 downto 0) := next_glyph_number_buffer(55 downto 48);
             when "101" => next_glyph_number_temp(7 downto 0) := next_glyph_number_buffer(47 downto 40);
@@ -1336,7 +1336,7 @@ begin
             when others => next_glyph_number_temp(7 downto 0) := x"00";
           end case;
           next_glyph_number8 <= unsigned(next_glyph_number_temp(7 downto 0));
-          case card_number(1 downto 0) is
+          case next_card_number(1 downto 0) is
             when "11" => next_glyph_number_temp := next_glyph_number_buffer(63 downto 48);        
             when "10" => next_glyph_number_temp := next_glyph_number_buffer(47 downto 32);        
             when "01" => next_glyph_number_temp := next_glyph_number_buffer(31 downto 16);        
