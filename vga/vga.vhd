@@ -879,7 +879,10 @@ begin
         elsif register_number=23 then          -- $D017 compatibility sprite enable
           vicii_sprite_y_expand <= fastio_wdata;
         elsif register_number=24 then          -- $D018 compatibility RAM addresses
+          -- Character set source address for user-generated character sets.
           character_set_address(13 downto 11) <= unsigned(fastio_wdata(3 downto 1));
+          -- This one is for the internal charrom in the VIC-IV.
+          charaddress(11) <= fastio_wdata(0);
           screen_ram_base(13 downto 10) <= unsigned(fastio_wdata(7 downto 4));
           -- Sprites fetch from screen ram base + $3F8 (or +$7F8 in VIC-III 80
           -- column mode).
