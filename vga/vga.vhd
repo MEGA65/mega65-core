@@ -173,6 +173,7 @@ architecture Behavioral of vga is
   signal debug_y : unsigned(11 downto 0) := "111111111110";
   signal debug_cycles_to_next_card : unsigned(7 downto 0);
   signal debug_next_card_number : unsigned(15 downto 0);
+  signal debug_char_fetch_cycle : integer;
   signal debug_chargen_active : std_logic;
   signal debug_chargen_active_soon : std_logic;
   
@@ -792,6 +793,8 @@ begin
         fastio_rdata <= std_logic_vector(debug_cycles_to_next_card(7 downto 0));
       elsif register_number=245 then
         fastio_rdata <= "000000" & debug_chargen_active & debug_chargen_active_soon;
+      elsif register_number=246 then
+        fastio_rdata <= std_logic_vector(to_unsigned(debug_char_fetch_cycle,8));
       elsif register_number<256 then
                                         -- Fill in unused register space
         fastio_rdata <= x"ff";
@@ -1667,6 +1670,7 @@ begin
         debug_cycles_to_next_card <= cycles_to_next_card;
         debug_chargen_active <= chargen_active;
         debug_chargen_active_soon <= chargen_active_soon;
+        debug_char_fetch_cycle <= char_fetch_cycle;
       end if;     
       if displayx=debug_x or displayy=debug_y then
         -- Draw cross-hairs at debug coordinates
