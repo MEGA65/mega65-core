@@ -345,8 +345,7 @@ architecture Behavioral of vga is
   signal chardata : std_logic_vector(7 downto 0);
   -- buffer of read data to improve timing
   signal charrow : std_logic_vector(7 downto 0);
-  signal charread : std_logic := '0';   -- if 1, we are reading and need to
-                                        -- store the value.
+  signal next_charrow : std_logic_vector(7 downto 0);
 
   -- C65 style 2K colour RAM
   signal colourram_at_dc00_internal : std_logic;
@@ -1213,6 +1212,7 @@ begin
           -- Reset counter to next character to 8 cycles x (scale + 1)
           cycles_to_next_card <= (chargen_x_scale(4 downto 0)+1) & "000";
           -- Move preloaded glyph data into position when advancing to the next character          
+          charrow <= next_charrow;
           glyph_pixeldata <= next_glyph_pixeldata;
           glyph_colour <= next_glyph_colour;
 
@@ -1360,22 +1360,6 @@ begin
       
       display_active <= indisplay;
 
-      -- Read character row data
-      if charread='1' then
-        -- mono characters
-        -- Apply C65/VIC-III hardware underline and blink attributes
-        if glyph_visible='0' then
-          charrow <= x"00";
-        elsif glyph_underline='1' then
-          charrow <= x"FF";
-        elsif glyph_reverse='1' then
-          charrow <= not chardata;
-        else
-          charrow <= chardata;
-        end if;
-          -- XXX what about one byte per pixel characters?
-      end if;
-      
       -- As soon as we begin drawing a character, start fetching the data for the
       -- next character.  Any left over cycles can be used for updating full-colour
       -- sprite data once we implement them.
@@ -1465,6 +1449,25 @@ begin
           -- XXX Can schedule a sprite fetch here.
           ramaddress <= (others => '0');
         when 5 =>
+
+          -- Fetch character ROM byte
+          if extended_background_mode='1' then
+            -- bit 6 and 7 of character is used for colour
+            charaddress(10 downto 9) <= "00";
+            if text_mode='1' then
+              charaddress(8 downto 3) <= std_logic_vector(next_glyph_number(5 downto 0));
+            else
+              charaddress(8 downto 3) <= std_logic_vector(next_card_number(5 downto 0));            
+            end if;
+          else
+            if text_mode='1' then
+              charaddress(10 downto 3) <= std_logic_vector(next_glyph_number(7 downto 0));
+            else
+              charaddress(10 downto 3) <= std_logic_vector(next_card_number(7 downto 0));
+            end if;
+          end if;
+          charaddress(2 downto 0) <= std_logic_vector(chargen_y);
+
           -- Pre-calculate the extended character attributes
           next_glyph_visible <= '1';
           next_glyph_reverse <= '0';
@@ -1528,8 +1531,24 @@ begin
           -- XXX Can schedule a sprite fetch here.
           ramaddress <= (others => '0');
         when 7 =>
-          -- Store character pixels
-          next_glyph_pixeldata <= ramdata;
+          -- Read character row data from ROM
+          -- mono characters
+          -- Apply C65/VIC-III hardware underline and blink attributes
+          if glyph_visible='0' then
+            next_charrow <= x"00";
+            next_glyph_pixeldata <= (others => '0');
+          elsif glyph_underline='1' then
+            next_charrow <= x"FF";
+            next_glyph_pixeldata <= (others => '1');
+          elsif glyph_reverse='1' then
+            next_charrow <= not chardata;
+            next_glyph_pixeldata <= not ramdata;
+          else
+            next_charrow <= chardata;
+            next_glyph_pixeldata <= ramdata;
+          end if;
+          -- XXX what about one byte per pixel characters?
+          
           -- XXX Fetch full-colour sprite information
           -- (C64 compatability sprites will be fetched during horizontal sync.
           --  Because we can fetch 64bits at once, compatibility sprite fetching
@@ -1542,41 +1561,6 @@ begin
           --  cannot require more than 16 cycles).
           ramaddress <= (others => '0');
       end case;
-
-      -- When moving to the next card read the appropriate character set rom entry.
-      -- Note that character set ROM has only 256 entries, so 16-bit charsets
-      -- will wrap.
-      -- In bitmap mode the card numbers are ordinal, whereas in textmode
-      -- screen RAM picks the character.
-      -- XXX Bitmap mode should not use the character ROM.  This combination is
-      -- for debugging of text mode character fetching only.
-      if card_number_t1 /= card_number then
-        cards_differ<='1';
-      else
-        cards_differ<='0';
-      end if;
-      if cards_differ='1' then
-        if extended_background_mode='1' then
-          -- bit 6 and 7 of character is used for colour
-          charaddress(10 downto 9) <= "00";
-          if text_mode='1' then
-            charaddress(8 downto 3) <= std_logic_vector(next_glyph_number(5 downto 0));
-          else
-            charaddress(8 downto 3) <= std_logic_vector(card_number(5 downto 0));            
-          end if;
-        else
-          if text_mode='1' then
-            charaddress(10 downto 3) <= std_logic_vector(next_glyph_number(7 downto 0));
-          else
-            charaddress(10 downto 3) <= std_logic_vector(card_number(7 downto 0));
-          end if;
-        end if;
-        charaddress(2 downto 0) <= std_logic_vector(chargen_y);
-        charread <= '1';
-      else
-        charread <= '0';
-      end if;
-
 
       card_fg_colour(7 downto 4) := "0000";
       -- "Bold" as for VIC-III. Simply adds 16 to the colour
