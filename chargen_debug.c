@@ -69,34 +69,24 @@ int process_line(char *line,int live)
 {
   int x_chargen_start_minus16_low,x_chargen_start_minus16_high;
   int next_card_number_low,next_card_number_high,cycles_to_next_card,flags;
-  int dummy;
-  int pc,a,x,y,sp,p;
+  int char_fetch_cycle;
   // printf("[%s]\n",line);
   if (!live) return 0;
-  if (sscanf(line,"%04x %02x %02x %02x %02x %02x",
-	     &pc,&a,&x,&y,&sp,&p)==6) {
-    printf("PC=$%04x\n",pc);
-    if (pc==0xf4a5) {
-      // Intercepted LOAD command
-      state=1;
-    }
-  }
-  if (sscanf(line," :FFD30F0 %02x %02x %02x %02x %02x %02x",
-	     /* &x_chargen_start_minus16_low, */
-	     /* &x_chargen_start_minus16_high, */
+  if (sscanf(line," :FFD30F0 %02x %02x %02x %02x %02x %02x %02x",
+	     &x_chargen_start_minus16_low,
+	     &x_chargen_start_minus16_high,
 	     &next_card_number_low,&next_card_number_high,
 	     &cycles_to_next_card,
-	     &flags,
-	     &dummy,&dummy)==6) {
+	     &flags,&char_fetch_cycle
+	     )==7) {
     int chargen_active_soon=flags&1;
     int chargen_active=flags&2;
-    printf("display_y=%d, display_x=%d, x_chargen_start_minus16=%d, next_card_number=%d, cycles_to_next_card=%d, chargen_active=%d, chargen_active_soon=%d\n",
+    printf("display_y=%d, display_x=%d, x_chargen_start_minus16=%d, next_card_number=%d, cycles_to_next_card=%d, char_fetch_cycle=%d, chargen_active=%d, chargen_active_soon=%d\n",
 	   debug_y,debug_x,
 	   (x_chargen_start_minus16_high<<8)+x_chargen_start_minus16_low,
 	   next_card_number_low+(next_card_number_high<<8),
-	   cycles_to_next_card,
+	   cycles_to_next_card,char_fetch_cycle,
 	   chargen_active,chargen_active_soon);
-    state=0;
   }
   return 0;
 }
@@ -149,8 +139,6 @@ int main(int argc,char **argv)
     {
       int b;
       char read_buff[1024];
-      switch(state) {
-      case 0:
 	b=read(fd,read_buff,1024);
 	if (b>0) {
 	  int i;
@@ -176,12 +164,6 @@ int main(int argc,char **argv)
 	  // Allow 2 frames before advancing debug point
 	  last_check=gettime_ms()+(1000/60)*2;
 	}
-	break;
-      case 1: // trapped LOAD, so read file name
-	slow_write(fd,"mb7\r",4);
-	state=0;
-	break;
-      }
     }
 
   return 0;
