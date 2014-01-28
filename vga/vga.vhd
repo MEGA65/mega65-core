@@ -194,8 +194,8 @@ architecture Behavioral of vga is
   signal x_chargen_start : unsigned(11 downto 0) := to_unsigned(160,12);
   signal x_chargen_start_minus1 : unsigned(11 downto 0);
   signal x_chargen_start_minus2 : unsigned(11 downto 0);
-  signal x_chargen_start_minus8 : unsigned(11 downto 0);
-  signal x_chargen_start_minus16 : unsigned(11 downto 0);
+  signal x_chargen_start_minus9 : unsigned(11 downto 0);
+  signal x_chargen_start_minus17 : unsigned(11 downto 0);
 
   signal y_chargen_start : unsigned(11 downto 0) := to_unsigned(100,12);  -- 100
   -- Charset is 16bit (2 bytes per char) when this mode is enabled.
@@ -782,9 +782,9 @@ begin
         fastio_rdata(7 downto 4) <= x"0";
         fastio_rdata(3 downto 0) <= std_logic_vector(vicii_sprite_pointer_address(27 downto 24));
       elsif register_number=240 then
-        fastio_rdata <= std_logic_vector(x_chargen_start_minus16(7 downto 0));
+        fastio_rdata <= std_logic_vector(x_chargen_start_minus17(7 downto 0));
       elsif register_number=241 then
-        fastio_rdata <= "0000"&std_logic_vector(x_chargen_start_minus16(11 downto 8));
+        fastio_rdata <= "0000"&std_logic_vector(x_chargen_start_minus17(11 downto 8));
       elsif register_number=242 then
         fastio_rdata <= std_logic_vector(debug_next_card_number(7 downto 0));
       elsif register_number=243 then
@@ -1257,16 +1257,16 @@ begin
 
       -- Reset character generator position for start of frame/raster
       -- Start displaying from the correct character
-      x_chargen_start_minus16 <= x_chargen_start-16;
-      x_chargen_start_minus8 <= x_chargen_start-8;
+      x_chargen_start_minus17 <= x_chargen_start-17;
+      x_chargen_start_minus9 <= x_chargen_start-9;
       x_chargen_start_minus2 <= x_chargen_start-2;
       x_chargen_start_minus1 <= x_chargen_start-1;
 
-      if displayx=x_chargen_start_minus16 then
+      if displayx=x_chargen_start_minus17 then
         report "VGA: 16 pixels before x_chargen_start. "
           & "displayx=" & integer'image(to_integer(displayx))
           & ", xchargen_start=" & integer'image(to_integer(x_chargen_start))
-          & ", xchargen_start_minus16=" & integer'image(to_integer(x_chargen_start_minus16))
+          & ", xchargen_start_minus17=" & integer'image(to_integer(x_chargen_start_minus17))
           severity note;
         
         next_card_number <= first_card_of_row;
@@ -1280,11 +1280,11 @@ begin
         chargen_active_soon <= '0';
         cycles_to_next_card <= (others => '1');
       end if;
-      if displayx=x_chargen_start_minus8 then
+      if displayx=x_chargen_start_minus9 then
         -- Start fetching first character of the row
         -- (8 cycles is plenty of time to fetch it)       
         char_fetch_cycle <= 0;
-        cycles_to_next_card <= (others => '1');
+        cycles_to_next_card <= to_unsigned(8,8);
       end if;
       if displayx = x_chargen_start_minus2 then
         cycles_to_next_card <= "00000001";
