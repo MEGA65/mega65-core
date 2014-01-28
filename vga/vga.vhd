@@ -784,13 +784,13 @@ begin
         fastio_rdata <= std_logic_vector(x_chargen_start_minus16(7 downto 0));
       elsif register_number=241 then
         fastio_rdata <= "0000"&std_logic_vector(x_chargen_start_minus16(11 downto 8));
-      elsif register_number=240 then
-        fastio_rdata <= std_logic_vector(debug_next_card_number(7 downto 0));
-      elsif register_number=241 then
-        fastio_rdata <= std_logic_vector(debug_next_card_number(15 downto 8));
       elsif register_number=242 then
-        fastio_rdata <= std_logic_vector(debug_cycles_to_next_card(7 downto 0));
+        fastio_rdata <= std_logic_vector(debug_next_card_number(7 downto 0));
       elsif register_number=243 then
+        fastio_rdata <= std_logic_vector(debug_next_card_number(15 downto 8));
+      elsif register_number=244 then
+        fastio_rdata <= std_logic_vector(debug_cycles_to_next_card(7 downto 0));
+      elsif register_number=245 then
         fastio_rdata <= "000000" & debug_chargen_active & debug_chargen_active_soon;
       elsif register_number<256 then
                                         -- Fill in unused register space
