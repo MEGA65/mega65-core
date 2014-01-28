@@ -50,3 +50,6 @@ adctest:	adctest.a65
 
 monitor_drive:	monitor_drive.c
 	gcc -Wall -o monitor_drive monitor_drive.c
+
+chargen_debug:	chargen_debug.c
+	gcc -Wall -o chargen_debug chargen_debug.c
