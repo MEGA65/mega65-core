@@ -954,10 +954,24 @@ begin
                                         --  C65 are made non-functional.  See:
                                         -- http://www.devili.iki.fi/Computers/Commodore/C65/System_Specification/Chapter_2/page101.html
                                         -- http://www.devili.iki.fi/Computers/Commodore/C65/System_Specification/Chapter_2/page102.html
+        elsif register_number=47 then
+          -- C65 VIC-III KEY register for unlocking extended registers.
+          
+
         elsif register_number=48 then
+          -- C65 VIC-III Control A Register $D030
+          -- ROM @ E000
+          -- CROM @ 9000
+          -- ROM @ C000
+          -- ROM @ A000
+          -- ROM @ 8000
+          -- PAL
+          -- EXT SYNC
+          -- CRAM @ DC00
           colourram_at_dc00_internal<= fastio_wdata(0);
           colourram_at_dc00<= fastio_wdata(0);
         elsif register_number=49 then 
+          -- C65 VIC-III Control A Register $D030
           -- H640
           -- FAST
           -- ATTR (8bit colour RAM features)
@@ -1583,9 +1597,9 @@ begin
       end if;
 
       -- Calculate pixel bit/bits for next cycle to keep logic depth shallow
-      multicolour_bits(0) <= charrow(to_integer((not chargen_x_t2(2 downto 1))&'0'));
-      multicolour_bits(1) <= charrow(to_integer((not chargen_x_t2(2 downto 1))&'1'));
-      monobit <= charrow(to_integer(not chargen_x_t2(2 downto 0)));
+      multicolour_bits(0) <= charrow_t2(to_integer((not chargen_x_t2(2 downto 1))&'0'));
+      multicolour_bits(1) <= charrow_t2(to_integer((not chargen_x_t2(2 downto 1))&'1'));
+      monobit <= charrow_t2(to_integer(not chargen_x_t2(2 downto 0)));
       
       if indisplay_t3='1' then
         if inborder_t2='1' or blank='1' then
@@ -1666,6 +1680,9 @@ begin
       end if;     
       
       -- Pixels have a two cycle pipeline to help keep timing contraints:
+
+      report "PIXEL (" & integer'image(to_integer(displayx)) & "," & integer'image(to_integer(displayy)) & ") = $"
+        & to_hstring(pixel_colour) severity note;
       
       -- 1. From pixel colour lookup RGB
       vga_buffer_red <= palette(to_integer(pixel_colour)).red(7 downto 4);   
