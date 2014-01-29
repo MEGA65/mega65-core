@@ -1284,8 +1284,6 @@ begin
           & ", xchargen_start=" & integer'image(to_integer(x_chargen_start))
           & ", xchargen_start_minus17=" & integer'image(to_integer(x_chargen_start_minus17))
           severity note;
-        
-        next_card_number <= first_card_of_row;
         -- Gets masked to 0 below if displayy is above y_chargen_start
         chargen_active_soon <= '1';
       end if;
@@ -1301,6 +1299,8 @@ begin
         -- (8 cycles is plenty of time to fetch it)       
         char_fetch_cycle <= 0;
         cycles_to_next_card <= to_unsigned(8,8);
+        next_card_number <= first_card_of_row;
+        card_number <= first_card_of_row;
       end if;
       if displayx = x_chargen_start_minus2 then
         cycles_to_next_card <= "00000001";
