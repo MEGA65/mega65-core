@@ -186,12 +186,12 @@ architecture Behavioral of vga is
   -- character display width.
   signal virtual_row_width : unsigned(15 downto 0) := to_unsigned(40,16);
   -- Each character pixel will be (n+1) pixels wide  
-  signal chargen_x_scale : unsigned(7 downto 0) := x"04";
+  signal chargen_x_scale : unsigned(7 downto 0) := x"04";  -- x"04"
   -- Each character pixel will be (n+1) pixels high
-  signal chargen_y_scale : unsigned(7 downto 0) := x"04";
+  signal chargen_y_scale : unsigned(7 downto 0) := x"04";  -- x"04"
   -- smooth scrolling position in natural pixels.
   -- Set in the same way as the border
-  signal x_chargen_start : unsigned(11 downto 0) := to_unsigned(160,12);
+  signal x_chargen_start : unsigned(11 downto 0) := to_unsigned(160,12);  -- 160
   signal x_chargen_start_pipeline : unsigned(11 downto 0);
   signal x_chargen_start_display : unsigned(11 downto 0);
   signal x_chargen_start_minus1 : unsigned(11 downto 0);
@@ -218,7 +218,7 @@ architecture Behavioral of vga is
   -- Border dimensions
   signal border_x_left : unsigned(11 downto 0) := to_unsigned(160,12);  -- 160
   signal border_x_right : unsigned(11 downto 0) := to_unsigned(1920-160,12);
-  signal border_y_top : unsigned(11 downto 0) := to_unsigned(0,12);  -- 100
+  signal border_y_top : unsigned(11 downto 0) := to_unsigned(100,12);  -- 100
   signal border_y_bottom : unsigned(11 downto 0) := to_unsigned(1200-101,12);
   signal blank : std_logic := '0';
 
@@ -310,6 +310,7 @@ architecture Behavioral of vga is
   signal next_glyph_colour_buffer_temp : std_logic_vector(7 downto 0);
   signal next_glyph_full_colour : std_logic;
   signal next_chargen_x : unsigned(2 downto 0) := (others => '0');
+  signal next_card_number_is_extended : std_logic;  -- set if card_number > $00FF
   signal chargen_active : std_logic := '0';
   signal chargen_active_soon : std_logic := '0';
 
@@ -841,6 +842,7 @@ begin
         elsif register_number=16 then
           vicii_sprite_xmsbs <= fastio_wdata;
         elsif register_number=17 then             -- $D011
+          report "D011 WRITTEN" severity note;
           vicii_raster_compare(10) <= fastio_wdata(7);
           extended_background_mode <= fastio_wdata(6);
           text_mode <= not fastio_wdata(5);
@@ -1183,27 +1185,32 @@ begin
 
       -- Work out if the next card has a character number >255
       if next_card_number(15 downto 8) /= x"00" then
-        card_number_is_extended <= '1';
+        next_card_number_is_extended <= '1';
       else
-        card_number_is_extended <= '0';
+        next_card_number_is_extended <= '0';
       end if;
 
       -- By default, copy in replacement values
       -- These assignments may be overriden further down the process.
       chargen_x <= next_chargen_x;
       chargen_y <= next_chargen_y;
-      card_number <= next_card_number;
-      
+       
       -- Raster control.
       -- Work out if in front porch, back porch or active part of raster.
       -- If we are in the active part of the display, work out if we have
       -- reached the start of a new character (or are about to).
       -- If so, copy in the new glyph and colour data for display.
-      report "VGA: displayx=" & integer'image(to_integer(displayx)) & ", chargen_active=" & std_logic'image(chargen_active) & ", chagen_active_soon=" & std_logic'image(chargen_active_soon) severity note;
+      report "VGA: displayx=" & integer'image(to_integer(displayx)) & ", chargen_active=" & std_logic'image(chargen_active) & ", chagen_active_soon=" & std_logic'image(chargen_active_soon) & ", card_number=" & integer'image(to_integer(card_number)) & ", next_card_number=" & integer'image(to_integer(next_card_number)) severity note;
+      report ", cycles_to_next_card=" & integer'image(to_integer(cycles_to_next_card))
+        & ", char_fetch_cycle=" & integer'image(char_fetch_cycle)
+        & ", xbackporch=" & std_logic'image(xbackporch)
+        severity note;
       if xfrontporch='1' then
         indisplay := '0';
-      elsif xbackporch='0' and (chargen_active='1' or chargen_active_soon='1') then         -- In active part of raster
+      end if;
+      if (xbackporch='0') and ((chargen_active='1') or (chargen_active_soon='1')) then         -- In active part of raster
         -- Work out if we are at the end of a character
+        report "checkpoint" severity note;
         cycles_to_next_card <= cycles_to_next_card - 1;
         -- cycles_to_next_card counts down to 1, not 0.
         -- update one cycle earlier since next_card_number is a signal
@@ -1211,19 +1218,15 @@ begin
 
         -- We must update char_fetch_cycle before deciding if we are reaching
         -- the next card, as otherwise we stop the fetching of the next character.
-        if char_fetch_cycle<16 then
+        if char_fetch_cycle<8 then
           char_fetch_cycle <= char_fetch_cycle + 1;        
         end if;
 
-        if cycles_to_next_card = 2 then
-          -- We are one cycle before the start of a character
-          next_card_number <= card_number + 1;
-        end if;
         if cycles_to_next_card = 1 then
           report "VGA: Copying next_* to glyph_*" severity note;
           -- We are at the start of a character          
           if (ycounter>100) and (xcounter>250) and (xcounter<350) then
-            report "VGA : Update glyph data"
+            report "VGA : Update glyph data. next_card_number=" & integer'image(to_integer(next_card_number))
               severity note;
           end if;
           
@@ -1231,6 +1234,8 @@ begin
           cycles_to_next_card <= (chargen_x_scale(4 downto 0)+1) & "000";
           -- Move preloaded glyph data into position when advancing to the next character          
           charrow <= next_charrow;
+          card_number <= next_card_number;
+          card_number_is_extended <= next_card_number_is_extended;
           glyph_pixeldata <= next_glyph_pixeldata;
           glyph_colour <= next_glyph_colour;
 
@@ -1242,6 +1247,7 @@ begin
           glyph_number <= next_glyph_number;
           glyph_full_colour <= next_glyph_full_colour;
                                         -- ... and then start fetching data for the character after that
+          next_card_number <= next_card_number + 1;
           char_fetch_cycle <= 0;
           chargen_x <= "000";
           next_chargen_x <= "000";
@@ -1276,15 +1282,15 @@ begin
       -- Reset character generator position for start of frame/raster
       -- Start displaying from the correct character
       -- The -3 is to allow for the 3 cycle pixel pipeline
-      x_chargen_start_minus17 <= x_chargen_start-17-3+frame_h_front;
-      x_chargen_start_minus9 <= x_chargen_start-9-3+frame_h_front;
-      x_chargen_start_minus2 <= x_chargen_start-2-3+frame_h_front;
-      x_chargen_start_minus1 <= x_chargen_start-1-3+frame_h_front;
-      x_chargen_start_pipeline <= x_chargen_start-3+frame_h_front;
+      x_chargen_start_minus17 <= x_chargen_start+(frame_h_front-17-3);
+      x_chargen_start_minus9 <= x_chargen_start+frame_h_front-9-3;
+      x_chargen_start_minus2 <= x_chargen_start+frame_h_front-2-3;
+      x_chargen_start_minus1 <= x_chargen_start+frame_h_front-1-3;
+      x_chargen_start_pipeline <= x_chargen_start+frame_h_front-3;
       -- Display starts once pipeline is filled, so no -3 here.
       -- The -1 is to allow for the one cycle delay of setting
       -- the chargen_active register
-      x_chargen_start_display <= x_chargen_start-1+frame_h_front;
+      x_chargen_start_display <= x_chargen_start+(frame_h_front-1);
 
       if xcounter=x_chargen_start_minus17 then
         report "VGA: 16 pixels before x_chargen_start. "
@@ -1321,11 +1327,11 @@ begin
         next_chargen_x <= (others => '0');
         chargen_x <= (others => '0');
         chargen_x_sub <= (others => '0');
-        chargen_active_soon <= '0';
       end if;
       if xcounter = x_chargen_start_display then
         -- Gets masked to 0 below if displayy is above y_chargen_start
         chargen_active <= '1';
+        chargen_active_soon <= '0';
       end if;
       if xcounter = x_chargen_start_pipeline then
         next_chargen_x <= (others => '0');
