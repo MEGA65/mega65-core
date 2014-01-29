@@ -1276,17 +1276,17 @@ begin
       -- Reset character generator position for start of frame/raster
       -- Start displaying from the correct character
       -- The -3 is to allow for the 3 cycle pixel pipeline
-      x_chargen_start_minus17 <= x_chargen_start-17-3;
-      x_chargen_start_minus9 <= x_chargen_start-9-3;
-      x_chargen_start_minus2 <= x_chargen_start-2-3;
-      x_chargen_start_minus1 <= x_chargen_start-1-3;
-      x_chargen_start_pipeline <= x_chargen_start-3;
+      x_chargen_start_minus17 <= x_chargen_start-17-3+frame_h_front;
+      x_chargen_start_minus9 <= x_chargen_start-9-3+frame_h_front;
+      x_chargen_start_minus2 <= x_chargen_start-2-3+frame_h_front;
+      x_chargen_start_minus1 <= x_chargen_start-1-3+frame_h_front;
+      x_chargen_start_pipeline <= x_chargen_start-3+frame_h_front;
       -- Display starts once pipeline is filled, so no -3 here.
       -- The -1 is to allow for the one cycle delay of setting
       -- the chargen_active register
-      x_chargen_start_display <= x_chargen_start-1;
+      x_chargen_start_display <= x_chargen_start-1+frame_h_front;
 
-      if displayx=x_chargen_start_minus17 then
+      if xcounter=x_chargen_start_minus17 then
         report "VGA: 16 pixels before x_chargen_start. "
           & "displayx=" & integer'image(to_integer(displayx))
           & ", xchargen_start=" & integer'image(to_integer(x_chargen_start))
@@ -1302,7 +1302,7 @@ begin
         chargen_active_soon <= '0';
         cycles_to_next_card <= (others => '1');
       end if;
-      if displayx=x_chargen_start_minus9 then
+      if xcounter=x_chargen_start_minus9 then
         -- Start fetching first character of the row
         -- (8 cycles is plenty of time to fetch it)       
         char_fetch_cycle <= 0;
@@ -1310,24 +1310,24 @@ begin
         next_card_number <= first_card_of_row;
         card_number <= first_card_of_row;
       end if;
-      if displayx = x_chargen_start_minus2 then
+      if xcounter = x_chargen_start_minus2 then
         cycles_to_next_card <= "00000001";
         next_chargen_x <= (others => '0');
         chargen_x <= (others => '0');
         chargen_x_sub <= (others => '0');
       end if;
-      if displayx = x_chargen_start_minus1 then
+      if xcounter = x_chargen_start_minus1 then
         -- trigger next card at start of chargen row
         next_chargen_x <= (others => '0');
         chargen_x <= (others => '0');
         chargen_x_sub <= (others => '0');
         chargen_active_soon <= '0';
       end if;
-      if displayx = x_chargen_start_display then
+      if xcounter = x_chargen_start_display then
         -- Gets masked to 0 below if displayy is above y_chargen_start
         chargen_active <= '1';
       end if;
-      if displayx = x_chargen_start_pipeline then
+      if xcounter = x_chargen_start_pipeline then
         next_chargen_x <= (others => '0');
         chargen_x <= (others => '0');
       end if;
