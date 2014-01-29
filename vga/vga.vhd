@@ -345,6 +345,8 @@ architecture Behavioral of vga is
   signal chardata : std_logic_vector(7 downto 0);
   -- buffer of read data to improve timing
   signal charrow : std_logic_vector(7 downto 0);
+  signal charrow_t1 : std_logic_vector(7 downto 0);
+  signal charrow_t2 : std_logic_vector(7 downto 0);
   signal next_charrow : std_logic_vector(7 downto 0);
 
   -- C65 style 2K colour RAM
@@ -1534,13 +1536,13 @@ begin
           -- Read character row data from ROM
           -- mono characters
           -- Apply C65/VIC-III hardware underline and blink attributes
-          if glyph_visible='0' then
+          if next_glyph_visible='0' then
             next_charrow <= x"00";
             next_glyph_pixeldata <= (others => '0');
-          elsif glyph_underline='1' then
+          elsif next_glyph_underline='1' then
             next_charrow <= x"FF";
             next_glyph_pixeldata <= (others => '1');
-          elsif glyph_reverse='1' then
+          elsif next_glyph_reverse='1' then
             next_charrow <= not chardata;
             next_glyph_pixeldata <= not ramdata;
           else
@@ -1639,6 +1641,8 @@ begin
       chargen_x_t1 <= chargen_x;
       chargen_x_t2 <= chargen_x_t1;
       chargen_x_t3 <= chargen_x_t2;
+      charrow_t1 <= charrow;
+      charrow_t2 <= charrow_t1;
       card_number_t1 <= card_number;
       card_number_t2 <= card_number_t1;
       card_number_t3 <= card_number_t2;
