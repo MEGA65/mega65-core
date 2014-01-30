@@ -347,12 +347,12 @@ architecture Behavioral of vga is
   signal charaddress : std_logic_vector(11 downto 0);
   signal debug_charaddress : std_logic_vector(11 downto 0);
   signal chardata : std_logic_vector(7 downto 0);
-  signal debug_chardata : std_logic_vector(7 downto 0);
   -- buffer of read data to improve timing
   signal charrow : std_logic_vector(7 downto 0);
   signal charrow_t1 : std_logic_vector(7 downto 0);
   signal charrow_t2 : std_logic_vector(7 downto 0);
   signal next_charrow : std_logic_vector(7 downto 0);
+  signal debug_next_charrow : std_logic_vector(7 downto 0);
 
   -- C65 style 2K colour RAM
   signal colourram_at_dc00_internal : std_logic;
@@ -806,7 +806,7 @@ begin
       elsif register_number=248 then
         fastio_rdata <= "0000" & debug_charaddress(11 downto 8);
       elsif register_number=249 then
-        fastio_rdata <= debug_chardata;
+        fastio_rdata <= debug_next_charrow;
       elsif register_number<256 then
                                         -- Fill in unused register space
         fastio_rdata <= x"ff";
@@ -1697,7 +1697,7 @@ begin
         debug_chargen_active <= chargen_active;
         debug_chargen_active_soon <= chargen_active_soon;
         debug_char_fetch_cycle <= char_fetch_cycle;
-        debug_chardata <= chardata;
+        debug_next_charrow <= next_charrow;
         debug_charaddress <= charaddress;
       end if;     
       if displayx=debug_x or displayy=debug_y then
