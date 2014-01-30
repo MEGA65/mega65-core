@@ -191,7 +191,7 @@ architecture Behavioral of vga is
   signal chargen_y_scale : unsigned(7 downto 0) := x"04";  -- x"04"
   -- smooth scrolling position in natural pixels.
   -- Set in the same way as the border
-  signal x_chargen_start : unsigned(11 downto 0) := to_unsigned(160,12);  -- 160
+  signal x_chargen_start : unsigned(11 downto 0) := to_unsigned(0,12);  -- 160
   signal x_chargen_start_pipeline : unsigned(11 downto 0);
   signal x_chargen_start_display : unsigned(11 downto 0);
   signal x_chargen_start_minus1 : unsigned(11 downto 0);
@@ -199,7 +199,7 @@ architecture Behavioral of vga is
   signal x_chargen_start_minus9 : unsigned(11 downto 0);
   signal x_chargen_start_minus17 : unsigned(11 downto 0);
 
-  signal y_chargen_start : unsigned(11 downto 0) := to_unsigned(100,12);  -- 100
+  signal y_chargen_start : unsigned(11 downto 0) := to_unsigned(0,12);  -- 100
   -- Charset is 16bit (2 bytes per char) when this mode is enabled.
   signal sixteenbit_charset : std_logic := '0';
   -- Characters >255 are full-colour blocks when enabled.
@@ -216,9 +216,9 @@ architecture Behavioral of vga is
   signal extended_background_mode : std_logic := '0';
   
   -- Border dimensions
-  signal border_x_left : unsigned(11 downto 0) := to_unsigned(160,12);  -- 160
+  signal border_x_left : unsigned(11 downto 0) := to_unsigned(0,12);  -- 160
   signal border_x_right : unsigned(11 downto 0) := to_unsigned(1920-160,12);
-  signal border_y_top : unsigned(11 downto 0) := to_unsigned(100,12);  -- 100
+  signal border_y_top : unsigned(11 downto 0) := to_unsigned(0,12);  -- 100
   signal border_y_bottom : unsigned(11 downto 0) := to_unsigned(1200-101,12);
   signal blank : std_logic := '0';
 
@@ -1219,6 +1219,9 @@ begin
         -- Work out if we are at the end of a character
         report "checkpoint" severity note;
         cycles_to_next_card <= cycles_to_next_card - 1;
+        if cycles_to_next_card = x"09" then
+          char_fetch_cycle <= 0;
+        end if;
         -- cycles_to_next_card counts down to 1, not 0.
         -- update one cycle earlier since next_card_number is a signal
         -- not a variable.
@@ -1253,7 +1256,9 @@ begin
           glyph_full_colour <= next_glyph_full_colour;
                                         -- ... and then start fetching data for the character after that
           next_card_number <= next_card_number + 1;
-          char_fetch_cycle <= 0;
+          if chargen_x_scale = 0 then
+            char_fetch_cycle <= 0;
+          end if;
           chargen_x <= "000";
           next_chargen_x <= "000";
           chargen_x_sub <= (others => '0');
@@ -1486,6 +1491,7 @@ begin
           -- XXX Can schedule a sprite fetch here.
           ramaddress <= (others => '0');
         when 5 =>
+          report "next_glyph_nunber=" & integer'image(to_integer(next_glyph_number)) severity note;
 
           -- Fetch character ROM byte
           if extended_background_mode='1' then
@@ -1585,6 +1591,7 @@ begin
             glyph_pixeldata <= ramdata;
           end if;
           -- XXX what about one byte per pixel characters?
+          report "charrow loaded. chardata=$" & to_hstring(chardata) severity note;
           
           -- XXX Fetch full-colour sprite information
           -- (C64 compatability sprites will be fetched during horizontal sync.
