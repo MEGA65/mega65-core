@@ -29,7 +29,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include <sys/time.h>
 
 int debug_x=0;
-int debug_y=100;
+int debug_y=310;
 int toggle=0;
 
 int process_char(unsigned char c,int live);
@@ -152,7 +152,6 @@ int main(int argc,char **argv)
 	    // set debug coordinates
 	    debug_x++;
 	    debug_x&=0xfff;
-	    debug_y=100;
 	    sprintf(cmd,"sffd30fc %02x %02x %02x %02x\r",
 		    debug_x&0xff,debug_x>>8,debug_y&0xff,debug_y>>8);
 	    slow_write(fd,cmd,strlen(cmd));
