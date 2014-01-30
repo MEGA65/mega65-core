@@ -351,8 +351,7 @@ architecture Behavioral of vga is
   signal charrow : std_logic_vector(7 downto 0);
   signal charrow_t1 : std_logic_vector(7 downto 0);
   signal charrow_t2 : std_logic_vector(7 downto 0);
-  signal next_charrow : std_logic_vector(7 downto 0);
-  signal debug_next_charrow : std_logic_vector(7 downto 0);
+  signal debug_charrow : std_logic_vector(7 downto 0);
 
   -- C65 style 2K colour RAM
   signal colourram_at_dc00_internal : std_logic;
@@ -806,7 +805,7 @@ begin
       elsif register_number=248 then
         fastio_rdata <= "0000" & debug_charaddress(11 downto 8);
       elsif register_number=249 then
-        fastio_rdata <= debug_next_charrow;
+        fastio_rdata <= debug_charrow;
       elsif register_number<256 then
                                         -- Fill in unused register space
         fastio_rdata <= x"ff";
@@ -1241,10 +1240,8 @@ begin
           -- Reset counter to next character to 8 cycles x (scale + 1)
           cycles_to_next_card <= (chargen_x_scale(4 downto 0)+1) & "000";
           -- Move preloaded glyph data into position when advancing to the next character          
-          charrow <= next_charrow;
           card_number <= next_card_number;
           card_number_is_extended <= next_card_number_is_extended;
-          glyph_pixeldata <= next_glyph_pixeldata;
           glyph_colour <= next_glyph_colour;
 
           glyph_visible <= next_glyph_visible;
@@ -1575,17 +1572,17 @@ begin
           -- mono characters
           -- Apply C65/VIC-III hardware underline and blink attributes
           if next_glyph_visible='0' then
-            next_charrow <= x"00";
-            next_glyph_pixeldata <= (others => '0');
+            charrow <= x"00";
+            glyph_pixeldata <= (others => '0');
           elsif next_glyph_underline='1' then
-            next_charrow <= x"FF";
-            next_glyph_pixeldata <= (others => '1');
+            charrow <= x"FF";
+            glyph_pixeldata <= (others => '1');
           elsif next_glyph_reverse='1' then
-            next_charrow <= not chardata;
-            next_glyph_pixeldata <= not ramdata;
+            charrow <= not chardata;
+            glyph_pixeldata <= not ramdata;
           else
-            next_charrow <= chardata;
-            next_glyph_pixeldata <= ramdata;
+            charrow <= chardata;
+            glyph_pixeldata <= ramdata;
           end if;
           -- XXX what about one byte per pixel characters?
           
@@ -1697,7 +1694,7 @@ begin
         debug_chargen_active <= chargen_active;
         debug_chargen_active_soon <= chargen_active_soon;
         debug_char_fetch_cycle <= char_fetch_cycle;
-        debug_next_charrow <= next_charrow;
+        debug_charrow <= charrow;
         debug_charaddress <= charaddress;
       end if;     
       if displayx=debug_x or displayy=debug_y then
