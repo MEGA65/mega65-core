@@ -345,7 +345,9 @@ architecture Behavioral of vga is
   
   -- Interface to character generator rom
   signal charaddress : std_logic_vector(11 downto 0);
+  signal debug_charaddress : std_logic_vector(11 downto 0);
   signal chardata : std_logic_vector(7 downto 0);
+  signal debug_chardata : std_logic_vector(7 downto 0);
   -- buffer of read data to improve timing
   signal charrow : std_logic_vector(7 downto 0);
   signal charrow_t1 : std_logic_vector(7 downto 0);
@@ -799,6 +801,12 @@ begin
         fastio_rdata <= "000000" & debug_chargen_active & debug_chargen_active_soon;
       elsif register_number=246 then
         fastio_rdata <= std_logic_vector(to_unsigned(debug_char_fetch_cycle,8));
+      elsif register_number=247 then
+        fastio_rdata <= debug_charaddress(7 downto 0);
+      elsif register_number=248 then
+        fastio_rdata <= "0000" & debug_charaddress(11 downto 8);
+      elsif register_number=249 then
+        fastio_rdata <= debug_chardata;
       elsif register_number<256 then
                                         -- Fill in unused register space
         fastio_rdata <= x"ff";
@@ -1689,6 +1697,8 @@ begin
         debug_chargen_active <= chargen_active;
         debug_chargen_active_soon <= chargen_active_soon;
         debug_char_fetch_cycle <= char_fetch_cycle;
+        debug_chardata <= chardata;
+        debug_charaddress <= charaddress;
       end if;     
       if displayx=debug_x or displayy=debug_y then
         -- Draw cross-hairs at debug coordinates
