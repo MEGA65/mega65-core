@@ -70,23 +70,27 @@ int process_line(char *line,int live)
   int x_chargen_start_minus16_low,x_chargen_start_minus16_high;
   int next_card_number_low,next_card_number_high,cycles_to_next_card,flags;
   int char_fetch_cycle;
+  int char_address_low,char_address_high,chardata;
   // printf("[%s]\n",line);
   if (!live) return 0;
-  if (sscanf(line," :FFD30F0 %02x %02x %02x %02x %02x %02x %02x",
+  if (sscanf(line," :FFD30F0 %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x",
 	     &x_chargen_start_minus16_low,
 	     &x_chargen_start_minus16_high,
 	     &next_card_number_low,&next_card_number_high,
 	     &cycles_to_next_card,
-	     &flags,&char_fetch_cycle
-	     )==7) {
+	     &flags,&char_fetch_cycle,
+	     &char_address_low,&char_address_high,
+	     &chardata
+	     )==10) {
     int chargen_active_soon=flags&1;
     int chargen_active=flags&2;
-    printf("display_y=%d, display_x=%d, x_chargen_start_minus16=%d, next_card_number=%d, cycles_to_next_card=%d, char_fetch_cycle=%d, chargen_active=%d, chargen_active_soon=%d\n",
+    printf("display_y=%d, display_x=%d, x_chargen_start_minus16=%d, next_card_number=%d, cycles_to_next_card=%d, char_fetch_cycle=%d, chargen_active=%d, chargen_active_soon=%d, charaddress=$%04x, chardata=$%02x\n",
 	   debug_y,debug_x,
 	   (x_chargen_start_minus16_high<<8)+x_chargen_start_minus16_low,
 	   next_card_number_low+(next_card_number_high<<8),
 	   cycles_to_next_card,char_fetch_cycle,
-	   chargen_active,chargen_active_soon);
+	   chargen_active,chargen_active_soon,
+	   (char_address_low+(char_address_high)*256),chardata);
   }
   return 0;
 }
