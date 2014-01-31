@@ -1764,10 +1764,15 @@ begin
         & to_hstring(pixel_colour) severity note;
       
       -- 1. From pixel colour lookup RGB
-      vga_buffer_red <= palette(to_integer(pixel_colour)).red(7 downto 4);   
-      vga_buffer_green <= palette(to_integer(pixel_colour)).green(7 downto 4); 
-      vga_buffer_blue <= palette(to_integer(pixel_colour)).blue(7 downto 4);
+      --vga_buffer_red <= palette(to_integer(pixel_colour)).red(7 downto 4);   
+      --vga_buffer_green <= palette(to_integer(pixel_colour)).green(7 downto 4); 
+      --vga_buffer_blue <= palette(to_integer(pixel_colour)).blue(7 downto 4);
 
+      palette_address <= "00" & std_logic_vector(pixel_colour);
+      vga_buffer_red <= unsigned(palette_rdata(31 downto 24));
+      vga_buffer_green <= unsigned(palette_rdata(23 downto 16));
+      vga_buffer_blue <= unsigned(palette_rdata(15 downto 8));
+      
       -- 2. From RGB, push out to pins (also draw border)
       vgared <= vga_buffer_red;
       vgagreen <= vga_buffer_green;
