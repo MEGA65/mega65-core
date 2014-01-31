@@ -1676,9 +1676,9 @@ begin
           or (fullcolour_8bitchars='1' and text_mode='1') then
           -- Full colour glyph
           -- Pixels come from each 8 bits of character memory.
-          pixel_colour <= unsigned(glyph_pixeldata(63 downto 56));
+          pixel_colour <= unsigned(glyph_pixeldata(7 downto 0));
           if chargen_x_t1 /= chargen_x then
-            glyph_pixeldata(63 downto 8) <= glyph_pixeldata(55 downto 0);
+            glyph_pixeldata(55 downto 0) <= glyph_pixeldata(63 downto 8);
           end if;
         elsif multicolour_mode='1' and text_mode='1' and card_fg_colour(3)='1' then
           -- Multicolour character mode only engages for characters with bit 3
