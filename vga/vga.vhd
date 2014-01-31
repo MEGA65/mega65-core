@@ -186,9 +186,9 @@ architecture Behavioral of vga is
   -- character display width.
   signal virtual_row_width : unsigned(15 downto 0) := to_unsigned(40,16);
   -- Each character pixel will be (n+1) pixels wide  
-  signal chargen_x_scale : unsigned(7 downto 0) := x"04";  -- x"04"
+  signal chargen_x_scale : unsigned(7 downto 0) := x"01";  -- x"04"
   -- Each character pixel will be (n+1) pixels high
-  signal chargen_y_scale : unsigned(7 downto 0) := x"04";  -- x"04"
+  signal chargen_y_scale : unsigned(7 downto 0) := x"01";  -- x"04"
   -- smooth scrolling position in natural pixels.
   -- Set in the same way as the border
   signal x_chargen_start : unsigned(11 downto 0) := to_unsigned(0,12);  -- 160
@@ -1205,7 +1205,7 @@ begin
       -- If we are in the active part of the display, work out if we have
       -- reached the start of a new character (or are about to).
       -- If so, copy in the new glyph and colour data for display.
-      report "VGA: displayx=" & integer'image(to_integer(displayx)) & ", chargen_active=" & std_logic'image(chargen_active) & ", chagen_active_soon=" & std_logic'image(chargen_active_soon) & ", card_number=" & integer'image(to_integer(card_number)) & ", next_card_number=" & integer'image(to_integer(next_card_number)) severity note;
+      report "VGA: displayx=" & integer'image(to_integer(displayx)) & ", chargen_active=" & std_logic'image(chargen_active) & ", chagen_active_soon=" & std_logic'image(chargen_active_soon) & ", chargen_x=" & integer'image(to_integer(chargen_x)) & ", next_chargen_x=" & integer'image(to_integer(next_chargen_x)) severity note;
       report ", cycles_to_next_card=" & integer'image(to_integer(cycles_to_next_card))
         & ", char_fetch_cycle=" & integer'image(char_fetch_cycle)
         & ", xbackporch=" & std_logic'image(xbackporch)
@@ -1257,6 +1257,7 @@ begin
           if chargen_x_scale = 0 then
             char_fetch_cycle <= 0;
           end if;
+          report "resetting chargen_x" severity note;
           chargen_x <= "000";
           next_chargen_x <= "000";
           chargen_x_sub <= (others => '0');
@@ -1270,9 +1271,11 @@ begin
           -- Work out if a new logical pixel starts on the next physical pixel
           -- (overrides general advance)
           if chargen_x_scale=0 then
+            report "next_chargen_x inc" severity note;
             next_chargen_x <= next_chargen_x + 1;
           else
             if chargen_x_sub = (chargen_x_scale - 1) then
+              report "next_chargen_x inc" severity note;
               next_chargen_x <= next_chargen_x + 1;
             end if;
             if chargen_x_sub=chargen_x_scale then
@@ -1329,22 +1332,25 @@ begin
         next_chargen_x <= (others => '0');
         chargen_x <= (others => '0');
         chargen_x_sub <= (others => '0');
+        report "reset chargen_x" severity note;
       end if;
       if xcounter = x_chargen_start_minus1 then
         -- trigger next card at start of chargen row
         next_chargen_x <= (others => '0');
         chargen_x <= (others => '0');
         chargen_x_sub <= (others => '0');
+        report "reset chargen_x" severity note;
       end if;
       if xcounter = x_chargen_start_display then
         -- Gets masked to 0 below if displayy is above y_chargen_start
         chargen_active <= '1';
         chargen_active_soon <= '0';
       end if;
-      if xcounter = x_chargen_start_pipeline then
-        next_chargen_x <= (others => '0');
-        chargen_x <= (others => '0');
-      end if;
+      --if xcounter = x_chargen_start_pipeline then
+      --  next_chargen_x <= (others => '0');
+      --  chargen_x <= (others => '0');
+      --  report "reset chargen_x" severity note;
+      --end if;
       if displayy<y_chargen_start then
         chargen_y <= (others => '0');
         chargen_y_sub <= (others => '0');
