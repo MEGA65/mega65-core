@@ -924,7 +924,7 @@ begin
           -- Character set source address for user-generated character sets.
           character_set_address(13 downto 11) <= unsigned(fastio_wdata(3 downto 1));
           -- This one is for the internal charrom in the VIC-IV.
-          charaddress(11) <= fastio_wdata(0);
+          charaddress(11) <= fastio_wdata(1);
           -- Bits 14 and 15 get set by writing to $DD00, as the VIC-IV sniffs
           -- that CIA register being written on the fastio bus.
           screen_ram_base(16) <= '0';
