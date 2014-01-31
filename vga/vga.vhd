@@ -123,6 +123,23 @@ architecture Behavioral of vga is
       doutb : OUT STD_LOGIC_VECTOR(63 DOWNTO 0)
       );
   end component;
+
+  -- 1K x 32bit ram for palette
+  component ram32x1024 IS
+    PORT (
+      clka : IN STD_LOGIC;
+      ena : IN STD_LOGIC;
+      wea : IN STD_LOGIC_VECTOR(3 DOWNTO 0);
+      addra : IN STD_LOGIC_VECTOR(9 DOWNTO 0);
+      dina : IN STD_LOGIC_VECTOR(31 DOWNTO 0);
+      douta : OUT STD_LOGIC_VECTOR(31 DOWNTO 0);
+      clkb : IN STD_LOGIC;
+      web : IN STD_LOGIC_VECTOR(3 DOWNTO 0);
+      addrb : IN STD_LOGIC_VECTOR(9 DOWNTO 0);
+      dinb : IN STD_LOGIC_VECTOR(31 DOWNTO 0);
+      doutb : OUT STD_LOGIC_VECTOR(31 DOWNTO 0)
+      );
+  END component;
   
   -- Buffer VGA signal to save some time. Similarly pipeline
   -- palette lookup.
@@ -413,6 +430,15 @@ architecture Behavioral of vga is
   signal colourramaddress : std_logic_vector(15 downto 0);
   signal colourramdata : std_logic_vector(7 downto 0);
 
+  -- Palette RAM access via fastio port
+  signal palette_we : std_logic_vector(3 downto 0) := (others => '0');
+  signal palette_fastio_address : std_logic_vector(9 downto 0);
+  signal palette_fastio_rdata : std_logic_vector(31 downto 0);
+
+  -- Palette RAM access for video controller
+  signal palette_address : std_logic_vector(9 downto 0);
+  signal palette_rdata : std_logic_vector(31 downto 0);
+  
 begin
 
   -- XXX For now just use 128KB FastRAM instead of 512KB which causes major routing
@@ -449,6 +475,24 @@ begin
       dinb => (others => '0'),
       doutb => colourramdata
       );
+
+  paletteram: component ram32x1024
+    port map (
+      clka => cpuclock,
+      ena => '1',
+      wea => palette_we,
+    addra => palette_fastio_address,
+    dina(31 downto 24) => fastio_wdata,
+    dina(23 downto 16) => fastio_wdata,
+    dina(15 downto 8) => fastio_wdata,
+    dina(7 downto 0) => fastio_wdata,
+    douta => palette_fastio_rdata,
+    clkb => pixelclock,
+    web => (others => '0'),
+    addrb => palette_address,
+    dinb => (others => '0'),
+    doutb => palette_rdata
+  );
   
   charrom1 : charrom
     port map (Clk => pixelclock,
@@ -896,7 +940,10 @@ begin
           character_set_address(13 downto 11) <= unsigned(fastio_wdata(3 downto 1));
           -- This one is for the internal charrom in the VIC-IV.
           charaddress(11) <= fastio_wdata(0);
+          -- XXX We don't read the CIA bank select bits
+          screen_ram_base(16 downto 14) <= (others => '0');
           screen_ram_base(13 downto 10) <= unsigned(fastio_wdata(7 downto 4));
+          screen_ram_base(9 downto 0) <= (others => '0');
           -- Sprites fetch from screen ram base + $3F8 (or +$7F8 in VIC-III 80
           -- column mode).
           -- In 80 column mode the screen base must be on a 2K boundary on the
