@@ -438,6 +438,11 @@ architecture Behavioral of vga is
   -- Palette RAM access for video controller
   signal palette_address : std_logic_vector(9 downto 0);
   signal palette_rdata : std_logic_vector(31 downto 0);
+
+  -- Palette bank selection registers
+  signal palette_bank_fastio : std_logic_vector(1 downto 0);
+  signal palette_bank_chargen : std_logic_vector(1 downto 0);
+  signal palette_bank_sprites : std_logic_vector(1 downto 0);
   
 begin
 
@@ -830,6 +835,8 @@ begin
       elsif register_number=143 then
         fastio_rdata(7 downto 4) <= x"0";
         fastio_rdata(3 downto 0) <= std_logic_vector(vicii_sprite_pointer_address(27 downto 24));
+      elsif register_number=144 then
+        fastio_rdata <= palette_bank_fastio & palette_bank_chargen & palette_bank_sprites & "11";
       elsif register_number=240 then
         fastio_rdata <= std_logic_vector(x_chargen_start_minus17(7 downto 0));
       elsif register_number=241 then
@@ -1120,7 +1127,10 @@ begin
           vicii_sprite_pointer_address(23 downto 16) <= unsigned(fastio_wdata);
         elsif register_number=143 then
           vicii_sprite_pointer_address(27 downto 24) <= unsigned(fastio_wdata(3 downto 0));
-        
+        elsif register_number=144 then
+          palette_bank_fastio <= fastio_wdata(7 downto 6);
+          palette_bank_chargen <= fastio_wdata(5 downto 4);
+          palette_bank_sprites <= fastio_wdata(3 downto 2);
         elsif register_number=252 then
           debug_x(7 downto 0) <= unsigned(fastio_wdata);
         elsif register_number=253 then
@@ -1134,15 +1144,15 @@ begin
           null;
         elsif register_number>=256 and register_number<512 then
           -- red palette
-          palette_fastio_address <= "00" & std_logic_vector(register_number(7 downto 0));
+          palette_fastio_address <= palette_bank_fastio & std_logic_vector(register_number(7 downto 0));
           palette_we(3) <= '1';
         elsif register_number>=512 and register_number<768 then
           -- green palette
-          palette_fastio_address <= "00" & std_logic_vector(register_number(7 downto 0));
+          palette_fastio_address <= palette_bank_fastio & std_logic_vector(register_number(7 downto 0));
           palette_we(2) <= '1';
         elsif register_number>=768 and register_number<1024 then
           -- blue palette
-          palette_fastio_address <= "00" & std_logic_vector(register_number(7 downto 0));
+          palette_fastio_address <= palette_bank_fastio & std_logic_vector(register_number(7 downto 0));
           palette_we(1) <= '1';
         else
           null;
@@ -1768,7 +1778,8 @@ begin
       --vga_buffer_green <= palette(to_integer(pixel_colour)).green(7 downto 4); 
       --vga_buffer_blue <= palette(to_integer(pixel_colour)).blue(7 downto 4);
 
-      palette_address <= "00" & std_logic_vector(pixel_colour);
+      -- XXX Doesn't select sprite palette bank when appropriate.
+      palette_address <= palette_bank_chargen & std_logic_vector(pixel_colour);
       vga_buffer_red <= unsigned(palette_rdata(31 downto 24));
       vga_buffer_green <= unsigned(palette_rdata(23 downto 16));
       vga_buffer_blue <= unsigned(palette_rdata(15 downto 8));
