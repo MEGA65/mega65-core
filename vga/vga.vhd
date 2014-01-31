@@ -871,8 +871,9 @@ begin
 
     if rising_edge(cpuclock) then
 
+      palette_fastio_we <= (others => '0');
 
-                                        -- $DD00 video bank bits
+      -- $DD00 video bank bits
       if fastio_write='1'
         and fastio_addr(19 downto 12)=x"FD"
         and fastio_addr(3 downto 0) =x"0"
@@ -882,7 +883,7 @@ begin
           not fastio_wdata(1) & not fastio_wdata(0);
       end if;
 
-                                        -- $D000 registers
+      -- $D000 registers
       if fastio_write='1'
         and (fastio_addr(19) = '0' or fastio_addr(19) = '1') then
         if register_number>=0 and register_number<8 then
@@ -940,8 +941,9 @@ begin
           character_set_address(13 downto 11) <= unsigned(fastio_wdata(3 downto 1));
           -- This one is for the internal charrom in the VIC-IV.
           charaddress(11) <= fastio_wdata(0);
-          -- XXX We don't read the CIA bank select bits
-          screen_ram_base(16 downto 14) <= (others => '0');
+          -- Bits 14 and 15 get set by writing to $DD00, as the VIC-IV sniffs
+          -- that CIA register being written on the fastio bus.
+          screen_ram_base(16) <= (others => '0');
           screen_ram_base(13 downto 10) <= unsigned(fastio_wdata(7 downto 4));
           screen_ram_base(9 downto 0) <= (others => '0');
           -- Sprites fetch from screen ram base + $3F8 (or +$7F8 in VIC-III 80
@@ -1128,24 +1130,20 @@ begin
         elsif register_number=255 then
           debug_y(11 downto 8) <= unsigned(fastio_wdata(3 downto 0));
         elsif register_number<256 then
-                                        -- reserved register
+          -- reserved register
           null;
-                                        -- XXX Palette registers are in a RAM, so we need to schedule the writes
-                                        -- clocked by the pixelclock, and when we are not in frame.
-                                        -- Downside is not being able to change the palette registers quickly.
-                                        -- Else, we implement the palette as a lot of registers.
-                                        -- Downside is that routing could get very bad.
-                                        -- Else we implement the palette as dual-port RAM.  Probably the best
-                                        -- approach.
         elsif register_number>=256 and register_number<512 then
-                                        -- red palette
-                                        -- palette(to_integer(register_num)).red <= unsigned(fastio_wdata);
+          -- red palette
+          palette_fastio_address <= "00" & std_logic_vector(to_unsigned(register_number,8));
+          palette_fastio_we(3) <= '1';
         elsif register_number>=512 and register_number<768 then
-                                        -- green palette
-                                        -- palette(to_integer(register_num)).green <= unsigned(fastio_wdata);
+          -- green palette
+          palette_fastio_address <= "00" & std_logic_vector(to_unsigned(register_number,8));
+          palette_fastio_we(2) <= '1';
         elsif register_number>=768 and register_number<1024 then
-                                        -- blue palette
-                                        -- palette(to_integer(register_num)).blue <= unsigned(fastio_wdata);
+          -- blue palette
+          palette_fastio_address <= "00" & std_logic_vector(to_unsigned(register_number,8));
+          palette_fastio_we(1) <= '1';
         else
           null;
         end if;
