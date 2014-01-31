@@ -879,7 +879,7 @@ begin
           -- Set x smooth scroll position
           report "VGA: Set x_chargen_start via $D016" severity note;
           x_chargen_start
-            <= to_unsigned(160
+            <= to_unsigned(160+4
                            +(to_integer(unsigned(fastio_wdata(2 downto 0)))*5),12);
           -- set horizontal borders based on 40/38 columns
           if fastio_wdata(3)='1' then
@@ -889,8 +889,6 @@ begin
             border_x_left <= to_unsigned(160+(7*5),12);
             border_x_right <= to_unsigned(1920-160-(9*5),12);
           end if;
-                                        -- set y_chargen_start based on twentyfourlines
-          x_chargen_start <= to_unsigned((160-3*5)+to_integer(unsigned(fastio_wdata(2 downto 0)))*5,12);
         elsif register_number=23 then          -- $D017 compatibility sprite enable
           vicii_sprite_y_expand <= fastio_wdata;
         elsif register_number=24 then          -- $D018 compatibility RAM addresses
