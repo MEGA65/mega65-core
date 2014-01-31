@@ -630,8 +630,8 @@ begin
         fastio_rdata <= vicii_sprite_y_expand;
       elsif register_number=24 then          -- $D018 compatibility RAM addresses
         fastio_rdata <=
-          std_logic_vector(character_set_address(13 downto 10))
-          & std_logic_vector(screen_ram_base(13 downto 10));
+          std_logic_vector(screen_ram_base(13 downto 10))
+          & std_logic_vector(character_set_address(13 downto 10));
       elsif register_number=25 then          -- $D019 compatibility IRQ bits
         fastio_rdata(7) <= irq_asserted;
         fastio_rdata(6) <= '1';       -- NC
