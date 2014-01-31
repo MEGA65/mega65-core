@@ -1677,7 +1677,7 @@ begin
           -- Full colour glyph
           -- Pixels come from each 8 bits of character memory.
           pixel_colour <= unsigned(glyph_pixeldata(7 downto 0));
-          if chargen_x_t1 /= chargen_x then
+          if chargen_x_t1 /= chargen_x and chargen_x /= 7 then
             glyph_pixeldata(55 downto 0) <= glyph_pixeldata(63 downto 8);
           end if;
         elsif multicolour_mode='1' and text_mode='1' and card_fg_colour(3)='1' then
