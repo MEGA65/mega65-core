@@ -379,31 +379,6 @@ architecture Behavioral of vga is
     green : unsigned(7 downto 0);
     blue  : unsigned(7 downto 0);
   end record;
-  type rgb_palette is array(0 to 255) of rgb;
-  signal palette : rgb_palette := (
-    -- Default C64 palette from unusedino.de/ec64/technical/misc/vic656x/colors/
-    -- looked too gammad, so now using the C65 values, which I know will be a bit
-    -- too bold.  Compromise is to use the "PAL corrected C65 palette" proposed
-    -- at
-    -- http://www.lemon64.com/forum/viewtopic.php?t=38987&sid=1368bf8d473afcaba988ebb2f00f8534
-    0 => ( red => x"00", green => x"00", blue => x"00"),
-    1 => ( red => x"ff", green => x"ff", blue => x"ff"),
-    2 => ( red => x"ab", green => x"31", blue => x"26"),
-    3 => ( red => x"66", green => x"da", blue => x"ff"),
-    4 => ( red => x"bb", green => x"3f", blue => x"b8"),
-    5 => ( red => x"55", green => x"ce", blue => x"58"),
-    6 => ( red => x"1d", green => x"0e", blue => x"97"),
-    7 => ( red => x"ea", green => x"f5", blue => x"7c"),
-    8 => ( red => x"b9", green => x"74", blue => x"18"),
-    9 => ( red => x"78", green => x"73", blue => x"00"),
-    10 => ( red => x"dd", green => x"93", blue => x"87"),
-    11 => ( red => x"5b", green => x"5b", blue => x"5b"),
-    12 => ( red => x"8b", green => x"8b", blue => x"8b"),
-    13 => ( red => x"b0", green => x"f4", blue => x"ac"),
-    14 => ( red => x"aa", green => x"9d", blue => x"ef"),
-    15 => ( red => x"b8", green => x"b8", blue => x"b8"),
-    others => ( red => x"00", green => x"00", blue => x"00")
-    );
   
   -- Border generation signals
   -- (see video registers section for the registers that define the border size)
@@ -862,16 +837,18 @@ begin
         fastio_rdata <= x"ff";
                                         -- C65 style palette registers
       elsif register_number>=256 and register_number<512 then
-                                        -- red palette
-        fastio_rdata <= std_logic_vector(palette(to_integer(register_num)).red);
+        -- red palette
+        palette_fastio_address <= palette_bank_fastio & std_logic_vector(register_number(7 downto 0));
+        fastio_rdata <= palette_fastio_rdata(31 downto 24);
       elsif register_number>=512 and register_number<768 then
-                                        -- green palette
-        fastio_rdata <= std_logic_vector(palette(to_integer(register_num)).green);
+        -- green palette
+        palette_fastio_address <= palette_bank_fastio & std_logic_vector(register_number(7 downto 0));
+        fastio_rdata <= palette_fastio_rdata(23 downto 16);
       elsif register_number>=768 and register_number<1024 then
-                                        -- blue palette
-        fastio_rdata <= std_logic_vector(palette(to_integer(register_num)).blue);
+        -- blue palette
+        palette_fastio_address <= palette_bank_fastio & std_logic_vector(register_number(7 downto 0));
+        fastio_rdata <= palette_fastio_rdata(15 downto 8);
       elsif colour_ram_cs_var='0' then        
-                                        -- report "IO request does not match a video register" severity note;
         fastio_rdata <= "ZZZZZZZZ";
       end if;
     end if;
