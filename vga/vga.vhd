@@ -1780,9 +1780,9 @@ begin
 
       -- XXX Doesn't select sprite palette bank when appropriate.
       palette_address <= palette_bank_chargen & std_logic_vector(pixel_colour);
-      vga_buffer_red <= unsigned(palette_rdata(31 downto 24));
-      vga_buffer_green <= unsigned(palette_rdata(23 downto 16));
-      vga_buffer_blue <= unsigned(palette_rdata(15 downto 8));
+      vga_buffer_red <= unsigned(palette_rdata(31 downto 28));
+      vga_buffer_green <= unsigned(palette_rdata(23 downto 20));
+      vga_buffer_blue <= unsigned(palette_rdata(15 downto 12));
       
       -- 2. From RGB, push out to pins (also draw border)
       vgared <= vga_buffer_red;
