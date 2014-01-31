@@ -871,7 +871,7 @@ begin
 
     if rising_edge(cpuclock) then
 
-      palette_fastio_we <= (others => '0');
+      palette_we <= (others => '0');
 
       -- $DD00 video bank bits
       if fastio_write='1'
@@ -943,7 +943,7 @@ begin
           charaddress(11) <= fastio_wdata(0);
           -- Bits 14 and 15 get set by writing to $DD00, as the VIC-IV sniffs
           -- that CIA register being written on the fastio bus.
-          screen_ram_base(16) <= (others => '0');
+          screen_ram_base(16) <= '0';
           screen_ram_base(13 downto 10) <= unsigned(fastio_wdata(7 downto 4));
           screen_ram_base(9 downto 0) <= (others => '0');
           -- Sprites fetch from screen ram base + $3F8 (or +$7F8 in VIC-III 80
@@ -1134,16 +1134,16 @@ begin
           null;
         elsif register_number>=256 and register_number<512 then
           -- red palette
-          palette_fastio_address <= "00" & std_logic_vector(to_unsigned(register_number,8));
-          palette_fastio_we(3) <= '1';
+          palette_fastio_address <= "00" & std_logic_vector(register_number(7 downto 0));
+          palette_we(3) <= '1';
         elsif register_number>=512 and register_number<768 then
           -- green palette
-          palette_fastio_address <= "00" & std_logic_vector(to_unsigned(register_number,8));
-          palette_fastio_we(2) <= '1';
+          palette_fastio_address <= "00" & std_logic_vector(register_number(7 downto 0));
+          palette_we(2) <= '1';
         elsif register_number>=768 and register_number<1024 then
           -- blue palette
-          palette_fastio_address <= "00" & std_logic_vector(to_unsigned(register_number,8));
-          palette_fastio_we(1) <= '1';
+          palette_fastio_address <= "00" & std_logic_vector(register_number(7 downto 0));
+          palette_we(1) <= '1';
         else
           null;
         end if;
