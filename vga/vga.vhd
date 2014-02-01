@@ -143,6 +143,9 @@ architecture Behavioral of vga is
       doutb : OUT STD_LOGIC_VECTOR(31 DOWNTO 0)
       );
   END component;
+
+  -- Drive stage for IRQ signal in attempt to allieviate timing problems.
+  signal irq_drive : std_logic;
   
   -- Buffer VGA signal to save some time. Similarly pipeline
   -- palette lookup.
@@ -1166,9 +1169,10 @@ begin
       irq_colissionspritebitmap <= irq_colissionspritebitmap and (not ack_colissionspritebitmap);
       irq_colissionspritesprite <= irq_colissionspritesprite and (not ack_colissionspritesprite);
       -- Set IRQ line status to CPU
-      irq <= not ((irq_raster and mask_raster)
+      irq_drive <= not ((irq_raster and mask_raster)
                   or (irq_colissionspritebitmap and mask_colissionspritebitmap)
                   or (irq_colissionspritesprite and mask_colissionspritesprite));
+      irq <= irq_drive;
       
       if (ycounter>100) and (xcounter>250) and (xcounter<350) then
         report
