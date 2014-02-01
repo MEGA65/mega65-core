@@ -48,8 +48,8 @@ testadder:	tb_adder.vhdl debugtools.vhdl
 adctest:	adctest.a65
 	Ophis-2.0-standalone/ophis -o adctest adctest.a65
 
-monitor_drive:	monitor_drive.c
-	gcc -Wall -o monitor_drive monitor_drive.c
+monitor_drive:	monitor_drive.c Makefile
+	gcc -g -Wall -o monitor_drive monitor_drive.c
 
 chargen_debug:	chargen_debug.c
 	gcc -Wall -o chargen_debug chargen_debug.c
