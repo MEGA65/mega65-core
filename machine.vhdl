@@ -167,6 +167,8 @@ architecture Behavioral of machine is
       pixelclock : in  STD_LOGIC;
       cpuclock : in std_logic;
 
+      irq : out std_logic;
+      
       ----------------------------------------------------------------------
       -- VGA output
       ----------------------------------------------------------------------
@@ -224,6 +226,7 @@ architecture Behavioral of machine is
   
   signal io_irq : std_logic;
   signal io_nmi : std_logic;
+  signal vic_irq : std_logic;
   signal combinedirq : std_logic;
   signal combinednmi : std_logic;
 
@@ -279,10 +282,10 @@ begin
   -- device via the IOmapper pull an interrupt line down, then trigger an
   -- interrupt.
   -----------------------------------------------------------------------------
-  process(irq,nmi,io_irq,io_nmi)
+  process(irq,nmi,io_irq,vic_irq,io_nmi)
   begin
     -- XXX Allow switch 0 to mask IRQs
-    combinedirq <= ((irq and io_irq) or sw(0));
+    combinedirq <= ((irq and io_irq and vic_irq) or sw(0));
     combinednmi <= nmi and io_nmi;
   end process;
   
@@ -429,6 +432,8 @@ begin
     port map (
       pixelclock      => pixelclock,
       cpuclock        => cpuclock,
+
+      irq             => vic_irq,
       
       vsync           => vsync,
       hsync           => hsync,

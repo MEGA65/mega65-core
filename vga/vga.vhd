@@ -43,6 +43,9 @@ entity vga is
     ----------------------------------------------------------------------
     cpuclock : in std_logic;
 
+    -- CPU IRQ
+    irq : out std_logic;
+    
     ----------------------------------------------------------------------
     -- VGA output
     ----------------------------------------------------------------------
@@ -271,6 +274,9 @@ architecture Behavioral of vga is
   signal irq_colissionspritesprite : std_logic := '0';
   signal irq_colissionspritebitmap : std_logic := '0';
   signal irq_raster : std_logic := '0';
+  signal ack_colissionspritesprite : std_logic := '0';
+  signal ack_colissionspritebitmap : std_logic := '0';
+  signal ack_raster : std_logic := '0';
   signal mask_colissionspritesprite : std_logic := '0';
   signal mask_colissionspritebitmap : std_logic := '0';
   signal mask_raster : std_logic := '0';
@@ -855,6 +861,10 @@ begin
 
     if rising_edge(cpuclock) then
 
+      ack_colissionspritesprite <= '0';
+      ack_colissionspritebitmap <= '0';
+      ack_raster <= '0';
+      
       palette_we <= (others => '0');
 
       -- $DD00 video bank bits
@@ -943,14 +953,15 @@ begin
           vicii_sprite_pointer_address(13 downto 10)
             <= unsigned(fastio_wdata(7 downto 4));
           vicii_sprite_pointer_address(9 downto 0) <= "1111111000";
-        elsif register_number=25 then          -- $D019 compatibility IRQ bits
-                                               -- Acknowledge IRQs
-                                               -- (we need to pass this to the dotclock side to avoide multiple drivers)
-                                               -- irq_colissionspritesprite <= irq_colissionspritesprite and fastio_wdata(2);
-                                               -- irq_colissionspritebitmap <= irq_colissionspritebitmap and fastio_wdata(1);
-                                               -- irq_raster <= irq_raster and fastio_wdata(0);
-        elsif register_number=26 then          -- $D01A compatibility IRQ mask bits
-                                               -- XXX Enable/disable IRQs
+        elsif register_number=25 then
+          -- $D019 compatibility IRQ bits
+          -- Acknowledge IRQs
+          -- (we need to pass this to the dotclock side to avoide multiple drivers)
+          ack_colissionspritesprite <= not fastio_wdata(2);
+          ack_colissionspritebitmap <= not fastio_wdata(1);
+          ack_raster <= not fastio_wdata(0);
+        elsif register_number=26 then   -- $D01A compatibility IRQ mask bits
+                                        -- XXX Enable/disable IRQs
           mask_colissionspritesprite <= fastio_wdata(2);
           mask_colissionspritebitmap <= fastio_wdata(1);
           mask_raster <= fastio_wdata(0);
@@ -1147,8 +1158,18 @@ begin
     variable long_address : unsigned(31 downto 0) := (others => '0');
     variable next_glyph_number_temp : std_logic_vector(15 downto 0) := (others => '0');
     variable next_glyph_colour_temp : std_logic_vector(7 downto 0) := (others => '0');
-  begin
+  begin    
     if rising_edge(pixelclock) then
+
+      -- Acknowledge IRQs after reading $D019
+      irq_raster <= irq_raster and (not ack_raster);
+      irq_colissionspritebitmap <= irq_colissionspritebitmap and (not ack_colissionspritebitmap);
+      irq_colissionspritesprite <= irq_colissionspritesprite and (not ack_colissionspritesprite);
+      -- Set IRQ line status to CPU
+      irq <= not ((irq_raster and mask_raster)
+                  or (irq_colissionspritebitmap and mask_colissionspritebitmap)
+                  or (irq_colissionspritesprite and mask_colissionspritesprite));
+      
       if (ycounter>100) and (xcounter>250) and (xcounter<350) then
         report
           "VGA"
