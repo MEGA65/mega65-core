@@ -56,3 +56,6 @@ chargen_debug:	chargen_debug.c
 
 dis4510:	dis4510.c
 	gcc -g -Wall -o dis4510 dis4510.c
+
+4510tables:	4510tables.c
+	gcc -g -Wall -o 4510tables 4510tables.c
