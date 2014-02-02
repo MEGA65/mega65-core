@@ -704,6 +704,183 @@ begin
     return value;
   end with_nz;        
 
+  -- purpose: change memory map, C65-style
+  procedure c65_map_instruction is
+    variable offset : unsigned(15 downto 0);
+  begin  -- c65_map_instruction
+    -- This is how this instruction works:
+    --                            Mapper Register Data
+    --    7       6       5       4       3       2       1       0    BIT
+    --+-------+-------+-------+-------+-------+-------+-------+-------+
+    --| LOWER | LOWER | LOWER | LOWER | LOWER | LOWER | LOWER | LOWER | A
+    --| OFF15 | OFF14 | OFF13 | OFF12 | OFF11 | OFF10 | OFF9  | OFF8  |
+    --+-------+-------+-------+-------+-------+-------+-------+-------+
+    --| MAP   | MAP   | MAP   | MAP   | LOWER | LOWER | LOWER | LOWER | X
+    --| BLK3  | BLK2  | BLK1  | BLK0  | OFF19 | OFF18 | OFF17 | OFF16 |
+    --+-------+-------+-------+-------+-------+-------+-------+-------+
+    --| UPPER | UPPER | UPPER | UPPER | UPPER | UPPER | UPPER | UPPER | Y
+    --| OFF15 | OFF14 | OFF13 | OFF12 | OFF11 | OFF10 | OFF9  | OFF8  |
+    --+-------+-------+-------+-------+-------+-------+-------+-------+
+    --| MAP   | MAP   | MAP   | MAP   | UPPER | UPPER | UPPER | UPPER | Z
+    --| BLK7  | BLK6  | BLK5  | BLK4  | OFF19 | OFF18 | OFF17 | OFF16 |
+    --+-------+-------+-------+-------+-------+-------+-------+-------+
+    --
+    -- Our challenge is to make sense of this with our 256MB address space
+    -- mapper.  Fortunately, our mapper is generally speaking a super-set of
+    -- the 4510 MAP instruction, so it should be largely possible.
+    -- There are some odd corner cases to work out, however.  One approach to
+    -- simplifying all this is to make our ROMs shaddow to where the C65 MAP
+    -- instruction expects them.
+    -- One big exception is that our mapper limits granularity to 4K, instead
+    -- of 256 bytes on the C65.  We will ignore the lower four bits of offsets
+    -- for now.  Not sure how much C65 software will be affected, if any.
+    -- The real fun comes in making it all work with the $01 port that can also
+    -- fiddle with the memory map independently.
+     
+    offset := x"00" & reg_x(3 downto 0) & reg_a(7 downto 4) ;
+    if reg_x(4)='1' then
+      -- block 0 is mapped
+      ram_bank_registers_read(0) <= offset;
+      ram_bank_registers_write(0) <= offset;
+      ram_bank_registers_instructions(0) <= offset;
+      ram_bank_registers_read(1) <= offset + 1;
+      ram_bank_registers_write(1) <= offset + 1;
+      ram_bank_registers_instructions(1) <= offset + 1;
+    else
+      -- block 0 is unmapped
+      ram_bank_registers_read(0) <= x"0000";
+      ram_bank_registers_write(0) <= x"0000";
+      ram_bank_registers_instructions(0) <= x"0000";
+      ram_bank_registers_read(1) <= x"0001";
+      ram_bank_registers_write(1) <= x"0001";
+      ram_bank_registers_instructions(1) <= x"0001";
+    end if;
+    if reg_x(5)='1' then
+      -- block 1 is mapped
+      ram_bank_registers_read(2) <= offset+2;
+      ram_bank_registers_write(2) <= offset+2;
+      ram_bank_registers_instructions(2) <= offset+2;
+      ram_bank_registers_read(3) <= offset + 3;
+      ram_bank_registers_write(3) <= offset + 3;
+      ram_bank_registers_instructions(3) <= offset + 3;
+    else
+      -- block 1 is unmapped
+      ram_bank_registers_read(2) <= x"0002";
+      ram_bank_registers_write(2) <= x"0002";
+      ram_bank_registers_instructions(2) <= x"0002";
+      ram_bank_registers_read(3) <= x"0003";
+      ram_bank_registers_write(3) <= x"0003";
+      ram_bank_registers_instructions(3) <= x"0003";
+    end if;
+    if reg_x(6)='1' then
+      -- block 2 is mapped
+      ram_bank_registers_read(4) <= offset+4;
+      ram_bank_registers_write(4) <= offset+4;
+      ram_bank_registers_instructions(4) <= offset+4;
+      ram_bank_registers_read(5) <= offset + 5;
+      ram_bank_registers_write(5) <= offset + 5;
+      ram_bank_registers_instructions(5) <= offset + 5;
+    else
+      -- block 2 is unmapped
+      ram_bank_registers_read(4) <= x"0004";
+      ram_bank_registers_write(4) <= x"0004";
+      ram_bank_registers_instructions(4) <= x"0004";
+      ram_bank_registers_read(5) <= x"0005";
+      ram_bank_registers_write(5) <= x"0005";
+      ram_bank_registers_instructions(5) <= x"0005";
+    end if;
+    if reg_x(7)='1' then
+      -- block 3 is mapped
+      ram_bank_registers_read(6) <= offset+6;
+      ram_bank_registers_write(6) <= offset+6;
+      ram_bank_registers_instructions(6) <= offset+6;
+      ram_bank_registers_read(7) <= offset + 7;
+      ram_bank_registers_write(7) <= offset + 7;
+      ram_bank_registers_instructions(7) <= offset + 7;
+    else
+      -- block 3 is unmapped
+      ram_bank_registers_read(6) <= x"0006";
+      ram_bank_registers_write(6) <= x"0006";
+      ram_bank_registers_instructions(6) <= x"0006";
+      ram_bank_registers_read(7) <= x"0007";
+      ram_bank_registers_write(7) <= x"0007";
+      ram_bank_registers_instructions(7) <= x"0007";
+    end if;
+
+    offset := x"00" & reg_z(3 downto 0) & reg_y(7 downto 4) ;
+    if reg_z(4)='1' then
+      -- block 4 is mapped
+      ram_bank_registers_read(8) <= offset+8;
+      ram_bank_registers_write(8) <= offset+8;
+      ram_bank_registers_instructions(8) <= offset+8;
+      ram_bank_registers_read(9) <= offset + 9;
+      ram_bank_registers_write(9) <= offset + 9;
+      ram_bank_registers_instructions(9) <= offset + 9;
+    else
+      -- block 4 is unmapped
+      ram_bank_registers_read(8) <= x"0008";
+      ram_bank_registers_write(8) <= x"0008";
+      ram_bank_registers_instructions(8) <= x"0008";
+      ram_bank_registers_read(9) <= x"0009";
+      ram_bank_registers_write(9) <= x"0009";
+      ram_bank_registers_instructions(9) <= x"0009";
+    end if;
+    if reg_z(5)='1' then
+      -- block 5 is mapped
+      -- XXX What about BASIC ROM?
+      ram_bank_registers_read(10) <= offset+10;
+      ram_bank_registers_write(10) <= offset+10;
+      ram_bank_registers_instructions(10) <= offset+10;
+      ram_bank_registers_read(11) <= offset + 11;
+      ram_bank_registers_write(11) <= offset + 11;
+      ram_bank_registers_instructions(11) <= offset + 11;
+    else
+      -- block 5 is unmapped
+      ram_bank_registers_read(10) <= x"000a";
+      ram_bank_registers_write(10) <= x"000a";
+      ram_bank_registers_instructions(10) <= x"000a";
+      ram_bank_registers_read(11) <= x"000b";
+      ram_bank_registers_write(11) <= x"000b";
+      ram_bank_registers_instructions(11) <= x"000b";
+    end if;
+    if reg_z(6)='1' then
+      -- block 6 is mapped
+      -- XXX What about IO?
+      ram_bank_registers_read(12) <= offset+12;
+      ram_bank_registers_write(12) <= offset+12;
+      ram_bank_registers_instructions(12) <= offset+12;
+      ram_bank_registers_read(13) <= offset + 13;
+      ram_bank_registers_write(13) <= offset + 13;
+      ram_bank_registers_instructions(13) <= offset + 13;
+    else
+      -- block 6 is unmapped
+      ram_bank_registers_read(12) <= x"000c";
+      ram_bank_registers_write(12) <= x"000c";
+      ram_bank_registers_instructions(12) <= x"000c";
+      ram_bank_registers_read(13) <= x"000d";
+      ram_bank_registers_write(13) <= x"000d";
+      ram_bank_registers_instructions(13) <= x"000d";
+    end if;
+    if reg_z(7)='1' then
+      -- block 7 is mapped
+      -- XXX What about KERNEL ROM?
+      ram_bank_registers_read(14) <= offset+14;
+      ram_bank_registers_write(14) <= offset+14;
+      ram_bank_registers_instructions(14) <= offset+14;
+      ram_bank_registers_read(15) <= offset + 15;
+      ram_bank_registers_write(15) <= offset + 15;
+      ram_bank_registers_instructions(15) <= offset + 15;
+    else
+      -- block 7 is unmapped
+      ram_bank_registers_read(14) <= x"000e";
+      ram_bank_registers_write(14) <= x"000e";
+      ram_bank_registers_instructions(14) <= x"000e";
+      ram_bank_registers_read(15) <= x"000f";
+      ram_bank_registers_write(15) <= x"000f";
+      ram_bank_registers_instructions(15) <= x"000f";
+    end if;
+end c65_map_instruction;
+
   procedure execute_implied_instruction (
     opcode : in unsigned(7 downto 0)) is
     variable i : instruction := instruction_lut(to_integer(opcode));
@@ -768,6 +945,7 @@ begin
         when I_INZ => reg_z <= with_nz(reg_z + 1);
         when I_MAP => 
           -- XXX Implement MAP instruction
+          c65_map_instruction;
           map_interrupt_inhibit <= '1';
         when I_NEG => reg_a <= with_nz((not reg_a) + 1);
         when I_PHA => push_byte(reg_a,InstructionFetch);
