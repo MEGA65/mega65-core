@@ -53,3 +53,6 @@ monitor_drive:	monitor_drive.c Makefile
 
 chargen_debug:	chargen_debug.c
 	gcc -Wall -o chargen_debug chargen_debug.c
+
+dis4510:	dis4510.c
+	gcc -g -Wall -o dis4510 dis4510.c
