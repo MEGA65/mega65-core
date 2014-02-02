@@ -1085,6 +1085,13 @@ begin
       reg_instruction <= i;
       reg_addr <= x"00" & (arg1 + 1);
       read_data_byte(x"00" & arg1,IndirectY1);
+    elsif mode=M_InnSPY then
+      -- Whacked out 4510 addressing mode pre-indexed by SP, post-indexed by Y
+      -- (presumably used for accessing stack variables)
+      -- Address is (reg_sph & reg_sp + operand) post-indexed by Y
+      reg_instruction <= i;
+      reg_addr <= ((reg_sph & reg_sp) + arg1 + 1);
+      read_data_byte(((reg_sph & reg_sp) + arg1),IndirectY1);
     elsif mode=M_InnZ then
       reg_instruction <= i;
       reg_addr <= x"00" & (arg1 + 1);
@@ -1331,12 +1338,12 @@ begin
               execute_operand_instruction(reg_instruction,read_data,reg_addr);
             when IndirectY1 =>
               reg_addr(7 downto 0) <= read_data;
-              report "(ZP),y - low byte = $" & to_hstring(read_data) severity note;
+              report "(ZP),y or (d,SP),Y - low byte = $" & to_hstring(read_data) severity note;
               read_data_byte(reg_addr,IndirectY2);
             when IndirectY2 =>
               reg_addr <= (read_data & reg_addr(7 downto 0)) + reg_y;
-              report "(ZP),y - high byte = $" & to_hstring(read_data) severity note;
-              report "(ZP),y - operand address = $"
+              report "(ZP),y or (d,SP),Y - high byte = $" & to_hstring(read_data) severity note;
+              report "(ZP),y or (d,SP),Y - operand address = $"
                 & to_hstring((read_data & reg_addr(7 downto 0)) + reg_y)
                 severity note;
               read_data_byte((read_data & reg_addr(7 downto 0)) + reg_y,IndirectY3);
