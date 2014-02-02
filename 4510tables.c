@@ -89,7 +89,7 @@ int main(int argc,char **argv)
   printf("\n  type addressingmode is (\n    ");
   int m;
   for(m=0;m<modecount;m++) {
-    if (m&&(m!=modecount-1)) printf(",");
+    if (m) printf(",");
     if ((m&7)==7) printf("\n    ");
     printf("%s",modelist[m]);
   }
