@@ -159,9 +159,15 @@ architecture Behavioural of simple6502 is
     I_PLP,I_RLA,I_ROL,I_ROR,I_RRA,I_RTI,I_RTS,I_SAX,
     I_SBC,I_SEC,I_SED,I_SEI,I_SHX,I_SHY,I_SLO,I_SRE,
     I_STA,I_STX,I_STY,I_TAS,I_TAX,I_TAY,I_TSX,I_TXA,
-    I_TXS,I_TYA,I_XAA,
+    I_TXS,I_TYA,I_XAA,    
     -- 65GS02 special ops
-    I_SETMAP
+    I_SETMAP,
+    -- 4510 extended ops
+    I_LDZ,I_STZ,I_PHX,I_PHY,I_PHZ,I_PLX,I_PLY,I_PLZ,
+    I_TRB,I_TSB,I_BRA,I_BSR,I_MAP,I_EOM,I_TYS,I_RTN,
+    I_NEG,I_ASR,I_INW,I_DEW,I_INZ,I_DEZ,I_ASW,I_ROW,
+    I_CPZ,I_PHD,I_TAZ,I_TZA,I_TAB,I_TBA,I_TSY,I_BBR,
+    I_BBS
     );
 
   type ilut8bit is array(0 to 255) of instruction;
@@ -190,7 +196,11 @@ architecture Behavioural of simple6502 is
     M_implied,M_immediate,M_accumulator,
     M_zeropage,M_zeropageX,M_zeropageY,
     M_absolute,M_absoluteY,M_absoluteX,
-    M_relative,M_indirect,M_indirectX,M_indirectY);
+    M_relative,M_indirect,M_indirectX,M_indirectY,
+    -- New 4510 addressing modes
+    M_absoluteZ,M_indirectabsX,M_indirectZ,M_indirectstackY,
+    M_relativelong,M_relativebits
+    );
 
   -- Number of argument bytes required for each addressing mode
   type mode_list is array(addressingmode'low to addressingmode'high) of integer;
@@ -198,7 +208,10 @@ architecture Behavioural of simple6502 is
     M_implied => 0, M_immediate => 1, M_accumulator => 0,
     M_zeropage => 1, M_zeropageX => 1, M_zeropageY => 1,
     M_absolute => 2, M_absoluteX => 2, M_absoluteY => 2,
-    M_relative => 1, M_indirect => 2, M_indirectX => 1, M_indirectY => 1);
+    M_relative => 1, M_indirect => 2, M_indirectX => 1, M_indirectY => 1,
+    M_absoluteZ => 2,M_indirectabsX => 2,M_indirectZ => 1,M_indirectstackY => 1,
+    M_relativelong =>2 ,M_relativebits => 2
+    );
   
   type mlut8bit is array(0 to 255) of addressingmode;
   constant mode_lut : mlut8bit := (
