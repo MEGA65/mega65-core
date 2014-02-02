@@ -71,6 +71,8 @@ architecture behavioural of uart_monitor is
 
   signal blink : std_logic := '1';
 
+  signal trace_continuous : std_logic := '0';
+  
   constant crlf : string := cr & lf;
   constant bannerMessage : String :=
     crlf &
@@ -438,6 +440,7 @@ begin
     if reset='0' then
       state <= Reseting;
       key_state <= 0;
+      trace_continuous <= '0';
     elsif rising_edge(clock) then
 
       -- Stop CPU when we reach the specified location
@@ -529,6 +532,9 @@ begin
               rx_acknowledge<='1';
               character_received(to_character(rx_data));
             end if;
+            if trace_continuous='1' then
+              state <= EnterPressed;
+            end if;
           when RedrawInputBuffer => try_output_char(cr,RedrawInputBuffer2);
           when RedrawInputBuffer2 => redraw_position <= 1; try_output_char('.',RedrawInputBuffer3);
           when RedrawInputBuffer3 =>
@@ -582,6 +588,10 @@ begin
                   monitor_mem_stage_trace_mode<='1';
                 elsif cmdbuffer(2)='1' then
                   monitor_mem_trace_mode<='1';
+                  state <= NextCommand;
+                elsif cmdbuffer(2)='c' then
+                  monitor_mem_trace_mode<='1';
+                  trace_continuous <= '1';
                   state <= NextCommand;
                 elsif cmdbuffer(2)='0' then
                   monitor_mem_trace_mode<='0';
