@@ -62,13 +62,17 @@ int main(int argc,char **argv)
     for(j=0;modes[i][j];j++) {
       switch(modes[i][j]) {
       case '(': mode[o++]='I'; break;
-      case 'n': case 'r': case 'X': case 'Y': case 'Z': case 'S': case 'P':
+      case 'n': case 'r': case 'X': case 'Y': case 'Z': case 'S': case 'P': case 'A':
 	mode[o++]=modes[i][j]; break;
       }
     }
-    mode[o]=0; if (o==2) strcpy(mode,"M_implied");
+    mode[o]=0; if (o==2) strcpy(mode,"M_impl"); o=strlen(mode);
     printf("%s",mode);
-    if (i<255) printf(","); else printf(");\n");
+    if (i<255) { printf(",");
+      while(o<8) { printf(" "); o++; }
+
+    }
+    else printf(");\n");
     if ((i&7)==7) printf("\n    ");
   }
 
