@@ -1,0 +1,256 @@
+00   BRK
+01   ORA ($nn,X)
+02   CLE
+03   SEE
+04   TSB $nn
+05   ORA $nn
+06   ASL $nn
+07   RMB0 $nn
+08   PHP
+09   ORA #$nn
+0A   ASL A
+0B   TSY
+0C   TSB $nnnn
+0D   ORA $nnnn
+0E   ASL $nnnn
+0F   BBR0 $nn,$rr
+10   BPL $rr
+11   ORA ($nn),Y
+12   ORA ($nn),Z
+13   BPL $rrrr
+14   TRB $nn
+15   ORA $nn,X
+16   ASL $nn,X
+17   RMB1 $nn
+18   CLC
+19   ORA $nnnn,Y
+1A   INC
+1B   INZ
+1C   TRB $nnnn
+1D   ORA $nnnn,X
+1E   ASL $nnnn,X
+1F   BBR1 $nn,$rr
+20   JSR $nnnn
+21   AND ($nn,X)
+22   JSR ($nnnn)
+23   JSR ($nnnn,X)
+24   BIT $nn
+25   AND $nn
+26   ROL $nn
+27   RMB2 $nn
+28   PLP
+29   AND #$nn
+2A   ROL A
+2B   TYS
+2C   BIT $nnnn
+2D   AND $nnnn
+2E   ROL $nnnn
+2F   BBR2 $nn,$rr
+30   BMI $rr
+31   AND ($nn),Y
+32   AND ($nn),Z
+33   BMI $rrrr
+34   BIT $nn,X
+35   AND $nn,X
+36   ROL $nn,X
+37   RMB3 $nn
+38   SEC
+39   AND $nnnn,Y
+3A   DEC
+3b   DEZ
+3C   BIT $nnnn,X
+3D   AND $nnnn,X
+3E   ROL $nnnn,X
+3F   BBR3 $nn,$rr
+40   RTI
+41   EOR ($nn,X)
+42   NEG
+43   ASR
+44   ASR $nn
+45   EOR $nn
+46   LSR $nn
+47   RMB4 $nn
+48   PHA
+49   EOR #$nn
+4A   LSR A
+4B   TAZ
+4C   JMP $nnnn
+4D   EOR $nnnn
+4E   LSR $nnnn
+4F   BBR4 $nn,$rr
+50   BVC $rr
+51   EOR ($nn),Y
+52   EOR ($nn),Z
+53   BVC $rrrr
+54   ASR $nn,X
+55   EOR $nn,X
+56   LSR $nn,X
+57   RMB5 $nn
+58   CLI
+59   EOR $nnnn,Y
+5A   PHY
+5B   TAB
+5C   MAP
+5D   EOR $nnnn,X
+5E   LSR $nnnn,X
+5F   BBR5 $nn,$rr
+60   RTS
+61   ADC ($nn,X)
+62   RTS #$nn
+63   BSR $rrrr
+64   STZ $nn
+65   ADC $nn
+66   ROR $nn
+67   RMB6 $nn
+68   PLA
+69   ADC #$nn
+6A   ROR A
+6B   TZA
+6C   JMP ($nnnn)
+6D   ADC $nnnn
+6E   ROR $nnnn
+6F   BBR6 $nn,$rr
+70   BVS $rr
+71   ADC ($nn),Y
+72   ADC ($nn),Z
+73   BVS $rrrr
+74   STZ $nn,X
+75   ADC $nn,X
+76   ROR $nn,X
+77   RMB7 $nn
+78   SEI
+79   ADC $nnnn,Y
+7A   PLY
+7B   TBA
+7C   JMP ($nnnn,X)
+7D   ADC $nnnn,X
+7E   ROR $nnnn,X
+7F   BBR7 $nn,$rr
+80   BRA $rr
+81   STA ($nn,X)
+82   STA ($nn,SP),Y
+83   BRA $rrrr
+84   STY $nn
+85   STA $nn
+86   STX $nn
+87   SMB0 $nn
+88   DEY
+89   BIT #$nn
+8A   TXA
+8B   STY $nnnn,X
+8C   STY $nnnn
+8D   STA $nnnn
+8E   STX $nnnn
+8F   BBS0 $nn,$rr
+90   BCC $rr
+91   STA ($nn),Y
+92   STA ($nn),Z
+93   BCC $rrrr
+94   STY $nn,X
+95   STA $nn,X
+96   STX $nn,Y
+97   SMB1 $nn
+98   TYA
+99   STA $nnnn,Y
+9A   TXS
+9B   STX $nnnn,Y
+9C   STZ $nnnn
+9D   STA $nnnn,X
+9E   STZ $nnnn,X
+9F   BBS1 $nn,$rr
+A0   LDY #$nn
+A1   LDA ($nn,X)
+A2   LDX #$nn
+A3   LDZ #$nn
+A4   LDY $nn
+A5   LDA $nn
+A6   LDX $nn
+A7   SMB2 $nn
+A8   TAY
+A9   LDA #$nn
+AA   TAX
+AB   LDZ $nnnn
+AC   LDY $nnnn
+AD   LDA $nnnn
+AE   LDX $nnnn
+AF   BBS2 $nn,$rr
+B0   BCS $rr
+B1   LDA ($nn),Y
+B2   LDA ($nn),Y
+B3   BCS $rrrr
+B4   LDY $nn,X
+B5   LDA $nn,X
+B6   LDX $nn,Y
+B7   SMB3 $nn
+B8   CLV
+B9   LDA $nnnn,Y
+BA   TSX
+BB   LDZ $nnnn,X
+BC   LDY $nnnn,X
+BD   LDA $nnnn,X
+BE   LDX $nnnn,Y
+BF   BBS3 $nn,$rr
+C0   CPY #$nn
+C1   CMP ($nn,X)
+C2   CPZ #$nn
+C3   DEW $nnnn
+C4   CPY $nn
+C5   CMP $nn
+C6   DEC $nn
+C7   SMB4 $nn
+C8   INY
+C9   CMP #$nn
+CA   DEX
+CB   ASW $nnnn
+CC   CPY $nnnn
+CD   CMP $nnnn
+CE   DEC $nnnn
+CF   BBS4 $nn,$rr
+D0   BNE $rr
+D1   CMP ($nn),Y
+D2   CMP ($nn),Z
+D3   BNE $rrrr
+D4   CPZ $nn
+D5   CMP $nn,X
+D6   DEC $nn,X
+D7   SMB5 $nn
+D8   CLD
+D9   CMP $nnnn,Y
+DA   PHX
+DB   PHZ
+DC   CPZ $nnnn
+DD   CMP $nnnn,X
+DE   DEC $nnnn,X
+DF   BBS5 $nn,$rr
+E0   CPX #$nn
+E1   SBC ($nn,X)
+E2   LDA ($nn,SP),Y
+E3   INW $nnnn
+E4   CPX $nn
+E5   SBC $nn
+E6   INC $nn
+E7   SMB6 $nn
+E8   INX
+E9   SBC #$nn
+EA   EOM
+EB   ROW $nnnn
+EC   CPX $nnnn
+ED   SBC $nnnn
+EE   INC $nnnn
+EF   BBS6 $nn,$rr
+F0   BEQ $rr
+F1   SBC ($nn),Y
+F2   SBC ($nn),Z
+F3   BEQ $rrrr
+F4   PHW #$nnnn
+F5   SBC $nn,X
+F6   INC $nn,X
+F7   SMB7 $nn
+F8   SED
+F9   SBC $nnnn,Y
+FA   PLX
+FB   PLZ
+FC   PHW $nnnn
+FD   SBC $nnnn,X
+FE   INC $nnnn,X
+FF   BBS7 $nn,$rr
