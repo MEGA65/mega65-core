@@ -108,14 +108,19 @@ architecture Behavioural of simple6502 is
   signal flag_n : std_logic;        -- negative flag
   signal flag_v : std_logic;        -- positive flag
   signal flag_i : std_logic;        -- interrupt disable flag
+  signal flag_e : std_logic;        -- 8-bit stack flag
 
   signal reg_a : unsigned(7 downto 0);
+  signal reg_b : unsigned(7 downto 0);
   signal reg_x : unsigned(7 downto 0);
   signal reg_y : unsigned(7 downto 0);
+  signal reg_z : unsigned(7 downto 0);
   signal reg_sp : unsigned(7 downto 0);
+  signal reg_sph : unsigned(7 downto 0);
   signal reg_pc : unsigned(15 downto 0);
 
   -- Flags to detect interrupts
+  signal map_interrupt_inhibit : std_logic := '0';
   signal nmi_pending : std_logic := '0';
   signal irq_pending : std_logic := '0';
   signal nmi_state : std_logic := '1';
@@ -128,16 +133,17 @@ architecture Behavioural of simple6502 is
     ResetLow,
     -- States for handling interrupts and reset
     Interrupt,VectorRead,VectorRead1,VectorRead2,VectorRead3,
-    InstructionFetch,                   -- $06
-    InstructionFetch2,InstructionFetch3,InstructionFetch4,  -- $09
-    BRK1,BRK2,PLA1,PLP1,RTI1,RTI2,RTI3,  -- $10
-    RTS1,RTS2,JSR1,JMP1, -- $14
-    JMP2,JMP3,                          -- $16
-    IndirectX1,IndirectX2,IndirectX3,   -- $19
-    IndirectY1,IndirectY2,IndirectY3,   -- $1c
-    ExecuteDirect,RMWCommit,            -- $1e
-    Halt,WaitOneCycle,                  -- $20
-    MonitorAccessDone,MonitorReadDone,   -- $22
+    InstructionFetch,
+    InstructionFetch2,InstructionFetch3,InstructionFetch4,
+    BRK1,BRK2,PLA1,PLX1,PLY1,PLZ1,PLP1,RTI1,RTI2,RTI3,
+    RTS1,RTS2,JSR1,JMP1,JMP2,JMP3,
+    PHWimm1,
+    IndirectX1,IndirectX2,IndirectX3,
+    IndirectY1,IndirectY2,IndirectY3,
+    IndirectZ1,IndirectZ2,
+    ExecuteDirect,RMWCommit,
+    Halt,WaitOneCycle,
+    MonitorAccessDone,MonitorReadDone,
     Interrupt2,Interrupt3,FastIOWait
     );
   signal state : processor_state := ResetLow;  -- start processor in reset state
@@ -147,123 +153,104 @@ architecture Behavioural of simple6502 is
   -- Information about instruction currently being executed
   signal opcode : unsigned(7 downto 0);
   signal arg1 : unsigned(7 downto 0);
+
+  type addressingmode is (
+    M_impl,M_InnX,M_nn,M_immnn,M_A,M_nnnn,M_nnrr,
+    M_rr,M_InnY,M_InnZ,M_rrrr,M_nnX,M_nnnnY,M_nnnnX,M_Innnn,
+    M_InnnnX,M_InnSPY,M_nnY,M_immnnnn);
+
+  type mode_list is array(addressingmode'low to addressingmode'high) of integer;
+  constant mode_bytes_lut : mode_list := (
+    M_impl => 0,
+    M_InnX => 1,
+    M_nn => 1,
+    M_immnn => 1,
+    M_A => 0,
+    M_nnnn => 2,
+    M_nnrr => 2,
+    M_rr => 1,
+    M_InnY => 1,
+    M_InnZ => 1,
+    M_rrrr => 2,
+    M_nnX => 1,
+    M_nnnnY => 2,
+    M_nnnnX => 2,
+    M_Innnn => 2,
+    M_InnnnX => 2,
+    M_InnSPY => 1,
+    M_nnY => 1,
+    M_immnnnn => 2);
   
   type instruction is (
-    -- 6502/6510 legal and illegal ops
-    I_ADC,I_AHX,I_ALR,I_ANC,I_AND,I_ARR,I_ASL,I_AXS,
-    I_BCC,I_BCS,I_BEQ,I_BIT,I_BMI,I_BNE,I_BPL,I_BRK,
-    I_BVC,I_BVS,I_CLC,I_CLD,I_CLI,I_CLV,I_CMP,I_CPX,
-    I_CPY,I_DCP,I_DEC,I_DEX,I_DEY,I_EOR,I_INC,I_INX,
-    I_INY,I_ISC,I_JMP,I_JSR,I_KIL,I_LAS,I_LAX,I_LDA,
-    I_LDX,I_LDY,I_LSR,I_NOP,I_ORA,I_PHA,I_PHP,I_PLA,
-    I_PLP,I_RLA,I_ROL,I_ROR,I_RRA,I_RTI,I_RTS,I_SAX,
-    I_SBC,I_SEC,I_SED,I_SEI,I_SHX,I_SHY,I_SLO,I_SRE,
-    I_STA,I_STX,I_STY,I_TAS,I_TAX,I_TAY,I_TSX,I_TXA,
-    I_TXS,I_TYA,I_XAA,    
-    -- 65GS02 special ops
-    I_SETMAP,
-    -- 4510 extended ops
-    I_LDZ,I_STZ,I_PHX,I_PHY,I_PHZ,I_PLX,I_PLY,I_PLZ,
-    I_TRB,I_TSB,I_BRA,I_BSR,I_MAP,I_EOM,I_TYS,I_RTN,
-    I_NEG,I_ASR,I_INW,I_DEW,I_INZ,I_DEZ,I_ASW,I_ROW,
-    I_CPZ,I_PHD,I_TAZ,I_TZA,I_TAB,I_TBA,I_TSY,I_BBR,
-    I_BBS
-    );
+    -- 4510 opcodes
+    I_BRK,I_ORA,I_CLE,I_SEE,I_TSB,I_ASL,I_RMB,
+    I_PHP,I_TSY,I_BBR,I_BPL,I_TRB,I_CLC,I_INC,I_INZ,
+    I_JSR,I_AND,I_BIT,I_ROL,I_PLP,I_TYS,I_BMI,I_SEC,
+    I_DEC,I_DEZ,I_RTI,I_EOR,I_NEG,I_ASR,I_LSR,I_PHA,
+    I_TAZ,I_JMP,I_BVC,I_CLI,I_PHY,I_TAB,I_MAP,I_RTS,
+    I_ADC,I_BSR,I_STZ,I_ROR,I_PLA,I_TZA,I_BVS,I_SEI,
+    I_PLY,I_TBA,I_BRA,I_STA,I_STY,I_STX,I_SMB,I_DEY,
+    I_TXA,I_BBS,I_BCC,I_TYA,I_TXS,I_LDY,I_LDA,I_LDX,
+    I_LDZ,I_TAY,I_TAX,I_BCS,I_CLV,I_TSX,I_CPY,I_CMP,
+    I_CPZ,I_DEW,I_INY,I_DEX,I_ASW,I_BNE,I_CLD,I_PHX,
+    I_PHZ,I_CPX,I_SBC,I_INW,I_INX,I_EOM,I_ROW,I_BEQ,
+    I_PHW,I_SED,I_PLX,I_PLZ);
 
   type ilut8bit is array(0 to 255) of instruction;
   constant instruction_lut : ilut8bit := (
-    I_BRK,  I_ORA,  I_SETMAP,  I_SLO,  I_NOP,  I_ORA,  I_ASL,  I_SLO,  I_PHP,  I_ORA,  I_ASL,  I_ANC,  I_NOP,  I_ORA,  I_ASL,  I_SLO, 
-    I_BPL,  I_ORA,  I_KIL,  I_SLO,  I_NOP,  I_ORA,  I_ASL,  I_SLO,  I_CLC,  I_ORA,  I_NOP,  I_SLO,  I_NOP,  I_ORA,  I_ASL,  I_SLO, 
-    I_JSR,  I_AND,  I_KIL,  I_RLA,  I_BIT,  I_AND,  I_ROL,  I_RLA,  I_PLP,  I_AND,  I_ROL,  I_ANC,  I_BIT,  I_AND,  I_ROL,  I_RLA, 
-    I_BMI,  I_AND,  I_KIL,  I_RLA,  I_NOP,  I_AND,  I_ROL,  I_RLA,  I_SEC,  I_AND,  I_NOP,  I_RLA,  I_NOP,  I_AND,  I_ROL,  I_RLA, 
+    I_BRK,I_ORA,I_CLE,I_SEE,I_TSB,I_ORA,I_ASL,I_RMB,I_PHP,I_ORA,I_ASL,I_TSY,I_TSB,I_ORA,I_ASL,I_BBR,
+    I_BPL,I_ORA,I_ORA,I_BPL,I_TRB,I_ORA,I_ASL,I_RMB,I_CLC,I_ORA,I_INC,I_INZ,I_TRB,I_ORA,I_ASL,I_BBR,
+    I_JSR,I_AND,I_JSR,I_JSR,I_BIT,I_AND,I_ROL,I_RMB,I_PLP,I_AND,I_ROL,I_TYS,I_BIT,I_AND,I_ROL,I_BBR,
+    I_BMI,I_AND,I_AND,I_BMI,I_BIT,I_AND,I_ROL,I_RMB,I_SEC,I_AND,I_DEC,I_DEZ,I_BIT,I_AND,I_ROL,I_BBR,
+    I_RTI,I_EOR,I_NEG,I_ASR,I_ASR,I_EOR,I_LSR,I_RMB,I_PHA,I_EOR,I_LSR,I_TAZ,I_JMP,I_EOR,I_LSR,I_BBR,
+    I_BVC,I_EOR,I_EOR,I_BVC,I_ASR,I_EOR,I_LSR,I_RMB,I_CLI,I_EOR,I_PHY,I_TAB,I_MAP,I_EOR,I_LSR,I_BBR,
+    I_RTS,I_ADC,I_RTS,I_BSR,I_STZ,I_ADC,I_ROR,I_RMB,I_PLA,I_ADC,I_ROR,I_TZA,I_JMP,I_ADC,I_ROR,I_BBR,
+    I_BVS,I_ADC,I_ADC,I_BVS,I_STZ,I_ADC,I_ROR,I_RMB,I_SEI,I_ADC,I_PLY,I_TBA,I_JMP,I_ADC,I_ROR,I_BBR,
+    I_BRA,I_STA,I_STA,I_BRA,I_STY,I_STA,I_STX,I_SMB,I_DEY,I_BIT,I_TXA,I_STY,I_STY,I_STA,I_STX,I_BBS,
+    I_BCC,I_STA,I_STA,I_BCC,I_STY,I_STA,I_STX,I_SMB,I_TYA,I_STA,I_TXS,I_STX,I_STZ,I_STA,I_STZ,I_BBS,
+    I_LDY,I_LDA,I_LDX,I_LDZ,I_LDY,I_LDA,I_LDX,I_SMB,I_TAY,I_LDA,I_TAX,I_LDZ,I_LDY,I_LDA,I_LDX,I_BBS,
+    I_BCS,I_LDA,I_LDA,I_BCS,I_LDY,I_LDA,I_LDX,I_SMB,I_CLV,I_LDA,I_TSX,I_LDZ,I_LDY,I_LDA,I_LDX,I_BBS,
+    I_CPY,I_CMP,I_CPZ,I_DEW,I_CPY,I_CMP,I_DEC,I_SMB,I_INY,I_CMP,I_DEX,I_ASW,I_CPY,I_CMP,I_DEC,I_BBS,
+    I_BNE,I_CMP,I_CMP,I_BNE,I_CPZ,I_CMP,I_DEC,I_SMB,I_CLD,I_CMP,I_PHX,I_PHZ,I_CPZ,I_CMP,I_DEC,I_BBS,
+    I_CPX,I_SBC,I_LDA,I_INW,I_CPX,I_SBC,I_INC,I_SMB,I_INX,I_SBC,I_EOM,I_ROW,I_CPX,I_SBC,I_INC,I_BBS,
+    I_BEQ,I_SBC,I_SBC,I_BEQ,I_PHW,I_SBC,I_INC,I_SMB,I_SED,I_SBC,I_PLX,I_PLZ,I_PHW,I_SBC,I_INC,I_BBS);
 
-    I_RTI,  I_EOR,  I_KIL,  I_SRE,  I_NOP,  I_EOR,  I_LSR,  I_SRE,  I_PHA,  I_EOR,  I_LSR,  I_ALR,  I_JMP,  I_EOR,  I_LSR,  I_SRE, 
-    I_BVC,  I_EOR,  I_KIL,  I_SRE,  I_NOP,  I_EOR,  I_LSR,  I_SRE,  I_CLI,  I_EOR,  I_NOP,  I_SRE,  I_NOP,  I_EOR,  I_LSR,  I_SRE, 
-    I_RTS,  I_ADC,  I_KIL,  I_RRA,  I_NOP,  I_ADC,  I_ROR,  I_RRA,  I_PLA,  I_ADC,  I_ROR,  I_ARR,  I_JMP,  I_ADC,  I_ROR,  I_RRA, 
-    I_BVS,  I_ADC,  I_KIL,  I_RRA,  I_NOP,  I_ADC,  I_ROR,  I_RRA,  I_SEI,  I_ADC,  I_NOP,  I_RRA,  I_NOP,  I_ADC,  I_ROR,  I_RRA, 
-
-    I_NOP,  I_STA,  I_KIL,  I_SAX,  I_STY,  I_STA,  I_STX,  I_SAX,  I_DEY,  I_NOP,  I_TXA,  I_XAA,  I_STY,  I_STA,  I_STX,  I_SAX, 
-    I_BCC,  I_STA,  I_NOP,  I_AHX,  I_STY,  I_STA,  I_STX,  I_SAX,  I_TYA,  I_STA,  I_TXS,  I_TAS,  I_SHY,  I_STA,  I_SHX,  I_AHX, 
-    I_LDY,  I_LDA,  I_LDX,  I_LAX,  I_LDY,  I_LDA,  I_LDX,  I_LAX,  I_TAY,  I_LDA,  I_TAX,  I_LAX,  I_LDY,  I_LDA,  I_LDX,  I_LAX, 
-    I_BCS,  I_LDA,  I_NOP,  I_LAX,  I_LDY,  I_LDA,  I_LDX,  I_LAX,  I_CLV,  I_LDA,  I_TSX,  I_LAS,  I_LDY,  I_LDA,  I_LDX,  I_LAX, 
-
-    I_CPY,  I_CMP,  I_KIL,  I_DCP,  I_CPY,  I_CMP,  I_DEC,  I_DCP,  I_INY,  I_CMP,  I_DEX,  I_AXS,  I_CPY,  I_CMP,  I_DEC,  I_DCP, 
-    I_BNE,  I_CMP,  I_NOP,  I_DCP,  I_NOP,  I_CMP,  I_DEC,  I_DCP,  I_CLD,  I_CMP,  I_NOP,  I_DCP,  I_NOP,  I_CMP,  I_DEC,  I_DCP, 
-    I_CPX,  I_SBC,  I_KIL,  I_ISC,  I_CPX,  I_SBC,  I_INC,  I_ISC,  I_INX,  I_SBC,  I_NOP,  I_SBC,  I_CPX,  I_SBC,  I_INC,  I_ISC, 
-    I_BEQ,  I_SBC,  I_NOP,  I_ISC,  I_NOP,  I_SBC,  I_INC,  I_ISC,  I_SED,  I_SBC,  I_NOP,  I_ISC,  I_NOP,  I_SBC,  I_INC,  I_ISC);
-
-  type addressingmode is (
-    M_implied,M_immediate,M_accumulator,
-    M_zeropage,M_zeropageX,M_zeropageY,
-    M_absolute,M_absoluteY,M_absoluteX,
-    M_relative,M_indirect,M_indirectX,M_indirectY,
-    -- New 4510 addressing modes
-    M_absoluteZ,M_indirectabsX,M_indirectZ,M_indirectstackY,
-    M_relativelong,M_relativebits
-    );
-
-  -- Number of argument bytes required for each addressing mode
-  type mode_list is array(addressingmode'low to addressingmode'high) of integer;
-  constant mode_bytes_lut : mode_list := (
-    M_implied => 0, M_immediate => 1, M_accumulator => 0,
-    M_zeropage => 1, M_zeropageX => 1, M_zeropageY => 1,
-    M_absolute => 2, M_absoluteX => 2, M_absoluteY => 2,
-    M_relative => 1, M_indirect => 2, M_indirectX => 1, M_indirectY => 1,
-    M_absoluteZ => 2,M_indirectabsX => 2,M_indirectZ => 1,M_indirectstackY => 1,
-    M_relativelong =>2 ,M_relativebits => 2
-    );
   
   type mlut8bit is array(0 to 255) of addressingmode;
   constant mode_lut : mlut8bit := (
-    -- 00
-    M_implied,  M_indirectX,  M_implied,  M_indirectX,  M_zeropage,  M_zeropage,  M_zeropage,  M_zeropage,
-    M_implied,  M_immediate,  M_accumulator,  M_immediate,  M_absolute,  M_absolute,  M_absolute,  M_absolute, 
-    -- 10
-    M_relative,  M_indirectY,  M_immediate,  M_indirectY,  M_zeropageX,  M_zeropageX,  M_zeropageX,  M_zeropageX, 
-    M_implied,  M_absoluteY,  M_accumulator,  M_absoluteY,  M_absoluteX,  M_absoluteX,  M_absoluteX,  M_absoluteX,
-    -- 20
-    M_absolute,  M_indirectX,  M_immediate,  M_indirectX,  M_zeropage,  M_zeropage,  M_zeropage,  M_zeropage, 
-    M_implied,  M_immediate,  M_accumulator,  M_immediate,  M_absolute,  M_absolute,  M_absolute,  M_absolute,
-    -- 30
-    M_relative,  M_indirectY,  M_immediate,  M_indirectY,  M_zeropageX,  M_zeropageX,  M_zeropageX,  M_zeropageX, 
-    M_implied,  M_absoluteY,  M_accumulator,  M_absoluteY,  M_absoluteX,  M_absoluteX,  M_absoluteX,  M_absoluteX, 
-    -- 40
-    M_implied,  M_indirectX,  M_immediate,  M_indirectX,  M_zeropage,  M_zeropage,  M_zeropage,  M_zeropage, 
-    M_implied,  M_immediate,  M_accumulator,  M_immediate,  M_absolute,  M_absolute,  M_absolute,  M_absolute,
-    -- 50
-    M_relative,  M_indirectY,  M_immediate,  M_indirectY,  M_zeropageX,  M_zeropageX,  M_zeropageX,  M_zeropageX, 
-    M_implied,  M_absoluteY,  M_accumulator,  M_absoluteY,  M_absoluteX,  M_absoluteX,  M_absoluteX,  M_absoluteX, 
-    -- 60
-    M_implied,  M_indirectX,  M_immediate,  M_indirectX,  M_zeropage,  M_zeropage,  M_zeropage,  M_zeropage, 
-    M_implied,  M_immediate,  M_accumulator,  M_immediate,  M_indirect,  M_absolute,  M_absolute,  M_absolute,
-    -- 70
-    M_relative,  M_indirectY,  M_immediate,  M_indirectY,  M_zeropageX,  M_zeropageX,  M_zeropageX,  M_zeropageX, 
-    M_implied,  M_absoluteY,  M_accumulator,  M_absoluteY,  M_absoluteX,  M_absoluteX,  M_absoluteX,  M_absoluteX,
-    -- 80
-    M_immediate,  M_indirectX,  M_immediate,  M_indirectX,  M_zeropage,  M_zeropage,  M_zeropage,  M_zeropage, 
-    M_implied,  M_immediate,  M_implied,  M_immediate,  M_absolute,  M_absolute,  M_absolute,  M_absolute,
-    -- 90
-    M_relative,  M_indirectY,  M_immediate,  M_indirectY,  M_zeropageX,  M_zeropageX,  M_zeropageY,  M_zeropageY, 
-    M_implied,  M_absoluteY,  M_implied,  M_absoluteY,  M_absoluteX,  M_absoluteX,  M_implied,  M_absoluteY,
-    -- A0
-    M_immediate,  M_indirectX,  M_immediate,  M_indirectX,  M_zeropage,  M_zeropage,  M_zeropage,  M_zeropage, 
-    M_implied,  M_immediate,  M_implied,  M_immediate,  M_absolute,  M_absolute,  M_absolute,  M_absolute,
-    -- B0
-    M_relative,  M_indirectY,  M_immediate,  M_indirectY,  M_zeropageX,  M_zeropageX,  M_zeropageY,  M_zeropageY, 
-    M_implied,  M_absoluteY,  M_implied,  M_absoluteY,  M_absoluteX,  M_absoluteX,  M_absoluteY,  M_absoluteY,
-    -- C0
-    M_immediate,  M_indirectX,  M_immediate,  M_indirectX,  M_zeropage,  M_zeropage,  M_zeropage,  M_zeropage, 
-    M_implied,  M_immediate,  M_implied,  M_immediate,  M_absolute,  M_absolute,  M_absolute,  M_absolute,
-    -- D0
-    M_relative,  M_indirectY,  M_immediate,  M_indirectY,  M_zeropageX,  M_zeropageX,  M_zeropageX,  M_zeropageX, 
-    M_implied,  M_absoluteY,  M_implied,  M_absoluteY,  M_absoluteX,  M_absoluteX,  M_absoluteX,  M_absoluteX,
-    -- E0
-    M_immediate,  M_indirectX,  M_immediate,  M_indirectX,  M_zeropage,  M_zeropage,  M_zeropage,  M_zeropage, 
-    M_implied,  M_immediate,  M_implied,  M_immediate,  M_absolute,  M_absolute,  M_absolute,  M_absolute,
-    -- F0
-    M_relative,  M_indirectY,  M_immediate,  M_indirectY,  M_zeropageX,  M_zeropageX,  M_zeropageX,  M_zeropageX, 
-    M_implied,  M_absoluteY,  M_implied,  M_absoluteY,  M_absoluteX,  M_absoluteX,  M_absoluteX,  M_absoluteX);
-
+    M_impl,  M_InnX,  M_impl,  M_impl,  M_nn,    M_nn,    M_nn,    M_nn,    
+    M_impl,  M_immnn, M_A,     M_impl,  M_nnnn,  M_nnnn,  M_nnnn,  M_nnrr,  
+    M_rr,    M_InnY,  M_InnZ,  M_rrrr,  M_nn,    M_nnX,   M_nnX,   M_nn,    
+    M_impl,  M_nnnnY, M_impl,  M_impl,  M_nnnn,  M_nnnnX, M_nnnnX, M_nnrr,  
+    M_nnnn,  M_InnX,  M_Innnn, M_InnnnX,M_nn,    M_nn,    M_nn,    M_nn,    
+    M_impl,  M_immnn, M_A,     M_impl,  M_nnnn,  M_nnnn,  M_nnnn,  M_nnrr,  
+    M_rr,    M_InnY,  M_InnZ,  M_rrrr,  M_nnX,   M_nnX,   M_nnX,   M_nn,    
+    M_impl,  M_nnnnY, M_impl,  M_impl,  M_nnnnX, M_nnnnX, M_nnnnX, M_nnrr,  
+    M_impl,  M_InnX,  M_impl,  M_impl,  M_nn,    M_nn,    M_nn,    M_nn,    
+    M_impl,  M_immnn, M_A,     M_impl,  M_nnnn,  M_nnnn,  M_nnnn,  M_nnrr,  
+    M_rr,    M_InnY,  M_InnZ,  M_rrrr,  M_nnX,   M_nnX,   M_nnX,   M_nn,    
+    M_impl,  M_nnnnY, M_impl,  M_impl,  M_impl,  M_nnnnX, M_nnnnX, M_nnrr,  
+    M_impl,  M_InnX,  M_immnn, M_rrrr,  M_nn,    M_nn,    M_nn,    M_nn,    
+    M_impl,  M_immnn, M_A,     M_impl,  M_Innnn, M_nnnn,  M_nnnn,  M_nnrr,  
+    M_rr,    M_InnY,  M_InnZ,  M_rrrr,  M_nnX,   M_nnX,   M_nnX,   M_nn,    
+    M_impl,  M_nnnnY, M_impl,  M_impl,  M_InnnnX,M_nnnnX, M_nnnnX, M_nnrr,  
+    M_rr,    M_InnX,  M_InnSPY,M_rrrr,  M_nn,    M_nn,    M_nn,    M_nn,    
+    M_impl,  M_immnn, M_impl,  M_nnnnX, M_nnnn,  M_nnnn,  M_nnnn,  M_nnrr,  
+    M_rr,    M_InnY,  M_InnZ,  M_rrrr,  M_nnX,   M_nnX,   M_nnY,   M_nn,    
+    M_impl,  M_nnnnY, M_impl,  M_nnnnY, M_nnnn,  M_nnnnX, M_nnnnX, M_nnrr,  
+    M_immnn, M_InnX,  M_immnn, M_immnn, M_nn,    M_nn,    M_nn,    M_nn,    
+    M_impl,  M_immnn, M_impl,  M_nnnn,  M_nnnn,  M_nnnn,  M_nnnn,  M_nnrr,  
+    M_rr,    M_InnY,  M_InnY,  M_rrrr,  M_nnX,   M_nnX,   M_nnY,   M_nn,    
+    M_impl,  M_nnnnY, M_impl,  M_nnnnX, M_nnnnX, M_nnnnX, M_nnnnY, M_nnrr,  
+    M_immnn, M_InnX,  M_immnn, M_nnnn,  M_nn,    M_nn,    M_nn,    M_nn,    
+    M_impl,  M_immnn, M_impl,  M_nnnn,  M_nnnn,  M_nnnn,  M_nnnn,  M_nnrr,  
+    M_rr,    M_InnY,  M_InnZ,  M_rrrr,  M_nn,    M_nnX,   M_nnX,   M_nn,    
+    M_impl,  M_nnnnY, M_impl,  M_impl,  M_nnnn,  M_nnnnX, M_nnnnX, M_nnrr,  
+    M_immnn, M_InnX,  M_InnSPY,M_nnnn,  M_nn,    M_nn,    M_nn,    M_nn,    
+    M_impl,  M_immnn, M_impl,  M_nnnn,  M_nnnn,  M_nnnn,  M_nnnn,  M_nnrr,  
+    M_rr,    M_InnY,  M_InnZ,  M_rrrr,  M_immnnnn,M_nnX,   M_nnX,   M_nn,    
+    M_impl,  M_nnnnY, M_impl,  M_impl,  M_nnnn,  M_nnnnX, M_nnnnX, M_nnrr);
+  
   -- PC used for JSR is the value of reg_pc after reading only one of
   -- of the argument bytes.  We could subtract one, but it is less logic to
   -- just remember PC after reading one argument byte.
@@ -294,10 +281,13 @@ begin
     procedure reset_cpu_state is
   begin
     -- Default register values
-    reg_a <= x"11";
+    reg_b <= x"01";
+    reg_a <= x"11";    
     reg_x <= x"22";
     reg_y <= x"33";
+    reg_z <= x"00";
     reg_sp <= x"ff";
+    reg_sph <= x"01";
 
     -- Default CPU flags
     flag_c <= '0';
@@ -306,6 +296,7 @@ begin
     flag_z <= '0';
     flag_n <= '0';
     flag_v <= '0';
+    flag_e <= '1';
 
     cpuport_ddr <= x"FF";
     cpuport_value <= x"3F";
@@ -358,16 +349,19 @@ begin
 
   procedure check_for_interrupts is
   begin
-    -- NMI is edge triggered.
-    if nmi = '0' and nmi_state = '1' then
-      nmi_pending <= '1';        
-    end if;
-    nmi_state <= nmi;
-    -- IRQ is level triggered.
-    if irq = '0' then
-      irq_pending <= '1';        
-    end if;
-    irq_state <= irq;
+    -- No interrupts of any sort between MAP and EOM instructions.
+    if map_interrupt_inhibit='0' then
+      -- NMI is edge triggered.
+      if nmi = '0' and nmi_state = '1' then
+        nmi_pending <= '1';        
+      end if;
+      nmi_state <= nmi;
+      -- IRQ is level triggered.
+      if irq = '0' then
+        irq_pending <= '1';        
+      end if;
+      irq_state <= irq;    
+    end if;     
   end procedure check_for_interrupts;
 
   -- purpose: Convert a 16-bit C64 address to native RAM (or I/O or ROM) address
@@ -428,7 +422,7 @@ begin
         or long_address(19 downto 8)=x"D00" or long_address(19 downto 8)=x"D10"
         or long_address(19 downto 8)=x"D20" or long_address(19 downto 8)=x"D30"
       then 
-         state <= next_state;
+        state <= next_state;
       else
         pending_state <= next_state;
         state <= FastIOWait;
@@ -722,7 +716,7 @@ begin
     -- Generate virtual processor status register for BRK
     virtual_reg_p(7) := flag_n;
     virtual_reg_p(6) := flag_v;
-    virtual_reg_p(5) := '1';
+    virtual_reg_p(5) := flag_e;
     virtual_reg_p(4) := '0';
     virtual_reg_p(3) := flag_d;
     virtual_reg_p(2) := flag_i;
@@ -732,25 +726,25 @@ begin
     -- By default go back to fetching the next instruction.
     state <= InstructionFetch;
     
-    if mode=M_implied then
+    if mode=M_impl then
       case i is
-        when I_SETMAP =>
-          -- load RAM map register
-          -- Sets map register $YY to $AAXX
-          -- Registers are:
-          -- $00 - $0F for instruction fetch
-          -- $10 - $1F for memory read
-          -- $20 - $2F for memory write
-          if reg_y(7 downto 4) = x"0" then
-            ram_bank_registers_instructions(to_integer(reg_y(3 downto 0)))
-              <= reg_a & reg_x;
-          elsif reg_y(7 downto 4) = x"1" then
-            ram_bank_registers_read(to_integer(reg_y(3 downto 0)))
-              <= reg_a & reg_x;
-          elsif reg_y(7 downto 4) = x"2" then
-            ram_bank_registers_write(to_integer(reg_y(3 downto 0)))
-              <= reg_a & reg_x;
-          end if;
+        --when I_SETMAP =>
+        --  -- load RAM map register
+        --  -- Sets map register $YY to $AAXX
+        --  -- Registers are:
+        --  -- $00 - $0F for instruction fetch
+        --  -- $10 - $1F for memory read
+        --  -- $20 - $2F for memory write
+        --  if reg_y(7 downto 4) = x"0" then
+        --    ram_bank_registers_instructions(to_integer(reg_y(3 downto 0)))
+        --      <= reg_a & reg_x;
+        --  elsif reg_y(7 downto 4) = x"1" then
+        --    ram_bank_registers_read(to_integer(reg_y(3 downto 0)))
+        --      <= reg_a & reg_x;
+        --  elsif reg_y(7 downto 4) = x"2" then
+        --    ram_bank_registers_write(to_integer(reg_y(3 downto 0)))
+        --      <= reg_a & reg_x;
+        --  end if;
         when I_BRK =>
           -- break instruction. Push state and jump to the appropriate
           -- vector.
@@ -761,35 +755,54 @@ begin
           push_byte(temp_pc(15 downto 8),BRK1);
         when I_CLC => flag_c <= '0';
         when I_CLD => flag_d <= '0';
+        when I_CLE => flag_e <= '0';
         when I_CLI => flag_i <= '0';
         when I_CLV => flag_v <= '0';
         when I_DEX => reg_x <= with_nz(reg_x - 1);
         when I_DEY => reg_y <= with_nz(reg_y - 1);
+        when I_DEZ => reg_z <= with_nz(reg_z - 1);
         when I_INX => reg_x <= with_nz(reg_x + 1);
         when I_INY => reg_y <= with_nz(reg_y + 1);
-        when I_KIL => state <= Halt;
+        when I_INZ => reg_z <= with_nz(reg_z + 1);
+        when I_MAP => 
+          -- XXX Implement MAP instruction
+          map_interrupt_inhibit <= '1';
+        when I_NEG => reg_a <= with_nz((not reg_a) + 1);
         when I_PHA => push_byte(reg_a,InstructionFetch);
+        when I_PHX => push_byte(reg_x,InstructionFetch);
+        when I_PHY => push_byte(reg_y,InstructionFetch);
+        when I_PHZ => push_byte(reg_z,InstructionFetch);
         when I_PHP =>
           virtual_reg_p(4) := '1';      -- PHP sets BRK flag.
           push_byte(virtual_reg_p,InstructionFetch);
         when I_PLA => pull_byte(PLA1);
+        when I_PLX => pull_byte(PLX1);
+        when I_PLY => pull_byte(PLY1);
+        when I_PLZ => pull_byte(PLZ1);
         when I_PLP => pull_byte(PLP1);
         when I_RTI => pull_byte(RTI1);
         when I_RTS => pull_byte(RTS1);
         when I_SEC => flag_c <= '1';
         when I_SED => flag_d <= '1';
+        when I_SEE => flag_e <= '1';
         when I_SEI => flag_i <= '1';
+        when I_TAB => reg_b <= with_nz(reg_a);
         when I_TAX => reg_x <= with_nz(reg_a);
         when I_TAY => reg_y <= with_nz(reg_a);
+        when I_TAZ => reg_z <= with_nz(reg_a);
         when I_TSX => reg_x <= with_nz(reg_sp);
+        when I_TSY => reg_y <= with_nz(reg_sph);
+        when I_TBA => reg_a <= with_nz(reg_b);
         when I_TXA => reg_a <= with_nz(reg_x);
         when I_TXS => reg_sp <= reg_x;
-        when I_TYA => reg_a <= with_nz(reg_y);
-                      
-        when I_NOP => null;
+        when I_TYA => reg_a <= with_nz(reg_y);                      
+        when I_TZA => reg_a <= with_nz(reg_z);                      
+        when I_EOM =>
+          -- Does double duty as NOP.
+          map_interrupt_inhibit <= '0';          
         when others => null;
       end case;
-    elsif mode=M_accumulator then
+    elsif mode=M_a then
       -- We have a separate path for these so that they can be executed in 1
       -- cycle instead of incurring an extra cycle delay if passed through the
       -- normal memory-based instruction path. 
@@ -844,12 +857,12 @@ begin
   impure function alu_op_add (
     i1 : in unsigned(7 downto 0);
     i2 : in unsigned(7 downto 0)) return unsigned is
-  variable tmp : unsigned(8 downto 0);
+    variable tmp : unsigned(8 downto 0);
   begin
     if flag_d='1' then
       tmp(8) := '0';
       tmp(7 downto 0) := (i1 and x"0f") + (i2 and x"0f") + ("0000000" & flag_c);
-         
+      
       if tmp > x"09" then
         tmp := tmp + x"06";                                                                         
       end if;
@@ -1001,7 +1014,7 @@ begin
     --report "Executing " & instruction'image(i)
     --  & " mode " & addressingmode'image(mode) severity note;
     
-    if mode=M_relative then
+    if mode=M_rr or mode=M_rrrr then
       if (i=I_BCC and flag_c='0')
         or (i=I_BCS and flag_c='1')
         or (i=I_BVC and flag_v='0')
@@ -1009,47 +1022,73 @@ begin
         or (i=I_BPL and flag_n='0')
         or (i=I_BMI and flag_n='1')
         or (i=I_BEQ and flag_z='1')
-        or (i=I_BNE and flag_z='0') then
+        or (i=I_BNE and flag_z='0')
+        or (i=I_BRA)
+      then
         -- take branch
-        if arg1(7)='0' then -- branch forwards.
-          reg_pc <= reg_pc + unsigned(arg1(6 downto 0));
-        else -- branch backwards.
-          reg_pc <= (reg_pc - x"0080") + unsigned(arg1(6 downto 0));
+        if mode=M_rr then
+          -- 8-bit branch
+          if arg1(7)='0' then -- branch forwards.
+            reg_pc <= reg_pc + unsigned(arg1(6 downto 0));
+          else -- branch backwards.
+            reg_pc <= (reg_pc - x"0080") + unsigned(arg1(6 downto 0));
+          end if;
+        else
+          -- 16-bit branch
+          if arg2(7)='0' then -- branch forwards.
+            reg_pc <= reg_pc + unsigned(std_logic_vector(arg2(6 downto 0)) & std_logic_vector(arg1)) - 1;
+          else -- branch backwards.
+            reg_pc <= (reg_pc - x"8001") + unsigned(std_logic_vector(arg2(6 downto 0)) & std_logic_vector(arg1));
+          end if;
         end if;
       end if;
       -- Treat jump instructions specially, since they are rather different to
       -- the rest.
     elsif i=I_JSR then
       reg_pc <= arg2 & arg1; push_byte(reg_pc_jsr(15 downto 8),JSR1);
-    elsif i=I_JMP and mode=M_absolute then
+    elsif i=I_JMP and mode=M_nnnn then
       reg_pc <= arg2 & arg1; state<=InstructionFetch;
-    elsif i=I_JMP and mode=M_indirect then
+    elsif i=I_JMP and mode=M_Innnn then
       -- Read first byte of indirect vector
       read_data_byte(arg2 & arg1,JMP1);
       -- Remember address of second byte of indirect vector so that
       -- we can ask for it in JMP1
       reg_addr <= arg2 & (arg1 +1);
-    elsif mode=M_indirectX then
+    elsif i=I_JMP and mode=M_InnnnX then
+      -- Read first byte of indirect vector
+      read_data_byte((arg2 & arg1) + reg_x,JMP1);
+      -- Remember address of second byte of indirect vector so that
+      -- we can ask for it in JMP1
+      reg_addr <= (arg2 & arg1) + reg_x +1;
+    elsif mode=M_InnX then
       -- Read ZP indirect from data memory map, since ZP is written into that
       -- map.
       reg_instruction <= i;
       reg_addr <= x"00" & (arg1 + reg_x +1);
       read_data_byte(x"00" & (arg1 + reg_x),IndirectX1);
-    elsif mode=M_indirectY then
+    elsif mode=M_InnY then
       reg_instruction <= i;
       reg_addr <= x"00" & (arg1 + 1);
       read_data_byte(x"00" & arg1,IndirectY1);
+    elsif mode=M_InnZ then
+      reg_instruction <= i;
+      reg_addr <= x"00" & (arg1 + 1);
+      read_data_byte(x"00" & arg1,IndirectZ1);
     else
       --report "executing direct instruction" severity note;
       case mode is
         -- Direct modes
-        when M_zeropage => execute_direct_instruction(i,arg2&arg1);
-        when M_zeropageX => execute_direct_instruction(i,arg2&(arg1+reg_x));
-        when M_zeropageY => execute_direct_instruction(i,arg2&(arg1+reg_y));
-        when M_absolute => execute_direct_instruction(i,arg2&arg1);
-        when M_absoluteX => execute_direct_instruction(i,(arg2&arg1)+reg_x);
-        when M_absoluteY => execute_direct_instruction(i,(arg2&arg1)+reg_y);
-        when M_immediate => execute_operand_instruction(i,arg1,x"0000");
+        when M_nn => execute_direct_instruction(i,arg2&arg1);
+        when M_nnX => execute_direct_instruction(i,arg2&(arg1+reg_x));
+        when M_nnY => execute_direct_instruction(i,arg2&(arg1+reg_y));
+        when M_nnnn => execute_direct_instruction(i,arg2&arg1);
+        when M_nnnnX => execute_direct_instruction(i,(arg2&arg1)+reg_x);
+        when M_nnnnY => execute_direct_instruction(i,(arg2&arg1)+reg_y);
+        when M_immnn => execute_operand_instruction(i,arg1,x"0000");
+        when M_immnnnn =>
+          -- PHW #$nnnn is the only instruction with this mode
+          reg_value <= arg2;
+          push_byte(arg1,PHWimm1);
         when others =>
           assert false report "Uncaught instruction mode" severity failure;
           assert true report "Uncaught instruction mode" severity failure;
@@ -1196,8 +1235,8 @@ begin
               end if;
             when InstructionFetch2 =>
               -- Keep reading bytes if necessary
-              if mode_lut(to_integer(read_data))=M_implied
-                or mode_lut(to_integer(read_data))=M_accumulator then
+              if mode_lut(to_integer(read_data))=M_impl
+                or mode_lut(to_integer(read_data))=M_a then
                 -- 1-byte instruction, process now
                 execute_implied_instruction(read_data);
               else
@@ -1223,6 +1262,9 @@ begin
                                  & '1' & virtual_reg_p(3 downto 0)),VectorRead);
               flag_i <= '1';            -- disable interrupts while servicing BRK
             when PLA1 => reg_a<=with_nz(read_data); state <= InstructionFetch;
+            when PLX1 => reg_x<=with_nz(read_data); state <= InstructionFetch;
+            when PLY1 => reg_y<=with_nz(read_data); state <= InstructionFetch;
+            when PLZ1 => reg_z<=with_nz(read_data); state <= InstructionFetch;
             when PLP1 => load_processor_flags(read_data); state <= InstructionFetch;
             when RTI1 => load_processor_flags(read_data); pull_byte(RTI2);
             when RTI2 => reg_pc(7 downto 0) <= read_data; pull_byte(RTI3);
@@ -1232,6 +1274,7 @@ begin
             when RTS2 => reg_pc <= (read_data & reg_pc(7 downto 0))+1;
                          state<=InstructionFetch;
             when JSR1 => push_byte(reg_pc_jsr(7 downto 0),InstructionFetch);
+            when PHWimm1 => push_byte(reg_value,InstructionFetch);
             when JMP1 =>
               -- Add a wait state to see if it fixes our problem with not loading
               -- addresses properly for indirect jump
@@ -1274,6 +1317,17 @@ begin
               read_data_byte((read_data & reg_addr(7 downto 0)) + reg_y,IndirectY3);
             when IndirectY3 =>
               execute_operand_instruction(reg_instruction,read_data,reg_addr);
+            when IndirectZ1 =>
+              reg_addr(7 downto 0) <= read_data;
+              report "(ZP),z - low byte = $" & to_hstring(read_data) severity note;
+              read_data_byte(reg_addr,IndirectZ2);
+            when IndirectZ2 =>
+              reg_addr <= (read_data & reg_addr(7 downto 0)) + reg_z;
+              report "(ZP),z - high byte = $" & to_hstring(read_data) severity note;
+              report "(ZP),z - operand address = $"
+                & to_hstring((read_data & reg_addr(7 downto 0)) + reg_z)
+                severity note;
+              read_data_byte((read_data & reg_addr(7 downto 0)) + reg_z,IndirectY3);
             when ExecuteDirect =>
               execute_operand_instruction(reg_instruction,read_data,reg_addr);
             when RMWCommit => write_data_byte(reg_addr,reg_value,InstructionFetch);
