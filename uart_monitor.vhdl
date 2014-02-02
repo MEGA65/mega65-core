@@ -530,6 +530,7 @@ begin
               blink <= not blink;
               activity <= blink;
               rx_acknowledge<='1';
+              trace_continuous <= '0';
               character_received(to_character(rx_data));
             end if;
             if trace_continuous='1' then
