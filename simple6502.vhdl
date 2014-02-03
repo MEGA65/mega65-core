@@ -137,7 +137,7 @@ architecture Behavioural of simple6502 is
     InstructionFetch2,InstructionFetch3,InstructionFetch4,
     BRK1,BRK2,PLA1,PLX1,PLY1,PLZ1,PLP1,RTI1,RTI2,RTI3,
     RTS1,RTS2,
-    JSR1,JSRind1,
+    JSR1,JSRind1,JSRind2,JSRind3,JSRind4,
     JMP1,JMP2,JMP3,
     PHWimm1,
     IndirectX1,IndirectX2,IndirectX3,
@@ -1289,6 +1289,16 @@ begin
             when RTS2 => reg_pc <= (read_data & reg_pc(7 downto 0))+1;
                          state<=InstructionFetch;
             when JSR1 => push_byte(reg_pc_jsr(7 downto 0),InstructionFetch);
+            when JSRind1 => push_byte(reg_pc_jsr(7 downto 0),JSRind2);
+            when JSRind2 =>
+              read_data_byte(reg_addr,JSRind3);
+              reg_addr <= reg_addr + 1;
+            when JSRind3 =>
+              reg_pc(7 downto 0) <= read_data;
+              read_data_byte(reg_addr,JSRind4);
+            when JSRind4 =>
+              reg_pc(15 downto 8) <= read_data;
+              state <= InstructionFetch;                         
             when PHWimm1 => push_byte(reg_value,InstructionFetch);
             when JMP1 =>
               -- Add a wait state to see if it fixes our problem with not loading
