@@ -136,7 +136,9 @@ architecture Behavioural of simple6502 is
     InstructionFetch,
     InstructionFetch2,InstructionFetch3,InstructionFetch4,
     BRK1,BRK2,PLA1,PLX1,PLY1,PLZ1,PLP1,RTI1,RTI2,RTI3,
-    RTS1,RTS2,JSR1,JMP1,JMP2,JMP3,
+    RTS1,RTS2,
+    JSR1,JSRind1,
+    JMP1,JMP2,JMP3,
     PHWimm1,
     IndirectX1,IndirectX2,IndirectX3,
     IndirectY1,IndirectY2,IndirectY3,
@@ -1053,6 +1055,12 @@ begin
       push_byte(reg_pc_jsr(15 downto 8),JSR1);      
     elsif i=I_JSR and mode=M_nnnn then
       reg_pc <= arg2 & arg1; push_byte(reg_pc_jsr(15 downto 8),JSR1);
+    elsif i=I_JSR and mode=M_Innnn then
+      reg_addr <= arg2 & arg1;
+      push_byte(reg_pc_jsr(15 downto 8),JSRind1);
+    elsif i=I_JSR and mode=M_InnnnX then
+      reg_addr <= (arg2 & arg1) + reg_x;
+      push_byte(reg_pc_jsr(15 downto 8),JSRind1);
     elsif i=I_JMP and mode=M_nnnn then
       reg_pc <= arg2 & arg1; state<=InstructionFetch;
     elsif i=I_JMP and mode=M_Innnn then
