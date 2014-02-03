@@ -1044,7 +1044,14 @@ begin
       end if;
       -- Treat jump instructions specially, since they are rather different to
       -- the rest.
-    elsif i=I_JSR then
+    elsif i=I_BSR then
+      if arg2(7)='0' then -- branch forwards.
+        reg_pc <= reg_pc + unsigned(std_logic_vector(arg2(6 downto 0)) & std_logic_vector(arg1)) - 1;
+      else -- branch backwards.
+        reg_pc <= (reg_pc - x"8001") + unsigned(std_logic_vector(arg2(6 downto 0)) & std_logic_vector(arg1));
+      end if;
+      push_byte(reg_pc_jsr(15 downto 8),JSR1);      
+    elsif i=I_JSR and mode=M_nnnn then
       reg_pc <= arg2 & arg1; push_byte(reg_pc_jsr(15 downto 8),JSR1);
     elsif i=I_JMP and mode=M_nnnn then
       reg_pc <= arg2 & arg1; state<=InstructionFetch;
