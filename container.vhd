@@ -52,6 +52,21 @@ entity container is
          ----------------------------------------------------------------------
          ps2clk : in std_logic;
          ps2data : in std_logic;
+
+         ----------------------------------------------------------------------
+         -- Cellular RAM interface for Slow RAM
+         ----------------------------------------------------------------------
+         RamCLK : out std_logic;
+         RamADVn : out std_logic;
+         RamCEn : out std_logic;
+         RamCRE : out std_logic;
+         RamOEn : out std_logic;
+         RamWEn : out std_logic;
+         RamUBn : out std_logic;
+         RamLBn : out std_logic;
+         RamWait : in std_logic;
+         MemDB : inout std_logic_vector(15 downto 0);
+         MemAdr : inout std_logic_vector(22 downto 0);
          
          ----------------------------------------------------------------------
          -- Debug interfaces on Nexys4 board
@@ -103,6 +118,17 @@ architecture Behavioral of container is
          vgagreen : out  UNSIGNED (3 downto 0);
          vgablue : out  UNSIGNED (3 downto 0);
 
+         ---------------------------------------------------------------------------
+         -- Interface to Slow RAM (16MB cellular RAM chip)
+         ---------------------------------------------------------------------------
+         slowram_addr : out std_logic_vector(22 downto 0);
+         slowram_we : out std_logic;
+         slowram_ce : out std_logic;
+         slowram_oe : out std_logic;
+         slowram_lb : out std_logic;
+         slowram_ub : out std_logic;
+         slowram_data : inout std_logic_vector(15 downto 0);
+         
          ----------------------------------------------------------------------
          -- PS/2 adapted USB keyboard & joystick connector.
          -- For now we will use a keyrah adapter to connect to the keyboard.
@@ -165,6 +191,14 @@ begin
 
       ps2data =>      ps2data,
       ps2clock =>     ps2clk,
+
+      slowram_ce => RamCEn,
+      slowram_oe => RamOEn,
+      slowram_we => RamWEn,
+      slowram_lb => RamLBn,
+      slowram_ub => RamUBn,
+      slowram_data => MemDB,
+      slowram_addr => MemAdr,
       
       led0 => led0,
       led1 => led1,
@@ -187,6 +221,10 @@ begin
   irq <= not btn(0);
   nmi <= not btn(4);
 
+  -- Slow RAM interface static lines
+  RamCLK <= '0';                        -- keep clock low for async access
+  RamADVn <= '0';                       -- async burst mode address advance
+  RamCRE <= '0';                        -- access memory or config registers
   
 end Behavioral;
 

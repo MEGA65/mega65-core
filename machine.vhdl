@@ -47,6 +47,17 @@ entity machine is
          vgagreen : out  UNSIGNED (3 downto 0);
          vgablue : out  UNSIGNED (3 downto 0);
 
+         ---------------------------------------------------------------------------
+         -- Interface to Slow RAM (16MB cellular RAM chip)
+         ---------------------------------------------------------------------------
+         slowram_addr : out std_logic_vector(22 downto 0);
+         slowram_we : out std_logic;
+         slowram_ce : out std_logic;
+         slowram_oe : out std_logic;
+         slowram_lb : out std_logic;
+         slowram_ub : out std_logic;
+         slowram_data : inout std_logic_vector(15 downto 0);
+         
          ----------------------------------------------------------------------
          -- PS/2 adapted USB keyboard & joystick connector.
          -- For now we will use a keyrah adapter to connect to the keyboard.
@@ -139,6 +150,17 @@ architecture Behavioral of machine is
       monitor_mem_trace_mode : in std_logic;
       monitor_mem_stage_trace_mode : in std_logic;
       monitor_mem_trace_toggle : in std_logic;
+
+      ---------------------------------------------------------------------------
+      -- Interface to Slow RAM (16MB cellular RAM chip)
+      ---------------------------------------------------------------------------
+      slowram_addr : out std_logic_vector(22 downto 0);
+      slowram_we : out std_logic;
+      slowram_ce : out std_logic;
+      slowram_oe : out std_logic;
+      slowram_lb : out std_logic;
+      slowram_ub : out std_logic;
+      slowram_data : inout std_logic_vector(15 downto 0);
 
       ---------------------------------------------------------------------------
       -- Interface to FastRAM in video controller (just 128KB for now)
@@ -297,8 +319,9 @@ begin
   begin
     if rising_edge(pixelclock) then
 
-      -- 2 = 64MHz
-      -- 3 = 48MHz
+      -- 1 = 48MHz ?
+      -- 2 = 32MHz ?
+      -- 3 = 24MHz ?
       -- 191 = 1MHz
       -- (don't forget to update uart_monitor baudrate divisor as well)
       if cpuclock_divisor<1 then
@@ -417,6 +440,13 @@ begin
     monitor_mem_trace_mode => monitor_mem_trace_mode,
     monitor_mem_stage_trace_mode => monitor_mem_stage_trace_mode,
     monitor_mem_trace_toggle => monitor_mem_trace_toggle,
+
+    slowram_addr => slowram_addr,
+    slowram_ce => slowram_ce,
+    slowram_oe => slowram_oe,
+    slowram_lb => slowram_lb,
+    slowram_ub => slowram_ub,
+    slowram_data => slowram_data,
 
     fastram_we => fastram_we,
     fastram_read => fastram_read,

@@ -22,6 +22,8 @@ architecture behavior of cpu_test is
   signal vgagreen : unsigned(3 downto 0);
   signal vgablue : unsigned(3 downto 0);
 
+  signal slowram_data : std_logic_vector(15 downto 0);
+  
   signal led0 : std_logic;
   signal led1 : std_logic;
   signal led2 : std_logic;
@@ -50,6 +52,17 @@ architecture behavior of cpu_test is
            vgagreen : out  UNSIGNED (3 downto 0);
            vgablue : out  UNSIGNED (3 downto 0);
 
+           --------------------------------------------------------------------
+           -- Slow RAM interface: null for now
+           --------------------------------------------------------------------
+           slowram_addr : out std_logic_vector(22 downto 0);
+           slowram_we : out std_logic;
+           slowram_ce : out std_logic;
+           slowram_oe : out std_logic;
+           slowram_lb : out std_logic;
+           slowram_ub : out std_logic;
+           slowram_data : inout std_logic_vector(15 downto 0);
+           
            ----------------------------------------------------------------------
            -- PS/2 adapted USB keyboard & joystick connector.
            -- For now we will use a keyrah adapter to connect to the keyboard.
@@ -85,6 +98,8 @@ begin
 
       ps2data => '1',
       ps2clock => '1',      
+
+      slowram_data => slowram_data,
       
       vsync           => vsync,
       hsync           => hsync,
@@ -108,6 +123,8 @@ begin
   process
   begin  -- process tb
     report "beginning simulation" severity note;
+    slowram_data <= (others => 'Z');
+
     for i in 1 to 10 loop
       clock <= '1';
       wait for 2.5 ns;

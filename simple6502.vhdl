@@ -74,6 +74,17 @@ entity simple6502 is
     fastram_dataout : IN STD_LOGIC_VECTOR(63 DOWNTO 0);
 
     ---------------------------------------------------------------------------
+    -- Interface to Slow RAM (16MB cellular RAM chip)
+    ---------------------------------------------------------------------------
+    slowram_addr : out std_logic_vector(22 downto 0);
+    slowram_we : out std_logic;
+    slowram_ce : out std_logic;
+    slowram_oe : out std_logic;
+    slowram_lb : out std_logic;
+    slowram_ub : out std_logic;
+    slowram_data : inout std_logic_vector(15 downto 0);
+    
+    ---------------------------------------------------------------------------
     -- fast IO port (clocked at core clock). 1MB address space
     ---------------------------------------------------------------------------
     fastio_addr : inout std_logic_vector(19 downto 0);
@@ -85,6 +96,12 @@ entity simple6502 is
 end entity simple6502;
 
 architecture Behavioural of simple6502 is
+
+  signal slowram_lohi : std_logic;
+  signal slowram_counter : integer;
+  -- SlowRAM has 70ns access time, so need some wait states.
+  -- The wait states
+  constant slowram_waitstates : integer := 5;
   
 -- CPU RAM bank selection registers.
 -- Each 4KB (12 address bits) can be made to point to a section of memory.
@@ -146,6 +163,7 @@ architecture Behavioural of simple6502 is
     IndirectZ1,IndirectZ2,
     ExecuteDirect,RMWCommit,
     Halt,WaitOneCycle,
+    SlowRamRead1,SlowRamRead2,SlowRamWrite1,SlowRamWrite2,
     MonitorAccessDone,MonitorReadDone,
     Interrupt2,Interrupt3,FastIOWait
     );
@@ -399,8 +417,16 @@ begin
       -- No wait states in fastram system, so proceed directly to next state
     elsif long_address(27 downto 24) = x"8" then
       accessing_slowram <= '1';
-      -- XXX Need to do actual slow ram access here.
-      state <= next_state;
+      slowram_addr <= std_logic_vector(long_address(23 downto 1));
+      slowram_data <= (others => 'Z');  -- tristate data lines
+      slowram_we <= '1';
+      slowram_ce <= '1';
+      slowram_oe <= '1';
+      slowram_lb <= '1';
+      slowram_ub <= '1';
+      slowram_lohi <= long_address(0);
+      pending_state <= next_state;
+      state <= SlowRamRead1;
     elsif long_address(27 downto 24) = x"F" then
       accessing_fastio <= '1';
       fastio_addr <= std_logic_vector(long_address(19 downto 0));
@@ -486,6 +512,16 @@ begin
       state <= next_state;
     elsif long_address(27 downto 24) = x"8" then
       accessing_slowram <= '1';
+      slowram_addr <= std_logic_vector(long_address(23 downto 1));
+      slowram_we <= '1';
+      slowram_ce <= '1';
+      slowram_oe <= '1';
+      slowram_lohi <= long_address(0);
+      slowram_lb <= std_logic(not long_address(0));
+      slowram_ub <= std_logic(long_address(0));
+      slowram_data <= std_logic_vector(value) & std_logic_vector(value);
+      pending_state <= next_state;
+      state <= SlowRamWrite1;
     elsif long_address(27 downto 24) = x"F" then
       accessing_fastio <= '1';
       fastio_addr <= std_logic_vector(long_address(19 downto 0));
@@ -673,6 +709,14 @@ begin
         when "101" => return unsigned(fastram_dataout(47 downto 40));
         when "110" => return unsigned(fastram_dataout(55 downto 48));
         when "111" => return unsigned(fastram_dataout(63 downto 56));
+        when others => return x"FF";
+      end case;
+    elsif accessing_slowram='1' then           
+      slowram_ce <= '1'; -- Release after reading so that refresh can occur
+      slowram_data <= (others => 'Z');  -- tristate data lines as well
+      case slowram_lohi is
+        when '0' => return unsigned(slowram_data(7 downto 0));
+        when '1' => return unsigned(slowram_data(15 downto 8));
         when others => return x"FF";
       end case;
     else
@@ -1550,6 +1594,37 @@ end c65_map_instruction;
 
             when WaitOneCycle => state <= pending_state;
             when FastIOWait => state <= pending_state; accessing_fastio <= '1';
+            when SlowRamRead1 =>
+              slowram_ce <= '0';
+              slowram_oe <= '0';
+              slowram_lb <= '0';
+              slowram_ub <= '0';
+              slowram_counter <= 0;
+              state <= SlowRamRead2;
+            when SlowRamRead2 =>
+              if slowram_counter=slowram_waitstates then
+                state <= pending_state;
+              else
+                slowram_counter <= slowram_counter + 1;
+              end if;
+            when SlowRamWrite1 =>
+              slowram_ce <= '0';
+              slowram_oe <= '0';
+              slowram_we <= '0';
+              slowram_lb <= not slowram_lohi;
+              slowram_ub <= slowram_lohi;
+              slowram_counter <= 0;
+              state <= SlowRamWrite2;
+            when SlowRamWrite2 =>
+              if slowram_counter=slowram_waitstates then
+                state <= pending_state;
+                slowram_ce <= '1';
+                slowram_oe <= '1';
+                slowram_we <= '1';
+                slowram_data <= (others => 'Z');  -- tristate data lines
+              else
+                slowram_counter <= slowram_counter + 1;
+              end if;
             when others =>
               -- Don't allow CPU to stay stuck
               state<= InstructionFetch;
