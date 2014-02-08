@@ -769,7 +769,7 @@ begin
           when ShowRegisters8 => try_output_char(' ',ShowRegisters9);
           when ShowRegisters9 => print_hex_byte(unsigned(monitor_y),ShowRegisters10);
           when ShowRegisters10 => try_output_char(' ',ShowRegisters11);
-          when ShowRegisters11 => print_hex_byte(unsigned(monitor_y),ShowRegisters12);
+          when ShowRegisters11 => print_hex_byte(unsigned(monitor_z),ShowRegisters12);
           when ShowRegisters12 => try_output_char(' ',ShowRegisters13);
           when ShowRegisters13 => print_hex_byte(unsigned(monitor_sp(15 downto 8)),ShowRegisters14);
           when ShowRegisters14 => print_hex_byte(unsigned(monitor_sp(7 downto 0)),ShowRegisters15);
