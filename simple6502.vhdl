@@ -1002,12 +1002,13 @@ end c65_map_instruction;
     address : in unsigned(15 downto 0)) is
   begin  -- execute_direct_instruction
     -- Instruction using a direct addressing mode
-    if i=I_STA or i=I_STX or i=I_STY then
+    if i=I_STA or i=I_STX or i=I_STY or i=I_STZ then
       -- Store instruction, so just write
       case i is
         when I_STA => write_data_byte(address,reg_a,InstructionFetch);
         when I_STX => write_data_byte(address,reg_x,InstructionFetch);
         when I_STY => write_data_byte(address,reg_y,InstructionFetch);
+        when I_STZ => write_data_byte(address,reg_z,InstructionFetch);
         when others => state <= InstructionFetch;
       end case;
     else
@@ -1145,6 +1146,7 @@ end c65_map_instruction;
       when I_LDA => reg_a <= with_nz(operand);
       when I_LDX => reg_x <= with_nz(operand);
       when I_LDY => reg_y <= with_nz(operand);
+      when I_LDZ => reg_z <= with_nz(operand);
       when I_ADC => reg_a <= alu_op_add(reg_a,operand);
       when I_AND => reg_a <= with_nz(reg_a and operand);
       when I_ASL => flag_c <= operand(7); rmw_operand_commit(address,operand,operand(6 downto 0)&'0');
@@ -1165,6 +1167,7 @@ end c65_map_instruction;
       when I_STA => write_data_byte(address,reg_a,InstructionFetch);
       when I_STX => write_data_byte(address,reg_x,InstructionFetch);
       when I_STY => write_data_byte(address,reg_y,InstructionFetch);
+      when I_STZ => write_data_byte(address,reg_z,InstructionFetch);
       when others => null;
     end case;
   end procedure execute_operand_instruction;
