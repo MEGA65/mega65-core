@@ -517,8 +517,8 @@ begin
       slowram_ce <= '1';
       slowram_oe <= '1';
       slowram_lohi <= long_address(0);
-      slowram_lb <= std_logic(not long_address(0));
-      slowram_ub <= std_logic(long_address(0));
+      slowram_lb <= std_logic(long_address(0));
+      slowram_ub <= std_logic(not long_address(0));
       slowram_data <= std_logic_vector(value) & std_logic_vector(value);
       pending_state <= next_state;
       state <= SlowRamWrite1;
@@ -1611,8 +1611,8 @@ end c65_map_instruction;
               slowram_ce <= '0';
               slowram_oe <= '0';
               slowram_we <= '0';
-              slowram_lb <= not slowram_lohi;
-              slowram_ub <= slowram_lohi;
+              slowram_lb <= slowram_lohi;
+              slowram_ub <= not slowram_lohi;
               slowram_counter <= 0;
               state <= SlowRamWrite2;
             when SlowRamWrite2 =>
