@@ -42,7 +42,8 @@ entity simple6502 is
     monitor_a : out std_logic_vector(7 downto 0);
     monitor_x : out std_logic_vector(7 downto 0);
     monitor_y : out std_logic_vector(7 downto 0);
-    monitor_sp : out std_logic_vector(7 downto 0);
+    monitor_z : out std_logic_vector(7 downto 0);
+    monitor_sp : out std_logic_vector(15 downto 0);
     monitor_p : out std_logic_vector(7 downto 0);
     monitor_state : out std_logic_vector(7 downto 0);
 
@@ -1309,7 +1310,8 @@ end c65_map_instruction;
       monitor_a <= std_logic_vector(reg_a);
       monitor_x <= std_logic_vector(reg_x);
       monitor_y <= std_logic_vector(reg_y);
-      monitor_sp <= std_logic_vector(reg_sp);
+      monitor_z <= std_logic_vector(reg_z);
+      monitor_sp <= std_logic_vector(reg_sph) & std_logic_vector(reg_sp);
       
       -- Clear memory access interfaces
       -- Allow fastio to continue reading to support 1 cycle wait state

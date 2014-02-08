@@ -89,7 +89,8 @@ architecture Behavioral of machine is
       monitor_a : in std_logic_vector(7 downto 0);
       monitor_x : in std_logic_vector(7 downto 0);
       monitor_y : in std_logic_vector(7 downto 0);
-      monitor_sp : in std_logic_vector(7 downto 0);
+      monitor_z : in std_logic_vector(7 downto 0);
+      monitor_sp : in std_logic_vector(15 downto 0);
       monitor_p : in std_logic_vector(7 downto 0);
 
       monitor_mem_address : out std_logic_vector(27 downto 0);
@@ -118,7 +119,8 @@ architecture Behavioral of machine is
       monitor_a : out std_logic_vector(7 downto 0);
       monitor_x : out std_logic_vector(7 downto 0);
       monitor_y : out std_logic_vector(7 downto 0);
-      monitor_sp : out std_logic_vector(7 downto 0);
+      monitor_z : out std_logic_vector(7 downto 0);
+      monitor_sp : out std_logic_vector(15 downto 0);
       monitor_p : out std_logic_vector(7 downto 0);
       monitor_state : out std_logic_vector(7 downto 0);
 
@@ -269,7 +271,8 @@ architecture Behavioral of machine is
   signal monitor_a : std_logic_vector(7 downto 0);
   signal monitor_x : std_logic_vector(7 downto 0);
   signal monitor_y : std_logic_vector(7 downto 0);
-  signal monitor_sp : std_logic_vector(7 downto 0);
+  signal monitor_z : std_logic_vector(7 downto 0);
+  signal monitor_sp : std_logic_vector(15 downto 0);
   signal monitor_p : std_logic_vector(7 downto 0);
   signal monitor_opcode : std_logic_vector(7 downto 0);
   
@@ -397,6 +400,7 @@ begin
     monitor_a => monitor_a,
     monitor_x => monitor_x,
     monitor_y => monitor_y,
+    monitor_z => monitor_z,
     monitor_sp => monitor_sp,
     monitor_p => monitor_p,
     monitor_state => monitor_state,
@@ -485,6 +489,7 @@ begin
     monitor_a => monitor_a,
     monitor_x => monitor_x,
     monitor_y => monitor_y,
+    monitor_z => monitor_z,
     monitor_sp => monitor_sp,
     monitor_p => monitor_p,
     

@@ -17,7 +17,8 @@ entity uart_monitor is
     monitor_a : in std_logic_vector(7 downto 0);
     monitor_x : in std_logic_vector(7 downto 0);
     monitor_y : in std_logic_vector(7 downto 0);
-    monitor_sp : in std_logic_vector(7 downto 0);
+    monitor_z : in std_logic_vector(7 downto 0);
+    monitor_sp : in std_logic_vector(15 downto 0);
     monitor_p : in std_logic_vector(7 downto 0);
     
     monitor_mem_address : out std_logic_vector(27 downto 0);
@@ -95,7 +96,7 @@ architecture behavioural of uart_monitor is
   constant errorMessage : string := crlf & "?SYNTAX  ERROR ";
   constant timeoutMessage : string := crlf & "?DEVICE NOT FOUND  ERROR" & crlf;
 
-  constant registerMessage : string := crlf & "PC   A  X  Y  SP  P" & crlf;
+  constant registerMessage : string := crlf & "PC   A  X  Y  Z  SP    P" & crlf;
   
   type monitor_state is (Reseting,
                          PrintBanner,PrintHelp,
@@ -123,7 +124,8 @@ architecture behavioural of uart_monitor is
                          ShowRegisters1,ShowRegisters2,ShowRegisters3,ShowRegisters4,
                          ShowRegisters5,ShowRegisters6,ShowRegisters7,ShowRegisters8,
                          ShowRegisters9,ShowRegisters10,ShowRegisters11,ShowRegisters12,
-                         ShowRegisters13,ShowRegisters14,ShowRegisters15,
+                         ShowRegisters13,ShowRegisters14,ShowRegisters15,ShowRegisters16,
+                         ShowRegisters17,
                          TraceStep,CPUBreak1,WaitOneCycle
                          );
 
@@ -766,10 +768,13 @@ begin
           when ShowRegisters8 => try_output_char(' ',ShowRegisters9);
           when ShowRegisters9 => print_hex_byte(unsigned(monitor_y),ShowRegisters10);
           when ShowRegisters10 => try_output_char(' ',ShowRegisters11);
-          when ShowRegisters11 => print_hex_byte(unsigned(monitor_sp),ShowRegisters12);
+          when ShowRegisters11 => print_hex_byte(unsigned(monitor_y),ShowRegisters12);
           when ShowRegisters12 => try_output_char(' ',ShowRegisters13);
-          when ShowRegisters13 => print_hex_byte(unsigned(monitor_p),ShowRegisters14);
-          when ShowRegisters14 => try_output_char(' ',NextCommand);
+          when ShowRegisters13 => print_hex_byte(unsigned(monitor_sp(15 downto 8)),ShowRegisters14);
+          when ShowRegisters14 => print_hex_byte(unsigned(monitor_sp(7 downto 0)),ShowRegisters15);
+          when ShowRegisters15 => try_output_char(' ',ShowRegisters16);
+          when ShowRegisters16 => print_hex_byte(unsigned(monitor_p),ShowRegisters17);
+          when ShowRegisters17 => try_output_char(' ',NextCommand);
           when EraseCharacter => try_output_char(' ',EraseCharacter1);
           when EraseCharacter1 => try_output_char(bs,AcceptingInput);
           when SyntaxError =>
