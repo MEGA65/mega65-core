@@ -442,6 +442,7 @@ begin
     monitor_mem_trace_toggle => monitor_mem_trace_toggle,
 
     slowram_addr => slowram_addr,
+    slowram_we => slowram_we,
     slowram_ce => slowram_ce,
     slowram_oe => slowram_oe,
     slowram_lb => slowram_lb,
