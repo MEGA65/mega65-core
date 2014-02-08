@@ -685,6 +685,7 @@ begin
   begin  -- load_processor_flags
     flag_n <= value(7);
     flag_v <= value(6);
+    -- C65/4502 specifications says that E is not set by PLP, only by SEE/CLE
     flag_d <= value(3);
     flag_i <= value(2);
     flag_z <= value(1);
