@@ -126,6 +126,7 @@ architecture behavioural of uart_monitor is
                          ShowRegisters9,ShowRegisters10,ShowRegisters11,ShowRegisters12,
                          ShowRegisters13,ShowRegisters14,ShowRegisters15,ShowRegisters16,
                          ShowRegisters17,
+                         ShowP1,ShowP2,ShowP3,ShowP4,ShowP5,ShowP6,ShowP7,ShowP8,
                          TraceStep,CPUBreak1,WaitOneCycle
                          );
 
@@ -774,7 +775,56 @@ begin
           when ShowRegisters14 => print_hex_byte(unsigned(monitor_sp(7 downto 0)),ShowRegisters15);
           when ShowRegisters15 => try_output_char(' ',ShowRegisters16);
           when ShowRegisters16 => print_hex_byte(unsigned(monitor_p),ShowRegisters17);
-          when ShowRegisters17 => try_output_char(' ',NextCommand);
+          when ShowRegisters17 => try_output_char(' ',ShowP1);
+          when ShowP1 =>
+            if monitor_p(7)='1' then
+              try_output_char('N',ShowP2);
+            else              
+              try_output_char('.',ShowP2);
+            end if;
+          when ShowP2 =>
+            if monitor_p(6)='1' then
+              try_output_char('V',ShowP3);
+            else              
+              try_output_char('.',ShowP3);
+            end if;
+          when ShowP3 =>
+            if monitor_p(5)='1' then
+              try_output_char('E',ShowP4);
+            else              
+              try_output_char('.',ShowP4);
+            end if;
+          when ShowP4 =>
+            if monitor_p(4)='1' then
+              try_output_char('B',ShowP5);
+            else              
+              try_output_char('.',ShowP5);
+            end if;
+          when ShowP5 =>
+            if monitor_p(3)='1' then
+              try_output_char('D',ShowP6);
+            else              
+              try_output_char('.',ShowP6);
+            end if;
+          when ShowP6 =>
+            if monitor_p(2)='1' then
+              try_output_char('I',ShowP7);
+            else              
+              try_output_char('.',ShowP7);
+            end if;
+          when ShowP7 =>
+            if monitor_p(1)='1' then
+              try_output_char('Z',ShowP8);
+            else              
+              try_output_char('.',ShowP8);
+            end if;
+          when ShowP8 =>
+            if monitor_p(0)='1' then
+              try_output_char('C',NextCommand);
+            else              
+              try_output_char('.',NextCommand);
+            end if;
+                                  
           when EraseCharacter => try_output_char(' ',EraseCharacter1);
           when EraseCharacter1 => try_output_char(bs,AcceptingInput);
           when SyntaxError =>
