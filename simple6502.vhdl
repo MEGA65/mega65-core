@@ -98,10 +98,10 @@ end entity simple6502;
 architecture Behavioural of simple6502 is
 
   signal slowram_lohi : std_logic;
-  signal slowram_counter : integer;
+  signal slowram_counter : unsigned(7 downto 0);
   -- SlowRAM has 70ns access time, so need some wait states.
   -- The wait states
-  constant slowram_waitstates : integer := 5;
+  signal slowram_waitstates : unsigned(7 downto 0) := x"05";
   
 -- CPU RAM bank selection registers.
 -- Each 4KB (12 address bits) can be made to point to a section of memory.
@@ -527,6 +527,9 @@ begin
       fastio_addr <= std_logic_vector(long_address(19 downto 0));
       fastio_write <= '1';
       fastio_wdata <= std_logic_vector(value);
+      if long_address = x"FFC00A0" then
+        slowram_waitstates <= value;
+      end if;
       -- No wait states on I/O write, so proceed directly to the next state
       state <= next_state;
     else
@@ -1599,7 +1602,7 @@ end c65_map_instruction;
               slowram_oe <= '0';
               slowram_lb <= '0';
               slowram_ub <= '0';
-              slowram_counter <= 0;
+              slowram_counter <= x"00";
               state <= SlowRamRead2;
             when SlowRamRead2 =>
               if slowram_counter=slowram_waitstates then
@@ -1613,7 +1616,7 @@ end c65_map_instruction;
               slowram_we <= '0';
               slowram_lb <= slowram_lohi;
               slowram_ub <= not slowram_lohi;
-              slowram_counter <= 0;
+              slowram_counter <= x"00";
               state <= SlowRamWrite2;
             when SlowRamWrite2 =>
               if slowram_counter=slowram_waitstates then
@@ -1639,7 +1642,7 @@ end c65_map_instruction;
   -- inputs : ram_bank_registers_read
   -- outputs: fastio_*
   fastio: process (ram_bank_registers_read,fastio_addr,fastio_read,
-                   irq,irq_pending,recent_states)
+                   irq,irq_pending,recent_states,clock)
     variable address : unsigned(19 downto 0);
     variable rwx : integer;
     variable lohi : std_logic;
@@ -1656,6 +1659,7 @@ end c65_map_instruction;
         when 0 => value := ram_bank_registers_read(reg_num);
         when 1 => value := ram_bank_registers_read(reg_num);
         when 2 => value := ram_bank_registers_read(reg_num);
+        when 5 => value := x"FF" & slowram_waitstates;
         when 6 => value := x"EEE" & irq & irq_pending & nmi & nmi_pending;
         when 7 => value := recent_states(reg_num);
         when others => value := x"F00D";
