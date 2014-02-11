@@ -821,25 +821,25 @@ begin
         fastio_rdata(3 downto 0) <= std_logic_vector(vicii_sprite_pointer_address(27 downto 24));
       elsif register_number=112 then
         fastio_rdata <= palette_bank_fastio & palette_bank_chargen & palette_bank_sprites & "11";
-      elsif register_number=240 then
+      elsif register_number=113 then
         fastio_rdata <= std_logic_vector(x_chargen_start_minus17(7 downto 0));
-      elsif register_number=241 then
+      elsif register_number=114 then
         fastio_rdata <= "0000"&std_logic_vector(x_chargen_start_minus17(11 downto 8));
-      elsif register_number=242 then
+      elsif register_number=115 then
         fastio_rdata <= std_logic_vector(debug_next_card_number(7 downto 0));
-      elsif register_number=243 then
+      elsif register_number=116 then
         fastio_rdata <= std_logic_vector(debug_next_card_number(15 downto 8));
-      elsif register_number=244 then
+      elsif register_number=117 then
         fastio_rdata <= std_logic_vector(debug_cycles_to_next_card(7 downto 0));
-      elsif register_number=245 then
+      elsif register_number=118 then
         fastio_rdata <= "000000" & debug_chargen_active & debug_chargen_active_soon;
-      elsif register_number=246 then
+      elsif register_number=124 then
         fastio_rdata <= std_logic_vector(to_unsigned(debug_char_fetch_cycle,8));
-      elsif register_number=247 then
+      elsif register_number=125 then
         fastio_rdata <= debug_charaddress(7 downto 0);
-      elsif register_number=248 then
+      elsif register_number=126 then
         fastio_rdata <= "0000" & debug_charaddress(11 downto 8);
-      elsif register_number=249 then
+      elsif register_number=127 then
         fastio_rdata <= debug_charrow;
       elsif register_number<256 then
                                         -- Fill in unused register space
@@ -1122,16 +1122,16 @@ begin
           palette_bank_fastio <= fastio_wdata(7 downto 6);
           palette_bank_chargen <= fastio_wdata(5 downto 4);
           palette_bank_sprites <= fastio_wdata(3 downto 2);
-        elsif register_number=252 then
+        elsif register_number=124 then
           debug_x(7 downto 0) <= unsigned(fastio_wdata);
-        elsif register_number=253 then
+        elsif register_number=125 then
           debug_x(11 downto 8) <= unsigned(fastio_wdata(3 downto 0));
-        elsif register_number=254 then
+        elsif register_number=126 then
           debug_y(7 downto 0) <= unsigned(fastio_wdata);
-        elsif register_number=255 then
+        elsif register_number=127 then
           debug_y(11 downto 8) <= unsigned(fastio_wdata(3 downto 0));
-        elsif register_number<256 then
-          -- reserved register
+        elsif register_number<255 then
+          -- reserved register, FDC and RAM expansion controller
           null;
         elsif register_number>=256 and register_number<512 then
           -- red palette
