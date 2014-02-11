@@ -4,7 +4,7 @@ use ieee.numeric_std.all;
 
 --
 entity THEROM is
-port (Clk : in std_logic;
+  port (Clk : in std_logic;
         address : in std_logic_vector(12 downto 0);
         -- Yes, we do have a write enable, because we allow modification of ROMs
         -- in the running machine, unless purposely disabled.  This gives us
@@ -14,21 +14,21 @@ port (Clk : in std_logic;
         cs : in std_logic;
         data_i : in std_logic_vector(7 downto 0);
         data_o : out std_logic_vector(7 downto 0)
-     );
+        );
 end THEROM;
 
 architecture Behavioral of THEROM is
 
 -- 8K x 8bit pre-initialised RAM
-type ram_t is array (0 to 8191) of std_logic_vector(7 downto 0);
-signal ram : ram_t := (ROMDATA);
+  type ram_t is array (0 to 8191) of std_logic_vector(7 downto 0);
+  signal ram : ram_t := (ROMDATA);
 
 begin
 
 --process for read and write operation.
-PROCESS(Clk)
-BEGIN
-   if(rising_edge(Clk)) then 
+  PROCESS(Clk,cs,ram)
+  BEGIN
+    if(rising_edge(Clk)) then 
       if cs='1' then
         if(we='1') then
           ram(to_integer(unsigned(address))) <= data_i;
@@ -41,6 +41,6 @@ BEGIN
     else
       data_o <= "ZZZZZZZZ";
     end if;
- END PROCESS;
+  END PROCESS;
 
 end Behavioral;
