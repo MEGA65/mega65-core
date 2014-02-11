@@ -448,8 +448,10 @@ begin
         --or long_address(19 downto 8)=x"D1C" or long_address(19 downto 8)=x"D1D"
         --or long_address(19 downto 8)=x"D2C" or long_address(19 downto 8)=x"D2D"
         --or long_address(19 downto 8)=x"D3C" or long_address(19 downto 8)=x"D3D"
-        or long_address(19 downto 8)=x"D00" or long_address(19 downto 8)=x"D10"
-        or long_address(19 downto 8)=x"D20" or long_address(19 downto 8)=x"D30"
+        -- F011 FDC @ $D080-$D09F requires a wait state, but only appears in the
+        -- enhanced image pages.
+        or long_address(19 downto 8)=x"D00" or long_address(19 downto 7)=x"D10"&'0'
+        or long_address(19 downto 8)=x"D20" or long_address(19 downto 7)=x"D30"&'0'
       then 
         state <= next_state;
       else
