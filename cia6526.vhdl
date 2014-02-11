@@ -159,7 +159,10 @@ begin  -- behavioural
           reg_timerb_tick_source,reg_timerb_oneshot,
           reg_timerb_toggle_or_pulse,reg_timerb_pb7_out,
           reg_timerb_start,
-          reg_porta_read,reg_portb_read
+          reg_porta_read,reg_portb_read,
+          reg_tod_secs,reg_tod_mins,reg_tod_dsecs,
+          read_tod_secs,read_tod_mins,read_tod_dsecs,read_tod_hours,
+          reg_timera_pb6_out,reg_timera_start
           ) is
     variable register_number : unsigned(7 downto 0);
   begin
@@ -235,7 +238,7 @@ begin  -- behavioural
     end if;
   end process;
 
-  process(cpuclock) is
+  process(cpuclock,fastio_addr) is
     -- purpose: use DDR to show either input or output bits
     function ddr_pick (
       ddr                            : in std_logic_vector(7 downto 0);
