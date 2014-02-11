@@ -20,6 +20,14 @@ entity iomapper is
         ps2clock : in std_logic;
         last_scan_code : out unsigned(11 downto 0);
 
+        -------------------------------------------------------------------------
+        -- Lines for the SDcard interface itself
+        -------------------------------------------------------------------------
+        cs_bo : out std_logic;
+        sclk_o : out std_logic;
+        mosi_o : out std_logic;
+        miso_i : in  std_logic;
+        
         seg_led : out unsigned(31 downto 0);
         
         colourram_at_dc00 : in std_logic
@@ -64,6 +72,30 @@ architecture behavioral of iomapper is
       data_o : out std_logic_vector(7 downto 0));
   end component;
 
+  component sdcardio is
+    port (
+      clock : in std_logic;
+      reset : in std_logic;
+
+      ---------------------------------------------------------------------------
+      -- fast IO port (clocked at core clock). 1MB address space
+      ---------------------------------------------------------------------------
+      fastio_addr : in unsigned(19 downto 0);
+      fastio_read : in std_logic;
+      fastio_write : in std_logic;
+      fastio_wdata : in unsigned(7 downto 0);
+      fastio_rdata : out unsigned(7 downto 0);
+
+      -------------------------------------------------------------------------
+      -- Lines for the SDcard interface itself
+      -------------------------------------------------------------------------
+      cs_bo : out std_logic;
+      sclk_o : out std_logic;
+      mosi_o : out std_logic;
+      miso_i : in  std_logic
+      );
+  end component;
+  
   component cia6526 is
     port (
       cpuclock : in std_logic;
@@ -110,16 +142,7 @@ architecture behavioral of iomapper is
       porta_out : out std_logic_vector(7 downto 0);
       portb_out : out std_logic_vector(7 downto 0);
 
-      last_scan_code : out unsigned(11 downto 0);
-
-      ---------------------------------------------------------------------------
-      -- Fastio interface to recent keyboard scan codes
-      ---------------------------------------------------------------------------    
-      fastio_address : in std_logic_vector(19 downto 0);
-      fastio_write : in std_logic;
-      fastio_wdata : in std_logic_vector(7 downto 0);
-      fastio_rdata : out std_logic_vector(7 downto 0)
-
+      last_scan_code : out unsigned(11 downto 0)
       );
   end component;
 
@@ -166,13 +189,13 @@ begin
     data_i  => data_i,
     data_o  => data_o);
 
-  hesmonc000rom : hesmonc000 port map (
-    clk     => clk,
-    address => address(12 downto 0),
-    we      => w,
-    cs      => hesmonc000cs,
-    data_i  => data_i,
-    data_o  => data_o);
+  --hesmonc000rom : hesmonc000 port map (
+  --  clk     => clk,
+  --  address => address(12 downto 0),
+  --  we      => w,
+  --  cs      => hesmonc000cs,
+  --  data_i  => data_i,
+  --  data_o  => data_o);
   
   cia1: cia6526 port map (
     cpuclock => clk,
@@ -220,15 +243,26 @@ begin
     ps2data        => ps2data,
     porta_in       => cia1porta_out,
     porta_out      => cia1porta_in,
-    portb_out      => cia1portb_in,
+    portb_out      => cia1portb_in
 --    last_scan_code => last_scan_code,
-
-    fastio_address => address,
-    fastio_write => w,
-    fastio_wdata => x"FF",
-    std_logic_vector(fastio_rdata) => data_o
     );
 
+  sdcard0 : sdcardio port map (
+    clock => clk,
+    reset => reset,
+
+    fastio_addr => unsigned(address),
+    fastio_write => w,
+    fastio_read => r,
+    fastio_wdata => unsigned(data_i),
+    std_logic_vector(fastio_rdata) => data_o,
+
+    cs_bo => cs_bo,
+    sclk_o => sclk_o,
+    mosi_o => mosi_o,
+    miso_i => miso_i
+    );
+  
   process(clk)
   begin
     if rising_edge(clk) then
@@ -298,6 +332,7 @@ begin
       kernel65cs <= '0';
       kernel64cs <= '0';
       basic64cs <= '0';
+      hesmonc000cs <= '0';
     end if;
   end process;
 

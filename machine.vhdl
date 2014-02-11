@@ -47,6 +47,14 @@ entity machine is
          vgagreen : out  UNSIGNED (3 downto 0);
          vgablue : out  UNSIGNED (3 downto 0);
 
+         -------------------------------------------------------------------------
+         -- Lines for the SDcard interface itself
+         -------------------------------------------------------------------------
+         cs_bo : out std_logic;
+         sclk_o : out std_logic;
+         mosi_o : out std_logic;
+         miso_i : in  std_logic;
+
          ---------------------------------------------------------------------------
          -- Interface to Slow RAM (16MB cellular RAM chip)
          ---------------------------------------------------------------------------
@@ -239,6 +247,14 @@ architecture Behavioral of machine is
 
           seg_led : out unsigned(31 downto 0);
 
+          -------------------------------------------------------------------------
+          -- Lines for the SDcard interface itself
+          -------------------------------------------------------------------------
+          cs_bo : out std_logic;
+          sclk_o : out std_logic;
+          mosi_o : out std_logic;
+          miso_i : in  std_logic;
+
           ps2data : in std_logic;
           ps2clock : in std_logic;
           last_scan_code : out unsigned(11 downto 0)
@@ -359,25 +375,25 @@ begin
         digit := std_logic_vector(seg_led_data(27 downto 24));
       elsif segled_counter(19 downto 17)=7 then
         digit := std_logic_vector(seg_led_data(31 downto 28));
-      --if segled_counter(19 downto 17)=3 then
-      --  digit := monitor_pc(15 downto 12);
-      --elsif segled_counter(19 downto 17)=2 then
-      --  digit := monitor_pc(11 downto 8);
-      --elsif segled_counter(19 downto 17)=1 then
-      --  digit := monitor_pc(7 downto 4);
-      --elsif segled_counter(19 downto 17)=0 then
-      --  digit := monitor_pc(3 downto 0);
-      --elsif segled_counter(19 downto 17)=4 then
-      --  digit := monitor_state(3 downto 0);
-      ----elsif segled_counter(19 downto 17)=5 then
-      ----  digit := monitor_state(7 downto 4);
-      --elsif segled_counter(19 downto 17)=5 then
-      --  digit := std_logic_vector(last_scan_code(3 downto 0));
-      --elsif segled_counter(19 downto 17)=6 then
-      --  digit := std_logic_vector(last_scan_code(7 downto 4));
-      --elsif segled_counter(19 downto 17)=7 then
-      --  digit := std_logic_vector(last_scan_code(11 downto 8));
-      --else
+        --if segled_counter(19 downto 17)=3 then
+        --  digit := monitor_pc(15 downto 12);
+        --elsif segled_counter(19 downto 17)=2 then
+        --  digit := monitor_pc(11 downto 8);
+        --elsif segled_counter(19 downto 17)=1 then
+        --  digit := monitor_pc(7 downto 4);
+        --elsif segled_counter(19 downto 17)=0 then
+        --  digit := monitor_pc(3 downto 0);
+        --elsif segled_counter(19 downto 17)=4 then
+        --  digit := monitor_state(3 downto 0);
+        ----elsif segled_counter(19 downto 17)=5 then
+        ----  digit := monitor_state(7 downto 4);
+        --elsif segled_counter(19 downto 17)=5 then
+        --  digit := std_logic_vector(last_scan_code(3 downto 0));
+        --elsif segled_counter(19 downto 17)=6 then
+        --  digit := std_logic_vector(last_scan_code(7 downto 4));
+        --elsif segled_counter(19 downto 17)=7 then
+        --  digit := std_logic_vector(last_scan_code(11 downto 8));
+        --else
         digit := "UUUU";
       end if;
 
@@ -461,36 +477,37 @@ begin
     fastio_write => fastio_write,
     fastio_wdata => fastio_wdata,
     fastio_rdata => fastio_rdata
-  );
-  
-  vga0: vga
-    port map (
-      pixelclock      => pixelclock,
-      cpuclock        => cpuclock,
+    );
 
-      irq             => vic_irq,
+  -- no video out for quick debug builds.
+  --vga0: vga
+  --  port map (
+  --    pixelclock      => pixelclock,
+  --    cpuclock        => cpuclock,
+
+  --    irq             => vic_irq,
       
-      vsync           => vsync,
-      hsync           => hsync,
-      vgared          => vgared,
-      vgagreen        => vgagreen,
-      vgablue         => vgablue,
+  --    vsync           => vsync,
+  --    hsync           => hsync,
+  --    vgared          => vgared,
+  --    vgagreen        => vgagreen,
+  --    vgablue         => vgablue,
 
-      fastram_we => fastram_we,
-      fastram_read => fastram_read,
-      fastram_write => fastram_write,
-      fastram_address => fastram_address,
-      fastram_datain => fastram_datain,
-      fastram_dataout => fastram_dataout,    
-           
-      fastio_addr     => fastio_addr,
-      fastio_read     => fastio_read,
-      fastio_write    => fastio_write,
-      fastio_wdata    => fastio_wdata,
-      fastio_rdata    => fastio_rdata,
+  --    fastram_we => fastram_we,
+  --    fastram_read => fastram_read,
+  --    fastram_write => fastram_write,
+  --    fastram_address => fastram_address,
+  --    fastram_datain => fastram_datain,
+  --    fastram_dataout => fastram_dataout,    
+      
+  --    fastio_addr     => fastio_addr,
+  --    fastio_read     => fastio_read,
+  --    fastio_write    => fastio_write,
+  --    fastio_wdata    => fastio_wdata,
+  --    fastio_rdata    => fastio_rdata,
 
-      colourram_at_dc00 => colourram_at_dc00
-      );
+  --    colourram_at_dc00 => colourram_at_dc00
+  --    );
   
   iomapper0: iomapper port map (
     clk => cpuclock,
@@ -502,6 +519,12 @@ begin
     data_i => fastio_wdata, data_o => fastio_rdata,
     colourram_at_dc00 => colourram_at_dc00,
     seg_led => seg_led_data,
+
+    cs_bo => cs_bo,
+    sclk_o => sclk_o,
+    mosi_o => mosi_o,
+    miso_i => miso_i,
+    
     ps2data => ps2data,
     ps2clock => ps2clock,
     last_scan_code => last_scan_code);
@@ -536,7 +559,7 @@ begin
     monitor_mem_trace_mode => monitor_mem_trace_mode,
     monitor_mem_stage_trace_mode => monitor_mem_stage_trace_mode,
     monitor_mem_trace_toggle => monitor_mem_trace_toggle
-);
+  );
   
 end Behavioral;
 

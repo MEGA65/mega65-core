@@ -47,6 +47,14 @@ entity container is
          vgagreen : out  UNSIGNED (3 downto 0);
          vgablue : out  UNSIGNED (3 downto 0);
 
+         -------------------------------------------------------------------------
+         -- Lines for the SDcard interface itself
+         -------------------------------------------------------------------------
+         sdReset : out std_logic := '0';  -- must be 0 to power SD controller (cs_bo)
+         sdClock : out std_logic;       -- (sclk_o)
+         sdMOSI : out std_logic;      
+         sdMISO : in  std_logic;
+
          ----------------------------------------------------------------------
          -- PS/2 keyboard interface
          ----------------------------------------------------------------------
@@ -117,6 +125,14 @@ architecture Behavioral of container is
          vgared : out  UNSIGNED (3 downto 0);
          vgagreen : out  UNSIGNED (3 downto 0);
          vgablue : out  UNSIGNED (3 downto 0);
+
+         -------------------------------------------------------------------------
+         -- Lines for the SDcard interface itself
+         -------------------------------------------------------------------------
+         cs_bo : out std_logic;
+         sclk_o : out std_logic;
+         mosi_o : out std_logic;
+         miso_i : in  std_logic;
 
          ---------------------------------------------------------------------------
          -- Interface to Slow RAM (16MB cellular RAM chip)
@@ -189,6 +205,14 @@ begin
       vgagreen        => vgagreen,
       vgablue         => vgablue,
 
+      -------------------------------------------------------------------------
+      -- Lines for the SDcard interface itself
+      -------------------------------------------------------------------------
+      cs_bo => sdReset,
+      sclk_o => sdClock,
+      mosi_o => sdMOSI,
+      miso_i => sdMISO,     
+      
       ps2data =>      ps2data,
       ps2clock =>     ps2clk,
 

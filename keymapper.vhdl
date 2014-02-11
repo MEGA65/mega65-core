@@ -16,36 +16,12 @@ entity keymapper is
     porta_out : out std_logic_vector(7 downto 0);
     portb_out : out std_logic_vector(7 downto 0);
 
-    last_scan_code : out unsigned(11 downto 0) := x"0FF";
-
-    ---------------------------------------------------------------------------
-    -- Fastio interface to recent keyboard scan codes
-    ---------------------------------------------------------------------------    
-    fastio_address : in std_logic_vector(19 downto 0);
-    fastio_write : in std_logic;
-    fastio_wdata : in std_logic_vector(7 downto 0);
-    fastio_rdata : out std_logic_vector(7 downto 0)
+    last_scan_code : out unsigned(11 downto 0) := x"0FF"
     );
 
 end keymapper;
 
 architecture behavioural of keymapper is
-
-  component ram8x256 IS
-    PORT (
-      clka : IN STD_LOGIC;
-      ena : IN STD_LOGIC;
-      wea : IN STD_LOGIC_VECTOR(0 DOWNTO 0);
-      addra : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
-      dina : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
-      douta : OUT STD_LOGIC_VECTOR(7 DOWNTO 0);
-      clkb : IN STD_LOGIC;
-      web : IN STD_LOGIC_VECTOR(0 DOWNTO 0);
-      addrb : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
-      dinb : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
-      doutb : OUT STD_LOGIC_VECTOR(7 DOWNTO 0)
-      );
-  END component;
 
   type ps2_state is (Idle,StartBit,Bit0,Bit1,Bit2,Bit3,Bit4,Bit5,Bit6,Bit7,
                      ParityBit,StopBit);
@@ -69,54 +45,12 @@ architecture behavioural of keymapper is
 
   signal recent_scan_code_list_index : unsigned(7 downto 0) := x"01";
 
-  signal keymem_write : std_logic := '0';
-  signal keymem_addr : unsigned(7 downto 0) := x"00";
-  signal keymem_data : unsigned(7 downto 0) := x"00";
-
-  signal keymem_fastio_cs : std_logic;
-
-  signal douta : std_logic_vector(7 downto 0);
-
   signal extended : std_logic := '0';
   signal break : std_logic := '0';
 
-  type matrix_t is array (0 to 7) of std_logic_vector(7 downto 0);
-  signal matrix : matrix_t := (others => (others =>'1'));
+  signal matrix : std_logic_vector(63 downto 0) := (others =>'1');
   
 begin  -- behavioural
-
-  keymem1: component ram8x256
-    port map (
-      -- Port for fastio system to read from.      
-      clka => clk,
-      ena => keymem_fastio_cs,
-      wea(0) => '0',
-      addra => fastio_address(7 downto 0),
-      dina => (others => '1'),
-      douta => douta,
-
-      -- Port for us to write to
-      clkb => clk,
-      web(0) => keymem_write,
-      addrb => std_logic_vector(keymem_addr),
-      dinb => std_logic_vector(keymem_data)
-      );
-
-
-  -- Map recent key presses to $FFD4000 - $FFD40FF
-  -- (this is a read only register set)
-  fastio: process (fastio_address,fastio_write)
-  begin  -- process fastio
-    if fastio_address(19 downto 8) = x"D40" and fastio_write='0' then
-      keymem_fastio_cs <= '1';
-      fastio_rdata <= douta;
-    elsif fastio_address(19 downto 4) = x"D410" and fastio_write='0' then
-      fastio_rdata <= matrix(to_integer(unsigned(fastio_address(3 downto 0))));
-    else
-      keymem_fastio_cs <= '0';
-      fastio_rdata <= (others => 'Z');
-    end if;
-  end process fastio;
 
 -- purpose: read from ps2 keyboard interface
   keyread: process (clk, ps2data,ps2clock)
@@ -154,7 +88,6 @@ begin  -- behavioural
         ps2timer <= 0;
         case ps2state is
           when Idle => ps2state <= StartBit; scan_code <= x"FF"; parity <= '0';
-                       keymem_write <= '0';
           when StartBit => ps2state <= Bit0; scan_code(0) <= ps2data_debounced;
                            parity <= parity xor ps2data_debounced;
           when Bit0 => ps2state <= Bit1; scan_code(1) <= ps2data_debounced;
@@ -174,10 +107,6 @@ begin  -- behavioural
           when Bit7 => ps2state <= parityBit;
                        -- if parity = ps2data then 
                        -- Valid PS2 symbol
-
-                       keymem_addr <= recent_scan_code_list_index;
-                       keymem_data <= scan_code;
-                       keymem_write <= '1';
 
                        -- XXX Make a little FSM to set bit 8 on E0 xx sequences
                        -- so that we can have a 9-bit number to look up.
@@ -211,77 +140,77 @@ begin  -- behavioural
                          -- RESTORE - 0E (`/~ key)
 
                          case full_scan_code is
-                           when x"066" => matrix(0) <= (matrix(0) and x"FE") or "0000000"&break;
-                           when x"05A" => matrix(0) <= (matrix(0) and x"FD") or "000000"&break&"0";
-                           when x"174" => matrix(0) <= (matrix(0) and x"FB") or "00000"&break&"00";
-                           when x"083" => matrix(0) <= (matrix(0) and x"F7") or "0000"&break&"000";
-                           when x"005" => matrix(0) <= (matrix(0) and x"EF") or "000"&break&"0000";
-                           when x"004" => matrix(0) <= (matrix(0) and x"DF") or "00"&break&"00000";
-                           when x"003" => matrix(0) <= (matrix(0) and x"BF") or "0"&break&"000000";
-                           when x"072" => matrix(0) <= (matrix(0) and x"7F") or break&"0000000";
+                           when x"066" => matrix(0) <= break;
+                           when x"05A" => matrix(1) <= break;
+                           when x"174" => matrix(2) <= break;
+                           when x"083" => matrix(3) <= break;
+                           when x"005" => matrix(4) <= break;
+                           when x"004" => matrix(5) <= break;
+                           when x"003" => matrix(6) <= break;
+                           when x"072" => matrix(7) <= break;
 
-                           when x"026" => matrix(1) <= (matrix(1) and x"FE") or "0000000"&break;
-                           when x"01D" => matrix(1) <= (matrix(1) and x"FD") or "000000"&break&"0";
-                           when x"01C" => matrix(1) <= (matrix(1) and x"FB") or "00000"&break&"00";
-                           when x"025" => matrix(1) <= (matrix(1) and x"F7") or "0000"&break&"000";
-                           when x"01A" => matrix(1) <= (matrix(1) and x"EF") or "000"&break&"0000";
-                           when x"01B" => matrix(1) <= (matrix(1) and x"DF") or "00"&break&"00000";
-                           when x"024" => matrix(1) <= (matrix(1) and x"BF") or "0"&break&"000000";
-                           when x"012" => matrix(1) <= (matrix(1) and x"7F") or break&"0000000";                                          
+                           when x"026" => matrix(8) <= break;
+                           when x"01D" => matrix(9) <= break;
+                           when x"01C" => matrix(10) <= break;
+                           when x"025" => matrix(11) <= break;
+                           when x"01A" => matrix(12) <= break;
+                           when x"01B" => matrix(13) <= break;
+                           when x"024" => matrix(14) <= break;
+                           when x"012" => matrix(15) <= break;
                                           
-                           when x"02E" => matrix(2) <= (matrix(2) and x"FE") or "0000000"&break;
-                           when x"02D" => matrix(2) <= (matrix(2) and x"FD") or "000000"&break&"0";
-                           when x"023" => matrix(2) <= (matrix(2) and x"FB") or "00000"&break&"00";
-                           when x"036" => matrix(2) <= (matrix(2) and x"F7") or "0000"&break&"000";
-                           when x"021" => matrix(2) <= (matrix(2) and x"EF") or "000"&break&"0000";
-                           when x"02B" => matrix(2) <= (matrix(2) and x"DF") or "00"&break&"00000";
-                           when x"02C" => matrix(2) <= (matrix(2) and x"BF") or "0"&break&"000000";
-                           when x"022" => matrix(2) <= (matrix(2) and x"7F") or break&"0000000";
+                           when x"02E" => matrix(16) <= break;
+                           when x"02D" => matrix(17) <= break;
+                           when x"023" => matrix(18) <= break;
+                           when x"036" => matrix(19) <= break;
+                           when x"021" => matrix(20) <= break;
+                           when x"02B" => matrix(21) <= break;
+                           when x"02C" => matrix(22) <= break;
+                           when x"022" => matrix(23) <= break;
 
-                           when x"03D" => matrix(3) <= (matrix(3) and x"FE") or "0000000"&break;
-                           when x"035" => matrix(3) <= (matrix(3) and x"FD") or "000000"&break&"0";
-                           when x"034" => matrix(3) <= (matrix(3) and x"FB") or "00000"&break&"00";
-                           when x"03E" => matrix(3) <= (matrix(3) and x"F7") or "0000"&break&"000";
-                           when x"032" => matrix(3) <= (matrix(3) and x"EF") or "000"&break&"0000";
-                           when x"033" => matrix(3) <= (matrix(3) and x"DF") or "00"&break&"00000";
-                           when x"03C" => matrix(3) <= (matrix(3) and x"BF") or "0"&break&"000000";
-                           when x"02A" => matrix(3) <= (matrix(3) and x"7F") or break&"0000000";                                          
+                           when x"03D" => matrix(24) <= break;
+                           when x"035" => matrix(25) <= break;
+                           when x"034" => matrix(26) <= break;
+                           when x"03E" => matrix(27) <= break;
+                           when x"032" => matrix(28) <= break;
+                           when x"033" => matrix(29) <= break;
+                           when x"03C" => matrix(30) <= break;
+                           when x"02A" => matrix(31) <= break;
                                           
-                           when x"046" => matrix(4) <= (matrix(4) and x"FE") or "0000000"&break;
-                           when x"043" => matrix(4) <= (matrix(4) and x"FD") or "000000"&break&"0";
-                           when x"03B" => matrix(4) <= (matrix(4) and x"FB") or "00000"&break&"00";
-                           when x"045" => matrix(4) <= (matrix(4) and x"F7") or "0000"&break&"000";
-                           when x"03A" => matrix(4) <= (matrix(4) and x"EF") or "000"&break&"0000";
-                           when x"042" => matrix(4) <= (matrix(4) and x"DF") or "00"&break&"00000";
-                           when x"044" => matrix(4) <= (matrix(4) and x"BF") or "0"&break&"000000";
-                           when x"031" => matrix(4) <= (matrix(4) and x"7F") or break&"0000000";
+                           when x"046" => matrix(32) <= break;
+                           when x"043" => matrix(33) <= break;
+                           when x"03B" => matrix(34) <= break;
+                           when x"045" => matrix(35) <= break;
+                           when x"03A" => matrix(36) <= break;
+                           when x"042" => matrix(37) <= break;
+                           when x"044" => matrix(38) <= break;
+                           when x"031" => matrix(39) <= break;
                                           
-                           when x"055" => matrix(5) <= (matrix(5) and x"FE") or "0000000"&break;
-                           when x"04D" => matrix(5) <= (matrix(5) and x"FD") or "000000"&break&"0";
-                           when x"04B" => matrix(5) <= (matrix(5) and x"FB") or "00000"&break&"00";
-                           when x"04E" => matrix(5) <= (matrix(5) and x"F7") or "0000"&break&"000";
-                           when x"049" => matrix(5) <= (matrix(5) and x"EF") or "000"&break&"0000";
-                           when x"054" => matrix(5) <= (matrix(5) and x"DF") or "00"&break&"00000";
-                           when x"05B" => matrix(5) <= (matrix(5) and x"BF") or "0"&break&"000000";
-                           when x"041" => matrix(5) <= (matrix(5) and x"7F") or break&"0000000";
+                           when x"055" => matrix(40) <= break;
+                           when x"04D" => matrix(41) <= break;
+                           when x"04B" => matrix(42) <= break;
+                           when x"04E" => matrix(43) <= break;
+                           when x"049" => matrix(44) <= break;
+                           when x"054" => matrix(45) <= break;
+                           when x"05B" => matrix(46) <= break;
+                           when x"041" => matrix(47) <= break;
                                           
-                           when x"052" => matrix(6) <= (matrix(6) and x"FE") or "0000000"&break;
-                           when x"05D" => matrix(6) <= (matrix(6) and x"FD") or "000000"&break&"0";
-                           when x"04C" => matrix(6) <= (matrix(6) and x"FB") or "00000"&break&"00";
-                           when x"16C" => matrix(6) <= (matrix(6) and x"F7") or "0000"&break&"000";
-                           when x"059" => matrix(6) <= (matrix(6) and x"EF") or "000"&break&"0000";
-                           when x"169" => matrix(6) <= (matrix(6) and x"DF") or "00"&break&"00000";
-                           when x"075" => matrix(6) <= (matrix(6) and x"BF") or "0"&break&"000000";
-                           when x"04A" => matrix(6) <= (matrix(6) and x"7F") or break&"0000000";
+                           when x"052" => matrix(48) <= break;
+                           when x"05D" => matrix(49) <= break;
+                           when x"04C" => matrix(50) <= break;
+                           when x"16C" => matrix(51) <= break;
+                           when x"059" => matrix(52) <= break;
+                           when x"169" => matrix(53) <= break;
+                           when x"075" => matrix(54) <= break;
+                           when x"04A" => matrix(55) <= break;
 
-                           when x"016" => matrix(7) <= (matrix(7) and x"FE") or "0000000"&break;
-                           when x"06B" => matrix(7) <= (matrix(7) and x"FD") or "000000"&break&"0";
-                           when x"014" => matrix(7) <= (matrix(7) and x"FB") or "00000"&break&"00";
-                           when x"01E" => matrix(7) <= (matrix(7) and x"F7") or "0000"&break&"000";
-                           when x"029" => matrix(7) <= (matrix(7) and x"EF") or "000"&break&"0000";
-                           when x"011" => matrix(7) <= (matrix(7) and x"DF") or "00"&break&"00000";
-                           when x"015" => matrix(7) <= (matrix(7) and x"BF") or "0"&break&"000000";
-                           when x"076" => matrix(7) <= (matrix(7) and x"7F") or break&"0000000";
+                           when x"016" => matrix(56) <= break;
+                           when x"06B" => matrix(57) <= break;
+                           when x"014" => matrix(58) <= break;
+                           when x"01E" => matrix(59) <= break;
+                           when x"029" => matrix(60) <= break;
+                           when x"011" => matrix(61) <= break;
+                           when x"015" => matrix(62) <= break;
+                           when x"076" => matrix(63) <= break;
 
                            when others => null;
                          end case;
@@ -305,12 +234,8 @@ begin  -- behavioural
           when ParityBit =>  ps2state <= Idle;  -- was StopBit.  See if
                                                 -- changing this fixed munching
                                                 -- of first bit of back-to-back bytes.
-                             keymem_addr <= x"00";
-                             keymem_data <= recent_scan_code_list_index;
-                             keymem_write <= '1';
 
           when StopBit => ps2state <= Idle;
-                          keymem_write <= '0';
           when others => ps2state <= Idle;
         end case;        
       end if;      
@@ -363,14 +288,13 @@ begin  -- behavioural
       -- This means that we read from porta_in, to compute values for portb_out
       
       portb_value := x"FF";
-      if porta_in(0)='0' then portb_value:=portb_value and matrix(0); end if;
-      if porta_in(1)='0' then portb_value:=portb_value and matrix(1); end if;
-      if porta_in(2)='0' then portb_value:=portb_value and matrix(2); end if;
-      if porta_in(3)='0' then portb_value:=portb_value and matrix(3); end if;
-      if porta_in(4)='0' then portb_value:=portb_value and matrix(4); end if;
-      if porta_in(5)='0' then portb_value:=portb_value and matrix(5); end if;
-      if porta_in(6)='0' then portb_value:=portb_value and matrix(6); end if;
-      if porta_in(7)='0' then portb_value:=portb_value and matrix(7); end if;
+      for i in 0 to 7 loop
+        if porta_in(i)='0' then
+          for j in 0 to 7 loop
+            portb_value(j) := portb_value(j) and matrix((i*8)+j);
+          end loop;  -- j
+        end if;        
+      end loop;
       
       -- Keyboard rows and joystick 1
       portb_out <= portb_value;

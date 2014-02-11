@@ -132,3 +132,8 @@ NET "MemAdr<19>"               LOC = "U17"     | IOSTANDARD = "LVCMOS33";       
 NET "MemAdr<20>"               LOC = "T10"     | IOSTANDARD = "LVCMOS33";              #Bank = 14, Pin name = IO_L24N_T3_A00_D16_14,          Sch name = CRAM_A20
 NET "MemAdr<21>"               LOC = "M16"     | IOSTANDARD = "LVCMOS33";              #Bank = 14, Pin name = IO_L10P_T1_D14_14,              Sch name = CRAM_A21
 NET "MemAdr<22>"               LOC = "U13"     | IOSTANDARD = "LVCMOS33";              #Bank = 14, Pin name = IO_L23N_T3_A02_D18_14,          Sch name = CRAM_A22
+
+NET "sdReset"                  LOC = "E2"  | IOSTANDARD = "LVCMOS33";          #Bank = 35, Pin name = IO_L14P_T2_SRCC_35,                                      Sch name = SD_
+NET "sdClock"                  LOC = "B1"  | IOSTANDARD = "LVCMOS33";          #Bank = 35, Pin name = IO_L9P_T1_DQS_AD7P_35,    
+NET "sdMOSI"                   LOC = "C1"  | IOSTANDARD = "LVCMOS33";          #Bank = 35, Pin name = IO_L16N_T2_35,                                           Sch name = SD
+NET "sdMISO"                   LOC = "C2"  | IOSTANDARD = "LVCMOS33";          #Bank = 35, Pin name = IO_L16P_T2_35,                                                   Sch name 
