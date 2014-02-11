@@ -117,6 +117,7 @@ architecture behavioural of uart_monitor is
                          LoadMemory1,LoadMemory2,LoadMemory3,LoadMemory4,
                          ShowMemory1,ShowMemory2,ShowMemory3,ShowMemory4,
                          ShowMemory5,ShowMemory6,ShowMemory7,ShowMemory8,
+                         ShowMemory9,
                          FillMemory1,FillMemory2,FillMemory3,FillMemory4,
                          FillMemory5,
                          SetPC1,
@@ -153,7 +154,8 @@ architecture behavioural of uart_monitor is
   
   type sixteenbytes is array (0 to 15) of unsigned(7 downto 0);
   signal membuf : sixteenbytes;
-  signal byte_number : integer;
+  signal byte_number : integer range 0 to 16;
+  signal line_number : integer range 0 to 32;
 
   signal key_state : integer := 0;
 
@@ -180,7 +182,7 @@ begin
                data_acknowledge => rx_acknowledge);
 
   -- purpose: test uart output
-  testclock: process (clock)
+  testclock: process (clock,reset)
     -- purpose: turn character into std_logic_vector(7 downto 0)
     function to_std_logic_vector (
       c : character)
@@ -620,6 +622,13 @@ begin
                 parse_position <= 2;
                 report "trying to parse hex" severity note;
                 parse_hex(ShowMemory1);
+                if cmdbuffer(1)='m' then
+                  -- m prints one line
+                  line_number <= 31;
+                else
+                  -- M prints 32 lines
+                  line_number <= 0;
+                end if;
               else
                 errorCode <= x"06";
                 state <= SyntaxError;
@@ -720,7 +729,7 @@ begin
           when ShowMemory2 =>
             if byte_number=16 then
               state <= ShowMemory4;
-            else
+            else              
               monitor_mem_read <= '1';
               monitor_mem_write <= '0';
               monitor_mem_address <= std_logic_vector(target_address + to_unsigned(byte_number,28));
@@ -738,13 +747,23 @@ begin
           when ShowMemory6 => print_hex_addr(target_address,ShowMemory7);
           when ShowMemory7 =>
             if byte_number = 16 then
-              state<=NextCommand;
+              if line_number = 32 then
+                state<=NextCommand;
+              else
+                if tx_ready='1' then
+                  line_number <= line_number + 1;
+                  target_address <= target_address + 16;
+                  byte_number <= 0;
+                  try_output_char(cr,ShowMemory9);
+                end if;
+              end if;
             else
               try_output_char(' ',ShowMemory8);
             end if;
           when ShowMemory8 =>
             byte_number <= byte_number + 1;
             print_hex_byte(membuf(byte_number),ShowMemory7);
+          when ShowMemory9 => try_output_char(lf,ShowMemory2);
           when ShowRegisters =>
             banner_position <= 1; state<= ShowRegisters1;
             monitor_mem_setpc <= '0';
