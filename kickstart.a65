@@ -1,0 +1,472 @@
+; C65GS Kick Start ROM.
+; Paul Gardner-Stephen, 2014.
+;
+; Purpose: 
+; 1. Verify checksum of ROM area of slow RAM.
+; 1. If checksum fails, load complete ROM from SD card.
+; 2. Select default disk image for F011 emulation.
+;
+; The kickstart ROM is 8KB in length, and maps at $E000-$FFF
+; essentially the same as the C64 kernel.
+;
+; Kickstart modifies RAM from $0000-$07FF (ZP, stack, 40-column
+; screen) during normal boot.
+;
+; If Kickstart needs to load the ROM from SD card, then it may
+; modify the first 64KB of fast ram.
+;
+; We will use the convention of C=0 means failure, and C=1 means
+; success.
+;
+
+; scratch space in ZP space usually used by kernel
+	.data 
+	.org $0080
+	.space zptempv 2
+	.space romslab 1
+	.space checksum 4
+	.space timerticks 1
+	.text
+
+     	    .org $E000
+
+reset_entry:
+		; get CPU state sensible
+		sei
+		cld
+		cle
+		ldx #$ff
+		txs
+		; We DO NOT need to mess with $01, because
+		; the 4510 starts up with kickstart mapped at $E000, 
+		; enhanced ($FFD3xxx) IO page mapped at $D000,
+		; and fast RAM elsewhere.
+
+		jsr resetdisplay
+		jsr resetpalette
+		jsr erasescreen
+
+		; XXX check state of current ROM
+		jsr checkromok
+		bcc loadrom
+
+		; ROM is loaded and ready, so transfer control
+		; to it.
+		jmp go64
+
+loadrom:	; ROM is not loaded, so try to load it, or prompt
+		; for user to insert SD card
+
+		; Try to read the MBR from the SD card
+tryreadmbr:
+		jsr readmbr
+		bcs gotmbr
+		inc $d020
+		jmp tryreadmbr
+		
+gotmbr:
+		; got boot loader
+		lda #$3e           ; ">" character
+		sta $07c0          ; $0400+(24*40)
+
+		; temporary infinite loop to catch us
+infinity:	inc $07e7          ; $0400+(24*40)+39
+		jmp infinity
+
+;;; ----------------------------------------------------------------------------
+;;; FAT file system routines
+;;; ----------------------------------------------------------------------------
+
+;;; ----------------------------------------------------------------------------
+;;; MBP / partition routines
+;;; ----------------------------------------------------------------------------
+
+; read master boot record. Does not sanity check anything.
+readmbr:
+		; begin by resetting SD card
+		jsr resetsd
+		bcs l7
+		rts
+
+		; MBR is sector 0
+l7:		lda #$00
+		sta $D681
+		sta $d682
+		sta $d683
+		sta $d684
+
+		jmp readsector
+
+;;; ----------------------------------------------------------------------------
+;;; SD Card access routines
+;;; ----------------------------------------------------------------------------
+readsector:
+		; assumes sector number has been loaded into 
+		; $D681 - $D684
+		; We need to check if the card is SDHC or SD.
+		; If SD, we need to shift sector number left 9 bits,
+		; as SD cards address by byte, not sector.
+
+		; XXX not implemented: failed
+		clc 
+		rts
+
+resetsd:
+		; reset the SD card.
+		; This can take O(second), so we should allow some time, 
+		; probably a second or more in each attempt.
+		;
+		; Reset involves writing $00 and then $01 to $D680, waiting
+		; for bit 0 of $D680 to clear.
+
+		; try SDHC mode first
+		lda #$41
+		sta $d680
+		jsr sdresetsequence
+		bcs resetsdok
+		; then SD mode
+		lda #$42
+		sta $d680
+		; fall through to trying SD card reset sequence
+
+sdresetsequence:
+		jsr resetsdtimeout
+		lda #$00
+		sta $d680		
+rs1:            jsr checksdtimeout
+		bcc sdresettimedout
+		lda $d680
+		and #$01
+		bne rs1
+
+		jsr resetsdtimeout
+		lda #$01
+		sta $d680		
+rs2:            jsr checksdtimeout
+		bcc sdresettimedout
+		lda $d680
+		and #$01
+		bne rs2
+
+		; reset succeeded
+resetsdok:	jsr canceltimer
+		sec
+		rts
+
+sdresettimedout: ; reset failed
+		jsr canceltimer
+		clc
+		rts
+
+canceltimer:
+	lda #$00
+	sta $dc0d
+	sei
+	rts
+
+; clear timeout for sd card reset delay
+resetsdtimeout:
+	; use CIA to generate an interrupt periodically, and count ticks
+
+	sei
+
+        lda #$95
+	sta $dc04
+	lda #$42
+	sta $dc05
+
+	lda #$81
+	sta $dc0d
+	lda $dc0e
+	and #$80
+	ora #$11
+	sta $dc0e
+
+	lda #$00
+	sta timerticks
+
+	cli
+
+	sec
+	rts
+
+checksdtimeout:
+	; time out after ~2 seconds
+	lda #120  
+	cmp timerticks       
+	rts
+
+;;; ----------------------------------------------------------------------------
+;;; ROM loading and manipulation routines
+;;; ----------------------------------------------------------------------------
+
+checkromok:
+		; calculate checksum of loaded ROM ...
+		jsr calcromsum
+		; ... then fall through to testing it
+testromsum:
+		; have checksum for all slabs.
+		; Map in ROM load record, and compare checksum
+		; Here we have to use our extension to MAP to access >1MB
+		; as only 128KB of slow ram is shadowed to $20000.
+		; again, we have to take the relative nature of MAP, so
+		; we ask for $FC000 to be mapped at $0000, which means that
+		; $4000 will correspond to $0000 (MAP instruction address
+		; space wraps around at the 1MB mark)
+		
+		; select 128MB mark for mapping lower 32KB of address space
+		lda #$80
+		ldx #$0f
+		ldy #$00
+		ldz #$00
+		map
+		; then map $FC000 + $4000 = $00000 at $4000-$7FFF
+		lda #$c0
+		ldx #$cf
+		map
+		eom
+		
+		lda $4000
+		cmp checksum
+		bne checksumfails
+		lda $4001
+		cmp checksum+1
+		bne checksumfails
+		lda $4002
+		cmp checksum+2
+		bne checksumfails
+
+		jsr resetmemmap
+
+		sec
+		rts
+
+		; check failed
+checksumfails:	clc
+		rts
+
+calcromsum:	; calculate checksum of 128KB ROM
+		
+		; use MAP to map C65 ROM address space in 16KB
+		; slabs at $4000-$7FFF.  Check sum each, and
+		; then compare checksum to ROM load record.
+		; ROMs get loaded into slow RAM at $8020000-$803FFFF,
+		; which is shadowed using C65 MAP instruction to
+		; C65 address space $20000-$3FFFF.
+		; Checksum and ROM load record are stored in
+		; $8000000 - $800FFFF, i.e., the first 64KB of
+		; slow RAM.
+		;
+		; The 4510 MAP instruction does not normally provide access to the
+		; full 28-bit address space, so we need to use a trick.
+		; We do this by interpretting a MAP instruction that says to
+		; map none of the 8KB pages, but provides an offset in the range
+		; $F0000 - $FFF00 to set the "super page" register for that 32KB
+		; moby to bits 8 to 15 of the offset.  In practice, this means
+		; to allow mapping of memory above 1MB, the MB of memory being
+		; selected is chosen by the contents of A and Y registers when 
+		; X and Z = $0F.
+		; 
+				
+		; reset checksum
+		; checksum is not all zeroes, so that if RAM initialises with
+		; all zeroes, including in the checksum field, the checksum will
+		; not pass.
+		lda #$03
+		sta checksum
+		sta checksum+1
+		sta checksum+2
+		sta checksum+3
+
+		; start with bottom 16KB of ROM
+		; we count in 16KB slabs, and ROM starts at 128KB mark,
+		; so we want to check from the 8th to 15th slabs inclusive.
+		lda #$08
+		sta romslab
+
+		; Summing can be done using normal use of MAP instruction,
+		; since slow RAM is shadowed as ROM to $20000-$3FFFF
+
+sumslab:	; romcheckslab indicates which 16KB piece.
+		; MAP uses 256-byte granularity, so we need to shift left
+		; 6 bits into A, and right 2 bits into X.
+		; We then set the upper two bits in X to indicate that the mapping
+		; applies to blocks 2 and 3.
+		; BUT MAP is relative, and since we are mapping at the 16KB mark,
+		; we need to subtract 1 lot of 16KB from the result.
+		; this is easy -- we just sbc #$01 from romslab before using it.
+		lda romslab
+		sec 
+		sbc #$01
+		lsr
+		lsr
+		ora #$c0
+		tax
+		lda romslab
+		sec
+		sbc #$01
+		asl
+		asl
+		asl
+		asl
+		asl
+		asl
+		; don't mess with mapping of upper 32KB.
+		; XXX - requires MAP to be bug fixed for interaction with ROM mapping.
+		ldy #$00
+		ldz #$00
+		map
+		eom
+		
+		; sum contents of 16KB slab
+		lda #$00
+		sta zptempv
+		lda #$40
+		sta zptempv+1
+		
+sumpage:	ldy #$00
+sumbyte:	lda checksum
+		clc
+		adc (zptempv),y
+		sta checksum
+		bcc l6
+		inc checksum+1
+		bcc l6
+		inc checksum+2
+l6:		iny
+		bne sumbyte
+		inc zptempv+1
+		lda zptempv+1
+		cmp #$80
+		bne sumpage
+		
+		inc romslab
+		lda romslab
+		cmp #$10
+		bne sumslab
+
+		jmp resetmemmap
+
+;;; ----------------------------------------------------------------------------
+;;; Display and basic IO routines
+;;; ----------------------------------------------------------------------------
+
+resetdisplay:
+		; reset screen
+		lda #$00
+		sta $D020
+		sta $D021
+		; We use VIC-II style registers as this resets video frame in
+		; least instructions, and 40 columns is fine for us.
+		lda #$1B
+		sta $D011
+		lda #$C8
+		sta $D016
+		; point VIC-IV to bottom 16KB of display memory
+		lda #$ff
+		sta $DD01
+		sta $DD00
+		rts
+
+resetpalette:
+		; reset VIC-IV palette to sensible defaults.
+		; for now, just define black and white
+		lda #$00
+		sta $D100
+		sta $D200
+		sta $D300
+		lda #$ff
+		sta $D101
+		sta $D201
+		sta $D301
+		rts
+
+; erase standard 40-column screen
+erasescreen:
+		ldx #$00
+		lda #$20
+		ldy #$01
+l3:		; fill screen with spaces
+		sta $0400,x
+		sta $0500,x
+		sta $0600,x
+		sta $0700,x
+		; colour RAM to white
+		sty $d800,x
+		sty $d900,x
+		sty $da00,x
+		sty $db00,x
+		inx
+		bne l3
+		rts
+
+; Transfer control to C64 kernel.
+; (This also allows entry to C65 mode, because the
+;  C64-mode kernel on the C65 checks if C65 mode
+;  should be entered.)
+go64:
+		; C64 IO map
+		clc
+		jsr enhanced_io
+		; copy routine to stack to switch to
+		; C64 memory map and enter via reset
+		; vector.  
+		ldx #$00
+l2:		lda go64ramroutine,x
+		sta $0140,x
+		inx
+		cpx #go64ramroutineend-go64ramroutine
+		bne l2
+		jmp $0140
+		
+; This routine is copied to RAM, since writing to $01
+; will de-map the kickstart ROM.
+go64ramroutine:	lda #$37
+		sta $01
+		sta $00
+		jmp (reset_vector)
+go64ramroutineend:
+
+; reset memory map to default
+resetmemmap:
+		lda #$00
+		ldx #$0f
+		ldy #$00
+		ldz #$0f
+		map
+		; also clear memory MAP MB offset register
+		tax
+		taz
+		map
+		eom
+		rts
+
+
+; If C=1, enable enhanced IO bank, else return to
+; C64 standard IO map.
+enhanced_io:
+		bcs l1
+		lda #$00
+		sta $D02F
+l1:		lda #$a5
+		sta $D02F
+		lda #$96
+		sta $D02F
+		RTS
+
+;;; ----------------------------------------------------------------------------
+;;; CPU entry vectors
+;;; ----------------------------------------------------------------------------
+		
+; For now we have no use for interrupts.
+nmi_entry:	rti
+irq_entry:	rti
+
+; 6502 interrupt and reset vectors
+       		.checkpc $FFFA
+		.advance $FFFA
+nmi_vector:	.word nmi_entry
+reset_vector:	.word reset_entry
+irq_vector:	.word irq_entry
+
+		 .outfile "kickstart65gs.bin"
