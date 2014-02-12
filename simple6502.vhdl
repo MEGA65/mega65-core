@@ -142,7 +142,6 @@ architecture Behavioural of simple6502 is
   signal nmi_pending : std_logic := '0';
   signal irq_pending : std_logic := '0';
   signal nmi_state : std_logic := '1';
-  signal irq_state : std_logic := '1';
   -- Interrupt/reset vector being used
   signal vector : unsigned(15 downto 0);
   
@@ -381,7 +380,6 @@ begin
       if irq = '0' then
         irq_pending <= '1';        
       end if;
-      irq_state <= irq;    
     end if;     
   end procedure check_for_interrupts;
 
