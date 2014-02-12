@@ -479,35 +479,34 @@ begin
     fastio_rdata => fastio_rdata
     );
 
-  -- no video out for quick debug builds.
-  --vga0: vga
-  --  port map (
-  --    pixelclock      => pixelclock,
-  --    cpuclock        => cpuclock,
+  vga0: vga
+    port map (
+      pixelclock      => pixelclock,
+      cpuclock        => cpuclock,
 
-  --    irq             => vic_irq,
+      irq             => vic_irq,
       
-  --    vsync           => vsync,
-  --    hsync           => hsync,
-  --    vgared          => vgared,
-  --    vgagreen        => vgagreen,
-  --    vgablue         => vgablue,
+      vsync           => vsync,
+      hsync           => hsync,
+      vgared          => vgared,
+      vgagreen        => vgagreen,
+      vgablue         => vgablue,
 
-  --    fastram_we => fastram_we,
-  --    fastram_read => fastram_read,
-  --    fastram_write => fastram_write,
-  --    fastram_address => fastram_address,
-  --    fastram_datain => fastram_datain,
-  --    fastram_dataout => fastram_dataout,    
+      fastram_we => fastram_we,
+      fastram_read => fastram_read,
+      fastram_write => fastram_write,
+      fastram_address => fastram_address,
+      fastram_datain => fastram_datain,
+      fastram_dataout => fastram_dataout,    
       
-  --    fastio_addr     => fastio_addr,
-  --    fastio_read     => fastio_read,
-  --    fastio_write    => fastio_write,
-  --    fastio_wdata    => fastio_wdata,
-  --    fastio_rdata    => fastio_rdata,
+      fastio_addr     => fastio_addr,
+      fastio_read     => fastio_read,
+      fastio_write    => fastio_write,
+      fastio_wdata    => fastio_wdata,
+      fastio_rdata    => fastio_rdata,
 
-  --    colourram_at_dc00 => colourram_at_dc00
-  --    );
+      colourram_at_dc00 => colourram_at_dc00
+      );
   
   iomapper0: iomapper port map (
     clk => cpuclock,

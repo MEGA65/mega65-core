@@ -843,7 +843,7 @@ begin
         fastio_rdata <= debug_charrow;
       elsif register_number<256 then
                                         -- Fill in unused register space
-        fastio_rdata <= x"ZZ";
+        fastio_rdata <= (others => 'Z');
                                         -- C65 style palette registers
       elsif register_number>=256 and register_number<512 then
         -- red palette
