@@ -273,7 +273,6 @@ architecture Behavioral of vga is
   signal vicii_sprite_sprite_colissions : std_logic_vector(7 downto 0);
   signal vicii_sprite_bitmap_colissions : std_logic_vector(7 downto 0);
   signal viciii_extended_attributes : std_logic := '1';
-  signal irq_asserted : std_logic := '0';
   signal irq_colissionspritesprite : std_logic := '0';
   signal irq_colissionspritebitmap : std_logic := '0';
   signal irq_raster : std_logic := '0';

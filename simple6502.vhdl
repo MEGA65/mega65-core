@@ -1644,7 +1644,7 @@ end c65_map_instruction;
   -- inputs : ram_bank_registers_read
   -- outputs: fastio_*
   fastio: process (ram_bank_registers_read,fastio_addr,fastio_read,
-                   irq,irq_pending,recent_states,clock)
+                   irq,irq_pending,recent_states,clock,slowram_waitstates,nmi)
     variable address : unsigned(19 downto 0);
     variable rwx : integer;
     variable lohi : std_logic;
