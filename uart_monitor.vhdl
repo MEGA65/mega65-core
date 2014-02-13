@@ -747,7 +747,7 @@ begin
           when ShowMemory6 => print_hex_addr(target_address,ShowMemory7);
           when ShowMemory7 =>
             if byte_number = 16 then
-              if line_number = 32 then
+              if line_number = 31 then
                 state<=NextCommand;
               else
                 if tx_ready='1' then
