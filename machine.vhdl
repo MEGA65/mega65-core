@@ -127,7 +127,7 @@ architecture Behavioral of machine is
       );
   end component;
 
-  component simple6502
+  component gs4510
     port (
       Clock : in std_logic;
       reset : in std_logic;
@@ -194,7 +194,7 @@ architecture Behavioral of machine is
       );
   end component;
   
-  component vga is
+  component viciv is
     Port (
       ----------------------------------------------------------------------
       -- 100MHz Nexys4 master clock from which we drive the dotclock
@@ -287,9 +287,6 @@ architecture Behavioral of machine is
   signal fastram_datain : STD_LOGIC_VECTOR(63 DOWNTO 0);
   signal fastram_dataout : STD_LOGIC_VECTOR(63 DOWNTO 0);
 
-  signal vga_fastramaddress : std_logic_vector(13 downto 0);
-  signal vga_fastramdata : std_logic_vector(63 downto 0);
-  
   signal cpuclock : std_logic := '1';
   signal cpuclock_divisor : integer := 0;
 
@@ -433,7 +430,7 @@ begin
     end if;
   end process;
   
-  cpu0: simple6502 port map(
+  cpu0: gs4510 port map(
     clock => cpuclock,
     reset =>btnCpuReset,
     irq => combinedirq,
@@ -486,7 +483,7 @@ begin
     colourram_at_dc00 => colourram_at_dc00
     );
 
-  vga0: vga
+  viciv0: viciv
     port map (
       pixelclock      => pixelclock,
       cpuclock        => cpuclock,
