@@ -1227,7 +1227,6 @@ begin
             viciii_blink_phase_counter <= 0;
             viciii_blink_phase <= not viciii_blink_phase;
           end if;
-    end if;
 
         end if;	
       end if;
