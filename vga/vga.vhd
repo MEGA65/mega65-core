@@ -285,8 +285,8 @@ architecture Behavioral of vga is
 
   -- Used for hardware character blinking ala C65
   signal viciii_blink_phase : std_logic := '0';
-  -- 64MHz/(2^25)/2 = 1Hz
-  signal viciii_blink_phase_counter : unsigned(24 downto 0) := (others => '0');
+  -- 60 frames = 1 second, and means no tearing.
+  signal viciii_blink_phase_counter : integer range 0 to 60 := 0;
   
   -- NOTE: The following registers require 64-bit alignment. Default addresses
   -- are fairly arbitrary.
@@ -512,14 +512,6 @@ begin
     variable colour_ram_cs_var : std_logic := '0';
   begin
     fastio_rdata <= (others => 'Z');    
-
-    -- C65/VIC-III style 1Hz blink attribute clock
-    if rising_edge(cpuclock) then
-      viciii_blink_phase_counter <= viciii_blink_phase_counter + 1;
-      if viciii_blink_phase_counter = 0 then
-        viciii_blink_phase <= not viciii_blink_phase;
-      end if;
-    end if;
 
     if true then
       -- Calculate register number asynchronously
@@ -1228,6 +1220,15 @@ begin
           chargen_y_sub <= (others => '0');
           next_card_number <= (others => '0');
           first_card_of_row <= (others => '0');
+
+          -- C65/VIC-III style 1Hz blink attribute clock
+          viciii_blink_phase_counter <= viciii_blink_phase_counter + 1;
+          if viciii_blink_phase_counter = 60 then
+            viciii_blink_phase_counter <= 0;
+            viciii_blink_phase <= not viciii_blink_phase;
+          end if;
+    end if;
+
         end if;	
       end if;
       if xcounter<frame_h_front then
