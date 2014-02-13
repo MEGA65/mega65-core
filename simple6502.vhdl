@@ -390,28 +390,32 @@ begin
     lhc(0) := lhc(0) or (not cpuport_ddr(0));
     
     -- IO
-    if (blocknum=13) and ((lhc(0)='1') or (lhc(1)='1')) and (lhc(2)='0') then
+    if (blocknum=13) and ((lhc(0)='1') or (lhc(1)='1')) and (lhc(2)='1') then
       temp_address(27 downto 12) := x"FFD3";
       temp_addresS(11 downto 0) := short_address(11 downto 0);
     end if;
     -- CHARROM
-    if (blocknum=13) and (lhc(2)='1') and (writeP=false) then
+    if (blocknum=13) and (lhc(2)='0') and (writeP=false) then
       temp_address(27 downto 12) := x"002D";
       temp_addresS(11 downto 0) := short_address(11 downto 0);
     end if;
     -- KERNEL
     if (blocknum=14) and (lhc(1)='1') and (writeP=false) then
-      temp_address(27 downto 12) := x"002E";      
+--      temp_address(27 downto 12) := x"002E";      
+      temp_address(27 downto 12) := x"FFEE";      
     end if;
     if (blocknum=15) and (lhc(1)='1') and (writeP=false) then
-      temp_address(27 downto 12) := x"002F";      
+--      temp_address(27 downto 12) := x"002F";      
+      temp_address(27 downto 12) := x"FFEF";      
     end if;
     -- KERNEL
     if (blocknum=10) and (lhc(0)='1') and (writeP=false) then
-      temp_address(27 downto 12) := x"002A";      
+--      temp_address(27 downto 12) := x"002A";      
+      temp_address(27 downto 12) := x"FFEA";      
     end if;
     if (blocknum=11) and (lhc(0)='1') and (writeP=false) then
-      temp_address(27 downto 12) := x"002B";      
+--      temp_address(27 downto 12) := x"002B";      
+      temp_address(27 downto 12) := x"FFEB";      
     end if;
 
     -- XXX $D030 lines not yet supported
