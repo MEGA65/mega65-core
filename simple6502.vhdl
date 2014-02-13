@@ -105,21 +105,7 @@ architecture Behavioural of simple6502 is
   -- SlowRAM has 70ns access time, so need some wait states.
   -- The wait states
   signal slowram_waitstates : unsigned(7 downto 0) := x"05";
-  
--- CPU RAM bank selection registers.
--- Each 4KB (12 address bits) can be made to point to a section of memory.
--- Sections have 16bit addresses, for a total of 28bits (256MB) of address
--- space.  It also makes it possible to multiple 4KB banks point to the same
--- block of RAM.
-  type bank_register_set is array (0 to 15) of unsigned(15 downto 0);
-  signal ram_bank_registers_read : bank_register_set;
-  signal ram_bank_registers_write : bank_register_set;
-  signal ram_bank_registers_instructions : bank_register_set;
-
-  -- For debugging, keep a log of the processor states for the last instruction.
-  -- It's a bit of a kluge to use this type of array, but it is convenient.
-  signal recent_states : bank_register_set;
-  
+    
   signal fastram_byte_number : unsigned(2 DOWNTO 0);
   
 -- CPU internal state
@@ -139,6 +125,15 @@ architecture Behavioural of simple6502 is
   signal reg_sp : unsigned(7 downto 0);
   signal reg_sph : unsigned(7 downto 0);
   signal reg_pc : unsigned(15 downto 0);
+
+  -- CPU RAM bank selection registers.
+  -- Now C65 style, but extended by 8 bits to give 256MB address space
+  signal reg_mb_low : unsigned(7 downto 0);
+  signal reg_mb_high : unsigned(7 downto 0);
+  signal reg_map_low : std_logic_vector(3 downto 0);
+  signal reg_map_high : std_logic_vector(3 downto 0);
+  signal reg_offset_low : unsigned(11 downto 0);
+  signal reg_offset_high : unsigned(11 downto 0);
 
   -- Flags to detect interrupts
   signal map_interrupt_inhibit : std_logic := '0';
@@ -313,6 +308,14 @@ begin
     reg_sp <= x"ff";
     reg_sph <= x"01";
 
+    -- Clear CPU MMU registers
+    reg_mb_low <= x"00";
+    reg_mb_high <= x"00";
+    reg_map_low <= "0000";
+    reg_map_high <= "0000";
+    reg_offset_low <= x"000";
+    reg_offset_high <= x"000";
+
     -- Default CPU flags
     flag_c <= '0';
     flag_d <= '0';
@@ -323,51 +326,7 @@ begin
     flag_e <= '1';
 
     cpuport_ddr <= x"FF";
-    cpuport_value <= x"3F";
-    
-    -- Default memory map (C64 like, but with enhanced IO and kernel)
-    -- Map first bank of fast RAM at $0000 - $CFFF
-    for i in 0 to 12 loop
-      ram_bank_registers_read(i)<=to_unsigned(i,16);
-      ram_bank_registers_write(i)<=to_unsigned(i,16);
-      ram_bank_registers_instructions(i)<=to_unsigned(i,16);
-    end loop;  -- i
-    -- enhanced IO at $D000-$DFFF
-    ram_bank_registers_read(13) <= x"FFD3";  
-    ram_bank_registers_write(13) <= x"FFD3";
-    ram_bank_registers_instructions(13) <= x"FFD3";
-    -- Kernel64 ROM at $E000-$FFFF (writes redirect to "underlying" fast RAM)
-    ram_bank_registers_read(14) <= x"FFEE";
-    ram_bank_registers_write(14) <= x"000E";
-    ram_bank_registers_instructions(14) <= x"FFEE";
-    ram_bank_registers_read(15) <= x"FFEF";
-    ram_bank_registers_write(15) <= x"000F";
-    ram_bank_registers_instructions(15) <= x"FFEF";       
-    -- BASIC64 ROM at $A000-$BFFF (writes redirect to "underlying" fast RAM)
-    ram_bank_registers_read(10) <= x"FFEA";
-    ram_bank_registers_write(10) <= x"000A";
-    ram_bank_registers_instructions(10) <= x"FFEA";
-    ram_bank_registers_read(11) <= x"FFEB";
-    ram_bank_registers_write(11) <= x"000B";
-    ram_bank_registers_instructions(11) <= x"FFEB";
-
-    -- For debugging, HESMON at $C000-$CFFF
-    ram_bank_registers_read(12) <= x"FFEC";
-    ram_bank_registers_write(12) <= x"FFEC";
-    ram_bank_registers_instructions(12) <= x"FFEC";
-    
-    -- For simulation: our own rom at $E000 - $FFFF, also mapping to $0000-$0FFF
-    -- since fastram doesn't work in simulation with GHDL.
-    --ram_bank_registers_read(14) <= x"FFFE";
-    --ram_bank_registers_write(14) <= x"000E";
-    --ram_bank_registers_instructions(14) <= x"FFFE";
-    --ram_bank_registers_read(15) <= x"FFFF";
-    --ram_bank_registers_write(15) <= x"000F";
-    --ram_bank_registers_instructions(15) <= x"FFFF";       
-
-    --ram_bank_registers_read(0) <= x"FFFE";
-    --ram_bank_registers_write(0) <= x"FFFE";
-    --ram_bank_registers_instructions(0) <= x"FFFE";
+    cpuport_value <= x"3F";    
     
   end procedure reset_cpu_state;
 
@@ -388,15 +347,73 @@ begin
   end procedure check_for_interrupts;
 
   -- purpose: Convert a 16-bit C64 address to native RAM (or I/O or ROM) address
-  function resolve_address_to_long(short_address : unsigned(15 downto 0); ram_bank_registers : bank_register_set)
+  impure function resolve_address_to_long(short_address : unsigned(15 downto 0);
+                                   writeP : boolean)
     return unsigned is 
     variable temp_address : unsigned(27 downto 0);
-    variable temp_bank_block : unsigned(15 downto 0);
+    variable blocknum : integer;
+    variable lhc : std_logic_vector(2 downto 0);
   begin  -- resolve_long_address
-    temp_bank_block :=ram_bank_registers(to_integer(short_address(15 downto 12)));
-    temp_address(27 downto 12):= temp_bank_block;
-    temp_address(11 downto 0):=short_address(11 downto 0);
+    -- Lower 8 address bits are never changed
+    temp_address(7 downto 0):=short_address(7 downto 0);
 
+    -- Add the map offset if required
+    blocknum := to_integer(short_address(14 downto 12));
+    if short_address(15)='1' then
+      if reg_map_high(blocknum)='1' then
+        temp_address(27 downto 20) := reg_mb_high;
+        temp_address(19 downto 8) := reg_offset_high+(128+blocknum*32);
+        temp_address(7 downto 0) := short_address(7 downto 0);
+      else
+        temp_address(27 downto 16) := (others => '0');
+        temp_address(15 downto 0) := short_address;
+      end if;
+    else
+      if reg_map_high(blocknum)='1' then
+        temp_address(27 downto 20) := reg_mb_low;
+        temp_address(19 downto 8) := reg_offset_low+(0+blocknum*32);
+        temp_address(7 downto 0) := short_address(7 downto 0);
+      else
+        temp_address(27 downto 16) := (others => '0');
+        temp_address(15 downto 0) := short_address;
+      end if;
+    end if;
+      
+    -- Now apply $01 and $D030 lines to determine what is really going on.    
+    blocknum := to_integer(short_address(15 downto 12));
+
+    lhc := std_logic_vector(cpuport_value(2 downto 0));
+    lhc(2) := lhc(2) or (not cpuport_ddr(2));
+    lhc(1) := lhc(1) or (not cpuport_ddr(1));
+    lhc(0) := lhc(0) or (not cpuport_ddr(0));
+    
+    -- IO
+    if (blocknum=13) and ((lhc(0)='1') or (lhc(1)='1')) and (lhc(2)='0') then
+      temp_address(27 downto 12) := x"FFD3";
+      temp_addresS(11 downto 0) := short_address(11 downto 0);
+    end if;
+    -- CHARROM
+    if (blocknum=13) and (lhc(2)='1') and (writeP=false) then
+      temp_address(27 downto 12) := x"002D";
+      temp_addresS(11 downto 0) := short_address(11 downto 0);
+    end if;
+    -- KERNEL
+    if (blocknum=14) and (lhc(1)='1') and (writeP=false) then
+      temp_address(27 downto 12) := x"002E";      
+    end if;
+    if (blocknum=14) and (lhc(1)='1') and (writeP=false) then
+      temp_address(27 downto 12) := x"002E";      
+    end if;
+    -- KERNEL
+    if (blocknum=10) and (lhc(0)='1') and (writeP=false) then
+      temp_address(27 downto 12) := x"002A";      
+    end if;
+    if (blocknum=11) and (lhc(0)='1') and (writeP=false) then
+      temp_address(27 downto 12) := x"002B";      
+    end if;
+
+    -- XXX $D030 lines not yet supported
+    
     return temp_address;
   end resolve_address_to_long;
 
@@ -495,7 +512,6 @@ begin
   
   -- purpose: read from a 16-bit CPU address
   procedure read_address (
-    memmap     : in bank_register_set;
     address    : in unsigned(15 downto 0);
     next_state : in processor_state) is
     variable long_address : unsigned(27 downto 0);
@@ -505,7 +521,7 @@ begin
       cpuport_num <= address(0);
       state <= next_state;
     else
-      long_address := resolve_address_to_long(address,memmap);
+      long_address := resolve_address_to_long(address,false);
       read_long_address(long_address,next_state);
     end if;
   end read_address;
@@ -568,49 +584,8 @@ begin
     -- Once read, we then resume processing from the specified state.
     pending_state <= next_state;
   end write_long_byte;
-
-  -- purpose: map RAM at desired page.  RAM will be from same 64KB as mapped at $0000-$0FFF
-  procedure map_local_ram (
-    page : in integer) is
-    variable target : unsigned(15 downto 0);
-  begin  -- map_local_ram
-    -- This routine is used for mapping RAM in place of IO,
-    -- so we can't just copy the write page to read & instructions
-    target := ram_bank_registers_write(0);
-    target(3 downto 0) := to_unsigned(page,4);
-    
-    ram_bank_registers_instructions(page) <= target;
-    ram_bank_registers_read(page) <= target;
-    ram_bank_registers_write(page) <= target;
-  end map_local_ram;
-
-  procedure map_c64mode_rom (
-    page : in integer) is
-    variable target : unsigned(15 downto 0);
-  begin  -- map_local_ram
-    target := x"FFE0";
-    target(3 downto 0) := to_unsigned(page,4);
-    
-    ram_bank_registers_instructions(page) <= target;
-    ram_bank_registers_read(page) <= target;
-  end map_c64mode_rom;
-
-  procedure map_io (
-    page : in integer) is
-    variable target : unsigned(15 downto 0);
-  begin  -- map_local_ram
-    -- XXX Mapping enhanced IO page by default
-    -- This should be conditional on some port knock or CPU flag
-    target := x"FFD3";
-    
-    ram_bank_registers_instructions(13) <= target;
-    ram_bank_registers_read(13) <= target;
-    ram_bank_registers_write(13) <= target;    
-  end map_io;
-
   
   procedure write_byte (
-    memmap             : in bank_register_set;
     address            : in unsigned(15 downto 0);
     value              : in unsigned(7 downto 0);
     next_state         : in processor_state) is
@@ -625,52 +600,9 @@ begin
       -- For CPU port, things get more interesting.
       -- Bits 6 & 7 cannot be altered, and always read 0.
       cpuport_value(5 downto 0) <= value(5 downto 0);
-      -- Bits 3 through 5 are datasette related, so we can mostly
-      -- ignore those for now.
-      -- Bits 0 - 2 affect the memory map, so we need to update MMU registers.
-      case value(2 downto 0) is
-        when "000" =>                   -- 64KB RAM
-          map_local_ram(10); map_local_ram(11);
-          map_local_ram(13);
-          map_local_ram(14); map_local_ram(15);          
-        when "001" =>                   -- Charrom @ $D000, No Kernel, No Basic
-          map_local_ram(10); map_local_ram(11);
-          map_c64mode_rom(13);
-          map_local_ram(14); map_local_ram(15);          
-        when "010" =>                   -- Charrom @ $D000, Kernel @ $E000, No Basic
-          map_local_ram(10); map_local_ram(11);
-          map_c64mode_rom(13);
-          map_c64mode_rom(14); map_c64mode_rom(15);          
-        when "011" =>                   -- Charrom @ $D000, Kernel @ $E000,
-                                        -- Basic @ $A000
-          map_c64mode_rom(10); map_c64mode_rom(11);
-          map_c64mode_rom(13);
-          map_c64mode_rom(14); map_c64mode_rom(15);          
-        when "100" =>                   -- 64KB RAM
-          map_local_ram(10); map_local_ram(11);
-          map_local_ram(13);
-          map_local_ram(14); map_local_ram(15);          
-        when "101" =>                   -- IO @ $D000, No Kernel, No Basic
-          map_local_ram(10); map_local_ram(11);
-          map_io(13);
-          map_local_ram(14); map_local_ram(15);          
-        when "110" =>                   -- IO @ $D000, Kernel @ $E000, No Basic
-          map_local_ram(10); map_local_ram(11);
-          map_io(13);
-          map_c64mode_rom(14); map_c64mode_rom(15);          
-        when "111" =>                   -- IO @ $D000, Kernel @ $E000,
-                                        -- Basic @ $A000
-          map_c64mode_rom(10); map_c64mode_rom(11);
-          map_io(13);
-          map_c64mode_rom(14); map_c64mode_rom(15);          
-        when others =>                
-          map_c64mode_rom(10); map_c64mode_rom(11);
-          map_io(13);
-          map_c64mode_rom(14); map_c64mode_rom(15);          
-      end case;
       state <= next_state;
     else
-      long_address := resolve_address_to_long(address,memmap);
+      long_address := resolve_address_to_long(address,true);
       --report "Writing $" & to_hstring(value) & " @ $" & to_hstring(address)
       --  & " (resolves to $" & to_hstring(long_address) & ")" severity note;
       write_long_byte(long_address,value,next_state);
@@ -682,7 +614,7 @@ begin
     value              : in unsigned(7 downto 0);
     next_state         : in processor_state) is
   begin
-    write_byte(ram_bank_registers_write,address,value,next_state);
+    write_byte(address,value,next_state);
   end procedure write_data_byte;
   
   -- purpose: push a byte onto the stack
@@ -691,7 +623,7 @@ begin
     next_state : in processor_state) is
   begin  -- push_byte
     reg_sp <= reg_sp - 1;
-    write_byte(ram_bank_registers_write,x"01" & reg_sp,value,next_state);
+    write_byte(reg_sph & reg_sp,value,next_state);
   end push_byte;
 
   -- purpose: pull a byte from the stack
@@ -699,21 +631,21 @@ begin
     next_state : in processor_state) is
   begin  -- pull_byte
     reg_sp <= reg_sp + 1;
-    read_address(ram_bank_registers_read,x"01" & (reg_sp + 1),next_state);
+    read_address(reg_sph & (reg_sp + 1),next_state);
   end pull_byte;
   
   procedure read_instruction_byte (
     address : in unsigned(15 downto 0);
     next_state : in processor_state) is
   begin
-    read_address(ram_bank_registers_instructions,address,next_state);
+    read_address(address,next_state);
   end read_instruction_byte;
 
   procedure read_data_byte (
     address : in unsigned(15 downto 0);
     next_state : in processor_state) is
   begin
-    read_address(ram_bank_registers_read,address,next_state);
+    read_address(address,next_state);
   end read_data_byte;
 
   -- purpose: obtain the byte of memory that has been read
@@ -805,160 +737,21 @@ begin
     --| BLK7  | BLK6  | BLK5  | BLK4  | OFF19 | OFF18 | OFF17 | OFF16 |
     --+-------+-------+-------+-------+-------+-------+-------+-------+
     --
-    -- Our challenge is to make sense of this with our 256MB address space
-    -- mapper.  Fortunately, our mapper is generally speaking a super-set of
-    -- the 4510 MAP instruction, so it should be largely possible.
-    -- There are some odd corner cases to work out, however.  One approach to
-    -- simplifying all this is to make our ROMs shaddow to where the C65 MAP
-    -- instruction expects them.
-    -- One big exception is that our mapper limits granularity to 4K, instead
-    -- of 256 bytes on the C65.  We will ignore the lower four bits of offsets
-    -- for now.  Not sure how much C65 software will be affected, if any.
-    -- The real fun comes in making it all work with the $01 port that can also
-    -- fiddle with the memory map independently.
-     
-    offset := x"00" & reg_x(3 downto 0) & reg_a(7 downto 4) ;
-    if reg_x(4)='1' then
-      -- block 0 is mapped
-      ram_bank_registers_read(0) <= offset;
-      ram_bank_registers_write(0) <= offset;
-      ram_bank_registers_instructions(0) <= offset;
-      ram_bank_registers_read(1) <= offset + 1;
-      ram_bank_registers_write(1) <= offset + 1;
-      ram_bank_registers_instructions(1) <= offset + 1;
-    else
-      -- block 0 is unmapped
-      ram_bank_registers_read(0) <= x"0000";
-      ram_bank_registers_write(0) <= x"0000";
-      ram_bank_registers_instructions(0) <= x"0000";
-      ram_bank_registers_read(1) <= x"0001";
-      ram_bank_registers_write(1) <= x"0001";
-      ram_bank_registers_instructions(1) <= x"0001";
+    
+    -- C65GS extension: Set the MegaByte register for low and high mobies
+    -- so that we can address all 256MB of RAM.
+    if reg_x = x"0f" then
+      reg_mb_low <= reg_a;
     end if;
-    if reg_x(5)='1' then
-      -- block 1 is mapped
-      ram_bank_registers_read(2) <= offset+2;
-      ram_bank_registers_write(2) <= offset+2;
-      ram_bank_registers_instructions(2) <= offset+2;
-      ram_bank_registers_read(3) <= offset + 3;
-      ram_bank_registers_write(3) <= offset + 3;
-      ram_bank_registers_instructions(3) <= offset + 3;
-    else
-      -- block 1 is unmapped
-      ram_bank_registers_read(2) <= x"0002";
-      ram_bank_registers_write(2) <= x"0002";
-      ram_bank_registers_instructions(2) <= x"0002";
-      ram_bank_registers_read(3) <= x"0003";
-      ram_bank_registers_write(3) <= x"0003";
-      ram_bank_registers_instructions(3) <= x"0003";
-    end if;
-    if reg_x(6)='1' then
-      -- block 2 is mapped
-      ram_bank_registers_read(4) <= offset+4;
-      ram_bank_registers_write(4) <= offset+4;
-      ram_bank_registers_instructions(4) <= offset+4;
-      ram_bank_registers_read(5) <= offset + 5;
-      ram_bank_registers_write(5) <= offset + 5;
-      ram_bank_registers_instructions(5) <= offset + 5;
-    else
-      -- block 2 is unmapped
-      ram_bank_registers_read(4) <= x"0004";
-      ram_bank_registers_write(4) <= x"0004";
-      ram_bank_registers_instructions(4) <= x"0004";
-      ram_bank_registers_read(5) <= x"0005";
-      ram_bank_registers_write(5) <= x"0005";
-      ram_bank_registers_instructions(5) <= x"0005";
-    end if;
-    if reg_x(7)='1' then
-      -- block 3 is mapped
-      ram_bank_registers_read(6) <= offset+6;
-      ram_bank_registers_write(6) <= offset+6;
-      ram_bank_registers_instructions(6) <= offset+6;
-      ram_bank_registers_read(7) <= offset + 7;
-      ram_bank_registers_write(7) <= offset + 7;
-      ram_bank_registers_instructions(7) <= offset + 7;
-    else
-      -- block 3 is unmapped
-      ram_bank_registers_read(6) <= x"0006";
-      ram_bank_registers_write(6) <= x"0006";
-      ram_bank_registers_instructions(6) <= x"0006";
-      ram_bank_registers_read(7) <= x"0007";
-      ram_bank_registers_write(7) <= x"0007";
-      ram_bank_registers_instructions(7) <= x"0007";
+    if reg_z = x"0f" then
+      reg_mb_high <= reg_y;
     end if;
 
-    offset := x"00" & reg_z(3 downto 0) & reg_y(7 downto 4) ;
-    if reg_z(4)='1' then
-      -- block 4 is mapped
-      ram_bank_registers_read(8) <= offset+8;
-      ram_bank_registers_write(8) <= offset+8;
-      ram_bank_registers_instructions(8) <= offset+8;
-      ram_bank_registers_read(9) <= offset + 9;
-      ram_bank_registers_write(9) <= offset + 9;
-      ram_bank_registers_instructions(9) <= offset + 9;
-    else
-      -- block 4 is unmapped
-      ram_bank_registers_read(8) <= x"0008";
-      ram_bank_registers_write(8) <= x"0008";
-      ram_bank_registers_instructions(8) <= x"0008";
-      ram_bank_registers_read(9) <= x"0009";
-      ram_bank_registers_write(9) <= x"0009";
-      ram_bank_registers_instructions(9) <= x"0009";
-    end if;
-    if reg_z(5)='1' then
-      -- block 5 is mapped
-      -- XXX What about BASIC ROM?
-      ram_bank_registers_read(10) <= offset+10;
-      ram_bank_registers_write(10) <= offset+10;
-      ram_bank_registers_instructions(10) <= offset+10;
-      ram_bank_registers_read(11) <= offset + 11;
-      ram_bank_registers_write(11) <= offset + 11;
-      ram_bank_registers_instructions(11) <= offset + 11;
-    else
-      -- block 5 is unmapped
-      ram_bank_registers_read(10) <= x"000a";
-      ram_bank_registers_write(10) <= x"000a";
-      ram_bank_registers_instructions(10) <= x"000a";
-      ram_bank_registers_read(11) <= x"000b";
-      ram_bank_registers_write(11) <= x"000b";
-      ram_bank_registers_instructions(11) <= x"000b";
-    end if;
-    if reg_z(6)='1' then
-      -- block 6 is mapped
-      -- XXX What about IO?
-      ram_bank_registers_read(12) <= offset+12;
-      ram_bank_registers_write(12) <= offset+12;
-      ram_bank_registers_instructions(12) <= offset+12;
-      ram_bank_registers_read(13) <= offset + 13;
-      ram_bank_registers_write(13) <= offset + 13;
-      ram_bank_registers_instructions(13) <= offset + 13;
-    else
-      -- block 6 is unmapped
-      ram_bank_registers_read(12) <= x"000c";
-      ram_bank_registers_write(12) <= x"000c";
-      ram_bank_registers_instructions(12) <= x"000c";
-      ram_bank_registers_read(13) <= x"000d";
-      ram_bank_registers_write(13) <= x"000d";
-      ram_bank_registers_instructions(13) <= x"000d";
-    end if;
-    if reg_z(7)='1' then
-      -- block 7 is mapped
-      -- XXX What about KERNEL ROM?
-      ram_bank_registers_read(14) <= offset+14;
-      ram_bank_registers_write(14) <= offset+14;
-      ram_bank_registers_instructions(14) <= offset+14;
-      ram_bank_registers_read(15) <= offset + 15;
-      ram_bank_registers_write(15) <= offset + 15;
-      ram_bank_registers_instructions(15) <= offset + 15;
-    else
-      -- block 7 is unmapped
-      ram_bank_registers_read(14) <= x"000e";
-      ram_bank_registers_write(14) <= x"000e";
-      ram_bank_registers_instructions(14) <= x"000e";
-      ram_bank_registers_read(15) <= x"000f";
-      ram_bank_registers_write(15) <= x"000f";
-      ram_bank_registers_instructions(15) <= x"000f";
-    end if;
+    reg_offset_low <= reg_x(3 downto 0) & reg_a;
+    reg_map_low <= std_logic_vector(reg_x(7 downto 4));
+    reg_offset_high <= reg_z(3 downto 0) & reg_y;
+    reg_map_high <= std_logic_vector(reg_z(7 downto 4));
+    
 end c65_map_instruction;
 
   procedure execute_implied_instruction (
@@ -1446,9 +1239,6 @@ end c65_map_instruction;
           check_for_interrupts;
         end if;
 
-        recent_states(1 to 15) <= recent_states(0 to 14);
-        recent_states(0) <= to_unsigned(processor_state'pos(state),16);
-
         if monitor_mem_stage_trace_mode='0' or
           monitor_mem_trace_toggle /= monitor_mem_trace_toggle_last then
           monitor_mem_trace_toggle_last <= monitor_mem_trace_toggle;
@@ -1456,9 +1246,6 @@ end c65_map_instruction;
             when MonitorReadDone =>            
               monitor_mem_rdata <= read_data;
               state <= MonitorAccessDone;
-
-              -- Don't overwrite recent states record
-              recent_states <= recent_states;
             when MonitorAccessDone =>
               fastram_we <= (others => '0');
               monitor_mem_attention_granted <= '1';
@@ -1466,8 +1253,6 @@ end c65_map_instruction;
                 monitor_mem_attention_granted <= '0';
                 state <= InstructionFetch;
               end if;
-              -- Don't overwrite recent states record
-              recent_states <= recent_states;
             when Interrupt =>
               push_byte(reg_pc(15 downto 8),Interrupt2);
             when Interrupt2 => push_byte(reg_pc(7 downto 0),Interrupt3);
@@ -1514,9 +1299,6 @@ end c65_map_instruction;
                   read_instruction_byte(reg_pc,InstructionFetch2);
                   reg_pc <= reg_pc + 1;
                 end if;
-              else
-                -- Hold recent states
-                recent_states <= recent_states;
               end if;
             when InstructionFetch2 =>
               -- Keep reading bytes if necessary
@@ -1673,8 +1455,8 @@ end c65_map_instruction;
   -- type   : combinational
   -- inputs : ram_bank_registers_read
   -- outputs: fastio_*
-  fastio: process (ram_bank_registers_read,fastio_addr,fastio_read,
-                   irq,irq_pending,recent_states,clock,slowram_waitstates,nmi)
+  fastio: process (fastio_addr,fastio_read,
+                   irq,irq_pending,clock,slowram_waitstates,nmi)
     variable address : unsigned(19 downto 0);
     variable rwx : integer;
     variable lohi : std_logic;
@@ -1688,12 +1470,12 @@ end c65_map_instruction;
       reg_num := to_integer(address(4 downto 1));
       
       case rwx is
-        when 0 => value := ram_bank_registers_read(reg_num);
-        when 1 => value := ram_bank_registers_read(reg_num);
-        when 2 => value := ram_bank_registers_read(reg_num);
+--        when 0 => value := ram_bank_registers_read(reg_num);
+--        when 1 => value := ram_bank_registers_read(reg_num);
+--        when 2 => value := ram_bank_registers_read(reg_num);
         when 5 => value := x"FF" & slowram_waitstates;
         when 6 => value := x"EEE" & irq & irq_pending & nmi & nmi_pending;
-        when 7 => value := recent_states(reg_num);
+--        when 7 => value := recent_states(reg_num);
         when others => value := x"F00D";
       end case;
       if lohi='0' then
