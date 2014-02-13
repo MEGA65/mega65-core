@@ -86,6 +86,9 @@ architecture behavioral of iomapper is
       fastio_wdata : in unsigned(7 downto 0);
       fastio_rdata : out unsigned(7 downto 0);
 
+      -- If colour RAM is mapped at $DC00-$DFFF, then don't map sector buffer
+      colourram_at_dc00 : in std_logic;
+
       -------------------------------------------------------------------------
       -- Lines for the SDcard interface itself
       -------------------------------------------------------------------------
@@ -256,6 +259,7 @@ begin
     fastio_read => r,
     fastio_wdata => unsigned(data_i),
     std_logic_vector(fastio_rdata) => data_o,
+    colourram_at_dc00 => colourram_at_dc00,
 
     cs_bo => cs_bo,
     sclk_o => sclk_o,

@@ -519,7 +519,9 @@ begin
       if viciii_blink_phase_counter = 0 then
         viciii_blink_phase <= not viciii_blink_phase;
       end if;
-      
+    end if;
+
+    if true then
       -- Calculate register number asynchronously
       register_number := x"FFF";
       if fastio_addr(19) = '0' or fastio_addr(19) = '1' then

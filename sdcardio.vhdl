@@ -20,6 +20,8 @@ entity sdcardio is
     fastio_wdata : in unsigned(7 downto 0);
     fastio_rdata : out unsigned(7 downto 0);
 
+    colourram_at_dc00 : in std_logic;
+
     -------------------------------------------------------------------------
     -- Lines for the SDcard interface itself
     -------------------------------------------------------------------------
@@ -131,6 +133,10 @@ begin  -- behavioural
   begin
 
     if rising_edge(clock) then
+
+      -- De-map sector buffer if VIC-IV maps colour RAM at $DC00
+      sector_buffer_mapped <= sector_buffer_mapped and (not colourram_at_dc00);
+      
       fastio_rdata <= (others => 'Z');
 
       if  fastio_read='0' and fastio_write='1' then

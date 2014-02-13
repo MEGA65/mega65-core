@@ -91,7 +91,10 @@ entity simple6502 is
     fastio_read : inout std_logic;
     fastio_write : out std_logic;
     fastio_wdata : out std_logic_vector(7 downto 0);
-    fastio_rdata : inout std_logic_vector(7 downto 0)
+    fastio_rdata : inout std_logic_vector(7 downto 0);
+    fastio_vic_rdata : in std_logic_vector(7 downto 0);
+
+    colourram_at_dc00 : in std_logic
     );
 end entity simple6502;
 
@@ -286,6 +289,7 @@ architecture Behavioural of simple6502 is
 -- Note that ROM is actually implemented using
 -- power-on initialised RAM in the FPGA mapped via our io interface.
   signal accessing_fastio : std_logic;
+  signal accessing_vic_fastio : std_logic;
   signal accessing_ram : std_logic;
   signal accessing_slowram : std_logic;
   signal accessing_cpuport : std_logic;
@@ -402,7 +406,8 @@ begin
   begin
     -- Schedule the memory read from the appropriate source.
     accessing_ram <= '0'; accessing_slowram <= '0';
-    accessing_fastio <= '0'; accessing_cpuport <= '0';
+    accessing_fastio <= '0'; accessing_vic_fastio <= '0';
+    accessing_cpuport <= '0';
     if long_address(27 downto 17)="00000000000" then
       report "Reading from fastram address $" & to_hstring(long_address(19 downto 0))
         & ", word $" & to_hstring(long_address(18 downto 3)) severity note;
@@ -427,6 +432,30 @@ begin
       state <= SlowRamRead1;
     elsif long_address(27 downto 24) = x"F" then
       accessing_fastio <= '1';
+      accessing_vic_fastio <= '0';
+      -- If reading IO page from $FFD{0,1,2,3}{0-7}X, then the access is from
+      -- the VIC-IV.
+      -- If reading IO page from $FFD{8,9,a,b}XX, then the access is from
+      -- the VIC-IV.
+      -- If reading IO page from $FFD{c,d,e,f}XX, and colourram_at_dc00='1',
+      -- then the access is from the VIC-IV.
+      -- We make the distinction to separate reading of VIC-IV
+      -- registers from all other IO registers, partly to work around some bugs,
+      -- and partly because the banking of the VIC registers is the fiddliest part.
+      if long_address(23 downto 16) = x"FD" then
+        if long_address(11 downto 10) = "00" then       --   $D{0,1,2,3}XX
+          if long_address(11 downto 7) /= "00001" then  -- ! $D0{8-F}X (FDC, RAM EX)
+            accessing_vic_fastio <= '1';
+          end if;
+        end if;
+        if long_address(11 downto 10) = "10" then       --   $D{8,9,a,b}XX
+          accessing_vic_fastio <= '1';
+        end if;
+        if long_address(11 downto 10) = "11"            --   $D{c,d,e,f}XX
+           and colourram_at_dc00='1' then   
+          accessing_vic_fastio <= '1';
+        end if;
+      end if;
       fastio_addr <= std_logic_vector(long_address(19 downto 0));
       fastio_read <= '1';
       -- XXX Some fastio (that referencing dual-port block rams) does require
@@ -699,6 +728,8 @@ begin
         -- CPU port
         return cpuport_value;
       end if;
+    elsif accessing_vic_fastio='1' then 
+      return unsigned(fastio_vic_rdata);
     elsif accessing_fastio='1' then 
       return unsigned(fastio_rdata);
     elsif accessing_ram='1' then
@@ -1366,6 +1397,7 @@ end c65_map_instruction;
       -- XXX This can have problems for reading from registers that have
       -- special side effects.
       accessing_fastio <= '0';
+      accessing_vic_fastio <= '0';
       if accessing_fastio='0' then
         fastio_addr <= (others => '1');
         fastio_read <= '0';        

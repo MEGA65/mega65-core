@@ -187,7 +187,10 @@ architecture Behavioral of machine is
       fastio_read : inout std_logic;
       fastio_write : out std_logic;
       fastio_wdata : out std_logic_vector(7 downto 0);
-      fastio_rdata : inout std_logic_vector(7 downto 0)
+      fastio_rdata : inout std_logic_vector(7 downto 0);
+      fastio_vic_rdata : in std_logic_vector(7 downto 0);
+
+      colourram_at_dc00 : in std_logic
       );
   end component;
   
@@ -275,6 +278,7 @@ architecture Behavioral of machine is
   signal fastio_write : std_logic;
   signal fastio_wdata : std_logic_vector(7 downto 0);
   signal fastio_rdata : std_logic_vector(7 downto 0);
+  signal fastio_vic_rdata : std_logic_vector(7 downto 0);
 
   signal fastram_we : STD_LOGIC_VECTOR(7 DOWNTO 0);
   signal fastram_read : STD_LOGIC;
@@ -476,7 +480,10 @@ begin
     fastio_read => fastio_read,
     fastio_write => fastio_write,
     fastio_wdata => fastio_wdata,
-    fastio_rdata => fastio_rdata
+    fastio_rdata => fastio_rdata,
+    fastio_vic_rdata => fastio_vic_rdata,
+
+    colourram_at_dc00 => colourram_at_dc00
     );
 
   vga0: vga
@@ -503,7 +510,7 @@ begin
       fastio_read     => fastio_read,
       fastio_write    => fastio_write,
       fastio_wdata    => fastio_wdata,
-      fastio_rdata    => fastio_rdata,
+      fastio_rdata    => fastio_vic_rdata,
 
       colourram_at_dc00 => colourram_at_dc00
       );
