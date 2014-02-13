@@ -52,6 +52,14 @@ architecture behavior of cpu_test is
            vgagreen : out  UNSIGNED (3 downto 0);
            vgablue : out  UNSIGNED (3 downto 0);
 
+           -------------------------------------------------------------------------
+           -- Lines for the SDcard interface itself
+           -------------------------------------------------------------------------
+           cs_bo : out std_logic;
+           sclk_o : out std_logic;
+           mosi_o : out std_logic;
+           miso_i : in  std_logic;
+           
            --------------------------------------------------------------------
            -- Slow RAM interface: null for now
            --------------------------------------------------------------------
@@ -97,7 +105,9 @@ begin
       nmi => '1',
 
       ps2data => '1',
-      ps2clock => '1',      
+      ps2clock => '1',
+
+      miso_i => '1',
 
       slowram_data => slowram_data,
       
