@@ -31,7 +31,7 @@ use ieee.numeric_std.all;
 use Std.TextIO.all;
 use work.debugtools.all;
 
-entity simple6502 is
+entity gs4510 is
   port (
     Clock : in std_logic;
     reset : in std_logic;
@@ -96,9 +96,9 @@ entity simple6502 is
 
     colourram_at_dc00 : in std_logic
     );
-end entity simple6502;
+end entity gs4510;
 
-architecture Behavioural of simple6502 is
+architecture Behavioural of gs4510 is
 
   signal slowram_lohi : std_logic;
   signal slowram_counter : unsigned(7 downto 0);

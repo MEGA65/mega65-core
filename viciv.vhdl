@@ -32,7 +32,7 @@ use work.debugtools.all;
 --library UNISIM;
 --use UNISIM.VComponents.all;
 
-entity vga is
+entity viciv is
   Port (
     ----------------------------------------------------------------------
     -- dot clock
@@ -76,9 +76,9 @@ entity vga is
 
     colourram_at_dc00 : out std_logic
     );
-end vga;
+end viciv;
 
-architecture Behavioral of vga is
+architecture Behavioral of viciv is
 
   component charrom is
     port (Clk : in std_logic;
