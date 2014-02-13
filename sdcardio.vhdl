@@ -256,7 +256,7 @@ begin  -- behavioural
             ((fastio_addr(19 downto 9)&'0' = x"D1E")
              or (fastio_addr(19 downto 9)&'0' = x"D3E")) then
             -- Map sector buffer at $DE00-$DFFF when required
-            if fastio_read='0' and fastio_write='1' then
+            if fastio_read='0' and fastio_write='1' and sdio_busy='0' then
               sector_buffer(to_integer(fastio_addr(8 downto 0))) <= fastio_wdata;
             end if;
           end if;
@@ -393,7 +393,7 @@ begin  -- behavioural
           ((fastio_addr(19 downto 9)&'0' = x"D1E")
            or (fastio_addr(19 downto 9)&'0' = x"D3E")) then
           -- Map sector buffer at $DE00-$DFFF when required
-          if fastio_read='1' and fastio_write='0' then
+          if fastio_read='1' and fastio_write='0' and sdio_busy='0' then
             fastio_rdata <= sector_buffer(to_integer(fastio_addr(8 downto 0)));
           end if;
         else
@@ -402,7 +402,7 @@ begin  -- behavioural
         end if;
       end if;
       
-      if (fastio_read='0') and (fastio_write='0') then
+--      if (fastio_read='0') and (fastio_write='0') then
         case sd_state is
           when Idle => sdio_busy <= '0';
           when ReadSector =>
@@ -485,7 +485,7 @@ begin  -- behavioural
             sdio_busy <= '0';
             sd_state <= Idle;
         end case;    
-      end if;
+--      end if;
 
     end if;
   end process;
