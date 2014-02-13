@@ -16,6 +16,7 @@ import os.path
 
 
 loadedfiles = {}
+templabelcount = 0
 
 
 class Lexeme(object):
@@ -103,6 +104,10 @@ def lex(point, line):
                 result.append(Lexeme("X"))
             elif id == "y":
                 result.append(Lexeme("Y"))
+            elif id == "z":
+                result.append(Lexeme("Z"))
+            elif id == "sp":
+                result.append(Lexeme("SP"))
             else:
                 result.append(Lexeme("LABEL", id))
             return
@@ -186,7 +191,7 @@ class ParseLine(object):
         if token.type in tokens:
             return token
         if 'LABEL' in tokens:
-            if token.type in ['X', 'Y']:
+            if token.type in ['X', 'Y', 'Z', 'SP']:
                 token.value = token.type.lower()
                 token.type = 'LABEL'
                 return token
@@ -205,10 +210,11 @@ def parse_expr(line):
 
     def atom():
         "Parses lowest-priority expression components."
+        global templabelcount
         next = line.lookahead(0).type
         if next == "NUM":
             return IR.ConstantExpr(line.expect("NUM").value)
-        elif next in ["LABEL", "X", "Y", "OPCODE"]:
+        elif next in ["LABEL", "X", "Y", "Z", "SP", "OPCODE"]:
             return IR.LabelExpr(line.expect("LABEL").value)
         elif next == "^":
             line.expect("^")
@@ -312,6 +318,7 @@ def parse_line(ppt, lexemelist):
                 Err.log("Unknown pragma " + pragma)
         else:   # Instruction
             opcode = line.expect("OPCODE").value
+            arg2 = None
             if line.lookahead(0).type == "#":
                 mode = "Immediate"
                 line.expect("#")
@@ -321,20 +328,33 @@ def parse_line(ppt, lexemelist):
                 line.expect("(")
                 arg = parse_expr(line)
                 if line.lookahead(0).type == ",":
-                    mode = "PointerX"
                     line.expect(",")
-                    line.expect("X")
-                    line.expect(")")
-                    line.expect("EOL")
+                    if line.lookahead(0).type == "X":
+                        mode = "PointerX"
+                        line.expect("X")
+                        line.expect(")")
+                        line.expect("EOL")
+                    else:
+                        mode = "PointerSPY"
+                        line.expect("SP")
+                        line.expect(")")
+                        line.expect(",")
+                        line.expect("Y")
+                        line.expect("EOL")
                 else:
                     line.expect(")")
                     tok = line.expect(",", "EOL").type
                     if tok == "EOL":
                         mode = "Pointer"
                     else:
-                        mode = "PointerY"
-                        line.expect("Y")
-                        line.expect("EOL")
+                        if line.lookahead(0).type == "Y":
+                            mode = "PointerY"
+                            line.expect("Y")
+                            line.expect("EOL")
+                        else:
+                            mode = "PointerZ"
+                            line.expect("Z")
+                            line.expect("EOL")
             elif line.lookahead(0).type == "EOL":
                 mode = "Implied"
                 arg = None
@@ -342,15 +362,23 @@ def parse_line(ppt, lexemelist):
                 arg = parse_expr(line)
                 tok = line.expect("EOL", ",").type
                 if tok == ",":
-                    tok = line.expect("X", "Y").type
-                    if tok == "X":
-                        mode = "MemoryX"
+                    # Parser has to special-case the BBXn instructions,
+                    # Which uniquely take two addresses
+                    if opcode[:3] in ["bbs", "bbr"]:
+                        arg2 = parse_expr(line)
+                        mode = "Memory2"
                     else:
-                        mode = "MemoryY"
+                        tok = line.expect("X", "Y", "Z").type
+                        if tok == "X":
+                            mode = "MemoryX"
+                        elif tok == "Y":
+                            mode = "MemoryY"
+                        else:
+                            mode = "MemoryZ"
                     line.expect("EOL")
                 else:
                     mode = "Memory"
-            result.append(IR.Node(ppt, mode, opcode, arg))
+            result.append(IR.Node(ppt, mode, opcode, arg, arg2))
 
     aux()
     result = [node for node in result if node is not IR.NullNode]

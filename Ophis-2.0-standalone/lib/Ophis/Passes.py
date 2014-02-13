@@ -16,9 +16,8 @@ import Ophis.Errors as Err
 import Ophis.IR as IR
 import Ophis.Opcodes as Ops
 import Ophis.CmdLine as Cmd
+import Ophis.Listing as Listing
 import Ophis.Macro as Macro
-
-# The passes themselves
 
 
 class Pass(object):
@@ -256,8 +255,11 @@ class EasyModes(Pass):
     name = "Easy addressing modes pass"
 
     def visitMemory(self, node, env):
-        if Ops.opcodes[node.data[0]][14] is not None:
+        if Ops.opcodes[node.data[0]][Ops.modes.index("Relative")] is not None:
             node.nodetype = "Relative"
+            return
+        if Ops.opcodes[node.data[0]][Ops.modes.index("RelativeLong")] is not None:
+            node.nodetype = "RelativeLong"
             return
         if node.data[1].hardcoded:
             if not collapse_no_index(node, env):
@@ -273,6 +275,9 @@ class EasyModes(Pass):
             if not collapse_y(node, env):
                 node.nodetype = "AbsoluteY"
 
+    def visitMemory2(self, node, env):
+        node.nodetype = "ZPRelative"
+
     def visitPointer(self, node, env):
         if node.data[1].hardcoded:
             if not collapse_no_index_ind(node, env):
@@ -287,6 +292,16 @@ class EasyModes(Pass):
         if node.data[1].hardcoded:
             if not collapse_y_ind(node, env):
                 node.nodetype = "AbsIndY"
+
+    def visitPointerSPY(self, node, env):
+        if node.data[1].hardcoded:
+            if not collapse_spy_ind(node, env):
+                node.nodetype = "AbsIndSPY"
+
+    def visitPointerZ(self, node, env):
+        if node.data[1].hardcoded:
+            if not collapse_z_ind(node, env):
+                node.nodetype = "AbsIndZ"
 
     def visitUnknown(self, node, env):
         pass
@@ -308,10 +323,19 @@ class PCTracker(Pass):
     def visitImmediate(self, node, env):
         env.incPC(2)
 
+    def visitImmediateLong(self, node, env):
+        env.incPC(3)
+
     def visitIndirectX(self, node, env):
         env.incPC(2)
 
     def visitIndirectY(self, node, env):
+        env.incPC(2)
+
+    def visitIndirectSPY(self, node, env):
+        env.incPC(2)
+
+    def visitIndirectZ(self, node, env):
         env.incPC(2)
 
     def visitZPIndirect(self, node, env):
@@ -328,6 +352,12 @@ class PCTracker(Pass):
 
     def visitRelative(self, node, env):
         env.incPC(2)
+
+    def visitRelativeLong(self, node, env):
+        env.incPC(3)
+
+    def visitZPRelative(self, node, env):
+        env.incPC(3)
 
     def visitIndirect(self, node, env):
         env.incPC(3)
@@ -347,6 +377,9 @@ class PCTracker(Pass):
     def visitAbsIndY(self, node, env):
         env.incPC(3)
 
+    def visitAbsIndZ(self, node, env):
+        env.incPC(3)
+
     def visitMemory(self, node, env):
         env.incPC(3)
 
@@ -354,6 +387,9 @@ class PCTracker(Pass):
         env.incPC(3)
 
     def visitMemoryY(self, node, env):
+        env.incPC(3)
+
+    def visitMemoryZ(self, node, env):
         env.incPC(3)
 
     def visitPointer(self, node, env):
@@ -425,6 +461,9 @@ class Collapse(PCTracker):
         self.changed |= collapse_y(node, env)
         PCTracker.visitMemoryY(self, node, env)
 
+    def visitMemoryZ(self, node, env):
+        PCTracker.visitMemoryZ(self, node, env)
+
     def visitPointer(self, node, env):
         self.changed |= collapse_no_index_ind(node, env)
         PCTracker.visitPointer(self, node, env)
@@ -441,9 +480,18 @@ class Collapse(PCTracker):
     # the branch extension pass. Force them to Absolute equivalents
     # if this happens.
 
+    def visitImmediate(self, node, env):
+        if node.data[1].value(env) >= 0x100:
+            if Ops.opcodes[node.data[0]][Ops.modes.index("ImmediateLong")] is not None:
+                node.nodetype = "ImmediateLong"
+                PCTracker.visitImmediateLong(self, node, env)
+                self.changed = True
+                return
+        PCTracker.visitImmediate(self, node, env)
+
     def visitZeroPage(self, node, env):
         if node.data[1].value(env) >= 0x100:
-            if Ops.opcodes[node.data[0]][5] is not None:
+            if Ops.opcodes[node.data[0]][Ops.modes.index("Absolute")] is not None:
                 node.nodetype = "Absolute"
                 PCTracker.visitAbsolute(self, node, env)
                 self.changed = True
@@ -452,7 +500,7 @@ class Collapse(PCTracker):
 
     def visitZeroPageX(self, node, env):
         if node.data[1].value(env) >= 0x100:
-            if Ops.opcodes[node.data[0]][6] is not None:
+            if Ops.opcodes[node.data[0]][Ops.modes.index("Absolute, X")] is not None:
                 node.nodetype = "AbsoluteX"
                 PCTracker.visitAbsoluteX(self, node, env)
                 self.changed = True
@@ -461,7 +509,7 @@ class Collapse(PCTracker):
 
     def visitZeroPageY(self, node, env):
         if node.data[1].value(env) >= 0x100:
-            if Ops.opcodes[node.data[0]][7] is not None:
+            if Ops.opcodes[node.data[0]][Ops.modes.index("Absolute, Y")] is not None:
                 node.nodetype = "AbsoluteY"
                 PCTracker.visitAbsoluteY(self, node, env)
                 self.changed = True
@@ -473,7 +521,7 @@ def collapse_no_index(node, env):
     """Transforms a Memory node into a ZeroPage one if possible.
     Returns boolean indicating whether or not it made the collapse."""
     if node.data[1].value(env) < 0x100:
-        if Ops.opcodes[node.data[0]][2] is not None:
+        if Ops.opcodes[node.data[0]][Ops.modes.index("Zero Page")] is not None:
             node.nodetype = "ZeroPage"
             return True
     return False
@@ -483,7 +531,7 @@ def collapse_x(node, env):
     """Transforms a MemoryX node into a ZeroPageX one if possible.
     Returns boolean indicating whether or not it made the collapse."""
     if node.data[1].value(env) < 0x100:
-        if Ops.opcodes[node.data[0]][3] is not None:
+        if Ops.opcodes[node.data[0]][Ops.modes.index("Zero Page, X")] is not None:
             node.nodetype = "ZeroPageX"
             return True
     return False
@@ -493,17 +541,16 @@ def collapse_y(node, env):
     """Transforms a MemoryY node into a ZeroPageY one if possible.
     Returns boolean indicating whether or not it made the collapse."""
     if node.data[1].value(env) < 0x100:
-        if Ops.opcodes[node.data[0]][4] is not None:
+        if Ops.opcodes[node.data[0]][Ops.modes.index("Zero Page, Y")] is not None:
             node.nodetype = "ZeroPageY"
             return True
     return False
-
 
 def collapse_no_index_ind(node, env):
     """Transforms a Pointer node into a ZPIndirect one if possible.
     Returns boolean indicating whether or not it made the collapse."""
     if node.data[1].value(env) < 0x100:
-        if Ops.opcodes[node.data[0]][11] is not None:
+        if Ops.opcodes[node.data[0]][Ops.modes.index("(Zero Page)")] is not None:
             node.nodetype = "ZPIndirect"
             return True
     return False
@@ -513,7 +560,7 @@ def collapse_x_ind(node, env):
     """Transforms a PointerX node into an IndirectX one if possible.
     Returns boolean indicating whether or not it made the collapse."""
     if node.data[1].value(env) < 0x100:
-        if Ops.opcodes[node.data[0]][12] is not None:
+        if Ops.opcodes[node.data[0]][Ops.modes.index("(Zero Page, X)")] is not None:
             node.nodetype = "IndirectX"
             return True
     return False
@@ -523,8 +570,26 @@ def collapse_y_ind(node, env):
     """Transforms a PointerY node into an IndirectY one if possible.
     Returns boolean indicating whether or not it made the collapse."""
     if node.data[1].value(env) < 0x100:
-        if Ops.opcodes[node.data[0]][13] is not None:
+        if Ops.opcodes[node.data[0]][Ops.modes.index("(Zero Page), Y")] is not None:
             node.nodetype = "IndirectY"
+            return True
+    return False
+
+def collapse_spy_ind(node, env):
+    """Transforms a PointerSPY node into an IndirectY one if possible.
+    Returns boolean indicating whether or not it made the collapse."""
+    if node.data[1].value(env) < 0x100:
+        if Ops.opcodes[node.data[0]][Ops.modes.index("(Zero Page, SP), Y")] is not None:
+            node.nodetype = "IndirectSPY"
+            return True
+    return False
+
+def collapse_z_ind(node, env):
+    """Transforms a PointerZ node into an IndirectZ one if possible.
+    Returns boolean indicating whether or not it made the collapse."""
+    if node.data[1].value(env) < 0x100:
+        if Ops.opcodes[node.data[0]][Ops.modes.index("(Zero Page), Z")] is not None:
+            node.nodetype = "IndirectZ"
             return True
     return False
 
@@ -564,40 +629,76 @@ class ExtendBranches(PCTracker):
         self.changed = False
 
     def visitRelative(self, node, env):
-        (opcode, expr) = node.data
+        (opcode, expr) = node.data[:2]
         arg = expr.value(env)
         arg = arg - (env.getPC() + 2)
         if arg < -128 or arg > 127:
-            if opcode == 'bra':
-                # If BRA - BRanch Always - is out of range, it's a JMP.
-                node.data = ('jmp', expr)
-                node.nodetype = "Absolute"
+            if Cmd.enable_4502_exts:
+                node.nodetype = "RelativeLong"
                 if Cmd.warn_on_branch_extend:
                     print>>sys.stderr, str(node.ppt) + ": WARNING: " \
-                                       "bra out of range, replacing with jmp"
+                        "branch out of range, replacing with 16-bit relative branch"
             else:
-                # Otherwise, we replace it with a 'macro' of sorts by hand:
-                # $branch LOC -> $reversed_branch ^+5; JMP LOC
-                # We don't use temp labels here because labels need to have
-                # been fixed in place by this point, and JMP is always 3
-                # bytes long.
-                expansion = [IR.Node(node.ppt, "Relative",
+                if opcode == 'bra':
+                    # If BRA - BRanch Always - is out of range, it's a JMP.
+                    node.data = ('jmp', expr, None)
+                    node.nodetype = "Absolute"
+                    if Cmd.warn_on_branch_extend:
+                        print>>sys.stderr, str(node.ppt) + ": WARNING: " \
+                            "bra out of range, replacing with jmp"
+                else:
+                    # Otherwise, we replace it with a 'macro' of sorts by hand:
+                    # $branch LOC -> $reversed_branch ^+5; JMP LOC
+                    # We don't use temp labels here because labels need to have
+                    # been fixed in place by this point, and JMP is always 3
+                    # bytes long.
+                    expansion = [IR.Node(node.ppt, "Relative",
                                      ExtendBranches.reversed[opcode],
                                      IR.SequenceExpr([IR.PCExpr(), "+",
-                                                      IR.ConstantExpr(5)])),
-                             IR.Node(node.ppt, "Absolute", 'jmp', expr)]
-                node.nodetype = 'SEQUENCE'
-                node.data = expansion
-                if Cmd.warn_on_branch_extend:
-                    print>>sys.stderr, str(node.ppt) + ": WARNING: " + \
+                                                      IR.ConstantExpr(5)]),
+                                     None),
+                             IR.Node(node.ppt, "Absolute", 'jmp', expr, None)]
+                    node.nodetype = 'SEQUENCE'
+                    node.data = expansion
+                    if Cmd.warn_on_branch_extend:
+                        print>>sys.stderr, str(node.ppt) + ": WARNING: " + \
                                        opcode + " out of range, " \
                                        "replacing with " + \
                                        ExtendBranches.reversed[opcode] + \
                                        "/jmp combo"
+                    self.changed = True
+                    node.accept(self, env)
+        else:
+            PCTracker.visitRelative(self, node, env)
+
+    def visitZPRelative(self, node, env):
+        (opcode, tested, expr) = node.data
+        arg = expr.value(env)
+        arg = arg - (env.getPC() + 3)
+        if arg < -128 or arg > 127:
+            # Otherwise, we replace it with a 'macro' of sorts by hand:
+            # $branch LOC -> $reversed_branch ^+6; JMP LOC
+            # We don't use temp labels here because labels need to have
+            # been fixed in place by this point, and JMP is always 3
+            # bytes long.
+            expansion = [IR.Node(node.ppt, "ZPRelative",
+                                 ExtendBranches.reversed[opcode],
+                                 tested,
+                                 IR.SequenceExpr([IR.PCExpr(), "+",
+                                                  IR.ConstantExpr(6)])),
+                         IR.Node(node.ppt, "Absolute", 'jmp', expr, None)]
+            node.nodetype = 'SEQUENCE'
+            node.data = expansion
+            if Cmd.warn_on_branch_extend:
+                print>>sys.stderr, str(node.ppt) + ": WARNING: " + \
+                    opcode + " out of range, " \
+                    "replacing with " + \
+                    ExtendBranches.reversed[opcode] + \
+                    "/jmp combo"
             self.changed = True
             node.accept(self, env)
         else:
-            env.incPC(2)
+            PCTracker.visitZPRelative(self, node, env)
 
 
 class NormalizeModes(Pass):
@@ -625,6 +726,9 @@ class NormalizeModes(Pass):
     def visitPointerY(self, node, env):
         node.nodetype = "AbsIndY"
 
+    def visitPointerZ(self, node, env):
+        node.nodetype = "AbsIndZ"
+
     def visitUnknown(self, node, env):
         pass
 
@@ -634,20 +738,32 @@ class Assembler(Pass):
     a file."""
     name = "Assembler"
 
+    # The self.listing field defined in prePass and referred to elsewhere
+    # holds the necessary information to build the program listing later.
+    # Each member of this list is either a string (in which case it is
+    # a listed instruction to be echoed) or it is a tuple of
+    # (startPC, bytes). Byte listings need to be interrupted when the
+    # PC is changed by an .org, which may happen in the middle of
+    # data definition blocks.
     def prePass(self):
         self.output = []
         self.code = 0
         self.data = 0
         self.filler = 0
+        if Cmd.listfile is not None:
+            self.listing = Listing.Listing(Cmd.listfile)
+        else:
+            self.listing = Listing.NullLister()
 
     def postPass(self):
+        self.listing.dump()
         if Cmd.print_summary and Err.count == 0:
             print>>sys.stderr, "Assembly complete: %s bytes output " \
                                "(%s code, %s data, %s filler)" \
                                % (len(self.output),
                                   self.code, self.data, self.filler)
 
-    def outputbyte(self, expr, env):
+    def outputbyte(self, expr, env, tee=None):
         'Outputs a byte, with range checking'
         if self.writeOK:
             val = expr.value(env)
@@ -655,10 +771,12 @@ class Assembler(Pass):
                 Err.log("Byte constant " + str(expr) + " out of range")
                 val = 0
             self.output.append(int(val))
+            if tee is not None:
+                tee.append(self.output[-1])
         else:
             Err.log("Attempt to write to data segment")
 
-    def outputword(self, expr, env):
+    def outputword(self, expr, env, tee=None):
         'Outputs a little-endian word, with range checking'
         if self.writeOK:
             val = expr.value(env)
@@ -667,10 +785,12 @@ class Assembler(Pass):
                 val = 0
             self.output.append(int(val & 0xFF))
             self.output.append(int((val >> 8) & 0xFF))
+            if tee is not None:
+                tee.extend(self.output[-2:])
         else:
             Err.log("Attempt to write to data segment")
 
-    def outputdword(self, expr, env):
+    def outputdword(self, expr, env, tee=None):
         'Outputs a little-endian dword, with range checking'
         if self.writeOK:
             val = expr.value(env)
@@ -681,10 +801,12 @@ class Assembler(Pass):
             self.output.append(int((val >> 8) & 0xFF))
             self.output.append(int((val >> 16) & 0xFF))
             self.output.append(int((val >> 24) & 0xFF))
+            if tee is not None:
+                tee.extend(self.output[-4:])
         else:
             Err.log("Attempt to write to data segment")
 
-    def outputword_be(self, expr, env):
+    def outputword_be(self, expr, env, tee=None):
         'Outputs a big-endian word, with range checking'
         if self.writeOK:
             val = expr.value(env)
@@ -693,10 +815,12 @@ class Assembler(Pass):
                 val = 0
             self.output.append(int((val >> 8) & 0xFF))
             self.output.append(int(val & 0xFF))
+            if tee is not None:
+                tee.extend(self.output[-2:])
         else:
             Err.log("Attempt to write to data segment")
 
-    def outputdword_be(self, expr, env):
+    def outputdword_be(self, expr, env, tee=None):
         'Outputs a big-endian dword, with range checking'
         if self.writeOK:
             val = expr.value(env)
@@ -707,86 +831,177 @@ class Assembler(Pass):
             self.output.append(int((val >> 16) & 0xFF))
             self.output.append(int((val >> 8) & 0xFF))
             self.output.append(int(val & 0xFF))
+            if tee is not None:
+                tee.extend(self.output[-4:])
         else:
             Err.log("Attempt to write to data segment")
 
+    def relativize(self, expr, env, arglen):
+        "Convert an expression into one for use in relative addressing"
+        arg = expr.value(env)
+        arg = arg - (env.getPC() + arglen + 1)
+        if arg < -128 or arg > 127:
+            Err.log("Branch target out of bounds")
+            arg = 0
+        if arg < 0:
+            arg += 256
+        return IR.ConstantExpr(arg)
+
+    def relativizelong(self, expr, env, arglen):
+        "Convert an expression into one for use in relative addressing"
+        arg = expr.value(env)
+        arg = arg - (env.getPC() + arglen)
+        if arg < 0:
+            arg += 65536
+        return IR.ConstantExpr(arg)
+
+    def listing_string(self, pc, binary, mode, opcode, val1, val2):
+        base = " %04X " % pc
+        base += (" %02X" * len(binary)) % tuple(binary)
+        formats = ["",
+                   "#$%02X",
+                   "#$%04X",
+                   "$%02X",
+                   "$%02X, X",
+                   "$%02X, Y",
+                   "$%04X",
+                   "$%04X, X",
+                   "$%04X, Y",
+                   "($%04X)",
+                   "($%04X, X)",
+                   "($%04X), Y",
+                   "($%04X), Z",
+                   "($%02X)",
+                   "($%02X, X)",
+                   "($%02X), Y",
+                   "($%02X, SP), Y",
+                   "($%02X), Z",
+                   "$%04X",
+                   "$%04X",
+                   "$%02X, $%04X"]
+        fmt = ("%-16s %-5s" % (base, opcode.upper())) + formats[mode]
+        if val1 is None:
+            return fmt
+        elif val2 is None:
+            arglen = Ops.lengths[mode]
+            mask = 0xFF
+            # Relative is a full address in a byte, so it also has the
+            # 0xFFFF mask.
+            if arglen == 2 or mode == 17:
+                mask = 0xFFFF
+            return fmt % (val1 & mask)
+        else:
+            # Mode is 15: Zero Page, Relative
+            return fmt % (val1 & 0xFF, val2 & 0xFFFF)
+
     def assemble(self, node, mode, env):
         "A generic instruction called by the visitor methods themselves"
-        (opcode, expr) = node.data
+        (opcode, expr, expr2) = node.data
         bin_op = Ops.opcodes[opcode][mode]
         if bin_op is None:
             Err.log('%s does not have mode "%s"' % (opcode.upper(),
                                                     Ops.modes[mode]))
             return
-        self.outputbyte(IR.ConstantExpr(bin_op), env)
+        inst_bytes = []
+        self.outputbyte(IR.ConstantExpr(bin_op), env, inst_bytes)
         arglen = Ops.lengths[mode]
-        if mode == 14:  # Special handling for relative mode
-            arg = expr.value(env)
-            arg = arg - (env.getPC() + 2)
-            if arg < -128 or arg > 127:
-                Err.log("Branch target out of bounds")
-                arg = 0
-            if arg < 0:
-                arg += 256
-            expr = IR.ConstantExpr(arg)
-        if arglen == 1:
-            self.outputbyte(expr, env)
-        if arglen == 2:
-            self.outputword(expr, env)
+        val1 = None
+        val2 = None
+        if expr is not None:
+            val1 = expr.value(env)
+        if expr2 is not None:
+            val2 = expr2.value(env)
+        if mode == Ops.modes.index("Zero Page, Relative"):
+            expr2 = self.relativize(expr2, env, arglen)
+            self.outputbyte(expr, env, inst_bytes)
+            self.outputbyte(expr2, env, inst_bytes)
+        else:
+            if mode == Ops.modes.index("Relative"):
+                expr = self.relativize(expr, env, arglen)
+            elif mode == Ops.modes.index("RelativeLong"):
+                expr = self.relativizelong(expr, env, arglen)
+            if arglen == 1:
+                self.outputbyte(expr, env, inst_bytes)
+            elif arglen == 2:
+                self.outputword(expr, env, inst_bytes)
+        self.listing.listInstruction(self.listing_string(env.getPC(),
+                                                         inst_bytes,
+                                                         mode, opcode,
+                                                         val1, val2))
         env.incPC(1 + arglen)
         self.code += 1 + arglen
 
     def visitImplied(self, node, env):
-        self.assemble(node,  0, env)
+        self.assemble(node,  Ops.modes.index("Implied"), env)
 
     def visitImmediate(self, node, env):
-        self.assemble(node,  1, env)
+        self.assemble(node,  Ops.modes.index("Immediate"), env)
+
+    def visitImmediateLong(self, node, env):
+        self.assemble(node,  Ops.modes.index("ImmediateLong"), env)
 
     def visitZeroPage(self, node, env):
-        self.assemble(node,  2, env)
+        self.assemble(node,  Ops.modes.index("Zero Page"), env)
 
     def visitZeroPageX(self, node, env):
-        self.assemble(node,  3, env)
+        self.assemble(node,  Ops.modes.index("Zero Page, X"), env)
 
     def visitZeroPageY(self, node, env):
-        self.assemble(node,  4, env)
+        self.assemble(node,  Ops.modes.index("Zero Page, Y"), env)
 
     def visitAbsolute(self, node, env):
-        self.assemble(node,  5, env)
+        self.assemble(node,  Ops.modes.index("Absolute"), env)
 
     def visitAbsoluteX(self, node, env):
-        self.assemble(node,  6, env)
+        self.assemble(node,  Ops.modes.index("Absolute, X"), env)
 
     def visitAbsoluteY(self, node, env):
-        self.assemble(node,  7, env)
+        self.assemble(node,  Ops.modes.index("Absolute, Y"), env)
 
     def visitIndirect(self, node, env):
-        self.assemble(node,  8, env)
+        self.assemble(node,  Ops.modes.index("(Absolute)"), env)
 
     def visitAbsIndX(self, node, env):
-        self.assemble(node,  9, env)
+        self.assemble(node,  Ops.modes.index("(Absolute, X)"), env)
 
     def visitAbsIndY(self, node, env):
-        self.assemble(node, 10, env)
+        self.assemble(node, Ops.modes.index("(Absolute), Y"), env)
+
+    def visitAbsIndZ(self, node, env):
+        self.assemble(node, Ops.modes.index("(Absolute), Z"), env)
 
     def visitZPIndirect(self, node, env):
-        self.assemble(node, 11, env)
+        self.assemble(node, Ops.modes.index("(Zero Page)"), env)
 
     def visitIndirectX(self, node, env):
-        self.assemble(node, 12, env)
+        self.assemble(node, Ops.modes.index("(Zero Page, X)"), env)
 
     def visitIndirectY(self, node, env):
-        self.assemble(node, 13, env)
+        self.assemble(node, Ops.modes.index("(Zero Page), Y"), env)
+
+    def visitIndirectZ(self, node, env):
+        self.assemble(node, Ops.modes.index("(Zero Page), Z"), env)
+
+    def visitIndirectSPY(self, node, env):
+        self.assemble(node, Ops.modes.index("(Zero Page, SP), Y"), env)
 
     def visitRelative(self, node, env):
-        self.assemble(node, 14, env)
+        self.assemble(node, Ops.modes.index("Relative"), env)
+
+    def visitRelativeLong(self, node, env):
+        self.assemble(node, Ops.modes.index("RelativeLong"), env)
+
+    def visitZPRelative(self, node, env):
+        self.assemble(node, Ops.modes.index("Zero Page, Relative"), env)
 
     def visitLabel(self, node, env):
         pass
 
     def visitByte(self, node, env):
+        created = []
         for expr in node.data:
-            self.outputbyte(expr, env)
+            self.outputbyte(expr, env, created)
+        self.registerData(created, env.getPC())
         env.incPC(len(node.data))
         self.data += len(node.data)
 
@@ -802,37 +1017,50 @@ class Assembler(Pass):
         elif offset + length > len(node.data):
             Err.log("File too small for .incbin subrange")
         else:
+            created = []
             for expr in node.data[offset:(offset + length)]:
-                self.outputbyte(expr, env)
+                self.outputbyte(expr, env, created)
+            self.registerData(created, env.getPC())
             env.incPC(length)
             self.data += length
 
     def visitWord(self, node, env):
+        created = []
         for expr in node.data:
-            self.outputword(expr, env)
+            self.outputword(expr, env, created)
+        self.registerData(created, env.getPC())
         env.incPC(len(node.data) * 2)
         self.data += len(node.data) * 2
 
     def visitDword(self, node, env):
+        created = []
         for expr in node.data:
-            self.outputdword(expr, env)
+            self.outputdword(expr, env, created)
+        self.registerData(created, env.getPC())
         env.incPC(len(node.data) * 4)
         self.data += len(node.data) * 4
 
     def visitWordBE(self, node, env):
+        created = []
         for expr in node.data:
-            self.outputword_be(expr, env)
+            self.outputword_be(expr, env, created)
+        self.registerData(created, env.getPC())
         env.incPC(len(node.data) * 2)
         self.data += len(node.data) * 2
 
     def visitDwordBE(self, node, env):
+        created = []
         for expr in node.data:
-            self.outputdword_be(expr, env)
+            self.outputdword_be(expr, env, created)
+        self.registerData(created, env.getPC())
         env.incPC(len(node.data) * 4)
         self.data += len(node.data) * 4
 
     def visitSetPC(self, node, env):
-        env.setPC(node.data[0].value(env))
+        val = node.data[0].value(env)
+        if self.writeOK and env.getPC() != val:
+            self.listing.listDivider(val)
+        env.setPC(val)
 
     def visitCheckPC(self, node, env):
         pc = env.getPC()
@@ -847,7 +1075,12 @@ class Assembler(Pass):
             Err.log("Attempted to .advance backwards: $%x to $%x" %
                     (pc, target))
         else:
+            created = []
             for i in xrange(target - pc):
-                self.outputbyte(node.data[1], env)
+                self.outputbyte(node.data[1], env, created)
             self.filler += target - pc
+            self.registerData(created, env.getPC())
         env.setPC(target)
+
+    def registerData(self, vals, pc):
+        self.listing.listData(vals, pc)

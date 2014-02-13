@@ -11,7 +11,6 @@
 import sys
 
 import Ophis.IR as IR
-import Ophis.CmdLine as Cmd
 import Ophis.Errors as Err
 
 macros = {}

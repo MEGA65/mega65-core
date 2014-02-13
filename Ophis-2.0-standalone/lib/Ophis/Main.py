@@ -20,7 +20,12 @@ import Ophis.Opcodes
 
 
 def run_all():
-    "Transforms the source infiles to a binary outfile."
+    """Transforms the source infiles to a binary outfile.
+
+    Returns a shell-style exit code: 1 if there were errors, 0 if there
+    were no errors.
+
+    """
     Err.count = 0
     z = Ophis.Frontend.parse(Ophis.CmdLine.infiles)
     env = Ophis.Environment.Environment()
@@ -69,7 +74,7 @@ def run_all():
             if outfile == '-':
                 output = sys.stdout
                 if sys.platform == "win32":
-                    # We can't dump our binary in test mode; that would be
+                    # We can't dump our binary in text mode; that would be
                     # disastrous. So, we'll do some platform-specific
                     # things here to force our stdout to binary mode.
                     import msvcrt
@@ -82,10 +87,13 @@ def run_all():
             output.flush()
             if outfile != '-':
                 output.close()
+            return 0
         except IOError:
             print>>sys.stderr, "Could not write to " + outfile
+            return 1
     else:
         Err.report()
+        return 1
 
 
 def run_ophis(args):
@@ -96,10 +104,12 @@ def run_ophis(args):
         Ophis.Opcodes.opcodes.update(Ophis.Opcodes.undocops)
     elif Ophis.CmdLine.enable_65c02_exts:
         Ophis.Opcodes.opcodes.update(Ophis.Opcodes.c02extensions)
+    elif Ophis.CmdLine.enable_4502_exts:
+        Ophis.Opcodes.opcodes.update(Ophis.Opcodes.csg4502extensions)
 
     Ophis.CorePragmas.reset()
-    run_all()
+    return run_all()
 
 
 if __name__ == '__main__':
-    run_ophis(sys.argv[1:])
+    sys.exit(run_ophis(sys.argv[1:]))

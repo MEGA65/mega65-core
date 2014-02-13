@@ -30,6 +30,14 @@ def pragmaOutfile(ppt, line, result):
         Ophis.CmdLine.outfile = filename
 
 
+def pragmaListfile(ppt, line, result):
+    "Sets the listing file if it hasn't already been set"
+    filename = line.expect("STRING").value
+    line.expect("EOL")
+    if type(filename) == str and Ophis.CmdLine.listfile is None:
+        Ophis.CmdLine.listfile = filename
+
+
 def pragmaInclude(ppt, line, result):
     "Includes a source file"
     filename = line.expect("STRING").value

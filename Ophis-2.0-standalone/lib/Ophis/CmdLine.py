@@ -20,16 +20,17 @@ print_labels = False
 
 infiles = None
 outfile = None
+listfile = None
 
 
 def parse_args(raw_args):
     "Populate the module's globals based on the command-line options given."
     global enable_collapse, enable_branch_extend
-    global enable_undoc_ops, enable_65c02_exts
+    global enable_undoc_ops, enable_65c02_exts, enable_4502_exts
     global warn_on_branch_extend
     global print_summary, print_loaded_files
     global print_pass, print_ir, print_labels
-    global infiles, outfile
+    global infiles, outfile, listfile
 
     parser = optparse.OptionParser(
         usage="Usage: %prog [options] srcfile [srcfile ...]",
@@ -37,12 +38,16 @@ def parse_args(raw_args):
 
     parser.add_option("-o", default=None, dest="outfile",
                       help="Output filename (default 'ophis.bin')")
+    parser.add_option("-l", default=None, dest="listfile",
+                      help="Listing filename (not created by default)")
 
     ingrp = optparse.OptionGroup(parser, "Input options")
     ingrp.add_option("-u", "--undoc", action="store_true", default=False,
                      help="Enable 6502 undocumented opcodes")
     ingrp.add_option("-c", "--65c02", action="store_true", default=False,
                      dest="c02", help="Enable 65c02 extended instruction set")
+    ingrp.add_option("-4", "--4502", action="store_true", default=False,
+                     dest="csg4502", help="Enable 4502 extended instruction set")
 
     outgrp = optparse.OptionGroup(parser, "Console output options")
     outgrp.add_option("-v", "--verbose", action="store_const", const=2,
@@ -69,12 +74,18 @@ def parse_args(raw_args):
         parser.error("No input files specified")
     if options.c02 and options.undoc:
         parser.error("--undoc and --65c02 are mutually exclusive")
+    if options.c02 and options.csg4502:
+        parser.error("--undoc and --65c02 are mutually exclusive")
+    if options.csg4502 and options.undoc:
+        parser.error("--undoc and --65c02 are mutually exclusive")
 
     infiles = args
     outfile = options.outfile
+    listfile = options.listfile
     enable_branch_extend = options.enable_branch_extend
     enable_undoc_ops = options.undoc
     enable_65c02_exts = options.c02
+    enable_4502_exts = options.csg4502
     warn_on_branch_extend = options.warn
     print_summary = options.verbose > 0  # no options set
     print_loaded_files = options.verbose > 1  # v
