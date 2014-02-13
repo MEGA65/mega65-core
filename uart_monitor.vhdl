@@ -131,9 +131,17 @@ architecture behavioural of uart_monitor is
                          TraceStep,CPUBreak1,WaitOneCycle
                          );
 
+  subtype command_len_t is integer range 0 to 64;
+  type command_len_history_t is array (0 to 15) of command_len_t;
+  subtype command_t is String(1 to 64);
+  type command_history_t is array (0 to 15) of command_t;
+  signal command_history : command_history_t;
+  signal command_lengths : command_len_history_t := (others => 0);
+  signal command_history_next : integer range 0 to 15 := 0;
+  
   signal state : monitor_state := Reseting;
 -- Buffer to hold entered command
-  signal cmdbuffer : String(1 to 64);
+  signal cmdbuffer : command_t;
   signal cmdlen : integer := 1;
   signal prev_cmdlen : integer := 1;
   signal redraw_position : integer;
@@ -204,7 +212,7 @@ begin
     -- purpose: Process a character typed by the user.
     procedure character_received (char : in character) is
     begin  -- character_received
-      if (char >= ' ' and char < del) or char > c159 then
+      if ((char >= ' ' and char < del) or (char > c159)) and (key_state=0) then
         if cmdlen<63 then
           -- Echo character back to user
           tx_data <= to_std_logic_vector(char);
@@ -240,6 +248,15 @@ begin
             end case;
           when 0 =>                     -- Normal key input
             case char is
+              --when so =>
+              --  -- Recall next command in history
+              --  if command_history_recall = 15 then
+              --    command_history_recall <= 0;
+              --  else
+              --    command_history_recall <= command_history_recall + 1;
+              --  end if;
+              --  cmdlen <= 0;
+              --  state <= RecallHistory;
               when dle =>
                 -- Recall previous command (^P)
                 cmdlen <= prev_cmdlen;
