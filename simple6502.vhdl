@@ -341,7 +341,9 @@ begin
       nmi_state <= nmi;
       -- IRQ is level triggered.
       if irq = '0' then
-        irq_pending <= '1';        
+        irq_pending <= '1';
+      else
+        irq_pending <= '0';
       end if;
     end if;     
   end procedure check_for_interrupts;
@@ -401,8 +403,8 @@ begin
     if (blocknum=14) and (lhc(1)='1') and (writeP=false) then
       temp_address(27 downto 12) := x"002E";      
     end if;
-    if (blocknum=14) and (lhc(1)='1') and (writeP=false) then
-      temp_address(27 downto 12) := x"002E";      
+    if (blocknum=15) and (lhc(1)='1') and (writeP=false) then
+      temp_address(27 downto 12) := x"002F";      
     end if;
     -- KERNEL
     if (blocknum=10) and (lhc(0)='1') and (writeP=false) then
