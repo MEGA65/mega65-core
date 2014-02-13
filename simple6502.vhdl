@@ -465,12 +465,11 @@ begin
             accessing_vic_fastio <= '1';
           end if;
         end if;
-        if long_address(11 downto 10) = "10" then       --   $D{8,9,a,b}XX
-          accessing_vic_fastio <= '1';
-        end if;
-        if long_address(11 downto 10) = "11"            --   $D{c,d,e,f}XX
-           and colourram_at_dc00='1' then   
-          accessing_vic_fastio <= '1';
+        -- Colour RAM at $D800-$DBFF and optionally $DC00-$DFFF
+        if long_address(11)='1' then
+          if (long_address(10)='0') or (colourram_at_dc00='1') then
+            accessing_vic_fastio <= '1';            
+          end if;
         end if;
       end if;
       fastio_addr <= std_logic_vector(long_address(19 downto 0));
