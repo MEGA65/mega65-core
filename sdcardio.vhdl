@@ -421,9 +421,7 @@ begin  -- behavioural
             if data_ready='1' then
               sd_doread <= '0';
               -- A byte is ready to read, so store it
-              if fastio_read='0' and fastio_write='0' then
-                sector_buffer(to_integer(sector_offset)) <= unsigned(sd_rdata);
-              end if;
+              sector_buffer(to_integer(sector_offset)) <= unsigned(sd_rdata);
               sd_state <= ReadingSectorAckByte;
               if skip=0 then
                 sector_offset <= sector_offset + 1;
