@@ -360,20 +360,21 @@ begin
     temp_address(7 downto 0):=short_address(7 downto 0);
 
     -- Add the map offset if required
-    blocknum := to_integer(short_address(14 downto 12));
+    blocknum := to_integer(short_address(14 downto 13));
     if short_address(15)='1' then
       if reg_map_high(blocknum)='1' then
         temp_address(27 downto 20) := reg_mb_high;
-        temp_address(19 downto 8) := reg_offset_high+(128+blocknum*32);
+        temp_address(19 downto 8) := reg_offset_high+(128+(blocknum*32));
         temp_address(7 downto 0) := short_address(7 downto 0);
+
       else
         temp_address(27 downto 16) := (others => '0');
         temp_address(15 downto 0) := short_address;
       end if;
     else
-      if reg_map_high(blocknum)='1' then
+      if reg_map_low(blocknum)='1' then
         temp_address(27 downto 20) := reg_mb_low;
-        temp_address(19 downto 8) := reg_offset_low+(0+blocknum*32);
+        temp_address(19 downto 8) := reg_offset_low+(0+(blocknum*32));
         temp_address(7 downto 0) := short_address(7 downto 0);
       else
         temp_address(27 downto 16) := (others => '0');
@@ -468,12 +469,14 @@ begin
       if long_address(23 downto 16) = x"FD" then
         if long_address(11 downto 10) = "00" then       --   $D{0,1,2,3}XX
           if long_address(11 downto 7) /= "00001" then  -- ! $D0{8-F}X (FDC, RAM EX)
+            report "D800-DBFF colour ram access from VIC fastio" severity note;
             accessing_vic_fastio <= '1';
           end if;
         end if;
         -- Colour RAM at $D800-$DBFF and optionally $DC00-$DFFF
         if long_address(11)='1' then
           if (long_address(10)='0') or (colourram_at_dc00='1') then
+            report "DC00-DFFF colour ram access from VIC fastio" severity note;
             accessing_vic_fastio <= '1';            
           end if;
         end if;
@@ -666,8 +669,10 @@ begin
         return cpuport_value;
       end if;
     elsif accessing_vic_fastio='1' then 
+      report "reading VIC fastio byte $" & to_hstring(fastio_vic_rdata) severity note;
       return unsigned(fastio_vic_rdata);
-    elsif accessing_fastio='1' then 
+    elsif accessing_fastio='1' then
+      report "reading fastio byte $" & to_hstring(fastio_rdata) severity note;
       return unsigned(fastio_rdata);
     elsif accessing_ram='1' then
       report "Extracting fastram value from 64-bit read $" & to_hstring(fastram_dataout) severity note;
@@ -682,7 +687,8 @@ begin
         when "111" => return unsigned(fastram_dataout(63 downto 56));
         when others => return x"FF";
       end case;
-    elsif accessing_slowram='1' then           
+    elsif accessing_slowram='1' then
+      report "reading slow RAM data. Word is $" & to_hstring(slowram_data) severity note;
       slowram_ce <= '1'; -- Release after reading so that refresh can occur
       slowram_data <= (others => 'Z');  -- tristate data lines as well
       case slowram_lohi is
@@ -1171,8 +1177,8 @@ end c65_map_instruction;
           reg_value <= arg2;
           push_byte(arg1,PHWimm1);
         when others =>
+          report "mode = " & addressingmode'image(mode) severity note;
           assert false report "Uncaught instruction mode" severity failure;
-          assert true report "Uncaught instruction mode" severity failure;
       end case;
     end if;
   end procedure execute_instruction;      
@@ -1181,6 +1187,7 @@ end c65_map_instruction;
   variable temp_pc : unsigned(15 downto 0);
   begin
     if rising_edge(clock) then
+
       monitor_state <= std_logic_vector(to_unsigned(processor_state'pos(state),8));
       monitor_pc <= std_logic_vector(reg_pc);
       monitor_a <= std_logic_vector(reg_a);
@@ -1219,7 +1226,9 @@ end c65_map_instruction;
 
       monitor_p <= std_logic_vector(virtual_reg_p);
 
+
       if reset = '0' or state = ResetLow then
+
         -- reset cpu
         state <= VectorRead;
         vector <= x"FFFC";
@@ -1239,6 +1248,7 @@ end c65_map_instruction;
           end if;
         end if;   
       else
+
         -- CPU running, so do CPU state machine
         if monitor_mem_attention_request='0' then
           check_for_interrupts;
@@ -1271,6 +1281,7 @@ end c65_map_instruction;
               -- report "state = " & processor_state'image(state) severity note;
               -- Use a format very like that of VICE so that we can compare our boot
               -- sequence to theirs, to find errors in our CPU etc.
+
               report ""
                 & ".C:" & to_hstring(std_logic_vector(reg_pc))
                 & " - A:" & to_hstring(std_logic_vector(reg_a))
