@@ -1051,6 +1051,20 @@ end c65_map_instruction;
       when I_STX => write_data_byte(address,reg_x,InstructionFetch);
       when I_STY => write_data_byte(address,reg_y,InstructionFetch);
       when I_STZ => write_data_byte(address,reg_z,InstructionFetch);
+      when I_TSB =>
+        if (operand and reg_a) = x"00" then
+          flag_z <= '1';
+        else
+          flag_z <= '0';
+        end if;
+        write_data_byte(address,reg_a or operand,InstructionFetch);
+      when I_TRB =>
+        if (operand and reg_a) = x"00" then
+          flag_z <= '1';
+        else
+          flag_z <= '0';
+        end if;
+        write_data_byte(address,(not reg_a) and operand,InstructionFetch);
       when others => null;
     end case;
   end procedure execute_operand_instruction;
