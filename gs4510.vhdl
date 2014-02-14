@@ -1209,6 +1209,7 @@ end c65_map_instruction;
 
   variable virtual_reg_p : std_logic_vector(7 downto 0);
   variable temp_pc : unsigned(15 downto 0);
+  variable temp_value : unsigned(7 downto 0);
   begin
     if rising_edge(clock) then
 
@@ -1268,6 +1269,7 @@ end c65_map_instruction;
           read_long_address(unsigned(monitor_mem_address),MonitorReadDone);
           -- and optionally set PC
           if monitor_mem_setpc='1' then
+            report "PC set by monitor interface" severity note;
             reg_pc <= unsigned(monitor_mem_address(15 downto 0));
           end if;
         end if;   
@@ -1338,6 +1340,7 @@ end c65_map_instruction;
                 else
                   read_instruction_byte(reg_pc,InstructionFetch2);
                   reg_pc <= reg_pc + 1;
+                  report "reg_pc bump from $" & to_hstring(reg_pc) severity note;
                 end if;
               end if;
             when InstructionFetch2 =>
@@ -1347,9 +1350,10 @@ end c65_map_instruction;
                 -- 1-byte instruction, process now
                 execute_implied_instruction(read_data);
               else
-              report "opcode: read_data = %" & to_string(std_logic_vector(read_data)) severity note;
+                report "opcode: read_data = %" & to_string(std_logic_vector(read_data)) severity note;
                 opcode <= read_data;
                 reg_pc <= reg_pc + 1;
+                report "reg_pc bump from $" & to_hstring(reg_pc) severity note;
                 read_instruction_byte(reg_pc,InstructionFetch3);
               end if;
             when InstructionFetch3 =>
@@ -1357,11 +1361,13 @@ end c65_map_instruction;
                 arg1 <= read_data;
                 reg_pc <= reg_pc + 1;
                 reg_pc_jsr <= reg_pc;     -- keep PC after one operand for JSR
+                report "reg_pc bump from $" & to_hstring(reg_pc) severity note;
                 read_instruction_byte(reg_pc,InstructionFetch4);
               else
                 execute_instruction(opcode,read_data,x"00");
               end if;
             when InstructionFetch4 =>
+              report "reg_pc is $" & to_hstring(reg_pc) severity note;
               execute_instruction(opcode,arg1,read_data);
             when BRK1 => push_byte(reg_pc(7 downto 0),BRK2);
             when BRK2 =>
@@ -1486,14 +1492,18 @@ end c65_map_instruction;
             when BranchOnBit =>
               report "BBS/BBR: bbs_bit=" & integer'image(to_integer(bbs_bit)) severity note;
               report "read_data = %" & to_string(std_logic_vector(read_data)) severity note;
-              if read_data(to_integer(bbs_bit))
+              temp_value := read_data;
+              if temp_value(to_integer(bbs_bit))
                  = bbs_or_bbc then
+                report "taking branch" severity note;
                 -- 8-bit branch
                 if reg_value(7)='0' then -- branch forwards.
                   reg_pc <= reg_pc + unsigned(reg_value(6 downto 0));
                 else -- branch backwards.
                   reg_pc <= (reg_pc - x"0080") + unsigned(reg_value(6 downto 0));
-                end if;                
+                end if;
+              else
+                -- branch not taken.
               end if;
               state <= InstructionFetch;
             when others =>
