@@ -3,7 +3,14 @@
 	.advance $F000
 
 reset:	; reset entry point
-	jsr TEST
+	lda $D800
+	sta $0400
+	lda $DC00
+	sta $0401
+	jmp reset
+
+
+;	jsr TEST
 
 counterloop:
 	LDA $1001

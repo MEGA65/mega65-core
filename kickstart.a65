@@ -28,7 +28,18 @@
 	.space timerticks 1
 	.text
 
-     	    .org $E000
+;     	    .org $E000
+
+	 .word $0801
+	 .org $0801
+
+	 .word _next, 10                       ; Next line and current line number
+	 .byte $97, "2,0:", $9e, " 2014", $AA, "65",0      ; POKE 2,0 : SYS 2014+65
+_next:	 .word 0
+
+	 .checkpc 2079
+	 .advance 2079
+
 
 reset_entry:
 		; get CPU state sensible
@@ -42,17 +53,17 @@ reset_entry:
 		; enhanced ($FFD3xxx) IO page mapped at $D000,
 		; and fast RAM elsewhere.
 
-		jsr resetdisplay
-		jsr resetpalette
-		jsr erasescreen
+	;	jsr resetdisplay
+	;	jsr resetpalette
+	;	jsr erasescreen
 
 		; XXX check state of current ROM
-		jsr checkromok
-		bcc loadrom
+	;	jsr checkromok
+	;	bcc loadrom
 
 		; ROM is loaded and ready, so transfer control
 		; to it.
-		jmp go64
+	;	jmp go64
 
 loadrom:	; ROM is not loaded, so try to load it, or prompt
 		; for user to insert SD card
@@ -108,6 +119,28 @@ readsector:
 		; as SD cards address by byte, not sector.
 
 		; XXX not implemented: failed
+
+		; check if sd card is busy
+		lda $d680
+		and #$01
+		bne rsbusyfail
+
+		inc $0424
+		; ask for sector to be read
+		lda #$02
+		sta $d680
+
+		; wait for sector to be read
+rs3:		inc $0425
+		lda $d680
+		and #$01
+		bne rs3
+
+		sec
+		rts
+
+rsbusyfail:     ; fail
+		inc $0426
 		clc 
 		rts
 
@@ -120,10 +153,10 @@ resetsd:
 		; for bit 0 of $D680 to clear.
 
 		; try SDHC mode first
-		lda #$41
-		sta $d680
-		jsr sdresetsequence
-		bcs resetsdok
+;		lda #$41
+;		sta $d680
+;		jsr sdresetsequence
+;		bcs resetsdok
 		; then SD mode
 		lda #$42
 		sta $d680
@@ -133,16 +166,20 @@ sdresetsequence:
 		jsr resetsdtimeout
 		lda #$00
 		sta $d680		
-rs1:            jsr checksdtimeout
+rs1:            
+		jsr checksdtimeout
 		bcc sdresettimedout
 		lda $d680
 		and #$01
 		bne rs1
 
+		inc $0400
+
 		jsr resetsdtimeout
 		lda #$01
 		sta $d680		
-rs2:            jsr checksdtimeout
+rs2:            
+		jsr checksdtimeout
 		bcc sdresettimedout
 		lda $d680
 		and #$01
@@ -150,6 +187,7 @@ rs2:            jsr checksdtimeout
 
 		; reset succeeded
 resetsdok:	jsr canceltimer
+		inc $0427
 		sec
 		rts
 
@@ -464,7 +502,7 @@ irq_entry:	rti
 
 ; 6502 interrupt and reset vectors
        		.checkpc $FFFA
-		.advance $FFFA
+;		.advance $FFFA
 nmi_vector:	.word nmi_entry
 reset_vector:	.word reset_entry
 irq_vector:	.word irq_entry

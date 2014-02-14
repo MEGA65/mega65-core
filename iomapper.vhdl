@@ -286,6 +286,7 @@ begin
   
   process (r,w,address)
   begin  -- process
+
     last_scan_code(7 downto 0) <= unsigned(cia1portb_in);
     last_scan_code(11 downto 8) <= unsigned(cia1porta_out(3 downto 0));
     

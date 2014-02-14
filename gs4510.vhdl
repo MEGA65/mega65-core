@@ -161,6 +161,7 @@ architecture Behavioural of gs4510 is
     ExecuteDirect,RMWCommit,
     Halt,WaitOneCycle,
     SlowRamRead1,SlowRamRead2,SlowRamWrite1,SlowRamWrite2,
+    BranchOnBit,
     MonitorAccessDone,MonitorReadDone,
     Interrupt2,Interrupt3,FastIOWait
     );
@@ -172,6 +173,9 @@ architecture Behavioural of gs4510 is
   signal opcode : unsigned(7 downto 0);
   signal arg1 : unsigned(7 downto 0);
 
+  signal bbs_or_bbc : std_logic;
+  signal bbs_bit : unsigned(2 downto 0);
+  
   type addressingmode is (
     M_impl,M_InnX,M_nn,M_immnn,M_A,M_nnnn,M_nnrr,
     M_rr,M_InnY,M_InnZ,M_rrrr,M_nnX,M_nnnnY,M_nnnnX,M_Innnn,
@@ -300,7 +304,7 @@ begin
     procedure reset_cpu_state is
   begin
     -- Default register values
-    reg_b <= x"01";
+    reg_b <= x"00";
     reg_a <= x"11";    
     reg_x <= x"22";
     reg_y <= x"33";
@@ -676,6 +680,7 @@ begin
       return unsigned(fastio_rdata);
     elsif accessing_ram='1' then
       report "Extracting fastram value from 64-bit read $" & to_hstring(fastram_dataout) severity note;
+      report "Fastram_byte_number = " & integer'image(to_integer(fastram_byte_number)) severity note;
       case fastram_byte_number is
         when "000" => return unsigned(fastram_dataout( 7 downto 0));
         when "001" => return unsigned(fastram_dataout(15 downto 8));
@@ -1123,8 +1128,13 @@ end c65_map_instruction;
           end if;
         end if;
       end if;
-      -- Treat jump instructions specially, since they are rather different to
-      -- the rest.
+    elsif mode=M_nnrr then
+      -- Check if appropriate bit set/clear in operand, and then branch.
+      report "opcode=$" & to_hstring(opcode);
+      bbs_or_bbc <= opcode(7);
+      bbs_bit <= opcode(6 downto 4);
+      reg_value <= arg2;
+      read_data_byte(reg_b & arg1,BranchOnBit); 
     elsif i=I_BSR then
       if arg2(7)='0' then -- branch forwards.
         reg_pc <= reg_pc + unsigned(std_logic_vector(arg2(6 downto 0)) & std_logic_vector(arg1)) - 1;
@@ -1337,6 +1347,7 @@ end c65_map_instruction;
                 -- 1-byte instruction, process now
                 execute_implied_instruction(read_data);
               else
+              report "opcode: read_data = %" & to_string(std_logic_vector(read_data)) severity note;
                 opcode <= read_data;
                 reg_pc <= reg_pc + 1;
                 read_instruction_byte(reg_pc,InstructionFetch3);
@@ -1472,6 +1483,19 @@ end c65_map_instruction;
               else
                 slowram_counter <= slowram_counter + 1;
               end if;
+            when BranchOnBit =>
+              report "BBS/BBR: bbs_bit=" & integer'image(to_integer(bbs_bit)) severity note;
+              report "read_data = %" & to_string(std_logic_vector(read_data)) severity note;
+              if read_data(to_integer(bbs_bit))
+                 = bbs_or_bbc then
+                -- 8-bit branch
+                if reg_value(7)='0' then -- branch forwards.
+                  reg_pc <= reg_pc + unsigned(reg_value(6 downto 0));
+                else -- branch backwards.
+                  reg_pc <= (reg_pc - x"0080") + unsigned(reg_value(6 downto 0));
+                end if;                
+              end if;
+              state <= InstructionFetch;
             when others =>
               -- Don't allow CPU to stay stuck
               state<= InstructionFetch;

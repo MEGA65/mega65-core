@@ -1286,7 +1286,6 @@ begin
       end if;
       if (xbackporch='0') and ((chargen_active='1') or (chargen_active_soon='1')) then         -- In active part of raster
         -- Work out if we are at the end of a character
-        report "checkpoint" severity note;
         cycles_to_next_card <= cycles_to_next_card - 1;
         if cycles_to_next_card = x"09" then
           char_fetch_cycle <= 0;
