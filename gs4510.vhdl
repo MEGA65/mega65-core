@@ -457,7 +457,7 @@ begin
       slowram_lohi <= long_address(0);
       pending_state <= next_state;
       state <= SlowRamRead1;
-    elsif long_address(27 downto 24) = x"F" then
+    elsif long_address(27 downto 20) = x"FF" then
       accessing_fastio <= '1';
       accessing_vic_fastio <= '0';
       -- If reading IO page from $D{0,1,2,3}0{0-7}X, then the access is from
@@ -472,12 +472,12 @@ begin
       -- We make the distinction to separate reading of VIC-IV
       -- registers from all other IO registers, partly to work around some bugs,
       -- and partly because the banking of the VIC registers is the fiddliest part.
-      if long_address(23 downto 20) = x"8" then
+      if long_address(19 downto 16) = x"8" then
         report "VIC 64KB colour RAM access from VIC fastio" severity note;
         accessing_vic_fastio <= '1';
       end if;
-      if long_address(23 downto 20) = x"D" then
-        if long_address(19 downto 18) = "00" then    --   $D{0,1,2,3}XXX
+      if long_address(19 downto 16) = x"D" then
+        if long_address(15 downto 14) = "00" then    --   $D{0,1,2,3}XXX
           if long_address(11 downto 10) = "00" then  --   $D{0,1,2,3}{0,1,2,3}XX
             if long_address(11 downto 7) /= "00001" then  -- ! $D.0{8-F}X (FDC, RAM EX)
               report "VIC register from VIC fastio" severity note;
