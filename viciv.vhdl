@@ -343,7 +343,6 @@ architecture Behavioral of viciv is
   signal glyph_colour_t1 : unsigned(3 downto 0);
   signal glyph_colour_t2 : unsigned(3 downto 0);
   signal glyph_colour_t3 : unsigned(3 downto 0);
-  signal glyph_visible : std_logic;
   signal glyph_bold : std_logic;
   signal glyph_underline : std_logic;
   signal glyph_reverse : std_logic;
@@ -509,7 +508,8 @@ begin
           colour_ram_base,vicii_sprite_pointer_address,palette_bank_fastio,
           x_chargen_start_minus17,debug_next_card_number,debug_cycles_to_next_card,
           debug_chargen_active,debug_char_fetch_cycle,debug_charaddress,
-          debug_charrow,palette_fastio_rdata) is
+          debug_charrow,palette_fastio_rdata,palette_bank_chargen,
+          debug_chargen_active_soon) is
     variable register_bank : unsigned(7 downto 0);
     variable register_page : unsigned(3 downto 0);
     variable register_num : unsigned(7 downto 0);
@@ -1319,7 +1319,6 @@ begin
           card_number_is_extended <= next_card_number_is_extended;
           glyph_colour <= next_glyph_colour;
 
-          glyph_visible <= next_glyph_visible;
           glyph_reverse <= next_glyph_reverse;
           glyph_bold <= next_glyph_bold;
           glyph_underline <= next_glyph_underline;
