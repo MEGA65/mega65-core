@@ -985,9 +985,11 @@ begin
         when I_CLE => flag_e <= '0';
         when I_CLI => flag_i <= '0';
         when I_CLV => flag_v <= '0';
+        when I_DEC => reg_a <= with_nz(reg_a - 1);
         when I_DEX => reg_x <= with_nz(reg_x - 1);
         when I_DEY => reg_y <= with_nz(reg_y - 1);
         when I_DEZ => reg_z <= with_nz(reg_z - 1);
+        when I_INC => reg_a <= with_nz(reg_a + 1);
         when I_INX => reg_x <= with_nz(reg_x + 1);
         when I_INY => reg_y <= with_nz(reg_y + 1);
         when I_INZ => reg_z <= with_nz(reg_z + 1);
