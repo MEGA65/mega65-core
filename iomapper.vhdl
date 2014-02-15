@@ -255,7 +255,7 @@ begin
     if rising_edge(clk) then
       -- Generate 50Hz signal for TOD clock
       -- (Note that we are a bit conflicted here, as our video mode is PALx4,
-      --  but at 50Hz.  We will make our CIAs take 50Hz like in most PAL countries
+      --  but at 60Hz.  We will make our CIAs take 50Hz like in most PAL countries
       -- so that we don't confuse things too much.  We will probably add a 50Hz
       -- raster interrupt filter to help music and games play at the right rate.)
       if counter50hz<divisor50hz then
