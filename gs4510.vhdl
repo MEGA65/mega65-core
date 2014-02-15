@@ -91,6 +91,7 @@ entity gs4510 is
     fastio_wdata : out std_logic_vector(7 downto 0);
     fastio_rdata : inout std_logic_vector(7 downto 0);
     fastio_vic_rdata : in std_logic_vector(7 downto 0);
+    fastio_colour_ram_rdata : in std_logic_vector(7 downto 0);
 
     colourram_at_dc00 : in std_logic
     );
@@ -306,6 +307,7 @@ architecture Behavioural of gs4510 is
 -- power-on initialised RAM in the FPGA mapped via our io interface.
   signal accessing_fastio : std_logic;
   signal accessing_vic_fastio : std_logic;
+  signal accessing_colour_ram_fastio : std_logic;
   signal accessing_ram : std_logic;
   signal accessing_slowram : std_logic;
   signal accessing_cpuport : std_logic;
@@ -510,6 +512,7 @@ begin
     elsif long_address(27 downto 20) = x"FF" then
       accessing_fastio <= '1';
       accessing_vic_fastio <= '0';
+      accessing_colour_ram_fastio <= '0';
       -- If reading IO page from $D{0,1,2,3}0{0-7}X, then the access is from
       -- the VIC-IV.
       -- If reading IO page from $D{0,1,2,3}{1,2,3}XX, then the access is from
@@ -524,7 +527,7 @@ begin
       -- and partly because the banking of the VIC registers is the fiddliest part.
       if long_address(19 downto 16) = x"8" then
         report "VIC 64KB colour RAM access from VIC fastio" severity note;
-        accessing_vic_fastio <= '1';
+        accessing_colour_ram_fastio <= '1';
       end if;
       if long_address(19 downto 16) = x"D" then
         if long_address(15 downto 14) = "00" then    --   $D{0,1,2,3}XXX
@@ -538,7 +541,7 @@ begin
           if long_address(11)='1' then
             if (long_address(10)='0') or (colourram_at_dc00='1') then
               report "D800-DBFF/DC00-DFFF colour ram access from VIC fastio" severity note;
-              accessing_vic_fastio <= '1';            
+              accessing_colour_ram_fastio <= '1';            
             end if;
           end if;
         end if;                         -- $D{0,1,2,3}XXX
@@ -787,6 +790,9 @@ begin
         -- CPU port
         return cpuport_value;
       end if;
+    elsif accessing_colour_ram_fastio='1' then 
+      report "reading colour RAM fastio byte $" & to_hstring(fastio_vic_rdata) severity note;
+      return unsigned(fastio_colour_ram_rdata);
     elsif accessing_vic_fastio='1' then 
       report "reading VIC fastio byte $" & to_hstring(fastio_vic_rdata) severity note;
       return unsigned(fastio_vic_rdata);

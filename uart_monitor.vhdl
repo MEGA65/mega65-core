@@ -80,7 +80,7 @@ architecture behavioural of uart_monitor is
     "--------------------------------" & crlf &
     "65GS Serial Monitor" & crlf &
     "--------------------------------" & crlf &
-    "Type ? for help." & crlf & ".";
+    "Type ? for help." & crlf;
   signal banner_position : integer range 0 to 511 := 1;
   constant helpMessage : String :=
     "? or h[elp]            - Display this help" & crlf &

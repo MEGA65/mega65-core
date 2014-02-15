@@ -187,6 +187,7 @@ architecture Behavioral of machine is
       fastio_wdata : out std_logic_vector(7 downto 0);
       fastio_rdata : inout std_logic_vector(7 downto 0);
       fastio_vic_rdata : in std_logic_vector(7 downto 0);
+      fastio_colour_ram_rdata : in std_logic_vector(7 downto 0);
 
       colourram_at_dc00 : in std_logic
       );
@@ -227,6 +228,7 @@ architecture Behavioral of machine is
       fastio_write : in std_logic;
       fastio_wdata : in std_logic_vector(7 downto 0);
       fastio_rdata : out std_logic_vector(7 downto 0);
+      colour_ram_fastio_rdata : out std_logic_vector(7 downto 0);
 
       colourram_at_dc00 : out std_logic
       );
@@ -275,6 +277,7 @@ architecture Behavioral of machine is
   signal fastio_wdata : std_logic_vector(7 downto 0);
   signal fastio_rdata : std_logic_vector(7 downto 0);
   signal fastio_vic_rdata : std_logic_vector(7 downto 0);
+  signal colour_ram_fastio_rdata : std_logic_vector(7 downto 0);
 
   signal fastram_we : STD_LOGIC_VECTOR(7 DOWNTO 0);
   signal fastram_address : STD_LOGIC_VECTOR(13 DOWNTO 0);
@@ -487,7 +490,8 @@ begin
     fastio_wdata => fastio_wdata,
     fastio_rdata => fastio_rdata,
     fastio_vic_rdata => fastio_vic_rdata,
-
+    fastio_colour_ram_rdata => colour_ram_fastio_rdata,
+    
     colourram_at_dc00 => colourram_at_dc00
     );
 
@@ -508,7 +512,8 @@ begin
       fastram_address => fastram_address,
       fastram_datain => fastram_datain,
       fastram_dataout => fastram_dataout,    
-      
+      colour_ram_fastio_rdata => colour_ram_fastio_rdata,
+
       fastio_addr     => fastio_addr,
       fastio_read     => fastio_read,
       fastio_write    => fastio_write,

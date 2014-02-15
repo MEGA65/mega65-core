@@ -71,6 +71,7 @@ entity viciv is
     fastio_write : in std_logic;
     fastio_wdata : in std_logic_vector(7 downto 0);
     fastio_rdata : out std_logic_vector(7 downto 0);
+    colour_ram_fastio_rdata : out std_logic_vector(7 downto 0);
 
     colourram_at_dc00 : out std_logic
     );
@@ -399,16 +400,13 @@ architecture Behavioral of viciv is
   -- Precalculated mono/multicolour pixel bits
   signal multicolour_bits : std_logic_vector(1 downto 0) := (others => '0');
   signal monobit : std_logic := '0';
-
-  -- Colour RAM access via fastio port
-  signal colour_ram_cs : std_logic := '0';
-  signal colour_ram_fastio_address : std_logic_vector(15 downto 0);
-  signal colour_ram_fastio_rdata : std_logic_vector(7 downto 0);
   
   -- Colour RAM access for video controller
   signal colourramaddress : std_logic_vector(15 downto 0);
   signal colourramdata : std_logic_vector(7 downto 0);
-
+  -- ... and for CPU
+  signal colour_ram_fastio_address : std_logic_vector(15 downto 0);
+  
   -- Palette RAM access via fastio port
   signal palette_we : std_logic_vector(3 downto 0) := (others => '0');
   signal palette_fastio_address : std_logic_vector(9 downto 0);
@@ -446,7 +444,7 @@ begin
   colourram1 : component ram8x64k
     PORT MAP (
       clka => cpuclock,
-      ena => colour_ram_cs,
+      ena => '1',
       wea(0) => fastio_write,
       addra => colour_ram_fastio_address,
       dina => fastio_wdata,
@@ -487,7 +485,7 @@ begin
               data_o => chardata
               );
 
-  process(cpuclock,fastio_addr,colour_ram_fastio_rdata,fastio_read,
+  process(cpuclock,fastio_addr,fastio_read,
           sprite_x,sprite_y,vicii_sprite_xmsbs,ycounter,extended_background_mode,
           text_mode,blank,twentyfourlines,vicii_y_smoothscroll,displayx,displayy,
           vicii_sprite_enables,multicolour_mode,thirtyeightcolumns,
@@ -509,12 +507,11 @@ begin
           x_chargen_start_minus17,debug_next_card_number,debug_cycles_to_next_card,
           debug_chargen_active,debug_char_fetch_cycle,debug_charaddress,
           debug_charrow,palette_fastio_rdata,palette_bank_chargen,
-          debug_chargen_active_soon) is
+          debug_chargen_active_soon,palette_bank_sprites) is
     variable register_bank : unsigned(7 downto 0);
     variable register_page : unsigned(3 downto 0);
     variable register_num : unsigned(7 downto 0);
     variable register_number : unsigned(11 downto 0);
-    variable colour_ram_cs_var : std_logic := '0';
   begin
     fastio_rdata <= (others => 'Z');    
 
@@ -555,37 +552,24 @@ begin
       --   $FF80000-$FF8FFFF - All 64KB of colour RAM
       -- The colour RAM has to be dual-port since the video controller needs to
       -- access it as well, so all these have to be mapped on a single port.
-      colour_ram_cs_var := '0';
-      -- XXX This mostly works, but there is glitching that causes location 0
-      -- to get overwritten when writing to other addresses.  Simple work around
-      -- for now is to make default address $FFFF instead of $0000, so that can
-      -- get overwritten intead.
-      -- colour_ram_fastio_address <= (others => '0');
       colour_ram_fastio_address <= (others => '1');
       if register_bank = x"D0" or register_bank = x"D1"
         or register_bank = x"D2" or register_Bank=x"D3" then
         if register_page>=8 and register_page<12 then
                                         -- colour ram read $D800 - $DBFF
-          colour_ram_cs_var := '1';
           colour_ram_fastio_address <= "000000" & fastio_addr(9 downto 0);
         elsif register_page>=12 and register_page<=15 then
                                         -- colour ram read $DC00 - $DFFF
-          colour_ram_cs_var := '1';
           colour_ram_fastio_address <= "000001" & fastio_addr(9 downto 0);
         else
           colour_ram_fastio_address <= (others => '0');
         end if;
       elsif register_bank(7 downto 4)=x"8" then
                                         -- colour RAM all 64KB
-        colour_ram_cs_var := '1';
         colour_ram_fastio_address <= fastio_addr(15 downto 0);
       end if;
-      colour_ram_cs <= colour_ram_cs_var;
-      if colour_ram_cs_var='1' then
-        fastio_rdata <= colour_ram_fastio_rdata;
-      end if;
       
-      if fastio_read='0' and colour_ram_cs_var='0' then
+      if fastio_read='0' then
         fastio_rdata <= (others => 'Z');
       else
                                         --report "read from fastio detect in video controller. " &
@@ -867,7 +851,7 @@ begin
           -- blue palette
           palette_fastio_address <= palette_bank_fastio & std_logic_vector(register_number(7 downto 0));
           fastio_rdata <= palette_fastio_rdata(15 downto 8);
-        elsif colour_ram_cs_var='0' then        
+        else
           fastio_rdata <= "ZZZZZZZZ";
         end if;
       end if;
