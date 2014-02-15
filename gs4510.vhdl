@@ -98,6 +98,10 @@ end entity gs4510;
 
 architecture Behavioural of gs4510 is
 
+  -- i-cache control lines
+  signal icache_delay : std_logic;
+  signal accessing_icache : std_logic;
+  
   signal last_fastio_addr : std_logic_vector(19 downto 0);
 
   signal slowram_lohi : std_logic;
@@ -428,6 +432,18 @@ begin
     return temp_address;
   end resolve_address_to_long;
 
+  -- purpose: prepare for next instruction, looking in i-cache when possible
+  procedure ready_for_next_instruction (
+    next_pc : in unsigned(15 downto 0)) is
+  begin  -- ready_for_next_instruction
+    state <= InstructionFetch;
+    -- XXX Resolve PC to long address.
+    -- XXX Schedule reading from all four i-cache files
+    -- (uses less logic than picking only one)
+    -- XXX i-cache not implemented.
+    accessing_icache <= '0';
+  end ready_for_next_instruction;
+  
   procedure read_long_address(
     long_address : in unsigned(27 downto 0);
     next_state : in processor_state) is
@@ -518,14 +534,22 @@ begin
         or long_address(19 downto 8)=x"D00" or long_address(19 downto 7)=x"D10"&'0'
         or long_address(19 downto 8)=x"D20" or long_address(19 downto 7)=x"D30"&'0'
       then 
-        state <= next_state;
+        if next_state = InstructionFetch then
+          ready_for_next_instruction(reg_pc);
+        else
+          state <= next_state;
+        end if;
       else
         pending_state <= next_state;
         state <= FastIOWait;
       end if;
     else
       -- Don't let unmapped memory jam things up
-      state <= next_state;
+      if next_state = InstructionFetch then
+        ready_for_next_instruction(reg_pc);
+      else
+        state <= next_state;
+      end if;
     end if;
     -- Once read, we then resume processing from the specified state.
     pending_state <= next_state;
@@ -540,7 +564,11 @@ begin
     if (address = x"0000") or (address = x"0001") then
       accessing_cpuport <= '1';
       cpuport_num <= address(0);
-      state <= next_state;
+      if next_state = InstructionFetch then
+        ready_for_next_instruction(reg_pc);
+      else
+        state <= next_state;
+      end if;
     else
       long_address := resolve_address_to_long(address,false);
       read_long_address(long_address,next_state);
@@ -573,7 +601,15 @@ begin
           report "dud write to fastram" severity note;
       end case;
       -- report "writing to fastram..." severity note;
-      state <= next_state;
+      if next_state = InstructionFetch then
+        ready_for_next_instruction(reg_pc);
+      else
+        if next_state = InstructionFetch then
+          ready_for_next_instruction(reg_pc);
+        else
+          state <= next_state;
+        end if;
+      end if;
     elsif long_address(27 downto 24) = x"8" then
       accessing_slowram <= '1';
       slowram_addr <= std_logic_vector(long_address(23 downto 1));
@@ -596,10 +632,22 @@ begin
         slowram_waitstates <= value;
       end if;
       -- No wait states on I/O write, so proceed directly to the next state
-      state <= next_state;
+      if next_state = InstructionFetch then
+        ready_for_next_instruction(reg_pc);
+      else
+        if next_state = InstructionFetch then
+          ready_for_next_instruction(reg_pc);
+        else
+          state <= next_state;
+        end if;
+      end if;
     else
       -- Don't let unmapped memory jam things up
-      state <= next_state;
+      if next_state = InstructionFetch then
+        ready_for_next_instruction(reg_pc);
+      else
+        state <= next_state;
+      end if;
     end if;
     -- Once read, we then resume processing from the specified state.
     pending_state <= next_state;
@@ -615,12 +663,22 @@ begin
       -- Setting the CPU DDR is simple, and has no real side effects.
       -- All 8 bits can be written to.
       cpuport_ddr <= value;
-      state <= next_state;
+      icache_delay <= '1';
+      if next_state = InstructionFetch then
+        ready_for_next_instruction(reg_pc);
+      else
+        state <= next_state;
+      end if;
     elsif address=x"0001" then
       -- For CPU port, things get more interesting.
       -- Bits 6 & 7 cannot be altered, and always read 0.
       cpuport_value(5 downto 0) <= value(5 downto 0);
-      state <= next_state;
+      icache_delay <= '1';
+      if next_state = InstructionFetch then
+        ready_for_next_instruction(reg_pc);
+      else
+        state <= next_state;
+      end if;
     else
       long_address := resolve_address_to_long(address,true);
       --report "Writing $" & to_hstring(value) & " @ $" & to_hstring(address)
@@ -800,7 +858,7 @@ begin
     virtual_reg_p(0) := flag_c;
 
     -- By default go back to fetching the next instruction.
-    state <= InstructionFetch;
+    ready_for_next_instruction(reg_pc);
     
     if mode=M_impl then
       case i is
@@ -844,6 +902,7 @@ begin
           -- XXX Implement MAP instruction
           c65_map_instruction;
           map_interrupt_inhibit <= '1';
+          icache_delay <= '1';
         when I_NEG => reg_a <= with_nz((not reg_a) + 1);
         when I_PHA => push_byte(reg_a,InstructionFetch);
         when I_PHX => push_byte(reg_x,InstructionFetch);
@@ -906,7 +965,7 @@ begin
         when I_STX => write_data_byte(address,reg_x,InstructionFetch);
         when I_STY => write_data_byte(address,reg_y,InstructionFetch);
         when I_STZ => write_data_byte(address,reg_z,InstructionFetch);
-        when others => state <= InstructionFetch;
+        when others => ready_for_next_instruction(reg_pc);
       end case;
     else
       -- Instruction requires reading from memory
@@ -1038,7 +1097,7 @@ begin
     variable bitbucket : unsigned(7 downto 0);
   begin
     -- report "Calculating result for " & instruction'image(i) & " operand=$" & to_hstring(operand) severity note;
-    state <= InstructionFetch;
+    ready_for_next_instruction(reg_pc);
     case i is
       when I_LDA => reg_a <= with_nz(operand);
       when I_LDX => reg_x <= with_nz(operand);
@@ -1104,7 +1163,7 @@ begin
     variable mode : addressingmode := mode_lut(to_integer(opcode));
   begin
     -- By default fetch next instruction
-    state <= InstructionFetch;
+    ready_for_next_instruction(reg_pc);
 
     --report "Executing " & instruction'image(i)
     --  & " mode " & addressingmode'image(mode) severity note;
@@ -1220,6 +1279,8 @@ begin
   variable temp_pc : unsigned(15 downto 0);
   variable temp_value : unsigned(7 downto 0);
   begin
+
+    -- BEGINNING OF MAIN PROCESS FOR CPU
     if rising_edge(clock) then
 
       monitor_state <= std_logic_vector(to_unsigned(processor_state'pos(state),8));
@@ -1248,6 +1309,11 @@ begin
       fastram_we <= (others => '0');
       fastram_address <= "11111111111111";
       fastram_datain <= x"d0d1d2d3d4d5d6d7";
+
+      -- By default don't wait an extra cycle before reading the cache
+      icache_delay <= '0';
+      -- By default we are not reading from the cache
+      accessing_icache <= '0';
       
       -- Generate virtual processor status register for convenience
       virtual_reg_p(7) := flag_n;
@@ -1302,7 +1368,7 @@ begin
               monitor_mem_attention_granted <= '1';
               if monitor_mem_attention_request='0' then
                 monitor_mem_attention_granted <= '0';
-                state <= InstructionFetch;
+                ready_for_next_instruction(reg_pc);
               end if;
             when Interrupt =>
               push_byte(reg_pc(15 downto 8),Interrupt2);
@@ -1310,7 +1376,9 @@ begin
             when Interrupt3 => push_byte(unsigned(virtual_reg_p),VectorRead); flag_i <= '1';
             when VectorRead => reg_pc <= vector; read_instruction_byte(vector,VectorRead2);
             when VectorRead2 => reg_pc(7 downto 0) <= read_data; read_instruction_byte(vector+1,VectorRead3);
-            when VectorRead3 => reg_pc(15 downto 8) <= read_data; state <= InstructionFetch;
+            when VectorRead3 =>
+              reg_pc(15 downto 8) <= read_data;
+              ready_for_next_instruction(read_data & reg_pc(7 downto 0));
             when InstructionFetch =>
 
               -- Show CPU state for debugging
@@ -1386,18 +1454,19 @@ begin
               push_byte(unsigned(virtual_reg_p(7 downto 5)
                                  & '1' & virtual_reg_p(3 downto 0)),VectorRead);
               flag_i <= '1';            -- disable interrupts while servicing BRK
-            when PLA1 => reg_a<=with_nz(read_data); state <= InstructionFetch;
-            when PLX1 => reg_x<=with_nz(read_data); state <= InstructionFetch;
-            when PLY1 => reg_y<=with_nz(read_data); state <= InstructionFetch;
-            when PLZ1 => reg_z<=with_nz(read_data); state <= InstructionFetch;
-            when PLP1 => load_processor_flags(read_data); state <= InstructionFetch;
+            when PLA1 => reg_a<=with_nz(read_data); ready_for_next_instruction(reg_pc);
+            when PLX1 => reg_x<=with_nz(read_data); ready_for_next_instruction(reg_pc);
+            when PLY1 => reg_y<=with_nz(read_data); ready_for_next_instruction(reg_pc);
+            when PLZ1 => reg_z<=with_nz(read_data); ready_for_next_instruction(reg_pc);
+            when PLP1 => load_processor_flags(read_data);
+                         ready_for_next_instruction(reg_pc);
             when RTI1 => load_processor_flags(read_data); pull_byte(RTI2);
             when RTI2 => reg_pc(7 downto 0) <= read_data; pull_byte(RTI3);
-            when RTI3 => reg_pc <= read_data & reg_pc(7 downto 0);
-                         state<=InstructionFetch;
+            when RTI3 => temp_pc := read_data & reg_pc(7 downto 0);
+                         reg_pc <= temp_pc; ready_for_next_instruction(temp_pc);
             when RTS1 => reg_pc(7 downto 0) <= read_data; pull_byte(RTS2);
-            when RTS2 => reg_pc <= (read_data & reg_pc(7 downto 0))+1;
-                         state<=InstructionFetch;
+            when RTS2 => temp_pc := (read_data & reg_pc(7 downto 0))+1;
+                         reg_pc <= temp_pc; ready_for_next_instruction(temp_pc);
             when JSR1 => push_byte(reg_pc_jsr(7 downto 0),InstructionFetch);
             when JSRind1 => push_byte(reg_pc_jsr(7 downto 0),JSRind2);
             when JSRind2 =>
@@ -1408,7 +1477,7 @@ begin
               read_data_byte(reg_addr,JSRind4);
             when JSRind4 =>
               reg_pc(15 downto 8) <= read_data;
-              state <= InstructionFetch;                         
+              ready_for_next_instruction(read_data & reg_pc(7 downto 0));
             when PHWimm1 => push_byte(reg_value,InstructionFetch);
             when JMP1 =>
               -- Add a wait state to see if it fixes our problem with not loading
@@ -1425,7 +1494,7 @@ begin
               report "read PCH as $" & to_hstring(read_data) severity note;
               reg_pc(15 downto 8) <= read_data;
               -- And then continue executing from there
-              state<=InstructionFetch;
+              ready_for_next_instruction(read_data & reg_pc(7 downto 0));
             when IndirectX1 =>
               reg_addr(7 downto 0) <= read_data;
               report "(ZP,x) - low byte = $" & to_hstring(read_data) severity note;
@@ -1467,7 +1536,12 @@ begin
               execute_operand_instruction(reg_instruction,read_data,reg_addr);
             when RMWCommit => write_data_byte(reg_addr,reg_value,InstructionFetch);
 
-            when WaitOneCycle => state <= pending_state;
+            when WaitOneCycle =>
+              if pending_state = InstructionFetch then
+                ready_for_next_instruction(reg_pc);
+              else
+                state <= pending_state;
+              end if;
             when FastIOWait => state <= pending_state; accessing_fastio <= '1';
             when SlowRamRead1 =>
               slowram_ce <= '0';
@@ -1478,7 +1552,11 @@ begin
               state <= SlowRamRead2;
             when SlowRamRead2 =>
               if slowram_counter=slowram_waitstates then
-                state <= pending_state;
+                if pending_state = InstructionFetch then
+                  ready_for_next_instruction(reg_pc);
+                else
+                  state <= pending_state;
+                end if;
               else
                 slowram_counter <= slowram_counter + 1;
               end if;
@@ -1492,7 +1570,11 @@ begin
               state <= SlowRamWrite2;
             when SlowRamWrite2 =>
               if slowram_counter=slowram_waitstates then
-                state <= pending_state;
+                if pending_state = InstructionFetch then
+                  ready_for_next_instruction(reg_pc);
+                else
+                  state <= pending_state;
+                end if;
                 slowram_ce <= '1';
                 slowram_oe <= '1';
                 slowram_we <= '1';
@@ -1516,10 +1598,10 @@ begin
               else
                 -- branch not taken.
               end if;
-              state <= InstructionFetch;
+              ready_for_next_instruction(reg_pc);
             when others =>
               -- Don't allow CPU to stay stuck
-              state<= InstructionFetch;
+              ready_for_next_instruction(reg_pc);
           end case;
         end if;
       end if;
