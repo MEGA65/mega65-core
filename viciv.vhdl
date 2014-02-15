@@ -316,7 +316,7 @@ architecture Behavioral of viciv is
   signal chargen_y_sub : unsigned(4 downto 0);
   signal chargen_x_sub : unsigned(4 downto 0);
   -- character data fetch FSM
-  signal char_fetch_cycle : integer := 16;
+  signal char_fetch_cycle : integer range 0 to 255 := 16;
   -- data for next card
   signal next_glyph_number : unsigned(15 downto 0);
   signal next_glyph_number8 : unsigned(7 downto 0);
