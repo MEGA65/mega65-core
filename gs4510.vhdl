@@ -1203,6 +1203,7 @@ begin
       when I_CMP => alu_op_cmp(reg_a,operand);
       when I_CPX => alu_op_cmp(reg_x,operand);
       when I_CPY => alu_op_cmp(reg_y,operand);
+      when I_CPZ => alu_op_cmp(reg_z,operand);
       when I_DEC => rmw_operand_commit(address,operand,operand-1);
       when I_EOR => reg_a <= with_nz(reg_a xor operand);    
       when I_INC =>
