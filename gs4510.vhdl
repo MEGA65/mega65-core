@@ -101,6 +101,19 @@ architecture Behavioural of gs4510 is
   -- i-cache control lines
   signal icache_delay : std_logic;
   signal accessing_icache : std_logic;
+
+  signal icache_00_address : unsigned(7 downto 0);
+  signal icache_00_wdata : unsigned(31 downto 0);
+  signal icache_00_write : std_logic;
+  signal icache_01_address : unsigned(7 downto 0);
+  signal icache_01_wdata : unsigned(31 downto 0);
+  signal icache_01_write : std_logic;
+  signal icache_10_address : unsigned(7 downto 0);
+  signal icache_10_wdata : unsigned(31 downto 0);
+  signal icache_10_write : std_logic;
+  signal icache_11_address : unsigned(7 downto 0);
+  signal icache_11_wdata : unsigned(31 downto 0);
+  signal icache_11_write : std_logic;
   
   signal last_fastio_addr : std_logic_vector(19 downto 0);
 
@@ -443,6 +456,27 @@ begin
     -- XXX i-cache not implemented.
     accessing_icache <= '0';
   end ready_for_next_instruction;
+
+  -- purpose: invalidate cache lines corresponding to a memory write
+  procedure icache_invalidate (
+    long_address : in unsigned(27 downto 0)) is
+  begin  -- icache_invalidate
+    case long_address(1 downto 0) is
+      when "00" => icache_00_address <= long_address(9 downto 2);
+                   icache_00_wdata <= (others => '0');
+                   icache_00_write <= '1';
+      when "01" => icache_01_address <= long_address(9 downto 2);
+                   icache_01_wdata <= (others => '0');
+                   icache_01_write <= '1';
+      when "10" => icache_10_address <= long_address(9 downto 2);
+                   icache_10_wdata <= (others => '0');
+                   icache_10_write <= '1';
+      when "11" => icache_11_address <= long_address(9 downto 2);
+                   icache_11_wdata <= (others => '0');
+                   icache_11_write <= '1';
+      when others => null;
+    end case;
+  end icache_invalidate;
   
   procedure read_long_address(
     long_address : in unsigned(27 downto 0);
@@ -581,6 +615,21 @@ begin
     next_state         : in processor_state) is
   begin
     -- Schedule the memory write to the appropriate destination.
+
+    -- Tell i-cache that memory map is changing if we touch $D030
+    -- (VIC-III ROM banking register)
+    if (long_address = x"FFD0030") or (long_address = x"FFD1030") or
+      (long_address = x"FFD2030") or (long_address = x"FFD3030") then
+      icache_delay <= '1';
+    end if;
+
+    -- Invalidate i-cache lines corresponding to the address we are writing to.
+    -- As cache lines hold bytes n,n+1 and n+2, we need to erase the cache lines
+    -- corresponding to long_address-2 through long_address inclusive
+    icache_invalidate(long_address);
+    icache_invalidate(long_address-1);
+    icache_invalidate(long_address-2);
+    
     accessing_ram <= '0'; accessing_slowram <= '0';
     accessing_fastio <= '0'; accessing_cpuport <= '0';
     if long_address(27 downto 17)="00000000000" then
