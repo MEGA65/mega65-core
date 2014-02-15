@@ -7,6 +7,8 @@ use work.debugtools.all;
 
 entity iomapper is
   port (Clk : in std_logic;
+        pixelclk : in std_logic;
+        phi0 : in std_logic;
         reset : in std_logic;
         irq : out std_logic;
         nmi : out std_logic;
@@ -18,7 +20,6 @@ entity iomapper is
 
         ps2data : in std_logic;
         ps2clock : in std_logic;
-        last_scan_code : out unsigned(11 downto 0);
 
         -------------------------------------------------------------------------
         -- Lines for the SDcard interface itself
@@ -62,15 +63,6 @@ architecture behavioral of iomapper is
       data_i : in std_logic_vector(7 downto 0);
       data_o : out std_logic_vector(7 downto 0));
   end component;
-  component hesmonc000 is
-    port (
-      Clk : in std_logic;
-      address : in std_logic_vector(12 downto 0);
-      we : in std_logic;
-      cs : in std_logic;
-      data_i : in std_logic_vector(7 downto 0);
-      data_o : out std_logic_vector(7 downto 0));
-  end component;
 
   component sdcardio is
     port (
@@ -102,6 +94,7 @@ architecture behavioral of iomapper is
   component cia6526 is
     port (
       cpuclock : in std_logic;
+      phi0 : in std_logic;
       todclock : in std_logic;
       reset : in std_logic;
       irq : out std_logic := '1';
@@ -135,7 +128,7 @@ architecture behavioral of iomapper is
   end component;
   component keymapper is    
     port (
-      clk : in std_logic;
+      pixelclk : in std_logic;
       
       -- PS2 keyboard interface
       ps2clock  : in  std_logic;
@@ -143,9 +136,7 @@ architecture behavioral of iomapper is
       -- CIA ports
       porta_in  : in  std_logic_vector(7 downto 0);
       porta_out : out std_logic_vector(7 downto 0);
-      portb_out : out std_logic_vector(7 downto 0);
-
-      last_scan_code : out unsigned(11 downto 0)
+      portb_out : out std_logic_vector(7 downto 0)
       );
   end component;
 
@@ -153,7 +144,6 @@ architecture behavioral of iomapper is
   signal kernel65cs : std_logic;
   signal kernel64cs : std_logic;
   signal basic64cs : std_logic;
-  signal hesmonc000cs : std_logic;
 
   signal clock50hz : std_logic := '1';
   constant divisor50hz : integer := 640000; -- 64MHz/50Hz/2;
@@ -192,16 +182,9 @@ begin
     data_i  => data_i,
     data_o  => data_o);
 
-  --hesmonc000rom : hesmonc000 port map (
-  --  clk     => clk,
-  --  address => address(12 downto 0),
-  --  we      => w,
-  --  cs      => hesmonc000cs,
-  --  data_i  => data_i,
-  --  data_o  => data_o);
-  
   cia1: cia6526 port map (
     cpuclock => clk,
+    phi0 => phi0,
     todclock => clock50hz,
     reset => reset,
     irq => irq,
@@ -223,6 +206,7 @@ begin
 
   cia2: cia6526 port map (
     cpuclock => clk,
+    phi0 => phi0,
     todclock => clock50hz,
     reset => reset,
     irq => nmi,
@@ -241,13 +225,12 @@ begin
     );
 
   keymapper0 : keymapper port map (
-    clk            => clk,
+    pixelclk       => pixelclk,
     ps2clock       => ps2clock,
     ps2data        => ps2data,
     porta_in       => cia1porta_out,
     porta_out      => cia1porta_in,
     portb_out      => cia1portb_in
---    last_scan_code => last_scan_code,
     );
 
   sdcard0 : sdcardio port map (
@@ -284,12 +267,9 @@ begin
     end if;
   end process;
   
-  process (r,w,address)
+  process (r,w,address,cia1portb_in,cia1porta_out,colourram_at_dc00)
   begin  -- process
 
-    last_scan_code(7 downto 0) <= unsigned(cia1portb_in);
-    last_scan_code(11 downto 8) <= unsigned(cia1porta_out(3 downto 0));
-    
     if (r or w) = '1' then
       if address(19 downto 13)&'0' = x"FE" then
         kernel65cs<= '1';
@@ -300,11 +280,6 @@ begin
         kernel64cs<= '1';
       else
         kernel64cs <='0';
-      end if;
-      if address(19 downto 12) = x"EC" then
-        hesmonc000cs<= '1';
-      else
-        hesmonc000cs <='0';
       end if;
       if address(19 downto 13)&'0' = x"EA" then
         basic64cs<= '1';
@@ -337,7 +312,6 @@ begin
       kernel65cs <= '0';
       kernel64cs <= '0';
       basic64cs <= '0';
-      hesmonc000cs <= '0';
     end if;
   end process;
 

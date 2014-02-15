@@ -9,6 +9,7 @@ use work.debugtools.all;
 entity cia6526 is
   port (
     cpuclock : in std_logic;
+    phi0 : in std_logic;
     todclock : in std_logic;
     reset : in std_logic;
     irq : out std_logic := '1';
@@ -117,37 +118,12 @@ architecture behavioural of cia6526 is
   signal reg_read_sdr : std_logic_vector(7 downto 0) := x"FF";
   signal sdr_loaded : std_logic := '0';
 
-  -- Clock running as close as possible to 17.734475 MHz / 18 = 985248Hz
-  -- Our pixel clock is 192MHz.  195 ticks gives 984615Hz.
-  -- Or 64MHz clock / 65 gives the same, without having to route the pixel
-  -- clock through.
-  -- If CPU is at 96MHz, then / 97 gives 989690Hz.
-  -- For NTSC, the rate is 14.31818MHz / 14 = 1022727Hz
-  -- 63 ticks at 64MHz gives 1015873Hz.
-  -- 94 ticks at 96MHz gives 1021276Hz, which is pretty close.
-  -- (188 ticks at 192MHz is the same).
-  -- Then divide by 2 again, since the loop toggles phi0.
-  signal phi0 : std_logic := '0';
-  signal phi0_counter : unsigned(15 downto 0) := x"0000";
-  constant phi0_divisor : unsigned(15 downto 0) := x"002F";
-
   signal prev_phi0 : std_logic;
   signal prev_countin : std_logic;
 
   signal clear_isr : std_logic := '0';  -- flag to clear ISR after reading
 
 begin  -- behavioural
-
-  process(cpuclock) is
-  begin
-    if rising_edge(cpuclock) then
-      phi0_counter <= phi0_counter + 1;
-      if phi0_counter=phi0_divisor then
-        phi0_counter <= x"0000";
-        phi0 <= not phi0;
-      end if;      
-    end if;
-  end process;
   
   process(cpuclock,fastio_addr,fastio_write,flagin,cs,portain,portbin,
           reg_porta_ddr,reg_portb_ddr,reg_porta_out,reg_portb_out,

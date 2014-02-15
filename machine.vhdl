@@ -106,6 +106,7 @@ architecture Behavioral of machine is
       monitor_pc : in std_logic_vector(15 downto 0);
       monitor_opcode : in std_logic_vector(7 downto 0);
       monitor_a : in std_logic_vector(7 downto 0);
+      monitor_b : in std_logic_vector(7 downto 0);
       monitor_x : in std_logic_vector(7 downto 0);
       monitor_y : in std_logic_vector(7 downto 0);
       monitor_z : in std_logic_vector(7 downto 0);
@@ -115,7 +116,6 @@ architecture Behavioral of machine is
       monitor_mem_address : out std_logic_vector(27 downto 0);
       monitor_mem_rdata : in unsigned(7 downto 0);
       monitor_mem_wdata : out unsigned(7 downto 0);
-      monitor_mem_register : in unsigned(15 downto 0);
       monitor_mem_read : out std_logic := '0';
       monitor_mem_write : out std_logic := '0';
       monitor_mem_setpc : out std_logic := '0';
@@ -136,6 +136,7 @@ architecture Behavioral of machine is
       monitor_pc : out std_logic_vector(15 downto 0);
       monitor_opcode : out std_logic_vector(7 downto 0);
       monitor_a : out std_logic_vector(7 downto 0);
+      monitor_b : out std_logic_vector(7 downto 0);
       monitor_x : out std_logic_vector(7 downto 0);
       monitor_y : out std_logic_vector(7 downto 0);
       monitor_z : out std_logic_vector(7 downto 0);
@@ -149,7 +150,6 @@ architecture Behavioral of machine is
       monitor_mem_address : in std_logic_vector(27 downto 0);
       monitor_mem_rdata : out unsigned(7 downto 0);
       monitor_mem_wdata : in unsigned(7 downto 0);
-      monitor_mem_register : out unsigned(15 downto 0);
       monitor_mem_read : in std_logic;
       monitor_mem_write : in std_logic;
       monitor_mem_setpc : in std_logic;
@@ -174,8 +174,6 @@ architecture Behavioral of machine is
       -- Interface to FastRAM in video controller (just 128KB for now)
       ---------------------------------------------------------------------------
       fastram_we : OUT STD_LOGIC_VECTOR(7 DOWNTO 0);
-      fastram_read : OUT STD_LOGIC;
-      fastram_write : OUT STD_LOGIC;
       fastram_address : OUT STD_LOGIC_VECTOR(13 DOWNTO 0);
       fastram_datain : OUT STD_LOGIC_VECTOR(63 DOWNTO 0);
       fastram_dataout : IN STD_LOGIC_VECTOR(63 DOWNTO 0);
@@ -217,8 +215,6 @@ architecture Behavioral of machine is
       -- CPU Interface to FastRAM in video controller (just 128KB for now)
       ---------------------------------------------------------------------------
       fastram_we : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
-      fastram_read : IN STD_LOGIC;
-      fastram_write : IN STD_LOGIC;
       fastram_address : IN STD_LOGIC_VECTOR(13 DOWNTO 0);
       fastram_datain : IN STD_LOGIC_VECTOR(63 DOWNTO 0);
       fastram_dataout : OUT STD_LOGIC_VECTOR(63 DOWNTO 0);
@@ -238,6 +234,8 @@ architecture Behavioral of machine is
   
   component iomapper is
     port (Clk : in std_logic;
+          pixelclk : in std_logic;
+          phi0 : in std_logic;
           reset : in std_logic;
           irq : out std_logic;
           nmi : out std_logic;
@@ -259,12 +257,10 @@ architecture Behavioral of machine is
           miso_i : in  std_logic;
 
           ps2data : in std_logic;
-          ps2clock : in std_logic;
-          last_scan_code : out unsigned(11 downto 0)
+          ps2clock : in std_logic
           );
   end component;
 
-  signal last_scan_code : unsigned(11 downto 0):=x"FFF";
   signal seg_led_data : unsigned(31 downto 0);
   
   signal io_irq : std_logic;
@@ -281,14 +277,12 @@ architecture Behavioral of machine is
   signal fastio_vic_rdata : std_logic_vector(7 downto 0);
 
   signal fastram_we : STD_LOGIC_VECTOR(7 DOWNTO 0);
-  signal fastram_read : STD_LOGIC;
-  signal fastram_write : STD_LOGIC;
   signal fastram_address : STD_LOGIC_VECTOR(13 DOWNTO 0);
   signal fastram_datain : STD_LOGIC_VECTOR(63 DOWNTO 0);
   signal fastram_dataout : STD_LOGIC_VECTOR(63 DOWNTO 0);
 
   signal cpuclock : std_logic := '1';
-  signal cpuclock_divisor : integer := 0;
+  signal cpuclock_divisor : integer range 0 to 3 := 0;
 
   signal colourram_at_dc00 : std_logic := '0';
 
@@ -297,7 +291,6 @@ architecture Behavioral of machine is
   signal monitor_mem_address : std_logic_vector(27 downto 0);
   signal monitor_mem_rdata : unsigned(7 downto 0);
   signal monitor_mem_wdata : unsigned(7 downto 0);
-  signal monitor_mem_register : unsigned(15 downto 0);
   signal monitor_mem_read : std_logic;
   signal monitor_mem_write : std_logic;
   signal monitor_mem_setpc : std_logic;
@@ -308,6 +301,7 @@ architecture Behavioral of machine is
   signal monitor_mem_trace_toggle : std_logic;
   
   signal monitor_a : std_logic_vector(7 downto 0);
+  signal monitor_b : std_logic_vector(7 downto 0);
   signal monitor_x : std_logic_vector(7 downto 0);
   signal monitor_y : std_logic_vector(7 downto 0);
   signal monitor_z : std_logic_vector(7 downto 0);
@@ -316,6 +310,14 @@ architecture Behavioral of machine is
   signal monitor_opcode : std_logic_vector(7 downto 0);
   
   signal segled_counter : unsigned(19 downto 0) := (others => '0');
+
+  -- Clock running as close as possible to 17.734475 MHz / 18 = 985248Hz
+  -- Our pixel clock is 192MHz.  195 ticks gives 984615Hz for NTSC.
+  -- 188 ticks at 96MHz gives 1021276Hz, which is pretty close for PAL.
+  -- Then divide by 2 again, since the loop toggles phi0.
+  signal phi0 : std_logic := '0';
+  constant phi0_divisor : integer := 188;
+  signal phi0_counter : integer range 0 to phi0_divisor;
 
 begin
 
@@ -336,9 +338,9 @@ begin
   begin
     if rising_edge(pixelclock) then
 
-      -- 1 = 48MHz ?
-      -- 2 = 32MHz ?
-      -- 3 = 24MHz ?
+      -- 1 = 96MHz
+      -- 2 = 64MHz
+      -- 3 = 48MHz
       -- 191 = 1MHz
       -- (don't forget to update uart_monitor baudrate divisor as well)
       if cpuclock_divisor<2 then
@@ -346,6 +348,14 @@ begin
       else
         cpuclock_divisor <= 0;
         cpuclock <= not cpuclock;
+      end if;
+
+      -- Work out phi0 frequency for CIA timers
+      if phi0_counter=phi0_divisor then
+        phi0 <= not phi0;
+        phi0_counter <= 0;
+      else
+        phi0_counter <= phi0_counter + 1;
       end if;
       
       led0 <= irq;
@@ -438,6 +448,7 @@ begin
     monitor_pc => monitor_pc,
     monitor_opcode => monitor_opcode,
     monitor_a => monitor_a,
+    monitor_b => monitor_b,
     monitor_x => monitor_x,
     monitor_y => monitor_y,
     monitor_z => monitor_z,
@@ -448,7 +459,6 @@ begin
     monitor_mem_address => monitor_mem_address,
     monitor_mem_rdata => monitor_mem_rdata,
     monitor_mem_wdata => monitor_mem_wdata,
-    monitor_mem_register => monitor_mem_register,
     monitor_mem_read => monitor_mem_read,
     monitor_mem_write => monitor_mem_write,
     monitor_mem_setpc => monitor_mem_setpc,
@@ -467,8 +477,6 @@ begin
     slowram_data => slowram_data,
 
     fastram_we => fastram_we,
-    fastram_read => fastram_read,
-    fastram_write => fastram_write,
     fastram_address => fastram_address,
     fastram_datain => fastram_datain,
     fastram_dataout => fastram_dataout,
@@ -497,8 +505,6 @@ begin
       vgablue         => vgablue,
 
       fastram_we => fastram_we,
-      fastram_read => fastram_read,
-      fastram_write => fastram_write,
       fastram_address => fastram_address,
       fastram_datain => fastram_datain,
       fastram_dataout => fastram_dataout,    
@@ -514,6 +520,8 @@ begin
   
   iomapper0: iomapper port map (
     clk => cpuclock,
+    pixelclk => pixelclock,
+    phi0 => phi0,
     reset => btnCpuReset,
     irq => io_irq, -- (but we might like to AND this with the hardware IRQ button)
     nmi => io_nmi, -- (but we might like to AND this with the hardware IRQ button)
@@ -529,8 +537,8 @@ begin
     miso_i => miso_i,
     
     ps2data => ps2data,
-    ps2clock => ps2clock,
-    last_scan_code => last_scan_code);
+    ps2clock => ps2clock
+    );
 
   -----------------------------------------------------------------------------
   -- UART interface for monitor debugging and loading data
@@ -544,6 +552,7 @@ begin
     monitor_pc => monitor_pc,
     monitor_opcode => monitor_opcode,
     monitor_a => monitor_a,
+    monitor_b => monitor_b,
     monitor_x => monitor_x,
     monitor_y => monitor_y,
     monitor_z => monitor_z,
@@ -553,7 +562,6 @@ begin
     monitor_mem_address => monitor_mem_address,
     monitor_mem_rdata => monitor_mem_rdata,
     monitor_mem_wdata => monitor_mem_wdata,
-    monitor_mem_register => monitor_mem_register,
     monitor_mem_read => monitor_mem_read,
     monitor_mem_write => monitor_mem_write,
     monitor_mem_setpc => monitor_mem_setpc,

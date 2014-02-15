@@ -66,9 +66,7 @@ architecture behavioural of sdcardio is
   signal sd_datatoken    : unsigned(7 downto 0);
   signal sd_rdata        : std_logic_vector(7 downto 0);
   signal sd_wdata        : std_logic_vector(7 downto 0) := (others => '0');
-  signal sd_busy         : std_logic;   -- busy line from SD card itself
   signal sd_error        : std_logic;
-  signal sd_errorcode    : std_logic_vector(15 downto 0);
   signal sd_reset        : std_logic := '1';
   signal sdhc_mode : std_logic := '0';
   
@@ -83,7 +81,7 @@ architecture behavioural of sdcardio is
   signal sector_buffer_mapped : std_logic := '0';
 
   -- Counter for reading/writing sector
-  signal sector_offset : unsigned(8 downto 0);
+  signal sector_offset : unsigned(9 downto 0);
 
   type sd_state_t is (Idle,
                       ReadSector,ReadingSector,ReadingSectorAckByte,DoneReadingSector,
@@ -129,7 +127,7 @@ begin  -- behavioural
   process (clock,fastio_addr,fastio_wdata,sector_buffer_mapped,sdio_busy,
            sd_reset,fastio_read,sd_sector,fastio_write,
            f011_track,f011_sector,f011_side,sdio_fsm_error,sdio_error,
-           sd_errorcode,sd_state,sector_buffer) is
+           sd_state,sector_buffer) is
   begin
 
     if rising_edge(clock) then
@@ -378,15 +376,14 @@ begin  -- behavioural
             when x"2" => fastio_rdata <= unsigned(sd_sector(15 downto 8));
             when x"3" => fastio_rdata <= unsigned(sd_sector(23 downto 16));
             when x"4" => fastio_rdata <= unsigned(sd_sector(31 downto 24));        
-            when x"5" => fastio_rdata <= unsigned(sd_errorcode(7 downto 0));        
-            when x"6" => fastio_rdata <= unsigned(sd_errorcode(15 downto 8));
-            when x"7" => fastio_rdata <= to_unsigned(sd_state_t'pos(sd_state),8);
-            when x"8" => fastio_rdata <= sd_datatoken;
-            when x"9" => fastio_rdata <= unsigned(sd_rdata);                         
-            when x"a" => fastio_rdata <= sector_offset(7 downto 0);
-            when x"b" =>
+            when x"5" => fastio_rdata <= to_unsigned(sd_state_t'pos(sd_state),8);
+            when x"6" => fastio_rdata <= sd_datatoken;
+            when x"7" => fastio_rdata <= unsigned(sd_rdata);                         
+            when x"8" => fastio_rdata <= sector_offset(7 downto 0);
+            when x"9" =>
               fastio_rdata(7 downto 1) <= (others => '0');
               fastio_rdata(0) <= sector_offset(8);
+              fastio_rdata(1) <= sector_offset(9);
             when others => fastio_rdata <= (others => 'Z');
           end case;
         elsif (sector_buffer_mapped='1') and 
@@ -407,7 +404,7 @@ begin  -- behavioural
           when Idle => sdio_busy <= '0';
           when ReadSector =>
             -- Begin reading a sector into the buffer
-            if sd_busy='0' then
+            if sdio_busy='0' then
               sd_doread <= '1';
               sd_state <= ReadingSector;
               sdio_busy <= '1';
@@ -436,8 +433,8 @@ begin  -- behavioural
           when ReadingSectorAckByte =>
             -- Wait until controller acknowledges that we have acked it
             if data_ready='0' then
-              if (sector_offset = "000000000") and (read_bytes='1') then
-                -- sector offset has wrapped back to zero, so we must have
+              if (sector_offset = "1000000000") and (read_bytes='1') then
+                -- sector offset has reached 512, so we must have
                 -- read the whole sector.
                 sd_state <= DoneReadingSector;
               else
@@ -447,7 +444,7 @@ begin  -- behavioural
             end if;
           when WriteSector =>
             -- Begin writing a sector into the buffer
-            if sd_busy='0' then
+            if sdio_busy='0' then
               sd_dowrite <= '1';
               sdio_busy <= '1';
               sd_state <= WritingSector;
@@ -467,9 +464,9 @@ begin  -- behavioural
           when WritingSectorAckByte =>
             -- Wait until controller acknowledges that we have acked it
             if data_ready='0' then
-              if sector_offset = "000000000" then
-                -- sector offset has wrapped back to zero, so we must have
-                -- read the whole sector.
+              if sector_offset = "1000000000" then
+                -- sector offset has reached 512, so we have
+                -- written the whole sector.
                 sd_state <= DoneWritingSector;
               else
                 -- Still more bytes to read.

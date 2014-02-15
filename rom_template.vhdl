@@ -26,7 +26,7 @@ architecture Behavioral of THEROM is
 begin
 
 --process for read and write operation.
-  PROCESS(Clk,cs,ram)
+  PROCESS(Clk,cs,ram,address)
   BEGIN
     if(rising_edge(Clk)) then 
       if cs='1' then

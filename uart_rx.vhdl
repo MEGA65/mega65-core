@@ -21,9 +21,9 @@ constant bit_rate_divisor : unsigned(13 downto 0) := "00000010001010";
 -- 48MHz/2/230400 -1 = 105 clock ticks per bit
 -- constant bit_rate_divisor : unsigned(13 downto 0) := "00000001100111";
 -- Timer for the above
-signal bit_timer : unsigned(13 downto 0) := (others => '0');
+signal bit_timer : unsigned(7 downto 0) := (others => '0');
 
-signal bit_position : natural;
+signal bit_position : natural range 0 to 15;
 
 signal rx_data : std_logic_vector(9 downto 0);
 
@@ -79,7 +79,7 @@ begin  -- behavioural
           report "Finished receiving byte. Value = $" & to_hstring(rx_data(8 downto 1)) severity note;
           data <= rx_data(8 downto 1);
           data_ready <= '1';
-          bit_timer <= "00000000000001";
+          bit_timer <= "00000001";
           rx_state <= WaitForRise;
         end if;        
       end if;

@@ -6,7 +6,7 @@ use Std.TextIO.all;
 entity keymapper is
   
   port (
-    clk : in std_logic;
+    pixelclk : in std_logic;
 
     -- PS2 keyboard interface
     ps2clock  : in  std_logic;
@@ -14,12 +14,10 @@ entity keymapper is
     -- CIA ports
     porta_in  : in  std_logic_vector(7 downto 0);
     porta_out : out std_logic_vector(7 downto 0);
-    portb_out : out std_logic_vector(7 downto 0);
-
-    last_scan_code : out unsigned(11 downto 0) := x"0FF"
+    portb_out : out std_logic_vector(7 downto 0)
     );
 
-end keymapper;
+end entity keymapper;
 
 architecture behavioural of keymapper is
 
@@ -31,9 +29,9 @@ architecture behavioural of keymapper is
   signal parity : std_logic := '0';
 
   -- PS2 clock rate is as low as 10KHz.  Allow double that for a timeout
-  -- 64MHz/5KHz = 64000/5 = 12800 cycles
-  constant ps2timeout : integer := 12800;
-  signal ps2timer : integer := 0;
+  -- 192MHz/5KHz = 192000/5 = 38400 cycles
+  constant ps2timeout : integer := 38400;
+  signal ps2timer : integer range 0 to ps2timeout := 0;
 
   signal ps2clock_samples : std_logic_vector(7 downto 0) := (others => '1');
   signal ps2clock_debounced : std_logic := '0';
@@ -53,11 +51,11 @@ architecture behavioural of keymapper is
 begin  -- behavioural
 
 -- purpose: read from ps2 keyboard interface
-  keyread: process (clk, ps2data,ps2clock)
+  keyread: process (pixelclk, ps2data,ps2clock)
     variable full_scan_code : std_logic_vector(11 downto 0);
     variable portb_value : std_logic_vector(7 downto 0);
   begin  -- process keyread
-    if rising_edge(clk) then
+    if rising_edge(pixelclk) then
       -------------------------------------------------------------------------
       -- Generate timer for keyscan timeout
       -------------------------------------------------------------------------
@@ -121,8 +119,6 @@ begin  -- behavioural
                          full_scan_code := "000" & extended & std_logic_vector(scan_code);
                          break <= '0';
                          extended <= '0';
-
-                         last_scan_code <= break&"00"&unsigned(full_scan_code(8 downto 0));
                          
                          -- keyboard scancodes for the more normal keys from a keyboard I have here
                          -- (will replace these with the keyrah obtained ones)

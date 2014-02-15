@@ -43,6 +43,7 @@ entity gs4510 is
     monitor_x : out std_logic_vector(7 downto 0);
     monitor_y : out std_logic_vector(7 downto 0);
     monitor_z : out std_logic_vector(7 downto 0);
+    monitor_b : out std_logic_vector(7 downto 0);
     monitor_sp : out std_logic_vector(15 downto 0);
     monitor_p : out std_logic_vector(7 downto 0);
     monitor_state : out std_logic_vector(7 downto 0);
@@ -56,7 +57,6 @@ entity gs4510 is
     monitor_mem_read : in std_logic;
     monitor_mem_write : in std_logic;
     monitor_mem_setpc : in std_logic;
-    monitor_mem_register : out unsigned(15 downto 0);
     monitor_mem_attention_request : in std_logic;
     monitor_mem_attention_granted : out std_logic := '0';
     monitor_mem_trace_mode : in std_logic;
@@ -67,8 +67,6 @@ entity gs4510 is
     -- Interface to FastRAM in video controller (just 128KB for now)
     ---------------------------------------------------------------------------
     fastram_we : OUT STD_LOGIC_VECTOR(7 DOWNTO 0);
-    fastram_read : OUT STD_LOGIC;
-    fastram_write : OUT STD_LOGIC;
     fastram_address : OUT STD_LOGIC_VECTOR(13 DOWNTO 0);
     fastram_datain : OUT STD_LOGIC_VECTOR(63 DOWNTO 0);
     fastram_dataout : IN STD_LOGIC_VECTOR(63 DOWNTO 0);
@@ -100,12 +98,14 @@ end entity gs4510;
 
 architecture Behavioural of gs4510 is
 
+  signal last_fastio_addr : std_logic_vector(19 downto 0);
+
   signal slowram_lohi : std_logic;
   signal slowram_counter : unsigned(7 downto 0);
   -- SlowRAM has 70ns access time, so need some wait states.
   -- The wait states
   signal slowram_waitstates : unsigned(7 downto 0) := x"05";
-    
+  
   signal fastram_byte_number : unsigned(2 DOWNTO 0);
   
 -- CPU internal state
@@ -354,7 +354,7 @@ begin
 
   -- purpose: Convert a 16-bit C64 address to native RAM (or I/O or ROM) address
   impure function resolve_address_to_long(short_address : unsigned(15 downto 0);
-                                   writeP : boolean)
+                                          writeP : boolean)
     return unsigned is 
     variable temp_address : unsigned(27 downto 0);
     variable blocknum : integer;
@@ -385,7 +385,7 @@ begin
         temp_address(15 downto 0) := short_address;
       end if;
     end if;
-      
+    
     -- Now apply $01 and $D030 lines to determine what is really going on.    
     blocknum := to_integer(short_address(15 downto 12));
 
@@ -442,7 +442,6 @@ begin
       accessing_ram <= '1';
       fastram_address <= std_logic_vector(long_address(16 downto 3));
       fastram_byte_number <= long_address(2 downto 0);
-      fastram_read <= '1';
       pending_state <= next_state;
       state <= WaitOneCycle;
       -- No wait states in fastram system, so proceed directly to next state
@@ -461,31 +460,41 @@ begin
     elsif long_address(27 downto 24) = x"F" then
       accessing_fastio <= '1';
       accessing_vic_fastio <= '0';
-      -- If reading IO page from $FFD{0,1,2,3}{0-7}X, then the access is from
+      -- If reading IO page from $D{0,1,2,3}0{0-7}X, then the access is from
       -- the VIC-IV.
-      -- If reading IO page from $FFD{8,9,a,b}XX, then the access is from
+      -- If reading IO page from $D{0,1,2,3}{1,2,3}XX, then the access is from
       -- the VIC-IV.
-      -- If reading IO page from $FFD{c,d,e,f}XX, and colourram_at_dc00='1',
+      -- If reading IO page from $D{0,1,2,3}{8,9,a,b}XX, then the access is from
+      -- the VIC-IV.
+      -- If reading IO page from $D{0,1,2,3}{c,d,e,f}XX, and colourram_at_dc00='1',
       -- then the access is from the VIC-IV.
+      -- If reading IO page from $8XXXX, then the access is from the VIC-IV.
       -- We make the distinction to separate reading of VIC-IV
       -- registers from all other IO registers, partly to work around some bugs,
       -- and partly because the banking of the VIC registers is the fiddliest part.
-      if long_address(23 downto 16) = x"FD" then
-        if long_address(11 downto 10) = "00" then       --   $D{0,1,2,3}XX
-          if long_address(11 downto 7) /= "00001" then  -- ! $D0{8-F}X (FDC, RAM EX)
-            report "D800-DBFF colour ram access from VIC fastio" severity note;
-            accessing_vic_fastio <= '1';
-          end if;
-        end if;
-        -- Colour RAM at $D800-$DBFF and optionally $DC00-$DFFF
-        if long_address(11)='1' then
-          if (long_address(10)='0') or (colourram_at_dc00='1') then
-            report "DC00-DFFF colour ram access from VIC fastio" severity note;
-            accessing_vic_fastio <= '1';            
-          end if;
-        end if;
+      if long_address(23 downto 20) = x"8" then
+        report "VIC 64KB colour RAM access from VIC fastio" severity note;
+        accessing_vic_fastio <= '1';
       end if;
+      if long_address(23 downto 20) = x"D" then
+        if long_address(19 downto 18) = "00" then    --   $D{0,1,2,3}XXX
+          if long_address(11 downto 10) = "00" then  --   $D{0,1,2,3}{0,1,2,3}XX
+            if long_address(11 downto 7) /= "00001" then  -- ! $D.0{8-F}X (FDC, RAM EX)
+              report "VIC register from VIC fastio" severity note;
+              accessing_vic_fastio <= '1';
+            end if;            
+          end if;
+          -- Colour RAM at $D800-$DBFF and optionally $DC00-$DFFF
+          if long_address(11)='1' then
+            if (long_address(10)='0') or (colourram_at_dc00='1') then
+              report "D800-DBFF/DC00-DFFF colour ram access from VIC fastio" severity note;
+              accessing_vic_fastio <= '1';            
+            end if;
+          end if;
+        end if;                         -- $D{0,1,2,3}XXX
+      end if;                           -- $DXXXX
       fastio_addr <= std_logic_vector(long_address(19 downto 0));
+      last_fastio_addr <= std_logic_vector(long_address(19 downto 0));
       fastio_read <= '1';
       -- XXX Some fastio (that referencing dual-port block rams) does require
       -- a wait state.  For now, just apply the wait state to all fastio
@@ -549,8 +558,6 @@ begin
     if long_address(27 downto 17)="00000000000" then
       accessing_ram <= '1';
       fastram_address <= std_logic_vector(long_address(16 downto 3));
-      fastram_write <= '1';
-      fastram_read <= '0';
       fastram_we <= (others => '0');
       fastram_datain <= (others => '1');
       case long_address(2 downto 0) is
@@ -582,6 +589,7 @@ begin
     elsif long_address(27 downto 24) = x"F" then
       accessing_fastio <= '1';
       fastio_addr <= std_logic_vector(long_address(19 downto 0));
+      last_fastio_addr <= std_logic_vector(long_address(19 downto 0));
       fastio_write <= '1';
       fastio_wdata <= std_logic_vector(value);
       if long_address = x"FFC00A0" then
@@ -768,7 +776,7 @@ begin
     reg_offset_high <= reg_z(3 downto 0) & reg_y;
     reg_map_high <= std_logic_vector(reg_z(7 downto 4));
     
-end c65_map_instruction;
+  end c65_map_instruction;
 
   procedure execute_implied_instruction (
     opcode : in unsigned(7 downto 0)) is
@@ -865,6 +873,7 @@ end c65_map_instruction;
         when I_TXA => reg_a <= with_nz(reg_x);
         when I_TXS => reg_sp <= reg_x;
         when I_TYA => reg_a <= with_nz(reg_y);                      
+        when I_TYS => reg_sph <= reg_y;
         when I_TZA => reg_a <= with_nz(reg_z);                      
         when I_EOM =>
           -- Does double duty as NOP.
@@ -1220,6 +1229,7 @@ end c65_map_instruction;
       monitor_y <= std_logic_vector(reg_y);
       monitor_z <= std_logic_vector(reg_z);
       monitor_sp <= std_logic_vector(reg_sph) & std_logic_vector(reg_sp);
+      monitor_b <= std_logic_vector(reg_b);
       
       -- Clear memory access interfaces
       -- Allow fastio to continue reading to support 1 cycle wait state
@@ -1230,11 +1240,11 @@ end c65_map_instruction;
       accessing_vic_fastio <= '0';
       if accessing_fastio='0' then
         fastio_addr <= (others => '1');
-        fastio_read <= '0';        
+        fastio_read <= '0';
+      else
+        fastio_addr <= last_fastio_addr;
       end if;
       fastio_write <= '0';
-      fastram_read <= '0';
-      fastram_write <= '0';
       fastram_we <= (others => '0');
       fastram_address <= "11111111111111";
       fastram_datain <= x"d0d1d2d3d4d5d6d7";
@@ -1242,7 +1252,7 @@ end c65_map_instruction;
       -- Generate virtual processor status register for convenience
       virtual_reg_p(7) := flag_n;
       virtual_reg_p(6) := flag_v;
-      virtual_reg_p(5) := '1';
+      virtual_reg_p(5) := flag_e;
       virtual_reg_p(4) := '0';
       virtual_reg_p(3) := flag_d;
       virtual_reg_p(2) := flag_i;
@@ -1264,7 +1274,7 @@ end c65_map_instruction;
           -- Write to specified long address
           write_long_byte(unsigned(monitor_mem_address),monitor_mem_wdata,
                           MonitorAccessDone);
-        else
+        elsif monitor_mem_read='1' then          
           -- Read from specified long address
           read_long_address(unsigned(monitor_mem_address),MonitorReadDone);
           -- and optionally set PC
@@ -1352,6 +1362,7 @@ end c65_map_instruction;
               else
                 report "opcode: read_data = %" & to_string(std_logic_vector(read_data)) severity note;
                 opcode <= read_data;
+                monitor_opcode <= std_logic_vector(read_data);
                 reg_pc <= reg_pc + 1;
                 report "reg_pc bump from $" & to_hstring(reg_pc) severity note;
                 read_instruction_byte(reg_pc,InstructionFetch3);
@@ -1494,7 +1505,7 @@ end c65_map_instruction;
               report "read_data = %" & to_string(std_logic_vector(read_data)) severity note;
               temp_value := read_data;
               if temp_value(to_integer(bbs_bit))
-                 = bbs_or_bbc then
+                = bbs_or_bbc then
                 report "taking branch" severity note;
                 -- 8-bit branch
                 if reg_value(7)='0' then -- branch forwards.
@@ -1519,7 +1530,7 @@ end c65_map_instruction;
   -- type   : combinational
   -- inputs : ram_bank_registers_read
   -- outputs: fastio_*
-  fastio: process (fastio_addr,fastio_read,
+  fastio: process (fastio_addr,fastio_read,nmi_pending,
                    irq,irq_pending,clock,slowram_waitstates,nmi)
     variable address : unsigned(19 downto 0);
     variable rwx : integer;

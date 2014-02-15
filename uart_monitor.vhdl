@@ -18,13 +18,13 @@ entity uart_monitor is
     monitor_x : in std_logic_vector(7 downto 0);
     monitor_y : in std_logic_vector(7 downto 0);
     monitor_z : in std_logic_vector(7 downto 0);
+    monitor_b : in std_logic_vector(7 downto 0);
     monitor_sp : in std_logic_vector(15 downto 0);
     monitor_p : in std_logic_vector(7 downto 0);
     
     monitor_mem_address : out std_logic_vector(27 downto 0);
     monitor_mem_rdata : in unsigned(7 downto 0);
     monitor_mem_wdata : out unsigned(7 downto 0);
-    monitor_mem_register : in unsigned(15 downto 0);
     monitor_mem_attention_request : out std_logic := '0';
     monitor_mem_attention_granted : in std_logic;
     monitor_mem_read : out std_logic := '0';
@@ -68,7 +68,6 @@ architecture behavioural of uart_monitor is
 
 -- Counter for slow clock derivation (for testing at least)
   signal counter : unsigned(31 downto 0) := (others => '0');
-  signal tx_counter : std_logic;
 
   signal blink : std_logic := '1';
 
@@ -81,8 +80,8 @@ architecture behavioural of uart_monitor is
     "--------------------------------" & crlf &
     "65GS Serial Monitor" & crlf &
     "--------------------------------" & crlf &
-    "Type ? for help." & crlf;
-  signal banner_position : integer := 1;
+    "Type ? for help." & crlf & ".";
+  signal banner_position : integer range 0 to 511 := 1;
   constant helpMessage : String :=
     "? or h[elp]            - Display this help" & crlf &
     "f<low> <high> <byte>   - Fill memory from <low> to <high> with value <byte>" &    crlf &
@@ -96,7 +95,7 @@ architecture behavioural of uart_monitor is
   constant errorMessage : string := crlf & "?SYNTAX  ERROR ";
   constant timeoutMessage : string := crlf & "?DEVICE NOT FOUND  ERROR" & crlf;
 
-  constant registerMessage : string := crlf & "PC   A  X  Y  Z  SP    P" & crlf;
+  constant registerMessage : string := crlf & "PC   A  X  Y  Z  B  SP    P" & crlf;
   
   type monitor_state is (Reseting,
                          PrintBanner,PrintHelp,
@@ -126,7 +125,7 @@ architecture behavioural of uart_monitor is
                          ShowRegisters5,ShowRegisters6,ShowRegisters7,ShowRegisters8,
                          ShowRegisters9,ShowRegisters10,ShowRegisters11,ShowRegisters12,
                          ShowRegisters13,ShowRegisters14,ShowRegisters15,ShowRegisters16,
-                         ShowRegisters17,
+                         ShowRegisters17,ShowRegisters18,ShowRegisters19,
                          ShowP1,ShowP2,ShowP3,ShowP4,ShowP5,ShowP6,ShowP7,ShowP8,
                          TraceStep,CPUBreak1,WaitOneCycle
                          );
@@ -142,8 +141,8 @@ architecture behavioural of uart_monitor is
   signal state : monitor_state := Reseting;
 -- Buffer to hold entered command
   signal cmdbuffer : command_t;
-  signal cmdlen : integer := 1;
-  signal prev_cmdlen : integer := 1;
+  signal cmdlen : integer range 1 to 65 := 1;
+  signal prev_cmdlen : integer range 1 to 65 := 1;
   signal redraw_position : integer;
   
   -- For parsing commands
@@ -163,7 +162,7 @@ architecture behavioural of uart_monitor is
   type sixteenbytes is array (0 to 15) of unsigned(7 downto 0);
   signal membuf : sixteenbytes;
   signal byte_number : integer range 0 to 16;
-  signal line_number : integer range 0 to 32;
+  signal line_number : integer range 0 to 31;
 
   signal key_state : integer := 0;
 
@@ -213,7 +212,7 @@ begin
     procedure character_received (char : in character) is
     begin  -- character_received
       if ((char >= ' ' and char < del) or (char > c159)) and (key_state=0) then
-        if cmdlen<63 then
+        if cmdlen<65 then
           -- Echo character back to user
           tx_data <= to_std_logic_vector(char);
           tx_trigger <= '1';
@@ -472,7 +471,6 @@ begin
       
       -- Update counter and clear outputs
       counter <= counter + 1;
-      tx_counter <= std_logic(counter(27));
       rx_acknowledge <= '0';
       tx_trigger<='0';
 
@@ -807,11 +805,13 @@ begin
           when ShowRegisters10 => try_output_char(' ',ShowRegisters11);
           when ShowRegisters11 => print_hex_byte(unsigned(monitor_z),ShowRegisters12);
           when ShowRegisters12 => try_output_char(' ',ShowRegisters13);
-          when ShowRegisters13 => print_hex_byte(unsigned(monitor_sp(15 downto 8)),ShowRegisters14);
-          when ShowRegisters14 => print_hex_byte(unsigned(monitor_sp(7 downto 0)),ShowRegisters15);
-          when ShowRegisters15 => try_output_char(' ',ShowRegisters16);
-          when ShowRegisters16 => print_hex_byte(unsigned(monitor_p),ShowRegisters17);
-          when ShowRegisters17 => try_output_char(' ',ShowP1);
+          when ShowRegisters13 => print_hex_byte(unsigned(monitor_z),ShowRegisters14);
+          when ShowRegisters14 => try_output_char(' ',ShowRegisters15);
+          when ShowRegisters15 => print_hex_byte(unsigned(monitor_sp(15 downto 8)),ShowRegisters16);
+          when ShowRegisters16 => print_hex_byte(unsigned(monitor_sp(7 downto 0)),ShowRegisters17);
+          when ShowRegisters17 => try_output_char(' ',ShowRegisters18);
+          when ShowRegisters18 => print_hex_byte(unsigned(monitor_p),ShowRegisters19);
+          when ShowRegisters19 => try_output_char(' ',ShowP1);
           when ShowP1 =>
             if monitor_p(7)='1' then
               try_output_char('N',ShowP2);

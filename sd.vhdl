@@ -74,7 +74,7 @@ signal data_sig : std_logic_vector(7 downto 0) := x"00";
 
 begin
   
-	process(clk,reset)
+	process(clk,reset,dm_in)
 		variable byte_counter : integer range 0 to WRITE_DATA_SIZE;
 		variable bit_counter : integer range 0 to 160;
 	begin

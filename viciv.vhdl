@@ -59,8 +59,6 @@ entity viciv is
     -- CPU Interface to FastRAM in video controller (just 128KB for now)
     ---------------------------------------------------------------------------
     fastram_we : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
-    fastram_read : IN STD_LOGIC;
-    fastram_write : IN STD_LOGIC;
     fastram_address : IN STD_LOGIC_VECTOR(13 DOWNTO 0);
     fastram_datain : IN STD_LOGIC_VECTOR(63 DOWNTO 0);
     fastram_dataout : OUT STD_LOGIC_VECTOR(63 DOWNTO 0);      
@@ -196,7 +194,7 @@ architecture Behavioral of viciv is
   signal debug_y : unsigned(11 downto 0) := "111111111110";
   signal debug_cycles_to_next_card : unsigned(7 downto 0);
   signal debug_next_card_number : unsigned(15 downto 0);
-  signal debug_char_fetch_cycle : integer;
+  signal debug_char_fetch_cycle : integer range 0 to 255;
   signal debug_chargen_active : std_logic;
   signal debug_chargen_active_soon : std_logic;
   
@@ -356,9 +354,9 @@ architecture Behavioral of viciv is
   signal chargen_x_t1 : unsigned(2 downto 0) := (others => '0');
   signal chargen_x_t2 : unsigned(2 downto 0) := (others => '0');
   signal chargen_x_t3 : unsigned(2 downto 0) := (others => '0');
-  signal card_number_t1 : unsigned(15 downto 0) := (others => '0');
-  signal card_number_t2 : unsigned(15 downto 0) := (others => '0');
-  signal card_number_t3 : unsigned(15 downto 0) := (others => '0');
+  signal card_number_t1 : unsigned(7 downto 0) := (others => '0');
+  signal card_number_t2 : unsigned(7 downto 0) := (others => '0');
+  signal card_number_t3 : unsigned(7 downto 0) := (others => '0');
   signal cards_differ : std_logic;
   signal indisplay_t1 : std_logic := '0';
   signal indisplay_t2 : std_logic := '0';
@@ -393,7 +391,6 @@ architecture Behavioral of viciv is
   signal inborder : std_logic;
   signal inborder_t1 : std_logic;
   signal inborder_t2 : std_logic;
-  signal inborder_t3 : std_logic;
   signal xfrontporch : std_logic;
   signal xbackporch : std_logic;
 
@@ -504,7 +501,15 @@ begin
           border_x_left,border_x_right,border_y_top,border_y_bottom,
           x_chargen_start,y_chargen_start,fullcolour_8bitchars,
           fullcolour_extendedchars,sixteenbit_charset,char_fetch_cycle,
-          cycles_to_next_card,xfrontporch,xbackporch,chargen_active,inborder) is
+          cycles_to_next_card,xfrontporch,xbackporch,chargen_active,inborder,
+          irq_drive,vicii_sprite_x_expand,sprite_multi0_colour,
+          sprite_multi1_colour,sprite_colours,colourram_at_dc00_internal,
+          viciii_extended_attributes,virtual_row_width,chargen_x_scale,
+          chargen_y_scale,xcounter,chargen_active_soon,card_number,
+          colour_ram_base,vicii_sprite_pointer_address,palette_bank_fastio,
+          x_chargen_start_minus17,debug_next_card_number,debug_cycles_to_next_card,
+          debug_chargen_active,debug_char_fetch_cycle,debug_charaddress,
+          debug_charrow,palette_fastio_rdata) is
     variable register_bank : unsigned(7 downto 0);
     variable register_page : unsigned(3 downto 0);
     variable register_num : unsigned(7 downto 0);
@@ -1257,7 +1262,6 @@ begin
       end if;
       inborder_t1 <= inborder;
       inborder_t2 <= inborder_t1;
-      inborder_t3 <= inborder_t2;
 
       -- Work out if the next card has a character number >255
       if next_card_number(15 downto 8) /= x"00" then
@@ -1759,7 +1763,7 @@ begin
       chargen_x_t3 <= chargen_x_t2;
       charrow_t1 <= charrow;
       charrow_t2 <= charrow_t1;
-      card_number_t1 <= card_number;
+      card_number_t1 <= card_number(7 downto 0);
       card_number_t2 <= card_number_t1;
       card_number_t3 <= card_number_t2;
       indisplay_t1 <= indisplay;
