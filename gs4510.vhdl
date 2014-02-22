@@ -1660,6 +1660,7 @@ begin
               accessing_slowram <= '1';
               state <= SlowRamRead2;
             when SlowRamRead2 =>
+              accessing_slowram <= '1';
               if slowram_counter=slowram_waitstates then
                 if pending_state = InstructionFetch then
                   ready_for_next_instruction(reg_pc);
@@ -1668,7 +1669,6 @@ begin
                 end if;
               else
                 slowram_counter <= slowram_counter + 1;
-                accessing_slowram <= '1';
               end if;
             when SlowRamWrite1 =>
               slowram_ce <= '0';
