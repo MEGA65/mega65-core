@@ -72,6 +72,7 @@ entity viciv is
     fastio_wdata : in std_logic_vector(7 downto 0);
     fastio_rdata : out std_logic_vector(7 downto 0);
     colour_ram_fastio_rdata : out std_logic_vector(7 downto 0);
+    colour_ram_cs : in std_logic;
 
     colourram_at_dc00 : out std_logic
     );
@@ -444,7 +445,7 @@ begin
   colourram1 : component ram8x64k
     PORT MAP (
       clka => cpuclock,
-      ena => '1',
+      ena => colour_ram_cs,
       wea(0) => fastio_write,
       addra => colour_ram_fastio_address,
       dina => fastio_wdata,

@@ -92,6 +92,7 @@ entity gs4510 is
     fastio_rdata : inout std_logic_vector(7 downto 0);
     fastio_vic_rdata : in std_logic_vector(7 downto 0);
     fastio_colour_ram_rdata : in std_logic_vector(7 downto 0);
+    colour_ram_cs : out std_logic;
 
     colourram_at_dc00 : in std_logic
     );
@@ -100,6 +101,7 @@ end entity gs4510;
 architecture Behavioural of gs4510 is
 
   signal kickstart_en : std_logic := '1';
+  signal colour_ram_cs_last : std_logic := '0';
   
   -- i-cache control lines
   signal icache_delay : std_logic;
@@ -542,6 +544,8 @@ begin
       if long_address(19 downto 16) = x"8" then
         report "VIC 64KB colour RAM access from VIC fastio" severity note;
         accessing_colour_ram_fastio <= '1';
+        colour_ram_cs <= '1';
+        colour_ram_cs_last <= '1';
       end if;
       if long_address(19 downto 16) = x"D" then
         if long_address(15 downto 14) = "00" then    --   $D{0,1,2,3}XXX
@@ -556,6 +560,8 @@ begin
             if (long_address(10)='0') or (colourram_at_dc00='1') then
               report "D800-DBFF/DC00-DFFF colour ram access from VIC fastio" severity note;
               accessing_colour_ram_fastio <= '1';            
+              colour_ram_cs <= '1';
+              colour_ram_cs_last <= '1';
             end if;
           end if;
         end if;                         -- $D{0,1,2,3}XXX
@@ -697,6 +703,22 @@ begin
       if long_address = x"FFC00A0" then
         slowram_waitstates <= value;
       end if;
+      if long_address(19 downto 16) = x"8" then
+        colour_ram_cs <= '1';
+        colour_ram_cs_last <= '1';
+      end if;
+      if long_address(19 downto 16) = x"D" then
+        if long_address(15 downto 14) = "00" then    --   $D{0,1,2,3}XXX
+          -- Colour RAM at $D800-$DBFF and optionally $DC00-$DFFF
+          if long_address(11)='1' then
+            if (long_address(10)='0') or (colourram_at_dc00='1') then
+              report "D800-DBFF/DC00-DFFF colour ram access from VIC fastio" severity note;
+              colour_ram_cs <= '1';
+              colour_ram_cs_last <= '1';
+            end if;
+          end if;
+        end if;                         -- $D{0,1,2,3}XXX
+      end if;                           -- $DXXXX
       -- No wait states on I/O write, so proceed directly to the next state
       if next_state = InstructionFetch then
         ready_for_next_instruction(reg_pc);
@@ -1353,6 +1375,12 @@ begin
 
     -- BEGINNING OF MAIN PROCESS FOR CPU
     if rising_edge(clock) then
+      -- clear memory access states
+      colour_ram_cs <= '0';
+      colour_ram_cs_last <= '0';
+      accessing_ram <= '0'; accessing_slowram <= '0';
+      accessing_fastio <= '0'; accessing_vic_fastio <= '0';
+      accessing_cpuport <= '0';
 
       monitor_state <= std_logic_vector(to_unsigned(processor_state'pos(state),8));
       monitor_pc <= std_logic_vector(reg_pc);
@@ -1614,7 +1642,14 @@ begin
               else
                 state <= pending_state;
               end if;
-            when FastIOWait => state <= pending_state; accessing_fastio <= '1';
+            when FastIOWait =>
+              -- hold colour ram access for the extra cycle necessary
+              -- (we clear it at the start of the process)
+              colour_ram_cs <= colour_ram_cs_last;
+              accessing_fastio <= accessing_fastio;
+              accessing_vic_fastio <= accessing_vic_fastio;
+
+              state <= pending_state; accessing_fastio <= '1';
             when SlowRamRead1 =>
               slowram_ce <= '0';
               slowram_oe <= '0';
