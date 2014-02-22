@@ -99,6 +99,8 @@ end entity gs4510;
 
 architecture Behavioural of gs4510 is
 
+  signal kickstart_en : std_logic := '1';
+  
   -- i-cache control lines
   signal icache_delay : std_logic;
   signal accessing_icache : std_logic;
@@ -423,23 +425,32 @@ begin
       temp_address(27 downto 12) := x"002D";
       temp_addresS(11 downto 0) := short_address(11 downto 0);
     end if;
+    -- Kickstart ROM
+    if (blocknum=14) and (kickstart_en='1') and (writeP=false) then
+      temp_address(27 downto 12) := x"FFFE";      
+    end if;
+    if (blocknum=15) and (kickstart_en='1') and (writeP=false) then
+      temp_address(27 downto 12) := x"002F";      
+      temp_address(27 downto 12) := x"FFFF";      
+    end if;
+    
     -- KERNEL
     if (blocknum=14) and (lhc(1)='1') and (writeP=false) then
---      temp_address(27 downto 12) := x"002E";      
-      temp_address(27 downto 12) := x"FFEE";      
+      temp_address(27 downto 12) := x"002E";      
+--      temp_address(27 downto 12) := x"FFEE";      
     end if;
     if (blocknum=15) and (lhc(1)='1') and (writeP=false) then
---      temp_address(27 downto 12) := x"002F";      
-      temp_address(27 downto 12) := x"FFEF";      
+      temp_address(27 downto 12) := x"002F";      
+--      temp_address(27 downto 12) := x"FFEF";      
     end if;
-    -- KERNEL
+    -- BASIC
     if (blocknum=10) and (lhc(0)='1') and (writeP=false) then
---      temp_address(27 downto 12) := x"002A";      
-      temp_address(27 downto 12) := x"FFEA";      
+      temp_address(27 downto 12) := x"002A";      
+--      temp_address(27 downto 12) := x"FFEA";      
     end if;
     if (blocknum=11) and (lhc(0)='1') and (writeP=false) then
---      temp_address(27 downto 12) := x"002B";      
-      temp_address(27 downto 12) := x"FFEB";      
+      temp_address(27 downto 12) := x"002B";      
+--      temp_address(27 downto 12) := x"FFEB";      
     end if;
 
     -- XXX $D030 lines not yet supported
@@ -726,6 +737,8 @@ begin
       -- Bits 6 & 7 cannot be altered, and always read 0.
       cpuport_value(5 downto 0) <= value(5 downto 0);
       icache_delay <= '1';
+      -- writing to $01 ends kickstart mode
+      kickstart_en <= '0';
       if next_state = InstructionFetch then
         ready_for_next_instruction(reg_pc);
       else
@@ -1386,6 +1399,7 @@ begin
       if reset = '0' or state = ResetLow then
 
         -- reset cpu
+        kickstart_en <= '1';
         state <= VectorRead;
         vector <= x"FFFC";
         reset_cpu_state;

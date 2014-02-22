@@ -6,7 +6,7 @@
 ; 1. If checksum fails, load complete ROM from SD card.
 ; 2. Select default disk image for F011 emulation.
 ;
-; The kickstart ROM is 8KB in length, and maps at $E000-$FFF
+; The kickstart ROM is 8KB in length, and maps at $E000-$FFFF
 ; essentially the same as the C64 kernel.
 ;
 ; Kickstart modifies RAM from $0000-$07FF (ZP, stack, 40-column
@@ -23,70 +23,524 @@
 	.data 
 	.org $0080
 	.space zptempv 2
+	.space zptempv2 2
 	.space romslab 1
-	.space checksum 4
 	.space timerticks 1
+	.space timerlimit 1
+	.space screenrow 1
+
+	.org $0200
+	.space checksum 4
+	.space part_startsector 4
+	.space fs_startfat 4
+	.space fs_syssectors 4
+	.space fs_reservedclusters 4
+	.space fs_rootdircluster 4
+	.space fs_datasectors 4
+	.space fs_clustercount 4
+	.space fs_sectorspercluster 1
+	.space fs_sector_in_cluster 1
+	.space fs_clusternumber 4
+
 	.text
 
-;     	    .org $E000
+     	    .org $E000
 
-	 .word $0801
-	 .org $0801
-
-	 .word _next, 10                       ; Next line and current line number
-	 .byte $97, "2,0:", $9e, " 2014", $AA, "65",0      ; POKE 2,0 : SYS 2014+65
-_next:	 .word 0
-
-	 .checkpc 2079
-	 .advance 2079
+;	 .word $0801
+;	 .org $0801
+;
+;	 .word _next, 10                       ; Next line and current line number
+;	 .byte $97, "2,0:", $9e, " 2014", $AA, "65",0      ; POKE 2,0 : SYS 2014+65
+;_next:	 .word 0
+;
+;	 .checkpc 2079
+;	 .advance 2079
 
 
 reset_entry:
+
 		; get CPU state sensible
 		sei
 		cld
 		cle
 		ldx #$ff
 		txs
+		
 		; We DO NOT need to mess with $01, because
 		; the 4510 starts up with kickstart mapped at $E000, 
-		; enhanced ($FFD3xxx) IO page mapped at $D000,
-		; and fast RAM elsewhere.
+		; standard ($FFD0xxx) IO page mapped at $D000,
+		; and fast RAM elsewhere.  So we just need to key $D02F
+		; to get enhanced io
+		sec
+		jsr enhanced_io
 
-	;	jsr resetdisplay
-	;	jsr resetpalette
-	;	jsr erasescreen
+		jsr resetdisplay
+		jsr resetpalette
+		jsr erasescreen
 
-		; XXX check state of current ROM
-	;	jsr checkromok
-	;	bcc loadrom
+		; display welcome screen
+		ldx #<msg_kickstart
+		ldy #>msg_kickstart
+		jsr printmessage
+		inc screenrow
+
+		; Check state of current ROM
+		jsr checkromok
+		bcc loadrom
 
 		; ROM is loaded and ready, so transfer control
 		; to it.
-	;	jmp go64
+		ldx #<msg_romok
+		ldy #>msg_romok
+		jsr printmessage
+		jmp go64
 
 loadrom:	; ROM is not loaded, so try to load it, or prompt
 		; for user to insert SD card
+		ldx #<msg_rombad
+		ldy #>msg_rombad
+		jsr printmessage
 
 		; Try to read the MBR from the SD card
+		ldx #<msg_tryingsdcard
+		ldy #>msg_tryingsdcard
+		jsr printmessage
 tryreadmbr:
 		jsr readmbr
 		bcs gotmbr
-		inc $d020
+
 		jmp tryreadmbr
 		
 gotmbr:
-		; got boot loader
+		ldx #<msg_sdcardfound
+		ldy #>msg_sdcardfound
+		jsr printmessage
+		; got master boot record
 		lda #$3e           ; ">" character
 		sta $07c0          ; $0400+(24*40)
+
+		; map sector buffer
+		lda #$81
+		sta $d680
+
+		lda $DFFE
+		cmp #$55
+		bne badfs
+		lda $DFFF
+		cmp #$AA
+		bne badfs
+
+		; read partition 1 details from $DFBE
+		; $DFBE - $80 = bootable, $00 = inactive.  We ignore this
+		; $DFC2 - Partition type
+		; $DFC6 - Starting SECTOR number
+		; $DFCA - Number of sectors in partition
+		ldx #<msg_partitiondetails
+		ldy #>msg_partitiondetails
+		jsr printmessage
+		; overwrite $ chars in template with hex digits
+		ldy #$00
+		ldz $DFC2
+		jsr printhex
+		ldz $DFC9
+		stz part_startsector+3
+		jsr printhex
+		ldz $DFC8
+		stz part_startsector+2
+		jsr printhex
+		ldz $DFC7
+		stz part_startsector+1
+		jsr printhex
+		ldz $DFC6
+		stz part_startsector+0
+		jsr printhex
+		ldz $DFCD
+		jsr printhex
+		ldz $DFCC
+		jsr printhex
+		ldz $DFCB
+		jsr printhex
+		ldz $DFCA
+		jsr printhex
+
+		; load start sector of partition into SD card sector register
+		ldx #$03
+l9:		lda part_startsector,x
+		sta $D681,x
+		dex
+		bpl l9
+		jsr sd_fix_sectornumber
+		jsr readsector
+		bcc sdcarderror		
+
+		; MILESTONE: Have boot sector of file system
+		lda #$3e           ; ">" character
+		sta $07c1          ; $0400+(24*40)+1
+	
+		lda $DFFE
+		cmp #$55
+		bne badfs
+		lda $DFFF
+		cmp #$AA
+		bne badfs
+
+		; report file system info
+		ldx #<msg_fsdetails
+		ldy #>msg_fsdetails
+		jsr printmessage			
+
+		; sectors per cluster
+		ldy #$00
+		ldz $DE0D
+		jsr printhex
+		; reserved sectors
+		ldz $DE0F
+		jsr printhex
+		ldz $DE0E
+		jsr printhex
+		; first cluster
+		ldz $DE00+47
+		jsr printhex
+		ldz $DE00+46
+		jsr printhex
+		ldz $DE00+45
+		jsr printhex
+		ldz $DE00+44
+		jsr printhex
+
+		; The information of relevance we have now is:
+		; $DE0D - sectors per cluster
+		; $DE0E-$DE0F - reserved sectors
+		; $DE10 - number of copies of FAT
+		; $DE11 - Root dir entry count (0 on FAT32)
+		; $DE20-$DE23 - number of sectors in the file system
+		; $DE24-$DE27 - number of sectors in one copy of the FAT
+		; $DE2C-$DE2F - number of reserved clusters
+		
+		; We need to work out if this is a FAT32 partition by working out
+		; the number of clusters.  To work that out, we need to work out
+		; the number of data sectors.  To work that out, we need to work out
+		; the number of reserved sectors.
+		
+		; first, filter out obviously FAT16/FAT12 file systems
+		lda $DE11
+		bne badfs
+
+		; With root directory entries = 0, the reserved sector count
+		; is the number of reserved sectors, plus (copies of fat) *
+		; (sectors in one copy of the fat)
+		ldx #$03
+l11:		lda $DE0E,x
+		sta fs_syssectors,x
+		lda $DE2C,x
+		sta fs_reservedclusters,x
+		dex
+		bpl l11
+		lda #$00
+		sta fs_syssectors+2
+		sta fs_syssectors+3
+		ldy $DE10
+		beq addedfatsectors
+addnextfatsectors:
+		ldx #$00
+		clc
+		php
+l12:		plp
+		lda fs_syssectors,x
+		adc $DE24,x
+		sta fs_syssectors,x
+		php
+		inx
+		cpx #$04
+		bne l12
+		plp
+		dey
+		bne addnextfatsectors
+addedfatsectors:
+
+		; also calculate number of data sectors
+		sec
+		ldx #$03
+l13:		lda $DE20,x
+		sbc fs_syssectors,x
+		sta fs_datasectors,x
+		sta fs_clustercount,x
+		dex
+		bpl l13		
+
+		; from number of data sectors and sectors per cluster,
+		; we can work out the number of clusters.
+		lda $DE0D
+		sta fs_sectorspercluster
+		tay
+		and #$fe
+		beq gotclustercount
+l14:
+		ldx #$03
+		clc
+l15:		lda fs_clustercount,x
+		ror
+		sta fs_clustercount,x
+		dex
+		bpl l15
+		tya
+		lsr
+		tay
+		and #$fe
+		bne l14
+gotclustercount:
+
+		; filter out non-FAT32 filesystems
+		; NOTE: FAT32 can have as few as 65525 clusters, but we do not support
+		; such file systems, which should be rare, anyway.
+		lda fs_clustercount+3
+		ora fs_clustercount+2
+		beq badfs
+
+		ldx #<msg_reservedsectors
+		ldy #>msg_reservedsectors		
+		jsr printmessage
+		ldy #$00
+		ldz fs_syssectors+3
+		jsr printhex
+		ldz fs_syssectors+2
+		jsr printhex
+		ldz fs_syssectors+1
+		jsr printhex
+		ldz fs_syssectors+0
+		jsr printhex
+
+		ldz fs_datasectors+3
+		jsr printhex
+		ldz fs_datasectors+2
+		jsr printhex
+		ldz fs_datasectors+1
+		jsr printhex
+		ldz fs_datasectors+0
+		jsr printhex
+
+		ldz fs_clustercount+3
+		jsr printhex
+		ldz fs_clustercount+2
+		jsr printhex
+		ldz fs_clustercount+1
+		jsr printhex
+		ldz fs_clustercount+0
+		jsr printhex
+	
+		; Store cluster number of root directory
+		ldx #$03
+l16:		lda $DE2C,x
+		sta fs_rootdircluster,x
+		sta fs_clusternumber,x
+		dex
+		bpl l16
+
+		; MILESTONE: Have file system properties.
+		lda #$3e           ; ">" character
+		sta $07c2          ; $0400+(24*40)+2
+
+		; Now load root directory cluster.
+		; (fs_clusternumber was set above)
+		jsr fs_clustertosector
+		jsr sd_fix_sectornumber
+		jsr readsector
+		bcc sdcarderror
+
+		; We are searching from the first sector of the cluster
+		lda #$00
+		sta fs_sector_in_cluster
+
+		; iterate through directory entries looking for ordinary file 
+		; C65GS.ROM
+searchdirectorysector:
+		ldz #$00
+
+		ldy #$00
+l29:		lda $DE00,y
+		cmp #$40
+		bcc l30
+		and #$1f
+l30:		sta $0608,y
+		iny
+		bne l29
+
+l19b:		
+		ldy #$00
+l18b:		
+		ldx #$00
+l17b:		lda $DE00,y
+		jsr toupper
+		cmp txt_c65gsrom,y
+		bne notthisentry
+		iny
+		inx
+		cpx #$0b
+		bne l17b
+		; this is the entry
+		inc $d020
+		jmp foundromfile
+
+notthisentry:   ; see if there are more entries in this page		
+		tya
+		and #$e0
+		clc
+		adc #$20
+		tay
+		cpy #$00
+		bne l18b
+		; no more entries in this page.  See if we have the upper half
+		; of the sector to search
+		tza
+		bne trynextsector
+		; copy upper half of sector down and search that
+		ldy #$00
+l20b:		lda $DF00,y
+		sta $DE00,y
+		iny
+		bne l20b
+		ldz #$01 ; remember we have looked at this half
+		; now search the upper half
+		bra l19b 
+
+trynextsector:
+		; was not in that sector.
+		; bump sector number
+		lda fs_sector_in_cluster
+		; XXX work around missing INC accumulator mode
+		clc
+		adc #$01
+		sta fs_sector_in_cluster
+		cmp fs_sectorspercluster
+		beq trynextcluster
+		jsr sd_inc_fixedsectornumber
+		jmp searchdirectorysector
+		
+trynextcluster:
+		jmp infinity
+
+foundromfile:
+		; MILESTONE: Have file system properties.
+		lda #$3e           ; ">" character
+		sta $07c3          ; $0400+(24*40)+3
+
 
 		; temporary infinite loop to catch us
 infinity:	inc $07e7          ; $0400+(24*40)+39
 		jmp infinity
 
+sdcarderror:	ldx #<msg_sdcarderror
+		ldy #>msg_sdcarderror
+		jsr printmessage
+		jmp infinity
+
+badfs:		ldx #<msg_badformat
+		ldy #>msg_badformat
+		jsr printmessage
+		jmp infinity
 ;;; ----------------------------------------------------------------------------
 ;;; FAT file system routines
 ;;; ----------------------------------------------------------------------------
+toupper:	; convert ASCII character to upper case
+		cmp #$60
+		bcc tu1
+		cmp #$7a
+		bcs tu1
+		and #$5f
+tu1:		rts
+
+fs_clustertosector:
+	; convert a cluster number in fs_clustertosector into a sector 
+	; number loaded into $D681-$D684.
+
+	  	; put cluster number into sector number	
+		ldx #$03
+l21:		lda fs_clusternumber,x
+		sta $D681,x
+		dex
+		bpl l21
+
+		; subtract number of reserved clusters
+		ldx #$03
+		sec
+l17:		lda $D681,x
+		sbc fs_reservedclusters,x
+		sta $D681,x
+		dex
+		bpl l17
+
+		; now shift it left according to fs_sectorspercluster
+		lda fs_sectorspercluster
+		tay
+		and #$fe
+		beq multipliedclusternumber
+l22:		ldx #$00
+		clc
+l18:		lda $D681,x
+		rol
+		sta $D681,x
+		inx
+		cpx #$04
+		bne l18
+		tya
+		lsr
+		tay
+		and #$fe
+		bne l22
+multipliedclusternumber:
+
+		; skip over filesystem reserved and FAT sectors
+		ldx #$00
+		clc
+		php
+l23:		plp
+		lda $D681,x
+		adc fs_syssectors,x
+		sta $D681,x
+		php
+		inx
+		cpx #$04
+		bne l23
+		plp	
+
+		; add start sector of partition
+		ldx #$00
+		clc
+		php
+l24:		plp
+		lda $D681,x
+		adc part_startsector,x
+		sta $D681,x
+		php
+		inx
+		cpx #$04
+		bne l24
+		plp
+
+		rts
+
+printsectornumber:
+		ldx #<msg_sectornumber
+		ldy #>msg_sectornumber
+		jsr printmessage
+		ldy #$00
+		ldx #$03
+l19:		lda fs_clusternumber,x
+		taz
+		phx
+		jsr printhex
+		plx
+		dex
+		bpl l19
+		ldx #$03
+l20:		lda $D681,x
+		taz
+		phx
+		jsr printhex
+		plx
+		dex
+		bpl l20
+		rts
 
 ;;; ----------------------------------------------------------------------------
 ;;; MBP / partition routines
@@ -99,8 +553,9 @@ readmbr:
 		bcs l7
 		rts
 
-		; MBR is sector 0
-l7:		lda #$00
+l7:		
+		; MBR is sector 0	
+		lda #$00
 		sta $D681
 		sta $d682
 		sta $d683
@@ -111,36 +566,138 @@ l7:		lda #$00
 ;;; ----------------------------------------------------------------------------
 ;;; SD Card access routines
 ;;; ----------------------------------------------------------------------------
-readsector:
+printsdaddress:
+		ldx #<msg_sdaddress
+		ldy #>msg_sdaddress
+		jsr printmessage
+		ldy #$00
+		ldz $D684
+		jsr printhex
+		ldz $D683
+		jsr printhex
+		ldz $D682
+		jsr printhex
+		ldz $D681
+		jmp printhex
+
+sd_inc_fixedsectornumber:
+		; increment fixed sector number.
+		; if SDHC, then increment is simple.
+		; if SD, then we add $200
+		lda $D680
+		and #$10
+		bne sdhc1
+		; sd card mode: add $200
+		lda $d682
+		clc
+		adc #$02
+		sta $d682
+		bra s2
+sdhc1:		; SDHC card mode: add 1
+		inc $d681
+		bcc s1
+		inc $d682
+		bcc s1
+s2:		inc $d683
+		bcc s1
+		inc $d684
+s1:		rts
+
+sd_fix_sectornumber:
 		; assumes sector number has been loaded into 
 		; $D681 - $D684
 		; We need to check if the card is SDHC or SD.
 		; If SD, we need to shift sector number left 9 bits,
 		; as SD cards address by byte, not sector.
+		; If card is SD, then shift it all left nine bits
+		; We detect SD versus SDHC by reading whether SD controller is
+		; in SDHC or SD mode.
+		lda $D680
+		and #$10
+		beq sdcardmode
+		; SDHC mode, so nothing to do
+		rts
+sdcardmode:     
+		; shift left 8 bits first
+		lda $D683
+		sta $D684
+		lda $D682
+		sta $D683
+		lda $D681
+		sta $D682
+		lda #$00
+		sta $D681
+		; now shift it all left one bit
+		lda $D682
+		asl
+		sta $D682
+		lda $D683
+		rol
+		sta $D683
+		lda $D684
+		rol
+		sta $D684
+		rts
 
-		; XXX not implemented: failed
+readsector:
+		; Assumes fixed sector number (or byte address in case of SD cards)
+		; is loaded into $D681 - $D684		
 
 		; check if sd card is busy
 		lda $d680
 		and #$01
 		bne rsbusyfail
 
-		inc $0424
+		; try reading sector fast the first time
+		jmp rs4
+
+redoread:	
+		; when retrying, introduce a delay.  This seems to be needed often
+		; when reading the first sector after SD card reset.  
+		ldx #$f0
+		ldy #$00
+		ldz #$00
+r1:		inz
+		bne r1
+		iny
+		bne r1
+		inx
+		bne r1
+rs4:
 		; ask for sector to be read
 		lda #$02
 		sta $d680
 
 		; wait for sector to be read
-rs3:		inc $0425
+		jsr resetsdtimeout
+		lda #$04
+		sta timerlimit
+rs3:		
+		jsr checksdtimeout
+		bcc rereadsector
+		inc $0702
 		lda $d680
+		sta $0700
 		and #$01
 		bne rs3
 
+		; check that we read 512 bytes
+		lda $d689
+		cmp #$02
+		bne redoread
+
+		jsr canceltimer
 		sec
 		rts
 
+		; reset sd card and try again
+rereadsector:
+		jsr resetsd
+		jsr resetsdtimeout
+		jmp rs3
+
+
 rsbusyfail:     ; fail
-		inc $0426
 		clc 
 		rts
 
@@ -164,16 +721,19 @@ resetsd:
 
 sdresetsequence:
 		jsr resetsdtimeout
+		lda #60
+		sta timerlimit
 		lda #$00
 		sta $d680		
+
 rs1:            
 		jsr checksdtimeout
 		bcc sdresettimedout
+		lda #120
+		sta timerlimit
 		lda $d680
 		and #$01
 		bne rs1
-
-		inc $0400
 
 		jsr resetsdtimeout
 		lda #$01
@@ -187,7 +747,6 @@ rs2:
 
 		; reset succeeded
 resetsdok:	jsr canceltimer
-		inc $0427
 		sec
 		rts
 
@@ -198,7 +757,7 @@ sdresettimedout: ; reset failed
 
 canceltimer:
 	lda #$00
-	sta $dc0d
+	sta $d01a
 	sei
 	rts
 
@@ -208,17 +767,16 @@ resetsdtimeout:
 
 	sei
 
-        lda #$95
-	sta $dc04
-	lda #$42
-	sta $dc05
-
-	lda #$81
-	sta $dc0d
-	lda $dc0e
-	and #$80
-	ora #$11
-	sta $dc0e
+	; clear bit 8 of raster compare
+	lda #$7f
+	and $D011
+	sta $D011
+	; set raster for split
+	lda #$80
+	sta $D012
+	; enable raster IRQ
+	lda #$01
+	sta $D01A
 
 	lda #$00
 	sta timerticks
@@ -230,7 +788,7 @@ resetsdtimeout:
 
 checksdtimeout:
 	; time out after ~2 seconds
-	lda #120  
+	lda timerlimit 
 	cmp timerticks       
 	rts
 
@@ -289,7 +847,7 @@ calcromsum:	; calculate checksum of 128KB ROM
 		; slabs at $4000-$7FFF.  Check sum each, and
 		; then compare checksum to ROM load record.
 		; ROMs get loaded into slow RAM at $8020000-$803FFFF,
-		; which is shadowed using C65 MAP instruction to
+		; which is shadowed for reading using C65 MAP instruction to
 		; C65 address space $20000-$3FFFF.
 		; Checksum and ROM load record are stored in
 		; $8000000 - $800FFFF, i.e., the first 64KB of
@@ -400,6 +958,8 @@ resetdisplay:
 		sta $D011
 		lda #$C8
 		sta $D016
+		lda #$14
+		sta $D018
 		; point VIC-IV to bottom 16KB of display memory
 		lda #$ff
 		sta $DD01
@@ -436,6 +996,89 @@ l3:		; fill screen with spaces
 		sty $db00,x
 		inx
 		bne l3
+
+		lda #$00
+		sta screenrow
+
+		rts
+
+checkpoint:
+		pha
+		ldx #<msg_checkpoint
+		ldy #>msg_checkpoint
+		jsr printmessage
+		ldy #$00
+		plz
+		jmp printhex
+
+printmessage:
+		stx zptempv
+		sty zptempv+1
+		lda #$00
+		sta zptempv2
+		lda #$04
+		sta zptempv2+1
+		ldx screenrow
+pm2:		cpx #$00
+		beq pm1
+		clc
+		lda zptempv2
+		adc #$28
+		sta zptempv2
+		lda zptempv2+1
+		adc #$00
+		; if reached bottom of screen, then loop back to top of screen
+		cmp #$08
+		bcc pm5		
+		lda #$00
+		sta zptempv2
+		lda #$04
+pm5:		sta zptempv2+1
+		dex
+		bne pm2
+pm1:
+		ldy #$27
+pm3:		lda (zptempv),y
+		; convert ASCII/PETSCII to screen codes
+		cmp #$40
+		bcc pm4
+		and #$1f
+pm4:		sta (zptempv2),y
+		dey
+		bpl pm3
+
+		inc screenrow
+
+		rts
+
+printhex:	
+		; output contents of Z on last written screen line
+		tza
+		lsr
+		lsr
+		lsr
+		lsr
+		jsr printhexdigit		
+		tza
+		and #$0f
+printhexdigit:
+		; find next $ sign to replace with hex digit
+		tax
+phd3:		lda (zptempv2),y
+		cmp #$24
+		beq phd2
+		iny
+		cpy #$28
+		bne phd3
+		rts
+phd2:		txa
+
+		ora #$30
+		cmp #$3a
+		bcc phd1
+		sbc #$39
+phd1:		sta (zptempv2),y
+		iny
 		rts
 
 ; Transfer control to C64 kernel.
@@ -484,25 +1127,53 @@ resetmemmap:
 ; C64 standard IO map.
 enhanced_io:
 		bcs l1
+		; Return to VIC-II / C64 IO
 		lda #$00
 		sta $D02F
-l1:		lda #$a5
+l1:		; Enable VIC-IV / C65GS IO
+		lda #$47
 		sta $D02F
-		lda #$96
+		lda #$53
 		sta $D02F
 		RTS
+
+; messages.  All have to be 40 bytes long
+msg_kickstart:        .byte "C65GS KICKSTART V00.00 PRE-ALPHA        "
+msg_romok:            .byte "ROM CHECKSUM OK - BOOTING               "
+msg_rombad:	      .byte "ROM CHECKSUM FAIL - LOADING ROM         "
+msg_tryingsdcard:     .byte "LOOKING FOR SDCARD...                   "
+msg_sdcarderror:      .byte "ERROR READING FROM SD CARD              "
+msg_badformat:	      .byte "BAD MBR OR DOS BOOT SECTOR.             "
+msg_sdcardfound:      .byte "READ PARTITION TABLE FROM SDCARD        "
+msg_partitiondetails: .byte "PARTITION 1($$) @$$$$$$$$, SIZE $$$$$$$$"
+msg_fsdetails: 	      .byte " FS SPC:$$ RSVSEC:$$$$ RSVCLUS:$$$$$$$$ "
+msg_reservedsectors:  .byte " SYS:$$$$$$$$ DAT:$$$$$$$$ CLUS:$$$$$$$$"
+msg_sectornumber:     .byte " CLUSTER:$$$$$$$$ -> SECTOR:$$$$$$$$    "
+msg_sdaddress:	      .byte " D684-D681=$$$$$$$$                     "
+msg_checkpoint:	      .byte " CHECKPOINT $$ $$ $$ $$ $$ $$ $$ $$ $$  "
+
+; filename of ROM we want to load in FAT directory format
+txt_c65gsrom:	      .byte "C65GS   ROM"
 
 ;;; ----------------------------------------------------------------------------
 ;;; CPU entry vectors
 ;;; ----------------------------------------------------------------------------
 		
-; For now we have no use for interrupts.
+; For now we have no use for NMI
 nmi_entry:	rti
-irq_entry:	rti
+; IRQ is used for SD card timeouts
+irq_entry:	pha
+		php
+;		inc $d020
+		inc $d019
+		inc timerticks
+		plp
+		pla
+		rti
 
 ; 6502 interrupt and reset vectors
        		.checkpc $FFFA
-;		.advance $FFFA
+		.advance $FFFA
 nmi_vector:	.word nmi_entry
 reset_vector:	.word reset_entry
 irq_vector:	.word irq_entry

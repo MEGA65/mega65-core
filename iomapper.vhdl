@@ -36,25 +36,7 @@ entity iomapper is
 end iomapper;
 
 architecture behavioral of iomapper is
-  component kernel65 is
-    port (
-      Clk : in std_logic;
-      address : in std_logic_vector(12 downto 0);
-      we : in std_logic;
-      cs : in std_logic;
-      data_i : in std_logic_vector(7 downto 0);
-      data_o : out std_logic_vector(7 downto 0));
-  end component;
-  component kernel64 is
-    port (
-      Clk : in std_logic;
-      address : in std_logic_vector(12 downto 0);
-      we : in std_logic;
-      cs : in std_logic;
-      data_i : in std_logic_vector(7 downto 0);
-      data_o : out std_logic_vector(7 downto 0));
-  end component;
-  component basic64 is
+  component kickstart is
     port (
       Clk : in std_logic;
       address : in std_logic_vector(12 downto 0);
@@ -141,9 +123,7 @@ architecture behavioral of iomapper is
   end component;
 
 
-  signal kernel65cs : std_logic;
-  signal kernel64cs : std_logic;
-  signal basic64cs : std_logic;
+  signal kickstartcs : std_logic;
 
   signal clock50hz : std_logic := '1';
   constant divisor50hz : integer := 640000; -- 64MHz/50Hz/2;
@@ -158,27 +138,11 @@ architecture behavioral of iomapper is
   signal cia1portb_in : std_logic_vector(7 downto 0);
   
 begin         
-  kernel65rom : kernel65 port map (
+  kickstartrom : kickstart port map (
     clk     => clk,
     address => address(12 downto 0),
     we      => w,
-    cs      => kernel65cs,
-    data_i  => data_i,
-    data_o  => data_o);
-
-  kernel64rom : kernel64 port map (
-    clk     => clk,
-    address => address(12 downto 0),
-    we      => w,
-    cs      => kernel64cs,
-    data_i  => data_i,
-    data_o  => data_o);
-
-  basic64rom : basic64 port map (
-    clk     => clk,
-    address => address(12 downto 0),
-    we      => w,
-    cs      => basic64cs,
+    cs      => kickstartcs,
     data_i  => data_i,
     data_o  => data_o);
 
@@ -272,19 +236,9 @@ begin
 
     if (r or w) = '1' then
       if address(19 downto 13)&'0' = x"FE" then
-        kernel65cs<= '1';
+        kickstartcs<= '1';
       else
-        kernel65cs <='0';
-      end if;
-      if address(19 downto 13)&'0' = x"EE" then
-        kernel64cs<= '1';
-      else
-        kernel64cs <='0';
-      end if;
-      if address(19 downto 13)&'0' = x"EA" then
-        basic64cs<= '1';
-      else
-        basic64cs <='0';
+        kickstartcs <='0';
       end if;
 
       -- Now map the CIAs.
@@ -309,9 +263,7 @@ begin
     else
       cia1cs <= '0';
       cia2cs <= '0';
-      kernel65cs <= '0';
-      kernel64cs <= '0';
-      basic64cs <= '0';
+      kickstartcs <= '0';
     end if;
   end process;
 
