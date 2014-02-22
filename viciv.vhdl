@@ -428,7 +428,7 @@ begin
   -- headaches.
   fastram1 : component ram64x16k
     PORT MAP (
-      clka => cpuclock,
+      clka => pixelclock,
       wea => fastram_we,
       addra => fastram_address,
       dina => fastram_datain,

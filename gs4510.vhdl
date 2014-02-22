@@ -508,8 +508,12 @@ begin
       accessing_ram <= '1';
       fastram_address <= std_logic_vector(long_address(16 downto 3));
       fastram_byte_number <= long_address(2 downto 0);
-      pending_state <= next_state;
-      state <= FastRamWait;
+      -- By moving fastram to pixel clock instead of CPU clock, a read can happen
+      -- easily in one cpu cycle, thus avoiding the wait state. Now to see if it
+      -- can synthesise...
+      state <= next_state;
+      --pending_state <= next_state;
+      --state <= FastRamWait;
     -- Slow RAM maps to $8xxxxxx, and also $0020000 - $003FFFF for C65 ROM
     -- emulation.
     elsif long_address(27 downto 24) = x"8"
