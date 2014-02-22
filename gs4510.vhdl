@@ -181,7 +181,7 @@ architecture Behavioural of gs4510 is
     IndirectY1,IndirectY2,IndirectY3,
     IndirectZ1,IndirectZ2,
     ExecuteDirect,RMWCommit,
-    Halt,WaitOneCycle,
+    Halt,FastRamWait,
     SlowRamRead1,SlowRamRead2,SlowRamWrite1,SlowRamWrite2,
     BranchOnBit,
     MonitorAccessDone,MonitorReadDone,
@@ -509,7 +509,7 @@ begin
       fastram_address <= std_logic_vector(long_address(16 downto 3));
       fastram_byte_number <= long_address(2 downto 0);
       pending_state <= next_state;
-      state <= WaitOneCycle;
+      state <= FastRamWait;
     -- Slow RAM maps to $8xxxxxx, and also $0020000 - $003FFFF for C65 ROM
     -- emulation.
     elsif long_address(27 downto 24) = x"8"
@@ -1636,7 +1636,8 @@ begin
               execute_operand_instruction(reg_instruction,read_data,reg_addr);
             when RMWCommit => write_data_byte(reg_addr,reg_value,InstructionFetch);
 
-            when WaitOneCycle =>
+            when FastRamWait =>
+              accessing_ram <= '1';
               if pending_state = InstructionFetch then
                 ready_for_next_instruction(reg_pc);
               else
@@ -1656,6 +1657,7 @@ begin
               slowram_lb <= '0';
               slowram_ub <= '0';
               slowram_counter <= x"00";
+              accessing_slowram <= '1';
               state <= SlowRamRead2;
             when SlowRamRead2 =>
               if slowram_counter=slowram_waitstates then
@@ -1666,6 +1668,7 @@ begin
                 end if;
               else
                 slowram_counter <= slowram_counter + 1;
+                accessing_slowram <= '1';
               end if;
             when SlowRamWrite1 =>
               slowram_ce <= '0';
