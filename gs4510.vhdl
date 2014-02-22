@@ -425,14 +425,6 @@ begin
       temp_address(27 downto 12) := x"002D";
       temp_addresS(11 downto 0) := short_address(11 downto 0);
     end if;
-    -- Kickstart ROM
-    if (blocknum=14) and (kickstart_en='1') and (writeP=false) then
-      temp_address(27 downto 12) := x"FFFE";      
-    end if;
-    if (blocknum=15) and (kickstart_en='1') and (writeP=false) then
-      temp_address(27 downto 12) := x"002F";      
-      temp_address(27 downto 12) := x"FFFF";      
-    end if;
     
     -- KERNEL
     if (blocknum=14) and (lhc(1)='1') and (writeP=false) then
@@ -454,6 +446,15 @@ begin
     end if;
 
     -- XXX $D030 lines not yet supported
+
+    -- Kickstart ROM (takes precedence over all else if enabled)
+    if (blocknum=14) and (kickstart_en='1') and (writeP=false) then
+      temp_address(27 downto 12) := x"FFFE";      
+    end if;
+    if (blocknum=15) and (kickstart_en='1') and (writeP=false) then
+      temp_address(27 downto 12) := x"002F";      
+      temp_address(27 downto 12) := x"FFFF";      
+    end if;
     
     return temp_address;
   end resolve_address_to_long;
@@ -507,8 +508,10 @@ begin
       fastram_byte_number <= long_address(2 downto 0);
       pending_state <= next_state;
       state <= WaitOneCycle;
-      -- No wait states in fastram system, so proceed directly to next state
-    elsif long_address(27 downto 24) = x"8" then
+    -- Slow RAM maps to $8xxxxxx, and also $0020000 - $003FFFF for C65 ROM
+    -- emulation.
+    elsif long_address(27 downto 24) = x"8"
+      or long_address(27 downto 17)&'0' = x"002" then
       accessing_slowram <= '1';
       slowram_addr <= std_logic_vector(long_address(23 downto 1));
       slowram_data <= (others => 'Z');  -- tristate data lines
