@@ -698,7 +698,7 @@ begin
       accessing_fastio <= '1';
       fastio_addr <= std_logic_vector(long_address(19 downto 0));
       last_fastio_addr <= std_logic_vector(long_address(19 downto 0));
-      fastio_write <= '1';
+      fastio_write <= '1'; fastio_read <= '0';
       fastio_wdata <= std_logic_vector(value);
       if long_address = x"FFC00A0" then
         slowram_waitstates <= value;
@@ -723,11 +723,7 @@ begin
       if next_state = InstructionFetch then
         ready_for_next_instruction(reg_pc);
       else
-        if next_state = InstructionFetch then
-          ready_for_next_instruction(reg_pc);
-        else
-          state <= next_state;
-        end if;
+        state <= next_state;
       end if;
     else
       -- Don't let unmapped memory jam things up
