@@ -32,6 +32,8 @@
 	.org $0200
 	.space checksum 4
 	.space part_startsector 4
+
+	; structure for FAT32 file system
 	.space fs_startfat 4
 	.space fs_syssectors 4
 	.space fs_reservedclusters 4
@@ -39,8 +41,14 @@
 	.space fs_datasectors 4
 	.space fs_clustercount 4
 	.space fs_sectorspercluster 1
-	.space fs_sector_in_cluster 1
+
+	; structure for current directory entry
+	.space fs_currentdircluster 4
+	.space fs_direntry 32
+	.space fs_direntrynumber 1
+	; structure for current open file
 	.space fs_clusternumber 4
+	.space fs_sector_in_cluster 1
 
 	.text
 
@@ -162,7 +170,7 @@ l9:		lda part_startsector,x
 		dex
 		bpl l9
 		jsr sd_fix_sectornumber
-		jsr sdreadsector
+		jsr sd_readsector
 		bcc sdcarderror		
 
 		; MILESTONE: Have boot sector of file system
@@ -334,74 +342,32 @@ l16:		lda $DE2C,x
 
 		; Now load root directory cluster.
 		; (fs_clusternumber was set above)
-		jsr fs_clustertosector
-		jsr sd_fix_sectornumber
-		jsr sdreadsector
+		jsr fs_cd_rootdir
+		jsr fs_opendir
 		bcc sdcarderror
-
-		; We are searching from the first sector of the cluster
-		lda #$00
-		sta fs_sector_in_cluster
 
 		; iterate through directory entries looking for ordinary file 
 		; C65GS.ROM
-searchdirectorysector:
-		ldz #$00
+nextdirectoryentry:
+		jsr fs_readdir
+		bcc sdcarderror
 
-l19b:		
-		ldy #$00
-l18b:		
+
 		ldx #$00
-l17b:		lda $DE00,y
+l17b:		lda fs_direntry,x
 		jsr toupper
 		cmp txt_c65gsrom,x
-		bne notthisentry
-		iny
+		bne nextdirectoryentry
 		inx
 		cpx #$0b
 		bne l17b
 		; this is the entry
 		jmp foundromfile
 
-notthisentry:   ; see if there are more entries in this page		
-		tya
-		and #$e0
-		clc
-		adc #$20
-		tay
-		cpy #$00
-		bne l18b
-		; no more entries in this page.  See if we have the upper half
-		; of the sector to search
-		tza
-		bne trynextsector
-		; copy upper half of sector down and search that
-		ldy #$00
-l20b:		lda $DF00,y
-		sta $DE00,y
-		iny
-		bne l20b
-		ldz #$01 ; remember we have looked at this half
-		; now search the upper half
-		bra l19b 
-
-trynextsector:
-		; was not in that sector.
-		; bump sector number
-		lda fs_sector_in_cluster
-		; XXX work around missing INC accumulator mode
-		clc
-		adc #$01
-		sta fs_sector_in_cluster
-		cmp fs_sectorspercluster
-		beq trynextcluster
-		jsr sd_inc_fixedsectornumber
-		jmp searchdirectorysector
-		
-trynextcluster:
-		jmp infinity
-
 foundromfile:
+		; get cluster number from directory entry.
+		jsr fs_setfile
+
 		; MILESTONE: Have file system properties.
 		lda #$3e           ; ">" character
 		sta $07c3          ; $0400+(24*40)+3
@@ -409,6 +375,16 @@ foundromfile:
 		ldx #<msg_foundromfile
 		ldy #>msg_foundromfile
 		jsr printmessage
+		ldy #$00
+		ldz fs_clusternumber+3
+		jsr printhex
+		ldz fs_clusternumber+2
+		jsr printhex
+		ldz fs_clusternumber+1
+		jsr printhex
+		ldz fs_clusternumber+0
+		jsr printhex
+		
 
 		; temporary infinite loop to catch us
 infinity:	inc $07e7          ; $0400+(24*40)+39
@@ -433,6 +409,134 @@ toupper:	; convert ASCII character to upper case
 		bcs tu1
 		and #$5f
 tu1:		rts
+
+fs_cd_rootdir:
+		ldx #$00
+cd1:		lda fs_rootdircluster,x
+		sta fs_currentdircluster,x
+		inx
+		cpx #$04
+		bne cd1
+		sec
+		rts
+
+fs_opendir:
+		; assume cluster for directory is already set
+		ldx #$00
+od1:		lda fs_currentdircluster,x
+		sta fs_clusternumber,x
+		inx
+		cpx #$04
+		bne od1
+		lda #$00
+		sta fs_direntrynumber
+		jmp fs_openfile
+
+fs_readdir:
+		; read next entry from directory
+		lda fs_direntrynumber
+		cmp #$10
+
+		bcc rd2
+
+		; reached end of sector, so load next sector
+		lda #$00
+		sta fs_direntrynumber
+		jsr fs_readnextsector
+		; return with carry clear if we have readed the end of the directory
+		bcs rd2
+		rts
+
+rd2:		; have sector, so can copy entry
+		ldy #$00
+		lda fs_direntrynumber
+		and #$08
+		bne rd3
+		lda fs_direntrynumber
+		asl
+		asl
+		asl
+		asl
+		asl
+		tax
+rd1:		lda $DE00,x
+		sta fs_direntry,y
+		inx
+		iny
+		cpy #$20
+		bne rd1
+rddone:		inc fs_direntrynumber
+		sec		
+		rts
+rd3:		lda fs_direntrynumber
+		asl
+		asl
+		asl
+		asl
+		asl
+		tax
+rd4:		lda $DF00,x
+		sta fs_direntry,y
+		inx
+		iny
+		cpy #$20
+		bne rd4
+		inc fs_direntrynumber
+		sec
+		rts		
+
+fs_setfile:
+		; get cluster from directory entry and store in cluster number
+		lda fs_direntry+20
+		sta fs_clusternumber+2
+		lda fs_direntry+21
+		sta fs_clusternumber+3
+		lda fs_direntry+26
+		sta fs_clusternumber+0
+		lda fs_direntry+27
+		sta fs_clusternumber+1
+		sec
+		rts		
+
+fs_openfile:
+		; zero sector number in cluster
+		lda #$00
+		sta fs_sector_in_cluster
+
+		; Read first sector of first cluster
+		; (no need to add fs_sector_in_cluster since it is zero here)
+		jsr fs_clustertosector
+		bcs of1
+		rts
+of1:		
+		jsr sd_fix_sectornumber
+		jmp sd_readsector
+
+fs_readnextsector:
+		; load next sector of file
+		jsr sd_inc_fixedsectornumber
+		inc fs_sector_in_cluster
+		lda fs_sector_in_cluster
+		cmp fs_sectorspercluster
+		bne rs6
+		; need to advance cluster number
+		lda #$00
+		sta fs_sector_in_cluster
+		jsr fs_getnextclusteroffile
+		bcs rs5
+		; end of file or other error
+		rts
+rs5:		; cluster number is right
+		jsr fs_clustertosector
+		jsr sd_fix_sectornumber
+rs6:		jmp sd_readsector
+
+fs_getnextclusteroffile:
+		; read chained cluster number for fs_clusternumber
+		; XXX not implemented
+		clc
+		rts
+		
 
 fs_clustertosector:
 	; convert a cluster number in fs_clustertosector into a sector 
@@ -501,7 +605,9 @@ l24:		plp
 		cpx #$04
 		bne l24
 		plp
-
+		
+		; return success
+		sec
 		rts
 
 printsectornumber:
@@ -549,7 +655,7 @@ l7:		ldx #<msg_foundsdcard
 		sta $d683
 		sta $d684
 
-		jmp sdreadsector
+		jmp sd_readsector
 
 ;;; ----------------------------------------------------------------------------
 ;;; SD Card access routines
@@ -641,7 +747,7 @@ sdunmapsectorbuffer:
 		sec
 		rts
 
-sdreadsector:
+sd_readsector:
 		; Assumes fixed sector number (or byte address in case of SD cards)
 		; is loaded into $D681 - $D684		
 
@@ -702,6 +808,7 @@ rereadsector:
 rsbusyfail:     ; fail
 		clc 
 		rts
+
 
 printsdaddress:
 		ldx #<msg_sdaddress
@@ -1134,7 +1241,7 @@ msg_partitiondetails: .byte "PARTITION 1($$) @$$$$$$$$, SIZE $$$$$$$$"
 msg_fsdetails: 	      .byte " FS SPC:$$ RSVSEC:$$$$ RSVCLUS:$$$$$$$$ "
 msg_reservedsectors:  .byte " SYS:$$$$$$$$ DAT:$$$$$$$$ CLUS:$$$$$$$$"
 msg_sectornumber:     .byte " CLUSTER:$$$$$$$$ -> SECTOR:$$$$$$$$    "
-msg_foundromfile:     .byte "FOUND ROM FILE - PREPARING TO LOAD...   "
+msg_foundromfile:     .byte "FOUND ROM FILE. START CLUSTER = $$$$$$$$"
 msg_sdaddress:	      .byte " D684-D681=$$$$$$$$                     "
 msg_checkpoint:	      .byte " CHECKPOINT $$ $$ $$ $$ $$ $$ $$ $$ $$  "
 
