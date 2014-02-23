@@ -496,29 +496,19 @@ l16:		lda $DE2C,x
 searchdirectorysector:
 		ldz #$00
 
-		ldy #$00
-l29:		lda $DE00,y
-		cmp #$40
-		bcc l30
-		and #$1f
-l30:		sta $0608,y
-		iny
-		bne l29
-
 l19b:		
 		ldy #$00
 l18b:		
 		ldx #$00
 l17b:		lda $DE00,y
 		jsr toupper
-		cmp txt_c65gsrom,y
+		cmp txt_c65gsrom,x
 		bne notthisentry
 		iny
 		inx
 		cpx #$0b
 		bne l17b
 		; this is the entry
-		inc $d020
 		jmp foundromfile
 
 notthisentry:   ; see if there are more entries in this page		
@@ -564,6 +554,9 @@ foundromfile:
 		lda #$3e           ; ">" character
 		sta $07c3          ; $0400+(24*40)+3
 
+		ldx #<msg_foundromfile
+		ldy #>msg_foundromfile
+		jsr printmessage
 
 		; temporary infinite loop to catch us
 infinity:	inc $07e7          ; $0400+(24*40)+39
@@ -1140,6 +1133,7 @@ msg_partitiondetails: .byte "PARTITION 1($$) @$$$$$$$$, SIZE $$$$$$$$"
 msg_fsdetails: 	      .byte " FS SPC:$$ RSVSEC:$$$$ RSVCLUS:$$$$$$$$ "
 msg_reservedsectors:  .byte " SYS:$$$$$$$$ DAT:$$$$$$$$ CLUS:$$$$$$$$"
 msg_sectornumber:     .byte " CLUSTER:$$$$$$$$ -> SECTOR:$$$$$$$$    "
+msg_foundromfile:     .byte "FOUND ROM FILE - PREPARING TO LOAD...   "
 msg_sdaddress:	      .byte " D684-D681=$$$$$$$$                     "
 msg_checkpoint:	      .byte " CHECKPOINT $$ $$ $$ $$ $$ $$ $$ $$ $$  "
 
