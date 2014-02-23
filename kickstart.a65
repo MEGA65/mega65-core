@@ -661,23 +661,38 @@ l7:		ldx #<msg_foundsdcard
 ;;; SD Card access routines
 ;;; ----------------------------------------------------------------------------
 sdreset:
+		; try SD-HC mode first
+		lda #$41
+		sta $D680
+		jsr sd_resetsequence
+		bcc sdr1
+		rts
+sdr1:		; fall back to SD mode
+		lda #$42
+		sta $d680
+		; fall through		
+
+sd_resetsequence:
 		; write $00 to $D680 to start reset
 		lda #$00
 		sta $D680
-re1:		lda $d680
-		and #$03
-		bne re1
-		lda $d680
+		jsr sdtimeoutreset
+re1:		jsr sdreadytest
+		bcs re1done	; success, so return
+		bne re1		; not timed out, so keep trying
+		rts 		; timeout, so return
+re1done:	
 		; write $01 to $D680 to complete reset
 		lda #$01
 		sta $D680
-re2:		lda $d680		
-		and #$03
-		bne re2
-		lda #$81
-		sta $D680
-		lda $D680
-
+		jsr sdtimeoutreset
+re2:		jsr sdreadytest
+		bcs re2done	; success, so return
+		bne re2		; not timed out, so keep trying
+		rts 		; timeout, so return
+re2done:
+		; give card some time to settle after reset, otherwise 
+		; reading sectors will fail
 		jsr sdwaitawhile
 
 		jsr sdmapsectorbuffer
@@ -693,8 +708,10 @@ re3:		; allow time for read to happen
 		bcs redone	; success, so return
 		bne re3		; not timed out, so keep trying
 		; timeout -- so call reset again
-		jmp sdreset
-redone:		rts
+		rts
+redone:		
+		sec
+		rts
 
 sdwaitawhile:	jsr sdtimeoutreset
 sw1:		inc $0300
