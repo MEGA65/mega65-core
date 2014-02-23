@@ -228,10 +228,12 @@ l9:		lda part_startsector,x
 
 		; With root directory entries = 0, the reserved sector count
 		; is the number of reserved sectors, plus (copies of fat) *
-		; (sectors in one copy of the fat)
+		; (sectors in one copy of the fat).
+		; the first FAT begins immediately after the reserved sectors
 		ldx #$03
 l11:		lda $DE0E,x
 		sta fs_syssectors,x
+		sta fs_startfat,x
 		lda $DE2C,x
 		sta fs_reservedclusters,x
 		dex
@@ -239,6 +241,8 @@ l11:		lda $DE0E,x
 		lda #$00
 		sta fs_syssectors+2
 		sta fs_syssectors+3
+		sta fs_startfat+2
+		sta fs_startfat+3
 		ldy $DE10
 		beq addedfatsectors
 addnextfatsectors:
@@ -534,7 +538,102 @@ rs6:		jmp sd_readsector
 fs_getnextclusteroffile:
 		; read chained cluster number for fs_clusternumber
 		; XXX not implemented
+
+		; FAT32 uses 32-bit cluster numbers.
+		; 512 / 4 = 128 cluster numbers per sector.
+		; To get the sector of the FAT containin a particular
+		; cluster entry, we thus need to shift the cluster number
+		; right 7 bits.  Then we add the start sector number of the FAT.
+
+		; get cluster number into sector number registers
+		ldx #$00
+g1:		lda fs_clusternumber,x
+		sta $D681,x
+		inx
+		cpx #$04
+		bne g1
+
+		; shift right 7 times
+		ldy #$07
+		ldx #$03
 		clc
+g2:		ror $d681,x
+		dex
+		bpl g2
+		dey
+		bne g2
+
+		; add start of fat offset
+		ldx #$00
+		clc
+g3:		lda $d681,x
+		adc fs_startfat,x
+		sta $d681,x
+		inx
+		cpx #$04
+		bne g3
+
+		; turn sector number into byte address for non-SDHC cards
+		jsr sd_fix_sectornumber
+
+		; read FAT sector
+		jsr sd_readsector
+		bcc gfail
+
+		; now read the right four bytes out.
+		; cluster number needs to be shifted left 2 bits.
+		; we only need the lowest order byte.
+		lda fs_clusternumber
+		asl
+		asl
+		tax
+		ldy #$00
+		lda fs_clusternumber
+		and #$40
+		bne ghigh
+g6:		lda $de00,x
+		sta fs_clusternumber,y
+		inx
+		iny
+		cpy #$04
+		bne g6
+		bra gcheck
+ghigh:		lda $df00,x
+		sta fs_clusternumber,y
+		inx
+		iny
+		cpy #$04
+		bne ghigh
+gcheck:		; check that resulting cluster number is valid.
+		
+		; First, only the lower 28-bits are valid
+		lda fs_clusternumber+3
+		and #$0f
+		sta fs_clusternumber+3
+
+		; Now check for special values:
+		; $FFFFFF7 = bad cluster
+		; $FFFFFFF = end of file
+		lda fs_clusternumber+3
+		cmp #$0f
+		bne gok
+		lda fs_clusternumber+2
+		cmp #$ff
+		bne gok
+		lda fs_clusternumber+1
+		cmp #$ff
+		bne gok
+		lda fs_clusternumber
+		cmp #$ff
+		beq gfail
+		cmp #$f7
+		beq gfail
+gok:		; cluster number is okay
+		sec
+		rts
+
+		; XXX fail because not implemented
+gfail:		clc
 		rts
 		
 
