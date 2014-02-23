@@ -56,154 +56,6 @@
 
 	.org $1000
 
-sdreset:
-		; write $00 to $D680 to start reset
-		lda #$00
-		sta $D680
-re1:		lda $d680
-		and #$03
-		bne re1
-		lda $d680
-		; write $01 to $D680 to complete reset
-		lda #$01
-		sta $D680
-re2:		lda $d680		
-		and #$03
-		bne re2
-		lda #$81
-		sta $D680
-		lda $D680
-
-		jsr sdwaitawhile
-
-		jsr sdmapsectorbuffer
-
-		; write $02 to $D680 to read MBR as a test of reset
-		lda #$02
-		sta $D680
-		jsr sdtimeoutreset
-		
-re3:		; allow time for read to happen
-		lda $d680
-		jsr sdreadytest
-		bcs redone	; success, so return
-		bne re3		; not timed out, so keep trying
-		; timeout -- so call reset again
-		jmp sdreset
-redone:		rts
-
-sdwaitawhile:	jsr sdtimeoutreset
-sw1:		inc $0300
-		bne sw1
-		inc $0301
-		bne sw1
-		inc $0302
-		bne sw1
-		rts
-
-		; count to timeout value when trying to read from SD card
-sdtimeoutreset:
-		lda #$00
-		sta $0300
-		sta $0301
-		lda #$f0
-		sta $0302
-		rts
-
-sdreadytest:	; check if SD card is ready, or if timeout has occurred
-		; C is set if ready.
-		; Z is set if timeout has occurred.
-		lda $d680
-		and #$03
-		beq sdisready
-		inc $0300
-		bne sr1
-		inc $0301
-		bne sr1
-		inc $0302
-		bne sr1
-
-		; timeout
-		lda #$00 ; set Z
-
-sr1:		clc
-		rts
-sdisready:	sec
-		rts
-
-sdmapsectorbuffer:
-		lda #$81
-		sta $D680
-		sec
-		rts
-
-sdunmapsectorbuffer:
-		lda #$82
-		sta $D680
-		sec
-		rts
-
-sdreadsector:
-		; Assumes fixed sector number (or byte address in case of SD cards)
-		; is loaded into $D681 - $D684		
-
-		; check if sd card is busy
-		lda $d680
-		and #$01
-		bne rsbusyfail
-
-		; try reading sector fast the first time
-		jmp rs4
-
-redoread:	
-		; when retrying, introduce a delay.  This seems to be needed often
-		; when reading the first sector after SD card reset.  
-		ldx #$f0
-		ldy #$00
-		ldz #$00
-r1:		inz
-		bne r1
-		iny
-		bne r1
-		inx
-		bne r1
-
-rs4:
-		; ask for sector to be read
-		lda #$02
-		sta $d680
-
-		; wait for sector to be read
-		jsr sdtimeoutreset
-rs3:		
-		jsr sdreadytest
-		bcs rsread
-		bne rs3
-		jmp rereadsector
-
-rsread:
-		lda $d680
-		and #$01
-		bne rs3
-
-		; check that we read 512 bytes
-		lda $d688
-		lda $d689
-
-		cmp #$02
-		bne redoread
-
-		sec
-		rts
-
-		; reset sd card and try again
-rereadsector:
-		jsr sdreset		
-		jmp rs4
-
-rsbusyfail:     ; fail
-		clc 
-		rts
 
 
 kickstart_entry:
@@ -702,6 +554,155 @@ l7:		ldx #<msg_foundsdcard
 ;;; ----------------------------------------------------------------------------
 ;;; SD Card access routines
 ;;; ----------------------------------------------------------------------------
+sdreset:
+		; write $00 to $D680 to start reset
+		lda #$00
+		sta $D680
+re1:		lda $d680
+		and #$03
+		bne re1
+		lda $d680
+		; write $01 to $D680 to complete reset
+		lda #$01
+		sta $D680
+re2:		lda $d680		
+		and #$03
+		bne re2
+		lda #$81
+		sta $D680
+		lda $D680
+
+		jsr sdwaitawhile
+
+		jsr sdmapsectorbuffer
+
+		; write $02 to $D680 to read MBR as a test of reset
+		lda #$02
+		sta $D680
+		jsr sdtimeoutreset
+		
+re3:		; allow time for read to happen
+		lda $d680
+		jsr sdreadytest
+		bcs redone	; success, so return
+		bne re3		; not timed out, so keep trying
+		; timeout -- so call reset again
+		jmp sdreset
+redone:		rts
+
+sdwaitawhile:	jsr sdtimeoutreset
+sw1:		inc $0300
+		bne sw1
+		inc $0301
+		bne sw1
+		inc $0302
+		bne sw1
+		rts
+
+		; count to timeout value when trying to read from SD card
+sdtimeoutreset:
+		lda #$00
+		sta $0300
+		sta $0301
+		lda #$f0
+		sta $0302
+		rts
+
+sdreadytest:	; check if SD card is ready, or if timeout has occurred
+		; C is set if ready.
+		; Z is set if timeout has occurred.
+		lda $d680
+		and #$03
+		beq sdisready
+		inc $0300
+		bne sr1
+		inc $0301
+		bne sr1
+		inc $0302
+		bne sr1
+
+		; timeout
+		lda #$00 ; set Z
+
+sr1:		clc
+		rts
+sdisready:	sec
+		rts
+
+sdmapsectorbuffer:
+		lda #$81
+		sta $D680
+		sec
+		rts
+
+sdunmapsectorbuffer:
+		lda #$82
+		sta $D680
+		sec
+		rts
+
+sdreadsector:
+		; Assumes fixed sector number (or byte address in case of SD cards)
+		; is loaded into $D681 - $D684		
+
+		; check if sd card is busy
+		lda $d680
+		and #$01
+		bne rsbusyfail
+
+		; try reading sector fast the first time
+		jmp rs4
+
+redoread:	
+		; when retrying, introduce a delay.  This seems to be needed often
+		; when reading the first sector after SD card reset.  
+		ldx #$f0
+		ldy #$00
+		ldz #$00
+r1:		inz
+		bne r1
+		iny
+		bne r1
+		inx
+		bne r1
+
+rs4:
+		; ask for sector to be read
+		lda #$02
+		sta $d680
+
+		; wait for sector to be read
+		jsr sdtimeoutreset
+rs3:		
+		jsr sdreadytest
+		bcs rsread
+		bne rs3
+		jmp rereadsector
+
+rsread:
+		lda $d680
+		and #$01
+		bne rs3
+
+		; check that we read 512 bytes
+		lda $d688
+		lda $d689
+
+		cmp #$02
+		bne redoread
+
+		sec
+		rts
+
+		; reset sd card and try again
+rereadsector:
+		jsr sdreset		
+		jmp rs4
+
+rsbusyfail:     ; fail
+		clc 
+		rts
+
 printsdaddress:
 		ldx #<msg_sdaddress
 		ldy #>msg_sdaddress
@@ -1173,6 +1174,7 @@ c1:		lda ($C2),y
 		inc $c1
 		inc $c3
 		bne c1
+
 
 		jmp kickstart_entry
 
