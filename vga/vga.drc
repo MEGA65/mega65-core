@@ -1,8 +1,0 @@
-Release 14.7 Drc P.20131013 (lin)
-Copyright (c) 1995-2013 Xilinx, Inc.  All rights reserved.
-
-Fri Jan  3 19:38:18 2014
-
-drc -z vga.ncd vga.pcf
-
-DRC detected 0 errors and 0 warnings.

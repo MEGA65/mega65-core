@@ -1,4 +1,0 @@
-vhdl work "pixelclock.vhd"
-vhdl work "fastram.vhd"
-vhdl work "charrom.vhdl"
-vhdl work "vga.vhd"

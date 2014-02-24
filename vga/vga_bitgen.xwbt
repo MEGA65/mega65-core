@@ -1,8 +1,0 @@
-INTSTYLE=ise
-INFILE=/home/gardners/vga/vga.ncd
-OUTFILE=/home/gardners/vga/vga.bit
-FAMILY=Artix7
-PART=xc7a100t-1csg324
-WORKINGDIR=/home/gardners/vga
-LICENSE=WebPack
-USER_INFO=210834025_0_0_678
