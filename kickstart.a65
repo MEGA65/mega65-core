@@ -687,7 +687,6 @@ gok:		; cluster number is okay
 		sec
 		rts
 
-		; XXX fail because not implemented
 gfail:		
 		clc
 		rts
@@ -1171,7 +1170,6 @@ sumslab:	; romcheckslab indicates which 16KB piece.
 		asl
 		asl
 		; don't mess with mapping of upper 32KB.
-		; XXX - requires MAP to be bug fixed for interaction with ROM mapping.
 		ldy #$00
 		ldz #$00
 		map
