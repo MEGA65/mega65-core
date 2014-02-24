@@ -1525,7 +1525,11 @@ reset_entry:
 		; get CPU state sensible
 		sei
 		cld
-		cle
+		see
+		lda #$00
+		tab
+		ldy #$01
+		tys
 		ldx #$ff
 		txs
 		
