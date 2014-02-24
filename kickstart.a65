@@ -31,6 +31,10 @@
 
 	.org $0200
 	.space checksum 4
+	.space rom_sectorsread 2
+	
+
+	; structure for partition table
 	.space part_startsector 4
 
 	; structure for FAT32 file system
@@ -390,12 +394,31 @@ foundromfile:
 		jsr printhex
 		
 		; now read the ROM file
-rf1:		inc $0427
-		
+		lda #$00
+		sta rom_sectorsread
+		sta rom_sectorsread+1
+
+rf1:		inc rom_sectorsread
+		bne rf2
+		inc rom_sectorsread+1
+rf2:		
 		; XXX write sector to ROM space
 		
 		jsr fs_readnextsector
 		bcs rf1
+
+		lda rom_sectorsread
+		bne romfilesizeerror
+		lda rom_sectorsread+1
+		cmp #$01
+		bne romfilesizeerror
+
+		jmp infinity
+
+romfilesizeerror:
+		ldx #<msg_romfilesizeerror
+		ldy #>msg_romfilesizeerror
+		jsr printmessage
 
 		; temporary infinite loop to catch us
 infinity:	inc $07e7          ; $0400+(24*40)+39
@@ -859,7 +882,7 @@ sdtimeoutreset:
 		lda #$00
 		sta $0300
 		sta $0301
-		lda #$f8
+		lda #$f0
 		sta $0302
 		rts
 
@@ -1391,6 +1414,7 @@ msg_fsdetails: 	      .byte " FS SPC:$$ RSVSEC:$$$$ RSVCLUS:$$$$$$$$ "
 msg_reservedsectors:  .byte " SYS:$$$$$$$$ DAT:$$$$$$$$ CLUS:$$$$$$$$"
 msg_sectornumber:     .byte " CLUSTER:$$$$$$$$ -> SECTOR:$$$$$$$$    "
 msg_foundromfile:     .byte "FOUND ROM FILE. START CLUSTER = $$$$$$$$"
+msg_romfilesizeerror: .byte "ROM FILE WRONG SIZE: MUST BE 128KB      "
 msg_sdaddress:	      .byte " D684-D681=$$$$$$$$                     "
 msg_checkpoint:	      .byte " CHECKPOINT $$ $$ $$ $$ $$ $$ $$ $$ $$  "
 
