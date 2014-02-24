@@ -623,8 +623,12 @@ begin
               elsif cmdbuffer(1) = 'b' or cmdbuffer(1) = 'B' then
                 report "CPU break command" severity note;
                 parse_position <= 2;
-                report "trying to parse hex" severity note;
-                parse_hex(CPUBreak1);
+                if cmdlen=2 then
+                  break_enabled <= '0';
+                else
+                  report "trying to parse hex" severity note;
+                  parse_hex(CPUBreak1);
+                end if;
               elsif cmdbuffer(1) = 'd' or cmdbuffer(1) = 'D' then
                 break_enabled <= '0';
                 state <= NextCommand;
@@ -691,6 +695,9 @@ begin
           when LoadMemory3 =>
             if target_address(15 downto 0) /= hex_value(15 downto 0) then
               -- check for character
+              if rx_acknowledge='1' then
+                rx_acknowledge <= '0';
+              end if;
               if rx_ready = '1' and rx_acknowledge='0' then
                 blink <= not blink;
                 activity <= blink;
@@ -704,9 +711,10 @@ begin
                 target_address(15 downto 0) <= target_address(15 downto 0) + 1;
                 
                 timeout <= 65535;
-                cpu_transaction(ShowMemory3);
+                cpu_transaction(LoadMemory3);
               end if;
             else
+              rx_acknowledge <= '0';
               state <= NextCommand;
             end if;
           when SetMemory1 => target_address <= hex_value(27 downto 0);
