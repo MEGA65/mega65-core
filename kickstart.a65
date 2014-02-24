@@ -393,6 +393,8 @@ foundromfile:
 		ldz fs_clusternumber+0
 		jsr printhex
 		
+		jsr fs_openfile
+
 		lda #$00
 		sta rom_sectorsread
 		sta rom_sectorsread+1
@@ -471,6 +473,8 @@ rr1:		lda $de00,x
 		lda rom_sectorsread+1
 		cmp #$02
 		beq romfilesizeerror
+
+		; else read next sector and continue
 		jsr fs_readnextsector
 		bcs rf1
 
@@ -774,31 +778,37 @@ l21:		lda fs_clusternumber,x
 		; subtract number of reserved clusters
 		ldx #$03
 		sec
-l17:		lda $D681,x
+		php
+l17:		plp
+		lda $D681,x
 		sbc fs_reservedclusters,x
 		sta $D681,x
+		php
 		dex
 		bpl l17
+		plp
 
 		; now shift it left according to fs_sectorspercluster
 		lda fs_sectorspercluster
 		tay
 		and #$fe
 		beq multipliedclusternumber
-l22:		ldx #$00
-		clc
-l18:		lda $D681,x
-		rol
-		sta $D681,x
-		inx
-		cpx #$04
-		bne l18
+l22:		clc
+		rol $D681
+		rol $D682
+		rol $D683
+		rol $D684
 		tya
 		lsr
 		tay
 		and #$fe
 		bne l22
 multipliedclusternumber:
+		ldx #$00
+mmm1:		lda $d681,x
+		inx
+		cpx #$04
+		bne mmm1
 
 		; skip over filesystem reserved and FAT sectors
 		ldx #$00
