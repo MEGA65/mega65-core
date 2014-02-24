@@ -389,6 +389,13 @@ foundromfile:
 		ldz fs_clusternumber+0
 		jsr printhex
 		
+		; now read the ROM file
+rf1:		inc $0427
+		
+		; XXX write sector to ROM space
+		
+		jsr fs_readnextsector
+		bcs rf1
 
 		; temporary infinite loop to catch us
 infinity:	inc $07e7          ; $0400+(24*40)+39
@@ -537,7 +544,6 @@ rs6:		jmp sd_readsector
 
 fs_getnextclusteroffile:
 		; read chained cluster number for fs_clusternumber
-		; XXX not implemented
 
 		; FAT32 uses 32-bit cluster numbers.
 		; 512 / 4 = 128 cluster numbers per sector.
@@ -555,23 +561,41 @@ g1:		lda fs_clusternumber,x
 
 		; shift right 7 times
 		ldy #$07
-		ldx #$03
-		clc
-g2:		ror $d681,x
-		dex
-		bpl g2
+g31:		clc		
+		ror $d684
+		ror $d683
+		ror $d682
+		ror $d681
 		dey
-		bne g2
+		bne g31
+
+		; add start of partition offset
+		ldx #$00
+		clc
+		php
+g33:		plp
+		lda $d681,x
+		adc part_startsector,x
+		sta $d681,x
+		php
+		inx
+		cpx #$04
+		bne g33
+		plp
 
 		; add start of fat offset
 		ldx #$00
 		clc
-g3:		lda $d681,x
+		php
+g3:		plp
+		lda $d681,x
 		adc fs_startfat,x
 		sta $d681,x
+		php
 		inx
 		cpx #$04
 		bne g3
+		plp
 
 		; turn sector number into byte address for non-SDHC cards
 		jsr sd_fix_sectornumber
@@ -605,13 +629,20 @@ ghigh:		lda $df00,x
 		cpy #$04
 		bne ghigh
 gcheck:		; check that resulting cluster number is valid.
-		
+
 		; First, only the lower 28-bits are valid
 		lda fs_clusternumber+3
 		and #$0f
 		sta fs_clusternumber+3
 
 		; Now check for special values:
+		; cluster 0 is invalid
+		lda fs_clusternumber+3
+		ora fs_clusternumber+2
+		ora fs_clusternumber+1
+		ora fs_clusternumber
+		cmp #$00
+		beq gfail
 		; $FFFFFF7 = bad cluster
 		; $FFFFFFF = end of file
 		lda fs_clusternumber+3
@@ -628,12 +659,14 @@ gcheck:		; check that resulting cluster number is valid.
 		beq gfail
 		cmp #$f7
 		beq gfail
+
 gok:		; cluster number is okay
 		sec
 		rts
 
 		; XXX fail because not implemented
-gfail:		clc
+gfail:		
+		clc
 		rts
 		
 
@@ -826,7 +859,7 @@ sdtimeoutreset:
 		lda #$00
 		sta $0300
 		sta $0301
-		lda #$f0
+		lda #$f8
 		sta $0302
 		rts
 
