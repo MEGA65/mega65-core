@@ -399,10 +399,7 @@ foundromfile:
 		sta rom_sectorsread
 		sta rom_sectorsread+1
 
-rf1:		inc rom_sectorsread
-		bne rf2
-		inc rom_sectorsread+1
-rf2:		
+rf1:		
 		; Write sector to ROM space.
 		; Note that memory at $20000-$3FFFF where ROM maps
 		; can be READ but not WRITTEN.  To write, you have to
@@ -460,16 +457,23 @@ rr1:		lda $de00,x
 		tya
 		tax
 		map
-		eom		
+		eom
 		ldx #$0f
 		ldz #$0f
 		map
 		eom
 
-		
+		ldx rom_sectorsread
+		lda $de00
+		sta $0600,x
+
 		; see if there is another sector
 		; (but don't try if we have read ~256KB already, since we are
 		;  supposed to read 128KB only).
+		inc rom_sectorsread
+		bne rf2
+		inc rom_sectorsread+1
+rf2:		
 		lda rom_sectorsread+1
 		cmp #$02
 		beq romfilesizeerror
@@ -1090,11 +1094,12 @@ sdhc1:		; SDHC card mode: add 1
 		inc $d681
 		bcc s1
 		inc $d682
-		bcc s1
-s2:		inc $d683
+s2:		bcc s1
+		inc $d683
 		bcc s1
 		inc $d684
-s1:		rts
+s1:		
+		rts
 
 sd_fix_sectornumber:
 		; assumes sector number has been loaded into 
@@ -1504,7 +1509,7 @@ txt_c65gsrom:	      .byte "C65GS   ROM"
 ;;; CPU entry vectors
 ;;; ----------------------------------------------------------------------------
 		.org $FF00		
-reset_entry:		
+reset_entry:
 		; get CPU state sensible
 		sei
 		cld
