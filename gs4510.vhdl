@@ -1446,7 +1446,12 @@ begin
                           MonitorAccessDone);
         elsif monitor_mem_read='1' then          
           -- Read from specified long address
-          read_long_address(unsigned(monitor_mem_address),MonitorReadDone);
+          if monitor_mem_address(27 downto 16) = x"777" then
+            -- M777xxxx in serial monitor reads memory from CPU's perspective
+            read_long_address(resolve_address_to_long(unsigned(monitor_mem_address(15 downto 0)),false),MonitorReadDone);
+          else
+            read_long_address(unsigned(monitor_mem_address),MonitorReadDone);
+          end if;
           -- and optionally set PC
           if monitor_mem_setpc='1' then
             report "PC set by monitor interface" severity note;

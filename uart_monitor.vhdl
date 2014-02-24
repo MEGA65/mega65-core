@@ -625,8 +625,9 @@ begin
                 parse_position <= 2;
                 report "trying to parse hex" severity note;
                 parse_hex(CPUBreak1);
-              elsif cmdbuffer(1) = 'd' or cmdbuffer(1) = 'B' then
+              elsif cmdbuffer(1) = 'd' or cmdbuffer(1) = 'D' then
                 break_enabled <= '0';
+                state <= NextCommand;
               elsif cmdbuffer(1) = 'l' or cmdbuffer(1) = 'L' then
                 report "load memory command" severity note;
                 parse_position <= 2;
