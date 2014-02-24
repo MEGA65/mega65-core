@@ -638,7 +638,6 @@ begin
                 report "trying to parse hex" severity note;
                 if cmdlen=2 then
                   -- continue dumping from where we left off
-                  target_address <= hex_value(27 downto 0);
                   byte_number <= 0;
                   state <= ShowMemory2;
                 else
