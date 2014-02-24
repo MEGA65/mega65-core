@@ -502,7 +502,7 @@ begin
     -- Schedule the memory read from the appropriate source.
     accessing_ram <= '0'; accessing_slowram <= '0';
     accessing_fastio <= '0'; accessing_vic_fastio <= '0';
-    accessing_cpuport <= '0';
+    accessing_cpuport <= '0'; accessing_colour_ram_fastio <= '0';
     if long_address(27 downto 17)="00000000000" then
       report "Reading from fastram address $" & to_hstring(long_address(19 downto 0))
         & ", word $" & to_hstring(long_address(18 downto 3)) severity note;
