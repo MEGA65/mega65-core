@@ -636,7 +636,11 @@ begin
                 report "read memory command" severity note;
                 parse_position <= 2;
                 report "trying to parse hex" severity note;
-                parse_hex(ShowMemory1);
+                if cmdlen=2 then
+                  state <= ShowMemory1;
+                else
+                  parse_hex(ShowMemory1);
+                end if;
                 if cmdbuffer(1)='m' then
                   -- m prints one line
                   line_number <= 31;
