@@ -393,15 +393,6 @@ foundromfile:
 		ldz fs_clusternumber+0
 		jsr printhex
 		
-		; now read the ROM file
-		; start by setting MAP MB register to zero
-		lda #$00
-		ldx #$0f
-		ldy #$00
-		ldz #$0f
-		map
-		eom
-
 		lda #$00
 		sta rom_sectorsread
 		sta rom_sectorsread+1
@@ -410,11 +401,24 @@ rf1:		inc rom_sectorsread
 		bne rf2
 		inc rom_sectorsread+1
 rf2:		
-		; Write sector to ROM space
-		; Map ($20000+rom_sectorsread*512) at $4000-$5FFF
+		; Write sector to ROM space.
+		; Note that memory at $20000-$3FFFF where ROM maps
+		; can be READ but not WRITTEN.  To write, you have to
+		; do it in the natural address space of the slowram
+		; Map ($8020000+rom_sectorsread*512) at $4000-$5FFF
 		; Because MAP is relative, the map offset will be
-		; $20000+rom_sectorsread*512-$4000
-		; = $1C000+rom_sectorsread*512
+		; $8020000+rom_sectorsread*512-$4000
+		; = $801C000+rom_sectorsread*512
+
+		; start by setting MAP MB register to $80xxxxx
+		lda #$80
+		ldx #$0f
+		ldy #$00
+		ldz #$0f
+		map
+		eom
+
+		; now map $4000-$5FFF
 		lda rom_sectorsread
 		asl
 		sta zptempv		
@@ -455,6 +459,11 @@ rr1:		lda $de00,x
 		tax
 		map
 		eom		
+		ldx #$0f
+		ldz #$0f
+		map
+		eom
+
 		
 		; see if there is another sector
 		; (but don't try if we have read ~256KB already, since we are
@@ -464,6 +473,7 @@ rr1:		lda $de00,x
 		beq romfilesizeerror
 		jsr fs_readnextsector
 		bcs rf1
+
 
 		lda rom_sectorsread
 		bne romfilesizeerror
