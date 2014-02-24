@@ -637,7 +637,10 @@ begin
                 parse_position <= 2;
                 report "trying to parse hex" severity note;
                 if cmdlen=2 then
-                  state <= ShowMemory1;
+                  -- continue dumping from where we left off
+                  target_address <= hex_value(27 downto 0);
+                  byte_number <= 0;
+                  state <= ShowMemory2;
                 else
                   parse_hex(ShowMemory1);
                 end if;
@@ -741,7 +744,6 @@ begin
               state <= success_state;
             end if;
           when ShowMemory1 =>
-            -- XXX Need to actually read memory from the CPU
             target_address <= hex_value(27 downto 0);
             byte_number <= 0;
             end_of_command(ShowMemory2);              
