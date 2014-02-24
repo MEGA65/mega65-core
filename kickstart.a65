@@ -463,10 +463,6 @@ rr1:		lda $de00,x
 		map
 		eom
 
-		ldx rom_sectorsread
-		lda $de00
-		sta $0600,x
-
 		; see if there is another sector
 		; (but don't try if we have read ~256KB already, since we are
 		;  supposed to read 128KB only).
@@ -489,7 +485,10 @@ rf2:
 		cmp #$01
 		bne romfilesizeerror
 
-		jmp infinity
+		; XXX need to store checksum
+		
+		; ROM file loaded, transfer control
+		jmp go64		
 
 romfilesizeerror:
 		ldx #<msg_romfilesizeerror
@@ -1446,7 +1445,20 @@ l2:		lda go64ramroutine,x
 		
 ; This routine is copied to RAM, since writing to $01
 ; will de-map the kickstart ROM.
-go64ramroutine:	lda #$37
+go64ramroutine:	
+		; erase kickstart ROM copy from RAM
+		ldx #$00
+		txa
+g61:		sta $0800,x   ; $0145 = high byte of address here
+		inx
+		bne g61
+		inc $0145
+		ldy $0145
+		cpy #$30
+		bne g61
+		
+		; disengage kickstart and start ROM
+		lda #$37
 		sta $01
 		sta $00
 		jmp (reset_vector)
@@ -1500,7 +1512,7 @@ msg_sdaddress:	      .byte " D684-D681=$$$$$$$$                     "
 msg_checkpoint:	      .byte " CHECKPOINT $$ $$ $$ $$ $$ $$ $$ $$ $$  "
 
 ; filename of ROM we want to load in FAT directory format
-txt_c65gsrom:	      .byte "C65GS   ROM"
+txt_c65gsrom:	      .byte "C64GS   ROM"
 
 		.checkpc $2F00
 		.advance $2F00
