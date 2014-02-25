@@ -530,9 +530,9 @@ begin
       -- By moving fastram to pixel clock instead of CPU clock, a read can happen
       -- easily in one cpu cycle, thus avoiding the wait state. Now to see if it
       -- can synthesise...
-      state <= next_state;
+      --state <= next_state;
       --pending_state <= next_state;
-      --state <= FastRamWait;
+      state <= FastRamWait;
     -- Slow RAM maps to $8xxxxxx, and also $0020000 - $003FFFF for C65 ROM
     -- emulation.
     elsif long_address(27 downto 24) = x"8"

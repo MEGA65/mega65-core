@@ -273,8 +273,8 @@ architecture Behavioral of viciv is
   signal twentyfourlines : std_logic := '0';
   signal thirtyeightcolumns : std_logic := '0';
   signal vicii_raster_compare : unsigned(10 downto 0);
-  signal vicii_x_smoothscroll : std_logic_vector(2 downto 0);
-  signal vicii_y_smoothscroll : std_logic_vector(2 downto 0);
+  signal vicii_x_smoothscroll : unsigned(2 downto 0);
+  signal vicii_y_smoothscroll : unsigned(2 downto 0);
   signal vicii_sprite_enables : std_logic_vector(7 downto 0);
   signal vicii_sprite_xmsbs : std_logic_vector(7 downto 0);
   signal vicii_sprite_x_expand : std_logic_vector(7 downto 0);
@@ -448,7 +448,8 @@ begin
   -- headaches.
   fastram1 : component ram64x16k
     PORT MAP (
-      clka => pixelclock,
+      -- CPU side port
+      clka => cpuclock,
       wea => fastram_we,
       addra => fastram_address,
       dina => fastram_datain,
@@ -535,10 +536,9 @@ begin
       if reg_h640='0' and reg_h1280='0' then
         -- 40 column mode (5x pixels, standard side borders)
         x_chargen_start
-          <= to_unsigned(160+4
-                         +(to_integer(unsigned(fastio_wdata(2 downto 0)))*5),12);
+          <= to_unsigned(160+4+(to_integer(vicii_x_smoothscroll)*5),12);
         -- set horizontal borders based on 40/38 columns
-        if fastio_wdata(3)='1' then
+        if thirtyeightcolumns='0' then
           border_x_left <= to_unsigned(160,12);
           border_x_right <= to_unsigned(1920-160,12);
         else  
@@ -550,7 +550,7 @@ begin
       elsif reg_h640='1' and reg_h1280='0' then
         -- 80 column mode (3x pixels, no side border)
         x_chargen_start
-          <= to_unsigned(0+(to_integer(unsigned(fastio_wdata(2 downto 0)))*3),12);
+          <= to_unsigned(0+(to_integer(vicii_x_smoothscroll)*3),12);
         -- set horizontal borders based on 40/38 columns
         if thirtyeightcolumns='0' then
           border_x_left <= to_unsigned(0,12);
@@ -565,9 +565,9 @@ begin
         -- 160 column mode (natural pixels, fat side borders)
         x_chargen_start
           <= to_unsigned(320+4
-                         +(to_integer(unsigned(fastio_wdata(2 downto 0)))*1),12);
+                         +(to_integer(vicii_x_smoothscroll)*1),12);
         -- set horizontal borders based on 40/38 columns
-        if fastio_wdata(3)='1' then
+        if thirtyeightcolumns='0' then
           border_x_left <= to_unsigned(320,12);
           border_x_right <= to_unsigned(1920-320,12);
         else  
@@ -579,7 +579,7 @@ begin
       else
         -- 240 column mode (natural pixels, no side border)
         x_chargen_start
-          <= to_unsigned(0+(to_integer(unsigned(fastio_wdata(2 downto 0)))*3),12);
+          <= to_unsigned(0+to_integer(vicii_x_smoothscroll)*3,12);
         -- set horizontal borders based on 40/38 columns
         if thirtyeightcolumns='0' then
           border_x_left <= to_unsigned(0,12);
@@ -600,9 +600,8 @@ begin
           border_y_top <= to_unsigned(100+(4*5),12);
           border_y_bottom <= to_unsigned(1200-101-(4*5),12);
         end if;
-        vicii_y_smoothscroll <= fastio_wdata(2 downto 0);
         -- set y_chargen_start based on twentyfourlines
-        y_chargen_start <= to_unsigned((100-3*5)+to_integer(unsigned(fastio_wdata(2 downto 0)))*5,12);
+        y_chargen_start <= to_unsigned((100-3*5)+to_integer(vicii_y_smoothscroll)*5,12);
         chargen_y_scale <= x"04";
       else
         -- 400px mode
@@ -614,9 +613,8 @@ begin
           border_y_top <= to_unsigned(0+(4*3),12);
           border_y_bottom <= to_unsigned(1200-1-(4*3),12);
         end if;
-        vicii_y_smoothscroll <= fastio_wdata(2 downto 0);
         -- set y_chargen_start based on twentyfourlines
-        y_chargen_start <= to_unsigned((0-3*3)+to_integer(unsigned(fastio_wdata(2 downto 0)))*3,12);
+        y_chargen_start <= to_unsigned((0-3*3)+to_integer(vicii_y_smoothscroll)*3,12);
         chargen_y_scale <= x"02";
       end if;
 
@@ -727,7 +725,7 @@ begin
           fastio_rdata(5) <= not text_mode;
           fastio_rdata(4) <= not blank;
           fastio_rdata(3) <= not twentyfourlines;
-          fastio_rdata(2 downto 0) <= vicii_y_smoothscroll;
+          fastio_rdata(2 downto 0) <= std_logic_vector(vicii_y_smoothscroll);
         elsif register_number=18 then          -- $D012 current raster low 8 bits
           fastio_rdata <= std_logic_vector(ycounter(9 downto 2));
         elsif register_number=19 then          -- $D013 lightpen X (coarse rasterX)
@@ -742,7 +740,7 @@ begin
           fastio_rdata(5) <= '0';       -- no reset support, since no badlines
           fastio_rdata(4) <= multicolour_mode;
           fastio_rdata(3) <= not thirtyeightcolumns;
-          fastio_rdata(2 downto 0) <= vicii_x_smoothscroll;
+          fastio_rdata(2 downto 0) <= std_logic_vector(vicii_x_smoothscroll);
         elsif register_number=23 then          -- $D017 compatibility sprite enable
           fastio_rdata <= vicii_sprite_y_expand;
         elsif register_number=24 then          -- $D018 compatibility RAM addresses
@@ -1030,6 +1028,7 @@ begin
           text_mode <= not fastio_wdata(5);
           blank <= not fastio_wdata(4);
           twentyfourlines <= not fastio_wdata(3);
+          vicii_y_smoothscroll <= unsigned(fastio_wdata(2 downto 0));
           viciv_legacy_mode_registers_touched <= '1';
         elsif register_number=18 then          -- $D012 current raster low 8 bits
           vicii_raster_compare(9 downto 0) <= unsigned(fastio_wdata) & "00";
@@ -1040,7 +1039,7 @@ begin
         elsif register_number=22 then          -- $D016
           multicolour_mode <= fastio_wdata(4);
           thirtyeightcolumns <= not fastio_wdata(3);
-          vicii_x_smoothscroll <= fastio_wdata(2 downto 0);
+          vicii_x_smoothscroll <= unsigned(fastio_wdata(2 downto 0));
           viciv_legacy_mode_registers_touched <= '1';
         elsif register_number=23 then          -- $D017 compatibility sprite enable
           vicii_sprite_y_expand <= fastio_wdata;
@@ -1134,14 +1133,18 @@ begin
         elsif register_number=49 then 
           -- C65 VIC-III Control A Register $D030
           -- H640
+          reg_h640 <= fastio_wdata(7);
           -- FAST
           -- ATTR (8bit colour RAM features)
           -- BPM
           -- V400
+          reg_v400 <= fastio_wdata(3);
           -- H1280
+          reg_h1280 <= fastio_wdata(2);
           -- MONO
           -- INT(erlaced?)
           viciii_extended_attributes <= fastio_wdata(5);
+          viciv_legacy_mode_registers_touched <= '1';
         elsif register_number=64 then
           virtual_row_width(7 downto 0) <= unsigned(fastio_wdata);
         elsif register_number=65 then
