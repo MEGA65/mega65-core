@@ -455,7 +455,7 @@ begin
       if blocknum=15 then temp_address(12):='1'; end if;
     end if;
     if (blocknum=12) and rom_at_c000='1' then
-      temp_address(27 downto 12) := x"003C";
+      temp_address(27 downto 12) := x"002C";
     end if;
     if (blocknum=10 or blocknum=11) and rom_at_a000='1' then
       temp_address(27 downto 12) := x"003A";
