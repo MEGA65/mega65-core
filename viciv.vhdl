@@ -45,6 +45,8 @@ entity viciv is
 
     -- CPU IRQ
     irq : out std_logic;
+
+    reset : in std_logic;
     
     ----------------------------------------------------------------------
     -- VGA output
@@ -74,7 +76,12 @@ entity viciv is
     colour_ram_fastio_rdata : out std_logic_vector(7 downto 0);
     colour_ram_cs : in std_logic;
 
-    colourram_at_dc00 : out std_logic
+    colourram_at_dc00 : out std_logic;
+    rom_at_e000 : out std_logic;
+    rom_at_9000 : out std_logic;
+    rom_at_c000 : out std_logic;
+    rom_at_a000 : out std_logic;
+    rom_at_8000 : out std_logic
     );
 end viciv;
 
@@ -365,8 +372,6 @@ architecture Behavioral of viciv is
   signal next_card_number : unsigned(15 downto 0) := (others => '0');
   signal cycles_to_next_card : unsigned(7 downto 0);
   
-  signal reset : std_logic := '0';
-  
   -- Interface to character generator rom
   signal charaddress : std_logic_vector(11 downto 0);
   signal debug_charaddress : std_logic_vector(11 downto 0);
@@ -378,7 +383,18 @@ architecture Behavioral of viciv is
   signal debug_charrow : std_logic_vector(7 downto 0);
 
   -- C65 style 2K colour RAM
-  signal colourram_at_dc00_internal : std_logic;
+  signal colourram_at_dc00_internal : std_logic := '0';
+  -- C65 ROM mapping
+  signal reg_rom_e000 : std_logic := '0';
+  signal reg_rom_9000 : std_logic := '0';
+  signal reg_rom_c000 : std_logic := '0';
+  signal reg_rom_a000 : std_logic := '0';
+  signal reg_rom_8000 : std_logic := '0';
+  signal reg_c65_charset : std_logic := '0';
+
+  signal reg_h640 : std_logic := '0';
+  signal reg_h1280 : std_logic := '0';
+  signal reg_v400 : std_logic := '0';
   
   type rgb is
   record
@@ -661,27 +677,26 @@ begin
         elsif register_number>=39 and register_number<=46 then
           fastio_rdata <= std_logic_vector(sprite_colours(to_integer(register_number)-39));
         elsif register_number=48 then
-          -- C65 $D030 emulation
-          
+          -- C65 $D030 emulation          
           fastio_rdata <=
-            "0"                           -- ROM @ E000
-            & "0"                         -- ROM @ 9000
-            & "0"                         -- ROM @ C000
-            & "0"                         -- ROM @ A000
-            & "0"                         -- ROM @ 8000
-            & "1"                         -- Lie and say we are PAL
+            reg_rom_e000                           -- ROM @ E000
+            & reg_rom_9000                         -- ROM @ 9000
+            & reg_rom_c000                         -- ROM @ C000
+            & reg_rom_a000                         -- ROM @ A000
+            & reg_rom_8000                         -- ROM @ 8000
+            & reg_c65_charset                      -- character set select (D000 vs 9000)
             & "0"                         -- External sync
             & colourram_at_dc00_internal;  -- 2KB colour RAM
         elsif register_number=49 then
           -- XXX Can emulate VIC-III H640, V400 and H1280 by adjusting x and y scale
           -- registers
           fastio_rdata <=
-            "1"                           -- H640
+            reg_h640                           -- H640
             & "1"                         -- FAST
             & viciii_extended_attributes  -- ATTR (8bit colour RAM features)
             & "0"                         -- BPM
-            & "1"                         -- V400
-            & "1"                         -- H1280
+            & reg_v400                         -- V400
+            & reg_h1280                         -- H1280
             & "0"                         -- MONO
             & "1";                        -- INT(erlaced?)
           
@@ -1012,12 +1027,19 @@ begin
 
         elsif register_number=48 then
           -- C65 VIC-III Control A Register $D030
-          -- ROM @ E000
-          -- CROM @ 9000 (use C65 char rom @ 9000 instead of the C64 one at D000)
-          -- ROM @ C000
-          -- ROM @ A000
-          -- ROM @ 8000
-          -- PAL
+          -- Mapping of C65 ROM in various places
+          rom_at_e000 <= fastio_wdata(7);
+          reg_rom_e000 <= fastio_wdata(7);
+          rom_at_9000 <= fastio_wdata(6);
+          reg_rom_9000 <= fastio_wdata(6);
+          rom_at_c000 <= fastio_wdata(5);
+          reg_rom_c000 <= fastio_wdata(5);
+          rom_at_a000 <= fastio_wdata(4);
+          reg_rom_a000 <= fastio_wdata(4);
+          rom_at_8000 <= fastio_wdata(3);
+          reg_rom_8000 <= fastio_wdata(3);
+          -- Select between C64 and C65 charset.
+          reg_c65_charset <= fastio_wdata(2);
           -- EXT SYNC
           -- CRAM @ DC00
           colourram_at_dc00_internal<= fastio_wdata(0);

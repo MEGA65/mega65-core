@@ -94,7 +94,12 @@ entity gs4510 is
     fastio_colour_ram_rdata : in std_logic_vector(7 downto 0);
     colour_ram_cs : out std_logic;
 
-    colourram_at_dc00 : in std_logic
+    colourram_at_dc00 : in std_logic;
+    rom_at_e000 : in std_logic;
+    rom_at_9000 : in std_logic;
+    rom_at_c000 : in std_logic;
+    rom_at_a000 : in std_logic;
+    rom_at_8000 : in std_logic
     );
 end entity gs4510;
 
@@ -432,24 +437,37 @@ begin
     -- KERNEL
     if (blocknum=14) and (lhc(1)='1') and (writeP=false) then
       temp_address(27 downto 12) := x"002E";      
---      temp_address(27 downto 12) := x"FFEE";      
     end if;
     if (blocknum=15) and (lhc(1)='1') and (writeP=false) then
       temp_address(27 downto 12) := x"002F";      
---      temp_address(27 downto 12) := x"FFEF";      
     end if;
     -- BASIC
     if (blocknum=10) and (lhc(0)='1') and (writeP=false) then
       temp_address(27 downto 12) := x"002A";      
---      temp_address(27 downto 12) := x"FFEA";      
     end if;
     if (blocknum=11) and (lhc(0)='1') and (writeP=false) then
       temp_address(27 downto 12) := x"002B";      
---      temp_address(27 downto 12) := x"FFEB";      
     end if;
 
     -- XXX $D030 lines not yet supported
-
+    if (blocknum=14 or blocknum=15) and rom_at_e000='1' then
+      temp_address(27 downto 12) := x"003E";
+      if blocknum=15 then temp_address(12):='1'; end if;
+    end if;
+    if (blocknum=12) and rom_at_c000='1' then
+      temp_address(27 downto 12) := x"003C";
+    end if;
+    if (blocknum=10 or blocknum=11) and rom_at_a000='1' then
+      temp_address(27 downto 12) := x"003A";
+      if blocknum=11 then temp_address(12):='1'; end if;
+    end if;
+    if (blocknum=9) and rom_at_9000='1' then
+      temp_address(27 downto 12) := x"0039";
+    end if;
+    if (blocknum=8) and rom_at_8000='1' then
+      temp_address(27 downto 12) := x"0038";
+    end if;
+    
     -- Kickstart ROM (takes precedence over all else if enabled)
     if (blocknum=14) and (kickstart_en='1') and (writeP=false) then
       temp_address(27 downto 12) := x"FFFE";      

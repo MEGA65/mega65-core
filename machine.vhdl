@@ -190,19 +190,22 @@ architecture Behavioral of machine is
       fastio_colour_ram_rdata : in std_logic_vector(7 downto 0);
       colour_ram_cs : out std_logic;
 
-      colourram_at_dc00 : in std_logic
+      colourram_at_dc00 : in std_logic;
+      rom_at_e000 : in std_logic;
+      rom_at_9000 : in std_logic;
+      rom_at_c000 : in std_logic;
+      rom_at_a000 : in std_logic;
+      rom_at_8000 : in std_logic
+
       );
   end component;
   
   component viciv is
     Port (
-      ----------------------------------------------------------------------
-      -- 100MHz Nexys4 master clock from which we drive the dotclock
-      ----------------------------------------------------------------------
       pixelclock : in  STD_LOGIC;
       cpuclock : in std_logic;
-
       irq : out std_logic;
+      reset : in std_logic;
       
       ----------------------------------------------------------------------
       -- VGA output
@@ -232,7 +235,12 @@ architecture Behavioral of machine is
       colour_ram_fastio_rdata : out std_logic_vector(7 downto 0);
       colour_ram_cs : in std_logic;
 
-      colourram_at_dc00 : out std_logic
+      colourram_at_dc00 : out std_logic;
+      rom_at_e000 : out std_logic;
+      rom_at_9000 : out std_logic;
+      rom_at_c000 : out std_logic;
+      rom_at_a000 : out std_logic;
+      rom_at_8000 : out std_logic
       );
   end component;
   
@@ -288,6 +296,12 @@ architecture Behavioral of machine is
 
   signal cpuclock : std_logic := '1';
   signal cpuclock_divisor : integer range 0 to 3 := 0;
+
+  signal rom_at_e000 : std_logic := '0';
+  signal rom_at_9000 : std_logic := '0';
+  signal rom_at_c000 : std_logic := '0';
+  signal rom_at_a000 : std_logic := '0';
+  signal rom_at_8000 : std_logic := '0';
 
   signal colourram_at_dc00 : std_logic := '0';
   signal colour_ram_cs : std_logic := '0';
@@ -496,7 +510,13 @@ begin
     fastio_colour_ram_rdata => colour_ram_fastio_rdata,
     colour_ram_cs => colour_ram_cs,
 
-    colourram_at_dc00 => colourram_at_dc00
+    colourram_at_dc00 => colourram_at_dc00,
+    rom_at_e000 => rom_at_e000,
+    rom_at_9000 => rom_at_9000,
+    rom_at_c000 => rom_at_c000,
+    rom_at_a000 => rom_at_a000,
+    rom_at_8000 => rom_at_8000
+    
     );
 
   viciv0: viciv
@@ -505,6 +525,7 @@ begin
       cpuclock        => cpuclock,
 
       irq             => vic_irq,
+      reset           => btnCpuReset,
       
       vsync           => vsync,
       hsync           => hsync,
@@ -525,7 +546,13 @@ begin
       fastio_wdata    => fastio_wdata,
       fastio_rdata    => fastio_vic_rdata,
 
-      colourram_at_dc00 => colourram_at_dc00
+      colourram_at_dc00 => colourram_at_dc00,
+      rom_at_e000 => rom_at_e000,
+      rom_at_9000 => rom_at_9000,
+      rom_at_c000 => rom_at_c000,
+      rom_at_a000 => rom_at_a000,
+      rom_at_8000 => rom_at_8000
+      
       );
   
   iomapper0: iomapper port map (
