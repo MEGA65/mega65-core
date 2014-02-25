@@ -394,6 +394,11 @@ foundromfile:
 		jsr printhex
 		
 		jsr fs_openfile
+		bcc fileopenerror
+
+		ldx #<msg_readingfile
+		ldy #>msg_readingfile
+		jsr printmessage
 
 		lda #$00
 		sta rom_sectorsread
@@ -475,6 +480,7 @@ rf2:
 		beq romfilesizeerror
 
 		; else read next sector and continue
+		inc $d020
 		jsr fs_readnextsector
 		bcs rf1
 
@@ -493,6 +499,11 @@ rf2:
 romfilesizeerror:
 		ldx #<msg_romfilesizeerror
 		ldy #>msg_romfilesizeerror
+		jsr printmessage
+
+fileopenerror:
+		ldx #<msg_fileopenerror
+		ldy #>msg_fileopenerror
 		jsr printmessage
 
 		; temporary infinite loop to catch us
@@ -962,7 +973,7 @@ sdtimeoutreset:
 		lda #$00
 		sta $0300
 		sta $0301
-		lda #$f0
+		lda #$e0
 		sta $0302
 		rts
 
@@ -1297,12 +1308,12 @@ resetdisplay:
 		sta $D021
 		; We use VIC-II style registers as this resets video frame in
 		; least instructions, and 40 columns is fine for us.
+		lda #$14
+		sta $D018
 		lda #$1B
 		sta $D011
 		lda #$C8
 		sta $D016
-		lda #$14
-		sta $D018
 		; point VIC-IV to bottom 16KB of display memory
 		lda #$ff
 		sta $DD01
@@ -1507,6 +1518,8 @@ msg_fsdetails: 	      .byte " FS SPC:$$ RSVSEC:$$$$ RSVCLUS:$$$$$$$$ "
 msg_reservedsectors:  .byte " SYS:$$$$$$$$ DAT:$$$$$$$$ CLUS:$$$$$$$$"
 msg_sectornumber:     .byte " CLUSTER:$$$$$$$$ -> SECTOR:$$$$$$$$    "
 msg_foundromfile:     .byte "FOUND ROM FILE. START CLUSTER = $$$$$$$$"
+msg_fileopenerror:    .byte "COULD NOT OPEN ROM FILE FOR READING     "
+msg_readingfile:      .BYTE "READING ROM FILE...                     "
 msg_romfilesizeerror: .byte "ROM FILE WRONG SIZE: MUST BE 128KB      "
 msg_sdaddress:	      .byte " D684-D681=$$$$$$$$                     "
 msg_checkpoint:	      .byte " CHECKPOINT $$ $$ $$ $$ $$ $$ $$ $$ $$  "
