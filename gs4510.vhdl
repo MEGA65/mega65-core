@@ -396,7 +396,7 @@ begin
     if short_address(15)='1' then
       if reg_map_high(blocknum)='1' then
         temp_address(27 downto 20) := reg_mb_high;
-        temp_address(19 downto 8) := reg_offset_high+to_integer(short_address(14 downto 8));
+        temp_address(19 downto 8) := reg_offset_high+to_integer(short_address(15 downto 8));
         temp_address(7 downto 0) := short_address(7 downto 0);
         
       else
