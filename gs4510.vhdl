@@ -433,23 +433,29 @@ begin
       temp_address(27 downto 12) := x"002D";
       temp_addresS(11 downto 0) := short_address(11 downto 0);
     end if;
-    
-    -- KERNEL
-    if (blocknum=14) and (lhc(1)='1') and (writeP=false) then
-      temp_address(27 downto 12) := x"002E";      
+
+    -- Examination of the C65 interface ROM reveals that MAP instruction
+    -- takes precedence over $01 CPU port when MAP bit is set for a block of RAM.
+    -- C64 KERNEL
+    if reg_map_high(3)='0' then
+      if (blocknum=14) and (lhc(1)='1') and (writeP=false) then
+        temp_address(27 downto 12) := x"002E";      
+      end if;
+      if (blocknum=15) and (lhc(1)='1') and (writeP=false) then
+        temp_address(27 downto 12) := x"002F";      
+      end if;
     end if;
-    if (blocknum=15) and (lhc(1)='1') and (writeP=false) then
-      temp_address(27 downto 12) := x"002F";      
-    end if;
-    -- BASIC
-    if (blocknum=10) and (lhc(0)='1') and (writeP=false) then
-      temp_address(27 downto 12) := x"002A";      
-    end if;
-    if (blocknum=11) and (lhc(0)='1') and (writeP=false) then
-      temp_address(27 downto 12) := x"002B";      
+    -- C64 BASIC
+    if reg_map_high(1)='0' then
+      if (blocknum=10) and (lhc(0)='1') and (writeP=false) then
+        temp_address(27 downto 12) := x"002A";      
+      end if;
+      if (blocknum=11) and (lhc(0)='1') and (writeP=false) then
+        temp_address(27 downto 12) := x"002B";      
+      end if;
     end if;
 
-    -- XXX $D030 lines not yet supported
+    -- $D030 ROM select lines:
     if (blocknum=14 or blocknum=15) and rom_at_e000='1' then
       temp_address(27 downto 12) := x"003E";
       if blocknum=15 then temp_address(12):='1'; end if;
