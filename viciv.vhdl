@@ -151,6 +151,10 @@ architecture Behavioral of viciv is
       );
   END component;
 
+  signal viciv_legacy_mode_registers_touched : std_logic := '0';
+  signal reg_d018_screen_addr : unsigned(3 downto 0) := x"1";
+  
+  
   -- Drive stage for IRQ signal in attempt to allieviate timing problems.
   signal irq_drive : std_logic;
   
@@ -525,6 +529,119 @@ begin
           debug_chargen_active,debug_char_fetch_cycle,debug_charaddress,
           debug_charrow,palette_fastio_rdata,palette_bank_chargen,
           debug_chargen_active_soon,palette_bank_sprites) is
+
+    procedure viciv_interpret_legacy_mode_registers is
+    begin
+      if reg_h640='0' and reg_h1280='0' then
+        -- 40 column mode (5x pixels, standard side borders)
+        x_chargen_start
+          <= to_unsigned(160+4
+                         +(to_integer(unsigned(fastio_wdata(2 downto 0)))*5),12);
+        -- set horizontal borders based on 40/38 columns
+        if fastio_wdata(3)='1' then
+          border_x_left <= to_unsigned(160,12);
+          border_x_right <= to_unsigned(1920-160,12);
+        else  
+          border_x_left <= to_unsigned(160+(7*5),12);
+          border_x_right <= to_unsigned(1920-160-(9*5),12);
+        end if;
+        chargen_x_scale <= x"04";
+        virtual_row_width <= to_unsigned(40,16);
+      elsif reg_h640='1' and reg_h1280='0' then
+        -- 80 column mode (3x pixels, no side border)
+        x_chargen_start
+          <= to_unsigned(0+(to_integer(unsigned(fastio_wdata(2 downto 0)))*3),12);
+        -- set horizontal borders based on 40/38 columns
+        if thirtyeightcolumns='0' then
+          border_x_left <= to_unsigned(0,12);
+          border_x_right <= to_unsigned(1920-0,12);
+        else  
+          border_x_left <= to_unsigned(0+(7*3),12);
+          border_x_right <= to_unsigned(1920-(9*3),12);
+        end if;
+        chargen_x_scale <= x"02";
+        virtual_row_width <= to_unsigned(80,16);
+      elsif reg_h640='0' and reg_h1280='1' then        
+        -- 160 column mode (natural pixels, fat side borders)
+        x_chargen_start
+          <= to_unsigned(320+4
+                         +(to_integer(unsigned(fastio_wdata(2 downto 0)))*1),12);
+        -- set horizontal borders based on 40/38 columns
+        if fastio_wdata(3)='1' then
+          border_x_left <= to_unsigned(320,12);
+          border_x_right <= to_unsigned(1920-320,12);
+        else  
+          border_x_left <= to_unsigned(320+(7*1),12);
+          border_x_right <= to_unsigned(1920-320-(9*1),12);
+        end if;
+        chargen_x_scale <= x"00";
+        virtual_row_width <= to_unsigned(160,16);
+      else
+        -- 240 column mode (natural pixels, no side border)
+        x_chargen_start
+          <= to_unsigned(0+(to_integer(unsigned(fastio_wdata(2 downto 0)))*3),12);
+        -- set horizontal borders based on 40/38 columns
+        if thirtyeightcolumns='0' then
+          border_x_left <= to_unsigned(0,12);
+          border_x_right <= to_unsigned(1920-0,12);
+        else  
+          border_x_left <= to_unsigned(0+(7*3),12);
+          border_x_right <= to_unsigned(1920-(9*3),12);
+        end if;
+        virtual_row_width <= to_unsigned(240,16);
+        chargen_x_scale <= x"00";
+      end if;
+      if reg_v400='0' then
+        -- set vertical borders based on twentyfourlines
+        if twentyfourlines='0' then
+          border_y_top <= to_unsigned(100,12);
+          border_y_bottom <= to_unsigned(1200-101,12);
+        else  
+          border_y_top <= to_unsigned(100+(4*5),12);
+          border_y_bottom <= to_unsigned(1200-101-(4*5),12);
+        end if;
+        vicii_y_smoothscroll <= fastio_wdata(2 downto 0);
+        -- set y_chargen_start based on twentyfourlines
+        y_chargen_start <= to_unsigned((100-3*5)+to_integer(unsigned(fastio_wdata(2 downto 0)))*5,12);
+        chargen_y_scale <= x"04";
+      else
+        -- 400px mode
+        -- set vertical borders based on twentyfourlines
+        if twentyfourlines='0' then
+          border_y_top <= to_unsigned(0,12);
+          border_y_bottom <= to_unsigned(1200-1,12);
+        else  
+          border_y_top <= to_unsigned(0+(4*3),12);
+          border_y_bottom <= to_unsigned(1200-1-(4*3),12);
+        end if;
+        vicii_y_smoothscroll <= fastio_wdata(2 downto 0);
+        -- set y_chargen_start based on twentyfourlines
+        y_chargen_start <= to_unsigned((0-3*3)+to_integer(unsigned(fastio_wdata(2 downto 0)))*3,12);
+        chargen_y_scale <= x"02";
+      end if;
+
+      screen_ram_base(13 downto 10) <= reg_d018_screen_addr;
+      screen_ram_base(9 downto 0) <= (others => '0');
+      -- Sprites fetch from screen ram base + $3F8 (or +$7F8 in VIC-III 80
+      -- column mode).
+      -- In 80 column mode the screen base must be on a 2K boundary on the
+      -- C65, which changes the interpretation of the screen_ram_base.
+      -- Behaviour for 160 and 240 column modes is undefined.
+      -- Note that our interpretation of V400 to double the number of text
+      -- rows breaks strict C65 compatibility.
+      vicii_sprite_pointer_address(13 downto 10)
+        <= reg_d018_screen_addr;
+      if reg_h640='1' or reg_v400='1' then
+        vicii_sprite_pointer_address(10) <= '1';
+      end if;
+      vicii_sprite_pointer_address(9 downto 0) <= "1111111000";
+
+      -- All VIC-II/VIC-III compatibility modes use the first part of the
+      -- colour RAM.
+      colour_ram_base <= (others => '0');
+      
+    end procedure viciv_interpret_legacy_mode_registers;
+    
     variable register_bank : unsigned(7 downto 0);
     variable register_page : unsigned(3 downto 0);
     variable register_num : unsigned(7 downto 0);
@@ -875,6 +992,11 @@ begin
     
     if rising_edge(cpuclock) then
 
+      if viciv_legacy_mode_registers_touched='1' then
+        viciv_interpret_legacy_mode_registers;
+        viciv_legacy_mode_registers_touched <= '0';
+      end if;
+      
       ack_colissionspritesprite <= '0';
       ack_colissionspritebitmap <= '0';
       ack_raster <= '0';
@@ -908,17 +1030,7 @@ begin
           text_mode <= not fastio_wdata(5);
           blank <= not fastio_wdata(4);
           twentyfourlines <= not fastio_wdata(3);
-                                        -- set vertical borders based on twentyfourlines
-          if twentyfourlines='0' then
-            border_y_top <= to_unsigned(100,12);
-            border_y_bottom <= to_unsigned(1200-101,12);
-          else  
-            border_y_top <= to_unsigned(100+(4*5),12);
-            border_y_bottom <= to_unsigned(1200-101-(4*5),12);
-          end if;
-          vicii_y_smoothscroll <= fastio_wdata(2 downto 0);
-                                        -- set y_chargen_start based on twentyfourlines
-          y_chargen_start <= to_unsigned((100-3*5)+to_integer(unsigned(fastio_wdata(2 downto 0)))*5,12);
+          viciv_legacy_mode_registers_touched <= '1';
         elsif register_number=18 then          -- $D012 current raster low 8 bits
           vicii_raster_compare(9 downto 0) <= unsigned(fastio_wdata) & "00";
         elsif register_number=19 then          -- $D013 lightpen X (coarse rasterX)
@@ -929,19 +1041,7 @@ begin
           multicolour_mode <= fastio_wdata(4);
           thirtyeightcolumns <= not fastio_wdata(3);
           vicii_x_smoothscroll <= fastio_wdata(2 downto 0);
-          -- Set x smooth scroll position
-          report "VGA: Set x_chargen_start via $D016" severity note;
-          x_chargen_start
-            <= to_unsigned(160+4
-                           +(to_integer(unsigned(fastio_wdata(2 downto 0)))*5),12);
-          -- set horizontal borders based on 40/38 columns
-          if fastio_wdata(3)='1' then
-            border_x_left <= to_unsigned(160,12);
-            border_x_right <= to_unsigned(1920-160,12);
-          else  
-            border_x_left <= to_unsigned(160+(7*5),12);
-            border_x_right <= to_unsigned(1920-160-(9*5),12);
-          end if;
+          viciv_legacy_mode_registers_touched <= '1';
         elsif register_number=23 then          -- $D017 compatibility sprite enable
           vicii_sprite_y_expand <= fastio_wdata;
         elsif register_number=24 then          -- $D018 compatibility RAM addresses
@@ -952,21 +1052,8 @@ begin
           -- Bits 14 and 15 get set by writing to $DD00, as the VIC-IV sniffs
           -- that CIA register being written on the fastio bus.
           screen_ram_base(16) <= '0';
-          screen_ram_base(13 downto 10) <= unsigned(fastio_wdata(7 downto 4));
-          screen_ram_base(9 downto 0) <= (others => '0');
-          -- Sprites fetch from screen ram base + $3F8 (or +$7F8 in VIC-III 80
-          -- column mode).
-          -- In 80 column mode the screen base must be on a 2K boundary on the
-          -- C65, which changes the interpretation of the screen_ram_base, and
-          -- is a bit annoying, as we need to adjust these calculations based
-          -- on the current value of the H640 flag, and also to adjust them if
-          -- the H640 flag is modified later.
-          -- For now, we will just follow the 40 column semantic, and have a
-          -- VIC-IV register for directly adjusting the VIC-II sprite pointer
-          -- address.
-          vicii_sprite_pointer_address(13 downto 10)
-            <= unsigned(fastio_wdata(7 downto 4));
-          vicii_sprite_pointer_address(9 downto 0) <= "1111111000";
+          reg_d018_screen_addr <= unsigned(fastio_wdata(7 downto 4));
+          viciv_legacy_mode_registers_touched <= '1';
         elsif register_number=25 then
           -- $D019 compatibility IRQ bits
           -- Acknowledge IRQs
