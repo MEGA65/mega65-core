@@ -494,6 +494,9 @@ rf2:
 		; XXX need to store checksum
 		
 		; ROM file loaded, transfer control
+		ldx #<msg_romok
+		ldy #>msg_romok
+		jsr printmessage
 		jmp go64		
 
 romfilesizeerror:
@@ -1525,7 +1528,7 @@ msg_sdaddress:	      .byte " D684-D681=$$$$$$$$                     "
 msg_checkpoint:	      .byte " CHECKPOINT $$ $$ $$ $$ $$ $$ $$ $$ $$  "
 
 ; filename of ROM we want to load in FAT directory format
-txt_c65gsrom:	      .byte "C64GS   ROM"
+txt_c65gsrom:	      .byte "C65GS   ROM"
 
 		.checkpc $2F00
 		.advance $2F00
