@@ -1,0 +1,305 @@
+data e033 e07a
+E034  low byte of offset to start of 80-column screen lines
+E04C  high byte of offset to start of 80-column screen lines
+E065  vectors for $0334 - $033D
+word e065 e06e
+E06F vectors for 6 keyboard decode tables
+word e06f e07a
+data edde ef49
+EDDE keyboard decode table 1
+EE27 keyboard decode table 2
+EE70 keyboard decode table 3
+EEB9 keyboard decode table 4
+EF02 keyboard decode table 6
+
+text ED83 EDCD
+data EDCE EDDD
+
+E07b initialise editor and screen
+E136 calculate address of line on screen and colour ram (40 or 80 column mode)
+E0 pointer to screen line (unconfirmed)
+E1 pointer to screen line, high byte (unconfirmed)
+E2 pointer to colour ram for screen line (unconfirmed)
+E3 pointer to colour ram for screen line, high byte (unconfirmed)
+E15B  editor_irq      ;IRQ entry
+E177 get a key from IRQ buffer into .a
+E1DF get a chr from screen line into .a
+E23D check for quote mark ($22), and toggle quote mode if required
+E406 scan keyboard subroutine
+E4F9 repeat key logic & CKIT2 to store decoded key
+E5A6 blink cursor?
+E5FF install/remove mouse driver
+data e625 e62c
+e625 byte values with exactly one bit set
+E614 disable mouse sprite
+E6B5 A=$00 and RTS
+E6B8 print character in .a
+E97F execute escape function using chr in .a
+E9DF set top left or bottom right (.c) of window
+EBAF display character in .a, color in .x
+EBD0 get size of window (rows,cols) in .x, .y
+EC03 read or set (.c) cursor position in .x, .y
+EC41 redefine a programmable function key
+ECCD 40/80 mode change
+ED18 turn on or off (.c) soft cursor
+ED83 default function key strings
+F14E initialize VIC palette
+
+
+
+
+FF09   nirq             ;IRQ handler
+FF0B   monitor_brk      ;BRK handler (Monitor)
+FF0D   nnmi             ;NMI handler
+FF0F   nopen            ;open
+FF11   nclose           ;close
+FF13   nchkin           ;chkin
+FF15   nckout           ;ckout
+FF17   nclrch           ;clrch
+FF19   nbasin           ;basin
+FF1B   nbsout           ;bsout
+FF1D   nstop            ;stop key scan
+FF1F   ngetin           ;getin
+FF21   nclall           ;clall
+FF23   monitor_parser   ;monitor command parser
+FF25   nload            ;load
+FF27   nsave            ;save
+
+FF29   talk             ;Low level serial bus routines
+FF2B   listen
+FF2D   talksa
+FF2F   second
+FF31   acptr
+FF33   ciout
+FF35   untalk
+FF37   unlisten
+
+FF39   DOS_talk         ;newDOS routines
+FF3B   DOS_listen
+FF3D   DOS_talksa
+FF3F   DOS_second
+FF41   DOS_acptr
+FF43   DOS_ciout
+FF45   DOS_untalk
+FF47   DOS_unlisten
+
+FF49   Get_DOS
+FF4B   Leave_DOS
+
+FF4D   jmp spin_spout   ;setup fast serial port for input or output
+FF50   jmp close_all    ;close all logical files for a given device
+FF53   jmp c64mode      ;reconfigure system as a c/64 (no return!)
+FF56   jmp monitor_call ;map in Monitor & call it
+FF59   jmp bootsys      ;boot alternate system from disk
+FF5C   jmp phoenix      ;call cold start routines, disk boot loader
+FF5F   jmp lkupla       ;search tables for given la
+FF62   jmp lkupsa       ;search tables for given sa
+FF65   jmp swapper      ;swap to alternate display device
+FF68   jmp pfkey        ;program function key
+FF6B   jmp setbnk       ;set bank for load/save/verify/open
+FF6E   jmp jsr_far      ;JSR to any bank, RTS to calling bank
+FF71   jmp jmp_far      ;JMP to any bank
+FF74   jmp lda_far      ;LDA (X),Y from bank Z
+FF77   jmp sta_far      :STA (X),Y to   bank Z
+FF7A   jmp cmp_far      ;CMP (X),Y to   bank Z
+FF7D   jmp primm        ;print immediate (always JSR to this routine!)
+
+FF80   <FF>             ;release number of C65 Kernel ($FF=not released)
+
+FF81   jmp cint         ;init screen editor & display chips
+FF84   jmp ioinit       ;init I/O devices (ports, timers, etc.)
+FF87   jmp ramtas       ;initialize RAM for system
+FF8A   jmp restor       ;restore vectors to initial system
+FF8D   jmp vector       ;change vectors for user
+FF90   jmp setmsg       ;control OS messages
+FF93   jmp (isecond)    ;send sa after listen
+FF96   jmp (italksa)    ;send sa after talk
+FF99   jmp memtop       ;set/read top of memory
+FF9C   jmp membot       ;set/read bottom of memory
+FF9F   jmp key          ;scan keyboard
+FFA2   jmp settmo       ;old IEEE set timeout value
+FFA5   jmp (iacptr)     ;read a byte from active serial bus talker
+FFA8   jmp (iciout)     ;send a byte to active serial bus listener
+FFAB   jmp (iuntalk)    ;command serial bus device to stop talking
+FFAE   jmp (iunlisten)  ;command serial bus device to stop listening
+FFB1   jmp (ilisten)    ;command serial bus device to listen
+FFB4   jmp (italk)      ;command serial bus device to talk
+FFB7   jmp readss       ;return I/O status byte
+FFBA   jmp setlfs       ;set la, fa, sa
+FFBD   jmp setnam       ;set length and fn adr
+FFC0   jmp (iopen)      ;open logical file
+FFC3   jmp (iclose)     ;close logical file
+FFC6   jmp (ichkin)     ;open channel in
+FFC9   jmp (ickout)     ;open channel out
+FFCC   jmp (iclrch)     ;close I/O channel
+FFCF   jmp (ibasin)     ;input from channel
+FFD2   jmp (ibsout)     ;output to channel
+FFD5   jmp load         ;load from file
+FFD8   jmp save         ;save to file
+FFDB   jmp Set Time     ;set internal clock
+FFDE   jmp Read Time    :read internal clock
+FFE1   jmp (istop)      ;scan stop key
+FFE4   jmp (igetin)     ;get char from queue
+FFE7   jmp (iclall)     ;clear all logical files (see close all)
+FFEA   jmp ScanStopKey  ;(was increment clock) & scan stop key
+FFED   jmp scrorg       ;return current screen window size
+FFF0   jmp plot         ;read/set x,y coord
+FFF3   jmp iobase       ;return I/O base
+
+word fff6 ffff
+FFF6   c65mode          ;C64/C65 interface
+FFF8   c65mode
+
+FFFA   nmi              ;processor hardware vectors
+FFFC   reset
+FFFE   irq_kernel
+
+E000   cint            ;initialize editor & screen
+E003   disply          ;display character in .a, color in .x
+E006   lp2             ;get a key from IRQ buffer into .a
+E009   loopS           ;get a chr from screen line into .a
+E00C   print           ;print character in .a
+E00F   scrorg          ;get size of window (rows,cols) in .x, .y
+E012   keyboard_scan   ;scan keyboard subroutine
+E015   repeat          ;repeat key logic & CKIT2 to store decoded key
+E018   plot            ;read or set (.c) cursor position in .x, .y
+E01B   mouse_cmd       ;install/remove mouse driver
+E01E   escape          ;execute escape function using chr in .a
+E021   keyset          ;redefine a programmable function key
+E024   editor_irq      ;IRQ entry
+E027   palette_init    ;initialize VIC palette
+E02A   swap            ;40/80 mode change
+E02D   window          ;set top left or bottom right (.c) of window
+E030   cursor          ;turn on or off (.c) soft cursor
+
+
+7F00       ayint        ;convert floating point to integer
+7F03       givayf       ;convert integer to floating point.
+7F06       fout         ;convert floating point to ASCII string
+7F09       val_1        ;convert ASCII string to floating point
+7F0C       getadr       ;convert floating point to an address
+7F0F       floatc       ;convert address to floating point
+
+7F12       fsub         ;MEM - FACC
+7F15       fsubt        ;ARG - FACC
+7F18       fadd         ;MEM + FACC
+7F1B       faddt        ;ARG - FACC
+7F1E       fmult        ;MEM * FACC
+7F21       fmultt       ;ARG * FACC
+7F24       fdiv         ;MEM / FACC
+7F27       fdivt        ;ARG / FACC
+7F2A       log          ;compute natural log of FACC
+7F2D       int          ;perform BASIC INT() on FACC
+7F30       sqr          ;compute square root of FACC
+7F33       negop        ;negate FACC
+7F36       fpwr         ;raise ARG to the MEM power
+7F39       fpwrt        ;raise ARG to the FACC power
+7F3C       exp          ;compute EXP of FACC
+7F3F       cos          ;compute COS of FACC
+7F42       sin          ;compute SIN of FACC
+7F45       tan          ;compute TAN of FACC
+7F48       atn          ;compute ATN of FACC
+7F4B       round        ;round FACC
+7F4E       abs          ;absolute value of FACC
+7F51       sign         ;test sign of FACC
+7F54       fcomp        ;compare FACC with MEM
+7F57       rnd_0        ;generate random floating point number
+
+7F5A       conupk       ;move RAM MEM to ARG
+7F5D       romupk       ;move ROM MEM to ARG
+7F60       movfrm       :move RAM MEM to FACC
+7F63       movfm        :move ROM MEM to FACC
+7F66       movmf        :move FACC to MEM
+7F69       movfa        ;move ARG to FACC
+7F6C       movaf        ;move FACC to ARG
+7F6F       run
+7F72       runc
+7F75       clear
+7F78       new
+7F7B       link_program
+7F7E       crunch
+7F81       FindLine
+7F84       newstt
+7F87       eval
+7F8A       frmevl
+7F8D       run_a_program
+7F90       setexc
+7F93       linget
+7F96       garba2
+7F99       execute_a_line
+7F9C       chrget
+7F9F       chrgot
+7FA2       chkcom
+7FAS       frmnum
+7FA8       getadr
+7FAB       getnum
+7FAE       getbyt
+7FB1       plsv
+
+   Graphic Jump Table
+
+8000       init         ;Graphics BASIC init (same as command=0)
+8002       parse        ;Graphics BASIC command parser
+8003       start        ;0      commands
+8006       screendef    ;1
+8008       screenopen   ;2
+800A       screenclose  ;3
+800C       screenclear  ;4
+800E       screen       ;5
+8010       setpen       ;6
+8012       setpalette   ;7
+8014       setdmode     ;8
+8016       setdpat      ;9
+8018       line         ;10
+801A       box          ;11
+801C       circle       ;12
+801E       polygon      ;13
+8020       ellipse      ;14
+8022       viewpclr     ;15
+8024       copy         ;16
+8026       cut          ;17
+8028       paste        ;18
+802A       load         ;19
+802C       char         ;20
+802E       viewportdef  ;21
+
+
+02F7   jmp USR          ;USR vector (must be set by application)
+
+02FC   esc_fn_vec       ;Escape Function vector
+02FE   graphic_vector   ;Graphic Kernel vector
+0300   ierror           ;indirect error (output error in .x)
+0302   imain            ;indirect main (system direct loop)
+0304   icrnch           ;indirect crunch (tokenization routine)
+0306   iqplop           ;indirect list (char list)
+0308   igone            ;indirect gone (char dispatch)
+030A   ieval            ;indirect eval (symbol evaluation)
+030C   iesclk           ;escape token crunch
+030E   iescpr           ;escape token list
+0310   iescex           ;escape token execute
+
+02FA   iAutoScroll      ;AutoScroll used by BASIC, Monitor, Editor
+0312   itime            ;(unused)
+0314   iirq             ;IRQ
+0316   ibrk             ;BRK
+0318   inmi             ;NMI
+031A   iopen
+031C   iclose
+031E   ichkin
+0320   ickout
+0322   iclrch
+0324   ibasin
+0326   ibsout
+0328   istop
+032A   igetin
+032C   iclall
+032E   exmon            ;Monitor command indirect
+0330   iload
+0332   isave
+
+0334   ctlvec           ;'contrl' characters
+0336   shfvec           ;'shiftd' characters
+0338   escvec           ;'escape' characters
+033A   keyvec           ;post keyscan, pre-evaluation of keys
+033C   keychk           ;post-evaluation, pre-buffering of keys
+033E   decode           ;vectors to 6 keyboard matrix decode tables
