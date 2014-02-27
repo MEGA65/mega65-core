@@ -72,7 +72,7 @@ int main(int argc,char **argv)
 	else if (sscanf(line,"%x %[^\n\r]",&address,note)==2)
 	  {
 	    if (address>=0&&address<65536) {
-	      if (note[0]='@')
+	      if (note[0]=='@')
 		annotations[address]=strdup(&note[1]);
 	      else
 		headings[address]=strdup(note);
@@ -224,13 +224,15 @@ int main(int argc,char **argv)
 	c+=strlen(opnames[opcode])+1+strlen(args);
       } 
       if (annotation_address>65536) annotation_address&=0xffff;
-      if
-	(annotations[instruction_address]) {
+      if (annotations[instruction_address]) {
 	while(c<40) { printf(" "); c++; }
 	printf("; %s\n",annotations[instruction_address]);
       } else if (annotation_address!=-1&&annotations[annotation_address]) {
 	while(c<40) { printf(" "); c++; }
 	printf("; %s\n",annotations[annotation_address]);
+      } else if (annotation_address!=-1&&headings[annotation_address]) {
+	while(c<40) { printf(" "); c++; }
+	printf("; %s\n",headings[annotation_address]);
       } else printf("\n");
       if (!is_data[load_address+i-1]) {
 	if (!strcasecmp(opnames[opcode],"RTI")) printf("\n");
