@@ -1,3 +1,14 @@
+E0 pointer to screen line (unconfirmed)
+E1 pointer to screen line, high byte (unconfirmed)
+E2 pointer to colour ram for screen line (unconfirmed)
+E3 pointer to colour ram for screen line, high byte (unconfirmed)
+1104 C65 INIT STATUS byte (bit7 low=full init of IO, bit6 low=full init of screen editor)
+
+data c0bb c7ff
+c800 C65 RESET entry point
+c808 @ Map ROM from $32000-$3FFFF at $2000-$FFFF, except for $C000-$DFFF
+c809 @ Set 6502-like CPU state
+
 data e033 e07a
 E034  low byte of offset to start of 80-column screen lines
 E04C  high byte of offset to start of 80-column screen lines
@@ -17,10 +28,6 @@ data EDCE EDDD
 
 E07b initialise editor and screen
 E136 calculate address of line on screen and colour ram (40 or 80 column mode)
-E0 pointer to screen line (unconfirmed)
-E1 pointer to screen line, high byte (unconfirmed)
-E2 pointer to colour ram for screen line (unconfirmed)
-E3 pointer to colour ram for screen line, high byte (unconfirmed)
 E15B  editor_irq      ;IRQ entry
 E177 get a key from IRQ buffer into .a
 E1DF get a chr from screen line into .a
