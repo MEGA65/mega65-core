@@ -43,18 +43,33 @@ E3 pointer to colour ram for screen line, high byte (unconfirmed)
 033C   keychk           ;post-evaluation, pre-buffering of keys
 033E   decode           ;vectors to 6 keyboard matrix decode tables
 
+1100 Vector: BASIC entry point
+1102 Canary value (#$A5 after clearing ZP and stack, and setting basic entry point vectors at $110x)
+1108 Vector: (points to BASIC entry point on boot)
+110A Vector: (points to BASIC entry point on boot)
+
+
 data c0bb c7ff
 c800 C65 RESET entry point
 c808 @ Map ROM from $32000-$3FFFF at $2000-$FFFF, except for $C000-$DFFF
 c809 @ Set 6502-like CPU state
 c814 @ Mark all sub-systems as uninitialised
+C81E @Take branch if stop key down
+c820 @Is Commodore key down? If so ...
+c825 @Neither STOP and Commodore pressed, so normal start up
+c827 @STOP key is down, so check if $1102=#$A5
+c829 @if $1102=#$A5, ZP, stack and basic entry point have already been set, so ...
+c82c @...skip clearing memory
+c845 @If STOP key is down start ML monitor
+c848 Presumably start BASIC 10 ($1100)=$2000
+CEE8 Enter ML monitorq
 CABE read debounced IO input?
 CB47 Setup user port for UART operation?
 CCF7 Switch to C65 DOS memory configuration
 CD19 @ Map RAM @ $10000-$11FFF @ $0000-$1FFF (C65 DOS buffers)
 CD1D @ Map ROM @ $20000-$203FFF @ $8000-$BFFF (C65 DOS ROMs)
 CD38 Map C65 Kernel and graphics ROMs
-CD98 @ Initialise DOS
+CD9A Initialise DOS
 CDA3 @ Unmap 2nd KB of colour RAM @ $DC00-$DFFF (make CIAs etc visible)
 CDA8 @ Allow interrupts again, which have been blocked since switching to DOS memory map
 
@@ -111,7 +126,11 @@ F005 @ IF C=1, save Kernel IO vectors, else load list from $FF09
 F026 @ Do something to the floppy controller
 F02B @ Set DOS vectors to point to internal 1581 DOS
 F037 Set DOS vectors to point to IEC routines
+f043 Clear ZP, stack, and set BASIC10 entry vectors
 F043 @ clear memory at $0000-$01FF
+F04D @ high-byte of BASIC10 entry point
+F04F @ low-byte of BASIC10 entry point
+F051 @ Write basic entry point into $1100-$1101
 F067 initialise far memory access routines at $0380-$03E5 (copy from $F204-$F269)
 0380 (kernel routine copied from F204: Call routine in any memory context, and return in C65 ROM context?)
 F204 Call routine in any memory context, and return in C65 ROM context?
@@ -151,7 +170,11 @@ f1cd VIC-III palette blue
 data f1ad f1dc 
 f1dd GO64: switch to C64 mode and start C64 kernel in C64-only mode
 f1eb GO64 routine (gets copied to $0002)
+f921 Check for (bucky?) keys down? (same effect as $F6BC in C64 Kernel)
+F9F7 load/store vector at $110A-$110B
 F9FF X -> $110A, Y -> $110B
+FA06 load/store vector at $1108-$1109
+FA0E X -> $1108, Y -> $1109
 data FD99 FEFF
 FF00 Unused (contains remnant portion of VIC-III IO mode select)
 data FF00 FF08
@@ -374,17 +397,17 @@ E030   cursor          ;turn on or off (.c) soft cursor
 
 ; Internal DOS
 word 8000 8015
-8000 Call vector: Initialise internal DOS
-8002 Call vector: Reset DOS status
-8004 Call vector: 1581 DOS unused (just an RTS)
-8006 Call vector: 1581 DOS Send talk address
-8008 Call vector: 1581 DOS Send listen address
-800A Call vector: 1581 DOS Send secondary address (talk)
-800C Call vector: 1581 DOS Send secondary address after listen
-800E Call vector: 1581 DOS Input on serial bus
-8010 Call vector: 1581 DOS Output on serial bus
-8012 Call vector: 1581 DOS Send untalk
-8014 Call vector: 1581 DOS Send unlisten
+8000 @Call vector: Initialise internal DOS
+8002 @Call vector: Reset DOS status
+8004 @Call vector: 1581 DOS unused (just an RTS)
+8006 @Call vector: 1581 DOS Send talk address
+8008 @Call vector: 1581 DOS Send listen address
+800A @Call vector: 1581 DOS Send secondary address (talk)
+800C @Call vector: 1581 DOS Send secondary address after listen
+800E @Call vector: 1581 DOS Input on serial bus
+8010 @Call vector: 1581 DOS Output on serial bus
+8012 @Call vector: 1581 DOS Send untalk
+8014 @Call vector: 1581 DOS Send unlisten
 text 8016 801C
 8016 C65 ROM version
 801D Initialise DOS
