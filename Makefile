@@ -43,3 +43,12 @@ dis4510:	dis4510.c
 
 4510tables:	4510tables.c
 	gcc -g -Wall -o 4510tables 4510tables.c
+
+c65-rom-disassembly.txt:	dis4510 c65-dos-context.bin c65-rom-annotations.txt
+	./dis4510 c65-dos-context.bin 8000 c65-rom-annotations.txt > c65-rom-disassembly.txt
+
+c65-dos-context.bin:	c65-rom-910111.bin Makefile
+	dd if=c65-rom-910111.bin bs=16384 skip=0 count=1 > c65-dos-context.bin
+	dd if=c65-rom-910111.bin bs=4096 skip=12 count=1 >> c65-dos-context.bin
+	dd if=/dev/zero bs=4096 count=1 >> c65-dos-context.bin
+	dd if=c65-rom-910111.bin bs=8192 skip=15 count=1 >> c65-dos-context.bin
