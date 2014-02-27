@@ -3,11 +3,63 @@ E1 pointer to screen line, high byte (unconfirmed)
 E2 pointer to colour ram for screen line (unconfirmed)
 E3 pointer to colour ram for screen line, high byte (unconfirmed)
 1104 C65 INIT STATUS byte (bit7 low=full init of IO, bit6 low=full init of screen editor)
+02F7   jmp USR          ;USR vector (must be set by application)
+
+02FC   esc_fn_vec       ;Escape Function vector
+02FE   graphic_vector   ;Graphic Kernel vector
+0300   ierror           ;indirect error (output error in .x)
+0302   imain            ;indirect main (system direct loop)
+0304   icrnch           ;indirect crunch (tokenization routine)
+0306   iqplop           ;indirect list (char list)
+0308   igone            ;indirect gone (char dispatch)
+030A   ieval            ;indirect eval (symbol evaluation)
+030C   iesclk           ;escape token crunch
+030E   iescpr           ;escape token list
+0310   iescex           ;escape token execute
+
+02FA   iAutoScroll      ;AutoScroll used by BASIC, Monitor, Editor
+0312   itime            ;(unused)
+0314   iirq             ;IRQ
+0316   ibrk             ;BRK
+0318   inmi             ;NMI
+031A   iopen
+031C   iclose
+031E   ichkin
+0320   ickout
+0322   iclrch
+0324   ibasin
+0326   ibsout
+0328   istop
+032A   igetin
+032C   iclall
+032E   exmon            ;Monitor command indirect
+0330   iload
+0332   isave
+
+0334   ctlvec           ;'contrl' characters
+0336   shfvec           ;'shiftd' characters
+0338   escvec           ;'escape' characters
+033A   keyvec           ;post keyscan, pre-evaluation of keys
+033C   keychk           ;post-evaluation, pre-buffering of keys
+033E   decode           ;vectors to 6 keyboard matrix decode tables
 
 data c0bb c7ff
 c800 C65 RESET entry point
 c808 @ Map ROM from $32000-$3FFFF at $2000-$FFFF, except for $C000-$DFFF
 c809 @ Set 6502-like CPU state
+c814 @ Mark all sub-systems as uninitialised
+CABE read debounced IO input?
+CB47 Setup user port for UART operation?
+CCF7 Switch to C65 DOS memory configuration
+CD19 @ Map RAM @ $10000-$11FFF @ $0000-$1FFF (C65 DOS buffers)
+CD1D @ Map ROM @ $20000-$203FFF @ $8000-$BFFF (C65 DOS ROMs)
+CD38 Map C65 Kernel and graphics ROMs
+CD98 @ Initialise DOS
+CDA3 @ Unmap 2nd KB of colour RAM @ $DC00-$DFFF (make CIAs etc visible)
+CDA8 @ Allow interrupts again, which have been blocked since switching to DOS memory map
+
+d000 memory mapped IO
+data d000 dfff
 
 data e033 e07a
 E034  low byte of offset to start of 80-column screen lines
@@ -16,6 +68,10 @@ E065  vectors for $0334 - $033D
 word e065 e06e
 E06F vectors for 6 keyboard decode tables
 word e06f e07a
+e109 @ copy $ED6F-$EDC4 to $1000-$1065
+e114 @ mark screen editor as initialised
+data ED6F EDC6
+ED6F initial values of OS variables for copying to $1000-$1065
 data edde ef49
 EDDE keyboard decode table 1
 EE27 keyboard decode table 2
@@ -50,11 +106,57 @@ EC41 redefine a programmable function key
 ECCD 40/80 mode change
 ED18 turn on or off (.c) soft cursor
 ED83 default function key strings
+F000 Copy Kernel IO vectors to $0314
+F005 @ IF C=1, save Kernel IO vectors, else load list from $FF09
+F026 @ Do something to the floppy controller
+F02B @ Set DOS vectors to point to internal 1581 DOS
+F037 Set DOS vectors to point to IEC routines
+F043 @ clear memory at $0000-$01FF
+F067 initialise far memory access routines at $0380-$03E5 (copy from $F204-$F269)
+0380 (kernel routine copied from F204: Call routine in any memory context, and return in C65 ROM context?)
+F204 Call routine in any memory context, and return in C65 ROM context?
+039E (kernel routine copied from F222: Call routine in any memory context?)
+F222 Call routine in any memory context?
+03C4 (kernel routine copied from F248: map C65 ROMs)
+F248 Map C65 roms
+f252 DMAgic command lists that gets copied to $03CE - $03E5
+data F252 f269
+f253 @ DMA count of bytes
+word f253 f254
+word f255 f256
+f255 @ DMA source address
+f257 @ DMA source bank
+word f257 f258
+f257 @ DMA destination address
+f259 @ DMA destination bank
+word f25a f25b
+f25a @ DMA address modulus
+
+f26a Use DMA controller to load memory in any bank
+f28e Use DMA controller to store memory in any bank
+f2b5 Use DMAgic to compare memory locations in any bank
+F073 setup IO
+F0Eb @ Set VIC-III registers
+F0F6 @ Set VIC-III to H640 + 8-bit character attributes, 1MHz CPU
+F11F @ Zero left and right SID registers (1MHz clock set at $F0F6)
+F12C @ Set VIC-III to H640 + 8-bit character attributes, 1MHz CPU
 F14E initialize VIC palette
+f17b "CBM"
+text f17b f17d
+f17e default VIC-III register values
+data f17e f1ac
+f1ad VIC-III palette red
+f1bd VIC-III palette green
+f1cd VIC-III palette blue
+data f1ad f1dc 
+f1dd GO64: switch to C64 mode and start C64 kernel in C64-only mode
+f1eb GO64 routine (gets copied to $0002)
+F9FF X -> $110A, Y -> $110B
+data FD99 FEFF
+FF00 Unused (contains remnant portion of VIC-III IO mode select)
+data FF00 FF08
 
-
-
-
+word FF09 FF4C
 FF09   nirq             ;IRQ handler
 FF0B   monitor_brk      ;BRK handler (Monitor)
 FF0D   nnmi             ;NMI handler
@@ -243,70 +345,60 @@ E030   cursor          ;turn on or off (.c) soft cursor
 7FAE       getbyt
 7FB1       plsv
 
-   Graphic Jump Table
+;   Graphic Jump Table (not relevant in this memory context
+;
+;8000       init         ;Graphics BASIC init (same as command=0)
+;8002       parse        ;Graphics BASIC command parser
+;8003       start        ;0      commands
+;8006       screendef    ;1
+;8008       screenopen   ;2
+;800A       screenclose  ;3
+;800C       screenclear  ;4
+;800E       screen       ;5
+;8010       setpen       ;6
+;8012       setpalette   ;7
+;8014       setdmode     ;8
+;8016       setdpat      ;9
+;8018       line         ;10
+;801A       box          ;11
+;801C       circle       ;12
+;801E       polygon      ;13
+;8020       ellipse      ;14
+;8022       viewpclr     ;15
+;8024       copy         ;16
+;8026       cut          ;17
+;8028       paste        ;18
+;802A       load         ;19
+;802C       char         ;20
+;802E       viewportdef  ;21
 
-8000       init         ;Graphics BASIC init (same as command=0)
-8002       parse        ;Graphics BASIC command parser
-8003       start        ;0      commands
-8006       screendef    ;1
-8008       screenopen   ;2
-800A       screenclose  ;3
-800C       screenclear  ;4
-800E       screen       ;5
-8010       setpen       ;6
-8012       setpalette   ;7
-8014       setdmode     ;8
-8016       setdpat      ;9
-8018       line         ;10
-801A       box          ;11
-801C       circle       ;12
-801E       polygon      ;13
-8020       ellipse      ;14
-8022       viewpclr     ;15
-8024       copy         ;16
-8026       cut          ;17
-8028       paste        ;18
-802A       load         ;19
-802C       char         ;20
-802E       viewportdef  ;21
-
-
-02F7   jmp USR          ;USR vector (must be set by application)
-
-02FC   esc_fn_vec       ;Escape Function vector
-02FE   graphic_vector   ;Graphic Kernel vector
-0300   ierror           ;indirect error (output error in .x)
-0302   imain            ;indirect main (system direct loop)
-0304   icrnch           ;indirect crunch (tokenization routine)
-0306   iqplop           ;indirect list (char list)
-0308   igone            ;indirect gone (char dispatch)
-030A   ieval            ;indirect eval (symbol evaluation)
-030C   iesclk           ;escape token crunch
-030E   iescpr           ;escape token list
-0310   iescex           ;escape token execute
-
-02FA   iAutoScroll      ;AutoScroll used by BASIC, Monitor, Editor
-0312   itime            ;(unused)
-0314   iirq             ;IRQ
-0316   ibrk             ;BRK
-0318   inmi             ;NMI
-031A   iopen
-031C   iclose
-031E   ichkin
-0320   ickout
-0322   iclrch
-0324   ibasin
-0326   ibsout
-0328   istop
-032A   igetin
-032C   iclall
-032E   exmon            ;Monitor command indirect
-0330   iload
-0332   isave
-
-0334   ctlvec           ;'contrl' characters
-0336   shfvec           ;'shiftd' characters
-0338   escvec           ;'escape' characters
-033A   keyvec           ;post keyscan, pre-evaluation of keys
-033C   keychk           ;post-evaluation, pre-buffering of keys
-033E   decode           ;vectors to 6 keyboard matrix decode tables
+; Internal DOS
+word 8000 8015
+8000 Call vector: Initialise internal DOS
+8002 Call vector: Reset DOS status
+8004 Call vector: 1581 DOS unused (just an RTS)
+8006 Call vector: 1581 DOS Send talk address
+8008 Call vector: 1581 DOS Send listen address
+800A Call vector: 1581 DOS Send secondary address (talk)
+800C Call vector: 1581 DOS Send secondary address after listen
+800E Call vector: 1581 DOS Input on serial bus
+8010 Call vector: 1581 DOS Output on serial bus
+8012 Call vector: 1581 DOS Send untalk
+8014 Call vector: 1581 DOS Send unlisten
+text 8016 801C
+8016 C65 ROM version
+801D Initialise DOS
+8024 Return DOS status?
+803D Empty routine
+data 8634 864F
+8634 Ascending byte values from $02-$1D
+9CB7 Send talk address to internal drive?
+9C5B Send listen address to internal drive?
+9CCD Send secondary address (talk or listen) to internal drive?
+9D26 Input from internal drive?
+9D4A Input from internal drive?
+9DA0 Send untalk to internal drive?
+9D87 Send unlisten to internal drive?
+BA1D Clear $0000-$019C and $0200-$1FFF
+8A2E @ ... and clear page $02 ...
+8A37 @ ... and clear the rest of the 8KB DOS memory
