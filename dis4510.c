@@ -8,6 +8,7 @@ char *modes[256]={NULL};
 
 int main(int argc,char **argv)
 {
+  char *headings[65536]={0};
   char *annotations[65536]={0};
   char is_data[65536]={0};
 
@@ -71,7 +72,10 @@ int main(int argc,char **argv)
 	else if (sscanf(line,"%x %[^\n\r]",&address,note)==2)
 	  {
 	    if (address>=0&&address<65536) {
-	      annotations[address]=strdup(note);
+	      if (note[0]='@')
+		annotations[address]=strdup(&note[1]);
+	      else
+		headings[address]=strdup(note);
 	      count++;
 	    }
 	  }
@@ -123,8 +127,8 @@ int main(int argc,char **argv)
 	printf("\n");
 
       // Print address and opcode byte
-      if (annotations[load_address+i]&&annotations[load_address+i][0]!='@') {
-	printf("; %s\n",annotations[load_address+i]);
+      if (headings[load_address+i]) {
+	printf("; %s\n",headings[load_address+i]);
       }
       int instruction_address=load_address+i;
       printf("%04X  %02X",load_address+i,mem[i]);
@@ -221,9 +225,9 @@ int main(int argc,char **argv)
       } 
       if (annotation_address>65536) annotation_address&=0xffff;
       if
-	(annotations[instruction_address]&&annotations[instruction_address][0]=='@') {
+	(annotations[instruction_address]) {
 	while(c<40) { printf(" "); c++; }
-	printf("; %s\n",&annotations[instruction_address][1]);
+	printf("; %s\n",annotations[instruction_address]);
       } else if (annotation_address!=-1&&annotations[annotation_address]) {
 	while(c<40) { printf(" "); c++; }
 	printf("; %s\n",annotations[annotation_address]);
