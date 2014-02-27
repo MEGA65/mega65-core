@@ -101,8 +101,8 @@ int main(int argc,char **argv)
       int opcode=mem[i];
       int c=0;
       
-      /*
-      if (is_data[load_address+i-1]==0) {
+      
+      if (is_data[load_address+i-1]==1) {
 	if (mem[i]==mem[i+1]&&mem[i]==mem[i+2]&&mem[i]==mem[i+3]) {
 	  // run of identical bytes, assume data.
 	  int j=i;
@@ -115,7 +115,6 @@ int main(int argc,char **argv)
 	  continue;
 	}
       }
-      */
 
       // printf("op=%02X, mode=%s\n",opcode,modes[opcode]);
 
@@ -124,9 +123,10 @@ int main(int argc,char **argv)
 	printf("\n");
 
       // Print address and opcode byte
-      if (annotations[load_address+i]) {
+      if (annotations[load_address+i]&&annotations[load_address+i][0]!='@') {
 	printf("; %s\n",annotations[load_address+i]);
       }
+      int instruction_address=load_address+i;
       printf("%04X  %02X",load_address+i,mem[i]);
       i++;
 
@@ -157,23 +157,25 @@ int main(int argc,char **argv)
 	}
 	printf("'");
       } else {
+	int immediate=0;
 	for(j=0;modes[opcode][j];) {
 	  args[o]=0;
 	  // printf("j=%d, args=[%s], template=[%s]\n",j,args,modes[opcode]);
 	  switch(modes[opcode][j]) {
 	  case 'n': // normal argument
 	    digits=0;
+	    if (j<2||modes[opcode][j-2]!='#') immediate=0; else immediate=1;
 	    while (modes[opcode][j++]=='n') digits++; j--;
 	    if (digits==2) {
 	      value=mem[i];
-	      annotation_address=value;
+	      if (!immediate) annotation_address=value;
 	      printf(" %02X",mem[i++]);
 	      sprintf(&args[o],"%02X",value); o+=2;
 	      c+=3;
 	    }
 	    if (digits==4) {
 	      value=mem[i]+(mem[i+1]<<8);
-	      annotation_address=value;
+	      if (!immediate) annotation_address=value;
 	      printf(" %02X",mem[i++]);
 	      printf(" %02X",mem[i++]);
 	      sprintf(&args[o],"%04X",value); o+=4;
@@ -218,7 +220,11 @@ int main(int argc,char **argv)
 	c+=strlen(opnames[opcode])+1+strlen(args);
       } 
       if (annotation_address>65536) annotation_address&=0xffff;
-      if (annotation_address!=-1&&annotations[annotation_address]) {
+      if
+	(annotations[instruction_address]&&annotations[instruction_address][0]=='@') {
+	while(c<40) { printf(" "); c++; }
+	printf("; %s\n",&annotations[instruction_address][1]);
+      } else if (annotation_address!=-1&&annotations[annotation_address]) {
 	while(c<40) { printf(" "); c++; }
 	printf("; %s\n",annotations[annotation_address]);
       } else printf("\n");
