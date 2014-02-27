@@ -406,7 +406,7 @@ begin
     else
       if reg_map_low(blocknum)='1' then
         temp_address(27 downto 20) := reg_mb_low;
-        temp_address(19 downto 8) := reg_offset_low+to_integer(short_address(14 downto 8));
+        temp_address(19 downto 8) := reg_offset_low+to_integer(short_address(15 downto 8));
         temp_address(7 downto 0) := short_address(7 downto 0);
         report "mapped memory address is $" & to_hstring(temp_address) severity note;
       else
