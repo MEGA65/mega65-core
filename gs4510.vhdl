@@ -388,34 +388,8 @@ begin
     variable blocknum : integer;
     variable lhc : std_logic_vector(2 downto 0);
   begin  -- resolve_long_address
-    -- Lower 8 address bits are never changed
-    temp_address(7 downto 0):=short_address(7 downto 0);
 
-    -- Add the map offset if required
-    blocknum := to_integer(short_address(14 downto 13));
-    if short_address(15)='1' then
-      if reg_map_high(blocknum)='1' then
-        temp_address(27 downto 20) := reg_mb_high;
-        temp_address(19 downto 8) := reg_offset_high+to_integer(short_address(15 downto 8));
-        temp_address(7 downto 0) := short_address(7 downto 0);
-        
-      else
-        temp_address(27 downto 16) := (others => '0');
-        temp_address(15 downto 0) := short_address;
-      end if;
-    else
-      if reg_map_low(blocknum)='1' then
-        temp_address(27 downto 20) := reg_mb_low;
-        temp_address(19 downto 8) := reg_offset_low+to_integer(short_address(15 downto 8));
-        temp_address(7 downto 0) := short_address(7 downto 0);
-        report "mapped memory address is $" & to_hstring(temp_address) severity note;
-      else
-        temp_address(27 downto 16) := (others => '0');
-        temp_address(15 downto 0) := short_address;
-      end if;
-    end if;
-    
-    -- Now apply $01 and $D030 lines to determine what is really going on.    
+    -- Now apply C64-style $01 lines first, because MAP and $D030 take precedence
     blocknum := to_integer(short_address(15 downto 12));
 
     lhc := std_logic_vector(cpuport_value(2 downto 0));
@@ -455,7 +429,34 @@ begin
       end if;
     end if;
 
+    -- Lower 8 address bits are never changed
+    temp_address(7 downto 0):=short_address(7 downto 0);
+
+    -- Add the map offset if required
+    blocknum := to_integer(short_address(14 downto 13));
+    if short_address(15)='1' then
+      if reg_map_high(blocknum)='1' then
+        temp_address(27 downto 20) := reg_mb_high;
+        temp_address(19 downto 8) := reg_offset_high+to_integer(short_address(15 downto 8));
+        temp_address(7 downto 0) := short_address(7 downto 0);       
+      else
+        temp_address(27 downto 16) := (others => '0');
+        temp_address(15 downto 0) := short_address;
+      end if;
+    else
+      if reg_map_low(blocknum)='1' then
+        temp_address(27 downto 20) := reg_mb_low;
+        temp_address(19 downto 8) := reg_offset_low+to_integer(short_address(15 downto 8));
+        temp_address(7 downto 0) := short_address(7 downto 0);
+        report "mapped memory address is $" & to_hstring(temp_address) severity note;
+      else
+        temp_address(27 downto 16) := (others => '0');
+        temp_address(15 downto 0) := short_address;
+      end if;
+    end if;
+    
     -- $D030 ROM select lines:
+    blocknum := to_integer(short_address(15 downto 12));
     if (blocknum=14 or blocknum=15) and rom_at_e000='1' then
       temp_address(27 downto 12) := x"003E";
       if blocknum=15 then temp_address(12):='1'; end if;
