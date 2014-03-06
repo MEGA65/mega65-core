@@ -413,6 +413,7 @@ text 8016 801C
 801D Initialise DOS
 8024 Return DOS status?
 803D Empty routine
+82AF Read from $00BD or $00BD+(#$13 + $FB)
 data 8634 864F
 8634 Ascending byte values from $02-$1D
 9CB7 Send talk address to internal drive?
@@ -425,3 +426,6 @@ data 8634 864F
 BA1D Clear $0000-$019C and $0200-$1FFF
 8A2E @ ... and clear page $02 ...
 8A37 @ ... and clear the rest of the 8KB DOS memory
+data 99b6 9a2b
+99b6 unknown data
+; b652 onwards - dos messages and vectors?  need to decode as text and data
