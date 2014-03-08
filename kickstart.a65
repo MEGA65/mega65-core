@@ -1306,6 +1306,8 @@ l6:		iny
 
 resetdisplay:
 		; reset screen
+		lda #$40
+		sta $d030
 		lda #$00
 		sta $d031
 		sta $D020
