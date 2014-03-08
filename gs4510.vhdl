@@ -397,6 +397,13 @@ begin
     lhc(1) := lhc(1) or (not cpuport_ddr(1));
     lhc(0) := lhc(0) or (not cpuport_ddr(0));
     
+    -- Examination of the C65 interface ROM reveals that MAP instruction
+    -- takes precedence over $01 CPU port when MAP bit is set for a block of RAM.
+
+    -- default is address in = address out
+    temp_address(27 downto 16) := (others => '0');
+    temp_address(15 downto 0) := short_address;
+
     -- IO
     if (blocknum=13) and ((lhc(0)='1') or (lhc(1)='1')) and (lhc(2)='1') then
       temp_address(27 downto 12) := x"FFD3";
@@ -408,8 +415,6 @@ begin
       temp_addresS(11 downto 0) := short_address(11 downto 0);
     end if;
 
-    -- Examination of the C65 interface ROM reveals that MAP instruction
-    -- takes precedence over $01 CPU port when MAP bit is set for a block of RAM.
     -- C64 KERNEL
     if reg_map_high(3)='0' then
       if (blocknum=14) and (lhc(1)='1') and (writeP=false) then
@@ -439,9 +444,6 @@ begin
         temp_address(27 downto 20) := reg_mb_high;
         temp_address(19 downto 8) := reg_offset_high+to_integer(short_address(15 downto 8));
         temp_address(7 downto 0) := short_address(7 downto 0);       
-      else
-        temp_address(27 downto 16) := (others => '0');
-        temp_address(15 downto 0) := short_address;
       end if;
     else
       if reg_map_low(blocknum)='1' then
@@ -449,9 +451,6 @@ begin
         temp_address(19 downto 8) := reg_offset_low+to_integer(short_address(15 downto 8));
         temp_address(7 downto 0) := short_address(7 downto 0);
         report "mapped memory address is $" & to_hstring(temp_address) severity note;
-      else
-        temp_address(27 downto 16) := (others => '0');
-        temp_address(15 downto 0) := short_address;
       end if;
     end if;
     
