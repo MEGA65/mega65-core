@@ -21,7 +21,11 @@ entity uart_monitor is
     monitor_b : in std_logic_vector(7 downto 0);
     monitor_sp : in std_logic_vector(15 downto 0);
     monitor_p : in std_logic_vector(7 downto 0);
-    
+    monitor_map_offset_low : in std_logic_vector(11 downto 0);
+    monitor_map_offset_high : in std_logic_vector(11 downto 0);
+    monitor_map_enables_low : in std_logic_vector(3 downto 0);
+    monitor_map_enables_high : in std_logic_vector(3 downto 0);   
+
     monitor_mem_address : out std_logic_vector(27 downto 0);
     monitor_mem_rdata : in unsigned(7 downto 0);
     monitor_mem_wdata : out unsigned(7 downto 0);
@@ -95,7 +99,7 @@ architecture behavioural of uart_monitor is
   constant errorMessage : string := crlf & "?SYNTAX  ERROR ";
   constant timeoutMessage : string := crlf & "?DEVICE NOT FOUND  ERROR" & crlf;
 
-  constant registerMessage : string := crlf & "PC   A  X  Y  Z  B  SP    P" & crlf;
+  constant registerMessage : string := crlf & "PC   A  X  Y  Z  B  SP   MAPL MAPH P P-FLAGS" & crlf;
   
   type monitor_state is (Reseting,
                          PrintBanner,PrintHelp,
@@ -125,7 +129,9 @@ architecture behavioural of uart_monitor is
                          ShowRegisters5,ShowRegisters6,ShowRegisters7,ShowRegisters8,
                          ShowRegisters9,ShowRegisters10,ShowRegisters11,ShowRegisters12,
                          ShowRegisters13,ShowRegisters14,ShowRegisters15,ShowRegisters16,
-                         ShowRegisters17,ShowRegisters18,ShowRegisters19,
+                         ShowRegisters17,ShowRegisters18,ShowRegisters19,ShowRegisters20,
+                         ShowRegisters21,ShowRegisters22,ShowRegisters23,ShowRegisters24,
+                         ShowRegisters25,
                          ShowP1,ShowP2,ShowP3,ShowP4,ShowP5,ShowP6,ShowP7,ShowP8,
                          TraceStep,CPUBreak1,WaitOneCycle
                          );
@@ -824,8 +830,15 @@ begin
           when ShowRegisters15 => print_hex_byte(unsigned(monitor_sp(15 downto 8)),ShowRegisters16);
           when ShowRegisters16 => print_hex_byte(unsigned(monitor_sp(7 downto 0)),ShowRegisters17);
           when ShowRegisters17 => try_output_char(' ',ShowRegisters18);
-          when ShowRegisters18 => print_hex_byte(unsigned(monitor_p),ShowRegisters19);
-          when ShowRegisters19 => try_output_char(' ',ShowP1);
+          when ShowRegisters18 => print_hex_byte(unsigned(monitor_map_enables_low & monitor_map_offset_low(11 downto 8)),ShowRegisters19);
+          when ShowRegisters19 => print_hex_byte(unsigned(monitor_map_offset_low(7 downto 0)),ShowRegisters20);
+          when ShowRegisters20 => try_output_char(' ',ShowRegisters21);
+          when ShowRegisters21 => print_hex_byte(unsigned(monitor_map_enables_high & monitor_map_offset_high(11 downto 8)),ShowRegisters22);
+          when ShowRegisters22 => print_hex_byte(unsigned(monitor_map_offset_high(7 downto 0)),ShowRegisters23);
+          when ShowRegisters23 => print_hex_byte(unsigned(monitor_p),ShowRegisters24);
+          when ShowRegisters24 => try_output_char(' ',ShowRegisters25);
+
+          when ShowRegisters25 => try_output_char(' ',ShowP1);
           when ShowP1 =>
             if monitor_p(7)='1' then
               try_output_char('N',ShowP2);

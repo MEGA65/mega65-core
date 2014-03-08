@@ -112,6 +112,11 @@ architecture Behavioral of machine is
       monitor_z : in std_logic_vector(7 downto 0);
       monitor_sp : in std_logic_vector(15 downto 0);
       monitor_p : in std_logic_vector(7 downto 0);
+      monitor_map_offset_low : in std_logic_vector(11 downto 0);
+      monitor_map_offset_high : in std_logic_vector(11 downto 0);
+      monitor_map_enables_low : in std_logic_vector(3 downto 0);
+      monitor_map_enables_high : in std_logic_vector(3 downto 0);   
+
 
       monitor_mem_address : out std_logic_vector(27 downto 0);
       monitor_mem_rdata : in unsigned(7 downto 0);
@@ -142,6 +147,10 @@ architecture Behavioral of machine is
       monitor_z : out std_logic_vector(7 downto 0);
       monitor_sp : out std_logic_vector(15 downto 0);
       monitor_p : out std_logic_vector(7 downto 0);
+      monitor_map_offset_low : out std_logic_vector(11 downto 0);
+      monitor_map_offset_high : out std_logic_vector(11 downto 0);
+      monitor_map_enables_low : out std_logic_vector(3 downto 0);
+      monitor_map_enables_high : out std_logic_vector(3 downto 0);
       monitor_state : out std_logic_vector(7 downto 0);
 
       ---------------------------------------------------------------------------
@@ -311,6 +320,10 @@ architecture Behavioral of machine is
   signal monitor_mem_address : std_logic_vector(27 downto 0);
   signal monitor_mem_rdata : unsigned(7 downto 0);
   signal monitor_mem_wdata : unsigned(7 downto 0);
+  signal monitor_map_offset_low : std_logic_vector(11 downto 0);
+  signal monitor_map_offset_high : std_logic_vector(11 downto 0);
+  signal monitor_map_enables_low : std_logic_vector(3 downto 0);
+  signal monitor_map_enables_high : std_logic_vector(3 downto 0);   
   signal monitor_mem_read : std_logic;
   signal monitor_mem_write : std_logic;
   signal monitor_mem_setpc : std_logic;
@@ -475,6 +488,10 @@ begin
     monitor_sp => monitor_sp,
     monitor_p => monitor_p,
     monitor_state => monitor_state,
+    monitor_map_offset_low => monitor_map_offset_low,
+    monitor_map_offset_high => monitor_map_offset_high,
+    monitor_map_enables_low => monitor_map_enables_low,
+    monitor_map_enables_high => monitor_map_enables_high,
 
     monitor_mem_address => monitor_mem_address,
     monitor_mem_rdata => monitor_mem_rdata,
@@ -595,6 +612,10 @@ begin
     monitor_z => monitor_z,
     monitor_sp => monitor_sp,
     monitor_p => monitor_p,
+    monitor_map_offset_low => monitor_map_offset_low,
+    monitor_map_offset_high => monitor_map_offset_high,
+    monitor_map_enables_low => monitor_map_enables_low,
+    monitor_map_enables_high => monitor_map_enables_high,
     
     monitor_mem_address => monitor_mem_address,
     monitor_mem_rdata => monitor_mem_rdata,
