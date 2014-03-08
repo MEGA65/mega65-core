@@ -19,7 +19,7 @@ kickstart65gs.bin:	kickstart.a65 Makefile
 kickstart.vhdl:	rom_template.vhdl kickstart65gs.bin makerom
 	./makerom rom_template.vhdl kickstart65gs.bin kickstart
 
-transfer:
+transfer:	kickstart.vhdl
 	scp -p Makefile makerom kernel65.a65 *.ucf *.xise *.prj *vhd *vhdl 192.168.56.101:c64accel/
 
 
