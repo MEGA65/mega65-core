@@ -911,11 +911,11 @@ l7:		ldx #<msg_foundsdcard
 ;;; ----------------------------------------------------------------------------
 sdreset:
 		; try SD-HC mode first
-		lda #$41
-		sta $D680
-		jsr sd_resetsequence
-		bcc sdr1
-		rts
+;		lda #$41
+;		sta $D680
+;		jsr sd_resetsequence
+;		bcc sdr1
+;		rts
 sdr1:		; fall back to SD mode
 		lda #$42
 		sta $d680
@@ -1307,8 +1307,10 @@ l6:		iny
 resetdisplay:
 		; reset screen
 		lda #$00
+		sta $d031
 		sta $D020
 		sta $D021
+		sta $D054
 		; We use VIC-II style registers as this resets video frame in
 		; least instructions, and 40 columns is fine for us.
 		lda #$14
