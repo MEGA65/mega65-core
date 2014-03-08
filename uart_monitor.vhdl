@@ -99,7 +99,7 @@ architecture behavioural of uart_monitor is
   constant errorMessage : string := crlf & "?SYNTAX  ERROR ";
   constant timeoutMessage : string := crlf & "?DEVICE NOT FOUND  ERROR" & crlf;
 
-  constant registerMessage : string := crlf & "PC   A  X  Y  Z  B  SP   MAPL MAPH P P-FLAGS" & crlf;
+  constant registerMessage : string := crlf & "PC   A  X  Y  Z  B  SP   MAPL MAPH P  P-FLAGS" & crlf;
   
   type monitor_state is (Reseting,
                          PrintBanner,PrintHelp,
@@ -131,7 +131,7 @@ architecture behavioural of uart_monitor is
                          ShowRegisters13,ShowRegisters14,ShowRegisters15,ShowRegisters16,
                          ShowRegisters17,ShowRegisters18,ShowRegisters19,ShowRegisters20,
                          ShowRegisters21,ShowRegisters22,ShowRegisters23,ShowRegisters24,
-                         ShowRegisters25,
+                         ShowRegisters25,ShowRegisters26,
                          ShowP1,ShowP2,ShowP3,ShowP4,ShowP5,ShowP6,ShowP7,ShowP8,
                          TraceStep,CPUBreak1,WaitOneCycle
                          );
@@ -835,10 +835,11 @@ begin
           when ShowRegisters20 => try_output_char(' ',ShowRegisters21);
           when ShowRegisters21 => print_hex_byte(unsigned(monitor_map_enables_high & monitor_map_offset_high(11 downto 8)),ShowRegisters22);
           when ShowRegisters22 => print_hex_byte(unsigned(monitor_map_offset_high(7 downto 0)),ShowRegisters23);
-          when ShowRegisters23 => print_hex_byte(unsigned(monitor_p),ShowRegisters24);
-          when ShowRegisters24 => try_output_char(' ',ShowRegisters25);
+          when ShowRegisters23 => try_output_char(' ',ShowRegisters24);
+          when ShowRegisters24 => print_hex_byte(unsigned(monitor_p),ShowRegisters25);
+          when ShowRegisters25 => try_output_char(' ',ShowRegisters26);
 
-          when ShowRegisters25 => try_output_char(' ',ShowP1);
+          when ShowRegisters26 => try_output_char(' ',ShowP1);
           when ShowP1 =>
             if monitor_p(7)='1' then
               try_output_char('N',ShowP2);
