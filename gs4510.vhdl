@@ -651,7 +651,8 @@ begin
     next_state : in processor_state) is
     variable long_address : unsigned(27 downto 0);
   begin  -- read_address
-    if (address = x"0000") or (address = x"0001") then
+    long_address := resolve_address_to_long(address,false);
+    if (long_address = x"0000000") or (long_address = x"0000001") then
       accessing_cpuport <= '1';
       cpuport_num <= address(0);
       if next_state = InstructionFetch then
@@ -660,7 +661,6 @@ begin
         state <= next_state;
       end if;
     else
-      long_address := resolve_address_to_long(address,false);
       read_long_address(long_address,next_state);
     end if;
   end read_address;
@@ -776,7 +776,8 @@ begin
     next_state         : in processor_state) is
     variable long_address : unsigned(27 downto 0);
   begin
-    if address=x"0000" then
+    long_address := resolve_address_to_long(address,true);
+    if long_address=x"0000000" then
       -- Setting the CPU DDR is simple, and has no real side effects.
       -- All 8 bits can be written to.
       cpuport_ddr <= value;
@@ -786,7 +787,7 @@ begin
       else
         state <= next_state;
       end if;
-    elsif address=x"0001" then
+    elsif long_address=x"0000001" then
       -- For CPU port, things get more interesting.
       -- Bits 6 & 7 cannot be altered, and always read 0.
       cpuport_value(5 downto 0) <= value(5 downto 0);
@@ -799,7 +800,6 @@ begin
         state <= next_state;
       end if;
     else
-      long_address := resolve_address_to_long(address,true);
       --report "Writing $" & to_hstring(value) & " @ $" & to_hstring(address)
       --  & " (resolves to $" & to_hstring(long_address) & ")" severity note;
       write_long_byte(long_address,value,next_state);
