@@ -225,7 +225,7 @@ DF   BBS5 $nn,$rr
 E0   CPX #$nn
 E1   SBC ($nn,X)
 E2   LDA ($nn,SP),Y
-E3   INW $nnnn
+E3   INW $nn
 E4   CPX $nn
 E5   SBC $nn
 E6   INC $nn
