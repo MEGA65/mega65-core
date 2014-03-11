@@ -1071,6 +1071,7 @@ begin
       -- normal memory-based instruction path. 
       case i is
         when I_ASL => reg_a <= with_nz(reg_a(6 downto 0) & '0'); flag_c <= reg_a(7);
+        when I_ASR => reg_a <= with_nz(reg_a(7)&reg_a(7 downto 1)); flag_c <= reg_a(0);
         when I_ROL => reg_a <= with_nz(reg_a(6 downto 0) & flag_c); flag_c <= reg_a(7);
         when I_LSR => reg_a <= with_nz('0' & reg_a(7 downto 1)); flag_c <= reg_a(0);
         when I_ROR => reg_a <= with_nz(flag_c & reg_a(7 downto 1)); flag_c <= reg_a(0);
@@ -1232,6 +1233,7 @@ begin
       when I_ADC => reg_a <= alu_op_add(reg_a,operand);
       when I_AND => reg_a <= with_nz(reg_a and operand);
       when I_ASL => flag_c <= operand(7); rmw_operand_commit(address,operand,operand(6 downto 0)&'0');
+      when I_ASR => flag_c <= operand(0); rmw_operand_commit(address,operand,opernad(7)&operand(7 downto 1));
       when I_BIT => bitbucket := with_nz(reg_a and operand); flag_n <= operand(7); flag_v <= operand(6);
       when I_CMP => alu_op_cmp(reg_a,operand);
       when I_CPX => alu_op_cmp(reg_x,operand);
