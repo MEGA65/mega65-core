@@ -191,7 +191,7 @@ architecture Behavioural of gs4510 is
     IndirectX1,IndirectX2,IndirectX3,
     IndirectY1,IndirectY2,IndirectY3,
     IndirectZ1,IndirectZ2,
-    ExecuteDirect,RMWCommit,
+    ExecuteDirect,RMWCommit,RMWCommit2,RMWCommit3,
     Halt,FastRamWait,
     SlowRamRead1,SlowRamRead2,SlowRamWrite1,SlowRamWrite2,
     BranchOnBit,
