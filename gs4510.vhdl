@@ -1233,7 +1233,9 @@ begin
       when I_ADC => reg_a <= alu_op_add(reg_a,operand);
       when I_AND => reg_a <= with_nz(reg_a and operand);
       when I_ASL => flag_c <= operand(7); rmw_operand_commit(address,operand,operand(6 downto 0)&'0');
-      when I_ASR => flag_c <= operand(0); rmw_operand_commit(address,operand,opernad(7)&operand(7 downto 1));
+      when I_ASW => flag_c <= operand(7); word_flag<='1';
+                    rmw_operand_commit(address,operand,operand(6 downto 0)&'0');
+      when I_ASR => flag_c <= operand(0); rmw_operand_commit(address,operand,operand(7)&operand(7 downto 1));
       when I_BIT => bitbucket := with_nz(reg_a and operand); flag_n <= operand(7); flag_v <= operand(6);
       when I_CMP => alu_op_cmp(reg_a,operand);
       when I_CPX => alu_op_cmp(reg_x,operand);
@@ -1258,6 +1260,8 @@ begin
       when I_ORA => reg_a <= with_nz(reg_a or operand);
       when I_ROL => flag_c <= operand(7); rmw_operand_commit(address,operand,operand(6 downto 0)&flag_c);
       when I_ROR => flag_c <= operand(0); rmw_operand_commit(address,operand,flag_c&operand(7 downto 1));
+      when I_ROW => flag_c <= operand(7); word_flag<='1';
+                    rmw_operand_commit(address,operand,operand(6 downto 0)&flag_c);
       when I_SBC => reg_a <= alu_op_sub(reg_a,operand);
       when I_STA => write_data_byte(address,reg_a,InstructionFetch);
       when I_STX => write_data_byte(address,reg_x,InstructionFetch);
@@ -1704,8 +1708,14 @@ begin
             when RMWCommit3 =>
               if reg_instruction=I_INW then
                 write_data_byte(reg_addr,with_nz(read_data+1),InstructionFetch);
-              else
+              elsif reg_instruction=I_DEW then
                 write_data_byte(reg_addr,with_nz(read_data-1),InstructionFetch);
+              elsif reg_instruction=I_ASW then
+                flag_c <= read_data(7);
+                write_data_byte(reg_addr,with_nz(read_data(6 downto 0)&flag_c),InstructionFetch);
+              elsif reg_instruction=I_ROW then
+                flag_c <= read_data(7);
+                write_data_byte(reg_addr,with_nz(read_data(6 downto 0)&flag_c),InstructionFetch);
               end if;
             when FastRamWait =>
               accessing_ram <= '1';
