@@ -138,6 +138,8 @@ architecture Behavioural of gs4510 is
   signal slowram_waitstates : unsigned(7 downto 0) := x"05";
   
   signal fastram_byte_number : unsigned(2 DOWNTO 0);
+
+  signal word_flag : std_logic := '0';
   
 -- CPU internal state
   signal flag_c : std_logic;        -- carry flag
@@ -1236,9 +1238,19 @@ begin
       when I_CPY => alu_op_cmp(reg_y,operand);
       when I_CPZ => alu_op_cmp(reg_z,operand);
       when I_DEC => rmw_operand_commit(address,operand,operand-1);
+      when I_DEW =>
+        if operand=x"00" then
+          word_flag <= '1';
+        end if;
+        rmw_operand_commit(address,operand,operand-1);
       when I_EOR => reg_a <= with_nz(reg_a xor operand);    
       when I_INC =>
         report "INC of $" & to_hstring(operand) & " to $" & to_hstring(operand+1) severity note;
+        rmw_operand_commit(address,operand,(operand+1));
+      when I_INW =>
+        if operand=x"FF" then
+          word_flag <= '1';
+        end if;
         rmw_operand_commit(address,operand,(operand+1));
       when I_LSR => flag_c <= operand(0); rmw_operand_commit(address,operand,'0'&operand(7 downto 1));
       when I_ORA => reg_a <= with_nz(reg_a or operand);
@@ -1675,8 +1687,24 @@ begin
               read_data_byte((read_data & reg_addr(7 downto 0)) + reg_z,IndirectY3);
             when ExecuteDirect =>
               execute_operand_instruction(reg_instruction,read_data,reg_addr);
-            when RMWCommit => write_data_byte(reg_addr,reg_value,InstructionFetch);
-
+            when RMWCommit =>
+              word_flag <= '0';
+              if word_flag='0' then
+                write_data_byte(reg_addr,reg_value,InstructionFetch);
+              else                
+                write_data_byte(reg_addr,reg_value,RMWCommit2);
+                reg_addr <= reg_addr + 1;
+              end if;
+            when RMWCommit2 =>
+              -- INW or DEW
+              -- prepare to inc/dec high byte
+              read_data_byte(reg_addr,RMWCommit3);
+            when RMWCommit3 =>
+              if reg_instruction=I_INW then
+                write_data_byte(reg_addr,with_nz(read_data+1),InstructionFetch);
+              else
+                write_data_byte(reg_addr,with_nz(read_data-1),InstructionFetch);
+              end if;
             when FastRamWait =>
               accessing_ram <= '1';
               if pending_state = InstructionFetch then
