@@ -193,7 +193,7 @@ BF   BBS3 $nn,$rr
 C0   CPY #$nn
 C1   CMP ($nn,X)
 C2   CPZ #$nn
-C3   DEW $nnnn
+C3   DEW $nn
 C4   CPY $nn
 C5   CMP $nn
 C6   DEC $nn
