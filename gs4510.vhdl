@@ -91,7 +91,7 @@ entity gs4510 is
     ---------------------------------------------------------------------------
     fastio_addr : inout std_logic_vector(19 downto 0);
     fastio_read : inout std_logic;
-    fastio_write : out std_logic;
+    fastio_write : inout std_logic;
     fastio_wdata : out std_logic_vector(7 downto 0);
     fastio_rdata : inout std_logic_vector(7 downto 0);
     fastio_vic_rdata : in std_logic_vector(7 downto 0);
@@ -140,8 +140,26 @@ architecture Behavioural of gs4510 is
   signal fastram_byte_number : unsigned(2 DOWNTO 0);
 
   signal word_flag : std_logic := '0';
-  
--- CPU internal state
+
+  -- DMAgic registers
+  signal reg_dmagic_addr : unsigned(23 downto 0) := x"000000";
+  signal reg_dmagic_status : unsigned(7 downto 0) := x"00";
+  signal dma_pending : std_logic := '0';
+  signal dmagic_cmd : unsigned(7 downto 0);
+  signal dmagic_count : unsigned(15 downto 0);
+  signal dmagic_src_addr : unsigned(27 downto 0);
+  signal dmagic_src_io : std_logic;
+  signal dmagic_src_direction : std_logic;
+  signal dmagic_src_modulo : std_logic;
+  signal dmagic_src_hold : std_logic;
+  signal dmagic_dest_addr : unsigned(27 downto 0);
+  signal dmagic_dest_io : std_logic;
+  signal dmagic_dest_direction : std_logic;
+  signal dmagic_dest_modulo : std_logic;
+  signal dmagic_dest_hold : std_logic;
+  signal dmagic_modulo : unsigned(15 downto 0);
+
+  -- CPU internal state
   signal flag_c : std_logic;        -- carry flag
   signal flag_z : std_logic;        -- zero flag
   signal flag_d : std_logic;        -- decimal mode flag
@@ -1811,6 +1829,47 @@ begin
     variable value : unsigned(15 downto 0);
     variable reg_num : integer;
   begin  -- process fastio
+    if rising_edge(clock) and fastio_read='1' then
+      if (address = x"D3703") or (address = x"D1703") then
+         -- Side-effects of reading from DMAgic status register
+         -- NOT IMPLEMENTED
+        null;
+      end if;
+    end if;
+    if rising_edge(clock) and fastio_write='1' then
+      if (address = x"D3700") or (address = x"D1700") then
+        -- Set low order bits of DMA list address
+        reg_dmagic_addr(7 downto 0) <= unsigned(fastio_rdata);
+        -- Remember that after this instruction we want to perform the
+        -- DMA.
+        dma_pending <= '1';
+        -- NOTE: DMAgic in C65 prototypes might not use the same list format as
+        -- in the C65 specifications manual (as the manual warns).
+        -- So need to double check how it is used in the C65 ROM.
+        -- From the ROMs, it appears that the list format is:
+        -- list+$03 = source address bit7-0
+        -- list+$04 = source address bit15-8
+        -- list+$05 = source address bank
+        -- list+$06 = dest address bit7-0
+        -- list+$07 = dest address bit15-8
+        -- list+$08 = dest address bank
+      elsif (address = x"D3701") or (address = x"D1701") then
+        reg_dmagic_addr(15 downto 8) <= unsigned(fastio_rdata);
+      elsif (address = x"D3702") or (address = x"D1702") then
+        reg_dmagic_addr(23 downto 16) <= unsigned(fastio_rdata);
+      end if;
+    end if;
+    if fastio_read='1' then
+      if (address = x"D3700") or (address = x"D1700") then
+        fastio_rdata <= std_logic_vector(reg_dmagic_addr(7 downto 0));
+      elsif (address = x"D3701") or (address = x"D1701") then
+        fastio_rdata <= std_logic_vector(reg_dmagic_addr(15 downto 8));
+      elsif (address = x"D3702") or (address = x"D1702") then
+        fastio_rdata <= std_logic_vector(reg_dmagic_addr(23 downto 16));
+      elsif (address = x"D3703") or (address = x"D1703") then        
+        fastio_rdata <= std_logic_vector(reg_dmagic_status);
+      end if;
+    end if;
     if fastio_read='1' and address(19 downto 8) = x"FC0" then
       address := unsigned(fastio_addr);
       rwx := to_integer(address(7 downto 5));

@@ -192,7 +192,7 @@ architecture Behavioral of machine is
       ---------------------------------------------------------------------------
       fastio_addr : inout std_logic_vector(19 downto 0);
       fastio_read : inout std_logic;
-      fastio_write : out std_logic;
+      fastio_write : inout std_logic;
       fastio_wdata : out std_logic_vector(7 downto 0);
       fastio_rdata : inout std_logic_vector(7 downto 0);
       fastio_vic_rdata : in std_logic_vector(7 downto 0);
