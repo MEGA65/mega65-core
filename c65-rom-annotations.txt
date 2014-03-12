@@ -140,16 +140,16 @@ F222 Call routine in any memory context?
 F248 Map C65 roms
 f252 DMAgic command lists that gets copied to $03CE - $03E5
 data F252 f269
-f253 @ DMA count of bytes
-word f253 f254
+f255 @ DMA count of bytes
 word f255 f256
-f255 @ DMA source address
-f257 @ DMA source bank
 word f257 f258
-f257 @ DMA destination address
-f259 @ DMA destination bank
-word f25a f25b
-f25a @ DMA address modulus
+f257 @ DMA source address
+f259 @ DMA source bank
+word f259 f25a
+f25a @ DMA destination address
+f25b @ DMA destination bank
+word f25c f25d
+f25c @ DMA address modulus
 
 f26a Use DMA controller to load memory in any bank
 f28e Use DMA controller to store memory in any bank
@@ -423,7 +423,14 @@ data 8634 864F
 9D4A Input from internal drive?
 9DA0 Send untalk to internal drive?
 9D87 Send unlisten to internal drive?
+A642 Load $bb8f into $0E/$0F ZP vector
+A642 @ low byte of vector $bb8f
+A644 @ high byte of vector $bb8f
+BAD5 Load $1E00 into $4D/$4E ZP vector (sector buffer?)
+data bb8f bbb4
+bb8f some vector for DOS with some data?
 BA1D Clear $0000-$019C and $0200-$1FFF
+BAD5 Some 1581 DOS routine
 8A2E @ ... and clear page $02 ...
 8A37 @ ... and clear the rest of the 8KB DOS memory
 data 99b6 9a2b
