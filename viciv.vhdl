@@ -78,7 +78,6 @@ entity viciv is
 
     colourram_at_dc00 : out std_logic;
     rom_at_e000 : out std_logic;
-    rom_at_9000 : out std_logic;
     rom_at_c000 : out std_logic;
     rom_at_a000 : out std_logic;
     rom_at_8000 : out std_logic
@@ -390,11 +389,11 @@ architecture Behavioral of viciv is
   signal colourram_at_dc00_internal : std_logic := '0';
   -- C65 ROM mapping
   signal reg_rom_e000 : std_logic := '0';
-  signal reg_rom_9000 : std_logic := '0';
   signal reg_rom_c000 : std_logic := '0';
   signal reg_rom_a000 : std_logic := '0';
   signal reg_rom_8000 : std_logic := '0';
   signal reg_c65_charset : std_logic := '0';
+  signal reg_palrom : std_logic := '0';
 
   signal reg_h640 : std_logic := '0';
   signal reg_h1280 : std_logic := '0';
@@ -794,12 +793,13 @@ begin
         elsif register_number=48 then
           -- C65 $D030 emulation          
           fastio_rdata <=
-            reg_rom_e000                           -- ROM @ E000
-            & reg_rom_9000                         -- ROM @ 9000
-            & reg_rom_c000                         -- ROM @ C000
-            & reg_rom_a000                         -- ROM @ A000
-            & reg_rom_8000                         -- ROM @ 8000
-            & reg_c65_charset                      -- character set select (D000 vs 9000)
+            reg_rom_e000        -- ROM @ E000
+            & reg_c65_charset   -- character set select (D000 vs 9000)
+            & reg_rom_c000      -- ROM @ C000
+            & reg_rom_a000      -- ROM @ A000
+            & reg_rom_8000      -- ROM @ 8000
+            & reg_palrom        -- First sixteen palette entries are fixed
+                                -- (fetch from palette bank 3 on VIC-IV)
             & "0"                         -- External sync
             & colourram_at_dc00_internal;  -- 2KB colour RAM
         elsif register_number=49 then
@@ -1116,16 +1116,16 @@ begin
           -- Mapping of C65 ROM in various places
           rom_at_e000 <= fastio_wdata(7);
           reg_rom_e000 <= fastio_wdata(7);
-          rom_at_9000 <= fastio_wdata(6);
-          reg_rom_9000 <= fastio_wdata(6);
+          -- Select between C64 and C65 charset.
+          reg_c65_charset <= fastio_wdata(6);
           rom_at_c000 <= fastio_wdata(5);
           reg_rom_c000 <= fastio_wdata(5);
           rom_at_a000 <= fastio_wdata(4);
           reg_rom_a000 <= fastio_wdata(4);
           rom_at_8000 <= fastio_wdata(3);
           reg_rom_8000 <= fastio_wdata(3);
-          -- Select between C64 and C65 charset.
-          reg_c65_charset <= fastio_wdata(2);
+          -- PALETTE ROM entries for colours 0 - 15
+          reg_palrom <= fastio_wdata(2);
           -- EXT SYNC
           -- CRAM @ DC00
           colourram_at_dc00_internal<= fastio_wdata(0);
@@ -1889,9 +1889,15 @@ begin
         & to_hstring(pixel_colour) severity note;
       
       -- 1. From pixel colour lookup RGB
-
       -- XXX Doesn't select sprite palette bank when appropriate.
-      palette_address <= palette_bank_chargen & std_logic_vector(pixel_colour);
+
+      -- Use palette bank 3 for "palette ROM" colours (C64 default colours
+      -- should be placed there for C65 compatibility).
+      if pixel_colour(7 downto 4) = x"0" and reg_palrom='1' then
+        palette_address <= "11" & std_logic_vector(pixel_colour);
+      else
+        palette_address <= palette_bank_chargen & std_logic_vector(pixel_colour);        
+      end if;
       vga_buffer_red <= unsigned(palette_rdata(31 downto 24));
       vga_buffer_green <= unsigned(palette_rdata(23 downto 16));
       vga_buffer_blue <= unsigned(palette_rdata(15 downto 8));

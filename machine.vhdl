@@ -201,7 +201,6 @@ architecture Behavioral of machine is
 
       colourram_at_dc00 : in std_logic;
       rom_at_e000 : in std_logic;
-      rom_at_9000 : in std_logic;
       rom_at_c000 : in std_logic;
       rom_at_a000 : in std_logic;
       rom_at_8000 : in std_logic
@@ -246,7 +245,6 @@ architecture Behavioral of machine is
 
       colourram_at_dc00 : out std_logic;
       rom_at_e000 : out std_logic;
-      rom_at_9000 : out std_logic;
       rom_at_c000 : out std_logic;
       rom_at_a000 : out std_logic;
       rom_at_8000 : out std_logic
@@ -307,7 +305,6 @@ architecture Behavioral of machine is
   signal cpuclock_divisor : integer range 0 to 3 := 0;
 
   signal rom_at_e000 : std_logic := '0';
-  signal rom_at_9000 : std_logic := '0';
   signal rom_at_c000 : std_logic := '0';
   signal rom_at_a000 : std_logic := '0';
   signal rom_at_8000 : std_logic := '0';
@@ -529,7 +526,6 @@ begin
 
     colourram_at_dc00 => colourram_at_dc00,
     rom_at_e000 => rom_at_e000,
-    rom_at_9000 => rom_at_9000,
     rom_at_c000 => rom_at_c000,
     rom_at_a000 => rom_at_a000,
     rom_at_8000 => rom_at_8000
@@ -565,11 +561,9 @@ begin
 
       colourram_at_dc00 => colourram_at_dc00,
       rom_at_e000 => rom_at_e000,
-      rom_at_9000 => rom_at_9000,
       rom_at_c000 => rom_at_c000,
       rom_at_a000 => rom_at_a000,
-      rom_at_8000 => rom_at_8000
-      
+      rom_at_8000 => rom_at_8000      
       );
   
   iomapper0: iomapper port map (

@@ -100,7 +100,6 @@ entity gs4510 is
 
     colourram_at_dc00 : in std_logic;
     rom_at_e000 : in std_logic;
-    rom_at_9000 : in std_logic;
     rom_at_c000 : in std_logic;
     rom_at_a000 : in std_logic;
     rom_at_8000 : in std_logic
@@ -491,7 +490,7 @@ begin
       temp_address(27 downto 12) := x"003A";
       if blocknum=11 then temp_address(12):='1'; end if;
     end if;
-    if (blocknum=9) and rom_at_9000='1' then
+    if (blocknum=9) and rom_at_8000='1' then
       temp_address(27 downto 12) := x"0039";
     end if;
     if (blocknum=8) and rom_at_8000='1' then
