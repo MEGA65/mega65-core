@@ -320,7 +320,7 @@ begin  -- behavioural
               --PROT    disk is write protected
               --TK0     head is positioned over track zero
 
-              fastio_rdata <= (others => 'Z');
+              fastio_rdata <= "00111111";
             when x"03" =>
               -- STAT B  | RDREQ | WTREQ |  RUN  | NGATE | DSKIN | INDEX |  IRQ  | DSKCHG| 3 R
               -- RDREQ   sector found during formatted read
