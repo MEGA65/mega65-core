@@ -160,9 +160,9 @@ architecture Behavioral of viciv is
   
   -- Buffer VGA signal to save some time. Similarly pipeline
   -- palette lookup.
-  signal vga_buffer_red : UNSIGNED (3 downto 0) := (others => '0');
-  signal vga_buffer_green : UNSIGNED (3 downto 0) := (others => '0');
-  signal vga_buffer_blue : UNSIGNED (3 downto 0) := (others => '0');
+  signal vga_buffer_red : UNSIGNED (7 downto 0) := (others => '0');
+  signal vga_buffer_green : UNSIGNED (7 downto 0) := (others => '0');
+  signal vga_buffer_blue : UNSIGNED (7 downto 0) := (others => '0');
   signal pixel_colour : unsigned(7 downto 0) := x"00";
   
   -- Video mode definition
@@ -1889,20 +1889,19 @@ begin
         & to_hstring(pixel_colour) severity note;
       
       -- 1. From pixel colour lookup RGB
-      --vga_buffer_red <= palette(to_integer(pixel_colour)).red(7 downto 4);   
-      --vga_buffer_green <= palette(to_integer(pixel_colour)).green(7 downto 4); 
-      --vga_buffer_blue <= palette(to_integer(pixel_colour)).blue(7 downto 4);
 
       -- XXX Doesn't select sprite palette bank when appropriate.
       palette_address <= palette_bank_chargen & std_logic_vector(pixel_colour);
-      vga_buffer_red <= unsigned(palette_rdata(31 downto 28));
-      vga_buffer_green <= unsigned(palette_rdata(23 downto 20));
-      vga_buffer_blue <= unsigned(palette_rdata(15 downto 12));
+      vga_buffer_red <= unsigned(palette_rdata(31 downto 24));
+      vga_buffer_green <= unsigned(palette_rdata(23 downto 16));
+      vga_buffer_blue <= unsigned(palette_rdata(15 downto 8));
       
       -- 2. From RGB, push out to pins (also draw border)
-      vgared <= vga_buffer_red;
-      vgagreen <= vga_buffer_green;
-      vgablue <= vga_buffer_blue;
+      -- Note that for C65 compatability the low nybl has the most significant
+      -- bits.
+      vgared <= vga_buffer_red(3 downto 0);
+      vgagreen <= vga_buffer_green(3 downto 0);
+      vgablue <= vga_buffer_blue(3 downto 0);
       
     end if;
   end process;
