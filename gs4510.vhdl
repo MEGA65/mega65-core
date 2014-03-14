@@ -1898,7 +1898,7 @@ begin
       elsif (address = x"D3701") or (address = x"D1701") then
         reg_dmagic_addr(15 downto 8) <= unsigned(fastio_rdata);
       elsif (address = x"D3702") or (address = x"D1702") then
-        reg_dmagic_addr(22 downto 16) <= unsigned('0'&fastio_rdata(6 downto 0));
+        reg_dmagic_addr(22 downto 16) <= unsigned(fastio_rdata(6 downto 0));
         reg_dmagic_addr(27 downto 23) <= (others => '0');
         reg_dmagic_withio <= fastio_rdata(7);
       elsif (address = x"D3704") or (address = x"D1704") then
