@@ -1587,7 +1587,38 @@ begin
                             read_long_address(reg_dmagic_addr+10,DMAgic11);
             when DMAgic11 => dmagic_modulo(15 downto 8) <= read_data;
                             read_long_address(reg_dmagic_addr+11,DMAgic12);
-
+            when DMAgic12 =>              
+              if dmagic_cmd(1 downto 0) = "11" then
+                -- fill
+                dmagic_count <= dmagic_count - 1;
+                if dmagic_dest_addr(15 downto 12)=x"d" and dmagic_dest_io='1' then
+                  -- Access is to IO at $D000-$DFFF
+                  write_long_byte(x"ffd3" & dmagic_dest_addr(11 downto 0),dmagic_src_addr(7 downto 0),DMAgic12);
+                else
+                  -- Access is to non-IO address (although it might map to
+                  -- fastio bulk address space anyway)
+                  write_long_byte(dmagic_dest_addr,dmagic_src_addr(7 downto 0),DMAgic12);
+                end if;
+                if dmagic_dest_hold='0' then
+                  if dmagic_dest_direction='1' then
+                    dmagic_dest_addr <= dmagic_dest_addr + 1;
+                  else
+                    dmagic_dest_addr <= dmagic_dest_addr - 1;
+                  end if;
+                end if;
+                if dmagic_count=x"0001" then
+                   pending_state <= DMAgic13;
+                end if;
+--              elsif dmagic_cmd(1 downto 0) = "00" then
+                -- copy                
+              else
+                -- fill and swap not supported yet
+                dma_done <= '1';
+                state <= InstructionFetch;
+              end if;
+            when DMAgic13 =>            -- DMA complete
+                dma_done <= '1';
+                state <= InstructionFetch;
             when InstructionFetch =>
 
               -- Start processing DMA request if one is pending
