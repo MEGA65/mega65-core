@@ -726,14 +726,14 @@ begin
       -- list+$08 = dest address bank
       -- list+$09 = modulo bit7-0
       -- list+$0a = modulo bit15-8
-    elsif (address = x"FFD3701") or (address = x"FFD1701") then
-      reg_dmagic_addr(15 downto 8) <= unsigned(fastio_rdata);
-    elsif (address = x"FFD3702") or (address = x"FFD1702") then
-      reg_dmagic_addr(22 downto 16) <= unsigned(fastio_rdata(6 downto 0));
+    elsif (long_address = x"FFD3701") or (long_address = x"FFD1701") then
+      reg_dmagic_addr(15 downto 8) <= value;
+    elsif (long_address = x"FFD3702") or (long_address = x"FFD1702") then
+      reg_dmagic_addr(22 downto 16) <= value(6 downto 0);
       reg_dmagic_addr(27 downto 23) <= (others => '0');
       reg_dmagic_withio <= fastio_rdata(7);
-    elsif (address = x"D3704") or (address = x"D1704") then
-      reg_dmagic_addr(27 downto 20) <= unsigned(fastio_rdata(7 downto 0));
+    elsif (long_address = x"FFD3704") or (long_address = x"FFD1704") then
+      reg_dmagic_addr(27 downto 20) <= value;
     end if;
     
     -- Invalidate i-cache lines corresponding to the address we are writing to.
