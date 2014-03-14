@@ -1872,7 +1872,7 @@ begin
         null;
       end if;
     end if;
-    if rising_edge(clock) and fastio_write='1' then
+    if rising_edge(clock) and fastio_write='1' and dma_pending='0' then
       if (address = x"D3700") or (address = x"D1700") then
         -- Set low order bits of DMA list address
         reg_dmagic_addr(7 downto 0) <= unsigned(fastio_rdata);
