@@ -1559,34 +1559,33 @@ begin
               reg_pc(15 downto 8) <= read_data;
               ready_for_next_instruction(read_data & reg_pc(7 downto 0));
             when DMAgic0 => read_long_address(reg_dmagic_addr,DMAgic1);
-                            reg_dmagic_addr <= reg_dmagic_addr + 1;
                             dma_pending <= '0';
             when DMAgic1 => dmagic_cmd <= read_data;
-                            read_long_address(reg_dmagic_addr,DMAgic2);
+                            read_long_address(reg_dmagic_addr+1,DMAgic2);
             when DMAgic2 => dmagic_count(7 downto 0) <= read_data;
-                            read_long_address(reg_dmagic_addr,DMAgic3);
+                            read_long_address(reg_dmagic_addr+2,DMAgic3);
             when DMAgic3 => dmagic_count(15 downto 8) <= read_data;
-                            read_long_address(reg_dmagic_addr,DMAgic4);
+                            read_long_address(reg_dmagic_addr+3,DMAgic4);
             when DMAgic4 => dmagic_src_addr(7 downto 0) <= read_data;
-                            read_long_address(reg_dmagic_addr,DMAgic5);
+                            read_long_address(reg_dmagic_addr+4,DMAgic5);
             when DMAgic5 => dmagic_src_addr(15 downto 8) <= read_data;
-                            read_long_address(reg_dmagic_addr,DMAgic6);
+                            read_long_address(reg_dmagic_addr+5,DMAgic6);
             when DMAgic6 => dmagic_src_addr(22 downto 16) <= read_data(6 downto 0);
                             dmagic_src_addr(27 downto 23) <= (others => '0');
                             dmagic_src_io <= read_data(7);
-                            read_long_address(reg_dmagic_addr,DMAgic7);
+                            read_long_address(reg_dmagic_addr+6,DMAgic7);
             when DMAgic7 => dmagic_dest_addr(7 downto 0) <= read_data;
-                            read_long_address(reg_dmagic_addr,DMAgic8);
+                            read_long_address(reg_dmagic_addr+7,DMAgic8);
             when DMAgic8 => dmagic_dest_addr(15 downto 8) <= read_data;
-                            read_long_address(reg_dmagic_addr,DMAgic9);
+                            read_long_address(reg_dmagic_addr+8,DMAgic9);
             when DMAgic9 => dmagic_dest_addr(22 downto 16) <= read_data(6 downto 0);
                             dmagic_dest_addr(27 downto 23) <= (others => '0');
                             dmagic_dest_io <= read_data(7);
-                            read_long_address(reg_dmagic_addr,DMAgic10);
+                            read_long_address(reg_dmagic_addr+9,DMAgic10);
             when DMAgic10 => dmagic_modulo(7 downto 0) <= read_data;
-                            read_long_address(reg_dmagic_addr,DMAgic11);
+                            read_long_address(reg_dmagic_addr+10,DMAgic11);
             when DMAgic11 => dmagic_modulo(15 downto 8) <= read_data;
-                            read_long_address(reg_dmagic_addr,DMAgic12);
+                            read_long_address(reg_dmagic_addr+11,DMAgic12);
 
             when InstructionFetch =>
 
