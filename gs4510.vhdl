@@ -145,6 +145,7 @@ architecture Behavioural of gs4510 is
   signal reg_dmagic_withio : std_logic;
   signal reg_dmagic_status : unsigned(7 downto 0) := x"00";
   signal dma_pending : std_logic := '0';
+  signal dma_done : std_logic := '0';
   signal dmagic_cmd : unsigned(7 downto 0);
   signal dmagic_count : unsigned(15 downto 0);
   signal dmagic_src_addr : unsigned(27 downto 0);
@@ -1559,7 +1560,7 @@ begin
               reg_pc(15 downto 8) <= read_data;
               ready_for_next_instruction(read_data & reg_pc(7 downto 0));
             when DMAgic0 => read_long_address(reg_dmagic_addr,DMAgic1);
-                            dma_pending <= '0';
+                            dma_done <= '1';
             when DMAgic1 => dmagic_cmd <= read_data;
                             read_long_address(reg_dmagic_addr+1,DMAgic2);
             when DMAgic2 => dmagic_count(7 downto 0) <= read_data;
@@ -1592,7 +1593,8 @@ begin
               -- Start processing DMA request if one is pending
               if dma_pending='1' then
                 state <= DMAgic0;
-              else              
+              else
+                dma_done <= '0';
                 -- Show CPU state for debugging
                 -- report "state = " & processor_state'image(state) severity note;
                 -- Use a format very like that of VICE so that we can compare our boot
@@ -1872,7 +1874,10 @@ begin
         null;
       end if;
     end if;
-    if rising_edge(clock) and fastio_write='1' and dma_pending='0' then
+    if rising_edge(clock) and dma_done='1' then
+      dma_pending <= '0';
+    end if;
+    if rising_edge(clock) and fastio_write='1' then
       if (address = x"D3700") or (address = x"D1700") then
         -- Set low order bits of DMA list address
         reg_dmagic_addr(7 downto 0) <= unsigned(fastio_rdata);
