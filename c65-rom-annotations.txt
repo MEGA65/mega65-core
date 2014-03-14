@@ -63,7 +63,16 @@ c82c @...skip clearing memory
 c845 @If STOP key is down start ML monitor
 c848 Presumably start BASIC 10 ($1100)=$2000
 CEE8 Enter ML monitorq
-CABE read debounced IO input?
+CABE read debounced value from $DD00
+CAA0 Clear bit 4 in $DD00
+CAA6 Set bit 4 in $DD00
+CAAC Clear bit 5 in $DD00
+CAB2 Set bit 5 in $DD00
+CAB8 Clear bit 3 in $DD00
+CAC8 Disable IRQs and switch to 3.5MHz mode?
+CADB Switch to 1Mhz mode and enable IRQs?
+CAF4 wait CIA1 serial port?
+CB36 Delay for A raster lines
 CB47 Setup user port for UART operation?
 CCF7 Switch to C65 DOS memory configuration
 CD19 @ Map RAM @ $10000-$11FFF @ $0000-$1FFF (C65 DOS buffers)
@@ -110,6 +119,7 @@ E5FF install/remove mouse driver
 data e625 e62c
 e625 byte values with exactly one bit set
 E614 disable mouse sprite
+E62D C65 Kernel raster interrupt (scan keyboard etc?)
 E6B5 A=$00 and RTS
 E6B8 print character in .a
 E97F execute escape function using chr in .a
@@ -159,6 +169,7 @@ F0Eb @ Set VIC-III registers
 F0F6 @ Set VIC-III to H640 + 8-bit character attributes, 1MHz CPU
 F11F @ Zero left and right SID registers (1MHz clock set at $F0F6)
 F12C @ Set VIC-III to H640 + 8-bit character attributes, 1MHz CPU
+f133 @ Enable raster interrupts
 F14E initialize VIC palette
 f17b "CBM"
 text f17b f17d
@@ -175,6 +186,12 @@ F9F7 load/store vector at $110A-$110B
 F9FF X -> $110A, Y -> $110B
 FA06 load/store vector at $1108-$1109
 FA0E X -> $1108, Y -> $1109
+fa88 C65 Kernel IRQ handler
+faa9 C65 Kernel NMI entry point
+fab1 C65 Kernel IRQ entry point
+fabb @ read pushed processor flags for checking B flag
+fabf @ filter so that only B flag remains
+fac1 @ if B flag is set, then use BRK entry, else use IRQ entry
 data FD99 FEFF
 FF00 Unused (contains remnant portion of VIC-III IO mode select)
 data FF00 FF08
