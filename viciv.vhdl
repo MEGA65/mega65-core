@@ -747,7 +747,7 @@ begin
             std_logic_vector(screen_ram_base(13 downto 10))
             & std_logic_vector(character_set_address(13 downto 10));
         elsif register_number=25 then          -- $D019 compatibility IRQ bits
-          fastio_rdata(7) <= irq_drive;
+          fastio_rdata(7) <= not irq_drive;
           fastio_rdata(6) <= '1';       -- NC
           fastio_rdata(5) <= '1';       -- NC
           fastio_rdata(4) <= '1';       -- NC
