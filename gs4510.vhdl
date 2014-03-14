@@ -144,6 +144,7 @@ architecture Behavioural of gs4510 is
   signal reg_dmagic_addr : unsigned(27 downto 0) := x"0000000";
   signal reg_dmagic_withio : std_logic;
   signal reg_dmagic_status : unsigned(7 downto 0) := x"00";
+  signal reg_dmacount : unsigned(7 downto 0) := x"00";  -- number of DMA jobs done
   signal dma_pending : std_logic := '0';
   signal dmagic_cmd : unsigned(7 downto 0);
   signal dmagic_count : unsigned(15 downto 0);
@@ -711,6 +712,7 @@ begin
       -- Remember that after this instruction we want to perform the
       -- DMA.
       dma_pending <= '1';
+      reg_dmacount <= reg_dmacount + 1;
       -- NOTE: DMAgic in C65 prototypes might not use the same list format as
       -- in the C65 specifications manual (as the manual warns).
       -- So need to double check how it is used in the C65 ROM.
@@ -726,6 +728,9 @@ begin
       -- list+$08 = dest address bank
       -- list+$09 = modulo bit7-0
       -- list+$0a = modulo bit15-8
+    elsif (long_address = x"FFD370E") or (long_address = x"FFD170E") then
+      -- Set low order bits of DMA list address, without starting
+      reg_dmagic_addr(7 downto 0) <= unsigned(fastio_rdata);
     elsif (long_address = x"FFD3701") or (long_address = x"FFD1701") then
       reg_dmagic_addr(15 downto 8) <= value;
     elsif (long_address = x"FFD3702") or (long_address = x"FFD1702") then
@@ -913,8 +918,12 @@ begin
       return reg_dmagic_addr(15 downto 8);
     elsif (the_read_address = x"FFD3702") or (the_read_address = x"FFD1702") then
       return reg_dmagic_addr(23 downto 16);
-    elsif (the_read_address = x"FFD3703") or (the_read_address = x"FFD1703") then        
+    elsif (the_read_address = x"FFD3703") or (the_read_address = x"FFD1703") then
       return reg_dmagic_status;
+    elsif (the_read_address = x"FFD370E") or (the_read_address = x"FFD170E") then
+      return reg_dmagic_addr(7 downto 0);
+    elsif (the_read_address = x"FFD370F") or (the_read_address = x"FFD170F") then
+      return reg_dmacount;
     end if;   
 
     if accessing_cpuport='1' then
@@ -1606,6 +1615,7 @@ begin
               ready_for_next_instruction(read_data & reg_pc(7 downto 0));
             when DMAgic0 => read_long_address(reg_dmagic_addr,DMAgic1);
                             dma_pending <= '0';
+                            reg_dmacount <= reg_dmacount + 1;
             when DMAgic1 => dmagic_cmd <= read_data;
                             read_long_address(reg_dmagic_addr+1,DMAgic2);
             when DMAgic2 => dmagic_count(7 downto 0) <= read_data;
@@ -1946,13 +1956,6 @@ begin
     variable value : unsigned(15 downto 0);
     variable reg_num : integer;
   begin  -- process fastio
-    if rising_edge(clock) and fastio_read='1' then
-      if (address = x"D3703") or (address = x"D1703") then
-         -- Side-effects of reading from DMAgic status register
-         -- NOT IMPLEMENTED
-        null;
-      end if;
-    end if;
     if fastio_read='1' and address(19 downto 8) = x"FC0" then
       address := unsigned(fastio_addr);
       rwx := to_integer(address(7 downto 5));
