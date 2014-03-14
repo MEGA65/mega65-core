@@ -247,7 +247,8 @@ begin  -- behavioural
       -- if fastio has a one cycle wait state, the isr can still be read on
       -- the second cycle.
       if clear_isr='1' then
-        reg_isr <= x"00";
+        -- lie any say serial port done to placate C65 ROM for now
+        reg_isr <= x"08";
         clear_isr <= '0';
         -- report "clearing ISR" severity note;
       end if;
