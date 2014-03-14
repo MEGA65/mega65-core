@@ -181,8 +181,8 @@ begin
     fastio_wdata => unsigned(data_i),
 
     -- CIA ports not connected by default
-    portbin => x"20",
-    portain => x"65",
+    portbin => x"ff",
+    portain => x"ff",
     flagin => '1',
     spin => '1',
     countin => '1'
