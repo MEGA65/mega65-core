@@ -1632,10 +1632,13 @@ begin
                             read_long_address(reg_dmagic_addr+10,DMAgic11);
             when DMAgic11 => dmagic_modulo(15 downto 8) <= read_data;
                             read_long_address(reg_dmagic_addr+11,DMAgic12);
+                             report "DMAgic command read" severity note;
             when DMAgic12 =>              
               if dmagic_cmd(1 downto 0) = "11" then
                 -- fill
                 dmagic_count <= dmagic_count - 1;
+                report "DMAgic filling $" & to_hstring(dmagic_dest_addr) &
+                  " with $" & to_hstring(dmagic_src_addr(7 downto 0))  severity note;
                 if dmagic_dest_addr(15 downto 12)=x"d" and dmagic_dest_io='1' then
                   -- Access is to IO at $D000-$DFFF
                   write_long_byte(x"ffd3" & dmagic_dest_addr(11 downto 0),dmagic_src_addr(7 downto 0),DMAgic12);
@@ -1669,6 +1672,7 @@ begin
               -- Start processing DMA request if one is pending
               if dma_pending='1' then
                 state <= DMAgic0;
+                report "DMAgic triggered" severity note;
               else
                 -- Show CPU state for debugging
                 -- report "state = " & processor_state'image(state) severity note;
