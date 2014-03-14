@@ -141,7 +141,8 @@ architecture Behavioural of gs4510 is
   signal word_flag : std_logic := '0';
 
   -- DMAgic registers
-  signal reg_dmagic_addr : unsigned(23 downto 0) := x"000000";
+  signal reg_dmagic_addr : unsigned(27 downto 0) := x"0000000";
+  signal reg_dmagic_withio : std_logic;
   signal reg_dmagic_status : unsigned(7 downto 0) := x"00";
   signal dma_pending : std_logic := '0';
   signal dmagic_cmd : unsigned(7 downto 0);
@@ -198,6 +199,8 @@ architecture Behavioural of gs4510 is
     ResetLow,
     -- States for handling interrupts and reset
     Interrupt,VectorRead,VectorRead1,VectorRead2,VectorRead3,
+    DMAgic0,DMAgic1,DMAgic2,DMAgic3,DMAgic4,DMAgic5,DMAgic6,DMAgic7,
+    DMAgic8,DMAgic9,DMAgic10,DMAgic11,DMAgic12,DMAgic13,DMAgic14,DMAgic15,
     InstructionFetch,
     InstructionFetch2,InstructionFetch3,InstructionFetch4,
     BRK1,BRK2,PLA1,PLX1,PLY1,PLZ1,PLP1,RTI1,RTI2,RTI3,
@@ -1555,46 +1558,81 @@ begin
             when VectorRead3 =>
               reg_pc(15 downto 8) <= read_data;
               ready_for_next_instruction(read_data & reg_pc(7 downto 0));
+            when DMAgic0 => read_long_address(reg_dmagic_addr,DMAgic1);
+                            reg_dmagic_addr <= reg_dmagic_addr + 1;
+                            dma_pending <= '0';
+            when DMAgic1 => dmagic_cmd <= read_data;
+                            read_long_address(reg_dmagic_addr,DMAgic2);
+            when DMAgic2 => dmagic_count(7 downto 0) <= read_data;
+                            read_long_address(reg_dmagic_addr,DMAgic3);
+            when DMAgic3 => dmagic_count(15 downto 8) <= read_data;
+                            read_long_address(reg_dmagic_addr,DMAgic4);
+            when DMAgic4 => dmagic_src_addr(7 downto 0) <= read_data;
+                            read_long_address(reg_dmagic_addr,DMAgic5);
+            when DMAgic5 => dmagic_src_addr(15 downto 8) <= read_data;
+                            read_long_address(reg_dmagic_addr,DMAgic6);
+            when DMAgic6 => dmagic_src_addr(22 downto 16) <= read_data(6 downto 0);
+                            dmagic_src_addr(27 downto 23) <= (others => '0');
+                            dmagic_src_io <= read_data(7);
+                            read_long_address(reg_dmagic_addr,DMAgic7);
+            when DMAgic7 => dmagic_dest_addr(7 downto 0) <= read_data;
+                            read_long_address(reg_dmagic_addr,DMAgic8);
+            when DMAgic8 => dmagic_dest_addr(15 downto 8) <= read_data;
+                            read_long_address(reg_dmagic_addr,DMAgic9);
+            when DMAgic9 => dmagic_dest_addr(22 downto 16) <= read_data(6 downto 0);
+                            dmagic_dest_addr(27 downto 23) <= (others => '0');
+                            dmagic_dest_io <= read_data(7);
+                            read_long_address(reg_dmagic_addr,DMAgic10);
+            when DMAgic10 => dmagic_modulo(7 downto 0) <= read_data;
+                            read_long_address(reg_dmagic_addr,DMAgic11);
+            when DMAgic11 => dmagic_modulo(15 downto 8) <= read_data;
+                            read_long_address(reg_dmagic_addr,DMAgic12);
+
             when InstructionFetch =>
 
-              -- Show CPU state for debugging
-              -- report "state = " & processor_state'image(state) severity note;
-              -- Use a format very like that of VICE so that we can compare our boot
-              -- sequence to theirs, to find errors in our CPU etc.
+              -- Start processing DMA request if one is pending
+              if dma_pending='1' then
+                state <= DMAgic0;
+              else              
+                -- Show CPU state for debugging
+                -- report "state = " & processor_state'image(state) severity note;
+                -- Use a format very like that of VICE so that we can compare our boot
+                -- sequence to theirs, to find errors in our CPU etc.
 
-              report ""
-                & ".C:" & to_hstring(std_logic_vector(reg_pc))
-                & " - A:" & to_hstring(std_logic_vector(reg_a))
-                & " X:" & to_hstring(std_logic_vector(reg_x))
-                & " Y:" & to_hstring(std_logic_vector(reg_y))
-                & " SP:" & to_hstring(std_logic_vector(reg_sp))
-                & " "
-                & flag_status("N",".",flag_n)
-                & flag_status("V",".",flag_v)
-                & "-"
-                & "."
-                & flag_status("D",".",flag_d)
-                & flag_status("I",".",flag_i)
-                & flag_status("Z",".",flag_z)
-                & flag_status("C",".",flag_c)        
-                severity note;        
+                report ""
+                  & ".C:" & to_hstring(std_logic_vector(reg_pc))
+                  & " - A:" & to_hstring(std_logic_vector(reg_a))
+                  & " X:" & to_hstring(std_logic_vector(reg_x))
+                  & " Y:" & to_hstring(std_logic_vector(reg_y))
+                  & " SP:" & to_hstring(std_logic_vector(reg_sp))
+                  & " "
+                  & flag_status("N",".",flag_n)
+                  & flag_status("V",".",flag_v)
+                  & "-"
+                  & "."
+                  & flag_status("D",".",flag_d)
+                  & flag_status("I",".",flag_i)
+                  & flag_status("Z",".",flag_z)
+                  & flag_status("C",".",flag_c)        
+                  severity note;        
               
-              monitor_mem_attention_granted <= '0';
-              if monitor_mem_trace_mode='0' or
-                monitor_mem_trace_toggle /= monitor_mem_trace_toggle_last then
-                monitor_mem_trace_toggle_last <= monitor_mem_trace_toggle;
+                monitor_mem_attention_granted <= '0';
+                if monitor_mem_trace_mode='0' or
+                  monitor_mem_trace_toggle /= monitor_mem_trace_toggle_last then
+                  monitor_mem_trace_toggle_last <= monitor_mem_trace_toggle;
 
-                -- XXX Push PC & P before launching interrupt handlers
-                if nmi_pending='1' then
-                  nmi_pending <= '0';
-                  vector <= x"FFFA"; state <=Interrupt;
-                elsif irq_pending='1' and flag_i='0' then
-                  irq_pending <= '0';
-                  vector <= x"FFFE"; state <=Interrupt;  
-                else
-                  read_instruction_byte(reg_pc,InstructionFetch2);
-                  reg_pc <= reg_pc + 1;
-                  report "reg_pc bump from $" & to_hstring(reg_pc) severity note;
+                  -- XXX Push PC & P before launching interrupt handlers
+                  if nmi_pending='1' then
+                    nmi_pending <= '0';
+                    vector <= x"FFFA"; state <=Interrupt;
+                  elsif irq_pending='1' and flag_i='0' then
+                    irq_pending <= '0';
+                    vector <= x"FFFE"; state <=Interrupt;  
+                  else
+                    read_instruction_byte(reg_pc,InstructionFetch2);
+                    reg_pc <= reg_pc + 1;
+                    report "reg_pc bump from $" & to_hstring(reg_pc) severity note;
+                  end if;
                 end if;
               end if;
             when InstructionFetch2 =>
@@ -1846,16 +1884,25 @@ begin
         -- in the C65 specifications manual (as the manual warns).
         -- So need to double check how it is used in the C65 ROM.
         -- From the ROMs, it appears that the list format is:
+        -- list+$00 = command
+        -- list+$01 = count bit7-0
+        -- list+$02 = count bit15-8
         -- list+$03 = source address bit7-0
         -- list+$04 = source address bit15-8
         -- list+$05 = source address bank
         -- list+$06 = dest address bit7-0
         -- list+$07 = dest address bit15-8
         -- list+$08 = dest address bank
+        -- list+$09 = modulo bit7-0
+        -- list+$0a = modulo bit15-8
       elsif (address = x"D3701") or (address = x"D1701") then
         reg_dmagic_addr(15 downto 8) <= unsigned(fastio_rdata);
       elsif (address = x"D3702") or (address = x"D1702") then
-        reg_dmagic_addr(23 downto 16) <= unsigned(fastio_rdata);
+        reg_dmagic_addr(22 downto 16) <= unsigned('0'&fastio_rdata(6 downto 0));
+        reg_dmagic_addr(27 downto 23) <= (others => '0');
+        reg_dmagic_withio <= fastio_rdata(7);
+      elsif (address = x"D3704") or (address = x"D1704") then
+        reg_dmagic_addr(27 downto 20) <= unsigned(fastio_rdata(7 downto 0));
       end if;
     end if;
     if fastio_read='1' then
