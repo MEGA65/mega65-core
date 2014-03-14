@@ -145,7 +145,6 @@ architecture Behavioural of gs4510 is
   signal reg_dmagic_withio : std_logic;
   signal reg_dmagic_status : unsigned(7 downto 0) := x"00";
   signal dma_pending : std_logic := '0';
-  signal dma_done : std_logic := '0';
   signal dmagic_cmd : unsigned(7 downto 0);
   signal dmagic_count : unsigned(15 downto 0);
   signal dmagic_src_addr : unsigned(27 downto 0);
@@ -350,7 +349,8 @@ architecture Behavioural of gs4510 is
   signal cpuport_num : std_logic;
   signal cpuport_ddr : unsigned(7 downto 0) := x"FF";
   signal cpuport_value : unsigned(7 downto 0) := x"3F";
-
+  signal the_read_address : unsigned(27 downto 0);
+  
   signal monitor_mem_trace_toggle_last : std_logic := '0';
 
 begin
@@ -554,6 +554,8 @@ begin
     accessing_ram <= '0'; accessing_slowram <= '0';
     accessing_fastio <= '0'; accessing_vic_fastio <= '0';
     accessing_cpuport <= '0'; accessing_colour_ram_fastio <= '0';
+
+    the_read_address <= long_address;
     if long_address(27 downto 17)="00000000000" then
       report "Reading from fastram address $" & to_hstring(long_address(19 downto 0))
         & ", word $" & to_hstring(long_address(18 downto 3)) severity note;
@@ -702,6 +704,38 @@ begin
       icache_delay <= '1';
     end if;
 
+    -- Write to DMAgic registers if required
+    if (long_address = x"FFD3700") or (long_address = x"FFD1700") then
+      -- Set low order bits of DMA list address
+      reg_dmagic_addr(7 downto 0) <= unsigned(fastio_rdata);
+      -- Remember that after this instruction we want to perform the
+      -- DMA.
+      dma_pending <= '1';
+      -- NOTE: DMAgic in C65 prototypes might not use the same list format as
+      -- in the C65 specifications manual (as the manual warns).
+      -- So need to double check how it is used in the C65 ROM.
+      -- From the ROMs, it appears that the list format is:
+      -- list+$00 = command
+      -- list+$01 = count bit7-0
+      -- list+$02 = count bit15-8
+      -- list+$03 = source address bit7-0
+      -- list+$04 = source address bit15-8
+      -- list+$05 = source address bank
+      -- list+$06 = dest address bit7-0
+      -- list+$07 = dest address bit15-8
+      -- list+$08 = dest address bank
+      -- list+$09 = modulo bit7-0
+      -- list+$0a = modulo bit15-8
+    elsif (address = x"FFD3701") or (address = x"FFD1701") then
+      reg_dmagic_addr(15 downto 8) <= unsigned(fastio_rdata);
+    elsif (address = x"FFD3702") or (address = x"FFD1702") then
+      reg_dmagic_addr(22 downto 16) <= unsigned(fastio_rdata(6 downto 0));
+      reg_dmagic_addr(27 downto 23) <= (others => '0');
+      reg_dmagic_withio <= fastio_rdata(7);
+    elsif (address = x"D3704") or (address = x"D1704") then
+      reg_dmagic_addr(27 downto 20) <= unsigned(fastio_rdata(7 downto 0));
+    end if;
+    
     -- Invalidate i-cache lines corresponding to the address we are writing to.
     -- As cache lines hold bytes n,n+1 and n+2, we need to erase the cache lines
     -- corresponding to long_address-2 through long_address inclusive
@@ -872,6 +906,17 @@ begin
   impure function read_data
     return unsigned is
   begin  -- read_data
+    -- CPU hosted IO registers
+    if (the_read_address = x"FFD3700") or (the_read_address = x"FFD1700") then
+      return reg_dmagic_addr(7 downto 0);
+    elsif (the_read_address = x"FFD3701") or (the_read_address = x"FFD1701") then
+      return reg_dmagic_addr(15 downto 8);
+    elsif (the_read_address = x"FFD3702") or (the_read_address = x"FFD1702") then
+      return reg_dmagic_addr(23 downto 16);
+    elsif (the_read_address = x"FFD3703") or (the_read_address = x"FFD1703") then        
+      return reg_dmagic_status;
+    end if;   
+
     if accessing_cpuport='1' then
       if cpuport_num='0' then
         -- DDR
@@ -1560,7 +1605,7 @@ begin
               reg_pc(15 downto 8) <= read_data;
               ready_for_next_instruction(read_data & reg_pc(7 downto 0));
             when DMAgic0 => read_long_address(reg_dmagic_addr,DMAgic1);
-                            dma_done <= '1';
+                            dma_pending <= '0';
             when DMAgic1 => dmagic_cmd <= read_data;
                             read_long_address(reg_dmagic_addr+1,DMAgic2);
             when DMAgic2 => dmagic_count(7 downto 0) <= read_data;
@@ -1613,11 +1658,11 @@ begin
                 -- copy                
               else
                 -- fill and swap not supported yet
-                dma_done <= '1';
+                dma_pending <= '0';
                 state <= InstructionFetch;
               end if;
             when DMAgic13 =>            -- DMA complete
-                dma_done <= '1';
+                dma_pending <= '0';
                 state <= InstructionFetch;
             when InstructionFetch =>
 
@@ -1625,7 +1670,6 @@ begin
               if dma_pending='1' then
                 state <= DMAgic0;
               else
-                dma_done <= '0';
                 -- Show CPU state for debugging
                 -- report "state = " & processor_state'image(state) severity note;
                 -- Use a format very like that of VICE so that we can compare our boot
@@ -1903,52 +1947,6 @@ begin
          -- Side-effects of reading from DMAgic status register
          -- NOT IMPLEMENTED
         null;
-      end if;
-    end if;
-    if rising_edge(clock) and dma_done='1' then
-      dma_pending <= '0';
-    end if;
-    if rising_edge(clock) and fastio_write='1' then
-      if (address = x"D3700") or (address = x"D1700") then
-        -- Set low order bits of DMA list address
-        reg_dmagic_addr(7 downto 0) <= unsigned(fastio_rdata);
-        -- Remember that after this instruction we want to perform the
-        -- DMA.
-        dma_pending <= '1';
-        -- NOTE: DMAgic in C65 prototypes might not use the same list format as
-        -- in the C65 specifications manual (as the manual warns).
-        -- So need to double check how it is used in the C65 ROM.
-        -- From the ROMs, it appears that the list format is:
-        -- list+$00 = command
-        -- list+$01 = count bit7-0
-        -- list+$02 = count bit15-8
-        -- list+$03 = source address bit7-0
-        -- list+$04 = source address bit15-8
-        -- list+$05 = source address bank
-        -- list+$06 = dest address bit7-0
-        -- list+$07 = dest address bit15-8
-        -- list+$08 = dest address bank
-        -- list+$09 = modulo bit7-0
-        -- list+$0a = modulo bit15-8
-      elsif (address = x"D3701") or (address = x"D1701") then
-        reg_dmagic_addr(15 downto 8) <= unsigned(fastio_rdata);
-      elsif (address = x"D3702") or (address = x"D1702") then
-        reg_dmagic_addr(22 downto 16) <= unsigned(fastio_rdata(6 downto 0));
-        reg_dmagic_addr(27 downto 23) <= (others => '0');
-        reg_dmagic_withio <= fastio_rdata(7);
-      elsif (address = x"D3704") or (address = x"D1704") then
-        reg_dmagic_addr(27 downto 20) <= unsigned(fastio_rdata(7 downto 0));
-      end if;
-    end if;
-    if fastio_read='1' then
-      if (address = x"D3700") or (address = x"D1700") then
-        fastio_rdata <= std_logic_vector(reg_dmagic_addr(7 downto 0));
-      elsif (address = x"D3701") or (address = x"D1701") then
-        fastio_rdata <= std_logic_vector(reg_dmagic_addr(15 downto 8));
-      elsif (address = x"D3702") or (address = x"D1702") then
-        fastio_rdata <= std_logic_vector(reg_dmagic_addr(23 downto 16));
-      elsif (address = x"D3703") or (address = x"D1703") then        
-        fastio_rdata <= std_logic_vector(reg_dmagic_status);
       end if;
     end if;
     if fastio_read='1' and address(19 downto 8) = x"FC0" then
