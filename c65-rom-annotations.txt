@@ -433,6 +433,12 @@ text 8016 801C
 82AF Read from $00BD or $00BD+(#$13 + $FB)
 data 8634 864F
 8634 Ascending byte values from $02-$1D
+9A79 @ Select F011 drive 2?
+9A88 @ wait for FDC busy flag to clear
+9AA8 @ clear FDC IRQ?
+9ACA @ If not drive 2, then do something
+9AF9 @ Set C and RTS
+9AFB @ Clear C and RTS
 9CB7 Send talk address to internal drive?
 9C5B Send listen address to internal drive?
 9CCD Send secondary address (talk or listen) to internal drive?
