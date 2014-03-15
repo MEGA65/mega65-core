@@ -631,6 +631,7 @@ begin
                 parse_position <= 2;
                 if cmdlen=2 then
                   break_enabled <= '0';
+                  state <= NextCommand;
                 else
                   report "trying to parse hex" severity note;
                   parse_hex(CPUBreak1);
