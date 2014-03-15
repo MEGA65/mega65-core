@@ -1669,35 +1669,38 @@ begin
                              report "DMAgic command read" severity note;
             when DMAgic12 =>              
               reg_dmacount <= reg_dmacount + 1;
-              if dmagic_cmd(1 downto 0) = "11" then
-                -- fill
-                report "DMAgic filling $" & to_hstring(dmagic_dest_addr) &
-                  " with $" & to_hstring(dmagic_src_addr(7 downto 0))  severity note;
-                if dmagic_dest_addr(15 downto 12)=x"d" and dmagic_dest_io='1' then
-                  -- Access is to IO at $D000-$DFFF
-                  write_long_byte(x"ffd3" & dmagic_dest_addr(11 downto 0),dmagic_src_addr(7 downto 0),DMAgic12);
-                else
-                  -- Access is to non-IO address (although it might map to
-                  -- fastio bulk address space anyway)
-                  write_long_byte(dmagic_dest_addr,dmagic_src_addr(7 downto 0),DMAgic12);
-                end if;
-                if dmagic_dest_hold='0' then
-                  if dmagic_dest_direction='1' then
-                    dmagic_dest_addr <= dmagic_dest_addr + 1;
-                  else
-                    dmagic_dest_addr <= dmagic_dest_addr - 1;
-                  end if;
-                end if;
-                dmagic_tally <= dmagic_tally + 1;
-                if dmagic_count=dmagic_tally then
-                   pending_state <= DMAgic13;
-                end if;
---              elsif dmagic_cmd(1 downto 0) = "00" then
-                -- copy                
+              report "dmagic_tally = $" & to_hstring(dmagic_tally) & ", dmagic_count= $" & to_hstring(dmagic_count) severity note;
+              dmagic_tally <= dmagic_tally + 1;
+              if dmagic_count=dmagic_tally then
+                report "asking for DMA to end" severity note;
+                state <= DMAgic13;
               else
-                -- fill and swap not supported yet
-                dma_pending <= '0';
-                state <= InstructionFetch;
+                if dmagic_cmd(1 downto 0) = "11" then
+                  -- fill
+                  report "DMAgic filling $" & to_hstring(dmagic_dest_addr) &
+                    " with $" & to_hstring(dmagic_src_addr(7 downto 0))  severity note;
+                  if dmagic_dest_addr(15 downto 12)=x"d" and dmagic_dest_io='1' then
+                    -- Access is to IO at $D000-$DFFF
+                    write_long_byte(x"ffd3" & dmagic_dest_addr(11 downto 0),dmagic_src_addr(7 downto 0),DMAgic12);
+                  else
+                    -- Access is to non-IO address (although it might map to
+                    -- fastio bulk address space anyway)
+                    write_long_byte(dmagic_dest_addr,dmagic_src_addr(7 downto 0),DMAgic12);
+                  end if;
+                  if dmagic_dest_hold='0' then
+                    if dmagic_dest_direction='1' then
+                      dmagic_dest_addr <= dmagic_dest_addr + 1;
+                    else
+                      dmagic_dest_addr <= dmagic_dest_addr - 1;
+                    end if;
+                  end if;
+--              elsif dmagic_cmd(1 downto 0) = "00" then
+                  -- copy                
+                else
+                  -- fill and swap not supported yet
+                  dma_pending <= '0';
+                  state <= InstructionFetch;
+                end if;
               end if;
             when DMAgic13 =>            -- DMA complete
                 dma_pending <= '0';
