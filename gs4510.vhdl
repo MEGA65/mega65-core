@@ -1688,7 +1688,7 @@ begin
                     write_long_byte(dmagic_dest_addr,dmagic_src_addr(7 downto 0),DMAgic12);
                   end if;
                   if dmagic_dest_hold='0' then
-                    if dmagic_dest_direction='1' then
+                    if dmagic_dest_direction='0' then
                       dmagic_dest_addr <= dmagic_dest_addr + 1;
                     else
                       dmagic_dest_addr <= dmagic_dest_addr - 1;
