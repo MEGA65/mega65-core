@@ -1682,7 +1682,7 @@ begin
                     dmagic_dest_addr <= dmagic_dest_addr - 1;
                   end if;
                 end if;
-                if dmagic_count=x"0001" then
+                if dmagic_count=1 then
                    pending_state <= DMAgic13;
                 end if;
 --              elsif dmagic_cmd(1 downto 0) = "00" then
