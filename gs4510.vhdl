@@ -708,7 +708,7 @@ begin
     -- Write to DMAgic registers if required
     if (long_address = x"FFD3700") or (long_address = x"FFD1700") then
       -- Set low order bits of DMA list address
-      reg_dmagic_addr(7 downto 0) <= unsigned(fastio_rdata);
+      reg_dmagic_addr(7 downto 0) <= value;
       -- Remember that after this instruction we want to perform the
       -- DMA.
       dma_pending <= '1';
@@ -730,7 +730,7 @@ begin
       -- list+$0a = modulo bit15-8
     elsif (long_address = x"FFD370E") or (long_address = x"FFD170E") then
       -- Set low order bits of DMA list address, without starting
-      reg_dmagic_addr(7 downto 0) <= unsigned(fastio_rdata);
+      reg_dmagic_addr(7 downto 0) <= value;
     elsif (long_address = x"FFD3701") or (long_address = x"FFD1701") then
       reg_dmagic_addr(15 downto 8) <= value;
     elsif (long_address = x"FFD3702") or (long_address = x"FFD1702") then
@@ -912,16 +912,16 @@ begin
     return unsigned is
   begin  -- read_data
     -- CPU hosted IO registers
-    if (the_read_address = x"FFD3700") or (the_read_address = x"FFD1700") then
-      return reg_dmagic_addr(7 downto 0);
-    elsif (the_read_address = x"FFD3701") or (the_read_address = x"FFD1701") then
-      return reg_dmagic_addr(15 downto 8);
-    elsif (the_read_address = x"FFD3702") or (the_read_address = x"FFD1702") then
-      return reg_dmagic_addr(23 downto 16);
-    elsif (the_read_address = x"FFD3703") or (the_read_address = x"FFD1703") then
+    if (the_read_address = x"FFD3703") or (the_read_address = x"FFD1703") then
       return reg_dmagic_status;
-    elsif (the_read_address = x"FFD370E") or (the_read_address = x"FFD170E") then
+    elsif (the_read_address = x"FFD370B") then
       return reg_dmagic_addr(7 downto 0);
+    elsif (the_read_address = x"FFD370C") then
+      return reg_dmagic_addr(15 downto 8);
+    elsif (the_read_address = x"FFD370D") then
+      return reg_dmagic_addr(23 downto 16);
+    elsif (the_read_address = x"FFD370E") then
+      return x"0" & reg_dmagic_addr(27 downto 24);
     elsif (the_read_address = x"FFD370F") or (the_read_address = x"FFD170F") then
       return reg_dmacount;
     end if;   
@@ -1614,36 +1614,54 @@ begin
               reg_pc(15 downto 8) <= read_data;
               ready_for_next_instruction(read_data & reg_pc(7 downto 0));
             when DMAgic0 => read_long_address(reg_dmagic_addr,DMAgic1);
-                            dma_pending <= '0';
                             reg_dmacount <= reg_dmacount + 1;
+                            reg_dmagic_addr <= reg_dmagic_addr + 1;
             when DMAgic1 => dmagic_cmd <= read_data;
-                            read_long_address(reg_dmagic_addr+1,DMAgic2);
+                            read_long_address(reg_dmagic_addr,DMAgic2);
+                            reg_dmagic_addr <= reg_dmagic_addr + 1;
             when DMAgic2 => dmagic_count(7 downto 0) <= read_data;
-                            read_long_address(reg_dmagic_addr+2,DMAgic3);
+                            read_long_address(reg_dmagic_addr,DMAgic3);
+                            reg_dmagic_addr <= reg_dmagic_addr + 1;
             when DMAgic3 => dmagic_count(15 downto 8) <= read_data;
-                            read_long_address(reg_dmagic_addr+3,DMAgic4);
+                            read_long_address(reg_dmagic_addr,DMAgic4);
+                            reg_dmagic_addr <= reg_dmagic_addr + 1;
             when DMAgic4 => dmagic_src_addr(7 downto 0) <= read_data;
-                            read_long_address(reg_dmagic_addr+4,DMAgic5);
+                            read_long_address(reg_dmagic_addr,DMAgic5);
+                            reg_dmagic_addr <= reg_dmagic_addr + 1;
             when DMAgic5 => dmagic_src_addr(15 downto 8) <= read_data;
-                            read_long_address(reg_dmagic_addr+5,DMAgic6);
-            when DMAgic6 => dmagic_src_addr(22 downto 16) <= read_data(6 downto 0);
-                            dmagic_src_addr(27 downto 23) <= (others => '0');
+                            read_long_address(reg_dmagic_addr,DMAgic6);
+                            reg_dmagic_addr <= reg_dmagic_addr + 1;
+            when DMAgic6 => dmagic_src_addr(19 downto 16) <= read_data(3 downto 0);
+                            dmagic_src_addr(27 downto 20) <= (others => '0');
                             dmagic_src_io <= read_data(7);
-                            read_long_address(reg_dmagic_addr+6,DMAgic7);
+                            dmagic_src_direction <= read_data(6);
+                            dmagic_src_modulo <= read_data(5);
+                            dmagic_src_hold <= read_data(4);
+                            read_long_address(reg_dmagic_addr,DMAgic7);
+                            reg_dmagic_addr <= reg_dmagic_addr + 1;
             when DMAgic7 => dmagic_dest_addr(7 downto 0) <= read_data;
-                            read_long_address(reg_dmagic_addr+7,DMAgic8);
+                            read_long_address(reg_dmagic_addr,DMAgic8);
+                            reg_dmagic_addr <= reg_dmagic_addr + 1;
             when DMAgic8 => dmagic_dest_addr(15 downto 8) <= read_data;
-                            read_long_address(reg_dmagic_addr+8,DMAgic9);
-            when DMAgic9 => dmagic_dest_addr(22 downto 16) <= read_data(6 downto 0);
-                            dmagic_dest_addr(27 downto 23) <= (others => '0');
+                            read_long_address(reg_dmagic_addr,DMAgic9);
+                            reg_dmagic_addr <= reg_dmagic_addr + 1;
+            when DMAgic9 => dmagic_dest_addr(19 downto 16) <= read_data(3 downto 0);
+                            dmagic_dest_addr(27 downto 20) <= (others => '0');
                             dmagic_dest_io <= read_data(7);
-                            read_long_address(reg_dmagic_addr+9,DMAgic10);
+                            dmagic_dest_direction <= read_data(6);
+                            dmagic_dest_modulo <= read_data(5);
+                            dmagic_dest_hold <= read_data(4);
+                            read_long_address(reg_dmagic_addr,DMAgic10);
+                            reg_dmagic_addr <= reg_dmagic_addr + 1;
             when DMAgic10 => dmagic_modulo(7 downto 0) <= read_data;
-                            read_long_address(reg_dmagic_addr+10,DMAgic11);
+                            read_long_address(reg_dmagic_addr,DMAgic11);
+                            reg_dmagic_addr <= reg_dmagic_addr + 1;
             when DMAgic11 => dmagic_modulo(15 downto 8) <= read_data;
-                            read_long_address(reg_dmagic_addr+11,DMAgic12);
+                            read_long_address(reg_dmagic_addr,DMAgic12);
+                            reg_dmagic_addr <= reg_dmagic_addr + 1;
                              report "DMAgic command read" severity note;
             when DMAgic12 =>              
+              reg_dmacount <= reg_dmacount + 1;
               if dmagic_cmd(1 downto 0) = "11" then
                 -- fill
                 dmagic_count <= dmagic_count - 1;
@@ -1676,7 +1694,12 @@ begin
               end if;
             when DMAgic13 =>            -- DMA complete
                 dma_pending <= '0';
-                state <= InstructionFetch;
+                -- Is this the last DMA command in the chain?
+                if dmagic_cmd(2)='0' then
+                  state <= InstructionFetch;
+                else
+                  state <= DMAgic0;
+                end if;
             when InstructionFetch =>
 
               -- Start processing DMA request if one is pending
