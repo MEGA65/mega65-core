@@ -136,14 +136,14 @@ begin  -- behavioural
       sector_buffer_mapped <= sector_buffer_mapped and (not colourram_at_dc00);
       
       fastio_rdata <= (others => 'Z');
-
+      
       if  fastio_read='0' and fastio_write='1' then
         if fastio_write='1' then
           if (fastio_addr(19 downto 5)&'0' = x"D108")
             or (fastio_addr(19 downto 5)&'0' = x"D308") then
             -- F011 FDC emulation registers
-            case "000"&fastio_addr(4 downto 0) is
-              when x"00" =>
+            case fastio_addr(4 downto 0) is
+              when "00000" =>
                 -- CONTROL |  IRQ  |  LED  | MOTOR | SWAP  | SIDE  |  DS2  |  DS1  |  DS0  | 0 RW
                 --IRQ     When set, enables interrupts to occur,  when reset clears and
                 --        disables interrupts.
@@ -158,7 +158,7 @@ begin  -- behavioural
                 --        DS0-DS2  are  low  and  the LOCAL input is true (low) the DR0
                 --        output will go true (low).
                 null;
-              when x"01" =>
+              when "00001" =>
                 -- COMMAND | WRITE | READ  | FREE  | STEP  |  DIR  | ALGO  |  ALT  | NOBUF | 1 RW
                 --WRITE   must be set to perform write operations.
                 --READ    must be set for all read operations.
@@ -173,10 +173,10 @@ begin  -- behavioural
                 --NOBUF   clears the buffer read/write pointers
                 --           fastio_rdata <= (others => 'Z');
                 null;
-              when x"04" => f011_track <= fastio_wdata;
-              when x"05" => f011_sector <= fastio_wdata;
-              when x"06" => f011_side <= fastio_wdata;
-              when x"07" =>
+              when "00100" => f011_track <= fastio_wdata;
+              when "00101" => f011_sector <= fastio_wdata;
+              when "00110" => f011_side <= fastio_wdata;
+              when "00111" =>
                 -- Data register -- should probably be putting byte into the sector
                 -- buffer.
               when others => null;           
@@ -265,8 +265,8 @@ begin  -- behavioural
         if (fastio_addr(19 downto 5)&'0' = x"D108")
           or (fastio_addr(19 downto 5)&'0' = x"D308") then
           -- F011 FDC emulation registers
-          case "000"&fastio_addr(4 downto 0) is
-            when x"00" =>
+          case fastio_addr(4 downto 0) is
+            when "00000" =>
               -- CONTROL |  IRQ  |  LED  | MOTOR | SWAP  | SIDE  |  DS2  |  DS1  |  DS0  | 0 RW
               --IRQ     When set, enables interrupts to occur,  when reset clears and
               --        disables interrupts.
@@ -281,7 +281,7 @@ begin  -- behavioural
               --        DS0-DS2  are  low  and  the LOCAL input is true (low) the DR0
               --        output will go true (low).
               fastio_rdata <= (others => 'Z');
-            when x"01" =>
+            when "00001" =>
               -- COMMAND | WRITE | READ  | FREE  | STEP  |  DIR  | ALGO  |  ALT  | NOBUF | 1 RW
               --WRITE   must be set to perform write operations.
               --READ    must be set for all read operations.
@@ -309,7 +309,7 @@ begin  -- behavioural
                   null;
                 when others => null;
               end case;
-            when x"02" =>
+            when "00010" =>
               -- STAT A  | BUSY  |  DRQ  |  EQ   |  RNF  |  CRC  | LOST  | PROT  |  TKQ  | 2 R
               --BUSY    command is being executed
               --DRQ     disk interface has transferred a byte
@@ -321,7 +321,7 @@ begin  -- behavioural
               --TK0     head is positioned over track zero
 
               fastio_rdata <= "00111111";
-            when x"03" =>
+            when "00011" =>
               -- STAT B  | RDREQ | WTREQ |  RUN  | NGATE | DSKIN | INDEX |  IRQ  | DSKCHG| 3 R
               -- RDREQ   sector found during formatted read
               -- WTREQ   sector found during formatted write
@@ -333,25 +333,25 @@ begin  -- behavioural
               -- DSKCHG  the DSKIN line has changed
               --         this is cleared by deselecting drive
               fastio_rdata <= (others => 'Z');
-            when x"04" =>
+            when "00100" =>
               -- TRACK   |  T7   |  T6   |  T5   |  T4   |  T3   |  T2   |  T1   |  T0   | 4 RW
               fastio_rdata <= f011_track;
-            when x"05" =>
+            when "00101" =>
               -- SECTOR  |  S7   |  S6   |  S5   |  S4   |  S3   |  S2   |  S1   |  S0   | 5 RW
               fastio_rdata <= f011_sector;
-            when x"06" =>
+            when "00110" =>
               -- SIDE    |  S7   |  S6   |  S5   |  S4   |  S3   |  S2   |  S1   |  S0   | 6 RW
               fastio_rdata <= f011_side;
-            when x"07" =>
+            when "00111" =>
               -- DATA    |  D7   |  D6   |  D5   |  D4   |  D3   |  D2   |  D1   |  D0   | 7 RW
               fastio_rdata <= (others => 'Z');
-            when x"08" =>
+            when "01000" =>
               -- CLOCK   |  C7   |  C6   |  C5   |  C4   |  C3   |  C2   |  C1   |  C0   | 8 RW
               fastio_rdata <= (others => 'Z');
-            when x"09" =>
+            when "01001" =>
               -- STEP    |  S7   |  S6   |  S5   |  S4   |  S3   |  S2   |  S1   |  S0   | 9 RW
               fastio_rdata <= (others => 'Z');
-            when x"0a" =>
+            when "01010" =>
               -- P CODE  |  P7   |  P6   |  P5   |  P4   |  P3   |  P2   |  P1   |  P0   | A R
               fastio_rdata <= (others => 'Z');
             when others =>

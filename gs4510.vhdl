@@ -93,7 +93,7 @@ entity gs4510 is
     fastio_read : inout std_logic;
     fastio_write : inout std_logic;
     fastio_wdata : out std_logic_vector(7 downto 0);
-    fastio_rdata : inout std_logic_vector(7 downto 0);
+    fastio_rdata : in std_logic_vector(7 downto 0);
     fastio_vic_rdata : in std_logic_vector(7 downto 0);
     fastio_colour_ram_rdata : in std_logic_vector(7 downto 0);
     colour_ram_cs : out std_logic;
@@ -148,6 +148,7 @@ architecture Behavioural of gs4510 is
   signal dma_pending : std_logic := '0';
   signal dmagic_cmd : unsigned(7 downto 0);
   signal dmagic_count : unsigned(15 downto 0);
+  signal dmagic_tally : unsigned(15 downto 0);
   signal dmagic_src_addr : unsigned(27 downto 0);
   signal dmagic_src_io : std_logic;
   signal dmagic_src_direction : std_logic;
@@ -1496,6 +1497,7 @@ begin
   variable virtual_reg_p : std_logic_vector(7 downto 0);
   variable temp_pc : unsigned(15 downto 0);
   variable temp_value : unsigned(7 downto 0);
+  variable nybl : unsigned(3 downto 0);
   begin
 
     -- BEGINNING OF MAIN PROCESS FOR CPU
@@ -1625,18 +1627,23 @@ begin
             when DMAgic3 => dmagic_count(15 downto 8) <= read_data;
                             read_long_address(reg_dmagic_addr,DMAgic4);
                             reg_dmagic_addr <= reg_dmagic_addr + 1;
+                            dmagic_tally <= (others => '0');
             when DMAgic4 => dmagic_src_addr(7 downto 0) <= read_data;
                             read_long_address(reg_dmagic_addr,DMAgic5);
                             reg_dmagic_addr <= reg_dmagic_addr + 1;
             when DMAgic5 => dmagic_src_addr(15 downto 8) <= read_data;
                             read_long_address(reg_dmagic_addr,DMAgic6);
                             reg_dmagic_addr <= reg_dmagic_addr + 1;
-            when DMAgic6 => dmagic_src_addr(19 downto 16) <= read_data(3 downto 0);
+            when DMAgic6 => report "reg_dmagic_addr = $" & to_hstring(reg_dmagic_addr) severity note;
+                            temp_value := read_data;
+                            nybl := temp_value(3 downto 0);
+                            dmagic_src_addr(19 downto 16) <= nybl;
+                            report "reg_dmagic_addr = $" & to_hstring(reg_dmagic_addr) severity note;
                             dmagic_src_addr(27 downto 20) <= (others => '0');
-                            dmagic_src_io <= read_data(7);
-                            dmagic_src_direction <= read_data(6);
-                            dmagic_src_modulo <= read_data(5);
-                            dmagic_src_hold <= read_data(4);
+                            dmagic_src_io <= temp_value(7);
+                            dmagic_src_direction <= temp_value(6);
+                            dmagic_src_modulo <= temp_value(5);
+                            dmagic_src_hold <= temp_value(4);
                             read_long_address(reg_dmagic_addr,DMAgic7);
                             reg_dmagic_addr <= reg_dmagic_addr + 1;
             when DMAgic7 => dmagic_dest_addr(7 downto 0) <= read_data;
@@ -1664,7 +1671,6 @@ begin
               reg_dmacount <= reg_dmacount + 1;
               if dmagic_cmd(1 downto 0) = "11" then
                 -- fill
-                dmagic_count <= dmagic_count - 1;
                 report "DMAgic filling $" & to_hstring(dmagic_dest_addr) &
                   " with $" & to_hstring(dmagic_src_addr(7 downto 0))  severity note;
                 if dmagic_dest_addr(15 downto 12)=x"d" and dmagic_dest_io='1' then
@@ -1682,7 +1688,8 @@ begin
                     dmagic_dest_addr <= dmagic_dest_addr - 1;
                   end if;
                 end if;
-                if dmagic_count=1 then
+                dmagic_tally <= dmagic_tally + 1;
+                if dmagic_count=dmagic_tally then
                    pending_state <= DMAgic13;
                 end if;
 --              elsif dmagic_cmd(1 downto 0) = "00" then
@@ -1967,40 +1974,4 @@ begin
     end if;
   end process;
 
-  -- purpose: present MMU registers and other stuff to fastio interface
-  -- type   : combinational
-  -- inputs : ram_bank_registers_read
-  -- outputs: fastio_*
-  fastio: process (fastio_addr,fastio_read,nmi_pending,
-                   irq,irq_pending,clock,slowram_waitstates,nmi)
-    variable address : unsigned(19 downto 0);
-    variable rwx : integer;
-    variable lohi : std_logic;
-    variable value : unsigned(15 downto 0);
-    variable reg_num : integer;
-  begin  -- process fastio
-    if fastio_read='1' and address(19 downto 8) = x"FC0" then
-      address := unsigned(fastio_addr);
-      rwx := to_integer(address(7 downto 5));
-      lohi := fastio_addr(0);
-      reg_num := to_integer(address(4 downto 1));
-      
-      case rwx is
---        when 0 => value := ram_bank_registers_read(reg_num);
---        when 1 => value := ram_bank_registers_read(reg_num);
---        when 2 => value := ram_bank_registers_read(reg_num);
-        when 5 => value := x"FF" & slowram_waitstates;
-        when 6 => value := x"EEE" & irq & irq_pending & nmi & nmi_pending;
---        when 7 => value := recent_states(reg_num);
-        when others => value := x"F00D";
-      end case;
-      if lohi='0' then
-        fastio_rdata <= std_logic_vector(value(7 downto 0));
-      else
-        fastio_rdata <= std_logic_vector(value(15 downto 8));
-      end if;
-    else
-      fastio_rdata <= (others => 'Z');
-    end if;
-  end process fastio;
 end Behavioural;
