@@ -336,6 +336,7 @@ architecture Behavioural of gs4510 is
   signal reg_addr : unsigned(15 downto 0);
   -- Temporary instruction register (used for many modes)
   signal reg_instruction : instruction;
+  signal reg_opcode : unsigned(7 downto 0);
   -- Temporary value holder (used for RMW instructions)
   signal reg_value : unsigned(7 downto 0);
   
@@ -1157,6 +1158,7 @@ begin
   end procedure execute_implied_instruction;
 
   procedure execute_direct_instruction (
+    opcode  : in unsigned(7 downto 0);
     i       : in instruction;
     address : in unsigned(15 downto 0)) is
   begin  -- execute_direct_instruction
@@ -1173,7 +1175,7 @@ begin
     else
       -- Instruction requires reading from memory
       report "reading operand from memory" severity note;
-      reg_instruction <= i;
+      reg_instruction <= i;      
       reg_addr <= address; -- remember address for writeback
       read_data_byte(address,ExecuteDirect);
     end if;
@@ -1294,6 +1296,7 @@ begin
   end procedure rmw_operand_commit;
   
   procedure execute_operand_instruction (
+    opcode  : in unsigned(7 downto 0);
     i       : in instruction;
     operand : in unsigned(7 downto 0);
     address : in unsigned(15 downto 0)) is
@@ -1334,11 +1337,38 @@ begin
         rmw_operand_commit(address,operand,(operand+1));
       when I_LSR => flag_c <= operand(0); rmw_operand_commit(address,operand,'0'&operand(7 downto 1));
       when I_ORA => reg_a <= with_nz(reg_a or operand);
+      when I_RMB =>
+        report "Running RMB instruction" severity note;
+        case reg_opcode is
+          when x"07" => write_data_byte(address,operand and x"FE",InstructionFetch);
+          when x"17" => write_data_byte(address,operand and x"FD",InstructionFetch);
+          when x"27" => write_data_byte(address,operand and x"FB",InstructionFetch);
+          when x"37" => write_data_byte(address,operand and x"F7",InstructionFetch);
+          when x"47" => write_data_byte(address,operand and x"EF",InstructionFetch);
+          when x"57" => write_data_byte(address,operand and x"DF",InstructionFetch);
+          when x"67" => write_data_byte(address,operand and x"BF",InstructionFetch);
+          when x"77" => write_data_byte(address,operand and x"7F",InstructionFetch);
+          when others => null;
+        end case;        
       when I_ROL => flag_c <= operand(7); rmw_operand_commit(address,operand,operand(6 downto 0)&flag_c);
       when I_ROR => flag_c <= operand(0); rmw_operand_commit(address,operand,flag_c&operand(7 downto 1));
       when I_ROW => flag_c <= operand(7); word_flag<='1';
                     rmw_operand_commit(address,operand,operand(6 downto 0)&flag_c);
       when I_SBC => reg_a <= alu_op_sub(reg_a,operand);
+      when I_SMB =>
+        report "Running SMB instruction" severity note;
+        report "reg_opcode = $" & to_hstring(reg_opcode) severity note;
+        case reg_opcode is
+          when x"87" => write_data_byte(address,operand or x"01",InstructionFetch);
+          when x"97" => write_data_byte(address,operand or x"02",InstructionFetch);
+          when x"A7" => write_data_byte(address,operand or x"04",InstructionFetch);
+          when x"B7" => write_data_byte(address,operand or x"08",InstructionFetch);
+          when x"C7" => write_data_byte(address,operand or x"10",InstructionFetch);
+          when x"D7" => write_data_byte(address,operand or x"20",InstructionFetch);
+          when x"E7" => write_data_byte(address,operand or x"40",InstructionFetch);
+          when x"F7" => write_data_byte(address,operand or x"80",InstructionFetch);
+          when others => null;
+        end case;        
       when I_STA => write_data_byte(address,reg_a,InstructionFetch);
       when I_STX => write_data_byte(address,reg_x,InstructionFetch);
       when I_STY => write_data_byte(address,reg_y,InstructionFetch);
@@ -1476,13 +1506,13 @@ begin
       --report "executing direct instruction" severity note;
       case mode is
         -- Direct modes
-        when M_nn => execute_direct_instruction(i,arg2&arg1);
-        when M_nnX => execute_direct_instruction(i,arg2&(arg1+reg_x));
-        when M_nnY => execute_direct_instruction(i,arg2&(arg1+reg_y));
-        when M_nnnn => execute_direct_instruction(i,arg2&arg1);
-        when M_nnnnX => execute_direct_instruction(i,(arg2&arg1)+reg_x);
-        when M_nnnnY => execute_direct_instruction(i,(arg2&arg1)+reg_y);
-        when M_immnn => execute_operand_instruction(i,arg1,x"0000");
+        when M_nn => execute_direct_instruction(opcode,i,arg2&arg1);
+        when M_nnX => execute_direct_instruction(opcode,i,arg2&(arg1+reg_x));
+        when M_nnY => execute_direct_instruction(opcode,i,arg2&(arg1+reg_y));
+        when M_nnnn => execute_direct_instruction(opcode,i,arg2&arg1);
+        when M_nnnnX => execute_direct_instruction(opcode,i,(arg2&arg1)+reg_x);
+        when M_nnnnY => execute_direct_instruction(opcode,i,(arg2&arg1)+reg_y);
+        when M_immnn => execute_operand_instruction(opcode,i,arg1,x"0000");
         when M_immnnnn =>
           -- PHW #$nnnn is the only instruction with this mode
           reg_value <= arg2;
@@ -1799,6 +1829,7 @@ begin
               else
                 report "opcode: read_data = %" & to_string(std_logic_vector(read_data)) severity note;
                 opcode <= read_data;
+                reg_opcode <= read_data;
                 monitor_opcode <= std_logic_vector(read_data);
                 reg_pc <= reg_pc + 1;
                 report "reg_pc bump from $" & to_hstring(reg_pc) severity note;
@@ -1876,7 +1907,7 @@ begin
                 severity note;
               read_data_byte(read_data & reg_addr(7 downto 0),IndirectX3);
             when IndirectX3 =>
-              execute_operand_instruction(reg_instruction,read_data,reg_addr);
+              execute_operand_instruction(reg_opcode,reg_instruction,read_data,reg_addr);
             when IndirectY1 =>
               reg_addr(7 downto 0) <= read_data;
               report "(ZP),y or (d,SP),Y - low byte = $" & to_hstring(read_data) severity note;
@@ -1889,7 +1920,7 @@ begin
                 severity note;
               read_data_byte((read_data & reg_addr(7 downto 0)) + reg_y,IndirectY3);
             when IndirectY3 =>
-              execute_operand_instruction(reg_instruction,read_data,reg_addr);
+              execute_operand_instruction(reg_opcode,reg_instruction,read_data,reg_addr);
             when IndirectZ1 =>
               reg_addr(7 downto 0) <= read_data;
               report "(ZP),z - low byte = $" & to_hstring(read_data) severity note;
@@ -1902,7 +1933,7 @@ begin
                 severity note;
               read_data_byte((read_data & reg_addr(7 downto 0)) + reg_z,IndirectY3);
             when ExecuteDirect =>
-              execute_operand_instruction(reg_instruction,read_data,reg_addr);
+              execute_operand_instruction(reg_opcode,reg_instruction,read_data,reg_addr);
             when RMWCommit =>
               word_flag <= '0';
               if word_flag='0' then
