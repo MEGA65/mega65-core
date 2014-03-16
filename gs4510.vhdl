@@ -1694,8 +1694,23 @@ begin
                       dmagic_dest_addr <= dmagic_dest_addr - 1;
                     end if;
                   end if;
---              elsif dmagic_cmd(1 downto 0) = "00" then
+                elsif dmagic_cmd(1 downto 0) = "00" then
                   -- copy                
+                  if dmagic_src_addr(15 downto 12)=x"d" and dmagic_src_io='1' then
+                    -- Access is to IO at $D000-$DFFF
+                    read_long_address(x"ffd3" & dmagic_src_addr(11 downto 0),DMAgic14);
+                  else
+                    -- Access is to non-IO address (although it might map to
+                    -- fastio bulk address space anyway)
+                    read_long_address(dmagic_src_addr,DMAgic14);
+                  end if;
+                  if dmagic_src_hold='0' then
+                    if dmagic_src_direction='0' then
+                      dmagic_src_addr <= dmagic_src_addr + 1;
+                    else
+                      dmagic_src_addr <= dmagic_src_addr - 1;
+                    end if;
+                  end if;
                 else
                   -- fill and swap not supported yet
                   dma_pending <= '0';
@@ -1710,6 +1725,23 @@ begin
                 else
                   state <= DMAgic0;
                 end if;
+            when DMAgic14 =>
+              -- write phase of DMAgic copy command.
+              if dmagic_dest_addr(15 downto 12)=x"d" and dmagic_dest_io='1' then
+                -- Access is to IO at $D000-$DFFF
+                write_long_byte(x"ffd3" & dmagic_dest_addr(11 downto 0),read_data,DMAgic12);
+              else
+                -- Access is to non-IO address (although it might map to
+                -- fastio bulk address space anyway)
+                write_long_byte(dmagic_dest_addr,read_data,DMAgic12);
+              end if;
+              if dmagic_dest_hold='0' then
+                if dmagic_dest_direction='0' then
+                  dmagic_dest_addr <= dmagic_dest_addr + 1;
+                else
+                  dmagic_dest_addr <= dmagic_dest_addr - 1;
+                end if;
+              end if;
             when InstructionFetch =>
 
               -- Start processing DMA request if one is pending
