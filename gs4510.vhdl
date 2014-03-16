@@ -388,8 +388,8 @@ begin
     flag_e <= '1';
 
     cpuport_ddr <= x"FF";
-    cpuport_value <= x"3F";    
-    
+    cpuport_value <= x"3F";
+
   end procedure reset_cpu_state;
 
   procedure check_for_interrupts is
