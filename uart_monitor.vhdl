@@ -826,7 +826,7 @@ begin
           when ShowRegisters10 => try_output_char(' ',ShowRegisters11);
           when ShowRegisters11 => print_hex_byte(unsigned(monitor_z),ShowRegisters12);
           when ShowRegisters12 => try_output_char(' ',ShowRegisters13);
-          when ShowRegisters13 => print_hex_byte(unsigned(monitor_z),ShowRegisters14);
+          when ShowRegisters13 => print_hex_byte(unsigned(monitor_b),ShowRegisters14);
           when ShowRegisters14 => try_output_char(' ',ShowRegisters15);
           when ShowRegisters15 => print_hex_byte(unsigned(monitor_sp(15 downto 8)),ShowRegisters16);
           when ShowRegisters16 => print_hex_byte(unsigned(monitor_sp(7 downto 0)),ShowRegisters17);
