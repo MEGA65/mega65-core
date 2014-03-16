@@ -1,7 +1,11 @@
+D7 bit7 of $D7 set indicates 40 column mode (unconfirmed)
 E0 pointer to screen line (unconfirmed)
 E1 pointer to screen line, high byte (unconfirmed)
 E2 pointer to colour ram for screen line (unconfirmed)
 E3 pointer to colour ram for screen line, high byte (unconfirmed)
+E4 rows on screen -1 (unconfirmed)
+E7 columns on screen -1 (unconfirmed)
+F4 bit7 of $F4 set indicates reverse video
 1104 C65 INIT STATUS byte (bit7 low=full init of IO, bit6 low=full init of screen editor)
 02F7   jmp USR          ;USR vector (must be set by application)
 
@@ -47,7 +51,7 @@ E3 pointer to colour ram for screen line, high byte (unconfirmed)
 1102 Canary value (#$A5 after clearing ZP and stack, and setting basic entry point vectors at $110x)
 1108 Vector: (points to BASIC entry point on boot)
 110A Vector: (points to BASIC entry point on boot)
-
+1127 Page number for start of screen RAM
 
 data c0bb c7ff
 c800 C65 RESET entry point
@@ -62,6 +66,10 @@ c829 @if $1102=#$A5, ZP, stack and basic entry point have already been set, so .
 c82c @...skip clearing memory
 c845 @If STOP key is down start ML monitor
 c848 Presumably start BASIC 10 ($1100)=$2000
+c870 @ Is RAM expansion present?
+c872 @ If not, then take branch
+text c881 c88F
+text c895 c898
 CEE8 Enter ML monitorq
 CABE read debounced value from $DD00
 CAA0 Clear bit 4 in $DD00
@@ -74,6 +82,7 @@ CADB Switch to 1Mhz mode and enable IRQs?
 CAF4 wait CIA1 serial port?
 CB36 Delay for A raster lines
 CB47 Setup user port for UART operation?
+CBEB @ check UART?
 CCF7 Switch to C65 DOS memory configuration
 CD19 @ Map RAM @ $10000-$11FFF @ $0000-$1FFF (C65 DOS buffers)
 CD1D @ Map ROM @ $20000-$203FFF @ $8000-$BFFF (C65 DOS ROMs)
@@ -92,26 +101,21 @@ E065  vectors for $0334 - $033D
 word e065 e06e
 E06F vectors for 6 keyboard decode tables
 word e06f e07a
+E07b initialise editor and screen
 e109 @ copy $ED6F-$EDC4 to $1000-$1065
 e114 @ mark screen editor as initialised
-data ED6F EDC6
-ED6F initial values of OS variables for copying to $1000-$1065
-data edde ef49
-EDDE keyboard decode table 1
-EE27 keyboard decode table 2
-EE70 keyboard decode table 3
-EEB9 keyboard decode table 4
-EF02 keyboard decode table 6
-
-text ED83 EDCD
-data EDCE EDDD
-
-E07b initialise editor and screen
+e11a Clear screen, used by chr$($93/147)
+E123 @ Are we at the last line of the screen?
+E126 @ If not, then repeat for next line of screen
+E128 Reset to first line of screen
 E136 calculate address of line on screen and colour ram (40 or 80 column mode)
+E139 @ Skip over shift if in 80 column mode
+E13C @ 40 column mode, so shift value right to divide by two, because 80/40=2.
 E15B  editor_irq      ;IRQ entry
 E177 get a key from IRQ buffer into .a
 E1DF get a chr from screen line into .a
 E23D check for quote mark ($22), and toggle quote mode if required
+E38F Use DMAgic to clear current line of screen
 E406 scan keyboard subroutine
 E4F9 repeat key logic & CKIT2 to store decoded key
 E5A6 blink cursor?
@@ -122,6 +126,8 @@ E614 disable mouse sprite
 E62D C65 Kernel raster interrupt (scan keyboard etc?)
 E6B5 A=$00 and RTS
 E6B8 print character in .a
+E819 Reverse OFF
+E81C Reverse ON
 E97F execute escape function using chr in .a
 E9DF set top left or bottom right (.c) of window
 EBAF display character in .a, color in .x
@@ -130,7 +136,19 @@ EC03 read or set (.c) cursor position in .x, .y
 EC41 redefine a programmable function key
 ECCD 40/80 mode change
 ED18 turn on or off (.c) soft cursor
+data ED6F EDC6
+ED6F initial values of OS variables for copying to $1000-$1065
+data edde ef49
 ED83 default function key strings
+EDDE keyboard decode table 1
+EE27 keyboard decode table 2
+EE70 keyboard decode table 3
+EEB9 keyboard decode table 4
+EF02 keyboard decode table 6
+
+text ED83 EDCD
+data EDCE EDDD
+
 F000 Copy Kernel IO vectors to $0314
 F005 @ IF C=1, save Kernel IO vectors, else load list from $FF09
 F026 @ Do something to the floppy controller
@@ -186,6 +204,7 @@ F9F7 load/store vector at $110A-$110B
 F9FF X -> $110A, Y -> $110B
 FA06 load/store vector at $1108-$1109
 FA0E X -> $1108, Y -> $1109
+FA37 Print immediate (print text message immediately following JSR to this routine)
 fa88 C65 Kernel IRQ handler
 faa9 C65 Kernel NMI entry point
 fab1 C65 Kernel IRQ entry point
