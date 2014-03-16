@@ -224,6 +224,7 @@ int main(int argc,char **argv)
 	c+=strlen(opnames[opcode])+1+strlen(args);
       } 
       if (annotation_address>65536) annotation_address&=0xffff;
+      if (annotation_address<0) annotation_address&=0xffff;
       if (annotations[instruction_address]) {
 	while(c<40) { printf(" "); c++; }
 	printf("; %s\n",annotations[instruction_address]);

@@ -53,6 +53,22 @@ F4 bit7 of $F4 set indicates reverse video
 110A Vector: (points to BASIC entry point on boot)
 1127 Page number for start of screen RAM
 
+word 2000 2015
+2000 C65 BASIC vector table
+text 2016 201c
+233B LDA ($3D),Y from bank number loaded from $0084 (probably RAM bank $00 or $01)
+2E36 BASIC error #$28
+2E39 BASIC error #$11 (UNDEF'D STATEMENT?)
+2E3C BASIC error #$10 (OUT OF MEMORY?)
+2E3F BASIC error #$14 (DIVISION BY ZERO?)
+2E42 BASIC error #$0F (OVERFLOW?)
+2E45 BASIC error #$0B (SYNTAX ERROR?)
+2E48 BASIC error #$80 (?? FILE NOT FOUND?)
+661A Try to load AUTOBOOT.C65?
+6666 Filename "AUTOBOOT.C65*"
+text 6666 6673
+747C AND with contents of $007F, if non-zero branch to $2E45 (BASIC error #$0B)
+
 data c0bb c7ff
 c800 C65 RESET entry point
 c808 @ Map ROM from $32000-$3FFFF at $2000-$FFFF, except for $C000-$DFFF
