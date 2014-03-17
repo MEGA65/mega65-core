@@ -562,7 +562,19 @@ begin
     accessing_cpuport <= '0'; accessing_colour_ram_fastio <= '0';
 
     the_read_address <= long_address;
-    if long_address(27 downto 17)="00000000000" then
+    if long_address(27 downto 12) = x"001F" and long_address(11)='1' then
+      -- Last 2KB of chipram really points to colour RAM for C65 compatibility
+      accessing_colour_ram_fastio <= '1';
+      colour_ram_cs <= '1';
+      colour_ram_cs_last <= '1';
+      fastio_addr(19 downto 12) <= x"800";
+      fastio_addr(11) <= '1';
+      fastio_addr(10 downto 0) <= std_logic_vector(long_address(10 downto 0));
+      last_fastio_addr(19 downto 12) <= x"800";
+      last_fastio_addr(11) <= '1';
+      last_fastio_addr(10 downto 0) <= std_logic_vector(long_address(10 downto 0));
+      fastio_read <= '1';
+    elsif long_address(27 downto 17)="00000000000" then
       report "Reading from fastram address $" & to_hstring(long_address(19 downto 0))
         & ", word $" & to_hstring(long_address(18 downto 3)) severity note;
       accessing_ram <= '1';
@@ -755,7 +767,19 @@ begin
     
     accessing_ram <= '0'; accessing_slowram <= '0';
     accessing_fastio <= '0'; accessing_cpuport <= '0';
-    if long_address(27 downto 17)="00000000000" then
+    if long_address(27 downto 12) = x"001F" and long_address(11)='1' then
+      -- Last 2KB of chipram really points to colour RAM for C65 compatibility
+      accessing_colour_ram_fastio <= '1';
+      colour_ram_cs <= '1';
+      colour_ram_cs_last <= '1';
+      fastio_addr(19 downto 12) <= x"800";
+      fastio_addr(11) <= '1';
+      fastio_addr(10 downto 0) <= std_logic_vector(long_address(10 downto 0));
+      last_fastio_addr(19 downto 12) <= x"800";
+      last_fastio_addr(11) <= '1';
+      last_fastio_addr(10 downto 0) <= std_logic_vector(long_address(10 downto 0));
+      fastio_read <= '0'; fastio_write <= '1';
+    elsif long_address(27 downto 17)="00000000000" then
       accessing_ram <= '1';
       fastram_address <= std_logic_vector(long_address(16 downto 3));
       fastram_we <= (others => '0');
