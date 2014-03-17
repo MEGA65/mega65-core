@@ -116,6 +116,7 @@ architecture Behavioral of machine is
       monitor_map_offset_high : in std_logic_vector(11 downto 0);
       monitor_map_enables_low : in std_logic_vector(3 downto 0);
       monitor_map_enables_high : in std_logic_vector(3 downto 0);   
+      monitor_interrupt_inhibit : in std_logic;
 
 
       monitor_mem_address : out std_logic_vector(27 downto 0);
@@ -152,6 +153,7 @@ architecture Behavioral of machine is
       monitor_map_enables_low : out std_logic_vector(3 downto 0);
       monitor_map_enables_high : out std_logic_vector(3 downto 0);
       monitor_state : out std_logic_vector(7 downto 0);
+      monitor_interrupt_inhibit : out std_logic;
 
       ---------------------------------------------------------------------------
       -- Memory access interface used by monitor
@@ -332,6 +334,7 @@ architecture Behavioral of machine is
   
   signal monitor_a : std_logic_vector(7 downto 0);
   signal monitor_b : std_logic_vector(7 downto 0);
+  signal monitor_interrupt_inhibit : std_logic;
   signal monitor_x : std_logic_vector(7 downto 0);
   signal monitor_y : std_logic_vector(7 downto 0);
   signal monitor_z : std_logic_vector(7 downto 0);
@@ -606,6 +609,7 @@ begin
     monitor_z => monitor_z,
     monitor_sp => monitor_sp,
     monitor_p => monitor_p,
+    monitor_interrupt_inhibit => monitor_interrupt_inhibit,
     monitor_map_offset_low => monitor_map_offset_low,
     monitor_map_offset_high => monitor_map_offset_high,
     monitor_map_enables_low => monitor_map_enables_low,

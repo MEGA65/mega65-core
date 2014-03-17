@@ -24,7 +24,8 @@ entity uart_monitor is
     monitor_map_offset_low : in std_logic_vector(11 downto 0);
     monitor_map_offset_high : in std_logic_vector(11 downto 0);
     monitor_map_enables_low : in std_logic_vector(3 downto 0);
-    monitor_map_enables_high : in std_logic_vector(3 downto 0);   
+    monitor_map_enables_high : in std_logic_vector(3 downto 0);
+    monitor_interrupt_inhibit : in std_logic;
 
     monitor_mem_address : out std_logic_vector(27 downto 0);
     monitor_mem_rdata : in unsigned(7 downto 0);
@@ -131,8 +132,9 @@ architecture behavioural of uart_monitor is
                          ShowRegisters13,ShowRegisters14,ShowRegisters15,ShowRegisters16,
                          ShowRegisters17,ShowRegisters18,ShowRegisters19,ShowRegisters20,
                          ShowRegisters21,ShowRegisters22,ShowRegisters23,ShowRegisters24,
-                         ShowRegisters25,ShowRegisters26,
+                         ShowRegisters25,
                          ShowP1,ShowP2,ShowP3,ShowP4,ShowP5,ShowP6,ShowP7,ShowP8,
+                         ShowP9,
                          TraceStep,CPUBreak1,WaitOneCycle
                          );
 
@@ -838,9 +840,8 @@ begin
           when ShowRegisters22 => print_hex_byte(unsigned(monitor_map_offset_high(7 downto 0)),ShowRegisters23);
           when ShowRegisters23 => try_output_char(' ',ShowRegisters24);
           when ShowRegisters24 => print_hex_byte(unsigned(monitor_p),ShowRegisters25);
-          when ShowRegisters25 => try_output_char(' ',ShowRegisters26);
+          when ShowRegisters25 => try_output_char(' ',ShowP1);
 
-          when ShowRegisters26 => try_output_char(' ',ShowP1);
           when ShowP1 =>
             if monitor_p(7)='1' then
               try_output_char('N',ShowP2);
@@ -885,7 +886,13 @@ begin
             end if;
           when ShowP8 =>
             if monitor_p(0)='1' then
-              try_output_char('C',NextCommand);
+              try_output_char('C',ShowP9);
+            else              
+              try_output_char('.',ShowP9);
+            end if;
+          when ShowP9 =>
+            if monitor_interrupt_inhibit='1' then
+              try_output_char('M',NextCommand);
             else              
               try_output_char('.',NextCommand);
             end if;

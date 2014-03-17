@@ -47,6 +47,7 @@ entity gs4510 is
     monitor_sp : out std_logic_vector(15 downto 0);
     monitor_p : out std_logic_vector(7 downto 0);
     monitor_state : out std_logic_vector(7 downto 0);
+    monitor_interrupt_inhibit : out std_logic;
     monitor_map_offset_low : out std_logic_vector(11 downto 0);
     monitor_map_offset_high : out std_logic_vector(11 downto 0);
     monitor_map_enables_low : out std_logic_vector(3 downto 0);
@@ -1547,6 +1548,7 @@ begin
       monitor_z <= std_logic_vector(reg_z);
       monitor_sp <= std_logic_vector(reg_sph) & std_logic_vector(reg_sp);
       monitor_b <= std_logic_vector(reg_b);
+      monitor_interrupt_inhibit <= map_interrupt_inhibit;
       monitor_map_offset_low <= std_logic_vector(reg_offset_low);
       monitor_map_offset_high <= std_logic_vector(reg_offset_high); 
       monitor_map_enables_low <= std_logic_vector(reg_map_low); 
