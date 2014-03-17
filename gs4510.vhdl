@@ -391,6 +391,10 @@ begin
     cpuport_ddr <= x"FF";
     cpuport_value <= x"3F";
 
+    -- Don't write to fastio when resetting.
+    -- (this is an attempt to stop the boot vectors getting overwritten)
+    fastio_write <= '0'; fastio_read <= '0';
+
   end procedure reset_cpu_state;
 
   procedure check_for_interrupts is
