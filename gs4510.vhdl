@@ -408,6 +408,8 @@ begin
       else
         irq_pending <= '0';
       end if;
+    else
+      irq_pending <= '0';
     end if;     
   end procedure check_for_interrupts;
 
@@ -1809,7 +1811,7 @@ begin
                   monitor_mem_trace_toggle_last <= monitor_mem_trace_toggle;
 
                   -- XXX Push PC & P before launching interrupt handlers
-                  if nmi_pending='1' then
+                  if nmi_pending='1' and map_interrupt_inhibit='0' then
                     nmi_pending <= '0';
                     vector <= x"FFFA"; state <=Interrupt;
                   elsif irq_pending='1' and flag_i='0' then
