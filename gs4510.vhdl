@@ -567,11 +567,11 @@ begin
       accessing_colour_ram_fastio <= '1';
       colour_ram_cs <= '1';
       colour_ram_cs_last <= '1';
-      fastio_addr(19 downto 12) <= x"800";
-      fastio_addr(11) <= '1';
+      fastio_addr(19 downto 12) <= x"80";
+      fastio_addr(11) <= '0';
       fastio_addr(10 downto 0) <= std_logic_vector(long_address(10 downto 0));
-      last_fastio_addr(19 downto 12) <= x"800";
-      last_fastio_addr(11) <= '1';
+      last_fastio_addr(19 downto 12) <= x"80";
+      last_fastio_addr(11) <= '0';
       last_fastio_addr(10 downto 0) <= std_logic_vector(long_address(10 downto 0));
       fastio_read <= '1';
     elsif long_address(27 downto 17)="00000000000" then
@@ -772,11 +772,11 @@ begin
       accessing_colour_ram_fastio <= '1';
       colour_ram_cs <= '1';
       colour_ram_cs_last <= '1';
-      fastio_addr(19 downto 12) <= x"800";
-      fastio_addr(11) <= '1';
+      fastio_addr(19 downto 12) <= x"80";
+      fastio_addr(11) <= '0';
       fastio_addr(10 downto 0) <= std_logic_vector(long_address(10 downto 0));
-      last_fastio_addr(19 downto 12) <= x"800";
-      last_fastio_addr(11) <= '1';
+      last_fastio_addr(19 downto 12) <= x"80";
+      last_fastio_addr(11) <= '0';
       last_fastio_addr(10 downto 0) <= std_logic_vector(long_address(10 downto 0));
       fastio_read <= '0'; fastio_write <= '1';
     elsif long_address(27 downto 17)="00000000000" then
