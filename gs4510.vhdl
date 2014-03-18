@@ -1624,6 +1624,7 @@ begin
 
         -- reset cpu
         kickstart_en <= '1';
+        fastio_write <= '0';
         state <= VectorRead;
         vector <= x"FFFC";
         reset_cpu_state;
