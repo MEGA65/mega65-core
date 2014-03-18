@@ -652,7 +652,8 @@ fs_readnextsector:
 rs5:		; cluster number is right
 		jsr fs_clustertosector
 		jsr sd_fix_sectornumber
-rs6:		jmp sd_readsector
+rs6:		
+		jmp sd_readsector
 
 fs_getnextclusteroffile:
 		; read chained cluster number for fs_clusternumber
@@ -1076,18 +1077,32 @@ rsbusyfail:     ; fail
 		rts
 
 
-printsdaddress:
-		ldx #<msg_sdaddress
-		ldy #>msg_sdaddress
+printclusternumber:
+		ldx #<msg_clusternumber
+		ldy #>msg_clusternumber
 		jsr printmessage
 		ldy #$00
-		ldz $D684
+		ldz fs_clusternumber+3
 		jsr printhex
-		ldz $D683
+		ldz fs_clusternumber+2
 		jsr printhex
-		ldz $D682
+		ldz fs_clusternumber+1
 		jsr printhex
-		ldz $D681
+		ldz fs_clusternumber+0
+		jmp printhex
+
+printsectoraddress:
+		ldx #<msg_sectoraddress
+		ldy #>msg_sectoraddress
+		jsr printmessage
+		ldy #$00
+		ldz $D681+3
+		jsr printhex
+		ldz $D681+2
+		jsr printhex
+		ldz $D681+1
+		jsr printhex
+		ldz $D681+0
 		jmp printhex
 
 sd_inc_fixedsectornumber:
@@ -1102,7 +1117,14 @@ sd_inc_fixedsectornumber:
 		clc
 		adc #$02
 		sta $d682
-		bra s2
+		lda $d683
+		adc #$00
+		sta $d683
+		lda $d684
+		adc #$00
+		sta $d684
+		rts
+
 sdhc1:		; SDHC card mode: add 1
 		inc $d681
 		bcc s1
@@ -1329,7 +1351,13 @@ resetdisplay:
 
 resetpalette:
 		; reset VIC-IV palette to sensible defaults.
-		; for now, just define black and white
+		; load C64 colours into palette bank 3 for use when
+		; PAL bit in $D030 is set.
+		lda #$04
+		sta $D030	; enable PAL bit in $D030
+		lda #$ff
+		sta $D070	; select palette bank 3 for display and edit
+		; set black and white for now, but should set all C64 colours
 		lda #$00
 		sta $D100
 		sta $D200
@@ -1342,6 +1370,9 @@ resetpalette:
 
 ; erase standard 40-column screen
 erasescreen:
+		lda #$01
+		tsb $D030
+
 		ldx #$00
 		lda #$20
 		ldy #$01
@@ -1355,8 +1386,15 @@ l3:		; fill screen with spaces
 		sty $d900,x
 		sty $da00,x
 		sty $db00,x
+		sty $dc00,x
+		sty $dd00,x
+		sty $de00,x
+		sty $df00,x
 		inx
 		bne l3
+
+		lda #$01
+		trb $D030
 
 		lda #$00
 		sta screenrow
@@ -1388,14 +1426,19 @@ pm2:		cpx #$00
 		sta zptempv2
 		lda zptempv2+1
 		adc #$00
+		sta zptempv2+1
 		; if reached bottom of screen, then loop back to top of screen
-		cmp #$08
-		bcc pm5		
+		cmp #$07
+		bcc pm5
+		lda zptempv2
+		cmp #$e8
+		bcc pm5
+	
 		lda #$00
 		sta zptempv2
 		lda #$04
-pm5:		sta zptempv2+1
-		dex
+		sta zptempv2+1
+pm5:		dex
 		bne pm2
 pm1:
 		ldy #$27
@@ -1528,7 +1571,8 @@ msg_foundromfile:     .byte "FOUND ROM FILE. START CLUSTER = $$$$$$$$"
 msg_fileopenerror:    .byte "COULD NOT OPEN ROM FILE FOR READING     "
 msg_readingfile:      .BYTE "READING ROM FILE...                     "
 msg_romfilesizeerror: .byte "ROM FILE WRONG SIZE: MUST BE 128KB      "
-msg_sdaddress:	      .byte " D684-D681=$$$$$$$$                     "
+msg_clusternumber:    .byte " NEXT CLUSTER=$$$$$$$$                  "
+msg_sectoraddress:    .byte " NEXT SECTOR=$$$$$$$$                   "
 msg_checkpoint:	      .byte " CHECKPOINT $$ $$ $$ $$ $$ $$ $$ $$ $$  "
 
 ; filename of ROM we want to load in FAT directory format
@@ -1555,6 +1599,33 @@ reset_entry:
 		
 		; Copy $E000-$FFFF to $1000-$2FFF so that sdcard routines are run
 		; from chipram.
+
+		; Would be nice to use DMAgic to do copy.
+		; XXX need to implemented extended lists with 28 bit
+		; addresses for that, since kickstart ROM is at $FFFE000-$FFFFFFF
+		; But let's just do a DMAgic test anyway.
+		lda #$03 ; Fill ...
+		sta $1e0
+		ldx #$00
+		ldy #$01 ; ... 256 bytes ...
+		stx $1e1
+		sty $1e2
+		lda #$55 ; ... with value $55 ...
+		sta $1e3
+		ldx #$00 ; ... at location $002000
+		ldy #$20
+		ldz #$00
+		stx $1e6
+		sty $1e7
+		stz $1e8
+		; trigger DMA
+		lda #$00
+		sta $D702
+		lda #$01
+		sta $D701
+		lda #$e0
+		sta $D700
+
 		lda #$00
 		sta $c0
 		lda #$10
@@ -1571,7 +1642,6 @@ c1:		lda ($C2),y
 		inc $c1
 		inc $c3
 		bne c1
-
 
 		jmp kickstart_entry
 
