@@ -53,9 +53,9 @@ F4 bit7 of $F4 set indicates reverse video
 110A Vector: (points to BASIC entry point on boot)
 1127 Page number for start of screen RAM
 
-word 2000 2015
 2000 C65 BASIC vector table
-text 2016 201c
+2003 BASIC Warm Start?
+2025 BASIC Cold Start?
 233B LDA ($3D),Y from bank number loaded from $0084 (probably RAM bank $00 or $01)
 2E36 BASIC error #$28
 2E39 BASIC error #$11 (UNDEF'D STATEMENT?)
@@ -65,9 +65,22 @@ text 2016 201c
 2E45 BASIC error #$0B (SYNTAX ERROR?)
 2E48 BASIC error #$80 (?? FILE NOT FOUND?)
 661A Try to load AUTOBOOT.C65?
+6622 @ Wait while floppy controller busy
 6666 Filename "AUTOBOOT.C65*"
+66C5 @ LOAD or VERIFY file?
+66C8 @ LOAD or VERIFY file
+66CF @ LOAD file
+6F8B Preparing to LOAD BASIC program?
 text 6666 6673
+data 7201 7207
+7201 Some FAC value
+7208 do something with a FAC
+720A do something with a FAC
+720C do something with a FAC
 747C AND with contents of $007F, if non-zero branch to $2E45 (BASIC error #$0B)
+7488 some vector table?
+word 7488 74D7
+74d8 Some preparation for file access?
 
 data c0bb c7ff
 c800 C65 RESET entry point
@@ -129,6 +142,7 @@ E139 @ Skip over shift if in 80 column mode
 E13C @ 40 column mode, so shift value right to divide by two, because 80/40=2.
 E15B  editor_irq      ;IRQ entry
 E177 get a key from IRQ buffer into .a
+E1A7 @ BASIC wait for keyboard input loop?
 E1DF get a chr from screen line into .a
 E23D check for quote mark ($22), and toggle quote mode if required
 E38F Use DMAgic to clear current line of screen
