@@ -990,6 +990,9 @@ begin
     
     if rising_edge(cpuclock) then
 
+      report "irq_raster = " & std_logic'image(irq_raster)
+        & ", ack_raster= " & std_logic'image(ack_raster) severity note;
+      
       if viciv_legacy_mode_registers_touched='1' then
         viciv_interpret_legacy_mode_registers;
         viciv_legacy_mode_registers_touched <= '0';
@@ -1057,9 +1060,9 @@ begin
           -- $D019 compatibility IRQ bits
           -- Acknowledge IRQs
           -- (we need to pass this to the dotclock side to avoide multiple drivers)
-          ack_colissionspritesprite <= not fastio_wdata(2);
-          ack_colissionspritebitmap <= not fastio_wdata(1);
-          ack_raster <= not fastio_wdata(0);
+          ack_colissionspritesprite <= fastio_wdata(2);
+          ack_colissionspritebitmap <= fastio_wdata(1);
+          ack_raster <= fastio_wdata(0);
         elsif register_number=26 then   -- $D01A compatibility IRQ mask bits
                                         -- XXX Enable/disable IRQs
           mask_colissionspritesprite <= fastio_wdata(2);
