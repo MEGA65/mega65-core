@@ -152,7 +152,7 @@ begin  -- behavioural
       clkb => clock,
       enb => '1',
       web => sbweb,
-      addrb => std_logic_vector(sector_offset),
+      addrb => std_logic_vector(sector_offset(8 downto 0)),
       dinb => sd_rdata,
       doutb => sd_wdata
       
