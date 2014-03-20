@@ -264,7 +264,7 @@ begin
       -- being mapped in $DC00-$DFFF using the C65 2K colour ram register
       cia1cs <='0';
       cia2cs <='0';
-      if colourram_at_dc00='0' then
+      if colourram_at_dc00='0' and sectorbuffermapped='0' then
         case address(19 downto 8) is
           when x"D0C" => cia1cs <='1';
           when x"D1C" => cia1cs <='1';
