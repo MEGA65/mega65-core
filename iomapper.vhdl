@@ -63,6 +63,9 @@ architecture behavioral of iomapper is
       -- If colour RAM is mapped at $DC00-$DFFF, then don't map sector buffer
       colourram_at_dc00 : in std_logic;
 
+      sectorbuffermapped : out std_logic;
+      sectorbuffercs : in std_logic;
+      
       -------------------------------------------------------------------------
       -- Lines for the SDcard interface itself
       -------------------------------------------------------------------------
@@ -132,6 +135,9 @@ architecture behavioral of iomapper is
   signal cia1cs : std_logic;
   signal cia2cs : std_logic;
 
+  signal sectorbuffercs : std_logic;
+  signal sectorbuffermapped : std_logic;
+  
   signal cia1porta_out : std_logic_vector(7 downto 0);
   signal cia1porta_in : std_logic_vector(7 downto 0);
   signal cia1portb_out : std_logic_vector(7 downto 0);
@@ -207,6 +213,8 @@ begin
     fastio_wdata => unsigned(data_i),
     std_logic_vector(fastio_rdata) => data_o,
     colourram_at_dc00 => colourram_at_dc00,
+    sectorbuffermapped => sectorbuffermapped,
+    sectorbuffercs => sectorbuffercs,
 
     cs_bo => cs_bo,
     sclk_o => sclk_o,
@@ -241,6 +249,15 @@ begin
         kickstartcs <='0';
       end if;
 
+      -- sdcard sector buffer: only mapped if no colour ram @ $DC00, and if
+      -- the sectorbuffer mapping flag is set
+      sectorbuffercs <= '0';
+      if address(19 downto 16) = x"D"
+        and address(11 downto 8)&'0' = x"E"
+        and sectorbuffermapped = '1' and colourram_at_dc00 = '0' then
+        sectorbuffercs <= '1';
+      end if;
+
       -- Now map the CIAs.
 
       -- These are a bit fun, because they only get mapped if colour RAM isn't
@@ -264,6 +281,7 @@ begin
       cia1cs <= '0';
       cia2cs <= '0';
       kickstartcs <= '0';
+      sectorbuffercs <= '0';
     end if;
   end process;
 

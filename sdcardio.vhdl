@@ -22,6 +22,9 @@ entity sdcardio is
 
     colourram_at_dc00 : in std_logic;
 
+    sectorbuffermapped : out std_logic;
+    sectorbuffercs : in std_logic;
+
     -------------------------------------------------------------------------
     -- Lines for the SDcard interface itself
     -------------------------------------------------------------------------
@@ -56,6 +59,23 @@ architecture behavioural of sdcardio is
         );
   end component;
 
+  component ram8x512 IS
+  PORT (
+    clka : IN STD_LOGIC;
+    ena : IN STD_LOGIC;
+    wea : IN STD_LOGIC_VECTOR(0 DOWNTO 0);
+    addra : IN STD_LOGIC_VECTOR(8 DOWNTO 0);
+    dina : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
+    douta : OUT STD_LOGIC_VECTOR(7 DOWNTO 0);
+    clkb : IN STD_LOGIC;
+    enb : IN STD_LOGIC;
+    web : IN STD_LOGIC_VECTOR(0 DOWNTO 0);
+    addrb : IN STD_LOGIC_VECTOR(8 DOWNTO 0);
+    dinb : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
+    doutb : OUT STD_LOGIC_VECTOR(7 DOWNTO 0)
+  );
+  END component;
+  
   signal skip : integer range 0 to 2;
   signal read_bytes : std_logic;
   signal sd_doread       : std_logic := '0';
@@ -75,14 +95,12 @@ architecture behavioural of sdcardio is
   signal sdio_error : std_logic := '0';
   signal sdio_fsm_error : std_logic := '0';
 
-  -- 512 byte sector buffer
-  type sector_buffer_t is array (0 to 511) of unsigned(7 downto 0);
-  signal sector_buffer : sector_buffer_t;
   signal sector_buffer_mapped : std_logic := '0';
 
   -- Counter for reading/writing sector
   signal sector_offset : unsigned(9 downto 0);
-
+  signal sbweb : std_logic_vector(0 downto 0) := "0";
+  
   type sd_state_t is (Idle,
                       ReadSector,ReadingSector,ReadingSectorAckByte,DoneReadingSector,
                       WriteSector,WritingSector,WritingSectorAckByte,
@@ -120,20 +138,38 @@ begin  -- behavioural
 	din => sd_wdata,
 	dout => sd_rdata,
 	clk => clock	-- twice the SPI clk.  XXX Cannot exceed 50MHz
-);
+        );
 
+  ram0: ram8x512
+    port map (
+      clka => clock,
+      ena => sectorbuffercs,
+      wea(0) => fastio_read,
+      addra => std_logic_vector(fastio_addr(8 downto 0)),
+      dina => std_logic_vector(fastio_wdata),
+      unsigned(douta) => fastio_rdata,
+
+      clkb => clock,
+      enb => '1',
+      web => sbweb,
+      addrb => std_logic_vector(sector_offset),
+      dinb => sd_rdata,
+      doutb => sd_wdata
+      
+      );
   
   -- XXX also implement F1011 floppy controller emulation.
   process (clock,fastio_addr,fastio_wdata,sector_buffer_mapped,sdio_busy,
            sd_reset,fastio_read,sd_sector,fastio_write,
            f011_track,f011_sector,f011_side,sdio_fsm_error,sdio_error,
-           sd_state,sector_buffer) is
+           sd_state) is
   begin
 
     if rising_edge(clock) then
 
       -- De-map sector buffer if VIC-IV maps colour RAM at $DC00
       sector_buffer_mapped <= sector_buffer_mapped and (not colourram_at_dc00);
+      sectorbuffermapped <= sector_buffer_mapped and (not colourram_at_dc00);
       
       fastio_rdata <= (others => 'Z');
       
@@ -250,13 +286,6 @@ begin  -- behavioural
               when x"4" => sd_sector(31 downto 24) <= std_logic_vector(fastio_wdata);
               when others => null;
             end case;
-          elsif (sector_buffer_mapped='1') and
-            ((fastio_addr(19 downto 9)&'0' = x"D1E")
-             or (fastio_addr(19 downto 9)&'0' = x"D3E")) then
-            -- Map sector buffer at $DE00-$DFFF when required
-            if fastio_read='0' and fastio_write='1' and sdio_busy='0' then
-              sector_buffer(to_integer(fastio_addr(8 downto 0))) <= fastio_wdata;
-            end if;
           end if;
         end if;
       end if;
@@ -386,101 +415,94 @@ begin  -- behavioural
               fastio_rdata(1) <= sector_offset(9);
             when others => fastio_rdata <= (others => 'Z');
           end case;
-        elsif (sector_buffer_mapped='1') and 
-          ((fastio_addr(19 downto 9)&'0' = x"D1E")
-           or (fastio_addr(19 downto 9)&'0' = x"D3E")) then
-          -- Map sector buffer at $DE00-$DFFF when required
-          if fastio_read='1' and fastio_write='0' and sdio_busy='0' then
-            fastio_rdata <= sector_buffer(to_integer(fastio_addr(8 downto 0)));
-          end if;
         else
           -- Otherwise tristate output
           fastio_rdata <= (others => 'Z');
         end if;
       end if;
       
---      if (fastio_read='0') and (fastio_write='0') then
-        case sd_state is
-          when Idle => sdio_busy <= '0';
-          when ReadSector =>
-            -- Begin reading a sector into the buffer
-            if sdio_busy='0' then
-              sd_doread <= '1';
-              sd_state <= ReadingSector;
-              sdio_busy <= '1';
-              skip <= 2;
-              sector_offset <= (others => '0');
-              read_bytes <= '0';
-            else
-              sd_doread <= '0';
-            end if;
-          when ReadingSector =>
-            if data_ready='1' then
-              sd_doread <= '0';
-              -- A byte is ready to read, so store it
-              sector_buffer(to_integer(sector_offset)) <= unsigned(sd_rdata);
-              sd_state <= ReadingSectorAckByte;
-              if skip=0 then
-                sector_offset <= sector_offset + 1;
-                read_bytes <= '1';
-              else
-                skip <= skip - 1;
-                if skip=2 then
-                  sd_datatoken <= unsigned(sd_rdata);
-                end if;
-              end if;
-            end if;
-          when ReadingSectorAckByte =>
-            -- Wait until controller acknowledges that we have acked it
-            if data_ready='0' then
-              if (sector_offset = "1000000000") and (read_bytes='1') then
-                -- sector offset has reached 512, so we must have
-                -- read the whole sector.
-                sd_state <= DoneReadingSector;
-              else
-                -- Still more bytes to read.
-                sd_state <= ReadingSector;
-              end if;
-            end if;
-          when WriteSector =>
-            -- Begin writing a sector into the buffer
-            if sdio_busy='0' then
-              sd_dowrite <= '1';
-              sdio_busy <= '1';
-              sd_state <= WritingSector;
-              sector_offset <= (others => '0');
-              sd_wdata <= std_logic_vector(sector_buffer(0));
-            else
-              sd_dowrite <= '0';
-            end if;
-          when WritingSector =>
-            if data_ready='1' then
-              sd_dowrite <= '0';
-              -- Byte has been accepted, write next one
-              sd_wdata <= std_logic_vector(sector_buffer(to_integer(sector_offset+1)));
-              sd_state <= WritingSectorAckByte;
+      sbweb(0) <= '0';
+      case sd_state is
+        when Idle => sdio_busy <= '0';
+        when ReadSector =>
+          -- Begin reading a sector into the buffer
+          if sdio_busy='0' then
+            sd_doread <= '1';
+            sd_state <= ReadingSector;
+            sdio_busy <= '1';
+            skip <= 2;
+            sector_offset <= (others => '0');
+            read_bytes <= '0';
+          else
+            sd_doread <= '0';
+          end if;
+        when ReadingSector =>
+          if data_ready='1' then
+            sd_doread <= '0';
+            -- A byte is ready to read, so store it
+            -- sector_buffer(to_integer(sector_offset)) <= unsigned(sd_rdata);
+            sbweb(0) <= '1';
+            sd_state <= ReadingSectorAckByte;
+            if skip=0 then
               sector_offset <= sector_offset + 1;
-            end if;
-          when WritingSectorAckByte =>
-            -- Wait until controller acknowledges that we have acked it
-            if data_ready='0' then
-              if sector_offset = "1000000000" then
-                -- sector offset has reached 512, so we have
-                -- written the whole sector.
-                sd_state <= DoneWritingSector;
-              else
-                -- Still more bytes to read.
-                sd_state <= WritingSector;
+              read_bytes <= '1';
+            else
+              skip <= skip - 1;
+              if skip=2 then
+                sd_datatoken <= unsigned(sd_rdata);
               end if;
             end if;
-          when DoneReadingSector =>
-            sdio_busy <= '0';
-            sd_state <= Idle;
-          when DoneWritingSector =>
-            sdio_busy <= '0';
-            sd_state <= Idle;
-        end case;    
---      end if;
+          end if;
+        when ReadingSectorAckByte =>
+          -- Wait until controller acknowledges that we have acked it
+          if data_ready='0' then
+            if (sector_offset = "1000000000") and (read_bytes='1') then
+              -- sector offset has reached 512, so we must have
+              -- read the whole sector.
+              sd_state <= DoneReadingSector;
+            else
+              -- Still more bytes to read.
+              sd_state <= ReadingSector;
+            end if;
+          end if;
+        when WriteSector =>
+          -- Begin writing a sector into the buffer
+          if sdio_busy='0' then
+            sd_dowrite <= '1';
+            sdio_busy <= '1';
+            sd_state <= WritingSector;
+            sector_offset <= (others => '0');
+--            sd_wdata <= std_logic_vector(sector_buffer(0));
+          else
+            sd_dowrite <= '0';
+          end if;
+        when WritingSector =>
+          if data_ready='1' then
+            sd_dowrite <= '0';
+            -- Byte has been accepted, write next one
+--            sd_wdata <= std_logic_vector(sector_buffer(to_integer(sector_offset+1)));
+            sd_state <= WritingSectorAckByte;
+            sector_offset <= sector_offset + 1;
+          end if;
+        when WritingSectorAckByte =>
+          -- Wait until controller acknowledges that we have acked it
+          if data_ready='0' then
+            if sector_offset = "1000000000" then
+              -- sector offset has reached 512, so we have
+              -- written the whole sector.
+              sd_state <= DoneWritingSector;
+            else
+              -- Still more bytes to read.
+              sd_state <= WritingSector;
+            end if;
+          end if;
+        when DoneReadingSector =>
+          sdio_busy <= '0';
+          sd_state <= Idle;
+        when DoneWritingSector =>
+          sdio_busy <= '0';
+          sd_state <= Idle;
+      end case;    
 
     end if;
   end process;
