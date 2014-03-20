@@ -968,6 +968,9 @@ begin
         -- CPU port
         return cpuport_value;
       end if;
+    elsif sectorbuffercs='1' then then
+      report "reading sector buffer RAM fastio byte $" & to_hstring(fastio_sd_rdata) severity note;
+      return unsigned(fastio_sd_rdata);
     elsif accessing_colour_ram_fastio='1' then 
       report "reading colour RAM fastio byte $" & to_hstring(fastio_vic_rdata) severity note;
       return unsigned(fastio_colour_ram_rdata);
