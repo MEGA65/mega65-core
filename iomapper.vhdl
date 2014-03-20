@@ -17,7 +17,8 @@ entity iomapper is
         w : in std_logic;
         data_i : in std_logic_vector(7 downto 0);
         data_o : out std_logic_vector(7 downto 0);
-
+        sd_data_o : out std_logic_vector(7 downto 0);
+        
         ps2data : in std_logic;
         ps2clock : in std_logic;
 
@@ -59,6 +60,7 @@ architecture behavioral of iomapper is
       fastio_write : in std_logic;
       fastio_wdata : in unsigned(7 downto 0);
       fastio_rdata : out unsigned(7 downto 0);
+      fastio_sd_rdata : out unsigned(7 downto 0);
 
       -- If colour RAM is mapped at $DC00-$DFFF, then don't map sector buffer
       colourram_at_dc00 : in std_logic;
@@ -212,6 +214,7 @@ begin
     fastio_read => r,
     fastio_wdata => unsigned(data_i),
     std_logic_vector(fastio_rdata) => data_o,
+    std_logic_vector(fastio_sd_rdata) => sd_data_o,
     colourram_at_dc00 => colourram_at_dc00,
     sectorbuffermapped => sectorbuffermapped,
     sectorbuffercs => sectorbuffercs,
@@ -253,6 +256,7 @@ begin
       -- the sectorbuffer mapping flag is set
       sectorbuffercs <= '0';
       if address(19 downto 16) = x"D"
+        and address(15 downto 14) = "00"
         and address(11 downto 8)&'0' = x"E"
         and sectorbuffermapped = '1' and colourram_at_dc00 = '0' then
         sectorbuffercs <= '1';

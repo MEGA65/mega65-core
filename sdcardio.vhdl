@@ -19,6 +19,7 @@ entity sdcardio is
     fastio_read : in std_logic;
     fastio_wdata : in unsigned(7 downto 0);
     fastio_rdata : out unsigned(7 downto 0);
+    fastio_sd_rdata : out unsigned(7 downto 0);
 
     colourram_at_dc00 : in std_logic;
 
@@ -147,7 +148,7 @@ begin  -- behavioural
       wea(0) => fastio_read,
       addra => std_logic_vector(fastio_addr(8 downto 0)),
       dina => std_logic_vector(fastio_wdata),
-      unsigned(douta) => fastio_rdata,
+      unsigned(douta) => fastio_sd_rdata,
 
       clkb => clock,
       enb => '1',
