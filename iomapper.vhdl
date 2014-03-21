@@ -18,7 +18,7 @@ entity iomapper is
         data_i : in std_logic_vector(7 downto 0);
         data_o : out std_logic_vector(7 downto 0);
         sd_data_o : out std_logic_vector(7 downto 0);
-        sectorbuffercs : out std_logic;
+        sector_buffer_mapped : out std_logic;
         
         ps2data : in std_logic;
         ps2clock : in std_logic;
@@ -138,6 +138,7 @@ architecture behavioral of iomapper is
   signal cia1cs : std_logic;
   signal cia2cs : std_logic;
 
+  signal sectorbuffercs : std_logic;
   signal sectorbuffercsout : std_logic;
   signal sectorbuffermapped : std_logic;
   
@@ -257,12 +258,18 @@ begin
       -- the sectorbuffer mapping flag is set
       sectorbuffercs <= '0';
       sectorbuffercsout <= '0';
+      report "fastio address = $" & to_hstring(address) severity note;
+      report "  address(19--16) = $" & to_hstring(address(19 downto 16)) severity note;
+      report "  address(15--14) = %" & to_string(address(15 downto 14)) severity note;
+      report "  address(11--9) = %" & to_string(address(11 downto 9)) severity note;
+      
       if address(19 downto 16) = x"D"
         and address(15 downto 14) = "00"
-        and address(11 downto 8)&'0' = x"E"
+        and address(11 downto 9)&'0' = x"E"
         and sectorbuffermapped = '1' and colourram_at_dc00 = '0' then
         sectorbuffercs <= '1';
         sectorbuffercsout <= '1';
+        report "selecting SD card sector buffer" severity note;
       end if;
 
       -- Now map the CIAs.

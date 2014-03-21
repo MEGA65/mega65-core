@@ -76,7 +76,7 @@ entity viciv is
     colour_ram_fastio_rdata : out std_logic_vector(7 downto 0);
     colour_ram_cs : in std_logic;
 
-    colourram_at_dc00 : out std_logic;
+    colourram_at_dc00 : out std_logic := '0';
     rom_at_e000 : out std_logic;
     rom_at_c000 : out std_logic;
     rom_at_a000 : out std_logic;

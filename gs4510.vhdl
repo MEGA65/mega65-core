@@ -96,7 +96,7 @@ entity gs4510 is
     fastio_wdata : out std_logic_vector(7 downto 0);
     fastio_rdata : in std_logic_vector(7 downto 0);
     fastio_sd_rdata : in std_logic_vector(7 downto 0);
-    sectorbuffercs : in std_logic;
+    sector_buffer_mapped : in std_logic;
     fastio_vic_rdata : in std_logic_vector(7 downto 0);
     fastio_colour_ram_rdata : in std_logic_vector(7 downto 0);
     colour_ram_cs : out std_logic;
@@ -969,7 +969,9 @@ begin
         -- CPU port
         return cpuport_value;
       end if;
-    elsif sectorbuffercs='1' then
+    elsif sector_buffer_mapped='1'
+          and (the_read_address(27 downto 8) = x"FFD3E"
+               or the_read_address(27 downto 8) = x"FFD3F") then
       report "reading sector buffer RAM fastio byte $" & to_hstring(fastio_sd_rdata) severity note;
       return unsigned(fastio_sd_rdata);
     elsif accessing_colour_ram_fastio='1' then 
@@ -1827,6 +1829,8 @@ begin
                   & " - A:" & to_hstring(std_logic_vector(reg_a))
                   & " X:" & to_hstring(std_logic_vector(reg_x))
                   & " Y:" & to_hstring(std_logic_vector(reg_y))
+                  & " Z:" & to_hstring(std_logic_vector(reg_z))
+                  & " B:" & to_hstring(std_logic_vector(reg_b))
                   & " SP:" & to_hstring(std_logic_vector(reg_sp))
                   & " "
                   & flag_status("N",".",flag_n)

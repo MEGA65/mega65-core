@@ -169,6 +169,8 @@ begin  -- behavioural
     if rising_edge(clock) then
 
       -- De-map sector buffer if VIC-IV maps colour RAM at $DC00
+      report "colourram_at_dc00 = " &
+std_logic'image(colourram_at_dc00) & ", sector_buffer_mapped = " & std_logic'image(sector_buffer_mapped) severity note;
       sector_buffer_mapped <= sector_buffer_mapped and (not colourram_at_dc00);
       sectorbuffermapped <= sector_buffer_mapped and (not colourram_at_dc00);
       
