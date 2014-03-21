@@ -18,6 +18,7 @@ entity iomapper is
         data_i : in std_logic_vector(7 downto 0);
         data_o : out std_logic_vector(7 downto 0);
         sd_data_o : out std_logic_vector(7 downto 0);
+        sectorbuffercs : out std_logic;
         
         ps2data : in std_logic;
         ps2clock : in std_logic;
@@ -137,7 +138,7 @@ architecture behavioral of iomapper is
   signal cia1cs : std_logic;
   signal cia2cs : std_logic;
 
-  signal sectorbuffercs : std_logic;
+  signal sectorbuffercsout : std_logic;
   signal sectorbuffermapped : std_logic;
   
   signal cia1porta_out : std_logic_vector(7 downto 0);
@@ -217,7 +218,7 @@ begin
     std_logic_vector(fastio_sd_rdata) => sd_data_o,
     colourram_at_dc00 => colourram_at_dc00,
     sectorbuffermapped => sectorbuffermapped,
-    sectorbuffercs => sectorbuffercs,
+    sectorbuffercs => sectorbuffercsout,
 
     cs_bo => cs_bo,
     sclk_o => sclk_o,
@@ -255,11 +256,13 @@ begin
       -- sdcard sector buffer: only mapped if no colour ram @ $DC00, and if
       -- the sectorbuffer mapping flag is set
       sectorbuffercs <= '0';
+      sectorbuffercsout <= '0';
       if address(19 downto 16) = x"D"
         and address(15 downto 14) = "00"
         and address(11 downto 8)&'0' = x"E"
         and sectorbuffermapped = '1' and colourram_at_dc00 = '0' then
         sectorbuffercs <= '1';
+        sectorbuffercsout <= '1';
       end if;
 
       -- Now map the CIAs.
@@ -286,6 +289,7 @@ begin
       cia2cs <= '0';
       kickstartcs <= '0';
       sectorbuffercs <= '0';
+      sectorbuffercsout <= '0';
     end if;
   end process;
 
