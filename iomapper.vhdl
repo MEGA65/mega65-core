@@ -259,9 +259,6 @@ begin
       -- the sectorbuffer mapping flag is set
       sectorbuffercs <= '0';
       report "fastio address = $" & to_hstring(address) severity note;
-      report "  address(19--16) = $" & to_hstring(address(19 downto 16)) severity note;
-      report "  address(15--14) = %" & to_string(address(15 downto 14)) severity note;
-      report "  address(11--9) = %" & to_string(address(11 downto 9)) severity note;
       
       if address(19 downto 16) = x"D"
         and address(15 downto 14) = "00"
