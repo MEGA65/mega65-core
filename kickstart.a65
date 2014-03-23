@@ -1667,18 +1667,6 @@ txt_c65gsrom:	      .byte "C65GS   ROM"
 ;;; ----------------------------------------------------------------------------
 		.org $FF00		
 reset_entry:
-
-		ldx #$00
-		stx $D030
-		ldy #$00
-		lda #$81
-		sta $D680
-		ldz $D680
-		lda $DE00
-		ldx #$03
-		stx $DE00
-		ldy $DE00
-
 		; get CPU state sensible
 		sei
 		cld
