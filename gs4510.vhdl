@@ -989,7 +989,7 @@ downto 8) = x"D3F" then
       report "reading VIC fastio byte $" & to_hstring(fastio_vic_rdata) severity note;
       return unsigned(fastio_vic_rdata);
     elsif accessing_fastio='1' then
-      report "reading fastio byte $" & to_hstring(fastio_rdata) severity note;
+      report "reading normal fastio byte $" & to_hstring(fastio_rdata) severity note;
       return unsigned(fastio_rdata);
     elsif accessing_ram='1' then
       report "Extracting fastram value from 64-bit read $" & to_hstring(fastram_dataout) severity note;
@@ -1015,6 +1015,7 @@ downto 8) = x"D3F" then
         when others => return x"FF";
       end case;
     else
+      report "accessing unmapped memory" severity note;
       return x"FF";
     end if;
   end read_data; 
