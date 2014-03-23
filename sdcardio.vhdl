@@ -22,7 +22,7 @@ entity sdcardio is
     fastio_sd_rdata : out unsigned(7 downto 0);
 
     colourram_at_dc00 : in std_logic;
-
+    
     sectorbuffermapped : out std_logic := '0';
     sectorbuffermapped2 : out std_logic := '0';
     sectorbuffercs : in std_logic;
@@ -146,7 +146,7 @@ begin  -- behavioural
     port map (
       clka => clock,
       ena => sectorbuffercs,
-      wea(0) => fastio_read,
+      wea(0) => fastio_write,
       addra => std_logic_vector(fastio_addr(8 downto 0)),
       dina => std_logic_vector(fastio_wdata),
       unsigned(douta) => fastio_sd_rdata,
@@ -173,6 +173,7 @@ begin  -- behavioural
       report "colourram_at_dc00 = " &
 std_logic'image(colourram_at_dc00) & ", sector_buffer_mapped = " & std_logic'image(sector_buffer_mapped) severity note;
       if colourram_at_dc00='1' then
+        report "unmapping sector buffer due to mapping of colour ram" severity note;
         sector_buffer_mapped <= '0';
         sectorbuffermapped <= '0';
         sectorbuffermapped2 <= '0';
