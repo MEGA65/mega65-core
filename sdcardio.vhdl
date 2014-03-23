@@ -23,7 +23,8 @@ entity sdcardio is
 
     colourram_at_dc00 : in std_logic;
 
-    sectorbuffermapped : out std_logic;
+    sectorbuffermapped : out std_logic := '0';
+    sectorbuffermapped2 : out std_logic := '0';
     sectorbuffercs : in std_logic;
 
     -------------------------------------------------------------------------
@@ -171,8 +172,14 @@ begin  -- behavioural
       -- De-map sector buffer if VIC-IV maps colour RAM at $DC00
       report "colourram_at_dc00 = " &
 std_logic'image(colourram_at_dc00) & ", sector_buffer_mapped = " & std_logic'image(sector_buffer_mapped) severity note;
-      sector_buffer_mapped <= sector_buffer_mapped and (not colourram_at_dc00);
-      sectorbuffermapped <= sector_buffer_mapped and (not colourram_at_dc00);
+      if colourram_at_dc00='1' then
+        sector_buffer_mapped <= '0';
+        sectorbuffermapped <= '0';
+        sectorbuffermapped2 <= '0';
+      else
+        sectorbuffermapped <= sector_buffer_mapped;
+        sectorbuffermapped2 <= sector_buffer_mapped;
+      end if;
       
       fastio_rdata <= (others => 'Z');
       

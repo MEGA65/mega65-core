@@ -67,6 +67,7 @@ architecture behavioral of iomapper is
       colourram_at_dc00 : in std_logic;
 
       sectorbuffermapped : out std_logic;
+      sectorbuffermapped2 : out std_logic;
       sectorbuffercs : in std_logic;
       
       -------------------------------------------------------------------------
@@ -139,8 +140,7 @@ architecture behavioral of iomapper is
   signal cia2cs : std_logic;
 
   signal sectorbuffercs : std_logic;
-  signal sectorbuffercsout : std_logic;
-  signal sectorbuffermapped : std_logic;
+  signal sector_buffer_mapped_read : std_logic;
   
   signal cia1porta_out : std_logic_vector(7 downto 0);
   signal cia1porta_in : std_logic_vector(7 downto 0);
@@ -218,8 +218,9 @@ begin
     std_logic_vector(fastio_rdata) => data_o,
     std_logic_vector(fastio_sd_rdata) => sd_data_o,
     colourram_at_dc00 => colourram_at_dc00,
-    sectorbuffermapped => sectorbuffermapped,
-    sectorbuffercs => sectorbuffercsout,
+    sectorbuffermapped => sector_buffer_mapped,
+    sectorbuffermapped2 => sector_buffer_mapped_read,
+    sectorbuffercs => sectorbuffercs,
 
     cs_bo => cs_bo,
     sclk_o => sclk_o,
@@ -257,7 +258,6 @@ begin
       -- sdcard sector buffer: only mapped if no colour ram @ $DC00, and if
       -- the sectorbuffer mapping flag is set
       sectorbuffercs <= '0';
-      sectorbuffercsout <= '0';
       report "fastio address = $" & to_hstring(address) severity note;
       report "  address(19--16) = $" & to_hstring(address(19 downto 16)) severity note;
       report "  address(15--14) = %" & to_string(address(15 downto 14)) severity note;
@@ -266,9 +266,8 @@ begin
       if address(19 downto 16) = x"D"
         and address(15 downto 14) = "00"
         and address(11 downto 9)&'0' = x"E"
-        and sectorbuffermapped = '1' and colourram_at_dc00 = '0' then
+        and sector_buffer_mapped_read = '1' and colourram_at_dc00 = '0' then
         sectorbuffercs <= '1';
-        sectorbuffercsout <= '1';
         report "selecting SD card sector buffer" severity note;
       end if;
 
@@ -278,7 +277,7 @@ begin
       -- being mapped in $DC00-$DFFF using the C65 2K colour ram register
       cia1cs <='0';
       cia2cs <='0';
-      if colourram_at_dc00='0' and sectorbuffermapped='0' then
+      if colourram_at_dc00='0' and sector_buffer_mapped_read='0' then
         case address(19 downto 8) is
           when x"D0C" => cia1cs <='1';
           when x"D1C" => cia1cs <='1';
@@ -296,7 +295,6 @@ begin
       cia2cs <= '0';
       kickstartcs <= '0';
       sectorbuffercs <= '0';
-      sectorbuffercsout <= '0';
     end if;
   end process;
 

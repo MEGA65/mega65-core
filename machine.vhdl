@@ -268,6 +268,7 @@ architecture Behavioral of machine is
           data_i : in std_logic_vector(7 downto 0);
           data_o : out std_logic_vector(7 downto 0);
           sd_data_o : out std_logic_vector(7 downto 0);
+          sector_buffer_mapped : out std_logic;
           colourram_at_dc00 : in std_logic;
 
           seg_led : out unsigned(31 downto 0);
@@ -589,6 +590,8 @@ begin
     sd_data_o => fastio_sd_rdata,
     colourram_at_dc00 => colourram_at_dc00,
     seg_led => seg_led_data,
+
+    sector_buffer_mapped => sector_buffer_mapped,
 
     cs_bo => cs_bo,
     sclk_o => sclk_o,

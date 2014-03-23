@@ -347,6 +347,7 @@ architecture Behavioural of gs4510 is
 -- Note that ROM is actually implemented using
 -- power-on initialised RAM in the FPGA mapped via our io interface.
   signal accessing_fastio : std_logic;
+  signal accessing_sb_fastio : std_logic;
   signal accessing_vic_fastio : std_logic;
   signal accessing_colour_ram_fastio : std_logic;
   signal accessing_ram : std_logic;
@@ -566,6 +567,7 @@ begin
     accessing_ram <= '0'; accessing_slowram <= '0';
     accessing_fastio <= '0'; accessing_vic_fastio <= '0';
     accessing_cpuport <= '0'; accessing_colour_ram_fastio <= '0';
+    accessing_sb_fastio <= '0';
 
     the_read_address <= long_address;
     if long_address(27 downto 12) = x"001F" and long_address(11)='1' then
@@ -610,6 +612,7 @@ begin
     elsif long_address(27 downto 20) = x"FF" then
       accessing_fastio <= '1';
       accessing_vic_fastio <= '0';
+      accessing_sb_fastio <= '0';
       accessing_colour_ram_fastio <= '0';
       -- If reading IO page from $D{0,1,2,3}0{0-7}X, then the access is from
       -- the VIC-IV.
@@ -628,6 +631,13 @@ begin
         accessing_colour_ram_fastio <= '1';
         colour_ram_cs <= '1';
         colour_ram_cs_last <= '1';
+      end if;
+      if long_address(19 downto 8) = x"D3E" or long_address(19
+downto 8) = x"D3F" then
+        accessing_sb_fastio <= sector_buffer_mapped and (not colourram_at_dc00);
+        report "considering accessing_sb_fastio = " & std_logic'image(sector_buffer_mapped and (not colourram_at_dc00)) severity note;
+        report "sector_buffer_mapped = " & std_logic'image(sector_buffer_mapped) severity note;
+        report "colourram_at_dc00 = " & std_logic'image(colourram_at_dc00) severity note;
       end if;
       if long_address(19 downto 16) = x"D" then
         if long_address(15 downto 14) = "00" then    --   $D{0,1,2,3}XXX
@@ -969,9 +979,7 @@ begin
         -- CPU port
         return cpuport_value;
       end if;
-    elsif sector_buffer_mapped='1'
-          and (the_read_address(27 downto 8) = x"FFD3E"
-               or the_read_address(27 downto 8) = x"FFD3F") then
+    elsif accessing_sb_fastio='1' then
       report "reading sector buffer RAM fastio byte $" & to_hstring(fastio_sd_rdata) severity note;
       return unsigned(fastio_sd_rdata);
     elsif accessing_colour_ram_fastio='1' then 
