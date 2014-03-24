@@ -442,7 +442,7 @@ std_logic'image(colourram_at_dc00) & ", sector_buffer_mapped = " & std_logic'ima
             sd_state <= ReadingSector;
             sdio_busy <= '1';
             skip <= 2;
-            sector_offset <= (others => '0');
+            sector_offset <= (others => '1');
             read_bytes <= '0';
           else
             sd_doread <= '0';
