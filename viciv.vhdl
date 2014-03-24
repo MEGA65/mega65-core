@@ -76,7 +76,9 @@ entity viciv is
     colour_ram_fastio_rdata : out std_logic_vector(7 downto 0);
     colour_ram_cs : in std_logic;
 
-    colourram_at_dc00 : out std_logic := '0';
+    viciii_iomode : out std_logic_vector(1 downto 0) := "11";
+    
+    colourram_at_dc00 : out std_logic := '0';   
     rom_at_e000 : out std_logic;
     rom_at_c000 : out std_logic;
     rom_at_a000 : out std_logic;
@@ -150,6 +152,9 @@ architecture Behavioral of viciv is
       );
   END component;
 
+  -- last value written to key register
+  signal reg_key : unsigned(7 downto 0) := x"00";
+  
   signal viciv_legacy_mode_registers_touched : std_logic := '0';
   signal reg_d018_screen_addr : unsigned(3 downto 0) := x"1";
   
@@ -1112,8 +1117,19 @@ begin
                                         -- http://www.devili.iki.fi/Computers/Commodore/C65/System_Specification/Chapter_2/page102.html
         elsif register_number=47 then
           -- C65 VIC-III KEY register for unlocking extended registers.
-          
-
+          viciii_iomode <= "00"; -- by default go back to VIC-II mode
+          if reg_key=x"a5" then
+            if fastio_wdata=x"96" then
+              -- C65 VIC-III mode
+              viciii_iomode <= "01";
+            end if;
+          elsif reg_key=x"47" then
+            if fastio_wdata=x"53" then
+              -- C65GS VIC-IV mode
+              viciii_iomode <= "11";
+            end if;
+          end if;
+          reg_key <= unsigned(fastio_wdata);
         elsif register_number=48 then
           -- C65 VIC-III Control A Register $D030
           -- Mapping of C65 ROM in various places

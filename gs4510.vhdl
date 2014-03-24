@@ -101,6 +101,8 @@ entity gs4510 is
     fastio_colour_ram_rdata : in std_logic_vector(7 downto 0);
     colour_ram_cs : out std_logic;
 
+    viciii_iomode : in std_logic_vector(1 downto 0);
+
     colourram_at_dc00 : in std_logic;
     rom_at_e000 : in std_logic;
     rom_at_c000 : in std_logic;
@@ -447,6 +449,7 @@ begin
     -- IO
     if (blocknum=13) and ((lhc(0)='1') or (lhc(1)='1')) and (lhc(2)='1') then
       temp_address(27 downto 12) := x"FFD3";
+      temp_address(13 downto 12) := unsigned(viciii_iomode);
       temp_addresS(11 downto 0) := short_address(11 downto 0);
     end if;
     -- CHARROM

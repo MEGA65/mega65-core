@@ -22,6 +22,7 @@ entity sdcardio is
     fastio_sd_rdata : out unsigned(7 downto 0);
 
     colourram_at_dc00 : in std_logic;
+    viciii_iomode : in std_logic_vector(1 downto 0);
     
     sectorbuffermapped : out std_logic := '0';
     sectorbuffermapped2 : out std_logic := '0';
@@ -172,8 +173,8 @@ begin  -- behavioural
       -- De-map sector buffer if VIC-IV maps colour RAM at $DC00
       report "colourram_at_dc00 = " &
 std_logic'image(colourram_at_dc00) & ", sector_buffer_mapped = " & std_logic'image(sector_buffer_mapped) severity note;
-      if colourram_at_dc00='1' then
-        report "unmapping sector buffer due to mapping of colour ram" severity note;
+      if colourram_at_dc00='1' or viciii_iomode(1)='0' then
+        report "unmapping sector buffer due to mapping of colour ram/D02F mode select" severity note;
         sector_buffer_mapped <= '0';
         sectorbuffermapped <= '0';
         sectorbuffermapped2 <= '0';

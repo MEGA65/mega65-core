@@ -32,6 +32,8 @@ entity iomapper is
         miso_i : in  std_logic;
         
         seg_led : out unsigned(31 downto 0);
+
+        viciii_iomode : in std_logic_vector(1 downto 0);
         
         colourram_at_dc00 : in std_logic
         );
@@ -65,7 +67,8 @@ architecture behavioral of iomapper is
 
       -- If colour RAM is mapped at $DC00-$DFFF, then don't map sector buffer
       colourram_at_dc00 : in std_logic;
-
+      viciii_iomode : in std_logic_vector(1 downto 0);
+      
       sectorbuffermapped : out std_logic;
       sectorbuffermapped2 : out std_logic;
       sectorbuffercs : in std_logic;
@@ -218,6 +221,7 @@ begin
     std_logic_vector(fastio_rdata) => data_o,
     std_logic_vector(fastio_sd_rdata) => sd_data_o,
     colourram_at_dc00 => colourram_at_dc00,
+    viciii_iomode => viciii_iomode,
     sectorbuffermapped => sector_buffer_mapped,
     sectorbuffermapped2 => sector_buffer_mapped_read,
     sectorbuffercs => sectorbuffercs,

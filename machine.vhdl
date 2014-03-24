@@ -203,6 +203,8 @@ architecture Behavioral of machine is
       fastio_colour_ram_rdata : in std_logic_vector(7 downto 0);
       colour_ram_cs : out std_logic;
 
+      viciii_iomode : in std_logic_vector(1 downto 0);
+
       colourram_at_dc00 : in std_logic;
       rom_at_e000 : in std_logic;
       rom_at_c000 : in std_logic;
@@ -247,6 +249,8 @@ architecture Behavioral of machine is
       colour_ram_fastio_rdata : out std_logic_vector(7 downto 0);
       colour_ram_cs : in std_logic;
 
+      viciii_iomode : out std_logic_vector(1 downto 0);
+
       colourram_at_dc00 : out std_logic;
       rom_at_e000 : out std_logic;
       rom_at_c000 : out std_logic;
@@ -270,6 +274,7 @@ architecture Behavioral of machine is
           sd_data_o : out std_logic_vector(7 downto 0);
           sector_buffer_mapped : out std_logic;
           colourram_at_dc00 : in std_logic;
+          viciii_iomode : in std_logic_vector(1 downto 0);
 
           seg_led : out unsigned(31 downto 0);
 
@@ -285,6 +290,8 @@ architecture Behavioral of machine is
           ps2clock : in std_logic
           );
   end component;
+
+  signal viciii_iomode : std_logic_vector(1 downto 0);
 
   signal seg_led_data : unsigned(31 downto 0);
   
@@ -535,6 +542,8 @@ begin
     fastio_colour_ram_rdata => colour_ram_fastio_rdata,
     colour_ram_cs => colour_ram_cs,
 
+    viciii_iomode => viciii_iomode,
+  
     colourram_at_dc00 => colourram_at_dc00,
     rom_at_e000 => rom_at_e000,
     rom_at_c000 => rom_at_c000,
@@ -570,6 +579,8 @@ begin
       fastio_wdata    => fastio_wdata,
       fastio_rdata    => fastio_vic_rdata,
 
+      viciii_iomode => viciii_iomode,
+
       colourram_at_dc00 => colourram_at_dc00,
       rom_at_e000 => rom_at_e000,
       rom_at_c000 => rom_at_c000,
@@ -590,7 +601,7 @@ begin
     sd_data_o => fastio_sd_rdata,
     colourram_at_dc00 => colourram_at_dc00,
     seg_led => seg_led_data,
-
+    viciii_iomode => viciii_iomode,
     sector_buffer_mapped => sector_buffer_mapped,
 
     cs_bo => cs_bo,
