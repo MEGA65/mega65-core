@@ -1571,6 +1571,10 @@ phd1:		sta (zptempv2),y
 ;  C64-mode kernel on the C65 checks if C65 mode
 ;  should be entered.)
 go64:
+		; unmap sector buffer so C64 can see CIAs
+		lda #$82
+		sta $D680
+
 		; C64 IO map
 		clc
 		jsr enhanced_io
