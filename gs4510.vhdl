@@ -795,6 +795,7 @@ downto 8) = x"D3F" then
       last_fastio_addr(11) <= '0';
       last_fastio_addr(10 downto 0) <= std_logic_vector(long_address(10 downto 0));
       fastio_read <= '0'; fastio_write <= '1';
+      fastio_wdata <= std_logic_vector(value);
     elsif long_address(27 downto 17)="00000000000" then
       accessing_ram <= '1';
       fastram_address <= std_logic_vector(long_address(16 downto 3));
