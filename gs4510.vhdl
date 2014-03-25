@@ -575,6 +575,9 @@ begin
     the_read_address <= long_address;
     if long_address(27 downto 12) = x"001F" and long_address(11)='1' then
       -- Last 2KB of chipram really points to colour RAM for C65 compatibility
+      accessing_fastio <= '1';
+      accessing_vic_fastio <= '0';
+      accessing_sb_fastio <= '0';
       accessing_colour_ram_fastio <= '1';
       colour_ram_cs <= '1';
       colour_ram_cs_last <= '1';
@@ -584,7 +587,9 @@ begin
       last_fastio_addr(19 downto 12) <= x"80";
       last_fastio_addr(11) <= '0';
       last_fastio_addr(10 downto 0) <= std_logic_vector(long_address(10 downto 0));
-      fastio_read <= '1';
+      fastio_read <= '1'; fastio_write <= '0';
+      pending_state <= next_state;      
+      state <= FastIOWait;
     elsif long_address(27 downto 17)="00000000000" then
       report "Reading from fastram address $" & to_hstring(long_address(19 downto 0))
         & ", word $" & to_hstring(long_address(18 downto 3)) severity note;
