@@ -1,10 +1,25 @@
-D7 bit7 of $D7 set indicates 40 column mode (unconfirmed)
-E0 pointer to screen line (unconfirmed)
-E1 pointer to screen line, high byte (unconfirmed)
-E2 pointer to colour ram for screen line (unconfirmed)
-E3 pointer to colour ram for screen line, high byte (unconfirmed)
-E4 rows on screen -1 (unconfirmed)
-E7 columns on screen -1 (unconfirmed)
+# C128 memory map with info from http://www.zimmers.net/anonftp/pub/cbm/manuals/anthology/p124.jpg
+2D point to start of BASIC program (bank 0?)
+2E point to start of BASIC program (bank 0?), high byte
+2F pointer to start of variables (bank 1?)
+30 pointer to start of variables (bank 1?), high byte
+31 pointer to start of arrays
+32 pointer to start of arrays, high byte
+33 pointer to end of arrays
+34 pointer to end of arrays, high byte
+35 pointer to string storage (moving down)
+36 pointer to string storage (moving down), high byte
+
+
+D7 bit7 of $D7 set indicates 40 column mode
+E0 pointer to screen line
+E1 pointer to screen line, high byte
+E2 pointer to colour ram for screen line
+E3 pointer to colour ram for screen line, high byte
+E4 screen bottom margin
+E5 screen top margin
+E6 screen left margin
+E7 screen right margin
 F4 bit7 of $F4 set indicates reverse video
 1104 C65 INIT STATUS byte (bit7 low=full init of IO, bit6 low=full init of screen editor)
 02F7   jmp USR          ;USR vector (must be set by application)
@@ -56,6 +71,9 @@ F4 bit7 of $F4 set indicates reverse video
 2000 C65 BASIC vector table
 2003 BASIC Warm Start?
 2025 BASIC Cold Start?
+22F9 CHRGET routine
+22FB CHRGOT routine
+2EF3 execute_a_line routine
 233B LDA ($3D),Y from bank number loaded from $0084 (probably RAM bank $00 or $01)
 2E36 BASIC error #$28
 2E39 BASIC error #$11 (UNDEF'D STATEMENT?)
@@ -64,8 +82,14 @@ F4 bit7 of $F4 set indicates reverse video
 2E42 BASIC error #$0F (OVERFLOW?)
 2E45 BASIC error #$0B (SYNTAX ERROR?)
 2E48 BASIC error #$80 (?? FILE NOT FOUND?)
+@2F5D Execute some BASIC related(?) DMA copy.
+@2F78 Select normal DMAgic COPY instruction
+@2F6E DMA copy source and destination bank the same from $84
+3B0B Set bit 5 in $7E
+3B0E Clear bit 5 in $7E
 661A Try to load AUTOBOOT.C65?
 6622 @ Wait while floppy controller busy
+6629 @ Take branch if no disk in drive
 6666 Filename "AUTOBOOT.C65*"
 66C5 @ LOAD or VERIFY file?
 66C8 @ LOAD or VERIFY file
@@ -137,7 +161,7 @@ e11a Clear screen, used by chr$($93/147)
 E123 @ Are we at the last line of the screen?
 E126 @ If not, then repeat for next line of screen
 E128 Reset to first line of screen
-E136 calculate address of line on screen and colour ram (40 or 80 column mode)
+E136 calculate address of line X on screen ram (store in $E0/E1) and colour ram (store in $E2/E3)
 E139 @ Skip over shift if in 80 column mode
 E13C @ 40 column mode, so shift value right to divide by two, because 80/40=2.
 E15B  editor_irq      ;IRQ entry
@@ -145,7 +169,12 @@ E177 get a key from IRQ buffer into .a
 E1A7 @ BASIC wait for keyboard input loop?
 E1DF get a chr from screen line into .a
 E23D check for quote mark ($22), and toggle quote mode if required
+E35F Copy colour RAM line
+E35F @set memory address $Fxxx
+E367 @set memory bank 1
+E377 Copy screen RAM line
 E38F Use DMAgic to clear current line of screen
+E3B0 
 E406 scan keyboard subroutine
 E4F9 repeat key logic & CKIT2 to store decoded key
 E5A6 blink cursor?
