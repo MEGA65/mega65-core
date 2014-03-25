@@ -105,6 +105,9 @@ data 7201 7207
 7488 some vector table?
 word 7488 74D7
 74d8 Some preparation for file access?
+data 770c 771b
+770c single bit climb and descend
+771c BASIC entry point from $2006 vector
 
 data c0bb c7ff
 c800 C65 RESET entry point
