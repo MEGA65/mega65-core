@@ -276,6 +276,8 @@ architecture Behavioral of machine is
           colourram_at_dc00 : in std_logic;
           viciii_iomode : in std_logic_vector(1 downto 0);
 
+          sw : in std_logic_vector(15 downto 0);
+          btn : in std_logic_vector(4 downto 0);
           seg_led : out unsigned(31 downto 0);
 
           -------------------------------------------------------------------------
@@ -600,6 +602,8 @@ begin
     data_i => fastio_wdata, data_o => fastio_rdata,
     sd_data_o => fastio_sd_rdata,
     colourram_at_dc00 => colourram_at_dc00,
+    sw => sw,
+    btn => btn,
     seg_led => seg_led_data,
     viciii_iomode => viciii_iomode,
     sector_buffer_mapped => sector_buffer_mapped,

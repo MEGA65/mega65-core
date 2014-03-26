@@ -31,6 +31,8 @@ entity iomapper is
         mosi_o : out std_logic;
         miso_i : in  std_logic;
         
+        sw : in std_logic_vector(15 downto 0);
+        btn : in std_logic_vector(4 downto 0);
         seg_led : out unsigned(31 downto 0);
 
         viciii_iomode : in std_logic_vector(1 downto 0);
@@ -79,7 +81,13 @@ architecture behavioral of iomapper is
       cs_bo : out std_logic;
       sclk_o : out std_logic;
       mosi_o : out std_logic;
-      miso_i : in  std_logic
+      miso_i : in  std_logic;
+      -------------------------------------------------------------------------
+      -- And general switch inputs on the FPGA board (good as place as any here)
+      -------------------------------------------------------------------------
+      sw : in std_logic_vector(15 downto 0);
+      btn : in std_logic_vector(4 downto 0)
+
       );
   end component;
   
@@ -226,6 +234,8 @@ begin
     sectorbuffermapped2 => sector_buffer_mapped_read,
     sectorbuffercs => sectorbuffercs,
 
+    sw => sw,
+    btn => btn,
     cs_bo => cs_bo,
     sclk_o => sclk_o,
     mosi_o => mosi_o,

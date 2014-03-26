@@ -28,6 +28,9 @@ entity sdcardio is
     sectorbuffermapped2 : out std_logic := '0';
     sectorbuffercs : in std_logic;
 
+    sw : in std_logic_vector(15 downto 0);
+    btn : in std_logic_vector(4 downto 0);
+    
     -------------------------------------------------------------------------
     -- Lines for the SDcard interface itself
     -------------------------------------------------------------------------
@@ -401,8 +404,8 @@ std_logic'image(colourram_at_dc00) & ", sector_buffer_mapped = " & std_logic'ima
         elsif (fastio_addr(19 downto 4) = x"D168"
                or fastio_addr(19 downto 4) = x"D368") then
           -- microSD controller registers
-          case fastio_addr(3 downto 0) is
-            when x"0" =>
+          case fastio_addr(7 downto 0) is
+            when x"80" =>
               -- status / command register
               -- error status in bit 6 so that V flag can be used for check      
               fastio_rdata(7) <= '0';
@@ -413,18 +416,23 @@ std_logic'image(colourram_at_dc00) & ", sector_buffer_mapped = " & std_logic'ima
               fastio_rdata(2) <= sd_reset;
               fastio_rdata(1) <= sdio_busy;
               fastio_rdata(0) <= sdio_busy;
-            when x"1" => fastio_rdata <= unsigned(sd_sector(7 downto 0));
-            when x"2" => fastio_rdata <= unsigned(sd_sector(15 downto 8));
-            when x"3" => fastio_rdata <= unsigned(sd_sector(23 downto 16));
-            when x"4" => fastio_rdata <= unsigned(sd_sector(31 downto 24));        
-            when x"5" => fastio_rdata <= to_unsigned(sd_state_t'pos(sd_state),8);
-            when x"6" => fastio_rdata <= sd_datatoken;
-            when x"7" => fastio_rdata <= unsigned(sd_rdata);                         
-            when x"8" => fastio_rdata <= sector_offset(7 downto 0);
-            when x"9" =>
+            when x"81" => fastio_rdata <= unsigned(sd_sector(7 downto 0));
+            when x"82" => fastio_rdata <= unsigned(sd_sector(15 downto 8));
+            when x"83" => fastio_rdata <= unsigned(sd_sector(23 downto 16));
+            when x"84" => fastio_rdata <= unsigned(sd_sector(31 downto 24));        
+            when x"85" => fastio_rdata <= to_unsigned(sd_state_t'pos(sd_state),8);
+            when x"86" => fastio_rdata <= sd_datatoken;
+            when x"87" => fastio_rdata <= unsigned(sd_rdata);                        
+            when x"88" => fastio_rdata <= sector_offset(7 downto 0);
+            when x"89" =>
               fastio_rdata(7 downto 1) <= (others => '0');
               fastio_rdata(0) <= sector_offset(8);
               fastio_rdata(1) <= sector_offset(9);
+            when x"F0" => fastio_rdata(7 downto 0) <= unsigned(sw(7 downto 0));
+            when x"F1" => fastio_rdata(7 downto 0) <= unsigned(sw(15 downto 8));
+            when x"F2" =>
+            fastio_rdata(7 downto 5) <= "000";
+            fastio_rdata(4 downto 0) <= unsigned(btn(4 downto 0));
             when others => fastio_rdata <= (others => 'Z');
           end case;
         else
