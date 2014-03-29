@@ -401,8 +401,8 @@ std_logic'image(colourram_at_dc00) & ", sector_buffer_mapped = " & std_logic'ima
             when others =>
               fastio_rdata <= (others => 'Z');
           end case;
-        elsif (fastio_addr(19 downto 4) = x"D168"
-               or fastio_addr(19 downto 4) = x"D368") then
+        elsif (fastio_addr(19 downto 8) = x"D16"
+               or fastio_addr(19 downto 8) = x"D36") then
           -- microSD controller registers
           case fastio_addr(7 downto 0) is
             when x"80" =>
