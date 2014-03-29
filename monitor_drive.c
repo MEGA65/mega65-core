@@ -79,7 +79,7 @@ int process_line(char *line,int live)
   if (sscanf(line,"%04x %02x %02x %02x %02x %02x",
 	     &pc,&a,&x,&y,&sp,&p)==6) {
     printf("PC=$%04x\n",pc);
-    if (pc==0xf4a5) {
+    if (pc==0xf4a5||pc==0xf4a2) {
       // Intercepted LOAD command
       state=1;
     } else {
