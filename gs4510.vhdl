@@ -777,9 +777,15 @@ downto 8) = x"D3F" then
     elsif (long_address = x"FFD3702") or (long_address = x"FFD1702") then
       reg_dmagic_addr(22 downto 16) <= value(6 downto 0);
       reg_dmagic_addr(27 downto 23) <= (others => '0');
-      reg_dmagic_withio <= fastio_rdata(7);
+      reg_dmagic_withio <= value(7);
     elsif (long_address = x"FFD3704") or (long_address = x"FFD1704") then
       reg_dmagic_addr(27 downto 20) <= value;
+    elsif (long_address = x"FFD37ff") or (long_address = x"FFD17ff") then
+      -- re-enable kickstart ROM.  This is only to allow for easier development
+      -- of kickstart ROMs.
+      if value = x"4B" then
+        kickstart_en <= '1';        
+      end if;
     end if;
     
     -- Invalidate i-cache lines corresponding to the address we are writing to.
