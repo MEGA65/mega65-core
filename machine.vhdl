@@ -364,7 +364,7 @@ architecture Behavioral of machine is
   -- 188 ticks at 96MHz gives 1021276Hz, which is pretty close for PAL.
   -- Then divide by 2 again, since the loop toggles phi0.
   signal phi0 : std_logic := '0';
-  constant phi0_divisor : integer := 188;
+  constant phi0_divisor : integer := 94;
   signal phi0_counter : integer range 0 to phi0_divisor;
 
 begin
