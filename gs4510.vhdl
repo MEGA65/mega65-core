@@ -1891,6 +1891,7 @@ downto 8) = x"D3F" then
               if mode_lut(to_integer(read_data))=M_impl
                 or mode_lut(to_integer(read_data))=M_a then
                 -- 1-byte instruction, process now
+                monitor_opcode <= std_logic_vector(read_data);
                 execute_implied_instruction(read_data);
               else
                 report "opcode: read_data = %" & to_string(std_logic_vector(read_data)) severity note;
