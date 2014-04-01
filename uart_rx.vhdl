@@ -15,9 +15,9 @@ end uart_rx;
 architecture behavioural of uart_rx is
 
 -- 96MHz/2/230400 -1 = 210 clock ticks per bit
--- constant bit_rate_divisor : unsigned(13 downto 0) := "00000011010010";
+constant bit_rate_divisor : unsigned(13 downto 0) := "00000011010010";
 -- 64MHz/2/230400 -1 = 138 clock ticks per bit
-constant bit_rate_divisor : unsigned(13 downto 0) := "00000010001010";
+-- constant bit_rate_divisor : unsigned(13 downto 0) := "00000010001010";
 -- 48MHz/2/230400 -1 = 105 clock ticks per bit
 -- constant bit_rate_divisor : unsigned(13 downto 0) := "00000001100111";
 -- Timer for the above
