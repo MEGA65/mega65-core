@@ -77,6 +77,14 @@ kickstart_entry:
 		; and fast RAM elsewhere.  So we just need to key $D02F
 		; to get enhanced io
 		sec
+
+		; disable IRQ sources
+		lda #$7f
+		sta $DC0D
+		sta $DD0D
+		LDA #$00
+		STA $D019
+
 		jsr enhanced_io
 
 		jsr resetdisplay
@@ -897,8 +905,20 @@ readmbr:
 l7:		ldx #<msg_foundsdcard
 		ldy #>msg_foundsdcard
 		jsr printmessage
-	
-		; MBR is sector 0	
+
+		; Check if hold boot switch is set?
+		lda $d6f1
+		bpl l42      ; no, so continue
+
+		; yes, display message
+		ldx #<msg_releasesw15
+		ldy #>msg_releasesw15
+		jsr printmessage
+
+l41:		lda $d6f1
+		bmi l41
+
+l42:		; MBR is sector 0	
 		lda #$00
 		sta $D681
 		sta $d682
@@ -1659,6 +1679,7 @@ msg_romfilesizeerror: .byte "ROM FILE WRONG SIZE: MUST BE 128KB      "
 msg_clusternumber:    .byte " NEXT CLUSTER=$$$$$$$$                  "
 msg_sectoraddress:    .byte " NEXT SECTOR=$$$$$$$$                   "
 msg_checkpoint:	      .byte " CHECKPOINT $$ $$ $$ $$ $$ $$ $$ $$ $$  "
+msg_releasesw15:      .byte "RELEASE SW15 TO CONTINUE BOOTING.       "
 
 ; filename of ROM we want to load in FAT directory format
 txt_c65gsrom:	      .byte "C65GS   ROM"
@@ -1731,8 +1752,14 @@ c1:		lda ($C2),y
 		jmp kickstart_entry
 
 ; For now we have no use for NMI or IRQ
-nmi_entry:	rti
-irq_entry:	rti
+nmi_entry:	
+irq_entry:	
+		pha
+		lda $dc0d
+		lda $dd0d
+		asl $d019
+		pla
+		rti
 
 ; 6502 interrupt and reset vectors
        		.checkpc $FFFA
