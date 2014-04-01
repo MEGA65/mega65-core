@@ -105,6 +105,9 @@ architecture Behavioral of machine is
 
       monitor_pc : in std_logic_vector(15 downto 0);
       monitor_opcode : in std_logic_vector(7 downto 0);
+      monitor_ibytes : in std_logic_vector(3 downto 0);
+      monitor_arg1 : in std_logic_vector(7 downto 0);
+      monitor_arg2 : in std_logic_vector(7 downto 0);
       monitor_a : in std_logic_vector(7 downto 0);
       monitor_b : in std_logic_vector(7 downto 0);
       monitor_x : in std_logic_vector(7 downto 0);
@@ -141,6 +144,9 @@ architecture Behavioral of machine is
       nmi : in std_logic;
       monitor_pc : out std_logic_vector(15 downto 0);
       monitor_opcode : out std_logic_vector(7 downto 0);
+      monitor_ibytes : out std_logic_vector(3 downto 0);
+      monitor_arg1 : out std_logic_vector(7 downto 0);
+      monitor_arg2 : out std_logic_vector(7 downto 0);
       monitor_a : out std_logic_vector(7 downto 0);
       monitor_b : out std_logic_vector(7 downto 0);
       monitor_x : out std_logic_vector(7 downto 0);
@@ -356,6 +362,9 @@ architecture Behavioral of machine is
   signal monitor_sp : std_logic_vector(15 downto 0);
   signal monitor_p : std_logic_vector(7 downto 0);
   signal monitor_opcode : std_logic_vector(7 downto 0);
+  signal monitor_ibytes : std_logic_vector(3 downto 0);
+  signal monitor_arg1 : std_logic_vector(7 downto 0);
+  signal monitor_arg2 : std_logic_vector(7 downto 0);
   
   signal segled_counter : unsigned(19 downto 0) := (others => '0');
 
@@ -495,6 +504,9 @@ begin
     nmi => combinednmi,
     monitor_pc => monitor_pc,
     monitor_opcode => monitor_opcode,
+    monitor_ibytes => monitor_ibytes,
+    monitor_arg1 => monitor_arg1,
+    monitor_arg2 => monitor_arg2,
     monitor_a => monitor_a,
     monitor_b => monitor_b,
     monitor_x => monitor_x,
@@ -628,6 +640,9 @@ begin
 
     monitor_pc => monitor_pc,
     monitor_opcode => monitor_opcode,
+    monitor_ibytes => monitor_ibytes,
+    monitor_arg1 => monitor_arg1,
+    monitor_arg2 => monitor_arg2,
     monitor_a => monitor_a,
     monitor_b => monitor_b,
     monitor_x => monitor_x,

@@ -39,6 +39,9 @@ entity gs4510 is
     nmi : in std_logic;
     monitor_pc : out std_logic_vector(15 downto 0);
     monitor_opcode : out std_logic_vector(7 downto 0);
+    monitor_ibytes : out std_logic_vector(3 downto 0);
+    monitor_arg1 : out std_logic_vector(7 downto 0);
+    monitor_arg2 : out std_logic_vector(7 downto 0);
     monitor_a : out std_logic_vector(7 downto 0);
     monitor_x : out std_logic_vector(7 downto 0);
     monitor_y : out std_logic_vector(7 downto 0);
@@ -208,7 +211,7 @@ architecture Behavioural of gs4510 is
     Interrupt,VectorRead,VectorRead1,VectorRead2,VectorRead3,
     DMAgic0,DMAgic1,DMAgic2,DMAgic3,DMAgic4,DMAgic5,DMAgic6,DMAgic7,
     DMAgic8,DMAgic9,DMAgic10,DMAgic11,DMAgic12,DMAgic13,DMAgic14,DMAgic15,
-    InstructionFetch,
+    InstructionDispatch,InstructionFetch,
     InstructionFetch2,InstructionFetch3,InstructionFetch4,
     BRK1,BRK2,PLA1,PLX1,PLY1,PLZ1,PLP1,RTI1,RTI2,RTI3,
     RTS1,RTS2,
@@ -232,6 +235,7 @@ architecture Behavioural of gs4510 is
   -- Information about instruction currently being executed
   signal opcode : unsigned(7 downto 0);
   signal arg1 : unsigned(7 downto 0);
+  signal arg2 : unsigned(7 downto 0);
 
   signal bbs_or_bbc : std_logic;
   signal bbs_bit : unsigned(2 downto 0);
@@ -681,14 +685,19 @@ downto 8) = x"D3F" then
       -- the wait state.  Also the CIAs as interrupts are acknowledged and cleared
       -- by reading registers, so reading twice would lose the ability to see
       -- the interrupt source.
-      if long_address(19 downto 17)="111"
+      -- XXX kickstart ROM has trouble reading instruction arguments @ 48MHz with
+      -- 0 wait states on the kickstart ROM.  This may be related to the existing
+      -- known glitching of the kickstart ROM, which is why we copy it to chipram
+      -- before running it.  So removing the following exemption from wait state
+      -- may allow correct 48MHz operation.
+      if -- long_address(19 downto 17)="111"
         --or long_address(19 downto 8)=x"D0C" or long_address(19 downto 8)=x"D0D"
         --or long_address(19 downto 8)=x"D1C" or long_address(19 downto 8)=x"D1D"
         --or long_address(19 downto 8)=x"D2C" or long_address(19 downto 8)=x"D2D"
         --or long_address(19 downto 8)=x"D3C" or long_address(19 downto 8)=x"D3D"
         -- F011 FDC @ $D080-$D09F requires a wait state, but only appears in the
         -- enhanced image pages.
-        or long_address(19 downto 8)=x"D00" or long_address(19 downto 7)=x"D10"&'0'
+        long_address(19 downto 8)=x"D00" or long_address(19 downto 7)=x"D10"&'0'
         or long_address(19 downto 8)=x"D20" or long_address(19 downto 7)=x"D30"&'0'
       then 
         if next_state = InstructionFetch then
@@ -1892,6 +1901,7 @@ downto 8) = x"D3F" then
                 or mode_lut(to_integer(read_data))=M_a then
                 -- 1-byte instruction, process now
                 monitor_opcode <= std_logic_vector(read_data);
+                monitor_ibytes <= x"1";
                 execute_implied_instruction(read_data);
               else
                 report "opcode: read_data = %" & to_string(std_logic_vector(read_data)) severity note;
@@ -1910,11 +1920,23 @@ downto 8) = x"D3F" then
                 report "reg_pc bump from $" & to_hstring(reg_pc) severity note;
                 read_instruction_byte(reg_pc,InstructionFetch4);
               else
-                execute_instruction(opcode,read_data,x"00");
+                reg_opcode <= opcode;
+                arg1 <= read_data;
+                arg2 <= x"00";
+                monitor_ibytes <= x"2";
+                monitor_arg1 <= std_logic_vector(read_data);
+                state <= InstructionDispatch;
               end if;
             when InstructionFetch4 =>
               report "reg_pc is $" & to_hstring(reg_pc) severity note;
-              execute_instruction(opcode,arg1,read_data);
+              reg_opcode <= opcode;
+              monitor_ibytes <= x"3";
+              monitor_arg1 <= std_logic_vector(arg1);
+              monitor_arg2 <= std_logic_vector(read_data);
+              arg2 <= read_data;
+              state <= InstructionDispatch;
+            when InstructionDispatch =>
+              execute_instruction(reg_opcode,arg1,arg2);
             when BRK1 => push_byte(reg_pc(7 downto 0),BRK2);
             when BRK2 =>
               -- set B flag in P before pushing

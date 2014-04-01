@@ -14,6 +14,9 @@ entity uart_monitor is
 
     monitor_pc : in std_logic_vector(15 downto 0);
     monitor_opcode : in std_logic_vector(7 downto 0);
+    monitor_ibytes : in std_logic_vector(3 downto 0);
+    monitor_arg1 : in std_logic_vector(7 downto 0);
+    monitor_arg2 : in std_logic_vector(7 downto 0);
     monitor_a : in std_logic_vector(7 downto 0);
     monitor_x : in std_logic_vector(7 downto 0);
     monitor_y : in std_logic_vector(7 downto 0);
@@ -100,7 +103,7 @@ architecture behavioural of uart_monitor is
   constant errorMessage : string := crlf & "?SYNTAX  ERROR ";
   constant timeoutMessage : string := crlf & "?DEVICE NOT FOUND  ERROR" & crlf;
 
-  constant registerMessage : string := crlf & "PC   A  X  Y  Z  B  SP   MAPL MAPH OP P  P-FLAGS" & crlf;
+  constant registerMessage : string := crlf & "PC   A  X  Y  Z  B  SP   MAPL MAPH LAST-OP  P  P-FLAGS" & crlf;
   
   type monitor_state is (Reseting,
                          PrintBanner,PrintHelp,
@@ -115,7 +118,7 @@ architecture behavioural of uart_monitor is
                          SyntaxError,TimeoutError,
                          CPUTransaction1,CPUTransaction2,CPUTransaction3,
                          ParseHex,
-                         PrintHex,
+                         PrintHex,PrintSpaces,
                          SetMemory1,SetMemory2,SetMemory3,SetMemory4,SetMemory5,
                          SetMemory6,SetMemory7,SetMemory8,
                          LoadMemory1,LoadMemory2,LoadMemory3,LoadMemory4,
@@ -132,7 +135,8 @@ architecture behavioural of uart_monitor is
                          ShowRegisters13,ShowRegisters14,ShowRegisters15,ShowRegisters16,
                          ShowRegisters17,ShowRegisters18,ShowRegisters19,ShowRegisters20,
                          ShowRegisters21,ShowRegisters22,ShowRegisters23,ShowRegisters24,
-                         ShowRegisters25,ShowRegisters26,ShowRegisters27,
+                         ShowRegisters25,ShowRegisters26,ShowRegisters27,ShowRegisters28,
+                         ShowRegisters29,ShowRegisters30,ShowRegisters31,ShowRegisters32,
                          ShowP1,ShowP2,ShowP3,ShowP4,ShowP5,ShowP6,ShowP7,ShowP8,
                          ShowP9,
                          TraceStep,CPUBreak1,WaitOneCycle
@@ -336,6 +340,16 @@ begin
       success_state <= next_state;
       state <= PrintHex;
     end print_hex;
+    procedure print_spaces (
+      digits     : in integer;
+      next_state : in monitor_state) is
+    begin  -- print_hex
+      report "asked to print " & integer'image(digits) & " spaces." severity note;
+      hex_digits_read <= digits;
+      hex_digits_output <= 0;
+      success_state <= next_state;
+      state <= PrintSpaces;
+    end print_spaces;
     procedure print_hex_addr (
       value      : in unsigned(27 downto 0);
       next_state : in monitor_state) is
@@ -348,6 +362,11 @@ begin
     begin  -- print_hex
       print_hex(value & x"000000",2,next_state);
     end print_hex_byte;
+    procedure print_two_spaces (
+      next_state : in monitor_state) is
+    begin  -- print_hex
+      print_spaces(2,next_state);
+    end print_two_spaces;
     
     -- purpose: accept one hex digit
     procedure got_hex_digit (
@@ -760,6 +779,15 @@ begin
             else
               state <= success_state;
             end if;
+          when PrintSpaces =>
+            if hex_digits_output<hex_digits_read then
+              if tx_ready='1' then
+                try_output_char(' ',PrintSpaces);
+                hex_digits_output <= hex_digits_output + 1;
+              end if;
+            else
+              state <= success_state;
+            end if;
           when ShowMemory1 =>
             target_address <= hex_value(27 downto 0);
             byte_number <= 0;
@@ -841,8 +869,22 @@ begin
           when ShowRegisters23 => try_output_char(' ',ShowRegisters24);
           when ShowRegisters24 => print_hex_byte(unsigned(monitor_opcode),ShowRegisters25);
           when ShowRegisters25 => try_output_char(' ',ShowRegisters26);
-          when ShowRegisters26 => print_hex_byte(unsigned(monitor_p),ShowRegisters27);
-          when ShowRegisters27 => try_output_char(' ',ShowP1);
+          when ShowRegisters26 =>
+            if monitor_ibytes(1)='1' then
+              print_hex_byte(unsigned(monitor_arg1),ShowRegisters27);
+            else
+              print_two_spaces(ShowRegisters27);
+            end if;
+          when ShowRegisters27 => try_output_char(' ',ShowRegisters28);
+          when ShowRegisters28 =>
+            if monitor_ibytes(1)='1' and monitor_ibytes(0)='1' then
+              print_hex_byte(unsigned(monitor_arg2),ShowRegisters29);
+            else
+              print_two_spaces(ShowRegisters29);
+            end if;
+          when ShowRegisters29 => try_output_char(' ',ShowRegisters30);
+          when ShowRegisters30 => print_hex_byte(unsigned(monitor_p),ShowRegisters31);
+          when ShowRegisters31 => try_output_char(' ',ShowP1);
 
 
           when ShowP1 =>
