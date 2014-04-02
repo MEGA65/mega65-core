@@ -1488,7 +1488,14 @@ downto 8) = x"D3F" then
     --report "Executing " & instruction'image(i)
     --  & " mode " & addressingmode'image(mode) severity note;
     
-    if mode=M_rr or mode=M_rrrr then
+    if i=I_BSR then
+      if arg2(7)='0' then -- branch forwards.
+        reg_pc <= reg_pc + unsigned(std_logic_vector(arg2(6 downto 0)) & std_logic_vector(arg1)) - 1;
+      else -- branch backwards.
+        reg_pc <= (reg_pc - x"8001") + unsigned(std_logic_vector(arg2(6 downto 0)) & std_logic_vector(arg1));
+      end if;
+      push_byte(reg_pc_jsr(15 downto 8),JSR1);      
+    elsif mode=M_rr or mode=M_rrrr then
       if (i=I_BCC and flag_c='0')
         or (i=I_BCS and flag_c='1')
         or (i=I_BVC and flag_v='0')
@@ -1523,13 +1530,6 @@ downto 8) = x"D3F" then
       bbs_bit <= opcode(6 downto 4);
       reg_value <= arg2;
       read_data_byte(reg_b & arg1,BranchOnBit); 
-    elsif i=I_BSR then
-      if arg2(7)='0' then -- branch forwards.
-        reg_pc <= reg_pc + unsigned(std_logic_vector(arg2(6 downto 0)) & std_logic_vector(arg1)) - 1;
-      else -- branch backwards.
-        reg_pc <= (reg_pc - x"8001") + unsigned(std_logic_vector(arg2(6 downto 0)) & std_logic_vector(arg1));
-      end if;
-      push_byte(reg_pc_jsr(15 downto 8),JSR1);      
     elsif i=I_JSR and mode=M_nnnn then
       reg_pc <= arg2 & arg1; push_byte(reg_pc_jsr(15 downto 8),JSR1);
     elsif i=I_JSR and mode=M_Innnn then
