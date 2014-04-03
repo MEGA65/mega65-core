@@ -117,9 +117,34 @@ architecture behavioural of sdcardio is
   signal f011_track : unsigned(7 downto 0) := x"00";
   signal f011_sector : unsigned(7 downto 0) := x"00";
   signal f011_side : unsigned(7 downto 0) := x"00";
+
   signal f011_buffer_last_written : unsigned(8 downto 0) := (others => '0');
   signal f011_buffer_last_read : unsigned(8 downto 0) := (others => '0');
   signal f011_flag_eq : std_logic := '1';
+  signal f011_swap : std_logic := '0';
+
+  signal f011_irqenable : std_logic := '0';
+  
+  signal f011_cmd : unsigned(7 downto 0) := x"00";
+  signal f011_busy : std_logic := '0';
+  signal f011_lost : std_logic := '0';
+  signal f011_irq : std_logic := '0';
+  signal f011_rnf : std_logic := '0';
+  signal f011_crc : std_logic := '0';
+  signal f011_drq : std_logic := '0';
+  signal f011_ds : unsigned(2 downto 0) := "000";
+  signal f011_track0 : std_logic := '0';
+  signal f011_disk_present : std_logic := '0';
+  signal f011_over_index : std_logic := '0';
+  signal f011_disk_changed : std_logic := '0';
+
+  signal f011_rsector_found : std_logic := '0';
+  signal f011_wsector_found : std_logic := '0';
+  signal f011_write_gate : std_logic := '0';
+  signal f011_write_protected : std_logic := '0';
+
+  signal f011_led : std_logic := '0';
+  signal f011_motor : std_logic := '0';
   
 begin  -- behavioural
 
@@ -169,8 +194,9 @@ begin  -- behavioural
            sd_reset,fastio_read,sd_sector,fastio_write,
            f011_track,f011_sector,f011_side,sdio_fsm_error,sdio_error,
            sd_state) is
+    variable temp_cmd : unsigned(7 downto 0);
   begin
-
+    
     if rising_edge(clock) then
 
       -- De-map sector buffer if VIC-IV maps colour RAM at $DC00
@@ -194,7 +220,7 @@ std_logic'image(colourram_at_dc00) & ", sector_buffer_mapped = " & std_logic'ima
             or (fastio_addr(19 downto 5)&'0' = x"D308") then
             -- F011 FDC emulation registers
             case fastio_addr(4 downto 0) is
-              when "00000" =>
+              when "00000" =>           -- $D080
                 -- CONTROL |  IRQ  |  LED  | MOTOR | SWAP  | SIDE  |  DS2  |  DS1  |  DS0  | 0 RW
                 --IRQ     When set, enables interrupts to occur,  when reset clears and
                 --        disables interrupts.
@@ -208,8 +234,16 @@ std_logic'image(colourram_at_dc00) & ", sector_buffer_mapped = " & std_logic'ima
                 --DS2-DS0 these three bits select a drive (drive 0 thru drive 7).  When
                 --        DS0-DS2  are  low  and  the LOCAL input is true (low) the DR0
                 --        output will go true (low).
-                null;
-              when "00001" =>
+                f011_irqenable <= fastio_wdata(7);
+                f011_led <= fastio_wdata(6);
+                f011_motor <= fastio_wdata(5);
+                f011_swap <= fastio_wdata(4);
+                f011_side(0) <= fastio_wdata(3);
+                f011_ds <= fastio_wdata(2 downto 0);
+                if fastio_wdata(2 downto 0) /= f011_ds then
+                  f011_disk_changed <= '0';
+                end if;
+              when "00001" =>           -- $D081
                 -- COMMAND | WRITE | READ  | FREE  | STEP  |  DIR  | ALGO  |  ALT  | NOBUF | 1 RW
                 --WRITE   must be set to perform write operations.
                 --READ    must be set for all read operations.
@@ -222,8 +256,57 @@ std_logic'image(colourram_at_dc00) & ", sector_buffer_mapped = " & std_logic'ima
                 --ALT     selects alternate DPLL read recovery method. The ALG0 bit
                 --        must be set for ALT to work.
                 --NOBUF   clears the buffer read/write pointers
-                --           fastio_rdata <= (others => 'Z');
-                null;
+
+                --  Legal commands are...
+                --
+                -- hexcode notes   macro   function
+                -- ------- -----   -----   --------
+                -- 40    1,4,5   RDS     Read Sector
+                -- 80    1,2     WTS     Write Sector
+                -- 60    1,4,5   RDT     Read Track
+                -- A0    1,2     WTT     Write Track (format)
+                -- 10    3       STOUT   Head Step Out
+                -- 14    3       TIME    Time 1 head step interval (no pulse)
+                -- 18    3       STIN    Head Step In
+                -- 20    3       SPIN    Wait for motor spin-up
+                -- 00    3       CAN     Cancel any command in progress
+                -- 01            CLB     Clear the buffer pointers
+                -- 
+                -- Notes:    1. Add 1 for nonbuffered operation
+                --           2. Add 4 for write precompensation
+                --           3. Add 1 to clear buffer pointers
+                --           4. Add 4 for DPLL recovery instead of FC recovery
+                --           5. Add 6 for Alternate DPLL recovery
+                f011_cmd <= fastio_wdata;
+                f011_busy <= '0';
+                f011_lost <= '0';
+                f011_irq  <= '0';
+                f011_rnf  <= '0';
+                f011_crc  <= '0';
+                if fastio_wdata(0) = '1' then
+                  f011_buffer_last_written <= (others => '0');
+                  f011_buffer_last_read <= (others => '0');
+                  f011_flag_eq <= '1';
+                end if;
+                temp_cmd := fastio_wdata(7 downto 3) & "000";
+                case temp_cmd is
+                  when x"40" =>         -- read sector
+                    -- calculate sector number.
+                    -- physical sector on disk = track * $14 + sector on track
+                    -- then add to disk image start sector for the selected
+                    -- drive.
+                    null;
+                  when x"80" =>         -- write sector
+                    null;
+                  when x"10" =>         -- head step out, or no step
+                    null;
+                  when x"18" =>         -- head step in
+                    null;
+                  when x"20" =>         -- motor spin up
+                  when x"00" =>         -- cancel running command (not implemented)
+                  when others =>        -- illegal command
+                    null;
+                end case;
               when "00100" => f011_track <= fastio_wdata;
               when "00101" => f011_sector <= fastio_wdata;
               when "00110" => f011_side <= fastio_wdata;
@@ -324,7 +407,9 @@ std_logic'image(colourram_at_dc00) & ", sector_buffer_mapped = " & std_logic'ima
               --DS2-DS0 these three bits select a drive (drive 0 thru drive 7).  When
               --        DS0-DS2  are  low  and  the LOCAL input is true (low) the DR0
               --        output will go true (low).
-              fastio_rdata <= (others => 'Z');
+              fastio_rdata <=
+                f011_irqenable & f011_led & f011_motor & f011_swap &
+                f011_side(0) & f011_ds;
             when "00001" =>
               -- COMMAND | WRITE | READ  | FREE  | STEP  |  DIR  | ALGO  |  ALT  | NOBUF | 1 RW
               --WRITE   must be set to perform write operations.
@@ -338,21 +423,7 @@ std_logic'image(colourram_at_dc00) & ", sector_buffer_mapped = " & std_logic'ima
               --ALT     selects alternate DPLL read recovery method. The ALG0 bit
               --        must be set for ALT to work.
               --NOBUF   clears the buffer read/write pointers
-              --           fastio_rdata <= (others => 'Z');
-              case fastio_wdata is
-                when x"01" =>
-                  -- Clear buffer pointers
-                  f011_buffer_last_written <= (others => '0');
-                  f011_buffer_last_read <= (others => '0');
-                  f011_flag_eq <= '1';
-                when x"40" =>
-                  -- Read sector
-                  null;
-                when x"80" =>
-                  -- Write sector
-                  null;
-                when others => null;
-              end case;
+              fastio_rdata <= f011_cmd;
             when "00010" =>
               -- STAT A  | BUSY  |  DRQ  |  EQ   |  RNF  |  CRC  | LOST  | PROT  |  TKQ  | 2 R
               --BUSY    command is being executed
@@ -363,8 +434,9 @@ std_logic'image(colourram_at_dc00) & ", sector_buffer_mapped = " & std_logic'ima
               --LOST    data was lost during transfer
               --PROT    disk is write protected
               --TK0     head is positioned over track zero
-
-              fastio_rdata <= "00111111";
+              fastio_rdata <= f011_busy & f011_drq & f011_flag_eq & f011_rnf
+                              & f011_crc & f011_lost & f011_write_protected
+                              & f011_track0;
             when "00011" =>
               -- STAT B  | RDREQ | WTREQ |  RUN  | NGATE | DSKIN | INDEX |  IRQ  | DSKCHG| 3 R
               -- RDREQ   sector found during formatted read
@@ -376,7 +448,9 @@ std_logic'image(colourram_at_dc00) & ", sector_buffer_mapped = " & std_logic'ima
               -- IRQ     an interrupt has occurred
               -- DSKCHG  the DSKIN line has changed
               --         this is cleared by deselecting drive
-              fastio_rdata <= (others => 'Z');
+              fastio_rdata <= f011_rsector_found & f011_wsector_found &
+                              "0" & f011_write_gate & f011_disk_present &
+                              f011_over_index & f011_irq & f011_disk_changed;
             when "00100" =>
               -- TRACK   |  T7   |  T6   |  T5   |  T4   |  T3   |  T2   |  T1   |  T0   | 4 RW
               fastio_rdata <= f011_track;
