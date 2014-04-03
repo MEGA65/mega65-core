@@ -500,6 +500,7 @@ rf2:
 		bne romfilesizeerror
 
 		; XXX need to store checksum
+		jsr storeromsum
 		
 		; ROM file loaded, transfer control
 		ldx #<msg_romok
@@ -1202,6 +1203,38 @@ checkromok:
 		; ... then fall through to testing it
 testromsum:
 		; have checksum for all slabs.
+
+		jsr mapromchecksumrecord
+		lda $4000
+		cmp checksum
+		bne checksumfails
+		lda $4001
+		cmp checksum+1
+		bne checksumfails
+		lda $4002
+		cmp checksum+2
+		bne checksumfails
+
+		jsr resetmemmap
+
+		sec
+		rts
+
+		; check failed
+checksumfails:	clc
+		rts
+
+storeromsum:
+		jsr mapromchecksumrecord
+		lda checksum
+		sta $4000
+		lda checksum+1
+		sta $4001
+		lda checksum+2
+		sta $4002
+		rts
+
+mapromchecksumrecord:
 		; Map in ROM load record, and compare checksum
 		; Here we have to use our extension to MAP to access >1MB
 		; as only 128KB of slow ram is shadowed to $20000.
@@ -1222,23 +1255,6 @@ testromsum:
 		map
 		eom
 		
-		lda $4000
-		cmp checksum
-		bne checksumfails
-		lda $4001
-		cmp checksum+1
-		bne checksumfails
-		lda $4002
-		cmp checksum+2
-		bne checksumfails
-
-		jsr resetmemmap
-
-		sec
-		rts
-
-		; check failed
-checksumfails:	clc
 		rts
 
 calcromsum:	; calculate checksum of 128KB ROM
@@ -1632,12 +1648,13 @@ go64ramroutineend:
 
 ; reset memory map to default
 resetmemmap:
+		; clear memory MAP MB offset register
 		lda #$00
 		ldx #$0f
 		ldy #$00
 		ldz #$0f
 		map
-		; also clear memory MAP MB offset register
+		; and clear all mapping
 		tax
 		taz
 		map
