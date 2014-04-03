@@ -516,8 +516,12 @@ data 8634 864F
 8634 Ascending byte values from $02-$1D
 9A79 @ Select F011 drive 2?
 9A88 @ wait for FDC busy flag to clear
+9A91 Execute FDC command from A, and wait for completion.
 9AA8 @ clear FDC IRQ?
+data 9A2A 9A2B
+9A2A Values used to select SIDE bit of FDC status register ($D080) based on contents of FDC Side register ($D086)
 9ACA @ If not drive 2, then do something
+9A73 Select drive 2, set FDC status register to A, wait for BUSY to clear.
 9AF9 @ Set C and RTS
 9AFB @ Clear C and RTS
 9CB7 Send talk address to internal drive?
@@ -540,3 +544,15 @@ BAD5 Some 1581 DOS routine
 data 99b6 9a2b
 99b6 unknown data
 ; b652 onwards - dos messages and vectors?  need to decode as text and data
+
+D080 @ FDC Status register
+D081 @ FDC Command register
+D082 @ FDC Status byte 1
+D083 @ FDC Status byte 2
+D084 @ FDC Track number
+D085 @ FDC Sector number
+D086 @ FDC Side number
+D087 @ FDC Data register
+D088 @ FDC Clock register
+D089 @ FDC Step timer register
+D08A @ FDC Copy proection code register
