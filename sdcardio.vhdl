@@ -114,6 +114,8 @@ architecture behavioural of sdcardio is
   signal sd_state : sd_state_t := Idle;
 
   -- F011 FDC emulation registers and flags
+  signal diskimage_sector : unsigned(31 downto 0) := x"ffffffff";
+  signal diskimage_enable : std_logic := '0';
   signal f011_track : unsigned(7 downto 0) := x"00";
   signal f011_sector : unsigned(7 downto 0) := x"00";
   signal f011_side : unsigned(7 downto 0) := x"00";
@@ -382,6 +384,14 @@ std_logic'image(colourram_at_dc00) & ", sector_buffer_mapped = " & std_logic'ima
               when x"2" => sd_sector(15 downto 8) <= std_logic_vector(fastio_wdata);
               when x"3" => sd_sector(23 downto 16) <= std_logic_vector(fastio_wdata);
               when x"4" => sd_sector(31 downto 24) <= std_logic_vector(fastio_wdata);
+              when x"b" =>
+                diskimage_enable <= fastio_wdata(0);
+                f011_disk_present <= fastio_wdata(1);
+                f011_write_protected <= not fastio_wdata(2);                
+              when x"c" => diskimage_sector(7 downto 0) <= fastio_wdata;
+              when x"d" => diskimage_sector(15 downto 8) <= fastio_wdata;
+              when x"e" => diskimage_sector(23 downto 16) <= fastio_wdata;
+              when x"f" => diskimage_sector(31 downto 24) <= fastio_wdata;
               when others => null;
             end case;
           end if;
@@ -502,6 +512,14 @@ std_logic'image(colourram_at_dc00) & ", sector_buffer_mapped = " & std_logic'ima
               fastio_rdata(7 downto 1) <= (others => '0');
               fastio_rdata(0) <= sector_offset(8);
               fastio_rdata(1) <= sector_offset(9);
+            when x"8b" =>
+              fastio_rdata(0) <= diskimage_enable;
+              fastio_rdata(1) <= f011_disk_present;
+              fastio_rdata(2) <= not f011_write_protected;
+            when x"8c" => fastio_rdata <= diskimage_sector(7 downto 0);
+            when x"8d" => fastio_rdata <= diskimage_sector(15 downto 8);
+            when x"8e" => fastio_rdata <= diskimage_sector(23 downto 16);
+            when x"8f" => fastio_rdata <= diskimage_sector(31 downto 24);
             when x"F0" => fastio_rdata(7 downto 0) <= unsigned(sw(7 downto 0));
             when x"F1" => fastio_rdata(7 downto 0) <= unsigned(sw(15 downto 8));
             when x"F2" =>
