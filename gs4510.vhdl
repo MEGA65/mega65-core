@@ -154,6 +154,7 @@ architecture Behavioural of gs4510 is
   signal reg_dmagic_status : unsigned(7 downto 0) := x"00";
   signal reg_dmacount : unsigned(7 downto 0) := x"00";  -- number of DMA jobs done
   signal dma_pending : std_logic := '0';
+  signal dma_checksum : unsigned(23 downto 0) := x"000000";
   signal dmagic_cmd : unsigned(7 downto 0);
   signal dmagic_count : unsigned(15 downto 0);
   signal dmagic_tally : unsigned(15 downto 0);
@@ -762,6 +763,7 @@ downto 8) = x"D3F" then
       -- Remember that after this instruction we want to perform the
       -- DMA.
       dma_pending <= '1';
+      dma_checksum <= x"000000";
       reg_dmacount <= reg_dmacount + 1;
       -- NOTE: DMAgic in C65 prototypes might not use the same list format as
       -- in the C65 specifications manual (as the manual warns).
@@ -993,6 +995,12 @@ downto 8) = x"D3F" then
       return x"0" & reg_dmagic_addr(27 downto 24);
     elsif (the_read_address = x"FFD370F") or (the_read_address = x"FFD170F") then
       return reg_dmacount;
+    elsif (the_read_address = x"FFD3710") or (the_read_address = x"FFD1710") then
+      return dma_checksum(7 downto 0);
+    elsif (the_read_address = x"FFD3711") or (the_read_address = x"FFD1711") then
+      return dma_checksum(15 downto 8);
+    elsif (the_read_address = x"FFD3712") or (the_read_address = x"FFD1712") then
+      return dma_checksum(23 downto 16);
     end if;   
 
     if accessing_cpuport='1' then
@@ -1739,6 +1747,7 @@ downto 8) = x"D3F" then
                             reg_dmagic_addr <= reg_dmagic_addr + 1;
             when DMAgic6 => report "reg_dmagic_addr = $" & to_hstring(reg_dmagic_addr) severity note;
                             temp_value := read_data;
+                            dma_checksum <= dma_checksum + to_integer(temp_value);
                             nybl := temp_value(3 downto 0);
                             dmagic_src_addr(19 downto 16) <= nybl;
                             report "reg_dmagic_addr = $" & to_hstring(reg_dmagic_addr) severity note;
