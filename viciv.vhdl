@@ -1007,9 +1007,9 @@ begin
     
     if rising_edge(cpuclock) then
 
-      report "irq_raster = " & std_logic'image(irq_raster)
-        & ", ack_raster= " & std_logic'image(ack_raster) severity note;
-      
+      report "drive led = " & std_logic'image(led)
+        & ", drive motor= " & std_logic'image(motor) severity note;
+
       if viciv_legacy_mode_registers_touched='1' then
         viciv_interpret_legacy_mode_registers;
         viciv_legacy_mode_registers_touched <= '0';
@@ -1947,7 +1947,7 @@ begin
       -- 2. From RGB, push out to pins (also draw border)
       -- Note that for C65 compatability the low nybl has the most significant
       -- bits.
-      if displayline0='1' and ((led='1' and drive_blink_phase='1') or motor='1') then
+      if (displayline0='1') and ((led='1' and drive_blink_phase='1') or motor='1') then
         vgared <= x"F";
         vgagreen <= x"0";
         vgablue <= x"0";
