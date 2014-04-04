@@ -1953,11 +1953,11 @@ begin
         vgared <= x"F";
         vgagreen <= x"0";
         vgablue <= x"0";
+      else
+        vgared <= vga_buffer_red(3 downto 0);
+        vgagreen <= vga_buffer_green(3 downto 0);
+        vgablue <= vga_buffer_blue(3 downto 0);
       end if;
-      vgared <= vga_buffer_red(3 downto 0);
-      vgagreen <= vga_buffer_green(3 downto 0);
-      vgablue <= vga_buffer_blue(3 downto 0);
-      
     end if;
   end process;
 
