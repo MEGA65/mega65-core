@@ -88,7 +88,7 @@ architecture behavioural of sdcardio is
   signal sd_dowrite      : std_logic := '0';
   signal data_ready : std_logic := '0';
   
-  signal sd_sector       : std_logic_vector(31 downto 0) := (others => '0');
+  signal sd_sector       : unsigned(31 downto 0) := (others => '0');
   signal sd_datatoken    : unsigned(7 downto 0);
   signal sd_rdata        : std_logic_vector(7 downto 0);
   signal sd_wdata        : std_logic_vector(7 downto 0) := (others => '0');
@@ -116,9 +116,11 @@ architecture behavioural of sdcardio is
   -- F011 FDC emulation registers and flags
   signal diskimage_sector : unsigned(31 downto 0) := x"ffffffff";
   signal diskimage_enable : std_logic := '0';
+  signal diskimage_offset : unsigned(10 downto 0);
   signal f011_track : unsigned(7 downto 0) := x"00";
   signal f011_sector : unsigned(7 downto 0) := x"00";
   signal f011_side : unsigned(7 downto 0) := x"00";
+  signal f011_sector_fetch : std_logic := '0';
 
   signal f011_buffer_last_written : unsigned(8 downto 0) := (others => '0');
   signal f011_buffer_last_read : unsigned(8 downto 0) := (others => '0');
@@ -161,7 +163,7 @@ begin  -- behavioural
 	miso => miso_i,
 	sclk => sclk_o,
 
-        sector_number => sd_sector,
+        sector_number => std_logic_vector(sd_sector),
         sdhc_mode => sdhc_mode,
 	rd =>  sd_doread,
 	wr =>  sd_dowrite,
@@ -201,6 +203,13 @@ begin  -- behavioural
     
     if rising_edge(clock) then
 
+      -- update diskimage offset
+      diskimage_offset(10 downto 0) <=
+        to_unsigned(
+          to_integer(f011_track(6 downto 0) & "0000")
+          +to_integer("00" & f011_track(6 downto 0) & "00")
+          +to_integer("000" & f011_sector),11);
+      
       -- De-map sector buffer if VIC-IV maps colour RAM at $DC00
       report "colourram_at_dc00 = " &
 std_logic'image(colourram_at_dc00) & ", sector_buffer_mapped = " & std_logic'image(sector_buffer_mapped) severity note;
@@ -285,6 +294,8 @@ std_logic'image(colourram_at_dc00) & ", sector_buffer_mapped = " & std_logic'ima
                 f011_irq  <= '0';
                 f011_rnf  <= '0';
                 f011_crc  <= '0';
+                f011_rsector_found <= '0';
+                f011_wsector_found <= '0';
                 if fastio_wdata(0) = '1' then
                   f011_buffer_last_written <= (others => '0');
                   f011_buffer_last_read <= (others => '0');
@@ -297,6 +308,19 @@ std_logic'image(colourram_at_dc00) & ", sector_buffer_mapped = " & std_logic'ima
                     -- physical sector on disk = track * $14 + sector on track
                     -- then add to disk image start sector for the selected
                     -- drive.
+                    -- put sector number into sd_sector, and then trigger read.
+                    -- If no disk image is enabled, then report an error.
+                    if diskimage_enable='0' or f011_disk_present='0' then
+                      f011_rnf <= '1';
+                    else
+                      f011_sector_fetch <= '1';
+                      if sdhc_mode='1' then
+                        sd_sector <= diskimage_sector + diskimage_offset;
+                      else
+                        sd_sector(31 downto 9) <= diskimage_sector(31 downto 9) +
+                                                  diskimage_offset;     
+                      end if;
+                    end if;
                     null;
                   when x"80" =>         -- write sector
                     null;
@@ -380,10 +404,10 @@ std_logic'image(colourram_at_dc00) & ", sector_buffer_mapped = " & std_logic'ima
                   when others =>
                     sdio_error <= '1';
                 end case;
-              when x"1" => sd_sector(7 downto 0) <= std_logic_vector(fastio_wdata);
-              when x"2" => sd_sector(15 downto 8) <= std_logic_vector(fastio_wdata);
-              when x"3" => sd_sector(23 downto 16) <= std_logic_vector(fastio_wdata);
-              when x"4" => sd_sector(31 downto 24) <= std_logic_vector(fastio_wdata);
+              when x"1" => sd_sector(7 downto 0) <= fastio_wdata;
+              when x"2" => sd_sector(15 downto 8) <= fastio_wdata;
+              when x"3" => sd_sector(23 downto 16) <= fastio_wdata;
+              when x"4" => sd_sector(31 downto 24) <= fastio_wdata;
               when x"b" =>
                 diskimage_enable <= fastio_wdata(0);
                 f011_disk_present <= fastio_wdata(1);
@@ -500,10 +524,10 @@ std_logic'image(colourram_at_dc00) & ", sector_buffer_mapped = " & std_logic'ima
               fastio_rdata(2) <= sd_reset;
               fastio_rdata(1) <= sdio_busy;
               fastio_rdata(0) <= sdio_busy;
-            when x"81" => fastio_rdata <= unsigned(sd_sector(7 downto 0));
-            when x"82" => fastio_rdata <= unsigned(sd_sector(15 downto 8));
-            when x"83" => fastio_rdata <= unsigned(sd_sector(23 downto 16));
-            when x"84" => fastio_rdata <= unsigned(sd_sector(31 downto 24));        
+            when x"81" => fastio_rdata <= sd_sector(7 downto 0);
+            when x"82" => fastio_rdata <= sd_sector(15 downto 8);
+            when x"83" => fastio_rdata <= sd_sector(23 downto 16);
+            when x"84" => fastio_rdata <= sd_sector(31 downto 24);        
             when x"85" => fastio_rdata <= to_unsigned(sd_state_t'pos(sd_state),8);
             when x"86" => fastio_rdata <= sd_datatoken;
             when x"87" => fastio_rdata <= unsigned(sd_rdata);                        
@@ -558,6 +582,9 @@ std_logic'image(colourram_at_dc00) & ", sector_buffer_mapped = " & std_logic'ima
             if skip=0 then
               sector_offset <= sector_offset + 1;
               read_bytes <= '1';
+              if f011_sector_fetch='1' then
+                -- XXX update F011 sector buffer
+              end if;
             else
               skip <= skip - 1;
               if skip=2 then
@@ -573,6 +600,7 @@ std_logic'image(colourram_at_dc00) & ", sector_buffer_mapped = " & std_logic'ima
               -- read the whole sector.
               -- Advance sector offset to 512 for compatibility with existing code.
               sector_offset <= sector_offset + 1;
+              f011_sector_fetch <= '0';
               sd_state <= DoneReadingSector;
             else
               -- Still more bytes to read.
