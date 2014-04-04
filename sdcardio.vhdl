@@ -28,6 +28,9 @@ entity sdcardio is
     sectorbuffermapped2 : out std_logic := '0';
     sectorbuffercs : in std_logic;
 
+    led : out std_logic := '0';
+    motor : out std_logic := '0';
+    
     sw : in std_logic_vector(15 downto 0);
     btn : in std_logic_vector(4 downto 0);
     
@@ -247,7 +250,9 @@ std_logic'image(colourram_at_dc00) & ", sector_buffer_mapped = " & std_logic'ima
                 --        output will go true (low).
                 f011_irqenable <= fastio_wdata(7);
                 f011_led <= fastio_wdata(6);
+                led <= fastio_wdata(6);
                 f011_motor <= fastio_wdata(5);
+                motor <= fastio_wdata(5);
                 f011_swap <= fastio_wdata(4);
                 f011_side(0) <= fastio_wdata(3);
                 f011_ds <= fastio_wdata(2 downto 0);
@@ -314,6 +319,7 @@ std_logic'image(colourram_at_dc00) & ", sector_buffer_mapped = " & std_logic'ima
                       f011_rnf <= '1';
                     else
                       f011_sector_fetch <= '1';
+                      f011_busy <= '1';
                       if sdhc_mode='1' then
                         sd_sector <= diskimage_sector + diskimage_offset;
                       else
@@ -583,6 +589,7 @@ std_logic'image(colourram_at_dc00) & ", sector_buffer_mapped = " & std_logic'ima
               sector_offset <= sector_offset + 1;
               read_bytes <= '1';
               if f011_sector_fetch='1' then
+                f011_rsector_found <= '1';
                 -- XXX update F011 sector buffer
               end if;
             else
@@ -600,7 +607,10 @@ std_logic'image(colourram_at_dc00) & ", sector_buffer_mapped = " & std_logic'ima
               -- read the whole sector.
               -- Advance sector offset to 512 for compatibility with existing code.
               sector_offset <= sector_offset + 1;
+              -- Update F011 FDC emulation status registers
               f011_sector_fetch <= '0';
+              f011_rsector_found <= '0';
+              f011_busy <= '0';
               sd_state <= DoneReadingSector;
             else
               -- Still more bytes to read.

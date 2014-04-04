@@ -72,7 +72,7 @@ entity machine is
          ----------------------------------------------------------------------
          ps2data : in std_logic;
          ps2clock : in std_logic;
-         
+
          ----------------------------------------------------------------------
          -- Debug interfaces on Nexys4 board
          ----------------------------------------------------------------------
@@ -226,6 +226,9 @@ architecture Behavioral of machine is
       cpuclock : in std_logic;
       irq : out std_logic;
       reset : in std_logic;
+
+      led : in std_logic;
+      motor : in std_logic;
       
       ----------------------------------------------------------------------
       -- VGA output
@@ -282,6 +285,9 @@ architecture Behavioral of machine is
           colourram_at_dc00 : in std_logic;
           viciii_iomode : in std_logic_vector(1 downto 0);
 
+          led : out std_logic;
+          motor : out std_logic;
+
           sw : in std_logic_vector(15 downto 0);
           btn : in std_logic_vector(4 downto 0);
           seg_led : out unsigned(31 downto 0);
@@ -301,6 +307,9 @@ architecture Behavioral of machine is
 
   signal viciii_iomode : std_logic_vector(1 downto 0);
 
+  signal led : std_logic;
+  signal motor : std_logic;
+  
   signal seg_led_data : unsigned(31 downto 0);
   
   signal io_irq : std_logic;
@@ -573,6 +582,9 @@ begin
 
       irq             => vic_irq,
       reset           => btnCpuReset,
+
+      led => led,
+      motor => motor,
       
       vsync           => vsync,
       hsync           => hsync,
@@ -614,6 +626,8 @@ begin
     data_i => fastio_wdata, data_o => fastio_rdata,
     sd_data_o => fastio_sd_rdata,
     colourram_at_dc00 => colourram_at_dc00,
+    led => led,
+    motor => motor,
     sw => sw,
     btn => btn,
     seg_led => seg_led_data,

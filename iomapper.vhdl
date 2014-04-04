@@ -19,7 +19,10 @@ entity iomapper is
         data_o : out std_logic_vector(7 downto 0);
         sd_data_o : out std_logic_vector(7 downto 0);
         sector_buffer_mapped : out std_logic;
-        
+
+        led : out std_logic := '0';
+        motor : out std_logic := '0';
+
         ps2data : in std_logic;
         ps2clock : in std_logic;
 
@@ -75,6 +78,9 @@ architecture behavioral of iomapper is
       sectorbuffermapped2 : out std_logic;
       sectorbuffercs : in std_logic;
       
+      led : out std_logic := '0';
+      motor : out std_logic := '0';
+
       -------------------------------------------------------------------------
       -- Lines for the SDcard interface itself
       -------------------------------------------------------------------------
@@ -234,6 +240,9 @@ begin
     sectorbuffermapped2 => sector_buffer_mapped_read,
     sectorbuffercs => sectorbuffercs,
 
+    led => led,
+    motor => motor,
+    
     sw => sw,
     btn => btn,
     cs_bo => cs_bo,

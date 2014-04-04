@@ -47,7 +47,11 @@ entity viciv is
     irq : out std_logic;
 
     reset : in std_logic;
-    
+
+    -- Internal drive LED status for OSD
+    led : in std_logic;
+    motor : in std_logic;
+
     ----------------------------------------------------------------------
     -- VGA output
     ----------------------------------------------------------------------
@@ -202,6 +206,9 @@ architecture Behavioral of viciv is
   signal displayx : unsigned(11 downto 0) := (others => '0');
   signal displayy : unsigned(11 downto 0) := (others => '0');
   signal display_active : std_logic := '0';
+  -- Mark if we are in the top line of display
+  -- (used for overlaying drive LED on first row of pixels)
+  signal displayline0 : std_logic := '0';
 
   -- Asserted if in the 1200 vetical lines of the frame
   signal vert_in_frame : std_logic := '0';
@@ -302,6 +309,11 @@ architecture Behavioral of viciv is
   signal viciii_blink_phase : std_logic := '0';
   -- 60 frames = 1 second, and means no tearing.
   signal viciii_blink_phase_counter : integer range 0 to 60 := 0;
+
+  -- And faster version for blinking drive led
+  signal drive_blink_phase : std_logic := '0';
+  signal drive_blink_phase_counter : integer range 0 to 15 := 0;
+
   
   -- NOTE: The following registers require 64-bit alignment. Default addresses
   -- are fairly arbitrary.
@@ -1349,6 +1361,13 @@ begin
             viciii_blink_phase <= not viciii_blink_phase;
           end if;
 
+          -- 4Hz 1581 drive LED blink clock
+          drive_blink_phase_counter <= drive_blink_phase_counter + 1;
+          if drive_blink_phase_counter = 15 then
+            drive_blink_phase_counter <= 0;
+            drive_blink_phase <= not drive_blink_phase;
+          end if;
+
         end if;	
       end if;
       if xcounter<frame_h_front then
@@ -1574,10 +1593,14 @@ begin
       if xcounter = 0 then
         if vert_in_frame='0' then
           displayy <= (others => '0');
+          displayline0 <= '1';
           indisplay := '0';
           first_card_of_row <= x"0000";	
         else
           displayy <= displayy + 1;
+          if displayy(2)='1' then
+            displayline0 <= '0';            
+          end if;
           next_card_number <= first_card_of_row;
           if chargen_y_sub=chargen_y_scale then
             next_chargen_y := chargen_y + 1;
@@ -1919,11 +1942,16 @@ begin
       end if;
       vga_buffer_red <= unsigned(palette_rdata(31 downto 24));
       vga_buffer_green <= unsigned(palette_rdata(23 downto 16));
-      vga_buffer_blue <= unsigned(palette_rdata(15 downto 8));
+      vga_buffer_blue <= unsigned(palette_rdata(15 downto 8));      
       
       -- 2. From RGB, push out to pins (also draw border)
       -- Note that for C65 compatability the low nybl has the most significant
       -- bits.
+      if displayline0='1' and ((led='1' and drive_blink_phase='1') or motor='1') then
+        vgared <= x"F";
+        vgagreen <= x"0";
+        vgablue <= x"0";
+      end if;
       vgared <= vga_buffer_red(3 downto 0);
       vgagreen <= vga_buffer_green(3 downto 0);
       vgablue <= vga_buffer_blue(3 downto 0);
