@@ -209,6 +209,7 @@ architecture Behavioral of viciv is
   -- Mark if we are in the top line of display
   -- (used for overlaying drive LED on first row of pixels)
   signal displayline0 : std_logic := '1';
+  signal displaycolumn0 : std_logic := '1';
 
   -- Asserted if in the 1200 vetical lines of the frame
   signal vert_in_frame : std_logic := '0';
@@ -1590,7 +1591,11 @@ begin
         vsync <= '0';
       end if;
 
+      if displayx(4)='1' then
+        displaycolumn0 <= '0';
+      end if;
       if xcounter = 0 then
+        displaycolumn0 <= '1';
         if vert_in_frame='0' then
           displayy <= (others => '0');
           displayline0 <= '1';
@@ -1598,7 +1603,7 @@ begin
           first_card_of_row <= x"0000";	
         else
           displayy <= displayy + 1;
-          if displayy(2)='1' then
+          if displayy(4)='1' then
             displayline0 <= '0';            
           end if;
           next_card_number <= first_card_of_row;
