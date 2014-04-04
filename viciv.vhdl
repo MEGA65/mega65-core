@@ -208,7 +208,7 @@ architecture Behavioral of viciv is
   signal display_active : std_logic := '0';
   -- Mark if we are in the top line of display
   -- (used for overlaying drive LED on first row of pixels)
-  signal displayline0 : std_logic := '0';
+  signal displayline0 : std_logic := '1';
 
   -- Asserted if in the 1200 vetical lines of the frame
   signal vert_in_frame : std_logic := '0';
@@ -1947,7 +1947,9 @@ begin
       -- 2. From RGB, push out to pins (also draw border)
       -- Note that for C65 compatability the low nybl has the most significant
       -- bits.
-      if (displayline0='1') and ((led='1' and drive_blink_phase='1') or motor='1') then
+      if (displayline0='1') and (((led='1') and (drive_blink_phase='1'))
+                                 or (motor='1')) then
+        report "drawing drive led OSD" severity note;
         vgared <= x"F";
         vgagreen <= x"0";
         vgablue <= x"0";
