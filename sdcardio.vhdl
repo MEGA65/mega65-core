@@ -147,6 +147,7 @@ architecture behavioural of sdcardio is
   signal f011_drq : std_logic := '0';
   signal f011_ds : unsigned(2 downto 0) := "000";
   signal f011_track0 : std_logic := '0';
+  signal f011_head_track : unsigned(6 downto 0) := x"00";
   signal f011_disk_present : std_logic := '0';
   signal f011_over_index : std_logic := '0';
   signal f011_disk_changed : std_logic := '0';
@@ -232,6 +233,12 @@ begin  -- behavioural
     
     if rising_edge(clock) then
 
+      if f011_head_track=x"00" then
+        f011_track0 <= '1';
+      else
+        f011_track0 <= '0';
+      end if;
+      
       -- update diskimage offset
       diskimage_offset(10 downto 0) <=
         to_unsigned(
@@ -358,10 +365,11 @@ std_logic'image(colourram_at_dc00) & ", sector_buffer_mapped = " & std_logic'ima
                   when x"80" =>         -- write sector
                     null;
                   when x"10" =>         -- head step out, or no step
-                    null;
+                    f011_head_track <= f011_head_track - 1;
                   when x"18" =>         -- head step in
-                    null;
+                    f011_head_track <= f011_head_track + 1;
                   when x"20" =>         -- motor spin up
+                    f011_motor <= '1';
                   when x"00" =>         -- cancel running command (not implemented)
                   when others =>        -- illegal command
                     null;
@@ -491,7 +499,7 @@ std_logic'image(colourram_at_dc00) & ", sector_buffer_mapped = " & std_logic'ima
               --        must be set for ALT to work.
               --NOBUF   clears the buffer read/write pointers
               fastio_rdata <= f011_cmd;
-            when "00010" =>
+            when "00010" =>             -- READ $D082
               -- STAT A  | BUSY  |  DRQ  |  EQ   |  RNF  |  CRC  | LOST  | PROT  |  TKQ  | 2 R
               --BUSY    command is being executed
               --DRQ     disk interface has transferred a byte
