@@ -363,6 +363,9 @@ std_logic'image(colourram_at_dc00) & ", sector_buffer_mapped = " & std_logic'ima
                         sd_sector(31 downto 9) <= diskimage_sector(31 downto 9) +
                                                   diskimage_offset;     
                       end if;
+                      sd_state <= ReadSector;
+                      sdio_error <= '0';
+                      sdio_fsm_error <= '0';
                     end if;
                     null;
                   when x"80" =>         -- write sector
