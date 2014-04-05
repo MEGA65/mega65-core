@@ -147,7 +147,7 @@ architecture behavioural of sdcardio is
   signal f011_drq : std_logic := '0';
   signal f011_ds : unsigned(2 downto 0) := "000";
   signal f011_track0 : std_logic := '0';
-  signal f011_head_track : unsigned(6 downto 0) := x"00";
+  signal f011_head_track : unsigned(6 downto 0) := "0000000";
   signal f011_disk_present : std_logic := '0';
   signal f011_over_index : std_logic := '0';
   signal f011_disk_changed : std_logic := '0';
@@ -233,7 +233,7 @@ begin  -- behavioural
     
     if rising_edge(clock) then
 
-      if f011_head_track=x"00" then
+      if f011_head_track="0000000" then
         f011_track0 <= '1';
       else
         f011_track0 <= '0';
