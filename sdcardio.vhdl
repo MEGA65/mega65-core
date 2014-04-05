@@ -125,10 +125,16 @@ architecture behavioural of sdcardio is
   signal f011_side : unsigned(7 downto 0) := x"00";
   signal f011_sector_fetch : std_logic := '0';
 
+  signal f011_buffer_address : unsigned(8 downto 0) := (others => '0');
   signal f011_buffer_last_written : unsigned(8 downto 0) := (others => '0');
   signal f011_buffer_last_read : unsigned(8 downto 0) := (others => '0');
+  signal f011_fdc_buffer_write : std_logic := '0';
+  signal f011_buffer_wdata : unsigned(7 downto 0);
+  signal f011_buffer_rdata : unsigned(7 downto 0);
   signal f011_flag_eq : std_logic := '1';
   signal f011_swap : std_logic := '0';
+  signal f011_rdata : unsigned(7 downto 0);
+  signal f011_wdata : unsigned(7 downto 0);
 
   signal f011_irqenable : std_logic := '0';
   
@@ -195,6 +201,26 @@ begin  -- behavioural
       doutb => sd_wdata
       
       );
+
+  ram1: ram8x512
+    port map (
+      -- FDC side access to the buffer
+      clka => clock,
+      ena => '1',
+      wea(0) => f011_fdc_buffer_write,
+      addra => std_logic_vector(f011_buffer_address),
+      dina => std_logic_vector(f011_buffer_wdata),
+      unsigned(douta) => f011_buffer_rdata,
+
+      -- fastio side access to the buffer
+      clkb => clock,
+      enb => '1',
+      web(0) => fastio_write,
+      addrb => std_logic_vector(f011_buffer_last_read(8 downto 0)),
+      dinb => std_logic_vector(f011_rdata),
+      unsigned(doutb) => f011_wdata      
+      );
+
   
   -- XXX also implement F1011 floppy controller emulation.
   process (clock,fastio_addr,fastio_wdata,sector_buffer_mapped,sdio_busy,
@@ -318,6 +344,7 @@ std_logic'image(colourram_at_dc00) & ", sector_buffer_mapped = " & std_logic'ima
                     if diskimage_enable='0' or f011_disk_present='0' then
                       f011_rnf <= '1';
                     else
+                      f011_buffer_address <= (others => '0');
                       f011_sector_fetch <= '1';
                       f011_busy <= '1';
                       if sdhc_mode='1' then
@@ -477,7 +504,7 @@ std_logic'image(colourram_at_dc00) & ", sector_buffer_mapped = " & std_logic'ima
               fastio_rdata <= f011_busy & f011_drq & f011_flag_eq & f011_rnf
                               & f011_crc & f011_lost & f011_write_protected
                               & f011_track0;
-            when "00011" =>
+            when "00011" =>             -- READ $D083 
               -- STAT B  | RDREQ | WTREQ |  RUN  | NGATE | DSKIN | INDEX |  IRQ  | DSKCHG| 3 R
               -- RDREQ   sector found during formatted read
               -- WTREQ   sector found during formatted write
@@ -503,6 +530,7 @@ std_logic'image(colourram_at_dc00) & ", sector_buffer_mapped = " & std_logic'ima
             when "00111" =>
               -- DATA    |  D7   |  D6   |  D5   |  D4   |  D3   |  D2   |  D1   |  D0   | 7 RW
               fastio_rdata <= (others => 'Z');
+              f011_drq <= '0';
             when "01000" =>
               -- CLOCK   |  C7   |  C6   |  C5   |  C4   |  C3   |  C2   |  C1   |  C0   | 8 RW
               fastio_rdata <= (others => 'Z');
@@ -590,7 +618,9 @@ std_logic'image(colourram_at_dc00) & ", sector_buffer_mapped = " & std_logic'ima
               read_bytes <= '1';
               if f011_sector_fetch='1' then
                 f011_rsector_found <= '1';
-                -- XXX update F011 sector buffer
+                if f011_drq='1' then f011_lost <= '1'; end if;
+                f011_drq <= '1';
+                -- XXX update F011 sector buffer                
               end if;
             else
               skip <= skip - 1;
