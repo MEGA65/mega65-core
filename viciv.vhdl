@@ -1952,8 +1952,9 @@ begin
       -- 2. From RGB, push out to pins (also draw border)
       -- Note that for C65 compatability the low nybl has the most significant
       -- bits.
-      if (displayline0='1') and (((led='1') and (drive_blink_phase='1'))
-                                 or (motor='1')) then
+      if (displayline0 ='1') and (displaycolumn0='1')
+        and (((led='1') and (drive_blink_phase='1'))
+             or (motor='1')) then
         report "drawing drive led OSD" severity note;
         vgared <= x"F";
         vgagreen <= x"0";
