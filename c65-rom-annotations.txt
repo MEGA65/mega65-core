@@ -524,6 +524,7 @@ data 9A2A 9A2B
 9A73 Select drive 2, set FDC status register to A, wait for BUSY to clear.
 9AF9 @ Set C and RTS
 9AFB @ Clear C and RTS
+9B40 reset drive and step to track 0 ?
 9CB7 Send talk address to internal drive?
 9C5B Send listen address to internal drive?
 9CCD Send secondary address (talk or listen) to internal drive?

@@ -365,7 +365,12 @@ std_logic'image(colourram_at_dc00) & ", sector_buffer_mapped = " & std_logic'ima
                   when x"80" =>         -- write sector
                     null;
                   when x"10" =>         -- head step out, or no step
-                    f011_head_track <= f011_head_track - 1;
+                    if fastio_wdata(2)='1' then
+                      -- time, but don't step
+                      null;
+                    else
+                      f011_head_track <= f011_head_track - 1;
+                    end if;
                   when x"18" =>         -- head step in
                     f011_head_track <= f011_head_track + 1;
                   when x"20" =>         -- motor spin up
