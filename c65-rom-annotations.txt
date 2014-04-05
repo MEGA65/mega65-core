@@ -515,8 +515,9 @@ text 8016 801C
 data 8634 864F
 8634 Ascending byte values from $02-$1D
 975B Read a sector?
-9761 @ read sector from disk.
-9770 @ Take branch if sector not yet found
+9761 @ command byte: read sector from disk.
+976B @ Take branch and abort if RNF (read not found) bit set
+9770 @ Take branch and keep waiting if sector not yet found (RDREQ bit clear)
 9A2C Set FDC track, sector and side register from $1FB4?
 9A79 @ Select F011 drive 2?
 9A88 @ wait for FDC busy flag to clear
