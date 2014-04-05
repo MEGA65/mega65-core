@@ -126,8 +126,7 @@ architecture behavioural of sdcardio is
   signal f011_sector_fetch : std_logic := '0';
 
   signal f011_buffer_address : unsigned(8 downto 0) := (others => '0');
-  signal f011_buffer_last_written : unsigned(8 downto 0) := (others => '0');
-  signal f011_buffer_last_read : unsigned(8 downto 0) := (others => '0');
+  signal f011_buffer_next_read : unsigned(8 downto 0) := (others => '0');
   signal f011_fdc_buffer_write : std_logic := '0';
   signal f011_buffer_wdata : unsigned(7 downto 0);
   signal f011_buffer_rdata : unsigned(7 downto 0);
@@ -217,7 +216,7 @@ begin  -- behavioural
       clkb => clock,
       enb => '1',
       web(0) => fastio_write,
-      addrb => std_logic_vector(f011_buffer_last_read(8 downto 0)),
+      addrb => std_logic_vector(f011_buffer_next_read(8 downto 0)),
       dinb => std_logic_vector(f011_rdata),
       unsigned(doutb) => f011_wdata      
       );
@@ -233,6 +232,11 @@ begin  -- behavioural
     
     if rising_edge(clock) then
 
+      if f011_buffer_address = f011_buffer_next_read then
+        f011_flag_eq <= '0';
+      else
+        f011_flag_eq <= '0';
+      end if;
       f011_fdc_buffer_write <= '0';
       if f011_head_track="0000000" then
         f011_track0 <= '1';
@@ -336,9 +340,7 @@ std_logic'image(colourram_at_dc00) & ", sector_buffer_mapped = " & std_logic'ima
                 f011_rsector_found <= '0';
                 f011_wsector_found <= '0';
                 if fastio_wdata(0) = '1' then
-                  f011_buffer_last_written <= (others => '0');
-                  f011_buffer_last_read <= (others => '0');
-                  f011_flag_eq <= '1';
+                  f011_buffer_next_read <= (others => '0');
                 end if;
                 temp_cmd := fastio_wdata(7 downto 3) & "000";
                 case temp_cmd is
