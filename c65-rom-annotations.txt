@@ -517,16 +517,29 @@ data 8634 864F
 975B Read a sector?
 9761 @ command byte: read sector from disk.
 976B @ Take branch and abort if RNF (read not found) bit set
-9770 @ Take branch and keep waiting if sector not yet found (RDREQ bit clear)
+9770 @ Take branch and keep waiting if sector not yet found (RDREQ bit
+clear)
+9798 @ Branch taken if read failed
+9A2A Values used to select SIDE bit of FDC status register ($D080) based on contents of FDC Side register ($D086)
 9A2C Set FDC track, sector and side register from $1FB4?
+9A73 Select drive 2, set FDC status register to A, wait for BUSY to clear.
 9A79 @ Select F011 drive 2?
 9A88 @ wait for FDC busy flag to clear
 9A91 Execute FDC command from A, and wait for completion.
+9A96 Read byte from FDC when available, return byte in A.
+9A9D @ Read byte from FDC without checking if available.
+9AA1 Write byte to FDC.
 9AA8 @ clear FDC IRQ?
 data 9A2A 9A2B
-9A2A Values used to select SIDE bit of FDC status register ($D080) based on contents of FDC Side register ($D086)
 9ACA @ If not drive 2, then do something
-9A73 Select drive 2, set FDC status register to A, wait for BUSY to clear.
+9ACE Test whether sector read succeeded
+9AD4 @ Check if RNF or CRC bits set, which would indicate a disk error
+9AD6 @ Return success if neither bit set
+9ADA @ CRC error, so return IO Error #9
+9ADC @ Sector not found, so return IO Error #2
+9ADE @ Else return IO Error #5
+9AE7 @ Return IO Error #7
+9AEA @ Return IO Error #8
 9AF9 @ Set C and RTS
 9AFB @ Clear C and RTS
 9B40 reset drive and step to track 0 ?
