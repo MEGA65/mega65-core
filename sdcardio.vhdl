@@ -658,7 +658,6 @@ std_logic'image(colourram_at_dc00) & ", sector_buffer_mapped = " & std_logic'ima
               sector_offset <= sector_offset + 1;
               -- Update F011 FDC emulation status registers
               f011_sector_fetch <= '0';
-              f011_rsector_found <= '0';
               f011_busy <= '0';
               sd_state <= DoneReadingSector;
             else
