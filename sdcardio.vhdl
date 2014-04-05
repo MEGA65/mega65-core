@@ -233,6 +233,7 @@ begin  -- behavioural
     
     if rising_edge(clock) then
 
+      f011_fdc_buffer_write <= '0';
       if f011_head_track="0000000" then
         f011_track0 <= '1';
       else
@@ -351,7 +352,9 @@ std_logic'image(colourram_at_dc00) & ", sector_buffer_mapped = " & std_logic'ima
                     if diskimage_enable='0' or f011_disk_present='0' then
                       f011_rnf <= '1';
                     else
-                      f011_buffer_address <= (others => '0');
+                      -- f011_buffer_address gets pre-incremented, so start
+                      -- with it pointing to the end of the buffer first
+                      f011_buffer_address <= (others => '1');
                       f011_sector_fetch <= '1';
                       f011_busy <= '1';
                       if sdhc_mode='1' then
@@ -633,7 +636,10 @@ std_logic'image(colourram_at_dc00) & ", sector_buffer_mapped = " & std_logic'ima
                 f011_rsector_found <= '1';
                 if f011_drq='1' then f011_lost <= '1'; end if;
                 f011_drq <= '1';
-                -- XXX update F011 sector buffer                
+                -- XXX update F011 sector buffer
+                f011_buffer_address <= f011_buffer_address + 1;
+                f011_fdc_buffer_write <= '1';
+                f011_buffer_wdata <= unsigned(sd_rdata);
               end if;
             else
               skip <= skip - 1;
