@@ -250,6 +250,11 @@ begin  -- behavioural
           to_integer(f011_track(6 downto 0) & "0000")
           +to_integer("00" & f011_track(6 downto 0) & "00")
           +to_integer("000" & f011_sector),11);
+      -- and don't let it point beyond the end of the disk
+      if (f011_track >= 80) or (f011_sector >= 20) then
+        -- point to last sector if disk instead
+        diskimage_offset <= to_unsigned(1599,11);
+      end if;
       
       -- De-map sector buffer if VIC-IV maps colour RAM at $DC00
       report "colourram_at_dc00 = " &
