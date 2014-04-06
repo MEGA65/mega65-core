@@ -133,6 +133,7 @@ architecture behavioural of sdcardio is
   signal f011_flag_eq : std_logic := '1';
   signal f011_swap : std_logic := '0';
   signal f011_rdata : unsigned(7 downto 0);
+  signal f011_buffer_write : std_logic := '0';
   signal f011_wdata : unsigned(7 downto 0);
 
   signal f011_irqenable : std_logic := '0';
@@ -215,10 +216,10 @@ begin  -- behavioural
       -- fastio side access to the buffer
       clkb => clock,
       enb => '1',
-      web(0) => fastio_write,
+      web(0) => f011_buffer_write,
       addrb => std_logic_vector(f011_buffer_next_read(8 downto 0)),
-      dinb => std_logic_vector(f011_rdata),
-      unsigned(doutb) => f011_wdata      
+      dinb => std_logic_vector(f011_wdata),
+      unsigned(doutb) => f011_rdata      
       );
 
   
@@ -232,6 +233,7 @@ begin  -- behavioural
     
     if rising_edge(clock) then
 
+      f011_buffer_write <= '0';
       if f011_buffer_address = f011_buffer_next_read then
         f011_flag_eq <= '0';
       else
@@ -398,6 +400,10 @@ std_logic'image(colourram_at_dc00) & ", sector_buffer_mapped = " & std_logic'ima
               when "00111" =>
                 -- Data register -- should probably be putting byte into the sector
                 -- buffer.
+                f011_wdata <= fastio_wdata;
+                f011_buffer_write <= '1';
+                f011_buffer_next_read <= f011_buffer_next_read + 1;
+                f011_drq <= '0';
               when others => null;           
             end case;
           elsif (fastio_addr(19 downto 4) = x"D168"
@@ -556,7 +562,8 @@ std_logic'image(colourram_at_dc00) & ", sector_buffer_mapped = " & std_logic'ima
               fastio_rdata <= f011_side;
             when "00111" =>
               -- DATA    |  D7   |  D6   |  D5   |  D4   |  D3   |  D2   |  D1   |  D0   | 7 RW
-              fastio_rdata <= (others => 'Z');
+              fastio_rdata <= f011_rdata;
+              f011_buffer_next_read <= f011_buffer_next_read + 1;
               f011_drq <= '0';
             when "01000" =>
               -- CLOCK   |  C7   |  C6   |  C5   |  C4   |  C3   |  C2   |  C1   |  C0   | 8 RW
