@@ -535,6 +535,7 @@ std_logic'image(colourram_at_dc00) & ", sector_buffer_mapped = " & std_logic'ima
               -- RDREQ   sector found during formatted read
               -- WTREQ   sector found during formatted write
               -- RUN     indicates successive matches during find operation
+              --         (that so far, the found sector matches the requested sector)
               -- WGATE   write gate is on
               -- DSKIN   indicates that a disk is inserted in the drive
               -- INDEX   disk index is currently over sensor
@@ -542,7 +543,7 @@ std_logic'image(colourram_at_dc00) & ", sector_buffer_mapped = " & std_logic'ima
               -- DSKCHG  the DSKIN line has changed
               --         this is cleared by deselecting drive
               fastio_rdata <= f011_rsector_found & f011_wsector_found &
-                              "0" & f011_write_gate & f011_disk_present &
+                              f011_rsector_found & f011_write_gate & f011_disk_present &
                               f011_over_index & f011_irq & f011_disk_changed;
             when "00100" =>
               -- TRACK   |  T7   |  T6   |  T5   |  T4   |  T3   |  T2   |  T1   |  T0   | 4 RW
