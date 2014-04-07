@@ -304,6 +304,10 @@ std_logic'image(colourram_at_dc00) & ", sector_buffer_mapped = " & std_logic'ima
                 f011_motor <= fastio_wdata(5);
                 motor <= fastio_wdata(5);
                 f011_swap <= fastio_wdata(4);
+                if fastio_wdata(4) /= f011_swap then
+                  -- switch halves of buffer if swap bit changes
+                  f011_buffer_next_read(8) <= not f011_buffer_next_read(8);
+                end if;
                 f011_side(0) <= fastio_wdata(3);
                 f011_ds <= fastio_wdata(2 downto 0);
                 if fastio_wdata(2 downto 0) /= f011_ds then
@@ -352,7 +356,9 @@ std_logic'image(colourram_at_dc00) & ", sector_buffer_mapped = " & std_logic'ima
                 f011_rsector_found <= '0';
                 f011_wsector_found <= '0';
                 if fastio_wdata(0) = '1' then
-                  f011_buffer_next_read <= (others => '0');
+                  -- reset buffer (but take SWAP into account)
+                  f011_buffer_next_read(7 downto 0) <= (others => '0');
+                  f011_buffer_next_read(8) <= f011_swap;
                 end if;
                 temp_cmd := fastio_wdata(7 downto 3) & "000";
                 case temp_cmd is
