@@ -28,6 +28,7 @@
 	.space timerticks 1
 	.space timerlimit 1
 	.space screenrow 1
+	.space zptemp 1
 
 	.org $0200
 	.space checksum 4
@@ -53,6 +54,11 @@
 	; structure for current open file
 	.space fs_clusternumber 4
 	.space fs_sector_in_cluster 1
+
+	; variables for testing of D81 boot image
+	.space d81_clusternumber 4
+	.space d81_clustersneeded 2
+	.space d81_clustercount 2
 
 	.text
 
@@ -96,12 +102,6 @@ kickstart_entry:
 		ldy #>msg_kickstart
 		jsr printmessage
 		inc screenrow
-
-loadrom:	; ROM is not loaded, so try to load it, or prompt
-		; for user to insert SD card
-		ldx #<msg_rombad
-		ldy #>msg_rombad
-		jsr printmessage
 
 		; Try to read the MBR from the SD card
 		ldx #<msg_tryingsdcard
@@ -346,6 +346,10 @@ l16:		lda $DE2C,x
 		sta $07c2          ; $0400+(24*40)+2
 
 		; Look for C65GS.D81 to mount for F011 emulation
+		
+		; for now indicate that there is no disk in drive
+		lda #$00
+		sta $d68b
 
 		jsr fs_cd_rootdir
 		jsr fs_opendir
@@ -371,12 +375,58 @@ l17c:		lda fs_direntry,x
 		ldy #>msg_foundd81
 		jsr printmessage
 
+		; now we need to check that the file is long enough,
+		; and also that the cluster are contiguous.
+
 		; get cluster number from directory entry.
 		jsr fs_setfile
 
+		; get the starting sector number in case it is good
+		jsr fs_clustertosector
+		jsr sd_fix_sectornumber
+		; copy to FDC starting sector register (but don't mark
+		; disk as available yet)
+		ldx #$03
+l91:		lda $d681,x
+		sta $d68c,x
+		dex
+		bpl l91
+	
+		; now check that file is long enough and has
+		; contiguous clusters
+		jsr fs_setfile
+		ldx #$03
+l92:		lda fs_clusternumber,x
+		sta d81_clusternumber,x
+		dex
+		bpl l92
+
+		; work out how many clusters we need
+		; We need 1600 sectors, so halve for every zero tail
+		; bit in sectors per cluster.  we can do this because
+		; clusters in FAT must be 2^n sectors.
+		lda #<1600
+		sta d81_clustersneeded
+		lda #>1600
+		sta d81_clustersneeded+1
+		ldz fs_sectorspercluster
+l94:		tza
+		and #$01
+		bne l93
+		tza
+		lsr
+		taz
+		lsr d81_clustersneeded+1
+		ror d81_clustersneeded
+		jmp l94				
+
+l93:
+
+		; all done, move on to loading the ROM
 		jmp findrom
 
 nod81:
+		; we couldn't find the D81 file, so tell the user
 		ldx #<msg_nod81
 		ldy #>msg_nod81
 		jsr printmessage
@@ -392,6 +442,13 @@ findrom:
 		ldy #>msg_romok
 		jsr printmessage
 		jmp go64
+
+loadrom:
+		; ROM is not loaded, so try to load it, or prompt
+		; for user to insert SD card
+		ldx #<msg_rombad
+		ldy #>msg_rombad
+		jsr printmessage
 
 		; Now load root directory cluster.
 		; (fs_clusternumber was set above)
@@ -415,7 +472,6 @@ l17b:		lda fs_direntry,x
 		cpx #$0b
 		bne l17b
 		; this is the entry
-		jmp foundromfile
 
 foundromfile:
 		; get cluster number from directory entry.
