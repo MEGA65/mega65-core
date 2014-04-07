@@ -405,6 +405,9 @@ l92:		lda fs_clusternumber,x
 		; We need 1600 sectors, so halve for every zero tail
 		; bit in sectors per cluster.  we can do this because
 		; clusters in FAT must be 2^n sectors.
+		lda #$00
+		sta d81_clustercount 
+		sta d81_clustercount+1
 		lda #<1600
 		sta d81_clustersneeded
 		lda #>1600
@@ -412,7 +415,7 @@ l92:		lda fs_clusternumber,x
 		ldz fs_sectorspercluster
 l94:		tza
 		and #$01
-		bne l93
+		bne d81nextcluster
 		tza
 		lsr
 		taz
@@ -420,9 +423,85 @@ l94:		tza
 		ror d81_clustersneeded
 		jmp l94				
 
-l93:
+d81nextcluster:
+		; Now read through clusters and make sure that all is
+		; well.
+		
+		; we start with the first cluster already read.
+
+		; check that it matches expected cluster number
+		ldx #$03
+l95:		lda d81_clusternumber,x
+		cmp fs_clusternumber,x
+		bne d81isfragged
+		dex
+		bpl l95
+		
+		; increment number of expected clusters found.
+		inc d81_clustercount
+		bne l96
+		inc d81_clustercount+1
+l96:
+
+		; increment expected cluster number
+		clc
+		lda d81_clusternumber
+		adc #$01
+		sta d81_clusternumber
+		lda d81_clusternumber+1
+		adc #$00
+		sta d81_clusternumber+1
+		lda d81_clusternumber+2
+		adc #$00
+		sta d81_clusternumber+2
+		lda d81_clusternumber+3
+		adc #$00
+		sta d81_clusternumber+3
+
+		jsr fs_getnextclusteroffile
+		bcs d81nextcluster
+
+		; read to end of D81 file, and it is contiguous
+		; now check that it is the right length
+
+		lda d81_clustersneeded
+		cmp d81_clustercount
+		bne d81wronglength
+		
+		lda d81_clustersneeded+1
+		cmp d81_clustercount+1
+		bne d81wronglength
+
+		; D81 is good, so set flag 
+		lda #$07
+		sta $d68b
+		ldx #<msg_d81mounted
+		ldy #>msg_d81mounted
+		jsr printmessage
 
 		; all done, move on to loading the ROM
+		jmp findrom
+
+d81wronglength:
+		ldx #<msg_d81wronglength
+		ldy #>msg_d81wronglength
+		jsr printmessage
+		jmp findrom
+
+d81isfragged:
+		inc $d020
+		ldx #$00
+l98:		lda d81_clusternumber,x
+		sta $0428,x
+		lda fs_clusternumber,x
+		sta $0430,x
+		inx
+		cpx #$04
+		bne l98
+
+		ldx #<msg_d81fragged
+		ldy #>msg_d81fragged
+		jsr printmessage
 		jmp findrom
 
 nod81:
@@ -1792,6 +1871,9 @@ msg_sectoraddress:    .byte " NEXT SECTOR=$$$$$$$$                   "
 msg_checkpoint:	      .byte " CHECKPOINT $$ $$ $$ $$ $$ $$ $$ $$ $$  "
 msg_nod81:	      .byte "CANNOT FIND C65GS.D81 - BOOTING DISKLESS"
 msg_foundd81:	      .byte "MOUNTING C65GS.D81 @ INTERNAL F011 DRIVE"
+msg_d81wronglength:   .byte "FAIL: C64GS.D81 IS NOT 819200 BYTES LONG"
+msg_d81fragged:       .byte "FAIL: C65GS.D81 IS FRAGMENTED: DEFRAG IT"
+msg_d81mounted:	      .byte "C65GS.D81 SUCCESSFULLY MOUNTED          "
 msg_releasesw15:      .byte "RELEASE SW15 TO CONTINUE BOOTING.       "
 
 ; filename of ROM we want to load in FAT directory format
