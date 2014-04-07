@@ -84,6 +84,10 @@ architecture behavioural of sdcardio is
     doutb : OUT STD_LOGIC_VECTOR(7 DOWNTO 0)
   );
   END component;
+
+  -- debounce reading from or writing to $D087 so that buffered read/write
+  -- behaves itself.
+  signal last_was_d087 : std_logic := '0';
   
   signal skip : integer range 0 to 2;
   signal read_bytes : std_logic;
@@ -233,6 +237,7 @@ begin  -- behavioural
     
     if rising_edge(clock) then
 
+      last_was_d087 <= '0';
       f011_buffer_write <= '0';
       if f011_buffer_address = f011_buffer_next_read then
         f011_flag_eq <= '0';
@@ -400,10 +405,13 @@ std_logic'image(colourram_at_dc00) & ", sector_buffer_mapped = " & std_logic'ima
               when "00111" =>
                 -- Data register -- should probably be putting byte into the sector
                 -- buffer.
-                f011_wdata <= fastio_wdata;
-                f011_buffer_write <= '1';
-                f011_buffer_next_read <= f011_buffer_next_read + 1;
-                f011_drq <= '0';
+                if last_was_d087='0' then
+                  f011_wdata <= fastio_wdata;
+                  f011_buffer_write <= '1';
+                  f011_buffer_next_read <= f011_buffer_next_read + 1;
+                  f011_drq <= '0';                                    
+                end if;
+                last_was_d087<='1';
               when others => null;           
             end case;
           elsif (fastio_addr(19 downto 4) = x"D168"
@@ -563,8 +571,11 @@ std_logic'image(colourram_at_dc00) & ", sector_buffer_mapped = " & std_logic'ima
             when "00111" =>
               -- DATA    |  D7   |  D6   |  D5   |  D4   |  D3   |  D2   |  D1   |  D0   | 7 RW
               fastio_rdata <= f011_rdata;
-              f011_buffer_next_read <= f011_buffer_next_read + 1;
-              f011_drq <= '0';
+              if last_was_d087='0' then
+                f011_buffer_next_read <= f011_buffer_next_read + 1;
+                f011_drq <= '0';
+              end if;
+              last_was_d087 <= '1';
             when "01000" =>
               -- CLOCK   |  C7   |  C6   |  C5   |  C4   |  C3   |  C2   |  C1   |  C0   | 8 RW
               fastio_rdata <= (others => 'Z');
