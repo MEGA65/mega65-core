@@ -645,6 +645,10 @@ begin
         colour_ram_cs <= '1';
         colour_ram_cs_last <= '1';
       end if;
+      if long_address(19 downto 8) = x"30E" or long_address(19
+downto 8) = x"30F" then
+        accessing_sb_fastio <= '1';
+      end if;
       if long_address(19 downto 8) = x"D3E" or long_address(19
 downto 8) = x"D3F" then
         accessing_sb_fastio <= sector_buffer_mapped and (not colourram_at_dc00);
