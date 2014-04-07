@@ -120,7 +120,8 @@ architecture behavioural of sdcardio is
   signal diskimage_sector : unsigned(31 downto 0) := x"ffffffff";
   signal diskimage_enable : std_logic := '0';
   signal diskimage_offset : unsigned(10 downto 0);
-  signal f011_track : unsigned(7 downto 0) := x"00";
+  signal f011_track : unsigned(7 downto 0) := x"01";
+  signal f011_physical_track : unsigned(7 downto 0) := x"00";
   signal f011_sector : unsigned(7 downto 0) := x"00";
   signal f011_side : unsigned(7 downto 0) := x"00";
   signal f011_sector_fetch : std_logic := '0';
@@ -247,10 +248,11 @@ begin  -- behavioural
       end if;
       
       -- update diskimage offset
+      f011_physical_track <= f011_track -1;
       diskimage_offset(10 downto 0) <=
         to_unsigned(
-          to_integer(f011_track(6 downto 0) & "0000")
-          +to_integer("00" & f011_track(6 downto 0) & "00")
+          to_integer(f011_physical_track(6 downto 0) & "0000")
+          +to_integer("00" & f011_physical_track(6 downto 0) & "00")
           +to_integer("000" & f011_sector),11);
       -- and don't let it point beyond the end of the disk
       if (f011_track >= 80) or (f011_sector >= 20) then
