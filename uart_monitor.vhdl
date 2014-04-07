@@ -13,6 +13,8 @@ entity uart_monitor is
     activity : out std_logic;
 
     monitor_pc : in std_logic_vector(15 downto 0);
+    monitor_watch : out std_logic_vector(27 downto 0) := x"7FFFFFF";
+    monitor_watch_match : in std_logic;
     monitor_opcode : in std_logic_vector(7 downto 0);
     monitor_ibytes : in std_logic_vector(3 downto 0);
     monitor_arg1 : in std_logic_vector(7 downto 0);
@@ -119,6 +121,7 @@ architecture behavioural of uart_monitor is
                          CPUTransaction1,CPUTransaction2,CPUTransaction3,
                          ParseHex,
                          PrintHex,PrintSpaces,
+                         Watch1,
                          SetMemory1,SetMemory2,SetMemory3,SetMemory4,SetMemory5,
                          SetMemory6,SetMemory7,SetMemory8,
                          LoadMemory1,LoadMemory2,LoadMemory3,LoadMemory4,
@@ -495,6 +498,10 @@ begin
       if break_enabled='1' and break_address = unsigned(monitor_pc) then
         monitor_mem_trace_mode <= '1';
       end if;
+      -- Stop CPU when specified memory location is written to
+      if monitor_watch_match='1' then
+        monitor_mem_trace_mode <= '1';
+      end if;
       
       -- Update counter and clear outputs
       counter <= counter + 1;
@@ -683,6 +690,11 @@ begin
                   -- M prints 32 lines
                   line_number <= 0;
                 end if;
+              elsif cmdbuffer(1) = 'w' or cmdbuffer(1) = 'W' then
+                report "watch memory location" severity note;
+                parse_position <= 2;
+                report "trying to parse hex" severity note;
+                parse_hex(Watch1);
               else
                 errorCode <= x"06";
                 state <= SyntaxError;
@@ -717,6 +729,8 @@ begin
               target_address <= target_address + 1;
               cpu_transaction(FillMemory5);
             end if;
+          when Watch1 => monitor_watch <= std_logic_vector(hex_value(27 downto 0));
+                         state <= NextCommand;
           when LoadMemory1 => target_address <= hex_value(27 downto 0);
                              skip_space(LoadMemory2);
           when LoadMemory2 => parse_hex(LoadMemory3);

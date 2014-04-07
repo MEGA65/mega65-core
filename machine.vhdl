@@ -103,6 +103,9 @@ architecture Behavioral of machine is
       rx : in  std_logic;
       activity : out std_logic;
 
+      monitor_watch : out std_logic_vector(27 downto 0);
+      monitor_watch_match : in std_logic;
+      
       monitor_pc : in std_logic_vector(15 downto 0);
       monitor_opcode : in std_logic_vector(7 downto 0);
       monitor_ibytes : in std_logic_vector(3 downto 0);
@@ -143,6 +146,8 @@ architecture Behavioral of machine is
       irq : in std_logic;
       nmi : in std_logic;
       monitor_pc : out std_logic_vector(15 downto 0);
+      monitor_watch : in std_logic_vector(27 downto 0);
+      monitor_watch_match : out std_logic;
       monitor_opcode : out std_logic_vector(7 downto 0);
       monitor_ibytes : out std_logic_vector(3 downto 0);
       monitor_arg1 : out std_logic_vector(7 downto 0);
@@ -345,6 +350,8 @@ architecture Behavioral of machine is
   signal colour_ram_cs : std_logic := '0';
 
   signal monitor_pc : std_logic_vector(15 downto 0);
+  signal monitor_watch : std_logic_vector(27 downto 0);
+  signal monitor_watch_match : std_logic;
   signal monitor_state : std_logic_vector(7 downto 0);
   signal monitor_mem_address : std_logic_vector(27 downto 0);
   signal monitor_mem_rdata : unsigned(7 downto 0);
@@ -512,6 +519,8 @@ begin
     irq => combinedirq,
     nmi => combinednmi,
     monitor_pc => monitor_pc,
+    monitor_watch => monitor_watch,
+    monitor_watch_match => monitor_watch_match,
     monitor_opcode => monitor_opcode,
     monitor_ibytes => monitor_ibytes,
     monitor_arg1 => monitor_arg1,
@@ -653,6 +662,8 @@ begin
     rx       => RsRx,
 
     monitor_pc => monitor_pc,
+    monitor_watch => monitor_watch,
+    monitor_watch_match => monitor_watch_match,
     monitor_opcode => monitor_opcode,
     monitor_ibytes => monitor_ibytes,
     monitor_arg1 => monitor_arg1,

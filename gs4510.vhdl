@@ -38,6 +38,8 @@ entity gs4510 is
     irq : in std_logic;
     nmi : in std_logic;
     monitor_pc : out std_logic_vector(15 downto 0);
+    monitor_watch : in std_logic_vector(27 downto 0);
+    monitor_watch_match : out std_logic;
     monitor_opcode : out std_logic_vector(7 downto 0);
     monitor_ibytes : out std_logic_vector(3 downto 0);
     monitor_arg1 : out std_logic_vector(7 downto 0);
@@ -912,8 +914,13 @@ downto 8) = x"D3F" then
     value              : in unsigned(7 downto 0);
     next_state         : in processor_state) is
     variable long_address : unsigned(27 downto 0);
-  begin
+  begin    
     long_address := resolve_address_to_long(address,true);
+    if long_address=unsigned(monitor_watch) then
+      monitor_watch_match <= '1';
+    else
+      monitor_watch_match <= '0';
+    end if;
     if long_address=x"0000000" then
       -- Setting the CPU DDR is simple, and has no real side effects.
       -- All 8 bits can be written to.
