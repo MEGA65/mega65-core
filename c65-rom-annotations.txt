@@ -567,6 +567,9 @@ data 99b6 9a2b
 99b6 unknown data
 ; b652 onwards - dos messages and vectors?  need to decode as text and data
 
+fb09 @ Drive LED and motor on, select back side of disk
+fb9c Wait for FDC BUSY status to clear
+
 D080 @ FDC Status register
 D081 @ FDC Command register
 D082 @ FDC Status byte 1
