@@ -405,6 +405,13 @@ std_logic'image(colourram_at_dc00) & ", sector_buffer_mapped = " & std_logic'ima
                       sd_state <= ReadSector;
                       sdio_error <= '0';
                       sdio_fsm_error <= '0';
+
+                      -- XXX work around specification error: always reset buffer
+                      -- pointers when reading a sector
+                      -- reset buffer (but take SWAP into account)
+                      f011_buffer_next_read(7 downto 0) <= (others => '0');
+                      f011_buffer_next_read(8) <= f011_swap;
+
                     end if;
                     null;
                   when x"80" =>         -- write sector
