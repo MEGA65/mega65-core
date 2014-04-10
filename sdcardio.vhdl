@@ -122,7 +122,9 @@ architecture behavioural of sdcardio is
 
   -- F011 FDC emulation registers and flags
   signal diskimage_sector : unsigned(31 downto 0) := x"ffffffff";
-  signal diskimage_enable : std_logic := '0';
+  signal diskimage2_sector : unsigned(31 downto 0) := x"ffffffff";
+  signal diskimage1_enable : std_logic := '0';
+  signal diskimage2_enable : std_logic := '0';
   signal diskimage_offset : unsigned(10 downto 0);
   signal f011_track : unsigned(7 downto 0) := x"01";
   signal f011_sector : unsigned(7 downto 0) := x"00";
@@ -153,6 +155,8 @@ architecture behavioural of sdcardio is
   signal f011_track0 : std_logic := '0';
   signal f011_head_track : unsigned(6 downto 0) := "0000000";
   signal f011_disk_present : std_logic := '0';
+  signal f011_disk1_present : std_logic := '0';
+  signal f011_disk2_present : std_logic := '0';
   signal f011_over_index : std_logic := '0';
   signal f011_disk_changed : std_logic := '0';
 
@@ -160,6 +164,8 @@ architecture behavioural of sdcardio is
   signal f011_wsector_found : std_logic := '0';
   signal f011_write_gate : std_logic := '0';
   signal f011_write_protected : std_logic := '0';
+  signal f011_disk1_write_protected : std_logic := '0';
+  signal f011_disk2_write_protected : std_logic := '0';
 
   signal f011_led : std_logic := '0';
   signal f011_motor : std_logic := '0';
@@ -237,6 +243,14 @@ begin  -- behavioural
     
     if rising_edge(clock) then
 
+      if f011_ds=x"000" then
+        f011_write_protected <= f011_disk1_write_protected;
+        f011_disk_present <= f011_disk1_present;
+      elsif f011_ds=x"001" then
+        f011_write_protected <= f011_disk2_write_protected;      
+        f011_disk_present <= f011_disk2_present;
+      end if;
+    
       last_was_d087 <= '0';
       f011_buffer_write <= '0';
       if f011_buffer_address = f011_buffer_next_read then
@@ -369,7 +383,12 @@ std_logic'image(colourram_at_dc00) & ", sector_buffer_mapped = " & std_logic'ima
                     -- drive.
                     -- put sector number into sd_sector, and then trigger read.
                     -- If no disk image is enabled, then report an error.
-                    if diskimage_enable='0' or f011_disk_present='0' then
+                    if f011_ds="000" and (diskimage1_enable='0' or f011_disk1_present='0') then
+                      f011_rnf <= '1';
+                    elsif f011_ds="001" and (diskimage2_enable='0' or f011_disk2_present='0') then
+                      f011_rnf <= '1';
+                    elsif f011_ds(2 downto 1) /= x"00" then
+                      -- only 2 drives supported for now
                       f011_rnf <= '1';
                     else
                       -- f011_buffer_address gets pre-incremented, so start
@@ -420,11 +439,11 @@ std_logic'image(colourram_at_dc00) & ", sector_buffer_mapped = " & std_logic'ima
                 last_was_d087<='1';
               when others => null;           
             end case;
-          elsif (fastio_addr(19 downto 4) = x"D168"
-                 or fastio_addr(19 downto 4) = x"D368") then
+          elsif (fastio_addr(19 downto 8) = x"D16"
+                 or fastio_addr(19 downto 8) = x"D36") then
             -- microSD controller registers
-            case fastio_addr(3 downto 0) is
-              when x"0" =>
+            case fastio_addr(7 downto 0) is
+              when x"80" =>
                 -- status / command register
                 case fastio_wdata is
                   when x"00" =>
@@ -483,18 +502,26 @@ std_logic'image(colourram_at_dc00) & ", sector_buffer_mapped = " & std_logic'ima
                   when others =>
                     sdio_error <= '1';
                 end case;
-              when x"1" => sd_sector(7 downto 0) <= fastio_wdata;
-              when x"2" => sd_sector(15 downto 8) <= fastio_wdata;
-              when x"3" => sd_sector(23 downto 16) <= fastio_wdata;
-              when x"4" => sd_sector(31 downto 24) <= fastio_wdata;
-              when x"b" =>
-                diskimage_enable <= fastio_wdata(0);
-                f011_disk_present <= fastio_wdata(1);
+              when x"81" => sd_sector(7 downto 0) <= fastio_wdata;
+              when x"82" => sd_sector(15 downto 8) <= fastio_wdata;
+              when x"83" => sd_sector(23 downto 16) <= fastio_wdata;
+              when x"84" => sd_sector(31 downto 24) <= fastio_wdata;
+              when x"8b" =>
+                f011_disk2_write_protected <= not fastio_wdata(5);
+                f011_disk2_present <= fastio_wdata(4);
+                diskimage2_enable <= fastio_wdata(3);
+
                 f011_write_protected <= not fastio_wdata(2);                
-              when x"c" => diskimage_sector(7 downto 0) <= fastio_wdata;
-              when x"d" => diskimage_sector(15 downto 8) <= fastio_wdata;
-              when x"e" => diskimage_sector(23 downto 16) <= fastio_wdata;
-              when x"f" => diskimage_sector(31 downto 24) <= fastio_wdata;
+                f011_disk1_present <= fastio_wdata(1);
+                diskimage1_enable <= fastio_wdata(0);
+              when x"8c" => diskimage_sector(7 downto 0) <= fastio_wdata;
+              when x"8d" => diskimage_sector(15 downto 8) <= fastio_wdata;
+              when x"8e" => diskimage_sector(23 downto 16) <= fastio_wdata;
+              when x"8f" => diskimage_sector(31 downto 24) <= fastio_wdata;
+              when x"90" => diskimage2_sector(7 downto 0) <= fastio_wdata;
+              when x"91" => diskimage2_sector(15 downto 8) <= fastio_wdata;
+              when x"92" => diskimage2_sector(23 downto 16) <= fastio_wdata;
+              when x"93" => diskimage2_sector(31 downto 24) <= fastio_wdata;
               when others => null;
             end case;
           end if;
@@ -628,9 +655,12 @@ std_logic'image(colourram_at_dc00) & ", sector_buffer_mapped = " & std_logic'ima
               fastio_rdata(0) <= sector_offset(8);
               fastio_rdata(1) <= sector_offset(9);
             when x"8b" =>
-              fastio_rdata(0) <= diskimage_enable;
-              fastio_rdata(1) <= f011_disk_present;
-              fastio_rdata(2) <= not f011_write_protected;
+              fastio_rdata(0) <= diskimage1_enable;
+              fastio_rdata(1) <= f011_disk1_present;
+              fastio_rdata(2) <= not f011_disk1_write_protected;
+              fastio_rdata(3) <= diskimage2_enable;
+              fastio_rdata(4) <= f011_disk2_present;
+              fastio_rdata(5) <= not f011_disk2_write_protected;
             when x"8c" => fastio_rdata <= diskimage_sector(7 downto 0);
             when x"8d" => fastio_rdata <= diskimage_sector(15 downto 8);
             when x"8e" => fastio_rdata <= diskimage_sector(23 downto 16);
