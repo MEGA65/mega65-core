@@ -128,6 +128,8 @@ c870 @ Is RAM expansion present?
 c872 @ If not, then take branch
 text c881 c88F
 text c895 c898
+CE71 Read sector from internal drive (apparently not used?)
+CEE2 Wait for FDC busy flag to clear
 CEE8 Enter ML monitorq
 CABE read debounced value from $DD00
 CAA0 Clear bit 4 in $DD00
@@ -516,6 +518,7 @@ text 8016 801C
 82AF Read from $00BD or $00BD+(#$13 + $FB)
 data 8634 864F
 8634 Ascending byte values from $02-$1D
+90C6 Read then write some sector? (not used?)
 975B Read a sector?
 9761 @ command byte: read sector from disk.
 976B @ Take branch and abort if RNF (read not found) bit set
@@ -557,6 +560,7 @@ data 9A2A 9A2B
 9AF9 @ Set C and RTS
 9AFB @ Clear C and RTS
 9B40 reset drive and step to track 0 ?
+9B67 @ reset FDC buffer pointer
 9B98 Seek to track number in $010F,X
 9BAB Step to next higher track
 9BB2 Step to next lower track
@@ -584,6 +588,9 @@ data 99b6 9a2b
 ; b652 onwards - dos messages and vectors?  need to decode as text and data
 
 fb09 @ Drive LED and motor on, select back side of disk
+fb22 If disk present, load boot sector to $0400 and JSR.
+fb57 @ Make sure first byte of boot sector is JMP (opcode $4c)
+fb91 Read byte from FDC buffer when available
 fb9c Wait for FDC BUSY status to clear
 
 D080 @ FDC Status register
