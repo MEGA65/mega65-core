@@ -591,6 +591,12 @@ std_logic'image(colourram_at_dc00) & ", sector_buffer_mapped = " & std_logic'ima
             when "01010" =>
               -- P CODE  |  P7   |  P6   |  P5   |  P4   |  P3   |  P2   |  P1   |  P0   | A R
               fastio_rdata <= (others => 'Z');
+              
+            when "11110" => -- Extra: $D09E = read buffer pointer low bits
+              fastio_rdata <= f011_buffer_next_read(7 downto 0);
+            when "11111" => -- Extra: $D09F = read buffer pointer high bit
+              fastio_rdata(0) <= f011_buffer_next_read(8);
+              fastio_rdata(7 downto 1) <= (others => '0');
             when others =>
               fastio_rdata <= (others => 'Z');
           end case;
@@ -671,7 +677,7 @@ std_logic'image(colourram_at_dc00) & ", sector_buffer_mapped = " & std_logic'ima
                 f011_rsector_found <= '1';
                 if f011_drq='1' then f011_lost <= '1'; end if;
                 f011_drq <= '1';
-                -- XXX update F011 sector buffer
+                -- Update F011 sector buffer
                 f011_buffer_address <= f011_buffer_address + 1;
                 f011_fdc_buffer_write <= '1';
                 f011_buffer_wdata <= unsigned(sd_rdata);
