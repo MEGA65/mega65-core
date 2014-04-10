@@ -218,6 +218,7 @@ architecture Behavioral of machine is
       ---------------------------------------------------------------------------
       -- fast IO port (clocked at core clock). 1MB address space
       ---------------------------------------------------------------------------
+      fastramwaitstate : in std_logic;
       fastio_addr : inout std_logic_vector(19 downto 0);
       fastio_read : inout std_logic;
       fastio_write : inout std_logic;
@@ -578,6 +579,7 @@ begin
     slowram_ub => slowram_ub,
     slowram_data => slowram_data,
 
+    fastramwaitstate => sw(14),
     fastram_we => fastram_we,
     fastram_address => fastram_address,
     fastram_datain => fastram_datain,

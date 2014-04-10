@@ -76,6 +76,7 @@ entity gs4510 is
     ---------------------------------------------------------------------------
     -- Interface to FastRAM in video controller (just 128KB for now)
     ---------------------------------------------------------------------------
+    fastramwaitstate : in std_logic;
     fastram_we : OUT STD_LOGIC_VECTOR(7 DOWNTO 0);
     fastram_address : OUT STD_LOGIC_VECTOR(13 DOWNTO 0);
     fastram_datain : OUT STD_LOGIC_VECTOR(63 DOWNTO 0);
@@ -606,9 +607,13 @@ begin
       -- By moving fastram to pixel clock instead of CPU clock, a read can happen
       -- easily in one cpu cycle, thus avoiding the wait state. Now to see if it
       -- can synthesise...
-      state <= next_state;
-      --pending_state <= next_state;
-      -- state <= FastRamWait;
+      if fastramwaitstate='0' then
+        state <= next_state;
+      else
+        -- why on earth does this work with this commented out?
+        --pending_state <= next_state;
+        state <= FastRamWait;
+      end if;
     -- Slow RAM maps to $8xxxxxx, and also $0020000 - $003FFFF for C65 ROM
     -- emulation.
     elsif long_address(27 downto 24) = x"8"
@@ -1658,7 +1663,7 @@ downto 8) = x"D3F" then
       end if;
       fastio_write <= '0';
       fastram_we <= (others => '0');
-      fastram_address <= "11111111111111";
+      -- fastram_address <= "11111111111111";
       fastram_datain <= x"d0d1d2d3d4d5d6d7";
 
       -- By default don't wait an extra cycle before reading the cache
