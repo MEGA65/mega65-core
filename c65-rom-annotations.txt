@@ -88,7 +88,9 @@ F4 bit7 of $F4 set indicates reverse video
 3B0B Set bit 5 in $7E
 3B0E Clear bit 5 in $7E
 661A Try to load AUTOBOOT.C65?
-6622 @ Wait while floppy controller busy
+661C @ Select drive zero
+661F @ Check if FDC is busy
+6622 @ Loop while floppy controller busy
 6629 @ Take branch if no disk in drive
 6666 Filename "AUTOBOOT.C65*"
 66C5 @ LOAD or VERIFY file?
@@ -521,6 +523,16 @@ data 8634 864F
 clear)
 9798 @ Branch taken if read failed
 9873 Format a track? (uses unbuffered formatting)
+9890 @ check FDC busy flag
+9893 @ Return  if FDC not busy
+98A7 @ check FDC busy flag
+98AA @ Return if FDC not busy
+98C1 @ check FDC busy flag
+98C4 @ Return if FDC not busy
+98D1 @ check FDC busy flag
+98D4 @ Return if FDC not busy
+98E6 @ check FDC busy flag
+98E9 @ Return if FDC not busy
 9A2A Values used to select SIDE bit of FDC status register ($D080) based on contents of FDC Side register ($D086)
 9A2C Set FDC track, sector and side register from $1FB4?
 9A73 Select drive 2, set FDC status register to A, wait for BUSY to clear.
@@ -530,10 +542,11 @@ clear)
 9A96 Read byte from FDC when available, return byte in A.
 9A9D @ Read byte from FDC without checking if available.
 9AA1 Write byte to FDC.
+9AA5 Routine that does something based on which FDC drive selected?
 9AA8 @ clear FDC IRQ?
 data 9A2A 9A2B
 9ACA @ If not drive 2, then do something
-9ACE Test whether sector read succeeded
+9ACE Test whether sector read or write succeeded
 9AD4 @ Check if RNF or CRC bits set, which would indicate a disk error
 9AD6 @ Return success if neither bit set
 9ADA @ CRC error, so return IO Error #9
@@ -557,6 +570,8 @@ data 9A2A 9A2B
 A642 Load $bb8f into $0E/$0F ZP vector
 A642 @ low byte of vector $bb8f
 A644 @ high byte of vector $bb8f
+data af17 af18
+AF17 Two bytes $80, $40
 BAD5 Load $1E00 into $4D/$4E ZP vector (sector buffer?)
 data bb8f bbb4
 bb8f some vector for DOS with some data?
