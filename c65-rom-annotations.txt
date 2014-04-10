@@ -520,6 +520,7 @@ data 8634 864F
 9770 @ Take branch and keep waiting if sector not yet found (RDREQ bit
 clear)
 9798 @ Branch taken if read failed
+9873 Format a track? (uses unbuffered formatting)
 9A2A Values used to select SIDE bit of FDC status register ($D080) based on contents of FDC Side register ($D086)
 9A2C Set FDC track, sector and side register from $1FB4?
 9A73 Select drive 2, set FDC status register to A, wait for BUSY to clear.
