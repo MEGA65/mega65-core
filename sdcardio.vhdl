@@ -393,7 +393,8 @@ std_logic'image(colourram_at_dc00) & ", sector_buffer_mapped = " & std_logic'ima
                     else
                       -- f011_buffer_address gets pre-incremented, so start
                       -- with it pointing to the end of the buffer first
-                      f011_buffer_address <= (others => '1');
+                      f011_buffer_address(7 downto 0) <= (others => '1');
+                      f011_buffer_address(8) <= '1';
                       f011_sector_fetch <= '1';
                       f011_busy <= '1';
                       if sdhc_mode='1' then
