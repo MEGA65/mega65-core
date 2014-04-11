@@ -833,8 +833,18 @@ fs_readnextsector:
 rs5:		; cluster number is right
 		jsr fs_clustertosector
 		jsr sd_fix_sectornumber
+		php
+		lda $d6f1
+		and #$10
+		beq rs98
+		jsr printsectornumber
+		jsr sdwaitawhile
+rs98:		plp
+
 rs6:		
 		jmp sd_readsector
+
+		.byte "ITS RIGHT HERE"
 
 fs_getnextclusteroffile:
 		; read chained cluster number for fs_clusternumber
@@ -1358,6 +1368,11 @@ sdcardmode:
 ;;; ----------------------------------------------------------------------------
 
 checkromok:
+		; read switch 13.  If set, assume ROM is invalid
+		lda $d6f1
+		and #$20
+		bne checksumfails
+	
 		; calculate checksum of loaded ROM ...
 		jsr calcromsum
 		; ... then fall through to testing it

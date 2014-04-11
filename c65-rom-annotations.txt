@@ -71,6 +71,9 @@ F4 bit7 of $F4 set indicates reverse video
 2000 C65 BASIC vector table
 2003 BASIC Warm Start?
 2025 BASIC Cold Start?
+2196 Print BASIC startup messages
+text 2199 21b4
+text 21b8 21ce
 22F9 CHRGET routine
 22FB CHRGOT routine
 2EF3 execute_a_line routine
