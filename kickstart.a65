@@ -20,20 +20,21 @@
 ;
 
 ; scratch space in ZP space usually used by kernel
+; we try to use address space not normally used by C64 kernel, so that
+; it is possible to make calls to kickstart after boot.  Eventually
+; the desire is to have an SYS call that brings up a menu that lets
+; you choose a disk image from a list.
 	.data 
-	.org $0080
+	.org $00fb
 	.space zptempv 2
 	.space zptempv2 2
-	.space romslab 1
-	.space timerticks 1
-	.space timerlimit 1
-	.space screenrow 1
-	.space zptemp 1
 
-	.org $0200
+	.org $cf00
+	.space romslab 1
+	.space screenrow 1
+
 	.space checksum 4
 	.space rom_sectorsread 2
-	
 
 	; structure for partition table
 	.space part_startsector 4
@@ -1896,13 +1897,10 @@ txt_c65gsrom:	      .byte "C65GS   ROM"
 ; filename of 1581 disk image we mount by default
 txt_c65gsd81:	      .byte "C65GS   D81"
 
-		.checkpc $FF00
-		.advance $FF00
 
 ;;; ----------------------------------------------------------------------------
 ;;; CPU entry vectors
 ;;; ----------------------------------------------------------------------------
-;		.org $FF00		
 reset_entry:
 		; get CPU state sensible
 		sei
@@ -1979,6 +1977,19 @@ irq_entry:
 		asl $d019
 		pla
 		rti
+
+; --------------------------------------------------------------------------------
+; Kickstart jump table of useful routines (subject to change)
+; --------------------------------------------------------------------------------
+		.checkpc $FF00
+		.advance $FF00
+
+		jmp enhanced_io   ; enable or disable C65GS enhanced
+		    		  ; IO features
+		jmp sdmapsectorbuffer
+		jmp sdunmapsectorbuffer
+
+
 
 ; 6502 interrupt and reset vectors
        		.checkpc $FFFA
