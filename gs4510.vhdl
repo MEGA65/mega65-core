@@ -923,8 +923,6 @@ downto 8) = x"D3F" then
     long_address := resolve_address_to_long(address,true);
     if long_address=unsigned(monitor_watch) then
       monitor_watch_match <= '1';
-    else
-      monitor_watch_match <= '0';
     end if;
     if long_address=x"0000000" then
       -- Setting the CPU DDR is simple, and has no real side effects.
@@ -1626,7 +1624,7 @@ downto 8) = x"D3F" then
   begin
 
     -- BEGINNING OF MAIN PROCESS FOR CPU
-    if rising_edge(clock) then
+    if rising_edge(clock) then     
       -- clear memory access states
       colour_ram_cs <= '0';
       colour_ram_cs_last <= '0';
@@ -1634,6 +1632,7 @@ downto 8) = x"D3F" then
       accessing_fastio <= '0'; accessing_vic_fastio <= '0';
       accessing_cpuport <= '0';
 
+      monitor_watch_match <= '0';       -- set if writing to watched address
       monitor_state <= std_logic_vector(to_unsigned(processor_state'pos(state),8));
       monitor_pc <= std_logic_vector(reg_pc);
       monitor_a <= std_logic_vector(reg_a);
