@@ -269,7 +269,7 @@ begin  -- behavioural
       -- update diskimage offset
       -- add 1/2 track amount for sectors on the rear
       -- and subtract one since sectors are relative to 1, not 0
-      if f011_side=x"00" then
+      if f011_side/=x"00" then
         physical_sector <= f011_sector - 1;  -- 0 minus 1
       else
         physical_sector <= f011_sector + 9;  -- +10 minus 1
