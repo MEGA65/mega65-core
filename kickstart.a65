@@ -83,7 +83,6 @@ kickstart_entry:
 		; standard ($FFD0xxx) IO page mapped at $D000,
 		; and fast RAM elsewhere.  So we just need to key $D02F
 		; to get enhanced io
-		sec
 
 		; disable IRQ sources
 		lda #$7f
@@ -92,6 +91,7 @@ kickstart_entry:
 		LDA #$00
 		STA $D019
 
+		sec
 		jsr enhanced_io
 
 		jsr resetdisplay
@@ -1858,6 +1858,7 @@ enhanced_io:
 		; Return to VIC-II / C64 IO
 		lda #$00
 		sta $D02F
+		rts
 l1:		; Enable VIC-IV / C65GS IO
 		lda #$47
 		sta $D02F
