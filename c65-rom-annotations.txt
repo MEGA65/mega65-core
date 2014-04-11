@@ -538,6 +538,21 @@ clear)
 98E9 @ Return if FDC not busy
 9A2A Values used to select SIDE bit of FDC status register ($D080) based on contents of FDC Side register ($D086)
 9A2C Set FDC track, sector and side register from $1FB4?
+9A34 @ Read logical track number (1 - 80)
+9A37 @ Decrement by one to obtain physical track number (0 to 79)
+9A38 @ Store physical track number in FDC register
+9A3B @ Read logical sector number (0 - 39 ?)
+9A3E @ Set carry flag if sector number is >=20
+9A42 @ Set A to 1 if sector number >=20, or 0 if sector number <20
+9A43 @ Store physical side number in FDC register
+9A46 @ Take branch if sector is one side 0 (A will be $FF)
+9A48 @ Load A with 20, which will be subtracted from logical sector number
+9A4A @ Calculate 2's complement of A, so will be either 0 (front sector) or -20 (rear sector)
+9A4B @ With C flag, A will be either $FF if sector is on front side, or ($FF-20) if on back side
+9A4C @ Now add logical sector number.  Result will be 0 for sector 0, through to 19 for sector 39.
+9A4F @ shift sector number right one bit since physical sectors are 512bytes, not 256.  Sector number will now be 0 through 9
+9A50 @ Add one to sector number, since physical sectors apparently start at 1, not 0. Result will be between 1 and 10.
+9A51 @ Store sector number into FDC register
 9A73 Select drive 2, set FDC status register to A, wait for BUSY to clear.
 9A79 @ Select F011 drive 2?
 9A88 @ wait for FDC busy flag to clear
