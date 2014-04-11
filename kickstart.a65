@@ -75,7 +75,9 @@
 
 	.org $E000
 
-
+diskchooserstart:
+	.incbin "diskchooser"
+diskchooserend:
 
 kickstart_entry:
 		; We DO NOT need to mess with $01, because
@@ -103,6 +105,44 @@ kickstart_entry:
 		ldy #>msg_kickstart
 		jsr printmessage
 		inc screenrow
+
+		; copy disk chooser routine to $C000
+		; XXX Should use DMAgic to do this more elegantly
+		ldy #$00		
+*		lda diskchooserstart,y
+		sta $c000,y
+		lda diskchooserstart+$100,y
+		sta $c100,y
+		lda diskchooserstart+$200,y
+		sta $c200,y
+		lda diskchooserstart+$300,y
+		sta $c300,y
+		lda diskchooserstart+$400,y
+		sta $c400,y
+		lda diskchooserstart+$500,y
+		sta $c500,y
+		lda diskchooserstart+$600,y
+		sta $c600,y
+		lda diskchooserstart+$700,y
+		sta $c700,y
+		lda diskchooserstart+$800,y
+		sta $c800,y
+		lda diskchooserstart+$900,y
+		sta $c900,y
+		lda diskchooserstart+$a00,y
+		sta $ca00,y
+		lda diskchooserstart+$b00,y
+		sta $cb00,y
+		lda diskchooserstart+$c00,y
+		sta $cc00,y
+		lda diskchooserstart+$d00,y
+		sta $cd00,y
+		lda diskchooserstart+$e00,y
+		sta $ce00,y
+		lda diskchooserstart+$f00,y
+		sta $cf00,y
+		iny
+		bne -		
 
 		; Try to read the MBR from the SD card
 		ldx #<msg_tryingsdcard

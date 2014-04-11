@@ -16,7 +16,7 @@ all:	makerom kernel.vhdl \
 diskchooser:	diskchooser.a65 Makefile
 	../Ophis/bin/ophis -4 diskchooser.a65 -l diskchooser.list
 
-kickstart65gs.bin:	kickstart.a65 Makefile
+kickstart65gs.bin:	kickstart.a65 Makefile diskchooser
 	../Ophis/bin/ophis -4 kickstart.a65 -l kickstart.list
 
 kickstart.vhdl:	rom_template.vhdl kickstart65gs.bin makerom

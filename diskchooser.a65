@@ -3,6 +3,8 @@
 ;
 ; Purpose: 
 
+	 .scope
+
 	.data 
 	.org $00fb
 	.space zptempv 2
@@ -48,16 +50,7 @@
 
 	.text
 
-	.word $0801
-	.org $0801
-
-	 .scope
-	 .word _next, 10                       ; Next line and current line number
-	 .byte $97, "2,0:", $9e, " 2014", $AA, "65",0      ; POKE 2,0 : SYS 2014+65
-_next:	 .word 0
-
-	 	 .checkpc 2079
-	 	 .advance 2079
+	.org $C000
 
 		tsx
 		stx sptemp
@@ -244,17 +237,17 @@ l16:		lda $DE2C,x
 		lda #$00
 		sta $d68b
 
-		inc $0426
 		jsr fs_cd_rootdir
-		inc $0425
 		jsr fs_opendir
 		bcc sdcarderror
-		inc $0424
 
 		; iterate through directory entries looking for
 		; ordinary files with .D81 extension 
 nextdirectoryentry2:
-		inc $0427
+		; XXX this is needed here otherwise printing the file
+		; name goes strange.  This does not seem to make sense!	
+		nop  
+
 		jsr fs_readdir
 		bcc nod81
 
@@ -275,10 +268,10 @@ nextdirectoryentry2:
 
 		jsr print
 		.byte "MOUNT ",0
-		ldx #$00
 
 		jsr sdunmapsectorbuffer
 
+		ldx #$00
 l242:		lda fs_direntry,x
 		phx
 		jsr $ffd2
@@ -297,6 +290,10 @@ l243:		jsr $ffe4
 		beq l243
 		
 		pha
+
+		lda #$0d
+		jsr $ffd2
+
 		sei
 		jsr sdmapsectorbuffer
 		pla
@@ -419,16 +416,10 @@ d81wronglength:
 		jmp alldone
 
 d81isfragged:
-		inc $d020
-		ldx #$00
-l98:		lda d81_clusternumber,x
-		sta $0428,x
-		lda fs_clusternumber,x
-		sta $0430,x
-		inx
-		cpx #$04
-		bne l98
-
+		jsr print
+		.byte "THAT DISK IMAGE IS FRAGMENTED.",13
+		.byte "DE-FRAG DISK IMAGE BEFORE MOUNTING",13,0
+		
 		jmp alldone
 nod81:
 		; we couldn't find the D81 file, so tell the user
@@ -1080,8 +1071,6 @@ l1:		; Enable VIC-IV / C65GS IO
 		sta $D02F
 		RTS
 
-		.checkpc $1000
-		.advance $1000
 alldone:
 		jsr sdunmapsectorbuffer
 		clc
