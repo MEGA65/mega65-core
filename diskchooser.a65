@@ -40,6 +40,8 @@
 	.space d81_clustersneeded 2
 	.space d81_clustercount 2
 
+	.space timeoutcounter 3
+
 	.space sptemp 1
 
 	.checkpc $CFFF
@@ -444,17 +446,6 @@ badfs:		jsr print
 		.byte "(SHOULD BE FAT32)",13,0
 		jmp alldone
 
-alldone:
-		jsr sdunmapsectorbuffer
-		clc
-		jsr enhanced_io		
-		ldx sptemp
-		txs
-		lda #$00
-		cli
-		clc
-		jmp ($a002)
-		rts
 ;;; ----------------------------------------------------------------------------
 ;;; FAT file system routines
 ;;; ----------------------------------------------------------------------------
@@ -867,21 +858,21 @@ redone:
 		rts
 
 sdwaitawhile:	jsr sdtimeoutreset
-sw1:		inc $0300
+sw1:		inc timeoutcounter
 		bne sw1
-		inc $0301
+		inc timeoutcounter+1
 		bne sw1
-		inc $0302
+		inc timeoutcounter+2
 		bne sw1
 		rts
 
 		; count to timeout value when trying to read from SD card
 sdtimeoutreset:
 		lda #$00
-		sta $0300
-		sta $0301
+		sta timeoutcounter
+		sta timeoutcounter+1
 		lda #$e0
-		sta $0302
+		sta timeoutcounter+2
 		rts
 
 sdreadytest:	; check if SD card is ready, or if timeout has occurred
@@ -890,11 +881,11 @@ sdreadytest:	; check if SD card is ready, or if timeout has occurred
 		lda $d680
 		and #$03
 		beq sdisready
-		inc $0300
+		inc timeoutcounter
 		bne sr1
-		inc $0301
+		inc timeoutcounter+1
 		bne sr1
-		inc $0302
+		inc timeoutcounter+2
 		bne sr1
 
 		; timeout
@@ -1088,6 +1079,19 @@ l1:		; Enable VIC-IV / C65GS IO
 		lda #$53
 		sta $D02F
 		RTS
+
+		.checkpc $1000
+		.advance $1000
+alldone:
+		jsr sdunmapsectorbuffer
+		clc
+		jsr enhanced_io		
+		ldx sptemp
+		txs
+		lda #$00
+		cli
+		clc
+		rts
 
 		.scend
 
