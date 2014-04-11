@@ -13,6 +13,9 @@ all:	makerom kernel.vhdl \
 	/opt/Xilinx/14.7/ISE_DS/ISE/bin/lin/map -intstyle ise -p xc7a100t-csg324-1 -w -logic_opt off -ol "$(ROUTEEFFORT)" -xe n -t 1 -xt 0 -register_duplication off -r 4 -mt off -ir off -pr off -lc off -power off -o container_map.ncd container.ngd container.pcf
 	/opt/Xilinx/14.7/ISE_DS/ISE/bin/lin/par -w -intstyle ise -ol "$(ROUTEEFFORT)" -xe n -mt off container_map.ncd container.ngd container.pcf
 
+diskchooser:	diskchooser.a65 Makefile
+	../Ophis/bin/ophis -4 diskchooser.a65 -l diskchooser.list
+
 kickstart65gs.bin:	kickstart.a65 Makefile
 	../Ophis/bin/ophis -4 kickstart.a65 -l kickstart.list
 
