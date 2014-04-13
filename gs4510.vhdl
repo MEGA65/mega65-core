@@ -551,6 +551,13 @@ begin
     accessing_icache <= '0';
   end ready_for_next_instruction;
 
+  procedure prefetch_next_instruction (
+    next_pc : in unsigned(15 downto 0)) is
+  begin  -- ready_for_next_instruction
+    -- Try pre-requesting the address of the next instruction if it
+    -- is in fastram
+  end prefetch_next_instruction;
+
   -- purpose: invalidate cache lines corresponding to a memory write
   procedure icache_invalidate (
     long_address : in unsigned(27 downto 0)) is
@@ -1409,6 +1416,7 @@ downto 8) = x"D3F" then
   begin
     -- report "Calculating result for " & instruction'image(i) & " operand=$" & to_hstring(operand) severity note;
     ready_for_next_instruction(reg_pc);
+    prefetch_next_instruction(reg_pc);
     case i is
       when I_LDA => reg_a <= with_nz(operand);
       when I_LDX => reg_x <= with_nz(operand);
@@ -2085,6 +2093,16 @@ downto 8) = x"D3F" then
               end if;
             when FastRamWait =>
               accessing_ram <= '1';
+
+              if fastram_byte_number="111" then
+                -- When reading last fastram byte in a word, advance
+                -- fastram address, since chances are we will want to read it next
+                if (fastramwaitstate='0') then
+                  fastram_address <= std_logic_vector(unsigned(fastram_last_address) + 1);
+                  fastram_last_address <= std_logic_vector(unsigned(fastram_last_address) + 1);
+                end if;
+              end if;
+              
               if pending_state = InstructionFetch then
                 ready_for_next_instruction(reg_pc);
               else
