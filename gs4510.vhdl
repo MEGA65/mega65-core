@@ -1053,7 +1053,14 @@ downto 8) = x"D3F" then
         when "100" => return unsigned(fastram_dataout(39 downto 32));
         when "101" => return unsigned(fastram_dataout(47 downto 40));
         when "110" => return unsigned(fastram_dataout(55 downto 48));
-        when "111" => return unsigned(fastram_dataout(63 downto 56));
+        when "111" =>
+          -- When reading last fastram byte in a word, advance
+          -- fastram address, since chances are we will want to read it later
+          if (fastramwaitstate='0') then
+            fastram_address <= fastram_last_address + 1;
+            fastram_last_address <= fastram_last_address + 1;
+          end if;
+          return unsigned(fastram_dataout(63 downto 56));
         when others => return x"FF";
       end case;
     elsif accessing_slowram='1' then
