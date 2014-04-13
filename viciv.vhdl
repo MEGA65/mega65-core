@@ -332,6 +332,7 @@ architecture Behavioral of viciv is
   -- Size of character set depends on resolution of characters, and whether
   -- full-colour characters are enabled.
   signal character_set_address : unsigned(27 downto 0) := x"0009000";
+  signal character_data_from_rom : std_logic := '1';
   -----------------------------------------------------------------------------
   
   -- Character generator state. Also used for graphics modes, since graphics
@@ -1065,6 +1066,11 @@ begin
         elsif register_number=24 then          -- $D018 compatibility RAM addresses
           -- Character set source address for user-generated character sets.
           character_set_address(13 downto 11) <= unsigned(fastio_wdata(3 downto 1));
+          if fastio_wdata(3 downto 2) = "01" then
+            character_data_from_rom <= '1';
+          else
+            character_data_from_rom <= '0';
+          end if;
           -- This one is for the internal charrom in the VIC-IV.
           charaddress(11) <= fastio_wdata(1);
           -- Bits 14 and 15 get set by writing to $DD00, as the VIC-IV sniffs
@@ -1301,7 +1307,7 @@ begin
     variable next_glyph_colour_temp : std_logic_vector(7 downto 0) := (others => '0');
   begin    
     if rising_edge(pixelclock) then
-
+      
       -- Acknowledge IRQs after reading $D019
       irq_raster <= irq_raster and (not ack_raster);
       irq_colissionspritebitmap <= irq_colissionspritebitmap and (not ack_colissionspritebitmap);
@@ -1803,10 +1809,38 @@ begin
             charrow <= x"FF";
             glyph_pixeldata <= (others => '1');
           elsif next_glyph_reverse='1' then
-            charrow <= not chardata;
+            if character_data_from_rom='1' then
+              charrow <= not chardata;
+            else
+              case chargen_y is
+                when "000" => charrow <= not ramdata(7 downto 0);
+                when "001" => charrow <= not ramdata(15 downto 8);
+                when "010" => charrow <= not ramdata(23 downto 16);
+                when "011" => charrow <= not ramdata(31 downto 24);
+                when "100" => charrow <= not ramdata(39 downto 32);
+                when "101" => charrow <= not ramdata(47 downto 40);
+                when "110" => charrow <= not ramdata(55 downto 48);
+                when "111" => charrow <= not ramdata(63 downto 56);
+                when others => charrow <= not x"55";
+              end case;
+            end if;
             glyph_pixeldata <= not ramdata;
           else
-            charrow <= chardata;
+            if character_data_from_rom='1' then
+              charrow <= chardata;
+            else
+              case chargen_y is
+                when "000" => charrow <= ramdata(7 downto 0);
+                when "001" => charrow <= ramdata(15 downto 8);
+                when "010" => charrow <= ramdata(23 downto 16);
+                when "011" => charrow <= ramdata(31 downto 24);
+                when "100" => charrow <= ramdata(39 downto 32);
+                when "101" => charrow <= ramdata(47 downto 40);
+                when "110" => charrow <= ramdata(55 downto 48);
+                when "111" => charrow <= ramdata(63 downto 56);
+                when others => charrow <= x"55";
+              end case;
+            end if;
             glyph_pixeldata <= ramdata;
           end if;
           -- XXX what about one byte per pixel characters?
