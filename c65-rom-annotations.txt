@@ -77,8 +77,15 @@ text 21b8 21ce
 text 21d2 2202
 text 2206 221a
 text 221e 222e
+text 2232 226c
+text 2270 227f
+text 2283 228f
+text 2293 22d3
 22F9 CHRGET routine
 22FB CHRGOT routine
+text 2d02 2d08
+text 2ec5 2ecb
+text 2ee0 2ee8
 2EF3 execute_a_line routine
 233B LDA ($3D),Y from bank number loaded from $0084 (probably RAM bank $00 or $01)
 2E36 BASIC error #$28
@@ -91,9 +98,13 @@ text 221e 222e
 @2F5D Execute some BASIC related(?) DMA copy.
 @2F78 Select normal DMAgic COPY instruction
 @2F6E DMA copy source and destination bank the same from $84
+text 30d0 30e1
+text 3951 3962
+text 39a2 39b1
 3B0B Set bit 5 in $7E
 3B0E Clear bit 5 in $7E
 text 42ab 42b5
+text 62f7 62fb
 661A Try to load AUTOBOOT.C65?
 661C @ Select drive zero
 661F @ Check if FDC is busy
@@ -103,8 +114,10 @@ text 42ab 42b5
 66C5 @ LOAD or VERIFY file?
 66C8 @ LOAD or VERIFY file
 66CF @ LOAD file
+text 670c 6710
 6F8B Preparing to LOAD BASIC program?
 text 6666 6673
+text 70af 70b6
 data 7201 7207
 7201 Some FAC value
 7208 do something with a FAC
@@ -114,10 +127,13 @@ data 7201 7207
 7488 some vector table?
 word 7488 74D7
 74d8 Some preparation for file access?
+text 76a6 76b4
 data 770c 771b
 770c single bit climb and descend
 771c BASIC entry point from $2006 vector
-
+text 7970 7975
+text 798b 798d
+text 79c2 79c4
 data c0bb c7ff
 c800 C65 RESET entry point
 c808 @ Map ROM from $32000-$3FFFF at $2000-$FFFF, except for $C000-$DFFF
@@ -131,6 +147,7 @@ c829 @if $1102=#$A5, ZP, stack and basic entry point have already been set, so .
 c82c @...skip clearing memory
 c845 @If STOP key is down start ML monitor
 c848 Presumably start BASIC 10 ($1100)=$2000
+c892 RAM Expansion is not present
 c870 @ Is RAM expansion present?
 c872 @ If not, then take branch
 text c881 c88F
