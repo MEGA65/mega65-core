@@ -1057,8 +1057,8 @@ downto 8) = x"D3F" then
           -- When reading last fastram byte in a word, advance
           -- fastram address, since chances are we will want to read it later
           if (fastramwaitstate='0') then
-            fastram_address <= fastram_last_address + 1;
-            fastram_last_address <= fastram_last_address + 1;
+            fastram_address <= std_logic_vector(unsigned(fastram_last_address) + 1);
+            fastram_last_address <= std_logic_vector(unsigned(fastram_last_address) + 1);
           end if;
           return unsigned(fastram_dataout(63 downto 56));
         when others => return x"FF";
