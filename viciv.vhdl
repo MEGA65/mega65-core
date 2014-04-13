@@ -92,6 +92,21 @@ end viciv;
 
 architecture Behavioral of viciv is
 
+  component screen_ram_fifo IS
+    PORT (
+      rst : IN STD_LOGIC;
+      wr_clk : IN STD_LOGIC;
+      rd_clk : IN STD_LOGIC;
+      din : IN STD_LOGIC_VECTOR(63 DOWNTO 0);
+      wr_en : IN STD_LOGIC;
+      rd_en : IN STD_LOGIC;
+      dout : OUT STD_LOGIC_VECTOR(7 DOWNTO 0);
+      full : OUT STD_LOGIC;
+      empty : OUT STD_LOGIC;
+      rd_data_count : OUT STD_LOGIC_VECTOR(5 DOWNTO 0)
+      );
+  END component;
+  
   component charrom is
     port (Clk : in std_logic;
           address : in std_logic_vector(11 downto 0);
@@ -476,6 +491,15 @@ architecture Behavioral of viciv is
   
 begin
 
+  fifo1: component screen_ram_fifo
+    port map (
+      rst    => screen_ram_fifo_reset,
+      wr_clk => pixelclock,
+      rd_clk => pixelclock,
+      din    => screen_ram_fifo_din,
+      wr_en  => screen_ram_fifo_write,
+      rd_en  => screen_ram_fifo_readnext);
+  
   fastram1 : component ram64x16k
     PORT MAP (
       -- CPU side port
