@@ -236,9 +236,9 @@ architecture Behavioral of viciv is
   signal screen_ram_fifo_fetched : integer range 0 to 32;
   signal screen_ram_fifo_write  : std_logic := '0';
   signal screen_ram_fifo_reset : std_logic := '0';
-  signal screen_ram_fifo_din : std_logic_vector(63 downto 0);
+  signal screen_ram_fifo_din : unsigned(63 downto 0);
   signal screen_ram_fifo_readnext : std_logic := '0';
-  signal screen_ram_fifo_dout : std_logic_vector(7 downto 0);
+  signal screen_ram_fifo_dout : unsigned(7 downto 0);
   -- Internal registers used to keep track of the screen ram for the current row
   signal screen_row_address : unsigned(16 downto 0);
   signal screen_row_current_address : unsigned(16 downto 0);
@@ -496,7 +496,8 @@ begin
       rst    => screen_ram_fifo_reset,
       wr_clk => pixelclock,
       rd_clk => pixelclock,
-      din    => screen_ram_fifo_din,
+      din    => std_logic_vector(screen_ram_fifo_din),
+      unsigned(dout)   => screen_ram_fifo_dout,
       wr_en  => screen_ram_fifo_write,
       rd_en  => screen_ram_fifo_readnext);
   
@@ -1695,80 +1696,55 @@ begin
         when 0 =>
           report "VGA: Fetching next_*, next_card_number=" & integer'image(to_integer(next_card_number))
             severity note;
-          -- Load card number
-          long_address(31 downto 17) := (others => '0');
-          if sixteenbit_charset='1' then
-            long_address(16 downto 0) := screen_ram_base(16 downto 0)+(next_card_number&'0');
-          else
-            long_address(16 downto 0) := screen_ram_base(16 downto 0)+next_card_number;
-          end if;
-          ramaddress <= std_logic_vector(long_address(16 downto 3));
+          -- Load low bits of card number from FIFO
+          next_glyph_number(7 downto 0) <= screen_ram_fifo_dout;
+          next_glyph_number(15 downto 8) <= (others => '0');
+          
+          -- Tell FIFO to start reading next character
+          screen_ram_fifo_readnext <= '1';
+
+          -- XXX We can begin speculatively fetching bitmap data here
+          -- We don't need anything from RAM this cycle
+          ramaddress <= (others => '0');
 
           -- Load colour RAM at the same time
           long_address(15 downto 0) := colour_ram_base+next_card_number;
           colourramaddress <= std_logic_vector(long_address(15 downto 0));
         when 1 =>
+          -- clear FIFO request
+          screen_ram_fifo_readnext <= '0';
+
           -- FastRAM wait state
           -- XXX Can schedule a sprite fetch here.
           ramaddress <= (others => '0');
         when 2 =>
-          -- Store character number
-          -- In text mode, the glyph order is flexible
-          next_glyph_number_buffer <= ramdata;
-
           -- Store colour byte (will
           -- transfer and decode next cycle to keep logic shallow)
           next_glyph_colour_buffer_temp <= colourramdata;
 
-          -- As RAM is slow to read from, we buffer it, and then extract the
-          -- right byte/word next cycle, so no more work here.
-          
           -- XXX Can schedule a sprite fetch here.
           ramaddress <= (others => '0');
         when 3 =>
           next_glyph_colour_buffer <= next_glyph_colour_buffer_temp;
-          
-          -- Decode next character number from 64bit vector
-          -- This is a bit too complex to do in a single cycle if we also have to
-          -- choose the 16bit or 8 bit version.  So this cycle we calculate the
-          -- 8bit and 16bit versions.  Then next cycle we can select the correct
-          -- one.
-          case next_card_number(2 downto 0) is
-            when "111" => next_glyph_number_temp(7 downto 0) := next_glyph_number_buffer(63 downto 56);
-            when "110" => next_glyph_number_temp(7 downto 0) := next_glyph_number_buffer(55 downto 48);
-            when "101" => next_glyph_number_temp(7 downto 0) := next_glyph_number_buffer(47 downto 40);
-            when "100" => next_glyph_number_temp(7 downto 0) := next_glyph_number_buffer(39 downto 32);
-            when "011" => next_glyph_number_temp(7 downto 0) := next_glyph_number_buffer(31 downto 24);
-            when "010" => next_glyph_number_temp(7 downto 0) := next_glyph_number_buffer(23 downto 16);
-            when "001" => next_glyph_number_temp(7 downto 0) := next_glyph_number_buffer(15 downto  8);
-            when "000" => next_glyph_number_temp(7 downto 0) := next_glyph_number_buffer( 7 downto  0);
-            when others => next_glyph_number_temp(7 downto 0) := x"00";
-          end case;
-          next_glyph_number8 <= unsigned(next_glyph_number_temp(7 downto 0));
-          case next_card_number(1 downto 0) is
-            when "11" => next_glyph_number_temp := next_glyph_number_buffer(63 downto 48);        
-            when "10" => next_glyph_number_temp := next_glyph_number_buffer(47 downto 32);        
-            when "01" => next_glyph_number_temp := next_glyph_number_buffer(31 downto 16);        
-            when "00" => next_glyph_number_temp := next_glyph_number_buffer(15 downto  0);        
-            when others => next_glyph_number_temp := x"0000";
-          end case;
-          next_glyph_number16 <= unsigned(next_glyph_number_temp);
 
+          -- FIFO has advanced to next screen ram character now
+          -- so if we are using a 16bit char set, then we can grab those
+          -- bits now, and ask FIFO to advance.
+          if sixteenbit_charset='1' then
+            next_glyph_number(15 downto 8) <= screen_ram_fifo_dout;
+            screen_ram_fifo_readnext <= '1';
+          end if;
           -- XXX Can schedule a sprite fetch here.
           ramaddress <= (others => '0');
         when 4 =>
+          screen_ram_fifo_readnext <= '0';
+
           -- Decode colour byte
           next_glyph_colour <= unsigned(next_glyph_colour_buffer(3 downto 0));
           next_glyph_attributes <= unsigned(next_glyph_colour_buffer(7 downto 4));
-          -- Calculate the actual character number
-          if sixteenbit_charset='1' then
-            next_glyph_number_temp := std_logic_vector(next_glyph_number16);
-          else
-            next_glyph_number_temp := "00000000" & std_logic_vector(next_glyph_number8);
-          end if;
-          if text_mode='1' then
-            next_glyph_number <= unsigned(next_glyph_number_temp);
-          else
+
+          -- Override character number to be card number if in bitmap mode
+          if text_mode='0' then
             next_glyph_number <= card_number;
           end if;
 
@@ -1940,7 +1916,7 @@ begin
           if delay = "00" then
             -- data is available
             if screen_ram_fifo_fetched /= 32 then
-              screen_ram_fifo_din <= ramdata;
+              screen_ram_fifo_din <= unsigned(ramdata);
               screen_ram_fifo_write <= '1';
             else
               screen_ram_fifo_write <= '0';
