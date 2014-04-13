@@ -461,12 +461,10 @@ architecture Behavioral of viciv is
   
 begin
 
-  -- XXX For now just use 128KB FastRAM instead of 512KB which causes major routing
-  -- headaches.
   fastram1 : component ram64x16k
     PORT MAP (
       -- CPU side port
-      clka => pixelclock,
+      clka => cpuclock,
       wea => fastram_we,
       addra => fastram_address,
       dina => fastram_datain,

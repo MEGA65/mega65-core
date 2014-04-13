@@ -95,21 +95,6 @@ end machine;
 
 architecture Behavioral of machine is
 
-  component ramlatch64 is
-  port (
-    fastclock : in std_logic;
-    slowclock : in std_logic;
-    
-    address_in : in std_logic_vector(13 downto 0);
-    wea_in : in std_logic_vector(7 downto 0);
-    data_in : in std_logic_vector(63 downto 0);
-    
-    address_out : out std_logic_vector(13 downto 0);
-    wea_out : out std_logic_vector(7 downto 0);
-    data_out : out std_logic_vector(63 downto 0)
-    );
-    end component;
-
   component uart_monitor
     port (
       reset : in std_logic;
@@ -353,11 +338,6 @@ architecture Behavioral of machine is
   signal fastram_address : STD_LOGIC_VECTOR(13 DOWNTO 0);
   signal fastram_datain : STD_LOGIC_VECTOR(63 DOWNTO 0);
   signal fastram_dataout : STD_LOGIC_VECTOR(63 DOWNTO 0);
-
-  signal fastram_we_latched : STD_LOGIC_VECTOR(7 DOWNTO 0);
-  signal fastram_address_latched : STD_LOGIC_VECTOR(13 DOWNTO 0);
-  signal fastram_datain_latched : STD_LOGIC_VECTOR(63 DOWNTO 0);
-
   
   signal cpuclock : std_logic := '1';
   signal cpuclock_divisor : integer range 0 to 3 := 0;
@@ -623,9 +603,9 @@ begin
       vgagreen        => vgagreen,
       vgablue         => vgablue,
 
-      fastram_we => fastram_we_latched,
-      fastram_address => fastram_address_latched,
-      fastram_datain => fastram_datain_latched,
+      fastram_we => fastram_we,
+      fastram_address => fastram_address,
+      fastram_datain => fastram_datain,
       fastram_dataout => fastram_dataout,    
       colour_ram_fastio_rdata => colour_ram_fastio_rdata,
       colour_ram_cs => colour_ram_cs,
@@ -715,17 +695,6 @@ begin
     monitor_mem_stage_trace_mode => monitor_mem_stage_trace_mode,
     monitor_mem_trace_toggle => monitor_mem_trace_toggle
   );
-
-  ramlatch0: ramlatch64 port map (
-    fastclock => pixelclock,
-    slowclock => cpuclock,
-    address_in => fastram_address,
-    address_out => fastram_address_latched,
-    data_in => fastram_datain,
-    data_out => fastram_datain_latched,
-    wea_in => fastram_we,
-    wea_out => fastram_we_latched
-    );
   
 end Behavioral;
 
