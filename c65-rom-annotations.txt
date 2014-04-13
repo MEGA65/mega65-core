@@ -74,6 +74,9 @@ F4 bit7 of $F4 set indicates reverse video
 2196 Print BASIC startup messages
 text 2199 21b4
 text 21b8 21ce
+text 21d2 2202
+text 2206 221a
+text 221e 222e
 22F9 CHRGET routine
 22FB CHRGOT routine
 2EF3 execute_a_line routine
@@ -90,6 +93,7 @@ text 21b8 21ce
 @2F6E DMA copy source and destination bank the same from $84
 3B0B Set bit 5 in $7E
 3B0E Clear bit 5 in $7E
+text 42ab 42b5
 661A Try to load AUTOBOOT.C65?
 661C @ Select drive zero
 661F @ Check if FDC is busy
@@ -171,13 +175,17 @@ e11a Clear screen, used by chr$($93/147)
 E123 @ Are we at the last line of the screen?
 E126 @ If not, then repeat for next line of screen
 E128 Reset to first line of screen
+E134 calculate address of current line on screen?
 E136 calculate address of line X on screen ram (store in $E0/E1) and colour ram (store in $E2/E3)
 E139 @ Skip over shift if in 80 column mode
 E13C @ 40 column mode, so shift value right to divide by two, because 80/40=2.
 E15B  editor_irq      ;IRQ entry
 E177 get a key from IRQ buffer into .a
-E1A7 @ BASIC wait for keyboard input loop?
+E19B BASIC input loop
+E1A7 @ BASIC wait for keyboard input loop.
+E1B7 RETURN has been pressed, so prepare to execute command
 E1DF get a chr from screen line into .a
+E1FE Parse line from screen?
 E23D check for quote mark ($22), and toggle quote mode if required
 E35F Copy colour RAM line
 E35F @set memory address $Fxxx
@@ -197,14 +205,18 @@ E6B5 A=$00 and RTS
 E6B8 print character in .a
 E819 Reverse OFF
 E81C Reverse ON
+e8bb Test if ($0354+(Y>>3)) AND (1<<(Y&7)) non-zero
 E97F execute escape function using chr in .a
 E9DF set top left or bottom right (.c) of window
+EADF Read character from current position on screen?
 EBAF display character in .a, color in .x
 EBD0 get size of window (rows,cols) in .x, .y
 EC03 read or set (.c) cursor position in .x, .y
 EC41 redefine a programmable function key
 ECCD 40/80 mode change
 ED18 turn on or off (.c) soft cursor
+data ed4c ed53
+ed4c bytes with single bit set from $80 downto $01
 data ED6F EDC6
 ED6F initial values of OS variables for copying to $1000-$1065
 data edde ef49
