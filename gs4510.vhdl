@@ -121,6 +121,8 @@ architecture Behavioural of gs4510 is
 
   signal kickstart_en : std_logic := '1';
   signal colour_ram_cs_last : std_logic := '0';
+
+  signal fastram_last_address : std_logic_vector(13 downto 0);
   
   -- i-cache control lines
   signal icache_delay : std_logic;
@@ -604,10 +606,12 @@ begin
       accessing_ram <= '1';
       fastram_address <= std_logic_vector(long_address(16 downto 3));
       fastram_byte_number <= long_address(2 downto 0);
-      -- By moving fastram to pixel clock instead of CPU clock, a read can happen
-      -- easily in one cpu cycle, thus avoiding the wait state. Now to see if it
-      -- can synthesise...
-      if fastramwaitstate='0' then
+      -- By remembering the last fastram address fetched, we can skip the
+      -- wait state if we are asking for the same address again.
+      fastram_last_address <= std_logic_vector(long_address(16 downto 3));     
+      if (fastramwaitstate='0') and
+        (std_logic_vector(long_address(16 downto 3)) = fastram_last_address)
+      then
         state <= next_state;
       else
         -- why on earth does this work with this commented out?
@@ -835,6 +839,7 @@ downto 8) = x"D3F" then
     elsif long_address(27 downto 17)="00000000000" then
       accessing_ram <= '1';
       fastram_address <= std_logic_vector(long_address(16 downto 3));
+      fastram_last_address <= std_logic_vector(long_address(16 downto 3));
       fastram_we <= (others => '0');
       fastram_datain <= (others => '1');
       case long_address(2 downto 0) is
