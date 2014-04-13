@@ -214,7 +214,21 @@ architecture Behavioral of viciv is
   -- Asserted if in the 1200 vetical lines of the frame
   signal vert_in_frame : std_logic := '0';
 
+  -- Used for counting down cycles while waiting for RAM to respond
+  signal delay : std_logic_vector(1 downto 0);
 
+  -- Interface to FIFO for screen ram
+  signal screen_ram_fifo_fetched : integer range 0 to 32;
+  signal screen_ram_fifo_write  : std_logic := '0';
+  signal screen_ram_fifo_reset : std_logic := '0';
+  signal screen_ram_fifo_din : std_logic_vector(63 downto 0);
+  signal screen_ram_fifo_readnext : std_logic := '0';
+  signal screen_ram_fifo_dout : std_logic_vector(7 downto 0);
+  -- Internal registers used to keep track of the screen ram for the current row
+  signal screen_row_address : unsigned(16 downto 0);
+  signal screen_row_current_address : unsigned(16 downto 0);
+  
+  
   signal debug_x : unsigned(11 downto 0) := "111111111110";
   signal debug_y : unsigned(11 downto 0) := "111111111110";
   signal debug_cycles_to_next_card : unsigned(7 downto 0);
@@ -1610,19 +1624,40 @@ begin
           if displayy(4)='1' then
             displayline0 <= '0';            
           end if;
+
+          -- Next line of display.  Reset card number and start address of
+          -- screen ram for the row of characters currently being displayed.
+          -- (this gets overriden below if crossing from one character row to
+          -- another.  This also gives us the hope of implementing DMA delay,
+          -- since that is such a common C64 VIC-II trick.)
           next_card_number <= first_card_of_row;
+          screen_row_current_address <= screen_row_address;
+
+          -- Now check if we have tipped over from one logical pixel row to another. 
           if chargen_y_sub=chargen_y_scale then
             next_chargen_y := chargen_y + 1;
             if chargen_y = "111" then
                                         -- Increment card number every "bad line"
               first_card_of_row <= first_card_of_row + virtual_row_width;
               next_card_number <= first_card_of_row + virtual_row_width;
+
+              -- Compute the address for the screen row.
+              screen_row_address <= screen_ram_base + first_card_of_row;
+              screen_row_current_address <= screen_ram_base + first_card_of_row;
             end if;
             chargen_y_sub <= (others => '0');
           else
             chargen_y_sub <= chargen_y_sub + 1;
           end if;
         end if;
+        
+        -- Regardless of what has happened, start filling the FIFO with
+        -- character numbers for the character generator to use.
+        -- This happens every physical raster, however, the address we fetch
+        -- from only gets updated on a real "badline" (see just above where we
+        -- check for chargen_y overflow).  Of course, badline is hypothetical
+        -- for the VIC-IV, since all the relevant memories are dual-port.
+        char_fetch_cycle <= 32;
       end if;
       
       display_active <= indisplay;
@@ -1847,6 +1882,50 @@ begin
           report "charrow loaded. chardata=$" & to_hstring(chardata) severity note;
           
           -- XXX Fetch full-colour sprite information
+          -- (C64 compatability sprites will be fetched during horizontal sync.
+          --  Because we can fetch 64bits at once, compatibility sprite fetching
+          --  cannot require more than 16 cycles).
+          ramaddress <= (others => '0');
+        when 16 =>
+          -- Idle: can fetch full-colour sprite information
+          -- (C64 compatability sprites will be fetched during horizontal sync.
+          --  Because we can fetch 64bits at once, compatibility sprite fetching
+          --  cannot require more than 16 cycles).
+          ramaddress <= (others => '0');
+
+        when 32 =>
+          -- Fetch screen ram bytes (badline-like fetches).
+          -- These happen in the horizontal front porch, and require not more
+          -- than 32 cycles.
+          -- Draining can be accomplished by resetting the fifo.
+          screen_ram_fifo_reset <= '1';
+          screen_ram_fifo_readnext <= '0';
+          screen_ram_fifo_write <= '0';
+          screen_ram_fifo_fetched <= 0;
+          char_fetch_cycle <= 33;
+        when 33 =>
+          screen_ram_fifo_reset <= '0';
+          char_fetch_cycle <= 34;
+          delay <= "11";
+        when 34 =>
+          -- Schedule reading of next 8 chars
+          ramaddress <= std_logic_vector(screen_row_current_address(16 downto 3));
+          screen_row_current_address <= screen_row_current_address + 8;
+          
+          delay <= delay(1) & "0";
+          if delay = "00" then
+            -- data is available
+            if screen_ram_fifo_fetched /= 32 then
+              screen_ram_fifo_din <= ramdata;
+              screen_ram_fifo_write <= '1';
+            else
+              screen_ram_fifo_write <= '0';
+              -- Finished fetching screen data, move on to sprites
+              char_fetch_cycle <= 64;
+            end if;
+          end if;
+        when 64 =>
+          -- XXX Fetch VIC-II sprite information
           -- (C64 compatability sprites will be fetched during horizontal sync.
           --  Because we can fetch 64bits at once, compatibility sprite fetching
           --  cannot require more than 16 cycles).
