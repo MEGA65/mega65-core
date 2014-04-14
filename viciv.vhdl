@@ -1722,10 +1722,13 @@ begin
           -- We can begin speculatively fetching bitmap data here in case we
           -- are in bitmap mode.
           -- in bitmap mode, 
-          long_address(13) := character_set_address(13);
+          long_address(16 downto 13) := character_set_address(16 downto 13);
           long_address(12 downto 11) := "00";  -- bitmap mode display is always
                                                -- on 8KB boundary
           long_address(10 downto 0) := character_set_address(10 downto 0);
+          -- shift address down 3 bits for fastram 64-bit wide interface
+          long_address(13 downto 0) := long_address(16 downto 3);
+          -- now add card number
           long_address(13 downto 0) := long_address(13 downto 0) + to_integer(next_card_number);
 
           -- Request word of memory with bitmap data in it
