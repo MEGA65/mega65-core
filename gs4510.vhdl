@@ -552,10 +552,19 @@ begin
   end ready_for_next_instruction;
 
   procedure prefetch_next_instruction (
-    next_pc : in unsigned(15 downto 0)) is
+    next_pc : in unsigned(15 downto 0)) is    
+    variable temp_address : unsigned(27 downto 0);
   begin  -- ready_for_next_instruction
     -- Try pre-requesting the address of the next instruction if it
     -- is in fastram
+    temp_address := resolve_address_to_long(next_pc,false);
+    if temp_address(27 downto 17) = "00000000000" then
+      -- Next instruction will be fetching from fastram, so
+      -- it is worth asking for the relevant word now.
+      accessing_ram <= '1';
+      fastram_address <= std_logic_vector(temp_address(16 downto 3));
+      fastram_last_address <= std_logic_vector(temp_address(16 downto 3));
+    end if;
   end prefetch_next_instruction;
 
   -- purpose: invalidate cache lines corresponding to a memory write
