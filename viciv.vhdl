@@ -388,6 +388,7 @@ architecture Behavioral of viciv is
   signal next_glyph_bold : std_logic;
   signal next_glyph_underline : std_logic;
   signal next_glyph_reverse : std_logic;
+  signal next_glyph_chardata : std_logic_vector(31 downto 0);
   signal next_glyph_pixeldata : std_logic_vector(63 downto 0);
   signal next_glyph_number_buffer : std_logic_vector(63 downto 0);
   signal next_glyph_bitmap_buffer : std_logic_vector(63 downto 0);
@@ -1735,8 +1736,18 @@ begin
           -- There is nothing more we can do right now.
           ramaddress <= (others => '0');
         when 2 =>
+          -- We definitely don't need to schedule more reading from the FIFO
+          -- for the rest of this character.
           screen_ram_fifo_readnext <= '0';            
 
+          -- FIFO has advanced to next screen ram character now after the 1
+          -- cycle latency, so if we are using a 16bit char set, then we can
+          -- grab those bits now.  We already asked the FIFO to advance the
+          -- extra step, so nothing else is required just now.
+          if sixteenbit_charset='1' and text_mode='1' then
+            next_glyph_number(15 downto 8) <= screen_ram_fifo_dout;
+          end if;
+          
           -- Store colour byte (will
           -- transfer and decode next cycle to keep logic shallow)
           next_glyph_colour_buffer_temp <= colourramdata;
@@ -1744,9 +1755,9 @@ begin
           -- Store bitmap data (will decode in next cycles to keep
           -- logic shallow).
           next_glyph_bitmap_buffer <= ramdata;
-        
-          -- We know the lower 8 bits of character number
-          ramaddress <= std_logic_vector(to_unsigned(to_integer(character_set_address) + to_integer(next_glyph_number(7 downto 0)),14));
+
+          -- There is nothing more we can do right now.
+          ramaddress <= (others => '0');          
         when 3 =>
           -- finish driving out the colour value
           next_glyph_colour_buffer <= next_glyph_colour_buffer_temp;
@@ -1756,40 +1767,8 @@ begin
           if chargen_y(2)='1' then
             next_glyph_bitmap_buffer(31 downto 0) <= next_glyph_bitmap_buffer(63 downto 32);
           end if;
-          
-          -- There is nothing more we can do right now.
-          ramaddress <= (others => '0');
-        when 4 =>
-          -- begin shifting bitmap data down over several cycles to keep logic
-          -- shallow.
-          if chargen_y(1)='1' then
-            next_glyph_bitmap_buffer(15 downto 0) <= next_glyph_bitmap_buffer(31 downto 16);
-          end if;
 
-          -- FIFO has advanced to next screen ram character now after the 2
-          -- cycle latency, so if we are using a 16bit char set, then we can
-          -- grab those bits now.  We already asked the FIFO to advance the
-          -- extra step, so nothing else is required just now.
-          if sixteenbit_charset='1' and text_mode='1' then
-            next_glyph_number(15 downto 8) <= screen_ram_fifo_dout;
-          end if;
-
-          -- Decode colour byte
-          next_glyph_colour <= unsigned(next_glyph_colour_buffer(3 downto 0));
-          next_glyph_attributes <= unsigned(next_glyph_colour_buffer(7 downto 4));
-
-          -- We 
-          ramaddress <= (others => '0');
-        when 5 =>
-          report "next_glyph_nunber=" & integer'image(to_integer(next_glyph_number)) severity note;
-
-          -- begin shifting bitmap data down over several cycles to keep logic
-          -- shallow.
-          if chargen_y(0)='1' then
-            next_glyph_bitmap_buffer(7 downto 0) <= next_glyph_bitmap_buffer(15 downto 8);
-          end if;
-
-          -- Fetch character ROM byte
+                    -- Fetch character ROM byte
           if extended_background_mode='1' then
             -- bit 6 and 7 of character is used for colour
             charaddress(10 downto 9) <= "00";
@@ -1806,6 +1785,37 @@ begin
             end if;
           end if;
           charaddress(2 downto 0) <= std_logic_vector(chargen_y);
+
+          -- We know the character number
+          ramaddress <= std_logic_vector(to_unsigned(to_integer(character_set_address) + to_integer(next_glyph_number(13 downto 0)),14));
+        when 4 =>
+          -- begin shifting bitmap data down over several cycles to keep logic
+          -- shallow.
+          if chargen_y(1)='1' then
+            next_glyph_bitmap_buffer(15 downto 0) <= next_glyph_bitmap_buffer(31 downto 16);
+          end if;
+
+          -- Decode colour byte
+          next_glyph_colour <= unsigned(next_glyph_colour_buffer(3 downto 0));
+          next_glyph_attributes <= unsigned(next_glyph_colour_buffer(7 downto 4));
+
+          -- Nothing else to fetch yet
+          ramaddress <= (others => '0');
+        when 5 =>
+          report "next_glyph_nunber=" & integer'image(to_integer(next_glyph_number)) severity note;
+
+          -- Read out custom character set data
+          if chargen_y(2)='1' then
+            next_glyph_chardata <= ramdata(63 downto 32);
+          else
+            next_glyph_chardata <= ramdata(31 downto 0);           
+          end if;
+          
+          -- begin shifting bitmap data down over several cycles to keep logic
+          -- shallow.
+          if chargen_y(0)='1' then
+            next_glyph_bitmap_buffer(7 downto 0) <= next_glyph_bitmap_buffer(15 downto 8);
+          end if;
 
           -- Pre-calculate the extended character attributes
           next_glyph_visible <= '1';
@@ -1864,10 +1874,14 @@ begin
               next_glyph_number(10 downto 0)&chargen_y&"000";
             next_glyph_full_colour <= '1';
           end if;
-          -- Request pixel data
+          -- Request full colour pixel data
           ramaddress <= std_logic_vector(long_address(16 downto 3));
         when 6 =>
-          -- XXX Can schedule a sprite fetch here.
+          if chargen_y(1)='1' then
+            next_glyph_chardata(15 downto 0) <= ramdata(31 downto 16);
+          end if;
+          
+          -- Nothing to do here
           ramaddress <= (others => '0');
         when 7 =>
           -- Read character row data from ROM
@@ -1883,44 +1897,28 @@ begin
             if character_data_from_rom='1' then
               charrow <= not chardata;
             else
-              case chargen_y is
-                when "000" => charrow <= not ramdata(7 downto 0);
-                when "001" => charrow <= not ramdata(15 downto 8);
-                when "010" => charrow <= not ramdata(23 downto 16);
-                when "011" => charrow <= not ramdata(31 downto 24);
-                when "100" => charrow <= not ramdata(39 downto 32);
-                when "101" => charrow <= not ramdata(47 downto 40);
-                when "110" => charrow <= not ramdata(55 downto 48);
-                when "111" => charrow <= not ramdata(63 downto 56);
-                when others => charrow <= not x"55";
-              end case;
+              if chargen_y(0)='0' then
+                charrow <= not next_glyph_chardata(7 downto 0);
+              else
+                charrow <= not next_glyph_chardata(15 downto 8);
+              end if;
             end if;
             glyph_pixeldata <= not ramdata;
           else
             if character_data_from_rom='1' then
               charrow <= chardata;
             else
-              case chargen_y is
-                when "000" => charrow <= ramdata(7 downto 0);
-                when "001" => charrow <= ramdata(15 downto 8);
-                when "010" => charrow <= ramdata(23 downto 16);
-                when "011" => charrow <= ramdata(31 downto 24);
-                when "100" => charrow <= ramdata(39 downto 32);
-                when "101" => charrow <= ramdata(47 downto 40);
-                when "110" => charrow <= ramdata(55 downto 48);
-                when "111" => charrow <= ramdata(63 downto 56);
-                when others => charrow <= x"55";
-              end case;
+              if chargen_y(0)='0' then
+                charrow <= next_glyph_chardata(7 downto 0);
+              else
+                charrow <= next_glyph_chardata(15 downto 8);
+              end if;
             end if;
             glyph_pixeldata <= ramdata;
           end if;
-          -- XXX what about one byte per pixel characters?
           report "charrow loaded. chardata=$" & to_hstring(chardata) severity note;
-          
-          -- XXX Fetch full-colour sprite information
-          -- (C64 compatability sprites will be fetched during horizontal sync.
-          --  Because we can fetch 64bits at once, compatibility sprite fetching
-          --  cannot require more than 16 cycles).
+
+          -- Nothing to do here
           ramaddress <= (others => '0');
         when 16 =>
           -- Idle: can fetch full-colour sprite information
