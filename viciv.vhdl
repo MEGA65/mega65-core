@@ -176,7 +176,8 @@ architecture Behavioral of viciv is
   
   signal viciv_legacy_mode_registers_touched : std_logic := '0';
   signal reg_d018_screen_addr : unsigned(3 downto 0) := x"1";
-  
+
+  signal bump_screen_row_address : std_logic := '0';
   
   -- Drive stage for IRQ signal in attempt to allieviate timing problems.
   signal irq_drive : std_logic;
@@ -1668,9 +1669,7 @@ begin
               first_card_of_row <= first_card_of_row + virtual_row_width;
               next_card_number <= first_card_of_row + virtual_row_width;
 
-              -- Compute the address for the screen row.
-              screen_row_address <= screen_ram_base(16 downto 0) + first_card_of_row + virtual_row_width;
-              screen_row_current_address <= screen_ram_base(16 downto 0) + first_card_of_row + virtual_row_width;
+              bump_screen_row_address<='1';
             end if;
             chargen_y_sub <= (others => '0');
           else
@@ -1686,6 +1685,13 @@ begin
         -- for the VIC-IV, since all the relevant memories are dual-port.
         char_fetch_cycle <= 32;
         report "BADLINE triggered" severity note;
+      end if;
+
+      if bump_screen_row_address='1' then
+        -- Compute the address for the screen row.
+        screen_row_address <= screen_ram_base(16 downto 0) + first_card_of_row;
+        screen_row_current_address <= screen_ram_base(16 downto 0) + first_card_of_row;
+        bump_screen_row_address <= '0';
       end if;
       
       display_active <= indisplay;
