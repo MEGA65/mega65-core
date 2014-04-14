@@ -985,7 +985,7 @@ begin
         elsif register_number=103 then
           fastio_rdata <= x"00";          -- colour_ram is 64KB block, so no bits
                                           -- 24 to 27
-        elsif register_number=104 then
+        elsif register_number=104 then  -- $D068
           fastio_rdata <= std_logic_vector(character_set_address(7 downto 0));
         elsif register_number=105 then
           fastio_rdata <= std_logic_vector(character_set_address(15 downto 8));
@@ -1071,6 +1071,8 @@ begin
       then
         screen_ram_base(15 downto 14) <=
           not fastio_wdata(1) & not fastio_wdata(0);
+        character_set_base(15 downto 14) <=
+          not fastio_wdata(1) & not fastio_wdata(0);
       end if;
 
       -- $D000 registers
@@ -1108,7 +1110,7 @@ begin
         elsif register_number=24 then          -- $D018 compatibility RAM addresses
           -- Character set source address for user-generated character sets.
           character_set_address(13 downto 11) <= unsigned(fastio_wdata(3 downto 1));
-          if fastio_wdata(3 downto 2) = "01" then
+          if (fastio_wdata(3 downto 2) = "01") and (character_set_base(14)='0') then
             character_data_from_rom <= '1';
           else
             character_data_from_rom <= '0';
