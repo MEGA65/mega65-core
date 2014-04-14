@@ -96,13 +96,11 @@ ARCHITECTURE fg_dv_arch OF screen_ram_fifo_dverif IS
   CONSTANT D_WIDTH_DIFF   : INTEGER := log2roundup(C_DIN_WIDTH/C_DOUT_WIDTH);
 
  SIGNAL expected_dout     : STD_LOGIC_VECTOR(C_DOUT_WIDTH-1 DOWNTO 0) := (OTHERS => '0');
- SIGNAL expected_dout_reg : STD_LOGIC_VECTOR(C_DOUT_WIDTH-1 DOWNTO 0) := (OTHERS => '0');
  SIGNAL data_chk          : STD_LOGIC := '1';
  SIGNAL rand_num          : STD_LOGIC_VECTOR(8*LOOP_COUNT-1 downto 0);
  SIGNAL rd_en_i           : STD_LOGIC := '0';
  SIGNAL pr_r_en           : STD_LOGIC := '0';
  SIGNAL rd_en_d1          : STD_LOGIC := '0';
- SIGNAL rd_en_emb         : STD_LOGIC := '0';
  SIGNAL rd_d_sel_d1       : STD_LOGIC_VECTOR(D_WIDTH_DIFF-1 DOWNTO 0):= (OTHERS => '0');
 BEGIN
 
@@ -154,28 +152,14 @@ BEGIN
                 ENABLE     => pr_r_en 	    
               );
     END GENERATE;    
-  
-  
-      PROCESS (RD_CLK,RESET)
-      BEGIN
-        IF(RESET = '1') THEN
-          rd_en_emb <= '0';
-          expected_dout_reg <= hexstr_to_std_logic_vec("0",8);
-        ELSIF (RD_CLK'event AND RD_CLK='1') THEN
-          rd_en_emb <= rd_en_i AND NOT EMPTY;
-          IF(rd_en_emb = '1') THEN
-            expected_dout_reg <= expected_dout;
-          END IF;
-        END IF;
-      END PROCESS;
-
+    
       PROCESS (RD_CLK,RESET)
       BEGIN
         IF(RESET = '1') THEN
           data_chk <= '0';
         ELSIF (RD_CLK'event AND RD_CLK='1') THEN
-          IF((EMPTY = '0') AND ((rd_en_emb = '1' OR rd_en_i = '1') AND rd_en_d1 = '1')) THEN
-            IF (DATA_OUT = expected_dout_reg) THEN
+          IF((EMPTY = '0') AND (rd_en_i = '1' AND rd_en_d1 = '1')) THEN
+            IF(DATA_OUT = expected_dout) THEN
               data_chk <= '0';
             ELSE
               data_chk <= '1';

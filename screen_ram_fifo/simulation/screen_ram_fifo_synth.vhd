@@ -232,7 +232,7 @@ ARCHITECTURE simulation_arch OF screen_ram_fifo_synth IS
     GENERIC MAP (  
 	       C_DOUT_WIDTH       => 8,
 	       C_DIN_WIDTH        => 64,
-	       C_USE_EMBEDDED_REG => 1,
+	       C_USE_EMBEDDED_REG => 0,
 	       TB_SEED            => TB_SEED, 
  	       C_CH_TYPE          => 0
 	        )
