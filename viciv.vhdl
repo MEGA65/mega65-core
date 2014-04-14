@@ -252,6 +252,7 @@ architecture Behavioral of viciv is
   signal debug_char_fetch_cycle : integer range 0 to 255;
   signal debug_chargen_active : std_logic;
   signal debug_chargen_active_soon : std_logic;
+  signal debug_character_data_from_rom : std_logic;
   
   -----------------------------------------------------------------------------
   -- Video controller registers
@@ -1019,7 +1020,7 @@ begin
         elsif register_number=117 then
           fastio_rdata <= std_logic_vector(debug_cycles_to_next_card(7 downto 0));
         elsif register_number=118 then
-          fastio_rdata <= "000000" & debug_chargen_active & debug_chargen_active_soon;
+          fastio_rdata <= "00000" & debug_character_data_from_rom & debug_chargen_active & debug_chargen_active_soon;
         elsif register_number=124 then
           fastio_rdata <= std_logic_vector(to_unsigned(debug_char_fetch_cycle,8));
         elsif register_number=125 then
@@ -1726,21 +1727,27 @@ begin
                                                -- on 8KB boundary
           long_address(10 downto 0) := character_set_address(10 downto 0);
           long_address(13 downto 0) := long_address(13 downto 0) + to_integer(next_card_number);
+
+          -- Request word of memory with bitmap data in it
+          ramaddress <= std_logic_vector(long_address(13 downto 0));
+          last_ramaddress <= std_logic_vector(long_address(13 downto 0));
+          
+          -- Load colour RAM at the same time
+          long_address(15 downto 0) := colour_ram_base+next_card_number;
+          colourramaddress <= std_logic_vector(long_address(15 downto 0));
+        when 1 =>
+
           -- source bitmap data from ROM when necessary
+          -- (we perform this test now, not in the previous stage to keep logic
+          -- sufficiently shallow.)
           if text_mode = '0' then
-            if long_address(14 downto 12) = x"001" then
+            if last_ramaddress(11 downto 9) = x"001" then
               character_data_from_rom <= '1';
             else
               character_data_from_rom <= '0';
             end if;
           end if;
-          -- Request word of memory with bitmap data in it
-          ramaddress <= std_logic_vector(long_address(13 downto 0));
 
-          -- Load colour RAM at the same time
-          long_address(15 downto 0) := colour_ram_base+next_card_number;
-          colourramaddress <= std_logic_vector(long_address(15 downto 0));
-        when 1 =>
           -- If using 16-bit chars, ask for the 2nd byte, else
           -- idle FIFO output.
           if sixteenbit_charset='0' then
@@ -2120,6 +2127,7 @@ begin
         debug_char_fetch_cycle <= char_fetch_cycle;
         debug_charrow <= charrow;
         debug_charaddress <= charaddress;
+        debug_character_data_from_rom <= character_data_from_rom;
       end if;     
       if displayx=debug_x or displayy=debug_y then
         -- Draw cross-hairs at debug coordinates
