@@ -1669,8 +1669,8 @@ begin
               next_card_number <= first_card_of_row + virtual_row_width;
 
               -- Compute the address for the screen row.
-              screen_row_address <= screen_ram_base(16 downto 0) + first_card_of_row;
-              screen_row_current_address <= screen_ram_base(16 downto 0) + first_card_of_row;
+              screen_row_address <= screen_ram_base(16 downto 0) + first_card_of_row + virtual_row_width;
+              screen_row_current_address <= screen_ram_base(16 downto 0) + first_card_of_row + virtual_row_width;
             end if;
             chargen_y_sub <= (others => '0');
           else
