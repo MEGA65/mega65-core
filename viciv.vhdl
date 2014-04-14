@@ -1707,7 +1707,7 @@ begin
 
           -- We can begin speculatively fetching bitmap data here in case we
           -- are in bitmap mode.
-          long_address(13 downto 0) := character_set_address+next_card_number;
+          long_address(13 downto 0) := to_unsigned(to_integer(character_set_address)+to_integer(next_card_number),14);
           ramaddress <= std_logic_vector(long_address(13 downto 0));
 
           -- Load colour RAM at the same time
