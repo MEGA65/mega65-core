@@ -1974,7 +1974,7 @@ begin
           screen_ram_fifo_readnext <= '1';
           char_fetch_cycle <= 36;
         when 36 =>
-          screen_ram_fifo_readnext <= '1';
+          screen_ram_fifo_readnext <= '0';
           char_fetch_cycle <= 64;
         when 64 =>
           -- XXX Fetch VIC-II sprite information
