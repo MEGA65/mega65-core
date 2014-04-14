@@ -233,7 +233,7 @@ architecture Behavioral of viciv is
   signal delay : std_logic_vector(1 downto 0);
 
   -- Interface to FIFO for screen ram
-  signal screen_ram_fifo_fetched : integer range 0 to 32;
+  signal screen_ram_fifo_fetched : integer range 0 to 64;
   signal screen_ram_fifo_write  : std_logic := '0';
   signal screen_ram_fifo_reset : std_logic := '0';
   signal screen_ram_fifo_din : unsigned(63 downto 0);
@@ -1683,6 +1683,7 @@ begin
         -- check for chargen_y overflow).  Of course, badline is hypothetical
         -- for the VIC-IV, since all the relevant memories are dual-port.
         char_fetch_cycle <= 32;
+        report "BADLINE triggered" severity note;
       end if;
       
       display_active <= indisplay;
@@ -1903,21 +1904,28 @@ begin
           screen_ram_fifo_write <= '0';
           screen_ram_fifo_fetched <= 0;
           char_fetch_cycle <= 33;
+          report "BADLINE preparing for fetch" severity note;
         when 33 =>
+          report "BADLINE releasing FIFO reset" severity note;
           screen_ram_fifo_reset <= '0';
           char_fetch_cycle <= 34;
           delay <= "11";
         when 34 =>
           -- Schedule reading of next 8 chars
+          report "BADLINE fetch loop.  delay=%" & to_string(delay) severity note;
           ramaddress <= std_logic_vector(screen_row_current_address(16 downto 3));
           screen_row_current_address <= screen_row_current_address + 8;
           
-          delay <= delay(1) & "0";
+          delay <= delay(0) & "0";
           if delay = "00" then
             -- data is available
-            if screen_ram_fifo_fetched /= 32 then
+            -- we want 480 bytes, to allow for full 240 column text with 16-bit
+            -- charset.  Bus is 64bits wide, so we need 480/8 = 60 fetches
+            if screen_ram_fifo_fetched /= 60 then
               screen_ram_fifo_din <= unsigned(ramdata);
               screen_ram_fifo_write <= '1';
+              report "BADLINE stuffing fetch " & integer'image(screen_ram_fifo_fetched) & " $" & to_hstring(ramdata) severity note;
+              screen_ram_fifo_fetched <= screen_ram_fifo_fetched + 1;
             else
               screen_ram_fifo_write <= '0';
               -- Finished fetching screen data, move on to sprites
