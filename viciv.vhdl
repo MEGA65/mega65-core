@@ -379,6 +379,7 @@ architecture Behavioral of viciv is
   -- character data fetch FSM
   signal char_fetch_cycle : integer range 0 to 255 := 16;
   -- data for next card
+  signal next_bitmap_colours  : unsigned(7 downto 0);
   signal next_glyph_number : unsigned(15 downto 0);
   signal next_glyph_number8 : unsigned(7 downto 0);
   signal next_glyph_number16 : unsigned(15 downto 0);
@@ -401,6 +402,7 @@ architecture Behavioral of viciv is
   signal chargen_active_soon : std_logic := '0';
 
   -- data for current card
+  signal bitmap_colours  : unsigned(7 downto 0);
   signal glyph_number : unsigned(15 downto 0);
   signal glyph_colour : unsigned(3 downto 0);
   signal glyph_colour_t1 : unsigned(3 downto 0);
@@ -1071,8 +1073,15 @@ begin
       then
         screen_ram_base(15 downto 14) <=
           not fastio_wdata(1) & not fastio_wdata(0);
-        character_set_base(15 downto 14) <=
+        character_set_address(15 downto 14) <=
           not fastio_wdata(1) & not fastio_wdata(0);
+
+        if (fastio_wdata(0) = '1') and (character_set_address(13 downto 12)="01") then
+          character_data_from_rom <= '1';
+        else
+          character_data_from_rom <= '0';
+        end if;
+
       end if;
 
       -- $D000 registers
@@ -1110,7 +1119,8 @@ begin
         elsif register_number=24 then          -- $D018 compatibility RAM addresses
           -- Character set source address for user-generated character sets.
           character_set_address(13 downto 11) <= unsigned(fastio_wdata(3 downto 1));
-          if (fastio_wdata(3 downto 2) = "01") and (character_set_base(14)='0') then
+          character_set_address(10 downto 0) <= (others => '0');
+          if (fastio_wdata(3 downto 2) = "01") and (character_set_address(14)='0') then
             character_data_from_rom <= '1';
           else
             character_data_from_rom <= '0';
@@ -1509,6 +1519,8 @@ begin
 
           glyph_number <= next_glyph_number;
           glyph_full_colour <= next_glyph_full_colour;
+
+          bitmap_colours <= next_bitmap_colours;
                                         -- ... and then start fetching data for the character after that
           next_card_number <= next_card_number + 1;
           if chargen_x_scale = 0 then
@@ -1711,6 +1723,8 @@ begin
           -- Load low bits of card number from FIFO
           next_glyph_number(7 downto 0) <= screen_ram_fifo_dout;
           next_glyph_number(15 downto 8) <= (others => '0');
+
+          next_bitmap_colours <= screen_ram_fifo_dout;
           
           -- Tell FIFO to start reading next character
           screen_ram_fifo_readnext <= '1';
