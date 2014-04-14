@@ -389,6 +389,7 @@ architecture Behavioral of viciv is
   signal next_glyph_reverse : std_logic;
   signal next_glyph_pixeldata : std_logic_vector(63 downto 0);
   signal next_glyph_number_buffer : std_logic_vector(63 downto 0);
+  signal next_glyph_bitmap_buffer : std_logic_vector(63 downto 0);
   signal next_glyph_colour_buffer : std_logic_vector(7 downto 0);
   signal next_glyph_colour_buffer_temp : std_logic_vector(7 downto 0);
   signal next_glyph_full_colour : std_logic;
@@ -1704,55 +1705,82 @@ begin
           -- Tell FIFO to start reading next character
           screen_ram_fifo_readnext <= '1';
 
-          -- XXX We can begin speculatively fetching bitmap data here
-          -- We don't need anything from RAM this cycle
-          ramaddress <= (others => '0');
+          -- We can begin speculatively fetching bitmap data here in case we
+          -- are in bitmap mode.
+          long_address(13 downto 0) := character_set_address+next_card_number;
+          ramaddress <= std_logic_vector(long_address(13 downto 0));
 
           -- Load colour RAM at the same time
           long_address(15 downto 0) := colour_ram_base+next_card_number;
           colourramaddress <= std_logic_vector(long_address(15 downto 0));
         when 1 =>
-          -- clear FIFO request
-          screen_ram_fifo_readnext <= '0';
+          -- If using 16-bit chars, ask for the 2nd byte, else
+          -- idle FIFO output.
+          if sixteenbit_charset='0' then
+            screen_ram_fifo_readnext <= '0';            
+          end if;
 
-          -- FastRAM wait state
-          -- XXX Can schedule a sprite fetch here.
+          -- If in bitmap mode, then override card_number
+          if text_mode='0' then
+            next_glyph_number <= card_number;
+          end if;
+
+          -- There is nothing more we can do right now.
           ramaddress <= (others => '0');
         when 2 =>
+          screen_ram_fifo_readnext <= '0';            
+
           -- Store colour byte (will
           -- transfer and decode next cycle to keep logic shallow)
           next_glyph_colour_buffer_temp <= colourramdata;
 
-          -- XXX Can schedule a sprite fetch here.
-          ramaddress <= (others => '0');
+          -- Store bitmap data (will decode in next cycles to keep
+          -- logic shallow).
+          next_glyph_bitmap_buffer <= ramdata;
+        
+          -- We know the lower 8 bits of character number
+          ramaddress <= std_logic_vector(to_unsigned(to_integer(character_set_address) + to_integer(next_glyph_number(7 downto 0)),14));
         when 3 =>
+          -- finish driving out the colour value
           next_glyph_colour_buffer <= next_glyph_colour_buffer_temp;
 
-          -- FIFO has advanced to next screen ram character now
-          -- so if we are using a 16bit char set, then we can grab those
-          -- bits now, and ask FIFO to advance.
-          if sixteenbit_charset='1' then
-            next_glyph_number(15 downto 8) <= screen_ram_fifo_dout;
-            screen_ram_fifo_readnext <= '1';
+          -- begin shifting bitmap data down over several cycles to keep logic
+          -- shallow.
+          if chargen_y(2)='1' then
+            next_glyph_bitmap_buffer(31 downto 0) <= next_glyph_bitmap_buffer(63 downto 32);
           end if;
-          -- XXX Can schedule a sprite fetch here.
+          
+          -- There is nothing more we can do right now.
           ramaddress <= (others => '0');
         when 4 =>
-          screen_ram_fifo_readnext <= '0';
+          -- begin shifting bitmap data down over several cycles to keep logic
+          -- shallow.
+          if chargen_y(1)='1' then
+            next_glyph_bitmap_buffer(15 downto 0) <= next_glyph_bitmap_buffer(31 downto 16);
+          end if;
+
+          -- FIFO has advanced to next screen ram character now after the 2
+          -- cycle latency, so if we are using a 16bit char set, then we can
+          -- grab those bits now.  We already asked the FIFO to advance the
+          -- extra step, so nothing else is required just now.
+          if sixteenbit_charset='1' and text_mode='1' then
+            next_glyph_number(15 downto 8) <= screen_ram_fifo_dout;
+          end if;
 
           -- Decode colour byte
           next_glyph_colour <= unsigned(next_glyph_colour_buffer(3 downto 0));
           next_glyph_attributes <= unsigned(next_glyph_colour_buffer(7 downto 4));
 
-          -- Override character number to be card number if in bitmap mode
-          if text_mode='0' then
-            next_glyph_number <= card_number;
-          end if;
-
-          -- XXX Can schedule a sprite fetch here.
+          -- We 
           ramaddress <= (others => '0');
         when 5 =>
           report "next_glyph_nunber=" & integer'image(to_integer(next_glyph_number)) severity note;
+
+          -- begin shifting bitmap data down over several cycles to keep logic
+          -- shallow.
+          if chargen_y(0)='1' then
+            next_glyph_bitmap_buffer(7 downto 0) <= next_glyph_bitmap_buffer(15 downto 8);
+          end if;
 
           -- Fetch character ROM byte
           if extended_background_mode='1' then
@@ -1922,7 +1950,10 @@ begin
             -- we want 480 bytes, to allow for full 240 column text with 16-bit
             -- charset.  Bus is 64bits wide, so we need 480/8 = 60 fetches
             if screen_ram_fifo_fetched /= 60 then
-              screen_ram_fifo_din <= unsigned(ramdata);
+              -- FIFO byte order is opposite-endian to what we would like, so
+              -- we need to reverse the byte (but not bit) order.
+              screen_ram_fifo_din <= unsigned(ramdata(7 downto 0)&ramdata(15 downto 8)&ramdata(23 downto 16)&ramdata(31 downto 24)
+                                              &ramdata(39 downto 32)&ramdata(47 downto 40)&ramdata(55 downto 48)&ramdata(63 downto 56));
               screen_ram_fifo_write <= '1';
               report "BADLINE stuffing fetch " & integer'image(screen_ram_fifo_fetched) & " $" & to_hstring(ramdata) severity note;
               screen_ram_fifo_fetched <= screen_ram_fifo_fetched + 1;
