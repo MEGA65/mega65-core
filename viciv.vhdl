@@ -1644,7 +1644,8 @@ begin
           displayy <= (others => '0');
           displayline0 <= '1';
           indisplay := '0';
-          first_card_of_row <= x"0000";	
+          first_card_of_row <= x"0000";
+          screen_row_address <= screen_ram_base(16 downto 0);
         else
           displayy <= displayy + 1;
           if displayy(4)='1' then
@@ -1663,7 +1664,7 @@ begin
           if chargen_y_sub=chargen_y_scale then
             next_chargen_y := chargen_y + 1;
             if chargen_y = "111" then
-                                        -- Increment card number every "bad line"
+              -- Increment card number every "bad line"
               first_card_of_row <= first_card_of_row + virtual_row_width;
               next_card_number <= first_card_of_row + virtual_row_width;
 
