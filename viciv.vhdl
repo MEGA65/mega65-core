@@ -1743,8 +1743,10 @@ begin
           if text_mode = '0' then
             if last_ramaddress(11 downto 9) = x"001" then
               character_data_from_rom <= '1';
+              report "CHARROM: reading from ROM" severity note;
             else
               character_data_from_rom <= '0';
+              report "CHARROM: reading from     RAM" severity note;
             end if;
           end if;
 
@@ -1813,16 +1815,20 @@ begin
           charaddress(2 downto 0) <= std_logic_vector(chargen_y);
 
           -- We know the character number
-          ramaddress <= std_logic_vector(to_unsigned(to_integer(character_set_address) + to_integer(next_glyph_number(13 downto 0)),14));
-          last_ramaddress <= std_logic_vector(to_unsigned(to_integer(character_set_address) + to_integer(next_glyph_number(13 downto 0)),14));
+          ramaddress <= std_logic_vector(to_unsigned(to_integer(character_set_address(16 downto 3)) + to_integer(next_glyph_number(13 downto 0)),14));
+          last_ramaddress <= std_logic_vector(to_unsigned(to_integer(character_set_address(16 downto 3)) + to_integer(next_glyph_number(13 downto 0)),14));
         when 4 =>
           -- If in text mode, work out whether we are using the character rom
           -- (last_ramaddress lacks bottom 3 bits, so testing 6502 address bits 14..12
           -- means testing bits 11..9)
+          report "character set address = $" & to_hstring(character_set_address) severity note;
           if (last_ramaddress(11 downto 9) = "001") and (text_mode='1') then
             character_data_from_rom <= '1';
+            report "CHARROM: reading from ROM" severity note;
           else
             character_data_from_rom <= '0';
+            report "CHARROM: reading from     RAM" severity note;
+            report "test_mode=" & std_logic'image(text_mode) & "last_ramaddress(11 downto 9) = %" & to_string(last_ramaddress(11 downto 9)) severity note;
           end if;
           
           -- begin shifting bitmap data down over several cycles to keep logic
