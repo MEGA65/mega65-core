@@ -1967,9 +1967,15 @@ begin
             else
               screen_ram_fifo_write <= '0';
               -- Finished fetching screen data, move on to sprites
-              char_fetch_cycle <= 64;
+              char_fetch_cycle <= 35;
             end if;
           end if;
+        when 35 =>
+          screen_ram_fifo_readnext <= '1';
+          char_fetch_cycle <= 36;
+        when 36 =>
+          screen_ram_fifo_readnext <= '1';
+          char_fetch_cycle <= 64;
         when 64 =>
           -- XXX Fetch VIC-II sprite information
           -- (C64 compatability sprites will be fetched during horizontal sync.
