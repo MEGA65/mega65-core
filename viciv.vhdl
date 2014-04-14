@@ -2070,17 +2070,23 @@ begin
           -- XXX Not yet implemented
           pixel_colour(7 downto 4) <= "0000";
           pixel_colour(3 downto 0) <= card_number_t3(3 downto 0);
-        elsif multicolour_mode='0' then
-          -- hires/bi-colour mode/normal text mode
-          -- XXX Still using character generator ROM for now.
-          -- XXX Replace with correct byte from glyph_pixelddata
-          -- once we have things settled down a bit more.
+        elsif multicolour_mode='0' and text_mode='1' then
+          -- normal text mode
           if monobit = '1' then
             pixel_colour(7 downto 5) <= "000";
             pixel_colour(4 downto 0) <= card_fg_colour(4 downto 0);
           else
             pixel_colour(7 downto 4) <= "0000";
             pixel_colour(3 downto 0) <= card_bg_colour(3 downto 0);
+          end if;
+        elsif multicolour_mode='0' then
+          -- hires/bi-colour bitmap mode
+          if monobit = '1' then
+            pixel_colour(7 downto 5) <= "000";
+            pixel_colour(4 downto 0) <= card_fg_colour(4) & bitmap_colours(7 downto 4);
+          else
+            pixel_colour(7 downto 4) <= "0000";
+            pixel_colour(3 downto 0) <= bitmap_colours(3 downto 0);
           end if;
         else
           pixel_colour <= card_bg_colour;
