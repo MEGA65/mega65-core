@@ -467,6 +467,7 @@ architecture Behavioral of viciv is
   signal xfrontporch : std_logic;
   signal xbackporch : std_logic;
 
+  signal last_ramaddress : std_logic_vector(13 downto 0);
   signal ramaddress : std_logic_vector(13 downto 0);
   signal ramdata : std_logic_vector(63 downto 0);
 
@@ -1075,13 +1076,6 @@ begin
           not fastio_wdata(1) & not fastio_wdata(0);
         character_set_address(15 downto 14) <=
           not fastio_wdata(1) & not fastio_wdata(0);
-
-        if (fastio_wdata(0) = '1') and (character_set_address(13 downto 12)="01") then
-          character_data_from_rom <= '1';
-        else
-          character_data_from_rom <= '0';
-        end if;
-
       end if;
 
       -- $D000 registers
@@ -1120,11 +1114,6 @@ begin
           -- Character set source address for user-generated character sets.
           character_set_address(13 downto 11) <= unsigned(fastio_wdata(3 downto 1));
           character_set_address(10 downto 0) <= (others => '0');
-          if (fastio_wdata(3 downto 2) = "01") and (character_set_address(14)='0') then
-            character_data_from_rom <= '1';
-          else
-            character_data_from_rom <= '0';
-          end if;
           -- This one is for the internal charrom in the VIC-IV.
           charaddress(11) <= fastio_wdata(1);
           -- Bits 14 and 15 get set by writing to $DD00, as the VIC-IV sniffs
@@ -1737,6 +1726,15 @@ begin
                                                -- on 8KB boundary
           long_address(10 downto 0) := character_set_address(10 downto 0);
           long_address(13 downto 0) := long_address(13 downto 0) + to_integer(next_card_number);
+          -- source bitmap data from ROM when necessary
+          if text_mode = '0' then
+            if long_address(14 downto 12) = x"001" then
+              character_data_from_rom <= '1';
+            else
+              character_data_from_rom <= '0';
+            end if;
+          end if;
+          -- Request word of memory with bitmap data in it
           ramaddress <= std_logic_vector(long_address(13 downto 0));
 
           -- Load colour RAM at the same time
@@ -1809,7 +1807,17 @@ begin
 
           -- We know the character number
           ramaddress <= std_logic_vector(to_unsigned(to_integer(character_set_address) + to_integer(next_glyph_number(13 downto 0)),14));
+          last_ramaddress <= std_logic_vector(to_unsigned(to_integer(character_set_address) + to_integer(next_glyph_number(13 downto 0)),14));
         when 4 =>
+          -- If in text mode, work out whether we are using the character rom
+          -- (last_ramaddress lacks bottom 3 bits, so testing 6502 address bits 14..12
+          -- means testing bits 11..9)
+          if (last_ramaddress(11 downto 9) = "001") and (text_mode='1') then
+            character_data_from_rom <= '1';
+          else
+            character_data_from_rom <= '0';
+          end if;
+          
           -- begin shifting bitmap data down over several cycles to keep logic
           -- shallow.
           if chargen_y(1)='1' then
