@@ -1745,12 +1745,13 @@ begin
         when 1 =>
 
           -- source bitmap data from ROM when necessary
-          if last_ramaddress(11 downto 9) = x"001" then
+          if last_ramaddress(11 downto 9) = "001" then
             character_data_from_rom <= '1';
             report "CHARROM: reading from ROM" severity note;
           else
             character_data_from_rom <= '0';
             report "CHARROM: reading from     RAM" severity note;
+            report "last_ramaddress=%" & to_string(last_ramaddress) severity note;
           end if;
 
           -- If using 16-bit chars, ask for the 2nd byte, else
