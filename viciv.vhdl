@@ -395,7 +395,6 @@ architecture Behavioral of viciv is
   signal next_glyph_chardata : std_logic_vector(63 downto 0);
   signal next_glyph_pixeldata : std_logic_vector(63 downto 0);
   signal next_glyph_number_buffer : std_logic_vector(63 downto 0);
-  signal next_glyph_bitmap_buffer : std_logic_vector(63 downto 0);
   signal next_glyph_colour_buffer : std_logic_vector(7 downto 0);
   signal next_glyph_colour_buffer_temp : std_logic_vector(7 downto 0);
   signal next_glyph_full_colour : std_logic;
@@ -1739,29 +1738,32 @@ begin
           colourramaddress <= std_logic_vector(long_address(15 downto 0));
         when 1 =>
 
-          -- source bitmap data from ROM when necessary
-          -- (we perform this test now, not in the previous stage to keep logic
-          -- sufficiently shallow.)
-          if text_mode = '0' then
-            if last_ramaddress(11 downto 9) = x"001" then
-              character_data_from_rom <= '1';
-              report "CHARROM: reading from ROM" severity note;
-            else
-              character_data_from_rom <= '0';
-              report "CHARROM: reading from     RAM" severity note;
-            end if;
-          end if;
-
           -- If using 16-bit chars, ask for the 2nd byte, else
           -- idle FIFO output.
           if sixteenbit_charset='0' then
             screen_ram_fifo_readnext <= '0';            
           end if;
 
-          -- We know the character number since it was pre-fetched
-          ramaddress <= std_logic_vector(to_unsigned(to_integer(character_set_address(16 downto 3)) + to_integer(next_glyph_number(13 downto 0)),14));
-          last_ramaddress <= std_logic_vector(to_unsigned(to_integer(character_set_address(16 downto 3)) + to_integer(next_glyph_number(13 downto 0)),14));
+          -- If text mode, then replace bitmap data with character data
+          if text_mode='1' then
+            -- We know the character number since it was pre-fetched
+            ramaddress <= std_logic_vector(to_unsigned(to_integer(character_set_address(16 downto 3)) + to_integer(next_glyph_number(13 downto 0)),14));
+            last_ramaddress <= std_logic_vector(to_unsigned(to_integer(character_set_address(16 downto 3)) + to_integer(next_glyph_number(13 downto 0)),14));
+          else
+            -- Previous cycle's fetching of bitmap data will prevail, since we
+            -- are not in text mode.
+            null;
+          end if;
         when 2 =>
+          -- source bitmap data from ROM when necessary
+          if last_ramaddress(11 downto 9) = x"001" then
+            character_data_from_rom <= '1';
+            report "CHARROM: reading from ROM" severity note;
+          else
+            character_data_from_rom <= '0';
+            report "CHARROM: reading from     RAM" severity note;
+          end if;
+
           -- We definitely don't need to schedule more reading from the FIFO
           -- for the rest of this character.
           screen_ram_fifo_readnext <= '0';            
@@ -1774,10 +1776,6 @@ begin
           -- Store colour byte (will
           -- transfer and decode next cycle to keep logic shallow)
           next_glyph_colour_buffer_temp <= colourramdata;
-
-          -- Store bitmap data (will decode in next cycles to keep
-          -- logic shallow).
-          next_glyph_bitmap_buffer <= ramdata;
 
           -- There is nothing more we can do right now.
           ramaddress <= (others => '0');          
@@ -1796,12 +1794,6 @@ begin
             next_next_glyph_number(15 downto 8) <= screen_ram_fifo_dout;
           end if;
           
-          -- begin shifting bitmap data down over several cycles to keep logic
-          -- shallow.
-          if chargen_y(2)='1' then
-            next_glyph_bitmap_buffer(31 downto 0) <= next_glyph_bitmap_buffer(63 downto 32);
-          end if;
-
           -- Fetch character ROM byte
           if extended_background_mode='1' then
             -- bit 6 and 7 of character is used for colour
@@ -1821,30 +1813,11 @@ begin
           charaddress(2 downto 0) <= std_logic_vector(chargen_y);
 
         when 4 =>
-          -- If in text mode, work out whether we are using the character rom
-          -- (last_ramaddress lacks bottom 3 bits, so testing 6502 address bits 14..12
-          -- means testing bits 11..9)
-          report "character set address = $" & to_hstring(character_set_address) severity note;
-          if (last_ramaddress(11 downto 9) = "001") and (text_mode='1') then
-            character_data_from_rom <= '1';
-            report "CHARROM: reading from ROM" severity note;
-          else
-            character_data_from_rom <= '0';
-            report "CHARROM: reading from     RAM" severity note;
-            report "test_mode=" & std_logic'image(text_mode) & "last_ramaddress(11 downto 9) = %" & to_string(last_ramaddress(11 downto 9)) severity note;
-          end if;
-
           -- Read out custom character set data
           if chargen_y(2)='1' then
             next_glyph_chardata(31 downto 0) <= next_glyph_chardata(63 downto 32);
           end if;         
           
-          -- begin shifting bitmap data down over several cycles to keep logic
-          -- shallow.
-          if chargen_y(1)='1' then
-            next_glyph_bitmap_buffer(15 downto 0) <= next_glyph_bitmap_buffer(31 downto 16);
-          end if;
-
           -- Decode colour byte
           next_glyph_colour <= unsigned(next_glyph_colour_buffer(3 downto 0));
           next_glyph_attributes <= unsigned(next_glyph_colour_buffer(7 downto 4));
@@ -1856,12 +1829,6 @@ begin
 
           if chargen_y(1)='1' then
             next_glyph_chardata(15 downto 0) <= next_glyph_chardata(31 downto 16);
-          end if;
-
-          -- begin shifting bitmap data down over several cycles to keep logic
-          -- shallow.
-          if chargen_y(0)='1' then
-            next_glyph_bitmap_buffer(7 downto 0) <= next_glyph_bitmap_buffer(15 downto 8);
           end if;
 
           -- Pre-calculate the extended character attributes
