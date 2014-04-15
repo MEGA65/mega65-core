@@ -1070,14 +1070,18 @@ begin
 
       -- $DD00 video bank bits
       if fastio_write='1'
-        and fastio_addr(19 downto 12)=x"FD"
-        and fastio_addr(3 downto 0) =x"0"
-        and (fastio_addr(11 downto 10)="00")
+        -- Fastio IO addresses D{0,1,2,3}Dx0
+        and (fastio_addr(19 downto 16)=x"D")
+        and (fastio_addr(11 downto  8)=x"D")
+        and (fastio_addr(3 downto 0) = x"0")
+        and (fastio_addr(15 downto 14) = "00")
+        and (colourram_at_dc00_internal = '0')
       then
-        screen_ram_base(15 downto 14) <=
-          not fastio_wdata(1) & not fastio_wdata(0);
-        character_set_address(15 downto 14) <=
-          not fastio_wdata(1) & not fastio_wdata(0);
+        report "Caught write to $DD00" severity note;
+        screen_ram_base(15) <= not fastio_wdata(1);
+        screen_ram_base(14) <= not fastio_wdata(0);
+        character_set_address(15) <= not fastio_wdata(1);
+        character_set_address(14) <= not fastio_wdata(0);
       end if;
 
       -- $D000 registers
