@@ -1855,7 +1855,7 @@ begin
           report "next_glyph_nunber=" & integer'image(to_integer(next_glyph_number)) severity note;
 
           if chargen_y(1)='1' then
-            next_glyph_chardata(15 downto 0) <= ramdata(31 downto 16);
+            next_glyph_chardata(15 downto 0) <= next_glyph_chardata(31 downto 16);
           end if;
 
           -- begin shifting bitmap data down over several cycles to keep logic
@@ -1925,7 +1925,7 @@ begin
           ramaddress <= std_logic_vector(long_address(16 downto 3));
         when 6 =>
           if chargen_y(0)='1' then
-            next_glyph_chardata(7 downto 0) <= not next_glyph_chardata(15 downto 8);
+            next_glyph_chardata(7 downto 0) <= next_glyph_chardata(15 downto 8);
           end if;
 
           -- Nothing to do here
