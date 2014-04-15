@@ -1729,32 +1729,21 @@ begin
           -- now add card number
           long_address(13 downto 0) := long_address(13 downto 0) + to_integer(next_card_number);
 
-          -- Request word of memory with bitmap data in it
-          ramaddress <= std_logic_vector(long_address(13 downto 0));
-          last_ramaddress <= std_logic_vector(long_address(13 downto 0));
+          if text_mode='1' then
+            -- We know the character number since it was pre-fetched
+            ramaddress <= std_logic_vector(to_unsigned(to_integer(character_set_address(16 downto 3)) + to_integer(next_glyph_number(13 downto 0)),14));
+            last_ramaddress <= std_logic_vector(to_unsigned(to_integer(character_set_address(16 downto 3)) + to_integer(next_glyph_number(13 downto 0)),14));
+          else
+            -- Request word of memory with bitmap data in it
+            ramaddress <= std_logic_vector(long_address(13 downto 0));
+            last_ramaddress <= std_logic_vector(long_address(13 downto 0));
+          end if;
           
           -- Load colour RAM at the same time
           long_address(15 downto 0) := colour_ram_base+next_card_number;
           colourramaddress <= std_logic_vector(long_address(15 downto 0));
         when 1 =>
 
-          -- If using 16-bit chars, ask for the 2nd byte, else
-          -- idle FIFO output.
-          if sixteenbit_charset='0' then
-            screen_ram_fifo_readnext <= '0';            
-          end if;
-
-          -- If text mode, then replace bitmap data with character data
-          if text_mode='1' then
-            -- We know the character number since it was pre-fetched
-            ramaddress <= std_logic_vector(to_unsigned(to_integer(character_set_address(16 downto 3)) + to_integer(next_glyph_number(13 downto 0)),14));
-            last_ramaddress <= std_logic_vector(to_unsigned(to_integer(character_set_address(16 downto 3)) + to_integer(next_glyph_number(13 downto 0)),14));
-          else
-            -- Previous cycle's fetching of bitmap data will prevail, since we
-            -- are not in text mode.
-            null;
-          end if;
-        when 2 =>
           -- source bitmap data from ROM when necessary
           if last_ramaddress(11 downto 9) = x"001" then
             character_data_from_rom <= '1';
@@ -1763,6 +1752,14 @@ begin
             character_data_from_rom <= '0';
             report "CHARROM: reading from     RAM" severity note;
           end if;
+
+          -- If using 16-bit chars, ask for the 2nd byte, else
+          -- idle FIFO output.
+          if sixteenbit_charset='0' then
+            screen_ram_fifo_readnext <= '0';            
+          end if;
+
+        when 2 =>
 
           -- We definitely don't need to schedule more reading from the FIFO
           -- for the rest of this character.
