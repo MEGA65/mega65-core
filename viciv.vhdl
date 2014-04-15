@@ -381,7 +381,9 @@ architecture Behavioral of viciv is
   signal char_fetch_cycle : integer range 0 to 255 := 16;
   -- data for next card
   signal next_bitmap_colours  : unsigned(7 downto 0);
+  signal next_next_bitmap_colours  : unsigned(7 downto 0);
   signal next_glyph_number : unsigned(15 downto 0);
+  signal next_next_glyph_number : unsigned(15 downto 0);
   signal next_glyph_number8 : unsigned(7 downto 0);
   signal next_glyph_number16 : unsigned(15 downto 0);
   signal next_glyph_colour : unsigned(3 downto 0);
@@ -390,7 +392,7 @@ architecture Behavioral of viciv is
   signal next_glyph_bold : std_logic;
   signal next_glyph_underline : std_logic;
   signal next_glyph_reverse : std_logic;
-  signal next_glyph_chardata : std_logic_vector(31 downto 0);
+  signal next_glyph_chardata : std_logic_vector(63 downto 0);
   signal next_glyph_pixeldata : std_logic_vector(63 downto 0);
   signal next_glyph_number_buffer : std_logic_vector(63 downto 0);
   signal next_glyph_bitmap_buffer : std_logic_vector(63 downto 0);
@@ -1710,12 +1712,9 @@ begin
         when 0 =>
           report "VGA: Fetching next_*, next_card_number=" & integer'image(to_integer(next_card_number))
             severity note;
-          -- Load low bits of card number from FIFO
-          next_glyph_number(7 downto 0) <= screen_ram_fifo_dout;
-          next_glyph_number(15 downto 8) <= (others => '0');
-
-          next_bitmap_colours <= screen_ram_fifo_dout;
-          
+          -- next_glyph_number has been prefetched at start of line or during
+          -- the last character fetch process. Same for next_bitmap_colours.
+                    
           -- Tell FIFO to start reading next character
           screen_ram_fifo_readnext <= '1';
 
@@ -1759,26 +1758,19 @@ begin
             screen_ram_fifo_readnext <= '0';            
           end if;
 
-          -- If in bitmap mode, then override card_number
-          if text_mode='0' then
-            next_glyph_number <= card_number;
-          end if;
-
-          -- There is nothing more we can do right now.
-          ramaddress <= (others => '0');
+          -- We know the character number since it was pre-fetched
+          ramaddress <= std_logic_vector(to_unsigned(to_integer(character_set_address(16 downto 3)) + to_integer(next_glyph_number(13 downto 0)),14));
+          last_ramaddress <= std_logic_vector(to_unsigned(to_integer(character_set_address(16 downto 3)) + to_integer(next_glyph_number(13 downto 0)),14));
         when 2 =>
           -- We definitely don't need to schedule more reading from the FIFO
           -- for the rest of this character.
           screen_ram_fifo_readnext <= '0';            
 
-          -- FIFO has advanced to next screen ram character now after the 1
-          -- cycle latency, so if we are using a 16bit char set, then we can
-          -- grab those bits now.  We already asked the FIFO to advance the
-          -- extra step, so nothing else is required just now.
-          if sixteenbit_charset='1' and text_mode='1' then
-            next_glyph_number(15 downto 8) <= screen_ram_fifo_dout;
-          end if;
-          
+          -- record pre-fetched character data.
+          next_next_glyph_number(7 downto 0) <= screen_ram_fifo_dout;
+          next_next_glyph_number(15 downto 8) <= x"00";
+          next_next_bitmap_colours <= screen_ram_fifo_dout;
+
           -- Store colour byte (will
           -- transfer and decode next cycle to keep logic shallow)
           next_glyph_colour_buffer_temp <= colourramdata;
@@ -1793,13 +1785,24 @@ begin
           -- finish driving out the colour value
           next_glyph_colour_buffer <= next_glyph_colour_buffer_temp;
 
+          -- Read out custom character set data
+          next_glyph_chardata <= ramdata;          
+
+          -- FIFO has advanced to next screen ram character now after the 1
+          -- cycle latency, so if we are using a 16bit char set, then we can
+          -- grab those bits now.  We already asked the FIFO to advance the
+          -- extra step, so nothing else is required just now.
+          if sixteenbit_charset='1' and text_mode='1' then
+            next_next_glyph_number(15 downto 8) <= screen_ram_fifo_dout;
+          end if;
+          
           -- begin shifting bitmap data down over several cycles to keep logic
           -- shallow.
           if chargen_y(2)='1' then
             next_glyph_bitmap_buffer(31 downto 0) <= next_glyph_bitmap_buffer(63 downto 32);
           end if;
 
-                    -- Fetch character ROM byte
+          -- Fetch character ROM byte
           if extended_background_mode='1' then
             -- bit 6 and 7 of character is used for colour
             charaddress(10 downto 9) <= "00";
@@ -1817,9 +1820,6 @@ begin
           end if;
           charaddress(2 downto 0) <= std_logic_vector(chargen_y);
 
-          -- We know the character number
-          ramaddress <= std_logic_vector(to_unsigned(to_integer(character_set_address(16 downto 3)) + to_integer(next_glyph_number(13 downto 0)),14));
-          last_ramaddress <= std_logic_vector(to_unsigned(to_integer(character_set_address(16 downto 3)) + to_integer(next_glyph_number(13 downto 0)),14));
         when 4 =>
           -- If in text mode, work out whether we are using the character rom
           -- (last_ramaddress lacks bottom 3 bits, so testing 6502 address bits 14..12
@@ -1833,6 +1833,11 @@ begin
             report "CHARROM: reading from     RAM" severity note;
             report "test_mode=" & std_logic'image(text_mode) & "last_ramaddress(11 downto 9) = %" & to_string(last_ramaddress(11 downto 9)) severity note;
           end if;
+
+          -- Read out custom character set data
+          if chargen_y(2)='1' then
+            next_glyph_chardata(31 downto 0) <= next_glyph_chardata(63 downto 32);
+          end if;         
           
           -- begin shifting bitmap data down over several cycles to keep logic
           -- shallow.
@@ -1849,13 +1854,10 @@ begin
         when 5 =>
           report "next_glyph_nunber=" & integer'image(to_integer(next_glyph_number)) severity note;
 
-          -- Read out custom character set data
-          if chargen_y(2)='1' then
-            next_glyph_chardata <= ramdata(63 downto 32);
-          else
-            next_glyph_chardata <= ramdata(31 downto 0);           
+          if chargen_y(1)='1' then
+            next_glyph_chardata(15 downto 0) <= ramdata(31 downto 16);
           end if;
-          
+
           -- begin shifting bitmap data down over several cycles to keep logic
           -- shallow.
           if chargen_y(0)='1' then
@@ -1922,10 +1924,10 @@ begin
           -- Request full colour pixel data
           ramaddress <= std_logic_vector(long_address(16 downto 3));
         when 6 =>
-          if chargen_y(1)='1' then
-            next_glyph_chardata(15 downto 0) <= ramdata(31 downto 16);
+          if chargen_y(0)='1' then
+            next_glyph_chardata(7 downto 0) <= not next_glyph_chardata(15 downto 8);
           end if;
-          
+
           -- Nothing to do here
           ramaddress <= (others => '0');
         when 7 =>
@@ -1942,27 +1944,23 @@ begin
             if character_data_from_rom='1' then
               charrow <= not chardata;
             else
-              if chargen_y(0)='0' then
-                charrow <= not next_glyph_chardata(7 downto 0);
-              else
-                charrow <= not next_glyph_chardata(15 downto 8);
-              end if;
+              charrow <= not next_glyph_chardata(7 downto 0);
             end if;
             glyph_pixeldata <= not ramdata;
           else
             if character_data_from_rom='1' then
               charrow <= chardata;
             else
-              if chargen_y(0)='0' then
-                charrow <= next_glyph_chardata(7 downto 0);
-              else
-                charrow <= next_glyph_chardata(15 downto 8);
-              end if;
+              charrow <= next_glyph_chardata(7 downto 0);
             end if;
             glyph_pixeldata <= ramdata;
           end if;
           report "charrow loaded. chardata=$" & to_hstring(chardata) severity note;
 
+          -- transfer pre-fetched glyph and bitmap data ready for use.
+          next_bitmap_colours <= next_next_bitmap_colours;
+          next_glyph_number <= next_next_glyph_number;
+          
           -- Nothing to do here
           ramaddress <= (others => '0');
         when 16 =>
@@ -2014,10 +2012,37 @@ begin
             end if;
           end if;
         when 35 =>
+          -- Begin fetching the glyph number for the first character of the
+          -- row, because the fetch process plus character resolution takes
+          -- more than 8 cycles.  So instead, we pipeline this out further,
+          -- fetching the first gylph number early, and then request the next
+          -- glyph number while processing the previous one.         
           screen_ram_fifo_readnext <= '1';
           char_fetch_cycle <= 36;
         when 36 =>
-          screen_ram_fifo_readnext <= '0';
+          -- if using a 16 bit character set, ask for the 2nd byte, while still
+          -- waiting for the first byte to arrive from the FIFO.
+          if (sixteenbit_charset='1') and (text_mode='1') then
+            screen_ram_fifo_readnext <= '1';
+          else
+            screen_ram_fifo_readnext <= '0';            
+          end if;
+          char_fetch_cycle <= 37;
+        when 37 =>
+          -- Stop asking for bytes from the FIFO, and record the first byte
+          screen_ram_fifo_readnext <= '0';            
+          next_glyph_number(7 downto 0) <= screen_ram_fifo_dout;
+          next_bitmap_colours <= screen_ram_fifo_dout;
+          char_fetch_cycle <= 38;
+        when 38 =>
+          -- Record the 2nd byte or zero out the top bits of the next character
+          -- number.
+          if (sixteenbit_charset='1') and (text_mode='1') then
+            next_glyph_number(15 downto 8) <= screen_ram_fifo_dout;
+          else
+            next_glyph_number(15 downto 8) <= x"00";
+          end if;
+          -- all done.
           char_fetch_cycle <= 64;
         when 64 =>
           -- XXX Fetch VIC-II sprite information
