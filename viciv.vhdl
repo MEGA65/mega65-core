@@ -1748,8 +1748,10 @@ begin
           colourramaddress <= std_logic_vector(long_address(15 downto 0));
         when 1 =>
 
-          -- source bitmap data from ROM when necessary
-          if last_ramaddress(11 downto 9) = "001" then
+          -- source bitmap data from ROM when necessary.
+          -- Character set ROM is only visible in first 64KB of RAM.
+          if (last_ramaddress(13)='0') and
+             (last_ramaddress(11 downto 9) = "001") then
             character_data_from_rom <= '1';
             report "CHARROM: reading from ROM" severity note;
           else
