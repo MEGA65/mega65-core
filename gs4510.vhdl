@@ -1509,7 +1509,19 @@ downto 8) = x"D3F" then
           flag_z <= '0';
         end if;
         write_data_byte(address,(not reg_a) and operand,InstructionFetch);
-      when others => null;
+      when others =>
+        -- For this to happen, an instruction must be incorrectly implemented
+        -- (eg missing from this case statement).
+        -- In such cases, we will mask all interrupts, bank the kickstart ROM
+        -- in, and jump to ($FFF0).
+        kickstart_en <= '1';
+        map_interrupt_inhibit <= '1';
+        vector <= x"FFF0";
+        -- make program counter and opcode to blame visible
+        reg_x <= reg_pc(7 downto 0);
+        reg_y <= reg_pc(15 downto 8);
+        reg_z <= reg_opcode;
+        state <= VectorRead;
     end case;
   end procedure execute_operand_instruction;
 

@@ -1944,6 +1944,7 @@ txt_c65gsd81:	      .byte "C65GS   D81"
 ;;; ----------------------------------------------------------------------------
 reset_entry:
 		; get CPU state sensible
+		phw $003d
 		sei
 		cld
 		see
@@ -2019,6 +2020,35 @@ irq_entry:
 		pla
 		rti
 
+cpuerror_entry:
+		sta $4000
+		stx $4001
+		sty $4002
+		stz $4003
+		sec
+		jsr enhanced_io
+
+		jsr resetdisplay
+		jsr resetpalette
+		jsr erasescreen
+
+		; display cpu error message
+		ldx #<msg_cpuerror
+		ldy #>msg_cpuerror
+		jsr printmessage
+		ldy #$00
+		ldz $4003
+		jsr printhex
+		ldz $4001		
+		jsr printhex
+		ldz $4002
+		jsr printhex
+*		
+		jmp -
+
+msg_cpuerror:	.byte " **** CPU ERROR: OPCODE=$$ PC=$$$$ **** "
+	
+
 ; --------------------------------------------------------------------------------
 ; Kickstart jump table of useful routines (subject to change)
 ; --------------------------------------------------------------------------------
@@ -2031,9 +2061,12 @@ irq_entry:
 		jmp sdunmapsectorbuffer
 
 
-
+; C65GS specific vectors
+       		.checkpc $FFF0
+		.advance $FFF0
+		.word cpuerror_entry
 ; 6502 interrupt and reset vectors
-       		.checkpc $FFFA
+		.checkpc $FFFA
 		.advance $FFFA
 nmi_vector:	.word nmi_entry
 reset_vector:	.word reset_entry
