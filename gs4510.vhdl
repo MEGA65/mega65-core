@@ -223,7 +223,7 @@ architecture Behavioural of gs4510 is
     RTS1,RTS2,
     JSR1,JSRind1,JSRind2,JSRind3,JSRind4,
     JMP1,JMP2,JMP3,
-    PHWimm1,
+    PHWimm1,PHWabs1,PHWabs2,PHWabs3,
     IndirectX1,IndirectX2,IndirectX3,
     IndirectY1,IndirectY2,IndirectY3,
     IndirectZ1,IndirectZ2,
@@ -1591,6 +1591,10 @@ downto 8) = x"D3F" then
       push_byte(reg_pc_jsr(15 downto 8),JSRind1);
     elsif i=I_JMP and mode=M_nnnn then
       reg_pc <= arg2 & arg1; state<=InstructionFetch;
+    elsif i=I_PHW and mode=M_nnnn then
+      -- Read bytes to push
+      reg_addr <= ((arg2 & arg1) +1);
+      read_data_byte(arg2 & arg1,PHWabs1);
     elsif i=I_JMP and mode=M_Innnn then
       -- Read first byte of indirect vector
       read_data_byte(arg2 & arg1,JMP1);
@@ -2021,6 +2025,15 @@ downto 8) = x"D3F" then
               reg_pc(15 downto 8) <= read_data;
               ready_for_next_instruction(read_data & reg_pc(7 downto 0));
             when PHWimm1 => push_byte(reg_value,InstructionFetch);
+            when PHWabs1 =>
+              -- got low byte to push
+              push_byte(read_data,PHWabs2);
+            when PHWabs2 =>
+              -- ask for high byte
+              read_data_byte(reg_addr,PHWabs3);
+            when PHWabs3 =>
+              -- push high byte and proceed to next instruction
+              push_byte(read_data,InstructionFetch);
             when JMP1 =>
               -- Add a wait state to see if it fixes our problem with not loading
               -- addresses properly for indirect jump
