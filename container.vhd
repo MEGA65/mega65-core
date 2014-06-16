@@ -170,6 +170,9 @@ architecture Behavioral of container is
          micClk : out std_logic;
          micLRSel : out std_logic;
 
+         ampPWM : out std_logic;
+         ampSD : out std_logic;
+
          tmpSDA : out std_logic;
          tmpSCL : out std_logic;
          tmpInt : in std_logic;
@@ -265,7 +268,7 @@ begin
       micClk => micClk,
       micLRSel => micLRSel,
 
-      ampPWM => ampWPM,
+      ampPWM => ampPWM,
       ampSD => ampSD,
     
       tmpSDA => tmpSDA,

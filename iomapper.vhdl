@@ -300,7 +300,7 @@ begin
     aclMISO => aclMISO,
     aclMOSI => aclMOSI,
     aclSS => aclSS,
-    aclSCLK => aclSS,
+    aclSCLK => aclSCLK,
     aclInt1 => aclInt1,
     aclInt2 => aclInt2,
     
