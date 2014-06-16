@@ -343,7 +343,7 @@ begin  -- behavioural
       last_was_d087 <= '0';
       f011_buffer_write <= '0';
       if f011_buffer_address = f011_buffer_next_read then
-        f011_flag_eq <= '0';
+        f011_flag_eq <= '1';
       else
         f011_flag_eq <= '0';
       end if;
