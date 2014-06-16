@@ -51,6 +51,9 @@ entity sdcardio is
     aclInt1 : in std_logic;
     aclInt2 : in std_logic;
     
+    ampPWM : out std_logic;
+    ampSD : out std_logic;
+
     micData : in std_logic;
     micClk : out std_logic;
     micLRSel : out std_logic;
@@ -110,6 +113,8 @@ architecture behavioural of sdcardio is
   signal tmpSDAinternal : std_logic := '0';
   signal tmpSCLinternal : std_logic := '0';
 
+  signal pwm_value : unsigned(7 downto 0) := x"00";
+  signal pwm_phase : unsigned(7 downto 0) := x"00";
   
   -- debounce reading from or writing to $D087 so that buffered read/write
   -- behaves itself.
@@ -272,6 +277,20 @@ begin  -- behavioural
     
     if rising_edge(clock) then
 
+      -- Implement 8-bit digital audio output
+      pwm_phase <= pwm_phase + 1;
+      if pwm_phase = x"00" then
+        if pwm_value = x"00" then
+          ampPWM <= '0';
+        else
+          ampPWM <= '1';
+        end if;
+      else
+        if pwm_value=pwm_phase then
+          ampPWM <= '0';
+        end if;
+      end if;
+      
       if f011_ds=x"000" then
         f011_write_protected <= f011_disk1_write_protected;
         f011_disk_present <= f011_disk1_present;
@@ -330,6 +349,15 @@ std_logic'image(colourram_at_dc00) & ", sector_buffer_mapped = " & std_logic'ima
       
       if  fastio_read='0' and fastio_write='1' then
         if fastio_write='1' then
+          if (fastio_addr(19 downto 0) = x"D0418")
+            or (fastio_addr(19 downto 0) = x"D1418")
+            or (fastio_addr(19 downto 0) = x"D2418")
+            or (fastio_addr(19 downto 0) = x"D3418")
+          then
+            -- 8-bit digital audio out
+            pwm_value(7 downto 4) <= fastio_wdata(3 downto 0);
+          end if;
+
           if (fastio_addr(19 downto 5)&'0' = x"D108")
             or (fastio_addr(19 downto 5)&'0' = x"D308") then
             -- F011 FDC emulation registers
@@ -611,6 +639,12 @@ std_logic'image(colourram_at_dc00) & ", sector_buffer_mapped = " & std_logic'ima
                 tmpSDA <= fastio_wdata(0);
                 tmpSCLinternal <= fastio_wdata(1);
                 tmpSCL <= fastio_wdata(1);
+              when x"F8" =>
+                -- 8-bit digital audio out
+                pwm_value <= fastio_wdata;
+              when x"F9" =>
+                -- enable/disable audio amplifiers
+                ampSD <= fastio_wdata(0);
               when others => null;
             end case;
           end if;
@@ -783,6 +817,9 @@ std_logic'image(colourram_at_dc00) & ", sector_buffer_mapped = " & std_logic'ima
               fastio_rdata(5) <= tmpInt;
               fastio_rdata(6) <= tmpCT;
               fastio_rdata(7) <= tmpInt or tmpCT;
+            when x"F8" =>
+              -- PWM output
+              fastio_rdata <= pwm_value;
             when others => fastio_rdata <= (others => 'Z');
           end case;
         else

@@ -64,6 +64,9 @@ entity machine is
          aclInt1 : in std_logic;
          aclInt2 : in std_logic;
     
+         ampPWM : out std_logic;
+         ampSD : out std_logic;
+
          micData : in std_logic;
          micClk : out std_logic;
          micLRSel : out std_logic;
@@ -333,6 +336,9 @@ architecture Behavioral of machine is
           aclInt1 : in std_logic;
           aclInt2 : in std_logic;
     
+          ampPWM : out std_logic;
+          ampSD : out std_logic;
+
           micData : in std_logic;
           micClk : out std_logic;
           micLRSel : out std_logic;
@@ -691,6 +697,9 @@ begin
     aclSS => aclSS,
     aclInt1 => aclInt1,
     aclInt2 => aclInt2,
+    
+    ampPWM => ampPWM,
+    ampSD => ampSD,
     
     micData => micData,
     micClk => micClk,

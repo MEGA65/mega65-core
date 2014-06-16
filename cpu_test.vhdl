@@ -66,6 +66,9 @@ architecture behavior of cpu_test is
            aclInt1 : in std_logic;
            aclInt2 : in std_logic;
     
+           ampPWM : out std_logic;
+           ampSD : out std_logic;
+
            micData : in std_logic;
            micClk : out std_logic;
            micLRSel : out std_logic;
@@ -129,7 +132,7 @@ begin
       aclInt2 => '0',
       micData => '0',
       tmpInt => '0',
-      tmpCT => '0',
+      tmpCT => '0',      
       
       slowram_data => slowram_data,
       

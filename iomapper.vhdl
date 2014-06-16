@@ -47,6 +47,9 @@ entity iomapper is
         micClk : out std_logic;
         micLRSel : out std_logic;
 
+        ampPWM : out std_logic;
+        ampSD : out std_logic;
+
         tmpSDA : out std_logic;
         tmpSCL : out std_logic;
         tmpInt : in std_logic;
@@ -119,6 +122,9 @@ architecture behavioral of iomapper is
       micData : in std_logic;
       micClk : out std_logic;
       micLRSel : out std_logic;
+
+      ampPWM : out std_logic;
+      ampSD : out std_logic;
 
       tmpSDA : out std_logic;
       tmpSCL : out std_logic;
@@ -296,6 +302,9 @@ begin
     micData => micData,
     micClk => micClk,
     micLRSel => micLRSel,
+
+    ampSD => ampSD,
+    ampPWM => ampPWM,
     
     tmpSDA => tmpSDA,
     tmpSCL => tmpSCL,
