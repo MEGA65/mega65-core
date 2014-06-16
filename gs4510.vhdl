@@ -614,7 +614,7 @@ begin
       last_fastio_addr(11) <= '0';
       last_fastio_addr(10 downto 0) <= std_logic_vector(long_address(10 downto 0));
       fastio_read <= '1'; fastio_write <= '0';
-      pending_state <= next_state;      
+      pending_state <= next_state;   
       state <= FastIOWait;
     elsif long_address(27 downto 17)="00000000000" then
       report "Reading from fastram address $" & to_hstring(long_address(19 downto 0))
@@ -2173,8 +2173,11 @@ downto 8) = x"D3F" then
               colour_ram_cs <= colour_ram_cs_last;
               accessing_fastio <= accessing_fastio;
               accessing_vic_fastio <= accessing_vic_fastio;
-
-              state <= pending_state; accessing_fastio <= '1';
+              accessing_colour_ram_fastio <= accessing_colour_ram_fastio;
+              if accessing_colour_ram_fastio='0' then
+                accessing_fastio <= '1';
+              end if;
+              state <= pending_state; 
             when SlowRamRead1 =>
               slowram_ce <= '0';
               slowram_oe <= '0';
