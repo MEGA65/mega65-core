@@ -40,7 +40,7 @@ entity iomapper is
         aclMISO : in std_logic;
         aclMOSI : out std_logic;
         aclSS : out std_logic;
-        aclSCLK : out std_logic;
+        aclSCK : out std_logic;
         aclInt1 : in std_logic;
         aclInt2 : in std_logic;
     
@@ -118,7 +118,7 @@ architecture behavioral of iomapper is
       aclMISO : in std_logic;
       aclMOSI : out std_logic;
       aclSS : out std_logic;
-      aclSCLK : out std_logic;
+      aclSCK : out std_logic;
       aclInt1 : in std_logic;
       aclInt2 : in std_logic;
     
@@ -300,7 +300,7 @@ begin
     aclMISO => aclMISO,
     aclMOSI => aclMOSI,
     aclSS => aclSS,
-    aclSCLK => aclSCLK,
+    aclSCK => aclSCK,
     aclInt1 => aclInt1,
     aclInt2 => aclInt2,
     
