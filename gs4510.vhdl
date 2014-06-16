@@ -1036,6 +1036,31 @@ downto 8) = x"D3F" then
       return dma_checksum(15 downto 8);
     elsif (the_read_address = x"FFD3712") or (the_read_address = x"FFD1712") then
       return dma_checksum(23 downto 16);
+    elsif (the_read_address = x"FFD3720") or (the_read_address = x"FFD1720") then
+      return dmagic_count(7 downto 0);
+    elsif (the_read_address = x"FFD3721") or (the_read_address = x"FFD1721") then
+      return dmagic_count(15 downto 8);
+    elsif (the_read_address = x"FFD3722") or (the_read_address = x"FFD1722") then
+      return dmagic_tally(7 downto 0);
+    elsif (the_read_address = x"FFD3723") or (the_read_address = x"FFD1723") then
+      return dmagic_tally(15 downto 8);
+    elsif (the_read_address = x"FFD3728") or (the_read_address = x"FFD1728") then
+      return dmagic_src_addr(7 downto 0);
+    elsif (the_read_address = x"FFD3729") or (the_read_address = x"FFD1729") then
+      return dmagic_src_addr(15 downto 8);
+    elsif (the_read_address = x"FFD372a") or (the_read_address = x"FFD172a") then
+      return dmagic_src_addr(23 downto 16);
+    elsif (the_read_address = x"FFD372b") or (the_read_address = x"FFD172b") then
+      return "0"&dmagic_src_addr(27 downto 24);
+    elsif (the_read_address = x"FFD372c") or (the_read_address = x"FFD172c") then
+      return dmagic_dest_addr(7 downto 0);
+    elsif (the_read_address = x"FFD372d") or (the_read_address = x"FFD172d") then
+      return dmagic_dest_addr(15 downto 8);
+    elsif (the_read_address = x"FFD372e") or (the_read_address = x"FFD172e") then
+      return dmagic_dest_addr(23 downto 16);
+    elsif (the_read_address = x"FFD372f") or (the_read_address = x"FFD172f") then
+      return "0"&dmagic_dest_addr(27 downto 24);
+
     end if;   
 
     if accessing_cpuport='1' then
