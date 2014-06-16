@@ -522,9 +522,9 @@ std_logic'image(colourram_at_dc00) & ", sector_buffer_mapped = " & std_logic'ima
                   when x"80" =>         -- write sector
                     -- Copy sector from F011 buffer to SD buffer, and then
                     -- pretend the SD card registers were used to trigger a write.
-                    if f011_ds="000" and (diskimage1_enable='0' or f011_disk1_present='0') then
+                    if f011_ds="000" and (diskimage1_enable='0' or f011_disk1_present='0' or f011_disk1_write_protected='1') then
                       f011_rnf <= '1';
-                    elsif f011_ds="001" and (diskimage2_enable='0' or f011_disk2_present='0') then
+                    elsif f011_ds="001" and (diskimage2_enable='0' or f011_disk2_present='0' or f011_disk2_write_protected='1') then
                       f011_rnf <= '1';
                     elsif f011_ds(2 downto 1) /= x"00" then
                       -- only 2 drives supported for now
