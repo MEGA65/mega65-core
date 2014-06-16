@@ -551,12 +551,19 @@ text 8016 801C
 data 8634 864F
 8634 Ascending byte values from $02-$1D
 90C6 Read then write some sector? (not used?)
-975B Read a sector?
+975B Read a sector from disk
 9761 @ command byte: read sector from disk.
 976B @ Take branch and abort if RNF (read not found) bit set
 9770 @ Take branch and keep waiting if sector not yet found (RDREQ bit
 clear)
 9798 @ Branch taken if read failed
+979E Write a sector to disk
+97AA @ Read 512-byte physical sector ready for re-writing
+97C1 @ Copy 256-byte logical sector into FDC buffer
+97C9 @ Read one byte at a time from FDC buffer until EQ flag is asserted
+97D5 @ Issue write sector command to FDC
+97E1 @ Make sure that written sector can be read back from disk
+9872 @ return if failed
 9873 Format a track? (uses unbuffered formatting)
 9890 @ check FDC busy flag
 9893 @ Return  if FDC not busy
@@ -595,6 +602,7 @@ clear)
 9AA5 Routine that does something based on which FDC drive selected?
 9AA8 @ clear FDC IRQ?
 data 9A2A 9A2B
+9AC2 Test if drive ready and not write-protected
 9ACA @ If not drive 2, then do something
 9ACE Test whether sector read or write succeeded
 9AD4 @ Check if RNF or CRC bits set, which would indicate a disk error
