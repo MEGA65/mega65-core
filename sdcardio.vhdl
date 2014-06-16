@@ -9,6 +9,7 @@ use work.debugtools.all;
 entity sdcardio is
   port (
     clock : in std_logic;
+    pixelclk : in std_logic;
     reset : in std_logic;
 
     ---------------------------------------------------------------------------
@@ -116,6 +117,12 @@ architecture behavioural of sdcardio is
   signal pwm_value_new : unsigned(7 downto 0) := x"00";
   signal pwm_value : unsigned(7 downto 0) := x"00";
   signal pwm_phase : unsigned(7 downto 0) := x"00";
+
+  signal mic_divider : unsigned(3 downto 0) := "0000";
+  signal mic_counter : unsigned(7 downto 0) := "00000000";
+  signal mic_onecount : unsigned(7 downto 0) := "00000000";
+  signal mic_value_left : unsigned(7 downto 0) := "00000000";
+  signal mic_value_right : unsigned(7 downto 0) := "00000000";
   
   -- debounce reading from or writing to $D087 so that buffered read/write
   -- behaves itself.
@@ -267,7 +274,6 @@ begin  -- behavioural
       unsigned(doutb) => f011_rdata      
       );
 
-  
   -- XXX also implement F1011 floppy controller emulation.
   process (clock,fastio_addr,fastio_wdata,sector_buffer_mapped,sdio_busy,
            sd_reset,fastio_read,sd_sector,fastio_write,
@@ -292,6 +298,35 @@ begin  -- behavioural
         end if;
         if pwm_phase = x"FF" then
           pwm_value <= pwm_value_new;
+        end if;
+      end if;      
+
+      -- microphone sampling process
+      -- max frequency is 3MHz. 32MHz/12 ~= 3MHz
+      if mic_divider < 12 then
+        if mic_divider < 6 then
+          micCLK <= '1';
+        else
+          micCLK <= '0';
+        end if;
+        mic_divider <= mic_divider + 1;
+      else
+        mic_divider <= (others => '0');
+        if mic_counter < 127 then
+          if micData='1' then
+            mic_onecount <= mic_onecount + 1;
+          end if;
+        else
+          -- finished sampling, update output
+          if micLRSelinternal='0' then
+            mic_value_left(7 downto 0) <= mic_onecount;
+          else
+            mic_value_right(7 downto 0) <= mic_onecount;
+          end if;
+          mic_onecount <= (others => '0');
+          mic_counter <= (others => '0');
+          micLRSel <= not micLRSelinternal;
+          micLRSelinternal <= not micLRSelinternal;
         end if;
       end if;
       
@@ -631,12 +666,6 @@ std_logic'image(colourram_at_dc00) & ", sector_buffer_mapped = " & std_logic'ima
                 aclMOSIinternal <= fastio_wdata(1);
                 aclSS <= fastio_wdata(2);
                 aclSSinternal <= fastio_wdata(2);
-              when x"F4" =>
-                -- Microphone
-                micClkinternal <= fastio_wdata(1);
-                micClk <= fastio_wdata(1);
-                micLRSelinternal <= fastio_wdata(2);
-                micLRSel <= fastio_wdata(2);
               when x"F5" =>
                 -- Temperature sensor
                 tmpSDAinternal <= fastio_wdata(0);
@@ -807,12 +836,6 @@ std_logic'image(colourram_at_dc00) & ", sector_buffer_mapped = " & std_logic'ima
               fastio_rdata(5) <= aclInt1;
               fastio_rdata(6) <= aclInt2;
               fastio_rdata(7) <= aclInt1 or aclInt2;
-            when x"F4" =>
-              -- Microphone inputs
-              fastio_rdata(0) <= micData;
-              fastio_rdata(1) <= micClkinternal;
-              fastio_rdata(2) <= micLRSelinternal;
-              fastio_rdata(7 downto 3) <= (others => '0');
             when x"F5" =>
               -- Temperature sensor
               fastio_rdata(0) <= tmpSDAinternal;
@@ -824,6 +847,12 @@ std_logic'image(colourram_at_dc00) & ", sector_buffer_mapped = " & std_logic'ima
             when x"F8" =>
               -- PWM output
               fastio_rdata <= pwm_value_new;
+            when x"F9" =>
+              -- microphone input
+              fastio_rdata <= mic_value_left;
+            when x"FA" =>
+              -- microphone input
+              fastio_rdata <= mic_value_right;
             when others => fastio_rdata <= (others => 'Z');
           end case;
         else

@@ -79,6 +79,7 @@ architecture behavioral of iomapper is
   component sdcardio is
     port (
       clock : in std_logic;
+      pixelclk : in std_logic;
       reset : in std_logic;
 
       ---------------------------------------------------------------------------
@@ -268,6 +269,7 @@ begin
     );
 
   sdcard0 : sdcardio port map (
+    pixelclk => pixelclk,
     clock => clk,
     reset => reset,
 
