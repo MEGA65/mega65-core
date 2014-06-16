@@ -1037,7 +1037,7 @@ downto 8) = x"D3F" then
     elsif (the_read_address = x"FFD372a") or (the_read_address = x"FFD172a") then
       return dmagic_src_addr(23 downto 16);
     elsif (the_read_address = x"FFD372b") or (the_read_address = x"FFD172b") then
-      return "0"&dmagic_src_addr(27 downto 24);
+      return "0000"&dmagic_src_addr(27 downto 24);
     elsif (the_read_address = x"FFD372c") or (the_read_address = x"FFD172c") then
       return dmagic_dest_addr(7 downto 0);
     elsif (the_read_address = x"FFD372d") or (the_read_address = x"FFD172d") then
@@ -1045,7 +1045,7 @@ downto 8) = x"D3F" then
     elsif (the_read_address = x"FFD372e") or (the_read_address = x"FFD172e") then
       return dmagic_dest_addr(23 downto 16);
     elsif (the_read_address = x"FFD372f") or (the_read_address = x"FFD172f") then
-      return "0"&dmagic_dest_addr(27 downto 24);
+      return "0000"&dmagic_dest_addr(27 downto 24);
 
     end if;   
 
