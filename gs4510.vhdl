@@ -765,11 +765,19 @@ downto 8) = x"D3F" then
   end read_address;
 
   procedure write_long_byte(
-    long_address       : in unsigned(27 downto 0);
+    real_long_address       : in unsigned(27 downto 0);
     value              : in unsigned(7 downto 0);
     next_state         : in processor_state) is
+    variable long_address : unsigned(27 downto 0);
   begin
     -- Schedule the memory write to the appropriate destination.
+
+    if real_long_address(27 downto 12) = x"001F" and real_long_address(11)='1' then
+      -- colour ram access: remap to $FF80000 - $FF807FF
+      long_address := x"FF80"&'0'&real_long_address(10 downto 0);
+    else
+      long_address := real_long_address;
+    end if;
 
     -- Tell i-cache that memory map is changing if we touch $D030
     -- (VIC-III ROM banking register)
@@ -830,20 +838,7 @@ downto 8) = x"D3F" then
     
     accessing_ram <= '0'; accessing_slowram <= '0';
     accessing_fastio <= '0'; accessing_cpuport <= '0';
-    if long_address(27 downto 12) = x"001F" and long_address(11)='1' then
-      -- Last 2KB of chipram really points to colour RAM for C65 compatibility
-      accessing_colour_ram_fastio <= '1';
-      colour_ram_cs <= '1';
-      colour_ram_cs_last <= '1';
-      fastio_addr(19 downto 12) <= x"80";
-      fastio_addr(11) <= '0';
-      fastio_addr(10 downto 0) <= std_logic_vector(long_address(10 downto 0));
-      last_fastio_addr(19 downto 12) <= x"80";
-      last_fastio_addr(11) <= '0';
-      last_fastio_addr(10 downto 0) <= std_logic_vector(long_address(10 downto 0));
-      fastio_read <= '0'; fastio_write <= '1';
-      fastio_wdata <= std_logic_vector(value);
-    elsif long_address(27 downto 17)="00000000000" then
+    if long_address(27 downto 17)="00000000000" then
       accessing_ram <= '1';
       fastram_address <= std_logic_vector(long_address(16 downto 3));
       fastram_last_address <= std_logic_vector(long_address(16 downto 3));
