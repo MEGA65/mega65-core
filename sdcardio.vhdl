@@ -49,6 +49,7 @@ entity sdcardio is
     aclMISO : in std_logic;
     aclMOSI : out std_logic;
     aclSS : out std_logic;
+    aclSCLK : out std_logic;
     aclInt1 : in std_logic;
     aclInt2 : in std_logic;
     
@@ -109,6 +110,7 @@ architecture behavioural of sdcardio is
 
   signal aclMOSIinternal : std_logic := '0';
   signal aclSSinternal : std_logic := '0';
+  signal aclSCLKinternal : std_logic := '0';
   signal micClkinternal : std_logic := '0';
   signal micLRSelinternal : std_logic := '0';
   signal tmpSDAinternal : std_logic := '0';
@@ -666,6 +668,8 @@ std_logic'image(colourram_at_dc00) & ", sector_buffer_mapped = " & std_logic'ima
                 aclMOSIinternal <= fastio_wdata(1);
                 aclSS <= fastio_wdata(2);
                 aclSSinternal <= fastio_wdata(2);
+                aclSCLK <= fastio_wdata(3);
+                aclSCLKinternal <= fastio_wdata(3);
               when x"F5" =>
                 -- Temperature sensor
                 tmpSDAinternal <= fastio_wdata(0);
@@ -831,7 +835,7 @@ std_logic'image(colourram_at_dc00) & ", sector_buffer_mapped = " & std_logic'ima
               fastio_rdata(0) <= aclMISO;
               fastio_rdata(1) <= aclMOSIinternal;
               fastio_rdata(2) <= aclSSinternal;
-              fastio_rdata(3) <= '0';
+              fastio_rdata(3) <= aclSCLKinternal;
               fastio_rdata(4) <= '0';
               fastio_rdata(5) <= aclInt1;
               fastio_rdata(6) <= aclInt2;

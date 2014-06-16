@@ -61,12 +61,16 @@ entity container is
          aclMISO : in std_logic;
          aclMOSI : out std_logic;
          aclSS : out std_logic;
+         aclSCLK : out std_logic;
          aclInt1 : in std_logic;
          aclInt2 : in std_logic;
     
          micData : in std_logic;
          micClk : out std_logic;
          micLRSel : out std_logic;
+
+         ampPWM : out std_logic;
+         ampSD : out std_logic;
 
          tmpSDA : out std_logic;
          tmpSCL : out std_logic;
@@ -158,6 +162,7 @@ architecture Behavioral of container is
          aclMISO : in std_logic;
          aclMOSI : out std_logic;
          aclSS : out std_logic;
+         aclSCLK : out std_logic;
          aclInt1 : in std_logic;
          aclInt2 : in std_logic;
     
@@ -252,12 +257,16 @@ begin
       aclMISO => aclMISO,
       aclMOSI => aclMOSI,
       aclSS => aclSS,
+      aclSCLK => aclSCLK,
       aclInt1 => aclInt1,
       aclInt2 => aclInt2,
     
       micData => micData,
       micClk => micClk,
       micLRSel => micLRSel,
+
+      ampPWM => ampWPM,
+      ampSD => ampSD,
     
       tmpSDA => tmpSDA,
       tmpSCL => tmpSCL,
