@@ -98,6 +98,7 @@ architecture behavioural of sdcardio is
   signal sd_sector       : unsigned(31 downto 0) := (others => '0');
   signal sd_datatoken    : unsigned(7 downto 0);
   signal sd_rdata        : std_logic_vector(7 downto 0);
+  signal sb_wdata        : std_logic_vector(7 downto 0);
   signal sd_wdata        : std_logic_vector(7 downto 0) := (others => '0');
   signal sd_error        : std_logic;
   signal sd_reset        : std_logic := '1';
@@ -117,6 +118,7 @@ architecture behavioural of sdcardio is
   type sd_state_t is (Idle,
                       ReadSector,ReadingSector,ReadingSectorAckByte,DoneReadingSector,
                       WriteSector,WritingSector,WritingSectorAckByte,
+                      F011WriteSector,F011WriteSectorCopying,
                       DoneWritingSector);
   signal sd_state : sd_state_t := Idle;
 
@@ -209,7 +211,7 @@ begin  -- behavioural
       enb => '1',
       web => sbweb,
       addrb => std_logic_vector(sector_offset(8 downto 0)),
-      dinb => sd_rdata,
+      dinb => sb_wdata,
       doutb => sd_wdata
       
       );
@@ -421,10 +423,37 @@ std_logic'image(colourram_at_dc00) & ", sector_buffer_mapped = " & std_logic'ima
                       f011_buffer_next_read(7 downto 0) <= (others => '0');
                       f011_buffer_next_read(8) <= f011_swap;
 
-                    end if;
-                    null;
+                    end if;                    
                   when x"80" =>         -- write sector
-                    null;
+                    -- Copy sector from F011 buffer to SD buffer, and then
+                    -- pretend the SD card registers were used to trigger a write.
+                    if f011_ds="000" and (diskimage1_enable='0' or f011_disk1_present='0') then
+                      f011_rnf <= '1';
+                    elsif f011_ds="001" and (diskimage2_enable='0' or f011_disk2_present='0') then
+                      f011_rnf <= '1';
+                    elsif f011_ds(2 downto 1) /= x"00" then
+                      -- only 2 drives supported for now
+                      f011_rnf <= '1';
+                    else
+                      -- f011_buffer_address gets pre-incremented, so start
+                      -- with it pointing to the end of the buffer first
+                      f011_buffer_address(7 downto 0) <= (others => '1');
+                      f011_buffer_address(8) <= '1';
+                      f011_sector_fetch <= '1';
+                      f011_busy <= '1';
+                      -- XXX Doesn't trigger an error for bad track/sector:
+                      -- just writes to sector 1599 of the disk image!
+                      if sdhc_mode='1' then
+                        sd_sector <= diskimage_sector + diskimage_offset;
+                      else
+                        sd_sector(31 downto 9) <= diskimage_sector(31 downto 9) +
+                                                  diskimage_offset;     
+                      end if;
+                      sd_state <= F011WriteSector;
+                      f011_buffer_address <= (others => '0');
+                      sdio_error <= '0';
+                      sdio_fsm_error <= '0';
+                    end if;
                   when x"10" =>         -- head step out, or no step
                     if fastio_wdata(2)='1' then
                       -- time, but don't step
@@ -715,6 +744,7 @@ std_logic'image(colourram_at_dc00) & ", sector_buffer_mapped = " & std_logic'ima
             -- A byte is ready to read, so store it
             -- sector_buffer(to_integer(sector_offset)) <= unsigned(sd_rdata);
             sbweb(0) <= '1';
+            sb_wdata <= sd_rdata;
             sd_state <= ReadingSectorAckByte;
             if skip=0 then
               sector_offset <= sector_offset + 1;
@@ -752,14 +782,33 @@ std_logic'image(colourram_at_dc00) & ", sector_buffer_mapped = " & std_logic'ima
               sd_state <= ReadingSector;
             end if;
           end if;
+        when F011WriteSector =>
+          -- Sit out the wait state for reading the next sector buffer byte
+          -- as we copy the F011 sector buffer to the primary SD card sector buffer.
+          sbweb(0) <= '0';
+          f011_buffer_address <= f011_buffer_address;
+          sd_state <= F011WriteSectorCopying;
+        when F011WriteSectorCopying =>
+          -- Write byte to SD sector buffer
+          sector_offset <= "0"&f011_buffer_address;
+          sb_wdata <= std_logic_vector(f011_rdata);
+          sbweb(0) <= '1';
+          if f011_buffer_address /= "111111111" then
+            -- Schedule reading of the next byte
+            f011_buffer_address <= f011_buffer_address + 1;
+            sd_state <= F011WriteSector;
+          else
+            -- Got all bytes, so proceed to writing sector.
+            sd_state <= WriteSector;
+          end if;          
         when WriteSector =>
           -- Begin writing a sector into the buffer
+          sbweb(0) <= '0';
           if sdio_busy='0' then
             sd_dowrite <= '1';
             sdio_busy <= '1';
             sd_state <= WritingSector;
             sector_offset <= (others => '0');
---            sd_wdata <= std_logic_vector(sector_buffer(0));
           else
             sd_dowrite <= '0';
           end if;
@@ -767,7 +816,6 @@ std_logic'image(colourram_at_dc00) & ", sector_buffer_mapped = " & std_logic'ima
           if data_ready='1' then
             sd_dowrite <= '0';
             -- Byte has been accepted, write next one
---            sd_wdata <= std_logic_vector(sector_buffer(to_integer(sector_offset+1)));
             sd_state <= WritingSectorAckByte;
             sector_offset <= sector_offset + 1;
           end if;
@@ -789,6 +837,10 @@ std_logic'image(colourram_at_dc00) & ", sector_buffer_mapped = " & std_logic'ima
         when DoneWritingSector =>
           sdio_busy <= '0';
           sd_state <= Idle;
+          if f011_busy='1' then
+            f011_busy <= '0';
+            f011_wsector_found <= '1';
+          end if;
       end case;    
 
     end if;
