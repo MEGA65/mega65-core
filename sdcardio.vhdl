@@ -40,7 +40,25 @@ entity sdcardio is
     cs_bo : out std_logic;
     sclk_o : out std_logic;
     mosi_o : out std_logic;
-    miso_i : in  std_logic
+    miso_i : in  std_logic;
+
+    ---------------------------------------------------------------------------
+    -- Lines for other devices that we handle here
+    ---------------------------------------------------------------------------
+    aclMISO : in std_logic;
+    aclMOSI : out std_logic;
+    aclSS : out std_logic;
+    aclInt1 : in std_logic;
+    aclInt2 : in std_logic;
+    
+    micData : in std_logic;
+    micClk : out std_logic;
+    micLRSel : out std_logic;
+
+    tmpSDA : out std_logic;
+    tmpSCL : out std_logic;
+    tmpInt : in std_logic;
+    tmpCT : in std_logic
     );
 end sdcardio;
 
@@ -85,6 +103,14 @@ architecture behavioural of sdcardio is
   );
   END component;
 
+  signal aclMOSIinternal : std_logic := '0';
+  signal aclSSinternal : std_logic := '0';
+  signal micClkinternal : std_logic := '0';
+  signal micLRSelinternal : std_logic := '0';
+  signal tmpSDAinternal : std_logic := '0';
+  signal tmpSCLinternal : std_logic := '0';
+
+  
   -- debounce reading from or writing to $D087 so that buffered read/write
   -- behaves itself.
   signal last_was_d087 : std_logic := '0';
@@ -567,6 +593,24 @@ std_logic'image(colourram_at_dc00) & ", sector_buffer_mapped = " & std_logic'ima
               when x"91" => diskimage2_sector(15 downto 8) <= fastio_wdata;
               when x"92" => diskimage2_sector(23 downto 16) <= fastio_wdata;
               when x"93" => diskimage2_sector(31 downto 24) <= fastio_wdata;
+              when x"F3" =>
+                -- Accelerometer
+                aclMOSI <= fastio_wdata(1);
+                aclMOSIinternal <= fastio_wdata(1);
+                aclSS <= fastio_wdata(2);
+                aclSSinternal <= fastio_wdata(2);
+              when x"F4" =>
+                -- Microphone
+                micClkinternal <= fastio_wdata(1);
+                micClk <= fastio_wdata(1);
+                micLRSelinternal <= fastio_wdata(2);
+                micLRSel <= fastio_wdata(2);
+              when x"F5" =>
+                -- Temperature sensor
+                tmpSDAinternal <= fastio_wdata(0);
+                tmpSDA <= fastio_wdata(0);
+                tmpSCLinternal <= fastio_wdata(1);
+                tmpSCL <= fastio_wdata(1);
               when others => null;
             end case;
           end if;
@@ -715,6 +759,30 @@ std_logic'image(colourram_at_dc00) & ", sector_buffer_mapped = " & std_logic'ima
             when x"F2" =>
             fastio_rdata(7 downto 5) <= "000";
             fastio_rdata(4 downto 0) <= unsigned(btn(4 downto 0));
+            when x"F3" =>
+              -- Accelerometer inputs
+              fastio_rdata(0) <= aclMISO;
+              fastio_rdata(1) <= aclMOSIinternal;
+              fastio_rdata(2) <= aclSSinternal;
+              fastio_rdata(3) <= '0';
+              fastio_rdata(4) <= '0';
+              fastio_rdata(5) <= aclInt1;
+              fastio_rdata(6) <= aclInt2;
+              fastio_rdata(7) <= aclInt1 or aclInt2;
+            when x"F4" =>
+              -- Microphone inputs
+              fastio_rdata(0) <= micData;
+              fastio_rdata(1) <= micClkinternal;
+              fastio_rdata(2) <= micLRSelinternal;
+              fastio_rdata(7 downto 3) <= (others => '0');
+            when x"F5" =>
+              -- Temperature sensor
+              fastio_rdata(0) <= tmpSDAinternal;
+              fastio_rdata(1) <= tmpSCLinternal;
+              fastio_rdata(4 downto 2) <= "000";
+              fastio_rdata(5) <= tmpInt;
+              fastio_rdata(6) <= tmpCT;
+              fastio_rdata(7) <= tmpInt or tmpCT;
             when others => fastio_rdata <= (others => 'Z');
           end case;
         else

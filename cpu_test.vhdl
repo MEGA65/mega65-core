@@ -59,7 +59,22 @@ architecture behavior of cpu_test is
            sclk_o : out std_logic;
            mosi_o : out std_logic;
            miso_i : in  std_logic;
-           
+
+           aclMISO : in std_logic;
+           aclMOSI : out std_logic;
+           aclSS : out std_logic;
+           aclInt1 : in std_logic;
+           aclInt2 : in std_logic;
+    
+           micData : in std_logic;
+           micClk : out std_logic;
+           micLRSel : out std_logic;
+
+           tmpSDA : out std_logic;
+           tmpSCL : out std_logic;
+           tmpInt : in std_logic;
+           tmpCT : in std_logic;
+
            --------------------------------------------------------------------
            -- Slow RAM interface: null for now
            --------------------------------------------------------------------
@@ -109,6 +124,13 @@ begin
 
       miso_i => '1',
 
+      aclMISO => '1',
+      aclInt1 => '0',
+      aclInt2 => '0',
+      micData => '0',
+      tmpInt => '0',
+      tmpCT => '0',
+      
       slowram_data => slowram_data,
       
       vsync           => vsync,

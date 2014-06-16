@@ -56,6 +56,24 @@ entity machine is
          miso_i : in  std_logic;
 
          ---------------------------------------------------------------------------
+         -- Lines for other devices that we handle here
+         ---------------------------------------------------------------------------
+         aclMISO : in std_logic;
+         aclMOSI : out std_logic;
+         aclSS : out std_logic;
+         aclInt1 : in std_logic;
+         aclInt2 : in std_logic;
+    
+         micData : in std_logic;
+         micClk : out std_logic;
+         micLRSel : out std_logic;
+
+         tmpSDA : out std_logic;
+         tmpSCL : out std_logic;
+         tmpInt : in std_logic;
+         tmpCT : in std_logic;
+
+         ---------------------------------------------------------------------------
          -- Interface to Slow RAM (16MB cellular RAM chip)
          ---------------------------------------------------------------------------
          slowram_addr : out std_logic_vector(22 downto 0);
@@ -306,6 +324,24 @@ architecture Behavioral of machine is
           mosi_o : out std_logic;
           miso_i : in  std_logic;
 
+          ---------------------------------------------------------------------------
+          -- Lines for other devices that we handle here
+          ---------------------------------------------------------------------------
+          aclMISO : in std_logic;
+          aclMOSI : out std_logic;
+          aclSS : out std_logic;
+          aclInt1 : in std_logic;
+          aclInt2 : in std_logic;
+    
+          micData : in std_logic;
+          micClk : out std_logic;
+          micLRSel : out std_logic;
+
+          tmpSDA : out std_logic;
+          tmpSCL : out std_logic;
+          tmpInt : in std_logic;
+          tmpCT : in std_logic;
+          
           ps2data : in std_logic;
           ps2clock : in std_logic
           );
@@ -649,6 +685,22 @@ begin
     sclk_o => sclk_o,
     mosi_o => mosi_o,
     miso_i => miso_i,
+
+    aclMISO => aclMISO,
+    aclMOSI => aclMOSI,
+    aclSS => aclSS,
+    aclInt1 => aclInt1,
+    aclInt2 => aclInt2,
+    
+    micData => micData,
+    micClk => micClk,
+    micLRSel => micLRSel,
+    
+    tmpSDA => tmpSDA,
+    tmpSCL => tmpSCL,
+    tmpInt => tmpInt,
+    tmpCT => tmpCT,
+
     
     ps2data => ps2data,
     ps2clock => ps2clock
