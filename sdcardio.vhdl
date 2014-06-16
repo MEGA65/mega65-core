@@ -113,6 +113,7 @@ architecture behavioural of sdcardio is
   signal tmpSDAinternal : std_logic := '0';
   signal tmpSCLinternal : std_logic := '0';
 
+  signal pwm_value_new : unsigned(7 downto 0) := x"00";
   signal pwm_value : unsigned(7 downto 0) := x"00";
   signal pwm_phase : unsigned(7 downto 0) := x"00";
   
@@ -289,6 +290,9 @@ begin  -- behavioural
         if pwm_value=pwm_phase then
           ampPWM <= '0';
         end if;
+        if pwm_phase = x"FF" then
+          pwm_value <= pwm_value_new;
+        end if;
       end if;
       
       if f011_ds=x"000" then
@@ -355,7 +359,7 @@ std_logic'image(colourram_at_dc00) & ", sector_buffer_mapped = " & std_logic'ima
             or (fastio_addr(19 downto 0) = x"D3418")
           then
             -- 8-bit digital audio out
-            pwm_value(7 downto 4) <= fastio_wdata(3 downto 0);
+            pwm_value_new(7 downto 4) <= fastio_wdata(3 downto 0);
           end if;
 
           if (fastio_addr(19 downto 5)&'0' = x"D108")
@@ -641,7 +645,7 @@ std_logic'image(colourram_at_dc00) & ", sector_buffer_mapped = " & std_logic'ima
                 tmpSCL <= fastio_wdata(1);
               when x"F8" =>
                 -- 8-bit digital audio out
-                pwm_value <= fastio_wdata;
+                pwm_value_new <= fastio_wdata;
               when x"F9" =>
                 -- enable/disable audio amplifiers
                 ampSD <= fastio_wdata(0);
@@ -819,7 +823,7 @@ std_logic'image(colourram_at_dc00) & ", sector_buffer_mapped = " & std_logic'ima
               fastio_rdata(7) <= tmpInt or tmpCT;
             when x"F8" =>
               -- PWM output
-              fastio_rdata <= pwm_value;
+              fastio_rdata <= pwm_value_new;
             when others => fastio_rdata <= (others => 'Z');
           end case;
         else
