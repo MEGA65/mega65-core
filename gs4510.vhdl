@@ -452,20 +452,55 @@ begin
     -- Examination of the C65 interface ROM reveals that MAP instruction
     -- takes precedence over $01 CPU port when MAP bit is set for a block of RAM.
 
+    -- From https://groups.google.com/forum/#!topic/comp.sys.cbm/C9uWjgleTgc
+    -- Port pin (bit)    $A000 to $BFFF       $D000 to $DFFF       $E000 to $FFFF
+    -- 2 1 0             Read       Write     Read       Write     Read       Write
+    -- --------------    ----------------     ----------------     ----------------
+    -- 0 0 0             RAM        RAM       RAM        RAM       RAM        RAM
+    -- 0 0 1             RAM        RAM       CHAR-ROM   RAM       RAM        RAM
+    -- 0 1 0             RAM        RAM       CHAR-ROM   RAM       KERNAL-ROM RAM
+    -- 0 1 1             BASIC-ROM  RAM       CHAR-ROM   RAM       KERNAL-ROM RAM
+    -- 1 0 0             RAM        RAM       RAM        RAM       RAM        RAM
+    -- 1 0 1             RAM        RAM       I/O        I/O       RAM        RAM
+    -- 1 1 0             RAM        RAM       I/O        I/O       KERNAL-ROM RAM
+    -- 1 1 1             BASIC-ROM  RAM       I/O        I/O       KERNAL-ROM RAM
+    
     -- default is address in = address out
     temp_address(27 downto 16) := (others => '0');
     temp_address(15 downto 0) := short_address;
 
     -- IO
-    if (blocknum=13) and ((lhc(0)='1') or (lhc(1)='1')) and (lhc(2)='1') then
-      temp_address(27 downto 12) := x"FFD3";
-      temp_address(13 downto 12) := unsigned(viciii_iomode);
-      temp_addresS(11 downto 0) := short_address(11 downto 0);
-    end if;
-    -- CHARROM
-    if (blocknum=13) and (lhc(2)='0') and (writeP=false) then
-      temp_address(27 downto 12) := x"002D";
-      temp_addresS(11 downto 0) := short_address(11 downto 0);
+    if (blocknum=13) then
+      temp_address(11 downto 0) := short_address(11 downto 0);
+      if writeP then
+        case lhc(2 downto 0) is
+          when "000" => temp_address(27 downto 12) := x"000D";  -- WRITE RAM
+          when "001" => temp_address(27 downto 12) := x"000D";  -- WRITE RAM
+          when "010" => temp_address(27 downto 12) := x"000D";  -- WRITE RAM
+          when "011" => temp_address(27 downto 12) := x"000D";  -- WRITE RAM
+          when "100" => temp_address(27 downto 12) := x"000D";  -- WRITE RAM
+          when others =>
+            -- All else accesses IO
+            -- C64/C65/C65GS I/O is based on which secret knock has been applied
+            -- to $D02F
+            temp_address(27 downto 12) := x"FFD3";
+            temp_address(13 downto 12) := unsigned(viciii_iomode);          
+        end case;        
+      else
+        -- READING
+        case lhc(2 downto 0) is
+          when "000" => temp_address(27 downto 12) := x"000D";  -- READ RAM
+          when "001" => temp_address(27 downto 12) := x"002D";  -- CHARROM
+          when "010" => temp_address(27 downto 12) := x"002D";  -- CHARROM
+          when "011" => temp_address(27 downto 12) := x"002D";  -- CHARROM
+          when "100" => temp_address(27 downto 12) := x"000D";  -- READ RAM
+          when others =>
+            -- All else accesses IO
+            -- C64/C65/C65GS I/O is based on which secret knock has been applied
+            -- to $D02F
+            temp_address(27 downto 12) := x"FFD3";
+            temp_address(13 downto 12) := unsigned(viciii_iomode);          
+        end case;              end if;
     end if;
 
     -- C64 KERNEL
