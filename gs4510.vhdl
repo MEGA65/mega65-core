@@ -479,10 +479,10 @@ begin
     end if;
     -- C64 BASIC
     if reg_map_high(1)='0' then
-      if (blocknum=10) and (lhc(0)='1') and (writeP=false) then
+      if (blocknum=10) and (lhc(0)='1') and (lhc(1)='1') and (writeP=false) then
         temp_address(27 downto 12) := x"002A";      
       end if;
-      if (blocknum=11) and (lhc(0)='1') and (writeP=false) then
+      if (blocknum=11) and (lhc(0)='1') and (lhc(1)='1') and (writeP=false) then
         temp_address(27 downto 12) := x"002B";      
       end if;
     end if;
