@@ -10,6 +10,7 @@ entity iomapper is
         pixelclk : in std_logic;
         phi0 : in std_logic;
         reset : in std_logic;
+        reset_out : out std_logic;
         irq : out std_logic;
         nmi : out std_logic;
         address : in std_logic_vector(19 downto 0);
@@ -183,6 +184,9 @@ architecture behavioral of iomapper is
   component keymapper is    
     port (
       pixelclk : in std_logic;
+
+      nmi : out std_logic;
+      reset : out std_logic;
       
       last_scan_code : out std_logic_vector(12 downto 0);
 
@@ -269,6 +273,8 @@ begin
 
   keymapper0 : keymapper port map (
     pixelclk       => pixelclk,
+    nmi => nmi,
+    reset => reset_out,
     ps2clock       => ps2clock,
     ps2data        => ps2data,
     last_scan_code => last_scan_code,

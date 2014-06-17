@@ -301,6 +301,7 @@ architecture Behavioral of machine is
           pixelclk : in std_logic;
           phi0 : in std_logic;
           reset : in std_logic;
+          reset_out : out std_logic;
           irq : out std_logic;
           nmi : out std_logic;
           address : in std_logic_vector(19 downto 0);
@@ -361,6 +362,9 @@ architecture Behavioral of machine is
   signal motor : std_logic;
   
   signal seg_led_data : unsigned(31 downto 0);
+
+  signal reset_out : std_logic;
+  signal reset_combined : std_logic;
   
   signal io_irq : std_logic;
   signal io_nmi : std_logic;
@@ -448,7 +452,8 @@ begin
   begin
     -- XXX Allow switch 0 to mask IRQs
     combinedirq <= ((irq and io_irq and vic_irq) or sw(0));
-    combinednmi <= nmi and io_nmi;
+    combinednmi <= (nmi and io_nmi) or sw(14);
+    reset_combined <= (btnCpuReset and reset_out) or sw(15); 
   end process;
   
   process(pixelclock)
@@ -560,7 +565,7 @@ begin
   
   cpu0: gs4510 port map(
     clock => cpuclock,
-    reset =>btnCpuReset,
+    reset =>reset_combined,
     irq => combinedirq,
     nmi => combinednmi,
     monitor_pc => monitor_pc,
@@ -636,7 +641,7 @@ begin
       cpuclock        => cpuclock,
 
       irq             => vic_irq,
-      reset           => btnCpuReset,
+      reset           => reset_combined,
 
       led => led,
       motor => motor,
@@ -673,7 +678,8 @@ begin
     clk => cpuclock,
     pixelclk => pixelclock,
     phi0 => phi0,
-    reset => btnCpuReset,
+    reset => reset_combined,
+    reset_out => reset_out,
     irq => io_irq, -- (but we might like to AND this with the hardware IRQ button)
     nmi => io_nmi, -- (but we might like to AND this with the hardware IRQ button)
     address => fastio_addr,
@@ -722,7 +728,7 @@ begin
   -- UART interface for monitor debugging and loading data
   -----------------------------------------------------------------------------
   monitor0 : uart_monitor port map (
-    reset => btnCpuReset,
+    reset => reset_combined,
     clock => cpuclock,
     tx       => UART_TXD,
     rx       => RsRx,
