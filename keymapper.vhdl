@@ -9,6 +9,9 @@ entity keymapper is
     pixelclk : in std_logic;
 
     last_scan_code : out std_logic_vector(12 downto 0);
+
+    nmi : out std_logic := 'Z';
+    reset : out std_logic := 'Z';
     
     -- PS2 keyboard interface
     ps2clock  : in  std_logic;
@@ -49,6 +52,11 @@ architecture behavioural of keymapper is
   signal break : std_logic := '0';
 
   signal matrix : std_logic_vector(63 downto 0) := (others =>'1');
+
+  signal restore_state : std_logic := '1';
+  signal restore_event : std_logic := '0';
+  signal restore_down_ticks : unsigned(7 downto 0) := (others => '0');  
+  signal fiftyhz_counter : unsigned(7 downto 0) := (others => '0');
   
 begin  -- behavioural
 
@@ -63,8 +71,33 @@ begin  -- behavioural
       -------------------------------------------------------------------------
       ps2timer <= ps2timer +1;
       if ps2timer >= ps2timeout then
+        -- Reset ps2 keyboard timer
         ps2timer <= 0;
         ps2state <= Idle;
+
+        -- Use this 10KHz loop to divide down to 50 hz to work out how many
+        -- 50Hz ticks the restore key has been down.  If restore is not down,
+        -- then reset the count to zero.
+
+        fiftyhz_counter <= fiftyhz_counter + 1;
+        if fiftyhz_counter = 200 then
+          fiftyhz_counter <= (others => '0');
+          if restore_state='0' then
+            restore_down_ticks <= restore_down_ticks + 1;
+          else
+            -- If restore key is not down, reset count of how long it has been
+            -- down, and release NMI and reset lines in case we were asserting
+            -- them.
+            -- NOTE: This approach means that NMI and RESET will be asserted for
+            -- between 1 cycle and 1/50th of a second. There is a possible problem
+            -- with reset and NMI being asserted for less than 2 cycles, but
+            -- this should be extremely rare.  We have solved this by resetting
+            -- fifyhz_counter when the reset key is released.
+            restore_down_ticks <= (others => '0');
+            nmi <= 'Z';
+            reset <= 'Z';
+          end if;
+        end if;
       end if;
 
       ps2clock_samples <= ps2clock_samples(6 downto 0) & ps2clock;
@@ -142,6 +175,21 @@ begin  -- behavioural
                          last_scan_code <= break & full_scan_code;
 
                          case full_scan_code is
+                           when x"00E" =>
+                              -- Restore key shall do NMI as expected, but also
+                              -- reset
+                             restore_state <= break;
+                             if break='1' then
+                               if restore_down_ticks < 25 then
+                                 nmi <= '0';
+                               else
+                                 reset <= '0';
+                               end if;
+                               -- Make sure that next check for releasing NMI
+                               -- and reset is not for almost 1/50th of a second.
+                               fiftyhz_counter <= (others => '0');
+                             end if;
+                           
                            when x"066" => matrix(0) <= break;
                            when x"05A" => matrix(1) <= break;
                            when x"174" => matrix(2) <= break;
@@ -213,7 +261,7 @@ begin  -- behavioural
                            when x"011" => matrix(61) <= break;
                            when x"015" => matrix(62) <= break;
                            when x"076" => matrix(63) <= break;
-
+                                          
                            when others => null;
                          end case;
                          

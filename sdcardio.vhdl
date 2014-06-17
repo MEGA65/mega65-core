@@ -858,7 +858,7 @@ std_logic'image(colourram_at_dc00) & ", sector_buffer_mapped = " & std_logic'ima
               fastio_rdata <= unsigned(last_scan_code(7 downto 0));
             when x"F7" =>
               -- Keyboard scan code reader (upper nybl)
-              fastio_rdata <= unsigned("0000"&last_scan_code(12 downto 8));
+              fastio_rdata <= unsigned("000"&last_scan_code(12 downto 8));
             when x"F8" =>
               -- PWM output
               fastio_rdata <= pwm_value_new;
