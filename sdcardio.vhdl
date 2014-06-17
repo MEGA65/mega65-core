@@ -344,10 +344,12 @@ begin  -- behavioural
     
       last_was_d087 <= '0';
       f011_buffer_write <= '0';
+      -- XXX Try to debug the EQ flag to work out what value it should take
+      -- at various times.
       if f011_buffer_address = f011_buffer_next_read then
-        f011_flag_eq <= '0';
+        f011_flag_eq <= sw(13);
       else
-        f011_flag_eq <= '0';
+        f011_flag_eq <= sw(12);
       end if;
       f011_fdc_buffer_write <= '0';
       if f011_head_track="0000000" then
