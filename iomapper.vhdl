@@ -13,6 +13,7 @@ entity iomapper is
         reset_out : out std_logic;
         irq : out std_logic;
         nmi : out std_logic;
+        restore_nmi : out std_logic;
         address : in std_logic_vector(19 downto 0);
         r : in std_logic;
         w : in std_logic;
@@ -273,7 +274,7 @@ begin
 
   keymapper0 : keymapper port map (
     pixelclk       => pixelclk,
-    nmi => nmi,
+    nmi => restore_nmi,
     reset => reset_out,
     ps2clock       => ps2clock,
     ps2data        => ps2data,

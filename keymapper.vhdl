@@ -182,7 +182,9 @@ begin  -- behavioural
                              if break='1' then
                                if restore_down_ticks < 25 then
                                  nmi <= '0';
-                               else
+                               -- But holding it down for >2 seconds does nothing,
+                               -- incase someone holds it by mistake.
+                               elsif restore_down_ticks < 100 then
                                  reset <= '0';
                                end if;
                                -- Make sure that next check for releasing NMI

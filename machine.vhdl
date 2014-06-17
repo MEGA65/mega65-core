@@ -304,6 +304,7 @@ architecture Behavioral of machine is
           reset_out : out std_logic;
           irq : out std_logic;
           nmi : out std_logic;
+          restore_nmi : out std_logic;
           address : in std_logic_vector(19 downto 0);
           r : in std_logic;
           w : in std_logic;
@@ -371,6 +372,7 @@ architecture Behavioral of machine is
   signal vic_irq : std_logic;
   signal combinedirq : std_logic;
   signal combinednmi : std_logic;
+  signal restore_nmi : std_logic;
 
   signal fastio_addr : std_logic_vector(19 downto 0);
   signal fastio_read : std_logic;
@@ -452,7 +454,7 @@ begin
   begin
     -- XXX Allow switch 0 to mask IRQs
     combinedirq <= ((irq and io_irq and vic_irq) or sw(0));
-    combinednmi <= (nmi and io_nmi) or sw(14);
+    combinednmi <= (nmi and io_nmi and restore_nmi) or sw(14);
     reset_combined <= (btnCpuReset and reset_out) or sw(15); 
   end process;
   
@@ -682,6 +684,7 @@ begin
     reset_out => reset_out,
     irq => io_irq, -- (but we might like to AND this with the hardware IRQ button)
     nmi => io_nmi, -- (but we might like to AND this with the hardware IRQ button)
+    restore_nmi => restore_nmi,
     address => fastio_addr,
     r => fastio_read, w => fastio_write,
     data_i => fastio_wdata, data_o => fastio_rdata,
