@@ -29,6 +29,8 @@ entity sdcardio is
     sectorbuffermapped2 : out std_logic := '0';
     sectorbuffercs : in std_logic;
 
+    last_scan_code : in std_logic_vector(12 downto 0);
+    
     led : out std_logic := '0';
     motor : out std_logic := '0';
     
@@ -343,7 +345,7 @@ begin  -- behavioural
       last_was_d087 <= '0';
       f011_buffer_write <= '0';
       if f011_buffer_address = f011_buffer_next_read then
-        f011_flag_eq <= '1';
+        f011_flag_eq <= '0';
       else
         f011_flag_eq <= '0';
       end if;
@@ -522,6 +524,9 @@ std_logic'image(colourram_at_dc00) & ", sector_buffer_mapped = " & std_logic'ima
                   when x"80" =>         -- write sector
                     -- Copy sector from F011 buffer to SD buffer, and then
                     -- pretend the SD card registers were used to trigger a write.
+                    -- The F011 can in theory do unbuffered sector writes, but
+                    -- we don't support them.  The C65 ROM does buffered
+                    -- writes, anyway, so it isn't a problem.
                     if f011_ds="000" and (diskimage1_enable='0' or f011_disk1_present='0' or f011_disk1_write_protected='1') then
                       f011_rnf <= '1';
                     elsif f011_ds="001" and (diskimage2_enable='0' or f011_disk2_present='0' or f011_disk2_write_protected='1') then
@@ -848,6 +853,12 @@ std_logic'image(colourram_at_dc00) & ", sector_buffer_mapped = " & std_logic'ima
               fastio_rdata(5) <= tmpInt;
               fastio_rdata(6) <= tmpCT;
               fastio_rdata(7) <= tmpInt or tmpCT;
+            when x"F6" =>
+              -- Keyboard scan code reader (lower byte)
+              fastio_rdata <= unsigned(last_scan_code(7 downto 0));
+            when x"F7" =>
+              -- Keyboard scan code reader (upper nybl)
+              fastio_rdata <= unsigned("0000"&last_scan_code(12 downto 8));
             when x"F8" =>
               -- PWM output
               fastio_rdata <= pwm_value_new;

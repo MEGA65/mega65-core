@@ -8,6 +8,8 @@ entity keymapper is
   port (
     pixelclk : in std_logic;
 
+    last_scan_code : out std_logic_vector(12 downto 0);
+    
     -- PS2 keyboard interface
     ps2clock  : in  std_logic;
     ps2data   : in  std_logic;
@@ -135,6 +137,10 @@ begin  -- behavioural
                          -- Bit#7 $7F     16  6B  14  1E  29  11  15  76
                          -- RESTORE - 0E (`/~ key)
 
+                         -- Let the CPU read the most recent scan code for
+                         -- debugging keyboard layout.
+                         last_scan_code <= break & full_scan_code;
+
                          case full_scan_code is
                            when x"066" => matrix(0) <= break;
                            when x"05A" => matrix(1) <= break;
@@ -212,21 +218,7 @@ begin  -- behavioural
                          end case;
                          
                        end if;
-                       
-                       -- The memory of recent scan codes is 255 bytes long, as
-                       -- byte 00 is used to indicate the last entry written to
-                       -- As events can only arrive at <20KHz a reasonably written
-                       -- program can easily ensure it misses no key events,
-                       -- especially with a CPU at 64MHz.
-                       if recent_scan_code_list_index=x"FF" then
-                         recent_scan_code_list_index <= x"01";
-                       else
-                         recent_scan_code_list_index
-                           <= recent_scan_code_list_index + 1;
-                       end if;
-                       --else
-                       --  last_scan_code <= x"FE";
-                       --end if;                    
+                                              
           when ParityBit =>  ps2state <= Idle;  -- was StopBit.  See if
                                                 -- changing this fixed munching
                                                 -- of first bit of back-to-back bytes.

@@ -133,6 +133,8 @@ architecture behavioral of iomapper is
       tmpSCL : out std_logic;
       tmpInt : in std_logic;
       tmpCT : in std_logic;
+
+      last_scan_code : in std_logic_vector(12 downto 0);
       
       -------------------------------------------------------------------------
       -- And general switch inputs on the FPGA board (good as place as any here)
@@ -182,6 +184,8 @@ architecture behavioral of iomapper is
     port (
       pixelclk : in std_logic;
       
+      last_scan_code : out std_logic_vector(12 downto 0);
+
       -- PS2 keyboard interface
       ps2clock  : in  std_logic;
       ps2data   : in  std_logic;
@@ -204,6 +208,8 @@ architecture behavioral of iomapper is
 
   signal sectorbuffercs : std_logic;
   signal sector_buffer_mapped_read : std_logic;
+
+  signal last_scan_code : std_logic_vector(12 downto 0);
   
   signal cia1porta_out : std_logic_vector(7 downto 0);
   signal cia1porta_in : std_logic_vector(7 downto 0);
@@ -265,6 +271,7 @@ begin
     pixelclk       => pixelclk,
     ps2clock       => ps2clock,
     ps2data        => ps2data,
+    last_scan_code => last_scan_code,
     porta_in       => cia1porta_out,
     porta_out      => cia1porta_in,
     portb_out      => cia1portb_in
@@ -314,7 +321,9 @@ begin
     tmpSDA => tmpSDA,
     tmpSCL => tmpSCL,
     tmpInt => tmpInt,
-    tmpCT => tmpCT
+    tmpCT => tmpCT,
+
+    last_scan_code => last_scan_code
 
     );
   
