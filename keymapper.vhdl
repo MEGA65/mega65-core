@@ -175,7 +175,7 @@ begin  -- behavioural
                          last_scan_code <= break & full_scan_code;
 
                          case full_scan_code is
-                           when x"00E" =>
+                           when x"17D" =>
                               -- Restore key shall do NMI as expected, but also
                               -- reset
                              restore_state <= break;
@@ -189,7 +189,8 @@ begin  -- behavioural
                                -- and reset is not for almost 1/50th of a second.
                                fiftyhz_counter <= (others => '0');
                              end if;
-                           
+
+                           -- DELETE, RETURN, RIGHT, F7, F1, F3, F5, down
                            when x"066" => matrix(0) <= break;
                            when x"05A" => matrix(1) <= break;
                            when x"174" => matrix(2) <= break;
@@ -199,6 +200,7 @@ begin  -- behavioural
                            when x"003" => matrix(6) <= break;
                            when x"072" => matrix(7) <= break;
 
+                           -- 3, W, A, 4, Z, S, E, left-SHIFT
                            when x"026" => matrix(8) <= break;
                            when x"01D" => matrix(9) <= break;
                            when x"01C" => matrix(10) <= break;
@@ -207,7 +209,8 @@ begin  -- behavioural
                            when x"01B" => matrix(13) <= break;
                            when x"024" => matrix(14) <= break;
                            when x"012" => matrix(15) <= break;
-                                          
+
+                           -- 5, R, D, 6, C, F, T, X
                            when x"02E" => matrix(16) <= break;
                            when x"02D" => matrix(17) <= break;
                            when x"023" => matrix(18) <= break;
@@ -217,6 +220,7 @@ begin  -- behavioural
                            when x"02C" => matrix(22) <= break;
                            when x"022" => matrix(23) <= break;
 
+                           -- 7, Y, G, 8, B, H, U, V
                            when x"03D" => matrix(24) <= break;
                            when x"035" => matrix(25) <= break;
                            when x"034" => matrix(26) <= break;
@@ -225,7 +229,8 @@ begin  -- behavioural
                            when x"033" => matrix(29) <= break;
                            when x"03C" => matrix(30) <= break;
                            when x"02A" => matrix(31) <= break;
-                                          
+
+                           -- 9, I, J, 0, M, K, O, N
                            when x"046" => matrix(32) <= break;
                            when x"043" => matrix(33) <= break;
                            when x"03B" => matrix(34) <= break;
@@ -234,31 +239,34 @@ begin  -- behavioural
                            when x"042" => matrix(37) <= break;
                            when x"044" => matrix(38) <= break;
                            when x"031" => matrix(39) <= break;
-                                          
-                           when x"055" => matrix(40) <= break;
+
+                           -- +, P, L, -, ., :, @, COMMA
+                           when x"04E" => matrix(40) <= break;
                            when x"04D" => matrix(41) <= break;
                            when x"04B" => matrix(42) <= break;
-                           when x"04E" => matrix(43) <= break;
+                           when x"055" => matrix(43) <= break;
                            when x"049" => matrix(44) <= break;
-                           when x"054" => matrix(45) <= break;
-                           when x"05B" => matrix(46) <= break;
+                           when x"04C" => matrix(45) <= break;
+                           when x"054" => matrix(46) <= break;
                            when x"041" => matrix(47) <= break;
-                                          
-                           when x"052" => matrix(48) <= break;
-                           when x"05D" => matrix(49) <= break;
-                           when x"04C" => matrix(50) <= break;
+
+                           -- POUND, *, ;, HOME, right SHIFT, =, UP-ARROW, /
+                           when x"170" => matrix(48) <= break;
+                           when x"05B" => matrix(49) <= break;
+                           when x"052" => matrix(50) <= break;
                            when x"16C" => matrix(51) <= break;
                            when x"059" => matrix(52) <= break;
-                           when x"169" => matrix(53) <= break;
-                           when x"075" => matrix(54) <= break;
+                           when x"05D" => matrix(53) <= break;
+                           when x"171" => matrix(54) <= break;
                            when x"04A" => matrix(55) <= break;
 
+                           -- 1, LEFT-ARROW, CTRL, 2, SPACE, C=, Q, RUN/STOP
                            when x"016" => matrix(56) <= break;
-                           when x"06B" => matrix(57) <= break;
-                           when x"014" => matrix(58) <= break;
+                           when x"00E" => matrix(57) <= break;
+                           when x"00D" => matrix(58) <= break;
                            when x"01E" => matrix(59) <= break;
                            when x"029" => matrix(60) <= break;
-                           when x"011" => matrix(61) <= break;
+                           when x"014" => matrix(61) <= break;
                            when x"015" => matrix(62) <= break;
                            when x"076" => matrix(63) <= break;
                                           
