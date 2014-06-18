@@ -217,6 +217,14 @@ architecture Behavioral of viciv is
   -- Frame generator counters
   signal xcounter : unsigned(11 downto 0) := (others => '0');
   signal ycounter : unsigned(10 downto 0) := (others => '0');
+  -- Virtual raster number for VIC-II
+  signal vicii_ycounter : unsigned(8 downto 0) := (others => '0');
+  signal vicii_ycounter_phase : unsigned(2 downto 0) := (others => '0');
+  signal vicii_ycounter_max_phase : unsigned(2 downto 0) := (others => '0');
+  -- Is the VIC-II virtual raster number the active one for interrupts, or
+  -- are we comparing to physical rasters?  This is decided by which register
+  -- gets written to last.
+  signal vicii_is_raster_source : std_logic := '1';
   
   -- Actual pixel positions in the frame
   signal displayx : unsigned(11 downto 0) := (others => '0');
@@ -783,14 +791,14 @@ begin
                                         -- compatibility sprite x position MSB
           fastio_rdata <= vicii_sprite_xmsbs;
         elsif register_number=17 then             -- $D011
-          fastio_rdata(7) <= ycounter(10);  -- MSB of raster
+          fastio_rdata(7) <= vicii_ycounter(8);  -- MSB of raster
           fastio_rdata(6) <= extended_background_mode;
           fastio_rdata(5) <= not text_mode;
           fastio_rdata(4) <= not blank;
           fastio_rdata(3) <= not twentyfourlines;
           fastio_rdata(2 downto 0) <= std_logic_vector(vicii_y_smoothscroll);
         elsif register_number=18 then          -- $D012 current raster low 8 bits
-          fastio_rdata <= std_logic_vector(ycounter(9 downto 2));
+          fastio_rdata <= std_logic_vector(vicii_ycounter(7 downto 0));
         elsif register_number=19 then          -- $D013 lightpen X (coarse rasterX)
           fastio_rdata <= std_logic_vector(displayx(11 downto 4));
         elsif register_number=20 then          -- $D014 lightpen Y (coarse rasterY)
@@ -1096,7 +1104,8 @@ begin
           vicii_sprite_xmsbs <= fastio_wdata;
         elsif register_number=17 then             -- $D011
           report "D011 WRITTEN" severity note;
-          vicii_raster_compare(10) <= fastio_wdata(7);
+          vicii_raster_compare(10 downto 8) <= "00" & fastio_wdata(7);
+          vicii_is_raster_source <= '1';
           extended_background_mode <= fastio_wdata(6);
           text_mode <= not fastio_wdata(5);
           blank <= not fastio_wdata(4);
@@ -1104,7 +1113,8 @@ begin
           vicii_y_smoothscroll <= unsigned(fastio_wdata(2 downto 0));
           viciv_legacy_mode_registers_touched <= '1';
         elsif register_number=18 then          -- $D012 current raster low 8 bits
-          vicii_raster_compare(9 downto 0) <= unsigned(fastio_wdata) & "00";
+          vicii_raster_compare(7 downto 0) <= unsigned(fastio_wdata);
+          vicii_is_raster_source <= '1';
         elsif register_number=19 then          -- $D013 lightpen X (coarse rasterX)
         elsif register_number=20 then          -- $D014 lightpen Y (coarse rasterY)
         elsif register_number=21 then          -- $D015 compatibility sprite enable
@@ -1269,11 +1279,13 @@ begin
                                         -- xcounter
           null;
         elsif register_number=82 then
-                                        -- Allow setting of fine raster for IRQ (low bits)
+          -- Allow setting of fine raster for IRQ (low bits)
           vicii_raster_compare(7 downto 0) <= unsigned(fastio_wdata);
+          vicii_is_raster_source <= '0';
         elsif register_number=83 then
-                                        -- Allow setting of fine raster for IRQ (high bits)
+          -- Allow setting of fine raster for IRQ (high bits)
           vicii_raster_compare(10 downto 8) <= unsigned(fastio_wdata(2 downto 0));
+          vicii_is_raster_source <= '0';
         elsif register_number=84 then
                                         -- $D054 (53332) - New mode control register
           fullcolour_extendedchars <= fastio_wdata(2);
@@ -1397,7 +1409,27 @@ begin
         chargen_active_soon <= '0';
         if ycounter<frame_height then
           ycounter <= ycounter + 1;
-          if ycounter = vicii_raster_compare then
+          if vicii_ycounter_phase = vicii_ycounter_max_phase then
+            vicii_ycounter <= vicii_ycounter + 1;
+            vicii_ycounter_phase <= (others => '0');
+            -- Set number of physical rasters per VIC-II raster based on region
+            -- of screen.
+            if vicii_ycounter = 50 then
+              vicii_ycounter_max_phase <= to_unsigned(4,3);
+            elsif vicii_ycounter = 250 then
+              vicii_ycounter_max_phase <= to_unsigned(0,3);
+            elsif vicii_ycounter = 312 then
+              vicii_ycounter_max_phase <= to_unsigned(1,3);
+            end if;
+          else
+            -- In the middle of a VIC-II logical raster, so just increase phase.
+            vicii_ycounter_phase <= vicii_ycounter_phase + 1;
+          end if;
+          
+          if (vicii_is_raster_source='0') and (ycounter = vicii_raster_compare) then
+            irq_raster <= '1';
+          end if;
+          if (vicii_is_raster_source='1') and (vicii_ycounter = vicii_raster_compare(8 downto 0)) then
             irq_raster <= '1';
           end if;
         else
@@ -1408,6 +1440,11 @@ begin
           next_card_number <= (others => '0');
           first_card_of_row <= (others => '0');
 
+          -- In top border VIC-II rasters are 2 physical rasters high
+          vicii_ycounter <= (others =>'0');
+          vicii_ycounter_phase <= (others => '0');
+          vicii_ycounter_max_phase <= to_unsigned(1,3);  -- 0 -- 1 = 2 values         
+          
           -- C65/VIC-III style 1Hz blink attribute clock
           viciii_blink_phase_counter <= viciii_blink_phase_counter + 1;
           if viciii_blink_phase_counter = 60 then
