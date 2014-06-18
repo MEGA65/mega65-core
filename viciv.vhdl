@@ -2147,7 +2147,7 @@ begin
           end case;
         elsif multicolour_mode='0' and text_mode='1' then
           -- normal text mode
-          if monobit = '1' then
+          if mono_bit = '1' then
             pixel_colour(7 downto 5) <= "000";
             pixel_colour(4 downto 0) <= card_fg_colour(4 downto 0);
           else
