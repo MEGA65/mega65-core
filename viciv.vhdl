@@ -2130,9 +2130,9 @@ begin
         elsif multicolour_mode='1' and text_mode='1' and card_fg_colour(3)='0' then
           -- Multicolour character mode only engages for characters with bit 3
           -- of their foreground colour set, so this char is mono
-          case mono_bit is
-            when "0" => pixel_colour <= card_bg_colour;
-            when "1" => pixel_colour <= card_fg_colour;
+          case monobit is
+            when '0' => pixel_colour <= card_bg_colour;
+            when '1' => pixel_colour <= card_fg_colour;
             when others => pixel_colour <= card_bg_colour;
           end case;
         elsif multicolour_mode='1' and text_mode='0' then
@@ -2147,7 +2147,7 @@ begin
           end case;
         elsif multicolour_mode='0' and text_mode='1' then
           -- normal text mode
-          if mono_bit = '1' then
+          if monobit = '1' then
             pixel_colour(7 downto 5) <= "000";
             pixel_colour(4 downto 0) <= card_fg_colour(4 downto 0);
           else
