@@ -1172,11 +1172,23 @@ begin
             screen_colour <= unsigned(fastio_wdata);
           end if;
         elsif register_number=34 then
-          multi1_colour <= unsigned(fastio_wdata);
+          if (register_bank=x"D0" or register_bank=x"D2") then
+            multi1_colour <= unsigned(fastio_wdata);
+          else
+            multi1_colour <= unsigned("0000"&fastio_wdata(3 downto 0));
+          end if;
         elsif register_number=35 then
-          multi2_colour <= unsigned(fastio_wdata);
+          if (register_bank=x"D0" or register_bank=x"D2") then
+            multi2_colour <= unsigned(fastio_wdata);
+          else
+            multi2_colour <= unsigned("0000"&fastio_wdata(3 downto 0));
+          end if;
         elsif register_number=36 then
-          multi3_colour <= unsigned(fastio_wdata);
+          if (register_bank=x"D0" or register_bank=x"D2") then
+            multi3_colour <= unsigned(fastio_wdata);
+          else
+            multi3_colour <= unsigned("0000"&fastio_wdata(3 downto 0));
+          end if;
         elsif register_number=37 then
           sprite_multi0_colour <= unsigned(fastio_wdata);
         elsif register_number=38 then
@@ -2106,19 +2118,33 @@ begin
           end if;
         elsif multicolour_mode='1' and text_mode='1' and card_fg_colour(3)='1' then
           -- Multicolour character mode only engages for characters with bit 3
-          -- of their foreground colour set.
+          -- of their foreground colour set, and only allows use of first 8 colours
+          -- for the foreground.
           case multicolour_bits is
             when "00" => pixel_colour <= card_bg_colour;
             when "01" => pixel_colour <= multi1_colour;
             when "10" => pixel_colour <= multi2_colour;
-            when "11" => pixel_colour <= card_fg_colour;
-            when others => pixel_colour <= screen_colour;
+            when "11" => pixel_colour <= "0"&card_fg_colour(2 downto 0);
+            when others => pixel_colour <= card_bg_colour;
+          end case;
+        elsif multicolour_mode='1' and text_mode='1' and card_fg_colour(3)='0' then
+          -- Multicolour character mode only engages for characters with bit 3
+          -- of their foreground colour set, so this char is mono
+          case mono_bit is
+            when "0" => pixel_colour <= card_bg_colour;
+            when "1" => pixel_colour <= card_fg_colour;
+            when others => pixel_colour <= card_bg_colour;
           end case;
         elsif multicolour_mode='1' and text_mode='0' then
           -- Multicolour bitmap mode.
           -- XXX Not yet implemented
-          pixel_colour(7 downto 4) <= "0000";
-          pixel_colour(3 downto 0) <= card_number_t3(3 downto 0);
+          case multicolour_bits is
+            when "00" => pixel_colour <= card_bg_colour;
+            when "01" => pixel_colour <= "0000"&card_number_t3(7 downto 4);
+            when "10" => pixel_colour <= "0000"&card_number_t3(3 downto 0);
+            when "11" => pixel_colour <= card_fg_colour;
+            when others => pixel_colour <= card_bg_colour;
+          end case;
         elsif multicolour_mode='0' and text_mode='1' then
           -- normal text mode
           if monobit = '1' then
