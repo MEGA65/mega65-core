@@ -2124,7 +2124,7 @@ begin
             when "00" => pixel_colour <= card_bg_colour;
             when "01" => pixel_colour <= multi1_colour;
             when "10" => pixel_colour <= multi2_colour;
-            when "11" => pixel_colour <= "0"&card_fg_colour(2 downto 0);
+            when "11" => pixel_colour <= "00000"&card_fg_colour(2 downto 0);
             when others => pixel_colour <= card_bg_colour;
           end case;
         elsif multicolour_mode='1' and text_mode='1' and card_fg_colour(3)='0' then
