@@ -1173,21 +1173,21 @@ begin
           end if;
         elsif register_number=34 then
           if (register_bank=x"D0" or register_bank=x"D2") then
-            multi1_colour <= unsigned(fastio_wdata);
-          else
             multi1_colour <= unsigned("0000"&fastio_wdata(3 downto 0));
+          else
+            multi1_colour <= unsigned(fastio_wdata);
           end if;
         elsif register_number=35 then
           if (register_bank=x"D0" or register_bank=x"D2") then
-            multi2_colour <= unsigned(fastio_wdata);
-          else
             multi2_colour <= unsigned("0000"&fastio_wdata(3 downto 0));
+          else
+            multi2_colour <= unsigned(fastio_wdata);
           end if;
         elsif register_number=36 then
           if (register_bank=x"D0" or register_bank=x"D2") then
-            multi3_colour <= unsigned(fastio_wdata);
-          else
             multi3_colour <= unsigned("0000"&fastio_wdata(3 downto 0));
+          else
+            multi3_colour <= unsigned(fastio_wdata);
           end if;
         elsif register_number=37 then
           sprite_multi0_colour <= unsigned(fastio_wdata);
