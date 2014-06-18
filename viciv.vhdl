@@ -2135,13 +2135,23 @@ begin
             when '1' => pixel_colour <= card_fg_colour;
             when others => pixel_colour <= card_bg_colour;
           end case;
-        elsif multicolour_mode='1' and text_mode='0' then
+        elsif multicolour_mode='1' and text_mode='0' and sixteenbit_charset='0' then
           -- Multicolour bitmap mode.
           -- XXX Not yet implemented
           case multicolour_bits is
             when "00" => pixel_colour <= card_bg_colour;
-            when "01" => pixel_colour <= "0000"&card_number_t3(7 downto 4);
-            when "10" => pixel_colour <= "0000"&card_number_t3(3 downto 0);
+            when "01" => pixel_colour <= "0000"&glyph_number(7 downto 4);
+            when "10" => pixel_colour <= "0000"&glyph_number(3 downto 0);
+            when "11" => pixel_colour <= card_fg_colour;
+            when others => pixel_colour <= card_bg_colour;
+          end case;
+        elsif multicolour_mode='1' and text_mode='0' and sixteenbit_charset='1' then
+          -- Multicolour bitmap mode.
+          -- XXX Not yet implemented
+          case multicolour_bits is
+            when "00" => pixel_colour <= card_bg_colour;
+            when "01" => pixel_colour <= "0000"&glyph_number(15 downto 8);
+            when "10" => pixel_colour <= "0000"&glyph_number(7 downto 0);
             when "11" => pixel_colour <= card_fg_colour;
             when others => pixel_colour <= card_bg_colour;
           end case;
