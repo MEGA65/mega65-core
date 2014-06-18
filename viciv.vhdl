@@ -1238,7 +1238,7 @@ begin
           colourram_at_dc00_internal<= fastio_wdata(0);
           colourram_at_dc00<= fastio_wdata(0);
         elsif register_number=49 then 
-          -- C65 VIC-III Control A Register $D030
+          -- C65 VIC-III Control A Register $D031
           -- H640
           reg_h640 <= fastio_wdata(7);
           -- FAST
