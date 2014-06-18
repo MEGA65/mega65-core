@@ -84,6 +84,13 @@ entity container is
          ps2data : in std_logic;
 
          ----------------------------------------------------------------------
+         -- Flash RAM for holding config
+         ----------------------------------------------------------------------
+         QspiSCK : out std_logic;
+         QspiDB : inout std_logic_vector(3 downto 0);
+         QspiCSn : out std_logic;
+         
+         ----------------------------------------------------------------------
          -- Cellular RAM interface for Slow RAM
          ----------------------------------------------------------------------
          RamCLK : out std_logic;
@@ -177,7 +184,14 @@ architecture Behavioral of container is
          tmpSCL : out std_logic;
          tmpInt : in std_logic;
          tmpCT : in std_logic;
-         
+
+         ----------------------------------------------------------------------
+         -- Flash RAM for holding config
+         ----------------------------------------------------------------------
+         QspiSCK : out std_logic;
+         QspiDB : inout std_logic_vector(3 downto 0);
+         QspiCSn : out std_logic;
+
          ---------------------------------------------------------------------------
          -- Interface to Slow RAM (16MB cellular RAM chip)
          ---------------------------------------------------------------------------
@@ -286,6 +300,10 @@ begin
       slowram_ub => RamUBn,
       slowram_data => MemDB,
       slowram_addr => MemAdr,
+
+      QspiSCK => QspiSCK,
+      QspiDB => QspiDB,
+      QspiCSn => QspiCSn,
       
       led0 => led0,
       led1 => led1,

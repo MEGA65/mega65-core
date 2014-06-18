@@ -48,24 +48,36 @@ entity sdcardio is
     ---------------------------------------------------------------------------
     -- Lines for other devices that we handle here
     ---------------------------------------------------------------------------
+    -- Accelerometer
     aclMISO : in std_logic;
     aclMOSI : out std_logic;
     aclSS : out std_logic;
     aclSCK : out std_logic;
     aclInt1 : in std_logic;
     aclInt2 : in std_logic;
-    
+
+    -- Audio output
     ampPWM : out std_logic;
     ampSD : out std_logic;
 
+    -- Microphone
     micData : in std_logic;
     micClk : out std_logic;
     micLRSel : out std_logic;
 
+    -- Temperature sensor
     tmpSDA : out std_logic;
     tmpSCL : out std_logic;
     tmpInt : in std_logic;
-    tmpCT : in std_logic
+    tmpCT : in std_logic;
+
+    ----------------------------------------------------------------------
+    -- Flash RAM for holding config
+    ----------------------------------------------------------------------
+    QspiSCK : out std_logic;
+    QspiDB : inout std_logic_vector(3 downto 0) := "ZZZZ";
+    QspiCSn : out std_logic            
+
     );
 end sdcardio;
 
@@ -110,6 +122,9 @@ architecture behavioural of sdcardio is
   );
   END component;
 
+  signal QspiSCKInternal : std_logic := '1';
+  signal QspiCSnInternal : std_logic := '1'; 
+  
   signal aclMOSIinternal : std_logic := '0';
   signal aclSSinternal : std_logic := '0';
   signal aclSCKinternal : std_logic := '0';
@@ -689,6 +704,35 @@ std_logic'image(colourram_at_dc00) & ", sector_buffer_mapped = " & std_logic'ima
               when x"F9" =>
                 -- enable/disable audio amplifiers
                 ampSD <= fastio_wdata(0);
+              when x"FF" =>
+                -- Flash interface
+                if fastio_wdata(0)='0' then
+                  QspiDB(0) <= '0';
+                else
+                  QspiDB(0) <= 'Z';
+                end if;
+                if fastio_wdata(1)='0' then
+                  QspiDB(1) <= '0';
+                else
+                  QspiDB(1) <= 'Z';
+                end if;
+                if fastio_wdata(2)='0' then
+                  QspiDB(2) <= '0';
+                else
+                  QspiDB(2) <= 'Z';
+                end if;
+                if fastio_wdata(3)='0' then
+                  QspiDB(3) <= '0';
+                else
+                  QspiDB(3) <= 'Z';
+                end if;
+                -- XXX We should protect CS so that we can prevent use of the flash
+                -- if we want.  As it is a malicious program could reprogram or
+                -- mess up the configuration flash.
+                QspiCSn <= fastio_wdata(6);
+                QspiCSnInternal <= fastio_wdata(6);
+                QspiSCK <= fastio_wdata(7);
+                QspiSCKInternal <= fastio_wdata(7);
               when others => null;
             end case;
           end if;
@@ -870,6 +914,12 @@ std_logic'image(colourram_at_dc00) & ", sector_buffer_mapped = " & std_logic'ima
             when x"FA" =>
               -- microphone input
               fastio_rdata <= mic_value_right;
+            when x"FF" =>
+              -- Flash interface
+              fastio_rdata(3 downto 0) <= unsigned(QspiDB);
+              fastio_rdata(5 downto 4) <= "00";
+              fastio_rdata(6) <= QspiCSnInternal;
+              fastio_rdata(7) <= QspiSCKInternal;
             when others => fastio_rdata <= (others => 'Z');
           end case;
         else

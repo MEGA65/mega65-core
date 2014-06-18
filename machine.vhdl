@@ -77,6 +77,13 @@ entity machine is
          tmpInt : in std_logic;
          tmpCT : in std_logic;
 
+         ----------------------------------------------------------------------
+         -- Flash RAM for holding config
+         ----------------------------------------------------------------------
+         QspiSCK : out std_logic;
+         QspiDB : inout std_logic_vector(3 downto 0);
+         QspiCSn : out std_logic;
+
          ---------------------------------------------------------------------------
          -- Interface to Slow RAM (16MB cellular RAM chip)
          ---------------------------------------------------------------------------
@@ -322,6 +329,13 @@ architecture Behavioral of machine is
           btn : in std_logic_vector(4 downto 0);
           seg_led : out unsigned(31 downto 0);
 
+          ----------------------------------------------------------------------
+          -- Flash RAM for holding config
+          ----------------------------------------------------------------------
+          QspiSCK : out std_logic;
+          QspiDB : inout std_logic_vector(3 downto 0);
+          QspiCSn : out std_logic;
+          
           -------------------------------------------------------------------------
           -- Lines for the SDcard interface itself
           -------------------------------------------------------------------------
@@ -703,6 +717,10 @@ begin
     mosi_o => mosi_o,
     miso_i => miso_i,
 
+    QspiSCK => QspiSCK,
+    QspiDB => QspiDB,
+    QspiCSn => QspiCSn,
+    
     aclMISO => aclMISO,
     aclMOSI => aclMOSI,
     aclSS => aclSS,

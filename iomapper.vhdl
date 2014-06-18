@@ -28,6 +28,13 @@ entity iomapper is
         ps2data : in std_logic;
         ps2clock : in std_logic;
 
+        ----------------------------------------------------------------------
+        -- Flash RAM for holding config
+        ----------------------------------------------------------------------
+        QspiSCK : out std_logic;
+        QspiDB : inout std_logic_vector(3 downto 0);
+        QspiCSn : out std_logic;        
+
         -------------------------------------------------------------------------
         -- Lines for the SDcard interface itself
         -------------------------------------------------------------------------
@@ -117,25 +124,36 @@ architecture behavioral of iomapper is
       ---------------------------------------------------------------------------
       -- Lines for other devices that we handle here
       ---------------------------------------------------------------------------
+      -- Accelerometer
       aclMISO : in std_logic;
       aclMOSI : out std_logic;
       aclSS : out std_logic;
       aclSCK : out std_logic;
       aclInt1 : in std_logic;
       aclInt2 : in std_logic;
-    
+
+      -- Microphone
       micData : in std_logic;
       micClk : out std_logic;
       micLRSel : out std_logic;
 
+      -- Audio output
       ampPWM : out std_logic;
       ampSD : out std_logic;
 
+      -- Temperature sensor
       tmpSDA : out std_logic;
       tmpSCL : out std_logic;
       tmpInt : in std_logic;
       tmpCT : in std_logic;
 
+      ----------------------------------------------------------------------
+      -- Flash RAM for holding config
+      ----------------------------------------------------------------------
+      QspiSCK : out std_logic;
+      QspiDB : inout std_logic_vector(3 downto 0);
+      QspiCSn : out std_logic;
+      
       last_scan_code : in std_logic_vector(12 downto 0);
       
       -------------------------------------------------------------------------
@@ -329,6 +347,10 @@ begin
     tmpSCL => tmpSCL,
     tmpInt => tmpInt,
     tmpCT => tmpCT,
+
+    QspiSCK => QspiSCK,
+    QspiDB => QspiDB,
+    QspiCSn => QspiCSn,
 
     last_scan_code => last_scan_code
 

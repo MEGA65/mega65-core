@@ -81,6 +81,16 @@ NET "SSEG_AN<5>"                        LOC = "N4"      | IOSTANDARD = "LVCMOS33
 NET "SSEG_AN<6>"                        LOC = "L1"      | IOSTANDARD = "LVCMOS33";              #Bank = 34, Pin name = IO_L1P_T0_34, Sch name = AN6
 NET "SSEG_AN<7>"                        LOC = "M1"      | IOSTANDARD = "LVCMOS33";              #Bank = 34, Pin name = IO_L1N_T034, Sch name = AN7
 
+## Quad SPI Flash
+NET "QspiSCK"			LOC = "E9"	| IOSTANDARD = "LVCMOS33";		#Bank = CONFIG, Pin name = CCLK_0,							Sch name = QSPI_SCK
+NET "QspiDB<0>"		LOC = "K17"	| IOSTANDARD = "LVCMOS33";		#Bank = CONFIG, Pin name = IO_L1P_T0_D00_MOSI_14,			Sch name = QSPI_DQ0
+NET "QspiDB<1>"		LOC = "K18"	| IOSTANDARD = "LVCMOS33";		#Bank = CONFIG, Pin name = IO_L1N_T0_D01_DIN_14,			Sch name = QSPI_DQ1
+NET "QspiDB<2>"		LOC = "L14"	| IOSTANDARD = "LVCMOS33";		#Bank = CONFIG, Pin name = IO_L20_T0_D02_14,				Sch name = QSPI_DQ2
+NET "QspiDB<3>"		LOC = "M14"	| IOSTANDARD = "LVCMOS33";		#Bank = CONFIG, Pin name = IO_L2P_T0_D03_14,				Sch name = QSPI_DQ3
+NET "QspiCSn"			LOC = "L13"	| IOSTANDARD = "LVCMOS33";		#Bank = CONFIG, Pin name = IO_L15N_T2_DQS_DOUT_CSO_B_14,	Sch name = QSPI_CSN
+
+
+
 ## Cellular RAM
 NET "RamCLK"                   LOC = "T15"     | IOSTANDARD = "LVCMOS33";              #Bank = 14, Pin name = IO_L14N_T2_SRCC_14,             Sch name = CRAM_CLK
 NET "RamADVn"                  LOC = "T13"     | IOSTANDARD = "LVCMOS33";              #Bank = 14, Pin name = IO_L23P_T3_A03_D19_14,          Sch name = CRAM_ADVN
