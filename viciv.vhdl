@@ -2150,8 +2150,8 @@ begin
           -- XXX Not yet implemented
           case multicolour_bits is
             when "00" => pixel_colour <= card_bg_colour;
-            when "01" => pixel_colour <= "0000"&glyph_number(15 downto 8);
-            when "10" => pixel_colour <= "0000"&glyph_number(7 downto 0);
+            when "01" => pixel_colour <= glyph_number(15 downto 8);
+            when "10" => pixel_colour <= glyph_number(7 downto 0);
             when "11" => pixel_colour <= card_fg_colour;
             when others => pixel_colour <= card_bg_colour;
           end case;
