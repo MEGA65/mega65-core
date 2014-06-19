@@ -52,6 +52,8 @@ architecture behavioural of keymapper is
   signal break : std_logic := '0';
 
   signal matrix : std_logic_vector(63 downto 0) := (others =>'1');
+  signal joy1 : std_logic_vector(4 downto 0) := (others =>'1');
+  signal joy2 : std_logic_vector(4 downto 0) := (others =>'1');
 
   signal restore_state : std_logic := '1';
   signal restore_event : std_logic := '0';
@@ -191,7 +193,29 @@ begin  -- behavioural
                                -- and reset is not for almost 1/50th of a second.
                                fiftyhz_counter <= (others => '0');
                              end if;
-
+                             
+                           -- Joysticks
+                           when x"06c" =>  -- JOY1 LEFT
+                             joy1(0) <= break;
+                           when x"069" =>  -- JOY1 RIGHT
+                             joy1(1) <= break;
+                           when x"07d" =>  -- JOY1 UP
+                             joy1(2) <= break;
+                           when x"07a" =>  -- JOY1 DOWN
+                             joy1(3) <= break;
+                           when x"070" =>  -- JOY1 FIRE
+                             joy1(4) <= break;
+                           when x"06b" =>  -- JOY2 LEFT
+                             joy2(0) <= break;
+                           when x"074" =>  -- JOY2 RIGHT
+                             joy2(1) <= break;
+--                           when x"072" =>  -- JOY2 DOWN
+--                             joy2(3) <= break;
+                           when x"075" =>  -- JOY2 UP
+                             joy2(2) <= break;
+                           when x"073" =>  -- JOY2 FIRE
+                             joy2(4) <= break;
+                                           
                            -- DELETE, RETURN, RIGHT, F7, F1, F3, F5, down
                            when x"066" => matrix(0) <= break;
                            when x"05A" => matrix(1) <= break;
@@ -201,6 +225,10 @@ begin  -- behavioural
                            when x"004" => matrix(5) <= break;
                            when x"003" => matrix(6) <= break;
                            when x"072" => matrix(7) <= break;
+                                          joy2(3) <= break;  -- keyrah
+                                                             -- duplicate scan
+                                                             -- code for down
+                                                             -- key and joy2 down?
 
                            -- 3, W, A, 4, Z, S, E, left-SHIFT
                            when x"026" => matrix(8) <= break;
@@ -343,10 +371,20 @@ begin  -- behavioural
       end loop;
       
       -- Keyboard rows and joystick 1
-      portb_out <= portb_value;
+      portb_out(7 downto 5) <= portb_value(7 downto 5);
+      portb_out(4) <= portb_value(4) and joy1(4);
+      portb_out(3) <= portb_value(3) and joy1(3);
+      portb_out(2) <= portb_value(2) and joy1(2);
+      portb_out(1) <= portb_value(1) and joy1(1);
+      portb_out(0) <= portb_value(0) and joy1(0);
 
       -- Keyboard columns and joystick 2
-      porta_out <= "11111111";
+      porta_out(7 downto 5) <= porta_in(7 downto 5);
+      porta_out(4) <= porta_in(4) and joy2(4);
+      porta_out(3) <= porta_in(3) and joy2(3);
+      porta_out(2) <= porta_in(2) and joy2(2);
+      porta_out(1) <= porta_in(1) and joy2(1);
+      porta_out(0) <= porta_in(0) and joy2(0);
     end if;
   end process keyread;
 
