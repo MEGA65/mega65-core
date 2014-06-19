@@ -843,9 +843,11 @@ begin
         elsif register_number=29 then          -- $D01D compatibility sprite enable
           fastio_rdata <= vicii_sprite_x_expand;
         elsif register_number=30 then          -- $D01E sprite/sprite collissions
-          fastio_rdata <= vicii_sprite_sprite_colissions;          
+          fastio_rdata <= vicii_sprite_sprite_colissions;
+          ack_colissionspritesprite <= '1';
         elsif register_number=31 then          -- $D01F sprite/sprite collissions
           fastio_rdata <= vicii_sprite_bitmap_colissions;
+          ack_colissionspritebitmap <= '1';
         elsif register_number=32 then
           fastio_rdata <= std_logic_vector(border_colour);
         elsif register_number=33 then
