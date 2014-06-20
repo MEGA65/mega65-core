@@ -119,10 +119,31 @@ end entity gs4510;
 
 architecture Behavioural of gs4510 is
 
+  component shadowram is
+      port (Clk : in std_logic;
+        address : in std_logic_vector(15 downto 0);
+        -- Yes, we do have a write enable, because we allow modification of ROMs
+        -- in the running machine, unless purposely disabled.  This gives us
+        -- something like the WOM that the Amiga had.
+        we : in std_logic;
+        -- chip select, active low       
+        cs : in std_logic;
+        data_i : in std_logic_vector(7 downto 0);
+        data_o : out std_logic_vector(7 downto 0)
+        );
+  end component;
+  
   signal kickstart_en : std_logic := '1';
   signal colour_ram_cs_last : std_logic := '0';
 
   signal fastram_last_address : std_logic_vector(13 downto 0);
+
+  -- Shadow RAM control
+  signal shadow_bank : unsigned(7 downto 0);
+  signal shadow_address : unsigned(15 downto 0);
+  signal shadow_rdata : unsigned(7 downto 0);
+  signal shadow_wdata : unsigned(7 downto 0);
+  signal shadow_write : std_logic := '0';
   
   -- i-cache control lines
   signal icache_delay : std_logic;
@@ -358,6 +379,7 @@ architecture Behavioural of gs4510 is
 -- Indicate source of operand for instructions
 -- Note that ROM is actually implemented using
 -- power-on initialised RAM in the FPGA mapped via our io interface.
+  signal accessing_shadow : std_logic;
   signal accessing_fastio : std_logic;
   signal accessing_sb_fastio : std_logic;
   signal accessing_vic_fastio : std_logic;
@@ -373,6 +395,15 @@ architecture Behavioural of gs4510 is
   signal monitor_mem_trace_toggle_last : std_logic := '0';
 
 begin
+
+  shadowram0 : shadowram port map (
+    clk     => clock,
+    address => std_logic_vector(shadow_address),
+    we      => shadow_write,
+    cs      => '1',
+    data_i  => std_logic_vector(shadow_wdata),
+    unsigned(data_o)  => shadow_rdata);
+  
   process(clock)
 
     procedure reset_cpu_state is
@@ -394,6 +425,10 @@ begin
     reg_offset_low <= x"000";
     reg_offset_high <= x"000";
 
+    -- On boot up, don't shadow chipram.
+    -- Instead shadow unmapped address space at $40000 (256KB)
+    shadow_bank <= x"00";
+    
     -- Default CPU flags
     flag_c <= '0';
     flag_d <= '0';
@@ -408,7 +443,7 @@ begin
 
     -- Don't write to fastio when resetting.
     -- (this is an attempt to stop the boot vectors getting overwritten)
-    fastio_write <= '0'; fastio_read <= '0';
+    fastio_write <= '0'; fastio_read <= '0'; shadow_write <= '0';
 
   end procedure reset_cpu_state;
 
@@ -639,10 +674,15 @@ begin
     accessing_ram <= '0'; accessing_slowram <= '0';
     accessing_fastio <= '0'; accessing_vic_fastio <= '0';
     accessing_cpuport <= '0'; accessing_colour_ram_fastio <= '0';
-    accessing_sb_fastio <= '0';
+    accessing_sb_fastio <= '0'; accessing_shadow <= '0';
 
     the_read_address <= long_address;
-    if long_address(27 downto 17)="00000000000" then
+    if long_address(27 downto 24)="0000"&shadow_bank then
+      -- Reading from shadow ram
+      accessing_shadow <= '1';
+      shadow_address <= long_address(15 downto 0);
+      shadow_write <= '0';
+    elsif long_address(27 downto 17)="00000000000" then
       report "Reading from fastram address $" & to_hstring(long_address(19 downto 0))
         & ", word $" & to_hstring(long_address(18 downto 3)) severity note;
       accessing_ram <= '1';
@@ -856,6 +896,8 @@ downto 8) = x"D3F" then
       reg_dmagic_withio <= value(7);
     elsif (long_address = x"FFD3704") or (long_address = x"FFD1704") then
       reg_dmagic_addr(27 downto 20) <= value;
+    elsif (long_address = x"FFD37FE") or (long_address = x"FFD17FE") then
+      shadow_bank <= value;
     elsif (long_address = x"FFD37ff") or (long_address = x"FFD17ff") then
       -- re-enable kickstart ROM.  This is only to allow for easier development
       -- of kickstart ROMs.
@@ -873,6 +915,16 @@ downto 8) = x"D3F" then
     
     accessing_ram <= '0'; accessing_slowram <= '0';
     accessing_fastio <= '0'; accessing_cpuport <= '0';
+    accessing_shadow <= '0';
+
+    -- Always write to shadow ram if in scope, even if we also write elsewhere.
+    -- This ensures that shadow ram is consistent with the shadowed address space
+    -- when the CPU reads from shadow ram.
+    if long_address(27 downto 16)="0000"&shadow_bank then
+      shadow_write <= '1';
+      shadow_address <= long_address(15 downto 0);
+      shadow_wdata <= value;
+    end if;
     if long_address(27 downto 17)="00000000000" then
       accessing_ram <= '1';
       fastram_address <= std_logic_vector(long_address(16 downto 3));
@@ -1081,7 +1133,8 @@ downto 8) = x"D3F" then
       return dmagic_dest_addr(23 downto 16);
     elsif (the_read_address = x"FFD372f") or (the_read_address = x"FFD172f") then
       return "0000"&dmagic_dest_addr(27 downto 24);
-
+    elsif (the_read_address = x"FFD37FE") or (the_read_address = x"FFD17FE") then
+      return shadow_bank;
     end if;   
 
     if accessing_cpuport='1' then
@@ -1092,6 +1145,9 @@ downto 8) = x"D3F" then
         -- CPU port
         return cpuport_value;
       end if;
+    elsif accessing_shadow='1' then
+      report "reading from shadow RAM" severity note;
+      return shadow_rdata;
     elsif accessing_sb_fastio='1' then
       report "reading sector buffer RAM fastio byte $" & to_hstring(fastio_sd_rdata) severity note;
       return unsigned(fastio_sd_rdata);
@@ -1721,7 +1777,8 @@ downto 8) = x"D3F" then
       colour_ram_cs_last <= '0';
       accessing_ram <= '0'; accessing_slowram <= '0';
       accessing_fastio <= '0'; accessing_vic_fastio <= '0';
-      accessing_cpuport <= '0';
+      accessing_cpuport <= '0'; accessing_shadow <= '0';
+      shadow_write <= '0';
 
       monitor_watch_match <= '0';       -- set if writing to watched address
       monitor_state <= std_logic_vector(to_unsigned(processor_state'pos(state),8));
