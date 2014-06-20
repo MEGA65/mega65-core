@@ -121,26 +121,23 @@ architecture Behavioural of gs4510 is
 
   component shadowram is
       port (Clk : in std_logic;
-        address : in std_logic_vector(15 downto 0);
-        -- Yes, we do have a write enable, because we allow modification of ROMs
-        -- in the running machine, unless purposely disabled.  This gives us
-        -- something like the WOM that the Amiga had.
-        we : in std_logic;
-        -- chip select, active low       
-        cs : in std_logic;
-        data_i : in std_logic_vector(7 downto 0);
-        data_o : out std_logic_vector(7 downto 0)
+            address : in std_logic_vector(17 downto 0);            
+            we : in std_logic;
+            -- chip select, active low       
+            cs : in std_logic;
+            data_i : in std_logic_vector(7 downto 0);
+            data_o : out std_logic_vector(7 downto 0)
         );
   end component;
   
   signal kickstart_en : std_logic := '1';
   signal colour_ram_cs_last : std_logic := '0';
 
-  signal fastram_last_address : std_logic_vector(13 downto 0);
+--  signal fastram_last_address : std_logic_vector(13 downto 0);
 
   -- Shadow RAM control
   signal shadow_bank : unsigned(7 downto 0);
-  signal shadow_address : unsigned(15 downto 0);
+  signal shadow_address : unsigned(17 downto 0);
   signal shadow_rdata : unsigned(7 downto 0);
   signal shadow_wdata : unsigned(7 downto 0);
   signal shadow_write : std_logic := '0';
@@ -249,7 +246,7 @@ architecture Behavioural of gs4510 is
     IndirectY1,IndirectY2,IndirectY3,
     IndirectZ1,IndirectZ2,
     ExecuteDirect,RMWCommit,RMWCommit2,RMWCommit3,
-    Halt,FastRamWait,
+    Halt, -- FastRamWait,
     SlowRamRead1,SlowRamRead2,SlowRamWrite1,SlowRamWrite2,
     BranchOnBit,
     MonitorAccessDone,MonitorReadDone,
@@ -384,7 +381,7 @@ architecture Behavioural of gs4510 is
   signal accessing_sb_fastio : std_logic;
   signal accessing_vic_fastio : std_logic;
   signal accessing_colour_ram_fastio : std_logic;
-  signal accessing_ram : std_logic;
+--  signal accessing_ram : std_logic;
   signal accessing_slowram : std_logic;
   signal accessing_cpuport : std_logic;
   signal cpuport_num : std_logic;
@@ -631,9 +628,11 @@ begin
     if temp_address(27 downto 17) = "00000000000" then
       -- Next instruction will be fetching from fastram, so
       -- it is worth asking for the relevant word now.
-      accessing_ram <= '1';
-      fastram_address <= std_logic_vector(temp_address(16 downto 3));
-      fastram_last_address <= std_logic_vector(temp_address(16 downto 3));
+--      accessing_ram <= '1';
+--      fastram_address <= std_logic_vector(temp_address(16 downto 3));
+--      fastram_last_address <= std_logic_vector(temp_address(16 downto 3));
+      -- XXX Update to allow prefetching from shadow RAM
+      report "PREFETCH FROM SHADOW RAM NOT IMPLEMENTED" severity note;
     end if;
   end prefetch_next_instruction;
 
@@ -671,39 +670,31 @@ begin
     end if;
     
     -- Schedule the memory read from the appropriate source.
-    accessing_ram <= '0'; accessing_slowram <= '0';
+    -- accessing_ram <= '0';
+    accessing_slowram <= '0';
     accessing_fastio <= '0'; accessing_vic_fastio <= '0';
     accessing_cpuport <= '0'; accessing_colour_ram_fastio <= '0';
     accessing_sb_fastio <= '0'; accessing_shadow <= '0';
 
     the_read_address <= long_address;
-    if long_address(27 downto 24)="0000"&shadow_bank then
-      -- Reading from shadow ram
+    if long_address(27 downto 16)="00"&shadow_bank then
+      -- Reading from 256KB shadow ram (which includes 128KB fixed shadowing of
+      -- chipram)
       accessing_shadow <= '1';
-      shadow_address <= long_address(15 downto 0);
+      shadow_address <= long_address(17 downto 0);
       shadow_write <= '0';
     elsif long_address(27 downto 17)="00000000000" then
-      report "Reading from fastram address $" & to_hstring(long_address(19 downto 0))
+      -- Reading from chipram, so read from the bottom 128KB of the shadow RAM
+      -- instead.
+      accessing_shadow <= '1';
+      shadow_address <= '0'&long_address(16 downto 0);
+      shadow_write <= '0';
+      report "Reading from shadowed fastram address $" & to_hstring(long_address(19 downto 0))
         & ", word $" & to_hstring(long_address(18 downto 3)) severity note;
-      accessing_ram <= '1';
-      fastram_address <= std_logic_vector(long_address(16 downto 3));
-      fastram_byte_number <= long_address(2 downto 0);
-      -- By remembering the last fastram address fetched, we can skip the
-      -- wait state if we are asking for the same address again.
-      fastram_last_address <= std_logic_vector(long_address(16 downto 3));     
-      if (fastramwaitstate='0') and
-        (std_logic_vector(long_address(16 downto 3)) = fastram_last_address)
-      then
-        state <= next_state;
-      else
-        -- why on earth does this work with this commented out?
-        --pending_state <= next_state;
-        state <= FastRamWait;
-      end if;
-    -- Slow RAM maps to $8xxxxxx, and also $0020000 - $003FFFF for C65 ROM
-    -- emulation.
     elsif long_address(27 downto 24) = x"8"
       or long_address(27 downto 17)&'0' = x"002" then
+      -- Slow RAM maps to $8xxxxxx, and also $0020000 - $003FFFF for C65 ROM
+      -- emulation.
       accessing_slowram <= '1';
       slowram_addr <= std_logic_vector(long_address(23 downto 1));
       slowram_data <= (others => 'Z');  -- tristate data lines
@@ -913,7 +904,8 @@ downto 8) = x"D3F" then
     icache_invalidate(long_address-1);
     icache_invalidate(long_address-2);
     
-    accessing_ram <= '0'; accessing_slowram <= '0';
+    -- accessing_ram <= '0';
+    accessing_slowram <= '0';
     accessing_fastio <= '0'; accessing_cpuport <= '0';
     accessing_shadow <= '0';
 
@@ -922,13 +914,13 @@ downto 8) = x"D3F" then
     -- when the CPU reads from shadow ram.
     if long_address(27 downto 16)="0000"&shadow_bank then
       shadow_write <= '1';
-      shadow_address <= long_address(15 downto 0);
+      shadow_address <= long_address(17 downto 0);
       shadow_wdata <= value;
     end if;
     if long_address(27 downto 17)="00000000000" then
-      accessing_ram <= '1';
+--      accessing_ram <= '1';
       fastram_address <= std_logic_vector(long_address(16 downto 3));
-      fastram_last_address <= std_logic_vector(long_address(16 downto 3));
+--      fastram_last_address <= std_logic_vector(long_address(16 downto 3));
       fastram_we <= (others => '0');
       fastram_datain <= (others => '1');
       case long_address(2 downto 0) is
@@ -1160,27 +1152,27 @@ downto 8) = x"D3F" then
     elsif accessing_fastio='1' then
       report "reading normal fastio byte $" & to_hstring(fastio_rdata) severity note;
       return unsigned(fastio_rdata);
-    elsif accessing_ram='1' then
-      report "Extracting fastram value from 64-bit read $" & to_hstring(fastram_dataout) severity note;
-      report "Fastram_byte_number = " & integer'image(to_integer(fastram_byte_number)) severity note;
-      case fastram_byte_number is
-        when "000" => return unsigned(fastram_dataout( 7 downto 0));
-        when "001" => return unsigned(fastram_dataout(15 downto 8));
-        when "010" => return unsigned(fastram_dataout(23 downto 16));
-        when "011" => return unsigned(fastram_dataout(31 downto 24));
-        when "100" => return unsigned(fastram_dataout(39 downto 32));
-        when "101" => return unsigned(fastram_dataout(47 downto 40));
-        when "110" => return unsigned(fastram_dataout(55 downto 48));
-        when "111" =>
-          -- When reading last fastram byte in a word, advance
-          -- fastram address, since chances are we will want to read it later
-          if (fastramwaitstate='0') then
-            fastram_address <= std_logic_vector(unsigned(fastram_last_address) + 1);
-            fastram_last_address <= std_logic_vector(unsigned(fastram_last_address) + 1);
-          end if;
-          return unsigned(fastram_dataout(63 downto 56));
-        when others => return x"FF";
-      end case;
+    --elsif accessing_ram='1' then
+    --  report "Extracting fastram value from 64-bit read $" & to_hstring(fastram_dataout) severity note;
+    --  report "Fastram_byte_number = " & integer'image(to_integer(fastram_byte_number)) severity note;
+    --  case fastram_byte_number is
+    --    when "000" => return unsigned(fastram_dataout( 7 downto 0));
+    --    when "001" => return unsigned(fastram_dataout(15 downto 8));
+    --    when "010" => return unsigned(fastram_dataout(23 downto 16));
+    --    when "011" => return unsigned(fastram_dataout(31 downto 24));
+    --    when "100" => return unsigned(fastram_dataout(39 downto 32));
+    --    when "101" => return unsigned(fastram_dataout(47 downto 40));
+    --    when "110" => return unsigned(fastram_dataout(55 downto 48));
+    --    when "111" =>
+    --      -- When reading last fastram byte in a word, advance
+    --      -- fastram address, since chances are we will want to read it later
+    --      if (fastramwaitstate='0') then
+    --        fastram_address <= std_logic_vector(unsigned(fastram_last_address) + 1);
+    --        fastram_last_address <= std_logic_vector(unsigned(fastram_last_address) + 1);
+    --      end if;
+    --      return unsigned(fastram_dataout(63 downto 56));
+    --    when others => return x"FF";
+    --  end case;
     elsif accessing_slowram='1' then
       report "reading slow RAM data. Word is $" & to_hstring(slowram_data) severity note;
       slowram_ce <= '1'; -- Release after reading so that refresh can occur
@@ -1775,7 +1767,8 @@ downto 8) = x"D3F" then
       -- clear memory access states
       colour_ram_cs <= '0';
       colour_ram_cs_last <= '0';
-      accessing_ram <= '0'; accessing_slowram <= '0';
+      -- accessing_ram <= '0'; 
+      accessing_slowram <= '0';
       accessing_fastio <= '0'; accessing_vic_fastio <= '0';
       accessing_cpuport <= '0'; accessing_shadow <= '0';
       shadow_write <= '0';
@@ -2228,23 +2221,23 @@ downto 8) = x"D3F" then
                 flag_c <= read_data(7);
                 write_data_byte(reg_addr,with_nz(read_data(6 downto 0)&flag_c),InstructionFetch);
               end if;
-            when FastRamWait =>
-              accessing_ram <= '1';
+            --when FastRamWait =>
+            --  accessing_ram <= '1';
 
-              if fastram_byte_number="111" then
-                -- When reading last fastram byte in a word, advance
-                -- fastram address, since chances are we will want to read it next
-                if (fastramwaitstate='0') then
-                  fastram_address <= std_logic_vector(unsigned(fastram_last_address) + 1);
-                  fastram_last_address <= std_logic_vector(unsigned(fastram_last_address) + 1);
-                end if;
-              end if;
+            --  if fastram_byte_number="111" then
+            --    -- When reading last fastram byte in a word, advance
+            --    -- fastram address, since chances are we will want to read it next
+            --    if (fastramwaitstate='0') then
+            --      fastram_address <= std_logic_vector(unsigned(fastram_last_address) + 1);
+            --      fastram_last_address <= std_logic_vector(unsigned(fastram_last_address) + 1);
+            --    end if;
+            --  end if;
               
-              if pending_state = InstructionFetch then
-                ready_for_next_instruction(reg_pc);
-              else
-                state <= pending_state;
-              end if;
+            --  if pending_state = InstructionFetch then
+            --    ready_for_next_instruction(reg_pc);
+            --  else
+            --    state <= pending_state;
+            --  end if;
             when FastIOWait =>
               -- hold colour ram access for the extra cycle necessary
               -- (we clear it at the start of the process)

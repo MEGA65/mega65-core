@@ -5,10 +5,7 @@ use ieee.numeric_std.all;
 --
 entity shadowram is
   port (Clk : in std_logic;
-        address : in std_logic_vector(15 downto 0);
-        -- Yes, we do have a write enable, because we allow modification of ROMs
-        -- in the running machine, unless purposely disabled.  This gives us
-        -- something like the WOM that the Amiga had.
+        address : in std_logic_vector(17 downto 0);
         we : in std_logic;
         -- chip select, active low       
         cs : in std_logic;
@@ -19,7 +16,7 @@ end shadowram;
 
 architecture Behavioral of shadowram is
 
-  type ram_t is array (0 to 65535) of std_logic_vector(7 downto 0);
+  type ram_t is array (0 to 262143) of std_logic_vector(7 downto 0);
   signal ram : ram_t := (others => x"00");
   
 begin
