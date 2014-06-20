@@ -464,12 +464,13 @@ begin
   -- device via the IOmapper pull an interrupt line down, then trigger an
   -- interrupt.
   -----------------------------------------------------------------------------
-  process(irq,nmi,io_irq,vic_irq,io_nmi,sw)
+  process(irq,nmi,io_irq,vic_irq,io_nmi,sw,reset_out,btnCpuReset)
   begin
     -- XXX Allow switch 0 to mask IRQs
     combinedirq <= ((irq and io_irq and vic_irq) or sw(0));
     combinednmi <= (nmi and io_nmi and restore_nmi) or sw(14);
-    reset_combined <= (btnCpuReset and reset_out) or sw(15); 
+    reset_combined <= (btnCpuReset and reset_out) or sw(15);
+--    report "btnCpuReset = " & std_logic'image(btnCpuReset) & ", reset_out = " & std_logic'image(reset_out) & ", sw(15) = " & std_logic'image(sw(15)) severity note;
   end process;
   
   process(pixelclock)
