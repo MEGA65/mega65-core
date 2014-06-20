@@ -925,11 +925,13 @@ downto 8) = x"D3F" then
     -- This ensures that shadow ram is consistent with the shadowed address space
     -- when the CPU reads from shadow ram.
     if long_address(27 downto 16)="0000"&shadow_bank then
+      report "writing to shadow RAM via shadow_bank" severity note;
       shadow_write <= '1';
       shadow_address <= long_address(17 downto 0);
       shadow_wdata <= value;
     end if;
     if long_address(27 downto 17)="00000000000" then
+      report "writing to shadow RAM via chipram shadowing. addr=$" & to_hstring(long_address) severity note;
 --      accessing_ram <= '1';
       fastram_address <= std_logic_vector(long_address(16 downto 3));
 --      fastram_last_address <= std_logic_vector(long_address(16 downto 3));
@@ -1837,7 +1839,7 @@ downto 8) = x"D3F" then
 
 
       if reset = '0' or state = ResetLow then
-
+--        report "CPU reset asserted (reset line = " & std_logic'image(reset) & " cpu state = " & processor_state'image(state) severity note;
         -- reset cpu
         kickstart_en <= '1';
         fastio_write <= '0';
@@ -1865,6 +1867,7 @@ downto 8) = x"D3F" then
           end if;
         end if;   
       else
+--        report "CPU running" severity note;
 
         -- CPU running, so do CPU state machine
         if monitor_mem_attention_request='0' then
