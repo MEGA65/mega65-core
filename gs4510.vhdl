@@ -423,8 +423,8 @@ begin
     reg_offset_high <= x"000";
 
     -- On boot up, don't shadow chipram.
-    -- Instead shadow unmapped address space at $40000 (256KB)
-    shadow_bank <= x"00";
+    -- Instead shadow unmapped address space at $C0000 (768KB)
+    shadow_bank <= x"0C";
     
     -- Default CPU flags
     flag_c <= '0';
@@ -677,7 +677,7 @@ begin
     accessing_sb_fastio <= '0'; accessing_shadow <= '0';
 
     the_read_address <= long_address;
-    if long_address(27 downto 16)="00"&shadow_bank then
+    if long_address(27 downto 16)="0000"&shadow_bank then
       -- Reading from 256KB shadow ram (which includes 128KB fixed shadowing of
       -- chipram)
       accessing_shadow <= '1';
