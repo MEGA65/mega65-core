@@ -1277,6 +1277,7 @@ downto 8) = x"D3F" then
     -- False if handling a special instruction
     variable virtual_reg_p : unsigned(7 downto 0);
     variable temp_pc : unsigned(15 downto 0);
+    variable fetch_now : std_logic := '1';
   begin
 
     -- report "Executing " & instruction'image(i) & " mode " & addressingmode'image(mode) severity note;
@@ -1321,6 +1322,7 @@ downto 8) = x"D3F" then
           temp_pc := reg_pc + 1;
           reg_pc <= temp_pc;
           push_byte(temp_pc(15 downto 8),BRK1);
+          fetch_now := '0';
         when I_CLC => flag_c <= '0';
         when I_CLD => flag_d <= '0';
         when I_CLE => flag_e <= '0';
@@ -1338,22 +1340,34 @@ downto 8) = x"D3F" then
           -- XXX Implement MAP instruction
           c65_map_instruction;
           map_interrupt_inhibit <= '1';
-          icache_delay <= '1';
+          icache_delay <= '1';          
         when I_NEG => reg_a <= with_nz((not reg_a) + 1);
         when I_PHA => push_byte(reg_a,InstructionFetch);
+                      fetch_now := '0';
         when I_PHX => push_byte(reg_x,InstructionFetch);
+                      fetch_now := '0';
         when I_PHY => push_byte(reg_y,InstructionFetch);
+                      fetch_now := '0';
         when I_PHZ => push_byte(reg_z,InstructionFetch);
+                      fetch_now := '0';
         when I_PHP =>
           virtual_reg_p(4) := '1';      -- PHP sets BRK flag.
           push_byte(virtual_reg_p,InstructionFetch);
+          fetch_now := '0';
         when I_PLA => pull_byte(PLA1);
+                      fetch_now := '0';
         when I_PLX => pull_byte(PLX1);
+                      fetch_now := '0';
         when I_PLY => pull_byte(PLY1);
+                      fetch_now := '0';
         when I_PLZ => pull_byte(PLZ1);
+                      fetch_now := '0';
         when I_PLP => pull_byte(PLP1);
+                      fetch_now := '0';
         when I_RTI => pull_byte(RTI1);
+                      fetch_now := '0';
         when I_RTS => pull_byte(RTS1);
+                      fetch_now := '0';
         when I_SEC => flag_c <= '1';
         when I_SED => flag_d <= '1';
         when I_SEE => flag_e <= '1';
@@ -1387,6 +1401,14 @@ downto 8) = x"D3F" then
         when I_ROR => reg_a <= with_nz(flag_c & reg_a(7 downto 1)); flag_c <= reg_a(0);
         when others => null;
       end case;
+    end if;
+    if fetch_now='1' then
+      -- Fetch next instructio now, since PC has not changed and there are no
+      -- pending bus accesses.
+      report "Fast-forwarding next instruction after simple 1-byte instruction" severity note;
+      read_instruction_byte(reg_pc,InstructionFetch2);
+      reg_pc <= reg_pc + 1;
+
     end if;
   end procedure execute_implied_instruction;
 
@@ -1778,6 +1800,11 @@ downto 8) = x"D3F" then
   variable temp_pc : unsigned(15 downto 0);
   variable temp_value : unsigned(7 downto 0);
   variable nybl : unsigned(3 downto 0);
+
+  variable execute_now : std_logic := '0';
+  variable execute_opcode : unsigned(7 downto 0);
+  variable execute_arg1 : unsigned(7 downto 0);
+  variable execute_arg2 : unsigned(7 downto 0);
   begin
 
     -- BEGINNING OF MAIN PROCESS FOR CPU
@@ -2111,6 +2138,9 @@ downto 8) = x"D3F" then
                 monitor_ibytes <= x"2";
                 monitor_arg1 <= std_logic_vector(read_data);
                 state <= InstructionDispatch;
+                -- execute_now := '1';
+                -- execute_opcode := reg_opcode;
+                -- execute_arg1 := read_data;
               end if;
             when InstructionFetch4 =>
               report "reg_pc is $" & to_hstring(reg_pc) severity note;
@@ -2120,8 +2150,14 @@ downto 8) = x"D3F" then
               monitor_arg2 <= std_logic_vector(read_data);
               arg2 <= read_data;
               state <= InstructionDispatch;
+              -- execute_now := '1';
+              -- execute_opcode := reg_opcode;
+              -- execute_arg1 := arg1;
+              -- execute_arg2 := read_data;
+
             when InstructionDispatch =>
               execute_instruction(reg_opcode,arg1,arg2);
+--              null;
             when BRK1 => push_byte(reg_pc(7 downto 0),BRK2);
             when BRK2 =>
               -- set B flag in P before pushing
