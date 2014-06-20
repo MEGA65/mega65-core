@@ -932,6 +932,10 @@ downto 8) = x"D3F" then
     end if;
     if long_address(27 downto 17)="00000000000" then
       report "writing to shadow RAM via chipram shadowing. addr=$" & to_hstring(long_address) severity note;
+      shadow_write <= '1';
+      shadow_address <= long_address(17 downto 0);
+      shadow_wdata <= value;
+      
 --      accessing_ram <= '1';
       fastram_address <= std_logic_vector(long_address(16 downto 3));
 --      fastram_last_address <= std_logic_vector(long_address(16 downto 3));

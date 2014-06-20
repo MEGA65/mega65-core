@@ -1944,7 +1944,6 @@ txt_c65gsd81:	      .byte "C65GS   D81"
 ;;; ----------------------------------------------------------------------------
 reset_entry:
 		; get CPU state sensible
-		phw $003d
 		sei
 		cld
 		see
