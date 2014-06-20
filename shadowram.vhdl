@@ -28,6 +28,7 @@ begin
       if cs='1' then
         if(we='1') then
           ram(to_integer(unsigned(address))) <= data_i;
+          report "wrote to shadow ram" severity note;
         end if;
         data_o <= ram(to_integer(unsigned(address)));
       end if;
