@@ -683,6 +683,13 @@ begin
       accessing_shadow <= '1';
       shadow_address <= long_address(17 downto 0);
       shadow_write <= '0';
+      report "Reading from shadow ram address $" & to_hstring(long_address(17 downto 0))
+        & ", word $" & to_hstring(long_address(18 downto 3)) severity note;
+      if next_state = InstructionFetch then
+        ready_for_next_instruction(reg_pc);
+      else
+        state <= next_state;
+      end if;
     elsif long_address(27 downto 17)="00000000000" then
       -- Reading from chipram, so read from the bottom 128KB of the shadow RAM
       -- instead.
@@ -691,6 +698,11 @@ begin
       shadow_write <= '0';
       report "Reading from shadowed fastram address $" & to_hstring(long_address(19 downto 0))
         & ", word $" & to_hstring(long_address(18 downto 3)) severity note;
+      if next_state = InstructionFetch then
+        ready_for_next_instruction(reg_pc);
+      else
+        state <= next_state;
+      end if;
     elsif long_address(27 downto 24) = x"8"
       or long_address(27 downto 17)&'0' = x"002" then
       -- Slow RAM maps to $8xxxxxx, and also $0020000 - $003FFFF for C65 ROM
@@ -1862,6 +1874,7 @@ downto 8) = x"D3F" then
         if monitor_mem_stage_trace_mode='0' or
           monitor_mem_trace_toggle /= monitor_mem_trace_toggle_last then
           monitor_mem_trace_toggle_last <= monitor_mem_trace_toggle;
+          report "CPU state is " & processor_state'image(state) severity note;
           case state is
             when MonitorReadDone =>            
               monitor_mem_rdata <= read_data;
