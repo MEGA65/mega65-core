@@ -1556,6 +1556,7 @@ downto 8) = x"D3F" then
     operand : in unsigned(7 downto 0);
     address : in unsigned(15 downto 0)) is
     variable bitbucket : unsigned(7 downto 0);
+    variable fetch_now : std_logic := '1';
   begin
     -- report "Calculating result for " & instruction'image(i) & " operand=$" & to_hstring(operand) severity note;
     ready_for_next_instruction(reg_pc);
@@ -1567,34 +1568,47 @@ downto 8) = x"D3F" then
       when I_LDZ => reg_z <= with_nz(operand);
       when I_ADC => reg_a <= alu_op_add(reg_a,operand);
       when I_AND => reg_a <= with_nz(reg_a and operand);
-      when I_ASL => flag_c <= operand(7); rmw_operand_commit(address,operand,operand(6 downto 0)&'0');
+      when I_ASL => flag_c <= operand(7);
+                    rmw_operand_commit(address,operand,operand(6 downto 0)&'0');
+                    fetch_now := '0';
       when I_ASW => flag_c <= operand(7); word_flag<='1';
                     rmw_operand_commit(address,operand,operand(6 downto 0)&'0');
-      when I_ASR => flag_c <= operand(0); rmw_operand_commit(address,operand,operand(7)&operand(7 downto 1));
-      when I_BIT => bitbucket := with_nz(reg_a and operand); flag_n <= operand(7); flag_v <= operand(6);
+                    fetch_now := '0';
+      when I_ASR => flag_c <= operand(0);
+                    rmw_operand_commit(address,operand,operand(7)&operand(7 downto 1));
+                    fetch_now := '0';
+      when I_BIT => bitbucket := with_nz(reg_a and operand);
+                    flag_n <= operand(7); flag_v <= operand(6);
       when I_CMP => alu_op_cmp(reg_a,operand);
       when I_CPX => alu_op_cmp(reg_x,operand);
       when I_CPY => alu_op_cmp(reg_y,operand);
       when I_CPZ => alu_op_cmp(reg_z,operand);
       when I_DEC => rmw_operand_commit(address,operand,operand-1);
+                    fetch_now := '0';
       when I_DEW =>
         if operand=x"00" then
           word_flag <= '1';
         end if;
         rmw_operand_commit(address,operand,operand-1);
+        fetch_now := '0';
       when I_EOR => reg_a <= with_nz(reg_a xor operand);    
       when I_INC =>
         report "INC of $" & to_hstring(operand) & " to $" & to_hstring(operand+1) severity note;
         rmw_operand_commit(address,operand,(operand+1));
+        fetch_now := '0';
       when I_INW =>
         if operand=x"FF" then
           word_flag <= '1';
         end if;
         rmw_operand_commit(address,operand,(operand+1));
-      when I_LSR => flag_c <= operand(0); rmw_operand_commit(address,operand,'0'&operand(7 downto 1));
+        fetch_now := '0';
+      when I_LSR => flag_c <= operand(0);
+                    rmw_operand_commit(address,operand,'0'&operand(7 downto 1));
+                    fetch_now := '0';
       when I_ORA => reg_a <= with_nz(reg_a or operand);
       when I_RMB =>
         report "Running RMB instruction" severity note;
+        fetch_now := '0';
         case reg_opcode is
           when x"07" => write_data_byte(address,operand and x"FE",InstructionFetch);
           when x"17" => write_data_byte(address,operand and x"FD",InstructionFetch);
@@ -1606,12 +1620,18 @@ downto 8) = x"D3F" then
           when x"77" => write_data_byte(address,operand and x"7F",InstructionFetch);
           when others => null;
         end case;        
-      when I_ROL => flag_c <= operand(7); rmw_operand_commit(address,operand,operand(6 downto 0)&flag_c);
-      when I_ROR => flag_c <= operand(0); rmw_operand_commit(address,operand,flag_c&operand(7 downto 1));
+      when I_ROL => flag_c <= operand(7);
+                    rmw_operand_commit(address,operand,operand(6 downto 0)&flag_c);
+                    fetch_now := '0';
+      when I_ROR => flag_c <= operand(0);
+                    rmw_operand_commit(address,operand,flag_c&operand(7 downto 1));
+                    fetch_now := '0';
       when I_ROW => flag_c <= operand(7); word_flag<='1';
                     rmw_operand_commit(address,operand,operand(6 downto 0)&flag_c);
+                    fetch_now := '0';
       when I_SBC => reg_a <= alu_op_sub(reg_a,operand);
       when I_SMB =>
+        fetch_now := '0';
         report "Running SMB instruction" severity note;
         report "reg_opcode = $" & to_hstring(reg_opcode) severity note;
         case reg_opcode is
@@ -1626,10 +1646,15 @@ downto 8) = x"D3F" then
           when others => null;
         end case;        
       when I_STA => write_data_byte(address,reg_a,InstructionFetch);
+                    fetch_now := '0';
       when I_STX => write_data_byte(address,reg_x,InstructionFetch);
+                    fetch_now := '0';
       when I_STY => write_data_byte(address,reg_y,InstructionFetch);
+                    fetch_now := '0';
       when I_STZ => write_data_byte(address,reg_z,InstructionFetch);
+                    fetch_now := '0';
       when I_TSB =>
+        fetch_now := '0';
         if (operand and reg_a) = x"00" then
           flag_z <= '1';
         else
@@ -1637,6 +1662,7 @@ downto 8) = x"D3F" then
         end if;
         write_data_byte(address,reg_a or operand,InstructionFetch);
       when I_TRB =>
+        fetch_now := '0';
         if (operand and reg_a) = x"00" then
           flag_z <= '1';
         else
@@ -1648,6 +1674,7 @@ downto 8) = x"D3F" then
         -- (eg missing from this case statement).
         -- In such cases, we will mask all interrupts, bank the kickstart ROM
         -- in, and jump to ($FFF0).
+        fetch_now := '0';
         kickstart_en <= '1';
         map_interrupt_inhibit <= '1';
         vector <= x"FFF0";
@@ -1657,6 +1684,11 @@ downto 8) = x"D3F" then
         reg_z <= reg_opcode;
         state <= VectorRead;
     end case;
+    if fetch_now = '1' then
+      report "Fast-forwarding next instruction after operand instruction" severity note;
+      read_instruction_byte(reg_pc,InstructionFetch2);
+      reg_pc <= reg_pc + 1;      
+    end if;
   end procedure execute_operand_instruction;
 
   function flag_status (
