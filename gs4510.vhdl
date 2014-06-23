@@ -141,24 +141,7 @@ architecture Behavioural of gs4510 is
   signal shadow_rdata : unsigned(7 downto 0);
   signal shadow_wdata : unsigned(7 downto 0);
   signal shadow_write : std_logic := '0';
-  
-  -- i-cache control lines
-  signal icache_delay : std_logic;
-  signal accessing_icache : std_logic;
-
-  signal icache_00_address : unsigned(7 downto 0);
-  signal icache_00_wdata : unsigned(31 downto 0);
-  signal icache_00_write : std_logic;
-  signal icache_01_address : unsigned(7 downto 0);
-  signal icache_01_wdata : unsigned(31 downto 0);
-  signal icache_01_write : std_logic;
-  signal icache_10_address : unsigned(7 downto 0);
-  signal icache_10_wdata : unsigned(31 downto 0);
-  signal icache_10_write : std_logic;
-  signal icache_11_address : unsigned(7 downto 0);
-  signal icache_11_wdata : unsigned(31 downto 0);
-  signal icache_11_write : std_logic;
-  
+    
   signal last_fastio_addr : std_logic_vector(19 downto 0);
 
   signal slowram_lohi : std_logic;
@@ -507,27 +490,6 @@ begin
     
     return temp_address;
   end resolve_address_to_long;
-
-  -- purpose: invalidate cache lines corresponding to a memory write
-  procedure icache_invalidate (
-    long_address : in unsigned(27 downto 0)) is
-  begin  -- icache_invalidate
-    case long_address(1 downto 0) is
-      when "00" => icache_00_address <= long_address(9 downto 2);
-                   icache_00_wdata <= (others => '0');
-                   icache_00_write <= '1';
-      when "01" => icache_01_address <= long_address(9 downto 2);
-                   icache_01_wdata <= (others => '0');
-                   icache_01_write <= '1';
-      when "10" => icache_10_address <= long_address(9 downto 2);
-                   icache_10_wdata <= (others => '0');
-                   icache_10_write <= '1';
-      when "11" => icache_11_address <= long_address(9 downto 2);
-                   icache_11_wdata <= (others => '0');
-                   icache_11_write <= '1';
-      when others => null;
-    end case;
-  end icache_invalidate;
   
   -- purpose: set processor flags from a byte (eg for PLP or RTI)
   procedure load_processor_flags (
