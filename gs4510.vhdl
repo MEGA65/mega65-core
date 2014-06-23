@@ -664,6 +664,94 @@ downto 8) = x"D3F" then
     end if;
   end read_address;
 
+  -- purpose: obtain the byte of memory that has been read
+  impure function read_data
+    return unsigned is
+  begin  -- read_data
+    -- CPU hosted IO registers
+    if (the_read_address = x"FFD3703") or (the_read_address = x"FFD1703") then
+      return reg_dmagic_status;
+    elsif (the_read_address = x"FFD370B") then
+      return reg_dmagic_addr(7 downto 0);
+    elsif (the_read_address = x"FFD370C") then
+      return reg_dmagic_addr(15 downto 8);
+    elsif (the_read_address = x"FFD370D") then
+      return reg_dmagic_addr(23 downto 16);
+    elsif (the_read_address = x"FFD370E") then
+      return x"0" & reg_dmagic_addr(27 downto 24);
+    elsif (the_read_address = x"FFD370F") or (the_read_address = x"FFD170F") then
+      return reg_dmacount;
+    elsif (the_read_address = x"FFD3710") or (the_read_address = x"FFD1710") then
+      return dma_checksum(7 downto 0);
+    elsif (the_read_address = x"FFD3711") or (the_read_address = x"FFD1711") then
+      return dma_checksum(15 downto 8);
+    elsif (the_read_address = x"FFD3712") or (the_read_address = x"FFD1712") then
+      return dma_checksum(23 downto 16);
+    elsif (the_read_address = x"FFD3720") or (the_read_address = x"FFD1720") then
+      return dmagic_count(7 downto 0);
+    elsif (the_read_address = x"FFD3721") or (the_read_address = x"FFD1721") then
+      return dmagic_count(15 downto 8);
+    elsif (the_read_address = x"FFD3722") or (the_read_address = x"FFD1722") then
+      return dmagic_tally(7 downto 0);
+    elsif (the_read_address = x"FFD3723") or (the_read_address = x"FFD1723") then
+      return dmagic_tally(15 downto 8);
+    elsif (the_read_address = x"FFD3728") or (the_read_address = x"FFD1728") then
+      return dmagic_src_addr(7 downto 0);
+    elsif (the_read_address = x"FFD3729") or (the_read_address = x"FFD1729") then
+      return dmagic_src_addr(15 downto 8);
+    elsif (the_read_address = x"FFD372a") or (the_read_address = x"FFD172a") then
+      return dmagic_src_addr(23 downto 16);
+    elsif (the_read_address = x"FFD372b") or (the_read_address = x"FFD172b") then
+      return "0000"&dmagic_src_addr(27 downto 24);
+    elsif (the_read_address = x"FFD372c") or (the_read_address = x"FFD172c") then
+      return dmagic_dest_addr(7 downto 0);
+    elsif (the_read_address = x"FFD372d") or (the_read_address = x"FFD172d") then
+      return dmagic_dest_addr(15 downto 8);
+    elsif (the_read_address = x"FFD372e") or (the_read_address = x"FFD172e") then
+      return dmagic_dest_addr(23 downto 16);
+    elsif (the_read_address = x"FFD372f") or (the_read_address = x"FFD172f") then
+      return "0000"&dmagic_dest_addr(27 downto 24);
+    elsif (the_read_address = x"FFD37FE") or (the_read_address = x"FFD17FE") then
+      return shadow_bank;
+    end if;
+
+    if accessing_cpuport='1' then
+      if cpuport_num='0' then
+        -- DDR
+        return cpuport_ddr;
+      else
+        -- CPU port
+        return cpuport_value;
+      end if;
+    elsif accessing_shadow='1' then
+      report "reading from shadow RAM" severity note;
+      return shadow_rdata;
+    elsif accessing_sb_fastio='1' then
+      report "reading sector buffer RAM fastio byte $" & to_hstring(fastio_sd_rdata) severity note;
+      return unsigned(fastio_sd_rdata);
+    elsif accessing_colour_ram_fastio='1' then 
+      report "reading colour RAM fastio byte $" & to_hstring(fastio_vic_rdata) severity note;
+      return unsigned(fastio_colour_ram_rdata);
+    elsif accessing_vic_fastio='1' then 
+      report "reading VIC fastio byte $" & to_hstring(fastio_vic_rdata) severity note;
+      return unsigned(fastio_vic_rdata);
+    elsif accessing_fastio='1' then
+      report "reading normal fastio byte $" & to_hstring(fastio_rdata) severity note;
+      return unsigned(fastio_rdata);
+    elsif accessing_slowram='1' then
+      report "reading slow RAM data. Word is $" & to_hstring(slowram_data) severity note;
+      slowram_ce <= '1'; -- Release after reading so that refresh can occur
+      slowram_data <= (others => 'Z');  -- tristate data lines as well
+      case slowram_lohi is
+     when '0' => return unsigned(slowram_data(7 downto 0));
+        when '1' => return unsigned(slowram_data(15 downto 8));
+        when others => return x"FF";
+      end case;
+    else
+      report "accessing unmapped memory" severity note;
+      return x"FF";
+    end if;
+  end read_data; 
   
   -- purpose: set processor flags from a byte (eg for PLP or RTI)
   procedure load_processor_flags (
@@ -855,15 +943,18 @@ downto 8) = x"D3F" then
   begin
 
     -- BEGINNING OF MAIN PROCESS FOR CPU
-    if rising_edge(clock) then     
-      -- clear memory access states
-      colour_ram_cs <= '0';
-      colour_ram_cs_last <= '0';
-      -- accessing_ram <= '0'; 
-      accessing_slowram <= '0';
-      accessing_fastio <= '0'; accessing_vic_fastio <= '0';
-      accessing_cpuport <= '0'; accessing_shadow <= '0';
-      shadow_write <= '0';
+    if rising_edge(clock) then
+
+      -- Clear memory access lines unless we are in a memory wait state
+      if wait_states = x"00" then
+        colour_ram_cs <= '0';
+        colour_ram_cs_last <= '0';
+        -- accessing_ram <= '0'; 
+        accessing_slowram <= '0';
+        accessing_fastio <= '0'; accessing_vic_fastio <= '0';
+        accessing_cpuport <= '0'; accessing_shadow <= '0';
+        shadow_write <= '0';
+      end if;
 
       monitor_watch_match <= '0';       -- set if writing to watched address
       -- monitor_state <= std_logic_vector(to_unsigned(processor_state'pos(state),8));
@@ -917,8 +1008,14 @@ downto 8) = x"D3F" then
       if reset='0' then
         reset_cpu_state;
       else
-        read_address(reg_pc);
-        reg_pc <= reg_pc + 1;
+        -- Honour wait states on memory accesses
+        if wait_states /= x"00" then
+          wait_states <= wait_states - 1;
+        else          
+          read_address(reg_pc);
+          reg_pc(7 downto 0) <= reg_pc(7 downto 0) + 1;
+          reg_pc(15 downto 8) <= read_data;
+        end if;
       end if;
 
     end if;
