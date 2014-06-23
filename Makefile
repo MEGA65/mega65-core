@@ -56,9 +56,20 @@ em4510:	em4510.c
 c65-rom-disassembly.txt:	dis4510 c65-dos-context.bin c65-rom-annotations.txt
 	./dis4510 c65-dos-context.bin 2000 c65-rom-annotations.txt > c65-rom-disassembly.txt
 
+c65-rom-911001.txt:	dis4510 c65-911001-dos-context.bin c65-911001-rom-annotations.txt
+	./dis4510 c65-911001-dos-context.bin 2000 c65-911001rom-annotations.txt > c65-rom-911001.txt
+
+
 c65-dos-context.bin:	c65-rom-910111.bin Makefile
 	dd if=c65-rom-910111.bin bs=8192 skip=9 count=3 > c65-dos-context.bin
 	dd if=c65-rom-910111.bin bs=16384 skip=0 count=1 >> c65-dos-context.bin
 	dd if=c65-rom-910111.bin bs=4096 skip=12 count=1 >> c65-dos-context.bin
 	dd if=/dev/zero bs=4096 count=1 >> c65-dos-context.bin
 	dd if=c65-rom-910111.bin bs=8192 skip=15 count=1 >> c65-dos-context.bin
+
+c65-911001-dos-context.bin:	911001.bin Makefile
+	dd if=911001.bin bs=8192 skip=9 count=3 > c65-911001-dos-context.bin
+	dd if=911001.bin bs=16384 skip=0 count=1 >> c65-911001-dos-context.bin
+	dd if=911001.bin bs=4096 skip=12 count=1 >> c65-911001-dos-context.bin
+	dd if=/dev/zero bs=4096 count=1 >> c65-911001-dos-context.bin
+	dd if=911001.bin bs=8192 skip=15 count=1 >> c65-911001-dos-context.bin
