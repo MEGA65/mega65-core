@@ -404,7 +404,8 @@ architecture Behavioral of machine is
   signal fastram_dataout : STD_LOGIC_VECTOR(63 DOWNTO 0);
   
   signal cpuclock : std_logic := '1';
-  signal cpuclock_divisor : integer range 0 to 3 := 0;
+  signal ioclock : std_logic := '1';
+  signal ioclock_divisor : integer range 0 to 3 := 0;
 
   signal rom_at_e000 : std_logic := '0';
   signal rom_at_c000 : std_logic := '0';
@@ -478,16 +479,19 @@ begin
   begin
     if rising_edge(pixelclock) then
 
+      -- Run CPU at 1/2 pixel clock = 96MHz
+      cpuclock <= not cpuclock;
+      
       -- 1 = 48MHz
       -- 2 = 32MHz
       -- 3 = 24MHz
       -- 191 = 1MHz
       -- (don't forget to update uart_monitor baudrate divisor as well)
-      if cpuclock_divisor<2 then
-        cpuclock_divisor <= cpuclock_divisor + 1;
+      if ioclock_divisor<2 then
+        ioclock_divisor <= ioclock_divisor + 1;
       else
-        cpuclock_divisor <= 0;
-        cpuclock <= not cpuclock;
+        ioclock_divisor <= 0;
+        ioclock <= not ioclock;
       end if;
 
       -- Work out phi0 frequency for CIA timers
