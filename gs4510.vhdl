@@ -148,7 +148,11 @@ architecture Behavioural of gs4510 is
   signal slowram_counter : unsigned(7 downto 0);
   -- SlowRAM has 70ns access time, so need some wait states.
   -- The wait states
-  signal slowram_waitstates : unsigned(7 downto 0) := x"05";
+  signal slowram_waitstates : unsigned(7 downto 0) := x"07";
+  signal fastio_waitstates : unsigned(7 downto 0) := x"05";
+
+  -- Number of pending wait states
+  signal wait_states : unsigned(7 downto 0) := x"05";
   
   signal fastram_byte_number : unsigned(2 DOWNTO 0);
 
@@ -504,6 +508,162 @@ begin
     
     return temp_address;
   end resolve_address_to_long;
+
+  procedure read_long_address(
+    real_long_address : in unsigned(27 downto 0)) is
+    variable long_address : unsigned(27 downto 0);
+  begin
+    if real_long_address(27 downto 12) = x"001F" and real_long_address(11)='1' then
+      -- colour ram access: remap to $FF80000 - $FF807FF
+      long_address := x"FF80"&'0'&real_long_address(10 downto 0);
+    else
+      long_address := real_long_address;
+    end if;
+    
+    -- Schedule the memory read from the appropriate source.
+    -- accessing_ram <= '0';
+    accessing_slowram <= '0';
+    accessing_fastio <= '0'; accessing_vic_fastio <= '0';
+    accessing_cpuport <= '0'; accessing_colour_ram_fastio <= '0';
+    accessing_sb_fastio <= '0'; accessing_shadow <= '0';
+    wait_states <= x"00";
+    
+    the_read_address <= long_address;
+    if long_address(27 downto 16)="0000"&shadow_bank then
+      -- Reading from 256KB shadow ram (which includes 128KB fixed shadowing of
+      -- chipram)
+      accessing_shadow <= '1';
+      shadow_address <= long_address(17 downto 0);
+      shadow_write <= '0';
+      report "Reading from shadow ram address $" & to_hstring(long_address(17 downto 0))
+        & ", word $" & to_hstring(long_address(18 downto 3)) severity note;
+    elsif long_address(27 downto 17)="00000000000" then
+      -- Reading from chipram, so read from the bottom 128KB of the shadow RAM
+      -- instead.
+      accessing_shadow <= '1';
+      shadow_address <= '0'&long_address(16 downto 0);
+      shadow_write <= '0';
+      report "Reading from shadowed fastram address $" & to_hstring(long_address(19 downto 0))
+        & ", word $" & to_hstring(long_address(18 downto 3)) severity note;
+    elsif long_address(27 downto 24) = x"8"
+      or long_address(27 downto 17)&'0' = x"002" then
+      -- Slow RAM maps to $8xxxxxx, and also $0020000 - $003FFFF for C65 ROM
+      -- emulation.
+accessing_slowram <= '1';
+      slowram_addr <= std_logic_vector(long_address(23 downto 1));
+      slowram_data <= (others => 'Z');  -- tristate data lines
+      slowram_we <= '1';
+      slowram_ce <= '1';
+      slowram_oe <= '1';
+      slowram_lb <= '1';
+      slowram_ub <= '1';
+      slowram_lohi <= long_address(0);
+      wait_states <= slowram_waitstates;
+    elsif long_address(27 downto 20) = x"FF" then
+      accessing_fastio <= '1';
+      accessing_vic_fastio <= '0';
+      accessing_sb_fastio <= '0';
+      accessing_colour_ram_fastio <= '0';
+      -- If reading IO page from $D{0,1,2,3}0{0-7}X, then the access is from
+      -- the VIC-IV.
+      -- If reading IO page from $D{0,1,2,3}{1,2,3}XX, then the access is from
+      -- the VIC-IV.
+      -- If reading IO page from $D{0,1,2,3}{8,9,a,b}XX, then the access is from
+      -- the VIC-IV.
+      -- If reading IO page from $D{0,1,2,3}{c,d,e,f}XX, and colourram_at_dc00='1',
+      -- then the access is from the VIC-IV.
+      -- If reading IO page from $8XXXX, then the access is from the VIC-IV.
+      -- We make the distinction to separate reading of VIC-IV
+      -- registers from all other IO registers, partly to work around some bugs,
+      -- and partly because the banking of the VIC registers is the fiddliest part.
+      if long_address(19 downto 16) = x"8" then
+        report "VIC 64KB colour RAM access from VIC fastio" severity note;
+        accessing_colour_ram_fastio <= '1';
+        colour_ram_cs <= '1';
+        colour_ram_cs_last <= '1';
+      end if;
+      if long_address(19 downto 8) = x"30E" or long_address(19
+downto 8) = x"30F" then
+        accessing_sb_fastio <= '1';
+      end if;
+      if long_address(19 downto 8) = x"D3E" or long_address(19
+downto 8) = x"D3F" then
+        accessing_sb_fastio <= sector_buffer_mapped and (not colourram_at_dc00);
+        report "considering accessing_sb_fastio = " & std_logic'image(sector_buffer_mapped and (not colourram_at_dc00)) severity note;
+        report "sector_buffer_mapped = " & std_logic'image(sector_buffer_mapped) severity note;
+        report "colourram_at_dc00 = " & std_logic'image(colourram_at_dc00) severity note;
+      end if;
+      if long_address(19 downto 16) = x"D" then
+        if long_address(15 downto 14) = "00" then    --   $D{0,1,2,3}XXX
+          if long_address(11 downto 10) = "00" then  --   $D{0,1,2,3}{0,1,2,3}XX
+            if long_address(11 downto 7) /= "00001" then  -- ! $D.0{8-F}X (FDC, RAM EX)
+              report "VIC register from VIC fastio" severity note;
+        accessing_vic_fastio <= '1';
+            end if;            
+          end if;
+          -- Colour RAM at $D800-$DBFF and optionally $DC00-$DFFF
+          if long_address(11)='1' then
+            if (long_address(10)='0') or (colourram_at_dc00='1') then
+              report "D800-DBFF/DC00-DFFF colour ram access from VIC fastio" severity note;
+              accessing_colour_ram_fastio <= '1';            
+              colour_ram_cs <= '1';
+              colour_ram_cs_last <= '1';
+            end if;
+          end if;
+        end if;                         -- $D{0,1,2,3}XXX
+      end if;                           -- $DXXXX
+      fastio_addr <= std_logic_vector(long_address(19 downto 0));
+      last_fastio_addr <= std_logic_vector(long_address(19 downto 0));
+      fastio_read <= '1';
+      -- XXX Some fastio (that referencing dual-port block rams) does require
+      -- a wait state.  For now, just apply the wait state to all fastio
+      -- addresses.
+      -- Eventually can narrow down to colour ram, palette and some of the other
+      -- IO features that use dual-port rams to provide access.
+      -- Probably easier just to make the single-port ROM portion of fastio fast,
+      -- and assume all else is slow, as there are many pieces of fastio that need
+      -- a wait state.
+      -- So let's just make the top 128KB of fastio fast, and assume the rest needs
+      -- the wait state.  Also the CIAs as interrupts are acknowledged and cleared
+      -- by reading registers, so reading twice would lose the ability to see
+      -- the interrupt source.
+      -- XXX kickstart ROM has trouble reading instruction arguments @ 48MHz with
+      -- 0 wait states on the kickstart ROM.  This may be related to the existing
+      -- known glitching of the kickstart ROM, which is why we copy it to chipram
+      -- before running it.  So removing the following exemption from wait state
+      -- may allow correct 48MHz operation.
+      if -- long_address(19 downto 17)="111"
+        --or long_address(19 downto 8)=x"D0C" or long_address(19 downto 8)=x"D0D"
+        --or long_address(19 downto 8)=x"D1C" or long_address(19 downto 8)=x"D1D"
+        --or long_address(19 downto 8)=x"D2C" or long_address(19 downto 8)=x"D2D"
+        --or long_address(19 downto 8)=x"D3C" or long_address(19 downto 8)=x"D3D"
+        -- F011 FDC @ $D080-$D09F requires a wait state, but only appears in the
+        -- enhanced image pages.
+        long_address(19 downto 8)=x"D00" or long_address(19 downto 7)=x"D10"&'0'
+        or long_address(19 downto 8)=x"D20" or long_address(19 downto 7)=x"D30"&'0'
+      then 
+        null;
+      else
+        wait_states <= fastio_waitstates;
+      end if;
+    else
+      -- Don't let unmapped memory jam things up
+    end if;
+  end read_long_address;
+  
+  procedure read_address (
+    address    : in unsigned(15 downto 0)) is
+    variable long_address : unsigned(27 downto 0);
+  begin  -- read_address
+    long_address := resolve_address_to_long(address,false);
+    if (long_address = x"0000000") or (long_address = x"0000001") then
+      accessing_cpuport <= '1';
+      cpuport_num <= address(0);
+    else
+      read_long_address(long_address);
+    end if;
+  end read_address;
+
   
   -- purpose: set processor flags from a byte (eg for PLP or RTI)
   procedure load_processor_flags (
@@ -691,8 +851,6 @@ begin
   variable execute_opcode : unsigned(7 downto 0);
   variable execute_arg1 : unsigned(7 downto 0);
   variable execute_arg2 : unsigned(7 downto 0);
-
-  shared variable mem_addr : unsigned(15 downto 0);
   
   begin
 
@@ -755,15 +913,11 @@ begin
       -------------------------------------------------------------------------
       -- Real CPU work begins here.
       -------------------------------------------------------------------------
-      -- CPU microcode operation is looked up from opcode, CPU personality and
-      -- instruction phase.
-      -- Microcode operation $00 = fetch next instruction
-      -------------------------------------------------------------------------
 
       if reset='0' then
         reset_cpu_state;
       else
-        read_data_byte(reg_pc);
+        read_address(reg_pc);
         reg_pc <= reg_pc + 1;
       end if;
 
