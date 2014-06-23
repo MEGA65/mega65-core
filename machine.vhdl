@@ -171,6 +171,7 @@ architecture Behavioral of machine is
   component gs4510
     port (
       Clock : in std_logic;
+      ioclock : in std_logic;
       reset : in std_logic;
       irq : in std_logic;
       nmi : in std_logic;
@@ -577,6 +578,7 @@ begin
   
   cpu0: gs4510 port map(
     clock => cpuclock,
+    ioclock => ioclock,
     reset =>reset_combined,
     irq => combinedirq,
     nmi => combinednmi,

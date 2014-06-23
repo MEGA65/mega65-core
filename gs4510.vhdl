@@ -34,6 +34,7 @@ use work.debugtools.all;
 entity gs4510 is
   port (
     Clock : in std_logic;
+    ioclock : in std_logic;
     reset : in std_logic;
     irq : in std_logic;
     nmi : in std_logic;
@@ -526,13 +527,19 @@ begin
     accessing_fastio <= '0'; accessing_vic_fastio <= '0';
     accessing_cpuport <= '0'; accessing_colour_ram_fastio <= '0';
     accessing_sb_fastio <= '0'; accessing_shadow <= '0';
-    wait_states <= x"00";
+    if ioclock='1' then
+      wait_states <= x"02";
+    else
+      wait_states <= x"01";
+    end if;
     
     the_read_address <= long_address;
     if long_address(27 downto 16)="0000"&shadow_bank then
       -- Reading from 256KB shadow ram (which includes 128KB fixed shadowing of
-      -- chipram)
+      -- chipram).  This is the only memory running at the CPU's native clock.
+      -- Think of it as a kind of direct-mapped L1 cache.
       accessing_shadow <= '1';
+      wait_states <= x"00";
       shadow_address <= long_address(17 downto 0);
       shadow_write <= '0';
       report "Reading from shadow ram address $" & to_hstring(long_address(17 downto 0))
@@ -644,7 +651,11 @@ downto 8) = x"D3F" then
       then 
         null;
       else
-        wait_states <= fastio_waitstates;
+        if ioclock='1' then
+          wait_states <= fastio_waitstates + 1;
+        else
+          wait_states <= fastio_waitstates;
+        end if;
       end if;
     else
       -- Don't let unmapped memory jam things up
