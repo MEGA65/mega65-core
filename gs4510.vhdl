@@ -211,34 +211,32 @@ architecture Behavioural of gs4510 is
   -- Interrupt/reset vector being used
   signal vector : unsigned(15 downto 0);
   
-  type processor_state is (
-    -- When CPU first powers up, or reset is bought low
-    ResetLow,
-    -- States for handling interrupts and reset
-    Interrupt,VectorRead,VectorRead1,VectorRead2,VectorRead3,
-    DMAgic0,DMAgic1,DMAgic2,DMAgic3,DMAgic4,DMAgic5,DMAgic6,DMAgic7,
-    DMAgic8,DMAgic9,DMAgic10,DMAgic11,DMAgic12,DMAgic13,DMAgic14,DMAgic15,
-    InstructionDispatch,InstructionFetch,
-    InstructionFetch2,InstructionFetch3,InstructionFetch4,
-    BRK1,BRK2,PLA1,PLX1,PLY1,PLZ1,PLP1,RTI1,RTI2,RTI3,
-    RTS1,RTS2,
-    JSR1,JSRind1,JSRind2,JSRind3,JSRind4,
-    JMP1,JMP2,JMP3,
-    PHWimm1,PHWabs1,PHWabs2,PHWabs3,
-    IndirectX1,IndirectX2,IndirectX3,
-    IndirectY1,IndirectY2,IndirectY3,
-    IndirectZ1,IndirectZ2,
-    ExecuteDirect,RMWCommit,RMWCommit2,RMWCommit3,
-    Halt, -- FastRamWait,
-    SlowRamRead1,SlowRamRead2,SlowRamWrite1,SlowRamWrite2,
-    BranchOnBit,
-    MonitorAccessDone,MonitorReadDone,
-    Interrupt2,Interrupt3,FastIOWait
-    );
-  signal state : processor_state := ResetLow;  -- start processor in reset state
-  -- For memory access we push the processor state to follow once the memory
-  -- access is complete.
-  signal pending_state : processor_state;
+  type microcodeops_t is array (0 to 255) of std_logic_vector(63 downto 0);
+  signal microcodeops : microcodeops_t := (
+    -- Fetch next instruction
+    0 => "0000000000000000000000000000000000000000000000000000000000000000",
+    1 => "0000000000000000000000000000000000000000000000000000000000000000",
+    2 => "0000000000000000000000000000000000000000000000000000000000000000",
+    3 => "0000000000000000000000000000000000000000000000000000000000000000",
+    4 => "0000000000000000000000000000000000000000000000000000000000000000",
+    5 => "0000000000000000000000000000000000000000000000000000000000000000",
+    6 => "0000000000000000000000000000000000000000000000000000000000000000",
+    7 => "0000000000000000000000000000000000000000000000000000000000000000",
+    8 => "0000000000000000000000000000000000000000000000000000000000000000",
+    9 => "0000000000000000000000000000000000000000000000000000000000000000",
+    others => "0000000000000000000000000000000000000000000000000000000000000000");
+
+  -- 4x CPU personalities x 256 instructions x 16 cycles maximum per instruction =
+  -- 16KB
+  type instructions_t is array (0 to 16383) of unsigned(7 downto 0);
+  signal opcodeops : instructions_t := (
+    -- 4510 personality
+    x"00",x"00",x"00",x"00",x"00",x"00",x"00",x"00",x"00",x"00",x"00",x"00",x"00",x"00",x"00",x"00", --$00 BRK
+    
+    
+    -- In doubt, fetch the next instruction
+    others => x"00");
+
   -- Information about instruction currently being executed
   signal opcode : unsigned(7 downto 0);
   signal arg1 : unsigned(7 downto 0);
@@ -253,10 +251,16 @@ architecture Behavioural of gs4510 is
   signal reg_pc_jsr : unsigned(15 downto 0);
   -- Temporary address register (used for indirect modes)
   signal reg_addr : unsigned(15 downto 0);
-  -- Temporary instruction register (used for many modes)
-  signal reg_opcode : unsigned(7 downto 0);
+  -- Temporary instruction register (used for many modes).
+  -- (includes CPU personality state, partly so that RESET and interrupts can
+  -- be mapped to instructions).
+  signal reg_opcode : unsigned(9 downto 0);
+  -- CPU personality: 00 = 4510, 01 = 6502/6510, 1x = reserved
+  signal reg_personality : unsigned(1 downto 0) := "00";
   -- Temporary value holder (used for RMW instructions)
   signal reg_value : unsigned(7 downto 0);
+
+  signal instruction_phase : unsigned(3 downto 0);
   
 -- Indicate source of operand for instructions
 -- Note that ROM is actually implemented using
@@ -276,6 +280,8 @@ architecture Behavioural of gs4510 is
   
   signal monitor_mem_trace_toggle_last : std_logic := '0';
 
+  signal microcode_vector : std_logic_vector(63 downto 0);
+  
 begin
 
   shadowram0 : shadowram port map (
@@ -290,6 +296,14 @@ begin
 
     procedure reset_cpu_state is
   begin
+    -- Set microcode state for reset
+    -- This is a little bit fun because we need to basically make an opcode for
+    -- reset.  $FF in CPU personality 3 will do the trick.
+    instruction_phase <= x"0";
+    reg_opcode <= (others => '1');
+    microcode_vector <= (0 => '1', 1 => '1',
+                         others => '0');
+    
     -- Default register values
     reg_b <= x"00";
     reg_a <= x"11";    
@@ -677,6 +691,9 @@ begin
   variable execute_opcode : unsigned(7 downto 0);
   variable execute_arg1 : unsigned(7 downto 0);
   variable execute_arg2 : unsigned(7 downto 0);
+
+  shared variable mem_addr : unsigned(15 downto 0);
+  
   begin
 
     -- BEGINNING OF MAIN PROCESS FOR CPU
@@ -691,7 +708,7 @@ begin
       shadow_write <= '0';
 
       monitor_watch_match <= '0';       -- set if writing to watched address
-      monitor_state <= std_logic_vector(to_unsigned(processor_state'pos(state),8));
+      -- monitor_state <= std_logic_vector(to_unsigned(processor_state'pos(state),8));
       monitor_pc <= std_logic_vector(reg_pc);
       monitor_a <= std_logic_vector(reg_a);
       monitor_x <= std_logic_vector(reg_x);
@@ -734,7 +751,22 @@ begin
       virtual_reg_p(0) := flag_c;
 
       monitor_p <= std_logic_vector(virtual_reg_p);
-      
+
+      -------------------------------------------------------------------------
+      -- Real CPU work begins here.
+      -------------------------------------------------------------------------
+      -- CPU microcode operation is looked up from opcode, CPU personality and
+      -- instruction phase.
+      -- Microcode operation $00 = fetch next instruction
+      -------------------------------------------------------------------------
+
+      if reset='0' then
+        reset_cpu_state;
+      else
+        read_data_byte(reg_pc);
+        reg_pc <= reg_pc + 1;
+      end if;
+
     end if;
   end process;
 
