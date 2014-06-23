@@ -1501,14 +1501,18 @@ begin
       end if;
       
       -- Work out if the border is active
+      inborder_t1 <= inborder;
+      inborder_t2 <= inborder_t1;
       if displayx<border_x_left or displayx>border_x_right or
         displayy<border_y_top or displayy>border_y_bottom then
         inborder<='1';
+        -- Fix 2 pixel gap at right of text display.
+        -- (presumably it was video pipeline interaction to blame)
+        inborder_t1 <= '1';
+        inborder_t2 <= '1';
       else
         inborder<='0';
       end if;
-      inborder_t1 <= inborder;
-      inborder_t2 <= inborder_t1;
 
       -- Work out if the next card has a character number >255
       if next_card_number(15 downto 8) /= x"00" then
