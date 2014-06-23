@@ -405,7 +405,6 @@ architecture Behavioral of machine is
   
   signal cpuclock : std_logic := '1';
   signal ioclock : std_logic := '1';
-  signal ioclock_divisor : integer range 0 to 3 := 0;
 
   signal rom_at_e000 : std_logic := '0';
   signal rom_at_c000 : std_logic := '0';
@@ -480,20 +479,12 @@ begin
     if rising_edge(pixelclock) then
 
       -- Run CPU at 1/2 pixel clock = 96MHz
+      -- Run IO at 1/2 cpu clock = 48MHz
       cpuclock <= not cpuclock;
-      
-      -- 1 = 48MHz
-      -- 2 = 32MHz
-      -- 3 = 24MHz
-      -- 191 = 1MHz
-      -- (don't forget to update uart_monitor baudrate divisor as well)
-      if ioclock_divisor<2 then
-        ioclock_divisor <= ioclock_divisor + 1;
-      else
-        ioclock_divisor <= 0;
+      if cpuclock='0' then
         ioclock <= not ioclock;
       end if;
-
+      
       -- Work out phi0 frequency for CIA timers
       if phi0_counter=phi0_divisor then
         phi0 <= not phi0;
@@ -659,7 +650,7 @@ begin
   viciv0: viciv
     port map (
       pixelclock      => pixelclock,
-      cpuclock        => cpuclock,
+      cpuclock        => ioclock,
 
       irq             => vic_irq,
       reset           => reset_combined,
@@ -696,7 +687,7 @@ begin
       );
   
   iomapper0: iomapper port map (
-    clk => cpuclock,
+    clk => ioclock,
     pixelclk => pixelclock,
     phi0 => phi0,
     reset => reset_combined,
