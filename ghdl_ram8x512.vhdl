@@ -33,7 +33,7 @@ begin  -- behavioural
   process(clka)
   begin
     if(rising_edge(Clka)) then
-      report "ram(0) = $" & to_hstring(ram(0)) severity note;
+--      report "ram(0) = $" & to_hstring(ram(0)) severity note;
       if ena='1' then
         if(wea="1") then
           ram(to_integer(unsigned(addra))) <= dina;
@@ -56,8 +56,8 @@ begin  -- behavioural
           report "writing $" & to_hstring(dinb) & " to sector buffer offset $"
             & to_hstring("000" & addrb) severity note;
         end if;
-        report "reading from sector buffer at offset %" & to_string(addrb)
-        severity note;
+--        report "reading from sector buffer at offset %" & to_string(addrb)
+--        severity note;
         doutb <= ram(to_integer(unsigned(addrb)));
       else
         doutb <= "ZZZZZZZZ";
