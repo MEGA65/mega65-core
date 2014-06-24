@@ -2023,10 +2023,7 @@ begin
             -- we want 480 bytes, to allow for full 240 column text with 16-bit
             -- charset.  Bus is 64bits wide, so we need 480/8 = 60 fetches
             if screen_ram_buffer_address /= 60 then
-              -- buffer byte order is opposite-endian to what we would like, so
-              -- we need to reverse the byte (but not bit) order.
-              screen_ram_buffer_din <= unsigned(ramdata(7 downto 0)&ramdata(15 downto 8)&ramdata(23 downto 16)&ramdata(31 downto 24)
-                                              &ramdata(39 downto 32)&ramdata(47 downto 40)&ramdata(55 downto 48)&ramdata(63 downto 56));
+              screen_ram_buffer_din <= unsigned(ramdata);
               screen_ram_buffer_write <= '1';
               screen_ram_buffer_address <= screen_ram_buffer_address + 1;
               report "BADLINE stuffing fetch $" & to_hstring(screen_ram_buffer_address(7 downto 0)) & " $" & to_hstring(ramdata) severity note;
