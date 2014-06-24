@@ -104,7 +104,7 @@ architecture behavioural of uart_monitor is
     "t                      - Step one instruction if in trace mode." & crlf;
 
   constant errorMessage : string := crlf & "?SYNTAX  ERROR ";
-  constant timeoutMessage : string := crlf & "?DEVICE NOT FOUND  ERROR" & crlf;
+  constant timeoutMessage : string := crlf & "?CPU NOT READY  ERROR" & crlf;
   constant requestTimeoutMessage : string := crlf & "?REQUEST TIMEOUT  ERROR" & crlf;
   constant replyTimeoutMessage : string := crlf & "?REPLY TIMEOUT  ERROR" & crlf;
 
