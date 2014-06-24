@@ -92,18 +92,15 @@ end viciv;
 
 architecture Behavioral of viciv is
 
-  component screen_ram_fifo IS
+  component screen_ram_buffer IS
     PORT (
-      rst : IN STD_LOGIC;
-      wr_clk : IN STD_LOGIC;
-      rd_clk : IN STD_LOGIC;
-      din : IN STD_LOGIC_VECTOR(63 DOWNTO 0);
-      wr_en : IN STD_LOGIC;
-      rd_en : IN STD_LOGIC;
-      dout : OUT STD_LOGIC_VECTOR(7 DOWNTO 0);
-      full : OUT STD_LOGIC;
-      empty : OUT STD_LOGIC;
-      rd_data_count : OUT STD_LOGIC_VECTOR(5 DOWNTO 0)
+      clka : IN STD_LOGIC;
+      wea : IN STD_LOGIC_VECTOR(0 DOWNTO 0);
+      addra : IN STD_LOGIC_VECTOR(5 DOWNTO 0);
+      dina : IN STD_LOGIC_VECTOR(63 DOWNTO 0);
+      clkb : IN STD_LOGIC;
+      addrb : IN STD_LOGIC_VECTOR(8 DOWNTO 0);
+      doutb : OUT STD_LOGIC_VECTOR(7 DOWNTO 0)
       );
   END component;
   
@@ -241,13 +238,14 @@ architecture Behavioral of viciv is
   -- Used for counting down cycles while waiting for RAM to respond
   signal delay : std_logic_vector(1 downto 0);
 
-  -- Interface to FIFO for screen ram
-  signal screen_ram_fifo_fetched : integer range 0 to 64;
-  signal screen_ram_fifo_write  : std_logic := '0';
-  signal screen_ram_fifo_reset : std_logic := '0';
-  signal screen_ram_fifo_din : unsigned(63 downto 0);
-  signal screen_ram_fifo_readnext : std_logic := '0';
-  signal screen_ram_fifo_dout : unsigned(7 downto 0);
+  -- Interface to buffer for screen ram (converts 64 bits wide to 8 bits
+  -- wide for us)
+  signal screen_ram_buffer_fetched : integer range 0 to 64;
+  signal screen_ram_buffer_write  : std_logic := '0';
+  signal screen_ram_buffer_address : unsigned(8 downto 0);
+  signal screen_ram_buffer_din : unsigned(63 downto 0);
+  signal screen_ram_buffer_dout : unsigned(7 downto 0);
+  
   -- Internal registers used to keep track of the screen ram for the current row
   signal screen_row_address : unsigned(16 downto 0);
   signal screen_row_current_address : unsigned(16 downto 0);
@@ -507,15 +505,16 @@ architecture Behavioral of viciv is
   
 begin
 
-  fifo1: component screen_ram_fifo
+  buffer1: component screen_ram_buffer
     port map (
-      rst    => screen_ram_fifo_reset,
-      wr_clk => pixelclock,
-      rd_clk => pixelclock,
-      din    => std_logic_vector(screen_ram_fifo_din),
-      unsigned(dout)   => screen_ram_fifo_dout,
-      wr_en  => screen_ram_fifo_write,
-      rd_en  => screen_ram_fifo_readnext);
+      clka => pixelclock,
+      clkb => pixelclock,
+      dina    => std_logic_vector(screen_ram_buffer_din),
+      unsigned(doutb)   => screen_ram_buffer_dout,
+      wea(0)  => screen_ram_buffer_write,
+      addra  => std_logic_vector(screen_ram_buffer_address(5 downto 0)),
+      addrb  => std_logic_vector(screen_ram_buffer_address(8 downto 0))
+      );
   
   fastram1 : component ram64x16k
     PORT MAP (
@@ -1749,7 +1748,7 @@ begin
           end if;
         end if;
         
-        -- Regardless of what has happened, start filling the FIFO with
+        -- Regardless of what has happened, start filling the buffer with
         -- character numbers for the character generator to use.
         -- This happens every physical raster, however, the address we fetch
         -- from only gets updated on a real "badline" (see just above where we
@@ -1780,8 +1779,8 @@ begin
           -- next_glyph_number has been prefetched at start of line or during
           -- the last character fetch process. Same for next_bitmap_colours.
                     
-          -- Tell FIFO to start reading next character
-          screen_ram_fifo_readnext <= '1';
+          -- Tell buffer to start reading next character
+          screen_ram_buffer_address <= screen_ram_buffer_address + 1;
 
           -- We can begin speculatively fetching bitmap data here in case we
           -- are in bitmap mode.
@@ -1822,22 +1821,17 @@ begin
             report "last_ramaddress=%" & to_string(last_ramaddress) severity note;
           end if;
 
-          -- If using 16-bit chars, ask for the 2nd byte, else
-          -- idle FIFO output.
-          if sixteenbit_charset='0' then
-            screen_ram_fifo_readnext <= '0';            
+          -- If using 16-bit chars, ask for the 2nd byte.
+          if sixteenbit_charset='1' then
+            screen_ram_buffer_address <= screen_ram_buffer_address + 1;
           end if;
 
         when 2 =>
 
-          -- We definitely don't need to schedule more reading from the FIFO
-          -- for the rest of this character.
-          screen_ram_fifo_readnext <= '0';            
-
           -- record pre-fetched character data.
-          next_next_glyph_number(7 downto 0) <= screen_ram_fifo_dout;
+          next_next_glyph_number(7 downto 0) <= screen_ram_buffer_dout;
           next_next_glyph_number(15 downto 8) <= x"00";
-          next_next_bitmap_colours <= screen_ram_fifo_dout;
+          next_next_bitmap_colours <= screen_ram_buffer_dout;
 
           -- Store colour byte (will
           -- transfer and decode next cycle to keep logic shallow)
@@ -1852,12 +1846,12 @@ begin
           -- Read out custom character set data
           next_glyph_chardata <= ramdata;          
 
-          -- FIFO has advanced to next screen ram character now after the 1
+          -- Buffer has advanced to next screen ram character now after the 1
           -- cycle latency, so if we are using a 16bit char set, then we can
-          -- grab those bits now.  We already asked the FIFO to advance the
+          -- grab those bits now.  We already asked the buffer to advance the
           -- extra step, so nothing else is required just now.
           if sixteenbit_charset='1' and text_mode='1' then
-            next_next_glyph_number(15 downto 8) <= screen_ram_fifo_dout;
+            next_next_glyph_number(15 downto 8) <= screen_ram_buffer_dout;
           end if;
           
           -- Fetch character ROM byte
@@ -2006,17 +2000,14 @@ begin
         when 32 =>
           -- Fetch screen ram bytes (badline-like fetches).
           -- These happen in the horizontal front porch, and require not more
-          -- than 32 cycles.
-          -- Draining can be accomplished by resetting the fifo.
-          screen_ram_fifo_reset <= '1';
-          screen_ram_fifo_readnext <= '0';
-          screen_ram_fifo_write <= '0';
-          screen_ram_fifo_fetched <= 0;
+          -- than 62 cycles ( (240 * 2) / 8 = 60 fetches).
+          -- Draining can be accomplished by resetting the buffer address.
+          screen_ram_buffer_address <= (others => '0');
+          screen_ram_buffer_write <= '0';
           char_fetch_cycle <= 33;
           report "BADLINE preparing for fetch" severity note;
         when 33 =>
-          report "BADLINE releasing FIFO reset" severity note;
-          screen_ram_fifo_reset <= '0';
+          report "BADLINE releasing buffer reset" severity note;
           char_fetch_cycle <= 34;
           delay <= "11";
         when 34 =>
@@ -2030,16 +2021,16 @@ begin
             -- data is available
             -- we want 480 bytes, to allow for full 240 column text with 16-bit
             -- charset.  Bus is 64bits wide, so we need 480/8 = 60 fetches
-            if screen_ram_fifo_fetched /= 60 then
-              -- FIFO byte order is opposite-endian to what we would like, so
+            if screen_ram_buffer_address /= 60 then
+              -- buffer byte order is opposite-endian to what we would like, so
               -- we need to reverse the byte (but not bit) order.
-              screen_ram_fifo_din <= unsigned(ramdata(7 downto 0)&ramdata(15 downto 8)&ramdata(23 downto 16)&ramdata(31 downto 24)
+              screen_ram_buffer_din <= unsigned(ramdata(7 downto 0)&ramdata(15 downto 8)&ramdata(23 downto 16)&ramdata(31 downto 24)
                                               &ramdata(39 downto 32)&ramdata(47 downto 40)&ramdata(55 downto 48)&ramdata(63 downto 56));
-              screen_ram_fifo_write <= '1';
-              report "BADLINE stuffing fetch " & integer'image(screen_ram_fifo_fetched) & " $" & to_hstring(ramdata) severity note;
-              screen_ram_fifo_fetched <= screen_ram_fifo_fetched + 1;
+              screen_ram_buffer_write <= '1';
+              screen_ram_buffer_address <= screen_ram_buffer_address + 1;
+              report "BADLINE stuffing fetch $" & to_hstring(screen_ram_buffer_address(7 downto 0)) & " $" & to_hstring(ramdata) severity note;
             else
-              screen_ram_fifo_write <= '0';
+              screen_ram_buffer_write <= '0';
               -- Finished fetching screen data, move on to sprites
               char_fetch_cycle <= 35;
             end if;
@@ -2050,28 +2041,25 @@ begin
           -- more than 8 cycles.  So instead, we pipeline this out further,
           -- fetching the first gylph number early, and then request the next
           -- glyph number while processing the previous one.         
-          screen_ram_fifo_readnext <= '1';
+          screen_ram_buffer_address <= (others => '0');
           char_fetch_cycle <= 36;
         when 36 =>
           -- if using a 16 bit character set, ask for the 2nd byte, while still
-          -- waiting for the first byte to arrive from the FIFO.
+          -- waiting for the first byte to arrive from the buffer.
           if (sixteenbit_charset='1') and (text_mode='1') then
-            screen_ram_fifo_readnext <= '1';
-          else
-            screen_ram_fifo_readnext <= '0';            
+            screen_ram_buffer_address <= screen_ram_buffer_address + 1;
           end if;
           char_fetch_cycle <= 37;
         when 37 =>
-          -- Stop asking for bytes from the FIFO, and record the first byte
-          screen_ram_fifo_readnext <= '0';            
-          next_glyph_number(7 downto 0) <= screen_ram_fifo_dout;
-          next_bitmap_colours <= screen_ram_fifo_dout;
+          -- Stop asking for bytes from the buffer, and record the first byte
+          next_glyph_number(7 downto 0) <= screen_ram_buffer_dout;
+          next_bitmap_colours <= screen_ram_buffer_dout;
           char_fetch_cycle <= 38;
         when 38 =>
           -- Record the 2nd byte or zero out the top bits of the next character
           -- number.
           if (sixteenbit_charset='1') and (text_mode='1') then
-            next_glyph_number(15 downto 8) <= screen_ram_fifo_dout;
+            next_glyph_number(15 downto 8) <= screen_ram_buffer_dout;
           else
             next_glyph_number(15 downto 8) <= x"00";
           end if;
