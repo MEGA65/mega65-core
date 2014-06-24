@@ -393,8 +393,8 @@ begin  -- behavioural
       end if;
       
       -- De-map sector buffer if VIC-IV maps colour RAM at $DC00
-      report "colourram_at_dc00 = " &
-std_logic'image(colourram_at_dc00) & ", sector_buffer_mapped = " & std_logic'image(sector_buffer_mapped) severity note;
+--      report "colourram_at_dc00 = " &
+-- std_logic'image(colourram_at_dc00) & ", sector_buffer_mapped = " & std_logic'image(sector_buffer_mapped) severity note;
       if colourram_at_dc00='1' or viciii_iomode(1)='0' then
         report "unmapping sector buffer due to mapping of colour ram/D02F mode select" severity note;
         sector_buffer_mapped <= '0';
