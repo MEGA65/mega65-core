@@ -1341,8 +1341,9 @@ downto 8) = x"D3F" then
             mem_reading <= '0';
             mem_reading_pcl <= '0';
             mem_reading_pch <= '0';
-          end if;
-            
+            monitor_mem_reading <= '0';
+          end if;          
+  
           if monitor_mem_attention_request='1' then
             -- Memory access by serial monitor.
             if monitor_mem_write='1' then
@@ -1370,13 +1371,13 @@ downto 8) = x"D3F" then
               report "PC set by monitor interface" severity note;
               reg_pc <= unsigned(monitor_mem_address(15 downto 0));
             end if;
-          else            
+          else
+            monitor_mem_attention_granted <= '0';
+
             if monitor_mem_trace_mode='0' or
               monitor_mem_trace_toggle /= monitor_mem_trace_toggle_last then
               monitor_mem_trace_toggle_last <= monitor_mem_trace_toggle;
               
-              -- XXX Do actual CPU things
-
               -- Main state machine for CPU
               report "CPU state = " & processor_state'image(state) & ", PC=$" & to_hstring(reg_pc) severity note;
               case state is
@@ -1400,18 +1401,13 @@ downto 8) = x"D3F" then
             end if;
           end if;
 
-          -- Serial monitor protocol handling
-          if monitor_mem_attention_request='0' then
-            monitor_mem_attention_granted <= '0';
-          end if;
-          
           -- Route memory read value as required
-          if monitor_mem_reading='1' then
-            monitor_mem_attention_granted <= '1';
-            monitor_mem_rdata <= memory_read_value;
-          end if;
           if mem_reading='1' then
             report "memory read value is $" & to_hstring(memory_read_value) severity note;
+            if monitor_mem_reading='1' then
+              monitor_mem_attention_granted <= '1';
+              monitor_mem_rdata <= memory_read_value;
+            end if;
             if mem_reading_a='1' then reg_a <= memory_read_value; end if;
             if mem_reading_x='1' then reg_x <= memory_read_value; end if;
             if mem_reading_y='1' then reg_y <= memory_read_value; end if;
