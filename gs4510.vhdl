@@ -148,8 +148,8 @@ architecture Behavioural of gs4510 is
 
   signal slowram_lohi : std_logic;
   -- SlowRAM has 70ns access time, so need some wait states.
-  -- The wait states
-  signal slowram_waitstates : unsigned(7 downto 0) := x"07";
+  -- Allow 9 waits for now in case ram part is the 85ns version.
+  signal slowram_waitstates : unsigned(7 downto 0) := x"09";
 
   -- Number of pending wait states
   signal wait_states : unsigned(7 downto 0) := x"05";
@@ -288,6 +288,7 @@ architecture Behavioural of gs4510 is
 
   -- Microcode data and ALU routing signals follow:
 
+  signal mem_reading : std_logic := '0';
   -- serial monitor is reading data 
   signal monitor_mem_reading : std_logic := '0';
   
@@ -525,13 +526,14 @@ begin
     else
       long_address := real_long_address;
     end if;
+
+    report "Reading from long address $" & to_hstring(long_address) severity note;
     
     -- Schedule the memory read from the appropriate source.
-    -- accessing_ram <= '0';
-    -- accessing_slowram <= '0';
     accessing_fastio <= '0'; accessing_vic_fastio <= '0';
     accessing_cpuport <= '0'; accessing_colour_ram_fastio <= '0';
     accessing_sb_fastio <= '0'; accessing_shadow <= '0';
+    accessing_slowram <= '0';
     wait_states <= io_wait_states;
     
     the_read_address <= long_address;
@@ -753,7 +755,7 @@ downto 8) = x"D3F" then
       slowram_ce <= '1'; -- Release after reading so that refresh can occur
       slowram_data <= (others => 'Z');  -- tristate data lines as well
       case slowram_lohi is
-     when '0' => return unsigned(slowram_data(7 downto 0));
+        when '0' => return unsigned(slowram_data(7 downto 0));
         when '1' => return unsigned(slowram_data(15 downto 8));
         when others => return x"FE";
       end case;
@@ -770,6 +772,11 @@ downto 8) = x"D3F" then
   begin
     -- Schedule the memory write to the appropriate destination.
 
+    accessing_fastio <= '0'; accessing_vic_fastio <= '0';
+    accessing_cpuport <= '0'; accessing_colour_ram_fastio <= '0';
+    accessing_sb_fastio <= '0'; accessing_shadow <= '0';
+    accessing_slowram <= '0';
+    
     wait_states <= x"00";
     
     if real_long_address(27 downto 12) = x"001F" and real_long_address(11)='1' then
@@ -1131,6 +1138,8 @@ downto 8) = x"D3F" then
     -- BEGINNING OF MAIN PROCESS FOR CPU
     if rising_edge(clock) then
 
+      report "slowram_oe = " & std_logic'image(slowram_oe) & "slowram_ce = " & std_logic'image(slowram_ce) & "slowram_we = " & std_logic'image(slowram_we) severity note;
+      
       -- Clear memory access lines unless we are in a memory wait state
       if wait_states = x"00" then
         colour_ram_cs <= '0';
@@ -1177,8 +1186,6 @@ downto 8) = x"D3F" then
       -------------------------------------------------------------------------
       -- Real CPU work begins here.
       -------------------------------------------------------------------------
-
-      memory_read_value := read_data;
       
       if reset='0' then
         reset_cpu_state;
@@ -1187,7 +1194,11 @@ downto 8) = x"D3F" then
         if wait_states /= x"00" then
           wait_states <= wait_states - 1;
         else
-          
+          if mem_reading='1' then
+            memory_read_value := read_data;
+            mem_reading <= '0';
+          end if;
+            
           if monitor_mem_attention_request='1' then
             -- Memory access by serial monitor.
             if monitor_mem_write='1' then
@@ -1208,6 +1219,7 @@ downto 8) = x"D3F" then
                 read_long_address(unsigned(monitor_mem_address));
               end if;
               monitor_mem_reading <= '1';
+              mem_reading <= '1';
             end if;
             -- and optionally set PC
             if monitor_mem_setpc='1' then
@@ -1220,7 +1232,7 @@ downto 8) = x"D3F" then
               monitor_mem_trace_toggle_last <= monitor_mem_trace_toggle;
 
               -- XXX Do actual CPU things
-              read_address(reg_pc);
+              read_long_address(x"800"&reg_pc);
               reg_pc(15 downto 0) <= reg_pc + 1;
               reg_a <= memory_read_value;
             end if;
