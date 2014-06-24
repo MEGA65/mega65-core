@@ -323,6 +323,7 @@ begin
     reg_z <= x"00";
     reg_sp <= x"ff";
     reg_sph <= x"01";
+    reg_pc <= x"FF00";
 
     -- Clear CPU MMU registers
     reg_mb_low <= x"00";
@@ -758,11 +759,11 @@ downto 8) = x"D3F" then
       case slowram_lohi is
      when '0' => return unsigned(slowram_data(7 downto 0));
         when '1' => return unsigned(slowram_data(15 downto 8));
-        when others => return x"FF";
+        when others => return x"FE";
       end case;
     else
       report "accessing unmapped memory" severity note;
-      return x"FF";
+      return x"A0";                     -- make unmmapped memory obvious
     end if;
   end read_data; 
 
@@ -1138,13 +1139,8 @@ downto 8) = x"D3F" then
         colour_ram_cs <= '0';
         colour_ram_cs_last <= '0';
 
-        accessing_slowram <= '0';
-        accessing_fastio <= '0';
-        accessing_vic_fastio <= '0';
-        accessing_cpuport <= '0';
-        accessing_shadow <= '0';
         shadow_write <= '0';
-
+        
         fastio_write <= '0';
         fastram_we <= (others => '0');        
         fastram_datain <= x"d0d1d2d3d4d5d6d7";
@@ -1181,6 +1177,8 @@ downto 8) = x"D3F" then
       -- Real CPU work begins here.
       -------------------------------------------------------------------------
 
+      memory_read_value := read_data;
+      
       if reset='0' then
         reset_cpu_state;
       else
@@ -1220,12 +1218,11 @@ downto 8) = x"D3F" then
               -- XXX Do actual CPU things
               read_address(reg_pc);
               reg_pc(15 downto 0) <= reg_pc + 1;
-              reg_a <= read_data;
+              reg_a <= memory_read_value;
             end if;
           end if;
 
           -- Route memory read value as required
-          memory_read_value := read_data;
           if monitor_mem_reading='1' then
             monitor_mem_attention_granted <= '1';
             monitor_mem_rdata <= memory_read_value;
