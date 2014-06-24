@@ -35,6 +35,7 @@ entity gs4510 is
   port (
     Clock : in std_logic;
     ioclock : in std_logic;
+    io_wait_states : in unsigned(7 downto 0);
     reset : in std_logic;
     irq : in std_logic;
     nmi : in std_logic;
@@ -527,11 +528,7 @@ begin
     accessing_fastio <= '0'; accessing_vic_fastio <= '0';
     accessing_cpuport <= '0'; accessing_colour_ram_fastio <= '0';
     accessing_sb_fastio <= '0'; accessing_shadow <= '0';
-    if ioclock='1' then
-      wait_states <= x"02";
-    else
-      wait_states <= x"01";
-    end if;
+    wait_states <= io_wait_states;
     
     the_read_address <= long_address;
     if long_address(27 downto 16)="0000"&shadow_bank then
@@ -763,6 +760,179 @@ downto 8) = x"D3F" then
       return x"FF";
     end if;
   end read_data; 
+
+  procedure write_long_byte(
+    real_long_address       : in unsigned(27 downto 0);
+    value              : in unsigned(7 downto 0)) is
+    variable long_address : unsigned(27 downto 0);
+  begin
+    -- Schedule the memory write to the appropriate destination.
+
+    wait_states <= x"00";
+    
+    if real_long_address(27 downto 12) = x"001F" and real_long_address(11)='1' then
+      -- colour ram access: remap to $FF80000 - $FF807FF
+      long_address := x"FF80"&'0'&real_long_address(10 downto 0);
+    else
+      long_address := real_long_address;
+    end if;
+
+    -- Write to DMAgic registers if required
+    if (long_address = x"FFD3700") or (long_address = x"FFD1700") then
+      -- Set low order bits of DMA list address
+      reg_dmagic_addr(7 downto 0) <= value;
+      -- Remember that after this instruction we want to perform the
+      -- DMA.
+      dma_pending <= '1';
+      dma_checksum <= x"000000";
+      reg_dmacount <= reg_dmacount + 1;
+      -- NOTE: DMAgic in C65 prototypes might not use the same list format as
+      -- in the C65 specifications manual (as the manual warns).
+      -- So need to double check how it is used in the C65 ROM.
+      -- From the ROMs, it appears that the list format is:
+      -- list+$00 = command
+      -- list+$01 = count bit7-0
+      -- list+$02 = count bit15-8
+      -- list+$03 = source address bit7-0
+      -- list+$04 = source address bit15-8
+      -- list+$05 = source address bank
+      -- list+$06 = dest address bit7-0
+      -- list+$07 = dest address bit15-8
+      -- list+$08 = dest address bank
+      -- list+$09 = modulo bit7-0
+      -- list+$0a = modulo bit15-8
+    elsif (long_address = x"FFD370E") or (long_address = x"FFD170E") then
+      -- Set low order bits of DMA list address, without starting
+      reg_dmagic_addr(7 downto 0) <= value;
+    elsif (long_address = x"FFD3701") or (long_address = x"FFD1701") then
+      reg_dmagic_addr(15 downto 8) <= value;
+    elsif (long_address = x"FFD3702") or (long_address = x"FFD1702") then
+      reg_dmagic_addr(22 downto 16) <= value(6 downto 0);
+      reg_dmagic_addr(27 downto 23) <= (others => '0');
+      reg_dmagic_withio <= value(7);
+    elsif (long_address = x"FFD3704") or (long_address = x"FFD1704") then
+      reg_dmagic_addr(27 downto 20) <= value;
+    elsif (long_address = x"FFD37FE") or (long_address = x"FFD17FE") then
+      shadow_bank <= value;
+    elsif (long_address = x"FFD37ff") or (long_address = x"FFD17ff") then
+      -- re-enable kickstart ROM.  This is only to allow for easier development
+      -- of kickstart ROMs.
+      if value = x"4B" then
+        kickstart_en <= '1';        
+      end if;
+    end if;
+    
+    -- Always write to shadow ram if in scope, even if we also write elsewhere.
+    -- This ensures that shadow ram is consistent with the shadowed address space
+    -- when the CPU reads from shadow ram.
+    if long_address(27 downto 16)="0000"&shadow_bank then
+      report "writing to shadow RAM via shadow_bank" severity note;
+      shadow_write <= '1';
+      shadow_address <= long_address(17 downto 0);
+      shadow_wdata <= value;
+    end if;
+    if long_address(27 downto 17)="00000000000" then
+      report "writing to shadow RAM via chipram shadowing. addr=$" & to_hstring(long_address) severity note;
+      shadow_write <= '1';
+      shadow_address <= long_address(17 downto 0);
+      shadow_wdata <= value;
+      
+      fastram_address <= std_logic_vector(long_address(16 downto 3));
+      fastram_we <= (others => '0');
+      fastram_datain <= (others => '1');
+      fastram_datain(7 downto 0) <= std_logic_vector(value);
+      fastram_datain(15 downto 8) <= std_logic_vector(value);
+      fastram_datain(23 downto 16) <= std_logic_vector(value);
+      fastram_datain(31 downto 24) <= std_logic_vector(value);
+      fastram_datain(39 downto 32) <= std_logic_vector(value);
+      fastram_datain(47 downto 40) <= std_logic_vector(value);
+      fastram_datain(55 downto 48) <= std_logic_vector(value);
+      fastram_datain(63 downto 56) <= std_logic_vector(value);
+      case long_address(2 downto 0) is
+        when "000" => fastram_we <= "00000001";
+        when "001" => fastram_we <= "00000010"; 
+        when "010" => fastram_we <= "00000100";
+        when "011" => fastram_we <= "00001000";
+        when "100" => fastram_we <= "00010000";
+        when "101" => fastram_we <= "00100000";
+        when "110" => fastram_we <= "01000000";
+        when "111" => fastram_we <= "10000000";
+        when others =>
+          report "dud write to chipram" severity note;
+      end case;
+      report "writing to chipram..." severity note;
+      wait_states <= io_wait_states;
+    elsif long_address(27 downto 24) = x"8" then
+      accessing_slowram <= '1';
+      slowram_addr <= std_logic_vector(long_address(23 downto 1));
+      slowram_we <= '1';
+      slowram_ce <= '1';
+      slowram_oe <= '1';
+      slowram_lohi <= long_address(0);
+      slowram_lb <= std_logic(long_address(0));
+      slowram_ub <= std_logic(not long_address(0));
+      slowram_data <= std_logic_vector(value) & std_logic_vector(value);
+      wait_states <= slowram_waitstates;
+    elsif long_address(27 downto 24) = x"F" then
+      accessing_fastio <= '1';
+      fastio_addr <= std_logic_vector(long_address(19 downto 0));
+      last_fastio_addr <= std_logic_vector(long_address(19 downto 0));
+      fastio_write <= '1'; fastio_read <= '0';
+      fastio_wdata <= std_logic_vector(value);
+      if long_address = x"FFC00A0" then
+        slowram_waitstates <= value;
+      end if;
+      if long_address(19 downto 16) = x"8" then
+        colour_ram_cs <= '1';
+        colour_ram_cs_last <= '1';
+      end if;
+      if long_address(19 downto 16) = x"D" then
+        if long_address(15 downto 14) = "00" then    --   $D{0,1,2,3}XXX
+          -- Colour RAM at $D800-$DBFF and optionally $DC00-$DFFF
+          if long_address(11)='1' then
+            if (long_address(10)='0') or (colourram_at_dc00='1') then
+              report "D800-DBFF/DC00-DFFF colour ram access from VIC fastio" severity note;
+              colour_ram_cs <= '1';
+              colour_ram_cs_last <= '1';
+            end if;
+          end if;
+        end if;                         -- $D{0,1,2,3}XXX
+      end if;                           -- $DXXXX
+      wait_states <= io_wait_states;
+    else
+      -- Don't let unmapped memory jam things up
+      null;
+    end if;
+  end write_long_byte;
+  
+  procedure write_data (
+    address            : in unsigned(15 downto 0);
+    value              : in unsigned(7 downto 0)) is
+    variable long_address : unsigned(27 downto 0);
+  begin    
+    wait_states <= x"00";
+
+    long_address := resolve_address_to_long(address,true);
+    if long_address=unsigned(monitor_watch) then
+      monitor_watch_match <= '1';
+    end if;
+    if long_address=x"0000000" then
+      -- Setting the CPU DDR is simple, and has no real side effects.
+      -- All 8 bits can be written to.
+      cpuport_ddr <= value;
+    elsif long_address=x"0000001" then
+      -- For CPU port, things get more interesting.
+      -- Bits 6 & 7 cannot be altered, and always read 0.
+      cpuport_value(5 downto 0) <= value(5 downto 0);
+      -- writing to $01 ends kickstart mode
+      kickstart_en <= '0';
+    else
+      report "Writing $" & to_hstring(value) & " @ $" & to_hstring(address)
+        & " (resolves to $" & to_hstring(long_address) & ")" severity note;
+      write_long_byte(long_address,value);
+    end if;
+  end procedure write_data;
+
   
   -- purpose: set processor flags from a byte (eg for PLP or RTI)
   procedure load_processor_flags (
@@ -1022,10 +1192,14 @@ downto 8) = x"D3F" then
         -- Honour wait states on memory accesses
         if wait_states /= x"00" then
           wait_states <= wait_states - 1;
-        else          
-          read_address(reg_pc);
-          reg_pc(7 downto 0) <= reg_pc(7 downto 0) + 1;
-          reg_pc(15 downto 8) <= read_data;
+        else
+          if monitor_mem_trace_mode='0' then
+            read_address(reg_pc);
+            reg_pc(15 downto 0) <= reg_pc + 1;
+            reg_a <= read_data;
+          else
+            write_data(reg_pc,reg_pc(7 downto 0) xor reg_a);
+          end if;
         end if;
       end if;
 

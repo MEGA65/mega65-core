@@ -172,6 +172,7 @@ architecture Behavioral of machine is
     port (
       Clock : in std_logic;
       ioclock : in std_logic;
+      io_wait_states : in unsigned(7 downto 0);
       reset : in std_logic;
       irq : in std_logic;
       nmi : in std_logic;
@@ -406,6 +407,7 @@ architecture Behavioral of machine is
   
   signal cpuclock : std_logic := '1';
   signal ioclock : std_logic := '1';
+  signal io_wait_states : unsigned(7 downto 0);
   signal clock_phase : integer range 0 to 5 := 0;
 
   signal rom_at_e000 : std_logic := '0';
@@ -487,13 +489,20 @@ begin
       else
         clock_phase <= clock_phase + 1;
       end if;
+
+      -- Determine CPU and IO clock phases.
+      -- Knowing both of these, we can also know the number of CPU cycles
+      -- that must be waited when accessing IO if the access is commence on a
+      -- given cycle.  We need to allow one complete clock cycle after the
+      -- rising edge of IOclock.
+      -- This might need a bit of adjustment, but the principle should be sound.
       case clock_phase is
-        when 0 => cpuclock <= '0'; ioclock<='0';
-        when 1 => cpuclock <= '1'; ioclock<='0';
-        when 2 => cpuclock <= '0'; ioclock<='0';
-        when 3 => cpuclock <= '1'; ioclock<='1';
-        when 4 => cpuclock <= '0'; ioclock<='1';
-        when 5 => cpuclock <= '1'; ioclock<='1';
+        when 0 => cpuclock <= '0'; ioclock<='0'; io_wait_states <= x"08";
+        when 1 => cpuclock <= '1'; ioclock<='0'; io_wait_states <= x"07";
+        when 2 => cpuclock <= '0'; ioclock<='0'; io_wait_states <= x"06";
+        when 3 => cpuclock <= '1'; ioclock<='1'; io_wait_states <= x"0b";
+        when 4 => cpuclock <= '0'; ioclock<='1'; io_wait_states <= x"0a";
+        when 5 => cpuclock <= '1'; ioclock<='1'; io_wait_states <= x"09";
       end case;
       
       -- Work out phi0 frequency for CIA timers
@@ -589,6 +598,7 @@ begin
   cpu0: gs4510 port map(
     clock => cpuclock,
     ioclock => ioclock,
+    io_wait_states => io_wait_states,
     reset =>reset_combined,
     irq => combinedirq,
     nmi => combinednmi,
