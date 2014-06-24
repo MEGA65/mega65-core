@@ -53,11 +53,11 @@ type TX_STATE_TYPE is (RDY, LOAD_BIT, SEND_BIT);
 
 -- Input clock = 64MHz, baudrate = 230400
 -- 96MHz/230400 -1 = 420
-constant BIT_TMR_MAX : unsigned(13 downto 0) := "00000110100100";
+-- constant BIT_TMR_MAX : unsigned(13 downto 0) := "00000110100100";
 -- 48MHz/230400 -1 = 210 clock ticks per bit
 -- constant BIT_TMR_MAX : unsigned(13 downto 0) := "00000011010010";
 -- 32MHz/230400 -1 = 138
--- constant BIT_TMR_MAX : unsigned(13 downto 0) := "00000010001010";
+constant BIT_TMR_MAX : unsigned(13 downto 0) := "00000010001010";
 -- 24MHz/230400 -1 = 105 clock ticks per bit
 -- constant BIT_TMR_MAX : unsigned(13 downto 0) := "00000001100111";
 constant BIT_INDEX_MAX : natural := 10;
