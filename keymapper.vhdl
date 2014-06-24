@@ -52,6 +52,14 @@ architecture behavioural of keymapper is
   signal break : std_logic := '0';
 
   signal matrix : std_logic_vector(63 downto 0) := (others =>'1');
+  signal row_0 : std_logic_vector(7 downto 0);
+  signal row_1 : std_logic_vector(7 downto 0);
+  signal row_2 : std_logic_vector(7 downto 0);
+  signal row_3 : std_logic_vector(7 downto 0);
+  signal row_4 : std_logic_vector(7 downto 0);
+  signal row_5 : std_logic_vector(7 downto 0);
+  signal row_6 : std_logic_vector(7 downto 0);
+  signal row_7 : std_logic_vector(7 downto 0);
   signal joy1 : std_logic_vector(4 downto 0) := (others =>'1');
   signal joy2 : std_logic_vector(4 downto 0) := (others =>'1');
 
@@ -361,16 +369,20 @@ begin  -- behavioural
 
       -- C64 drives lines low on $DC00, and then reads $DC01
       -- This means that we read from porta_in, to compute values for portb_out
-      
-      portb_value := x"FF";
-      for i in 0 to 7 loop
-        if porta_in(i)='0' then
-          for j in 0 to 7 loop
-            portb_value(j) := portb_value(j) and matrix((i*8)+j);
-          end loop;  -- j
-        end if;        
-      end loop;
-      
+
+      if porta_in(0)='0' then row_0 <= matrix(7 downto 0); else row_0 <= x"FF"; end if;
+      if porta_in(1)='0' then row_1 <= matrix(15 downto 8); else row_1 <= x"FF"; end if;
+      if porta_in(2)='0' then row_2 <= matrix(23 downto 16); else row_2 <= x"FF"; end if;
+      if porta_in(3)='0' then row_3 <= matrix(31 downto 24); else row_3 <= x"FF"; end if;
+      if porta_in(4)='0' then row_4 <= matrix(39 downto 32); else row_4 <= x"FF"; end if;
+      if porta_in(5)='0' then row_5 <= matrix(47 downto 40); else row_5 <= x"FF"; end if;
+      if porta_in(6)='0' then row_6 <= matrix(55 downto 48); else row_6 <= x"FF"; end if;
+      if porta_in(7)='0' then row_7 <= matrix(63 downto 56); else row_7 <= x"FF"; end if;
+    
+      portb_value := row_0 and row_1 and row_2 and row_3 and row_4 and row_5 and row_6 and row_7;
+
+      -- XXX - Reading keyboard other way around not implemented.
+    
       -- Keyboard rows and joystick 1
       portb_out(7 downto 5) <= portb_value(7 downto 5);
       portb_out(4) <= portb_value(4) and joy1(4);
