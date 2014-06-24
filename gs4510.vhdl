@@ -1138,8 +1138,6 @@ downto 8) = x"D3F" then
     -- BEGINNING OF MAIN PROCESS FOR CPU
     if rising_edge(clock) then
 
-      report "slowram_oe = " & std_logic'image(slowram_oe) & "slowram_ce = " & std_logic'image(slowram_ce) & "slowram_we = " & std_logic'image(slowram_we) severity note;
-      
       -- Clear memory access lines unless we are in a memory wait state
       if wait_states = x"00" then
         colour_ram_cs <= '0';
