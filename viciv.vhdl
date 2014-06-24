@@ -1410,10 +1410,11 @@ begin
           & ", char_fetch_cycle= " & integer'image(char_fetch_cycle)
           severity note;        
       end if;
-      
-      if xcounter>=(frame_h_front+width) and xcounter<(frame_h_front+width+frame_h_syncwidth) then
+
+      if xcounter=(frame_h_front+width) then
         hsync <= '0';
-      else
+      end if;
+      if xcounter=(frame_h_front+width+frame_h_syncwidth) then
         hsync <= '1';
       end if;
       indisplay :='1';
