@@ -528,7 +528,7 @@ begin
     
     -- Schedule the memory read from the appropriate source.
     -- accessing_ram <= '0';
-    accessing_slowram <= '0';
+    -- accessing_slowram <= '0';
     accessing_fastio <= '0'; accessing_vic_fastio <= '0';
     accessing_cpuport <= '0'; accessing_colour_ram_fastio <= '0';
     accessing_sb_fastio <= '0'; accessing_shadow <= '0';
@@ -677,7 +677,9 @@ downto 8) = x"D3F" then
     return unsigned is
   begin  -- read_data
     -- CPU hosted IO registers
-    if (the_read_address = x"FFD3703") or (the_read_address = x"FFD1703") then
+    if the_read_address = x"FFC00A0" then
+      return slowram_waitstates;
+    elsif (the_read_address = x"FFD3703") or (the_read_address = x"FFD1703") then
       return reg_dmagic_status;
     elsif (the_read_address = x"FFD370B") then
       return reg_dmagic_addr(7 downto 0);
@@ -1213,7 +1215,10 @@ downto 8) = x"D3F" then
               reg_pc <= unsigned(monitor_mem_address(15 downto 0));
             end if;
           else            
-            if monitor_mem_trace_mode='0' then
+            if monitor_mem_trace_mode='0' or
+              monitor_mem_trace_toggle /= monitor_mem_trace_toggle_last then
+              monitor_mem_trace_toggle_last <= monitor_mem_trace_toggle;
+
               -- XXX Do actual CPU things
               read_address(reg_pc);
               reg_pc(15 downto 0) <= reg_pc + 1;
