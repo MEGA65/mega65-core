@@ -105,21 +105,26 @@ architecture behavioural of uart_monitor is
 
   constant errorMessage : string := crlf & "?SYNTAX  ERROR ";
   constant timeoutMessage : string := crlf & "?DEVICE NOT FOUND  ERROR" & crlf;
-  constant timeout2Message : string := crlf & "?TIMEOUT  ERROR" & crlf;
+  constant requestTimeoutMessage : string := crlf & "?REQUEST TIMEOUT  ERROR" & crlf;
+  constant replyTimeoutMessage : string := crlf & "?REPLY TIMEOUT  ERROR" & crlf;
 
-  constant registerMessage : string := crlf & "PC   A  X  Y  Z  B  SP   MAPL MAPH LAST-OP  P  P-FLAGS RG US" & crlf;
+  constant registerMessage : string := crlf & "PC   A  X  Y  Z  B  SP   MAPL MAPH LAST-OP  P  P-FLAGS   RG US" & crlf;
   
   type monitor_state is (Reseting,
                          PrintBanner,PrintHelp,
                          PrintError,PrintError2,PrintError3,PrintError4,
-                         PrintTimeoutError,PrintDeviceError,
+                         PrintRequestTimeoutError,
+                         PrintReplyTimeoutError,
                          NextCommand,NextCommand2,PrintPrompt,
                          AcceptingInput,EraseCharacter,EraseCharacter1,
                          RedrawInputBuffer,RedrawInputBuffer2,RedrawInputBuffer3,
                          RedrawInputBuffer4,
                          EnterPressed,EnterPressed2,EnterPressed3,
                          EraseInputBuffer,
-                         SyntaxError,RequestTimeoutError,ReplyTimeoutError,
+                         SyntaxError,
+                         RequestError,
+                         RequestTimeoutError,
+                         ReplyTimeoutError,
                          CPUTransaction1,CPUTransaction2,CPUTransaction3,
                          ParseHex,
                          PrintHex,PrintSpaces,
@@ -567,21 +572,21 @@ begin
             else
               state <= NextCommand;
             end if;
-          when PrintDeviceError =>
+          when PrintRequestTimeoutError =>
             if tx_ready='1' then
-              tx_data <= to_std_logic_vector(timeoutMessage(banner_position));
+              tx_data <= to_std_logic_vector(requestTimeoutMessage(banner_position));
               tx_trigger <= '1';
-              if banner_position<timeoutMessage'length then
+              if banner_position<requestTimeoutMessage'length then
                 banner_position <= banner_position + 1;
               else
                 state <= NextCommand;
               end if;
             end if;
-          when PrintTimeoutError =>
+          when PrintReplyTimeoutError =>
             if tx_ready='1' then
-              tx_data <= to_std_logic_vector(timeout2Message(banner_position));
+              tx_data <= to_std_logic_vector(replyTimeoutMessage(banner_position));
               tx_trigger <= '1';
-              if banner_position<timeout2Message'length then
+              if banner_position<replyTimeoutMessage'length then
                 banner_position <= banner_position + 1;
               else
                 state <= NextCommand;
@@ -990,9 +995,9 @@ begin
           when SyntaxError =>
             banner_position <= 1; state <= PrintError;
           when RequestTimeoutError =>
-            banner_position <= 1; state <= PrintTimeoutError;
+            banner_position <= 1; state <= PrintRequestTimeoutError;
           when ReplyTimeoutError =>
-            banner_position <= 1; state <= PrintTimeoutError;
+            banner_position <= 1; state <= PrintReplyTimeoutError;
           when SetPC1 =>
             monitor_mem_address(15 downto 0) <= std_logic_vector(hex_value(15 downto 0));
             monitor_mem_read <= '1';
