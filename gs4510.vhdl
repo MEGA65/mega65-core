@@ -1273,6 +1273,12 @@ downto 8) = x"D3F" then
   variable execute_arg2 : unsigned(7 downto 0);
 
   variable memory_read_value : unsigned(7 downto 0);
+
+  variable memory_access_address : unsigned(27 downto 0) := x"FFFFFFF";
+  variable memory_access_read : std_logic := '0';
+  variable memory_access_write : std_logic := '0';
+  variable memory_access_resolve_address : std_logic := '0';
+  variable memory_access_wdata : unsigned(7 downto 0) := x"FF";
   
   begin
 
@@ -1349,20 +1355,20 @@ downto 8) = x"D3F" then
             if monitor_mem_write='1' then
               -- Write to specified long address (or short if address is $777xxxx)
               monitor_mem_attention_granted <= '1';
+              memory_access_address := unsigned(monitor_mem_address);
+              memory_access_write := '1';
+              memory_access_wdata := monitor_mem_wdata;
               if monitor_mem_address(27 downto 16) = x"777" then
                 -- M777xxxx in serial monitor reads memory from CPU's perspective
-                write_data(unsigned(monitor_mem_address(15 downto 0)),
-                           monitor_mem_wdata);
-              else
-                write_long_byte(unsigned(monitor_mem_address),monitor_mem_wdata);
+                memory_access_resolve_address := '1';
               end if;
             elsif monitor_mem_read='1' then          
+              memory_access_address := unsigned(monitor_mem_address);
+              memory_access_read := '1';
               -- Read from specified long address
               if monitor_mem_address(27 downto 16) = x"777" then
                 -- M777xxxx in serial monitor reads memory from CPU's perspective
-                read_address(unsigned(monitor_mem_address(15 downto 0)));
-              else
-                read_long_address(unsigned(monitor_mem_address));
+                memory_access_resolve_address := '1';
               end if;
               monitor_mem_reading <= '1';
               mem_reading <= '1';
@@ -1396,6 +1402,7 @@ downto 8) = x"D3F" then
                   state <= InstructionWait;
                 when InstructionWait =>
                   state <= InstructionFetch;
+                when InstructionFetch =>
                   
                 when others => null;
               end case;
@@ -1417,10 +1424,27 @@ downto 8) = x"D3F" then
             if mem_reading_pcl='1' then reg_pc(7 downto 0) <= memory_read_value; end if;
             if mem_reading_pch='1' then reg_pc(15 downto 8) <= memory_read_value; end if;
           end if;
-          
-        end if;
-      end if;
 
+          -- Effect memory accesses.
+          -- Note that we cannot combine address resolution for read and write,
+          -- because the resolution of some addresses is dependent on whether
+          -- the operation is read or write.  ROM accesses are a good example.
+          if memory_access_write='1' then
+            if memory_access_resolve_address = '1' then
+              write_data(memory_access_address(15 downto 0),memory_access_wdata);
+            else
+              write_long_byte(memory_access_address,memory_access_wdata);
+            end if;
+          end if;
+          if memory_access_read='1' then
+            if memory_access_resolve_address = '1' then
+              read_address(memory_access_address(15 downto 0));
+            else
+              read_long_address(memory_access_address);
+            end if;
+          end if;
+        end if; 
+      end if;      
     end if;
   end process;
 
