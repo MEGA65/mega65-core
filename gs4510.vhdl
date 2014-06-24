@@ -287,6 +287,11 @@ architecture Behavioural of gs4510 is
   signal monitor_mem_trace_toggle_last : std_logic := '0';
 
   signal microcode_vector : std_logic_vector(63 downto 0);
+
+  -- Microcode data and ALU routing signals follow:
+
+  -- serial monitor is reading data 
+  signal monitor_mem_reading : std_logic := '0';
   
 begin
 
@@ -1120,6 +1125,8 @@ downto 8) = x"D3F" then
   variable execute_opcode : unsigned(7 downto 0);
   variable execute_arg1 : unsigned(7 downto 0);
   variable execute_arg2 : unsigned(7 downto 0);
+
+  variable memory_read_value : unsigned(7 downto 0);
   
   begin
 
@@ -1193,13 +1200,48 @@ downto 8) = x"D3F" then
         if wait_states /= x"00" then
           wait_states <= wait_states - 1;
         else
-          if monitor_mem_trace_mode='0' then
-            read_address(reg_pc);
-            reg_pc(15 downto 0) <= reg_pc + 1;
-            reg_a <= read_data;
-          else
-            write_data(reg_pc,reg_pc(7 downto 0) xor reg_a);
+          
+          if monitor_mem_attention_request='1' then
+            -- Memory access by serial monitor.
+            if monitor_mem_write='1' then
+              -- Write to specified long address (or short if address is $777xxxx)
+              if monitor_mem_address(27 downto 16) = x"777" then
+                -- M777xxxx in serial monitor reads memory from CPU's perspective
+                write_data(unsigned(monitor_mem_address(15 downto 0)),
+                           monitor_mem_wdata);
+              else
+                write_long_byte(unsigned(monitor_mem_address),monitor_mem_wdata);
+              end if;
+            elsif monitor_mem_read='1' then          
+              -- Read from specified long address
+              if monitor_mem_address(27 downto 16) = x"777" then
+                -- M777xxxx in serial monitor reads memory from CPU's perspective
+                read_address(unsigned(monitor_mem_address(15 downto 0)));
+              else
+                read_long_address(unsigned(monitor_mem_address));
+              end if;
+              monitor_mem_reading <= '1';
+            end if;
+            -- and optionally set PC
+            if monitor_mem_setpc='1' then
+              report "PC set by monitor interface" severity note;
+              reg_pc <= unsigned(monitor_mem_address(15 downto 0));
+            end if;
+          else            
+            if monitor_mem_trace_mode='0' then
+              -- XXX Do actual CPU things
+              read_address(reg_pc);
+              reg_pc(15 downto 0) <= reg_pc + 1;
+              reg_a <= read_data;
+            end if;
           end if;
+
+          -- Route memory read value as required
+          memory_read_value := read_data;
+          if monitor_mem_reading='1' then
+            monitor_mem_rdata <= memory_read_value;
+          end if;
+          
         end if;
       end if;
 
