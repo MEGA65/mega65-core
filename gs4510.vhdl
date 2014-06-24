@@ -1348,6 +1348,7 @@ downto 8) = x"D3F" then
             -- Memory access by serial monitor.
             if monitor_mem_write='1' then
               -- Write to specified long address (or short if address is $777xxxx)
+              monitor_mem_attention_granted <= '1';
               if monitor_mem_address(27 downto 16) = x"777" then
                 -- M777xxxx in serial monitor reads memory from CPU's perspective
                 write_data(unsigned(monitor_mem_address(15 downto 0)),
