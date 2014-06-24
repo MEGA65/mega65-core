@@ -2003,7 +2003,8 @@ begin
           -- These happen in the horizontal front porch, and require not more
           -- than 62 cycles ( (240 * 2) / 8 = 60 fetches).
           -- Draining can be accomplished by resetting the buffer address.
-          screen_ram_buffer_address <= (others => '0');
+          -- (we reset to the end, because we pre-increment in the fetch loop)
+          screen_ram_buffer_address <= (others => '1');
           screen_ram_buffer_write <= '0';
           char_fetch_cycle <= 33;
           report "BADLINE preparing for fetch" severity note;
