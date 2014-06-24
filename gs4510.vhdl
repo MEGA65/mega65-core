@@ -147,11 +147,9 @@ architecture Behavioural of gs4510 is
   signal last_fastio_addr : std_logic_vector(19 downto 0);
 
   signal slowram_lohi : std_logic;
-  signal slowram_counter : unsigned(7 downto 0);
   -- SlowRAM has 70ns access time, so need some wait states.
   -- The wait states
   signal slowram_waitstates : unsigned(7 downto 0) := x"07";
-  signal fastio_waitstates : unsigned(7 downto 0) := x"05";
 
   -- Number of pending wait states
   signal wait_states : unsigned(7 downto 0) := x"05";
@@ -559,14 +557,14 @@ begin
       or long_address(27 downto 17)&'0' = x"002" then
       -- Slow RAM maps to $8xxxxxx, and also $0020000 - $003FFFF for C65 ROM
       -- emulation.
-accessing_slowram <= '1';
+      accessing_slowram <= '1';
       slowram_addr <= std_logic_vector(long_address(23 downto 1));
       slowram_data <= (others => 'Z');  -- tristate data lines
       slowram_we <= '1';
-      slowram_ce <= '1';
-      slowram_oe <= '1';
-      slowram_lb <= '1';
-      slowram_ub <= '1';
+      slowram_ce <= '0';
+      slowram_oe <= '0';
+      slowram_lb <= '0';
+      slowram_ub <= '0';
       slowram_lohi <= long_address(0);
       wait_states <= slowram_waitstates;
     elsif long_address(27 downto 20) = x"FF" then
@@ -654,11 +652,7 @@ downto 8) = x"D3F" then
       then 
         null;
       else
-        if ioclock='1' then
-          wait_states <= fastio_waitstates + 1;
-        else
-          wait_states <= fastio_waitstates;
-        end if;
+        wait_states <= io_wait_states;
       end if;
     else
       -- Don't let unmapped memory jam things up
@@ -869,11 +863,12 @@ downto 8) = x"D3F" then
       report "writing to chipram..." severity note;
       wait_states <= io_wait_states;
     elsif long_address(27 downto 24) = x"8" then
+      report "writing to slowram..." severity note;
       accessing_slowram <= '1';
       slowram_addr <= std_logic_vector(long_address(23 downto 1));
-      slowram_we <= '1';
-      slowram_ce <= '1';
-      slowram_oe <= '1';
+      slowram_we <= '0';
+      slowram_ce <= '0';
+      slowram_oe <= '0';
       slowram_lohi <= long_address(0);
       slowram_lb <= std_logic(long_address(0));
       slowram_ub <= std_logic(not long_address(0));
@@ -1144,6 +1139,10 @@ downto 8) = x"D3F" then
         fastio_write <= '0';
         fastram_we <= (others => '0');        
         fastram_datain <= x"d0d1d2d3d4d5d6d7";
+
+        slowram_we <= '1';
+        slowram_ce <= '1';
+        slowram_oe <= '1';
       end if;
 
       monitor_watch_match <= '0';       -- set if writing to watched address
