@@ -13,6 +13,7 @@ entity uart_monitor is
     activity : out std_logic;
 
     monitor_pc : in std_logic_vector(15 downto 0);
+    monitor_cpu_state : in unsigned(7 downto 0);
     monitor_watch : out std_logic_vector(27 downto 0) := x"7FFFFFF";
     monitor_watch_match : in std_logic;
     monitor_opcode : in std_logic_vector(7 downto 0);
@@ -104,20 +105,21 @@ architecture behavioural of uart_monitor is
 
   constant errorMessage : string := crlf & "?SYNTAX  ERROR ";
   constant timeoutMessage : string := crlf & "?DEVICE NOT FOUND  ERROR" & crlf;
+  constant timeout2Message : string := crlf & "?TIMEOUT  ERROR" & crlf;
 
-  constant registerMessage : string := crlf & "PC   A  X  Y  Z  B  SP   MAPL MAPH LAST-OP  P  P-FLAGS" & crlf;
+  constant registerMessage : string := crlf & "PC   A  X  Y  Z  B  SP   MAPL MAPH LAST-OP  P  P-FLAGS RG US" & crlf;
   
   type monitor_state is (Reseting,
                          PrintBanner,PrintHelp,
                          PrintError,PrintError2,PrintError3,PrintError4,
-                         PrintTimeoutError,
+                         PrintTimeoutError,PrintDeviceError,
                          NextCommand,NextCommand2,PrintPrompt,
                          AcceptingInput,EraseCharacter,EraseCharacter1,
                          RedrawInputBuffer,RedrawInputBuffer2,RedrawInputBuffer3,
                          RedrawInputBuffer4,
                          EnterPressed,EnterPressed2,EnterPressed3,
                          EraseInputBuffer,
-                         SyntaxError,TimeoutError,
+                         SyntaxError,RequestTimeoutError,ReplyTimeoutError,
                          CPUTransaction1,CPUTransaction2,CPUTransaction3,
                          ParseHex,
                          PrintHex,PrintSpaces,
@@ -141,7 +143,7 @@ architecture behavioural of uart_monitor is
                          ShowRegisters25,ShowRegisters26,ShowRegisters27,ShowRegisters28,
                          ShowRegisters29,ShowRegisters30,ShowRegisters31,ShowRegisters32,
                          ShowP1,ShowP2,ShowP3,ShowP4,ShowP5,ShowP6,ShowP7,ShowP8,
-                         ShowP9,
+                         ShowP9,ShowP10,ShowP11,ShowP12,ShowP13,ShowP14,
                          TraceStep,CPUBreak1,WaitOneCycle
                          );
 
@@ -565,11 +567,21 @@ begin
             else
               state <= NextCommand;
             end if;
-          when PrintTimeoutError =>
+          when PrintDeviceError =>
             if tx_ready='1' then
               tx_data <= to_std_logic_vector(timeoutMessage(banner_position));
               tx_trigger <= '1';
               if banner_position<timeoutMessage'length then
+                banner_position <= banner_position + 1;
+              else
+                state <= NextCommand;
+              end if;
+            end if;
+          when PrintTimeoutError =>
+            if tx_ready='1' then
+              tx_data <= to_std_logic_vector(timeout2Message(banner_position));
+              tx_trigger <= '1';
+              if banner_position<timeout2Message'length then
                 banner_position <= banner_position + 1;
               else
                 state <= NextCommand;
@@ -951,16 +963,35 @@ begin
             end if;
           when ShowP9 =>
             if monitor_interrupt_inhibit='1' then
-              try_output_char('M',NextCommand);
+              try_output_char('M',ShowP10);
             else              
-              try_output_char('.',NextCommand);
+              try_output_char('.',ShowP10);
             end if;
-                                  
+          when ShowP10 =>
+            try_output_char(' ',ShowP11);
+          when ShowP11 =>
+--            if monitor_mem_attention_request='1' then
+--              try_output_char('R',ShowP12);
+--            else
+              try_output_char('.',ShowP12);
+--            end if;
+          when ShowP12 =>
+            if monitor_mem_attention_granted='1' then
+              try_output_char('G',ShowP13);
+            else
+              try_output_char('.',ShowP13);
+            end if;
+          when ShowP13 =>
+            try_output_char(' ',ShowP14);
+          when ShowP14 =>
+            print_hex_byte(unsigned(monitor_cpu_state),NextCommand);
           when EraseCharacter => try_output_char(' ',EraseCharacter1);
           when EraseCharacter1 => try_output_char(bs,AcceptingInput);
           when SyntaxError =>
             banner_position <= 1; state <= PrintError;
-          when TimeoutError =>
+          when RequestTimeoutError =>
+            banner_position <= 1; state <= PrintTimeoutError;
+          when ReplyTimeoutError =>
             banner_position <= 1; state <= PrintTimeoutError;
           when SetPC1 =>
             monitor_mem_address(15 downto 0) <= std_logic_vector(hex_value(15 downto 0));
@@ -975,7 +1006,7 @@ begin
               state <=CPUTransaction2;
             else
               if timeout=0 then
-                state <= TimeoutError;
+                state <= RequestTimeoutError;
               end if;
               timeout <= timeout - 1;
             end if;
@@ -987,7 +1018,7 @@ begin
               state <= CPUTransaction3;
             else
               if timeout=0 then
-                state <= TimeoutError;
+                state <= RequestTimeoutError;
               end if;
               timeout <= timeout - 1;
             end if;
@@ -996,7 +1027,7 @@ begin
               state <= post_transaction_state;
             else
               if timeout=0 then
-                state <= TimeoutError;
+                state <= ReplyTimeoutError;
               end if;
               timeout <= timeout - 1;              
             end if;

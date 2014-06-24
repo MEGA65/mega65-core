@@ -40,6 +40,7 @@ entity gs4510 is
     irq : in std_logic;
     nmi : in std_logic;
     monitor_pc : out std_logic_vector(15 downto 0);
+    monitor_state : out unsigned(7 downto 0);
     monitor_watch : in std_logic_vector(27 downto 0);
     monitor_watch_match : out std_logic;
     monitor_opcode : out std_logic_vector(7 downto 0);
@@ -53,7 +54,6 @@ entity gs4510 is
     monitor_b : out std_logic_vector(7 downto 0);
     monitor_sp : out std_logic_vector(15 downto 0);
     monitor_p : out std_logic_vector(7 downto 0);
-    monitor_state : out std_logic_vector(7 downto 0);
     monitor_interrupt_inhibit : out std_logic;
     monitor_map_offset_low : out std_logic_vector(11 downto 0);
     monitor_map_offset_high : out std_logic_vector(11 downto 0);
@@ -1296,7 +1296,7 @@ downto 8) = x"D3F" then
       end if;
 
       monitor_watch_match <= '0';       -- set if writing to watched address
-      -- monitor_state <= std_logic_vector(to_unsigned(processor_state'pos(state),8));
+      monitor_state <= to_unsigned(processor_state'pos(state),8);
       monitor_pc <= std_logic_vector(reg_pc);
       monitor_a <= std_logic_vector(reg_a);
       monitor_x <= std_logic_vector(reg_x);
