@@ -1239,7 +1239,11 @@ downto 8) = x"D3F" then
           -- Route memory read value as required
           memory_read_value := read_data;
           if monitor_mem_reading='1' then
+            monitor_mem_attention_granted <= '1';
             monitor_mem_rdata <= memory_read_value;
+          end if;
+          if monitor_mem_attention_request='0' then
+            monitor_mem_attention_granted <= '0';
           end if;
           
         end if;
