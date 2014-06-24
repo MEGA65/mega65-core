@@ -1137,11 +1137,17 @@ downto 8) = x"D3F" then
       if wait_states = x"00" then
         colour_ram_cs <= '0';
         colour_ram_cs_last <= '0';
-        -- accessing_ram <= '0'; 
+
         accessing_slowram <= '0';
-        accessing_fastio <= '0'; accessing_vic_fastio <= '0';
-        accessing_cpuport <= '0'; accessing_shadow <= '0';
+        accessing_fastio <= '0';
+        accessing_vic_fastio <= '0';
+        accessing_cpuport <= '0';
+        accessing_shadow <= '0';
         shadow_write <= '0';
+
+        fastio_write <= '0';
+        fastram_we <= (others => '0');        
+        fastram_datain <= x"d0d1d2d3d4d5d6d7";
       end if;
 
       monitor_watch_match <= '0';       -- set if writing to watched address
@@ -1159,24 +1165,6 @@ downto 8) = x"D3F" then
       monitor_map_enables_low <= std_logic_vector(reg_map_low); 
       monitor_map_enables_high <= std_logic_vector(reg_map_high); 
       
-      -- Clear memory access interfaces
-      -- Allow fastio to continue reading to support 1 cycle wait state
-      -- for those fastio addresses that require it.
-      -- XXX This can have problems for reading from registers that have
-      -- special side effects.
-      accessing_fastio <= '0';
-      accessing_vic_fastio <= '0';
-      if accessing_fastio='0' then
-        fastio_addr <= (others => '1');
-        fastio_read <= '0';
-      else
-        fastio_addr <= last_fastio_addr;
-      end if;
-      fastio_write <= '0';
-      fastram_we <= (others => '0');
-      -- fastram_address <= "11111111111111";
-      fastram_datain <= x"d0d1d2d3d4d5d6d7";
-
       -- Generate virtual processor status register for convenience
       virtual_reg_p(7) := flag_n;
       virtual_reg_p(6) := flag_v;
