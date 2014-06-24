@@ -213,7 +213,7 @@ architecture Behavioural of gs4510 is
   signal irq_pending : std_logic := '0';
   signal nmi_state : std_logic := '1';
   -- Interrupt/reset vector being used
-  signal vector : unsigned(15 downto 0);
+  signal vector : unsigned(3 downto 0);
   
   type microcodeops_t is array (0 to 255) of std_logic_vector(63 downto 0);
   signal microcodeops : microcodeops_t := (
@@ -289,8 +289,139 @@ architecture Behavioural of gs4510 is
   -- Microcode data and ALU routing signals follow:
 
   signal mem_reading : std_logic := '0';
+  signal mem_reading_a : std_logic := '0';
+  signal mem_reading_x : std_logic := '0';
+  signal mem_reading_y : std_logic := '0';
+  signal mem_reading_z : std_logic := '0';
+  signal mem_reading_p : std_logic := '0';
+  signal mem_reading_pcl : std_logic := '0';
+  signal mem_reading_pch : std_logic := '0';
   -- serial monitor is reading data 
   signal monitor_mem_reading : std_logic := '0';
+
+  type processor_state is (
+    -- Reset and interrupts
+    ResetLow,Interrupt,VectorRead1,VectorRead2,
+
+    -- DMAgic
+    DMAgic0,DMAgic1,DMAgic2,DMAgic3,DMAgic4,DMAgic5,DMAgic6,DMAgic7,
+    DMAgic8,DMAgic9,DMAgic10,DMAgic11,DMAgic12,DMAgic13,DMAgic14,DMAgic15,
+
+    -- Normal instructions
+    InstructionWait,                    -- Wait for PC to become available on
+                                        -- interrupt/reset
+    InstructionFetch,
+    Operand1Fetch,
+    Operand2Fetch,
+    ZPDereference,
+    AbsDereference,
+    MemoryRead,
+    MemoryDummyWrite,
+    MemoryWrite,
+    Push1,
+    Push2,
+    Pop1,
+    Pop2,
+    Jump
+    );
+  signal state : processor_state := ResetLow;
+
+  type addressingmode is (
+    M_impl,M_InnX,M_nn,M_immnn,M_A,M_nnnn,M_nnrr,
+    M_rr,M_InnY,M_InnZ,M_rrrr,M_nnX,M_nnnnY,M_nnnnX,M_Innnn,
+    M_InnnnX,M_InnSPY,M_nnY,M_immnnnn);
+
+  type mode_list is array(addressingmode'low to addressingmode'high) of integer;
+  constant mode_bytes_lut : mode_list := (
+    M_impl => 0,
+    M_InnX => 1,
+    M_nn => 1,
+    M_immnn => 1,
+    M_A => 0,
+    M_nnnn => 2,
+    M_nnrr => 2,
+    M_rr => 1,
+    M_InnY => 1,
+    M_InnZ => 1,
+    M_rrrr => 2,
+    M_nnX => 1,
+    M_nnnnY => 2,
+    M_nnnnX => 2,
+    M_Innnn => 2,
+    M_InnnnX => 2,
+    M_InnSPY => 1,
+    M_nnY => 1,
+    M_immnnnn => 2);
+  
+  type instruction is (
+    -- 4510 opcodes
+    I_BRK,I_ORA,I_CLE,I_SEE,I_TSB,I_ASL,I_RMB,
+    I_PHP,I_TSY,I_BBR,I_BPL,I_TRB,I_CLC,I_INC,I_INZ,
+    I_JSR,I_AND,I_BIT,I_ROL,I_PLP,I_TYS,I_BMI,I_SEC,
+    I_DEC,I_DEZ,I_RTI,I_EOR,I_NEG,I_ASR,I_LSR,I_PHA,
+    I_TAZ,I_JMP,I_BVC,I_CLI,I_PHY,I_TAB,I_MAP,I_RTS,
+    I_ADC,I_BSR,I_STZ,I_ROR,I_PLA,I_TZA,I_BVS,I_SEI,
+    I_PLY,I_TBA,I_BRA,I_STA,I_STY,I_STX,I_SMB,I_DEY,
+    I_TXA,I_BBS,I_BCC,I_TYA,I_TXS,I_LDY,I_LDA,I_LDX,
+    I_LDZ,I_TAY,I_TAX,I_BCS,I_CLV,I_TSX,I_CPY,I_CMP,
+    I_CPZ,I_DEW,I_INY,I_DEX,I_ASW,I_BNE,I_CLD,I_PHX,
+    I_PHZ,I_CPX,I_SBC,I_INW,I_INX,I_EOM,I_ROW,I_BEQ,
+    I_PHW,I_SED,I_PLX,I_PLZ);
+
+  type ilut8bit is array(0 to 255) of instruction;
+  constant instruction_lut : ilut8bit := (
+    I_BRK,I_ORA,I_CLE,I_SEE,I_TSB,I_ORA,I_ASL,I_RMB,I_PHP,I_ORA,I_ASL,I_TSY,I_TSB,I_ORA,I_ASL,I_BBR,
+    I_BPL,I_ORA,I_ORA,I_BPL,I_TRB,I_ORA,I_ASL,I_RMB,I_CLC,I_ORA,I_INC,I_INZ,I_TRB,I_ORA,I_ASL,I_BBR,
+    I_JSR,I_AND,I_JSR,I_JSR,I_BIT,I_AND,I_ROL,I_RMB,I_PLP,I_AND,I_ROL,I_TYS,I_BIT,I_AND,I_ROL,I_BBR,
+    I_BMI,I_AND,I_AND,I_BMI,I_BIT,I_AND,I_ROL,I_RMB,I_SEC,I_AND,I_DEC,I_DEZ,I_BIT,I_AND,I_ROL,I_BBR,
+    I_RTI,I_EOR,I_NEG,I_ASR,I_ASR,I_EOR,I_LSR,I_RMB,I_PHA,I_EOR,I_LSR,I_TAZ,I_JMP,I_EOR,I_LSR,I_BBR,
+    I_BVC,I_EOR,I_EOR,I_BVC,I_ASR,I_EOR,I_LSR,I_RMB,I_CLI,I_EOR,I_PHY,I_TAB,I_MAP,I_EOR,I_LSR,I_BBR,
+    I_RTS,I_ADC,I_RTS,I_BSR,I_STZ,I_ADC,I_ROR,I_RMB,I_PLA,I_ADC,I_ROR,I_TZA,I_JMP,I_ADC,I_ROR,I_BBR,
+    I_BVS,I_ADC,I_ADC,I_BVS,I_STZ,I_ADC,I_ROR,I_RMB,I_SEI,I_ADC,I_PLY,I_TBA,I_JMP,I_ADC,I_ROR,I_BBR,
+    I_BRA,I_STA,I_STA,I_BRA,I_STY,I_STA,I_STX,I_SMB,I_DEY,I_BIT,I_TXA,I_STY,I_STY,I_STA,I_STX,I_BBS,
+    I_BCC,I_STA,I_STA,I_BCC,I_STY,I_STA,I_STX,I_SMB,I_TYA,I_STA,I_TXS,I_STX,I_STZ,I_STA,I_STZ,I_BBS,
+    I_LDY,I_LDA,I_LDX,I_LDZ,I_LDY,I_LDA,I_LDX,I_SMB,I_TAY,I_LDA,I_TAX,I_LDZ,I_LDY,I_LDA,I_LDX,I_BBS,
+    I_BCS,I_LDA,I_LDA,I_BCS,I_LDY,I_LDA,I_LDX,I_SMB,I_CLV,I_LDA,I_TSX,I_LDZ,I_LDY,I_LDA,I_LDX,I_BBS,
+    I_CPY,I_CMP,I_CPZ,I_DEW,I_CPY,I_CMP,I_DEC,I_SMB,I_INY,I_CMP,I_DEX,I_ASW,I_CPY,I_CMP,I_DEC,I_BBS,
+    I_BNE,I_CMP,I_CMP,I_BNE,I_CPZ,I_CMP,I_DEC,I_SMB,I_CLD,I_CMP,I_PHX,I_PHZ,I_CPZ,I_CMP,I_DEC,I_BBS,
+    I_CPX,I_SBC,I_LDA,I_INW,I_CPX,I_SBC,I_INC,I_SMB,I_INX,I_SBC,I_EOM,I_ROW,I_CPX,I_SBC,I_INC,I_BBS,
+    I_BEQ,I_SBC,I_SBC,I_BEQ,I_PHW,I_SBC,I_INC,I_SMB,I_SED,I_SBC,I_PLX,I_PLZ,I_PHW,I_SBC,I_INC,I_BBS);
+
+  
+  type mlut8bit is array(0 to 255) of addressingmode;
+  constant mode_lut : mlut8bit := (
+    M_impl,  M_InnX,  M_impl,  M_impl,  M_nn,    M_nn,    M_nn,    M_nn,    
+    M_impl,  M_immnn, M_A,     M_impl,  M_nnnn,  M_nnnn,  M_nnnn,  M_nnrr,  
+    M_rr,    M_InnY,  M_InnZ,  M_rrrr,  M_nn,    M_nnX,   M_nnX,   M_nn,    
+    M_impl,  M_nnnnY, M_impl,  M_impl,  M_nnnn,  M_nnnnX, M_nnnnX, M_nnrr,  
+    M_nnnn,  M_InnX,  M_Innnn, M_InnnnX,M_nn,    M_nn,    M_nn,    M_nn,    
+    M_impl,  M_immnn, M_A,     M_impl,  M_nnnn,  M_nnnn,  M_nnnn,  M_nnrr,  
+    M_rr,    M_InnY,  M_InnZ,  M_rrrr,  M_nnX,   M_nnX,   M_nnX,   M_nn,    
+    M_impl,  M_nnnnY, M_impl,  M_impl,  M_nnnnX, M_nnnnX, M_nnnnX, M_nnrr,  
+    M_impl,  M_InnX,  M_impl,  M_impl,  M_nn,    M_nn,    M_nn,    M_nn,    
+    M_impl,  M_immnn, M_A,     M_impl,  M_nnnn,  M_nnnn,  M_nnnn,  M_nnrr,  
+    M_rr,    M_InnY,  M_InnZ,  M_rrrr,  M_nnX,   M_nnX,   M_nnX,   M_nn,    
+    M_impl,  M_nnnnY, M_impl,  M_impl,  M_impl,  M_nnnnX, M_nnnnX, M_nnrr,  
+    M_impl,  M_InnX,  M_immnn, M_rrrr,  M_nn,    M_nn,    M_nn,    M_nn,    
+    M_impl,  M_immnn, M_A,     M_impl,  M_Innnn, M_nnnn,  M_nnnn,  M_nnrr,  
+    M_rr,    M_InnY,  M_InnZ,  M_rrrr,  M_nnX,   M_nnX,   M_nnX,   M_nn,    
+    M_impl,  M_nnnnY, M_impl,  M_impl,  M_InnnnX,M_nnnnX, M_nnnnX, M_nnrr,  
+    M_rr,    M_InnX,  M_InnSPY,M_rrrr,  M_nn,    M_nn,    M_nn,    M_nn,    
+    M_impl,  M_immnn, M_impl,  M_nnnnX, M_nnnn,  M_nnnn,  M_nnnn,  M_nnrr,  
+    M_rr,    M_InnY,  M_InnZ,  M_rrrr,  M_nnX,   M_nnX,   M_nnY,   M_nn,    
+    M_impl,  M_nnnnY, M_impl,  M_nnnnY, M_nnnn,  M_nnnnX, M_nnnnX, M_nnrr,  
+    M_immnn, M_InnX,  M_immnn, M_immnn, M_nn,    M_nn,    M_nn,    M_nn,    
+    M_impl,  M_immnn, M_impl,  M_nnnn,  M_nnnn,  M_nnnn,  M_nnnn,  M_nnrr,  
+    M_rr,    M_InnY,  M_InnY,  M_rrrr,  M_nnX,   M_nnX,   M_nnY,   M_nn,    
+    M_impl,  M_nnnnY, M_impl,  M_nnnnX, M_nnnnX, M_nnnnX, M_nnnnY, M_nnrr,  
+    M_immnn, M_InnX,  M_immnn, M_nn,    M_nn,    M_nn,    M_nn,    M_nn,    
+    M_impl,  M_immnn, M_impl,  M_nnnn,  M_nnnn,  M_nnnn,  M_nnnn,  M_nnrr,  
+    M_rr,    M_InnY,  M_InnZ,  M_rrrr,  M_nn,    M_nnX,   M_nnX,   M_nn,    
+    M_impl,  M_nnnnY, M_impl,  M_impl,  M_nnnn,  M_nnnnX, M_nnnnX, M_nnrr,  
+    M_immnn, M_InnX,  M_InnSPY,M_nn,    M_nn,    M_nn,    M_nn,    M_nn,    
+    M_impl,  M_immnn, M_impl,  M_nnnn,  M_nnnn,  M_nnnn,  M_nnnn,  M_nnrr,  
+    M_rr,    M_InnY,  M_InnZ,  M_rrrr,  M_immnnnn,M_nnX,   M_nnX,   M_nn,    
+    M_impl,  M_nnnnY, M_impl,  M_impl,  M_nnnn,  M_nnnnX, M_nnnnX, M_nnrr);
   
 begin
 
@@ -309,6 +440,7 @@ begin
     -- Set microcode state for reset
     -- This is a little bit fun because we need to basically make an opcode for
     -- reset.  $FF in CPU personality 3 will do the trick.
+
     instruction_phase <= x"0";
     reg_opcode <= (others => '1');
     microcode_vector <= (0 => '1', 1 => '1',
@@ -322,7 +454,7 @@ begin
     reg_z <= x"00";
     reg_sp <= x"ff";
     reg_sph <= x"01";
-    reg_pc <= x"FF00";
+    reg_pc <= x"8765";
 
     -- Clear CPU MMU registers
     reg_mb_low <= x"00";
@@ -348,9 +480,17 @@ begin
     cpuport_ddr <= x"FF";
     cpuport_value <= x"3F";
 
-    -- Don't write to fastio when resetting.
-    -- (this is an attempt to stop the boot vectors getting overwritten)
-    fastio_write <= '0'; fastio_read <= '0'; shadow_write <= '0';
+    -- Stop memory accesses
+    colour_ram_cs <= '0';
+    colour_ram_cs_last <= '0';    
+    shadow_write <= '0';   
+    fastio_read <= '0';
+    fastio_write <= '0';
+    fastram_we <= (others => '0');        
+    fastram_datain <= x"d0d1d2d3d4d5d6d7";    
+    slowram_we <= '1';
+    slowram_ce <= '1';
+    slowram_oe <= '1';
 
   end procedure reset_cpu_state;
 
@@ -528,6 +668,7 @@ begin
     end if;
 
     report "Reading from long address $" & to_hstring(long_address) severity note;
+    mem_reading <= '1';
     
     -- Schedule the memory read from the appropriate source.
     accessing_fastio <= '0'; accessing_vic_fastio <= '0';
@@ -1187,14 +1328,19 @@ downto 8) = x"D3F" then
       
       if reset='0' then
         reset_cpu_state;
+        state <= ResetLow;
       else
         -- Honour wait states on memory accesses
         if wait_states /= x"00" then
+          report "  $" & to_hstring(wait_states) &" memory waitstates remaining.  Fastio_rdata = $" & to_hstring(fastio_rdata) & ", mem_reading=" & std_logic'image(mem_reading) severity note;
           wait_states <= wait_states - 1;
         else
           if mem_reading='1' then
             memory_read_value := read_data;
+            report "resetting mem_reading" severity note;
             mem_reading <= '0';
+            mem_reading_pcl <= '0';
+            mem_reading_pch <= '0';
           end if;
             
           if monitor_mem_attention_request='1' then
@@ -1228,21 +1374,51 @@ downto 8) = x"D3F" then
             if monitor_mem_trace_mode='0' or
               monitor_mem_trace_toggle /= monitor_mem_trace_toggle_last then
               monitor_mem_trace_toggle_last <= monitor_mem_trace_toggle;
-
+              
               -- XXX Do actual CPU things
-              read_long_address(x"800"&reg_pc);
-              reg_pc(15 downto 0) <= reg_pc + 1;
-              reg_a <= memory_read_value;
+
+              -- Main state machine for CPU
+              report "CPU state = " & processor_state'image(state) & ", PC=$" & to_hstring(reg_pc) severity note;
+              case state is
+                when ResetLow =>
+                  vector <= x"e";
+                  state <= VectorRead1;
+                when VectorRead1 =>
+                  mem_reading_pcl <= '1';
+                  read_address(x"FFF"&vector);
+                  vector <= vector + 1;
+                  state <= VectorRead2;
+                when VectorRead2 =>
+                  mem_reading_pch <= '1';
+                  read_address(x"FFF"&vector);
+                  state <= InstructionWait;
+                when InstructionWait =>
+                  state <= InstructionFetch;
+                  
+                when others => null;
+              end case;
             end if;
           end if;
 
+          -- Serial monitor protocol handling
+          if monitor_mem_attention_request='0' then
+            monitor_mem_attention_granted <= '0';
+          end if;
+          
           -- Route memory read value as required
           if monitor_mem_reading='1' then
             monitor_mem_attention_granted <= '1';
             monitor_mem_rdata <= memory_read_value;
           end if;
-          if monitor_mem_attention_request='0' then
-            monitor_mem_attention_granted <= '0';
+          if mem_reading='1' then
+            report "memory read value is $" & to_hstring(memory_read_value) severity note;
+            if mem_reading_a='1' then reg_a <= memory_read_value; end if;
+            if mem_reading_x='1' then reg_x <= memory_read_value; end if;
+            if mem_reading_y='1' then reg_y <= memory_read_value; end if;
+            if mem_reading_z='1' then reg_z <= memory_read_value; end if;
+            if mem_reading_p='1' then load_processor_flags(memory_read_value); end if;
+            if mem_reading_pcl='1' then reg_pc(7 downto 0) <= memory_read_value; end if;
+            if mem_reading_pch='1' then reg_pc(15 downto 8) <= memory_read_value; end if;
           end if;
           
         end if;
