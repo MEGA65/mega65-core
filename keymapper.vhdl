@@ -6,7 +6,7 @@ use Std.TextIO.all;
 entity keymapper is
   
   port (
-    pixelclk : in std_logic;
+    ioclk : in std_logic;
 
     last_scan_code : out std_logic_vector(12 downto 0);
 
@@ -34,8 +34,8 @@ architecture behavioural of keymapper is
   signal parity : std_logic := '0';
 
   -- PS2 clock rate is as low as 10KHz.  Allow double that for a timeout
-  -- 192MHz/5KHz = 192000/5 = 38400 cycles
-  constant ps2timeout : integer := 38400;
+  -- 32MHz/5KHz = 32000/5 = 6400 cycles
+  constant ps2timeout : integer := 6400;
   signal ps2timer : integer range 0 to ps2timeout := 0;
 
   signal ps2clock_samples : std_logic_vector(7 downto 0) := (others => '1');
@@ -75,10 +75,10 @@ architecture behavioural of keymapper is
 begin  -- behavioural
 
 -- purpose: read from ps2 keyboard interface
-  keyread: process (pixelclk, ps2data,ps2clock)
+  keyread: process (ioclk, ps2data,ps2clock)
     variable portb_value : std_logic_vector(7 downto 0);
   begin  -- process keyread
-    if rising_edge(pixelclk) then
+    if rising_edge(ioclk) then
       -------------------------------------------------------------------------
       -- Generate timer for keyscan timeout
       -------------------------------------------------------------------------

@@ -202,7 +202,7 @@ architecture behavioral of iomapper is
   end component;
   component keymapper is    
     port (
-      pixelclk : in std_logic;
+      ioclk : in std_logic;
 
       nmi : out std_logic;
       reset : out std_logic;
@@ -291,7 +291,7 @@ begin
     );
 
   keymapper0 : keymapper port map (
-    pixelclk       => pixelclk,
+    ioclk       => clk,
     nmi => restore_nmi,
     reset => reset_out,
     ps2clock       => ps2clock,
