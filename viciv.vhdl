@@ -1978,7 +1978,7 @@ begin
         when 6 =>
           case chargen_y(2 downto 0) is
             when "000" => next_glyph_chardata <= next_glyph_chardata64c(7 downto 0);
-            when "001" => next_glyph_chardata <= next_glyph_chardata64c15 downto 8);
+            when "001" => next_glyph_chardata <= next_glyph_chardata64c(15 downto 8);
             when "010" => next_glyph_chardata <= next_glyph_chardata64c(23 downto 16);
             when "011" => next_glyph_chardata <= next_glyph_chardata64c(31 downto 24);
             when "100" => next_glyph_chardata <= next_glyph_chardata64c(39 downto 32);
