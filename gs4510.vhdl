@@ -1282,7 +1282,12 @@ downto 8) = x"D3F" then
     -- BEGINNING OF MAIN PROCESS FOR CPU
     if rising_edge(clock) then
 
-
+      -- By default we are doing nothing new.
+      pc_inc := '0';
+      memory_access_read := '0';
+      memory_access_write := '0';
+      memory_access_resolve_address := '0';
+      
       monitor_watch_match <= '0';       -- set if writing to watched address
       monitor_state <= to_unsigned(processor_state'pos(state),8);
       monitor_pc <= std_logic_vector(reg_pc);
@@ -1355,6 +1360,7 @@ downto 8) = x"D3F" then
                 -- M777xxxx in serial monitor reads memory from CPU's perspective
                 memory_access_resolve_address := '1';
               end if;
+              write_long_byte(memory_access_address,memory_access_wdata);
             elsif monitor_mem_read='1' then          
               memory_access_address := unsigned(monitor_mem_address);
               memory_access_read := '1';
@@ -1409,6 +1415,7 @@ downto 8) = x"D3F" then
             end if;
           end if;
 
+          report "pc_inc = " & std_logic'image(pc_inc) & ", cpu_state = " & processor_state'image(state) severity note;
           if pc_inc = '1' then
             reg_pc <= reg_pc + 1;
           end if;
@@ -1437,7 +1444,7 @@ downto 8) = x"D3F" then
             if memory_access_resolve_address = '1' then
               memory_access_address := resolve_address_to_long(memory_access_address(15 downto 0),true);
             end if;
-            write_long_byte(memory_access_address,memory_access_wdata);
+            -- write_long_byte(memory_access_address,memory_access_wdata);
           end if;
           if memory_access_read='1' then
             if memory_access_resolve_address = '1' then
