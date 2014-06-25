@@ -1396,6 +1396,7 @@ downto 8) = x"D3F" then
                 when InstructionWait =>
                   state <= InstructionFetch;
                 when InstructionFetch =>
+                  memory_access_read := '1';
                   memory_access_address := x"000"&reg_pc;
                   memory_access_resolve_address := '1';
                   state <= InstructionDecode;
@@ -1434,20 +1435,18 @@ downto 8) = x"D3F" then
           -- the operation is read or write.  ROM accesses are a good example.
           if memory_access_write='1' then
             if memory_access_resolve_address = '1' then
-              write_data(memory_access_address(15 downto 0),memory_access_wdata);
-            else
-              write_long_byte(memory_access_address,memory_access_wdata);
+              memory_access_address := resolve_address_to_long(memory_access_address(15 downto 0),true);
             end if;
+            write_long_byte(memory_access_address,memory_access_wdata);
           end if;
           if memory_access_read='1' then
             if memory_access_resolve_address = '1' then
-              read_address(memory_access_address(15 downto 0));
-            else
-              read_long_address(memory_access_address);
+              memory_access_address := resolve_address_to_long(memory_access_address(15 downto 0),false);
             end if;
+            read_long_address(memory_access_address);
           end if;
-        end if; 
-      end if;      
+        end if;                         -- if not in a wait state        
+      end if;                           -- if not resetting
     end if;
   end process;
 
