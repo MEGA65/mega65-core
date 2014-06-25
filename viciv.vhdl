@@ -510,6 +510,7 @@ architecture Behavioral of viciv is
   signal clear_hsync : std_logic := '0';
   signal set_hsync : std_logic := '0';
   signal hsync_drive : std_logic := '0';
+  signal vsync_drive : std_logic := '0';
   
 begin
 
@@ -1723,12 +1724,13 @@ begin
         vert_in_frame <= '1';
       end if;
       if ycounter=(frame_v_front+height) then
-        vsync <= '1';
+        vsync_drive <= '1';
         vert_in_frame <= '0';
       end if;
       if ycounter=(frame_v_front+height+frame_v_syncheight) then
-        vsync <= '0';
+        vsync_drive <= '0';
       end if;
+      vsync <= vsync_drive;
 
       if displayx(4)='1' then
         displaycolumn0 <= '0';
