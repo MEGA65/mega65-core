@@ -133,7 +133,6 @@ architecture Behavioural of gs4510 is
   end component;
   
   signal kickstart_en : std_logic := '1';
-  signal colour_ram_cs_last : std_logic := '0';
 
 --  signal fastram_last_address : std_logic_vector(13 downto 0);
 
@@ -482,7 +481,6 @@ begin
 
     -- Stop memory accesses
     colour_ram_cs <= '0';
-    colour_ram_cs_last <= '0';    
     shadow_write <= '0';   
     fastio_read <= '0';
     fastio_write <= '0';
@@ -731,7 +729,6 @@ begin
         report "VIC 64KB colour RAM access from VIC fastio" severity note;
         accessing_colour_ram_fastio <= '1';
         colour_ram_cs <= '1';
-        colour_ram_cs_last <= '1';
       end if;
       if long_address(19 downto 8) = x"30E" or long_address(19
 downto 8) = x"30F" then
@@ -758,7 +755,6 @@ downto 8) = x"D3F" then
               report "D800-DBFF/DC00-DFFF colour ram access from VIC fastio" severity note;
               accessing_colour_ram_fastio <= '1';            
               colour_ram_cs <= '1';
-              colour_ram_cs_last <= '1';
             end if;
           end if;
         end if;                         -- $D{0,1,2,3}XXX
@@ -1035,7 +1031,6 @@ downto 8) = x"D3F" then
       end if;
       if long_address(19 downto 16) = x"8" then
         colour_ram_cs <= '1';
-        colour_ram_cs_last <= '1';
       end if;
       if long_address(19 downto 16) = x"D" then
         if long_address(15 downto 14) = "00" then    --   $D{0,1,2,3}XXX
@@ -1044,7 +1039,6 @@ downto 8) = x"D3F" then
             if (long_address(10)='0') or (colourram_at_dc00='1') then
               report "D800-DBFF/DC00-DFFF colour ram access from VIC fastio" severity note;
               colour_ram_cs <= '1';
-              colour_ram_cs_last <= '1';
             end if;
           end if;
         end if;                         -- $D{0,1,2,3}XXX
@@ -1288,7 +1282,6 @@ downto 8) = x"D3F" then
       -- Clear memory access lines unless we are in a memory wait state
       if wait_states = x"00" then
         colour_ram_cs <= '0';
-        colour_ram_cs_last <= '0';
 
         shadow_write <= '0';
         
