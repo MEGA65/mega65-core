@@ -509,6 +509,7 @@ architecture Behavioral of viciv is
 
   signal clear_hsync : std_logic := '0';
   signal set_hsync : std_logic := '0';
+  signal hsync_drive : std_logic := '0';
   
 begin
 
@@ -1418,6 +1419,9 @@ begin
           severity note;        
       end if;
 
+      -- Hsync has trouble meeting timing, so I have spread out the control
+      -- over 3 cycles, including one pure drive cycle, which should hopefully
+      -- fix it once and for all.
       if xcounter=(frame_h_front+width) then
         clear_hsync <= '1';
       else
@@ -1429,10 +1433,11 @@ begin
         set_hsync <= '0';
       end if;
       if clear_hsync='1' then
-        hsync <= '0';
+        hsync_drive <= '0';
       elsif set_hsync='1' then
-        hsync <= '1';
+        hsync_drive <= '1';
       end if;
+      hsync <= hsync_drive;
       
       indisplay :='1';
       if xcounter<frame_width then
