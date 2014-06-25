@@ -400,6 +400,7 @@ architecture Behavioral of viciv is
   signal next_glyph_underline : std_logic;
   signal next_glyph_reverse : std_logic;
   signal next_glyph_chardata64 : std_logic_vector(63 downto 0);
+  signal next_glyph_chardata64b : std_logic_vector(63 downto 0);
   signal next_glyph_chardata32 : std_logic_vector(31 downto 0);
   signal next_glyph_chardata16: std_logic_vector(15 downto 0);
   signal next_glyph_chardata : std_logic_vector(7 downto 0);
@@ -1899,11 +1900,7 @@ begin
 
         when 4 =>
           -- Read out custom character set data
-          if chargen_y(2)='1' then
-            next_glyph_chardata32 <= next_glyph_chardata64(63 downto 32);
-          else
-            next_glyph_chardata32 <= next_glyph_chardata64(31 downto 0);
-          end if;         
+          next_glyph_chardata64b <= next_glyph_chardata64;
           
           -- Decode colour byte
           next_glyph_colour <= unsigned(next_glyph_colour_buffer(3 downto 0));
@@ -1939,11 +1936,11 @@ begin
         when 5 =>
           report "next_glyph_nunber=" & integer'image(to_integer(next_glyph_number)) severity note;
 
-          if chargen_y(1)='1' then
-            next_glyph_chardata16 <= next_glyph_chardata32(31 downto 16);
+          if chargen_y(2)='1' then
+            next_glyph_chardata32 <= next_glyph_chardata64b(63 downto 32);
           else
-            next_glyph_chardata16 <= next_glyph_chardata32(15 downto 0);
-          end if;
+            next_glyph_chardata32 <= next_glyph_chardata64b(31 downto 0);
+          end if;         
 
           -- Pre-calculate the extended character attributes
           next_glyph_visible <= '1';
@@ -1983,11 +1980,13 @@ begin
           -- Nothing to do here
           ramaddress <= (others => '0');
         when 6 =>
-          if chargen_y(0)='1' then
-            next_glyph_chardata <= next_glyph_chardata16(15 downto 8);
-            else
-            next_glyph_chardata <= next_glyph_chardata16(7 downto 0);
-          end if;
+          case chargen_y(1 downto 0) is
+            when "00" => next_glyph_chardata <= next_glyph_chardata32(7 downto 0);
+            when "01" => next_glyph_chardata <= next_glyph_chardata32(15 downto 8);
+            when "10" => next_glyph_chardata <= next_glyph_chardata32(23 downto 16);
+            when "11" => next_glyph_chardata <= next_glyph_chardata32(31 downto 24);
+            when others => next_glyph_chardata <= next_glyph_chardata32(7 downto 0);
+          end case;
 
           glyph_pixeldata64 <= ramdata;
           
