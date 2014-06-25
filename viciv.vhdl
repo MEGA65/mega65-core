@@ -254,6 +254,7 @@ architecture Behavioral of viciv is
   
   signal debug_x : unsigned(11 downto 0) := "111111111110";
   signal debug_y : unsigned(11 downto 0) := "111111111110";
+  signal debug_screen_ram_buffer_address : unsigned(8 downto 0);
   signal debug_cycles_to_next_card : unsigned(7 downto 0);
   signal debug_next_card_number : unsigned(15 downto 0);
 
@@ -1033,20 +1034,22 @@ begin
         elsif register_number=111 then
           fastio_rdata(7 downto 4) <= x"0";
           fastio_rdata(3 downto 0) <= std_logic_vector(vicii_sprite_pointer_address(27 downto 24));
-        elsif register_number=112 then
+        elsif register_number=112 then -- $D370
           fastio_rdata <= palette_bank_fastio & palette_bank_chargen & palette_bank_sprites & "11";
-        elsif register_number=113 then
+        elsif register_number=113 then -- $D371
           fastio_rdata <= std_logic_vector(x_chargen_start_minus17(7 downto 0));
-        elsif register_number=114 then
+        elsif register_number=114 then -- $D372
           fastio_rdata <= "0000"&std_logic_vector(x_chargen_start_minus17(11 downto 8));
-        elsif register_number=115 then
+        elsif register_number=115 then  -- $D373
           fastio_rdata <= std_logic_vector(debug_next_card_number(7 downto 0));
-        elsif register_number=116 then
+        elsif register_number=116 then  -- $D374
           fastio_rdata <= std_logic_vector(debug_next_card_number(15 downto 8));
-        elsif register_number=117 then
+        elsif register_number=117 then  -- $D375
           fastio_rdata <= std_logic_vector(debug_cycles_to_next_card(7 downto 0));
-        elsif register_number=118 then
+        elsif register_number=118 then  -- $D376
           fastio_rdata <= "00000" & debug_character_data_from_rom & debug_chargen_active & debug_chargen_active_soon;
+        elsif register_number=119 then  -- $D377
+          fastio_rdata <= debug_screen_ram_buffer_address(7 downto 0);
         elsif register_number=124 then
           fastio_rdata <=
             std_logic_vector(to_unsigned(vic_fetch_fsm'pos(debug_char_fetch_cycle),8));
@@ -2262,6 +2265,7 @@ begin
         debug_charrow <= charrow;
         debug_charaddress <= charaddress;
         debug_character_data_from_rom <= character_data_from_rom;
+        debug_screen_ram_buffer_address <= screen_ram_buffer_address;
       end if;     
       if displayx=debug_x or displayy=debug_y then
         -- Draw cross-hairs at debug coordinates
