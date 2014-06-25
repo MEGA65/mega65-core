@@ -1049,7 +1049,7 @@ begin
         elsif register_number=118 then  -- $D376
           fastio_rdata <= "00000" & debug_character_data_from_rom & debug_chargen_active & debug_chargen_active_soon;
         elsif register_number=119 then  -- $D377
-          fastio_rdata <= debug_screen_ram_buffer_address(7 downto 0);
+          fastio_rdata <= std_logic_vector(debug_screen_ram_buffer_address(7 downto 0));
         elsif register_number=124 then
           fastio_rdata <=
             std_logic_vector(to_unsigned(vic_fetch_fsm'pos(debug_char_fetch_cycle),8));
@@ -1584,7 +1584,8 @@ begin
         else
           -- We must update char_fetch_cycle before deciding if we are reaching
           -- the next card, as otherwise we stop the fetching of the next character.
-          if (char_fetch_cycle /= fsmIdle) and (char_fetch_cycle /= fsm8) then
+          report "char_fetch_cycle = " & vic_fetch_fsm'image(char_fetch_cycle) severity note;
+          if char_fetch_cycle /= fsmIdle and char_fetch_cycle /= fsm8 then
             char_fetch_cycle <= vic_fetch_fsm'succ(char_fetch_cycle);            
           end if;
         end if;
