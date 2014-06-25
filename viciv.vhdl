@@ -244,6 +244,7 @@ architecture Behavioral of viciv is
   signal screen_ram_buffer_write  : std_logic := '0';
   signal screen_ram_buffer_address : unsigned(8 downto 0);
   signal screen_ram_buffer_din : unsigned(63 downto 0);
+  signal screen_ram_buffer_din64 : unsigned(63 downto 0);
   signal screen_ram_buffer_dout : unsigned(7 downto 0);
   
   -- Internal registers used to keep track of the screen ram for the current row
@@ -1833,7 +1834,6 @@ begin
           long_address(15 downto 0) := colour_ram_base+next_card_number;
           colourramaddress <= std_logic_vector(long_address(15 downto 0));
         when 1 =>
-
           -- source bitmap data from ROM when necessary.
           -- Character set ROM is only visible in first 64KB of RAM.
           if (last_ramaddress(13)='0') and
@@ -2058,8 +2058,13 @@ begin
             -- data is available
             -- we want 480 bytes, to allow for full 240 column text with 16-bit
             -- charset.  Bus is 64bits wide, so we need 480/8 = 60 fetches
-            if screen_ram_buffer_address /= 60 then
-              screen_ram_buffer_din <= unsigned(ramdata);
+            -- But allow an extra one, because we have to pipeline the loading
+            -- through a drive register (screen_ram_buffer_din64).  This means
+            -- that the data being read out should be read beginning from address 8,
+            -- not address 0.
+            if screen_ram_buffer_address /= 62 then
+              screen_ram_buffer_din64 <= unsigned(ramdata);
+              screen_ram_buffer_din <= screen_ram_buffer_din;
               screen_ram_buffer_write <= '1';
               screen_ram_buffer_address <= screen_ram_buffer_address + 1;
               report "BADLINE stuffing fetch $" & to_hstring(screen_ram_buffer_address(7 downto 0)) & " $" & to_hstring(ramdata) severity note;
@@ -2074,8 +2079,11 @@ begin
           -- row, because the fetch process plus character resolution takes
           -- more than 8 cycles.  So instead, we pipeline this out further,
           -- fetching the first gylph number early, and then request the next
-          -- glyph number while processing the previous one.         
-          screen_ram_buffer_address <= (others => '0');
+          -- glyph number while processing the previous one.
+          -- As described in the previous fetch state logic we ignore the first
+          -- 8 bytes, because of the 1-cycle delay incurred when the buffer was
+          -- being loaded.
+          screen_ram_buffer_address <= "000001000";
           char_fetch_cycle <= 36;
         when 36 =>
           -- if using a 16 bit character set, ask for the 2nd byte, while still
