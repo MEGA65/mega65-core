@@ -1282,20 +1282,6 @@ downto 8) = x"D3F" then
     -- BEGINNING OF MAIN PROCESS FOR CPU
     if rising_edge(clock) then
 
-      -- Clear memory access lines unless we are in a memory wait state
-      if wait_states = x"00" then
-        colour_ram_cs <= '0';
-
-        shadow_write <= '0';
-        
-        fastio_write <= '0';
-        fastram_we <= (others => '0');        
-        fastram_datain <= x"d0d1d2d3d4d5d6d7";
-
-        slowram_we <= '1';
-        slowram_ce <= '1';
-        slowram_oe <= '1';
-      end if;
 
       monitor_watch_match <= '0';       -- set if writing to watched address
       monitor_state <= to_unsigned(processor_state'pos(state),8);
@@ -1333,10 +1319,21 @@ downto 8) = x"D3F" then
         state <= ResetLow;
       else
         -- Honour wait states on memory accesses
+      -- Clear memory access lines unless we are in a memory wait state
         if wait_states /= x"00" then
           report "  $" & to_hstring(wait_states) &" memory waitstates remaining.  Fastio_rdata = $" & to_hstring(fastio_rdata) & ", mem_reading=" & std_logic'image(mem_reading) severity note;
           wait_states <= wait_states - 1;
         else
+          -- End of wait states, so clear memory writing and reading
+          colour_ram_cs <= '0';
+          shadow_write <= '0';       
+          fastio_write <= '0';
+          fastio_read <= '0';
+          fastram_we <= (others => '0');        
+          slowram_we <= '1';
+          slowram_ce <= '1';
+          slowram_oe <= '1';
+
           if mem_reading='1' then
             memory_read_value := read_data;
             report "resetting mem_reading" severity note;
@@ -1378,7 +1375,7 @@ downto 8) = x"D3F" then
             monitor_mem_attention_granted <= '0';
 
             if monitor_mem_trace_mode='0' or
-              monitor_mem_trace_toggle /= monitor_mem_trace_toggle_last then
+              monitor_mem_trace_toggle_last /= monitor_mem_trace_toggle then
               monitor_mem_trace_toggle_last <= monitor_mem_trace_toggle;
               
               -- Main state machine for CPU
