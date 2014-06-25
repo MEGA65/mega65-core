@@ -422,6 +422,7 @@ architecture Behavioral of viciv is
   signal glyph_bold : std_logic;
   signal glyph_underline : std_logic;
   signal glyph_reverse : std_logic;
+  signal glyph_pixeldata64 : std_logic_vector(63 downto 0);
   signal glyph_pixeldata : std_logic_vector(63 downto 0);
   signal glyph_full_colour : std_logic;
   
@@ -1829,7 +1830,7 @@ begin
           if sixteenbit_charset='1' then
             screen_ram_buffer_address <= screen_ram_buffer_address + 1;
           end if;
-
+          
         when 2 =>
 
           -- record pre-fetched character data.
@@ -1888,8 +1889,33 @@ begin
           next_glyph_colour <= unsigned(next_glyph_colour_buffer(3 downto 0));
           next_glyph_attributes <= unsigned(next_glyph_colour_buffer(7 downto 4));
 
-          -- Nothing else to fetch yet
-          ramaddress <= (others => '0');
+          -- Thanks to the screen ram buffer, we have the glyph number earlier.
+          -- We fetch it now, so that we have more time to pipeline extraction
+          -- of the data we need to help meet timing closure.
+          -- Character pixels (only 8 bits used if not in full colour mode)
+          if fullcolour_8bitchars='0' and fullcolour_extendedchars='0' then
+            long_address(16 downto 0) := character_set_address(16 downto 0)+(next_glyph_number(7 downto 0)&chargen_y);
+          elsif fullcolour_8bitchars='0' and fullcolour_extendedchars='1' then
+            if next_glyph_number<256 then
+              long_address(16 downto 0) := character_set_address(16 downto 0)+(next_glyph_number(10 downto 0)&chargen_y);
+              next_glyph_full_colour <= '0';
+            else
+              -- Full colour characters are direct mapped in memory on 64 byte
+              -- boundaries.
+              long_address(16 downto 0) :=
+                next_glyph_number(10 downto 0)&chargen_y&"000";
+              next_glyph_full_colour <= '1';
+            end if;
+          else
+            -- if fullcolour_8bitchars='1' then all chars are full-colour          
+            -- Full colour characters are direct mapped in memory on 64 byte
+            -- boundaries.
+            long_address(16 downto 0) :=
+              next_glyph_number(10 downto 0)&chargen_y&"000";
+            next_glyph_full_colour <= '1';
+          end if;
+          -- Request full colour pixel data
+          ramaddress <= std_logic_vector(long_address(16 downto 3));
         when 5 =>
           report "next_glyph_nunber=" & integer'image(to_integer(next_glyph_number)) severity note;
 
@@ -1934,30 +1960,8 @@ begin
             end if;
           end if;
 
-          -- Character pixels (only 8 bits used if not in full colour mode)
-          if fullcolour_8bitchars='0' and fullcolour_extendedchars='0' then
-            long_address(16 downto 0) := character_set_address(16 downto 0)+(next_glyph_number(7 downto 0)&chargen_y);
-          elsif fullcolour_8bitchars='0' and fullcolour_extendedchars='1' then
-            if next_glyph_number<256 then
-              long_address(16 downto 0) := character_set_address(16 downto 0)+(next_glyph_number(10 downto 0)&chargen_y);
-              next_glyph_full_colour <= '0';
-            else
-              -- Full colour characters are direct mapped in memory on 64 byte
-              -- boundaries.
-              long_address(16 downto 0) :=
-                next_glyph_number(10 downto 0)&chargen_y&"000";
-              next_glyph_full_colour <= '1';
-            end if;
-          else
-            -- if fullcolour_8bitchars='1' then all chars are full-colour          
-            -- Full colour characters are direct mapped in memory on 64 byte
-            -- boundaries.
-            long_address(16 downto 0) :=
-              next_glyph_number(10 downto 0)&chargen_y&"000";
-            next_glyph_full_colour <= '1';
-          end if;
-          -- Request full colour pixel data
-          ramaddress <= std_logic_vector(long_address(16 downto 3));
+          -- Nothing to do here
+          ramaddress <= (others => '0');
         when 6 =>
           if chargen_y(0)='1' then
             next_glyph_chardata <= next_glyph_chardata16(15 downto 8);
@@ -1965,6 +1969,8 @@ begin
             next_glyph_chardata <= next_glyph_chardata16(7 downto 0);
           end if;
 
+          glyph_pixeldata64 <= ramdata;
+          
           -- Nothing to do here
           ramaddress <= (others => '0');
         when 7 =>
@@ -1983,14 +1989,14 @@ begin
             else
               charrow <= not next_glyph_chardata;
             end if;
-            glyph_pixeldata <= not ramdata;
+            glyph_pixeldata <= not glyph_pixeldata64;
           else
             if character_data_from_rom='1' then
               charrow <= chardata;
             else
               charrow <= next_glyph_chardata;
             end if;
-            glyph_pixeldata <= ramdata;
+            glyph_pixeldata <= glyph_pixeldata64;
           end if;
           report "charrow loaded. chardata=$" & to_hstring(chardata) severity note;
 
