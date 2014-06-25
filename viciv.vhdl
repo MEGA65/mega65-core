@@ -398,7 +398,10 @@ architecture Behavioral of viciv is
   signal next_glyph_bold : std_logic;
   signal next_glyph_underline : std_logic;
   signal next_glyph_reverse : std_logic;
-  signal next_glyph_chardata : std_logic_vector(63 downto 0);
+  signal next_glyph_chardata64 : std_logic_vector(63 downto 0);
+  signal next_glyph_chardata32 : std_logic_vector(31 downto 0);
+  signal next_glyph_chardata16: std_logic_vector(15 downto 0);
+  signal next_glyph_chardata : std_logic_vector(7 downto 0);
   signal next_glyph_pixeldata : std_logic_vector(63 downto 0);
   signal next_glyph_number_buffer : std_logic_vector(63 downto 0);
   signal next_glyph_colour_buffer : std_logic_vector(7 downto 0);
@@ -1845,7 +1848,7 @@ begin
           next_glyph_colour_buffer <= next_glyph_colour_buffer_temp;
 
           -- Read out custom character set data
-          next_glyph_chardata <= ramdata;          
+          next_glyph_chardata64 <= ramdata;          
 
           -- Buffer has advanced to next screen ram character now after the 1
           -- cycle latency, so if we are using a 16bit char set, then we can
@@ -1876,7 +1879,9 @@ begin
         when 4 =>
           -- Read out custom character set data
           if chargen_y(2)='1' then
-            next_glyph_chardata(31 downto 0) <= next_glyph_chardata(63 downto 32);
+            next_glyph_chardata32 <= next_glyph_chardata64(63 downto 32);
+          else
+            next_glyph_chardata32 <= next_glyph_chardata64(31 downto 0);
           end if;         
           
           -- Decode colour byte
@@ -1889,7 +1894,9 @@ begin
           report "next_glyph_nunber=" & integer'image(to_integer(next_glyph_number)) severity note;
 
           if chargen_y(1)='1' then
-            next_glyph_chardata(15 downto 0) <= next_glyph_chardata(31 downto 16);
+            next_glyph_chardata16 <= next_glyph_chardata32(31 downto 16);
+          else
+            next_glyph_chardata16 <= next_glyph_chardata32(15 downto 0);
           end if;
 
           -- Pre-calculate the extended character attributes
@@ -1953,7 +1960,9 @@ begin
           ramaddress <= std_logic_vector(long_address(16 downto 3));
         when 6 =>
           if chargen_y(0)='1' then
-            next_glyph_chardata(7 downto 0) <= next_glyph_chardata(15 downto 8);
+            next_glyph_chardata <= next_glyph_chardata16(15 downto 8);
+            else
+            next_glyph_chardata <= next_glyph_chardata16(7 downto 0);
           end if;
 
           -- Nothing to do here
@@ -1972,14 +1981,14 @@ begin
             if character_data_from_rom='1' then
               charrow <= not chardata;
             else
-              charrow <= not next_glyph_chardata(7 downto 0);
+              charrow <= not next_glyph_chardata;
             end if;
             glyph_pixeldata <= not ramdata;
           else
             if character_data_from_rom='1' then
               charrow <= chardata;
             else
-              charrow <= next_glyph_chardata(7 downto 0);
+              charrow <= next_glyph_chardata;
             end if;
             glyph_pixeldata <= ramdata;
           end if;
