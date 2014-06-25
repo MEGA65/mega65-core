@@ -216,7 +216,19 @@ architecture Behavioural of gs4510 is
   
   type microcodeops_t is array (0 to 255) of std_logic_vector(63 downto 0);
   signal microcodeops : microcodeops_t := (
-    -- Fetch next instruction
+    -- 0: Fetch next instruction (i.e., single cycle operation)
+    -- 1: A is ALU input
+    -- 2: X is ALU input
+    -- 3: Y is ALU input
+    -- 4: Z is ALU input
+    -- 5: SPL is ALU input
+    -- 6: SPH is ALU input
+    -- 16: A receives ALU output
+    -- 17: X receives ALU output
+    -- 18: Y receives ALU output
+    -- 19: Z receives ALU output
+    -- 20: SPL receives ALU output
+    -- 21: SPH receives ALU output
     0 => "0000000000000000000000000000000000000000000000000000000000000000",
     1 => "0000000000000000000000000000000000000000000000000000000000000000",
     2 => "0000000000000000000000000000000000000000000000000000000000000000",
