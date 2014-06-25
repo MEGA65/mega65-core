@@ -132,6 +132,9 @@ architecture Behavioral of machine is
       rx : in  std_logic;
       activity : out std_logic;
 
+      fastio_read : in std_logic;
+      fastio_write : in std_logic;
+
       monitor_watch : out std_logic_vector(27 downto 0);
       monitor_watch_match : in std_logic;
       
@@ -773,6 +776,9 @@ begin
     tx       => UART_TXD,
     rx       => RsRx,
 
+    fastio_read => fastio_read,
+    fastio_write => fastio_write,
+    
     monitor_pc => monitor_pc,
     monitor_cpu_state => monitor_state,
     monitor_watch => monitor_watch,

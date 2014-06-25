@@ -12,6 +12,9 @@ entity uart_monitor is
     rx : in  std_logic;
     activity : out std_logic;
 
+    fastio_read : in std_logic;
+    fastio_write : in std_logic;
+    
     monitor_pc : in std_logic_vector(15 downto 0);
     monitor_cpu_state : in unsigned(7 downto 0);
     monitor_watch : out std_logic_vector(27 downto 0) := x"7FFFFFF";
@@ -148,7 +151,7 @@ architecture behavioural of uart_monitor is
                          ShowRegisters25,ShowRegisters26,ShowRegisters27,ShowRegisters28,
                          ShowRegisters29,ShowRegisters30,ShowRegisters31,ShowRegisters32,
                          ShowP1,ShowP2,ShowP3,ShowP4,ShowP5,ShowP6,ShowP7,ShowP8,
-                         ShowP9,ShowP10,ShowP11,ShowP12,ShowP13,ShowP14,
+                         ShowP9,ShowP10,ShowP11,ShowP12,ShowP13,ShowP14,ShowP15,ShowP16,
                          TraceStep,CPUBreak1,WaitOneCycle
                          );
 
@@ -989,7 +992,19 @@ begin
           when ShowP13 =>
             try_output_char(' ',ShowP14);
           when ShowP14 =>
-            print_hex_byte(unsigned(monitor_cpu_state),NextCommand);
+            print_hex_byte(unsigned(monitor_cpu_state),ShowP15);
+          when ShowP15 =>
+            try_output_char(' ',ShowP16);
+          when ShowP16 =>
+            if fastio_write='1' then
+              try_output_char('W',NextCommand);
+            else
+              if fastio_read='1' then
+                try_output_char('R',NextCommand);
+              else
+                try_output_char('-',NextCommand);
+              end if;
+            end if;
           when EraseCharacter => try_output_char(' ',EraseCharacter1);
           when EraseCharacter1 => try_output_char(bs,AcceptingInput);
           when SyntaxError =>
