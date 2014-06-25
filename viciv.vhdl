@@ -506,6 +506,9 @@ architecture Behavioral of viciv is
   signal palette_bank_fastio : std_logic_vector(1 downto 0);
   signal palette_bank_chargen : std_logic_vector(1 downto 0);
   signal palette_bank_sprites : std_logic_vector(1 downto 0);
+
+  signal clear_hsync : std_logic := '0';
+  signal set_hsync : std_logic := '0';
   
 begin
 
@@ -1416,11 +1419,21 @@ begin
       end if;
 
       if xcounter=(frame_h_front+width) then
-        hsync <= '0';
+        clear_hsync <= '1';
+      else
+        clear_hsync <= '0';
       end if;
       if xcounter=(frame_h_front+width+frame_h_syncwidth) then
+        set_hsync <= '1';
+      else
+        set_hsync <= '0';
+      end if;
+      if clear_hsync='1' then
+        hsync <= '0';
+      elsif set_hsync='1' then
         hsync <= '1';
       end if;
+      
       indisplay :='1';
       if xcounter<frame_width then
         xcounter <= xcounter + 1;
