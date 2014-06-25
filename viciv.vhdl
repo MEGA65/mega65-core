@@ -1581,7 +1581,9 @@ begin
         else
           -- We must update char_fetch_cycle before deciding if we are reaching
           -- the next card, as otherwise we stop the fetching of the next character.
-          char_fetch_cycle <= vic_fetch_fsm'succ(char_fetch_cycle);
+          if (char_fetch_cycle /= fsmIdle) and (char_fetch_cycle /= fsm8) then
+            char_fetch_cycle <= vic_fetch_fsm'succ(char_fetch_cycle);            
+          end if;
         end if;
         -- cycles_to_next_card counts down to 1, not 0.
         -- update one cycle earlier since next_card_number is a signal
@@ -1806,6 +1808,7 @@ begin
       -- sprite data once we implement them.
       -- We need the character number, the colour byte, and the
       -- 8x8 data bits (only 8 used if character is not in full colour mode).
+      report "char_fetch_cycle = " & vic_fetch_fsm'image(char_fetch_cycle) severity note;
       case char_fetch_cycle is
         when fsm0 =>
           report "VGA: Fetching next_*, next_card_number=" & integer'image(to_integer(next_card_number))
@@ -2035,7 +2038,6 @@ begin
           ramaddress <= (others => '0');
         when fsm8 =>
           -- Finished fetching character data for now, so hold station.
-          char_fetch_cycle <= fsm8;
           ramaddress <= (others => '0');
         when fsm16 =>
           -- Idle: can fetch full-colour sprite information
@@ -2118,7 +2120,6 @@ begin
             next_glyph_number(15 downto 8) <= x"00";
           end if;
           -- all done.
-          char_fetch_cycle <= fsm64;
           ramaddress <= (others => '0');
         when fsm64 =>
           -- XXX Fetch VIC-II sprite information
@@ -2127,7 +2128,6 @@ begin
           --  cannot require more than 16 cycles).
           ramaddress <= (others => '0');
         when fsmIdle =>
-          char_fetch_cycle <= fsmIdle;
           ramaddress <= (others => '0');
         when others =>
           char_fetch_cycle <= fsmIdle;
