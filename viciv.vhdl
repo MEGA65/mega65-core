@@ -2076,7 +2076,7 @@ begin
             -- not address 0.
             if screen_ram_buffer_address /= 62 then
               screen_ram_buffer_din64 <= unsigned(ramdata);
-              screen_ram_buffer_din <= screen_ram_buffer_din;
+              screen_ram_buffer_din <= screen_ram_buffer_din64;
               screen_ram_buffer_write <= '1';
               screen_ram_buffer_address <= screen_ram_buffer_address + 1;
               char_fetch_cycle <= fsm34;
