@@ -214,44 +214,6 @@ architecture Behavioural of gs4510 is
   -- Interrupt/reset vector being used
   signal vector : unsigned(3 downto 0);
   
-  type microcodeops_t is array (0 to 255) of std_logic_vector(63 downto 0);
-  signal microcodeops : microcodeops_t := (
-    -- 0: Fetch next instruction (i.e., single cycle operation)
-    -- 1: A is ALU input
-    -- 2: X is ALU input
-    -- 3: Y is ALU input
-    -- 4: Z is ALU input
-    -- 5: SPL is ALU input
-    -- 6: SPH is ALU input
-    -- 16: A receives ALU output
-    -- 17: X receives ALU output
-    -- 18: Y receives ALU output
-    -- 19: Z receives ALU output
-    -- 20: SPL receives ALU output
-    -- 21: SPH receives ALU output
-    0 => "0000000000000000000000000000000000000000000000000000000000000000",
-    1 => "0000000000000000000000000000000000000000000000000000000000000000",
-    2 => "0000000000000000000000000000000000000000000000000000000000000000",
-    3 => "0000000000000000000000000000000000000000000000000000000000000000",
-    4 => "0000000000000000000000000000000000000000000000000000000000000000",
-    5 => "0000000000000000000000000000000000000000000000000000000000000000",
-    6 => "0000000000000000000000000000000000000000000000000000000000000000",
-    7 => "0000000000000000000000000000000000000000000000000000000000000000",
-    8 => "0000000000000000000000000000000000000000000000000000000000000000",
-    9 => "0000000000000000000000000000000000000000000000000000000000000000",
-    others => "0000000000000000000000000000000000000000000000000000000000000000");
-
-  -- 4x CPU personalities x 256 instructions x 16 cycles maximum per instruction =
-  -- 16KB
-  type instructions_t is array (0 to 16383) of unsigned(7 downto 0);
-  signal opcodeops : instructions_t := (
-    -- 4510 personality
-    x"00",x"00",x"00",x"00",x"00",x"00",x"00",x"00",x"00",x"00",x"00",x"00",x"00",x"00",x"00",x"00", --$00 BRK
-    
-    
-    -- In doubt, fetch the next instruction
-    others => x"00");
-
   -- Information about instruction currently being executed
   signal opcode : unsigned(7 downto 0);
   signal arg1 : unsigned(7 downto 0);
@@ -310,6 +272,9 @@ architecture Behavioural of gs4510 is
   -- serial monitor is reading data 
   signal monitor_mem_reading : std_logic := '0';
 
+  -- Is CPU free to proceed with processing an instruction?
+  signal proceed : std_logic := '1';
+  
   type processor_state is (
     -- Reset and interrupts
     ResetLow,Interrupt,VectorRead1,VectorRead2,
@@ -1340,6 +1305,17 @@ downto 8) = x"D3F" then
         if wait_states /= x"00" then
           report "  $" & to_hstring(wait_states) &" memory waitstates remaining.  Fastio_rdata = $" & to_hstring(fastio_rdata) & ", mem_reading=" & std_logic'image(mem_reading) severity note;
           wait_states <= wait_states - 1;
+          if wait_states = x"01" then
+            -- Next cycle we can do stuff, provided that the serial monitor
+            -- isn't asking us to do anything.
+            if monitor_mem_trace_mode='0' or
+              monitor_mem_trace_toggle_last /= monitor_mem_trace_toggle then
+              monitor_mem_trace_toggle_last <= monitor_mem_trace_toggle;
+              proceed <= not monitor_mem_attention_request;
+            else
+              proceed <= '0';
+            end if;
+          end if;
         else
           -- End of wait states, so clear memory writing and reading
           colour_ram_cs <= '0';
@@ -1359,7 +1335,15 @@ downto 8) = x"D3F" then
             mem_reading_pch <= '0';
             monitor_mem_reading <= '0';
           end if;          
-  
+
+          if monitor_mem_trace_mode='0' or
+            monitor_mem_trace_toggle_last /= monitor_mem_trace_toggle then
+            monitor_mem_trace_toggle_last <= monitor_mem_trace_toggle;
+            proceed <= not monitor_mem_attention_request;
+          else
+            proceed <= '0';
+          end if;
+          
           if monitor_mem_attention_request='1' then
             -- Memory access by serial monitor.
             if monitor_mem_write='1' then
@@ -1386,82 +1370,93 @@ downto 8) = x"D3F" then
             end if;
           else
             monitor_mem_attention_granted <= '0';
-
-            if monitor_mem_trace_mode='0' or
-              monitor_mem_trace_toggle_last /= monitor_mem_trace_toggle then
-              monitor_mem_trace_toggle_last <= monitor_mem_trace_toggle;
-              
-              -- Main state machine for CPU
-              report "CPU state = " & processor_state'image(state) & ", PC=$" & to_hstring(reg_pc) severity note;
-              case state is
-                when ResetLow =>
-                  vector <= x"e";
-                  state <= VectorRead1;
-                when VectorRead1 =>
-                  mem_reading_pcl <= '1';
-                  read_address(x"FFF"&vector);
-                  vector <= vector + 1;
-                  state <= VectorRead2;
-                when VectorRead2 =>
-                  mem_reading_pch <= '1';
-                  read_address(x"FFF"&vector);
-                  state <= InstructionWait;
-                when InstructionWait =>
-                  state <= InstructionFetch;
-                when InstructionFetch =>
-                  memory_access_read := '1';
-                  memory_access_address := x"000"&reg_pc;
-                  memory_access_resolve_address := '1';
-                  state <= InstructionDecode;
-                  pc_inc := '1';
-                when InstructionDecode =>
-                  -- XXX Really do stuff
-                  state <= InstructionFetch;
-                when others => null;
-              end case;
-            end if;
           end if;
 
-          report "pc_inc = " & std_logic'image(pc_inc) & ", cpu_state = " & processor_state'image(state) severity note;
-          if pc_inc = '1' then
-            reg_pc <= reg_pc + 1;
+          if monitor_mem_trace_mode='0' or
+            monitor_mem_trace_toggle_last /= monitor_mem_trace_toggle then
+            monitor_mem_trace_toggle_last <= monitor_mem_trace_toggle;
+            proceed <= '1';
+          else
+            proceed <= '0';
           end if;
+        end if;
+      end if;
+        
+      if proceed='1' then
+        -- Main state machine for CPU
+        report "CPU state = " & processor_state'image(state) & ", PC=$" & to_hstring(reg_pc) severity note;
+        case state is
+          when ResetLow =>
+            vector <= x"e";
+            state <= VectorRead1;
+          when VectorRead1 =>
+            mem_reading_pcl <= '1';
+            read_address(x"FFF"&vector);
+            vector <= vector + 1;
+            state <= VectorRead2;
+          when VectorRead2 =>
+            mem_reading_pch <= '1';
+            read_address(x"FFF"&vector);
+            state <= InstructionWait;
+          when InstructionWait =>
+            state <= InstructionFetch;
+          when InstructionFetch =>
+            memory_access_read := '1';
+            memory_access_address := x"000"&reg_pc;
+            memory_access_resolve_address := '1';
+            state <= InstructionDecode;
+            pc_inc := '1';
+          when InstructionDecode =>
+            -- Always read the next instruction byte after reading opcode
+            memory_access_read := '1';
+            memory_access_address := x"000"&reg_pc;
+            memory_access_resolve_address := '1';
+            state <= InstructionDecode;
+            pc_inc := '1';
+          when Operand1Fetch =>
+            state <= InstructionFetch;
+          when others => null;
+        end case;
+      end if;
+
+      report "pc_inc = " & std_logic'image(pc_inc) & ", cpu_state = " & processor_state'image(state) severity note;
+      if pc_inc = '1' then
+        reg_pc <= reg_pc + 1;
+      end if;
           
-          -- Route memory read value as required
-          if mem_reading='1' then
-            report "memory read value is $" & to_hstring(memory_read_value) severity note;
-            if monitor_mem_reading='1' then
-              monitor_mem_attention_granted <= '1';
-              monitor_mem_rdata <= memory_read_value;
-            end if;
-            if mem_reading_a='1' then reg_a <= memory_read_value; end if;
-            if mem_reading_x='1' then reg_x <= memory_read_value; end if;
-            if mem_reading_y='1' then reg_y <= memory_read_value; end if;
-            if mem_reading_z='1' then reg_z <= memory_read_value; end if;
-            if mem_reading_p='1' then load_processor_flags(memory_read_value); end if;
-            if mem_reading_pcl='1' then reg_pc(7 downto 0) <= memory_read_value; end if;
-            if mem_reading_pch='1' then reg_pc(15 downto 8) <= memory_read_value; end if;
-          end if;
+      -- Route memory read value as required
+      if mem_reading='1' then
+        report "memory read value is $" & to_hstring(memory_read_value) severity note;
+        if monitor_mem_reading='1' then
+          monitor_mem_attention_granted <= '1';
+          monitor_mem_rdata <= memory_read_value;
+        end if;
+        if mem_reading_a='1' then reg_a <= memory_read_value; end if;
+        if mem_reading_x='1' then reg_x <= memory_read_value; end if;
+        if mem_reading_y='1' then reg_y <= memory_read_value; end if;
+        if mem_reading_z='1' then reg_z <= memory_read_value; end if;
+        if mem_reading_p='1' then load_processor_flags(memory_read_value); end if;
+        if mem_reading_pcl='1' then reg_pc(7 downto 0) <= memory_read_value; end if;
+        if mem_reading_pch='1' then reg_pc(15 downto 8) <= memory_read_value; end if;
+      end if;
 
-          -- Effect memory accesses.
-          -- Note that we cannot combine address resolution for read and write,
-          -- because the resolution of some addresses is dependent on whether
-          -- the operation is read or write.  ROM accesses are a good example.
-          if memory_access_write='1' then
-            if memory_access_resolve_address = '1' then
-              memory_access_address := resolve_address_to_long(memory_access_address(15 downto 0),true);
-            end if;
-            write_long_byte(memory_access_address,memory_access_wdata);
-          end if;
-          if memory_access_read='1' then
-            if memory_access_resolve_address = '1' then
-              memory_access_address := resolve_address_to_long(memory_access_address(15 downto 0),false);
-            end if;
-            read_long_address(memory_access_address);
-          end if;
-        end if;                         -- if not in a wait state        
-      end if;                           -- if not resetting
-    end if;
+      -- Effect memory accesses.
+      -- Note that we cannot combine address resolution for read and write,
+      -- because the resolution of some addresses is dependent on whether
+      -- the operation is read or write.  ROM accesses are a good example.
+      if memory_access_write='1' then
+        if memory_access_resolve_address = '1' then
+          memory_access_address := resolve_address_to_long(memory_access_address(15 downto 0),true);
+        end if;
+        write_long_byte(memory_access_address,memory_access_wdata);
+      end if;
+      if memory_access_read='1' then
+        if memory_access_resolve_address = '1' then
+          memory_access_address := resolve_address_to_long(memory_access_address(15 downto 0),false);
+        end if;
+        read_long_address(memory_access_address);
+      end if;
+    end if;                         -- if not in a wait state        
   end process;
 
 end Behavioural;
