@@ -1356,11 +1356,6 @@ downto 8) = x"D3F" then
               memory_access_address := unsigned(monitor_mem_address);
               memory_access_write := '1';
               memory_access_wdata := monitor_mem_wdata;
-              if monitor_mem_address(27 downto 16) = x"777" then
-                -- M777xxxx in serial monitor reads memory from CPU's perspective
-                memory_access_resolve_address := '1';
-              end if;
-              write_long_byte(memory_access_address,memory_access_wdata);
             elsif monitor_mem_read='1' then          
               memory_access_address := unsigned(monitor_mem_address);
               memory_access_read := '1';
@@ -1444,7 +1439,7 @@ downto 8) = x"D3F" then
             if memory_access_resolve_address = '1' then
               memory_access_address := resolve_address_to_long(memory_access_address(15 downto 0),true);
             end if;
-            -- write_long_byte(memory_access_address,memory_access_wdata);
+            write_long_byte(memory_access_address,memory_access_wdata);
           end if;
           if memory_access_read='1' then
             if memory_access_resolve_address = '1' then
