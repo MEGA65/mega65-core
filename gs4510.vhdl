@@ -310,6 +310,7 @@ architecture Behavioural of gs4510 is
     InstructionWait,                    -- Wait for PC to become available on
                                         -- interrupt/reset
     InstructionFetch,
+    InstructionDecode,
     Operand1Fetch,
     Operand2Fetch,
     ZPDereference,
@@ -1273,6 +1274,8 @@ downto 8) = x"D3F" then
   variable memory_access_write : std_logic := '0';
   variable memory_access_resolve_address : std_logic := '0';
   variable memory_access_wdata : unsigned(7 downto 0) := x"FF";
+
+  variable pc_inc : std_logic := '0';
   
   begin
 
@@ -1396,12 +1399,22 @@ downto 8) = x"D3F" then
                 when InstructionWait =>
                   state <= InstructionFetch;
                 when InstructionFetch =>
-                  
+                  memory_access_address := x"000"&reg_pc;
+                  memory_access_resolve_address := '1';
+                  state <= InstructionDecode;
+                  pc_inc := '1';
+                when InstructionDecode =>
+                  -- XXX Really do stuff
+                  state <= InstructionFetch;
                 when others => null;
               end case;
             end if;
           end if;
 
+          if pc_inc = '1' then
+            reg_pc <= reg_pc + 1;
+          end if;
+          
           -- Route memory read value as required
           if mem_reading='1' then
             report "memory read value is $" & to_hstring(memory_read_value) severity note;
