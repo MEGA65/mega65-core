@@ -256,7 +256,14 @@ architecture Behavioral of viciv is
   signal debug_y : unsigned(11 downto 0) := "111111111110";
   signal debug_cycles_to_next_card : unsigned(7 downto 0);
   signal debug_next_card_number : unsigned(15 downto 0);
-  signal debug_char_fetch_cycle : integer range 0 to 255;
+
+  type vic_fetch_fsm is (fsm0,fsm1,fsm2,fsm3,fsm4,fsm5,fsm6,fsm7,
+                         fsm8,
+                         fsm16,
+                         fsm32,fsm33,fsm34,fsm35,fsm36,fsm37,fsm38,
+                         fsm64,
+                         fsmIdle);
+  signal debug_char_fetch_cycle : vic_fetch_fsm;
   signal debug_chargen_active : std_logic;
   signal debug_chargen_active_soon : std_logic;
   signal debug_character_data_from_rom : std_logic;
@@ -385,7 +392,7 @@ architecture Behavioral of viciv is
   signal chargen_y_sub : unsigned(4 downto 0);
   signal chargen_x_sub : unsigned(4 downto 0);
   -- character data fetch FSM
-  signal char_fetch_cycle : integer range 0 to 255 := 16;
+  signal char_fetch_cycle : vic_fetch_fsm := fsmIdle;
   -- data for next card
   signal next_bitmap_colours  : unsigned(7 downto 0);
   signal next_next_bitmap_colours  : unsigned(7 downto 0);
@@ -976,7 +983,8 @@ begin
           fastio_rdata(1) <= fullcolour_8bitchars;
           fastio_rdata(0) <= sixteenbit_charset;
         elsif register_number=85 then
-          fastio_rdata <= std_logic_vector(to_unsigned(char_fetch_cycle,8));
+          fastio_rdata <=
+            std_logic_vector(to_unsigned(vic_fetch_fsm'pos(char_fetch_cycle),8));
         elsif register_number=86 then
           fastio_rdata <= std_logic_vector(cycles_to_next_card);
         elsif register_number=87 then
@@ -1040,7 +1048,8 @@ begin
         elsif register_number=118 then
           fastio_rdata <= "00000" & debug_character_data_from_rom & debug_chargen_active & debug_chargen_active_soon;
         elsif register_number=124 then
-          fastio_rdata <= std_logic_vector(to_unsigned(debug_char_fetch_cycle,8));
+          fastio_rdata <=
+            std_logic_vector(to_unsigned(vic_fetch_fsm'pos(debug_char_fetch_cycle),8));
         elsif register_number=125 then
           fastio_rdata <= debug_charaddress(7 downto 0);
         elsif register_number=126 then
@@ -1417,7 +1426,7 @@ begin
           & " displayx= " & integer'image(to_integer(displayx))
           & ", displayy= " & integer'image(to_integer(displayy))
           & ", cycles_to_next_card= " & integer'image(to_integer(cycles_to_next_card))
-          & ", char_fetch_cycle= " & integer'image(char_fetch_cycle)
+          & ", char_fetch_cycle= " & vic_fetch_fsm'image(char_fetch_cycle)
           severity note;        
       end if;
 
@@ -1557,27 +1566,26 @@ begin
       -- If so, copy in the new glyph and colour data for display.
       report "VGA: displayx=" & integer'image(to_integer(displayx)) & ", chargen_active=" & std_logic'image(chargen_active) & ", chagen_active_soon=" & std_logic'image(chargen_active_soon) & ", chargen_x=" & integer'image(to_integer(chargen_x)) & ", next_chargen_x=" & integer'image(to_integer(next_chargen_x)) severity note;
       report ", cycles_to_next_card=" & integer'image(to_integer(cycles_to_next_card))
-        & ", char_fetch_cycle=" & integer'image(char_fetch_cycle)
+        & ", char_fetch_cycle=" & vic_fetch_fsm'image(char_fetch_cycle)
         & ", xbackporch=" & std_logic'image(xbackporch)
         severity note;
       if xfrontporch='1' then
         indisplay := '0';
       end if;
       if (xbackporch='0') and ((chargen_active='1') or (chargen_active_soon='1')) then         -- In active part of raster
+        
         -- Work out if we are at the end of a character
         cycles_to_next_card <= cycles_to_next_card - 1;
         if cycles_to_next_card = x"09" then
-          char_fetch_cycle <= 0;
+          char_fetch_cycle <= fsm0;
+        else
+          -- We must update char_fetch_cycle before deciding if we are reaching
+          -- the next card, as otherwise we stop the fetching of the next character.
+          char_fetch_cycle <= vic_fetch_fsm'succ(char_fetch_cycle);
         end if;
         -- cycles_to_next_card counts down to 1, not 0.
         -- update one cycle earlier since next_card_number is a signal
         -- not a variable.
-
-        -- We must update char_fetch_cycle before deciding if we are reaching
-        -- the next card, as otherwise we stop the fetching of the next character.
-        if char_fetch_cycle<8 then
-          char_fetch_cycle <= char_fetch_cycle + 1;        
-        end if;
 
         if cycles_to_next_card = 1 then
           report "VGA: Copying next_* to glyph_*" severity note;
@@ -1605,7 +1613,7 @@ begin
                                         -- ... and then start fetching data for the character after that
           next_card_number <= next_card_number + 1;
           if chargen_x_scale = 0 then
-            char_fetch_cycle <= 0;
+            char_fetch_cycle <= fsm0;
           end if;
           report "resetting chargen_x" severity note;
           chargen_x <= "000";
@@ -1672,7 +1680,7 @@ begin
       if xcounter=x_chargen_start_minus9 then
         -- Start fetching first character of the row
         -- (8 cycles is plenty of time to fetch it)       
-        char_fetch_cycle <= 0;
+        char_fetch_cycle <= fsm0;
         cycles_to_next_card <= to_unsigned(8,8);
         next_card_number <= first_card_of_row;
         card_number <= first_card_of_row;
@@ -1780,7 +1788,7 @@ begin
         -- from only gets updated on a real "badline" (see just above where we
         -- check for chargen_y overflow).  Of course, badline is hypothetical
         -- for the VIC-IV, since all the relevant memories are dual-port.
-        char_fetch_cycle <= 32;
+        char_fetch_cycle <= fsm32;
         report "BADLINE triggered" severity note;
       end if;
 
@@ -1799,7 +1807,7 @@ begin
       -- We need the character number, the colour byte, and the
       -- 8x8 data bits (only 8 used if character is not in full colour mode).
       case char_fetch_cycle is
-        when 0 =>
+        when fsm0 =>
           report "VGA: Fetching next_*, next_card_number=" & integer'image(to_integer(next_card_number))
             severity note;
           -- next_glyph_number has been prefetched at start of line or during
@@ -1833,7 +1841,7 @@ begin
           -- Load colour RAM at the same time
           long_address(15 downto 0) := colour_ram_base+next_card_number;
           colourramaddress <= std_logic_vector(long_address(15 downto 0));
-        when 1 =>
+        when fsm1 =>
           -- source bitmap data from ROM when necessary.
           -- Character set ROM is only visible in first 64KB of RAM.
           if (last_ramaddress(13)='0') and
@@ -1851,7 +1859,7 @@ begin
             screen_ram_buffer_address <= screen_ram_buffer_address + 1;
           end if;
           
-        when 2 =>
+        when fsm2 =>
 
           -- record pre-fetched character data.
           next_next_glyph_number(7 downto 0) <= screen_ram_buffer_dout;
@@ -1864,7 +1872,7 @@ begin
 
           -- There is nothing more we can do right now.
           ramaddress <= (others => '0');          
-        when 3 =>
+        when fsm3 =>
           -- finish driving out the colour value
           next_glyph_colour_buffer <= next_glyph_colour_buffer_temp;
 
@@ -1897,7 +1905,7 @@ begin
           end if;
           charaddress(2 downto 0) <= std_logic_vector(chargen_y);
 
-        when 4 =>
+        when fsm4 =>
           -- Read out custom character set data
           next_glyph_chardata64b <= next_glyph_chardata64;
           
@@ -1932,7 +1940,7 @@ begin
           end if;
           -- Request full colour pixel data
           ramaddress <= std_logic_vector(long_address(16 downto 3));
-        when 5 =>
+        when fsm5 =>
           report "next_glyph_nunber=" & integer'image(to_integer(next_glyph_number)) severity note;
 
           -- Read out custom character set data
@@ -1975,7 +1983,7 @@ begin
 
           -- Nothing to do here
           ramaddress <= (others => '0');
-        when 6 =>
+        when fsm6 =>
           case chargen_y(2 downto 0) is
             when "000" => next_glyph_chardata <= next_glyph_chardata64c(7 downto 0);
             when "001" => next_glyph_chardata <= next_glyph_chardata64c(15 downto 8);
@@ -1992,7 +2000,7 @@ begin
           
           -- Nothing to do here
           ramaddress <= (others => '0');
-        when 7 =>
+        when fsm7 =>
           -- Read character row data from ROM
           -- mono characters
           -- Apply C65/VIC-III hardware underline and blink attributes
@@ -2025,14 +2033,17 @@ begin
           
           -- Nothing to do here
           ramaddress <= (others => '0');
-        when 16 =>
+        when fsm8 =>
+          -- Finished fetching character data for now, so hold station.
+          char_fetch_cycle <= fsm8;
+          ramaddress <= (others => '0');
+        when fsm16 =>
           -- Idle: can fetch full-colour sprite information
           -- (C64 compatability sprites will be fetched during horizontal sync.
           --  Because we can fetch 64bits at once, compatibility sprite fetching
           --  cannot require more than 16 cycles).
           ramaddress <= (others => '0');
-
-        when 32 =>
+        when fsm32 =>
           -- Fetch screen ram bytes (badline-like fetches).
           -- These happen in the horizontal front porch, and require not more
           -- than 62 cycles ( (240 * 2) / 8 = 60 fetches).
@@ -2040,13 +2051,13 @@ begin
           -- (we reset to the end, because we pre-increment in the fetch loop)
           screen_ram_buffer_address <= (others => '1');
           screen_ram_buffer_write <= '0';
-          char_fetch_cycle <= 33;
+          ramaddress <= (others => '0');
           report "BADLINE preparing for fetch" severity note;
-        when 33 =>
+        when fsm33 =>
           report "BADLINE releasing buffer reset" severity note;
-          char_fetch_cycle <= 34;
           delay <= "11";
-        when 34 =>
+          ramaddress <= (others => '0');
+        when fsm34 =>
           -- Schedule reading of next 8 chars
           report "BADLINE fetch loop.  delay=%" & to_string(delay) severity note;
           ramaddress <= std_logic_vector(screen_row_current_address(16 downto 3));
@@ -2066,14 +2077,16 @@ begin
               screen_ram_buffer_din <= screen_ram_buffer_din;
               screen_ram_buffer_write <= '1';
               screen_ram_buffer_address <= screen_ram_buffer_address + 1;
+              char_fetch_cycle <= fsm34;
               report "BADLINE stuffing fetch $" & to_hstring(screen_ram_buffer_address(7 downto 0)) & " $" & to_hstring(ramdata) severity note;
             else
               screen_ram_buffer_write <= '0';
               -- Finished fetching screen data, move on to sprites
-              char_fetch_cycle <= 35;
             end if;
+          else
+            char_fetch_cycle <= fsm34;
           end if;
-        when 35 =>
+        when fsm35 =>
           -- Begin fetching the glyph number for the first character of the
           -- row, because the fetch process plus character resolution takes
           -- more than 8 cycles.  So instead, we pipeline this out further,
@@ -2083,20 +2096,20 @@ begin
           -- 8 bytes, because of the 1-cycle delay incurred when the buffer was
           -- being loaded.
           screen_ram_buffer_address <= "000001000";
-          char_fetch_cycle <= 36;
-        when 36 =>
+          ramaddress <= (others => '0');
+        when fsm36 =>
           -- if using a 16 bit character set, ask for the 2nd byte, while still
           -- waiting for the first byte to arrive from the buffer.
           if (sixteenbit_charset='1') and (text_mode='1') then
             screen_ram_buffer_address <= screen_ram_buffer_address + 1;
           end if;
-          char_fetch_cycle <= 37;
-        when 37 =>
+          ramaddress <= (others => '0');
+        when fsm37 =>
           -- Stop asking for bytes from the buffer, and record the first byte
           next_glyph_number(7 downto 0) <= screen_ram_buffer_dout;
           next_bitmap_colours <= screen_ram_buffer_dout;
-          char_fetch_cycle <= 38;
-        when 38 =>
+          ramaddress <= (others => '0');
+        when fsm38 =>
           -- Record the 2nd byte or zero out the top bits of the next character
           -- number.
           if (sixteenbit_charset='1') and (text_mode='1') then
@@ -2105,18 +2118,19 @@ begin
             next_glyph_number(15 downto 8) <= x"00";
           end if;
           -- all done.
-          char_fetch_cycle <= 64;
-        when 64 =>
+          char_fetch_cycle <= fsm64;
+          ramaddress <= (others => '0');
+        when fsm64 =>
           -- XXX Fetch VIC-II sprite information
           -- (C64 compatability sprites will be fetched during horizontal sync.
           --  Because we can fetch 64bits at once, compatibility sprite fetching
           --  cannot require more than 16 cycles).
           ramaddress <= (others => '0');
-        when others => 
-          -- XXX Fetch full-colour sprite information
-          -- (C64 compatability sprites will be fetched during horizontal sync.
-          --  Because we can fetch 64bits at once, compatibility sprite fetching
-          --  cannot require more than 16 cycles).
+        when fsmIdle =>
+          char_fetch_cycle <= fsmIdle;
+          ramaddress <= (others => '0');
+        when others =>
+          char_fetch_cycle <= fsmIdle;
           ramaddress <= (others => '0');
       end case;
 
