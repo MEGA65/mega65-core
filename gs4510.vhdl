@@ -1498,7 +1498,6 @@ downto 8) = x"D3F" then
             memory_access_read := '1';
             memory_access_address := x"000"&reg_pc;
             memory_access_resolve_address := '1';
-            state <= Cycle2;            
             pc_inc := '1';
 
             -- See if this is a single cycle instruction.
@@ -1508,12 +1507,8 @@ downto 8) = x"D3F" then
             -- interrupts are only checked in InstructionFetch, not
             -- InstructionDecode).
             do_register_op <= op_is_single_cycle(to_integer(memory_read_value));
-          when Cycle2 =>
-            -- Show serial monitor what we are doing.
-            monitor_arg1 <= std_logic_vector(memory_read_value);
-            monitor_ibytes(1) <= '1';
 
-            -- Do delayed register modification operation
+                        -- Do delayed register modification operation
             if do_register_op='1' then
               do_register_op <= '0';
               case reg_opcode is
@@ -1575,9 +1570,15 @@ downto 8) = x"D3F" then
               -- InstructionDecode).
               do_register_op <= op_is_single_cycle(to_integer(memory_read_value));
             else
-              -- Normal instruction
-              state <= InstructionFetch;
+              state <= Cycle2;
             end if;
+          when Cycle2 =>
+            -- Show serial monitor what we are doing.
+            monitor_arg1 <= std_logic_vector(memory_read_value);
+            monitor_ibytes(1) <= '1';
+
+            -- Normal instruction
+            state <= InstructionFetch;
           when Operand1Fetch =>
             state <= InstructionFetch;
           when others => null;
