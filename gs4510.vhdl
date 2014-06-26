@@ -332,6 +332,11 @@ architecture Behavioural of gs4510 is
     InnZReadVectorLow,
     ZPRelReadZP,
     AbsReadArg2,
+    AbsXReadArg2,
+    AbsYReadArg2,
+    IAbsReadArg2,
+    IAbsXReadArg2,
+    Imm16ReadArg2,
     ActionCycle
     );
   signal state : processor_state := ResetLow;
@@ -1752,23 +1757,60 @@ downto 8) = x"D3F" then
                   reg_pc <= reg_pc + 1;
                   state <= InstructionFetch;
                 end if;
-
               when M_nnX =>
-                state <= InstructionFetch;
+                temp_addr := reg_b & (memory_read_value + reg_X);
+                reg_addr <= temp_addr;
+                memory_access_read := '1';
+                memory_access_address := x"000"&temp_addr;
+                memory_access_resolve_address := '1';
+                pc_inc := '1';
+                state <= ActionCycle;
+              when M_nnY =>
+                temp_addr := reg_b & (memory_read_value + reg_X);
+                reg_addr <= temp_addr;
+                memory_access_read := '1';
+                memory_access_address := x"000"&temp_addr;
+                memory_access_resolve_address := '1';
+                pc_inc := '1';
+                state <= ActionCycle;
+
               when M_nnnnY =>
-                state <= InstructionFetch;
+                reg_addr(7 downto 0) <= memory_read_value;
+                memory_access_read := '1';
+                memory_access_address := x"000"&reg_pc;
+                memory_access_resolve_address := '1';
+                pc_inc := '1';
+                state <= AbsYReadArg2;
               when M_nnnnX =>
-                state <= InstructionFetch;
+                reg_addr(7 downto 0) <= memory_read_value;
+                memory_access_read := '1';
+                memory_access_address := x"000"&reg_pc;
+                memory_access_resolve_address := '1';
+                pc_inc := '1';
+                state <= AbsXReadArg2;
               when M_Innnn =>
-                state <= InstructionFetch;
+                reg_addr(7 downto 0) <= memory_read_value;
+                memory_access_read := '1';
+                memory_access_address := x"000"&reg_pc;
+                memory_access_resolve_address := '1';
+                pc_inc := '1';
+                state <= IAbsReadArg2;
               when M_InnnnX =>
-                state <= InstructionFetch;
+                reg_addr(7 downto 0) <= memory_read_value;
+                memory_access_read := '1';
+                memory_access_address := x"000"&reg_pc;
+                memory_access_resolve_address := '1';
+                pc_inc := '1';
+                state <= IAbsXReadArg2;
               when M_InnSPY =>
                 state <= InstructionFetch;
-              when M_nnY =>
-                state <= InstructionFetch;
               when M_immnnnn =>                
-                state <= InstructionFetch;
+                reg_addr(7 downto 0) <= memory_read_value;
+                memory_access_read := '1';
+                memory_access_address := x"000"&reg_pc;
+                memory_access_resolve_address := '1';
+                pc_inc := '1';
+                state <= Imm16ReadArg2;
             end case;
 
           -- Dummy states for now.
@@ -1781,6 +1823,16 @@ downto 8) = x"D3F" then
           when ZPRelReadZP =>
             state <= InstructionFetch;
           when AbsReadArg2 =>
+            state <= InstructionFetch;
+          when AbsXReadArg2 =>
+            state <= InstructionFetch;
+          when AbsYReadArg2 =>
+            state <= InstructionFetch;
+          when IAbsReadArg2 =>
+            state <= InstructionFetch;
+          when IAbsXReadArg2 =>
+            state <= InstructionFetch;
+          when Imm16ReadArg2 => 
             state <= InstructionFetch;
             
           when ActionCycle =>
