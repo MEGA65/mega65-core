@@ -121,6 +121,13 @@ end entity gs4510;
 
 architecture Behavioural of gs4510 is
 
+  component microcode is
+    port (Clk : in std_logic;
+          address : in std_logic_vector(10 downto 0);
+          data_o : out std_logic_vector(63 downto 0)
+          );
+    end component;
+  
   component shadowram is
       port (Clk : in std_logic;
             address : in std_logic_vector(17 downto 0);            
@@ -251,8 +258,6 @@ architecture Behavioural of gs4510 is
   
   signal monitor_mem_trace_toggle_last : std_logic := '0';
 
-  signal microcode_vector : std_logic_vector(63 downto 0);
-
   -- Microcode data and ALU routing signals follow:
 
   signal mem_reading : std_logic := '0';
@@ -369,27 +374,19 @@ architecture Behavioural of gs4510 is
   constant mcVectorNMI : integer := 41;
   constant mcLoadVector : integer := 42;
   constant mcIncInT : integer := 43;
-
+  constant mcStoreArg2 : integer := 44;
+  constant mcDeclareArg1 : integer := 45;
+  constant mcDeclareArg2 : integer := 46;
+  constant mcIncInMem : integer := 47;
+  constant mcIncOutMem : integer := 48;
+  constant mcIncAnd : integer := 49;
+  constant mcIncIor : integer := 50;
+  constant mcIncEor : integer := 51;
+  constant mcAluOutA : integer := 52;
+  constant mcAluCarryOut : integer := 53;
   
-  type microcode_instruction is array(0 to 63) of std_logic;
-  type microcode_array is array (0 to 4095) of microcode_instruction;
-  constant microcode_lut : microcode_array := (
-    -- BRK $00 : Push PCL, PCH, P(with B set). Set I. Jump to IRQ vector
-    16#00#*8+0 => (mcIncPc => '1', mcSetFlagI => '1',
-                   mcWriteMem => '1', mcWritePCL => '1',
-                   mcWriteStack => '1', mcDecSP => '1',
-                   others => '0'),
-    16#00#*8+1 => (mcWriteMem => '1', mcWritePCH => '1',
-                   mcWriteStack => '1', mcDecSP => '1',
-                   others => '0'),
-    16#00#*8+2 => (mcWriteMem => '1', mcWriteP => '1', mcBreakFlag => '1',
-                   mcWriteStack => '1', mcDecSP => '1',                
-                   mcVectorIRQ => '1', mcLoadVector => '1',
-                   others => '0'),
-    others => ( mcInstructionFetch => '1', others => '0'));
-
-  signal reg_microcode : microcode_instruction;
-  signal reg_microcode_index : unsigned(3 downto 0);
+  signal reg_microcode : std_logic_vector(63 downto 0);
+  signal reg_microcode_address : unsigned(10 downto 0);
   
   type addressingmode is (
     M_impl,M_InnX,M_nn,M_immnn,M_A,M_nnnn,M_nnrr,
@@ -500,6 +497,11 @@ begin
     cs      => '1',
     data_i  => std_logic_vector(shadow_wdata),
     unsigned(data_o)  => shadow_rdata);
+
+  microcode0: microcode port map (
+    clk => clock,
+    address => std_logic_vector(reg_microcode_address),
+    data_o => reg_microcode);
   
   process(clock)
 
@@ -511,8 +513,6 @@ begin
 
     instruction_phase <= x"0";
     reg_opcode <= (others => '1');
-    microcode_vector <= (0 => '1', 1 => '1',
-                         others => '0');
     
     -- Default register values
     reg_b <= x"00";
@@ -1339,6 +1339,7 @@ downto 8) = x"D3F" then
   variable inc_in_z : std_logic;
   variable inc_in_spl : std_logic;
   variable inc_in_sph : std_logic;
+  variable inc_in_mem : std_logic;
 
   variable inc_out_a : std_logic;
   variable inc_out_b : std_logic;
@@ -1348,9 +1349,13 @@ downto 8) = x"D3F" then
   variable inc_out_z : std_logic;
   variable inc_out_spl : std_logic;
   variable inc_out_sph : std_logic;
+  variable inc_out_mem : std_logic;
 
   variable inc_inc : std_logic;
   variable inc_dec : std_logic;
+  variable inc_and : std_logic;
+  variable inc_ior : std_logic;
+  variable inc_eor : std_logic;
   variable inc_shift_right : std_logic;
   variable inc_shift_left : std_logic;
   variable inc_0in : std_logic;
@@ -1360,6 +1365,17 @@ downto 8) = x"D3F" then
   variable inc_set_nz : std_logic;
 
   variable inc_temp : unsigned(7 downto 0);
+
+  variable alu_set_c : std_logic;
+  variable alu_set_nz : std_logic;
+  variable alu_cmp : std_logic;
+  variable alu_add : std_logic;
+  variable alu_sub : std_logic;
+  variable alu_out_a : std_logic;
+  variable alu_out_mem : std_logic;
+
+
+
   
   begin
 
@@ -1373,12 +1389,18 @@ downto 8) = x"D3F" then
       -- By default we are doing nothing new.
       pc_inc := '0';
 
-      inc_in_a := '0'; inc_in_b := '0';
-      inc_in_x := '0'; inc_in_y := '0'; inc_in_z := '0'; inc_in_spl := '0'; inc_in_sph := '0';
-      inc_out_a := '0'; inc_out_b := '0';
-      inc_out_x := '0'; inc_out_y := '0'; inc_out_z := '0'; inc_out_spl := '0'; inc_out_sph := '0';
+      inc_in_a := '0'; inc_in_b := '0'; inc_in_t := '0';
+      inc_in_x := '0'; inc_in_y := '0'; inc_in_z := '0';
+      inc_in_spl := '0'; inc_in_sph := '0'; inc_in_mem := '0';
+      inc_out_a := '0'; inc_out_b := '0'; inc_out_t := '0';
+      inc_out_x := '0'; inc_out_y := '0'; inc_out_z := '0';
+      inc_out_spl := '0'; inc_out_sph := '0'; inc_out_mem := '0';
       inc_inc := '0'; inc_dec := '0'; inc_pass := '0'; inc_set_nz := '0';
-      inc_shift_left := '0'; inc_shift_right := '0'; inc_0in := '0'; inc_carry_in := '0';
+      inc_shift_left := '0'; inc_shift_right := '0'; inc_0in := '0';
+      inc_carry_in := '0';
+      alu_add := '0'; alu_cmp := '0'; alu_sub := '0';
+      alu_out_a := '0'; alu_out_mem := '0';
+      alu_set_c := '0'; alu_set_nz := '0';
       
       memory_access_read := '0';
       memory_access_write := '0';
@@ -1615,14 +1637,22 @@ downto 8) = x"D3F" then
             reg_addressingmode <= mode_lut(to_integer(memory_read_value));
             reg_instruction <= instruction_lut(to_integer(memory_read_value));
             -- Up to 8 decode stages per instruction
-            reg_microcode <= microcode_lut(to_integer(memory_read_value&"0000"));
-            reg_microcode_index <= "0001";
+            reg_microcode_address <= memory_read_value&"000";
           when Cycle2 =>
             -- Show serial monitor what we are doing.
-            if reg_microcode(mcStoreArg1)='1' then
+            if reg_microcode(mcDeclareArg1)='1' then
               monitor_arg1 <= std_logic_vector(memory_read_value);
-              reg_arg1 <= memory_read_value;
               monitor_ibytes(1) <= '1';
+            end if;
+            if reg_microcode(mcStoreArg1)='1' then
+              reg_arg1 <= memory_read_value;
+            end if;
+            if reg_microcode(mcStoreArg2)='1' then
+              reg_arg2 <= memory_read_value;
+            end if;
+            if reg_microcode(mcDeclareArg2)='1' then
+              monitor_arg2 <= std_logic_vector(memory_read_value);
+              monitor_ibytes(2) <= '1';
             end if;
 
             -- Memory read
@@ -1712,6 +1742,7 @@ downto 8) = x"D3F" then
             inc_in_z := reg_microcode(mcIncInZ);
             inc_in_spl := reg_microcode(mcIncInSPH);
             inc_in_sph := reg_microcode(mcIncInSPL);
+            inc_in_mem := reg_microcode(mcIncInMem);
             inc_out_a := reg_microcode(mcIncOutA);
             inc_out_x := reg_microcode(mcIncOutX);
             inc_out_y := reg_microcode(mcIncOutY);
@@ -1719,13 +1750,23 @@ downto 8) = x"D3F" then
             inc_out_t := reg_microcode(mcIncOutT);
             inc_out_spl := reg_microcode(mcIncOutSPH);
             inc_out_sph := reg_microcode(mcIncOutSPL);
+            inc_out_mem := reg_microcode(mcIncOutMem);
             inc_inc := reg_microcode(mcIncInc);
             inc_dec := reg_microcode(mcIncDec);
             inc_shift_left := reg_microcode(mcIncShiftLeft);
             inc_shift_right := reg_microcode(mcIncShiftLeft);
+            inc_and := reg_microcode(mcIncAnd);
+            inc_ior := reg_microcode(mcIncIor);
+            inc_eor := reg_microcode(mcIncEor);
             inc_0in := reg_microcode(mcIncZeroIn);
             inc_carry_in := reg_microcode(mcIncCarryIn);
             inc_set_nz := reg_microcode(mcIncSetNZ);
+
+            -- Regular ALU things (shares inputs with incrementer)
+            alu_out_a := reg_microcode(mcAluOutA);
+            alu_set_c := reg_microcode(mcAluCarryOut);
+            alu_set_nz := reg_microcode(mcIncSetNZ);
+            
 
             -- Special things
             if reg_microcode(mcMap)='1' then
@@ -1747,8 +1788,8 @@ downto 8) = x"D3F" then
             end if;
 
             -- Request next microcode instruction
-            reg_microcode <= microcode_lut(to_integer(reg_opcode&reg_microcode_index));
-            reg_microcode_index <= reg_microcode_index + 1;
+            reg_microcode_address(2 downto 0)
+              <= reg_microcode_address(2 downto 0) + 1;
           when others =>
             state <= InstructionFetch;
         end case;
@@ -1804,6 +1845,7 @@ downto 8) = x"D3F" then
       if inc_in_z='1' then inc_temp := reg_z; end if;
       if inc_in_spl='1' then inc_temp := reg_sp; end if;
       if inc_in_sph='1' then inc_temp := reg_sph; end if;
+      if inc_in_mem='1' then inc_temp := memory_read_value; end if;
       ---Mutate-value------------------------------------------------------------
       if inc_inc='1' then inc_temp := inc_temp + 1; end if;
       if inc_dec='1' then inc_temp := inc_temp - 1; end if;   
@@ -1818,7 +1860,7 @@ downto 8) = x"D3F" then
         inc_temp(7 downto 1) := inc_temp(6 downto 0);
         if inc_0in='1' then inc_temp(0) := '0'; end if;
         if inc_carry_in='1' then inc_temp(0) := flag_c; end if;
-      end if;      
+      end if;
       ---Set-flags---------------------------------------------------------------
       if inc_set_nz='1' then set_nz(inc_temp); end if;
       ---Commit-result-to-registers----------------------------------------------
@@ -1830,7 +1872,29 @@ downto 8) = x"D3F" then
       if inc_out_z='1' then reg_z <= inc_temp; end if;
       if inc_out_spl='1' then reg_sp <= inc_temp; end if;
       if inc_out_sph='1' then reg_sph <= inc_temp; end if;
+      if inc_out_mem='1' then memory_access_wdata := inc_temp; end if;
+
       ---------------------------------------------------------------------------
+
+      ---------------------------------------------------------------------------
+      -- Arithmetic ALU
+      ---------------------------------------------------------------------------
+      ---Input-Values------------------------------------------------------------
+      -- (Uses inc_temp for primary input. Secondary input is always memory)
+      ---Perform-Calculation-----------------------------------------------------
+      if alu_add='1' then
+        inc_temp := alu_op_add(inc_temp,memory_read_value);
+      end if;
+      if alu_cmp='1' then
+        alu_op_cmp(inc_temp,memory_read_value);
+      end if;
+      if alu_sub='1' then
+        inc_temp := alu_op_sub(inc_temp,memory_read_value);
+      end if;
+      if alu_out_a='1' then reg_a <= inc_temp; end if;
+      if alu_out_mem='1' then memory_access_wdata := inc_temp; end if;
+
+      
     end if;                         -- if rising edge of clock
 
     
