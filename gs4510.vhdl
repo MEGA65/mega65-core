@@ -1,7 +1,7 @@
 -- Accelerated 6502-like CPU for the C65GS
 --
 -- Written by
---    Paul Gardner-Stephen <hld@c64.org>
+--    Paul Gardner-Stephen <hld@c64.org>  2013-2014
 --
 -- * ADC/SBC algorithm derived from  6510core.c - WICE MOS6510 emulation core.
 -- *   Written by
@@ -10,7 +10,7 @@
 -- *
 -- *  This program is free software; you can redistribute it and/or modify
 -- *  it under the terms of the GNU Lesser General Public License as
--- *  published by the Free Software Foundation; either version 2 of the
+-- *  published by the Free Software Foundation; either version 3 of the
 -- *  License, or (at your option) any later version.
 -- *
 -- *  This program is distributed in the hope that it will be useful,
@@ -1453,7 +1453,6 @@ downto 8) = x"D3F" then
       -------------------------------------------------------------------------
       
       if reset='0' then
-        reset_cpu_state;
         state <= ResetLow;
       else
         -- Honour wait states on memory accesses
@@ -1559,6 +1558,7 @@ downto 8) = x"D3F" then
         report "CPU state = " & processor_state'image(state) & ", PC=$" & to_hstring(reg_pc) severity note;
         case state is
           when ResetLow =>
+            reset_cpu_state;
             vector <= x"e";
             state <= VectorRead1;
           when VectorRead1 =>
