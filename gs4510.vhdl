@@ -1502,6 +1502,10 @@ downto 8) = x"D3F" then
           
           if monitor_mem_attention_request='1' then
             -- Memory access by serial monitor.
+            if monitor_mem_address(27 downto 16) = x"777" then
+              -- M777xxxx in serial monitor reads memory from CPU's perspective
+              memory_access_resolve_address := '1';
+            end if;
             if monitor_mem_write='1' then
               -- Write to specified long address (or short if address is $777xxxx)
               monitor_mem_attention_granted <= '1';
@@ -1513,10 +1517,6 @@ downto 8) = x"D3F" then
               memory_access_address := unsigned(monitor_mem_address);
               memory_access_read := '1';
               -- Read from specified long address
-              if monitor_mem_address(27 downto 16) = x"777" then
-                -- M777xxxx in serial monitor reads memory from CPU's perspective
-                memory_access_resolve_address := '1';
-              end if;
               monitor_mem_reading <= '1';
               mem_reading <= '1';
             end if;
