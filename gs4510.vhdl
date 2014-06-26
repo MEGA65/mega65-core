@@ -288,6 +288,7 @@ architecture Behavioural of gs4510 is
                                         -- interrupt/reset
     InstructionFetch,
     InstructionDecode,
+    Cycle2,
     Operand1Fetch,
     Operand2Fetch,
     ZPDereference,
@@ -1070,8 +1071,8 @@ downto 8) = x"D3F" then
     flag_c <= value(0);
   end procedure load_processor_flags;
 
-  impure function with_nz (
-    value : unsigned(7 downto 0)) return unsigned is
+  procedure set_nz (
+    value : unsigned(7 downto 0)) is
   begin
     -- report "calculating N & Z flags on result $" & to_hstring(value) severity note;
     flag_n <= value(7);
@@ -1080,9 +1081,16 @@ downto 8) = x"D3F" then
     else
       flag_z <= '0';
     end if;
-    return value;
-  end with_nz;        
+  end set_nz;        
 
+  impure function with_nz (
+    value : unsigned(7 downto 0))
+    return unsigned is
+  begin  -- with_nz
+    set_nz(value);
+    return value;
+  end with_nz;
+  
   -- purpose: change memory map, C65-style
   procedure c65_map_instruction is
     variable offset : unsigned(15 downto 0);
@@ -1252,7 +1260,29 @@ downto 8) = x"D3F" then
   variable memory_access_resolve_address : std_logic := '0';
   variable memory_access_wdata : unsigned(7 downto 0) := x"FF";
 
-  variable pc_inc : std_logic := '0';
+  variable pc_inc : std_logic;
+
+  variable inc_in_a : std_logic;
+  variable inc_in_x : std_logic;
+  variable inc_in_y : std_logic;
+  variable inc_in_z : std_logic;
+  variable inc_in_spl : std_logic;
+  variable inc_in_sph : std_logic;
+
+  variable inc_out_a : std_logic;
+  variable inc_out_x : std_logic;
+  variable inc_out_y : std_logic;
+  variable inc_out_z : std_logic;
+  variable inc_out_spl : std_logic;
+  variable inc_out_sph : std_logic;
+
+  variable inc_inc : std_logic;
+  variable inc_dec : std_logic;
+  variable inc_pass : std_logic;
+
+  variable inc_set_nz : std_logic;
+
+  variable inc_temp : unsigned(7 downto 0);
   
   begin
 
@@ -1261,6 +1291,11 @@ downto 8) = x"D3F" then
 
       -- By default we are doing nothing new.
       pc_inc := '0';
+
+      inc_in_a := '0'; inc_in_x := '0'; inc_in_y := '0'; inc_in_z := '0'; inc_in_spl := '0'; inc_in_sph := '0';
+      inc_out_a := '0'; inc_out_x := '0'; inc_out_y := '0'; inc_out_z := '0'; inc_out_spl := '0'; inc_out_sph := '0';
+      inc_inc := '0'; inc_dec := '0'; inc_pass := '0'; inc_set_nz := '0';
+      
       memory_access_read := '0';
       memory_access_write := '0';
       memory_access_resolve_address := '0';
@@ -1407,12 +1442,42 @@ downto 8) = x"D3F" then
             state <= InstructionDecode;
             pc_inc := '1';
           when InstructionDecode =>
+            reg_opcode <= memory_read_value;
+            
             -- Always read the next instruction byte after reading opcode
+            -- (unless later overriden)            
             memory_access_read := '1';
             memory_access_address := x"000"&reg_pc;
             memory_access_resolve_address := '1';
-            state <= InstructionDecode;
+            state <= Cycle2;            
             pc_inc := '1';
+
+            -- See if this is a single cycle instruction.
+            -- Note that CLI and CLE take 2 cycles so that any
+            -- pending interrupt can happen immediately (interrupts cannot
+            -- happen immediately after a single cycle instruction, because
+            -- interrupts are only checked in InstructionFetch, not
+            -- InstructionDecode).
+            case memory_read_value is
+              when x"03" => state <= InstructionDecode; flag_e <= '1';  -- SEE
+              when x"0B" => state <= InstructionDecode; inc_in_sph := '1'; inc_out_y := '1'; inc_set_nz := '1'; inc_pass := '1'; -- TSY
+              when x"18" => state <= InstructionDecode; flag_c <= '0';  -- CLC
+              when x"1A" => state <= InstructionDecode; inc_in_a := '1'; inc_out_a := '1'; inc_set_nz := '1'; inc_inc := '1'; -- INC A
+              when x"1B" => state <= InstructionDecode; inc_in_z := '1'; inc_out_z := '1'; inc_set_nz := '1'; inc_inc := '1'; -- INZ
+              when x"2B" => state <= InstructionDecode; inc_in_y := '1'; inc_out_sph := '1'; inc_set_nz := '1'; inc_pass := '1'; -- TYS
+              when x"38" => state <= InstructionDecode; flag_c <= '1';  -- SEC
+              when x"3A" => state <= InstructionDecode; inc_in_a := '1'; inc_out_a := '1'; inc_set_nz := '1'; inc_dec := '1'; -- DEC A
+              when x"3B" => state <= InstructionDecode; inc_in_z := '1'; inc_out_z := '1'; inc_set_nz := '1'; inc_dec := '1'; -- DEZ
+                            -- NEG can stay 2 cycles for now.  We can try
+                            -- adding it later
+              when x"43" => state <= InstructionDecode; inc_in_a := '1'; inc_out_a := '1'; inc_set_nz := '1'; inc_asr := '1'; -- ASR A
+              when x"4A" => state <= InstructionDecode; inc_in_a := '1'; inc_out_a := '1'; inc_set_nz := '1'; inc_lsr := '1'; -- LSR A
+              when x"4B" => state <= InstructionDecode; inc_in_a := '1'; inc_out_z := '1'; inc_set_nz := '1'; inc_pass := '1'; -- TAZ
+                            
+              when others => null;
+            end case;
+          when Cycle2 =>
+            state <= InstructionFetch;
           when Operand1Fetch =>
             state <= InstructionFetch;
           when others => null;
@@ -1456,7 +1521,33 @@ downto 8) = x"D3F" then
         end if;
         read_long_address(memory_access_address);
       end if;
-    end if;                         -- if not in a wait state        
+    end if;                         -- if not in a wait state
+
+    ---------------------------------------------------------------------------
+    -- Incrementer ALU (also used for register transfers)
+    ---------------------------------------------------------------------------
+    ---Read-from-input-register------------------------------------------------
+    if inc_in_a='1' then inc_temp := reg_a; end if;
+    if inc_in_x='1' then inc_temp := reg_x; end if;
+    if inc_in_y='1' then inc_temp := reg_y; end if;
+    if inc_in_z='1' then inc_temp := reg_z; end if;
+    if inc_in_spl='1' then inc_temp := reg_sp; end if;
+    if inc_in_sph='1' then inc_temp := reg_sph; end if;
+    ---Mutate-value------------------------------------------------------------
+    if inc_inc='1' then inc_temp := inc_temp + 1; end if;
+    if inc_dec='1' then inc_temp := inc_temp + 1; end if;
+    ---Set-flags---------------------------------------------------------------
+    if inc_set_nz='1' then set_nz(inc_temp); end if;
+    ---Commit-result-to-registers----------------------------------------------
+    if inc_out_a='1' then reg_a <= inc_temp; end if;
+    if inc_out_x='1' then reg_x <= inc_temp; end if;
+    if inc_out_y='1' then reg_y <= inc_temp; end if;
+    if inc_out_z='1' then reg_z <= inc_temp; end if;
+    if inc_out_spl='1' then reg_sp <= inc_temp; end if;
+    if inc_out_sph='1' then reg_sph <= inc_temp; end if;
+    ---------------------------------------------------------------------------
+
+    
   end process;
 
 end Behavioural;
