@@ -1560,45 +1560,45 @@ downto 8) = x"D3F" then
         end if;
         read_long_address(memory_access_address);
       end if;
-    end if;                         -- if not in a wait state
 
-    ---------------------------------------------------------------------------
-    -- Incrementer ALU (also used for register transfers)
-    ---------------------------------------------------------------------------
-    ---Read-from-input-register------------------------------------------------
-    if inc_in_a='1' then inc_temp := reg_a; end if;
-    if inc_in_b='1' then inc_temp := reg_b; end if;
-    if inc_in_x='1' then inc_temp := reg_x; end if;
-    if inc_in_y='1' then inc_temp := reg_y; end if;
-    if inc_in_z='1' then inc_temp := reg_z; end if;
-    if inc_in_spl='1' then inc_temp := reg_sp; end if;
-    if inc_in_sph='1' then inc_temp := reg_sph; end if;
-    ---Mutate-value------------------------------------------------------------
-    if inc_inc='1' then inc_temp := inc_temp + 1; end if;
-    if inc_dec='1' then inc_temp := inc_temp + 1; end if;   
-    if inc_shift_right='1' then
-      flag_c <= inc_temp(0);
-      inc_temp(6 downto 0) := inc_temp(7 downto 1);
-      if inc_0in='1' then inc_temp(7) := '0'; end if;
-      if inc_carry_in='1' then inc_temp(7) := flag_c; end if;
-    end if;
-    if inc_shift_left='1' then
-      flag_c <= inc_temp(7);
-      inc_temp(7 downto 1) := inc_temp(6 downto 0);
-      if inc_0in='1' then inc_temp(0) := '0'; end if;
-      if inc_carry_in='1' then inc_temp(0) := flag_c; end if;
-    end if;
-    ---Set-flags---------------------------------------------------------------
-    if inc_set_nz='1' then set_nz(inc_temp); end if;
-    ---Commit-result-to-registers----------------------------------------------
-    if inc_out_a='1' then reg_a <= inc_temp; end if;
-    if inc_out_b='1' then reg_b <= inc_temp; end if;
-    if inc_out_x='1' then reg_x <= inc_temp; end if;
-    if inc_out_y='1' then reg_y <= inc_temp; end if;
-    if inc_out_z='1' then reg_z <= inc_temp; end if;
-    if inc_out_spl='1' then reg_sp <= inc_temp; end if;
-    if inc_out_sph='1' then reg_sph <= inc_temp; end if;
-    ---------------------------------------------------------------------------
+      ---------------------------------------------------------------------------
+      -- Incrementer ALU (also used for register transfers)
+      ---------------------------------------------------------------------------
+      ---Read-from-input-register------------------------------------------------
+      if inc_in_a='1' then inc_temp := reg_a; end if;
+      if inc_in_b='1' then inc_temp := reg_b; end if;
+      if inc_in_x='1' then inc_temp := reg_x; end if;
+      if inc_in_y='1' then inc_temp := reg_y; end if;
+      if inc_in_z='1' then inc_temp := reg_z; end if;
+      if inc_in_spl='1' then inc_temp := reg_sp; end if;
+      if inc_in_sph='1' then inc_temp := reg_sph; end if;
+      ---Mutate-value------------------------------------------------------------
+      if inc_inc='1' then inc_temp := inc_temp + 1; end if;
+      if inc_dec='1' then inc_temp := inc_temp - 1; end if;   
+      if inc_shift_right='1' then
+        flag_c <= inc_temp(0);
+        inc_temp(6 downto 0) := inc_temp(7 downto 1);
+        if inc_0in='1' then inc_temp(7) := '0'; end if;
+        if inc_carry_in='1' then inc_temp(7) := flag_c; end if;
+      end if;
+      if inc_shift_left='1' then
+        flag_c <= inc_temp(7);
+        inc_temp(7 downto 1) := inc_temp(6 downto 0);
+        if inc_0in='1' then inc_temp(0) := '0'; end if;
+        if inc_carry_in='1' then inc_temp(0) := flag_c; end if;
+      end if;
+      ---Set-flags---------------------------------------------------------------
+      if inc_set_nz='1' then set_nz(inc_temp); end if;
+      ---Commit-result-to-registers----------------------------------------------
+      if inc_out_a='1' then reg_a <= inc_temp; end if;
+      if inc_out_b='1' then reg_b <= inc_temp; end if;
+      if inc_out_x='1' then reg_x <= inc_temp; end if;
+      if inc_out_y='1' then reg_y <= inc_temp; end if;
+      if inc_out_z='1' then reg_z <= inc_temp; end if;
+      if inc_out_spl='1' then reg_sp <= inc_temp; end if;
+      if inc_out_sph='1' then reg_sph <= inc_temp; end if;
+      ---------------------------------------------------------------------------
+    end if;                         -- if rising edge of clock
 
     
   end process;
