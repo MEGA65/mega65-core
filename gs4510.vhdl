@@ -318,15 +318,21 @@ architecture Behavioural of gs4510 is
     ResetLow,Interrupt,VectorRead1,VectorRead2,
 
     -- DMAgic
-    DMAgic0,DMAgic1,DMAgic2,DMAgic3,DMAgic4,DMAgic5,DMAgic6,DMAgic7,
-    DMAgic8,DMAgic9,DMAgic10,DMAgic11,DMAgic12,DMAgic13,DMAgic14,DMAgic15,
+    DMAgicTrigger,DMAgicReadList,DMAgicRead,DMAgicWrite,
 
     -- Normal instructions
     InstructionWait,                    -- Wait for PC to become available on
                                         -- interrupt/reset
+    MemoryWrite,
     InstructionFetch,
     InstructionDecode,
-    Cycle2
+    Cycle2,
+    B16TakeBranch,
+    InnYReadVectorLow,
+    InnZReadVectorLow,
+    ZPRelReadZP,
+    AbsReadArg2,
+    ActionCycle
     );
   signal state : processor_state := ResetLow;
 
@@ -487,6 +493,11 @@ architecture Behavioural of gs4510 is
 
   signal reg_addressingmode : addressingmode;
   signal reg_instruction : instruction;
+
+  signal delayed_memory_write : std_logic;
+  signal delayed_memory_write_resolve_address : std_logic;
+  signal delayed_memory_write_address : unsigned(27 downto 0);
+  signal delayed_memory_write_data : unsigned(7 downto 0);
 
 begin
 
@@ -1374,8 +1385,7 @@ downto 8) = x"D3F" then
   variable alu_out_a : std_logic;
   variable alu_out_mem : std_logic;
 
-
-
+  variable temp_addr : unsigned(15 downto 0);
   
   begin
 
@@ -1493,7 +1503,8 @@ downto 8) = x"D3F" then
               memory_access_address := unsigned(monitor_mem_address);
               memory_access_write := '1';
               memory_access_wdata := monitor_mem_wdata;
-            elsif monitor_mem_read='1' then          
+            -- Don't allow a read to occur while a write is completing.
+            elsif monitor_mem_read='1' and delayed_memory_write='0' then          
               memory_access_address := unsigned(monitor_mem_address);
               memory_access_read := '1';
               -- Read from specified long address
@@ -1522,7 +1533,22 @@ downto 8) = x"D3F" then
           end if;
         end if;
       end if;
-        
+
+      -- Do memory writes in their own clock cycle to keep logic depth down.
+      -- The trade-off is one cycle delay on all memory writes.
+      -- Memory writes are only perhaps 20% of all cycles,
+      -- so 4/5*1 + 1/5 * 2 = 6/5 of the time, so 5/6 the speed, about
+      -- 83% of maximum speed.  This is much better than cutting the
+      -- clock speed by 1/3, which is the only other real option.
+      if delayed_memory_write='1' then
+        delayed_memory_write <= '0';
+        if delayed_memory_write_resolve_address = '1' then
+          write_data(delayed_memory_write_address(15 downto 0),delayed_memory_write_data);
+        else 
+          write_long_byte(delayed_memory_write_address,delayed_memory_write_data);
+        end if;
+      end if;
+      
       if proceed='1' then
         -- Main state machine for CPU
         report "CPU state = " & processor_state'image(state) & ", PC=$" & to_hstring(reg_pc) severity note;
@@ -1631,7 +1657,15 @@ downto 8) = x"D3F" then
               do_register_op <= op_is_single_cycle(to_integer(memory_read_value));
             else
               if op_is_single_cycle(to_integer(memory_read_value)) = '0' then
-                state <= Cycle2;
+                if (mode_lut(to_integer(memory_read_value)) = M_immnn)
+                   or (mode_lut(to_integer(memory_read_value)) = M_rr)
+                   or (mode_lut(to_integer(memory_read_value)) = M_impl)
+                   or (mode_lut(to_integer(memory_read_value)) = M_A)
+                then
+                  state <= ActionCycle;
+                else
+                  state <= Cycle2;
+                end if;
               end if;
             end if;
             reg_addressingmode <= mode_lut(to_integer(memory_read_value));
@@ -1640,10 +1674,116 @@ downto 8) = x"D3F" then
             reg_microcode_address <= memory_read_value&"000";
           when Cycle2 =>
             -- Show serial monitor what we are doing.
-            if reg_microcode(mcDeclareArg1)='1' then
+            if (reg_addressingmode /= M_impl) or (reg_addressingmode /= M_A) then
               monitor_arg1 <= std_logic_vector(memory_read_value);
               monitor_ibytes(1) <= '1';
             end if;
+
+            case reg_addressingmode is
+              when M_impl =>  -- Handled in ActionCycle
+              when M_A =>     -- Handled in ActionCycle
+              when M_InnX =>
+                temp_addr := reg_b & (memory_read_value+reg_X);
+                reg_addr <= temp_addr;
+                memory_access_read := '1';
+                memory_access_address := x"000"&temp_addr;
+                memory_access_resolve_address := '1';
+                pc_inc := '1';
+                state <= ActionCycle;
+              when M_nn =>
+                temp_addr := reg_b & (memory_read_value);
+                reg_addr <= temp_addr;
+                memory_access_read := '1';
+                memory_access_address := x"000"&temp_addr;
+                memory_access_resolve_address := '1';
+                pc_inc := '1';
+                state <= ActionCycle;
+              when M_immnn => -- Handled in ActionCycle              
+              when M_nnnn =>
+                reg_addr(7 downto 0) <= memory_read_value;
+                memory_access_read := '1';
+                memory_access_address := x"000"&reg_pc;
+                memory_access_resolve_address := '1';
+                pc_inc := '1';
+                state <= AbsReadArg2;
+              when M_nnrr =>
+                reg_t <= memory_read_value;
+                memory_access_read := '1';
+                memory_access_address := x"000"&reg_b&memory_read_value;
+                memory_access_resolve_address := '1';
+                pc_inc := '1';
+                state <= ZPRelReadZP;
+              when M_rr =>    -- Handled in ActionCycle
+              when M_InnY =>
+                temp_addr := reg_b&memory_read_value;
+                memory_access_read := '1';
+                memory_access_address := x"000"&temp_addr;
+                memory_access_resolve_address := '1';
+                pc_inc := '1';
+                state <= InnYReadVectorLow;
+              when M_InnZ =>
+                temp_addr := reg_b&memory_read_value;
+                memory_access_read := '1';
+                memory_access_address := x"000"&temp_addr;
+                memory_access_resolve_address := '1';
+                pc_inc := '1';
+                state <= InnZReadVectorLow;
+              when M_rrrr =>
+                -- Store low 8 bits of branch value even if we don't use it
+                -- because the logic is shallowe that way
+                reg_addr(7 downto 0) <= memory_read_value;
+                -- Now work out if the branch will be taken
+                if (reg_instruction=I_BRA) or
+                   (reg_instruction=I_BSR) or
+                   (reg_instruction=I_BEQ and flag_z='1') or
+                   (reg_instruction=I_BNE and flag_z='0') or
+                   (reg_instruction=I_BCS and flag_c='1') or
+                   (reg_instruction=I_BCC and flag_c='0') or
+                   (reg_instruction=I_BVS and flag_v='1') or
+                   (reg_instruction=I_BVC and flag_v='0') or
+                   (reg_instruction=I_BMI and flag_n='1') or
+                   (reg_instruction=I_BPL and flag_n='0') then
+                  -- Branch will be taken, so finish reading address
+                  state <= B16TakeBranch;
+                else
+                  -- Branch will not be taken.
+                  -- Skip second byte and proceed directly to
+                  -- fetching next instruction
+                  reg_pc <= reg_pc + 1;
+                  state <= InstructionFetch;
+                end if;
+
+              when M_nnX =>
+                state <= InstructionFetch;
+              when M_nnnnY =>
+                state <= InstructionFetch;
+              when M_nnnnX =>
+                state <= InstructionFetch;
+              when M_Innnn =>
+                state <= InstructionFetch;
+              when M_InnnnX =>
+                state <= InstructionFetch;
+              when M_InnSPY =>
+                state <= InstructionFetch;
+              when M_nnY =>
+                state <= InstructionFetch;
+              when M_immnnnn =>                
+                state <= InstructionFetch;
+            end case;
+
+          -- Dummy states for now.
+          when B16TakeBranch =>
+            state <= InstructionFetch;
+          when InnYReadVectorLow =>
+            state <= InstructionFetch;
+          when InnZReadVectorLow =>
+            state <= InstructionFetch;
+          when ZPRelReadZP =>
+            state <= InstructionFetch;
+          when AbsReadArg2 =>
+            state <= InstructionFetch;
+            
+          when ActionCycle =>
             if reg_microcode(mcStoreArg1)='1' then
               reg_arg1 <= memory_read_value;
             end if;
@@ -1820,13 +1960,17 @@ downto 8) = x"D3F" then
       -- Note that we cannot combine address resolution for read and write,
       -- because the resolution of some addresses is dependent on whether
       -- the operation is read or write.  ROM accesses are a good example.
+      -- We delay the memory write until the next cycle to minimise logic depth
       if memory_access_write='1' then
-        if memory_access_resolve_address = '1' then
-          memory_access_address := resolve_address_to_long(memory_access_address(15 downto 0),true);
-        end if;
-        write_long_byte(memory_access_address,memory_access_wdata);
+        delayed_memory_write <= '1';
+        delayed_memory_write_resolve_address <= memory_access_resolve_address;
+        delayed_memory_write_address <= memory_access_address;
+        delayed_memory_write_data <= memory_access_wdata;
       end if;
-      if memory_access_read='1' then
+
+      -- We make sure that there is no write being committed before pushing the
+      -- read through.
+      if memory_access_read='1' and delayed_memory_write='0' then
         if memory_access_resolve_address = '1' then
           memory_access_address := resolve_address_to_long(memory_access_address(15 downto 0),false);
         end if;
