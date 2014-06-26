@@ -231,7 +231,7 @@ architecture Behavioural of gs4510 is
   -- Temporary instruction register (used for many modes).
   -- (includes CPU personality state, partly so that RESET and interrupts can
   -- be mapped to instructions).
-  signal reg_opcode : unsigned(9 downto 0);
+  signal reg_opcode : unsigned(7 downto 0);
   -- CPU personality: 00 = 4510, 01 = 6502/6510, 1x = reserved
   signal reg_personality : unsigned(1 downto 0) := "00";
   -- Temporary value holder (used for RMW instructions)
@@ -1278,6 +1278,10 @@ downto 8) = x"D3F" then
 
   variable inc_inc : std_logic;
   variable inc_dec : std_logic;
+  variable inc_shift_right : std_logic;
+  variable inc_shift_left : std_logic;
+  variable inc_0in : std_logic;
+  variable inc_carry_in : std_logic;
   variable inc_pass : std_logic;
 
   variable inc_set_nz : std_logic;
@@ -1295,6 +1299,7 @@ downto 8) = x"D3F" then
       inc_in_a := '0'; inc_in_x := '0'; inc_in_y := '0'; inc_in_z := '0'; inc_in_spl := '0'; inc_in_sph := '0';
       inc_out_a := '0'; inc_out_x := '0'; inc_out_y := '0'; inc_out_z := '0'; inc_out_spl := '0'; inc_out_sph := '0';
       inc_inc := '0'; inc_dec := '0'; inc_pass := '0'; inc_set_nz := '0';
+      inc_shift_left := '0'; inc_shift_right := '0'; inc_0in := '0'; inc_carry_in := '0';
       
       memory_access_read := '0';
       memory_access_write := '0';
@@ -1443,7 +1448,10 @@ downto 8) = x"D3F" then
             pc_inc := '1';
           when InstructionDecode =>
             reg_opcode <= memory_read_value;
-            
+            -- Present instruction to serial monitor;
+            monitor_opcode <= std_logic_vector(memory_read_value);
+            monitor_ibytes <= "0000";
+
             -- Always read the next instruction byte after reading opcode
             -- (unless later overriden)            
             memory_access_read := '1';
@@ -1470,13 +1478,21 @@ downto 8) = x"D3F" then
               when x"3B" => state <= InstructionDecode; inc_in_z := '1'; inc_out_z := '1'; inc_set_nz := '1'; inc_dec := '1'; -- DEZ
                             -- NEG can stay 2 cycles for now.  We can try
                             -- adding it later
-              when x"43" => state <= InstructionDecode; inc_in_a := '1'; inc_out_a := '1'; inc_set_nz := '1'; inc_asr := '1'; -- ASR A
-              when x"4A" => state <= InstructionDecode; inc_in_a := '1'; inc_out_a := '1'; inc_set_nz := '1'; inc_lsr := '1'; -- LSR A
+              when x"43" => state <= InstructionDecode;
+                            inc_in_a := '1'; inc_out_a := '1'; inc_set_nz := '1';
+                            inc_shift_right := '1'; -- ASR A
+              when x"4A" => state <= InstructionDecode;
+                            inc_in_a := '1'; inc_out_a := '1'; inc_set_nz := '1';
+                            inc_shift_right := '1'; inc_0in := '1'; -- LSR A
               when x"4B" => state <= InstructionDecode; inc_in_a := '1'; inc_out_z := '1'; inc_set_nz := '1'; inc_pass := '1'; -- TAZ
                             
               when others => null;
             end case;
           when Cycle2 =>
+            -- Show serial monitor what we are doing.
+            monitor_arg1 <= std_logic_vector(memory_read_value);
+            monitor_ibytes(1) <= '1';
+
             state <= InstructionFetch;
           when Operand1Fetch =>
             state <= InstructionFetch;
@@ -1535,7 +1551,19 @@ downto 8) = x"D3F" then
     if inc_in_sph='1' then inc_temp := reg_sph; end if;
     ---Mutate-value------------------------------------------------------------
     if inc_inc='1' then inc_temp := inc_temp + 1; end if;
-    if inc_dec='1' then inc_temp := inc_temp + 1; end if;
+    if inc_dec='1' then inc_temp := inc_temp + 1; end if;   
+    if inc_shift_right='1' then
+      flag_c <= inc_temp(0);
+      inc_temp(6 downto 0) := inc_temp(7 downto 1);
+      if inc_0in='1' then inc_temp(7) := '0'; end if;
+      if inc_carry_in='1' then inc_temp(7) := flag_c; end if;
+    end if;
+    if inc_shift_left='1' then
+      flag_c <= inc_temp(7);
+      inc_temp(7 downto 1) := inc_temp(6 downto 0);
+      if inc_0in='1' then inc_temp(0) := '0'; end if;
+      if inc_carry_in='1' then inc_temp(0) := flag_c; end if;
+    end if;
     ---Set-flags---------------------------------------------------------------
     if inc_set_nz='1' then set_nz(inc_temp); end if;
     ---Commit-result-to-registers----------------------------------------------
