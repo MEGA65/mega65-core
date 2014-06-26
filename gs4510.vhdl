@@ -277,6 +277,8 @@ architecture Behavioural of gs4510 is
   -- Are we doing a delayed register operation?
   signal do_register_op : std_logic := '0';
 
+  signal read_data_copy : unsigned(7 downto 0);
+  
   type instruction_property is array(0 to 255) of std_logic;
   signal op_is_single_cycle : instruction_property := (
     16#03# => '1',
@@ -827,23 +829,36 @@ downto 8) = x"D3F" then
     end if;
   end read_address;
 
-  -- purpose: obtain the byte of memory that has been read
   impure function read_data
     return unsigned is
   begin  -- read_data
+    slowram_ce <= '1'; -- Release after reading so that refresh can occur
+    slowram_data <= (others => 'Z');  -- tristate data lines as well
+    if accessing_shadow='1' then
+      report "reading from shadow RAM" severity note;
+      return shadow_rdata;
+    else
+      return read_data_copy;
+    end if;
+  end read_data;
+
+  -- purpose: obtain the byte of memory that has been read
+  impure function read_data_complex
+    return unsigned is
+  begin  -- read_data
     -- CPU hosted IO registers
-    if the_read_address = x"FFC00A0" then
-      return slowram_waitstates;
-    elsif (the_read_address = x"FFD3703") or (the_read_address = x"FFD1703") then
+--    if the_read_address = x"FFC00A0" then
+--      return slowram_waitstates;
+    if (the_read_address = x"FFD3703") or (the_read_address = x"FFD1703") then
       return reg_dmagic_status;
-    elsif (the_read_address = x"FFD370B") then
-      return reg_dmagic_addr(7 downto 0);
-    elsif (the_read_address = x"FFD370C") then
-      return reg_dmagic_addr(15 downto 8);
-    elsif (the_read_address = x"FFD370D") then
-      return reg_dmagic_addr(23 downto 16);
-    elsif (the_read_address = x"FFD370E") then
-      return x"0" & reg_dmagic_addr(27 downto 24);
+--    elsif (the_read_address = x"FFD370B") then
+--      return reg_dmagic_addr(7 downto 0);
+--    elsif (the_read_address = x"FFD370C") then
+--      return reg_dmagic_addr(15 downto 8);
+--    elsif (the_read_address = x"FFD370D") then
+--      return reg_dmagic_addr(23 downto 16);
+--    elsif (the_read_address = x"FFD370E") then
+--      return x"0" & reg_dmagic_addr(27 downto 24);
     elsif (the_read_address = x"FFD37FE") or (the_read_address = x"FFD17FE") then
       return shadow_bank;
     end if;
@@ -873,8 +888,6 @@ downto 8) = x"D3F" then
       return unsigned(fastio_rdata);
     elsif accessing_slowram='1' then
       report "reading slow RAM data. Word is $" & to_hstring(slowram_data) severity note;
-      slowram_ce <= '1'; -- Release after reading so that refresh can occur
-      slowram_data <= (others => 'Z');  -- tristate data lines as well
       case slowram_lohi is
         when '0' => return unsigned(slowram_data(7 downto 0));
         when '1' => return unsigned(slowram_data(15 downto 8));
@@ -884,7 +897,7 @@ downto 8) = x"D3F" then
       report "accessing unmapped memory" severity note;
       return x"A0";                     -- make unmmapped memory obvious
     end if;
-  end read_data; 
+  end read_data_complex; 
 
   procedure write_long_byte(
     real_long_address       : in unsigned(27 downto 0);
@@ -1300,6 +1313,10 @@ downto 8) = x"D3F" then
     -- BEGINNING OF MAIN PROCESS FOR CPU
     if rising_edge(clock) then
 
+      -- Copy read memory location to simplify reading from memory.
+      -- Penalty is +1 wait state for memory other than shadowram.
+      read_data_copy <= read_data_complex;
+      
       -- By default we are doing nothing new.
       pc_inc := '0';
 
@@ -1538,7 +1555,9 @@ downto 8) = x"D3F" then
               -- InstructionDecode).
               do_register_op <= op_is_single_cycle(to_integer(memory_read_value));
             else
-              state <= Cycle2;
+              if op_is_single_cycle(to_integer(memory_read_value)) = '0' then
+                state <= Cycle2;
+              end if;
             end if;
           when Cycle2 =>
             -- Show serial monitor what we are doing.
