@@ -97,14 +97,17 @@ architecture behavioural of uart_monitor is
     "Type ? for help." & crlf;
   signal banner_position : integer range 0 to 511 := 1;
   constant helpMessage : String :=
-    "? or h[elp]            - Display this help" & crlf &
-    "f<low> <high> <byte>   - Fill memory from <low> to <high> with value <byte>" &    crlf &
-    "g<address>             - Set PC to <address> and resume execution" & crlf &
-    "m<address>             - Display contents of memory" & crlf &
-    "r                      - Print processor state." & crlf &
-    "s<address> <value> ... - Set memory." & crlf &
-    "t<0|1>                 - Enable/disable tracing." & crlf &
-    "t                      - Step one instruction if in trace mode." & crlf;
+    "f<low> <high> <byte>   - Fill memory" &    crlf &
+    "g<address>             - Set PC" & crlf &
+    "m<address>             - Dump memory (28bit addresses)" & crlf &
+    "d<address>             - Dump memory (CPU context)" & crlf &
+    "r                      - Print registers" & crlf &
+    "s<address> <value> ... - Set memory (28bit addresses)" & crlf &
+    "S<address> <value> ... - Set memory (CPU memory context)" & crlf &
+    "b[<addr>]              - Set or clear CPU breakpoint" & crlf &
+    "t<0|1>                 - Enable/disable tracing" & crlf &
+    "tc                     - Traced execution until keypress" & crlf &
+    "t|BLANK LINE           - Step one cpu cycle if in trace mode" & crlf;
 
   constant errorMessage : string := crlf & "?SYNTAX  ERROR ";
   constant timeoutMessage : string := crlf & "?CPU NOT READY  ERROR" & crlf;
@@ -135,6 +138,7 @@ architecture behavioural of uart_monitor is
                          SetMemory1,SetMemory2,SetMemory3,SetMemory4,SetMemory5,
                          SetMemory6,SetMemory7,SetMemory8,
                          LoadMemory1,LoadMemory2,LoadMemory3,LoadMemory4,
+                         ShowMemoryCPU1,
                          ShowMemory1,ShowMemory2,ShowMemory3,ShowMemory4,
                          ShowMemory5,ShowMemory6,ShowMemory7,ShowMemory8,
                          ShowMemory9,
@@ -684,14 +688,29 @@ begin
                   report "trying to parse hex" severity note;
                   parse_hex(CPUBreak1);
                 end if;
-              elsif cmdbuffer(1) = 'd' or cmdbuffer(1) = 'D' then
-                break_enabled <= '0';
-                state <= NextCommand;
               elsif cmdbuffer(1) = 'l' or cmdbuffer(1) = 'L' then
                 report "load memory command" severity note;
                 parse_position <= 2;
                 report "trying to parse hex" severity note;
                 parse_hex(LoadMemory1);
+              elsif cmdbuffer(1) = 'd' or cmdbuffer(1) = 'D' then
+                report "read memory (CPU context) command" severity note;
+                parse_position <= 2;
+                report "trying to parse hex" severity note;
+                if cmdlen=2 then
+                  -- continue dumping from where we left off
+                  byte_number <= 0;
+                  state <= ShowMemory2;
+                else
+                  parse_hex(ShowMemoryCPU1);
+                end if;
+                if cmdbuffer(1)='d' then
+                  -- d prints one line
+                  line_number <= 31;
+                else
+                  -- D prints 32 lines
+                  line_number <= 0;
+                end if;                
               elsif cmdbuffer(1) = 'm' or cmdbuffer(1) = 'M' then
                 report "read memory command" severity note;
                 parse_position <= 2;
@@ -779,8 +798,13 @@ begin
               rx_acknowledge <= '0';
               state <= NextCommand;
             end if;
-          when SetMemory1 => target_address <= hex_value(27 downto 0);
-                             skip_space(SetMemory2);
+          when SetMemory1 =>
+            if cmdbuffer(1) = 'S' then
+              target_address <= x"777"&hex_value(15 downto 0);
+            else
+              target_address <= hex_value(27 downto 0);
+            end if;
+            skip_space(SetMemory2);
           when SetMemory2 => parse_hex(SetMemory3);
           when SetMemory3 =>
             target_value <= hex_value(7 downto 0);
@@ -822,6 +846,11 @@ begin
             else
               state <= success_state;
             end if;
+          when ShowMemoryCPU1 =>
+            -- Read memory from CPU's perspective
+            target_address <= x"777"&hex_value(15 downto 0);
+            byte_number <= 0;
+            end_of_command(ShowMemory2);                          
           when ShowMemory1 =>
             target_address <= hex_value(27 downto 0);
             byte_number <= 0;
