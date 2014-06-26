@@ -1263,6 +1263,7 @@ downto 8) = x"D3F" then
   variable pc_inc : std_logic;
 
   variable inc_in_a : std_logic;
+  variable inc_in_b : std_logic;
   variable inc_in_x : std_logic;
   variable inc_in_y : std_logic;
   variable inc_in_z : std_logic;
@@ -1270,6 +1271,7 @@ downto 8) = x"D3F" then
   variable inc_in_sph : std_logic;
 
   variable inc_out_a : std_logic;
+  variable inc_out_b : std_logic;
   variable inc_out_x : std_logic;
   variable inc_out_y : std_logic;
   variable inc_out_z : std_logic;
@@ -1296,8 +1298,10 @@ downto 8) = x"D3F" then
       -- By default we are doing nothing new.
       pc_inc := '0';
 
-      inc_in_a := '0'; inc_in_x := '0'; inc_in_y := '0'; inc_in_z := '0'; inc_in_spl := '0'; inc_in_sph := '0';
-      inc_out_a := '0'; inc_out_x := '0'; inc_out_y := '0'; inc_out_z := '0'; inc_out_spl := '0'; inc_out_sph := '0';
+      inc_in_a := '0'; inc_in_b := '0';
+      inc_in_x := '0'; inc_in_y := '0'; inc_in_z := '0'; inc_in_spl := '0'; inc_in_sph := '0';
+      inc_out_a := '0'; inc_out_b := '0';
+      inc_out_x := '0'; inc_out_y := '0'; inc_out_z := '0'; inc_out_spl := '0'; inc_out_sph := '0';
       inc_inc := '0'; inc_dec := '0'; inc_pass := '0'; inc_set_nz := '0';
       inc_shift_left := '0'; inc_shift_right := '0'; inc_0in := '0'; inc_carry_in := '0';
       
@@ -1472,7 +1476,7 @@ downto 8) = x"D3F" then
               when x"18" => state <= InstructionDecode; flag_c <= '0';  -- CLC
               when x"1A" => state <= InstructionDecode; inc_in_a := '1'; inc_out_a := '1'; inc_set_nz := '1'; inc_inc := '1'; -- INC A
               when x"1B" => state <= InstructionDecode; inc_in_z := '1'; inc_out_z := '1'; inc_set_nz := '1'; inc_inc := '1'; -- INZ
-              when x"2B" => state <= InstructionDecode; inc_in_y := '1'; inc_out_sph := '1'; inc_set_nz := '1'; inc_pass := '1'; -- TYS
+              when x"2B" => state <= InstructionDecode; inc_in_y := '1'; inc_out_sph := '1'; inc_pass := '1'; -- TYS
               when x"38" => state <= InstructionDecode; flag_c <= '1';  -- SEC
               when x"3A" => state <= InstructionDecode; inc_in_a := '1'; inc_out_a := '1'; inc_set_nz := '1'; inc_dec := '1'; -- DEC A
               when x"3B" => state <= InstructionDecode; inc_in_z := '1'; inc_out_z := '1'; inc_set_nz := '1'; inc_dec := '1'; -- DEZ
@@ -1485,7 +1489,26 @@ downto 8) = x"D3F" then
                             inc_in_a := '1'; inc_out_a := '1'; inc_set_nz := '1';
                             inc_shift_right := '1'; inc_0in := '1'; -- LSR A
               when x"4B" => state <= InstructionDecode; inc_in_a := '1'; inc_out_z := '1'; inc_set_nz := '1'; inc_pass := '1'; -- TAZ
-                            
+              when x"5B" => state <= InstructionDecode; inc_in_a := '1'; inc_out_b := '1'; inc_pass := '1'; -- TAB
+              when x"6A" => state <= InstructionDecode;
+                            inc_in_a := '1'; inc_out_a := '1'; inc_set_nz := '1';
+                            inc_shift_right := '1'; inc_carry_in := '1'; -- ROR A
+              when x"6B" => state <= InstructionDecode; inc_in_z := '1'; inc_out_a := '1'; inc_set_nz := '1'; inc_pass := '1'; -- TZA
+              when x"78" => state <= InstructionDecode; flag_i <= '1';  -- SEI
+              when x"7B" => state <= InstructionDecode; inc_in_b := '1'; inc_out_a := '1'; inc_set_nz := '1'; inc_pass := '1'; -- TBA
+              when x"88" => state <= InstructionDecode; inc_in_y := '1'; inc_out_y := '1'; inc_set_nz := '1'; inc_dec := '1'; -- DEY
+              when x"8A" => state <= InstructionDecode; inc_in_x := '1'; inc_out_a := '1'; inc_set_nz := '1'; inc_pass := '1'; -- TXA
+              when x"98" => state <= InstructionDecode; inc_in_y := '1'; inc_out_a := '1'; inc_set_nz := '1'; inc_pass := '1'; -- TYA
+              when x"9A" => state <= InstructionDecode; inc_in_x := '1'; inc_out_spl := '1'; inc_pass := '1'; -- TXS
+              when x"A8" => state <= InstructionDecode; inc_in_a := '1'; inc_out_y := '1'; inc_set_nz := '1'; inc_pass := '1'; -- TAY
+              when x"AA" => state <= InstructionDecode; inc_in_a := '1'; inc_out_x := '1'; inc_set_nz := '1'; inc_pass := '1'; -- TAX
+              when x"B8" => state <= InstructionDecode; flag_v <= '0';  -- CLV
+              when x"BA" => state <= InstructionDecode; inc_in_spl := '1'; inc_out_x := '1'; inc_set_nz := '1'; inc_pass := '1'; -- TSX
+              when x"CA" => state <= InstructionDecode; inc_in_x := '1'; inc_out_x := '1'; inc_set_nz := '1'; inc_dec := '1'; -- DEX
+              when x"D8" => state <= InstructionDecode; flag_d <= '0';  -- CLD
+              when x"E8" => state <= InstructionDecode; inc_in_x := '1'; inc_out_x := '1'; inc_set_nz := '1'; inc_inc := '1'; -- INX
+              when x"EA" => state <= InstructionDecode; map_interrupt_inhibit <= '0'; -- EOM
+              when x"F8" => state <= InstructionDecode; flag_d <= '1';  -- CLD                            
               when others => null;
             end case;
           when Cycle2 =>
@@ -1544,6 +1567,7 @@ downto 8) = x"D3F" then
     ---------------------------------------------------------------------------
     ---Read-from-input-register------------------------------------------------
     if inc_in_a='1' then inc_temp := reg_a; end if;
+    if inc_in_b='1' then inc_temp := reg_b; end if;
     if inc_in_x='1' then inc_temp := reg_x; end if;
     if inc_in_y='1' then inc_temp := reg_y; end if;
     if inc_in_z='1' then inc_temp := reg_z; end if;
@@ -1568,6 +1592,7 @@ downto 8) = x"D3F" then
     if inc_set_nz='1' then set_nz(inc_temp); end if;
     ---Commit-result-to-registers----------------------------------------------
     if inc_out_a='1' then reg_a <= inc_temp; end if;
+    if inc_out_b='1' then reg_b <= inc_temp; end if;
     if inc_out_x='1' then reg_x <= inc_temp; end if;
     if inc_out_y='1' then reg_y <= inc_temp; end if;
     if inc_out_z='1' then reg_z <= inc_temp; end if;
