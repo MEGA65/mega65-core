@@ -97,17 +97,17 @@ architecture behavioural of uart_monitor is
     "Type ? for help." & crlf;
   signal banner_position : integer range 0 to 511 := 1;
   constant helpMessage : String :=
-    "f<low> <high> <byte>   - Fill memory" &    crlf &
-    "g<address>             - Set PC" & crlf &
-    "m<address>             - Dump memory (28bit addresses)" & crlf &
-    "d<address>             - Dump memory (CPU context)" & crlf &
-    "r                      - Print registers" & crlf &
-    "s<address> <value> ... - Set memory (28bit addresses)" & crlf &
-    "S<address> <value> ... - Set memory (CPU memory context)" & crlf &
-    "b[<addr>]              - Set or clear CPU breakpoint" & crlf &
-    "t<0|1>                 - Enable/disable tracing" & crlf &
-    "tc                     - Traced execution until keypress" & crlf &
-    "t|BLANK LINE           - Step one cpu cycle if in trace mode" & crlf;
+    "f<low> <high> <byte> - Fill memory" &    crlf &
+    "g<addr> - Set PC" & crlf &
+    "m<addr> - Dump memory (28bit addresses)" & crlf &
+    "d<addr> - Dump memory (CPU context)" & crlf &
+    "r - Print registers" & crlf &
+    "s<addr> <value> ... - Set memory (28bit addresses)" & crlf &
+    "S<addr> <value> ... - Set memory (CPU memory context)" & crlf &
+    "b[<addr>] - Set or clear CPU breakpoint" & crlf &
+    "t<0|1> - Enable/disable tracing" & crlf &
+    "tc - Traced execution until keypress" & crlf &
+    "t|BLANK LINE - Step one cpu cycle if in trace mode" & crlf;
 
   constant errorMessage : string := crlf & "?SYNTAX  ERROR ";
   constant timeoutMessage : string := crlf & "?CPU NOT READY  ERROR" & crlf;
@@ -580,6 +580,7 @@ begin
               state <= NextCommand;
             end if;
           when PrintRequestTimeoutError =>
+            monitor_mem_attention_request <= '0';
             if tx_ready='1' then
               tx_data <= to_std_logic_vector(requestTimeoutMessage(banner_position));
               tx_trigger <= '1';
@@ -590,6 +591,7 @@ begin
               end if;
             end if;
           when PrintReplyTimeoutError =>
+            monitor_mem_attention_request <= '0';
             if tx_ready='1' then
               tx_data <= to_std_logic_vector(replyTimeoutMessage(banner_position));
               tx_trigger <= '1';
