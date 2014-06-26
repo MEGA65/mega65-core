@@ -215,9 +215,9 @@ architecture Behavioural of gs4510 is
   signal vector : unsigned(3 downto 0);
   
   -- Information about instruction currently being executed
-  signal opcode : unsigned(7 downto 0);
-  signal arg1 : unsigned(7 downto 0);
-  signal arg2 : unsigned(7 downto 0);
+  signal reg_opcode : unsigned(7 downto 0);
+  signal reg_arg1 : unsigned(7 downto 0);
+  signal reg_arg2 : unsigned(7 downto 0);
 
   signal bbs_or_bbc : std_logic;
   signal bbs_bit : unsigned(2 downto 0);
@@ -228,14 +228,8 @@ architecture Behavioural of gs4510 is
   signal reg_pc_jsr : unsigned(15 downto 0);
   -- Temporary address register (used for indirect modes)
   signal reg_addr : unsigned(15 downto 0);
-  -- Temporary instruction register (used for many modes).
-  -- (includes CPU personality state, partly so that RESET and interrupts can
-  -- be mapped to instructions).
-  signal reg_opcode : unsigned(7 downto 0);
-  -- CPU personality: 00 = 4510, 01 = 6502/6510, 1x = reserved
-  signal reg_personality : unsigned(1 downto 0) := "00";
   -- Temporary value holder (used for RMW instructions)
-  signal reg_value : unsigned(7 downto 0);
+  signal reg_t : unsigned(7 downto 0);
 
   signal instruction_phase : unsigned(3 downto 0);
   
@@ -327,22 +321,76 @@ architecture Behavioural of gs4510 is
                                         -- interrupt/reset
     InstructionFetch,
     InstructionDecode,
-    Cycle2,
-    Operand1Fetch,
-    Operand2Fetch,
-    ZPDereference,
-    AbsDereference,
-    MemoryRead,
-    MemoryDummyWrite,
-    MemoryWrite,
-    Push1,
-    Push2,
-    Pop1,
-    Pop2,
-    Jump
+    Cycle2
     );
   signal state : processor_state := ResetLow;
 
+  constant mcStoreArg1 : integer := 0;
+  constant mcReadFromPC : integer := 1;
+  constant mcReadZPfast : integer := 2;
+  constant mcReadZP : integer := 3;
+  constant mcReadAbs : integer := 4;
+  constant mcIncPC : integer := 5;
+  constant mcIncInA : integer := 6;
+  constant mcIncInX : integer := 7;
+  constant mcIncInY : integer := 8;
+  constant mcIncInZ : integer := 9;
+  constant mcIncInSPH : integer := 10;
+  constant mcIncInSPL : integer := 11;
+  constant mcIncOutA : integer := 12;
+  constant mcIncOutX : integer := 13;
+  constant mcIncOutY : integer := 14;
+  constant mcIncOutZ : integer := 15;
+  constant mcIncOutT : integer := 16;
+  constant mcIncOutSPH : integer := 17;
+  constant mcIncOutSPL : integer := 18;
+  constant mcIncInc : integer := 19;
+  constant mcIncDec : integer := 20;
+  constant mcIncShiftLeft : integer := 21;
+  constant mcIncShiftRight : integer := 22;
+  constant mcIncZeroIn : integer := 23;
+  constant mcIncCarryIn : integer := 24;
+  constant mcIncSetNZ : integer := 25;
+  constant mcMap : integer := 26;
+  constant mcInstructionFetch : integer := 27;
+  constant mcInstructionDecode : integer := 28;
+  constant mcSetFlagI : integer := 29;
+  constant mcWriteP : integer := 30;
+  constant mcWritePCL : integer := 31;
+  constant mcWritePCH : integer := 32;
+  constant mcWriteABS : integer := 33;
+  constant mcWriteZP : integer := 34;
+  constant mcWriteStack : integer := 35;
+  constant mcWriteMem : integer := 36;
+  constant mcDecSP : integer := 37;
+  constant mcIncSP : integer := 38;
+  constant mcBreakFlag : integer := 39;  
+  constant mcVectorIRQ : integer := 40;
+  constant mcVectorNMI : integer := 41;
+  constant mcLoadVector : integer := 42;
+  constant mcIncInT : integer := 43;
+
+  
+  type microcode_instruction is array(0 to 63) of std_logic;
+  type microcode_array is array (0 to 4095) of microcode_instruction;
+  constant microcode_lut : microcode_array := (
+    -- BRK $00 : Push PCL, PCH, P(with B set). Set I. Jump to IRQ vector
+    16#00#*8+0 => (mcIncPc => '1', mcSetFlagI => '1',
+                   mcWriteMem => '1', mcWritePCL => '1',
+                   mcWriteStack => '1', mcDecSP => '1',
+                   others => '0'),
+    16#00#*8+1 => (mcWriteMem => '1', mcWritePCH => '1',
+                   mcWriteStack => '1', mcDecSP => '1',
+                   others => '0'),
+    16#00#*8+2 => (mcWriteMem => '1', mcWriteP => '1', mcBreakFlag => '1',
+                   mcWriteStack => '1', mcDecSP => '1',                
+                   mcVectorIRQ => '1', mcLoadVector => '1',
+                   others => '0'),
+    others => ( mcInstructionFetch => '1', others => '0'));
+
+  signal reg_microcode : microcode_instruction;
+  signal reg_microcode_index : unsigned(3 downto 0);
+  
   type addressingmode is (
     M_impl,M_InnX,M_nn,M_immnn,M_A,M_nnnn,M_nnrr,
     M_rr,M_InnY,M_InnZ,M_rrrr,M_nnX,M_nnnnY,M_nnnnX,M_Innnn,
@@ -439,7 +487,10 @@ architecture Behavioural of gs4510 is
     M_impl,  M_immnn, M_impl,  M_nnnn,  M_nnnn,  M_nnnn,  M_nnnn,  M_nnrr,  
     M_rr,    M_InnY,  M_InnZ,  M_rrrr,  M_immnnnn,M_nnX,   M_nnX,   M_nn,    
     M_impl,  M_nnnnY, M_impl,  M_impl,  M_nnnn,  M_nnnnX, M_nnnnX, M_nnrr);
-  
+
+  signal reg_addressingmode : addressingmode;
+  signal reg_instruction : instruction;
+
 begin
 
   shadowram0 : shadowram port map (
@@ -1282,6 +1333,7 @@ downto 8) = x"D3F" then
 
   variable inc_in_a : std_logic;
   variable inc_in_b : std_logic;
+  variable inc_in_t : std_logic;
   variable inc_in_x : std_logic;
   variable inc_in_y : std_logic;
   variable inc_in_z : std_logic;
@@ -1290,6 +1342,7 @@ downto 8) = x"D3F" then
 
   variable inc_out_a : std_logic;
   variable inc_out_b : std_logic;
+  variable inc_out_t : std_logic;
   variable inc_out_x : std_logic;
   variable inc_out_y : std_logic;
   variable inc_out_z : std_logic;
@@ -1559,16 +1612,145 @@ downto 8) = x"D3F" then
                 state <= Cycle2;
               end if;
             end if;
+            reg_addressingmode <= mode_lut(to_integer(memory_read_value));
+            reg_instruction <= instruction_lut(to_integer(memory_read_value));
+            -- Up to 8 decode stages per instruction
+            reg_microcode <= microcode_lut(to_integer(memory_read_value&"0000"));
+            reg_microcode_index <= "0001";
           when Cycle2 =>
             -- Show serial monitor what we are doing.
-            monitor_arg1 <= std_logic_vector(memory_read_value);
-            monitor_ibytes(1) <= '1';
+            if reg_microcode(mcStoreArg1)='1' then
+              monitor_arg1 <= std_logic_vector(memory_read_value);
+              reg_arg1 <= memory_read_value;
+              monitor_ibytes(1) <= '1';
+            end if;
 
-            -- Normal instruction
+            -- Memory read
+            if reg_microcode(mcReadFromPC)='1' then
+              memory_access_read := '1';
+              memory_access_address := x"000"&reg_pc;
+              memory_access_resolve_address := '1';
+            end if;
+            if reg_microcode(mcReadZPfast)='1' then
+              memory_access_read := '1';
+              memory_access_address := x"000"&reg_b&memory_read_value;
+              memory_access_resolve_address := '1';              
+            end if;
+            if reg_microcode(mcReadZP)='1' then
+              memory_access_read := '1';
+              memory_access_address := x"000"&reg_b&reg_arg1;
+              memory_access_resolve_address := '1';              
+            end if;
+            if reg_microcode(mcReadAbs)='1' then
+              memory_access_read := '1';
+              memory_access_address := x"000"&reg_arg2&reg_arg1;
+              memory_access_resolve_address := '1';              
+            end if;
+            pc_inc := reg_microcode(mcIncPC);
+
+            -- Memory write
+            memory_access_write := reg_microcode(mcWriteMem);
+            if reg_microcode(mcWriteStack)='1' then
+              memory_access_address := x"000" & reg_sph & reg_sp;
+              memory_access_resolve_address := '1';
+            end if;
+            if reg_microcode(mcWriteZP)='1' then
+              memory_access_address := x"000" & reg_b & reg_arg1;
+              memory_access_resolve_address := '1';
+            end if;
+            if reg_microcode(mcWriteAbs)='1' then
+              memory_access_address := x"000" & reg_arg2 & reg_arg1;
+              memory_access_resolve_address := '1';
+            end if;
+            if reg_microcode(mcWritePCL)='1' then
+              memory_access_wdata := reg_pc(7 downto 0);
+            end if;
+            if reg_microcode(mcWritePCH)='1' then
+              memory_access_wdata := reg_pc(7 downto 0);
+            end if;
+            if reg_microcode(mcWriteP)='1' then
+              memory_access_wdata(7) := flag_n;
+              memory_access_wdata(6) := flag_v;
+              memory_access_wdata(5) := flag_e;
+              memory_access_wdata(4) := reg_microcode(mcBreakFlag);
+              memory_access_wdata(3) := flag_d;
+              memory_access_wdata(2) := flag_i;
+              memory_access_wdata(1) := flag_z;
+              memory_access_wdata(0) := flag_c;
+            end if;
+
+            -- Stack pointer things
+            if reg_microcode(mcDecSP) = '1' then
+              reg_sp <= reg_sp - 1;
+              if flag_e='0' and reg_sp=x"00" then
+                reg_sph <= reg_sph - 1;
+              else
+              end if;
+            end if;
+            if reg_microcode(mcIncSP) = '1' then
+              reg_sp <= reg_sp + 1;
+              if flag_e='0' and reg_sp=x"ff" then
+                reg_sph <= reg_sph + 1;
+              end if;
+            end if;
+
+            if reg_microcode(mcVectorIRQ)='1' then
+              vector <= x"e";
+            end if;
+            if reg_microcode(mcVectorNMI)='1' then
+              vector <= x"a";
+            end if;
+            if reg_microcode(mcLoadVector)='1' then
+              state <= VectorRead1;
+            end if;
+            
+            -- Incrementer ALU things
+            inc_in_a := reg_microcode(mcIncInA);
+            inc_in_t := reg_microcode(mcIncInT);
+            inc_in_x := reg_microcode(mcIncInX);
+            inc_in_y := reg_microcode(mcIncInY);
+            inc_in_z := reg_microcode(mcIncInZ);
+            inc_in_spl := reg_microcode(mcIncInSPH);
+            inc_in_sph := reg_microcode(mcIncInSPL);
+            inc_out_a := reg_microcode(mcIncOutA);
+            inc_out_x := reg_microcode(mcIncOutX);
+            inc_out_y := reg_microcode(mcIncOutY);
+            inc_out_z := reg_microcode(mcIncOutZ);
+            inc_out_t := reg_microcode(mcIncOutT);
+            inc_out_spl := reg_microcode(mcIncOutSPH);
+            inc_out_sph := reg_microcode(mcIncOutSPL);
+            inc_inc := reg_microcode(mcIncInc);
+            inc_dec := reg_microcode(mcIncDec);
+            inc_shift_left := reg_microcode(mcIncShiftLeft);
+            inc_shift_right := reg_microcode(mcIncShiftLeft);
+            inc_0in := reg_microcode(mcIncZeroIn);
+            inc_carry_in := reg_microcode(mcIncCarryIn);
+            inc_set_nz := reg_microcode(mcIncSetNZ);
+
+            -- Special things
+            if reg_microcode(mcMap)='1' then
+              c65_map_instruction;
+            end if;
+            if reg_microcode(mcSetFlagI)='1' then
+              flag_i <= '1';
+            end if;
+
+            -- Continue with this instruction, or advance to the next?
+            if reg_microcode(mcInstructionFetch)='1' then
+              -- Normal instruction
+              state <= InstructionFetch;
+            end if;
+            if reg_microcode(mcInstructionDecode)='1' then
+              -- Fast dispatch to next instruction.
+              -- XXX Blocks interrupts from being checked.
+              state  <= InstructionDecode;
+            end if;
+
+            -- Request next microcode instruction
+            reg_microcode <= microcode_lut(to_integer(reg_opcode&reg_microcode_index));
+            reg_microcode_index <= reg_microcode_index + 1;
+          when others =>
             state <= InstructionFetch;
-          when Operand1Fetch =>
-            state <= InstructionFetch;
-          when others => null;
         end case;
       end if;
 
@@ -1616,6 +1798,7 @@ downto 8) = x"D3F" then
       ---Read-from-input-register------------------------------------------------
       if inc_in_a='1' then inc_temp := reg_a; end if;
       if inc_in_b='1' then inc_temp := reg_b; end if;
+      if inc_in_t='1' then inc_temp := reg_t; end if;
       if inc_in_x='1' then inc_temp := reg_x; end if;
       if inc_in_y='1' then inc_temp := reg_y; end if;
       if inc_in_z='1' then inc_temp := reg_z; end if;
@@ -1641,6 +1824,7 @@ downto 8) = x"D3F" then
       ---Commit-result-to-registers----------------------------------------------
       if inc_out_a='1' then reg_a <= inc_temp; end if;
       if inc_out_b='1' then reg_b <= inc_temp; end if;
+      if inc_out_t='1' then reg_t <= inc_temp; end if;
       if inc_out_x='1' then reg_x <= inc_temp; end if;
       if inc_out_y='1' then reg_y <= inc_temp; end if;
       if inc_out_z='1' then reg_z <= inc_temp; end if;
