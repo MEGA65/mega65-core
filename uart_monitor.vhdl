@@ -35,6 +35,7 @@ entity uart_monitor is
     fastio_write : in std_logic;
     
     monitor_proceed : in std_logic;
+    monitor_waitstates : in unsigned(7 downto 0);
     monitor_request_reflected : in std_logic;
     monitor_pc : in std_logic_vector(15 downto 0);
     monitor_cpu_state : in unsigned(7 downto 0);
@@ -177,7 +178,7 @@ architecture behavioural of uart_monitor is
                          ShowRegisters29,ShowRegisters30,ShowRegisters31,ShowRegisters32,
                          ShowP1,ShowP2,ShowP3,ShowP4,ShowP5,ShowP6,ShowP7,ShowP8,
                          ShowP9,ShowP10,ShowP11,ShowP12,ShowP13a,
-                         ShowP13,ShowP14,ShowP15,ShowP16,
+                         ShowP13,ShowP14,ShowP15,ShowP16,ShowP17,
                          TraceStep,CPUBreak1,WaitOneCycle
                          );
 
@@ -1056,14 +1057,16 @@ begin
             try_output_char(' ',ShowP16);
           when ShowP16 =>
             if fastio_write='1' then
-              try_output_char('W',NextCommand);
+              try_output_char('W',ShowP17);
             else
               if fastio_read='1' then
-                try_output_char('R',NextCommand);
+                try_output_char('R',ShowP17);
               else
-                try_output_char('-',NextCommand);
+                try_output_char('-',ShowP17);
               end if;
             end if;
+          when ShowP17 =>
+            print_hex_byte(unsigned(monitor_waitstates),NextCommand);
           when EraseCharacter => try_output_char(' ',EraseCharacter1);
           when EraseCharacter1 => try_output_char(bs,AcceptingInput);
           when SyntaxError =>

@@ -43,6 +43,7 @@ entity gs4510 is
     monitor_state : out unsigned(7 downto 0);
     monitor_watch : in std_logic_vector(27 downto 0);
     monitor_watch_match : out std_logic;
+    monitor_waitstates : out unsigned(7 downto 0);
     monitor_proceed : out std_logic;
     monitor_request_reflected : out std_logic;
     monitor_opcode : out std_logic_vector(7 downto 0);
@@ -1459,6 +1460,8 @@ begin
       -- Real CPU work begins here.
       -------------------------------------------------------------------------
 
+      monitor_waitstates <= wait_states;
+      
       -- report "reset = " & std_logic'image(reset) severity note;
       if reset='0' then
         state <= ResetLow;
