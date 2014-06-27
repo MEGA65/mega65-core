@@ -1520,21 +1520,26 @@ begin
               memory_access_wdata := monitor_mem_wdata;
             -- Don't allow a read to occur while a write is completing.
             elsif monitor_mem_read='1' and proceed='0' then
-              memory_access_address := unsigned(monitor_mem_address);
-              memory_access_read := '1';
-              -- Read from specified long address
-              monitor_mem_reading <= '1';
-              mem_reading <= '1';
-            end if;
-            -- and optionally set PC
-            if monitor_mem_setpc='1' and proceed='0' then
-              -- Abort any instruction currently being executed.
-              -- Then set PC from InstructionWait state to make sure that we
-              -- don't write it here, only for it to get stomped.
-              monitor_mem_attention_granted <= '1';
-              reg_pc <= unsigned(monitor_mem_address(15 downto 0));
-              proceed <= '0';
-              state <= InstructionWait;
+              -- and optionally set PC
+              mem_reading_pcl <= '0';
+              mem_reading_pch <= '0';
+              if monitor_mem_setpc='1' then
+                -- Abort any instruction currently being executed.
+                -- Then set PC from InstructionWait state to make sure that we
+                -- don't write it here, only for it to get stomped.
+                monitor_mem_attention_granted <= '1';
+                reg_pc <= unsigned(monitor_mem_address(15 downto 0));
+                proceed <= '0';
+                mem_reading <= '0';
+                state <= InstructionWait;
+              else
+                -- otherwise just read from memory
+                memory_access_address := unsigned(monitor_mem_address);
+                memory_access_read := '1';
+                -- Read from specified long address
+                monitor_mem_reading <= '1';
+                mem_reading <= '1';
+              end if;
             end if;
           else
             monitor_mem_attention_granted <= '0';
