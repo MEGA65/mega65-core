@@ -1750,7 +1750,7 @@ begin
                     (reg_instruction=I_BPL and flag_n='0') then
                     -- Branch will be taken
                     temp_addr := reg_pc +
-                              to_integer(memory_read_value(7)&memory_read_value(7)&memory_read_value(7)&memory_read_value(7)&
+                              1+to_integer(memory_read_value(7)&memory_read_value(7)&memory_read_value(7)&memory_read_value(7)&
                                          memory_read_value(7)&memory_read_value(7)&memory_read_value(7)&memory_read_value(7)&
                                          memory_read_value);
                     memory_access_read := '1';
