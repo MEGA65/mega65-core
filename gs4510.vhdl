@@ -553,8 +553,8 @@ begin
       reg_offset_low <= x"000";
       reg_offset_high <= x"000";
 
-      -- On boot up, don't shadow chipram.
-      -- Instead shadow unmapped address space at $C0000 (768KB)
+      -- Map shadow RAM to unmapped address space at $C0000 (768KB)
+      -- (as well as always-on shadowing of $00000-$1FFFF)
       shadow_bank <= x"0C";
       
       -- Default CPU flags
@@ -1576,7 +1576,7 @@ begin
             when ResetLow =>
               state <= ResetReady;
             when ResetReady =>
-              vector <= x"e";
+              vector <= x"c";
               state <= VectorRead1;
             when VectorRead1 =>
               mem_reading_pcl <= '1';
