@@ -404,6 +404,7 @@ architecture Behavioral of machine is
   signal seg_led_data : unsigned(31 downto 0);
 
   signal reset_out : std_logic;
+  signal power_on_reset : std_logic_vector(7 downto 0) := (others => '1');
   signal reset_combined : std_logic;
   
   signal io_irq : std_logic;
@@ -496,7 +497,9 @@ begin
     -- XXX Allow switch 0 to mask IRQs
     combinedirq <= ((irq and io_irq and vic_irq) or sw(0));
     combinednmi <= (nmi and io_nmi and restore_nmi) or sw(14);
-    reset_combined <= (btnCpuReset and reset_out) or sw(15);
+    reset_combined <= (btnCpuReset and reset_out and power_on_reset(0)) or sw(15);
+    power_on_reset(7) <= '0';
+    power_on_reset(6 downto 0) <= power_on_reset(7 downto 1);
 --    report "btnCpuReset = " & std_logic'image(btnCpuReset) & ", reset_out = " & std_logic'image(reset_out) & ", sw(15) = " & std_logic'image(sw(15)) severity note;
   end process;
   

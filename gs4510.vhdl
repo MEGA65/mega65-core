@@ -315,7 +315,8 @@ architecture Behavioural of gs4510 is
   
   type processor_state is (
     -- Reset and interrupts
-    ResetLow,Interrupt,VectorRead1,VectorRead2,
+    ResetLow,ResetReady,
+    Interrupt,VectorRead1,VectorRead2,
 
     -- DMAgic
     DMAgicTrigger,DMAgicReadList,DMAgicRead,DMAgicWrite,
@@ -1454,6 +1455,7 @@ downto 8) = x"D3F" then
       
       if reset='0' then
         state <= ResetLow;
+        reset_cpu_state;
       else
         -- Honour wait states on memory accesses
       -- Clear memory access lines unless we are in a memory wait state
@@ -1558,7 +1560,8 @@ downto 8) = x"D3F" then
         report "CPU state = " & processor_state'image(state) & ", PC=$" & to_hstring(reg_pc) severity note;
         case state is
           when ResetLow =>
-            reset_cpu_state;
+            state <= ResetReady;
+          when ResetReady =>
             vector <= x"e";
             state <= VectorRead1;
           when VectorRead1 =>
@@ -1573,6 +1576,7 @@ downto 8) = x"D3F" then
           when InstructionWait =>
             state <= InstructionFetch;
           when InstructionFetch =>
+            monitor_mem_attention_granted <= '0';
             memory_access_read := '1';
             memory_access_address := x"000"&reg_pc;
             memory_access_resolve_address := '1';
