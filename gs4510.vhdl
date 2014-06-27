@@ -521,62 +521,60 @@ begin
     data_o => reg_microcode);
   
   process(clock)
-
     procedure reset_cpu_state is
-  begin
-    -- Set microcode state for reset
-    -- This is a little bit fun because we need to basically make an opcode for
-    -- reset.  $FF in CPU personality 3 will do the trick.
+    begin
+      -- Set microcode state for reset
+      -- This is a little bit fun because we need to basically make an opcode for
+      -- reset.  $FF in CPU personality 3 will do the trick.
 
-    instruction_phase <= x"0";
-    reg_opcode <= (others => '1');
+      instruction_phase <= x"0";
+      reg_opcode <= (others => '1');
     
-    -- Default register values
-    reg_b <= x"00";
-    reg_a <= x"11";    
-    reg_x <= x"22";
-    reg_y <= x"33";
-    reg_z <= x"00";
-    reg_sp <= x"ff";
-    reg_sph <= x"01";
-    reg_pc <= x"8765";
+      -- Default register values
+      reg_b <= x"00";
+      reg_a <= x"11";    
+      reg_x <= x"22";
+      reg_y <= x"33";
+      reg_z <= x"00";
+      reg_sp <= x"ff";
+      reg_sph <= x"01";
+      reg_pc <= x"8765";
 
-    -- Clear CPU MMU registers
-    reg_mb_low <= x"00";
-    reg_mb_high <= x"00";
-    reg_map_low <= "0000";
-    reg_map_high <= "0000";
-    reg_offset_low <= x"000";
-    reg_offset_high <= x"000";
+      -- Clear CPU MMU registers
+      reg_mb_low <= x"00";
+      reg_mb_high <= x"00";
+      reg_map_low <= "0000";
+      reg_map_high <= "0000";
+      reg_offset_low <= x"000";
+      reg_offset_high <= x"000";
 
-    -- On boot up, don't shadow chipram.
-    -- Instead shadow unmapped address space at $C0000 (768KB)
-    shadow_bank <= x"0C";
+      -- On boot up, don't shadow chipram.
+      -- Instead shadow unmapped address space at $C0000 (768KB)
+      shadow_bank <= x"0C";
     
-    -- Default CPU flags
-    flag_c <= '0';
-    flag_d <= '0';
-    flag_i <= '1';                -- start with IRQ disabled
-    flag_z <= '0';
-    flag_n <= '0';
-    flag_v <= '0';
-    flag_e <= '1';
+      -- Default CPU flags
+      flag_c <= '0';
+      flag_d <= '0';
+      flag_i <= '1';                -- start with IRQ disabled
+      flag_z <= '0';
+      flag_n <= '0';
+      flag_v <= '0';
+      flag_e <= '1';
 
-    cpuport_ddr <= x"FF";
-    cpuport_value <= x"3F";
+      cpuport_ddr <= x"FF";
+      cpuport_value <= x"3F";
 
-    -- Stop memory accesses
-    colour_ram_cs <= '0';
-    shadow_write <= '0';   
-    fastio_read <= '0';
-    fastio_write <= '0';
-    fastram_we <= (others => '0');        
-    fastram_datain <= x"d0d1d2d3d4d5d6d7";    
-    slowram_we <= '1';
-    slowram_ce <= '1';
-    slowram_oe <= '1';
-
-  end procedure reset_cpu_state;
+      -- Stop memory accesses
+      colour_ram_cs <= '0';
+      shadow_write <= '0';   
+      fastio_read <= '0';
+      fastio_write <= '0';
+      fastram_we <= (others => '0');        
+      fastram_datain <= x"d0d1d2d3d4d5d6d7";    
+      slowram_we <= '1';
+      slowram_ce <= '1';
+      slowram_oe <= '1';      
+    end procedure reset_cpu_state;
 
   procedure check_for_interrupts is
   begin
@@ -1452,9 +1450,11 @@ downto 8) = x"D3F" then
       -------------------------------------------------------------------------
       -- Real CPU work begins here.
       -------------------------------------------------------------------------
-      
+
+      report "reset = " & std_logic'image(reset) severity note;
       if reset='0' then
         state <= ResetLow;
+        proceed <= '0';
         reset_cpu_state;
       else
         -- Honour wait states on memory accesses
