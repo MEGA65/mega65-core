@@ -1444,6 +1444,7 @@ begin
       -------------------------------------------------------------------------
 
       monitor_waitstates <= wait_states;
+      shadow_write <= '0';
       
       -- report "reset = " & std_logic'image(reset) severity note;
       if reset='0' then
@@ -1505,6 +1506,7 @@ begin
           end if;
           
           if monitor_mem_attention_request='1' then
+            proceed <= '0';
             -- Memory access by serial monitor.
             if monitor_mem_address(27 downto 16) = x"777" then
               -- M777xxxx in serial monitor reads memory from CPU's perspective
@@ -1517,7 +1519,7 @@ begin
               memory_access_write := '1';
               memory_access_wdata := monitor_mem_wdata;
             -- Don't allow a read to occur while a write is completing.
-            elsif monitor_mem_read='1' then -- and delayed_memory_write='0' then          
+            elsif monitor_mem_read='1' and proceed='0' then
               memory_access_address := unsigned(monitor_mem_address);
               memory_access_read := '1';
               -- Read from specified long address
@@ -1525,23 +1527,17 @@ begin
               mem_reading <= '1';
             end if;
             -- and optionally set PC
-            if monitor_mem_setpc='1' then
+            if monitor_mem_setpc='1' and proceed='0' then
               -- Abort any instruction currently being executed.
               -- Then set PC from InstructionWait state to make sure that we
               -- don't write it here, only for it to get stomped.
+              monitor_mem_attention_granted <= '1';
+              reg_pc <= unsigned(monitor_mem_address(15 downto 0));
               proceed <= '0';
               state <= InstructionWait;
             end if;
           else
             monitor_mem_attention_granted <= '0';
-          end if;
-
-          if monitor_mem_trace_mode='0' or
-            monitor_mem_trace_toggle_last /= monitor_mem_trace_toggle then
-            monitor_mem_trace_toggle_last <= monitor_mem_trace_toggle;
-            proceed <= '1';
-          else
-            proceed <= '0';
           end if;
         end if;
 
@@ -1625,10 +1621,6 @@ begin
               read_address(x"FFF"&vector);
               state <= InstructionWait;
             when InstructionWait =>
-              if monitor_mem_setpc='1' then
-                report "PC set by monitor interface" severity note;
-                reg_pc <= unsigned(monitor_mem_address(15 downto 0));
-              end if;
               state <= InstructionFetch;
             when InstructionFetch =>
               monitor_mem_attention_granted <= '0';
