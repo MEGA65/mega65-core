@@ -127,8 +127,8 @@ architecture Behavioural of gs4510 is
 
   component microcode is
     port (Clk : in std_logic;
-          address : in instruction;
-          data_o : out std_logic_vector(63 downto 0)
+        address : in instruction;
+        data_o : out microcodeops
           );
   end component;
   
@@ -351,7 +351,7 @@ architecture Behavioural of gs4510 is
     );
   signal state : processor_state := ResetLow;
   
-  signal reg_microcode : std_logic_vector(63 downto 0);
+  signal reg_microcode : microcodeops;
   signal reg_microcode_address : instruction;
 
   constant mode_bytes_lut : mode_list := (
@@ -1863,42 +1863,42 @@ begin
               -- Memory read
 
               -- See if we need to write to memory
-              memory_access_write := reg_microcode(mcWriteMem);
+              memory_access_write := reg_microcode.mcWriteMem;
               memory_access_address := x"000"&reg_addr;
-              memory_access_resolve_address := reg_microcode(mcWriteMem);
+              memory_access_resolve_address := reg_microcode.mcWriteMem;
               
               -- Incrementer ALU things
-              inc_in_a := reg_microcode(mcIncInA);
-              inc_in_t := reg_microcode(mcIncInT);
-              inc_in_x := reg_microcode(mcIncInX);
-              inc_in_y := reg_microcode(mcIncInY);
-              inc_in_z := reg_microcode(mcIncInZ);
-              inc_in_spl := reg_microcode(mcIncInSPH);
-              inc_in_sph := reg_microcode(mcIncInSPL);
-              inc_in_mem := reg_microcode(mcIncInMem);
-              inc_out_a := reg_microcode(mcIncOutA);
-              inc_out_x := reg_microcode(mcIncOutX);
-              inc_out_y := reg_microcode(mcIncOutY);
-              inc_out_z := reg_microcode(mcIncOutZ);
-              inc_out_t := reg_microcode(mcIncOutT);
-              inc_out_spl := reg_microcode(mcIncOutSPH);
-              inc_out_sph := reg_microcode(mcIncOutSPL);
-              inc_out_mem := reg_microcode(mcIncOutMem);
-              inc_inc := reg_microcode(mcIncInc);
-              inc_dec := reg_microcode(mcIncDec);
-              inc_shift_left := reg_microcode(mcIncShiftLeft);
-              inc_shift_right := reg_microcode(mcIncShiftLeft);
-              inc_and := reg_microcode(mcIncAnd);
-              inc_ior := reg_microcode(mcIncIor);
-              inc_eor := reg_microcode(mcIncEor);
-              inc_0in := reg_microcode(mcIncZeroIn);
-              inc_carry_in := reg_microcode(mcIncCarryIn);
-              inc_set_nz := reg_microcode(mcIncSetNZ);
+              inc_in_a := reg_microcode.mcIncInA;
+              inc_in_t := reg_microcode.mcIncInT;
+              inc_in_x := reg_microcode.mcIncInX;
+              inc_in_y := reg_microcode.mcIncInY;
+              inc_in_z := reg_microcode.mcIncInZ;
+              inc_in_spl := reg_microcode.mcIncInSPH;
+              inc_in_sph := reg_microcode.mcIncInSPL;
+              inc_in_mem := reg_microcode.mcIncInMem;
+              inc_out_a := reg_microcode.mcIncOutA;
+              inc_out_x := reg_microcode.mcIncOutX;
+              inc_out_y := reg_microcode.mcIncOutY;
+              inc_out_z := reg_microcode.mcIncOutZ;
+              inc_out_t := reg_microcode.mcIncOutT;
+              inc_out_spl := reg_microcode.mcIncOutSPH;
+              inc_out_sph := reg_microcode.mcIncOutSPL;
+              inc_out_mem := reg_microcode.mcIncOutMem;
+              inc_inc := reg_microcode.mcIncInc;
+              inc_dec := reg_microcode.mcIncDec;
+              inc_shift_left := reg_microcode.mcIncShiftLeft;
+              inc_shift_right := reg_microcode.mcIncShiftLeft;
+              inc_and := reg_microcode.mcIncAnd;
+              inc_ior := reg_microcode.mcIncIor;
+              inc_eor := reg_microcode.mcIncEor;
+              inc_0in := reg_microcode.mcIncZeroIn;
+              inc_carry_in := reg_microcode.mcIncCarryIn;
+              inc_set_nz := reg_microcode.mcIncSetNZ;
 
               -- Regular ALU things (shares inputs with incrementer)
-              alu_out_a := reg_microcode(mcAluOutA);
-              alu_set_c := reg_microcode(mcAluCarryOut);
-              alu_set_nz := reg_microcode(mcIncSetNZ);
+              alu_out_a := reg_microcode.mcAluOutA;
+              alu_set_c := reg_microcode.mcAluCarryOut;
+              alu_set_nz := reg_microcode.mcIncSetNZ;
 
               if is_store='0' and is_rmw='0' and nmi_pending='0'
                  and (irq_pending='1' or flag_i='1') then

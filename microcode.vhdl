@@ -25,15 +25,33 @@ use work.cputypes.all;
 entity microcode is
   port (Clk : in std_logic;
         address : in instruction;
-        data_o : out std_logic_vector(63 downto 0)
+        data_o : out microcodeops
         );
 end microcode;
 
 architecture Behavioral of microcode is
   
   type ram_t is array (instruction)
-    of std_logic_vector(63 downto 0);
+    of microcodeops;
   signal ram : ram_t := (
+    I_JMP => (mcJump => '1', others => '0'),
+    I_LDA => (mcIncInMem => '1', mcIncPass => '1', mcIncOutA => '1',
+              mcIncSetNZ => '1', others => '0'),
+    I_LDX => (mcIncInMem => '1', mcIncPass => '1', mcIncOutX => '1',
+              mcIncSetNZ => '1', others => '0'),
+    I_LDY => (mcIncInMem => '1', mcIncPass => '1', mcIncOutY => '1',
+              mcIncSetNZ => '1', others => '0'),
+    I_LDZ => (mcIncInMem => '1', mcIncPass => '1', mcIncOutZ => '1',
+              mcIncSetNZ => '1', others => '0'),
+    I_MAP => (mcMap => '1', others => '0'),
+    I_STA => (mcIncInA => '1', mcIncPass => '1', mcIncOutMem => '1',
+              mcWriteMem => '1', others => '0'),
+    I_STX => (mcIncInX => '1', mcIncPass => '1', mcIncOutMem => '1',
+              mcWriteMem => '1', others => '0'),
+    I_STY => (mcIncInY => '1', mcIncPass => '1', mcIncOutMem => '1',
+              mcWriteMem => '1', others => '0'),
+    I_STZ => (mcIncInZ => '1', mcIncPass => '1', mcIncOutMem => '1',
+              mcWriteMem => '1', others => '0'),
     
     others => ( mcInstructionFetch => '1', others => '0'));
 

@@ -29,60 +29,53 @@ package cputypes is
 
   type ilut8bit is array(0 to 255) of instruction;
 
-  constant mcStoreArg1 : integer := 0;
-  constant mcReadFromPC : integer := 1;
-  constant mcReadZPfast : integer := 2;
-  constant mcReadZP : integer := 3;
-  constant mcReadAbs : integer := 4;
-  constant mcIncPC : integer := 5;
-  constant mcIncInA : integer := 6;
-  constant mcIncInX : integer := 7;
-  constant mcIncInY : integer := 8;
-  constant mcIncInZ : integer := 9;
-  constant mcIncInSPH : integer := 10;
-  constant mcIncInSPL : integer := 11;
-  constant mcIncOutA : integer := 12;
-  constant mcIncOutX : integer := 13;
-  constant mcIncOutY : integer := 14;
-  constant mcIncOutZ : integer := 15;
-  constant mcIncOutT : integer := 16;
-  constant mcIncOutSPH : integer := 17;
-  constant mcIncOutSPL : integer := 18;
-  constant mcIncInc : integer := 19;
-  constant mcIncDec : integer := 20;
-  constant mcIncShiftLeft : integer := 21;
-  constant mcIncShiftRight : integer := 22;
-  constant mcIncZeroIn : integer := 23;
-  constant mcIncCarryIn : integer := 24;
-  constant mcIncSetNZ : integer := 25;
-  constant mcMap : integer := 26;
-  constant mcInstructionFetch : integer := 27;
-  constant mcInstructionDecode : integer := 28;
-  constant mcSetFlagI : integer := 29;
-  constant mcWriteP : integer := 30;
-  constant mcWritePCL : integer := 31;
-  constant mcWritePCH : integer := 32;
-  constant mcWriteABS : integer := 33;
-  constant mcWriteZP : integer := 34;
-  constant mcWriteStack : integer := 35;
-  constant mcWriteMem : integer := 36;
-  constant mcDecSP : integer := 37;
-  constant mcIncSP : integer := 38;
-  constant mcBreakFlag : integer := 39;  
-  constant mcVectorIRQ : integer := 40;
-  constant mcVectorNMI : integer := 41;
-  constant mcLoadVector : integer := 42;
-  constant mcIncInT : integer := 43;
-  constant mcStoreArg2 : integer := 44;
-  constant mcDeclareArg1 : integer := 45;
-  constant mcDeclareArg2 : integer := 46;
-  constant mcIncInMem : integer := 47;
-  constant mcIncOutMem : integer := 48;
-  constant mcIncAnd : integer := 49;
-  constant mcIncIor : integer := 50;
-  constant mcIncEor : integer := 51;
-  constant mcAluOutA : integer := 52;
-  constant mcAluCarryOut : integer := 53;
+  type microcodeops is record
+    mcIncPC : std_logic;
+
+    -- Incrementer/binary ALU inputs
+    mcIncInT : std_logic;
+    mcIncInA : std_logic;mcIncInX : std_logic;
+    mcIncInY : std_logic;mcIncInZ : std_logic;
+    mcIncInSPH : std_logic;mcIncInSPL : std_logic;
+    mcIncInMem : std_logic;
+
+    -- Incrementer/binary ALU outputs
+    mcIncOutMem : std_logic;
+    mcIncOutA : std_logic;mcIncOutX : std_logic;
+    mcIncOutY : std_logic;mcIncOutZ : std_logic;
+    mcIncOutT : std_logic;
+    mcIncOutSPH : std_logic;mcIncOutSPL : std_logic;
+
+    -- Binary and index operations
+    mcIncAnd : std_logic;mcIncIor : std_logic;mcIncEor : std_logic;
+    mcIncInc : std_logic;mcIncDec : std_logic;mcIncPass : std_logic;
+    -- Bit shift operations
+    mcIncShiftLeft : std_logic;mcIncShiftRight : std_logic;
+    mcIncZeroIn : std_logic;mcIncCarryIn : std_logic;
+
+    mcIncSetNZ : std_logic;
+
+    -- How shall we exit this instruction?
+    mcInstructionFetch : std_logic;
+    mcInstructionDecode : std_logic;
+
+    mcWriteStack : std_logic;
+    mcWriteMem : std_logic;
+    mcDecSP : std_logic;
+    mcIncSP : std_logic;
+    mcDeclareArg1 : std_logic;
+    mcDeclareArg2 : std_logic;
+
+    -- Arithmetic ALU operations
+    mcAluOutA : std_logic;
+    mcAluCarryOut : std_logic;
+    
+    -- Special instructions
+    mcJump : std_logic;
+    mcMap : std_logic;
+    mcSetFlagI : std_logic;
+
+  end record;
 
 end cputypes;
 
