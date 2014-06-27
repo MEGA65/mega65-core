@@ -1600,14 +1600,6 @@ begin
               memory_access_resolve_address := '1';
               pc_inc := '1';
 
-              -- See if this is a single cycle instruction.
-              -- Note that CLI and CLE take 2 cycles so that any
-              -- pending interrupt can happen immediately (interrupts cannot
-              -- happen immediately after a single cycle instruction, because
-              -- interrupts are only checked in InstructionFetch, not
-              -- InstructionDecode).
-              do_register_op <= op_is_single_cycle(to_integer(memory_read_value));
-
               -- Do delayed register modification operation
               if do_register_op='1' then
                 do_register_op <= '0';
@@ -1649,7 +1641,19 @@ begin
                   when x"F8" => flag_d <= '1';  -- CLD                            
                   when others => null;
                 end case;
+                
+                -- See if this is a single cycle instruction.
+                -- (this must come after the block above where the values get committed
+                --  so that do_register_op gets set correctly. Otherwise two
+                --  register ops in a row will result in the 2nd having no effect)
+                -- Note that CLI and CLE take 2 cycles so that any
+                -- pending interrupt can happen immediately (interrupts cannot
+                -- happen immediately after a single cycle instruction, because
+                -- interrupts are only checked in InstructionFetch, not
+                -- InstructionDecode).
+                do_register_op <= op_is_single_cycle(to_integer(memory_read_value));
 
+                
                 reg_opcode <= memory_read_value;
                 -- Present instruction to serial monitor;
                 monitor_opcode <= std_logic_vector(memory_read_value);
