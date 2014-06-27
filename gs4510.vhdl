@@ -1526,11 +1526,9 @@ begin
             end if;
             -- and optionally set PC
             if monitor_mem_setpc='1' then
-              report "PC set by monitor interface" severity note;
-              reg_pc <= unsigned(monitor_mem_address(15 downto 0));
-              mem_reading := '0';
-              inc_pc := '0';
               -- Abort any instruction currently being executed.
+              -- Then set PC from InstructionWait state to make sure that we
+              -- don't write it here, only for it to get stomped.
               proceed <= '0';
               state <= InstructionWait;
             end if;
@@ -1584,6 +1582,10 @@ begin
               read_address(x"FFF"&vector);
               state <= InstructionWait;
             when InstructionWait =>
+              if monitor_mem_setpc='1' then
+                report "PC set by monitor interface" severity note;
+                reg_pc <= unsigned(monitor_mem_address(15 downto 0));
+              end if;
               state <= InstructionFetch;
             when InstructionFetch =>
               monitor_mem_attention_granted <= '0';
