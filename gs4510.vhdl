@@ -577,7 +577,11 @@ begin
       fastram_datain <= x"d0d1d2d3d4d5d6d7";    
       slowram_we <= '1';
       slowram_ce <= '1';
-      slowram_oe <= '1';      
+      slowram_oe <= '1';
+      
+      wait_states <= (others => '0');
+      mem_reading <= '0';
+      
     end procedure reset_cpu_state;
 
     procedure check_for_interrupts is
@@ -1459,6 +1463,7 @@ begin
       if reset='0' then
         state <= ResetLow;
         proceed <= '0';
+        wait_states <= x"00";
         reset_cpu_state;
       else
         -- Honour wait states on memory accesses
