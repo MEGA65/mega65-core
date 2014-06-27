@@ -1528,9 +1528,11 @@ begin
             if monitor_mem_setpc='1' then
               report "PC set by monitor interface" severity note;
               reg_pc <= unsigned(monitor_mem_address(15 downto 0));
+              mem_reading := '0';
+              inc_pc := '0';
               -- Abort any instruction currently being executed.
               proceed <= '0';
-              state <= InstructionFetch;
+              state <= InstructionWait;
             end if;
           else
             monitor_mem_attention_granted <= '0';
