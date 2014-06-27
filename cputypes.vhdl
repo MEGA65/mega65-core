@@ -49,6 +49,7 @@ package cputypes is
     -- Binary and index operations
     mcIncAnd : std_logic;mcIncIor : std_logic;mcIncEor : std_logic;
     mcIncInc : std_logic;mcIncDec : std_logic;mcIncPass : std_logic;
+    mcIncNeg : std_logic;
     -- Bit shift operations
     mcIncShiftLeft : std_logic;mcIncShiftRight : std_logic;
     mcIncZeroIn : std_logic;mcIncCarryIn : std_logic;

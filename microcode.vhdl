@@ -35,6 +35,10 @@ architecture Behavioral of microcode is
     of microcodeops;
   signal ram : ram_t := (
     I_JMP => (mcJump => '1', others => '0'),
+    I_AND => (mcIncInMem => '1', mcIncAnd => '1', mcIncOutA => '1',
+              mcIncSetNZ => '1', others => '0'),
+    I_EOR => (mcIncInMem => '1', mcIncEor => '1', mcIncOutA => '1',
+              mcIncSetNZ => '1', others => '0'),
     I_LDA => (mcIncInMem => '1', mcIncPass => '1', mcIncOutA => '1',
               mcIncSetNZ => '1', others => '0'),
     I_LDX => (mcIncInMem => '1', mcIncPass => '1', mcIncOutX => '1',
@@ -44,6 +48,10 @@ architecture Behavioral of microcode is
     I_LDZ => (mcIncInMem => '1', mcIncPass => '1', mcIncOutZ => '1',
               mcIncSetNZ => '1', others => '0'),
     I_MAP => (mcMap => '1', others => '0'),
+    I_NEG => (mcIncInA => '1', mcIncNeg => '1', mcIncOutA => '1',
+              mcIncSetNZ => '1', others => '0'),
+    I_ORA => (mcIncInMem => '1', mcIncIor => '1', mcIncOutA => '1',
+              mcIncSetNZ => '1', others => '0'),
     I_STA => (mcIncInA => '1', mcIncPass => '1', mcIncOutMem => '1',
               mcWriteMem => '1', others => '0'),
     I_STX => (mcIncInX => '1', mcIncPass => '1', mcIncOutMem => '1',
