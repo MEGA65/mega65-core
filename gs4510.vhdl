@@ -1528,6 +1528,9 @@ begin
             if monitor_mem_setpc='1' then
               report "PC set by monitor interface" severity note;
               reg_pc <= unsigned(monitor_mem_address(15 downto 0));
+              -- Abort any instruction currently being executed.
+              proceed <= '0';
+              state <= InstructionFetch;
             end if;
           else
             monitor_mem_attention_granted <= '0';
@@ -1560,7 +1563,7 @@ begin
         monitor_proceed <= proceed;
         monitor_request_reflected <= monitor_mem_attention_request;
         
-        if proceed='1' then        
+        if (proceed='1') and (monitor_mem_attention_request='0') then        
           -- Main state machine for CPU
           report "CPU state = " & processor_state'image(state) & ", PC=$" & to_hstring(reg_pc) severity note;
           case state is
