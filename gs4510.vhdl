@@ -158,7 +158,8 @@ architecture Behavioural of gs4510 is
   signal slowram_lohi : std_logic;
   -- SlowRAM has 70ns access time, so need some wait states.
   -- Allow 9 waits for now in case ram part is the 85ns version.
-  signal slowram_waitstates : unsigned(7 downto 0) := x"09";
+  -- At 64MHz we only need 6 cycles
+  signal slowram_waitstates : unsigned(7 downto 0) := x"06";
 
   -- Number of pending wait states
   signal wait_states : unsigned(7 downto 0) := x"05";

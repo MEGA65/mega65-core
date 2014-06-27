@@ -550,12 +550,12 @@ begin
       -- rising edge of IOclock.
       -- This might need a bit of adjustment, but the principle should be sound.
       case clock_phase is
-        when 0 => cpuclock <= '1'; ioclock<='0'; io_wait_states <= x"08";
-        when 1 => cpuclock <= '0'; ioclock<='0'; io_wait_states <= x"07";
-        when 2 => cpuclock <= '0'; ioclock<='0'; io_wait_states <= x"06";
-        when 3 => cpuclock <= '1'; ioclock<='1'; io_wait_states <= x"0b";
-        when 4 => cpuclock <= '0'; ioclock<='1'; io_wait_states <= x"0a";
-        when 5 => cpuclock <= '0'; ioclock<='1'; io_wait_states <= x"09";
+        when 0 => cpuclock <= '1'; ioclock<='0'; io_wait_states <= x"03";
+        when 1 => cpuclock <= '0'; ioclock<='0'; io_wait_states <= x"03";
+        when 2 => cpuclock <= '0'; ioclock<='0'; io_wait_states <= x"03";
+        when 3 => cpuclock <= '1'; ioclock<='1'; io_wait_states <= x"04";
+        when 4 => cpuclock <= '0'; ioclock<='1'; io_wait_states <= x"04";
+        when 5 => cpuclock <= '0'; ioclock<='1'; io_wait_states <= x"04";
       end case;
       
       -- Work out phi0 frequency for CIA timers
