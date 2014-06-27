@@ -30,6 +30,7 @@ use IEEE.STD_LOGIC_1164.ALL;
 use ieee.numeric_std.all;
 use Std.TextIO.all;
 use work.debugtools.all;
+use work.cputypes.all;
 
 entity gs4510 is
   port (
@@ -126,7 +127,7 @@ architecture Behavioural of gs4510 is
 
   component microcode is
     port (Clk : in std_logic;
-          address : in std_logic_vector(10 downto 0);
+          address : in instruction;
           data_o : out std_logic_vector(63 downto 0)
           );
   end component;
@@ -349,71 +350,10 @@ architecture Behavioural of gs4510 is
     ActionCycle
     );
   signal state : processor_state := ResetLow;
-
-  constant mcStoreArg1 : integer := 0;
-  constant mcReadFromPC : integer := 1;
-  constant mcReadZPfast : integer := 2;
-  constant mcReadZP : integer := 3;
-  constant mcReadAbs : integer := 4;
-  constant mcIncPC : integer := 5;
-  constant mcIncInA : integer := 6;
-  constant mcIncInX : integer := 7;
-  constant mcIncInY : integer := 8;
-  constant mcIncInZ : integer := 9;
-  constant mcIncInSPH : integer := 10;
-  constant mcIncInSPL : integer := 11;
-  constant mcIncOutA : integer := 12;
-  constant mcIncOutX : integer := 13;
-  constant mcIncOutY : integer := 14;
-  constant mcIncOutZ : integer := 15;
-  constant mcIncOutT : integer := 16;
-  constant mcIncOutSPH : integer := 17;
-  constant mcIncOutSPL : integer := 18;
-  constant mcIncInc : integer := 19;
-  constant mcIncDec : integer := 20;
-  constant mcIncShiftLeft : integer := 21;
-  constant mcIncShiftRight : integer := 22;
-  constant mcIncZeroIn : integer := 23;
-  constant mcIncCarryIn : integer := 24;
-  constant mcIncSetNZ : integer := 25;
-  constant mcMap : integer := 26;
-  constant mcInstructionFetch : integer := 27;
-  constant mcInstructionDecode : integer := 28;
-  constant mcSetFlagI : integer := 29;
-  constant mcWriteP : integer := 30;
-  constant mcWritePCL : integer := 31;
-  constant mcWritePCH : integer := 32;
-  constant mcWriteABS : integer := 33;
-  constant mcWriteZP : integer := 34;
-  constant mcWriteStack : integer := 35;
-  constant mcWriteMem : integer := 36;
-  constant mcDecSP : integer := 37;
-  constant mcIncSP : integer := 38;
-  constant mcBreakFlag : integer := 39;  
-  constant mcVectorIRQ : integer := 40;
-  constant mcVectorNMI : integer := 41;
-  constant mcLoadVector : integer := 42;
-  constant mcIncInT : integer := 43;
-  constant mcStoreArg2 : integer := 44;
-  constant mcDeclareArg1 : integer := 45;
-  constant mcDeclareArg2 : integer := 46;
-  constant mcIncInMem : integer := 47;
-  constant mcIncOutMem : integer := 48;
-  constant mcIncAnd : integer := 49;
-  constant mcIncIor : integer := 50;
-  constant mcIncEor : integer := 51;
-  constant mcAluOutA : integer := 52;
-  constant mcAluCarryOut : integer := 53;
   
   signal reg_microcode : std_logic_vector(63 downto 0);
-  signal reg_microcode_address : unsigned(10 downto 0);
-  
-  type addressingmode is (
-    M_impl,M_InnX,M_nn,M_immnn,M_A,M_nnnn,M_nnrr,
-    M_rr,M_InnY,M_InnZ,M_rrrr,M_nnX,M_nnnnY,M_nnnnX,M_Innnn,
-    M_InnnnX,M_InnSPY,M_nnY,M_immnnnn);
+  signal reg_microcode_address : instruction;
 
-  type mode_list is array(addressingmode'low to addressingmode'high) of integer;
   constant mode_bytes_lut : mode_list := (
     M_impl => 0,
     M_InnX => 1,
@@ -435,22 +375,6 @@ architecture Behavioural of gs4510 is
     M_nnY => 1,
     M_immnnnn => 2);
   
-  type instruction is (
-    -- 4510 opcodes
-    I_BRK,I_ORA,I_CLE,I_SEE,I_TSB,I_ASL,I_RMB,
-    I_PHP,I_TSY,I_BBR,I_BPL,I_TRB,I_CLC,I_INC,I_INZ,
-    I_JSR,I_AND,I_BIT,I_ROL,I_PLP,I_TYS,I_BMI,I_SEC,
-    I_DEC,I_DEZ,I_RTI,I_EOR,I_NEG,I_ASR,I_LSR,I_PHA,
-    I_TAZ,I_JMP,I_BVC,I_CLI,I_PHY,I_TAB,I_MAP,I_RTS,
-    I_ADC,I_BSR,I_STZ,I_ROR,I_PLA,I_TZA,I_BVS,I_SEI,
-    I_PLY,I_TBA,I_BRA,I_STA,I_STY,I_STX,I_SMB,I_DEY,
-    I_TXA,I_BBS,I_BCC,I_TYA,I_TXS,I_LDY,I_LDA,I_LDX,
-    I_LDZ,I_TAY,I_TAX,I_BCS,I_CLV,I_TSX,I_CPY,I_CMP,
-    I_CPZ,I_DEW,I_INY,I_DEX,I_ASW,I_BNE,I_CLD,I_PHX,
-    I_PHZ,I_CPX,I_SBC,I_INW,I_INX,I_EOM,I_ROW,I_BEQ,
-    I_PHW,I_SED,I_PLX,I_PLZ);
-
-  type ilut8bit is array(0 to 255) of instruction;
   constant instruction_lut : ilut8bit := (
     I_BRK,I_ORA,I_CLE,I_SEE,I_TSB,I_ORA,I_ASL,I_RMB,I_PHP,I_ORA,I_ASL,I_TSY,I_TSB,I_ORA,I_ASL,I_BBR,
     I_BPL,I_ORA,I_ORA,I_BPL,I_TRB,I_ORA,I_ASL,I_RMB,I_CLC,I_ORA,I_INC,I_INZ,I_TRB,I_ORA,I_ASL,I_BBR,
@@ -508,6 +432,10 @@ architecture Behavioural of gs4510 is
   signal reg_addressingmode : addressingmode;
   signal reg_instruction : instruction;
 
+  signal is_rmw : std_logic;
+  signal is_load : std_logic;
+  signal is_store : std_logic;
+  
   --signal delayed_memory_write : std_logic;
   --signal delayed_memory_write_resolve_address : std_logic;
   --signal delayed_memory_write_address : unsigned(27 downto 0);
@@ -525,7 +453,7 @@ begin
 
   microcode0: microcode port map (
     clk => clock,
-    address => std_logic_vector(reg_microcode_address),
+    address => reg_microcode_address,
     data_o => reg_microcode);
   
   process(clock,reset)
@@ -1677,8 +1605,38 @@ begin
               -- Prepare microcode vector in case we need it next cycle
               reg_addressingmode <= mode_lut(to_integer(memory_read_value));
               reg_instruction <= instruction_lut(to_integer(memory_read_value));
-              -- Up to 8 decode stages per instruction
-              reg_microcode_address <= memory_read_value&"000";
+              is_rmw <= '0'; is_load <= '0'; is_store <= '0';
+              case instruction_lut(to_integer(memory_read_value)) is
+                -- Note if instruction is RMW
+                when I_INC => is_rmw <= '1';
+                when I_DEC => is_rmw <= '1';
+                when I_ROL => is_rmw <= '1';
+                when I_ROR => is_rmw <= '1';
+                when I_ASL => is_rmw <= '1';
+                when I_ASR => is_rmw <= '1';
+                when I_LSR => is_rmw <= '1';
+                when I_TSB => is_rmw <= '1';
+                when I_TRB => is_rmw <= '1';
+                -- There are a few 16-bit RMWs as well
+                when I_INW => is_rmw <= '1';
+                when I_DEW => is_rmw <= '1';
+                when I_ASW => is_rmw <= '1';                              
+                -- Note if instruction is LOAD
+                when I_LDA => is_load <= '1';
+                when I_LDX => is_load <= '1';
+                when I_LDY => is_load <= '1';
+                when I_LDZ => is_load <= '1';
+                -- Note if instruction is STORE
+                when I_STA => is_store <= '1';
+                when I_STX => is_store <= '1';
+                when I_STY => is_store <= '1';
+                when I_STZ => is_store <= '1';
+                -- Nothing special for other instructions
+                when others => null;
+              end case;
+              reg_microcode_address <=
+                instruction_lut(to_integer(memory_read_value));
+
             when Cycle2 =>
               -- Show serial monitor what we are doing.
               if (reg_addressingmode /= M_impl) or (reg_addressingmode /= M_A) then
@@ -1842,8 +1800,29 @@ begin
                   pc_inc := '1';
                   state <= Imm16ReadArg2;
               end case;
+            when AbsReadArg2 =>
+              reg_addr(15 downto 8) <= memory_read_value;
+              state <= ActionCycle;
+            when AbsXReadArg2 =>
+              reg_addr <= x"00"&reg_x + to_integer(memory_read_value&reg_addr(7 downto 0));
+              state <= ActionCycle;
+            when AbsYReadArg2 =>
+              reg_addr <= x"00"&reg_y + to_integer(memory_read_value&reg_addr(7 downto 0));
+              state <= ActionCycle;
+            when TakeBranch8 =>
+              -- Branch will be taken
+              temp_addr := reg_pc +
+                           to_integer(memory_read_value(7)&memory_read_value(7)&memory_read_value(7)&memory_read_value(7)&
+                                      memory_read_value(7)&memory_read_value(7)&memory_read_value(7)&memory_read_value(7)&
+                                      memory_read_value);
+              -- Prefetch instruction byte
+              memory_access_read := '1';
+              memory_access_address := x"000"&temp_addr;
+              memory_access_resolve_address := '1';
+              reg_pc <= temp_addr;
+              state <= InstructionDecode;
 
-            -- Dummy states for now.
+            -- Dummy/incomplete states for now.
             when B16TakeBranch =>
               reg_pc <= reg_pc + to_integer(memory_read_value & reg_addr(7 downto 0));
               state <= InstructionFetch;
@@ -1858,7 +1837,7 @@ begin
               -- Check if the appropriate bit is set/clear
               if memory_read_value(to_integer(reg_opcode(6 downto 4)))
                 =reg_opcode(7) then
-                -- Take branch, so read next byte
+                -- Take branch, so read next byte with relative offset
                 memory_access_read := '1';
                 memory_access_address := x"000"&reg_pc;
                 memory_access_resolve_address := '1';
@@ -1867,123 +1846,26 @@ begin
                 -- Don't take branch, so just skip over branch byte
                 state <= InstructionFetch;
               end if;
-            when AbsReadArg2 =>
-              reg_addr(15 downto 8) <= memory_read_value;
-              state <= ActionCycle;
-            when AbsXReadArg2 =>
-              reg_addr <= x"00"&reg_x + to_integer(memory_read_value&reg_addr(7 downto 0));
-              state <= ActionCycle;
-            when AbsYReadArg2 =>
-              reg_addr <= x"00"&reg_y + to_integer(memory_read_value&reg_addr(7 downto 0));
-              state <= ActionCycle;
             when IAbsReadArg2 =>
               state <= InstructionFetch;
             when IAbsXReadArg2 =>
               state <= InstructionFetch;
             when Imm16ReadArg2 => 
               state <= InstructionFetch;
-            when TakeBranch8 =>
-              -- Branch will be taken
-              temp_addr := reg_pc +
-                           to_integer(memory_read_value(7)&memory_read_value(7)&memory_read_value(7)&memory_read_value(7)&
-                                      memory_read_value(7)&memory_read_value(7)&memory_read_value(7)&memory_read_value(7)&
-                                      memory_read_value);
-              -- Prefetch instruction byte
-              memory_access_read := '1';
-              memory_access_address := x"000"&temp_addr;
-              memory_access_resolve_address := '1';
-              reg_pc <= temp_addr;
-              state <= InstructionDecode;
             when ActionCycle =>
-              if reg_microcode(mcStoreArg1)='1' then
-                reg_arg1 <= memory_read_value;
-              end if;
-              if reg_microcode(mcStoreArg2)='1' then
-                reg_arg2 <= memory_read_value;
-              end if;
-              if reg_microcode(mcDeclareArg2)='1' then
-                monitor_arg2 <= std_logic_vector(memory_read_value);
-                monitor_ibytes(2) <= '1';
-              end if;
+              -- By this stage we have the address of the operand in
+              -- reg_addr, and if it is a load instruction then the contents
+              -- will be in memory_read_value
+              -- Branches (except JMP) have been taken care of elsewhere, as
+              -- have a lot of the other fancy instructions.  That just leaves
+              -- us with loads, stores and reaad/modify/write instructions
 
               -- Memory read
-              if reg_microcode(mcReadFromPC)='1' then
-                memory_access_read := '1';
-                memory_access_address := x"000"&reg_pc;
-                memory_access_resolve_address := '1';
-              end if;
-              if reg_microcode(mcReadZPfast)='1' then
-                memory_access_read := '1';
-                memory_access_address := x"000"&reg_b&memory_read_value;
-                memory_access_resolve_address := '1';              
-              end if;
-              if reg_microcode(mcReadZP)='1' then
-                memory_access_read := '1';
-                memory_access_address := x"000"&reg_b&reg_arg1;
-                memory_access_resolve_address := '1';              
-              end if;
-              if reg_microcode(mcReadAbs)='1' then
-                memory_access_read := '1';
-                memory_access_address := x"000"&reg_arg2&reg_arg1;
-                memory_access_resolve_address := '1';              
-              end if;
-              pc_inc := reg_microcode(mcIncPC);
 
-              -- Memory write
+              -- See if we need to write to memory
               memory_access_write := reg_microcode(mcWriteMem);
-              if reg_microcode(mcWriteStack)='1' then
-                memory_access_address := x"000" & reg_sph & reg_sp;
-                memory_access_resolve_address := '1';
-              end if;
-              if reg_microcode(mcWriteZP)='1' then
-                memory_access_address := x"000" & reg_b & reg_arg1;
-                memory_access_resolve_address := '1';
-              end if;
-              if reg_microcode(mcWriteAbs)='1' then
-                memory_access_address := x"000" & reg_arg2 & reg_arg1;
-                memory_access_resolve_address := '1';
-              end if;
-              if reg_microcode(mcWritePCL)='1' then
-                memory_access_wdata := reg_pc(7 downto 0);
-              end if;
-              if reg_microcode(mcWritePCH)='1' then
-                memory_access_wdata := reg_pc(7 downto 0);
-              end if;
-              if reg_microcode(mcWriteP)='1' then
-                memory_access_wdata(7) := flag_n;
-                memory_access_wdata(6) := flag_v;
-                memory_access_wdata(5) := flag_e;
-                memory_access_wdata(4) := reg_microcode(mcBreakFlag);
-                memory_access_wdata(3) := flag_d;
-                memory_access_wdata(2) := flag_i;
-                memory_access_wdata(1) := flag_z;
-                memory_access_wdata(0) := flag_c;
-              end if;
-
-              -- Stack pointer things
-              if reg_microcode(mcDecSP) = '1' then
-                reg_sp <= reg_sp - 1;
-                if flag_e='0' and reg_sp=x"00" then
-                  reg_sph <= reg_sph - 1;
-                else
-                end if;
-              end if;
-              if reg_microcode(mcIncSP) = '1' then
-                reg_sp <= reg_sp + 1;
-                if flag_e='0' and reg_sp=x"ff" then
-                  reg_sph <= reg_sph + 1;
-                end if;
-              end if;
-
-              if reg_microcode(mcVectorIRQ)='1' then
-                vector <= x"e";
-              end if;
-              if reg_microcode(mcVectorNMI)='1' then
-                vector <= x"a";
-              end if;
-              if reg_microcode(mcLoadVector)='1' then
-                state <= VectorRead1;
-              end if;
+              memory_access_address := x"000"&reg_addr;
+              memory_access_resolve_address := reg_microcode(mcWriteMem);
               
               -- Incrementer ALU things
               inc_in_a := reg_microcode(mcIncInA);
@@ -2017,30 +1899,21 @@ begin
               alu_out_a := reg_microcode(mcAluOutA);
               alu_set_c := reg_microcode(mcAluCarryOut);
               alu_set_nz := reg_microcode(mcIncSetNZ);
-              
 
-              -- Special things
-              if reg_microcode(mcMap)='1' then
-                c65_map_instruction;
+              if is_store='0' and is_rmw='0' and nmi_pending='0'
+                 and (irq_pending='1' or flag_i='1') then
+                -- We can start fetching the next instruction
+                memory_access_read := '1';
+                memory_access_address := x"000"&reg_pc;
+                memory_access_resolve_address := '1';
+                state <= InstructionDecode;
+              else
+                -- We need to write something now, so we can't pre-fetch the
+                -- next instruction.
+                -- (the write itself will get scheduled via the microcode
+                -- operations)
+                state <= InstructionFetch;                
               end if;
-              if reg_microcode(mcSetFlagI)='1' then
-                flag_i <= '1';
-              end if;
-
-              -- Continue with this instruction, or advance to the next?
-              if reg_microcode(mcInstructionFetch)='1' then
-                -- Normal instruction
-                state <= InstructionFetch;
-              end if;
-              if reg_microcode(mcInstructionDecode)='1' then
-                -- Fast dispatch to next instruction.
-                -- XXX Blocks interrupts from being checked.
-                state  <= InstructionDecode;
-              end if;
-
-              -- Request next microcode instruction
-              reg_microcode_address(2 downto 0)
-                <= reg_microcode_address(2 downto 0) + 1;
             when others =>
               state <= InstructionFetch;
           end case;
