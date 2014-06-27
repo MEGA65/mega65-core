@@ -587,9 +587,9 @@ begin
       elsif segled_counter(19 downto 17)=3 then
         digit := std_logic_vector(monitor_pc(15 downto 12));
       elsif segled_counter(19 downto 17)=4 then
-        digit := std_logic_vector(monitor_cpu_state(3 downto 0));
+        digit := std_logic_vector(monitor_state(3 downto 0));
       elsif segled_counter(19 downto 17)=5 then
-        digit := std_logic_vector(monitor_cpu_state(7 downto 4));
+        digit := std_logic_vector(monitor_state(7 downto 4));
       elsif segled_counter(19 downto 17)=6 then
         digit := std_logic_vector(monitor_waitstates(3 downto 0));
       elsif segled_counter(19 downto 17)=7 then
