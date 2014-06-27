@@ -579,41 +579,21 @@ begin
       sseg_an(to_integer(segled_counter(19 downto 17))) <= '0';
 
       if segled_counter(19 downto 17)=0 then
-        digit := std_logic_vector(seg_led_data(3 downto 0));
+        digit := std_logic_vector(monitor_pc(3 downto 0));
       elsif segled_counter(19 downto 17)=1 then
-        digit := std_logic_vector(seg_led_data(7 downto 4));
+        digit := std_logic_vector(monitor_pc(7 downto 4));
       elsif segled_counter(19 downto 17)=2 then
-        digit := std_logic_vector(seg_led_data(11 downto 8));
+        digit := std_logic_vector(monitor_pc(11 downto 8));
       elsif segled_counter(19 downto 17)=3 then
-        digit := std_logic_vector(seg_led_data(15 downto 12));
+        digit := std_logic_vector(monitor_pc(15 downto 12));
       elsif segled_counter(19 downto 17)=4 then
-        digit := std_logic_vector(seg_led_data(19 downto 16));
+        digit := std_logic_vector(monitor_cpu_state(3 downto 0));
       elsif segled_counter(19 downto 17)=5 then
-        digit := std_logic_vector(seg_led_data(23 downto 20));
+        digit := std_logic_vector(monitor_cpu_state(7 downto 4));
       elsif segled_counter(19 downto 17)=6 then
-        digit := std_logic_vector(seg_led_data(27 downto 24));
+        digit := std_logic_vector(monitor_waitstates(3 downto 0));
       elsif segled_counter(19 downto 17)=7 then
-        digit := std_logic_vector(seg_led_data(31 downto 28));
-        --if segled_counter(19 downto 17)=3 then
-        --  digit := monitor_pc(15 downto 12);
-        --elsif segled_counter(19 downto 17)=2 then
-        --  digit := monitor_pc(11 downto 8);
-        --elsif segled_counter(19 downto 17)=1 then
-        --  digit := monitor_pc(7 downto 4);
-        --elsif segled_counter(19 downto 17)=0 then
-        --  digit := monitor_pc(3 downto 0);
-        --elsif segled_counter(19 downto 17)=4 then
-        --  digit := monitor_state(3 downto 0);
-        ----elsif segled_counter(19 downto 17)=5 then
-        ----  digit := monitor_state(7 downto 4);
-        --elsif segled_counter(19 downto 17)=5 then
-        --  digit := std_logic_vector(last_scan_code(3 downto 0));
-        --elsif segled_counter(19 downto 17)=6 then
-        --  digit := std_logic_vector(last_scan_code(7 downto 4));
-        --elsif segled_counter(19 downto 17)=7 then
-        --  digit := std_logic_vector(last_scan_code(11 downto 8));
-        --else
-        digit := "UUUU";
+        digit := std_logic_vector(monitor_waitstates(7 downto 4));
       end if;
 
       -- segments are:
