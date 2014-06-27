@@ -506,10 +506,10 @@ architecture Behavioural of gs4510 is
   signal reg_addressingmode : addressingmode;
   signal reg_instruction : instruction;
 
-  signal delayed_memory_write : std_logic;
-  signal delayed_memory_write_resolve_address : std_logic;
-  signal delayed_memory_write_address : unsigned(27 downto 0);
-  signal delayed_memory_write_data : unsigned(7 downto 0);
+  --signal delayed_memory_write : std_logic;
+  --signal delayed_memory_write_resolve_address : std_logic;
+  --signal delayed_memory_write_address : unsigned(27 downto 0);
+  --signal delayed_memory_write_data : unsigned(7 downto 0);
 
 begin
 
@@ -1526,7 +1526,7 @@ begin
               memory_access_write := '1';
               memory_access_wdata := monitor_mem_wdata;
             -- Don't allow a read to occur while a write is completing.
-            elsif monitor_mem_read='1' and delayed_memory_write='0' then          
+            elsif monitor_mem_read='1' then -- and delayed_memory_write='0' then          
               memory_access_address := unsigned(monitor_mem_address);
               memory_access_read := '1';
               -- Read from specified long address
@@ -1557,14 +1557,14 @@ begin
         -- so 4/5*1 + 1/5 * 2 = 6/5 of the time, so 5/6 the speed, about
         -- 83% of maximum speed.  This is much better than cutting the
         -- clock speed by 1/3, which is the only other real option.
-        if delayed_memory_write='1' then
-          delayed_memory_write <= '0';
-          if delayed_memory_write_resolve_address = '1' then
-            write_data(delayed_memory_write_address(15 downto 0),delayed_memory_write_data);
-          else 
-            write_long_byte(delayed_memory_write_address,delayed_memory_write_data);
-          end if;
-        end if;
+        --if delayed_memory_write='1' then
+          --delayed_memory_write <= '0';
+          --if delayed_memory_write_resolve_address = '1' then
+          --  write_data(delayed_memory_write_address(15 downto 0),delayed_memory_write_data);
+          --else 
+          --  write_long_byte(delayed_memory_write_address,delayed_memory_write_data);
+          --end if;
+        --end if;
 
         monitor_proceed <= proceed;
         monitor_request_reflected <= monitor_mem_attention_request;
@@ -2032,15 +2032,20 @@ begin
         -- the operation is read or write.  ROM accesses are a good example.
         -- We delay the memory write until the next cycle to minimise logic depth
         if memory_access_write='1' then
-          delayed_memory_write <= '1';
-          delayed_memory_write_resolve_address <= memory_access_resolve_address;
-          delayed_memory_write_address <= memory_access_address;
-          delayed_memory_write_data <= memory_access_wdata;
+          --delayed_memory_write <= '1';
+          --delayed_memory_write_resolve_address <= memory_access_resolve_address;
+          --delayed_memory_write_address <= memory_access_address;
+          --delayed_memory_write_data <= memory_access_wdata;
+          if memory_access_resolve_address = '1' then
+            write_data(memory_access_address(15 downto 0),memory_access_wdata);
+          else 
+            write_long_byte(memory_access_address,memory_access_wdata);
+          end if;
         end if;
 
         -- We make sure that there is no write being committed before pushing the
         -- read through.
-        if memory_access_read='1' and delayed_memory_write='0' then
+        if memory_access_read='1' then -- and delayed_memory_write='0' then
           if memory_access_resolve_address = '1' then
             memory_access_address := resolve_address_to_long(memory_access_address(15 downto 0),false);
           end if;
