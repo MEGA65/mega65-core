@@ -1563,7 +1563,50 @@ begin
         monitor_proceed <= proceed;
         monitor_request_reflected <= monitor_mem_attention_request;
         
-        if (proceed='1') and (monitor_mem_attention_request='0') then        
+        if (proceed='1') and (monitor_mem_attention_request='0') then
+          -- Do delayed register modification operation
+          if do_register_op='1' then
+            do_register_op <= '0';
+            case reg_opcode is
+              when x"03" => flag_e <= '1';  -- SEE
+              when x"0B" => inc_in_sph := '1'; inc_out_y := '1'; inc_set_nz := '1'; inc_pass := '1'; -- TSY
+              when x"18" => flag_c <= '0';  -- CLC
+              when x"1A" => inc_in_a := '1'; inc_out_a := '1'; inc_set_nz := '1'; inc_inc := '1'; -- INC A
+              when x"1B" => inc_in_z := '1'; inc_out_z := '1'; inc_set_nz := '1'; inc_inc := '1'; -- INZ
+              when x"2B" => inc_in_y := '1'; inc_out_sph := '1'; inc_pass := '1'; -- TYS
+              when x"38" => flag_c <= '1';  -- SEC
+              when x"3A" => inc_in_a := '1'; inc_out_a := '1'; inc_set_nz := '1'; inc_dec := '1'; -- DEC A
+              when x"3B" => inc_in_z := '1'; inc_out_z := '1'; inc_set_nz := '1'; inc_dec := '1'; -- DEZ
+              -- NEG can stay 2 cycles for now.  We can try
+              -- adding it later
+              when x"43" => inc_in_a := '1'; inc_out_a := '1'; inc_set_nz := '1';
+                            inc_shift_right := '1'; -- ASR A
+              when x"4A" => inc_in_a := '1'; inc_out_a := '1'; inc_set_nz := '1';
+                            inc_shift_right := '1'; inc_0in := '1'; -- LSR A
+              when x"4B" => inc_in_a := '1'; inc_out_z := '1'; inc_set_nz := '1'; inc_pass := '1'; -- TAZ
+              when x"5B" => inc_in_a := '1'; inc_out_b := '1'; inc_pass := '1'; -- TAB
+              when x"6A" => inc_in_a := '1'; inc_out_a := '1'; inc_set_nz := '1';
+                            inc_shift_right := '1'; inc_carry_in := '1'; -- ROR A
+              when x"6B" => inc_in_z := '1'; inc_out_a := '1'; inc_set_nz := '1'; inc_pass := '1'; -- TZA
+              when x"78" => flag_i <= '1';  -- SEI
+              when x"7B" => inc_in_b := '1'; inc_out_a := '1'; inc_set_nz := '1'; inc_pass := '1'; -- TBA
+              when x"88" => inc_in_y := '1'; inc_out_y := '1'; inc_set_nz := '1'; inc_dec := '1'; -- DEY
+              when x"8A" => inc_in_x := '1'; inc_out_a := '1'; inc_set_nz := '1'; inc_pass := '1'; -- TXA
+              when x"98" => inc_in_y := '1'; inc_out_a := '1'; inc_set_nz := '1'; inc_pass := '1'; -- TYA
+              when x"9A" => inc_in_x := '1'; inc_out_spl := '1'; inc_pass := '1'; -- TXS
+              when x"A8" => inc_in_a := '1'; inc_out_y := '1'; inc_set_nz := '1'; inc_pass := '1'; -- TAY
+              when x"AA" => inc_in_a := '1'; inc_out_x := '1'; inc_set_nz := '1'; inc_pass := '1'; -- TAX
+              when x"B8" => flag_v <= '0';  -- CLV
+              when x"BA" => inc_in_spl := '1'; inc_out_x := '1'; inc_set_nz := '1'; inc_pass := '1'; -- TSX
+              when x"CA" => inc_in_x := '1'; inc_out_x := '1'; inc_set_nz := '1'; inc_dec := '1'; -- DEX
+                when x"D8" => flag_d <= '0';  -- CLD
+              when x"E8" => inc_in_x := '1'; inc_out_x := '1'; inc_set_nz := '1'; inc_inc := '1'; -- INX
+              when x"EA" => map_interrupt_inhibit <= '0'; -- EOM
+              when x"F8" => flag_d <= '1';  -- CLD                            
+              when others => null;
+            end case;              
+          end if;
+          
           -- Main state machine for CPU
           report "CPU state = " & processor_state'image(state) & ", PC=$" & to_hstring(reg_pc) severity note;
           case state is
@@ -1607,92 +1650,34 @@ begin
               memory_access_resolve_address := '1';
               pc_inc := '1';
 
-              -- Do delayed register modification operation
-              if do_register_op='1' then
-                do_register_op <= '0';
-                case reg_opcode is
-                  when x"03" => flag_e <= '1';  -- SEE
-                  when x"0B" => inc_in_sph := '1'; inc_out_y := '1'; inc_set_nz := '1'; inc_pass := '1'; -- TSY
-                  when x"18" => flag_c <= '0';  -- CLC
-                  when x"1A" => inc_in_a := '1'; inc_out_a := '1'; inc_set_nz := '1'; inc_inc := '1'; -- INC A
-                  when x"1B" => inc_in_z := '1'; inc_out_z := '1'; inc_set_nz := '1'; inc_inc := '1'; -- INZ
-                  when x"2B" => inc_in_y := '1'; inc_out_sph := '1'; inc_pass := '1'; -- TYS
-                  when x"38" => flag_c <= '1';  -- SEC
-                  when x"3A" => inc_in_a := '1'; inc_out_a := '1'; inc_set_nz := '1'; inc_dec := '1'; -- DEC A
-                  when x"3B" => inc_in_z := '1'; inc_out_z := '1'; inc_set_nz := '1'; inc_dec := '1'; -- DEZ
-                  -- NEG can stay 2 cycles for now.  We can try
-                  -- adding it later
-                  when x"43" => inc_in_a := '1'; inc_out_a := '1'; inc_set_nz := '1';
-                                inc_shift_right := '1'; -- ASR A
-                  when x"4A" => inc_in_a := '1'; inc_out_a := '1'; inc_set_nz := '1';
-                                inc_shift_right := '1'; inc_0in := '1'; -- LSR A
-                  when x"4B" => inc_in_a := '1'; inc_out_z := '1'; inc_set_nz := '1'; inc_pass := '1'; -- TAZ
-                  when x"5B" => inc_in_a := '1'; inc_out_b := '1'; inc_pass := '1'; -- TAB
-                  when x"6A" => inc_in_a := '1'; inc_out_a := '1'; inc_set_nz := '1';
-                                inc_shift_right := '1'; inc_carry_in := '1'; -- ROR A
-                  when x"6B" => inc_in_z := '1'; inc_out_a := '1'; inc_set_nz := '1'; inc_pass := '1'; -- TZA
-                  when x"78" => flag_i <= '1';  -- SEI
-                  when x"7B" => inc_in_b := '1'; inc_out_a := '1'; inc_set_nz := '1'; inc_pass := '1'; -- TBA
-                  when x"88" => inc_in_y := '1'; inc_out_y := '1'; inc_set_nz := '1'; inc_dec := '1'; -- DEY
-                  when x"8A" => inc_in_x := '1'; inc_out_a := '1'; inc_set_nz := '1'; inc_pass := '1'; -- TXA
-                  when x"98" => inc_in_y := '1'; inc_out_a := '1'; inc_set_nz := '1'; inc_pass := '1'; -- TYA
-                  when x"9A" => inc_in_x := '1'; inc_out_spl := '1'; inc_pass := '1'; -- TXS
-                  when x"A8" => inc_in_a := '1'; inc_out_y := '1'; inc_set_nz := '1'; inc_pass := '1'; -- TAY
-                  when x"AA" => inc_in_a := '1'; inc_out_x := '1'; inc_set_nz := '1'; inc_pass := '1'; -- TAX
-                  when x"B8" => flag_v <= '0';  -- CLV
-                  when x"BA" => inc_in_spl := '1'; inc_out_x := '1'; inc_set_nz := '1'; inc_pass := '1'; -- TSX
-                  when x"CA" => inc_in_x := '1'; inc_out_x := '1'; inc_set_nz := '1'; inc_dec := '1'; -- DEX
-                  when x"D8" => flag_d <= '0';  -- CLD
-                  when x"E8" => inc_in_x := '1'; inc_out_x := '1'; inc_set_nz := '1'; inc_inc := '1'; -- INX
-                  when x"EA" => map_interrupt_inhibit <= '0'; -- EOM
-                  when x"F8" => flag_d <= '1';  -- CLD                            
-                  when others => null;
-                end case;
+              -- See if this is a single cycle instruction.
+              -- (this must come after the block above where the values get committed
+              --  so that do_register_op gets set correctly. Otherwise two
+              --  register ops in a row will result in the 2nd having no effect)
+              -- Note that CLI and CLE take 2 cycles so that any
+              -- pending interrupt can happen immediately (interrupts cannot
+              -- happen immediately after a single cycle instruction, because
+              -- interrupts are only checked in InstructionFetch, not
+              -- InstructionDecode).
+              do_register_op <= op_is_single_cycle(to_integer(memory_read_value));
                 
-                -- See if this is a single cycle instruction.
-                -- (this must come after the block above where the values get committed
-                --  so that do_register_op gets set correctly. Otherwise two
-                --  register ops in a row will result in the 2nd having no effect)
-                -- Note that CLI and CLE take 2 cycles so that any
-                -- pending interrupt can happen immediately (interrupts cannot
-                -- happen immediately after a single cycle instruction, because
-                -- interrupts are only checked in InstructionFetch, not
-                -- InstructionDecode).
-                do_register_op <= op_is_single_cycle(to_integer(memory_read_value));
-
-                
-                reg_opcode <= memory_read_value;
-                -- Present instruction to serial monitor;
-                monitor_opcode <= std_logic_vector(memory_read_value);
-                monitor_ibytes <= "0000";
-
-                -- Always read the next instruction byte after reading opcode
-                -- (unless later overriden).  For implied instructions, this is
-                -- ignored.
-                memory_access_read := '1';
-                memory_access_address := x"000"&reg_pc;
-                memory_access_resolve_address := '1';
-                pc_inc := '1';
-
-                -- See if this is a single cycle instruction.
-                -- Note that CLI and CLE take 2 cycles so that any
-                -- pending interrupt can happen immediately (interrupts cannot
-                -- happen immediately after a single cycle instruction, because
-                -- interrupts are only checked in InstructionFetch, not
-                -- InstructionDecode).
-                do_register_op <= op_is_single_cycle(to_integer(memory_read_value));
-              else
-                if op_is_single_cycle(to_integer(memory_read_value)) = '0' then
-                  if (mode_lut(to_integer(memory_read_value)) = M_immnn)
-                    or (mode_lut(to_integer(memory_read_value)) = M_impl)
-                    or (mode_lut(to_integer(memory_read_value)) = M_A)
-                  then
-                    state <= ActionCycle;
-                  else
+              reg_opcode <= memory_read_value;
+              -- Present instruction to serial monitor;
+              monitor_opcode <= std_logic_vector(memory_read_value);
+              monitor_ibytes <= "0000";
+              
+              if op_is_single_cycle(to_integer(memory_read_value)) = '0' then
+                if (mode_lut(to_integer(memory_read_value)) = M_immnn)
+                  or (mode_lut(to_integer(memory_read_value)) = M_impl)
+                  or (mode_lut(to_integer(memory_read_value)) = M_A)
+                then
+                  state <= ActionCycle;
+                else
                     state <= Cycle2;
-                  end if;
                 end if;
               end if;
+
+              -- Prepare microcode vector in case we need it next cycle
               reg_addressingmode <= mode_lut(to_integer(memory_read_value));
               reg_instruction <= instruction_lut(to_integer(memory_read_value));
               -- Up to 8 decode stages per instruction
