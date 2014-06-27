@@ -345,6 +345,7 @@ architecture Behavioural of gs4510 is
     IAbsReadArg2,
     IAbsXReadArg2,
     Imm16ReadArg2,
+    TakeBranch8,
     ActionCycle
     );
   signal state : processor_state := ResetLow;
@@ -1655,7 +1656,8 @@ begin
                 monitor_ibytes <= "0000";
 
                 -- Always read the next instruction byte after reading opcode
-                -- (unless later overriden)            
+                -- (unless later overriden).  For implied instructions, this is
+                -- ignored.
                 memory_access_read := '1';
                 memory_access_address := x"000"&reg_pc;
                 memory_access_resolve_address := '1';
@@ -1671,7 +1673,6 @@ begin
               else
                 if op_is_single_cycle(to_integer(memory_read_value)) = '0' then
                   if (mode_lut(to_integer(memory_read_value)) = M_immnn)
-                    or (mode_lut(to_integer(memory_read_value)) = M_rr)
                     or (mode_lut(to_integer(memory_read_value)) = M_impl)
                     or (mode_lut(to_integer(memory_read_value)) = M_A)
                   then
@@ -1726,7 +1727,6 @@ begin
                   memory_access_resolve_address := '1';
                   pc_inc := '1';
                   state <= ZPRelReadZP;
-                when M_rr =>    -- Handled in ActionCycle
                 when M_InnY =>
                   temp_addr := reg_b&memory_read_value;
                   memory_access_read := '1';
@@ -1741,6 +1741,35 @@ begin
                   memory_access_resolve_address := '1';
                   pc_inc := '1';
                   state <= InnZReadVectorLow;
+                when M_rr =>
+                  if (reg_instruction=I_BRA) or
+                    (reg_instruction=I_BSR) or
+                    (reg_instruction=I_BEQ and flag_z='1') or
+                    (reg_instruction=I_BNE and flag_z='0') or
+                    (reg_instruction=I_BCS and flag_c='1') or
+                    (reg_instruction=I_BCC and flag_c='0') or
+                    (reg_instruction=I_BVS and flag_v='1') or
+                    (reg_instruction=I_BVC and flag_v='0') or
+                    (reg_instruction=I_BMI and flag_n='1') or
+                    (reg_instruction=I_BPL and flag_n='0') then
+                    -- Branch will be taken
+                    temp_addr := reg_pc +
+                              to_integer(memory_read_value(7)&memory_read_value(7)&memory_read_value(7)&memory_read_value(7)&
+                                         memory_read_value(7)&memory_read_value(7)&memory_read_value(7)&memory_read_value(7)&
+                                         memory_read_value);
+                    memory_access_read := '1';
+                    memory_access_address := x"000"&temp_addr;
+                    memory_access_resolve_address := '1';
+                    reg_pc <= temp_addr;
+                  else
+                    -- Branch will not be taken.
+                    -- fetch next instruction now to save a cycle
+                    reg_pc <= reg_pc + 1;
+                    memory_access_read := '1';
+                    memory_access_address := x"000"&reg_pc;
+                    memory_access_resolve_address := '1';
+                    state <= InstructionDecode;
+                  end if;   
                 when M_rrrr =>
                   -- Store low 8 bits of branch value even if we don't use it
                   -- because the logic is shallowe that way
@@ -1781,7 +1810,6 @@ begin
                   memory_access_resolve_address := '1';
                   pc_inc := '1';
                   state <= ActionCycle;
-
                 when M_nnnnY =>
                   reg_addr(7 downto 0) <= memory_read_value;
                   memory_access_read := '1';
@@ -1823,26 +1851,55 @@ begin
 
             -- Dummy states for now.
             when B16TakeBranch =>
+              reg_pc <= reg_pc + to_integer(memory_read_value & reg_addr(7 downto 0));
               state <= InstructionFetch;
             when InnYReadVectorLow =>
+              reg_addr(7 downto 0) <= memory_read_value;
               state <= InstructionFetch;
             when InnZReadVectorLow =>
+              reg_addr(7 downto 0) <= memory_read_value;
               state <= InstructionFetch;
             when ZPRelReadZP =>
-              state <= InstructionFetch;
+              -- Here we are reading the ZP memory location
+              -- Check if the appropriate bit is set/clear
+              if memory_read_value(to_integer(reg_opcode(6 downto 4)))
+                =reg_opcode(7) then
+                -- Take branch, so read next byte
+                memory_access_read := '1';
+                memory_access_address := x"000"&reg_pc;
+                memory_access_resolve_address := '1';
+                state <= TakeBranch8;
+              else
+                -- Don't take branch, so just skip over branch byte
+                state <= InstructionFetch;
+              end if;
             when AbsReadArg2 =>
-              state <= InstructionFetch;
+              reg_addr(15 downto 8) <= memory_read_value;
+              state <= ActionCycle;
             when AbsXReadArg2 =>
-              state <= InstructionFetch;
+              reg_addr <= x"00"&reg_x + to_integer(memory_read_value&reg_addr(7 downto 0));
+              state <= ActionCycle;
             when AbsYReadArg2 =>
-              state <= InstructionFetch;
+              reg_addr <= x"00"&reg_y + to_integer(memory_read_value&reg_addr(7 downto 0));
+              state <= ActionCycle;
             when IAbsReadArg2 =>
               state <= InstructionFetch;
             when IAbsXReadArg2 =>
               state <= InstructionFetch;
             when Imm16ReadArg2 => 
               state <= InstructionFetch;
-              
+            when TakeBranch8 =>
+              -- Branch will be taken
+              temp_addr := reg_pc +
+                           to_integer(memory_read_value(7)&memory_read_value(7)&memory_read_value(7)&memory_read_value(7)&
+                                      memory_read_value(7)&memory_read_value(7)&memory_read_value(7)&memory_read_value(7)&
+                                      memory_read_value);
+              -- Prefetch instruction byte
+              memory_access_read := '1';
+              memory_access_address := x"000"&temp_addr;
+              memory_access_resolve_address := '1';
+              reg_pc <= temp_addr;
+              state <= InstructionDecode;
             when ActionCycle =>
               if reg_microcode(mcStoreArg1)='1' then
                 reg_arg1 <= memory_read_value;
