@@ -90,6 +90,8 @@ architecture behavioural of uart_monitor is
            );
   end component;
 
+  signal monitor_mem_byte : unsigned(7 downto 0) := x"BD";
+
 -- raise for one cycle when we have a byte ready to send.
 -- should only be asserted when tx_ready='1'.
   signal tx_trigger : std_logic := '0';
@@ -892,7 +894,7 @@ begin
             end if;
           when ShowMemory3 =>
             if tx_ready='1' then
-              membuf(byte_number) <= monitor_mem_rdata;
+              membuf(byte_number) <= monitor_mem_byte;
               byte_number <= byte_number +1;
               state <= ShowMemory2;
             end if;
@@ -1095,6 +1097,7 @@ begin
           when CPUTransaction2 =>
             if monitor_mem_attention_granted='1' then
               -- Attention being granted implies that request has been fulfilled.
+              monitor_mem_byte <= monitor_mem_rdata;
               monitor_mem_attention_request <= '0';
               timeout <= 65535;
               state <= CPUTransaction3;
