@@ -404,7 +404,9 @@ architecture Behavioral of machine is
   signal seg_led_data : unsigned(31 downto 0);
 
   signal reset_out : std_logic;
-  signal power_on_reset : std_logic_vector(7 downto 0) := (others => '1');
+  -- Holds reset on for 8 cycles so that reset line entry is used on start up,
+  -- instead of implicit startup state.
+  signal power_on_reset : std_logic_vector(7 downto 0) := (others => '0');
   signal reset_combined : std_logic;
   
   signal io_irq : std_logic;
@@ -492,15 +494,15 @@ begin
   -- device via the IOmapper pull an interrupt line down, then trigger an
   -- interrupt.
   -----------------------------------------------------------------------------
-  process(irq,nmi,restore_nmi,io_irq,vic_irq,io_nmi,sw,reset_out,btnCpuReset)
+  process(irq,nmi,restore_nmi,io_irq,vic_irq,io_nmi,sw,reset_out,btnCpuReset,
+          power_on_reset)
   begin
     -- XXX Allow switch 0 to mask IRQs
     combinedirq <= ((irq and io_irq and vic_irq) or sw(0));
     combinednmi <= (nmi and io_nmi and restore_nmi) or sw(14);
     reset_combined <= (btnCpuReset and reset_out and power_on_reset(0)) or sw(15);
-    power_on_reset(7) <= '0';
-    power_on_reset(6 downto 0) <= power_on_reset(7 downto 1);
---    report "btnCpuReset = " & std_logic'image(btnCpuReset) & ", reset_out = " & std_logic'image(reset_out) & ", sw(15) = " & std_logic'image(sw(15)) severity note;
+    report "btnCpuReset = " & std_logic'image(btnCpuReset) & ", reset_out = " & std_logic'image(reset_out) & ", sw(15) = " & std_logic'image(sw(15)) severity note;
+    report "reset_combined = " & std_logic'image(reset_combined) severity note;
   end process;
   
   process(pixelclock)
@@ -512,6 +514,12 @@ begin
       -- Run IO and serial monitor at 1/3 cpu clock = 32MHz
       if clock_phase = 5 then
         clock_phase <= 0;
+
+        -- Hold reset low for a while when we first turn on
+        report "power_on_reset(0) = " & std_logic'image(power_on_reset(0)) severity note;
+        power_on_reset(7) <= '1';
+        power_on_reset(6 downto 0) <= power_on_reset(7 downto 1);
+
       else
         clock_phase <= clock_phase + 1;
       end if;
