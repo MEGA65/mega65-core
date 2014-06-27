@@ -43,6 +43,8 @@ entity gs4510 is
     monitor_state : out unsigned(7 downto 0);
     monitor_watch : in std_logic_vector(27 downto 0);
     monitor_watch_match : out std_logic;
+    monitor_proceed : out std_logic;
+    monitor_request_reflected : out std_logic;
     monitor_opcode : out std_logic_vector(7 downto 0);
     monitor_ibytes : out std_logic_vector(3 downto 0);
     monitor_arg1 : out std_logic_vector(7 downto 0);
@@ -315,8 +317,11 @@ architecture Behavioural of gs4510 is
   
   type processor_state is (
     -- Reset and interrupts
-    ResetLow,ResetReady,
-    Interrupt,VectorRead1,VectorRead2,
+    ResetLow,
+    ResetReady,
+    Interrupt,
+    VectorRead1,
+    VectorRead2,
 
     -- DMAgic
     DMAgicTrigger,DMAgicReadList,DMAgicRead,DMAgicWrite,
@@ -528,7 +533,6 @@ begin
       -- reset.  $FF in CPU personality 3 will do the trick.
 
       instruction_phase <= x"0";
-      reg_opcode <= (others => '1');
       
       -- Default register values
       reg_b <= x"00";
@@ -1554,8 +1558,11 @@ begin
           write_long_byte(delayed_memory_write_address,delayed_memory_write_data);
         end if;
       end if;
+
+      monitor_proceed <= proceed;
+      monitor_request_reflected <= monitor_mem_attention_request;
       
-      if proceed='1' then
+      if proceed='1' then        
         -- Main state machine for CPU
         report "CPU state = " & processor_state'image(state) & ", PC=$" & to_hstring(reg_pc) severity note;
         case state is

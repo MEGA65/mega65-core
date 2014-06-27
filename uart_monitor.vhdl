@@ -34,6 +34,8 @@ entity uart_monitor is
     fastio_read : in std_logic;
     fastio_write : in std_logic;
     
+    monitor_proceed : in std_logic;
+    monitor_request_reflected : in std_logic;
     monitor_pc : in std_logic_vector(15 downto 0);
     monitor_cpu_state : in unsigned(7 downto 0);
     monitor_watch : out std_logic_vector(27 downto 0) := x"7FFFFFF";
@@ -133,7 +135,7 @@ architecture behavioural of uart_monitor is
   constant requestTimeoutMessage : string := crlf & "?REQUEST TIMEOUT  ERROR" & crlf;
   constant replyTimeoutMessage : string := crlf & "?REPLY TIMEOUT  ERROR" & crlf;
 
-  constant registerMessage : string := crlf & "PC   A  X  Y  Z  B  SP   MAPL MAPH LAST-OP  P  P-FLAGS   RG US" & crlf;
+  constant registerMessage : string := crlf & "PC   A  X  Y  Z  B  SP   MAPL MAPH LAST-OP  P  P-FLAGS   RGP uS IO" & crlf;
   
   type monitor_state is (Reseting,
                          PrintBanner,PrintHelp,
@@ -174,7 +176,8 @@ architecture behavioural of uart_monitor is
                          ShowRegisters25,ShowRegisters26,ShowRegisters27,ShowRegisters28,
                          ShowRegisters29,ShowRegisters30,ShowRegisters31,ShowRegisters32,
                          ShowP1,ShowP2,ShowP3,ShowP4,ShowP5,ShowP6,ShowP7,ShowP8,
-                         ShowP9,ShowP10,ShowP11,ShowP12,ShowP13,ShowP14,ShowP15,ShowP16,
+                         ShowP9,ShowP10,ShowP11,ShowP12,ShowP13a,
+                         ShowP13,ShowP14,ShowP15,ShowP16,
                          TraceStep,CPUBreak1,WaitOneCycle
                          );
 
@@ -1028,14 +1031,20 @@ begin
           when ShowP10 =>
             try_output_char(' ',ShowP11);
           when ShowP11 =>
---            if monitor_mem_attention_request='1' then
---              try_output_char('R',ShowP12);
---            else
+            if monitor_request_reflected='1' then
+              try_output_char('R',ShowP12);
+            else
               try_output_char('.',ShowP12);
---            end if;
+            end if;
           when ShowP12 =>
             if monitor_mem_attention_granted='1' then
-              try_output_char('G',ShowP13);
+              try_output_char('G',ShowP13a);
+            else
+              try_output_char('.',ShowP13a);
+            end if;
+          when ShowP13a =>
+            if monitor_proceed='1' then
+              try_output_char('P',ShowP13);
             else
               try_output_char('.',ShowP13);
             end if;
