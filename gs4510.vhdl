@@ -775,6 +775,7 @@ begin
         -- Think of it as a kind of direct-mapped L1 cache.
         accessing_shadow <= '1';
         wait_states <= x"00";
+        proceed <= '1';
         shadow_address <= long_address(17 downto 0);
         shadow_write <= '0';
         report "Reading from shadow ram address $" & to_hstring(long_address(17 downto 0))
@@ -785,6 +786,7 @@ begin
         accessing_shadow <= '1';
         shadow_address <= '0'&long_address(16 downto 0);
         shadow_write <= '0';
+        proceed <= '1';        
         report "Reading from shadowed fastram address $" & to_hstring(long_address(19 downto 0))
           & ", word $" & to_hstring(long_address(18 downto 3)) severity note;
       elsif long_address(27 downto 24) = x"8"
@@ -801,6 +803,7 @@ begin
         slowram_ub <= '0';
         slowram_lohi <= long_address(0);
         wait_states <= slowram_waitstates;
+        proceed <= '0';
       elsif long_address(27 downto 20) = x"FF" then
         accessing_fastio <= '1';
         accessing_vic_fastio <= '0';
@@ -855,39 +858,17 @@ begin
         fastio_addr <= std_logic_vector(long_address(19 downto 0));
         last_fastio_addr <= std_logic_vector(long_address(19 downto 0));
         fastio_read <= '1';
-        -- XXX Some fastio (that referencing dual-port block rams) does require
-        -- a wait state.  For now, just apply the wait state to all fastio
-        -- addresses.
-        -- Eventually can narrow down to colour ram, palette and some of the other
-        -- IO features that use dual-port rams to provide access.
-        -- Probably easier just to make the single-port ROM portion of fastio fast,
-        -- and assume all else is slow, as there are many pieces of fastio that need
-        -- a wait state.
-        -- So let's just make the top 128KB of fastio fast, and assume the rest needs
-        -- the wait state.  Also the CIAs as interrupts are acknowledged and cleared
-        -- by reading registers, so reading twice would lose the ability to see
-        -- the interrupt source.
-        -- XXX kickstart ROM has trouble reading instruction arguments @ 48MHz with
-        -- 0 wait states on the kickstart ROM.  This may be related to the existing
-        -- known glitching of the kickstart ROM, which is why we copy it to chipram
-        -- before running it.  So removing the following exemption from wait state
-        -- may allow correct 48MHz operation.
-        if -- long_address(19 downto 17)="111"
-          --or long_address(19 downto 8)=x"D0C" or long_address(19 downto 8)=x"D0D"
-          --or long_address(19 downto 8)=x"D1C" or long_address(19 downto 8)=x"D1D"
-          --or long_address(19 downto 8)=x"D2C" or long_address(19 downto 8)=x"D2D"
-          --or long_address(19 downto 8)=x"D3C" or long_address(19 downto 8)=x"D3D"
-          -- F011 FDC @ $D080-$D09F requires a wait state, but only appears in the
-          -- enhanced image pages.
-          long_address(19 downto 8)=x"D00" or long_address(19 downto 7)=x"D10"&'0'
-          or long_address(19 downto 8)=x"D20" or long_address(19 downto 7)=x"D30"&'0'
-        then 
-          null;
-        else
-          wait_states <= io_wait_states;
-        end if;
+        -- XXX Some fastio (that referencing ioclocked registers) does require
+        -- io_wait_states, while some can use fewer waitstates because the
+        -- memories involved can be clocked at the CPU clock, and have just 1
+        -- wait state due to the dual-port memories.
+        -- But for now, just apply the wait state to all fastio addresses.
+        wait_states <= io_wait_states;
+        proceed <= '0';
       else
-      -- Don't let unmapped memory jam things up
+        -- Don't let unmapped memory jam things up
+        wait_states <= x"00";
+        proceed <= '1';
       end if;
     end read_long_address;
     
@@ -1480,6 +1461,10 @@ begin
             if monitor_mem_trace_mode='0' or
               monitor_mem_trace_toggle_last /= monitor_mem_trace_toggle then
               monitor_mem_trace_toggle_last <= monitor_mem_trace_toggle;
+              -- Proceed unless the serial monitor wants our attention.
+              -- XXX Does this mean that is the serial monitor does a memory
+              -- access it could stuff the rest of the instruction up as it
+              -- will trash read_memory_value
               proceed <= not monitor_mem_attention_request;
             else
               proceed <= '0';
@@ -1498,7 +1483,7 @@ begin
 
           if mem_reading='1' then
             memory_read_value := read_data;
-            report "resetting mem_reading" severity note;
+            report "resetting mem_reading (read $" & to_hstring(memory_read_value) & ")" severity note;
             mem_reading <= '0';
             mem_reading_pcl <= '0';
             mem_reading_pch <= '0';
@@ -1508,6 +1493,10 @@ begin
           if monitor_mem_trace_mode='0' or
             monitor_mem_trace_toggle_last /= monitor_mem_trace_toggle then
             monitor_mem_trace_toggle_last <= monitor_mem_trace_toggle;
+            -- Proceed unless the serial monitor wants our attention.
+            -- XXX Does this mean that is the serial monitor does a memory
+            -- access it could stuff the rest of the instruction up as it
+            -- will trash read_memory_value
             proceed <= not monitor_mem_attention_request;
           else
             proceed <= '0';
