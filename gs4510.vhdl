@@ -1757,6 +1757,7 @@ begin
                     memory_access_address := x"000"&temp_addr;
                     memory_access_resolve_address := '1';
                     reg_pc <= temp_addr;
+                    state <= InstructionDecode;
                   else
                     -- Branch will not be taken.
                     -- fetch next instruction now to save a cycle
