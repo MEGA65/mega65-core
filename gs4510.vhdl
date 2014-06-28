@@ -439,6 +439,7 @@ architecture Behavioural of gs4510 is
   signal is_rmw : std_logic;
   signal is_load : std_logic;
   signal is_store : std_logic;
+  signal rmw_dummy_write_done : std_logic;
   
   --signal delayed_memory_write : std_logic;
   --signal delayed_memory_write_resolve_address : std_logic;
@@ -1436,7 +1437,7 @@ begin
           end if;          
 
           proceed <= '1';
-
+        end if;
         -- Do memory writes in their own clock cycle to keep logic depth down.
         -- The trade-off is one cycle delay on all memory writes.
         -- Memory writes are only perhaps 20% of all cycles,
@@ -1613,6 +1614,7 @@ begin
               reg_addressingmode <= mode_lut(to_integer(memory_read_value));
               reg_instruction <= instruction_lut(to_integer(memory_read_value));
               is_rmw <= '0'; is_load <= '0'; is_store <= '0';
+              rmw_dummy_write_done <= '0';
               case instruction_lut(to_integer(memory_read_value)) is
                 -- Note if instruction is RMW
                 when I_INC => is_rmw <= '1';
@@ -1875,7 +1877,7 @@ begin
               if reg_microcode.mcClearI='1' then flag_i <= '0'; end if;             
               
               -- Incrementer ALU things
-              inc_rmw := reg_microcode.mcRMW;
+              inc_rmw := reg_microcode.mcRMW and rmw_dummy_write_done;
               inc_in_a := reg_microcode.mcIncInA;
               inc_in_t := reg_microcode.mcIncInT;
               inc_in_x := reg_microcode.mcIncInX;
@@ -2040,7 +2042,7 @@ begin
         else
           -- Stay in current state for one more cycle to do the commit
           state <= state;
-          reg_microcode.mcRMW <= '0';
+          rmw_dummy_write_done <= '1';
         end if;
         ---Set-flags---------------------------------------------------------------
         if inc_set_nz='1' then set_nz(inc_temp); end if;
@@ -2082,8 +2084,6 @@ begin
 
       end if; -- if not reseting
     end if;                         -- if rising edge of clock
-
-    
   end process;
 
 end Behavioural;
