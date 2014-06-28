@@ -22,12 +22,14 @@ kickstart65gs.bin:	kickstart.a65 Makefile diskchooser
 kickstart.vhdl:	rom_template.vhdl kickstart65gs.bin makerom
 	./makerom rom_template.vhdl kickstart65gs.bin kickstart
 
-transfer:	kickstart.vhdl
+transfer:	kickstart.vhdl version.vhdl
 	scp -p Makefile makerom kernel65.a65 *.ucf *.xise *.prj *vhd *vhdl 192.168.56.101:c64accel/
 
+version.vhdl: version-template.vhdl version.sh .git/index *.vhdl *.vhd 
+	./version.sh
 
-simulate:	bcdadder.vhdl alu6502.vhdl cpu6502.vhdl kickstart.vhdl iomapper.vhdl container.vhd cpu_test.vhdl viciv.vhdl gs4510.vhdl debugtools.vhdl UART_TX_CTRL.vhd uart_rx.vhdl uart_monitor.vhdl machine.vhdl cia6526.vhdl keymapper.vhdl ghdl_ram8x64k.vhdl charrom.vhdl ghdl_ram64x16k.vhdl sdcardio.vhdl ghdl_ram8x512.vhdl ramlatch64.vhdl shadowram.vhdl microcode.vhdl cputypes.vhdl
-	ghdl -c kickstart.vhdl iomapper.vhdl container.vhd cpu_test.vhdl viciv.vhdl gs4510.vhdl debugtools.vhdl UART_TX_CTRL.vhd uart_rx.vhdl uart_monitor.vhdl machine.vhdl cia6526.vhdl keymapper.vhdl ghdl_ram8x64k.vhdl charrom.vhdl ghdl_ram64x16k.vhdl sdcardio.vhdl ghdl_ram8x512.vhdl ramlatch64.vhdl shadowram.vhdl microcode.vhdl cputypes.vhdl -r cpu_test
+simulate:	bcdadder.vhdl alu6502.vhdl cpu6502.vhdl kickstart.vhdl iomapper.vhdl container.vhd cpu_test.vhdl viciv.vhdl gs4510.vhdl debugtools.vhdl UART_TX_CTRL.vhd uart_rx.vhdl uart_monitor.vhdl machine.vhdl cia6526.vhdl keymapper.vhdl ghdl_ram8x64k.vhdl charrom.vhdl ghdl_ram64x16k.vhdl sdcardio.vhdl ghdl_ram8x512.vhdl ramlatch64.vhdl shadowram.vhdl microcode.vhdl cputypes.vhdl version.vhdl
+	ghdl -c kickstart.vhdl iomapper.vhdl container.vhd cpu_test.vhdl viciv.vhdl gs4510.vhdl debugtools.vhdl UART_TX_CTRL.vhd uart_rx.vhdl uart_monitor.vhdl machine.vhdl cia6526.vhdl keymapper.vhdl ghdl_ram8x64k.vhdl charrom.vhdl ghdl_ram64x16k.vhdl sdcardio.vhdl ghdl_ram8x512.vhdl ramlatch64.vhdl shadowram.vhdl microcode.vhdl cputypes.vhdl version.vhdl -r cpu_test
 
 testcia:	tb_cia.vhdl cia6526.vhdl debugtools.vhdl
 	ghdl -c tb_cia.vhdl cia6526.vhdl debugtools.vhdl -r tb_cia

@@ -22,6 +22,7 @@ use IEEE.STD_LOGIC_1164.ALL;
 use ieee.numeric_std.all;
 use Std.TextIO.all;
 use work.debugtools.all;
+use work.version.all;
 
 entity uart_monitor is
   port (
@@ -117,6 +118,7 @@ architecture behavioural of uart_monitor is
     crlf &
     "--------------------------------" & crlf &
     "65GS Serial Monitor" & crlf &
+    "build " & gitcommit & crlf &
     "--------------------------------" & crlf &
     "Type ? for help." & crlf;
   signal banner_position : integer range 0 to 511 := 1;
