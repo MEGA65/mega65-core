@@ -1301,6 +1301,12 @@ begin
 
     variable inc_temp : unsigned(7 downto 0);
 
+    variable alu_in : unsigned(7 downto 0);
+    variable alu_temp : unsigned(7 downto 0);
+    variable alu_in_a : std_logic;
+    variable alu_in_x : std_logic;
+    variable alu_in_y : std_logic;
+    variable alu_in_z : std_logic;    
     variable alu_set_c : std_logic;
     variable alu_set_nz : std_logic;
     variable alu_cmp : std_logic;
@@ -2013,19 +2019,24 @@ begin
         -- Arithmetic ALU
         ---------------------------------------------------------------------------
         ---Input-Values------------------------------------------------------------
-        -- (Uses inc_temp for primary input. Secondary input is always memory)
+        -- (Secondary input is always memory)
+        if alu_in_a='1' then alu_temp := reg_a; end if;
+        if alu_in_x='1' then alu_temp := reg_x; end if;
+        if alu_in_y='1' then alu_temp := reg_y; end if;
+        if alu_in_z='1' then alu_temp := reg_z; end if;
+
         ---Perform-Calculation-----------------------------------------------------
         if alu_add='1' then
-          inc_temp := alu_op_add(inc_temp,memory_read_value);
+          alu_temp := alu_op_add(alu_temp,memory_read_value);
         end if;
         if alu_cmp='1' then
-          alu_op_cmp(inc_temp,memory_read_value);
+          alu_op_cmp(alu_temp,memory_read_value);
         end if;
         if alu_sub='1' then
-          inc_temp := alu_op_sub(inc_temp,memory_read_value);
+          alu_temp := alu_op_sub(alu_temp,memory_read_value);
         end if;
-        if alu_out_a='1' then reg_a <= inc_temp; end if;
-        if alu_out_mem='1' then memory_access_wdata := inc_temp; end if;
+        if alu_out_a='1' then reg_a <= alu_temp; end if;
+        if alu_out_mem='1' then memory_access_wdata := alu_temp; end if;
 
       end if; -- if not reseting
     end if;                         -- if rising edge of clock

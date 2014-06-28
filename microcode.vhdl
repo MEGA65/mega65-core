@@ -60,7 +60,7 @@ architecture Behavioral of microcode is
     I_CLE => (mcClearE => '1', mcInstructionFetch => '1', others => '0'),
     I_CLI => (mcClearI => '1', mcInstructionFetch => '1', others => '0'),
     -- I_CLV - handled as a single-cycle op elsewhere
-    I_CMP => (mcIncInA => '1', mcAlumcAluCmp => '1',
+    I_CMP => (mcIncInA => '1', mcAluCmp => '1',
               mcInstructionFetch => '1', others => '0'),    
     -- I_DEC
     -- I_DEW
