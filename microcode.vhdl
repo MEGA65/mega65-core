@@ -34,11 +34,46 @@ architecture Behavioral of microcode is
   type ram_t is array (instruction)
     of microcodeops;
   signal ram : ram_t := (
-    I_JMP => (mcJump => '1', others => '0'),
+    I_ADC => (mcIncInA => '1', mcAluAdd => '1', mcAluOutA => '1',
+              mcInstructionFetch => '1', others => '0'),
     I_AND => (mcIncInMem => '1', mcIncAnd => '1', mcIncOutA => '1',
               mcIncSetNZ => '1', others => '0'),
+    -- I_ASL
+    -- I_ASR
+    -- I_ASW
+    -- I_BBR - handled elsewhere
+    -- I_BBS - handled elsewhere
+    -- I_BCC - handled elsewhere
+    -- I_BCS - handled elsewhere
+    -- I_BEQ - handled elsewhere
+    -- I_BIT
+    -- I_BMI - handled elsewhere
+    -- I_BNE - handled elsewhere
+    -- I_BPL - handled elsewhere
+    -- I_BRA - handled elsewhere
+    -- I_BRK
+    -- I_BSR
+    -- I_BVC - handled elsewhere
+    -- I_BVS - handled elsewhere
+    -- I_CLC - Handled as a single-cycle op elsewhere
+    -- I_CLD - handled as a single-cycle op elsewhere
+    I_CLE => (mcClearE => '1', mcInstructionFetch => '1', others => '0'),
+    I_CLI => (mcClearI => '1', mcInstructionFetch => '1', others => '0'),
+    -- I_CLV - handled as a single-cycle op elsewhere
+    I_CMP => (mcIncInA => '1', mcAlumcAluCmp => '1',
+              mcInstructionFetch => '1', others => '0'),    
+    -- I_DEC
+    -- I_DEW
+    -- I_EOM - handled as a single-cycle op elsewhere
     I_EOR => (mcIncInMem => '1', mcIncEor => '1', mcIncOutA => '1',
               mcIncSetNZ => '1', others => '0'),
+    -- I_INC
+    -- I_INW
+    -- I_INX - handled as a single-cycle op elsewhere
+    -- I_INY - handled as a single-cycle op elsewhere
+    -- I_INZ - handled as a single-cycle op elsewhere
+    I_JMP => (mcJump => '1', others => '0'),
+    -- I_JSR
     I_LDA => (mcIncInMem => '1', mcIncPass => '1', mcIncOutA => '1',
               mcIncSetNZ => '1', others => '0'),
     I_LDX => (mcIncInMem => '1', mcIncPass => '1', mcIncOutX => '1',
@@ -47,11 +82,35 @@ architecture Behavioral of microcode is
               mcIncSetNZ => '1', others => '0'),
     I_LDZ => (mcIncInMem => '1', mcIncPass => '1', mcIncOutZ => '1',
               mcIncSetNZ => '1', others => '0'),
+    -- I_LSR
     I_MAP => (mcMap => '1', others => '0'),
     I_NEG => (mcIncInA => '1', mcIncNeg => '1', mcIncOutA => '1',
               mcIncSetNZ => '1', others => '0'),
     I_ORA => (mcIncInMem => '1', mcIncIor => '1', mcIncOutA => '1',
               mcIncSetNZ => '1', others => '0'),
+    -- I_PHA
+    -- I_PHP
+    -- I_PHX
+    -- I_PHY
+    -- I_PHZ
+    -- I_PLA
+    -- I_PLP
+    -- I_PLX
+    -- I_PLY
+    -- I_PLZ
+    -- I_RMB
+    -- I_ROL
+    -- I_ROR
+    -- I_ROW
+    -- I_RTI
+    -- I_RTS
+    I_SBC => (mcIncInA => '1', mcAluSub => '1', mcAluOutA => '1',
+              mcInstructionFetch => '1', others => '0'),
+    -- I_SEC - handled as a single-cycle op elsewhere   
+    -- I_SED - handled as a single-cycle op elsewhere   
+    -- I_SEE - handled as a single-cycle op elsewhere   
+    -- I_SEI - handled as a single-cycle op elsewhere   
+    -- I_SMB
     I_STA => (mcIncInA => '1', mcIncPass => '1', mcIncOutMem => '1',
               mcWriteMem => '1', others => '0'),
     I_STX => (mcIncInX => '1', mcIncPass => '1', mcIncOutMem => '1',
@@ -60,6 +119,19 @@ architecture Behavioral of microcode is
               mcWriteMem => '1', others => '0'),
     I_STZ => (mcIncInZ => '1', mcIncPass => '1', mcIncOutMem => '1',
               mcWriteMem => '1', others => '0'),
+    -- I_TAX - handled as a single-cycle op elsewhere   
+    -- I_TAY - handled as a single-cycle op elsewhere   
+    -- I_TAZ - handled as a single-cycle op elsewhere   
+    -- I_TBA - handled as a single-cycle op elsewhere   
+    -- I_TRB
+    -- I_TSB
+    -- I_TSX - handled as a single-cycle op elsewhere   
+    -- I_TSY - handled as a single-cycle op elsewhere   
+    -- I_TXA - handled as a single-cycle op elsewhere   
+    -- I_TXS - handled as a single-cycle op elsewhere   
+    -- I_TYA - handled as a single-cycle op elsewhere   
+    -- I_TYS - handled as a single-cycle op elsewhere   
+    -- I_TZA - handled as a single-cycle op elsewhere   
     
     others => ( mcInstructionFetch => '1', others => '0'));
 
