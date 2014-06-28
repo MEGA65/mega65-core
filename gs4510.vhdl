@@ -1391,7 +1391,7 @@ begin
       if (monitor_mem_trace_mode='0' or
           monitor_mem_trace_toggle_last /= monitor_mem_trace_toggle)
          and (monitor_mem_attention_request='0') then
-          monitor_mem_trace_toggle_last <= monitor_mem_trace_toggle;
+        monitor_mem_trace_toggle_last <= monitor_mem_trace_toggle;
         normal_fetch_state <= InstructionFetch;
         fast_fetch_state <= InstructionDecode;
       else
