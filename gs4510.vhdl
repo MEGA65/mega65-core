@@ -1533,7 +1533,7 @@ begin
                   memory_access_write := '1';
                   memory_access_wdata := monitor_mem_wdata;
                 -- Don't allow a read to occur while a write is completing.
-                elsif monitor_mem_read='1' and proceed='0' then
+                elsif monitor_mem_read='1' then
                   -- and optionally set PC
                   mem_reading_pcl <= '0';
                   mem_reading_pch <= '0';
@@ -1543,7 +1543,6 @@ begin
                     -- don't write it here, only for it to get stomped.
                     monitor_mem_attention_granted <= '1';
                     reg_pc <= unsigned(monitor_mem_address(15 downto 0));
-                    proceed <= '0';
                     mem_reading <= '0';
                   else
                     -- otherwise just read from memory
@@ -1552,6 +1551,7 @@ begin
                     -- Read from specified long address
                     monitor_mem_reading <= '1';
                     mem_reading <= '1';
+                    proceed <= '0';
                   end if;
                 end if;
               else
