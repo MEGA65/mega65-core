@@ -60,14 +60,17 @@ package cputypes is
     mcInstructionFetch : std_logic;
     mcInstructionDecode : std_logic;
 
-    mcWriteStack : std_logic;
     mcWriteMem : std_logic;
-    mcDecSP : std_logic;
-    mcIncSP : std_logic;
-    mcDeclareArg1 : std_logic;
-    mcDeclareArg2 : std_logic;
+    mcPush : std_logic;
+    mcPop : std_logic;
+    mcBreakFlag : std_logic;
 
     -- Arithmetic ALU operations
+    mcAluInP : std_logic;
+    mcAluInA : std_logic;
+    mcAluInX : std_logic;
+    mcAluInY : std_logic;
+    mcAluInZ : std_logic;
     mcAluOutA : std_logic;
     mcAluCarryOut : std_logic;
     mcAluAdd : std_logic;

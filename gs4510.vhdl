@@ -1866,12 +1866,8 @@ begin
               -- have a lot of the other fancy instructions.  That just leaves
               -- us with loads, stores and reaad/modify/write instructions
 
-              -- Memory read
-
-              -- See if we need to write to memory
-              memory_access_write := reg_microcode.mcWriteMem;
-              memory_access_address := x"000"&reg_addr;
-              memory_access_resolve_address := reg_microcode.mcWriteMem;
+              if reg_microcode.mcClearE='1' then flag_e <= '0'; end if;
+              if reg_microcode.mcClearI='1' then flag_i <= '0'; end if;             
               
               -- Incrementer ALU things
               inc_in_a := reg_microcode.mcIncInA;
@@ -1900,12 +1896,38 @@ begin
               inc_0in := reg_microcode.mcIncZeroIn;
               inc_carry_in := reg_microcode.mcIncCarryIn;
               inc_set_nz := reg_microcode.mcIncSetNZ;
-
+                            
               -- Regular ALU things (shares inputs with incrementer)
               alu_out_a := reg_microcode.mcAluOutA;
               alu_set_c := reg_microcode.mcAluCarryOut;
               alu_set_nz := reg_microcode.mcIncSetNZ;
 
+              -- See if we need to write to memory.
+              -- Memory writes are either to reg_addr or the stack
+              if reg_microcode.mcWriteMem='1' then
+                memory_access_write := '1';
+                memory_access_address := x"000"&reg_addr;
+                memory_access_resolve_address := '1';
+              end if;
+              if reg_microcode.mcPush='1' then
+                memory_access_write := '1';
+                memory_access_address := x"000"&reg_sph&reg_sp;
+                memory_access_resolve_address := '1';
+                if reg_microcode.mcAluInA='1' then memory_access_wdata := reg_a; end if;
+                if reg_microcode.mcAluInP='1' then
+                  memory_access_wdata := unsigned(virtual_reg_p);
+                  memory_access_wdata(4) := reg_microcode.mcBreakFlag;
+                end if;
+                if reg_microcode.mcAluInX='1' then memory_access_wdata := reg_x; end if;
+                if reg_microcode.mcAluInY='1' then memory_access_wdata := reg_y; end if;
+                if reg_microcode.mcAluInZ='1' then memory_access_wdata := reg_z; end if;
+                -- Decrement stack pointer (8 or 16 bit)
+                reg_sp <= reg_sp - 1;
+                if flag_e='0' and reg_sp=x"00" then
+                  reg_sph <= reg_sph - 1;
+                end if;
+              end if;
+              
               if is_store='0' and is_rmw='0' and nmi_pending='0'
                  and (irq_pending='1' or flag_i='1') then
                 -- We can start fetching the next instruction
