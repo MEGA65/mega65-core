@@ -1267,6 +1267,7 @@ begin
 
     variable pc_inc : std_logic;
 
+    variable inc_rmw : std_logic;
     variable inc_in_a : std_logic;
     variable inc_in_b : std_logic;
     variable inc_in_t : std_logic;
@@ -1330,6 +1331,7 @@ begin
       -- By default we are doing nothing new.
       pc_inc := '0';
 
+      inc_rmw := '0';
       inc_in_a := '0'; inc_in_b := '0'; inc_in_t := '0';
       inc_in_x := '0'; inc_in_y := '0'; inc_in_z := '0';
       inc_in_spl := '0'; inc_in_sph := '0'; inc_in_mem := '0';
@@ -1875,6 +1877,7 @@ begin
               if reg_microcode.mcClearI='1' then flag_i <= '0'; end if;             
               
               -- Incrementer ALU things
+              inc_rmw := reg_microcode.mcRMW;
               inc_in_a := reg_microcode.mcIncInA;
               inc_in_t := reg_microcode.mcIncInT;
               inc_in_x := reg_microcode.mcIncInX;
@@ -2019,19 +2022,27 @@ begin
         if inc_in_sph='1' then inc_temp := reg_sph; end if;
         if inc_in_mem='1' then inc_temp := memory_read_value; end if;
         ---Mutate-value------------------------------------------------------------
-        if inc_inc='1' then inc_temp := inc_temp + 1; end if;
-        if inc_dec='1' then inc_temp := inc_temp - 1; end if;   
-        if inc_shift_right='1' then
-          flag_c <= inc_temp(0);
-          inc_temp(6 downto 0) := inc_temp(7 downto 1);
-          if inc_0in='1' then inc_temp(7) := '0'; end if;
-          if inc_carry_in='1' then inc_temp(7) := flag_c; end if;
-        end if;
-        if inc_shift_left='1' then
-          flag_c <= inc_temp(7);
-          inc_temp(7 downto 1) := inc_temp(6 downto 0);
-          if inc_0in='1' then inc_temp(0) := '0'; end if;
-          if inc_carry_in='1' then inc_temp(0) := flag_c; end if;
+        -- If an RMW instruction, do the dummy write with the original value first,
+        -- then write the final value on the next cycle
+        if inc_rmw='0' then
+          if inc_inc='1' then inc_temp := inc_temp + 1; end if;
+          if inc_dec='1' then inc_temp := inc_temp - 1; end if;   
+          if inc_shift_right='1' then
+            flag_c <= inc_temp(0);
+            inc_temp(6 downto 0) := inc_temp(7 downto 1);
+            if inc_0in='1' then inc_temp(7) := '0'; end if;
+            if inc_carry_in='1' then inc_temp(7) := flag_c; end if;
+          end if;
+          if inc_shift_left='1' then
+            flag_c <= inc_temp(7);
+            inc_temp(7 downto 1) := inc_temp(6 downto 0);
+            if inc_0in='1' then inc_temp(0) := '0'; end if;
+            if inc_carry_in='1' then inc_temp(0) := flag_c; end if;
+          end if;
+        else
+          -- Stay in current state for one more cycle to do the commit
+          state <= state;
+          reg_microcode.mcRMW <= '0';
         end if;
         ---Set-flags---------------------------------------------------------------
         if inc_set_nz='1' then set_nz(inc_temp); end if;

@@ -32,19 +32,28 @@ package cputypes is
   type microcodeops is record
     mcIncPC : std_logic;
 
+    -- Mark instruction RMW
+    mcRMW : std_logic;
+    
     -- Incrementer/binary ALU inputs
     mcIncInT : std_logic;
-    mcIncInA : std_logic;mcIncInX : std_logic;
-    mcIncInY : std_logic;mcIncInZ : std_logic;
-    mcIncInSPH : std_logic;mcIncInSPL : std_logic;
+    mcIncInA : std_logic;
+    mcIncInX : std_logic;
+    mcIncInY : std_logic;
+    mcIncInZ : std_logic;
+    mcIncInSPH : std_logic;
+    mcIncInSPL : std_logic;
     mcIncInMem : std_logic;
 
     -- Incrementer/binary ALU outputs
     mcIncOutMem : std_logic;
-    mcIncOutA : std_logic;mcIncOutX : std_logic;
-    mcIncOutY : std_logic;mcIncOutZ : std_logic;
+    mcIncOutA : std_logic;
+    mcIncOutX : std_logic;
+    mcIncOutY : std_logic;
+    mcIncOutZ : std_logic;
     mcIncOutT : std_logic;
-    mcIncOutSPH : std_logic;mcIncOutSPL : std_logic;
+    mcIncOutSPH : std_logic;
+    mcIncOutSPL : std_logic;
 
     -- Binary and index operations
     mcIncAnd : std_logic;mcIncIor : std_logic;mcIncEor : std_logic;
