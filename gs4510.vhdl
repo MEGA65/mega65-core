@@ -333,6 +333,7 @@ architecture Behavioural of gs4510 is
     InstructionWait,                    -- Wait for PC to become available on
                                         -- interrupt/reset
     ProcessorHold,
+    MonitorMemoryAccess,
     MemoryWrite,
     InstructionFetch,
     InstructionDecode,
@@ -1520,6 +1521,10 @@ begin
             when ProcessorHold =>
               -- Hold CPU while blocked by monitor
 
+              -- Automatically resume CPU when monitor memory request/single stepping
+              -- pause is done, unless something else needs to be done.
+              state <= normal_fetch_state;
+              
               if monitor_mem_attention_request='1' then
                 -- Memory access by serial monitor.
                 if monitor_mem_address(27 downto 16) = x"777" then
@@ -1528,7 +1533,6 @@ begin
                 end if;
                 if monitor_mem_write='1' then
                   -- Write to specified long address (or short if address is $777xxxx)
-                  monitor_mem_attention_granted <= '1';
                   memory_access_address := unsigned(monitor_mem_address);
                   memory_access_write := '1';
                   memory_access_wdata := monitor_mem_wdata;
@@ -1541,7 +1545,6 @@ begin
                     -- Abort any instruction currently being executed.
                     -- Then set PC from InstructionWait state to make sure that we
                     -- don't write it here, only for it to get stomped.
-                    monitor_mem_attention_granted <= '1';
                     reg_pc <= unsigned(monitor_mem_address(15 downto 0));
                     mem_reading <= '0';
                   else
@@ -1552,19 +1555,20 @@ begin
                     monitor_mem_reading <= '1';
                     mem_reading <= '1';
                     proceed <= '0';
+                    state <= MonitorMemoryAccess;
                   end if;
                 end if;
+              end if;
+            when MonitorMemoryAccess =>
+              if (monitor_mem_read = '1') or (monitor_mem_write='1') then 
+                monitor_mem_attention_granted <= '1';
               else
                 monitor_mem_attention_granted <= '0';
-              end if;
-
-              -- Automatically resume CPU when monitor memory request/single stepping
-              -- pause is done.
-              state <= normal_fetch_state;
+                state <= ProcessorHold;
+              end if;              
             when InstructionWait =>
               state <= normal_fetch_state;
             when InstructionFetch =>
-              monitor_mem_attention_granted <= '0';
               memory_access_read := '1';
               memory_access_address := x"000"&reg_pc;
               memory_access_resolve_address := '1';
@@ -1970,7 +1974,6 @@ begin
         if mem_reading='1' then
           report "memory read value is $" & to_hstring(memory_read_value) severity note;
           if monitor_mem_reading='1' then
-            monitor_mem_attention_granted <= '1';
             monitor_mem_rdata <= memory_read_value;
           end if;
           if mem_reading_a='1' then reg_a <= memory_read_value; end if;
