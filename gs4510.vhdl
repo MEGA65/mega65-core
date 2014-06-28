@@ -336,6 +336,7 @@ architecture Behavioural of gs4510 is
     InstructionFetch,
     InstructionDecode,
     Cycle2,
+    Push,Pull,
     B16TakeBranch,
     InnYReadVectorLow,
     InnZReadVectorLow,
@@ -1829,6 +1830,10 @@ begin
               state <= InstructionDecode;
 
             -- Dummy/incomplete states for now.
+            when Push =>
+              state <= InstructionFetch;
+            when Pull =>
+              state <= InstructionFetch;
             when B16TakeBranch =>
               reg_pc <= reg_pc + to_integer(memory_read_value & reg_addr(7 downto 0));
               state <= InstructionFetch;
@@ -1940,7 +1945,13 @@ begin
                 -- next instruction.
                 -- (the write itself will get scheduled via the microcode
                 -- operations)
-                state <= InstructionFetch;                
+                if reg_microcode.mcPush='1' then
+                  state <= Push;
+                elsif reg_microcode.mcPop='1' then
+                  state <= Pull;
+                else
+                  state <= InstructionFetch;
+                end if;
               end if;
             when others =>
               state <= InstructionFetch;

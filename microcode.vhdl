@@ -38,8 +38,12 @@ architecture Behavioral of microcode is
               mcInstructionFetch => '1', others => '0'),
     I_AND => (mcIncInMem => '1', mcIncAnd => '1', mcIncOutA => '1',
               mcIncSetNZ => '1', others => '0'),
-    -- I_ASL
-    -- I_ASR
+    I_ASL => (mcIncInMem => '1', mcIncShiftLeft => '1', mcIncOutMem => '1',
+              mcIncCarryIn => '1', mcIncSetNZ => '1', mcWriteMem => '1',
+              others => '0'),
+    I_ASR => (mcIncInMem => '1', mcIncShiftRight => '1', mcIncOutMem => '1',
+              mcIncSetNZ => '1', mcWriteMem => '1',
+              others => '0'),
     -- I_ASW
     -- I_BBR - handled elsewhere
     -- I_BBS - handled elsewhere
@@ -68,7 +72,9 @@ architecture Behavioral of microcode is
               mcInstructionFetch => '1', others => '0'),    
     I_CPZ => (mcAluInZ => '1', mcAluCmp => '1',
               mcInstructionFetch => '1', others => '0'),    
-    -- I_DEC
+    I_DEC => (mcIncInMem => '1', mcIncDec => '1', mcIncOutMem => '1',
+              mcIncSetNZ => '1', mcWriteMem => '1',
+              others => '0'),
     -- I_DEW
     -- I_EOM - handled as a single-cycle op elsewhere
     I_EOR => (mcIncInMem => '1', mcIncEor => '1', mcIncOutA => '1',
@@ -82,6 +88,9 @@ architecture Behavioral of microcode is
     -- I_INZ - handled as a single-cycle op elsewhere
     I_JMP => (mcJump => '1', others => '0'),
     -- I_JSR
+    I_LSR => (mcIncInMem => '1', mcIncShiftRight => '1', mcIncOutMem => '1',
+              mcIncZeroIn => '1', mcIncSetNZ => '1', mcWriteMem => '1',
+              others => '0'),
     I_LDA => (mcIncInMem => '1', mcIncPass => '1', mcIncOutA => '1',
               mcIncSetNZ => '1', others => '0'),
     I_LDX => (mcIncInMem => '1', mcIncPass => '1', mcIncOutX => '1',
