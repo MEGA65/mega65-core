@@ -332,6 +332,7 @@ architecture Behavioural of gs4510 is
     -- Normal instructions
     InstructionWait,                    -- Wait for PC to become available on
                                         -- interrupt/reset
+    ProcessorHold,
     MemoryWrite,
     InstructionFetch,
     InstructionDecode,
@@ -351,6 +352,8 @@ architecture Behavioural of gs4510 is
     ActionCycle
     );
   signal state : processor_state := ResetLow;
+  signal fast_fetch_state : processor_state := InstructionDecode;
+  signal normal_fetch_state : processor_state := InstructionFetch;
   
   signal reg_microcode : microcodeops;
   signal reg_microcode_address : instruction;
@@ -1382,7 +1385,19 @@ begin
 
       monitor_waitstates <= wait_states;
       shadow_write <= '0';
-      
+
+      -- Catch the CPU when it goes to the next instruction if single stepping.
+      if (monitor_mem_trace_mode='0' or
+          monitor_mem_trace_toggle_last /= monitor_mem_trace_toggle)
+         and (monitor_mem_attention_request='0') then
+          monitor_mem_trace_toggle_last <= monitor_mem_trace_toggle;
+        normal_fetch_state <= InstructionFetch;
+        fast_fetch_state <= InstructionDecode;
+      else
+        normal_fetch_state <= ProcessorHold;
+        fast_fetch_state <= ProcessorHold;
+      end if;
+            
       -- report "reset = " & std_logic'image(reset) severity note;
       if reset='0' then
         state <= ResetLow;
@@ -1398,17 +1413,7 @@ begin
           if wait_states = x"01" then
             -- Next cycle we can do stuff, provided that the serial monitor
             -- isn't asking us to do anything.
-            if monitor_mem_trace_mode='0' or
-              monitor_mem_trace_toggle_last /= monitor_mem_trace_toggle then
-              monitor_mem_trace_toggle_last <= monitor_mem_trace_toggle;
-              -- Proceed unless the serial monitor wants our attention.
-              -- XXX Does this mean that is the serial monitor does a memory
-              -- access it could stuff the rest of the instruction up as it
-              -- will trash read_memory_value
-              proceed <= not monitor_mem_attention_request;
-            else
-              proceed <= '0';
-            end if;
+            proceed <= '1';
           end if;
         else
           -- End of wait states, so clear memory writing and reading
@@ -1430,58 +1435,7 @@ begin
             monitor_mem_reading <= '0';
           end if;          
 
-          if monitor_mem_trace_mode='0' or
-            monitor_mem_trace_toggle_last /= monitor_mem_trace_toggle then
-            monitor_mem_trace_toggle_last <= monitor_mem_trace_toggle;
-            -- Proceed unless the serial monitor wants our attention.
-            -- XXX Does this mean that is the serial monitor does a memory
-            -- access it could stuff the rest of the instruction up as it
-            -- will trash read_memory_value
-            proceed <= not monitor_mem_attention_request;
-          else
-            proceed <= '0';
-          end if;
-          
-          if monitor_mem_attention_request='1' then
-            proceed <= '0';
-            -- Memory access by serial monitor.
-            if monitor_mem_address(27 downto 16) = x"777" then
-              -- M777xxxx in serial monitor reads memory from CPU's perspective
-              memory_access_resolve_address := '1';
-            end if;
-            if monitor_mem_write='1' then
-              -- Write to specified long address (or short if address is $777xxxx)
-              monitor_mem_attention_granted <= '1';
-              memory_access_address := unsigned(monitor_mem_address);
-              memory_access_write := '1';
-              memory_access_wdata := monitor_mem_wdata;
-            -- Don't allow a read to occur while a write is completing.
-            elsif monitor_mem_read='1' and proceed='0' then
-              -- and optionally set PC
-              mem_reading_pcl <= '0';
-              mem_reading_pch <= '0';
-              if monitor_mem_setpc='1' then
-                -- Abort any instruction currently being executed.
-                -- Then set PC from InstructionWait state to make sure that we
-                -- don't write it here, only for it to get stomped.
-                monitor_mem_attention_granted <= '1';
-                reg_pc <= unsigned(monitor_mem_address(15 downto 0));
-                proceed <= '0';
-                mem_reading <= '0';
-                state <= InstructionWait;
-              else
-                -- otherwise just read from memory
-                memory_access_address := unsigned(monitor_mem_address);
-                memory_access_read := '1';
-                -- Read from specified long address
-                monitor_mem_reading <= '1';
-                mem_reading <= '1';
-              end if;
-            end if;
-          else
-            monitor_mem_attention_granted <= '0';
-          end if;
-        end if;
+          proceed <= '1';
 
         -- Do memory writes in their own clock cycle to keep logic depth down.
         -- The trade-off is one cycle delay on all memory writes.
@@ -1498,10 +1452,9 @@ begin
           --end if;
         --end if;
 
-        monitor_proceed <= proceed;
-        monitor_request_reflected <= monitor_mem_attention_request;
+          monitor_proceed <= proceed;
+          monitor_request_reflected <= monitor_mem_attention_request;
         
-        if (proceed='1') and (monitor_mem_attention_request='0') then
           -- Do delayed register modification operation
           if do_register_op='1' then
             do_register_op <= '0';
@@ -1544,7 +1497,8 @@ begin
               when others => null;
             end case;              
           end if;
-          
+
+        if proceed='1' then
           -- Main state machine for CPU
           report "CPU state = " & processor_state'image(state) & ", PC=$" & to_hstring(reg_pc) severity note;
           case state is
@@ -1562,14 +1516,58 @@ begin
               mem_reading_pch <= '1';
               read_address(x"FFF"&vector);
               state <= InstructionWait;
+            when ProcessorHold =>
+              -- Hold CPU while blocked by monitor
+
+              if monitor_mem_attention_request='1' then
+                -- Memory access by serial monitor.
+                if monitor_mem_address(27 downto 16) = x"777" then
+                  -- M777xxxx in serial monitor reads memory from CPU's perspective
+                  memory_access_resolve_address := '1';
+                end if;
+                if monitor_mem_write='1' then
+                  -- Write to specified long address (or short if address is $777xxxx)
+                  monitor_mem_attention_granted <= '1';
+                  memory_access_address := unsigned(monitor_mem_address);
+                  memory_access_write := '1';
+                  memory_access_wdata := monitor_mem_wdata;
+                -- Don't allow a read to occur while a write is completing.
+                elsif monitor_mem_read='1' and proceed='0' then
+                  -- and optionally set PC
+                  mem_reading_pcl <= '0';
+                  mem_reading_pch <= '0';
+                  if monitor_mem_setpc='1' then
+                    -- Abort any instruction currently being executed.
+                    -- Then set PC from InstructionWait state to make sure that we
+                    -- don't write it here, only for it to get stomped.
+                    monitor_mem_attention_granted <= '1';
+                    reg_pc <= unsigned(monitor_mem_address(15 downto 0));
+                    proceed <= '0';
+                    mem_reading <= '0';
+                  else
+                    -- otherwise just read from memory
+                    memory_access_address := unsigned(monitor_mem_address);
+                    memory_access_read := '1';
+                    -- Read from specified long address
+                    monitor_mem_reading <= '1';
+                    mem_reading <= '1';
+                  end if;
+                end if;
+              else
+                monitor_mem_attention_granted <= '0';
+              end if;
+
+              -- Automatically resume CPU when monitor memory request/single stepping
+              -- pause is done.
+              state <= normal_fetch_state;
             when InstructionWait =>
-              state <= InstructionFetch;
+              state <= normal_fetch_state;
             when InstructionFetch =>
               monitor_mem_attention_granted <= '0';
               memory_access_read := '1';
               memory_access_address := x"000"&reg_pc;
               memory_access_resolve_address := '1';
-              state <= InstructionDecode;
+              state <= fast_fetch_state;
               pc_inc := '1';
             when InstructionDecode =>
               reg_opcode <= memory_read_value;
@@ -1721,7 +1719,7 @@ begin
                     memory_access_address := x"000"&temp_addr;
                     memory_access_resolve_address := '1';
                     reg_pc <= temp_addr;
-                    state <= InstructionDecode;
+                    state <= fast_fetch_state;
                   else
                     -- Branch will not be taken.
                     -- fetch next instruction now to save a cycle
@@ -1729,7 +1727,7 @@ begin
                     memory_access_read := '1';
                     memory_access_address := x"000"&reg_pc;
                     memory_access_resolve_address := '1';
-                    state <= InstructionDecode;
+                    state <= fast_fetch_state;
                   end if;   
                 when M_rrrr =>
                   -- Store low 8 bits of branch value even if we don't use it
@@ -1753,7 +1751,7 @@ begin
                     -- Skip second byte and proceed directly to
                     -- fetching next instruction
                     reg_pc <= reg_pc + 1;
-                    state <= InstructionFetch;
+                    state <= normal_fetch_state;
                   end if;
                 when M_nnX =>
                   temp_addr := reg_b & (memory_read_value + reg_X);
@@ -1800,7 +1798,7 @@ begin
                   pc_inc := '1';
                   state <= IAbsXReadArg2;
                 when M_InnSPY =>
-                  state <= InstructionFetch;
+                  state <= normal_fetch_state;
                 when M_immnnnn =>                
                   reg_addr(7 downto 0) <= memory_read_value;
                   memory_access_read := '1';
@@ -1829,22 +1827,22 @@ begin
               memory_access_address := x"000"&temp_addr;
               memory_access_resolve_address := '1';
               reg_pc <= temp_addr;
-              state <= InstructionDecode;
+              state <= fast_fetch_state;
 
             -- Dummy/incomplete states for now.
             when Push =>
-              state <= InstructionFetch;
+              state <= normal_fetch_state;
             when Pull =>
-              state <= InstructionFetch;
+              state <= normal_fetch_state;
             when B16TakeBranch =>
               reg_pc <= reg_pc + to_integer(memory_read_value & reg_addr(7 downto 0));
-              state <= InstructionFetch;
+              state <= normal_fetch_state;
             when InnYReadVectorLow =>
               reg_addr(7 downto 0) <= memory_read_value;
-              state <= InstructionFetch;
+              state <= normal_fetch_state;
             when InnZReadVectorLow =>
               reg_addr(7 downto 0) <= memory_read_value;
-              state <= InstructionFetch;
+              state <= normal_fetch_state;
             when ZPRelReadZP =>
               -- Here we are reading the ZP memory location
               -- Check if the appropriate bit is set/clear
@@ -1857,14 +1855,14 @@ begin
                 state <= TakeBranch8;
               else
                 -- Don't take branch, so just skip over branch byte
-                state <= InstructionFetch;
+                state <= normal_fetch_state;
               end if;
             when IAbsReadArg2 =>
-              state <= InstructionFetch;
+              state <= normal_fetch_state;
             when IAbsXReadArg2 =>
-              state <= InstructionFetch;
+              state <= normal_fetch_state;
             when Imm16ReadArg2 => 
-              state <= InstructionFetch;
+              state <= normal_fetch_state;
             when ActionCycle =>
               -- By this stage we have the address of the operand in
               -- reg_addr, and if it is a load instruction then the contents
@@ -1942,7 +1940,7 @@ begin
                 memory_access_read := '1';
                 memory_access_address := x"000"&reg_pc;
                 memory_access_resolve_address := '1';
-                state <= InstructionDecode;
+                state <= fast_fetch_state;
               else
                 -- We need to write something now, so we can't pre-fetch the
                 -- next instruction.
@@ -1953,11 +1951,11 @@ begin
                 elsif reg_microcode.mcPop='1' then
                   state <= Pull;
                 else
-                  state <= InstructionFetch;
+                  state <= normal_fetch_state;
                 end if;
               end if;
             when others =>
-              state <= InstructionFetch;
+              state <= normal_fetch_state;
           end case;
         end if;
 
