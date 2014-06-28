@@ -1560,7 +1560,7 @@ begin
                 end if;
               end if;
             when MonitorMemoryAccess =>
-              if (monitor_mem_read = '1') or (monitor_mem_write='1') then 
+              if monitor_mem_attention_request='0' then 
                 monitor_mem_attention_granted <= '1';
               else
                 monitor_mem_attention_granted <= '0';
