@@ -157,6 +157,7 @@ architecture Behavioral of machine is
       monitor_watch : out std_logic_vector(27 downto 0);
       monitor_watch_match : in std_logic;
 
+      monitor_debug_memory_access : in std_logic_vector(31 downto 0);
       monitor_proceed : in std_logic;
       monitor_waitstates : in unsigned(7 downto 0);
       monitor_request_reflected : in std_logic;
@@ -203,6 +204,7 @@ architecture Behavioral of machine is
       reset : in std_logic;
       irq : in std_logic;
       nmi : in std_logic;
+      monitor_debug_memory_access : out std_logic_vector(31 downto 0);
       monitor_proceed : out std_logic;
       monitor_waitstates : out unsigned(7 downto 0);
       monitor_request_reflected : out std_logic;
@@ -454,6 +456,7 @@ architecture Behavioral of machine is
   signal monitor_pc : std_logic_vector(15 downto 0);
   signal monitor_state : unsigned(7 downto 0);
   signal monitor_watch : std_logic_vector(27 downto 0);
+  signal monitor_debug_memory_access : std_logic_vector(31 downto 0);
   signal monitor_proceed : std_logic;
   signal monitor_waitstates : unsigned(7 downto 0);
   signal monitor_request_reflected : std_logic;
@@ -636,6 +639,7 @@ begin
     irq => combinedirq,
     nmi => combinednmi,
     monitor_proceed => monitor_proceed,
+    monitor_debug_memory_access => monitor_debug_memory_access,
     monitor_waitstates => monitor_waitstates,
     monitor_request_reflected => monitor_request_reflected,
     monitor_pc => monitor_pc,
@@ -810,7 +814,8 @@ begin
 
     fastio_read => fastio_read,
     fastio_write => fastio_write,
-    
+
+    monitor_debug_memory_access => monitor_debug_memory_access,
     monitor_proceed => monitor_proceed,
     monitor_waitstates => monitor_waitstates,
     monitor_request_reflected => monitor_request_reflected,

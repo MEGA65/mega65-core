@@ -35,6 +35,7 @@ entity uart_monitor is
     fastio_read : in std_logic;
     fastio_write : in std_logic;
     
+    monitor_debug_memory_access : in std_logic_vector(31 downto 0);
     monitor_proceed : in std_logic;
     monitor_waitstates : in unsigned(7 downto 0);
     monitor_request_reflected : in std_logic;
@@ -717,6 +718,8 @@ begin
                   report "trying to parse hex" severity note;
                   parse_hex(CPUBreak1);
                 end if;
+              elsif cmdbuffer(1) = 'z' or cmdbuffer(1) = 'Z' then
+                print_hex(unsigned(monitor_debug_memory_access),8,NextCommand);
               elsif cmdbuffer(1) = 'l' or cmdbuffer(1) = 'L' then
                 report "load memory command" severity note;
                 parse_position <= 2;
