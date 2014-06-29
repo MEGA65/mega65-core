@@ -1536,6 +1536,7 @@ begin
                   memory_access_address := unsigned(monitor_mem_address);
                   memory_access_write := '1';
                   memory_access_wdata := monitor_mem_wdata;
+                  state <= MonitorMemoryAccess;
                 -- Don't allow a read to occur while a write is completing.
                 elsif monitor_mem_read='1' then
                   -- and optionally set PC
@@ -1545,6 +1546,7 @@ begin
                     -- Abort any instruction currently being executed.
                     -- Then set PC from InstructionWait state to make sure that we
                     -- don't write it here, only for it to get stomped.
+                    state <= MonitorMemoryAccess;
                     reg_pc <= unsigned(monitor_mem_address(15 downto 0));
                     mem_reading <= '0';
                   else
