@@ -1589,7 +1589,7 @@ begin
               memory_access_read := '1';
               memory_access_address := x"000"&reg_pc;
               memory_access_resolve_address := '1';
-              state <= fast_fetch_state;
+              state <= InstructionDecode;
               pc_inc := '1';
             when InstructionDecode =>
               reg_opcode <= memory_read_value;
