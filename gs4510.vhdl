@@ -1400,6 +1400,8 @@ begin
         fast_fetch_state <= ProcessorHold;
       end if;
             
+      memory_read_value := read_data;
+      
       -- report "reset = " & std_logic'image(reset) severity note;
       if reset='0' then
         state <= ResetLow;
@@ -1429,7 +1431,6 @@ begin
           slowram_oe <= '1';
 
           if mem_reading='1' then
-            memory_read_value := read_data;
             report "resetting mem_reading (read $" & to_hstring(memory_read_value) & ")" severity note;
             mem_reading <= '0';
             mem_reading_pcl <= '0';
