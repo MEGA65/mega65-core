@@ -78,6 +78,8 @@ entity gs4510 is
     monitor_mem_trace_mode : in std_logic;
     monitor_mem_stage_trace_mode : in std_logic;
     monitor_mem_trace_toggle : in std_logic;
+
+    monitor_debug_memory_access : out std_logic_vector(31 downto 0);
     
     ---------------------------------------------------------------------------
     -- Interface to FastRAM in video controller (just 128KB for now)
@@ -824,8 +826,6 @@ begin
     impure function read_data
       return unsigned is
     begin  -- read_data
-      slowram_ce <= '1'; -- Release after reading so that refresh can occur
-      slowram_data <= (others => 'Z');  -- tristate data lines as well
       if accessing_shadow='1' then
         report "reading from shadow RAM" severity note;
         return shadow_rdata;
@@ -1329,6 +1329,19 @@ begin
     -- BEGINNING OF MAIN PROCESS FOR CPU
     if rising_edge(clock) then
 
+      monitor_debug_memory_access(31) <= accessing_shadow;
+      monitor_debug_memory_access(30) <= accessing_fastio;
+      monitor_debug_memory_access(29) <= accessing_slowram;
+      monitor_debug_memory_access(28) <= accessing_sb_fastio;
+      monitor_debug_memory_access(27) <= accessing_colour_ram_fastio;
+      monitor_debug_memory_access(26) <= accessing_vic_fastio;
+      monitor_debug_memory_access(25) <= accessing_cpuport;
+      monitor_debug_memory_access(24) <= '0';
+
+      monitor_debug_memory_access(23 downto 16) <= std_logic_vector(read_data_copy);
+      monitor_debug_memory_access(15 downto 8) <= std_logic_vector(read_data);
+      monitor_debug_memory_access(7 downto 0) <= std_logic_vector(read_data_complex);
+      
       -- Copy read memory location to simplify reading from memory.
       -- Penalty is +1 wait state for memory other than shadowram.
       read_data_copy <= read_data_complex;
@@ -1421,10 +1434,11 @@ begin
           end if;
         else
           -- End of wait states, so clear memory writing and reading
+
           colour_ram_cs <= '0';
           shadow_write <= '0';       
           fastio_write <= '0';
-          fastio_read <= '0';
+--          fastio_read <= '0';
           fastram_we <= (others => '0');        
           slowram_we <= '1';
           slowram_ce <= '1';
