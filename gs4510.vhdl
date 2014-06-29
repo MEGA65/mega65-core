@@ -1581,6 +1581,7 @@ begin
               reg_opcode <= memory_read_value;
               -- Present instruction to serial monitor;
               monitor_opcode <= std_logic_vector(memory_read_value);
+              report "Recording opcode as $" & to_hstring(memory_read_value) severity note;
               monitor_ibytes <= "0000";
 
               -- Always read the next instruction byte after reading opcode
