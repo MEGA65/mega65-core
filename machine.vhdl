@@ -591,9 +591,9 @@ begin
       elsif segled_counter(19 downto 17)=5 then
         digit := std_logic_vector(monitor_state(7 downto 4));
       elsif segled_counter(19 downto 17)=6 then
-        digit := std_logic_vector(monitor_waitstates(3 downto 0));
+        digit := std_logic_vector(monitor_opcode(3 downto 0));
       elsif segled_counter(19 downto 17)=7 then
-        digit := std_logic_vector(monitor_waitstates(7 downto 4));
+        digit := std_logic_vector(monitor_opcode(7 downto 4));
       end if;
 
       -- segments are:
