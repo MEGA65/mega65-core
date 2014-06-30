@@ -2011,6 +2011,11 @@ begin
                 pc_inc := '0';
                 state <= normal_fetch_state;
               end if;
+              if reg_microcode.mcRelativeJump='1' then
+                reg_pc <= reg_pc + reg_addr;
+                pc_inc := '0';
+                state <= normal_fetch_state;
+              end if;
               if reg_microcode.mcMap='1' then
                 c65_map_instruction;
               end if;

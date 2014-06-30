@@ -87,7 +87,9 @@ package cputypes is
     mcAluSub : std_logic;
     
     -- Special instructions
+    mcJSR : std_logic;
     mcJump : std_logic;
+    mcRelativeJump : std_logic;
     mcMap : std_logic;
     mcClearI : std_logic;
     mcClearE : std_logic;
