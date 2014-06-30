@@ -560,6 +560,14 @@ begin
         when 4 => cpuclock <= '0'; ioclock<='1'; io_wait_states <= x"04";
         when 5 => cpuclock <= '0'; ioclock<='1'; io_wait_states <= x"04";
       end case;
+      --case clock_phase is
+      --  when 0 => cpuclock <= '1'; ioclock<='0'; io_wait_states <= x"05";
+      --  when 1 => cpuclock <= '0'; ioclock<='0'; io_wait_states <= x"05";
+      --  when 2 => cpuclock <= '1'; ioclock<='0'; io_wait_states <= x"05";
+      --  when 3 => cpuclock <= '0'; ioclock<='1'; io_wait_states <= x"07";
+      --  when 4 => cpuclock <= '1'; ioclock<='1'; io_wait_states <= x"07";
+      --  when 5 => cpuclock <= '0'; ioclock<='1'; io_wait_states <= x"07";
+      --end case;
       
       -- Work out phi0 frequency for CIA timers
       if phi0_counter=phi0_divisor then
