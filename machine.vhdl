@@ -53,6 +53,8 @@ use Std.TextIO.all;
 
 entity machine is
   Port ( pixelclock : STD_LOGIC;
+         cpuclock : std_logic;
+         ioclock : std_logic;
          btnCpuReset : in  STD_LOGIC;
          irq : in  STD_LOGIC;
          nmi : in  STD_LOGIC;
@@ -442,9 +444,9 @@ architecture Behavioral of machine is
   signal fastram_datain : STD_LOGIC_VECTOR(63 DOWNTO 0);
   signal fastram_dataout : STD_LOGIC_VECTOR(63 DOWNTO 0);
   
-  signal cpuclock : std_logic := '1';
-  signal ioclock : std_logic := '1';
-  signal io_wait_states : unsigned(7 downto 0);
+--  signal cpuclock : std_logic := '1';
+--  signal ioclock : std_logic := '1';
+  signal io_wait_states : unsigned(7 downto 0) := x"04";
   signal clock_phase : integer range 0 to 5 := 0;
 
   signal rom_at_e000 : std_logic := '0';
@@ -554,14 +556,14 @@ begin
       -- given cycle.  We need to allow one complete clock cycle after the
       -- rising edge of IOclock.
       -- This might need a bit of adjustment, but the principle should be sound.
-      case clock_phase is
-        when 0 => cpuclock <= '1'; ioclock<='0'; io_wait_states <= x"02";
-        when 1 => cpuclock <= '0'; ioclock<='0'; io_wait_states <= x"02";
-        when 2 => cpuclock <= '0'; ioclock<='0'; io_wait_states <= x"02";
-        when 3 => cpuclock <= '1'; ioclock<='1'; io_wait_states <= x"03";
-        when 4 => cpuclock <= '0'; ioclock<='1'; io_wait_states <= x"03";
-        when 5 => cpuclock <= '0'; ioclock<='1'; io_wait_states <= x"03";
-      end case;
+      --case clock_phase is
+      --  when 0 => cpuclock <= '1'; ioclock<='0'; io_wait_states <= x"02";
+      --  when 1 => cpuclock <= '0'; ioclock<='0'; io_wait_states <= x"02";
+      --  when 2 => cpuclock <= '0'; ioclock<='0'; io_wait_states <= x"02";
+      --  when 3 => cpuclock <= '1'; ioclock<='1'; io_wait_states <= x"03";
+      --  when 4 => cpuclock <= '0'; ioclock<='1'; io_wait_states <= x"03";
+      --  when 5 => cpuclock <= '0'; ioclock<='1'; io_wait_states <= x"03";
+      --end case;
       --case clock_phase is
       --  when 0 => cpuclock <= '1'; ioclock<='0'; io_wait_states <= x"05";
       --  when 1 => cpuclock <= '0'; ioclock<='0'; io_wait_states <= x"05";

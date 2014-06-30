@@ -128,20 +128,21 @@ end container;
 architecture Behavioral of container is
 
   component dotclock is
-    port
-      (-- Clock in ports
-        CLK_IN1           : in     std_logic;
-        -- Clock out ports
-        CLK_OUT1          : out    std_logic;
-        CLK_OUT2          : out    std_logic;
-        CLK_OUT3          : out    std_logic;
-        CLK_OUT4          : out    std_logic;
-        CLK_OUT5          : out    std_logic
-        );
+    port (
+      CLK_IN1           : in     std_logic;
+    -- Clock out ports
+    CLK_OUT1          : out    std_logic;
+    CLK_OUT2          : out    std_logic;
+    CLK_OUT3          : out    std_logic;
+    CPUCLOCK          : out    std_logic;
+    IOCLOCK          : out    std_logic
+      );
   end component;
 
   component machine is
   Port ( pixelclock : STD_LOGIC;
+         cpuclock : std_logic;
+         ioclock : std_logic;
          btnCpuReset : in  STD_LOGIC;
          irq : in  STD_LOGIC;
          nmi : in  STD_LOGIC;
@@ -235,6 +236,8 @@ architecture Behavioral of container is
   signal nmi : std_logic := '1';
   
   signal pixelclock : std_logic;
+  signal cpuclock : std_logic;
+  signal ioclock : std_logic;
   
   signal segled_counter : unsigned(31 downto 0) := (others => '0');
 
@@ -248,11 +251,15 @@ begin
                -- so I guess we will go with an NTSC-style 60Hz display.       
                -- For C64 mode it would be nice to have PAL or NTSC selectable.                    -- Perhaps consider a different video mode for that, or buffering
                -- the generated frames somewhere?
-               clk_out2 => pixelclock);
+               clk_out2 => pixelclock,
+               cpuclock => cpuclock,
+               ioclock => ioclock);
 
   machine0: machine
     port map (
       pixelclock      => pixelclock,
+      cpuclock        => cpuclock,
+      ioclock         => ioclock,
       btncpureset => btncpureset,
       irq => irq,
       nmi => nmi,

@@ -55,11 +55,11 @@
 -- "Output    Output      Phase     Duty      Pk-to-Pk        Phase"
 -- "Clock    Freq (MHz) (degrees) Cycle (%) Jitter (ps)  Error (ps)"
 ------------------------------------------------------------------------------
--- CLK_OUT1____99.740______0.000______50.0______252.408____301.601
--- CLK_OUT2___192.000______0.000______50.0______229.865____301.601
--- CLK_OUT3___160.000______0.000______50.0______235.916____301.601
--- CLK_OUT4___137.143______0.000______50.0______241.165____301.601
--- CLK_OUT5___120.000______0.000______50.0______245.813____301.601
+-- CLK_OUT1___100.000______0.000______50.0______118.360_____88.872
+-- CLK_OUT2___193.750______0.000______50.0______104.840_____88.872
+-- CLK_OUT3____48.438______0.000______50.0______137.157_____88.872
+-- CLK_OUT4____64.583______0.000______50.0______129.132_____88.872
+-- CLK_OUT5____32.292______0.000______50.0______149.826_____88.872
 --
 ------------------------------------------------------------------------------
 -- "Input Clock   Freq (MHz)    Input Jitter (UI)"
@@ -83,8 +83,8 @@ port
   CLK_OUT1          : out    std_logic;
   CLK_OUT2          : out    std_logic;
   CLK_OUT3          : out    std_logic;
-  CLK_OUT4          : out    std_logic;
-  CLK_OUT5          : out    std_logic
+  CPUCLOCK          : out    std_logic;
+  IOCLOCK          : out    std_logic
  );
 end dotclock;
 
@@ -133,34 +133,33 @@ begin
   -- Instantiation of the MMCM primitive
   --    * Unused inputs are tied off
   --    * Unused outputs are labeled unused
-  mmcm_adv_inst : MMCM_ADV
+  mmcm_adv_inst : MMCME2_ADV
   generic map
-   (BANDWIDTH            => "OPTIMIZED",
+   (BANDWIDTH            => "HIGH",
     CLKOUT4_CASCADE      => FALSE,
-    CLOCK_HOLD           => FALSE,
     COMPENSATION         => "ZHOLD",
     STARTUP_WAIT         => FALSE,
-    DIVCLK_DIVIDE        => 5,
-    CLKFBOUT_MULT_F      => 48.000,
+    DIVCLK_DIVIDE        => 1,
+    CLKFBOUT_MULT_F      => 11.625,
     CLKFBOUT_PHASE       => 0.000,
     CLKFBOUT_USE_FINE_PS => FALSE,
-    CLKOUT0_DIVIDE_F     => 9.625,
+    CLKOUT0_DIVIDE_F     => 11.625,
     CLKOUT0_PHASE        => 0.000,
     CLKOUT0_DUTY_CYCLE   => 0.500,
     CLKOUT0_USE_FINE_PS  => FALSE,
-    CLKOUT1_DIVIDE       => 5,
+    CLKOUT1_DIVIDE       => 6,
     CLKOUT1_PHASE        => 0.000,
     CLKOUT1_DUTY_CYCLE   => 0.500,
     CLKOUT1_USE_FINE_PS  => FALSE,
-    CLKOUT2_DIVIDE       => 6,
+    CLKOUT2_DIVIDE       => 24,
     CLKOUT2_PHASE        => 0.000,
     CLKOUT2_DUTY_CYCLE   => 0.500,
     CLKOUT2_USE_FINE_PS  => FALSE,
-    CLKOUT3_DIVIDE       => 7,
+    CLKOUT3_DIVIDE       => 18,
     CLKOUT3_PHASE        => 0.000,
     CLKOUT3_DUTY_CYCLE   => 0.500,
     CLKOUT3_USE_FINE_PS  => FALSE,
-    CLKOUT4_DIVIDE       => 8,
+    CLKOUT4_DIVIDE       => 36,
     CLKOUT4_PHASE        => 0.000,
     CLKOUT4_DUTY_CYCLE   => 0.500,
     CLKOUT4_USE_FINE_PS  => FALSE,
@@ -234,12 +233,12 @@ begin
 
   clkout4_buf : BUFG
   port map
-   (O   => CLK_OUT4,
+   (O   => CPUCLOCK,
     I   => clkout3);
 
   clkout5_buf : BUFG
   port map
-   (O   => CLK_OUT5,
+   (O   => IOCLOCK,
     I   => clkout4);
 
 end xilinx;
