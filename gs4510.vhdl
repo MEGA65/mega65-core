@@ -1635,6 +1635,7 @@ begin
                 if monitor_mem_trace_mode then
                   state <= normal_fetch_state;
                   pc_inc := '0';
+                end if;
               end if;
 
               -- Prepare microcode vector in case we need it next cycle
@@ -1672,7 +1673,7 @@ begin
               end case;
               reg_microcode_address <=
                 instruction_lut(to_integer(memory_read_value));
-
+                               
             when Cycle2 =>
               -- Show serial monitor what we are doing.
               if (reg_addressingmode /= M_impl) or (reg_addressingmode /= M_A) then
