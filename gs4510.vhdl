@@ -876,13 +876,13 @@ begin
         report "reading colour RAM fastio byte $" & to_hstring(fastio_vic_rdata) severity note;
         return unsigned(fastio_colour_ram_rdata);
       elsif accessing_vic_fastio='1' then 
-        report "reading VIC fastio byte $" & to_hstring(fastio_vic_rdata) severity note;
+--        report "reading VIC fastio byte $" & to_hstring(fastio_vic_rdata) severity note;
         return unsigned(fastio_vic_rdata);
       elsif accessing_fastio='1' then
-        report "reading normal fastio byte $" & to_hstring(fastio_rdata) severity note;
+--        report "reading normal fastio byte $" & to_hstring(fastio_rdata) severity note;
         return unsigned(fastio_rdata);
       elsif accessing_slowram='1' then
-        report "reading slow RAM data. Word is $" & to_hstring(slowram_data) severity note;
+--        report "reading slow RAM data. Word is $" & to_hstring(slowram_data) severity note;
         case slowram_lohi is
           when '0' => return unsigned(slowram_data(7 downto 0));
           when '1' => return unsigned(slowram_data(15 downto 8));
@@ -1351,7 +1351,7 @@ begin
       read_data_copy <= read_data_complex;
       
       -- By default we are doing nothing new.
-      pc_inc := '0';
+      pc_inc := '0'; dec_sp := '0';
 
       inc_rmw := '0';
       inc_in_a := '0'; inc_in_b := '0'; inc_in_t := '0';
@@ -1596,10 +1596,14 @@ begin
               state <= InstructionDecode;
               pc_inc := '1';
             when InstructionDecode =>
-              reg_opcode <= memory_read_value;
+              report "Decoding opcode $" & to_hstring(memory_read_value)
+                & " = " & instruction'image( instruction_lut(to_integer(memory_read_value)))
+                severity note;
+              
+              reg_opcode <= memory_read_value;              
               -- Present instruction to serial monitor;
               monitor_opcode <= std_logic_vector(memory_read_value);
-              report "Recording opcode as $" & to_hstring(memory_read_value) severity note;
+              -- report "Recording opcode as $" & to_hstring(memory_read_value) severity note;
               monitor_ibytes <= "0000";
 
               -- Always read the next instruction byte after reading opcode
@@ -1858,9 +1862,10 @@ begin
               memory_access_resolve_address := '1';
               memory_access_wdata := reg_pc(15 downto 8);
               dec_sp := '1';
-              pc_inc := '1';
+              pc_inc := '0';
               state <= CallSubroutine2;
             when CallSubroutine2 =>
+              pc_inc := '0';
               memory_access_read := '1';
               memory_access_address := x"000"&reg_pc;
               memory_access_resolve_address := '1';
@@ -2058,7 +2063,7 @@ begin
           end case;
         end if;
 
-        report "pc_inc = " & std_logic'image(pc_inc) & ", cpu_state = " & processor_state'image(state) severity note;
+--        report "pc_inc = " & std_logic'image(pc_inc) & ", cpu_state = " & processor_state'image(state) severity note;
         if pc_inc = '1' then
           reg_pc <= reg_pc + 1;
         end if;
