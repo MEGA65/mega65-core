@@ -1568,7 +1568,8 @@ begin
               monitor_ibytes <= "0000";
 
               -- Always read the next instruction byte after reading opcode
-              -- (unless later overriden)            
+              -- (unless later overriden)
+              report "read arg1 from $" & to_hstring(reg_pc) severity note;
               memory_access_read := '1';
               memory_access_address := x"000"&reg_pc;
               memory_access_resolve_address := '1';
@@ -1785,6 +1786,7 @@ begin
                       memory_access_resolve_address := '1';
                       reg_pc <= temp_addr;
                       state <= fast_fetch_state;
+                      if fast_fetch_state = InstructionDecode then pc_inc := '1'; end if;
                     else
                       -- Branch will not be taken.
                       -- fetch next instruction now to save a cycle
@@ -1793,6 +1795,7 @@ begin
                       memory_access_address := x"000"&reg_pc;
                       memory_access_resolve_address := '1';
                       state <= fast_fetch_state;
+                      if fast_fetch_state = InstructionDecode then pc_inc := '1'; end if;
                     end if;   
                   when M_rrrr =>
                     -- Store low 8 bits of branch value even if we don't use it
@@ -1921,6 +1924,7 @@ begin
               memory_access_resolve_address := '1';
               reg_pc <= temp_addr;
               state <= fast_fetch_state;
+              if fast_fetch_state = InstructionDecode then pc_inc := '1'; end if;
             when Push =>
               -- Nothing more to do
               -- Prefetch instruction byte
@@ -1929,6 +1933,7 @@ begin
               memory_access_resolve_address := '1';
               reg_pc <= temp_addr;
               state <= fast_fetch_state;
+              if fast_fetch_state = InstructionDecode then pc_inc := '1'; end if;
             when Pull =>
               set_nz(memory_read_value);
               if pop_a='1' then reg_a <= memory_read_value; end if;
@@ -1945,6 +1950,7 @@ begin
               memory_access_resolve_address := '1';
               reg_pc <= temp_addr;
               state <= fast_fetch_state;
+              if fast_fetch_state = InstructionDecode then pc_inc := '1'; end if;
             when B16TakeBranch =>
               monitor_arg2 <= std_logic_vector(memory_read_value);
               monitor_ibytes(0) <= '1';
@@ -2066,6 +2072,7 @@ begin
                 memory_access_address := x"000"&reg_pc;
                 memory_access_resolve_address := '1';
                 state <= fast_fetch_state;
+                if fast_fetch_state = InstructionDecode then pc_inc := '1'; end if;
               else
                 -- We need to write something now, so we can't pre-fetch the
                 -- next instruction.
