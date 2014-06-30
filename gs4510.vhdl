@@ -2159,10 +2159,11 @@ begin
           read_long_address(memory_access_address);
         end if;
 
-                                        ---------------------------------------------------------------------------
-                                        -- Incrementer ALU (also used for register transfers)
-                                        ---------------------------------------------------------------------------
-                                        ---Read-from-input-register------------------------------------------------
+        ---------------------------------------------------------------------------
+        -- Incrementer ALU (also used for register transfers)
+        ---------------------------------------------------------------------------
+        ---Read-from-input-register------------------------------------------------
+        inc_temp := x"A5";
         if inc_in_a='1' then inc_temp := reg_a; end if;
         if inc_in_b='1' then inc_temp := reg_b; end if;
         if inc_in_t='1' then inc_temp := reg_t; end if;
@@ -2172,9 +2173,9 @@ begin
         if inc_in_spl='1' then inc_temp := reg_sp; end if;
         if inc_in_sph='1' then inc_temp := reg_sph; end if;
         if inc_in_mem='1' then inc_temp := memory_read_value; end if;
-                                        ---Mutate-value------------------------------------------------------------
-                                        -- If an RMW instruction, do the dummy write with the original value first,
-                                        -- then write the final value on the next cycle
+        ---Mutate-value------------------------------------------------------------
+        -- If an RMW instruction, do the dummy write with the original value first,
+        -- then write the final value on the next cycle
         if inc_rmw='0' then
           if inc_inc='1' then inc_temp := inc_temp + 1; end if;
           if inc_dec='1' then inc_temp := inc_temp - 1; end if;   
@@ -2195,15 +2196,33 @@ begin
           state <= state;
           rmw_dummy_write_done <= '1';
         end if;
-                                        ---Set-flags---------------------------------------------------------------
+        ---Set-flags---------------------------------------------------------------
         if inc_set_nz='1' then set_nz(inc_temp); end if;
-                                        ---Commit-result-to-registers----------------------------------------------
-        if inc_out_a='1' then reg_a <= inc_temp; end if;
-        if inc_out_b='1' then reg_b <= inc_temp; end if;
-        if inc_out_t='1' then reg_t <= inc_temp; end if;
-        if inc_out_x='1' then reg_x <= inc_temp; end if;
-        if inc_out_y='1' then reg_y <= inc_temp; end if;
-        if inc_out_z='1' then reg_z <= inc_temp; end if;
+        ---Commit-result-to-registers----------------------------------------------
+        if inc_out_a='1' then
+          reg_a <= inc_temp;
+          report "Writing incrementor output $" & to_hstring(inc_temp) & " into A" severity note;
+        end if;
+        if inc_out_b='1' then
+          reg_b <= inc_temp;
+          report "Writing incrementor output $" & to_hstring(inc_temp) & " into B" severity note;
+        end if;
+        if inc_out_t='1' then
+          reg_t <= inc_temp;
+          report "Writing incrementor output $" & to_hstring(inc_temp) & " into T" severity note;
+        end if;
+        if inc_out_x='1' then
+          reg_x <= inc_temp;
+          report "Writing incrementor output $" & to_hstring(inc_temp) & " into X" severity note;
+        end if;
+        if inc_out_y='1' then
+          reg_y <= inc_temp;
+          report "Writing incrementor output $" & to_hstring(inc_temp) & " into Y" severity note;
+        end if;
+        if inc_out_z='1' then
+          reg_z <= inc_temp;
+          report "Writing incrementor output $" & to_hstring(inc_temp) & " into Z" severity note;
+        end if;
         if inc_out_spl='1' then reg_sp <= inc_temp; end if;
         if inc_out_sph='1' then reg_sph <= inc_temp; end if;
         if inc_out_mem='1' then memory_access_wdata := inc_temp; end if;
