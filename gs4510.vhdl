@@ -1559,6 +1559,7 @@ begin
             when InstructionDecode =>
               report "Decoding opcode $" & to_hstring(memory_read_value)
                 & " = " & instruction'image( instruction_lut(to_integer(memory_read_value)))
+                & ", PC=$" & to_hstring(reg_pc)
                 severity note;
               
               reg_opcode <= memory_read_value;              
