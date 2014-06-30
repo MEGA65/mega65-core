@@ -117,16 +117,12 @@ architecture Behavioral of microcode is
     I_PLX => (mcPop => '1', mcStackX => '1', others => '0'),
     I_PLY => (mcPop => '1', mcStackY => '1', others => '0'),
     I_PLZ => (mcPop => '1', mcStackZ => '1', others => '0'),
-    -- I_PLP
-    -- I_PLX
-    -- I_PLY
-    -- I_PLZ
     -- I_RMB
     -- I_ROL
     -- I_ROR
     -- I_ROW
-    -- I_RTI
-    -- I_RTS
+    -- I_RTI - XXX in the process of being implemented
+    -- I_RTS - XXX in the process of being implemented
     I_SBC => (mcAluInA => '1', mcAluSub => '1', mcAluOutA => '1',
               mcInstructionFetch => '1', others => '0'),
     -- I_SEC - handled as a single-cycle op elsewhere   

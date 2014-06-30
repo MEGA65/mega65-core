@@ -281,8 +281,6 @@ architecture Behavioural of gs4510 is
 
   -- Is CPU free to proceed with processing an instruction?
   signal proceed : std_logic := '1';
-  -- Are we doing a delayed register operation?
-  signal do_register_op : std_logic := '0';
 
   signal read_data_copy : unsigned(7 downto 0);
   
@@ -1482,49 +1480,6 @@ begin
         monitor_proceed <= proceed;
         monitor_request_reflected <= monitor_mem_attention_request;
         
-        -- Do delayed register modification operation
-        if do_register_op='1' then
-          do_register_op <= '0';
-          case reg_opcode is
-            when x"03" => flag_e <= '1';  -- SEE
-            when x"0B" => inc_in_sph := '1'; inc_out_y := '1'; inc_set_nz := '1'; inc_pass := '1'; -- TSY
-            when x"18" => flag_c <= '0';  -- CLC
-            when x"1A" => inc_in_a := '1'; inc_out_a := '1'; inc_set_nz := '1'; inc_inc := '1'; -- INC A
-            when x"1B" => inc_in_z := '1'; inc_out_z := '1'; inc_set_nz := '1'; inc_inc := '1'; -- INZ
-            when x"2B" => inc_in_y := '1'; inc_out_sph := '1'; inc_pass := '1'; -- TYS
-            when x"38" => flag_c <= '1';  -- SEC
-            when x"3A" => inc_in_a := '1'; inc_out_a := '1'; inc_set_nz := '1'; inc_dec := '1'; -- DEC A
-            when x"3B" => inc_in_z := '1'; inc_out_z := '1'; inc_set_nz := '1'; inc_dec := '1'; -- DEZ
-            -- NEG can stay 2 cycles for now.  We can try
-            -- adding it later
-            when x"43" => inc_in_a := '1'; inc_out_a := '1'; inc_set_nz := '1';
-                          inc_shift_right := '1'; -- ASR A
-            when x"4A" => inc_in_a := '1'; inc_out_a := '1'; inc_set_nz := '1';
-                          inc_shift_right := '1'; inc_0in := '1'; -- LSR A
-            when x"4B" => inc_in_a := '1'; inc_out_z := '1'; inc_set_nz := '1'; inc_pass := '1'; -- TAZ
-            when x"5B" => inc_in_a := '1'; inc_out_b := '1'; inc_pass := '1'; -- TAB
-            when x"6A" => inc_in_a := '1'; inc_out_a := '1'; inc_set_nz := '1';
-                          inc_shift_right := '1'; inc_carry_in := '1'; -- ROR A
-            when x"6B" => inc_in_z := '1'; inc_out_a := '1'; inc_set_nz := '1'; inc_pass := '1'; -- TZA
-            when x"78" => flag_i <= '1';  -- SEI
-            when x"7B" => inc_in_b := '1'; inc_out_a := '1'; inc_set_nz := '1'; inc_pass := '1'; -- TBA
-            when x"88" => inc_in_y := '1'; inc_out_y := '1'; inc_set_nz := '1'; inc_dec := '1'; -- DEY
-            when x"8A" => inc_in_x := '1'; inc_out_a := '1'; inc_set_nz := '1'; inc_pass := '1'; -- TXA
-            when x"98" => inc_in_y := '1'; inc_out_a := '1'; inc_set_nz := '1'; inc_pass := '1'; -- TYA
-            when x"9A" => inc_in_x := '1'; inc_out_spl := '1'; inc_pass := '1'; -- TXS
-            when x"A8" => inc_in_a := '1'; inc_out_y := '1'; inc_set_nz := '1'; inc_pass := '1'; -- TAY
-            when x"AA" => inc_in_a := '1'; inc_out_x := '1'; inc_set_nz := '1'; inc_pass := '1'; -- TAX
-            when x"B8" => flag_v <= '0';  -- CLV
-            when x"BA" => inc_in_spl := '1'; inc_out_x := '1'; inc_set_nz := '1'; inc_pass := '1'; -- TSX
-            when x"CA" => inc_in_x := '1'; inc_out_x := '1'; inc_set_nz := '1'; inc_dec := '1'; -- DEX
-            when x"D8" => flag_d <= '0';  -- CLD
-            when x"E8" => inc_in_x := '1'; inc_out_x := '1'; inc_set_nz := '1'; inc_inc := '1'; -- INX
-            when x"EA" => map_interrupt_inhibit <= '0'; -- EOM
-            when x"F8" => flag_d <= '1';  -- CLD                            
-            when others => null;
-          end case;              
-        end if;
-
         if proceed='1' then
           -- Main state machine for CPU
           report "CPU state = " & processor_state'image(state) & ", PC=$" & to_hstring(reg_pc) severity note;
@@ -1628,7 +1583,46 @@ begin
               -- happen immediately after a single cycle instruction, because
               -- interrupts are only checked in InstructionFetch, not
               -- InstructionDecode).
-              do_register_op <= op_is_single_cycle(to_integer(memory_read_value));
+              if op_is_single_cycle(to_integer(memory_read_value)) = '1' then
+                case reg_opcode is
+                  when x"03" => flag_e <= '1';  -- SEE
+                  when x"0B" => inc_in_sph := '1'; inc_out_y := '1'; inc_set_nz := '1'; inc_pass := '1'; -- TSY
+                  when x"18" => flag_c <= '0';  -- CLC
+                  when x"1A" => inc_in_a := '1'; inc_out_a := '1'; inc_set_nz := '1'; inc_inc := '1'; -- INC A
+                  when x"1B" => inc_in_z := '1'; inc_out_z := '1'; inc_set_nz := '1'; inc_inc := '1'; -- INZ
+                  when x"2B" => inc_in_y := '1'; inc_out_sph := '1'; inc_pass := '1'; -- TYS
+                  when x"38" => flag_c <= '1';  -- SEC
+                  when x"3A" => inc_in_a := '1'; inc_out_a := '1'; inc_set_nz := '1'; inc_dec := '1'; -- DEC A
+                  when x"3B" => inc_in_z := '1'; inc_out_z := '1'; inc_set_nz := '1'; inc_dec := '1'; -- DEZ
+                  -- NEG can stay 2 cycles for now.  We can try
+                  -- adding it later
+                  when x"43" => inc_in_a := '1'; inc_out_a := '1'; inc_set_nz := '1';
+                                inc_shift_right := '1'; -- ASR A
+                  when x"4A" => inc_in_a := '1'; inc_out_a := '1'; inc_set_nz := '1';
+                                inc_shift_right := '1'; inc_0in := '1'; -- LSR A
+                  when x"4B" => inc_in_a := '1'; inc_out_z := '1'; inc_set_nz := '1'; inc_pass := '1'; -- TAZ
+                  when x"5B" => inc_in_a := '1'; inc_out_b := '1'; inc_pass := '1'; -- TAB
+                  when x"6A" => inc_in_a := '1'; inc_out_a := '1'; inc_set_nz := '1';
+                                inc_shift_right := '1'; inc_carry_in := '1'; -- ROR A
+                  when x"6B" => inc_in_z := '1'; inc_out_a := '1'; inc_set_nz := '1'; inc_pass := '1'; -- TZA
+                  when x"78" => flag_i <= '1';  -- SEI
+                  when x"7B" => inc_in_b := '1'; inc_out_a := '1'; inc_set_nz := '1'; inc_pass := '1'; -- TBA
+                  when x"88" => inc_in_y := '1'; inc_out_y := '1'; inc_set_nz := '1'; inc_dec := '1'; -- DEY
+                  when x"8A" => inc_in_x := '1'; inc_out_a := '1'; inc_set_nz := '1'; inc_pass := '1'; -- TXA
+                  when x"98" => inc_in_y := '1'; inc_out_a := '1'; inc_set_nz := '1'; inc_pass := '1'; -- TYA
+                  when x"9A" => inc_in_x := '1'; inc_out_spl := '1'; inc_pass := '1'; -- TXS
+                  when x"A8" => inc_in_a := '1'; inc_out_y := '1'; inc_set_nz := '1'; inc_pass := '1'; -- TAY
+                  when x"AA" => inc_in_a := '1'; inc_out_x := '1'; inc_set_nz := '1'; inc_pass := '1'; -- TAX
+                  when x"B8" => flag_v <= '0';  -- CLV
+                  when x"BA" => inc_in_spl := '1'; inc_out_x := '1'; inc_set_nz := '1'; inc_pass := '1'; -- TSX
+                  when x"CA" => inc_in_x := '1'; inc_out_x := '1'; inc_set_nz := '1'; inc_dec := '1'; -- DEX
+                  when x"D8" => flag_d <= '0';  -- CLD
+                  when x"E8" => inc_in_x := '1'; inc_out_x := '1'; inc_set_nz := '1'; inc_inc := '1'; -- INX
+                  when x"EA" => map_interrupt_inhibit <= '0'; -- EOM
+                  when x"F8" => flag_d <= '1';  -- CLD                            
+                  when others => null;
+                end case;              
+              end if;
               
               reg_opcode <= memory_read_value;
               -- Present instruction to serial monitor;
@@ -1993,12 +1987,12 @@ begin
               monitor_ibytes(0) <= '1';
               state <= normal_fetch_state;
             when ActionCycle =>
-                                        -- By this stage we have the address of the operand in
-                                        -- reg_addr, and if it is a load instruction then the contents
-                                        -- will be in memory_read_value
-                                        -- Branches (except JMP) have been taken care of elsewhere, as
-                                        -- have a lot of the other fancy instructions.  That just leaves
-                                        -- us with loads, stores and reaad/modify/write instructions
+              -- By this stage we have the address of the operand in
+              -- reg_addr, and if it is a load instruction then the contents
+              -- will be in memory_read_value
+              -- Branches (except JMP) have been taken care of elsewhere, as
+              -- have a lot of the other fancy instructions.  That just leaves
+              -- us with loads, stores and reaad/modify/write instructions
 
               if reg_addressingmode = M_immnn then
                 monitor_arg1 <= std_logic_vector(memory_read_value);
