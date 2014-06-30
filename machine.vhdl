@@ -594,9 +594,9 @@ begin
       elsif segled_counter(19 downto 17)=5 then
         digit := std_logic_vector(monitor_state(7 downto 4));
       elsif segled_counter(19 downto 17)=6 then
-        digit := std_logic_vector(monitor_opcode(3 downto 0));
+        digit := "1111";
       elsif segled_counter(19 downto 17)=7 then
-        digit := std_logic_vector(monitor_opcode(7 downto 4));
+        digit := "1111";
       end if;
 
       -- segments are:
@@ -639,7 +639,7 @@ begin
     irq => combinedirq,
     nmi => combinednmi,
     monitor_proceed => monitor_proceed,
-    monitor_debug_memory_access => monitor_debug_memory_access,
+--    monitor_debug_memory_access => monitor_debug_memory_access,
     monitor_waitstates => monitor_waitstates,
     monitor_request_reflected => monitor_request_reflected,
     monitor_pc => monitor_pc,
@@ -815,7 +815,8 @@ begin
     fastio_read => fastio_read,
     fastio_write => fastio_write,
 
-    monitor_debug_memory_access => monitor_debug_memory_access,
+--    monitor_debug_memory_access => monitor_debug_memory_access,
+    monitor_debug_memory_access => (others => '1'),
     monitor_proceed => monitor_proceed,
     monitor_waitstates => monitor_waitstates,
     monitor_request_reflected => monitor_request_reflected,
