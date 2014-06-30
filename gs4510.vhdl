@@ -344,6 +344,7 @@ architecture Behavioural of gs4510 is
     B16TakeBranch,
     InnYReadVectorLow,
     InnZReadVectorLow,
+    CallSubroutine,CallSubroutine2,
     ZPRelReadZP,
     AbsReadArg2,
     AbsXReadArg2,
@@ -414,8 +415,10 @@ architecture Behavioural of gs4510 is
     M_impl,  M_InnX,  M_impl,  M_impl,  M_nn,    M_nn,    M_nn,    M_nn,    
     M_impl,  M_immnn, M_A,     M_impl,  M_nnnn,  M_nnnn,  M_nnnn,  M_nnrr,  
     M_rr,    M_InnY,  M_InnZ,  M_rrrr,  M_nnX,   M_nnX,   M_nnX,   M_nn,    
-    M_impl,  M_nnnnY, M_impl,  M_impl,  M_impl,  M_nnnnX, M_nnnnX, M_nnrr,  
-    M_impl,  M_InnX,  M_immnn, M_rrrr,  M_nn,    M_nn,    M_nn,    M_nn,    
+    M_impl,  M_nnnnY, M_impl,  M_impl,  M_impl,  M_nnnnX, M_nnnnX, M_nnrr,
+    -- $63 BSR $nnnn is 16-bit relative on the 4502.  We treat it as absolute
+    -- mode, with microcode being used to select relative addressing.
+    M_impl,  M_InnX,  M_immnn, M_nnnn,  M_nn,    M_nn,    M_nn,    M_nn,    
     M_impl,  M_immnn, M_A,     M_impl,  M_Innnn, M_nnnn,  M_nnnn,  M_nnrr,  
     M_rr,    M_InnY,  M_InnZ,  M_rrrr,  M_nnX,   M_nnX,   M_nnX,   M_nn,    
     M_impl,  M_nnnnY, M_impl,  M_impl,  M_InnnnX,M_nnnnX, M_nnnnX, M_nnrr,  
@@ -1271,6 +1274,7 @@ begin
     variable memory_access_wdata : unsigned(7 downto 0) := x"FF";
 
     variable pc_inc : std_logic;
+    variable dec_sp : std_logic;
 
     variable inc_rmw : std_logic;
     variable inc_in_a : std_logic;
@@ -1673,7 +1677,6 @@ begin
               end case;
               reg_microcode_address <=
                 instruction_lut(to_integer(memory_read_value));
-                               
             when Cycle2 =>
               -- Show serial monitor what we are doing.
               if (reg_addressingmode /= M_A) then
@@ -1704,11 +1707,22 @@ begin
                 when M_immnn => -- Handled in ActionCycle              
                 when M_nnnn =>
                   reg_addr(7 downto 0) <= memory_read_value;
-                  memory_access_read := '1';
-                  memory_access_address := x"000"&reg_pc;
-                  memory_access_resolve_address := '1';
                   pc_inc := '1';
-                  state <= AbsReadArg2;
+                  -- If it is a branch, write the low bits of the programme
+                  -- counter now.  We will read the 2nd argument next cycle
+                  if reg_instruction = I_JSR or reg_instruction = I_BSR then
+                    memory_access_write := '1';
+                    memory_access_address := x"000"&reg_sph&reg_sp;
+                    memory_access_resolve_address := '1';
+                    memory_access_wdata := reg_pc(7 downto 0);
+                    dec_sp := '1';
+                    state <= CallSubroutine;
+                  else
+                    memory_access_read := '1';
+                    memory_access_address := x"000"&reg_pc;
+                    memory_access_resolve_address := '1';
+                    state <= AbsReadArg2;
+                  end if;
                 when M_nnrr =>
                   reg_t <= memory_read_value;
                   memory_access_read := '1';
@@ -1837,6 +1851,25 @@ begin
                   memory_access_resolve_address := '1';
                   pc_inc := '1';
                   state <= Imm16ReadArg2;
+              end case;
+            when CallSubroutine =>
+              memory_access_write := '1';
+              memory_access_address := x"000"&reg_sph&reg_sp;
+              memory_access_resolve_address := '1';
+              memory_access_wdata := reg_pc(15 downto 8);
+              dec_sp := '1';
+              state <= CallSubroutine2;
+            when CallSubroutine2 =>
+              memory_access_read := '1';
+              memory_access_address := x"000"&reg_pc;
+              memory_access_resolve_address := '1';
+              case reg_addressingmode is
+                -- Note, we treat BSR as absolute mode, with microcode
+                -- controlling the calculation of the address as relative.
+                when M_nnnn => state <= AbsReadArg2;
+                when M_innnn => state <= IAbsReadArg2;
+                when M_innnnX => state <= AbsXReadArg2;
+                when others => state <= normal_fetch_state;
               end case;
             when AbsReadArg2 =>
               monitor_arg2 <= std_logic_vector(memory_read_value);
@@ -1980,10 +2013,7 @@ begin
                 if reg_microcode.mcAluInY='1' then memory_access_wdata := reg_y; end if;
                 if reg_microcode.mcAluInZ='1' then memory_access_wdata := reg_z; end if;
                 -- Decrement stack pointer (8 or 16 bit)
-                reg_sp <= reg_sp - 1;
-                if flag_e='0' and reg_sp=x"00" then
-                  reg_sph <= reg_sph - 1;
-                end if;
+                dec_sp := '1';
               end if;
               
               if is_store='0' and is_rmw='0' and nmi_pending='0'
@@ -2027,6 +2057,12 @@ begin
         report "pc_inc = " & std_logic'image(pc_inc) & ", cpu_state = " & processor_state'image(state) severity note;
         if pc_inc = '1' then
           reg_pc <= reg_pc + 1;
+        end if;
+        if dec_sp = '1' then
+          reg_sp <= reg_sp - 1;
+          if flag_e='0' and reg_sp=x"00" then
+            reg_sph <= reg_sph - 1;
+          end if;
         end if;
         
         -- Route memory read value as required
