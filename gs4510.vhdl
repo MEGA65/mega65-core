@@ -1711,7 +1711,6 @@ begin
                 when M_immnn => -- Handled in ActionCycle              
                 when M_nnnn =>
                   reg_addr(7 downto 0) <= memory_read_value;
-                  pc_inc := '1';
                   -- If it is a branch, write the low bits of the programme
                   -- counter now.  We will read the 2nd argument next cycle
                   if reg_instruction = I_JSR or reg_instruction = I_BSR then
@@ -1720,8 +1719,10 @@ begin
                     memory_access_resolve_address := '1';
                     memory_access_wdata := reg_pc(7 downto 0);
                     dec_sp := '1';
+                    pc_inc := '0';
                     state <= CallSubroutine;
                   else
+                    pc_inc := '1';
                     memory_access_read := '1';
                     memory_access_address := x"000"&reg_pc;
                     memory_access_resolve_address := '1';
