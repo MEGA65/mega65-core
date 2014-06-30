@@ -10,8 +10,9 @@ end cpu_test;
 
 architecture behavior of cpu_test is
 
-  signal clock : std_logic := '0';
+  signal pixelclock : std_logic := '0';
   signal cpuclock : std_logic := '0';
+  signal ioclock : std_logic := '0';
   signal reset : std_logic := '0';
   signal irq : std_logic := '1';
   signal nmi : std_logic := '1';
@@ -38,7 +39,9 @@ architecture behavior of cpu_test is
   signal sseg_an : std_logic_vector(7 downto 0);
   
   component machine is
-    Port ( pixelclock : STD_LOGIC;         
+    Port ( pixelclock : STD_LOGIC;
+           cpuclock : STD_LOGIC;
+           ioclock : STD_LOGIC;
            btnCpuReset : in  STD_LOGIC;
            irq : in  STD_LOGIC;
            nmi : in  STD_LOGIC;
@@ -117,7 +120,9 @@ architecture behavior of cpu_test is
 begin
   core0: machine
     port map (
-      pixelclock      => clock,
+      pixelclock      => pixelclock,
+      cpuclock      => cpuclock,
+      ioclock      => ioclock,
       btnCpuReset      => reset,
       irq => '1',
       nmi => '1',
@@ -160,20 +165,32 @@ begin
     report "beginning simulation" severity note;
     slowram_data <= (others => 'Z');
 
-    for i in 1 to 10 loop
-      clock <= '1';
-      wait for 2.5 ns;
-      clock <= '0';
-      wait for 2.5 ns;      
-    end loop;  -- i
-    reset <= '1';
-    report "reset released" severity note;
     for i in 1 to 2000000 loop
-      clock <= '1';
-      cpuclock <= not cpuclock;
+      pixelclock <= '0'; cpuclock <= '0'; ioclock <= '0';
       wait for 2.5 ns;     
-      clock <= '0';
+      pixelclock <= '1'; cpuclock <= '0'; ioclock <= '0';
+      wait for 2.5 ns;     
+      pixelclock <= '0'; cpuclock <= '0'; ioclock <= '0';
+      wait for 2.5 ns;     
+      pixelclock <= '1'; cpuclock <= '1'; ioclock <= '0';
+      wait for 2.5 ns;     
+      pixelclock <= '0'; cpuclock <= '1'; ioclock <= '0';
+      wait for 2.5 ns;     
+      pixelclock <= '1'; cpuclock <= '1'; ioclock <= '0';
+      wait for 2.5 ns;     
+      pixelclock <= '0'; cpuclock <= '0'; ioclock <= '1';
+      wait for 2.5 ns;     
+      pixelclock <= '1'; cpuclock <= '0'; ioclock <= '1';
+      wait for 2.5 ns;     
+      pixelclock <= '0'; cpuclock <= '0'; ioclock <= '1';
+      wait for 2.5 ns;     
+      pixelclock <= '1'; cpuclock <= '1'; ioclock <= '1';
+      wait for 2.5 ns;     
+      pixelclock <= '0'; cpuclock <= '1'; ioclock <= '1';
+      wait for 2.5 ns;     
+      pixelclock <= '1'; cpuclock <= '1'; ioclock <= '1';
       wait for 2.5 ns;
+      reset <= '1';
     end loop;  -- i
     assert false report "End of simulation" severity failure;
   end process;
