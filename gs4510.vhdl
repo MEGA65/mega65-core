@@ -1840,17 +1840,17 @@ begin
               end case;
             when AbsReadArg2 =>
               monitor_arg2 <= std_logic_vector(memory_read_value);
-              monitor_ibytes(2) <= '1';
+              monitor_ibytes(0) <= '1';
               reg_addr(15 downto 8) <= memory_read_value;
               state <= ActionCycle;
             when AbsXReadArg2 =>
               monitor_arg2 <= std_logic_vector(memory_read_value);
-              monitor_ibytes(2) <= '1';
+              monitor_ibytes(0) <= '1';
               reg_addr <= x"00"&reg_x + to_integer(memory_read_value&reg_addr(7 downto 0));
               state <= ActionCycle;
             when AbsYReadArg2 =>
               monitor_arg2 <= std_logic_vector(memory_read_value);
-              monitor_ibytes(2) <= '1';
+              monitor_ibytes(0) <= '1';
               reg_addr <= x"00"&reg_y + to_integer(memory_read_value&reg_addr(7 downto 0));
               state <= ActionCycle;
             when TakeBranch8 =>
@@ -1873,7 +1873,7 @@ begin
               state <= normal_fetch_state;
             when B16TakeBranch =>
               monitor_arg2 <= std_logic_vector(memory_read_value);
-              monitor_ibytes(2) <= '1';
+              monitor_ibytes(0) <= '1';
               reg_pc <= reg_pc + to_integer(memory_read_value & reg_addr(7 downto 0));
               state <= normal_fetch_state;
             when InnYReadVectorLow =>
@@ -1900,15 +1900,15 @@ begin
               end if;
             when IAbsReadArg2 =>
               monitor_arg2 <= std_logic_vector(memory_read_value);
-              monitor_ibytes(2) <= '1';
+              monitor_ibytes(0) <= '1';
               state <= normal_fetch_state;
             when IAbsXReadArg2 =>
               monitor_arg2 <= std_logic_vector(memory_read_value);
-              monitor_ibytes(2) <= '1';
+              monitor_ibytes(0) <= '1';
               state <= normal_fetch_state;
             when Imm16ReadArg2 => 
               monitor_arg2 <= std_logic_vector(memory_read_value);
-              monitor_ibytes(2) <= '1';
+              monitor_ibytes(0) <= '1';
               state <= normal_fetch_state;
             when ActionCycle =>
               -- By this stage we have the address of the operand in
