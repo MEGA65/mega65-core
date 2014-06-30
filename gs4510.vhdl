@@ -1630,6 +1630,10 @@ begin
                 else
                     state <= Cycle2;
                 end if;
+              else
+                -- Allow monitor to trace through single-cycle instructions
+                if monitor_mem_trace_mode then
+                  state <= normal_fetch_state;
               end if;
 
               -- Prepare microcode vector in case we need it next cycle
