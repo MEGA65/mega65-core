@@ -1999,6 +1999,14 @@ begin
                   state <= normal_fetch_state;
                 end if;
               end if;
+              if reg_microcode.mcJump='1' then
+                reg_pc <= reg_addr;
+                inc_pc := '0';
+                state <= normal_fetch_state;
+              end if;
+              if reg_microcode.mcMap='1' then
+                c65_map_instruction;
+              end if;
             when others =>
               state <= normal_fetch_state;
           end case;
