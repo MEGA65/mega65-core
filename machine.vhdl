@@ -293,6 +293,8 @@ architecture Behavioral of machine is
     Port (
       pixelclock : in  STD_LOGIC;
       cpuclock : in std_logic;
+      ioclock : in std_logic;
+
       irq : out std_logic;
       reset : in std_logic;
 
@@ -720,7 +722,8 @@ begin
   viciv0: viciv
     port map (
       pixelclock      => pixelclock,
-      cpuclock        => ioclock,
+      cpuclock        => cpuclock,
+      ioclock        => ioclock,
 
       irq             => vic_irq,
       reset           => reset_combined,
