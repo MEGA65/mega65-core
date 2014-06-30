@@ -1634,6 +1634,7 @@ begin
                 -- Allow monitor to trace through single-cycle instructions
                 if monitor_mem_trace_mode then
                   state <= normal_fetch_state;
+                  pc_inc := '0';
               end if;
 
               -- Prepare microcode vector in case we need it next cycle
