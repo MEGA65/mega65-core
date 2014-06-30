@@ -353,7 +353,8 @@ architecture Behavioural of gs4510 is
     IAbsXReadArg2,
     Imm16ReadArg2,
     TakeBranch8,
-    ActionCycle
+    ActionCycle,
+    DelayedWrite
     );
   signal state : processor_state := ResetLow;
   signal fast_fetch_state : processor_state := InstructionDecode;
@@ -447,10 +448,9 @@ architecture Behavioural of gs4510 is
   signal is_store : std_logic;
   signal rmw_dummy_write_done : std_logic;
   
-  --signal delayed_memory_write : std_logic;
-  --signal delayed_memory_write_resolve_address : std_logic;
-  --signal delayed_memory_write_address : unsigned(27 downto 0);
-  --signal delayed_memory_write_data : unsigned(7 downto 0);
+  signal delayed_write_resolve : std_logic;
+  signal delayed_write_address : unsigned(27 downto 0);
+  signal delayed_write_wdata : unsigned(7 downto 0);
 
 begin
 
@@ -2106,6 +2106,12 @@ begin
               if reg_microcode.mcMap='1' then
                 c65_map_instruction;
               end if;
+            when DelayedWrite =>
+              if delayed_write_resolve = '1' then
+                write_data(delayed_write_address(15 downto 0),delayed_write_wdata);
+              else 
+                write_long_byte(delayed_write_address,delayed_write_wdata);
+              end if;
             when others =>
               state <= normal_fetch_state;
           end case;
@@ -2147,10 +2153,10 @@ begin
                                         -- the operation is read or write.  ROM accesses are a good example.
                                         -- We delay the memory write until the next cycle to minimise logic depth
         if memory_access_write='1' then
-                                        --delayed_memory_write <= '1';
-                                        --delayed_memory_write_resolve_address <= memory_access_resolve_address;
-                                        --delayed_memory_write_address <= memory_access_address;
-                                        --delayed_memory_write_data <= memory_access_wdata;
+          --delayed_memory_write <= '1';
+          --delayed_memory_write_resolve_address <= memory_access_resolve_address;
+          --delayed_memory_write_address <= memory_access_address;
+          --delayed_memory_write_data <= memory_access_wdata;
           if memory_access_resolve_address = '1' then
             write_data(memory_access_address(15 downto 0),memory_access_wdata);
           else 
@@ -2233,21 +2239,27 @@ begin
         end if;
         if inc_out_spl='1' then reg_sp <= inc_temp; end if;
         if inc_out_sph='1' then reg_sph <= inc_temp; end if;
-        if inc_out_mem='1' then memory_access_wdata := inc_temp; end if;
+        if inc_out_mem='1' then
+          -- Do writes on next cycle to improve timing.
+          delayed_write_address <= memory_access_address;
+          delayed_write_resolve <= memory_access_resolve_address;
+          delayed_write_wdata <= inc_temp;
+          state <= DelayedWrite;
+        end if;
 
-                                        ---------------------------------------------------------------------------
+        ---------------------------------------------------------------------------
 
-                                        ---------------------------------------------------------------------------
-                                        -- Arithmetic ALU
-                                        ---------------------------------------------------------------------------
-                                        ---Input-Values------------------------------------------------------------
-                                        -- (Secondary input is always memory)
+        ---------------------------------------------------------------------------
+        -- Arithmetic ALU
+        ---------------------------------------------------------------------------
+        ---Input-Values------------------------------------------------------------
+        -- (Secondary input is always memory)
         if alu_in_a='1' then alu_temp := reg_a; end if;
         if alu_in_x='1' then alu_temp := reg_x; end if;
         if alu_in_y='1' then alu_temp := reg_y; end if;
         if alu_in_z='1' then alu_temp := reg_z; end if;
 
-                                        ---Perform-Calculation-----------------------------------------------------
+        ---Perform-Calculation-----------------------------------------------------
         if alu_add='1' then
           alu_temp := alu_op_add(alu_temp,memory_read_value);
         end if;
