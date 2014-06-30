@@ -1632,7 +1632,7 @@ begin
                 end if;
               else
                 -- Allow monitor to trace through single-cycle instructions
-                if monitor_mem_trace_mode then
+                if monitor_mem_trace_mode='1' then
                   state <= normal_fetch_state;
                   pc_inc := '0';
                 end if;
@@ -2002,7 +2002,7 @@ begin
               end if;
               if reg_microcode.mcJump='1' then
                 reg_pc <= reg_addr;
-                inc_pc := '0';
+                pc_inc := '0';
                 state <= normal_fetch_state;
               end if;
               if reg_microcode.mcMap='1' then
