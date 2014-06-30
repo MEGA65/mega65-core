@@ -2,6 +2,9 @@ net "CLK_IN" loc = "E3" | IOSTANDARD = "LVCMOS33"; #100MHz clock on Nexys4 board
 net "CLK_IN" TNM_NET = sys_clk_pin;
 TIMESPEC TS_sys_clk_pin = PERIOD sys_clk_pin 100MHz HIGH 50%;
 
+# net "container/machine0/cpuclock" TNM_NET = cpuclock;
+# TIMESPEC TS_cpuclock = PERIOD cpuclock 96MHz HIGH 50%;
+
 #net "irq" loc = "U8"  | IOSTANDARD = "LVCMOS33"; #SW1
 NET "btnCpuReset"              LOC = "C12"     | IOSTANDARD = "LVCMOS33";              #Bank = 15, Pin name = IO_L3P_T0_DQS_AD1P_15,                           Sch name = CPU_RESET
 
