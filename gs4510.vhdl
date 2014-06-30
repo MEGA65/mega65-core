@@ -1676,7 +1676,7 @@ begin
                                
             when Cycle2 =>
               -- Show serial monitor what we are doing.
-              if (reg_addressingmode /= M_impl) or (reg_addressingmode /= M_A) then
+              if (reg_addressingmode /= M_A) then
                 monitor_arg1 <= std_logic_vector(memory_read_value);
                 monitor_ibytes(1) <= '1';
               end if;
@@ -1685,6 +1685,7 @@ begin
                 when M_impl =>  -- Handled in ActionCycle
                 when M_A =>     -- Handled in ActionCycle
                 when M_InnX =>
+                  
                   temp_addr := reg_b & (memory_read_value+reg_X);
                   reg_addr <= temp_addr;
                   memory_access_read := '1';
@@ -1917,6 +1918,11 @@ begin
               -- have a lot of the other fancy instructions.  That just leaves
               -- us with loads, stores and reaad/modify/write instructions
 
+              if reg_addressingmode = M_immnn then
+                monitor_arg1 <= std_logic_vector(memory_read_value);
+                monitor_ibytes(1) <= '1';
+              end if;
+              
               if reg_microcode.mcClearE='1' then flag_e <= '0'; end if;
               if reg_microcode.mcClearI='1' then flag_i <= '0'; end if;             
               
