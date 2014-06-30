@@ -129,8 +129,8 @@ architecture Behavioural of gs4510 is
 
   component microcode is
     port (Clk : in std_logic;
-        address : in instruction;
-        data_o : out microcodeops
+          address : in instruction;
+          data_o : out microcodeops
           );
   end component;
   
@@ -268,10 +268,11 @@ architecture Behavioural of gs4510 is
   -- Microcode data and ALU routing signals follow:
 
   signal mem_reading : std_logic := '0';
-  signal mem_reading_a : std_logic := '0';
-  signal mem_reading_x : std_logic := '0';
-  signal mem_reading_y : std_logic := '0';
-  signal mem_reading_z : std_logic := '0';
+  signal pop_a : std_logic := '0';
+  signal pop_p : std_logic := '0';
+  signal pop_x : std_logic := '0';
+  signal pop_y : std_logic := '0';
+  signal pop_z : std_logic := '0';
   signal mem_reading_p : std_logic := '0';
   signal mem_reading_pcl : std_logic := '0';
   signal mem_reading_pch : std_logic := '0';
@@ -341,6 +342,7 @@ architecture Behavioural of gs4510 is
     InstructionDecode,
     Cycle2,
     Push,Pull,
+    RTI,RTS1,RTS2,
     B16TakeBranch,
     InnYReadVectorLow,
     InnZReadVectorLow,
@@ -1275,6 +1277,7 @@ begin
 
     variable pc_inc : std_logic;
     variable dec_sp : std_logic;
+    variable stack_pop : std_logic;
 
     variable inc_rmw : std_logic;
     variable inc_in_a : std_logic;
@@ -1333,6 +1336,9 @@ begin
     -- BEGINNING OF MAIN PROCESS FOR CPU
     if rising_edge(clock) then
 
+      pop_a <= '0'; pop_x <= '0'; pop_y <= '0'; pop_z <= '0';
+      pop_p <= '0';
+      
       monitor_debug_memory_access(31) <= accessing_shadow;
       monitor_debug_memory_access(30) <= accessing_fastio;
       monitor_debug_memory_access(29) <= accessing_slowram;
@@ -1351,7 +1357,7 @@ begin
       read_data_copy <= read_data_complex;
       
       -- By default we are doing nothing new.
-      pc_inc := '0'; dec_sp := '0';
+      pc_inc := '0'; dec_sp := '0'; stack_pop := '0';
 
       inc_rmw := '0';
       inc_in_a := '0'; inc_in_b := '0'; inc_in_t := '0';
@@ -1366,7 +1372,7 @@ begin
       alu_add := '0'; alu_cmp := '0'; alu_sub := '0';
       alu_out_a := '0'; alu_out_mem := '0';
       alu_set_c := '0'; alu_set_nz := '0';
-      
+
       memory_access_read := '0';
       memory_access_write := '0';
       memory_access_resolve_address := '0';
@@ -1408,7 +1414,7 @@ begin
       -- Catch the CPU when it goes to the next instruction if single stepping.
       if (monitor_mem_trace_mode='0' or
           monitor_mem_trace_toggle_last /= monitor_mem_trace_toggle)
-         and (monitor_mem_attention_request='0') then
+        and (monitor_mem_attention_request='0') then
         monitor_mem_trace_toggle_last <= monitor_mem_trace_toggle;
         normal_fetch_state <= InstructionFetch;
         fast_fetch_state <= InstructionDecode;
@@ -1416,7 +1422,7 @@ begin
         normal_fetch_state <= ProcessorHold;
         fast_fetch_state <= ProcessorHold;
       end if;
-            
+      
       memory_read_value := read_data;
       
       -- report "reset = " & std_logic'image(reset) severity note;
@@ -1465,59 +1471,59 @@ begin
         -- 83% of maximum speed.  This is much better than cutting the
         -- clock speed by 1/3, which is the only other real option.
         --if delayed_memory_write='1' then
-          --delayed_memory_write <= '0';
-          --if delayed_memory_write_resolve_address = '1' then
-          --  write_data(delayed_memory_write_address(15 downto 0),delayed_memory_write_data);
-          --else 
-          --  write_long_byte(delayed_memory_write_address,delayed_memory_write_data);
-          --end if;
+        --delayed_memory_write <= '0';
+        --if delayed_memory_write_resolve_address = '1' then
+        --  write_data(delayed_memory_write_address(15 downto 0),delayed_memory_write_data);
+        --else 
+        --  write_long_byte(delayed_memory_write_address,delayed_memory_write_data);
+        --end if;
         --end if;
 
-          monitor_proceed <= proceed;
-          monitor_request_reflected <= monitor_mem_attention_request;
+        monitor_proceed <= proceed;
+        monitor_request_reflected <= monitor_mem_attention_request;
         
-          -- Do delayed register modification operation
-          if do_register_op='1' then
-            do_register_op <= '0';
-            case reg_opcode is
-              when x"03" => flag_e <= '1';  -- SEE
-              when x"0B" => inc_in_sph := '1'; inc_out_y := '1'; inc_set_nz := '1'; inc_pass := '1'; -- TSY
-              when x"18" => flag_c <= '0';  -- CLC
-              when x"1A" => inc_in_a := '1'; inc_out_a := '1'; inc_set_nz := '1'; inc_inc := '1'; -- INC A
-              when x"1B" => inc_in_z := '1'; inc_out_z := '1'; inc_set_nz := '1'; inc_inc := '1'; -- INZ
-              when x"2B" => inc_in_y := '1'; inc_out_sph := '1'; inc_pass := '1'; -- TYS
-              when x"38" => flag_c <= '1';  -- SEC
-              when x"3A" => inc_in_a := '1'; inc_out_a := '1'; inc_set_nz := '1'; inc_dec := '1'; -- DEC A
-              when x"3B" => inc_in_z := '1'; inc_out_z := '1'; inc_set_nz := '1'; inc_dec := '1'; -- DEZ
-              -- NEG can stay 2 cycles for now.  We can try
-              -- adding it later
-              when x"43" => inc_in_a := '1'; inc_out_a := '1'; inc_set_nz := '1';
-                            inc_shift_right := '1'; -- ASR A
-              when x"4A" => inc_in_a := '1'; inc_out_a := '1'; inc_set_nz := '1';
-                            inc_shift_right := '1'; inc_0in := '1'; -- LSR A
-              when x"4B" => inc_in_a := '1'; inc_out_z := '1'; inc_set_nz := '1'; inc_pass := '1'; -- TAZ
-              when x"5B" => inc_in_a := '1'; inc_out_b := '1'; inc_pass := '1'; -- TAB
-              when x"6A" => inc_in_a := '1'; inc_out_a := '1'; inc_set_nz := '1';
-                            inc_shift_right := '1'; inc_carry_in := '1'; -- ROR A
-              when x"6B" => inc_in_z := '1'; inc_out_a := '1'; inc_set_nz := '1'; inc_pass := '1'; -- TZA
-              when x"78" => flag_i <= '1';  -- SEI
-              when x"7B" => inc_in_b := '1'; inc_out_a := '1'; inc_set_nz := '1'; inc_pass := '1'; -- TBA
-              when x"88" => inc_in_y := '1'; inc_out_y := '1'; inc_set_nz := '1'; inc_dec := '1'; -- DEY
-              when x"8A" => inc_in_x := '1'; inc_out_a := '1'; inc_set_nz := '1'; inc_pass := '1'; -- TXA
-              when x"98" => inc_in_y := '1'; inc_out_a := '1'; inc_set_nz := '1'; inc_pass := '1'; -- TYA
-              when x"9A" => inc_in_x := '1'; inc_out_spl := '1'; inc_pass := '1'; -- TXS
-              when x"A8" => inc_in_a := '1'; inc_out_y := '1'; inc_set_nz := '1'; inc_pass := '1'; -- TAY
-              when x"AA" => inc_in_a := '1'; inc_out_x := '1'; inc_set_nz := '1'; inc_pass := '1'; -- TAX
-              when x"B8" => flag_v <= '0';  -- CLV
-              when x"BA" => inc_in_spl := '1'; inc_out_x := '1'; inc_set_nz := '1'; inc_pass := '1'; -- TSX
-              when x"CA" => inc_in_x := '1'; inc_out_x := '1'; inc_set_nz := '1'; inc_dec := '1'; -- DEX
-                when x"D8" => flag_d <= '0';  -- CLD
-              when x"E8" => inc_in_x := '1'; inc_out_x := '1'; inc_set_nz := '1'; inc_inc := '1'; -- INX
-              when x"EA" => map_interrupt_inhibit <= '0'; -- EOM
-              when x"F8" => flag_d <= '1';  -- CLD                            
-              when others => null;
-            end case;              
-          end if;
+        -- Do delayed register modification operation
+        if do_register_op='1' then
+          do_register_op <= '0';
+          case reg_opcode is
+            when x"03" => flag_e <= '1';  -- SEE
+            when x"0B" => inc_in_sph := '1'; inc_out_y := '1'; inc_set_nz := '1'; inc_pass := '1'; -- TSY
+            when x"18" => flag_c <= '0';  -- CLC
+            when x"1A" => inc_in_a := '1'; inc_out_a := '1'; inc_set_nz := '1'; inc_inc := '1'; -- INC A
+            when x"1B" => inc_in_z := '1'; inc_out_z := '1'; inc_set_nz := '1'; inc_inc := '1'; -- INZ
+            when x"2B" => inc_in_y := '1'; inc_out_sph := '1'; inc_pass := '1'; -- TYS
+            when x"38" => flag_c <= '1';  -- SEC
+            when x"3A" => inc_in_a := '1'; inc_out_a := '1'; inc_set_nz := '1'; inc_dec := '1'; -- DEC A
+            when x"3B" => inc_in_z := '1'; inc_out_z := '1'; inc_set_nz := '1'; inc_dec := '1'; -- DEZ
+            -- NEG can stay 2 cycles for now.  We can try
+            -- adding it later
+            when x"43" => inc_in_a := '1'; inc_out_a := '1'; inc_set_nz := '1';
+                          inc_shift_right := '1'; -- ASR A
+            when x"4A" => inc_in_a := '1'; inc_out_a := '1'; inc_set_nz := '1';
+                          inc_shift_right := '1'; inc_0in := '1'; -- LSR A
+            when x"4B" => inc_in_a := '1'; inc_out_z := '1'; inc_set_nz := '1'; inc_pass := '1'; -- TAZ
+            when x"5B" => inc_in_a := '1'; inc_out_b := '1'; inc_pass := '1'; -- TAB
+            when x"6A" => inc_in_a := '1'; inc_out_a := '1'; inc_set_nz := '1';
+                          inc_shift_right := '1'; inc_carry_in := '1'; -- ROR A
+            when x"6B" => inc_in_z := '1'; inc_out_a := '1'; inc_set_nz := '1'; inc_pass := '1'; -- TZA
+            when x"78" => flag_i <= '1';  -- SEI
+            when x"7B" => inc_in_b := '1'; inc_out_a := '1'; inc_set_nz := '1'; inc_pass := '1'; -- TBA
+            when x"88" => inc_in_y := '1'; inc_out_y := '1'; inc_set_nz := '1'; inc_dec := '1'; -- DEY
+            when x"8A" => inc_in_x := '1'; inc_out_a := '1'; inc_set_nz := '1'; inc_pass := '1'; -- TXA
+            when x"98" => inc_in_y := '1'; inc_out_a := '1'; inc_set_nz := '1'; inc_pass := '1'; -- TYA
+            when x"9A" => inc_in_x := '1'; inc_out_spl := '1'; inc_pass := '1'; -- TXS
+            when x"A8" => inc_in_a := '1'; inc_out_y := '1'; inc_set_nz := '1'; inc_pass := '1'; -- TAY
+            when x"AA" => inc_in_a := '1'; inc_out_x := '1'; inc_set_nz := '1'; inc_pass := '1'; -- TAX
+            when x"B8" => flag_v <= '0';  -- CLV
+            when x"BA" => inc_in_spl := '1'; inc_out_x := '1'; inc_set_nz := '1'; inc_pass := '1'; -- TSX
+            when x"CA" => inc_in_x := '1'; inc_out_x := '1'; inc_set_nz := '1'; inc_dec := '1'; -- DEX
+            when x"D8" => flag_d <= '0';  -- CLD
+            when x"E8" => inc_in_x := '1'; inc_out_x := '1'; inc_set_nz := '1'; inc_inc := '1'; -- INX
+            when x"EA" => map_interrupt_inhibit <= '0'; -- EOM
+            when x"F8" => flag_d <= '1';  -- CLD                            
+            when others => null;
+          end case;              
+        end if;
 
         if proceed='1' then
           -- Main state machine for CPU
@@ -1623,7 +1629,7 @@ begin
               -- interrupts are only checked in InstructionFetch, not
               -- InstructionDecode).
               do_register_op <= op_is_single_cycle(to_integer(memory_read_value));
-                
+              
               reg_opcode <= memory_read_value;
               -- Present instruction to serial monitor;
               monitor_opcode <= std_logic_vector(memory_read_value);
@@ -1636,7 +1642,7 @@ begin
                 then
                   state <= ActionCycle;
                 else
-                    state <= Cycle2;
+                  state <= Cycle2;
                 end if;
               else
                 -- Allow monitor to trace through single-cycle instructions
@@ -1679,184 +1685,200 @@ begin
                 -- Nothing special for other instructions
                 when others => null;
               end case;
-              reg_microcode_address <=
-                instruction_lut(to_integer(memory_read_value));
+                               reg_microcode_address <=
+                                 instruction_lut(to_integer(memory_read_value));
             when Cycle2 =>
               -- Show serial monitor what we are doing.
               if (reg_addressingmode /= M_A) then
                 monitor_arg1 <= std_logic_vector(memory_read_value);
                 monitor_ibytes(1) <= '1';
+              else
+                -- For RTS we use arg1 for the optional immediate argument.
+                -- So for implied mode, we set this to zero to provide the
+                -- normal behaviour.
+                monitor_arg1 <= x"00";
               end if;
 
-              case reg_addressingmode is
-                when M_impl =>  -- Handled in ActionCycle
-                when M_A =>     -- Handled in ActionCycle
-                when M_InnX =>
-                  
-                  temp_addr := reg_b & (memory_read_value+reg_X);
-                  reg_addr <= temp_addr;
-                  memory_access_read := '1';
-                  memory_access_address := x"000"&temp_addr;
-                  memory_access_resolve_address := '1';
-                  pc_inc := '1';
-                  state <= ActionCycle;
-                when M_nn =>
-                  temp_addr := reg_b & (memory_read_value);
-                  reg_addr <= temp_addr;
-                  memory_access_read := '1';
-                  memory_access_address := x"000"&temp_addr;
-                  memory_access_resolve_address := '1';
-                  pc_inc := '1';
-                  state <= ActionCycle;
-                when M_immnn => -- Handled in ActionCycle              
-                when M_nnnn =>
-                  reg_addr(7 downto 0) <= memory_read_value;
-                  -- If it is a branch, write the low bits of the programme
-                  -- counter now.  We will read the 2nd argument next cycle
-                  if reg_instruction = I_JSR or reg_instruction = I_BSR then
-                    memory_access_write := '1';
-                    memory_access_address := x"000"&reg_sph&reg_sp;
-                    memory_access_resolve_address := '1';
-                    memory_access_wdata := reg_pc(7 downto 0);
-                    dec_sp := '1';
-                    pc_inc := '0';
-                    state <= CallSubroutine;
-                  else
-                    pc_inc := '1';
-                    memory_access_read := '1';
-                    memory_access_address := x"000"&reg_pc;
-                    memory_access_resolve_address := '1';
-                    state <= AbsReadArg2;
-                  end if;
-                when M_nnrr =>
-                  reg_t <= memory_read_value;
-                  memory_access_read := '1';
-                  memory_access_address := x"000"&reg_b&memory_read_value;
-                  memory_access_resolve_address := '1';
-                  pc_inc := '1';
-                  state <= ZPRelReadZP;
-                when M_InnY =>
-                  temp_addr := reg_b&memory_read_value;
-                  memory_access_read := '1';
-                  memory_access_address := x"000"&temp_addr;
-                  memory_access_resolve_address := '1';
-                  pc_inc := '1';
-                  state <= InnYReadVectorLow;
-                when M_InnZ =>
-                  temp_addr := reg_b&memory_read_value;
-                  memory_access_read := '1';
-                  memory_access_address := x"000"&temp_addr;
-                  memory_access_resolve_address := '1';
-                  pc_inc := '1';
-                  state <= InnZReadVectorLow;
-                when M_rr =>
-                  if (reg_instruction=I_BRA) or
-                    (reg_instruction=I_BSR) or
-                    (reg_instruction=I_BEQ and flag_z='1') or
-                    (reg_instruction=I_BNE and flag_z='0') or
-                    (reg_instruction=I_BCS and flag_c='1') or
-                    (reg_instruction=I_BCC and flag_c='0') or
-                    (reg_instruction=I_BVS and flag_v='1') or
-                    (reg_instruction=I_BVC and flag_v='0') or
-                    (reg_instruction=I_BMI and flag_n='1') or
-                    (reg_instruction=I_BPL and flag_n='0') then
-                    -- Branch will be taken
-                    temp_addr := reg_pc +
-                              1+to_integer(memory_read_value(7)&memory_read_value(7)&memory_read_value(7)&memory_read_value(7)&
-                                         memory_read_value(7)&memory_read_value(7)&memory_read_value(7)&memory_read_value(7)&
-                                         memory_read_value);
+              if reg_instruction = I_RTS or reg_instruction = I_RTI then
+                -- Special case RTS and RTI so that we don't waste clock cycles
+                if reg_instruction = I_RTI then
+                  state <= RTI;
+                else
+                  state <= RTS1;
+                end if;
+                -- Read first byte from stack
+                stack_pop := '1';
+              else
+                case reg_addressingmode is
+                  when M_impl =>  -- Handled in ActionCycle
+                  when M_A =>     -- Handled in ActionCycle
+                  when M_InnX =>
+                    
+                    temp_addr := reg_b & (memory_read_value+reg_X);
+                    reg_addr <= temp_addr;
                     memory_access_read := '1';
                     memory_access_address := x"000"&temp_addr;
                     memory_access_resolve_address := '1';
-                    reg_pc <= temp_addr;
-                    state <= fast_fetch_state;
-                  else
-                    -- Branch will not be taken.
-                    -- fetch next instruction now to save a cycle
-                    reg_pc <= reg_pc + 1;
+                    pc_inc := '1';
+                    state <= ActionCycle;
+                  when M_nn =>
+                    temp_addr := reg_b & (memory_read_value);
+                    reg_addr <= temp_addr;
+                    memory_access_read := '1';
+                    memory_access_address := x"000"&temp_addr;
+                    memory_access_resolve_address := '1';
+                    pc_inc := '1';
+                    state <= ActionCycle;
+                  when M_immnn => -- Handled in ActionCycle              
+                  when M_nnnn =>
+                    reg_addr(7 downto 0) <= memory_read_value;
+                    -- If it is a branch, write the low bits of the programme
+                    -- counter now.  We will read the 2nd argument next cycle
+                    if reg_instruction = I_JSR or reg_instruction = I_BSR then
+                      memory_access_write := '1';
+                      memory_access_address := x"000"&reg_sph&reg_sp;
+                      memory_access_resolve_address := '1';
+                      memory_access_wdata := reg_pc(7 downto 0);
+                      dec_sp := '1';
+                      pc_inc := '0';
+                      state <= CallSubroutine;
+                    else
+                      pc_inc := '1';
+                      memory_access_read := '1';
+                      memory_access_address := x"000"&reg_pc;
+                      memory_access_resolve_address := '1';
+                      state <= AbsReadArg2;
+                    end if;
+                  when M_nnrr =>
+                    reg_t <= memory_read_value;
+                    memory_access_read := '1';
+                    memory_access_address := x"000"&reg_b&memory_read_value;
+                    memory_access_resolve_address := '1';
+                    pc_inc := '1';
+                    state <= ZPRelReadZP;
+                  when M_InnY =>
+                    temp_addr := reg_b&memory_read_value;
+                    memory_access_read := '1';
+                    memory_access_address := x"000"&temp_addr;
+                    memory_access_resolve_address := '1';
+                    pc_inc := '1';
+                    state <= InnYReadVectorLow;
+                  when M_InnZ =>
+                    temp_addr := reg_b&memory_read_value;
+                    memory_access_read := '1';
+                    memory_access_address := x"000"&temp_addr;
+                    memory_access_resolve_address := '1';
+                    pc_inc := '1';
+                    state <= InnZReadVectorLow;
+                  when M_rr =>
+                    if (reg_instruction=I_BRA) or
+                      (reg_instruction=I_BSR) or
+                      (reg_instruction=I_BEQ and flag_z='1') or
+                      (reg_instruction=I_BNE and flag_z='0') or
+                      (reg_instruction=I_BCS and flag_c='1') or
+                      (reg_instruction=I_BCC and flag_c='0') or
+                      (reg_instruction=I_BVS and flag_v='1') or
+                      (reg_instruction=I_BVC and flag_v='0') or
+                      (reg_instruction=I_BMI and flag_n='1') or
+                      (reg_instruction=I_BPL and flag_n='0') then
+                      -- Branch will be taken
+                      temp_addr := reg_pc +
+                                   1+to_integer(memory_read_value(7)&memory_read_value(7)&memory_read_value(7)&memory_read_value(7)&
+                                                memory_read_value(7)&memory_read_value(7)&memory_read_value(7)&memory_read_value(7)&
+                                                memory_read_value);
+                      memory_access_read := '1';
+                      memory_access_address := x"000"&temp_addr;
+                      memory_access_resolve_address := '1';
+                      reg_pc <= temp_addr;
+                      state <= fast_fetch_state;
+                    else
+                      -- Branch will not be taken.
+                      -- fetch next instruction now to save a cycle
+                      reg_pc <= reg_pc + 1;
+                      memory_access_read := '1';
+                      memory_access_address := x"000"&reg_pc;
+                      memory_access_resolve_address := '1';
+                      state <= fast_fetch_state;
+                    end if;   
+                  when M_rrrr =>
+                    -- Store low 8 bits of branch value even if we don't use it
+                    -- because the logic is shallowe that way
+                    reg_addr(7 downto 0) <= memory_read_value;
+                    -- Now work out if the branch will be taken
+                    if (reg_instruction=I_BRA) or
+                      (reg_instruction=I_BSR) or
+                      (reg_instruction=I_BEQ and flag_z='1') or
+                      (reg_instruction=I_BNE and flag_z='0') or
+                      (reg_instruction=I_BCS and flag_c='1') or
+                      (reg_instruction=I_BCC and flag_c='0') or
+                      (reg_instruction=I_BVS and flag_v='1') or
+                      (reg_instruction=I_BVC and flag_v='0') or
+                      (reg_instruction=I_BMI and flag_n='1') or
+                      (reg_instruction=I_BPL and flag_n='0') then
+                      -- Branch will be taken, so finish reading address
+                      state <= B16TakeBranch;
+                    else
+                      -- Branch will not be taken.
+                      -- Skip second byte and proceed directly to
+                      -- fetching next instruction
+                      reg_pc <= reg_pc + 1;
+                      state <= normal_fetch_state;
+                    end if;
+                  when M_nnX =>
+                    temp_addr := reg_b & (memory_read_value + reg_X);
+                    reg_addr <= temp_addr;
+                    memory_access_read := '1';
+                    memory_access_address := x"000"&temp_addr;
+                    memory_access_resolve_address := '1';
+                    pc_inc := '1';
+                    state <= ActionCycle;
+                  when M_nnY =>
+                    temp_addr := reg_b & (memory_read_value + reg_X);
+                    reg_addr <= temp_addr;
+                    memory_access_read := '1';
+                    memory_access_address := x"000"&temp_addr;
+                    memory_access_resolve_address := '1';
+                    pc_inc := '1';
+                    state <= ActionCycle;
+                  when M_nnnnY =>
+                    reg_addr(7 downto 0) <= memory_read_value;
                     memory_access_read := '1';
                     memory_access_address := x"000"&reg_pc;
                     memory_access_resolve_address := '1';
-                    state <= fast_fetch_state;
-                  end if;   
-                when M_rrrr =>
-                  -- Store low 8 bits of branch value even if we don't use it
-                  -- because the logic is shallowe that way
-                  reg_addr(7 downto 0) <= memory_read_value;
-                  -- Now work out if the branch will be taken
-                  if (reg_instruction=I_BRA) or
-                    (reg_instruction=I_BSR) or
-                    (reg_instruction=I_BEQ and flag_z='1') or
-                    (reg_instruction=I_BNE and flag_z='0') or
-                    (reg_instruction=I_BCS and flag_c='1') or
-                    (reg_instruction=I_BCC and flag_c='0') or
-                    (reg_instruction=I_BVS and flag_v='1') or
-                    (reg_instruction=I_BVC and flag_v='0') or
-                    (reg_instruction=I_BMI and flag_n='1') or
-                    (reg_instruction=I_BPL and flag_n='0') then
-                    -- Branch will be taken, so finish reading address
-                    state <= B16TakeBranch;
-                  else
-                    -- Branch will not be taken.
-                    -- Skip second byte and proceed directly to
-                    -- fetching next instruction
-                    reg_pc <= reg_pc + 1;
+                    pc_inc := '1';
+                    state <= AbsYReadArg2;
+                  when M_nnnnX =>
+                    reg_addr(7 downto 0) <= memory_read_value;
+                    memory_access_read := '1';
+                    memory_access_address := x"000"&reg_pc;
+                    memory_access_resolve_address := '1';
+                    pc_inc := '1';
+                    state <= AbsXReadArg2;
+                  when M_Innnn =>
+                    reg_addr(7 downto 0) <= memory_read_value;
+                    memory_access_read := '1';
+                    memory_access_address := x"000"&reg_pc;
+                    memory_access_resolve_address := '1';
+                    pc_inc := '1';
+                    state <= IAbsReadArg2;
+                  when M_InnnnX =>
+                    reg_addr(7 downto 0) <= memory_read_value;
+                    memory_access_read := '1';
+                    memory_access_address := x"000"&reg_pc;
+                    memory_access_resolve_address := '1';
+                    pc_inc := '1';
+                    state <= IAbsXReadArg2;
+                  when M_InnSPY =>
                     state <= normal_fetch_state;
-                  end if;
-                when M_nnX =>
-                  temp_addr := reg_b & (memory_read_value + reg_X);
-                  reg_addr <= temp_addr;
-                  memory_access_read := '1';
-                  memory_access_address := x"000"&temp_addr;
-                  memory_access_resolve_address := '1';
-                  pc_inc := '1';
-                  state <= ActionCycle;
-                when M_nnY =>
-                  temp_addr := reg_b & (memory_read_value + reg_X);
-                  reg_addr <= temp_addr;
-                  memory_access_read := '1';
-                  memory_access_address := x"000"&temp_addr;
-                  memory_access_resolve_address := '1';
-                  pc_inc := '1';
-                  state <= ActionCycle;
-                when M_nnnnY =>
-                  reg_addr(7 downto 0) <= memory_read_value;
-                  memory_access_read := '1';
-                  memory_access_address := x"000"&reg_pc;
-                  memory_access_resolve_address := '1';
-                  pc_inc := '1';
-                  state <= AbsYReadArg2;
-                when M_nnnnX =>
-                  reg_addr(7 downto 0) <= memory_read_value;
-                  memory_access_read := '1';
-                  memory_access_address := x"000"&reg_pc;
-                  memory_access_resolve_address := '1';
-                  pc_inc := '1';
-                  state <= AbsXReadArg2;
-                when M_Innnn =>
-                  reg_addr(7 downto 0) <= memory_read_value;
-                  memory_access_read := '1';
-                  memory_access_address := x"000"&reg_pc;
-                  memory_access_resolve_address := '1';
-                  pc_inc := '1';
-                  state <= IAbsReadArg2;
-                when M_InnnnX =>
-                  reg_addr(7 downto 0) <= memory_read_value;
-                  memory_access_read := '1';
-                  memory_access_address := x"000"&reg_pc;
-                  memory_access_resolve_address := '1';
-                  pc_inc := '1';
-                  state <= IAbsXReadArg2;
-                when M_InnSPY =>
-                  state <= normal_fetch_state;
-                when M_immnnnn =>                
-                  reg_addr(7 downto 0) <= memory_read_value;
-                  memory_access_read := '1';
-                  memory_access_address := x"000"&reg_pc;
-                  memory_access_resolve_address := '1';
-                  pc_inc := '1';
-                  state <= Imm16ReadArg2;
-              end case;
+                  when M_immnnnn =>                
+                    reg_addr(7 downto 0) <= memory_read_value;
+                    memory_access_read := '1';
+                    memory_access_address := x"000"&reg_pc;
+                    memory_access_resolve_address := '1';
+                    pc_inc := '1';
+                    state <= Imm16ReadArg2;
+                end case;
+              end if;
             when CallSubroutine =>
               memory_access_write := '1';
               memory_access_address := x"000"&reg_sph&reg_sp;
@@ -1905,17 +1927,37 @@ begin
               memory_access_resolve_address := '1';
               reg_pc <= temp_addr;
               state <= fast_fetch_state;
-
-            -- Dummy/incomplete states for now.
             when Push =>
-              state <= normal_fetch_state;
+              -- Nothing more to do
+              -- Prefetch instruction byte
+              memory_access_read := '1';
+              memory_access_address := x"000"&temp_addr;
+              memory_access_resolve_address := '1';
+              reg_pc <= temp_addr;
+              state <= fast_fetch_state;
             when Pull =>
-              state <= normal_fetch_state;
+              set_nz(memory_read_value);
+              if pop_a='1' then reg_a <= memory_read_value; end if;
+              if pop_x='1' then reg_x <= memory_read_value; end if;
+              if pop_y='1' then reg_y <= memory_read_value; end if;
+              if pop_z='1' then reg_z <= memory_read_value; end if;
+              if pop_p='1' then
+                load_processor_flags(memory_read_value);
+              end if;
+              
+              -- Prefetch instruction byte (special case since PC is being changed)
+              memory_access_read := '1';
+              memory_access_address := x"000"&temp_addr;
+              memory_access_resolve_address := '1';
+              reg_pc <= temp_addr;
+              state <= fast_fetch_state;
             when B16TakeBranch =>
               monitor_arg2 <= std_logic_vector(memory_read_value);
               monitor_ibytes(0) <= '1';
               reg_pc <= reg_pc + to_integer(memory_read_value & reg_addr(7 downto 0));
               state <= normal_fetch_state;
+
+                                        -- Dummy/incomplete states for now.
             when InnYReadVectorLow =>
               reg_addr(7 downto 0) <= memory_read_value;
               state <= normal_fetch_state;
@@ -1925,17 +1967,17 @@ begin
             when ZPRelReadZP =>
               monitor_arg1 <= std_logic_vector(memory_read_value);
               monitor_ibytes(1) <= '1';
-              -- Here we are reading the ZP memory location
-              -- Check if the appropriate bit is set/clear
+                                        -- Here we are reading the ZP memory location
+                                        -- Check if the appropriate bit is set/clear
               if memory_read_value(to_integer(reg_opcode(6 downto 4)))
                 =reg_opcode(7) then
-                -- Take branch, so read next byte with relative offset
+                                        -- Take branch, so read next byte with relative offset
                 memory_access_read := '1';
                 memory_access_address := x"000"&reg_pc;
                 memory_access_resolve_address := '1';
                 state <= TakeBranch8;
               else
-                -- Don't take branch, so just skip over branch byte
+                                        -- Don't take branch, so just skip over branch byte
                 state <= normal_fetch_state;
               end if;
             when IAbsReadArg2 =>
@@ -1951,12 +1993,12 @@ begin
               monitor_ibytes(0) <= '1';
               state <= normal_fetch_state;
             when ActionCycle =>
-              -- By this stage we have the address of the operand in
-              -- reg_addr, and if it is a load instruction then the contents
-              -- will be in memory_read_value
-              -- Branches (except JMP) have been taken care of elsewhere, as
-              -- have a lot of the other fancy instructions.  That just leaves
-              -- us with loads, stores and reaad/modify/write instructions
+                                        -- By this stage we have the address of the operand in
+                                        -- reg_addr, and if it is a load instruction then the contents
+                                        -- will be in memory_read_value
+                                        -- Branches (except JMP) have been taken care of elsewhere, as
+                                        -- have a lot of the other fancy instructions.  That just leaves
+                                        -- us with loads, stores and reaad/modify/write instructions
 
               if reg_addressingmode = M_immnn then
                 monitor_arg1 <= std_logic_vector(memory_read_value);
@@ -1966,7 +2008,7 @@ begin
               if reg_microcode.mcClearE='1' then flag_e <= '0'; end if;
               if reg_microcode.mcClearI='1' then flag_i <= '0'; end if;             
               
-              -- Incrementer ALU things
+                                        -- Incrementer ALU things
               inc_rmw := reg_microcode.mcRMW and rmw_dummy_write_done;
               inc_in_a := reg_microcode.mcIncInA;
               inc_in_t := reg_microcode.mcIncInT;
@@ -1994,14 +2036,14 @@ begin
               inc_0in := reg_microcode.mcIncZeroIn;
               inc_carry_in := reg_microcode.mcIncCarryIn;
               inc_set_nz := reg_microcode.mcIncSetNZ;
-                            
-              -- Regular ALU things (shares inputs with incrementer)
+              
+                                        -- Regular ALU things (shares inputs with incrementer)
               alu_out_a := reg_microcode.mcAluOutA;
               alu_set_c := reg_microcode.mcAluCarryOut;
               alu_set_nz := reg_microcode.mcIncSetNZ;
 
-              -- See if we need to write to memory.
-              -- Memory writes are either to reg_addr or the stack
+                                        -- See if we need to write to memory.
+                                        -- Memory writes are either to reg_addr or the stack
               if reg_microcode.mcWriteMem='1' then
                 memory_access_write := '1';
                 memory_access_address := x"000"&reg_addr;
@@ -2019,13 +2061,13 @@ begin
                 if reg_microcode.mcAluInX='1' then memory_access_wdata := reg_x; end if;
                 if reg_microcode.mcAluInY='1' then memory_access_wdata := reg_y; end if;
                 if reg_microcode.mcAluInZ='1' then memory_access_wdata := reg_z; end if;
-                -- Decrement stack pointer (8 or 16 bit)
+                                        -- Decrement stack pointer (8 or 16 bit)
                 dec_sp := '1';
               end if;
               
               if is_store='0' and is_rmw='0' and nmi_pending='0'
-                 and (irq_pending='1' or flag_i='1') then
-                -- We can start fetching the next instruction
+                and (irq_pending='1' or flag_i='1') then
+                                        -- We can start fetching the next instruction
                 memory_access_read := '1';
                 memory_access_address := x"000"&reg_pc;
                 memory_access_resolve_address := '1';
@@ -2035,10 +2077,13 @@ begin
                 -- next instruction.
                 -- (the write itself will get scheduled via the microcode
                 -- operations)
-                if reg_microcode.mcPush='1' then
-                  state <= Push;
-                elsif reg_microcode.mcPop='1' then
+                if reg_microcode.mcPop='1' then
                   state <= Pull;
+                  pop_a <= reg_microcode.mcStackA;
+                  pop_p <= reg_microcode.mcStackP;
+                  pop_x <= reg_microcode.mcStackX;
+                  pop_y <= reg_microcode.mcStackY;
+                  pop_z <= reg_microcode.mcStackZ;
                 else
                   state <= normal_fetch_state;
                 end if;
@@ -2048,13 +2093,13 @@ begin
                 reg_pc <= reg_addr;
                 pc_inc := '0';
                 state <= normal_fetch_state;
-                -- XXX We could be fetching next instruction byte here.
+                                        -- XXX We could be fetching next instruction byte here.
               end if;
               if reg_microcode.mcRelativeJump='1' then
                 reg_pc <= reg_pc + reg_addr;
                 pc_inc := '0';
                 state <= normal_fetch_state;
-                -- XXX We could be fetching next instruction byte here.
+                                        -- XXX We could be fetching next instruction byte here.
               end if;
               if reg_microcode.mcMap='1' then
                 c65_map_instruction;
@@ -2074,32 +2119,36 @@ begin
             reg_sph <= reg_sph - 1;
           end if;
         end if;
+        if stack_pop = '1' then
+          memory_access_address := x"000"& (reg_sph & reg_sp) + 1;
+          memory_access_read := '1';
+          memory_access_resolve_address := '1';
+          reg_sp <= reg_sp + 1;
+          if flag_e='0' and reg_sp=x"ff" then
+            reg_sph <= reg_sph + 1;
+          end if;
+        end if;
         
-        -- Route memory read value as required
+                                        -- Route memory read value as required
         if mem_reading='1' then
           report "memory read value is $" & to_hstring(memory_read_value) severity note;
           if monitor_mem_reading='1' then
             monitor_mem_rdata <= memory_read_value;
           end if;
-          if mem_reading_a='1' then reg_a <= memory_read_value; end if;
-          if mem_reading_x='1' then reg_x <= memory_read_value; end if;
-          if mem_reading_y='1' then reg_y <= memory_read_value; end if;
-          if mem_reading_z='1' then reg_z <= memory_read_value; end if;
-          if mem_reading_p='1' then load_processor_flags(memory_read_value); end if;
           if mem_reading_pcl='1' then reg_pc(7 downto 0) <= memory_read_value; end if;
           if mem_reading_pch='1' then reg_pc(15 downto 8) <= memory_read_value; end if;
         end if;
 
-        -- Effect memory accesses.
-        -- Note that we cannot combine address resolution for read and write,
-        -- because the resolution of some addresses is dependent on whether
-        -- the operation is read or write.  ROM accesses are a good example.
-        -- We delay the memory write until the next cycle to minimise logic depth
+                                        -- Effect memory accesses.
+                                        -- Note that we cannot combine address resolution for read and write,
+                                        -- because the resolution of some addresses is dependent on whether
+                                        -- the operation is read or write.  ROM accesses are a good example.
+                                        -- We delay the memory write until the next cycle to minimise logic depth
         if memory_access_write='1' then
-          --delayed_memory_write <= '1';
-          --delayed_memory_write_resolve_address <= memory_access_resolve_address;
-          --delayed_memory_write_address <= memory_access_address;
-          --delayed_memory_write_data <= memory_access_wdata;
+                                        --delayed_memory_write <= '1';
+                                        --delayed_memory_write_resolve_address <= memory_access_resolve_address;
+                                        --delayed_memory_write_address <= memory_access_address;
+                                        --delayed_memory_write_data <= memory_access_wdata;
           if memory_access_resolve_address = '1' then
             write_data(memory_access_address(15 downto 0),memory_access_wdata);
           else 
@@ -2107,8 +2156,8 @@ begin
           end if;
         end if;
 
-        -- We make sure that there is no write being committed before pushing the
-        -- read through.
+                                        -- We make sure that there is no write being committed before pushing the
+                                        -- read through.
         if memory_access_read='1' then -- and delayed_memory_write='0' then
           if memory_access_resolve_address = '1' then
             memory_access_address := resolve_address_to_long(memory_access_address(15 downto 0),false);
@@ -2116,10 +2165,10 @@ begin
           read_long_address(memory_access_address);
         end if;
 
-        ---------------------------------------------------------------------------
-        -- Incrementer ALU (also used for register transfers)
-        ---------------------------------------------------------------------------
-        ---Read-from-input-register------------------------------------------------
+                                        ---------------------------------------------------------------------------
+                                        -- Incrementer ALU (also used for register transfers)
+                                        ---------------------------------------------------------------------------
+                                        ---Read-from-input-register------------------------------------------------
         if inc_in_a='1' then inc_temp := reg_a; end if;
         if inc_in_b='1' then inc_temp := reg_b; end if;
         if inc_in_t='1' then inc_temp := reg_t; end if;
@@ -2129,9 +2178,9 @@ begin
         if inc_in_spl='1' then inc_temp := reg_sp; end if;
         if inc_in_sph='1' then inc_temp := reg_sph; end if;
         if inc_in_mem='1' then inc_temp := memory_read_value; end if;
-        ---Mutate-value------------------------------------------------------------
-        -- If an RMW instruction, do the dummy write with the original value first,
-        -- then write the final value on the next cycle
+                                        ---Mutate-value------------------------------------------------------------
+                                        -- If an RMW instruction, do the dummy write with the original value first,
+                                        -- then write the final value on the next cycle
         if inc_rmw='0' then
           if inc_inc='1' then inc_temp := inc_temp + 1; end if;
           if inc_dec='1' then inc_temp := inc_temp - 1; end if;   
@@ -2148,13 +2197,13 @@ begin
             if inc_carry_in='1' then inc_temp(0) := flag_c; end if;
           end if;
         else
-          -- Stay in current state for one more cycle to do the commit
+                                        -- Stay in current state for one more cycle to do the commit
           state <= state;
           rmw_dummy_write_done <= '1';
         end if;
-        ---Set-flags---------------------------------------------------------------
+                                        ---Set-flags---------------------------------------------------------------
         if inc_set_nz='1' then set_nz(inc_temp); end if;
-        ---Commit-result-to-registers----------------------------------------------
+                                        ---Commit-result-to-registers----------------------------------------------
         if inc_out_a='1' then reg_a <= inc_temp; end if;
         if inc_out_b='1' then reg_b <= inc_temp; end if;
         if inc_out_t='1' then reg_t <= inc_temp; end if;
@@ -2165,19 +2214,19 @@ begin
         if inc_out_sph='1' then reg_sph <= inc_temp; end if;
         if inc_out_mem='1' then memory_access_wdata := inc_temp; end if;
 
-        ---------------------------------------------------------------------------
+                                        ---------------------------------------------------------------------------
 
-        ---------------------------------------------------------------------------
-        -- Arithmetic ALU
-        ---------------------------------------------------------------------------
-        ---Input-Values------------------------------------------------------------
-        -- (Secondary input is always memory)
+                                        ---------------------------------------------------------------------------
+                                        -- Arithmetic ALU
+                                        ---------------------------------------------------------------------------
+                                        ---Input-Values------------------------------------------------------------
+                                        -- (Secondary input is always memory)
         if alu_in_a='1' then alu_temp := reg_a; end if;
         if alu_in_x='1' then alu_temp := reg_x; end if;
         if alu_in_y='1' then alu_temp := reg_y; end if;
         if alu_in_z='1' then alu_temp := reg_z; end if;
 
-        ---Perform-Calculation-----------------------------------------------------
+                                        ---Perform-Calculation-----------------------------------------------------
         if alu_add='1' then
           alu_temp := alu_op_add(alu_temp,memory_read_value);
         end if;

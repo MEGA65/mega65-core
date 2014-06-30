@@ -107,12 +107,16 @@ architecture Behavioral of microcode is
               mcIncSetNZ => '1', others => '0'),
     I_ORA => (mcIncInMem => '1', mcIncIor => '1', mcIncOutA => '1',
               mcIncSetNZ => '1', others => '0'),
-    -- I_PHA
-    -- I_PHP
-    -- I_PHX
-    -- I_PHY
-    -- I_PHZ
-    -- I_PLA
+    I_PHA => (mcPush => '1', mcAluInA => '1', others => '0'),
+    I_PHP => (mcPush => '1', mcAluInP => '1', others => '0'),
+    I_PHX => (mcPush => '1', mcAluInX => '1', others => '0'),
+    I_PHY => (mcPush => '1', mcAluInY => '1', others => '0'),
+    I_PHZ => (mcPush => '1', mcAluInZ => '1', others => '0'),
+    I_PLA => (mcPop => '1', mcStackA => '1', others => '0'),
+    I_PLP => (mcPop => '1', mcStackP => '1', others => '0'),
+    I_PLX => (mcPop => '1', mcStackX => '1', others => '0'),
+    I_PLY => (mcPop => '1', mcStackY => '1', others => '0'),
+    I_PLZ => (mcPop => '1', mcStackZ => '1', others => '0'),
     -- I_PLP
     -- I_PLX
     -- I_PLY

@@ -93,6 +93,12 @@ package cputypes is
     mcClearI : std_logic;
     mcClearE : std_logic;
 
+    mcStackA : std_logic;
+    mcStackP : std_logic;
+    mcStackX : std_logic;
+    mcStackY : std_logic;
+    mcStackZ : std_logic;
+    
   end record;
 
 end cputypes;
