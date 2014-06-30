@@ -1858,6 +1858,7 @@ begin
               memory_access_resolve_address := '1';
               memory_access_wdata := reg_pc(15 downto 8);
               dec_sp := '1';
+              pc_inc := '1';
               state <= CallSubroutine2;
             when CallSubroutine2 =>
               memory_access_read := '1';
@@ -2037,14 +2038,17 @@ begin
                 end if;
               end if;
               if reg_microcode.mcJump='1' then
+                report "Jump/JSRing to $" & to_hstring(reg_addr) severity note;
                 reg_pc <= reg_addr;
                 pc_inc := '0';
                 state <= normal_fetch_state;
+                -- XXX We could be fetching next instruction byte here.
               end if;
               if reg_microcode.mcRelativeJump='1' then
                 reg_pc <= reg_pc + reg_addr;
                 pc_inc := '0';
                 state <= normal_fetch_state;
+                -- XXX We could be fetching next instruction byte here.
               end if;
               if reg_microcode.mcMap='1' then
                 c65_map_instruction;

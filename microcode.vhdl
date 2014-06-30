@@ -57,7 +57,7 @@ architecture Behavioral of microcode is
     -- I_BPL - handled elsewhere
     -- I_BRA - handled elsewhere
     -- I_BRK
-    I_BSR => (mcJSR => '1', mcRelativeJump => '1', others => '0'),
+    I_BSR => (mcRelativeJump => '1', others => '0'),
     -- I_BVC - handled elsewhere
     -- I_BVS - handled elsewhere
     -- I_CLC - Handled as a single-cycle op elsewhere
@@ -88,7 +88,7 @@ architecture Behavioral of microcode is
     -- I_INY - handled as a single-cycle op elsewhere
     -- I_INZ - handled as a single-cycle op elsewhere
     I_JMP => (mcJump => '1', others => '0'),
-    I_JSR => (mcJSR => '1', others => '0'),
+    I_JSR => (mcJump => '1', others => '0'),
     I_LSR => (mcIncInMem => '1', mcIncShiftRight => '1', mcIncOutMem => '1',
               mcIncZeroIn => '1', mcIncSetNZ => '1', mcWriteMem => '1',
               mcRMW => '1',
