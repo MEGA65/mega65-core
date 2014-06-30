@@ -1837,12 +1837,18 @@ begin
                   state <= Imm16ReadArg2;
               end case;
             when AbsReadArg2 =>
+              monitor_arg2 <= std_logic_vector(memory_read_value);
+              monitor_ibytes(2) <= '1';
               reg_addr(15 downto 8) <= memory_read_value;
               state <= ActionCycle;
             when AbsXReadArg2 =>
+              monitor_arg2 <= std_logic_vector(memory_read_value);
+              monitor_ibytes(2) <= '1';
               reg_addr <= x"00"&reg_x + to_integer(memory_read_value&reg_addr(7 downto 0));
               state <= ActionCycle;
             when AbsYReadArg2 =>
+              monitor_arg2 <= std_logic_vector(memory_read_value);
+              monitor_ibytes(2) <= '1';
               reg_addr <= x"00"&reg_y + to_integer(memory_read_value&reg_addr(7 downto 0));
               state <= ActionCycle;
             when TakeBranch8 =>
@@ -1864,6 +1870,8 @@ begin
             when Pull =>
               state <= normal_fetch_state;
             when B16TakeBranch =>
+              monitor_arg2 <= std_logic_vector(memory_read_value);
+              monitor_ibytes(2) <= '1';
               reg_pc <= reg_pc + to_integer(memory_read_value & reg_addr(7 downto 0));
               state <= normal_fetch_state;
             when InnYReadVectorLow =>
@@ -1873,6 +1881,8 @@ begin
               reg_addr(7 downto 0) <= memory_read_value;
               state <= normal_fetch_state;
             when ZPRelReadZP =>
+              monitor_arg1 <= std_logic_vector(memory_read_value);
+              monitor_ibytes(1) <= '1';
               -- Here we are reading the ZP memory location
               -- Check if the appropriate bit is set/clear
               if memory_read_value(to_integer(reg_opcode(6 downto 4)))
@@ -1887,10 +1897,16 @@ begin
                 state <= normal_fetch_state;
               end if;
             when IAbsReadArg2 =>
+              monitor_arg2 <= std_logic_vector(memory_read_value);
+              monitor_ibytes(2) <= '1';
               state <= normal_fetch_state;
             when IAbsXReadArg2 =>
+              monitor_arg2 <= std_logic_vector(memory_read_value);
+              monitor_ibytes(2) <= '1';
               state <= normal_fetch_state;
             when Imm16ReadArg2 => 
+              monitor_arg2 <= std_logic_vector(memory_read_value);
+              monitor_ibytes(2) <= '1';
               state <= normal_fetch_state;
             when ActionCycle =>
               -- By this stage we have the address of the operand in
