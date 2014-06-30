@@ -60,6 +60,7 @@ entity viciv is
     -- CPU clock (used for fastram and fastio interfaces)
     ----------------------------------------------------------------------
     cpuclock : in std_logic;
+    ioclock : in std_logic;
 
     -- CPU IRQ
     irq : out std_logic;
@@ -613,7 +614,7 @@ begin
               data_o => chardata
               );
 
-  process(cpuclock,fastio_addr,fastio_read,
+  process(cpuclock,ioclock,fastio_addr,fastio_read,
           sprite_x,sprite_y,vicii_sprite_xmsbs,ycounter,extended_background_mode,
           text_mode,blank,twentyfourlines,vicii_y_smoothscroll,displayx,displayy,
           vicii_sprite_enables,multicolour_mode,thirtyeightcolumns,
@@ -1099,7 +1100,7 @@ begin
       end if;
     end if;
     
-    if rising_edge(cpuclock) then
+    if rising_edge(ioclock) then
 
       report "drive led = " & std_logic'image(led)
         & ", drive motor= " & std_logic'image(motor) severity note;
