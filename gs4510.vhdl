@@ -1643,11 +1643,11 @@ begin
                     -- If it is a branch, write the low bits of the programme
                     -- counter now.  We will read the 2nd argument next cycle
                     if reg_instruction = I_JSR or reg_instruction = I_BSR then
-                      --memory_access_write := '1';
-                      --memory_access_address := x"000"&reg_sph&reg_sp;
-                      --memory_access_resolve_address := '1';
-                      --memory_access_wdata := reg_pc(7 downto 0);
-                      --dec_sp := '1';
+                      memory_access_write := '1';
+                      memory_access_address := x"000"&reg_sph&reg_sp;
+                      memory_access_resolve_address := '1';
+                      memory_access_wdata := reg_pc(7 downto 0);
+                      dec_sp := '1';
                       pc_inc := '0';
                       state <= CallSubroutine0;
                     else
