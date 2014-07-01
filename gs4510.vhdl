@@ -1872,6 +1872,7 @@ begin
               if fast_fetch_state = InstructionDecode then pc_inc := '1'; end if;
               -- Prefetch instruction byte
             when Pull =>
+              -- Also used for immediate mode loading
               set_nz(memory_read_value);
               if pop_a='1' then reg_a <= memory_read_value; end if;
               if pop_x='1' then reg_x <= memory_read_value; end if;
@@ -1932,9 +1933,22 @@ begin
               -- have a lot of the other fancy instructions.  That just leaves
               -- us with loads, stores and reaad/modify/write instructions
 
+              -- Go to next instruction by default
+              pc_inc := '1';
+              state <= fast_fetch_state;
+              
               if reg_addressingmode = M_immnn then
                 monitor_arg1 <= std_logic_vector(memory_read_value);
                 monitor_ibytes(1) <= '1';
+
+                -- XXX This should be done by microcode
+                case reg_instruction is
+                  when I_LDA => pop_a<='1'; state <= Pull;
+                  when I_LDX => pop_x<='1'; state <= Pull;
+                  when I_LDY => pop_y<='1'; state <= Pull;
+                  when I_LDZ => pop_z<='1'; state <= Pull;
+                  when others =>
+                end case;
               end if;
               
               if reg_microcode.mcClearE='1' then flag_e <= '0'; end if;
@@ -1955,7 +1969,11 @@ begin
           end case;
         end if;
 
---        report "pc_inc = " & std_logic'image(pc_inc) & ", cpu_state = " & processor_state'image(state) severity note;
+        report "pc_inc = " & std_logic'image(pc_inc)
+          & ", cpu_state = " & processor_state'image(state)
+          & " ($" & to_hstring(to_unsigned(processor_state'pos(state),8)) & ")"
+          severity note;
+        
         if pc_inc = '1' then
           reg_pc <= reg_pc + 1;
         end if;
