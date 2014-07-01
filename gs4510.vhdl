@@ -482,7 +482,7 @@ begin
     address => reg_microcode_address,
     data_o => reg_microcode);
   
-  process(clock,reset)
+  process(clock,reset,reg_a,reg_x,reg_y,reg_z,flag_c)
     procedure reset_cpu_state is
     begin
       -- Set microcode state for reset

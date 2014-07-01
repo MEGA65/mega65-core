@@ -531,7 +531,7 @@ begin
     -- report "reset_combined = " & std_logic'image(reset_combined) severity note;
   end process;
   
-  process(pixelclock)
+  process(pixelclock,ioclock)
     variable digit : std_logic_vector(3 downto 0);
   begin
     if rising_edge(ioclock) then
