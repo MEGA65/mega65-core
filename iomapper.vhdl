@@ -86,6 +86,24 @@ architecture behavioral of iomapper is
       data_o : out std_logic_vector(7 downto 0));
   end component;
 
+  component sid6581 is
+    port (
+      clk_1MHz			: in  std_logic;		-- main SID clock signal
+      clk32				: in  std_logic;		-- main clock signal
+      reset				: in  std_logic;		-- high active signal (reset when reset = '1')
+      cs					: in  std_logic;		-- "chip select", when this signal is '1' this model can be accessed
+      we					: in std_logic;		-- when '1' this model can be written to, otherwise access is considered as read
+      
+      addr				: in  unsigned(4 downto 0);	-- address lines
+      di					: in  unsigned(7 downto 0);	-- data in (to chip)
+      do					: out unsigned(7 downto 0);	-- data out	(from chip)
+      pot_x				: in  unsigned(7 downto 0);	-- paddle input-X
+      pot_y				: in  unsigned(7 downto 0);	-- paddle input-Y
+      audio_data		: out unsigned(17 downto 0)
+      );
+  end component;
+
+  
   component sdcardio is
     port (
       clock : in std_logic;
@@ -238,6 +256,13 @@ architecture behavioral of iomapper is
   signal cia1porta_in : std_logic_vector(7 downto 0);
   signal cia1portb_out : std_logic_vector(7 downto 0);
   signal cia1portb_in : std_logic_vector(7 downto 0);
+
+  signal leftsid_cs : std_logic;
+  signal leftsid_we : std_logic;
+  signal leftsid_audio : unsigned(17 downto 0);
+  signal rightsid_cs : std_logic;
+  signal rightsid_we : std_logic;
+  signal rightsid_audio : unsigned(17 downto 0);
   
 begin         
   kickstartrom : kickstart port map (
@@ -301,6 +326,32 @@ begin
     porta_out      => cia1porta_in,
     portb_out      => cia1portb_in
     );
+
+  leftsid: sid6581 port map (
+    clk_1MHz => phi0,
+    clk32 => clk,
+    reset => reset,
+    cs => leftsid_cs,
+    we => leftsid_we,
+    addr => unsigned(address(4 downto 0)),
+    di => unsigned(data_i),
+    std_logic_vector(do) => data_o,
+    pot_x => x"00",
+    pot_y => x"00",
+    audio_data => leftsid_audio);
+
+  rightsid: sid6581 port map (
+    clk_1MHz => phi0,
+    clk32 => clk,
+    reset => reset,
+    cs => rightsid_cs,
+    we => rightsid_we,
+    addr => unsigned(address(4 downto 0)),
+    di => unsigned(data_i),
+    std_logic_vector(do) => data_o,
+    pot_x => x"00",
+    pot_y => x"00",
+    audio_data => rightsid_audio);
 
   sdcard0 : sdcardio port map (
     pixelclk => pixelclk,
