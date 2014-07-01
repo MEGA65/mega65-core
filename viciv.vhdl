@@ -270,24 +270,35 @@ architecture Behavioral of viciv is
   signal screen_row_address : unsigned(16 downto 0);
   signal screen_row_current_address : unsigned(16 downto 0);
   
-  
-  signal debug_x : unsigned(11 downto 0) := "111111111110";
-  signal debug_y : unsigned(11 downto 0) := "111111111110";
-  signal debug_screen_ram_buffer_address : unsigned(8 downto 0);
-  signal debug_cycles_to_next_card : unsigned(7 downto 0);
-  signal debug_next_card_number : unsigned(15 downto 0);
-
   type vic_fetch_fsm is (fsm0,fsm1,fsm2,fsm3,fsm4,fsm5,fsm6,fsm7,
                          fsm8,
                          fsm16,
                          fsm32,fsm33,fsm34,fsm35,fsm36,fsm37,fsm38,
                          fsm64,
                          fsmIdle);
+  
+  signal debug_x : unsigned(11 downto 0) := "111111111110";
+  signal debug_y : unsigned(11 downto 0) := "111111111110";
+  signal debug_screen_ram_buffer_address : unsigned(8 downto 0);
+  signal debug_cycles_to_next_card : unsigned(7 downto 0);
+  signal debug_next_card_number : unsigned(15 downto 0);
   signal debug_char_fetch_cycle : vic_fetch_fsm;
   signal debug_chargen_active : std_logic;
   signal debug_chargen_active_soon : std_logic;
   signal debug_character_data_from_rom : std_logic;
-  
+  signal debug_charaddress : std_logic_vector(11 downto 0);
+  signal debug_charrow : std_logic_vector(7 downto 0);
+
+  signal debug_screen_ram_buffer_address_drive : unsigned(8 downto 0);
+  signal debug_cycles_to_next_card_drive : unsigned(7 downto 0);
+  signal debug_next_card_number_drive : unsigned(15 downto 0);
+  signal debug_char_fetch_cycle_drive : vic_fetch_fsm;
+  signal debug_chargen_active_drive : std_logic;
+  signal debug_chargen_active_soon_drive : std_logic;
+  signal debug_character_data_from_rom_drive : std_logic;
+  signal debug_charaddress_drive : std_logic_vector(11 downto 0);
+  signal debug_charrow_drive : std_logic_vector(7 downto 0);
+
   -----------------------------------------------------------------------------
   -- Video controller registers
   -----------------------------------------------------------------------------
@@ -403,6 +414,7 @@ architecture Behavioral of viciv is
   -- Character generator state. Also used for graphics modes, since graphics
   -- modes on the C64 are all card-based, anyway.
   signal card_number : unsigned(15 downto 0) := x"0000";
+  signal card_number_drive : unsigned(15 downto 0) := x"0000";
   signal card_number_is_extended : std_logic;  -- set if card_number > $00FF
   signal first_card_of_row : unsigned(15 downto 0);
   -- coordinates after applying the above scaling factors
@@ -413,6 +425,7 @@ architecture Behavioral of viciv is
   signal chargen_x_sub : unsigned(4 downto 0);
   -- character data fetch FSM
   signal char_fetch_cycle : vic_fetch_fsm := fsmIdle;
+  signal char_fetch_cycle_drive : vic_fetch_fsm := fsmIdle;
   -- data for next card
   signal next_bitmap_colours  : unsigned(7 downto 0);
   signal next_next_bitmap_colours  : unsigned(7 downto 0);
@@ -470,13 +483,11 @@ architecture Behavioral of viciv is
   
   -- Interface to character generator rom
   signal charaddress : std_logic_vector(11 downto 0);
-  signal debug_charaddress : std_logic_vector(11 downto 0);
   signal chardata : std_logic_vector(7 downto 0);
   -- buffer of read data to improve timing
   signal charrow : std_logic_vector(7 downto 0);
   signal charrow_t1 : std_logic_vector(7 downto 0);
   signal charrow_t2 : std_logic_vector(7 downto 0);
-  signal debug_charrow : std_logic_vector(7 downto 0);
 
   -- C65 style 2K colour RAM
   signal colourram_at_dc00_internal : std_logic := '0';
@@ -1003,9 +1014,9 @@ begin
           fastio_rdata(1) <= fullcolour_8bitchars;
           fastio_rdata(0) <= sixteenbit_charset;
         elsif register_number=85 then
-          -- XXX Disabled for now to improve timing
-          -- fastio_rdata <=
-          -- std_logic_vector(to_unsigned(vic_fetch_fsm'pos(char_fetch_cycle),8));
+          fastio_rdata <=
+            std_logic_vector(to_unsigned(vic_fetch_fsm'pos(char_fetch_cycle_drive),
+                                         8));
           fastio_rdata <= x"FF";
         elsif register_number=86 then
           fastio_rdata <= std_logic_vector(cycles_to_next_card);
@@ -1017,8 +1028,7 @@ begin
           fastio_rdata(3) <= chargen_active_soon;
           fastio_rdata(2 downto 0) <= "111";
         elsif register_number=88 then
-          -- XXX Disabled for now to improve timing
---          fastio_rdata <= std_logic_vector(card_number(7 downto 0));
+          fastio_rdata <= std_logic_vector(card_number_drive(7 downto 0));
           fastio_rdata <= x"FF";
         elsif register_number=96 then
           fastio_rdata <= std_logic_vector(screen_ram_base(7 downto 0));
@@ -1064,24 +1074,24 @@ begin
         elsif register_number=114 then -- $D372
           fastio_rdata <= "0000"&std_logic_vector(x_chargen_start_minus17(11 downto 8));
         elsif register_number=115 then  -- $D373
-          fastio_rdata <= std_logic_vector(debug_next_card_number(7 downto 0));
+          fastio_rdata <= std_logic_vector(debug_next_card_number_drive(7 downto 0));
         elsif register_number=116 then  -- $D374
-          fastio_rdata <= std_logic_vector(debug_next_card_number(15 downto 8));
+          fastio_rdata <= std_logic_vector(debug_next_card_number_drive(15 downto 8));
         elsif register_number=117 then  -- $D375
-          fastio_rdata <= std_logic_vector(debug_cycles_to_next_card(7 downto 0));
+          fastio_rdata <= std_logic_vector(debug_cycles_to_next_card_drive(7 downto 0));
         elsif register_number=118 then  -- $D376
-          fastio_rdata <= "00000" & debug_character_data_from_rom & debug_chargen_active & debug_chargen_active_soon;
+          fastio_rdata <= "00000" & debug_character_data_from_rom & debug_chargen_active_drive & debug_chargen_active_soon_drive;
         elsif register_number=119 then  -- $D377
-          fastio_rdata <= std_logic_vector(debug_screen_ram_buffer_address(7 downto 0));
+          fastio_rdata <= std_logic_vector(debug_screen_ram_buffer_address_drive(7 downto 0));
         elsif register_number=124 then
           fastio_rdata <=
-            std_logic_vector(to_unsigned(vic_fetch_fsm'pos(debug_char_fetch_cycle),8));
+            std_logic_vector(to_unsigned(vic_fetch_fsm'pos(debug_char_fetch_cycle_drive),8));
         elsif register_number=125 then
-          fastio_rdata <= debug_charaddress(7 downto 0);
+          fastio_rdata <= debug_charaddress_drive(7 downto 0);
         elsif register_number=126 then
-          fastio_rdata <= "0000" & debug_charaddress(11 downto 8);
+          fastio_rdata <= "0000" & debug_charaddress_drive(11 downto 8);
         elsif register_number=127 then
-          fastio_rdata <= debug_charrow;
+          fastio_rdata <= debug_charrow_drive;
         elsif register_number<256 then
                                         -- Fill in unused register space
           fastio_rdata <= (others => 'Z');
@@ -2280,6 +2290,17 @@ begin
       glyph_colour_t2 <= glyph_colour_t1;
       glyph_colour_t1 <= glyph_colour;
 
+      -- We use a drive stage for these lines to preserve CPU timing.
+      debug_next_card_number_drive <= debug_next_card_number;
+      debug_cycles_to_next_card_drive <= debug_cycles_to_next_card;
+      debug_chargen_active_drive <= debug_chargen_active;
+      debug_chargen_active_soon_drive <= debug_chargen_active_soon;
+      debug_char_fetch_cycle_drive <= debug_char_fetch_cycle;
+      debug_charrow_drive <= debug_charrow;
+      debug_charaddress_drive <= debug_charaddress;
+      debug_character_data_from_rom_drive <= debug_character_data_from_rom;
+      debug_screen_ram_buffer_address_drive <= debug_screen_ram_buffer_address;
+      
       if displayx=debug_x and displayy=debug_y then
         debug_next_card_number <= next_card_number;
         debug_cycles_to_next_card <= cycles_to_next_card;
