@@ -539,6 +539,67 @@ begin
 --      report "power_on_reset(0) = " & std_logic'image(power_on_reset(0)) severity note;
       power_on_reset(7) <= '1';
       power_on_reset(6 downto 0) <= power_on_reset(7 downto 1);
+
+            led0 <= irq;
+      led1 <= nmi;
+      led2 <= combinedirq;
+      led3 <= combinednmi;
+      led4 <= io_irq;
+      led5 <= io_nmi;
+      
+      segled_counter <= segled_counter + 1;
+
+      sseg_an <= (others => '1');
+      sseg_an(to_integer(segled_counter(17 downto 15))) <= '0';
+
+      if segled_counter(17 downto 15)=0 then
+        digit := std_logic_vector(monitor_pc(3 downto 0));
+      elsif segled_counter(17 downto 15)=1 then
+        digit := std_logic_vector(monitor_pc(7 downto 4));
+      elsif segled_counter(17 downto 15)=2 then
+        digit := std_logic_vector(monitor_pc(11 downto 8));
+      elsif segled_counter(17 downto 15)=3 then
+        digit := std_logic_vector(monitor_pc(15 downto 12));
+      elsif segled_counter(17 downto 15)=4 then
+        digit := std_logic_vector(monitor_state(3 downto 0));
+      elsif segled_counter(17 downto 15)=5 then
+        digit := std_logic_vector(monitor_state(7 downto 4));
+      elsif segled_counter(17 downto 15)=6 then
+        digit := "1111";
+      elsif segled_counter(17 downto 15)=7 then
+        digit := "1111";
+      end if;
+
+      -- segments are:
+      -- 7 - decimal point
+      -- 6 - middle
+      -- 5 - upper left
+      -- 4 - lower left
+      -- 3 - bottom
+      -- 2 - lower right
+      -- 1 - upper right
+      -- 0 - top
+      case digit is
+        when x"0" => sseg_ca <= "11000000";
+        when x"1" => sseg_ca <= "11111001";
+        when x"2" => sseg_ca <= "10100100";
+        when x"3" => sseg_ca <= "10110000";
+        when x"4" => sseg_ca <= "10011001";
+        when x"5" => sseg_ca <= "10010010";
+        when x"6" => sseg_ca <= "10000010";
+        when x"7" => sseg_ca <= "11111000";
+        when x"8" => sseg_ca <= "10000000";
+        when x"9" => sseg_ca <= "10010000";
+        when x"A" => sseg_ca <= "10001000";
+        when x"B" => sseg_ca <= "10000011";
+        when x"C" => sseg_ca <= "11000110";
+        when x"D" => sseg_ca <= "10100001";
+        when x"E" => sseg_ca <= "10000110";
+        when x"F" => sseg_ca <= "10001110";
+        when others => sseg_ca <= "10100001";
+      end case; 
+      
+
     end if;
     if rising_edge(pixelclock) then
 
@@ -572,65 +633,6 @@ begin
       else
         phi0_counter <= phi0_counter + 1;
       end if;
-      
-      led0 <= irq;
-      led1 <= nmi;
-      led2 <= combinedirq;
-      led3 <= combinednmi;
-      led4 <= io_irq;
-      led5 <= io_nmi;
-      
-      segled_counter <= segled_counter + 1;
-
-      sseg_an <= (others => '1');
-      sseg_an(to_integer(segled_counter(19 downto 17))) <= '0';
-
-      if segled_counter(19 downto 17)=0 then
-        digit := std_logic_vector(monitor_pc(3 downto 0));
-      elsif segled_counter(19 downto 17)=1 then
-        digit := std_logic_vector(monitor_pc(7 downto 4));
-      elsif segled_counter(19 downto 17)=2 then
-        digit := std_logic_vector(monitor_pc(11 downto 8));
-      elsif segled_counter(19 downto 17)=3 then
-        digit := std_logic_vector(monitor_pc(15 downto 12));
-      elsif segled_counter(19 downto 17)=4 then
-        digit := std_logic_vector(monitor_state(3 downto 0));
-      elsif segled_counter(19 downto 17)=5 then
-        digit := std_logic_vector(monitor_state(7 downto 4));
-      elsif segled_counter(19 downto 17)=6 then
-        digit := "1111";
-      elsif segled_counter(19 downto 17)=7 then
-        digit := "1111";
-      end if;
-
-      -- segments are:
-      -- 7 - decimal point
-      -- 6 - middle
-      -- 5 - upper left
-      -- 4 - lower left
-      -- 3 - bottom
-      -- 2 - lower right
-      -- 1 - upper right
-      -- 0 - top
-      case digit is
-        when x"0" => sseg_ca <= "11000000";
-        when x"1" => sseg_ca <= "11111001";
-        when x"2" => sseg_ca <= "10100100";
-        when x"3" => sseg_ca <= "10110000";
-        when x"4" => sseg_ca <= "10011001";
-        when x"5" => sseg_ca <= "10010010";
-        when x"6" => sseg_ca <= "10000010";
-        when x"7" => sseg_ca <= "11111000";
-        when x"8" => sseg_ca <= "10000000";
-        when x"9" => sseg_ca <= "10010000";
-        when x"A" => sseg_ca <= "10001000";
-        when x"B" => sseg_ca <= "10000011";
-        when x"C" => sseg_ca <= "11000110";
-        when x"D" => sseg_ca <= "10100001";
-        when x"E" => sseg_ca <= "10000110";
-        when x"F" => sseg_ca <= "10001110";
-        when others => sseg_ca <= "10100001";
-      end case; 
       
     end if;
   end process;
