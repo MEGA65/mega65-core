@@ -274,8 +274,6 @@ architecture Behavioural of gs4510 is
   signal pop_y : std_logic := '0';
   signal pop_z : std_logic := '0';
   signal mem_reading_p : std_logic := '0';
-  signal mem_reading_pcl : std_logic := '0';
-  signal mem_reading_pch : std_logic := '0';
   -- serial monitor is reading data 
   signal monitor_mem_reading : std_logic := '0';
 
@@ -324,8 +322,7 @@ architecture Behavioural of gs4510 is
     ResetLow,
     ResetReady,
     Interrupt,
-    VectorRead1,
-    VectorRead2,
+    VectorRead1,VectorRead2,VectorRead3, 
 
     -- DMAgic
     DMAgicTrigger,DMAgicReadList,DMAgicRead,DMAgicWrite,
@@ -826,6 +823,7 @@ begin
         proceed <= '0';
       else
         -- Don't let unmapped memory jam things up
+        report "hit unmapped memory -- clearing wait_states" severity note;
         wait_states <= x"00";
         proceed <= '1';
       end if;
@@ -1066,7 +1064,8 @@ begin
       address            : in unsigned(15 downto 0);
       value              : in unsigned(7 downto 0)) is
       variable long_address : unsigned(27 downto 0);
-    begin    
+    begin
+      report "writing, so clearing wait states" severity note;
       wait_states <= x"00";
 
       long_address := resolve_address_to_long(address,true);
@@ -1424,8 +1423,6 @@ begin
           if mem_reading='1' then
             report "resetting mem_reading (read $" & to_hstring(memory_read_value) & ")" severity note;
             mem_reading <= '0';
-            mem_reading_pcl <= '0';
-            mem_reading_pch <= '0';
             monitor_mem_reading <= '0';
           end if;          
 
@@ -1464,14 +1461,16 @@ begin
               vector <= x"e";
               state <= VectorRead1;
             when VectorRead1 =>
-              mem_reading_pcl <= '1';
-              read_address(x"FFF"&vector);
+              memory_access_address := x"000FFF"&vector;
               vector <= vector + 1;
               state <= VectorRead2;
             when VectorRead2 =>
-              mem_reading_pch <= '1';
-              read_address(x"FFF"&vector);
-              state <= InstructionWait;
+              reg_pc(7 downto 0) <= memory_read_value;
+              memory_access_address := x"000FFF"&vector;
+              state <= VectorRead3;
+            when VectorRead3 =>
+              reg_pc(15 downto 8) <= memory_read_value;
+              state <= normal_fetch_state;
             when ProcessorHold =>
               -- Hold CPU while blocked by monitor
 
@@ -1494,8 +1493,6 @@ begin
                 -- Don't allow a read to occur while a write is completing.
                 elsif monitor_mem_read='1' then
                   -- and optionally set PC
-                  mem_reading_pcl <= '0';
-                  mem_reading_pch <= '0';
                   if monitor_mem_setpc='1' then
                     -- Abort any instruction currently being executed.
                     -- Then set PC from InstructionWait state to make sure that we
@@ -1989,6 +1986,7 @@ begin
                                         -- We make sure that there is no write being committed before pushing the
                                         -- read through.
         if memory_access_read='1' then -- and delayed_memory_write='0' then
+          report "memory_access_read=1, addres=$"&to_hstring(memory_access_address) severity note;
           if memory_access_resolve_address = '1' then
             memory_access_address := resolve_address_to_long(memory_access_address(15 downto 0),false);
           end if;
