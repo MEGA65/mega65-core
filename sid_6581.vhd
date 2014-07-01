@@ -172,10 +172,20 @@ begin
 	);
 
 -------------------------------------------------------------------------------------
-	do						<= do_buf;
 
 -- SID filters
 
+        process (do_buf,cs)
+        begin
+          -- Tristate data lines
+          if cs='1' then
+            do						<= do_buf;
+          else
+            do <= (others => 'Z');
+          end if;
+        end process;
+
+        
 	process (clk_1MHz,reset)
 	begin
 		if reset='1' then
