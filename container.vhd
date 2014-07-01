@@ -258,7 +258,8 @@ begin
   machine0: machine
     port map (
       pixelclock      => pixelclock,
-      cpuclock        => cpuclock,
+--      cpuclock        => cpuclock,
+      cpuclock        => ioclock,
       ioclock         => ioclock,
       btncpureset => btncpureset,
       irq => irq,
