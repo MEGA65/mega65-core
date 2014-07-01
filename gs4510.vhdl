@@ -337,7 +337,7 @@ architecture Behavioural of gs4510 is
     MonitorMemoryAccess,
     InstructionFetch,
     InstructionDecode,
-    Cycle2,
+    Cycle2,Cycle3,
     Push,Pull,
     RTI,RTS1,RTS2,
     B16TakeBranch,
@@ -1580,10 +1580,25 @@ begin
               end case;
               reg_microcode_address <=
                 instruction_lut(to_integer(memory_read_value));
-            when Cycle2 =>     
+            when Cycle2 =>
+              -- To improve timing we copy first argument of instruction, and
+              -- proceed to read the next byte.
+              -- But all processing is done in the next cycle.
+
+              -- Store arg1
+              reg_arg1 <= memory_read_value;
+              
+              -- Fetch arg2
+              memory_access_read := '1';
+              memory_access_address := x"000"&reg_pc;
+              memory_access_resolve_address := '1';
+
+              -- Process instruction next cycle
+              state <= Cycle3;
+            when Cycle3 =>
               -- Show serial monitor_mem_trace_modeitor what we are doing.
               if (reg_addressingmode /= M_A) then
-                monitor_arg1 <= std_logic_vector(memory_read_value);
+                monitor_arg1 <= std_logic_vector(reg_arg1);
                 monitor_ibytes(1) <= '1';
               else
                 -- For RTS we use arg1 for the optional immediate argument.
@@ -1607,7 +1622,7 @@ begin
                   when M_A =>     -- Handled in ActionCycle
                   when M_InnX =>
                     
-                    temp_addr := reg_b & (memory_read_value+reg_X);
+                    temp_addr := reg_b & (reg_arg1+reg_X);
                     reg_addr <= temp_addr;
                     memory_access_read := '1';
                     memory_access_address := x"000"&temp_addr;
@@ -1615,7 +1630,7 @@ begin
                     pc_inc := '1';
                     state <= ActionCycle;
                   when M_nn =>
-                    temp_addr := reg_b & (memory_read_value);
+                    temp_addr := reg_b & reg_arg1;
                     reg_addr <= temp_addr;
                     memory_access_read := '1';
                     memory_access_address := x"000"&temp_addr;
@@ -1624,7 +1639,7 @@ begin
                     state <= ActionCycle;
                   when M_immnn => -- Handled in ActionCycle              
                   when M_nnnn =>
-                    reg_addr(7 downto 0) <= memory_read_value;
+                    reg_addr(7 downto 0) <= reg_arg1;
                     -- If it is a branch, write the low bits of the programme
                     -- counter now.  We will read the 2nd argument next cycle
                     if reg_instruction = I_JSR or reg_instruction = I_BSR then
@@ -1643,21 +1658,21 @@ begin
                       state <= AbsReadArg2;
                     end if;
                   when M_nnrr =>
-                    reg_t <= memory_read_value;
+                    reg_t <= reg_arg1;
                     memory_access_read := '1';
-                    memory_access_address := x"000"&reg_b&memory_read_value;
+                    memory_access_address := x"000"&reg_b&reg_arg1;
                     memory_access_resolve_address := '1';
                     pc_inc := '1';
                     state <= ZPRelReadZP;
                   when M_InnY =>
-                    temp_addr := reg_b&memory_read_value;
+                    temp_addr := reg_b&reg_arg1;
                     memory_access_read := '1';
                     memory_access_address := x"000"&temp_addr;
                     memory_access_resolve_address := '1';
                     pc_inc := '1';
                     state <= InnYReadVectorLow;
                   when M_InnZ =>
-                    temp_addr := reg_b&memory_read_value;
+                    temp_addr := reg_b&reg_arg1;
                     memory_access_read := '1';
                     memory_access_address := x"000"&temp_addr;
                     memory_access_resolve_address := '1';
@@ -1674,11 +1689,12 @@ begin
                       (reg_instruction=I_BVC and flag_v='0') or
                       (reg_instruction=I_BMI and flag_n='1') or
                       (reg_instruction=I_BPL and flag_n='0') then
-                      -- Branch will be taken
+                      -- Branch will be taken. Calculate destination address by
+                      -- sign-extending the 8-bit offset.
                       temp_addr := reg_pc +
-                                   1+to_integer(memory_read_value(7)&memory_read_value(7)&memory_read_value(7)&memory_read_value(7)&
-                                                memory_read_value(7)&memory_read_value(7)&memory_read_value(7)&memory_read_value(7)&
-                                                memory_read_value);
+                                   1+to_integer(reg_arg1(7)&reg_arg1(7)&reg_arg1(7)&reg_arg1(7)&
+                                                reg_arg1(7)&reg_arg1(7)&reg_arg1(7)&reg_arg1(7)&
+                                                reg_arg1);
                       memory_access_read := '1';
                       memory_access_address := x"000"&temp_addr;
                       memory_access_resolve_address := '1';
@@ -1698,7 +1714,7 @@ begin
                   when M_rrrr =>
                     -- Store low 8 bits of branch value even if we don't use it
                     -- because the logic is shallowe that way
-                    reg_addr(7 downto 0) <= memory_read_value;
+                    reg_addr(7 downto 0) <= reg_arg1;
                     -- Now work out if the branch will be taken
                     if (reg_instruction=I_BRA) or
                       (reg_instruction=I_BSR) or
@@ -1720,7 +1736,7 @@ begin
                       state <= normal_fetch_state;
                     end if;
                   when M_nnX =>
-                    temp_addr := reg_b & (memory_read_value + reg_X);
+                    temp_addr := reg_b & (reg_arg1 + reg_X);
                     reg_addr <= temp_addr;
                     memory_access_read := '1';
                     memory_access_address := x"000"&temp_addr;
@@ -1728,7 +1744,7 @@ begin
                     pc_inc := '1';
                     state <= ActionCycle;
                   when M_nnY =>
-                    temp_addr := reg_b & (memory_read_value + reg_X);
+                    temp_addr := reg_b & (reg_arg1 + reg_X);
                     reg_addr <= temp_addr;
                     memory_access_read := '1';
                     memory_access_address := x"000"&temp_addr;
@@ -1736,28 +1752,28 @@ begin
                     pc_inc := '1';
                     state <= ActionCycle;
                   when M_nnnnY =>
-                    reg_addr(7 downto 0) <= memory_read_value;
+                    reg_addr(7 downto 0) <= reg_arg1;
                     memory_access_read := '1';
                     memory_access_address := x"000"&reg_pc;
                     memory_access_resolve_address := '1';
                     pc_inc := '1';
                     state <= AbsYReadArg2;
                   when M_nnnnX =>
-                    reg_addr(7 downto 0) <= memory_read_value;
+                    reg_addr(7 downto 0) <= reg_arg1;
                     memory_access_read := '1';
                     memory_access_address := x"000"&reg_pc;
                     memory_access_resolve_address := '1';
                     pc_inc := '1';
                     state <= AbsXReadArg2;
                   when M_Innnn =>
-                    reg_addr(7 downto 0) <= memory_read_value;
+                    reg_addr(7 downto 0) <= reg_arg1;
                     memory_access_read := '1';
                     memory_access_address := x"000"&reg_pc;
                     memory_access_resolve_address := '1';
                     pc_inc := '1';
                     state <= IAbsReadArg2;
                   when M_InnnnX =>
-                    reg_addr(7 downto 0) <= memory_read_value;
+                    reg_addr(7 downto 0) <= reg_arg1;
                     memory_access_read := '1';
                     memory_access_address := x"000"&reg_pc;
                     memory_access_resolve_address := '1';
@@ -1766,7 +1782,7 @@ begin
                   when M_InnSPY =>
                     state <= normal_fetch_state;
                   when M_immnnnn =>                
-                    reg_addr(7 downto 0) <= memory_read_value;
+                    reg_addr(7 downto 0) <= reg_arg1;
                     memory_access_read := '1';
                     memory_access_address := x"000"&reg_pc;
                     memory_access_resolve_address := '1';
