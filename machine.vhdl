@@ -534,21 +534,13 @@ begin
   process(pixelclock)
     variable digit : std_logic_vector(3 downto 0);
   begin
+    if rising_edge(ioclock) then
+      -- Hold reset low for a while when we first turn on
+--      report "power_on_reset(0) = " & std_logic'image(power_on_reset(0)) severity note;
+      power_on_reset(7) <= '1';
+      power_on_reset(6 downto 0) <= power_on_reset(7 downto 1);
+    end if;
     if rising_edge(pixelclock) then
-
-      -- Run CPU at 1/2 pixel clock = 96MHz
-      -- Run IO and serial monitor at 1/3 cpu clock = 32MHz
-      if clock_phase = 5 then
-        clock_phase <= 0;
-
-        -- Hold reset low for a while when we first turn on
-        report "power_on_reset(0) = " & std_logic'image(power_on_reset(0)) severity note;
-        power_on_reset(7) <= '1';
-        power_on_reset(6 downto 0) <= power_on_reset(7 downto 1);
-
-      else
-        clock_phase <= clock_phase + 1;
-      end if;
 
       -- Determine CPU and IO clock phases.
       -- Knowing both of these, we can also know the number of CPU cycles
