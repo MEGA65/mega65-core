@@ -74,6 +74,10 @@ entity sdcardio is
     aclInt1 : in std_logic;
     aclInt2 : in std_logic;
 
+    -- Audio in from digital SIDs
+    leftsid_audio : in unsigned(17 downto 0);
+    rightsid_audio : in unsigned(17 downto 0);
+    
     -- Audio output
     ampPWM : out std_logic;
     ampSD : out std_logic;
@@ -151,7 +155,9 @@ architecture behavioural of sdcardio is
   signal tmpSDAinternal : std_logic := '0';
   signal tmpSCLinternal : std_logic := '0';
 
-  signal pwm_value_new : unsigned(7 downto 0) := x"00";
+  signal pwm_value_new_left : unsigned(7 downto 0) := x"00";
+  signal pwm_value_new_right : unsigned(7 downto 0) := x"00";
+  signal pwm_value_combined : unsigned(7 downto 0) := x"00";
   signal pwm_value : unsigned(7 downto 0) := x"00";
   signal pwm_phase : unsigned(7 downto 0) := x"00";
 
@@ -321,10 +327,14 @@ begin  -- behavioural
     
     if rising_edge(clock) then
 
-      -- Implement 8-bit digital audio output
+      -- Generate combined audio from stereo sids plus 2 8-bit digital channels
+      pwm_value_combined <= leftsid_audio(17 downto 10) + rightsid_audio(17 downto 10)
+                            + pwm_value_new_left + pwm_value_new_right;
+      
+      -- Implement 10-bit digital audio output
       pwm_phase <= pwm_phase + 1;
-      if pwm_phase = x"00" then
-        if pwm_value = x"00" then
+      if pwm_phase = "0000000000" then
+        if pwm_value = "0000000000" then
           ampPWM <= '0';
         else
           ampPWM <= '1';
@@ -333,8 +343,8 @@ begin  -- behavioural
         if pwm_value=pwm_phase then
           ampPWM <= '0';
         end if;
-        if pwm_phase = x"FF" then
-          pwm_value <= pwm_value_new;
+        if pwm_phase = "1111111111" then
+          pwm_value <= pwm_value_combined;
         end if;
       end if;      
 
@@ -427,14 +437,6 @@ begin  -- behavioural
       
       if  fastio_read='0' and fastio_write='1' then
         if fastio_write='1' then
-          if (fastio_addr(19 downto 0) = x"D0418")
-            or (fastio_addr(19 downto 0) = x"D1418")
-            or (fastio_addr(19 downto 0) = x"D2418")
-            or (fastio_addr(19 downto 0) = x"D3418")
-          then
-            -- 8-bit digital audio out
-            pwm_value_new(7 downto 4) <= fastio_wdata(3 downto 0);
-          end if;
 
           if (fastio_addr(19 downto 5)&'0' = x"D108")
             or (fastio_addr(19 downto 5)&'0' = x"D308") then
@@ -718,10 +720,13 @@ begin  -- behavioural
                 tmpSCL <= fastio_wdata(1);
               when x"F8" =>
                 -- 8-bit digital audio out
-                pwm_value_new <= fastio_wdata;
+                pwm_value_new_left <= fastio_wdata;
               when x"F9" =>
                 -- enable/disable audio amplifiers
                 ampSD <= fastio_wdata(0);
+              when x"FA" =>
+                -- 8-bit digital audio out
+                pwm_value_new_right <= fastio_wdata;
               when x"FF" =>
                 -- Flash interface
                 if fastio_wdata(0)='0' then
@@ -925,11 +930,14 @@ begin  -- behavioural
               fastio_rdata <= unsigned("000"&last_scan_code(12 downto 8));
             when x"F8" =>
               -- PWM output
-              fastio_rdata <= pwm_value_new;
-            when x"F9" =>
+              fastio_rdata <= pwm_value_new_left;
+            when x"FA" =>
+              -- PWM output
+              fastio_rdata <= pwm_value_new_left;
+            when x"FB" =>
               -- microphone input
               fastio_rdata <= mic_value_left;
-            when x"FA" =>
+            when x"FC" =>
               -- microphone input
               fastio_rdata <= mic_value_right;
             when x"FF" =>

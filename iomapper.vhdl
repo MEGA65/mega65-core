@@ -155,6 +155,10 @@ architecture behavioral of iomapper is
       micClk : out std_logic;
       micLRSel : out std_logic;
 
+      -- Audio in from digital SIDs
+      leftsid_audio : in unsigned(17 downto 0);
+      rightsid_audio : in unsigned(17 downto 0);
+
       -- Audio output
       ampPWM : out std_logic;
       ampSD : out std_logic;
@@ -389,6 +393,9 @@ begin
     micClk => micClk,
     micLRSel => micLRSel,
 
+    leftsid_audio => leftsid_audio,
+    rightsid_audio => rightsid_audio,
+    
     ampSD => ampSD,
     ampPWM => ampPWM,
     
