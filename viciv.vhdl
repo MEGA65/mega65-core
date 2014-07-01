@@ -1003,8 +1003,10 @@ begin
           fastio_rdata(1) <= fullcolour_8bitchars;
           fastio_rdata(0) <= sixteenbit_charset;
         elsif register_number=85 then
-          fastio_rdata <=
-            std_logic_vector(to_unsigned(vic_fetch_fsm'pos(char_fetch_cycle),8));
+          -- XXX Disabled for now to improve timing
+          -- fastio_rdata <=
+          -- std_logic_vector(to_unsigned(vic_fetch_fsm'pos(char_fetch_cycle),8));
+          fastio_rdata <= x"FF";
         elsif register_number=86 then
           fastio_rdata <= std_logic_vector(cycles_to_next_card);
         elsif register_number=87 then
@@ -1015,7 +1017,9 @@ begin
           fastio_rdata(3) <= chargen_active_soon;
           fastio_rdata(2 downto 0) <= "111";
         elsif register_number=88 then
-          fastio_rdata <= std_logic_vector(card_number(7 downto 0));
+          -- XXX Disabled for now to improve timing
+--          fastio_rdata <= std_logic_vector(card_number(7 downto 0));
+          fastio_rdata <= x"FF";
         elsif register_number=96 then
           fastio_rdata <= std_logic_vector(screen_ram_base(7 downto 0));
         elsif register_number=97 then
