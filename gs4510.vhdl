@@ -338,7 +338,7 @@ architecture Behavioural of gs4510 is
     InstructionFetch,
     InstructionDecode,
     Cycle2,Cycle3,
-    Push,Pull,
+    Pull,
     RTI,RTS1,RTS2,
     B16TakeBranch,
     InnYReadVectorLow,
@@ -351,7 +351,7 @@ architecture Behavioural of gs4510 is
     IAbsReadArg2,
     IAbsXReadArg2,
     Imm16ReadArg2,
-    TakeBranch8,
+    TakeBranch8,TakeBranch8b,
     ActionCycle,
     DelayedWrite
     );
@@ -1452,6 +1452,12 @@ begin
         if proceed='1' then
           -- Main state machine for CPU
           report "CPU state = " & processor_state'image(state) & ", PC=$" & to_hstring(reg_pc) severity note;
+
+          -- By default read next byte in instruction stream.
+          memory_access_read := '1';
+          memory_access_address := x"000"&reg_pc;
+          memory_access_resolve_address := '1';
+
           case state is
             when ResetLow =>
               reset_cpu_state;
@@ -1468,10 +1474,7 @@ begin
               state <= InstructionWait;
             when InstructionWait =>
               state <= InstructionFetch;
-            when InstructionFetch =>
-              memory_access_read := '1';
-              memory_access_address := x"000"&reg_pc;
-              memory_access_resolve_address := '1';
+            when InstructionFetch =>              
               state <= InstructionDecode;
               pc_inc := '1';
             when InstructionDecode =>
@@ -1482,9 +1485,6 @@ begin
 
               -- Always read the next instruction byte after reading opcode
               -- (unless later overriden)            
-              memory_access_read := '1';
-              memory_access_address := x"000"&reg_pc;
-              memory_access_resolve_address := '1';
               pc_inc := '1';
 
               -- See if this is a single cycle instruction.
@@ -1588,10 +1588,7 @@ begin
               -- Store arg1
               reg_arg1 <= memory_read_value;
               
-              -- Fetch arg2
-              memory_access_read := '1';
-              memory_access_address := x"000"&reg_pc;
-              memory_access_resolve_address := '1';
+              -- Fetch arg2 (happens by default since PC is set correctly)
 
               -- Process instruction next cycle
               state <= Cycle3;
@@ -1643,6 +1640,7 @@ begin
                     -- If it is a branch, write the low bits of the programme
                     -- counter now.  We will read the 2nd argument next cycle
                     if reg_instruction = I_JSR or reg_instruction = I_BSR then
+                      memory_access_read := '0';
                       memory_access_write := '1';
                       memory_access_address := x"000"&reg_sph&reg_sp;
                       memory_access_resolve_address := '1';
@@ -1652,9 +1650,7 @@ begin
                       state <= CallSubroutine0;
                     else
                       pc_inc := '1';
-                      memory_access_read := '1';
-                      memory_access_address := x"000"&reg_pc;
-                      memory_access_resolve_address := '1';
+                      -- (reading next instruction argument byte as default action)
                       state <= AbsReadArg2;
                     end if;
                   when M_nnrr =>
@@ -1704,10 +1700,6 @@ begin
                     else
                       -- Branch will not be taken.
                       -- fetch next instruction now to save a cycle
-                      reg_pc <= reg_pc + 1;
-                      memory_access_read := '1';
-                      memory_access_address := x"000"&reg_pc;
-                      memory_access_resolve_address := '1';
                       state <= fast_fetch_state;
                       if fast_fetch_state = InstructionDecode then pc_inc := '1'; end if;
                     end if;   
@@ -1753,45 +1745,31 @@ begin
                     state <= ActionCycle;
                   when M_nnnnY =>
                     reg_addr(7 downto 0) <= reg_arg1;
-                    memory_access_read := '1';
-                    memory_access_address := x"000"&reg_pc;
-                    memory_access_resolve_address := '1';
                     pc_inc := '1';
                     state <= AbsYReadArg2;
                   when M_nnnnX =>
                     reg_addr(7 downto 0) <= reg_arg1;
-                    memory_access_read := '1';
-                    memory_access_address := x"000"&reg_pc;
-                    memory_access_resolve_address := '1';
                     pc_inc := '1';
                     state <= AbsXReadArg2;
                   when M_Innnn =>
                     reg_addr(7 downto 0) <= reg_arg1;
-                    memory_access_read := '1';
-                    memory_access_address := x"000"&reg_pc;
-                    memory_access_resolve_address := '1';
                     pc_inc := '1';
                     state <= IAbsReadArg2;
                   when M_InnnnX =>
                     reg_addr(7 downto 0) <= reg_arg1;
-                    memory_access_read := '1';
-                    memory_access_address := x"000"&reg_pc;
-                    memory_access_resolve_address := '1';
                     pc_inc := '1';
                     state <= IAbsXReadArg2;
                   when M_InnSPY =>
                     state <= normal_fetch_state;
                   when M_immnnnn =>                
                     reg_addr(7 downto 0) <= reg_arg1;
-                    memory_access_read := '1';
-                    memory_access_address := x"000"&reg_pc;
-                    memory_access_resolve_address := '1';
                     pc_inc := '1';
                     state <= Imm16ReadArg2;
                 end case;
               end if;
             when CallSubroutine0 =>
               -- Push PCL
+              memory_access_read := '0';
               memory_access_write := '1';
               memory_access_address := x"000"&reg_sph&reg_sp;
               memory_access_resolve_address := '1';
@@ -1800,6 +1778,7 @@ begin
               state <= CallSubroutine;
             when CallSubroutine =>
               -- Push PCH
+              memory_access_read := '0';
               memory_access_write := '1';
               memory_access_address := x"000"&reg_sph&reg_sp;
               memory_access_resolve_address := '1';
@@ -1810,9 +1789,6 @@ begin
             when CallSubroutine2 =>
               -- Finish determining subroutine address
               pc_inc := '0';
-              memory_access_read := '1';
-              memory_access_address := x"000"&reg_pc;
-              memory_access_resolve_address := '1';
               case reg_addressingmode is
                 -- Note, we treat BSR as absolute mode, with microcode
                 -- controlling the calculation of the address as relative.
@@ -1838,26 +1814,19 @@ begin
               state <= ActionCycle;
             when TakeBranch8 =>
               -- Branch will be taken
-              temp_addr := reg_pc +
-                           to_integer(memory_read_value(7)&memory_read_value(7)&memory_read_value(7)&memory_read_value(7)&
-                                      memory_read_value(7)&memory_read_value(7)&memory_read_value(7)&memory_read_value(7)&
-                                      memory_read_value);
+              reg_pc <= reg_pc +
+                          to_integer(memory_read_value(7)&memory_read_value(7)&memory_read_value(7)&memory_read_value(7)&
+                                     memory_read_value(7)&memory_read_value(7)&memory_read_value(7)&memory_read_value(7)&
+                                     memory_read_value);
+              -- Split action over two cycles to improve timing.
+              state <= TakeBranch8b;
+            when TakeBranch8b =>
+              state <= fast_fetch_state;
+              if fast_fetch_state = InstructionDecode then pc_inc := '1'; end if;
               -- Prefetch instruction byte
               memory_access_read := '1';
               memory_access_address := x"000"&temp_addr;
               memory_access_resolve_address := '1';
-              reg_pc <= temp_addr;
-              state <= fast_fetch_state;
-              if fast_fetch_state = InstructionDecode then pc_inc := '1'; end if;
-            when Push =>
-              -- Nothing more to do
-              -- Prefetch instruction byte
-              memory_access_read := '1';
-              memory_access_address := x"000"&temp_addr;
-              memory_access_resolve_address := '1';
-              reg_pc <= temp_addr;
-              state <= fast_fetch_state;
-              if fast_fetch_state = InstructionDecode then pc_inc := '1'; end if;
             when Pull =>
               set_nz(memory_read_value);
               if pop_a='1' then reg_a <= memory_read_value; end if;
@@ -1867,12 +1836,8 @@ begin
               if pop_p='1' then
                 load_processor_flags(memory_read_value);
               end if;
-              
-              -- Prefetch instruction byte (special case since PC is being changed)
-              memory_access_read := '1';
-              memory_access_address := x"000"&temp_addr;
-              memory_access_resolve_address := '1';
-              reg_pc <= temp_addr;
+
+              -- ... and fetch next instruction
               state <= fast_fetch_state;
               if fast_fetch_state = InstructionDecode then pc_inc := '1'; end if;
             when B16TakeBranch =>
@@ -1895,10 +1860,9 @@ begin
                                         -- Check if the appropriate bit is set/clear
               if memory_read_value(to_integer(reg_opcode(6 downto 4)))
                 =reg_opcode(7) then
-                                        -- Take branch, so read next byte with relative offset
-                memory_access_read := '1';
-                memory_access_address := x"000"&reg_pc;
-                memory_access_resolve_address := '1';
+                -- Take branch, so read next byte with relative offset
+                -- (default action is reading next instruction byte, so no need
+                -- to do it here).
                 state <= TakeBranch8;
               else
                                         -- Don't take branch, so just skip over branch byte
@@ -1936,6 +1900,7 @@ begin
                 c65_map_instruction;
               end if;
             when DelayedWrite =>
+              memory_access_read := '0';
               if delayed_write_resolve = '1' then
                 write_data(delayed_write_address(15 downto 0),delayed_write_wdata);
               else 
