@@ -1824,9 +1824,6 @@ begin
               state <= fast_fetch_state;
               if fast_fetch_state = InstructionDecode then pc_inc := '1'; end if;
               -- Prefetch instruction byte
-              memory_access_read := '1';
-              memory_access_address := x"000"&temp_addr;
-              memory_access_resolve_address := '1';
             when Pull =>
               set_nz(memory_read_value);
               if pop_a='1' then reg_a <= memory_read_value; end if;
