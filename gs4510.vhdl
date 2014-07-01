@@ -343,7 +343,7 @@ architecture Behavioural of gs4510 is
     B16TakeBranch,
     InnYReadVectorLow,
     InnZReadVectorLow,
-    CallSubroutine,CallSubroutine2,
+    CallSubroutine0,CallSubroutine,CallSubroutine2,
     ZPRelReadZP,
     AbsReadArg2,
     AbsXReadArg2,
@@ -1623,13 +1623,13 @@ begin
                     -- If it is a branch, write the low bits of the programme
                     -- counter now.  We will read the 2nd argument next cycle
                     if reg_instruction = I_JSR or reg_instruction = I_BSR then
-                      memory_access_write := '1';
-                      memory_access_address := x"000"&reg_sph&reg_sp;
-                      memory_access_resolve_address := '1';
-                      memory_access_wdata := reg_pc(7 downto 0);
-                      dec_sp := '1';
+                      --memory_access_write := '1';
+                      --memory_access_address := x"000"&reg_sph&reg_sp;
+                      --memory_access_resolve_address := '1';
+                      --memory_access_wdata := reg_pc(7 downto 0);
+                      --dec_sp := '1';
                       pc_inc := '0';
-                      state <= CallSubroutine;
+                      state <= CallSubroutine0;
                     else
                       pc_inc := '1';
                       memory_access_read := '1';
@@ -1769,7 +1769,16 @@ begin
                     state <= Imm16ReadArg2;
                 end case;
               end if;
-            when CallSubroutine =>
+          when CallSubroutine0 =>
+            -- Push PCL
+            memory_access_write := '1';
+            memory_access_address := x"000"&reg_sph&reg_sp;
+            memory_access_resolve_address := '1';
+            memory_access_wdata := reg_pc(7 downto 0);
+            dec_sp := '1';
+            state <= CallSubroutine;
+          when CallSubroutine =>
+            -- Push PCH
               memory_access_write := '1';
               memory_access_address := x"000"&reg_sph&reg_sp;
               memory_access_resolve_address := '1';
@@ -1777,40 +1786,41 @@ begin
               dec_sp := '1';
               pc_inc := '0';
               state <= CallSubroutine2;
-            when CallSubroutine2 =>
-              pc_inc := '0';
-              memory_access_read := '1';
+          when CallSubroutine2 =>
+            -- Finish determining subroutine address
+            pc_inc := '0';
+            memory_access_read := '1';
               memory_access_address := x"000"&reg_pc;
-              memory_access_resolve_address := '1';
-              case reg_addressingmode is
-                -- Note, we treat BSR as absolute mode, with microcode
-                -- controlling the calculation of the address as relative.
+            memory_access_resolve_address := '1';
+            case reg_addressingmode is
+              -- Note, we treat BSR as absolute mode, with microcode
+              -- controlling the calculation of the address as relative.
                 when M_nnnn => state <= AbsReadArg2;
-                when M_innnn => state <= IAbsReadArg2;
-                when M_innnnX => state <= AbsXReadArg2;
-                when others => state <= normal_fetch_state;
-              end case;
-            when AbsReadArg2 =>
-              monitor_arg2 <= std_logic_vector(memory_read_value);
-              monitor_ibytes(0) <= '1';
-              reg_addr(15 downto 8) <= memory_read_value;
-              state <= ActionCycle;
-            when AbsXReadArg2 =>
-              monitor_arg2 <= std_logic_vector(memory_read_value);
-              monitor_ibytes(0) <= '1';
-              reg_addr <= x"00"&reg_x + to_integer(memory_read_value&reg_addr(7 downto 0));
-              state <= ActionCycle;
-            when AbsYReadArg2 =>
-              monitor_arg2 <= std_logic_vector(memory_read_value);
-              monitor_ibytes(0) <= '1';
-              reg_addr <= x"00"&reg_y + to_integer(memory_read_value&reg_addr(7 downto 0));
-              state <= ActionCycle;
-            when TakeBranch8 =>
-              -- Branch will be taken
-              temp_addr := reg_pc +
-                           to_integer(memory_read_value(7)&memory_read_value(7)&memory_read_value(7)&memory_read_value(7)&
-                                      memory_read_value(7)&memory_read_value(7)&memory_read_value(7)&memory_read_value(7)&
-                                      memory_read_value);
+              when M_innnn => state <= IAbsReadArg2;
+              when M_innnnX => state <= AbsXReadArg2;
+              when others => state <= normal_fetch_state;
+            end case;
+          when AbsReadArg2 =>
+            monitor_arg2 <= std_logic_vector(memory_read_value);
+            monitor_ibytes(0) <= '1';
+            reg_addr(15 downto 8) <= memory_read_value;
+            state <= ActionCycle;
+          when AbsXReadArg2 =>
+            monitor_arg2 <= std_logic_vector(memory_read_value);
+            monitor_ibytes(0) <= '1';
+            reg_addr <= x"00"&reg_x + to_integer(memory_read_value&reg_addr(7 downto 0));
+            state <= ActionCycle;
+          when AbsYReadArg2 =>
+            monitor_arg2 <= std_logic_vector(memory_read_value);
+            monitor_ibytes(0) <= '1';
+            reg_addr <= x"00"&reg_y + to_integer(memory_read_value&reg_addr(7 downto 0));
+            state <= ActionCycle;
+          when TakeBranch8 =>
+            -- Branch will be taken
+            temp_addr := reg_pc +
+                         to_integer(memory_read_value(7)&memory_read_value(7)&memory_read_value(7)&memory_read_value(7)&
+                                    memory_read_value(7)&memory_read_value(7)&memory_read_value(7)&memory_read_value(7)&
+                                    memory_read_value);
               -- Prefetch instruction byte
               memory_access_read := '1';
               memory_access_address := x"000"&temp_addr;
