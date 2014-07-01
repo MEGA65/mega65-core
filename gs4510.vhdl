@@ -1513,6 +1513,7 @@ begin
                 end if;
               end if;
             when MonitorMemoryAccess =>
+              monitor_mem_rdata <= memory_read_value;
               if monitor_mem_attention_request='1' then 
                 monitor_mem_attention_granted <= '1';
               else
