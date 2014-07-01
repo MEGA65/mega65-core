@@ -1472,6 +1472,56 @@ begin
               mem_reading_pch <= '1';
               read_address(x"FFF"&vector);
               state <= InstructionWait;
+            when ProcessorHold =>
+              -- Hold CPU while blocked by monitor
+
+              -- Automatically resume CPU when monitor memory request/single stepping
+              -- pause is done, unless something else needs to be done.
+              state <= normal_fetch_state;
+              
+              if monitor_mem_attention_request='1' then
+                -- Memory access by serial monitor.
+                if monitor_mem_address(27 downto 16) = x"777" then
+                  -- M777xxxx in serial monitor reads memory from CPU's perspective
+                  memory_access_resolve_address := '1';
+                end if;
+                if monitor_mem_write='1' then
+                  -- Write to specified long address (or short if address is $777xxxx)
+                  memory_access_address := unsigned(monitor_mem_address);
+                  memory_access_write := '1';
+                  memory_access_wdata := monitor_mem_wdata;
+                  state <= MonitorMemoryAccess;
+                -- Don't allow a read to occur while a write is completing.
+                elsif monitor_mem_read='1' then
+                  -- and optionally set PC
+                  mem_reading_pcl <= '0';
+                  mem_reading_pch <= '0';
+                  if monitor_mem_setpc='1' then
+                    -- Abort any instruction currently being executed.
+                    -- Then set PC from InstructionWait state to make sure that we
+                    -- don't write it here, only for it to get stomped.
+                    state <= MonitorMemoryAccess;
+                    reg_pc <= unsigned(monitor_mem_address(15 downto 0));
+                    mem_reading <= '0';
+                  else
+                    -- otherwise just read from memory
+                    memory_access_address := unsigned(monitor_mem_address);
+                    memory_access_read := '1';
+                    -- Read from specified long address
+                    monitor_mem_reading <= '1';
+                    mem_reading <= '1';
+                    proceed <= '0';
+                    state <= MonitorMemoryAccess;
+                  end if;
+                end if;
+              end if;
+            when MonitorMemoryAccess =>
+              if monitor_mem_attention_request='1' then 
+                monitor_mem_attention_granted <= '1';
+              else
+                monitor_mem_attention_granted <= '0';
+                state <= ProcessorHold;
+              end if;    
             when InstructionWait =>
               state <= InstructionFetch;
             when InstructionFetch =>              
