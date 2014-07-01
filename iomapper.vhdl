@@ -258,10 +258,8 @@ architecture behavioral of iomapper is
   signal cia1portb_in : std_logic_vector(7 downto 0);
 
   signal leftsid_cs : std_logic;
-  signal leftsid_we : std_logic;
   signal leftsid_audio : unsigned(17 downto 0);
   signal rightsid_cs : std_logic;
-  signal rightsid_we : std_logic;
   signal rightsid_audio : unsigned(17 downto 0);
   
 begin         
@@ -332,7 +330,7 @@ begin
     clk32 => clk,
     reset => reset,
     cs => leftsid_cs,
-    we => leftsid_we,
+    we => w,
     addr => unsigned(address(4 downto 0)),
     di => unsigned(data_i),
     std_logic_vector(do) => data_o,
@@ -345,7 +343,7 @@ begin
     clk32 => clk,
     reset => reset,
     cs => rightsid_cs,
-    we => rightsid_we,
+    we => w,
     addr => unsigned(address(4 downto 0)),
     di => unsigned(data_i),
     std_logic_vector(do) => data_o,
@@ -447,6 +445,22 @@ begin
         report "selecting SD card sector buffer" severity note;
       end if;
 
+      -- Now map the SIDs
+      -- $D440 = left SID
+      -- $D400 = right SID
+      -- Presumably repeated through to $D5FF.
+      case address(19 downto 8) is
+        when x"D04" => leftsid_cs <= address(6); rightsid_cs <= not address(6);
+        when x"D05" => leftsid_cs <= address(6); rightsid_cs <= not address(6);
+        when x"D14" => leftsid_cs <= address(6); rightsid_cs <= not address(6);
+        when x"D15" => leftsid_cs <= address(6); rightsid_cs <= not address(6);
+        when x"D24" => leftsid_cs <= address(6); rightsid_cs <= not address(6);
+        when x"D25" => leftsid_cs <= address(6); rightsid_cs <= not address(6);
+        when x"D34" => leftsid_cs <= address(6); rightsid_cs <= not address(6);
+        when x"D35" => leftsid_cs <= address(6); rightsid_cs <= not address(6);
+        when others => leftsid_cs <= '0'; rightsid_cs <= '0';
+      end case;
+      
       -- Now map the CIAs.
 
       -- These are a bit fun, because they only get mapped if colour RAM isn't
