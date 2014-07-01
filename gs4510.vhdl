@@ -725,6 +725,11 @@ begin
       wait_states <= io_wait_states;
       
       the_read_address <= long_address;
+
+      -- Get the shadow RAM address on the bus fast to improve timing.
+      shadow_write <= '0';
+      shadow_address <= long_address(17 downto 0);
+      
       if long_address(27 downto 16)="0000"&shadow_bank then
         -- Reading from 256KB shadow ram (which includes 128KB fixed shadowing of
         -- chipram).  This is the only memory running at the CPU's native clock.
@@ -732,15 +737,13 @@ begin
         accessing_shadow <= '1';
         wait_states <= x"00";
         proceed <= '1';
-        shadow_address <= long_address(17 downto 0);
-        shadow_write <= '0';
         report "Reading from shadow ram address $" & to_hstring(long_address(17 downto 0))
           & ", word $" & to_hstring(long_address(18 downto 3)) severity note;
       elsif long_address(27 downto 17)="00000000000" then
         -- Reading from chipram, so read from the bottom 128KB of the shadow RAM
         -- instead.
         accessing_shadow <= '1';
-        shadow_address <= '0'&long_address(16 downto 0);
+        -- shadow_address <= '0'&long_address(16 downto 0);
         shadow_write <= '0';
         proceed <= '1';        
         report "Reading from shadowed fastram address $" & to_hstring(long_address(19 downto 0))
@@ -978,16 +981,18 @@ begin
       -- Always write to shadow ram if in scope, even if we also write elsewhere.
       -- This ensures that shadow ram is consistent with the shadowed address space
       -- when the CPU reads from shadow ram.
+      -- Get the shadow RAM address on the bus fast to improve timing.
+      shadow_address <= long_address(17 downto 0);
       if long_address(27 downto 16)="0000"&shadow_bank then
         report "writing to shadow RAM via shadow_bank" severity note;
         shadow_write <= '1';
-        shadow_address <= long_address(17 downto 0);
+--        shadow_address <= long_address(17 downto 0);
         shadow_wdata <= value;
       end if;
       if long_address(27 downto 17)="00000000000" then
         report "writing to shadow RAM via chipram shadowing. addr=$" & to_hstring(long_address) severity note;
         shadow_write <= '1';
-        shadow_address <= long_address(17 downto 0);
+--        shadow_address <= long_address(17 downto 0);
         shadow_wdata <= value;
         
         fastram_address <= std_logic_vector(long_address(16 downto 3));
