@@ -1226,7 +1226,7 @@ begin
         & " + "
         & "$" & std_logic'image(flag_c)
         & " = " & to_hstring(std_logic_vector(tmp(7 downto 0))) severity note;
-      return tmp(7 downto 0);
+      return tmp;
     end function alu_op_add;
 
     impure function alu_op_sub (
