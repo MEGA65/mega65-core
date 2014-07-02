@@ -551,6 +551,8 @@ architecture Behavioral of viciv is
   signal set_hsync : std_logic := '0';
   signal hsync_drive : std_logic := '0';
   signal vsync_drive : std_logic := '0';
+
+  signal new_frame : std_logic := '0';
   
 begin
 
@@ -1486,6 +1488,23 @@ begin
         hsync_drive <= '1';
       end if;
       hsync <= hsync_drive;
+
+      new_frame <= '0';
+      if new_frame='1' then
+        -- C65/VIC-III style 1Hz blink attribute clock
+        viciii_blink_phase_counter <= viciii_blink_phase_counter + 1;
+        if viciii_blink_phase_counter = 60 then
+          viciii_blink_phase_counter <= 0;
+          viciii_blink_phase <= not viciii_blink_phase;
+        end if;
+
+        -- 4Hz 1581 drive LED blink clock
+        drive_blink_phase_counter <= drive_blink_phase_counter + 1;
+        if drive_blink_phase_counter = 15 then
+          drive_blink_phase_counter <= 0;
+          drive_blink_phase <= not drive_blink_phase;
+        end if;
+      end if;
       
       indisplay :='1';
       if xcounter<frame_width then
@@ -1497,7 +1516,7 @@ begin
         next_chargen_x <= (others => '0');
         chargen_x_sub <= (others => '0');
         chargen_active <= '0';
-        chargen_active_soon <= '0';
+        chargen_active_soon <= '0';        
         if ycounter<frame_height then
           ycounter <= ycounter + 1;
           if vicii_ycounter_phase = vicii_ycounter_max_phase then
@@ -1535,21 +1554,8 @@ begin
           vicii_ycounter <= (others =>'0');
           vicii_ycounter_phase <= (others => '0');
           vicii_ycounter_max_phase <= to_unsigned(1,3);  -- 0 -- 1 = 2 values         
-          
-          -- C65/VIC-III style 1Hz blink attribute clock
-          viciii_blink_phase_counter <= viciii_blink_phase_counter + 1;
-          if viciii_blink_phase_counter = 60 then
-            viciii_blink_phase_counter <= 0;
-            viciii_blink_phase <= not viciii_blink_phase;
-          end if;
 
-          -- 4Hz 1581 drive LED blink clock
-          drive_blink_phase_counter <= drive_blink_phase_counter + 1;
-          if drive_blink_phase_counter = 15 then
-            drive_blink_phase_counter <= 0;
-            drive_blink_phase <= not drive_blink_phase;
-          end if;
-
+          new_frame <= '1';
         end if;	
       end if;
       if xcounter<frame_h_front then
