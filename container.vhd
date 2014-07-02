@@ -260,7 +260,8 @@ begin
     port map (
       pixelclock      => pixelclock,
       cpuclock        => cpuclock,
-      ioclock         => ioclock,
+--      ioclock         => ioclock, -- 32MHz
+      ioclock         => cpuclock, -- Match CPU clock
       btncpureset => btncpureset,
       irq => irq,
       nmi => nmi,
