@@ -261,9 +261,9 @@ begin
     port map (
       pixelclock      => pixelclock,
       cpuclock        => cpuclock,
-      ioclock         => ioclock, -- 32MHz
+--      ioclock         => ioclock, -- 32MHz
       uartclock         => ioclock, -- must be 32MHz
---      ioclock         => cpuclock, -- Match CPU clock
+      ioclock         => cpuclock, -- Match CPU clock
       btncpureset => btncpureset,
       irq => irq,
       nmi => nmi,
