@@ -455,6 +455,13 @@ architecture Behavioural of gs4510 is
   signal a_asl : unsigned(7 downto 0);
   signal a_asr : unsigned(7 downto 0);
   signal a_lsr : unsigned(7 downto 0);
+  signal a_ior : unsigned(7 downto 0);
+  signal a_xor : unsigned(7 downto 0);
+  signal a_and : unsigned(7 downto 0);
+  signal a_neg : unsigned(7 downto 0);
+
+  signal a_neg_z : std_logic;
+  signal a_add : unsigned(11 downto 0); -- has NVZC flags and result
   
   signal x_incremented : unsigned(7 downto 0);
   signal x_decremented : unsigned(7 downto 0);
@@ -1172,7 +1179,8 @@ begin
     impure function alu_op_add (
       i1 : in unsigned(7 downto 0);
       i2 : in unsigned(7 downto 0)) return unsigned is
-      variable tmp : unsigned(8 downto 0);
+      -- Result is NVZC<8bit result>
+      variable tmp : unsigned(11 downto 0);
     begin
       if flag_d='1' then
         tmp(8) := '0';
@@ -1187,24 +1195,28 @@ begin
           tmp := (tmp and x"0f") + (i1 and x"f0") + (i2 and x"f0") + x"10";
         end if;
         if (i1 + i2 + ( "0000000" & flag_c )) = x"00" then
-          flag_z <= '1';
+          tmp(9) := '1'; -- Z flag
         else
-          flag_z <= '0';
+          tmp(9) := '0'; -- Z flag
         end if;
-        flag_n <= tmp(7);
-        flag_v <= (i1(7) xor tmp(7)) and (not (i1(7) xor i2(7)));
+        tmp(11) := tmp(7); -- N flag
+        tmp(10) := (i1(7) xor tmp(7)) and (not (i1(7) xor i2(7))); -- V flag
         if tmp(8 downto 4) > "01001" then
           tmp(7 downto 0) := tmp(7 downto 0) + x"60";
           tmp(8) := '1';
         end if;
-        flag_c <= tmp(8);
+        -- flag_c <= tmp(8);
       else
         tmp := ("0"&i2)
                + ("0"&i1)
                + ("00000000"&flag_c);
-        tmp(7 downto 0) := with_nz(tmp(7 downto 0));
-        flag_v <= (not (i1(7) xor i2(7))) and (i1(7) xor tmp(7));
-        flag_c <= tmp(8);
+        tmp(7 downto 0) := tmp(7 downto 0);
+        tmp(11) := tmp(7); -- N flag
+        if (tmp(7 downto 0) = x"00") then
+          tmp(9) := '1'; else tmp(9) := '0'; -- Z flag
+        end if;
+        tmp(10) := (not (i1(7) xor i2(7))) and (i1(7) xor tmp(7)); -- V flag
+        -- flag_c <= tmp(8);
       end if;
       -- Return final value
       report "add result of "
@@ -1292,12 +1304,23 @@ begin
     
   begin
 
+    -- Begin calculating results for operations immediately to help timing.
+    -- The trade-off is consuming a bit of extra silicon.
     a_incremented <= reg_a + 1;
     a_decremented <= reg_a - 1;
     a_ror <= flag_c & reg_a(7 downto 1);
     a_rol <= reg_a(6 downto 0) & flag_c;    
     a_asr <= reg_a(7) & reg_a(7 downto 1);
-    a_lsr <= '0' & reg_a(7 downto 1);    
+    a_lsr <= '0' & reg_a(7 downto 1);
+    a_ior <= reg_a or read_data;
+    a_xor <= reg_a xor read_data;
+    a_and <= reg_a and read_data;
+
+    a_neg <= (not reg_a) + 1;
+    if (reg_a = x"00") then 
+      a_neg_z <= '1'; else a_neg_z <= '0';
+    end if;
+    a_add <= alu_op_add(reg_a,read_data);
     
     x_incremented <= reg_x + 1;
     x_decremented <= reg_x - 1;
