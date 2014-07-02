@@ -8,6 +8,7 @@ use work.debugtools.all;
 entity iomapper is
   port (Clk : in std_logic;
         pixelclk : in std_logic;
+        uartclock : in std_logic;
         phi0 : in std_logic;
         reset : in std_logic;
         reset_out : out std_logic;

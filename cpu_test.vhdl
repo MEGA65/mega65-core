@@ -42,6 +42,7 @@ architecture behavior of cpu_test is
     Port ( pixelclock : STD_LOGIC;
            cpuclock : STD_LOGIC;
            ioclock : STD_LOGIC;
+           uartclock : STD_LOGIC;
            btnCpuReset : in  STD_LOGIC;
            irq : in  STD_LOGIC;
            nmi : in  STD_LOGIC;
@@ -122,7 +123,8 @@ begin
     port map (
       pixelclock      => pixelclock,
       cpuclock      => cpuclock,
-      ioclock      => ioclock,
+      ioclock      => cpuclock,
+      uartclock    => ioclock,
       btnCpuReset      => reset,
       irq => '1',
       nmi => '1',

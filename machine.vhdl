@@ -55,6 +55,7 @@ entity machine is
   Port ( pixelclock : STD_LOGIC;
          cpuclock : std_logic;
          ioclock : std_logic;
+         uartclock : std_logic;
          btnCpuReset : in  STD_LOGIC;
          irq : in  STD_LOGIC;
          nmi : in  STD_LOGIC;
@@ -344,6 +345,7 @@ architecture Behavioral of machine is
   component iomapper is
     port (Clk : in std_logic;
           pixelclk : in std_logic;
+          uartclock : in std_logic;
           phi0 : in std_logic;
           reset : in std_logic;
           reset_out : out std_logic;
@@ -759,6 +761,7 @@ begin
   iomapper0: iomapper port map (
     clk => ioclock,
     pixelclk => pixelclock,
+    uartclock => uartclock,
     phi0 => phi0,
     reset => reset_combined,
     reset_out => reset_out,
@@ -816,7 +819,7 @@ begin
   -----------------------------------------------------------------------------
   monitor0 : uart_monitor port map (
     reset => reset_combined,
-    clock => ioclock,
+    clock => uartclock,
     tx       => UART_TXD,
     rx       => RsRx,
 

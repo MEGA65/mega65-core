@@ -143,6 +143,7 @@ architecture Behavioral of container is
   Port ( pixelclock : STD_LOGIC;
          cpuclock : std_logic;
          ioclock : std_logic;
+         uartclock : std_logic;
          btnCpuReset : in  STD_LOGIC;
          irq : in  STD_LOGIC;
          nmi : in  STD_LOGIC;
@@ -261,6 +262,7 @@ begin
       pixelclock      => pixelclock,
       cpuclock        => cpuclock,
 --      ioclock         => ioclock, -- 32MHz
+      uartclock         => ioclock, -- must be 32MHz
       ioclock         => cpuclock, -- Match CPU clock
       btncpureset => btncpureset,
       irq => irq,
