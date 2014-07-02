@@ -1458,7 +1458,7 @@ begin
           case state is
             when ResetLow =>
               reset_cpu_state;
-              vector <= x"e";
+              vector <= x"c";
               state <= VectorRead1;
             when VectorRead1 =>
               memory_access_address := x"000FFF"&vector;
@@ -1535,6 +1535,9 @@ begin
               -- (unless later overriden)            
               pc_inc := '1';
 
+              report "Executing instruction " & instruction'image(instruction_lut(to_integer(memory_read_value)))
+                severity note;
+              
               -- See if this is a single cycle instruction.
               -- Note that CLI and CLE take 2 cycles so that any
               -- pending interrupt can happen immediately (interrupts cannot
@@ -1739,11 +1742,12 @@ begin
                                    1+to_integer(reg_arg1(7)&reg_arg1(7)&reg_arg1(7)&reg_arg1(7)&
                                                 reg_arg1(7)&reg_arg1(7)&reg_arg1(7)&reg_arg1(7)&
                                                 reg_arg1);
-                      memory_access_read := '1';
-                      memory_access_address := x"000"&temp_addr;
-                      memory_access_resolve_address := '1';
+                      --memory_access_read := '1';
+                      --memory_access_address := x"000"&temp_addr;
+                      --memory_access_resolve_address := '1';
+                      -- Read next instruction next cycle to improve timing.
                       reg_pc <= temp_addr;
-                      state <= fast_fetch_state;
+                      state <= normal_fetch_state;
                       if fast_fetch_state = InstructionDecode then pc_inc := '1'; end if;
                     else
                       -- Branch will not be taken.
