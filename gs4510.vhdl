@@ -145,8 +145,6 @@ architecture Behavioural of gs4510 is
           );
   end component;
   
-  signal kickstart_en : std_logic := '1';
-
 --  signal fastram_last_address : std_logic_vector(13 downto 0);
 
   -- Shadow RAM control
@@ -499,14 +497,14 @@ begin
       reg_sph <= x"01";
       reg_pc <= x"8765";
 
-      -- Clear CPU MMU registers
-      reg_mb_low <= x"00";
-      reg_mb_high <= x"00";
-      reg_map_low <= "0000";
-      reg_map_high <= "0000";
+      -- Clear CPU MMU registers, and bank in kickstart ROM
+      reg_offset_high <= x"F00";
+      reg_map_high <= "1000";
       reg_offset_low <= x"000";
-      reg_offset_high <= x"000";
-
+      reg_map_low <= "0000";
+      reg_mb_high <= x"FF";
+      reg_mb_low <= x"00";
+      
       -- Map shadow RAM to unmapped address space at $C0000 (768KB)
       -- (as well as always-on shadowing of $00000-$1FFFF)
       shadow_bank <= x"0C";
@@ -688,16 +686,7 @@ begin
       if (blocknum=8) and rom_at_8000='1' then
         temp_address(27 downto 12) := x"0038";
       end if;
-      
-      -- Kickstart ROM (takes precedence over all else if enabled)
-      if (blocknum=14) and (kickstart_en='1') and (writeP=false) then
-        temp_address(27 downto 12) := x"FFFE";      
-      end if;
-      if (blocknum=15) and (kickstart_en='1') and (writeP=false) then
-        temp_address(27 downto 12) := x"002F";      
-        temp_address(27 downto 12) := x"FFFF";      
-      end if;
-      
+            
       return temp_address;
     end resolve_address_to_long;
 
@@ -973,7 +962,12 @@ begin
         -- re-enable kickstart ROM.  This is only to allow for easier development
         -- of kickstart ROMs.
         if value = x"4B" then
-          kickstart_en <= '1';        
+          reg_offset_high <= x"F00";
+          reg_map_high <= "1000";
+          reg_offset_low <= x"000";
+          reg_map_low <= "0000";
+          reg_mb_high <= x"FF";
+          reg_mb_low <= x"00";
         end if;
       end if;
       
@@ -1081,8 +1075,6 @@ begin
         -- For CPU port, things get more interesting.
         -- Bits 6 & 7 cannot be altered, and always read 0.
         cpuport_value(5 downto 0) <= value(5 downto 0);
-        -- writing to $01 ends kickstart mode
-        kickstart_en <= '0';
       else
         report "Writing $" & to_hstring(value) & " @ $" & to_hstring(address)
           & " (resolves to $" & to_hstring(long_address) & ")" severity note;
