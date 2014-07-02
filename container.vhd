@@ -252,8 +252,8 @@ begin
                -- For C64 mode it would be nice to have PAL or NTSC selectable.                    -- Perhaps consider a different video mode for that, or buffering
                -- the generated frames somewhere?
                clk_out2 => pixelclock,
---               clk_out3 => cpuclock, -- 48MHz
-               cpuclock => cpuclock, -- 64MHz
+               clk_out3 => cpuclock, -- 48MHz
+--               cpuclock => cpuclock, -- 64MHz
                ioclock => ioclock);
 
   machine0: machine
