@@ -1207,9 +1207,9 @@ begin
         end if;
         -- flag_c <= tmp(8);
       else
-        tmp := ("0"&i2)
-               + ("0"&i1)
-               + ("00000000"&flag_c);
+        tmp(8 downto 0) := ("0"&i2)
+                           + ("0"&i1)
+                           + ("00000000"&flag_c);
         tmp(7 downto 0) := tmp(7 downto 0);
         tmp(11) := tmp(7); -- N flag
         if (tmp(7 downto 0) = x"00") then
