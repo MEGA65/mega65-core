@@ -349,6 +349,7 @@ architecture Behavioural of gs4510 is
     IAbsXReadArg2,
     Imm16ReadArg2,
     TakeBranch8,TakeBranch8b,
+    LoadTarget,
     ActionCycle,
     DelayedWrite
     );
@@ -1668,23 +1669,16 @@ begin
                 case reg_addressingmode is
                   when M_impl =>  -- Handled in ActionCycle
                   when M_A =>     -- Handled in ActionCycle
-                  when M_InnX =>
-                    
+                  when M_InnX =>                    
                     temp_addr := reg_b & (reg_arg1+reg_X);
                     reg_addr <= temp_addr;
-                    memory_access_read := '1';
-                    memory_access_address := x"000"&temp_addr;
-                    memory_access_resolve_address := '1';
                     pc_inc := '1';
-                    state <= ActionCycle;
+                    state <= LoadTarget;
                   when M_nn =>
                     temp_addr := reg_b & reg_arg1;
                     reg_addr <= temp_addr;
-                    memory_access_read := '1';
-                    memory_access_address := x"000"&temp_addr;
-                    memory_access_resolve_address := '1';
                     pc_inc := '1';
-                    state <= ActionCycle;
+                    state <= LoadTarget;
                   when M_immnn => -- Handled in ActionCycle              
                   when M_nnnn =>
                     reg_addr(7 downto 0) <= reg_arg1;
@@ -1782,19 +1776,13 @@ begin
                   when M_nnX =>
                     temp_addr := reg_b & (reg_arg1 + reg_X);
                     reg_addr <= temp_addr;
-                    memory_access_read := '1';
-                    memory_access_address := x"000"&temp_addr;
-                    memory_access_resolve_address := '1';
                     pc_inc := '1';
-                    state <= ActionCycle;
+                    state <= LoadTarget;
                   when M_nnY =>
                     temp_addr := reg_b & (reg_arg1 + reg_X);
                     reg_addr <= temp_addr;
-                    memory_access_read := '1';
-                    memory_access_address := x"000"&temp_addr;
-                    memory_access_resolve_address := '1';
                     pc_inc := '1';
-                    state <= ActionCycle;
+                    state <= LoadTarget;
                   when M_nnnnY =>
                     reg_addr(7 downto 0) <= reg_arg1;
                     pc_inc := '1';
@@ -1930,6 +1918,13 @@ begin
               monitor_arg2 <= std_logic_vector(memory_read_value);
               monitor_ibytes(0) <= '1';
               state <= normal_fetch_state;
+            when LoadTarget =>
+              -- For some addressing modes we load the target in a separate
+              -- cycle to improve timing.
+              memory_access_read := '1';
+              memory_access_address := x"000"&reg_addr;
+              memory_access_resolve_address := '1';
+              state <= ActionCycle;
             when ActionCycle =>
               -- By this stage we have the address of the operand in
               -- reg_addr, and if it is a load instruction then the contents
