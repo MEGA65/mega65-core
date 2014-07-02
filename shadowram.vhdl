@@ -16,7 +16,8 @@ end shadowram;
 
 architecture Behavioral of shadowram is
 
-  type ram_t is array (0 to 262143) of std_logic_vector(7 downto 0);
+--  type ram_t is array (0 to 262143) of std_logic_vector(7 downto 0);
+  type ram_t is array (0 to 131071) of std_logic_vector(7 downto 0);
   signal ram : ram_t := (others => x"00");
   
 begin
@@ -27,14 +28,14 @@ begin
     if(rising_edge(Clk)) then 
       if cs='1' then
         if(we='1') then
-          ram(to_integer(unsigned(address))) <= data_i;
+          ram(to_integer(unsigned(address(16 downto 0)))) <= data_i;
           report "wrote to shadow ram" severity note;
         end if;
-        data_o <= ram(to_integer(unsigned(address)));
+        data_o <= ram(to_integer(unsigned(address(16 downto 0))));
       end if;
     end if;
     if cs='1' then
-      data_o <= ram(to_integer(unsigned(address)));
+      data_o <= ram(to_integer(unsigned(address(16 downto 0))));
     else
       data_o <= "ZZZZZZZZ";
     end if;
