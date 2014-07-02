@@ -448,8 +448,9 @@ architecture Behavioral of machine is
   
 --  signal cpuclock : std_logic := '1';
 --  signal ioclock : std_logic := '1';
-  -- Running CPU and IO both at 48MHz for now, so 1 wait state is enough.
-  signal io_wait_states : unsigned(7 downto 0) := x"01";
+  -- Running CPU and IO both at 48MHz, 1 wait state is enough.
+  -- Running CPU at 48MHz and IO at 32MHz, 3 wait states should be enough.
+  signal io_wait_states : unsigned(7 downto 0) := x"03";
   signal clock_phase : integer range 0 to 5 := 0;
 
   signal rom_at_e000 : std_logic := '0';
