@@ -637,8 +637,8 @@ rf1:
 
 		; start by setting MAP MB register to $80xxxxx
 		lda #$80
-		ldx #$0f
-		ldy #$00
+		ldx #$0f		
+		ldy #$ff   ; keep kickstart mapped at $E000-$FFFF
 		ldz #$0f
 		map
 		eom
@@ -665,8 +665,8 @@ rf1:
 		ora #$40
 		tax
 		lda zptempv
-		ldy #$00
-		ldz #$00
+		ldy #$f0   ; keep kickstart mapped at $E000-$FFFF
+		ldz #$80
 		map
 		eom
 
@@ -680,12 +680,19 @@ rr1:		lda $de00,x
 		bne rr1
 
 		; clear memory mapping
-		tya
+
+		; unmap block
+		lda #$00
 		tax
+		ldy #$f0   ; keep kickstart mapped at $E000-$FFFF
+		ldz #$80
 		map
 		eom
+		; set MB pointers
+		lda #$00
 		ldx #$0f
-		ldz #$0f
+		ldy #$f0   ; keep kickstart mapped at $E000-$FFFF
+		ldz #$80
 		map
 		eom
 
@@ -1462,12 +1469,14 @@ mapromchecksumrecord:
 		; select 128MB mark for mapping lower 32KB of address space
 		lda #$80
 		ldx #$0f
-		ldy #$00
-		ldz #$00
+		ldy #$ff   ; keep kickstart mapped at $E000-$FFFF
+		ldz #$0f
 		map
 		; then map $FC000 + $4000 = $00000 at $4000-$7FFF
 		lda #$c0
 		ldx #$cf
+		ldy #$f0   ; keep kickstart mapped at $E000-$FFFF
+		ldz #$80
 		map
 		eom
 		
@@ -1539,9 +1548,8 @@ sumslab:	; romcheckslab indicates which 16KB piece.
 		asl
 		asl
 		asl
-		; don't mess with mapping of upper 32KB.
-		ldy #$00
-		ldz #$00
+		ldy #$f0   ; keep kickstart mapped at $E000-$FFFF
+		ldz #$80
 		map
 		eom
 		
@@ -1869,9 +1877,17 @@ g61:		sta $0800,x   ; $0145 = high byte of address here
 		bne g61
 		
 		; disengage kickstart and start ROM
-		lda #$37
+		lda #$00
+		ldx #$0f
+		tay
+		ldz #$0f
+		map
+		tax
+		taz
 		sta $01
 		sta $00
+		map
+		eom
 		jmp (reset_vector)
 go64ramroutineend:
 
@@ -1880,12 +1896,13 @@ resetmemmap:
 		; clear memory MAP MB offset register
 		lda #$00
 		ldx #$0f
-		ldy #$00
-		ldz #$0f
+		ldy #$f0   ; keep kickstart mapped at $E000-$FFFF
+		ldz #$80
 		map
 		; and clear all mapping
 		tax
-		taz
+		ldy #$f0   ; keep kickstart mapped at $E000-$FFFF
+		ldz #$80
 		map
 		eom
 		rts
