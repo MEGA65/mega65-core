@@ -318,7 +318,8 @@ architecture Behavioral of viciv is
   signal x_chargen_start_display : unsigned(11 downto 0);
   signal x_chargen_start_minus1 : unsigned(11 downto 0);
   signal x_chargen_start_minus2 : unsigned(11 downto 0);
-  signal x_chargen_start_minus9 : unsigned(11 downto 0);
+  signal x_chargen_start_minus10 : unsigned(11 downto 0);
+  signal x_chargen_start_minus9 : std_logic;
   signal x_chargen_start_minus17 : unsigned(11 downto 0);
 
   signal y_chargen_start : unsigned(11 downto 0) := to_unsigned(0,12);  -- 100
@@ -1691,7 +1692,7 @@ begin
       -- Start displaying from the correct character
       -- The -3 is to allow for the 3 cycle pixel pipeline
       x_chargen_start_minus17 <= x_chargen_start+(frame_h_front-17-3);
-      x_chargen_start_minus9 <= x_chargen_start+frame_h_front-9-3;
+      x_chargen_start_minus10 <= x_chargen_start+frame_h_front-10-3;
       x_chargen_start_minus2 <= x_chargen_start+frame_h_front-2-3;
       x_chargen_start_minus1 <= x_chargen_start+frame_h_front-1-3;
       x_chargen_start_pipeline <= x_chargen_start+frame_h_front-3;
@@ -1716,7 +1717,12 @@ begin
         chargen_active_soon <= '0';
         cycles_to_next_card <= (others => '1');
       end if;
-      if xcounter=x_chargen_start_minus9 then
+      if xcounter=x_chargen_start_minus10 then
+        x_chargen_start_minus9 <= '1';
+      else
+        x_chargen_start_minus9 <= '0';
+      end if;
+      if x_chargen_start_minus9='1' then
         -- Start fetching first character of the row
         -- (8 cycles is plenty of time to fetch it)       
         char_fetch_cycle <= fsm0;
