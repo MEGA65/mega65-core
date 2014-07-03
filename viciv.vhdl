@@ -1132,6 +1132,16 @@ begin
       report "drive led = " & std_logic'image(led)
         & ", drive motor= " & std_logic'image(motor) severity note;
 
+      debug_next_card_number_drive2 <= debug_next_card_number_drive;
+      debug_cycles_to_next_card_drive2 <= debug_cycles_to_next_card_drive;
+      debug_chargen_active_drive2 <= debug_chargen_active_drive;
+      debug_chargen_active_soon_drive2 <= debug_chargen_active_soon_drive;
+      debug_char_fetch_cycle_drive2 <= debug_char_fetch_cycle_drive;
+      debug_charrow_drive2 <= debug_charrow_drive;
+      debug_charaddress_drive2 <= debug_charaddress_drive;
+      debug_character_data_from_rom_drive2 <= debug_character_data_from_rom_drive;
+      debug_screen_ram_buffer_address_drive2 <= debug_screen_ram_buffer_address_drive;
+      
       if viciv_legacy_mode_registers_touched='1' then
         viciv_interpret_legacy_mode_registers;
         viciv_legacy_mode_registers_touched <= '0';
@@ -2323,15 +2333,8 @@ begin
       debug_character_data_from_rom_drive <= debug_character_data_from_rom;
       debug_screen_ram_buffer_address_drive <= debug_screen_ram_buffer_address;
       -- Actually, we use two drive stages since the video timing is so pernickety.
-      debug_next_card_number_drive2 <= debug_next_card_number_drive;
-      debug_cycles_to_next_card_drive2 <= debug_cycles_to_next_card_drive;
-      debug_chargen_active_drive2 <= debug_chargen_active_drive;
-      debug_chargen_active_soon_drive2 <= debug_chargen_active_soon_drive;
-      debug_char_fetch_cycle_drive2 <= debug_char_fetch_cycle_drive;
-      debug_charrow_drive2 <= debug_charrow_drive;
-      debug_charaddress_drive2 <= debug_charaddress_drive;
-      debug_character_data_from_rom_drive2 <= debug_character_data_from_rom_drive;
-      debug_screen_ram_buffer_address_drive2 <= debug_screen_ram_buffer_address_drive;
+      -- The 2nd drive stage is driven by the ioclock. Search for _drive2 to
+      -- find it.
       
       if displayx=debug_x and displayy=debug_y then
         debug_next_card_number <= next_card_number;
