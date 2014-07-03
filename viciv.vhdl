@@ -234,6 +234,7 @@ architecture Behavioral of viciv is
   signal xcounter : unsigned(11 downto 0) := (others => '0');
   signal xcounter_drive : unsigned(11 downto 0) := (others => '0');
   signal ycounter : unsigned(10 downto 0) := (others => '0');
+  signal ycounter_drive : unsigned(10 downto 0) := (others => '0');
   -- Virtual raster number for VIC-II
   signal vicii_ycounter : unsigned(8 downto 0) := (others => '0');
   signal vicii_ycounter_phase : unsigned(2 downto 0) := (others => '0');
@@ -534,6 +535,7 @@ architecture Behavioral of viciv is
   signal inborder_t1 : std_logic;
   signal inborder_t2 : std_logic;
   signal xfrontporch : std_logic;
+  signal xfrontporch_drive : std_logic;
   signal xbackporch : std_logic;
 
   signal last_ramaddress : std_logic_vector(13 downto 0);
@@ -1023,10 +1025,10 @@ begin
           fastio_rdata(7 downto 4) <= x"0";
           fastio_rdata(3 downto 0) <= std_logic_vector(xcounter_drive(11 downto 8));
         elsif register_number=82 then
-          fastio_rdata <= std_logic_vector(ycounter(7 downto 0));
+          fastio_rdata <= std_logic_vector(ycounter_drive(7 downto 0));
         elsif register_number=83 then
           fastio_rdata(7 downto 3) <= "00000";
-          fastio_rdata(2 downto 0) <= std_logic_vector(ycounter(10 downto 8));
+          fastio_rdata(2 downto 0) <= std_logic_vector(ycounter_drive(10 downto 8));
         elsif register_number=84 then
                                         -- $D054 (53332) - New mode control register
           fastio_rdata(7 downto 3) <= (others => '1');
@@ -1039,9 +1041,9 @@ begin
                                          8));
           fastio_rdata <= x"FF";
         elsif register_number=86 then
-          fastio_rdata <= std_logic_vector(cycles_to_next_card);
+          fastio_rdata <= std_logic_vector(cycles_to_next_card_drive);
         elsif register_number=87 then
-          fastio_rdata(7) <= xfrontporch;
+          fastio_rdata(7) <= xfrontporch_drive;
           fastio_rdata(6) <= xbackporch;
           fastio_rdata(5) <= chargen_active_drive;
           fastio_rdata(4) <= inborder_drive;
@@ -1155,6 +1157,8 @@ begin
       cycles_to_next_card_drive <= cycles_to_next_card;
       chargen_active_drive <= chargen_active;
       xcounter_drive <= xcounter;
+      ycounter_drive <= ycounter;
+      xfrontporch_drive <= xfrontporch;
       
       if viciv_legacy_mode_registers_touched='1' then
         viciv_interpret_legacy_mode_registers;
