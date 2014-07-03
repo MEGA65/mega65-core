@@ -299,6 +299,16 @@ architecture Behavioral of viciv is
   signal debug_charaddress_drive : std_logic_vector(11 downto 0);
   signal debug_charrow_drive : std_logic_vector(7 downto 0);
 
+  signal debug_screen_ram_buffer_address_drive2 : unsigned(8 downto 0);
+  signal debug_cycles_to_next_card_drive2 : unsigned(7 downto 0);
+  signal debug_next_card_number_drive2 : unsigned(15 downto 0);
+  signal debug_char_fetch_cycle_drive2 : vic_fetch_fsm;
+  signal debug_chargen_active_drive2 : std_logic;
+  signal debug_chargen_active_soon_drive2 : std_logic;
+  signal debug_character_data_from_rom_drive2 : std_logic;
+  signal debug_charaddress_drive2 : std_logic_vector(11 downto 0);
+  signal debug_charrow_drive2 : std_logic_vector(7 downto 0);
+
   -----------------------------------------------------------------------------
   -- Video controller registers
   -----------------------------------------------------------------------------
@@ -1077,24 +1087,24 @@ begin
         elsif register_number=114 then -- $D372
           fastio_rdata <= "0000"&std_logic_vector(x_chargen_start_minus17(11 downto 8));
         elsif register_number=115 then  -- $D373
-          fastio_rdata <= std_logic_vector(debug_next_card_number_drive(7 downto 0));
+          fastio_rdata <= std_logic_vector(debug_next_card_number_drive2(7 downto 0));
         elsif register_number=116 then  -- $D374
-          fastio_rdata <= std_logic_vector(debug_next_card_number_drive(15 downto 8));
+          fastio_rdata <= std_logic_vector(debug_next_card_number_drive2(15 downto 8));
         elsif register_number=117 then  -- $D375
-          fastio_rdata <= std_logic_vector(debug_cycles_to_next_card_drive(7 downto 0));
+          fastio_rdata <= std_logic_vector(debug_cycles_to_next_card_drive2(7 downto 0));
         elsif register_number=118 then  -- $D376
-          fastio_rdata <= "00000" & debug_character_data_from_rom & debug_chargen_active_drive & debug_chargen_active_soon_drive;
+          fastio_rdata <= "00000" & debug_character_data_from_rom_drive2 & debug_chargen_active_drive2 & debug_chargen_active_soon_drive2;
         elsif register_number=119 then  -- $D377
-          fastio_rdata <= std_logic_vector(debug_screen_ram_buffer_address_drive(7 downto 0));
+          fastio_rdata <= std_logic_vector(debug_screen_ram_buffer_address_drive2(7 downto 0));
         elsif register_number=124 then
           fastio_rdata <=
-            std_logic_vector(to_unsigned(vic_fetch_fsm'pos(debug_char_fetch_cycle_drive),8));
+            std_logic_vector(to_unsigned(vic_fetch_fsm'pos(debug_char_fetch_cycle_drive2),8));
         elsif register_number=125 then
-          fastio_rdata <= debug_charaddress_drive(7 downto 0);
+          fastio_rdata <= debug_charaddress_drive2(7 downto 0);
         elsif register_number=126 then
-          fastio_rdata <= "0000" & debug_charaddress_drive(11 downto 8);
+          fastio_rdata <= "0000" & debug_charaddress_drive2(11 downto 8);
         elsif register_number=127 then
-          fastio_rdata <= debug_charrow_drive;
+          fastio_rdata <= debug_charrow_drive2;
         elsif register_number<256 then
                                         -- Fill in unused register space
           fastio_rdata <= (others => 'Z');
@@ -2312,6 +2322,16 @@ begin
       debug_charaddress_drive <= debug_charaddress;
       debug_character_data_from_rom_drive <= debug_character_data_from_rom;
       debug_screen_ram_buffer_address_drive <= debug_screen_ram_buffer_address;
+      -- Actually, we use two drive stages since the video timing is so pernickety.
+      debug_next_card_number_drive2 <= debug_next_card_number_drive;
+      debug_cycles_to_next_card_drive2 <= debug_cycles_to_next_card_drive;
+      debug_chargen_active_drive2 <= debug_chargen_active_drive;
+      debug_chargen_active_soon_drive2 <= debug_chargen_active_soon_drive;
+      debug_char_fetch_cycle_drive2 <= debug_char_fetch_cycle_drive;
+      debug_charrow_drive2 <= debug_charrow_drive;
+      debug_charaddress_drive2 <= debug_charaddress_drive;
+      debug_character_data_from_rom_drive2 <= debug_character_data_from_rom_drive;
+      debug_screen_ram_buffer_address_drive2 <= debug_screen_ram_buffer_address_drive;
       
       if displayx=debug_x and displayy=debug_y then
         debug_next_card_number <= next_card_number;
