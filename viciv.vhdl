@@ -232,6 +232,7 @@ architecture Behavioral of viciv is
   
   -- Frame generator counters
   signal xcounter : unsigned(11 downto 0) := (others => '0');
+  signal xcounter_drive : unsigned(11 downto 0) := (others => '0');
   signal ycounter : unsigned(10 downto 0) := (others => '0');
   -- Virtual raster number for VIC-II
   signal vicii_ycounter : unsigned(8 downto 0) := (others => '0');
@@ -244,6 +245,7 @@ architecture Behavioral of viciv is
   
   -- Actual pixel positions in the frame
   signal displayx : unsigned(11 downto 0) := (others => '0');
+  signal displayx_drive : unsigned(11 downto 0) := (others => '0');
   signal displayy : unsigned(11 downto 0) := (others => '0');
   signal display_active : std_logic := '0';
   -- Mark if we are in the top line of display
@@ -331,6 +333,7 @@ architecture Behavioral of viciv is
   signal x_chargen_start_minus10 : unsigned(11 downto 0);
   signal x_chargen_start_minus9 : std_logic;
   signal x_chargen_start_minus17 : unsigned(11 downto 0);
+  signal x_chargen_start_minus17_drive : unsigned(11 downto 0);
 
   signal y_chargen_start : unsigned(11 downto 0) := to_unsigned(0,12);  -- 100
   -- Charset is 16bit (2 bytes per char) when this mode is enabled.
@@ -462,7 +465,9 @@ architecture Behavioral of viciv is
   signal next_chargen_x : unsigned(2 downto 0) := (others => '0');
   signal next_card_number_is_extended : std_logic;  -- set if card_number > $00FF
   signal chargen_active : std_logic := '0';
+  signal chargen_active_drive : std_logic := '0';
   signal chargen_active_soon : std_logic := '0';
+  signal chargen_active_soon_drive : std_logic := '0';
 
   -- data for current card
   signal bitmap_colours  : unsigned(7 downto 0);
@@ -491,6 +496,7 @@ architecture Behavioral of viciv is
   signal indisplay_t3 : std_logic := '0';
   signal next_card_number : unsigned(15 downto 0) := (others => '0');
   signal cycles_to_next_card : unsigned(7 downto 0);
+  signal cycles_to_next_card_drive : unsigned(7 downto 0);
   
   -- Interface to character generator rom
   signal charaddress : std_logic_vector(11 downto 0);
@@ -524,6 +530,7 @@ architecture Behavioral of viciv is
   -- Border generation signals
   -- (see video registers section for the registers that define the border size)
   signal inborder : std_logic;
+  signal inborder_drive : std_logic;
   signal inborder_t1 : std_logic;
   signal inborder_t2 : std_logic;
   signal xfrontporch : std_logic;
@@ -860,7 +867,7 @@ begin
         elsif register_number=18 then          -- $D012 current raster low 8 bits
           fastio_rdata <= std_logic_vector(vicii_ycounter(7 downto 0));
         elsif register_number=19 then          -- $D013 lightpen X (coarse rasterX)
-          fastio_rdata <= std_logic_vector(displayx(11 downto 4));
+          fastio_rdata <= std_logic_vector(displayx_drive(11 downto 4));
         elsif register_number=20 then          -- $D014 lightpen Y (coarse rasterY)
           fastio_rdata <= std_logic_vector(displayy(11 downto 4));
         elsif register_number=21 then          -- $D015 compatibility sprite enable
@@ -935,7 +942,7 @@ begin
             & "0"                         -- External sync
             & colourram_at_dc00_internal;  -- 2KB colour RAM
         elsif register_number=49 then
-          -- XXX Can emulate VIC-III H640, V400 and H1280 by adjusting x and y scale
+          -- Can emulate VIC-III H640, V400 and H1280 by adjusting x and y scale
           -- registers
           fastio_rdata <=
             reg_h640                           -- H640
@@ -1011,10 +1018,10 @@ begin
           fastio_rdata(7 downto 4) <= x"0";
           fastio_rdata(3 downto 0) <= std_logic_vector(y_chargen_start(11 downto 8));
         elsif register_number=80 then
-          fastio_rdata <= std_logic_vector(xcounter(7 downto 0));
+          fastio_rdata <= std_logic_vector(xcounter_drive(7 downto 0));
         elsif register_number=81 then
           fastio_rdata(7 downto 4) <= x"0";
-          fastio_rdata(3 downto 0) <= std_logic_vector(xcounter(11 downto 8));
+          fastio_rdata(3 downto 0) <= std_logic_vector(xcounter_drive(11 downto 8));
         elsif register_number=82 then
           fastio_rdata <= std_logic_vector(ycounter(7 downto 0));
         elsif register_number=83 then
@@ -1036,9 +1043,9 @@ begin
         elsif register_number=87 then
           fastio_rdata(7) <= xfrontporch;
           fastio_rdata(6) <= xbackporch;
-          fastio_rdata(5) <= chargen_active;
-          fastio_rdata(4) <= inborder;
-          fastio_rdata(3) <= chargen_active_soon;
+          fastio_rdata(5) <= chargen_active_drive;
+          fastio_rdata(4) <= inborder_drive;
+          fastio_rdata(3) <= chargen_active_soon_drive;
           fastio_rdata(2 downto 0) <= "111";
         elsif register_number=88 then
           fastio_rdata <= std_logic_vector(card_number_drive(7 downto 0));
@@ -1083,9 +1090,9 @@ begin
         elsif register_number=112 then -- $D370
           fastio_rdata <= palette_bank_fastio & palette_bank_chargen & palette_bank_sprites & "11";
         elsif register_number=113 then -- $D371
-          fastio_rdata <= std_logic_vector(x_chargen_start_minus17(7 downto 0));
+          fastio_rdata <= std_logic_vector(x_chargen_start_minus17_drive(7 downto 0));
         elsif register_number=114 then -- $D372
-          fastio_rdata <= "0000"&std_logic_vector(x_chargen_start_minus17(11 downto 8));
+          fastio_rdata <= "0000"&std_logic_vector(x_chargen_start_minus17_drive(11 downto 8));
         elsif register_number=115 then  -- $D373
           fastio_rdata <= std_logic_vector(debug_next_card_number_drive2(7 downto 0));
         elsif register_number=116 then  -- $D374
@@ -1141,6 +1148,13 @@ begin
       debug_charaddress_drive2 <= debug_charaddress_drive;
       debug_character_data_from_rom_drive2 <= debug_character_data_from_rom_drive;
       debug_screen_ram_buffer_address_drive2 <= debug_screen_ram_buffer_address_drive;
+      inborder_drive <= inborder;
+      x_chargen_start_minus17_drive <= x_chargen_start_minus17;
+      displayx_drive <= displayx;
+      chargen_active_soon_drive <= chargen_active_soon;
+      cycles_to_next_card_drive <= cycles_to_next_card;
+      chargen_active_drive <= chargen_active;
+      xcounter_drive <= xcounter;
       
       if viciv_legacy_mode_registers_touched='1' then
         viciv_interpret_legacy_mode_registers;
@@ -2212,7 +2226,7 @@ begin
       if extended_background_mode='1' then
         -- XXX Until we support reading screen memory, use card number
         -- as the source of the extended background colour
-        case card_number_t3(7 downto 6) is
+        case glyph_number(7 downto 6) is
           when "00" => card_bg_colour := screen_colour;
           when "01" => card_bg_colour := multi1_colour;
           when "10" => card_bg_colour := multi2_colour;
@@ -2262,7 +2276,6 @@ begin
           end case;
         elsif multicolour_mode='1' and text_mode='0' and sixteenbit_charset='0' then
           -- Multicolour bitmap mode.
-          -- XXX Not yet implemented
           case multicolour_bits is
             when "00" => pixel_colour <= card_bg_colour;
             when "01" => pixel_colour <= "0000"&glyph_number(7 downto 4);
@@ -2272,7 +2285,6 @@ begin
           end case;
         elsif multicolour_mode='1' and text_mode='0' and sixteenbit_charset='1' then
           -- Multicolour bitmap mode.
-          -- XXX Not yet implemented
           case multicolour_bits is
             when "00" => pixel_colour <= card_bg_colour;
             when "01" => pixel_colour <= glyph_number(15 downto 8);
