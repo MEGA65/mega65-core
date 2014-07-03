@@ -169,6 +169,7 @@ architecture behavioural of uart_monitor is
                          ShowMemory1,ShowMemory2,ShowMemory3,ShowMemory4,
                          ShowMemory5,ShowMemory6,ShowMemory7,ShowMemory8,
                          ShowMemory9,
+                         CPUStateLog,
                          FillMemory1,FillMemory2,FillMemory3,FillMemory4,
                          FillMemory5,
                          SetPC1,
@@ -228,6 +229,12 @@ architecture behavioural of uart_monitor is
   signal break_enabled : std_logic := '0';
   
   signal monitor_mem_trace_toggle_internal : std_logic := '0';
+
+  -- Remember last 16 CPU states prior to hitting ProcessorHold
+  signal cpu_state_buf : sixteenbytes;
+  signal cpu_state_count : integer range 0 to 16;
+  signal cpu_state_was_hold : std_logic := '0';
+
 begin
 
   uart_tx0: uart_tx_ctrl
@@ -536,6 +543,22 @@ begin
       trace_continuous <= '0';
     elsif rising_edge(clock) then
 
+      -- Maintain list of recent CPU states
+      if (monitor_cpu_state /= x"0B") then
+        if cpu_state_was_hold='1' then
+          cpu_state_buf(0) <= monitor_cpu_state;
+          cpu_state_count <= 1;
+        else
+          if (cpu_state_count < 16) then
+            cpu_state_buf(cpu_state_count) <= monitor_cpu_state;
+            cpu_state_count <= cpu_state_count + 1;
+          end if;
+        end if;
+        cpu_state_was_hold <= '0';
+      else
+        cpu_state_was_hold <= '1';
+      end if;
+      
       -- Stop CPU when we reach the specified location
       if break_enabled='1' and break_address = unsigned(monitor_pc) then
         monitor_mem_trace_mode <= '1';
@@ -719,7 +742,12 @@ begin
                   parse_hex(CPUBreak1);
                 end if;
               elsif cmdbuffer(1) = 'z' or cmdbuffer(1) = 'Z' then
-                print_hex(unsigned(monitor_debug_memory_access),8,NextCommand);
+                banner_position <= 1;
+                if cpu_state_count /= 0 then
+                  print_hex_byte(cpu_state_buf(0),CPUStateLog);
+                else
+                  state <= NextCommand;
+                end if;
               elsif cmdbuffer(1) = 'l' or cmdbuffer(1) = 'L' then
                 report "load memory command" severity note;
                 parse_position <= 2;
@@ -777,6 +805,13 @@ begin
 
               cmdlen <= 1;
               state <= ShowRegisters;
+            end if;
+          when CPUStateLog =>
+            if banner_position /= cpu_state_count then
+              print_hex_byte(cpu_state_buf(banner_position),CPUStateLog);
+              banner_position <= banner_position + 1;
+            else
+              state <= NextCommand;
             end if;
           when FillMemory1 =>
             target_address <= hex_value(27 downto 0);
