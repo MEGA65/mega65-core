@@ -1560,7 +1560,7 @@ begin
               -- happen immediately after a single cycle instruction, because
               -- interrupts are only checked in InstructionFetch, not
               -- InstructionDecode).
-              case reg_opcode is
+              case memory_read_value is
                 when x"03" => flag_e <= '1';  -- SEE
                 when x"0B" => reg_y <= reg_sph; -- TSY
                 when x"18" => flag_c <= '0';  -- CLC
