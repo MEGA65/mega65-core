@@ -262,7 +262,8 @@ begin
       pixelclock      => pixelclock,
       cpuclock        => cpuclock,
 --      ioclock         => ioclock, -- 32MHz
-      uartclock         => ioclock, -- must be 32MHz
+--      uartclock         => ioclock, -- must be 32MHz
+      uartclock         => cpuclock, -- Match CPU clock (48MHz)
       ioclock         => cpuclock, -- Match CPU clock
       btncpureset => btncpureset,
       irq => irq,
