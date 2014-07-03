@@ -331,7 +331,7 @@ architecture Behavioural of gs4510 is
     ProcessorHold,
     MonitorMemoryAccess,
     InstructionFetch,
-    InstructionDecode,
+    InstructionDecode,  -- $0E
     Cycle2,Cycle3,
     Pull,
     RTI,RTS1,RTS2,
@@ -344,12 +344,11 @@ architecture Behavioural of gs4510 is
     AbsXReadArg2,
     AbsYReadArg2,
     IAbsReadArg2,
-    IAbsXReadArg2,
+    IAbsXReadArg2,  -- $20 ?
     Imm16ReadArg2,
     TakeBranch8,TakeBranch8b,
     LoadTarget,
-    ActionCycle,
-    DelayedWrite
+    ActionCycle -- $25
     );
   signal state : processor_state := ResetLow;
   signal fast_fetch_state : processor_state := InstructionDecode;
@@ -443,10 +442,6 @@ architecture Behavioural of gs4510 is
   signal is_store : std_logic;
   signal rmw_dummy_write_done : std_logic;
   
-  signal delayed_write_resolve : std_logic;
-  signal delayed_write_address : unsigned(27 downto 0);
-  signal delayed_write_wdata : unsigned(7 downto 0);
-
   signal a_incremented : unsigned(7 downto 0);
   signal a_decremented : unsigned(7 downto 0);
   signal a_negated : unsigned(7 downto 0);
@@ -1444,20 +1439,6 @@ begin
 
           proceed <= '1';
         end if;
-        -- Do memory writes in their own clock cycle to keep logic depth down.
-        -- The trade-off is one cycle delay on all memory writes.
-        -- Memory writes are only perhaps 20% of all cycles,
-        -- so 4/5*1 + 1/5 * 2 = 6/5 of the time, so 5/6 the speed, about
-        -- 83% of maximum speed.  This is much better than cutting the
-        -- clock speed by 1/3, which is the only other real option.
-        --if delayed_memory_write='1' then
-        --delayed_memory_write <= '0';
-        --if delayed_memory_write_resolve_address = '1' then
-        --  write_data(delayed_memory_write_address(15 downto 0),delayed_memory_write_data);
-        --else 
-        --  write_long_byte(delayed_memory_write_address,delayed_memory_write_data);
-        --end if;
-        --end if;
 
         monitor_proceed <= proceed;
         monitor_request_reflected <= monitor_mem_attention_request;
@@ -1972,13 +1953,6 @@ begin
               if reg_microcode.mcMap='1' then
                 c65_map_instruction;
               end if;
-            when DelayedWrite =>
-              memory_access_read := '0';
-              if delayed_write_resolve = '1' then
-                write_data(delayed_write_address(15 downto 0),delayed_write_wdata);
-              else 
-                write_long_byte(delayed_write_address,delayed_write_wdata);
-              end if;
             when others =>
               state <= normal_fetch_state;
           end case;
@@ -2005,10 +1979,6 @@ begin
         -- the operation is read or write.  ROM accesses are a good example.
         -- We delay the memory write until the next cycle to minimise logic depth
         if memory_access_write='1' then
-          --delayed_memory_write <= '1';
-          --delayed_memory_write_resolve_address <= memory_access_resolve_address;
-          --delayed_memory_write_address <= memory_access_address;
-          --delayed_memory_write_data <= memory_access_wdata;
           if memory_access_resolve_address = '1' then
             write_data(memory_access_address(15 downto 0),memory_access_wdata);
           else 
@@ -2016,9 +1986,7 @@ begin
           end if;
         end if;
 
-                                        -- We make sure that there is no write being committed before pushing the
-                                        -- read through.
-        if memory_access_read='1' then -- and delayed_memory_write='0' then
+        if memory_access_read='1' then 
           report "memory_access_read=1, addres=$"&to_hstring(memory_access_address) severity note;
           if memory_access_resolve_address = '1' then
             memory_access_address := resolve_address_to_long(memory_access_address(15 downto 0),false);

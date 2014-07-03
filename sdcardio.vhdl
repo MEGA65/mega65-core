@@ -157,9 +157,9 @@ architecture behavioural of sdcardio is
 
   signal pwm_value_new_left : unsigned(7 downto 0) := x"00";
   signal pwm_value_new_right : unsigned(7 downto 0) := x"00";
-  signal pwm_value_combined : unsigned(7 downto 0) := x"00";
-  signal pwm_value : unsigned(7 downto 0) := x"00";
-  signal pwm_phase : unsigned(7 downto 0) := x"00";
+  signal pwm_value_combined : unsigned(9 downto 0) := "0000000000";
+  signal pwm_value : unsigned(9 downto 0) := "0000000000";
+  signal pwm_phase : unsigned(9 downto 0) := "0000000000";
 
   signal mic_divider : unsigned(3 downto 0) := "0000";
   signal mic_counter : unsigned(7 downto 0) := "00000000";
@@ -328,8 +328,10 @@ begin  -- behavioural
     if rising_edge(clock) then
 
       -- Generate combined audio from stereo sids plus 2 8-bit digital channels
-      pwm_value_combined <= leftsid_audio(17 downto 10) + rightsid_audio(17 downto 10)
-                            + pwm_value_new_left + pwm_value_new_right;
+      pwm_value_combined <= to_unsigned(to_integer(leftsid_audio(17 downto 10))
+                                        + to_integer(rightsid_audio(17 downto 10))
+                                        + to_integer(pwm_value_new_left)
+                                        + to_integer(pwm_value_new_right),10);
       
       -- Implement 10-bit digital audio output
       pwm_phase <= pwm_phase + 1;
@@ -363,6 +365,7 @@ begin  -- behavioural
           if micData='1' then
             mic_onecount <= mic_onecount + 1;
           end if;
+          mic_counter <= mic_counter + 1;
         else
           -- finished sampling, update output
           if micLRSelinternal='0' then

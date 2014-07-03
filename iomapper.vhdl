@@ -493,6 +493,8 @@ begin
       cia2cs <= '0';
       kickstartcs <= '0';
       sectorbuffercs <= '0';
+      leftsid_cs <= '0';
+      rightsid_cs <= '0';
     end if;
   end process;
 
