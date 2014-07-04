@@ -259,17 +259,15 @@ architecture Behavioral of machine is
       slowram_data : inout std_logic_vector(15 downto 0);
 
       ---------------------------------------------------------------------------
-      -- Interface to FastRAM in video controller (just 128KB for now)
+      -- Interface to ChipRAM in video controller (just 128KB for now)
       ---------------------------------------------------------------------------
-      fastram_we : OUT STD_LOGIC_VECTOR(7 DOWNTO 0);
-      fastram_address : OUT STD_LOGIC_VECTOR(13 DOWNTO 0);
-      fastram_datain : OUT STD_LOGIC_VECTOR(63 DOWNTO 0);
-      fastram_dataout : IN STD_LOGIC_VECTOR(63 DOWNTO 0);
-      
+      chipram_we : OUT STD_LOGIC;
+      chipram_address : OUT unsigned(16 DOWNTO 0);
+      chipram_datain : OUT unsigned(7 DOWNTO 0);
+
       ---------------------------------------------------------------------------
       -- fast IO port (clocked at core clock). 1MB address space
       ---------------------------------------------------------------------------
-      fastramwaitstate : in std_logic;
       fastio_addr : inout std_logic_vector(19 downto 0);
       fastio_read : inout std_logic;
       fastio_write : inout std_logic;
@@ -314,12 +312,11 @@ architecture Behavioral of machine is
       vgablue : out  UNSIGNED (3 downto 0);
 
       ---------------------------------------------------------------------------
-      -- CPU Interface to FastRAM in video controller (just 128KB for now)
+      -- CPU Interface to ChipRAM in video controller (just 128KB for now)
       ---------------------------------------------------------------------------
-      fastram_we : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
-      fastram_address : IN STD_LOGIC_VECTOR(13 DOWNTO 0);
-      fastram_datain : IN STD_LOGIC_VECTOR(63 DOWNTO 0);
-      fastram_dataout : OUT STD_LOGIC_VECTOR(63 DOWNTO 0);
+      chipram_we : IN STD_LOGIC;
+      chipram_address : IN unsigned(16 DOWNTO 0);
+      chipram_datain : IN unsigned(7 DOWNTO 0);
       
       -----------------------------------------------------------------------------
       -- FastIO interface for accessing video registers
@@ -441,10 +438,9 @@ architecture Behavioral of machine is
   signal colour_ram_fastio_rdata : std_logic_vector(7 downto 0);
   signal sector_buffer_mapped : std_logic;
 
-  signal fastram_we : STD_LOGIC_VECTOR(7 DOWNTO 0);
-  signal fastram_address : STD_LOGIC_VECTOR(13 DOWNTO 0);
-  signal fastram_datain : STD_LOGIC_VECTOR(63 DOWNTO 0);
-  signal fastram_dataout : STD_LOGIC_VECTOR(63 DOWNTO 0);
+  signal chipram_we : STD_LOGIC;
+  signal chipram_address : STD_LOGIC_VECTOR(16 DOWNTO 0);
+  signal chipram_datain : STD_LOGIC_VECTOR(7 DOWNTO 0);
   
 --  signal cpuclock : std_logic := '1';
 --  signal ioclock : std_logic := '1';
@@ -692,11 +688,9 @@ begin
     slowram_ub => slowram_ub,
     slowram_data => slowram_data,
 
-    fastramwaitstate => sw(14),
-    fastram_we => fastram_we,
-    fastram_address => fastram_address,
-    fastram_datain => fastram_datain,
-    fastram_dataout => fastram_dataout,
+    chipram_we => chipram_we,
+    chipram_address => chipram_address,
+    chipram_datain => chipram_datain,
     
     fastio_addr => fastio_addr,
     fastio_read => fastio_read,
@@ -737,10 +731,9 @@ begin
       vgagreen        => vgagreen,
       vgablue         => vgablue,
 
-      fastram_we => fastram_we,
-      fastram_address => fastram_address,
-      fastram_datain => fastram_datain,
-      fastram_dataout => fastram_dataout,    
+      chipram_we => chipram_we,
+      chipram_address => chipram_address,
+      chipram_datain => chipram_datain,
       colour_ram_fastio_rdata => colour_ram_fastio_rdata,
       colour_ram_cs => colour_ram_cs,
 

@@ -57,7 +57,7 @@ entity viciv is
     ----------------------------------------------------------------------
     pixelclock : in  STD_LOGIC;
     ----------------------------------------------------------------------
-    -- CPU clock (used for fastram and fastio interfaces)
+    -- CPU clock (used for chipram and fastio interfaces)
     ----------------------------------------------------------------------
     cpuclock : in std_logic;
     ioclock : in std_logic;
@@ -81,12 +81,11 @@ entity viciv is
     vgablue : out  UNSIGNED (3 downto 0);
 
     ---------------------------------------------------------------------------
-    -- CPU Interface to FastRAM in video controller (just 128KB for now)
+    -- CPU Interface to ChipRAM in video controller (just 128KB for now)
     ---------------------------------------------------------------------------
-    fastram_we : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
-    fastram_address : IN STD_LOGIC_VECTOR(13 DOWNTO 0);
-    fastram_datain : IN STD_LOGIC_VECTOR(63 DOWNTO 0);
-    fastram_dataout : OUT STD_LOGIC_VECTOR(63 DOWNTO 0);      
+    chipram_we : IN STD_LOGIC;
+    chipram_address : IN unsigned(16 DOWNTO 0);
+    chipram_datain : IN unsigned(7 DOWNTO 0);
     
     -----------------------------------------------------------------------------
     -- FastIO interface for accessing video registers
@@ -155,21 +154,18 @@ architecture Behavioral of viciv is
   END component;
   
   -- 128KB internal chip RAM
-  component ram64x16k
+  component chipram8bit IS
     PORT (
       clka : IN STD_LOGIC;
-      wea : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
-      addra : IN STD_LOGIC_VECTOR(13 DOWNTO 0);
-      dina : IN STD_LOGIC_VECTOR(63 DOWNTO 0);
-      douta : OUT STD_LOGIC_VECTOR(63 DOWNTO 0);
+      wea : IN STD_LOGIC_VECTOR(0 DOWNTO 0);
+      addra : IN STD_LOGIC_VECTOR(16 DOWNTO 0);
+      dina : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
       clkb : IN STD_LOGIC;
-      web : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
-      addrb : IN STD_LOGIC_VECTOR(13 DOWNTO 0);
-      dinb : IN STD_LOGIC_VECTOR(63 DOWNTO 0);
-      doutb : OUT STD_LOGIC_VECTOR(63 DOWNTO 0)
+      addrb : IN STD_LOGIC_VECTOR(16 DOWNTO 0);
+      doutb : OUT STD_LOGIC_VECTOR(7 DOWNTO 0)
       );
-  end component;
-
+  END component;
+  
   -- 1K x 32bit ram for palette
   component ram32x1024 IS
     PORT (
@@ -410,7 +406,7 @@ architecture Behavioral of viciv is
   -- NOTE: The following registers require 64-bit alignment. Default addresses
   -- are fairly arbitrary.
   -- Colour RAM offset (we just use some normal RAM for colour RAM, since in the
-  -- worst case we can need >32KB of it.  Must correspond to a FastRAM address,
+  -- worst case we can need >32KB of it.  Must correspond to a ChipRAM address,
   -- so the MSBs are irrelevant.
   signal colour_ram_base : unsigned(15 downto 0) := x"0000";
   -- Screen RAM offset
@@ -585,24 +581,20 @@ begin
       addra  => std_logic_vector(screen_ram_buffer_address(5 downto 0)),
       addrb  => std_logic_vector(screen_ram_buffer_address(8 downto 0))
       );
-  
-  fastram1 : component ram64x16k
-    PORT MAP (
-      -- CPU side port
+
+  chipram0: component chipram8bit
+    port map (
+      -- CPU side port (write)
       clka => cpuclock,
-      wea => fastram_we,
-      addra => fastram_address,
-      dina => fastram_datain,
-      douta => fastram_dataout,
-      -- video controller use port b of the dual-port fast ram.
-      -- The CPU uses port a
+      wea(0) => chipram_we,
+      addra => std_logic_vector(chipram_address),
+      dina => std_logic_vector(chipram_datain),
+      -- VIC-IV side port (read)
       clkb => pixelclock,
-      web => (others => '0'),
       addrb => ramaddress,
-      dinb => (others => '0'),
       doutb => ramdata
       );
-
+  
   colourram1 : component ram8x64k
     PORT MAP (
       clka => cpuclock,
@@ -1658,6 +1650,40 @@ begin
         -- Work out if we are at the end of a character
         cycles_to_next_card <= cycles_to_next_card - 1;
         if cycles_to_next_card = x"09" then
+          -- Work out the address of the data we need to fetch.
+          -- XXX horizontal and vertical flip not yet implemented.
+          if text_mode='1' then
+            -- Text mode: Request first byte of memory with character data in it
+            -- We know the character number since it was pre-fetched
+            if next_card_number_is_extended='1' then
+              -- VIC-IV full-colour character, so simply 64*glyph number +
+              -- 8*row_number.
+              carddata_baseaddress <= to_unsigned(to_integer(character_set_address(16 downto 0))
+                                                  + to_integer(next_glyph_number(10 downto 0)&chargen_y&"000"),16);
+              carddata_is_fullcolour <= '1';
+            else
+              -- VIC-II style bitmap character, so charnumber*8 + base address
+              -- + row_number
+              carddata_baseaddress <= to_unsigned(to_integer(character_set_address(16 downto 0))
+                                                  + to_integer(next_glyph_number(13 downto 0)&chargen_y),16);
+              carddata_is_fullcolour <= '0';
+            end if;
+          else
+            -- Bitmap data: Request first byte of memory with bitmap data in it
+            -- Bitmap fields always start on an 8KB boundary, so we zero out
+            -- bits 12 and 11.
+            -- Bitmap mode does not support full-colour mode, so always 8 bytes
+            -- per card.            
+            carddata_baseaddress(16 downto 3) <= to_unsigned((character_set_address(16 downto 13)&"00"&character_set_address(10 downto 3))
+                                                + to_integer(next_card_number),13);
+            carddata_baseaddress(2 downto 0) <= "000";
+            carddata_is_fullcolour <= '0';
+          end if;
+
+          -- Schedule request
+          ramaddress <= long_address(16 downto 0);
+          last_ramaddress <= long_address(16 downto 0);
+
           char_fetch_cycle <= fsm0;
         else
           -- We must update char_fetch_cycle before deciding if we are reaching
@@ -1890,11 +1916,17 @@ begin
       
       display_active <= indisplay;
 
-      -- As soon as we begin drawing a character, start fetching the data for the
-      -- next character.  Any left over cycles can be used for updating full-colour
-      -- sprite data once we implement them.
-      -- We need the character number, the colour byte, and the
-      -- 8x8 data bits (only 8 used if character is not in full colour mode).
+      -- As soon as we begin drawing a character, we start fetching the data for the
+      -- next character (char_fetch_cycle = fsm0).
+
+      -- Now that we are using an 8-bit chipram bus we have to be a bit more
+      -- economical with our memory accesses.  Screen RAM and Colour RAM are
+      -- fetched separately, so all we need to do is read the either 1 or 8
+      -- bytes of bitmap/character data.
+
+      -- The memory fetches will be of 8 consecutive bytes if in full colour
+      -- mode, else just one byte.  This does mean we need to know the base
+      -- address before we begin.
       report "char_fetch_cycle = " & vic_fetch_fsm'image(char_fetch_cycle) severity note;
       case char_fetch_cycle is
         when fsm0 =>
@@ -1906,26 +1938,21 @@ begin
           -- Tell buffer to start reading next character
           screen_ram_buffer_address <= screen_ram_buffer_address + 1;
 
-          -- We can begin speculatively fetching bitmap data here in case we
-          -- are in bitmap mode.
-          -- in bitmap mode, 
-          long_address(16 downto 13) := character_set_address(16 downto 13);
-          long_address(12 downto 11) := "00";  -- bitmap mode display is always
-                                               -- on 8KB boundary
-          long_address(10 downto 0) := character_set_address(10 downto 0);
-          -- shift address down 3 bits for fastram 64-bit wide interface
-          long_address(13 downto 0) := long_address(16 downto 3);
-          -- now add card number
-          long_address(13 downto 0) := long_address(13 downto 0) + to_integer(next_card_number);
-
           if text_mode='1' then
             -- We know the character number since it was pre-fetched
-            ramaddress <= std_logic_vector(to_unsigned(to_integer(character_set_address(16 downto 3)) + to_integer(next_glyph_number(13 downto 0)),14));
-            last_ramaddress <= std_logic_vector(to_unsigned(to_integer(character_set_address(16 downto 3)) + to_integer(next_glyph_number(13 downto 0)),14));
+            ramaddress <= to_unsigned(to_integer(character_set_address(16 downto 0)) + to_integer(next_glyph_number(13 downto 0)&"000"),16);
+            last_ramaddress <= to_unsigned(to_integer(character_set_address(16 downto 3)) + to_integer(next_glyph_number(13 downto 0)),14);
           else
-            -- Request word of memory with bitmap data in it
-            ramaddress <= std_logic_vector(long_address(13 downto 0));
-            last_ramaddress <= std_logic_vector(long_address(13 downto 0));
+            -- Bitmap data: Request word of memory with bitmap data in it
+            long_address(16 downto 13) := character_set_address(16 downto 13);
+            long_address(12 downto 11) := "00";  -- bitmap mode display is always
+                                               -- on 8KB boundary
+            long_address(10 downto 0) := character_set_address(10 downto 0);
+            -- now add card number * 8
+            long_address(16 downto 3) := long_address(16 downto 3) + to_integer(next_card_number);
+            -- Schedule request
+            ramaddress <= long_address(16 downto 0);
+            last_ramaddress <= long_address(16 downto 0);
           end if;
           
           -- Load colour RAM at the same time

@@ -82,13 +82,11 @@ entity gs4510 is
     monitor_debug_memory_access : out std_logic_vector(31 downto 0);
     
     ---------------------------------------------------------------------------
-    -- Interface to FastRAM in video controller (just 128KB for now)
+    -- Interface to ChipRAM in video controller (just 128KB for now)
     ---------------------------------------------------------------------------
-    fastramwaitstate : in std_logic;
-    fastram_we : OUT STD_LOGIC_VECTOR(7 DOWNTO 0) := x"00";
-    fastram_address : OUT STD_LOGIC_VECTOR(13 DOWNTO 0) := "00000000000000";
-    fastram_datain : OUT STD_LOGIC_VECTOR(63 DOWNTO 0);
-    fastram_dataout : IN STD_LOGIC_VECTOR(63 DOWNTO 0) := x"0000000000000000";
+    chipram_we : OUT STD_LOGIC := '0';
+    chipram_address : OUT unsigned(16 DOWNTO 0) := "00000000000000000";
+    chipram_datain : OUT unsigned(7 DOWNTO 0);
 
     ---------------------------------------------------------------------------
     -- Interface to Slow RAM (16MB cellular RAM chip)
@@ -145,8 +143,6 @@ architecture Behavioural of gs4510 is
           );
   end component;
   
---  signal fastram_last_address : std_logic_vector(13 downto 0);
-
   -- Shadow RAM control
   signal shadow_bank : unsigned(7 downto 0);
   signal shadow_address : unsigned(17 downto 0);
@@ -165,8 +161,6 @@ architecture Behavioural of gs4510 is
   -- Number of pending wait states
   signal wait_states : unsigned(7 downto 0) := x"05";
   
-  signal fastram_byte_number : unsigned(2 DOWNTO 0);
-
   signal word_flag : std_logic := '0';
 
   -- DMAgic registers
@@ -528,8 +522,8 @@ begin
       shadow_write <= '0';   
       fastio_read <= '0';
       fastio_write <= '0';
-      fastram_we <= (others => '0');        
-      fastram_datain <= x"d0d1d2d3d4d5d6d7";    
+      chipram_we <= '0';        
+      chipram_datain <= x"c0";    
       slowram_we <= '1';
       slowram_ce <= '1';
       slowram_oe <= '1';
@@ -735,8 +729,8 @@ begin
         -- shadow_address <= '0'&long_address(16 downto 0);
         shadow_write <= '0';
         proceed <= '1';        
-        report "Reading from shadowed fastram address $" & to_hstring(long_address(19 downto 0))
-          & ", word $" & to_hstring(long_address(18 downto 3)) severity note;
+        report "Reading from shadowed chipram address $"
+          & to_hstring(long_address(19 downto 0)) severity note;
       elsif long_address(27 downto 24) = x"8"
         or long_address(27 downto 17)&'0' = x"002" then
         -- Slow RAM maps to $8xxxxxx, and also $0020000 - $003FFFF for C65 ROM
@@ -990,29 +984,9 @@ begin
 --        shadow_address <= long_address(17 downto 0);
         shadow_wdata <= value;
         
-        fastram_address <= std_logic_vector(long_address(16 downto 3));
-        fastram_we <= (others => '0');
-        fastram_datain <= (others => '1');
-        fastram_datain(7 downto 0) <= std_logic_vector(value);
-        fastram_datain(15 downto 8) <= std_logic_vector(value);
-        fastram_datain(23 downto 16) <= std_logic_vector(value);
-        fastram_datain(31 downto 24) <= std_logic_vector(value);
-        fastram_datain(39 downto 32) <= std_logic_vector(value);
-        fastram_datain(47 downto 40) <= std_logic_vector(value);
-        fastram_datain(55 downto 48) <= std_logic_vector(value);
-        fastram_datain(63 downto 56) <= std_logic_vector(value);
-        case long_address(2 downto 0) is
-          when "000" => fastram_we <= "00000001";
-          when "001" => fastram_we <= "00000010"; 
-          when "010" => fastram_we <= "00000100";
-          when "011" => fastram_we <= "00001000";
-          when "100" => fastram_we <= "00010000";
-          when "101" => fastram_we <= "00100000";
-          when "110" => fastram_we <= "01000000";
-          when "111" => fastram_we <= "10000000";
-          when others =>
-            report "dud write to chipram" severity note;
-        end case;
+        chipram_address <= long_address(16 downto 0);
+        chipram_we <= '1';
+        chipram_datain <= value;
         report "writing to chipram..." severity note;
         wait_states <= io_wait_states;
       elsif long_address(27 downto 24) = x"8" then
@@ -1426,7 +1400,7 @@ begin
           shadow_write <= '0';       
           fastio_write <= '0';
 --          fastio_read <= '0';
-          fastram_we <= (others => '0');        
+          chipram_we <= '0';
           slowram_we <= '1';
           slowram_ce <= '1';
           slowram_oe <= '1';
