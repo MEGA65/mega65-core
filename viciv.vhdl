@@ -282,8 +282,13 @@ architecture Behavioral of viciv is
   -- Internal registers for drawing a single raster of character data to the
   -- raster buffer.
   signal character_number : unsigned(8 downto 0);
-  type vic_chargen_fsm is (Idle,FetchScreenRamLine,FetchNextCharacter,
-                           FetchCharHighByte,FetchTextCell,FetchBitmapCell);
+  type vic_chargen_fsm is (Idle,
+                           FetchScreenRamLine,
+                           FetchNextCharacter,
+                           FetchCharHighByte,
+                           FetchTextCell,
+                           FetchTextCellColourAndSource,
+                           FetchBitmapCell);
   signal raster_fetch_state : vic_chargen_fsm;
 
   
@@ -291,7 +296,6 @@ architecture Behavioral of viciv is
   signal debug_y : unsigned(11 downto 0) := "111111111110";
   signal debug_screen_ram_buffer_address : unsigned(8 downto 0);
   signal debug_cycles_to_next_card : unsigned(7 downto 0);
-  signal debug_next_card_number : unsigned(15 downto 0);
   signal debug_char_fetch_cycle : vic_chargen_fsm;
   signal debug_chargen_active : std_logic;
   signal debug_chargen_active_soon : std_logic;
@@ -301,7 +305,6 @@ architecture Behavioral of viciv is
 
   signal debug_screen_ram_buffer_address_drive : unsigned(8 downto 0);
   signal debug_cycles_to_next_card_drive : unsigned(7 downto 0);
-  signal debug_next_card_number_drive : unsigned(15 downto 0);
   signal debug_char_fetch_cycle_drive : vic_chargen_fsm;
   signal debug_chargen_active_drive : std_logic;
   signal debug_chargen_active_soon_drive : std_logic;
@@ -311,7 +314,6 @@ architecture Behavioral of viciv is
 
   signal debug_screen_ram_buffer_address_drive2 : unsigned(8 downto 0);
   signal debug_cycles_to_next_card_drive2 : unsigned(7 downto 0);
-  signal debug_next_card_number_drive2 : unsigned(15 downto 0);
   signal debug_char_fetch_cycle_drive2 : vic_chargen_fsm;
   signal debug_chargen_active_drive2 : std_logic;
   signal debug_chargen_active_soon_drive2 : std_logic;
@@ -451,6 +453,9 @@ architecture Behavioral of viciv is
   signal chargen_y_sub : unsigned(4 downto 0);
   signal chargen_x_sub : unsigned(4 downto 0);
 
+  -- Common bitmap and character drawing info
+  signal glyph_data_address : unsigned(16 downto 0);
+  
   -- Bitmap drawing info
   signal bitmap_colour_foreground : unsigned(7 downto 0);
   signal bitmap_colour_background : unsigned(7 downto 0);
@@ -468,8 +473,6 @@ architecture Behavioral of viciv is
   signal glyph_flip_horizontal : std_logic;
   signal glyph_flip_vertical : std_logic;
   
-  signal next_chargen_x : unsigned(2 downto 0) := (others => '0');
-  signal next_card_number_is_extended : std_logic;  -- set if card_number > $00FF
   signal card_of_row : unsigned(7 downto 0);
   signal chargen_active : std_logic := '0';
   signal chargen_active_drive : std_logic := '0';
@@ -673,7 +676,7 @@ begin
           viciii_extended_attributes,virtual_row_width,chargen_x_scale,
           chargen_y_scale,xcounter,chargen_active_soon,card_number,
           colour_ram_base,vicii_sprite_pointer_address,palette_bank_fastio,
-          x_chargen_start_minus17,debug_next_card_number,debug_cycles_to_next_card,
+          x_chargen_start_minus17,debug_cycles_to_next_card,
           debug_chargen_active,debug_char_fetch_cycle,debug_charaddress,
           debug_charrow,palette_fastio_rdata,palette_bank_chargen,
           debug_chargen_active_soon,palette_bank_sprites) is
@@ -1100,9 +1103,9 @@ begin
         elsif register_number=114 then -- $D372
           fastio_rdata <= "0000"&std_logic_vector(x_chargen_start_minus17_drive(11 downto 8));
         elsif register_number=115 then  -- $D373
-          fastio_rdata <= std_logic_vector(debug_next_card_number_drive2(7 downto 0));
+--          fastio_rdata <= std_logic_vector(debug_next_card_number_drive2(7 downto 0));
         elsif register_number=116 then  -- $D374
-          fastio_rdata <= std_logic_vector(debug_next_card_number_drive2(15 downto 8));
+--          fastio_rdata <= std_logic_vector(debug_next_card_number_drive2(15 downto 8));
         elsif register_number=117 then  -- $D375
           fastio_rdata <= std_logic_vector(debug_cycles_to_next_card_drive2(7 downto 0));
         elsif register_number=118 then  -- $D376
@@ -1145,7 +1148,6 @@ begin
       report "drive led = " & std_logic'image(led)
         & ", drive motor= " & std_logic'image(motor) severity note;
 
-      debug_next_card_number_drive2 <= debug_next_card_number_drive;
       debug_cycles_to_next_card_drive2 <= debug_cycles_to_next_card_drive;
       debug_chargen_active_drive2 <= debug_chargen_active_drive;
       debug_chargen_active_soon_drive2 <= debug_chargen_active_soon_drive;
@@ -1543,7 +1545,6 @@ begin
         -- End of raster reached.
         -- Bump raster number and start next raster.
         xcounter <= (others => '0');
-        next_chargen_x <= (others => '0');
         chargen_x_sub <= (others => '0');
         chargen_active <= '0';
         chargen_active_soon <= '0';        
@@ -1642,19 +1643,10 @@ begin
       -- Update current horizontal sub-pixel and pixel position
       -- Work out if a new logical pixel starts on the next physical pixel
       -- (overrides general advance)
-      if chargen_x_scale=0 then
-        report "next_chargen_x inc" severity note;
-        next_chargen_x <= next_chargen_x + 1;
+      if chargen_x_sub=chargen_x_scale then
+        chargen_x_sub <= (others => '0');
       else
-        if chargen_x_sub = (chargen_x_scale - 1) then
-          report "next_chargen_x inc" severity note;
-          next_chargen_x <= next_chargen_x + 1;
-        end if;
-        if chargen_x_sub=chargen_x_scale then
-          chargen_x_sub <= (others => '0');
-        else
-          chargen_x_sub <= chargen_x_sub + 1;
-        end if;
+        chargen_x_sub <= chargen_x_sub + 1;
       end if;
 
       if displayx=border_x_right then
@@ -1665,7 +1657,6 @@ begin
       end if;
       if xcounter = x_chargen_start_minus1 then
         -- trigger next card at start of chargen row
-        next_chargen_x <= (others => '0');
         chargen_x <= (others => '0');
         chargen_x_sub <= (others => '0');
         report "reset chargen_x" severity note;
@@ -1778,7 +1769,6 @@ begin
       indisplay_t3 <= indisplay_t2;
 
       -- We use a drive stage for these lines to preserve CPU timing.
-      debug_next_card_number_drive <= debug_next_card_number;
       debug_cycles_to_next_card_drive <= debug_cycles_to_next_card;
       debug_chargen_active_drive <= debug_chargen_active;
       debug_chargen_active_soon_drive <= debug_chargen_active_soon;
@@ -1792,7 +1782,6 @@ begin
       -- find it.
       
       if displayx=debug_x and displayy=debug_y then
-        debug_next_card_number <= next_card_number;
         debug_cycles_to_next_card <= cycles_to_next_card;
         debug_chargen_active <= chargen_active;
         debug_chargen_active_soon <= chargen_active_soon;
@@ -1977,6 +1966,85 @@ begin
           end if;
           screen_ram_buffer_address <= screen_ram_buffer_address + 1;
         when FetchTextCell =>
+          -- We now know the character number, and whether it is full-colour or
+          -- normal, and whether we are flipping in either axis, and so can
+          -- work out the address to fetch data from.
+          if glyph_full_colour='1' then
+            -- Full colour glyphs come from 64*(glyph_number) in RAM, never
+            -- from character ROM.  128KB/64 = 2048 possible glyphs.
+            glyph_data_address(16 downto 6) <= glyph_number(10 downto 0);
+            if glyph_flip_vertical='1' then
+              glyph_data_address(5 downto 3) <= not chargen_y;
+            else
+              glyph_data_address(5 downto 3) <= chargen_y;
+            end if;
+            if glyph_flip_horizontal='1' then
+              glyph_data_address(2 downto 0) <= "111";
+            else
+              glyph_data_address(2 downto 0) <= "000";
+            end if;
+            character_data_from_rom <= '0';
+          else
+            -- Normal character glyph fetched relative to character_set_address.
+            -- Again, we take into account if we are flipping vertically.
+            glyph_data_address
+              <= character_set_address
+                   + to_integer(glyph_number
+                                &(chargen_y(2) xor glyph_flip_vertical)
+                                &(chargen_y(1) xor glyph_flip_vertical)
+                                &(chargen_y(0) xor glyph_flip_vertical));
+            -- Mark as possibly coming from ROM
+            character_data_from_rom <= '1';
+          end if;
+          -- Also ask for colour RAM for the character so that we can finalise
+          -- the colours we need to draw with.
+          colourramaddress <= colour_ram_base + glyph_number;
+          raster_fetch_state <= FetchTextCellColourAndSource;
+        when FetchTextCellColourAndSource =>
+          -- Finally determine whether source is from RAM or CHARROM
+          if character_data_from_rom = '1' then
+            if glyph_data_address(16 downto 12) = "0"&x"1"
+              or glyph_data_address(16 downto 12) = "0"&x"9" then
+              character_data_from_rom <= '1';
+            else
+              character_data_from_rom <= '0';
+            end if;
+          end if;
+          -- Record colour and attribute information from colour RAM
+          glyph_colour(3 downto 0) <= colourramdata(3 downto 0);
+          glyph_bold <= '0';
+          glyph_underline <= '0';
+          glyph_reverse <= '0';
+          glyph_visible <= '1';
+          if viciii_extended_attributes='1' then
+            if colourramdata(4)='1' then
+              -- Blinking glyph
+              if colourramdata(5)='1'
+                or colourramdata(6)='1'
+                or colourramdata(7)='1' then
+                -- Blinking attributes
+                if viciii_blink_phase='1' then
+                  glyph_reverse <= colourramdata(5);
+                  glyph_bold <= colourramdata(6);
+                  if chargen_y(2 downto 0)="111" then
+                    glyph_underline <= colourramdata(7);
+                  end if;
+                end if;
+              else
+                -- Just plain blinking character
+                glyph_visible <= viciii_blink_phase;
+              end if;
+            else
+              -- Non-blinking attributes
+              glyph_visible <= '1';
+              glyph_reverse <= colourramdata(5);
+              glyph_bold <= colourramdata(6);
+              if chargen_y(2 downto 0)="111" then
+                glyph_underline <= colourramdata(7);
+              end if;
+            end if;
+          end if;
+
           
         when others => null;
       end case;
