@@ -1891,6 +1891,7 @@ begin
           if paint_ready='1' then
             paint_fsm_state <= Idle;
             raster_fetch_state <= FetchScreenRamNext;
+            colourramaddress <= colour_ram_base;
           end if;
         when FetchScreenRamNext =>
           -- Store current byte of screen RAM
@@ -2023,9 +2024,6 @@ begin
             -- Mark as possibly coming from ROM
             character_data_from_rom <= '1';
           end if;
-          -- Also ask for colour RAM for the character so that we can finalise
-          -- the colours we need to draw with.
-          colourramaddress <= colour_ram_base + glyph_number;
           raster_fetch_state <= FetchTextCellColourAndSource;
         when FetchTextCellColourAndSource =>
           -- Finally determine whether source is from RAM or CHARROM
@@ -2075,6 +2073,9 @@ begin
             end if;
           end if;
           raster_fetch_state <= PaintDispatch;
+
+          -- Schedule next colour ram byte
+          colourramaddress <= colourramaddress + 1;
         when PaintDispatch =>
           -- Dispatch this card for painting.
 
