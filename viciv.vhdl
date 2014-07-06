@@ -2074,7 +2074,7 @@ begin
           if paint_ready='1' then
             -- Ask for first byte of data so that paint can commence immediately.
             ramaddress <= glyph_data_address;
-            charaddress <= glyph_data_address(11 downto 0);
+            charaddress(10 downto 0) <= glyph_data_address(10 downto 0);
             paint_from_charrom <= character_data_from_rom;
             -- Tell painter whether to flip horizontally or not.
             paint_flip_horizontal <= glyph_flip_horizontal;
