@@ -2118,10 +2118,13 @@ begin
           -- Idle the painter, and then start drawing VIC-II sprites
           if paint_ready='1' then
             paint_fsm_state <= Idle;
+            -- XXX should start drawing sprites
+            raster_fetch_state <= Idle;
           end if;
         when others => null;
       end case;
 
+      raster_buffer_write <= '0';
       case paint_fsm_state is
         when Idle =>
           if paint_ready='0' then paint_ready <= '1'; end if;
@@ -2161,6 +2164,7 @@ begin
                             &ramdata(4)&ramdata(5)&ramdata(6);
           end if;
           raster_buffer_write_address <= raster_buffer_write_address + 1;
+          raster_buffer_write <= '1';
           paint_bits_remaining <= 7;
           paint_fsm_state <= PaintMonoBits;
         when PaintMonoBits =>
@@ -2170,6 +2174,7 @@ begin
             raster_buffer_write_data <= '0'&paint_background;
           end if;
           raster_buffer_write_address <= raster_buffer_write_address + 1;
+          raster_buffer_write <= '1';
           paint_bits_remaining <= paint_bits_remaining - 1;
           if paint_bits_remaining = 1 then
             -- Tell character generator when we are able to become idle.
