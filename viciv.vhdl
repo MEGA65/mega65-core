@@ -284,6 +284,7 @@ architecture Behavioral of viciv is
   signal character_number : unsigned(8 downto 0);
   type vic_chargen_fsm is (Idle,
                            FetchScreenRamLine,
+                           FetchScreenRamNext,
                            FetchNextCharacter,
                            FetchCharHighByte,
                            FetchTextCell,
@@ -1887,6 +1888,11 @@ begin
       case raster_fetch_state is
         when Idle => null;
         when FetchScreenRamLine =>
+          if paint_ready='1' then
+            paint_fsm_state <= Idle;
+            raster_fetch_state <= FetchScreenRamNext;
+          end if;
+        when FetchScreenRamNext =>
           -- Store current byte of screen RAM
           screen_ram_buffer_write <= '1';
           screen_ram_buffer_address <= character_number;
@@ -1901,12 +1907,14 @@ begin
           if sixteenbit_charset='1' then
             if character_number = virtual_row_width(7 downto 0)&'0' then
               character_number <= (others => '0');
+              screen_ram_buffer_write <= '0';
               raster_fetch_state <= FetchNextCharacter;
             end if;
           else
             if character_number = '0'&virtual_row_width(7 downto 0) then
               character_number <= (others => '0');
               card_of_row <= (others => '0');
+              screen_ram_buffer_write <= '0';
               raster_fetch_state <= FetchNextCharacter;
             end if;
           end if;
