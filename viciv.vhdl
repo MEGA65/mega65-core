@@ -554,9 +554,9 @@ architecture Behavioral of viciv is
 
   -- Raster buffer
   signal raster_buffer_read_address : unsigned(11 downto 0);
-  signal raster_buffer_read_data : unsigned(7 downto 0);
+  signal raster_buffer_read_data : unsigned(8 downto 0);
   signal raster_buffer_write_address : unsigned(11 downto 0);
-  signal raster_buffer_write_data : unsigned(7 downto 0);
+  signal raster_buffer_write_data : unsigned(8 downto 0);
   signal raster_buffer_write : std_logic;  
 
   -- Colour RAM access for video controller
