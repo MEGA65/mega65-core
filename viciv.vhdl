@@ -1661,6 +1661,8 @@ begin
       -- (overrides general advance)
       if chargen_x_sub=chargen_x_scale then
         chargen_x_sub <= (others => '0');
+        -- Advance to next display pixel
+        raster_buffer_read_address <= raster_buffer_read_address + 1;
       else
         chargen_x_sub <= chargen_x_sub + 1;
       end if;
@@ -1676,13 +1678,13 @@ begin
         chargen_x <= (others => '0');
         chargen_x_sub <= (others => '0');
         report "reset chargen_x" severity note;
+        -- Request first byte of pre-rendered character data
+        raster_buffer_read_address <= (others => '0');
       end if;
       if xcounter = x_chargen_start_display then
         -- Gets masked to 0 below if displayy is above y_chargen_start
         chargen_active <= '1';
         chargen_active_soon <= '0';
-        -- Request first byte of pre-rendered character data
-        raster_buffer_read_address <= (others => '0');
       end if;
       if displayy<y_chargen_start then
         chargen_y <= (others => '0');
