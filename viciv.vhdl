@@ -304,7 +304,7 @@ architecture Behavioral of viciv is
   signal paint_background : unsigned(7 downto 0);
   signal paint_mc1 : unsigned(7 downto 0);
   signal paint_mc2 : unsigned(7 downto 0);
-  signal paint_buffer : unsigned(6 downto 0);
+  signal paint_buffer : unsigned(7 downto 0);
   signal paint_bits_remaining : integer range 0 to 7;
   
   signal debug_x : unsigned(11 downto 0) := "111111111110";
@@ -2133,44 +2133,28 @@ begin
           if paint_ready='0' then paint_ready <= '1'; end if;
         when PaintMono =>
           -- Paint 8 mono bits from ramdata or chardata
-          -- Paint first bit directly from the source, and then
-          -- remaining bits from a buffer.
+          -- Paint from a buffer to meet timing, even though it means we spend
+          -- 9 cycles per char to paint, instead of the ideal 8.
           if paint_flip_horizontal='1' and paint_from_charrom='1' then
-            if chardata(0)='1' then
-              raster_buffer_write_data <= '1'&paint_foreground;
-            else
-              raster_buffer_write_data <= '0'&paint_background;
-            end if;
-            paint_buffer <= unsigned(chardata(6 downto 0));
+            paint_buffer <= unsigned(chardata);
           elsif paint_flip_horizontal='0' and paint_from_charrom='1' then
-            if chardata(7)='1' then
-              raster_buffer_write_data <= '1'&paint_foreground;
-            else
-              raster_buffer_write_data <= '0'&paint_background;
-            end if;
             paint_buffer <= chardata(0)&chardata(1)&chardata(2)&chardata(3)
-                            &chardata(4)&chardata(5)&chardata(6);
+                            &chardata(4)&chardata(5)&chardata(6)&chardata(7);
           elsif paint_flip_horizontal='1' and paint_from_charrom='0' then
             if ramdata(0)='1' then
               raster_buffer_write_data <= '1'&paint_foreground;
             else
               raster_buffer_write_data <= '0'&paint_background;
             end if;
-            paint_buffer <= ramdata(6 downto 0);
+            paint_buffer <= ramdata;
           elsif paint_flip_horizontal='0' and paint_from_charrom='0' then
-            if ramdata(7)='1' then
-              raster_buffer_write_data <= '1'&paint_foreground;
-            else
-              raster_buffer_write_data <= '0'&paint_background;
-            end if;
             paint_buffer <= ramdata(0)&ramdata(1)&ramdata(2)&ramdata(3)
-                            &ramdata(4)&ramdata(5)&ramdata(6);
+                            &ramdata(4)&ramdata(5)&ramdata(6)&ramdata(7);
           end if;
-          raster_buffer_write_address <= raster_buffer_write_address + 1;
-          raster_buffer_write <= '1';
-          paint_bits_remaining <= 7;
+          paint_bits_remaining <= 8;
           paint_fsm_state <= PaintMonoBits;
         when PaintMonoBits =>
+          paint_buffer<= '0'&paint_buffer(7 downto 1);
           if paint_buffer(0)='1' then
             raster_buffer_write_data <= '1'&paint_foreground;
           else
