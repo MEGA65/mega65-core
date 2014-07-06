@@ -426,6 +426,7 @@ architecture Behavioral of viciv is
   signal card_number_drive : unsigned(15 downto 0) := x"0000";
   signal card_number_is_extended : std_logic;  -- set if card_number > $00FF
   signal first_card_of_row : unsigned(15 downto 0);
+  signal prev_first_card_of_row : unsigned(15 downto 0);
   -- coordinates after applying the above scaling factors
   signal chargen_x : unsigned(2 downto 0) := (others => '0');
   signal chargen_y : unsigned(2 downto 0) := (others => '0');
@@ -531,10 +532,11 @@ architecture Behavioral of viciv is
   signal xfrontporch : std_logic;
   signal xfrontporch_drive : std_logic;
   signal xbackporch : std_logic;
+  signal xbackporch_edge : std_logic;
 
-  signal last_ramaddress : std_logic_vector(13 downto 0);
-  signal ramaddress : std_logic_vector(13 downto 0);
-  signal ramdata : std_logic_vector(63 downto 0);
+  signal last_ramaddress : unsigned(16 downto 0);
+  signal ramaddress : unsigned(16 downto 0);
+  signal ramdata : unsigned(7 downto 0);
 
   -- Precalculated mono/multicolour pixel bits
   signal multicolour_bits : std_logic_vector(1 downto 0) := (others => '0');
@@ -589,8 +591,8 @@ begin
       dina => std_logic_vector(chipram_datain),
       -- VIC-IV side port (read)
       clkb => pixelclock,
-      addrb => ramaddress,
-      doutb => ramdata
+      addrb => std_logic_vector(ramaddress),
+      unsigned(doutb) => ramdata
       );
   
   colourram1 : component ram8x64k
@@ -1588,7 +1590,7 @@ begin
         xbackporch_edge <= '0';
       else
         xbackporch <= '1';
-        xbackport_edge <= not xbackporch;
+        xbackporch_edge <= not xbackporch;
         displayx <= (others => '1');
       end if;
 
@@ -1842,7 +1844,7 @@ begin
         if first_card_of_row /= prev_first_card_of_row then
           character_number <= (others => '0');
           screen_row_current_address <= screen_ram_base(16 downto 0) + first_card_of_row;
-          chipram_address <= screen_ram_base(16 downto 0) + first_card_of_row;
+          ramaddress <= screen_ram_base(16 downto 0) + first_card_of_row;
           raster_fetch_state <= FetchScreenRamLine;
         else
           character_number <= (others => '0');

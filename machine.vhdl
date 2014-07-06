@@ -439,8 +439,8 @@ architecture Behavioral of machine is
   signal sector_buffer_mapped : std_logic;
 
   signal chipram_we : STD_LOGIC;
-  signal chipram_address : STD_LOGIC_VECTOR(16 DOWNTO 0);
-  signal chipram_datain : STD_LOGIC_VECTOR(7 DOWNTO 0);
+  signal chipram_address : unsigned(16 DOWNTO 0);
+  signal chipram_datain : unsigned(7 DOWNTO 0);
   
 --  signal cpuclock : std_logic := '1';
 --  signal ioclock : std_logic := '1';
