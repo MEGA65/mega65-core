@@ -364,6 +364,9 @@ architecture Behavioral of viciv is
   signal border_y_top : unsigned(11 downto 0) := to_unsigned(0,12);  -- 100
   signal border_y_bottom : unsigned(11 downto 0) := to_unsigned(1200-101,12);
   signal blank : std_logic := '0';
+  -- intermediate calculations for whether we are in the border to improve timing.
+  signal upper_border : std_logic := '1';
+  signal lower_border : std_logic := '0';
 
   -- Colour registers ($D020 - $D024)
   signal screen_colour : unsigned(7 downto 0) := x"00";  -- black
@@ -1627,8 +1630,18 @@ begin
       -- Work out if the border is active
       inborder_t1 <= inborder;
       inborder_t2 <= inborder_t1;
+      if displayy>border_y_bottom then
+        lower_border <= '1';
+      else
+        lower_border <= '0';
+      end if;
+      if displayy<border_y_top then
+        upper_border <= '1';
+      else
+        upper_border <= '0';
+      end if;
       if displayx<border_x_left or displayx>border_x_right or
-        displayy<border_y_top or displayy>border_y_bottom then
+        upper_border='1' or lower_border='1' then
         inborder<='1';
         -- Fix 2 pixel gap at right of text display.
         -- (presumably it was video pipeline interaction to blame)
