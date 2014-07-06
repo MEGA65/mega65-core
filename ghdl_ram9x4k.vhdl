@@ -11,10 +11,10 @@ ENTITY ram9x4k IS
     clka : IN STD_LOGIC;
     wea : IN STD_LOGIC_VECTOR(0 DOWNTO 0);
     addra : IN STD_LOGIC_VECTOR(11 DOWNTO 0);
-    dina : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
+    dina : IN STD_LOGIC_VECTOR(8 DOWNTO 0);
     clkb : IN STD_LOGIC;
     addrb : IN STD_LOGIC_VECTOR(11 DOWNTO 0);
-    doutb : OUT STD_LOGIC_VECTOR(7 DOWNTO 0)
+    doutb : OUT STD_LOGIC_VECTOR(8 DOWNTO 0)
     );
 END ram9x4k;
 
@@ -33,7 +33,7 @@ begin  -- behavioural
         ram(to_integer(unsigned(addra))) <= dina;
       end if;        
 
-      douta <= ram(to_integer(unsigned(addrb)));
+      doutb <= ram(to_integer(unsigned(addrb)));
     end if;
   end process;
 

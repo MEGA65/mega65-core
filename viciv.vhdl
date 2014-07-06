@@ -278,20 +278,20 @@ architecture Behavioral of viciv is
   -- Internal registers used to keep track of the screen ram for the current row
   signal screen_row_address : unsigned(16 downto 0);
   signal screen_row_current_address : unsigned(16 downto 0);
-  
-  type vic_fetch_fsm is (fsm0,fsm1,fsm2,fsm3,fsm4,fsm5,fsm6,fsm7,
-                         fsm8,
-                         fsm16,
-                         fsm32,fsm33,fsm34,fsm35,fsm36,fsm37,fsm38,
-                         fsm64,
-                         fsmIdle);
+
+  -- Internal registers for drawing a single raster of character data to the
+  -- raster buffer.
+  signal character_number : unsigned(8 downto 0);
+  type vic_chargen_fsm is (Idle,FetchScreenRamLine,FetchNextCharacter);
+  signal raster_fetch_state : vic_chargen_fsm;
+
   
   signal debug_x : unsigned(11 downto 0) := "111111111110";
   signal debug_y : unsigned(11 downto 0) := "111111111110";
   signal debug_screen_ram_buffer_address : unsigned(8 downto 0);
   signal debug_cycles_to_next_card : unsigned(7 downto 0);
   signal debug_next_card_number : unsigned(15 downto 0);
-  signal debug_char_fetch_cycle : vic_fetch_fsm;
+  signal debug_char_fetch_cycle : vic_chargen_fsm;
   signal debug_chargen_active : std_logic;
   signal debug_chargen_active_soon : std_logic;
   signal debug_character_data_from_rom : std_logic;
@@ -301,7 +301,7 @@ architecture Behavioral of viciv is
   signal debug_screen_ram_buffer_address_drive : unsigned(8 downto 0);
   signal debug_cycles_to_next_card_drive : unsigned(7 downto 0);
   signal debug_next_card_number_drive : unsigned(15 downto 0);
-  signal debug_char_fetch_cycle_drive : vic_fetch_fsm;
+  signal debug_char_fetch_cycle_drive : vic_chargen_fsm;
   signal debug_chargen_active_drive : std_logic;
   signal debug_chargen_active_soon_drive : std_logic;
   signal debug_character_data_from_rom_drive : std_logic;
@@ -311,7 +311,7 @@ architecture Behavioral of viciv is
   signal debug_screen_ram_buffer_address_drive2 : unsigned(8 downto 0);
   signal debug_cycles_to_next_card_drive2 : unsigned(7 downto 0);
   signal debug_next_card_number_drive2 : unsigned(15 downto 0);
-  signal debug_char_fetch_cycle_drive2 : vic_fetch_fsm;
+  signal debug_char_fetch_cycle_drive2 : vic_chargen_fsm;
   signal debug_chargen_active_drive2 : std_logic;
   signal debug_chargen_active_soon_drive2 : std_logic;
   signal debug_character_data_from_rom_drive2 : std_logic;
@@ -446,9 +446,6 @@ architecture Behavioral of viciv is
   -- fractional pixel position for scaling
   signal chargen_y_sub : unsigned(4 downto 0);
   signal chargen_x_sub : unsigned(4 downto 0);
-  -- character data fetch FSM
-  signal char_fetch_cycle : vic_fetch_fsm := fsmIdle;
-  signal char_fetch_cycle_drive : vic_fetch_fsm := fsmIdle;
   -- data for next card
   signal next_bitmap_colours  : unsigned(7 downto 0);
   signal next_next_bitmap_colours  : unsigned(7 downto 0);
@@ -561,7 +558,7 @@ architecture Behavioral of viciv is
   signal raster_buffer_write_address : unsigned(11 downto 0);
   signal raster_buffer_write_data : unsigned(7 downto 0);
   signal raster_buffer_write : std_logic;  
-  
+
   -- Colour RAM access for video controller
   signal colourramaddress : unsigned(15 downto 0);
   signal colourramdata : unsigned(7 downto 0);
@@ -682,7 +679,7 @@ begin
           border_colour,screen_colour,multi1_colour,multi2_colour,multi3_colour,
           border_x_left,border_x_right,border_y_top,border_y_bottom,
           x_chargen_start,y_chargen_start,fullcolour_8bitchars,
-          fullcolour_extendedchars,sixteenbit_charset,char_fetch_cycle,
+          fullcolour_extendedchars,sixteenbit_charset,
           cycles_to_next_card,xfrontporch,xbackporch,chargen_active,inborder,
           irq_drive,vicii_sprite_x_expand,sprite_multi0_colour,
           sprite_multi1_colour,sprite_colours,colourram_at_dc00_internal,
@@ -1059,9 +1056,6 @@ begin
           fastio_rdata(1) <= fullcolour_8bitchars;
           fastio_rdata(0) <= sixteenbit_charset;
         elsif register_number=85 then
-          fastio_rdata <=
-            std_logic_vector(to_unsigned(vic_fetch_fsm'pos(char_fetch_cycle_drive),
-                                         8));
           fastio_rdata <= x"FF";
         elsif register_number=86 then
           fastio_rdata <= std_logic_vector(cycles_to_next_card_drive);
@@ -1129,8 +1123,8 @@ begin
         elsif register_number=119 then  -- $D377
           fastio_rdata <= std_logic_vector(debug_screen_ram_buffer_address_drive2(7 downto 0));
         elsif register_number=124 then
-          fastio_rdata <=
-            std_logic_vector(to_unsigned(vic_fetch_fsm'pos(debug_char_fetch_cycle_drive2),8));
+          --fastio_rdata <=
+          --  std_logic_vector(to_unsigned(vic_fetch_fsm'pos(debug_char_fetch_cycle_drive2),8));
         elsif register_number=125 then
           fastio_rdata <= debug_charaddress_drive2(7 downto 0);
         elsif register_number=126 then
@@ -1805,7 +1799,7 @@ begin
         debug_cycles_to_next_card <= cycles_to_next_card;
         debug_chargen_active <= chargen_active;
         debug_chargen_active_soon <= chargen_active_soon;
-        debug_char_fetch_cycle <= char_fetch_cycle;
+--        debug_char_fetch_cycle <= char_fetch_cycle;
         debug_charrow <= charrow;
         debug_charaddress <= charaddress;
         debug_character_data_from_rom <= character_data_from_rom;
@@ -1890,7 +1884,7 @@ begin
           -- Store current byte of screen RAM
           screen_ram_buffer_write <= '1';
           screen_ram_buffer_address <= character_number;
-          screen_ram_din <= ramdata;
+          screen_ram_buffer_din <= ramdata;
           ramaddress <= screen_row_current_address;
           -- Ask for next byte of screen RAM
           screen_row_current_address <= screen_row_current_address + 1;
@@ -1899,12 +1893,12 @@ begin
           if sixteenbit_charset='1' then
             if character_number = virtual_row_width(7 downto 0)&'0' then
               character_number <= (others => '0');
-              state <= FetchNextCharacter;
+              raster_fetch_state <= FetchNextCharacter;
             end if;
           else
             if character_number = '0'&virtual_row_width(7 downto 0) then
               character_number <= (others => '0');
-              state <= FetchNextCharacter;
+              raster_fetch_state <= FetchNextCharacter;
             end if;
           end if;
         when others => null;
