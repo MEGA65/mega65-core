@@ -465,6 +465,8 @@ architecture Behavioral of viciv is
   signal glyph_underline : std_logic;
   signal glyph_reverse : std_logic;
   signal glyph_full_colour : std_logic;
+  signal glyph_flip_horizontal : std_logic;
+  signal glyph_flip_vertical : std_logic;
   
   signal next_chargen_x : unsigned(2 downto 0) := (others => '0');
   signal next_card_number_is_extended : std_logic;  -- set if card_number > $00FF
@@ -1903,9 +1905,14 @@ begin
         when FetchNextCharacter =>
           -- Fetch next character
           -- All we can expect here is that character_number is correctly set.
+
+          -- XXX: Timing to be fixed.
           -- (Ideally we would take only 8 cycles to fetch a character so that
           -- we use as little raster time as possible, especially for true 1920
-          -- pixel modes.  However, for now, the emphasis is on making it work.)
+          -- pixel modes.  However, for now, the emphasis is on making it work.
+          -- In particular, we should pipeline reading of the next character
+          -- number and resolving relevant information about it with the fetching
+          -- of the data for the current character. That would basically fix it.)
 
           -- Based on either the card number (for bitmap modes) or
           -- character_number (for text modes), work out the address where the
@@ -1941,13 +1948,36 @@ begin
             raster_fetch_state <= FetchCharHighByte;
           else
             -- 8 bit character set / colour info mode
-            card_number_is_extended <= '0';
+            glyph_full_colour <= fullcolour_8bitchars;
             if text_mode='1' then
               raster_fetch_state <= FetchTextCell;
             else
               raster_fetch_state <= FetchBitmapCell;
             end if;
           end if;
+        when FetchCharHighByte =>
+          -- Work out if character is full colour (ignored for bitmap mode but
+          -- calculated outside of if test to flatten logic).
+          if screen_ram_buffer_dout(3 downto 0) = "0000" then
+            glyph_full_colour <= fullcolour_8bitchars;
+          else
+            glyph_full_colour <= fullcolour_extendedchars;
+          end if;
+          if text_mode='1' then
+            -- We only allow 4096 characters in extended mode.
+            -- The spare bits are used to provide some (hopefully useful)
+            -- extended attributes. 
+            glyph_number(11 downto 8) <= screen_ram_buffer_dout(3 downto 0);
+            glyph_flip_horizontal <= screen_ram_buffer_dout(4);
+            glyph_flip_vertical <= screen_ram_buffer_dout(5);
+            raster_fetch_State <= FetchTextCell;
+          else
+            bitmap_colour_background <= screen_ram_buffer_dout;
+            raster_fetch_state <= FetchBitmapCell;
+          end if;
+          screen_ram_buffer_address <= screen_ram_buffer_address + 1;
+        when FetchTextCell =>
+          
         when others => null;
       end case;
     end if;
