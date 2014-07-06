@@ -44,8 +44,8 @@ ENTITY screen_ram_buffer IS
   PORT (
     clka : IN STD_LOGIC;
     wea : IN STD_LOGIC_VECTOR(0 DOWNTO 0);
-    addra : IN STD_LOGIC_VECTOR(5 DOWNTO 0);
-    dina : IN STD_LOGIC_VECTOR(63 DOWNTO 0);
+    addra : IN STD_LOGIC_VECTOR(8 DOWNTO 0);
+    dina : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
     clkb : IN STD_LOGIC;
     addrb : IN STD_LOGIC_VECTOR(8 DOWNTO 0);
     doutb : OUT STD_LOGIC_VECTOR(7 DOWNTO 0)
@@ -58,8 +58,8 @@ COMPONENT wrapped_screen_ram_buffer
   PORT (
     clka : IN STD_LOGIC;
     wea : IN STD_LOGIC_VECTOR(0 DOWNTO 0);
-    addra : IN STD_LOGIC_VECTOR(5 DOWNTO 0);
-    dina : IN STD_LOGIC_VECTOR(63 DOWNTO 0);
+    addra : IN STD_LOGIC_VECTOR(8 DOWNTO 0);
+    dina : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
     clkb : IN STD_LOGIC;
     addrb : IN STD_LOGIC_VECTOR(8 DOWNTO 0);
     doutb : OUT STD_LOGIC_VECTOR(7 DOWNTO 0)
@@ -69,7 +69,7 @@ END COMPONENT;
 -- Configuration specification
   FOR ALL : wrapped_screen_ram_buffer USE ENTITY XilinxCoreLib.blk_mem_gen_v7_3(behavioral)
     GENERIC MAP (
-      c_addra_width => 6,
+      c_addra_width => 9,
       c_addrb_width => 9,
       c_algorithm => 1,
       c_axi_id_width => 4,
@@ -105,9 +105,9 @@ END COMPONENT;
       c_mem_type => 1,
       c_mux_pipeline_stages => 0,
       c_prim_type => 1,
-      c_read_depth_a => 64,
+      c_read_depth_a => 512,
       c_read_depth_b => 512,
-      c_read_width_a => 64,
+      c_read_width_a => 8,
       c_read_width_b => 8,
       c_rst_priority_a => "CE",
       c_rst_priority_b => "CE",
@@ -123,11 +123,11 @@ END COMPONENT;
       c_use_softecc => 0,
       c_wea_width => 1,
       c_web_width => 1,
-      c_write_depth_a => 64,
+      c_write_depth_a => 512,
       c_write_depth_b => 512,
       c_write_mode_a => "READ_FIRST",
       c_write_mode_b => "READ_FIRST",
-      c_write_width_a => 64,
+      c_write_width_a => 8,
       c_write_width_b => 8,
       c_xdevicefamily => "artix7"
     );
