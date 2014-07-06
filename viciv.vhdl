@@ -542,12 +542,19 @@ architecture Behavioral of viciv is
   -- Precalculated mono/multicolour pixel bits
   signal multicolour_bits : std_logic_vector(1 downto 0) := (others => '0');
   signal monobit : std_logic := '0';
+
+  -- Raster buffer
+  signal raster_buffer_read_address : unsigned(11 downto 0);
+  signal raster_buffer_read_data : unsigned(7 downto 0);
+  signal raster_buffer_write_address : unsigned(11 downto 0);
+  signal raster_buffer_write_data : unsigned(7 downto 0);
+  signal raster_buffer_write : std_logic;  
   
   -- Colour RAM access for video controller
-  signal colourramaddress : std_logic_vector(15 downto 0);
-  signal colourramdata : std_logic_vector(7 downto 0);
+  signal colourramaddress : unsigned(15 downto 0);
+  signal colourramdata : unsigned(7 downto 0);
   -- ... and for CPU
-  signal colour_ram_fastio_address : std_logic_vector(15 downto 0);
+  signal colour_ram_fastio_address : unsigned(15 downto 0);
   
   -- Palette RAM access via fastio port
   signal palette_we : std_logic_vector(3 downto 0) := (others => '0');
@@ -601,16 +608,16 @@ begin
       clka => cpuclock,
       ena => colour_ram_cs,
       wea(0) => fastio_write,
-      addra => colour_ram_fastio_address,
+      addra => std_logic_vector(colour_ram_fastio_address),
       dina => fastio_wdata,
       douta => colour_ram_fastio_rdata,
       -- video controller use port b of the dual-port colour ram.
       -- The CPU uses port a via the fastio interface
       clkb => pixelclock,
       web => (others => '0'),
-      addrb => colourramaddress,
+      addrb => std_logic_vector(colourramaddress),
       dinb => (others => '0'),
-      doutb => colourramdata
+      unsigned(doutb) => colourramdata
       );
 
   paletteram: component ram32x1024
@@ -822,16 +829,16 @@ begin
         or register_bank = x"D2" or register_Bank=x"D3" then
         if register_page>=8 and register_page<12 then
                                         -- colour ram read $D800 - $DBFF
-          colour_ram_fastio_address <= "000000" & fastio_addr(9 downto 0);
+          colour_ram_fastio_address <= unsigned("000000" & fastio_addr(9 downto 0));
         elsif register_page>=12 and register_page<=15 then
                                         -- colour ram read $DC00 - $DFFF
-          colour_ram_fastio_address <= "000001" & fastio_addr(9 downto 0);
+          colour_ram_fastio_address <= unsigned("000001" & fastio_addr(9 downto 0));
         else
           colour_ram_fastio_address <= (others => '0');
         end if;
       elsif register_bank(7 downto 4)=x"8" then
                                         -- colour RAM all 64KB
-        colour_ram_fastio_address <= fastio_addr(15 downto 0);
+        colour_ram_fastio_address <= unsigned(fastio_addr(15 downto 0));
       end if;
       
       if fastio_read='0' then
