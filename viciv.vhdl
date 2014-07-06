@@ -288,9 +288,23 @@ architecture Behavioral of viciv is
                            FetchCharHighByte,
                            FetchTextCell,
                            FetchTextCellColourAndSource,
-                           FetchBitmapCell);
-  signal raster_fetch_state : vic_chargen_fsm;
-
+                           FetchBitmapCell,
+                           PaintDispatch);
+  signal raster_fetch_state : vic_chargen_fsm := Idle;
+  type vic_paint_fsm is (Idle,
+                         PaintFullColour,
+                         PaintMono,PaintMonoBits,
+                         PaintMultiColour,PaintMultiColourBits);
+  signal paint_fsm_state : vic_paint_fsm := Idle;
+  signal paint_ready : std_logic;
+  signal paint_from_charrom : std_logic;
+  signal paint_flip_horizontal : std_logic;
+  signal paint_foreground : unsigned(7 downto 0);
+  signal paint_background : unsigned(7 downto 0);
+  signal paint_mc1 : unsigned(7 downto 0);
+  signal paint_mc2 : unsigned(7 downto 0);
+  signal paint_buffer : unsigned(6 downto 0);
+  signal paint_bits_remaining : integer range 0 to 7;
   
   signal debug_x : unsigned(11 downto 0) := "111111111110";
   signal debug_y : unsigned(11 downto 0) := "111111111110";
@@ -300,7 +314,7 @@ architecture Behavioral of viciv is
   signal debug_chargen_active : std_logic;
   signal debug_chargen_active_soon : std_logic;
   signal debug_character_data_from_rom : std_logic;
-  signal debug_charaddress : std_logic_vector(11 downto 0);
+  signal debug_charaddress : unsigned(11 downto 0);
   signal debug_charrow : std_logic_vector(7 downto 0);
 
   signal debug_screen_ram_buffer_address_drive : unsigned(8 downto 0);
@@ -309,7 +323,7 @@ architecture Behavioral of viciv is
   signal debug_chargen_active_drive : std_logic;
   signal debug_chargen_active_soon_drive : std_logic;
   signal debug_character_data_from_rom_drive : std_logic;
-  signal debug_charaddress_drive : std_logic_vector(11 downto 0);
+  signal debug_charaddress_drive : unsigned(11 downto 0);
   signal debug_charrow_drive : std_logic_vector(7 downto 0);
 
   signal debug_screen_ram_buffer_address_drive2 : unsigned(8 downto 0);
@@ -318,7 +332,7 @@ architecture Behavioral of viciv is
   signal debug_chargen_active_drive2 : std_logic;
   signal debug_chargen_active_soon_drive2 : std_logic;
   signal debug_character_data_from_rom_drive2 : std_logic;
-  signal debug_charaddress_drive2 : std_logic_vector(11 downto 0);
+  signal debug_charaddress_drive2 : unsigned(11 downto 0);
   signal debug_charrow_drive2 : std_logic_vector(7 downto 0);
 
   -----------------------------------------------------------------------------
@@ -463,7 +477,7 @@ architecture Behavioral of viciv is
   -- Character drawing info
   signal background_colour_select : unsigned(1 downto 0);
   signal glyph_number : unsigned(15 downto 0);
-  signal glyph_colour : unsigned(3 downto 0);
+  signal glyph_colour : unsigned(7 downto 0);
   signal glyph_attributes : unsigned(3 downto 0);
   signal glyph_visible : std_logic;
   signal glyph_bold : std_logic;
@@ -495,7 +509,7 @@ architecture Behavioral of viciv is
   signal cycles_to_next_card_drive : unsigned(7 downto 0);
   
   -- Interface to character generator rom
-  signal charaddress : std_logic_vector(11 downto 0);
+  signal charaddress : unsigned(11 downto 0);
   signal chardata : std_logic_vector(7 downto 0);
   -- buffer of read data to improve timing
   signal charrow : std_logic_vector(7 downto 0);
@@ -650,7 +664,7 @@ begin
   
   charrom1 : charrom
     port map (Clk => pixelclock,
-              address => charaddress,
+              address => std_logic_vector(charaddress),
               we => '0',  -- read
               cs => '1',  -- active
               data_i => (others => '1'),
@@ -1116,9 +1130,10 @@ begin
           --fastio_rdata <=
           --  std_logic_vector(to_unsigned(vic_fetch_fsm'pos(debug_char_fetch_cycle_drive2),8));
         elsif register_number=125 then
-          fastio_rdata <= debug_charaddress_drive2(7 downto 0);
+          fastio_rdata <= std_logic_vector(debug_charaddress_drive2(7 downto 0));
         elsif register_number=126 then
-          fastio_rdata <= "0000" & debug_charaddress_drive2(11 downto 8);
+          fastio_rdata <= "0000"
+                          & std_logic_vector(debug_charaddress_drive2(11 downto 8));
         elsif register_number=127 then
           fastio_rdata <= debug_charrow_drive2;
         elsif register_number<256 then
@@ -1988,7 +2003,7 @@ begin
             -- Normal character glyph fetched relative to character_set_address.
             -- Again, we take into account if we are flipping vertically.
             glyph_data_address
-              <= character_set_address
+              <= character_set_address(16 downto 0)
                    + to_integer(glyph_number
                                 &(chargen_y(2) xor glyph_flip_vertical)
                                 &(chargen_y(1) xor glyph_flip_vertical)
@@ -2011,6 +2026,7 @@ begin
             end if;
           end if;
           -- Record colour and attribute information from colour RAM
+          glyph_colour(7 downto 4) <= "0000";
           glyph_colour(3 downto 0) <= colourramdata(3 downto 0);
           glyph_bold <= '0';
           glyph_underline <= '0';
@@ -2026,6 +2042,7 @@ begin
                 if viciii_blink_phase='1' then
                   glyph_reverse <= colourramdata(5);
                   glyph_bold <= colourramdata(6);
+                  glyph_colour(4) <= colourramdata(6);
                   if chargen_y(2 downto 0)="111" then
                     glyph_underline <= colourramdata(7);
                   end if;
@@ -2039,14 +2056,117 @@ begin
               glyph_visible <= '1';
               glyph_reverse <= colourramdata(5);
               glyph_bold <= colourramdata(6);
+              glyph_colour(4) <= colourramdata(6);
               if chargen_y(2 downto 0)="111" then
                 glyph_underline <= colourramdata(7);
               end if;
             end if;
           end if;
+          raster_fetch_state <= PaintDispatch;
+        when PaintDispatch =>
+          -- Dispatch this card for painting.
 
-          
+          -- Hold from dispatching if painting the previous card is not yet finished.
+          if paint_ready='1' then
+            -- Ask for first byte of data so that paint can commence immediately.
+            ramaddress <= glyph_data_address;
+            charaddress <= glyph_data_address(11 downto 0);
+            paint_from_charrom <= character_data_from_rom;
+            -- Tell painter whether to flip horizontally or not.
+            paint_flip_horizontal <= glyph_flip_horizontal;
+            -- Now work out exactly how we are painting
+            if glyph_full_colour='1' then
+              -- Paint full-colour glyph
+              paint_fsm_state <= PaintFullColour;
+            else
+              if multicolour_mode='0' and extended_background_mode='0' then
+                -- Mono mode
+                if text_mode='1' then
+                  paint_foreground <= glyph_colour;
+                  paint_background <= screen_colour;
+                else
+                  paint_foreground <= bitmap_colour_foreground;
+                  paint_background <= bitmap_colour_background;
+                end if;
+                paint_fsm_state <= PaintMono;
+              elsif multicolour_mode='1' and extended_background_mode='0' then
+                -- Multicolour mode
+                paint_background <= screen_colour;
+                paint_foreground <= glyph_colour;
+                if text_mode='1' then
+                  paint_mc1 <= multi1_colour;
+                  paint_mc2 <= multi2_colour;
+                else
+                  paint_mc1 <= bitmap_colour_background;
+                  paint_mc2 <= bitmap_colour_foreground;
+                end if;       
+                paint_fsm_state <= PaintMultiColour;
+              elsif extended_background_mode='1' then
+                -- ECM - XXX - Not currently implemented.
+              end if;
+            end if;
+          end if;
         when others => null;
+      end case;
+
+      case paint_fsm_state is
+        when Idle =>
+          if paint_ready='0' then paint_ready <= '1'; end if;
+        when PaintMono =>
+          -- Paint 8 mono bits from ramdata or chardata
+          -- Paint first bit directly from the source, and then
+          -- remaining bits from a buffer.
+          if paint_flip_horizontal='1' and paint_from_charrom='1' then
+            if chardata(0)='1' then
+              raster_buffer_write_data <= '1'&paint_foreground;
+            else
+              raster_buffer_write_data <= '0'&paint_background;
+            end if;
+            paint_buffer <= unsigned(chardata(6 downto 0));
+          elsif paint_flip_horizontal='0' and paint_from_charrom='1' then
+            if chardata(7)='1' then
+              raster_buffer_write_data <= '1'&paint_foreground;
+            else
+              raster_buffer_write_data <= '0'&paint_background;
+            end if;
+            paint_buffer <= chardata(0)&chardata(1)&chardata(2)&chardata(3)
+                            &chardata(4)&chardata(5)&chardata(6);
+          elsif paint_flip_horizontal='1' and paint_from_charrom='0' then
+            if ramdata(0)='1' then
+              raster_buffer_write_data <= '1'&paint_foreground;
+            else
+              raster_buffer_write_data <= '0'&paint_background;
+            end if;
+            paint_buffer <= ramdata(6 downto 0);
+          elsif paint_flip_horizontal='0' and paint_from_charrom='0' then
+            if ramdata(7)='1' then
+              raster_buffer_write_data <= '1'&paint_foreground;
+            else
+              raster_buffer_write_data <= '0'&paint_background;
+            end if;
+            paint_buffer <= ramdata(0)&ramdata(1)&ramdata(2)&ramdata(3)
+                            &ramdata(4)&ramdata(5)&ramdata(6);
+          end if;
+          raster_buffer_write_address <= raster_buffer_write_address + 1;
+          paint_bits_remaining <= 7;
+          paint_fsm_state <= PaintMonoBits;
+        when PaintMonoBits =>
+          if paint_buffer(0)='1' then
+            raster_buffer_write_data <= '1'&paint_foreground;
+          else
+            raster_buffer_write_data <= '0'&paint_background;
+          end if;
+          raster_buffer_write_address <= raster_buffer_write_address + 1;
+          paint_bits_remaining <= paint_bits_remaining - 1;
+          if paint_bits_remaining = 1 then
+            -- Tell character generator when we are able to become idle.
+            -- (the generator tells us when to go idle)
+            paint_ready <= '1';
+          end if;
+        when others =>
+          -- If we don't know what to do, just smile and nod and say we are
+          -- ready again.
+          paint_ready <= '1';
       end case;
     end if;
   end process;
