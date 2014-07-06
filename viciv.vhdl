@@ -1645,11 +1645,11 @@ begin
       if xfrontporch='1' then
         indisplay := '0';
       end if;
-      if (xbackporch='0') and ((chargen_active='1') or (chargen_active_soon='1')) then         -- In active part of raster
-        
+      
+      if (xbackporch='0') and ((chargen_active='1') or (chargen_active_soon='1')) then         -- In active part of raster  
         -- Work out if we are at the end of a character
         cycles_to_next_card <= cycles_to_next_card - 1;
-        if cycles_to_next_card = x"09" then
+        if cycles_to_next_card = x"08" then
           -- Work out the address of the data we need to fetch.
           -- XXX horizontal and vertical flip not yet implemented.
           if text_mode='1' then
@@ -1658,13 +1658,13 @@ begin
             if next_card_number_is_extended='1' then
               -- VIC-IV full-colour character, so simply 64*glyph number +
               -- 8*row_number.
-              carddata_baseaddress <= to_unsigned(to_integer(character_set_address(16 downto 0))
+              long_address(16 downto 0) := to_unsigned(to_integer(character_set_address(16 downto 0))
                                                   + to_integer(next_glyph_number(10 downto 0)&chargen_y&"000"),16);
               carddata_is_fullcolour <= '1';
             else
               -- VIC-II style bitmap character, so charnumber*8 + base address
               -- + row_number
-              carddata_baseaddress <= to_unsigned(to_integer(character_set_address(16 downto 0))
+              long_address(16 downto 0) := to_unsigned(to_integer(character_set_address(16 downto 0))
                                                   + to_integer(next_glyph_number(13 downto 0)&chargen_y),16);
               carddata_is_fullcolour <= '0';
             end if;
@@ -1674,15 +1674,16 @@ begin
             -- bits 12 and 11.
             -- Bitmap mode does not support full-colour mode, so always 8 bytes
             -- per card.            
-            carddata_baseaddress(16 downto 3) <= to_unsigned((character_set_address(16 downto 13)&"00"&character_set_address(10 downto 3))
+            long_address(16 downto 3) := to_unsigned((character_set_address(16 downto 13)&"00"&character_set_address(10 downto 3))
                                                 + to_integer(next_card_number),13);
-            carddata_baseaddress(2 downto 0) <= "000";
+            long_address(2 downto 0) := "000";
             carddata_is_fullcolour <= '0';
           end if;
 
-          -- Schedule request
+          -- Request first (or only) byte now
           ramaddress <= long_address(16 downto 0);
-          last_ramaddress <= long_address(16 downto 0);
+          -- And have the next address we want at the ready
+          data_ramaddress <= long_address(16 downto 0) + 1;
 
           char_fetch_cycle <= fsm0;
         else
@@ -1700,12 +1701,10 @@ begin
         if cycles_to_next_card = 1 then
           report "VGA: Copying next_* to glyph_*" severity note;
           -- We are at the start of a character          
-          if (ycounter>100) and (xcounter>250) and (xcounter<350) then
-            report "VGA : Update glyph data. next_card_number=" & integer'image(to_integer(next_card_number))
-              severity note;
-          end if;
           
           -- Reset counter to next character to 8 cycles x (scale + 1)
+          -- (this will automatically set character data fetch process in
+          -- action on the next cycle).
           cycles_to_next_card <= (chargen_x_scale(4 downto 0)+1) & "000";
           -- Move preloaded glyph data into position when advancing to the next character          
           card_number <= next_card_number;
@@ -1720,11 +1719,9 @@ begin
           glyph_full_colour <= next_glyph_full_colour;
 
           bitmap_colours <= next_bitmap_colours;
-                                        -- ... and then start fetching data for the character after that
+          
           next_card_number <= next_card_number + 1;
-          if chargen_x_scale = 0 then
-            char_fetch_cycle <= fsm0;
-          end if;
+
           report "resetting chargen_x" severity note;
           chargen_x <= "000";
           next_chargen_x <= "000";
@@ -1794,8 +1791,7 @@ begin
       end if;
       if x_chargen_start_minus9='1' then
         -- Start fetching first character of the row
-        -- (8 cycles is plenty of time to fetch it)       
-        char_fetch_cycle <= fsm0;
+        -- (8 cycles is sufficient time to fetch it)       
         cycles_to_next_card <= to_unsigned(8,8);
         next_card_number <= first_card_of_row;
         card_number <= first_card_of_row;
@@ -1932,30 +1928,8 @@ begin
         when fsm0 =>
           report "VGA: Fetching next_*, next_card_number=" & integer'image(to_integer(next_card_number))
             severity note;
-          -- next_glyph_number has been prefetched at start of line or during
-          -- the last character fetch process. Same for next_bitmap_colours.
-                    
-          -- Tell buffer to start reading next character
-          screen_ram_buffer_address <= screen_ram_buffer_address + 1;
-
-          if text_mode='1' then
-            -- We know the character number since it was pre-fetched
-            ramaddress <= to_unsigned(to_integer(character_set_address(16 downto 0)) + to_integer(next_glyph_number(13 downto 0)&"000"),16);
-            last_ramaddress <= to_unsigned(to_integer(character_set_address(16 downto 3)) + to_integer(next_glyph_number(13 downto 0)),14);
-          else
-            -- Bitmap data: Request word of memory with bitmap data in it
-            long_address(16 downto 13) := character_set_address(16 downto 13);
-            long_address(12 downto 11) := "00";  -- bitmap mode display is always
-                                               -- on 8KB boundary
-            long_address(10 downto 0) := character_set_address(10 downto 0);
-            -- now add card number * 8
-            long_address(16 downto 3) := long_address(16 downto 3) + to_integer(next_card_number);
-            -- Schedule request
-            ramaddress <= long_address(16 downto 0);
-            last_ramaddress <= long_address(16 downto 0);
-          end if;
           
-          -- Load colour RAM at the same time
+          -- Load colour RAM
           long_address(15 downto 0) := colour_ram_base+next_card_number;
           colourramaddress <= std_logic_vector(long_address(15 downto 0));
         when fsm1 =>
