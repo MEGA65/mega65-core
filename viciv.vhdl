@@ -289,7 +289,8 @@ architecture Behavioral of viciv is
                            FetchTextCell,
                            FetchTextCellColourAndSource,
                            FetchBitmapCell,
-                           PaintDispatch);
+                           PaintDispatch,
+                           EndOfChargen);
   signal raster_fetch_state : vic_chargen_fsm := Idle;
   type vic_paint_fsm is (Idle,
                          PaintFullColour,
@@ -2105,6 +2106,18 @@ begin
                 -- ECM - XXX - Not currently implemented.
               end if;
             end if;
+            -- Fetch next character
+            character_number <= character_number + 1;
+            if character_number = virtual_row_width then
+              raster_fetch_state <= EndOfChargen;
+            else
+              raster_fetch_state <= FetchNextCharacter;
+            end if;            
+          end if;
+        when EndOfChargen =>
+          -- Idle the painter, and then start drawing VIC-II sprites
+          if paint_ready='1' then
+            paint_fsm_state <= Idle;
           end if;
         when others => null;
       end case;
