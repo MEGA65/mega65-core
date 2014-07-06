@@ -305,7 +305,7 @@ architecture Behavioral of viciv is
   signal paint_mc1 : unsigned(7 downto 0);
   signal paint_mc2 : unsigned(7 downto 0);
   signal paint_buffer : unsigned(7 downto 0);
-  signal paint_bits_remaining : integer range 0 to 7;
+  signal paint_bits_remaining : integer range 0 to 8;
   
   signal debug_x : unsigned(11 downto 0) := "111111111110";
   signal debug_y : unsigned(11 downto 0) := "111111111110";
