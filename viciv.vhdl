@@ -311,6 +311,8 @@ architecture Behavioral of viciv is
   signal debug_x : unsigned(11 downto 0) := "111111111110";
   signal debug_y : unsigned(11 downto 0) := "111111111110";
   signal debug_screen_ram_buffer_address : unsigned(8 downto 0);
+  signal debug_raster_buffer_read_address : unsigned(7 downto 0);
+  signal debug_raster_buffer_write_address : unsigned(7 downto 0);
   signal debug_cycles_to_next_card : unsigned(7 downto 0);
   signal debug_char_fetch_cycle : vic_chargen_fsm;
   signal debug_chargen_active : std_logic;
@@ -327,8 +329,12 @@ architecture Behavioral of viciv is
   signal debug_character_data_from_rom_drive : std_logic;
   signal debug_charaddress_drive : unsigned(11 downto 0);
   signal debug_charrow_drive : std_logic_vector(7 downto 0);
+  signal debug_raster_buffer_read_address_drive : unsigned(7 downto 0);
+  signal debug_raster_buffer_write_address_drive : unsigned(7 downto 0);
 
   signal debug_screen_ram_buffer_address_drive2 : unsigned(8 downto 0);
+  signal debug_raster_buffer_read_address_drive2 : unsigned(7 downto 0);
+  signal debug_raster_buffer_write_address_drive2 : unsigned(7 downto 0);
   signal debug_cycles_to_next_card_drive2 : unsigned(7 downto 0);
   signal debug_char_fetch_cycle_drive2 : vic_chargen_fsm;
   signal debug_chargen_active_drive2 : std_logic;
@@ -1119,9 +1125,9 @@ begin
         elsif register_number=114 then -- $D372
           fastio_rdata <= "0000"&std_logic_vector(x_chargen_start_minus17_drive(11 downto 8));
         elsif register_number=115 then  -- $D373
---          fastio_rdata <= std_logic_vector(debug_next_card_number_drive2(7 downto 0));
+          fastio_rdata <= std_logic_vector(debug_raster_buffer_read_address_drive2(7 downto 0));
         elsif register_number=116 then  -- $D374
---          fastio_rdata <= std_logic_vector(debug_next_card_number_drive2(15 downto 8));
+          fastio_rdata <= std_logic_vector(debug_raster_buffer_write_address_drive2(7 downto 0));
         elsif register_number=117 then  -- $D375
           fastio_rdata <= std_logic_vector(debug_cycles_to_next_card_drive2(7 downto 0));
         elsif register_number=118 then  -- $D376
@@ -1173,6 +1179,9 @@ begin
       debug_charaddress_drive2 <= debug_charaddress_drive;
       debug_character_data_from_rom_drive2 <= debug_character_data_from_rom_drive;
       debug_screen_ram_buffer_address_drive2 <= debug_screen_ram_buffer_address_drive;
+      debug_raster_buffer_read_address_drive2 <= debug_raster_buffer_read_address_drive;
+      debug_raster_buffer_write_address_drive2 <= debug_raster_buffer_write_address_drive;
+
       inborder_drive <= inborder;
       x_chargen_start_minus17_drive <= x_chargen_start_minus17;
       displayx_drive <= displayx;
@@ -1798,6 +1807,9 @@ begin
       debug_charaddress_drive <= debug_charaddress;
       debug_character_data_from_rom_drive <= debug_character_data_from_rom;
       debug_screen_ram_buffer_address_drive <= debug_screen_ram_buffer_address;
+      debug_raster_buffer_read_address_drive <= debug_raster_buffer_read_address;
+      debug_raster_buffer_write_address_drive <= debug_raster_buffer_write_address;
+
       -- Actually, we use two drive stages since the video timing is so pernickety.
       -- The 2nd drive stage is driven by the ioclock. Search for _drive2 to
       -- find it.
@@ -1811,6 +1823,8 @@ begin
         debug_charaddress <= charaddress;
         debug_character_data_from_rom <= character_data_from_rom;
         debug_screen_ram_buffer_address <= screen_ram_buffer_address;
+        debug_raster_buffer_read_address <= raster_buffer_read_address(7 downto 0);
+        debug_raster_buffer_write_address <= raster_buffer_write_address(7 downto 0);
       end if;     
       if displayx=debug_x or displayy=debug_y then
         -- Draw cross-hairs at debug coordinates
