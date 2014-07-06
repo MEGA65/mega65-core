@@ -1760,7 +1760,7 @@ begin
           report "VGA: no character pixel data as chargen_active=0" severity note;
         else
           -- Otherwise read pixel data from raster buffer
-          pixel_colour <= raster_buffer_read_data;
+          pixel_colour <= raster_buffer_read_data(7 downto 0);
         end if;
       else
         pixel_colour <= x"00";
