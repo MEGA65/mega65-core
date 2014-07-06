@@ -1454,6 +1454,8 @@ begin
                 if monitor_mem_address(27 downto 16) = x"777" then
                   -- M777xxxx in serial monitor reads memory from CPU's perspective
                   memory_access_resolve_address := '1';
+                else
+                  memory_access_resolve_address := '0';
                 end if;
                 if monitor_mem_write='1' then
                   -- Write to specified long address (or short if address is $777xxxx)
