@@ -282,7 +282,8 @@ architecture Behavioral of viciv is
   -- Internal registers for drawing a single raster of character data to the
   -- raster buffer.
   signal character_number : unsigned(8 downto 0);
-  type vic_chargen_fsm is (Idle,FetchScreenRamLine,FetchNextCharacter);
+  type vic_chargen_fsm is (Idle,FetchScreenRamLine,FetchNextCharacter,
+                           FetchCharHighByte,FetchTextCell,FetchBitmapCell);
   signal raster_fetch_state : vic_chargen_fsm;
 
   
@@ -449,48 +450,29 @@ architecture Behavioral of viciv is
   -- fractional pixel position for scaling
   signal chargen_y_sub : unsigned(4 downto 0);
   signal chargen_x_sub : unsigned(4 downto 0);
-  -- data for next card
-  signal next_bitmap_colours  : unsigned(7 downto 0);
-  signal next_next_bitmap_colours  : unsigned(7 downto 0);
-  signal next_glyph_number : unsigned(15 downto 0);
-  signal next_next_glyph_number : unsigned(15 downto 0);
-  signal next_glyph_number8 : unsigned(7 downto 0);
-  signal next_glyph_number16 : unsigned(15 downto 0);
-  signal next_glyph_colour : unsigned(3 downto 0);
-  signal next_glyph_attributes : unsigned(3 downto 0);
-  signal next_glyph_visible : std_logic;
-  signal next_glyph_bold : std_logic;
-  signal next_glyph_underline : std_logic;
-  signal next_glyph_reverse : std_logic;
-  signal next_glyph_chardata64 : std_logic_vector(63 downto 0);
-  signal next_glyph_chardata64b : std_logic_vector(63 downto 0);
-  signal next_glyph_chardata64c : std_logic_vector(63 downto 0);
-  signal next_glyph_chardata : std_logic_vector(7 downto 0);
-  signal next_glyph_pixeldata : std_logic_vector(63 downto 0);
-  signal next_glyph_number_buffer : std_logic_vector(63 downto 0);
-  signal next_glyph_colour_buffer : std_logic_vector(7 downto 0);
-  signal next_glyph_colour_buffer_temp : std_logic_vector(7 downto 0);
-  signal next_glyph_full_colour : std_logic;
+
+  -- Bitmap drawing info
+  signal bitmap_colour_foreground : unsigned(7 downto 0);
+  signal bitmap_colour_background : unsigned(7 downto 0);
+
+  -- Character drawing info
+  signal background_colour_select : unsigned(1 downto 0);
+  signal glyph_number : unsigned(15 downto 0);
+  signal glyph_colour : unsigned(3 downto 0);
+  signal glyph_attributes : unsigned(3 downto 0);
+  signal glyph_visible : std_logic;
+  signal glyph_bold : std_logic;
+  signal glyph_underline : std_logic;
+  signal glyph_reverse : std_logic;
+  signal glyph_full_colour : std_logic;
+  
   signal next_chargen_x : unsigned(2 downto 0) := (others => '0');
   signal next_card_number_is_extended : std_logic;  -- set if card_number > $00FF
+  signal card_of_row : unsigned(7 downto 0);
   signal chargen_active : std_logic := '0';
   signal chargen_active_drive : std_logic := '0';
   signal chargen_active_soon : std_logic := '0';
   signal chargen_active_soon_drive : std_logic := '0';
-
-  -- data for current card
-  signal bitmap_colours  : unsigned(7 downto 0);
-  signal glyph_number : unsigned(15 downto 0);
-  signal glyph_colour : unsigned(3 downto 0);
-  signal glyph_colour_t1 : unsigned(3 downto 0);
-  signal glyph_colour_t2 : unsigned(3 downto 0);
-  signal glyph_colour_t3 : unsigned(3 downto 0);
-  signal glyph_bold : std_logic;
-  signal glyph_underline : std_logic;
-  signal glyph_reverse : std_logic;
-  signal glyph_pixeldata64 : std_logic_vector(63 downto 0);
-  signal glyph_pixeldata : std_logic_vector(63 downto 0);
-  signal glyph_full_colour : std_logic;
   
   -- Delayed versions of signals to allow character fetching pipeline
   signal chargen_x_t1 : unsigned(2 downto 0) := (others => '0');
@@ -1879,13 +1861,14 @@ begin
         -- Work out the screen ram address.  We only need to re-fetch screen
         -- RAM if first_card_of_row is different to last time.
         prev_first_card_of_row <= first_card_of_row;
-        if first_card_of_row /= prev_first_card_of_row then
+        if first_card_of_row /= prev_first_card_of_row then          
           character_number <= (others => '0');
           screen_row_current_address <= screen_ram_base(16 downto 0) + first_card_of_row;
           ramaddress <= screen_ram_base(16 downto 0) + first_card_of_row;
           raster_fetch_state <= FetchScreenRamLine;
         else
           character_number <= (others => '0');
+          card_of_row <= (others =>'0');
           raster_fetch_state <= FetchNextCharacter;
         end if;
       end if;
@@ -1903,6 +1886,8 @@ begin
           screen_row_current_address <= screen_row_current_address + 1;
           character_number <= character_number + 1;
           -- See if we already have enough bytes already.
+          -- virtual_row_width bytes, unless in 16bit character set mode, in which
+          -- case we need twice that many bytes.
           if sixteenbit_charset='1' then
             if character_number = virtual_row_width(7 downto 0)&'0' then
               character_number <= (others => '0');
@@ -1911,7 +1896,56 @@ begin
           else
             if character_number = '0'&virtual_row_width(7 downto 0) then
               character_number <= (others => '0');
+              card_of_row <= (others => '0');
               raster_fetch_state <= FetchNextCharacter;
+            end if;
+          end if;
+        when FetchNextCharacter =>
+          -- Fetch next character
+          -- All we can expect here is that character_number is correctly set.
+          -- (Ideally we would take only 8 cycles to fetch a character so that
+          -- we use as little raster time as possible, especially for true 1920
+          -- pixel modes.  However, for now, the emphasis is on making it work.)
+
+          -- Based on either the card number (for bitmap modes) or
+          -- character_number (for text modes), work out the address where the
+          -- data lives.
+
+          -- Work out exactly what mode we are in so that we can be a bit more
+          -- efficient in the next cycle
+          if text_mode='1' then
+            -- Read 8 or 16 bit screen RAM data for character number information
+            -- (the address was put on the bus for us already).
+            -- Handle extended background colour mode here if required.
+            glyph_number(15 downto 8) <= x"00";
+            glyph_number(5 downto 0) <= screen_ram_buffer_dout(5 downto 0);
+            if extended_background_mode='1' then
+              background_colour_select <= screen_ram_buffer_dout(7 downto 6);
+            else
+              background_colour_select <= "00";
+              glyph_number(7 downto 6) <= screen_ram_buffer_dout(7 downto 6);
+            end if; 
+          else
+            -- Read 8 or 16 bits of colour information for bitmap modes.
+            -- In 16 bit charset mode we allow 8 bits for fore and back-ground
+            -- colours.
+            if sixteenbit_charset='1' then
+              bitmap_colour_foreground <= screen_ram_buffer_dout;
+            else
+              bitmap_colour_foreground <= x"0" & screen_ram_buffer_dout(7 downto 4);
+              bitmap_colour_background <= x"0" & screen_ram_buffer_dout(3 downto 0);
+            end if;
+          end if;
+          screen_ram_buffer_address <= screen_ram_buffer_address + 1;
+          if sixteenbit_charset='1' then
+            raster_fetch_state <= FetchCharHighByte;
+          else
+            -- 8 bit character set / colour info mode
+            card_number_is_extended <= '0';
+            if text_mode='1' then
+              raster_fetch_state <= FetchTextCell;
+            else
+              raster_fetch_state <= FetchBitmapCell;
             end if;
           end if;
         when others => null;
