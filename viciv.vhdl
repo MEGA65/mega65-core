@@ -407,7 +407,8 @@ architecture Behavioral of viciv is
   -- worst case we can need >32KB of it.  Must correspond to a ChipRAM address,
   -- so the MSBs are irrelevant.
   signal colour_ram_base : unsigned(15 downto 0) := x"0000";
-  -- Screen RAM offset
+  -- Screen RAM offset ( @ $1000 on boot for debug purposes)
+  -- (bits 17-27 are ignored with 128KB chipram)
   signal screen_ram_base : unsigned(27 downto 0) := x"0001000";
   -- Pointer to the VIC-II compatibility sprite source vector, usually
   -- screen+$3F8 in 40 column mode, or +$7F8 in VIC-III 80 column mode
