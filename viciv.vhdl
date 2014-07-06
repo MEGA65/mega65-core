@@ -110,6 +110,18 @@ end viciv;
 
 architecture Behavioral of viciv is
 
+  component ram9x4k IS
+  PORT (
+    clka : IN STD_LOGIC;
+    wea : IN STD_LOGIC_VECTOR(0 DOWNTO 0);
+    addra : IN STD_LOGIC_VECTOR(11 DOWNTO 0);
+    dina : IN STD_LOGIC_VECTOR(8 DOWNTO 0);
+    clkb : IN STD_LOGIC;
+    addrb : IN STD_LOGIC_VECTOR(11 DOWNTO 0);
+    doutb : OUT STD_LOGIC_VECTOR(8 DOWNTO 0)
+  );
+  END component;
+
   component screen_ram_buffer IS
     PORT (
       clka : IN STD_LOGIC;
@@ -579,6 +591,17 @@ architecture Behavioral of viciv is
   
 begin
 
+  rasterbuffer1: component ram9x4k
+    port map (
+      clka => pixelclock,
+      clkb => pixelclock,
+      wea(0) => raster_buffer_write,
+      dina => std_logic_vector(raster_buffer_write_data),
+      unsigned(doutb) => raster_buffer_read_data,
+      addra => std_logic_vector(raster_buffer_write_address),
+      addrb => std_logic_vector(raster_buffer_read_address)
+      );
+  
   buffer1: component screen_ram_buffer
     port map (
       clka => pixelclock,
