@@ -1767,6 +1767,7 @@ begin
         else
           -- Otherwise read pixel data from raster buffer
           pixel_colour <= raster_buffer_read_data(7 downto 0);
+          -- XXX 9th bit indicates foreground for sprite collission handling
         end if;
       else
         pixel_colour <= x"00";
