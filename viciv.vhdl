@@ -1563,6 +1563,7 @@ begin
         -- Bump raster number and start next raster.
         xcounter <= (others => '0');
         chargen_x_sub <= (others => '0');
+        raster_buffer_read_address <= (others => '0');
         chargen_active <= '0';
         chargen_active_soon <= '0';        
         if ycounter<frame_height then
