@@ -359,15 +359,10 @@ architecture Behavioral of viciv is
   signal chargen_y_scale : unsigned(7 downto 0) := x"04";  -- x"04"
   -- smooth scrolling position in natural pixels.
   -- Set in the same way as the border
-  signal x_chargen_start : unsigned(11 downto 0) := to_unsigned(0,12);  -- 160
-  signal x_chargen_start_pipeline : unsigned(11 downto 0);
-  signal x_chargen_start_display : unsigned(11 downto 0);
+  -- DEBUG: Start chargen at pixel 1 so that ghdl debugging is quicker.
+  -- (can't do pixel 0, as otherwise the _minus1 version will be silly)
+  signal x_chargen_start : unsigned(11 downto 0) := to_unsigned(1,12);
   signal x_chargen_start_minus1 : unsigned(11 downto 0);
-  signal x_chargen_start_minus2 : unsigned(11 downto 0);
-  signal x_chargen_start_minus10 : unsigned(11 downto 0);
-  signal x_chargen_start_minus9 : std_logic;
-  signal x_chargen_start_minus17 : unsigned(11 downto 0);
-  signal x_chargen_start_minus17_drive : unsigned(11 downto 0);
 
   -- DEBUG: Start character generator in first raster on power up to make ghdl
   -- simulation much quicker
@@ -706,7 +701,7 @@ begin
           viciii_extended_attributes,virtual_row_width,chargen_x_scale,
           chargen_y_scale,xcounter,chargen_active_soon,card_number,
           colour_ram_base,vicii_sprite_pointer_address,palette_bank_fastio,
-          x_chargen_start_minus17,debug_cycles_to_next_card,
+          debug_cycles_to_next_card,
           debug_chargen_active,debug_char_fetch_cycle,debug_charaddress,
           debug_charrow,palette_fastio_rdata,palette_bank_chargen,
           debug_chargen_active_soon,palette_bank_sprites) is
@@ -1129,9 +1124,9 @@ begin
         elsif register_number=112 then -- $D370
           fastio_rdata <= palette_bank_fastio & palette_bank_chargen & palette_bank_sprites & "11";
         elsif register_number=113 then -- $D371
-          fastio_rdata <= std_logic_vector(x_chargen_start_minus17_drive(7 downto 0));
+          --fastio_rdata <= std_logic_vector(x_chargen_start_minus17_drive(7 downto 0));
         elsif register_number=114 then -- $D372
-          fastio_rdata <= "0000"&std_logic_vector(x_chargen_start_minus17_drive(11 downto 8));
+          --fastio_rdata <= "0000"&std_logic_vector(x_chargen_start_minus17_drive(11 downto 8));
         elsif register_number=115 then  -- $D373
           fastio_rdata <= std_logic_vector(debug_raster_buffer_read_address_drive2(7 downto 0));
         elsif register_number=116 then  -- $D374
@@ -1191,7 +1186,6 @@ begin
       debug_raster_buffer_write_address_drive2 <= debug_raster_buffer_write_address_drive;
 
       inborder_drive <= inborder;
-      x_chargen_start_minus17_drive <= x_chargen_start_minus17;
       displayx_drive <= displayx;
       chargen_active_soon_drive <= chargen_active_soon;
       cycles_to_next_card_drive <= cycles_to_next_card;
@@ -1686,12 +1680,17 @@ begin
         chargen_x_sub <= chargen_x_sub + 1;
       end if;
 
+      report "chargen_active=" & std_logic'image(chargen_active)
+        & ", xcounter = " & to_string(std_logic_vector(xcounter))
+        & ", x_chargen_start = " & to_string(std_logic_vector(x_chargen_start)) severity note;
       if displayx=border_x_right then
         -- Stop character generator as soon as we hit the right border
         -- so that we can switch to fetching sprite data for the next raster.
+        report "Masking chargen_active based on displayx<border_x_right" severity note;
         chargen_active <= '0';
         chargen_active_soon <= '0';
       end if;
+      x_chargen_start_minus1 <= x_chargen_start - 1;
       if xcounter = x_chargen_start_minus1 then
         -- trigger next card at start of chargen row
         chargen_x <= (others => '0');
@@ -1700,9 +1699,10 @@ begin
         -- Request first byte of pre-rendered character data
         raster_buffer_read_address <= (others => '0');
       end if;
-      if xcounter = x_chargen_start_display then
+      if xcounter = x_chargen_start then
         -- Gets masked to 0 below if displayy is above y_chargen_start
         chargen_active <= '1';
+        report "Setting chargen_active based on xcounter = x_chargen_start" severity note;
         chargen_active_soon <= '0';
       end if;
       if displayy<y_chargen_start then
@@ -1710,6 +1710,7 @@ begin
         chargen_y_sub <= (others => '0');
         chargen_active <= '0';
         chargen_active_soon <= '0';
+        report "Masking chargen_active based on displayy<y_chargen_start" severity note;
       end if;
       if displayy=y_chargen_start then
         chargen_y <= (others => '0');
