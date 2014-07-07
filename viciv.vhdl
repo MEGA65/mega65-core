@@ -359,9 +359,7 @@ architecture Behavioral of viciv is
   signal chargen_y_scale : unsigned(7 downto 0) := x"04";  -- x"04"
   -- smooth scrolling position in natural pixels.
   -- Set in the same way as the border
-  -- DEBUG: Start chargen at pixel 1 so that ghdl debugging is quicker.
-  -- (can't do pixel 0, as otherwise the _minus1 version will be silly)
-  signal x_chargen_start : unsigned(11 downto 0) := to_unsigned(1,12);
+  signal x_chargen_start : unsigned(11 downto 0) := to_unsigned(frame_h_front,12);
   signal x_chargen_start_minus1 : unsigned(11 downto 0);
 
   -- DEBUG: Start character generator in first raster on power up to make ghdl
@@ -1667,6 +1665,7 @@ begin
 
       if xfrontporch='1' or xbackporch='1' then
         indisplay := '0';
+        report "clearing indisplay because of horizontal porch" severity note;
       end if;
       
       -- Update current horizontal sub-pixel and pixel position
@@ -1738,6 +1737,7 @@ begin
           displayy <= (others => '0');
           displayline0 <= '1';
           indisplay := '0';
+          report "clearing indisplay because xcounter=0" severity note;
           first_card_of_row <= x"0000";
           screen_row_address <= screen_ram_base(16 downto 0);
         else
@@ -1781,16 +1781,20 @@ begin
       if indisplay_t3='1' then
         if inborder_t2='1' or blank='1' then
           pixel_colour <= border_colour;
+          report "VICIV: Drawing border" severity note;
         elsif chargen_active='0' then
           pixel_colour <= screen_colour;
-          report "VGA: no character pixel data as chargen_active=0" severity note;
+          report "VICIV: no character pixel data as chargen_active=0" severity note;
         else
           -- Otherwise read pixel data from raster buffer
+          report "VICIV: rb_read_address = $" & to_hstring(raster_buffer_read_address)
+            & ", data = $" & to_hstring(raster_buffer_read_data(7 downto 0)) severity note;
           pixel_colour <= raster_buffer_read_data(7 downto 0);
           -- XXX 9th bit indicates foreground for sprite collission handling
         end if;
       else
         pixel_colour <= x"00";
+        report "VICIV: Outside of frame" severity note;
       end if;
       
       -- Make delayed versions of card number and x position so that we have time
