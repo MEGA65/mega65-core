@@ -264,7 +264,8 @@ architecture Behavioral of viciv is
   signal displaycolumn0 : std_logic := '1';
 
   -- Asserted if in the 1200 vetical lines of the frame
-  signal vert_in_frame : std_logic := '0';
+  -- DEBUG: Power up with in frame to make simulation in ghdl much quicker.
+  signal vert_in_frame : std_logic := '1';
 
   -- Used for counting down cycles while waiting for RAM to respond
   signal delay : std_logic_vector(1 downto 0);
@@ -368,7 +369,9 @@ architecture Behavioral of viciv is
   signal x_chargen_start_minus17 : unsigned(11 downto 0);
   signal x_chargen_start_minus17_drive : unsigned(11 downto 0);
 
-  signal y_chargen_start : unsigned(11 downto 0) := to_unsigned(0,12);  -- 100
+  -- DEBUG: Start character generator in first raster on power up to make ghdl
+  -- simulation much quicker
+  signal y_chargen_start : unsigned(11 downto 0) := to_unsigned(0,12);  -- 0
   -- Charset is 16bit (2 bytes per char) when this mode is enabled.
   signal sixteenbit_charset : std_logic := '0';
   -- Characters >255 are full-colour blocks when enabled.
@@ -385,9 +388,11 @@ architecture Behavioral of viciv is
   signal extended_background_mode : std_logic := '0';
   
   -- Border dimensions
-  signal border_x_left : unsigned(11 downto 0) := to_unsigned(0,12);  -- 160
+  -- DEBUG: No top or left borders on power up to make ghdl simulation of frame
+  -- drawing much quicker.
+  signal border_x_left : unsigned(11 downto 0) := to_unsigned(0,12);
   signal border_x_right : unsigned(11 downto 0) := to_unsigned(1920-160,12);
-  signal border_y_top : unsigned(11 downto 0) := to_unsigned(0,12);  -- 100
+  signal border_y_top : unsigned(11 downto 0) := to_unsigned(0,12);
   signal border_y_bottom : unsigned(11 downto 0) := to_unsigned(1200-101,12);
   signal blank : std_logic := '0';
   -- intermediate calculations for whether we are in the border to improve timing.
@@ -2106,7 +2111,9 @@ begin
           if paint_ready='1' then
             -- Ask for first byte of data so that paint can commence immediately.
             ramaddress <= glyph_data_address;
-            charaddress(11 downto 0) <= glyph_data_address(11 downto 0);
+            -- upper bit of charrom address is set by $D018, only 258*8 = 2K
+            -- range of address is controlled here by character number.
+            charaddress(10 downto 0) <= glyph_data_address(10 downto 0);
             paint_from_charrom <= character_data_from_rom;
             report "character rom address set to $" & to_hstring(glyph_data_address(11 downto 0)) severity note;
             -- Tell painter whether to flip horizontally or not.
