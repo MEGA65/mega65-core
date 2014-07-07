@@ -239,9 +239,10 @@ architecture Behavioral of viciv is
   constant frame_v_syncheight : integer := 3;
   
   -- Frame generator counters
-  signal xcounter : unsigned(11 downto 0) := (others => '0');
+  -- DEBUG: Start frame at a point that will soon trigger a badline
+  signal xcounter : unsigned(11 downto 0) := to_unsigned(frame_h_front+width-50,12);
   signal xcounter_drive : unsigned(11 downto 0) := (others => '0');
-  signal ycounter : unsigned(10 downto 0) := (others => '0');
+  signal ycounter : unsigned(10 downto 0) := to_unsigned(frame_v_front+frame_v_syncheight,11);
   signal ycounter_drive : unsigned(10 downto 0) := (others => '0');
   -- Virtual raster number for VIC-II
   signal vicii_ycounter : unsigned(8 downto 0) := (others => '0');
@@ -298,7 +299,7 @@ architecture Behavioral of viciv is
                          PaintMono,PaintMonoBits,
                          PaintMultiColour,PaintMultiColourBits);
   signal paint_fsm_state : vic_paint_fsm := Idle;
-  signal paint_ready : std_logic;
+  signal paint_ready : std_logic := '0';
   signal paint_from_charrom : std_logic;
   signal paint_flip_horizontal : std_logic;
   signal paint_foreground : unsigned(7 downto 0);
@@ -467,7 +468,9 @@ architecture Behavioral of viciv is
   signal card_number_drive : unsigned(15 downto 0) := x"0000";
   signal card_number_is_extended : std_logic;  -- set if card_number > $00FF
   signal first_card_of_row : unsigned(15 downto 0);
-  signal prev_first_card_of_row : unsigned(15 downto 0);
+  -- DEBUG: Set previous first card of row to all high so that a badline gets
+  -- triggered on the first raster being drawn.
+  signal prev_first_card_of_row : unsigned(15 downto 0) := (others => '1');
   -- coordinates after applying the above scaling factors
   signal chargen_x : unsigned(2 downto 0) := (others => '0');
   signal chargen_y : unsigned(2 downto 0) := (others => '0');
@@ -1874,7 +1877,6 @@ begin
       --------------------------------------------------------------------------
       --------------------------------------------------------------------------
 
-
       if xbackporch_edge='1' then
         -- Start of filling raster buffer.
         -- We don't need to double-buffer, as we start filling from the back
@@ -1899,7 +1901,6 @@ begin
         end if;
       end if;
 
-      
       case raster_fetch_state is
         when Idle => null;
         when FetchScreenRamLine =>
@@ -2145,6 +2146,8 @@ begin
           -- Idle the painter, and then start drawing VIC-II sprites
           if paint_ready='1' then
             paint_fsm_state <= Idle;
+          end if;
+          if paint_fsm_state = Idle then
             -- XXX should start drawing sprites
             raster_fetch_state <= Idle;
           end if;
@@ -2154,7 +2157,10 @@ begin
       raster_buffer_write <= '0';
       case paint_fsm_state is
         when Idle =>
-          if paint_ready='0' then paint_ready <= '1'; end if;
+          if paint_ready /= '1' then
+            paint_ready <= '1';
+            report "asserting paint_ready" severity note;
+          end if;
         when PaintMono =>
           -- Paint 8 mono bits from ramdata or chardata
           -- Paint from a buffer to meet timing, even though it means we spend
@@ -2176,17 +2182,21 @@ begin
                             &ramdata(4)&ramdata(5)&ramdata(6)&ramdata(7);
           end if;
           paint_bits_remaining <= 8;
+          paint_ready <= '0';
           paint_fsm_state <= PaintMonoBits;
         when PaintMonoBits =>
-          paint_buffer<= '0'&paint_buffer(7 downto 1);
-          if paint_buffer(0)='1' then
-            raster_buffer_write_data <= '1'&paint_foreground;
-          else
-            raster_buffer_write_data <= '0'&paint_background;
+          if paint_bits_remaining /= 0 then
+            paint_buffer<= '0'&paint_buffer(7 downto 1);
+            if paint_buffer(0)='1' then
+              raster_buffer_write_data <= '1'&paint_foreground;
+            else
+              raster_buffer_write_data <= '0'&paint_background;
+            end if;
+            raster_buffer_write_address <= raster_buffer_write_address + 1;
+            raster_buffer_write <= '1';
+            report "paint_bits_remaining=" & integer'image(paint_bits_remaining) severity note;
+            paint_bits_remaining <= paint_bits_remaining - 1;
           end if;
-          raster_buffer_write_address <= raster_buffer_write_address + 1;
-          raster_buffer_write <= '1';
-          paint_bits_remaining <= paint_bits_remaining - 1;
           if paint_bits_remaining = 1 then
             -- Tell character generator when we are able to become idle.
             -- (the generator tells us when to go idle)
@@ -2197,6 +2207,12 @@ begin
           -- ready again.
           paint_ready <= '1';
       end case;
+
+      if raster_fetch_state /= Idle or paint_fsm_state /= Idle then
+        report "raster_fetch_state=" & vic_chargen_fsm'image(raster_fetch_state) & ", "
+          & "paint_fsm_state=" & vic_paint_fsm'image(paint_fsm_state)
+          & ", rb_w_addr=$" & to_hstring(raster_buffer_write_address) severity note;
+      end if;
     end if;
   end process;
 
