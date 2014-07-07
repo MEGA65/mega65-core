@@ -395,7 +395,7 @@ architecture Behavioral of viciv is
   signal lower_border : std_logic := '0';
 
   -- Colour registers ($D020 - $D024)
-  signal screen_colour : unsigned(7 downto 0) := x"00";  -- black
+  signal screen_colour : unsigned(7 downto 0) := x"08";  -- orange
   signal border_colour : unsigned(7 downto 0) := x"04";  -- green
   signal multi1_colour : unsigned(7 downto 0) := x"01";  -- multi-colour mode #1
   signal multi2_colour : unsigned(7 downto 0) := x"02";  -- multi-colour mode #2
@@ -1914,6 +1914,8 @@ begin
           screen_ram_buffer_write <= '1';
           screen_ram_buffer_address <= character_number;
           screen_ram_buffer_din <= ramdata;
+          report "screen ram byte " & integer'image(to_integer(character_number))
+            & " = $" & to_hstring(ramdata) severity note;
           ramaddress <= screen_row_current_address;
           -- Ask for next byte of screen RAM
           screen_row_current_address <= screen_row_current_address + 1;
@@ -1977,6 +1979,11 @@ begin
             end if;
           end if;
           screen_ram_buffer_address <= screen_ram_buffer_address + 1;
+
+          -- Clear 16-bit character attributes in case we are reading 8-bits only.
+          glyph_flip_horizontal <= '0';
+          glyph_flip_vertical <= '0';
+
           if sixteenbit_charset='1' then
             raster_fetch_state <= FetchCharHighByte;
           else
@@ -2099,8 +2106,9 @@ begin
           if paint_ready='1' then
             -- Ask for first byte of data so that paint can commence immediately.
             ramaddress <= glyph_data_address;
-            charaddress(10 downto 0) <= glyph_data_address(10 downto 0);
+            charaddress(11 downto 0) <= glyph_data_address(11 downto 0);
             paint_from_charrom <= character_data_from_rom;
+            report "character rom address set to $" & to_hstring(glyph_data_address(11 downto 0)) severity note;
             -- Tell painter whether to flip horizontally or not.
             paint_flip_horizontal <= glyph_flip_horizontal;
             -- Now work out exactly how we are painting
@@ -2165,12 +2173,17 @@ begin
           -- Paint 8 mono bits from ramdata or chardata
           -- Paint from a buffer to meet timing, even though it means we spend
           -- 9 cycles per char to paint, instead of the ideal 8.
+          report "paint_flip_horizontal="&std_logic'image(paint_flip_horizontal)
+            & ", paint_from_charrom=" & std_logic'image(paint_from_charrom) severity note;
           if paint_flip_horizontal='1' and paint_from_charrom='1' then
+            report "Painting FLIPPED glyph from character rom (bits=$"&to_hstring(chardata)&")" severity note;
             paint_buffer <= unsigned(chardata);
           elsif paint_flip_horizontal='0' and paint_from_charrom='1' then
+            report "Painting glyph from character rom (bits=$"&to_hstring(chardata)&")" severity note;
             paint_buffer <= chardata(0)&chardata(1)&chardata(2)&chardata(3)
                             &chardata(4)&chardata(5)&chardata(6)&chardata(7);
           elsif paint_flip_horizontal='1' and paint_from_charrom='0' then
+            report "Painting FLIPPED glyph from RAM (bits=$"&to_hstring(ramdata)&")" severity note;
             if ramdata(0)='1' then
               raster_buffer_write_data <= '1'&paint_foreground;
             else
@@ -2178,6 +2191,7 @@ begin
             end if;
             paint_buffer <= ramdata;
           elsif paint_flip_horizontal='0' and paint_from_charrom='0' then
+            report "Painting glyph from RAM (bits=$"&to_hstring(ramdata)&")" severity note;
             paint_buffer <= ramdata(0)&ramdata(1)&ramdata(2)&ramdata(3)
                             &ramdata(4)&ramdata(5)&ramdata(6)&ramdata(7);
           end if;
@@ -2189,8 +2203,10 @@ begin
             paint_buffer<= '0'&paint_buffer(7 downto 1);
             if paint_buffer(0)='1' then
               raster_buffer_write_data <= '1'&paint_foreground;
+              report "Painting foreground pixel in colour $" & to_hstring(paint_foreground) severity note;
             else
               raster_buffer_write_data <= '0'&paint_background;
+              report "Painting background pixel in colour $" & to_hstring(paint_background) severity note;
             end if;
             raster_buffer_write_address <= raster_buffer_write_address + 1;
             raster_buffer_write <= '1';
