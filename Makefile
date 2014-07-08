@@ -2,7 +2,8 @@ ROUTEEFFORT=	std
 #ROUTEEFFORT=	med
 #ROUTEEFFORT=	high
 
-all:	makerom kernel.vhdl \
+all:	ghdl-frame-gen \
+	makerom kernel.vhdl \
 	container.prj \
 	gs4510.vhdl viciv.vhdl
 #	scp *.xise *.prj *vhd *vhdl 192.168.56.102:c64accel/
@@ -43,6 +44,9 @@ monitor_drive:	monitor_drive.c Makefile
 
 read_mem:	read_mem.c Makefile
 	gcc -g -Wall -o read_mem read_mem.c
+
+ghdl-frame-gen:	ghdl-frame-gen.c
+	gcc -Wall -o ghdl-frame-gen ghdl-frame-gen.c
 
 chargen_debug:	chargen_debug.c
 	gcc -Wall -o chargen_debug chargen_debug.c

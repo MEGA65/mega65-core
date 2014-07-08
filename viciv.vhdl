@@ -1847,7 +1847,9 @@ begin
       -- Pixels have a two cycle pipeline to help keep timing contraints:
 
       report "PIXEL (" & integer'image(to_integer(displayx)) & "," & integer'image(to_integer(displayy)) & ") = $"
-        & to_hstring(pixel_colour) severity note;
+        & to_hstring(pixel_colour)
+        & ", RGBA = $" &to_hstring(palette_rdata)
+        severity note;
       
       -- 1. From pixel colour lookup RGB
       -- XXX Doesn't select sprite palette bank when appropriate.
@@ -1918,6 +1920,7 @@ begin
             paint_fsm_state <= Idle;
             raster_fetch_state <= FetchScreenRamNext;
             colourramaddress <= colour_ram_base;
+            report "BADLINE, colour_ram_base=$" & to_hstring(colour_ram_base) severity note;
           end if;
         when FetchScreenRamNext =>
           -- Store current byte of screen RAM
