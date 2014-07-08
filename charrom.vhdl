@@ -1,11 +1,12 @@
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use ieee.numeric_std.all;
+use work.debugtools.all;
 
 --
 entity charrom is
 port (Clk : in std_logic;
-        address : in std_logic_vector(11 downto 0);
+        address : in integer range 0 to 4095;
         -- Yes, we do have a write enable, because we allow modification of ROMs
         -- in the running machine, unless purposely disabled.  This gives us
         -- something like the WOM that the Amiga had.
@@ -1052,18 +1053,20 @@ begin
 --process for read and write operation.
 PROCESS(Clk)
 BEGIN
-    if(rising_edge(Clk)) then 
-      if cs='1' then
-        if(we='1') then
-          ram(to_integer(unsigned(address))) <= data_i;
-        end if;
-        if address(0)='0' or address(0)='1' then
-          data_o <= ram(to_integer(unsigned(address)));          
-        end if;
-      else
-        data_o <= "ZZZZZZZZ";
+  --report "viciv reading charrom address $"
+  --  & to_hstring(address)
+  --  & " = " & integer'image(to_integer(address))
+  --  & " -> $" & to_hstring(ram(to_integer(address)))
+  --  severity note;
+  data_o <= ram(address);          
+
+  if(rising_edge(Clk)) then 
+    if cs='1' then
+      if(we='1') then
+            ram(address) <= data_i;
       end if;
     end if;
+  end if;
 END PROCESS;
 
 end Behavioral;

@@ -136,7 +136,7 @@ architecture Behavioral of viciv is
   
   component charrom is
     port (Clk : in std_logic;
-          address : in std_logic_vector(11 downto 0);
+          address : in integer range 0 to 4095;
           -- Yes, we do have a write enable, because we allow modification of ROMs
           -- in the running machine, unless purposely disabled.  This gives us
           -- something like the WOM that the Amiga had.
@@ -356,7 +356,7 @@ architecture Behavioral of viciv is
   -- Each character pixel will be (n+1) pixels wide  
   signal chargen_x_scale : unsigned(7 downto 0) := x"04";  -- x"04"
   -- Each character pixel will be (n+1) pixels high
-  signal chargen_y_scale : unsigned(7 downto 0) := x"04";  -- x"04"
+  signal chargen_y_scale : unsigned(7 downto 0) := x"00";  -- x"04"
   -- smooth scrolling position in natural pixels.
   -- Set in the same way as the border
   signal x_chargen_start : unsigned(11 downto 0) := to_unsigned(frame_h_front,12);
@@ -485,7 +485,7 @@ architecture Behavioral of viciv is
 
   -- Character drawing info
   signal background_colour_select : unsigned(1 downto 0);
-  signal glyph_number : unsigned(15 downto 0);
+  signal glyph_number : unsigned(11 downto 0);
   signal glyph_colour : unsigned(7 downto 0);
   signal glyph_attributes : unsigned(3 downto 0);
   signal glyph_visible : std_logic;
@@ -518,7 +518,7 @@ architecture Behavioral of viciv is
   signal cycles_to_next_card_drive : unsigned(7 downto 0);
   
   -- Interface to character generator rom
-  signal charaddress : unsigned(11 downto 0);
+  signal charaddress : integer range 0 to 4095;
   signal chardata : std_logic_vector(7 downto 0);
   -- buffer of read data to improve timing
   signal charrow : std_logic_vector(7 downto 0);
@@ -673,14 +673,14 @@ begin
   
   charrom1 : charrom
     port map (Clk => pixelclock,
-              address => std_logic_vector(charaddress),
+              address => charaddress,
               we => '0',  -- read
               cs => '1',  -- active
               data_i => (others => '1'),
               data_o => chardata
               );
 
-  process(cpuclock,ioclock,fastio_addr,fastio_read,
+  process(cpuclock,ioclock,fastio_addr,fastio_read,chardata,
           sprite_x,sprite_y,vicii_sprite_xmsbs,ycounter,extended_background_mode,
           text_mode,blank,twentyfourlines,vicii_y_smoothscroll,displayx,displayy,
           vicii_sprite_enables,multicolour_mode,thirtyeightcolumns,
@@ -1267,7 +1267,7 @@ begin
           character_set_address(13 downto 11) <= unsigned(fastio_wdata(3 downto 1));
           character_set_address(10 downto 0) <= (others => '0');
           -- This one is for the internal charrom in the VIC-IV.
-          charaddress(11) <= fastio_wdata(1);
+-- XXX          charaddress(11) <= fastio_wdata(1);
           -- Bits 14 and 15 get set by writing to $DD00, as the VIC-IV sniffs
           -- that CIA register being written on the fastio bus.
           screen_ram_base(16) <= '0';
@@ -1508,11 +1508,10 @@ begin
   
   process(pixelclock) is
     variable indisplay : std_logic := '0';
-    variable next_chargen_y : unsigned(2 downto 0) := (others => '0');
     variable card_bg_colour : unsigned(7 downto 0) := (others => '0');
     variable card_fg_colour : unsigned(7 downto 0) := (others => '0');
     variable long_address : unsigned(31 downto 0) := (others => '0');
-    variable next_glyph_number_temp : std_logic_vector(15 downto 0) := (others => '0');
+    variable next_glyph_number_temp : std_logic_vector(11 downto 0) := (others => '0');
     variable next_glyph_colour_temp : std_logic_vector(7 downto 0) := (others => '0');
   begin    
     if rising_edge(pixelclock) then
@@ -1603,7 +1602,6 @@ begin
         else
           -- Start of next frame
           ycounter <= (others =>'0');
-          next_chargen_y := (others => '0');
           chargen_y_sub <= (others => '0');
           next_card_number <= (others => '0');
           first_card_of_row <= (others => '0');
@@ -1756,7 +1754,8 @@ begin
 
           -- Now check if we have tipped over from one logical pixel row to another. 
           if chargen_y_sub=chargen_y_scale then
-            next_chargen_y := chargen_y + 1;
+            chargen_y <= chargen_y + 1;
+            report "bumping chargen_y to " & integer'image(to_integer(chargen_y)) severity note;
             if chargen_y = "111" then
               -- Increment card number every "bad line"
               first_card_of_row <= first_card_of_row + virtual_row_width;
@@ -1833,7 +1832,7 @@ begin
         debug_chargen_active_soon <= chargen_active_soon;
 --        debug_char_fetch_cycle <= char_fetch_cycle;
         debug_charrow <= charrow;
-        debug_charaddress <= charaddress;
+--        debug_charaddress <= charaddress;
         debug_character_data_from_rom <= character_data_from_rom;
         debug_screen_ram_buffer_address <= screen_ram_buffer_address;
         debug_raster_buffer_read_address <= raster_buffer_read_address(7 downto 0);
@@ -1980,7 +1979,7 @@ begin
             -- Read 8 or 16 bit screen RAM data for character number information
             -- (the address was put on the bus for us already).
             -- Handle extended background colour mode here if required.
-            glyph_number(15 downto 8) <= x"00";
+            glyph_number(11 downto 8) <= x"0";
             glyph_number(5 downto 0) <= screen_ram_buffer_dout(5 downto 0);
             if extended_background_mode='1' then
               background_colour_select <= screen_ram_buffer_dout(7 downto 6);
@@ -2059,12 +2058,15 @@ begin
           else
             -- Normal character glyph fetched relative to character_set_address.
             -- Again, we take into account if we are flipping vertically.
-            glyph_data_address
-              <= character_set_address(16 downto 0)
-                   + to_integer(glyph_number
-                                &(chargen_y(2) xor glyph_flip_vertical)
-                                &(chargen_y(1) xor glyph_flip_vertical)
-                                &(chargen_y(0) xor glyph_flip_vertical));
+            if glyph_flip_vertical='0' then
+              glyph_data_address
+                <= character_set_address(16 downto 0)
+                + to_integer(glyph_number)*8+to_integer(chargen_y);
+            else
+              glyph_data_address
+                <= character_set_address(16 downto 0)
+                + to_integer(glyph_number)*8+7-to_integer(chargen_y);
+            end if;
             -- Mark as possibly coming from ROM
             character_data_from_rom <= '1';
           end if;
@@ -2074,6 +2076,8 @@ begin
           if character_data_from_rom = '1' then
             if glyph_data_address(16 downto 12) = "0"&x"1"
               or glyph_data_address(16 downto 12) = "0"&x"9" then
+              report "reading from rom: glyph_data_address=$" & to_hstring(glyph_data_address(15 downto 0))
+                & "chargen_y=" & to_string(std_logic_vector(chargen_y)) severity note;
               character_data_from_rom <= '1';
             else
               character_data_from_rom <= '0';
@@ -2129,7 +2133,7 @@ begin
             ramaddress <= glyph_data_address;
             -- upper bit of charrom address is set by $D018, only 258*8 = 2K
             -- range of address is controlled here by character number.
-            charaddress(10 downto 0) <= glyph_data_address(10 downto 0);
+            charaddress <= to_integer(glyph_data_address(10 downto 0));
             paint_from_charrom <= character_data_from_rom;
             report "character rom address set to $" & to_hstring(glyph_data_address(11 downto 0)) severity note;
             -- Tell painter whether to flip horizontally or not.
