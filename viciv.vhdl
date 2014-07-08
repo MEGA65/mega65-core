@@ -1516,7 +1516,7 @@ begin
     variable next_glyph_colour_temp : std_logic_vector(7 downto 0) := (others => '0');
   begin    
     if rising_edge(pixelclock) then
-      
+
       -- Acknowledge IRQs after reading $D019
       irq_raster <= irq_raster and (not ack_raster);
       irq_colissionspritebitmap <= irq_colissionspritebitmap and (not ack_colissionspritebitmap);
@@ -1898,6 +1898,8 @@ begin
         -- Some house keeping first:
         -- Reset write address in raster buffer
         raster_buffer_write_address <= (others => '0');
+        -- Work out colour ram address
+        colourramaddress <= colour_ram_base + first_card_of_row;
         -- Work out the screen ram address.  We only need to re-fetch screen
         -- RAM if first_card_of_row is different to last time.
         prev_first_card_of_row <= first_card_of_row;
@@ -1913,6 +1915,12 @@ begin
         end if;
       end if;
 
+      if raster_fetch_state /= Idle or paint_fsm_state /= Idle then
+        report "raster_fetch_state=" & vic_chargen_fsm'image(raster_fetch_state) & ", "
+          & "paint_fsm_state=" & vic_paint_fsm'image(paint_fsm_state)
+          & ", rb_w_addr=$" & to_hstring(raster_buffer_write_address) severity note;
+      end if;
+      
       case raster_fetch_state is
         when Idle => null;
         when FetchScreenRamLine =>
@@ -2244,6 +2252,7 @@ begin
           & "paint_fsm_state=" & vic_paint_fsm'image(paint_fsm_state)
           & ", rb_w_addr=$" & to_hstring(raster_buffer_write_address) severity note;
       end if;
+      
     end if;
   end process;
 

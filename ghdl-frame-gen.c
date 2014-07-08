@@ -52,7 +52,7 @@ int main(int argc,char **argv)
     unsigned int x,y,colour,rgba;
     char line[1024]; line[0]=0; fgets(line,1024,stdin); 
 
-    if (sscanf(line,"viciv.vhdl:1849:7:@%*[^:]:(report note): PIXEL (%d,%d) = $%x, RGBA = $%x",
+    if (sscanf(line,"viciv.vhdl:%*d:%*d:@%*[^:]:(report note): PIXEL (%d,%d) = $%x, RGBA = $%x",
 	       &x,&y,&colour,&rgba)==4) {
       if (x<1920&&y<1200) {
 	int address = 0x36 + (x + (1199-y) * 1920) *4;
