@@ -1922,7 +1922,10 @@ begin
           & "paint_fsm_state=" & vic_paint_fsm'image(paint_fsm_state)
           & ", rb_w_addr=$" & to_hstring(raster_buffer_write_address) severity note;
       end if;
-      
+
+      paint_chardata <= unsigned(chardata);
+      paint_ramdata <= ramdata;
+
       case raster_fetch_state is
         when Idle => null;
         when FetchScreenRamLine =>
@@ -2138,8 +2141,6 @@ begin
           raster_fetch_state <= PaintDispatch;
         when PaintDispatch =>
           -- Dispatch this card for painting.
-          paint_chardata <= unsigned(chardata);
-          paint_ramdata <= ramdata;
 
           -- Hold from dispatching if painting the previous card is not yet finished.
           if paint_ready='1' then
