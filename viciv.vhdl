@@ -292,6 +292,7 @@ architecture Behavioral of viciv is
                            FetchTextCell,
                            FetchTextCellColourAndSource,
                            FetchBitmapCell,
+                           PaintMemWait,
                            PaintDispatch,
                            EndOfChargen);
   signal raster_fetch_state : vic_chargen_fsm := Idle;
@@ -309,6 +310,8 @@ architecture Behavioral of viciv is
   signal paint_mc2 : unsigned(7 downto 0);
   signal paint_buffer : unsigned(7 downto 0);
   signal paint_bits_remaining : integer range 0 to 8;
+  signal paint_chardata : unsigned(7 downto 0);
+  signal paint_ramdata : unsigned(7 downto 0); 
   
   signal debug_x : unsigned(11 downto 0) := "111111111110";
   signal debug_y : unsigned(11 downto 0) := "111111111110";
@@ -2120,20 +2123,26 @@ begin
               end if;
             end if;
           end if;
-          raster_fetch_state <= PaintDispatch;
+
+          -- Ask for first byte of data so that paint can commence immediately.
+          ramaddress <= glyph_data_address;
+          -- upper bit of charrom address is set by $D018, only 258*8 = 2K
+          -- range of address is controlled here by character number.
+          charaddress <= to_integer(glyph_data_address(10 downto 0));
 
           -- Schedule next colour ram byte
           colourramaddress <= colourramaddress + 1;
+          
+          raster_fetch_state <= PaintMemWait;
+        when PaintMemWait =>
+          raster_fetch_state <= PaintDispatch;
         when PaintDispatch =>
           -- Dispatch this card for painting.
+          paint_chardata <= unsigned(chardata);
+          paint_ramdata <= ramdata;
 
           -- Hold from dispatching if painting the previous card is not yet finished.
           if paint_ready='1' then
-            -- Ask for first byte of data so that paint can commence immediately.
-            ramaddress <= glyph_data_address;
-            -- upper bit of charrom address is set by $D018, only 258*8 = 2K
-            -- range of address is controlled here by character number.
-            charaddress <= to_integer(glyph_data_address(10 downto 0));
             paint_from_charrom <= character_data_from_rom;
             report "character rom address set to $" & to_hstring(glyph_data_address(11 downto 0)) severity note;
             -- Tell painter whether to flip horizontally or not.
@@ -2204,11 +2213,11 @@ begin
             & ", paint_from_charrom=" & std_logic'image(paint_from_charrom) severity note;
           if paint_flip_horizontal='1' and paint_from_charrom='1' then
             report "Painting FLIPPED glyph from character rom (bits=$"&to_hstring(chardata)&")" severity note;
-            paint_buffer <= unsigned(chardata);
+            paint_buffer <= paint_chardata;
           elsif paint_flip_horizontal='0' and paint_from_charrom='1' then
             report "Painting glyph from character rom (bits=$"&to_hstring(chardata)&")" severity note;
-            paint_buffer <= chardata(0)&chardata(1)&chardata(2)&chardata(3)
-                            &chardata(4)&chardata(5)&chardata(6)&chardata(7);
+            paint_buffer <= paint_chardata(0)&paint_chardata(1)&paint_chardata(2)&paint_chardata(3)
+                            &paint_chardata(4)&paint_chardata(5)&paint_chardata(6)&paint_chardata(7);
           elsif paint_flip_horizontal='1' and paint_from_charrom='0' then
             report "Painting FLIPPED glyph from RAM (bits=$"&to_hstring(ramdata)&")" severity note;
             if ramdata(0)='1' then
@@ -2216,11 +2225,11 @@ begin
             else
               raster_buffer_write_data <= '0'&paint_background;
             end if;
-            paint_buffer <= ramdata;
+            paint_buffer <= paint_ramdata;
           elsif paint_flip_horizontal='0' and paint_from_charrom='0' then
             report "Painting glyph from RAM (bits=$"&to_hstring(ramdata)&")" severity note;
-            paint_buffer <= ramdata(0)&ramdata(1)&ramdata(2)&ramdata(3)
-                            &ramdata(4)&ramdata(5)&ramdata(6)&ramdata(7);
+            paint_buffer <= paint_ramdata(0)&paint_ramdata(1)&paint_ramdata(2)&paint_ramdata(3)
+                            &paint_ramdata(4)&paint_ramdata(5)&paint_ramdata(6)&paint_ramdata(7);
           end if;
           paint_bits_remaining <= 8;
           paint_ready <= '0';
