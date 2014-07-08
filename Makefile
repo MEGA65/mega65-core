@@ -29,7 +29,7 @@ transfer:	kickstart.vhdl version.vhdl
 version.vhdl: version-template.vhdl version.sh .git/index *.vhdl *.vhd 
 	./version.sh
 
-SIMULATIONFILES=	bcdadder.vhdl alu6502.vhdl cpu6502.vhdl kickstart.vhdl iomapper.vhdl container.vhd cpu_test.vhdl viciv.vhdl gs4510.vhdl debugtools.vhdl UART_TX_CTRL.vhd uart_rx.vhdl uart_monitor.vhdl machine.vhdl cia6526.vhdl keymapper.vhdl ghdl_ram8x64k.vhdl charrom.vhdl ghdl_chipram8bit.vhdl ghdl_ram9x4k.vhdl sdcardio.vhdl ghdl_ram8x512.vhdl ramlatch64.vhdl shadowram.vhdl microcode.vhdl cputypes.vhdl version.vhdl sid_6581.vhd sid_coeffs.vhd sid_components.vhd sid_filters.vhd sid_voice.vhd
+SIMULATIONFILES=	bcdadder.vhdl alu6502.vhdl cpu6502.vhdl kickstart.vhdl iomapper.vhdl container.vhd cpu_test.vhdl viciv.vhdl gs4510.vhdl debugtools.vhdl UART_TX_CTRL.vhd uart_rx.vhdl uart_monitor.vhdl machine.vhdl cia6526.vhdl keymapper.vhdl ghdl_ram8x64k.vhdl charrom.vhdl ghdl_chipram8bit.vhdl ghdl_screen_ram_buffer.vhdl ghdl_ram9x4k.vhdl sdcardio.vhdl ghdl_ram8x512.vhdl ramlatch64.vhdl shadowram.vhdl microcode.vhdl cputypes.vhdl version.vhdl sid_6581.vhd sid_coeffs.vhd sid_components.vhd sid_filters.vhd sid_voice.vhd
 simulate:	$(SIMULATIONFILES)
 	ghdl -c $(SIMULATIONFILES) -r cpu_test
 
