@@ -63,8 +63,8 @@ int main(int argc,char **argv)
 	fflush(out);
       }
       if (x==1) printf("Raster %d\n",y);
-      if (x==4095&&y>=1919) {
-	printf("End of frame.\n");
+      if (feof(stdin)||line[0]==0||(x==4095&&y>=1919)) {
+	printf("End of frame or simulation terminated.\n");
 	fclose(out);
 	return 0;
       }
