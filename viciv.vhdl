@@ -713,7 +713,7 @@ begin
       if reg_h640='0' and reg_h1280='0' then
         -- 40 column mode (5x pixels, standard side borders)
         x_chargen_start
-          <= to_unsigned(160+4+(to_integer(vicii_x_smoothscroll)*5),12);
+          <= to_unsigned(frame_h_front+160+4+(to_integer(vicii_x_smoothscroll)*5),12);
         -- set horizontal borders based on 40/38 columns
         if thirtyeightcolumns='0' then
           border_x_left <= to_unsigned(160,12);
@@ -727,7 +727,7 @@ begin
       elsif reg_h640='1' and reg_h1280='0' then
         -- 80 column mode (3x pixels, no side border)
         x_chargen_start
-          <= to_unsigned(0+(to_integer(vicii_x_smoothscroll)*3),12);
+          <= to_unsigned(frame_h_front+(to_integer(vicii_x_smoothscroll)*3),12);
         -- set horizontal borders based on 40/38 columns
         if thirtyeightcolumns='0' then
           border_x_left <= to_unsigned(0,12);
@@ -741,7 +741,7 @@ begin
       elsif reg_h640='0' and reg_h1280='1' then        
         -- 160 column mode (natural pixels, fat side borders)
         x_chargen_start
-          <= to_unsigned(320+4
+          <= to_unsigned(frame_h_front+320+4
                          +(to_integer(vicii_x_smoothscroll)*1),12);
         -- set horizontal borders based on 40/38 columns
         if thirtyeightcolumns='0' then
@@ -756,7 +756,7 @@ begin
       else
         -- 240 column mode (natural pixels, no side border)
         x_chargen_start
-          <= to_unsigned(0+to_integer(vicii_x_smoothscroll)*3,12);
+          <= to_unsigned(frame_h_front+to_integer(vicii_x_smoothscroll)*3,12);
         -- set horizontal borders based on 40/38 columns
         if thirtyeightcolumns='0' then
           border_x_left <= to_unsigned(0,12);
