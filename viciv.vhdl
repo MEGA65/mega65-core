@@ -1915,6 +1915,7 @@ begin
         else
           character_number <= (others => '0');
           card_of_row <= (others =>'0');
+          screen_ram_buffer_address <= (others => '0');
           raster_fetch_state <= FetchNextCharacter;
         end if;
       end if;
@@ -1953,6 +1954,7 @@ begin
             if character_number = virtual_row_width(7 downto 0)&'0' then
               character_number <= (others => '0');
               screen_ram_buffer_write <= '0';
+              screen_ram_buffer_address <= (others => '0');
               raster_fetch_state <= FetchNextCharacter;
             end if;
           else
@@ -1960,6 +1962,7 @@ begin
               character_number <= (others => '0');
               card_of_row <= (others => '0');
               screen_ram_buffer_write <= '0';
+              screen_ram_buffer_address <= (others => '0');
               raster_fetch_state <= FetchNextCharacter;
             end if;
           end if;
