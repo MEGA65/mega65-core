@@ -1961,7 +1961,6 @@ begin
           -- allow for one cycle delay caused by using buffered version of ramdata
           raster_fetch_state <= FetchScreenRamNext;
           screen_row_current_address <= screen_row_current_address + 1;
-          ramaddress <= screen_row_current_address + 1;
         when FetchScreenRamNext =>
           -- Store current byte of screen RAM
           screen_ram_buffer_write <= '1';
