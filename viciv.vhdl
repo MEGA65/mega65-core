@@ -1768,9 +1768,6 @@ begin
             chargen_y <= chargen_y + 1;
             report "bumping chargen_y to " & integer'image(to_integer(chargen_y)) severity note;
             if chargen_y = "111" then
-              -- Increment card number every "bad line"
-              first_card_of_row <= to_unsigned(to_integer(first_card_of_row) + to_integer(virtual_row_width),16);
-
               bump_screen_row_address<='1';
             end if;
             chargen_y_sub <= (others => '0');
@@ -1781,9 +1778,15 @@ begin
       end if;
 
       if bump_screen_row_address='1' then
+        bump_screen_row_address <= '0';
+
         -- Compute the address for the screen row.
         screen_row_address <= screen_ram_base(16 downto 0) + first_card_of_row;
-        bump_screen_row_address <= '0';
+
+        -- Increment card number every "bad line"
+        first_card_of_row <= to_unsigned(to_integer(first_card_of_row) + to_integer(virtual_row_width),16);
+        -- Similarly update the colour ram fetch address
+        colourramaddress <= to_unsigned(to_integer(colour_ram_base) + to_integer(first_card_of_row),16);
       end if;
       
       display_active <= indisplay;
@@ -1949,7 +1952,7 @@ begin
             -- (this is to offset the first byte reading rubbish and being skipped)
             character_number <= (others => '1');
             raster_fetch_state <= FetchScreenRamNext;
-            colourramaddress <= colour_ram_base;            
+            colourramaddress <= to_unsigned(to_integer(colour_ram_base) + to_integer(first_card_of_row),16);
             report "BADLINE, colour_ram_base=$" & to_hstring(colour_ram_base) severity note;
           end if;
         when FetchScreenRamNext =>
