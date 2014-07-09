@@ -1915,7 +1915,8 @@ begin
         else
           character_number <= (others => '0');
           card_of_row <= (others =>'0');
-          screen_ram_buffer_address <= (others => '0');
+          -- skip byte 0 as it has scribble value from start of line fetch process.
+          screen_ram_buffer_address <= to_unsigned(1,9);
           raster_fetch_state <= FetchNextCharacter;
         end if;
       end if;
@@ -1954,7 +1955,8 @@ begin
             if character_number = virtual_row_width(7 downto 0)&'0' then
               character_number <= (others => '0');
               screen_ram_buffer_write <= '0';
-              screen_ram_buffer_address <= (others => '0');
+              -- skip byte 0 as it has scribble value from start of line fetch process.
+              screen_ram_buffer_address <= to_unsigned(1,9);
               raster_fetch_state <= FetchNextCharacter;
             end if;
           else
@@ -1962,7 +1964,8 @@ begin
               character_number <= (others => '0');
               card_of_row <= (others => '0');
               screen_ram_buffer_write <= '0';
-              screen_ram_buffer_address <= (others => '0');
+              -- skip byte 0 as it has scribble value from start of line fetch process.
+              screen_ram_buffer_address <= to_unsigned(1,9);
               raster_fetch_state <= FetchNextCharacter;
             end if;
           end if;
