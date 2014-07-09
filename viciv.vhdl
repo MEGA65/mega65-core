@@ -1920,10 +1920,8 @@ begin
         screen_row_current_address
           <= to_unsigned(to_integer(screen_ram_base(16 downto 0))
                          + to_integer(first_card_of_row),17);
-        character_number <= (others => '0');
         card_of_row <= (others =>'0');
-        -- skip byte 0 as it has scribble value from start of line fetch process.
-        screen_ram_buffer_address <= to_unsigned(1,9);
+        screen_ram_buffer_address <= to_unsigned(0,9);
         ramaddress <= screen_ram_base(16 downto 0) + first_card_of_row;
         -- Finally decide which way we should go
         if first_card_of_row /= prev_first_card_of_row then          
@@ -1970,8 +1968,7 @@ begin
             if character_number = virtual_row_width(7 downto 0)&'0' then
               character_number <= (others => '0');
               screen_ram_buffer_write <= '0';
-              -- skip byte 0 as it has scribble value from start of line fetch process.
-              screen_ram_buffer_address <= to_unsigned(1,9);
+              screen_ram_buffer_address <= to_unsigned(0,9);
               raster_fetch_state <= FetchNextCharacter;
             end if;
           else
@@ -1979,8 +1976,7 @@ begin
               character_number <= (others => '0');
               card_of_row <= (others => '0');
               screen_ram_buffer_write <= '0';
-              -- skip byte 0 as it has scribble value from start of line fetch process.
-              screen_ram_buffer_address <= to_unsigned(1,9);
+              screen_ram_buffer_address <= to_unsigned(0,9);
               raster_fetch_state <= FetchNextCharacter;
             end if;
           end if;
@@ -2000,10 +1996,6 @@ begin
           -- character_number (for text modes), work out the address where the
           -- data lives.
 
-          -- Pre-increment character number in preparation for comparison test
-          -- when checking for end of line.
-          character_number <= character_number + 1;
-          
           -- Work out exactly what mode we are in so that we can be a bit more
           -- efficient in the next cycle
           if text_mode='1' then
@@ -2163,7 +2155,13 @@ begin
           
           raster_fetch_state <= PaintMemWait;
         when PaintMemWait =>
-          raster_fetch_state <= PaintDispatch;
+          -- Abort if we have already drawn enough characters.
+          character_number <= character_number + 1;
+          if character_number = virtual_row_width then
+            raster_fetch_state <= EndOfChargen;
+          else
+            raster_fetch_state <= PaintDispatch;
+          end if;
         when PaintDispatch =>
           -- Dispatch this card for painting.
 
@@ -2205,11 +2203,7 @@ begin
               end if;
             end if;
             -- Fetch next character
-            if character_number = virtual_row_width then
-              raster_fetch_state <= EndOfChargen;
-            else
-              raster_fetch_state <= FetchNextCharacter;
-            end if;            
+            raster_fetch_state <= FetchNextCharacter;
           end if;
         when EndOfChargen =>
           -- Idle the painter, and then start drawing VIC-II sprites

@@ -26,6 +26,7 @@ architecture behavioural of chipram8bit is
     4100 => x"12",
     4101 => x"01",
     4102 => x"0d",
+    4135 => x"24",
     others => x"BD" );
 
 begin
