@@ -1769,7 +1769,7 @@ begin
             report "bumping chargen_y to " & integer'image(to_integer(chargen_y)) severity note;
             if chargen_y = "111" then
               -- Increment card number every "bad line"
-              first_card_of_row <= first_card_of_row + virtual_row_width;
+              first_card_of_row <= to_unsigned(to_integer(first_card_of_row) + to_integer(virtual_row_width),16);
 
               bump_screen_row_address<='1';
             end if;
