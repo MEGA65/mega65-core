@@ -1951,15 +1951,21 @@ begin
             -- Set character number to -1, so that we fetch one extra character
             -- (this is to offset the first byte reading rubbish and being skipped)
             character_number <= (others => '1');
-            raster_fetch_state <= FetchScreenRamNext;
+            raster_fetch_state <= FetchScreenRamWait;
+            ramaddress <= screen_row_current_address;
             colourramaddress <= to_unsigned(to_integer(colour_ram_base) + to_integer(first_card_of_row),16);
             report "BADLINE, colour_ram_base=$" & to_hstring(colour_ram_base) severity note;
           end if;
+        when FetchScreenRamWait =>
+          -- allow for one cycle delay caused by using buffered version of ramdata
+          raster_fetch_state <= FetchScreenRamNext;
+          screen_row_current_address <= screen_row_current_address + 1;
+          ramaddress <= screen_row_current_address + 1;
         when FetchScreenRamNext =>
           -- Store current byte of screen RAM
           screen_ram_buffer_write <= '1';
           screen_ram_buffer_address <= character_number;
-          screen_ram_buffer_din <= ramdata;
+          screen_ram_buffer_din <= paint_ramdata;
           ramaddress <= screen_row_current_address;
           -- Ask for next byte of screen RAM
           screen_row_current_address <= screen_row_current_address + 1;
@@ -2241,7 +2247,7 @@ begin
             paint_buffer <= paint_chardata(0)&paint_chardata(1)&paint_chardata(2)&paint_chardata(3)
                             &paint_chardata(4)&paint_chardata(5)&paint_chardata(6)&paint_chardata(7);
           elsif paint_flip_horizontal='1' and paint_from_charrom='0' then
-            report "Painting FLIPPED glyph from RAM (bits=$"&to_hstring(ramdata)&")" severity note;
+            report "Painting FLIPPED glyph from RAM (bits=$"&to_hstring(paint_ramdata)&")" severity note;
             if paint_ramdata(0)='1' then
               raster_buffer_write_data <= '1'&paint_foreground;
             else
@@ -2249,7 +2255,7 @@ begin
             end if;
             paint_buffer <= paint_ramdata;
           elsif paint_flip_horizontal='0' and paint_from_charrom='0' then
-            report "Painting glyph from RAM (bits=$"&to_hstring(ramdata)&")" severity note;
+            report "Painting glyph from RAM (bits=$"&to_hstring(paint_ramdata)&")" severity note;
             paint_buffer <= paint_ramdata(0)&paint_ramdata(1)&paint_ramdata(2)&paint_ramdata(3)
                             &paint_ramdata(4)&paint_ramdata(5)&paint_ramdata(6)&paint_ramdata(7);
           end if;
