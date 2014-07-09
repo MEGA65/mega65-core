@@ -359,7 +359,7 @@ architecture Behavioral of viciv is
   -- Each character pixel will be (n+1) pixels wide  
   signal chargen_x_scale : unsigned(7 downto 0) := x"04";  -- x"04"
   -- Each character pixel will be (n+1) pixels high
-  signal chargen_y_scale : unsigned(7 downto 0) := x"00";  -- x"04"
+  signal chargen_y_scale : unsigned(7 downto 0) := x"04";  -- x"04"
   -- smooth scrolling position in natural pixels.
   -- Set in the same way as the border
   signal x_chargen_start : unsigned(11 downto 0) := to_unsigned(frame_h_front,12);
@@ -2242,7 +2242,7 @@ begin
                             &paint_chardata(4)&paint_chardata(5)&paint_chardata(6)&paint_chardata(7);
           elsif paint_flip_horizontal='1' and paint_from_charrom='0' then
             report "Painting FLIPPED glyph from RAM (bits=$"&to_hstring(ramdata)&")" severity note;
-            if ramdata(0)='1' then
+            if paint_ramdata(0)='1' then
               raster_buffer_write_data <= '1'&paint_foreground;
             else
               raster_buffer_write_data <= '0'&paint_background;
