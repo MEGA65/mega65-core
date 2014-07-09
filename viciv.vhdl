@@ -1905,18 +1905,22 @@ begin
         -- Work out the screen ram address.  We only need to re-fetch screen
         -- RAM if first_card_of_row is different to last time.
         prev_first_card_of_row <= first_card_of_row;
+
+        -- Set all signals for both eventuality, since none are shared between
+        -- the two paths.  This helps keep the logic shallow.
+        character_number <= (others => '0');
+        screen_row_current_address
+          <= to_unsigned(to_integer(screen_ram_base(16 downto 0))
+                         + to_integer(first_card_of_row),17);
+        character_number <= (others => '0');
+        card_of_row <= (others =>'0');
+        -- skip byte 0 as it has scribble value from start of line fetch process.
+        screen_ram_buffer_address <= to_unsigned(1,9);
+        ramaddress <= screen_ram_base(16 downto 0) + first_card_of_row;
+        -- Finally decide which way we should go
         if first_card_of_row /= prev_first_card_of_row then          
-          character_number <= (others => '0');
-          screen_row_current_address
-            <= to_unsigned(to_integer(screen_ram_base(16 downto 0))
-                           + to_integer(first_card_of_row),17);
-          ramaddress <= screen_ram_base(16 downto 0) + first_card_of_row;
           raster_fetch_state <= FetchScreenRamLine;
         else
-          character_number <= (others => '0');
-          card_of_row <= (others =>'0');
-          -- skip byte 0 as it has scribble value from start of line fetch process.
-          screen_ram_buffer_address <= to_unsigned(1,9);
           raster_fetch_state <= FetchNextCharacter;
         end if;
       end if;
