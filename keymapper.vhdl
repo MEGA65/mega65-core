@@ -82,8 +82,9 @@ begin  -- behavioural
       -------------------------------------------------------------------------
       -- Generate timer for keyscan timeout
       -------------------------------------------------------------------------
-      ps2timer <= ps2timer +1;
-      if ps2timer >= ps2timeout then
+      if ps2timer < ps2timeout then
+        ps2timer <= ps2timer + 1;
+      else
         -- Reset ps2 keyboard timer
         ps2timer <= 0;
         ps2state <= Idle;
