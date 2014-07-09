@@ -25,7 +25,9 @@ END ram8x64k;
 architecture behavioural of ram8x64k is
 
   type ram_t is array (0 to 65535) of std_logic_vector(7 downto 0);
-  signal ram : ram_t;
+  signal ram : ram_t := (
+
+      (others => x"07"));
 
 begin  -- behavioural
 
