@@ -286,6 +286,7 @@ architecture Behavioral of viciv is
   signal character_number : unsigned(8 downto 0);
   type vic_chargen_fsm is (Idle,
                            FetchScreenRamLine,
+                           FetchScreenRamWait,
                            FetchScreenRamNext,
                            FetchNextCharacter,
                            FetchCharHighByte,
