@@ -1907,7 +1907,9 @@ begin
         prev_first_card_of_row <= first_card_of_row;
         if first_card_of_row /= prev_first_card_of_row then          
           character_number <= (others => '0');
-          screen_row_current_address <= screen_ram_base(16 downto 0) + first_card_of_row;
+          screen_row_current_address
+            <= to_unsigned(to_integer(screen_ram_base(16 downto 0))
+                           + to_integer(first_card_of_row),17);
           ramaddress <= screen_ram_base(16 downto 0) + first_card_of_row;
           raster_fetch_state <= FetchScreenRamLine;
         else
@@ -1932,7 +1934,7 @@ begin
           if paint_ready='1' then
             paint_fsm_state <= Idle;
             raster_fetch_state <= FetchScreenRamNext;
-            colourramaddress <= colour_ram_base;
+            colourramaddress <= colour_ram_base;            
             report "BADLINE, colour_ram_base=$" & to_hstring(colour_ram_base) severity note;
           end if;
         when FetchScreenRamNext =>
@@ -1940,8 +1942,6 @@ begin
           screen_ram_buffer_write <= '1';
           screen_ram_buffer_address <= character_number;
           screen_ram_buffer_din <= ramdata;
-          report "screen ram byte " & integer'image(to_integer(character_number))
-            & " = $" & to_hstring(ramdata) severity note;
           ramaddress <= screen_row_current_address;
           -- Ask for next byte of screen RAM
           screen_row_current_address <= screen_row_current_address + 1;

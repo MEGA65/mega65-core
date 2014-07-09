@@ -28,6 +28,9 @@ BEGIN
   if(rising_edge(Clka)) then 
     if(wea(0)='1') then
       ram(to_integer(unsigned(addra))) <= dina;
+      report "Wrote $" & to_hstring(dina)
+        & " to " & integer'image(to_integer(unsigned(addra)))
+        severity note;
     end if;
   end if;
 END PROCESS;
