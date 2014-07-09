@@ -27,6 +27,12 @@ architecture behavioural of chipram8bit is
     4101 => x"01",
     4102 => x"0d",
     4135 => x"24",
+    4136 => x"31",
+    4176 => x"32",
+    4216 => x"33",
+    4256 => x"34",
+    4296 => x"35",
+    4336 => x"36",
     others => x"BD" );
 
 begin
