@@ -1668,6 +1668,14 @@ begin
         indisplay := '0';
         report "clearing indisplay because of horizontal porch" severity note;
       end if;
+
+      -- Stop drawing characters when we reach the end of the prepared data
+      if raster_buffer_read_address = raster_buffer_write_address then
+        report "stopping character generator due to buffer exhaustion"
+          severity note;
+        chargen_active <= '0';
+        chargen_active_soon <= '0';
+      end if;
       
       -- Update current horizontal sub-pixel and pixel position
       -- Work out if a new logical pixel starts on the next physical pixel
@@ -1939,6 +1947,9 @@ begin
         when FetchScreenRamLine =>
           if paint_ready='1' then
             paint_fsm_state <= Idle;
+            -- Set character number to -1, so that we fetch one extra character
+            -- (this is to offset the first byte reading rubbish and being skipped)
+            character_number <= (others => '1');
             raster_fetch_state <= FetchScreenRamNext;
             colourramaddress <= colour_ram_base;            
             report "BADLINE, colour_ram_base=$" & to_hstring(colour_ram_base) severity note;
