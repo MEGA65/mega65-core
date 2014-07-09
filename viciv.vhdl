@@ -1985,6 +1985,10 @@ begin
           -- character_number (for text modes), work out the address where the
           -- data lives.
 
+          -- Pre-increment character number in preparation for comparison test
+          -- when checking for end of line.
+          character_number <= character_number + 1;
+          
           -- Work out exactly what mode we are in so that we can be a bit more
           -- efficient in the next cycle
           if text_mode='1' then
@@ -2186,7 +2190,6 @@ begin
               end if;
             end if;
             -- Fetch next character
-            character_number <= character_number + 1;
             if character_number = virtual_row_width then
               raster_fetch_state <= EndOfChargen;
             else
