@@ -712,7 +712,7 @@ begin
       
       if (long_address = x"0000000") or (long_address = x"0000001") then
         accessing_cpuport <= '1';
-        cpuport_num <= address(0);
+        cpuport_num <= real_long_address(0);
       elsif long_address(27 downto 16)="0000"&shadow_bank then
         -- Reading from 256KB shadow ram (which includes 128KB fixed shadowing of
         -- chipram).  This is the only memory running at the CPU's native clock.
