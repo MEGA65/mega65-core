@@ -138,6 +138,7 @@ component shadowram is
         we : in std_logic;
         data_i : in unsigned(7 downto 0);
         data_o : out unsigned(7 downto 0);
+        no_writes : out unsigned(7 downto 0);
         writes : out unsigned(7 downto 0)
         );
 end component;
@@ -148,6 +149,7 @@ end component;
   signal shadow_rdata : unsigned(7 downto 0);
   signal shadow_wdata : unsigned(7 downto 0);
   signal shadow_write_count : unsigned(7 downto 0);
+  signal shadow_no_write_count : unsigned(7 downto 0);
   signal shadow_write : std_logic := '0';
   
   signal last_fastio_addr : std_logic_vector(19 downto 0);
@@ -467,6 +469,7 @@ begin
     we      => shadow_write,
     data_i  => shadow_wdata,
     data_o  => shadow_rdata,
+    no_writes => shadow_no_write_count,
     writes => shadow_write_count);
 
   microcode0: microcode port map (
@@ -851,6 +854,8 @@ begin
         return shadow_bank;
       elsif (the_read_address = x"FFD37FD") or (the_read_address = x"FFD17FD") then
         return shadow_write_count;
+      elsif (the_read_address = x"FFD37FC") or (the_read_address = x"FFD17FC") then
+        return shadow_no_write_count;
       end if;
 
       if accessing_cpuport='1' then
