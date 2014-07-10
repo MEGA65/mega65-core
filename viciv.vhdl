@@ -2276,10 +2276,10 @@ begin
           report "paint_flip_horizontal="&std_logic'image(paint_flip_horizontal)
             & ", paint_from_charrom=" & std_logic'image(paint_from_charrom) severity note;
           if paint_flip_horizontal='1' and paint_from_charrom='1' then
-            report "Painting FLIPPED glyph from character rom (bits=$"&to_hstring(chardata)&")" severity note;
+            report "Painting FLIPPED glyph from character rom (bits=$"&to_hstring(paint_chardata)&")" severity note;
             paint_buffer <= paint_chardata;
           elsif paint_flip_horizontal='0' and paint_from_charrom='1' then
-            report "Painting glyph from character rom (bits=$"&to_hstring(chardata)&")" severity note;
+            report "Painting glyph from character rom (bits=$"&to_hstring(paint_chardata)&")" severity note;
             paint_buffer <= paint_chardata(0)&paint_chardata(1)&paint_chardata(2)&paint_chardata(3)
                             &paint_chardata(4)&paint_chardata(5)&paint_chardata(6)&paint_chardata(7);
           elsif paint_flip_horizontal='1' and paint_from_charrom='0' then
