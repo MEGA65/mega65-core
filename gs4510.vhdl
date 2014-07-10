@@ -710,7 +710,10 @@ begin
       shadow_write <= '0';
       shadow_address <= to_integer(long_address(16 downto 0));
       
-      if long_address(27 downto 16)="0000"&shadow_bank then
+      if (long_address = x"0000000") or (long_address = x"0000001") then
+        accessing_cpuport <= '1';
+        cpuport_num <= address(0);
+      elsif long_address(27 downto 16)="0000"&shadow_bank then
         -- Reading from 256KB shadow ram (which includes 128KB fixed shadowing of
         -- chipram).  This is the only memory running at the CPU's native clock.
         -- Think of it as a kind of direct-mapped L1 cache.
@@ -813,19 +816,6 @@ begin
       end if;
     end read_long_address;
     
-    procedure read_address (
-      address    : in unsigned(15 downto 0)) is
-      variable long_address : unsigned(27 downto 0);
-    begin  -- read_address
-      long_address := resolve_address_to_long(address,false);
-      if (long_address = x"0000000") or (long_address = x"0000001") then
-        accessing_cpuport <= '1';
-        cpuport_num <= address(0);
-      else
-        read_long_address(long_address);
-      end if;
-    end read_address;
-
     impure function read_data
       return unsigned is
     begin  -- read_data
@@ -1966,7 +1956,7 @@ begin
           if memory_access_resolve_address = '1' then
             memory_access_address := resolve_address_to_long(memory_access_address(15 downto 0),false);
           end if;
-          read_address(memory_access_address);
+          read_long_address(memory_access_address);
         end if;
       end if; -- if not reseting
     end if;                         -- if rising edge of clock
