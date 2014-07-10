@@ -21,7 +21,7 @@ architecture behavioural of screen_ram_buffer is
   signal ram : ram_t := ( others => x"10" );
 
 begin
-  PROCESS(Clka,addrb)
+  PROCESS(Clka,addrb,ram)
 BEGIN
   doutb <= ram(to_integer(unsigned(addrb)));
 

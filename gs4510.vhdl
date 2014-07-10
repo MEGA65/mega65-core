@@ -1275,6 +1275,7 @@ begin
     -- The trade-off is consuming a bit of extra silicon.
     a_incremented <= reg_a + 1;
     a_decremented <= reg_a - 1;
+    a_negated <= (not reg_a) + 1;
     a_ror <= flag_c & reg_a(7 downto 1);
     a_rol <= reg_a(6 downto 0) & flag_c;    
     a_asr <= reg_a(7) & reg_a(7 downto 1);
@@ -1965,7 +1966,7 @@ begin
           if memory_access_resolve_address = '1' then
             memory_access_address := resolve_address_to_long(memory_access_address(15 downto 0),false);
           end if;
-          read_long_address(memory_access_address);
+          read_address(memory_access_address);
         end if;
       end if; -- if not reseting
     end if;                         -- if rising edge of clock

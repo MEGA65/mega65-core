@@ -717,7 +717,12 @@ begin
           debug_cycles_to_next_card,
           debug_chargen_active,debug_char_fetch_cycle,debug_charaddress,
           debug_charrow,palette_fastio_rdata,palette_bank_chargen,
-          debug_chargen_active_soon,palette_bank_sprites) is
+          debug_chargen_active_soon,palette_bank_sprites,
+          vicii_ycounter,displayx_drive,reg_rom_e000,reg_rom_c000,
+          reg_rom_a000,reg_c65_charset,reg_rom_8000,reg_palrom,
+          reg_h640,reg_h1280,reg_v400,xcounter_drive,ycounter_drive,
+          horizontal_smear,xfrontporch_drive,chargen_active_drive,
+          inborder_drive,chargen_active_soon_drive,card_number_drive) is
 
     procedure viciv_interpret_legacy_mode_registers is
     begin

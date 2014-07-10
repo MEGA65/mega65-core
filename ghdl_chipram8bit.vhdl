@@ -36,7 +36,7 @@ architecture behavioural of chipram8bit is
     others => x"BD" );
 
 begin
-  PROCESS(Clka,addrb)
+  PROCESS(Clka,addrb,ram)
 BEGIN
   --report "viciv reading charrom address $"
   --  & to_hstring(address)
