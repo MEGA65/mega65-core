@@ -296,6 +296,8 @@ architecture Behavioral of viciv is
   type vic_chargen_fsm is (Idle,
                            FetchScreenRamLine,
                            FetchScreenRamWait,
+                           FetchScreenRamWait2,
+                           FetchScreenRamWait3,
                            FetchScreenRamNext,
                            FetchNextCharacter,
                            FetchCharHighByte,
@@ -303,6 +305,7 @@ architecture Behavioral of viciv is
                            FetchTextCellColourAndSource,
                            FetchBitmapCell,
                            PaintMemWait,
+                           PaintMemWait2,
                            PaintDispatch,
                            EndOfChargen);
   signal raster_fetch_state : vic_chargen_fsm := Idle;
@@ -575,6 +578,7 @@ architecture Behavioral of viciv is
   signal last_ramaddress : unsigned(16 downto 0);
   signal ramaddress : unsigned(16 downto 0);
   signal ramdata : unsigned(7 downto 0);
+  signal ramdata_drive : unsigned(7 downto 0);
 
   -- Precalculated mono/multicolour pixel bits
   signal multicolour_bits : std_logic_vector(1 downto 0) := (others => '0');
@@ -1192,6 +1196,10 @@ begin
 
       report "drive led = " & std_logic'image(led)
         & ", drive motor= " & std_logic'image(motor) severity note;
+
+      paint_chardata <= unsigned(chardata);
+      ramdata_drive <= ramdata;
+      paint_ramdata <= ramdata_drive;
 
       debug_cycles_to_next_card_drive2 <= debug_cycles_to_next_card_drive;
       debug_chargen_active_drive2 <= debug_chargen_active_drive;
@@ -1977,9 +1985,6 @@ begin
           & ", rb_w_addr=$" & to_hstring(raster_buffer_write_address) severity note;
       end if;
 
-      paint_chardata <= unsigned(chardata);
-      paint_ramdata <= ramdata;
-
       case raster_fetch_state is
         when Idle => null;
         when FetchScreenRamLine =>
@@ -1994,9 +1999,15 @@ begin
             report "BADLINE, colour_ram_base=$" & to_hstring(colour_ram_base) severity note;
           end if;
         when FetchScreenRamWait =>
-          -- allow for one cycle delay caused by using buffered version of ramdata
+          -- allow for two cycle delay caused by using doubly buffered version of ramdata
+          ramaddress <= screen_row_current_address;
+          raster_fetch_state <= FetchScreenRamWait2;
+        when FetchScreenRamWait2 =>
+          ramaddress <= screen_row_current_address;
+          raster_fetch_state <= FetchScreenRamWait3;
+        when FetchScreenRamWait3 =>
+          ramaddress <= screen_row_current_address;
           raster_fetch_state <= FetchScreenRamNext;
-          screen_row_current_address <= screen_row_current_address + 1;
         when FetchScreenRamNext =>
           -- Store current byte of screen RAM
           screen_ram_buffer_write <= '1';
@@ -2015,6 +2026,8 @@ begin
               screen_ram_buffer_write <= '0';
               screen_ram_buffer_address <= to_unsigned(0,9);
               raster_fetch_state <= FetchNextCharacter;
+            else
+              raster_fetch_state <= FetchScreenRamWait;
             end if;
           else
             if character_number = '0'&virtual_row_width(7 downto 0) then
@@ -2023,6 +2036,8 @@ begin
               screen_ram_buffer_write <= '0';
               screen_ram_buffer_address <= to_unsigned(0,9);
               raster_fetch_state <= FetchNextCharacter;
+            else
+              raster_fetch_state <= FetchScreenRamWait;
             end if;
           end if;
         when FetchNextCharacter =>
@@ -2200,6 +2215,9 @@ begin
           
           raster_fetch_state <= PaintMemWait;
         when PaintMemWait =>
+          -- Allow for 2 cycle delay to get data in paint_ramdata
+          raster_fetch_state <= PaintMemWait2;
+        when PaintMemWait2 =>
           -- Abort if we have already drawn enough characters.
           character_number <= character_number + 1;
           if character_number = virtual_row_width then
@@ -2289,6 +2307,8 @@ begin
             else
               raster_buffer_write_data <= '0'&paint_background;
             end if;
+            -- XXX DEBUG: trying to find the source of the apparent path
+            -- between chipram and pain_buffer, when it should be going via paint_ramdata
             paint_buffer <= paint_ramdata;
           elsif paint_flip_horizontal='0' and paint_from_charrom='0' then
             report "Painting glyph from RAM (bits=$"&to_hstring(paint_ramdata)&")" severity note;
