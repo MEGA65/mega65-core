@@ -132,20 +132,18 @@ architecture Behavioural of gs4510 is
           );
   end component;
   
-  component shadowram is
-    port (Clk : in std_logic;
-          address : in std_logic_vector(17 downto 0);            
-          we : in std_logic;
-          -- chip select, active low       
-          cs : in std_logic;
-          data_i : in std_logic_vector(7 downto 0);
-          data_o : out std_logic_vector(7 downto 0)
-          );
-  end component;
+component shadowram is
+  port (Clk : in std_logic;
+        address : in integer range 0 to 131071;
+        we : in std_logic;
+        data_i : in unsigned(7 downto 0);
+        data_o : out unsigned(7 downto 0)
+        );
+end component;
   
   -- Shadow RAM control
   signal shadow_bank : unsigned(7 downto 0);
-  signal shadow_address : unsigned(17 downto 0);
+  signal shadow_address : integer range 0 to 131071;
   signal shadow_rdata : unsigned(7 downto 0);
   signal shadow_wdata : unsigned(7 downto 0);
   signal shadow_write : std_logic := '0';
@@ -463,11 +461,10 @@ begin
 
   shadowram0 : shadowram port map (
     clk     => clock,
-    address => std_logic_vector(shadow_address),
+    address => shadow_address,
     we      => shadow_write,
-    cs      => '1',
-    data_i  => std_logic_vector(shadow_wdata),
-    unsigned(data_o)  => shadow_rdata);
+    data_i  => shadow_wdata,
+    data_o  => shadow_rdata);
 
   microcode0: microcode port map (
     clk => clock,
@@ -711,7 +708,7 @@ begin
 
       -- Get the shadow RAM address on the bus fast to improve timing.
       shadow_write <= '0';
-      shadow_address <= long_address(17 downto 0);
+      shadow_address <= to_integer(long_address(16 downto 0));
       
       if long_address(27 downto 16)="0000"&shadow_bank then
         -- Reading from 256KB shadow ram (which includes 128KB fixed shadowing of
@@ -727,7 +724,6 @@ begin
         -- instead.
         accessing_shadow <= '1';
         -- shadow_address <= '0'&long_address(16 downto 0);
-        shadow_write <= '0';
         proceed <= '1';        
         report "Reading from shadowed chipram address $"
           & to_hstring(long_address(19 downto 0)) severity note;
@@ -920,7 +916,7 @@ begin
       end if;
 
       -- Write to DMAgic registers if required
-      if (long_address = x"FFD3700") or (long_address = x"FFD1700") then
+      if (long_address = x"FFD3700") or (long_address = x"FFD1700") then        
         -- Set low order bits of DMA list address
         reg_dmagic_addr(7 downto 0) <= value;
         -- Remember that after this instruction we want to perform the
@@ -973,7 +969,7 @@ begin
       -- This ensures that shadow ram is consistent with the shadowed address space
       -- when the CPU reads from shadow ram.
       -- Get the shadow RAM address on the bus fast to improve timing.
-      shadow_address <= long_address(17 downto 0);
+      shadow_address <= to_integer(long_address(16 downto 0));
       if long_address(27 downto 16)="0000"&shadow_bank then
         report "writing to shadow RAM via shadow_bank" severity note;
         shadow_write <= '1';
