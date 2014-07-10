@@ -150,6 +150,7 @@ end component;
   signal shadow_wdata : unsigned(7 downto 0);
   signal shadow_write_count : unsigned(7 downto 0);
   signal shadow_no_write_count : unsigned(7 downto 0);
+  signal shadow_try_write_count : unsigned(7 downto 0) := x"00";
   signal shadow_write : std_logic := '0';
   
   signal last_fastio_addr : std_logic_vector(19 downto 0);
@@ -856,6 +857,8 @@ begin
         return shadow_write_count;
       elsif (the_read_address = x"FFD37FC") or (the_read_address = x"FFD17FC") then
         return shadow_no_write_count;
+      elsif (the_read_address = x"FFD37FB") or (the_read_address = x"FFD17FB") then
+        return shadow_try_write_count;
       end if;
 
       if accessing_cpuport='1' then
@@ -978,7 +981,7 @@ begin
       if long_address(27 downto 17)="00000000000" then
         report "writing to shadow RAM via chipram shadowing. addr=$" & to_hstring(long_address) severity note;
         shadow_write <= '1';
-        
+        shadow_try_write_count <= shadow_try_write_count + 1;
         chipram_address <= long_address(16 downto 0);
         chipram_we <= '1';
         chipram_datain <= value;
