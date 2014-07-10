@@ -461,7 +461,9 @@ end component;
   signal y_decremented : unsigned(7 downto 0);
   signal z_incremented : unsigned(7 downto 0);
   signal z_decremented : unsigned(7 downto 0);
-  
+
+  signal monitor_mem_attention_request_drive : std_logic;
+
 begin
 
   shadowram0 : shadowram port map (
@@ -1303,6 +1305,8 @@ begin
     -- BEGINNING OF MAIN PROCESS FOR CPU
     if rising_edge(clock) then
 
+      monitor_mem_attention_request_drive <= monitor_mem_attention_request;
+      
       pop_a <= '0'; pop_x <= '0'; pop_y <= '0'; pop_z <= '0';
       pop_p <= '0';
       
@@ -1366,7 +1370,7 @@ begin
       -- Catch the CPU when it goes to the next instruction if single stepping.
       if (monitor_mem_trace_mode='0' or
           monitor_mem_trace_toggle_last /= monitor_mem_trace_toggle)
-        and (monitor_mem_attention_request='0') then
+        and (monitor_mem_attention_request_drive='0') then
         monitor_mem_trace_toggle_last <= monitor_mem_trace_toggle;
         normal_fetch_state <= InstructionFetch;
         fast_fetch_state <= InstructionDecode;
@@ -1415,7 +1419,7 @@ begin
         end if;
 
         monitor_proceed <= proceed;
-        monitor_request_reflected <= monitor_mem_attention_request;
+        monitor_request_reflected <= monitor_mem_attention_request_drive;
         
         if proceed='1' then
           -- Main state machine for CPU
@@ -1449,7 +1453,7 @@ begin
               -- pause is done, unless something else needs to be done.
               state <= normal_fetch_state;
               
-              if monitor_mem_attention_request='1' then
+              if monitor_mem_attention_request_drive='1' then
                 -- Memory access by serial monitor.
                 if monitor_mem_address(27 downto 16) = x"777" then
                   -- M777xxxx in serial monitor reads memory from CPU's perspective
@@ -1487,7 +1491,7 @@ begin
               end if;
             when MonitorMemoryAccess =>
               monitor_mem_rdata <= memory_read_value;
-              if monitor_mem_attention_request='1' then 
+              if monitor_mem_attention_request_drive='1' then 
                 monitor_mem_attention_granted <= '1';
               else
                 monitor_mem_attention_granted <= '0';
