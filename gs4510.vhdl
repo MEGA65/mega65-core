@@ -1358,7 +1358,7 @@ begin
       -------------------------------------------------------------------------
 
       monitor_waitstates <= wait_states;
-      shadow_write <= '0';
+--      shadow_write <= '0';
 
       -- Catch the CPU when it goes to the next instruction if single stepping.
       if (monitor_mem_trace_mode='0' or

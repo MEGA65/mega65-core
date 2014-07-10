@@ -23,6 +23,7 @@ architecture Behavioral of shadowram is
     4099 => x"04",
     4100 => x"0f",
     4101 => x"17",
+    4102 => x"18",
     others => x"53"); 
 begin
 
