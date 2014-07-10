@@ -211,6 +211,15 @@ architecture Behavioral of viciv is
   signal vga_buffer_red : UNSIGNED (7 downto 0) := (others => '0');
   signal vga_buffer_green : UNSIGNED (7 downto 0) := (others => '0');
   signal vga_buffer_blue : UNSIGNED (7 downto 0) := (others => '0');
+  signal vga_buffer2_red : UNSIGNED (7 downto 0) := (others => '0');
+  signal vga_buffer2_green : UNSIGNED (7 downto 0) := (others => '0');
+  signal vga_buffer2_blue : UNSIGNED (7 downto 0) := (others => '0');
+  signal vga_buffer3_red : UNSIGNED (7 downto 0) := (others => '0');
+  signal vga_buffer3_green : UNSIGNED (7 downto 0) := (others => '0');
+  signal vga_buffer3_blue : UNSIGNED (7 downto 0) := (others => '0');
+  signal vga_out_red : UNSIGNED (7 downto 0) := (others => '0');
+  signal vga_out_green : UNSIGNED (7 downto 0) := (others => '0');
+  signal vga_out_blue : UNSIGNED (7 downto 0) := (others => '0');
   signal pixel_colour : unsigned(7 downto 0) := x"00";
   
   -- Video mode definition
@@ -312,7 +321,9 @@ architecture Behavioral of viciv is
   signal paint_buffer : unsigned(7 downto 0);
   signal paint_bits_remaining : integer range 0 to 8;
   signal paint_chardata : unsigned(7 downto 0);
-  signal paint_ramdata : unsigned(7 downto 0); 
+  signal paint_ramdata : unsigned(7 downto 0);
+
+  signal horizontal_smear : std_logic := '1';
   
   signal debug_x : unsigned(11 downto 0) := "111111111110";
   signal debug_y : unsigned(11 downto 0) := "111111111110";
@@ -1068,7 +1079,8 @@ begin
           fastio_rdata(2 downto 0) <= std_logic_vector(ycounter_drive(10 downto 8));
         elsif register_number=84 then
                                         -- $D054 (53332) - New mode control register
-          fastio_rdata(7 downto 3) <= (others => '1');
+          fastio_rdata(7 downto 4) <= (others => '1');
+          fastio_rdata(3) <= horizontal_smear;
           fastio_rdata(2) <= fullcolour_extendedchars;
           fastio_rdata(1) <= fullcolour_8bitchars;
           fastio_rdata(0) <= sixteenbit_charset;
@@ -1440,6 +1452,7 @@ begin
           vicii_is_raster_source <= '0';
         elsif register_number=84 then
                                         -- $D054 (53332) - New mode control register
+          horizontal_smear <= fastio_wdata(3);
           fullcolour_extendedchars <= fastio_wdata(2);
           fullcolour_8bitchars <= fastio_wdata(1);
           sixteenbit_charset <= fastio_wdata(0);
@@ -1879,6 +1892,24 @@ begin
       vga_buffer_green <= unsigned(palette_rdata(23 downto 16));
       vga_buffer_blue <= unsigned(palette_rdata(15 downto 8));      
       
+      vga_buffer2_red <= vga_buffer_red;
+      vga_buffer2_green <= vga_buffer_green;
+      vga_buffer2_blue <= vga_buffer_blue;
+
+      vga_buffer3_red <= vga_buffer2_red;
+      vga_buffer3_green <= vga_buffer2_green;
+      vga_buffer3_blue <= vga_buffer2_blue;
+
+      if horizontal_smear='0' then
+        vga_out_red <= vga_buffer3_red;
+        vga_out_green <= vga_buffer3_green;
+        vga_out_blue <= vga_buffer3_blue;
+      else
+        vga_out_red <= to_unsigned(to_integer('0'&vga_buffer3_red)+to_integer('0'&vga_buffer2_red),8);
+        vga_out_green <= to_unsigned(to_integer('0'&vga_buffer3_green)+to_integer('0'&vga_buffer2_green),8);
+        vga_out_blue <= to_unsigned(to_integer('0'&vga_buffer3_blue)+to_integer('0'&vga_buffer2_blue),8);
+      end if;
+      
       -- 2. From RGB, push out to pins (also draw border)
       -- Note that for C65 compatability the low nybl has the most significant
       -- bits.
@@ -1890,9 +1921,9 @@ begin
         vgagreen <= x"0";
         vgablue <= x"0";
       else
-        vgared <= vga_buffer_red(3 downto 0);
-        vgagreen <= vga_buffer_green(3 downto 0);
-        vgablue <= vga_buffer_blue(3 downto 0);
+        vgared <= vga_out_red(3 downto 0);
+        vgagreen <= vga_out_green(3 downto 0);
+        vgablue <= vga_out_blue(3 downto 0);
       end if;
 
       --------------------------------------------------------------------------
