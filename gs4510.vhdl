@@ -970,17 +970,14 @@ begin
       -- when the CPU reads from shadow ram.
       -- Get the shadow RAM address on the bus fast to improve timing.
       shadow_address <= to_integer(long_address(16 downto 0));
+      shadow_wdata <= value;
       if long_address(27 downto 16)="0000"&shadow_bank then
         report "writing to shadow RAM via shadow_bank" severity note;
         shadow_write <= '1';
---        shadow_address <= long_address(17 downto 0);
-        shadow_wdata <= value;
       end if;
       if long_address(27 downto 17)="00000000000" then
         report "writing to shadow RAM via chipram shadowing. addr=$" & to_hstring(long_address) severity note;
         shadow_write <= '1';
---        shadow_address <= long_address(17 downto 0);
-        shadow_wdata <= value;
         
         chipram_address <= long_address(16 downto 0);
         chipram_we <= '1';
@@ -990,6 +987,7 @@ begin
       elsif long_address(27 downto 24) = x"8" then
         report "writing to slowram..." severity note;
         accessing_slowram <= '1';
+        shadow_write <= '0';
         slowram_addr <= std_logic_vector(long_address(23 downto 1));
         slowram_we <= '0';
         slowram_ce <= '0';
@@ -1001,6 +999,7 @@ begin
         wait_states <= slowram_waitstates;
       elsif long_address(27 downto 24) = x"F" then
         accessing_fastio <= '1';
+        shadow_write <= '0';
         fastio_addr <= std_logic_vector(long_address(19 downto 0));
         last_fastio_addr <= std_logic_vector(long_address(19 downto 0));
         fastio_write <= '1'; fastio_read <= '0';
@@ -1025,6 +1024,7 @@ begin
         wait_states <= io_wait_states;
       else
         -- Don't let unmapped memory jam things up
+        shadow_write <= '0';
         null;
       end if;
     end write_long_byte;
@@ -1359,7 +1359,6 @@ begin
       -------------------------------------------------------------------------
 
       monitor_waitstates <= wait_states;
---      shadow_write <= '0';
 
       -- Catch the CPU when it goes to the next instruction if single stepping.
       if (monitor_mem_trace_mode='0' or
@@ -1396,7 +1395,6 @@ begin
           -- End of wait states, so clear memory writing and reading
 
           colour_ram_cs <= '0';
---          shadow_write <= '0';       
           fastio_write <= '0';
 --          fastio_read <= '0';
           chipram_we <= '0';

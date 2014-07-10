@@ -39,7 +39,7 @@ begin
     writes <= write_count;
     no_writes <= no_write_count;
     if(rising_edge(Clk)) then 
-      if (we='1') then
+      if we /= '0' then
         write_count <= write_count + 1;        
         ram(address) <= data_i;
         report "wrote to shadow ram" severity note;
