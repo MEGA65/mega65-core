@@ -1905,9 +1905,9 @@ begin
         vga_out_green <= vga_buffer3_green;
         vga_out_blue <= vga_buffer3_blue;
       else
-        vga_out_red <= to_unsigned(to_integer('0'&vga_buffer3_red)+to_integer('0'&vga_buffer2_red),8);
-        vga_out_green <= to_unsigned(to_integer('0'&vga_buffer3_green)+to_integer('0'&vga_buffer2_green),8);
-        vga_out_blue <= to_unsigned(to_integer('0'&vga_buffer3_blue)+to_integer('0'&vga_buffer2_blue),8);
+        vga_out_red <= to_unsigned(to_integer('0'&vga_buffer3_red(7 downto 1))+to_integer('0'&vga_buffer2_red(7 downto 1)),8);
+        vga_out_green <= to_unsigned(to_integer('0'&vga_buffer3_green(7 downto 1))+to_integer('0'&vga_buffer2_green(7 downto 1)),8);
+        vga_out_blue <= to_unsigned(to_integer('0'&vga_buffer3_blue(7 downto 1))+to_integer('0'&vga_buffer2_blue(7 downto 1)),8);
       end if;
       
       -- 2. From RGB, push out to pins (also draw border)
