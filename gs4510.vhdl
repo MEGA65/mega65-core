@@ -137,7 +137,8 @@ component shadowram is
         address : in integer range 0 to 131071;
         we : in std_logic;
         data_i : in unsigned(7 downto 0);
-        data_o : out unsigned(7 downto 0)
+        data_o : out unsigned(7 downto 0);
+        writes : out unsigned(7 downto 0)
         );
 end component;
   
@@ -146,6 +147,7 @@ end component;
   signal shadow_address : integer range 0 to 131071;
   signal shadow_rdata : unsigned(7 downto 0);
   signal shadow_wdata : unsigned(7 downto 0);
+  signal shadow_write_count : unsigned(7 downto 0);
   signal shadow_write : std_logic := '0';
   
   signal last_fastio_addr : std_logic_vector(19 downto 0);
@@ -464,7 +466,8 @@ begin
     address => shadow_address,
     we      => shadow_write,
     data_i  => shadow_wdata,
-    data_o  => shadow_rdata);
+    data_o  => shadow_rdata,
+    writes => shadow_write_count);
 
   microcode0: microcode port map (
     clk => clock,
@@ -846,6 +849,8 @@ begin
 --      return x"0" & reg_dmagic_addr(27 downto 24);
       elsif (the_read_address = x"FFD37FE") or (the_read_address = x"FFD17FE") then
         return shadow_bank;
+      elsif (the_read_address = x"FFD37FD") or (the_read_address = x"FFD17FD") then
+        return shadow_write_count;
       end if;
 
       if accessing_cpuport='1' then

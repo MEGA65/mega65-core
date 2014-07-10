@@ -8,12 +8,15 @@ entity shadowram is
         address : in integer range 0 to 131071;
         we : in std_logic;
         data_i : in unsigned(7 downto 0);
-        data_o : out unsigned(7 downto 0)
+        data_o : out unsigned(7 downto 0);
+        writes : out unsigned(7 downto 0)
         );
 end shadowram;
 
 architecture Behavioral of shadowram is
 
+  signal write_count : unsigned(7 downto 0);
+  
 --  type ram_t is array (0 to 262143) of std_logic_vector(7 downto 0);
   type ram_t is array (0 to 131071) of unsigned(7 downto 0);
   signal ram : ram_t := (
@@ -31,8 +34,10 @@ begin
   PROCESS(Clk,ram,address)
   BEGIN
     data_o <= ram(address);
+    writes <= write_count;
     if(rising_edge(Clk)) then 
-      if(we='1') then
+      if (we='1') then
+        write_count <= write_count + 1;        
         ram(address) <= data_i;
         report "wrote to shadow ram" severity note;
       end if;
