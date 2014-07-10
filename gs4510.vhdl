@@ -1396,7 +1396,7 @@ begin
           -- End of wait states, so clear memory writing and reading
 
           colour_ram_cs <= '0';
-          shadow_write <= '0';       
+--          shadow_write <= '0';       
           fastio_write <= '0';
 --          fastio_read <= '0';
           chipram_we <= '0';
