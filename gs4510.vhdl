@@ -703,7 +703,7 @@ begin
       -- Schedule the memory read from the appropriate source.
       accessing_fastio <= '0'; accessing_vic_fastio <= '0';
       accessing_cpuport <= '0'; accessing_colour_ram_fastio <= '0';
-      accessing_sb_fastio <= '0'; accessing_shadow <= '0';
+      accessing_sb_fastio <= '0';
       accessing_slowram <= '0';
       wait_states <= io_wait_states;
       
@@ -747,6 +747,7 @@ begin
         wait_states <= slowram_waitstates;
         proceed <= '0';
       elsif long_address(27 downto 20) = x"FF" then
+        accessing_shadow <= '0';
         accessing_fastio <= '1';
         accessing_vic_fastio <= '0';
         accessing_sb_fastio <= '0';
@@ -810,6 +811,7 @@ begin
       else
         -- Don't let unmapped memory jam things up
         report "hit unmapped memory -- clearing wait_states" severity note;
+        accessing_shadow <= '0';
         wait_states <= x"00";
         proceed <= '1';
       end if;
