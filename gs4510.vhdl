@@ -156,6 +156,7 @@ end component;
   
   signal last_fastio_addr : std_logic_vector(19 downto 0);
   signal last_write_address : unsigned(27 downto 0);
+  signal shadow_write_flags : unsigned(3 downto 0) := "0000";
 
   signal slowram_lohi : std_logic;
   -- SlowRAM has 70ns access time, so need some wait states.
@@ -528,6 +529,7 @@ begin
       -- Stop memory accesses
       colour_ram_cs <= '0';
       shadow_write <= '0';
+      shadow_write_flags(0) <= '1';
       fastio_read <= '0';
       fastio_write <= '0';
       chipram_we <= '0';        
@@ -719,6 +721,7 @@ begin
 
       -- Get the shadow RAM address on the bus fast to improve timing.
       shadow_write <= '0';
+      shadow_write_flags(1) <= '1';
       shadow_address <= to_integer(long_address(16 downto 0));
       
       if (long_address = x"0000000") or (long_address = x"0000001") then
@@ -866,7 +869,7 @@ begin
       elsif (the_read_address = x"FFD37FA") or (the_read_address = x"FFD17FA") then
         return shadow_observed_write_count;
       elsif (the_read_address = x"FFD37F0") or (the_read_address = x"FFD17F0") then
-        return x"0"&last_write_address(27 downto 24);
+        return shadow_write_flags&last_write_address(27 downto 24);
       elsif (the_read_address = x"FFD37F1") or (the_read_address = x"FFD17F1") then
         return last_write_address(23 downto 16);
       elsif (the_read_address = x"FFD37F2") or (the_read_address = x"FFD17F2") then
@@ -1007,6 +1010,7 @@ begin
         report "writing to slowram..." severity note;
         accessing_slowram <= '1';
         shadow_write <= '0';
+        shadow_write_flags(2) <= '1';
         slowram_addr <= std_logic_vector(long_address(23 downto 1));
         slowram_we <= '0';
         slowram_ce <= '0';
@@ -1019,6 +1023,7 @@ begin
       elsif long_address(27 downto 24) = x"F" then
         accessing_fastio <= '1';
         shadow_write <= '0';
+        shadow_write_flags(2) <= '1';
         fastio_addr <= std_logic_vector(long_address(19 downto 0));
         last_fastio_addr <= std_logic_vector(long_address(19 downto 0));
         fastio_write <= '1'; fastio_read <= '0';
@@ -1044,6 +1049,7 @@ begin
       else
         -- Don't let unmapped memory jam things up
         shadow_write <= '0';
+        shadow_write_flags(3) <= '1';
         null;
       end if;
     end write_long_byte;
