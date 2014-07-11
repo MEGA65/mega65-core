@@ -1995,7 +1995,6 @@ begin
             paint_fsm_state <= Idle;
             -- Set character number to -1, so that we fetch one extra character
             -- (this is to offset the first byte reading rubbish and being skipped)
-            character_number <= (others => '1');
             raster_fetch_state <= FetchScreenRamWait;
             ramaddress <= screen_row_current_address;
             colourramaddress <= to_unsigned(to_integer(colour_ram_base) + to_integer(first_card_of_row),16);
