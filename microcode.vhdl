@@ -34,17 +34,10 @@ architecture Behavioral of microcode is
   type ram_t is array (instruction)
     of microcodeops;
   signal ram : ram_t := (
-    I_ADC => (mcAluInA => '1', mcAluAdd => '1', mcAluOutA => '1',
-              mcInstructionFetch => '1', others => '0'),
-    I_AND => (mcIncInMem => '1', mcIncAnd => '1', mcIncOutA => '1',
-              mcIncSetNZ => '1', others => '0'),
-    I_ASL => (mcIncInMem => '1', mcIncShiftLeft => '1', mcIncOutMem => '1',
-              mcIncCarryIn => '1', mcIncSetNZ => '1', mcWriteMem => '1',
-              mcRMW => '1',
-              others => '0'),
-    I_ASR => (mcIncInMem => '1', mcIncShiftRight => '1', mcIncOutMem => '1',
-              mcIncSetNZ => '1', mcWriteMem => '1',  mcRMW => '1',
-              others => '0'),
+    -- I_ADC
+    -- I_AND
+    -- I_ASL
+    -- I_ASR
     -- I_ASW
     -- I_BBR - handled elsewhere
     -- I_BBS - handled elsewhere
@@ -65,53 +58,39 @@ architecture Behavioral of microcode is
     I_CLE => (mcClearE => '1', mcInstructionFetch => '1', others => '0'),
     I_CLI => (mcClearI => '1', mcInstructionFetch => '1', others => '0'),
     -- I_CLV - handled as a single-cycle op elsewhere
-    I_CMP => (mcAluInA => '1', mcAluCmp => '1',
-              mcInstructionFetch => '1', others => '0'),    
-    I_CPX => (mcAluInX => '1', mcAluCmp => '1',
-              mcInstructionFetch => '1', others => '0'),    
-    I_CPY => (mcAluInY => '1', mcAluCmp => '1',
-              mcInstructionFetch => '1', others => '0'),    
-    I_CPZ => (mcAluInZ => '1', mcAluCmp => '1',
-              mcInstructionFetch => '1', others => '0'),    
-    I_DEC => (mcIncInMem => '1', mcIncDec => '1', mcIncOutMem => '1',
-              mcIncSetNZ => '1', mcWriteMem => '1', mcRMW => '1',
-              others => '0'),
+    -- I_CMP
+    -- I_CPX
+    -- I_CPY
+    -- I_CPZ
+    -- I_DEC
     -- I_DEW
     -- I_EOM - handled as a single-cycle op elsewhere
-    I_EOR => (mcIncInMem => '1', mcIncEor => '1', mcIncOutA => '1',
-              mcIncSetNZ => '1', others => '0'),
-    I_INC => (mcIncInMem => '1', mcIncInc => '1', mcIncOutMem => '1',
-              mcIncSetNZ => '1', mcWriteMem => '1', mcRMW => '1',
-              others => '0'),
+    -- I_EOR
+    -- I_INC
     -- I_INW
     -- I_INX - handled as a single-cycle op elsewhere
     -- I_INY - handled as a single-cycle op elsewhere
     -- I_INZ - handled as a single-cycle op elsewhere
     I_JMP => (mcJump => '1', others => '0'),
     I_JSR => (mcJump => '1', others => '0'),
-    I_LSR => (mcIncInMem => '1', mcIncShiftRight => '1', mcIncOutMem => '1',
-              mcIncZeroIn => '1', mcIncSetNZ => '1', mcWriteMem => '1',
-              mcRMW => '1',
-              others => '0'),
-    I_LDA => (mcIncInMem => '1', mcIncPass => '1', mcIncOutA => '1',
-              mcIncSetNZ => '1', others => '0'),
-    I_LDX => (mcIncInMem => '1', mcIncPass => '1', mcIncOutX => '1',
-              mcIncSetNZ => '1', others => '0'),
-    I_LDY => (mcIncInMem => '1', mcIncPass => '1', mcIncOutY => '1',
-              mcIncSetNZ => '1', others => '0'),
-    I_LDZ => (mcIncInMem => '1', mcIncPass => '1', mcIncOutZ => '1',
-              mcIncSetNZ => '1', others => '0'),
+    -- I_LSR
+    I_LDA => (mcSetA => '1', mcSetNZ => '1',
+              mcInstructionFetch => '1', others => '0'),
+    I_LDX => (mcSetX => '1', mcSetNZ => '1',
+              mcInstructionFetch => '1', others => '0'),
+    I_LDY => (mcSetY => '1', mcSetNZ => '1',
+              mcInstructionFetch => '1', others => '0'),
+    I_LDZ => (mcSetZ => '1', mcSetNZ => '1',
+              mcInstructionFetch => '1', others => '0'),
     -- I_LSR
     I_MAP => (mcMap => '1', others => '0'),
-    I_NEG => (mcIncInA => '1', mcIncNeg => '1', mcIncOutA => '1',
-              mcIncSetNZ => '1', others => '0'),
-    I_ORA => (mcIncInMem => '1', mcIncIor => '1', mcIncOutA => '1',
-              mcIncSetNZ => '1', others => '0'),
-    I_PHA => (mcPush => '1', mcAluInA => '1', others => '0'),
-    I_PHP => (mcPush => '1', mcAluInP => '1', others => '0'),
-    I_PHX => (mcPush => '1', mcAluInX => '1', others => '0'),
-    I_PHY => (mcPush => '1', mcAluInY => '1', others => '0'),
-    I_PHZ => (mcPush => '1', mcAluInZ => '1', others => '0'),
+    -- I_NEG - handled as a single-cycle op elsewhere
+    -- I_ORA
+    I_PHA => (mcPush => '1', mcStoreA => '1', others => '0'),
+    I_PHP => (mcPush => '1', mcStoreP => '1', others => '0'),
+    I_PHX => (mcPush => '1', mcStoreX => '1', others => '0'),
+    I_PHY => (mcPush => '1', mcStoreY => '1', others => '0'),
+    I_PHZ => (mcPush => '1', mcStoreZ => '1', others => '0'),
     I_PLA => (mcPop => '1', mcStackA => '1', others => '0'),
     I_PLP => (mcPop => '1', mcStackP => '1', others => '0'),
     I_PLX => (mcPop => '1', mcStackX => '1', others => '0'),
@@ -123,21 +102,16 @@ architecture Behavioral of microcode is
     -- I_ROW
     -- I_RTI - XXX in the process of being implemented
     -- I_RTS - XXX in the process of being implemented
-    I_SBC => (mcAluInA => '1', mcAluSub => '1', mcAluOutA => '1',
-              mcInstructionFetch => '1', others => '0'),
+    -- I_SBC
     -- I_SEC - handled as a single-cycle op elsewhere   
     -- I_SED - handled as a single-cycle op elsewhere   
     -- I_SEE - handled as a single-cycle op elsewhere   
     -- I_SEI - handled as a single-cycle op elsewhere   
     -- I_SMB
-    I_STA => (mcIncInA => '1', mcIncPass => '1', mcIncOutMem => '1',
-              mcWriteMem => '1', others => '0'),
-    I_STX => (mcIncInX => '1', mcIncPass => '1', mcIncOutMem => '1',
-              mcWriteMem => '1', others => '0'),
-    I_STY => (mcIncInY => '1', mcIncPass => '1', mcIncOutMem => '1',
-              mcWriteMem => '1', others => '0'),
-    I_STZ => (mcIncInZ => '1', mcIncPass => '1', mcIncOutMem => '1',
-              mcWriteMem => '1', others => '0'),
+    -- I_STA
+    -- I_STX
+    -- I_STY
+    -- I_STZ
     -- I_TAX - handled as a single-cycle op elsewhere   
     -- I_TAY - handled as a single-cycle op elsewhere   
     -- I_TAZ - handled as a single-cycle op elsewhere   

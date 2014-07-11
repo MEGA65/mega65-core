@@ -30,61 +30,35 @@ package cputypes is
   type ilut8bit is array(0 to 255) of instruction;
 
   type microcodeops is record
+    -- Do we increment PC?
     mcIncPC : std_logic;
-
-    -- Mark instruction RMW
-    mcRMW : std_logic;
-    
-    -- Incrementer/binary ALU inputs
-    mcIncInT : std_logic;
-    mcIncInA : std_logic;
-    mcIncInX : std_logic;
-    mcIncInY : std_logic;
-    mcIncInZ : std_logic;
-    mcIncInSPH : std_logic;
-    mcIncInSPL : std_logic;
-    mcIncInMem : std_logic;
-
-    -- Incrementer/binary ALU outputs
-    mcIncOutMem : std_logic;
-    mcIncOutA : std_logic;
-    mcIncOutX : std_logic;
-    mcIncOutY : std_logic;
-    mcIncOutZ : std_logic;
-    mcIncOutT : std_logic;
-    mcIncOutSPH : std_logic;
-    mcIncOutSPL : std_logic;
-
-    -- Binary and index operations
-    mcIncAnd : std_logic;mcIncIor : std_logic;mcIncEor : std_logic;
-    mcIncInc : std_logic;mcIncDec : std_logic;mcIncPass : std_logic;
-    mcIncNeg : std_logic;
-    -- Bit shift operations
-    mcIncShiftLeft : std_logic;mcIncShiftRight : std_logic;
-    mcIncZeroIn : std_logic;mcIncCarryIn : std_logic;
-
-    mcIncSetNZ : std_logic;
 
     -- How shall we exit this instruction?
     mcInstructionFetch : std_logic;
     mcInstructionDecode : std_logic;
 
+    -- Mark instruction RMW
+    mcRMW : std_logic;
+
+    -- Set NZ based on currently read memory
+    mcSetNZ : std_logic;
+    -- And registers
+    mcSetA : std_logic;
+    mcSetX : std_logic;
+    mcSetY : std_logic;
+    mcSetZ : std_logic;
+
+    -- Do we write registers to memory?
+    mcStoreA : std_logic;
+    mcStoreP : std_logic;
+    mcStoreX : std_logic;
+    mcStoreY : std_logic;
+    mcStoreZ : std_logic;
+    
     mcWriteMem : std_logic;
     mcPush : std_logic;
     mcPop : std_logic;
     mcBreakFlag : std_logic;
-
-    -- Arithmetic ALU operations
-    mcAluInP : std_logic;
-    mcAluInA : std_logic;
-    mcAluInX : std_logic;
-    mcAluInY : std_logic;
-    mcAluInZ : std_logic;
-    mcAluOutA : std_logic;
-    mcAluCarryOut : std_logic;
-    mcAluAdd : std_logic;
-    mcAluCmp : std_logic;
-    mcAluSub : std_logic;
     
     -- Special instructions
     mcJump : std_logic;

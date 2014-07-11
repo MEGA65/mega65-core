@@ -1349,9 +1349,6 @@ begin
       monitor_mem_setpc_drive <= monitor_mem_setpc;
       monitor_mem_address_drive <= monitor_mem_address;
       monitor_mem_wdata_drive <= monitor_mem_wdata;
-
-      pop_a <= '0'; pop_x <= '0'; pop_y <= '0'; pop_z <= '0';
-      pop_p <= '0';
       
       monitor_debug_memory_access(31) <= accessing_shadow;
       monitor_debug_memory_access(30) <= accessing_fastio;
@@ -1468,6 +1465,9 @@ begin
           -- Main state machine for CPU
           report "CPU state = " & processor_state'image(state) & ", PC=$" & to_hstring(reg_pc) severity note;
 
+          pop_a <= '0'; pop_x <= '0'; pop_y <= '0'; pop_z <= '0';
+          pop_p <= '0';
+          
           -- By default read next byte in instruction stream.
           memory_access_read := '1';
           memory_access_address := x"000"&reg_pc;
@@ -1886,6 +1886,7 @@ begin
             when Pull =>
               -- Also used for immediate mode loading
               set_nz(memory_read_value);
+              report "pop_a = " & std_logic'image(pop_a) severity note;
               if pop_a='1' then reg_a <= memory_read_value; end if;
               if pop_x='1' then reg_x <= memory_read_value; end if;
               if pop_y='1' then reg_y <= memory_read_value; end if;
@@ -1953,29 +1954,27 @@ begin
               -- us with loads, stores and reaad/modify/write instructions
 
               -- Go to next instruction by default
-              pc_inc := '1';
-              state <= fast_fetch_state;
+              pc_inc := reg_microcode.mcIncPC;
+              if reg_microcode.mcInstructionFetch='1' then
+                state <= fast_fetch_state;
+              else
+                -- XXX need to check if RMW instruction
+                state <= normal_fetch_state;
+              end if;
               
               if reg_addressingmode = M_immnn then
                 monitor_arg1 <= std_logic_vector(memory_read_value);
                 monitor_ibytes(1) <= '1';
+              end if;
 
-                -- XXX This should be done by microcode
-                case reg_instruction is
-                  when I_LDA => pop_a<='1'; state <= Pull;
-                  when I_LDX => pop_x<='1'; state <= Pull;
-                  when I_LDY => pop_y<='1'; state <= Pull;
-                  when I_LDZ => pop_z<='1'; state <= Pull;
-                  when others =>
-                end case;
-              end if;
-              
+              if reg_microcode.mcSetNZ='1' then set_nz(memory_read_value); end if;
+              if reg_microcode.mcSetA='1' then reg_a <= memory_read_value; end if;
+              if reg_microcode.mcSetX='1' then reg_x <= memory_read_value; end if;
+              if reg_microcode.mcSetY='1' then reg_y <= memory_read_value; end if;
+              if reg_microcode.mcSetZ='1' then reg_z <= memory_read_value; end if;
               if reg_microcode.mcClearE='1' then flag_e <= '0'; end if;
-              if reg_microcode.mcClearI='1' then flag_i <= '0'; end if;             
-              
-              if reg_microcode.mcMap='1' then
-                c65_map_instruction;
-              end if;
+              if reg_microcode.mcClearI='1' then flag_i <= '0'; end if;
+              if reg_microcode.mcMap='1' then c65_map_instruction; end if;
             when others =>
               state <= normal_fetch_state;
           end case;
