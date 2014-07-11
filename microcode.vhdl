@@ -74,13 +74,13 @@ architecture Behavioral of microcode is
     I_JMP => (mcJump => '1', others => '0'),
     I_JSR => (mcJump => '1', others => '0'),
     -- I_LSR
-    I_LDA => (mcSetA => '1', mcSetNZ => '1',
+    I_LDA => (mcSetA => '1', mcSetNZ => '1', mcIncPC => '1', 
               mcInstructionFetch => '1', others => '0'),
-    I_LDX => (mcSetX => '1', mcSetNZ => '1',
+    I_LDX => (mcSetX => '1', mcSetNZ => '1', mcIncPC => '1', 
               mcInstructionFetch => '1', others => '0'),
-    I_LDY => (mcSetY => '1', mcSetNZ => '1',
+    I_LDY => (mcSetY => '1', mcSetNZ => '1', mcIncPC => '1', 
               mcInstructionFetch => '1', others => '0'),
-    I_LDZ => (mcSetZ => '1', mcSetNZ => '1',
+    I_LDZ => (mcSetZ => '1', mcSetNZ => '1', mcIncPC => '1', 
               mcInstructionFetch => '1', others => '0'),
     -- I_LSR
     I_MAP => (mcMap => '1', others => '0'),
@@ -108,10 +108,14 @@ architecture Behavioral of microcode is
     -- I_SEE - handled as a single-cycle op elsewhere   
     -- I_SEI - handled as a single-cycle op elsewhere   
     -- I_SMB
-    -- I_STA
-    -- I_STX
-    -- I_STY
-    -- I_STZ
+    I_STA => (mcStoreA => '1', mcWriteMem => '1',
+              mcWriteRegAddr => '1', mcIncPC => '1', others => '0'),
+    I_STX => (mcStoreX => '1', mcWriteMem => '1',
+              mcWriteRegAddr => '1', mcIncPC => '1', others => '0'),
+    I_STY => (mcStoreY => '1', mcWriteMem => '1',
+              mcWriteRegAddr => '1', mcIncPC => '1', others => '0'),
+    I_STZ => (mcStoreZ => '1', mcWriteMem => '1',
+              mcWriteRegAddr => '1', mcIncPC => '1', others => '0'),
     -- I_TAX - handled as a single-cycle op elsewhere   
     -- I_TAY - handled as a single-cycle op elsewhere   
     -- I_TAZ - handled as a single-cycle op elsewhere   

@@ -1223,13 +1223,13 @@ begin
         -- flag_c <= tmp(8);
       end if;
       -- Return final value
-      report "add result of "
-        & "$" & to_hstring(std_logic_vector(i1)) 
-        & " + "
-        & "$" & to_hstring(std_logic_vector(i2)) 
-        & " + "
-        & "$" & std_logic'image(flag_c)
-        & " = " & to_hstring(std_logic_vector(tmp(7 downto 0))) severity note;
+      --report "add result of "
+      --  & "$" & to_hstring(std_logic_vector(i1)) 
+      --  & " + "
+      --  & "$" & to_hstring(std_logic_vector(i2)) 
+      --  & " + "
+      --  & "$" & std_logic'image(flag_c)
+      --  & " = " & to_hstring(std_logic_vector(tmp(7 downto 0))) severity note;
       return tmp;
     end function alu_op_add;
 
@@ -1658,9 +1658,25 @@ begin
 
               -- Store arg1
               reg_arg1 <= memory_read_value;
+              reg_addr(7 downto 0) <= memory_read_value;
               
-              -- Fetch arg2 (happens by default since PC is set correctly)
-
+              -- Fetch arg2 if required (only for 3 byte addressing modes)
+              case reg_addressingmode is
+                when M_impl => null;
+                when M_InnX => null;
+                when M_nn => null;
+                when M_immnn => null;
+                when M_A => null;
+                when M_rr => null;
+                when M_InnY => null;
+                when M_InnZ => null;
+                when M_nnX => null;
+                when M_InnSPY => null;
+                when M_nnY => null;
+                when others =>
+                  pc_inc := '1';
+              end case;
+              
               -- Process instruction next cycle
               state <= Cycle3;
             when Cycle3 =>
@@ -1700,7 +1716,7 @@ begin
                     state <= LoadTarget;
                   when M_immnn => -- Handled in ActionCycle              
                   when M_nnnn =>
-                    reg_addr(7 downto 0) <= reg_arg1;
+                    reg_addr(15 downto 8) <= memory_read_value;
                     -- If it is a branch, write the low bits of the programme
                     -- counter now.  We will read the 2nd argument next cycle
                     if reg_instruction = I_JSR or reg_instruction = I_BSR then
@@ -1715,7 +1731,7 @@ begin
                     else
                       pc_inc := '1';
                       -- (reading next instruction argument byte as default action)
-                      state <= AbsReadArg2;
+                      state <= ActionCycle;
                     end if;
                   when M_nnrr =>
                     reg_t <= reg_arg1;
@@ -1975,6 +1991,16 @@ begin
               if reg_microcode.mcClearE='1' then flag_e <= '0'; end if;
               if reg_microcode.mcClearI='1' then flag_i <= '0'; end if;
               if reg_microcode.mcMap='1' then c65_map_instruction; end if;
+
+              if reg_microcode.mcStoreA='1' then memory_access_wdata := reg_a; end if;
+              if reg_microcode.mcStoreX='1' then memory_access_wdata := reg_x; end if;
+              if reg_microcode.mcStoreY='1' then memory_access_wdata := reg_y; end if;
+              if reg_microcode.mcStoreZ='1' then memory_access_wdata := reg_z; end if;
+              if reg_microcode.mcWriteRegAddr='1' then
+                memory_access_address := x"000"&reg_addr;
+                memory_access_resolve_address := '1';
+              end if;
+              memory_access_write := reg_microcode.mcWriteMem;
             when others =>
               state <= normal_fetch_state;
           end case;
@@ -1983,6 +2009,7 @@ begin
         report "pc_inc = " & std_logic'image(pc_inc)
           & ", cpu_state = " & processor_state'image(state)
           & " ($" & to_hstring(to_unsigned(processor_state'pos(state),8)) & ")"
+          & ", reg_addr=$" & to_hstring(reg_addr)
           severity note;
         
         if pc_inc = '1' then
