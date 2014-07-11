@@ -151,6 +151,7 @@ end component;
   signal shadow_write_count : unsigned(7 downto 0);
   signal shadow_no_write_count : unsigned(7 downto 0);
   signal shadow_try_write_count : unsigned(7 downto 0) := x"00";
+  signal shadow_observed_write_count : unsigned(7 downto 0) := x"00";
   signal shadow_write : std_logic := '0';
   
   signal last_fastio_addr : std_logic_vector(19 downto 0);
@@ -861,6 +862,8 @@ begin
         return shadow_no_write_count;
       elsif (the_read_address = x"FFD37FB") or (the_read_address = x"FFD17FB") then
         return shadow_try_write_count;
+      elsif (the_read_address = x"FFD37FA") or (the_read_address = x"FFD17FA") then
+        return shadow_observed_write_count;
       end if;
 
       if accessing_cpuport='1' then
@@ -1305,6 +1308,10 @@ begin
     -- BEGINNING OF MAIN PROCESS FOR CPU
     if rising_edge(clock) then
 
+      if shadow_write='1' then
+        shadow_observed_write_count <= shadow_observed_write_count + 1;
+      end if;
+      
       monitor_mem_attention_request_drive <= monitor_mem_attention_request;
       
       pop_a <= '0'; pop_x <= '0'; pop_y <= '0'; pop_z <= '0';
