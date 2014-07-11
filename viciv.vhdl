@@ -373,9 +373,9 @@ architecture Behavioral of viciv is
   -- character display width.
   signal virtual_row_width : unsigned(15 downto 0) := to_unsigned(40,16);
   -- Each character pixel will be (n+1) pixels wide  
-  signal chargen_x_scale : unsigned(7 downto 0) := x"04";  -- x"04"
+  signal chargen_x_scale : unsigned(7 downto 0) := x"02";  -- x"04"
   -- Each character pixel will be (n+1) pixels high
-  signal chargen_y_scale : unsigned(7 downto 0) := x"04";  -- x"04"
+  signal chargen_y_scale : unsigned(7 downto 0) := x"02";  -- x"04"
   -- smooth scrolling position in natural pixels.
   -- Set in the same way as the border
   signal x_chargen_start : unsigned(11 downto 0) := to_unsigned(frame_h_front,12);
@@ -1968,7 +1968,6 @@ begin
 
         -- Set all signals for both eventuality, since none are shared between
         -- the two paths.  This helps keep the logic shallow.
-        character_number <= (others => '0');
         screen_row_current_address
           <= to_unsigned(to_integer(screen_ram_base(16 downto 0))
                          + to_integer(first_card_of_row),17);
@@ -1979,7 +1978,7 @@ begin
         if first_card_of_row /= prev_first_card_of_row then          
           raster_fetch_state <= FetchScreenRamLine;
         else
-          raster_fetch_state <= FetchNextCharacter;
+          raster_fetch_state <= FetchFirstCharacter;
         end if;
       end if;
 
@@ -1994,10 +1993,10 @@ begin
         when FetchScreenRamLine =>
           if paint_ready='1' then
             paint_fsm_state <= Idle;
-            -- Set character number to -1, so that we fetch one extra character
-            -- (this is to offset the first byte reading rubbish and being skipped)
             raster_fetch_state <= FetchScreenRamWait;
             ramaddress <= screen_row_current_address;
+            character_number <= (others => '0');
+            screen_ram_buffer_address <= to_unsigned(0,9);
             colourramaddress <= to_unsigned(to_integer(colour_ram_base) + to_integer(first_card_of_row),16);
             report "BADLINE, colour_ram_base=$" & to_hstring(colour_ram_base) severity note;
           end if;
@@ -2042,7 +2041,7 @@ begin
           character_number <= (others => '0');
           card_of_row <= (others => '0');
           screen_ram_buffer_write <= '0';
-          screen_ram_buffer_address <= to_unsigned(0,9);
+          screen_ram_buffer_address <= to_unsigned(1,9);
           raster_fetch_state <= FetchNextCharacter;         
         when FetchNextCharacter =>
           -- Fetch next character
