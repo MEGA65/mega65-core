@@ -69,7 +69,7 @@ entity uart_monitor is
     monitor_mem_write : out std_logic := '0';
     monitor_mem_setpc : out std_logic := '0';
     monitor_mem_stage_trace_mode : out std_logic := '0';
-    monitor_mem_trace_mode : out std_logic := '1';
+    monitor_mem_trace_mode : out std_logic := '0';
     monitor_mem_trace_toggle : out std_logic := '0'
     );
 end uart_monitor;
