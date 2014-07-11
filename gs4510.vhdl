@@ -1752,9 +1752,9 @@ begin
                       -- Branch will be taken. Calculate destination address by
                       -- sign-extending the 8-bit offset.
                       temp_addr := reg_pc +
-                                   1+to_integer(reg_arg1(7)&reg_arg1(7)&reg_arg1(7)&reg_arg1(7)&
-                                                reg_arg1(7)&reg_arg1(7)&reg_arg1(7)&reg_arg1(7)&
-                                                reg_arg1);
+                                   to_integer(reg_arg1(7)&reg_arg1(7)&reg_arg1(7)&reg_arg1(7)&
+                                              reg_arg1(7)&reg_arg1(7)&reg_arg1(7)&reg_arg1(7)&
+                                              reg_arg1);
                       --memory_access_read := '1';
                       --memory_access_address := x"000"&temp_addr;
                       --memory_access_resolve_address := '1';
