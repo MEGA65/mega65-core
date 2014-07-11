@@ -1198,8 +1198,9 @@ begin
       report "drive led = " & std_logic'image(led)
         & ", drive motor= " & std_logic'image(motor) severity note;
 
-      chardata_drive <= unsigned(chardata);
-      paint_chardata <= chardata_drive;
+      --chardata_drive <= unsigned(chardata);
+      --paint_chardata <= chardata_drive;
+      paint_chardata <= unsigned(chardata);
       ramdata_drive <= ramdata;
       paint_ramdata <= ramdata_drive;
 
