@@ -2002,6 +2002,8 @@ begin
           end if;
         when FetchScreenRamWait =>
           -- allow for two cycle delay caused by using doubly buffered version of ramdata
+          -- XXX we are wasting cycles between bytes instead of just pipelining
+          -- it.
           ramaddress <= screen_row_current_address;
           raster_fetch_state <= FetchScreenRamWait2;
         when FetchScreenRamWait2 =>
