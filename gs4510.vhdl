@@ -466,6 +466,12 @@ end component;
   signal z_decremented : unsigned(7 downto 0);
 
   signal monitor_mem_attention_request_drive : std_logic;
+  signal monitor_mem_read_drive : std_logic;
+  signal monitor_mem_write_drive : std_logic;
+  signal monitor_mem_setpc_drive : std_logic;
+  signal monitor_mem_address_drive : std_logic_vector(27 downto 0);
+  signal monitor_mem_wdata_drive : unsigned(7 downto 0);
+
 
 begin
 
@@ -1330,7 +1336,12 @@ begin
       end if;
       
       monitor_mem_attention_request_drive <= monitor_mem_attention_request;
-      
+      monitor_mem_read_drive <= monitor_mem_read;
+      monitor_mem_write_drive <= monitor_mem_write;
+      monitor_mem_setpc_drive <= monitor_mem_setpc;
+      monitor_mem_address_drive <= monitor_mem_address;
+      monitor_mem_wdata_drive <= monitor_mem_wdata;
+
       pop_a <= '0'; pop_x <= '0'; pop_y <= '0'; pop_z <= '0';
       pop_p <= '0';
       
@@ -1479,17 +1490,17 @@ begin
               
               if monitor_mem_attention_request_drive='1' then
                 -- Memory access by serial monitor.
-                if monitor_mem_address(27 downto 16) = x"777" then
+                if monitor_mem_address_drive(27 downto 16) = x"777" then
                   -- M777xxxx in serial monitor reads memory from CPU's perspective
                   memory_access_resolve_address := '1';
                 else
                   memory_access_resolve_address := '0';
                 end if;
-                if monitor_mem_write='1' then
+                if monitor_mem_write_drive='1' then
                   -- Write to specified long address (or short if address is $777xxxx)
-                  memory_access_address := unsigned(monitor_mem_address);
+                  memory_access_address := unsigned(monitor_mem_address_drive);
                   memory_access_write := '1';
-                  memory_access_wdata := monitor_mem_wdata;
+                  memory_access_wdata := monitor_mem_wdata_drive;
                   state <= MonitorMemoryAccess;
                 -- Don't allow a read to occur while a write is completing.
                 elsif monitor_mem_read='1' then
@@ -1499,11 +1510,11 @@ begin
                     -- Then set PC from InstructionWait state to make sure that we
                     -- don't write it here, only for it to get stomped.
                     state <= MonitorMemoryAccess;
-                    reg_pc <= unsigned(monitor_mem_address(15 downto 0));
+                    reg_pc <= unsigned(monitor_mem_address_drive(15 downto 0));
                     mem_reading <= '0';
                   else
                     -- otherwise just read from memory
-                    memory_access_address := unsigned(monitor_mem_address);
+                    memory_access_address := unsigned(monitor_mem_address_drive);
                     memory_access_read := '1';
                     -- Read from specified long address
                     monitor_mem_reading <= '1';
