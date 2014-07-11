@@ -155,6 +155,7 @@ end component;
   signal shadow_write : std_logic := '0';
   
   signal last_fastio_addr : std_logic_vector(19 downto 0);
+  signal last_write_address : unsigned(27 downto 0);
 
   signal slowram_lohi : std_logic;
   -- SlowRAM has 70ns access time, so need some wait states.
@@ -526,7 +527,7 @@ begin
 
       -- Stop memory accesses
       colour_ram_cs <= '0';
-      shadow_write <= '0';   
+      shadow_write <= '0';
       fastio_read <= '0';
       fastio_write <= '0';
       chipram_we <= '0';        
@@ -864,6 +865,14 @@ begin
         return shadow_try_write_count;
       elsif (the_read_address = x"FFD37FA") or (the_read_address = x"FFD17FA") then
         return shadow_observed_write_count;
+      elsif (the_read_address = x"FFD37F0") or (the_read_address = x"FFD17F0") then
+        return x"0"&last_write_address(27 downto 24);
+      elsif (the_read_address = x"FFD37F1") or (the_read_address = x"FFD17F1") then
+        return last_write_address(23 downto 16);
+      elsif (the_read_address = x"FFD37F2") or (the_read_address = x"FFD17F2") then
+        return last_write_address(15 downto 8);
+      elsif (the_read_address = x"FFD37F3") or (the_read_address = x"FFD17F3") then
+        return last_write_address(7 downto 0);
       end if;
 
       if accessing_cpuport='1' then
@@ -923,6 +932,8 @@ begin
         long_address := real_long_address;
       end if;
 
+      last_write_address <= real_long_address;
+      
       -- Write to DMAgic registers if required
       if (long_address = x"FFD3700") or (long_address = x"FFD1700") then        
         -- Set low order bits of DMA list address
