@@ -538,6 +538,7 @@ architecture Behavioral of viciv is
   -- Interface to character generator rom
   signal charaddress : integer range 0 to 4095;
   signal chardata : std_logic_vector(7 downto 0);
+  signal chardata_drive : unsigned(7 downto 0);
   -- buffer of read data to improve timing
   signal charrow : std_logic_vector(7 downto 0);
   signal charrow_t1 : std_logic_vector(7 downto 0);
@@ -1197,7 +1198,8 @@ begin
       report "drive led = " & std_logic'image(led)
         & ", drive motor= " & std_logic'image(motor) severity note;
 
-      paint_chardata <= unsigned(chardata);
+      chardata_drive <= unsigned(chardata);
+      paint_chardata <= chardata_drive;
       ramdata_drive <= ramdata;
       paint_ramdata <= ramdata_drive;
 
