@@ -299,6 +299,7 @@ architecture Behavioral of viciv is
                            FetchScreenRamWait2,
                            FetchScreenRamWait3,
                            FetchScreenRamNext,
+                           FetchFirstCharacter,
                            FetchNextCharacter,
                            FetchCharHighByte,
                            FetchTextCell,
@@ -2026,24 +2027,23 @@ begin
           -- case we need twice that many bytes.
           if sixteenbit_charset='1' then
             if character_number = virtual_row_width(7 downto 0)&'0' then
-              character_number <= (others => '0');
-              screen_ram_buffer_write <= '0';
-              screen_ram_buffer_address <= to_unsigned(0,9);
-              raster_fetch_state <= FetchNextCharacter;
+              raster_fetch_state <= FetchFirstCharacter;
             else
               raster_fetch_state <= FetchScreenRamWait;
             end if;
           else
             if character_number = '0'&virtual_row_width(7 downto 0) then
-              character_number <= (others => '0');
-              card_of_row <= (others => '0');
-              screen_ram_buffer_write <= '0';
-              screen_ram_buffer_address <= to_unsigned(0,9);
-              raster_fetch_state <= FetchNextCharacter;
+              raster_fetch_state <= FetchFirstCharacter;
             else
               raster_fetch_state <= FetchScreenRamWait;
             end if;
           end if;
+        when FetchFirstCharacter =>
+          character_number <= (others => '0');
+          card_of_row <= (others => '0');
+          screen_ram_buffer_write <= '0';
+          screen_ram_buffer_address <= to_unsigned(0,9);
+          raster_fetch_state <= FetchNextCharacter;         
         when FetchNextCharacter =>
           -- Fetch next character
           -- All we can expect here is that character_number is correctly set.
