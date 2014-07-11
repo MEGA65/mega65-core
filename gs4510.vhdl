@@ -98,6 +98,8 @@ entity gs4510 is
     slowram_lb : out std_logic := '0';
     slowram_ub : out std_logic := '0';
     slowram_data : inout std_logic_vector(15 downto 0);
+
+    cpu_leds : out std_logic_vector(3 downto 0);
     
     ---------------------------------------------------------------------------
     -- fast IO port (clocked at core clock). 1MB address space
@@ -931,6 +933,9 @@ begin
       accessing_cpuport <= '0'; accessing_colour_ram_fastio <= '0';
       accessing_sb_fastio <= '0'; accessing_shadow <= '0';
       accessing_slowram <= '0';
+
+      shadow_write_flags(0) <= '1';
+      shadow_write_flags(1) <= '1';
       
       wait_states <= x"00";
       
@@ -1002,11 +1007,13 @@ begin
       if long_address(27 downto 16)="0000"&shadow_bank then
         report "writing to shadow RAM via shadow_bank" severity note;
         shadow_write <= '1';
+        shadow_write_flags(3) <= '1';
       end if;
       if long_address(27 downto 17)="00000000000" then
         report "writing to shadow RAM via chipram shadowing. addr=$" & to_hstring(long_address) severity note;
         shadow_write <= '1';
         shadow_try_write_count <= shadow_try_write_count + 1;
+        shadow_write_flags(3) <= '1';
         chipram_address <= long_address(16 downto 0);
         chipram_we <= '1';
         chipram_datain <= value;
@@ -1055,7 +1062,6 @@ begin
       else
         -- Don't let unmapped memory jam things up
         shadow_write <= '0';
-        shadow_write_flags(3) <= '1';
         null;
       end if;
     end write_long_byte;
@@ -1331,6 +1337,8 @@ begin
     -- BEGINNING OF MAIN PROCESS FOR CPU
     if rising_edge(clock) then
 
+      cpu_leds <= std_logic_vector(shadow_write_flags);
+      
       if shadow_write='1' then
         shadow_observed_write_count <= shadow_observed_write_count + 1;
       end if;
@@ -1999,9 +2007,7 @@ begin
           else 
             write_long_byte(memory_access_address,memory_access_wdata);
           end if;
-        end if;
-
-        if memory_access_read='1' then 
+        elsif memory_access_read='1' then 
           report "memory_access_read=1, addres=$"&to_hstring(memory_access_address) severity note;
           if memory_access_resolve_address = '1' then
             memory_access_address := resolve_address_to_long(memory_access_address(15 downto 0),false);

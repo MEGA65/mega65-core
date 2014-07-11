@@ -116,7 +116,7 @@ entity machine is
          slowram_lb : out std_logic;
          slowram_ub : out std_logic;
          slowram_data : inout std_logic_vector(15 downto 0);
-         
+
          ----------------------------------------------------------------------
          -- PS/2 adapted USB keyboard & joystick connector.
          -- For now we will use a keyrah adapter to connect to the keyboard.
@@ -257,6 +257,8 @@ architecture Behavioral of machine is
       slowram_lb : out std_logic;
       slowram_ub : out std_logic;
       slowram_data : inout std_logic_vector(15 downto 0);
+
+      cpu_leds : out std_logic_vector(3 downto 0);              
 
       ---------------------------------------------------------------------------
       -- Interface to ChipRAM in video controller (just 128KB for now)
@@ -408,6 +410,8 @@ architecture Behavioral of machine is
           );
   end component;
 
+  signal cpu_leds : std_logic_vector(3 downto 0);
+  
   signal viciii_iomode : std_logic_vector(1 downto 0);
 
   signal led : std_logic;
@@ -567,7 +571,7 @@ begin
       elsif segled_counter(17 downto 15)=6 then
         digit := "1111";
       elsif segled_counter(17 downto 15)=7 then
-        digit := "1111";
+        digit := cpu_leds;
       end if;
 
       -- segments are:
@@ -691,6 +695,8 @@ begin
     chipram_we => chipram_we,
     chipram_address => chipram_address,
     chipram_datain => chipram_datain,
+
+    cpu_leds => cpu_leds,
     
     fastio_addr => fastio_addr,
     fastio_read => fastio_read,
