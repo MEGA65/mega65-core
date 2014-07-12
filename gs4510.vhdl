@@ -342,15 +342,17 @@ end component;
     InnZReadVectorLow,
     CallSubroutine0,CallSubroutine,CallSubroutine2,
     ZPRelReadZP,
-    AbsReadArg2,
-    AbsXReadArg2,
-    AbsYReadArg2,
-    IAbsReadArg2,
-    IAbsXReadArg2,  -- $20 ?
+    JumpAbsReadArg2,
+    JumpAbsXReadArg2,
+    JumpIAbsReadArg2,
+    JumpIAbsXReadArg2,
+    JumpDereference,
+    JumpDereference2,
+    JumpDereference3,
     Imm16ReadArg2,
     TakeBranch8,TakeBranch8b,
     LoadTarget,
-    ActionCycle -- $25
+    ActionCycle
     );
   signal state : processor_state := ResetLow;
   signal fast_fetch_state : processor_state := InstructionDecode;
@@ -1716,6 +1718,9 @@ begin
                     state <= LoadTarget;
                   when M_immnn => -- Handled in ActionCycle              
                   when M_nnnn =>
+                    monitor_arg2 <= std_logic_vector(memory_read_value);
+                    monitor_ibytes(0) <= '1';
+
                     reg_addr(15 downto 8) <= memory_read_value;
                     -- If it is a branch, write the low bits of the programme
                     -- counter now.  We will read the 2nd argument next cycle
@@ -1785,9 +1790,10 @@ begin
                       if fast_fetch_state = InstructionDecode then pc_inc := '1'; end if;
                     end if;   
                   when M_rrrr =>
-                    -- Store low 8 bits of branch value even if we don't use it
-                    -- because the logic is shallowe that way
-                    reg_addr(7 downto 0) <= reg_arg1;
+                    monitor_arg2 <= std_logic_vector(memory_read_value);
+                    monitor_ibytes(0) <= '1';
+
+                    reg_addr(15 downto 8) <= memory_read_value;
                     -- Now work out if the branch will be taken
                     if (reg_instruction=I_BRA) or
                       (reg_instruction=I_BSR) or
@@ -1819,21 +1825,28 @@ begin
                     pc_inc := '1';
                     state <= LoadTarget;
                   when M_nnnnY =>
-                    reg_addr(7 downto 0) <= reg_arg1;
-                    pc_inc := '1';
-                    state <= AbsYReadArg2;
+                    monitor_arg2 <= std_logic_vector(memory_read_value);
+                    monitor_ibytes(0) <= '1';
+                    reg_addr <= x"00"&reg_y + to_integer(memory_read_value&reg_addr(7 downto 0));
+                    state <= ActionCycle;
                   when M_nnnnX =>
-                    reg_addr(7 downto 0) <= reg_arg1;
-                    pc_inc := '1';
-                    state <= AbsXReadArg2;
+                    monitor_arg2 <= std_logic_vector(memory_read_value);
+                    monitor_ibytes(0) <= '1';
+                    reg_addr <= x"00"&reg_x + to_integer(memory_read_value&reg_addr(7 downto 0));
+                    state <= ActionCycle;
                   when M_Innnn =>
-                    reg_addr(7 downto 0) <= reg_arg1;
+                    -- Only JMP and JSR have this mode
+                    monitor_arg2 <= std_logic_vector(memory_read_value);
+                    monitor_ibytes(0) <= '1';
+                    reg_addr(15 downto 8) <= memory_read_value;
                     pc_inc := '1';
-                    state <= IAbsReadArg2;
+                    state <= JumpDereference;
                   when M_InnnnX =>
-                    reg_addr(7 downto 0) <= reg_arg1;
+                    reg_addr <= to_unsigned(
+                                  to_integer(memory_read_value&reg_addr(7 downto 0))
+                                  + to_integer(reg_x),16);
                     pc_inc := '1';
-                    state <= IAbsXReadArg2;
+                    state <= JumpDereference;
                   when M_InnSPY =>
                     state <= normal_fetch_state;
                   when M_immnnnn =>                
@@ -1867,25 +1880,20 @@ begin
               case reg_addressingmode is
                 -- Note, we treat BSR as absolute mode, with microcode
                 -- controlling the calculation of the address as relative.
-                when M_nnnn => state <= AbsReadArg2;
-                when M_innnn => state <= IAbsReadArg2;
-                when M_innnnX => state <= AbsXReadArg2;
+                when M_nnnn => state <= JumpAbsReadArg2;
+                when M_innnn => state <= JumpIAbsReadArg2;
+                when M_innnnX => state <= JumpAbsXReadArg2;
                 when others => state <= normal_fetch_state;
               end case;
-            when AbsReadArg2 =>
+            when JumpAbsReadArg2 =>
               monitor_arg2 <= std_logic_vector(memory_read_value);
               monitor_ibytes(0) <= '1';
-              reg_addr(15 downto 8) <= memory_read_value;
+              reg_addr(15 downto 8) <=  memory_read_value;
               state <= ActionCycle;
-            when AbsXReadArg2 =>
+            when JumpAbsXReadArg2 =>
               monitor_arg2 <= std_logic_vector(memory_read_value);
               monitor_ibytes(0) <= '1';
               reg_addr <= x"00"&reg_x + to_integer(memory_read_value&reg_addr(7 downto 0));
-              state <= ActionCycle;
-            when AbsYReadArg2 =>
-              monitor_arg2 <= std_logic_vector(memory_read_value);
-              monitor_ibytes(0) <= '1';
-              reg_addr <= x"00"&reg_y + to_integer(memory_read_value&reg_addr(7 downto 0));
               state <= ActionCycle;
             when TakeBranch8 =>
               -- Branch will be taken
@@ -1915,8 +1923,6 @@ begin
               state <= fast_fetch_state;
               if fast_fetch_state = InstructionDecode then pc_inc := '1'; end if;
             when B16TakeBranch =>
-              monitor_arg2 <= std_logic_vector(memory_read_value);
-              monitor_ibytes(0) <= '1';
               reg_pc <= reg_pc + to_integer(memory_read_value & reg_addr(7 downto 0));
               state <= normal_fetch_state;
 
@@ -1942,17 +1948,27 @@ begin
                                         -- Don't take branch, so just skip over branch byte
                 state <= normal_fetch_state;
               end if;
-            when IAbsReadArg2 =>
-              monitor_arg2 <= std_logic_vector(memory_read_value);
-              monitor_ibytes(0) <= '1';
-              state <= normal_fetch_state;
-            when IAbsXReadArg2 =>
-              monitor_arg2 <= std_logic_vector(memory_read_value);
-              monitor_ibytes(0) <= '1';
+            when JumpDereference =>
+              -- reg_addr holds the address we want to load a 16 bit address
+              -- from for a JMP or JSR.
+              memory_access_read := '1';
+              memory_access_address := x"000"&reg_addr;
+              memory_access_resolve_address := '1';
+              -- XXX should this only step the bottom 8 bits for ($nn,X)
+              -- dereferencing?
+              reg_addr <= reg_addr + 1;
+              state <= JumpDereference2;
+            when JumpDereference2 =>
+              reg_t <= memory_read_value;
+              memory_access_read := '1';
+              memory_access_address := x"000"&reg_addr;
+              memory_access_resolve_address := '1';
+              state <= JumpDereference3;
+            when JumpDereference3 =>
+              -- Finished dereferencing, set PC
+              reg_pc <= memory_read_value&reg_t;
               state <= normal_fetch_state;
             when Imm16ReadArg2 => 
-              monitor_arg2 <= std_logic_vector(memory_read_value);
-              monitor_ibytes(0) <= '1';
               state <= normal_fetch_state;
             when LoadTarget =>
               -- For some addressing modes we load the target in a separate
