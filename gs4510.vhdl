@@ -1554,8 +1554,9 @@ begin
               monitor_ibytes <= "0000";
 
               -- Always read the next instruction byte after reading opcode
-              -- (unless later overriden)            
-              pc_inc := '1';
+              -- (unless later overriden or the monitor is trying to interrupt
+              -- us)
+              pc_inc := not monitor_mem_attention_request_drive;
 
               report "Executing instruction " & instruction'image(instruction_lut(to_integer(memory_read_value)))
                 severity note;
