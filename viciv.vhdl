@@ -1146,21 +1146,21 @@ begin
         elsif register_number=111 then
           fastio_rdata(7 downto 4) <= x"0";
           fastio_rdata(3 downto 0) <= std_logic_vector(vicii_sprite_pointer_address(27 downto 24));
-        elsif register_number=112 then -- $D370
+        elsif register_number=112 then -- $D3070
           fastio_rdata <= palette_bank_fastio & palette_bank_chargen & palette_bank_sprites & "11";
-        elsif register_number=113 then -- $D371
+        elsif register_number=113 then -- $D3071
           --fastio_rdata <= std_logic_vector(x_chargen_start_minus17_drive(7 downto 0));
-        elsif register_number=114 then -- $D372
+        elsif register_number=114 then -- $D3072
           --fastio_rdata <= "0000"&std_logic_vector(x_chargen_start_minus17_drive(11 downto 8));
-        elsif register_number=115 then  -- $D373
+        elsif register_number=115 then  -- $D3073
           fastio_rdata <= std_logic_vector(debug_raster_buffer_read_address_drive2(7 downto 0));
-        elsif register_number=116 then  -- $D374
+        elsif register_number=116 then  -- $D3074
           fastio_rdata <= std_logic_vector(debug_raster_buffer_write_address_drive2(7 downto 0));
-        elsif register_number=117 then  -- $D375
+        elsif register_number=117 then  -- $D3075
           fastio_rdata <= std_logic_vector(debug_cycles_to_next_card_drive2(7 downto 0));
-        elsif register_number=118 then  -- $D376
+        elsif register_number=118 then  -- $D3076
           fastio_rdata <= "00000" & debug_character_data_from_rom_drive2 & debug_chargen_active_drive2 & debug_chargen_active_soon_drive2;
-        elsif register_number=119 then  -- $D377
+        elsif register_number=119 then  -- $D3077
           fastio_rdata <= std_logic_vector(debug_screen_ram_buffer_address_drive2(7 downto 0));
         elsif register_number=124 then
           --fastio_rdata <=
@@ -1973,11 +1973,14 @@ begin
                          + to_integer(first_card_of_row),17);
         card_of_row <= (others =>'0');
         screen_ram_buffer_address <= to_unsigned(0,9);
-        ramaddress <= screen_ram_base(16 downto 0) + first_card_of_row;
         -- Finally decide which way we should go
-        if first_card_of_row /= prev_first_card_of_row then          
+        if to_integer(first_card_of_row) /= to_integer(prev_first_card_of_row) then          
           raster_fetch_state <= FetchScreenRamLine;
+          report "BADLINE @ y = " & integer'image(to_integer(displayy)) severity note;
+          report "BADLINE first_card_of_row = %" & to_string(std_logic_vector(first_card_of_row)) severity note;
+          report "BADLINE prev_first_card_of_row = %" & to_string(std_logic_vector(prev_first_card_of_row)) severity note;
         else
+          report "noBADLINE" severity note;
           raster_fetch_state <= FetchFirstCharacter;
         end if;
       end if;
