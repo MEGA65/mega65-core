@@ -1871,7 +1871,7 @@ begin
       -- The 2nd drive stage is driven by the ioclock. Search for _drive2 to
       -- find it.
       
-      if displayx=debug_x and displayy=debug_y then
+      if xcounter=debug_x and ycounter=debug_y then
         debug_cycles_to_next_card <= cycles_to_next_card;
         debug_chargen_active <= chargen_active;
         debug_chargen_active_soon <= chargen_active_soon;
@@ -1883,7 +1883,7 @@ begin
         debug_raster_buffer_read_address <= raster_buffer_read_address(7 downto 0);
         debug_raster_buffer_write_address <= raster_buffer_write_address(7 downto 0);
       end if;     
-      if displayx=debug_x or displayy=debug_y then
+      if xcounter=debug_x or ycounter=debug_y then
         -- Draw cross-hairs at debug coordinates
         pixel_colour <= x"02";
       end if;     
