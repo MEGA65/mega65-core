@@ -289,6 +289,7 @@ architecture Behavioral of viciv is
   -- Internal registers used to keep track of the screen ram for the current row
   signal screen_row_address : unsigned(16 downto 0);
   signal screen_row_current_address : unsigned(16 downto 0);
+  signal screen_row_fetch_address : unsigned(16 downto 0);
 
   -- Internal registers for drawing a single raster of character data to the
   -- raster buffer.
@@ -307,6 +308,7 @@ architecture Behavioral of viciv is
                            FetchBitmapCell,
                            PaintMemWait,
                            PaintMemWait2,
+                           PaintMemWait3,
                            PaintDispatch,
                            EndOfChargen);
   signal raster_fetch_state : vic_chargen_fsm := Idle;
@@ -1999,6 +2001,7 @@ begin
             paint_fsm_state <= Idle;
             raster_fetch_state <= FetchScreenRamWait;
             ramaddress <= screen_row_current_address;
+            screen_row_fetch_address <= screen_row_current_address + 1;
             character_number <= (others => '0');
             screen_ram_buffer_address <= to_unsigned(0,9);
             report "ZEROing screen_ram_buffer_address" severity note;
@@ -2009,23 +2012,28 @@ begin
           -- allow for two cycle delay caused by using doubly buffered version of ramdata
           -- XXX we are wasting cycles between bytes instead of just pipelining
           -- it.
-          ramaddress <= screen_row_current_address;
+          ramaddress <= screen_row_fetch_address;
+          screen_row_fetch_address <= screen_row_fetch_address + 1;
           raster_fetch_state <= FetchScreenRamWait2;
         when FetchScreenRamWait2 =>
-          ramaddress <= screen_row_current_address;
+          ramaddress <= screen_row_fetch_address;
+          screen_row_fetch_address <= screen_row_fetch_address + 1;
           raster_fetch_state <= FetchScreenRamWait3;
         when FetchScreenRamWait3 =>
-          ramaddress <= screen_row_current_address;
+          ramaddress <= screen_row_fetch_address;
+          screen_row_fetch_address <= screen_row_fetch_address + 1;
           raster_fetch_state <= FetchScreenRamNext;
         when FetchScreenRamNext =>
+          report "screen_row_fetch_address = $" & to_hstring("000"&screen_row_fetch_address) severity note;
           -- Store current byte of screen RAM
           screen_ram_buffer_write <= '1';
           screen_ram_buffer_address <= character_number;
           report "SETting screen_ram_buffer_address to $" & to_hstring("000"&character_number) severity note;
           screen_ram_buffer_din <= paint_ramdata;
-          ramaddress <= screen_row_current_address;
+          ramaddress <= screen_row_fetch_address;
           -- Ask for next byte of screen RAM
           screen_row_current_address <= screen_row_current_address + 1;
+          screen_row_fetch_address <= screen_row_fetch_address + 1;
           character_number <= character_number + 1;
           -- See if we already have enough bytes already.
           -- virtual_row_width bytes, unless in 16bit character set mode, in which
@@ -2034,13 +2042,13 @@ begin
             if character_number = virtual_row_width(7 downto 0)&'0' then
               raster_fetch_state <= FetchFirstCharacter;
             else
-              raster_fetch_state <= FetchScreenRamWait;
+              raster_fetch_state <= FetchScreenRamNext;
             end if;
           else
             if character_number = '0'&virtual_row_width(7 downto 0) then
               raster_fetch_state <= FetchFirstCharacter;
             else
-              raster_fetch_state <= FetchScreenRamWait;
+              raster_fetch_state <= FetchScreenRamNext;
             end if;
           end if;
         when FetchFirstCharacter =>
@@ -2054,6 +2062,8 @@ begin
           -- Fetch next character
           -- All we can expect here is that character_number is correctly set.
 
+          report "screen_ram byte read from buffer as $" & to_hstring(screen_ram_buffer_dout) severity note;
+          
           -- XXX: Timing to be fixed.
           -- (Ideally we would take only 8 cycles to fetch a character so that
           -- we use as little raster time as possible, especially for true 1920
@@ -2132,6 +2142,7 @@ begin
           screen_ram_buffer_address <= screen_ram_buffer_address + 1;
           report "INCREMENTing screen_ram_buffer_address to " & integer'image(to_integer(screen_ram_buffer_address)+1) severity note;
         when FetchTextCell =>
+          report "from screen_ram we get glyph_number = $" & to_hstring(glyph_number) severity note;
           -- We now know the character number, and whether it is full-colour or
           -- normal, and whether we are flipping in either axis, and so can
           -- work out the address to fetch data from.
@@ -2220,6 +2231,7 @@ begin
           ramaddress <= glyph_data_address;
           -- upper bit of charrom address is set by $D018, only 258*8 = 2K
           -- range of address is controlled here by character number.
+          report "setting charaddress to " & integer'image(to_integer(glyph_data_address(10 downto 0))) & " for painting." severity note;
           charaddress <= to_integer(glyph_data_address(10 downto 0));
 
           -- Schedule next colour ram byte
@@ -2228,8 +2240,13 @@ begin
           raster_fetch_state <= PaintMemWait;
         when PaintMemWait =>
           -- Allow for 2 cycle delay to get data in paint_ramdata
+          -- In this cycle chardata and ramdata will have the requested value
           raster_fetch_state <= PaintMemWait2;
         when PaintMemWait2 =>
+          raster_fetch_state <= PaintMemWait3;
+        when PaintMemWait3 =>
+          -- In this cycle paint_chardata and and paint_ramdata should have the
+          -- requested value
           -- Abort if we have already drawn enough characters.
           character_number <= character_number + 1;
           if character_number = virtual_row_width then
@@ -2302,9 +2319,13 @@ begin
         when PaintMono =>
           -- Paint 8 mono bits from ramdata or chardata
           -- Paint from a buffer to meet timing, even though it means we spend
-          -- 9 cycles per char to paint, instead of the ideal 8.
+          -- 9 cycles per char to paint, instead of the ideal 8.          
           report "paint_flip_horizontal="&std_logic'image(paint_flip_horizontal)
             & ", paint_from_charrom=" & std_logic'image(paint_from_charrom) severity note;
+          if raster_buffer_write_address = 0 then
+            report "painting either $ " & to_hstring(paint_ramdata) & " or $" & to_hstring(paint_chardata) severity note;
+            report "  painting from direct memory would have $ " & to_hstring(ramdata) & " or $" & to_hstring(chardata) severity note;
+          end if;
           if paint_flip_horizontal='1' and paint_from_charrom='1' then
             report "Painting FLIPPED glyph from character rom (bits=$"&to_hstring(paint_chardata)&")" severity note;
             paint_buffer <= paint_chardata;
@@ -2331,6 +2352,9 @@ begin
           paint_ready <= '0';
           paint_fsm_state <= PaintMonoBits;
         when PaintMonoBits =>
+          if paint_bits_remaining = 8 then
+            report "painting card using data $" & to_hstring(paint_buffer) severity note;
+          end if;
           if paint_bits_remaining /= 0 then
             paint_buffer<= '0'&paint_buffer(7 downto 1);
             if paint_buffer(0)='1' then
