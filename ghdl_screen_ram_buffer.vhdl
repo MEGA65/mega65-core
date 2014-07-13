@@ -18,7 +18,20 @@ END screen_ram_buffer;
 architecture behavioural of screen_ram_buffer is
 
   type ram_t is array (0 to 511) of std_logic_vector(7 downto 0);
-  signal ram : ram_t := ( others => x"10" );
+  signal ram : ram_t := (
+    0 => x"00",
+    39 => x"39",
+    40 => x"30",
+    41 => x"31",
+    42 => x"32",
+    43 => x"33",
+    44 => x"34",
+    45 => x"35",
+    46 => x"36",
+    47 => x"37",
+    48 => x"38",
+    511 => x"1A",
+    others => x"10" );
 
 begin
   PROCESS(Clka,addrb,ram)
