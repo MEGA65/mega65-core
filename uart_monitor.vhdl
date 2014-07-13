@@ -169,7 +169,7 @@ architecture behavioural of uart_monitor is
                          ShowMemory1,ShowMemory2,ShowMemory3,ShowMemory4,
                          ShowMemory5,ShowMemory6,ShowMemory7,ShowMemory8,
                          ShowMemory9,
-                         CPUStateLog,CPUStateLog2,CPUStateLog3,
+                         CPUStateLog,CPUStateLog2,CPUStateLog3,CPUStateLog4,
                          FillMemory1,FillMemory2,FillMemory3,FillMemory4,
                          FillMemory5,
                          SetPC1,
@@ -743,7 +743,7 @@ begin
                   parse_hex(CPUBreak1);
                 end if;
               elsif cmdbuffer(1) = 'z' or cmdbuffer(1) = 'Z' then
-                banner_position <= 1;
+                banner_position <= 0;
                 if cpu_state_count /= 0 then
                   state <= CPUStateLog;
                 else
@@ -809,20 +809,22 @@ begin
             end if;
           when CPUStateLog =>
             if banner_position /= cpu_state_count then
-              print_hex_byte(cpu_state_buf(banner_position)(7 downto 0),
-                             CPUStateLog);
+              print_hex_byte(cpu_state_buf(banner_position)(15 downto 8),
+                             CPUStateLog2);
             else
               state <= NextCommand;
             end if;
           when CPUStateLog2 =>
+            try_output_char(':',CPUStateLog3);
+          when CPUStateLog3 =>
             if banner_position /= cpu_state_count then
-              print_hex_byte(cpu_state_buf(banner_position)(15 downto 8),
-                             CPUStateLog3);
+              print_hex_byte(cpu_state_buf(banner_position)(7 downto 0),
+                             CPUStateLog4);
               banner_position <= banner_position + 1;
             else
               state <= NextCommand;
             end if;
-          when CPUStateLog3 =>
+          when CPUStateLog4 =>
             try_output_char(' ',CPUStateLog);
           when FillMemory1 =>
             target_address <= hex_value(27 downto 0);
