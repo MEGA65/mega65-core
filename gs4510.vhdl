@@ -1690,6 +1690,7 @@ begin
                 when M_nnY => null;
                 when others =>
                   pc_inc := '1';
+                  null;
               end case;
               
               -- Process instruction next cycle
@@ -1722,14 +1723,12 @@ begin
                   when M_InnX =>                    
                     temp_addr := reg_b & (reg_arg1+reg_X);
                     reg_addr <= temp_addr;
-                    pc_inc := '1';
                     state <= LoadTarget;
                   when M_nn =>
                     temp_addr := reg_b & reg_arg1;
                     reg_addr <= temp_addr;
-                    pc_inc := '1';
                     state <= LoadTarget;
-                  when M_immnn => -- Handled in ActionCycle              
+                  when M_immnn => -- Handled in ActionCycle
                   when M_nnnn =>
                     monitor_arg2 <= std_logic_vector(memory_read_value);
                     monitor_ibytes(0) <= '1';
@@ -1744,10 +1743,8 @@ begin
                       memory_access_resolve_address := '1';
                       memory_access_wdata := reg_pc(7 downto 0);
                       dec_sp := '1';
-                      pc_inc := '0';
                       state <= CallSubroutine0;
                     else
-                      pc_inc := '1';
                       -- (reading next instruction argument byte as default action)
                       state <= ActionCycle;
                     end if;
@@ -1763,14 +1760,12 @@ begin
                     memory_access_read := '1';
                     memory_access_address := x"000"&temp_addr;
                     memory_access_resolve_address := '1';
-                    pc_inc := '1';
                     state <= InnYReadVectorLow;
                   when M_InnZ =>
                     temp_addr := reg_b&reg_arg1;
                     memory_access_read := '1';
                     memory_access_address := x"000"&temp_addr;
                     memory_access_resolve_address := '1';
-                    pc_inc := '1';
                     state <= InnZReadVectorLow;
                   when M_rr =>
                     if (reg_instruction=I_BRA) or
@@ -1830,12 +1825,10 @@ begin
                   when M_nnX =>
                     temp_addr := reg_b & (reg_arg1 + reg_X);
                     reg_addr <= temp_addr;
-                    pc_inc := '1';
                     state <= LoadTarget;
                   when M_nnY =>
                     temp_addr := reg_b & (reg_arg1 + reg_X);
                     reg_addr <= temp_addr;
-                    pc_inc := '1';
                     state <= LoadTarget;
                   when M_nnnnY =>
                     monitor_arg2 <= std_logic_vector(memory_read_value);
@@ -1852,19 +1845,16 @@ begin
                     monitor_arg2 <= std_logic_vector(memory_read_value);
                     monitor_ibytes(0) <= '1';
                     reg_addr(15 downto 8) <= memory_read_value;
-                    pc_inc := '1';
                     state <= JumpDereference;
                   when M_InnnnX =>
                     reg_addr <= to_unsigned(
                                   to_integer(memory_read_value&reg_addr(7 downto 0))
                                   + to_integer(reg_x),16);
-                    pc_inc := '1';
                     state <= JumpDereference;
                   when M_InnSPY =>
                     state <= normal_fetch_state;
                   when M_immnnnn =>                
                     reg_addr(7 downto 0) <= reg_arg1;
-                    pc_inc := '1';
                     state <= Imm16ReadArg2;
                 end case;
               end if;
@@ -1999,7 +1989,7 @@ begin
               -- us with loads, stores and reaad/modify/write instructions
 
               -- Go to next instruction by default
-              if fast_fetch_state = InstructionFetch then
+              if fast_fetch_state = InstructionDecode then
                 pc_inc := reg_microcode.mcIncPC;
               else
                 pc_inc := '0';
@@ -2015,6 +2005,8 @@ begin
                 monitor_arg1 <= std_logic_vector(memory_read_value);
                 monitor_ibytes(1) <= '1';
               end if;
+
+              if reg_microcode.mcJump='1' then reg_pc <= reg_addr(15 downto 8)&memory_read_value; end if;
 
               if reg_microcode.mcSetNZ='1' then set_nz(memory_read_value); end if;
               if reg_microcode.mcSetA='1' then reg_a <= memory_read_value; end if;
@@ -2057,6 +2049,7 @@ begin
             severity note;
         
         if pc_inc = '1' then
+          report "Incrementing PC to $" & to_hstring(reg_pc+1) severity note;
           reg_pc <= reg_pc + 1;
         end if;
         if dec_sp = '1' then

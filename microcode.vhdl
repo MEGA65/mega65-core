@@ -108,14 +108,14 @@ architecture Behavioral of microcode is
     -- I_SEE - handled as a single-cycle op elsewhere   
     -- I_SEI - handled as a single-cycle op elsewhere   
     -- I_SMB
-    I_STA => (mcStoreA => '1', mcWriteMem => '1',
-              mcWriteRegAddr => '1', mcIncPC => '1', others => '0'),
-    I_STX => (mcStoreX => '1', mcWriteMem => '1',
-              mcWriteRegAddr => '1', mcIncPC => '1', others => '0'),
-    I_STY => (mcStoreY => '1', mcWriteMem => '1',
-              mcWriteRegAddr => '1', mcIncPC => '1', others => '0'),
-    I_STZ => (mcStoreZ => '1', mcWriteMem => '1',
-              mcWriteRegAddr => '1', mcIncPC => '1', others => '0'),
+    I_STA => (mcStoreA => '1', mcWriteMem => '1', mcInstructionFetch => '1', 
+              mcWriteRegAddr => '1',mcIncPC => '1',  others => '0'),
+    I_STX => (mcStoreX => '1', mcWriteMem => '1', mcInstructionFetch => '1', 
+              mcWriteRegAddr => '1',mcIncPC => '1',  others => '0'),
+    I_STY => (mcStoreY => '1', mcWriteMem => '1', mcInstructionFetch => '1', 
+              mcWriteRegAddr => '1',mcIncPC => '1',  others => '0'),
+    I_STZ => (mcStoreZ => '1', mcWriteMem => '1', mcInstructionFetch => '1', 
+              mcWriteRegAddr => '1',mcIncPC => '1',  others => '0'),
     -- I_TAX - handled as a single-cycle op elsewhere   
     -- I_TAY - handled as a single-cycle op elsewhere   
     -- I_TAZ - handled as a single-cycle op elsewhere   
