@@ -2051,7 +2051,7 @@ begin
           character_number <= (others => '0');
           card_of_row <= (others => '0');
           screen_ram_buffer_write <= '0';
-          screen_ram_buffer_address <= to_unsigned(1,9);
+          screen_ram_buffer_address <= to_unsigned(0,9);
           report "SETting screen_ram_buffer_address to 1" severity note;
           raster_fetch_state <= FetchNextCharacter;         
         when FetchNextCharacter =>
