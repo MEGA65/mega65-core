@@ -137,9 +137,7 @@ begin
 --process for read and write operation.
   PROCESS(Clk,address)
   BEGIN
-    if(rising_edge(Clk)) then 
-      data_o <= ram(address);
-    end if;
+    data_o <= ram(address);
   END PROCESS;
 
 end Behavioral;

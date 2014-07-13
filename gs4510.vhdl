@@ -1631,6 +1631,8 @@ begin
               end if;
 
               -- Prepare microcode vector in case we need it next cycle
+              reg_microcode_address <=
+                instruction_lut(to_integer(memory_read_value));
               reg_addressingmode <= mode_lut(to_integer(memory_read_value));
               reg_instruction <= instruction_lut(to_integer(memory_read_value));
               monitor_instruction <= to_unsigned(instruction'pos(instruction_lut(to_integer(memory_read_value))),8);
@@ -1664,8 +1666,6 @@ begin
                 -- Nothing special for other instructions
                 when others => null;
               end case;
-              reg_microcode_address <=
-                instruction_lut(to_integer(memory_read_value));
             when Cycle2 =>
               -- To improve timing we copy first argument of instruction, and
               -- proceed to read the next byte.
