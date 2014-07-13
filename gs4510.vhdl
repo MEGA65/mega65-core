@@ -1812,7 +1812,7 @@ begin
                       -- Branch will not be taken.
                       -- Skip second byte and proceed directly to
                       -- fetching next instruction
-                      reg_pc <= reg_pc + 1;
+                      pc_inc := '1';
                       state <= normal_fetch_state;
                     end if;
                   when M_nnX =>
