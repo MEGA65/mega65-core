@@ -545,7 +545,7 @@ begin
     elsif rising_edge(clock) then
 
       -- Maintain list of recent CPU states
-      if (monitor_cpu_state /= x"0B") then
+      if (monitor_cpu_state(15 downto 8) /= x"0B") then
         if cpu_state_was_hold='1' then
           cpu_state_buf(0) <= monitor_cpu_state;
           cpu_state_count <= 1;
