@@ -1987,7 +1987,11 @@ begin
               -- us with loads, stores and reaad/modify/write instructions
 
               -- Go to next instruction by default
-              pc_inc := reg_microcode.mcIncPC;
+              if fast_fetch_state = InstructionFetch then
+                pc_inc := reg_microcode.mcIncPC;
+              else
+                pc_inc := '0';
+              end if;
               if reg_microcode.mcInstructionFetch='1' then
                 state <= fast_fetch_state;
               else
