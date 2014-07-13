@@ -750,7 +750,7 @@ begin
         -- Reading from chipram, so read from the bottom 128KB of the shadow RAM
         -- instead.
         accessing_shadow <= '1';
-        -- shadow_address <= '0'&long_address(16 downto 0);
+        wait_states <= x"00";
         proceed <= '1';        
         report "Reading from shadowed chipram address $"
           & to_hstring(long_address(19 downto 0)) severity note;
