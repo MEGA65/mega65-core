@@ -476,6 +476,7 @@ end component;
   signal monitor_mem_address_drive : std_logic_vector(27 downto 0);
   signal monitor_mem_wdata_drive : unsigned(7 downto 0);
 
+  signal debugging_single_stepping : std_logic := '0';
 
 begin
 
@@ -1416,6 +1417,12 @@ begin
         monitor_mem_trace_toggle_last <= monitor_mem_trace_toggle;
         normal_fetch_state <= InstructionFetch;
         fast_fetch_state <= InstructionDecode;
+
+        -- Force single step while I debug it.
+        if debugging_single_stepping='1' then
+          normal_fetch_state <= ProcessorHold;
+          fast_fetch_state <= ProcessorHold;
+        end if;
       else
         normal_fetch_state <= ProcessorHold;
         fast_fetch_state <= ProcessorHold;
@@ -1497,6 +1504,9 @@ begin
               -- Automatically resume CPU when monitor memory request/single stepping
               -- pause is done, unless something else needs to be done.
               state <= normal_fetch_state;
+              if debugging_single_stepping='1' then
+                state <= InstructionFetch;
+              end if;
               
               if monitor_mem_attention_request_drive='1' then
                 -- Memory access by serial monitor.
@@ -2039,6 +2049,10 @@ begin
           & " ($" & to_hstring(to_unsigned(processor_state'pos(state),8)) & ")"
           & ", reg_addr=$" & to_hstring(reg_addr)
           severity note;
+        report "A:" & to_hstring(reg_a) & " X:" & to_hstring(reg_x)
+            & " Y:" & to_hstring(reg_y) & " Z:" & to_hstring(reg_z)
+            & " SP:" & to_hstring(reg_sph&reg_sp)
+            severity note;
         
         if pc_inc = '1' then
           reg_pc <= reg_pc + 1;
