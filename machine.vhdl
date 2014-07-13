@@ -165,7 +165,7 @@ architecture Behavioral of machine is
       monitor_waitstates : in unsigned(7 downto 0);
       monitor_request_reflected : in std_logic;
 
-      monitor_cpu_state : in unsigned(7 downto 0);
+      monitor_cpu_state : in unsigned(15 downto 0);
       monitor_pc : in std_logic_vector(15 downto 0);
       monitor_opcode : in std_logic_vector(7 downto 0);
       monitor_ibytes : in std_logic_vector(3 downto 0);
@@ -212,7 +212,7 @@ architecture Behavioral of machine is
       monitor_waitstates : out unsigned(7 downto 0);
       monitor_request_reflected : out std_logic;
       monitor_pc : out std_logic_vector(15 downto 0);
-      monitor_state : out unsigned(7 downto 0);
+      monitor_state : out unsigned(15 downto 0);
       monitor_watch : in std_logic_vector(27 downto 0);
       monitor_watch_match : out std_logic;
       monitor_opcode : out std_logic_vector(7 downto 0);
@@ -462,7 +462,7 @@ architecture Behavioral of machine is
   signal colour_ram_cs : std_logic := '0';
 
   signal monitor_pc : std_logic_vector(15 downto 0);
-  signal monitor_state : unsigned(7 downto 0);
+  signal monitor_state : unsigned(15 downto 0);
   signal monitor_watch : std_logic_vector(27 downto 0);
   signal monitor_debug_memory_access : std_logic_vector(31 downto 0);
   signal monitor_proceed : std_logic;
@@ -569,9 +569,9 @@ begin
       elsif segled_counter(17 downto 15)=5 then
         digit := std_logic_vector(monitor_state(7 downto 4));
       elsif segled_counter(17 downto 15)=6 then
-        digit := "1111";
+        digit := std_logic_vector(monitor_state(11 downto 8));
       elsif segled_counter(17 downto 15)=7 then
-        digit := cpu_leds;
+        digit := std_logic_vector(monitor_state(15 downto 12));
       end if;
 
       -- segments are:

@@ -41,7 +41,7 @@ entity gs4510 is
     irq : in std_logic;
     nmi : in std_logic;
     monitor_pc : out std_logic_vector(15 downto 0);
-    monitor_state : out unsigned(7 downto 0);
+    monitor_state : out unsigned(15 downto 0);
     monitor_watch : in std_logic_vector(27 downto 0);
     monitor_watch_match : out std_logic;
     monitor_waitstates : out unsigned(7 downto 0);
@@ -1377,7 +1377,7 @@ begin
       memory_access_resolve_address := '0';
       
       monitor_watch_match <= '0';       -- set if writing to watched address
-      monitor_state <= to_unsigned(processor_state'pos(state),8);
+      monitor_state <= to_unsigned(processor_state'pos(state),8)&read_data;
       monitor_pc <= std_logic_vector(reg_pc);
       monitor_a <= std_logic_vector(reg_a);
       monitor_x <= std_logic_vector(reg_x);

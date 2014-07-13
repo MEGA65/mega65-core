@@ -40,7 +40,7 @@ entity uart_monitor is
     monitor_waitstates : in unsigned(7 downto 0);
     monitor_request_reflected : in std_logic;
     monitor_pc : in std_logic_vector(15 downto 0);
-    monitor_cpu_state : in unsigned(7 downto 0);
+    monitor_cpu_state : in unsigned(15 downto 0);
     monitor_watch : out std_logic_vector(27 downto 0) := x"7FFFFFF";
     monitor_watch_match : in std_logic;
     monitor_opcode : in std_logic_vector(7 downto 0);
@@ -169,7 +169,7 @@ architecture behavioural of uart_monitor is
                          ShowMemory1,ShowMemory2,ShowMemory3,ShowMemory4,
                          ShowMemory5,ShowMemory6,ShowMemory7,ShowMemory8,
                          ShowMemory9,
-                         CPUStateLog,
+                         CPUStateLog,CPUStateLog2,CPUStateLog3,
                          FillMemory1,FillMemory2,FillMemory3,FillMemory4,
                          FillMemory5,
                          SetPC1,
@@ -231,7 +231,8 @@ architecture behavioural of uart_monitor is
   signal monitor_mem_trace_toggle_internal : std_logic := '0';
 
   -- Remember last 16 CPU states prior to hitting ProcessorHold
-  signal cpu_state_buf : sixteenbytes;
+  type sixteenwords is array (0 to 15) of unsigned(15 downto 0);
+  signal cpu_state_buf : sixteenwords;
   signal cpu_state_count : integer range 0 to 16;
   signal cpu_state_was_hold : std_logic := '0';
 
@@ -744,7 +745,7 @@ begin
               elsif cmdbuffer(1) = 'z' or cmdbuffer(1) = 'Z' then
                 banner_position <= 1;
                 if cpu_state_count /= 0 then
-                  print_hex_byte(cpu_state_buf(0),CPUStateLog);
+                  state <= CPUStateLog;
                 else
                   state <= NextCommand;
                 end if;
@@ -808,11 +809,21 @@ begin
             end if;
           when CPUStateLog =>
             if banner_position /= cpu_state_count then
-              print_hex_byte(cpu_state_buf(banner_position),CPUStateLog);
+              print_hex_byte(cpu_state_buf(banner_position)(7 downto 0),
+                             CPUStateLog);
+            else
+              state <= NextCommand;
+            end if;
+          when CPUStateLog2 =>
+            if banner_position /= cpu_state_count then
+              print_hex_byte(cpu_state_buf(banner_position)(15 downto 8),
+                             CPUStateLog3);
               banner_position <= banner_position + 1;
             else
               state <= NextCommand;
             end if;
+          when CPUStateLog3 =>
+            try_output_char(' ',CPUStateLog);
           when FillMemory1 =>
             target_address <= hex_value(27 downto 0);
             skip_space(FillMemory2);
