@@ -1105,7 +1105,7 @@ begin
           when ShowP13 =>
             try_output_char(' ',ShowP14);
           when ShowP14 =>
-            print_hex_byte(unsigned(monitor_cpu_state),ShowP15);
+            print_hex_byte(unsigned(monitor_cpu_state(15 downto 8)),ShowP15);
           when ShowP15 =>
             try_output_char(' ',ShowP16);
           when ShowP16 =>
