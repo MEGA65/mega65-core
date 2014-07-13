@@ -2005,6 +2005,13 @@ begin
               if reg_microcode.mcSetX='1' then reg_x <= memory_read_value; end if;
               if reg_microcode.mcSetY='1' then reg_y <= memory_read_value; end if;
               if reg_microcode.mcSetZ='1' then reg_z <= memory_read_value; end if;
+
+              if reg_microcode.mcADC='1' then
+                reg_a <= a_add(7 downto 0);
+                flag_c <= a_add(8);  flag_z <= a_add(9);
+                flag_v <= a_add(10); flag_n <= a_add(11);
+              end if;
+              
               if reg_microcode.mcClearE='1' then flag_e <= '0'; end if;
               if reg_microcode.mcClearI='1' then flag_i <= '0'; end if;
               if reg_microcode.mcMap='1' then c65_map_instruction; end if;

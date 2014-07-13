@@ -73,6 +73,16 @@ package cputypes is
     mcStackX : std_logic;
     mcStackY : std_logic;
     mcStackZ : std_logic;
+
+    mcADC : std_logic;
+    mcASL : std_logic;
+    mcASR : std_logic;
+    mcBIT : std_logic;
+    mcSBC : std_logic;
+    mcCMP : std_logic;
+    mcCPX : std_logic;
+    mcCPY : std_logic;
+    mcCPZ : std_logic;    
     
   end record;
 

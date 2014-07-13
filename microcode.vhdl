@@ -34,7 +34,7 @@ architecture Behavioral of microcode is
   type ram_t is array (instruction)
     of microcodeops;
   signal ram : ram_t := (
-    -- I_ADC
+    I_ADC => (mcADC => '1', mcInstructionFetch => '1', others => '0'),
     -- I_AND
     -- I_ASL
     -- I_ASR
