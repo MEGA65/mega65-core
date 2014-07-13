@@ -298,7 +298,6 @@ architecture Behavioral of viciv is
                            FetchScreenRamLine,
                            FetchScreenRamWait,
                            FetchScreenRamWait2,
-                           FetchScreenRamWait3,
                            FetchScreenRamNext,
                            FetchFirstCharacter,
                            FetchNextCharacter,
@@ -1201,12 +1200,6 @@ begin
       report "drive led = " & std_logic'image(led)
         & ", drive motor= " & std_logic'image(motor) severity note;
 
-      --chardata_drive <= unsigned(chardata);
-      --paint_chardata <= chardata_drive;
-      paint_chardata <= unsigned(chardata);
-      ramdata_drive <= ramdata;
-      paint_ramdata <= ramdata_drive;
-
       debug_cycles_to_next_card_drive2 <= debug_cycles_to_next_card_drive;
       debug_chargen_active_drive2 <= debug_chargen_active_drive;
       debug_chargen_active_soon_drive2 <= debug_chargen_active_soon_drive;
@@ -1551,6 +1544,12 @@ begin
     variable next_glyph_colour_temp : std_logic_vector(7 downto 0) := (others => '0');
   begin    
     if rising_edge(pixelclock) then
+
+      --chardata_drive <= unsigned(chardata);
+      --paint_chardata <= chardata_drive;
+      paint_chardata <= unsigned(chardata);
+      ramdata_drive <= ramdata;
+      paint_ramdata <= ramdata_drive;
 
       -- Acknowledge IRQs after reading $D019
       irq_raster <= irq_raster and (not ack_raster);
@@ -2018,10 +2017,6 @@ begin
         when FetchScreenRamWait2 =>
           ramaddress <= screen_row_fetch_address;
           screen_row_fetch_address <= screen_row_fetch_address + 1;
-          raster_fetch_state <= FetchScreenRamWait3;
-        when FetchScreenRamWait3 =>
-          ramaddress <= screen_row_fetch_address;
-          screen_row_fetch_address <= screen_row_fetch_address + 1;
           raster_fetch_state <= FetchScreenRamNext;
         when FetchScreenRamNext =>
           report "screen_row_fetch_address = $" & to_hstring("000"&screen_row_fetch_address) severity note;
@@ -2029,6 +2024,7 @@ begin
           screen_ram_buffer_write <= '1';
           screen_ram_buffer_address <= character_number;
           report "SETting screen_ram_buffer_address to $" & to_hstring("000"&character_number) severity note;
+          report "for screen_r paint_ramdata=$" & to_hstring(paint_ramdata) & ", raw ramdata=$" & to_hstring(ramdata) severity note;
           screen_ram_buffer_din <= paint_ramdata;
           ramaddress <= screen_row_fetch_address;
           -- Ask for next byte of screen RAM
@@ -2228,10 +2224,12 @@ begin
           end if;
 
           -- Ask for first byte of data so that paint can commence immediately.
+          report "setting ramaddress to $" & to_hstring("000"&glyph_data_address) & " for painting." severity note;
           ramaddress <= glyph_data_address;
           -- upper bit of charrom address is set by $D018, only 258*8 = 2K
           -- range of address is controlled here by character number.
-          report "setting charaddress to " & integer'image(to_integer(glyph_data_address(10 downto 0))) & " for painting." severity note;
+          report "setting charaddress to " & integer'image(to_integer(glyph_data_address(10 downto 0)))
+            & " for painting glyph $" & to_hstring(glyph_number(11 downto 0)) severity note;
           charaddress <= to_integer(glyph_data_address(10 downto 0));
 
           -- Schedule next colour ram byte
