@@ -41,6 +41,7 @@ entity uart_monitor is
     monitor_request_reflected : in std_logic;
     monitor_pc : in std_logic_vector(15 downto 0);
     monitor_cpu_state : in unsigned(15 downto 0);
+    monitor_instruction : in unsigned(7 downto 0);
     monitor_watch : out std_logic_vector(27 downto 0) := x"7FFFFFF";
     monitor_watch_match : in std_logic;
     monitor_opcode : in std_logic_vector(7 downto 0);
@@ -182,6 +183,7 @@ architecture behavioural of uart_monitor is
                          ShowRegisters21,ShowRegisters22,ShowRegisters23,ShowRegisters24,
                          ShowRegisters25,ShowRegisters26,ShowRegisters27,ShowRegisters28,
                          ShowRegisters29,ShowRegisters30,ShowRegisters31,ShowRegisters32,
+                         ShowRegisters33,
                          ShowP1,ShowP2,ShowP3,ShowP4,ShowP5,ShowP6,ShowP7,ShowP8,
                          ShowP9,ShowP10,ShowP11,ShowP12,ShowP13a,
                          ShowP13,ShowP14,ShowP15,ShowP16,ShowP17,
@@ -1027,8 +1029,9 @@ begin
             end if;
           when ShowRegisters29 => try_output_char(' ',ShowRegisters30);
           when ShowRegisters30 => print_hex_byte(unsigned(monitor_p),ShowRegisters31);
-          when ShowRegisters31 => try_output_char(' ',ShowP1);
-
+          when ShowRegisters31 => try_output_char(' ',ShowRegisters32);
+          when ShowRegisters32 => print_hex_byte(monitor_instruction,ShowRegisters33);
+          when ShowRegisters33 => try_output_char(' ',ShowP1);
 
           when ShowP1 =>
             if monitor_p(7)='1' then

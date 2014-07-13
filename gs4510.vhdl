@@ -42,6 +42,7 @@ entity gs4510 is
     nmi : in std_logic;
     monitor_pc : out std_logic_vector(15 downto 0);
     monitor_state : out unsigned(15 downto 0);
+    monitor_instruction : out unsigned(7 downto 0);
     monitor_watch : in std_logic_vector(27 downto 0);
     monitor_watch_match : out std_logic;
     monitor_waitstates : out unsigned(7 downto 0);
@@ -1632,6 +1633,7 @@ begin
               -- Prepare microcode vector in case we need it next cycle
               reg_addressingmode <= mode_lut(to_integer(memory_read_value));
               reg_instruction <= instruction_lut(to_integer(memory_read_value));
+              monitor_instruction <= to_unsigned(instruction'pos(instruction_lut(to_integer(memory_read_value))),8);
               is_rmw <= '0'; is_load <= '0'; is_store <= '0';
               rmw_dummy_write_done <= '0';
               case instruction_lut(to_integer(memory_read_value)) is

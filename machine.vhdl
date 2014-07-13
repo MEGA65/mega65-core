@@ -166,6 +166,7 @@ architecture Behavioral of machine is
       monitor_request_reflected : in std_logic;
 
       monitor_cpu_state : in unsigned(15 downto 0);
+      monitor_instruction : in unsigned(7 downto 0);
       monitor_pc : in std_logic_vector(15 downto 0);
       monitor_opcode : in std_logic_vector(7 downto 0);
       monitor_ibytes : in std_logic_vector(3 downto 0);
@@ -213,6 +214,7 @@ architecture Behavioral of machine is
       monitor_request_reflected : out std_logic;
       monitor_pc : out std_logic_vector(15 downto 0);
       monitor_state : out unsigned(15 downto 0);
+      monitor_instruction : out unsigned(7 downto 0);
       monitor_watch : in std_logic_vector(27 downto 0);
       monitor_watch_match : out std_logic;
       monitor_opcode : out std_logic_vector(7 downto 0);
@@ -463,6 +465,7 @@ architecture Behavioral of machine is
 
   signal monitor_pc : std_logic_vector(15 downto 0);
   signal monitor_state : unsigned(15 downto 0);
+  signal monitor_instruction : unsigned(7 downto 0);
   signal monitor_watch : std_logic_vector(27 downto 0);
   signal monitor_debug_memory_access : std_logic_vector(31 downto 0);
   signal monitor_proceed : std_logic;
@@ -833,6 +836,7 @@ begin
     monitor_request_reflected => monitor_request_reflected,
     monitor_pc => monitor_pc,
     monitor_cpu_state => monitor_state,
+    monitor_instruction => monitor_instruction,
     monitor_watch => monitor_watch,
     monitor_watch_match => monitor_watch_match,
     monitor_opcode => monitor_opcode,
