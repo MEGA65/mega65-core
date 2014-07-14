@@ -154,6 +154,8 @@ architecture Behavioral of machine is
       rx : in  std_logic;
       activity : out std_logic;
 
+      force_single_step : in std_logic;
+
       fastio_read : in std_logic;
       fastio_write : in std_logic;
 
@@ -814,6 +816,8 @@ begin
     tx       => UART_TXD,
     rx       => RsRx,
 
+    force_single_step => sw(8),
+    
     fastio_read => fastio_read,
     fastio_write => fastio_write,
 

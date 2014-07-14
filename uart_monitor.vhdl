@@ -32,6 +32,8 @@ entity uart_monitor is
     rx : in  std_logic;
     activity : out std_logic;
 
+    force_single_step : in std_logic;
+    
     fastio_read : in std_logic;
     fastio_write : in std_logic;
     
@@ -546,6 +548,11 @@ begin
       trace_continuous <= '0';
     elsif rising_edge(clock) then
 
+      -- Allow a hardware switch to force stopping of the CPU
+      if force_single_step='1' then
+        monitor_mem_trace_mode<='1';
+      end if;
+      
       -- Maintain list of recent CPU states
       if (monitor_cpu_state(15 downto 8) /= x"0B") then
         if cpu_state_was_hold='1' then
