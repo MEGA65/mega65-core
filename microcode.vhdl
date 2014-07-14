@@ -35,7 +35,7 @@ architecture Behavioral of microcode is
     of microcodeops;
   signal ram : ram_t := (
     I_ADC => (mcADC => '1', mcInstructionFetch => '1', others => '0'),
-    -- I_AND
+    I_AND => (mcAND => '1', mcInstructionFetch => '1', others => '0'),
     -- I_ASL
     -- I_ASR
     -- I_ASW
@@ -65,7 +65,7 @@ architecture Behavioral of microcode is
     -- I_DEC
     -- I_DEW
     -- I_EOM - handled as a single-cycle op elsewhere
-    -- I_EOR
+    I_EOR => (mcEOR => '1', mcInstructionFetch => '1', others => '0'),
     -- I_INC
     -- I_INW
     -- I_INX - handled as a single-cycle op elsewhere
@@ -85,7 +85,7 @@ architecture Behavioral of microcode is
     -- I_LSR
     I_MAP => (mcMap => '1', others => '0'),
     -- I_NEG - handled as a single-cycle op elsewhere
-    -- I_ORA
+    I_ORA => (mcORA => '1', mcInstructionFetch => '1', others => '0'),
     I_PHA => (mcPush => '1', mcStoreA => '1', others => '0'),
     I_PHP => (mcPush => '1', mcStoreP => '1', others => '0'),
     I_PHX => (mcPush => '1', mcStoreX => '1', others => '0'),

@@ -75,6 +75,9 @@ package cputypes is
     mcStackZ : std_logic;
 
     mcADC : std_logic;
+    mcAND : std_logic;
+    mcORA : std_logic;
+    mcEOR : std_logic;
     mcASL : std_logic;
     mcASR : std_logic;
     mcBIT : std_logic;

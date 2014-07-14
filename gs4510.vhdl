@@ -2074,6 +2074,15 @@ begin
                 flag_c <= a_sub(8);  flag_z <= a_sub(9);
                 flag_v <= a_sub(10); flag_n <= a_sub(11);
               end if;
+              if reg_microcode.mcAND='1' then
+                reg_a <= with_nz(reg_a and memory_read_value);
+              end if;
+              if reg_microcode.mcORA='1' then
+                reg_a <= with_nz(reg_a or memory_read_value);
+              end if;
+              if reg_microcode.mcEOR='1' then
+                reg_a <= with_nz(reg_a xor memory_read_value);
+              end if;
               
               if reg_microcode.mcClearE='1' then flag_e <= '0'; end if;
               if reg_microcode.mcClearI='1' then flag_i <= '0'; end if;
