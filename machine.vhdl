@@ -148,57 +148,53 @@ architecture Behavioral of machine is
 
   component uart_monitor
     port (
-      reset : in std_logic;
-      clock : in std_logic;
-      tx : out std_logic;
-      rx : in  std_logic;
-      activity : out std_logic;
+    reset : in std_logic;
+    clock : in std_logic;
+    tx : out std_logic;
+    rx : in  std_logic;
+    activity : out std_logic;
 
-      force_single_step : in std_logic;
+    force_single_step : in std_logic;
+    
+    fastio_read : in std_logic;
+    fastio_write : in std_logic;
+    
+    monitor_proceed : in std_logic;
+    monitor_waitstates : in unsigned(7 downto 0);
+    monitor_request_reflected : in std_logic;
+    monitor_pc : in unsigned(15 downto 0);
+    monitor_cpu_state : in unsigned(15 downto 0);
+    monitor_instruction : in unsigned(7 downto 0);
+    monitor_watch : out unsigned(27 downto 0) := x"7FFFFFF";
+    monitor_watch_match : in std_logic;
+    monitor_opcode : in unsigned(7 downto 0);
+    monitor_ibytes : in std_logic_vector(3 downto 0);
+    monitor_arg1 : in unsigned(7 downto 0);
+    monitor_arg2 : in unsigned(7 downto 0);
+    monitor_a : in unsigned(7 downto 0);
+    monitor_x : in unsigned(7 downto 0);
+    monitor_y : in unsigned(7 downto 0);
+    monitor_z : in unsigned(7 downto 0);
+    monitor_b : in unsigned(7 downto 0);
+    monitor_sp : in unsigned(15 downto 0);
+    monitor_p : in unsigned(7 downto 0);
+    monitor_map_offset_low : in unsigned(11 downto 0);
+    monitor_map_offset_high : in unsigned(11 downto 0);
+    monitor_map_enables_low : in std_logic_vector(3 downto 0);
+    monitor_map_enables_high : in std_logic_vector(3 downto 0);
+    monitor_interrupt_inhibit : in std_logic;
 
-      fastio_read : in std_logic;
-      fastio_write : in std_logic;
-
-      monitor_watch : out std_logic_vector(27 downto 0);
-      monitor_watch_match : in std_logic;
-
-      monitor_debug_memory_access : in std_logic_vector(31 downto 0);
-      monitor_proceed : in std_logic;
-      monitor_waitstates : in unsigned(7 downto 0);
-      monitor_request_reflected : in std_logic;
-
-      monitor_cpu_state : in unsigned(15 downto 0);
-      monitor_instruction : in unsigned(7 downto 0);
-      monitor_pc : in std_logic_vector(15 downto 0);
-      monitor_opcode : in std_logic_vector(7 downto 0);
-      monitor_ibytes : in std_logic_vector(3 downto 0);
-      monitor_arg1 : in std_logic_vector(7 downto 0);
-      monitor_arg2 : in std_logic_vector(7 downto 0);
-      monitor_a : in std_logic_vector(7 downto 0);
-      monitor_b : in std_logic_vector(7 downto 0);
-      monitor_x : in std_logic_vector(7 downto 0);
-      monitor_y : in std_logic_vector(7 downto 0);
-      monitor_z : in std_logic_vector(7 downto 0);
-      monitor_sp : in std_logic_vector(15 downto 0);
-      monitor_p : in std_logic_vector(7 downto 0);
-      monitor_map_offset_low : in std_logic_vector(11 downto 0);
-      monitor_map_offset_high : in std_logic_vector(11 downto 0);
-      monitor_map_enables_low : in std_logic_vector(3 downto 0);
-      monitor_map_enables_high : in std_logic_vector(3 downto 0);   
-      monitor_interrupt_inhibit : in std_logic;
-
-
-      monitor_mem_address : out std_logic_vector(27 downto 0);
-      monitor_mem_rdata : in unsigned(7 downto 0);
-      monitor_mem_wdata : out unsigned(7 downto 0);
-      monitor_mem_read : out std_logic := '0';
-      monitor_mem_write : out std_logic := '0';
-      monitor_mem_setpc : out std_logic := '0';
-      monitor_mem_trace_mode : out std_logic;
-      monitor_mem_stage_trace_mode : out std_logic;
-      monitor_mem_trace_toggle : out std_logic;
-      monitor_mem_attention_request : out std_logic;
-      monitor_mem_attention_granted : in std_logic
+    monitor_mem_address : out unsigned(27 downto 0);
+    monitor_mem_rdata : in unsigned(7 downto 0);
+    monitor_mem_wdata : out unsigned(7 downto 0);
+    monitor_mem_attention_request : out std_logic := '0';
+    monitor_mem_attention_granted : in std_logic;
+    monitor_mem_read : out std_logic := '0';
+    monitor_mem_write : out std_logic := '0';
+    monitor_mem_setpc : out std_logic := '0';
+    monitor_mem_stage_trace_mode : out std_logic := '0';
+    monitor_mem_trace_mode : out std_logic := '0';
+    monitor_mem_trace_toggle : out std_logic := '0'
       );
   end component;
 
@@ -214,28 +210,27 @@ architecture Behavioral of machine is
       viciii_fast : in std_logic;
       viciv_fast : in std_logic;
       
-      monitor_debug_memory_access : out std_logic_vector(31 downto 0);
       monitor_proceed : out std_logic;
       monitor_waitstates : out unsigned(7 downto 0);
       monitor_request_reflected : out std_logic;
-      monitor_pc : out std_logic_vector(15 downto 0);
+      monitor_pc : out unsigned(15 downto 0);
       monitor_state : out unsigned(15 downto 0);
       monitor_instruction : out unsigned(7 downto 0);
-      monitor_watch : in std_logic_vector(27 downto 0);
+      monitor_watch : in unsigned(27 downto 0);
       monitor_watch_match : out std_logic;
-      monitor_opcode : out std_logic_vector(7 downto 0);
+      monitor_opcode : out unsigned(7 downto 0);
       monitor_ibytes : out std_logic_vector(3 downto 0);
-      monitor_arg1 : out std_logic_vector(7 downto 0);
-      monitor_arg2 : out std_logic_vector(7 downto 0);
-      monitor_a : out std_logic_vector(7 downto 0);
-      monitor_b : out std_logic_vector(7 downto 0);
-      monitor_x : out std_logic_vector(7 downto 0);
-      monitor_y : out std_logic_vector(7 downto 0);
-      monitor_z : out std_logic_vector(7 downto 0);
-      monitor_sp : out std_logic_vector(15 downto 0);
-      monitor_p : out std_logic_vector(7 downto 0);
-      monitor_map_offset_low : out std_logic_vector(11 downto 0);
-      monitor_map_offset_high : out std_logic_vector(11 downto 0);
+      monitor_arg1 : out unsigned(7 downto 0);
+      monitor_arg2 : out unsigned(7 downto 0);
+      monitor_a : out unsigned(7 downto 0);
+      monitor_b : out unsigned(7 downto 0);
+      monitor_x : out unsigned(7 downto 0);
+      monitor_y : out unsigned(7 downto 0);
+      monitor_z : out unsigned(7 downto 0);
+      monitor_sp : out unsigned(15 downto 0);
+      monitor_p : out unsigned(7 downto 0);
+      monitor_map_offset_low : out unsigned(11 downto 0);
+      monitor_map_offset_high : out unsigned(11 downto 0);
       monitor_map_enables_low : out std_logic_vector(3 downto 0);
       monitor_map_enables_high : out std_logic_vector(3 downto 0);
       monitor_interrupt_inhibit : out std_logic;
@@ -243,7 +238,7 @@ architecture Behavioral of machine is
       ---------------------------------------------------------------------------
       -- Memory access interface used by monitor
       ---------------------------------------------------------------------------
-      monitor_mem_address : in std_logic_vector(27 downto 0);
+      monitor_mem_address : in unsigned(27 downto 0);
       monitor_mem_rdata : out unsigned(7 downto 0);
       monitor_mem_wdata : in unsigned(7 downto 0);
       monitor_mem_read : in std_logic;
@@ -469,20 +464,20 @@ architecture Behavioral of machine is
   signal colourram_at_dc00 : std_logic := '0';
   signal colour_ram_cs : std_logic := '0';
 
-  signal monitor_pc : std_logic_vector(15 downto 0);
+  signal monitor_pc : unsigned(15 downto 0);
   signal monitor_state : unsigned(15 downto 0);
   signal monitor_instruction : unsigned(7 downto 0);
-  signal monitor_watch : std_logic_vector(27 downto 0);
-  signal monitor_debug_memory_access : std_logic_vector(31 downto 0);
+  signal monitor_watch : unsigned(27 downto 0);
+--  signal monitor_debug_memory_access : std_logic_vector(31 downto 0);
   signal monitor_proceed : std_logic;
   signal monitor_waitstates : unsigned(7 downto 0);
   signal monitor_request_reflected : std_logic;
   signal monitor_watch_match : std_logic;
-  signal monitor_mem_address : std_logic_vector(27 downto 0);
+  signal monitor_mem_address : unsigned(27 downto 0);
   signal monitor_mem_rdata : unsigned(7 downto 0);
   signal monitor_mem_wdata : unsigned(7 downto 0);
-  signal monitor_map_offset_low : std_logic_vector(11 downto 0);
-  signal monitor_map_offset_high : std_logic_vector(11 downto 0);
+  signal monitor_map_offset_low : unsigned(11 downto 0);
+  signal monitor_map_offset_high : unsigned(11 downto 0);
   signal monitor_map_enables_low : std_logic_vector(3 downto 0);
   signal monitor_map_enables_high : std_logic_vector(3 downto 0);   
   signal monitor_mem_read : std_logic;
@@ -494,18 +489,18 @@ architecture Behavioral of machine is
   signal monitor_mem_trace_mode : std_logic;
   signal monitor_mem_trace_toggle : std_logic;
   
-  signal monitor_a : std_logic_vector(7 downto 0);
-  signal monitor_b : std_logic_vector(7 downto 0);
+  signal monitor_a : unsigned(7 downto 0);
+  signal monitor_b : unsigned(7 downto 0);
   signal monitor_interrupt_inhibit : std_logic;
-  signal monitor_x : std_logic_vector(7 downto 0);
-  signal monitor_y : std_logic_vector(7 downto 0);
-  signal monitor_z : std_logic_vector(7 downto 0);
-  signal monitor_sp : std_logic_vector(15 downto 0);
-  signal monitor_p : std_logic_vector(7 downto 0);
-  signal monitor_opcode : std_logic_vector(7 downto 0);
+  signal monitor_x : unsigned(7 downto 0);
+  signal monitor_y : unsigned(7 downto 0);
+  signal monitor_z : unsigned(7 downto 0);
+  signal monitor_sp : unsigned(15 downto 0);
+  signal monitor_p : unsigned(7 downto 0);
+  signal monitor_opcode : unsigned(7 downto 0);
   signal monitor_ibytes : std_logic_vector(3 downto 0);
-  signal monitor_arg1 : std_logic_vector(7 downto 0);
-  signal monitor_arg2 : std_logic_vector(7 downto 0);
+  signal monitor_arg1 : unsigned(7 downto 0);
+  signal monitor_arg2 : unsigned(7 downto 0);
   
   signal segled_counter : unsigned(19 downto 0) := (others => '0');
 
@@ -822,7 +817,7 @@ begin
     fastio_write => fastio_write,
 
 --    monitor_debug_memory_access => monitor_debug_memory_access,
-    monitor_debug_memory_access => (others => '1'),
+--    monitor_debug_memory_access => (others => '1'),
     monitor_proceed => monitor_proceed,
     monitor_waitstates => monitor_waitstates,
     monitor_request_reflected => monitor_request_reflected,

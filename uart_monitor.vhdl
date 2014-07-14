@@ -37,33 +37,32 @@ entity uart_monitor is
     fastio_read : in std_logic;
     fastio_write : in std_logic;
     
-    monitor_debug_memory_access : in std_logic_vector(31 downto 0);
     monitor_proceed : in std_logic;
     monitor_waitstates : in unsigned(7 downto 0);
     monitor_request_reflected : in std_logic;
-    monitor_pc : in std_logic_vector(15 downto 0);
+    monitor_pc : in unsigned(15 downto 0);
     monitor_cpu_state : in unsigned(15 downto 0);
     monitor_instruction : in unsigned(7 downto 0);
-    monitor_watch : out std_logic_vector(27 downto 0) := x"7FFFFFF";
+    monitor_watch : out unsigned(27 downto 0) := x"7FFFFFF";
     monitor_watch_match : in std_logic;
-    monitor_opcode : in std_logic_vector(7 downto 0);
+    monitor_opcode : in unsigned(7 downto 0);
     monitor_ibytes : in std_logic_vector(3 downto 0);
-    monitor_arg1 : in std_logic_vector(7 downto 0);
-    monitor_arg2 : in std_logic_vector(7 downto 0);
-    monitor_a : in std_logic_vector(7 downto 0);
-    monitor_x : in std_logic_vector(7 downto 0);
-    monitor_y : in std_logic_vector(7 downto 0);
-    monitor_z : in std_logic_vector(7 downto 0);
-    monitor_b : in std_logic_vector(7 downto 0);
-    monitor_sp : in std_logic_vector(15 downto 0);
-    monitor_p : in std_logic_vector(7 downto 0);
-    monitor_map_offset_low : in std_logic_vector(11 downto 0);
-    monitor_map_offset_high : in std_logic_vector(11 downto 0);
+    monitor_arg1 : in unsigned(7 downto 0);
+    monitor_arg2 : in unsigned(7 downto 0);
+    monitor_a : in unsigned(7 downto 0);
+    monitor_x : in unsigned(7 downto 0);
+    monitor_y : in unsigned(7 downto 0);
+    monitor_z : in unsigned(7 downto 0);
+    monitor_b : in unsigned(7 downto 0);
+    monitor_sp : in unsigned(15 downto 0);
+    monitor_p : in unsigned(7 downto 0);
+    monitor_map_offset_low : in unsigned(11 downto 0);
+    monitor_map_offset_high : in unsigned(11 downto 0);
     monitor_map_enables_low : in std_logic_vector(3 downto 0);
     monitor_map_enables_high : in std_logic_vector(3 downto 0);
     monitor_interrupt_inhibit : in std_logic;
 
-    monitor_mem_address : out std_logic_vector(27 downto 0);
+    monitor_mem_address : out unsigned(27 downto 0);
     monitor_mem_rdata : in unsigned(7 downto 0);
     monitor_mem_wdata : out unsigned(7 downto 0);
     monitor_mem_attention_request : out std_logic := '0';
@@ -95,6 +94,21 @@ architecture behavioural of uart_monitor is
            );
   end component;
 
+  component ram128x1k IS
+    PORT (
+      clk : IN STD_LOGIC;
+      w : IN STD_LOGIC;
+      addr : IN integer range 0 to 1023;
+      din : IN unsigned(176 downto 0);
+      dout : OUT unsigned(176 downto 0)
+    );
+  END component;
+
+  signal history_address : integer range 0 to 1023;
+  signal history_wdata : unsigned(176 downto 0);
+  signal history_rdata : unsigned(176 downto 0);
+  signal history_buffer : unsigned(176 downto 0);
+  
   signal monitor_mem_byte : unsigned(7 downto 0) := x"BD";
 
 -- raise for one cycle when we have a byte ready to send.
@@ -257,6 +271,13 @@ begin
                data_ready => rx_ready,
                data_acknowledge => rx_acknowledge);
 
+  historyram0: ram128x1k
+    port map ( clk => clock,
+               w => '0',
+               addr => history_address,
+               din => history_wdata,
+               dout => history_rdata);
+  
   -- purpose: test uart output
   testclock: process (clock,reset)
     -- purpose: turn character into std_logic_vector(7 downto 0)
@@ -852,12 +873,12 @@ begin
             else
               monitor_mem_write <= '1';
               monitor_mem_read <= '0';
-              monitor_mem_address <= std_logic_vector(target_address);
+              monitor_mem_address <= target_address;
               monitor_mem_wdata <= hex_value(7 downto 0);
               target_address <= target_address + 1;
               cpu_transaction(FillMemory5);
             end if;
-          when Watch1 => monitor_watch <= std_logic_vector(hex_value(27 downto 0));
+          when Watch1 => monitor_watch <= hex_value(27 downto 0);
                          state <= NextCommand;
           when LoadMemory1 => target_address <= hex_value(27 downto 0);
                              skip_space(LoadMemory2);
@@ -875,7 +896,7 @@ begin
 
                 monitor_mem_read <= '0';
                 monitor_mem_write <= '1';
-                monitor_mem_address <= std_logic_vector(target_address);
+                monitor_mem_address <= target_address;
                 monitor_mem_wdata <= unsigned(rx_data);
 
                 target_address(15 downto 0) <= target_address(15 downto 0) + 1;
@@ -902,7 +923,7 @@ begin
           when SetMemory4 =>
             monitor_mem_write <= '1';
             monitor_mem_read <= '0';
-            monitor_mem_address <= std_logic_vector(target_address);
+            monitor_mem_address <= target_address;
             monitor_mem_wdata <= target_value;
             cpu_transaction(SetMemory8);
           when SetMemory5 => try_output_char('=',SetMemory6);
@@ -950,7 +971,7 @@ begin
             else              
               monitor_mem_read <= '1';
               monitor_mem_write <= '0';
-              monitor_mem_address <= std_logic_vector(target_address + to_unsigned(byte_number,28));
+              monitor_mem_address <= target_address + to_unsigned(byte_number,28);
               timeout <= 65535;
               cpu_transaction(ShowMemory3);
             end if;
@@ -982,7 +1003,41 @@ begin
             byte_number <= byte_number + 1;
             print_hex_byte(membuf(byte_number),ShowMemory7);
           when ShowMemory9 => try_output_char(lf,ShowMemory2);
-          when ShowRegisters =>
+          when ShowRegisters =>            
+            history_buffer(7 downto 0) <= monitor_p;
+            history_buffer(15 downto 8) <= monitor_a;
+            history_buffer(23 downto 16) <= monitor_x;
+            history_buffer(31 downto 24) <= monitor_y;
+            history_buffer(39 downto 32) <= monitor_z;
+            history_buffer(55 downto 40) <= monitor_pc;
+            history_buffer(71 downto 56) <= unsigned(monitor_cpu_state);
+            history_buffer(79 downto 72) <= monitor_waitstates;
+            history_buffer(87 downto 80) <= monitor_b;
+            history_buffer(104 downto 89) <= monitor_sp;
+            history_buffer(112 downto 105)
+              <= unsigned(monitor_map_enables_low)
+                          & monitor_map_offset_low(11 downto 8);
+            history_buffer(120 downto 113) <= monitor_map_offset_low(7 downto 0);
+            history_buffer(121) <= monitor_ibytes(1);
+            history_buffer(122) <= fastio_read;
+            history_buffer(123) <= fastio_write;
+            history_buffer(124) <= monitor_proceed;
+            history_buffer(125) <= monitor_mem_attention_granted;
+            history_buffer(126) <= monitor_request_reflected;
+            history_buffer(127) <= monitor_interrupt_inhibit;
+
+            history_buffer(135 downto 128)
+              <= unsigned(monitor_map_enables_high)
+                          & monitor_map_offset_high(11 downto 8);
+            history_buffer(143 downto 136) <= monitor_map_offset_high(7 downto 0);
+            history_buffer(151 downto 144) <= monitor_opcode;
+            history_buffer(159 downto 152) <= monitor_arg1;
+            history_buffer(167 downto 160) <= monitor_arg2;
+            history_buffer(175 downto 168) <= monitor_instruction;
+            history_buffer(176) <= monitor_ibytes(0);
+
+
+            
             banner_position <= 1; state<= ShowRegisters1;
             monitor_mem_setpc <= '0';
           when ShowRegisters1 =>
@@ -996,100 +1051,133 @@ begin
               end if;
             end if;
           when ShowRegisters2 =>
-            print_hex_byte(unsigned(monitor_pc(15 downto 8)),ShowRegisters3);
+            -- PC(15 downto 8)
+            print_hex_byte(history_buffer(55 downto 48),ShowRegisters3);
           when ShowRegisters3 =>
-            print_hex_byte(unsigned(monitor_pc(7 downto 0)),ShowRegisters4);
+            -- PC(7 downto 0)
+            print_hex_byte(history_buffer(47 downto 40),ShowRegisters4);
           when ShowRegisters4 => try_output_char(' ',ShowRegisters5);
-          when ShowRegisters5 => print_hex_byte(unsigned(monitor_a),ShowRegisters6);
+          when ShowRegisters5 =>
+            -- Accumulator
+            print_hex_byte(history_buffer(15 downto 8),ShowRegisters6);
           when ShowRegisters6 => try_output_char(' ',ShowRegisters7);
-          when ShowRegisters7 => print_hex_byte(unsigned(monitor_x),ShowRegisters8);
+          when ShowRegisters7 =>
+            -- X Register
+            print_hex_byte(history_buffer(23 downto 16),ShowRegisters8);
           when ShowRegisters8 => try_output_char(' ',ShowRegisters9);
-          when ShowRegisters9 => print_hex_byte(unsigned(monitor_y),ShowRegisters10);
+          when ShowRegisters9 =>
+            -- Y Register
+            print_hex_byte(history_buffer(31 downto 24),ShowRegisters10);
           when ShowRegisters10 => try_output_char(' ',ShowRegisters11);
-          when ShowRegisters11 => print_hex_byte(unsigned(monitor_z),ShowRegisters12);
+          when ShowRegisters11 =>
+            -- Z register
+            print_hex_byte(history_buffer(39 downto 32),ShowRegisters12);
           when ShowRegisters12 => try_output_char(' ',ShowRegisters13);
-          when ShowRegisters13 => print_hex_byte(unsigned(monitor_b),ShowRegisters14);
+          when ShowRegisters13 =>
+            -- B register
+            print_hex_byte(history_buffer(87 downto 80),ShowRegisters14);
           when ShowRegisters14 => try_output_char(' ',ShowRegisters15);
-          when ShowRegisters15 => print_hex_byte(unsigned(monitor_sp(15 downto 8)),ShowRegisters16);
-          when ShowRegisters16 => print_hex_byte(unsigned(monitor_sp(7 downto 0)),ShowRegisters17);
+          when ShowRegisters15 =>
+            -- SP(15 downto 8)
+            print_hex_byte(history_buffer(104 downto 97),ShowRegisters16);
+          when ShowRegisters16 =>
+            -- SP(7 downto 0)
+            print_hex_byte(history_buffer(96 downto 89),ShowRegisters17);
           when ShowRegisters17 => try_output_char(' ',ShowRegisters18);
-          when ShowRegisters18 => print_hex_byte(unsigned(monitor_map_enables_low & monitor_map_offset_low(11 downto 8)),ShowRegisters19);
-          when ShowRegisters19 => print_hex_byte(unsigned(monitor_map_offset_low(7 downto 0)),ShowRegisters20);
+          when ShowRegisters18 =>
+            -- map low enables and map_offset_low(11 downto 8)
+            print_hex_byte(history_buffer(112 downto 105),ShowRegisters19);
+          when ShowRegisters19 =>
+            -- map_offset_low(7 downto 0)
+            print_hex_byte(history_buffer(120 downto 113),ShowRegisters20);
           when ShowRegisters20 => try_output_char(' ',ShowRegisters21);
-          when ShowRegisters21 => print_hex_byte(unsigned(monitor_map_enables_high & monitor_map_offset_high(11 downto 8)),ShowRegisters22);
-          when ShowRegisters22 => print_hex_byte(unsigned(monitor_map_offset_high(7 downto 0)),ShowRegisters23);
+          when ShowRegisters21 =>
+            -- map high enables and map_offset_high(11 downto 8)
+            print_hex_byte(history_buffer(135 downto 128),ShowRegisters22);
+          when ShowRegisters22 =>
+            -- map_offset_high(7 downto 0)
+            print_hex_byte(history_buffer(143 downto 136),ShowRegisters23);
           when ShowRegisters23 => try_output_char(' ',ShowRegisters24);
-          when ShowRegisters24 => print_hex_byte(unsigned(monitor_opcode),ShowRegisters25);
+          when ShowRegisters24 =>
+            -- monitor_opcode
+            print_hex_byte(history_buffer(151 downto 144),ShowRegisters25);
           when ShowRegisters25 => try_output_char(' ',ShowRegisters26);
           when ShowRegisters26 =>
-            if monitor_ibytes(1)='1' then
-              print_hex_byte(unsigned(monitor_arg1),ShowRegisters27);
+            -- montitor_arg1, tested by monitor_ibytes(1)
+            if history_buffer(121)='1' then
+              print_hex_byte(history_buffer(159 downto 152),ShowRegisters27);
             else
               print_two_spaces(ShowRegisters27);
             end if;
           when ShowRegisters27 => try_output_char(' ',ShowRegisters28);
           when ShowRegisters28 =>
-            if monitor_ibytes(1)='1' and monitor_ibytes(0)='1' then
-              print_hex_byte(unsigned(monitor_arg2),ShowRegisters29);
+            -- monitor_arg2, only if monitor_ibytes(1) and monitor_ibytes(0) set
+            if history_buffer(121)='1' and history_buffer(176)='1' then
+              print_hex_byte(history_buffer(167 downto 160),ShowRegisters29);
             else
               print_two_spaces(ShowRegisters29);
             end if;
           when ShowRegisters29 => try_output_char(' ',ShowRegisters30);
-          when ShowRegisters30 => print_hex_byte(unsigned(monitor_p),ShowRegisters31);
+          when ShowRegisters30 =>
+            -- monitor_p
+            print_hex_byte(history_buffer(7 downto 0),ShowRegisters31);
           when ShowRegisters31 => try_output_char(' ',ShowRegisters32);
-          when ShowRegisters32 => print_hex_byte(monitor_instruction,ShowRegisters33);
-          when ShowRegisters33 => try_output_char(' ',ShowP1);
-
+          when ShowRegisters32 =>
+            -- monitor_instruction
+            print_hex_byte(history_buffer(175 downto 168),ShowRegisters33);
+          when ShowRegisters33 =>
+            try_output_char(' ',ShowP1);
           when ShowP1 =>
-            if monitor_p(7)='1' then
+            if history_buffer(7)='1' then
               try_output_char('N',ShowP2);
             else              
               try_output_char('.',ShowP2);
             end if;
           when ShowP2 =>
-            if monitor_p(6)='1' then
+            if history_buffer(6)='1' then
               try_output_char('V',ShowP3);
             else              
               try_output_char('.',ShowP3);
             end if;
           when ShowP3 =>
-            if monitor_p(5)='1' then
+            if history_buffer(5)='1' then
               try_output_char('E',ShowP4);
             else              
               try_output_char('.',ShowP4);
             end if;
           when ShowP4 =>
-            if monitor_p(4)='1' then
+            if history_buffer(4)='1' then
               try_output_char('B',ShowP5);
             else              
               try_output_char('.',ShowP5);
             end if;
           when ShowP5 =>
-            if monitor_p(3)='1' then
+            if history_buffer(3)='1' then
               try_output_char('D',ShowP6);
             else              
               try_output_char('.',ShowP6);
             end if;
           when ShowP6 =>
-            if monitor_p(2)='1' then
+            if history_buffer(2)='1' then
               try_output_char('I',ShowP7);
             else              
               try_output_char('.',ShowP7);
             end if;
           when ShowP7 =>
-            if monitor_p(1)='1' then
+            if history_buffer(1)='1' then
               try_output_char('Z',ShowP8);
             else              
               try_output_char('.',ShowP8);
             end if;
           when ShowP8 =>
-            if monitor_p(0)='1' then
+            if history_buffer(0)='1' then
               try_output_char('C',ShowP9);
             else              
               try_output_char('.',ShowP9);
             end if;
           when ShowP9 =>
-            if monitor_interrupt_inhibit='1' then
+            -- monitor_interrupt_inhibit
+            if history_buffer(127)='1' then
               try_output_char('M',ShowP10);
             else              
               try_output_char('.',ShowP10);
@@ -1097,19 +1185,22 @@ begin
           when ShowP10 =>
             try_output_char(' ',ShowP11);
           when ShowP11 =>
-            if monitor_request_reflected='1' then
+            -- monitor_request_reflected
+            if history_buffer(126)='1' then
               try_output_char('R',ShowP12);
             else
               try_output_char('.',ShowP12);
             end if;
           when ShowP12 =>
-            if monitor_mem_attention_granted='1' then
+            -- monitor_mem_attention_granted
+            if history_buffer(125)='1' then
               try_output_char('G',ShowP13a);
             else
               try_output_char('.',ShowP13a);
             end if;
           when ShowP13a =>
-            if monitor_proceed='1' then
+            -- monitor_proceed
+            if history_buffer(124)='1' then
               try_output_char('P',ShowP13);
             else
               try_output_char('.',ShowP13);
@@ -1117,21 +1208,25 @@ begin
           when ShowP13 =>
             try_output_char(' ',ShowP14);
           when ShowP14 =>
-            print_hex_byte(unsigned(monitor_cpu_state(15 downto 8)),ShowP15);
+            -- upper half of monitor_cpu_state
+            print_hex_byte(history_buffer(71 downto 64),ShowP15);
           when ShowP15 =>
             try_output_char(' ',ShowP16);
           when ShowP16 =>
-            if fastio_write='1' then
+            -- fastio_write
+            if history_buffer(123)='1' then
               try_output_char('W',ShowP17);
             else
-              if fastio_read='1' then
+              -- fastio_read
+              if history_buffer(122)='1' then
                 try_output_char('R',ShowP17);
               else
                 try_output_char('-',ShowP17);
               end if;
             end if;
           when ShowP17 =>
-            print_hex_byte(unsigned(monitor_waitstates),NextCommand);
+            -- monitor_waitstates
+            print_hex_byte(history_buffer(79 downto 72),NextCommand);
           when EraseCharacter => try_output_char(' ',EraseCharacter1);
           when EraseCharacter1 => try_output_char(bs,AcceptingInput);
           when SyntaxError =>
@@ -1141,7 +1236,7 @@ begin
           when ReplyTimeoutError =>
             banner_position <= 1; state <= PrintReplyTimeoutError;
           when SetPC1 =>
-            monitor_mem_address(15 downto 0) <= std_logic_vector(hex_value(15 downto 0));
+            monitor_mem_address(15 downto 0) <= hex_value(15 downto 0);
             monitor_mem_read <= '1';
             monitor_mem_setpc <= '1';
             monitor_mem_write <= '0';

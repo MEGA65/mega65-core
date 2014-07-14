@@ -39,47 +39,46 @@ entity gs4510 is
     reset : in std_logic;
     irq : in std_logic;
     nmi : in std_logic;
-    monitor_pc : out std_logic_vector(15 downto 0);
-    monitor_state : out unsigned(15 downto 0);
-    monitor_instruction : out unsigned(7 downto 0);
-    monitor_watch : in std_logic_vector(27 downto 0);
-    monitor_watch_match : out std_logic;
-    monitor_waitstates : out unsigned(7 downto 0);
-    monitor_proceed : out std_logic;
-    monitor_request_reflected : out std_logic;
-    monitor_opcode : out std_logic_vector(7 downto 0);
-    monitor_ibytes : out std_logic_vector(3 downto 0);
-    monitor_arg1 : out std_logic_vector(7 downto 0);
-    monitor_arg2 : out std_logic_vector(7 downto 0);
-    monitor_a : out std_logic_vector(7 downto 0);
-    monitor_x : out std_logic_vector(7 downto 0);
-    monitor_y : out std_logic_vector(7 downto 0);
-    monitor_z : out std_logic_vector(7 downto 0);
-    monitor_b : out std_logic_vector(7 downto 0);
-    monitor_sp : out std_logic_vector(15 downto 0);
-    monitor_p : out std_logic_vector(7 downto 0);
-    monitor_interrupt_inhibit : out std_logic;
-    monitor_map_offset_low : out std_logic_vector(11 downto 0);
-    monitor_map_offset_high : out std_logic_vector(11 downto 0);
-    monitor_map_enables_low : out std_logic_vector(3 downto 0);
-    monitor_map_enables_high : out std_logic_vector(3 downto 0);   
-    
-    ---------------------------------------------------------------------------
-    -- Memory access interface used by monitor
-    ---------------------------------------------------------------------------
-    monitor_mem_address : in std_logic_vector(27 downto 0);
-    monitor_mem_rdata : out unsigned(7 downto 0);
-    monitor_mem_wdata : in unsigned(7 downto 0);
-    monitor_mem_read : in std_logic;
-    monitor_mem_write : in std_logic;
-    monitor_mem_setpc : in std_logic;
-    monitor_mem_attention_request : in std_logic;
-    monitor_mem_attention_granted : out std_logic := '0';
-    monitor_mem_trace_mode : in std_logic;
-    monitor_mem_stage_trace_mode : in std_logic;
-    monitor_mem_trace_toggle : in std_logic;
 
-    monitor_debug_memory_access : out std_logic_vector(31 downto 0);
+          monitor_proceed : out std_logic;
+      monitor_waitstates : out unsigned(7 downto 0);
+      monitor_request_reflected : out std_logic;
+      monitor_pc : out unsigned(15 downto 0);
+      monitor_state : out unsigned(15 downto 0);
+      monitor_instruction : out unsigned(7 downto 0);
+      monitor_watch : in unsigned(27 downto 0);
+      monitor_watch_match : out std_logic;
+      monitor_opcode : out unsigned(7 downto 0);
+      monitor_ibytes : out std_logic_vector(3 downto 0);
+      monitor_arg1 : out unsigned(7 downto 0);
+      monitor_arg2 : out unsigned(7 downto 0);
+      monitor_a : out unsigned(7 downto 0);
+      monitor_b : out unsigned(7 downto 0);
+      monitor_x : out unsigned(7 downto 0);
+      monitor_y : out unsigned(7 downto 0);
+      monitor_z : out unsigned(7 downto 0);
+      monitor_sp : out unsigned(15 downto 0);
+      monitor_p : out unsigned(7 downto 0);
+      monitor_map_offset_low : out unsigned(11 downto 0);
+      monitor_map_offset_high : out unsigned(11 downto 0);
+      monitor_map_enables_low : out std_logic_vector(3 downto 0);
+      monitor_map_enables_high : out std_logic_vector(3 downto 0);
+      monitor_interrupt_inhibit : out std_logic;
+
+      ---------------------------------------------------------------------------
+      -- Memory access interface used by monitor
+      ---------------------------------------------------------------------------
+      monitor_mem_address : in unsigned(27 downto 0);
+      monitor_mem_rdata : out unsigned(7 downto 0);
+      monitor_mem_wdata : in unsigned(7 downto 0);
+      monitor_mem_read : in std_logic;
+      monitor_mem_write : in std_logic;
+      monitor_mem_setpc : in std_logic;
+      monitor_mem_attention_request : in std_logic;
+      monitor_mem_attention_granted : out std_logic;
+      monitor_mem_trace_mode : in std_logic;
+      monitor_mem_stage_trace_mode : in std_logic;
+      monitor_mem_trace_toggle : in std_logic;
     
     ---------------------------------------------------------------------------
     -- Interface to ChipRAM in video controller (just 128KB for now)
@@ -491,7 +490,7 @@ end component;
   signal monitor_mem_read_drive : std_logic;
   signal monitor_mem_write_drive : std_logic;
   signal monitor_mem_setpc_drive : std_logic;
-  signal monitor_mem_address_drive : std_logic_vector(27 downto 0);
+  signal monitor_mem_address_drive : unsigned(27 downto 0);
   signal monitor_mem_wdata_drive : unsigned(7 downto 0);
 
   signal debugging_single_stepping : std_logic := '0';
@@ -1379,18 +1378,18 @@ begin
       monitor_mem_address_drive <= monitor_mem_address;
       monitor_mem_wdata_drive <= monitor_mem_wdata;
       
-      monitor_debug_memory_access(31) <= accessing_shadow;
-      monitor_debug_memory_access(30) <= accessing_fastio;
-      monitor_debug_memory_access(29) <= accessing_slowram;
-      monitor_debug_memory_access(28) <= accessing_sb_fastio;
-      monitor_debug_memory_access(27) <= accessing_colour_ram_fastio;
-      monitor_debug_memory_access(26) <= accessing_vic_fastio;
-      monitor_debug_memory_access(25) <= accessing_cpuport;
-      monitor_debug_memory_access(24) <= '0';
+      --monitor_debug_memory_access(31) <= accessing_shadow;
+      --monitor_debug_memory_access(30) <= accessing_fastio;
+      --monitor_debug_memory_access(29) <= accessing_slowram;
+      --monitor_debug_memory_access(28) <= accessing_sb_fastio;
+      --monitor_debug_memory_access(27) <= accessing_colour_ram_fastio;
+      --monitor_debug_memory_access(26) <= accessing_vic_fastio;
+      --monitor_debug_memory_access(25) <= accessing_cpuport;
+      --monitor_debug_memory_access(24) <= '0';
 
-      monitor_debug_memory_access(23 downto 16) <= std_logic_vector(read_data_copy);
-      monitor_debug_memory_access(15 downto 8) <= std_logic_vector(read_data);
-      monitor_debug_memory_access(7 downto 0) <= std_logic_vector(read_data_complex);
+      --monitor_debug_memory_access(23 downto 16) <= std_logic_vector(read_data_copy);
+      --monitor_debug_memory_access(15 downto 8) <= std_logic_vector(read_data);
+      --monitor_debug_memory_access(7 downto 0) <= std_logic_vector(read_data_complex);
       
       -- Copy read memory location to simplify reading from memory.
       -- Penalty is +1 wait state for memory other than shadowram.
@@ -1405,16 +1404,16 @@ begin
       
       monitor_watch_match <= '0';       -- set if writing to watched address
       monitor_state <= to_unsigned(processor_state'pos(state),8)&read_data;
-      monitor_pc <= std_logic_vector(reg_pc);
-      monitor_a <= std_logic_vector(reg_a);
-      monitor_x <= std_logic_vector(reg_x);
-      monitor_y <= std_logic_vector(reg_y);
-      monitor_z <= std_logic_vector(reg_z);
-      monitor_sp <= std_logic_vector(reg_sph) & std_logic_vector(reg_sp);
-      monitor_b <= std_logic_vector(reg_b);
+      monitor_pc <= reg_pc;
+      monitor_a <= reg_a;
+      monitor_x <= reg_x;
+      monitor_y <= reg_y;
+      monitor_z <= reg_z;
+      monitor_sp <= reg_sph&reg_sp;
+      monitor_b <= reg_b;
       monitor_interrupt_inhibit <= map_interrupt_inhibit;
-      monitor_map_offset_low <= std_logic_vector(reg_offset_low);
-      monitor_map_offset_high <= std_logic_vector(reg_offset_high); 
+      monitor_map_offset_low <= reg_offset_low;
+      monitor_map_offset_high <= reg_offset_high; 
       monitor_map_enables_low <= std_logic_vector(reg_map_low); 
       monitor_map_enables_high <= std_logic_vector(reg_map_high); 
       
@@ -1428,7 +1427,7 @@ begin
       virtual_reg_p(1) := flag_z;
       virtual_reg_p(0) := flag_c;
 
-      monitor_p <= std_logic_vector(virtual_reg_p);
+      monitor_p <= unsigned(virtual_reg_p);
 
       -------------------------------------------------------------------------
       -- Real CPU work begins here.
@@ -1605,7 +1604,7 @@ begin
             when InstructionDecode =>
               reg_opcode <= memory_read_value;
               -- Present instruction to serial monitor;
-              monitor_opcode <= std_logic_vector(memory_read_value);
+              monitor_opcode <= memory_read_value;
               monitor_ibytes <= "0000";
 
               -- Always read the next instruction byte after reading opcode
@@ -1750,7 +1749,7 @@ begin
             when Cycle3 =>
               -- Show serial monitor_mem_trace_modeitor what we are doing.
               if (reg_addressingmode /= M_A) then
-                monitor_arg1 <= std_logic_vector(reg_arg1);
+                monitor_arg1 <= reg_arg1;
                 monitor_ibytes(1) <= '1';
               else
                 -- For RTS we use arg1 for the optional immediate argument.
@@ -1782,7 +1781,7 @@ begin
                     state <= LoadTarget;
                   when M_immnn => -- Handled in MicrocodeInterpret
                   when M_nnnn =>
-                    monitor_arg2 <= std_logic_vector(memory_read_value);
+                    monitor_arg2 <= memory_read_value;
                     monitor_ibytes(0) <= '1';
 
                     reg_addr(15 downto 8) <= memory_read_value;
@@ -1850,7 +1849,7 @@ begin
                       if fast_fetch_state = InstructionDecode then pc_inc := '1'; end if;
                     end if;   
                   when M_rrrr =>
-                    monitor_arg2 <= std_logic_vector(memory_read_value);
+                    monitor_arg2 <= memory_read_value;
                     monitor_ibytes(0) <= '1';
 
                     reg_addr(15 downto 8) <= memory_read_value;
@@ -1883,18 +1882,18 @@ begin
                     reg_addr <= temp_addr;
                     state <= LoadTarget;
                   when M_nnnnY =>
-                    monitor_arg2 <= std_logic_vector(memory_read_value);
+                    monitor_arg2 <= memory_read_value;
                     monitor_ibytes(0) <= '1';
                     reg_addr <= x"00"&reg_y + to_integer(memory_read_value&reg_addr(7 downto 0));
                     state <= MicrocodeInterpret;
                   when M_nnnnX =>
-                    monitor_arg2 <= std_logic_vector(memory_read_value);
+                    monitor_arg2 <= memory_read_value;
                     monitor_ibytes(0) <= '1';
                     reg_addr <= x"00"&reg_x + to_integer(memory_read_value&reg_addr(7 downto 0));
                     state <= MicrocodeInterpret;
                   when M_Innnn =>
                     -- Only JMP and JSR have this mode
-                    monitor_arg2 <= std_logic_vector(memory_read_value);
+                    monitor_arg2 <= memory_read_value;
                     monitor_ibytes(0) <= '1';
                     reg_addr(15 downto 8) <= memory_read_value;
                     state <= JumpDereference;
@@ -1939,12 +1938,12 @@ begin
                 when others => state <= normal_fetch_state;
               end case;
             when JumpAbsReadArg2 =>
-              monitor_arg2 <= std_logic_vector(memory_read_value);
+              monitor_arg2 <= memory_read_value;
               monitor_ibytes(0) <= '1';
               reg_addr(15 downto 8) <=  memory_read_value;
               state <= MicrocodeInterpret;
             when JumpAbsXReadArg2 =>
-              monitor_arg2 <= std_logic_vector(memory_read_value);
+              monitor_arg2 <= memory_read_value;
               monitor_ibytes(0) <= '1';
               reg_addr <= x"00"&reg_x + to_integer(memory_read_value&reg_addr(7 downto 0));
               state <= MicrocodeInterpret;
@@ -1987,7 +1986,7 @@ begin
               reg_addr(7 downto 0) <= memory_read_value;
               state <= normal_fetch_state;
             when ZPRelReadZP =>
-              monitor_arg1 <= std_logic_vector(memory_read_value);
+              monitor_arg1 <= memory_read_value;
               monitor_ibytes(1) <= '1';
                                         -- Here we are reading the ZP memory location
                                         -- Check if the appropriate bit is set/clear
@@ -2052,7 +2051,7 @@ begin
               end if;
               
               if reg_addressingmode = M_immnn then
-                monitor_arg1 <= std_logic_vector(memory_read_value);
+                monitor_arg1 <= memory_read_value;
                 monitor_ibytes(1) <= '1';
               end if;
 
