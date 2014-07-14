@@ -865,7 +865,6 @@ begin
       return unsigned is
     begin  -- read_data
       if accessing_shadow='1' then
-        report "reading from shadow RAM" severity note;
         return shadow_rdata;
       else
         return read_data_copy;
@@ -938,7 +937,7 @@ begin
           when others => return x"FE";
         end case;
       else
-        report "accessing unmapped memory" severity note;
+--        report "accessing unmapped memory" severity note;
         return x"A0";                     -- make unmmapped memory obvious
       end if;
     end read_data_complex; 
@@ -1485,7 +1484,7 @@ begin
           slowram_oe <= '1';
 
           if mem_reading='1' then
-            report "resetting mem_reading (read $" & to_hstring(memory_read_value) & ")" severity note;
+--            report "resetting mem_reading (read $" & to_hstring(memory_read_value) & ")" severity note;
             mem_reading <= '0';
             monitor_mem_reading <= '0';
           end if;          
@@ -1532,9 +1531,11 @@ begin
             when RTS2 =>
               -- Finish RTS as fast as possible
               report "RTS: low byte = $" & to_hstring(memory_read_value) severity note;
-              reg_pc <= (reg_pc(15 downto 8)&memory_read_value)+1;
+              -- Read the instruction byte following
               memory_access_address := x"000"&((reg_pc(15 downto 8)&memory_read_value)+1);
               memory_access_read := '1';
+              -- And set PC to the byte following
+              reg_pc <= (reg_pc(15 downto 8)&memory_read_value)+2;
               state <= fast_fetch_state;
             when ProcessorHold =>
               -- Hold CPU while blocked by monitor
@@ -2086,7 +2087,8 @@ begin
           & " ($" & to_hstring(to_unsigned(processor_state'pos(state),8)) & ")"
           & ", reg_addr=$" & to_hstring(reg_addr)
           severity note;
-        report "A:" & to_hstring(reg_a) & " X:" & to_hstring(reg_x)
+        report "PC:" & to_hstring(reg_pc)
+            & " A:" & to_hstring(reg_a) & " X:" & to_hstring(reg_x)
             & " Y:" & to_hstring(reg_y) & " Z:" & to_hstring(reg_z)
             & " SP:" & to_hstring(reg_sph&reg_sp)
             severity note;
