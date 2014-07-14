@@ -100,6 +100,18 @@ entity gs4510 is
     slowram_data : inout std_logic_vector(15 downto 0);
 
     cpu_leds : out std_logic_vector(3 downto 0);
+
+    ---------------------------------------------------------------------------
+    -- Control CPU speed.  Use 
+    ---------------------------------------------------------------------------
+    --         C128 2MHZ ($D030)  : C65 FAST ($D031)
+    -- ~1MHz   0                  : 0
+    -- ~2MHz   1                  : 0
+    -- ~3.5MHz 0                  : 1
+    -- 48MHz   1                  : 1
+    ---------------------------------------------------------------------------    
+--    vicii_2mhz : in std_logic;
+--    viciii_fast : in std_logic;
     
     ---------------------------------------------------------------------------
     -- fast IO port (clocked at core clock). 1MB address space
@@ -864,8 +876,6 @@ begin
       return unsigned is
     begin  -- read_data
       -- CPU hosted IO registers
---    if the_read_address = x"FFC00A0" then
---      return slowram_waitstates;
       if (the_read_address = x"FFD3703") or (the_read_address = x"FFD1703") then
         return reg_dmagic_status;
 --    elsif (the_read_address = x"FFD370B") then
@@ -1897,7 +1907,14 @@ begin
               case reg_addressingmode is
                 -- Note, we treat BSR as absolute mode, with microcode
                 -- controlling the calculation of the address as relative.
-                when M_nnnn => state <= JumpAbsReadArg2;
+                when M_nnnn => reg_pc <= reg_addr;
+                               -- Immediately start reading the next instruction
+                               memory_access_read := '1';
+                               memory_access_address := x"000"&reg_addr;
+                               memory_access_resolve_address := '1';
+                               state <= fast_fetch_state;
+                -- XXX The following need to be changed, because arg2 is
+                -- already read by the time we get here, just dereference.
                 when M_innnn => state <= JumpIAbsReadArg2;
                 when M_innnnX => state <= JumpAbsXReadArg2;
                 when others => state <= normal_fetch_state;
