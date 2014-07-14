@@ -71,6 +71,10 @@ entity viciv is
     led : in std_logic;
     motor : in std_logic;
 
+    vicii_2mhz : out std_logic;
+    viciii_fast : out std_logic;
+    viciv_fast : out std_logic;     
+    
     ----------------------------------------------------------------------
     -- VGA output
     ----------------------------------------------------------------------
@@ -195,6 +199,10 @@ architecture Behavioral of viciv is
       );
   END component;
 
+  signal vicii_2mhz_internal : std_logic := '1';
+  signal viciii_fast_internal : std_logic := '1';
+  signal viciv_fast_internal : std_logic := '1';
+  
   -- last value written to key register
   signal reg_key : unsigned(7 downto 0) := x"00";
   
@@ -732,7 +740,7 @@ begin
           inborder_drive,chargen_active_soon_drive,card_number_drive) is
 
     procedure viciv_interpret_legacy_mode_registers is
-    begin
+    begin      
       if reg_h640='0' and reg_h1280='0' then
         -- 40 column mode (5x pixels, standard side borders)
         x_chargen_start
@@ -847,6 +855,10 @@ begin
   begin
     fastio_rdata <= (others => 'Z');    
 
+    viciv_fast <= viciv_fast_internal;
+    viciii_fast <= viciii_fast_internal;
+    vicii_2mhz <= vicii_2mhz_internal;
+    
     if true then
       -- Calculate register number asynchronously
       register_number := x"FFF";
@@ -864,8 +876,12 @@ begin
       
       if (register_bank=x"D0" or register_bank=x"D2") and register_page<4 then
         -- First 1KB of normal C64 IO space maps to r$0 - r$3F
-        register_number(5 downto 0) := unsigned(fastio_addr(5 downto 0));
+        register_number(5 downto 0) := unsigned(fastio_addr(5 downto 0));        
         register_number(11 downto 6) := (others => '0');
+        if fastio_addr(11 downto 0) = x"030" then
+          -- C128 $D030
+          register_number := x"0FF"; -- = 255
+        end if;
         report "IO access resolves to video register number "
           & integer'image(to_integer(register_number)) severity note;        
       elsif (register_bank = x"D1" or register_bank = x"D3") and register_page<4 then
@@ -991,6 +1007,10 @@ begin
           fastio_rdata <= std_logic_vector(sprite_multi1_colour);
         elsif register_number>=39 and register_number<=46 then
           fastio_rdata <= std_logic_vector(sprite_colours(to_integer(register_number)-39));
+        elsif register_number=255 then
+          -- C128 $D030 emulation (2MHz mode only)
+          fastio_rdata(7 downto 1) <= (others => '0');
+          fastio_rdata(0) <= vicii_2mhz_internal;
         elsif register_number=48 then
           -- C65 $D030 emulation          
           fastio_rdata <=
@@ -1008,7 +1028,7 @@ begin
           -- registers
           fastio_rdata <=
             reg_h640                           -- H640
-            & "1"                         -- FAST
+            & viciii_fast_internal             -- FAST
             & viciii_extended_attributes  -- ATTR (8bit colour RAM features)
             & "0"                         -- BPM
             & reg_v400                         -- V400
@@ -1092,6 +1112,7 @@ begin
         elsif register_number=84 then
                                         -- $D054 (53332) - New mode control register
           fastio_rdata(7 downto 4) <= (others => '1');
+          fastio_rdata(6) <= viciv_fast_internal;
           fastio_rdata(3) <= horizontal_smear;
           fastio_rdata(2) <= fullcolour_extendedchars;
           fastio_rdata(1) <= fullcolour_8bitchars;
@@ -1382,6 +1403,9 @@ begin
             end if;
           end if;
           reg_key <= unsigned(fastio_wdata);
+        elsif register_number=255 then
+          -- C128 $D030 emulation (2MHz mode only)
+          vicii_2mhz_internal <= fastio_wdata(0);
         elsif register_number=48 then
           -- C65 VIC-III Control A Register $D030
           -- Mapping of C65 ROM in various places
@@ -1406,6 +1430,7 @@ begin
           -- H640
           reg_h640 <= fastio_wdata(7);
           -- FAST
+          viciii_fast_internal <= fastio_wdata(6);
           -- ATTR (8bit colour RAM features)
           -- BPM
           -- V400
@@ -1464,6 +1489,7 @@ begin
           vicii_is_raster_source <= '0';
         elsif register_number=84 then
                                         -- $D054 (53332) - New mode control register
+          viciv_fast_internal <= fastio_wdata(6);
           horizontal_smear <= fastio_wdata(3);
           fullcolour_extendedchars <= fastio_wdata(2);
           fullcolour_8bitchars <= fastio_wdata(1);

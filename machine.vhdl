@@ -207,6 +207,11 @@ architecture Behavioral of machine is
       reset : in std_logic;
       irq : in std_logic;
       nmi : in std_logic;
+
+      vicii_2mhz : in std_logic;
+      viciii_fast : in std_logic;
+      viciv_fast : in std_logic;
+      
       monitor_debug_memory_access : out std_logic_vector(31 downto 0);
       monitor_proceed : out std_logic;
       monitor_waitstates : out unsigned(7 downto 0);
@@ -334,6 +339,10 @@ architecture Behavioral of machine is
 
       viciii_iomode : out std_logic_vector(1 downto 0);
 
+      vicii_2mhz : out std_logic;
+      viciii_fast : out std_logic;
+      viciv_fast : out std_logic;
+      
       colourram_at_dc00 : out std_logic;
       rom_at_e000 : out std_logic;
       rom_at_c000 : out std_logic;
@@ -414,6 +423,9 @@ architecture Behavioral of machine is
   signal cpu_leds : std_logic_vector(3 downto 0);
   
   signal viciii_iomode : std_logic_vector(1 downto 0);
+  signal vicii_2mhz : std_logic;
+  signal viciii_fast : std_logic;
+  signal viciv_fast : std_logic;
 
   signal led : std_logic;
   signal motor : std_logic;
@@ -619,6 +631,11 @@ begin
     reset =>reset_combined,
     irq => combinedirq,
     nmi => combinednmi,
+
+    vicii_2mhz => vicii_2mhz,
+    viciii_fast => viciii_fast,
+    viciv_fast => viciv_fast,
+    
     monitor_proceed => monitor_proceed,
 --    monitor_debug_memory_access => monitor_debug_memory_access,
     monitor_waitstates => monitor_waitstates,

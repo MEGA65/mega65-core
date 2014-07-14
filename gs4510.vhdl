@@ -110,8 +110,9 @@ entity gs4510 is
     -- ~3.5MHz 0                  : 1
     -- 48MHz   1                  : 1
     ---------------------------------------------------------------------------    
---    vicii_2mhz : in std_logic;
---    viciii_fast : in std_logic;
+    vicii_2mhz : in std_logic;
+    viciii_fast : in std_logic;
+    viciv_fast : in std_logic;
     
     ---------------------------------------------------------------------------
     -- fast IO port (clocked at core clock). 1MB address space
