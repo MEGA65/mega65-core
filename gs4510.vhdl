@@ -36,7 +36,6 @@ entity gs4510 is
   port (
     Clock : in std_logic;
     ioclock : in std_logic;
-    io_wait_states : in unsigned(7 downto 0);
     reset : in std_logic;
     irq : in std_logic;
     nmi : in std_logic;
@@ -163,9 +162,13 @@ end component;
 
   signal slowram_lohi : std_logic;
   -- SlowRAM has 70ns access time, so need some wait states.
-  -- Allow 9 waits for now in case ram part is the 85ns version.
-  -- At 64MHz we only need 6 cycles
-  signal slowram_waitstates : unsigned(7 downto 0) := x"06";
+  -- At 48MHz we only need 4 cycles.
+  signal slowram_waitstates : unsigned(7 downto 0) := x"04";
+  -- Shadow RAM has 0 wait states by default
+  signal shadow_wait_states : unsigned(7 downto 0) := x"00";
+  -- IO has one waitstate for reading, 0 for writing
+  signal io_read_wait_states : unsigned(7 downto 0) := x"01";
+  signal io_write_wait_states : unsigned(7 downto 0) := x"00";
 
   -- Number of pending wait states
   signal wait_states : unsigned(7 downto 0) := x"05";
@@ -730,7 +733,7 @@ begin
       accessing_cpuport <= '0'; accessing_colour_ram_fastio <= '0';
       accessing_sb_fastio <= '0';
       accessing_slowram <= '0';
-      wait_states <= io_wait_states;
+      wait_states <= io_read_wait_states;
       
       the_read_address <= long_address;
 
@@ -747,7 +750,7 @@ begin
         -- chipram).  This is the only memory running at the CPU's native clock.
         -- Think of it as a kind of direct-mapped L1 cache.
         accessing_shadow <= '1';
-        wait_states <= x"00";
+        wait_states <= shadow_wait_states;
         proceed <= '1';
         report "Reading from shadow ram address $" & to_hstring(long_address(17 downto 0))
           & ", word $" & to_hstring(long_address(18 downto 3)) severity note;
@@ -755,7 +758,7 @@ begin
         -- Reading from chipram, so read from the bottom 128KB of the shadow RAM
         -- instead.
         accessing_shadow <= '1';
-        wait_states <= x"00";
+        wait_states <= shadow_wait_states;
         proceed <= '1';        
         report "Reading from shadowed chipram address $"
           & to_hstring(long_address(19 downto 0)) severity note;
@@ -834,13 +837,13 @@ begin
         -- memories involved can be clocked at the CPU clock, and have just 1
         -- wait state due to the dual-port memories.
         -- But for now, just apply the wait state to all fastio addresses.
-        wait_states <= io_wait_states;
+        wait_states <= io_write_wait_states;
         proceed <= '0';
       else
         -- Don't let unmapped memory jam things up
         report "hit unmapped memory -- clearing wait_states" severity note;
         accessing_shadow <= '0';
-        wait_states <= x"00";
+        wait_states <= shadow_wait_states;
         proceed <= '1';
       end if;
     end read_long_address;
@@ -944,7 +947,7 @@ begin
       shadow_write_flags(0) <= '1';
       shadow_write_flags(1) <= '1';
       
-      wait_states <= x"00";
+      wait_states <= shadow_wait_states;
       
       if real_long_address(27 downto 12) = x"001F" and real_long_address(11)='1' then
         -- colour ram access: remap to $FF80000 - $FF807FF
@@ -1026,7 +1029,7 @@ begin
         chipram_we <= '1';
         chipram_datain <= value;
         report "writing to chipram..." severity note;
-        wait_states <= io_wait_states;
+        wait_states <= io_write_wait_states;
       elsif long_address(27 downto 24) = x"8" then
         report "writing to slowram..." severity note;
         accessing_slowram <= '1';
@@ -1068,7 +1071,7 @@ begin
             end if;
           end if;                         -- $D{0,1,2,3}XXX
         end if;                           -- $DXXXX
-        wait_states <= io_wait_states;
+        wait_states <= io_write_wait_states;
       else
         -- Don't let unmapped memory jam things up
         shadow_write <= '0';
@@ -1082,7 +1085,7 @@ begin
       variable long_address : unsigned(27 downto 0);
     begin
       report "writing, so clearing wait states" severity note;
-      wait_states <= x"00";
+      wait_states <= shadow_wait_states;
 
       long_address := resolve_address_to_long(address,true);
       if long_address=unsigned(monitor_watch) then

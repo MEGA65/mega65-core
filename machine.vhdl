@@ -204,7 +204,6 @@ architecture Behavioral of machine is
     port (
       Clock : in std_logic;
       ioclock : in std_logic;
-      io_wait_states : in unsigned(7 downto 0);
       reset : in std_logic;
       irq : in std_logic;
       nmi : in std_logic;
@@ -448,13 +447,6 @@ architecture Behavioral of machine is
   signal chipram_address : unsigned(16 DOWNTO 0);
   signal chipram_datain : unsigned(7 DOWNTO 0);
   
---  signal cpuclock : std_logic := '1';
---  signal ioclock : std_logic := '1';
-  -- Running CPU and IO both at 48MHz, 1 wait state is enough.
-  -- Running CPU at 48MHz and IO at 32MHz, 3 wait states should be enough.
-  signal io_wait_states : unsigned(7 downto 0) := x"03";
-  signal clock_phase : integer range 0 to 5 := 0;
-
   signal rom_at_e000 : std_logic := '0';
   signal rom_at_c000 : std_logic := '0';
   signal rom_at_a000 : std_logic := '0';
@@ -505,7 +497,7 @@ architecture Behavioral of machine is
 
   -- Clock running as close as possible to 17.734475 MHz / 18 = 985248Hz
   -- Our pixel clock is 192MHz.  195 ticks gives 984615Hz for NTSC.
-  -- 188 ticks at 96MHz gives 1021276Hz, which is pretty close for PAL.
+  -- 188 ticks at 192MHz gives 1021276Hz, which is pretty close for PAL.
   -- Then divide by 2 again, since the loop toggles phi0.
   signal phi0 : std_logic := '0';
   constant phi0_divisor : integer := 94;
@@ -609,29 +601,6 @@ begin
 
     end if;
     if rising_edge(pixelclock) then
-
-      -- Determine CPU and IO clock phases.
-      -- Knowing both of these, we can also know the number of CPU cycles
-      -- that must be waited when accessing IO if the access is commence on a
-      -- given cycle.  We need to allow one complete clock cycle after the
-      -- rising edge of IOclock.
-      -- This might need a bit of adjustment, but the principle should be sound.
-      --case clock_phase is
-      --  when 0 => cpuclock <= '1'; ioclock<='0'; io_wait_states <= x"02";
-      --  when 1 => cpuclock <= '0'; ioclock<='0'; io_wait_states <= x"02";
-      --  when 2 => cpuclock <= '0'; ioclock<='0'; io_wait_states <= x"02";
-      --  when 3 => cpuclock <= '1'; ioclock<='1'; io_wait_states <= x"03";
-      --  when 4 => cpuclock <= '0'; ioclock<='1'; io_wait_states <= x"03";
-      --  when 5 => cpuclock <= '0'; ioclock<='1'; io_wait_states <= x"03";
-      --end case;
-      --case clock_phase is
-      --  when 0 => cpuclock <= '1'; ioclock<='0'; io_wait_states <= x"05";
-      --  when 1 => cpuclock <= '0'; ioclock<='0'; io_wait_states <= x"05";
-      --  when 2 => cpuclock <= '1'; ioclock<='0'; io_wait_states <= x"05";
-      --  when 3 => cpuclock <= '0'; ioclock<='1'; io_wait_states <= x"07";
-      --  when 4 => cpuclock <= '1'; ioclock<='1'; io_wait_states <= x"07";
-      --  when 5 => cpuclock <= '0'; ioclock<='1'; io_wait_states <= x"07";
-      --end case;
       
       -- Work out phi0 frequency for CIA timers
       if phi0_counter=phi0_divisor then
@@ -647,7 +616,6 @@ begin
   cpu0: gs4510 port map(
     clock => cpuclock,
     ioclock => ioclock,
-    io_wait_states => io_wait_states,
     reset =>reset_combined,
     irq => combinedirq,
     nmi => combinednmi,
