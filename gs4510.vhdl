@@ -1392,7 +1392,7 @@ begin
       read_data_copy <= read_data_complex;
       
       -- By default we are doing nothing new.
-      pc_inc := '0'; dec_sp := '0'; 
+      pc_inc := '0'; dec_sp := '0';  stack_pop := '0';
       
       memory_access_read := '0';
       memory_access_write := '0';
@@ -1524,6 +1524,18 @@ begin
             when VectorRead3 =>
               reg_pc(15 downto 8) <= memory_read_value;
               state <= normal_fetch_state;
+            when RTS1 =>
+              reg_pc(15 downto 8) <= memory_read_value;
+              report "RTS: high byte = $" & to_hstring(memory_read_value) severity note;
+              stack_pop := '1';
+              state <= RTS2;
+            when RTS2 =>
+              -- Finish RTS as fast as possible
+              report "RTS: low byte = $" & to_hstring(memory_read_value) severity note;
+              reg_pc <= (reg_pc(15 downto 8)&memory_read_value)+1;
+              memory_access_address := x"000"&((reg_pc(15 downto 8)&memory_read_value)+1);
+              memory_access_read := '1';
+              state <= fast_fetch_state;
             when ProcessorHold =>
               -- Hold CPU while blocked by monitor
 
@@ -1643,7 +1655,13 @@ begin
                   or (mode_lut(to_integer(memory_read_value)) = M_impl)
                   or (mode_lut(to_integer(memory_read_value)) = M_A)
                 then
-                  state <= MicrocodeInterpret;
+                  if memory_read_value=x"60" then
+                    -- Fast-track RTS
+                    state <= RTS1;
+                    stack_pop := '1';
+                  else
+                    state <= MicrocodeInterpret;
+                  end if;
                 else
                   state <= Cycle2;
                 end if;
@@ -2091,6 +2109,18 @@ begin
           end if;
         end if;
 
+        if stack_pop='1' then
+          -- Pop
+          memory_access_read := '1';
+          memory_access_address := x"000"&((reg_sph&reg_sp)+1);
+          memory_access_resolve_address := '1';
+
+          reg_sp <= reg_sp + 1;
+          if flag_e='0' and reg_sp=x"ff" then
+            reg_sph <= reg_sph + 1;
+          end if;
+        end if;
+        
         -- Effect memory accesses.
         -- Note that we cannot combine address resolution for read and write,
         -- because the resolution of some addresses is dependent on whether
