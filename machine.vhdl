@@ -738,7 +738,10 @@ begin
       fastio_rdata    => fastio_vic_rdata,
 
       viciii_iomode => viciii_iomode,
-
+      vicii_2mhz => vicii_2mhz,
+      viciii_fast => viciii_fast,
+      viciv_fast => viciv_fast,
+    
       colourram_at_dc00 => colourram_at_dc00,
       rom_at_e000 => rom_at_e000,
       rom_at_c000 => rom_at_c000,
