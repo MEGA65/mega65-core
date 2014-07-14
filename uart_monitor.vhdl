@@ -104,7 +104,9 @@ architecture behavioural of uart_monitor is
     );
   END component;
 
-  signal history_address : integer range 0 to 1023;
+  signal history_record : std_logic := '1';
+  signal history_address : integer range 0 to 1023 := 0;
+  signal history_write : std_logic := '0';
   signal history_wdata : unsigned(176 downto 0);
   signal history_rdata : unsigned(176 downto 0);
   signal history_buffer : unsigned(176 downto 0);
@@ -186,6 +188,7 @@ architecture behavioural of uart_monitor is
                          ShowMemory1,ShowMemory2,ShowMemory3,ShowMemory4,
                          ShowMemory5,ShowMemory6,ShowMemory7,ShowMemory8,
                          ShowMemory9,
+                         CPUHistory,CPUHistory1,
                          CPUStateLog,CPUStateLog2,CPUStateLog3,CPUStateLog4,
                          FillMemory1,FillMemory2,FillMemory3,FillMemory4,
                          FillMemory5,
@@ -273,7 +276,7 @@ begin
 
   historyram0: ram128x1k
     port map ( clk => clock,
-               w => '0',
+               w => history_write,
                addr => history_address,
                din => history_wdata,
                dout => history_rdata);
@@ -588,8 +591,46 @@ begin
         cpu_state_was_hold <= '0';
       else
         cpu_state_was_hold <= '1';
+      end if;      
+
+      if history_record='1' and (history_address < 1023) then
+        history_write <= '1';
+        history_address <= history_address + 1;
+      else
+        history_write <= '0';
       end if;
+      history_wdata(7 downto 0) <= monitor_p;
+      history_wdata(15 downto 8) <= monitor_a;
+      history_wdata(23 downto 16) <= monitor_x;
+      history_wdata(31 downto 24) <= monitor_y;
+      history_wdata(39 downto 32) <= monitor_z;
+      history_wdata(55 downto 40) <= monitor_pc;
+      history_wdata(71 downto 56) <= unsigned(monitor_cpu_state);
+      history_wdata(79 downto 72) <= monitor_waitstates;
+      history_wdata(87 downto 80) <= monitor_b;
+      history_wdata(104 downto 89) <= monitor_sp;
+      history_wdata(112 downto 105)
+        <= unsigned(monitor_map_enables_low)
+        & monitor_map_offset_low(11 downto 8);
+      history_wdata(120 downto 113) <= monitor_map_offset_low(7 downto 0);
+      history_wdata(121) <= monitor_ibytes(1);
+      history_wdata(122) <= fastio_read;
+      history_wdata(123) <= fastio_write;
+      history_wdata(124) <= monitor_proceed;
+      history_wdata(125) <= monitor_mem_attention_granted;
+      history_wdata(126) <= monitor_request_reflected;
+      history_wdata(127) <= monitor_interrupt_inhibit;
       
+      history_wdata(135 downto 128)
+        <= unsigned(monitor_map_enables_high)
+        & monitor_map_offset_high(11 downto 8);
+      history_wdata(143 downto 136) <= monitor_map_offset_high(7 downto 0);
+      history_wdata(151 downto 144) <= monitor_opcode;
+      history_wdata(159 downto 152) <= monitor_arg1;
+      history_wdata(167 downto 160) <= monitor_arg2;
+      history_wdata(175 downto 168) <= monitor_instruction;
+      history_wdata(176) <= monitor_ibytes(0);
+
       -- Stop CPU when we reach the specified location
       if break_enabled='1' and break_address = unsigned(monitor_pc) then
         monitor_mem_trace_mode <= '1';
@@ -757,8 +798,12 @@ begin
                   trace_continuous <= '1';
                   state <= NextCommand;
                 elsif cmdbuffer(2)='0' then
+                  -- Set CPU free running
                   monitor_mem_trace_mode<='0';
                   state <= NextCommand;
+                  -- Also start capturing CPU history
+                  history_record <= '1';
+                  history_address <= 0;
                 else
                   state <= TraceStep;
                 end if;
@@ -774,10 +819,14 @@ begin
                 end if;
               elsif cmdbuffer(1) = 'z' or cmdbuffer(1) = 'Z' then
                 banner_position <= 0;
-                if cpu_state_count /= 0 then
-                  state <= CPUStateLog;
+                if cmdlen=2 then
+                  if cpu_state_count /= 0 then
+                    state <= CPUStateLog;
+                  else
+                    state <= NextCommand;
+                  end if;
                 else
-                  state <= NextCommand;
+                  parse_hex(CPUHistory);
                 end if;
               elsif cmdbuffer(1) = 'l' or cmdbuffer(1) = 'L' then
                 report "load memory command" severity note;
@@ -834,9 +883,20 @@ begin
               monitor_mem_trace_toggle <= not monitor_mem_trace_toggle_internal;
               monitor_mem_trace_toggle_internal <= not monitor_mem_trace_toggle_internal;
 
+              -- Also start capturing CPU history
+              history_record <= '1';
+              history_address <= 0;
+              
               cmdlen <= 1;
               state <= ShowRegisters;
             end if;
+          when CPUHistory =>
+            history_record <= '0';
+            history_address <= to_integer(hex_value(9 downto 0));
+            state <= CPUHistory1;
+          when CPUHistory1 =>
+            history_buffer <= history_rdata;
+            state <= ShowRegisters2;
           when CPUStateLog =>
             if banner_position /= cpu_state_count then
               print_hex_byte(cpu_state_buf(banner_position)(15 downto 8),
@@ -1035,8 +1095,6 @@ begin
             history_buffer(167 downto 160) <= monitor_arg2;
             history_buffer(175 downto 168) <= monitor_instruction;
             history_buffer(176) <= monitor_ibytes(0);
-
-
             
             banner_position <= 1; state<= ShowRegisters1;
             monitor_mem_setpc <= '0';
