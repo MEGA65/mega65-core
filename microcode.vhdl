@@ -102,7 +102,7 @@ architecture Behavioral of microcode is
     -- I_ROW
     -- I_RTI - XXX in the process of being implemented
     -- I_RTS - XXX in the process of being implemented
-    -- I_SBC
+    I_SBC => (mcSBC => '1', mcInstructionFetch => '1', others => '0'),
     -- I_SEC - handled as a single-cycle op elsewhere   
     -- I_SED - handled as a single-cycle op elsewhere   
     -- I_SEE - handled as a single-cycle op elsewhere   
