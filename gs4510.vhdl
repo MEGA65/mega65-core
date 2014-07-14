@@ -712,6 +712,9 @@ begin
       real_long_address : in unsigned(27 downto 0)) is
       variable long_address : unsigned(27 downto 0);
     begin
+      -- Stop writing when reading.     
+      fastio_write <= '0'; shadow_write <= '0';
+       
       if real_long_address(27 downto 12) = x"001F" and real_long_address(11)='1' then
         -- colour ram access: remap to $FF80000 - $FF807FF
         long_address := x"FF80"&'0'&real_long_address(10 downto 0);
@@ -1016,6 +1019,7 @@ begin
       if long_address(27 downto 17)="00000000000" then
         report "writing to shadow RAM via chipram shadowing. addr=$" & to_hstring(long_address) severity note;
         shadow_write <= '1';
+        fastio_write <= '0';
         shadow_try_write_count <= shadow_try_write_count + 1;
         shadow_write_flags(3) <= '1';
         chipram_address <= long_address(16 downto 0);
@@ -1027,6 +1031,7 @@ begin
         report "writing to slowram..." severity note;
         accessing_slowram <= '1';
         shadow_write <= '0';
+        fastio_write <= '0';
         shadow_write_flags(2) <= '1';
         slowram_addr <= std_logic_vector(long_address(23 downto 1));
         slowram_we <= '0';
@@ -1044,6 +1049,7 @@ begin
         fastio_addr <= std_logic_vector(long_address(19 downto 0));
         last_fastio_addr <= std_logic_vector(long_address(19 downto 0));
         fastio_write <= '1'; fastio_read <= '0';
+        report "raising fastio_write" severity note;
         fastio_wdata <= std_logic_vector(value);
         if long_address = x"FFC00A0" then
           slowram_waitstates <= value;
@@ -1340,7 +1346,7 @@ begin
     
     -- BEGINNING OF MAIN PROCESS FOR CPU
     if rising_edge(clock) then
-
+      
       cpu_leds <= std_logic_vector(shadow_write_flags);
       
       if shadow_write='1' then
@@ -1441,7 +1447,12 @@ begin
         -- Honour wait states on memory accesses
         -- Clear memory access lines unless we are in a memory wait state
         if wait_states /= x"00" then
-          report "  $" & to_hstring(wait_states) &" memory waitstates remaining.  Fastio_rdata = $" & to_hstring(fastio_rdata) & ", mem_reading=" & std_logic'image(mem_reading) severity note;
+          report "  $" & to_hstring(wait_states)
+            &" memory waitstates remaining.  Fastio_rdata = $"
+            & to_hstring(fastio_rdata)
+            & ", mem_reading=" & std_logic'image(mem_reading)
+            & ", fastio_addr=$" & to_hstring(fastio_addr)
+            severity note;
           wait_states <= wait_states - 1;
           if wait_states = x"01" then
             -- Next cycle we can do stuff, provided that the serial monitor
@@ -2006,7 +2017,7 @@ begin
                 monitor_ibytes(1) <= '1';
               end if;
 
-              if reg_microcode.mcJump='1' then reg_pc <= reg_addr(15 downto 8)&memory_read_value; end if;
+              if reg_microcode.mcJump='1' then reg_pc <= reg_addr; end if;
 
               if reg_microcode.mcSetNZ='1' then set_nz(memory_read_value); end if;
               if reg_microcode.mcSetA='1' then reg_a <= memory_read_value; end if;
@@ -2080,5 +2091,4 @@ begin
       end if; -- if not reseting
     end if;                         -- if rising edge of clock
   end process;
-
 end Behavioural;
