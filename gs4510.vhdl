@@ -357,7 +357,7 @@ end component;
     B16TakeBranch,
     InnYReadVectorLow,
     InnZReadVectorLow,
-    CallSubroutine0,CallSubroutine,CallSubroutine2,
+    CallSubroutine,CallSubroutine2,
     ZPRelReadZP,
     JumpAbsReadArg2,
     JumpAbsXReadArg2,
@@ -1714,6 +1714,8 @@ begin
               -- proceed to read the next byte.
               -- But all processing is done in the next cycle.
 
+              reg_pc_jsr <= reg_pc;
+              
               -- Store arg1
               reg_arg1 <= memory_read_value;
               reg_addr(7 downto 0) <= memory_read_value;
@@ -1784,9 +1786,9 @@ begin
                       memory_access_write := '1';
                       memory_access_address := x"000"&reg_sph&reg_sp;
                       memory_access_resolve_address := '1';
-                      memory_access_wdata := reg_pc(7 downto 0);
+                      memory_access_wdata := reg_pc_jsr(7 downto 0);
                       dec_sp := '1';
-                      state <= CallSubroutine0;
+                      state <= CallSubroutine;
                     else
                       -- (reading next instruction argument byte as default action)
                       state <= MicrocodeInterpret;
@@ -1901,22 +1903,13 @@ begin
                     state <= Imm16ReadArg2;
                 end case;
               end if;
-            when CallSubroutine0 =>
-              -- Push PCL
-              memory_access_read := '0';
-              memory_access_write := '1';
-              memory_access_address := x"000"&reg_sph&reg_sp;
-              memory_access_resolve_address := '1';
-              memory_access_wdata := reg_pc(7 downto 0);
-              dec_sp := '1';
-              state <= CallSubroutine;
             when CallSubroutine =>
               -- Push PCH
               memory_access_read := '0';
               memory_access_write := '1';
               memory_access_address := x"000"&reg_sph&reg_sp;
               memory_access_resolve_address := '1';
-              memory_access_wdata := reg_pc(15 downto 8);
+              memory_access_wdata := reg_pc_jsr(15 downto 8);
               dec_sp := '1';
               pc_inc := '0';
               state <= CallSubroutine2;
