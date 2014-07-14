@@ -598,6 +598,7 @@ begin
         history_address <= history_address + 1;
       else
         history_write <= '0';
+        history_record <= '0';
       end if;
       history_wdata(7 downto 0) <= monitor_p;
       history_wdata(15 downto 8) <= monitor_a;
