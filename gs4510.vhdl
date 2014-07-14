@@ -478,6 +478,7 @@ end component;
 
   signal a_neg_z : std_logic;
   signal a_add : unsigned(11 downto 0); -- has NVZC flags and result
+  signal a_sub : unsigned(11 downto 0); -- has NVZC flags and result
   
   signal x_incremented : unsigned(7 downto 0);
   signal x_decremented : unsigned(7 downto 0);
@@ -1259,14 +1260,18 @@ begin
     impure function alu_op_sub (
       i1 : in unsigned(7 downto 0);
       i2 : in unsigned(7 downto 0)) return unsigned is
-      variable tmp : unsigned(8 downto 0);
+      variable tmp : unsigned(11 downto 0); -- NVZC+8bit result
       variable tmpd : unsigned(8 downto 0);
     begin
-      tmp := ("0"&i1) - ("0"&i2)
+      tmp(8 downto 0) := ("0"&i1) - ("0"&i2)
              - "000000001" + ("00000000"&flag_c);
-      flag_c <= not tmp(8);
-      flag_v <= (i1(7) xor tmp(7)) and (i1(7) xor i2(7));
-      tmp(7 downto 0) := with_nz(tmp(7 downto 0));
+      tmp(8) := not tmp(8); -- Carry flag
+      tmp(10) := (i1(7) xor tmp(7)) and (i1(7) xor i2(7)); -- Overflowflag
+      tmp(7 downto 0) := tmp(7 downto 0);
+      tmp(11) := tmp(7); -- Negative flag
+      if tmp(7 downto 0) = x"00" then
+        tmp(9) := '1'; else tmp(9) := '0';  -- Zero flag
+      end if;
       if flag_d='1' then
         tmpd := (("00000"&i1(3 downto 0)) - ("00000"&i2(3 downto 0)))
                 - "000000001" + ("00000000" & flag_c);
@@ -1280,17 +1285,17 @@ begin
         if tmpd(8)='1' then
           tmpd := tmpd - ("0"&x"60");
         end if;
-        tmp := tmpd;
+        tmp(7 downto 0) := tmpd(7 downto 0);
       end if;
       -- Return final value
-      report "subtraction result of "
-        & "$" & to_hstring(std_logic_vector(i1)) 
-        & " - "
-        & "$" & to_hstring(std_logic_vector(i2)) 
-        & " - 1 + "
-        & "$" & std_logic'image(flag_c)
-        & " = " & to_hstring(std_logic_vector(tmp(7 downto 0))) severity note;
-      return tmp(7 downto 0);
+      --report "subtraction result of "
+      --  & "$" & to_hstring(std_logic_vector(i1)) 
+      --  & " - "
+      --  & "$" & to_hstring(std_logic_vector(i2)) 
+      --  & " - 1 + "
+      --  & "$" & std_logic'image(flag_c)
+      --  & " = " & to_hstring(std_logic_vector(tmp(7 downto 0))) severity note;
+      return tmp(11 downto 0);
     end function alu_op_sub;
     
     function flag_status (
@@ -1349,6 +1354,7 @@ begin
       a_neg_z <= '1'; else a_neg_z <= '0';
     end if;
     a_add <= alu_op_add(reg_a,read_data);
+    a_sub <= alu_op_sub(reg_a,read_data);
     
     x_incremented <= reg_x + 1;
     x_decremented <= reg_x - 1;
@@ -2062,6 +2068,11 @@ begin
                 reg_a <= a_add(7 downto 0);
                 flag_c <= a_add(8);  flag_z <= a_add(9);
                 flag_v <= a_add(10); flag_n <= a_add(11);
+              end if;
+              if reg_microcode.mcSBC='1' then
+                reg_a <= a_sub(7 downto 0);
+                flag_c <= a_sub(8);  flag_z <= a_sub(9);
+                flag_v <= a_sub(10); flag_n <= a_sub(11);
               end if;
               
               if reg_microcode.mcClearE='1' then flag_e <= '0'; end if;
