@@ -367,6 +367,7 @@ end component;
     Imm16ReadArg2,
     TakeBranch8,TakeBranch8b,
     LoadTarget,
+    WriteCommit,
     MicrocodeInterpret
     );
   signal state : processor_state := ResetLow;
@@ -1866,7 +1867,7 @@ begin
                       -- XXX consider using the disabled faster (fewer cycles) option
                       -- below, if the timing will tolerate it.  But disabled
                       -- for now, since it increases synthesis time.
-                      state <= normal_fetch_state
+                      state <= normal_fetch_state;
 
                       --memory_access_read := '1';
                       --memory_access_address := x"000"&temp_addr;
@@ -2062,6 +2063,12 @@ begin
               state <= normal_fetch_state;
             when Imm16ReadArg2 => 
               state <= normal_fetch_state;
+            when WriteCommit =>
+              memory_access_write := '1';
+              memory_access_address := x"000"&reg_addr;
+              memory_access_resolve_address := '1';
+              memory_access_wdata := reg_t;
+              state <= normal_fetch_state;
             when LoadTarget =>
               -- For some addressing modes we load the target in a separate
               -- cycle to improve timing.
@@ -2136,14 +2143,12 @@ begin
                 memory_access_resolve_address := '1';
               end if;
               if reg_microcode.mcStoreTRB='1' then
-                memory_access_address := x"000"&reg_addr;
-                memory_access_resolve_address := '1';
-                memory_access_wdata := reg_a and memory_read_value;
+                reg_t <= reg_a and memory_read_value;
+                state <= WriteCommit;
               end if;
               if reg_microcode.mcStoreTSB='1' then
-                memory_access_address := x"000"&reg_addr;
-                memory_access_resolve_address := '1';
-                memory_access_wdata := reg_a or memory_read_value;
+                reg_t <= reg_a or memory_read_value;
+                state <= WriteCommit;
               end if;
               if reg_microcode.mcTestAZ = '1' then
                 if (reg_a and memory_read_value) = x"00" then
