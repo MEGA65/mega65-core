@@ -2178,12 +2178,10 @@ begin
               end if;
               if reg_microcode.mcStoreTRB='1' then
                 reg_t <= reg_a and memory_read_value;
-                state <= WriteCommit;
               end if;
               if reg_microcode.mcStoreTSB='1' then
                 report "memory_read_value = $" & to_hstring(memory_read_value) & ", A = $" & to_hstring(reg_a) severity note;
                 reg_t <= reg_a or memory_read_value;
-                state <= WriteCommit;
               end if;
               if reg_microcode.mcTestAZ = '1' then
                 if (reg_a and memory_read_value) = x"00" then
@@ -2191,6 +2189,9 @@ begin
                 else
                   flag_z <= '0';
                 end if;
+              end if;
+              if reg_microcode.mcDelayedWrite='1' then
+                state <= WriteCommit;
               end if;
               memory_access_write := reg_microcode.mcWriteMem;
             when others =>

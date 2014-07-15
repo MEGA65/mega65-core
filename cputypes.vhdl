@@ -58,7 +58,8 @@ package cputypes is
     mcStoreTSB : std_logic;
 
     mcTestAZ : std_logic;
-    
+
+    mcDelayedWrite : std_logic;
     mcWriteMem : std_logic;
     mcWriteRegAddr : std_logic;
     mcPush : std_logic;

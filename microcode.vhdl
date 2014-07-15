@@ -120,9 +120,9 @@ architecture Behavioral of microcode is
     -- I_TAY - handled as a single-cycle op elsewhere   
     -- I_TAZ - handled as a single-cycle op elsewhere   
     -- I_TBA - handled as a single-cycle op elsewhere   
-    I_TRB => (mcStoreTRB => '1', mcWriteMem => '1', mcTestAZ => '1', 
+    I_TRB => (mcStoreTRB => '1', mcDelayedWrite => '1', mcTestAZ => '1', 
               others => '0'),
-    I_TSB => (mcStoreTSB => '1', mcWriteMem => '1', mcTestAZ => '1', 
+    I_TSB => (mcStoreTSB => '1', mcDelayedWrite => '1', mcTestAZ => '1', 
               others => '0'),
     -- I_TSX - handled as a single-cycle op elsewhere   
     -- I_TSY - handled as a single-cycle op elsewhere   
