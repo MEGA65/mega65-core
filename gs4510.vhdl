@@ -358,7 +358,6 @@ end component;
     InnZReadVectorLow,
     CallSubroutine,CallSubroutine2,
     ZPRelReadZP,
-    JumpAbsReadArg2,
     JumpAbsXReadArg2,
     JumpIAbsReadArg2,
     JumpIAbsXReadArg2,
@@ -1548,8 +1547,10 @@ begin
               -- case the increment will happen in InstructionFetch
               if fast_fetch_state = InstructionDecode then
                 reg_pc <= (reg_pc(15 downto 8)&memory_read_value)+2;
+                report "Adding 2 to PC for immediate dispatch" severity note;
               else
                 reg_pc <= (reg_pc(15 downto 8)&memory_read_value)+1;
+                report "Adding 1 to PC for slow dispatch" severity note;
               end if;
               state <= fast_fetch_state;
             when ProcessorHold =>
@@ -1853,18 +1854,23 @@ begin
                       (reg_instruction=I_BPL and flag_n='0') then
                       -- Branch will be taken. Calculate destination address by
                       -- sign-extending the 8-bit offset.
+                      report "Taking 8-bit branch" severity note;
                       temp_addr := reg_pc +
                                    to_integer(reg_arg1(7)&reg_arg1(7)&reg_arg1(7)&reg_arg1(7)&
                                               reg_arg1(7)&reg_arg1(7)&reg_arg1(7)&reg_arg1(7)&
                                               reg_arg1);
-                      --memory_access_read := '1';
-                      --memory_access_address := x"000"&temp_addr;
-                      --memory_access_resolve_address := '1';
-                      -- Read next instruction next cycle to improve timing.
+                      memory_access_read := '1';
+                      memory_access_address := x"000"&temp_addr;
+                      memory_access_resolve_address := '1';
+                      -- Read next instruction now to save a cycle, i.e.,
+                      -- 8-bit branches will take 2 cycles, whether taken or not.
                       reg_pc <= temp_addr;
-                      state <= normal_fetch_state;
-                      if fast_fetch_state = InstructionDecode then pc_inc := '1'; end if;
+                      state <= fast_fetch_state;
+                      if fast_fetch_state = InstructionDecode then
+                        reg_pc <= temp_addr + 1;
+                      end if;
                     else
+                      report "NOT Taking 8-bit branch" severity note;
                       -- Branch will not be taken.
                       -- fetch next instruction now to save a cycle
                       state <= fast_fetch_state;
@@ -1947,23 +1953,27 @@ begin
               case reg_addressingmode is
                 -- Note, we treat BSR as absolute mode, with microcode
                 -- controlling the calculation of the address as relative.
-                when M_nnnn => reg_pc <= reg_addr;
-                               -- Immediately start reading the next instruction
-                               memory_access_read := '1';
-                               memory_access_address := x"000"&reg_addr;
-                               memory_access_resolve_address := '1';
-                               state <= fast_fetch_state;
+                when M_nnnn =>
+                  report "Jumping to $" & to_hstring(reg_addr)
+                    severity note;
+                  -- Immediately start reading the next instruction
+                  memory_access_read := '1';
+                  memory_access_address := x"000"&reg_addr;
+                  memory_access_resolve_address := '1';
+                  if fast_fetch_state = InstructionDecode then
+                    -- Fast dispatch, so bump PC ready for next cycle
+                    reg_pc <= reg_addr + 1;
+                  else
+                    -- Normal dispatch
+                    reg_pc <= reg_addr;
+                  end if;
+                  state <= fast_fetch_state;
                 -- XXX The following need to be changed, because arg2 is
                 -- already read by the time we get here, just dereference.
                 when M_innnn => state <= JumpIAbsReadArg2;
                 when M_innnnX => state <= JumpAbsXReadArg2;
                 when others => state <= normal_fetch_state;
               end case;
-            when JumpAbsReadArg2 =>
-              monitor_arg2 <= memory_read_value;
-              monitor_ibytes(0) <= '1';
-              reg_addr(15 downto 8) <=  memory_read_value;
-              state <= MicrocodeInterpret;
             when JumpAbsXReadArg2 =>
               monitor_arg2 <= memory_read_value;
               monitor_ibytes(0) <= '1';
@@ -2116,6 +2126,23 @@ begin
               if reg_microcode.mcWriteRegAddr='1' then
                 memory_access_address := x"000"&reg_addr;
                 memory_access_resolve_address := '1';
+              end if;
+              if reg_microcode.mcStoreTRB='1' then
+                memory_access_address := x"000"&reg_addr;
+                memory_access_resolve_address := '1';
+                memory_access_wdata := reg_a and memory_read_value;
+              end if;
+              if reg_microcode.mcStoreTSB='1' then
+                memory_access_address := x"000"&reg_addr;
+                memory_access_resolve_address := '1';
+                memory_access_wdata := reg_a or memory_read_value;
+              end if;
+              if reg_microcode.mcTestAZ = '1' then
+                if (reg_a and memory_read_value) = x"00" then
+                  flag_z <= '1';
+                else
+                  flag_z <= '0';
+                end if;
               end if;
               memory_access_write := reg_microcode.mcWriteMem;
             when others =>

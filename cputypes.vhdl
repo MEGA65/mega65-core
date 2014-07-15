@@ -54,6 +54,10 @@ package cputypes is
     mcStoreX : std_logic;
     mcStoreY : std_logic;
     mcStoreZ : std_logic;
+    mcStoreTRB : std_logic;
+    mcStoreTSB : std_logic;
+
+    mcTestAZ : std_logic;
     
     mcWriteMem : std_logic;
     mcWriteRegAddr : std_logic;
