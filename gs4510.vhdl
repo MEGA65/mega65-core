@@ -1820,8 +1820,12 @@ begin
                       dec_sp := '1';
                       state <= CallSubroutine;
                     else
-                      -- (reading next instruction argument byte as default action)
-                      state <= MicrocodeInterpret;
+                      if is_load='1' or is_rmw='1' then
+                        state <= LoadTarget;
+                      else
+                        -- (reading next instruction argument byte as default action)
+                        state <= MicrocodeInterpret;
+                      end if;
                     end if;
                   when M_nnrr =>
                     reg_t <= reg_arg1;
@@ -2147,6 +2151,7 @@ begin
                 state <= WriteCommit;
               end if;
               if reg_microcode.mcStoreTSB='1' then
+                report "memory_read_value = $" & to_hstring(memory_read_value) & ", A = $" & to_hstring(reg_a) severity note;
                 reg_t <= reg_a or memory_read_value;
                 state <= WriteCommit;
               end if;
