@@ -34,8 +34,8 @@ architecture Behavioral of microcode is
   type ram_t is array (instruction)
     of microcodeops;
   signal ram : ram_t := (
-    I_ADC => (mcADC => '1', mcInstructionFetch => '1', others => '0'),
-    I_AND => (mcAND => '1', mcInstructionFetch => '1', others => '0'),
+    I_ADC => (mcADC => '1', mcInstructionFetch => '1', mcIncPC => '1', others => '0'),
+    I_AND => (mcAND => '1', mcInstructionFetch => '1', mcIncPC => '1', others => '0'),
     I_ASL => (mcASL => '1', mcDelayedWrite => '1', others => '0'),
     I_ASR => (mcASR => '1', mcDelayedWrite => '1', others => '0'),
     I_ASW => (mcWordOp => '1', others => '0'),
@@ -44,7 +44,7 @@ architecture Behavioral of microcode is
     -- I_BCC - handled elsewhere
     -- I_BCS - handled elsewhere
     -- I_BEQ - handled elsewhere
-    I_BIT => (mcBIT => '1', mcInstructionFetch => '1', others => '0'),
+    I_BIT => (mcBIT => '1', mcInstructionFetch => '1', mcIncPC => '1', others => '0'),
     -- I_BMI - handled elsewhere
     -- I_BNE - handled elsewhere
     -- I_BPL - handled elsewhere
@@ -58,14 +58,14 @@ architecture Behavioral of microcode is
     I_CLE => (mcClearE => '1', mcInstructionFetch => '1', others => '0'),
     I_CLI => (mcClearI => '1', mcInstructionFetch => '1', others => '0'),
     -- I_CLV - handled as a single-cycle op elsewhere
-    I_CMP => (mcCMP => '1', mcInstructionFetch => '1', others => '0'),
-    I_CPX => (mcCPX => '1', mcInstructionFetch => '1', others => '0'),
-    I_CPY => (mcCPY => '1', mcInstructionFetch => '1', others => '0'),
-    I_CPZ => (mcCPZ => '1', mcInstructionFetch => '1', others => '0'),
+    I_CMP => (mcCMP => '1', mcInstructionFetch => '1', mcIncPC => '1', others => '0'),
+    I_CPX => (mcCPX => '1', mcInstructionFetch => '1', mcIncPC => '1', others => '0'),
+    I_CPY => (mcCPY => '1', mcInstructionFetch => '1', mcIncPC => '1', others => '0'),
+    I_CPZ => (mcCPZ => '1', mcInstructionFetch => '1', mcIncPC => '1', others => '0'),
     I_DEC => (mcDEC => '1', mcDelayedWrite => '1', others => '0'),
     I_DEW => (mcWordOp => '1', others => '0'),
     -- I_EOM - handled as a single-cycle op elsewhere
-    I_EOR => (mcEOR => '1', mcInstructionFetch => '1', others => '0'),
+    I_EOR => (mcEOR => '1', mcInstructionFetch => '1', mcIncPC => '1', others => '0'),
     I_INC => (mcINC => '1', mcDelayedWrite => '1', others => '0'),
     I_INW => (mcWordOp => '1', others => '0'),
     -- I_INX - handled as a single-cycle op elsewhere
@@ -84,7 +84,7 @@ architecture Behavioral of microcode is
     I_LSR => (mcLSR => '1', mcDelayedWrite => '1', others => '0'),
     I_MAP => (mcMap => '1', others => '0'),
     -- I_NEG - handled as a single-cycle op elsewhere
-    I_ORA => (mcORA => '1', mcInstructionFetch => '1', others => '0'),
+    I_ORA => (mcORA => '1', mcInstructionFetch => '1', mcIncPC => '1', others => '0'),
     I_PHA => (mcPush => '1', mcStoreA => '1', others => '0'),
     I_PHP => (mcPush => '1', mcStoreP => '1', others => '0'),
     I_PHW => (mcWordOp => '1', others => '0'),
@@ -102,7 +102,7 @@ architecture Behavioral of microcode is
     I_ROW => (mcWordOp => '1', others => '0'),
     -- I_RTI - XXX in the process of being implemented
     -- I_RTS - XXX in the process of being implemented
-    I_SBC => (mcSBC => '1', mcInstructionFetch => '1', others => '0'),
+    I_SBC => (mcSBC => '1', mcInstructionFetch => '1', mcIncPC => '1', others => '0'),
     -- I_SEC - handled as a single-cycle op elsewhere   
     -- I_SED - handled as a single-cycle op elsewhere   
     -- I_SEE - handled as a single-cycle op elsewhere   
