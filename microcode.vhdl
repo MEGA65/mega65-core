@@ -95,7 +95,7 @@ architecture Behavioral of microcode is
     I_PLX => (mcPop => '1', mcStackX => '1', others => '0'),
     I_PLY => (mcPop => '1', mcStackY => '1', others => '0'),
     I_PLZ => (mcPop => '1', mcStackZ => '1', others => '0'),
-    -- I_RMB
+    I_RMB => (mcRMB => '1', mcDelayedWrite => '1', others => '0'),
     I_ROL => (mcROL => '1', mcDelayedWrite => '1', others => '0'),
     I_ROR => (mcROR => '1', mcDelayedWrite => '1', others => '0'),
     -- I_ROW
@@ -106,7 +106,7 @@ architecture Behavioral of microcode is
     -- I_SED - handled as a single-cycle op elsewhere   
     -- I_SEE - handled as a single-cycle op elsewhere   
     -- I_SEI - handled as a single-cycle op elsewhere   
-    -- I_SMB
+    I_SMB => (mcSMB => '1', mcDelayedWrite => '1', others => '0'),
     I_STA => (mcStoreA => '1', mcWriteMem => '1', mcInstructionFetch => '1', 
               mcWriteRegAddr => '1',mcIncPC => '1',  others => '0'),
     I_STX => (mcStoreX => '1', mcWriteMem => '1', mcInstructionFetch => '1', 

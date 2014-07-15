@@ -96,6 +96,8 @@ package cputypes is
     mcINC : std_logic;
     mcROL : std_logic;
     mcROR : std_logic;
+    mcRMB : std_logic;
+    mcSMB : std_logic;
     
   end record;
 

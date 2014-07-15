@@ -499,6 +499,9 @@ end component;
   signal debugging_single_stepping : std_logic := '0';
   signal debug_count : integer range 0 to 5 := 0;
 
+  signal rmb_mask : unsigned(7 downto 0);
+  signal smb_mask : unsigned(7 downto 0);
+
 begin
 
   shadowram0 : shadowram port map (
@@ -1726,6 +1729,8 @@ begin
                 when I_LSR => is_rmw <= '1';
                 when I_TSB => is_rmw <= '1';
                 when I_TRB => is_rmw <= '1';
+                when I_RMB => is_rmw <= '1';
+                when I_SMB => is_rmw <= '1';
                 -- There are a few 16-bit RMWs as well
                 when I_INW => is_rmw <= '1';
                 when I_DEW => is_rmw <= '1';
@@ -1772,6 +1777,19 @@ begin
                 when others =>
                   pc_inc := '1';
                   null;
+              end case;
+
+              -- Work out relevant bit mask for RMB/SMB
+              case reg_opcode(6 downto 4) is
+                when "000" => rmb_mask <= "11111110"; smb_mask <= "00000001";
+                when "001" => rmb_mask <= "11111101"; smb_mask <= "00000010";
+                when "010" => rmb_mask <= "11111011"; smb_mask <= "00000100";
+                when "011" => rmb_mask <= "11110111"; smb_mask <= "00001000";
+                when "100" => rmb_mask <= "11101111"; smb_mask <= "00010000";
+                when "101" => rmb_mask <= "11011111"; smb_mask <= "00100000";
+                when "110" => rmb_mask <= "10111111"; smb_mask <= "01000000";
+                when "111" => rmb_mask <= "01111111"; smb_mask <= "10000000";
+                when others => null;
               end case;
               
               -- Process instruction next cycle
@@ -2269,6 +2287,14 @@ begin
                 if '0'&memory_read_value(6 downto 0) = x"7f" then
                   flag_z <= '1'; else flag_z <= '0';
                 end if;
+              end if;
+              if reg_microcode.mcRMB='1' then
+                -- Clear bit based on opcode
+                reg_t <= memory_read_value and rmb_mask;
+              end if;
+              if reg_microcode.mcSMB='1' then
+                -- Set bit based on opcode
+                reg_t <= memory_read_value or smb_mask;
               end if;
               
               if reg_microcode.mcClearE='1' then flag_e <= '0'; end if;
