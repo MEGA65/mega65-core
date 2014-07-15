@@ -58,10 +58,10 @@ architecture Behavioral of microcode is
     I_CLE => (mcClearE => '1', mcInstructionFetch => '1', others => '0'),
     I_CLI => (mcClearI => '1', mcInstructionFetch => '1', others => '0'),
     -- I_CLV - handled as a single-cycle op elsewhere
-    -- I_CMP
-    -- I_CPX
-    -- I_CPY
-    -- I_CPZ
+    I_CMP => (mcCMP => '1', mcInstructionFetch => '1', others => '0'),
+    I_CPX => (mcCPX => '1', mcInstructionFetch => '1', others => '0'),
+    I_CPY => (mcCPY => '1', mcInstructionFetch => '1', others => '0'),
+    I_CPZ => (mcCPZ => '1', mcInstructionFetch => '1', others => '0'),
     I_DEC => (mcDEC => '1', mcDelayedWrite => '1', others => '0'),
     -- I_DEW
     -- I_EOM - handled as a single-cycle op elsewhere
@@ -73,7 +73,6 @@ architecture Behavioral of microcode is
     -- I_INZ - handled as a single-cycle op elsewhere
     I_JMP => (mcJump => '1', others => '0'),
     I_JSR => (mcJump => '1', others => '0'),
-    -- I_LSR
     I_LDA => (mcSetA => '1', mcSetNZ => '1', mcIncPC => '1', 
               mcInstructionFetch => '1', others => '0'),
     I_LDX => (mcSetX => '1', mcSetNZ => '1', mcIncPC => '1', 

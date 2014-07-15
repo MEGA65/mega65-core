@@ -2178,6 +2178,18 @@ begin
               if reg_microcode.mcSetY='1' then reg_y <= memory_read_value; end if;
               if reg_microcode.mcSetZ='1' then reg_z <= memory_read_value; end if;
 
+              if reg_microcode.mcCMP='1' then
+                alu_op_cmp(reg_a,memory_read_value);
+              end if;
+              if reg_microcode.mcCPX='1' then
+                alu_op_cmp(reg_x,memory_read_value);
+              end if;
+              if reg_microcode.mcCPY='1' then
+                alu_op_cmp(reg_y,memory_read_value);
+              end if;
+              if reg_microcode.mcCPZ='1' then
+                alu_op_cmp(reg_z,memory_read_value);
+              end if;
               if reg_microcode.mcADC='1' then
                 reg_a <= a_add(7 downto 0);
                 flag_c <= a_add(8);  flag_z <= a_add(9);
