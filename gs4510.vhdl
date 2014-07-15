@@ -325,6 +325,7 @@ end component;
     16#AA# => '1',
     16#B8# => '1',
     16#BA# => '1',
+    16#C8# => '1',
     16#CA# => '1',
     16#D8# => '1',
     16#E8# => '1',
@@ -355,7 +356,9 @@ end component;
     RTI,RTS,RTS1,RTS2,
     B16TakeBranch,
     InnYReadVectorLow,
+    InnYReadVectorHigh,
     InnZReadVectorLow,
+    InnZReadVectorHigh,
     CallSubroutine,CallSubroutine2,
     ZPRelReadZP,
     JumpAbsXReadArg2,
@@ -1673,6 +1676,7 @@ begin
                 when x"AA" => reg_x <= reg_a; set_nz(reg_a); -- TAX
                 when x"B8" => flag_v <= '0';  -- CLV
                 when x"BA" => reg_x <= reg_sp; -- TSX
+                when x"C8" => reg_y <= y_incremented; set_nz(y_incremented); -- INY
                 when x"CA" => reg_x <= x_decremented; set_nz(x_decremented); -- DEX
                 when x"D8" => flag_d <= '0';  -- CLD
                 when x"E8" => reg_x <= x_incremented; set_nz(x_incremented); -- INX
@@ -1851,12 +1855,14 @@ begin
                     memory_access_read := '1';
                     memory_access_address := x"000"&temp_addr;
                     memory_access_resolve_address := '1';
+                    reg_addr <= temp_addr + 1;
                     state <= InnYReadVectorLow;
                   when M_InnZ =>
                     temp_addr := reg_b&reg_arg1;
                     memory_access_read := '1';
                     memory_access_address := x"000"&temp_addr;
                     memory_access_resolve_address := '1';
+                    reg_addr <= temp_addr + 1;
                     state <= InnZReadVectorLow;
                   when M_rr =>
                     if (reg_instruction=I_BRA) or
@@ -2058,10 +2064,36 @@ begin
                                         -- Dummy/incomplete states for now.
             when InnYReadVectorLow =>
               reg_addr(7 downto 0) <= memory_read_value;
-              state <= normal_fetch_state;
+              memory_access_read := '1';
+              memory_access_address := x"000"&reg_addr;
+              memory_access_resolve_address := '1';
+              state <= InnYReadVectorHigh;
+            when InnYReadVectorHigh =>
+              reg_addr <=
+                to_unsigned(to_integer(memory_read_value&reg_addr(7 downto 0))
+                            + to_integer(reg_y),16);
+              if is_load='1' or is_rmw='1' then
+                state <= LoadTarget;
+              else
+                -- (reading next instruction argument byte as default action)
+                state <= MicrocodeInterpret;
+              end if;
             when InnZReadVectorLow =>
               reg_addr(7 downto 0) <= memory_read_value;
-              state <= normal_fetch_state;
+              memory_access_read := '1';
+              memory_access_address := x"000"&reg_addr;
+              memory_access_resolve_address := '1';
+              state <= InnYReadVectorHigh;
+            when InnZReadVectorHigh =>
+              reg_addr <=
+                to_unsigned(to_integer(memory_read_value&reg_addr(7 downto 0))
+                            + to_integer(reg_z),16);
+              if is_load='1' or is_rmw='1' then
+                state <= LoadTarget;
+              else
+                -- (reading next instruction argument byte as default action)
+                state <= MicrocodeInterpret;
+              end if;
             when ZPRelReadZP =>
               monitor_arg1 <= memory_read_value;
               monitor_ibytes(1) <= '1';
