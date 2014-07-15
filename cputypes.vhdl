@@ -39,6 +39,8 @@ package cputypes is
 
     -- Mark instruction RMW
     mcRMW : std_logic;
+    -- 16bit operations
+    mcWordOp : std_logic;
 
     -- Set NZ based on currently read memory
     mcSetNZ : std_logic;

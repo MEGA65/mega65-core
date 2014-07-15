@@ -260,6 +260,7 @@ end component;
   signal reg_addr : unsigned(15 downto 0);
   -- Temporary value holder (used for RMW instructions)
   signal reg_t : unsigned(7 downto 0);
+  signal reg_t_high : unsigned(7 downto 0);
 
   signal instruction_phase : unsigned(3 downto 0);
   
@@ -371,6 +372,9 @@ end component;
     TakeBranch8,TakeBranch8b,
     LoadTarget,
     WriteCommit,
+    WordOpReadHigh,
+    WordOpWriteLow,
+    WordOpWriteHigh,
     MicrocodeInterpret
     );
   signal state : processor_state := ResetLow;
@@ -2179,7 +2183,7 @@ begin
               if reg_microcode.mcInstructionFetch='1' then
                 state <= fast_fetch_state;
               else
-                -- XXX need to check if RMW instruction
+                -- (this gets overriden below for RMW and other instruction types)
                 state <= normal_fetch_state;
               end if;
               
@@ -2326,7 +2330,41 @@ begin
               if reg_microcode.mcDelayedWrite='1' then
                 state <= WriteCommit;
               end if;
+              if reg_microcode.mcWordOp='1' then
+                reg_t <= memory_read_value;
+                memory_access_address := x"000"&(reg_addr+1);
+                memory_access_resolve_address := '1';
+                memory_access_read := '1';
+                state <= WordOpReadHigh;
+              end if;
               memory_access_write := reg_microcode.mcWriteMem;
+            when WordOpReadHigh =>
+              state <= WordOpWriteLow;
+              -- XXX set values and flags
+              case reg_instruction is
+                when I_ASW => 
+                when I_DEW =>
+                when I_INW =>
+                when I_PHW =>
+                  -- XXX need to follow a different path for this instruction
+                when I_ROW =>
+                when others =>
+                  state <= normal_fetch_state;
+              end case;
+              reg_t_high <= memory_read_value;
+            when WordOpWriteLow =>
+              memory_access_address := x"000"&(reg_addr);
+              memory_access_resolve_address := '1';
+              memory_access_write := '1';
+              memory_access_wdata := reg_t;
+              reg_addr <= reg_addr + 1;
+              state <= WordOpWriteHigh;
+            when WordOpWriteHigh =>
+              memory_access_address := x"000"&(reg_addr);
+              memory_access_resolve_address := '1';
+              memory_access_write := '1';
+              memory_access_wdata := reg_t_high;
+              state <= normal_fetch_state;
             when others =>
               state <= normal_fetch_state;
           end case;

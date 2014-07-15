@@ -38,7 +38,7 @@ architecture Behavioral of microcode is
     I_AND => (mcAND => '1', mcInstructionFetch => '1', others => '0'),
     I_ASL => (mcASL => '1', mcDelayedWrite => '1', others => '0'),
     I_ASR => (mcASR => '1', mcDelayedWrite => '1', others => '0'),
-    -- I_ASW
+    I_ASW => (mcWordOp => '1', others => '0'),
     -- I_BBR - handled elsewhere
     -- I_BBS - handled elsewhere
     -- I_BCC - handled elsewhere
@@ -63,11 +63,11 @@ architecture Behavioral of microcode is
     I_CPY => (mcCPY => '1', mcInstructionFetch => '1', others => '0'),
     I_CPZ => (mcCPZ => '1', mcInstructionFetch => '1', others => '0'),
     I_DEC => (mcDEC => '1', mcDelayedWrite => '1', others => '0'),
-    -- I_DEW
+    I_DEW => (mcWordOp => '1', others => '0'),
     -- I_EOM - handled as a single-cycle op elsewhere
     I_EOR => (mcEOR => '1', mcInstructionFetch => '1', others => '0'),
     I_INC => (mcINC => '1', mcDelayedWrite => '1', others => '0'),
-    -- I_INW
+    I_INW => (mcWordOp => '1', others => '0'),
     -- I_INX - handled as a single-cycle op elsewhere
     -- I_INY - handled as a single-cycle op elsewhere
     -- I_INZ - handled as a single-cycle op elsewhere
@@ -87,6 +87,7 @@ architecture Behavioral of microcode is
     I_ORA => (mcORA => '1', mcInstructionFetch => '1', others => '0'),
     I_PHA => (mcPush => '1', mcStoreA => '1', others => '0'),
     I_PHP => (mcPush => '1', mcStoreP => '1', others => '0'),
+    I_PHW => (mcWordOp => '1', others => '0'),
     I_PHX => (mcPush => '1', mcStoreX => '1', others => '0'),
     I_PHY => (mcPush => '1', mcStoreY => '1', others => '0'),
     I_PHZ => (mcPush => '1', mcStoreZ => '1', others => '0'),
@@ -98,7 +99,7 @@ architecture Behavioral of microcode is
     I_RMB => (mcRMB => '1', mcDelayedWrite => '1', others => '0'),
     I_ROL => (mcROL => '1', mcDelayedWrite => '1', others => '0'),
     I_ROR => (mcROR => '1', mcDelayedWrite => '1', others => '0'),
-    -- I_ROW
+    I_ROW => (mcWordOp => '1', others => '0'),
     -- I_RTI - XXX in the process of being implemented
     -- I_RTS - XXX in the process of being implemented
     I_SBC => (mcSBC => '1', mcInstructionFetch => '1', others => '0'),
