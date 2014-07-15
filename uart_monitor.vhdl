@@ -193,7 +193,7 @@ architecture behavioural of uart_monitor is
                          FillMemory1,FillMemory2,FillMemory3,FillMemory4,
                          FillMemory5,
                          SetPC1,
-                         ShowRegisters,
+                         ShowRegisters,ShowRegistersDelay,ShowRegistersRead,
                          ShowRegisters1,ShowRegisters2,ShowRegisters3,ShowRegisters4,
                          ShowRegisters5,ShowRegisters6,ShowRegisters7,ShowRegisters8,
                          ShowRegisters9,ShowRegisters10,ShowRegisters11,ShowRegisters12,
@@ -257,6 +257,8 @@ architecture behavioural of uart_monitor is
   signal cpu_state_count : integer range 0 to 16;
   signal cpu_state_was_hold : std_logic := '0';
 
+  signal show_register_delay : integer range 0 to 12;
+  
 begin
 
   uart_tx0: uart_tx_ctrl
@@ -1064,7 +1066,19 @@ begin
             byte_number <= byte_number + 1;
             print_hex_byte(membuf(byte_number),ShowMemory7);
           when ShowMemory9 => try_output_char(lf,ShowMemory2);
-          when ShowRegisters =>            
+          when ShowRegisters =>
+            show_register_delay <= 12;
+            state <= ShowRegistersDelay;
+          when ShowRegistersDelay =>
+            -- Wait 12 cycles to give instruction time to run, so that when we
+            -- latch the exposed CPU state it is post-instruction, not pre- (or
+            -- mid-) instruction.
+            if show_register_delay=0 then
+              state <= ShowRegistersRead;
+            else
+              show_register_delay <= show_register_delay - 1;
+            end if;
+          when ShowRegistersRead =>            
             history_buffer(7 downto 0) <= monitor_p;
             history_buffer(15 downto 8) <= monitor_a;
             history_buffer(23 downto 16) <= monitor_x;
