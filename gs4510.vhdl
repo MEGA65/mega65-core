@@ -352,7 +352,7 @@ end component;
     InstructionDecode,  -- $0E
     Cycle2,Cycle3,
     Pull,
-    RTI,RTS1,RTS2,
+    RTI,RTS,RTS1,RTS2,
     B16TakeBranch,
     InnYReadVectorLow,
     InnZReadVectorLow,
@@ -1530,6 +1530,9 @@ begin
             when VectorRead3 =>
               reg_pc(15 downto 8) <= memory_read_value;
               state <= normal_fetch_state;
+            when RTS =>
+              stack_pop := '1';
+              state <= RTS1;
             when RTS1 =>
               reg_pc(15 downto 8) <= memory_read_value;
               report "RTS: high byte = $" & to_hstring(memory_read_value) severity note;
@@ -1685,8 +1688,7 @@ begin
                 then
                   if memory_read_value=x"60" then
                     -- Fast-track RTS
-                    state <= RTS1;
-                    stack_pop := '1';
+                    state <= RTS;
                   else
                     state <= MicrocodeInterpret;
                   end if;
