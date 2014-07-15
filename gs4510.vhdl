@@ -1798,11 +1798,21 @@ begin
                   when M_InnX =>                    
                     temp_addr := reg_b & (reg_arg1+reg_X);
                     reg_addr <= temp_addr;
-                    state <= LoadTarget;
+                    if is_load='1' or is_rmw='1' then
+                      state <= LoadTarget;
+                    else
+                      -- (reading next instruction argument byte as default action)
+                      state <= MicrocodeInterpret;
+                    end if;
                   when M_nn =>
                     temp_addr := reg_b & reg_arg1;
                     reg_addr <= temp_addr;
-                    state <= LoadTarget;
+                    if is_load='1' or is_rmw='1' then
+                      state <= LoadTarget;
+                    else
+                      -- (reading next instruction argument byte as default action)
+                      state <= MicrocodeInterpret;
+                    end if;
                   when M_immnn => -- Handled in MicrocodeInterpret
                   when M_nnnn =>
                     monitor_arg2 <= memory_read_value;
@@ -1917,21 +1927,41 @@ begin
                   when M_nnX =>
                     temp_addr := reg_b & (reg_arg1 + reg_X);
                     reg_addr <= temp_addr;
-                    state <= LoadTarget;
+                    if is_load='1' or is_rmw='1' then
+                      state <= LoadTarget;
+                    else
+                      -- (reading next instruction argument byte as default action)
+                      state <= MicrocodeInterpret;
+                    end if;
                   when M_nnY =>
                     temp_addr := reg_b & (reg_arg1 + reg_X);
                     reg_addr <= temp_addr;
-                    state <= LoadTarget;
+                    if is_load='1' or is_rmw='1' then
+                      state <= LoadTarget;
+                    else
+                      -- (reading next instruction argument byte as default action)
+                      state <= MicrocodeInterpret;
+                    end if;
                   when M_nnnnY =>
                     monitor_arg2 <= memory_read_value;
                     monitor_ibytes(0) <= '1';
                     reg_addr <= x"00"&reg_y + to_integer(memory_read_value&reg_addr(7 downto 0));
-                    state <= MicrocodeInterpret;
+                    if is_load='1' or is_rmw='1' then
+                      state <= LoadTarget;
+                    else
+                      -- (reading next instruction argument byte as default action)
+                      state <= MicrocodeInterpret;
+                    end if;
                   when M_nnnnX =>
                     monitor_arg2 <= memory_read_value;
                     monitor_ibytes(0) <= '1';
                     reg_addr <= x"00"&reg_x + to_integer(memory_read_value&reg_addr(7 downto 0));
-                    state <= MicrocodeInterpret;
+                    if is_load='1' or is_rmw='1' then
+                      state <= LoadTarget;
+                    else
+                      -- (reading next instruction argument byte as default action)
+                      state <= MicrocodeInterpret;
+                    end if;
                   when M_Innnn =>
                     -- Only JMP and JSR have this mode
                     monitor_arg2 <= memory_read_value;
