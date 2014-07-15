@@ -493,7 +493,7 @@ end component;
   signal monitor_mem_address_drive : unsigned(27 downto 0);
   signal monitor_mem_wdata_drive : unsigned(7 downto 0);
 
-  signal debugging_single_stepping : std_logic := '1';
+  signal debugging_single_stepping : std_logic := '0';
   signal debug_count : integer range 0 to 5 := 0;
 
 begin
@@ -1742,7 +1742,9 @@ begin
 
               reg_pc_jsr <= reg_pc;
               
-              -- Store arg1
+              -- Store and announce arg1
+              monitor_arg1 <= memory_read_value;
+              monitor_ibytes(1) <= '1';
               reg_arg1 <= memory_read_value;
               reg_addr(7 downto 0) <= memory_read_value;
               
