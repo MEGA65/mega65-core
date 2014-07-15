@@ -1218,6 +1218,11 @@ begin
     
     if rising_edge(ioclock) then
 
+      if reset='1' then
+        -- Allow kickstart ROM to be visible on reset.
+        rom_at_e000 <= '0';
+      end if;
+      
       report "drive led = " & std_logic'image(led)
         & ", drive motor= " & std_logic'image(motor) severity note;
 
