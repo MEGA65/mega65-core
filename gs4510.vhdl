@@ -1859,16 +1859,24 @@ begin
                                    to_integer(reg_arg1(7)&reg_arg1(7)&reg_arg1(7)&reg_arg1(7)&
                                               reg_arg1(7)&reg_arg1(7)&reg_arg1(7)&reg_arg1(7)&
                                               reg_arg1);
-                      memory_access_read := '1';
-                      memory_access_address := x"000"&temp_addr;
-                      memory_access_resolve_address := '1';
+                      reg_pc <= temp_addr;
+                      -- Take an extra cycle when taking a branch.  This avoids
+                      -- poor timing due to memory-to-memory activity in a
+                      -- single cycle.
+                      -- XXX consider using the disabled faster (fewer cycles) option
+                      -- below, if the timing will tolerate it.  But disabled
+                      -- for now, since it increases synthesis time.
+                      state <= normal_fetch_state
+
+                      --memory_access_read := '1';
+                      --memory_access_address := x"000"&temp_addr;
+                      --memory_access_resolve_address := '1';
                       -- Read next instruction now to save a cycle, i.e.,
                       -- 8-bit branches will take 2 cycles, whether taken or not.
-                      reg_pc <= temp_addr;
-                      state <= fast_fetch_state;
-                      if fast_fetch_state = InstructionDecode then
-                        reg_pc <= temp_addr + 1;
-                      end if;
+                      --state <= fast_fetch_state;
+                      --if fast_fetch_state = InstructionDecode then
+                      --  reg_pc <= temp_addr + 1;
+                      --end if;
                     else
                       report "NOT Taking 8-bit branch" severity note;
                       -- Branch will not be taken.
