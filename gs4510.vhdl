@@ -493,7 +493,8 @@ end component;
   signal monitor_mem_address_drive : unsigned(27 downto 0);
   signal monitor_mem_wdata_drive : unsigned(7 downto 0);
 
-  signal debugging_single_stepping : std_logic := '0';
+  signal debugging_single_stepping : std_logic := '1';
+  signal debug_count : integer range 0 to 5 := 0;
 
 begin
 
@@ -1443,16 +1444,17 @@ begin
         normal_fetch_state <= InstructionFetch;
         fast_fetch_state <= InstructionDecode;
 
-        -- Force single step while I debug it.
-        if debugging_single_stepping='1' then
-          normal_fetch_state <= ProcessorHold;
-          fast_fetch_state <= ProcessorHold;
-        end if;
       else
         normal_fetch_state <= ProcessorHold;
         fast_fetch_state <= ProcessorHold;
       end if;
-      
+
+      -- Force single step while I debug it.
+      if debugging_single_stepping='1' then
+        normal_fetch_state <= ProcessorHold;
+        fast_fetch_state <= ProcessorHold;
+      end if;
+
       memory_read_value := read_data;
       
       -- report "reset = " & std_logic'image(reset) severity note;
@@ -1557,7 +1559,13 @@ begin
               -- pause is done, unless something else needs to be done.
               state <= normal_fetch_state;
               if debugging_single_stepping='1' then
-                state <= InstructionFetch;
+                if debug_count = 5 then
+                  debug_count <= 0;
+                  report "DEBUGGING SINGLE STEP: Releasing CPU for an instruction." severity note;
+                  state <= InstructionFetch;
+                else
+                  debug_count <= debug_count + 1;
+                end if;
               end if;
               
               if monitor_mem_attention_request_drive='1' then
@@ -1595,6 +1603,10 @@ begin
                     state <= MonitorMemoryAccess;
                   end if;
                 end if;
+              else
+                -- Don't do anything while the processor is held.
+                memory_access_write := '0';
+                memory_access_read := '0';
               end if;
             when MonitorMemoryAccess =>
               monitor_mem_rdata <= memory_read_value;
@@ -1681,7 +1693,7 @@ begin
                 end if;
               else
                 -- Allow monitor to trace through single-cycle instructions
-                if monitor_mem_trace_mode='1' then
+                if monitor_mem_trace_mode='1' or debugging_single_stepping='1' then
                   state <= normal_fetch_state;
                   pc_inc := '0';
                 end if;
@@ -1755,7 +1767,7 @@ begin
               -- Process instruction next cycle
               state <= Cycle3;
             when Cycle3 =>
-              -- Show serial monitor_mem_trace_modeitor what we are doing.
+              -- Show serial monitor what we are doing.
               if (reg_addressingmode /= M_A) then
                 monitor_arg1 <= reg_arg1;
                 monitor_ibytes(1) <= '1';
