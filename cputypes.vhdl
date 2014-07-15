@@ -85,12 +85,17 @@ package cputypes is
     mcEOR : std_logic;
     mcASL : std_logic;
     mcASR : std_logic;
+    mcLSR : std_logic;
     mcBIT : std_logic;
     mcSBC : std_logic;
     mcCMP : std_logic;
     mcCPX : std_logic;
     mcCPY : std_logic;
-    mcCPZ : std_logic;    
+    mcCPZ : std_logic;
+    mcDEC : std_logic;
+    mcINC : std_logic;
+    mcROL : std_logic;
+    mcROR : std_logic;
     
   end record;
 

@@ -2165,6 +2165,23 @@ begin
               if reg_microcode.mcEOR='1' then
                 reg_a <= with_nz(reg_a xor memory_read_value);
               end if;
+              if reg_microcode.mcDEC='1' then
+                temp_value := memory_read_value - 1;
+                reg_t <= temp_value;                
+                flag_n <= temp_value(7);
+                if memory_read_value = x"01" then
+                  flag_z <= '1'; else flag_z <= '0';
+                end if;
+              end if;
+              if reg_microcode.mcINC='1' then
+                temp_value := memory_read_value + 1;
+                reg_t <= temp_value;                
+                flag_n <= temp_value(7);
+                if memory_read_value = x"ff" then
+                  flag_z <= '1'; else flag_z <= '0';
+                end if;
+              end if;
+              -- XXX: Do ASL, ASR, LSR, ROL, ROR
               
               if reg_microcode.mcClearE='1' then flag_e <= '0'; end if;
               if reg_microcode.mcClearI='1' then flag_i <= '0'; end if;

@@ -36,8 +36,8 @@ architecture Behavioral of microcode is
   signal ram : ram_t := (
     I_ADC => (mcADC => '1', mcInstructionFetch => '1', others => '0'),
     I_AND => (mcAND => '1', mcInstructionFetch => '1', others => '0'),
-    -- I_ASL
-    -- I_ASR
+    I_ASL => (mcASL => '1', mcDelayedWrite => '1', others => '0'),
+    I_ASR => (mcASR => '1', mcDelayedWrite => '1', others => '0'),
     -- I_ASW
     -- I_BBR - handled elsewhere
     -- I_BBS - handled elsewhere
@@ -62,11 +62,11 @@ architecture Behavioral of microcode is
     -- I_CPX
     -- I_CPY
     -- I_CPZ
-    -- I_DEC
+    I_DEC => (mcDEC => '1', mcDelayedWrite => '1', others => '0'),
     -- I_DEW
     -- I_EOM - handled as a single-cycle op elsewhere
     I_EOR => (mcEOR => '1', mcInstructionFetch => '1', others => '0'),
-    -- I_INC
+    I_INC => (mcINC => '1', mcDelayedWrite => '1', others => '0'),
     -- I_INW
     -- I_INX - handled as a single-cycle op elsewhere
     -- I_INY - handled as a single-cycle op elsewhere
@@ -82,7 +82,7 @@ architecture Behavioral of microcode is
               mcInstructionFetch => '1', others => '0'),
     I_LDZ => (mcSetZ => '1', mcSetNZ => '1', mcIncPC => '1', 
               mcInstructionFetch => '1', others => '0'),
-    -- I_LSR
+    I_LSR => (mcLSR => '1', mcDelayedWrite => '1', others => '0'),
     I_MAP => (mcMap => '1', others => '0'),
     -- I_NEG - handled as a single-cycle op elsewhere
     I_ORA => (mcORA => '1', mcInstructionFetch => '1', others => '0'),
@@ -97,8 +97,8 @@ architecture Behavioral of microcode is
     I_PLY => (mcPop => '1', mcStackY => '1', others => '0'),
     I_PLZ => (mcPop => '1', mcStackZ => '1', others => '0'),
     -- I_RMB
-    -- I_ROL
-    -- I_ROR
+    I_ROL => (mcROL => '1', mcDelayedWrite => '1', others => '0'),
+    I_ROR => (mcROR => '1', mcDelayedWrite => '1', others => '0'),
     -- I_ROW
     -- I_RTI - XXX in the process of being implemented
     -- I_RTS - XXX in the process of being implemented
