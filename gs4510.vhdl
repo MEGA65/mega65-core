@@ -2181,7 +2181,46 @@ begin
                   flag_z <= '1'; else flag_z <= '0';
                 end if;
               end if;
-              -- XXX: Do ASL, ASR, LSR, ROL, ROR
+              if reg_microcode.mcASR='1' then
+                temp_value := memory_read_value(7)&memory_read_value(7 downto 1);
+                reg_t <= temp_value;
+                flag_c <= memory_read_value(0);
+                if '0'&memory_read_value(7 downto 1) = x"7f" then
+                  flag_z <= '1'; else flag_z <= '0';
+                end if;
+              end if;
+              if reg_microcode.mcLSR='1' then
+                temp_value := '0'&memory_read_value(7 downto 1);
+                reg_t <= temp_value;
+                flag_c <= memory_read_value(0);
+                if '0'&memory_read_value(7 downto 1) = x"7f" then
+                  flag_z <= '1'; else flag_z <= '0';
+                end if;
+              end if;
+              if reg_microcode.mcROR='1' then
+                temp_value := flag_c&memory_read_value(7 downto 1);
+                reg_t <= temp_value;
+                flag_c <= memory_read_value(0);
+                if '0'&memory_read_value(7 downto 1) = x"7f" then
+                  flag_z <= '1'; else flag_z <= '0';
+                end if;
+              end if;
+              if reg_microcode.mcASL='1' then
+                temp_value := memory_read_value(6 downto 0)&'0';
+                reg_t <= temp_value;
+                flag_c <= memory_read_value(7);
+                if '0'&memory_read_value(6 downto 0) = x"7f" then
+                  flag_z <= '1'; else flag_z <= '0';
+                end if;
+              end if;
+              if reg_microcode.mcROL='1' then
+                temp_value := memory_read_value(6 downto 0)&flag_c;
+                reg_t <= temp_value;
+                flag_c <= memory_read_value(7);
+                if '0'&memory_read_value(6 downto 0) = x"7f" then
+                  flag_z <= '1'; else flag_z <= '0';
+                end if;
+              end if;
               
               if reg_microcode.mcClearE='1' then flag_e <= '0'; end if;
               if reg_microcode.mcClearI='1' then flag_i <= '0'; end if;
