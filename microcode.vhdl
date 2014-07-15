@@ -44,7 +44,7 @@ architecture Behavioral of microcode is
     -- I_BCC - handled elsewhere
     -- I_BCS - handled elsewhere
     -- I_BEQ - handled elsewhere
-    -- I_BIT
+    I_BIT => (mcBIT => '1', mcInstructionFetch => '1', others => '0'),
     -- I_BMI - handled elsewhere
     -- I_BNE - handled elsewhere
     -- I_BPL - handled elsewhere
