@@ -510,6 +510,7 @@ end component;
 
   signal slowram_addr_drive : std_logic_vector(22 downto 0);
   signal slowram_data_drive : std_logic_vector(15 downto 0);
+  signal slowram_data_in : std_logic_vector(15 downto 0);
   signal slowram_we_drive : std_logic;
   signal slowram_ce_drive : std_logic;
   signal slowram_oe_drive : std_logic;
@@ -1401,6 +1402,7 @@ begin
         slowram_data <= slowram_data_drive;
       else
         slowram_data <= (others => 'Z');
+        slowram_data_in <= slowram_data;
       end if;
       
       cpu_leds <= std_logic_vector(shadow_write_flags);
