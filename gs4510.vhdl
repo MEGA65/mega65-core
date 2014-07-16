@@ -507,6 +507,10 @@ end component;
   signal rmb_mask : unsigned(7 downto 0);
   signal smb_mask : unsigned(7 downto 0);
 
+  signal slowram_addr_drive : unsigned(22 downto 0);
+  signal slowram_data_drive : unsigned(15 downto 0);
+  signal slowram_we_drive : std_logic;
+
 begin
 
   shadowram0 : shadowram port map (
@@ -792,9 +796,9 @@ begin
         -- Slow RAM maps to $8xxxxxx, and also $0020000 - $003FFFF for C65 ROM
         -- emulation.
         accessing_slowram <= '1';
-        slowram_addr <= std_logic_vector(long_address(23 downto 1));
-        slowram_data <= (others => 'Z');  -- tristate data lines
-        slowram_we <= '1';
+        slowram_addr_drive <= std_logic_vector(long_address(23 downto 1));
+        slowram_data_drive <= (others => 'Z');  -- tristate data lines
+        slowram_we_drive <= '1';
         slowram_ce <= '0';
         slowram_oe <= '0';
         slowram_lb <= '0';
@@ -1061,14 +1065,14 @@ begin
         shadow_write <= '0';
         fastio_write <= '0';
         shadow_write_flags(2) <= '1';
-        slowram_addr <= std_logic_vector(long_address(23 downto 1));
-        slowram_we <= '0';
+        slowram_addr_drive <= std_logic_vector(long_address(23 downto 1));
+        slowram_we_drive <= '0';
         slowram_ce <= '0';
         slowram_oe <= '0';
         slowram_lohi <= long_address(0);
         slowram_lb <= std_logic(long_address(0));
         slowram_ub <= std_logic(not long_address(0));
-        slowram_data <= std_logic_vector(value) & std_logic_vector(value);
+        slowram_data_drive <= std_logic_vector(value) & std_logic_vector(value);
         wait_states <= slowram_waitstates;
       elsif long_address(27 downto 24) = x"F" then
         accessing_fastio <= '1';
@@ -1379,6 +1383,14 @@ begin
     
     -- BEGINNING OF MAIN PROCESS FOR CPU
     if rising_edge(clock) then
+
+      -- Use a drive stage to relax timing for slowram (since it is on external
+      -- pins it can have substantial routing delays)
+      slowram_we <= slowram_we_drive;
+      slowram_addr <= slowram_addr_drive;
+      if slowram_we_drive='1' then
+        slowram_data <= slowram_data_drive;
+      end if;
       
       cpu_leds <= std_logic_vector(shadow_write_flags);
       
