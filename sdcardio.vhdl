@@ -324,9 +324,212 @@ begin  -- behavioural
            sd_state) is
     variable temp_cmd : unsigned(7 downto 0);
   begin
+
+    if fastio_read='1' then
+      if (fastio_addr(19 downto 5)&'0' = x"D108")
+        or (fastio_addr(19 downto 5)&'0' = x"D308") then
+        -- F011 FDC emulation registers
+        case fastio_addr(4 downto 0) is
+          when "00000" =>
+            -- CONTROL |  IRQ  |  LED  | MOTOR | SWAP  | SIDE  |  DS2  |  DS1  |  DS0  | 0 RW
+            --IRQ     When set, enables interrupts to occur,  when reset clears and
+            --        disables interrupts.
+            --LED     These  two  bits  control  the  state  of  the  MOTOR and LED
+            --MOTOR   outputs. When both are clear, both MOTOR and LED outputs will
+            --        be off. When MOTOR is set, both MOTOR and LED Outputs will be
+            --        on. When LED is set, the LED will "blink".
+            --SWAP    swaps upper and lower halves of the data buffer
+            --        as seen by the CPU.
+            --SIDE    when set, sets the SIDE output to 0, otherwise 1.
+            --DS2-DS0 these three bits select a drive (drive 0 thru drive 7).  When
+            --        DS0-DS2  are  low  and  the LOCAL input is true (low) the DR0
+            --        output will go true (low).
+            fastio_rdata <=
+              f011_irqenable & f011_led & f011_motor & f011_swap &
+              f011_side(0) & f011_ds;
+          when "00001" =>
+            -- COMMAND | WRITE | READ  | FREE  | STEP  |  DIR  | ALGO  |  ALT  | NOBUF | 1 RW
+            --WRITE   must be set to perform write operations.
+            --READ    must be set for all read operations.
+            --FREE    allows free-format read or write vs formatted
+            --STEP    write to 1 to cause a head stepping pulse.
+            --DIR     sets head stepping direction
+            --ALGO    selects read and write algorithm. 0=FC read, 1=DPLL read,
+            --        0=normal write, 1=precompensated write.
+            
+            --ALT     selects alternate DPLL read recovery method. The ALG0 bit
+            --        must be set for ALT to work.
+            --NOBUF   clears the buffer read/write pointers
+            fastio_rdata <= f011_cmd;
+          when "00010" =>             -- READ $D082
+            -- STAT A  | BUSY  |  DRQ  |  EQ   |  RNF  |  CRC  | LOST  | PROT  |  TKQ  | 2 R
+            --BUSY    command is being executed
+            --DRQ     disk interface has transferred a byte
+            --EQ      buffer CPU/Disk pointers are equal
+            --RNF     sector not found during formatted write or read
+            --CRC     CRC check failed
+            --LOST    data was lost during transfer
+            --PROT    disk is write protected
+            --TK0     head is positioned over track zero
+            fastio_rdata <= f011_busy & f011_drq & f011_flag_eq & f011_rnf
+                            & f011_crc & f011_lost & f011_write_protected
+                            & f011_track0;
+          when "00011" =>             -- READ $D083 
+            -- STAT B  | RDREQ | WTREQ |  RUN  | NGATE | DSKIN | INDEX |  IRQ  | DSKCHG| 3 R
+            -- RDREQ   sector found during formatted read
+            -- WTREQ   sector found during formatted write
+            -- RUN     indicates successive matches during find operation
+            --         (that so far, the found sector matches the requested sector)
+            -- WGATE   write gate is on
+            -- DSKIN   indicates that a disk is inserted in the drive
+            -- INDEX   disk index is currently over sensor
+            -- IRQ     an interrupt has occurred
+            -- DSKCHG  the DSKIN line has changed
+            --         this is cleared by deselecting drive
+            fastio_rdata <= f011_rsector_found & f011_wsector_found &
+                            f011_rsector_found & f011_write_gate & f011_disk_present &
+                            f011_over_index & f011_irq & f011_disk_changed;
+          when "00100" =>
+            -- TRACK   |  T7   |  T6   |  T5   |  T4   |  T3   |  T2   |  T1   |  T0   | 4 RW
+            fastio_rdata <= f011_track;
+          when "00101" =>
+            -- SECTOR  |  S7   |  S6   |  S5   |  S4   |  S3   |  S2   |  S1   |  S0   | 5 RW
+            fastio_rdata <= f011_sector;
+          when "00110" =>
+            -- SIDE    |  S7   |  S6   |  S5   |  S4   |  S3   |  S2   |  S1   |  S0   | 6 RW
+            fastio_rdata <= f011_side;
+          when "00111" =>
+            -- DATA    |  D7   |  D6   |  D5   |  D4   |  D3   |  D2   |  D1   |  D0   | 7 RW
+            fastio_rdata <= f011_rdata;
+          when "01000" =>
+            -- CLOCK   |  C7   |  C6   |  C5   |  C4   |  C3   |  C2   |  C1   |  C0   | 8 RW
+            fastio_rdata <= (others => 'Z');
+          when "01001" =>
+            -- STEP    |  S7   |  S6   |  S5   |  S4   |  S3   |  S2   |  S1   |  S0   | 9 RW
+            fastio_rdata <= (others => 'Z');
+          when "01010" =>
+            -- P CODE  |  P7   |  P6   |  P5   |  P4   |  P3   |  P2   |  P1   |  P0   | A R
+            fastio_rdata <= (others => 'Z');
+            
+          when "11110" => -- Extra: $D09E = read buffer pointer low bits
+            fastio_rdata <= f011_buffer_next_read(7 downto 0);
+          when "11111" => -- Extra: $D09F = read buffer pointer high bit
+            fastio_rdata(0) <= f011_buffer_next_read(8);
+            fastio_rdata(7 downto 1) <= (others => '0');
+          when others =>
+            fastio_rdata <= (others => 'Z');
+        end case;
+      elsif (fastio_addr(19 downto 8) = x"D16"
+             or fastio_addr(19 downto 8) = x"D36") then
+        -- microSD controller registers
+        report "reading SDCARD registers" severity note;
+        case fastio_addr(7 downto 0) is
+          when x"80" =>
+            -- status / command register
+            -- error status in bit 6 so that V flag can be used for check
+            report "reading $D680 SDCARD status register" severity note;
+            fastio_rdata(7) <= '0';
+            fastio_rdata(6) <= sdio_error;
+            fastio_rdata(5) <= sdio_fsm_error;
+            fastio_rdata(4) <= sdhc_mode;
+            fastio_rdata(3) <= sector_buffer_mapped;
+            fastio_rdata(2) <= sd_reset;
+            fastio_rdata(1) <= sdio_busy;
+            fastio_rdata(0) <= sdio_busy;
+          when x"81" => fastio_rdata <= sd_sector(7 downto 0);
+          when x"82" => fastio_rdata <= sd_sector(15 downto 8);
+          when x"83" => fastio_rdata <= sd_sector(23 downto 16);
+          when x"84" => fastio_rdata <= sd_sector(31 downto 24);        
+          when x"85" => fastio_rdata <= to_unsigned(sd_state_t'pos(sd_state),8);
+          when x"86" => fastio_rdata <= sd_datatoken;
+          when x"87" => fastio_rdata <= unsigned(sd_rdata);                        
+          when x"88" => fastio_rdata <= sector_offset(7 downto 0);
+          when x"89" =>
+            fastio_rdata(7 downto 1) <= (others => '0');
+            fastio_rdata(0) <= sector_offset(8);
+            fastio_rdata(1) <= sector_offset(9);
+          when x"8b" =>
+            fastio_rdata(0) <= diskimage1_enable;
+            fastio_rdata(1) <= f011_disk1_present;
+            fastio_rdata(2) <= not f011_disk1_write_protected;
+            fastio_rdata(3) <= diskimage2_enable;
+            fastio_rdata(4) <= f011_disk2_present;
+            fastio_rdata(5) <= not f011_disk2_write_protected;
+          when x"8c" => fastio_rdata <= diskimage_sector(7 downto 0);
+          when x"8d" => fastio_rdata <= diskimage_sector(15 downto 8);
+          when x"8e" => fastio_rdata <= diskimage_sector(23 downto 16);
+          when x"8f" => fastio_rdata <= diskimage_sector(31 downto 24);
+          when x"F0" => fastio_rdata(7 downto 0) <= unsigned(sw(7 downto 0));
+          when x"F1" => fastio_rdata(7 downto 0) <= unsigned(sw(15 downto 8));
+          when x"F2" =>
+            fastio_rdata(7 downto 5) <= "000";
+            fastio_rdata(4 downto 0) <= unsigned(btn(4 downto 0));
+          when x"F3" =>
+            -- Accelerometer inputs
+            fastio_rdata(0) <= aclMISO;
+            fastio_rdata(1) <= aclMOSIinternal;
+            fastio_rdata(2) <= aclSSinternal;
+            fastio_rdata(3) <= aclSCKinternal;
+            fastio_rdata(4) <= '0';
+            fastio_rdata(5) <= aclInt1;
+            fastio_rdata(6) <= aclInt2;
+            fastio_rdata(7) <= aclInt1 or aclInt2;
+          when x"F5" =>
+            -- Temperature sensor
+            fastio_rdata(0) <= tmpSDAinternal;
+            fastio_rdata(1) <= tmpSCLinternal;
+            fastio_rdata(4 downto 2) <= "000";
+            fastio_rdata(5) <= tmpInt;
+            fastio_rdata(6) <= tmpCT;
+            fastio_rdata(7) <= tmpInt or tmpCT;
+          when x"F6" =>
+            -- Keyboard scan code reader (lower byte)
+            fastio_rdata <= unsigned(last_scan_code(7 downto 0));
+          when x"F7" =>
+            -- Keyboard scan code reader (upper nybl)
+            fastio_rdata <= unsigned("000"&last_scan_code(12 downto 8));
+          when x"F8" =>
+            -- PWM output
+            fastio_rdata <= pwm_value_new_left;
+          when x"FA" =>
+            -- PWM output
+            fastio_rdata <= pwm_value_new_left;
+          when x"FB" =>
+            -- microphone input
+            fastio_rdata <= mic_value_left;
+          when x"FC" =>
+            -- microphone input
+            fastio_rdata <= mic_value_right;
+          when x"FF" =>
+            -- Flash interface
+            fastio_rdata(3 downto 0) <= unsigned(QspiDB);
+            fastio_rdata(5 downto 4) <= "00";
+            fastio_rdata(6) <= QspiCSnInternal;
+            fastio_rdata(7) <= QspiSCKInternal;
+          when others => fastio_rdata <= (others => 'Z');
+        end case;
+      else
+        -- Otherwise tristate output
+        fastio_rdata <= (others => 'Z');
+      end if;
+    end if;
+
     
     if rising_edge(clock) then
 
+      -- Advance f011 buffer position when reading from data register
+      last_was_d087 <= '0';
+      if fastio_read='1' then
+        if (fastio_addr(19 downto 0) = x"D1687"
+            or fastio_addr(19 downto 0) = x"D3687") then
+          if last_was_d087='0' then
+            f011_buffer_next_read <= f011_buffer_next_read + 1;
+            f011_drq <= '0';
+          end if;
+          last_was_d087 <= '1';
+        end if;
+      end if;
+          
       -- Generate combined audio from stereo sids plus 2 8-bit digital channels
       pwm_value_combined <= to_unsigned(to_integer(leftsid_audio(17 downto 10))
                                         + to_integer(rightsid_audio(17 downto 10))
@@ -388,7 +591,6 @@ begin  -- behavioural
         f011_disk_present <= f011_disk2_present;
       end if;
     
-      last_was_d087 <= '0';
       f011_buffer_write <= '0';
       -- XXX Try to debug the EQ flag to work out what value it should take
       -- at various times.
@@ -764,199 +966,7 @@ begin  -- behavioural
           end if;
         end if;
       end if;
-      
-      if fastio_read='1' and fastio_write='0' then
-        if (fastio_addr(19 downto 5)&'0' = x"D108")
-          or (fastio_addr(19 downto 5)&'0' = x"D308") then
-          -- F011 FDC emulation registers
-          case fastio_addr(4 downto 0) is
-            when "00000" =>
-              -- CONTROL |  IRQ  |  LED  | MOTOR | SWAP  | SIDE  |  DS2  |  DS1  |  DS0  | 0 RW
-              --IRQ     When set, enables interrupts to occur,  when reset clears and
-              --        disables interrupts.
-              --LED     These  two  bits  control  the  state  of  the  MOTOR and LED
-              --MOTOR   outputs. When both are clear, both MOTOR and LED outputs will
-              --        be off. When MOTOR is set, both MOTOR and LED Outputs will be
-              --        on. When LED is set, the LED will "blink".
-              --SWAP    swaps upper and lower halves of the data buffer
-              --        as seen by the CPU.
-              --SIDE    when set, sets the SIDE output to 0, otherwise 1.
-              --DS2-DS0 these three bits select a drive (drive 0 thru drive 7).  When
-              --        DS0-DS2  are  low  and  the LOCAL input is true (low) the DR0
-              --        output will go true (low).
-              fastio_rdata <=
-                f011_irqenable & f011_led & f011_motor & f011_swap &
-                f011_side(0) & f011_ds;
-            when "00001" =>
-              -- COMMAND | WRITE | READ  | FREE  | STEP  |  DIR  | ALGO  |  ALT  | NOBUF | 1 RW
-              --WRITE   must be set to perform write operations.
-              --READ    must be set for all read operations.
-              --FREE    allows free-format read or write vs formatted
-              --STEP    write to 1 to cause a head stepping pulse.
-              --DIR     sets head stepping direction
-              --ALGO    selects read and write algorithm. 0=FC read, 1=DPLL read,
-              --        0=normal write, 1=precompensated write.
-
-              --ALT     selects alternate DPLL read recovery method. The ALG0 bit
-              --        must be set for ALT to work.
-              --NOBUF   clears the buffer read/write pointers
-              fastio_rdata <= f011_cmd;
-            when "00010" =>             -- READ $D082
-              -- STAT A  | BUSY  |  DRQ  |  EQ   |  RNF  |  CRC  | LOST  | PROT  |  TKQ  | 2 R
-              --BUSY    command is being executed
-              --DRQ     disk interface has transferred a byte
-              --EQ      buffer CPU/Disk pointers are equal
-              --RNF     sector not found during formatted write or read
-              --CRC     CRC check failed
-              --LOST    data was lost during transfer
-              --PROT    disk is write protected
-              --TK0     head is positioned over track zero
-              fastio_rdata <= f011_busy & f011_drq & f011_flag_eq & f011_rnf
-                              & f011_crc & f011_lost & f011_write_protected
-                              & f011_track0;
-            when "00011" =>             -- READ $D083 
-              -- STAT B  | RDREQ | WTREQ |  RUN  | NGATE | DSKIN | INDEX |  IRQ  | DSKCHG| 3 R
-              -- RDREQ   sector found during formatted read
-              -- WTREQ   sector found during formatted write
-              -- RUN     indicates successive matches during find operation
-              --         (that so far, the found sector matches the requested sector)
-              -- WGATE   write gate is on
-              -- DSKIN   indicates that a disk is inserted in the drive
-              -- INDEX   disk index is currently over sensor
-              -- IRQ     an interrupt has occurred
-              -- DSKCHG  the DSKIN line has changed
-              --         this is cleared by deselecting drive
-              fastio_rdata <= f011_rsector_found & f011_wsector_found &
-                              f011_rsector_found & f011_write_gate & f011_disk_present &
-                              f011_over_index & f011_irq & f011_disk_changed;
-            when "00100" =>
-              -- TRACK   |  T7   |  T6   |  T5   |  T4   |  T3   |  T2   |  T1   |  T0   | 4 RW
-              fastio_rdata <= f011_track;
-            when "00101" =>
-              -- SECTOR  |  S7   |  S6   |  S5   |  S4   |  S3   |  S2   |  S1   |  S0   | 5 RW
-              fastio_rdata <= f011_sector;
-            when "00110" =>
-              -- SIDE    |  S7   |  S6   |  S5   |  S4   |  S3   |  S2   |  S1   |  S0   | 6 RW
-              fastio_rdata <= f011_side;
-            when "00111" =>
-              -- DATA    |  D7   |  D6   |  D5   |  D4   |  D3   |  D2   |  D1   |  D0   | 7 RW
-              fastio_rdata <= f011_rdata;
-              if last_was_d087='0' then
-                f011_buffer_next_read <= f011_buffer_next_read + 1;
-                f011_drq <= '0';
-              end if;
-              last_was_d087 <= '1';
-            when "01000" =>
-              -- CLOCK   |  C7   |  C6   |  C5   |  C4   |  C3   |  C2   |  C1   |  C0   | 8 RW
-              fastio_rdata <= (others => 'Z');
-            when "01001" =>
-              -- STEP    |  S7   |  S6   |  S5   |  S4   |  S3   |  S2   |  S1   |  S0   | 9 RW
-              fastio_rdata <= (others => 'Z');
-            when "01010" =>
-              -- P CODE  |  P7   |  P6   |  P5   |  P4   |  P3   |  P2   |  P1   |  P0   | A R
-              fastio_rdata <= (others => 'Z');
-              
-            when "11110" => -- Extra: $D09E = read buffer pointer low bits
-              fastio_rdata <= f011_buffer_next_read(7 downto 0);
-            when "11111" => -- Extra: $D09F = read buffer pointer high bit
-              fastio_rdata(0) <= f011_buffer_next_read(8);
-              fastio_rdata(7 downto 1) <= (others => '0');
-            when others =>
-              fastio_rdata <= (others => 'Z');
-          end case;
-        elsif (fastio_addr(19 downto 8) = x"D16"
-               or fastio_addr(19 downto 8) = x"D36") then
-          -- microSD controller registers
-          case fastio_addr(7 downto 0) is
-            when x"80" =>
-              -- status / command register
-              -- error status in bit 6 so that V flag can be used for check      
-              fastio_rdata(7) <= '0';
-              fastio_rdata(6) <= sdio_error;
-              fastio_rdata(5) <= sdio_fsm_error;
-              fastio_rdata(4) <= sdhc_mode;
-              fastio_rdata(3) <= sector_buffer_mapped;
-              fastio_rdata(2) <= sd_reset;
-              fastio_rdata(1) <= sdio_busy;
-              fastio_rdata(0) <= sdio_busy;
-            when x"81" => fastio_rdata <= sd_sector(7 downto 0);
-            when x"82" => fastio_rdata <= sd_sector(15 downto 8);
-            when x"83" => fastio_rdata <= sd_sector(23 downto 16);
-            when x"84" => fastio_rdata <= sd_sector(31 downto 24);        
-            when x"85" => fastio_rdata <= to_unsigned(sd_state_t'pos(sd_state),8);
-            when x"86" => fastio_rdata <= sd_datatoken;
-            when x"87" => fastio_rdata <= unsigned(sd_rdata);                        
-            when x"88" => fastio_rdata <= sector_offset(7 downto 0);
-            when x"89" =>
-              fastio_rdata(7 downto 1) <= (others => '0');
-              fastio_rdata(0) <= sector_offset(8);
-              fastio_rdata(1) <= sector_offset(9);
-            when x"8b" =>
-              fastio_rdata(0) <= diskimage1_enable;
-              fastio_rdata(1) <= f011_disk1_present;
-              fastio_rdata(2) <= not f011_disk1_write_protected;
-              fastio_rdata(3) <= diskimage2_enable;
-              fastio_rdata(4) <= f011_disk2_present;
-              fastio_rdata(5) <= not f011_disk2_write_protected;
-            when x"8c" => fastio_rdata <= diskimage_sector(7 downto 0);
-            when x"8d" => fastio_rdata <= diskimage_sector(15 downto 8);
-            when x"8e" => fastio_rdata <= diskimage_sector(23 downto 16);
-            when x"8f" => fastio_rdata <= diskimage_sector(31 downto 24);
-            when x"F0" => fastio_rdata(7 downto 0) <= unsigned(sw(7 downto 0));
-            when x"F1" => fastio_rdata(7 downto 0) <= unsigned(sw(15 downto 8));
-            when x"F2" =>
-            fastio_rdata(7 downto 5) <= "000";
-            fastio_rdata(4 downto 0) <= unsigned(btn(4 downto 0));
-            when x"F3" =>
-              -- Accelerometer inputs
-              fastio_rdata(0) <= aclMISO;
-              fastio_rdata(1) <= aclMOSIinternal;
-              fastio_rdata(2) <= aclSSinternal;
-              fastio_rdata(3) <= aclSCKinternal;
-              fastio_rdata(4) <= '0';
-              fastio_rdata(5) <= aclInt1;
-              fastio_rdata(6) <= aclInt2;
-              fastio_rdata(7) <= aclInt1 or aclInt2;
-            when x"F5" =>
-              -- Temperature sensor
-              fastio_rdata(0) <= tmpSDAinternal;
-              fastio_rdata(1) <= tmpSCLinternal;
-              fastio_rdata(4 downto 2) <= "000";
-              fastio_rdata(5) <= tmpInt;
-              fastio_rdata(6) <= tmpCT;
-              fastio_rdata(7) <= tmpInt or tmpCT;
-            when x"F6" =>
-              -- Keyboard scan code reader (lower byte)
-              fastio_rdata <= unsigned(last_scan_code(7 downto 0));
-            when x"F7" =>
-              -- Keyboard scan code reader (upper nybl)
-              fastio_rdata <= unsigned("000"&last_scan_code(12 downto 8));
-            when x"F8" =>
-              -- PWM output
-              fastio_rdata <= pwm_value_new_left;
-            when x"FA" =>
-              -- PWM output
-              fastio_rdata <= pwm_value_new_left;
-            when x"FB" =>
-              -- microphone input
-              fastio_rdata <= mic_value_left;
-            when x"FC" =>
-              -- microphone input
-              fastio_rdata <= mic_value_right;
-            when x"FF" =>
-              -- Flash interface
-              fastio_rdata(3 downto 0) <= unsigned(QspiDB);
-              fastio_rdata(5 downto 4) <= "00";
-              fastio_rdata(6) <= QspiCSnInternal;
-              fastio_rdata(7) <= QspiSCKInternal;
-            when others => fastio_rdata <= (others => 'Z');
-          end case;
-        else
-          -- Otherwise tristate output
-          fastio_rdata <= (others => 'Z');
-        end if;
-      end if;
-      
+                
       sbweb(0) <= '0';
       case sd_state is
         when Idle => sdio_busy <= '0';
