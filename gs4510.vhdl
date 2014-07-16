@@ -1075,7 +1075,7 @@ begin
         slowram_we_drive <= '0';
         slowram_ce_drive <= '0';
         slowram_oe_drive <= '0';
-        slowram_lohi_drive <= long_address(0);
+        slowram_lohi <= long_address(0);
         slowram_lb_drive <= std_logic(long_address(0));
         slowram_ub_drive <= std_logic(not long_address(0));
         slowram_data_drive <= std_logic_vector(value) & std_logic_vector(value);
