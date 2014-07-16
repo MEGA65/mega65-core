@@ -49,7 +49,7 @@ architecture Behavioral of microcode is
     -- I_BNE - handled elsewhere
     -- I_BPL - handled elsewhere
     -- I_BRA - handled elsewhere
-    -- I_BRK
+    I_BRK => (mcBRK => '1', others => '0'),
     I_BSR => (mcRelativeJump => '1', others => '0'),
     -- I_BVC - handled elsewhere
     -- I_BVS - handled elsewhere

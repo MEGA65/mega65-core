@@ -1544,6 +1544,18 @@ begin
             when VectorRead3 =>
               reg_pc(15 downto 8) <= memory_read_value;
               state <= normal_fetch_state;
+            when Interrupt =>
+              -- BRK or IRQ
+              -- Push P and PC
+              vector <= x"e";
+              if reg_instruction = I_BRK then
+                -- set B flag when pushing P
+                null;
+              else
+                -- clear B flag when pushing P
+                null;
+              end if;
+              state <= normal_fetch_state;
             when RTS =>
               stack_pop := '1';
               state <= RTS1;
@@ -2196,6 +2208,10 @@ begin
                 monitor_ibytes(1) <= '1';
               end if;
 
+              if reg_microcode.mcBRK='1' then                
+                state <= Interrupt;
+              end if;
+              
               if reg_microcode.mcJump='1' then reg_pc <= reg_addr; end if;
 
               if reg_microcode.mcSetNZ='1' then set_nz(memory_read_value); end if;

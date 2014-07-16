@@ -42,6 +42,8 @@ package cputypes is
     -- 16bit operations
     mcWordOp : std_logic;
 
+    mcBRK : std_logic;
+    
     -- Set NZ based on currently read memory
     mcSetNZ : std_logic;
     -- And registers
