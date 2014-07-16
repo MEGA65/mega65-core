@@ -2342,16 +2342,48 @@ begin
               state <= WordOpWriteLow;
               -- XXX set values and flags
               case reg_instruction is
-                when I_ASW => 
+                when I_ASW =>
+                  temp_addr := memory_read_value(6 downto 0)&reg_t&'0';
+                  flag_n <= memory_read_value(6);
+                  if temp_addr = x"0000" then
+                    flag_z <= '1';
+                  else
+                    flag_z <= '0';
+                  end if;
+                  reg_t_high <= temp_addr(15 downto 8);
+                  reg_t <= temp_addr(7 downto 0);
                 when I_DEW =>
+                  temp_addr := (memory_read_value&reg_t) - 1;
+                  if temp_addr = x"0000" then
+                    flag_z <= '1';
+                  else
+                    flag_z <= '0';
+                  end if;
+                  reg_t_high <= temp_addr(15 downto 8);
+                  reg_t <= temp_addr(7 downto 0);
                 when I_INW =>
+                  temp_addr := (memory_read_value&reg_t) + 1;
+                  if temp_addr = x"0000" then
+                    flag_z <= '1';
+                  else
+                    flag_z <= '0';
+                  end if;
                 when I_PHW =>
-                  -- XXX need to follow a different path for this instruction
+                  reg_t_high <= memory_read_value;
                 when I_ROW =>
+                  temp_addr := memory_read_value(6 downto 0)&reg_t&flag_c;
+                  flag_n <= memory_read_value(6);
+                  if temp_addr = x"0000" then
+                    flag_z <= '1';
+                  else
+                    flag_z <= '0';
+                  end if;
+                  flag_c <= memory_read_value(7);
+                  reg_t_high <= temp_addr(15 downto 8);
+                  reg_t <= temp_addr(7 downto 0);
                 when others =>
                   state <= normal_fetch_state;
               end case;
-              reg_t_high <= memory_read_value;
             when WordOpWriteLow =>
               memory_access_address := x"000"&(reg_addr);
               memory_access_resolve_address := '1';
