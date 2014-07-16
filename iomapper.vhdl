@@ -339,8 +339,8 @@ begin
     addr => unsigned(address(4 downto 0)),
     di => unsigned(data_i),
     std_logic_vector(do) => data_o,
-    pot_x => x"00",
-    pot_y => x"00",
+    pot_x => x"01",
+    pot_y => x"02",
     audio_data => leftsid_audio);
 
   rightsid: sid6581 port map (
@@ -352,8 +352,8 @@ begin
     addr => unsigned(address(4 downto 0)),
     di => unsigned(data_i),
     std_logic_vector(do) => data_o,
-    pot_x => x"00",
-    pot_y => x"00",
+    pot_x => x"03",
+    pot_y => x"04",
     audio_data => rightsid_audio);
 
   sdcard0 : sdcardio port map (
@@ -430,7 +430,8 @@ begin
     end if;
   end process;
   
-  process (r,w,address,cia1portb_in,cia1porta_out,colourram_at_dc00)
+  process (r,w,address,cia1portb_in,cia1porta_out,colourram_at_dc00,
+           sector_buffer_mapped_read)
   begin  -- process
 
     if (r or w) = '1' then

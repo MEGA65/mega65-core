@@ -321,7 +321,17 @@ begin  -- behavioural
   process (clock,fastio_addr,fastio_wdata,sector_buffer_mapped,sdio_busy,
            sd_reset,fastio_read,sd_sector,fastio_write,
            f011_track,f011_sector,f011_side,sdio_fsm_error,sdio_error,
-           sd_state) is
+           sd_state,f011_irqenable,f011_ds,f011_cmd,f011_busy,f011_crc,
+           f011_track0,f011_rsector_found,f011_over_index,f011_rdata,
+           f011_buffer_next_read,sdhc_mode,sd_datatoken,sd_rdata,
+           sector_offset,diskimage1_enable,f011_disk1_present,
+           f011_disk1_write_protected,diskimage2_enable,f011_disk2_present,
+           f011_disk2_write_protected,diskimage_sector,sw,btn,aclmiso,
+           aclmosiinternal,aclssinternal,aclSCKinternal,aclint1,aclint2,
+           tmpsdainternal,tmpsclinternal,tmpint,tmpct,tmpint,last_scan_code,
+           pwm_value_new_left,mic_value_left,mic_value_right,qspidb,
+           qspicsninternal,QspiSCKInternal          
+           ) is
     variable temp_cmd : unsigned(7 downto 0);
   begin
 
