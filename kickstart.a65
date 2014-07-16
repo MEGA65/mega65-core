@@ -104,6 +104,7 @@ kickstart_entry:
 		ldx #<msg_kickstart
 		ldy #>msg_kickstart
 		jsr printmessage
+		; leave a blank line below kickstart banner
 		inc screenrow
 
 		; copy disk chooser routine to $C000
@@ -139,8 +140,8 @@ kickstart_entry:
 		sta $cd00,y
 		lda diskchooserstart+$e00,y
 		sta $ce00,y
-		lda diskchooserstart+$f00,y
-		sta $cf00,y
+		; Disk chooser must be <=$F00 bytes, as $CF00 is 
+		; scratch pad for kickstart and also for the disk chooser
 		iny
 		bne -		
 

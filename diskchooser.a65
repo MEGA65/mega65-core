@@ -1084,4 +1084,6 @@ alldone:
 
 		.scend
 
+		.checkpc $CEFF
+
 		.outfile "diskchooser"
