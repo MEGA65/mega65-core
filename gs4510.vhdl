@@ -179,7 +179,8 @@ end component;
   -- Shadow RAM has 0 wait states by default
   signal shadow_wait_states : unsigned(7 downto 0) := x"00";
   -- IO has one waitstate for reading, 0 for writing
-  signal io_read_wait_states : unsigned(7 downto 0) := x"01";
+  -- (Reading incurrs an extra waitstate due to read_data_copy)
+  signal io_read_wait_states : unsigned(7 downto 0) := x"02";
   signal io_write_wait_states : unsigned(7 downto 0) := x"00";
 
   -- Number of pending wait states
@@ -876,8 +877,10 @@ begin
       return unsigned is
     begin  -- read_data
       if accessing_shadow='1' then
+--        report "reading from shadowram" severity note;
         return shadow_rdata;
       else
+--        report "reading from somewhere other than shadowram" severity note;
         return read_data_copy;
       end if;
     end read_data;
@@ -918,6 +921,7 @@ begin
       end if;
 
       if accessing_cpuport='1' then
+        report "reading from CPU port" severity note;
         if cpuport_num='0' then
           -- DDR
           return cpuport_ddr;
@@ -935,20 +939,20 @@ begin
         report "reading colour RAM fastio byte $" & to_hstring(fastio_vic_rdata) severity note;
         return unsigned(fastio_colour_ram_rdata);
       elsif accessing_vic_fastio='1' then 
---        report "reading VIC fastio byte $" & to_hstring(fastio_vic_rdata) severity note;
+        report "reading VIC fastio byte $" & to_hstring(fastio_vic_rdata) severity note;
         return unsigned(fastio_vic_rdata);
       elsif accessing_fastio='1' then
---        report "reading normal fastio byte $" & to_hstring(fastio_rdata) severity note;
+        report "reading normal fastio byte $" & to_hstring(fastio_rdata) severity note;
         return unsigned(fastio_rdata);
       elsif accessing_slowram='1' then
---        report "reading slow RAM data. Word is $" & to_hstring(slowram_data) severity note;
+        report "reading slow RAM data. Word is $" & to_hstring(slowram_data) severity note;
         case slowram_lohi is
           when '0' => return unsigned(slowram_data(7 downto 0));
           when '1' => return unsigned(slowram_data(15 downto 8));
           when others => return x"FE";
         end case;
       else
---        report "accessing unmapped memory" severity note;
+        report "accessing unmapped memory" severity note;
         return x"A0";                     -- make unmmapped memory obvious
       end if;
     end read_data_complex; 
@@ -2195,7 +2199,9 @@ begin
               if reg_microcode.mcJump='1' then reg_pc <= reg_addr; end if;
 
               if reg_microcode.mcSetNZ='1' then set_nz(memory_read_value); end if;
-              if reg_microcode.mcSetA='1' then reg_a <= memory_read_value; end if;
+              if reg_microcode.mcSetA='1' then
+                reg_a <= memory_read_value;
+              end if;
               if reg_microcode.mcSetX='1' then reg_x <= memory_read_value; end if;
               if reg_microcode.mcSetY='1' then reg_y <= memory_read_value; end if;
               if reg_microcode.mcSetZ='1' then reg_z <= memory_read_value; end if;
@@ -2406,6 +2412,7 @@ begin
           & ", cpu_state = " & processor_state'image(state)
           & " ($" & to_hstring(to_unsigned(processor_state'pos(state),8)) & ")"
           & ", reg_addr=$" & to_hstring(reg_addr)
+          & ", memory_read_value=$" & to_hstring(read_data)
           severity note;
         report "PC:" & to_hstring(reg_pc)
             & " A:" & to_hstring(reg_a) & " X:" & to_hstring(reg_x)
