@@ -175,7 +175,8 @@ end component;
   signal slowram_lohi : std_logic;
   -- SlowRAM has 70ns access time, so need some wait states.
   -- At 48MHz we only need 4 cycles.
-  signal slowram_waitstates : unsigned(7 downto 0) := x"04";
+  -- Then add 2 more for drive stages on the slowram lines.
+  signal slowram_waitstates : unsigned(7 downto 0) := x"06";
   -- Shadow RAM has 0 wait states by default
   signal shadow_wait_states : unsigned(7 downto 0) := x"00";
   -- IO has one waitstate for reading, 0 for writing
@@ -507,8 +508,8 @@ end component;
   signal rmb_mask : unsigned(7 downto 0);
   signal smb_mask : unsigned(7 downto 0);
 
-  signal slowram_addr_drive : unsigned(22 downto 0);
-  signal slowram_data_drive : unsigned(15 downto 0);
+  signal slowram_addr_drive : std_logic_vector(22 downto 0);
+  signal slowram_data_drive : std_logic_vector(15 downto 0);
   signal slowram_we_drive : std_logic;
 
 begin
