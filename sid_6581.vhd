@@ -345,7 +345,10 @@ begin
 							when "11100" =>	do_buf	<= Misc_Env3;
 							--------------------------------------
 	--						when others	=>	null;
-							when others	=>	do_buf <= (others => '0');
+                                                          -- PGS: Make it
+                                                          -- obvious if
+                                                          -- accessing blank addresses                                                          
+							when others	=>	do_buf <= x"31";
 						end case;		
 					end if;
 				end if;

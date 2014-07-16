@@ -417,7 +417,7 @@ begin  -- behavioural
             fastio_rdata(0) <= f011_buffer_next_read(8);
             fastio_rdata(7 downto 1) <= (others => '0');
           when others =>
-            fastio_rdata <= (others => 'Z');
+            fastio_rdata <= x"63";
         end case;
       elsif (fastio_addr(19 downto 8) = x"D16"
              or fastio_addr(19 downto 8) = x"D36") then
@@ -506,7 +506,8 @@ begin  -- behavioural
             fastio_rdata(5 downto 4) <= "00";
             fastio_rdata(6) <= QspiCSnInternal;
             fastio_rdata(7) <= QspiSCKInternal;
-          when others => fastio_rdata <= (others => 'Z');
+          when others =>
+            fastio_rdata <= x"75";
         end case;
       else
         -- Otherwise tristate output
