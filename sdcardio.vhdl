@@ -648,9 +648,7 @@ begin  -- behavioural
         sectorbuffermapped <= sector_buffer_mapped;
         sectorbuffermapped2 <= sector_buffer_mapped;
       end if;
-      
-      fastio_rdata <= (others => 'Z');
-      
+            
       if  fastio_read='0' and fastio_write='1' then
         if fastio_write='1' then
 
