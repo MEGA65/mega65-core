@@ -179,7 +179,20 @@ begin
         begin
           -- Tristate data lines
           if cs='1' then
-            do						<= do_buf;
+            -- Read from SID-register
+            -------------------------
+            case addr is
+              -------------------------------------- Misc
+              when "11001" => do <= pot_x;
+              when "11010" => do <= pot_Y;
+              when "11011" => do <= Misc_Osc3_Random;
+              when "11100" => do <= Misc_Env3;
+              --------------------------------------
+              -- PGS: Make it
+              -- obvious if
+              -- accessing blank addresses                                                          
+              when others => do <= x"31";
+            end case;		
           else
             do <= (others => 'Z');
           end if;
@@ -334,22 +347,6 @@ begin
 							--------------------------------------
 							when others	=>	null;
 						end case;
-
-					else			-- Read from SID-register
-							-------------------------
-						case addr is
-							-------------------------------------- Misc
-							when "11001" =>	do_buf	<= pot_x;
-							when "11010" =>	do_buf	<= pot_Y;
-							when "11011" =>	do_buf	<= Misc_Osc3_Random;
-							when "11100" =>	do_buf	<= Misc_Env3;
-							--------------------------------------
-	--						when others	=>	null;
-                                                          -- PGS: Make it
-                                                          -- obvious if
-                                                          -- accessing blank addresses                                                          
-							when others	=>	do_buf <= x"31";
-						end case;		
 					end if;
 				end if;
 			end if;
