@@ -188,10 +188,7 @@ begin
               when "11011" => do <= Misc_Osc3_Random;
               when "11100" => do <= Misc_Env3;
               --------------------------------------
-              -- PGS: Make it
-              -- obvious if
-              -- accessing blank addresses                                                          
-              when others => do <= x"31";
+              when others => do <= x"FF";
             end case;		
           else
             do <= (others => 'Z');
