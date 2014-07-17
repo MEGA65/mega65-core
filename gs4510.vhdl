@@ -181,7 +181,9 @@ end component;
   signal shadow_wait_states : unsigned(7 downto 0) := x"00";
   -- IO has one waitstate for reading, 0 for writing
   -- (Reading incurrs an extra waitstate due to read_data_copy)
-  signal io_read_wait_states : unsigned(7 downto 0) := x"02";
+  -- XXX An extra wait state seems to be necessary when reading from dual-port
+  -- memories like the sector buffer.
+  signal io_read_wait_states : unsigned(7 downto 0) := x"03";
   signal io_write_wait_states : unsigned(7 downto 0) := x"00";
 
   -- Number of pending wait states
