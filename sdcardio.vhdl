@@ -649,330 +649,327 @@ begin  -- behavioural
         sectorbuffermapped2 <= sector_buffer_mapped;
       end if;
             
-      if  fastio_read='0' and fastio_write='1' then
-        if fastio_write='1' then
-
-          if (fastio_addr(19 downto 5)&'0' = x"D108")
-            or (fastio_addr(19 downto 5)&'0' = x"D308") then
-            -- F011 FDC emulation registers
-            case fastio_addr(4 downto 0) is
-              when "00000" =>           -- $D080
-                -- CONTROL |  IRQ  |  LED  | MOTOR | SWAP  | SIDE  |  DS2  |  DS1  |  DS0  | 0 RW
-                --IRQ     When set, enables interrupts to occur,  when reset clears and
-                --        disables interrupts.
-                --LED     These  two  bits  control  the  state  of  the  MOTOR and LED
-                --MOTOR   outputs. When both are clear, both MOTOR and LED outputs will
-                --        be off. When MOTOR is set, both MOTOR and LED Outputs will be
-                --        on. When LED is set, the LED will "blink".
-                --SWAP    swaps upper and lower halves of the data buffer
-                --        as seen by the CPU.
-                --SIDE    when set, sets the SIDE output to 0, otherwise 1.
-                --DS2-DS0 these three bits select a drive (drive 0 thru drive 7).  When
-                --        DS0-DS2  are  low  and  the LOCAL input is true (low) the DR0
-                --        output will go true (low).
-                f011_irqenable <= fastio_wdata(7);
-                f011_led <= fastio_wdata(6);
-                led <= fastio_wdata(6);
-                f011_motor <= fastio_wdata(5);
-                motor <= fastio_wdata(5);
-                f011_swap <= fastio_wdata(4);
-                if fastio_wdata(4) /= f011_swap then
-                  -- switch halves of buffer if swap bit changes
-                  f011_buffer_next_read(8) <= not f011_buffer_next_read(8);
-                end if;
-                f011_side(0) <= fastio_wdata(3);
-                f011_ds <= fastio_wdata(2 downto 0);
-                if fastio_wdata(2 downto 0) /= f011_ds then
-                  f011_disk_changed <= '0';
-                end if;
-              when "00001" =>           -- $D081
-                -- COMMAND | WRITE | READ  | FREE  | STEP  |  DIR  | ALGO  |  ALT  | NOBUF | 1 RW
-                --WRITE   must be set to perform write operations.
-                --READ    must be set for all read operations.
-                --FREE    allows free-format read or write vs formatted
-                --STEP    write to 1 to cause a head stepping pulse.
-                --DIR     sets head stepping direction
-                --ALGO    selects read and write algorithm. 0=FC read, 1=DPLL read,
-                --        0=normal write, 1=precompensated write.
-
-                --ALT     selects alternate DPLL read recovery method. The ALG0 bit
-                --        must be set for ALT to work.
-                --NOBUF   clears the buffer read/write pointers
-
-                --  Legal commands are...
-                --
-                -- hexcode notes   macro   function
-                -- ------- -----   -----   --------
-                -- 40    1,4,5   RDS     Read Sector
-                -- 80    1,2     WTS     Write Sector
-                -- 60    1,4,5   RDT     Read Track
-                -- A0    1,2     WTT     Write Track (format)
-                -- 10    3       STOUT   Head Step Out
-                -- 14    3       TIME    Time 1 head step interval (no pulse)
-                -- 18    3       STIN    Head Step In
-                -- 20    3       SPIN    Wait for motor spin-up
-                -- 00    3       CAN     Cancel any command in progress
-                -- 01            CLB     Clear the buffer pointers
-                -- 
-                -- Notes:    1. Add 1 for nonbuffered operation
-                --           2. Add 4 for write precompensation
-                --           3. Add 1 to clear buffer pointers
-                --           4. Add 4 for DPLL recovery instead of FC recovery
-                --           5. Add 6 for Alternate DPLL recovery
-                f011_cmd <= fastio_wdata;
-                f011_busy <= '0';
-                f011_lost <= '0';
-                f011_irq  <= '0';
-                f011_rnf  <= '0';
-                f011_crc  <= '0';
-                f011_rsector_found <= '0';
-                f011_wsector_found <= '0';
-                if fastio_wdata(0) = '1' then
-                  -- reset buffer (but take SWAP into account)
-                  f011_buffer_next_read(7 downto 0) <= (others => '0');
-                  f011_buffer_next_read(8) <= f011_swap;
-                end if;
-                temp_cmd := fastio_wdata(7 downto 3) & "000";
-                case temp_cmd is
-                  when x"40" =>         -- read sector
-                    -- calculate sector number.
-                    -- physical sector on disk = track * $14 + sector on track
-                    -- then add to disk image start sector for the selected
-                    -- drive.
-                    -- put sector number into sd_sector, and then trigger read.
-                    -- If no disk image is enabled, then report an error.
-                    if f011_ds="000" and (diskimage1_enable='0' or f011_disk1_present='0') then
-                      f011_rnf <= '1';
-                    elsif f011_ds="001" and (diskimage2_enable='0' or f011_disk2_present='0') then
-                      f011_rnf <= '1';
-                    elsif f011_ds(2 downto 1) /= x"00" then
-                      -- only 2 drives supported for now
-                      f011_rnf <= '1';
+      if fastio_write='1' then
+        if (fastio_addr(19 downto 5)&'0' = x"D108")
+          or (fastio_addr(19 downto 5)&'0' = x"D308") then
+          -- F011 FDC emulation registers
+          case fastio_addr(4 downto 0) is
+            when "00000" =>           -- $D080
+              -- CONTROL |  IRQ  |  LED  | MOTOR | SWAP  | SIDE  |  DS2  |  DS1  |  DS0  | 0 RW
+              --IRQ     When set, enables interrupts to occur,  when reset clears and
+              --        disables interrupts.
+              --LED     These  two  bits  control  the  state  of  the  MOTOR and LED
+              --MOTOR   outputs. When both are clear, both MOTOR and LED outputs will
+              --        be off. When MOTOR is set, both MOTOR and LED Outputs will be
+              --        on. When LED is set, the LED will "blink".
+              --SWAP    swaps upper and lower halves of the data buffer
+              --        as seen by the CPU.
+              --SIDE    when set, sets the SIDE output to 0, otherwise 1.
+              --DS2-DS0 these three bits select a drive (drive 0 thru drive 7).  When
+              --        DS0-DS2  are  low  and  the LOCAL input is true (low) the DR0
+              --        output will go true (low).
+              f011_irqenable <= fastio_wdata(7);
+              f011_led <= fastio_wdata(6);
+              led <= fastio_wdata(6);
+              f011_motor <= fastio_wdata(5);
+              motor <= fastio_wdata(5);
+              f011_swap <= fastio_wdata(4);
+              if fastio_wdata(4) /= f011_swap then
+                -- switch halves of buffer if swap bit changes
+                f011_buffer_next_read(8) <= not f011_buffer_next_read(8);
+              end if;
+              f011_side(0) <= fastio_wdata(3);
+              f011_ds <= fastio_wdata(2 downto 0);
+              if fastio_wdata(2 downto 0) /= f011_ds then
+                f011_disk_changed <= '0';
+              end if;
+            when "00001" =>           -- $D081
+              -- COMMAND | WRITE | READ  | FREE  | STEP  |  DIR  | ALGO  |  ALT  | NOBUF | 1 RW
+              --WRITE   must be set to perform write operations.
+              --READ    must be set for all read operations.
+              --FREE    allows free-format read or write vs formatted
+              --STEP    write to 1 to cause a head stepping pulse.
+              --DIR     sets head stepping direction
+              --ALGO    selects read and write algorithm. 0=FC read, 1=DPLL read,
+              --        0=normal write, 1=precompensated write.
+              
+              --ALT     selects alternate DPLL read recovery method. The ALG0 bit
+              --        must be set for ALT to work.
+              --NOBUF   clears the buffer read/write pointers
+              
+              --  Legal commands are...
+              --
+              -- hexcode notes   macro   function
+              -- ------- -----   -----   --------
+              -- 40    1,4,5   RDS     Read Sector
+              -- 80    1,2     WTS     Write Sector
+              -- 60    1,4,5   RDT     Read Track
+              -- A0    1,2     WTT     Write Track (format)
+              -- 10    3       STOUT   Head Step Out
+              -- 14    3       TIME    Time 1 head step interval (no pulse)
+              -- 18    3       STIN    Head Step In
+              -- 20    3       SPIN    Wait for motor spin-up
+              -- 00    3       CAN     Cancel any command in progress
+              -- 01            CLB     Clear the buffer pointers
+              -- 
+              -- Notes:    1. Add 1 for nonbuffered operation
+              --           2. Add 4 for write precompensation
+              --           3. Add 1 to clear buffer pointers
+              --           4. Add 4 for DPLL recovery instead of FC recovery
+              --           5. Add 6 for Alternate DPLL recovery
+              f011_cmd <= fastio_wdata;
+              f011_busy <= '0';
+              f011_lost <= '0';
+              f011_irq  <= '0';
+              f011_rnf  <= '0';
+              f011_crc  <= '0';
+              f011_rsector_found <= '0';
+              f011_wsector_found <= '0';
+              if fastio_wdata(0) = '1' then
+                -- reset buffer (but take SWAP into account)
+                f011_buffer_next_read(7 downto 0) <= (others => '0');
+                f011_buffer_next_read(8) <= f011_swap;
+              end if;
+              temp_cmd := fastio_wdata(7 downto 3) & "000";
+              case temp_cmd is
+                when x"40" =>         -- read sector
+                  -- calculate sector number.
+                  -- physical sector on disk = track * $14 + sector on track
+                  -- then add to disk image start sector for the selected
+                  -- drive.
+                  -- put sector number into sd_sector, and then trigger read.
+                  -- If no disk image is enabled, then report an error.
+                  if f011_ds="000" and (diskimage1_enable='0' or f011_disk1_present='0') then
+                    f011_rnf <= '1';
+                  elsif f011_ds="001" and (diskimage2_enable='0' or f011_disk2_present='0') then
+                    f011_rnf <= '1';
+                  elsif f011_ds(2 downto 1) /= x"00" then
+                    -- only 2 drives supported for now
+                    f011_rnf <= '1';
+                  else
+                    -- f011_buffer_address gets pre-incremented, so start
+                    -- with it pointing to the end of the buffer first
+                    f011_buffer_address(7 downto 0) <= (others => '1');
+                    f011_buffer_address(8) <= '1';
+                    f011_sector_fetch <= '1';
+                    f011_busy <= '1';
+                    if sdhc_mode='1' then
+                      sd_sector <= diskimage_sector + diskimage_offset;
                     else
-                      -- f011_buffer_address gets pre-incremented, so start
-                      -- with it pointing to the end of the buffer first
-                      f011_buffer_address(7 downto 0) <= (others => '1');
-                      f011_buffer_address(8) <= '1';
-                      f011_sector_fetch <= '1';
-                      f011_busy <= '1';
-                      if sdhc_mode='1' then
-                        sd_sector <= diskimage_sector + diskimage_offset;
-                      else
-                        sd_sector(31 downto 9) <= diskimage_sector(31 downto 9) +
-                                                  diskimage_offset;     
-                      end if;
-                      sd_state <= ReadSector;
-                      sdio_error <= '0';
-                      sdio_fsm_error <= '0';
-
-                      -- XXX work around specification error: always reset buffer
-                      -- pointers when reading a sector
-                      -- reset buffer (but take SWAP into account)
-                      f011_buffer_next_read(7 downto 0) <= (others => '0');
-                      f011_buffer_next_read(8) <= f011_swap;
-
-                    end if;                    
-                  when x"80" =>         -- write sector
-                    -- Copy sector from F011 buffer to SD buffer, and then
-                    -- pretend the SD card registers were used to trigger a write.
-                    -- The F011 can in theory do unbuffered sector writes, but
-                    -- we don't support them.  The C65 ROM does buffered
-                    -- writes, anyway, so it isn't a problem.
-                    if f011_ds="000" and (diskimage1_enable='0' or f011_disk1_present='0' or f011_disk1_write_protected='1') then
-                      f011_rnf <= '1';
-                    elsif f011_ds="001" and (diskimage2_enable='0' or f011_disk2_present='0' or f011_disk2_write_protected='1') then
-                      f011_rnf <= '1';
-                    elsif f011_ds(2 downto 1) /= x"00" then
-                      -- only 2 drives supported for now
-                      f011_rnf <= '1';
-                    else
-                      -- f011_buffer_address gets pre-incremented, so start
-                      -- with it pointing to the end of the buffer first
-                      f011_buffer_address(7 downto 0) <= (others => '1');
-                      f011_buffer_address(8) <= '1';
-                      f011_sector_fetch <= '1';
-                      f011_busy <= '1';
-                      -- XXX Doesn't trigger an error for bad track/sector:
-                      -- just writes to sector 1599 of the disk image!
-                      if sdhc_mode='1' then
-                        sd_sector <= diskimage_sector + diskimage_offset;
-                      else
-                        sd_sector(31 downto 9) <= diskimage_sector(31 downto 9) +
-                                                  diskimage_offset;     
-                      end if;
-                      sd_state <= F011WriteSector;
-                      f011_buffer_address <= (others => '0');
-                      sdio_error <= '0';
-                      sdio_fsm_error <= '0';
+                      sd_sector(31 downto 9) <= diskimage_sector(31 downto 9) +
+                                                diskimage_offset;     
                     end if;
-                  when x"10" =>         -- head step out, or no step
-                    if fastio_wdata(2)='1' then
-                      -- time, but don't step
-                      null;
+                    sd_state <= ReadSector;
+                    sdio_error <= '0';
+                    sdio_fsm_error <= '0';
+                    
+                    -- XXX work around specification error: always reset buffer
+                    -- pointers when reading a sector
+                    -- reset buffer (but take SWAP into account)
+                    f011_buffer_next_read(7 downto 0) <= (others => '0');
+                    f011_buffer_next_read(8) <= f011_swap;
+                    
+                  end if;                    
+                when x"80" =>         -- write sector
+                  -- Copy sector from F011 buffer to SD buffer, and then
+                  -- pretend the SD card registers were used to trigger a write.
+                  -- The F011 can in theory do unbuffered sector writes, but
+                  -- we don't support them.  The C65 ROM does buffered
+                  -- writes, anyway, so it isn't a problem.
+                  if f011_ds="000" and (diskimage1_enable='0' or f011_disk1_present='0' or f011_disk1_write_protected='1') then
+                    f011_rnf <= '1';
+                  elsif f011_ds="001" and (diskimage2_enable='0' or f011_disk2_present='0' or f011_disk2_write_protected='1') then
+                    f011_rnf <= '1';
+                  elsif f011_ds(2 downto 1) /= x"00" then
+                    -- only 2 drives supported for now
+                    f011_rnf <= '1';
+                  else
+                    -- f011_buffer_address gets pre-incremented, so start
+                    -- with it pointing to the end of the buffer first
+                    f011_buffer_address(7 downto 0) <= (others => '1');
+                    f011_buffer_address(8) <= '1';
+                    f011_sector_fetch <= '1';
+                    f011_busy <= '1';
+                    -- XXX Doesn't trigger an error for bad track/sector:
+                    -- just writes to sector 1599 of the disk image!
+                    if sdhc_mode='1' then
+                      sd_sector <= diskimage_sector + diskimage_offset;
                     else
-                      f011_head_track <= f011_head_track - 1;
-                    end if;
-                  when x"18" =>         -- head step in
-                    f011_head_track <= f011_head_track + 1;
-                  when x"20" =>         -- motor spin up
-                    f011_motor <= '1';
-                  when x"00" =>         -- cancel running command (not implemented)
-                  when others =>        -- illegal command
+                      sd_sector(31 downto 9) <= diskimage_sector(31 downto 9) +
+                                                diskimage_offset;     
+                    end if;   
+                    sd_state <= F011WriteSector;
+                    f011_buffer_address <= (others => '0');
+                    sdio_error <= '0';
+                    sdio_fsm_error <= '0';
+                  end if;
+                when x"10" =>         -- head step out, or no step
+                  if fastio_wdata(2)='1' then
+                    -- time, but don't step
                     null;
-                end case;
-              when "00100" => f011_track <= fastio_wdata;
-              when "00101" => f011_sector <= fastio_wdata;
-              when "00110" => f011_side <= fastio_wdata;
-              when "00111" =>
-                -- Data register -- should probably be putting byte into the sector
-                -- buffer.
-                if last_was_d087='0' then
-                  f011_wdata <= fastio_wdata;
-                  f011_buffer_write <= '1';
-                  f011_buffer_next_read <= f011_buffer_next_read + 1;
-                  f011_drq <= '0';                                    
-                end if;
-                last_was_d087<='1';
-              when others => null;           
-            end case;
-          elsif (fastio_addr(19 downto 8) = x"D16"
-                 or fastio_addr(19 downto 8) = x"D36") then
-            -- microSD controller registers
-            case fastio_addr(7 downto 0) is
-              when x"80" =>
-                -- status / command register
-                case fastio_wdata is
-                  when x"00" =>
-                    -- Reset SD card
-                    sd_reset <= '1';
-                    sd_state <= Idle;
+                  else
+                    f011_head_track <= f011_head_track - 1;
+                  end if;
+                when x"18" =>         -- head step in
+                  f011_head_track <= f011_head_track + 1;
+                when x"20" =>         -- motor spin up
+                  f011_motor <= '1';
+                when x"00" =>         -- cancel running command (not implemented)
+                when others =>        -- illegal command
+                  null;
+              end case;
+            when "00100" => f011_track <= fastio_wdata;
+            when "00101" => f011_sector <= fastio_wdata;
+            when "00110" => f011_side <= fastio_wdata;
+            when "00111" =>
+              -- Data register -- should probably be putting byte into the sector
+              -- buffer.
+              if last_was_d087='0' then
+                f011_wdata <= fastio_wdata;
+                f011_buffer_write <= '1';
+                f011_buffer_next_read <= f011_buffer_next_read + 1;
+                f011_drq <= '0';                                    
+              end if;
+              last_was_d087<='1';
+            when others => null;           
+          end case;
+        elsif (fastio_addr(19 downto 8) = x"D16"
+               or fastio_addr(19 downto 8) = x"D36") then
+          -- microSD controller registers
+          case fastio_addr(7 downto 0) is
+            when x"80" =>
+              -- status / command register
+              case fastio_wdata is
+                when x"00" =>
+                  -- Reset SD card
+                  sd_reset <= '1';
+                  sd_state <= Idle;
+                  sdio_error <= '0';
+                  sdio_fsm_error <= '0';
+                  sd_sector <= (others => '0');
+                when x"10" =>
+                  -- Reset SD card with flags specified
+                  sd_reset <= '1';
+                  sd_state <= Idle;
                     sdio_error <= '0';
-                    sdio_fsm_error <= '0';
-                    sd_sector <= (others => '0');
-                  when x"10" =>
-                    -- Reset SD card with flags specified
-                    sd_reset <= '1';
-                    sd_state <= Idle;
-                    sdio_error <= '0';
-                    sdio_fsm_error <= '0';
-                  when x"01" =>
-                    -- End reset
-                    sd_reset <= '0';
-                    sd_state <= Idle;
-                    sdio_error <= '0';
-                    sdio_fsm_error <= '0';
-                  when x"11" =>
-                    -- End reset
-                    sd_reset <= '0';
-                    sd_state <= Idle;
-                    sdio_error <= '0';
-                    sdio_fsm_error <= '0';
-                  when x"02" =>
-                    -- Read sector
-                    if sdio_busy='1' then
-                      sdio_error <= '1';
-                      sdio_fsm_error <= '1';
-                    else
-                      sd_state <= ReadSector;
-                      sdio_error <= '0';
-                      sdio_fsm_error <= '0';
-                    end if;
-                  when x"03" =>
-                    -- Write sector
-                    if sdio_busy='1' then
-                      sdio_error <= '1';
-                      sdio_fsm_error <= '1';
-                    else                  
-                      sd_state <= WriteSector;
-                      sdio_error <= '0';
-                      sdio_fsm_error <= '0';
-                    end if;
-                  when x"41" => sdhc_mode <= '1';
-                  when x"42" => sdhc_mode <= '0';
-                  when x"81" => sector_buffer_mapped<='1';
-                                sdio_error <= '0';
-                                sdio_fsm_error <= '0';
-                  when x"82" => sector_buffer_mapped<='0';
-                                sdio_error <= '0';
-                                sdio_fsm_error <= '0';
-                  when others =>
+                  sdio_fsm_error <= '0';
+                when x"01" =>
+                  -- End reset
+                  sd_reset <= '0';
+                  sd_state <= Idle;
+                  sdio_error <= '0';
+                  sdio_fsm_error <= '0';
+                when x"11" =>
+                  -- End reset
+                  sd_reset <= '0';
+                  sd_state <= Idle;
+                  sdio_error <= '0';
+                  sdio_fsm_error <= '0';
+                when x"02" =>
+                  -- Read sector
+                  if sdio_busy='1' then
                     sdio_error <= '1';
-                end case;
-              when x"81" => sd_sector(7 downto 0) <= fastio_wdata;
-              when x"82" => sd_sector(15 downto 8) <= fastio_wdata;
-              when x"83" => sd_sector(23 downto 16) <= fastio_wdata;
-              when x"84" => sd_sector(31 downto 24) <= fastio_wdata;
-              when x"8b" =>
-                f011_disk2_write_protected <= not fastio_wdata(5);
-                f011_disk2_present <= fastio_wdata(4);
-                diskimage2_enable <= fastio_wdata(3);
-
-                f011_write_protected <= not fastio_wdata(2);                
-                f011_disk1_present <= fastio_wdata(1);
-                diskimage1_enable <= fastio_wdata(0);
-              when x"8c" => diskimage_sector(7 downto 0) <= fastio_wdata;
-              when x"8d" => diskimage_sector(15 downto 8) <= fastio_wdata;
-              when x"8e" => diskimage_sector(23 downto 16) <= fastio_wdata;
-              when x"8f" => diskimage_sector(31 downto 24) <= fastio_wdata;
-              when x"90" => diskimage2_sector(7 downto 0) <= fastio_wdata;
-              when x"91" => diskimage2_sector(15 downto 8) <= fastio_wdata;
-              when x"92" => diskimage2_sector(23 downto 16) <= fastio_wdata;
-              when x"93" => diskimage2_sector(31 downto 24) <= fastio_wdata;
-              when x"F3" =>
-                -- Accelerometer
-                aclMOSI <= fastio_wdata(1);
-                aclMOSIinternal <= fastio_wdata(1);
-                aclSS <= fastio_wdata(2);
-                aclSSinternal <= fastio_wdata(2);
-                aclSCK <= fastio_wdata(3);
-                aclSCKinternal <= fastio_wdata(3);
-              when x"F5" =>
-                -- Temperature sensor
-                tmpSDAinternal <= fastio_wdata(0);
-                tmpSDA <= fastio_wdata(0);
-                tmpSCLinternal <= fastio_wdata(1);
-                tmpSCL <= fastio_wdata(1);
-              when x"F8" =>
-                -- 8-bit digital audio out
-                pwm_value_new_left <= fastio_wdata;
-              when x"F9" =>
-                -- enable/disable audio amplifiers
-                ampSD <= fastio_wdata(0);
-              when x"FA" =>
-                -- 8-bit digital audio out
-                pwm_value_new_right <= fastio_wdata;
-              when x"FF" =>
-                -- Flash interface
-                if fastio_wdata(0)='0' then
-                  QspiDB(0) <= '0';
-                else
-                  QspiDB(0) <= 'Z';
-                end if;
-                if fastio_wdata(1)='0' then
-                  QspiDB(1) <= '0';
-                else
-                  QspiDB(1) <= 'Z';
-                end if;
-                if fastio_wdata(2)='0' then
-                  QspiDB(2) <= '0';
-                else
-                  QspiDB(2) <= 'Z';
-                end if;
-                if fastio_wdata(3)='0' then
-                  QspiDB(3) <= '0';
-                else
-                  QspiDB(3) <= 'Z';
-                end if;
-                -- XXX We should protect CS so that we can prevent use of the flash
-                -- if we want.  As it is a malicious program could reprogram or
-                -- mess up the configuration flash.
-                QspiCSn <= fastio_wdata(6);
-                QspiCSnInternal <= fastio_wdata(6);
-                QspiSCK <= fastio_wdata(7);
-                QspiSCKInternal <= fastio_wdata(7);
-              when others => null;
-            end case;
-          end if;
+                    sdio_fsm_error <= '1';
+                  else
+                    sd_state <= ReadSector;
+                    sdio_error <= '0';
+                    sdio_fsm_error <= '0';
+                  end if;
+                when x"03" =>
+                  -- Write sector
+                  if sdio_busy='1' then
+                    sdio_error <= '1';
+                    sdio_fsm_error <= '1';
+                  else                  
+                    sd_state <= WriteSector;
+                    sdio_error <= '0';
+                    sdio_fsm_error <= '0';
+                  end if;
+                when x"41" => sdhc_mode <= '1';
+                when x"42" => sdhc_mode <= '0';
+                when x"81" => sector_buffer_mapped<='1';
+                              sdio_error <= '0';
+                              sdio_fsm_error <= '0';
+                when x"82" => sector_buffer_mapped<='0';
+                              sdio_error <= '0';
+                              sdio_fsm_error <= '0';
+                when others =>
+                  sdio_error <= '1';
+              end case;
+            when x"81" => sd_sector(7 downto 0) <= fastio_wdata;
+            when x"82" => sd_sector(15 downto 8) <= fastio_wdata;
+            when x"83" => sd_sector(23 downto 16) <= fastio_wdata;
+            when x"84" => sd_sector(31 downto 24) <= fastio_wdata;
+            when x"8b" =>
+              f011_disk2_write_protected <= not fastio_wdata(5);
+              f011_disk2_present <= fastio_wdata(4);
+              diskimage2_enable <= fastio_wdata(3);
+              
+              f011_write_protected <= not fastio_wdata(2);                
+              f011_disk1_present <= fastio_wdata(1);
+              diskimage1_enable <= fastio_wdata(0);
+            when x"8c" => diskimage_sector(7 downto 0) <= fastio_wdata;
+            when x"8d" => diskimage_sector(15 downto 8) <= fastio_wdata;
+            when x"8e" => diskimage_sector(23 downto 16) <= fastio_wdata;
+            when x"8f" => diskimage_sector(31 downto 24) <= fastio_wdata;
+            when x"90" => diskimage2_sector(7 downto 0) <= fastio_wdata;
+            when x"91" => diskimage2_sector(15 downto 8) <= fastio_wdata;
+            when x"92" => diskimage2_sector(23 downto 16) <= fastio_wdata;
+            when x"93" => diskimage2_sector(31 downto 24) <= fastio_wdata;
+            when x"F3" =>
+              -- Accelerometer
+              aclMOSI <= fastio_wdata(1);
+              aclMOSIinternal <= fastio_wdata(1);
+              aclSS <= fastio_wdata(2);
+              aclSSinternal <= fastio_wdata(2);
+              aclSCK <= fastio_wdata(3);
+              aclSCKinternal <= fastio_wdata(3);
+            when x"F5" =>
+              -- Temperature sensor
+              tmpSDAinternal <= fastio_wdata(0);
+              tmpSDA <= fastio_wdata(0);
+              tmpSCLinternal <= fastio_wdata(1);
+              tmpSCL <= fastio_wdata(1);
+            when x"F8" =>
+              -- 8-bit digital audio out
+              pwm_value_new_left <= fastio_wdata;
+            when x"F9" =>
+              -- enable/disable audio amplifiers
+              ampSD <= fastio_wdata(0);
+            when x"FA" =>
+              -- 8-bit digital audio out
+              pwm_value_new_right <= fastio_wdata;
+            when x"FF" =>
+              -- Flash interface
+              if fastio_wdata(0)='0' then
+                QspiDB(0) <= '0';
+              else
+                QspiDB(0) <= 'Z';
+              end if;
+              if fastio_wdata(1)='0' then
+                QspiDB(1) <= '0';
+              else
+                QspiDB(1) <= 'Z';
+              end if;
+              if fastio_wdata(2)='0' then
+                QspiDB(2) <= '0';
+              else
+                QspiDB(2) <= 'Z';
+              end if;
+              if fastio_wdata(3)='0' then
+                QspiDB(3) <= '0';
+              else
+                QspiDB(3) <= 'Z';
+              end if;
+              -- XXX We should protect CS so that we can prevent use of the flash
+              -- if we want.  As it is a malicious program could reprogram or
+              -- mess up the configuration flash.
+              QspiCSn <= fastio_wdata(6);
+              QspiCSnInternal <= fastio_wdata(6);
+              QspiSCK <= fastio_wdata(7);
+              QspiSCKInternal <= fastio_wdata(7);
+            when others => null;
+          end case;
         end if;
       end if;
                 
