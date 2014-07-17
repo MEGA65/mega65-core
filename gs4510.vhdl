@@ -2361,7 +2361,7 @@ begin
                 memory_access_resolve_address := '1';
               end if;
               if reg_microcode.mcStoreTRB='1' then
-                reg_t <= reg_a and memory_read_value;
+                reg_t <= (reg_a xor x"FF") and memory_read_value;
               end if;
               if reg_microcode.mcStoreTSB='1' then
                 report "memory_read_value = $" & to_hstring(memory_read_value) & ", A = $" & to_hstring(reg_a) severity note;
