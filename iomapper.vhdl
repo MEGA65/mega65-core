@@ -453,6 +453,11 @@ begin
         sectorbuffercs <= '1';
         report "selecting SD card sector buffer" severity note;
       end if;
+      -- Also map SD card sector buffer at $FFD6000 - $FFD61FF regardless of
+      -- VIC-IV IO mode and mapping of colour RAM
+      if address(19 downto 8) = x"D60" or address(19 downto 8) = x"D61" then
+        sectorbuffercs <= '1';
+      end if;
 
       -- Now map the SIDs
       -- $D440 = left SID
