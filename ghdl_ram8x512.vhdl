@@ -27,7 +27,7 @@ architecture behavioural of ram8x512 is
 
   type ram_t is array (0 to 511) of std_logic_vector(7 downto 0);
   signal ram : ram_t := (
-    x"00" => x"52",
+    0 => x"52",
     others => x"BD");
 
 begin  -- behavioural
