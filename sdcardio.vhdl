@@ -280,7 +280,7 @@ begin  -- behavioural
 	clk => clock	-- twice the SPI clk.  XXX Cannot exceed 50MHz
         );
 
-  ram0: ram8x512
+  sdsectorbuffer: ram8x512
     port map (
       clka => clock,
       ena => sectorbuffercs,
@@ -298,7 +298,7 @@ begin  -- behavioural
       
       );
 
-  ram1: ram8x512
+  fdcsectorbuffer: ram8x512
     port map (
       -- FDC side access to the buffer
       clka => clock,
