@@ -30,13 +30,27 @@ architecture behavioural of ram8x512 is
 
 begin  -- behavioural
 
-  process(clka,addra,ram)
+  process(clka,clkb,addrb,addra,ram)
+    variable write : std_logic;
+    variable write_address : STD_LOGIC_VECTOR(8 DOWNTO 0);
+    variable write_data : STD_LOGIC_VECTOR(7 DOWNTO 0);
+
   begin
-    douta <= ram(to_integer(unsigned(addra)));
+    if ena='1' then
+      douta <= ram(to_integer(unsigned(addra)));
+    end if;
+    if enb='1' then
+      doutb <= ram(to_integer(unsigned(addrb)));
+    end if;
+
+    write := '0';
+    
     if(rising_edge(Clka)) then
---      report "ram(0) = $" & to_hstring(ram(0)) severity note;
       if ena='1' then
         if(wea="1") then
+          write := '1';
+          write_address := addra;
+          write_data := dina;
           ram(to_integer(unsigned(addra))) <= dina;
           report "writing $" & to_hstring(dina) & " to sector buffer offset $"
             & to_hstring("000" & addra) severity note;
@@ -45,17 +59,13 @@ begin  -- behavioural
         douta <= "ZZZZZZZZ";
       end if;
     end if;
-  end process;
 
-  process (clkb,addrb,ram)
-  begin
-    doutb <= ram(to_integer(unsigned(addrb)));
     if(rising_edge(Clkb)) then 
       if enb='1' then
         if(web="1") then
-          ram(to_integer(unsigned(addrb))) <= dinb;
-          report "writing $" & to_hstring(dinb) & " to sector buffer offset $"
-            & to_hstring("000" & addrb) severity note;
+          write := '1';
+          write_address := addra;
+          write_data := dina;
         end if;
 --        report "reading from sector buffer at offset %" & to_string(addrb)
 --        severity note;
@@ -63,6 +73,11 @@ begin  -- behavioural
         doutb <= "ZZZZZZZZ";
       end if;
     end if;
+
+    if write='1' then
+      ram(to_integer(unsigned(write_address))) <= write_data;
+    end if;
+    
   end process;
 
 end behavioural;
