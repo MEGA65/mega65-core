@@ -517,7 +517,7 @@ begin  -- behavioural
             fastio_rdata(6) <= QspiCSnInternal;
             fastio_rdata(7) <= QspiSCKInternal;
           when others =>
-            fastio_rdata <= x"75";
+            fastio_rdata <= (others => 'Z');
         end case;
       else
         -- Otherwise tristate output
