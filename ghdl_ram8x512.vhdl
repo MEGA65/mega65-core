@@ -30,8 +30,9 @@ architecture behavioural of ram8x512 is
 
 begin  -- behavioural
 
-  process(clka)
+  process(clka,addra,ram)
   begin
+    douta <= ram(to_integer(unsigned(addra)));
     if(rising_edge(Clka)) then
 --      report "ram(0) = $" & to_hstring(ram(0)) severity note;
       if ena='1' then
@@ -40,15 +41,15 @@ begin  -- behavioural
           report "writing $" & to_hstring(dina) & " to sector buffer offset $"
             & to_hstring("000" & addra) severity note;
         end if;
-        douta <= ram(to_integer(unsigned(addra)));
       else
         douta <= "ZZZZZZZZ";
       end if;
     end if;
   end process;
 
-  process (clkb)
+  process (clkb,addrb,ram)
   begin
+    doutb <= ram(to_integer(unsigned(addrb)));
     if(rising_edge(Clkb)) then 
       if enb='1' then
         if(web="1") then
@@ -58,7 +59,6 @@ begin  -- behavioural
         end if;
 --        report "reading from sector buffer at offset %" & to_string(addrb)
 --        severity note;
-        doutb <= ram(to_integer(unsigned(addrb)));
       else
         doutb <= "ZZZZZZZZ";
       end if;
