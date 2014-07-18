@@ -385,8 +385,10 @@ architecture Behavioral of viciv is
   -- Number added to card number for each row of characters, i.e., virtual
   -- character display width.
   signal virtual_row_width : unsigned(15 downto 0) := to_unsigned(40,16);
-  -- Each character pixel will be (n+1) pixels wide  
-  signal chargen_x_scale : unsigned(7 downto 0) := x"02";  -- x"04"
+  -- Each logical pixel will be 32/n physical pixels wide
+  -- 40 columns needs 6
+  -- 80 columns needs 12
+  signal chargen_x_scale : unsigned(7 downto 0) := x"06";  
   -- Each character pixel will be (n+1) pixels high
   signal chargen_y_scale : unsigned(7 downto 0) := x"02";  -- x"04"
   -- smooth scrolling position in natural pixels.
@@ -600,7 +602,8 @@ architecture Behavioral of viciv is
   signal monobit : std_logic := '0';
 
   -- Raster buffer
-  signal raster_buffer_read_address : unsigned(11 downto 0);
+  -- Read address is in 32nds of pixels
+  signal raster_buffer_read_address : unsigned(16 downto 0);
   signal raster_buffer_read_data : unsigned(8 downto 0);
   signal raster_buffer_write_address : unsigned(11 downto 0);
   signal raster_buffer_write_data : unsigned(8 downto 0);
@@ -643,7 +646,7 @@ begin
       dina => std_logic_vector(raster_buffer_write_data),
       unsigned(doutb) => raster_buffer_read_data,
       addra => std_logic_vector(raster_buffer_write_address),
-      addrb => std_logic_vector(raster_buffer_read_address)
+      addrb => std_logic_vector(raster_buffer_read_address(16 downto 5))
       );
   
   buffer1: component screen_ram_buffer
@@ -757,7 +760,7 @@ begin
           border_x_left <= to_unsigned(160+(7*5),12);
           border_x_right <= to_unsigned(1920-160-(9*5),12);
         end if;
-        chargen_x_scale <= x"04";
+        chargen_x_scale <= x"06";
         virtual_row_width <= to_unsigned(40,16);
       elsif reg_h640='1' and reg_h1280='0' then
         -- 80 column mode (3x pixels, no side border)
@@ -771,7 +774,7 @@ begin
           border_x_left <= to_unsigned(0+(7*3),12);
           border_x_right <= to_unsigned(1920-(9*3),12);
         end if;
-        chargen_x_scale <= x"02";
+        chargen_x_scale <= x"0c";
         virtual_row_width <= to_unsigned(80,16);
       elsif reg_h640='0' and reg_h1280='1' then        
         -- 160 column mode (natural pixels, fat side borders)
@@ -786,7 +789,7 @@ begin
           border_x_left <= to_unsigned(320+(7*1),12);
           border_x_right <= to_unsigned(1920-320-(9*1),12);
         end if;
-        chargen_x_scale <= x"00";
+        chargen_x_scale <= x"20";
         virtual_row_width <= to_unsigned(160,16);
       else
         -- 240 column mode (natural pixels, no side border)
@@ -801,7 +804,7 @@ begin
           border_x_right <= to_unsigned(1920-(9*3),12);
         end if;
         virtual_row_width <= to_unsigned(240,16);
-        chargen_x_scale <= x"00";
+        chargen_x_scale <= x"20";
       end if;
       if reg_v400='0' then
         -- set vertical borders based on twentyfourlines
@@ -1737,7 +1740,7 @@ begin
       end if;
 
       -- Stop drawing characters when we reach the end of the prepared data
-      if raster_buffer_read_address = raster_buffer_write_address then
+      if raster_buffer_read_address(16 downto 5) > raster_buffer_write_address then
         report "stopping character generator due to buffer exhaustion"
           severity note;
         chargen_active <= '0';
@@ -1746,14 +1749,8 @@ begin
       
       -- Update current horizontal sub-pixel and pixel position
       -- Work out if a new logical pixel starts on the next physical pixel
-      -- (overrides general advance)
-      if chargen_x_sub=chargen_x_scale then
-        chargen_x_sub <= (others => '0');
-        -- Advance to next display pixel
-        raster_buffer_read_address <= raster_buffer_read_address + 1;
-      else
-        chargen_x_sub <= chargen_x_sub + 1;
-      end if;
+      -- (overrides general advance).
+      raster_buffer_read_address <= raster_buffer_read_address + chargen_x_scale;
 
       report "chargen_active=" & std_logic'image(chargen_active)
         & ", xcounter = " & to_string(std_logic_vector(xcounter))
@@ -1867,7 +1864,7 @@ begin
           report "VICIV: no character pixel data as chargen_active=0" severity note;
         else
           -- Otherwise read pixel data from raster buffer
-          report "VICIV: rb_read_address = $" & to_hstring(raster_buffer_read_address)
+          report "VICIV: rb_read_address = $" & to_hstring(raster_buffer_read_address(16 downto 5))
             & ", data = $" & to_hstring(raster_buffer_read_data(7 downto 0)) severity note;
           pixel_colour <= raster_buffer_read_data(7 downto 0);
           -- XXX 9th bit indicates foreground for sprite collission handling
