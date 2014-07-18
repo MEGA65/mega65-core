@@ -1176,10 +1176,7 @@ re1done:
 		lda #$01
 		sta $D680
 		jsr sdtimeoutreset
-re2:		; make it look pretty while waiting for SD card to reset
-		inc $d020
-		dec $d020
-		jsr sdreadytest
+re2:		jsr sdreadytest
 		bcs re2done	; success, so return
 		bne re2		; not timed out, so keep trying
 		rts 		; timeout, so return
@@ -1207,7 +1204,25 @@ redone:
 		rts
 
 sdwaitawhile:	jsr sdtimeoutreset
-sw1:		inc $0300
+sw1:		
+		inc $d020
+		inc $d020
+		dec $d020
+		inc $d020
+		dec $d020
+		inc $d020
+		dec $d020
+		inc $d020
+		dec $d020
+		inc $d020
+		dec $d020
+		inc $d020
+		dec $d020
+		inc $d020
+		dec $d020
+		dec $d020
+
+		inc $0300
 		bne sw1
 		inc $0301
 		bne sw1
@@ -1220,7 +1235,7 @@ sdtimeoutreset:
 		lda #$00
 		sta $0300
 		sta $0301
-		lda #$e0
+		lda #$fc
 		sta $0302
 		rts
 
