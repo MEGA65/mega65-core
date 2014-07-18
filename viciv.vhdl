@@ -244,8 +244,12 @@ architecture Behavioral of viciv is
 
   constant width : integer := 1920;
   constant height : integer := 1200;
-  
-  constant frame_width : integer := 2592;
+
+  -- We compare to this value, thus the minus one.  Otherwise the frame will be
+  -- 2593 pixels wide, which means that the CPU:VIC clock phase will not be
+  -- consistent on all raster lines, and vertical rasters/splits would have a 4
+  -- pixel wide saw-tooth effect.
+  constant frame_width : integer := 2592-1;
   constant frame_h_front : integer := 128;
   constant frame_h_syncwidth : integer := 208;
 
