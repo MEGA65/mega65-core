@@ -16,6 +16,31 @@
 -- *  along with this program; if not, write to the Free Software
 -- *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 -- *  02111-1307  USA.
+
+
+-- The sector buffers are a bit of a pain, because they do require access from
+-- both the SD controller and the CPU side of things.
+-- When reading from SD card, the SD controller needs to be able to write to
+-- the buffer.
+-- When writing to the SD card, the SD controller needs to be able to read from
+-- the buffer.
+-- The CPU can, in principle at least, read or write the buffer any time.
+--
+-- What might be a nice solution is to give the SD controller an exclusive
+-- single-port buffer.  The CPU can also have an exclusive single port buffer.
+-- All that then remains is for synchronisation between the two.  When the CPU
+-- writes to its buffer, it can also signal the SD controller that there is a
+-- value to be written.  If the SD controller is busy, then the write will be
+-- missed, but that is an acceptable semantic, I think.  Then, when the SD
+-- controller reads a byte, it needs to pass it to the CPU-side to be written
+-- to the buffer there.  This is the only tricky bit, because it means that we
+-- cannot have the address lines on the CPU side tied to fastio_addr, or at
+-- least not when the SD controller is busy.  It should be fairly easy to mux
+-- this accross using the SD controller busy flag.  Same can probably be done
+-- for the buffer access. In fact, if we just do this muxing, we can get away
+-- with a one single-port buffer that gets shared between the two sides based
+-- on whether the SD controller is using it or not.
+
 use WORK.ALL;
 
 library IEEE;
@@ -129,19 +154,13 @@ architecture behavioural of sdcardio is
 
   component ram8x512 IS
   PORT (
-    clka : IN STD_LOGIC;
-    ena : IN STD_LOGIC;
-    wea : IN STD_LOGIC_VECTOR(0 DOWNTO 0);
-    addra : IN STD_LOGIC_VECTOR(8 DOWNTO 0);
-    dina : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
-    douta : OUT STD_LOGIC_VECTOR(7 DOWNTO 0);
-    clkb : IN STD_LOGIC;
-    enb : IN STD_LOGIC;
-    web : IN STD_LOGIC_VECTOR(0 DOWNTO 0);
-    addrb : IN STD_LOGIC_VECTOR(8 DOWNTO 0);
-    dinb : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
-    doutb : OUT STD_LOGIC_VECTOR(7 DOWNTO 0)
-  );
+    clk : IN STD_LOGIC;
+    cs : IN STD_LOGIC;
+    w : IN std_logic;
+    address : IN integer range 0 to 511;
+    wdata : IN unsigned(7 DOWNTO 0);
+    rdata : OUT unsigned(7 DOWNTO 0)
+    );
   END component;
 
   signal QspiSCKInternal : std_logic := '1';
@@ -254,6 +273,12 @@ architecture behavioural of sdcardio is
 
   signal f011_led : std_logic := '0';
   signal f011_motor : std_logic := '0';
+
+  signal sectorbuffercs_muxed : std_logic;
+  signal sectorbufferw_muxed : std_logic;
+  signal sectorbufferaddress_muxed : integer range 0 to 511;
+  signal sectorbufferwdata_muxed : unsigned(7 downto 0);
+  signal sectorbufferrdata_muxed : unsigned(7 downto 0);
   
 begin  -- behavioural
 
@@ -282,41 +307,29 @@ begin  -- behavioural
 
   sdsectorbuffer: ram8x512
     port map (
-      clka => clock,
-      ena => sectorbuffercs,
-      wea(0) => fastio_write,
-      addra => std_logic_vector(fastio_addr(8 downto 0)),
-      dina => std_logic_vector(fastio_wdata),
-      unsigned(douta) => fastio_sd_rdata,
+      clk => clock,
+      cs => sectorbuffercs_muxed,
+      w => sectorbufferw_muxed,
+      address => sectorbufferaddress_muxed,
+      wdata => sectorbufferwdata_muxed,
+      rdata => sectorbufferwdata_muxed
+      );
 
-      clkb => clock,
-      enb => '1',
-      web => sbweb,
-      addrb => std_logic_vector(sector_offset(8 downto 0)),
-      dinb => sb_wdata,
-      doutb => sd_wdata
+  process (sdio_busy,fastio_wdata,sectorbuffercs,fastio_addr)
+  begin
+    if sdio_busy = '1' then
+      -- SD-card side has access to the sector buffer.
+      sectorbuffercs_muxed <= '1';
       
-      );
-
-  fdcsectorbuffer: ram8x512
-    port map (
-      -- FDC side access to the buffer
-      clka => clock,
-      ena => '1',
-      wea(0) => f011_fdc_buffer_write,
-      addra => std_logic_vector(f011_buffer_address),
-      dina => std_logic_vector(f011_buffer_wdata),
-      unsigned(douta) => f011_buffer_rdata,
-
-      -- fastio side access to the buffer
-      clkb => clock,
-      enb => '1',
-      web(0) => f011_buffer_write,
-      addrb => std_logic_vector(f011_buffer_next_read(8 downto 0)),
-      dinb => std_logic_vector(f011_wdata),
-      unsigned(doutb) => f011_rdata      
-      );
-
+    else
+      -- CPU-side has access to the sector buffer.
+      sectorbufferaddress_muxed <= to_integer(fastio_addr(8 downto 0));
+      sectorbufferwdata_muxed <= fastio_wdata;
+      sectorbuffercs_muxed <= sectorbuffercs;
+      -- XXX what about CPU reading?
+    end if;
+  end process;
+  
   -- XXX also implement F1011 floppy controller emulation.
   process (clock,fastio_addr,fastio_wdata,sector_buffer_mapped,sdio_busy,
            sd_reset,fastio_read,sd_sector,fastio_write,
