@@ -31,6 +31,8 @@ begin  -- behavioural
   begin
     if cs='1' then
       rdata <= ram(address);
+    else
+      rdata <= (others => 'Z');
     end if;
 
     if(rising_edge(Clk)) then
