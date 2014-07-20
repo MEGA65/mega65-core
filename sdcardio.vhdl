@@ -353,7 +353,7 @@ begin  -- behavioural
     variable temp_cmd : unsigned(7 downto 0);
   begin
 
-    if fastio_read='1' then
+    if fastio_read='1' and sectorbuffercs='0' then
       if (fastio_addr(19 downto 5)&'0' = x"D108")
         or (fastio_addr(19 downto 5)&'0' = x"D308") then
         -- F011 FDC emulation registers
