@@ -157,8 +157,9 @@ architecture behavioural of sdcardio is
     clk : IN STD_LOGIC;
     cs : IN STD_LOGIC;
     w : IN std_logic;
-    address : IN integer range 0 to 511;
+    write_address : IN integer range 0 to 511;
     wdata : IN unsigned(7 DOWNTO 0);
+    address : IN integer range 0 to 511;
     rdata : OUT unsigned(7 DOWNTO 0)
     );
   END component;
@@ -195,26 +196,29 @@ architecture behavioural of sdcardio is
   signal sd_doread       : std_logic := '0';
   signal sd_dowrite      : std_logic := '0';
   signal data_ready : std_logic := '0';
-  
+
+  -- Signals to communicate with SD controller core
   signal sd_sector       : unsigned(31 downto 0) := (others => '0');
   signal sd_datatoken    : unsigned(7 downto 0);
-  signal sd_rdata        : std_logic_vector(7 downto 0);
-  signal sb_wdata        : std_logic_vector(7 downto 0);
-  signal sd_wdata        : std_logic_vector(7 downto 0) := (others => '0');
+  signal sd_rdata        : unsigned(7 downto 0);
+  signal sd_wdata        : unsigned(7 downto 0) := (others => '0');
   signal sd_error        : std_logic;
   signal sd_reset        : std_logic := '1';
   signal sdhc_mode : std_logic := '0';
-  
+
   -- IO mapped register to indicate if SD card interface is busy
   signal sdio_busy : std_logic := '0';
   signal sdio_error : std_logic := '0';
   signal sdio_fsm_error : std_logic := '0';
 
   signal sector_buffer_mapped : std_logic := '0';
-
+  
+  -- Signals for sector buffers (both SD and CPU side)
+  signal sb_w : std_logic := '0';
+  signal sb_wdata : unsigned(7 downto 0);
   -- Counter for reading/writing sector
   signal sector_offset : unsigned(9 downto 0);
-  signal sbweb : std_logic_vector(0 downto 0) := "0";
+  signal sb_writeaddress : integer range 0 to 511 := 0;
   
   type sd_state_t is (Idle,
                       ReadSector,ReadingSector,ReadingSectorAckByte,DoneReadingSector,
@@ -274,12 +278,6 @@ architecture behavioural of sdcardio is
   signal f011_led : std_logic := '0';
   signal f011_motor : std_logic := '0';
 
-  signal sectorbuffercs_muxed : std_logic;
-  signal sectorbufferw_muxed : std_logic;
-  signal sectorbufferaddress_muxed : integer range 0 to 511;
-  signal sectorbufferwdata_muxed : unsigned(7 downto 0);
-  signal sectorbufferrdata_muxed : unsigned(7 downto 0);
-  
 begin  -- behavioural
 
   --**********************************************************************
@@ -300,35 +298,42 @@ begin  -- behavioural
 	dm_in => '1',	-- data mode, 0 = write continuously, 1 = write single block
 	reset => sd_reset,
         data_ready => data_ready,
-	din => sd_wdata,
-	dout => sd_rdata,
+	din => std_logic_vector(sd_wdata),
+	unsigned(dout) => sd_rdata,
 	clk => clock	-- twice the SPI clk.  XXX Cannot exceed 50MHz
         );
 
-  sdsectorbuffer: ram8x512
+  sdsectorbuffer0: ram8x512
     port map (
       clk => clock,
-      cs => sectorbuffercs_muxed,
-      w => sectorbufferw_muxed,
-      address => sectorbufferaddress_muxed,
-      wdata => sectorbufferwdata_muxed,
-      rdata => sectorbufferwdata_muxed
+
+      -- CPU side read access
+      cs => sectorbuffercs,
+      address => to_integer(fastio_addr(8 downto 0)),
+      rdata => fastio_rdata,
+
+      -- Write side controlled by SD-card side.
+      -- (CPU side effects writes by asking SD-card side to write)
+      w => sb_w,
+      write_address => sb_writeaddress,
+      wdata => sb_wdata
       );
 
-  process (sdio_busy,fastio_wdata,sectorbuffercs,fastio_addr)
-  begin
-    if sdio_busy = '1' then
-      -- SD-card side has access to the sector buffer.
-      sectorbuffercs_muxed <= '1';
-      
-    else
-      -- CPU-side has access to the sector buffer.
-      sectorbufferaddress_muxed <= to_integer(fastio_addr(8 downto 0));
-      sectorbufferwdata_muxed <= fastio_wdata;
-      sectorbuffercs_muxed <= sectorbuffercs;
-      -- XXX what about CPU reading?
-    end if;
-  end process;
+  sdsectorbuffer1: ram8x512
+    port map (
+      clk => clock,
+
+      -- SD-card side read access (for writing sectors to SD card)
+      cs => '1',
+      address => to_integer(sector_offset),
+      rdata => sd_wdata,
+
+      -- Write side controlled by SD-card side.
+      -- (CPU side effects writes by asking SD-card side to write)
+      w => sb_w,
+      write_address => sb_writeaddress,
+      wdata => sb_wdata
+      );
   
   -- XXX also implement F1011 floppy controller emulation.
   process (clock,fastio_addr,fastio_wdata,sector_buffer_mapped,sdio_busy,
@@ -986,9 +991,19 @@ begin  -- behavioural
         end if;
       end if;
                 
-      sbweb(0) <= '0';
+      sb_w <= '0';
       case sd_state is
-        when Idle => sdio_busy <= '0';
+        when Idle =>
+          sdio_busy <= '0';
+          -- Allow CPU to write to sector buffers if we are not talking to the
+          -- SD card.
+          if fastio_write='1' and sectorbuffercs='1' then
+            sb_w <= '1';
+            sb_wdata <= unsigned(fastio_wdata);
+            sb_writeaddress <= to_integer(fastio_addr(8 downto 0));
+          else
+            sb_w <= '0';
+          end if;              
         when ReadSector =>
           -- Begin reading a sector into the buffer
           if sdio_busy='0' then
@@ -1006,8 +1021,9 @@ begin  -- behavioural
             sd_doread <= '0';
             -- A byte is ready to read, so store it
             -- sector_buffer(to_integer(sector_offset)) <= unsigned(sd_rdata);
-            sbweb(0) <= '1';
-            sb_wdata <= sd_rdata;
+            sb_w <= '1';
+            sb_wdata <= unsigned(sd_rdata);
+            sb_writeaddress <= to_integer(sector_offset);
             sd_state <= ReadingSectorAckByte;
             if skip=0 then
               sector_offset <= sector_offset + 1;
@@ -1048,14 +1064,14 @@ begin  -- behavioural
         when F011WriteSector =>
           -- Sit out the wait state for reading the next sector buffer byte
           -- as we copy the F011 sector buffer to the primary SD card sector buffer.
-          sbweb(0) <= '0';
+          sb_w <= '0';
           f011_buffer_address <= f011_buffer_address;
           sd_state <= F011WriteSectorCopying;
         when F011WriteSectorCopying =>
           -- Write byte to SD sector buffer
           sector_offset <= "0"&f011_buffer_address;
-          sb_wdata <= std_logic_vector(f011_rdata);
-          sbweb(0) <= '1';
+          sb_wdata <= f011_rdata;
+          sb_w <= '1';
           if f011_buffer_address /= "111111111" then
             -- Schedule reading of the next byte
             f011_buffer_address <= f011_buffer_address + 1;
@@ -1066,7 +1082,7 @@ begin  -- behavioural
           end if;          
         when WriteSector =>
           -- Begin writing a sector into the buffer
-          sbweb(0) <= '0';
+          sb_w <= '0';
           if sdio_busy='0' then
             sd_dowrite <= '1';
             sdio_busy <= '1';

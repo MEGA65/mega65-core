@@ -11,8 +11,9 @@ ENTITY ram8x512 IS
     clk : IN STD_LOGIC;
     cs : IN STD_LOGIC;
     w : IN std_logic;
-    address : IN integer range 0 to 511;
+    write_address : IN integer range 0 to 511;
     wdata : IN unsigned(7 DOWNTO 0);
+    address : IN integer range 0 to 511;
     rdata : OUT unsigned(7 DOWNTO 0)
     );
 END ram8x512;
@@ -35,9 +36,9 @@ begin  -- behavioural
     if(rising_edge(Clk)) then
       if cs='1' then
         if w='1' then
-          ram(address) <= wdata;
+          ram(write_address) <= wdata;
           report "writing $" & to_hstring(wdata) & " to sector buffer offset $"
-            & to_hstring(to_unsigned(address,12)) severity note;
+            & to_hstring(to_unsigned(write_address,12)) severity note;
         end if;
       end if;
     end if;    
