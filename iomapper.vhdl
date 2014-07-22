@@ -104,6 +104,19 @@ architecture behavioral of iomapper is
       );
   end component;
 
+  component ethernet is
+  port (
+    clock : in std_logic;
+    pixelclk : in std_logic;
+    reset : in std_logic;
+
+    fastio_addr : in unsigned(19 downto 0);
+    fastio_write : in std_logic;
+    fastio_read : in std_logic;
+    fastio_wdata : in unsigned(7 downto 0);
+    fastio_rdata : out unsigned(7 downto 0)
+    );
+  end component;
   
   component sdcardio is
     port (
@@ -356,6 +369,18 @@ begin
     pot_y => x"04",
     audio_data => rightsid_audio);
 
+  ethernet0 : ethernet port map (
+    pixelclk => pixelclk,
+    clock => clk,
+    reset => reset,
+    fastio_addr => unsigned(address),
+    fastio_write => w,
+    fastio_read => r,
+    fastio_wdata => unsigned(data_i),
+    std_logic_vector(fastio_rdata) => data_o
+    );
+
+  
   sdcard0 : sdcardio port map (
     pixelclk => pixelclk,
     clock => clk,
