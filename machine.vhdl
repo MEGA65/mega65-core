@@ -278,7 +278,6 @@ architecture Behavioral of machine is
       fastio_write : inout std_logic;
       fastio_wdata : out std_logic_vector(7 downto 0);
       fastio_rdata : in std_logic_vector(7 downto 0);
-      fastio_sd_rdata : in std_logic_vector(7 downto 0);
       sector_buffer_mapped : in std_logic;
       fastio_vic_rdata : in std_logic_vector(7 downto 0);
       fastio_colour_ram_rdata : in std_logic_vector(7 downto 0);
@@ -447,7 +446,6 @@ architecture Behavioral of machine is
   signal fastio_write : std_logic;
   signal fastio_wdata : std_logic_vector(7 downto 0);
   signal fastio_rdata : std_logic_vector(7 downto 0);
-  signal fastio_sd_rdata : std_logic_vector(7 downto 0);
   signal fastio_vic_rdata : std_logic_vector(7 downto 0);
   signal colour_ram_fastio_rdata : std_logic_vector(7 downto 0);
   signal sector_buffer_mapped : std_logic;
@@ -688,7 +686,6 @@ begin
     fastio_write => fastio_write,
     fastio_wdata => fastio_wdata,
     fastio_rdata => fastio_rdata,
-    fastio_sd_rdata => fastio_sd_rdata,
     sector_buffer_mapped => sector_buffer_mapped,
     fastio_vic_rdata => fastio_vic_rdata,
     fastio_colour_ram_rdata => colour_ram_fastio_rdata,
@@ -759,7 +756,6 @@ begin
     address => fastio_addr,
     r => fastio_read, w => fastio_write,
     data_i => fastio_wdata, data_o => fastio_rdata,
-    sd_data_o => fastio_sd_rdata,
     colourram_at_dc00 => colourram_at_dc00,
     led => led,
     motor => motor,

@@ -63,7 +63,6 @@ entity sdcardio is
     fastio_read : in std_logic;
     fastio_wdata : in unsigned(7 downto 0);
     fastio_rdata : out unsigned(7 downto 0);
-    fastio_sd_rdata : out unsigned(7 downto 0);
 
     colourram_at_dc00 : in std_logic;
     viciii_iomode : in std_logic_vector(1 downto 0);
@@ -999,6 +998,7 @@ begin  -- behavioural
           -- SD card.
           if fastio_write='1' and sectorbuffercs='1' then
             sb_w <= '1';
+            report "Writing $" & to_hstring(fastio_wdata) & " to sector buffer $" & to_hstring("000"&fastio_addr(8 downto 0)) severity note;
             sb_wdata <= unsigned(fastio_wdata);
             sb_writeaddress <= to_integer(fastio_addr(8 downto 0));
           else

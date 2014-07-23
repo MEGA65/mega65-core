@@ -121,7 +121,6 @@ entity gs4510 is
     fastio_write : inout std_logic;
     fastio_wdata : out std_logic_vector(7 downto 0);
     fastio_rdata : in std_logic_vector(7 downto 0);
-    fastio_sd_rdata : in std_logic_vector(7 downto 0);
     sector_buffer_mapped : in std_logic;
     fastio_vic_rdata : in std_logic_vector(7 downto 0);
     fastio_colour_ram_rdata : in std_logic_vector(7 downto 0);
@@ -273,7 +272,6 @@ end component;
 -- power-on initialised RAM in the FPGA mapped via our io interface.
   signal accessing_shadow : std_logic;
   signal accessing_fastio : std_logic;
-  signal accessing_sb_fastio : std_logic;
   signal accessing_vic_fastio : std_logic;
   signal accessing_colour_ram_fastio : std_logic;
 --  signal accessing_ram : std_logic;
@@ -768,7 +766,6 @@ begin
       -- Schedule the memory read from the appropriate source.
       accessing_fastio <= '0'; accessing_vic_fastio <= '0';
       accessing_cpuport <= '0'; accessing_colour_ram_fastio <= '0';
-      accessing_sb_fastio <= '0';
       accessing_slowram <= '0';
       wait_states <= io_read_wait_states;
       
@@ -818,7 +815,6 @@ begin
         accessing_shadow <= '0';
         accessing_fastio <= '1';
         accessing_vic_fastio <= '0';
-        accessing_sb_fastio <= '0';
         accessing_colour_ram_fastio <= '0';
         -- If reading IO page from $D{0,1,2,3}0{0-7}X, then the access is from
         -- the VIC-IV.
@@ -836,17 +832,6 @@ begin
           report "VIC 64KB colour RAM access from VIC fastio" severity note;
           accessing_colour_ram_fastio <= '1';
           colour_ram_cs <= '1';
-        end if;
-        if long_address(19 downto 8) = x"30E" or long_address(19
-                                                              downto 8) = x"30F" then
-          accessing_sb_fastio <= '1';
-        end if;
-        if long_address(19 downto 8) = x"D3E" or long_address(19
-                                                              downto 8) = x"D3F" then
-          accessing_sb_fastio <= sector_buffer_mapped and (not colourram_at_dc00);
-          report "considering accessing_sb_fastio = " & std_logic'image(sector_buffer_mapped and (not colourram_at_dc00)) severity note;
-          report "sector_buffer_mapped = " & std_logic'image(sector_buffer_mapped) severity note;
-          report "colourram_at_dc00 = " & std_logic'image(colourram_at_dc00) severity note;
         end if;
         if long_address(19 downto 16) = x"D" then
           if long_address(15 downto 14) = "00" then    --   $D{0,1,2,3}XXX
@@ -944,9 +929,6 @@ begin
       elsif accessing_shadow='1' then
         report "reading from shadow RAM" severity note;
         return shadow_rdata;
-      elsif accessing_sb_fastio='1' then
-        report "reading sector buffer RAM fastio byte $" & to_hstring(fastio_sd_rdata) severity note;
-        return unsigned(fastio_sd_rdata);
       elsif accessing_colour_ram_fastio='1' then 
         report "reading colour RAM fastio byte $" & to_hstring(fastio_vic_rdata) severity note;
         return unsigned(fastio_colour_ram_rdata);
@@ -978,7 +960,7 @@ begin
 
       accessing_fastio <= '0'; accessing_vic_fastio <= '0';
       accessing_cpuport <= '0'; accessing_colour_ram_fastio <= '0';
-      accessing_sb_fastio <= '0'; accessing_shadow <= '0';
+      accessing_shadow <= '0';
       accessing_slowram <= '0';
 
       shadow_write_flags(0) <= '1';
@@ -1423,7 +1405,6 @@ begin
       --monitor_debug_memory_access(31) <= accessing_shadow;
       --monitor_debug_memory_access(30) <= accessing_fastio;
       --monitor_debug_memory_access(29) <= accessing_slowram;
-      --monitor_debug_memory_access(28) <= accessing_sb_fastio;
       --monitor_debug_memory_access(27) <= accessing_colour_ram_fastio;
       --monitor_debug_memory_access(26) <= accessing_vic_fastio;
       --monitor_debug_memory_access(25) <= accessing_cpuport;
