@@ -1337,6 +1337,7 @@ begin
     variable memory_access_wdata : unsigned(7 downto 0) := x"FF";
 
     variable pc_inc : std_logic;
+    variable pc_dec : std_logic;
     variable dec_sp : std_logic;
     variable stack_pop : std_logic;
 
@@ -1419,7 +1420,7 @@ begin
       read_data_copy <= read_data_complex;
       
       -- By default we are doing nothing new.
-      pc_inc := '0'; dec_sp := '0';  stack_pop := '0';
+      pc_inc := '0'; pc_dec := '0'; dec_sp := '0';  stack_pop := '0';
       
       memory_access_read := '0';
       memory_access_write := '0';
@@ -2204,6 +2205,7 @@ begin
               else
                 pc_inc := '0';
               end if;
+              pc_dec := reg_microcode.mcDecPC;
               if reg_microcode.mcInstructionFetch='1' then
                 state <= fast_fetch_state;
               else
@@ -2447,6 +2449,10 @@ begin
         if pc_inc = '1' then
           report "Incrementing PC to $" & to_hstring(reg_pc+1) severity note;
           reg_pc <= reg_pc + 1;
+        end if;
+        if pc_dec = '1' then
+          report "Decrementing PC to $" & to_hstring(reg_pc-1) severity note;
+          reg_pc <= reg_pc - 1;
         end if;
         if dec_sp = '1' then
           reg_sp <= reg_sp - 1;

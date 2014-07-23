@@ -33,6 +33,9 @@ package cputypes is
     -- Do we increment PC?
     mcIncPC : std_logic;
 
+    -- Decrement PC (to fix PC following stack operations)
+    mcDecPC : std_logic;
+
     -- How shall we exit this instruction?
     mcInstructionFetch : std_logic;
     mcInstructionDecode : std_logic;
