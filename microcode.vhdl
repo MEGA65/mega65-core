@@ -85,7 +85,7 @@ architecture Behavioral of microcode is
     I_MAP => (mcMap => '1', others => '0'),
     -- I_NEG - handled as a single-cycle op elsewhere
     I_ORA => (mcORA => '1', mcInstructionFetch => '1', mcIncPC => '1', others => '0'),
-    I_PHA => (mcPush => '1', mcStoreA => '1', others => '0'),
+    I_PHA => (mcPush => '1', mcStoreA => '1', mcDecPC => '1', others => '0'),
     I_PHP => (mcPush => '1', mcStoreP => '1', mcDecPC => '1', others => '0'),
     I_PHW => (mcWordOp => '1', others => '0'),
     I_PHX => (mcPush => '1', mcStoreX => '1', mcDecPC => '1', others => '0'),
