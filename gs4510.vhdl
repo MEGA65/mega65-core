@@ -1462,7 +1462,7 @@ begin
           tmpd(8 downto 4) := ("0"&i1(7 downto 4)) - ("0"&i2(7 downto 4));
         end if;
         if tmpd(8)='1' then
-          tmpd := tmpd - ("0"&x"60");
+          tmpd(8 downto 0) := tmpd(8 downto 0) - ("0"&x"60");
         end if;
         tmp(7 downto 0) := tmpd(7 downto 0);
       end if;
