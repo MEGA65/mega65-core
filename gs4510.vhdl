@@ -1884,7 +1884,7 @@ begin
               -- InstructionDecode).
               case memory_read_value is
                 when x"03" => flag_e <= '1';  -- SEE
-                when x"0B" => reg_y <= reg_sph; -- TSY
+                when x"0B" => reg_y <= reg_sph; set_nz(reg_sph); -- TSY
                 when x"18" => flag_c <= '0';  -- CLC
                 when x"1A" => reg_a <= a_incremented; set_nz(a_incremented); -- INC A
                 when x"1B" => reg_z <= z_incremented; set_nz(z_incremented); -- INZ
@@ -1908,7 +1908,7 @@ begin
                 when x"A8" => reg_y <= reg_a; set_nz(reg_a); -- TAY
                 when x"AA" => reg_x <= reg_a; set_nz(reg_a); -- TAX
                 when x"B8" => flag_v <= '0';  -- CLV
-                when x"BA" => reg_x <= reg_sp; -- TSX
+                when x"BA" => reg_x <= reg_sp; set_nz(reg_sp); -- TSX
                 when x"C8" => reg_y <= y_incremented; set_nz(y_incremented); -- INY
                 when x"CA" => reg_x <= x_decremented; set_nz(x_decremented); -- DEX
                 when x"D8" => flag_d <= '0';  -- CLD
@@ -2671,6 +2671,8 @@ begin
                 flag_z <= memory_read_value(2);
                 flag_i <= memory_read_value(1);
                 flag_c <= memory_read_value(0);
+              else
+                set_nz(memory_read_value);
               end if;
               state <= normal_fetch_state;
             when others =>
