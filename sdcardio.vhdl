@@ -1011,7 +1011,7 @@ begin  -- behavioural
             sd_state <= ReadingSector;
             sdio_busy <= '1';
             skip <= 2;
-            sector_offset <= (others => '1');
+            sector_offset <= (others => '0');
             read_bytes <= '0';
           else
             sd_doread <= '0';
