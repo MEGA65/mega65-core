@@ -40,7 +40,7 @@ entity gs4510 is
     irq : in std_logic;
     nmi : in std_logic;
 
-          monitor_proceed : out std_logic;
+      monitor_proceed : out std_logic;
       monitor_waitstates : out unsigned(7 downto 0);
       monitor_request_reflected : out std_logic;
       monitor_pc : out unsigned(15 downto 0);
@@ -48,6 +48,7 @@ entity gs4510 is
       monitor_instruction : out unsigned(7 downto 0);
       monitor_watch : in unsigned(27 downto 0);
       monitor_watch_match : out std_logic;
+      monitor_instructionpc : out unsigned(15 downto 0);
       monitor_opcode : out unsigned(7 downto 0);
       monitor_ibytes : out std_logic_vector(3 downto 0);
       monitor_arg1 : out unsigned(7 downto 0);
@@ -155,7 +156,14 @@ component shadowram is
         writes : out unsigned(7 downto 0)
         );
 end component;
-  
+
+  -- Instruction log
+  signal last_instruction_pc : unsigned(15 downto 0) := x"FFFF";
+  signal last_opcode : unsigned(7 downto 0);
+  signal last_byte2 : unsigned(7 downto 0);
+  signal last_byte3 : unsigned(7 downto 0);
+  signal last_bytecount : integer range 0 to 3 := 0;
+
   -- Shadow RAM control
   signal shadow_bank : unsigned(7 downto 0);
   signal shadow_address : integer range 0 to 131071;
@@ -534,6 +542,143 @@ begin
     data_o => reg_microcode);
   
   process(clock,reset,reg_a,reg_x,reg_y,reg_z,flag_c)
+    procedure disassemble_last_instruction is
+      variable justification : side := RIGHT;
+      variable size : width := 0;
+      variable s : string(1 to 110) := (others => ' ');
+      variable t : string(1 to 100) := (others => ' ');
+      variable virtual_reg_p : std_logic_vector(7 downto 0);
+    begin
+      if last_bytecount > 0 then
+        -- Program counter
+        s(1) := '$';
+        s(2 to 5) := to_hstring(last_instruction_pc);
+        -- opcode and arguments
+        s(7 to 8) := to_hstring(last_opcode);
+        if last_bytecount > 1 then
+          s(10 to 11) := to_hstring(last_byte2);
+        end if;
+        if last_bytecount > 2 then
+          s(13 to 14) := to_hstring(last_byte3);
+        end if;
+        -- instruction name
+        t(1 to 5) := instruction'image(instruction_lut(to_integer(last_opcode)));
+        s(17 to 19) := t(3 to 5);
+
+        -- Draw 0-7 digit on BBS/BBR instructions
+        case instruction_lut(to_integer(last_opcode)) is
+          when I_BBS =>
+            s(20 to 20) := to_hstring("0"&last_opcode(6 downto 4));
+          when I_BBR =>
+            s(20 to 20) := to_hstring("0"&last_opcode(6 downto 4));
+          when others =>
+            null;
+        end case;
+
+        -- Draw arguments
+        case mode_lut(to_integer(last_opcode)) is
+          when M_impl => null;
+          when M_InnX =>
+            s(22 to 23) := "($";
+            s(24 to 25) := to_hstring(last_byte2);
+            s(26 to 28) := ",X)";
+          when M_nn =>
+            s(22) := '$';
+            s(23 to 24) := to_hstring(last_byte2);
+          when M_immnn =>
+            s(22 to 23) := "#$";
+            s(24 to 25) := to_hstring(last_byte2);
+          when M_A => null;
+          when M_nnnn =>
+            s(22) := '$';
+            s(23 to 26) := to_hstring(last_byte3 & last_byte2);
+          when M_nnrr =>
+            s(22) := '$';
+            s(23 to 24) := to_hstring(last_byte2);
+            s(25) := ',';
+            s(26 to 29) := to_hstring(last_instruction_pc + 1 + last_byte3);
+          when M_rr =>
+            s(22) := '$';
+            s(23 to 26) := to_hstring(last_instruction_pc + 1 + last_byte2);
+          when M_InnY =>
+            s(22 to 23) := "($";
+            s(24 to 25) := to_hstring(last_byte2);
+            s(26 to 28) := "),Y";
+          when M_InnZ =>
+            s(22 to 23) := "($";
+            s(24 to 25) := to_hstring(last_byte2);
+            s(26 to 28) := "),Z";
+          when M_rrrr =>
+            s(22) := '$';
+            s(23 to 26) := to_hstring(last_instruction_pc + 1 + (last_byte3 & last_byte2));
+          when M_nnX =>
+            s(22) := '$';
+            s(23 to 24) := to_hstring(last_byte2);
+            s(25 to 26) := ",X";
+          when M_nnnnY =>
+            s(22) := '$';
+            s(23 to 26) := to_hstring(last_byte3 & last_byte2);
+            s(27 to 28) := ",Y";
+          when M_nnnnX =>
+            s(22) := '$';
+            s(23 to 26) := to_hstring(last_byte3 & last_byte2);
+            s(27 to 28) := ",X";
+          when M_Innnn =>
+            s(22 to 23) := "($";
+            s(24 to 27) := to_hstring(last_byte3 & last_byte2);
+            s(28) := ')';
+          when M_InnnnX =>
+            s(22 to 23) := "($";
+            s(24 to 27) := to_hstring(last_byte3 & last_byte2);
+            s(28 to 30) := ",X)";
+          when M_InnSPY =>
+            s(22 to 23) := "($";
+            s(24 to 25) := to_hstring(last_byte2);
+            s(26 to 31) := ",SP),Y";
+          when M_nnY =>
+            s(22) := '$';
+            s(23 to 24) := to_hstring(last_byte2);
+            s(25 to 26) := ",Y";
+          when M_immnnnn =>
+            s(22 to 23) := "#$";
+            s(24 to 27) := to_hstring(last_byte3 & last_byte2);
+        end case;
+
+        -- Show registers
+        s(36 to 96) := "A:xx X:xx Y:xx Z:xx SP:xxxx P:xx $01=xx MAPLO:xxxx MAPHI:xxxx";
+        s(38 to 39) := to_hstring(reg_a);
+        s(43 to 44) := to_hstring(reg_x);
+        s(48 to 49) := to_hstring(reg_y);
+        s(53 to 54) := to_hstring(reg_z);
+        s(59 to 62) := to_hstring(reg_sph&reg_sp);
+        virtual_reg_p(7) := flag_n;
+        virtual_reg_p(6) := flag_v;
+        virtual_reg_p(5) := flag_e;
+        virtual_reg_p(4) := '0';
+        virtual_reg_p(3) := flag_d;
+        virtual_reg_p(2) := flag_i;
+        virtual_reg_p(1) := flag_z;
+        virtual_reg_p(0) := flag_c;
+        s(66 to 67) := to_hstring(virtual_reg_p);
+        s(73 to 74) := to_hstring(cpuport_value or (not cpuport_ddr));
+        s(82 to 85) := to_hstring(unsigned(reg_map_low)&reg_offset_low);
+        s(93 to 96) := to_hstring(unsigned(reg_map_high)&reg_offset_high);
+
+        s(100 to 107) := "........";
+        if flag_n='1' then s(100) := 'N'; end if;
+        if flag_v='1' then s(101) := 'V'; end if;
+        if flag_e='1' then s(102) := 'E'; end if;
+        s(103) := '-';
+        if flag_d='1' then s(104) := 'D'; end if;
+        if flag_z='1' then s(105) := 'I'; end if;
+        if flag_i='1' then s(106) := 'Z'; end if;
+        if flag_c='1' then s(107) := 'C'; end if;
+        
+        -- Display disassembly
+        report s severity note;
+      end if;
+    end procedure;
+
     procedure reset_cpu_state is
     begin
       -- Set microcode state for reset
@@ -1662,11 +1807,19 @@ begin
               state <= InstructionDecode;
               pc_inc := '1';
             when InstructionDecode =>
+              -- Show previous instruction
+              disassemble_last_instruction;
+              -- Start recording this instruction
+              last_instruction_pc <= reg_pc - 1;
+              last_opcode <= memory_read_value;
+              last_bytecount <= 1;
+
               reg_opcode <= memory_read_value;
               -- Present instruction to serial monitor;
               monitor_opcode <= memory_read_value;
               monitor_ibytes <= "0000";
-
+              monitor_instructionpc <= reg_pc - 1;              
+              
               -- Always read the next instruction byte after reading opcode
               -- (this means we can't interrupt the CPU in between single-cycle
               -- instructions for now.  oh well.)
@@ -1785,6 +1938,8 @@ begin
               reg_pc_jsr <= reg_pc;
               
               -- Store and announce arg1
+              last_byte2 <= memory_read_value;
+              last_bytecount <= 2;
               monitor_arg1 <= memory_read_value;
               monitor_ibytes(1) <= '1';
               reg_arg1 <= memory_read_value;
@@ -1868,6 +2023,8 @@ begin
                     end if;
                   when M_immnn => -- Handled in MicrocodeInterpret
                   when M_nnnn =>
+                    last_byte3 <= memory_read_value;
+                    last_bytecount <= 3;
                     monitor_arg2 <= memory_read_value;
                     monitor_ibytes(0) <= '1';
 
@@ -1955,6 +2112,8 @@ begin
                       if fast_fetch_state = InstructionDecode then pc_inc := '1'; end if;
                     end if;   
                   when M_rrrr =>
+                    last_byte3 <= memory_read_value;
+                    last_bytecount <= 3;
                     monitor_arg2 <= memory_read_value;
                     monitor_ibytes(0) <= '1';
 
@@ -1998,6 +2157,8 @@ begin
                       state <= MicrocodeInterpret;
                     end if;
                   when M_nnnnY =>
+                    last_byte3 <= memory_read_value;
+                    last_bytecount <= 3;
                     monitor_arg2 <= memory_read_value;
                     monitor_ibytes(0) <= '1';
                     reg_addr <= x"00"&reg_y + to_integer(memory_read_value&reg_addr(7 downto 0));
@@ -2008,6 +2169,8 @@ begin
                       state <= MicrocodeInterpret;
                     end if;
                   when M_nnnnX =>
+                    last_byte3 <= memory_read_value;
+                    last_bytecount <= 3;
                     monitor_arg2 <= memory_read_value;
                     monitor_ibytes(0) <= '1';
                     reg_addr <= x"00"&reg_x + to_integer(memory_read_value&reg_addr(7 downto 0));
@@ -2019,6 +2182,8 @@ begin
                     end if;
                   when M_Innnn =>
                     -- Only JMP and JSR have this mode
+                    last_byte3 <= memory_read_value;
+                    last_bytecount <= 3;
                     monitor_arg2 <= memory_read_value;
                     monitor_ibytes(0) <= '1';
                     reg_addr(15 downto 8) <= memory_read_value;
@@ -2073,6 +2238,8 @@ begin
                 when others => state <= normal_fetch_state;
               end case;
             when JumpAbsXReadArg2 =>
+              last_byte3 <= memory_read_value;
+              last_bytecount <= 3;
               monitor_arg2 <= memory_read_value;
               monitor_ibytes(0) <= '1';
               reg_addr <= x"00"&reg_x + to_integer(memory_read_value&reg_addr(7 downto 0));
@@ -2142,6 +2309,8 @@ begin
                 state <= MicrocodeInterpret;
               end if;
             when ZPRelReadZP =>
+              last_byte2 <= memory_read_value;
+              last_bytecount <= 2;
               monitor_arg1 <= memory_read_value;
               monitor_ibytes(1) <= '1';
                                         -- Here we are reading the ZP memory location
@@ -2214,6 +2383,8 @@ begin
               end if;
               
               if reg_addressingmode = M_immnn then
+                last_byte2 <= memory_read_value;
+                last_bytecount <= 2;
                 monitor_arg1 <= memory_read_value;
                 monitor_ibytes(1) <= '1';
               end if;
