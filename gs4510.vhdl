@@ -1967,7 +1967,12 @@ begin
                 when I_INW => is_rmw <= '1';
                 when I_DEW => is_rmw <= '1';
                 when I_ASW => is_rmw <= '1';                              
-                -- Note if instruction is LOAD
+                -- Note if instruction LOADs value from memory
+                when I_AND => is_load <= '1';
+                when I_ORA => is_load <= '1';
+                when I_EOR => is_load <= '1';
+                when I_ADC => is_load <= '1';
+                when I_SBC => is_load <= '1';
                 when I_CMP => is_load <= '1';
                 when I_CPX => is_load <= '1';
                 when I_CPY => is_load <= '1';
