@@ -369,6 +369,8 @@ end component;
     Pull,
     RTI,RTS,RTS1,RTS2,
     B16TakeBranch,
+    InnXReadVectorLow,
+    InnXReadVectorHigh,
     InnYReadVectorLow,
     InnYReadVectorHigh,
     InnZReadVectorLow,
@@ -2057,13 +2059,11 @@ begin
                   when M_A =>     -- Handled in MicrocodeInterpret
                   when M_InnX =>                    
                     temp_addr := reg_b & (reg_arg1+reg_X);
-                    reg_addr <= temp_addr;
-                    if is_load='1' or is_rmw='1' then
-                      state <= LoadTarget;
-                    else
-                      -- (reading next instruction argument byte as default action)
-                      state <= MicrocodeInterpret;
-                    end if;
+                    reg_addr <= temp_addr + 1;
+                    memory_access_read := '1';
+                    memory_access_address := x"000"&temp_addr;
+                    memory_access_resolve_address := '1';
+                    state <= InnXReadVectorLow;
                   when M_nn =>
                     temp_addr := reg_b & reg_arg1;
                     reg_addr <= temp_addr;
@@ -2327,7 +2327,21 @@ begin
               reg_pc <= reg_pc + to_integer(memory_read_value & reg_addr(7 downto 0));
               state <= normal_fetch_state;
 
-                                        -- Dummy/incomplete states for now.
+            when InnXReadVectorLow =>
+              reg_addr(7 downto 0) <= memory_read_value;
+              memory_access_read := '1';
+              memory_access_address := x"000"&reg_addr;
+              memory_access_resolve_address := '1';
+              state <= InnXReadVectorHigh;
+            when InnXReadVectorHigh =>
+              reg_addr <=
+                to_unsigned(to_integer(memory_read_value&reg_addr(7 downto 0)),16);
+              if is_load='1' or is_rmw='1' then
+                state <= LoadTarget;
+              else
+                -- (reading next instruction argument byte as default action)
+                state <= MicrocodeInterpret;
+              end if;
             when InnYReadVectorLow =>
               reg_addr(7 downto 0) <= memory_read_value;
               memory_access_read := '1';
