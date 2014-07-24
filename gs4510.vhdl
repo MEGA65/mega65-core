@@ -1966,6 +1966,10 @@ begin
                 when I_DEW => is_rmw <= '1';
                 when I_ASW => is_rmw <= '1';                              
                 -- Note if instruction is LOAD
+                when I_CMP => is_load <= '1';
+                when I_CPX => is_load <= '1';
+                when I_CPY => is_load <= '1';
+                when I_CPZ => is_load <= '1';
                 when I_LDA => is_load <= '1';
                 when I_LDX => is_load <= '1';
                 when I_LDY => is_load <= '1';
