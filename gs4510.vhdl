@@ -163,6 +163,9 @@ end component;
   signal last_byte2 : unsigned(7 downto 0);
   signal last_byte3 : unsigned(7 downto 0);
   signal last_bytecount : integer range 0 to 3 := 0;
+  signal last_action : character := ' ';
+  signal last_address : unsigned(27 downto 0);
+  signal last_value : unsigned(7 downto 0);
 
   -- Shadow RAM control
   signal shadow_bank : unsigned(7 downto 0);
@@ -895,6 +898,9 @@ begin
       real_long_address : in unsigned(27 downto 0)) is
       variable long_address : unsigned(27 downto 0);
     begin
+
+      last_action <= 'R'; last_address <= real_long_address;
+      
       -- Stop writing when reading.     
       fastio_write <= '0'; shadow_write <= '0';
        
@@ -1103,6 +1109,8 @@ begin
     begin
       -- Schedule the memory write to the appropriate destination.
 
+      last_action <= 'W'; last_value <= value; last_address <= real_long_address;
+      
       accessing_fastio <= '0'; accessing_vic_fastio <= '0';
       accessing_cpuport <= '0'; accessing_colour_ram_fastio <= '0';
       accessing_shadow <= '0';
@@ -1520,6 +1528,17 @@ begin
     -- BEGINNING OF MAIN PROCESS FOR CPU
     if rising_edge(clock) then
 
+      if wait_states = x"00" then
+        if last_action = 'R' then
+          report "MEMORY reading $" & to_hstring(last_address)
+            & " = $" & to_hstring(read_data) severity note;
+        end if;
+        if last_action = 'W' then
+          report "MEMORY writing $" & to_hstring(last_address)
+            & " <= $" & to_hstring(last_value) severity note;
+        end if;
+      end if;
+      
       -- Use a drive stage to relax timing for slowram (since it is on external
       -- pins it can have substantial routing delays)
       slowram_we <= slowram_we_drive;
