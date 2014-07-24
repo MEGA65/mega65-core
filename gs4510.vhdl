@@ -320,6 +320,7 @@ end component;
     16#18# => '1',
     16#1A# => '1',
     16#1B# => '1',
+    16#2A# => '1',
     16#2B# => '1',
     16#38# => '1',
     16#3A# => '1',
@@ -1893,6 +1894,7 @@ begin
                 when x"18" => flag_c <= '0';  -- CLC
                 when x"1A" => reg_a <= a_incremented; set_nz(a_incremented); -- INC A
                 when x"1B" => reg_z <= z_incremented; set_nz(z_incremented); -- INZ
+                when x"2A" => reg_a <= a_rol; set_nz(a_rol); flag_c <= reg_a(7); -- ROL A
                 when x"2B" => reg_sph <= reg_y; -- TYS
                 when x"38" => flag_c <= '1';  -- SEC
                 when x"3A" => reg_a <= a_decremented; set_nz(a_decremented); -- DEC A
