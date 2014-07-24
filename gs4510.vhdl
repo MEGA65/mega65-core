@@ -1973,6 +1973,7 @@ begin
                 when I_DEW => is_rmw <= '1';
                 when I_ASW => is_rmw <= '1';                              
                 -- Note if instruction LOADs value from memory
+                when I_BIT => is_load <= '1';
                 when I_AND => is_load <= '1';
                 when I_ORA => is_load <= '1';
                 when I_EOR => is_load <= '1';
