@@ -1382,12 +1382,9 @@ begin
       -- Result is NVZC<8bit result>
       variable tmp : unsigned(11 downto 0);
     begin
-      report "here";
       if flag_d='1' then
-        report "here";
         tmp(8) := '0';
         tmp(7 downto 0) := (i1 and x"0f") + (i2 and x"0f") + ("0000000" & flag_c);
-        report "here";
         
         if tmp(7 downto 0) > x"09" then
           tmp := tmp + x"06";                                                                         
@@ -1410,7 +1407,6 @@ begin
         end if;
         -- flag_c <= tmp(8);
       else
-        report "here";
         tmp(8 downto 0) := ("0"&i2)
                            + ("0"&i1)
                            + ("00000000"&flag_c);
@@ -1422,7 +1418,6 @@ begin
         tmp(10) := (not (i1(7) xor i2(7))) and (i1(7) xor tmp(7)); -- V flag
         -- flag_c <= tmp(8);
       end if;
-      report "here";
 
       -- Return final value
       --report "add result of "
@@ -1517,17 +1512,12 @@ begin
     
   begin
 
-    report "here";
-
     -- Begin calculating results for operations immediately to help timing.
     -- The trade-off is consuming a bit of extra silicon.
     a_incremented <= reg_a + 1;
     a_decremented <= reg_a - 1;
     a_negated <= (not reg_a) + 1;
     a_ror <= flag_c & reg_a(7 downto 1);
-
-    report "here";
-
     a_rol <= reg_a(6 downto 0) & flag_c;    
     a_asr <= reg_a(7) & reg_a(7 downto 1);
     a_lsr <= '0' & reg_a(7 downto 1);
@@ -1535,19 +1525,12 @@ begin
     a_xor <= reg_a xor read_data;
     a_and <= reg_a and read_data;
     a_asl <= reg_a(6 downto 0)&'0';      
-    
-    report "here";
-    
     a_neg <= (not reg_a) + 1;
     if (reg_a = x"00") then 
       a_neg_z <= '1'; else a_neg_z <= '0';
     end if;
-    report "here";
     a_add <= alu_op_add(reg_a,read_data);
-    report "here";
     a_sub <= alu_op_sub(reg_a,read_data);
-
-    report "here";
 
     x_incremented <= reg_x + 1;
     x_decremented <= reg_x - 1;
@@ -1558,8 +1541,6 @@ begin
     
     -- BEGINNING OF MAIN PROCESS FOR CPU
     if rising_edge(clock) then
-
-      report "here";
 
       if wait_states = x"00" then
         if last_action = 'R' then
@@ -2749,7 +2730,6 @@ begin
         end if;
         if stack_pop='1' then
           -- Pop
-          report "here";
           memory_access_read := '1';
           if flag_e='0' then
             -- stack pointer can roam full 64KB
@@ -2764,7 +2744,6 @@ begin
           if flag_e='0' and reg_sp=x"ff" then
             reg_sph <= reg_sph + 1;
           end if;
-          report "there";
         end if;
         
         -- Effect memory accesses.
@@ -2784,10 +2763,8 @@ begin
             memory_access_address := resolve_address_to_long(memory_access_address(15 downto 0),false);
           end if;
           read_long_address(memory_access_address);
-          report "here";
         end if;
       end if; -- if not reseting
-      report "here";
     end if;                         -- if rising edge of clock
   end process;
 end Behavioural;
