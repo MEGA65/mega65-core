@@ -1899,7 +1899,7 @@ begin
                 when x"3B" => reg_z <= z_decremented; set_nz(z_decremented); -- DEZ
                 when x"42" => reg_a <= a_negated; set_nz(a_negated); -- NEG A
                 when x"43" => reg_a <= a_asr; set_nz(a_asr); -- ASR A
-                when x"4A" => reg_a <= a_lsr; set_nz(a_lsr); -- LSR A
+                when x"4A" => reg_a <= a_lsr; set_nz(a_lsr); flag_c <= reg_a(0); -- LSR A
                 when x"4B" => reg_z <= reg_a; set_nz(reg_a); -- TAZ
                 when x"5B" => reg_b <= reg_a; -- TAB
                 when x"6A" => reg_a <= a_ror; set_nz(a_ror); flag_c <= reg_a(0); -- ROR A
