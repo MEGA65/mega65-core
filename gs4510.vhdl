@@ -315,6 +315,7 @@ end component;
   type instruction_property is array(0 to 255) of std_logic;
   signal op_is_single_cycle : instruction_property := (
     16#03# => '1',
+    16#0A# => '1',
     16#0B# => '1',
     16#18# => '1',
     16#1A# => '1',
@@ -1532,7 +1533,8 @@ begin
     a_ior <= reg_a or read_data;
     a_xor <= reg_a xor read_data;
     a_and <= reg_a and read_data;
-
+    a_asl <= reg_a(6 downto 0)&'0';      
+    
     report "here";
     
     a_neg <= (not reg_a) + 1;
@@ -1886,6 +1888,7 @@ begin
               -- InstructionDecode).
               case memory_read_value is
                 when x"03" => flag_e <= '1';  -- SEE
+                when x"0A" => reg_a <= a_asl; set_nz(a_asl); flag_c <= reg_a(7); -- ASL A
                 when x"0B" => reg_y <= reg_sph; set_nz(reg_sph); -- TSY
                 when x"18" => flag_c <= '0';  -- CLC
                 when x"1A" => reg_a <= a_incremented; set_nz(a_incremented); -- INC A
