@@ -683,8 +683,8 @@ begin
         if flag_e='1' then s(102) := 'E'; end if;
         s(103) := '-';
         if flag_d='1' then s(104) := 'D'; end if;
-        if flag_z='1' then s(105) := 'I'; end if;
-        if flag_i='1' then s(106) := 'Z'; end if;
+        if flag_i='1' then s(105) := 'I'; end if;
+        if flag_z='1' then s(106) := 'Z'; end if;
         if flag_c='1' then s(107) := 'C'; end if;
         
         -- Display disassembly
@@ -1306,7 +1306,7 @@ begin
     procedure set_nz (
       value : unsigned(7 downto 0)) is
     begin
-      -- report "calculating N & Z flags on result $" & to_hstring(value) severity note;
+      report "calculating N & Z flags on result $" & to_hstring(value) severity note;
       flag_n <= value(7);
       if value(7 downto 0) = x"00" then
         flag_z <= '1';
@@ -1387,23 +1387,29 @@ begin
         tmp(7 downto 0) := (i1 and x"0f") + (i2 and x"0f") + ("0000000" & flag_c);
         
         if tmp(7 downto 0) > x"09" then
-          tmp := tmp + x"06";                                                                         
+          tmp(7 downto 0) := tmp(7 downto 0) + x"06";
         end if;
         if tmp(7 downto 0) < x"10" then
-          tmp(8 downto 0) := '0'&(tmp(7 downto 0) and x"0f") + (i1 and x"f0") + (i2 and x"f0");
+          tmp(8 downto 0) := '0'&(tmp(7 downto 0) and x"0f")
+                             + to_integer(i1 and x"f0") + to_integer(i2 and x"f0");
         else
-          tmp(8 downto 0) := '0'&(tmp(7 downto 0) and x"0f") + (i1 and x"f0") + (i2 and x"f0") + x"10";
+          tmp(8 downto 0) := '0'&(tmp(7 downto 0) and x"0f")
+                             + to_integer(i1 and x"f0") + to_integer(i2 and x"f0")
+                             + 16;
         end if;
         if (i1 + i2 + ( "0000000" & flag_c )) = x"00" then
+          report "add result SET Z";
           tmp(9) := '1'; -- Z flag
         else
+          report "add result CLEAR Z (result=$"
+            & to_hstring((i1 + i2 + ( "0000000" & flag_c )));
           tmp(9) := '0'; -- Z flag
         end if;
         tmp(11) := tmp(7); -- N flag
         tmp(10) := (i1(7) xor tmp(7)) and (not (i1(7) xor i2(7))); -- V flag
         if tmp(8 downto 4) > "01001" then
           tmp(7 downto 0) := tmp(7 downto 0) + x"60";
-          tmp(8) := '1';
+          tmp(8) := '1'; -- C flag
         end if;
         -- flag_c <= tmp(8);
       else
@@ -1420,13 +1426,13 @@ begin
       end if;
 
       -- Return final value
-      --report "add result of "
-      --  & "$" & to_hstring(std_logic_vector(i1)) 
-      --  & " + "
-      --  & "$" & to_hstring(std_logic_vector(i2)) 
-      --  & " + "
-      --  & "$" & std_logic'image(flag_c)
-      --  & " = " & to_hstring(std_logic_vector(tmp(7 downto 0))) severity note;
+      report "add result of "
+        & "$" & to_hstring(std_logic_vector(i1)) 
+        & " + "
+        & "$" & to_hstring(std_logic_vector(i2)) 
+        & " + "
+        & "$" & std_logic'image(flag_c)
+        & " = " & to_hstring(std_logic_vector(tmp(7 downto 0))) severity note;
       return tmp;
     end function alu_op_add;
 
