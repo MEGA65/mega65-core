@@ -2722,7 +2722,13 @@ begin
           -- Pop
           report "here";
           memory_access_read := '1';
-          memory_access_address := x"000"&((reg_sph&reg_sp)+1);
+          if flag_e='0' then
+            -- stack pointer can roam full 64KB
+            memory_access_address := x"000"&((reg_sph&reg_sp)+1);
+          else
+            -- constrain stack pointer to single page if E flag is set
+            memory_access_address := x"000"&reg_sph&(reg_sp+1);
+          end if;
           memory_access_resolve_address := '1';
 
           reg_sp <= reg_sp + 1;
