@@ -388,6 +388,7 @@ end component;
     WordOpReadHigh,
     WordOpWriteLow,
     WordOpWriteHigh,
+    Pop,
     MicrocodeInterpret
     );
   signal state : processor_state := ResetLow;
@@ -552,28 +553,29 @@ begin
       variable t : string(1 to 100) := (others => ' ');
       variable virtual_reg_p : std_logic_vector(7 downto 0);
     begin
+--pragma synthesis_off      
       if last_bytecount > 0 then
         -- Program counter
         s(1) := '$';
-        s(2 to 5) := to_hstring(last_instruction_pc);
+        s(2 to 5) := to_hstring(last_instruction_pc)(1 to 4);
         -- opcode and arguments
-        s(7 to 8) := to_hstring(last_opcode);
+        s(7 to 8) := to_hstring(last_opcode)(1 to 2);
         if last_bytecount > 1 then
-          s(10 to 11) := to_hstring(last_byte2);
+          s(10 to 11) := to_hstring(last_byte2)(1 to 2);
         end if;
         if last_bytecount > 2 then
-          s(13 to 14) := to_hstring(last_byte3);
+          s(13 to 14) := to_hstring(last_byte3)(1 to 2);
         end if;
         -- instruction name
-        t(1 to 5) := instruction'image(instruction_lut(to_integer(last_opcode)));
+        t(1 to 5) := instruction'image(instruction_lut(to_integer(last_opcode)));       
         s(17 to 19) := t(3 to 5);
 
         -- Draw 0-7 digit on BBS/BBR instructions
         case instruction_lut(to_integer(last_opcode)) is
           when I_BBS =>
-            s(20 to 20) := to_hstring("0"&last_opcode(6 downto 4));
+            s(20 to 20) := to_hstring("0"&last_opcode(6 downto 4))(1 to 1);
           when I_BBR =>
-            s(20 to 20) := to_hstring("0"&last_opcode(6 downto 4));
+            s(20 to 20) := to_hstring("0"&last_opcode(6 downto 4))(1 to 1);
           when others =>
             null;
         end case;
@@ -583,68 +585,72 @@ begin
           when M_impl => null;
           when M_InnX =>
             s(22 to 23) := "($";
-            s(24 to 25) := to_hstring(last_byte2);
+            s(24 to 25) := to_hstring(last_byte2)(1 to 2);
             s(26 to 28) := ",X)";
           when M_nn =>
             s(22) := '$';
-            s(23 to 24) := to_hstring(last_byte2);
+            s(23 to 24) := to_hstring(last_byte2)(1 to 2);
           when M_immnn =>
             s(22 to 23) := "#$";
-            s(24 to 25) := to_hstring(last_byte2);
+            s(24 to 25) := to_hstring(last_byte2)(1 to 2);
           when M_A => null;
           when M_nnnn =>
             s(22) := '$';
-            s(23 to 26) := to_hstring(last_byte3 & last_byte2);
+            s(23 to 26) := to_hstring(last_byte3 & last_byte2)(1 to 4);
           when M_nnrr =>
             s(22) := '$';
-            s(23 to 24) := to_hstring(last_byte2);
+            s(23 to 24) := to_hstring(last_byte2)(1 to 2);
             s(25) := ',';
-            s(26 to 29) := to_hstring(last_instruction_pc + 1 + last_byte3);
+            s(26 to 29) := to_hstring(last_instruction_pc + 1 + last_byte3)(1 to 4);
           when M_rr =>
             s(22) := '$';
-            s(23 to 26) := to_hstring(last_instruction_pc + 1 + last_byte2);
+            if last_byte2(7)='0' then
+              s(23 to 26) := to_hstring(last_instruction_pc + 2 + last_byte2)(1 to 4);
+            else
+              s(23 to 26) := to_hstring(last_instruction_pc + 2 - 256 + last_byte2)(1 to 4);
+            end if;
           when M_InnY =>
             s(22 to 23) := "($";
-            s(24 to 25) := to_hstring(last_byte2);
+            s(24 to 25) := to_hstring(last_byte2)(1 to 2);
             s(26 to 28) := "),Y";
           when M_InnZ =>
             s(22 to 23) := "($";
-            s(24 to 25) := to_hstring(last_byte2);
+            s(24 to 25) := to_hstring(last_byte2)(1 to 2);
             s(26 to 28) := "),Z";
           when M_rrrr =>
-            s(22) := '$';
-            s(23 to 26) := to_hstring(last_instruction_pc + 1 + (last_byte3 & last_byte2));
+            s(22) := '$';            
+            s(23 to 26) := to_hstring(last_instruction_pc + 2 + (last_byte3 & last_byte2))(1 to 4);
           when M_nnX =>
             s(22) := '$';
-            s(23 to 24) := to_hstring(last_byte2);
+            s(23 to 24) := to_hstring(last_byte2)(1 to 2);
             s(25 to 26) := ",X";
           when M_nnnnY =>
             s(22) := '$';
-            s(23 to 26) := to_hstring(last_byte3 & last_byte2);
+            s(23 to 26) := to_hstring(last_byte3 & last_byte2)(1 to 4);
             s(27 to 28) := ",Y";
           when M_nnnnX =>
             s(22) := '$';
-            s(23 to 26) := to_hstring(last_byte3 & last_byte2);
+            s(23 to 26) := to_hstring(last_byte3 & last_byte2)(1 to 4);
             s(27 to 28) := ",X";
           when M_Innnn =>
             s(22 to 23) := "($";
-            s(24 to 27) := to_hstring(last_byte3 & last_byte2);
+            s(24 to 27) := to_hstring(last_byte3 & last_byte2)(1 to 4);
             s(28) := ')';
           when M_InnnnX =>
             s(22 to 23) := "($";
-            s(24 to 27) := to_hstring(last_byte3 & last_byte2);
+            s(24 to 27) := to_hstring(last_byte3 & last_byte2)(1 to 4);
             s(28 to 30) := ",X)";
           when M_InnSPY =>
             s(22 to 23) := "($";
-            s(24 to 25) := to_hstring(last_byte2);
+            s(24 to 25) := to_hstring(last_byte2)(1 to 2);
             s(26 to 31) := ",SP),Y";
           when M_nnY =>
             s(22) := '$';
-            s(23 to 24) := to_hstring(last_byte2);
+            s(23 to 24) := to_hstring(last_byte2)(1 to 2);
             s(25 to 26) := ",Y";
           when M_immnnnn =>
             s(22 to 23) := "#$";
-            s(24 to 27) := to_hstring(last_byte3 & last_byte2);
+            s(24 to 27) := to_hstring(last_byte3 & last_byte2)(1 to 4);
         end case;
 
         -- Show registers
@@ -680,6 +686,7 @@ begin
         -- Display disassembly
         report s severity note;
       end if;
+--pragma synthesis_on
     end procedure;
 
     procedure reset_cpu_state is
@@ -1371,17 +1378,20 @@ begin
       -- Result is NVZC<8bit result>
       variable tmp : unsigned(11 downto 0);
     begin
+      report "here";
       if flag_d='1' then
+        report "here";
         tmp(8) := '0';
         tmp(7 downto 0) := (i1 and x"0f") + (i2 and x"0f") + ("0000000" & flag_c);
+        report "here";
         
-        if tmp > x"09" then
+        if tmp(7 downto 0) > x"09" then
           tmp := tmp + x"06";                                                                         
         end if;
-        if tmp < x"10" then
-          tmp := (tmp and x"0f") + (i1 and x"f0") + (i2 and x"f0");
+        if tmp(7 downto 0) < x"10" then
+          tmp(8 downto 0) := '0'&(tmp(7 downto 0) and x"0f") + (i1 and x"f0") + (i2 and x"f0");
         else
-          tmp := (tmp and x"0f") + (i1 and x"f0") + (i2 and x"f0") + x"10";
+          tmp(8 downto 0) := '0'&(tmp(7 downto 0) and x"0f") + (i1 and x"f0") + (i2 and x"f0") + x"10";
         end if;
         if (i1 + i2 + ( "0000000" & flag_c )) = x"00" then
           tmp(9) := '1'; -- Z flag
@@ -1396,6 +1406,7 @@ begin
         end if;
         -- flag_c <= tmp(8);
       else
+        report "here";
         tmp(8 downto 0) := ("0"&i2)
                            + ("0"&i1)
                            + ("00000000"&flag_c);
@@ -1407,6 +1418,8 @@ begin
         tmp(10) := (not (i1(7) xor i2(7))) and (i1(7) xor tmp(7)); -- V flag
         -- flag_c <= tmp(8);
       end if;
+      report "here";
+
       -- Return final value
       --report "add result of "
       --  & "$" & to_hstring(std_logic_vector(i1)) 
@@ -1493,10 +1506,14 @@ begin
     variable pc_dec : std_logic;
     variable dec_sp : std_logic;
     variable stack_pop : std_logic;
+    variable stack_push : std_logic;
+    variable push_value : unsigned(7 downto 0);
 
-    variable temp_addr : unsigned(15 downto 0);
+    variable temp_addr : unsigned(15 downto 0);    
     
   begin
+
+    report "here";
 
     -- Begin calculating results for operations immediately to help timing.
     -- The trade-off is consuming a bit of extra silicon.
@@ -1504,6 +1521,9 @@ begin
     a_decremented <= reg_a - 1;
     a_negated <= (not reg_a) + 1;
     a_ror <= flag_c & reg_a(7 downto 1);
+
+    report "here";
+
     a_rol <= reg_a(6 downto 0) & flag_c;    
     a_asr <= reg_a(7) & reg_a(7 downto 1);
     a_lsr <= '0' & reg_a(7 downto 1);
@@ -1511,13 +1531,19 @@ begin
     a_xor <= reg_a xor read_data;
     a_and <= reg_a and read_data;
 
+    report "here";
+    
     a_neg <= (not reg_a) + 1;
     if (reg_a = x"00") then 
       a_neg_z <= '1'; else a_neg_z <= '0';
     end if;
+    report "here";
     a_add <= alu_op_add(reg_a,read_data);
+    report "here";
     a_sub <= alu_op_sub(reg_a,read_data);
-    
+
+    report "here";
+
     x_incremented <= reg_x + 1;
     x_decremented <= reg_x - 1;
     y_incremented <= reg_y + 1;
@@ -1527,6 +1553,8 @@ begin
     
     -- BEGINNING OF MAIN PROCESS FOR CPU
     if rising_edge(clock) then
+
+      report "here";
 
       if wait_states = x"00" then
         if last_action = 'R' then
@@ -1584,7 +1612,8 @@ begin
       read_data_copy <= read_data_complex;
       
       -- By default we are doing nothing new.
-      pc_inc := '0'; pc_dec := '0'; dec_sp := '0';  stack_pop := '0';
+      pc_inc := '0'; pc_dec := '0'; dec_sp := '0';
+      stack_pop := '0'; stack_push := '0';
       
       memory_access_read := '0';
       memory_access_write := '0';
@@ -2530,10 +2559,15 @@ begin
               if reg_microcode.mcStoreA='1' then memory_access_wdata := reg_a; end if;
               if reg_microcode.mcStoreX='1' then memory_access_wdata := reg_x; end if;
               if reg_microcode.mcStoreY='1' then memory_access_wdata := reg_y; end if;
-              if reg_microcode.mcStoreZ='1' then memory_access_wdata := reg_z; end if;
+              if reg_microcode.mcStoreZ='1' then memory_access_wdata := reg_z; end if;              
               if reg_microcode.mcWriteRegAddr='1' then
                 memory_access_address := x"000"&reg_addr;
                 memory_access_resolve_address := '1';
+              end if;
+              stack_push := reg_microcode.mcPush;
+              stack_pop := reg_microcode.mcPop;
+              if reg_microcode.mcPop='1' then
+                state <= Pop;
               end if;
               if reg_microcode.mcStoreTRB='1' then
                 reg_t <= (reg_a xor x"FF") and memory_read_value;
@@ -2619,6 +2653,22 @@ begin
               memory_access_write := '1';
               memory_access_wdata := reg_t_high;
               state <= normal_fetch_state;
+            when Pop =>
+              report "Pop" severity note;
+              if reg_microcode.mcStackA='1' then reg_a <= memory_read_value; end if;
+              if reg_microcode.mcStackX='1' then reg_x <= memory_read_value; end if;
+              if reg_microcode.mcStackY='1' then reg_y <= memory_read_value; end if;
+              if reg_microcode.mcStackZ='1' then reg_z <= memory_read_value; end if;
+              if reg_microcode.mcStackP='1' then
+                flag_n <= memory_read_value(7);
+                flag_v <= memory_read_value(6);
+                -- E cannot be set with PLP
+                flag_d <= memory_read_value(3);
+                flag_z <= memory_read_value(2);
+                flag_i <= memory_read_value(1);
+                flag_c <= memory_read_value(0);
+              end if;
+              state <= normal_fetch_state;
             when others =>
               state <= normal_fetch_state;
           end case;
@@ -2651,8 +2701,20 @@ begin
           end if;
         end if;
 
+        if stack_push='1' then
+
+          memory_access_write := '1';
+          memory_access_address := x"000"&reg_sph&reg_sp;
+          memory_access_resolve_address := '1';
+          
+          reg_sp <= reg_sp - 1;
+          if flag_e='0' and reg_sp=x"00" then
+            reg_sph <= reg_sph - 1;
+          end if;
+        end if;
         if stack_pop='1' then
           -- Pop
+          report "here";
           memory_access_read := '1';
           memory_access_address := x"000"&((reg_sph&reg_sp)+1);
           memory_access_resolve_address := '1';
@@ -2661,6 +2723,7 @@ begin
           if flag_e='0' and reg_sp=x"ff" then
             reg_sph <= reg_sph + 1;
           end if;
+          report "there";
         end if;
         
         -- Effect memory accesses.
@@ -2680,8 +2743,10 @@ begin
             memory_access_address := resolve_address_to_long(memory_access_address(15 downto 0),false);
           end if;
           read_long_address(memory_access_address);
+          report "here";
         end if;
       end if; -- if not reseting
+      report "here";
     end if;                         -- if rising edge of clock
   end process;
 end Behavioural;
