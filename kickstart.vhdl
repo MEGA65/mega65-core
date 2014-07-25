@@ -707,7 +707,7 @@ architecture Behavioral of kickstart is
   -- 0xeaa8
   x"00",x"8D",x"06",x"CF",x"8D",x"07",x"CF",x"A9",
   -- 0xeab0
-  x"80",x"A2",x"0F",x"A0",x"FF",x"A3",x"0F",x"5C",
+  x"80",x"A2",x"0F",x"A0",x"00",x"A3",x"8F",x"5C",
   -- 0xeab8
   x"EA",x"AD",x"06",x"CF",x"0A",x"85",x"FB",x"AD",
   -- 0xeac0
@@ -717,17 +717,17 @@ architecture Behavioral of kickstart is
   -- 0xead0
   x"85",x"FB",x"A5",x"FC",x"69",x"01",x"09",x"40",
   -- 0xead8
-  x"AA",x"A5",x"FB",x"A0",x"F0",x"A3",x"80",x"5C",
+  x"AA",x"A5",x"FB",x"A0",x"00",x"A3",x"8F",x"5C",
   -- 0xeae0
   x"EA",x"A2",x"00",x"BD",x"00",x"DE",x"9D",x"00",
   -- 0xeae8
   x"40",x"BD",x"00",x"DF",x"9D",x"00",x"41",x"E8",
   -- 0xeaf0
-  x"D0",x"F1",x"A9",x"00",x"AA",x"A0",x"F0",x"A3",
+  x"D0",x"F1",x"A9",x"00",x"AA",x"A0",x"00",x"A3",
   -- 0xeaf8
-  x"80",x"5C",x"EA",x"A9",x"00",x"A2",x"0F",x"A0",
+  x"8F",x"5C",x"EA",x"A9",x"00",x"A2",x"0F",x"A0",
   -- 0xeb00
-  x"F0",x"A3",x"80",x"5C",x"EA",x"EE",x"06",x"CF",
+  x"00",x"A3",x"8F",x"5C",x"EA",x"EE",x"06",x"CF",
   -- 0xeb08
   x"D0",x"03",x"EE",x"07",x"CF",x"AD",x"07",x"CF",
   -- 0xeb10
@@ -1023,9 +1023,9 @@ architecture Behavioral of kickstart is
   -- 0xef98
   x"CF",x"8D",x"02",x"40",x"60",x"A9",x"80",x"A2",
   -- 0xefa0
-  x"0F",x"A0",x"FF",x"A3",x"0F",x"5C",x"A9",x"C0",
+  x"0F",x"A0",x"00",x"A3",x"8F",x"5C",x"A9",x"C0",
   -- 0xefa8
-  x"A2",x"CF",x"A0",x"F0",x"A3",x"80",x"5C",x"EA",
+  x"A2",x"CF",x"A0",x"00",x"A3",x"8F",x"5C",x"EA",
   -- 0xefb0
   x"60",x"A9",x"03",x"8D",x"02",x"CF",x"8D",x"03",
   -- 0xefb8
@@ -1037,7 +1037,7 @@ architecture Behavioral of kickstart is
   -- 0xefd0
   x"00",x"CF",x"38",x"E9",x"01",x"0A",x"0A",x"0A",
   -- 0xefd8
-  x"0A",x"0A",x"0A",x"A0",x"F0",x"A3",x"80",x"5C",
+  x"0A",x"0A",x"0A",x"A0",x"00",x"A3",x"8F",x"5C",
   -- 0xefe0
   x"EA",x"A9",x"00",x"85",x"FB",x"A9",x"40",x"85",
   -- 0xefe8
@@ -1187,9 +1187,9 @@ architecture Behavioral of kickstart is
   -- 0xf228
   x"01",x"85",x"00",x"5C",x"EA",x"6C",x"FC",x"FF",
   -- 0xf230
-  x"A9",x"00",x"A2",x"0F",x"A0",x"F0",x"A3",x"80",
+  x"A9",x"00",x"A2",x"0F",x"A0",x"00",x"A3",x"8F",
   -- 0xf238
-  x"5C",x"AA",x"A0",x"F0",x"A3",x"80",x"5C",x"EA",
+  x"5C",x"AA",x"A0",x"00",x"A3",x"8F",x"5C",x"EA",
   -- 0xf240
   x"60",x"B0",x"06",x"A9",x"00",x"8D",x"2F",x"D0",
   -- 0xf248

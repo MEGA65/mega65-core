@@ -639,8 +639,8 @@ rf1:
 		; start by setting MAP MB register to $80xxxxx
 		lda #$80
 		ldx #$0f		
-		ldy #$ff   ; keep kickstart mapped at $E000-$FFFF
-		ldz #$0f
+		ldy #$00   ; keep kickstart mapped at $E000-$FFFF
+		ldz #$8f
 		map
 		eom
 
@@ -666,8 +666,8 @@ rf1:
 		ora #$40
 		tax
 		lda zptempv
-		ldy #$f0   ; keep kickstart mapped at $E000-$FFFF
-		ldz #$80
+		ldy #$00   ; keep kickstart mapped at $E000-$FFFF
+		ldz #$8f
 		map
 		eom
 
@@ -685,15 +685,15 @@ rr1:		lda $de00,x
 		; unmap block
 		lda #$00
 		tax
-		ldy #$f0   ; keep kickstart mapped at $E000-$FFFF
-		ldz #$80
+		ldy #$00   ; keep kickstart mapped at $E000-$FFFF
+		ldz #$8f
 		map
 		eom
 		; set MB pointers
 		lda #$00
 		ldx #$0f
-		ldy #$f0   ; keep kickstart mapped at $E000-$FFFF
-		ldz #$80
+		ldy #$00   ; keep kickstart mapped at $E000-$FFFF
+		ldz #$8f
 		map
 		eom
 
@@ -1489,14 +1489,14 @@ mapromchecksumrecord:
 		; select 128MB mark for mapping lower 32KB of address space
 		lda #$80
 		ldx #$0f
-		ldy #$ff   ; keep kickstart mapped at $E000-$FFFF
-		ldz #$0f
+		ldy #$00   ; keep kickstart mapped at $E000-$FFFF
+		ldz #$8f
 		map
 		; then map $FC000 + $4000 = $00000 at $4000-$7FFF
 		lda #$c0
 		ldx #$cf
-		ldy #$f0   ; keep kickstart mapped at $E000-$FFFF
-		ldz #$80
+		ldy #$00   ; keep kickstart mapped at $E000-$FFFF
+		ldz #$8f
 		map
 		eom
 		
@@ -1568,8 +1568,8 @@ sumslab:	; romcheckslab indicates which 16KB piece.
 		asl
 		asl
 		asl
-		ldy #$f0   ; keep kickstart mapped at $E000-$FFFF
-		ldz #$80
+		ldy #$00   ; keep kickstart mapped at $E000-$FFFF
+		ldz #$8f
 		map
 		eom
 		
@@ -1916,13 +1916,13 @@ resetmemmap:
 		; clear memory MAP MB offset register
 		lda #$00
 		ldx #$0f
-		ldy #$f0   ; keep kickstart mapped at $E000-$FFFF
-		ldz #$80
+		ldy #$00   ; keep kickstart mapped at $E000-$FFFF
+		ldz #$8f
 		map
 		; and clear all mapping
 		tax
-		ldy #$f0   ; keep kickstart mapped at $E000-$FFFF
-		ldz #$80
+		ldy #$00   ; keep kickstart mapped at $E000-$FFFF
+		ldz #$8f
 		map
 		eom
 		rts
