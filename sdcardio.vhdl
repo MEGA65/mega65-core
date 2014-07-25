@@ -1047,11 +1047,9 @@ begin  -- behavioural
         when ReadingSectorAckByte =>
           -- Wait until controller acknowledges that we have acked it
           if data_ready='0' then
-            if (sector_offset = "0111111111") and (read_bytes='1') then
-              -- sector offset has reached 511, so we must have
+            if (sector_offset = "1000000000") and (read_bytes='1') then
+              -- sector offset has reached 512, so we must have
               -- read the whole sector.
-              -- Advance sector offset to 512 for compatibility with existing code.
-              sector_offset <= sector_offset + 1;
               -- Update F011 FDC emulation status registers
               f011_sector_fetch <= '0';
               f011_busy <= '0';
