@@ -1886,6 +1886,7 @@ l2:		lda go64ramroutine,x
 ; will de-map the kickstart ROM.
 go64ramroutine:	
 		; erase kickstart ROM copy from RAM
+		; XXX - use DMA
 		ldx #$00
 		txa
 g61:		sta $0800,x   ; $0145 = high byte of address here
@@ -1904,10 +1905,11 @@ g61:		sta $0800,x   ; $0145 = high byte of address here
 		map
 		tax
 		taz
-		sta $01
-		sta $00
 		map
 		eom
+		lda #$3f
+		sta $01
+		sta $00
 		jmp (reset_vector)
 go64ramroutineend:
 
