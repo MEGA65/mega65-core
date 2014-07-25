@@ -185,7 +185,7 @@ end component;
   signal slowram_lohi : std_logic;
   -- SlowRAM has 70ns access time, so need some wait states.
   -- At 48MHz we only need 4 cycles.
-  -- Then add 2 more for drive stages on the slowram lines.
+  -- (had +2 extra for drive stages)
   signal slowram_waitstates : unsigned(7 downto 0) := x"06";
   -- Shadow RAM has 0 wait states by default
   signal shadow_wait_states : unsigned(7 downto 0) := x"00";
@@ -524,14 +524,14 @@ end component;
   signal rmb_mask : unsigned(7 downto 0);
   signal smb_mask : unsigned(7 downto 0);
 
-  signal slowram_addr_drive : std_logic_vector(22 downto 0);
-  signal slowram_data_drive : std_logic_vector(15 downto 0);
-  signal slowram_data_in : std_logic_vector(15 downto 0);
-  signal slowram_we_drive : std_logic;
-  signal slowram_ce_drive : std_logic;
-  signal slowram_oe_drive : std_logic;
-  signal slowram_lb_drive : std_logic;
-  signal slowram_ub_drive : std_logic;
+  --signal slowram_addr_drive : std_logic_vector(22 downto 0);
+  --signal slowram_data_drive : std_logic_vector(15 downto 0);
+  --signal slowram_data_in : std_logic_vector(15 downto 0);
+  --signal slowram_we_drive : std_logic;
+  --signal slowram_ce_drive : std_logic;
+  --signal slowram_oe_drive : std_logic;
+  --signal slowram_lb_drive : std_logic;
+  --signal slowram_ub_drive : std_logic;
 
 begin
 
@@ -743,9 +743,9 @@ begin
       fastio_write <= '0';
       chipram_we <= '0';        
       chipram_datain <= x"c0";    
-      slowram_we_drive <= '1';
-      slowram_ce_drive <= '1';
-      slowram_oe_drive <= '1';
+      slowram_we <= '1';
+      slowram_ce <= '1';
+      slowram_oe <= '1';
       
       wait_states <= (others => '0');
       mem_reading <= '0';
@@ -963,13 +963,13 @@ begin
         -- Slow RAM maps to $8xxxxxx, and also $0020000 - $003FFFF for C65 ROM
         -- emulation.
         accessing_slowram <= '1';
-        slowram_addr_drive <= std_logic_vector(long_address(23 downto 1));
-        slowram_data_drive <= (others => 'Z');  -- tristate data lines
-        slowram_we_drive <= '1';
-        slowram_ce_drive <= '0';
-        slowram_oe_drive <= '0';
-        slowram_lb_drive <= '0';
-        slowram_ub_drive <= '0';
+        slowram_addr <= std_logic_vector(long_address(23 downto 1));
+        slowram_data <= (others => 'Z');  -- tristate data lines
+        slowram_we <= '1';
+        slowram_ce <= '0';
+        slowram_oe <= '0';
+        slowram_lb <= '0';
+        slowram_ub <= '0';
         slowram_lohi <= long_address(0);
         wait_states <= slowram_waitstates;
         proceed <= '0';
@@ -1103,8 +1103,8 @@ begin
       elsif accessing_slowram='1' then
         report "reading slow RAM data. Word is $" & to_hstring(slowram_data) severity note;
         case slowram_lohi is
-          when '0' => return unsigned(slowram_data_in(7 downto 0));
-          when '1' => return unsigned(slowram_data_in(15 downto 8));
+          when '0' => return unsigned(slowram_data(7 downto 0));
+          when '1' => return unsigned(slowram_data(15 downto 8));
           when others => return x"FE";
         end case;
       else
@@ -1219,14 +1219,14 @@ begin
         shadow_write <= '0';
         fastio_write <= '0';
         shadow_write_flags(2) <= '1';
-        slowram_addr_drive <= std_logic_vector(long_address(23 downto 1));
-        slowram_we_drive <= '0';
-        slowram_ce_drive <= '0';
-        slowram_oe_drive <= '0';
+        slowram_addr <= std_logic_vector(long_address(23 downto 1));
+        slowram_we <= '0';
+        slowram_ce <= '0';
+        slowram_oe <= '0';
         slowram_lohi <= long_address(0);
-        slowram_lb_drive <= std_logic(long_address(0));
-        slowram_ub_drive <= std_logic(not long_address(0));
-        slowram_data_drive <= std_logic_vector(value) & std_logic_vector(value);
+        slowram_lb <= std_logic(long_address(0));
+        slowram_ub <= std_logic(not long_address(0));
+        slowram_data <= std_logic_vector(value) & std_logic_vector(value);
         wait_states <= slowram_waitstates;
       elsif long_address(27 downto 24) = x"F" then
         accessing_fastio <= '1';
@@ -1558,22 +1558,7 @@ begin
             & " <= $" & to_hstring(last_value) severity note;
         end if;
       end if;
-      
-      -- Use a drive stage to relax timing for slowram (since it is on external
-      -- pins it can have substantial routing delays)
-      slowram_we <= slowram_we_drive;
-      slowram_ce <= slowram_ce_drive;
-      slowram_oe <= slowram_oe_drive;
-      slowram_lb <= slowram_lb_drive;
-      slowram_ub <= slowram_ub_drive;
-      slowram_addr <= slowram_addr_drive;
-      if slowram_we_drive='0' then
-        slowram_data <= slowram_data_drive;
-      else
-        slowram_data <= (others => 'Z');
-        slowram_data_in <= slowram_data;
-      end if;
-      
+            
       cpu_leds <= std_logic_vector(shadow_write_flags);
       
       if shadow_write='1' then
