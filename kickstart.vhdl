@@ -933,7 +933,7 @@ architecture Behavioral of kickstart is
   -- 0xee30
   x"C1",x"60",x"A9",x"00",x"8D",x"00",x"03",x"8D",
   -- 0xee38
-  x"01",x"03",x"A9",x"FC",x"8D",x"02",x"03",x"60",
+  x"01",x"03",x"A9",x"FA",x"8D",x"02",x"03",x"60",
   -- 0xee40
   x"AD",x"80",x"D6",x"29",x"03",x"F0",x"13",x"EE",
   -- 0xee48

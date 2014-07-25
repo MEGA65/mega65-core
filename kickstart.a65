@@ -1231,11 +1231,12 @@ sw1:
 		rts
 
 		; count to timeout value when trying to read from SD card
+		; (if it is too short, the SD card won't reset)
 sdtimeoutreset:
 		lda #$00
 		sta $0300
 		sta $0301
-		lda #$fc
+		lda #$fa
 		sta $0302
 		rts
 
