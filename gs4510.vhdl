@@ -2321,9 +2321,8 @@ begin
               state <= fast_fetch_state;
               if fast_fetch_state = InstructionDecode then pc_inc := '1'; end if;
             when B16TakeBranch =>
-              reg_pc <= reg_pc + to_integer(memory_read_value & reg_addr(7 downto 0));
+              reg_pc <= reg_pc + to_integer(reg_addr) - 1;
               state <= normal_fetch_state;
-
             when InnXReadVectorLow =>
               reg_addr(7 downto 0) <= memory_read_value;
               memory_access_read := '1';
