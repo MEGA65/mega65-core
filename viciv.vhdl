@@ -390,7 +390,7 @@ architecture Behavioral of viciv is
   -- 80 columns needs 48 (=$30)
   signal chargen_x_scale : unsigned(7 downto 0) := x"18";  
   -- Each character pixel will be (n+1) pixels high
-  signal chargen_y_scale : unsigned(7 downto 0) := x"18";
+  signal chargen_y_scale : unsigned(7 downto 0) := x"02";  -- x"04"
   -- smooth scrolling position in natural pixels.
   -- Set in the same way as the border
   signal x_chargen_start : unsigned(11 downto 0) := to_unsigned(frame_h_front,12);
@@ -507,8 +507,7 @@ architecture Behavioral of viciv is
   signal chargen_x : unsigned(2 downto 0) := (others => '0');
   signal chargen_y : unsigned(2 downto 0) := (others => '0');
   -- fractional pixel position for scaling
-  signal chargen_y_fine : unsigned(10 downto 0) := (others => '0');
-  signal last_chargen_y_fine : unsigned(10 downto 0) := (others => '0');
+  signal chargen_y_sub : unsigned(4 downto 0);
   signal chargen_x_sub : unsigned(4 downto 0);
 
   -- Common bitmap and character drawing info
@@ -818,7 +817,7 @@ begin
         end if;
         -- set y_chargen_start based on twentyfourlines
         y_chargen_start <= to_unsigned((100-3*5)+to_integer(vicii_y_smoothscroll)*5,12);
-        chargen_y_scale <= x"18";
+        chargen_y_scale <= x"04";
       else
         -- 400px mode
         -- set vertical borders based on twentyfourlines
@@ -831,7 +830,7 @@ begin
         end if;
         -- set y_chargen_start based on twentyfourlines
         y_chargen_start <= to_unsigned((0-3*3)+to_integer(vicii_y_smoothscroll)*3,12);
-        chargen_y_scale <= x"3C";
+        chargen_y_scale <= x"02";
       end if;
 
       screen_ram_base(13 downto 10) <= reg_d018_screen_addr;
@@ -1676,7 +1675,7 @@ begin
         else
           -- Start of next frame
           ycounter <= (others =>'0');
-          chargen_y_fine <= (others => '0');
+          chargen_y_sub <= (others => '0');
           next_card_number <= (others => '0');
           first_card_of_row <= (others => '0');
 
@@ -1780,14 +1779,14 @@ begin
       end if;
       if displayy<y_chargen_start then
         chargen_y <= (others => '0');
-        chargen_y_fine <= (others => '0');
+        chargen_y_sub <= (others => '0');
         chargen_active <= '0';
         chargen_active_soon <= '0';
         report "Masking chargen_active based on displayy<y_chargen_start" severity note;
       end if;
       if displayy=y_chargen_start then
         chargen_y <= (others => '0');
-        chargen_y_fine <= (others => '0');
+        chargen_y_sub <= (others => '0');
       end if;
 
       if ycounter=frame_v_front then
@@ -1828,23 +1827,19 @@ begin
           next_card_number <= first_card_of_row;
           screen_row_current_address <= screen_row_address;
 
-          -- Now check if we have tipped over from one logical pixel row to another.
-          -- chargen_y_scale counts 128ths of pixels, so each pixel will be 128/n
-          -- physical pixels high.
-          -- As each character has 8 logical pixels, this means that in
-          -- addition to the 7 bits of sub-phyiscal pixel position, there are 3
-          -- bits of intra-character position.  So character number starts in
-          -- the 11th bit.  If that bit has changed, then we need to bump the
-          -- screen row address.
-          if chargen_y_fine(10) /= last_chargen_y_fine(10) then
-            bump_screen_row_address <= '1';
+          -- Now check if we have tipped over from one logical pixel row to another. 
+          if chargen_y_sub=chargen_y_scale then
+            chargen_y <= chargen_y + 1;
+            report "bumping chargen_y to " & integer'image(to_integer(chargen_y)) severity note;
+            if chargen_y = "111" then
+              bump_screen_row_address<='1';
+            end if;
+            chargen_y_sub <= (others => '0');
+          else
+            chargen_y_sub <= chargen_y_sub + 1;
           end if;
-          
-          last_chargen_y_fine <= chargen_y_fine;
-          chargen_y_fine <= chargen_y_fine + chargen_y_scale;
         end if;
       end if;
-      chargen_y <= chargen_y_fine(9 downto 7);
 
       if bump_screen_row_address='1' then
         bump_screen_row_address <= '0';
