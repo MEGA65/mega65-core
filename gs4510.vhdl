@@ -386,7 +386,7 @@ end component;
     JumpDereference2,
     JumpDereference3,
     Imm16ReadArg2,
-    TakeBranch8,TakeBranch8b,
+    TakeBranch8,
     LoadTarget,
     WriteCommit,
     WordOpReadHigh,
@@ -604,8 +604,8 @@ begin
           when M_nnrr =>
             s(22) := '$';
             s(23 to 24) := to_hstring(last_byte2)(1 to 2);
-            s(25) := ',';
-            s(26 to 29) := to_hstring(last_instruction_pc + 1 + last_byte3)(1 to 4);
+            s(25 to 26) := ",$";
+            s(27 to 30) := to_hstring(last_instruction_pc + 3 + last_byte3)(1 to 4);
           when M_rr =>
             s(22) := '$';
             if last_byte2(7)='0' then
@@ -2098,11 +2098,15 @@ begin
                       end if;
                     end if;
                   when M_nnrr =>
-                    reg_t <= reg_arg1;
+                    last_byte3 <= memory_read_value;
+                    last_bytecount <= 3;
+                    monitor_arg2 <= memory_read_value;
+                    monitor_ibytes(0) <= '1';
+
+                    reg_t <= memory_read_value;
                     memory_access_read := '1';
                     memory_access_address := x"000"&reg_b&reg_arg1;
                     memory_access_resolve_address := '1';
-                    pc_inc := '1';
                     state <= ZPRelReadZP;
                   when M_InnY =>
                     temp_addr := reg_b&reg_arg1;
@@ -2296,15 +2300,10 @@ begin
             when TakeBranch8 =>
               -- Branch will be taken
               reg_pc <= reg_pc +
-                          to_integer(memory_read_value(7)&memory_read_value(7)&memory_read_value(7)&memory_read_value(7)&
-                                     memory_read_value(7)&memory_read_value(7)&memory_read_value(7)&memory_read_value(7)&
-                                     memory_read_value);
-              -- Split action over two cycles to improve timing.
-              state <= TakeBranch8b;
-            when TakeBranch8b =>
-              state <= fast_fetch_state;
-              if fast_fetch_state = InstructionDecode then pc_inc := '1'; end if;
-              -- Prefetch instruction byte
+                          to_integer(reg_t(7)&reg_t(7)&reg_t(7)&reg_t(7)&
+                                     reg_t(7)&reg_t(7)&reg_t(7)&reg_t(7)&
+                                     reg_t);
+              state <= normal_fetch_state;
             when Pull =>
               -- Also used for immediate mode loading
               set_nz(memory_read_value);
@@ -2371,12 +2370,8 @@ begin
                 state <= MicrocodeInterpret;
               end if;
             when ZPRelReadZP =>
-              last_byte2 <= memory_read_value;
-              last_bytecount <= 2;
-              monitor_arg1 <= memory_read_value;
-              monitor_ibytes(1) <= '1';
-                                        -- Here we are reading the ZP memory location
-                                        -- Check if the appropriate bit is set/clear
+              -- Here we are reading the ZP memory location
+              -- Check if the appropriate bit is set/clear
               if memory_read_value(to_integer(reg_opcode(6 downto 4)))
                 =reg_opcode(7) then
                 -- Take branch, so read next byte with relative offset
