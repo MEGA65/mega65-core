@@ -55,8 +55,8 @@ architecture Behavioral of microcode is
     -- I_BVS - handled elsewhere
     -- I_CLC - Handled as a single-cycle op elsewhere
     -- I_CLD - handled as a single-cycle op elsewhere
-    I_CLE => (mcClearE => '1', mcInstructionFetch => '1', others => '0'),
-    I_CLI => (mcClearI => '1', mcInstructionFetch => '1', others => '0'),
+    I_CLE => (mcClearE => '1', mcDecPC => '1', others => '0'),
+    I_CLI => (mcClearI => '1', mcDecPC => '1', others => '0'),
     -- I_CLV - handled as a single-cycle op elsewhere
     I_CMP => (mcCMP => '1', mcInstructionFetch => '1', mcIncPC => '1', others => '0'),
     I_CPX => (mcCPX => '1', mcInstructionFetch => '1', mcIncPC => '1', others => '0'),
