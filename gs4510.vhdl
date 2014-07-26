@@ -937,9 +937,12 @@ begin
       shadow_write <= '0';
       shadow_write_flags(1) <= '1';
       shadow_address <= to_integer(long_address(16 downto 0));
-      
+
+      report "MEMORY long_address = $" & to_hstring(long_address);
       if (long_address = x"0000000") or (long_address = x"0000001") then
         accessing_cpuport <= '1';
+        wait_states <= x"00";
+        proceed <= '1';
         cpuport_num <= real_long_address(0);
       elsif long_address(27 downto 16)="0000"&shadow_bank then
         -- Reading from 256KB shadow ram (which includes 128KB fixed shadowing of
@@ -1035,7 +1038,16 @@ begin
     impure function read_data
       return unsigned is
     begin  -- read_data
-      if accessing_shadow='1' then
+      if accessing_cpuport='1' then
+        report "reading from CPU port" severity note;
+        if cpuport_num='0' then
+          -- DDR
+          return cpuport_ddr;
+        else
+          -- CPU port
+          return cpuport_value;
+        end if;
+      elsif accessing_shadow='1' then
 --        report "reading from shadowram" severity note;
         return shadow_rdata;
       else
