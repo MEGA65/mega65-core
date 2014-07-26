@@ -75,7 +75,6 @@ package cputypes is
     
     -- Special instructions
     mcJump : std_logic;
-    mcRelativeJump : std_logic;
     mcMap : std_logic;
     mcClearI : std_logic;
     mcClearE : std_logic;

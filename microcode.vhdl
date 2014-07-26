@@ -50,7 +50,7 @@ architecture Behavioral of microcode is
     -- I_BPL - handled elsewhere
     -- I_BRA - handled elsewhere
     I_BRK => (mcBRK => '1', others => '0'),
-    I_BSR => (mcRelativeJump => '1', others => '0'),
+    -- I_BSR - handled elsewhere
     -- I_BVC - handled elsewhere
     -- I_BVS - handled elsewhere
     -- I_CLC - Handled as a single-cycle op elsewhere

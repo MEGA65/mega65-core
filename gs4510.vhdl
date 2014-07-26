@@ -2239,6 +2239,11 @@ begin
                 end case;
               end if;
             when CallSubroutine =>
+              if reg_instruction = I_BSR then
+                -- Convert destination address to relative
+                reg_addr <= reg_pc + reg_addr - 1;
+              end if;
+              
               -- Push PCH
               memory_access_read := '0';
               memory_access_write := '1';
