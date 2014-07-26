@@ -180,7 +180,7 @@ architecture behavioural of sdcardio is
   signal pwm_value : unsigned(9 downto 0) := "0000000000";
   signal pwm_phase : unsigned(9 downto 0) := "0000000000";
 
-  signal mic_divider : unsigned(4 downto 0) := "0000";
+  signal mic_divider : unsigned(4 downto 0) := "00000";
   signal mic_counter : unsigned(7 downto 0) := "00000000";
   signal mic_onecount : unsigned(7 downto 0) := "00000000";
   signal mic_value_left : unsigned(7 downto 0) := "00000000";
