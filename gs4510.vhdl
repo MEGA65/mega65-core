@@ -369,7 +369,7 @@ end component;
     InstructionDecode,  -- $0E
     Cycle2,Cycle3,
     Pull,
-    RTI,RTS,RTS1,RTS2,
+    RTI,RTS,RTS1,RTS2,RTS3,
     B16TakeBranch,
     InnXReadVectorLow,
     InnXReadVectorHigh,
@@ -1744,22 +1744,24 @@ begin
               stack_pop := '1';
               state <= RTS2;
             when RTS2 =>
-              -- Finish RTS as fast as possible, potentially just 3 cycles
+              -- Finish RTS as fast as possible, potentially just 4 cycles
               -- instead of 6 on a real 6502.  This does complicate the logic a
               -- little if we want the monitor interface to be able to
               -- interrupt the CPU immediately following an RTS.
+              -- (we may also later introduce a stack cache that would allow RTS
+              -- to execute in 1 cycle in certain circumstances)
               report "RTS: low byte = $" & to_hstring(memory_read_value) severity note;
+              reg_pc <= (reg_pc(15 downto 8)&memory_read_value)+1;
+              state <= RTS3;
+            when RTS3 =>
               -- Read the instruction byte following
-              memory_access_address := x"000"&((reg_pc(15 downto 8)&memory_read_value)+1);
+              memory_access_address := x"000"&reg_pc;
               memory_access_read := '1';
               -- And set PC to the byte following, unless we are held, in which
               -- case the increment will happen in InstructionFetch
               if fast_fetch_state = InstructionDecode then
-                reg_pc <= (reg_pc(15 downto 8)&memory_read_value)+2;
-                report "Adding 2 to PC for immediate dispatch" severity note;
-              else
-                reg_pc <= (reg_pc(15 downto 8)&memory_read_value)+1;
-                report "Adding 1 to PC for slow dispatch" severity note;
+                reg_pc <= reg_pc+1;
+                report "Pre-incrementing PC for immediate dispatch" severity note;
               end if;
               state <= fast_fetch_state;
             when ProcessorHold =>
