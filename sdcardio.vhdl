@@ -180,7 +180,7 @@ architecture behavioural of sdcardio is
   signal pwm_value : unsigned(9 downto 0) := "0000000000";
   signal pwm_phase : unsigned(9 downto 0) := "0000000000";
 
-  signal mic_divider : unsigned(3 downto 0) := "0000";
+  signal mic_divider : unsigned(4 downto 0) := "0000";
   signal mic_counter : unsigned(7 downto 0) := "00000000";
   signal mic_onecount : unsigned(7 downto 0) := "00000000";
   signal mic_value_left : unsigned(7 downto 0) := "00000000";
@@ -444,7 +444,7 @@ begin  -- behavioural
             fastio_rdata(0) <= f011_buffer_next_read(8);
             fastio_rdata(7 downto 1) <= (others => '0');
           when others =>
-            fastio_rdata <= x"63";
+            fastio_rdata <= (others => 'Z');
         end case;
       elsif (fastio_addr(19 downto 8) = x"D16"
              or fastio_addr(19 downto 8) = x"D36") then
@@ -582,9 +582,9 @@ begin  -- behavioural
       end if;      
 
       -- microphone sampling process
-      -- max frequency is 3MHz. 32MHz/12 ~= 3MHz
-      if mic_divider < 12 then
-        if mic_divider < 6 then
+      -- max frequency is 3MHz. 48MHz/16 ~= 3MHz
+      if mic_divider < 16 then
+        if mic_divider < 8 then
           micCLK <= '1';
         else
           micCLK <= '0';
