@@ -257,7 +257,7 @@ architecture behavioural of uart_monitor is
   signal cpu_state_count : integer range 0 to 16;
   signal cpu_state_was_hold : std_logic := '0';
 
-  signal show_register_delay : integer range 0 to 12;
+  signal show_register_delay : integer range 0 to 60;
   
 begin
 
@@ -1067,12 +1067,12 @@ begin
             print_hex_byte(membuf(byte_number),ShowMemory7);
           when ShowMemory9 => try_output_char(lf,ShowMemory2);
           when ShowRegisters =>
-            show_register_delay <= 12;
+            show_register_delay <= 60;
             state <= ShowRegistersDelay;
           when ShowRegistersDelay =>
-            -- Wait 12 cycles to give instruction time to run, so that when we
-            -- latch the exposed CPU state it is post-instruction, not pre- (or
-            -- mid-) instruction.
+            -- Wait 60 cycles to give instruction time to run (even when loaded
+            -- from slow ram), so that when we latch the exposed CPU state it is post-instruction, not pre-
+            -- (or mid-) instruction.
             if show_register_delay=0 then
               state <= ShowRegistersRead;
             else
