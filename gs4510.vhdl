@@ -965,6 +965,7 @@ begin
         or long_address(27 downto 17)&'0' = x"002" then
         -- Slow RAM maps to $8xxxxxx, and also $0020000 - $003FFFF for C65 ROM
         -- emulation.
+        accessing_shadow <= '0';
         accessing_slowram <= '1';
         slowram_addr <= std_logic_vector(long_address(23 downto 1));
         slowram_data <= (others => 'Z');  -- tristate data lines
