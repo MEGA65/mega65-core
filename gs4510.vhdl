@@ -385,13 +385,13 @@ end component;
     JumpDereference,
     JumpDereference2,
     JumpDereference3,
-    Imm16ReadArg2,
     TakeBranch8,
     LoadTarget,
     WriteCommit,
     WordOpReadHigh,
     WordOpWriteLow,
     WordOpWriteHigh,
+    PushWordLow,PushWordHigh,
     Pop,
     MicrocodeInterpret
     );
@@ -1943,7 +1943,9 @@ begin
                 -- There are a few 16-bit RMWs as well
                 when I_INW => is_rmw <= '1';
                 when I_DEW => is_rmw <= '1';
-                when I_ASW => is_rmw <= '1';                              
+                when I_ASW => is_rmw <= '1';
+                when I_PHW => is_rmw <= '1';
+                when I_ROW => is_rmw <= '1';
                 -- Note if instruction LOADs value from memory
                 when I_BIT => is_load <= '1';
                 when I_AND => is_load <= '1';
@@ -2234,8 +2236,9 @@ begin
                   when M_InnSPY =>
                     state <= normal_fetch_state;
                   when M_immnnnn =>                
-                    reg_addr(7 downto 0) <= reg_arg1;
-                    state <= Imm16ReadArg2;
+                    reg_t <= reg_arg1;
+                    reg_t_high <= memory_read_value;
+                    state <= PushWordLow;
                 end case;
               end if;
             when CallSubroutine =>
@@ -2391,8 +2394,6 @@ begin
             when JumpDereference3 =>
               -- Finished dereferencing, set PC
               reg_pc <= memory_read_value&reg_t;
-              state <= normal_fetch_state;
-            when Imm16ReadArg2 => 
               state <= normal_fetch_state;
             when WriteCommit =>
               memory_access_write := '1';
@@ -2599,7 +2600,6 @@ begin
               memory_access_write := reg_microcode.mcWriteMem;
             when WordOpReadHigh =>
               state <= WordOpWriteLow;
-              -- XXX set values and flags
               case reg_instruction is
                 when I_ASW =>
                   temp_addr := memory_read_value(6 downto 0)&reg_t&'0';
@@ -2631,6 +2631,7 @@ begin
                   reg_t <= temp_addr(7 downto 0);
                 when I_PHW =>
                   reg_t_high <= memory_read_value;
+                    state <= PushWordLow;
                 when I_ROW =>
                   temp_addr := memory_read_value(6 downto 0)&reg_t&flag_c;
                   flag_n <= memory_read_value(6);
@@ -2645,6 +2646,16 @@ begin
                 when others =>
                   state <= normal_fetch_state;
               end case;
+            when PushWordLow =>
+              -- Push reg_t
+              stack_push := '1';
+              memory_access_wdata := reg_t;
+              state <= PushWordHigh;
+            when PushWordHigh =>
+              -- Push reg_t_high
+              stack_push := '1';
+              memory_access_wdata := reg_t_high;
+              state <= normal_fetch_state;
             when WordOpWriteLow =>
               memory_access_address := x"000"&(reg_addr);
               memory_access_resolve_address := '1';
