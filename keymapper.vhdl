@@ -35,7 +35,8 @@ architecture behavioural of keymapper is
 
   -- PS2 clock rate is as low as 10KHz.  Allow double that for a timeout
   -- 32MHz/5KHz = 32000/5 = 6400 cycles
-  constant ps2timeout : integer := 6400;
+  -- for 48 mhz : 48mhz/5khz = 48000/5 = 9600
+  constant ps2timeout : integer := 9600;
   signal ps2timer : integer range 0 to ps2timeout := 0;
 
   signal ps2clock_samples : std_logic_vector(7 downto 0) := (others => '1');
