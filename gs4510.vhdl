@@ -255,6 +255,7 @@ end component;
   signal nmi_pending : std_logic := '0';
   signal irq_pending : std_logic := '0';
   signal nmi_state : std_logic := '1';
+  signal no_interrupt : std_logic := '0';
   -- Interrupt/reset vector being used
   signal vector : unsigned(3 downto 0);
   
@@ -1895,139 +1896,149 @@ begin
               last_opcode <= memory_read_value;
               last_bytecount <= 1;
 
-              reg_opcode <= memory_read_value;
-              -- Present instruction to serial monitor;
-              monitor_opcode <= memory_read_value;
-              monitor_ibytes <= "0000";
-              monitor_instructionpc <= reg_pc - 1;              
+              -- 4502 doesn't allow interrupts immediately following a
+              -- single-cycle instruction
+              if (no_interrupt = '0') and ((irq_pending='1' and flag_i='0') or nmi_pending='1') then
+                -- An interrupt has occurred
+                state <= Interrupt;
+                reg_pc <= reg_pc - 1;
+              else             
+                reg_opcode <= memory_read_value;
+                -- Present instruction to serial monitor;
+                monitor_opcode <= memory_read_value;
+                monitor_ibytes <= "0000";
+                monitor_instructionpc <= reg_pc - 1;              
               
-              -- Always read the next instruction byte after reading opcode
-              -- (this means we can't interrupt the CPU in between single-cycle
-              -- instructions for now.  oh well.)
-              pc_inc := '1';
+                -- Always read the next instruction byte after reading opcode
+                -- (this means we can't interrupt the CPU in between single-cycle
+                -- instructions for now.  oh well.)
+                pc_inc := '1';
 
-              report "Executing instruction " & instruction'image(instruction_lut(to_integer(memory_read_value)))
-                severity note;
+                report "Executing instruction " & instruction'image(instruction_lut(to_integer(memory_read_value)))
+                  severity note;
               
-              -- See if this is a single cycle instruction.
-              -- Note that CLI and CLE take 2 cycles so that any
-              -- pending interrupt can happen immediately (interrupts cannot
-              -- happen immediately after a single cycle instruction, because
-              -- interrupts are only checked in InstructionFetch, not
-              -- InstructionDecode).
-              case memory_read_value is
-                when x"03" => flag_e <= '1';  -- SEE
-                when x"0A" => reg_a <= a_asl; set_nz(a_asl); flag_c <= reg_a(7); -- ASL A
-                when x"0B" => reg_y <= reg_sph; set_nz(reg_sph); -- TSY
-                when x"18" => flag_c <= '0';  -- CLC
-                when x"1A" => reg_a <= a_incremented; set_nz(a_incremented); -- INC A
-                when x"1B" => reg_z <= z_incremented; set_nz(z_incremented); -- INZ
-                when x"2A" => reg_a <= a_rol; set_nz(a_rol); flag_c <= reg_a(7); -- ROL A
-                when x"2B" => reg_sph <= reg_y; -- TYS
-                when x"38" => flag_c <= '1';  -- SEC
-                when x"3A" => reg_a <= a_decremented; set_nz(a_decremented); -- DEC A
-                when x"3B" => reg_z <= z_decremented; set_nz(z_decremented); -- DEZ
-                when x"42" => reg_a <= a_negated; set_nz(a_negated); -- NEG A
-                when x"43" => reg_a <= a_asr; set_nz(a_asr); -- ASR A
-                when x"4A" => reg_a <= a_lsr; set_nz(a_lsr); flag_c <= reg_a(0); -- LSR A
-                when x"4B" => reg_z <= reg_a; set_nz(reg_a); -- TAZ
-                when x"5B" => reg_b <= reg_a; -- TAB
-                when x"6A" => reg_a <= a_ror; set_nz(a_ror); flag_c <= reg_a(0); -- ROR A
-                when x"6B" => reg_a <= reg_z; set_nz(reg_z); -- TZA
-                when x"78" => flag_i <= '1';  -- SEI
-                when x"7B" => reg_a <= reg_b; set_nz(reg_b); -- TBA
-                when x"88" => reg_y <= y_decremented; set_nz(y_decremented); -- DEY
-                when x"8A" => reg_a <= reg_x; set_nz(reg_x); -- TXA
-                when x"98" => reg_a <= reg_y; set_nz(reg_y); -- TYA
-                when x"9A" => reg_sp <= reg_x; -- TXS
-                when x"A8" => reg_y <= reg_a; set_nz(reg_a); -- TAY
-                when x"AA" => reg_x <= reg_a; set_nz(reg_a); -- TAX
-                when x"B8" => flag_v <= '0';  -- CLV
-                when x"BA" => reg_x <= reg_sp; set_nz(reg_sp); -- TSX
-                when x"C8" => reg_y <= y_incremented; set_nz(y_incremented); -- INY
-                when x"CA" => reg_x <= x_decremented; set_nz(x_decremented); -- DEX
-                when x"D8" => flag_d <= '0';  -- CLD
-                when x"E8" => reg_x <= x_incremented; set_nz(x_incremented); -- INX
-                when x"EA" => map_interrupt_inhibit <= '0'; -- EOM
-                when x"F8" => flag_d <= '1';  -- CLD                            
-                when others => null;
-              end case;
-              
-              if op_is_single_cycle(to_integer(memory_read_value)) = '0' then
-                if (mode_lut(to_integer(memory_read_value)) = M_immnn)
-                  or (mode_lut(to_integer(memory_read_value)) = M_impl)
-                  or (mode_lut(to_integer(memory_read_value)) = M_A)
-                then
-                  if memory_read_value=x"60" then
-                    -- Fast-track RTS
-                    state <= RTS;
-                  elsif memory_read_value=x"40" then
-                    -- Fast-track RTI
-                    state <= RTI;
+                -- See if this is a single cycle instruction.
+                -- Note that CLI and CLE take 2 cycles so that any
+                -- pending interrupt can happen immediately (interrupts cannot
+                -- happen immediately after a single cycle instruction, because
+                -- interrupts are only checked in InstructionFetch, not
+                -- InstructionDecode).
+                case memory_read_value is
+                  when x"03" => flag_e <= '1';  -- SEE
+                  when x"0A" => reg_a <= a_asl; set_nz(a_asl); flag_c <= reg_a(7); -- ASL A
+                  when x"0B" => reg_y <= reg_sph; set_nz(reg_sph); -- TSY
+                  when x"18" => flag_c <= '0';  -- CLC
+                  when x"1A" => reg_a <= a_incremented; set_nz(a_incremented); -- INC A
+                  when x"1B" => reg_z <= z_incremented; set_nz(z_incremented); -- INZ
+                  when x"2A" => reg_a <= a_rol; set_nz(a_rol); flag_c <= reg_a(7); -- ROL A
+                  when x"2B" => reg_sph <= reg_y; -- TYS
+                  when x"38" => flag_c <= '1';  -- SEC
+                  when x"3A" => reg_a <= a_decremented; set_nz(a_decremented); -- DEC A
+                  when x"3B" => reg_z <= z_decremented; set_nz(z_decremented); -- DEZ
+                  when x"42" => reg_a <= a_negated; set_nz(a_negated); -- NEG A
+                  when x"43" => reg_a <= a_asr; set_nz(a_asr); -- ASR A
+                  when x"4A" => reg_a <= a_lsr; set_nz(a_lsr); flag_c <= reg_a(0); -- LSR A
+                  when x"4B" => reg_z <= reg_a; set_nz(reg_a); -- TAZ
+                  when x"5B" => reg_b <= reg_a; -- TAB
+                  when x"6A" => reg_a <= a_ror; set_nz(a_ror); flag_c <= reg_a(0); -- ROR A
+                  when x"6B" => reg_a <= reg_z; set_nz(reg_z); -- TZA
+                  when x"78" => flag_i <= '1';  -- SEI
+                  when x"7B" => reg_a <= reg_b; set_nz(reg_b); -- TBA
+                  when x"88" => reg_y <= y_decremented; set_nz(y_decremented); -- DEY
+                  when x"8A" => reg_a <= reg_x; set_nz(reg_x); -- TXA
+                  when x"98" => reg_a <= reg_y; set_nz(reg_y); -- TYA
+                  when x"9A" => reg_sp <= reg_x; -- TXS
+                  when x"A8" => reg_y <= reg_a; set_nz(reg_a); -- TAY
+                  when x"AA" => reg_x <= reg_a; set_nz(reg_a); -- TAX
+                  when x"B8" => flag_v <= '0';  -- CLV
+                  when x"BA" => reg_x <= reg_sp; set_nz(reg_sp); -- TSX
+                  when x"C8" => reg_y <= y_incremented; set_nz(y_incremented); -- INY
+                  when x"CA" => reg_x <= x_decremented; set_nz(x_decremented); -- DEX
+                  when x"D8" => flag_d <= '0';  -- CLD
+                  when x"E8" => reg_x <= x_incremented; set_nz(x_incremented); -- INX
+                  when x"EA" => map_interrupt_inhibit <= '0'; -- EOM
+                  when x"F8" => flag_d <= '1';  -- CLD                            
+                  when others => null;
+                end case;
+                
+                if op_is_single_cycle(to_integer(memory_read_value)) = '0' then
+                  if (mode_lut(to_integer(memory_read_value)) = M_immnn)
+                    or (mode_lut(to_integer(memory_read_value)) = M_impl)
+                    or (mode_lut(to_integer(memory_read_value)) = M_A)
+                  then
+                    no_interrupt <= '0';
+                    if memory_read_value=x"60" then
+                      -- Fast-track RTS
+                      state <= RTS;
+                    elsif memory_read_value=x"40" then
+                      -- Fast-track RTI
+                      state <= RTI;
+                    else
+                      state <= MicrocodeInterpret;
+                    end if;
                   else
-                    state <= MicrocodeInterpret;
+                    state <= Cycle2;
                   end if;
                 else
-                  state <= Cycle2;
+                  no_interrupt <= '1';
+                  -- Allow monitor to trace through single-cycle instructions
+                  if monitor_mem_trace_mode='1' or debugging_single_stepping='1' then
+                    state <= normal_fetch_state;
+                    pc_inc := '0';
+                  end if;
                 end if;
-              else
-                -- Allow monitor to trace through single-cycle instructions
-                if monitor_mem_trace_mode='1' or debugging_single_stepping='1' then
-                  state <= normal_fetch_state;
-                  pc_inc := '0';
-                end if;
+                
+                -- Prepare microcode vector in case we need it next cycle
+                reg_microcode_address <=
+                  instruction_lut(to_integer(memory_read_value));
+                reg_addressingmode <= mode_lut(to_integer(memory_read_value));
+                reg_instruction <= instruction_lut(to_integer(memory_read_value));
+                monitor_instruction <= to_unsigned(instruction'pos(instruction_lut(to_integer(memory_read_value))),8);
+                is_rmw <= '0'; is_load <= '0'; is_store <= '0';
+                rmw_dummy_write_done <= '0';
+                case instruction_lut(to_integer(memory_read_value)) is
+                  -- Note if instruction is RMW
+                  when I_INC => is_rmw <= '1';
+                  when I_DEC => is_rmw <= '1';
+                  when I_ROL => is_rmw <= '1';
+                  when I_ROR => is_rmw <= '1';
+                  when I_ASL => is_rmw <= '1';
+                  when I_ASR => is_rmw <= '1';
+                  when I_LSR => is_rmw <= '1';
+                  when I_TSB => is_rmw <= '1';
+                  when I_TRB => is_rmw <= '1';
+                  when I_RMB => is_rmw <= '1';
+                  when I_SMB => is_rmw <= '1';
+                  -- There are a few 16-bit RMWs as well
+                  when I_INW => is_rmw <= '1';
+                  when I_DEW => is_rmw <= '1';
+                  when I_ASW => is_rmw <= '1';
+                  when I_PHW => is_rmw <= '1';
+                  when I_ROW => is_rmw <= '1';
+                  -- Note if instruction LOADs value from memory
+                  when I_BIT => is_load <= '1';
+                  when I_AND => is_load <= '1';
+                  when I_ORA => is_load <= '1';
+                  when I_EOR => is_load <= '1';
+                  when I_ADC => is_load <= '1';
+                  when I_SBC => is_load <= '1';
+                  when I_CMP => is_load <= '1';
+                  when I_CPX => is_load <= '1';
+                  when I_CPY => is_load <= '1';
+                  when I_CPZ => is_load <= '1';
+                  when I_LDA => is_load <= '1';
+                  when I_LDX => is_load <= '1';
+                  when I_LDY => is_load <= '1';
+                  when I_LDZ => is_load <= '1';
+                  -- Note if instruction is STORE
+                  when I_STA => is_store <= '1';
+                  when I_STX => is_store <= '1';
+                  when I_STY => is_store <= '1';
+                  when I_STZ => is_store <= '1';
+                  -- Nothing special for other instructions
+                  when others => null;
+                end case;
               end if;
-
-              -- Prepare microcode vector in case we need it next cycle
-              reg_microcode_address <=
-                instruction_lut(to_integer(memory_read_value));
-              reg_addressingmode <= mode_lut(to_integer(memory_read_value));
-              reg_instruction <= instruction_lut(to_integer(memory_read_value));
-              monitor_instruction <= to_unsigned(instruction'pos(instruction_lut(to_integer(memory_read_value))),8);
-              is_rmw <= '0'; is_load <= '0'; is_store <= '0';
-              rmw_dummy_write_done <= '0';
-              case instruction_lut(to_integer(memory_read_value)) is
-                -- Note if instruction is RMW
-                when I_INC => is_rmw <= '1';
-                when I_DEC => is_rmw <= '1';
-                when I_ROL => is_rmw <= '1';
-                when I_ROR => is_rmw <= '1';
-                when I_ASL => is_rmw <= '1';
-                when I_ASR => is_rmw <= '1';
-                when I_LSR => is_rmw <= '1';
-                when I_TSB => is_rmw <= '1';
-                when I_TRB => is_rmw <= '1';
-                when I_RMB => is_rmw <= '1';
-                when I_SMB => is_rmw <= '1';
-                -- There are a few 16-bit RMWs as well
-                when I_INW => is_rmw <= '1';
-                when I_DEW => is_rmw <= '1';
-                when I_ASW => is_rmw <= '1';
-                when I_PHW => is_rmw <= '1';
-                when I_ROW => is_rmw <= '1';
-                -- Note if instruction LOADs value from memory
-                when I_BIT => is_load <= '1';
-                when I_AND => is_load <= '1';
-                when I_ORA => is_load <= '1';
-                when I_EOR => is_load <= '1';
-                when I_ADC => is_load <= '1';
-                when I_SBC => is_load <= '1';
-                when I_CMP => is_load <= '1';
-                when I_CPX => is_load <= '1';
-                when I_CPY => is_load <= '1';
-                when I_CPZ => is_load <= '1';
-                when I_LDA => is_load <= '1';
-                when I_LDX => is_load <= '1';
-                when I_LDY => is_load <= '1';
-                when I_LDZ => is_load <= '1';
-                -- Note if instruction is STORE
-                when I_STA => is_store <= '1';
-                when I_STX => is_store <= '1';
-                when I_STY => is_store <= '1';
-                when I_STZ => is_store <= '1';
-                -- Nothing special for other instructions
-                when others => null;
-              end case;
             when Cycle2 =>
               -- To improve timing we copy first argument of instruction, and
               -- proceed to read the next byte.
@@ -2293,6 +2304,7 @@ begin
                                   + to_integer(reg_x),16);
                     state <= JumpDereference;
                   when M_InnSPY =>
+                    -- XXX Not implemented
                     state <= normal_fetch_state;
                   when M_immnnnn =>                
                     reg_t <= reg_arg1;
