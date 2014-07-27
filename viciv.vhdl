@@ -751,7 +751,7 @@ begin
       if reg_h640='0' and reg_h1280='0' then
         -- 40 column mode (5x pixels, standard side borders)
         x_chargen_start
-          <= to_unsigned(frame_h_front+140+4+(to_integer(vicii_x_smoothscroll)*5),12);
+          <= to_unsigned(frame_h_front+140+3+(to_integer(vicii_x_smoothscroll)*5),12);
         -- set horizontal borders based on 40/38 columns
         if thirtyeightcolumns='0' then
           border_x_left <= to_unsigned(140,12);
