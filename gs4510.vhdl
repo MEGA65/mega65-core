@@ -1763,7 +1763,7 @@ begin
             when InterruptPushPCL =>
               stack_push := '1';
               memory_access_wdata := reg_pc(7 downto 0);
-              state <= InterruptPushP;              
+              state <= InterruptPushP;    
             when InterruptPushP =>
               -- Push flags to stack (already put in reg_t a few cycles earlier)
               stack_push := '1';
@@ -1773,7 +1773,7 @@ begin
               stack_pop := '1';
               state <= RTI2;
             when RTI2 =>
-              load_processor_flags(memory_access_wdata);
+              load_processor_flags(memory_read_value);
               stack_pop := '1';
               state <= RTS1;
             when RTS =>
