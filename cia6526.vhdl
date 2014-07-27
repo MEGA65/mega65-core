@@ -70,12 +70,12 @@ architecture behavioural of cia6526 is
   signal reg_porta_read : unsigned(7 downto 0) := (others => '0');
   signal reg_portb_read : unsigned(7 downto 0) := (others => '0');
 
-  signal reg_timera : unsigned(15 downto 0);
+  signal reg_timera : unsigned(15 downto 0) := x"0001";
   signal reg_timera_latch : unsigned(15 downto 0);
-  signal reg_timerb : unsigned(15 downto 0);
+  signal reg_timerb : unsigned(15 downto 0) := x"0001";
   signal reg_timerb_latch : unsigned(15 downto 0);
 
-  signal reg_timera_tick_source : std_logic;
+  signal reg_timera_tick_source : std_logic := '0';
   signal reg_timera_oneshot : std_logic := '0';
   signal reg_timera_toggle_or_pulse : std_logic := '0';
   signal reg_timera_pb6_out : std_logic := '0';
@@ -297,7 +297,7 @@ begin  -- behavioural
         or (imask_tb='1' and reg_isr(1)='1')
         or (imask_ta='1' and reg_isr(0)='1')
       then
-        -- report "IRQ asserted, imask_ta=" & std_logic'image(imask_ta) severity note;
+        report "CIA IRQ asserted, imask_ta=" & std_logic'image(imask_ta) severity note;
         reg_isr(7)<='1'; irq<='0';
       else
         reg_isr(7)<='0'; irq<='1';
@@ -307,8 +307,12 @@ begin  -- behavioural
       prev_phi0 <= phi0;
       prev_countin <= countin;
       reg_timera_underflow <= '0';
+      report "CIA checking timers, phi0=" & std_logic'image(phi0)
+         & ", imask_ta=" & std_logic'image(imask_ta)
+         & ", reg_isr(0)=" & std_logic'image(reg_isr(0));
       if reg_timera_start='1' then
         if reg_timera = x"FFFF" and reg_timera_has_ticked='1' then
+          report "CIA timera underflow";
           -- underflow
           reg_isr(0) <= '1';
           reg_timera_underflow <= '1';
@@ -323,6 +327,7 @@ begin  -- behavioural
           when '0' =>
             -- phi2 pulses
             if phi0='0' and prev_phi0='1' then
+              report "CIA timera ticked down from $" & to_hstring(reg_timera);
               reg_timera <= reg_timera - 1;
               reg_timera_has_ticked <= '1';
             end if;
