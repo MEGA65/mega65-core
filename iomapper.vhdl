@@ -208,7 +208,7 @@ architecture behavioral of iomapper is
       reset : in std_logic;
       irq : out std_logic := '1';
 
-      seg_led : out unsigned(31 downto 0);
+      underflow_count : out unsigned(15 downto 0);
 
       ---------------------------------------------------------------------------
       -- fast IO port (clocked at core clock). 1MB address space
@@ -244,6 +244,7 @@ architecture behavioral of iomapper is
       reset : out std_logic;
       
       last_scan_code : out std_logic_vector(12 downto 0);
+      key_status : out unsigned(1 downto 0);
 
       -- PS2 keyboard interface
       ps2clock  : in  std_logic;
@@ -301,7 +302,7 @@ begin
     fastio_read => r,
     std_logic_vector(fastio_rdata) => data_o,
     fastio_wdata => unsigned(data_i),
-
+    underflow_count => seg_led(31 downto 16),
     portaout => cia1porta_out,
     portbout => cia1portb_out,
     portain => cia1porta_in,
@@ -339,6 +340,7 @@ begin
     ps2clock       => ps2clock,
     ps2data        => ps2data,
     last_scan_code => last_scan_code,
+    key_status     => seg_led(1 downto 0),
     porta_in       => cia1porta_out,
     porta_out      => cia1porta_in,
     portb_out      => cia1portb_in

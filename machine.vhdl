@@ -558,24 +558,42 @@ begin
       sseg_an <= (others => '1');
       sseg_an(to_integer(segled_counter(17 downto 15))) <= '0';
 
+      --if segled_counter(17 downto 15)=0 then
+      --  digit := std_logic_vector(monitor_pc(3 downto 0));
+      --elsif segled_counter(17 downto 15)=1 then
+      --  digit := std_logic_vector(monitor_pc(7 downto 4));
+      --elsif segled_counter(17 downto 15)=2 then
+      --  digit := std_logic_vector(monitor_pc(11 downto 8));
+      --elsif segled_counter(17 downto 15)=3 then
+      --  digit := std_logic_vector(monitor_pc(15 downto 12));
+      --elsif segled_counter(17 downto 15)=4 then
+      --  digit := std_logic_vector(monitor_state(3 downto 0));
+      --elsif segled_counter(17 downto 15)=5 then
+      --  digit := std_logic_vector(monitor_state(7 downto 4));
+      --elsif segled_counter(17 downto 15)=6 then
+      --  digit := std_logic_vector(monitor_state(11 downto 8));
+      --elsif segled_counter(17 downto 15)=7 then
+      --  digit := std_logic_vector(monitor_state(15 downto 12));
+      --end if;
       if segled_counter(17 downto 15)=0 then
-        digit := std_logic_vector(monitor_pc(3 downto 0));
+        digit := std_logic_vector(seg_led_data(3 downto 0));
       elsif segled_counter(17 downto 15)=1 then
-        digit := std_logic_vector(monitor_pc(7 downto 4));
+        digit := std_logic_vector(seg_led_data(7 downto 4));
       elsif segled_counter(17 downto 15)=2 then
-        digit := std_logic_vector(monitor_pc(11 downto 8));
+        digit := std_logic_vector(seg_led_data(11 downto 8));
       elsif segled_counter(17 downto 15)=3 then
-        digit := std_logic_vector(monitor_pc(15 downto 12));
+        digit := std_logic_vector(seg_led_data(15 downto 12));
       elsif segled_counter(17 downto 15)=4 then
-        digit := std_logic_vector(monitor_state(3 downto 0));
+        digit := std_logic_vector(seg_led_data(19 downto 16));
       elsif segled_counter(17 downto 15)=5 then
-        digit := std_logic_vector(monitor_state(7 downto 4));
+        digit := std_logic_vector(seg_led_data(23 downto 20));
       elsif segled_counter(17 downto 15)=6 then
-        digit := std_logic_vector(monitor_state(11 downto 8));
+        digit := std_logic_vector(seg_led_data(27 downto 24));
       elsif segled_counter(17 downto 15)=7 then
-        digit := std_logic_vector(monitor_state(15 downto 12));
+        digit := std_logic_vector(seg_led_data(31 downto 28));
       end if;
 
+      
       -- segments are:
       -- 7 - decimal point
       -- 6 - middle

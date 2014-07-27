@@ -9,7 +9,8 @@ entity keymapper is
     ioclk : in std_logic;
 
     last_scan_code : out std_logic_vector(12 downto 0);
-
+    key_status : out unsigned(1 downto 0);
+    
     nmi : out std_logic := 'Z';
     reset : out std_logic := 'Z';
     
@@ -141,6 +142,8 @@ begin  -- behavioural
         -- Let the CPU read the most recent scan code for
         -- debugging keyboard layout.
         last_scan_code <= break & "000" & extended & std_logic_vector(scan_code);
+
+        key_status <= break & extended;
         
         if scan_code = x"F0"  then
           -- break code

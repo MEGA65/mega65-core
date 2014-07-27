@@ -32,7 +32,7 @@ entity cia6526 is
     reset : in std_logic;
     irq : out std_logic := '1';
 
-    seg_led : out unsigned(31 downto 0);
+    underflow_count : out unsigned(15 downto 0);
     
     ---------------------------------------------------------------------------
     -- fast IO port (clocked at core clock). 1MB address space
@@ -83,6 +83,8 @@ architecture behavioural of cia6526 is
   signal reg_timera_has_ticked : std_logic := '0';
   signal reg_timera_underflow : std_logic := '0';
 
+  signal underflow_count_internal : unsigned(15 downto 0) := x"0000";
+  
   signal reg_timerb_tick_source : std_logic_vector(1 downto 0) := "00";
   signal reg_timerb_oneshot : std_logic := '0';
   signal reg_timerb_toggle_or_pulse : std_logic := '0';
@@ -258,6 +260,7 @@ begin  -- behavioural
   variable register_number : unsigned(3 downto 0);
   begin
     if rising_edge(cpuclock) then
+      underflow_count <= underflow_count_internal;
       register_number := fastio_addr(3 downto 0);
       -- Check for register read side effects
       if fastio_read='1' and cs='1' then
@@ -314,6 +317,7 @@ begin  -- behavioural
         if reg_timera = x"FFFF" and reg_timera_has_ticked='1' then
           report "CIA timera underflow";
           -- underflow
+          underflow_count_internal <= underflow_count_internal + 1;
           reg_isr(0) <= '1';
           reg_timera_underflow <= '1';
           if reg_timera_oneshot='0' then
