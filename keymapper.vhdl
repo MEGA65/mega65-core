@@ -158,6 +158,7 @@ begin  -- behavioural
         if process_full_scan_code='1' then
           break <= '0';
           extended <= '0';
+          process_full_scan_code <= '0';
           case full_scan_code is
             when x"17D" =>
               -- Restore key shall do NMI as expected, but also
