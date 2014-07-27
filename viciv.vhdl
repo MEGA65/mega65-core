@@ -751,16 +751,16 @@ begin
       if reg_h640='0' and reg_h1280='0' then
         -- 40 column mode (5x pixels, standard side borders)
         x_chargen_start
-          <= to_unsigned(frame_h_front+160+4+(to_integer(vicii_x_smoothscroll)*5),12);
+          <= to_unsigned(frame_h_front+140+4+(to_integer(vicii_x_smoothscroll)*5),12);
         -- set horizontal borders based on 40/38 columns
         if thirtyeightcolumns='0' then
-          border_x_left <= to_unsigned(160,12);
-          border_x_right <= to_unsigned(1920-160,12);
+          border_x_left <= to_unsigned(140,12);
+          border_x_right <= to_unsigned(1920-140,12);
         else  
-          border_x_left <= to_unsigned(160+(7*5),12);
-          border_x_right <= to_unsigned(1920-160-(9*5),12);
+          border_x_left <= to_unsigned(140+(7*5),12);
+          border_x_right <= to_unsigned(1920-140-(9*5),12);
         end if;
-        chargen_x_scale <= x"18";
+        chargen_x_scale <= x"19";
         virtual_row_width <= to_unsigned(40,16);
       elsif reg_h640='1' and reg_h1280='0' then
         -- 80 column mode (3x pixels, no side border)
