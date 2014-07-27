@@ -354,7 +354,7 @@ end component;
     -- Reset and interrupts
     ResetLow,
     ResetReady,
-    Interrupt,
+    Interrupt,InterruptPushPCL,InterruptPushP,
     VectorRead1,VectorRead2,VectorRead3, 
 
     -- DMAgic
@@ -369,7 +369,8 @@ end component;
     InstructionDecode,  -- $0E
     Cycle2,Cycle3,
     Pull,
-    RTI,RTS,RTS1,RTS2,RTS3,
+    RTI,RTI2,
+    RTS,RTS1,RTS2,RTS3,
     B16TakeBranch,
     InnXReadVectorLow,
     InnXReadVectorHigh,
@@ -1561,6 +1562,8 @@ begin
     -- BEGINNING OF MAIN PROCESS FOR CPU
     if rising_edge(clock) then
 
+      check_for_interrupts;
+      
       if wait_states = x"00" then
         if last_action = 'R' then
           report "MEMORY reading $" & to_hstring(last_address)
@@ -1739,20 +1742,44 @@ begin
             when Interrupt =>
               -- BRK or IRQ
               -- Push P and PC
-              vector <= x"e";
+              if nmi_pending='1' then
+                vector <= x"a";
+              else
+                vector <= x"e";
+              end if;
+              flag_i <= '1';
+              reg_t <= unsigned(virtual_reg_p);
               if reg_instruction = I_BRK then
                 -- set B flag when pushing P
-                null;
+                reg_t(4) <= '1';
               else
                 -- clear B flag when pushing P
-                null;
+                reg_t(4) <= '0';
               end if;
-              state <= normal_fetch_state;
+              stack_push := '1';
+              memory_access_wdata := reg_pc(15 downto 8);
+              state <= InterruptPushPCL;
+            when InterruptPushPCL =>
+              stack_push := '1';
+              memory_access_wdata := reg_pc(7 downto 0);
+              state <= InterruptPushP;              
+            when InterruptPushP =>
+              -- Push flags to stack (already put in reg_t a few cycles earlier)
+              stack_push := '1';
+              memory_access_wdata := reg_t;
+              state <= VectorRead1;
+            when RTI =>
+              stack_pop := '1';
+              state <= RTI2;
+            when RTI2 =>
+              load_processor_flags(memory_access_wdata);
+              stack_pop := '1';
+              state <= RTS1;
             when RTS =>
               stack_pop := '1';
               state <= RTS1;
             when RTS1 =>
-              reg_pc(15 downto 8) <= memory_read_value;
+              reg_pc(7 downto 0) <= memory_read_value;
               report "RTS: high byte = $" & to_hstring(memory_read_value) severity note;
               stack_pop := '1';
               state <= RTS2;
@@ -1764,7 +1791,7 @@ begin
               -- (we may also later introduce a stack cache that would allow RTS
               -- to execute in 1 cycle in certain circumstances)
               report "RTS: low byte = $" & to_hstring(memory_read_value) severity note;
-              reg_pc <= (reg_pc(15 downto 8)&memory_read_value)+1;
+              reg_pc <= (memory_read_value&reg_pc(7 downto 0))+1;
               state <= RTS3;
             when RTS3 =>
               -- Read the instruction byte following
@@ -1843,9 +1870,18 @@ begin
               end if;    
             when InstructionWait =>
               state <= InstructionFetch;
-            when InstructionFetch =>              
-              state <= InstructionDecode;
-              pc_inc := '1';
+            when InstructionFetch =>
+              if irq_pending='1' or nmi_pending='1' then
+                -- An interrupt has occurred
+                state <= Interrupt;
+                -- Make sure reg_instruction /= I_BRK, so that B flag is not
+                -- erroneously set.
+                reg_instruction <= I_SEI;
+              else
+                -- Normal instruction execution
+                state <= InstructionDecode;
+                pc_inc := '1';
+              end if;
             when InstructionDecode =>
               -- Show previous instruction
               disassemble_last_instruction;
@@ -1920,6 +1956,9 @@ begin
                   if memory_read_value=x"60" then
                     -- Fast-track RTS
                     state <= RTS;
+                  elsif memory_read_value=x"40" then
+                    -- Fast-track RTI
+                    state <= RTI;
                   else
                     state <= MicrocodeInterpret;
                   end if;
@@ -2088,7 +2127,7 @@ begin
                       memory_access_write := '1';
                       memory_access_address := x"000"&reg_sph&reg_sp;
                       memory_access_resolve_address := '1';
-                      memory_access_wdata := reg_pc_jsr(7 downto 0);
+                      memory_access_wdata := reg_pc_jsr(15 downto 8);
                       dec_sp := '1';
                       state <= CallSubroutine;
                     else
@@ -2253,7 +2292,7 @@ begin
                   when M_immnnnn =>                
                     reg_t <= reg_arg1;
                     reg_t_high <= memory_read_value;
-                    state <= PushWordLow;
+                    state <= PushWordHigh;
                 end case;
               end if;
             when CallSubroutine =>
@@ -2267,7 +2306,7 @@ begin
               memory_access_write := '1';
               memory_access_address := x"000"&reg_sph&reg_sp;
               memory_access_resolve_address := '1';
-              memory_access_wdata := reg_pc_jsr(15 downto 8);
+              memory_access_wdata := reg_pc_jsr(7 downto 0);
               dec_sp := '1';
               pc_inc := '0';
               state <= CallSubroutine2;
@@ -2646,7 +2685,7 @@ begin
                   reg_t <= temp_addr(7 downto 0);
                 when I_PHW =>
                   reg_t_high <= memory_read_value;
-                    state <= PushWordLow;
+                  state <= PushWordHigh;
                 when I_ROW =>
                   temp_addr := memory_read_value(6 downto 0)&reg_t&flag_c;
                   flag_n <= memory_read_value(6);
@@ -2661,15 +2700,15 @@ begin
                 when others =>
                   state <= normal_fetch_state;
               end case;
-            when PushWordLow =>
-              -- Push reg_t
-              stack_push := '1';
-              memory_access_wdata := reg_t;
-              state <= PushWordHigh;
             when PushWordHigh =>
               -- Push reg_t_high
               stack_push := '1';
               memory_access_wdata := reg_t_high;
+              state <= PushWordLow;
+            when PushWordLow =>
+              -- Push reg_t
+              stack_push := '1';
+              memory_access_wdata := reg_t;
               state <= normal_fetch_state;
             when WordOpWriteLow =>
               memory_access_address := x"000"&(reg_addr);
