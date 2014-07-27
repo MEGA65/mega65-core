@@ -42,6 +42,9 @@ testadder:	tb_adder.vhdl debugtools.vhdl
 monitor_drive:	monitor_drive.c Makefile
 	gcc -g -Wall -o monitor_drive monitor_drive.c
 
+monitor_load:	monitor_load.c Makefile
+	gcc -g -Wall -o monitor_load monitor_load.c
+
 read_mem:	read_mem.c Makefile
 	gcc -g -Wall -o read_mem read_mem.c
 
