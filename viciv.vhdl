@@ -755,10 +755,10 @@ begin
         -- set horizontal borders based on 40/38 columns
         if thirtyeightcolumns='0' then
           border_x_left <= to_unsigned(140,12);
-          border_x_right <= to_unsigned(1920-140,12);
+          border_x_right <= to_unsigned(1920-140-1,12);
         else  
           border_x_left <= to_unsigned(140+(7*5),12);
-          border_x_right <= to_unsigned(1920-140-(9*5),12);
+          border_x_right <= to_unsigned(1920-140-1-(9*5),12);
         end if;
         chargen_x_scale <= x"19";
         virtual_row_width <= to_unsigned(40,16);
