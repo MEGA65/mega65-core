@@ -1992,7 +1992,7 @@ begin
 
         -- Some house keeping first:
         -- Reset write address in raster buffer
-        raster_buffer_write_address <= (others => '0');
+        raster_buffer_write_address <= (others => '1');
         -- Work out colour ram address
         colourramaddress <= colour_ram_base + first_card_of_row;
         -- Work out the screen ram address.  We only need to re-fetch screen
