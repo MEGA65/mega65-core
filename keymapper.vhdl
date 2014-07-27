@@ -316,7 +316,6 @@ begin  -- behavioural
           when others => ps2state <= Idle;
         end case;        
       end if;      
-    end if;
 
       -------------------------------------------------------------------------
       -- Update C64 CIA ports
@@ -393,7 +392,7 @@ begin  -- behavioural
       porta_out(2) <= porta_in(2) and joy2(2);
       porta_out(1) <= porta_in(1) and joy2(1);
       porta_out(0) <= porta_in(0) and joy2(0);
-
+    end if;
   end process keyread;
 
 end behavioural;
