@@ -138,6 +138,10 @@ begin  -- behavioural
         -- so that we can have a 9-bit number to look up.
         -- XXX also work out when a key goes down versus up by F0
         -- byte.
+        -- Let the CPU read the most recent scan code for
+        -- debugging keyboard layout.
+        last_scan_code <= break & "000" & extended & std_logic_vector(scan_code);
+        
         if scan_code = x"F0"  then
           -- break code
           break <= '1';
@@ -146,9 +150,6 @@ begin  -- behavioural
         else
           process_full_scan_code <= '1';
           full_scan_code <= unsigned("000" & std_logic(extended) & std_logic_vector(scan_code));
-          -- Let the CPU read the most recent scan code for
-          -- debugging keyboard layout.
-          last_scan_code <= break & "000" & extended & std_logic_vector(scan_code);
         end if;
 
         if process_full_scan_code='1' then
