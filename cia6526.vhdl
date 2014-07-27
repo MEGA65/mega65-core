@@ -40,6 +40,7 @@ entity cia6526 is
     cs : in std_logic;
     fastio_addr : in unsigned(7 downto 0);
     fastio_write : in std_logic;
+    fastio_read : in std_logic;
     fastio_wdata : in unsigned(7 downto 0);
     fastio_rdata : out unsigned(7 downto 0);
 
