@@ -1744,6 +1744,7 @@ begin
               -- Push P and PC
               if nmi_pending='1' then
                 vector <= x"a";
+                nmi_pending <= '0';
               else
                 vector <= x"e";
               end if;
@@ -1871,7 +1872,7 @@ begin
             when InstructionWait =>
               state <= InstructionFetch;
             when InstructionFetch =>
-              if irq_pending='1' or nmi_pending='1' then
+              if (irq_pending='1' and flag_i='0') or nmi_pending='1' then
                 -- An interrupt has occurred
                 state <= Interrupt;
                 -- Make sure reg_instruction /= I_BRK, so that B flag is not
