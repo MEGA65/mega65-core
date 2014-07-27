@@ -76,7 +76,7 @@ architecture behavioural of keymapper is
 begin  -- behavioural
 
 -- purpose: read from ps2 keyboard interface
-  keyread: process (ioclk, ps2data,ps2clock)
+  keyread: process (ioclk, ps2data,ps2clock, porta_in,row_0,joy1)
     variable portb_value : std_logic_vector(7 downto 0);
   begin  -- process keyread
     if rising_edge(ioclk) then

@@ -118,8 +118,8 @@ entity gs4510 is
     -- fast IO port (clocked at core clock). 1MB address space
     ---------------------------------------------------------------------------
     fastio_addr : inout std_logic_vector(19 downto 0);
-    fastio_read : inout std_logic;
-    fastio_write : inout std_logic;
+    fastio_read : out std_logic;
+    fastio_write : out std_logic;
     fastio_wdata : out std_logic_vector(7 downto 0);
     fastio_rdata : in std_logic_vector(7 downto 0);
     sector_buffer_mapped : in std_logic;

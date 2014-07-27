@@ -296,7 +296,6 @@ begin
     reset => reset,
     irq => irq,
     cs => cia1cs,
-    seg_led => seg_led,
     fastio_addr => unsigned(address(7 downto 0)),
     fastio_write => w,
     fastio_read => r,

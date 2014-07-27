@@ -157,7 +157,7 @@ begin  -- behavioural
           reg_porta_read,reg_portb_read,
           reg_tod_secs,reg_tod_mins,reg_tod_dsecs,
           read_tod_secs,read_tod_mins,read_tod_dsecs,read_tod_hours,
-          reg_timera_pb6_out,reg_timera_start
+          reg_timera_pb6_out,reg_timera_start,fastio_read
           ) is
     variable register_number : unsigned(7 downto 0);
   begin
