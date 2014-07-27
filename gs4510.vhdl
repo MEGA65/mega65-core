@@ -1792,7 +1792,11 @@ begin
               -- (we may also later introduce a stack cache that would allow RTS
               -- to execute in 1 cycle in certain circumstances)
               report "RTS: low byte = $" & to_hstring(memory_read_value) severity note;
-              reg_pc <= (memory_read_value&reg_pc(7 downto 0))+1;
+              if reg_instruction = I_RTS then
+                reg_pc <= (memory_read_value&reg_pc(7 downto 0))+1;
+              else
+                reg_pc <= (memory_read_value&reg_pc(7 downto 0));
+              end if;
               state <= RTS3;
             when RTS3 =>
               -- Read the instruction byte following
