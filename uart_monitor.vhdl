@@ -160,7 +160,7 @@ architecture behavioural of uart_monitor is
   constant requestTimeoutMessage : string := crlf & "?REQUEST TIMEOUT  ERROR" & crlf;
   constant replyTimeoutMessage : string := crlf & "?REPLY TIMEOUT  ERROR" & crlf;
 
-  constant registerMessage : string := crlf & "PC   A  X  Y  Z  B  SP   MAPL MAPH LAST-OP  P  P-FLAGS   RGP uS IO" & crlf;
+  constant registerMessage : string := crlf & "PC   A  X  Y  Z  B  SP   MAPL MAPH LAST-OP     P  P-FLAGS   RGP uS IO" & crlf;
   
   type monitor_state is (Reseting,
                          PrintBanner,PrintHelp,
