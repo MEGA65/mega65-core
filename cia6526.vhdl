@@ -165,8 +165,8 @@ begin  -- behavioural
       fastio_rdata <= (others => 'Z');
     else
       -- Reading of registers
-      if fastio_write='1' then
-        -- Tri-state read lines if writing
+      if fastio_read='0' then
+        -- Tri-state read lines if not reading
         fastio_rdata <= (others => 'Z');
       else
         -- XXX For debugging have 32 registers, and map
@@ -256,9 +256,29 @@ begin  -- behavioural
 
   variable register_number : unsigned(3 downto 0);
   begin
-    register_number := fastio_addr(3 downto 0);
     if rising_edge(cpuclock) then
-
+      register_number := fastio_addr(3 downto 0);
+      -- Check for register read side effects
+      if fastio_read='1' and cs='1' then
+        --report "Performing side-effects of reading from CIA register $" & to_hstring(register_number) severity note;
+        case register_number is
+          when x"1" =>
+            -- Reading or writing port B strobes PC high for 1 cycle
+            pcout <= '1';
+            strobe_pc <= '1';
+          when x"8" => read_tod_latched <='0';
+          when x"b" =>
+            read_tod_latched <='1';
+            read_tod_mins <= reg_tod_mins;
+            read_tod_secs <= reg_tod_secs;
+            read_tod_dsecs <= reg_tod_dsecs;
+          when x"d" =>
+            -- Reading ICR/ISR clears all interrupts
+            clear_isr <= '1';
+          when others => null;
+        end case;
+      end if;
+      
       -- XXX We clear ISR one cycle after the register is read so that
       -- if fastio has a one cycle wait state, the isr can still be read on
       -- the second cycle.
@@ -361,28 +381,6 @@ begin  -- behavioural
       if strobe_pc='1' then
         pcout<='0';
         strobe_pc<='0';
-      end if;
-
-      -- Check for register read side effects
-      if fastio_write='0' and cs='1' then
-        --report "Performing side-effects of reading from CIA register $" & to_hstring(register_number) severity note;
-
-        case register_number is
-          when x"1" =>
-            -- Reading or writing port B strobes PC high for 1 cycle
-            pcout <= '1';
-            strobe_pc <= '1';
-          when x"8" => read_tod_latched <='0';
-          when x"b" =>
-            read_tod_latched <='1';
-            read_tod_mins <= reg_tod_mins;
-            read_tod_secs <= reg_tod_secs;
-            read_tod_dsecs <= reg_tod_dsecs;
-          when x"d" =>
-            -- Reading ICR/ISR clears all interrupts
-            clear_isr <= '1';
-          when others => null;
-        end case;
       end if;
       
       -- Check for register writing
