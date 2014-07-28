@@ -209,6 +209,8 @@ architecture behavioral of iomapper is
       irq : out std_logic := '1';
 
       underflow_count : out unsigned(15 downto 0);
+      imask_ta_out : out std_logic;
+      reg_isr_out : out unsigned(7 downto 0);
 
       ---------------------------------------------------------------------------
       -- fast IO port (clocked at core clock). 1MB address space
@@ -280,6 +282,8 @@ architecture behavioral of iomapper is
   signal leftsid_audio : unsigned(17 downto 0);
   signal rightsid_cs : std_logic;
   signal rightsid_audio : unsigned(17 downto 0);
+
+  signal spare_bits : unsigned(4 downto 0);
   
 begin         
   kickstartrom : kickstart port map (
@@ -303,6 +307,9 @@ begin
     std_logic_vector(fastio_rdata) => data_o,
     fastio_wdata => unsigned(data_i),
     underflow_count => seg_led(31 downto 16),
+    imask_ta_out => seg_led(15),
+    reg_isr_out(2 downto 0) => seg_led(14 downto 12),
+    reg_isr_out(7 downto 3) => spare_bits,
     portaout => cia1porta_out,
     portbout => cia1portb_out,
     portain => cia1porta_in,
@@ -455,7 +462,8 @@ begin
         counter50hz <= 0;
       end if;
 
-      seg_led(11 downto 0) <= last_scan_code;
+      seg_led(11) <= last_scan_code(12);
+      seg_led(10 downto 0) <= unsigned(last_scan_code(10 downto 0));
       
     end if;
   end process;

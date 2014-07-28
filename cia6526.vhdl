@@ -33,6 +33,8 @@ entity cia6526 is
     irq : out std_logic := '1';
 
     underflow_count : out unsigned(15 downto 0);
+    imask_ta_out : out std_logic;
+    reg_isr_out : out unsigned(7 downto 0);
     
     ---------------------------------------------------------------------------
     -- fast IO port (clocked at core clock). 1MB address space
@@ -259,6 +261,9 @@ begin  -- behavioural
   begin
     if rising_edge(cpuclock) then
       underflow_count <= underflow_count_internal;
+      imask_ta_out <= imask_ta;
+      reg_isr_out <= reg_isr;
+      
       register_number := fastio_addr(3 downto 0);
       -- Check for register read side effects
       if fastio_read='1' and cs='1' then
