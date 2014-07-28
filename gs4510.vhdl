@@ -193,7 +193,7 @@ end component;
   -- (Reading incurrs an extra waitstate due to read_data_copy)
   -- XXX An extra wait state seems to be necessary when reading from dual-port
   -- memories like the sector buffer.
-  signal io_read_wait_states : unsigned(7 downto 0) := x"03";
+  signal io_read_wait_states : unsigned(7 downto 0) := x"01";
   signal io_write_wait_states : unsigned(7 downto 0) := x"00";
 
   -- Number of pending wait states
