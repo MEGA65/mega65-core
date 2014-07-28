@@ -85,10 +85,6 @@ int process_line(char *line,int live)
 	usleep(20000);
 	slow_write(fd,"\r",1);
 	usleep(50000);
-	slow_write(fd,"bf4a2\r",6);   // Also setup breakpoint
-	usleep(20000);
-	slow_write(fd,"sffd0c01 0\r",11); // and make keyboard workaround CIA bug
-	usleep(20000);
 	slow_write(fd,"t0\r",3); // and set CPU going
 	usleep(20000);
 	printf("Synchronised with monitor.\n");
