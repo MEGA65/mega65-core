@@ -282,6 +282,7 @@ begin  -- behavioural
           when x"d" =>
             -- Reading ICR/ISR clears all interrupts
             -- lie any say serial port done to placate C65 ROM for now
+            report "CIA clearing ISR";
             reg_isr <= x"08";
           when others => null;
         end case;
@@ -306,7 +307,7 @@ begin  -- behavioural
       reg_timera_underflow <= '0';
       report "CIA checking timers, phi0=" & std_logic'image(phi0)
          & ", imask_ta=" & std_logic'image(imask_ta)
-         & ", reg_isr(0)=" & std_logic'image(reg_isr(0));
+         & ", reg_isr=$" & to_hstring(reg_isr);
       if reg_timera_start='1' then
         if reg_timera = x"FFFF" and reg_timera_has_ticked='1' then
           report "CIA timera underflow";
