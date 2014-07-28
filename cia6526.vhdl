@@ -142,8 +142,6 @@ architecture behavioural of cia6526 is
   signal prev_phi0 : std_logic;
   signal prev_countin : std_logic;
 
-  signal clear_isr : std_logic := '0';  -- flag to clear ISR after reading
-
 begin  -- behavioural
   
   process(cpuclock,fastio_addr,fastio_write,flagin,cs,portain,portbin,
@@ -278,19 +276,10 @@ begin  -- behavioural
             read_tod_dsecs <= reg_tod_dsecs;
           when x"d" =>
             -- Reading ICR/ISR clears all interrupts
-            clear_isr <= '1';
+            -- lie any say serial port done to placate C65 ROM for now
+            reg_isr <= x"08";
           when others => null;
         end case;
-      end if;
-      
-      -- XXX We clear ISR one cycle after the register is read so that
-      -- if fastio has a one cycle wait state, the isr can still be read on
-      -- the second cycle.
-      if clear_isr='1' then
-        -- lie any say serial port done to placate C65 ROM for now
-        reg_isr <= x"08";
-        clear_isr <= '0';
-        -- report "clearing ISR" severity note;
       end if;
       
       -- Set IRQ line status
