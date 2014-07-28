@@ -208,17 +208,12 @@ architecture behavioral of iomapper is
       reset : in std_logic;
       irq : out std_logic := '1';
 
-      underflow_count : out unsigned(15 downto 0);
-      imask_ta_out : out std_logic;
-      reg_isr_out : out unsigned(7 downto 0);
-
       ---------------------------------------------------------------------------
       -- fast IO port (clocked at core clock). 1MB address space
       ---------------------------------------------------------------------------
       cs : in std_logic;
       fastio_addr : in unsigned(7 downto 0);
       fastio_write : in std_logic;
-      fastio_read : in std_logic;
       fastio_wdata : in unsigned(7 downto 0);
       fastio_rdata : out unsigned(7 downto 0);
 
@@ -302,13 +297,8 @@ begin
     cs => cia1cs,
     fastio_addr => unsigned(address(7 downto 0)),
     fastio_write => w,
-    fastio_read => r,
     std_logic_vector(fastio_rdata) => data_o,
     fastio_wdata => unsigned(data_i),
-    underflow_count => seg_led(31 downto 16),
-    imask_ta_out => seg_led(15),
-    reg_isr_out(2 downto 0) => seg_led(14 downto 12),
-    reg_isr_out(7 downto 3) => spare_bits,
     portaout => cia1porta_out,
     portbout => cia1portb_out,
     portain => cia1porta_in,
@@ -327,7 +317,6 @@ begin
     cs => cia2cs,
     fastio_addr => unsigned(address(7 downto 0)),
     fastio_write => w,
-    fastio_read => r,
     std_logic_vector(fastio_rdata) => data_o,
     fastio_wdata => unsigned(data_i),
 

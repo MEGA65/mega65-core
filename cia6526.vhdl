@@ -1,21 +1,3 @@
---
--- Written by
---    Paul Gardner-Stephen <hld@c64.org>  2013-2014
---
--- *  This program is free software; you can redistribute it and/or modify
--- *  it under the terms of the GNU Lesser General Public License as
--- *  published by the Free Software Foundation; either version 3 of the
--- *  License, or (at your option) any later version.
--- *
--- *  This program is distributed in the hope that it will be useful,
--- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
--- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
--- *  GNU General Public License for more details.
--- *
--- *  You should have received a copy of the GNU Lesser General Public License
--- *  along with this program; if not, write to the Free Software
--- *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
--- *  02111-1307  USA.
 use WORK.ALL;
 
 library IEEE;
@@ -32,9 +14,7 @@ entity cia6526 is
     reset : in std_logic;
     irq : out std_logic := '1';
 
-    underflow_count : out unsigned(15 downto 0);
-    imask_ta_out : out std_logic;
-    reg_isr_out : out unsigned(7 downto 0);
+    seg_led : out unsigned(31 downto 0);
     
     ---------------------------------------------------------------------------
     -- fast IO port (clocked at core clock). 1MB address space
@@ -42,7 +22,6 @@ entity cia6526 is
     cs : in std_logic;
     fastio_addr : in unsigned(7 downto 0);
     fastio_write : in std_logic;
-    fastio_read : in std_logic;
     fastio_wdata : in unsigned(7 downto 0);
     fastio_rdata : out unsigned(7 downto 0);
 
@@ -72,12 +51,12 @@ architecture behavioural of cia6526 is
   signal reg_porta_read : unsigned(7 downto 0) := (others => '0');
   signal reg_portb_read : unsigned(7 downto 0) := (others => '0');
 
-  signal reg_timera : unsigned(15 downto 0) := x"0001";
-  signal reg_timera_latch : unsigned(15 downto 0) := x"0001";
-  signal reg_timerb : unsigned(15 downto 0) := x"0001";
-  signal reg_timerb_latch : unsigned(15 downto 0) := x"0001";
+  signal reg_timera : unsigned(15 downto 0);
+  signal reg_timera_latch : unsigned(15 downto 0);
+  signal reg_timerb : unsigned(15 downto 0);
+  signal reg_timerb_latch : unsigned(15 downto 0);
 
-  signal reg_timera_tick_source : std_logic := '0';
+  signal reg_timera_tick_source : std_logic;
   signal reg_timera_oneshot : std_logic := '0';
   signal reg_timera_toggle_or_pulse : std_logic := '0';
   signal reg_timera_pb6_out : std_logic := '0';
@@ -85,8 +64,6 @@ architecture behavioural of cia6526 is
   signal reg_timera_has_ticked : std_logic := '0';
   signal reg_timera_underflow : std_logic := '0';
 
-  signal underflow_count_internal : unsigned(15 downto 0) := x"0000";
-  
   signal reg_timerb_tick_source : std_logic_vector(1 downto 0) := "00";
   signal reg_timerb_oneshot : std_logic := '0';
   signal reg_timerb_toggle_or_pulse : std_logic := '0';
@@ -144,6 +121,8 @@ architecture behavioural of cia6526 is
   signal prev_phi0 : std_logic;
   signal prev_countin : std_logic;
 
+  signal clear_isr : std_logic := '0';  -- flag to clear ISR after reading
+
 begin  -- behavioural
   
   process(cpuclock,fastio_addr,fastio_write,flagin,cs,portain,portbin,
@@ -159,7 +138,7 @@ begin  -- behavioural
           reg_porta_read,reg_portb_read,
           reg_tod_secs,reg_tod_mins,reg_tod_dsecs,
           read_tod_secs,read_tod_mins,read_tod_dsecs,read_tod_hours,
-          reg_timera_pb6_out,reg_timera_start,fastio_read
+          reg_timera_pb6_out,reg_timera_start
           ) is
     variable register_number : unsigned(7 downto 0);
   begin
@@ -167,72 +146,74 @@ begin  -- behavioural
       -- Tri-state read lines if not selected
       fastio_rdata <= (others => 'Z');
     else
-      -- Reading of registers
-      if fastio_read='0' then
-        -- Tri-state read lines if not reading
-        fastio_rdata <= (others => 'Z');
-      else
+--      if rising_edge(cpuclock) then
         -- XXX For debugging have 32 registers, and map
         -- reg_porta_read and portain (and same for port b)
         -- to extra registers for debugging.
         register_number(7 downto 5) := (others => '0');
         register_number(4 downto 0) := fastio_addr(4 downto 0);
 
-        case register_number is
-          when x"00" => fastio_rdata <= unsigned(reg_porta_read); -- reg_porta_read;
-          when x"01" => fastio_rdata <= unsigned(reg_portb_read); -- reg_portb_read;
-          when x"10" => fastio_rdata <= unsigned(portain); -- reg_porta_read;
-          when x"11" => fastio_rdata <= unsigned(portbin); -- reg_portb_read;
-          when x"02" => fastio_rdata <= unsigned(reg_porta_ddr);
-          when x"03" => fastio_rdata <= unsigned(reg_portb_ddr);
-          when x"04" => fastio_rdata <= reg_timera(7 downto 0);
-          when x"05" => fastio_rdata <= reg_timera(15 downto 8);
-          when x"06" => fastio_rdata <= reg_timerb(7 downto 0);
-          when x"07" => fastio_rdata <= reg_timerb(15 downto 8);
-          when x"08" =>
-            if read_tod_latched='1' then
-              fastio_rdata <= read_tod_dsecs;
-            else
-              fastio_rdata <= reg_tod_dsecs;
-            end if;
-          when x"09" =>   
-            if read_tod_latched='1' then
-              fastio_rdata <= read_tod_secs;
-            else
-              fastio_rdata <= reg_tod_secs;
-            end if;
-          when x"0a" =>   
-            if read_tod_latched='1' then
-              fastio_rdata <= read_tod_mins;
-            else
-              fastio_rdata <= reg_tod_mins;
-            end if;
-          when x"0b" =>   
-            fastio_rdata <= reg_tod_ampm & reg_tod_hours;
-          when x"0c" => fastio_rdata <= unsigned(reg_read_sdr);
-          when x"0d" =>
-            fastio_rdata <= reg_isr;
-          when x"0e" => 
-            fastio_rdata <= reg_60hz
-                            & reg_serialport_direction
-                            & reg_timera_tick_source
-                            & '0'
-                            & reg_timera_oneshot
-                            & reg_timera_toggle_or_pulse
-                            & reg_timera_pb6_out
-                            & reg_timera_start;            
-          when x"0f" =>
-            fastio_rdata <= unsigned(reg_tod_alarm_edit
-                                     & reg_timerb_tick_source
-                                     & '0'  -- strobe always reads as 0
-                                     & reg_timerb_oneshot
-                                     & reg_timerb_toggle_or_pulse
-                                     & reg_timerb_pb7_out
-                                     & reg_timerb_start);
-          when others => fastio_rdata <= (others => 'Z');
-        end case;
+        -- Reading of registers
+        if fastio_write='1' then
+          -- Tri-state read lines if writing
+          fastio_rdata <= (others => 'Z');
+        else
+          case register_number is
+            when x"00" => fastio_rdata <= unsigned(reg_porta_read); -- reg_porta_read;
+            when x"01" => fastio_rdata <= unsigned(reg_portb_read); -- reg_portb_read;
+            when x"10" => fastio_rdata <= unsigned(portain); -- reg_porta_read;
+            when x"11" => fastio_rdata <= unsigned(portbin); -- reg_portb_read;
+            when x"02" => fastio_rdata <= unsigned(reg_porta_ddr);
+            when x"03" => fastio_rdata <= unsigned(reg_portb_ddr);
+            when x"04" => fastio_rdata <= reg_timera(7 downto 0);
+            when x"05" => fastio_rdata <= reg_timera(15 downto 8);
+            when x"06" => fastio_rdata <= reg_timerb(7 downto 0);
+            when x"07" => fastio_rdata <= reg_timerb(15 downto 8);
+            when x"08" =>
+              if read_tod_latched='1' then
+                fastio_rdata <= read_tod_dsecs;
+              else
+                fastio_rdata <= reg_tod_dsecs;
+              end if;
+            when x"09" =>   
+              if read_tod_latched='1' then
+                fastio_rdata <= read_tod_secs;
+              else
+                fastio_rdata <= reg_tod_secs;
+              end if;
+            when x"0a" =>   
+              if read_tod_latched='1' then
+                fastio_rdata <= read_tod_mins;
+              else
+                fastio_rdata <= reg_tod_mins;
+              end if;
+            when x"0b" =>   
+              fastio_rdata <= reg_tod_ampm & reg_tod_hours;
+            when x"0c" => fastio_rdata <= unsigned(reg_read_sdr);
+            when x"0d" =>
+              fastio_rdata <= reg_isr;
+            when x"0e" => 
+              fastio_rdata <= reg_60hz
+                              & reg_serialport_direction
+                              & reg_timera_tick_source
+                              & '0'
+                              & reg_timera_oneshot
+                              & reg_timera_toggle_or_pulse
+                              & reg_timera_pb6_out
+                              & reg_timera_start;            
+            when x"0f" =>
+              fastio_rdata <= unsigned(reg_tod_alarm_edit
+                                       & reg_timerb_tick_source
+                                       & '0'  -- strobe always reads as 0
+                                       & reg_timerb_oneshot
+                                       & reg_timerb_toggle_or_pulse
+                                       & reg_timerb_pb7_out
+                                       & reg_timerb_start);
+            when others => fastio_rdata <= (others => 'Z');
+          end case;
+        end if;
       end if;
-    end if;
+--    end if;
   end process;
 
   process(cpuclock,fastio_addr) is
@@ -259,33 +240,17 @@ begin  -- behavioural
 
   variable register_number : unsigned(3 downto 0);
   begin
+    register_number := fastio_addr(3 downto 0);
     if rising_edge(cpuclock) then
-      underflow_count <= underflow_count_internal;
-      imask_ta_out <= imask_ta;
-      reg_isr_out <= reg_isr;
-      
-      register_number := fastio_addr(3 downto 0);
-      -- Check for register read side effects
-      if fastio_read='1' and cs='1' then
-        --report "Performing side-effects of reading from CIA register $" & to_hstring(register_number) severity note;
-        case register_number is
-          when x"1" =>
-            -- Reading or writing port B strobes PC high for 1 cycle
-            pcout <= '1';
-            strobe_pc <= '1';
-          when x"8" => read_tod_latched <='0';
-          when x"b" =>
-            read_tod_latched <='1';
-            read_tod_mins <= reg_tod_mins;
-            read_tod_secs <= reg_tod_secs;
-            read_tod_dsecs <= reg_tod_dsecs;
-          when x"d" =>
-            -- Reading ICR/ISR clears all interrupts
-            -- lie any say serial port done to placate C65 ROM for now
-            report "CIA clearing ISR";
-            reg_isr <= x"08";
-          when others => null;
-        end case;
+
+      -- XXX We clear ISR one cycle after the register is read so that
+      -- if fastio has a one cycle wait state, the isr can still be read on
+      -- the second cycle.
+      if clear_isr='1' then
+        -- lie any say serial port done to placate C65 ROM for now
+        reg_isr <= x"08";
+        clear_isr <= '0';
+        -- report "clearing ISR" severity note;
       end if;
       
       -- Set IRQ line status
@@ -295,7 +260,7 @@ begin  -- behavioural
         or (imask_tb='1' and reg_isr(1)='1')
         or (imask_ta='1' and reg_isr(0)='1')
       then
-        report "CIA IRQ asserted, imask_ta=" & std_logic'image(imask_ta) severity note;
+        -- report "IRQ asserted, imask_ta=" & std_logic'image(imask_ta) severity note;
         reg_isr(7)<='1'; irq<='0';
       else
         reg_isr(7)<='0'; irq<='1';
@@ -305,14 +270,9 @@ begin  -- behavioural
       prev_phi0 <= phi0;
       prev_countin <= countin;
       reg_timera_underflow <= '0';
-      report "CIA checking timers, phi0=" & std_logic'image(phi0)
-         & ", imask_ta=" & std_logic'image(imask_ta)
-         & ", reg_isr=$" & to_hstring(reg_isr);
       if reg_timera_start='1' then
         if reg_timera = x"FFFF" and reg_timera_has_ticked='1' then
-          report "CIA timera underflow";
           -- underflow
-          underflow_count_internal <= underflow_count_internal + 1;
           reg_isr(0) <= '1';
           reg_timera_underflow <= '1';
           if reg_timera_oneshot='0' then
@@ -326,7 +286,6 @@ begin  -- behavioural
           when '0' =>
             -- phi2 pulses
             if phi0='0' and prev_phi0='1' then
-              report "CIA timera ticked down from $" & to_hstring(reg_timera);
               reg_timera <= reg_timera - 1;
               reg_timera_has_ticked <= '1';
             end if;
@@ -386,6 +345,28 @@ begin  -- behavioural
       if strobe_pc='1' then
         pcout<='0';
         strobe_pc<='0';
+      end if;
+
+      -- Check for register read side effects
+      if fastio_write='0' and cs='1' then
+        --report "Performing side-effects of reading from CIA register $" & to_hstring(register_number) severity note;
+
+        case register_number is
+          when x"1" =>
+            -- Reading or writing port B strobes PC high for 1 cycle
+            pcout <= '1';
+            strobe_pc <= '1';
+          when x"8" => read_tod_latched <='0';
+          when x"b" =>
+            read_tod_latched <='1';
+            read_tod_mins <= reg_tod_mins;
+            read_tod_secs <= reg_tod_secs;
+            read_tod_dsecs <= reg_tod_dsecs;
+          when x"d" =>
+            -- Reading ICR/ISR clears all interrupts
+            clear_isr <= '1';
+          when others => null;
+        end case;
       end if;
       
       -- Check for register writing
