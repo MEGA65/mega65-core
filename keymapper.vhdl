@@ -71,6 +71,7 @@ architecture behavioural of keymapper is
   signal fiftyhz_counter : unsigned(7 downto 0) := (others => '0');
 
   signal process_scan_code : std_logic := '0';
+  signal processed_scan_code : std_logic := '0';
   signal process_full_scan_code : std_logic := '0';
   signal full_scan_code : unsigned(11 downto 0);
 
@@ -132,8 +133,8 @@ begin  -- behavioural
         ps2data_debounced <= '0';
       end if;
 
-      if process_scan_code='1' then
-        process_scan_code <= '0';
+      if process_scan_code='1' and processed_scan_code='0' then
+        processed_scan_code <= '1';
 
         -- XXX Make a little FSM to set bit 8 on E0 xx sequences
         -- so that we can have a 9-bit number to look up.
@@ -309,6 +310,8 @@ begin  -- behavioural
                        parity <= parity xor ps2data_debounced;
           when Bit6 => ps2state <= Bit7; scan_code(7) <= ps2data_debounced;
                        parity <= parity xor ps2data_debounced;
+                       processed_scan_code <= '0';
+                       process_scan_code <= '0';
           when Bit7 => ps2state <= parityBit;
                        -- if parity = ps2data then 
                        -- Valid PS2 symbol
