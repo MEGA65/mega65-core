@@ -1597,7 +1597,11 @@ begin
       irq_drive <= not ((irq_raster and mask_raster)
                         or (irq_colissionspritebitmap and mask_colissionspritebitmap)
                         or (irq_colissionspritesprite and mask_colissionspritesprite));
-      irq <= irq_drive;
+      if irq_drive = '0' then
+        irq <= '0';
+      else
+        irq <= 'Z';
+      end if;
       
       -- Hsync has trouble meeting timing, so I have spread out the control
       -- over 3 cycles, including one pure drive cycle, which should hopefully
