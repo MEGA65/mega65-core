@@ -239,23 +239,22 @@ architecture behavioral of iomapper is
       countin : in std_logic);
   end component;
   component keymapper is    
-    port (
-      ioclk : in std_logic;
+  port (
+    pixelclk : in std_logic;
 
-      nmi : out std_logic;
-      reset : out std_logic;
-      
-      last_scan_code : out std_logic_vector(12 downto 0);
-      key_status : out unsigned(1 downto 0);
+    last_scan_code : out std_logic_vector(12 downto 0);
 
-      -- PS2 keyboard interface
-      ps2clock  : in  std_logic;
-      ps2data   : in  std_logic;
-      -- CIA ports
-      porta_in  : in  std_logic_vector(7 downto 0);
-      porta_out : out std_logic_vector(7 downto 0);
-      portb_out : out std_logic_vector(7 downto 0)
-      );
+    nmi : out std_logic := 'Z';
+    reset : out std_logic := 'Z';
+    
+    -- PS2 keyboard interface
+    ps2clock  : in  std_logic;
+    ps2data   : in  std_logic;
+    -- CIA ports
+    porta_in  : in  std_logic_vector(7 downto 0);
+    porta_out : out std_logic_vector(7 downto 0);
+    portb_out : out std_logic_vector(7 downto 0)
+    );
   end component;
 
 
@@ -341,7 +340,7 @@ begin
     );
 
   keymapper0 : keymapper port map (
-    ioclk       => clk,
+    pixelclk       => clk,
     nmi => restore_nmi,
     reset => reset_out,
     ps2clock       => ps2clock,
