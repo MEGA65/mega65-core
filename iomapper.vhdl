@@ -340,7 +340,7 @@ begin
     ps2clock       => ps2clock,
     ps2data        => ps2data,
     last_scan_code => last_scan_code,
-    key_status     => seg_led(1 downto 0),
+--    key_status     => seg_led(1 downto 0),
     porta_in       => cia1porta_out,
     porta_out      => cia1porta_in,
     portb_out      => cia1portb_in
@@ -454,6 +454,9 @@ begin
         clock50hz <= not clock50hz;
         counter50hz <= 0;
       end if;
+
+      seg_led(11 downto 0) <= last_scan_code;
+      
     end if;
   end process;
   
