@@ -53,7 +53,7 @@ begin  -- behavioural
   begin
 
     if fastio_read='1' then
-      if (fastio_addr(19 downto 8)&'0' = x"DE0") then
+      if (fastio_addr(19 downto 8) = x"DE0") then
         case fastio_addr(7 downto 0) is
           when x"00" =>
             -- First IO register
@@ -69,6 +69,9 @@ begin  -- behavioural
         -- Otherwise tristate output
         fastio_rdata <= (others => 'Z');
       end if;
+    else
+      -- Otherwise tristate output
+      fastio_rdata <= (others => 'Z');
     end if;
 
     
