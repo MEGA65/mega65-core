@@ -261,7 +261,6 @@ begin  -- behavioural
         -- lie any say serial port done to placate C65 ROM for now
         reg_isr <= x"08";
         clear_isr <= '0';
-        clear_isr_count <= clear_isr_count + 1;
         -- report "clearing ISR" severity note;
       end if;
       
@@ -380,6 +379,7 @@ begin  -- behavioural
           when x"d" =>
             -- Reading ICR/ISR clears all interrupts
             clear_isr <= '1';
+            clear_isr_count <= clear_isr_count + 1;
           when others => null;
         end case;
       end if;
