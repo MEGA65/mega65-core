@@ -179,7 +179,6 @@ begin  -- behavioural
           end if;
         when ReceivedPacket =>
           -- write low byte of packet length
-          rxbuffer_write <= '0';
           if eth_rx_buffer_last_used_50mhz='0' then
             rxbuffer_writeaddress <= 2046;
           else
@@ -200,6 +199,7 @@ begin  -- behavioural
           eth_rx_buffer_last_used_50mhz <= not eth_rx_buffer_last_used_50mhz;
           -- ready to receive another packet
           eth_state <= Idle;
+          rxbuffer_write <= '1';
         when others =>
           null;
       end case;
