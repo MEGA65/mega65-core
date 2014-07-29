@@ -54,6 +54,7 @@ use Std.TextIO.all;
 entity machine is
   Port ( pixelclock : STD_LOGIC;
          cpuclock : std_logic;
+         clock50mhz : in std_logic;
          ioclock : std_logic;
          uartclock : std_logic;
          btnCpuReset : in  STD_LOGIC;
@@ -350,6 +351,7 @@ architecture Behavioral of machine is
   component iomapper is
     port (Clk : in std_logic;
           pixelclk : in std_logic;
+          clock50mhz : in std_logic;
           uartclock : in std_logic;
           phi0 : in std_logic;
           reset : in std_logic;
@@ -764,6 +766,7 @@ begin
   iomapper0: iomapper port map (
     clk => ioclock,
     pixelclk => pixelclock,
+    clock50mhz => clock50mhz,
     uartclock => uartclock,
     phi0 => phi0,
     reset => reset_combined,

@@ -9,6 +9,7 @@ entity iomapper is
   port (Clk : in std_logic;
         pixelclk : in std_logic;
         uartclock : in std_logic;
+        clock50mhz : in std_logic;
         phi0 : in std_logic;
         reset : in std_logic;
         reset_out : out std_logic;
@@ -107,7 +108,7 @@ architecture behavioral of iomapper is
   component ethernet is
   port (
     clock : in std_logic;
-    pixelclk : in std_logic;
+    clock50mhz : in std_logic;
     reset : in std_logic;
 
     fastio_addr : in unsigned(19 downto 0);
@@ -368,7 +369,7 @@ begin
     audio_data => rightsid_audio);
 
   ethernet0 : ethernet port map (
-    pixelclk => pixelclk,
+    clock50mhz => clock50mhz,
     clock => clk,
     reset => reset,
     fastio_addr => unsigned(address),

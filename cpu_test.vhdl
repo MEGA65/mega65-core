@@ -13,6 +13,7 @@ architecture behavior of cpu_test is
   signal pixelclock : std_logic := '0';
   signal cpuclock : std_logic := '0';
   signal ioclock : std_logic := '0';
+  signal clock50mhz : std_logic := '0';
   signal reset : std_logic := '0';
   signal irq : std_logic := '1';
   signal nmi : std_logic := '1';
@@ -41,6 +42,7 @@ architecture behavior of cpu_test is
   component machine is
     Port ( pixelclock : STD_LOGIC;
            cpuclock : STD_LOGIC;
+           clock50mhz : in STD_LOGIC;
            ioclock : STD_LOGIC;
            uartclock : STD_LOGIC;
            btnCpuReset : in  STD_LOGIC;
@@ -123,6 +125,7 @@ begin
     port map (
       pixelclock      => pixelclock,
       cpuclock      => cpuclock,
+      clock50mhz   => clock50mhz,
       ioclock      => cpuclock,
       uartclock    => ioclock,
       btnCpuReset      => reset,
@@ -188,5 +191,16 @@ begin
     end loop;  -- i
     assert false report "End of simulation" severity failure;
   end process;
+
+  process
+  begin
+    for i in 1 to 20000000 loop
+      clock50mhz <= '0';
+      wait for 10 ns;
+      clock50mhz <= '1';
+      wait for 10 ns;
+    end loop;
+  end process;
+  
 end behavior;
 

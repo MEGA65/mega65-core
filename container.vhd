@@ -142,6 +142,7 @@ architecture Behavioral of container is
   component machine is
   Port ( pixelclock : STD_LOGIC;
          cpuclock : std_logic;
+         clock50mhz : std_logic;
          ioclock : std_logic;
          uartclock : std_logic;
          btnCpuReset : in  STD_LOGIC;
@@ -242,10 +243,14 @@ architecture Behavioral of container is
   
   signal segled_counter : unsigned(31 downto 0) := (others => '0');
 
+  signal clock100mhz : std_logic := '0';
+  signal clock50mhz : std_logic := '0';
+  
 begin
   
   dotclock1: component dotclock
     port map ( clk_in1 => CLK_IN,
+               clk_out1 => clock100mhz,
                -- CLK_OUT2 is good for 1920x1200@60Hz, CLK_OUT3___160
                -- for 1600x1200@60Hz
                -- 60Hz works fine, but 50Hz is not well supported by monitors. 
@@ -261,6 +266,7 @@ begin
     port map (
       pixelclock      => pixelclock,
       cpuclock        => cpuclock,
+      clock50mhz      => clock50mhz,
 --      ioclock         => ioclock, -- 32MHz
 --      uartclock         => ioclock, -- must be 32MHz
       uartclock         => cpuclock, -- Match CPU clock (48MHz)
@@ -342,6 +348,15 @@ begin
   RamCLK <= '0';                        -- keep clock low for async access
   RamADVn <= '0';                       -- async burst mode address advance
   RamCRE <= '0';                        -- access memory or config registers
+
+  -- Generate 50MHz clock for ethernet
+  process (clock100mhz) is
+  begin
+    if rising_edge(clock100mhz) then
+      report "50MHz tick";
+      clock50mhz <= not clock50mhz;
+    end if;
+  end process;
   
 end Behavioral;
 

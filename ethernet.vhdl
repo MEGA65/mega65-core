@@ -28,7 +28,7 @@ use work.debugtools.all;
 entity ethernet is
   port (
     clock : in std_logic;
-    pixelclk : in std_logic;
+    clock50mhz : in std_logic;
     reset : in std_logic;
 
     ---------------------------------------------------------------------------

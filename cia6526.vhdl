@@ -60,7 +60,7 @@ architecture behavioural of cia6526 is
   signal reg_timera_oneshot : std_logic := '0';
   signal reg_timera_toggle_or_pulse : std_logic := '0';
   signal reg_timera_pb6_out : std_logic := '0';
-  signal reg_timera_start : std_logic := '0';
+  signal reg_timera_start : std_logic := '1';
   signal reg_timera_has_ticked : std_logic := '0';
   signal reg_timera_underflow : std_logic := '0';
 
@@ -110,7 +110,7 @@ architecture behavioural of cia6526 is
   signal imask_serialport : std_logic := '0';
   signal imask_alarm : std_logic := '0';
   signal imask_tb : std_logic := '0';
-  signal imask_ta : std_logic := '0';
+  signal imask_ta : std_logic := '1';
 
   signal reg_serialport_direction : std_logic := '0';
   signal reg_sdr : std_logic_vector(7 downto 0);
