@@ -32,6 +32,18 @@ entity iomapper is
 
         ps2data : in std_logic;
         ps2clock : in std_logic;
+        
+    ---------------------------------------------------------------------------
+    -- IO lines to the ethernet controller
+    ---------------------------------------------------------------------------
+    eth_mdio : inout std_logic;
+    eth_mdc : out std_logic;
+    eth_reset : out std_logic;
+    eth_rxd : in unsigned(1 downto 0);
+    eth_txd : out unsigned(1 downto 0);
+    eth_txen : out std_logic;
+    eth_rxdv : in std_logic;
+    eth_interrupt : in std_logic;
 
         ----------------------------------------------------------------------
         -- Flash RAM for holding config
@@ -113,6 +125,18 @@ architecture behavioral of iomapper is
     clock : in std_logic;
     clock50mhz : in std_logic;
     reset : in std_logic;
+
+    ---------------------------------------------------------------------------
+    -- IO lines to the ethernet controller
+    ---------------------------------------------------------------------------
+    eth_mdio : inout std_logic;
+    eth_mdc : out std_logic;
+    eth_reset : out std_logic;
+    eth_rxd : in unsigned(1 downto 0);
+    eth_txd : out unsigned(1 downto 0);
+    eth_txen : out std_logic;
+    eth_rxdv : in std_logic;
+    eth_interrupt : in std_logic;
 
     fastio_addr : in unsigned(19 downto 0);
     fastio_write : in std_logic;
@@ -380,6 +404,19 @@ begin
     clock50mhz => clock50mhz,
     clock => clk,
     reset => reset,
+
+    ---------------------------------------------------------------------------
+    -- IO lines to the ethernet controller
+    ---------------------------------------------------------------------------
+    eth_mdio => eth_mdio,
+    eth_mdc => eth_mdc,
+    eth_reset => eth_reset,
+    eth_rxd => eth_rxd,
+    eth_txd => eth_txd,
+    eth_txen => eth_txen,
+    eth_rxdv => eth_rxdv,
+    eth_interrupt => eth_interrupt,
+    
     fastio_addr => unsigned(address),
     fastio_write => w,
     fastio_read => r,

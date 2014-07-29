@@ -58,6 +58,18 @@ architecture behavior of cpu_test is
            vgagreen : out  UNSIGNED (3 downto 0);
            vgablue : out  UNSIGNED (3 downto 0);
 
+           ---------------------------------------------------------------------------
+           -- IO lines to the ethernet controller
+           ---------------------------------------------------------------------------
+           eth_mdio : inout std_logic;
+           eth_mdc : out std_logic;
+           eth_reset : out std_logic;
+           eth_rxd : in unsigned(1 downto 0);
+           eth_txd : out unsigned(1 downto 0);
+           eth_txen : out std_logic;
+           eth_rxdv : in std_logic;
+           eth_interrupt : in std_logic;         
+           
            -------------------------------------------------------------------------
            -- Lines for the SDcard interface itself
            -------------------------------------------------------------------------
@@ -143,6 +155,10 @@ begin
       micData => '0',
       tmpInt => '0',
       tmpCT => '0',      
+
+      eth_rxd => "00",
+      eth_rxdv => '0',
+      eth_interrupt => '0',
       
       slowram_data => slowram_data,
       

@@ -32,6 +32,19 @@ entity ethernet is
     reset : in std_logic;
 
     ---------------------------------------------------------------------------
+    -- IO lines to the ethernet controller
+    ---------------------------------------------------------------------------
+    eth_mdio : inout std_logic;
+    eth_mdc : out std_logic;
+    eth_reset : out std_logic;
+    eth_rxd : in unsigned(1 downto 0);
+    eth_txd : out unsigned(1 downto 0);
+    eth_txen : out std_logic;
+    eth_rxdv : in std_logic;
+    eth_interrupt : in std_logic;
+    eth_clock : out std_logic;
+    
+    ---------------------------------------------------------------------------
     -- fast IO port (clocked at core clock). 1MB address space
     ---------------------------------------------------------------------------
     fastio_addr : in unsigned(19 downto 0);
@@ -45,6 +58,21 @@ end ethernet;
 architecture behavioural of ethernet is
 
 begin  -- behavioural
+
+  -- Ethernet RMII side clocked at 50MHz
+  
+  -- See http://ww1.microchip.com/downloads/en/DeviceDoc/8720a.pdf
+  
+  -- We begin receiving a packet when RX_DV goes high.  Data arrives 2 bits at
+  -- a time.  We will manually form this into bytes, and then stuff into RX buffer.
+  -- Frame is completely received when RX_DV goes low, or RXER is asserted, in
+  -- which case any partially received packet should be discarded.
+  -- We will use a 4KB RX buffer split into two 2KB halves, so that the most
+  -- recent packet can be read out by the CPU while another packet is being received.
+  
+  process(clock50mhz) is
+  begin
+  end process;
   
   process (clock,fastio_addr,fastio_wdata,fastio_read,fastio_write
            ) is

@@ -173,3 +173,17 @@ NET "micLRSel"			LOC = "F5"	| IOSTANDARD = "LVCMOS33";		#Bank = 35, Pin name = I
 ## PWM Audio Amplifier
 NET "ampPWM"			LOC = "A11"	| IOSTANDARD = "LVCMOS33";		#Bank = 15, Pin name = IO_L4N_T0_15,						Sch name = AUD_PWM
 NET "ampSD"			LOC = "D12"	| IOSTANDARD = "LVCMOS33";		#Bank = 15, Pin name = IO_L6P_T0_15,						Sch name = AUD_SD
+
+## SMSC Ethernet PHY
+NET "eth_mdc"			LOC = "C9"	| IOSTANDARD = "LVCMOS33";		#Bank = 16, Pin name = IO_L11P_T1_SRCC_16,					Sch name = ETH_MDC
+NET "eth_mdio"			LOC = "A9"	| IOSTANDARD = "LVCMOS33";		#Bank = 16, Pin name = IO_L14N_T2_SRCC_16,					Sch name = ETH_MDIO
+NET "eth_reset"			LOC = "B3"	| IOSTANDARD = "LVCMOS33";		#Bank = 35, Pin name = IO_L10P_T1_AD15P_35,					Sch name = ETH_RSTN
+NET "eth_rxdv"			LOC = "D9"	| IOSTANDARD = "LVCMOS33";		#Bank = 16, Pin name = IO_L6N_T0_VREF_16,					Sch name = ETH_CRSDV
+NET "eth_rxer"			LOC = "C10"	| IOSTANDARD = "LVCMOS33";		#Bank = 16, Pin name = IO_L13N_T2_MRCC_16,					Sch name = ETH_RXERR
+NET "eth_rx<0>"		LOC = "D10"	| IOSTANDARD = "LVCMOS33";		#Bank = 16, Pin name = IO_L19N_T3_VREF_16,					Sch name = ETH_RXD0
+NET "eth_rx<1>"		LOC = "C11"	| IOSTANDARD = "LVCMOS33";		#Bank = 16, Pin name = IO_L13P_T2_MRCC_16,					Sch name = ETH_RXD1
+NET "eth_txen"			LOC = "B9"	| IOSTANDARD = "LVCMOS33";		#Bank = 16, Pin name = IO_L11N_T1_SRCC_16,					Sch name = ETH_TXEN
+NET "eth_tx<0>"		LOC = "A10"	| IOSTANDARD = "LVCMOS33";		#Bank = 16, Pin name = IO_L14P_T2_SRCC_16,					Sch name = ETH_TXD0
+NET "eth_tx<1>"		LOC = "A8"	| IOSTANDARD = "LVCMOS33";		#Bank = 16, Pin name = IO_L12N_T1_MRCC_16,					Sch name = ETH_TXD1
+NET "eth_clock"		LOC = "D5"	| IOSTANDARD = "LVCMOS33";		#Bank = 35, Pin name = IO_L11P_T1_SRCC_35,					Sch name = ETH_REFCLK
+NET "eth_interrupt"			LOC = "B8"	| IOSTANDARD = "LVCMOS33";		#Bank = 16, Pin name = IO_L12P_T1_MRCC_16,					Sch name = ETH_INTN

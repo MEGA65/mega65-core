@@ -158,6 +158,18 @@ architecture Behavioral of container is
          vgagreen : out  UNSIGNED (3 downto 0);
          vgablue : out  UNSIGNED (3 downto 0);
 
+         ---------------------------------------------------------------------------
+         -- IO lines to the ethernet controller
+         ---------------------------------------------------------------------------
+         eth_mdio : inout std_logic;
+         eth_mdc : out std_logic;
+         eth_reset : out std_logic;
+         eth_rxd : in unsigned(1 downto 0);
+         eth_txd : out unsigned(1 downto 0);
+         eth_txen : out std_logic;
+         eth_rxdv : in std_logic;
+         eth_interrupt : in std_logic;
+         
          -------------------------------------------------------------------------
          -- Lines for the SDcard interface itself
          -------------------------------------------------------------------------
@@ -281,6 +293,19 @@ begin
       vgagreen        => vgagreen,
       vgablue         => vgablue,
 
+      ---------------------------------------------------------------------------
+      -- IO lines to the ethernet controller
+      ---------------------------------------------------------------------------
+      eth_mdio => eth_mdio,
+      eth_mdc => eth_mdc,
+      eth_reset => eth_reset,
+      eth_rxd => eth_rxd,
+      eth_txd => eth_txd,
+      eth_txen => eth_txen,
+      eth_rxdv => eth_rxdv,
+      eth_interrupt => eth_interrupt,
+      eth_clock => clock50mhz,
+      
       -------------------------------------------------------------------------
       -- Lines for the SDcard interface itself
       -------------------------------------------------------------------------
