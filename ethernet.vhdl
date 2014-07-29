@@ -46,7 +46,6 @@ architecture behavioural of ethernet is
 
 begin  -- behavioural
   
-  -- XXX also implement F1011 floppy controller emulation.
   process (clock,fastio_addr,fastio_wdata,fastio_read,fastio_write
            ) is
     variable temp_cmd : unsigned(7 downto 0);
