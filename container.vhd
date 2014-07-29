@@ -317,7 +317,6 @@ begin
       eth_txen => eth_txen,
       eth_rxdv => eth_rxdv,
       eth_interrupt => eth_interrupt,
-      eth_clock => clock50mhz,
       
       -------------------------------------------------------------------------
       -- Lines for the SDcard interface itself
@@ -393,6 +392,7 @@ begin
     if rising_edge(clock100mhz) then
       report "50MHz tick";
       clock50mhz <= not clock50mhz;
+      eth_clock <= not clock50mhz;
     end if;
   end process;
   
