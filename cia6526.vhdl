@@ -220,7 +220,7 @@ begin  -- behavioural
 --    end if;
   end process;
 
-  process(cpuclock,fastio_addr) is
+  process(cpuclock) is
     -- purpose: use DDR to show either input or output bits
     function ddr_pick (
       ddr                            : in std_logic_vector(7 downto 0);
@@ -244,8 +244,8 @@ begin  -- behavioural
 
   variable register_number : unsigned(3 downto 0);
   begin
-    register_number := fastio_addr(3 downto 0);
     if rising_edge(cpuclock) then
+      register_number := fastio_addr(3 downto 0);
 
       reg_isr_out(7) <= reg_isr(7);
       reg_isr_out(0) <= reg_isr(0);
