@@ -216,7 +216,9 @@ begin  -- behavioural
 
           -- $DE040 - controls reset pin of ethernet controller
           when x"40" =>
-            fastio_rdata(7 downto 1) <= (others => 'Z');
+            fastio_rdata(7 downto 4) <= (others => 'Z');
+            fastio_rdata(3) <= eth_rxdv;
+            fastio_rdata(2 downto 1) <= eth_rxd;
             fastio_rdata(0) <= eth_reset_int;
           -- $DE041 - control which half of RX buffer is visible
           -- (unused bits = 0 to allow expansion of number of RX buffer slots
