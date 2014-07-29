@@ -166,6 +166,7 @@ begin  -- behavioural
                 null;
               else
                 eth_packet_len <= eth_packet_len + 1;
+                rxbuffer_write <= '1';
                 rxbuffer_wdata <= eth_rxbits & eth_rxd;
                 rxbuffer_writeaddress <= eth_packet_len;
               end if;
@@ -178,6 +179,7 @@ begin  -- behavioural
           end if;
         when ReceivedPacket =>
           -- write low byte of packet length
+          rxbuffer_write <= '0';
           if eth_rx_buffer_last_used_50mhz='0' then
             rxbuffer_writeaddress <= 2046;
           else
