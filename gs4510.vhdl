@@ -935,6 +935,11 @@ begin
       accessing_cpuport <= '0'; accessing_colour_ram_fastio <= '0';
       accessing_slowram <= '0';
       wait_states <= io_read_wait_states;
+
+      -- Clear fastio access so that we don't keep reading/writing last IO address
+      -- (this is bad when it is $DC0D for example, as it will stop IRQs from
+      -- the CIA).
+      fastio_addr <= x"FFFFF"; fastio_write <= '0'; fastio_read <= '0';
       
       the_read_address <= long_address;
 
