@@ -125,6 +125,7 @@ architecture behavioural of cia6526 is
   signal prev_countin : std_logic;
 
   signal clear_isr : std_logic := '0';  -- flag to clear ISR after reading
+  signal clear_isr_count : unsigned(4 downto 0) := "00000";
 
 begin  -- behavioural
   
@@ -246,7 +247,11 @@ begin  -- behavioural
     register_number := fastio_addr(3 downto 0);
     if rising_edge(cpuclock) then
 
-      reg_isr_out <= reg_isr;
+      reg_isr_out(7) <= reg_isr(7);
+      reg_isr_out(0) <= reg_isr(0);
+      reg_isr_out(1) <= clear_isr;
+      reg_isr_out(6 downto 2) <= clear_isr_count;
+      
       imask_ta_out <= imask_ta;
       
       -- XXX We clear ISR one cycle after the register is read so that
@@ -256,6 +261,7 @@ begin  -- behavioural
         -- lie any say serial port done to placate C65 ROM for now
         reg_isr <= x"08";
         clear_isr <= '0';
+        clear_isr_count <= clear_isr_count + 1;
         -- report "clearing ISR" severity note;
       end if;
       
