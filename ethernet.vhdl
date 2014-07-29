@@ -73,7 +73,12 @@ architecture behavioural of ethernet is
   signal eth_reset_int : std_logic := '1';
   -- which half of packet RX buffer is visible
   signal eth_rx_buffer_moby : std_logic := '0';
-
+  -- which half of packet buffer had the most recent packet delivery
+  signal eth_rx_buffer_last_used : std_logic := '1';
+  signal eth_rx_buffer_last_used_int2 : std_logic := '1';
+  signal eth_rx_buffer_last_used_int1 : std_logic := '1';
+  signal eth_rx_buffer_last_used_50mhz : std_logic := '1';
+  
   signal rxbuffer_cs : std_logic;
   signal rxbuffer_write : std_logic;
   signal rxbuffer_writeaddress : integer range 0 to 4095;
@@ -155,6 +160,12 @@ begin  -- behavioural
     
     if rising_edge(clock) then
 
+      -- Bring signals accross from 50MHz side as required
+      -- (pass through some flip-flops to manage meta-stability)
+      eth_rx_buffer_last_used <= eth_rx_buffer_last_used_int2;
+      eth_rx_buffer_last_used_int2 <= eth_rx_buffer_last_used_int1;
+      eth_rx_buffer_last_used_int1 <= eth_rx_buffer_last_used_50mhz;      
+      
       -- Update module status based on register reads
       if fastio_read='1' then
         if fastio_addr(19 downto 0) = x"DE000" then
