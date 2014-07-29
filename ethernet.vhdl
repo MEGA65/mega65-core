@@ -34,15 +34,14 @@ entity ethernet is
     ---------------------------------------------------------------------------
     -- IO lines to the ethernet controller
     ---------------------------------------------------------------------------
-    eth_mdio : inout std_logic;
-    eth_mdc : out std_logic;
-    eth_reset : out std_logic;
+    eth_mdio : inout std_logic := '1';
+    eth_mdc : out std_logic := '1';
+    eth_reset : out std_logic := '1';
     eth_rxd : in unsigned(1 downto 0);
-    eth_txd : out unsigned(1 downto 0);
-    eth_txen : out std_logic;
+    eth_txd : out unsigned(1 downto 0) := "11";
+    eth_txen : out std_logic := '0';
     eth_rxdv : in std_logic;
     eth_interrupt : in std_logic;
-    eth_clock : out std_logic;
     
     ---------------------------------------------------------------------------
     -- fast IO port (clocked at core clock). 1MB address space
@@ -56,6 +55,10 @@ entity ethernet is
 end ethernet;
 
 architecture behavioural of ethernet is
+  -- control reset line on ethernet controller
+  signal eth_reset_int : std_logic := '1';
+  -- which half of packet RX buffer is visible
+  signal eth_rx_buffer_moby : std_logic := '0';
 
 begin  -- behavioural
 
@@ -72,6 +75,9 @@ begin  -- behavioural
   
   process(clock50mhz) is
   begin
+    if rising_edge(clock50mhz) then
+      
+    end if;
   end process;
   
   process (clock,fastio_addr,fastio_wdata,fastio_read,fastio_write
@@ -82,12 +88,24 @@ begin  -- behavioural
     if fastio_read='1' then
       if (fastio_addr(19 downto 8) = x"DE0") then
         case fastio_addr(7 downto 0) is
-          when x"00" =>
-            -- First IO register
-            fastio_rdata <= x"23";
-          when x"01" =>
-            -- Second IO register
-            fastio_rdata <= x"99";
+          -- Registers $00 - $3F map to ethernet MDIO registers
+
+          -- $DE040 - controls reset pin of ethernet controller
+          when x"40" =>
+            fastio_rdata(7 downto 1) <= (others => 'Z');
+            fastio_rdata(0) <= eth_reset_int;
+          -- $DE041 - control which half of RX buffer is visible
+          -- (unused bits = 0 to allow expansion of number of RX buffer slots
+          -- from 2 to something bigger)
+          when x"41" =>
+            fastio_rdata(7 downto 1) <= (others => '0');
+            fastio_rdata(0) <= eth_rx_buffer_moby;
+          -- $DE042 - indicate which half of RX buffer most recently
+          -- received a packet.  Value is provided by 50MHz side, so has a few
+          -- cycles delay.
+          when x"42" =>
+          
+          -- $DE800 - $DEFFF - Read 2KB half of RX buffer
           when others =>
             -- Otherwise tristate output
             fastio_rdata <= (others => 'Z');
@@ -117,14 +135,24 @@ begin  -- behavioural
       -- Write to registers
       if fastio_write='1' then
         if fastio_addr(19 downto 8) = x"DE0" then
-          case fastio_addr(7 downto 0) is
-            when x"00" =>
-              -- wrote to register $DE000
-              null;
-            when others =>
-              -- Other registers do nothing
-              null;
-          end case;
+          if fastio_addr(7 downto 6) = "00" then
+            -- Writing to ethernet controller MD registers
+          else
+            -- Other registers
+            case fastio_addr(7 downto 0) is
+              when x"40" => -- reset pin on ethernet controller
+                eth_reset <= fastio_wdata(0);
+                eth_reset_int <= fastio_wdata(0);
+              when x"41" => -- which half of RX buffer is visible
+                eth_reset <= fastio_wdata(0);
+                eth_reset_int <= fastio_wdata(0);
+              when x"42" => -- which half of RX buffer has most recent packet
+                null;
+              when others =>
+                -- Other registers do nothing
+                null;
+            end case;
+          end if;
         end if;
       end if;
 
