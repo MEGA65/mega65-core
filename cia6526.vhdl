@@ -359,7 +359,7 @@ begin  -- behavioural
       -- Check for register read side effects
       if fastio_write='0' and cs='1' then
         --report "Performing side-effects of reading from CIA register $" & to_hstring(register_number) severity note;
-
+        register_number := fastio_addr(3 downto 0);
         case register_number is
           when x"1" =>
             -- Reading or writing port B strobes PC high for 1 cycle
@@ -382,7 +382,7 @@ begin  -- behavioural
       if fastio_write='1' and cs='1' then
         --report "writing $" & to_hstring(fastio_wdata)
         --  & " to CIA register $" & to_hstring(register_number) severity note;
-
+        register_number := fastio_addr(3 downto 0);
         case register_number is
           when x"0" => portaout<=std_logic_vector(fastio_wdata);
                        reg_porta_out<=std_logic_vector(fastio_wdata);
