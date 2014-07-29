@@ -77,8 +77,9 @@ architecture behavioural of ethernet is
   signal rxbuffer_cs : std_logic;
   signal rxbuffer_write : std_logic;
   signal rxbuffer_writeaddress : integer range 0 to 4095;
+  signal rxbuffer_readaddress : integer range 0 to 4095;
   signal rxbuffer_wdata : unsigned(7 downto 0);
-  
+
 begin  -- behavioural
 
   -- Ethernet RMII side clocked at 50MHz
@@ -94,7 +95,27 @@ begin  -- behavioural
   -- RX buffer is written from ethernet side, so use 50MHz clock.
   -- reads are fully asynchronous, so no need for a read-side clock for the CPU
   -- side.
+  rxbuffer0: ram8x4096 port map (
+    clk => clock50mhz,
+    cs => rxbuffer_cs,
+    w => rxbuffer_write,
+    write_address => rxbuffer_writeaddress,
+    wdata => rxbuffer_wdata,
+    address => rxbuffer_readaddress,
+    rdata => fastio_rdata);  
 
+  -- Look after CPU side of mapping of RX buffer
+  process(eth_rx_buffer_moby,fastio_addr,fastio_read) is
+  begin
+    rxbuffer_readaddress <= to_integer(eth_rx_buffer_moby&fastio_addr(10 downto 0));
+    if fastio_read='1' and fastio_addr(19 downto 12) = x"DE0"
+      and fastio_addr(11)='1' then
+      rxbuffer_cs <= '1';
+    else
+      rxbuffer_cs <= '0';
+    end if;
+  end process;
+  
   process(clock50mhz) is
   begin
     if rising_edge(clock50mhz) then
