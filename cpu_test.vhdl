@@ -68,6 +68,7 @@ architecture behavior of cpu_test is
            eth_txd : out unsigned(1 downto 0);
            eth_txen : out std_logic;
            eth_rxdv : in std_logic;
+           eth_rxer : in std_logic;
            eth_interrupt : in std_logic;         
            
            -------------------------------------------------------------------------
@@ -158,6 +159,7 @@ begin
 
       eth_rxd => "00",
       eth_rxdv => '0',
+      eth_rxer => '0',
       eth_interrupt => '0',
       
       slowram_data => slowram_data,

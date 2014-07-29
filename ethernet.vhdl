@@ -41,6 +41,7 @@ entity ethernet is
     eth_txd : out unsigned(1 downto 0) := "11";
     eth_txen : out std_logic := '0';
     eth_rxdv : in std_logic;
+    eth_rxer : in std_logic;
     eth_interrupt : in std_logic;
     
     ---------------------------------------------------------------------------
@@ -55,11 +56,29 @@ entity ethernet is
 end ethernet;
 
 architecture behavioural of ethernet is
+
+  component ram8x4096 IS
+    PORT (
+      clk : IN STD_LOGIC;
+      cs : IN STD_LOGIC;
+      w : IN std_logic;
+      write_address : IN integer range 0 to 4095;
+      wdata : IN unsigned(7 DOWNTO 0);
+      address : IN integer range 0 to 4095;
+      rdata : OUT unsigned(7 DOWNTO 0)
+      );
+  END component;
+  
   -- control reset line on ethernet controller
   signal eth_reset_int : std_logic := '1';
   -- which half of packet RX buffer is visible
   signal eth_rx_buffer_moby : std_logic := '0';
 
+  signal rxbuffer_cs : std_logic;
+  signal rxbuffer_write : std_logic;
+  signal rxbuffer_writeaddress : integer range 0 to 4095;
+  signal rxbuffer_wdata : unsigned(7 downto 0);
+  
 begin  -- behavioural
 
   -- Ethernet RMII side clocked at 50MHz
@@ -72,7 +91,10 @@ begin  -- behavioural
   -- which case any partially received packet should be discarded.
   -- We will use a 4KB RX buffer split into two 2KB halves, so that the most
   -- recent packet can be read out by the CPU while another packet is being received.
-  
+  -- RX buffer is written from ethernet side, so use 50MHz clock.
+  -- reads are fully asynchronous, so no need for a read-side clock for the CPU
+  -- side.
+
   process(clock50mhz) is
   begin
     if rising_edge(clock50mhz) then
@@ -105,19 +127,9 @@ begin  -- behavioural
           -- cycles delay.
           when x"42" =>
           
-          -- $DE800 - $DEFFF - Read 2KB half of RX buffer
-          when others =>
-            -- Otherwise tristate output
-            fastio_rdata <= (others => 'Z');
-        end case;
-      else
-        -- Otherwise tristate output
-        fastio_rdata <= (others => 'Z');
-      end if;
-    else
-      -- Otherwise tristate output
-      fastio_rdata <= (others => 'Z');
-    end if;
+          when others => fastio_rdata <= (others => 'Z'); end case; else
+          fastio_rdata <= (others => 'Z'); end if; else fastio_rdata <=
+          (others => 'Z'); end if;
 
     
     if rising_edge(clock) then

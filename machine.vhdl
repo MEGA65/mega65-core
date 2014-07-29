@@ -110,6 +110,7 @@ entity machine is
          eth_txd : out unsigned(1 downto 0);
          eth_txen : out std_logic;
          eth_rxdv : in std_logic;
+         eth_rxer : in std_logic;
          eth_interrupt : in std_logic;
          
          ----------------------------------------------------------------------
@@ -405,6 +406,7 @@ architecture Behavioral of machine is
           eth_txd : out unsigned(1 downto 0);
           eth_txen : out std_logic;
           eth_rxdv : in std_logic;
+          eth_rxer : in std_logic;
           eth_interrupt : in std_logic;
 
           ----------------------------------------------------------------------
@@ -865,6 +867,7 @@ begin
     eth_txd => eth_txd,
     eth_txen => eth_txen,
     eth_rxdv => eth_rxdv,
+    eth_rxer => eth_rxer,
     eth_interrupt => eth_interrupt,
     
     ps2data => ps2data,

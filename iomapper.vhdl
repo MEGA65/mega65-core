@@ -43,6 +43,7 @@ entity iomapper is
     eth_txd : out unsigned(1 downto 0);
     eth_txen : out std_logic;
     eth_rxdv : in std_logic;
+    eth_rxer : in std_logic;
     eth_interrupt : in std_logic;
 
         ----------------------------------------------------------------------
@@ -136,6 +137,7 @@ architecture behavioral of iomapper is
     eth_txd : out unsigned(1 downto 0);
     eth_txen : out std_logic;
     eth_rxdv : in std_logic;
+    eth_rxer : in std_logic;
     eth_interrupt : in std_logic;
 
     fastio_addr : in unsigned(19 downto 0);
@@ -415,6 +417,7 @@ begin
     eth_txd => eth_txd,
     eth_txen => eth_txen,
     eth_rxdv => eth_rxdv,
+    eth_rxer => eth_rxer,
     eth_interrupt => eth_interrupt,
     
     fastio_addr => unsigned(address),

@@ -55,6 +55,7 @@ entity container is
          eth_reset : out std_logic;
          eth_rxd : in unsigned(1 downto 0);
          eth_txd : out unsigned(1 downto 0);
+         eth_rxer : in std_logic;
          eth_txen : out std_logic;
          eth_rxdv : in std_logic;
          eth_interrupt : in std_logic;
@@ -180,6 +181,7 @@ architecture Behavioral of container is
          eth_rxd : in unsigned(1 downto 0);
          eth_txd : out unsigned(1 downto 0);
          eth_txen : out std_logic;
+         eth_rxer : in std_logic;
          eth_rxdv : in std_logic;
          eth_interrupt : in std_logic;
          
@@ -315,6 +317,7 @@ begin
       eth_rxd => eth_rxd,
       eth_txd => eth_txd,
       eth_txen => eth_txen,
+      eth_rxer => eth_rxer,
       eth_rxdv => eth_rxdv,
       eth_interrupt => eth_interrupt,
       
