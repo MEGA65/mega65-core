@@ -40,6 +40,9 @@ entity gs4510 is
     irq : in std_logic;
     nmi : in std_logic;
 
+    reg_isr_out : in unsigned(7 downto 0);
+    imask_ta_out : in std_logic;
+
       monitor_proceed : out std_logic;
       monitor_waitstates : out unsigned(7 downto 0);
       monitor_request_reflected : out std_logic;
@@ -289,7 +292,7 @@ end component;
 --  signal accessing_ram : std_logic;
   signal accessing_slowram : std_logic;
   signal accessing_cpuport : std_logic;
-  signal cpuport_num : std_logic;
+  signal cpuport_num : unsigned(3 downto 0);
   signal cpuport_ddr : unsigned(7 downto 0) := x"FF";
   signal cpuport_value : unsigned(7 downto 0) := x"3F";
   signal the_read_address : unsigned(27 downto 0);
@@ -945,7 +948,15 @@ begin
         accessing_cpuport <= '1';
         wait_states <= x"00";
         proceed <= '1';
-        cpuport_num <= real_long_address(0);
+        cpuport_num <= real_long_address(3 downto 0);
+      elsif long_address(27 downto 4) = x"400000" then
+        -- More CPU ports for debugging.
+        -- (this was added to debug CIA IRQ bugs where reading/writing from
+        -- fastio space would prevent the bug from manifesting)
+        accessing_cpuport <= '1';
+        wait_states <= x"00";
+        proceed <= '1';
+        cpuport_num <= real_long_address(3 downto 0);
       elsif long_address(27 downto 16)="0000"&shadow_bank then
         -- Reading from 256KB shadow ram (which includes 128KB fixed shadowing of
         -- chipram).  This is the only memory running at the CPU's native clock.
@@ -1043,13 +1054,22 @@ begin
     begin  -- read_data
       if accessing_cpuport='1' then
         report "reading from CPU port" severity note;
-        if cpuport_num='0' then
-          -- DDR
-          return cpuport_ddr;
-        else
-          -- CPU port
-          return cpuport_value;
-        end if;
+        case cpuport_num is
+          when x"0" =>
+            -- DDR $00
+            return cpuport_ddr;
+          when x"1" =>
+            -- CPU port $01
+            return cpuport_value;
+          when x"2" =>
+            -- CIA ISR IRQ debug
+            return reg_isr_out;
+          when x"3" =>
+            -- CIA timera IRQ mask debug
+            return "0000000"&imask_ta_out;
+          when others =>
+            return x"ff";
+        end case;
       elsif accessing_shadow='1' then
 --        report "reading from shadowram" severity note;
         return shadow_rdata;
@@ -1094,16 +1114,7 @@ begin
         return last_write_address(7 downto 0);
       end if;
 
-      if accessing_cpuport='1' then
-        report "reading from CPU port" severity note;
-        if cpuport_num='0' then
-          -- DDR
-          return cpuport_ddr;
-        else
-          -- CPU port
-          return cpuport_value;
-        end if;
-      elsif accessing_shadow='1' then
+      if accessing_shadow='1' then
         report "reading from shadow RAM" severity note;
         return shadow_rdata;
       elsif accessing_colour_ram_fastio='1' then 

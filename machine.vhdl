@@ -206,6 +206,9 @@ architecture Behavioral of machine is
       reset : in std_logic;
       irq : in std_logic;
       nmi : in std_logic;
+     
+      reg_isr_out : in unsigned(7 downto 0);
+      imask_ta_out : in std_logic;
 
       vicii_2mhz : in std_logic;
       viciii_fast : in std_logic;
@@ -352,6 +355,10 @@ architecture Behavioral of machine is
     port (Clk : in std_logic;
           pixelclk : in std_logic;
           clock50mhz : in std_logic;
+          
+          reg_isr_out : out unsigned(7 downto 0);
+          imask_ta_out : out std_logic;
+
           uartclock : in std_logic;
           phi0 : in std_logic;
           reset : in std_logic;
@@ -418,6 +425,9 @@ architecture Behavioral of machine is
           );
   end component;
 
+  signal reg_isr_out : unsigned(7 downto 0);
+  signal imask_ta_out : std_logic;
+  
   signal cpu_leds : std_logic_vector(3 downto 0);
   
   signal viciii_iomode : std_logic_vector(1 downto 0);
@@ -647,6 +657,9 @@ begin
     irq => combinedirq,
     nmi => combinednmi,
 
+    reg_isr_out => reg_isr_out,
+    imask_ta_out => imask_ta_out,
+    
     vicii_2mhz => vicii_2mhz,
     viciii_fast => viciii_fast,
     viciv_fast => viciv_fast,
@@ -767,6 +780,10 @@ begin
     clk => ioclock,
     pixelclk => pixelclock,
     clock50mhz => clock50mhz,
+
+    reg_isr_out => reg_isr_out,
+    imask_ta_out => imask_ta_out,    
+
     uartclock => uartclock,
     phi0 => phi0,
     reset => reset_combined,

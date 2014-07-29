@@ -24,6 +24,9 @@ entity iomapper is
         sd_data_o : out std_logic_vector(7 downto 0);
         sector_buffer_mapped : out std_logic;
 
+        reg_isr_out : out unsigned(7 downto 0);
+        imask_ta_out : out std_logic;
+        
         led : out std_logic := '0';
         motor : out std_logic := '0';
 
@@ -209,6 +212,9 @@ architecture behavioral of iomapper is
       reset : in std_logic;
       irq : out std_logic := '1';
 
+      reg_isr_out : out unsigned(7 downto 0);
+      imask_ta_out : out std_logic;
+
       ---------------------------------------------------------------------------
       -- fast IO port (clocked at core clock). 1MB address space
       ---------------------------------------------------------------------------
@@ -295,6 +301,8 @@ begin
     todclock => clock50hz,
     reset => reset,
     irq => irq,
+    reg_isr_out => reg_isr_out,
+    imask_ta_out => imask_ta_out,
     cs => cia1cs,
     fastio_addr => unsigned(address(7 downto 0)),
     fastio_write => w,

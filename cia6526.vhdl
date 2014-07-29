@@ -15,6 +15,9 @@ entity cia6526 is
     irq : out std_logic := 'Z';
 
     seg_led : out unsigned(31 downto 0);
+
+    reg_isr_out : out unsigned(7 downto 0);
+    imask_ta_out : out std_logic;
     
     ---------------------------------------------------------------------------
     -- fast IO port (clocked at core clock). 1MB address space
@@ -51,12 +54,12 @@ architecture behavioural of cia6526 is
   signal reg_porta_read : unsigned(7 downto 0) := (others => '0');
   signal reg_portb_read : unsigned(7 downto 0) := (others => '0');
 
-  signal reg_timera : unsigned(15 downto 0);
-  signal reg_timera_latch : unsigned(15 downto 0);
+  signal reg_timera : unsigned(15 downto 0) := x"0001";
+  signal reg_timera_latch : unsigned(15 downto 0) := x"0001";
   signal reg_timerb : unsigned(15 downto 0);
   signal reg_timerb_latch : unsigned(15 downto 0);
 
-  signal reg_timera_tick_source : std_logic;
+  signal reg_timera_tick_source : std_logic := '0'; 
   signal reg_timera_oneshot : std_logic := '0';
   signal reg_timera_toggle_or_pulse : std_logic := '0';
   signal reg_timera_pb6_out : std_logic := '0';
@@ -243,6 +246,9 @@ begin  -- behavioural
     register_number := fastio_addr(3 downto 0);
     if rising_edge(cpuclock) then
 
+      reg_isr_out <= reg_isr;
+      imask_ta_out <= imask_ta;
+      
       -- XXX We clear ISR one cycle after the register is read so that
       -- if fastio has a one cycle wait state, the isr can still be read on
       -- the second cycle.
@@ -270,9 +276,11 @@ begin  -- behavioural
       prev_phi0 <= phi0;
       prev_countin <= countin;
       reg_timera_underflow <= '0';
+--      report "CIA reg_timera_start=" & std_logic'image(reg_timera_start) & ", phi0=" & std_logic'image(phi0);
       if reg_timera_start='1' then
         if reg_timera = x"FFFF" and reg_timera_has_ticked='1' then
           -- underflow
+          report "CIA timera underflow";
           reg_isr(0) <= '1';
           reg_timera_underflow <= '1';
           if reg_timera_oneshot='0' then
@@ -286,6 +294,7 @@ begin  -- behavioural
           when '0' =>
             -- phi2 pulses
             if phi0='0' and prev_phi0='1' then
+              report "CIA timera ticked down to $" & to_hstring(reg_timera);
               reg_timera <= reg_timera - 1;
               reg_timera_has_ticked <= '1';
             end if;
