@@ -123,7 +123,7 @@ begin  -- behavioural
   process(eth_rx_buffer_moby,fastio_addr,fastio_read) is
   begin
     rxbuffer_readaddress <= to_integer(eth_rx_buffer_moby&fastio_addr(10 downto 0));
-    if fastio_read='1' and fastio_addr(19 downto 12) = x"DE0"
+    if fastio_read='1' and fastio_addr(19 downto 12) = x"DE"
       and fastio_addr(11)='1' then
       rxbuffer_cs <= '1';
     else
