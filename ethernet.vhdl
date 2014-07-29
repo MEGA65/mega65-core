@@ -68,6 +68,12 @@ architecture behavioural of ethernet is
       rdata : OUT unsigned(7 DOWNTO 0)
       );
   END component;
+
+  type ethernet_state is (Idle,
+                          ReceivingPacket,
+                          ReceivedPacket,ReceivedPacket2
+                          );
+  signal eth_state : ethernet_state := Idle;
   
   -- control reset line on ethernet controller
   signal eth_reset_int : std_logic := '1';
@@ -78,6 +84,10 @@ architecture behavioural of ethernet is
   signal eth_rx_buffer_last_used_int2 : std_logic := '1';
   signal eth_rx_buffer_last_used_int1 : std_logic := '1';
   signal eth_rx_buffer_last_used_50mhz : std_logic := '1';
+  -- ethernet receiver signals
+  signal eth_rxbits : unsigned(5 downto 0);
+  signal eth_bit_count : integer range 0 to 6;  
+  signal eth_packet_len : integer range 0 to 4095;
   
   signal rxbuffer_cs : std_logic;
   signal rxbuffer_write : std_logic;
@@ -122,9 +132,75 @@ begin  -- behavioural
   end process;
   
   process(clock50mhz) is
+    variable packet_length : unsigned(11 downto 0);
   begin
     if rising_edge(clock50mhz) then
-      
+      packet_length := to_unsigned(eth_packet_len,12);
+      case eth_state is
+        when Idle =>
+          rxbuffer_write <= '0';
+          if eth_rxdv='1' then
+            -- start receiving packet
+            eth_state <= ReceivingPacket;
+            if eth_rx_buffer_last_used_50mhz='0' then
+              -- last packet was in bottom half, so write to top half ...
+              eth_packet_len <= 2048;
+            else
+              -- ... and vice-versa
+              eth_packet_len <= 0;
+            end if;
+            eth_bit_count <= 2;
+            eth_rxbits(1 downto 0) <= eth_rxd;
+          end if;
+        when ReceivingPacket =>
+          if eth_rxdv='0' then
+            -- finished receiving packet
+            eth_state <= ReceivedPacket;
+          else
+            -- got two more bits
+            if eth_bit_count = 6 then
+              -- this makes a byte
+              if packet_length(10 downto 0) = "11111111101" then
+                -- packet too long -- ignore the rest
+                -- (max packet length = 2048 - 2 length bytes = 2046 bytes
+                null;
+              else
+                eth_packet_len <= eth_packet_len + 1;
+                rxbuffer_wdata <= eth_rxbits & eth_rxd;
+                rxbuffer_writeaddress <= eth_packet_len;
+              end if;
+              eth_bit_count <= 0;
+            else
+              -- shift bits into partial received byte
+              eth_bit_count <= eth_bit_count + 2;
+              eth_rxbits <= eth_rxbits(3 downto 0) & eth_rxd;
+            end if;
+          end if;
+        when ReceivedPacket =>
+          -- write low byte of packet length
+          if eth_rx_buffer_last_used_50mhz='0' then
+            rxbuffer_writeaddress <= 2046;
+          else
+            rxbuffer_writeaddress <= 4094;
+          end if;
+          rxbuffer_wdata <= packet_length(7 downto 0);
+          eth_state <= ReceivedPacket2;
+        when ReceivedPacket2 =>
+          -- write low byte of packet length
+          if eth_rx_buffer_last_used_50mhz='0' then
+            rxbuffer_writeaddress <= 2047;
+          else
+            rxbuffer_writeaddress <= 4095;
+          end if;
+          rxbuffer_wdata(7 downto 3) <= "00000";
+          rxbuffer_wdata(2 downto 0) <= packet_length(10 downto 8);
+          -- record that we have received a packet
+          eth_rx_buffer_last_used_50mhz <= not eth_rx_buffer_last_used_50mhz;
+          -- ready to receive another packet
+          eth_state <= Idle;
+        when others =>
+          null;
+      end case;
     end if;
   end process;
   
