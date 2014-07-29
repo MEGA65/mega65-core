@@ -230,10 +230,16 @@ begin  -- behavioural
           -- received a packet.  Value is provided by 50MHz side, so has a few
           -- cycles delay.
           when x"42" =>
-          
-          when others => fastio_rdata <= (others => 'Z'); end case; else
-          fastio_rdata <= (others => 'Z'); end if; else fastio_rdata <=
-          (others => 'Z'); end if;
+            fastio_rdata(7 downto 1) <= (others => '0');
+            fastio_rdata(0) <= eth_rx_buffer_last_used;
+          when others => fastio_rdata <= (others => 'Z');
+        end case;
+      else
+        fastio_rdata <= (others => 'Z');
+      end if;
+    else
+      fastio_rdata <= (others => 'Z');
+    end if;
 
     
     if rising_edge(clock) then
