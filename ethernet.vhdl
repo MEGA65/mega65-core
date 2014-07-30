@@ -149,8 +149,7 @@ begin  -- behavioural
               -- ... and vice-versa
               eth_packet_len <= 0;
             end if;
-            eth_bit_count <= 2;
-            eth_rxbits(1 downto 0) <= eth_rxd;
+            eth_bit_count <= 0;
           end if;
         when ReceivingPacket =>
           if eth_rxdv='0' then
