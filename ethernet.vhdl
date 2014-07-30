@@ -189,7 +189,7 @@ begin  -- behavioural
             else
               -- shift bits into partial received byte
               eth_bit_count <= eth_bit_count + 2;
-              eth_rxbits <= eth_rxd & eth_rxbits(3 downto 0);
+              eth_rxbits <= eth_rxd & eth_rxbits(6 downto 2);
             end if;
           end if;
         when ReceivedFrame =>
