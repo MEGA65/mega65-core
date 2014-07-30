@@ -148,7 +148,7 @@ begin  -- behavioural
     write_address => txbuffer_writeaddress,
     wdata => txbuffer_wdata,
     address => txbuffer_readaddress,
-    rdata => fastio_rdata);  
+    rdata => txbuffer_rdata);  
 
   
   -- Look after CPU side of mapping of RX buffer
