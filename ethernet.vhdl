@@ -223,7 +223,6 @@ begin  -- behavioural
         when others =>
           eth_tx_state <= Idle;
       end case;
-      end if;
     
       -- Ethernet RX FSM
       frame_length := to_unsigned(eth_frame_len,12);
