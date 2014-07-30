@@ -108,6 +108,8 @@ architecture behavioural of ethernet is
   signal eth_tx_bit_count : integer range 0 to 6;
   signal txbuffer_writeaddress : integer range 0 to 4095;
   signal txbuffer_readaddress : integer range 0 to 4095;
+  signal txbuffer_write : std_logic := '0';
+  signal txbuffer_wdata : unsigned(7 downto 0);
   signal txbuffer_rdata : unsigned(7 downto 0);
   signal eth_tx_bits : unsigned(7 downto 0);
   signal eth_tx_size : unsigned(11 downto 0) := to_unsigned(0,12);
@@ -139,6 +141,16 @@ begin  -- behavioural
     address => rxbuffer_readaddress,
     rdata => fastio_rdata);  
 
+  txbuffer0: ram8x4096 port map (
+    clk => clock50mhz,
+    cs => '1',
+    w => txbuffer_write,
+    write_address => txbuffer_writeaddress,
+    wdata => txbuffer_wdata,
+    address => txbuffer_readaddress,
+    rdata => fastio_rdata);  
+
+  
   -- Look after CPU side of mapping of RX buffer
   process(eth_rx_buffer_moby,fastio_addr,fastio_read) is
   begin
@@ -375,6 +387,15 @@ begin  -- behavioural
 
       -- Write to registers
       if fastio_write='1' then
+        if fastio_addr(19 downto 10)&"00" = x"DE8" then
+          -- Writing to TX buffer
+          -- (we don't need toclear the write lines, as noone else can write to
+          -- the buffer.  The TX buffer cannot be read, as reading the same
+          -- addresses reads from the RX buffer.)
+          txbuffer_writeaddress <= to_integer(fastio_addr(10 downto 0));
+          txbuffer_write <= '1';
+          txbuffer_wdata <= fastio_wdata;
+        end if;
         if fastio_addr(19 downto 8) = x"DE0" then
           if fastio_addr(7 downto 6) = "00" then
             -- Writing to ethernet controller MD registers
