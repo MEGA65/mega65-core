@@ -38,6 +38,8 @@ programentrypoint:
 
 	; Ethernet registers should now be visible from $6000 - $6FFF
 	; read buffer will be at $6800 - $6FFF
+	; length of frame is in $6FFE / $6FFF in little-endian byte order
+	; so LDA $6FFE ; LDX $6FFF ; jsr $BDCD should print packet length to screen
 
 	; Let's copy 1KB of buffer to the screen repeatedly
 	ldx #$00
@@ -51,6 +53,22 @@ loop1:	lda $6800,x
 	sta $0700,x
 	inx
 	jmp loop1
+
+	; to clear the screen
+	lda #$9d
+	jsr $ffd2
+
+	; to output a letter
+	lda #"A"
+	jsr $FFD2   ; C64 rom routine to print a character
+	; to output a decimal number
+	lda #<12345
+	ldx #>12345
+	jsr $BDCD   ; C64 rom routine to print a 16-bit number
+	jsr myroutine
+
+myroutine:
+	rts
 
 	.scend
 
