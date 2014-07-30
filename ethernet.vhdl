@@ -70,16 +70,18 @@ architecture behavioural of ethernet is
   END component;
 
   type ethernet_state is (Idle,
-                          ReceivingPacket,
-                          ReceivedPacket,ReceivedPacket2
+                          ReceivingPreamble,
+                          ReceivingFrame,
+                          ReceivedFrame,ReceivedFrame2,
+                          BadFrame
                           );
   signal eth_state : ethernet_state := Idle;
   
   -- control reset line on ethernet controller
   signal eth_reset_int : std_logic := '1';
-  -- which half of packet RX buffer is visible
+  -- which half of frame RX buffer is visible
   signal eth_rx_buffer_moby : std_logic := '0';
-  -- which half of packet buffer had the most recent packet delivery
+  -- which half of frame buffer had the most recent frame delivery
   signal eth_rx_buffer_last_used : std_logic := '1';
   signal eth_rx_buffer_last_used_int2 : std_logic := '1';
   signal eth_rx_buffer_last_used_int1 : std_logic := '1';
@@ -87,7 +89,7 @@ architecture behavioural of ethernet is
   -- ethernet receiver signals
   signal eth_rxbits : unsigned(5 downto 0);
   signal eth_bit_count : integer range 0 to 6;  
-  signal eth_packet_len : integer range 0 to 4095;
+  signal eth_frame_len : integer range 0 to 4095;
   
   signal rxbuffer_cs : std_logic;
   signal rxbuffer_write : std_logic;
@@ -101,12 +103,12 @@ begin  -- behavioural
   
   -- See http://ww1.microchip.com/downloads/en/DeviceDoc/8720a.pdf
   
-  -- We begin receiving a packet when RX_DV goes high.  Data arrives 2 bits at
+  -- We begin receiving a frame when RX_DV goes high.  Data arrives 2 bits at
   -- a time.  We will manually form this into bytes, and then stuff into RX buffer.
   -- Frame is completely received when RX_DV goes low, or RXER is asserted, in
-  -- which case any partially received packet should be discarded.
+  -- which case any partially received frame should be discarded.
   -- We will use a 4KB RX buffer split into two 2KB halves, so that the most
-  -- recent packet can be read out by the CPU while another packet is being received.
+  -- recent frame can be read out by the CPU while another frame is being received.
   -- RX buffer is written from ethernet side, so use 50MHz clock.
   -- reads are fully asynchronous, so no need for a read-side clock for the CPU
   -- side.
@@ -132,42 +134,56 @@ begin  -- behavioural
   end process;
   
   process(clock50mhz) is
-    variable packet_length : unsigned(11 downto 0);
+    variable frame_length : unsigned(11 downto 0);
   begin
     if rising_edge(clock50mhz) then
-      packet_length := to_unsigned(eth_packet_len,12);
+      frame_length := to_unsigned(eth_frame_len,12);
       case eth_state is
         when Idle =>
           rxbuffer_write <= '0';
           if eth_rxdv='1' then
-            -- start receiving packet
-            eth_state <= ReceivingPacket;
+            -- start receiving frame
+            eth_state <= ReceivingPreamble;
             if eth_rx_buffer_last_used_50mhz='0' then
-              -- last packet was in bottom half, so write to top half ...
-              eth_packet_len <= 2048;
+              -- last frame was in bottom half, so write to top half ...
+              eth_frame_len <= 2048;
             else
               -- ... and vice-versa
-              eth_packet_len <= 0;
+              eth_frame_len <= 0;
             end if;
             eth_bit_count <= 0;
           end if;
-        when ReceivingPacket =>
+        when ReceivingPreamble =>
+          case eth_rxd is
+            when "01" =>
+              -- valid preamble bits, keep on going
+              null;
+            when "11" =>
+              -- end of preamble
+              eth_state <= ReceivingFrame;
+            when others =>
+              eth_state <= BadFrame;
+          end case;
+        when BadFrame =>
+          -- Skip to end of a bad frame
+          if eth_rxdv='0' then eth_state <= Idle; end if;
+        when ReceivingFrame =>
           if eth_rxdv='0' then
-            -- finished receiving packet
-            eth_state <= ReceivedPacket;
+            -- finished receiving frame
+            eth_state <= ReceivedFrame;
           else
             -- got two more bits
             if eth_bit_count = 6 then
               -- this makes a byte
-              if packet_length(10 downto 0) = "11111111101" then
-                -- packet too long -- ignore the rest
-                -- (max packet length = 2048 - 2 length bytes = 2046 bytes
+              if frame_length(10 downto 0) = "11111111101" then
+                -- frame too long -- ignore the rest
+                -- (max frame length = 2048 - 2 length bytes = 2046 bytes
                 null;
               else
-                eth_packet_len <= eth_packet_len + 1;
+                eth_frame_len <= eth_frame_len + 1;
                 rxbuffer_write <= '1';
                 rxbuffer_wdata <= eth_rxd & eth_rxbits;
-                rxbuffer_writeaddress <= eth_packet_len;
+                rxbuffer_writeaddress <= eth_frame_len;
               end if;
               eth_bit_count <= 0;
             else
@@ -176,27 +192,27 @@ begin  -- behavioural
               eth_rxbits <= eth_rxd & eth_rxbits(3 downto 0);
             end if;
           end if;
-        when ReceivedPacket =>
-          -- write low byte of packet length
+        when ReceivedFrame =>
+          -- write low byte of frame length
           if eth_rx_buffer_last_used_50mhz='0' then
             rxbuffer_writeaddress <= 2046;
           else
             rxbuffer_writeaddress <= 4094;
           end if;
-          rxbuffer_wdata <= packet_length(7 downto 0);
-          eth_state <= ReceivedPacket2;
-        when ReceivedPacket2 =>
-          -- write low byte of packet length
+          rxbuffer_wdata <= frame_length(7 downto 0);
+          eth_state <= ReceivedFrame2;
+        when ReceivedFrame2 =>
+          -- write low byte of frame length
           if eth_rx_buffer_last_used_50mhz='0' then
             rxbuffer_writeaddress <= 2047;
           else
             rxbuffer_writeaddress <= 4095;
           end if;
           rxbuffer_wdata(7 downto 3) <= "00000";
-          rxbuffer_wdata(2 downto 0) <= packet_length(10 downto 8);
-          -- record that we have received a packet
+          rxbuffer_wdata(2 downto 0) <= frame_length(10 downto 8);
+          -- record that we have received a frame
           eth_rx_buffer_last_used_50mhz <= not eth_rx_buffer_last_used_50mhz;
-          -- ready to receive another packet
+          -- ready to receive another frame
           eth_state <= Idle;
           rxbuffer_write <= '1';
         when others =>
@@ -228,7 +244,7 @@ begin  -- behavioural
             fastio_rdata(7 downto 1) <= (others => '0');
             fastio_rdata(0) <= eth_rx_buffer_moby;
           -- $DE042 - indicate which half of RX buffer most recently
-          -- received a packet.  Value is provided by 50MHz side, so has a few
+          -- received a frame.  Value is provided by 50MHz side, so has a few
           -- cycles delay.
           when x"42" =>
             fastio_rdata(7 downto 1) <= (others => '0');
@@ -257,7 +273,7 @@ begin  -- behavioural
           -- If the CPU is reading from this register, then in addition to
           -- reading the register contents asynchronously, do something,
           -- for example, clear an interrupt status, or tell the ethernet
-          -- controller that the packet buffer is okay to overwrite.
+          -- controller that the frame buffer is okay to overwrite.
         end if;
       end if;
 
@@ -275,7 +291,7 @@ begin  -- behavioural
               when x"41" => -- which half of RX buffer is visible
                 eth_reset <= fastio_wdata(0);
                 eth_reset_int <= fastio_wdata(0);
-              when x"42" => -- which half of RX buffer has most recent packet
+              when x"42" => -- which half of RX buffer has most recent frame
                 null;
               when others =>
                 -- Other registers do nothing
