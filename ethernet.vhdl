@@ -171,11 +171,10 @@ begin  -- behavioural
       -- For now it is upto the user to ensure the 96us gap between packets.
       -- This is only 20 CPU cycles, so it is unlikely to be a problem.
 
-      if false then
       -- Ethernet TX FSM
       case eth_tx_state is
         when Idle =>
-          if eth_tx_trigger <= '1' then
+          if eth_tx_trigger = '1' then
             eth_tx_commenced <= '1';
             eth_tx_complete <= '0';
             tx_preamble_count <= 31;
@@ -224,7 +223,7 @@ begin  -- behavioural
         when others =>
           eth_tx_state <= Idle;
       end case;
-      end if; -- if false
+      end if;
     
       -- Ethernet RX FSM
       frame_length := to_unsigned(eth_frame_len,12);
@@ -354,6 +353,9 @@ begin  -- behavioural
             fastio_rdata(0) <= eth_tx_trigger;
             fastio_rdata(1) <= eth_tx_commenced;
             fastio_rdata(2) <= eth_tx_complete;
+            fastio_rdata(3) <= eth_txen;
+            fastio_rdata(5 downto 4) <= eth_txd(1 downto 0);
+            fastio_rdata(7 downto 6) <= (others => 'Z');
           when others => fastio_rdata <= (others => 'Z');
         end case;
       else
