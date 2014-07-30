@@ -116,6 +116,8 @@ architecture behavioural of ethernet is
   signal eth_tx_trigger : std_logic := '0';
   signal eth_tx_commenced : std_logic := '0';
   signal eth_tx_complete : std_logic := '0';
+  signal eth_txen_int : std_logic;
+  signal eth_txd_int : unsigned(1 downto 0) := "00";
   
 begin  -- behavioural
 
@@ -170,7 +172,7 @@ begin  -- behavioural
       -- We separate the RX/TX FSMs to allow true full-duplex operation.
       -- For now it is upto the user to ensure the 96us gap between packets.
       -- This is only 20 CPU cycles, so it is unlikely to be a problem.
-
+      
       -- Ethernet TX FSM
       case eth_tx_state is
         when Idle =>
@@ -179,7 +181,9 @@ begin  -- behavioural
             eth_tx_complete <= '0';
             tx_preamble_count <= 31;
             eth_txen <= '1';
+            eth_txen_int <= '1';
             eth_txd <= "00";
+            eth_txd_int <= "00";
             eth_tx_state <= WaitBeforeTX;
           end if;
         when WaitBeforeTX =>
@@ -188,16 +192,19 @@ begin  -- behavioural
         when SendingPreamble =>
           if tx_preamble_count = 0 then
             eth_txd <= "11";
+            eth_txd_int <= "00";
             eth_tx_state <= SendingFrame;
             eth_tx_bit_count <= 0;
             eth_tx_bits <= txbuffer_rdata;
             txbuffer_readaddress <= txbuffer_readaddress + 1;
           else
             eth_txd <= "01";
+            eth_txd_int <= "00";
             tx_preamble_count <= tx_preamble_count - 1;
           end if;
         when SendingFrame =>
           eth_txd <= eth_tx_bits(1 downto 0);
+          eth_txd_int <= eth_tx_bits(1 downto 0);
           if eth_tx_bit_count = 6 then
             -- Prepare to send from next byte
             eth_tx_bit_count <= 0;
@@ -206,6 +213,7 @@ begin  -- behavioural
               txbuffer_readaddress <= txbuffer_readaddress + 1;
             else
               eth_txen <= '0';
+              eth_txen_int <= '0';
               eth_tx_state <= SentFrame;
             end if;
           else
@@ -352,8 +360,8 @@ begin  -- behavioural
             fastio_rdata(0) <= eth_tx_trigger;
             fastio_rdata(1) <= eth_tx_commenced;
             fastio_rdata(2) <= eth_tx_complete;
-            fastio_rdata(3) <= eth_txen;
-            fastio_rdata(5 downto 4) <= eth_txd(1 downto 0);
+            fastio_rdata(3) <= eth_txen_int;
+            fastio_rdata(5 downto 4) <= eth_txd_int(1 downto 0);
             fastio_rdata(7 downto 6) <= (others => 'Z');
           when others => fastio_rdata <= (others => 'Z');
         end case;
