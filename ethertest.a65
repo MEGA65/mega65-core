@@ -1,0 +1,57 @@
+; Ethernet controller test program for the C65GS
+
+; Include C64 BASIC program load header
+
+	 .word $0801
+	 .org $0801
+
+	 .scope
+	 .word _next, 10                       ; Next line and current line number
+	 .byte $97, "2,0:", $9e, " 2014", $AA, "65",0      ; POKE 2,0 : SYS 2014+65
+_next:	 .word 0
+
+iter1:	 .byte 0
+
+	 .checkpc 2079
+	 .advance 2079
+
+programentrypoint:
+	; Map ethernet registers at $6000 - $7FFF
+	
+	; Ethernet controller really lives $FFDE000 - $FFDEFFF, so select $FF megabyte section for MAP LO
+	lda #$ff
+	ldx #$0f
+	ldy #$00
+	ldz #$00
+	map
+	eom
+
+	; now enable mapping of $DE000-$DFFFF at $6000
+	; MAPs are offset based, so we need to subtract $6000 from the target address
+	; $DE000 - $6000 = $D8000
+	lda #$80
+	ldx #$8d
+	ldy #$00
+	ldz #$00
+	map
+	eom
+
+	; Ethernet registers should now be visible from $6000 - $6FFF
+	; read buffer will be at $6800 - $6FFF
+
+	; Let's copy 1KB of buffer to the screen repeatedly
+	ldx #$00
+loop1:	lda $6800,x
+	sta $0400,x
+	lda $6900,x
+	sta $0500,x
+	lda $6a00,x
+	sta $0600,x
+	lda $6b00,x
+	sta $0700,x
+	inx
+	jmp loop1
+
+	.scend
+
+	.outfile "ethertest.prg"
