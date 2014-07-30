@@ -70,6 +70,7 @@ architecture behavioural of ethernet is
   END component;
 
   type ethernet_state is (Idle,
+                          WaitingForPreamble,
                           ReceivingPreamble,
                           ReceivingFrame,
                           ReceivedFrame,ReceivedFrame2,
@@ -143,7 +144,7 @@ begin  -- behavioural
           rxbuffer_write <= '0';
           if eth_rxdv='1' then
             -- start receiving frame
-            eth_state <= ReceivingPreamble;
+            eth_state <= WaitingForPreamble;
             if eth_rx_buffer_last_used_50mhz='0' then
               -- last frame was in bottom half, so write to top half ...
               eth_frame_len <= 2048;
@@ -152,6 +153,10 @@ begin  -- behavioural
               eth_frame_len <= 0;
             end if;
             eth_bit_count <= 0;
+          end if;
+        when WaitingForPreamble =>
+          if eth_rxd = "01" then
+            eth_state <= ReceivingPreamble;
           end if;
         when ReceivingPreamble =>
           case eth_rxd is
@@ -189,7 +194,7 @@ begin  -- behavioural
             else
               -- shift bits into partial received byte
               eth_bit_count <= eth_bit_count + 2;
-              eth_rxbits <= eth_rxd & eth_rxbits(6 downto 2);
+              eth_rxbits <= eth_rxd & eth_rxbits(5 downto 2);
             end if;
           end if;
         when ReceivedFrame =>
