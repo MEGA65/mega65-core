@@ -170,7 +170,8 @@ begin  -- behavioural
       -- We separate the RX/TX FSMs to allow true full-duplex operation.
       -- For now it is upto the user to ensure the 96us gap between packets.
       -- This is only 20 CPU cycles, so it is unlikely to be a problem.
-      
+
+      if false then
       -- Ethernet TX FSM
       case eth_tx_state is
         when Idle =>
@@ -223,6 +224,7 @@ begin  -- behavioural
         when others =>
           eth_tx_state <= Idle;
       end case;
+      end if; -- if false
     
       -- Ethernet RX FSM
       frame_length := to_unsigned(eth_frame_len,12);
