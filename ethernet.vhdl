@@ -166,14 +166,14 @@ begin  -- behavioural
               else
                 eth_packet_len <= eth_packet_len + 1;
                 rxbuffer_write <= '1';
-                rxbuffer_wdata <= eth_rxbits & eth_rxd;
+                rxbuffer_wdata <= eth_rxd & eth_rxbits;
                 rxbuffer_writeaddress <= eth_packet_len;
               end if;
               eth_bit_count <= 0;
             else
               -- shift bits into partial received byte
               eth_bit_count <= eth_bit_count + 2;
-              eth_rxbits <= eth_rxbits(3 downto 0) & eth_rxd;
+              eth_rxbits <= eth_rxd & eth_rxbits(3 downto 0);
             end if;
           end if;
         when ReceivedPacket =>
