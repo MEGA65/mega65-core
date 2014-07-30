@@ -24,7 +24,8 @@ use IEEE.STD_LOGIC_1164.ALL;
 use ieee.numeric_std.all;
 use Std.TextIO.all;
 use work.debugtools.all;
-
+use work.PCK_CRC32_D8.all;
+  
 entity ethernet is
   port (
     clock : in std_logic;
@@ -73,7 +74,12 @@ architecture behavioural of ethernet is
                           WaitingForPreamble,
                           ReceivingPreamble,
                           ReceivingFrame,
-                          ReceivedFrame,ReceivedFrame2,
+                          ReceivedFrame,
+                          ReceivedFrame2,
+                          ReceivedFrameCRC1,
+                          ReceivedFrameCRC2,
+                          ReceivedFrameCRC3,
+                          ReceivedFrameCRC4,
                           BadFrame,
 
                           WaitBeforeTX,
@@ -92,6 +98,7 @@ architecture behavioural of ethernet is
   signal eth_rx_buffer_last_used_int2 : std_logic := '1';
   signal eth_rx_buffer_last_used_int1 : std_logic := '1';
   signal eth_rx_buffer_last_used_50mhz : std_logic := '1';
+  signal eth_rx_crc : unsigned(31 downto 0);
   -- ethernet receiver signals
   signal eth_rxbits : unsigned(5 downto 0);
   signal eth_bit_count : integer range 0 to 6;  
@@ -240,15 +247,16 @@ begin  -- behavioural
           if eth_rxdv='1' then
             -- start receiving frame
             eth_state <= WaitingForPreamble;
-
+            eth_rx_crc <= (others => '0');
             -- Work out where to put received frame.
-            -- In all cases, leave 2 bytes to put the frame length first.
+            -- In all cases, leave 2 bytes to put the frame length first, and
+            -- also 4 bytes to put the calculated CRC32.
             if eth_rx_buffer_last_used_50mhz='0' then
               -- last frame was in bottom half, so write to top half ...
-              eth_frame_len <= 2050;
+              eth_frame_len <= 2054;
             else
               -- ... and vice-versa
-              eth_frame_len <= 2;
+              eth_frame_len <= 6;
             end if;
             eth_bit_count <= 0;
           end if;
@@ -273,22 +281,26 @@ begin  -- behavioural
         when ReceivingFrame =>
           if eth_rxdv='0' then
             -- finished receiving frame
-            -- subtract two length field bytes from write address to obtain
-            -- actual number of bytes received
-            eth_frame_len <= eth_frame_len - 2;
+            -- subtract two length field bytes and four calculated CRC bytes from write address to
+            -- obtain actual number of bytes received
+            eth_frame_len <= eth_frame_len - 6;
             eth_state <= ReceivedFrame;
           else
             -- got two more bits
             if eth_bit_count = 6 then
               -- this makes a byte
-              if frame_length(10 downto 0) = "11111111101" then
+              if frame_length(10 downto 0) = "11111111000" then
                 -- frame too long -- ignore the rest
-                -- (max frame length = 2048 - 2 length bytes = 2046 bytes
+                -- (max frame length = 2048 - 2 length bytes - 4 CRC bytes = 2042 bytes
                 null;
               else
                 eth_frame_len <= eth_frame_len + 1;
                 rxbuffer_write <= '1';
                 rxbuffer_wdata <= eth_rxd & eth_rxbits;
+                -- update CRC calculation
+                eth_rx_crc
+                  <= unsigned(nextCRC32_D8(std_logic_vector(eth_rxd & eth_rxbits),
+                                           std_logic_vector(eth_rx_crc)));
                 rxbuffer_writeaddress <= eth_frame_len;
               end if;
               eth_bit_count <= 0;
@@ -309,13 +321,26 @@ begin  -- behavioural
           eth_state <= ReceivedFrame2;
         when ReceivedFrame2 =>
           -- write low byte of frame length
-          if eth_rx_buffer_last_used_50mhz='0' then
-            rxbuffer_writeaddress <= 1;
-          else
-            rxbuffer_writeaddress <= 2049;
-          end if;
+          rxbuffer_writeaddress <= rxbuffer_writeaddress + 1;
           rxbuffer_wdata(7 downto 3) <= "00000";
           rxbuffer_wdata(2 downto 0) <= frame_length(10 downto 8);
+          eth_state <= ReceivedFrameCRC1;
+        when ReceivedFrameCRC1 =>
+          rxbuffer_writeaddress <= rxbuffer_writeaddress + 1;
+          rxbuffer_wdata <= eth_rx_crc(7 downto 0);
+          eth_state <= ReceivedFrameCRC2;
+        when ReceivedFrameCRC2 =>
+          rxbuffer_writeaddress <= rxbuffer_writeaddress + 1;
+          rxbuffer_wdata <= eth_rx_crc(15 downto 8);
+          eth_state <= ReceivedFrameCRC3;
+        when ReceivedFrameCRC3 =>
+          rxbuffer_writeaddress <= rxbuffer_writeaddress + 1;
+          rxbuffer_wdata <= eth_rx_crc(23 downto 16);
+          eth_state <= ReceivedFrameCRC4;
+        when ReceivedFrameCRC4 =>
+          rxbuffer_writeaddress <= rxbuffer_writeaddress + 1;
+          rxbuffer_wdata <= eth_rx_crc(31 downto 24);
+          
           -- record that we have received a frame
           eth_rx_buffer_last_used_50mhz <= not eth_rx_buffer_last_used_50mhz;
           -- ready to receive another frame
