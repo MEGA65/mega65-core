@@ -74,7 +74,12 @@ architecture behavioural of ethernet is
                           ReceivingPreamble,
                           ReceivingFrame,
                           ReceivedFrame,ReceivedFrame2,
-                          BadFrame
+                          BadFrame,
+
+                          WaitBeforeTX,
+                          SendingPreamble,
+                          SendingFrame,
+                          SentFrame
                           );
   signal eth_state : ethernet_state := Idle;
   
@@ -98,6 +103,18 @@ architecture behavioural of ethernet is
   signal rxbuffer_readaddress : integer range 0 to 4095;
   signal rxbuffer_wdata : unsigned(7 downto 0);
 
+  signal tx_preamble_count : integer range 31 downto 0;
+  signal eth_tx_state : ethernet_state := Idle;
+  signal eth_tx_bit_count : integer range 0 to 6;
+  signal txbuffer_writeaddress : integer range 0 to 4095;
+  signal txbuffer_readaddress : integer range 0 to 4095;
+  signal txbuffer_rdata : unsigned(7 downto 0);
+  signal eth_tx_bits : unsigned(7 downto 0);
+  signal eth_tx_size : unsigned(11 downto 0) := to_unsigned(0,12);
+  signal eth_tx_trigger : std_logic := '0';
+  signal eth_tx_commenced : std_logic := '0';
+  signal eth_tx_complete : std_logic := '0';
+  
 begin  -- behavioural
 
   -- Ethernet RMII side clocked at 50MHz
@@ -138,6 +155,64 @@ begin  -- behavioural
     variable frame_length : unsigned(11 downto 0);
   begin
     if rising_edge(clock50mhz) then
+      -- We separate the RX/TX FSMs to allow true full-duplex operation.
+      -- For now it is upto the user to ensure the 96us gap between packets.
+      -- This is only 20 CPU cycles, so it is unlikely to be a problem.
+      
+      -- Ethernet TX FSM
+      case eth_tx_state is
+        when Idle =>
+          if eth_tx_trigger <= '1' then
+            eth_tx_commenced <= '1';
+            eth_tx_complete <= '0';
+            tx_preamble_count <= 31;
+            eth_txen <= '1';
+            eth_txd <= "00";
+            eth_tx_state <= WaitBeforeTX;
+          end if;
+        when WaitBeforeTX =>
+          txbuffer_readaddress <= 0;
+          eth_tx_state <= SendingPreamble;
+        when SendingPreamble =>
+          if tx_preamble_count = 0 then
+            eth_txd <= "11";
+            eth_tx_state <= SendingFrame;
+            eth_tx_bit_count <= 0;
+            eth_tx_bits <= txbuffer_rdata;
+            txbuffer_readaddress <= txbuffer_readaddress + 1;
+          else
+            eth_txd <= "01";
+            tx_preamble_count <= tx_preamble_count - 1;
+          end if;
+        when SendingFrame =>
+          eth_txd <= eth_tx_bits(1 downto 0);
+          if eth_tx_bit_count = 6 then
+            -- Prepare to send from next byte
+            eth_tx_bit_count <= 0;
+            eth_tx_bits <= txbuffer_rdata;
+            if to_unsigned(txbuffer_readaddress,12) /= eth_tx_size then
+              txbuffer_readaddress <= txbuffer_readaddress + 1;
+            else
+              eth_txen <= '0';
+              eth_tx_state <= SentFrame;
+            end if;
+          else
+            -- Prepare to send next 2 bits next cycle
+            eth_tx_bit_count <= eth_tx_bit_count + 2;
+            eth_tx_bits <= "00" & eth_tx_bits(7 downto 2);
+          end if;
+        when SentFrame =>
+          -- Wait for eth_tx_trigger to go low
+          if eth_tx_trigger='0' then
+            eth_tx_complete <= '1';
+            eth_tx_commenced <= '0';
+            eth_tx_state <= Idle;
+          end if;
+        when others =>
+          eth_tx_state <= Idle;
+      end case;
+    
+      -- Ethernet RX FSM
       frame_length := to_unsigned(eth_frame_len,12);
       case eth_state is
         when Idle =>
@@ -254,6 +329,17 @@ begin  -- behavioural
           when x"42" =>
             fastio_rdata(7 downto 1) <= (others => '0');
             fastio_rdata(0) <= eth_rx_buffer_last_used;
+          -- TX Packet size
+          when x"43" =>
+            fastio_rdata <= eth_tx_size(7 downto 0);
+          when x"44" =>
+            fastio_rdata(7 downto 4) <= "0000";
+            fastio_rdata(3 downto 0) <= eth_tx_size(11 downto 8);
+          -- Status of frame transmitter
+          when x"45"  =>
+            fastio_rdata(0) <= eth_tx_trigger;
+            fastio_rdata(1) <= eth_tx_commenced;
+            fastio_rdata(2) <= eth_tx_complete;
           when others => fastio_rdata <= (others => 'Z');
         end case;
       else
@@ -266,6 +352,11 @@ begin  -- behavioural
     
     if rising_edge(clock) then
 
+      -- Automatically de-assert transmit trigger once the FSM has caught the signal.
+      if eth_tx_commenced = '1' then
+        eth_tx_trigger <= '0';
+      end if;
+      
       -- Bring signals accross from 50MHz side as required
       -- (pass through some flip-flops to manage meta-stability)
       eth_rx_buffer_last_used <= eth_rx_buffer_last_used_int2;
@@ -298,6 +389,19 @@ begin  -- behavioural
                 eth_reset_int <= fastio_wdata(0);
               when x"42" => -- which half of RX buffer has most recent frame
                 null;
+              -- Set low-order size of frame to TX
+              when x"43" =>
+                eth_tx_size(7 downto 0) <= fastio_wdata;
+              -- Set high-order size of frame to TX
+              when x"44" =>
+                eth_tx_size(11 downto 8) <= fastio_wdata(3 downto 0);
+              -- Send frame in TX buffer
+              when x"45" =>
+                if fastio_wdata = x"01" then
+                  if eth_tx_commenced='0' then
+                    eth_tx_trigger <= '1';
+                  end if;
+                end if;
               when others =>
                 -- Other registers do nothing
                 null;
