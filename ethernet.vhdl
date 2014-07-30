@@ -240,12 +240,15 @@ begin  -- behavioural
           if eth_rxdv='1' then
             -- start receiving frame
             eth_state <= WaitingForPreamble;
+
+            -- Work out where to put received frame.
+            -- In all cases, leave 2 bytes to put the frame length first.
             if eth_rx_buffer_last_used_50mhz='0' then
               -- last frame was in bottom half, so write to top half ...
-              eth_frame_len <= 2048;
+              eth_frame_len <= 2050;
             else
               -- ... and vice-versa
-              eth_frame_len <= 0;
+              eth_frame_len <= 2;
             end if;
             eth_bit_count <= 0;
           end if;
@@ -270,6 +273,9 @@ begin  -- behavioural
         when ReceivingFrame =>
           if eth_rxdv='0' then
             -- finished receiving frame
+            -- subtract two length field bytes from write address to obtain
+            -- actual number of bytes received
+            eth_frame_len <= eth_frame_len - 2;
             eth_state <= ReceivedFrame;
           else
             -- got two more bits
@@ -295,18 +301,18 @@ begin  -- behavioural
         when ReceivedFrame =>
           -- write low byte of frame length
           if eth_rx_buffer_last_used_50mhz='0' then
-            rxbuffer_writeaddress <= 2046;
+            rxbuffer_writeaddress <= 0;
           else
-            rxbuffer_writeaddress <= 4094;
+            rxbuffer_writeaddress <= 2048;
           end if;
           rxbuffer_wdata <= frame_length(7 downto 0);
           eth_state <= ReceivedFrame2;
         when ReceivedFrame2 =>
           -- write low byte of frame length
           if eth_rx_buffer_last_used_50mhz='0' then
-            rxbuffer_writeaddress <= 2047;
+            rxbuffer_writeaddress <= 1;
           else
-            rxbuffer_writeaddress <= 4095;
+            rxbuffer_writeaddress <= 2049;
           end if;
           rxbuffer_wdata(7 downto 3) <= "00000";
           rxbuffer_wdata(2 downto 0) <= frame_length(10 downto 8);
