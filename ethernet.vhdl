@@ -349,12 +349,13 @@ begin  -- behavioural
           -- Skip to end of a bad frame
           if eth_rxdv='0' then eth_state <= Idle; end if;
         when ReceivingFrame =>
+          rx_fcs_crc_d_valid <= '0';
+          rx_fcs_crc_calc_en <= '0';
           if eth_rxdv='0' then
             -- finished receiving frame
             -- subtract two length field bytes and four calculated CRC bytes from write address to
             -- obtain actual number of bytes received
             eth_frame_len <= eth_frame_len - 6;
-            rx_fcs_crc_d_valid <= '0';
             eth_state <= ReceivedFrame;            
           else
             -- got two more bits
@@ -363,7 +364,6 @@ begin  -- behavioural
               if frame_length(10 downto 0) = "11111111000" then
                 -- frame too long -- ignore the rest
                 -- (max frame length = 2048 - 2 length bytes - 4 CRC bytes = 2042 bytes
-                rx_fcs_crc_d_valid <= '0';
                 null;
               else
                 eth_frame_len <= eth_frame_len + 1;
@@ -372,6 +372,7 @@ begin  -- behavioural
                 -- update CRC calculation
                 rx_fcs_crc_data_in <= std_logic_vector(eth_rxd & eth_rxbits);
                 rx_fcs_crc_d_valid <= '1';
+                rx_fcs_crc_calc_en <= '1';
                 rxbuffer_writeaddress <= eth_frame_len;
               end if;
               eth_bit_count <= 0;
@@ -379,10 +380,11 @@ begin  -- behavioural
               -- shift bits into partial received byte
               eth_bit_count <= eth_bit_count + 2;
               eth_rxbits <= eth_rxd & eth_rxbits(5 downto 2);
-              rx_fcs_crc_d_valid <= '0';
             end if;
           end if;
         when ReceivedFrame =>
+          rx_fcs_crc_d_valid <= '0';
+          rx_fcs_crc_calc_en <= '0';
           -- write low byte of frame length
           if eth_rx_buffer_last_used_50mhz='0' then
             rxbuffer_writeaddress <= 0;
@@ -398,6 +400,7 @@ begin  -- behavioural
           rxbuffer_wdata(2 downto 0) <= frame_length(10 downto 8);
           eth_state <= ReceivedFrameCRC1;
         when ReceivedFrameCRC1 =>
+          -- Indicate if CRC checked out
           rxbuffer_writeaddress <= rxbuffer_writeaddress + 1;
           rxbuffer_wdata(7 downto 1) <= (others => '0');
           rxbuffer_wdata(0) <= rx_crc_valid;
