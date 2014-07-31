@@ -26,6 +26,7 @@
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
+use work.debugtools.all;
 
 entity CRC is
     Port (  CLOCK               :   in  std_logic;
@@ -175,6 +176,8 @@ architecture RTL of CRC is
         variable state : std_logic_vector(2 downto 0);
     begin
         if rising_edge(CLOCK) then
+          report "s_crc_reg = $" & to_hstring(s_crc_reg);
+          report "  reversed  $" & to_hstring(reversed(s_crc_reg));
             if RESET = '1' then
                 s_crc_reg    <= (others => '0');
                 s_crc        <= (others => '0');
@@ -191,6 +194,7 @@ architecture RTL of CRC is
                     when "010" =>
                         -- No Change                        
                     when "011" =>
+                        report "incorporating byte $" & to_hstring(DATA);
                         s_crc_reg   <= s_next_crc;
                         s_crc       <= not reversed(s_next_crc(31 downto 24));   
                     when "100" =>

@@ -168,7 +168,17 @@ architecture behavioural of ethernet is
   signal  tx_fcs_crc_d_valid       : std_logic := '0';
   signal  tx_crc_valid             : std_logic := '0';
   signal  tx_crc_reg               : std_logic_vector(31 downto 0) := (others => '0');
-  
+
+ -- Reverse the input vector.
+ function reversed(slv: std_logic_vector) return std_logic_vector is
+   variable result: std_logic_vector(slv'reverse_range);
+ begin
+   for i in slv'range loop
+     result(i) := slv(i);
+   end loop;
+   return result;
+ end reversed;
+ 
 begin  -- behavioural
 
   -- Ethernet RMII side clocked at 50MHz
@@ -370,7 +380,7 @@ begin  -- behavioural
                 rxbuffer_write <= '1';
                 rxbuffer_wdata <= eth_rxd & eth_rxbits;
                 -- update CRC calculation
-                rx_fcs_crc_data_in <= std_logic_vector(eth_rxd & eth_rxbits);
+                rx_fcs_crc_data_in <= reversed(std_logic_vector(eth_rxd & eth_rxbits));
                 rx_fcs_crc_d_valid <= '1';
                 rx_fcs_crc_calc_en <= '1';
                 rxbuffer_writeaddress <= eth_frame_len;
