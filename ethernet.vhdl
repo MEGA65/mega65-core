@@ -103,6 +103,7 @@ architecture behavioural of ethernet is
                           WaitingForPreamble,
                           ReceivingPreamble,
                           ReceivingFrame,
+                          CapReceivedFrame,
                           ReceivedFrame,
                           ReceivedFrame2,
                           ReceivedFrameCRC1,
@@ -297,6 +298,8 @@ begin  -- behavioural
             if to_unsigned(txbuffer_readaddress,12) /= eth_tx_size then
               txbuffer_readaddress <= txbuffer_readaddress + 1;
             else
+              -- XXX should now send TX FCS, value will be in tx_crc_out, send
+              -- high-order bytes first.              
               eth_txen <= '0';
               eth_txen_int <= '0';
               eth_tx_state <= SentFrame;
@@ -366,7 +369,7 @@ begin  -- behavioural
             -- subtract two length field bytes and four calculated CRC bytes from write address to
             -- obtain actual number of bytes received
             eth_frame_len <= eth_frame_len - 6;
-            eth_state <= ReceivedFrame;            
+            eth_state <= CapReceivedFrame;            
           else
             -- got two more bits
             if eth_bit_count = 6 then
@@ -379,11 +382,11 @@ begin  -- behavioural
                 eth_frame_len <= eth_frame_len + 1;
                 rxbuffer_write <= '1';
                 rxbuffer_wdata <= eth_rxd & eth_rxbits;
+                rxbuffer_writeaddress <= eth_frame_len;
                 -- update CRC calculation
                 rx_fcs_crc_data_in <= reversed(std_logic_vector(eth_rxd & eth_rxbits));
                 rx_fcs_crc_d_valid <= '1';
                 rx_fcs_crc_calc_en <= '1';
-                rxbuffer_writeaddress <= eth_frame_len;
               end if;
               eth_bit_count <= 0;
             else
@@ -392,6 +395,13 @@ begin  -- behavioural
               eth_rxbits <= eth_rxd & eth_rxbits(5 downto 2);
             end if;
           end if;
+        when CapReceivedFrame =>
+          -- put a marker at the end of the frame so we can see where it stops in
+          -- the RX buffer.
+          rxbuffer_write <= '1';
+          rxbuffer_wdata <= x"BD";
+          rxbuffer_writeaddress <= eth_frame_len;
+          eth_state <= ReceivedFrame;
         when ReceivedFrame =>
           rx_fcs_crc_d_valid <= '0';
           rx_fcs_crc_calc_en <= '0';
