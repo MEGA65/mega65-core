@@ -99,9 +99,6 @@ architecture behavioural of ethernet is
   signal eth_rx_buffer_last_used_int1 : std_logic := '1';
   signal eth_rx_buffer_last_used_50mhz : std_logic := '1';
   signal eth_rx_crc : unsigned(31 downto 0);
-  signal eth_rx_crc2 : unsigned(31 downto 0);
-  signal eth_rx_crc3 : unsigned(31 downto 0);
-  signal eth_rx_crc4 : unsigned(31 downto 0);
   -- ethernet receiver signals
   signal eth_rxbits : unsigned(5 downto 0);
   signal eth_bit_count : integer range 0 to 6;  
@@ -304,9 +301,6 @@ begin  -- behavioural
                 eth_rx_crc
                   <= unsigned(nextCRC32_D8(std_logic_vector(eth_rxd & eth_rxbits),
                                            std_logic_vector(eth_rx_crc)));
-                eth_rx_crc2 <= eth_rx_crc;
-                eth_rx_crc3 <= eth_rx_crc2;
-                eth_rx_crc4 <= eth_rx_crc3;
                 rxbuffer_writeaddress <= eth_frame_len;
               end if;
               eth_bit_count <= 0;
@@ -333,19 +327,19 @@ begin  -- behavioural
           eth_state <= ReceivedFrameCRC1;
         when ReceivedFrameCRC1 =>
           rxbuffer_writeaddress <= rxbuffer_writeaddress + 1;
-          rxbuffer_wdata <= eth_rx_crc4(7 downto 0);
+          rxbuffer_wdata <= eth_rx_crc(7 downto 0);
           eth_state <= ReceivedFrameCRC2;
         when ReceivedFrameCRC2 =>
           rxbuffer_writeaddress <= rxbuffer_writeaddress + 1;
-          rxbuffer_wdata <= eth_rx_crc4(15 downto 8);
+          rxbuffer_wdata <= eth_rx_crc(15 downto 8);
           eth_state <= ReceivedFrameCRC3;
         when ReceivedFrameCRC3 =>
           rxbuffer_writeaddress <= rxbuffer_writeaddress + 1;
-          rxbuffer_wdata <= eth_rx_crc4(23 downto 16);
+          rxbuffer_wdata <= eth_rx_crc(23 downto 16);
           eth_state <= ReceivedFrameCRC4;
         when ReceivedFrameCRC4 =>
           rxbuffer_writeaddress <= rxbuffer_writeaddress + 1;
-          rxbuffer_wdata <= eth_rx_crc4(31 downto 24);
+          rxbuffer_wdata <= eth_rx_crc(31 downto 24);
           
           -- record that we have received a frame
           eth_rx_buffer_last_used_50mhz <= not eth_rx_buffer_last_used_50mhz;
