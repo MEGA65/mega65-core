@@ -103,7 +103,6 @@ architecture behavioural of ethernet is
                           WaitingForPreamble,
                           ReceivingPreamble,
                           ReceivingFrame,
-                          CapReceivedFrame,
                           ReceivedFrame,
                           ReceivedFrame2,
                           ReceivedFrameCRC1,
@@ -369,7 +368,12 @@ begin  -- behavioural
             -- subtract two length field bytes and four calculated CRC bytes from write address to
             -- obtain actual number of bytes received
             eth_frame_len <= eth_frame_len - 6;
-            eth_state <= CapReceivedFrame;            
+            eth_state <= ReceivedFrame;
+            -- put a marker at the end of the frame so we can see where it stops in
+            -- the RX buffer.
+            rxbuffer_write <= '1';
+            rxbuffer_wdata <= x"BD";
+            rxbuffer_writeaddress <= eth_frame_len;
           else
             -- got two more bits
             if eth_bit_count = 6 then
@@ -395,13 +399,6 @@ begin  -- behavioural
               eth_rxbits <= eth_rxd & eth_rxbits(5 downto 2);
             end if;
           end if;
-        when CapReceivedFrame =>
-          -- put a marker at the end of the frame so we can see where it stops in
-          -- the RX buffer.
-          rxbuffer_write <= '1';
-          rxbuffer_wdata <= x"BD";
-          rxbuffer_writeaddress <= eth_frame_len;
-          eth_state <= ReceivedFrame;
         when ReceivedFrame =>
           rx_fcs_crc_d_valid <= '0';
           rx_fcs_crc_calc_en <= '0';
