@@ -192,8 +192,8 @@ begin  -- behavioural
             tx_preamble_count <= 31;
             eth_txen <= '1';
             eth_txen_int <= '1';
-            eth_txd <= "00";
-            eth_txd_int <= "00";
+            eth_txd <= "01";
+            eth_txd_int <= "01";
             eth_tx_state <= WaitBeforeTX;
           end if;
         when WaitBeforeTX =>
@@ -202,14 +202,14 @@ begin  -- behavioural
         when SendingPreamble =>
           if tx_preamble_count = 0 then
             eth_txd <= "11";
-            eth_txd_int <= "00";
+            eth_txd_int <= "11";
             eth_tx_state <= SendingFrame;
             eth_tx_bit_count <= 0;
             eth_tx_bits <= txbuffer_rdata;
             txbuffer_readaddress <= txbuffer_readaddress + 1;
           else
             eth_txd <= "01";
-            eth_txd_int <= "00";
+            eth_txd_int <= "01";
             tx_preamble_count <= tx_preamble_count - 1;
           end if;
         when SendingFrame =>
