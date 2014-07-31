@@ -17,6 +17,21 @@
 -- *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 -- *  02111-1307  USA.
 
+-- Portions derived from:
+--------------------------------------------------------------------------------
+-- ETHERNET RECEIVE
+-- Receives data from the ethernet PHY device.
+--           
+-- @author         Peter A Bennett
+-- @copyright      (c) 2012 Peter A Bennett
+-- @version        $Rev: 2 $
+-- @lastrevision   $Date: 2012-03-11 15:19:25 +0000 (Sun, 11 Mar 2012) $
+-- @license        LGPL      
+-- @email          pab850@googlemail.com
+-- @contact        www.bytebash.com
+--
+--------------------------------------------------------------------------------
+
 use WORK.ALL;
 
 library IEEE;
@@ -24,7 +39,6 @@ use IEEE.STD_LOGIC_1164.ALL;
 use ieee.numeric_std.all;
 use Std.TextIO.all;
 use work.debugtools.all;
-use work.PCK_CRC32_D8.all;
   
 entity ethernet is
   port (
@@ -58,6 +72,21 @@ end ethernet;
 
 architecture behavioural of ethernet is
 
+ component CRC is
+    Port 
+    (  
+      CLOCK               :   in  std_logic;
+      RESET               :   in  std_logic;
+      DATA                :   in  std_logic_vector(7 downto 0);
+      LOAD_INIT           :   in  std_logic;
+      CALC                :   in  std_logic;
+      D_VALID             :   in  std_logic;
+      CRC                 :   out std_logic_vector(7 downto 0);
+      CRC_REG             :   out std_logic_vector(31 downto 0);
+      CRC_VALID           :   out std_logic
+    );
+  end component CRC;
+  
   component ram8x4096 IS
     PORT (
       clk : IN STD_LOGIC;
@@ -125,6 +154,20 @@ architecture behavioural of ethernet is
   signal eth_tx_complete : std_logic := '0';
   signal eth_txen_int : std_logic;
   signal eth_txd_int : unsigned(1 downto 0) := "00";
+
+ -- CRC
+  signal  rx_fcs_crc_data_in       : std_logic_vector(7 downto 0)  := (others => '0');
+  signal  rx_fcs_crc_load_init     : std_logic := '0';
+  signal  rx_fcs_crc_calc_en       : std_logic := '0';
+  signal  rx_fcs_crc_d_valid       : std_logic := '0';
+  signal  rx_crc_valid             : std_logic := '0';
+  signal  rx_crc_reg               : std_logic_vector(31 downto 0) := (others => '0');
+  signal  tx_fcs_crc_data_in       : std_logic_vector(7 downto 0)  := (others => '0');
+  signal  tx_fcs_crc_load_init     : std_logic := '0';
+  signal  tx_fcs_crc_calc_en       : std_logic := '0';
+  signal  tx_fcs_crc_d_valid       : std_logic := '0';
+  signal  tx_crc_valid             : std_logic := '0';
+  signal  tx_crc_reg               : std_logic_vector(31 downto 0) := (others => '0');
   
 begin  -- behavioural
 
@@ -159,6 +202,31 @@ begin  -- behavioural
     address => txbuffer_readaddress,
     rdata => txbuffer_rdata);  
 
+  rx_CRC : CRC
+    port map(
+      CLOCK           => clock50mhz,
+      RESET           => reset,
+      DATA            => rx_fcs_crc_data_in,
+      LOAD_INIT       => rx_fcs_crc_load_init,
+      CALC            => rx_fcs_crc_calc_en,
+      D_VALID         => rx_fcs_crc_d_valid,
+      CRC             => open,
+      CRC_REG         => rx_crc_reg,
+      CRC_VALID       => rx_crc_valid
+      );
+  
+  tx_CRC : CRC
+    port map(
+      CLOCK           => clock50mhz,
+      RESET           => reset,
+      DATA            => tx_fcs_crc_data_in,
+      LOAD_INIT       => tx_fcs_crc_load_init,
+      CALC            => tx_fcs_crc_calc_en,
+      D_VALID         => tx_fcs_crc_d_valid,
+      CRC             => open,
+      CRC_REG         => tx_crc_reg,
+      CRC_VALID       => tx_crc_valid
+      );
   
   -- Look after CPU side of mapping of RX buffer
   process(eth_rx_buffer_moby,fastio_addr,fastio_read) is
@@ -247,7 +315,8 @@ begin  -- behavioural
           if eth_rxdv='1' then
             -- start receiving frame
             eth_state <= WaitingForPreamble;
-            eth_rx_crc <= (others => '0');
+            rx_fcs_crc_load_init <= '1';
+            rx_fcs_crc_d_valid <= '0';
             -- Work out where to put received frame.
             -- In all cases, leave 2 bytes to put the frame length first, and
             -- also 4 bytes to put the calculated CRC32.
@@ -261,6 +330,7 @@ begin  -- behavioural
             eth_bit_count <= 0;
           end if;
         when WaitingForPreamble =>
+          rx_fcs_crc_load_init <= '0';
           if eth_rxd = "01" then
             eth_state <= ReceivingPreamble;
           end if;
@@ -284,7 +354,8 @@ begin  -- behavioural
             -- subtract two length field bytes and four calculated CRC bytes from write address to
             -- obtain actual number of bytes received
             eth_frame_len <= eth_frame_len - 6;
-            eth_state <= ReceivedFrame;
+            rx_fcs_crc_d_valid <= '0';
+            eth_state <= ReceivedFrame;            
           else
             -- got two more bits
             if eth_bit_count = 6 then
@@ -292,15 +363,15 @@ begin  -- behavioural
               if frame_length(10 downto 0) = "11111111000" then
                 -- frame too long -- ignore the rest
                 -- (max frame length = 2048 - 2 length bytes - 4 CRC bytes = 2042 bytes
+                rx_fcs_crc_d_valid <= '0';
                 null;
               else
                 eth_frame_len <= eth_frame_len + 1;
                 rxbuffer_write <= '1';
                 rxbuffer_wdata <= eth_rxd & eth_rxbits;
                 -- update CRC calculation
-                eth_rx_crc
-                  <= unsigned(nextCRC32_D8(std_logic_vector(eth_rxd & eth_rxbits),
-                                           std_logic_vector(eth_rx_crc)));
+                rx_fcs_crc_data_in <= std_logic_vector(eth_rxd & eth_rxbits);
+                rx_fcs_crc_d_valid <= '1';
                 rxbuffer_writeaddress <= eth_frame_len;
               end if;
               eth_bit_count <= 0;
@@ -308,6 +379,7 @@ begin  -- behavioural
               -- shift bits into partial received byte
               eth_bit_count <= eth_bit_count + 2;
               eth_rxbits <= eth_rxd & eth_rxbits(5 downto 2);
+              rx_fcs_crc_d_valid <= '0';
             end if;
           end if;
         when ReceivedFrame =>
@@ -327,19 +399,8 @@ begin  -- behavioural
           eth_state <= ReceivedFrameCRC1;
         when ReceivedFrameCRC1 =>
           rxbuffer_writeaddress <= rxbuffer_writeaddress + 1;
-          rxbuffer_wdata <= eth_rx_crc(7 downto 0);
-          eth_state <= ReceivedFrameCRC2;
-        when ReceivedFrameCRC2 =>
-          rxbuffer_writeaddress <= rxbuffer_writeaddress + 1;
-          rxbuffer_wdata <= eth_rx_crc(15 downto 8);
-          eth_state <= ReceivedFrameCRC3;
-        when ReceivedFrameCRC3 =>
-          rxbuffer_writeaddress <= rxbuffer_writeaddress + 1;
-          rxbuffer_wdata <= eth_rx_crc(23 downto 16);
-          eth_state <= ReceivedFrameCRC4;
-        when ReceivedFrameCRC4 =>
-          rxbuffer_writeaddress <= rxbuffer_writeaddress + 1;
-          rxbuffer_wdata <= eth_rx_crc(31 downto 24);
+          rxbuffer_wdata(7 downto 1) <= (others => '0');
+          rxbuffer_wdata(0) <= rx_crc_valid;
           
           -- record that we have received a frame
           eth_rx_buffer_last_used_50mhz <= not eth_rx_buffer_last_used_50mhz;
