@@ -114,6 +114,7 @@ architecture behavioural of ethernet is
                           WaitBeforeTX,
                           SendingPreamble,
                           SendingFrame,
+                          SendFCS,
                           SentFrame
                           );
   signal eth_state : ethernet_state := Idle;
@@ -155,6 +156,9 @@ architecture behavioural of ethernet is
   signal eth_txen_int : std_logic;
   signal eth_txd_int : unsigned(1 downto 0) := "00";
 
+  signal eth_tx_crc_count : integer range 0 to 16;
+  signal eth_tx_crc_bits : std_logic_vector(31 downto 0) := (others => '0');
+ 
  -- CRC
   signal  rx_fcs_crc_data_in       : std_logic_vector(7 downto 0)  := (others => '0');
   signal  rx_fcs_crc_load_init     : std_logic := '0';
@@ -297,16 +301,31 @@ begin  -- behavioural
             if to_unsigned(txbuffer_readaddress,12) /= eth_tx_size then
               txbuffer_readaddress <= txbuffer_readaddress + 1;
             else
-              -- XXX should now send TX FCS, value will be in tx_crc_out, send
-              -- high-order bytes first.              
-              eth_txen <= '0';
-              eth_txen_int <= '0';
-              eth_tx_state <= SentFrame;
+              -- Now send TX FCS, value will be in tx_crc_reg, send
+              -- high-order bytes first (but low-order bits first).
+              -- This requires some bit munging.
+              eth_tx_state <= SendFCS;
+              eth_tx_crc_bits <= reversed(tx_crc_reg(31 downto 24))
+                                 & reversed(tx_crc_reg(23 downto 16))
+                                 & reversed(tx_crc_reg(15 downto 8))
+                                 & reversed(tx_crc_reg(7 downto 0));
+              eth_tx_crc_count <= 16;
             end if;
           else
             -- Prepare to send next 2 bits next cycle
             eth_tx_bit_count <= eth_tx_bit_count + 2;
             eth_tx_bits <= "00" & eth_tx_bits(7 downto 2);
+          end if;
+        when SendFCS =>
+          if eth_tx_crc_count > 0 then
+            eth_txd <= unsigned(eth_tx_crc_bits(31 downto 30));
+            eth_txd_int <= unsigned(eth_tx_crc_bits(31 downto 30));
+            eth_tx_crc_bits(31 downto 2) <= eth_tx_crc_bits(29 downto 0);
+            eth_tx_crc_count <= eth_tx_crc_count - 1;
+          else
+            eth_txen <= '0';
+            eth_txen_int <= '0';
+            eth_tx_state <= SentFrame;
           end if;
         when SentFrame =>
           -- Wait for eth_tx_trigger to go low
