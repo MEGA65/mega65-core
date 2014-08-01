@@ -148,6 +148,8 @@ architecture behavior of cpu_test is
 
   signal eth_rxdv : std_logic := '0';
   signal eth_rxd : unsigned(1 downto 0) := "00";
+  signal eth_txen : std_logic;
+  signal eth_txd : unsigned(1 downto 0);
   
 begin
   core0: machine
@@ -173,6 +175,8 @@ begin
       tmpInt => '0',
       tmpCT => '0',      
 
+      eth_txd => eth_txd,
+      eth_txen => eth_txen,
       eth_rxd => eth_rxd,
       eth_rxdv => eth_rxdv,
       eth_rxer => '0',
@@ -306,6 +310,18 @@ begin
         clock50mhz <= '1';
         wait for 10 ns;
       end loop;
+    end loop;
+  end process;
+
+  process
+  begin
+    for i in 1 to 200000000 loop
+      if clock50mhz='1' then
+        if eth_txen='1' then
+          report "ETHTX: bits " & to_string(std_logic_vector(eth_txd));
+        end if;
+      end if;
+      wait for 10 ns;
     end loop;
   end process;
   

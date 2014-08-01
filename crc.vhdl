@@ -176,8 +176,8 @@ architecture RTL of CRC is
         variable state : std_logic_vector(2 downto 0);
     begin
         if rising_edge(CLOCK) then
-          report "CRC s_crc_reg = $" & to_hstring(s_crc_reg);
-          report "CRC  reversed  $" & to_hstring(reversed(s_crc_reg));
+--          report "CRC s_crc_reg = $" & to_hstring(s_crc_reg);
+--          report "CRC  reversed  $" & to_hstring(reversed(s_crc_reg));
             if RESET = '1' then
                 s_crc_reg    <= (others => '0');
                 s_crc        <= (others => '0');
@@ -185,7 +185,7 @@ architecture RTL of CRC is
                 state        := (others => '0');
             else
                 state        := LOAD_INIT & CALC & D_VALID;
-                report "CRC: state = " & to_string(state);
+--                report "CRC: state = " & to_string(state);
                 case state is
                     when "000" =>
                         -- No change.

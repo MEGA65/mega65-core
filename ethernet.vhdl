@@ -149,8 +149,8 @@ architecture behavioural of ethernet is
   signal txbuffer_wdata : unsigned(7 downto 0);
   signal txbuffer_rdata : unsigned(7 downto 0);
   signal eth_tx_bits : unsigned(7 downto 0);
-  signal eth_tx_size : unsigned(11 downto 0) := to_unsigned(0,12);
-  signal eth_tx_trigger : std_logic := '0';
+  signal eth_tx_size : unsigned(11 downto 0) := to_unsigned(64,12);
+  signal eth_tx_trigger : std_logic := '1';
   signal eth_tx_commenced : std_logic := '0';
   signal eth_tx_complete : std_logic := '0';
   signal eth_txen_int : std_logic;
@@ -278,6 +278,7 @@ begin  -- behavioural
         when WaitBeforeTX =>
           txbuffer_readaddress <= 0;
           eth_tx_state <= SendingPreamble;
+          tx_fcs_crc_load_init <= '1';
         when SendingPreamble =>
           if tx_preamble_count = 0 then
             eth_txd <= "11";
@@ -286,18 +287,28 @@ begin  -- behavioural
             eth_tx_bit_count <= 0;
             eth_tx_bits <= txbuffer_rdata;
             txbuffer_readaddress <= txbuffer_readaddress + 1;
+            tx_fcs_crc_load_init <= '0';
+            tx_fcs_crc_d_valid <= '1';
+            tx_fcs_crc_calc_en <= '1';
+            tx_fcs_crc_data_in <= std_logic_vector(txbuffer_rdata);
           else
             eth_txd <= "01";
             eth_txd_int <= "01";
             tx_preamble_count <= tx_preamble_count - 1;
           end if;
         when SendingFrame =>
+          tx_fcs_crc_d_valid <= '0';
+          tx_fcs_crc_calc_en <= '0';
           eth_txd <= eth_tx_bits(1 downto 0);
           eth_txd_int <= eth_tx_bits(1 downto 0);
           if eth_tx_bit_count = 6 then
-            -- Prepare to send from next byte
+            -- Prepare to send from next byte            
             eth_tx_bit_count <= 0;
             eth_tx_bits <= txbuffer_rdata;
+            tx_fcs_crc_d_valid <= '1';
+            tx_fcs_crc_calc_en <= '1';
+            tx_fcs_crc_data_in <= std_logic_vector(txbuffer_rdata);
+
             if to_unsigned(txbuffer_readaddress,12) /= eth_tx_size then
               txbuffer_readaddress <= txbuffer_readaddress + 1;
             else
@@ -309,6 +320,7 @@ begin  -- behavioural
                                  & reversed(tx_crc_reg(23 downto 16))
                                  & reversed(tx_crc_reg(15 downto 8))
                                  & reversed(tx_crc_reg(7 downto 0));
+              report "ETHTX: CRC = $" & to_hstring(tx_crc_reg);
               eth_tx_crc_count <= 16;
             end if;
           else
@@ -317,6 +329,7 @@ begin  -- behavioural
             eth_tx_bits <= "00" & eth_tx_bits(7 downto 2);
           end if;
         when SendFCS =>
+          report "ETHTX: writing FCS";
           if eth_tx_crc_count > 0 then
             eth_txd <= unsigned(eth_tx_crc_bits(31 downto 30));
             eth_txd_int <= unsigned(eth_tx_crc_bits(31 downto 30));
