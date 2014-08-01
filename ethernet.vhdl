@@ -215,7 +215,7 @@ begin  -- behavioural
   rx_CRC : CRC
     port map(
       CLOCK           => clock50mhz,
-      RESET           => reset,
+      RESET           => '0',
       DATA            => rx_fcs_crc_data_in,
       LOAD_INIT       => rx_fcs_crc_load_init,
       CALC            => rx_fcs_crc_calc_en,
@@ -228,7 +228,7 @@ begin  -- behavioural
   tx_CRC : CRC
     port map(
       CLOCK           => clock50mhz,
-      RESET           => reset,
+      RESET           => '0',
       DATA            => tx_fcs_crc_data_in,
       LOAD_INIT       => tx_fcs_crc_load_init,
       CALC            => tx_fcs_crc_calc_en,
@@ -326,6 +326,7 @@ begin  -- behavioural
           rxbuffer_write <= '0';
           if eth_rxdv='1' then
             -- start receiving frame
+            report "CRC: Frame carrier detected";
             eth_state <= WaitingForPreamble;
             rx_fcs_crc_load_init <= '1';
             rx_fcs_crc_d_valid <= '0';
@@ -353,8 +354,10 @@ begin  -- behavioural
               null;
             when "11" =>
               -- end of preamble
+              report "CRC: Found end of preamble";
               eth_state <= ReceivingFrame;
             when others =>
+              report "CRC: Rejecting frame due to junk in preamble";
               eth_state <= BadFrame;
           end case;
         when BadFrame =>
@@ -364,6 +367,7 @@ begin  -- behavioural
           rx_fcs_crc_d_valid <= '0';
           rx_fcs_crc_calc_en <= '0';
           if eth_rxdv='0' then
+            report "CRC: Ethernet carrier has stopped.";
             -- finished receiving frame
             -- subtract two length field bytes and four calculated CRC bytes from write address to
             -- obtain actual number of bytes received
@@ -376,6 +380,8 @@ begin  -- behavioural
             rxbuffer_writeaddress <= eth_frame_len;
           else
             -- got two more bits
+            report "CRC: Received bits from RMII: "
+              & to_string(std_logic_vector(eth_rxd));
             if eth_bit_count = 6 then
               -- this makes a byte
               if frame_length(10 downto 0) = "11111111000" then
