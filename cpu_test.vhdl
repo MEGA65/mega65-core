@@ -133,6 +133,22 @@ architecture behavior of cpu_test is
            );
   end component;
 
+  -- Sample ethernet frame to test CRC calculation
+  type ram_t is array (0 to 4095) of unsigned(7 downto 0);
+   signal frame : ram_t := (
+     x"00", x"10", x"A4", x"7B", x"EA", x"80", x"00", x"12",
+     x"34", x"56", x"78", x"90", x"08", x"00", x"45", x"00",
+     x"00", x"2E", x"B3", x"FE", x"00", x"00", x"80", x"11", 
+     x"05", x"40", x"C0", x"A8", x"00", x"2C", x"C0", x"A8",
+     x"00", x"04", x"04", x"00", x"04", x"00", x"00", x"1A",
+     x"2D", x"E8", x"00", x"01", x"02", x"03", x"04", x"05", 
+     x"06", x"07", x"08", x"09", x"0A", x"0B", x"0C", x"0D",
+     x"0E", x"0F", x"10", x"11", x"E6", x"C5", x"3D", x"B2",
+     others => x"00");
+
+  signal eth_rxdv : std_logic := '0';
+  signal eth_rxd : unsigned(1 downto 0) := "00";
+  
 begin
   core0: machine
     port map (
@@ -157,8 +173,8 @@ begin
       tmpInt => '0',
       tmpCT => '0',      
 
-      eth_rxd => "00",
-      eth_rxdv => '0',
+      eth_rxd => eth_rxd,
+      eth_rxdv => eth_rxdv,
       eth_rxer => '0',
       eth_interrupt => '0',
       
@@ -210,13 +226,86 @@ begin
     assert false report "End of simulation" severity failure;
   end process;
 
+  -- Deliver dummy ethernet frames
   process
   begin
-    for i in 1 to 20000000 loop
+    for i in 1 to 20 loop
+      eth_rxdv <= '0'; eth_rxd <= "00";
       clock50mhz <= '0';
       wait for 10 ns;
       clock50mhz <= '1';
       wait for 10 ns;
+      clock50mhz <= '0';
+      wait for 10 ns;
+      clock50mhz <= '1';
+      wait for 10 ns;
+      clock50mhz <= '0';
+      wait for 10 ns;
+      clock50mhz <= '1';
+      wait for 10 ns;
+      clock50mhz <= '0';
+      -- Announce RX carrier
+      eth_rxdv <= '1'; eth_rxd <= "00";
+      wait for 10 ns;
+      clock50mhz <= '1';
+      wait for 10 ns;
+      clock50mhz <= '0';
+      wait for 10 ns;
+      clock50mhz <= '1';
+      wait for 10 ns;
+      -- Send preamble
+      report "CRC: Starting to send preamble";
+      for j in 1 to 31 loop
+        eth_rxd <= "01";
+        clock50mhz <= '0';
+        wait for 10 ns;
+        clock50mhz <= '1';
+        wait for 10 ns;
+      end loop;
+      -- Send end of preamble
+      eth_rxd <= "11";
+      clock50mhz <= '0';
+      wait for 10 ns;
+      clock50mhz <= '1';
+      wait for 10 ns;
+      -- Feed bytes
+      report "CRC: Starting to send frame";
+      for j in 0 to 63 loop
+        eth_rxd <= frame(j)(1 downto 0);
+        clock50mhz <= '0';
+        wait for 10 ns;
+        clock50mhz <= '1';
+        wait for 10 ns;
+        eth_rxd <= frame(j)(3 downto 2);
+        clock50mhz <= '0';
+        wait for 10 ns;
+        clock50mhz <= '1';
+        wait for 10 ns;
+        eth_rxd <= frame(j)(5 downto 4);
+        clock50mhz <= '0';
+        wait for 10 ns;
+        clock50mhz <= '1';
+        wait for 10 ns;
+        eth_rxd <= frame(j)(7 downto 6);
+        clock50mhz <= '0';
+        wait for 10 ns;
+        clock50mhz <= '1';
+        wait for 10 ns;        
+      end loop;
+      -- Disassert carrier
+      eth_rxdv <= '0';
+      clock50mhz <= '0';
+      wait for 10 ns;
+      clock50mhz <= '1';
+      wait for 10 ns;
+
+      -- Wait a few cycles before feeding next frame
+      for j in 1 to 100 loop
+        clock50mhz <= '0';
+        wait for 10 ns;
+        clock50mhz <= '1';
+        wait for 10 ns;
+      end loop;
     end loop;
   end process;
   
