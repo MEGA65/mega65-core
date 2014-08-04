@@ -281,7 +281,7 @@ begin  -- behavioural
           if eth_tx_trigger = '1' then
             eth_tx_commenced <= '1';
             eth_tx_complete <= '0';
-            tx_preamble_count <= 31;
+            tx_preamble_count <= 29;
             eth_txen <= '1';
             eth_txen_int <= '1';
             eth_txd <= "01";
