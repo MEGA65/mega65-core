@@ -126,6 +126,7 @@ architecture behavioral of iomapper is
     clock : in std_logic;
     clock50mhz : in std_logic;
     reset : in std_logic;
+    irq : out std_logic := 'Z';
 
     ---------------------------------------------------------------------------
     -- IO lines to the ethernet controller
@@ -406,6 +407,7 @@ begin
     clock50mhz => clock50mhz,
     clock => clk,
     reset => reset,
+    irq => irq,
 
     ---------------------------------------------------------------------------
     -- IO lines to the ethernet controller

@@ -45,6 +45,7 @@ entity ethernet is
     clock : in std_logic;
     clock50mhz : in std_logic;
     reset : in std_logic;
+    irq : out std_logic := 'Z';
 
     ---------------------------------------------------------------------------
     -- IO lines to the ethernet controller
@@ -124,6 +125,7 @@ architecture behavioural of ethernet is
   -- which half of frame RX buffer is visible
   signal eth_rx_buffer_moby : std_logic := '0';
   -- which half of frame buffer had the most recent frame delivery
+  signal eth_rx_buffer_last_used_48mhz : std_logic := '1';
   signal eth_rx_buffer_last_used : std_logic := '1';
   signal eth_rx_buffer_last_used_int2 : std_logic := '1';
   signal eth_rx_buffer_last_used_int1 : std_logic := '1';
@@ -140,6 +142,11 @@ architecture behavioural of ethernet is
   signal rxbuffer_readaddress : integer range 0 to 4095;
   signal rxbuffer_wdata : unsigned(7 downto 0);
 
+  signal eth_tx_toggle_48mhz : std_logic := '1';
+  signal eth_tx_toggle : std_logic := '1';
+  signal eth_tx_toggle_int2 : std_logic := '1';
+  signal eth_tx_toggle_int1 : std_logic := '1';
+  signal eth_tx_toggle_50mhz : std_logic := '1';
   signal tx_preamble_count : integer range 31 downto 0;
   signal eth_tx_state : ethernet_state := Idle;
   signal eth_tx_bit_count : integer range 0 to 6;
@@ -172,6 +179,12 @@ architecture behavioural of ethernet is
   signal  tx_fcs_crc_d_valid       : std_logic := '0';
   signal  tx_crc_valid             : std_logic := '0';
   signal  tx_crc_reg               : std_logic_vector(31 downto 0) := (others => '0');
+
+ -- IRQ flag handling stuff
+ signal eth_irqenable_rx : std_logic := '1';
+ signal eth_irqenable_tx : std_logic := '1';
+ signal eth_irq_rx : std_logic := '0';
+ signal eth_irq_tx : std_logic := '0'; 
 
  -- Reverse the input vector.
  function reversed(slv: std_logic_vector) return std_logic_vector is
@@ -339,6 +352,7 @@ begin  -- behavioural
             eth_txen <= '0';
             eth_txen_int <= '0';
             eth_tx_state <= SentFrame;
+            eth_tx_toggle_50mhz <= not eth_tx_toggle_50mhz;
           end if;
         when SentFrame =>
           -- Wait for eth_tx_trigger to go low
@@ -514,8 +528,13 @@ begin  -- behavioural
           -- (unused bits = 0 to allow expansion of number of RX buffer slots
           -- from 2 to something bigger)
           when x"41" =>
-            fastio_rdata(7 downto 1) <= (others => '0');
-            fastio_rdata(0) <= eth_rx_buffer_moby;
+            fastio_rdata(7 downto 0) <= (others => '0');
+            fastio_rdata(7) <= eth_irqenable_rx;
+            fastio_rdata(6) <= eth_irqenable_tx;
+            fastio_rdata(3) <= eth_irq_rx;
+            fastio_rdata(2) <= eth_irq_tx;
+            fastio_rdata(1) <= eth_rx_buffer_moby;
+            fastio_rdata(1) <= eth_reset_int;
           -- $DE042 - indicate which half of RX buffer most recently
           -- received a frame.  Value is provided by 50MHz side, so has a few
           -- cycles delay.
@@ -535,7 +554,7 @@ begin  -- behavioural
             fastio_rdata(2) <= eth_tx_complete;
             fastio_rdata(3) <= eth_txen_int;
             fastio_rdata(5 downto 4) <= eth_txd_int(1 downto 0);
-            fastio_rdata(7 downto 6) <= (others => 'Z');
+            fastio_rdata(7 downto 6) <= (others => 'Z');          
           when others => fastio_rdata <= (others => 'Z');
         end case;
       else
@@ -555,18 +574,37 @@ begin  -- behavioural
       
       -- Bring signals accross from 50MHz side as required
       -- (pass through some flip-flops to manage meta-stability)
-      eth_rx_buffer_last_used <= eth_rx_buffer_last_used_int2;
       eth_rx_buffer_last_used_int2 <= eth_rx_buffer_last_used_int1;
       eth_rx_buffer_last_used_int1 <= eth_rx_buffer_last_used_50mhz;      
+      eth_tx_toggle_int2 <= eth_tx_toggle_int1;
+      eth_tx_toggle_int1 <= eth_tx_toggle_50mhz;
       
       -- Update module status based on register reads
       if fastio_read='1' then
         if fastio_addr(19 downto 0) = x"DE000" then
-          -- If the CPU is reading from this register, then in addition to
-          -- reading the register contents asynchronously, do something,
-          -- for example, clear an interrupt status, or tell the ethernet
-          -- controller that the frame buffer is okay to overwrite.
+          null;
         end if;
+      end if;
+
+      -- Assert IRQ if a frame has been received
+      if eth_rx_buffer_last_used_int2 /= eth_rx_buffer_last_used_48mhz then
+        report "ETHRX: Asserting IRQ";
+        eth_irq_rx <= '1';
+        eth_rx_buffer_last_used_48mhz <= eth_rx_buffer_last_used_int2;
+      end if;
+      -- Assert IRQ if a frame has been transmitted
+      if eth_tx_toggle_48mhz /= eth_tx_toggle_int2 then
+        report "ETHTX: Asserting IRQ";
+        eth_irq_tx <= '1';
+        eth_tx_toggle_48mhz <= eth_tx_toggle_int2;
+      end if;
+      
+      -- Assert IRQ if there is a packet waiting, and the interrupt mask is set.
+      if (eth_irqenable_rx='1' and eth_irq_rx='1')
+        or (eth_irqenable_tx='1' and eth_irq_tx='1') then
+        irq <= '0';
+      else
+        irq <= 'Z';
       end if;
 
       -- Write to registers
@@ -589,7 +627,14 @@ begin  -- behavioural
               when x"40" => -- reset pin on ethernet controller
                 eth_reset <= fastio_wdata(0);
                 eth_reset_int <= fastio_wdata(0);
-              when x"41" => -- which half of RX buffer is visible
+              when x"41" =>
+                -- Which interrupts are enabled
+                eth_irqenable_rx <= fastio_wdata(7);
+                eth_irqenable_tx <= fastio_wdata(6);
+                -- Writing here also clears any current interrupts
+                eth_irq_rx <= '0';
+                eth_irq_tx <= '0';
+                -- Set reset line on LAN8720
                 eth_reset <= fastio_wdata(0);
                 eth_reset_int <= fastio_wdata(0);
               when x"42" => -- which half of RX buffer has most recent frame
