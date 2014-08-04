@@ -181,8 +181,8 @@ architecture behavioural of ethernet is
   signal  tx_crc_reg               : std_logic_vector(31 downto 0) := (others => '0');
 
  -- IRQ flag handling stuff
- signal eth_irqenable_rx : std_logic := '1';
- signal eth_irqenable_tx : std_logic := '1';
+ signal eth_irqenable_rx : std_logic := '0';
+ signal eth_irqenable_tx : std_logic := '0';
  signal eth_irq_rx : std_logic := '0';
  signal eth_irq_tx : std_logic := '0'; 
 
