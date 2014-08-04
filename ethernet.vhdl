@@ -106,10 +106,6 @@ architecture behavioural of ethernet is
                           ReceivingFrame,
                           ReceivedFrame,
                           ReceivedFrame2,
-                          ReceivedFrameCRC1,
-                          ReceivedFrameCRC2,
-                          ReceivedFrameCRC3,
-                          ReceivedFrameCRC4,
                           BadFrame,
 
                           WaitBeforeTX,
@@ -371,14 +367,13 @@ begin  -- behavioural
             rx_fcs_crc_load_init <= '1';
             rx_fcs_crc_d_valid <= '0';
             -- Work out where to put received frame.
-            -- In all cases, leave 2 bytes to put the frame length first, and
-            -- also 4 bytes to put the calculated CRC32.
+            -- In all cases, leave 2 bytes to put the frame length first.
             if eth_rx_buffer_last_used_50mhz='0' then
               -- last frame was in bottom half, so write to top half ...
-              eth_frame_len <= 2054;
+              eth_frame_len <= 2050;
             else
               -- ... and vice-versa
-              eth_frame_len <= 6;
+              eth_frame_len <= 2;
             end if;
             eth_bit_count <= 0;
           end if;
@@ -433,9 +428,9 @@ begin  -- behavioural
           if eth_rxdv='0' then
             report "ETHRX: Ethernet carrier has stopped.";
             -- finished receiving frame
-            -- subtract two length field bytes and four calculated CRC bytes from write address to
+            -- subtract two length field bytes to
             -- obtain actual number of bytes received
-            eth_frame_len <= eth_frame_len - 6;
+            eth_frame_len <= eth_frame_len - 2;
             eth_state <= ReceivedFrame;
             -- put a marker at the end of the frame so we can see where it stops in
             -- the RX buffer.
@@ -482,22 +477,17 @@ begin  -- behavioural
           rxbuffer_wdata <= frame_length(7 downto 0);
           eth_state <= ReceivedFrame2;
         when ReceivedFrame2 =>
-          -- write high byte of frame length
+          -- write high byte of frame length + crc failure status
+          -- bit 7 is high if CRC fails, else is low.
+          report "ETHRX: Recording crc_valid = " & std_logic'image(rx_crc_valid);
           rxbuffer_writeaddress <= rxbuffer_writeaddress + 1;
-          rxbuffer_wdata(7 downto 3) <= "00000";
+          rxbuffer_wdata(7) <= not rx_crc_valid;
+          rxbuffer_wdata(6 downto 3) <= "0000";
           rxbuffer_wdata(2 downto 0) <= frame_length(10 downto 8);
-          eth_state <= ReceivedFrameCRC1;
-        when ReceivedFrameCRC1 =>
-          -- Indicate if CRC checked out
-          rxbuffer_writeaddress <= rxbuffer_writeaddress + 1;
-          rxbuffer_wdata(7 downto 1) <= (others => '0');
-          rxbuffer_wdata(0) <= rx_crc_valid;
-          report "CRC: Recording crc_valid = " & std_logic'image(rx_crc_valid);
           -- record that we have received a frame
           eth_rx_buffer_last_used_50mhz <= not eth_rx_buffer_last_used_50mhz;
           -- ready to receive another frame
           eth_state <= Idle;
-          rxbuffer_write <= '1';
         when others =>
           null;
       end case;
