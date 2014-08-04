@@ -497,8 +497,11 @@ begin  -- behavioural
           rxbuffer_wdata(7) <= not rx_crc_valid;
           rxbuffer_wdata(6 downto 3) <= "0000";
           rxbuffer_wdata(2 downto 0) <= frame_length(10 downto 8);
-          -- record that we have received a frame
-          eth_rx_buffer_last_used_50mhz <= not eth_rx_buffer_last_used_50mhz;
+          if rx_crc_valid='1' then
+            -- record that we have received a frame, but only if there was no
+            -- CRC error.
+            eth_rx_buffer_last_used_50mhz <= not eth_rx_buffer_last_used_50mhz;
+          end if;
           -- ready to receive another frame
           eth_state <= Idle;
         when others =>
