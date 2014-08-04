@@ -195,7 +195,7 @@ architecture RTL of CRC is
                     when "010" =>
                         -- No Change                        
                     when "011" =>
-                        report "CRC incorporating byte $" & to_hstring(DATA);
+                        report "CRC incorporating byte $" & to_hstring(DATA) & ", crc before incorporation = $" & to_hstring(s_next_crc);
                         s_crc_reg   <= s_next_crc;
                         s_crc       <= not reversed(s_next_crc(31 downto 24));   
                     when "100" =>
