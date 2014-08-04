@@ -327,14 +327,26 @@ begin
   end process;
 
   process
+    variable txbyte : unsigned(7 downto 0) := x"00";
+    variable txbits : integer range 0 to 7 := 0;
   begin
     for i in 1 to 200000000 loop
       if clock50mhz='1' then
         if eth_txen='1' then
           report "ETHTX: bits " & to_string(std_logic_vector(eth_txd));
+          txbyte := txbyte(5 downto 0) & eth_txd;
+          if txbits = 6 then
+            txbits := 0;
+            report "ETHTX: byte $" & to_hstring(txbyte);
+          else
+            txbits := txbits + 2;
+          end if;
+        else
+          report "ETHTX: bits NO CARRIER";
         end if;
       end if;
       wait for 10 ns;
+      
     end loop;
   end process;
   
