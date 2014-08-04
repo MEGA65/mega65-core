@@ -126,7 +126,6 @@ architecture behavioural of ethernet is
   signal eth_rx_buffer_moby : std_logic := '0';
   -- which half of frame buffer had the most recent frame delivery
   signal eth_rx_buffer_last_used_48mhz : std_logic := '1';
-  signal eth_rx_buffer_last_used : std_logic := '1';
   signal eth_rx_buffer_last_used_int2 : std_logic := '1';
   signal eth_rx_buffer_last_used_int1 : std_logic := '1';
   signal eth_rx_buffer_last_used_50mhz : std_logic := '1';
@@ -528,19 +527,14 @@ begin  -- behavioural
           -- (unused bits = 0 to allow expansion of number of RX buffer slots
           -- from 2 to something bigger)
           when x"41" =>
-            fastio_rdata(7 downto 0) <= (others => '0');
             fastio_rdata(7) <= eth_irqenable_rx;
             fastio_rdata(6) <= eth_irqenable_tx;
-            fastio_rdata(3) <= eth_irq_rx;
-            fastio_rdata(2) <= eth_irq_tx;
+            fastio_rdata(5) <= eth_irq_rx;
+            fastio_rdata(4) <= eth_irq_tx;
+            fastio_rdata(3) <= '0';
+            fastio_rdata(2) <= eth_rx_buffer_last_used_48mhz;
             fastio_rdata(1) <= eth_rx_buffer_moby;
-            fastio_rdata(1) <= eth_reset_int;
-          -- $DE042 - indicate which half of RX buffer most recently
-          -- received a frame.  Value is provided by 50MHz side, so has a few
-          -- cycles delay.
-          when x"42" =>
-            fastio_rdata(7 downto 1) <= (others => '0');
-            fastio_rdata(0) <= eth_rx_buffer_last_used;
+            fastio_rdata(0) <= eth_reset_int;
           -- TX Packet size
           when x"43" =>
             fastio_rdata <= eth_tx_size(7 downto 0);
@@ -637,8 +631,6 @@ begin  -- behavioural
                 -- Set reset line on LAN8720
                 eth_reset <= fastio_wdata(0);
                 eth_reset_int <= fastio_wdata(0);
-              when x"42" => -- which half of RX buffer has most recent frame
-                null;
               -- Set low-order size of frame to TX
               when x"43" =>
                 eth_tx_size(7 downto 0) <= fastio_wdata;
