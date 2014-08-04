@@ -100,6 +100,7 @@ architecture behavioural of ethernet is
   END component;
 
   type ethernet_state is (Idle,
+                          DebugRxFrameWait,DebugRxFrame,DebugRxFrameDone,
                           WaitingForPreamble,
                           ReceivingPreamble,
                           ReceivingFrame,
@@ -118,7 +119,10 @@ architecture behavioural of ethernet is
                           SentFrame
                           );
   signal eth_state : ethernet_state := Idle;
-  
+
+  -- If asserted, collect raw signals for exactly one frame, then do nothing.
+  signal debug_rx : std_logic := '0';
+ 
   -- control reset line on ethernet controller
   signal eth_reset_int : std_logic := '1';
   -- which half of frame RX buffer is visible
@@ -355,6 +359,10 @@ begin  -- behavioural
       frame_length := to_unsigned(eth_frame_len,12);
       case eth_state is
         when Idle =>
+          if debug_rx = '1' then
+            eth_frame_len <= 0;
+            eth_state <= DebugRxFrameWait;
+          end if;
           rxbuffer_write <= '0';
           if eth_rxdv='1' then
             -- start receiving frame
@@ -374,9 +382,33 @@ begin  -- behavioural
             end if;
             eth_bit_count <= 0;
           end if;
+        when DebugRxFrameWait =>
+          if debug_rx = '0' then
+            eth_state <= Idle;
+          end if;
+          if eth_rxdv='1' then
+            eth_state <= DebugRxFrame;
+          end if;
+        when DebugRxFrame =>
+          rxbuffer_writeaddress <= eth_frame_len;
+          rxbuffer_write <= '1';
+          rxbuffer_wdata <= x"00";
+          rxbuffer_wdata(7) <= eth_rxdv;
+          rxbuffer_wdata(6) <= eth_rxer;
+          rxbuffer_wdata(5) <= eth_interrupt;
+          rxbuffer_wdata(1 downto 0) <= eth_rxd;
+          eth_frame_len <= eth_frame_len + 1;
+          if eth_frame_len = 2047 then
+            eth_state <= DebugRxFrameDone;
+          end if;
+        when DebugRxFrameDone =>
+          if debug_rx = '0' then
+            eth_state <= Idle;
+          end if;
         when WaitingForPreamble =>
           rx_fcs_crc_load_init <= '0';
           if eth_rxd = "01" then
+            report "ETHRX: Preamble has started";
             eth_state <= ReceivingPreamble;
           end if;
         when ReceivingPreamble =>
@@ -386,7 +418,7 @@ begin  -- behavioural
               null;
             when "11" =>
               -- end of preamble
-              report "CRC: Found end of preamble";
+              report "ETHRX: Found end of preamble, expecting data to follow";
               eth_state <= ReceivingFrame;
             when others =>
               report "CRC: Rejecting frame due to junk in preamble";
@@ -399,7 +431,7 @@ begin  -- behavioural
           rx_fcs_crc_d_valid <= '0';
           rx_fcs_crc_calc_en <= '0';
           if eth_rxdv='0' then
-            report "CRC: Ethernet carrier has stopped.";
+            report "ETHRX: Ethernet carrier has stopped.";
             -- finished receiving frame
             -- subtract two length field bytes and four calculated CRC bytes from write address to
             -- obtain actual number of bytes received
@@ -412,7 +444,7 @@ begin  -- behavioural
             rxbuffer_writeaddress <= eth_frame_len;
           else
             -- got two more bits
-            report "CRC: Received bits from RMII: "
+            report "ETHRX: Received bits from RMII: "
               & to_string(std_logic_vector(eth_rxd));
             if eth_bit_count = 6 then
               -- this makes a byte
@@ -423,10 +455,11 @@ begin  -- behavioural
               else
                 eth_frame_len <= eth_frame_len + 1;
                 rxbuffer_write <= '1';
+                report "ETHRX: Received byte $" & to_hstring(eth_rxd & eth_rxbits);
                 rxbuffer_wdata <= eth_rxd & eth_rxbits;
                 rxbuffer_writeaddress <= eth_frame_len;
                 -- update CRC calculation
-                rx_fcs_crc_data_in <= reversed(std_logic_vector(eth_rxd & eth_rxbits));
+                rx_fcs_crc_data_in <= std_logic_vector(eth_rxd & eth_rxbits);
                 rx_fcs_crc_d_valid <= '1';
                 rx_fcs_crc_calc_en <= '1';
               end if;
@@ -449,7 +482,7 @@ begin  -- behavioural
           rxbuffer_wdata <= frame_length(7 downto 0);
           eth_state <= ReceivedFrame2;
         when ReceivedFrame2 =>
-          -- write low byte of frame length
+          -- write high byte of frame length
           rxbuffer_writeaddress <= rxbuffer_writeaddress + 1;
           rxbuffer_wdata(7 downto 3) <= "00000";
           rxbuffer_wdata(2 downto 0) <= frame_length(10 downto 8);
@@ -459,7 +492,7 @@ begin  -- behavioural
           rxbuffer_writeaddress <= rxbuffer_writeaddress + 1;
           rxbuffer_wdata(7 downto 1) <= (others => '0');
           rxbuffer_wdata(0) <= rx_crc_valid;
-          
+          report "CRC: Recording crc_valid = " & std_logic'image(rx_crc_valid);
           -- record that we have received a frame
           eth_rx_buffer_last_used_50mhz <= not eth_rx_buffer_last_used_50mhz;
           -- ready to receive another frame
@@ -579,11 +612,19 @@ begin  -- behavioural
                 eth_tx_size(11 downto 8) <= fastio_wdata(3 downto 0);
               -- Send frame in TX buffer
               when x"45" =>
-                if fastio_wdata = x"01" then
-                  if eth_tx_commenced='0' then
-                    eth_tx_trigger <= '1';
-                  end if;
-                end if;
+                case fastio_wdata is
+                  when x"01" => 
+                    if eth_tx_commenced='0' then
+                      eth_tx_trigger <= '1';
+                    end if;
+                  when x"de" => -- debug rx
+                    -- Receive exactly one frame, and keep all signals states
+                    debug_rx <= '1';
+                  when x"d0" => -- disable rx debug
+                    debug_rx <= '0';
+                  when others =>
+                    null;
+                end case;
               when others =>
                 -- Other registers do nothing
                 null;
