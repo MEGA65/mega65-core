@@ -328,10 +328,10 @@ begin  -- behavioural
               -- high-order bytes first (but low-order bits first).
               -- This requires some bit munging.
               eth_tx_state <= SendFCS;
-              eth_tx_crc_bits <= reversed(tx_crc_reg(31 downto 24))
-                                 & reversed(tx_crc_reg(23 downto 16))
-                                 & reversed(tx_crc_reg(15 downto 8))
-                                 & reversed(tx_crc_reg(7 downto 0));
+              eth_tx_crc_bits <= not (reversed(tx_crc_reg(31 downto 24))
+                                      & reversed(tx_crc_reg(23 downto 16))
+                                      & reversed(tx_crc_reg(15 downto 8))
+                                      & reversed(tx_crc_reg(7 downto 0)));
               report "ETHTX: CRC = $" & to_hstring(tx_crc_reg);
               eth_tx_crc_count <= 16;
             end if;
@@ -492,7 +492,7 @@ begin  -- behavioural
         when ReceivedFrame2 =>
           -- write high byte of frame length + crc failure status
           -- bit 7 is high if CRC fails, else is low.
-          report "ETHRX: Recording crc_valid = " & std_logic'image(rx_crc_valid);
+          report "ETHRX: Recording crc_valid = " & std_logic'image(rx_crc_valid) & "   (CRC = $"& to_hstring(rx_crc_reg)&")";
           rxbuffer_writeaddress <= rxbuffer_writeaddress + 1;
           rxbuffer_wdata(7) <= not rx_crc_valid;
           rxbuffer_wdata(6 downto 3) <= "0000";
