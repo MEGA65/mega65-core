@@ -205,6 +205,7 @@ end component;
   signal word_flag : std_logic := '0';
 
   -- DMAgic registers
+  signal dmagic_list_counter : integer range 0 to 12;
   signal reg_dmagic_addr : unsigned(27 downto 0) := x"0000000";
   signal reg_dmagic_withio : std_logic;
   signal reg_dmagic_status : unsigned(7 downto 0) := x"00";
@@ -225,6 +226,10 @@ end component;
   signal dmagic_dest_modulo : std_logic;
   signal dmagic_dest_hold : std_logic;
   signal dmagic_modulo : unsigned(15 downto 0);
+  -- Temporary registers used while loading DMA list
+  signal dmagic_dest_bank_temp : unsigned(7 downto 0);
+  signal dmagic_src_bank_temp : unsigned(7 downto 0);
+
 
   -- CPU internal state
   signal flag_c : std_logic;        -- carry flag
@@ -362,7 +367,8 @@ end component;
     VectorRead1,VectorRead2,VectorRead3, 
 
     -- DMAgic
-    DMAgicTrigger,DMAgicReadList,DMAgicRead,DMAgicWrite,
+    DMAgicTrigger,DMAgicReadList,DMAgicGetReady,
+    DMAgicRead,DMAgicWrite,
 
     -- Normal instructions
     InstructionWait,                    -- Wait for PC to become available on
@@ -1176,26 +1182,8 @@ begin
       if (long_address = x"FFD3700") or (long_address = x"FFD1700") then        
         -- Set low order bits of DMA list address
         reg_dmagic_addr(7 downto 0) <= value;
-        -- Remember that after this instruction we want to perform the
-        -- DMA.
-        dma_pending <= '1';
-        dma_checksum <= x"000000";
-        reg_dmacount <= reg_dmacount + 1;
-      -- NOTE: DMAgic in C65 prototypes might not use the same list format as
-      -- in the C65 specifications manual (as the manual warns).
-      -- So need to double check how it is used in the C65 ROM.
-      -- From the ROMs, it appears that the list format is:
-      -- list+$00 = command
-      -- list+$01 = count bit7-0
-      -- list+$02 = count bit15-8
-      -- list+$03 = source address bit7-0
-      -- list+$04 = source address bit15-8
-      -- list+$05 = source address bank
-      -- list+$06 = dest address bit7-0
-      -- list+$07 = dest address bit15-8
-      -- list+$08 = dest address bank
-      -- list+$09 = modulo bit7-0
-      -- list+$0a = modulo bit15-8
+        -- DMA gets triggered when we write here. That actually happens through
+        -- memory_access_write.
       elsif (long_address = x"FFD370E") or (long_address = x"FFD170E") then
         -- Set low order bits of DMA list address, without starting
         reg_dmagic_addr(7 downto 0) <= value;
@@ -1669,7 +1657,6 @@ begin
         monitor_mem_trace_toggle_last <= monitor_mem_trace_toggle;
         normal_fetch_state <= InstructionFetch;
         fast_fetch_state <= InstructionDecode;
-
       else
         normal_fetch_state <= ProcessorHold;
         fast_fetch_state <= ProcessorHold;
@@ -1889,7 +1876,63 @@ begin
               else
                 monitor_mem_attention_granted <= '0';
                 state <= ProcessorHold;
-              end if;    
+              end if;
+            when DMAgicTrigger =>
+              -- Clear DMA pending flag
+              report "DMAgic: Processing DMA request";
+              dma_pending <= '0';
+              -- Begin to load DMA registers
+              -- We load them from the 20 bit address stored $D700 - $D702
+              -- plus the 8-bit MB value in $D704
+              memory_access_address := reg_dmagic_addr;
+              memory_access_resolve_address := '0';
+              memory_access_read := '1';
+              state <= DMAgicReadList;
+              dmagic_list_counter <= 0;
+            when DMAgicReadList =>
+              -- ask for next byte from DMA list
+              memory_access_address := memory_access_address + 1;
+              memory_access_resolve_address := '0';
+              memory_access_read := '1';
+              -- shift read byte into DMA registers and shift everything around
+              dmagic_modulo(15 downto 8) <= memory_read_value;
+              dmagic_modulo(7 downto 0) <= dmagic_modulo(15 downto 8);
+              dmagic_dest_bank_temp <= dmagic_modulo(7 downto 0);
+              dmagic_dest_addr(15 downto 8) <= dmagic_dest_bank_temp;
+              dmagic_dest_addr(7 downto 0) <= dmagic_dest_addr(15 downto 8);
+              dmagic_src_bank_temp <= dmagic_dest_addr(7 downto 0);
+              dmagic_src_addr(15 downto 8) <= dmagic_src_bank_temp;
+              dmagic_src_addr(7 downto 0) <= dmagic_src_addr(15 downto 8);
+              dmagic_count(15 downto 8) <= dmagic_src_addr(7 downto 0);
+              dmagic_count(7 downto 0) <= dmagic_count(15 downto 8);
+              dmagic_cmd <= dmagic_count(7 downto 0);
+              dmagic_list_counter <= dmagic_list_counter + 1;
+              if dmagic_list_counter = 11 then
+                state <= DMAgicGetReady;
+              end if;
+            when DMAgicGetReady =>
+              report "DMAgic: got list.";
+              dmagic_src_addr(27 downto 20) <= (others => '0');
+              dmagic_src_addr(19 downto 16) <= dmagic_src_bank_temp(3 downto 0);
+              dmagic_dest_addr(27 downto 20) <= (others => '0');
+              dmagic_dest_addr(19 downto 16) <= dmagic_dest_bank_temp(3 downto 0);
+              dmagic_src_io <= dmagic_src_bank_temp(7);
+              dmagic_src_direction <= dmagic_src_bank_temp(6);
+              dmagic_src_modulo <= dmagic_src_bank_temp(5);
+              dmagic_src_hold <= dmagic_src_bank_temp(4);
+              dmagic_dest_io <= dmagic_dest_bank_temp(7);
+              dmagic_dest_direction <= dmagic_dest_bank_temp(6);
+              dmagic_dest_modulo <= dmagic_dest_bank_temp(5);
+              dmagic_dest_hold <= dmagic_dest_bank_temp(4);
+              case dmagic_cmd(1 downto 0) is
+                when "11" => -- fill
+                  state <= normal_fetch_state;
+                when "00" => -- copy
+                  state <= normal_fetch_state;
+                when others =>
+                  -- swap and mix not yet implemented
+                  state <= normal_fetch_state;
+              end case;
             when InstructionWait =>
               state <= InstructionFetch;
             when InstructionFetch =>
@@ -2842,10 +2885,18 @@ begin
         -- We delay the memory write until the next cycle to minimise logic depth
         if memory_access_write='1' then
           if memory_access_resolve_address = '1' then
-            write_data(memory_access_address(15 downto 0),memory_access_wdata);
-          else 
-            write_long_byte(memory_access_address,memory_access_wdata);
+            memory_access_address := resolve_address_to_long(memory_access_address(15 downto 0),true);
           end if;
+          if memory_access_address = x"FFD3700"
+            or memory_access_address = x"FFD1700" then
+            report "DMAgic: DMA pending";
+            dma_pending <= '1';
+            state <= DMAgicReadList;
+            -- Don't increment PC if we were otherwise going to shortcut to
+            -- InstructionDecode next cycle
+            reg_pc <= reg_pc;
+          end if;
+          write_long_byte(memory_access_address,memory_access_wdata);
         elsif memory_access_read='1' then 
           report "memory_access_read=1, addres=$"&to_hstring(memory_access_address) severity note;
           if memory_access_resolve_address = '1' then
