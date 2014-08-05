@@ -156,7 +156,7 @@ architecture behavioural of ethernet is
   signal txbuffer_rdata : unsigned(7 downto 0);
   signal eth_tx_bits : unsigned(7 downto 0);
   signal eth_tx_size : unsigned(11 downto 0) := to_unsigned(98,12);
-  signal eth_tx_trigger : std_logic := '1';
+  signal eth_tx_trigger : std_logic := '0';
   signal eth_tx_commenced : std_logic := '0';
   signal eth_tx_complete : std_logic := '0';
   signal eth_txen_int : std_logic;
