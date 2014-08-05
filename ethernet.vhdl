@@ -155,8 +155,8 @@ architecture behavioural of ethernet is
   signal txbuffer_wdata : unsigned(7 downto 0);
   signal txbuffer_rdata : unsigned(7 downto 0);
   signal eth_tx_bits : unsigned(7 downto 0);
-  signal eth_tx_size : unsigned(11 downto 0) := to_unsigned(64,12);
-  signal eth_tx_trigger : std_logic := '0';
+  signal eth_tx_size : unsigned(11 downto 0) := to_unsigned(98,12);
+  signal eth_tx_trigger : std_logic := '1';
   signal eth_tx_commenced : std_logic := '0';
   signal eth_tx_complete : std_logic := '0';
   signal eth_txen_int : std_logic;
@@ -314,7 +314,7 @@ begin  -- behavioural
           eth_txd <= eth_tx_bits(1 downto 0);
           eth_txd_int <= eth_tx_bits(1 downto 0);
           if eth_tx_bit_count = 6 then
-            -- Prepare to send from next byte            
+            -- Prepare to send from next byte
             eth_tx_bit_count <= 0;
             eth_tx_bits <= txbuffer_rdata;
             tx_fcs_crc_d_valid <= '1';
@@ -328,10 +328,10 @@ begin  -- behavioural
               -- high-order bytes first (but low-order bits first).
               -- This requires some bit munging.
               eth_tx_state <= SendFCS;
-              eth_tx_crc_bits <= not (reversed(tx_crc_reg(31 downto 24))
-                                      & reversed(tx_crc_reg(23 downto 16))
-                                      & reversed(tx_crc_reg(15 downto 8))
-                                      & reversed(tx_crc_reg(7 downto 0)));
+              eth_tx_crc_bits <= not (tx_crc_reg(31 downto 24)
+                                      & tx_crc_reg(23 downto 16)
+                                      & tx_crc_reg(15 downto 8)
+                                      & tx_crc_reg(7 downto 0));
               report "ETHTX: CRC = $" & to_hstring(tx_crc_reg);
               eth_tx_crc_count <= 16;
             end if;
@@ -342,8 +342,9 @@ begin  -- behavioural
           end if;
         when SendFCS =>
           report "ETHTX: writing FCS";
-          if eth_tx_crc_count > 0 then
-            eth_txd <= unsigned(eth_tx_crc_bits(31 downto 30));
+          if eth_tx_crc_count /= 0 then
+            eth_txd(0) <= eth_tx_crc_bits(31);
+            eth_txd(1) <= eth_tx_crc_bits(30);
             eth_txd_int <= unsigned(eth_tx_crc_bits(31 downto 30));
             eth_tx_crc_bits(31 downto 2) <= eth_tx_crc_bits(29 downto 0);
             eth_tx_crc_count <= eth_tx_crc_count - 1;
