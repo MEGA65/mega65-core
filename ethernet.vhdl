@@ -517,20 +517,18 @@ begin  -- behavioural
   begin
 
     if fastio_read='1' then
-      if (fastio_addr(19 downto 8) = x"DE0") then
-        case fastio_addr(7 downto 0) is
-          -- Registers $00 - $3F map to ethernet MDIO registers
-
-          -- $DE040 - controls reset pin of ethernet controller
-          when x"40" =>
+      if (fastio_addr(19 downto 4) = x"D36E") then
+        case fastio_addr(3 downto 0) is
+          -- $D6E0 - controls reset pin of ethernet controller
+          when x"0" =>
             fastio_rdata(7 downto 4) <= (others => 'Z');
             fastio_rdata(3) <= eth_rxdv;
             fastio_rdata(2 downto 1) <= eth_rxd;
             fastio_rdata(0) <= eth_reset_int;
-          -- $DE041 - control which half of RX buffer is visible
+          -- $D6E1 - control which half of RX buffer is visible
           -- (unused bits = 0 to allow expansion of number of RX buffer slots
           -- from 2 to something bigger)
-          when x"41" =>
+          when x"1" =>
             fastio_rdata(7) <= eth_irqenable_rx;
             fastio_rdata(6) <= eth_irqenable_tx;
             fastio_rdata(5) <= eth_irq_rx;
@@ -539,20 +537,28 @@ begin  -- behavioural
             fastio_rdata(2) <= eth_rx_buffer_last_used_48mhz;
             fastio_rdata(1) <= eth_rx_buffer_moby;
             fastio_rdata(0) <= eth_reset_int;
-          -- TX Packet size
-          when x"43" =>
+          -- $D6E2 - TX Packet size
+          when x"2" =>
             fastio_rdata <= eth_tx_size(7 downto 0);
-          when x"44" =>
+            -- $D6E3 - TX Packet size (high byte)
+          when x"3" =>
             fastio_rdata(7 downto 4) <= "0000";
             fastio_rdata(3 downto 0) <= eth_tx_size(11 downto 8);
-          -- Status of frame transmitter
-          when x"45"  =>
+          -- $D6E4 - Status of frame transmitter
+          when x"4"  =>
             fastio_rdata(0) <= eth_tx_trigger;
             fastio_rdata(1) <= eth_tx_commenced;
             fastio_rdata(2) <= eth_tx_complete;
             fastio_rdata(3) <= eth_txen_int;
             fastio_rdata(5 downto 4) <= eth_txd_int(1 downto 0);
-            fastio_rdata(7 downto 6) <= (others => 'Z');          
+            fastio_rdata(7 downto 6) <= (others => 'Z');
+          when others =>
+            fastio_rdata <= (others => 'Z');
+        end case;
+      end if;
+      if (fastio_addr(19 downto 8) = x"DE0") then
+        case fastio_addr(7 downto 0) is
+          -- Registers $00 - $3F map to ethernet MDIO registers
           when others => fastio_rdata <= (others => 'Z');
         end case;
       else
@@ -616,50 +622,52 @@ begin  -- behavioural
           txbuffer_write <= '1';
           txbuffer_wdata <= fastio_wdata;
         end if;
+        if (fastio_addr(19 downto 4) = x"D36E") then
+          case fastio_addr(3 downto 0) is
+            when x"0" => -- reset pin on ethernet controller
+              eth_reset <= fastio_wdata(0);
+              eth_reset_int <= fastio_wdata(0);
+            when x"1" =>
+              -- Which interrupts are enabled
+              eth_irqenable_rx <= fastio_wdata(7);
+              eth_irqenable_tx <= fastio_wdata(6);
+              -- Writing here also clears any current interrupts
+              eth_irq_rx <= '0';
+              eth_irq_tx <= '0';
+              -- Set reset line on LAN8720
+              eth_reset <= fastio_wdata(0);
+              eth_reset_int <= fastio_wdata(0);
+            -- Set low-order size of frame to TX
+            when x"2" =>
+              eth_tx_size(7 downto 0) <= fastio_wdata;
+            -- Set high-order size of frame to TX
+            when x"3" =>
+              eth_tx_size(11 downto 8) <= fastio_wdata(3 downto 0);
+            -- Send frame in TX buffer
+            when x"4" =>
+              case fastio_wdata is
+                when x"01" => 
+                  if eth_tx_commenced='0' then
+                    eth_tx_trigger <= '1';
+                  end if;
+                when x"de" => -- debug rx
+                  -- Receive exactly one frame, and keep all signals states
+                  debug_rx <= '1';
+                when x"d0" => -- disable rx debug
+                  debug_rx <= '0';
+                when others =>
+                  null;
+              end case;
+            when others =>
+              -- Other registers do nothing
+              null;
+          end case;
+        end if;
         if fastio_addr(19 downto 8) = x"DE0" then
           if fastio_addr(7 downto 6) = "00" then
             -- Writing to ethernet controller MD registers
           else
             -- Other registers
-            case fastio_addr(7 downto 0) is
-              when x"40" => -- reset pin on ethernet controller
-                eth_reset <= fastio_wdata(0);
-                eth_reset_int <= fastio_wdata(0);
-              when x"41" =>
-                -- Which interrupts are enabled
-                eth_irqenable_rx <= fastio_wdata(7);
-                eth_irqenable_tx <= fastio_wdata(6);
-                -- Writing here also clears any current interrupts
-                eth_irq_rx <= '0';
-                eth_irq_tx <= '0';
-                -- Set reset line on LAN8720
-                eth_reset <= fastio_wdata(0);
-                eth_reset_int <= fastio_wdata(0);
-              -- Set low-order size of frame to TX
-              when x"43" =>
-                eth_tx_size(7 downto 0) <= fastio_wdata;
-              -- Set high-order size of frame to TX
-              when x"44" =>
-                eth_tx_size(11 downto 8) <= fastio_wdata(3 downto 0);
-              -- Send frame in TX buffer
-              when x"45" =>
-                case fastio_wdata is
-                  when x"01" => 
-                    if eth_tx_commenced='0' then
-                      eth_tx_trigger <= '1';
-                    end if;
-                  when x"de" => -- debug rx
-                    -- Receive exactly one frame, and keep all signals states
-                    debug_rx <= '1';
-                  when x"d0" => -- disable rx debug
-                    debug_rx <= '0';
-                  when others =>
-                    null;
-                end case;
-              when others =>
-                -- Other registers do nothing
-                null;
-            end case;
           end if;
         end if;
       end if;
