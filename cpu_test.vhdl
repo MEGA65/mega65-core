@@ -338,7 +338,7 @@ begin
       if clock50mhz='1' then
         if eth_txen='1' then
           report "ETHTX: bits " & to_string(std_logic_vector(eth_txd));
-          txbyte := txbyte(5 downto 0) & eth_txd;
+          txbyte := eth_txd & txbyte(7 downto 2);
           if txbits = 6 then
             txbits := 0;
             report "ETHTX: byte $" & to_hstring(txbyte);
