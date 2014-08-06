@@ -368,6 +368,7 @@ end component;
 
     -- DMAgic
     DMAgicTrigger,DMAgicReadList,DMAgicGetReady,
+    DMAgicFill,
     DMAgicRead,DMAgicWrite,
 
     -- Normal instructions
@@ -1885,13 +1886,15 @@ begin
               -- We load them from the 20 bit address stored $D700 - $D702
               -- plus the 8-bit MB value in $D704
               memory_access_address := reg_dmagic_addr;
+              reg_dmagic_addr <= reg_dmagic_addr + 1;
               memory_access_resolve_address := '0';
               memory_access_read := '1';
               state <= DMAgicReadList;
               dmagic_list_counter <= 0;
             when DMAgicReadList =>
               -- ask for next byte from DMA list
-              memory_access_address := memory_access_address + 1;
+              reg_dmagic_addr <= reg_dmagic_addr + 1;
+              memory_access_address := reg_dmagic_addr;
               memory_access_resolve_address := '0';
               memory_access_read := '1';
               -- shift read byte into DMA registers and shift everything around
@@ -1925,14 +1928,51 @@ begin
               dmagic_dest_modulo <= dmagic_dest_bank_temp(5);
               dmagic_dest_hold <= dmagic_dest_bank_temp(4);
               case dmagic_cmd(1 downto 0) is
+                
                 when "11" => -- fill
-                  state <= normal_fetch_state;
+                  state <= DMAgicFill;
                 when "00" => -- copy
                   state <= normal_fetch_state;
                 when others =>
                   -- swap and mix not yet implemented
                   state <= normal_fetch_state;
               end case;
+            when DMAgicFill =>
+              -- Fill memory at dmagic_dest_addr with dmagic_src_addr(7 downto
+              -- 0)
+
+              -- Do memory write
+              memory_access_write := '1';
+              memory_access_wdata := dmagic_src_addr(7 downto 0);
+              memory_access_resolve_address := '0';
+              memory_access_address := dmagic_dest_addr;
+
+              -- redirect memory write to IO block if required
+              if dmagic_dest_addr(15 downto 12) = x"d" and dmagic_dest_io='1' then
+                memory_access_address(27 downto 12) := x"FFD3";
+              end if;
+              
+              -- Update address and check for end of job.
+              -- XXX Ignores modulus
+              if dmagic_dest_hold='0' then
+                if dmagic_dest_direction='0' then
+                  dmagic_dest_addr <= dmagic_dest_addr + 1;
+                else
+                  dmagic_dest_addr <= dmagic_dest_addr - 1;
+                end if;
+              end if;
+              if dmagic_count = 0 then
+                -- DMA done
+                if dmagic_cmd(2) = '0' then
+                  -- Last DMA job in chain, go back to executing instructions
+                  state <= normal_fetch_state;
+                else
+                  -- Chain to next DMA job
+                  state <= DMAgicReadList;
+                end if;
+              else
+                dmagic_count <= dmagic_count + 1;
+              end if;
             when InstructionWait =>
               state <= InstructionFetch;
             when InstructionFetch =>
