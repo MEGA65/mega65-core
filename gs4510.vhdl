@@ -1990,7 +1990,7 @@ begin
               -- and can read or write on every cycle.
               -- so we need to read the first byte now.
 
-              -- Do initial memory read
+              -- Do memory read
               memory_access_read := '1';
               memory_access_resolve_address := '0';
               memory_access_address := dmagic_src_addr;
@@ -2015,6 +2015,8 @@ begin
               -- Remember value just read
               dmagic_first_read <= '0';
               reg_t <= memory_read_value;
+
+              state <= DMAgicCopyRead;
 
               if dmagic_first_read = '0' then
                 -- Do memory write
@@ -2054,7 +2056,6 @@ begin
                   end if;
                 else
                   dmagic_count <= dmagic_count - 1;
-                  state <= DMAgicCopyRead;
                 end if;
               end if;
             when InstructionWait =>
