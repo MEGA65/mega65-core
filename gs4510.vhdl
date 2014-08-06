@@ -206,6 +206,7 @@ end component;
 
   -- DMAgic registers
   signal dmagic_list_counter : integer range 0 to 12;
+  signal dmagic_first_read : std_logic;
   signal reg_dmagic_addr : unsigned(27 downto 0) := x"0000000";
   signal reg_dmagic_withio : std_logic;
   signal reg_dmagic_status : unsigned(7 downto 0) := x"00";
@@ -369,6 +370,7 @@ end component;
     -- DMAgic
     DMAgicTrigger,DMAgicReadList,DMAgicGetReady,
     DMAgicFill,
+    DMAgicCopyRead,DMAgicCopyWrite,
     DMAgicRead,DMAgicWrite,
 
     -- Normal instructions
@@ -1934,7 +1936,8 @@ begin
                 when "11" => -- fill
                   state <= DMAgicFill;
                 when "00" => -- copy
-                  state <= normal_fetch_state;
+                  dmagic_first_read <= '1';
+                  state <= DMagicCopyRead;
                 when others =>
                   -- swap and mix not yet implemented
                   state <= normal_fetch_state;
@@ -1980,6 +1983,79 @@ begin
                 end if;
               else
                 dmagic_count <= dmagic_count - 1;
+              end if;
+            when DMAgicCopyRead =>
+              -- We can't write a value the immediate cycle we read it, so
+              -- we need to read one byte ahead, so that we have a 1 byte buffer
+              -- and can read or write on every cycle.
+              -- so we need to read the first byte now.
+
+              -- Do initial memory read
+              memory_access_read := '1';
+              memory_access_resolve_address := '0';
+              memory_access_address := dmagic_src_addr;
+
+              -- redirect memory write to IO block if required
+              if dmagic_src_addr(15 downto 12) = x"d" and dmagic_src_io='1' then
+                memory_access_address(27 downto 12) := x"FFD3";
+              end if;
+              
+              -- Update source address.
+              -- XXX Ignores modulus, whose behaviour is insufficiently defined
+              -- in the C65 specifications document
+              if dmagic_src_hold='0' then
+                if dmagic_src_direction='0' then
+                  dmagic_src_addr <= dmagic_src_addr + 1;
+                else
+                  dmagic_src_addr <= dmagic_src_addr - 1;
+                end if;
+              end if;
+              state <= DMAgicCopyWrite;
+            when DMAgicCopyWrite =>
+              -- Remember value just read
+              dmagic_first_read <= '0';
+              reg_t <= memory_read_value;
+
+              if dmagic_first_read = '0' then
+                -- Do memory write
+                memory_access_write := '1';
+                memory_access_wdata := reg_t;
+                memory_access_resolve_address := '0';
+                memory_access_address := dmagic_dest_addr;
+
+                -- redirect memory write to IO block if required
+                if dmagic_dest_addr(15 downto 12) = x"d" and dmagic_dest_io='1' then
+                  memory_access_address(27 downto 12) := x"FFD3";
+                end if;
+              
+                -- Update address and check for end of job.
+                -- XXX Ignores modulus, whose behaviour is insufficiently defined
+                -- in the C65 specifications document
+                if dmagic_dest_hold='0' then
+                  if dmagic_dest_direction='0' then
+                    dmagic_dest_addr <= dmagic_dest_addr + 1;
+                  else
+                    dmagic_dest_addr <= dmagic_dest_addr - 1;
+                  end if;
+                end if;
+                -- XXX we compare count with 1 before decrementing.
+                -- This means a count of zero is really a count of 64KB, which is
+                -- probably different to on a real C65, but this is untested.
+                if dmagic_count = 1 then
+                  -- DMA done
+                  report "DMAgic: DMA complete";
+                  if dmagic_cmd(2) = '0' then
+                    -- Last DMA job in chain, go back to executing instructions
+                    state <= normal_fetch_state;
+                  else
+                    -- Chain to next DMA job
+                    dmagic_list_counter <= 0;
+                    state <= DMAgicReadList;
+                  end if;
+                else
+                  dmagic_count <= dmagic_count - 1;
+                  state <= DMAgicCopyRead;
+                end if;
               end if;
             when InstructionWait =>
               state <= InstructionFetch;
