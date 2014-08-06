@@ -1892,6 +1892,7 @@ begin
               state <= DMAgicReadList;
               dmagic_list_counter <= 0;
             when DMAgicReadList =>
+              report "DMAgic: Reading DMA list";
               -- ask for next byte from DMA list
               reg_dmagic_addr <= reg_dmagic_addr + 1;
               memory_access_address := reg_dmagic_addr;
@@ -1913,6 +1914,7 @@ begin
               if dmagic_list_counter = 11 then
                 state <= DMAgicGetReady;
               end if;
+              report "DMAgic: Reading DMA list (end of cycle)";
             when DMAgicGetReady =>
               report "DMAgic: got list.";
               dmagic_src_addr(27 downto 20) <= (others => '0');
@@ -1927,8 +1929,7 @@ begin
               dmagic_dest_direction <= dmagic_dest_bank_temp(6);
               dmagic_dest_modulo <= dmagic_dest_bank_temp(5);
               dmagic_dest_hold <= dmagic_dest_bank_temp(4);
-              case dmagic_cmd(1 downto 0) is
-                
+              case dmagic_cmd(1 downto 0) is                
                 when "11" => -- fill
                   state <= DMAgicFill;
                 when "00" => -- copy
@@ -1962,17 +1963,22 @@ begin
                   dmagic_dest_addr <= dmagic_dest_addr - 1;
                 end if;
               end if;
-              if dmagic_count = 0 then
+              -- XXX we compare count with 1 before decrementing.
+              -- This means a count of zero is really a count of 64KB, which is
+              -- probably different to on a real C65, but this is untested.
+              if dmagic_count = 1 then
                 -- DMA done
+                report "DMAgic: DMA complete";
                 if dmagic_cmd(2) = '0' then
                   -- Last DMA job in chain, go back to executing instructions
                   state <= normal_fetch_state;
                 else
                   -- Chain to next DMA job
+                  dmagic_list_counter <= 0;
                   state <= DMAgicReadList;
                 end if;
               else
-                dmagic_count <= dmagic_count + 1;
+                dmagic_count <= dmagic_count - 1;
               end if;
             when InstructionWait =>
               state <= InstructionFetch;
