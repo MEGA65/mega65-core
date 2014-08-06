@@ -24,7 +24,10 @@ architecture behavior of cpu_test is
   signal vgagreen : unsigned(3 downto 0);
   signal vgablue : unsigned(3 downto 0);
 
+  signal slowram_oe : std_logic;
   signal slowram_data : std_logic_vector(15 downto 0);
+  signal slowram_addr : std_logic_vector(22 downto 0);
+  signal slowram_addr_integer : integer range 0 to 65535;
   
   signal led0 : std_logic;
   signal led1 : std_logic;
@@ -38,6 +41,14 @@ architecture behavior of cpu_test is
   
   signal sseg_ca : std_logic_vector(7 downto 0);
   signal sseg_an : std_logic_vector(7 downto 0);
+
+  component slowram is
+  port (address : in integer range 0 to 65535;
+        -- output enable, active high       
+        oe : in std_logic;
+        data_o : out unsigned(15 downto 0)
+        );
+  end component;
   
   component machine is
     Port ( pixelclock : STD_LOGIC;
@@ -168,6 +179,12 @@ architecture behavior of cpu_test is
   signal eth_txd : unsigned(1 downto 0);
   
 begin
+  slowram0: slowram
+    port map(address => slowram_addr_integer,
+             oe => slowram_oe,
+             std_logic_vector(data_o) => slowram_data
+             );
+
   core0: machine
     port map (
       pixelclock      => pixelclock,
@@ -199,6 +216,8 @@ begin
       eth_interrupt => '0',
       
       slowram_data => slowram_data,
+      slowram_addr => slowram_addr,
+      slowram_oe => slowram_oe,
       
       vsync           => vsync,
       hsync           => hsync,
@@ -218,6 +237,11 @@ begin
 
       sseg_ca         => sseg_ca,
       sseg_an         => sseg_an);
+
+  process(slowram_addr)
+  begin
+    slowram_addr_integer <= to_integer(unsigned(slowram_addr(15 downto 0)));
+  end process;
   
   process
   begin  -- process tb

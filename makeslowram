@@ -14,10 +14,10 @@ first=True
 c=0;
 count=0
 for b in bytes_read:
-    if c==8:
+    if c==16:
         c=0;
     if c==0:
-        romdata=romdata+"\n  -- "+hex(count)+"\n  "
+        romdata=romdata+"\n"
     if c & 1:
     	romdata=romdata+b.encode('hex').upper()+"\""
     else:
