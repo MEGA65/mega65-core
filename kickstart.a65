@@ -97,8 +97,8 @@ kickstart_entry:
 		jsr enhanced_io
 
 		jsr resetdisplay
-		jsr resetpalette
 		jsr erasescreen
+		jsr resetpalette
 
 		; display welcome screen
 		ldx #<msg_kickstart
@@ -1731,36 +1731,57 @@ resetpalette:
 
 ; erase standard 40-column screen
 erasescreen:
+		; bank in 2nd KB of colour RAM
 		lda #$01
 		tsb $D030
 
-		ldx #$00
-		lda #$20
-		ldy #$01
-l3:		; fill screen with spaces
-		sta $0400,x
-		sta $0500,x
-		sta $0600,x
-		sta $0700,x
-		; colour RAM to white
-		sty $d800,x
-		sty $d900,x
-		sty $da00,x
-		sty $db00,x
-		sty $dc00,x
-		sty $dd00,x
-		sty $de00,x
-		sty $df00,x
-		inx
-		bne l3
+		; use DMA to clear screen and colour RAM
 
+		; Set bottom 22 bits of DMA list address as for C65
+		; (8MB address range)
+		lda #$ff
+		sta $d702
+		; Kickstart ROM is at $FFFE000 - $FFFFFFF, so
+		; we need to tell DMAgic that DMA list is in $FFxxxxx.
+		; this has to be done AFTER writing to $d702, as $d702
+		; clears bits 27 - 22 of the DMA list address to help with
+		; compatibility.
+		lda #$ff
+		sta $d704
+
+		lda #>erasescreendmalist
+		sta $d701
+		; set bottom 8 bits of address and trigger DMA.
+		lda #<erasescreendmalist
+		sta $d700
+
+		; bank 2nd KB of colour RAM back out
 		lda #$01
 		trb $D030
 
+		; move cursor back to top of the screen
 		lda #$00
 		sta screenrow
 
 		rts
+
+erasescreendmalist:
+		; Clear screen RAM
+		.byte $07 ; fill + chained request
+		.word 1000 ; 40x25 = 1000
+		.byte $20 ; fill with space = $20
+		.byte $00,$00 ; rest of source address is ignored in fill
+		.word $0400 ; screen is at $0400
+		.byte $00   ; screen is in bank $00
+		.word $0000 ; modulo (unused)
+		; Clear colour RAM
+		.byte $03 ; fill + last request in chain
+		.word 2000 ; 80x25 = 2000
+		.byte $01 ; fill with white = $01
+		.byte $00,$00 ; rest of source address is ignored in fill
+		.word $d800 ; screen is at $0400
+		.byte $80   ; screen is in IO, so bank IO in to DMA context
+		.word $0000 ; modulo (unused)
 
 checkpoint:
 		pha
@@ -1998,54 +2019,6 @@ reset_entry:
 		lda #$00
 		sta $D01A
 		
-		jmp kickstart_entry
-
-		; Copy $E000-$FFFF to $1000-$2FFF so that sdcard routines are run
-		; from chipram.
-
-		; Would be nice to use DMAgic to do copy.
-		; XXX need to implemented extended lists with 28 bit
-		; addresses for that, since kickstart ROM is at $FFFE000-$FFFFFFF
-		; But let's just do a DMAgic test anyway.
-		lda #$03 ; Fill ...
-		sta $1e0
-		ldx #$00
-		ldy #$01 ; ... 256 bytes ...
-		stx $1e1
-		sty $1e2
-		lda #$55 ; ... with value $55 ...
-		sta $1e3
-		ldx #$00 ; ... at location $002000
-		ldy #$20
-		ldz #$00
-		stx $1e6
-		sty $1e7
-		stz $1e8
-		; trigger DMA
-		lda #$00
-		sta $D702
-		lda #$01
-		sta $D701
-		lda #$e0
-		sta $D700
-
-		lda #$00
-		sta $c0
-		lda #$10
-		sta $c1
-		lda #$00
-		sta $c2
-		lda #$e0
-		sta $c3
-		ldy #$00
-c1:		lda ($C2),y
-		sta ($C0),y
-		iny
-		bne c1
-		inc $c1
-		inc $c3
-		bne c1
-
 		jmp kickstart_entry
 
 ; For now we have no use for NMI or IRQ
