@@ -27,13 +27,16 @@ kickstart65gs.bin:	kickstart.a65 Makefile diskchooser
 kickstart.vhdl:	rom_template.vhdl kickstart65gs.bin makerom
 	./makerom rom_template.vhdl kickstart65gs.bin kickstart
 
+slowram.vhdl:	c65gs.rom makeslowram slowram_template.vhdl
+	./makeslowram slowram_template.vhdl c65gs.rom slowram
+
 transfer:	kickstart.vhdl version.vhdl
 	scp -p Makefile makerom kernel65.a65 *.ucf *.xise *.prj *vhd *vhdl 192.168.56.101:c64accel/
 
 version.vhdl: version-template.vhdl version.sh .git/index *.vhdl *.vhd 
 	./version.sh
 
-SIMULATIONFILES=	kickstart.vhdl iomapper.vhdl container.vhd cpu_test.vhdl viciv.vhdl gs4510.vhdl debugtools.vhdl UART_TX_CTRL.vhd uart_rx.vhdl uart_monitor.vhdl machine.vhdl cia6526.vhdl keymapper.vhdl ghdl_ram8x64k.vhdl charrom.vhdl ghdl_chipram8bit.vhdl ghdl_screen_ram_buffer.vhdl ghdl_ram9x4k.vhdl sdcardio.vhdl ghdl_ram8x512.vhdl ethernet.vhdl ramlatch64.vhdl shadowram.vhdl microcode.vhdl cputypes.vhdl version.vhdl sid_6581.vhd sid_coeffs.vhd sid_components.vhd sid_filters.vhd sid_voice.vhd ghdl_ram128x1k.vhdl ghdl_ram8x4096.vhdl crc.vhdl
+SIMULATIONFILES=	kickstart.vhdl iomapper.vhdl container.vhd cpu_test.vhdl viciv.vhdl gs4510.vhdl debugtools.vhdl UART_TX_CTRL.vhd uart_rx.vhdl uart_monitor.vhdl machine.vhdl cia6526.vhdl keymapper.vhdl ghdl_ram8x64k.vhdl charrom.vhdl ghdl_chipram8bit.vhdl ghdl_screen_ram_buffer.vhdl ghdl_ram9x4k.vhdl sdcardio.vhdl ghdl_ram8x512.vhdl ethernet.vhdl ramlatch64.vhdl shadowram.vhdl microcode.vhdl cputypes.vhdl version.vhdl sid_6581.vhd sid_coeffs.vhd sid_components.vhd sid_filters.vhd sid_voice.vhd ghdl_ram128x1k.vhdl ghdl_ram8x4096.vhdl crc.vhdl slowram.vhdl
 simulate:	$(SIMULATIONFILES)
 	ghdl -c $(SIMULATIONFILES) -r cpu_test
 

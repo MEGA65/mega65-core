@@ -1,0 +1,42 @@
+#!/usr/bin/env python
+
+from os.path import realpath, dirname, join
+from sys import argv, path
+
+# Read a binary file and use it to make an initialised RAM
+
+w=open(argv[3]+".vhdl","w")
+
+# Read in combined kernel and basic ROM
+romdata=""
+bytes_read = open(argv[2], "rb").read()
+first=True
+c=0;
+count=0
+for b in bytes_read:
+    if c==8:
+        c=0;
+    if c==0:
+        romdata=romdata+"\n  -- "+hex(count)+"\n  "
+    if c & 1:
+    	romdata=romdata+b.encode('hex').upper()+"\""
+    else:
+    	if first:
+        	first=False
+    	else:
+        	romdata=romdata+","
+    	romdata=romdata+"x\""+b.encode('hex').upper()
+    count=count+1
+    c=c+1;    
+
+# Read ROM template file
+lines=open(argv[1]).readlines()
+
+for line in lines:
+    if line.find("THEROM")>-1:
+        line=line.replace("THEROM",argv[3])
+    if line.find("ROMDATA")>-1:
+        line=line.replace("ROMDATA",romdata)
+    w.write(line)
+
+w.close()
