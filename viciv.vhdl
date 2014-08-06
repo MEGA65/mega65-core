@@ -326,7 +326,7 @@ architecture Behavioral of viciv is
   type vic_paint_fsm is (Idle,
                          PaintFullColour,
                          PaintMono,PaintMonoBits,
-                         PaintMultiColour,PaintMultiColourBits);
+                         PaintMultiColour,PaintMultiColourBits,PaintMultiColourHold);
   signal paint_fsm_state : vic_paint_fsm := Idle;
   signal paint_ready : std_logic := '0';
   signal paint_from_charrom : std_logic;
@@ -2315,15 +2315,26 @@ begin
               elsif multicolour_mode='1' and extended_background_mode='0' then
                 -- Multicolour mode
                 paint_background <= screen_colour;
-                paint_foreground <= glyph_colour;
                 if text_mode='1' then
                   paint_mc1 <= multi1_colour;
                   paint_mc2 <= multi2_colour;
+                  -- multi-colour text mode masks bit 3 of the foreground
+                  -- colour to select whether the character is multi-colour or
+                  -- not.
+                  paint_foreground <= glyph_colour(7 downto 4)&'0'&glyph_colour(2 downto 0);
                 else
                   paint_mc1 <= bitmap_colour_background;
                   paint_mc2 <= bitmap_colour_foreground;
+                  paint_foreground <= glyph_colour;
                 end if;       
-                paint_fsm_state <= PaintMultiColour;
+                if text_mode='1' and glyph_colour(3)='0' then
+                  -- Multi-colour text mode only applies to colours 8-15,
+                  -- so draw this glyph in mono
+                  paint_fsm_state <= PaintMono;
+                else
+                  -- Really do low-res multi-colour
+                  paint_fsm_state <= PaintMultiColour;
+                end if;
               elsif extended_background_mode='1' then
                 -- ECM - XXX - Not currently implemented.
               end if;
@@ -2408,6 +2419,81 @@ begin
             -- (the generator tells us when to go idle)
             paint_ready <= '1';
           end if;
+        when PaintMultiColour =>
+          -- Paint 4 multi-colour half-nybls from ramdata or chardata
+          -- Paint from a buffer to meet timing, even though it means we spend
+          -- 5 cycles per char to paint, instead of the ideal 4.          
+          report "paint_flip_horizontal="&std_logic'image(paint_flip_horizontal)
+            & ", paint_from_charrom=" & std_logic'image(paint_from_charrom) severity note;
+          if raster_buffer_write_address = 0 then
+            report "painting either $ " & to_hstring(paint_ramdata) & " or $" & to_hstring(paint_chardata) severity note;
+            report "  painting from direct memory would have $ " & to_hstring(ramdata) & " or $" & to_hstring(chardata) severity note;
+          end if;
+          if paint_flip_horizontal='1' and paint_from_charrom='1' then
+            report "Painting FLIPPED glyph from character rom (bits=$"&to_hstring(paint_chardata)&")" severity note;
+            paint_buffer <= paint_chardata;
+          elsif paint_flip_horizontal='0' and paint_from_charrom='1' then
+            report "Painting glyph from character rom (bits=$"&to_hstring(paint_chardata)&")" severity note;
+            paint_buffer <= paint_chardata(1)&paint_chardata(0)&paint_chardata(3)&paint_chardata(2)
+                            &paint_chardata(5)&paint_chardata(4)&paint_chardata(7)&paint_chardata(6);
+          elsif paint_flip_horizontal='1' and paint_from_charrom='0' then
+            report "Painting FLIPPED glyph from RAM (bits=$"&to_hstring(paint_ramdata)&")" severity note;
+            if paint_ramdata(0)='1' then
+              raster_buffer_write_data <= '1'&paint_foreground;
+            else
+              raster_buffer_write_data <= '0'&paint_background;
+            end if;
+            -- XXX DEBUG: trying to find the source of the apparent path
+            -- between chipram and pain_buffer, when it should be going via paint_ramdata
+            paint_buffer <= paint_ramdata;
+          elsif paint_flip_horizontal='0' and paint_from_charrom='0' then
+            report "Painting glyph from RAM (bits=$"&to_hstring(paint_ramdata)&")" severity note;
+            paint_buffer <= paint_ramdata(1)&paint_ramdata(0)&paint_ramdata(3)&paint_ramdata(2)
+                            &paint_ramdata(5)&paint_ramdata(4)&paint_ramdata(7)&paint_ramdata(6);
+          end if;
+          paint_bits_remaining <= 4;
+          paint_ready <= '0';
+          paint_fsm_state <= PaintMultiColourBits;
+        when PaintMultiColourBits =>
+          if paint_bits_remaining = 4 then
+            report "painting card using data $" & to_hstring(paint_buffer) severity note;
+          end if;
+          if paint_bits_remaining /= 0 then
+            paint_buffer<= "00"&paint_buffer(7 downto 2);
+            case paint_buffer(1 downto 0) is
+              when "00" =>
+                raster_buffer_write_data <= '0'&paint_background;
+                report "Painting background pixel in colour $" & to_hstring(paint_background) severity note;
+              when "01" =>
+                raster_buffer_write_data <= '1'&paint_foreground;
+                report "Painting multi-colour 2 pixel in colour $" & to_hstring(paint_mc1) severity note;
+              when "10" =>
+                raster_buffer_write_data <= '1'&paint_foreground;
+                report "Painting multi-colour 3 pixel in colour $" & to_hstring(paint_mc2) severity note;
+              when "11" =>
+                raster_buffer_write_data <= '1'&paint_foreground;
+                report "Painting foreground pixel in colour $" & to_hstring(paint_foreground) severity note;
+              when others =>
+                null;
+            end case;
+            raster_buffer_write_address <= raster_buffer_write_address + 1;
+            raster_buffer_write <= '1';
+            report "paint_bits_remaining=" & integer'image(paint_bits_remaining) severity note;
+            paint_bits_remaining <= paint_bits_remaining - 1;
+          end if;
+          -- Stretch multi-colour pixels to be double width
+          if paint_bits_remaining /= 1 then
+            paint_fsm_state <= PaintMultiColourHold;
+          end if;
+        when PaintMultiColourHold =>
+          raster_buffer_write_address <= raster_buffer_write_address + 1;
+          raster_buffer_write <= '1';
+          if paint_bits_remaining = 1 then
+            -- Tell character generator when we are able to become idle.
+            -- (the generator tells us when to go idle)
+            paint_ready <= '1';
+          end if;
+          paint_fsm_state <= PaintMultiColourBits;
         when others =>
           -- If we don't know what to do, just smile and nod and say we are
           -- ready again.
