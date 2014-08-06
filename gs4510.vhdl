@@ -2490,7 +2490,8 @@ begin
                                   + to_integer(reg_x),16);
                     state <= JumpDereference;
                   when M_InnSPY =>
-                    temp_addr := reg_b & (reg_arg1+(reg_sph&reg_sp));
+                    temp_addr :=  to_unsigned(to_integer(reg_b&reg_arg1)
+                                              +to_integer(reg_sph&reg_sp),16);
                     reg_addr <= temp_addr + 1;
                     memory_access_read := '1';
                     memory_access_address := x"000"&temp_addr;
@@ -2596,7 +2597,7 @@ begin
               memory_access_read := '1';
               memory_access_address := x"000"&reg_addr;
               memory_access_resolve_address := '1';
-              state <= InnXReadVectorHigh;
+              state <= InnSPYReadVectorHigh;
             when InnSPYReadVectorHigh =>
               reg_addr <=
                 to_unsigned(to_integer(memory_read_value&reg_addr(7 downto 0))
