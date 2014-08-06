@@ -1894,7 +1894,6 @@ begin
             when DMAgicReadList =>
               report "DMAgic: Reading DMA list";
               -- ask for next byte from DMA list
-              reg_dmagic_addr <= reg_dmagic_addr + 1;
               memory_access_address := reg_dmagic_addr;
               memory_access_resolve_address := '0';
               memory_access_read := '1';
@@ -1913,6 +1912,8 @@ begin
               dmagic_list_counter <= dmagic_list_counter + 1;
               if dmagic_list_counter = 11 then
                 state <= DMAgicGetReady;
+              else
+                reg_dmagic_addr <= reg_dmagic_addr + 1;
               end if;
               report "DMAgic: Reading DMA list (end of cycle)";
             when DMAgicGetReady =>
