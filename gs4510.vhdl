@@ -1953,7 +1953,8 @@ begin
               end if;
               
               -- Update address and check for end of job.
-              -- XXX Ignores modulus
+              -- XXX Ignores modulus, whose behaviour is insufficiently defined
+              -- in the C65 specifications document
               if dmagic_dest_hold='0' then
                 if dmagic_dest_direction='0' then
                   dmagic_dest_addr <= dmagic_dest_addr + 1;
