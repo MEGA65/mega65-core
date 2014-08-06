@@ -387,6 +387,8 @@ end component;
     B16TakeBranch,
     InnXReadVectorLow,
     InnXReadVectorHigh,
+    InnSPYReadVectorLow,
+    InnSPYReadVectorHigh,
     InnYReadVectorLow,
     InnYReadVectorHigh,
     InnZReadVectorLow,
@@ -2488,8 +2490,12 @@ begin
                                   + to_integer(reg_x),16);
                     state <= JumpDereference;
                   when M_InnSPY =>
-                    -- XXX Not implemented
-                    state <= normal_fetch_state;
+                    temp_addr := reg_b & (reg_arg1+(reg_sph&reg_sp));
+                    reg_addr <= temp_addr + 1;
+                    memory_access_read := '1';
+                    memory_access_address := x"000"&temp_addr;
+                    memory_access_resolve_address := '1';
+                    state <= InnSPYReadVectorLow;
                   when M_immnnnn =>                
                     reg_t <= reg_arg1;
                     reg_t_high <= memory_read_value;
@@ -2579,6 +2585,22 @@ begin
             when InnXReadVectorHigh =>
               reg_addr <=
                 to_unsigned(to_integer(memory_read_value&reg_addr(7 downto 0)),16);
+              if is_load='1' or is_rmw='1' then
+                state <= LoadTarget;
+              else
+                -- (reading next instruction argument byte as default action)
+                state <= MicrocodeInterpret;
+              end if;
+            when InnSPYReadVectorLow =>
+              reg_addr(7 downto 0) <= memory_read_value;
+              memory_access_read := '1';
+              memory_access_address := x"000"&reg_addr;
+              memory_access_resolve_address := '1';
+              state <= InnXReadVectorHigh;
+            when InnSPYReadVectorHigh =>
+              reg_addr <=
+                to_unsigned(to_integer(memory_read_value&reg_addr(7 downto 0))
+                            + to_integer(reg_y),16);
               if is_load='1' or is_rmw='1' then
                 state <= LoadTarget;
               else
