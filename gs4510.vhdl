@@ -1926,7 +1926,7 @@ begin
               dmagic_count(15 downto 8) <= dmagic_src_addr(7 downto 0);
               dmagic_count(7 downto 0) <= dmagic_count(15 downto 8);
               dmagic_cmd <= dmagic_count(7 downto 0);
-              if dmagic_list_counter = 11 then
+              if dmagic_list_counter = 10 then
                 state <= DMAgicGetReady;
               else
                 dmagic_list_counter <= dmagic_list_counter + 1;
@@ -1934,7 +1934,11 @@ begin
               end if;
               report "DMAgic: Reading DMA list (end of cycle)";
             when DMAgicGetReady =>
-              report "DMAgic: got list.";
+              report "DMAgic: got list: cmd=$"
+                & to_hstring(dmagic_cmd)
+                & "src=$"
+                & to_hstring(dmagic_src_addr(15 downto 0))
+                & "dest=$" & to_hstring(dmagic_dest_addr(15 downto 0));
               dmagic_src_addr(27 downto 20) <= (others => '0');
               dmagic_src_addr(19 downto 16) <= dmagic_src_bank_temp(3 downto 0);
               dmagic_dest_addr(27 downto 20) <= (others => '0');
