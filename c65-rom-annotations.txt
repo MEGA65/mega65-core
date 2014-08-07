@@ -21,7 +21,7 @@ E5 screen top margin
 E6 screen left margin
 E7 screen right margin
 F4 bit7 of $F4 set indicates reverse video
-1103 PAL($00)/NTSC($FF) flag
+1103 PAL($FF)/NTSC($00) flag
 1104 C65 INIT STATUS byte (bit7 low=full init of IO, bit6 low=full init of screen editor)
 02F7   jmp USR          ;USR vector (must be set by application)
 
