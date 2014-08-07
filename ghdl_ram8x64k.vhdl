@@ -34,14 +34,14 @@ begin  -- behavioural
   process(clka)
   begin
     douta <= ram(to_integer(unsigned(addra)));
-    report "COLOURRAM: A Reading from $" & to_hstring(unsigned(addra))
-      & " = $" & to_hstring(ram(to_integer(unsigned(addra))));
+    --report "COLOURRAM: A Reading from $" & to_hstring(unsigned(addra))
+    --  & " = $" & to_hstring(ram(to_integer(unsigned(addra))));
     if(rising_edge(Clka)) then 
       if ena='1' then
         if(wea="1") then
           ram(to_integer(unsigned(addra))) <= dina;
-          report "COLOURRAM: A writing to $" & to_hstring(unsigned(addra))
-            & " = $" & to_hstring(dina);
+          --report "COLOURRAM: A writing to $" & to_hstring(unsigned(addra))
+          --  & " = $" & to_hstring(dina);
         end if;
       end if;
     end if;
