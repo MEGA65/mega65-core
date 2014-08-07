@@ -197,8 +197,9 @@ end component;
   -- IO has one waitstate for reading, 0 for writing
   -- (Reading incurrs an extra waitstate due to read_data_copy)
   -- XXX An extra wait state seems to be necessary when reading from dual-port
-  -- memories like the sector buffer.
+  -- memories like colour ram.
   signal io_read_wait_states : unsigned(7 downto 0) := x"01";
+  signal colourram_read_wait_states : unsigned(7 downto 0) := x"02";
   signal io_write_wait_states : unsigned(7 downto 0) := x"00";
 
   -- Number of pending wait states
@@ -1040,6 +1041,7 @@ begin
           report "VIC 64KB colour RAM access from VIC fastio" severity note;
           accessing_colour_ram_fastio <= '1';
           colour_ram_cs <= '1';
+          wait_states <= colourram_read_wait_states;
         end if;
         if long_address(19 downto 16) = x"D" then
           if long_address(15 downto 14) = "00" then    --   $D{0,1,2,3}XXX
@@ -1047,12 +1049,13 @@ begin
               if long_address(11 downto 7) /= "00001" then  -- ! $D.0{8-F}X (FDC, RAM EX)
                 report "VIC register from VIC fastio" severity note;
                 accessing_vic_fastio <= '1';
+                wait_states <= colourram_read_wait_states;
               end if;            
             end if;
             -- Colour RAM at $D800-$DBFF and optionally $DC00-$DFFF
             if long_address(11)='1' then
               if (long_address(10)='0') or (colourram_at_dc00='1') then
-                report "D800-DBFF/DC00-DFFF colour ram access from VIC fastio" severity note;
+                report "RAM: D800-DBFF/DC00-DFFF colour ram access from VIC fastio" severity note;
                 accessing_colour_ram_fastio <= '1';            
                 colour_ram_cs <= '1';
               end if;
