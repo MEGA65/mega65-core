@@ -1926,10 +1926,10 @@ begin
               dmagic_count(15 downto 8) <= dmagic_src_addr(7 downto 0);
               dmagic_count(7 downto 0) <= dmagic_count(15 downto 8);
               dmagic_cmd <= dmagic_count(7 downto 0);
-              dmagic_list_counter <= dmagic_list_counter + 1;
               if dmagic_list_counter = 11 then
                 state <= DMAgicGetReady;
               else
+                dmagic_list_counter <= dmagic_list_counter + 1;
                 reg_dmagic_addr <= reg_dmagic_addr + 1;
               end if;
               report "DMAgic: Reading DMA list (end of cycle)";
