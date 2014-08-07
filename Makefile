@@ -30,15 +30,17 @@ kickstart.vhdl:	rom_template.vhdl kickstart65gs.bin makerom
 slowram.vhdl:	c65gs.rom makeslowram slowram_template.vhdl
 	./makeslowram slowram_template.vhdl c65gs.rom slowram
 
-transfer:	kickstart.vhdl version.vhdl
-	scp -p Makefile makerom kernel65.a65 *.ucf *.xise *.prj *vhd *vhdl 192.168.56.101:c64accel/
+transfer:	kickstart.vhdl version.vhdl kickstart65gs.bin makerom makeslowram
+	scp -p version.sh Makefile makerom c65gs.rom makerom makeslowram *.a65 *.ucf *.xise *.prj *vhd *vhdl kickstart65gs.bin 192.168.56.101:c64accel/
+	scp -p .git/index 192.168.56.101:c64accel/.git/
 
 version.vhdl: version-template.vhdl version.sh .git/index *.vhdl *.vhd 
 	./version.sh
 
-SIMULATIONFILES=	kickstart.vhdl iomapper.vhdl container.vhd cpu_test.vhdl viciv.vhdl gs4510.vhdl debugtools.vhdl UART_TX_CTRL.vhd uart_rx.vhdl uart_monitor.vhdl machine.vhdl cia6526.vhdl keymapper.vhdl ghdl_ram8x64k.vhdl charrom.vhdl ghdl_chipram8bit.vhdl ghdl_screen_ram_buffer.vhdl ghdl_ram9x4k.vhdl sdcardio.vhdl ghdl_ram8x512.vhdl ethernet.vhdl ramlatch64.vhdl shadowram.vhdl microcode.vhdl cputypes.vhdl version.vhdl sid_6581.vhd sid_coeffs.vhd sid_components.vhd sid_filters.vhd sid_voice.vhd ghdl_ram128x1k.vhdl ghdl_ram8x4096.vhdl crc.vhdl slowram.vhdl
+SIMULATIONFILES=	cputypes.vhdl sid_voice.vhd sid_coeffs.vhd sid_filters.vhd sid_components.vhd version.vhdl kickstart.vhdl iomapper.vhdl container.vhd cpu_test.vhdl viciv.vhdl gs4510.vhdl debugtools.vhdl UART_TX_CTRL.vhd uart_rx.vhdl uart_monitor.vhdl machine.vhdl cia6526.vhdl keymapper.vhdl ghdl_ram8x64k.vhdl charrom.vhdl ghdl_chipram8bit.vhdl ghdl_screen_ram_buffer.vhdl ghdl_ram9x4k.vhdl sdcardio.vhdl ghdl_ram8x512.vhdl ethernet.vhdl ramlatch64.vhdl shadowram.vhdl microcode.vhdl cputypes.vhdl version.vhdl sid_6581.vhd ghdl_ram128x1k.vhdl ghdl_ram8x4096.vhdl crc.vhdl slowram.vhdl
 simulate:	$(SIMULATIONFILES)
-	ghdl -c $(SIMULATIONFILES) -r cpu_test
+#	ghdl -a -g $(SIMULATIONFILES) 
+	ghdl -c -g $(SIMULATIONFILES) -r cpu_test
 
 testcia:	tb_cia.vhdl cia6526.vhdl debugtools.vhdl
 	ghdl -c tb_cia.vhdl cia6526.vhdl debugtools.vhdl -r tb_cia

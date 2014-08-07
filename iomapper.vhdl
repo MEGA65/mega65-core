@@ -428,7 +428,6 @@ begin
     fastio_wdata => unsigned(data_i),
     std_logic_vector(fastio_rdata) => data_o
     );
-
   
   sdcard0 : sdcardio port map (
     pixelclk => pixelclk,
