@@ -1025,6 +1025,13 @@ begin
         accessing_fastio <= '1';
         accessing_vic_fastio <= '0';
         accessing_colour_ram_fastio <= '0';
+        -- XXX Some fastio (that referencing ioclocked registers) does require
+        -- io_wait_states, while some can use fewer waitstates because the
+        -- memories involved can be clocked at the CPU clock, and have just 1
+        -- wait state due to the dual-port memories.
+        -- But for now, just apply the wait state to all fastio addresses.
+        wait_states <= io_read_wait_states;
+
         -- If reading IO page from $D{0,1,2,3}0{0-7}X, then the access is from
         -- the VIC-IV.
         -- If reading IO page from $D{0,1,2,3}{1,2,3}XX, then the access is from
@@ -1049,7 +1056,6 @@ begin
               if long_address(11 downto 7) /= "00001" then  -- ! $D.0{8-F}X (FDC, RAM EX)
                 report "VIC register from VIC fastio" severity note;
                 accessing_vic_fastio <= '1';
-                wait_states <= colourram_read_wait_states;
               end if;            
             end if;
             -- Colour RAM at $D800-$DBFF and optionally $DC00-$DFFF
@@ -1066,12 +1072,6 @@ begin
         fastio_addr <= std_logic_vector(long_address(19 downto 0));
         last_fastio_addr <= std_logic_vector(long_address(19 downto 0));
         fastio_read <= '1';
-        -- XXX Some fastio (that referencing ioclocked registers) does require
-        -- io_wait_states, while some can use fewer waitstates because the
-        -- memories involved can be clocked at the CPU clock, and have just 1
-        -- wait state due to the dual-port memories.
-        -- But for now, just apply the wait state to all fastio addresses.
-        wait_states <= io_write_wait_states;
         proceed <= '0';
       else
         -- Don't let unmapped memory jam things up
