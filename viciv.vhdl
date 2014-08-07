@@ -266,7 +266,10 @@ architecture Behavioral of viciv is
   signal ycounter : unsigned(10 downto 0) := to_unsigned(frame_v_front+frame_v_syncheight,11);
   signal ycounter_drive : unsigned(10 downto 0) := (others => '0');
   -- Virtual raster number for VIC-II
-  signal vicii_ycounter : unsigned(8 downto 0) := (others => '0');
+  -- (On powerup set to a PAL only raster so that ROM doesn't need to wait a
+  -- whole frame.  This is really just to make testing through simulation quicker
+  -- since a whole frame takes ~20 minutes to simulate).
+  signal vicii_ycounter : unsigned(8 downto 0) := to_unsigned(263+1,9);
   signal vicii_ycounter_phase : unsigned(2 downto 0) := (others => '0');
   signal vicii_ycounter_max_phase : unsigned(2 downto 0) := (others => '0');
   -- Is the VIC-II virtual raster number the active one for interrupts, or
