@@ -21,6 +21,7 @@ E5 screen top margin
 E6 screen left margin
 E7 screen right margin
 F4 bit7 of $F4 set indicates reverse video
+1103 PAL($00)/NTSC($FF) flag
 1104 C65 INIT STATUS byte (bit7 low=full init of IO, bit6 low=full init of screen editor)
 02F7   jmp USR          ;USR vector (must be set by application)
 
@@ -281,6 +282,14 @@ f26a Use DMA controller to load memory in any bank
 f28e Use DMA controller to store memory in any bank
 f2b5 Use DMAgic to compare memory locations in any bank
 F073 setup IO
+f0c1 PAL/NTSC test: looks for the existence of raster $108
+f0c6 @ Take branch if on raster $000-$0FF, i.e., wait for raster $100
+f0c8 @ There are <$108 rasters on NTSC
+f0cd @ take branch if on raster $108+ (i.e., a PAL machine)
+f0cf @ We know we are on raster $008-$0FF or $108+, so work out which
+f0d2 @ Take branch if raster $100+ to keep looking for raster $108+
+f0d4 @ We never saw raster $108, so we are NTSC ($00 goes into $1103)
+f0d5 @ Set PAL/NTSC flag byte
 F0Eb @ Set VIC-III registers
 F0F6 @ Set VIC-III to H640 + 8-bit character attributes, 1MHz CPU
 F11F @ Zero left and right SID registers (1MHz clock set at $F0F6)
