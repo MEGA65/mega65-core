@@ -3052,7 +3052,8 @@ begin
             or memory_access_address = x"FFD1700" then
             report "DMAgic: DMA pending";
             dma_pending <= '1';
-            state <= DMAgicReadList;
+            state <= DMAgicTrigger;
+
             -- Don't increment PC if we were otherwise going to shortcut to
             -- InstructionDecode next cycle
             reg_pc <= reg_pc;
