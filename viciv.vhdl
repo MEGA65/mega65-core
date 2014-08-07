@@ -1690,7 +1690,6 @@ begin
           vicii_ycounter <= (others =>'0');
           vicii_ycounter_phase <= (others => '0');
           vicii_ycounter_max_phase <= to_unsigned(1,3);  -- 0 -- 1 = 2 values         
-
           new_frame <= '1';
         end if;	
       end if;
@@ -1789,7 +1788,11 @@ begin
         chargen_y_sub <= (others => '0');
         chargen_active <= '0';
         chargen_active_soon <= '0';
+        -- Force badline so that moving chargen down results in fresh loading
+        -- of the first line of text.
+        prev_first_card_of_row <= (others => '1');
         report "Masking chargen_active based on displayy<y_chargen_start" severity note;
+        
       end if;
       if displayy=y_chargen_start then
         chargen_y <= (others => '0');
