@@ -2693,6 +2693,12 @@ begin
                 state <= normal_fetch_state;
               else
                 report "MAP: Doing JSR ($nnnn) to $"&to_hstring(memory_read_value&reg_t);
+                memory_access_read := '0';
+                memory_access_write := '1';
+                memory_access_address := x"000"&reg_sph&reg_sp;
+                memory_access_resolve_address := '1';
+                memory_access_wdata := reg_pc_jsr(15 downto 8);
+                dec_sp := '1';
                 state <= CallSubroutine;
               end if;
             when WriteCommit =>
