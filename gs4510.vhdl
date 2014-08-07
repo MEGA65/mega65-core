@@ -2506,6 +2506,11 @@ begin
                     reg_addr(15 downto 8) <= memory_read_value;
                     state <= JumpDereference;
                   when M_InnnnX =>
+                    -- Only JMP and JSR have this mode
+                    last_byte3 <= memory_read_value;
+                    last_bytecount <= 3;
+                    monitor_arg2 <= memory_read_value;
+                    monitor_ibytes(0) <= '1';
                     reg_addr <= to_unsigned(
                                   to_integer(memory_read_value&reg_addr(7 downto 0))
                                   + to_integer(reg_x),16);
@@ -2542,30 +2547,21 @@ begin
             when CallSubroutine2 =>
               -- Finish determining subroutine address
               pc_inc := '0';
-              case reg_addressingmode is
-                -- Note, we treat BSR as absolute mode, with microcode
-                -- controlling the calculation of the address as relative.
-                when M_nnnn =>
-                  report "Jumping to $" & to_hstring(reg_addr)
-                    severity note;
-                  -- Immediately start reading the next instruction
-                  memory_access_read := '1';
-                  memory_access_address := x"000"&reg_addr;
-                  memory_access_resolve_address := '1';
-                  if fast_fetch_state = InstructionDecode then
-                    -- Fast dispatch, so bump PC ready for next cycle
-                    reg_pc <= reg_addr + 1;
-                  else
-                    -- Normal dispatch
-                    reg_pc <= reg_addr;
-                  end if;
-                  state <= fast_fetch_state;
-                -- XXX The following need to be changed, because arg2 is
-                -- already read by the time we get here, just dereference.
-                when M_innnn => state <= JumpIAbsReadArg2;
-                when M_innnnX => state <= JumpAbsXReadArg2;
-                when others => state <= normal_fetch_state;
-              end case;
+
+              report "Jumping to $" & to_hstring(reg_addr)
+                severity note;
+              -- Immediately start reading the next instruction
+              memory_access_read := '1';
+              memory_access_address := x"000"&reg_addr;
+              memory_access_resolve_address := '1';
+              if fast_fetch_state = InstructionDecode then
+                -- Fast dispatch, so bump PC ready for next cycle
+                reg_pc <= reg_addr + 1;
+              else
+                -- Normal dispatch
+                reg_pc <= reg_addr;
+              end if;
+              state <= fast_fetch_state;
             when JumpAbsXReadArg2 =>
               last_byte3 <= memory_read_value;
               last_bytecount <= 3;
@@ -2692,8 +2688,13 @@ begin
               state <= JumpDereference3;
             when JumpDereference3 =>
               -- Finished dereferencing, set PC
-              reg_pc <= memory_read_value&reg_t;
-              state <= normal_fetch_state;
+              reg_addr <= memory_read_value&reg_t;
+              if reg_instruction=I_JMP then
+                state <= normal_fetch_state;
+              else
+                report "MAP: Doing JSR ($nnnn) to $"&to_hstring(memory_read_value&reg_t);
+                state <= CallSubroutine;
+              end if;
             when WriteCommit =>
               memory_access_write := '1';
               memory_access_address := x"000"&reg_addr;
