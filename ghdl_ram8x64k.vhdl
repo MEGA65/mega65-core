@@ -52,7 +52,7 @@ begin  -- behavioural
     doutb <= ram(to_integer(unsigned(addrb)));
     if(rising_edge(Clkb)) then 
       if(web="1") then
-        ram(to_integer(unsigned(addrb))) <= dinb;
+--        ram(to_integer(unsigned(addrb))) <= dinb;
       end if;
     end if;
   end process;
