@@ -1058,6 +1058,7 @@ begin
                 report "RAM: D800-DBFF/DC00-DFFF colour ram access from VIC fastio" severity note;
                 accessing_colour_ram_fastio <= '1';            
                 colour_ram_cs <= '1';
+                wait_states <= colourram_read_wait_states;
               end if;
             end if;
           end if;                         -- $D{0,1,2,3}XXX
