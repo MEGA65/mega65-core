@@ -2689,6 +2689,7 @@ begin
             when JumpDereference3 =>
               -- Finished dereferencing, set PC
               reg_addr <= memory_read_value&reg_t;
+              reg_pc <= memory_read_value&reg_t;
               if reg_instruction=I_JMP then
                 state <= normal_fetch_state;
               else
