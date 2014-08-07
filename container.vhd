@@ -163,6 +163,8 @@ architecture Behavioral of container is
          irq : in  STD_LOGIC;
          nmi : in  STD_LOGIC;
 
+         no_kickstart : in std_logic;
+         
          ----------------------------------------------------------------------
          -- VGA output
          ----------------------------------------------------------------------
@@ -301,6 +303,8 @@ begin
       btncpureset => btncpureset,
       irq => irq,
       nmi => nmi,
+
+      no_kickstart => '0',
       
       vsync           => vsync,
       hsync           => hsync,

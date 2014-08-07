@@ -60,6 +60,8 @@ architecture behavior of cpu_test is
            irq : in  STD_LOGIC;
            nmi : in  STD_LOGIC;
 
+           no_kickstart : in std_logic;
+           
            ----------------------------------------------------------------------
            -- VGA output
            ----------------------------------------------------------------------
@@ -196,6 +198,8 @@ begin
       irq => '1',
       nmi => '1',
 
+      no_kickstart => '1',
+      
       ps2data => '1',
       ps2clock => '1',
 

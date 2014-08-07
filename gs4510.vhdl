@@ -40,6 +40,8 @@ entity gs4510 is
     irq : in std_logic;
     nmi : in std_logic;
 
+    no_kickstart : in std_logic;
+    
     reg_isr_out : in unsigned(7 downto 0);
     imask_ta_out : in std_logic;
 
@@ -728,12 +730,23 @@ begin
       reg_pc <= x"8765";
 
       -- Clear CPU MMU registers, and bank in kickstart ROM
-      reg_offset_high <= x"F00";
-      reg_map_high <= "1000";
-      reg_offset_low <= x"000";
-      reg_map_low <= "0000";
-      reg_mb_high <= x"FF";
-      reg_mb_low <= x"00";
+      if no_kickstart='1' then
+        -- no kickstart
+        reg_offset_high <= x"000";
+        reg_map_high <= "0000";
+        reg_offset_low <= x"000";
+        reg_map_low <= "0000";
+        reg_mb_high <= x"00";
+        reg_mb_low <= x"00";
+      else
+        -- with kickstart
+        reg_offset_high <= x"F00";
+        reg_map_high <= "1000";
+        reg_offset_low <= x"000";
+        reg_map_low <= "0000";
+        reg_mb_high <= x"FF";
+        reg_mb_low <= x"00";
+      end if;
       
       -- Map shadow RAM to unmapped address space at $C0000 (768KB)
       -- (as well as always-on shadowing of $00000-$1FFFF)

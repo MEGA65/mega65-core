@@ -61,6 +61,8 @@ entity machine is
          irq : in  STD_LOGIC;
          nmi : in  STD_LOGIC;
 
+         no_kickstart : in std_logic;
+         
          ----------------------------------------------------------------------
          -- VGA output
          ----------------------------------------------------------------------
@@ -219,7 +221,9 @@ architecture Behavioral of machine is
       reset : in std_logic;
       irq : in std_logic;
       nmi : in std_logic;
-     
+
+      no_kickstart : in std_logic;
+      
       reg_isr_out : in unsigned(7 downto 0);
       imask_ta_out : in std_logic;
 
@@ -683,6 +687,8 @@ begin
     irq => combinedirq,
     nmi => combinednmi,
 
+    no_kickstart => no_kickstart,
+    
     reg_isr_out => reg_isr_out,
     imask_ta_out => imask_ta_out,
     
