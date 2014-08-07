@@ -22,7 +22,7 @@ begin
 --process for read and write operation.
   PROCESS(oe,ram,address)
   BEGIN
-    if oe='1' then
+    if oe='0' then
       data_o <= ram(address)(7 downto 0)&ram(address)(15 downto 8);
     else
       data_o <= "ZZZZZZZZZZZZZZZZ";
