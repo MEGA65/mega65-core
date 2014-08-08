@@ -1034,7 +1034,7 @@ l21:		lda fs_clusternumber,x
 		bpl l21
 
 		; subtract number of reserved clusters
-		ldx #$03
+		ldx #$00
 		sec
 		php
 l17:		plp
@@ -1042,8 +1042,9 @@ l17:		plp
 		sbc fs_reservedclusters,x
 		sta $D681,x
 		php
-		dex
-		bpl l17
+		inx
+		cpx #$04
+		bne l17
 		plp
 
 		; now shift it left according to fs_sectorspercluster
