@@ -1970,7 +1970,8 @@ begin
               state <= DMAgicReadList;
               dmagic_list_counter <= 0;
             when DMAgicReadList =>
-              report "DMAgic: Reading DMA list";
+              report "DMAgic: Reading DMA list (setting dmagic_cmd to $" & to_hstring(dmagic_count(7 downto 0))
+                &", memory_read_value = $"&to_hstring(memory_read_value)&")";
               -- ask for next byte from DMA list
               memory_access_address := reg_dmagic_addr;
               memory_access_resolve_address := '0';
@@ -2058,8 +2059,7 @@ begin
                   state <= normal_fetch_state;
                 else
                   -- Chain to next DMA job
-                  dmagic_list_counter <= 0;
-                  state <= DMAgicReadList;
+                  state <= DMAgicTrigger;
                 end if;
               else
                 dmagic_count <= dmagic_count - 1;
@@ -2131,8 +2131,7 @@ begin
                     state <= normal_fetch_state;
                   else
                     -- Chain to next DMA job
-                    dmagic_list_counter <= 0;
-                    state <= DMAgicReadList;
+                    state <= DMAgicTrigger;
                   end if;
                 else
                   dmagic_count <= dmagic_count - 1;
