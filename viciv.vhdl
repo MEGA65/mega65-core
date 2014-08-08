@@ -1231,6 +1231,11 @@ begin
       if reset='1' then
         -- Allow kickstart ROM to be visible on reset.
         rom_at_e000 <= '0';
+
+        -- Set CPU to 48MHz
+        viciv_fast_internal <= '1';
+        viciii_fast_internal <= '1';
+        vicii_2mhz_internal <= '1';
       end if;
       
       report "drive led = " & std_logic'image(led)
