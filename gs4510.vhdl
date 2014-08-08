@@ -109,11 +109,12 @@ entity gs4510 is
     ---------------------------------------------------------------------------
     -- Control CPU speed.  Use 
     ---------------------------------------------------------------------------
-    --         C128 2MHZ ($D030)  : C65 FAST ($D031)
-    -- ~1MHz   0                  : 0
-    -- ~2MHz   1                  : 0
-    -- ~3.5MHz 0                  : 1
-    -- 48MHz   1                  : 1
+    --         C128 2MHZ ($D030)  : C65 FAST ($D031) : C65GS FAST ($D054)
+    -- ~1MHz   0                  : 0                : X
+    -- ~2MHz   1                  : 0                : 0
+    -- ~3.5MHz 0                  : 1                : 0
+    -- 48MHz   1                  : X                : 1
+    -- 48MHz   X                  : 1                : 1
     ---------------------------------------------------------------------------    
     vicii_2mhz : in std_logic;
     viciii_fast : in std_logic;
@@ -191,16 +192,40 @@ end component;
   -- SlowRAM has 70ns access time, so need some wait states.
   -- At 48MHz we only need 4 cycles.
   -- (had +2 extra for drive stages)
-  signal slowram_waitstates : unsigned(7 downto 0) := x"06";
   -- Shadow RAM has 0 wait states by default
-  signal shadow_wait_states : unsigned(7 downto 0) := x"00";
   -- IO has one waitstate for reading, 0 for writing
   -- (Reading incurrs an extra waitstate due to read_data_copy)
   -- XXX An extra wait state seems to be necessary when reading from dual-port
   -- memories like colour ram.
-  signal io_read_wait_states : unsigned(7 downto 0) := x"01";
-  signal colourram_read_wait_states : unsigned(7 downto 0) := x"02";
-  signal io_write_wait_states : unsigned(7 downto 0) := x"00";
+  constant slowram_48mhz : unsigned(7 downto 0) := x"06";
+  constant ioread_48mhz : unsigned(7 downto 0) := x"01";
+  constant colourread_48mhz : unsigned(7 downto 0) := x"02";
+  constant iowrite_48mhz : unsigned(7 downto 0) := x"00";
+  constant shadow_48mhz :  unsigned(7 downto 0) := x"00";
+
+  constant slowram_3mhz : unsigned(7 downto 0) := x"0d";
+  constant ioread_3mhz : unsigned(7 downto 0) := x"0d";
+  constant colourread_3mhz : unsigned(7 downto 0) := x"0d";
+  constant iowrite_3mhz : unsigned(7 downto 0) := x"0d";
+  constant shadow_3mhz :  unsigned(7 downto 0) := x"0d";
+
+  constant slowram_2mhz : unsigned(7 downto 0) := x"1b";
+  constant ioread_2mhz : unsigned(7 downto 0) := x"1b";
+  constant colourread_2mhz : unsigned(7 downto 0) := x"1b";
+  constant iowrite_2mhz : unsigned(7 downto 0) := x"1b";
+  constant shadow_2mhz :  unsigned(7 downto 0) := x"1b";
+
+  constant slowram_1mhz : unsigned(7 downto 0) := x"2f";
+  constant ioread_1mhz : unsigned(7 downto 0) := x"2f";
+  constant colourread_1mhz : unsigned(7 downto 0) := x"2f";
+  constant iowrite_1mhz : unsigned(7 downto 0) := x"2f";
+  constant shadow_1mhz :  unsigned(7 downto 0) := x"2f";
+
+  signal slowram_waitstates : unsigned(7 downto 0) := slowram_48mhz;
+  signal shadow_wait_states : unsigned(7 downto 0) := shadow_48mhz;
+  signal io_read_wait_states : unsigned(7 downto 0) := ioread_48mhz;
+  signal colourram_read_wait_states : unsigned(7 downto 0) := colourread_48mhz;
+  signal io_write_wait_states : unsigned(7 downto 0) := iowrite_48mhz;
 
   -- Number of pending wait states
   signal wait_states : unsigned(7 downto 0) := x"05";
@@ -976,16 +1001,24 @@ begin
       report "MEMORY long_address = $" & to_hstring(long_address);
       if (long_address = x"0000000") or (long_address = x"0000001") then
         accessing_cpuport <= '1';
-        wait_states <= x"00";
-        proceed <= '1';
+        wait_states <= shadow_wait_states;
+        if shadow_wait_states=x"00" then
+          proceed <= '1';
+        else
+          proceed <= '0';
+        end if;
         cpuport_num <= real_long_address(3 downto 0);
       elsif long_address(27 downto 4) = x"400000" then
         -- More CPU ports for debugging.
         -- (this was added to debug CIA IRQ bugs where reading/writing from
         -- fastio space would prevent the bug from manifesting)
         accessing_cpuport <= '1';
-        wait_states <= x"00";
-        proceed <= '1';
+        wait_states <= shadow_wait_states;
+        if shadow_wait_states=x"00" then
+          proceed <= '1';
+        else
+          proceed <= '0';
+        end if;
         cpuport_num <= real_long_address(3 downto 0);
       elsif long_address(27 downto 16)="0000"&shadow_bank then
         -- Reading from 256KB shadow ram (which includes 128KB fixed shadowing of
@@ -993,7 +1026,11 @@ begin
         -- Think of it as a kind of direct-mapped L1 cache.
         accessing_shadow <= '1';
         wait_states <= shadow_wait_states;
-        proceed <= '1';
+        if shadow_wait_states=x"00" then
+          proceed <= '1';
+        else
+          proceed <= '0';
+        end if;
         report "Reading from shadow ram address $" & to_hstring(long_address(17 downto 0))
           & ", word $" & to_hstring(long_address(18 downto 3)) severity note;
       elsif long_address(27 downto 17)="00000000000" then
@@ -1001,7 +1038,11 @@ begin
         -- instead.
         accessing_shadow <= '1';
         wait_states <= shadow_wait_states;
-        proceed <= '1';        
+        if shadow_wait_states=x"00" then
+          proceed <= '1';
+        else
+          proceed <= '0';
+        end if;
         report "Reading from shadowed chipram address $"
           & to_hstring(long_address(19 downto 0)) severity note;
       elsif long_address(27 downto 24) = x"8"
@@ -1302,35 +1343,7 @@ begin
         null;
       end if;
     end write_long_byte;
-    
-    procedure write_data (
-      address            : in unsigned(15 downto 0);
-      value              : in unsigned(7 downto 0)) is
-      variable long_address : unsigned(27 downto 0);
-    begin
-      report "writing, so clearing wait states" severity note;
-      wait_states <= shadow_wait_states;
-
-      long_address := resolve_address_to_long(address,true);
-      if long_address=unsigned(monitor_watch) then
-        monitor_watch_match <= '1';
-      end if;
-      if long_address=x"0000000" then
-        -- Setting the CPU DDR is simple, and has no real side effects.
-        -- All 8 bits can be written to.
-        cpuport_ddr <= value;
-      elsif long_address=x"0000001" then
-        -- For CPU port, things get more interesting.
-        -- Bits 6 & 7 cannot be altered, and always read 0.
-        cpuport_value(5 downto 0) <= value(5 downto 0);
-      else
-        report "Writing $" & to_hstring(value) & " @ $" & to_hstring(address)
-          & " (resolves to $" & to_hstring(long_address) & ")" severity note;
-        write_long_byte(long_address,value);
-      end if;
-    end procedure write_data;
-
-    
+        
     -- purpose: set processor flags from a byte (eg for PLP or RTI)
     procedure load_processor_flags (
       value : in unsigned(7 downto 0)) is
@@ -1518,18 +1531,6 @@ begin
       return tmp(11 downto 0);
     end function alu_op_sub;
     
-    function flag_status (
-      yes : in string;
-      no : in string;
-      condition : in std_logic) return string is
-    begin
-      if condition='1' then
-        return yes;
-      else
-        return no;
-      end if;
-    end function flag_status;
-    
     variable virtual_reg_p : std_logic_vector(7 downto 0);
     variable temp_pc : unsigned(15 downto 0);
     variable temp_value : unsigned(7 downto 0);
@@ -1556,6 +1557,8 @@ begin
     variable push_value : unsigned(7 downto 0);
 
     variable temp_addr : unsigned(15 downto 0);    
+
+    variable cpu_speed : std_logic_vector(2 downto 0);
     
   begin
 
@@ -1589,6 +1592,60 @@ begin
     -- BEGINNING OF MAIN PROCESS FOR CPU
     if rising_edge(clock) then
 
+      cpu_speed := vicii_2mhz&viciii_fast&viciv_fast;
+      case cpu_speed is
+        when "000" => -- 1mhz
+          slowram_waitstates <= slowram_1mhz;
+          shadow_wait_states <= shadow_1mhz;
+          io_read_wait_states <= ioread_1mhz;
+          colourram_read_wait_states <= colourread_1mhz;
+          io_write_wait_states <= iowrite_1mhz;
+        when "001" => -- 1mhz
+          slowram_waitstates <= slowram_1mhz;
+          shadow_wait_states <= shadow_1mhz;
+          io_read_wait_states <= ioread_1mhz;
+          colourram_read_wait_states <= colourread_1mhz;
+          io_write_wait_states <= iowrite_1mhz;
+        when "010" => -- 3.5mhz
+          slowram_waitstates <= slowram_3mhz;
+          shadow_wait_states <= shadow_3mhz;
+          io_read_wait_states <= ioread_3mhz;
+          colourram_read_wait_states <= colourread_3mhz;
+          io_write_wait_states <= iowrite_3mhz;
+        when "011" => -- 48mhz
+          slowram_waitstates <= slowram_48mhz;
+          shadow_wait_states <= shadow_48mhz;
+          io_read_wait_states <= ioread_48mhz;
+          colourram_read_wait_states <= colourread_48mhz;
+          io_write_wait_states <= iowrite_48mhz;
+        when "100" => -- 2mhz
+          slowram_waitstates <= slowram_48mhz;
+          shadow_wait_states <= shadow_48mhz;
+          io_read_wait_states <= ioread_48mhz;
+          colourram_read_wait_states <= colourread_48mhz;
+          io_write_wait_states <= iowrite_48mhz;
+        when "101" => -- 48mhz
+          slowram_waitstates <= slowram_48mhz;
+          shadow_wait_states <= shadow_48mhz;
+          io_read_wait_states <= ioread_48mhz;
+          colourram_read_wait_states <= colourread_48mhz;
+          io_write_wait_states <= iowrite_48mhz;
+        when "110" => -- 3.5mhz
+          slowram_waitstates <= slowram_3mhz;
+          shadow_wait_states <= shadow_3mhz;
+          io_read_wait_states <= ioread_3mhz;
+          colourram_read_wait_states <= colourread_3mhz;
+          io_write_wait_states <= iowrite_3mhz;
+        when "111" => -- 48mhz
+          slowram_waitstates <= slowram_48mhz;
+          shadow_wait_states <= shadow_48mhz;
+          io_read_wait_states <= ioread_48mhz;
+          colourram_read_wait_states <= colourread_48mhz;
+          io_write_wait_states <= iowrite_48mhz;
+        when others =>
+          null;
+      end case;
+      
       check_for_interrupts;
       
       if wait_states = x"00" then
