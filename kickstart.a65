@@ -739,19 +739,17 @@ fileopenerror:
 		ldy #>msg_fileopenerror
 		jsr printmessage
 
-		; temporary infinite loop to catch us
-infinity:	inc $07e7          ; $0400+(24*40)+39
-		jmp infinity
-
 sdcarderror:	ldx #<msg_sdcarderror
 		ldy #>msg_sdcarderror
 		jsr printmessage
-		jmp infinity
+		jsr sdwaitawhile
+		jmp reset_entry
 
 badfs:		ldx #<msg_badformat
 		ldy #>msg_badformat
 		jsr printmessage
-		jmp infinity
+		jsr sdwaitawhile
+		jmp reset_entry
 ;;; ----------------------------------------------------------------------------
 ;;; FAT file system routines
 ;;; ----------------------------------------------------------------------------
