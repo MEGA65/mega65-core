@@ -105,45 +105,7 @@ kickstart_entry:
 		ldy #>msg_kickstart
 		jsr printmessage
 		; leave a blank line below kickstart banner
-		inc screenrow
-
-		; copy disk chooser routine to $C000
-		; XXX Should use DMAgic to do this more elegantly
-		ldy #$00		
-*		lda diskchooserstart,y
-		sta $c000,y
-		lda diskchooserstart+$100,y
-		sta $c100,y
-		lda diskchooserstart+$200,y
-		sta $c200,y
-		lda diskchooserstart+$300,y
-		sta $c300,y
-		lda diskchooserstart+$400,y
-		sta $c400,y
-		lda diskchooserstart+$500,y
-		sta $c500,y
-		lda diskchooserstart+$600,y
-		sta $c600,y
-		lda diskchooserstart+$700,y
-		sta $c700,y
-		lda diskchooserstart+$800,y
-		sta $c800,y
-		lda diskchooserstart+$900,y
-		sta $c900,y
-		lda diskchooserstart+$a00,y
-		sta $ca00,y
-		lda diskchooserstart+$b00,y
-		sta $cb00,y
-		lda diskchooserstart+$c00,y
-		sta $cc00,y
-		lda diskchooserstart+$d00,y
-		sta $cd00,y
-		lda diskchooserstart+$e00,y
-		sta $ce00,y
-		; Disk chooser must be <=$F00 bytes, as $CF00 is 
-		; scratch pad for kickstart and also for the disk chooser
-		iny
-		bne -		
+		inc screenrow		
 
 		; Try to read the MBR from the SD card
 		ldx #<msg_tryingsdcard
@@ -1774,12 +1736,20 @@ erasescreendmalist:
 		.byte $00   ; screen is in bank $00
 		.word $0000 ; modulo (unused)
 		; Clear colour RAM
-		.byte $03 ; fill + last request in chain
+		.byte $07 ; fill + chained request
 		.word 2000 ; 80x25 = 2000
 		.byte $01 ; fill with white = $01
 		.byte $00,$00 ; rest of source address is ignored in fill
 		.word $d800 ; screen is at $0400
 		.byte $80   ; screen is in IO, so bank IO in to DMA context
+		.word $0000 ; modulo (unused)
+		; also copy diskchooser from $FFFE000-$FFFEFFF to $000C000-$000CFFF
+		.byte $00 ; copy + last request in chain
+		.word $1000
+		.word $E000 ; source address 
+		.byte $FF ; source bank
+		.word $c000 ; destination address
+		.byte $00   ; destination bank
 		.word $0000 ; modulo (unused)
 
 checkpoint:
@@ -2006,6 +1976,7 @@ reset_entry:
 		sei
 		cld
 		see
+		
 		lda #$00
 		tab
 		ldy #$01
