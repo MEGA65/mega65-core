@@ -865,10 +865,6 @@ begin
   begin
     fastio_rdata <= (others => 'Z');    
 
-    viciv_fast <= viciv_fast_internal;
-    viciii_fast <= viciii_fast_internal;
-    vicii_2mhz <= vicii_2mhz_internal;
-    
     if true then
       -- Calculate register number asynchronously
       register_number := x"FFF";
@@ -1228,6 +1224,10 @@ begin
     
     if rising_edge(ioclock) then
 
+      viciv_fast <= viciv_fast_internal;
+      viciii_fast <= viciii_fast_internal;
+      vicii_2mhz <= vicii_2mhz_internal;
+    
       if reset='1' then
         -- Allow kickstart ROM to be visible on reset.
         rom_at_e000 <= '0';
