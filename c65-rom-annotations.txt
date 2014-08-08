@@ -9,7 +9,8 @@
 34 pointer to end of arrays, high byte
 35 pointer to string storage (moving down)
 36 pointer to string storage (moving down), high byte
-
+84 Bank number for sta_far and friends
+86 Previous CPU speed ($00 = 1MHz, $40 = 3.5MHz)
 
 D7 bit7 of $D7 set indicates 40 column mode
 E0 pointer to screen line
@@ -84,6 +85,7 @@ text 2283 228f
 text 2293 22d3
 22F9 CHRGET routine
 22FB CHRGOT routine
+237e Store byte to bank held in $0084
 text 2d02 2d08
 text 2ec5 2ecb
 text 2ee0 2ee8
@@ -100,11 +102,24 @@ text 2ee0 2ee8
 @2F78 Select normal DMAgic COPY instruction
 @2F6E DMA copy source and destination bank the same from $84
 text 30d0 30e1
+342F @ Copy byte from $03CF to $2000
+3433 @ Copy byte from $03D0 to $2001
+3437 @ Copy byte from $03D1 to $2002
+34A4 Put $002D-$002E into $003D-$003E
 text 3951 3962
 text 39a2 39b1
 3B0B Set bit 5 in $7E
 3B0E Clear bit 5 in $7E
 text 42ab 42b5
+4754 Do something to SID voice
+47A4 Restore CPU speed to before call to $47A4
+47AA Switch to 1MHz and remember whether CPU was 1MHz or 3.5MHz
+text 48f2 490f
+48f2 Gets copied to $1290 at $2148
+text 4910 4919
+4910 Gets copied to $12B8 at $2156
+text 491a 491b
+491a SID voice offsets from $d400?
 text 62f7 62fb
 661A Try to load AUTOBOOT.C65?
 661C @ Select drive zero
@@ -116,6 +131,8 @@ text 62f7 62fb
 66C8 @ LOAD or VERIFY file
 66CF @ LOAD file
 text 670c 6710
+text 6814 6817
+6814 Copied to $0124 at $3480
 6F8B Preparing to LOAD BASIC program?
 text 6666 6673
 text 70af 70b6
