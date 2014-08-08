@@ -257,7 +257,7 @@ architecture behavioural of uart_monitor is
   signal cpu_state_count : integer range 0 to 16;
   signal cpu_state_was_hold : std_logic := '0';
 
-  signal show_register_delay : integer range 0 to 60;
+  signal show_register_delay : integer range 0 to 255;
   
 begin
 
@@ -1067,7 +1067,7 @@ begin
             print_hex_byte(membuf(byte_number),ShowMemory7);
           when ShowMemory9 => try_output_char(lf,ShowMemory2);
           when ShowRegisters =>
-            show_register_delay <= 60;
+            show_register_delay <= 255;
             state <= ShowRegistersDelay;
           when ShowRegistersDelay =>
             -- Wait 60 cycles to give instruction time to run (even when loaded
