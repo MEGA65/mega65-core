@@ -817,7 +817,7 @@ begin
         end if;
         nmi_state <= nmi;
         -- IRQ is level triggered.
-        if irq = '0' and flag_i='0' then
+        if (irq = '0') and (flag_i='0') then
           irq_pending <= '1';
         else
           irq_pending <= '0';
