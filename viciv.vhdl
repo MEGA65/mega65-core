@@ -2277,7 +2277,7 @@ begin
           -- range of address is controlled here by character number.
           report "setting charaddress to " & integer'image(to_integer(glyph_data_address(10 downto 0)))
             & " for painting glyph $" & to_hstring(glyph_number(11 downto 0)) severity note;
-          charaddress <= to_integer(glyph_data_address(10 downto 0));
+          charaddress <= to_integer(glyph_data_address(11 downto 0));
 
           -- Schedule next colour ram byte
           colourramaddress <= colourramaddress + 1;
