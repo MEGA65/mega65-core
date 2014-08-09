@@ -1592,59 +1592,59 @@ begin
     -- BEGINNING OF MAIN PROCESS FOR CPU
     if rising_edge(clock) then
 
-      cpu_speed := vicii_2mhz&viciii_fast&viciv_fast;
-      case cpu_speed is
-        when "000" => -- 1mhz
-          slowram_waitstates <= slowram_1mhz;
-          shadow_wait_states <= shadow_1mhz;
-          io_read_wait_states <= ioread_1mhz;
-          colourram_read_wait_states <= colourread_1mhz;
-          io_write_wait_states <= iowrite_1mhz;
-        when "001" => -- 1mhz
-          slowram_waitstates <= slowram_1mhz;
-          shadow_wait_states <= shadow_1mhz;
-          io_read_wait_states <= ioread_1mhz;
-          colourram_read_wait_states <= colourread_1mhz;
-          io_write_wait_states <= iowrite_1mhz;
-        when "010" => -- 3.5mhz
-          slowram_waitstates <= slowram_3mhz;
-          shadow_wait_states <= shadow_3mhz;
-          io_read_wait_states <= ioread_3mhz;
-          colourram_read_wait_states <= colourread_3mhz;
-          io_write_wait_states <= iowrite_3mhz;
-        when "011" => -- 48mhz
-          slowram_waitstates <= slowram_48mhz;
-          shadow_wait_states <= shadow_48mhz;
-          io_read_wait_states <= ioread_48mhz;
-          colourram_read_wait_states <= colourread_48mhz;
-          io_write_wait_states <= iowrite_48mhz;
-        when "100" => -- 2mhz
-          slowram_waitstates <= slowram_48mhz;
-          shadow_wait_states <= shadow_48mhz;
-          io_read_wait_states <= ioread_48mhz;
-          colourram_read_wait_states <= colourread_48mhz;
-          io_write_wait_states <= iowrite_48mhz;
-        when "101" => -- 48mhz
-          slowram_waitstates <= slowram_48mhz;
-          shadow_wait_states <= shadow_48mhz;
-          io_read_wait_states <= ioread_48mhz;
-          colourram_read_wait_states <= colourread_48mhz;
-          io_write_wait_states <= iowrite_48mhz;
-        when "110" => -- 3.5mhz
-          slowram_waitstates <= slowram_3mhz;
-          shadow_wait_states <= shadow_3mhz;
-          io_read_wait_states <= ioread_3mhz;
-          colourram_read_wait_states <= colourread_3mhz;
-          io_write_wait_states <= iowrite_3mhz;
-        when "111" => -- 48mhz
-          slowram_waitstates <= slowram_48mhz;
-          shadow_wait_states <= shadow_48mhz;
-          io_read_wait_states <= ioread_48mhz;
-          colourram_read_wait_states <= colourread_48mhz;
-          io_write_wait_states <= iowrite_48mhz;
-        when others =>
-          null;
-      end case;
+      --cpu_speed := vicii_2mhz&viciii_fast&viciv_fast;
+      --case cpu_speed is
+      --  when "000" => -- 1mhz
+      --    slowram_waitstates <= slowram_1mhz;
+      --    shadow_wait_states <= shadow_1mhz;
+      --    io_read_wait_states <= ioread_1mhz;
+      --    colourram_read_wait_states <= colourread_1mhz;
+      --    io_write_wait_states <= iowrite_1mhz;
+      --  when "001" => -- 1mhz
+      --    slowram_waitstates <= slowram_1mhz;
+      --    shadow_wait_states <= shadow_1mhz;
+      --    io_read_wait_states <= ioread_1mhz;
+      --    colourram_read_wait_states <= colourread_1mhz;
+      --    io_write_wait_states <= iowrite_1mhz;
+      --  when "010" => -- 3.5mhz
+      --    slowram_waitstates <= slowram_3mhz;
+      --    shadow_wait_states <= shadow_3mhz;
+      --    io_read_wait_states <= ioread_3mhz;
+      --    colourram_read_wait_states <= colourread_3mhz;
+      --    io_write_wait_states <= iowrite_3mhz;
+      --  when "011" => -- 48mhz
+      --    slowram_waitstates <= slowram_48mhz;
+      --    shadow_wait_states <= shadow_48mhz;
+      --    io_read_wait_states <= ioread_48mhz;
+      --    colourram_read_wait_states <= colourread_48mhz;
+      --    io_write_wait_states <= iowrite_48mhz;
+      --  when "100" => -- 2mhz
+      --    slowram_waitstates <= slowram_48mhz;
+      --    shadow_wait_states <= shadow_48mhz;
+      --    io_read_wait_states <= ioread_48mhz;
+      --    colourram_read_wait_states <= colourread_48mhz;
+      --    io_write_wait_states <= iowrite_48mhz;
+      --  when "101" => -- 48mhz
+      --    slowram_waitstates <= slowram_48mhz;
+      --    shadow_wait_states <= shadow_48mhz;
+      --    io_read_wait_states <= ioread_48mhz;
+      --    colourram_read_wait_states <= colourread_48mhz;
+      --    io_write_wait_states <= iowrite_48mhz;
+      --  when "110" => -- 3.5mhz
+      --    slowram_waitstates <= slowram_3mhz;
+      --    shadow_wait_states <= shadow_3mhz;
+      --    io_read_wait_states <= ioread_3mhz;
+      --    colourram_read_wait_states <= colourread_3mhz;
+      --    io_write_wait_states <= iowrite_3mhz;
+      --  when "111" => -- 48mhz
+      --    slowram_waitstates <= slowram_48mhz;
+      --    shadow_wait_states <= shadow_48mhz;
+      --    io_read_wait_states <= ioread_48mhz;
+      --    colourram_read_wait_states <= colourread_48mhz;
+      --    io_write_wait_states <= iowrite_48mhz;
+      --  when others =>
+      --    null;
+      --end case;
       
       check_for_interrupts;
       
