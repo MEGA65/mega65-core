@@ -1597,19 +1597,28 @@ begin
       ramdata_drive <= ramdata;
       paint_ramdata <= ramdata_drive;
 
-      -- Acknowledge IRQs after reading $D019
-      irq_raster <= irq_raster and (not ack_raster);
-      irq_colissionspritebitmap <= irq_colissionspritebitmap and (not ack_colissionspritebitmap);
-      irq_colissionspritesprite <= irq_colissionspritesprite and (not ack_colissionspritesprite);
-      -- Set IRQ line status to CPU
-      irq_drive <= not ((irq_raster and mask_raster)
-                        or (irq_colissionspritebitmap and mask_colissionspritebitmap)
-                        or (irq_colissionspritesprite and mask_colissionspritesprite));
+      if reset='1' then
+        -- reset clear IRQs
+        irq_colissionspritebitmap <= '0';
+        irq_colissionspritesprite <= '0';
+        irq_raster <= '0';
+      else
+        -- Acknowledge IRQs after reading $D019     
+        irq_raster <= irq_raster and (not ack_raster);
+        irq_colissionspritebitmap <= irq_colissionspritebitmap and (not ack_colissionspritebitmap);
+        irq_colissionspritesprite <= irq_colissionspritesprite and (not ack_colissionspritesprite);
+        -- Set IRQ line status to CPU
+        irq_drive <= not ((irq_raster and mask_raster)
+                          or (irq_colissionspritebitmap and mask_colissionspritebitmap)
+                          or (irq_colissionspritesprite and mask_colissionspritesprite));
+      end if;
+      -- reset masks IRQs immediately
       if irq_drive = '0' then
-        irq <= '0';
+        irq <= reset;
       else
         irq <= 'Z';
       end if;
+      
       
       -- Hsync has trouble meeting timing, so I have spread out the control
       -- over 3 cycles, including one pure drive cycle, which should hopefully
