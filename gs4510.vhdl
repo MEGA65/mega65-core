@@ -1243,8 +1243,10 @@ begin
 
       -- Write to CPU port
       if (long_address = x"0000000") then
+        report "MEMORY: Writing to CPU DDR register" severity note;
         cpuport_ddr <= value;
-      elsif (long_address = x"0000000") then
+      elsif (long_address = x"0000001") then
+        report "MEMORY: Writing to CPU PORT register" severity note;
         cpuport_value <= value;
       -- Write to DMAgic registers if required
       elsif (long_address = x"FFD3700") or (long_address = x"FFD1700") then        
