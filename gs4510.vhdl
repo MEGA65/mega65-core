@@ -1240,9 +1240,14 @@ begin
       end if;
 
       last_write_address <= real_long_address;
-      
+
+      -- Write to CPU port
+      if (long_address = x"0000000") then
+        cpuport_ddr <= value;
+      elsif (long_address = x"0000000") then
+        cpuport_value <= value;
       -- Write to DMAgic registers if required
-      if (long_address = x"FFD3700") or (long_address = x"FFD1700") then        
+      elsif (long_address = x"FFD3700") or (long_address = x"FFD1700") then        
         -- Set low order bits of DMA list address
         reg_dmagic_addr(7 downto 0) <= value;
         -- DMA gets triggered when we write here. That actually happens through
