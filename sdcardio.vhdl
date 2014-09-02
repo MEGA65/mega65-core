@@ -333,6 +333,22 @@ begin  -- behavioural
       write_address => sb_writeaddress,
       wdata => sb_wdata
       );
+
+  f011sectorbuffer: ram8x512
+    port map (
+      clk => clock,
+
+      cs => '1',
+      address => to_integer(f011_buffer_next_read),
+      rdata => f011_buffer_rdata,
+
+      -- Write side controlled by SD-card side.
+      -- (CPU side effects writes by asking SD-card side to write)
+      w => f011_buffer_write,
+      write_address => to_integer(f011_buffer_address),
+      wdata => f011_buffer_wdata
+      );
+
   
   -- XXX also implement F1011 floppy controller emulation.
   process (clock,fastio_addr,fastio_wdata,sector_buffer_mapped,sdio_busy,
@@ -427,7 +443,7 @@ begin  -- behavioural
             fastio_rdata <= f011_side;
           when "00111" =>
             -- DATA    |  D7   |  D6   |  D5   |  D4   |  D3   |  D2   |  D1   |  D0   | 7 RW
-            fastio_rdata <= f011_rdata;
+            fastio_rdata <= f011_buffer_rdata;
           when "01000" =>
             -- CLOCK   |  C7   |  C6   |  C5   |  C4   |  C3   |  C2   |  C1   |  C0   | 8 RW
             fastio_rdata <= (others => 'Z');
