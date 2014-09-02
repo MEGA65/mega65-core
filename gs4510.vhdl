@@ -1424,7 +1424,10 @@ begin
       reg_map_low <= std_logic_vector(reg_x(7 downto 4));
       reg_offset_high <= reg_z(3 downto 0) & reg_y;
       reg_map_high <= std_logic_vector(reg_z(7 downto 4));
-      
+
+      -- Inhibit all interrupts until EOM (opcode $EA, which used to be NOP)
+      -- is executed.
+      map_interrupt_inhibit <= '1';
     end c65_map_instruction;
 
     procedure alu_op_cmp (
