@@ -244,11 +244,13 @@ end component;
   signal dmagic_cmd : unsigned(7 downto 0);
   signal dmagic_count : unsigned(15 downto 0);
   signal dmagic_tally : unsigned(15 downto 0);
+  signal reg_dmagic_src_mb : unsigned(7 downto 0);
   signal dmagic_src_addr : unsigned(27 downto 0);
   signal dmagic_src_io : std_logic;
   signal dmagic_src_direction : std_logic;
   signal dmagic_src_modulo : std_logic;
   signal dmagic_src_hold : std_logic;
+  signal reg_dmagic_dst_mb : unsigned(7 downto 0);
   signal dmagic_dest_addr : unsigned(27 downto 0);
   signal dmagic_dest_io : std_logic;
   signal dmagic_dest_direction : std_logic;
@@ -1265,6 +1267,10 @@ begin
         reg_dmagic_withio <= value(7);
       elsif (long_address = x"FFD3704") or (long_address = x"FFD1704") then
         reg_dmagic_addr(27 downto 20) <= value;
+      elsif (long_address = x"FFD3705") or (long_address = x"FFD1705") then
+        reg_dmagic_src_mb <= value;
+      elsif (long_address = x"FFD3706") or (long_address = x"FFD1706") then
+        reg_dmagic_dst_mb <= value;
       elsif (long_address = x"FFD37FE") or (long_address = x"FFD17FE") then
         shadow_bank <= value;
       elsif (long_address = x"FFD37ff") or (long_address = x"FFD17ff") then
@@ -2008,9 +2014,9 @@ begin
                 & "src=$"
                 & to_hstring(dmagic_src_addr(15 downto 0))
                 & "dest=$" & to_hstring(dmagic_dest_addr(15 downto 0));
-              dmagic_src_addr(27 downto 20) <= (others => '0');
+              dmagic_src_addr(27 downto 20) <= reg_dmagic_src_mb;
               dmagic_src_addr(19 downto 16) <= dmagic_src_bank_temp(3 downto 0);
-              dmagic_dest_addr(27 downto 20) <= (others => '0');
+              dmagic_dest_addr(27 downto 20) <= reg_dmagic_dst_mb;
               dmagic_dest_addr(19 downto 16) <= dmagic_dest_bank_temp(3 downto 0);
               dmagic_src_io <= dmagic_src_bank_temp(7);
               dmagic_src_direction <= dmagic_src_bank_temp(6);
