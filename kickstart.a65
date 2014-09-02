@@ -245,7 +245,7 @@ l11:		lda $DE0E,x
 		bpl l11
 		lda #$00
 		sta fs_syssectors+2
-		sta fs_syssectors+3
+				sta fs_syssectors+3
 		sta fs_startfat+2
 		sta fs_startfat+3
 		ldy $DE10
@@ -1709,12 +1709,22 @@ erasescreen:
 		; compatibility.
 		lda #$ff
 		sta $d704
+		; similarly we need to tell DMAgic that we are copying data from
+		; MB $FF (this is for copying the disk chooser)
+		sta $d705
+		; destination MB is $00, since we are writing to C64 RAM space.
+		lda #$00
+		sta $d706
 
 		lda #>erasescreendmalist
 		sta $d701
 		; set bottom 8 bits of address and trigger DMA.
 		lda #<erasescreendmalist
 		sta $d700
+
+		; clear source/destination MB so that C65 ROM doesn't go bananas
+		lda #$00
+		sta $d705
 
 		; bank 2nd KB of colour RAM back out
 		lda #$01
@@ -1746,7 +1756,7 @@ erasescreendmalist:
 		; also copy diskchooser from $FFFE000-$FFFEFFF to $000C000-$000CFFF
 		.byte $00 ; copy + last request in chain
 		.word $1000
-		.word $E000 ; source address 
+		.word diskchooserstart ; source address 
 		.byte $FF ; source bank
 		.word $c000 ; destination address
 		.byte $00   ; destination bank
