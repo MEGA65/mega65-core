@@ -9,6 +9,8 @@
 34 pointer to end of arrays, high byte
 35 pointer to string storage (moving down)
 36 pointer to string storage (moving down), high byte
+3D pointer to basic work string, low byte
+3E pointer to basic work string, high byte
 84 Bank number for sta_far and friends
 86 Previous CPU speed ($00 = 1MHz, $40 = 3.5MHz)
 
@@ -86,6 +88,8 @@ text 2293 22d3
 22F9 CHRGET routine
 22FB CHRGOT routine
 237e Store byte to bank held in $0084
+24a4 BASIC keywords
+text 24a4 27fd
 text 2d02 2d08
 text 2ec5 2ecb
 text 2ee0 2ee8
@@ -102,10 +106,14 @@ text 2ee0 2ee8
 @2F78 Select normal DMAgic COPY instruction
 @2F6E DMA copy source and destination bank the same from $84
 text 30d0 30e1
+3101 RETURN/ENTER has been typed
+3380 @ high byte of $24A4 (BASIC keyword list)
+3382 @ low byte of $24A4 (BASIC keyword list)
 342F @ Copy byte from $03CF to $2000
 3433 @ Copy byte from $03D0 to $2001
 3437 @ Copy byte from $03D1 to $2002
 34A4 Put $002D-$002E into $003D-$003E
+378d Print CR+LF
 text 3951 3962
 text 39a2 39b1
 3B0B Set bit 5 in $7E
