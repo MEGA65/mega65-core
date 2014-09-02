@@ -1228,7 +1228,7 @@ begin
       viciii_fast <= viciii_fast_internal;
       vicii_2mhz <= vicii_2mhz_internal;
     
-      if reset='1' then
+      if reset='0' then
         -- Allow kickstart ROM to be visible on reset.
         rom_at_e000 <= '0';
 
@@ -1597,7 +1597,7 @@ begin
       ramdata_drive <= ramdata;
       paint_ramdata <= ramdata_drive;
 
-      if reset='1' then
+      if reset='0' then
         -- reset clear IRQs
         irq_colissionspritebitmap <= '0';
         irq_colissionspritesprite <= '0';
@@ -1613,8 +1613,8 @@ begin
                           or (irq_colissionspritesprite and mask_colissionspritesprite));
       end if;
       -- reset masks IRQs immediately
-      if irq_drive = '0' then
-        irq <= not reset;
+      if irq_drive = '0' and reset='1' then
+        irq <= '0';
       else
         irq <= 'Z';
       end if;
