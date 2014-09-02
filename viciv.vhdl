@@ -1614,7 +1614,7 @@ begin
       end if;
       -- reset masks IRQs immediately
       if irq_drive = '0' then
-        irq <= reset;
+        irq <= not reset;
       else
         irq <= 'Z';
       end if;
