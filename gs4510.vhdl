@@ -2598,7 +2598,7 @@ begin
                   when M_immnnnn =>                
                     reg_t <= reg_arg1;
                     reg_t_high <= memory_read_value;
-                    state <= PushWordHigh;
+                    state <= PushWordLow;
                 end case;
               end if;
             when CallSubroutine =>
@@ -3015,7 +3015,7 @@ begin
                   reg_t <= temp_addr(7 downto 0);
                 when I_PHW =>
                   reg_t_high <= memory_read_value;
-                  state <= PushWordHigh;
+                  state <= PushWordLow;
                 when I_ROW =>
                   temp_addr := memory_read_value(6 downto 0)&reg_t&flag_c;
                   flag_n <= memory_read_value(6);
@@ -3030,15 +3030,15 @@ begin
                 when others =>
                   state <= normal_fetch_state;
               end case;
-            when PushWordHigh =>
-              -- Push reg_t_high
-              stack_push := '1';
-              memory_access_wdata := reg_t_high;
-              state <= PushWordLow;
             when PushWordLow =>
               -- Push reg_t
               stack_push := '1';
               memory_access_wdata := reg_t;
+              state <= PushWordHigh;
+            when PushWordHigh =>
+              -- Push reg_t_high
+              stack_push := '1';
+              memory_access_wdata := reg_t_high;
               state <= normal_fetch_state;
             when WordOpWriteLow =>
               memory_access_address := x"000"&(reg_addr);
