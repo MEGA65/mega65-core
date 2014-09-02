@@ -3064,8 +3064,8 @@ begin
                 flag_v <= memory_read_value(6);
                 -- E cannot be set with PLP
                 flag_d <= memory_read_value(3);
-                flag_z <= memory_read_value(2);
-                flag_i <= memory_read_value(1);
+                flag_i <= memory_read_value(2);
+                flag_z <= memory_read_value(1);
                 flag_c <= memory_read_value(0);
               else
                 set_nz(memory_read_value);
