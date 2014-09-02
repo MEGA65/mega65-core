@@ -1757,7 +1757,7 @@ erasescreendmalist:
 		.byte $00 ; copy + last request in chain
 		.word $1000
 		.word diskchooserstart ; source address 
-		.byte $FF ; source bank
+		.byte $0F ; source bank
 		.word $c000 ; destination address
 		.byte $00   ; destination bank
 		.word $0000 ; modulo (unused)
