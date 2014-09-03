@@ -19,6 +19,8 @@ architecture behavioural of chipram8bit is
 
   type ram_t is array (0 to 131071) of std_logic_vector(7 downto 0);
   signal ram : ram_t := (
+    0 => x"55", 1 => x"AA", 2 => x"55", 3 => x"AA",
+    4 => x"55", 5 => x"AA", 6 => x"55", 7 => x"AA",
     4096 => x"03",
     4097 => x"08",
     4098 => x"09",
