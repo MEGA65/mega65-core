@@ -563,8 +563,8 @@ begin  -- behavioural
       -- Advance f011 buffer position when reading from data register
       last_was_d087 <= '0';
       if fastio_read='1' then
-        if (fastio_addr(19 downto 0) = x"D1687"
-            or fastio_addr(19 downto 0) = x"D3687") then
+        if (fastio_addr(19 downto 0) = x"D1087"
+            or fastio_addr(19 downto 0) = x"D3087") then
           if last_was_d087='0' then
             f011_buffer_next_read <= f011_buffer_next_read + 1;
             f011_drq <= '0';
@@ -856,6 +856,7 @@ begin  -- behavioural
               -- buffer.
               if last_was_d087='0' then
                 f011_wdata <= fastio_wdata;
+                f011_buffer_wdata <= fastio_wdata;
                 f011_buffer_write <= '1';
                 f011_buffer_next_read <= f011_buffer_next_read + 1;
                 f011_drq <= '0';                                    
