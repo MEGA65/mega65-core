@@ -2350,7 +2350,22 @@ begin
                   paint_fsm_state <= PaintMultiColour;
                 end if;
               elsif extended_background_mode='1' then
-                -- ECM - XXX - Not currently implemented.
+                -- ECM (extended colour mode)
+                if text_mode='1' then
+                  paint_foreground <= glyph_colour;
+                  case background_colour_select is
+                    when "00" => paint_background <= screen_colour;
+                    when "01" => paint_background <= multi1_colour;
+                    when "10" => paint_background <= multi2_colour;
+                    when "11" => paint_background <= multi3_colour;
+                    when others => paint_background <= screen_colour;
+                  end case;
+                else
+                  -- ECM + bitmap mode is illegal
+                  paint_foreground <= x"00";
+                  paint_background <= x"00";
+                end if;
+                paint_fsm_state <= PaintMono;
               end if;
             end if;
             -- Fetch next character
