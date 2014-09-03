@@ -104,7 +104,7 @@ entity sdcardio is
     
     -- Audio output
     ampPWM : out std_logic;
-    ampSD : out std_logic;
+    ampSD : out std_logic := '1';  -- default to amplifier on
 
     -- Microphone
     micData : in std_logic;
@@ -542,6 +542,12 @@ begin  -- behavioural
           when x"FC" =>
             -- microphone input
             fastio_rdata <= mic_value_right;
+          when x"FD" =>
+            -- Right SID audio (high) for debugging
+            fastio_rdata <= rightsid_audio(17 downto 10);
+          when x"FE" =>
+            -- Right SID audio (low) for debugging            
+            fastio_rdata <= rightsid_audio(9 downto 2);
           when x"FF" =>
             -- Flash interface
             fastio_rdata(3 downto 0) <= unsigned(QspiDB);
