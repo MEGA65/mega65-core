@@ -2560,18 +2560,18 @@ begin
             paint_bits_remaining <= paint_bits_remaining - 1;
           end if;
           -- Stretch multi-colour pixels to be double width
-          if paint_bits_remaining /= 1 then
-            paint_fsm_state <= PaintMultiColourHold;
-          end if;
+          paint_fsm_state <= PaintMultiColourHold;
         when PaintMultiColourHold =>
           raster_buffer_write_address <= raster_buffer_write_address + 1;
           raster_buffer_write <= '1';
-          if paint_bits_remaining = 1 then
+          if paint_bits_remaining = 0 then
             -- Tell character generator when we are able to become idle.
             -- (the generator tells us when to go idle)
             paint_ready <= '1';
+            paint_fsm_state <= Idle;
+          else
+            paint_fsm_state <= PaintMultiColourBits;
           end if;
-          paint_fsm_state <= PaintMultiColourBits;
         when others =>
           -- If we don't know what to do, just smile and nod and say we are
           -- ready again.

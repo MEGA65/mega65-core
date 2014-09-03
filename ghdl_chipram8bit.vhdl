@@ -21,6 +21,8 @@ architecture behavioural of chipram8bit is
   signal ram : ram_t := (
     0 => x"55", 1 => x"AA", 2 => x"55", 3 => x"AA",
     4 => x"55", 5 => x"AA", 6 => x"55", 7 => x"AA",
+    8 => x"D2", 9 => x"D2", 10 => x"D2", 11 => x"D2",
+    16 => x"D2", 17 => x"D2", 18 => x"D2", 19 => x"D2",   
     4096 => x"03",
     4097 => x"08",
     4098 => x"09",
