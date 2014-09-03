@@ -2538,7 +2538,7 @@ begin
                       state <= MicrocodeInterpret;
                     end if;
                   when M_nnY =>
-                    temp_addr := reg_b & (reg_arg1 + reg_X);
+                    temp_addr := reg_b & (reg_arg1 + reg_Y);
                     reg_addr <= temp_addr;
                     if is_load='1' or is_rmw='1' then
                       state <= LoadTarget;
