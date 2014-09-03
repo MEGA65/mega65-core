@@ -180,6 +180,7 @@ architecture behavioural of uart_monitor is
                          CPUTransaction1,CPUTransaction2,CPUTransaction3,
                          ParseHex,
                          PrintHex,PrintSpaces,
+                         ParseFlagBreak,                         
                          Watch1,
                          SetMemory1,SetMemory2,SetMemory3,SetMemory4,SetMemory5,
                          SetMemory6,SetMemory7,SetMemory8,
@@ -248,6 +249,12 @@ architecture behavioural of uart_monitor is
   -- Processor break point
   signal break_address : unsigned(15 downto 0) := x"0000";
   signal break_enabled : std_logic := '0';
+  signal flag_break_enabled : std_logic := '0';
+  -- upper bits are flags to be set to trigger break:
+  -- Break if (P & flag_break_mask(15 downto 8))
+  -- lower bits are flags to be clear to break:
+  -- Break if ((~P) & flag_break_mask(7 downto 0))
+  signal flag_break_mask : unsigned(15 downto 0) := x"0000";
   
   signal monitor_mem_trace_toggle_internal : std_logic := '0';
 
@@ -642,6 +649,15 @@ begin
       if monitor_watch_match='1' then
         monitor_mem_trace_mode <= '1';
       end if;
+      -- Stop CPU on flag change
+      if flag_break_enabled='1' and
+        (
+        ((std_logic_vector(monitor_p) and std_logic_Vector(flag_break_mask(15 downto 8))) /= x"00")
+        or ((std_logic_vector(not monitor_p) and std_logic_Vector(flag_break_mask(7 downto 0))) /= x"00")
+        )
+      then
+        monitor_mem_trace_mode <= '1';
+      end if;
       
       -- Update counter and clear outputs
       counter <= counter + 1;
@@ -809,6 +825,16 @@ begin
                   history_address <= 0;
                 else
                   state <= TraceStep;
+                end if;
+              elsif cmdbuffer(1) = 'e' or cmdbuffer(1) = 'e' then
+                report "Trigger break based on flags" severity note;
+                parse_position <= 2;
+                if cmdlen=2 then
+                  flag_break_enabled <= '0';
+                  state <= NextCommand;
+                else
+                  flag_break_enabled <= '1';
+                  parse_hex(ParseFlagBreak);
                 end if;
               elsif cmdbuffer(1) = 'b' or cmdbuffer(1) = 'B' then
                 report "CPU break command" severity note;
@@ -1019,6 +1045,9 @@ begin
             else
               state <= success_state;
             end if;
+          when ParseFlagBreak =>
+            flag_break_mask <= hex_value(15 downto 0);
+            state <= NextCommand;
           when ShowMemoryCPU1 =>
             -- Read memory from CPU's perspective
             target_address <= x"777"&hex_value(15 downto 0);
