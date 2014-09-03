@@ -411,7 +411,7 @@ architecture Behavioral of viciv is
   
   -- VIC-II style Mode control bits (correspond to bits in $D016 etc)
   -- -- Text/graphics mode select
-  signal text_mode : std_logic := '1';
+  signal text_mode : std_logic := '0';
   -- -- Basic multicolour mode bit
   signal multicolour_mode : std_logic := '0';
   -- -- Extended background colour mode (reduces charset to 64 entries)
@@ -493,7 +493,7 @@ architecture Behavioral of viciv is
   -- Character set address.
   -- Size of character set depends on resolution of characters, and whether
   -- full-colour characters are enabled.
-  signal character_set_address : unsigned(27 downto 0) := x"0009000";
+  signal character_set_address : unsigned(27 downto 0) := x"0001000";
   signal character_data_from_rom : std_logic := '1';
   -----------------------------------------------------------------------------
   
@@ -522,7 +522,7 @@ architecture Behavioral of viciv is
 
   -- Character drawing info
   signal background_colour_select : unsigned(1 downto 0);
-  signal glyph_number : unsigned(11 downto 0);
+  signal glyph_number : unsigned(11 downto 0) := to_unsigned(0,12);
   signal glyph_colour : unsigned(7 downto 0);
   signal glyph_attributes : unsigned(3 downto 0);
   signal glyph_visible : std_logic;
@@ -2187,6 +2187,13 @@ begin
           end if;
           screen_ram_buffer_address <= screen_ram_buffer_address + 1;
           report "INCREMENTing screen_ram_buffer_address to " & integer'image(to_integer(screen_ram_buffer_address)+1) severity note;
+        when FetchBitmapCell =>
+          report "from bitmap layout, we get glyph_data_address = $" & to_hstring("000"&glyph_data_address) severity note;
+          -- bitmap area is always on an 8KB boundary
+          glyph_data_address            
+            <= (character_set_address(16 downto 13)&"0"&x"000")
+            + (to_integer(screen_ram_buffer_address)+to_integer(first_card_of_row))*8+to_integer(chargen_y);
+          raster_fetch_state <= FetchTextCellColourAndSource;
         when FetchTextCell =>
           report "from screen_ram we get glyph_number = $" & to_hstring(glyph_number) severity note;
           -- We now know the character number, and whether it is full-colour or
@@ -2236,6 +2243,7 @@ begin
             end if;
           end if;
           -- Record colour and attribute information from colour RAM
+          -- XXX We do this even in bitmap mode!
           glyph_colour(7 downto 4) <= "0000";
           glyph_colour(3 downto 0) <= colourramdata(3 downto 0);
           glyph_bold <= '0';
