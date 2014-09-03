@@ -434,7 +434,7 @@ end component;
     JumpDereference3,
     TakeBranch8,
     LoadTarget,
-    WriteCommit,
+    WriteCommit,DummyWrite,
     WordOpReadHigh,
     WordOpWriteLow,
     WordOpWriteHigh,
@@ -2775,6 +2775,13 @@ begin
                 dec_sp := '1';
                 state <= CallSubroutine;
               end if;
+            when DummyWrite =>
+              memory_access_address := memory_access_address;
+              memory_access_resolve_address := '0';
+              memory_access_write := '1';
+              memory_access_read := '0';
+              memory_access_wdata := reg_t_high;
+              state <= WriteCommit;
             when WriteCommit =>
               memory_access_write := '1';
               memory_access_address := x"000"&reg_addr;
@@ -2973,7 +2980,17 @@ begin
                 end if;
               end if;
               if reg_microcode.mcDelayedWrite='1' then
-                state <= WriteCommit;
+                -- Do dummy write for RMW instructions if touching $D019
+                reg_t_high <= memory_read_value;
+
+                if reg_addr = x"D019" then
+                  report "memory: DUMMY WRITE for RMW on $D019" severity note;
+                  state <= DummyWrite;
+                else
+                  -- Otherwise just the commit new value immediately
+                  state <= WriteCommit;
+                end if;
+                
               end if;
               if reg_microcode.mcWordOp='1' then
                 reg_t <= memory_read_value;
