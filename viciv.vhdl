@@ -412,7 +412,7 @@ architecture Behavioral of viciv is
   
   -- VIC-II style Mode control bits (correspond to bits in $D016 etc)
   -- -- Text/graphics mode select
-  signal text_mode : std_logic := '0';
+  signal text_mode : std_logic := '1';
   -- -- Basic multicolour mode bit
   signal multicolour_mode : std_logic := '0';
   -- -- Extended background colour mode (reduces charset to 64 entries)
