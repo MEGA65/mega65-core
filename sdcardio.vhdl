@@ -240,7 +240,6 @@ architecture behavioural of sdcardio is
 
   signal f011_buffer_address : unsigned(8 downto 0) := (others => '0');
   signal f011_buffer_next_read : unsigned(8 downto 0) := (others => '0');
-  signal f011_fdc_buffer_write : std_logic := '0';
   signal f011_buffer_wdata : unsigned(7 downto 0);
   signal f011_buffer_rdata : unsigned(7 downto 0);
   signal f011_flag_eq : std_logic := '1';
@@ -643,7 +642,7 @@ begin  -- behavioural
       else
         f011_flag_eq <= sw(12);
       end if;
-      f011_fdc_buffer_write <= '0';
+      f011_buffer_write <= '0';
       if f011_head_track="0000000" then
         f011_track0 <= '1';
       else
@@ -819,8 +818,6 @@ begin  -- behavioural
                   else
                     -- f011_buffer_address gets pre-incremented, so start
                     -- with it pointing to the end of the buffer first
-                    f011_buffer_address(7 downto 0) <= (others => '1');
-                    f011_buffer_address(8) <= '1';
                     f011_sector_fetch <= '1';
                     f011_busy <= '1';
                     -- XXX Doesn't trigger an error for bad track/sector:
@@ -1050,7 +1047,7 @@ begin  -- behavioural
                 f011_drq <= '1';
                 -- Update F011 sector buffer
                 f011_buffer_address <= f011_buffer_address + 1;
-                f011_fdc_buffer_write <= '1';
+                f011_buffer_write <= '1';
                 f011_buffer_wdata <= unsigned(sd_rdata);
               end if;
             else
