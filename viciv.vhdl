@@ -2479,10 +2479,10 @@ begin
                 raster_buffer_write_data <= '0'&paint_background;
                 report "Painting background pixel in colour $" & to_hstring(paint_background) severity note;
               when "01" =>
-                raster_buffer_write_data <= '1'&paint_foreground;
+                raster_buffer_write_data <= '1'&paint_mc1;
                 report "Painting multi-colour 2 pixel in colour $" & to_hstring(paint_mc1) severity note;
               when "10" =>
-                raster_buffer_write_data <= '1'&paint_foreground;
+                raster_buffer_write_data <= '1'&paint_mc2;
                 report "Painting multi-colour 3 pixel in colour $" & to_hstring(paint_mc2) severity note;
               when "11" =>
                 raster_buffer_write_data <= '1'&paint_foreground;
