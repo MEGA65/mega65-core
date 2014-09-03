@@ -2888,7 +2888,7 @@ begin
                 reg_t <= temp_value;
                 flag_c <= memory_read_value(0);
                 flag_n <= temp_value(7);
-                if '0'&memory_read_value(7 downto 1) = x"7f" then
+                if temp_value = x"00" then
                   flag_z <= '1'; else flag_z <= '0';
                 end if;
               end if;
@@ -2897,7 +2897,7 @@ begin
                 reg_t <= temp_value;
                 flag_c <= memory_read_value(0);
                 flag_n <= temp_value(7);
-                if '0'&memory_read_value(7 downto 1) = x"7f" then
+                if temp_value = x"00" then
                   flag_z <= '1'; else flag_z <= '0';
                 end if;
               end if;
@@ -2906,7 +2906,7 @@ begin
                 reg_t <= temp_value;
                 flag_c <= memory_read_value(0);
                 flag_n <= temp_value(7);
-                if '0'&memory_read_value(7 downto 1) = x"7f" then
+                if temp_value = x"00" then
                   flag_z <= '1'; else flag_z <= '0';
                 end if;
               end if;
@@ -2915,7 +2915,7 @@ begin
                 reg_t <= temp_value;
                 flag_c <= memory_read_value(7);
                 flag_n <= temp_value(7);
-                if '0'&memory_read_value(6 downto 0) = x"7f" then
+                if temp_value = x"00" then
                   flag_z <= '1'; else flag_z <= '0';
                 end if;
               end if;
@@ -2924,7 +2924,7 @@ begin
                 reg_t <= temp_value;
                 flag_c <= memory_read_value(7);
                 flag_n <= temp_value(7);
-                if '0'&memory_read_value(6 downto 0) = x"7f" then
+                if temp_value = x"00" then
                   flag_z <= '1'; else flag_z <= '0';
                 end if;
               end if;
