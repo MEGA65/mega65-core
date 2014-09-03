@@ -289,6 +289,8 @@ architecture behavioral of iomapper is
 
   signal kickstartcs : std_logic;
 
+  signal reset_high : std_logic;
+  
   signal clock50hz : std_logic := '1';
   constant divisor50hz : integer := 640000; -- 64MHz/50Hz/2;
   signal counter50hz : integer := 0;
@@ -380,7 +382,7 @@ begin
   leftsid: sid6581 port map (
     clk_1MHz => phi0,
     clk32 => clk,
-    reset => reset,
+    reset => reset_high,
     cs => leftsid_cs,
     we => w,
     addr => unsigned(address(4 downto 0)),
@@ -393,7 +395,7 @@ begin
   rightsid: sid6581 port map (
     clk_1MHz => phi0,
     clk32 => clk,
-    reset => reset,
+    reset => reset_high,
     cs => rightsid_cs,
     we => w,
     addr => unsigned(address(4 downto 0)),
@@ -484,7 +486,12 @@ begin
     last_scan_code => last_scan_code
 
     );
-  
+
+  process(reset)
+  begin
+    reset_high <= not reset;
+  end process;
+
   process(clk)
   begin
     if rising_edge(clk) then
