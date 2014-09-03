@@ -320,6 +320,7 @@ architecture Behavioral of viciv is
                            FetchTextCell,
                            FetchTextCellColourAndSource,
                            FetchBitmapCell,
+                           FetchBitmapData,
                            PaintMemWait,
                            PaintMemWait2,
                            PaintMemWait3,
@@ -2147,6 +2148,16 @@ begin
               bitmap_colour_background <= x"0" & screen_ram_buffer_dout(3 downto 0);
             end if;
           end if;
+
+          -- calculate data address for bitmap mode in case we need it
+          -- bitmap area is always on an 8KB boundary
+          glyph_data_address            
+            <= (character_set_address(16 downto 13)&"0"&x"000")
+            + (to_integer(screen_ram_buffer_address)+to_integer(first_card_of_row))*8+to_integer(chargen_y);
+          report "bitmap srba="& integer'image(to_integer(screen_ram_buffer_address))
+            & ", fcor="& integer'image(to_integer(first_card_of_row))
+            severity note;
+
           screen_ram_buffer_address <= screen_ram_buffer_address + 1;
           report "INCREMENTing screen_ram_buffer_address to " & integer'image(to_integer(screen_ram_buffer_address)+1) severity note;
 
@@ -2185,15 +2196,21 @@ begin
             bitmap_colour_background <= screen_ram_buffer_dout;
             raster_fetch_state <= FetchBitmapCell;
           end if;
-          screen_ram_buffer_address <= screen_ram_buffer_address + 1;
-          report "INCREMENTing screen_ram_buffer_address to " & integer'image(to_integer(screen_ram_buffer_address)+1) severity note;
-        when FetchBitmapCell =>
-          report "from bitmap layout, we get glyph_data_address = $" & to_hstring("000"&glyph_data_address) severity note;
+
+          -- calculate data address for bitmap mode in case we need it
           -- bitmap area is always on an 8KB boundary
           glyph_data_address            
             <= (character_set_address(16 downto 13)&"0"&x"000")
             + (to_integer(screen_ram_buffer_address)+to_integer(first_card_of_row))*8+to_integer(chargen_y);
-          raster_fetch_state <= FetchTextCellColourAndSource;
+          report "bitmap srba="& integer'image(to_integer(screen_ram_buffer_address))
+            & ", fcor="& integer'image(to_integer(first_card_of_row))
+            severity note;
+          
+          screen_ram_buffer_address <= screen_ram_buffer_address + 1;
+          report "INCREMENTing screen_ram_buffer_address to " & integer'image(to_integer(screen_ram_buffer_address)+1) severity note;
+        when FetchBitmapCell =>
+          report "from bitmap layout, we get glyph_data_address = $" & to_hstring("000"&glyph_data_address) severity note;
+          raster_fetch_state <= FetchBitmapData;
         when FetchTextCell =>
           report "from screen_ram we get glyph_number = $" & to_hstring(glyph_number) severity note;
           -- We now know the character number, and whether it is full-colour or
@@ -2230,6 +2247,30 @@ begin
             character_data_from_rom <= '1';
           end if;
           raster_fetch_state <= FetchTextCellColourAndSource;
+        when FetchBitmapData =>
+          if character_data_from_rom = '1' then
+            if glyph_data_address(16 downto 12) = "0"&x"1"
+              or glyph_data_address(16 downto 12) = "0"&x"9" then
+              report "reading from rom: glyph_data_address=$" & to_hstring(glyph_data_address(15 downto 0))
+                & "chargen_y=" & to_string(std_logic_vector(chargen_y)) severity note;
+              character_data_from_rom <= '1';
+            else
+              character_data_from_rom <= '0';
+            end if;
+          end if;
+          -- Ask for first byte of data so that paint can commence immediately.
+          report "setting ramaddress to $" & to_hstring("000"&glyph_data_address) & " for painting." severity note;
+          ramaddress <= glyph_data_address;
+          -- upper bit of charrom address is set by $D018, only 258*8 = 2K
+          -- range of address is controlled here by character number.
+          report "setting charaddress to " & integer'image(to_integer(glyph_data_address(10 downto 0)))
+            & " for painting glyph $" & to_hstring(glyph_number(11 downto 0)) severity note;
+          charaddress <= to_integer(glyph_data_address(11 downto 0));
+
+          -- Schedule next colour ram byte
+          colourramaddress <= colourramaddress + 1;
+          
+          raster_fetch_state <= PaintMemWait;
         when FetchTextCellColourAndSource =>
           -- Finally determine whether source is from RAM or CHARROM
           if character_data_from_rom = '1' then
