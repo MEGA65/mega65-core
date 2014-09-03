@@ -2751,7 +2751,7 @@ begin
               memory_access_resolve_address := '1';
               -- XXX should this only step the bottom 8 bits for ($nn,X)
               -- dereferencing?
-              reg_addr <= reg_addr + 1;
+              reg_addr(7 downto 0) <= reg_addr(7 downto 0) + 1;
               state <= JumpDereference2;
             when JumpDereference2 =>
               reg_t <= memory_read_value;
