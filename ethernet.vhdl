@@ -286,6 +286,12 @@ begin  -- behavioural
             eth_txd <= "01";
             eth_txd_int <= "01";
             eth_tx_state <= WaitBeforeTX;
+          --   eth_tx_viciv <= '0';
+          -- elsif a VIC-IV packed frame buffer is full
+          --   start sending an IPv6 multicast packet containing the compressed
+          --   video.
+          --   eth_tx_size <= to_unsigned(2048 + header size);
+          --   eth_tx_viciv <= '1';
           end if;
         when WaitBeforeTX =>
           txbuffer_readaddress <= 0;
@@ -308,6 +314,10 @@ begin  -- behavioural
             eth_txd_int <= "01";
             tx_preamble_count <= tx_preamble_count - 1;
           end if;
+        -- when SendingVicIVVideoPacketHeader =>
+        --   send (mostly) constant ethernet + IPv6 header
+        --   Then send 2,048 bytes of data.
+        --   eth_tx_state <= SendingFrame
         when SendingFrame =>
           tx_fcs_crc_d_valid <= '0';
           tx_fcs_crc_calc_en <= '0';
@@ -567,7 +577,6 @@ begin  -- behavioural
     else
       fastio_rdata <= (others => 'Z');
     end if;
-
     
     if rising_edge(clock) then
 
@@ -610,7 +619,7 @@ begin  -- behavioural
       else
         irq <= 'Z';
       end if;
-
+      
       -- Write to registers
       if fastio_write='1' then
         if fastio_addr(19 downto 10)&"00" = x"DE8" then
