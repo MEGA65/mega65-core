@@ -51,7 +51,15 @@ architecture behavioural of framepacker is
   -- components go here
   
   -- signals go here
- 
+  signal pixel_count : unsigned(7 downto 0) := x"00";
+  signal last_pixel_value : unsigned(7 downto 0) := x"00";
+  signal raster_bytes : unsigned(15 downto 0) := x"0000";
+  signal dispatch_frame : std_logic := '0';
+
+  signal output_address : unsigned(4095 downto 0);
+  signal output_data : unsigned(7 downto 0);
+  signal output_write : std_logic := '0';
+  
 begin  -- behavioural
 
   -- Look after CPU side of mapping of compressed data
@@ -82,6 +90,76 @@ begin  -- behavioural
     end if;
   end process;
 
-  -- Receive pixels and compress 
+  -- Receive pixels and compress
+
+  -- We use a very simple RLE scheme for now, which supports only 128 colours.
+  -- When we see a pixel of a new colour we write the bottom 7 bits of the
+  -- colour with 0 in the MSB.  During each subsequent instance, we write the
+  -- updated count with MSB set to 1, unless a different colour (or RLE overflow)
+  -- occurs, in which case we advance the address pointer, and write the new colour
+  -- and continue the process.  In this way we never need to write >1 byte per
+  -- cycle, and rasters without repetition take 1 byte per pixel.  It also
+  -- means that we never have any data to flush at the end of frame.
+  process (pixel_newraster,pixel_stream_in,pixel_valid,pixel_newframe,pixelclock) is
+  begin
+    if rising_edge(pixelclock) then
+      if pixel_valid='1' then
+        -- report "PACKER: pixel=$"&to_hstring(pixel_stream_in) severity note;      
+        
+        if (pixel_stream_in /= last_pixel_value) or pixel_count = x"7F" then
+          -- end of last RLE
+
+          report "PACKER: Recording $"&to_hstring(pixel_count)&" x $"
+            & to_hstring(last_pixel_value) & " coloured pixels." severity note;
+          raster_bytes <= raster_bytes + 2;
+
+          output_address <= output_address + 1;
+          output_data <= '0'&pixel_stream_in(6 downto 0);
+          output_write <= '1';
+          
+          last_pixel_value <= pixel_stream_in;
+          pixel_count <= x"01";
+        else
+          -- add to existing RLE
+          pixel_count <= pixel_count + 1;
+
+          if pixel_count = x"01" then
+            output_address <= output_address + 1;
+          end if;
+          output_data <= '1'&(pixel_count(6 downto 0) + 1);
+          output_write <= '1';          
+        end if;
+      else
+        output_write <= '0';
+      end if;
+      if pixel_newraster='1' then
+        report "PACKER: -- RASTER (used $"&to_hstring(raster_bytes)&" bytes.)" severity note;
+        raster_bytes <= (others => '0');
+      end if;
+      if pixel_newframe='1' then
+        report "PACKER: ------ NEW FRAME" severity note;
+        -- XXX add pixel_endofframe signal so that we can do this with more
+        -- than 1 cycle to spare, and then flush out the buffer at the end of frame.
+        if pixel_count /= x"00" then
+          -- flush out
+          report "PACKER: Recording $"&to_hstring(pixel_count)&" x $"
+            & to_hstring(last_pixel_value) & " coloured pixels." severity note;
+          raster_bytes <= raster_bytes + 2;
+        end if;
+        last_pixel_value <= x"00";
+        pixel_count <= x"00";
+
+        dispatch_frame <= '1';
+      end if;
+      if dispatch_frame = '1' then
+        dispatch_frame <= '0';
+        report "PACKER: -- FRAME used $"&to_hstring(raster_bytes)&" bytes." severity note;
+        raster_bytes <= (others => '0');
+
+        -- Reset buffer after writing frame.
+        output_address <= (others => '0');
+      end if;      
+    end if;
+  end process;
   
 end behavioural;
