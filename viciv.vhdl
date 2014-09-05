@@ -1713,6 +1713,13 @@ begin
       else
         xfrontporch <= '0';
       end if;
+      if xcounter=frame_h_front then
+        -- tell frame grabber about each new raster
+        pixel_newraster <= '1';
+      else
+        pixel_newraster <= '0';
+      end if;
+      
       -- Work out when the horizonal back porch starts.
       -- The edge is used to trigger drawing of the next raster into the raster
       -- buffer.
@@ -1728,10 +1735,6 @@ begin
       if xfrontporch='0' and xbackporch = '0' then
         -- Increase horizonal physical pixel position
         displayx <= displayx + 1;
-        -- ... and tell frame grabber about it
-        pixel_newraster <= '1';
-      else
-        pixel_newraster <= '0';
       end if;
       
       -- Work out if the border is active
