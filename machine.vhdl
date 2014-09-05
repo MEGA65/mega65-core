@@ -336,6 +336,11 @@ architecture Behavioral of machine is
       vgagreen : out  UNSIGNED (3 downto 0);
       vgablue : out  UNSIGNED (3 downto 0);
 
+      pixel_stream_out : out unsigned (7 downto 0);
+      pixel_valid : out std_logic;   
+      pixel_newframe : out std_logic;
+      pixel_newraster : out std_logic;
+
       ---------------------------------------------------------------------------
       -- CPU Interface to ChipRAM in video controller (just 128KB for now)
       ---------------------------------------------------------------------------
@@ -400,6 +405,11 @@ architecture Behavioral of machine is
           btn : in std_logic_vector(4 downto 0);
           seg_led : out unsigned(31 downto 0);
 
+          pixel_stream_in : in unsigned (7 downto 0);
+          pixel_valid : in std_logic;
+          pixel_newframe : in std_logic;
+          pixel_newraster : in std_logic;   
+          
           ---------------------------------------------------------------------------
           -- IO lines to the ethernet controller
           ---------------------------------------------------------------------------
@@ -552,6 +562,11 @@ architecture Behavioral of machine is
   constant phi0_divisor : integer := 94;
   signal phi0_counter : integer range 0 to phi0_divisor;
 
+  signal pixel_stream : unsigned (7 downto 0);
+  signal pixel_valid : std_logic;
+  signal pixel_newframe : std_logic;
+  signal pixel_newraster : std_logic;
+  
 begin
 
   ----------------------------------------------------------------------------
@@ -784,6 +799,11 @@ begin
       vgagreen        => vgagreen,
       vgablue         => vgablue,
 
+      pixel_stream_out => pixel_stream,
+      pixel_valid => pixel_valid,
+      pixel_newframe => pixel_newframe,
+      pixel_newraster => pixel_newraster,
+      
       chipram_we => chipram_we,
       chipram_address => chipram_address,
       chipram_datain => chipram_datain,
@@ -835,6 +855,11 @@ begin
     viciii_iomode => viciii_iomode,
     sector_buffer_mapped => sector_buffer_mapped,
 
+    pixel_stream_in => pixel_stream,
+    pixel_valid => pixel_valid,
+    pixel_newframe => pixel_newframe,
+    pixel_newraster => pixel_newraster,
+    
     cs_bo => cs_bo,
     sclk_o => sclk_o,
     mosi_o => mosi_o,

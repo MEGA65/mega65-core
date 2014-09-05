@@ -84,6 +84,11 @@ entity viciv is
     vgagreen : out  UNSIGNED (3 downto 0);
     vgablue : out  UNSIGNED (3 downto 0);
 
+    pixel_stream_out : out unsigned (7 downto 0);
+    pixel_valid : out std_logic;
+    pixel_newframe : out std_logic;
+    pixel_newraster : out std_logic;
+    
     ---------------------------------------------------------------------------
     -- CPU Interface to ChipRAM in video controller (just 128KB for now)
     ---------------------------------------------------------------------------
@@ -1723,6 +1728,10 @@ begin
       if xfrontporch='0' and xbackporch = '0' then
         -- Increase horizonal physical pixel position
         displayx <= displayx + 1;
+        -- ... and tell frame grabber about it
+        pixel_newraster <= '1';
+      else
+        pixel_newraster <= '0';
       end if;
       
       -- Work out if the border is active
@@ -1810,6 +1819,13 @@ begin
 
       if ycounter=frame_v_front then
         vert_in_frame <= '1';
+        -- Send a 1 cycle pulse at the start of each frame for
+        -- streaming display module to synchronise on.
+        if vert_in_frame = '0' then
+          pixel_newframe <= '1';
+        else
+          pixel_newframe <= '0';
+        end if;
       end if;
       if ycounter=(frame_v_front+height) then
         vsync_drive <= '1';
@@ -1978,6 +1994,14 @@ begin
         vga_out_green <= to_unsigned(to_integer('0'&vga_buffer3_green(7 downto 1))+to_integer('0'&vga_buffer2_green(7 downto 1)),8);
         vga_out_blue <= to_unsigned(to_integer('0'&vga_buffer3_blue(7 downto 1))+to_integer('0'&vga_buffer2_blue(7 downto 1)),8);
       end if;
+
+      -- Also use pixel colour to produce RLE compressed video stream for
+      -- pushing over ethernet on ff10::6565:6565:6565 IPv6 transient
+      -- multi-cast address or via serial console.  However we do it, we first
+      -- need to compress the video as much as possible, and to do that, we need
+      -- the pixel stream.
+      pixel_stream_out <= pixel_colour;
+      pixel_valid <= indisplay;
       
       -- 2. From RGB, push out to pins (also draw border)
       -- Note that for C65 compatability the low nybl has the most significant

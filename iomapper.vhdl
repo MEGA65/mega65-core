@@ -32,7 +32,12 @@ entity iomapper is
 
         ps2data : in std_logic;
         ps2clock : in std_logic;
-        
+
+        pixel_stream_in : in unsigned (7 downto 0);
+        pixel_valid : in std_logic;
+        pixel_newframe : in std_logic;
+        pixel_newraster : in std_logic;
+    
     ---------------------------------------------------------------------------
     -- IO lines to the ethernet controller
     ---------------------------------------------------------------------------
@@ -286,7 +291,28 @@ architecture behavioral of iomapper is
     );
   end component;
 
+  component framepacker is
+    port (
+      pixelclock : in std_logic;
+      ioclock : in std_logic;
+      
+      pixel_stream_in : in unsigned (7 downto 0);
+      pixel_valid : in std_logic;
+      pixel_newframe : in std_logic;
+      pixel_newraster : in std_logic;
+    
+      ---------------------------------------------------------------------------
+      -- fast IO port (clocked at CPU clock).
+      ---------------------------------------------------------------------------
+      fastio_addr : in unsigned(19 downto 0);
+      fastio_write : in std_logic;
+      fastio_read : in std_logic;
+      fastio_wdata : in unsigned(7 downto 0);
+      fastio_rdata : out unsigned(7 downto 0)
+      );
+  end component;
 
+  
   signal kickstartcs : std_logic;
 
   signal reset_high : std_logic;
@@ -324,6 +350,22 @@ begin
     data_i  => data_i,
     data_o  => data_o);
 
+  framepacker0: framepacker port map (
+    ioclock => clk,
+    pixelclock => pixelclk,
+
+    pixel_stream_in => pixel_stream_in,
+    pixel_valid => pixel_valid,
+    pixel_newframe => pixel_newframe,
+    pixel_newraster => pixel_newraster,
+
+    fastio_addr => unsigned(address(7 downto 0)),
+    fastio_write => w,
+    std_logic_vector(fastio_rdata) => data_o,
+    fastio_read => r,
+    fastio_wdata => unsigned(data_i)
+    );
+    
   cia1: cia6526 port map (
     cpuclock => clk,
     phi0 => phi0,
@@ -545,18 +587,24 @@ begin
       -- Now map the SIDs
       -- $D440 = left SID
       -- $D400 = right SID
-      -- Presumably repeated through to $D5FF.
+      -- Presumably repeated through to $D5FF.  But we will repeat to $D4FF only
+      -- so that we can use $D500-$D5FF for other stuff.
       case address(19 downto 8) is
         when x"D04" => leftsid_cs <= address(6); rightsid_cs <= not address(6);
-        when x"D05" => leftsid_cs <= address(6); rightsid_cs <= not address(6);
         when x"D14" => leftsid_cs <= address(6); rightsid_cs <= not address(6);
-        when x"D15" => leftsid_cs <= address(6); rightsid_cs <= not address(6);
         when x"D24" => leftsid_cs <= address(6); rightsid_cs <= not address(6);
-        when x"D25" => leftsid_cs <= address(6); rightsid_cs <= not address(6);
         when x"D34" => leftsid_cs <= address(6); rightsid_cs <= not address(6);
-        when x"D35" => leftsid_cs <= address(6); rightsid_cs <= not address(6);
         when others => leftsid_cs <= '0'; rightsid_cs <= '0';
       end case;
+
+      -- $D500 - $D50F is reserved for frame packer for remote graphic display
+      
+      -- $D600 - $D67F is reserved for 6551 serial UART emulation for C65
+      -- compatibility.
+      
+      -- SD controller uses $D680 - $D6FF
+      
+      -- CPU uses $FFD{0,1,2,3}700 for DMAgic and other CPU-hosted IO registers.
       
       -- Now map the CIAs.
 
