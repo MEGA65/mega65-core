@@ -325,11 +325,22 @@ begin  -- behavioural
           elsif buffer_moby_toggle /= last_buffer_moby_toggle then            
             -- start sending an IPv6 multicast packet containing the compressed
             -- video.
+            report "FRAMEPACKER: Sending next packet." severity note;
             eth_tx_size <= to_unsigned(2048 + video_packet_header'length,12);
             buffer_address <= (not buffer_moby_toggle) & "00000000000";
+            eth_tx_commenced <= '1';
+            eth_tx_complete <= '0';
+            tx_preamble_count <= 29;
+            eth_txen <= '1';
+            eth_txen_int <= '1';
+            eth_txd <= "01";
+            eth_txd_int <= "01";
+            eth_tx_state <= WaitBeforeTX;
             eth_tx_viciv <= '1';
           end if;
         when WaitBeforeTX =>
+          report "FRAMEPACKER: frame size is $" & to_hstring(eth_tx_size);
+
           txbuffer_readaddress <= 0;
           eth_tx_state <= SendingPreamble;
           tx_fcs_crc_load_init <= '1';
@@ -368,10 +379,13 @@ begin  -- behavioural
               eth_tx_bits <= txbuffer_rdata;
               tx_fcs_crc_data_in <= std_logic_vector(txbuffer_rdata);
             else
-              if txbuffer_readaddress < (video_packet_header'length+1) then
+              if txbuffer_readaddress < video_packet_header'length then
+                report "FRAMEPACKER: Sending packet header byte " & integer'image(txbuffer_readaddress);
                 eth_tx_bits <= unsigned(video_packet_header(txbuffer_readaddress));
                 tx_fcs_crc_data_in <= video_packet_header(txbuffer_readaddress);
               else
+                report "FRAMEPACKER: Sending compressed video byte " & integer'image(txbuffer_readaddress - video_packet_header'length) & " = $" & to_hstring(buffer_rdata);
+                report "FRAMEPACKER: frame size is $" & to_hstring(eth_tx_size);
                 eth_tx_bits <= buffer_rdata;
                 tx_fcs_crc_data_in <= std_logic_vector(buffer_rdata);
               end if;
@@ -381,8 +395,12 @@ begin  -- behavioural
               txbuffer_readaddress <= txbuffer_readaddress + 1;
               -- For VIC-IV compressed video frames work out address.
               -- We have an 86 byte packet header
-              buffer_address <= to_unsigned(txbuffer_readaddress
-                                            - video_packet_header'length,12);
+              if txbuffer_readaddress >= video_packet_header'length then
+                buffer_address <= to_unsigned(txbuffer_readaddress
+                                              - video_packet_header'length,12);
+              else
+                buffer_address <= to_unsigned(0,12);
+              end if;
             else
               -- Now send TX FCS, value will be in tx_crc_reg, send
               -- high-order bytes first (but low-order bits first).
