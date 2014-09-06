@@ -81,7 +81,7 @@ end ethernet;
 
 architecture behavioural of ethernet is
 
- TYPE byte_array_86 IS ARRAY (1 to 86) OF unsigned(7 downto 0);
+ TYPE byte_array_86 IS ARRAY (1 to 86) OF std_logic_vector(7 downto 0);
  CONSTANT video_packet_header : byte_array_86 := (
    -- Ethernet header
    x"ff",x"ff",x"ff",x"ff",x"ff",x"ff", -- ethernet destination
@@ -148,6 +148,8 @@ architecture behavioural of ethernet is
                           SentFrame
                           );
   signal eth_state : ethernet_state := Idle;
+
+  signal last_buffer_moby_toggle : std_logic := '1';
  
   -- If asserted, collect raw signals for exactly one frame, then do nothing.
   signal debug_rx : std_logic := '0';
@@ -181,6 +183,7 @@ architecture behavioural of ethernet is
   signal tx_preamble_count : integer range 31 downto 0;
   signal eth_tx_state : ethernet_state := Idle;
   signal eth_tx_bit_count : integer range 0 to 6;
+  signal eth_tx_viciv : std_logic := '0';
   signal txbuffer_writeaddress : integer range 0 to 4095;
   signal txbuffer_readaddress : integer range 0 to 4095;
   signal txbuffer_write : std_logic := '0';
@@ -318,12 +321,13 @@ begin  -- behavioural
             eth_txd <= "01";
             eth_txd_int <= "01";
             eth_tx_state <= WaitBeforeTX;
-          --   eth_tx_viciv <= '0';
-          -- elsif a VIC-IV packed frame buffer is full
-          --   start sending an IPv6 multicast packet containing the compressed
-          --   video.
-          --   eth_tx_size <= to_unsigned(2048 + header size);
-          --   eth_tx_viciv <= '1';
+            eth_tx_viciv <= '0';
+          elsif buffer_moby_toggle /= last_buffer_moby_toggle then            
+            -- start sending an IPv6 multicast packet containing the compressed
+            -- video.
+            eth_tx_size <= to_unsigned(2048 + video_packet_header'length,12);
+            buffer_address <= (not buffer_moby_toggle) & "00000000000";
+            eth_tx_viciv <= '1';
           end if;
         when WaitBeforeTX =>
           txbuffer_readaddress <= 0;
@@ -358,13 +362,27 @@ begin  -- behavioural
           if eth_tx_bit_count = 6 then
             -- Prepare to send from next byte
             eth_tx_bit_count <= 0;
-            eth_tx_bits <= txbuffer_rdata;
             tx_fcs_crc_d_valid <= '1';
             tx_fcs_crc_calc_en <= '1';
-            tx_fcs_crc_data_in <= std_logic_vector(txbuffer_rdata);
+            if eth_tx_viciv='0' then
+              eth_tx_bits <= txbuffer_rdata;
+              tx_fcs_crc_data_in <= std_logic_vector(txbuffer_rdata);
+            else
+              if txbuffer_readaddress < (video_packet_header'length+1) then
+                eth_tx_bits <= unsigned(video_packet_header(txbuffer_readaddress));
+                tx_fcs_crc_data_in <= video_packet_header(txbuffer_readaddress);
+              else
+                eth_tx_bits <= buffer_rdata;
+                tx_fcs_crc_data_in <= std_logic_vector(buffer_rdata);
+              end if;
+            end if;
 
             if to_unsigned(txbuffer_readaddress,12) /= eth_tx_size then
               txbuffer_readaddress <= txbuffer_readaddress + 1;
+              -- For VIC-IV compressed video frames work out address.
+              -- We have an 86 byte packet header
+              buffer_address <= to_unsigned(txbuffer_readaddress
+                                            - video_packet_header'length,12);
             else
               -- Now send TX FCS, value will be in tx_crc_reg, send
               -- high-order bytes first (but low-order bits first).
