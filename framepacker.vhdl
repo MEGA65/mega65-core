@@ -62,6 +62,7 @@ architecture behavioural of framepacker is
   signal raster_bytes : unsigned(15 downto 0) := x"0000";
   signal dispatch_frame : std_logic := '0';
 
+  signal output_address_internal : unsigned(4095 downto 0);
   signal output_address : unsigned(4095 downto 0);
   signal output_data : unsigned(7 downto 0);
   signal output_write : std_logic := '0';
@@ -93,6 +94,8 @@ begin  -- behavioural
    
     if rising_edge(ioclock) then
       -- do synchronous stuff
+
+      buffer_moby_toggle <= output_address(11);
     end if;
   end process;
 
@@ -119,7 +122,8 @@ begin  -- behavioural
             & to_hstring(last_pixel_value) & " coloured pixels." severity note;
           raster_bytes <= raster_bytes + 2;
 
-          output_address <= output_address + 1;
+          output_address_internal <= output_address_internal + 1;
+          output_address <= output_address_internal + 1;
           output_data <= '0'&pixel_stream_in(6 downto 0);
           output_write <= '1';
           
@@ -130,7 +134,8 @@ begin  -- behavioural
           pixel_count <= pixel_count + 1;
 
           if pixel_count = x"01" then
-            output_address <= output_address + 1;
+            output_address_internal <= output_address_internal + 1;
+            output_address <= output_address_internal + 1;
           end if;
           output_data <= '1'&(pixel_count(6 downto 0) + 1);
           output_write <= '1';          
@@ -164,6 +169,7 @@ begin  -- behavioural
 
         -- Reset buffer after writing frame.
         output_address <= (others => '0');
+        output_address_internal <= (others => '0');
       end if;      
     end if;
   end process;
