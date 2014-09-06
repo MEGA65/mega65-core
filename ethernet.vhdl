@@ -67,12 +67,44 @@ entity ethernet is
     fastio_write : in std_logic;
     fastio_read : in std_logic;
     fastio_wdata : in unsigned(7 downto 0);
-    fastio_rdata : out unsigned(7 downto 0)
+    fastio_rdata : out unsigned(7 downto 0);
+
+    ---------------------------------------------------------------------------
+    -- compressed video stream from the VIC-IV frame packer for autonomous dispatch
+    ---------------------------------------------------------------------------    
+    buffer_moby_toggle : in std_logic := '0';
+    buffer_address : out unsigned(11 downto 0);
+    buffer_rdata : in unsigned(7 downto 0)   
+    
     );
 end ethernet;
 
 architecture behavioural of ethernet is
 
+ TYPE byte_array_86 IS ARRAY (1 to 86) OF unsigned(7 downto 0);
+ CONSTANT video_packet_header : byte_array_86 := (
+   -- Ethernet header
+   x"ff",x"ff",x"ff",x"ff",x"ff",x"ff", -- ethernet destination
+   x"00",x"00",x"00",x"00",x"00",x"00", -- ethernet source
+   x"00",x"00",  -- ethernet type/length (XXX fix later)
+   -- IPv6 header
+   x"60", -- version and traffic class high nybl
+   x"00",x"00",x"00", -- traffic class low nybl and flow label
+   x"00",x"08",  -- payload length (2048 bytes)
+   x"00", -- next header (blank for now)
+   x"01", -- hop limit: local
+   -- ipv6 source address
+   x"fe",x"80",x"00",x"00",x"00",x"00",x"00",x"00",
+   x"00",x"00",x"00",x"00",x"00",x"00",x"00",x"00",
+   x"00",x"00",x"00",x"00",x"00",x"00",x"00",x"00",
+   x"00",x"00",x"00",x"00",x"00",x"00",x"00",x"00",
+   -- ipv6 destination address
+   x"ff",x"10",x"00",x"00",x"00",x"00",x"00",x"00",
+   x"00",x"00",x"00",x"00",x"00",x"00",x"00",x"00",
+   x"00",x"00",x"00",x"00",x"00",x"00",x"00",x"00",
+   x"00",x"00",x"65",x"65",x"65",x"65",x"65",x"65"
+   );
+  
  component CRC is
     Port 
     (  
@@ -116,7 +148,7 @@ architecture behavioural of ethernet is
                           SentFrame
                           );
   signal eth_state : ethernet_state := Idle;
-
+ 
   -- If asserted, collect raw signals for exactly one frame, then do nothing.
   signal debug_rx : std_logic := '0';
  
@@ -478,7 +510,7 @@ begin  -- behavioural
                 rxbuffer_wdata <= eth_rxd & eth_rxbits;
                 rxbuffer_writeaddress <= eth_frame_len;
                 -- update CRC calculation
-                rx_fcs_crc_data_in <= std_logic_vector(eth_rxd & eth_rxbits);
+                rx_fcs_crc_data_in <= std_logic_vector(eth_rxd) & std_logic_vector(eth_rxbits);
                 rx_fcs_crc_d_valid <= '1';
                 rx_fcs_crc_calc_en <= '1';
               end if;

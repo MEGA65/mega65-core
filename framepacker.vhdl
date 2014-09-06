@@ -30,10 +30,16 @@ entity framepacker is
     pixelclock : in std_logic;
     ioclock : in std_logic;
 
+    -- Signals from VIC-IV
     pixel_stream_in : in unsigned (7 downto 0);
     pixel_valid : in std_logic;
     pixel_newframe : in std_logic;
     pixel_newraster : in std_logic;
+
+    -- Signals for ethernet controller
+    buffer_moby_toggle : out std_logic := '0';
+    buffer_address : in unsigned(11 downto 0);
+    buffer_rdata : out unsigned(7 downto 0);    
     
     ---------------------------------------------------------------------------
     -- fast IO port (clocked at CPU clock).

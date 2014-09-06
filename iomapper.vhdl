@@ -146,6 +146,11 @@ architecture behavioral of iomapper is
     eth_rxer : in std_logic;
     eth_interrupt : in std_logic;
 
+    -- Signals from the VIC-IV frame packer to supply the compressed video feed
+    buffer_moby_toggle : in std_logic := '0';
+    buffer_address : out unsigned(11 downto 0);
+    buffer_rdata : in unsigned(7 downto 0);    
+    
     fastio_addr : in unsigned(19 downto 0);
     fastio_write : in std_logic;
     fastio_read : in std_logic;
@@ -300,7 +305,12 @@ architecture behavioral of iomapper is
       pixel_valid : in std_logic;
       pixel_newframe : in std_logic;
       pixel_newraster : in std_logic;
-    
+
+      -- Signals for ethernet controller
+      buffer_moby_toggle : out std_logic := '0';
+      buffer_address : in unsigned(11 downto 0);
+      buffer_rdata : out unsigned(7 downto 0);    
+      
       ---------------------------------------------------------------------------
       -- fast IO port (clocked at CPU clock).
       ---------------------------------------------------------------------------
@@ -340,6 +350,10 @@ architecture behavioral of iomapper is
   signal rightsid_audio : unsigned(17 downto 0);
 
   signal spare_bits : unsigned(4 downto 0);
+
+  signal buffer_moby_toggle : std_logic;
+  signal buffer_address : unsigned(11 downto 0);
+  signal buffer_rdata : unsigned(7 downto 0);
   
 begin         
   kickstartrom : kickstart port map (
@@ -358,6 +372,10 @@ begin
     pixel_valid => pixel_valid,
     pixel_newframe => pixel_newframe,
     pixel_newraster => pixel_newraster,
+
+    buffer_moby_toggle => buffer_moby_toggle,
+    buffer_address => buffer_address,
+    buffer_rdata => buffer_rdata,
 
     fastio_addr => unsigned(address(7 downto 0)),
     fastio_write => w,
@@ -465,6 +483,10 @@ begin
     eth_rxdv => eth_rxdv,
     eth_rxer => eth_rxer,
     eth_interrupt => eth_interrupt,
+
+    buffer_moby_toggle => buffer_moby_toggle,
+    buffer_address => buffer_address,
+    buffer_rdata => buffer_rdata,
     
     fastio_addr => unsigned(address),
     fastio_write => w,
