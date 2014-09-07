@@ -62,8 +62,8 @@ architecture behavioural of framepacker is
   signal raster_bytes : unsigned(15 downto 0) := x"0000";
   signal dispatch_frame : std_logic := '0';
 
-  signal output_address_internal : unsigned(4095 downto 0);
-  signal output_address : unsigned(4095 downto 0);
+  signal output_address_internal : unsigned(11 downto 0) := (others => '0');
+  signal output_address : unsigned(11 downto 0);
   signal output_data : unsigned(7 downto 0);
   signal output_write : std_logic := '0';
   
@@ -93,9 +93,10 @@ begin  -- behavioural
     end if;
    
     if rising_edge(ioclock) then
-      -- do synchronous stuff
-
-      buffer_moby_toggle <= output_address(11);
+      -- Tell ethernet controller which half of the buffer we are writing to.
+      -- Ethernet controller autonomously sends the contents of the other half
+      -- whenever we switch halves.
+      buffer_moby_toggle <= output_address_internal(11);
     end if;
   end process;
 

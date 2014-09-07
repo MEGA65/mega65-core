@@ -72,7 +72,7 @@ entity ethernet is
     ---------------------------------------------------------------------------
     -- compressed video stream from the VIC-IV frame packer for autonomous dispatch
     ---------------------------------------------------------------------------    
-    buffer_moby_toggle : in std_logic := '0';
+    buffer_moby_toggle : in std_logic;
     buffer_address : out unsigned(11 downto 0);
     buffer_rdata : in unsigned(7 downto 0)   
     
@@ -149,7 +149,7 @@ architecture behavioural of ethernet is
                           );
   signal eth_state : ethernet_state := Idle;
 
-  signal last_buffer_moby_toggle : std_logic := '1';
+  signal last_buffer_moby_toggle : std_logic := '0';
  
   -- If asserted, collect raw signals for exactly one frame, then do nothing.
   signal debug_rx : std_logic := '0';
@@ -325,8 +325,11 @@ begin  -- behavioural
           elsif buffer_moby_toggle /= last_buffer_moby_toggle then            
             -- start sending an IPv6 multicast packet containing the compressed
             -- video.
-            report "FRAMEPACKER: Sending next packet." severity note;
-            eth_tx_size <= to_unsigned(2048 + video_packet_header'length,12);
+            report "FRAMEPACKER: Sending next packet ("
+              & std_logic'image(buffer_moby_toggle) & " vs " &
+              std_logic'image(last_buffer_moby_toggle) & ")"
+              severity note;
+            last_buffer_moby_toggle <= buffer_moby_toggle;
             buffer_address <= (not buffer_moby_toggle) & "00000000000";
             eth_tx_commenced <= '1';
             eth_tx_complete <= '0';
@@ -339,8 +342,6 @@ begin  -- behavioural
             eth_tx_viciv <= '1';
           end if;
         when WaitBeforeTX =>
-          report "FRAMEPACKER: frame size is $" & to_hstring(eth_tx_size);
-
           txbuffer_readaddress <= 0;
           eth_tx_state <= SendingPreamble;
           tx_fcs_crc_load_init <= '1';
@@ -385,13 +386,18 @@ begin  -- behavioural
                 tx_fcs_crc_data_in <= video_packet_header(txbuffer_readaddress);
               else
                 report "FRAMEPACKER: Sending compressed video byte " & integer'image(txbuffer_readaddress - video_packet_header'length) & " = $" & to_hstring(buffer_rdata);
-                report "FRAMEPACKER: frame size is $" & to_hstring(eth_tx_size);
                 eth_tx_bits <= buffer_rdata;
                 tx_fcs_crc_data_in <= std_logic_vector(buffer_rdata);
               end if;
             end if;
 
-            if to_unsigned(txbuffer_readaddress,12) /= eth_tx_size then
+            if ((eth_tx_viciv='0')
+                and (to_unsigned(txbuffer_readaddress,12) /= eth_tx_size))
+              or
+              ((eth_tx_viciv='1')
+                and (to_unsigned(txbuffer_readaddress,12) /=
+                     (2048 + video_packet_header'length - 1)))
+            then
               txbuffer_readaddress <= txbuffer_readaddress + 1;
               -- For VIC-IV compressed video frames work out address.
               -- We have an 86 byte packet header
