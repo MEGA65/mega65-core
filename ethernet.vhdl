@@ -220,6 +220,8 @@ architecture behavioural of ethernet is
  signal eth_irq_rx : std_logic := '0';
  signal eth_irq_tx : std_logic := '0'; 
 
+ signal eth_videostream : std_logic := '0';
+ 
  -- Reverse the input vector.
  function reversed(slv: std_logic_vector) return std_logic_vector is
    variable result: std_logic_vector(slv'reverse_range);
@@ -322,7 +324,7 @@ begin  -- behavioural
             eth_txd_int <= "01";
             eth_tx_state <= WaitBeforeTX;
             eth_tx_viciv <= '0';
-          elsif buffer_moby_toggle /= last_buffer_moby_toggle then            
+          elsif (eth_videostream='1') and (buffer_moby_toggle /= last_buffer_moby_toggle) then            
             -- start sending an IPv6 multicast packet containing the compressed
             -- video.
             report "FRAMEPACKER: Sending next packet ("
@@ -402,8 +404,15 @@ begin  -- behavioural
               -- For VIC-IV compressed video frames work out address.
               -- We have an 86 byte packet header
               if txbuffer_readaddress >= video_packet_header'length then
-                buffer_address <= to_unsigned(txbuffer_readaddress
-                                              - video_packet_header'length,12);
+                if last_buffer_moby_toggle = '1' then
+                  -- Reading from upper half
+                  buffer_address <= to_unsigned(txbuffer_readaddress
+                                                - video_packet_header'length,12);
+                else
+                  -- Reading from lower half
+                  buffer_address <= to_unsigned(txbuffer_readaddress + 2048
+                                                - video_packet_header'length,12);
+                end if;
               else
                 buffer_address <= to_unsigned(0,12);
               end if;
@@ -717,6 +726,10 @@ begin  -- behavioural
               -- Writing here also clears any current interrupts
               eth_irq_rx <= '0';
               eth_irq_tx <= '0';
+
+              -- Control video streaming
+              eth_videostream <= fastio_wdata(5);
+              
               -- Set reset line on LAN8720
               eth_reset <= fastio_wdata(0);
               eth_reset_int <= fastio_wdata(0);
