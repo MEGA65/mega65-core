@@ -377,7 +377,7 @@ begin
     buffer_address => buffer_address,
     buffer_rdata => buffer_rdata,
 
-    fastio_addr => unsigned(address(7 downto 0)),
+    fastio_addr => unsigned(address(19 downto 0)),
     fastio_write => w,
     std_logic_vector(fastio_rdata) => data_o,
     fastio_read => r,
