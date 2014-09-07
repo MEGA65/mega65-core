@@ -1822,17 +1822,17 @@ begin
 
       if ycounter=frame_v_front then
         vert_in_frame <= '1';
-        -- Send a 1 cycle pulse at the start of each frame for
-        -- streaming display module to synchronise on.
-        if vert_in_frame = '0' then
-          pixel_newframe <= '1';
-        else
-          pixel_newframe <= '0';
-        end if;
       end if;
       if ycounter=(frame_v_front+height) then
         vsync_drive <= '1';
         vert_in_frame <= '0';
+        -- Send a 1 cycle pulse at the end of each frame for
+        -- streaming display module to synchronise on.
+        if vert_in_frame = '1' then
+          pixel_newframe <= '1';
+        else
+          pixel_newframe <= '0';
+        end if;
       end if;
       if ycounter=(frame_v_front+height+frame_v_syncheight) then
         vsync_drive <= '0';
