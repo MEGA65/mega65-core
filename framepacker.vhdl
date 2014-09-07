@@ -59,7 +59,6 @@ architecture behavioural of framepacker is
   -- signals go here
   signal pixel_count : unsigned(7 downto 0) := x"00";
   signal last_pixel_value : unsigned(7 downto 0) := x"00";
-  signal raster_bytes : unsigned(15 downto 0) := x"0000";
   signal dispatch_frame : std_logic := '0';
 
   signal output_address_internal : unsigned(11 downto 0) := (others => '0');
@@ -121,7 +120,6 @@ begin  -- behavioural
 
           report "PACKER: Recording $"&to_hstring(pixel_count)&" x $"
             & to_hstring(last_pixel_value) & " coloured pixels." severity note;
-          raster_bytes <= raster_bytes + 2;
 
           output_address_internal <= output_address_internal + 1;
           output_address <= output_address_internal + 1;
@@ -144,34 +142,19 @@ begin  -- behavioural
       else
         output_write <= '0';
       end if;
-      if pixel_newraster='1' then
-        report "PACKER: -- RASTER (used $"&to_hstring(raster_bytes)&" bytes.)" severity note;
-        raster_bytes <= (others => '0');
-      end if;
-      if pixel_newframe='1' then
+      if pixel_newframe='1' then        
         report "PACKER: ------ NEW FRAME" severity note;
-        -- XXX add pixel_endofframe signal so that we can do this with more
-        -- than 1 cycle to spare, and then flush out the buffer at the end of frame.
-        if pixel_count /= x"00" then
-          -- flush out
-          report "PACKER: Recording $"&to_hstring(pixel_count)&" x $"
-            & to_hstring(last_pixel_value) & " coloured pixels." severity note;
-          raster_bytes <= raster_bytes + 2;
-        end if;
+
+        -- Write end of frame marker.
+        output_address_internal <= output_address_internal + 1;
+        output_address <= output_address_internal + 1;
+        output_data <= x"80";  -- length byte with value 0 means end of frame
+        output_write <= '1';
+
+        -- Reset pixel value state
         last_pixel_value <= x"00";
         pixel_count <= x"00";
-
-        dispatch_frame <= '1';
       end if;
-      if dispatch_frame = '1' then
-        dispatch_frame <= '0';
-        report "PACKER: -- FRAME used $"&to_hstring(raster_bytes)&" bytes." severity note;
-        raster_bytes <= (others => '0');
-
-        -- Reset buffer after writing frame.
-        output_address <= (others => '0');
-        output_address_internal <= (others => '0');
-      end if;      
     end if;
   end process;
   
