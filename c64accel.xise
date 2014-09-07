@@ -182,6 +182,14 @@
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="99"/>
       <association xil_pn:name="Implementation" xil_pn:seqID="99"/>
     </file>
+    <file xil_pn:name="framepacker.vhdl" xil_pn:type="FILE_VHDL">
+      <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="100"/>
+      <association xil_pn:name="Implementation" xil_pn:seqID="100"/>
+    </file>
+    <file xil_pn:name="ghdl_videobuffer.vhdl" xil_pn:type="FILE_VHDL">
+      <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="101"/>
+      <association xil_pn:name="Implementation" xil_pn:seqID="101"/>
+    </file>
   </files>
 
   <properties>
