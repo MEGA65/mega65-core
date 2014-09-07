@@ -630,7 +630,9 @@ begin  -- behavioural
   begin
 
     if fastio_read='1' then
+      report "MEMORY: Reading from fastio";
       if (fastio_addr(19 downto 4) = x"D36E") then
+        report "MEMORY: Reading from ethernet register block";
         case fastio_addr(3 downto 0) is
           -- $D6E0 - controls reset pin of ethernet controller
           when x"0" =>
@@ -668,8 +670,7 @@ begin  -- behavioural
           when others =>
             fastio_rdata <= (others => 'Z');
         end case;
-      end if;
-      if (fastio_addr(19 downto 8) = x"DE0") then
+      elsif (fastio_addr(19 downto 8) = x"DE0") then
         case fastio_addr(7 downto 0) is
           -- Registers $00 - $3F map to ethernet MDIO registers
           when others => fastio_rdata <= (others => 'Z');
