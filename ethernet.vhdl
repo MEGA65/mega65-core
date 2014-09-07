@@ -141,6 +141,8 @@ architecture behavioural of ethernet is
                           ReceivedFrame2,
                           BadFrame,
 
+                          IdleWait,
+                          Interpacketgap,
                           WaitBeforeTX,
                           SendingPreamble,
                           SendingFrame,
@@ -196,7 +198,8 @@ architecture behavioural of ethernet is
   signal eth_tx_complete : std_logic := '0';
   signal eth_txen_int : std_logic;
   signal eth_txd_int : unsigned(1 downto 0) := "00";
-
+  signal eth_tx_wait : integer range 0 to 50;
+ 
   signal eth_tx_crc_count : integer range 0 to 16;
   signal eth_tx_crc_bits : std_logic_vector(31 downto 0) := (others => '0');
  
@@ -308,11 +311,28 @@ begin  -- behavioural
   begin
     if rising_edge(clock50mhz) then
       -- We separate the RX/TX FSMs to allow true full-duplex operation.
-      -- For now it is upto the user to ensure the 96us gap between packets.
+      -- For now it is upto the user to ensure the 0.96us gap between packets.
       -- This is only 20 CPU cycles, so it is unlikely to be a problem.
       
       -- Ethernet TX FSM
       case eth_tx_state is
+        when IdleWait =>
+          -- Wait for 0.96usec before allowing transmission of next frame.
+          -- We are operating on the 50MHz ethernet clock, so 96usec =
+          -- 0.96 * 50 = 48 cycles.  We will wait 50 just to be sure.
+
+          -- make sure we release the transceiver.
+          eth_txen <= '0';
+
+          eth_tx_wait <= 50;
+          eth_tx_state <= InterPacketGap;
+        when InterPacketGap =>
+          -- Count down the inter-packet gap
+          if eth_tx_wait = 0 then
+            eth_tx_state <= Idle;
+          else
+            eth_tx_wait <= eth_tx_wait - 1;
+          end if;
         when Idle =>
           if eth_tx_trigger = '1' then
             eth_tx_commenced <= '1';
@@ -452,10 +472,10 @@ begin  -- behavioural
           if eth_tx_trigger='0' then
             eth_tx_complete <= '1';
             eth_tx_commenced <= '0';
-            eth_tx_state <= Idle;
+            eth_tx_state <= IdleWait;
           end if;
         when others =>
-          eth_tx_state <= Idle;
+          eth_tx_state <= IdleWait;
       end case;
     
       -- Ethernet RX FSM
