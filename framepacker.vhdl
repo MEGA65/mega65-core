@@ -55,6 +55,17 @@ end framepacker;
 architecture behavioural of framepacker is
   
   -- components go here
+  component videobuffer IS
+    PORT (
+      clka : IN STD_LOGIC;
+      wea : IN STD_LOGIC_VECTOR(0 DOWNTO 0);
+      addra : IN STD_LOGIC_VECTOR(11 DOWNTO 0);
+      dina : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
+      clkb : IN STD_LOGIC;
+      addrb : IN STD_LOGIC_VECTOR(11 DOWNTO 0);
+      doutb : OUT STD_LOGIC_VECTOR(7 DOWNTO 0)
+      );
+  END component;
   
   -- signals go here
   signal pixel_count : unsigned(7 downto 0) := x"00";
@@ -68,6 +79,16 @@ architecture behavioural of framepacker is
   
 begin  -- behavioural
 
+  videobuffer0: videobuffer port map (
+    clka => pixelclock,
+    wea(0) => output_write,
+    addra => std_logic_vector(output_address),
+    dina => std_logic_vector(output_data),
+    clkb => ioclock,
+    addrb => std_logic_vector(buffer_address),
+    unsigned(doutb) => buffer_rdata
+    );
+  
   -- Look after CPU side of mapping of compressed data
   process (ioclock,fastio_addr,fastio_wdata,fastio_read,fastio_write
            ) is
