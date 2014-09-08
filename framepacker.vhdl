@@ -173,7 +173,7 @@ begin  -- behavioural
         output_write <= '1';
 
         -- Reset pixel value state
-        last_pixel_value <= x"00";
+        last_pixel_value <= x"ff";
         pixel_count <= x"00";
       end if;
     end if;
