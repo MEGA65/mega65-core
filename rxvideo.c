@@ -36,9 +36,9 @@ unsigned char palette[17][4]={
   {  0,  255,  0,0xff}
 };
 
-unsigned char imageData[1920*1200];
+unsigned char imageData[1920*1200*2];
 int image_offset=0;
-int drawing=1;
+int drawing=0;
 int raster_length=0;
 int y;
 
@@ -62,15 +62,19 @@ int dumpImage()
   fwrite(palette[0],4,1,out);
 
   int x,y;
-  for(y=0;y<1200;y++) 
+  for(y=0;y<1200;y++) {
+    int address = 0x36 + (0 + (1199-y) * 1920) *4;
+    unsigned char linebuffer[1920*4];
     for(x=0;x<1920;x++)
       {
 	int colour = imageData[y*1920+x];
-	int address = 0x36 + (x + (1199-y) * 1920) *4;
-	fseek(out,address,SEEK_SET);
+	int offset = x * 4;
 	if (colour>15) colour=16;
-	fwrite(palette[colour],4,1,out);
+	bcopy(palette[colour],&linebuffer[offset],4);
       }
+    fseek(out,address,SEEK_SET);
+    fwrite(linebuffer,1920*4,1,out);
+  }
   fclose(out);
   printf("Wrote c65gs-screen.bmp\n");
 
@@ -135,7 +139,7 @@ int main(int argc,char **argv)
 	  // probably a C65GS compressed video frame.
 
 	  // stop if we see frame overflow
-	  if (image_offset>=1920*1200) { exit(dumpImage()); }
+	  // if (image_offset>=1920*1200) { exit(dumpImage()); }
 
 	  for(i=85;i<2133;i++) {
 	    //	    	    printf("%02x.",packet[i]);
@@ -143,9 +147,14 @@ int main(int argc,char **argv)
 	      // end of raster marker
 	      if ((!firstraster)&&raster_length<100) {
 		if (in_vblank==0) {
-		  if (drawing) dumpImage();
+		  // start of vblank at end of frame
+		  if (drawing) {
+		    printf("Done drawing.\n"); fflush(stdout);
+		    exit(dumpImage());
+		  }
 		  drawing=1;
 		  printf("Start drawing. raster_length=%d\n",raster_length);
+		  image_offset=0;
 		  in_vblank=1;
 		}
 	      }
@@ -158,19 +167,22 @@ int main(int argc,char **argv)
 	      // fill in any shortfall in the raster
 	      if (raster_length<1920) {
 		int skip=1920-(raster_length%1920);
-		// printf("Inserting %d skip pixels\n",skip);
 		while(skip--) {
-		  if (image_offset<(1920*1200))
+		  if (image_offset<(1920*1200)) {
 		    imageData[image_offset++]=0x00;
+		  }
 		}
 	      }
+
 	      if (raster_length>1920) image_offset-=(raster_length-1920);
+	      if (image_offset<0) image_offset=0;
 	      // printf("Raster %d, length=%d, image raster=%.3f\n",
 	      // y,raster_length,image_offset*1.0/1920.0);
 	      
 	      raster_length=0;
 	    } else if (packet[i]&0x80) {
 	      // RLE count
+
 	      int count=(packet[i]&0x7f);
 	      raster_length+=count-1;
 	      if (drawing) {
