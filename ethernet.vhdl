@@ -87,7 +87,7 @@ architecture behavioural of ethernet is
    x"ff",x"ff",x"ff",x"ff",x"ff", -- ethernet destination (first byte
                                   -- gets sent elsewhere)
    x"00",x"00",x"00",x"00",x"00",x"00", -- ethernet source
-   x"00",x"00",  -- ethernet type/length (XXX fix later)
+   x"86",x"dd",  -- ethernet type: IPv6
    -- IPv6 header
    x"60", -- version and traffic class high nybl
    x"00",x"00",x"00", -- traffic class low nybl and flow label
