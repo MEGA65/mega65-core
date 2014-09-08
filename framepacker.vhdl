@@ -105,7 +105,7 @@ begin  -- behavioural
         when x"1" =>  -- low byte of buffer pointer
           fastio_rdata <= output_address_internal(7 downto 0);
         when x"2" => -- high byte of buffer pointer
-          fastio_rdata <= "0"&output_address_internal(11 downto 8);          
+          fastio_rdata <= "0000"&output_address_internal(11 downto 8);          
         when others =>
           fastio_rdata <= (others => 'Z');
       end case;
