@@ -285,7 +285,7 @@ architecture Behavioral of viciv is
   -- Actual pixel positions in the frame
   signal displayx : unsigned(11 downto 0) := (others => '0');
   signal displayx_drive : unsigned(11 downto 0) := (others => '0');
-  signal displayy : unsigned(11 downto 0) := (others => '0');
+  signal displayy : unsigned(11 downto 0) := to_unsigned(0,12);
   signal display_active : std_logic := '0';
   -- Mark if we are in the top line of display
   -- (used for overlaying drive LED on first row of pixels)
@@ -1713,7 +1713,7 @@ begin
       else
         xfrontporch <= '0';
       end if;
-      if xcounter=frame_h_front then
+      if xcounter=frame_h_front+width+1 then
         -- tell frame grabber about each new raster
         pixel_newraster <= '1';
       else
@@ -1750,6 +1750,7 @@ begin
       else
         upper_border <= '0';
       end if;
+
       if displayx<border_x_left or displayx>border_x_right or
         upper_border='1' or lower_border='1' then
         inborder<='1';
@@ -1764,6 +1765,10 @@ begin
       if xfrontporch='1' or xbackporch='1' then
         indisplay := '0';
         report "clearing indisplay because of horizontal porch" severity note;
+      end if;
+      if (displayy>=height) then
+        indisplay := '0';
+        report "clearing indisplay because of vertical porch";
       end if;
 
       -- Stop drawing characters when we reach the end of the prepared data
