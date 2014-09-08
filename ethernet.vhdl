@@ -81,10 +81,11 @@ end ethernet;
 
 architecture behavioural of ethernet is
 
- TYPE byte_array_86 IS ARRAY (1 to 86) OF std_logic_vector(7 downto 0);
+ TYPE byte_array_86 IS ARRAY (1 to 85) OF std_logic_vector(7 downto 0);
  CONSTANT video_packet_header : byte_array_86 := (
    -- Ethernet header
-   x"ff",x"ff",x"ff",x"ff",x"ff",x"ff", -- ethernet destination
+   x"ff",x"ff",x"ff",x"ff",x"ff", -- ethernet destination (first byte
+                                  -- gets sent elsewhere)
    x"00",x"00",x"00",x"00",x"00",x"00", -- ethernet source
    x"00",x"00",  -- ethernet type/length (XXX fix later)
    -- IPv6 header
@@ -378,7 +379,11 @@ begin  -- behavioural
             tx_fcs_crc_load_init <= '0';
             tx_fcs_crc_d_valid <= '1';
             tx_fcs_crc_calc_en <= '1';
-            tx_fcs_crc_data_in <= std_logic_vector(txbuffer_rdata);
+            if eth_tx_viciv='0' then
+              tx_fcs_crc_data_in <= std_logic_vector(txbuffer_rdata);
+            else
+              tx_fcs_crc_data_in <= x"ff";
+            end if;
           else
             eth_txd <= "01";
             eth_txd_int <= "01";
