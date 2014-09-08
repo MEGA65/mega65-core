@@ -72,6 +72,8 @@ architecture behavioural of framepacker is
   signal last_pixel_value : unsigned(7 downto 0) := x"FF";
   signal dispatch_frame : std_logic := '0';
 
+  signal new_raster_pending : std_logic := '0';
+  
   signal output_address_internal : unsigned(11 downto 0) := (others => '1');
   signal output_address : unsigned(11 downto 0);
   signal output_data : unsigned(7 downto 0);
@@ -180,22 +182,27 @@ begin  -- behavioural
         end if;
       else
         output_write <= '0';
-      end if;
-      if pixel_newraster='1' then        
-        report "PACKER: ------ NEW RASTER" severity note;
+        if new_raster_pending = '1' then
+          new_raster_pending <= '0';
 
-        -- Write end of frame marker.
-        report "PACKER: advancing address on end of raster";
-        output_address_internal <= output_address_internal + 1;
-        output_address <= output_address_internal + 1;
-        output_data <= x"80";  -- length byte with value 0 means end of frame
-        output_write <= '1';
-        report "PACKER writing $80"
+          report "PACKER: ------ NEW RASTER" severity note;
+
+          -- Write end of frame marker.
+          report "PACKER: advancing address on end of raster";
+          output_address_internal <= output_address_internal + 1;
+          output_address <= output_address_internal + 1;
+          output_data <= x"80";  -- length byte with value 0 means end of frame
+          output_write <= '1';
+          report "PACKER writing $80"
             & " @ $" & to_hstring(output_address_internal + 1);
 
-        -- Reset pixel value state
-        last_pixel_value <= x"ff";
-        pixel_count <= x"00";
+          -- Reset pixel value state
+          last_pixel_value <= x"ff";
+          pixel_count <= x"00";
+        end if;
+      end if;
+      if pixel_newraster='1' then
+        new_raster_pending <= '1';
       end if;
     end if;
   end process;
