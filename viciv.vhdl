@@ -2003,8 +2003,15 @@ begin
       -- multi-cast address or via serial console.  However we do it, we first
       -- need to compress the video as much as possible, and to do that, we need
       -- the pixel stream.
-      pixel_stream_out <= pixel_colour;
-      pixel_valid <= indisplay;
+
+      -- Announce each raster line.  Can also be used to identify start of frame.
+      if xcounter=(frame_h_front+width) then
+        pixel_stream_out <= x"80";
+        pixel_valid <= '1';
+      else
+        pixel_stream_out <= pixel_colour;
+        pixel_valid <= indisplay;
+      end if;
       
       -- 2. From RGB, push out to pins (also draw border)
       -- Note that for C65 compatability the low nybl has the most significant
