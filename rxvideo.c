@@ -133,8 +133,6 @@ int main(int argc,char **argv)
       if (packet) {
 	if (hdr.caplen == 2132) {
 	  // probably a C65GS compressed video frame.
-	  printf("b[85..88]={%02x,%02x,%02x,%02x}, len=%d, written = %d\n",		 
-		 packet[85],packet[86],packet[87],packet[88], hdr.caplen, image_offset);
 
 	  // stop if we see frame overflow
 	  if (image_offset>=1920*1200) { exit(dumpImage()); }
