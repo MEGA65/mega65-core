@@ -649,7 +649,7 @@ begin  -- behavioural
             fastio_rdata(6) <= eth_irqenable_tx;
             fastio_rdata(5) <= eth_irq_rx;
             fastio_rdata(4) <= eth_irq_tx;
-            fastio_rdata(3) <= '0';
+            fastio_rdata(3) <= eth_videostream;
             fastio_rdata(2) <= eth_rx_buffer_last_used_48mhz;
             fastio_rdata(1) <= eth_rx_buffer_moby;
             fastio_rdata(0) <= eth_reset_int;
@@ -750,7 +750,7 @@ begin  -- behavioural
               eth_irq_tx <= '0';
 
               -- Control video streaming
-              eth_videostream <= fastio_wdata(5);
+              eth_videostream <= fastio_wdata(3);
               
               -- Set reset line on LAN8720
               eth_reset <= fastio_wdata(0);
