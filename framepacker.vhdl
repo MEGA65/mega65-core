@@ -69,10 +69,10 @@ architecture behavioural of framepacker is
   
   -- signals go here
   signal pixel_count : unsigned(7 downto 0) := x"00";
-  signal last_pixel_value : unsigned(7 downto 0) := x"00";
+  signal last_pixel_value : unsigned(7 downto 0) := x"FF";
   signal dispatch_frame : std_logic := '0';
 
-  signal output_address_internal : unsigned(11 downto 0) := (others => '0');
+  signal output_address_internal : unsigned(11 downto 0) := (others => '1');
   signal output_address : unsigned(11 downto 0);
   signal output_data : unsigned(7 downto 0);
   signal output_write : std_logic := '0';
@@ -134,19 +134,26 @@ begin  -- behavioural
   begin
     if rising_edge(pixelclock) then
       if pixel_valid='1' then
-        -- report "PACKER: pixel=$"&to_hstring(pixel_stream_in) severity note;      
+        report "PACKER: pixel=$"& to_hstring(pixel_stream_in)
+          & ", last_pixel=$" & to_hstring(last_pixel_value)
+          severity note;      
         
-        if ((pixel_stream_in /= last_pixel_value) and (pixel_count /= x"00"))
-          or (pixel_count = x"7F") then
+        if (pixel_stream_in /= last_pixel_value) or (pixel_count = x"7F") then
           -- end of last RLE
 
-          report "PACKER: Recording $"&to_hstring(pixel_count)&" x $"
-            & to_hstring(last_pixel_value) & " coloured pixels." severity note;
+          if pixel_count /= x"00" then
+            report "PACKER: Recording $"&to_hstring(pixel_count)&" x $"
+              & to_hstring(last_pixel_value) & " coloured pixels (colour change)." severity note;
+          end if;
 
+          report "PACKER: advancing address on different coloured pixel"
+            & " from $" & to_hstring(output_address_internal);
           output_address_internal <= output_address_internal + 1;
           output_address <= output_address_internal + 1;
           output_data <= '0'&pixel_stream_in(6 downto 0);
           output_write <= '1';
+          report "PACKER writing $"&to_hstring('0'&pixel_stream_in(6 downto 0))
+            & " @ $" & to_hstring(output_address_internal + 1);
           
           last_pixel_value <= pixel_stream_in;
           pixel_count <= x"01";
@@ -155,11 +162,20 @@ begin  -- behavioural
           pixel_count <= pixel_count + 1;
 
           if pixel_count = x"01" then
-            output_address_internal <= output_address_internal + 1;
+            report "PACKER writing $"&to_hstring('1'&(pixel_count(6 downto 0)+1))
+              & " @ $" & to_hstring(output_address_internal+1);
             output_address <= output_address_internal + 1;
+            output_address_internal <= output_address_internal + 1;
+          else
+            report "PACKER writing $"&to_hstring('1'&(pixel_count(6 downto 0)+1))
+              & " @ $" & to_hstring(output_address_internal);
+            output_address <= output_address_internal;
           end if;
           output_data <= '1'&(pixel_count(6 downto 0) + 1);
-          output_write <= '1';          
+          output_write <= '1';
+          report "PACKER: Recording $"&to_hstring('0'&(pixel_count(6 downto 0) + 1))
+            & " x $"
+            & to_hstring(last_pixel_value) & " coloured pixels (saw extending pixel)." severity note;
         end if;
       else
         output_write <= '0';
@@ -168,10 +184,13 @@ begin  -- behavioural
         report "PACKER: ------ NEW RASTER" severity note;
 
         -- Write end of frame marker.
+        report "PACKER: advancing address on end of raster";
         output_address_internal <= output_address_internal + 1;
         output_address <= output_address_internal + 1;
         output_data <= x"80";  -- length byte with value 0 means end of frame
         output_write <= '1';
+        report "PACKER writing $80"
+            & " @ $" & to_hstring(output_address_internal + 1);
 
         -- Reset pixel value state
         last_pixel_value <= x"ff";
