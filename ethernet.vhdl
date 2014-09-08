@@ -81,9 +81,8 @@ end ethernet;
 
 architecture behavioural of ethernet is
 
- TYPE byte_array_86 IS ARRAY (1 to 87) OF std_logic_vector(7 downto 0);
+ TYPE byte_array_86 IS ARRAY (1 to 86) OF std_logic_vector(7 downto 0);
  CONSTANT video_packet_header : byte_array_86 := (
-   x"55", -- dummy byte that gets eaten
    -- Ethernet header
    x"ff",x"ff",x"ff",x"ff",x"ff",x"ff", -- ethernet destination
    x"00",x"00",x"00",x"00",x"00",x"00", -- ethernet source
