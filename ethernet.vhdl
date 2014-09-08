@@ -81,8 +81,9 @@ end ethernet;
 
 architecture behavioural of ethernet is
 
- TYPE byte_array_86 IS ARRAY (1 to 86) OF std_logic_vector(7 downto 0);
+ TYPE byte_array_86 IS ARRAY (1 to 87) OF std_logic_vector(7 downto 0);
  CONSTANT video_packet_header : byte_array_86 := (
+   x"55", -- dummy byte that gets eaten
    -- Ethernet header
    x"ff",x"ff",x"ff",x"ff",x"ff",x"ff", -- ethernet destination
    x"00",x"00",x"00",x"00",x"00",x"00", -- ethernet source
@@ -223,7 +224,7 @@ architecture behavioural of ethernet is
  signal eth_irq_rx : std_logic := '0';
  signal eth_irq_tx : std_logic := '0'; 
 
- signal eth_videostream : std_logic := '0';
+ signal eth_videostream : std_logic := '1';
  
  -- Reverse the input vector.
  function reversed(slv: std_logic_vector) return std_logic_vector is
@@ -403,7 +404,7 @@ begin  -- behavioural
               tx_fcs_crc_data_in <= std_logic_vector(txbuffer_rdata);
             else
               if txbuffer_readaddress < video_packet_header'length then
-                report "FRAMEPACKER: Sending packet header byte " & integer'image(txbuffer_readaddress);
+                report "FRAMEPACKER: Sending packet header byte " & integer'image(txbuffer_readaddress) & " = $" & to_hstring(unsigned(video_packet_header(txbuffer_readaddress)));
                 eth_tx_bits <= unsigned(video_packet_header(txbuffer_readaddress));
                 tx_fcs_crc_data_in <= video_packet_header(txbuffer_readaddress);
               else
