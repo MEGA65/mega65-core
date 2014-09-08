@@ -374,14 +374,15 @@ begin  -- behavioural
             eth_txd_int <= "11";
             eth_tx_state <= SendingFrame;
             eth_tx_bit_count <= 0;
-            eth_tx_bits <= txbuffer_rdata;
             txbuffer_readaddress <= txbuffer_readaddress + 1;
             tx_fcs_crc_load_init <= '0';
             tx_fcs_crc_d_valid <= '1';
             tx_fcs_crc_calc_en <= '1';
             if eth_tx_viciv='0' then
+              eth_tx_bits <= txbuffer_rdata;
               tx_fcs_crc_data_in <= std_logic_vector(txbuffer_rdata);
             else
+              eth_tx_bits <= x"ff";
               tx_fcs_crc_data_in <= x"ff";
             end if;
           else
