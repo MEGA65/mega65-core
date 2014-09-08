@@ -691,7 +691,8 @@ begin  -- behavioural
     if rising_edge(clock) then
 
       -- Automatically de-assert transmit trigger once the FSM has caught the signal.
-      if eth_tx_commenced = '1' then
+      -- (but don't accidently de-assert when sending compressed video.)
+      if (eth_tx_commenced = '1') and (eth_tx_viciv='0') then
         eth_tx_trigger <= '0';
       end if;
       
@@ -769,10 +770,8 @@ begin  -- behavioural
             -- Send frame in TX buffer
             when x"4" =>
               case fastio_wdata is
-                when x"01" => 
-                  if eth_tx_commenced='0' then
-                    eth_tx_trigger <= '1';
-                  end if;
+                when x"01" =>
+                  eth_tx_trigger <= '1';
                 when x"de" => -- debug rx
                   -- Receive exactly one frame, and keep all signals states
                   debug_rx <= '1';
