@@ -2006,11 +2006,12 @@ begin
 
       -- Announce each raster line.  Can also be used to identify start of frame.
       if xcounter=(frame_h_front+width) then
-        pixel_stream_out <= x"80";
-        pixel_valid <= '1';
+        report "FRAMEPACKER: end of raster announcement";
+        pixel_newraster <= '1';
       else
         pixel_stream_out <= pixel_colour;
         pixel_valid <= indisplay;
+        pixel_newraster <= '0';
       end if;
       
       -- 2. From RGB, push out to pins (also draw border)

@@ -136,7 +136,8 @@ begin  -- behavioural
       if pixel_valid='1' then
         -- report "PACKER: pixel=$"&to_hstring(pixel_stream_in) severity note;      
         
-        if (pixel_stream_in /= last_pixel_value) or pixel_count = x"7F" then
+        if ((pixel_stream_in /= last_pixel_value) and (pixel_count /= x"00"))
+          or (pixel_count = x"7F") then
           -- end of last RLE
 
           report "PACKER: Recording $"&to_hstring(pixel_count)&" x $"
@@ -163,8 +164,8 @@ begin  -- behavioural
       else
         output_write <= '0';
       end if;
-      if pixel_newframe='1' then        
-        report "PACKER: ------ NEW FRAME" severity note;
+      if pixel_newraster='1' then        
+        report "PACKER: ------ NEW RASTER" severity note;
 
         -- Write end of frame marker.
         output_address_internal <= output_address_internal + 1;
