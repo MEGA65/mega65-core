@@ -30,6 +30,9 @@ kickstart.vhdl:	rom_template.vhdl kickstart65gs.bin makerom
 slowram.vhdl:	c65gs.rom makeslowram slowram_template.vhdl
 	./makeslowram slowram_template.vhdl c65gs.rom slowram
 
+rxvideo:	rxvideo.c
+	gcc -Wall -g -o rxvideo rxvideo.c -lpcap
+
 transfer:	kickstart.vhdl version.vhdl kickstart65gs.bin makerom makeslowram
 	scp -p version.sh Makefile makerom c65gs.rom makerom makeslowram *.a65 *.ucf *.xise *.prj *vhd *vhdl kickstart65gs.bin 192.168.56.101:c64accel/
 	scp -p .git/index 192.168.56.101:c64accel/.git/
