@@ -91,7 +91,7 @@ architecture behavioural of ethernet is
    -- IPv6 header
    x"60", -- version and traffic class high nybl
    x"00",x"00",x"00", -- traffic class low nybl and flow label
-   x"00",x"08",  -- payload length (2048 bytes)
+   x"08",x"00",  -- payload length (2048 bytes)
    x"00", -- next header (blank for now)
    x"01", -- hop limit: local
    -- ipv6 source address
