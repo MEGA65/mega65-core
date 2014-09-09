@@ -85,6 +85,7 @@ entity viciv is
     vgablue : out  UNSIGNED (3 downto 0);
 
     pixel_stream_out : out unsigned (7 downto 0);
+    pixel_y : out unsigned (11 downto 0);
     pixel_valid : out std_logic;
     pixel_newframe : out std_logic;
     pixel_newraster : out std_logic;
@@ -2013,6 +2014,7 @@ begin
       if xcounter=(frame_h_front+width) then
         report "FRAMEPACKER: end of raster announcement";
         pixel_newraster <= '1';
+        pixel_y <= displayy;
       else
         pixel_stream_out <= pixel_colour;
         pixel_valid <= indisplay;

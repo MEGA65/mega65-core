@@ -337,6 +337,7 @@ architecture Behavioral of machine is
       vgablue : out  UNSIGNED (3 downto 0);
 
       pixel_stream_out : out unsigned (7 downto 0);
+      pixel_y : out unsigned (11 downto 0);
       pixel_valid : out std_logic;   
       pixel_newframe : out std_logic;
       pixel_newraster : out std_logic;
@@ -406,6 +407,7 @@ architecture Behavioral of machine is
           seg_led : out unsigned(31 downto 0);
 
           pixel_stream_in : in unsigned (7 downto 0);
+          pixel_y : in unsigned (11 downto 0);
           pixel_valid : in std_logic;
           pixel_newframe : in std_logic;
           pixel_newraster : in std_logic;   
@@ -563,6 +565,7 @@ architecture Behavioral of machine is
   signal phi0_counter : integer range 0 to phi0_divisor;
 
   signal pixel_stream : unsigned (7 downto 0);
+  signal pixel_y : unsigned (11 downto 0);
   signal pixel_valid : std_logic;
   signal pixel_newframe : std_logic;
   signal pixel_newraster : std_logic;
@@ -800,6 +803,7 @@ begin
       vgablue         => vgablue,
 
       pixel_stream_out => pixel_stream,
+      pixel_y => pixel_y,
       pixel_valid => pixel_valid,
       pixel_newframe => pixel_newframe,
       pixel_newraster => pixel_newraster,
@@ -856,6 +860,7 @@ begin
     sector_buffer_mapped => sector_buffer_mapped,
 
     pixel_stream_in => pixel_stream,
+    pixel_y => pixel_y,
     pixel_valid => pixel_valid,
     pixel_newframe => pixel_newframe,
     pixel_newraster => pixel_newraster,

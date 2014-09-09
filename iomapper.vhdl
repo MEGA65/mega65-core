@@ -34,6 +34,7 @@ entity iomapper is
         ps2clock : in std_logic;
 
         pixel_stream_in : in unsigned (7 downto 0);
+        pixel_y : in unsigned (11 downto 0);
         pixel_valid : in std_logic;
         pixel_newframe : in std_logic;
         pixel_newraster : in std_logic;
@@ -302,6 +303,7 @@ architecture behavioral of iomapper is
       ioclock : in std_logic;
       
       pixel_stream_in : in unsigned (7 downto 0);
+      pixel_y : in unsigned (11 downto 0);
       pixel_valid : in std_logic;
       pixel_newframe : in std_logic;
       pixel_newraster : in std_logic;
@@ -369,6 +371,7 @@ begin
     pixelclock => pixelclk,
 
     pixel_stream_in => pixel_stream_in,
+    pixel_y => pixel_y,
     pixel_valid => pixel_valid,
     pixel_newframe => pixel_newframe,
     pixel_newraster => pixel_newraster,

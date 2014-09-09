@@ -32,6 +32,7 @@ entity framepacker is
 
     -- Signals from VIC-IV
     pixel_stream_in : in unsigned (7 downto 0);
+    pixel_y : in unsigned (11 downto 0);
     pixel_valid : in std_logic;
     pixel_newframe : in std_logic;
     pixel_newraster : in std_logic;
@@ -73,6 +74,7 @@ architecture behavioural of framepacker is
   signal dispatch_frame : std_logic := '0';
 
   signal new_raster_pending : std_logic := '0';
+  signal new_raster_phase : integer range 0 to 4;
   
   signal output_address_internal : unsigned(11 downto 0) := (others => '1');
   signal output_address : unsigned(11 downto 0);
@@ -133,7 +135,8 @@ begin  -- behavioural
   -- and continue the process.  In this way we never need to write >1 byte per
   -- cycle, and rasters without repetition take 1 byte per pixel.  It also
   -- means that we never have any data to flush at the end of frame.
-  process (pixel_newraster,pixel_stream_in,pixel_valid,pixel_newframe,pixelclock) is
+  process (pixel_newraster,pixel_stream_in,pixel_valid,
+           pixel_y,pixel_newframe,pixelclock) is
   begin
     if rising_edge(pixelclock) then
       if pixel_valid='1' then
@@ -183,7 +186,6 @@ begin  -- behavioural
       else
         output_write <= '0';
         if new_raster_pending = '1' then
-          new_raster_pending <= '0';
 
           report "PACKER: ------ NEW RASTER" severity note;
 
@@ -191,9 +193,24 @@ begin  -- behavioural
           report "PACKER: advancing address on end of raster";
           output_address_internal <= output_address_internal + 1;
           output_address <= output_address_internal + 1;
-          output_data <= x"80";  -- length byte with value 0 means end of frame
           output_write <= '1';
-          report "PACKER writing $80"
+          case new_raster_phase is
+            -- length byte with value 0 means end of frame
+            when 0 => output_data <= x"80";
+            when 1 => output_data <= pixel_y(7 downto 0);
+            when 2 => output_data <= "0000" & pixel_y(11 downto 8);
+            when 3 => output_data <= x"01"; -- XXX left audio
+            when 4 => output_data <= x"02"; -- XXX right audio
+          end case;
+          if new_raster_phase /= 4 then
+            -- get ready to write the next byte in the sequence
+            new_raster_phase <= new_raster_phase + 1;
+          else
+            -- all done
+            new_raster_pending <= '0';
+            new_raster_phase <= 0;
+          end if;
+          report "PACKER writing end of raster tags"
             & " @ $" & to_hstring(output_address_internal + 1);
 
           -- Reset pixel value state
@@ -203,6 +220,7 @@ begin  -- behavioural
       end if;
       if pixel_newraster='1' then
         new_raster_pending <= '1';
+        new_raster_phase <= 0;
       end if;
     end if;
   end process;
