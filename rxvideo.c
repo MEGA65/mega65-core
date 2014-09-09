@@ -129,6 +129,7 @@ int main(int argc,char **argv)
     int last_colour=0x00;
     int in_vblank=0;
     int firstraster=1;
+    int bytes=0;
 
     while(1) {
       struct pcap_pkthdr hdr;
@@ -143,13 +144,14 @@ int main(int argc,char **argv)
 
 	  for(i=85;i<2133;i++) {
 	    //	    	    printf("%02x.",packet[i]);
+	    if (drawing) bytes++;
 	    if (packet[i]==0x80) {
 	      // end of raster marker
 	      if ((!firstraster)&&raster_length<100) {
 		if (in_vblank==0) {
 		  // start of vblank at end of frame
 		  if (drawing) {
-		    printf("Done drawing.\n"); fflush(stdout);
+		    printf("Done drawing.  Frame was encoded in %d bytes (plus packet headers)\n",bytes); fflush(stdout);
 		    exit(dumpImage());
 		  }
 		  drawing=1;
