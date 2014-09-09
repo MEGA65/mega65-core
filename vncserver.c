@@ -222,6 +222,8 @@ int main(int argc,char** argv)
     int firstraster=1;
     int bytes=0;
 
+    unsigned char raster_line[1920];
+
     while(1) {
       struct pcap_pkthdr hdr;
       hdr.caplen=0;
@@ -229,9 +231,6 @@ int main(int argc,char** argv)
       if (packet) {
 	if (hdr.caplen == 2132) {
 	  // probably a C65GS compressed video frame.
-
-	  // stop if we see frame overflow
-	  // if (image_offset>=1920*1200) { exit(dumpImage()); }
 
 	  for(i=85;i<2133;i++) {
 	    //	    	    printf("%02x.",packet[i]);
@@ -241,6 +240,11 @@ int main(int argc,char** argv)
 	      int rasternumber = packet[i+1]+packet[i+2]*256;
 	      if (rasternumber > 1199) rasternumber=1199;
 	      i+=4; // skip raster number and audio bytes
+
+	      if (raster_length>1900&&raster_length<=1920)
+		// copy collected raster to frame buffer
+		bcopy(raster_line,&imageData[rasternumber*1920],raster_length);
+
 	      // update image_offset to reflect raster number
 	      image_offset=rasternumber*1920;
 
@@ -264,16 +268,6 @@ int main(int argc,char** argv)
 		else y++;
 	      }
 	      
-	      // fill in any shortfall in the raster
-	      if (raster_length<1920) {
-		int skip=1920-(raster_length%1920);
-		while(skip--) {
-		  if (image_offset<(1920*1200)) {
-		    imageData[image_offset++]=0x00;
-		  }
-		}
-	      }
-
 	      if (raster_length>1920) image_offset-=(raster_length-1920);
 	      if (image_offset<0) image_offset=0;
 	      // printf("Raster %d, length=%d, image raster=%.3f\n",
@@ -284,22 +278,23 @@ int main(int argc,char** argv)
 	      // RLE count
 
 	      int count=(packet[i]&0x7f);
-	      raster_length+=count-1;
 	      if (drawing) {
 		int j;
 		//		printf("Drawing %d of %02x @ %d\n",count,last_colour,image_offset);
-		for(j=2;j<=count;j++)
-		  if (image_offset<(1920*1200))
-		    imageData[image_offset++]=last_colour;
+		for(j=2;j<=count;j++) {
+		  if (raster_length<1920)
+		    raster_line[raster_length]=last_colour;
+		  raster_length++;
+		}
 	      }
 	    } else {
 	      // colour
 	      last_colour = packet[i];
-	      raster_length++;
 	      if (drawing) {
 		//		printf("Drawing 1 %02x\n",last_colour);
-		if (image_offset<(1920*1200))
-		  imageData[image_offset++]=last_colour;
+		if (raster_length<1920)
+		  raster_line[raster_length]=last_colour;
+		raster_length++;
 	      }
 	    }
 	  }
