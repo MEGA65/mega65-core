@@ -74,6 +74,7 @@ int accept_incoming(int sock)
   unsigned int addr_len = sizeof addr;
   int asock;
   if ((asock = accept(sock, &addr, &addr_len)) != -1) {
+    // XXX show remote address
     return asock;
   }
 
@@ -129,6 +130,10 @@ int max(int a, int b)
   if (a>b) return a; else return b;
 }
 
+#define MAX_CLIENTS 256
+int clients[MAX_CLIENTS];
+int client_count=0;
+
 int main(int argc,char **argv)
 {
   if (argc!=2) {
@@ -162,34 +167,39 @@ int main(int argc,char **argv)
   if (tcsetattr(fd, TCSANOW, &t)) perror("Failed to set terminal parameters");
   perror("F");
 
-  
-
   while(1) {
-    if (client_sock==-1) {
-      client_sock = accept_incoming(listen_sock);
+    if (client_count<MAX_CLIENTS) {
+      int client_sock = accept_incoming(listen_sock);
+      if (client_sock!=-1) {
+	clients[client_count]=client_sock;
+	client_count++;
+	printf("New connection. %d total.\n",client_count);
+      }
     }
 
+    int i;
     unsigned char buffer[1024];
-    struct pollfd fds[2];
-    int count=1;
-    if (client_sock!=-1) count=2;
+    struct pollfd fds[1+MAX_CLIENTS];
     fds[0].fd=fd; fds[0].events=POLLIN; fds[0].revents=0;
-    fds[1].fd=client_sock; fds[1].events=POLLIN; fds[1].revents=0;
+    for (i=0;i<client_count;i++)
+      fds[1+i].fd=clients[i]; fds[1+i].events=POLLIN; fds[1+i].revents=0;
 
-    // read from serial port and write to client socket
-    printf("Calling poll\n");
-    int s=poll(fds,count,500);
+    // read from serial port and write to client socket(s)
+    int s=poll(fds,1+client_count,500);
     if (fds[0].revents&POLLIN) {
-      printf("processing serial data\n");
       int c=read(fd,buffer,1024);
-      if (client_sock!=-1) write(client_sock,buffer,c);
+      int i;
+      for(i=0;i<client_count;i++) write(clients[i],buffer,c);
     }
     // read from client sock and write to serial port slowly
-    if (fds[1].revents&POLLIN) {
-      printf("processing TCP data\n");
-      int c=read(client_sock,buffer,1024);
+    for(i=0;i<client_count;i++)
+      if (fds[1+i].revents&POLLIN) {
+	int c=read(clients[i],buffer,1024);
       slow_write(fd,buffer,c);
-      if (c<1) { close(client_sock); client_sock=-1; }
+      if (c<1) { 
+	close(clients[i]); 
+	clients[i]=clients[--client_count];
+	printf("Closed client connection, %d remaining.\n",client_count); }
     }
   }
 
