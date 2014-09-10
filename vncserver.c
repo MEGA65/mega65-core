@@ -62,17 +62,7 @@ static int maxx=1920, maxy=1200;
 static void initBuffer(unsigned char* buffer)
 {
   int i,j;
-  for(j=0;j<maxy;++j) {
-    for(i=0;i<maxx;++i) {
-      buffer[(j*maxx+i)*bpp+0]=(i+j)*128/(maxx+maxy); /* red */
-      buffer[(j*maxx+i)*bpp+1]=i*128/maxx; /* green */
-      buffer[(j*maxx+i)*bpp+2]=j*256/maxy; /* blue */
-    }
-    buffer[j*maxx*bpp+0]=0xff;
-    buffer[j*maxx*bpp+1]=0xff;
-    buffer[j*maxx*bpp+2]=0xff;
-    buffer[j*maxx*bpp+3]=0xff;
-  }
+  bzero(buffer,maxx*maxy);
 }
 
 /* Here we create a structure so that every client has it's own pointer */
