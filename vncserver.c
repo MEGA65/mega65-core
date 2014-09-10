@@ -42,6 +42,9 @@ int drawing=0;
 int raster_length=0;
 int y;
 
+// set for each rasterline modified
+int touched[1200];
+
 #ifdef WIN32
 #define sleep Sleep
 #else
@@ -53,9 +56,6 @@ int y;
 
 static const int bpp=4;
 static int maxx=1920, maxy=1200;
-/* TODO: odd maxx doesn't work (vncviewer bug) */
-
-/* This initializes a nice (?) background */
 
 static void initBuffer(unsigned char* buffer)
 {
@@ -136,19 +136,32 @@ int updateFrameBuffer(rfbScreenInfoPtr screen)
   int x,y;
   for(y=0;y<1200;y++) {
     unsigned char linebuffer[1920*4];
-    for(x=0;x<1920;x++)
-      {
-	int colour = imageData[y*1920+x];
-	int offset = x * 4;
-	if (colour>15) colour=16;
-	bcopy(palette[colour],
-	      &((unsigned char *)screen->frameBuffer)[(y*1920*4)+offset],4);
-      }
+    if (touched[y]) {
+      for(x=0;x<1920;x++)
+	{
+	  int colour = imageData[y*1920+x];
+	  int offset = x * 4;
+	  if (colour>15) colour=16;
+	  bcopy(palette[colour],
+		&((unsigned char *)screen->frameBuffer)[(y*1920*4)+offset],4);
+	}
+    }
   }
 
-
-  // mark whole buffer as dirty (we could optimise this)
-  rfbMarkRectAsModified(screen,0,0,1920-1,1200-1);
+  // work out which raster lines have been modified and tell VNC
+  int ypos=0;
+  while (ypos<1200) {
+    //    printf("ypos=%d\n",ypos);
+    for(y=ypos;y<1200;y++) { if (!touched[y]) break; touched[y]=0; }
+    if (ypos<y) {      
+      // mark section of buffer as dirty (we could optimise this)
+      rfbMarkRectAsModified(screen,0,ypos,1920-1,y);
+      //      printf("updateing rasters [%d..%d]\n",ypos,y);
+    }
+    // skip unmodified rasters
+    ypos=y;
+    for(;ypos<1200;ypos++) if (touched[ypos]) break;
+  }
   return 0;
 }
 
@@ -223,6 +236,8 @@ int main(int argc,char** argv)
     int bytes=0;
 
     unsigned char raster_line[1920];
+    int rasternumber;
+    int last_raster=0;
 
     while(1) {
       struct pcap_pkthdr hdr;
@@ -232,18 +247,29 @@ int main(int argc,char** argv)
 	if (hdr.caplen == 2132) {
 	  // probably a C65GS compressed video frame.
 
-	  for(i=85;i<2133;i++) {
+	  // for some reason not reading the last few bytes of each packet helps
+	  // prevent glitches.
+	  for(i=85;i<2133-50;i++) {
 	    //	    	    printf("%02x.",packet[i]);
 	    if (drawing) bytes++;
 	    if (packet[i]==0x80) {
 	      // end of raster marker
-	      int rasternumber = packet[i+1]+packet[i+2]*256;
+	      rasternumber = packet[i+1]+packet[i+2]*256;
 	      if (rasternumber > 1199) rasternumber=1199;
 	      i+=4; // skip raster number and audio bytes
 
-	      if (raster_length>1900&&raster_length<=1920)
-		// copy collected raster to frame buffer
-		bcopy(raster_line,&imageData[rasternumber*1920],raster_length);
+	      if (raster_length>1900&&raster_length<=1920) {
+		if (rasternumber==last_raster+1)
+		  {
+		    // copy collected raster to frame buffer, but only if different
+		    if (bcmp(raster_line,&imageData[rasternumber*1920],raster_length)) {
+		      bcopy(raster_line,&imageData[rasternumber*1920],raster_length);
+		      touched[rasternumber]=1;
+		      //		      printf("touched raster %d\n",rasternumber);
+		    }
+		  }
+	      }
+	      last_raster=rasternumber;
 
 	      // update image_offset to reflect raster number
 	      image_offset=rasternumber*1920;
