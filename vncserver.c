@@ -44,6 +44,8 @@ int y;
 
 // set for each rasterline modified
 int touched[1200];
+int touched_min[1200];
+int touched_max[1200];
 
 #ifdef WIN32
 #define sleep Sleep
@@ -152,11 +154,18 @@ int updateFrameBuffer(rfbScreenInfoPtr screen)
   int ypos=0;
   while (ypos<1200) {
     //    printf("ypos=%d\n",ypos);
-    for(y=ypos;y<1200;y++) { if (!touched[y]) break; touched[y]=0; }
+    int min=1919;
+    int max=0;
+    for(y=ypos;y<1200;y++) { 
+      if (!touched[y]) break; 
+      touched[y]=0; 
+      if (touched_min[y]<min) min=touched_min[y];
+      if (touched_max[y]>max) max=touched_max[y];
+    }
     if (ypos<y) {      
       // mark section of buffer as dirty (we could optimise this)
-      rfbMarkRectAsModified(screen,0,ypos,1920-1,y);
-      //      printf("updateing rasters [%d..%d]\n",ypos,y);
+      rfbMarkRectAsModified(screen,min,ypos,max+1,y);
+      //      printf("updateing region [%d,%d]..[%d,%d]\n",min,ypos,max,y);
     }
     // skip unmodified rasters
     ypos=y;
@@ -262,11 +271,17 @@ int main(int argc,char** argv)
 		if (rasternumber==last_raster+1)
 		  {
 		    // copy collected raster to frame buffer, but only if different
-		    if (bcmp(raster_line,&imageData[rasternumber*1920],raster_length)) {
-		      bcopy(raster_line,&imageData[rasternumber*1920],raster_length);
-		      touched[rasternumber]=1;
-		      //		      printf("touched raster %d\n",rasternumber);
+		    int i;
+		    int min=0, max=1920;
+		    for(i=0;i<1920;i++) if (raster_line[i]!=imageData[rasternumber*1920+i]) { min=i; break; }
+		    if (min) {
+			for(i=1919;i>=0;i--) if (raster_line[i]!=imageData[rasternumber*1920+i]) { max=i; break; }
+			touched[rasternumber]=1;
+			touched_min[rasternumber]=min;
+			touched_max[rasternumber]=max;
+			//			printf("touched raster %d\n",rasternumber);
 		    }
+		    bcopy(raster_line,&imageData[rasternumber*1920],raster_length);
 		  }
 	      }
 	      last_raster=rasternumber;
