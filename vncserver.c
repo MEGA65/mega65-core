@@ -1,14 +1,20 @@
-#include <pcap.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include <errno.h>
 #include <sys/socket.h>
+#include <sys/filio.h>
+#include <sys/ioctl.h>
+#include <fcntl.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <netinet/if_ether.h>
 #include <netinet/tcp.h>
 #include <netinet/ip.h>
 #include <string.h>
+#include <signal.h>
+#include <netdb.h>
+#include <time.h>
 
 unsigned char bmpHeader[0x36]={
   0x42,0x4d,0x36,0xa0,0x8c,0x00,0x00,0x00,0x00,0x00,0x36,0x00,0x00,0x00,0x28,0x00,
@@ -164,6 +170,34 @@ int updateFrameBuffer(rfbScreenInfoPtr screen)
   return 0;
 }
 
+int connect_to_port(int port)
+{
+  struct hostent *hostent;
+  hostent = gethostbyname("127.0.0.1");
+  if (!hostent) {
+    return -1;
+  }
+
+  struct sockaddr_in addr;  
+  addr.sin_family = AF_INET;     
+  addr.sin_port = htons(port);   
+  addr.sin_addr = *((struct in_addr *)hostent->h_addr);
+  bzero(&(addr.sin_zero),8);     
+
+  int sock=socket(AF_INET, SOCK_STREAM, 0);
+  if (sock==-1) {
+    perror("Failed to create a socket.");
+    return -1;
+  }
+
+  if (connect(sock,(struct sockaddr *)&addr,sizeof(struct sockaddr)) == -1) {
+    perror("connect() to port failed");
+    close(sock);
+    return -1;
+  }
+  return sock;
+}
+
 int main(int argc,char** argv)
 {
   rfbScreenInfoPtr rfbScreen = rfbGetScreen(&argc,argv,maxx,maxy,8,3,bpp);
@@ -186,46 +220,11 @@ int main(int argc,char** argv)
   rfbRunEventLoop(rfbScreen,-1,TRUE);
   fprintf(stderr, "Running background loop...\n");
 
-    char *dev;
-    char errbuf[PCAP_ERRBUF_SIZE];
-    pcap_t* descr;
-    struct bpf_program fp;        /* to hold compiled program */
-    bpf_u_int32 pMask;            /* subnet mask */
-    bpf_u_int32 pNet;             /* ip address*/
-    pcap_if_t *alldevs, *d;
-    int i =0;
-
-    // Prepare a list of all the devices
-    if (pcap_findalldevs(&alldevs, errbuf) == -1)
-    {
-        fprintf(stderr,"Error in pcap_findalldevs: %s\n", errbuf);
-        exit(1);
-    }
-
-    if (argv[1]) dev=argv[1]; else {
-      fprintf(stderr,"You must specify the interface to listen on.\n");
-      exit(-1);
-    }
-
-    // If something was not provided
-    // return error.
-    if(dev == NULL)
-    {
-        printf("\n[%s]\n", errbuf);
-        return -1;
-    }
-
-    // fetch the network address and network mask
-    pcap_lookupnet(dev, &pNet, &pMask, errbuf);
-
-    // Now, open device for sniffing with big snaplen and 
-    // promiscuous mode enabled.
-    descr = pcap_open_live(dev, 3000, 1, 10, errbuf);
-    if(descr == NULL)
-    {
-        printf("pcap_open_live() failed due to [%s]\n", errbuf);
-        return -1;
-    }
+  int sock = connect_to_port(6565);
+  if (sock==-1) {
+    fprintf(stderr,"Could not connect to video proxy on port 6565.\n");
+    exit(-1);
+  }
 
     printf("Started.\n"); fflush(stdout);
 
@@ -239,11 +238,13 @@ int main(int argc,char** argv)
     int last_raster=0;
 
     while(1) {
-      struct pcap_pkthdr hdr;
-      hdr.caplen=0;
-      const unsigned char *packet = pcap_next(descr,&hdr);
-      if (packet) {
-	if (hdr.caplen == 2132) {
+      int i;
+      unsigned char packet[8192];
+      int len=read(sock,packet,2132);
+      if (len<1) usleep(10000);
+
+      if (1) {
+	if (len == 2132) {
 	  // probably a C65GS compressed video frame.
 
 	  // for some reason not reading the last few bytes of each packet helps
