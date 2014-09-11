@@ -283,7 +283,11 @@ int sendScanCode(int scan_code)
   int offset=base_offset;
   offset-=14; // reduce for size of ethernet header
   offset-=28; // reduce for size of IP & UDP header
-  offset-=1;
+  offset-=2;
+
+  int i;
+  for(i=0;i<20;i++)
+    if (offset-i>=0) msg[offset-i]=0xff-i;
 
   // put magic bytes
   msg[offset++]=0x65;
@@ -299,6 +303,10 @@ int sendScanCode(int scan_code)
   // put scan code
   msg[offset++]=scan_code&0xff;
   msg[offset++]=scan_code>>8;
+
+  for(i=0;i<20;i++)
+    msg[offset+i]=0x80+i;
+
 
   errno=0;
   sendto(keySocket, msg, sizeof msg, 0, (struct sockaddr *) &addr, sizeof addr);
