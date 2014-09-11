@@ -247,6 +247,8 @@ architecture behavioural of ethernet is
  signal eth_videostream : std_logic := '1';
  signal eth_byte_100 : unsigned(7 downto 0) := x"bd";
  signal eth_key_debug : unsigned(7 downto 0) := x"00";
+ signal eth_byte_fail : unsigned(7 downto 0) := x"00";
+ signal eth_offset_fail : unsigned(7 downto 0) := x"00";
  
  -- Reverse the input vector.
  function reversed(slv: std_logic_vector) return std_logic_vector is
@@ -616,6 +618,9 @@ begin  -- behavioural
                   and to_integer(frame_length(10 downto 0))<110 then
                   if keyinput_magic(to_integer(frame_length(10 downto 0))-100) /= eth_rxd & eth_rxbits then
                     rx_keyinput <= '0';
+                    eth_byte_fail(7 downto 6) <= eth_rxd;
+                    eth_byte_fail(5 downto 0) <= eth_rxbits;
+                    eth_offset_fail <= frame_length(7 downto 0);
                     report "PS2KEYBOARD: packet verification check failed at offset " & integer'image(to_integer(frame_length(10 downto 0)));
                     report "PS2KEYBOARD: expected $" &
                        to_hstring(keyinput_magic(to_integer(frame_length(10 downto 0))-100))
@@ -733,6 +738,10 @@ begin  -- behavioural
             fastio_rdata(3) <= eth_txen_int;
             fastio_rdata(5 downto 4) <= eth_txd_int(1 downto 0);
             fastio_rdata(7 downto 6) <= (others => 'Z');
+          when x"c" =>
+            fastio_rdata <= eth_byte_fail;
+          when x"d" =>
+            fastio_rdata <= eth_offset_fail;
           when x"e" =>
             fastio_rdata <= eth_key_debug;
           when x"f" =>
