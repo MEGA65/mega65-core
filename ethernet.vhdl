@@ -245,6 +245,7 @@ architecture behavioural of ethernet is
  signal eth_irq_tx : std_logic := '0'; 
 
  signal eth_videostream : std_logic := '1';
+ signal eth_byte_100 : unsigned(7 downto 0) := x"bd";
  
  -- Reverse the input vector.
  function reversed(slv: std_logic_vector) return std_logic_vector is
@@ -636,6 +637,10 @@ begin  -- behavioural
                       &", eth_videostream=" & std_logic'image(eth_videostream);
                   end if;
                 end if;
+                -- help debug ethernet key reception by making 100th byte visible
+                if to_integer(frame_length(10 downto 0)) = 100 then
+                  eth_byte_100 <= eth_rxd & eth_rxbits;
+                end if;
                 
                 -- update CRC calculation
                 rx_fcs_crc_data_in <= std_logic_vector(eth_rxd) & std_logic_vector(eth_rxbits);
@@ -725,6 +730,8 @@ begin  -- behavioural
             fastio_rdata(3) <= eth_txen_int;
             fastio_rdata(5 downto 4) <= eth_txd_int(1 downto 0);
             fastio_rdata(7 downto 6) <= (others => 'Z');
+          when x"f" =>
+            fastio_rdata <= eth_byte_100;
           when others =>
             fastio_rdata <= (others => 'Z');
         end case;
