@@ -19,7 +19,11 @@ entity keymapper is
     -- CIA ports
     porta_in  : in  std_logic_vector(7 downto 0);
     porta_out : out std_logic_vector(7 downto 0);
-    portb_out : out std_logic_vector(7 downto 0)
+    portb_out : out std_logic_vector(7 downto 0);
+
+    -- ethernet keyboard input interface for remote head mode
+    eth_keycode_toggle : in std_logic;
+    eth_keycode : in unsigned(15 downto 0)
     );
 
 end entity keymapper;

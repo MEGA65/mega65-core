@@ -151,7 +151,13 @@ architecture behavioral of iomapper is
     buffer_moby_toggle : in std_logic := '0';
     buffer_address : out unsigned(11 downto 0);
     buffer_rdata : in unsigned(7 downto 0);    
-    
+
+    ---------------------------------------------------------------------------
+    -- keyboard event capture via ethernet
+    ---------------------------------------------------------------------------    
+    eth_keycode_toggle : out std_logic;
+    eth_keycode : out unsigned(15 downto 0);
+
     fastio_addr : in unsigned(19 downto 0);
     fastio_write : in std_logic;
     fastio_read : in std_logic;
@@ -293,7 +299,14 @@ architecture behavioral of iomapper is
     -- CIA ports
     porta_in  : in  std_logic_vector(7 downto 0);
     porta_out : out std_logic_vector(7 downto 0);
-    portb_out : out std_logic_vector(7 downto 0)
+    portb_out : out std_logic_vector(7 downto 0);
+
+    ---------------------------------------------------------------------------
+    -- keyboard event capture via ethernet
+    ---------------------------------------------------------------------------    
+    eth_keycode_toggle : in std_logic;
+    eth_keycode : in unsigned(15 downto 0)
+    
     );
   end component;
 
@@ -356,6 +369,9 @@ architecture behavioral of iomapper is
   signal buffer_moby_toggle : std_logic;
   signal buffer_address : unsigned(11 downto 0);
   signal buffer_rdata : unsigned(7 downto 0);
+
+  signal eth_keycode_toggle : std_logic;
+  signal eth_keycode : unsigned(15 downto 0);
   
 begin         
   kickstartrom : kickstart port map (
@@ -439,7 +455,10 @@ begin
 --    key_status     => seg_led(1 downto 0),
     porta_in       => cia1porta_out,
     porta_out      => cia1porta_in,
-    portb_out      => cia1portb_in
+    portb_out      => cia1portb_in,
+
+    eth_keycode_toggle => eth_keycode_toggle,
+    eth_keycode => eth_keycode
     );
 
   leftsid: sid6581 port map (
@@ -490,7 +509,10 @@ begin
     buffer_moby_toggle => buffer_moby_toggle,
     buffer_address => buffer_address,
     buffer_rdata => buffer_rdata,
-    
+
+    eth_keycode_toggle => eth_keycode_toggle,
+    eth_keycode => eth_keycode,
+
     fastio_addr => unsigned(address),
     fastio_write => w,
     fastio_read => r,

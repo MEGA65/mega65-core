@@ -74,13 +74,30 @@ entity ethernet is
     ---------------------------------------------------------------------------    
     buffer_moby_toggle : in std_logic;
     buffer_address : out unsigned(11 downto 0);
-    buffer_rdata : in unsigned(7 downto 0)   
-    
+    buffer_rdata : in unsigned(7 downto 0);
+
+    ---------------------------------------------------------------------------
+    -- keyboard event capture via ethernet
+    ---------------------------------------------------------------------------    
+    eth_keycode_toggle : out std_logic;
+    eth_keycode : out unsigned(15 downto 0)
+
     );
 end ethernet;
 
 architecture behavioural of ethernet is
 
+ TYPE byte_array_10 IS ARRAY (0 to 9) OF unsigned(7 downto 0);
+ constant keyinput_magic : byte_array_10 := (
+   -- Magic 10 byte sequence which if it appears at offset 100 in an ethernet
+   -- frame, and remote head is enabled, then pretend read a keyboard scan code
+   -- to pass to the PS2 keyboard input logic to simulate a key press/release
+   -- event.
+   x"65",x"47",x"53", -- 65 G S
+   x"4b",x"45",x"59", -- KEY
+   x"43",x"4f",x"44",x"45" -- CODE
+   );
+  
  TYPE byte_array_86 IS ARRAY (1 to 85) OF std_logic_vector(7 downto 0);
  CONSTANT video_packet_header : byte_array_86 := (
    -- Ethernet header
@@ -152,6 +169,9 @@ architecture behavioural of ethernet is
                           );
   signal eth_state : ethernet_state := Idle;
 
+  signal rx_keyinput : std_logic := '0';
+  signal eth_keycode_toggle_internal : std_logic := '0';
+ 
   signal last_buffer_moby_toggle : std_logic := '0';
  
   -- If asserted, collect raw signals for exactly one frame, then do nothing.
@@ -491,6 +511,7 @@ begin  -- behavioural
           if debug_rx = '1' then
             eth_frame_len <= 0;
             eth_state <= DebugRxFrameWait;
+            rx_keyinput <= '1';
           end if;
           rxbuffer_write <= '0';
           if eth_rxdv='1' then
@@ -586,6 +607,25 @@ begin  -- behavioural
                 report "ETHRX: Received byte $" & to_hstring(eth_rxd & eth_rxbits);
                 rxbuffer_wdata <= eth_rxd & eth_rxbits;
                 rxbuffer_writeaddress <= eth_frame_len;
+
+                -- Look for magic keyboard input frames
+                if to_integer(frame_length(10 downto 0))>=100
+                  and to_integer(frame_length(10 downto 0))<110 then
+                  if keyinput_magic(to_integer(frame_length(10 downto 0))-100) /= eth_rxd & eth_rxbits then
+                    rx_keyinput <= '0';
+                  end if;
+                end if;
+                if rx_keyinput='1' and eth_videostream='1' then
+                  if to_integer(frame_length(10 downto 0)) = 110 then
+                    eth_keycode(7 downto 0) <= eth_rxd & eth_rxbits;
+                  end if;
+                  if to_integer(frame_length(10 downto 0)) = 111 then
+                    eth_keycode(15 downto 8) <= eth_rxd & eth_rxbits;
+                    eth_keycode_toggle <= not eth_keycode_toggle_internal;
+                    eth_keycode_toggle_internal <= not eth_keycode_toggle_internal;
+                  end if;
+                end if;
+                
                 -- update CRC calculation
                 rx_fcs_crc_data_in <= std_logic_vector(eth_rxd) & std_logic_vector(eth_rxbits);
                 rx_fcs_crc_d_valid <= '1';
