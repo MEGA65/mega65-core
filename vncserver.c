@@ -193,14 +193,7 @@ static void dokey(rfbBool down,rfbKeySym key,rfbClientPtr cl)
   }
 
   if(down) {
-    if(key==XK_F10)
-      rfbCloseClient(cl);
-    else if(key==XK_F12)
-      /* close down server, disconnecting clients */
-      rfbShutdownServer(cl->screen,TRUE);
-    else if(key==XK_F11)
-      /* close down server, but wait for all clients to disconnect */
-      rfbShutdownServer(cl->screen,FALSE);
+    if(key==XK_F10)      rfbCloseClient(cl);
   }
 }
 
