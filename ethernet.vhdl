@@ -694,6 +694,7 @@ begin  -- behavioural
           -- $D6E0 - controls reset pin of ethernet controller
           when x"0" =>
             fastio_rdata(7 downto 4) <= (others => 'Z');
+            fastio_rdata(4) <= eth_keycode_toggle_internal;
             fastio_rdata(3) <= eth_rxdv;
             fastio_rdata(2 downto 1) <= eth_rxd;
             fastio_rdata(0) <= eth_reset_int;
