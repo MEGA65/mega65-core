@@ -109,8 +109,91 @@ static void newframebuffer(rfbScreenInfoPtr screen, int width, int height)
 
 static void dokey(rfbBool down,rfbKeySym key,rfbClientPtr cl)
 {
+  int scan_code = -1;
+
+  switch (key) {
+  case XK_Delete: scan_code = 0x66; break; // DEL
+  case XK_Return: scan_code = 0x5a; break; // RETURN
+  case XK_Right: scan_code = 0x174; break; // RIGHT
+  case XK_Left: scan_code = 0x174; break; // RIGHT
+  case XK_F1: scan_code = 0x05; break; // F1/F2
+  case XK_F2: scan_code = 0x05; break;  // F1/F2
+  case XK_F3: scan_code = 0x04; break; // F3/F4
+  case XK_F4: scan_code = 0x04; break; // F3/F4
+  case XK_F5: scan_code = 0x03; break; // F5/F6
+  case XK_F6: scan_code = 0x03; break; // F5/F6
+  case XK_F7: scan_code = 0x83; break; // F7/F8
+  case XK_F8: scan_code = 0x83; break; // F7/F8
+  case XK_Down: scan_code = 0x72; break; // DOWN
+  case XK_Up: scan_code = 0x72; break; // DOWN
+
+  case '3': case '#': scan_code = 0x26; break; // 3
+  case 'W': case 'w': scan_code = 0x1d; break; // W
+  case 'A': case 'a': scan_code = 0x1c; break; // A
+  case '4': case '$': scan_code = 0x25; break; // 4
+  case 'Z': case 'z': scan_code = 0x1a; break;
+  case 'S': case 's': scan_code = 0x1b; break;
+  case 'E': case 'e': scan_code = 0x24; break;
+  case XK_Shift_L: scan_code = 0x12;  break; // left-SHIFT
+
+  case '5': case '%': scan_code = 0x2e; break;
+  case 'R': case 'r': scan_code = 0x2d; break;
+  case 'D': case 'd': scan_code = 0x23; break;
+  case '6': case '&': scan_code = 0x36; break;
+  case 'C': case 'c': scan_code = 0x21; break;
+  case 'F': case 'f': scan_code = 0x2b; break;
+  case 'T': case 't': scan_code = 0x2c; break;
+  case 'X': case 'x': scan_code = 0x22; break;
+    
+  case '7': case '\'': scan_code = 0x3d; break;
+  case 'Y': case 'y': scan_code = 0x35; break;
+  case 'G': case 'g': scan_code = 0x34; break;
+  case '8': case '(': scan_code = 0x3e; break;
+  case 'B': case 'b': scan_code = 0x32; break;
+  case 'H': case 'h': scan_code = 0x33; break;
+  case 'U': case 'u': scan_code = 0x3c; break;
+  case 'V': case 'v': scan_code = 0x2a; break;
+    
+  case '9': case ')': scan_code = 0x4e; break;
+  case 'I': case 'i': scan_code = 0x4d; break;
+  case 'J': case 'j': scan_code = 0x4b; break;
+  case '0': scan_code = 0x55; break;
+  case 'M': case 'm': scan_code = 0x49; break;
+  case 'K': case 'k': scan_code = 0x4c; break;
+  case 'O': case 'o': scan_code = 0x54; break;
+  case 'N': case 'n': scan_code = 0x41; break;
+  
+  case '+': case '=': scan_code = 0x4e; break;
+  case 'P': case 'p': scan_code = 0x4d; break;
+  case 'L': case 'l': scan_code = 0x4b; break;
+  case '-': case '_': scan_code = 0x55; break;
+  case '.': case '>': scan_code = 0x49; break;
+  case ';': case ':': scan_code = 0x4c; break;
+  case '@': scan_code = 0x54; break;
+  case ',': case '<': scan_code = 0x41; break;
+  
+  case ']': case '}': scan_code = 0x5b; break; // *
+  case XK_Home: scan_code = 0x16c; break;
+  case XK_Shift_R: scan_code = 0x59; break;
+  case '^': scan_code = 0x171; break;
+  case '/': case '?': scan_code = 0x4a; break;    
+
+  case '1': case '!': scan_code = 0x16; break;
+  case '`': case '~': scan_code = 0xe; break;
+  case XK_Control_L: case XK_Control_R: scan_code = 0xd; break;
+  case '2': case '\"': scan_code = 0x1e; break;
+  case ' ': scan_code = 0x29; break;
+  case XK_Alt_L: scan_code = 0x14; break; // C=
+  case 'Q': case 'q': scan_code = 0x16; break;
+  case XK_Escape: scan_code = 0x76; // runstop
+  }
+  if (scan_code!=-1) {
+    if (!down) scan_code|=0x1000;
+    printf("scan code $%04x\n",scan_code);
+  }
+
   if(down) {
-    if(key==XK_Escape)
+    if(key==XK_F10)
       rfbCloseClient(cl);
     else if(key==XK_F12)
       /* close down server, disconnecting clients */
@@ -118,13 +201,6 @@ static void dokey(rfbBool down,rfbKeySym key,rfbClientPtr cl)
     else if(key==XK_F11)
       /* close down server, but wait for all clients to disconnect */
       rfbShutdownServer(cl->screen,FALSE);
-    else if(key==XK_Page_Up) {
-      initBuffer((unsigned char*)cl->screen->frameBuffer);
-      rfbMarkRectAsModified(cl->screen,0,0,maxx,maxy);
-    }  else if(key>=' ' && key<0x100) {
-      ClientData* cd=cl->clientData;
-      // rfbMarkRectAsModified(cl->screen,x1,y1,x2-1,y2-1);
-    }
   }
 }
 
