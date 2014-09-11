@@ -16,6 +16,8 @@
 #include <netdb.h>
 #include <time.h>
 
+int sendScanCode(int scan_code);
+
 unsigned char bmpHeader[0x36]={
   0x42,0x4d,0x36,0xa0,0x8c,0x00,0x00,0x00,0x00,0x00,0x36,0x00,0x00,0x00,0x28,0x00,
   0x00,0x00,0x80,0x07,0x00,0x00,0xb0,0x04,0x00,0x00,0x01,0x00,0x20,0x00,0x00,0x00,
@@ -190,6 +192,7 @@ static void dokey(rfbBool down,rfbKeySym key,rfbClientPtr cl)
   if (scan_code!=-1) {
     if (!down) scan_code|=0x1000;
     printf("scan code $%04x\n",scan_code);
+    sendScanCode(scan_code);
   }
 
   if(down) {
@@ -267,8 +270,63 @@ int connect_to_port(int port)
   return sock;
 }
 
+int keySocket=-1;
+struct sockaddr_in addr;
+int base_offset=100;
+
+int sendScanCode(int scan_code)
+{
+  if (keySocket==-1) return -1;
+  unsigned char msg[200];
+  bzero(msg,200);
+
+  int offset=base_offset;
+  offset-=14; // reduce for size of ethernet header
+  offset-=28; // reduce for size of IP & UDP header
+  offset-=1;
+
+  // put magic bytes
+  msg[offset++]=0x65;
+  msg[offset++]='G';
+  msg[offset++]='S';
+  msg[offset++]='K';
+  msg[offset++]='E';
+  msg[offset++]='Y';
+  msg[offset++]='C';
+  msg[offset++]='O';
+  msg[offset++]='D';
+  msg[offset++]='E';
+  // put scan code
+  msg[offset++]=scan_code&0xff;
+  msg[offset++]=scan_code>>8;
+
+  errno=0;
+  sendto(keySocket, msg, sizeof msg, 0, (struct sockaddr *) &addr, sizeof addr);
+  printf("sent scan code, base_offset=%d\n",base_offset);
+  perror("status");
+
+  //  base_offset--;
+  // if (base_offset<54) base_offset=100;
+
+  return 0;
+}
+
 int main(int argc,char** argv)
 {
+  if (argc>1) {
+    keySocket = socket(AF_INET, SOCK_DGRAM, 0);
+    int on=1;
+    errno=0;
+    int r=setsockopt(keySocket, SOL_SOCKET, SO_BROADCAST, (char *)&on, sizeof(on));
+    
+    printf("keySocket=%d, r=%d, errno=%d\n",keySocket,r,errno);
+    perror("result");
+
+    addr.sin_family = AF_INET; // sets the server address to type AF_INET.
+    inet_aton(argv[1], &addr.sin_addr); // this sets the server address. 
+    addr.sin_port = 0x8080; // port is irrelevant, since the C65GS is looking for magic values in the middle of a packet
+  }
+
   rfbScreenInfoPtr rfbScreen = rfbGetScreen(&argc,argv,maxx,maxy,8,3,bpp);
   if(!rfbScreen)
     return 0;
