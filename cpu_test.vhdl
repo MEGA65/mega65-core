@@ -162,16 +162,25 @@ architecture behavior of cpu_test is
      --x"30", x"31", x"32", x"33", x"34", x"35", x"36", x"37", x"46", x"44",
      --x"25", x"A6",
 
-     -- 64 null bytes sent by ourselves.
+     -- Test keyboard input packet with magic values at 100 - 109, and scan code
+     -- including break and extended flags at 110 - 111
+
+     -- 98 bytes we don't care about (don't know why we need 2 less than expected)
      x"00",x"00",x"00",x"00",x"00",x"00",x"00",x"00",
-     x"00",x"00",x"00",x"00",x"00",x"00",x"00",x"00",
-     x"00",x"00",x"00",x"00",x"00",x"00",x"00",x"00",
-     x"00",x"00",x"00",x"00",x"00",x"00",x"00",x"00",
-     x"00",x"00",x"00",x"00",x"00",x"00",x"00",x"00",
-     x"00",x"00",x"00",x"00",x"00",x"00",x"00",x"00",
-     x"00",x"00",x"00",x"00",x"00",x"00",x"00",x"00",
-     x"00",x"00",x"00",x"00",x"00",x"00",x"00",x"00",
-     x"36",x"63",x"8D",x"75",
+     x"00",x"00",x"00",x"00",x"00",x"00",x"00",x"00",x"00",x"00",
+     x"00",x"00",x"00",x"00",x"00",x"00",x"00",x"00",x"00",x"00",
+     x"00",x"00",x"00",x"00",x"00",x"00",x"00",x"00",x"00",x"00",
+     x"00",x"00",x"00",x"00",x"00",x"00",x"00",x"00",x"00",x"00",
+     x"00",x"00",x"00",x"00",x"00",x"00",x"00",x"00",x"00",x"00",
+     x"00",x"00",x"00",x"00",x"00",x"00",x"00",x"00",x"00",x"00",
+     x"00",x"00",x"00",x"00",x"00",x"00",x"00",x"00",x"00",x"00",
+     x"00",x"00",x"00",x"00",x"00",x"00",x"00",x"00",x"00",x"00",
+     x"00",x"00",x"00",x"00",x"00",x"00",x"00",x"00",x"00",x"00",
+     -- 10 bytes of magic value
+     x"65",x"47",x"53",x"4b",x"45",x"59",x"43",x"4f",x"44",x"45",     
+     -- keyboard scan code and flags
+     x"12", -- left-shift key
+     x"10", -- BREAK (i.e., release key)
      
      others => x"00");
 
@@ -318,7 +327,7 @@ begin
       wait for 10 ns;
       -- Feed bytes
       report "CRC: Starting to send frame";
-      for j in 0 to 67 loop
+      for j in 0 to 120 loop
         report "ETHRXINJECT: Injecting $" & to_hstring(frame(j));
         eth_rxd <= frame(j)(1 downto 0);
         clock50mhz <= '0';

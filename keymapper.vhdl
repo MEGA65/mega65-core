@@ -2,6 +2,7 @@ library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use ieee.numeric_std.all;
 use Std.TextIO.all;
+use work.debugtools.all;
 
 entity keymapper is
   
@@ -66,6 +67,7 @@ architecture behavioural of keymapper is
   signal fiftyhz_counter : unsigned(7 downto 0) := (others => '0');
 
   signal eth_keycode_toggle_last : std_logic := '0';
+  signal ethernet_keyevent : std_logic := '0';
   
 begin  -- behavioural
 
@@ -128,18 +130,23 @@ begin  -- behavioural
       end if;
       
       ps2clock_prev <= ps2clock_debounced;
-      if (ps2clock_debounced = '0' and ps2clock_prev = '1') then
+
+      if eth_keycode_toggle /= eth_keycode_toggle_last then
+        scan_code <= eth_keycode(7 downto 0);
+        break <= eth_keycode(12);
+        extended <= eth_keycode(8);        
+        eth_keycode_toggle_last <= eth_keycode_toggle;
+
+        -- now rig status so that next cycle the key event will be processed
+        ps2state <= Bit7;
+        ethernet_keyevent <= '1';        
+      elsif (ps2clock_debounced = '0' and ps2clock_prev = '1')
+            or (ethernet_keyevent = '1') then
+        ethernet_keyevent <= '0';
         ps2timer <= 0;
         case ps2state is
           when Idle => ps2state <= StartBit; scan_code <= x"FF"; parity <= '0';
                        -- Check for keyboard input via ethernet
-                       if eth_keycode_toggle /= eth_keycode_toggle_last then
-                         scan_code <= eth_keycode(7 downto 0);
-                         break <= eth_keycode(12);
-                         extended <= eth_keycode(8);
-                         ps2state <= Bit7;
-                         eth_keycode_toggle_last <= eth_keycode_toggle;
-                       end if;
           when StartBit => ps2state <= Bit0; scan_code(0) <= ps2data_debounced;
                            parity <= parity xor ps2data_debounced;
           when Bit0 => ps2state <= Bit1; scan_code(1) <= ps2data_debounced;
@@ -173,6 +180,8 @@ begin  -- behavioural
                          full_scan_code := "000" & extended & std_logic_vector(scan_code);
                          break <= '0';
                          extended <= '0';
+
+                         report "PS2KEYBOARD: processing scan code $" & to_hstring("000"&break&"000"&extended&std_logic_vector(scan_code));
                          
                          -- keyboard scancodes for the more normal keys from a keyboard I have here
                          -- (will replace these with the keyrah obtained ones)

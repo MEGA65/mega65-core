@@ -511,8 +511,8 @@ begin  -- behavioural
           if debug_rx = '1' then
             eth_frame_len <= 0;
             eth_state <= DebugRxFrameWait;
-            rx_keyinput <= '1';
           end if;
+          rx_keyinput <= '1';
           rxbuffer_write <= '0';
           if eth_rxdv='1' then
             -- start receiving frame
@@ -609,10 +609,15 @@ begin  -- behavioural
                 rxbuffer_writeaddress <= eth_frame_len;
 
                 -- Look for magic keyboard input frames
+                report "PS2KEYBOARD: packet offset " & integer'image(to_integer(frame_length(10 downto 0)));
                 if to_integer(frame_length(10 downto 0))>=100
                   and to_integer(frame_length(10 downto 0))<110 then
                   if keyinput_magic(to_integer(frame_length(10 downto 0))-100) /= eth_rxd & eth_rxbits then
                     rx_keyinput <= '0';
+                    report "PS2KEYBOARD: packet verification check failed at offset " & integer'image(to_integer(frame_length(10 downto 0)));
+                    report "PS2KEYBOARD: expected $" &
+                       to_hstring(keyinput_magic(to_integer(frame_length(10 downto 0))-100))
+                    &", but saw $" & to_hstring(eth_rxd & eth_rxbits);
                   end if;
                 end if;
                 if rx_keyinput='1' and eth_videostream='1' then
@@ -623,6 +628,12 @@ begin  -- behavioural
                     eth_keycode(15 downto 8) <= eth_rxd & eth_rxbits;
                     eth_keycode_toggle <= not eth_keycode_toggle_internal;
                     eth_keycode_toggle_internal <= not eth_keycode_toggle_internal;
+                    report "PS2KEYBOARD: read keyboard scan code from ethernet";
+                  end if;
+                else
+                  if to_integer(frame_length(10 downto 0)) = 110 then
+                    report "PS2KEYBOARD: rx_keyinput=" & std_logic'image(rx_keyinput)
+                      &", eth_videostream=" & std_logic'image(eth_videostream);
                   end if;
                 end if;
                 
