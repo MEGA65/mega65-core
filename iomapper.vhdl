@@ -596,6 +596,7 @@ begin
         counter50hz <= 0;
       end if;
 
+      seg_led(12) <= eth_keycode_toggle;
       seg_led(11) <= last_scan_code(12);
       seg_led(10 downto 0) <= unsigned(last_scan_code(10 downto 0));
       
