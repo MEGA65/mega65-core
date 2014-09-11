@@ -64,6 +64,8 @@ architecture behavioural of keymapper is
   signal restore_event : std_logic := '0';
   signal restore_down_ticks : unsigned(7 downto 0) := (others => '0');  
   signal fiftyhz_counter : unsigned(7 downto 0) := (others => '0');
+
+  signal eth_keycode_toggle_last : std_logic := '0';
   
 begin  -- behavioural
 
@@ -130,6 +132,14 @@ begin  -- behavioural
         ps2timer <= 0;
         case ps2state is
           when Idle => ps2state <= StartBit; scan_code <= x"FF"; parity <= '0';
+                       -- Check for keyboard input via ethernet
+                       if eth_keycode_toggle /= eth_keycode_toggle_last then
+                         scan_code <= eth_keycode(7 downto 0);
+                         break <= eth_keycode(12);
+                         extended <= eth_keycode(8);
+                         ps2state <= Bit7;
+                         eth_keycode_toggle_last <= eth_keycode_toggle;
+                       end if;
           when StartBit => ps2state <= Bit0; scan_code(0) <= ps2data_debounced;
                            parity <= parity xor ps2data_debounced;
           when Bit0 => ps2state <= Bit1; scan_code(1) <= ps2data_debounced;
