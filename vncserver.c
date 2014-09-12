@@ -179,7 +179,7 @@ static void dokey(rfbBool down,rfbKeySym key,rfbClientPtr cl)
   case XK_Home: scan_code = 0x16c; break;  // home
   case XK_Shift_R: scan_code = 0x59; break;  // right shift
   case XK_F6: scan_code = 0x5d; break; // =
-  case XK_F8: scan_code = 0x171; break; // up-arrow 
+  case XK_F8: case XK_backslash: case '|': scan_code = 0x171; break; // up-arrow 
   case '/': case '?': scan_code = 0x4a; break;
 
   case '1': case '!': scan_code = 0x16; break;
@@ -188,13 +188,15 @@ static void dokey(rfbBool down,rfbKeySym key,rfbClientPtr cl)
   case '2': case '@': scan_code = 0x1e; break;
   case ' ': scan_code = 0x29; break;
   case XK_Alt_L: scan_code = 0x14; break; // C=
-  case 'Q': case 'q': scan_code = 0x16; break;
+  case 'Q': case 'q': scan_code = 0x15; break;
   case XK_Escape: scan_code = 0x76; // runstop
   }
   if (scan_code!=-1) {
     if (!down) scan_code|=0x1000;
     printf("scan code $%04x\n",scan_code);
     sendScanCode(scan_code);
+  } else {
+    printf("unknown key $%04x\n",key);
   }
 
   if(down) {
@@ -446,8 +448,9 @@ int openSerialPort(char *port)
   if (tcsetattr(serialfd, TCSANOW, &t)) perror("Failed to set terminal parameters");
   perror("F");
 
-  int listen_sock = create_listen_socket(4510);
+  listen_sock = create_listen_socket(4510);
   if (listen_sock==-1) { perror("Couldn't listen to port 4510"); exit(-1); }
+  printf("Listening for remote serial connections on port 4510, fd=%d.\n",listen_sock);
 
   pthread_create(&serialThread,NULL,serial_handler,NULL);
 
