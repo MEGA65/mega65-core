@@ -309,8 +309,8 @@ int sendScanCode(int scan_code)
 
 
   errno=0;
-  sendto(keySocket, msg, sizeof msg, 0, (struct sockaddr *) &addr, sizeof addr);
-  printf("sent scan code, base_offset=%d\n",base_offset);
+  int r=sendto(keySocket, msg, sizeof msg, 0, (struct sockaddr *) &addr, sizeof addr);
+  printf("sent scan code, base_offset=%d, result=%d\n",base_offset,r);
   perror("status");
 
   //  base_offset--;
@@ -325,7 +325,7 @@ int main(int argc,char** argv)
     keySocket = socket(AF_INET, SOCK_DGRAM, 0);
     int on=1;
     errno=0;
-    int r=setsockopt(keySocket, SOL_SOCKET, SO_BROADCAST, (char *)&on, sizeof(on));
+    int r=0; // setsockopt(keySocket, SOL_SOCKET, SO_BROADCAST, (char *)&on, sizeof(on));
     
     printf("keySocket=%d, r=%d, errno=%d\n",keySocket,r,errno);
     perror("result");
