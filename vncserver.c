@@ -116,20 +116,17 @@ static void dokey(rfbBool down,rfbKeySym key,rfbClientPtr cl)
   int scan_code = -1;
 
   switch (key) {
-  case XK_Delete: scan_code = 0x66; break; // DEL
+  case XK_Delete: case XK_BackSpace: scan_code = 0x66; break; // DEL
   case XK_Return: scan_code = 0x5a; break; // RETURN
   case XK_Right: scan_code = 0x174; break; // RIGHT
   case XK_Left: scan_code = 0x174; break; // RIGHT
   case XK_F1: scan_code = 0x05; break; // F1/F2
-  case XK_F2: scan_code = 0x05; break;  // F1/F2
-  case XK_F3: scan_code = 0x04; break; // F3/F4
-  case XK_F4: scan_code = 0x04; break; // F3/F4
-  case XK_F5: scan_code = 0x03; break; // F5/F6
-  case XK_F6: scan_code = 0x03; break; // F5/F6
-  case XK_F7: scan_code = 0x83; break; // F7/F8
-  case XK_F8: scan_code = 0x83; break; // F7/F8
+  case XK_F2: scan_code = 0x04; break; // F3/F4
+  case XK_F3: scan_code = 0x03; break; // F5/F6
+  case XK_F4: scan_code = 0x83; break; // F7/F8
   case XK_Down: scan_code = 0x72; break; // DOWN
   case XK_Up: scan_code = 0x72; break; // DOWN
+  case XK_F9: scan_code = 0x17d; break; // RESTORE
 
   case '3': case '#': scan_code = 0x26; break; // 3
   case 'W': case 'w': scan_code = 0x1d; break; // W
@@ -143,29 +140,29 @@ static void dokey(rfbBool down,rfbKeySym key,rfbClientPtr cl)
   case '5': case '%': scan_code = 0x2e; break;
   case 'R': case 'r': scan_code = 0x2d; break;
   case 'D': case 'd': scan_code = 0x23; break;
-  case '6': case '&': scan_code = 0x36; break;
+  case '6': case '^': scan_code = 0x36; break;
   case 'C': case 'c': scan_code = 0x21; break;
   case 'F': case 'f': scan_code = 0x2b; break;
   case 'T': case 't': scan_code = 0x2c; break;
   case 'X': case 'x': scan_code = 0x22; break;
     
-  case '7': case '\'': scan_code = 0x3d; break;
+  case '7': case '&'': scan_code = 0x3d; break;
   case 'Y': case 'y': scan_code = 0x35; break;
   case 'G': case 'g': scan_code = 0x34; break;
-  case '8': case '(': scan_code = 0x3e; break;
+  case '8': case '*': scan_code = 0x3e; break;
   case 'B': case 'b': scan_code = 0x32; break;
   case 'H': case 'h': scan_code = 0x33; break;
   case 'U': case 'u': scan_code = 0x3c; break;
   case 'V': case 'v': scan_code = 0x2a; break;
     
-  case '9': case ')': scan_code = 0x4e; break;
-  case 'I': case 'i': scan_code = 0x4d; break;
-  case 'J': case 'j': scan_code = 0x4b; break;
-  case '0': scan_code = 0x55; break;
-  case 'M': case 'm': scan_code = 0x49; break;
-  case 'K': case 'k': scan_code = 0x4c; break;
-  case 'O': case 'o': scan_code = 0x54; break;
-  case 'N': case 'n': scan_code = 0x41; break;
+  case '9': case '(': scan_code = 0x46; break;
+  case 'I': case 'i': scan_code = 0x43; break;
+  case 'J': case 'j': scan_code = 0x3b; break;
+  case '0': case ')': scan_code = 0x45; break;
+  case 'M': case 'm': scan_code = 0x3a; break;
+  case 'K': case 'k': scan_code = 0x42; break;
+  case 'O': case 'o': scan_code = 0x44; break;
+  case 'N': case 'n': scan_code = 0x31; break;
   
   case '+': case '=': scan_code = 0x4e; break;
   case 'P': case 'p': scan_code = 0x4d; break;
@@ -173,14 +170,17 @@ static void dokey(rfbBool down,rfbKeySym key,rfbClientPtr cl)
   case '-': case '_': scan_code = 0x55; break;
   case '.': case '>': scan_code = 0x49; break;
   case ';': case ':': scan_code = 0x4c; break;
-  case '@': scan_code = 0x54; break;
+  case '[': case '}': scan_code = 0x54; break; // @
   case ',': case '<': scan_code = 0x41; break;
   
+  case XK_F7: scan_code = 0x170; break; // pound
   case ']': case '}': scan_code = 0x5b; break; // *
-  case XK_Home: scan_code = 0x16c; break;
-  case XK_Shift_R: scan_code = 0x59; break;
-  case '^': scan_code = 0x171; break;
-  case '/': case '?': scan_code = 0x4a; break;    
+  case '\'': case '\"': scan_code = 0x52; break; // ;
+  case XK_Home: scan_code = 0x16c; break;  // home
+  case XK_Shift_R: scan_code = 0x59; break;  // right shift
+  case '+': case '=': scan_code = 0x171; break; // =
+  case XK_F8: scan_code = 0x171; break; // up-arrow 
+  case '/': case '?': scan_code = 0x4a; break;
 
   case '1': case '!': scan_code = 0x16; break;
   case '`': case '~': scan_code = 0xe; break;
