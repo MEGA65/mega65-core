@@ -18,12 +18,17 @@
 #include <poll.h>
 #include <termios.h>
 
+#include "fcs.c"
+
 struct raster_cache {
   unsigned int crc;
-  unsigned char raster[1920];
+  unsigned char data[1920];
 };
 
 int sendScanCode(int scan_code);
+
+int raster_line_number=-1;
+unsigned char raster_line[1920];
 
 unsigned int raster_crc[1200];
 unsigned char imageData[1920*1200];
@@ -464,7 +469,7 @@ int main(int argc,char** argv)
     exit(-1);
   }
 
-  struct raster_cache *cache=calloc(sizeof(struct raster_cache),65536);
+  struct raster_cache *raster_cache=calloc(sizeof(struct raster_cache),65536);
   {
     int j;
     for(j=0;j<1200;j++) raster_crc[j]=0;
@@ -489,7 +494,7 @@ int main(int argc,char** argv)
       if (len<1) usleep(10000);
 
       if (1) {
-	if (len == 2132) {
+	if (len > 2100) {
 	  // probably a C65GS compressed video frame.
 
 	  // Each should consist of 13 blocks of
@@ -510,6 +515,13 @@ int main(int argc,char** argv)
 	    rasternumber |= packet[offset+1];
 	    rasternumber &= 0xfff;
 	    
+	    // see if we have the raster data for this line kept from the last packet
+	    if (raster_line_number==rasternumber) {
+	      // Store raster data for later recall
+	      raster_cache[crc&0xffff].crc=crc;
+	      bcopy(raster_line,raster_cache[crc&0xffff].data,1920);
+	    }
+
 	    if (rasternumber==1199) {
 	      updateFrameBuffer(rfbScreen);
 	    }
@@ -518,35 +530,44 @@ int main(int argc,char** argv)
 	    crc|=packet[offset+5]<<8;
 	    crc|=packet[offset+6]<<16;
 	    crc|=packet[offset+7]<<24;
-	    // printf("i=% 2d: Saw raster $%04x, crc=$%08x\n",i,rasternumber,crc);
+	    //	    printf("i=% 2d: Saw raster $%04x, crc=$%08x\n",i,rasternumber,crc);
 
-	    // XXX - Pull remembered raster data out to match CRC
+	    if ((packet[offset+0]&0x80)==0) {
+	      // Has CRC changed since last time?
+	      //	      if (crc!=raster_crc[rasternumber]) {
+	      {
+		// XXX - Pull remembered raster data out to match CRC
+		if (raster_cache[crc&0xffff].crc==crc) {
+		  // we have this raster cached, so retrieve it.
+		  //		  printf("Retrieving raster data %08x for line #%d from cache.\n",crc,rasternumber);
+		  int i;
+		  int min=1920, max=1920;
+
+		  // update image_offset to reflect raster number
+		  image_offset=rasternumber*1920;
+
+		  for(i=0;i<1920;i++) if (raster_cache[crc&0xffff].data[i]!=imageData[image_offset+i]) { min=i; break; }
+		  if (min<1920) {
+		    for(i=1919;i>=0;i--) if (raster_cache[crc&0xffff].data[i]!=imageData[image_offset+i]) { max=i; break; }
+		    touched[rasternumber]=1;
+		    touched_min[rasternumber]=min;
+		    touched_max[rasternumber]=max;
+		    bcopy(raster_cache[crc&0xffff].data,&imageData[image_offset],1920);
+		    //		    printf("touched raster %d via cache : min=%d, max=%d\n",rasternumber,min,max);
+		  }	    
+		}
+		// remember the crc of the current drawing on the raster
+		raster_crc[rasternumber]=crc;
+	      }
+	    }
 	  }
 
 	  // Raster pixels begin at $0DA (allowing for ethernet headers)
+	  // BUT CRC that goes with this data is actually the CRC of the first 
+	  // raster of the next packet, so remember the raster line and details.
 	  unsigned char *raster_data=&packet[0xda];
-
-	  if (rasternumber>=0&&rasternumber<1200) {
-
-	    // XXX - Store raster data for later recall
-	    
-	    
-	    // update image_offset to reflect raster number
-	    image_offset=rasternumber*1920;
-	    
-	    // copy collected raster to frame buffer, but only if different
-	    int i;
-	    int min=1920, max=1920;
-	    for(i=0;i<1920;i++) if (raster_data[i]!=imageData[image_offset+i]) { min=i; break; }
-	    if (min<1920) {
-	      for(i=1919;i>=0;i--) if (raster_data[i]!=imageData[image_offset+i]) { max=i; break; }
-	      touched[rasternumber]=1;
-	      touched_min[rasternumber]=min;
-	      touched_max[rasternumber]=max;
-	      bcopy(raster_data,&imageData[image_offset],1920);
-	      //	      printf("touched raster %d : min=%d, max=%d\n",rasternumber,min,max);
-	    }	    
-	  }
+	  bcopy(raster_data,raster_line,1920);
+	  raster_line_number=rasternumber+1;
 	}
       }      
     }
