@@ -18,38 +18,17 @@
 #include <poll.h>
 #include <termios.h>
 
-int sendScanCode(int scan_code);
-
-unsigned char bmpHeader[0x36]={
-  0x42,0x4d,0x36,0xa0,0x8c,0x00,0x00,0x00,0x00,0x00,0x36,0x00,0x00,0x00,0x28,0x00,
-  0x00,0x00,0x80,0x07,0x00,0x00,0xb0,0x04,0x00,0x00,0x01,0x00,0x20,0x00,0x00,0x00,
-  0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
-  0x00,0x00,0x00,0x00,0x00,0x00};
-
-unsigned char palette[17][4]={
-  {  0,  0,  0,0xff},
-  {255,255,255,0xff},
-  {116, 67,53,0xff},
-  {124,172,186,0xff},
-  {123, 72,144,0xff},
-  {100,151, 79,0xff},
-  { 64, 50,133,0xff},
-  {191,205,122,0xff},
-  {123, 91, 47,0xff},
-  { 79, 69,  0,0xff},
-  {163,114,101,0xff},
-  { 80, 80, 80,0xff},
-  {120,120,120,0xff},
-  {164,215,142,0xff},
-  {120,106,189,0xff},
-  {159,159,159,0xff},
-  {  0,  255,  0,0xff}
+struct raster_cache {
+  unsigned int crc;
+  unsigned char raster[1920];
 };
 
-unsigned char imageData[1920*1200*2];
+int sendScanCode(int scan_code);
+
+unsigned int raster_crc[1200];
+unsigned char imageData[1920*1200];
 int image_offset=0;
 int drawing=0;
-int raster_length=0;
 int y;
 
 // set for each rasterline modified
@@ -212,12 +191,10 @@ int updateFrameBuffer(rfbScreenInfoPtr screen)
     unsigned char linebuffer[1920*4];
     if (touched[y]) {
       for(x=0;x<1920;x++)
-	{
-	  int colour = imageData[y*1920+x];
-	  int offset = x * 4;
-	  if (colour>15) colour=16;
-	  bcopy(palette[colour],
-		&((unsigned char *)screen->frameBuffer)[(y*1920*4)+offset],4);
+	{	  
+	  ((unsigned char *)screen->frameBuffer)[(y*1920*4)+x*4+0]=imageData[y*1920+x]&0xe0;
+	  ((unsigned char *)screen->frameBuffer)[(y*1920*4)+x*4+1]=(imageData[y*1920+x]&0x1c)<<3;
+	  ((unsigned char *)screen->frameBuffer)[(y*1920*4)+x*4+2]=(imageData[y*1920+x]&0x3)<<6;
 	}
     }
   }
@@ -487,14 +464,21 @@ int main(int argc,char** argv)
     exit(-1);
   }
 
-    printf("Started.\n"); fflush(stdout);
+  struct raster_cache *cache=calloc(sizeof(struct raster_cache),65536);
+  {
+    int j;
+    for(j=0;j<1200;j++) raster_crc[j]=0;
+  }
+
+  printf("Allocated raster cache.\n");
+
+  printf("Started.\n"); fflush(stdout);
 
     int last_colour=0x00;
     int in_vblank=0;
     int firstraster=1;
     int bytes=0;
 
-    unsigned char raster_line[1920];
     int rasternumber;
     int last_raster=0;
 
@@ -521,41 +505,48 @@ int main(int argc,char** argv)
 	  unsigned int crc;
 
 	  for(i=0;i<13;i++) {
-	    int offset=0x56+i*9;
+	    int offset=0x56+i*9;	    
 	    rasternumber = packet[offset+0]<<8;
 	    rasternumber |= packet[offset+1];
 	    rasternumber &= 0xfff;
+	    
+	    if (rasternumber==1199) {
+	      updateFrameBuffer(rfbScreen);
+	    }
+
 	    crc=packet[offset+4]<<0;
 	    crc|=packet[offset+5]<<8;
 	    crc|=packet[offset+6]<<16;
 	    crc|=packet[offset+7]<<24;
-	    printf("i=% 2d: Saw raster $%04x, crc=$%08x\n",i,rasternumber,crc);
+	    // printf("i=% 2d: Saw raster $%04x, crc=$%08x\n",i,rasternumber,crc);
 
 	    // XXX - Pull remembered raster data out to match CRC
 	  }
 
-	  // Raster pixels begin at $0BD
-	  unsigned char *raster_data=&packet[0xbd];
+	  // Raster pixels begin at $0DA (allowing for ethernet headers)
+	  unsigned char *raster_data=&packet[0xda];
 
-	  // XXX - Store raster data for later recall
+	  if (rasternumber>=0&&rasternumber<1200) {
 
-	  // update image_offset to reflect raster number
-	  image_offset=rasternumber*1920;
-
-	  // copy collected raster to frame buffer, but only if different
-	  int i;
-	  int min=0, max=1920;
-	  for(i=0;i<1920;i++) if (raster_data[i]!=imageData[image_offset+i]) { min=i; break; }
-	  if (min) {
-	    for(i=1919;i>=0;i--) if (raster_data[i]!=imageData[image_offset+i]) { max=i; break; }
-	    touched[rasternumber]=1;
-	    touched_min[rasternumber]=min;
-	    touched_max[rasternumber]=max;
-	    bcopy(raster_line,&imageData[image_offset],raster_length);
-	    printf("touched raster %d\n",rasternumber);
+	    // XXX - Store raster data for later recall
+	    
+	    
+	    // update image_offset to reflect raster number
+	    image_offset=rasternumber*1920;
+	    
+	    // copy collected raster to frame buffer, but only if different
+	    int i;
+	    int min=1920, max=1920;
+	    for(i=0;i<1920;i++) if (raster_data[i]!=imageData[image_offset+i]) { min=i; break; }
+	    if (min<1920) {
+	      for(i=1919;i>=0;i--) if (raster_data[i]!=imageData[image_offset+i]) { max=i; break; }
+	      touched[rasternumber]=1;
+	      touched_min[rasternumber]=min;
+	      touched_max[rasternumber]=max;
+	      bcopy(raster_data,&imageData[image_offset],1920);
+	      //	      printf("touched raster %d : min=%d, max=%d\n",rasternumber,min,max);
+	    }	    
 	  }
-	  
-	  updateFrameBuffer(rfbScreen);
 	}
       }      
     }
