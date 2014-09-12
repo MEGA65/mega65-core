@@ -74,12 +74,14 @@ architecture behavioural of framepacker is
   signal dispatch_frame : std_logic := '0';
 
   signal new_raster_pending : std_logic := '0';
-  signal new_raster_phase : integer range 0 to 4;
+  signal new_raster_phase : integer range 0 to 8;
+  signal next_draw_raster : unsigned(11 downto 0) := to_unsigned(1,12);
   
-  signal output_address_internal : unsigned(11 downto 0) := (others => '1');
+  signal output_address_internal : unsigned(11 downto 0) := (others => '0');
   signal output_address : unsigned(11 downto 0);
   signal output_data : unsigned(7 downto 0);
   signal output_write : std_logic := '0';
+  signal draw_this_raster : std_logic := '0';
   
 begin  -- behavioural
 
@@ -140,54 +142,22 @@ begin  -- behavioural
   begin
     if rising_edge(pixelclock) then
       if pixel_valid='1' then
-        report "PACKER: pixel=$"& to_hstring(pixel_stream_in)
-          & ", last_pixel=$" & to_hstring(last_pixel_value)
-          severity note;      
-        
-        if (pixel_stream_in /= last_pixel_value) or (pixel_count = x"7F") then
-          -- end of last RLE
-
-          if pixel_count /= x"00" then
-            report "PACKER: Recording $"&to_hstring(pixel_count)&" x $"
-              & to_hstring(last_pixel_value) & " coloured pixels (colour change)." severity note;
-          end if;
-
-          report "PACKER: advancing address on different coloured pixel"
-            & " from $" & to_hstring(output_address_internal);
+--        report "PACKER: considering raw pixel $" & to_hstring(pixel_stream_in) & " in raster $" & to_hstring(pixel_y);
+        if draw_this_raster = '1' then
+          -- Write raw pixel
+          report "PACKER: writing raw pixel $" & to_hstring(pixel_stream_in)&" @ $" & to_hstring(output_address_internal);
           output_address_internal <= output_address_internal + 1;
           output_address <= output_address_internal + 1;
-          output_data <= '0'&pixel_stream_in(6 downto 0);
+          output_data <= pixel_stream_in;
           output_write <= '1';
-          report "PACKER writing $"&to_hstring('0'&pixel_stream_in(6 downto 0))
-            & " @ $" & to_hstring(output_address_internal + 1);
-          
-          last_pixel_value <= pixel_stream_in;
-          pixel_count <= x"01";
-        else
-          -- add to existing RLE
-          pixel_count <= pixel_count + 1;
-
-          if pixel_count = x"01" then
-            report "PACKER writing $"&to_hstring('1'&(pixel_count(6 downto 0)+1))
-              & " @ $" & to_hstring(output_address_internal+1);
-            output_address <= output_address_internal + 1;
-            output_address_internal <= output_address_internal + 1;
-          else
-            report "PACKER writing $"&to_hstring('1'&(pixel_count(6 downto 0)+1))
-              & " @ $" & to_hstring(output_address_internal);
-            output_address <= output_address_internal;
-          end if;
-          output_data <= '1'&(pixel_count(6 downto 0) + 1);
-          output_write <= '1';
-          report "PACKER: Recording $"&to_hstring('0'&(pixel_count(6 downto 0) + 1))
-            & " x $"
-            & to_hstring(last_pixel_value) & " coloured pixels (saw extending pixel)." severity note;
         end if;
+        -- update CRC of raster line
+        
       else
         output_write <= '0';
         if new_raster_pending = '1' then
 
-          report "PACKER: ------ NEW RASTER" severity note;
+          report "PACKER: ------ NEW RASTER $" & to_hstring(pixel_y) & " (next draw is $" & to_hstring(next_draw_raster) & ")" severity note;
 
           -- Write end of frame marker.
           report "PACKER: advancing address on end of raster";
@@ -195,14 +165,45 @@ begin  -- behavioural
           output_address <= output_address_internal + 1;
           output_write <= '1';
           case new_raster_phase is
-            -- length byte with value 0 means end of frame
-            when 0 => output_data <= x"80";
+            -- Raster number of most recent raster
+            when 0 =>
+              -- We set MSB in the raster record that immediately preceeds the
+              -- raster we have included in full.
+              if pixel_y = next_draw_raster then
+                output_data(7) <= '1';
+                draw_this_raster <= '1';
+              else
+                output_data(7) <= '0';
+                draw_this_raster <= '0';
+              end if;
+              output_data(6 downto 4) <= "000";
+              output_data(3 downto 0) <= pixel_y(11 downto 8);
             when 1 => output_data <= pixel_y(7 downto 0);
-            when 2 => output_data <= "0000" & pixel_y(11 downto 8);
-            when 3 => output_data <= x"01"; -- XXX left audio
-            when 4 => output_data <= x"02"; -- XXX right audio
+            -- Audio
+            when 2 => output_data <= x"01"; -- XXX left audio
+            when 3 => output_data <= x"02"; -- XXX right audio
+            -- CRC of most recent raster
+            when 4 => output_data <= x"11";
+            when 5 => output_data <= x"22";
+            when 6 => output_data <= x"33";
+            when 7 => output_data <= x"44";
+            when 8 => 
+              if pixel_y = next_draw_raster then
+                -- only draw one raster per packet, so flip buffer halves after
+                -- drawing a raster.
+                output_address(11) <= not output_address(11);
+                output_address(10 downto 0) <= (others => '0');
+                -- then work out the next raster to draw.
+                -- 1200 rasters, stepping 13 at a time cycles through them all,
+                -- and 13 x 9 byte raster records fits in less than 2048 bytes.
+                if to_integer(next_draw_raster)<(1200-13) then
+                  next_draw_raster <= to_unsigned(to_integer(next_draw_raster) + 13,12);
+                else
+                  next_draw_raster <= to_unsigned(to_integer(next_draw_raster) + 13 - 1200,12);
+                end if;
+              end if;
           end case;
-          if new_raster_phase /= 4 then
+          if new_raster_phase /= 8 then
             -- get ready to write the next byte in the sequence
             new_raster_phase <= new_raster_phase + 1;
           else
@@ -219,8 +220,14 @@ begin  -- behavioural
         end if;
       end if;
       if pixel_newraster='1' then
+        -- This occurs at the end of the previous raster.  There are thus
+        -- several cycles with pixel_y stable at this point
         new_raster_pending <= '1';
         new_raster_phase <= 0;
+        if draw_this_raster = '1' then
+          -- make next write happen at start of other half of buffer
+          output_address_internal(10 downto 0) <= (others => '1');
+        end if;       
       end if;
     end if;
   end process;
