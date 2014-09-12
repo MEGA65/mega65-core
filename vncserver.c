@@ -508,90 +508,54 @@ int main(int argc,char** argv)
 	if (len == 2132) {
 	  // probably a C65GS compressed video frame.
 
-	  // for some reason not reading the last few bytes of each packet helps
-	  // prevent glitches.
-	  for(i=85;i<2133-50;i++) {
-	    //	    	    printf("%02x.",packet[i]);
-	    if (drawing) bytes++;
-	    if (packet[i]==0x80) {
-	      // end of raster marker
-	      rasternumber = packet[i+1]+packet[i+2]*256;
-	      if (rasternumber > 1199) rasternumber=1199;
-	      i+=4; // skip raster number and audio bytes
+	  // Each should consist of 13 blocks of
+	  //   raster_number (16 bits)
+	  //   audio left (8 bits)
+	  //   audio right (8 bits)
+	  //   CRC32 of raster (32 bits)
+	  //   dummy byte (8 bits)
 
-	      if (raster_length>1915&&raster_length<=1920) {
-		if (rasternumber==last_raster+1)
-		  {
-		    // copy collected raster to frame buffer, but only if different
-		    int i;
-		    int min=0, max=1920;
-		    for(i=0;i<1920;i++) if (raster_line[i]!=imageData[rasternumber*1920+i]) { min=i; break; }
-		    if (min) {
-			for(i=1919;i>=0;i--) if (raster_line[i]!=imageData[rasternumber*1920+i]) { max=i; break; }
-			touched[rasternumber]=1;
-			touched_min[rasternumber]=min;
-			touched_max[rasternumber]=max;
-			//			printf("touched raster %d\n",rasternumber);
-		    }
-		    bcopy(raster_line,&imageData[rasternumber*1920],raster_length);
-		  }
-	      }
-	      last_raster=rasternumber;
+	  // The last of these should have the MSB set in the raster number 
+	  // to indicate that the uncompressed raster follows.
 
-	      // update image_offset to reflect raster number
-	      image_offset=rasternumber*1920;
+	  unsigned int crc;
 
-	      if ((!firstraster)&&raster_length<100) {
-		if (in_vblank==0) {
-		  // start of vblank at end of frame
-		  if (drawing) {
-		    // printf("Done drawing.  Frame was encoded in %d bytes (plus packet headers)\n",bytes); fflush(stdout);
-		    // exit(dumpImage());
-		    updateFrameBuffer(rfbScreen);
-		  }
-		  drawing=1;
-		  // printf("Start drawing. raster_length=%d\n",raster_length);
-		  image_offset=0;
-		  in_vblank=1;
-		}
-	      }
-	      firstraster=0;
-	      if (raster_length>=1800) {
-		if (in_vblank) { in_vblank=0; y=0; }
-		else y++;
-	      }
-	      
-	      if (raster_length>1920) image_offset-=(raster_length-1920);
-	      if (image_offset<0) image_offset=0;
-	      // printf("Raster %d, length=%d, image raster=%.3f\n",
-	      // y,raster_length,image_offset*1.0/1920.0);
-	      
-	      raster_length=0;
-	    } else if (packet[i]&0x80) {
-	      // RLE count
+	  for(i=0;i<13;i++) {
+	    int offset=0x56+i*9;
+	    rasternumber = packet[offset+0]<<8;
+	    rasternumber |= packet[offset+1];
+	    rasternumber &= 0xfff;
+	    crc=packet[offset+4]<<0;
+	    crc|=packet[offset+5]<<8;
+	    crc|=packet[offset+6]<<16;
+	    crc|=packet[offset+7]<<24;
+	    printf("i=% 2d: Saw raster $%04x, crc=$%08x\n",i,rasternumber,crc);
 
-	      int count=(packet[i]&0x7f);
-	      if (drawing) {
-		int j;
-		//		printf("Drawing %d of %02x @ %d\n",count,last_colour,image_offset);
-		for(j=2;j<=count;j++) {
-		  if (raster_length<1920)
-		    raster_line[raster_length]=last_colour;
-		  raster_length++;
-		}
-	      }
-	    } else {
-	      // colour
-	      last_colour = packet[i];
-	      if (drawing) {
-		//		printf("Drawing 1 %02x\n",last_colour);
-		if (raster_length<1920)
-		  raster_line[raster_length]=last_colour;
-		raster_length++;
-	      }
-	    }
+	    // XXX - Pull remembered raster data out to match CRC
 	  }
-	  //	  fflush(stdout);
+
+	  // Raster pixels begin at $0BD
+	  unsigned char *raster_data=&packet[0xbd];
+
+	  // XXX - Store raster data for later recall
+
+	  // update image_offset to reflect raster number
+	  image_offset=rasternumber*1920;
+
+	  // copy collected raster to frame buffer, but only if different
+	  int i;
+	  int min=0, max=1920;
+	  for(i=0;i<1920;i++) if (raster_data[i]!=imageData[image_offset+i]) { min=i; break; }
+	  if (min) {
+	    for(i=1919;i>=0;i--) if (raster_data[i]!=imageData[image_offset+i]) { max=i; break; }
+	    touched[rasternumber]=1;
+	    touched_min[rasternumber]=min;
+	    touched_max[rasternumber]=max;
+	    bcopy(raster_line,&imageData[image_offset],raster_length);
+	    printf("touched raster %d\n",rasternumber);
+	  }
+	  
+	  updateFrameBuffer(rfbScreen);
 	}
       }      
     }
