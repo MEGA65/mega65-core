@@ -193,10 +193,10 @@ static void dokey(rfbBool down,rfbKeySym key,rfbClientPtr cl)
   }
   if (scan_code!=-1) {
     if (!down) scan_code|=0x1000;
-    printf("scan code $%04x\n",scan_code);
+    //    printf("scan code $%04x\n",scan_code);
     sendScanCode(scan_code);
   } else {
-    printf("unknown key $%04x\n",key);
+    //    printf("unknown key $%04x\n",key);
   }
 
   if(down) {
@@ -283,7 +283,7 @@ int sendScanCode(int scan_code)
 
   write(serialfd,msg,4);
 
-  perror("sent scan code");
+  //  perror("sent scan code");
 
   return 0;
 }
