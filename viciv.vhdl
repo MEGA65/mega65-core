@@ -2016,7 +2016,12 @@ begin
         pixel_newraster <= '1';
         pixel_y <= displayy;
       else
-        pixel_stream_out <= pixel_colour;
+        -- output pixels as packed RGB instead of palette colours
+        -- (this 8bpp format is what VNC uses anyway, so there is no functional
+        -- loss of colour resolution).
+        pixel_stream_out(7 downto 5) <= vga_buffer3_red(7 downto 5);
+        pixel_stream_out(4 downto 2) <= vga_buffer3_green(7 downto 5);
+        pixel_stream_out(1 downto 0) <= vga_buffer3_blue(7 downto 6);
         pixel_valid <= indisplay;
         pixel_newraster <= '0';
       end if;
