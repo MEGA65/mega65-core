@@ -177,9 +177,13 @@ begin  -- behavioural
            pixel_y,pixel_newframe,pixelclock) is
   begin
     if rising_edge(pixelclock) then
+
+      -- update CRC of raster line
       crc_calc_en <= pixel_valid;
       crc_d_valid <= pixel_valid;
       crc_data_in <= pixel_stream_in;
+      crc_load_init <= '0';
+      
       if pixel_valid='1' then
 --        report "PACKER: considering raw pixel $" & to_hstring(pixel_stream_in) & " in raster $" & to_hstring(pixel_y);        
         if draw_this_raster = '1' then
@@ -189,9 +193,7 @@ begin  -- behavioural
           output_address <= output_address_internal + 1;
           output_data <= pixel_stream_in;
           output_write <= '1';
-        end if;
-        -- update CRC of raster line
-        
+        end if;        
       else
         output_write <= '0';
         if new_raster_pending = '1' then
