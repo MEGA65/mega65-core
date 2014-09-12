@@ -67,6 +67,21 @@ architecture behavioural of framepacker is
       doutb : OUT STD_LOGIC_VECTOR(7 DOWNTO 0)
       );
   END component;
+
+  component CRC is
+    Port 
+    (  
+      CLOCK               :   in  std_logic;
+      RESET               :   in  std_logic;
+      DATA                :   in  std_logic_vector(7 downto 0);
+      LOAD_INIT           :   in  std_logic;
+      CALC                :   in  std_logic;
+      D_VALID             :   in  std_logic;
+      CRC                 :   out std_logic_vector(7 downto 0);
+      CRC_REG             :   out std_logic_vector(31 downto 0);
+      CRC_VALID           :   out std_logic
+    );
+  end component CRC;
   
   -- signals go here
   signal pixel_count : unsigned(7 downto 0) := x"00";
@@ -82,6 +97,13 @@ architecture behavioural of framepacker is
   signal output_data : unsigned(7 downto 0);
   signal output_write : std_logic := '0';
   signal draw_this_raster : std_logic := '0';
+
+  signal crc_data_in : unsigned(7 downto 0);
+  signal crc_reg : unsigned(31 downto 0);
+  signal crc_load_init : std_logic := '0';
+  signal crc_calc_en : std_logic := '0';
+  signal crc_d_valid : std_logic := '0';
+
   
 begin  -- behavioural
 
@@ -94,6 +116,20 @@ begin  -- behavioural
     addrb => std_logic_vector(buffer_address),
     unsigned(doutb) => buffer_rdata
     );
+
+  raster_crc : CRC
+    port map(
+      CLOCK           => pixelclock,
+      RESET           => '0',
+      DATA            => std_logic_vector(crc_data_in),
+      LOAD_INIT       => crc_load_init,
+      CALC            => crc_calc_en,
+      D_VALID         => crc_d_valid,
+      CRC             => open,
+      unsigned(CRC_REG)         => crc_reg,
+      CRC_VALID       => open
+      );
+
   
   -- Look after CPU side of mapping of compressed data
   process (ioclock,fastio_addr,fastio_wdata,fastio_read,fastio_write
@@ -141,8 +177,11 @@ begin  -- behavioural
            pixel_y,pixel_newframe,pixelclock) is
   begin
     if rising_edge(pixelclock) then
+      crc_calc_en <= pixel_valid;
+      crc_d_valid <= pixel_valid;
+      crc_data_in <= pixel_stream_in;
       if pixel_valid='1' then
---        report "PACKER: considering raw pixel $" & to_hstring(pixel_stream_in) & " in raster $" & to_hstring(pixel_y);
+--        report "PACKER: considering raw pixel $" & to_hstring(pixel_stream_in) & " in raster $" & to_hstring(pixel_y);        
         if draw_this_raster = '1' then
           -- Write raw pixel
           report "PACKER: writing raw pixel $" & to_hstring(pixel_stream_in)&" @ $" & to_hstring(output_address_internal);
@@ -183,11 +222,14 @@ begin  -- behavioural
             when 2 => output_data <= x"01"; -- XXX left audio
             when 3 => output_data <= x"02"; -- XXX right audio
             -- CRC of most recent raster
-            when 4 => output_data <= x"11";
-            when 5 => output_data <= x"22";
-            when 6 => output_data <= x"33";
-            when 7 => output_data <= x"44";
-            when 8 => 
+            when 4 => output_data <= crc_reg(31 downto 24);
+            when 5 => output_data <= crc_reg(23 downto 16);
+            when 6 => output_data <= crc_reg(15 downto 8);
+            when 7 => output_data <= crc_reg(7 downto 0);
+                      -- reset CRC
+                      crc_load_init <= '1';
+                      crc_calc_en <= '0';
+            when 8 => output_data <= x"00";
               if pixel_y = next_draw_raster then
                 -- only draw one raster per packet, so flip buffer halves after
                 -- drawing a raster.
