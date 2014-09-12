@@ -519,7 +519,7 @@ int main(int argc,char** argv)
 	      if (rasternumber > 1199) rasternumber=1199;
 	      i+=4; // skip raster number and audio bytes
 
-	      if (raster_length>1900&&raster_length<=1920) {
+	      if (raster_length>1915&&raster_length<=1920) {
 		if (rasternumber==last_raster+1)
 		  {
 		    // copy collected raster to frame buffer, but only if different
