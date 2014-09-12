@@ -18,8 +18,6 @@
 #include <poll.h>
 #include <termios.h>
 
-#include "fcs.c"
-
 struct raster_cache {
   unsigned int crc;
   unsigned char data[1920];
