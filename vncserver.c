@@ -15,6 +15,8 @@
 #include <signal.h>
 #include <netdb.h>
 #include <time.h>
+#include <poll.h>
+#include <termios.h>
 
 int sendScanCode(int scan_code);
 
@@ -270,70 +272,191 @@ int connect_to_port(int port)
   return sock;
 }
 
-int keySocket=-1;
-struct sockaddr_in addr;
-int base_offset=100;
+int serialfd=-1;
 
 int sendScanCode(int scan_code)
 {
-  if (keySocket==-1) return -1;
-  unsigned char msg[200];
-  bzero(msg,200);
+  if (serialfd==-1) return -1;
+  unsigned char msg[4]={27,'K',scan_code&0xff,scan_code>>8};
 
-  int offset=base_offset;
-  offset-=14; // reduce for size of ethernet header
-  offset-=28; // reduce for size of IP & UDP header
-  offset-=2;
+  write(serialfd,msg,4);
 
+  perror("sent scan code");
+
+  return 0;
+}
+
+int slow_write(int fd,char *d,int l)
+{
+  // UART is at 230400bps, but reading commands has no FIFO, and echos
+  // characters back, meaning we need a 1 char gap between successive
+  // characters.  This means >=1/23040sec delay. We'll allow roughly
+  // double that at 100usec.
+  // printf("Writing [%s]\n",d);
   int i;
-  for(i=0;i<20;i++)
-    if (offset-i>=0) msg[offset-i]=0xff-i;
+  for(i=0;i<l;i++)
+    {
+      if (d[i]!='\r') {
+	usleep(100);
+	write(fd,&d[i],1);
+      }
+    }
+  return 0;
+}
 
-  // put magic bytes
-  msg[offset++]=0x65;
-  msg[offset++]='G';
-  msg[offset++]='S';
-  msg[offset++]='K';
-  msg[offset++]='E';
-  msg[offset++]='Y';
-  msg[offset++]='C';
-  msg[offset++]='O';
-  msg[offset++]='D';
-  msg[offset++]='E';
-  // put scan code
-  msg[offset++]=scan_code&0xff;
-  msg[offset++]=scan_code>>8;
+#define MAX_CLIENTS 256
+int clients[MAX_CLIENTS];
+int client_count=0;
 
-  for(i=0;i<20;i++)
-    msg[offset+i]=0x80+i;
+int client_sock=-1;
+
+int create_listen_socket(int port)
+{
+  int sock = socket(AF_INET,SOCK_STREAM,0);
+  if (sock==-1) return -1;
+
+  int on=1;
+  if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (char *)&on, sizeof(on)) == -1) {
+    close(sock); return -1;
+  }
+  if (ioctl(sock, FIONBIO, (char *)&on) == -1) {
+    close(sock); return -1;
+  }
+  
+  /* Bind it to the next port we want to try. */
+  struct sockaddr_in address;
+  bzero((char *) &address, sizeof(address));
+  address.sin_family = AF_INET;
+  address.sin_addr.s_addr = INADDR_ANY;
+  address.sin_port = htons(port);
+  if (bind(sock, (struct sockaddr *) &address, sizeof(address)) == -1) {
+    close(sock); return -1;
+  } 
+
+  if (listen(sock, 20) != -1) return sock;
+
+  close(sock);
+  return -1;
+}
+
+int accept_incoming(int sock)
+{
+  struct sockaddr addr;
+  unsigned int addr_len = sizeof addr;
+  int asock;
+  if ((asock = accept(sock, &addr, &addr_len)) != -1) {
+    // XXX show remote address
+    return asock;
+  }
+
+  return -1;
+}
+
+int read_from_socket(int sock,unsigned char *buffer,int *count,int buffer_size,
+		     int timeout)
+{
+  fcntl(sock,F_SETFL,fcntl(sock, F_GETFL, NULL)|O_NONBLOCK);
 
 
-  errno=0;
-  int r=sendto(keySocket, msg, sizeof msg, 0, (struct sockaddr *) &addr, sizeof addr);
-  printf("sent scan code, base_offset=%d, result=%d\n",base_offset,r);
-  perror("status");
+  int t=time(0)+timeout;
+  if (*count>=buffer_size) return 0;
+  int r=read(sock,&buffer[*count],buffer_size-*count);
+  while(r!=0) {
+    if (r>0) {
+      (*count)+=r;
+      break;
+    }
+    r=read(sock,&buffer[*count],buffer_size-*count);
+    if (r==-1&&errno!=EAGAIN) {
+      perror("read() returned error. Stopping reading from socket.");
+      return -1;
+    } else usleep(100000);
+    // timeout after a few seconds of nothing
+    if (time(0)>=t) break;
+  }
+  buffer[*count]=0;
+  return 0;
+}
 
-  //  base_offset--;
-  // if (base_offset<54) base_offset=100;
+int listen_sock=-1;
+
+int checkSerialActivity()
+{
+  if (client_count<MAX_CLIENTS) {
+    int client_sock = accept_incoming(listen_sock);
+    if (client_sock!=-1) {
+      clients[client_count]=client_sock;
+      client_count++;
+      printf("New connection. %d total.\n",client_count);
+    }
+  }
+  
+  int i;
+  unsigned char buffer[1024];
+  struct pollfd fds[1+MAX_CLIENTS];
+  fds[0].fd=serialfd; fds[0].events=POLLIN; fds[0].revents=0;
+  for (i=0;i<client_count;i++)
+    fds[1+i].fd=clients[i]; fds[1+i].events=POLLIN; fds[1+i].revents=0;
+  
+  // read from serial port and write to client socket(s)
+  int s=poll(fds,1+client_count,500);
+  if (fds[0].revents&POLLIN) {
+    int c=read(serialfd,buffer,1024);
+    int i;
+    for(i=0;i<client_count;i++) write(clients[i],buffer,c);
+  }
+  // read from client sock and write to serial port slowly
+  for(i=0;i<client_count;i++)
+    if (fds[1+i].revents&POLLIN) {
+      int c=read(clients[i],buffer,1024);
+      slow_write(serialfd,buffer,c);
+      if (c<1) { 
+	close(clients[i]); 
+	clients[i]=clients[--client_count];
+	printf("Closed client connection, %d remaining.\n",client_count); }
+    }
+  
+}
+
+pthread_t serialThread;
+
+void *serial_handler(void *arg)
+{
+  printf("Monitoring serial port.\n");
+  while(1) checkSerialActivity();
+}
+
+int openSerialPort(char *port)
+{
+  serialfd=open(port,O_RDWR);  
+  if (serialfd==-1) { perror("open"); return -1; }
+  fcntl(serialfd,F_SETFL,fcntl(serialfd, F_GETFL, NULL)|O_NONBLOCK);
+  struct termios t;
+  if (cfsetospeed(&t, B230400)) perror("Failed to set output baud rate");
+  if (cfsetispeed(&t, B230400)) perror("Failed to set input baud rate");
+  t.c_cflag &= ~PARENB;
+  t.c_cflag &= ~CSTOPB;
+  t.c_cflag &= ~CSIZE;
+  t.c_cflag &= ~CRTSCTS;
+  t.c_cflag |= CS8 | CLOCAL;
+  t.c_lflag &= ~(ICANON | ISIG | IEXTEN | ECHO | ECHOE);
+  t.c_iflag &= ~(BRKINT | ICRNL | IGNBRK | IGNCR | INLCR |
+                 INPCK | ISTRIP | IXON | IXOFF | IXANY | PARMRK);
+  t.c_oflag &= ~OPOST;
+  if (tcsetattr(serialfd, TCSANOW, &t)) perror("Failed to set terminal parameters");
+  perror("F");
+
+  int listen_sock = create_listen_socket(4510);
+  if (listen_sock==-1) { perror("Couldn't listen to port 4510"); exit(-1); }
+
+  pthread_create(&serialThread,NULL,serial_handler,NULL);
 
   return 0;
 }
 
 int main(int argc,char** argv)
 {
-  if (argc>1) {
-    keySocket = socket(AF_INET, SOCK_DGRAM, 0);
-    int on=1;
-    errno=0;
-    int r=0; // setsockopt(keySocket, SOL_SOCKET, SO_BROADCAST, (char *)&on, sizeof(on));
-    
-    printf("keySocket=%d, r=%d, errno=%d\n",keySocket,r,errno);
-    perror("result");
-
-    addr.sin_family = AF_INET; // sets the server address to type AF_INET.
-    inet_aton(argv[1], &addr.sin_addr); // this sets the server address. 
-    addr.sin_port = 0x8080; // port is irrelevant, since the C65GS is looking for magic values in the middle of a packet
-  }
+  if (argc>1) openSerialPort(argv[1]);
 
   rfbScreenInfoPtr rfbScreen = rfbGetScreen(&argc,argv,maxx,maxy,8,3,bpp);
   if(!rfbScreen)
