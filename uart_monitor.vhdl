@@ -32,6 +32,9 @@ entity uart_monitor is
     rx : in  std_logic;
     activity : out std_logic;
 
+    key_scancode : out unsigned(15 downto 0);
+    key_scancode_toggle : out std_logic;
+
     force_single_step : in std_logic;
     
     fastio_read : in std_logic;
@@ -244,7 +247,9 @@ architecture behavioural of uart_monitor is
   signal byte_number : integer range 0 to 16;
   signal line_number : integer range 0 to 31;
 
-  signal key_state : integer := 0;
+  signal key_state : integer range 0 to 5 := 0;
+
+  signal key_scancode_toggle_internal : std_logic := '0';
 
   -- Processor break point
   signal break_address : unsigned(15 downto 0) := x"0000";
@@ -329,6 +334,18 @@ begin
       else
         -- Non-printable character, for now print ?
         case key_state is
+
+          -- Remote keyboard
+          when 3 =>
+            key_scancode(7 downto 0) <= unsigned(to_std_logic_vector(char));
+            key_state <= 4;
+          when 4 => 
+            key_scancode(15 downto 8) <= unsigned(to_std_logic_vector(char));
+            key_scancode_toggle <= not key_scancode_toggle_internal;
+            key_scancode_toggle_internal <= not key_scancode_toggle_internal;
+            key_state <= 0;
+
+          -- Cursor movement
           when 2 =>
             key_state <= 0;
             case char is
@@ -342,12 +359,17 @@ begin
               when 'C' => null; -- cursor right                
               when others => null;
             end case;
+
+          -- ESC pressed, work out state following
           when 1 =>                     -- ESC mode
             case char is
-              when '[' => key_state<=2;
+              when '[' => key_state<=2; -- cursor movement etc
+              when 'K' => key_state <= 3; -- ESC-K-scanlo-scanhi for remote keyboard
               when others => key_state<=0;
             end case;
-          when 0 =>                     -- Normal key input
+
+          -- Normal key input
+          when 0 =>
             case char is
               --when so =>
               --  -- Recall next command in history

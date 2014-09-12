@@ -169,6 +169,9 @@ architecture Behavioral of machine is
     tx : out std_logic;
     rx : in  std_logic;
     activity : out std_logic;
+    
+    key_scancode : out unsigned(15 downto 0);
+    key_scancode_toggle : out std_logic;
 
     force_single_step : in std_logic;
     
@@ -382,6 +385,9 @@ architecture Behavioral of machine is
           reg_isr_out : out unsigned(7 downto 0);
           imask_ta_out : out std_logic;
 
+          key_scancode : in unsigned(15 downto 0);
+          key_scancode_toggle : in std_logic;
+          
           uartclock : in std_logic;
           phi0 : in std_logic;
           reset : in std_logic;
@@ -466,6 +472,9 @@ architecture Behavioral of machine is
           ps2clock : in std_logic
           );
   end component;
+
+  signal key_scancode : unsigned(15 downto 0);
+  signal key_scancode_toggle : std_logic;
 
   signal reg_isr_out : unsigned(7 downto 0);
   signal imask_ta_out : std_logic;
@@ -840,6 +849,9 @@ begin
     reg_isr_out => reg_isr_out,
     imask_ta_out => imask_ta_out,    
 
+    key_scancode => key_scancode,
+    key_scancode_toggle => key_scancode_toggle,
+    
     uartclock => uartclock,
     phi0 => phi0,
     reset => reset_combined,
@@ -923,6 +935,9 @@ begin
     
     fastio_read => fastio_read,
     fastio_write => fastio_write,
+
+    key_scancode => key_scancode,
+    key_scancode_toggle => key_scancode_toggle,
 
 --    monitor_debug_memory_access => monitor_debug_memory_access,
 --    monitor_debug_memory_access => (others => '1'),

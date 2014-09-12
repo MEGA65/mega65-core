@@ -24,6 +24,9 @@ entity iomapper is
         sd_data_o : out std_logic_vector(7 downto 0);
         sector_buffer_mapped : out std_logic;
 
+        key_scancode : in unsigned(15 downto 0);
+        key_scancode_toggle : in std_logic;
+        
         reg_isr_out : out unsigned(7 downto 0);
         imask_ta_out : out std_logic;
         
@@ -457,9 +460,14 @@ begin
     porta_out      => cia1porta_in,
     portb_out      => cia1portb_in,
 
-    eth_keycode_toggle => eth_keycode_toggle,
-    eth_keycode => eth_keycode
-    );
+    -- remote keyboard input via ethernet
+--    eth_keycode_toggle => eth_keycode_toggle,
+--    eth_keycode => eth_keycode
+
+    -- remote 
+    eth_keycode_toggle => key_scancode_toggle,
+    eth_keycode => key_scancode
+);
 
   leftsid: sid6581 port map (
     clk_1MHz => phi0,
