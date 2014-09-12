@@ -146,7 +146,7 @@ static void dokey(rfbBool down,rfbKeySym key,rfbClientPtr cl)
   case 'T': case 't': scan_code = 0x2c; break;
   case 'X': case 'x': scan_code = 0x22; break;
     
-  case '7': case '&'': scan_code = 0x3d; break;
+  case '7': case '&': scan_code = 0x3d; break;
   case 'Y': case 'y': scan_code = 0x35; break;
   case 'G': case 'g': scan_code = 0x34; break;
   case '8': case '*': scan_code = 0x3e; break;
@@ -164,13 +164,13 @@ static void dokey(rfbBool down,rfbKeySym key,rfbClientPtr cl)
   case 'O': case 'o': scan_code = 0x44; break;
   case 'N': case 'n': scan_code = 0x31; break;
   
-  case '+': case '=': scan_code = 0x4e; break;
+  case '-': case '_': scan_code = 0x4e; break;
   case 'P': case 'p': scan_code = 0x4d; break;
   case 'L': case 'l': scan_code = 0x4b; break;
-  case '-': case '_': scan_code = 0x55; break;
+  case '+': case '=': scan_code = 0x55; break;
   case '.': case '>': scan_code = 0x49; break;
   case ';': case ':': scan_code = 0x4c; break;
-  case '[': case '}': scan_code = 0x54; break; // @
+  case '[': case '{': scan_code = 0x54; break; // @
   case ',': case '<': scan_code = 0x41; break;
   
   case XK_F7: scan_code = 0x170; break; // pound
@@ -178,14 +178,14 @@ static void dokey(rfbBool down,rfbKeySym key,rfbClientPtr cl)
   case '\'': case '\"': scan_code = 0x52; break; // ;
   case XK_Home: scan_code = 0x16c; break;  // home
   case XK_Shift_R: scan_code = 0x59; break;  // right shift
-  case '+': case '=': scan_code = 0x171; break; // =
+  case XK_F6: scan_code = 0x5d; break; // =
   case XK_F8: scan_code = 0x171; break; // up-arrow 
   case '/': case '?': scan_code = 0x4a; break;
 
   case '1': case '!': scan_code = 0x16; break;
   case '`': case '~': scan_code = 0xe; break;
   case XK_Control_L: case XK_Control_R: scan_code = 0xd; break;
-  case '2': case '\"': scan_code = 0x1e; break;
+  case '2': case '@': scan_code = 0x1e; break;
   case ' ': scan_code = 0x29; break;
   case XK_Alt_L: scan_code = 0x14; break; // C=
   case 'Q': case 'q': scan_code = 0x16; break;
