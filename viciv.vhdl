@@ -2322,6 +2322,15 @@ begin
 
           -- Schedule next colour ram byte
           colourramaddress <= colourramaddress + 1;
+
+          if viciii_extended_attributes='1' then
+            -- 8-bit colour RAM in VIC-III/IV mode
+            glyph_colour <= colourramdata;
+          else
+            -- 16 colours only in VIC-II mode
+            glyph_colour(7 downto 4) <= x"0";
+            glyph_colour(3 downto 0) <= colourramdata(3 downto 0);
+          end if;
           
           raster_fetch_state <= PaintMemWait;
         when FetchTextCellColourAndSource =>
