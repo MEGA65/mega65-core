@@ -1688,10 +1688,16 @@ begin
             vicii_ycounter_phase <= vicii_ycounter_phase + 1;
           end if;
           
-          if (vicii_is_raster_source='0') and (ycounter = vicii_raster_compare) then
+          -- Make VIC-II triggered raster interrupts edge triggered, since one
+          -- emulated VIC-II raster is ~63*48 = ~3,000 cycles, and many C64
+          -- raster routines may finish in that time, and might get confused if
+          -- a raster interrupt gets retriggered too soon.
+          if (vicii_is_raster_source='1') and (vicii_ycounter = vicii_raster_compare(8 downto 0)) and xcounter = to_unsigned(1,12) then
             irq_raster <= '1';
           end if;
-          if (vicii_is_raster_source='1') and (vicii_ycounter = vicii_raster_compare(8 downto 0)) then
+          -- However, if a raster interrupt is being triggered from a VIC-IV
+          -- physical raster, then there is no need to make raster IRQs edge triggered
+          if (vicii_is_raster_source='0') and (ycounter = vicii_raster_compare) then
             irq_raster <= '1';
           end if;
         else
