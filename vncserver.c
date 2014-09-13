@@ -535,6 +535,7 @@ int main(int argc,char** argv)
 	      //	      if (crc!=raster_crc[rasternumber]) {
 	      {
 		// XXX - Pull remembered raster data out to match CRC
+		if (rasternumber>=0&& rasternumber<1920)
 		if (raster_cache[crc&0xffff].crc==crc) {
 		  // we have this raster cached, so retrieve it.
 		  //		  printf("Retrieving raster data %08x for line #%d from cache.\n",crc,rasternumber);
