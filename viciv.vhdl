@@ -276,6 +276,7 @@ architecture Behavioral of viciv is
   -- whole frame.  This is really just to make testing through simulation quicker
   -- since a whole frame takes ~20 minutes to simulate).
   signal vicii_ycounter : unsigned(8 downto 0) := to_unsigned(263+1,9);
+  signal last_vicii_ycounter : unsigned(8 downto 0) := to_unsigned(263+1,9);
   signal vicii_ycounter_phase : unsigned(2 downto 0) := (others => '0');
   signal vicii_ycounter_max_phase : unsigned(2 downto 0) := (others => '0');
   -- Is the VIC-II virtual raster number the active one for interrupts, or
@@ -1692,9 +1693,10 @@ begin
           -- emulated VIC-II raster is ~63*48 = ~3,000 cycles, and many C64
           -- raster routines may finish in that time, and might get confused if
           -- a raster interrupt gets retriggered too soon.
-          if (vicii_is_raster_source='1') and (vicii_ycounter = vicii_raster_compare(8 downto 0)) and xcounter = to_unsigned(1,12) then
+          if (vicii_is_raster_source='1') and (vicii_ycounter = vicii_raster_compare(8 downto 0)) and last_vicii_ycounter /= vicii_ycounter then
             irq_raster <= '1';
           end if;
+          last_vicii_ycounter <= vicii_ycounter;
           -- However, if a raster interrupt is being triggered from a VIC-IV
           -- physical raster, then there is no need to make raster IRQs edge triggered
           if (vicii_is_raster_source='0') and (ycounter = vicii_raster_compare) then
