@@ -198,9 +198,14 @@ int updateFrameBuffer(rfbScreenInfoPtr screen)
 	  ((unsigned char *)screen->frameBuffer)[(y*1920*4)+x*4+0]=raster_cache[crc&0xffff].data[x]&0xe0;
 	  ((unsigned char *)screen->frameBuffer)[(y*1920*4)+x*4+1]=raster_cache[crc&0xffff].data[x]<<3;
 	  ((unsigned char *)screen->frameBuffer)[(y*1920*4)+x*4+2]=raster_cache[crc&0xffff].data[x]<<6;
+
+	  //	  if (y>410&&y<420) 
+	  //  ((unsigned char *)screen->frameBuffer)[(y*1920*4)+x*4+0]=0xff;
 	}
-    }
-  
+    //    if (y>410&&y<420) printf("[%08x]",crc);
+  }
+  //  printf("\n");
+
   // Tell VNC that everything has changed, and let it do the optimisation.
   rfbMarkRectAsModified(screen,0,0,1919,1199);
 
@@ -495,10 +500,12 @@ int main(int argc,char** argv)
 	    rasternumber &= 0xfff;
 
 	    // see if we have the raster data for this line kept from the last packet
-	    if (raster_line_number==rasternumber) {
+	    if ((!i)&&(raster_line_number==rasternumber)) {
 	      // Store raster data for later recall
-	      raster_cache[crc&0xffff].crc=crc;
-	      bcopy(raster_line,raster_cache[crc&0xffff].data,1920);
+	      if (raster_cache[crc&0xffff].crc!=crc) {
+		raster_cache[crc&0xffff].crc=crc;
+		bcopy(raster_line,raster_cache[crc&0xffff].data,1920);
+	      }
 	    }
 
 	    if (rasternumber==1199) {
