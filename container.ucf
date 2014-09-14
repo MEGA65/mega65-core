@@ -3,7 +3,10 @@ net "CLK_IN" TNM_NET = sys_clk_pin;
 TIMESPEC TS_sys_clk_pin = PERIOD sys_clk_pin 100MHz HIGH 50%;
 
 # Relax timing for slowram
-INST "TS_dotclock1_clkout2" TNM = "source_group";
+#net "dotclock1/clkout2" TNM_NET = cpuclock;
+#TIMESPEC TS_cpuclock = PERIOD cpuclock; # 48MHz HIGH 50%;
+
+net "clk_in" TNM = "source_group";
 INST "RamCLK" TNM = "destination_group";
 INST "RamADVn" TNM = "destination_group";
 INST "RamCEn" TNM = "destination_group";
@@ -13,49 +16,9 @@ INST "RamWEn" TNM = "destination_group";
 INST "RamLBn" TNM = "destination_group";
 INST "RamUBn" TNM = "destination_group";
 INST "RamWait" TNM = "destination_group";
-INST "MemDB<0>" TNM = "destination_group";
-INST "MemDB<1>" TNM = "destination_group";
-INST "MemDB<2>" TNM = "destination_group";
-INST "MemDB<3>" TNM = "destination_group";
-INST "MemDB<4>" TNM = "destination_group";
-INST "MemDB<5>" TNM = "destination_group";
-INST "MemDB<6>" TNM = "destination_group";
-INST "MemDB<7>" TNM = "destination_group";
-INST "MemDB<8>" TNM = "destination_group";
-INST "MemDB<9>" TNM = "destination_group";
-INST "MemDB<10>" TNM = "destination_group";
-INST "MemDB<11>" TNM = "destination_group";
-INST "MemDB<12>" TNM = "destination_group";
-INST "MemDB<13>" TNM = "destination_group";
-INST "MemDB<14>" TNM = "destination_group";
-INST "MemDB<15>" TNM = "destination_group";
-INST "MemAdr<0>" TNM = "destination_group";
-INST "MemAdr<1>" TNM = "destination_group";
-INST "MemAdr<2>" TNM = "destination_group";
-INST "MemAdr<3>" TNM = "destination_group";
-INST "MemAdr<4>" TNM = "destination_group";
-INST "MemAdr<5>" TNM = "destination_group";
-INST "MemAdr<6>" TNM = "destination_group";
-INST "MemAdr<7>" TNM = "destination_group";
-INST "MemAdr<8>" TNM = "destination_group";
-INST "MemAdr<9>" TNM = "destination_group";
-INST "MemAdr<10>" TNM = "destination_group";
-INST "MemAdr<11>" TNM = "destination_group";
-INST "MemAdr<12>" TNM = "destination_group";
-INST "MemAdr<13>" TNM = "destination_group";
-INST "MemAdr<14>" TNM = "destination_group";
-INST "MemAdr<15>" TNM = "destination_group";
-INST "MemAdr<16>" TNM = "destination_group";
-INST "MemAdr<17>" TNM = "destination_group";
-INST "MemAdr<18>" TNM = "destination_group";
-INST "MemAdr<19>" TNM = "destination_group";
-INST "MemAdr<20>" TNM = "destination_group";
-INST "MemAdr<21>" TNM = "destination_group";
-INST "MemAdr<22>" TNM = "destination_group";
-TIMESPEC TS_slowram = FROM "source_group" TO "destination_group" TS_clk*3;
-
-# net "container/machine0/cpuclock" TNM_NET = cpuclock;
-# TIMESPEC TS_cpuclock = PERIOD cpuclock 96MHz HIGH 50%;
+INST "MemDB*" TNM = "destination_group";
+INST "MemAdr*" TNM = "destination_group";
+TIMESPEC TS_slowram = FROM "source_group" TO "destination_group" TS_sys_clk_pin*4;
 
 #net "irq" loc = "U8"  | IOSTANDARD = "LVCMOS33"; #SW1
 NET "btnCpuReset"              LOC = "C12"     | IOSTANDARD = "LVCMOS33";              #Bank = 15, Pin name = IO_L3P_T0_DQS_AD1P_15,                           Sch name = CPU_RESET
