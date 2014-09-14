@@ -3,8 +3,7 @@ net "CLK_IN" TNM_NET = sys_clk_pin;
 TIMESPEC TS_sys_clk_pin = PERIOD sys_clk_pin 100MHz HIGH 50%;
 
 # Relax timing for slowram
-TIMESPEC TS_clk_in = PERIOD clk_in 10 ns;
-INST "CLK_IN" TNM = "source_group";
+INST "TS_dotclock1_clkout2" TNM = "source_group";
 INST "RamCLK" TNM = "destination_group";
 INST "RamADVn" TNM = "destination_group";
 INST "RamCEn" TNM = "destination_group";
@@ -53,7 +52,7 @@ INST "MemAdr<19>" TNM = "destination_group";
 INST "MemAdr<20>" TNM = "destination_group";
 INST "MemAdr<21>" TNM = "destination_group";
 INST "MemAdr<22>" TNM = "destination_group";
-TIMESPEC TS_01 = FROM "source_group" TO "destination_group" TS_clk*3;
+TIMESPEC TS_slowram = FROM "source_group" TO "destination_group" TS_clk*3;
 
 # net "container/machine0/cpuclock" TNM_NET = cpuclock;
 # TIMESPEC TS_cpuclock = PERIOD cpuclock 96MHz HIGH 50%;
