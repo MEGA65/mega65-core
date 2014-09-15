@@ -641,11 +641,17 @@ begin  -- behavioural
       end if;
     
       f011_buffer_write <= '0';
-      -- XXX Try to debug the EQ flag to work out what value it should take
-      -- at various times.
+      -- EQ flag is asserted when buffer address matches where we are upto
+      -- reading or writing.  On complete reads this should correspond to the
+      -- start of the buffer.
+      -- XXX This formulation isn't right, as we can't properly signal buffer
+      -- full/empty status in a way that the C65 ROM understands for both read
+      -- and write.  Nothing seems to work for the write routines.
       if f011_buffer_address = f011_buffer_next_read then
+        -- if 1, then reading from disk infinite loops waiting for 0
         f011_flag_eq <= sw(13);
       else
+        -- if 1, then something else doesn't work? 
         f011_flag_eq <= sw(12);
       end if;
       f011_buffer_write <= '0';
