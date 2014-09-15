@@ -170,6 +170,15 @@ architecture behavioural of ethernet is
   signal eth_state : ethernet_state := Idle;
 
   signal rrnet_enable : std_logic := '0';
+  signal rrnet_buffer_write_pending : std_logic := '0';
+  signal rrnet_buffer_addr_bump : std_logic := '0';
+  signal rrnet_buffer_data : unsigned(7 downto 0) := x"00";
+  signal rrnet_buffer_odd : std_logic := '0';
+  signal rrnet_notice_data_read : std_logic := '0';
+  signal rrnet_notice_register_read : std_logic := '0';
+  signal rrnet_addr : unsigned(15 downto 0) := (others => '0');
+  signal rrnet_rxtx_data : unsigned(15 downto 0) := (others => '0');
+  signal rrnet_txbuffer_addr : unsigned(15 downto 0) := (others => '0');
  
   signal rx_keyinput : std_logic := '0';
   signal eth_keycode_toggle_internal : std_logic := '0';
@@ -885,7 +894,7 @@ begin  -- behavioural
         end if;
         if fastio_addr = x"D0E0F" and rrnet_enable='1' then
           -- Set TX packet size: this can map directly to our native register.
-          eth_tx_size(15 downto 8) <= fastio_wdata;
+          eth_tx_size(10 downto 8) <= fastio_wdata(2 downto 0);
         end if;
 
         
