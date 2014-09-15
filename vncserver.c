@@ -480,7 +480,10 @@ int main(int argc,char** argv)
       if (1) {
 	if (len > 2100) {
 	  // probably a C65GS compressed video frame.
+	  // printf("."); fflush(stdout);
 
+	  unsigned char *raster_data=NULL;
+    
 	  // Each should consist of 13 blocks of
 	  //   raster_number (16 bits)
 	  //   audio left (8 bits)
@@ -488,25 +491,16 @@ int main(int argc,char** argv)
 	  //   CRC32 of raster (32 bits)
 	  //   dummy byte (8 bits)
 
-	  // The last of these should have the MSB set in the raster number 
-	  // to indicate that the uncompressed raster follows.
+	  // One of these should have the MSB set in the raster number 
+	  // to indicate that a raw raster follows.
 
 	  unsigned int crc;
+	  int offset=0x56;
 
 	  for(i=0;i<13;i++) {
-	    int offset=0x56+i*9;	    
 	    rasternumber = packet[offset+0]<<8;
 	    rasternumber |= packet[offset+1];
 	    rasternumber &= 0xfff;
-
-	    // see if we have the raster data for this line kept from the last packet
-	    if ((!i)&&(raster_line_number==rasternumber)) {
-	      // Store raster data for later recall
-	      if (raster_cache[crc&0xffff].crc!=crc) {
-		raster_cache[crc&0xffff].crc=crc;
-		bcopy(raster_line,raster_cache[crc&0xffff].data,1920);
-	      }
-	    }
 
 	    if (rasternumber==1199) {
 	      updateFrameBuffer(rfbScreen);
@@ -516,18 +510,29 @@ int main(int argc,char** argv)
 	    crc|=packet[offset+5]<<8;
 	    crc|=packet[offset+6]<<16;
 	    crc|=packet[offset+7]<<24;
-	    //	    printf("i=% 2d: Saw raster $%04x, crc=$%08x\n",i,rasternumber,crc);
-	    // remember CRC for this raster
-	    if (rasternumber>=0&&rasternumber<1200)
-	      raster_crc[rasternumber]=crc;	    
-	  }
+	    // printf("i=% 2d@$%03x: Saw raster $%04x, crc=$%08x\n",i,offset,rasternumber,crc);
+	    
+	    // check validity of raster number
+	    if (rasternumber>=0&&rasternumber<1200) {
+	      // remember CRC for this raster
+	      raster_crc[rasternumber]=crc;
+	      if (raster_data) {
+		// we have raster data, so update the cache
+		bcopy(raster_data,raster_cache[crc&0xffff].data,1920);
+		raster_cache[crc&0xffff].crc=crc;
+	      }
+	    }
 
-	  // Raster pixels begin at $0DA (allowing for ethernet headers)
-	  // BUT CRC that goes with this data is actually the CRC of the first 
-	  // raster of the next packet, so remember the raster line and details.
-	  unsigned char *raster_data=&packet[0xda];
-	  bcopy(raster_data,raster_line,1920);
-	  raster_line_number=rasternumber+1;
+
+	    // keep pointer to and skip raster data if it follows this line
+	    if (packet[offset+0]&0x80) {
+	      raster_data=&packet[offset+9];
+	      offset+=1920+9;
+	    } else {
+	      offset+=9;
+	      raster_data=NULL;
+	    }
+	  }
 	}
       }      
     }
