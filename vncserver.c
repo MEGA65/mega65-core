@@ -498,6 +498,10 @@ int main(int argc,char** argv)
 
     int rasternumber;
     int last_raster=0;
+    int next_rasternumber=0;
+
+    int raster_low=0;
+    int raster_high=1200;
 
     while(1) {
       int i;
@@ -530,6 +534,10 @@ int main(int argc,char** argv)
 	    rasternumber |= packet[offset+1];
 	    rasternumber &= 0xfff;
 
+	    next_rasternumber = packet[offset+9+0]<<8;
+	    next_rasternumber |= packet[offset+9+1];
+	    next_rasternumber &= 0xfff;
+
 	    if (rasternumber==1199) {
 	      updateFrameBuffer(rfbScreen);
 	    }
@@ -538,19 +546,30 @@ int main(int argc,char** argv)
 	    crc|=packet[offset+5]<<8;
 	    crc|=packet[offset+6]<<16;
 	    crc|=packet[offset+7]<<24;
+	   
 	    // printf("i=% 2d@$%03x: Saw raster $%04x, crc=$%08x\n",i,offset,rasternumber,crc);
 	    
 	    // check validity of raster number
 	    if (rasternumber>=0&&rasternumber<1200) {
-	      // remember CRC for this raster
-	      raster_crc[rasternumber]=crc;
-	      if (raster_data) {
-		// we have raster data, so update the cache
-		bcopy(raster_data,raster_cache[crc&0xffff].data,1920);
-		raster_cache[crc&0xffff].crc=crc;
+	      if (((!i)&&next_rasternumber-1==rasternumber)||(last_raster+1==rasternumber)) { // rasternumber>=raster_low&&rasternumber<=raster_high) {
+		// remember CRC for this raster
+		raster_crc[rasternumber]=crc;
+		if (raster_data) {
+		  // we have raster data, so update the cache
+		  bcopy(raster_data,raster_cache[crc&0xffff].data,1920);
+		  raster_cache[crc&0xffff].crc=crc;
+		}
+		
+		// describe acceptable raster range for next for supressing glitches
+		raster_low=rasternumber+1; if (raster_low>=1200) raster_low=0;
+		raster_high=rasternumber+50; if (raster_high>=1200) raster_high=1200;
+	      } else {
+		// printf("  rejected (acceptable range is %d -- %d)\n",raster_low,raster_high);
+		break;
 	      }
 	    }
-
+	    
+	    last_raster=rasternumber;
 
 	    // keep pointer to and skip raster data if it follows this line
 	    if (packet[offset+0]&0x80) {
