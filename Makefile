@@ -15,8 +15,10 @@ all:	ghdl-frame-gen \
 	/opt/Xilinx/14.7/ISE_DS/ISE/bin/lin/par -w -intstyle ise -ol "$(ROUTEEFFORT)" -xe n -mt off container_map.ncd container.ngd container.pcf
 
 ethertest.prg:	ethertest.a65 Makefile
-	../Ophis/bin/ophis -4 ethertest.a65 -l diskchooser.list
+	../Ophis/bin/ophis -4 ethertest.a65
 
+f011test.prg:	f011test.a65 Makefile
+	../Ophis/bin/ophis -4 f011test.a65
 
 diskchooser:	diskchooser.a65 Makefile
 	../Ophis/bin/ophis -4 diskchooser.a65 -l diskchooser.list
