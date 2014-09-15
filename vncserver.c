@@ -32,7 +32,7 @@ unsigned char raster_line[1920];
 
 int last_raster_crc[1200];
 unsigned int raster_crc[1200];
-unsigned char imageData[1920*1200];
+int raster_zero[1200];
 int image_offset=0;
 int drawing=0;
 int y;
@@ -193,17 +193,26 @@ int updateFrameBuffer(rfbScreenInfoPtr screen)
     unsigned char linebuffer[1920*4];
     unsigned int crc=raster_crc[y];
     if (last_raster_crc[y]!=crc) {
-      if (raster_cache[crc&0xffff].crc==crc)
+      if (raster_cache[crc&0xffff].crc==crc) {	
 	for(x=0;x<1920;x++)
 	  {	  
 	    // unpack RRRGGGBB pixels into RGB bytes for VNC
 	    ((unsigned char *)screen->frameBuffer)[(y*1920*4)+x*4+0]=raster_cache[crc&0xffff].data[x]&0xe0;
 	    ((unsigned char *)screen->frameBuffer)[(y*1920*4)+x*4+1]=raster_cache[crc&0xffff].data[x]<<3;
-	    ((unsigned char *)screen->frameBuffer)[(y*1920*4)+x*4+2]=raster_cache[crc&0xffff].data[x]<<6;
-	    
+	    ((unsigned char *)screen->frameBuffer)[(y*1920*4)+x*4+2]=raster_cache[crc&0xffff].data[x]<<6;	    
 	    //	  if (y>410&&y<420) 
 	    //  ((unsigned char *)screen->frameBuffer)[(y*1920*4)+x*4+0]=0xff;
-	}      
+	  } 
+	raster_zero[y]=0;
+      } else {
+	// clear rasters for which we have no valid data
+	if (!raster_zero[y]) {
+	  raster_zero[y]=1;
+	  // Zeroing rasters looks good with horizontal scrolling, but bad in text mode.
+	  // so for now don't zero it.
+	  // bzero(&((unsigned char *)screen->frameBuffer)[(y*1920*4)],1920*4);
+	}
+      }
     }
     //    if (y>410&&y<420) printf("[%08x]",crc);
   }
