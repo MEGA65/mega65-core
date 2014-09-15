@@ -225,7 +225,8 @@ int updateFrameBuffer(rfbScreenInfoPtr screen)
       last_y=y;
       last_changed=this_changed;
     }
-    last_raster_crc[y]=raster_crc[y];
+    if (raster_cache[raster_crc[y]&0xffff].crc==raster_crc[y])
+      last_raster_crc[y]=raster_crc[y];
   }
   if (last_changed) {
     rfbMarkRectAsModified(screen,0,last_y,1919,y);
