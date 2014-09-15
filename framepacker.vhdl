@@ -97,6 +97,7 @@ architecture behavioural of framepacker is
   signal output_data : unsigned(7 downto 0);
   signal output_write : std_logic := '0';
   signal draw_this_raster : std_logic := '0';
+  signal just_drew_a_raster : std_logic := '0';
 
   signal crc_data_in : unsigned(7 downto 0);
   signal crc_reg : unsigned(31 downto 0);
@@ -232,7 +233,7 @@ begin  -- behavioural
                       crc_load_init <= '1';
                       crc_calc_en <= '0';
             when 8 => output_data <= x"00";
-              if pixel_y = next_draw_raster then
+              if pixel_y = (next_draw_raster+1) then
                 -- only draw one raster per packet, so flip buffer halves after
                 -- drawing a raster.
                 output_address(11) <= not output_address(11);
@@ -268,7 +269,8 @@ begin  -- behavioural
         -- several cycles with pixel_y stable at this point
         new_raster_pending <= '1';
         new_raster_phase <= 0;
-        if draw_this_raster = '1' then
+        just_drew_a_raster <= draw_this_raster;
+        if just_drew_a_raster = '1' then
           -- make next write happen at start of other half of buffer
           output_address_internal(10 downto 0) <= (others => '1');
         end if;       
