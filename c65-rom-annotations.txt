@@ -593,8 +593,10 @@ clear)
 9798 @ Branch taken if read failed
 979E Write a sector to disk
 97AA @ Read 512-byte physical sector ready for re-writing
+97B7 @ Advance sector buffer offset if writing an odd-numbered sector
 97C1 @ Copy 256-byte logical sector into FDC buffer
 97C9 @ Read one byte at a time from FDC buffer until EQ flag is asserted
+97D3 @ keep reading until EQ flag asserted
 97D5 @ Issue write sector command to FDC
 97E1 @ Make sure that written sector can be read back from disk
 9872 @ return if failed
