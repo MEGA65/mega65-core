@@ -169,6 +169,8 @@ architecture behavioural of ethernet is
                           );
   signal eth_state : ethernet_state := Idle;
 
+  signal rrnet_enable : std_logic := '0';
+ 
   signal rx_keyinput : std_logic := '0';
   signal eth_keycode_toggle_internal : std_logic := '0';
  
@@ -701,7 +703,34 @@ begin  -- behavioural
 
     if fastio_read='1' then
       report "MEMORY: Reading from fastio";
-      if (fastio_addr(19 downto 4) = x"D36E") then
+
+      -- RR-NET emulation
+      if rrnet_enable='1' and fastio_addr=x"D0E04" then
+        -- cs_packet_data low
+        rrnet_notice_register_read <= '1';
+      elsif rrnet_enable='1' and fastio_addr=x"D0E05" then
+        -- cs_packet_data high
+      elsif rrnet_enable='1' and fastio_addr=x"D0E06" then
+        -- cs_packet_data2 low
+      elsif rrnet_enable='1' and fastio_addr=x"D0E07" then
+        -- cs_packet_data2 high
+      elsif rrnet_enable='1' and fastio_addr=x"D0E08" then
+        -- cs_rxtx_data low
+        fastio_rdata <= rrnet_rxtx_data(7 downto 0);
+        rrnet_notice_data_read <= '1';
+      elsif rrnet_enable='1' and fastio_addr=x"D0E09" then
+        -- cs_rxtx_data high
+        fastio_rdata <= rrnet_rxtx_data(15 downto 8);
+      elsif rrnet_enable='1' and fastio_addr=x"D0E0C" then
+        -- cs_tx_cmd low
+      elsif rrnet_enable='1' and fastio_addr=x"D0E0D" then
+        -- cs_tx_cmd high
+      elsif rrnet_enable='1' and fastio_addr=x"D0E0E" then
+        -- cs_tx_len low
+      elsif rrnet_enable='1' and fastio_addr=x"D0E0F" then
+        -- cs_tx_len high
+        
+      elsif (fastio_addr(19 downto 4) = x"D36E") then
         report "MEMORY: Reading from ethernet register block";
         case fastio_addr(3 downto 0) is
           -- $D6E0 - controls reset pin of ethernet controller
@@ -806,6 +835,60 @@ begin  -- behavioural
       
       -- Write to registers
       if fastio_write='1' then
+        -- RR-NET emulation
+        if fastio_addr = x"D0E01" then
+          -- $DE01 in C64 mode is RR-NET port that controls clock port
+          -- bit 0 enables clock port according to
+          -- http://ar.c64.org/wiki/Inside_Replay.txt
+          rrnet_enable <= fastio_wdata(0);
+        end if;
+        if fastio_addr = x"D0E02" and rrnet_enable='1' then
+          -- Write to RRNET register select register (low)
+          rrnet_addr(7 downto 0) <= fastio_wdata;
+        end if;
+        if fastio_addr = x"D0E03" and rrnet_enable='1' then
+          -- Write to RRNET register select register (high)
+          rrnet_addr(15 downto 8) <= fastio_wdata;
+        end if;
+        if fastio_addr = x"D0E08" and rrnet_enable='1' then
+          -- write even numbered address
+          rrnet_buffer_write_pending <= '1';
+          rrnet_buffer_addr_bump <= '0';
+          rrnet_buffer_data <= fastio_wdata;
+          rrnet_buffer_odd <= fastio_addr(0);
+        end if;
+        if fastio_addr = x"D0E09" and rrnet_enable='1' then
+          -- write odd numbered address and advance offset
+          -- XXX why do writes to odd addresses advance the pointer,
+          -- but is it the even address that does it for reads? Or have
+          -- I totally misunderstood something?
+          rrnet_buffer_write_pending <= '1';
+          rrnet_buffer_addr_bump <= '1';
+          rrnet_buffer_data <= fastio_wdata;
+          rrnet_buffer_odd <= fastio_addr(0);
+        end if;
+        if fastio_addr = x"D0E0C" and rrnet_enable='1' then
+          -- Write to RRNET tx_cmd register (low)
+          -- $C9 is a request for buffer space?
+          -- (we will always claim to give address zero, which we will
+          --  map to the 2KB output buffer).
+          if fastio_wdata = x"c9" then
+            rrnet_txbuffer_addr <= (others => '0');
+          end if;
+        end if;
+        if fastio_addr = x"D0E0D" and rrnet_enable='1' then
+          -- Write to RRNET tx_cmd register (high)
+        end if;
+        if fastio_addr = x"D0E0E" and rrnet_enable='1' then
+          -- Set TX packet size: this can map directly to our native register.
+          eth_tx_size(7 downto 0) <= fastio_wdata;
+        end if;
+        if fastio_addr = x"D0E0F" and rrnet_enable='1' then
+          -- Set TX packet size: this can map directly to our native register.
+          eth_tx_size(15 downto 8) <= fastio_wdata;
+        end if;
+
+        
         if fastio_addr(19 downto 10)&"00" = x"DE8" then
           -- Writing to TX buffer
           -- (we don't need toclear the write lines, as noone else can write to
