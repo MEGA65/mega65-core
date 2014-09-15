@@ -30,6 +30,7 @@ int sendScanCode(int scan_code);
 int raster_line_number=-1;
 unsigned char raster_line[1920];
 
+int last_raster_crc[1200];
 unsigned int raster_crc[1200];
 unsigned char imageData[1920*1200];
 int image_offset=0;
@@ -191,23 +192,47 @@ int updateFrameBuffer(rfbScreenInfoPtr screen)
   for(y=0;y<1200;y++) {
     unsigned char linebuffer[1920*4];
     unsigned int crc=raster_crc[y];
-    if (raster_cache[crc&0xffff].crc==crc)
-      for(x=0;x<1920;x++)
-	{	  
-	  // unpack RRRGGGBB pixels into RGB bytes for VNC
-	  ((unsigned char *)screen->frameBuffer)[(y*1920*4)+x*4+0]=raster_cache[crc&0xffff].data[x]&0xe0;
-	  ((unsigned char *)screen->frameBuffer)[(y*1920*4)+x*4+1]=raster_cache[crc&0xffff].data[x]<<3;
-	  ((unsigned char *)screen->frameBuffer)[(y*1920*4)+x*4+2]=raster_cache[crc&0xffff].data[x]<<6;
-
-	  //	  if (y>410&&y<420) 
-	  //  ((unsigned char *)screen->frameBuffer)[(y*1920*4)+x*4+0]=0xff;
-	}
+    if (last_raster_crc[y]!=crc) {
+      if (raster_cache[crc&0xffff].crc==crc)
+	for(x=0;x<1920;x++)
+	  {	  
+	    // unpack RRRGGGBB pixels into RGB bytes for VNC
+	    ((unsigned char *)screen->frameBuffer)[(y*1920*4)+x*4+0]=raster_cache[crc&0xffff].data[x]&0xe0;
+	    ((unsigned char *)screen->frameBuffer)[(y*1920*4)+x*4+1]=raster_cache[crc&0xffff].data[x]<<3;
+	    ((unsigned char *)screen->frameBuffer)[(y*1920*4)+x*4+2]=raster_cache[crc&0xffff].data[x]<<6;
+	    
+	    //	  if (y>410&&y<420) 
+	    //  ((unsigned char *)screen->frameBuffer)[(y*1920*4)+x*4+0]=0xff;
+	}      
+    }
     //    if (y>410&&y<420) printf("[%08x]",crc);
   }
   //  printf("\n");
 
-  // Tell VNC that everything has changed, and let it do the optimisation.
-  rfbMarkRectAsModified(screen,0,0,1919,1199);
+  int last_changed=1;
+  int last_y=0;
+  int updated_y=0;
+  for(y=0;y<1200;y++) {
+    int this_changed=0;
+    if (raster_crc[y]!=last_raster_crc[y]) this_changed=1;
+    if (this_changed!=last_changed) {      
+      if (last_changed) {
+	// Tell VNC that everything has changed, and let it do the optimisation.
+	rfbMarkRectAsModified(screen,0,last_y,1919,y);
+	updated_y+=y-last_y+1;
+	last_changed=this_changed;
+      }
+      last_y=y;
+      last_changed=this_changed;
+    }
+    last_raster_crc[y]=raster_crc[y];
+  }
+  if (last_changed) {
+    rfbMarkRectAsModified(screen,0,last_y,1919,y);
+    last_y=y;
+    updated_y+=y-last_y+1;
+  }
+  //  printf("Updated %d rasters\n",updated_y);
 
   return 0;
 }
@@ -426,6 +451,8 @@ int openSerialPort(char *port)
 int main(int argc,char** argv)
 {
   if (argc>1) openSerialPort(argv[1]);
+
+  bzero(last_raster_crc,sizeof(unsigned int)*1200);
 
   rfbScreenInfoPtr rfbScreen = rfbGetScreen(&argc,argv,maxx,maxy,8,3,bpp);
   if(!rfbScreen)
