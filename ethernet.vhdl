@@ -183,6 +183,7 @@ architecture behavioural of ethernet is
   signal rrnet_rxtx_data : unsigned(15 downto 0) := (others => '0');
   signal rrnet_txbuffer_addr : unsigned(15 downto 0) := (others => '0');
   signal rrnet_tx_buffering : std_logic := '0';
+  signal rrnet_tx_requested : std_logic := '0';
   
   signal rx_keyinput : std_logic := '0';
   signal eth_keycode_toggle_internal : std_logic := '0';
@@ -728,6 +729,7 @@ begin  -- behavioural
       -- use the existing ethernet TX buffer.
       
       rrnet_txbuffer_addr <= (others => '0');
+      rrnet_tx_requested <= '1';
       rrnet_tx_buffering <= '0';
     end procedure;
     
@@ -856,6 +858,8 @@ begin  -- behavioural
           rrnet_data <= x"0000";
           if eth_tx_state = Idle then
             rrnet_data(8) <=  '1';
+            -- allow buffering of bytes
+            rrnet_tx_buffering <= rrnet_tx_requested;
           end if;
         when others =>
           rrnet_data <= x"ffff";
@@ -909,6 +913,24 @@ begin  -- behavioural
       else
         irq <= 'Z';
       end if;
+
+      if rrnet_buffer_write_pending = '1' and rrnet_tx_buffering = '1' then
+        -- Put byte into ethernet TX buffer        
+        if rrnet_buffer_odd='0' then
+          txbuffer_writeaddress <= to_integer(rrnet_txbuffer_addr(10 downto 0));
+        else
+          txbuffer_writeaddress <= to_integer(rrnet_txbuffer_addr(10 downto 0)) + 1;
+        end if;
+        txbuffer_write <= '1';                
+        txbuffer_wdata <= rrnet_buffer_data;
+      elsif rrnet_buffer_addr_bump = '1' then
+        if eth_tx_size = rrnet_txbuffer_addr(10 downto 0) then
+          -- we have buffered all the bytes for this frame - so initiate
+          -- transmission.
+        end if;
+        rrnet_txbuffer_addr <= rrnet_txbuffer_addr + 2;
+      end if;
+
       
       -- Write to registers
       if fastio_write='1' then
@@ -994,7 +1016,6 @@ begin  -- behavioural
           -- Set TX packet size: this can map directly to our native register.
           eth_tx_size(10 downto 8) <= fastio_wdata(2 downto 0);
         end if;
-
         
         if fastio_addr(19 downto 10)&"00" = x"DE8" then
           -- Writing to TX buffer
