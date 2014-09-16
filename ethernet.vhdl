@@ -842,6 +842,7 @@ begin  -- behavioural
 
     -- set cs_packet_data based on cs_packet_page
     if rising_edge(clock) then
+      report "ETHRX: rrnet_addr = $" & to_hstring(rrnet_addr);
       case rrnet_addr is
         when x"0000" =>
           -- Detect register: magic value that udpslave looks for
@@ -849,6 +850,7 @@ begin  -- behavioural
         when x"0124" =>
           -- RX status
           -- otherwise, set register based on current state
+          report "ETHRX: Presenting RR-NET RX status register. Last value = $" & to_hstring(rrnet_data);
           rrnet_data <= x"0000";
           -- bit8 = received a packet
           rrnet_data(8) <=  eth_irq_rx;
@@ -893,11 +895,14 @@ begin  -- behavioural
       eth_tx_toggle_int1 <= eth_tx_toggle_50mhz;
 
       -- Set RR-NET RX buffer pointer when we notice a packet has been received.
+      -- We place it 2 bytes early to allow for the presence of the RR-NET status
+      -- header (even though we don't provide any sensible data for it).
       if eth_rx_buffer_last_used_int2 /= eth_rx_buffer_last_used_48mhz then
+        report "ETHRX: Resetting RR-NET read address.";
         if eth_rx_buffer_moby='1' then
-          rrnet_readaddress <= 2048;
+          rrnet_readaddress <= 2048 - 2;
         else
-          rrnet_readaddress <= 0;
+          rrnet_readaddress <= 4096 - 2;
         end if;
       end if;
       
@@ -955,8 +960,22 @@ begin  -- behavioural
 
       if fastio_read='1' and rrnet_enable='1' and
           (fastio_addr=x"D0E08" or fastio_addr=x"D0E09") then
-        rrnet_readaddress <= rrnet_readaddress + 1;
+        if rrnet_notice_register_read = '0' then
+          report "ETHRX: Bumping RR-NET read address to " & integer'image(rrnet_readaddress) & " + 1";
+          if rrnet_readaddress < 4095 then
+            rrnet_readaddress <= rrnet_readaddress + 1;
+          else
+            rrnet_readaddress <= 0;
+          end if;
+        end if;
         rrnet_notice_register_read <= '1';
+
+        -- Also clear the ethernet IRQ flag once we start reading the packet.
+        -- This doesn't exactly match how the RR-NET really works, but it is
+        -- close enough for now.
+        report "ETHRX: Clearing IRQ";
+        eth_irq_rx <= '0';
+
       else
         rrnet_notice_register_read <= '0';        
       end if;
@@ -1065,6 +1084,7 @@ begin  -- behavioural
               eth_irqenable_rx <= fastio_wdata(7);
               eth_irqenable_tx <= fastio_wdata(6);
               -- Writing here also clears any current interrupts
+              report "ETHRX: Clearing IRQ";
               eth_irq_rx <= '0';
               eth_irq_tx <= '0';
 
