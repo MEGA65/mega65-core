@@ -693,15 +693,18 @@ begin  -- behavioural
           rx_fcs_crc_calc_en <= '0';
           -- write low byte of frame length
           if eth_rx_buffer_last_used_50mhz='0' then
-            rxbuffer_writeaddress <= 0;
-          else
             rxbuffer_writeaddress <= 2048;
+          else
+            rxbuffer_writeaddress <= 0;
           end if;
+          rxbuffer_write <= '1';
           rxbuffer_wdata <= frame_length(7 downto 0);
+          report "ETHRX: writing frame_length(7 downto 0) = $" & to_hstring(frame_length);
           eth_state <= ReceivedFrame2;
         when ReceivedFrame2 =>
           -- write high byte of frame length + crc failure status
           -- bit 7 is high if CRC fails, else is low.
+          report "ETHRX: writing packet length at " & integer'image(rxbuffer_writeaddress);
           report "ETHRX: Recording crc_valid = " & std_logic'image(rx_crc_valid) & "   (CRC = $"& to_hstring(rx_crc_reg)&")";
           rxbuffer_writeaddress <= rxbuffer_writeaddress + 1;
           rxbuffer_wdata(7) <= not rx_crc_valid;
