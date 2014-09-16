@@ -710,6 +710,7 @@ begin  -- behavioural
           if rx_crc_valid='1' then
             -- record that we have received a frame, but only if there was no
             -- CRC error.
+            report "ETHRX: Toggling eth_rx_buffer_last_used_50mhz";
             eth_rx_buffer_last_used_50mhz <= not eth_rx_buffer_last_used_50mhz;
           end if;
           -- ready to receive another frame
@@ -745,6 +746,7 @@ begin  -- behavioural
     
   begin
 
+    rrnet_buffer_cs <= '0';
     if fastio_read='1' then
       report "MEMORY: Reading from fastio";
 
@@ -896,7 +898,7 @@ begin  -- behavioural
       eth_tx_toggle_int1 <= eth_tx_toggle_50mhz;
 
       -- Set RR-NET RX buffer pointer when we notice a packet has been received.
-      if eth_rx_buffer_last_used_int2 /= eth_rx_buffer_last_used_int1 then
+      if eth_rx_buffer_last_used_int2 /= eth_rx_buffer_last_used_48mhz then
         if eth_rx_buffer_moby='1' then
           rrnet_readaddress <= 2048;
         else
@@ -916,6 +918,9 @@ begin  -- behavioural
         report "ETHRX: Asserting IRQ";
         eth_irq_rx <= '1';
         eth_rx_buffer_last_used_48mhz <= eth_rx_buffer_last_used_int2;
+      else
+        report "ETHRX: int2="&std_logic'image(eth_rx_buffer_last_used_int2)
+          & ", 48mhz=" &std_logic'image(eth_rx_buffer_last_used_48mhz);
       end if;
       -- Assert IRQ if a frame has been transmitted
       if eth_tx_toggle_48mhz /= eth_tx_toggle_int2 then
