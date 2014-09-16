@@ -180,10 +180,11 @@ architecture behavioural of ethernet is
   signal rrnet_notice_register_read : std_logic := '0';
   signal rrnet_addr : unsigned(15 downto 0) := (others => '0');
   signal rrnet_data : unsigned(15 downto 0) := (others => '0');
-  signal rrnet_rxtx_data : unsigned(15 downto 0) := (others => '0');
+  signal rrnet_readaddress : integer range 0 to 4095 := 0;
   signal rrnet_txbuffer_addr : unsigned(15 downto 0) := (others => '0');
   signal rrnet_tx_buffering : std_logic := '0';
   signal rrnet_tx_requested : std_logic := '0';
+  signal rrnet_buffer_cs : std_logic := '0';
   
   signal rx_keyinput : std_logic := '0';
   signal eth_keycode_toggle_internal : std_logic := '0';
@@ -300,6 +301,15 @@ begin  -- behavioural
     address => rxbuffer_readaddress,
     rdata => fastio_rdata);  
 
+  rrnet_rxbuffer: ram8x4096 port map (
+    clk => clock50mhz,
+    cs => rrnet_buffer_cs,
+    w => rxbuffer_write,
+    write_address => rxbuffer_writeaddress,
+    wdata => rxbuffer_wdata,
+    address => rrnet_readaddress,
+    rdata => fastio_rdata);
+  
   txbuffer0: ram8x4096 port map (
     clk => clock50mhz,
     cs => '1',
@@ -748,11 +758,10 @@ begin  -- behavioural
         fastio_rdata <= rrnet_data(15 downto 8);
       elsif rrnet_enable='1' and fastio_addr=x"D0E08" then
         -- cs_rxtx_data low
-        fastio_rdata <= rrnet_rxtx_data(7 downto 0);
-        rrnet_notice_data_read <= '1';
+        rrnet_buffer_cs <= '1';        
       elsif rrnet_enable='1' and fastio_addr=x"D0E09" then
         -- cs_rxtx_data high
-        fastio_rdata <= rrnet_rxtx_data(15 downto 8);
+        rrnet_buffer_cs <= '1';        
       elsif rrnet_enable='1' and fastio_addr=x"D0E0C" then
         -- cs_tx_cmd low
       elsif rrnet_enable='1' and fastio_addr=x"D0E0D" then
@@ -885,6 +894,15 @@ begin  -- behavioural
       eth_rx_buffer_last_used_int1 <= eth_rx_buffer_last_used_50mhz;      
       eth_tx_toggle_int2 <= eth_tx_toggle_int1;
       eth_tx_toggle_int1 <= eth_tx_toggle_50mhz;
+
+      -- Set RR-NET RX buffer pointer when we notice a packet has been received.
+      if eth_rx_buffer_last_used_int2 /= eth_rx_buffer_last_used_int1 then
+        if eth_rx_buffer_moby='1' then
+          rrnet_readaddress <= 2048;
+        else
+          rrnet_readaddress <= 0;
+        end if;
+      end if;
       
       -- Update module status based on register reads
       if fastio_read='1' then
@@ -934,6 +952,11 @@ begin  -- behavioural
         rrnet_txbuffer_addr <= rrnet_txbuffer_addr + 2;
       end if;
 
+
+      if fastio_read='1' and rrnet_enable='1' and
+          (fastio_addr=x"D0E08" or fastio_addr=x"D0E09") then
+        rrnet_readaddress <= rrnet_readaddress + 1;
+      end if;
       
       -- Write to registers
       if fastio_write='1' then
