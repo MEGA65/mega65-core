@@ -150,37 +150,18 @@ architecture behavior of cpu_test is
   type ram_t is array (0 to 4095) of unsigned(7 downto 0);
    signal frame : ram_t := (
      -- A real ping packet captured on the wire
-     --x"FF", x"FF", x"FF", x"FF", x"FF", x"FF", x"C8", x"2A", x"14", x"08",
-     --x"DA", x"E2", x"08", x"00", x"45", x"00", x"00", x"54", x"53", x"17",
-     --x"00", x"00", x"FF", x"01", x"6A", x"73", x"A9", x"FE", x"AA", x"21",
-     --x"A9", x"FE", x"FF", x"FF", x"08", x"00", x"DD", x"A7", x"CF", x"6E",
-     --x"00", x"79", x"53", x"DB", x"32", x"3C", x"00", x"00", x"D9", x"55",
-     --x"08", x"09", x"0A", x"0B", x"0C", x"0D", x"0E", x"0F", x"10", x"11",
-     --x"12", x"13", x"14", x"15", x"16", x"17", x"18", x"19", x"1A", x"1B",
-     --x"1C", x"1D", x"1E", x"1F", x"20", x"21", x"22", x"23", x"24", x"25",
-     --x"26", x"27", x"28", x"29", x"2A", x"2B", x"2C", x"2D", x"2E", x"2F",
-     --x"30", x"31", x"32", x"33", x"34", x"35", x"36", x"37", x"46", x"44",
-     --x"25", x"A6",
+     x"FF", x"FF", x"FF", x"FF", x"FF", x"FF", x"C8", x"2A", x"14", x"08",
+     x"DA", x"E2", x"08", x"00", x"45", x"00", x"00", x"54", x"53", x"17",
+     x"00", x"00", x"FF", x"01", x"6A", x"73", x"A9", x"FE", x"AA", x"21",
+     x"A9", x"FE", x"FF", x"FF", x"08", x"00", x"DD", x"A7", x"CF", x"6E",
+     x"00", x"79", x"53", x"DB", x"32", x"3C", x"00", x"00", x"D9", x"55",
+     x"08", x"09", x"0A", x"0B", x"0C", x"0D", x"0E", x"0F", x"10", x"11",
+     x"12", x"13", x"14", x"15", x"16", x"17", x"18", x"19", x"1A", x"1B",
+     x"1C", x"1D", x"1E", x"1F", x"20", x"21", x"22", x"23", x"24", x"25",
+     x"26", x"27", x"28", x"29", x"2A", x"2B", x"2C", x"2D", x"2E", x"2F",
+     x"30", x"31", x"32", x"33", x"34", x"35", x"36", x"37", x"46", x"44",
+     x"25", x"A6",
 
-     -- Test keyboard input packet with magic values at 100 - 109, and scan code
-     -- including break and extended flags at 110 - 111
-
-     -- 98 bytes we don't care about (don't know why we need 2 less than expected)
-     x"00",x"00",x"00",x"00",x"00",x"00",x"00",x"00",
-     x"00",x"00",x"00",x"00",x"00",x"00",x"00",x"00",x"00",x"00",
-     x"00",x"00",x"00",x"00",x"00",x"00",x"00",x"00",x"00",x"00",
-     x"00",x"00",x"00",x"00",x"00",x"00",x"00",x"00",x"00",x"00",
-     x"00",x"00",x"00",x"00",x"00",x"00",x"00",x"00",x"00",x"00",
-     x"00",x"00",x"00",x"00",x"00",x"00",x"00",x"00",x"00",x"00",
-     x"00",x"00",x"00",x"00",x"00",x"00",x"00",x"00",x"00",x"00",
-     x"00",x"00",x"00",x"00",x"00",x"00",x"00",x"00",x"00",x"00",
-     x"00",x"00",x"00",x"00",x"00",x"00",x"00",x"00",x"00",x"00",
-     x"00",x"00",x"00",x"00",x"00",x"00",x"00",x"00",x"00",x"00",
-     -- 10 bytes of magic value
-     x"65",x"47",x"53",x"4b",x"45",x"59",x"43",x"4f",x"44",x"45",     
-     -- keyboard scan code and flags
-     x"12", -- left-shift key
-     x"10", -- BREAK (i.e., release key)
      
      others => x"00");
 
@@ -327,7 +308,7 @@ begin
       wait for 10 ns;
       -- Feed bytes
       report "CRC: Starting to send frame";
-      for j in 0 to 120 loop
+      for j in 0 to 101 loop
         report "ETHRXINJECT: Injecting $" & to_hstring(frame(j));
         eth_rxd <= frame(j)(1 downto 0);
         clock50mhz <= '0';
@@ -358,7 +339,7 @@ begin
       wait for 10 ns;
 
       -- Wait a few cycles before feeding next frame
-      for j in 1 to 100 loop
+      for j in 1 to 10000 loop
         clock50mhz <= '0';
         wait for 10 ns;
         clock50mhz <= '1';
