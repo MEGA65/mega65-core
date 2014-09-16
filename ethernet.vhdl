@@ -927,6 +927,9 @@ begin  -- behavioural
         if eth_tx_size = rrnet_txbuffer_addr(10 downto 0) then
           -- we have buffered all the bytes for this frame - so initiate
           -- transmission.
+          eth_tx_trigger <= '1';
+          rrnet_tx_buffering <= '0';
+          rrnet_tx_requested <= '0';
         end if;
         rrnet_txbuffer_addr <= rrnet_txbuffer_addr + 2;
       end if;
