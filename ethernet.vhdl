@@ -182,7 +182,8 @@ architecture behavioural of ethernet is
   signal rrnet_data : unsigned(15 downto 0) := (others => '0');
   signal rrnet_rxtx_data : unsigned(15 downto 0) := (others => '0');
   signal rrnet_txbuffer_addr : unsigned(15 downto 0) := (others => '0');
- 
+  signal rrnet_tx_buffering : std_logic := '0';
+  
   signal rx_keyinput : std_logic := '0';
   signal eth_keycode_toggle_internal : std_logic := '0';
  
@@ -711,6 +712,25 @@ begin  -- behavioural
   process (clock,fastio_addr,fastio_wdata,fastio_read,fastio_write
            ) is
     variable temp_cmd : unsigned(7 downto 0);
+
+    procedure rrnet_txcmd_set is
+    begin
+      -- According to the cs8900a data sheet:
+      -- When the TX CMD has been set, we just clear the buffer pointers ready
+      -- to receive the frame.  The user must then set the tx length, and then
+      -- read from the bus status register before transmission is primed.
+      -- Once primed, the bytes must then be written.  As soon as enough bytes
+      -- are written, the frame will then start to be sent.
+
+      -- We will implement this as clearing things when the tx cmd is seen, not
+      -- buffer bytes until the bus status has been read, and then only transmit
+      -- the frame once the right number of bytes have been buffered.  We will
+      -- use the existing ethernet TX buffer.
+      
+      rrnet_txbuffer_addr <= (others => '0');
+      rrnet_tx_buffering <= '0';
+    end procedure;
+    
   begin
 
     if fastio_read='1' then
@@ -910,7 +930,16 @@ begin  -- behavioural
         if fastio_addr = x"D0E06" and rrnet_enable='1' then
           -- write to even numbered register
           case rrnet_addr is
-            -- MAC address
+            when x"0144" =>
+              -- TX transmit command (also on dedicated $DE0C)
+              -- $C9 = transmit when entire frame buffered, and don't retransmit
+              -- if something goes wrong.
+              -- Transmission is not actually started until
+              rrnet_txcmd_set;            
+            when x"0146" =>
+              -- TX len (low byte) (also on dedicated $DE0E)
+              eth_tx_size(7 downto 0) <= fastio_wdata;
+            -- MAC address            
             when x"0158" => eth_mac(47 downto 40) <= fastio_wdata;
             when x"015A" => eth_mac(31 downto 24) <= fastio_wdata;
             when x"015C" => eth_mac(15 downto 8) <= fastio_wdata;
@@ -920,6 +949,8 @@ begin  -- behavioural
         if fastio_addr = x"D0E07" and rrnet_enable='1' then
           -- write to odd numbered register
           case rrnet_addr is
+            -- TX len (low byte) (also on dedicated $DE0F)
+            when x"0147" => eth_tx_size(10 downto 8) <= fastio_wdata(2 downto 0);
             -- MAC address
             when x"0159" => eth_mac(39 downto 32) <= fastio_wdata;
             when x"015B" => eth_mac(23 downto 16) <= fastio_wdata;
@@ -928,30 +959,29 @@ begin  -- behavioural
           end case;
         end if;
         if fastio_addr = x"D0E08" and rrnet_enable='1' then
-          -- write even numbered address
-          rrnet_buffer_write_pending <= '1';
-          rrnet_buffer_addr_bump <= '0';
-          rrnet_buffer_data <= fastio_wdata;
-          rrnet_buffer_odd <= fastio_addr(0);
+          if rrnet_tx_buffering = '1' then
+            -- write even numbered address
+            rrnet_buffer_write_pending <= '1';
+            rrnet_buffer_addr_bump <= '0';
+            rrnet_buffer_data <= fastio_wdata;
+            rrnet_buffer_odd <= fastio_addr(0);
+          end if;
         end if;
         if fastio_addr = x"D0E09" and rrnet_enable='1' then
           -- write odd numbered address and advance offset
           -- XXX why do writes to odd addresses advance the pointer,
           -- but is it the even address that does it for reads? Or have
           -- I totally misunderstood something?
-          rrnet_buffer_write_pending <= '1';
-          rrnet_buffer_addr_bump <= '1';
-          rrnet_buffer_data <= fastio_wdata;
-          rrnet_buffer_odd <= fastio_addr(0);
+          if rrnet_tx_buffering = '1' then
+            rrnet_buffer_write_pending <= '1';
+            rrnet_buffer_addr_bump <= '1';
+            rrnet_buffer_data <= fastio_wdata;
+            rrnet_buffer_odd <= fastio_addr(0);
+          end if;
         end if;
         if fastio_addr = x"D0E0C" and rrnet_enable='1' then
           -- Write to RRNET tx_cmd register (low)
-          -- $C9 is a request for buffer space?
-          -- (we will always claim to give address zero, which we will
-          --  map to the 2KB output buffer).
-          if fastio_wdata = x"c9" then
-            rrnet_txbuffer_addr <= (others => '0');
-          end if;
+          rrnet_txcmd_set;
         end if;
         if fastio_addr = x"D0E0D" and rrnet_enable='1' then
           -- Write to RRNET tx_cmd register (high)
