@@ -1608,7 +1608,8 @@ begin
     
     -- BEGINNING OF MAIN PROCESS FOR CPU
     if rising_edge(clock) then
-
+      slowram_addr <= slowram_addr_drive;
+      
       --cpu_speed := vicii_2mhz&viciii_fast&viciv_fast;
       --case cpu_speed is
       --  when "000" => -- 1mhz
