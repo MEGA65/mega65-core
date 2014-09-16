@@ -753,7 +753,6 @@ begin  -- behavioural
       -- RR-NET emulation
       if rrnet_enable='1' and fastio_addr=x"D0E04" then
         -- cs_packet_data low
-        rrnet_notice_register_read <= '1';
         fastio_rdata <= rrnet_data(7 downto 0);
       elsif rrnet_enable='1' and fastio_addr=x"D0E05" then
         -- cs_packet_data high
@@ -849,21 +848,17 @@ begin  -- behavioural
           rrnet_data <= x"630e";
         when x"0124" =>
           -- RX status
-          if rrnet_notice_register_read='1' then
-            -- clear status if register has just been read
-            rrnet_data <= x"0000";
-          else
-            -- otherwise, set register based on current state
-            rrnet_data <= x"0000";
-            -- bit8 = received a packet
-            rrnet_data(8) <=  eth_irq_rx;
-            -- bit10 = received a unicast
-            rrnet_data(10) <= '1';  -- lie and say always unicast
-            -- bit11 = received a broadcast
-            -- bit12 = CRC error
-            -- bit13 = runt
-            -- bit14 = jumbo frame            
-          end if;
+          -- otherwise, set register based on current state
+          rrnet_data <= x"0000";
+          -- bit8 = received a packet
+          rrnet_data(8) <=  eth_irq_rx;
+          -- bit10 = received a unicast
+          rrnet_data(10) <= eth_irq_rx;  -- lie and say always unicast if we
+                                         -- have a packet
+          -- bit11 = received a broadcast
+          -- bit12 = CRC error
+          -- bit13 = runt
+          -- bit14 = jumbo frame            
         when x"0138" =>
           -- bus status: bit8 = ready for transmission
           rrnet_data <= x"0000";
@@ -961,6 +956,9 @@ begin  -- behavioural
       if fastio_read='1' and rrnet_enable='1' and
           (fastio_addr=x"D0E08" or fastio_addr=x"D0E09") then
         rrnet_readaddress <= rrnet_readaddress + 1;
+        rrnet_notice_register_read <= '1';
+      else
+        rrnet_notice_register_read <= '0';        
       end if;
       
       -- Write to registers
