@@ -269,19 +269,14 @@ begin
   begin
     for i in 1 to 20 loop
       eth_rxdv <= '0'; eth_rxd <= "00";
-      clock50mhz <= '0';
-      wait for 10 ns;
-      clock50mhz <= '1';
-      wait for 10 ns;
-      clock50mhz <= '0';
-      wait for 10 ns;
-      clock50mhz <= '1';
-      wait for 10 ns;
-      clock50mhz <= '0';
-      wait for 10 ns;
-      clock50mhz <= '1';
-      wait for 10 ns;
-      clock50mhz <= '0';
+      -- Wait a few cycles before feeding frame
+      for j in 1 to 50 loop
+        clock50mhz <= '0';
+        wait for 10 ns;
+        clock50mhz <= '1';
+        wait for 10 ns;
+      end loop;
+
       -- Announce RX carrier
       eth_rxdv <= '1'; eth_rxd <= "00";
       wait for 10 ns;
