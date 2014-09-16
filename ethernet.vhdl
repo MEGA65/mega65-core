@@ -172,6 +172,7 @@ architecture behavioural of ethernet is
   signal eth_mac : unsigned(47 downto 0) := x"024753656565";
  
   signal rrnet_enable : std_logic := '0';
+  signal rrnet_dup_read : std_logic := '0';
   signal rrnet_buffer_write_pending : std_logic := '0';
   signal rrnet_buffer_addr_bump : std_logic := '0';
   signal rrnet_buffer_data : unsigned(7 downto 0) := x"00";
@@ -184,8 +185,13 @@ architecture behavioural of ethernet is
   signal rrnet_txbuffer_addr : unsigned(15 downto 0) := (others => '0');
   signal rrnet_tx_buffering : std_logic := '0';
   signal rrnet_tx_requested : std_logic := '0';
-  signal rrnet_buffer_cs : std_logic := '0';
-  
+  signal rrnet_advance_buffer : std_logic := '0';
+  signal rrnet_buffer_rdata : unsigned(7 downto 0);
+  signal rrnet_data_odd : unsigned(7 downto 0);
+  signal rrnet_data_even : unsigned(7 downto 0);
+  signal rrnet_read_odd : std_logic := '0';
+  signal rrnet_read_even : std_logic := '0';
+ 
   signal rx_keyinput : std_logic := '0';
   signal eth_keycode_toggle_internal : std_logic := '0';
  
@@ -303,12 +309,12 @@ begin  -- behavioural
 
   rrnet_rxbuffer: ram8x4096 port map (
     clk => clock50mhz,
-    cs => rrnet_buffer_cs,
+    cs => '1',
     w => rxbuffer_write,
     write_address => rxbuffer_writeaddress,
     wdata => rxbuffer_wdata,
     address => rrnet_readaddress,
-    rdata => fastio_rdata);
+    rdata => rrnet_buffer_rdata);
   
   txbuffer0: ram8x4096 port map (
     clk => clock50mhz,
@@ -749,7 +755,6 @@ begin  -- behavioural
     
   begin
 
-    rrnet_buffer_cs <= '0';
     if fastio_read='1' then
       report "MEMORY: Reading from fastio";
 
@@ -762,10 +767,10 @@ begin  -- behavioural
         fastio_rdata <= rrnet_data(15 downto 8);
       elsif rrnet_enable='1' and fastio_addr=x"D0E08" then
         -- cs_rxtx_data low
-        rrnet_buffer_cs <= '1';        
+        fastio_rdata <= rrnet_data_even;
       elsif rrnet_enable='1' and fastio_addr=x"D0E09" then
         -- cs_rxtx_data high
-        rrnet_buffer_cs <= '1';        
+        fastio_rdata <= rrnet_data_odd;
       elsif rrnet_enable='1' and fastio_addr=x"D0E0C" then
         -- cs_tx_cmd low
       elsif rrnet_enable='1' and fastio_addr=x"D0E0D" then
@@ -845,7 +850,7 @@ begin  -- behavioural
 
     -- set cs_packet_data based on cs_packet_page
     if rising_edge(clock) then
-      report "ETHRX: rrnet_addr = $" & to_hstring(rrnet_addr);
+--      report "ETHRX: rrnet_addr = $" & to_hstring(rrnet_addr);
       case rrnet_addr is
         when x"0000" =>
           -- Detect register: magic value that udpslave looks for
@@ -853,7 +858,7 @@ begin  -- behavioural
         when x"0124" =>
           -- RX status
           -- otherwise, set register based on current state
-          report "ETHRX: Presenting RR-NET RX status register. Last value = $" & to_hstring(rrnet_data);
+--          report "ETHRX: Presenting RR-NET RX status register. Last value = $" & to_hstring(rrnet_data);
           rrnet_data <= x"0000";
           -- bit8 = received a packet
           rrnet_data(8) <=  eth_irq_rx;
@@ -898,14 +903,12 @@ begin  -- behavioural
       eth_tx_toggle_int1 <= eth_tx_toggle_50mhz;
 
       -- Set RR-NET RX buffer pointer when we notice a packet has been received.
-      -- We place it 2 bytes early to allow for the presence of the RR-NET status
-      -- header (even though we don't provide any sensible data for it).
       if eth_rx_buffer_last_used_int2 /= eth_rx_buffer_last_used_48mhz then
         report "ETHRX: Resetting RR-NET read address.";
         if eth_rx_buffer_moby='1' then
-          rrnet_readaddress <= 2048 - 2;
+          rrnet_readaddress <= 2048;
         else
-          rrnet_readaddress <= 4096 - 2;
+          rrnet_readaddress <= 0;
         end if;
       end if;
       
@@ -918,9 +921,16 @@ begin  -- behavioural
 
       -- Assert IRQ if a frame has been received
       if eth_rx_buffer_last_used_int2 /= eth_rx_buffer_last_used_48mhz then
-        report "ETHRX: Asserting IRQ";
+        report "ETHRX: Asserting IRQ (also affects RR-NET)";
         eth_irq_rx <= '1';
         eth_rx_buffer_last_used_48mhz <= eth_rx_buffer_last_used_int2;
+        -- Tell RR-NET to start fetching first two bytes of buffer data
+        rrnet_read_odd <= '0';
+        rrnet_read_even <= '0';
+        -- RR-NET packet status bytes
+        rrnet_data_even <= x"33";
+        rrnet_data_odd <= x"44";
+        report "ETHRX: RR-NET Preloading status bytes";
       else
         report "ETHRX: int2="&std_logic'image(eth_rx_buffer_last_used_int2)
           & ", 48mhz=" &std_logic'image(eth_rx_buffer_last_used_48mhz);
@@ -961,10 +971,54 @@ begin  -- behavioural
       end if;
 
 
+      rrnet_dup_read <= '0';
       if fastio_read='1' and rrnet_enable='1' and
           (fastio_addr=x"D0E08" or fastio_addr=x"D0E09") then
-        if rrnet_notice_register_read = '0' then
-          report "ETHRX: Bumping RR-NET read address to " & integer'image(rrnet_readaddress) & " + 1";
+        report "ETHRX: RR-NET read flags:"
+          & " even=" & std_logic'image(rrnet_read_even)
+          & ", odd=" & std_logic'image(rrnet_read_odd)
+          & ", even_byte=$" & to_hstring(rrnet_data_even)
+          & ", odd_byte=$" & to_hstring(rrnet_data_odd);
+        rrnet_dup_read <= '1';
+        if fastio_addr = x"D0E08" and (rrnet_dup_read='0') then
+          if rrnet_read_odd='0' then
+            report "ETHRX: RR-NET read even byte";
+            rrnet_read_even <= '1';
+          else
+            report "ETHRX: RR-NET read word - advancing buffer pointer, even data will be $" & to_hstring(rrnet_buffer_rdata)
+              & " from " & integer'image(rrnet_readaddress);
+            rrnet_read_odd <= '0';
+            rrnet_read_even <= '0';
+            rrnet_advance_buffer <= '1';
+            rrnet_data_even <= rrnet_buffer_rdata;
+            if rrnet_readaddress < 4095 then
+              rrnet_readaddress <= rrnet_readaddress + 1;
+            else
+              rrnet_readaddress <= 0;
+            end if;
+          end if;
+        elsif fastio_addr = x"D0E09" and (rrnet_dup_read='0') then
+          if rrnet_read_even='0' then
+            report "ETHRX: RR-NET read odd byte";
+            rrnet_read_odd <= '1';
+          else
+            report "ETHRX: RR-NET read word - advancing buffer pointer, even data will be $" & to_hstring(rrnet_buffer_rdata)
+              & " from " & integer'image(rrnet_readaddress);
+            rrnet_read_odd <= '0';
+            rrnet_read_even <= '0';
+            rrnet_advance_buffer <= '1';
+            rrnet_data_even <= rrnet_buffer_rdata;
+            if rrnet_readaddress < 4095 then
+              rrnet_readaddress <= rrnet_readaddress + 1;
+            else
+              rrnet_readaddress <= 0;
+            end if;
+          end if;
+        end if;
+        if rrnet_advance_buffer = '1' then
+          report "ETHRX: Bumping RR-NET read address to " & integer'image(rrnet_readaddress) & " + 1, odd data will be $" & to_hstring(rrnet_buffer_rdata);
+          rrnet_data_odd <= rrnet_buffer_rdata;
+          rrnet_advance_buffer <= '0';
           if rrnet_readaddress < 4095 then
             rrnet_readaddress <= rrnet_readaddress + 1;
           else
