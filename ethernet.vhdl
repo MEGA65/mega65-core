@@ -355,7 +355,7 @@ begin  -- behavioural
   
   -- Look after CPU side of mapping of RX buffer
   process(eth_rx_buffer_moby,fastio_addr,fastio_read) is
-  begin
+  begin    
     rxbuffer_readaddress <= to_integer(eth_rx_buffer_moby&fastio_addr(10 downto 0));
     if fastio_read='1' and fastio_addr(19 downto 12) = x"DE"
       and fastio_addr(11)='1' then
@@ -556,8 +556,8 @@ begin  -- behavioural
         when SentFrame =>
           -- Wait for eth_tx_trigger to go low, unless it is
           -- a VIC-IV video frame, in which case immediately clear.
+          eth_tx_complete <= '1';
           if eth_tx_trigger='0' or eth_tx_viciv = '1' then
-            eth_tx_complete <= '1';
             eth_tx_commenced <= '0';
             eth_tx_state <= IdleWait;
           end if;
@@ -914,8 +914,10 @@ begin  -- behavioural
 
       -- Automatically de-assert transmit trigger once the FSM has caught the signal.
       -- (but don't accidently de-assert when sending compressed video.)
-      if (eth_tx_commenced = '1') and (eth_tx_viciv='0') then
+      if (eth_tx_complete = '1')
+        and (eth_tx_viciv='0') then
         eth_tx_trigger <= '0';
+        eth_tx_complete <= '0';
       end if;
       
       -- Bring signals accross from 50MHz side as required
