@@ -844,7 +844,7 @@ begin  -- behavioural
             fastio_rdata(3) <= eth_txen_int;
             fastio_rdata(5 downto 4) <= eth_txd_int(1 downto 0);
             fastio_rdata(6) <= eth_tx_viciv;
-            fastio_rdata(7) <= 'Z';
+            fastio_rdata(7) <= rrnet_tx_requested;
           when x"e" =>
             fastio_rdata <= rrnet_txbuffer_addr(7 downto 0);
           when x"f" =>
