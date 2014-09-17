@@ -472,9 +472,15 @@ begin  -- behavioural
             tx_fcs_crc_calc_en <= '1';
             if eth_tx_viciv='0' then
               if eth_tx_padding = '1' then
+               report "PADDING: writing padding byte @ "
+                 & integer'image(txbuffer_readaddress);
                 tx_fcs_crc_data_in <= x"00";
                 eth_tx_bits <= x"00";
               else
+                report "PADDING: writing actual byte $"
+                  & to_hstring(txbuffer_rdata) & 
+                  " @ "
+                  & integer'image(txbuffer_readaddress);
                 eth_tx_bits <= txbuffer_rdata;
                 tx_fcs_crc_data_in <= std_logic_vector(txbuffer_rdata);
               end if;
@@ -548,8 +554,9 @@ begin  -- behavioural
             eth_tx_toggle_50mhz <= not eth_tx_toggle_50mhz;
           end if;
         when SentFrame =>
-          -- Wait for eth_tx_trigger to go low
-          if eth_tx_trigger='0' then
+          -- Wait for eth_tx_trigger to go low, unless it is
+          -- a VIC-IV video frame, in which case immediately clear.
+          if eth_tx_trigger='0' or eth_tx_viciv = '1' then
             eth_tx_complete <= '1';
             eth_tx_commenced <= '0';
             eth_tx_state <= IdleWait;
