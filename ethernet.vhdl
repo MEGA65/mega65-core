@@ -994,6 +994,7 @@ begin  -- behavioural
           rrnet_tx_requested <= '0';
         end if;
         rrnet_txbuffer_addr <= rrnet_txbuffer_addr + 2;
+        rrnet_buffer_addr_bump <= '0';
       end if;
 
 
