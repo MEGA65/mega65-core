@@ -764,6 +764,7 @@ begin  -- behavioural
         fastio_rdata <= rrnet_data(7 downto 0);
       elsif rrnet_enable='1' and fastio_addr=x"D0E05" then
         -- cs_packet_data high
+        report "MEMORY: Reading RR-NET reg high = $" & to_hstring(rrnet_data(15 downto 8));
         fastio_rdata <= rrnet_data(15 downto 8);
       elsif rrnet_enable='1' and fastio_addr=x"D0E08" then
         -- cs_rxtx_data low
@@ -850,7 +851,7 @@ begin  -- behavioural
 
     -- set cs_packet_data based on cs_packet_page
     if rising_edge(clock) then
---      report "ETHRX: rrnet_addr = $" & to_hstring(rrnet_addr);
+      report "ETHRX: RR-NET: rrnet_addr = $" & to_hstring(rrnet_addr);
       case rrnet_addr is
         when x"0000" =>
           -- Detect register: magic value that udpslave looks for
@@ -872,6 +873,8 @@ begin  -- behavioural
         when x"0138" =>
           -- bus status: bit8 = ready for transmission
           rrnet_data <= x"0000";
+          report "RR-NET: Reading bus status. eth_tx_state = "
+            & ethernet_state'image(eth_tx_state);
           if eth_tx_state = Idle then
             rrnet_data(8) <=  '1';
             -- allow buffering of bytes
