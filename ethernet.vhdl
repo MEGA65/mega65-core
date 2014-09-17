@@ -845,6 +845,8 @@ begin  -- behavioural
             fastio_rdata(5 downto 4) <= eth_txd_int(1 downto 0);
             fastio_rdata(6) <= eth_tx_viciv;
             fastio_rdata(7) <= 'Z';
+          when x"e" =>
+            fastio_rdata <= rrnet_txbuffer_addr(7 downto 0);
           when x"f" =>
             fastio_rdata <= to_unsigned(ethernet_state'pos(eth_tx_state),8);
           when others =>
@@ -997,7 +999,6 @@ begin  -- behavioural
         rrnet_buffer_addr_bump <= '0';
       end if;
 
-
       rrnet_dup_read <= '0';
       if fastio_read='1' and rrnet_enable='1' and
           (fastio_addr=x"D0E08" or fastio_addr=x"D0E09") then
@@ -1116,7 +1117,6 @@ begin  -- behavioural
           if rrnet_tx_buffering = '1' then
             -- write even numbered address
             rrnet_buffer_write_pending <= '1';
-            rrnet_buffer_addr_bump <= '0';
             rrnet_buffer_data <= fastio_wdata;
             rrnet_buffer_odd <= fastio_addr(0);
           end if;
