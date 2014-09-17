@@ -237,6 +237,8 @@ architecture behavioural of ethernet is
   signal txbuffer_rdata : unsigned(7 downto 0);
   signal eth_tx_bits : unsigned(7 downto 0);
   signal eth_tx_size : unsigned(11 downto 0) := to_unsigned(98,12);
+  signal eth_tx_size_unpadded : unsigned(11 downto 0) := to_unsigned(98,12);
+  signal eth_tx_padding : std_logic := '0';
   signal eth_tx_trigger : std_logic := '0';
   signal eth_tx_commenced : std_logic := '0';
   signal eth_tx_complete : std_logic := '0';
@@ -392,6 +394,13 @@ begin  -- behavioural
           end if;
         when Idle =>
           if eth_tx_trigger = '1' then
+            -- reset frame padding state
+            eth_tx_padding <= '0';
+            eth_tx_size_unpadded <= eth_tx_size;
+            if to_integer(eth_tx_size)<60 then
+              eth_tx_size <= to_unsigned(60,11);
+            end if;
+            -- begin transmission
             eth_tx_commenced <= '1';
             eth_tx_complete <= '0';
             tx_preamble_count <= 29;
@@ -461,8 +470,13 @@ begin  -- behavioural
             tx_fcs_crc_d_valid <= '1';
             tx_fcs_crc_calc_en <= '1';
             if eth_tx_viciv='0' then
-              eth_tx_bits <= txbuffer_rdata;
-              tx_fcs_crc_data_in <= std_logic_vector(txbuffer_rdata);
+              if eth_tx_padding = '1' then
+                tx_fcs_crc_data_in <= x"00";
+                eth_tx_bits <= x"00";
+              else
+                eth_tx_bits <= txbuffer_rdata;
+                tx_fcs_crc_data_in <= std_logic_vector(txbuffer_rdata);
+              end if;
             else
               if txbuffer_readaddress < video_packet_header'length then
                 report "FRAMEPACKER: Sending packet header byte " & integer'image(txbuffer_readaddress) & " = $" & to_hstring(unsigned(video_packet_header(txbuffer_readaddress)));
@@ -483,6 +497,9 @@ begin  -- behavioural
                      (2048 + video_packet_header'length - 1)))
             then
               txbuffer_readaddress <= txbuffer_readaddress + 1;
+              if txbuffer_readaddress = eth_tx_size_unpadded then
+                eth_tx_padding <= '1';
+              end if;
               -- For VIC-IV compressed video frames work out address.
               -- We have an 86 byte packet header
               if txbuffer_readaddress >= video_packet_header'length then
