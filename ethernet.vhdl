@@ -818,14 +818,8 @@ begin  -- behavioural
             fastio_rdata(3) <= eth_txen_int;
             fastio_rdata(5 downto 4) <= eth_txd_int(1 downto 0);
             fastio_rdata(7 downto 6) <= (others => 'Z');
-          when x"c" =>
-            fastio_rdata <= eth_byte_fail;
-          when x"d" =>
-            fastio_rdata <= eth_offset_fail;
-          when x"e" =>
-            fastio_rdata <= eth_key_debug;
           when x"f" =>
-            fastio_rdata <= eth_byte_100;
+            fastio_rdata <= to_unsigned(ethernet_state'pos(eth_tx_state),8);
           when others =>
             fastio_rdata <= (others => 'Z');
         end case;
