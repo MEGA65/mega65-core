@@ -389,6 +389,7 @@ begin  -- behavioural
           -- Count down the inter-packet gap
           if eth_tx_wait = 0 then
             eth_tx_state <= Idle;
+            eth_tx_complete <= '0';
           else
             eth_tx_wait <= eth_tx_wait - 1;
           end if;
@@ -917,7 +918,6 @@ begin  -- behavioural
       if (eth_tx_complete = '1')
         and (eth_tx_viciv='0') then
         eth_tx_trigger <= '0';
-        eth_tx_complete <= '0';
       end if;
       
       -- Bring signals accross from 50MHz side as required
