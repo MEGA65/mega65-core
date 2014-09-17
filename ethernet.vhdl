@@ -907,10 +907,6 @@ begin  -- behavioural
           rrnet_data <= x"ffff";
       end case;
 
-      if rrnet_buffer_write_pending = '1' then
-        -- write to ethernet buffer
-        rrnet_buffer_write_pending <= '0';
-      end if;
     end if;
     
     if rising_edge(clock) then
@@ -986,7 +982,9 @@ begin  -- behavioural
         end if;
         txbuffer_write <= '1';                
         txbuffer_wdata <= rrnet_buffer_data;
-      elsif rrnet_buffer_addr_bump = '1' then
+        rrnet_buffer_write_pending <= '0';
+      end if;
+      if rrnet_buffer_addr_bump = '1' then
         if eth_tx_size = rrnet_txbuffer_addr(10 downto 0)
            and rrnet_tx_requested = '1' then
           -- we have buffered all the bytes for this frame - so initiate
