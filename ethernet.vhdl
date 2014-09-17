@@ -237,7 +237,7 @@ architecture behavioural of ethernet is
   signal txbuffer_rdata : unsigned(7 downto 0);
   signal eth_tx_bits : unsigned(7 downto 0);
   signal eth_tx_size : unsigned(11 downto 0) := to_unsigned(98,12);
-  signal eth_tx_size_unpadded : unsigned(11 downto 0) := to_unsigned(98,12);
+  signal eth_tx_size_padded : unsigned(11 downto 0) := to_unsigned(98,12);
   signal eth_tx_padding : std_logic := '0';
   signal eth_tx_trigger : std_logic := '0';
   signal eth_tx_commenced : std_logic := '0';
@@ -396,9 +396,10 @@ begin  -- behavioural
           if eth_tx_trigger = '1' then
             -- reset frame padding state
             eth_tx_padding <= '0';
-            eth_tx_size_unpadded <= eth_tx_size;
             if to_integer(eth_tx_size)<60 then
-              eth_tx_size <= to_unsigned(60,12);
+              eth_tx_size_padded <= to_unsigned(60,12);
+            else
+              eth_tx_size_padded <= eth_tx_size;
             end if;
             -- begin transmission
             eth_tx_commenced <= '1';
@@ -490,14 +491,14 @@ begin  -- behavioural
             end if;
 
             if ((eth_tx_viciv='0')
-                and (to_unsigned(txbuffer_readaddress,12) /= eth_tx_size))
+                and (to_unsigned(txbuffer_readaddress,12) /= eth_tx_size_padded))
               or
               ((eth_tx_viciv='1')
                 and (to_unsigned(txbuffer_readaddress,12) /=
                      (2048 + video_packet_header'length - 1)))
             then
               txbuffer_readaddress <= txbuffer_readaddress + 1;
-              if txbuffer_readaddress = eth_tx_size_unpadded then
+              if txbuffer_readaddress = eth_tx_size then
                 eth_tx_padding <= '1';
               end if;
               -- For VIC-IV compressed video frames work out address.
@@ -1175,6 +1176,9 @@ begin  -- behavioural
             -- Send frame in TX buffer
             when x"4" =>
               case fastio_wdata is
+                when x"00" =>
+                  -- Shouldn't be needed, but allow force-clearing of eth_tx_trigger
+                  eth_tx_trigger <= '0';
                 when x"01" =>
                   eth_tx_trigger <= '1';
                 when x"de" => -- debug rx
