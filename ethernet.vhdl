@@ -398,7 +398,7 @@ begin  -- behavioural
             eth_tx_padding <= '0';
             eth_tx_size_unpadded <= eth_tx_size;
             if to_integer(eth_tx_size)<60 then
-              eth_tx_size <= to_unsigned(60,11);
+              eth_tx_size <= to_unsigned(60,12);
             end if;
             -- begin transmission
             eth_tx_commenced <= '1';
