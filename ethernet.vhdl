@@ -270,7 +270,7 @@ architecture behavioural of ethernet is
  signal eth_irq_rx : std_logic := '0';
  signal eth_irq_tx : std_logic := '0'; 
 
- signal eth_videostream : std_logic := '1';
+ signal eth_videostream : std_logic := '0';
  signal eth_byte_100 : unsigned(7 downto 0) := x"bd";
  signal eth_key_debug : unsigned(7 downto 0) := x"00";
  signal eth_byte_fail : unsigned(7 downto 0) := x"00";
