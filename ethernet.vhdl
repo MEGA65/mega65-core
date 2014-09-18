@@ -813,7 +813,9 @@ begin  -- behavioural
         case fastio_addr(3 downto 0) is
           -- $D6E0 - controls reset pin of ethernet controller
           when x"0" =>
-            fastio_rdata(7 downto 4) <= (others => 'Z');
+            fastio_rdata(7) <= 'Z';
+            fastio_rdata(6) <= rrnet_tx_buffering;
+            fastio_rdata(5) <= rrnet_tx_requested;
             fastio_rdata(4) <= eth_keycode_toggle_internal;
             fastio_rdata(3) <= eth_rxdv;
             fastio_rdata(2 downto 1) <= eth_rxd;
@@ -995,6 +997,8 @@ begin  -- behavioural
           rrnet_tx_buffering <= '0';
           rrnet_tx_requested <= '0';
           rrnet_tx_toggle <= not rrnet_tx_toggle;
+          report "ETHTX: RR-NET toggling rrnet_tx_toggle: was "
+            & std_logic'image(rrnet_tx_toggle);
         end if;
         rrnet_txbuffer_addr <= rrnet_txbuffer_addr + 2;
         rrnet_buffer_addr_bump <= '0';
