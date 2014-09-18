@@ -179,7 +179,6 @@ architecture behavioural of ethernet is
   signal rrnet_buffer_data : unsigned(7 downto 0) := x"00";
   signal rrnet_buffer_odd : std_logic := '0';
   signal rrnet_notice_data_read : std_logic := '0';
-  signal rrnet_notice_register_read : std_logic := '0';
   signal rrnet_addr : unsigned(15 downto 0) := (others => '0');
   signal rrnet_data : unsigned(15 downto 0) := (others => '0');
   signal rrnet_readaddress : integer range 0 to 4095 := 0;
@@ -1058,16 +1057,12 @@ begin  -- behavioural
             rrnet_readaddress <= 0;
           end if;
         end if;
-        rrnet_notice_register_read <= '1';
 
         -- Also clear the ethernet IRQ flag once we start reading the packet.
         -- This doesn't exactly match how the RR-NET really works, but it is
         -- close enough for now.
         report "ETHRX: Clearing IRQ";
         eth_irq_rx <= '0';
-
-      else
-        rrnet_notice_register_read <= '0';        
       end if;
       
       -- Write to registers
