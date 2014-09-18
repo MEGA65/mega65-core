@@ -1988,6 +1988,31 @@ reset_entry:
 		see
 		
 		lda #$00
+		sta $d02f
+		lda #$21
+		sta $de01
+		lda #$c9
+		sta $de0c
+		lda #$00
+		sta $de0d
+		lda #$60
+		sta $de0e
+		lda #$00
+		sta $de0f
+		lda #$38
+		sta $de02
+		lda #$01
+		sta $de03
+		lda $de05
+		ldy #$00
+llllll:		sty $de08
+		iny
+		sty $de09
+		iny
+		cpy #$60
+		bne llllll
+
+		lda #$00
 		tab
 		ldy #$01
 		tys

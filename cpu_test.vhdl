@@ -188,7 +188,7 @@ begin
       irq => '1',
       nmi => '1',
 
-      no_kickstart => '1',
+      no_kickstart => '0',
       
       ps2data => '1',
       ps2clock => '1',
