@@ -903,7 +903,10 @@ begin  -- behavioural
           if eth_tx_state = Idle then
             rrnet_data(8) <=  '1';
             -- allow buffering of bytes
-            rrnet_tx_buffering <= rrnet_tx_requested;
+            -- XXX here is the bug!
+            if rrnet_tx_requested = '1' then
+              rrnet_tx_buffering <= '1';
+            end if;
           end if;
         when others =>
           rrnet_data <= x"ffff";
@@ -989,7 +992,7 @@ begin  -- behavioural
       if rrnet_buffer_addr_bump = '1' then
         if (to_integer(eth_tx_size)
             = (to_integer(rrnet_txbuffer_addr(10 downto 0))+2))
-           and rrnet_tx_requested = '1' then
+           and rrnet_tx_buffering = '1' then
           -- we have buffered all the bytes for this frame - so initiate
           -- transmission.
           eth_tx_trigger <= '1';
