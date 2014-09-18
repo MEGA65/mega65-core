@@ -170,7 +170,8 @@ architecture behavioural of ethernet is
   signal eth_state : ethernet_state := Idle;
 
   signal eth_mac : unsigned(47 downto 0) := x"024753656565";
- 
+
+  signal rrnet_tx_toggle : std_logic := '0';
   signal rrnet_enable : std_logic := '0';
   signal rrnet_dup_read : std_logic := '0';
   signal rrnet_buffer_write_pending : std_logic := '0';
@@ -844,7 +845,7 @@ begin  -- behavioural
             fastio_rdata(3) <= eth_txen_int;
             fastio_rdata(5 downto 4) <= eth_txd_int(1 downto 0);
             fastio_rdata(6) <= eth_tx_viciv;
-            fastio_rdata(7) <= rrnet_tx_requested;
+            fastio_rdata(7) <= rrnet_tx_toggle;
           when x"e" =>
             fastio_rdata <= rrnet_txbuffer_addr(7 downto 0);
           when x"f" =>
@@ -992,6 +993,7 @@ begin  -- behavioural
           eth_tx_trigger <= '1';
           rrnet_tx_buffering <= '0';
           rrnet_tx_requested <= '0';
+          rrnet_tx_toggle <= not rrnet_tx_toggle;
         end if;
         rrnet_txbuffer_addr <= rrnet_txbuffer_addr + 2;
         rrnet_buffer_addr_bump <= '0';
