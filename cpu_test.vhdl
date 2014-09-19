@@ -359,7 +359,7 @@ begin
             txbits := txbits + 2;
           end if;
         else
-          report "ETHTX: bits NO CARRIER";
+--          report "ETHTX: bits NO CARRIER";
         end if;
       end if;
       wait for 10 ns;
