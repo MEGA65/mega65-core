@@ -171,6 +171,9 @@ architecture behavioural of ethernet is
 
   signal eth_mac : unsigned(47 downto 0) := x"024753656565";
 
+  type cs8900aTXstate is (Idle,CommandSet,Buffering);
+  signal rrnet_tx_state : cs8900aTXstate := Idle;
+  signal rrnet_reading_bus_status : std_logic;
   signal rrnet_debug : unsigned(7 downto 0) := x"00";
   signal rrnet_tx_toggle : std_logic := '0';
   signal rrnet_enable : std_logic := '0';
@@ -184,8 +187,6 @@ architecture behavioural of ethernet is
   signal rrnet_data : unsigned(15 downto 0) := (others => '0');
   signal rrnet_readaddress : integer range 0 to 4095 := 0;
   signal rrnet_txbuffer_addr : unsigned(15 downto 0) := (others => '0');
-  signal rrnet_tx_buffering : std_logic := '0';
-  signal rrnet_tx_requested : std_logic := '0';
   signal rrnet_advance_buffer : std_logic := '0';
   signal rrnet_buffer_rdata : unsigned(7 downto 0);
   signal rrnet_data_odd : unsigned(7 downto 0);
@@ -776,8 +777,7 @@ begin  -- behavioural
       -- use the existing ethernet TX buffer.
       
       rrnet_txbuffer_addr <= (others => '0');
-      rrnet_tx_requested <= '1';
-      rrnet_tx_buffering <= '0';
+      rrnet_tx_state <= CommandSet;
     end procedure;
     
   begin
@@ -789,10 +789,20 @@ begin  -- behavioural
       if rrnet_enable='1' and fastio_addr=x"D0E04" then
         -- cs_packet_data low
         fastio_rdata <= rrnet_data(7 downto 0);
+        if rrnet_reading_bus_status = '1' then
+          if rrnet_tx_state = CommandSet then
+            rrnet_tx_state <= Buffering;
+          end if;
+        end if;
       elsif rrnet_enable='1' and fastio_addr=x"D0E05" then
         -- cs_packet_data high
         report "MEMORY: Reading RR-NET reg high = $" & to_hstring(rrnet_data(15 downto 8));
         fastio_rdata <= rrnet_data(15 downto 8);
+        if rrnet_reading_bus_status = '1' then
+          if rrnet_tx_state = CommandSet then
+            rrnet_tx_state <= Buffering;
+          end if;
+        end if;
       elsif rrnet_enable='1' and fastio_addr=x"D0E08" then
         -- cs_rxtx_data low
         fastio_rdata <= rrnet_data_even;
@@ -813,9 +823,7 @@ begin  -- behavioural
         case fastio_addr(3 downto 0) is
           -- $D6E0 - controls reset pin of ethernet controller
           when x"0" =>
-            fastio_rdata(7) <= 'Z';
-            fastio_rdata(6) <= rrnet_tx_buffering;
-            fastio_rdata(5) <= rrnet_tx_requested;
+            fastio_rdata(7 downto 5) <= to_unsigned(cs8900aTXstate'pos(rrnet_tx_state),3);
             fastio_rdata(4) <= eth_keycode_toggle_internal;
             fastio_rdata(3) <= eth_rxdv;
             fastio_rdata(2 downto 1) <= eth_rxd;
@@ -885,6 +893,7 @@ begin  -- behavioural
     -- set cs_packet_data based on cs_packet_page
     if rising_edge(clock) then
       report "ETHRX: RR-NET: rrnet_addr = $" & to_hstring(rrnet_addr);
+      rrnet_reading_bus_status <= '0';
       case rrnet_addr is
         when x"0000" =>
           -- Detect register: magic value that udpslave looks for
@@ -911,10 +920,7 @@ begin  -- behavioural
           if eth_tx_state = Idle then
             rrnet_data(8) <=  '1';
             -- allow buffering of bytes
-            -- XXX here is the bug!
-            if rrnet_tx_requested = '1' then
-              rrnet_tx_buffering <= '1';
-            end if;
+            rrnet_reading_bus_status <= '1';
           end if;
         when others =>
           rrnet_data <= x"ffff";
@@ -986,7 +992,7 @@ begin  -- behavioural
         irq <= 'Z';
       end if;
 
-      if rrnet_buffer_write_pending = '1' and rrnet_tx_buffering = '1' then
+      if rrnet_buffer_write_pending = '1' and rrnet_tx_state = Buffering then
         -- Put byte into ethernet TX buffer        
         if rrnet_buffer_odd='0' then
           txbuffer_writeaddress <= to_integer(rrnet_txbuffer_addr(10 downto 0));
@@ -1000,13 +1006,12 @@ begin  -- behavioural
       if rrnet_buffer_addr_bump = '1' then
         if (to_integer(eth_tx_size_padded)
             = (to_integer(rrnet_txbuffer_addr(10 downto 0))+2))
-           and rrnet_tx_buffering = '1' then
+           and rrnet_tx_state <= Buffering then
           -- we have buffered all the bytes for this frame - so initiate
           -- transmission.
           rrnet_debug <= x"ed";
           eth_tx_trigger <= '1';
-          rrnet_tx_buffering <= '0';
-          rrnet_tx_requested <= '0';
+          rrnet_tx_state <= Idle;
           rrnet_tx_toggle <= not rrnet_tx_toggle;
           report "ETHTX: RR-NET toggling rrnet_tx_toggle: was "
             & std_logic'image(rrnet_tx_toggle);
@@ -1127,7 +1132,7 @@ begin  -- behavioural
           end case;
         end if;
         if fastio_addr = x"D0E08" and rrnet_enable='1' then
-          if rrnet_tx_buffering = '1' then
+          if rrnet_tx_state = Buffering then
             -- write even numbered address
             rrnet_buffer_write_pending <= '1';
             rrnet_buffer_data <= fastio_wdata;
@@ -1139,7 +1144,7 @@ begin  -- behavioural
           -- XXX why do writes to odd addresses advance the pointer,
           -- but is it the even address that does it for reads? Or have
           -- I totally misunderstood something?
-          if rrnet_tx_buffering = '1' then
+          if rrnet_tx_state = Buffering then
             rrnet_buffer_write_pending <= '1';
             rrnet_buffer_addr_bump <= '1';
             rrnet_buffer_data <= fastio_wdata;
