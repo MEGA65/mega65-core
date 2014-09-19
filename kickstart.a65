@@ -1995,7 +1995,7 @@ reset_entry:
 		sta $de0c
 		lda #$00
 		sta $de0d
-		lda #$60
+		lda #$60     ; 96 bytes of packet
 		sta $de0e
 		lda #$00
 		sta $de0f
