@@ -171,6 +171,7 @@ architecture behavioural of ethernet is
 
   signal eth_mac : unsigned(47 downto 0) := x"024753656565";
 
+  signal rrnet_debug : unsigned(7 downto 0) := x"00";
   signal rrnet_tx_toggle : std_logic := '0';
   signal rrnet_enable : std_logic := '0';
   signal rrnet_dup_read : std_logic := '0';
@@ -847,6 +848,8 @@ begin  -- behavioural
             fastio_rdata(5 downto 4) <= eth_txd_int(1 downto 0);
             fastio_rdata(6) <= eth_tx_viciv;
             fastio_rdata(7) <= rrnet_tx_toggle;
+          when x"d" =>
+            fastio_rdata <= rrnet_debug(7 downto 0);
           when x"e" =>
             fastio_rdata <= rrnet_txbuffer_addr(7 downto 0);
           when x"f" =>
@@ -1093,6 +1096,7 @@ begin  -- behavioural
               -- $C9 = transmit when entire frame buffered, and don't retransmit
               -- if something goes wrong.
               -- Transmission is not actually started until
+              rrnet_debug <= x"44";
               rrnet_txcmd_set;            
             when x"0146" =>
               -- TX len (low byte) (also on dedicated $DE0E)
@@ -1138,6 +1142,7 @@ begin  -- behavioural
         end if;
         if fastio_addr = x"D0E0C" and rrnet_enable='1' then
           -- Write to RRNET tx_cmd register (low)
+          rrnet_debug <= x"0C";
           rrnet_txcmd_set;
         end if;
         if fastio_addr = x"D0E0D" and rrnet_enable='1' then
