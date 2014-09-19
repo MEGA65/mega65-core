@@ -857,10 +857,10 @@ begin  -- behavioural
             fastio_rdata(6) <= eth_tx_viciv;
             fastio_rdata(7) <= rrnet_tx_toggle;
           when x"b" =>
-            fastio_rdata <= eth_tx_size_padded(7 downto 0);
+            fastio_rdata <= eth_tx_size(7 downto 0);
           when x"c" =>
             fastio_rdata(7 downto 4) <= x"0";
-            fastio_rdata(3 downto 0) <= eth_tx_size_padded(11 downto 8);
+            fastio_rdata(3 downto 0) <= eth_tx_size(11 downto 8);
           when x"d" =>
             fastio_rdata <= rrnet_debug(7 downto 0);
           when x"e" =>
@@ -892,7 +892,7 @@ begin  -- behavioural
 
     -- set cs_packet_data based on cs_packet_page
     if rising_edge(clock) then
-      report "ETHRX: RR-NET: rrnet_addr = $" & to_hstring(rrnet_addr);
+--      report "ETHRX: RR-NET: rrnet_addr = $" & to_hstring(rrnet_addr);
       rrnet_reading_bus_status <= '0';
       case rrnet_addr is
         when x"0000" =>
@@ -915,8 +915,8 @@ begin  -- behavioural
         when x"0138" =>
           -- bus status: bit8 = ready for transmission
           rrnet_data <= x"0000";
-          report "RR-NET: Reading bus status. eth_tx_state = "
-            & ethernet_state'image(eth_tx_state);
+          report "RR-NET: Reading bus status. rrnet_tx_state = "
+            & cs8900aTXstate'image(rrnet_tx_state);
           if eth_tx_state = Idle then
             rrnet_data(8) <=  '1';
             -- allow buffering of bytes
@@ -1002,9 +1002,11 @@ begin  -- behavioural
         txbuffer_write <= '1';                
         txbuffer_wdata <= rrnet_buffer_data;
         rrnet_buffer_write_pending <= '0';
-      end if;
+      end if;      
       if rrnet_buffer_addr_bump = '1' then
-        if (to_integer(eth_tx_size_padded)
+        report "ETHTX: RR-NET bumping buffer pointer from "
+          & integer'image(to_integer(rrnet_txbuffer_addr));
+        if (to_integer(eth_tx_size)
             = (to_integer(rrnet_txbuffer_addr(10 downto 0))+2))
            and rrnet_tx_state <= Buffering then
           -- we have buffered all the bytes for this frame - so initiate
@@ -1015,6 +1017,11 @@ begin  -- behavioural
           rrnet_tx_toggle <= not rrnet_tx_toggle;
           report "ETHTX: RR-NET toggling rrnet_tx_toggle: was "
             & std_logic'image(rrnet_tx_toggle);
+        else
+          report "ETHTX: RR-NET: "
+            &integer'image(to_integer(eth_tx_size))
+            &" != "
+            &integer'image(to_integer(rrnet_txbuffer_addr(10 downto 0))+2);
         end if;
         rrnet_txbuffer_addr <= rrnet_txbuffer_addr + 2;
         rrnet_buffer_addr_bump <= '0';
@@ -1145,6 +1152,7 @@ begin  -- behavioural
           -- but is it the even address that does it for reads? Or have
           -- I totally misunderstood something?
           if rrnet_tx_state = Buffering then
+            report "ETHTX: Buffering RR-NET TX byte and bumping pointer.";
             rrnet_buffer_write_pending <= '1';
             rrnet_buffer_addr_bump <= '1';
             rrnet_buffer_data <= fastio_wdata;
