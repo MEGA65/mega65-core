@@ -848,6 +848,11 @@ begin  -- behavioural
             fastio_rdata(5 downto 4) <= eth_txd_int(1 downto 0);
             fastio_rdata(6) <= eth_tx_viciv;
             fastio_rdata(7) <= rrnet_tx_toggle;
+          when x"b" =>
+            fastio_rdata <= eth_tx_size_padded(7 downto 0);
+          when x"c" =>
+            fastio_rdata(7 downto 4) <= x"00";
+            fastio_rdata(3 downto 0) <= eth_tx_size_padded(11 downto 8);
           when x"d" =>
             fastio_rdata <= rrnet_debug(7 downto 0);
           when x"e" =>
