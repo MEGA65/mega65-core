@@ -1156,7 +1156,9 @@ begin  -- behavioural
           -- Set TX packet size: this can map directly to our native register.
           eth_tx_size(10 downto 8) <= fastio_wdata(2 downto 0);
         end if;
-        
+        if fastio_addr = x"D0E10" and rrnet_enable='1' then
+          rrnet_debug <= fastio_wdata;
+        end if;
         if fastio_addr(19 downto 10)&"00" = x"DE8" then
           -- Writing to TX buffer
           -- (we don't need toclear the write lines, as noone else can write to
