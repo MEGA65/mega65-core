@@ -5,6 +5,8 @@ use ieee.numeric_std.all;
 
 package cputypes is
 
+  type sprite_vector_8 is array(0 to 7) of unsigned(7 downto 0);
+  
   type addressingmode is (
     M_impl,M_InnX,M_nn,M_immnn,M_A,M_nnnn,M_nnrr,
     M_rr,M_InnY,M_InnZ,M_rrrr,M_nnX,M_nnnnY,M_nnnnX,M_Innnn,
