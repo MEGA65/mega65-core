@@ -3,21 +3,16 @@ use work.cputypes.all;
 entity vicii_sprites is
   Port (
     ----------------------------------------------------------------------
-    -- dot clock
+    -- dot clock & io clock
     ----------------------------------------------------------------------
     pixelclock : in  STD_LOGIC;
+    ioclock : in std_logic;
 
     -- Pull sprite data in along the chain from the previous sprite (or VIC-IV)
     signal sprite_datavalid_in : in std_logic;
     signal sprite_bytenumber_in : in integer range 0 to 2;
     signal sprite_spritenumber_in : in integer range 0 to 7;
     signal sprite_data_in : in unsigned(7 downto 0);
-
-    -- Pass sprite data out along the chain to the next sprite
-    signal sprite_datavalid_out : out std_logic;
-    signal sprite_bytenumber_out : out integer range 0 to 2;
-    signal sprite_spritenumber_out : out integer range 0 to 7;
-    signal sprite_data_out : out unsigned(7 downto 0);
 
     -- which base offset for the VIC-II sprite data are we showing this raster line?
     -- VIC-IV clocks sprite_number_for_data and each sprite replaces
@@ -28,18 +23,14 @@ entity vicii_sprites is
     signal sprite_number_for_data_out : out integer range 0 to 7;
     
     -- Is the pixel just passed in a foreground pixel?
-    -- Similarly, is the pixel a sprite pixel from another sprite?
     signal is_foreground_in : in std_logic;
-    signal is_sprite_in : in std_logic;
     -- and what is the colour of the bitmap pixel?
     signal x_in : in integer range 0 to 1919;
     signal y_in : in integer range 0 to 1199;
     signal border_in : in std_logic;
     signal pixel_in : in unsigned(7 downto 0);
-    -- and of the sprite pixel?
-    signal sprite_colour_in : in unsigned(7 downto 0);
 
-     -- Pass pixel information back out
+     -- Pass pixel information back out, as well as the sprite colour information
     signal x_out : out integer range 0 to 1919;
     signal y_out : out integer range 0 to 1199;
     signal border_out : in std_logic;
@@ -77,6 +68,12 @@ architecture behavioural of vicii_sprites is
   -- if set, then upper nybl of colours are used, else only lower nybls, ala VIC-II
   signal viciii_extended_attributes : std_logic := '1';
 
+  -- Pass sprite data out along the chain to the next sprite
+  signal sprite_datavalid_out : std_logic;
+  signal sprite_bytenumber_out : integer range 0 to 2;
+  signal sprite_spritenumber_out : integer range 0 to 7;
+  signal sprite_data_out : unsigned(7 downto 0);
+  
   process(ioclock) is
     variable register_bank : unsigned(7 downto 0);
     variable register_page : unsigned(3 downto 0);

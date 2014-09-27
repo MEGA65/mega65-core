@@ -205,6 +205,61 @@ architecture Behavioral of viciv is
       );
   END component;
 
+  component vicii_sprites is
+  Port (
+    ----------------------------------------------------------------------
+    -- dot clock & io clock
+    ----------------------------------------------------------------------
+    pixelclock : in  STD_LOGIC;
+    ioclock : in std_logic;
+
+    -- Pull sprite data in along the chain from the previous sprite (or VIC-IV)
+    signal sprite_datavalid_in : in std_logic;
+    signal sprite_bytenumber_in : in integer range 0 to 2;
+    signal sprite_spritenumber_in : in integer range 0 to 7;
+    signal sprite_data_in : in unsigned(7 downto 0);
+
+    -- which base offset for the VIC-II sprite data are we showing this raster line?
+    -- VIC-IV clocks sprite_number_for_data and each sprite replaces
+    -- sprite_data_offset with the appropriate value if the sprite number is itself
+    signal sprite_data_offset_in : in integer range 0 to 63;    
+    signal sprite_number_for_data_in : in integer range 0 to 7;
+    signal sprite_data_offset_out : out integer range 0 to 63;    
+    signal sprite_number_for_data_out : out integer range 0 to 7;
+    
+    -- Is the pixel just passed in a foreground pixel?
+    -- Similarly, is the pixel a sprite pixel from another sprite?
+    signal is_foreground_in : in std_logic;
+    signal is_sprite_in : in std_logic;
+    -- and what is the colour of the bitmap pixel?
+    signal x_in : in integer range 0 to 1919;
+    signal y_in : in integer range 0 to 1199;
+    signal border_in : in std_logic;
+    signal pixel_in : in unsigned(7 downto 0);
+    -- and of the sprite pixel?
+    signal sprite_colour_in : in unsigned(7 downto 0);
+
+     -- Pass pixel information back out
+    signal x_out : out integer range 0 to 1919;
+    signal y_out : out integer range 0 to 1199;
+    signal border_out : in std_logic;
+    signal pixel_out : out unsigned(7 downto 0);
+    signal sprite_colour_out : out unsigned(7 downto 0);
+    signal is_sprite_out : out std_logic;
+
+    -- We need the registers that describe the various sprites.
+    -- We could pull these in from the VIC-IV, but that would mean that they
+    -- would have to propogate within one pixelclock, which will be very
+    -- difficult to achieve.  A better way is to snoop the fastio bus, and read
+    -- them directly on the much slower ioclock, and provide them to each sprite.
+    fastio_addr : in std_logic_vector(19 downto 0);
+    fastio_write : in std_logic;
+    fastio_wdata : in std_logic_vector(7 downto 0)
+
+);
+end component;
+
+  
   signal vicii_2mhz_internal : std_logic := '1';
   signal viciii_fast_internal : std_logic := '1';
   signal viciv_fast_internal : std_logic := '1';
@@ -728,6 +783,35 @@ begin
               data_o => chardata
               );
 
+  vicii_sprites0: component vicii_sprites
+    port map (pixelclock => pixelclock,
+              ioclock => ioclock,
+
+              sprite_datavalid_in => sprite_datavalid,
+              sprite_bytenumber_in => sprite_bytenumber,
+              sprite_spritenumber_in => sprite_spritenumber,
+              sprite_data_in => sprite_data_byte,
+
+              sprite_data_offset_in => sprite_data_offset_in,
+              sprite_number_for_data_in => sprite_number_for_data_in,
+              sprite_data_offset_out => sprite_data_offset_out,
+              sprite_number_for_data_out => sprite_number_for_data_out,
+
+              is_foreground_in => pixel_is_foreground_in,
+              x_in => xcounter_drive,
+              y_in => ycounter_drive,
+              border_in => inborder,
+              pixel_in => chargen_pixel_colour,
+              pixel_out => sprite_pixel_colour,
+              is_sprite_out => pixel_is_sprite,
+
+              fastio_addr => fastio_addr,
+              fastio_write => fastio_write,
+              fastio_wdata => fastio_wdata
+              );
+              
+              
+  
   process(cpuclock,ioclock,fastio_addr,fastio_read,chardata,
           sprite_x,sprite_y,vicii_sprite_xmsbs,ycounter,extended_background_mode,
           text_mode,blank,twentyfourlines,vicii_y_smoothscroll,displayx,displayy,
