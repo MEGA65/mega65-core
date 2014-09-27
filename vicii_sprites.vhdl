@@ -59,7 +59,6 @@ entity vicii_sprites is
     -- which base offset for the VIC-II sprite data are we showing this raster line?
     -- VIC-IV clocks sprite_number_for_data and each sprite replaces
     -- sprite_data_offset with the appropriate value if the sprite number is itself
-    signal sprite_data_offset_in : in integer range 0 to 1023;    
     signal sprite_number_for_data_in : in integer range 0 to 7;
     signal sprite_data_offset_out : out integer range 0 to 1023;    
     signal sprite_number_for_data_out : out integer range 0 to 7;

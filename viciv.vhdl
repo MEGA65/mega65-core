@@ -222,7 +222,6 @@ architecture Behavioral of viciv is
     -- which base offset for the VIC-II sprite data are we showing this raster line?
     -- VIC-IV clocks sprite_number_for_data and each sprite replaces
     -- sprite_data_offset with the appropriate value if the sprite number is itself
-    signal sprite_data_offset_in : in integer range 0 to 63;    
     signal sprite_number_for_data_in : in integer range 0 to 7;
     signal sprite_data_offset_out : out integer range 0 to 63;    
     signal sprite_number_for_data_out : out integer range 0 to 7;
@@ -503,6 +502,37 @@ end component;
   signal sprite_y : sprite_vector_8;
   signal sprite_colours : sprite_vector_8;
 
+  -- VIC-II sprites are in a separate module as a chain.  To avoid the need to
+  -- route to all sprites from the main VIC-IV section, they are arranged as a
+  -- chain.  However, the VIC-IV must perform the memory accesses for the
+  -- VIC-II sprites.  Thus we have a bus that passes through each of these
+  -- sprites delivering the data they need.  We also have a separate bus that
+  -- delivers the current row number for each sprite so that the VIC-IV knows
+  -- which bytes of memory to deliver to the sprites.  This arrangement allows
+  -- for normal VIC-II semantics for the sprites, including priority order etc.
+  -- The only difference we intend to implement here is to have a register that
+  -- allows the number of rows in each sprite to be varied from the usual 21,
+  -- since there is no reason to maintain this fairly artificial limit.  Even
+  -- in the VIC-II the only logic cost would have been the extra register (or
+  -- register per sprite).
+  signal sprite_data_offset_rx : integer range 0 to 1023;
+  signal sprite_number_counter : integer range 0 to 7 := 0;
+  signal sprite_number_for_data_tx : integer range 0 to 7;
+  signal sprite_number_for_data_rx : integer range 0 to 7;
+  type sprite_data_offset_8 is array(0 to 7) of integer range 0 to 1023;
+  signal sprite_data_offsets : sprite_data_offset_8;
+  -- Similarly we need to deliver the bytes of data to the VIC-II sprite chain
+  signal sprite_datavalid : std_logic;
+  signal sprite_bytenumber : integer range 0 to 2;
+  signal sprite_spritenumber : integer range 0 to 7;
+  signal sprite_data_byte : unsigned(7 downto 0);
+  -- The sprite chain also has the opportunity to modify the pixel colour being
+  -- drawn so that the sprites can be overlayed on the display.
+  signal pixel_is_foreground_in : std_logic;
+  signal chargen_pixel_colour : unsigned(7 downto 0);
+  signal postsprite_pixel_colour : unsigned(7 downto 0);
+  signal pixel_is_sprite : std_logic;
+
   -- Compatibility registers
   signal twentyfourlines : std_logic := '0';
   signal thirtyeightcolumns : std_logic := '0';
@@ -527,20 +557,6 @@ end component;
   signal mask_colissionspritesprite : std_logic := '0';
   signal mask_colissionspritebitmap : std_logic := '0';
   signal mask_raster : std_logic := '0';
-
-  -- Sprite overlay interface
-  signal sprite_datavalid : std_logic;
-  signal sprite_bytenumber : integer range 0 to 2;
-  signal sprite_spritenumber : integer range 0 to 7;
-  signal sprite_data_byte : unsigned(7 downto 0);
-  signal sprite_data_offset_in : integer range 0 to 1023;
-  signal sprite_number_for_data_in : integer range 0 to 7;
-  signal sprite_data_offset_out : integer range 0 to 1023; 
-  signal sprite_number_for_data_out : integer range 0 to 7;
-  signal pixel_is_foreground_in : std_logic;
-  signal chargen_pixel_colour : unsigned(7 downto 0);
-  signal postsprite_pixel_colour : unsigned(7 downto 0);
-  signal pixel_is_sprite : std_logic;
 
   -- Used for hardware character blinking ala C65
   signal viciii_blink_phase : std_logic := '0';
@@ -805,10 +821,9 @@ begin
               sprite_spritenumber_in => sprite_spritenumber,
               sprite_data_in => sprite_data_byte,
 
-              sprite_data_offset_in => sprite_data_offset_in,
-              sprite_number_for_data_in => sprite_number_for_data_in,
-              sprite_data_offset_out => sprite_data_offset_out,
-              sprite_number_for_data_out => sprite_number_for_data_out,
+              sprite_number_for_data_in => sprite_number_for_data_tx,
+              sprite_data_offset_out => sprite_data_offset_rx,
+              sprite_number_for_data_out => sprite_number_for_data_rx,
 
               is_foreground_in => pixel_is_foreground_in,
               x_in => to_integer(xcounter),
@@ -1378,6 +1393,20 @@ begin
       
       palette_we <= (others => '0');
 
+      -- Get VIC-II sprite data offsets
+      -- (this can happen on ioclock, since it should still allow ample time
+      --  to synchronise with the sprites before we fetch the data for them).
+      -- Save offset delivered by chain
+      sprite_data_offsets(sprite_number_for_data_rx) <= sprite_data_offset_rx;
+      -- Ask for the next one
+      if sprite_number_counter = 7 then
+        sprite_number_counter <= 0;
+        sprite_number_for_data_tx <= 0;
+      else
+        sprite_number_counter <= sprite_number_counter + 1;
+        sprite_number_for_data_tx <= sprite_number_for_data_tx + 1;
+      end if;
+      
       -- $DD00 video bank bits
       if fastio_write='1'
         -- Fastio IO addresses D{0,1,2,3}Dx0
