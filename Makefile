@@ -35,7 +35,10 @@ slowram.vhdl:	c65gs.rom makeslowram slowram_template.vhdl
 rxvideo:	rxvideo.c
 	gcc -Wall -g -o rxvideo rxvideo.c -lpcap
 
-transfer:	kickstart.vhdl version.vhdl kickstart65gs.bin makerom makeslowram
+iomap.txt:	*.vhdl Makefile
+	grep IO:C6 *.vhdl | cut -f3- -d: | sort > iomap.txt
+
+transfer:	kickstart.vhdl version.vhdl kickstart65gs.bin makerom makeslowram iomap.txt
 	scp -p version.sh Makefile makerom c65gs.rom makerom makeslowram *.a65 *.ucf *.xise *.prj *vhd *vhdl kickstart65gs.bin 192.168.56.101:c64accel/
 	scp -p .git/index 192.168.56.101:c64accel/.git/
 

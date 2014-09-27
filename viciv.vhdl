@@ -1425,9 +1425,11 @@ begin
 
       -- Reading some registers clears IRQ flags
       if fastio_read='1' then
-        if register_number=30 then          -- $D01E sprite/sprite collissions
+        if register_number=30 then
+          -- @IO:C64 $D01E sprite/sprite collissions
           ack_colissionspritesprite <= '1';
-        elsif register_number=31 then          -- $D01F sprite/sprite collissions
+        elsif register_number=31 then
+          -- @IO:C64 $D01F sprite/sprite collissions
           ack_colissionspritebitmap <= '1';
         end if;
       end if;
@@ -1436,38 +1438,73 @@ begin
       if fastio_write='1'
         and (fastio_addr(19) = '0' or fastio_addr(19) = '1') then
         if register_number>=0 and register_number<8 then
-                                        -- compatibility sprite coordinates
+          -- compatibility sprite coordinates
+          -- @IO:C64 $D000 VIC-II sprite 0 horizontal position
+          -- @IO:C64 $D001 VIC-II sprite 1 horizontal position
+          -- @IO:C64 $D002 VIC-II sprite 2 horizontal position
+          -- @IO:C64 $D003 VIC-II sprite 3 horizontal position
+          -- @IO:C64 $D004 VIC-II sprite 4 horizontal position
+          -- @IO:C64 $D005 VIC-II sprite 5 horizontal position
+          -- @IO:C64 $D006 VIC-II sprite 6 horizontal position
+          -- @IO:C64 $D007 VIC-II sprite 7 horizontal position
           sprite_x(to_integer(register_num(2 downto 0))) <= unsigned(fastio_wdata);
         elsif register_number<16 then
+          -- @IO:C64 $D008 VIC-II sprite 0 vertical position
+          -- @IO:C64 $D009 VIC-II sprite 1 vertical position
+          -- @IO:C64 $D00A VIC-II sprite 2 vertical position
+          -- @IO:C64 $D00B VIC-II sprite 3 vertical position
+          -- @IO:C64 $D00C VIC-II sprite 4 vertical position
+          -- @IO:C64 $D00D VIC-II sprite 5 vertical position
+          -- @IO:C64 $D00E VIC-II sprite 6 vertical position
+          -- @IO:C64 $D00F VIC-II sprite 7 vertical position
           sprite_y(to_integer(register_num(2 downto 0))) <= unsigned(fastio_wdata);
         elsif register_number=16 then
+          -- @IO:C64 $D010 VIC-II sprite horizontal position MSBs
           vicii_sprite_xmsbs <= fastio_wdata;
         elsif register_number=17 then             -- $D011
           report "D011 WRITTEN" severity note;
+          -- @IO:C64 $D011 VIC-II control register
+          -- @IO:C64 $D011.7 VIC-II raster compare bit 8
           vicii_raster_compare(10 downto 8) <= "00" & fastio_wdata(7);
           vicii_is_raster_source <= '1';
+          -- @IO:C64 $D011.6 VIC-II extended background mode
           extended_background_mode <= fastio_wdata(6);
+          -- @IO:C64 $D011.5 VIC-II text mode
           text_mode <= not fastio_wdata(5);
+          -- @IO:C64 $D011.5 VIC-II disable display
           blank <= not fastio_wdata(4);
+          -- @IO:C64 $D011.5 VIC-II 24/25 row select
           twentyfourlines <= not fastio_wdata(3);
+          -- @IO:C64 $D011.2-0 VIC-II 24/25 vertical smooth scroll
           vicii_y_smoothscroll <= unsigned(fastio_wdata(2 downto 0));
           viciv_legacy_mode_registers_touched <= '1';
-        elsif register_number=18 then          -- $D012 current raster low 8 bits
+        elsif register_number=18 then
+          -- @IO:C64 $D012 VIC-II raster compare bits 0 to 7
           vicii_raster_compare(7 downto 0) <= unsigned(fastio_wdata);
           vicii_is_raster_source <= '1';
-        elsif register_number=19 then          -- $D013 lightpen X (coarse rasterX)
-        elsif register_number=20 then          -- $D014 lightpen Y (coarse rasterY)
-        elsif register_number=21 then          -- $D015 compatibility sprite enable
+        elsif register_number=19 then
+           -- @IO:C64 $D013 Coarse horizontal beam position (was lightpen X)
+        elsif register_number=20 then
+           -- @IO:C64 $D014 Coarse vertical beam position (was lightpen Y)
+        elsif register_number=21 then
+           -- @IO:C64 $D015 VIC-II sprite enable bits
           vicii_sprite_enables <= fastio_wdata;
-        elsif register_number=22 then          -- $D016
+        elsif register_number=22 then
+          -- @IO:C64 $D016 VIC-II control register
+          -- @IO:C64 $D016.4 VIC-II Multi-colour mode
           multicolour_mode <= fastio_wdata(4);
+          -- @IO:C64 $D016.3 VIC-II 38/40 column select
           thirtyeightcolumns <= not fastio_wdata(3);
+          -- @IO:C64 $D016.2-0 VIC-II horizontal smooth scroll
           vicii_x_smoothscroll <= unsigned(fastio_wdata(2 downto 0));
           viciv_legacy_mode_registers_touched <= '1';
-        elsif register_number=23 then          -- $D017 compatibility sprite enable
+        elsif register_number=23 then
+          -- @IO:C64 $D017 VIC-II sprite enable bits
           vicii_sprite_y_expand <= fastio_wdata;
-        elsif register_number=24 then          -- $D018 compatibility RAM addresses
+        elsif register_number=24 then
+          -- @IO:C64 $D018 VIC-II RAM addresses
           -- Character set source address for user-generated character sets.
+          -- @IO:C64 $D018.3-1 VIC-II character set address location (*1KB)
           character_set_address(13 downto 11) <= unsigned(fastio_wdata(3 downto 1));
           character_set_address(10 downto 0) <= (others => '0');
           -- This one is for the internal charrom in the VIC-IV.
@@ -1475,82 +1512,123 @@ begin
           -- Bits 14 and 15 get set by writing to $DD00, as the VIC-IV sniffs
           -- that CIA register being written on the fastio bus.
           screen_ram_base(16) <= '0';
+          -- @IO:C64 $D018.7-4 VIC-II screen address (*1KB)
           reg_d018_screen_addr <= unsigned(fastio_wdata(7 downto 4));
           viciv_legacy_mode_registers_touched <= '1';
         elsif register_number=25 then
-          -- $D019 compatibility IRQ bits
+          -- @IO:C64 $D019 VIC-II IRQ control
           -- Acknowledge IRQs
           -- (we need to pass this to the dotclock side to avoide multiple drivers)
+          -- @IO:C64 $D019.2 VIC-II sprite:sprite collision indicate or acknowledge
           ack_colissionspritesprite <= fastio_wdata(2);
+          -- @IO:C64 $D019.1 VIC-II sprite:bitmap collision indicate or acknowledge
           ack_colissionspritebitmap <= fastio_wdata(1);
+          -- @IO:C64 $D019.0 VIC-II raster compare indicate or acknowledge
           ack_raster <= fastio_wdata(0);
-        elsif register_number=26 then   -- $D01A compatibility IRQ mask bits
-                                        -- XXX Enable/disable IRQs
+        elsif register_number=26 then
+          -- @IO:C64 $D01A compatibility IRQ mask bits
+          -- XXX Enable/disable IRQs
+          -- @IO:C64 $D01A.2 VIC-II mask sprite:sprite colission IRQ
           mask_colissionspritesprite <= fastio_wdata(2);
+          -- @IO:C64 $D01A.2 VIC-II mask sprite:bitmap colission IRQ
           mask_colissionspritebitmap <= fastio_wdata(1);
+          -- @IO:C64 $D01A.2 VIC-II mask raster IRQ
           mask_raster <= fastio_wdata(0);
-        elsif register_number=27 then          -- $D01B sprite background priority
+        elsif register_number=27 then
+          -- @IO:C64 $D01B VIC-II sprite background priority bits
           vicii_sprite_priority_bits <= fastio_wdata;
-        elsif register_number=28 then          -- $D01C sprite multicolour
+        elsif register_number=28 then
+          -- @IO:C64 $D01C VIC-II sprite multicolour enable bits
           vicii_sprite_multicolour_bits <= fastio_wdata;
-        elsif register_number=29 then          -- $D01D compatibility sprite enable
+        elsif register_number=29 then
+          -- @IO:C64 $D01D VIC-II sprite horizontal expansion enable bits
           vicii_sprite_x_expand <= fastio_wdata;
-        elsif register_number=30 then          -- $D01E sprite/sprite collissions
+        elsif register_number=30 then
+          -- @IO:C64 $D01E VIC-II sprite/sprite collision indicate bits
           vicii_sprite_sprite_colissions <= fastio_wdata;
-        elsif register_number=31 then          -- $D01F sprite/sprite collissions
+        elsif register_number=31 then
+          -- @IO:C64 $D01F VIC-II sprite/sprite collision indicate bits
           vicii_sprite_bitmap_colissions <= fastio_wdata;
         elsif register_number=32 then
+          -- @IO:C64 $D020 Border colour
+          -- @IO:C64 $D020.3-0 VIC-II display border colour (16 colour)
+          -- @IO:C65 $D020.7-0 VIC-III/IV display border colour (256 colour)
           if (register_bank=x"D0" or register_bank=x"D2") then
             border_colour(3 downto 0) <= unsigned(fastio_wdata(3 downto 0));
           else
             border_colour <= unsigned(fastio_wdata);
           end if;
         elsif register_number=33 then
+          -- @IO:C64 $D021 Screen colour
+          -- @IO:C64 $D021.3-0 VIC-II screen colour (16 colour)
+          -- @IO:C65 $D021.7-0 VIC-III/IV screen colour (256 colour)
           if (register_bank=x"D0" or register_bank=x"D2") then
             screen_colour(3 downto 0) <= unsigned(fastio_wdata(3 downto 0));
           else
             screen_colour <= unsigned(fastio_wdata);
           end if;
         elsif register_number=34 then
+          -- @IO:C64 $D022 VIC-II multi-colour 1
+          -- @IO:C64 $D022.3-0 VIC-II multi-colour 1 (16 colour)
+          -- @IO:C65 $D022.7-0 VIC-III/IV multi-colour 1 (256 colour)
           if (register_bank=x"D0" or register_bank=x"D2") then
             multi1_colour <= unsigned("0000"&fastio_wdata(3 downto 0));
           else
             multi1_colour <= unsigned(fastio_wdata);
           end if;
         elsif register_number=35 then
+          -- @IO:C64 $D023 VIC-II multi-colour 2
+          -- @IO:C64 $D023.3-0 VIC-II multi-colour 2 (16 colour)
+          -- @IO:C65 $D023.7-0 VIC-III/IV multi-colour 2 (256 colour)
           if (register_bank=x"D0" or register_bank=x"D2") then
             multi2_colour <= unsigned("0000"&fastio_wdata(3 downto 0));
           else
             multi2_colour <= unsigned(fastio_wdata);
           end if;
         elsif register_number=36 then
+          -- @IO:C64 $D024 VIC-II multi-colour 3
+          -- @IO:C64 $D024.3-0 VIC-II multi-colour 3 (16 colour)
+          -- @IO:C65 $D024.7-0 VIC-III/IV multi-colour 3 (256 colour)
           if (register_bank=x"D0" or register_bank=x"D2") then
             multi3_colour <= unsigned("0000"&fastio_wdata(3 downto 0));
           else
             multi3_colour <= unsigned(fastio_wdata);
           end if;
         elsif register_number=37 then
+          -- @IO:C64 $D025 VIC-II/III/IV sprite multi-colour 0 (always 256 colour)
           sprite_multi0_colour <= unsigned(fastio_wdata);
         elsif register_number=38 then
+          -- @IO:C64 $D026 VIC-II/III/IV sprite multi-colour 1 (always 256 colour)
           sprite_multi1_colour <= unsigned(fastio_wdata);
         elsif register_number>=39 and register_number<=46 then
+          -- @IO:C64 $D027 VIC-II sprite 0 colour (always 256 colour)
+          -- @IO:C64 $D028 VIC-II sprite 1 colour (always 256 colour)
+          -- @IO:C64 $D029 VIC-II sprite 2 colour (always 256 colour)
+          -- @IO:C64 $D02A VIC-II sprite 3 colour (always 256 colour)
+          -- @IO:C64 $D02B VIC-II sprite 4 colour (always 256 colour)
+          -- @IO:C64 $D02C VIC-II sprite 5 colour (always 256 colour)
+          -- @IO:C64 $D02D VIC-II sprite 6 colour (always 256 colour)
+          -- @IO:C64 $D02E VIC-II sprite 7 colour (always 256 colour)
           sprite_colours(to_integer(register_number)-39) <= unsigned(fastio_wdata);
-                                        -- Skip $D02F - $D03F to avoid real C65/C128 programs trying to
-                                        -- fiddle with registers in this range.
-                                        -- NEW VIDEO REGISTERS
-                                        -- ($D040 - $D047 is the same as VIC-III DAT ports on C65.
-                                        --  This is tolerable, since the registers most likely used to detect a
-                                        --  C65 are made non-functional.  See:
-                                        -- http://www.devili.iki.fi/Computers/Commodore/C65/System_Specification/Chapter_2/page101.html
-                                        -- http://www.devili.iki.fi/Computers/Commodore/C65/System_Specification/Chapter_2/page102.html
+        -- Skip $D02F - $D03F to avoid real C65/C128 programs trying to
+        -- fiddle with registers in this range.
+        -- NEW VIDEO REGISTERS
+        -- ($D040 - $D047 is the same as VIC-III DAT ports on C65.
+        --  This is tolerable, since the registers most likely used to detect a
+        --  C65 are made non-functional.  See:
+        -- http://www.devili.iki.fi/Computers/Commodore/C65/System_Specification/Chapter_2/page101.html
+        -- http://www.devili.iki.fi/Computers/Commodore/C65/System_Specification/Chapter_2/page102.html
         elsif register_number=47 then
-          -- C65 VIC-III KEY register for unlocking extended registers.
+          -- @IO:C65 $D02F VIC-III KEY register for unlocking extended registers.
+          -- @IO:C65 $D02F Write $A5 then $96 to enable C65/VIC-III IO registers
+          -- @IO:C65 $D02F Write anything else to return to C64/VIC-II IO map
           viciii_iomode <= "00"; -- by default go back to VIC-II mode
           if reg_key=x"a5" then
             if fastio_wdata=x"96" then
               -- C65 VIC-III mode
               viciii_iomode <= "01";
             end if;
+          -- @IO:GS $D02F Write $47 then $53 to enable C65GS/VIC-IV IO registers
           elsif reg_key=x"47" then
             if fastio_wdata=x"53" then
               -- C65GS VIC-IV mode
@@ -1559,7 +1637,8 @@ begin
           end if;
           reg_key <= unsigned(fastio_wdata);
         elsif register_number=255 then
-          -- C128 $D030 emulation (2MHz mode only)
+          -- @IO:C64 $D030 C128 2MHz emulation
+          -- @IO:C64 $D030.0 2MHz select (not yet functional)
           vicii_2mhz_internal <= fastio_wdata(0);
         elsif register_number=48 then
           -- C65 VIC-III Control A Register $D030
