@@ -255,7 +255,8 @@ architecture Behavioral of viciv is
 );
 end component;
 
-  
+  signal before_y_chargen_start : std_logic := '1';
+
   signal vicii_2mhz_internal : std_logic := '1';
   signal viciii_fast_internal : std_logic := '1';
   signal viciv_fast_internal : std_logic := '1';
@@ -2028,7 +2029,12 @@ begin
         report "Setting chargen_active based on xcounter = x_chargen_start" severity note;
         chargen_active_soon <= '0';
       end if;
-      if displayy<y_chargen_start then
+      if displayy = '0' then
+        before_y_chargen_start <= '1';
+      elsif displayy = y_chargen_start then
+        before_y_chargen_start <= '0';
+      end if;
+      if before_y_chargen_start = '1' then
         chargen_y <= (others => '0');
         chargen_y_sub <= (others => '0');
         chargen_active <= '0';
