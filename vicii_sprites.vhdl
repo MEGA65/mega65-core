@@ -17,22 +17,22 @@ entity vicii_sprites is
     -- which base offset for the VIC-II sprite data are we showing this raster line?
     -- VIC-IV clocks sprite_number_for_data and each sprite replaces
     -- sprite_data_offset with the appropriate value if the sprite number is itself
-    signal sprite_data_offset_in : in integer range 0 to 63;    
+    signal sprite_data_offset_in : in integer range 0 to 1023;    
     signal sprite_number_for_data_in : in integer range 0 to 7;
-    signal sprite_data_offset_out : out integer range 0 to 63;    
+    signal sprite_data_offset_out : out integer range 0 to 1023;    
     signal sprite_number_for_data_out : out integer range 0 to 7;
     
     -- Is the pixel just passed in a foreground pixel?
     signal is_foreground_in : in std_logic;
     -- and what is the colour of the bitmap pixel?
-    signal x_in : in integer range 0 to 1919;
-    signal y_in : in integer range 0 to 1199;
+    signal x_in : in integer range 0 to 2047;
+    signal y_in : in integer range 0 to 2047;
     signal border_in : in std_logic;
     signal pixel_in : in unsigned(7 downto 0);
 
      -- Pass pixel information back out, as well as the sprite colour information
-    signal x_out : out integer range 0 to 1919;
-    signal y_out : out integer range 0 to 1199;
+    signal x_out : out integer range 0 to 2047;
+    signal y_out : out integer range 0 to 2047;
     signal border_out : in std_logic;
     signal pixel_out : out unsigned(7 downto 0);
     signal sprite_colour_out : out unsigned(7 downto 0);
@@ -58,12 +58,12 @@ architecture behavioural of vicii_sprites is
   signal vicii_sprite_xmsbs : std_logic_vector(7 downto 0);
   signal sprite_y : sprite_vector_8;
   signal sprite_colours : sprite_vector_8;
-  signal sprite_priorty_bits : std_logic_vector(7 downto 0);
+  signal vicii_sprite_priority_bits : std_logic_vector(7 downto 0);
   signal sprite_multi0_colour : unsigned(7 downto 0) := x"04";
   signal sprite_multi1_colour : unsigned(7 downto 0) := x"05";
-  signal sprite_is_multicolour : unsigned(7 downto 0);
-  signal sprite_stretch_x : unsigned(7 downto 0);
-  signal sprite_stretch_y : unsigned(7 downto 0);
+  signal vicii_sprite_multicolour_bits : unsigned(7 downto 0);
+  signal vicii_sprite_stretch_x : unsigned(7 downto 0);
+  signal vicii_sprite_stretch_y : unsigned(7 downto 0);
 
   -- if set, then upper nybl of colours are used, else only lower nybls, ala VIC-II
   signal viciii_extended_attributes : std_logic := '1';
@@ -131,8 +131,8 @@ architecture behavioural of vicii_sprites is
           vicii_sprite_xmsbs <= fastio_wdata;
         elsif register_number=23 then          -- $D017 compatibility sprite enable
           vicii_sprite_y_expand <= fastio_wdata;
-        elsif register_number=27 then          -- $D01B sprite background priorty
-          vicii_sprite_priorty_bits <= fastio_wdata;
+        elsif register_number=27 then          -- $D01B sprite background priority
+          vicii_sprite_priority_bits <= fastio_wdata;
         elsif register_number=28 then          -- $D01C sprite multicolour
           vicii_sprite_multicolour_bits <= fastio_wdata;
         elsif register_number=29 then          -- $D01D compatibility sprite enable

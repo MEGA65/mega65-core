@@ -232,16 +232,16 @@ architecture Behavioral of viciv is
     signal is_foreground_in : in std_logic;
     signal is_sprite_in : in std_logic;
     -- and what is the colour of the bitmap pixel?
-    signal x_in : in integer range 0 to 1919;
-    signal y_in : in integer range 0 to 1199;
+    signal x_in : in integer range 0 to 2047;
+    signal y_in : in integer range 0 to 2047;
     signal border_in : in std_logic;
     signal pixel_in : in unsigned(7 downto 0);
     -- and of the sprite pixel?
     signal sprite_colour_in : in unsigned(7 downto 0);
 
      -- Pass pixel information back out
-    signal x_out : out integer range 0 to 1919;
-    signal y_out : out integer range 0 to 1199;
+    signal x_out : out integer range 0 to 2047;
+    signal y_out : out integer range 0 to 2047;
     signal border_out : in std_logic;
     signal pixel_out : out unsigned(7 downto 0);
     signal sprite_colour_out : out unsigned(7 downto 0);
@@ -498,6 +498,7 @@ end component;
   signal multi1_colour : unsigned(7 downto 0) := x"01";  -- multi-colour mode #1
   signal multi2_colour : unsigned(7 downto 0) := x"02";  -- multi-colour mode #2
   signal multi3_colour : unsigned(7 downto 0) := x"03";  -- multi-colour mode #3
+  -- XXX move reading of sprite registers to vicii_sprites module
   signal sprite_multi0_colour : unsigned(7 downto 0) := x"04";
   signal sprite_multi1_colour : unsigned(7 downto 0) := x"05";
   type sprite_vector_8 is array(0 to 7) of unsigned(7 downto 0);
@@ -515,7 +516,7 @@ end component;
   signal vicii_sprite_xmsbs : std_logic_vector(7 downto 0);
   signal vicii_sprite_x_expand : std_logic_vector(7 downto 0);
   signal vicii_sprite_y_expand : std_logic_vector(7 downto 0);
-  signal vicii_sprite_priorty_bits : std_logic_vector(7 downto 0);
+  signal vicii_sprite_priority_bits : std_logic_vector(7 downto 0);
   signal vicii_sprite_multicolour_bits : std_logic_vector(7 downto 0);
   signal vicii_sprite_sprite_colissions : std_logic_vector(7 downto 0);
   signal vicii_sprite_bitmap_colissions : std_logic_vector(7 downto 0);
@@ -529,6 +530,20 @@ end component;
   signal mask_colissionspritesprite : std_logic := '0';
   signal mask_colissionspritebitmap : std_logic := '0';
   signal mask_raster : std_logic := '0';
+
+  -- Sprite overlay interface
+  signal sprite_datavalid : std_logic;
+  signal sprite_bytenumber : integer range 0 to 2;
+  signal sprite_spritenumber : integer range 0 to 7;
+  signal sprite_data_byte : unsigned(7 downto 0);
+  signal sprite_data_offset_in : integer range 0 to 1023;
+  signal sprite_number_for_data_in : integer range 0 to 7;
+  signal sprite_data_offset_out : integer range 0 to 1023; 
+  signal sprite_number_for_data_out : integer range 0 to 7;
+  signal pixel_is_foreground_in : std_logic;
+  signal chargen_pixel_colour : unsigned(7 downto 0);
+  signal postsprite_pixel_colour : unsigned(7 downto 0);
+  signal pixel_is_sprite : std_logic;
 
   -- Used for hardware character blinking ala C65
   signal viciii_blink_phase : std_logic := '0';
@@ -798,11 +813,11 @@ begin
               sprite_number_for_data_out => sprite_number_for_data_out,
 
               is_foreground_in => pixel_is_foreground_in,
-              x_in => xcounter_drive,
-              y_in => ycounter_drive,
+              x_in => to_integer(xcounter),
+              y_in => to_integer(ycounter),
               border_in => inborder,
               pixel_in => chargen_pixel_colour,
-              pixel_out => sprite_pixel_colour,
+              pixel_out => postsprite_pixel_colour,
               is_sprite_out => pixel_is_sprite,
 
               fastio_addr => fastio_addr,
@@ -819,7 +834,7 @@ begin
           vicii_x_smoothscroll,vicii_sprite_y_expand,screen_ram_base,
           character_set_address,irq_colissionspritebitmap,irq_colissionspritesprite,
           irq_raster,mask_colissionspritebitmap,mask_colissionspritesprite,
-          mask_raster,vicii_sprite_priorty_bits,vicii_sprite_multicolour_bits,
+          mask_raster,vicii_sprite_priority_bits,vicii_sprite_multicolour_bits,
           vicii_sprite_sprite_colissions,vicii_sprite_bitmap_colissions,
           border_colour,screen_colour,multi1_colour,multi2_colour,multi3_colour,
           border_x_left,border_x_right,border_y_top,border_y_bottom,
@@ -1079,8 +1094,8 @@ begin
           fastio_rdata(2) <= mask_colissionspritesprite;
           fastio_rdata(1) <= mask_colissionspritebitmap;
           fastio_rdata(0) <= mask_raster;
-        elsif register_number=27 then          -- $D01B sprite background priorty
-          fastio_rdata <= vicii_sprite_priorty_bits;
+        elsif register_number=27 then          -- $D01B sprite background priority
+          fastio_rdata <= vicii_sprite_priority_bits;
         elsif register_number=28 then          -- $D01C sprite multicolour
           fastio_rdata <= vicii_sprite_multicolour_bits;
         elsif register_number=29 then          -- $D01D compatibility sprite enable
@@ -1446,8 +1461,8 @@ begin
           mask_colissionspritesprite <= fastio_wdata(2);
           mask_colissionspritebitmap <= fastio_wdata(1);
           mask_raster <= fastio_wdata(0);
-        elsif register_number=27 then          -- $D01B sprite background priorty
-          vicii_sprite_priorty_bits <= fastio_wdata;
+        elsif register_number=27 then          -- $D01B sprite background priority
+          vicii_sprite_priority_bits <= fastio_wdata;
         elsif register_number=28 then          -- $D01C sprite multicolour
           vicii_sprite_multicolour_bits <= fastio_wdata;
         elsif register_number=29 then          -- $D01D compatibility sprite enable
@@ -2065,14 +2080,22 @@ begin
         severity note;
       
       -- 1. From pixel colour lookup RGB
-      -- XXX Doesn't select sprite palette bank when appropriate.
 
+      -- Feed pixel into sprite pipeline
+      chargen_pixel_colour <= pixel_colour;
+      
       -- Use palette bank 3 for "palette ROM" colours (C64 default colours
       -- should be placed there for C65 compatibility).
-      if pixel_colour(7 downto 4) = x"0" and reg_palrom='1' then
-        palette_address <= "11" & std_logic_vector(pixel_colour);
+      if postsprite_pixel_colour(7 downto 4) = x"0" and reg_palrom='1' then
+        palette_address <= "11" & std_logic_vector(postsprite_pixel_colour);
       else
-        palette_address <= palette_bank_chargen & std_logic_vector(pixel_colour);        
+        if pixel_is_sprite='0' then
+          palette_address <= palette_bank_chargen
+                             & std_logic_vector(postsprite_pixel_colour);
+        else
+          palette_address <= palette_bank_sprites
+                             & std_logic_vector(postsprite_pixel_colour);
+        end if;          
       end if;
       vga_buffer_red <= unsigned(palette_rdata(31 downto 24));
       vga_buffer_green <= unsigned(palette_rdata(23 downto 16));
