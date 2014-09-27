@@ -1,3 +1,45 @@
+--
+-- Written by
+--    Paul Gardner-Stephen <hld@c64.org>  2014
+--
+-- *  This program is free software; you can redistribute it and/or modify
+-- *  it under the terms of the GNU Lesser General Public License as
+-- *  published by the Free Software Foundation; either version 3 of the
+-- *  License, or (at your option) any later version.
+-- *
+-- *  This program is distributed in the hope that it will be useful,
+-- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+-- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+-- *  GNU General Public License for more details.
+-- *
+-- *  You should have received a copy of the GNU Lesser General Public License
+-- *  along with this program; if not, write to the Free Software
+-- *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+-- *  02111-1307  USA.
+----------------------------------------------------------------------------------
+-- Company: 
+-- Engineer: 
+-- 
+-- Create Date:    19:11:30 01/02/2014 
+-- Design Name: 
+-- Module Name:    vga - Behavioral 
+-- Project Name: 
+-- Target Devices: 
+-- Tool versions: 
+-- Description: 
+--
+-- Dependencies: 
+--
+-- Revision: 
+-- Revision 0.01 - File Created
+-- Additional Comments: 
+--
+----------------------------------------------------------------------------------
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+use ieee.numeric_std.all;
+use Std.TextIO.all;
+use work.debugtools.all;
 use work.cputypes.all;
 
 entity vicii_sprites is
@@ -33,7 +75,7 @@ entity vicii_sprites is
      -- Pass pixel information back out, as well as the sprite colour information
     signal x_out : out integer range 0 to 2047;
     signal y_out : out integer range 0 to 2047;
-    signal border_out : in std_logic;
+    signal border_out : out std_logic;
     signal pixel_out : out unsigned(7 downto 0);
     signal sprite_colour_out : out unsigned(7 downto 0);
     signal is_sprite_out : out std_logic;
@@ -45,13 +87,16 @@ entity vicii_sprites is
     -- them directly on the much slower ioclock, and provide them to each sprite.
     fastio_addr : in std_logic_vector(19 downto 0);
     fastio_write : in std_logic;
-    fastio_wdata : in std_logic_vector(7 downto 0);
+    fastio_wdata : in std_logic_vector(7 downto 0)
 
 );
 end vicii_sprites;
 
 architecture behavioural of vicii_sprites is
 
+  signal viciii_iomode : std_logic_vector(1 downto 0) := "11";
+  signal reg_key : unsigned(7 downto 0) := x"00";
+  
   -- Description of VIC-II sprites
   signal sprite_x : sprite_vector_8;
   signal vicii_sprite_enables : std_logic_vector(7 downto 0);
@@ -61,9 +106,9 @@ architecture behavioural of vicii_sprites is
   signal vicii_sprite_priority_bits : std_logic_vector(7 downto 0);
   signal sprite_multi0_colour : unsigned(7 downto 0) := x"04";
   signal sprite_multi1_colour : unsigned(7 downto 0) := x"05";
-  signal vicii_sprite_multicolour_bits : unsigned(7 downto 0);
-  signal vicii_sprite_stretch_x : unsigned(7 downto 0);
-  signal vicii_sprite_stretch_y : unsigned(7 downto 0);
+  signal vicii_sprite_multicolour_bits : std_logic_vector(7 downto 0);
+  signal vicii_sprite_x_expand : std_logic_vector(7 downto 0);
+  signal vicii_sprite_y_expand : std_logic_vector(7 downto 0);
 
   -- if set, then upper nybl of colours are used, else only lower nybls, ala VIC-II
   signal viciii_extended_attributes : std_logic := '1';
@@ -73,7 +118,7 @@ architecture behavioural of vicii_sprites is
   signal sprite_bytenumber_out : integer range 0 to 2;
   signal sprite_spritenumber_out : integer range 0 to 7;
   signal sprite_data_out : unsigned(7 downto 0);
-  
+begin  
   process(ioclock) is
     variable register_bank : unsigned(7 downto 0);
     variable register_page : unsigned(3 downto 0);
@@ -168,6 +213,7 @@ architecture behavioural of vicii_sprites is
   process(pixelclock) is
   begin
     -- XXX For now just pipe pixels through
+    border_out <= border_in;
     pixel_out <= pixel_in;
     is_sprite_out <= '0';
   end process;

@@ -230,19 +230,16 @@ architecture Behavioral of viciv is
     -- Is the pixel just passed in a foreground pixel?
     -- Similarly, is the pixel a sprite pixel from another sprite?
     signal is_foreground_in : in std_logic;
-    signal is_sprite_in : in std_logic;
     -- and what is the colour of the bitmap pixel?
     signal x_in : in integer range 0 to 2047;
     signal y_in : in integer range 0 to 2047;
     signal border_in : in std_logic;
     signal pixel_in : in unsigned(7 downto 0);
-    -- and of the sprite pixel?
-    signal sprite_colour_in : in unsigned(7 downto 0);
 
      -- Pass pixel information back out
     signal x_out : out integer range 0 to 2047;
     signal y_out : out integer range 0 to 2047;
-    signal border_out : in std_logic;
+    signal border_out : out std_logic;
     signal pixel_out : out unsigned(7 downto 0);
     signal sprite_colour_out : out unsigned(7 downto 0);
     signal is_sprite_out : out std_logic;
@@ -665,6 +662,7 @@ end component;
   -- Border generation signals
   -- (see video registers section for the registers that define the border size)
   signal inborder : std_logic;
+  signal postsprite_inborder : std_logic;
   signal inborder_drive : std_logic;
   signal inborder_t1 : std_logic;
   signal inborder_t2 : std_logic;
@@ -818,6 +816,7 @@ begin
               border_in => inborder,
               pixel_in => chargen_pixel_colour,
               pixel_out => postsprite_pixel_colour,
+              border_out => postsprite_inborder,
               is_sprite_out => pixel_is_sprite,
 
               fastio_addr => fastio_addr,
