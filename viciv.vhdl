@@ -606,7 +606,11 @@ end component;
 
   -- Common bitmap and character drawing info
   signal glyph_data_address : unsigned(16 downto 0);
-  
+
+  -- For holding pre-calculated expressions to flatten logic
+  signal bitmap_glyph_data_address : unsigned(16 downto 0);
+
+
   -- Bitmap drawing info
   signal bitmap_colour_foreground : unsigned(7 downto 0);
   signal bitmap_colour_background : unsigned(7 downto 0);
@@ -2313,6 +2317,11 @@ begin
           & ", rb_w_addr=$" & to_hstring(raster_buffer_write_address) severity note;
       end if;
 
+      -- Pre-calculate some expressions to flatten logic in critical path
+      bitmap_glyph_data_address
+          <= (character_set_address(16 downto 13)&"0"&x"000")
+        + (to_integer(screen_ram_buffer_address)+to_integer(first_card_of_row))*8+to_integer(chargen_y);
+      
       case raster_fetch_state is
         when Idle => null;
         when FetchScreenRamLine =>
@@ -2420,9 +2429,7 @@ begin
 
           -- calculate data address for bitmap mode in case we need it
           -- bitmap area is always on an 8KB boundary
-          glyph_data_address            
-            <= (character_set_address(16 downto 13)&"0"&x"000")
-            + (to_integer(screen_ram_buffer_address)+to_integer(first_card_of_row))*8+to_integer(chargen_y);
+          glyph_data_address <= bitmap_glyph_data_address;
           report "bitmap srba="& integer'image(to_integer(screen_ram_buffer_address))
             & ", fcor="& integer'image(to_integer(first_card_of_row))
             severity note;
@@ -2468,9 +2475,7 @@ begin
 
           -- calculate data address for bitmap mode in case we need it
           -- bitmap area is always on an 8KB boundary
-          glyph_data_address            
-            <= (character_set_address(16 downto 13)&"0"&x"000")
-            + (to_integer(screen_ram_buffer_address)+to_integer(first_card_of_row))*8+to_integer(chargen_y);
+          glyph_data_address <= bitmap_glyph_data_address;
           report "bitmap srba="& integer'image(to_integer(screen_ram_buffer_address))
             & ", fcor="& integer'image(to_integer(first_card_of_row))
             severity note;
