@@ -2029,7 +2029,7 @@ begin
         report "Setting chargen_active based on xcounter = x_chargen_start" severity note;
         chargen_active_soon <= '0';
       end if;
-      if displayy = '0' then
+      if displayy = (others => '0') then
         before_y_chargen_start <= '1';
       elsif displayy = y_chargen_start then
         before_y_chargen_start <= '0';
