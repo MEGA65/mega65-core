@@ -578,7 +578,7 @@ end component;
   --signal slowram_ce_drive : std_logic;
   --signal slowram_oe_drive : std_logic;
   --signal slowram_lb_drive : std_logic;
-  --signal slowram_ub_drive : std_logic;
+  signal slowram_ub_drive : std_logic;
 
 begin
 
@@ -1002,6 +1002,8 @@ begin
       shadow_address <= to_integer(long_address(16 downto 0));
 
       report "MEMORY long_address = $" & to_hstring(long_address);
+      -- @IO:C64 $0000000 6510/45GS10 CPU port DDR
+      -- @IO:C64 $0000001 6510/45GS10 CPU port data
       if (long_address = x"0000000") or (long_address = x"0000001") then
         accessing_cpuport <= '1';
         wait_states <= shadow_wait_states;
@@ -1060,7 +1062,7 @@ begin
         slowram_ce <= '0';
         slowram_oe <= '0';
         slowram_lb <= '0';
-        slowram_ub <= '0';
+        slowram_ub_drive <= '0';
         slowram_lohi <= long_address(0);
         wait_states <= slowram_waitstates;
         proceed <= '0';
@@ -1321,7 +1323,7 @@ begin
         slowram_oe <= '0';
         slowram_lohi <= long_address(0);
         slowram_lb <= std_logic(long_address(0));
-        slowram_ub <= std_logic(not long_address(0));
+        slowram_ub_drive <= std_logic(not long_address(0));
         slowram_data <= std_logic_vector(value) & std_logic_vector(value);
         wait_states <= slowram_waitstates;
       elsif long_address(27 downto 24) = x"F" then
@@ -1333,6 +1335,7 @@ begin
         fastio_write <= '1'; fastio_read <= '0';
         report "raising fastio_write" severity note;
         fastio_wdata <= std_logic_vector(value);
+        -- @IO:GS $FFC00A0 45GS10 slowram wait-states (write-only)
         if long_address = x"FFC00A0" then
           slowram_waitstates <= value;
         end if;
@@ -1609,6 +1612,7 @@ begin
     -- BEGINNING OF MAIN PROCESS FOR CPU
     if rising_edge(clock) then
       slowram_addr <= slowram_addr_drive;
+      slowram_ub <= slowram_ub_drive
       
       --cpu_speed := vicii_2mhz&viciii_fast&viciv_fast;
       --case cpu_speed is
