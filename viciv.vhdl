@@ -388,8 +388,9 @@ end component;
   signal raster_fetch_state : vic_chargen_fsm := Idle;
   type vic_paint_fsm is (Idle,
                          PaintFullColour,
-                         PaintMono,PaintMonoBits,
-                         PaintMultiColour,PaintMultiColourBits,PaintMultiColourHold);
+                         PaintMono,PaintMonoDrive,PaintMonoBits,
+                         PaintMultiColour,PaintMultiColourDrive,
+                         PaintMultiColourBits,PaintMultiColourHold);
   signal paint_fsm_state : vic_paint_fsm := Idle;
   signal paint_ready : std_logic := '0';
   signal paint_from_charrom : std_logic;
@@ -398,6 +399,10 @@ end component;
   signal paint_background : unsigned(7 downto 0);
   signal paint_mc1 : unsigned(7 downto 0);
   signal paint_mc2 : unsigned(7 downto 0);
+  signal paint_buffer_hflip_chardata : unsigned(7 downto 0);
+  signal paint_buffer_noflip_chardata : unsigned(7 downto 0);
+  signal paint_buffer_hflip_ramdata : unsigned(7 downto 0);
+  signal paint_buffer_noflip_ramdata : unsigned(7 downto 0);
   signal paint_buffer : unsigned(7 downto 0);
   signal paint_bits_remaining : integer range 0 to 8;
   signal paint_chardata : unsigned(7 downto 0);
@@ -2729,6 +2734,22 @@ begin
             report "asserting paint_ready" severity note;
           end if;
         when PaintMono =>
+          -- Drive stage costs us another cycle per glyph, but seems necessary
+          -- to meet timing.
+          paint_buffer_hflip_chardata <= paint_chardata;
+          paint_buffer_noflip_chardata <=
+            paint_chardata(0)&paint_chardata(1)
+            &paint_chardata(2)&paint_chardata(3)
+            &paint_chardata(4)&paint_chardata(5)
+            &paint_chardata(6)&paint_chardata(7);
+          paint_buffer_hflip_ramdata <= paint_ramdata;
+          paint_buffer_noflip_ramdata <=
+            paint_ramdata(1)&paint_ramdata(0)
+            &paint_ramdata(3)&paint_ramdata(2)
+            &paint_ramdata(5)&paint_ramdata(4)
+            &paint_ramdata(7)&paint_ramdata(6);
+          paint_fsm_state <= PaintMonoDrive;
+        when PaintMonoDrive =>
           -- Paint 8 mono bits from ramdata or chardata
           -- Paint from a buffer to meet timing, even though it means we spend
           -- 9 cycles per char to paint, instead of the ideal 8.          
@@ -2739,26 +2760,18 @@ begin
             report "  painting from direct memory would have $ " & to_hstring(ramdata) & " or $" & to_hstring(chardata) severity note;
           end if;
           if paint_flip_horizontal='1' and paint_from_charrom='1' then
-            report "Painting FLIPPED glyph from character rom (bits=$"&to_hstring(paint_chardata)&")" severity note;
-            paint_buffer <= paint_chardata;
+            paint_buffer <= paint_buffer_hflip_chardata;
           elsif paint_flip_horizontal='0' and paint_from_charrom='1' then
-            report "Painting glyph from character rom (bits=$"&to_hstring(paint_chardata)&")" severity note;
-            paint_buffer <= paint_chardata(0)&paint_chardata(1)&paint_chardata(2)&paint_chardata(3)
-                            &paint_chardata(4)&paint_chardata(5)&paint_chardata(6)&paint_chardata(7);
+            paint_buffer <= paint_buffer_noflip_chardata;
           elsif paint_flip_horizontal='1' and paint_from_charrom='0' then
-            report "Painting FLIPPED glyph from RAM (bits=$"&to_hstring(paint_ramdata)&")" severity note;
+            paint_buffer <= paint_buffer_hflip_ramdata;
             if paint_ramdata(0)='1' then
               raster_buffer_write_data <= '1'&paint_foreground;
             else
               raster_buffer_write_data <= '0'&paint_background;
             end if;
-            -- XXX DEBUG: trying to find the source of the apparent path
-            -- between chipram and pain_buffer, when it should be going via paint_ramdata
-            paint_buffer <= paint_ramdata;
           elsif paint_flip_horizontal='0' and paint_from_charrom='0' then
-            report "Painting glyph from RAM (bits=$"&to_hstring(paint_ramdata)&")" severity note;
-            paint_buffer <= paint_ramdata(0)&paint_ramdata(1)&paint_ramdata(2)&paint_ramdata(3)
-                            &paint_ramdata(4)&paint_ramdata(5)&paint_ramdata(6)&paint_ramdata(7);
+            paint_buffer <= paint_buffer_noflip_ramdata;
           end if;
           paint_bits_remaining <= 8;
           paint_ready <= '0';
@@ -2787,6 +2800,22 @@ begin
             paint_ready <= '1';
           end if;
         when PaintMultiColour =>
+          -- Drive stage costs us another cycle per glyph, but seems necessary
+          -- to meet timing.
+          paint_buffer_hflip_chardata <= paint_chardata;
+          paint_buffer_noflip_chardata <=
+            paint_chardata(1)&paint_chardata(0)
+            &paint_chardata(3)&paint_chardata(2)
+            &paint_chardata(5)&paint_chardata(4)
+            &paint_chardata(7)&paint_chardata(6);
+          paint_buffer_hflip_ramdata <= paint_ramdata;
+          paint_buffer_noflip_ramdata <=
+            paint_ramdata(1)&paint_ramdata(0)
+            &paint_ramdata(3)&paint_ramdata(2)
+            &paint_ramdata(5)&paint_ramdata(4)
+            &paint_ramdata(7)&paint_ramdata(6);
+          paint_fsm_state <= PaintMultiColourDrive;
+        when PaintMultiColourDrive =>
           -- Paint 4 multi-colour half-nybls from ramdata or chardata
           -- Paint from a buffer to meet timing, even though it means we spend
           -- 5 cycles per char to paint, instead of the ideal 4.          
@@ -2797,26 +2826,18 @@ begin
             report "  painting from direct memory would have $ " & to_hstring(ramdata) & " or $" & to_hstring(chardata) severity note;
           end if;
           if paint_flip_horizontal='1' and paint_from_charrom='1' then
-            report "Painting FLIPPED glyph from character rom (bits=$"&to_hstring(paint_chardata)&")" severity note;
-            paint_buffer <= paint_chardata;
+            paint_buffer <= paint_buffer_hflip_chardata;
           elsif paint_flip_horizontal='0' and paint_from_charrom='1' then
-            report "Painting glyph from character rom (bits=$"&to_hstring(paint_chardata)&")" severity note;
-            paint_buffer <= paint_chardata(1)&paint_chardata(0)&paint_chardata(3)&paint_chardata(2)
-                            &paint_chardata(5)&paint_chardata(4)&paint_chardata(7)&paint_chardata(6);
+            paint_buffer <= paint_buffer_noflip_chardata;
           elsif paint_flip_horizontal='1' and paint_from_charrom='0' then
-            report "Painting FLIPPED glyph from RAM (bits=$"&to_hstring(paint_ramdata)&")" severity note;
+            paint_buffer <= paint_buffer_hflip_ramdata;
             if paint_ramdata(0)='1' then
               raster_buffer_write_data <= '1'&paint_foreground;
             else
               raster_buffer_write_data <= '0'&paint_background;
             end if;
-            -- XXX DEBUG: trying to find the source of the apparent path
-            -- between chipram and pain_buffer, when it should be going via paint_ramdata
-            paint_buffer <= paint_ramdata;
           elsif paint_flip_horizontal='0' and paint_from_charrom='0' then
-            report "Painting glyph from RAM (bits=$"&to_hstring(paint_ramdata)&")" severity note;
-            paint_buffer <= paint_ramdata(1)&paint_ramdata(0)&paint_ramdata(3)&paint_ramdata(2)
-                            &paint_ramdata(5)&paint_ramdata(4)&paint_ramdata(7)&paint_ramdata(6);
+            paint_buffer <= paint_buffer_noflip_ramdata;
           end if;
           paint_bits_remaining <= 4;
           paint_ready <= '0';
