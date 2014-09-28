@@ -574,10 +574,10 @@ end component;
   signal slowram_addr_drive : std_logic_vector(22 downto 0);
   --signal slowram_data_drive : std_logic_vector(15 downto 0);
   --signal slowram_data_in : std_logic_vector(15 downto 0);
-  --signal slowram_we_drive : std_logic;
-  --signal slowram_ce_drive : std_logic;
-  --signal slowram_oe_drive : std_logic;
-  --signal slowram_lb_drive : std_logic;
+  signal slowram_we_drive : std_logic;
+  signal slowram_ce_drive : std_logic;
+  signal slowram_oe_drive : std_logic;
+  signal slowram_lb_drive : std_logic;
   signal slowram_ub_drive : std_logic;
 
 begin
@@ -801,9 +801,9 @@ begin
       fastio_write <= '0';
       chipram_we <= '0';        
       chipram_datain <= x"c0";    
-      slowram_we <= '1';
-      slowram_ce <= '1';
-      slowram_oe <= '1';
+      slowram_we_drive <= '1';
+      slowram_ce_drive <= '1';
+      slowram_oe_drive <= '1';
       
       wait_states <= (others => '0');
       mem_reading <= '0';
@@ -1058,10 +1058,10 @@ begin
         accessing_slowram <= '1';
         slowram_addr_drive <= std_logic_vector(long_address(23 downto 1));
         slowram_data <= (others => 'Z');  -- tristate data lines
-        slowram_we <= '1';
-        slowram_ce <= '0';
-        slowram_oe <= '0';
-        slowram_lb <= '0';
+        slowram_we_drive <= '1';
+        slowram_ce_drive <= '0';
+        slowram_oe_drive <= '0';
+        slowram_lb_drive <= '0';
         slowram_ub_drive <= '0';
         slowram_lohi <= long_address(0);
         wait_states <= slowram_waitstates;
@@ -1318,11 +1318,11 @@ begin
         fastio_write <= '0';
         shadow_write_flags(2) <= '1';
         slowram_addr_drive <= std_logic_vector(long_address(23 downto 1));
-        slowram_we <= '0';
-        slowram_ce <= '0';
-        slowram_oe <= '0';
+        slowram_we_drive <= '0';
+        slowram_ce_drive <= '0';
+        slowram_oe_drive <= '0';
         slowram_lohi <= long_address(0);
-        slowram_lb <= std_logic(long_address(0));
+        slowram_lb_drive <= std_logic(long_address(0));
         slowram_ub_drive <= std_logic(not long_address(0));
         slowram_data <= std_logic_vector(value) & std_logic_vector(value);
         wait_states <= slowram_waitstates;
@@ -1613,6 +1613,10 @@ begin
     if rising_edge(clock) then
       slowram_addr <= slowram_addr_drive;
       slowram_ub <= slowram_ub_drive;
+      slowram_we <= slowram_we_drive;
+      slowram_ce <= slowram_ce_drive;
+      slowram_oe <= slowram_oe_drive;
+      slowram_lb <= slowram_lb_drive;
       
       --cpu_speed := vicii_2mhz&viciii_fast&viciv_fast;
       --case cpu_speed is
@@ -1800,9 +1804,9 @@ begin
           fastio_write <= '0';
 --          fastio_read <= '0';
           chipram_we <= '0';
-          slowram_we <= '1';
-          slowram_ce <= '1';
-          slowram_oe <= '1';
+          slowram_we_drive <= '1';
+          slowram_ce_drive <= '1';
+          slowram_oe_drive <= '1';
 
           if mem_reading='1' then
 --            report "resetting mem_reading (read $" & to_hstring(memory_read_value) & ")" severity note;
