@@ -1612,7 +1612,7 @@ begin
     -- BEGINNING OF MAIN PROCESS FOR CPU
     if rising_edge(clock) then
       slowram_addr <= slowram_addr_drive;
-      slowram_ub <= slowram_ub_drive
+      slowram_ub <= slowram_ub_drive;
       
       --cpu_speed := vicii_2mhz&viciii_fast&viciv_fast;
       --case cpu_speed is
