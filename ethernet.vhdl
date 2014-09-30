@@ -837,7 +837,7 @@ begin  -- behavioural
             fastio_rdata(5) <= eth_irq_rx;
             fastio_rdata(4) <= eth_irq_tx;
             fastio_rdata(3) <= eth_videostream;
-            fastio_rdata(2) <= eth_rx_buffer_last_used_48mhz;
+            fastio_rdata(2) <= eth_rx_buffer_last_used_48mhz;            
             fastio_rdata(1) <= eth_rx_buffer_moby;
             fastio_rdata(0) <= eth_reset_int;
           -- $D6E2 - TX Packet size
@@ -1093,21 +1093,21 @@ begin  -- behavioural
       if fastio_write='1' then
         -- RR-NET emulation
         if fastio_addr = x"D0E01" then
-          -- $DE01 in C64 mode is RR-NET port that controls clock port
+          -- @IO:C64 $DE01.0 Enable RR-NET emulated clock port ethernet interface
           -- bit 0 enables clock port according to
           -- http://ar.c64.org/wiki/Inside_Replay.txt
           rrnet_enable <= fastio_wdata(0);
         end if;
         if fastio_addr = x"D0E02" and rrnet_enable='1' then
-          -- Write to RRNET register select register (low)
+          -- @IO:C64 $DE02 RRNET register select register (low)
           rrnet_addr(7 downto 0) <= fastio_wdata;
         end if;
         if fastio_addr = x"D0E03" and rrnet_enable='1' then
-          -- Write to RRNET register select register (high)
+          -- @IO:C64 $DE03 RRNET register select register (low)
           rrnet_addr(15 downto 8) <= fastio_wdata;
         end if;
         if fastio_addr = x"D0E06" and rrnet_enable='1' then
-          -- write to even numbered register
+          -- @IO:C64 $DE06 write to even numbered RR-NET register
           case rrnet_addr is
             when x"0144" =>
               -- TX transmit command (also on dedicated $DE0C)
@@ -1127,7 +1127,7 @@ begin  -- behavioural
           end case;
         end if;
         if fastio_addr = x"D0E07" and rrnet_enable='1' then
-          -- write to odd numbered register
+          -- @IO:C64 $DE06 write to odd numbered RR-NET register
           case rrnet_addr is
             -- TX len (low byte) (also on dedicated $DE0F)
             when x"0147" => eth_tx_size(10 downto 8) <= fastio_wdata(2 downto 0);
@@ -1138,6 +1138,7 @@ begin  -- behavioural
             when others => null;
           end case;
         end if;
+        -- @IO:C64 $DE08 RR-NET buffer port (even byte)
         if fastio_addr = x"D0E08" and rrnet_enable='1' then
           if rrnet_tx_state = Buffering then
             -- write even numbered address
@@ -1146,6 +1147,7 @@ begin  -- behavioural
             rrnet_buffer_odd <= fastio_addr(0);
           end if;
         end if;
+        -- @IO:C64 $DE09 RR-NET buffer port (even byte)
         if fastio_addr = x"D0E09" and rrnet_enable='1' then
           -- write odd numbered address and advance offset
           -- XXX why do writes to odd addresses advance the pointer,
@@ -1160,19 +1162,19 @@ begin  -- behavioural
           end if;
         end if;
         if fastio_addr = x"D0E0C" and rrnet_enable='1' then
-          -- Write to RRNET tx_cmd register (low)
+          -- @IO:C64 $DE0C RRNET tx_cmd register (low)
           rrnet_debug <= x"0C";
           rrnet_txcmd_set;
         end if;
         if fastio_addr = x"D0E0D" and rrnet_enable='1' then
-          -- Write to RRNET tx_cmd register (high)
+          -- @IO:C64 $DE0C RRNET tx_cmd register (high)
         end if;
         if fastio_addr = x"D0E0E" and rrnet_enable='1' then
-          -- Set TX packet size: this can map directly to our native register.
+          -- @IO:C64 $DE0E Set RR-NET TX packet size
           eth_tx_size(7 downto 0) <= fastio_wdata;
         end if;
         if fastio_addr = x"D0E0F" and rrnet_enable='1' then
-          -- Set TX packet size: this can map directly to our native register.
+          -- @IO:C64 $DE0F Set RR-NET TX packet size
           eth_tx_size(10 downto 8) <= fastio_wdata(2 downto 0);
         end if;
         if fastio_addr = x"D0E10" and rrnet_enable='1' then
@@ -1183,43 +1185,49 @@ begin  -- behavioural
           -- (we don't need toclear the write lines, as noone else can write to
           -- the buffer.  The TX buffer cannot be read, as reading the same
           -- addresses reads from the RX buffer.)
+          -- @IO:GS $FFDE800 - $FFDEFFF Ethernet TX buffer (write only)
+          -- @IO:GS $FFDE800 - $FFDEFFF Ethernet RX buffer (read only)
           txbuffer_writeaddress <= to_integer(fastio_addr(10 downto 0));
           txbuffer_write <= '1';
           txbuffer_wdata <= fastio_wdata;
         end if;
         if (fastio_addr(19 downto 4) = x"D36E") then
           case fastio_addr(3 downto 0) is
-            when x"0" => -- reset pin on ethernet controller
+            when x"0" =>
+              -- @IO:GS $D6E0.0 reset ethernet PHY
               eth_reset <= fastio_wdata(0);
               eth_reset_int <= fastio_wdata(0);
             when x"1" =>
-              -- Which interrupts are enabled
+              -- @IO:GS $D6E1 100mbit ethernet irq mask
+              -- @IO:GS $D6E1.7 100mbit ethernet enable RX IRQ
               eth_irqenable_rx <= fastio_wdata(7);
+              -- @IO:GS $D6E1.7 100mbit ethernet enable TX done IRQ
               eth_irqenable_tx <= fastio_wdata(6);
               -- Writing here also clears any current interrupts
               report "ETHRX: Clearing IRQ";
               eth_irq_rx <= '0';
               eth_irq_tx <= '0';
 
-              -- Control video streaming
+              -- @IO:GS $D6E1.3 Enable real-time video streaming via ethernet
               eth_videostream <= fastio_wdata(3);
               
-              -- Set reset line on LAN8720
+              -- @IO:GS $D6E1.0 reset ethernet PHY
               eth_reset <= fastio_wdata(0);
               eth_reset_int <= fastio_wdata(0);
-            -- Set low-order size of frame to TX
+            -- @IO:GS $D6E2 Set low-order size of frame to TX
             when x"2" =>
               eth_tx_size(7 downto 0) <= fastio_wdata;
-            -- Set high-order size of frame to TX
+            -- @IO:GS $D6E3 Set high-order size of frame to TX
             when x"3" =>
               eth_tx_size(11 downto 8) <= fastio_wdata(3 downto 0);
-            -- Send frame in TX buffer
+            -- @IO:GS $D6E4 Ethernet command
             when x"4" =>
               case fastio_wdata is
                 when x"00" =>
-                  -- Shouldn't be needed, but allow force-clearing of eth_tx_trigger
+                  -- @IO:GS $D6E4 = $00 = Clear ethernet TX trigger (debug)
                   eth_tx_trigger <= '0';
                 when x"01" =>
+                  -- @IO:GS $D6E4 = $01 = Transmit packet
                   eth_tx_trigger <= '1';
                 when x"de" => -- debug rx
                   -- Receive exactly one frame, and keep all signals states
