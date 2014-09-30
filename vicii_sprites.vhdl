@@ -71,7 +71,7 @@ entity vicii_sprites is
     signal border_in : in std_logic;
     signal pixel_in : in unsigned(7 downto 0);
 
-     -- Pass pixel information back out, as well as the sprite colour information
+    -- Pass pixel information back out, as well as the sprite colour information
     signal x_out : out integer range 0 to 2047;
     signal y_out : out integer range 0 to 2047;
     signal border_out : out std_logic;
@@ -88,11 +88,69 @@ entity vicii_sprites is
     fastio_write : in std_logic;
     fastio_wdata : in std_logic_vector(7 downto 0)
 
-);
+    );
 end vicii_sprites;
 
 architecture behavioural of vicii_sprites is
 
+  component sprite is
+    Port (
+      ----------------------------------------------------------------------
+      -- dot clock
+      ----------------------------------------------------------------------
+      pixelclock : in  STD_LOGIC;
+
+      -- Pull sprite data in along the chain from the previous sprite (or VIC-IV)
+      signal sprite_datavalid_in : in std_logic;
+      signal sprite_bytenumber_in : in integer range 0 to 2;
+      signal sprite_spritenumber_in : in integer range 0 to 7;
+      signal sprite_data_in : in unsigned(7 downto 0);
+
+      -- Pass sprite data out along the chain to the next sprite
+      signal sprite_datavalid_out : out std_logic;
+      signal sprite_bytenumber_out : out integer range 0 to 2;
+      signal sprite_spritenumber_out : out integer range 0 to 7;
+      signal sprite_data_out : out unsigned(7 downto 0);
+
+      -- which base offset for the VIC-II sprite data are we showing this raster line?
+      -- VIC-IV clocks sprite_number_for_data and each sprite replaces
+      -- sprite_data_offset with the appropriate value if the sprite number is itself
+      signal sprite_number_for_data_in : in integer range 0 to 7;
+      signal sprite_data_offset_out : out integer range 0 to 1023;    
+      signal sprite_number_for_data_out : out integer range 0 to 7;
+      
+      -- Is the pixel just passed in a foreground pixel?
+      signal is_foreground_in : in std_logic;
+      -- and what is the colour of the bitmap pixel?
+      signal x_in : in integer range 0 to 2047;
+      signal y_in : in integer range 0 to 2047;
+      signal border_in : in std_logic;
+      signal pixel_in : in unsigned(7 downto 0);
+
+      -- Pass pixel information back out, as well as the sprite colour information
+      signal x_out : out integer range 0 to 2047;
+      signal y_out : out integer range 0 to 2047;
+      signal border_out : out std_logic;
+      signal pixel_out : out unsigned(7 downto 0);
+      signal sprite_colour_out : out unsigned(7 downto 0);
+      signal is_sprite_out : out std_logic;
+
+      signal sprite_x : in unsigned(8 downto 0);
+      signal sprite_y : in unsigned(7 downto 0);
+      signal sprite_colour : in unsigned(7 downto 0);
+      signal sprite_multi0_colour : in unsigned(7 downto 0);
+      signal sprite_multi1_colour : in unsigned(7 downto 0);
+      signal sprite_is_multicolour : in std_logic;
+      signal sprite_stretch_x : in std_logic;
+      signal sprite_stretch_y : in std_logic;
+
+      -- Pass 
+      signal pixel_out : out unsigned(7 downto 0);
+      signal sprite_colour_out : out unsigned(7 downto 0);
+      signal is_sprite_out : out std_logic;
+      );
+  end component;
+  
   signal viciii_iomode : std_logic_vector(1 downto 0) := "11";
   signal reg_key : unsigned(7 downto 0) := x"00";
   
@@ -117,7 +175,27 @@ architecture behavioural of vicii_sprites is
   signal sprite_bytenumber_out : integer range 0 to 2;
   signal sprite_spritenumber_out : integer range 0 to 7;
   signal sprite_data_out : unsigned(7 downto 0);
-begin  
+  
+begin
+
+  -- The eight VIC-II sprites.
+  -- Sprite 0 is "above" sprite 7, so sprite 7 must be the first in the chain.
+  sprite7: component sprite
+    port map(pixelclock => pixelclock,
+             -- Receive sprite data chain to receive data from VIC-IV
+             sprite_datavalid_in <= sprite_datavalid_in,
+             sprite_bytenumber_in <= sprite_bytenumber_in,
+             sprite_spritenumber_in <= sprite_spritenumber_in,
+             sprite_data_in <= sprite_data_in,
+             -- and to pass it out to the next sprite
+             sprite_datavalid_out <= sprite_datavalid_7_6,
+             sprite_bytenumber_out <= sprite_bytenumber_7_6,
+             sprite_spritenumber_out <= sprite_spritenumber_7_6,
+             sprite_data_out <= sprite_data_7_6,
+
+             
+             );
+  
   process(ioclock) is
     variable register_bank : unsigned(7 downto 0);
     variable register_page : unsigned(3 downto 0);

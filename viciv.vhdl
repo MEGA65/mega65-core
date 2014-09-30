@@ -1408,6 +1408,9 @@ begin
       --  to synchronise with the sprites before we fetch the data for them).
       -- Save offset delivered by chain
       sprite_data_offsets(sprite_number_for_data_rx) <= sprite_data_offset_rx;
+      report "SPRITE: VIC-II sprite "
+        & integer'image(sprite_number_for_data_rx)
+        & " = " & integer'image(sprite_data_offset_rx);
       -- Ask for the next one
       if sprite_number_counter = 7 then
         sprite_number_counter <= 0;

@@ -1,3 +1,29 @@
+--
+-- Written by
+--    Paul Gardner-Stephen <hld@c64.org>  2014
+--
+-- *  This program is free software; you can redistribute it and/or modify
+-- *  it under the terms of the GNU Lesser General Public License as
+-- *  published by the Free Software Foundation; either version 3 of the
+-- *  License, or (at your option) any later version.
+-- *
+-- *  This program is distributed in the hope that it will be useful,
+-- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+-- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+-- *  GNU General Public License for more details.
+-- *
+-- *  You should have received a copy of the GNU Lesser General Public License
+-- *  along with this program; if not, write to the Free Software
+-- *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+-- *  02111-1307  USA.
+----------------------------------------------------------------------------------
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+use ieee.numeric_std.all;
+use Std.TextIO.all;
+use work.debugtools.all;
+use work.cputypes.all;
+
 entity sprite is
   Port (
     ----------------------------------------------------------------------
@@ -18,21 +44,27 @@ entity sprite is
     signal sprite_data_out : out unsigned(7 downto 0);
 
     -- which base offset for the VIC-II sprite data are we showing this raster line?
-    signal sprite_data_address : out integer range 0 to 63;    
-
-    signal left_edge_x : in unsigned(8 downto 0);
-    signal displayx_in : in unsigned(11 downto 0);
-    signal displayy_in : in unsigned(11 downto 0);
-    signal display_active_in : in std_logic;
-
+    -- VIC-IV clocks sprite_number_for_data and each sprite replaces
+    -- sprite_data_offset with the appropriate value if the sprite number is itself
+    signal sprite_number_for_data_in : in integer range 0 to 7;
+    signal sprite_data_offset_out : out integer range 0 to 1023;    
+    signal sprite_number_for_data_out : out integer range 0 to 7;
+    
     -- Is the pixel just passed in a foreground pixel?
-    -- Similarly, is the pixel a sprite pixel from another sprite?
     signal is_foreground_in : in std_logic;
-    signal is_sprite_in : in std_logic;
     -- and what is the colour of the bitmap pixel?
+    signal x_in : in integer range 0 to 2047;
+    signal y_in : in integer range 0 to 2047;
+    signal border_in : in std_logic;
     signal pixel_in : in unsigned(7 downto 0);
-    -- and of the sprite pixel?
-    signal sprite_colour_in : in unsigned(7 downto 0);
+
+    -- Pass pixel information back out, as well as the sprite colour information
+    signal x_out : out integer range 0 to 2047;
+    signal y_out : out integer range 0 to 2047;
+    signal border_out : out std_logic;
+    signal pixel_out : out unsigned(7 downto 0);
+    signal sprite_colour_out : out unsigned(7 downto 0);
+    signal is_sprite_out : out std_logic;
 
     signal sprite_x : in unsigned(8 downto 0);
     signal sprite_y : in unsigned(7 downto 0);
