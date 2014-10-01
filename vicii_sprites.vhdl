@@ -135,6 +135,7 @@ architecture behavioural of vicii_sprites is
       signal sprite_colour_out : out unsigned(7 downto 0);
       signal is_sprite_out : out std_logic;
 
+      signal sprite_enable : in std_logic;
       signal sprite_x : in unsigned(8 downto 0);
       signal sprite_y : in unsigned(7 downto 0);
       signal sprite_colour : in unsigned(7 downto 0);
@@ -143,11 +144,8 @@ architecture behavioural of vicii_sprites is
       signal sprite_is_multicolour : in std_logic;
       signal sprite_stretch_x : in std_logic;
       signal sprite_stretch_y : in std_logic;
-
-      -- Pass 
-      signal pixel_out : out unsigned(7 downto 0);
-      signal sprite_colour_out : out unsigned(7 downto 0);
-      signal is_sprite_out : out std_logic;
+      signal sprite_priority : in std_logic
+      
       );
   end component;
   
@@ -170,11 +168,18 @@ architecture behavioural of vicii_sprites is
   -- if set, then upper nybl of colours are used, else only lower nybls, ala VIC-II
   signal viciii_extended_attributes : std_logic := '1';
 
-  -- Pass sprite data out along the chain to the next sprite
+  -- Pass sprite data out along the chain and out the end 
   signal sprite_datavalid_out : std_logic;
   signal sprite_bytenumber_out : integer range 0 to 2;
   signal sprite_spritenumber_out : integer range 0 to 7;
   signal sprite_data_out : unsigned(7 downto 0);
+
+  -- And between the sprites
+  signal sprite_datavalid_7_6 : std_logic;
+  signal sprite_bytenumber_7_6 : integer range 0 to 2;
+  signal sprite_spritenumber_7_6 : integer range 0 to 7;
+  signal sprite_data_7_6 : unsigned(7 downto 0);
+
   
 begin
 
@@ -183,17 +188,29 @@ begin
   sprite7: component sprite
     port map(pixelclock => pixelclock,
              -- Receive sprite data chain to receive data from VIC-IV
-             sprite_datavalid_in <= sprite_datavalid_in,
-             sprite_bytenumber_in <= sprite_bytenumber_in,
-             sprite_spritenumber_in <= sprite_spritenumber_in,
-             sprite_data_in <= sprite_data_in,
+             sprite_datavalid_in => sprite_datavalid_in,
+             sprite_bytenumber_in => sprite_bytenumber_in,
+             sprite_spritenumber_in => sprite_spritenumber_in,
+             sprite_data_in => sprite_data_in,
              -- and to pass it out to the next sprite
-             sprite_datavalid_out <= sprite_datavalid_7_6,
-             sprite_bytenumber_out <= sprite_bytenumber_7_6,
-             sprite_spritenumber_out <= sprite_spritenumber_7_6,
-             sprite_data_out <= sprite_data_7_6,
+             sprite_datavalid_out => sprite_datavalid_7_6,
+             sprite_bytenumber_out => sprite_bytenumber_7_6,
+             sprite_spritenumber_out => sprite_spritenumber_7_6,
+             sprite_data_out => sprite_data_7_6,
 
-             
+             -- Also pass in sprite data
+             sprite_x(8) => vicii_sprite_xmsbs(7),
+             sprite_x(7 downto 0) => sprite_x(7),
+             sprite_y => sprite_y(7),
+             sprite_colour => sprite_colours(7),
+             sprite_enable => vicii_sprite_enables(7),
+             sprite_priority => vicii_sprite_priority_bits(7),
+             sprite_multi0_colour => sprite_multi0_colour,
+             sprite_multi1_colour => sprite_multi1_colour,
+             sprite_is_multicolour => vicii_sprite_multicolour_bits(7),
+             sprite_stretch_x => vicii_sprite_x_expand(7),
+             sprite_stretch_y => vicii_sprite_y_expand(7)
+
              );
   
   process(ioclock) is

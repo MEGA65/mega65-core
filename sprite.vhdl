@@ -74,6 +74,7 @@ entity sprite is
     signal sprite_is_multicolour : in std_logic;
     signal sprite_stretch_x : in std_logic;
     signal sprite_stretch_y : in std_logic;
+    signal sprite_priority : in std_logic;
 
     -- Pass 
     signal pixel_out : out unsigned(7 downto 0);
