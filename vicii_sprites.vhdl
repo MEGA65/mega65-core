@@ -101,6 +101,8 @@ architecture behavioural of vicii_sprites is
       ----------------------------------------------------------------------
       pixelclock : in  STD_LOGIC;
 
+      signal sprite_number : in integer range 0 to 7;
+      
       -- Pull sprite data in along the chain from the previous sprite (or VIC-IV)
       signal sprite_datavalid_in : in std_logic;
       signal sprite_bytenumber_in : in integer range 0 to 2;
@@ -316,6 +318,7 @@ begin
              sprite_colour_out => sprite_colour_7_6,
              
              -- Also pass in sprite data
+             sprite_number => 7,
              sprite_x(8) => vicii_sprite_xmsbs(7),
              sprite_x(7 downto 0) => sprite_x(7),
              sprite_y => sprite_y(7),
@@ -364,6 +367,7 @@ begin
              sprite_colour_out => sprite_colour_6_5,
              
              -- Also pass in sprite data
+             sprite_number => 6,
              sprite_x(8) => vicii_sprite_xmsbs(6),
              sprite_x(7 downto 0) => sprite_x(6),
              sprite_y => sprite_y(6),
@@ -412,6 +416,7 @@ begin
              sprite_colour_out => sprite_colour_5_4,
              
              -- Also pass in sprite data
+             sprite_number => 5,
              sprite_x(8) => vicii_sprite_xmsbs(5),
              sprite_x(7 downto 0) => sprite_x(5),
              sprite_y => sprite_y(5),
@@ -460,6 +465,7 @@ begin
              sprite_colour_out => sprite_colour_4_3,
              
              -- Also pass in sprite data
+             sprite_number => 4,
              sprite_x(8) => vicii_sprite_xmsbs(4),
              sprite_x(7 downto 0) => sprite_x(4),
              sprite_y => sprite_y(4),
@@ -508,6 +514,7 @@ begin
              sprite_colour_out => sprite_colour_3_2,
              
              -- Also pass in sprite data
+             sprite_number => 3,
              sprite_x(8) => vicii_sprite_xmsbs(3),
              sprite_x(7 downto 0) => sprite_x(3),
              sprite_y => sprite_y(3),
@@ -556,6 +563,7 @@ begin
              sprite_colour_out => sprite_colour_2_1,
              
              -- Also pass in sprite data
+             sprite_number => 2,
              sprite_x(8) => vicii_sprite_xmsbs(2),
              sprite_x(7 downto 0) => sprite_x(2),
              sprite_y => sprite_y(2),
@@ -604,6 +612,7 @@ begin
              sprite_colour_out => sprite_colour_1_0,
              
              -- Also pass in sprite data
+             sprite_number => 1,
              sprite_x(8) => vicii_sprite_xmsbs(1),
              sprite_x(7 downto 0) => sprite_x(1),
              sprite_y => sprite_y(1),
@@ -652,6 +661,7 @@ begin
              sprite_colour_out => sprite_colour_out,
              
              -- Also pass in sprite data
+             sprite_number => 0,
              sprite_x(8) => vicii_sprite_xmsbs(0),
              sprite_x(7 downto 0) => sprite_x(0),
              sprite_y => sprite_y(0),
