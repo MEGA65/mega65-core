@@ -179,7 +179,30 @@ architecture behavioural of vicii_sprites is
   signal sprite_bytenumber_7_6 : integer range 0 to 2;
   signal sprite_spritenumber_7_6 : integer range 0 to 7;
   signal sprite_data_7_6 : unsigned(7 downto 0);
-
+  signal sprite_datavalid_6_5 : std_logic;
+  signal sprite_bytenumber_6_5 : integer range 0 to 2;
+  signal sprite_spritenumber_6_5 : integer range 0 to 7;
+  signal sprite_data_6_5 : unsigned(7 downto 0);
+  signal sprite_datavalid_5_4 : std_logic;
+  signal sprite_bytenumber_5_4 : integer range 0 to 2;
+  signal sprite_spritenumber_5_4 : integer range 0 to 7;
+  signal sprite_data_5_4 : unsigned(7 downto 0);
+  signal sprite_datavalid_4_3 : std_logic;
+  signal sprite_bytenumber_4_3 : integer range 0 to 2;
+  signal sprite_spritenumber_4_3 : integer range 0 to 7;
+  signal sprite_data_4_3 : unsigned(7 downto 0);
+  signal sprite_datavalid_3_2 : std_logic;
+  signal sprite_bytenumber_3_2 : integer range 0 to 2;
+  signal sprite_spritenumber_3_2 : integer range 0 to 7;
+  signal sprite_data_3_2 : unsigned(7 downto 0);
+  signal sprite_datavalid_2_1 : std_logic;
+  signal sprite_bytenumber_2_1 : integer range 0 to 2;
+  signal sprite_spritenumber_2_1 : integer range 0 to 7;
+  signal sprite_data_2_1 : unsigned(7 downto 0);
+  signal sprite_datavalid_1_0 : std_logic;
+  signal sprite_bytenumber_1_0 : integer range 0 to 2;
+  signal sprite_spritenumber_1_0 : integer range 0 to 7;
+  signal sprite_data_1_0 : unsigned(7 downto 0);
   
 begin
 
@@ -210,8 +233,190 @@ begin
              sprite_is_multicolour => vicii_sprite_multicolour_bits(7),
              sprite_stretch_x => vicii_sprite_x_expand(7),
              sprite_stretch_y => vicii_sprite_y_expand(7)
-
              );
+  sprite6: component sprite
+    port map(pixelclock => pixelclock,
+             -- Receive sprite data chain to receive data from VIC-IV
+             sprite_datavalid_in => sprite_datavalid_7_6,
+             sprite_bytenumber_in => sprite_bytenumber_7_6,
+             sprite_spritenumber_in => sprite_spritenumber_7_6,
+             sprite_data_in => sprite_data_7_6,
+             -- and to pass it out to the next sprite
+             sprite_datavalid_out => sprite_datavalid_6_5,
+             sprite_bytenumber_out => sprite_bytenumber_6_5,
+             sprite_spritenumber_out => sprite_spritenumber_6_5,
+             sprite_data_out => sprite_data_6_5,
+
+             -- Also pass in sprite data
+             sprite_x(8) => vicii_sprite_xmsbs(6),
+             sprite_x(7 downto 0) => sprite_x(6),
+             sprite_y => sprite_y(6),
+             sprite_colour => sprite_colours(6),
+             sprite_enable => vicii_sprite_enables(6),
+             sprite_priority => vicii_sprite_priority_bits(6),
+             sprite_multi0_colour => sprite_multi0_colour,
+             sprite_multi1_colour => sprite_multi1_colour,
+             sprite_is_multicolour => vicii_sprite_multicolour_bits(6),
+             sprite_stretch_x => vicii_sprite_x_expand(6),
+             sprite_stretch_y => vicii_sprite_y_expand(6)
+             );
+    sprite5: component sprite
+    port map(pixelclock => pixelclock,
+             -- Receive sprite data chain to receive data from VIC-IV
+             sprite_datavalid_in => sprite_datavalid_6_5,
+             sprite_bytenumber_in => sprite_bytenumber_6_5,
+             sprite_spritenumber_in => sprite_spritenumber_6_5,
+             sprite_data_in => sprite_data_6_5,
+             -- and to pass it out to the next sprite
+             sprite_datavalid_out => sprite_datavalid_5_4,
+             sprite_bytenumber_out => sprite_bytenumber_5_4,
+             sprite_spritenumber_out => sprite_spritenumber_5_4,
+             sprite_data_out => sprite_data_5_4,
+
+             -- Also pass in sprite data
+             sprite_x(8) => vicii_sprite_xmsbs(5),
+             sprite_x(7 downto 0) => sprite_x(5),
+             sprite_y => sprite_y(5),
+             sprite_colour => sprite_colours(5),
+             sprite_enable => vicii_sprite_enables(5),
+             sprite_priority => vicii_sprite_priority_bits(5),
+             sprite_multi0_colour => sprite_multi0_colour,
+             sprite_multi1_colour => sprite_multi1_colour,
+             sprite_is_multicolour => vicii_sprite_multicolour_bits(5),
+             sprite_stretch_x => vicii_sprite_x_expand(5),
+             sprite_stretch_y => vicii_sprite_y_expand(5)
+             );
+    sprite4: component sprite
+    port map(pixelclock => pixelclock,
+             -- Receive sprite data chain to receive data from VIC-IV
+             sprite_datavalid_in => sprite_datavalid_5_4,
+             sprite_bytenumber_in => sprite_bytenumber_5_4,
+             sprite_spritenumber_in => sprite_spritenumber_5_4,
+             sprite_data_in => sprite_data_5_4,
+             -- and to pass it out to the next sprite
+             sprite_datavalid_out => sprite_datavalid_4_3,
+             sprite_bytenumber_out => sprite_bytenumber_4_3,
+             sprite_spritenumber_out => sprite_spritenumber_4_3,
+             sprite_data_out => sprite_data_4_3,
+
+             -- Also pass in sprite data
+             sprite_x(8) => vicii_sprite_xmsbs(4),
+             sprite_x(7 downto 0) => sprite_x(4),
+             sprite_y => sprite_y(4),
+             sprite_colour => sprite_colours(4),
+             sprite_enable => vicii_sprite_enables(4),
+             sprite_priority => vicii_sprite_priority_bits(4),
+             sprite_multi0_colour => sprite_multi0_colour,
+             sprite_multi1_colour => sprite_multi1_colour,
+             sprite_is_multicolour => vicii_sprite_multicolour_bits(4),
+             sprite_stretch_x => vicii_sprite_x_expand(4),
+             sprite_stretch_y => vicii_sprite_y_expand(4)
+             );
+    sprite3: component sprite
+    port map(pixelclock => pixelclock,
+             -- Receive sprite data chain to receive data from VIC-IV
+             sprite_datavalid_in => sprite_datavalid_4_3,
+             sprite_bytenumber_in => sprite_bytenumber_4_3,
+             sprite_spritenumber_in => sprite_spritenumber_4_3,
+             sprite_data_in => sprite_data_4_3,
+             -- and to pass it out to the next sprite
+             sprite_datavalid_out => sprite_datavalid_3_2,
+             sprite_bytenumber_out => sprite_bytenumber_3_2,
+             sprite_spritenumber_out => sprite_spritenumber_3_2,
+             sprite_data_out => sprite_data_3_2,
+
+             -- Also pass in sprite data
+             sprite_x(8) => vicii_sprite_xmsbs(3),
+             sprite_x(7 downto 0) => sprite_x(3),
+             sprite_y => sprite_y(3),
+             sprite_colour => sprite_colours(3),
+             sprite_enable => vicii_sprite_enables(3),
+             sprite_priority => vicii_sprite_priority_bits(3),
+             sprite_multi0_colour => sprite_multi0_colour,
+             sprite_multi1_colour => sprite_multi1_colour,
+             sprite_is_multicolour => vicii_sprite_multicolour_bits(3),
+             sprite_stretch_x => vicii_sprite_x_expand(3),
+             sprite_stretch_y => vicii_sprite_y_expand(3)
+             );
+    sprite2: component sprite
+    port map(pixelclock => pixelclock,
+             -- Receive sprite data chain to receive data from VIC-IV
+             sprite_datavalid_in => sprite_datavalid_3_2,
+             sprite_bytenumber_in => sprite_bytenumber_3_2,
+             sprite_spritenumber_in => sprite_spritenumber_3_2,
+             sprite_data_in => sprite_data_3_2,
+             -- and to pass it out to the next sprite
+             sprite_datavalid_out => sprite_datavalid_2_1,
+             sprite_bytenumber_out => sprite_bytenumber_2_1,
+             sprite_spritenumber_out => sprite_spritenumber_2_1,
+             sprite_data_out => sprite_data_2_1,
+
+             -- Also pass in sprite data
+             sprite_x(8) => vicii_sprite_xmsbs(2),
+             sprite_x(7 downto 0) => sprite_x(2),
+             sprite_y => sprite_y(2),
+             sprite_colour => sprite_colours(2),
+             sprite_enable => vicii_sprite_enables(2),
+             sprite_priority => vicii_sprite_priority_bits(2),
+             sprite_multi0_colour => sprite_multi0_colour,
+             sprite_multi1_colour => sprite_multi1_colour,
+             sprite_is_multicolour => vicii_sprite_multicolour_bits(2),
+             sprite_stretch_x => vicii_sprite_x_expand(2),
+             sprite_stretch_y => vicii_sprite_y_expand(2)
+             );
+    sprite1: component sprite
+    port map(pixelclock => pixelclock,
+             -- Receive sprite data chain to receive data from VIC-IV
+             sprite_datavalid_in => sprite_datavalid_2_1,
+             sprite_bytenumber_in => sprite_bytenumber_2_1,
+             sprite_spritenumber_in => sprite_spritenumber_2_1,
+             sprite_data_in => sprite_data_2_1,
+             -- and to pass it out to the next sprite
+             sprite_datavalid_out => sprite_datavalid_1_0,
+             sprite_bytenumber_out => sprite_bytenumber_1_0,
+             sprite_spritenumber_out => sprite_spritenumber_1_0,
+             sprite_data_out => sprite_data_1_0,
+
+             -- Also pass in sprite data
+             sprite_x(8) => vicii_sprite_xmsbs(1),
+             sprite_x(7 downto 0) => sprite_x(1),
+             sprite_y => sprite_y(1),
+             sprite_colour => sprite_colours(1),
+             sprite_enable => vicii_sprite_enables(1),
+             sprite_priority => vicii_sprite_priority_bits(1),
+             sprite_multi0_colour => sprite_multi0_colour,
+             sprite_multi1_colour => sprite_multi1_colour,
+             sprite_is_multicolour => vicii_sprite_multicolour_bits(1),
+             sprite_stretch_x => vicii_sprite_x_expand(1),
+             sprite_stretch_y => vicii_sprite_y_expand(1)
+             );
+    sprite0: component sprite
+    port map(pixelclock => pixelclock,
+             -- Receive sprite data chain to receive data from VIC-IV
+             sprite_datavalid_in => sprite_datavalid_1_0,
+             sprite_bytenumber_in => sprite_bytenumber_1_0,
+             sprite_spritenumber_in => sprite_spritenumber_1_0,
+             sprite_data_in => sprite_data_1_0,
+             -- and to pass it out to the next sprite
+             sprite_datavalid_out => sprite_datavalid_out,
+             sprite_bytenumber_out => sprite_bytenumber_out,
+             sprite_spritenumber_out => sprite_spritenumber_out,
+             sprite_data_out => sprite_data_out,
+
+             -- Also pass in sprite data
+             sprite_x(8) => vicii_sprite_xmsbs(0),
+             sprite_x(7 downto 0) => sprite_x(0),
+             sprite_y => sprite_y(0),
+             sprite_colour => sprite_colours(0),
+             sprite_enable => vicii_sprite_enables(0),
+             sprite_priority => vicii_sprite_priority_bits(0),
+             sprite_multi0_colour => sprite_multi0_colour,
+             sprite_multi1_colour => sprite_multi1_colour,
+             sprite_is_multicolour => vicii_sprite_multicolour_bits(0),
+             sprite_stretch_x => vicii_sprite_x_expand(0),
+             sprite_stretch_y => vicii_sprite_y_expand(0)
+             );
+  
   
   process(ioclock) is
     variable register_bank : unsigned(7 downto 0);
