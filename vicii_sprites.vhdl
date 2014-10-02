@@ -72,6 +72,7 @@ entity vicii_sprites is
     signal pixel_in : in unsigned(7 downto 0);
 
     -- Pass pixel information back out, as well as the sprite colour information
+    signal is_foreground_out : out std_logic;
     signal x_out : out integer range 0 to 2047;
     signal y_out : out integer range 0 to 2047;
     signal border_out : out std_logic;
@@ -394,6 +395,22 @@ begin
              sprite_data_offset_out => sprite_data_offset_5_4,
              sprite_number_for_data_out => sprite_number_for_data_5_4,
 
+             -- pixel data
+             is_foreground_in => is_foreground_6_5,
+             x_in => x_6_5,
+             y_in => y_6_5,
+             border_in => border_6_5,
+             pixel_in => pixel_6_5,
+             is_sprite_in => is_sprite_6_5,
+             sprite_colour_in => sprite_colour_6_5,
+             is_foreground_out => is_foreground_5_4,
+             x_out => x_5_4,
+             y_out => y_5_4,
+             border_out => border_5_4,
+             pixel_out => pixel_5_4,
+             is_sprite_out => is_sprite_5_4,
+             sprite_colour_out => sprite_colour_5_4,
+             
              -- Also pass in sprite data
              sprite_x(8) => vicii_sprite_xmsbs(5),
              sprite_x(7 downto 0) => sprite_x(5),
@@ -426,6 +443,22 @@ begin
              sprite_data_offset_out => sprite_data_offset_4_3,
              sprite_number_for_data_out => sprite_number_for_data_4_3,
 
+             -- pixel data
+             is_foreground_in => is_foreground_5_4,
+             x_in => x_5_4,
+             y_in => y_5_4,
+             border_in => border_5_4,
+             pixel_in => pixel_5_4,
+             is_sprite_in => is_sprite_5_4,
+             sprite_colour_in => sprite_colour_5_4,
+             is_foreground_out => is_foreground_4_3,
+             x_out => x_4_3,
+             y_out => y_4_3,
+             border_out => border_4_3,
+             pixel_out => pixel_4_3,
+             is_sprite_out => is_sprite_4_3,
+             sprite_colour_out => sprite_colour_4_3,
+             
              -- Also pass in sprite data
              sprite_x(8) => vicii_sprite_xmsbs(4),
              sprite_x(7 downto 0) => sprite_x(4),
@@ -458,6 +491,22 @@ begin
              sprite_data_offset_out => sprite_data_offset_3_2,
              sprite_number_for_data_out => sprite_number_for_data_3_2,
 
+             -- pixel data
+             is_foreground_in => is_foreground_4_3,
+             x_in => x_4_3,
+             y_in => y_4_3,
+             border_in => border_4_3,
+             pixel_in => pixel_4_3,
+             is_sprite_in => is_sprite_4_3,
+             sprite_colour_in => sprite_colour_4_3,
+             is_foreground_out => is_foreground_4_3,
+             x_out => x_3_2,
+             y_out => y_3_2,
+             border_out => border_3_2,
+             pixel_out => pixel_3_2,
+             is_sprite_out => is_sprite_3_2,
+             sprite_colour_out => sprite_colour_3_2,
+             
              -- Also pass in sprite data
              sprite_x(8) => vicii_sprite_xmsbs(3),
              sprite_x(7 downto 0) => sprite_x(3),
@@ -490,6 +539,22 @@ begin
              sprite_data_offset_out => sprite_data_offset_2_1,
              sprite_number_for_data_out => sprite_number_for_data_2_1,
 
+             -- pixel data
+             is_foreground_in => is_foreground_3_2,
+             x_in => x_3_2,
+             y_in => y_3_2,
+             border_in => border_3_2,
+             pixel_in => pixel_3_2,
+             is_sprite_in => is_sprite_3_2,
+             sprite_colour_in => sprite_colour_3_2,
+             is_foreground_out => is_foreground_2_1,
+             x_out => x_2_1,
+             y_out => y_2_1,
+             border_out => border_2_1,
+             pixel_out => pixel_2_1,
+             is_sprite_out => is_sprite_2_1,
+             sprite_colour_out => sprite_colour_2_1,
+             
              -- Also pass in sprite data
              sprite_x(8) => vicii_sprite_xmsbs(2),
              sprite_x(7 downto 0) => sprite_x(2),
@@ -522,6 +587,22 @@ begin
              sprite_data_offset_out => sprite_data_offset_1_0,
              sprite_number_for_data_out => sprite_number_for_data_1_0,
 
+             -- pixel data
+             is_foreground_in => is_foreground_2_1,
+             x_in => x_2_1,
+             y_in => y_2_1,
+             border_in => border_2_1,
+             pixel_in => pixel_2_1,
+             is_sprite_in => is_sprite_2_1,
+             sprite_colour_in => sprite_colour_2_1,
+             is_foreground_out => is_foreground_1_0,
+             x_out => x_1_0,
+             y_out => y_1_0,
+             border_out => border_1_0,
+             pixel_out => pixel_1_0,
+             is_sprite_out => is_sprite_1_0,
+             sprite_colour_out => sprite_colour_1_0,
+             
              -- Also pass in sprite data
              sprite_x(8) => vicii_sprite_xmsbs(1),
              sprite_x(7 downto 0) => sprite_x(1),
@@ -554,6 +635,22 @@ begin
              sprite_data_offset_out => sprite_data_offset_out,
              sprite_number_for_data_out => sprite_number_for_data_out,
 
+             -- pixel data
+             is_foreground_in => is_foreground_1_0,
+             x_in => x_1_0,
+             y_in => y_1_0,
+             border_in => border_1_0,
+             pixel_in => pixel_1_0,
+             is_sprite_in => is_sprite_1_0,
+             sprite_colour_in => sprite_colour_1_0,
+             is_foreground_out => is_foreground_out,
+             x_out => x_out,
+             y_out => y_out,
+             border_out => border_out,
+             pixel_out => pixel_out,
+             is_sprite_out => is_sprite_out,
+             sprite_colour_out => sprite_colour_out,
+             
              -- Also pass in sprite data
              sprite_x(8) => vicii_sprite_xmsbs(0),
              sprite_x(7 downto 0) => sprite_x(0),
