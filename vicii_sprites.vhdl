@@ -116,6 +116,7 @@ architecture behavioural of vicii_sprites is
       -- VIC-IV clocks sprite_number_for_data and each sprite replaces
       -- sprite_data_offset with the appropriate value if the sprite number is itself
       signal sprite_number_for_data_in : in integer range 0 to 7;
+      signal sprite_data_offset_in : in integer range 0 to 1023;    
       signal sprite_data_offset_out : out integer range 0 to 1023;    
       signal sprite_number_for_data_out : out integer range 0 to 7;
       
@@ -207,6 +208,21 @@ architecture behavioural of vicii_sprites is
   signal sprite_bytenumber_1_0 : integer range 0 to 2;
   signal sprite_spritenumber_1_0 : integer range 0 to 7;
   signal sprite_data_1_0 : unsigned(7 downto 0);
+
+  signal sprite_number_for_data_7_6 : integer range 0 to 7;
+  signal sprite_number_for_data_6_5 : integer range 0 to 7;
+  signal sprite_number_for_data_5_4 : integer range 0 to 7;
+  signal sprite_number_for_data_4_3 : integer range 0 to 7;
+  signal sprite_number_for_data_3_2 : integer range 0 to 7;
+  signal sprite_number_for_data_2_1 : integer range 0 to 7;
+  signal sprite_number_for_data_1_0 : integer range 0 to 7;
+  signal sprite_data_offset_7_6 : integer range 0 to 1023;
+  signal sprite_data_offset_6_5 : integer range 0 to 1023;
+  signal sprite_data_offset_5_4 : integer range 0 to 1023;
+  signal sprite_data_offset_4_3 : integer range 0 to 1023;
+  signal sprite_data_offset_3_2 : integer range 0 to 1023;
+  signal sprite_data_offset_2_1 : integer range 0 to 1023;
+  signal sprite_data_offset_1_0 : integer range 0 to 1023;
   
 begin
 
@@ -214,7 +230,7 @@ begin
   -- Sprite 0 is "above" sprite 7, so sprite 7 must be the first in the chain.
   sprite7: component sprite
     port map(pixelclock => pixelclock,
-             -- Receive sprite data chain to receive data from VIC-IV
+             -- Receive sprite data chain to receive data from the VIC-IV
              sprite_datavalid_in => sprite_datavalid_in,
              sprite_bytenumber_in => sprite_bytenumber_in,
              sprite_spritenumber_in => sprite_spritenumber_in,
@@ -226,6 +242,12 @@ begin
              sprite_spritenumber_out => sprite_spritenumber_7_6,
              sprite_data_out => sprite_data_7_6,
 
+             -- Sprite offset data chain for VIC-IV
+             sprite_number_for_data_in => sprite_number_for_data_in,
+             sprite_data_offset_in => 0,
+             sprite_data_offset_out => sprite_data_offset_7_6,
+             sprite_number_for_data_out => sprite_number_for_data_7_6,
+             
              -- pixel data
              
              
@@ -255,6 +277,12 @@ begin
              sprite_spritenumber_out => sprite_spritenumber_6_5,
              sprite_data_out => sprite_data_6_5,
 
+             -- Sprite offset data chain for VIC-IV
+             sprite_number_for_data_in => sprite_number_for_data_7_6,
+             sprite_data_offset_in => sprite_data_offset_7_6,
+             sprite_data_offset_out => sprite_data_offset_6_5,
+             sprite_number_for_data_out => sprite_number_for_data_6_5,
+             
              -- Also pass in sprite data
              sprite_x(8) => vicii_sprite_xmsbs(6),
              sprite_x(7 downto 0) => sprite_x(6),
@@ -280,6 +308,12 @@ begin
              sprite_bytenumber_out => sprite_bytenumber_5_4,
              sprite_spritenumber_out => sprite_spritenumber_5_4,
              sprite_data_out => sprite_data_5_4,
+
+             -- Sprite offset data chain for VIC-IV
+             sprite_number_for_data_in => sprite_number_for_data_6_5,
+             sprite_data_offset_in => sprite_data_offset_6_5,
+             sprite_data_offset_out => sprite_data_offset_5_4,
+             sprite_number_for_data_out => sprite_number_for_data_5_4,
 
              -- Also pass in sprite data
              sprite_x(8) => vicii_sprite_xmsbs(5),
@@ -307,6 +341,12 @@ begin
              sprite_spritenumber_out => sprite_spritenumber_4_3,
              sprite_data_out => sprite_data_4_3,
 
+             -- Sprite offset data chain for VIC-IV
+             sprite_number_for_data_in => sprite_number_for_data_5_4,
+             sprite_data_offset_in => sprite_data_offset_5_4,
+             sprite_data_offset_out => sprite_data_offset_4_3,
+             sprite_number_for_data_out => sprite_number_for_data_4_3,
+
              -- Also pass in sprite data
              sprite_x(8) => vicii_sprite_xmsbs(4),
              sprite_x(7 downto 0) => sprite_x(4),
@@ -332,6 +372,12 @@ begin
              sprite_bytenumber_out => sprite_bytenumber_3_2,
              sprite_spritenumber_out => sprite_spritenumber_3_2,
              sprite_data_out => sprite_data_3_2,
+
+             -- Sprite offset data chain for VIC-IV
+             sprite_number_for_data_in => sprite_number_for_data_4_3,
+             sprite_data_offset_in => sprite_data_offset_4_3,
+             sprite_data_offset_out => sprite_data_offset_3_2,
+             sprite_number_for_data_out => sprite_number_for_data_3_2,
 
              -- Also pass in sprite data
              sprite_x(8) => vicii_sprite_xmsbs(3),
@@ -359,6 +405,12 @@ begin
              sprite_spritenumber_out => sprite_spritenumber_2_1,
              sprite_data_out => sprite_data_2_1,
 
+             -- Sprite offset data chain for VIC-IV
+             sprite_number_for_data_in => sprite_number_for_data_3_2,
+             sprite_data_offset_in => sprite_data_offset_3_2,
+             sprite_data_offset_out => sprite_data_offset_2_1,
+             sprite_number_for_data_out => sprite_number_for_data_2_1,
+
              -- Also pass in sprite data
              sprite_x(8) => vicii_sprite_xmsbs(2),
              sprite_x(7 downto 0) => sprite_x(2),
@@ -385,6 +437,12 @@ begin
              sprite_spritenumber_out => sprite_spritenumber_1_0,
              sprite_data_out => sprite_data_1_0,
 
+             -- Sprite offset data chain for VIC-IV
+             sprite_number_for_data_in => sprite_number_for_data_2_1,
+             sprite_data_offset_in => sprite_data_offset_2_1,
+             sprite_data_offset_out => sprite_data_offset_1_0,
+             sprite_number_for_data_out => sprite_number_for_data_1_0,
+
              -- Also pass in sprite data
              sprite_x(8) => vicii_sprite_xmsbs(1),
              sprite_x(7 downto 0) => sprite_x(1),
@@ -410,6 +468,12 @@ begin
              sprite_bytenumber_out => sprite_bytenumber_out,
              sprite_spritenumber_out => sprite_spritenumber_out,
              sprite_data_out => sprite_data_out,
+
+             -- Sprite offset data chain for VIC-IV
+             sprite_number_for_data_in => sprite_number_for_data_1_0,
+             sprite_data_offset_in => sprite_data_offset_1_0,
+             sprite_data_offset_out => sprite_data_offset_out,
+             sprite_number_for_data_out => sprite_number_for_data_out,
 
              -- Also pass in sprite data
              sprite_x(8) => vicii_sprite_xmsbs(0),
