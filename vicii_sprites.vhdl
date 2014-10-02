@@ -223,6 +223,56 @@ architecture behavioural of vicii_sprites is
   signal sprite_data_offset_3_2 : integer range 0 to 1023;
   signal sprite_data_offset_2_1 : integer range 0 to 1023;
   signal sprite_data_offset_1_0 : integer range 0 to 1023;
+
+  signal is_foreground_7_6 : std_logic;
+  signal is_foreground_6_5 : std_logic;
+  signal is_foreground_5_4 : std_logic;
+  signal is_foreground_4_3 : std_logic;
+  signal is_foreground_3_2 : std_logic;
+  signal is_foreground_2_1 : std_logic;
+  signal is_foreground_1_0 : std_logic;
+  signal x_7_6 : integer range 0 to 2047;
+  signal x_6_5 : integer range 0 to 2047;
+  signal x_5_4 : integer range 0 to 2047;
+  signal x_4_3 : integer range 0 to 2047;
+  signal x_3_2 : integer range 0 to 2047;
+  signal x_2_1 : integer range 0 to 2047;
+  signal x_1_0 : integer range 0 to 2047;
+  signal y_7_6 : integer range 0 to 2047;
+  signal y_6_5 : integer range 0 to 2047;
+  signal y_5_4 : integer range 0 to 2047;
+  signal y_4_3 : integer range 0 to 2047;
+  signal y_3_2 : integer range 0 to 2047;
+  signal y_2_1 : integer range 0 to 2047;
+  signal y_1_0 : integer range 0 to 2047;
+  signal border_7_6 : std_logic;
+  signal border_6_5 : std_logic;
+  signal border_5_4 : std_logic;
+  signal border_4_3 : std_logic;
+  signal border_3_2 : std_logic;
+  signal border_2_1 : std_logic;
+  signal border_1_0 : std_logic;
+  signal is_sprite_7_6 : std_logic;
+  signal is_sprite_6_5 : std_logic;
+  signal is_sprite_5_4 : std_logic;
+  signal is_sprite_4_3 : std_logic;
+  signal is_sprite_3_2 : std_logic;
+  signal is_sprite_2_1 : std_logic;
+  signal is_sprite_1_0 : std_logic;
+  signal sprite_colour_7_6 : unsigned(7 downto 0);
+  signal sprite_colour_6_5 : unsigned(7 downto 0);
+  signal sprite_colour_5_4 : unsigned(7 downto 0);
+  signal sprite_colour_4_3 : unsigned(7 downto 0);
+  signal sprite_colour_3_2 : unsigned(7 downto 0);
+  signal sprite_colour_2_1 : unsigned(7 downto 0);
+  signal sprite_colour_1_0 : unsigned(7 downto 0);  
+  signal pixel_7_6 : unsigned(7 downto 0);
+  signal pixel_6_5 : unsigned(7 downto 0);
+  signal pixel_5_4 : unsigned(7 downto 0);
+  signal pixel_4_3 : unsigned(7 downto 0);
+  signal pixel_3_2 : unsigned(7 downto 0);
+  signal pixel_2_1 : unsigned(7 downto 0);
+  signal pixel_1_0 : unsigned(7 downto 0);  
   
 begin
 
@@ -249,7 +299,20 @@ begin
              sprite_number_for_data_out => sprite_number_for_data_7_6,
              
              -- pixel data
-             
+             is_foreground_in => is_foreground_in,
+             x_in => x_in,
+             y_in => y_in,
+             border_in => border_in,
+             pixel_in => pixel_in,
+             is_sprite_in => '0',
+             sprite_colour_in => x"00",
+             is_foreground_out => is_foreground_7_6,
+             x_out => x_7_6,
+             y_out => y_7_6,
+             border_out => border_7_6,
+             pixel_out => pixel_7_6,
+             is_sprite_out => is_sprite_7_6,
+             sprite_colour_out => sprite_colour_7_6,
              
              -- Also pass in sprite data
              sprite_x(8) => vicii_sprite_xmsbs(7),
@@ -282,6 +345,22 @@ begin
              sprite_data_offset_in => sprite_data_offset_7_6,
              sprite_data_offset_out => sprite_data_offset_6_5,
              sprite_number_for_data_out => sprite_number_for_data_6_5,
+
+             -- pixel data
+             is_foreground_in => is_foreground_7_6,
+             x_in => x_7_6,
+             y_in => y_7_6,
+             border_in => border_7_6,
+             pixel_in => pixel_7_6,
+             is_sprite_in => is_sprite_7_6,
+             sprite_colour_in => sprite_colour_7_6,
+             is_foreground_out => is_foreground_6_5,
+             x_out => x_6_5,
+             y_out => y_6_5,
+             border_out => border_6_5,
+             pixel_out => pixel_6_5,
+             is_sprite_out => is_sprite_6_5,
+             sprite_colour_out => sprite_colour_6_5,
              
              -- Also pass in sprite data
              sprite_x(8) => vicii_sprite_xmsbs(6),
