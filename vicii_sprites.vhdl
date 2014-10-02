@@ -126,8 +126,12 @@ architecture behavioural of vicii_sprites is
       signal y_in : in integer range 0 to 2047;
       signal border_in : in std_logic;
       signal pixel_in : in unsigned(7 downto 0);
-
+      -- and information from the previous sprite
+      signal is_sprite_in : in std_logic;
+      signal sprite_colour_in : in unsigned(7 downto 0);
+      
       -- Pass pixel information back out, as well as the sprite colour information
+      signal is_foreground_out : out std_logic;
       signal x_out : out integer range 0 to 2047;
       signal y_out : out integer range 0 to 2047;
       signal border_out : out std_logic;
@@ -215,12 +219,16 @@ begin
              sprite_bytenumber_in => sprite_bytenumber_in,
              sprite_spritenumber_in => sprite_spritenumber_in,
              sprite_data_in => sprite_data_in,
+             
              -- and to pass it out to the next sprite
              sprite_datavalid_out => sprite_datavalid_7_6,
              sprite_bytenumber_out => sprite_bytenumber_7_6,
              sprite_spritenumber_out => sprite_spritenumber_7_6,
              sprite_data_out => sprite_data_7_6,
 
+             -- pixel data
+             
+             
              -- Also pass in sprite data
              sprite_x(8) => vicii_sprite_xmsbs(7),
              sprite_x(7 downto 0) => sprite_x(7),

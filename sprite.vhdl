@@ -57,8 +57,12 @@ entity sprite is
     signal y_in : in integer range 0 to 2047;
     signal border_in : in std_logic;
     signal pixel_in : in unsigned(7 downto 0);
+    -- and information from the previous sprite
+    signal is_sprite_in : in std_logic;
+    signal sprite_colour_in : in unsigned(7 downto 0);
 
     -- Pass pixel information back out, as well as the sprite colour information
+    signal is_foreground_out : out std_logic;
     signal x_out : out integer range 0 to 2047;
     signal y_out : out integer range 0 to 2047;
     signal border_out : out std_logic;
@@ -66,6 +70,7 @@ entity sprite is
     signal sprite_colour_out : out unsigned(7 downto 0);
     signal is_sprite_out : out std_logic;
 
+    signal sprite_enable : in std_logic;
     signal sprite_x : in unsigned(8 downto 0);
     signal sprite_y : in unsigned(7 downto 0);
     signal sprite_colour : in unsigned(7 downto 0);
@@ -74,7 +79,7 @@ entity sprite is
     signal sprite_is_multicolour : in std_logic;
     signal sprite_stretch_x : in std_logic;
     signal sprite_stretch_y : in std_logic;
-    signal sprite_priority : in std_logic;
+    signal sprite_priority : in std_logic
 
 );
 
@@ -88,7 +93,7 @@ begin  -- behavioural
   -- type   : sequential
   -- inputs : pixelclock, <reset>
   -- outputs: colour, is_sprite_out
-  main: process (pixelclock, <reset name>)
+  main: process (pixelclock)
   begin  -- process main
     if pixelclock'event and pixelclock = '1' then  -- rising clock edge
       
