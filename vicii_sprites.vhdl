@@ -162,7 +162,7 @@ architecture behavioural of vicii_sprites is
   
   -- Description of VIC-II sprites
   signal sprite_x : sprite_vector_8;
-  signal vicii_sprite_enables : std_logic_vector(7 downto 0);
+  signal vicii_sprite_enables : std_logic_vector(7 downto 0) := (others => '1');
   signal vicii_sprite_xmsbs : std_logic_vector(7 downto 0);
   signal sprite_y : sprite_vector_8;
   signal sprite_colours : sprite_vector_8;
@@ -262,6 +262,7 @@ architecture behavioural of vicii_sprites is
   signal is_sprite_3_2 : std_logic;
   signal is_sprite_2_1 : std_logic;
   signal is_sprite_1_0 : std_logic;
+  signal is_sprite_final : std_logic;
   signal sprite_colour_7_6 : unsigned(7 downto 0);
   signal sprite_colour_6_5 : unsigned(7 downto 0);
   signal sprite_colour_5_4 : unsigned(7 downto 0);
@@ -269,6 +270,7 @@ architecture behavioural of vicii_sprites is
   signal sprite_colour_3_2 : unsigned(7 downto 0);
   signal sprite_colour_2_1 : unsigned(7 downto 0);
   signal sprite_colour_1_0 : unsigned(7 downto 0);  
+  signal sprite_colour_final : unsigned(7 downto 0);  
   signal pixel_7_6 : unsigned(7 downto 0);
   signal pixel_6_5 : unsigned(7 downto 0);
   signal pixel_5_4 : unsigned(7 downto 0);
@@ -276,6 +278,7 @@ architecture behavioural of vicii_sprites is
   signal pixel_3_2 : unsigned(7 downto 0);
   signal pixel_2_1 : unsigned(7 downto 0);
   signal pixel_1_0 : unsigned(7 downto 0);  
+  signal pixel_final : unsigned(7 downto 0);  
   
 begin
 
@@ -656,9 +659,9 @@ begin
              x_out => x_out,
              y_out => y_out,
              border_out => border_out,
-             pixel_out => pixel_out,
-             is_sprite_out => is_sprite_out,
-             sprite_colour_out => sprite_colour_out,
+             pixel_out => pixel_final,
+             is_sprite_out => is_sprite_final,
+             sprite_colour_out => sprite_colour_final,
              
              -- Also pass in sprite data
              sprite_number => 0,
@@ -769,6 +772,14 @@ begin
 
   process(pixelclock) is
   begin
+    -- Merge chargen and sprite pixels
+    is_sprite_out <= is_sprite_final;
+    if is_sprite_final = '1' then
+      pixel_out <= sprite_colour_final;
+    else
+      pixel_out <= pixel_final;
+    end if;
+
   end process;
   
 end behavioural;
