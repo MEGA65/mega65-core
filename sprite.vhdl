@@ -157,7 +157,7 @@ begin  -- behavioural
         & ", in_sprite=" & std_logic'image(x_in_sprite)
         & ", sprite_x,y=" & to_hstring("000"&sprite_x) & "," &
         to_hstring(sprite_y);
-      if x_in = to_integer(sprite_x) and sprite_enable='1' and y_top='1' then
+      if x_in = to_integer(sprite_x) and sprite_enable='1' and sprite_drawing='1' then
         x_left <= '1';
         x_in_sprite <= '1';
         report "SPRITE: drawing row " & integer'image(y_offset)
@@ -187,6 +187,7 @@ begin  -- behavioural
             if y_offset /= 21 then
               y_offset <= y_offset + 1;
             else
+              report "SPRITE: end of sprite y reached. no longer drawing";
               sprite_drawing <= '0';
             end if;
           end if;
