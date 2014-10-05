@@ -95,11 +95,11 @@ architecture behavioural of sprite is
   signal x_last : integer range 0 to 4095;
   signal x_left : std_logic := '0';
   signal y_top : std_logic := '0';
-  signal sprite_drawing : std_logic := '0';
   signal y_offset : integer range 0 to 21;
   signal x_offset : integer range 0 to 24;
   signal x_is_odd : std_logic := '0';
   signal x_in_sprite : std_logic := '0';
+  signal sprite_drawing : std_logic := '0';
   signal x_expand_toggle : std_logic := '0';
   signal y_expand_toggle : std_logic := '0';
   signal sprite_pixel_bits_mono : std_logic_vector(47 downto 0) := (others => '1');
@@ -144,6 +144,7 @@ begin  -- behavioural
       -- sprite data offset = y_offset * 3
       sprite_data_offset <= (y_offset * 2) + y_offset;
       if y_in = sprite_y then
+        report "SPRITE: y_top set";
         y_top <= '1';
         y_offset <= 0;
         y_expand_toggle <= '0';
@@ -151,8 +152,12 @@ begin  -- behavioural
       report "SPRITE: #" & integer'image(sprite_number) & ": "
         & "x_in=" & integer'image(x_in)
         & ", y_in=" & integer'image(y_in)
-        & ", enable=" & std_logic'image(sprite_enable);
-      if x_in = sprite_x and sprite_enable='1' then
+        & ", enable=" & std_logic'image(sprite_enable)
+        & ", drawing=" & std_logic'image(sprite_drawing)
+        & ", in_sprite=" & std_logic'image(x_in_sprite)
+        & ", sprite_x,y=" & to_hstring("000"&sprite_x) & "," &
+        to_hstring(sprite_y);
+      if x_in = to_integer(sprite_x) and sprite_enable='1' and y_top='1' then
         x_left <= '1';
         x_in_sprite <= '1';
         report "SPRITE: drawing row " & integer'image(y_offset)
@@ -164,9 +169,12 @@ begin  -- behavioural
         else
           sprite_pixel_bits <= sprite_pixel_bits_mc;
         end if;
+      else
+        report "SPRITE: not drawing a row: xcompare=" & boolean'image(x_in=sprite_x)
+          & ", sprite_x=" & integer'image(to_integer(sprite_x));
       end if;
-      if x_left = '1' and y_top = '1' then
-        sprite_drawing <= '1';
+      if x_left = '1' and y_top = '1' and sprite_enable = '1' then
+        report "SPRITE: sprite start hit and enabled: starting drawing.";
       end if;
       -- Advance Y position of sprite
       if y_last /= y_in then
@@ -174,18 +182,23 @@ begin  -- behavioural
         if sprite_drawing = '1' then
           -- Y position has advanced while drawing a sprite
           if y_expand_toggle = '1' or sprite_stretch_y='0' then
-            y_offset <= y_offset + 1;
+            if y_offset /= 21 then
+              y_offset <= y_offset + 1;
+            else
+              sprite_drawing <= '0';
+            end if;
           end if;
         end if;
       end if;
       -- Advance X position of sprite
-      if x_last /= x_in and sprite_drawing = '1' then
+      if x_last /= x_in and x_in_sprite = '1' then
         -- X position has advanced while drawing a sprite
         if x_expand_toggle = '1' or sprite_stretch_x='0' then
           if x_offset /= 24 then
             x_offset <= x_offset + 1;
             x_is_odd <= not x_is_odd;
           else
+            report "SPRITE: right edge of sprite encountered. stopping drawing.";
             x_in_sprite <= '0';
           end if;
           -- shift along to next pixel
