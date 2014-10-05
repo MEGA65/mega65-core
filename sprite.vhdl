@@ -180,6 +180,7 @@ begin  -- behavioural
       end if;
       -- Advance Y position of sprite
       if y_last /= y_in then
+        y_last <= y_in;
         x_in_sprite <= '0';
         if sprite_drawing = '1' then
           -- Y position has advanced while drawing a sprite
@@ -190,6 +191,8 @@ begin  -- behavioural
               report "SPRITE: end of sprite y reached. no longer drawing";
               sprite_drawing <= '0';
             end if;
+          else
+            y_expand_toggle <= not y_expand_toggle;
           end if;
         end if;
       end if;
