@@ -66,15 +66,15 @@ entity vicii_sprites is
     -- Is the pixel just passed in a foreground pixel?
     signal is_foreground_in : in std_logic;
     -- and what is the colour of the bitmap pixel?
-    signal x_in : in integer range 0 to 2047;
-    signal y_in : in integer range 0 to 2047;
+    signal x_in : in integer range 0 to 4095;
+    signal y_in : in integer range 0 to 4095;
     signal border_in : in std_logic;
     signal pixel_in : in unsigned(7 downto 0);
 
     -- Pass pixel information back out, as well as the sprite colour information
     signal is_foreground_out : out std_logic;
-    signal x_out : out integer range 0 to 2047;
-    signal y_out : out integer range 0 to 2047;
+    signal x_out : out integer range 0 to 4095;
+    signal y_out : out integer range 0 to 4095;
     signal border_out : out std_logic;
     signal pixel_out : out unsigned(7 downto 0);
     signal sprite_colour_out : out unsigned(7 downto 0);
@@ -126,8 +126,8 @@ architecture behavioural of vicii_sprites is
       -- Is the pixel just passed in a foreground pixel?
       signal is_foreground_in : in std_logic;
       -- and what is the colour of the bitmap pixel?
-      signal x_in : in integer range 0 to 2047;
-      signal y_in : in integer range 0 to 2047;
+      signal x_in : in integer range 0 to 4095;
+      signal y_in : in integer range 0 to 4095;
       signal border_in : in std_logic;
       signal pixel_in : in unsigned(7 downto 0);
       -- and information from the previous sprite
@@ -136,8 +136,8 @@ architecture behavioural of vicii_sprites is
       
       -- Pass pixel information back out, as well as the sprite colour information
       signal is_foreground_out : out std_logic;
-      signal x_out : out integer range 0 to 2047;
-      signal y_out : out integer range 0 to 2047;
+      signal x_out : out integer range 0 to 4095;
+      signal y_out : out integer range 0 to 4095;
       signal border_out : out std_logic;
       signal pixel_out : out unsigned(7 downto 0);
       signal sprite_colour_out : out unsigned(7 downto 0);
@@ -234,20 +234,20 @@ architecture behavioural of vicii_sprites is
   signal is_foreground_3_2 : std_logic;
   signal is_foreground_2_1 : std_logic;
   signal is_foreground_1_0 : std_logic;
-  signal x_7_6 : integer range 0 to 2047;
-  signal x_6_5 : integer range 0 to 2047;
-  signal x_5_4 : integer range 0 to 2047;
-  signal x_4_3 : integer range 0 to 2047;
-  signal x_3_2 : integer range 0 to 2047;
-  signal x_2_1 : integer range 0 to 2047;
-  signal x_1_0 : integer range 0 to 2047;
-  signal y_7_6 : integer range 0 to 2047;
-  signal y_6_5 : integer range 0 to 2047;
-  signal y_5_4 : integer range 0 to 2047;
-  signal y_4_3 : integer range 0 to 2047;
-  signal y_3_2 : integer range 0 to 2047;
-  signal y_2_1 : integer range 0 to 2047;
-  signal y_1_0 : integer range 0 to 2047;
+  signal x_7_6 : integer range 0 to 4095;
+  signal x_6_5 : integer range 0 to 4095;
+  signal x_5_4 : integer range 0 to 4095;
+  signal x_4_3 : integer range 0 to 4095;
+  signal x_3_2 : integer range 0 to 4095;
+  signal x_2_1 : integer range 0 to 4095;
+  signal x_1_0 : integer range 0 to 4095;
+  signal y_7_6 : integer range 0 to 4095;
+  signal y_6_5 : integer range 0 to 4095;
+  signal y_5_4 : integer range 0 to 4095;
+  signal y_4_3 : integer range 0 to 4095;
+  signal y_3_2 : integer range 0 to 4095;
+  signal y_2_1 : integer range 0 to 4095;
+  signal y_1_0 : integer range 0 to 4095;
   signal border_7_6 : std_logic;
   signal border_6_5 : std_logic;
   signal border_5_4 : std_logic;
@@ -769,10 +769,6 @@ begin
 
   process(pixelclock) is
   begin
-    -- XXX For now just pipe pixels through
-    border_out <= border_in;
-    pixel_out <= pixel_in;
-    is_sprite_out <= '0';
   end process;
   
 end behavioural;
