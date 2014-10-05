@@ -327,8 +327,8 @@ end component;
   -- (On powerup set to a PAL only raster so that ROM doesn't need to wait a
   -- whole frame.  This is really just to make testing through simulation quicker
   -- since a whole frame takes ~20 minutes to simulate).
-  signal vicii_ycounter : unsigned(8 downto 0) := to_unsigned(263+1,9);
-  signal last_vicii_ycounter : unsigned(8 downto 0) := to_unsigned(263+1,9);
+  signal vicii_ycounter : unsigned(8 downto 0) := to_unsigned(0,9); -- 263+1
+  signal last_vicii_ycounter : unsigned(8 downto 0) := to_unsigned(0,9);
   signal vicii_ycounter_phase : unsigned(2 downto 0) := (others => '0');
   signal vicii_ycounter_max_phase : unsigned(2 downto 0) := (others => '0');
   -- Is the VIC-II virtual raster number the active one for interrupts, or
@@ -336,7 +336,7 @@ end component;
   -- gets written to last.
   signal vicii_is_raster_source : std_logic := '1';
 
-  signal vicii_xcounter_sub : unsigned(15 downto 0);
+  signal vicii_xcounter_sub : unsigned(15 downto 0) := (others => '0');
   signal last_vicii_xcounter : unsigned(8 downto 0);
 
   -- Actual pixel positions in the frame
@@ -1939,7 +1939,7 @@ begin
       
       indisplay :='1';
       last_vicii_xcounter <= vicii_xcounter_sub(15 downto 7);
-      report "VICII: xcounter = " & integer'image(to_integer(last_vicii_xcounter))
+      report "VICII: SPRITE: xcounter = " & integer'image(to_integer(last_vicii_xcounter))
         & " (raw = " & to_hstring(vicii_xcounter_sub);
       if xcounter<frame_width then
         xcounter <= xcounter + 1;
@@ -2264,7 +2264,7 @@ begin
       -- Pixels have a two cycle pipeline to help keep timing contraints:
 
       report "PIXEL (" & integer'image(to_integer(displayx)) & "," & integer'image(to_integer(displayy)) & ") = $"
-        & to_hstring(pixel_colour)
+        & to_hstring(postsprite_pixel_colour)
         & ", RGBA = $" &to_hstring(palette_rdata)
         severity note;
       
