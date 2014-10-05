@@ -56,8 +56,8 @@ entity sprite is
     -- Is the pixel just passed in a foreground pixel?
     signal is_foreground_in : in std_logic;
     -- and what is the colour of the bitmap pixel?
-    signal x_in : in integer range 0 to 2047;
-    signal y_in : in integer range 0 to 2047;
+    signal x_in : in integer range 0 to 4095;
+    signal y_in : in integer range 0 to 4095;
     signal border_in : in std_logic;
     signal pixel_in : in unsigned(7 downto 0);
     -- and information from the previous sprite
@@ -66,8 +66,8 @@ entity sprite is
 
     -- Pass pixel information back out, as well as the sprite colour information
     signal is_foreground_out : out std_logic;
-    signal x_out : out integer range 0 to 2047;
-    signal y_out : out integer range 0 to 2047;
+    signal x_out : out integer range 0 to 4095;
+    signal y_out : out integer range 0 to 4095;
     signal border_out : out std_logic;
     signal pixel_out : out unsigned(7 downto 0);
     signal sprite_colour_out : out unsigned(7 downto 0);
@@ -99,11 +99,13 @@ begin  -- behavioural
   main: process (pixelclock)
   begin  -- process main
     if pixelclock'event and pixelclock = '1' then  -- rising clock edge
+--      report "SPRITE: entering VIC-II sprite #" & integer'image(sprite_number);
       -- copy sprite data chain from input side to output side      
       sprite_datavalid_out <= sprite_datavalid_in;
       sprite_bytenumber_out <= sprite_bytenumber_in;
       sprite_data_out <= sprite_data_in;
       sprite_number_for_data_out <= sprite_number_for_data_in;
+
       if sprite_number_for_data_in = sprite_number then
         -- Tell VIC-IV our current sprite data offset
         sprite_data_offset_out <= 0;
@@ -112,6 +114,7 @@ begin  -- behavioural
       end if;
 
       -- copy pixel data chain from input side to output side
+
       pixel_out <= pixel_in;
       x_out <= x_in;
       y_out <= y_in;
@@ -123,7 +126,8 @@ begin  -- behavioural
       -- XXX - for now just copy input to output
       is_sprite_out <= is_sprite_in;
       sprite_colour_out <= sprite_colour_in;
-      
+
+--      report "SPRITE: leaving VIC-II sprite #" & integer'image(sprite_number);
     end if;
   end process main;
 
