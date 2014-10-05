@@ -336,7 +336,7 @@ end component;
   -- gets written to last.
   signal vicii_is_raster_source : std_logic := '1';
 
-  signal vicii_xcounter_sub : unsigned(16 downto 0);
+  signal vicii_xcounter_sub : unsigned(15 downto 0);
   signal last_vicii_xcounter : unsigned(8 downto 0);
 
   -- Actual pixel positions in the frame
@@ -1938,7 +1938,9 @@ begin
       end if;
       
       indisplay :='1';
-      last_vicii_xcounter <= vicii_xcounter_sub(16 downto 8);
+      last_vicii_xcounter <= vicii_xcounter_sub(15 downto 7);
+      report "VICII: xcounter = " & integer'image(to_integer(last_vicii_xcounter))
+        & " (raw = " & to_hstring(vicii_xcounter_sub);
       if xcounter<frame_width then
         xcounter <= xcounter + 1;
         vicii_xcounter_sub <= vicii_xcounter_sub + sprite_x_scale;
