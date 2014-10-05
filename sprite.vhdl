@@ -90,8 +90,19 @@ end sprite;
 
 architecture behavioural of sprite is
 
+  signal sprite_data_offset : integer range 0 to 1023;    
+  signal y_last : integer range 0 to 4095;
+  signal x_last : integer range 0 to 4095;
+  signal x_left : std_logic := '0';
+  signal y_top : std_logic := '0';
+  signal sprite_drawing : std_logic := '0';
+  signal y_offset : integer range 0 to 21;
+  signal x_offset : integer range 0 to 24;
+  signal x_expand_toggle : std_logic := '0';
+  signal y_expand_toggle : std_logic := '0';
+  
 begin  -- behavioural
-
+  
   -- purpose: sprite drawing
   -- type   : sequential
   -- inputs : pixelclock, <reset>
@@ -108,7 +119,7 @@ begin  -- behavioural
 
       if sprite_number_for_data_in = sprite_number then
         -- Tell VIC-IV our current sprite data offset
-        sprite_data_offset_out <= 0;
+        sprite_data_offset_out <= sprite_data_offset;
       else
         sprite_data_offset_out <= sprite_data_offset_in;
       end if;
@@ -121,6 +132,33 @@ begin  -- behavioural
       border_out <= border_in;
       is_foreground_out <= is_foreground_in;
 
+      -- Work out when we start drawing the sprite
+      y_last <= y_in;
+      x_left <= '0';
+      y_top <= '0';
+      -- sprite data offset = y_offset * 3
+      sprite_data_offset <= (y_offset * 2) + y_offset;
+      if y_in = sprite_y then
+        y_top <= '1';
+        y_offset <= 0;
+        y_expand_toggle <= '0';
+      end if;
+      if x_in = sprite_x then
+        x_left <= '1';
+        x_offset <= 0;
+      end if;
+      if x_left = '1' and y_top = '1' then
+        sprite_drawing <= '1';
+      end if;
+      -- Advance Y position of sprite
+      if y_last /= y_in and sprite_drawing = '1' then
+        -- Y position has advanced while drawing a sprite
+        if y_expand_toggle = '1' or sprite_stretch_y='0' then
+        end if;
+      end if;
+
+      
+      
       -- decide whether we are visible or not, and update sprite colour
       -- accordingly.
       -- XXX - for now just copy input to output
