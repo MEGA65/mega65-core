@@ -505,7 +505,7 @@ begin
              pixel_in => pixel_4_3,
              is_sprite_in => is_sprite_4_3,
              sprite_colour_in => sprite_colour_4_3,
-             is_foreground_out => is_foreground_4_3,
+             is_foreground_out => is_foreground_3_2,
              x_out => x_3_2,
              y_out => y_3_2,
              border_out => border_3_2,
