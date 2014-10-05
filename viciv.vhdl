@@ -230,14 +230,14 @@ architecture Behavioral of viciv is
     -- Similarly, is the pixel a sprite pixel from another sprite?
     signal is_foreground_in : in std_logic;
     -- and what is the colour of the bitmap pixel?
-    signal x_in : in integer range 0 to 2047;
-    signal y_in : in integer range 0 to 2047;
+    signal x_in : in integer range 0 to 4095;
+    signal y_in : in integer range 0 to 4095;
     signal border_in : in std_logic;
     signal pixel_in : in unsigned(7 downto 0);
 
      -- Pass pixel information back out
-    signal x_out : out integer range 0 to 2047;
-    signal y_out : out integer range 0 to 2047;
+    signal x_out : out integer range 0 to 4095;
+    signal y_out : out integer range 0 to 4095;
     signal border_out : out std_logic;
     signal pixel_out : out unsigned(7 downto 0);
     signal sprite_colour_out : out unsigned(7 downto 0);
@@ -335,7 +335,10 @@ end component;
   -- are we comparing to physical rasters?  This is decided by which register
   -- gets written to last.
   signal vicii_is_raster_source : std_logic := '1';
-  
+
+  signal vicii_xcounter_sub : unsigned(16 downto 0);
+  signal last_vicii_xcounter : unsigned(8 downto 0);
+
   -- Actual pixel positions in the frame
   signal displayx : unsigned(11 downto 0) := (others => '0');
   signal displayx_drive : unsigned(11 downto 0) := (others => '0');
@@ -454,9 +457,10 @@ end component;
   -- character display width.
   signal virtual_row_width : unsigned(15 downto 0) := to_unsigned(40,16);
   -- Each logical pixel will be 128/n physical pixels wide
-  -- 40 columns needs 24 (=$18)
-  -- 80 columns needs 48 (=$30)
-  signal chargen_x_scale : unsigned(7 downto 0) := x"18";  
+  -- 40 columns needs 24 (=$19)
+  -- 80 columns needs 48 (=$2c)
+  signal chargen_x_scale : unsigned(7 downto 0) := x"19";  
+  signal sprite_x_scale : unsigned(7 downto 0) := x"19";  
   -- Each character pixel will be (n+1) pixels high
   signal chargen_y_scale : unsigned(7 downto 0) := x"02";  -- x"04"
   -- smooth scrolling position in natural pixels.
@@ -523,14 +527,14 @@ end component;
   -- register per sprite).
   signal sprite_data_offset_rx : integer range 0 to 1023;
   signal sprite_number_counter : integer range 0 to 7 := 0;
-  signal sprite_number_for_data_tx : integer range 0 to 7;
+  signal sprite_number_for_data_tx : integer range 0 to 7 := 0;
   signal sprite_number_for_data_rx : integer range 0 to 7;
   type sprite_data_offset_8 is array(0 to 7) of integer range 0 to 1023;
   signal sprite_data_offsets : sprite_data_offset_8;
   -- Similarly we need to deliver the bytes of data to the VIC-II sprite chain
   signal sprite_datavalid : std_logic;
-  signal sprite_bytenumber : integer range 0 to 2;
-  signal sprite_spritenumber : integer range 0 to 7;
+  signal sprite_bytenumber : integer range 0 to 2 := 0;
+  signal sprite_spritenumber : integer range 0 to 7 := 0;
   signal sprite_data_byte : unsigned(7 downto 0);
   -- The sprite chain also has the opportunity to modify the pixel colour being
   -- drawn so that the sprites can be overlayed on the display.
@@ -836,8 +840,11 @@ begin
               sprite_number_for_data_out => sprite_number_for_data_rx,
 
               is_foreground_in => pixel_is_foreground_in,
-              x_in => to_integer(xcounter),
-              y_in => to_integer(ycounter),
+              -- VIC-II sprites care only about VIC-II coordinates
+              -- XXX 40 and 80 column displays should have the same aspect
+              -- ratio for this to really work.
+              x_in => to_integer(last_vicii_xcounter),
+              y_in => to_integer(vicii_ycounter),
               border_in => inborder,
               pixel_in => chargen_pixel_colour,
               pixel_out => postsprite_pixel_colour,
@@ -1407,10 +1414,10 @@ begin
       -- (this can happen on ioclock, since it should still allow ample time
       --  to synchronise with the sprites before we fetch the data for them).
       -- Save offset delivered by chain
-      sprite_data_offsets(sprite_number_for_data_rx) <= sprite_data_offset_rx;
       report "SPRITE: VIC-II sprite "
         & integer'image(sprite_number_for_data_rx)
         & " = " & integer'image(sprite_data_offset_rx);
+      sprite_data_offsets(sprite_number_for_data_rx) <= sprite_data_offset_rx;
       -- Ask for the next one
       if sprite_number_counter = 7 then
         sprite_number_counter <= 0;
@@ -1929,12 +1936,15 @@ begin
       end if;
       
       indisplay :='1';
+      last_vicii_xcounter <= vicii_xcounter_sub(16 downto 8);
       if xcounter<frame_width then
         xcounter <= xcounter + 1;
+        vicii_xcounter_sub <= vicii_xcounter_sub + sprite_x_scale;
       else
         -- End of raster reached.
         -- Bump raster number and start next raster.
         xcounter <= (others => '0');
+        vicii_xcounter_sub <= (others => '0');
         chargen_x_sub <= (others => '0');
         raster_buffer_read_address <= (others => '0');
         chargen_active <= '0';
@@ -2258,6 +2268,9 @@ begin
 
       -- Feed pixel into sprite pipeline
       chargen_pixel_colour <= pixel_colour;
+
+      report "SPRITE: pre_pixel_colour = $" & to_hstring(pixel_colour)
+        & ", postsprite_pixel_colour = $" & to_hstring(postsprite_pixel_colour);
       
       -- Use palette bank 3 for "palette ROM" colours (C64 default colours
       -- should be placed there for C65 compatibility).
