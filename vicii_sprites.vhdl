@@ -775,6 +775,7 @@ begin
     -- Merge chargen and sprite pixels
     is_sprite_out <= is_sprite_final;
     if is_sprite_final = '1' then
+      report "VIC-II: SPRITE: Compositing sprite pixel colour $" & to_hstring(sprite_colour_final);
       pixel_out <= sprite_colour_final;
     else
       pixel_out <= pixel_final;

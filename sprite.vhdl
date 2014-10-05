@@ -174,7 +174,9 @@ begin  -- behavioural
           & ", sprite_x=" & integer'image(to_integer(sprite_x));
       end if;
       if x_left = '1' and y_top = '1' and sprite_enable = '1' then
-        report "SPRITE: sprite start hit and enabled: starting drawing.";
+        report "SPRITE: sprite start hit and enabled: drawing xoffset="
+          & integer'image(x_offset);
+        sprite_drawing <= '1';
       end if;
       -- Advance Y position of sprite
       if y_last /= y_in then
@@ -214,7 +216,8 @@ begin  -- behavioural
       -- XXX - foreground priority is not implemented.
       -- XXX - sprite colission map generation is not implemented
       -- XXX - sprites draw on top of the border?
-      if x_in_sprite='1' then        
+      if x_in_sprite='1' then
+        report "SPRITE: Painting pixel.";
         case sprite_pixel_bits(47 downto 46) is
           when "01" =>
             is_sprite_out <= '1';
