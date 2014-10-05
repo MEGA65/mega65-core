@@ -549,6 +549,8 @@ end component;
   signal vicii_raster_compare : unsigned(10 downto 0);
   signal vicii_x_smoothscroll : unsigned(2 downto 0);
   signal vicii_y_smoothscroll : unsigned(2 downto 0);
+  -- NOTE: these are here for reading. the actual used VIC-II sprite
+  -- registers are defined in vicii_sprites.vhdl
   signal vicii_sprite_enables : std_logic_vector(7 downto 0);
   signal vicii_sprite_xmsbs : std_logic_vector(7 downto 0);
   signal vicii_sprite_x_expand : std_logic_vector(7 downto 0);
