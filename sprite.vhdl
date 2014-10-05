@@ -192,6 +192,8 @@ begin  -- behavioural
       
       -- decide whether we are visible or not, and update sprite colour
       -- accordingly.
+      -- XXX - foreground priority is not implemented.
+      -- XXX - sprite colission map generation is not implemented
       if x_in_sprite='1' then        
         case sprite_pixel_bits(47 downto 46) is
           when "01" =>
