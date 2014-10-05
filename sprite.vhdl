@@ -148,9 +148,15 @@ begin  -- behavioural
         y_offset <= 0;
         y_expand_toggle <= '0';
       end if;
+      report "SPRITE: #" & integer'image(sprite_number) & ": "
+        & "x_in=" & integer'image(x_in)
+        & ", y_in=" & integer'image(y_in)
+        & ", enable=" & std_logic'image(sprite_enable);
       if x_in = sprite_x and sprite_enable='1' then
         x_left <= '1';
         x_in_sprite <= '1';
+        report "SPRITE: drawing row " & integer'image(y_offset)
+          & " of sprite " & integer'image(sprite_number);
         x_offset <= 0;
         x_is_odd <= '0';
         if sprite_is_multicolour = '0' then          
@@ -184,7 +190,7 @@ begin  -- behavioural
           end if;
           -- shift along to next pixel
           if sprite_is_multicolour='0' or x_is_odd='1' then
-            sprite_pixel_bits <= sprite_pixel_bits(46 downto 0)&"00";
+            sprite_pixel_bits <= sprite_pixel_bits(45 downto 0)&"00";
           end if;
         end if;
       end if;      
@@ -194,6 +200,7 @@ begin  -- behavioural
       -- accordingly.
       -- XXX - foreground priority is not implemented.
       -- XXX - sprite colission map generation is not implemented
+      -- XXX - sprites draw on top of the border?
       if x_in_sprite='1' then        
         case sprite_pixel_bits(47 downto 46) is
           when "01" =>
