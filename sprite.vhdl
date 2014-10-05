@@ -98,8 +98,13 @@ architecture behavioural of sprite is
   signal sprite_drawing : std_logic := '0';
   signal y_offset : integer range 0 to 21;
   signal x_offset : integer range 0 to 24;
+  signal x_is_odd : std_logic := '0';
+  signal x_in_sprite : std_logic := '0';
   signal x_expand_toggle : std_logic := '0';
   signal y_expand_toggle : std_logic := '0';
+  signal sprite_pixel_bits_mono : std_logic_vector(47 downto 0) := (others => '1');
+  signal sprite_pixel_bits_mc : std_logic_vector(47 downto 0) := (others => '1');
+  signal sprite_pixel_bits : std_logic_vector(47 downto 0) := (others => '1');
   
 begin  -- behavioural
   
@@ -143,27 +148,70 @@ begin  -- behavioural
         y_offset <= 0;
         y_expand_toggle <= '0';
       end if;
-      if x_in = sprite_x then
+      if x_in = sprite_x and sprite_enable='1' then
         x_left <= '1';
+        x_in_sprite <= '1';
         x_offset <= 0;
+        x_is_odd <= '0';
+        if sprite_is_multicolour = '0' then          
+          sprite_pixel_bits <= sprite_pixel_bits_mono;
+        else
+          sprite_pixel_bits <= sprite_pixel_bits_mc;
+        end if;
       end if;
       if x_left = '1' and y_top = '1' then
         sprite_drawing <= '1';
       end if;
       -- Advance Y position of sprite
-      if y_last /= y_in and sprite_drawing = '1' then
-        -- Y position has advanced while drawing a sprite
-        if y_expand_toggle = '1' or sprite_stretch_y='0' then
+      if y_last /= y_in then
+        x_in_sprite <= '0';
+        if sprite_drawing = '1' then
+          -- Y position has advanced while drawing a sprite
+          if y_expand_toggle = '1' or sprite_stretch_y='0' then
+            y_offset <= y_offset + 1;
+          end if;
         end if;
       end if;
-
+      -- Advance X position of sprite
+      if x_last /= x_in and sprite_drawing = '1' then
+        -- X position has advanced while drawing a sprite
+        if x_expand_toggle = '1' or sprite_stretch_x='0' then
+          if x_offset /= 24 then
+            x_offset <= x_offset + 1;
+            x_is_odd <= not x_is_odd;
+          else
+            x_in_sprite <= '0';
+          end if;
+          -- shift along to next pixel
+          if sprite_is_multicolour='0' or x_is_odd='1' then
+            sprite_pixel_bits <= sprite_pixel_bits(46 downto 0)&"00";
+          end if;
+        end if;
+      end if;      
       
       
       -- decide whether we are visible or not, and update sprite colour
       -- accordingly.
-      -- XXX - for now just copy input to output
-      is_sprite_out <= is_sprite_in;
-      sprite_colour_out <= sprite_colour_in;
+      if x_in_sprite='1' then        
+        case sprite_pixel_bits(47 downto 46) is
+          when "01" =>
+            is_sprite_out <= '1';
+            sprite_colour_out <= sprite_multi0_colour;
+          when "10" =>
+            is_sprite_out <= '1';
+            sprite_colour_out <= sprite_multi1_colour;
+          when "11" =>
+            is_sprite_out <= '1';
+            sprite_colour_out <= sprite_colour;
+          when others =>
+            -- background shows through
+            is_sprite_out <= is_sprite_in;
+            sprite_colour_out <= sprite_colour_in;
+        end case;
+      else
+        is_sprite_out <= is_sprite_in;
+        sprite_colour_out <= sprite_colour_in;
+      end if;
 
 --      report "SPRITE: leaving VIC-II sprite #" & integer'image(sprite_number);
     end if;
