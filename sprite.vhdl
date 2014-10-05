@@ -157,7 +157,7 @@ begin  -- behavioural
         & ", in_sprite=" & std_logic'image(x_in_sprite)
         & ", sprite_x,y=" & to_hstring("000"&sprite_x) & "," &
         to_hstring(sprite_y);
-      if x_in = to_integer(sprite_x) and sprite_enable='1' and sprite_drawing='1' then
+      if x_in = to_integer(sprite_x) and sprite_enable='1' and (y_top='1' or sprite_drawing = '1') then
         x_left <= '1';
         x_in_sprite <= '1';
         report "SPRITE: drawing row " & integer'image(y_offset)
@@ -194,8 +194,9 @@ begin  -- behavioural
         end if;
       end if;
       -- Advance X position of sprite
-      if x_last /= x_in and x_in_sprite = '1' then
+      if (x_last /= x_in) and (x_in_sprite = '1') then
         -- X position has advanced while drawing a sprite
+        x_last <= x_in;
         if x_expand_toggle = '1' or sprite_stretch_x='0' then
           if x_offset /= 24 then
             x_offset <= x_offset + 1;
@@ -208,6 +209,8 @@ begin  -- behavioural
           if sprite_is_multicolour='0' or x_is_odd='1' then
             sprite_pixel_bits <= sprite_pixel_bits(45 downto 0)&"00";
           end if;
+        else
+          x_expand_toggle <= not x_expand_toggle;
         end if;
       end if;      
       
