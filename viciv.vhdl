@@ -389,6 +389,7 @@ end component;
                            PaintDispatch,
                            EndOfChargen,
                            SpritePointerFetch,
+                           SpritePointerFetch2,
                            SpritePointerCompute,
                            SpriteDataFetch,
                            SpriteDataFetch2);
@@ -2809,11 +2810,15 @@ begin
             -- Done fetching sprites
             raster_fetch_state <= Idle;
           else
-            ramaddress <= vicii_sprite_pointer_address(16 downto 0) + sprite_fetch_sprite_number;
+            sprite_data_address(16 downto 3) <= vicii_sprite_pointer_address(16 downto 3);
+            sprite_data_address(2 downto 0) <=  to_unsigned(sprite_fetch_sprite_number,3);
             report "SPRITE: will fetch pointer value from $" &
               to_hstring("000"&(vicii_sprite_pointer_address(16 downto 0) + sprite_fetch_sprite_number));
-            raster_fetch_state <= SpritePointerCompute;
+            raster_fetch_state <= SpritePointerFetch2;
           end if;
+        when SpritePointerFetch2 =>
+          ramaddress <= sprite_data_address;
+          raster_fetch_state <= SpritePointerCompute;
         when SpritePointerCompute =>
           -- Sprite data address is 64*pointer value, plus the 16KB bank
           -- from $DD00.  Then we need to add the data offset for this sprite.
@@ -2844,6 +2849,7 @@ begin
             & " for byte number " & integer'image(sprite_fetch_byte_number);
           sprite_bytenumber <= sprite_fetch_byte_number;
           sprite_data_address(5 downto 0) <= sprite_data_address(5 downto 0) + 1;
+          ramaddress <= sprite_data_address;
           sprite_fetch_byte_number <= sprite_fetch_byte_number + 1;
           sprite_data_byte <= ramdata;
           sprite_datavalid <= '1';
