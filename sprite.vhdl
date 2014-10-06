@@ -234,6 +234,7 @@ begin  -- behavioural
             else
               report "SPRITE: end of sprite y reached. no longer drawing";
               sprite_drawing <= '0';
+              y_offset <= 0;
             end if;
           end if;
           y_expand_toggle <= not y_expand_toggle;
