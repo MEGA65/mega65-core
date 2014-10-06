@@ -105,6 +105,7 @@ architecture behavioural of sprite is
   signal sprite_pixel_bits_mono : std_logic_vector(47 downto 0) := (others => '1');
   signal sprite_pixel_bits_mc : std_logic_vector(47 downto 0) := (others => '1');
   signal sprite_pixel_bits : std_logic_vector(47 downto 0) := (others => '1');
+  signal sprite_data_24bits : unsigned(23 downto 0);
   
 begin  -- behavioural
   
@@ -122,6 +123,32 @@ begin  -- behavioural
       sprite_data_out <= sprite_data_in;
       sprite_number_for_data_out <= sprite_number_for_data_in;
 
+      if sprite_datavalid_in = '1' and sprite_number_for_data_in = sprite_number then
+        -- Record sprite data
+        case sprite_number_for_data_in is
+          when 0 => sprite_data_24bits(23 downto 16) <= sprite_data_in;
+          when 1 => sprite_data_24bits(15 downto 8) <= sprite_data_in;
+          when 2 => sprite_data_24bits(7 downto 0) <= sprite_data_in;
+          when others => null;
+        end case;
+      end if;
+
+      -- Every cycle update mono and multi-colour bit expansion of sprite
+      for i in 0 to 23 loop
+        -- mono version just copies the bits stretching each bit to two to
+        -- select the foreground colour.
+        sprite_pixel_bits_mono(i*2) <= sprite_data_24bits(i);
+        sprite_pixel_bits_mono(i*2+1) <= sprite_data_24bits(i);
+      end loop;
+      for i in 0 to 11 loop
+        -- multi-colour version copies the bit pair twice to stretch the colour
+        -- over two pixels.
+        sprite_pixel_bits_mono(i*4) <= sprite_data_24bits(i*2);
+        sprite_pixel_bits_mono(i*4+1) <= sprite_data_24bits(i*2+1);
+        sprite_pixel_bits_mono(i*4+2) <= sprite_data_24bits(i*2);
+        sprite_pixel_bits_mono(i*4+3) <= sprite_data_24bits(i*2+1);
+      end loop;
+      
       if sprite_number_for_data_in = sprite_number then
         -- Tell VIC-IV our current sprite data offset
         sprite_data_offset_out <= sprite_data_offset;
