@@ -727,11 +727,13 @@ begin
     if rising_edge(ioclock) then
       if fastio_write='1'
         and (fastio_addr(19) = '0' or fastio_addr(19) = '1') then        
-        if register_number>=0 and register_number<8 then
+        if register_number>=0 and register_number<16 then
                                         -- compatibility sprite coordinates
-          sprite_x(to_integer(register_num(2 downto 0))) <= unsigned(fastio_wdata);
-        elsif register_number<16 then
-          sprite_y(to_integer(register_num(2 downto 0))) <= unsigned(fastio_wdata);
+          if register_num(0)='0' then
+            sprite_x(to_integer(register_num(3 downto 1))) <= unsigned(fastio_wdata);
+          else
+            sprite_y(to_integer(register_num(3 downto 1))) <= unsigned(fastio_wdata);
+          end if;
         elsif register_number=16 then
           vicii_sprite_xmsbs <= fastio_wdata;
         elsif register_number=23 then          -- $D017 compatibility sprite enable
