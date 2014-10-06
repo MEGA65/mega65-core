@@ -125,8 +125,8 @@ begin  -- behavioural
 
       if sprite_datavalid_in = '1' and sprite_number_for_data_in = sprite_number then
         -- Record sprite data
-        report "SPRITE: accepting data byte $" & to_hstring(sprite_data_in) & " from VIC-IV";
-        case sprite_number_for_data_in is
+        report "SPRITE: accepting data byte $" & to_hstring(sprite_data_in) & " from VIC-IV for byte #" & integer'image(sprite_bytenumber_in) ;
+        case sprite_bytenumber_in is
           when 0 => sprite_data_24bits(23 downto 16) <= sprite_data_in;
           when 1 => sprite_data_24bits(15 downto 8) <= sprite_data_in;
           when 2 => sprite_data_24bits(7 downto 0) <= sprite_data_in;
