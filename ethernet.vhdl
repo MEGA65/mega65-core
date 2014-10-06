@@ -821,33 +821,44 @@ begin  -- behavioural
       elsif (fastio_addr(19 downto 4) = x"D36E") then
         report "MEMORY: Reading from ethernet register block";
         case fastio_addr(3 downto 0) is
-          -- $D6E0 - controls reset pin of ethernet controller
+          -- @IO:GS $D6E0 Ethernet control
           when x"0" =>
             fastio_rdata(7 downto 5) <= to_unsigned(cs8900aTXstate'pos(rrnet_tx_state),3);
+          -- @IO:GS $D6E0.4 Allow remote keyboard input via magic ethernet frames
             fastio_rdata(4) <= eth_keycode_toggle_internal;
+          -- @IO:GS $D6E0.3 Read ethernet RX data valid
             fastio_rdata(3) <= eth_rxdv;
+          -- @IO:GS $D6E0.1-2 Read ethernet TX bits currently on the wire
             fastio_rdata(2 downto 1) <= eth_rxd;
             fastio_rdata(0) <= eth_reset_int;
-          -- $D6E1 - control which half of RX buffer is visible
+          -- @IO:GS $D6E1 - Ethernet interrupt and control register
           -- (unused bits = 0 to allow expansion of number of RX buffer slots
           -- from 2 to something bigger)
           when x"1" =>
+            -- @IO:GS $D6E1.7 - Enable ethernet RX IRQ
             fastio_rdata(7) <= eth_irqenable_rx;
+            -- @IO:GS $D6E1.6 - Enable ethernet TX IRQ
             fastio_rdata(6) <= eth_irqenable_tx;
+            -- @IO:GS $D6E1.5 - Ethernet RX IRQ status
             fastio_rdata(5) <= eth_irq_rx;
+            -- @IO:GS $D6E1.4 - Ethernet TX IRQ status
             fastio_rdata(4) <= eth_irq_tx;
+            -- $D6E1.3 - Enable streaming of VIC-IV display on ethernet
             fastio_rdata(3) <= eth_videostream;
+            -- @IO:GS $D6E1.2 - Indicate which RX buffer was most recently used
             fastio_rdata(2) <= eth_rx_buffer_last_used_48mhz;            
+            -- @IO:GS $D6E1.1 - Set which RX buffer is memory mapped
             fastio_rdata(1) <= eth_rx_buffer_moby;
+            -- $D6E1.0 - Clear to hold ethernet adapter in reset.
             fastio_rdata(0) <= eth_reset_int;
-          -- $D6E2 - TX Packet size
+          -- @IO:GS $D6E2 - TX Packet size (low byte)
           when x"2" =>
             fastio_rdata <= eth_tx_size(7 downto 0);
-            -- $D6E3 - TX Packet size (high byte)
+            -- @IO:GS $D6E3 - TX Packet size (high byte)
           when x"3" =>
             fastio_rdata(7 downto 4) <= "0000";
             fastio_rdata(3 downto 0) <= eth_tx_size(11 downto 8);
-          -- $D6E4 - Status of frame transmitter
+          -- $D6E4 - Status of frame transmitter (DEBUG ONLY)
           when x"4"  =>
             fastio_rdata(0) <= eth_tx_trigger;
             fastio_rdata(1) <= eth_tx_commenced;
@@ -1194,14 +1205,14 @@ begin  -- behavioural
         if (fastio_addr(19 downto 4) = x"D36E") then
           case fastio_addr(3 downto 0) is
             when x"0" =>
-              -- @IO:GS $D6E0.0 reset ethernet PHY
+              -- @IO:GS $D6E0.0 Clear to reset ethernet PHY
               eth_reset <= fastio_wdata(0);
               eth_reset_int <= fastio_wdata(0);
             when x"1" =>
-              -- @IO:GS $D6E1 100mbit ethernet irq mask
-              -- @IO:GS $D6E1.7 100mbit ethernet enable RX IRQ
+              -- $D6E1 100mbit ethernet irq mask
+              -- $D6E1.7 100mbit ethernet enable RX IRQ
               eth_irqenable_rx <= fastio_wdata(7);
-              -- @IO:GS $D6E1.7 100mbit ethernet enable TX done IRQ
+              -- $D6E1.7 100mbit ethernet enable TX done IRQ
               eth_irqenable_tx <= fastio_wdata(6);
               -- Writing here also clears any current interrupts
               report "ETHRX: Clearing IRQ";
