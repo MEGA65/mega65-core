@@ -51,7 +51,16 @@ int main(int argc,char **argv)
   while(1) {
     unsigned int x,y,colour,rgba;
     char line[1024]; line[0]=0; fgets(line,1024,stdin); 
+    unsigned int char_pix,sprite_pix;
 
+    if (strstr(line,"right edge")) printf("%s",line);
+    if (sscanf(line,"viciv.vhdl:%*d:%*d:@%*[^:]:(report note): SPRITE: pre_pixel_colour = $%x, postsprite_pixel_colour = $%x",&char_pix,&sprite_pix)==2)
+      {
+	if (sprite_pix!=char_pix) {
+	  printf("Sprite pixel colour = $%02x at (%d,%d)\n",
+		 sprite_pix,x,y);
+	}
+      }
     if (sscanf(line,"viciv.vhdl:%*d:%*d:@%*[^:]:(report note): PIXEL (%d,%d) = $%x, RGBA = $%x",
 	       &x,&y,&colour,&rgba)==4) {
       if (x<1920&&y<1200) {
