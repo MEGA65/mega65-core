@@ -387,7 +387,11 @@ end component;
                            PaintMemWait2,
                            PaintMemWait3,
                            PaintDispatch,
-                           EndOfChargen);
+                           EndOfChargen,
+                           SpritePointerFetch,
+                           SpritePointerCompute,
+                           SpriteDataFetch,
+                           SpriteDataFetch2);
   signal raster_fetch_state : vic_chargen_fsm := Idle;
   type vic_paint_fsm is (Idle,
                          PaintFullColour,
@@ -543,6 +547,10 @@ end component;
   signal postsprite_pixel_colour : unsigned(7 downto 0);
   signal pixel_is_sprite : std_logic;
 
+  signal sprite_fetch_sprite_number : integer range 0 to 8;
+  signal sprite_fetch_byte_number : integer range 0 to 3;
+  signal sprite_data_address : unsigned(16 downto 0);
+
   -- Compatibility registers
   signal twentyfourlines : std_logic := '0';
   signal thirtyeightcolumns : std_logic := '0';
@@ -591,7 +599,7 @@ end component;
   signal screen_ram_base : unsigned(27 downto 0) := x"0001000";
   -- Pointer to the VIC-II compatibility sprite source vector, usually
   -- screen+$3F8 in 40 column mode, or +$7F8 in VIC-III 80 column mode
-  signal vicii_sprite_pointer_address : unsigned(27 downto 0) := x"0001000";
+  signal vicii_sprite_pointer_address : unsigned(27 downto 0) := x"00013F8";
 
   -- Character set address.
   -- Size of character set depends on resolution of characters, and whether
@@ -832,7 +840,7 @@ begin
     port map (pixelclock => pixelclock,
               ioclock => ioclock,
 
-              sprite_datavalid_in => sprite_datavalid,
+              sprite_datavalid_in => '1',
               sprite_bytenumber_in => sprite_bytenumber,
               sprite_spritenumber_in => sprite_spritenumber,
               sprite_data_in => sprite_data_byte,
@@ -2790,8 +2798,57 @@ begin
             paint_fsm_state <= Idle;
           end if;
           if paint_fsm_state = Idle then
-            -- XXX should start drawing sprites
+            report "SPRITE: begin data fetch for raster";            
+            raster_fetch_state <= SpritePointerFetch;
+            sprite_fetch_sprite_number <= 0;
+            sprite_fetch_byte_number <= 0;
+          end if;
+        when SpritePointerFetch =>
+          if sprite_fetch_sprite_number = 8 then
+            -- Done fetching sprites
             raster_fetch_state <= Idle;
+          else
+            ramaddress <= vicii_sprite_pointer_address(16 downto 0) + sprite_fetch_sprite_number;
+            report "SPRITE: will fetch pointer value from $" &
+              to_hstring("000"&(vicii_sprite_pointer_address(16 downto 0) + sprite_fetch_sprite_number));
+            raster_fetch_state <= SpritePointerCompute;
+          end if;
+        when SpritePointerCompute =>
+          -- Sprite data address is 64*pointer value, plus the 16KB bank
+          -- from $DD00.  Then we need to add the data offset for this sprite.
+          sprite_data_address(16) <= '0';
+          sprite_data_address(15) <= screen_ram_base(15);
+          sprite_data_address(14) <= screen_ram_base(14);
+          sprite_data_address(13 downto 6) <= ramdata;
+          sprite_data_address(5 downto 0) <= to_unsigned(sprite_data_offsets(sprite_fetch_sprite_number),6);
+          report "SPRITE: sprite #"
+            & integer'image(sprite_fetch_sprite_number)
+            & " pointer value = $" & to_hstring(ramdata);
+          sprite_spritenumber <= sprite_fetch_sprite_number;
+          raster_fetch_state <= SpriteDataFetch;
+        when SpriteDataFetch =>
+          report "SPRITE: fetching sprite #"
+            & integer'image(sprite_fetch_sprite_number)
+            & " data from $" & to_hstring("000"&sprite_data_address(16 downto 0));
+          
+          ramaddress <= sprite_data_address;
+          sprite_data_address <= sprite_data_address + 1;
+          raster_fetch_state <= SpriteDataFetch2;
+        when SpriteDataFetch2 =>
+          report "SPRITE: fetching sprite #"
+            & integer'image(sprite_fetch_sprite_number)
+            & " data = $" &
+            to_hstring(ramdata)
+            & " from $" & to_hstring("000"&sprite_data_address(16 downto 0))
+            & " for byte number " & integer'image(sprite_fetch_byte_number);
+          sprite_bytenumber <= sprite_fetch_byte_number;
+          sprite_data_address <= sprite_data_address + 1;
+          sprite_fetch_byte_number <= sprite_fetch_byte_number + 1;
+          sprite_data_byte <= ramdata;
+          if sprite_fetch_byte_number = 2 then
+            sprite_fetch_byte_number <= 0;
+            sprite_fetch_sprite_number <= sprite_fetch_sprite_number + 1;
+            raster_fetch_state <= SpritePointerFetch;
           end if;
         when others => null;
       end case;
