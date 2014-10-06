@@ -2281,8 +2281,8 @@ begin
       -- Feed pixel into sprite pipeline
       chargen_pixel_colour <= pixel_colour;
 
-      report "SPRITE: pre_pixel_colour = $" & to_hstring(pixel_colour)
-        & ", postsprite_pixel_colour = $" & to_hstring(postsprite_pixel_colour);
+      --report "SPRITE: pre_pixel_colour = $" & to_hstring(pixel_colour)
+      --  & ", postsprite_pixel_colour = $" & to_hstring(postsprite_pixel_colour);
       
       -- Use palette bank 3 for "palette ROM" colours (C64 default colours
       -- should be placed there for C65 compatibility).
