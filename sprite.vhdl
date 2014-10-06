@@ -228,7 +228,7 @@ begin  -- behavioural
         x_in_sprite <= '0';
         if sprite_drawing = '1' then
           -- Y position has advanced while drawing a sprite
-          if y_expand_toggle = '1' or sprite_stretch_y='0' then
+          if y_expand_toggle = '1' or sprite_stretch_y/='1' then
             if y_offset /= 21 then
               y_offset <= y_offset + 1;
             else
@@ -245,7 +245,7 @@ begin  -- behavioural
         -- X position has advanced while drawing a sprite
         x_last <= x_in;
         report "SPRITE: drawing next pixel";
-        if x_expand_toggle = '1' or sprite_stretch_x='0' then
+        if (x_expand_toggle = '1') or (sprite_stretch_x/='1') then
           if x_offset /= 24 then
             x_offset <= x_offset + 1;
             x_is_odd <= not x_is_odd;
@@ -254,12 +254,10 @@ begin  -- behavioural
             x_in_sprite <= '0';
           end if;
           -- shift along to next pixel
-          if sprite_is_multicolour='0' or x_is_odd='1' then
-            report "SPRITE: shifting pixel vector along (was "&
-              to_string(sprite_pixel_bits)
-              &")";
-            sprite_pixel_bits <= sprite_pixel_bits(45 downto 0)&"00";
-          end if;
+          report "SPRITE: shifting pixel vector along (was "&
+            to_string(sprite_pixel_bits)
+            &")";
+          sprite_pixel_bits <= sprite_pixel_bits(45 downto 0)&"00";
         else
           report "SPRITE: toggling x_expand_toggle";
           x_expand_toggle <= not x_expand_toggle;
