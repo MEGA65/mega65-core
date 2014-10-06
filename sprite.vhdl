@@ -118,14 +118,27 @@ begin  -- behavioural
     if pixelclock'event and pixelclock = '1' then  -- rising clock edge
 --      report "SPRITE: entering VIC-II sprite #" & integer'image(sprite_number);
       -- copy sprite data chain from input side to output side      
+      sprite_spritenumber_out <= sprite_spritenumber_in;
       sprite_datavalid_out <= sprite_datavalid_in;
       sprite_bytenumber_out <= sprite_bytenumber_in;
       sprite_data_out <= sprite_data_in;
       sprite_number_for_data_out <= sprite_number_for_data_in;
 
-      if sprite_datavalid_in = '1' and sprite_number_for_data_in = sprite_number then
+      if sprite_datavalid_in='1' then
+        report "SPRITE: fetching sprite #"
+          & integer'image(sprite_spritenumber_in)
+          & "."
+          & integer'image(sprite_bytenumber_in)
+          & " of $" & to_hstring(sprite_data_in) & " seen in sprite #"
+          & integer'image(sprite_number);
+      end if;
+      
+      if sprite_datavalid_in = '1' and sprite_spritenumber_in = sprite_number then
         -- Record sprite data
-        report "SPRITE: accepting data byte $" & to_hstring(sprite_data_in) & " from VIC-IV for byte #" & integer'image(sprite_bytenumber_in) ;
+        report "SPRITE: sprite #" & integer'image(sprite_number)
+          & " accepting data byte $" & to_hstring(sprite_data_in)
+          & " from VIC-IV for byte #" & integer'image(sprite_bytenumber_in)
+          & " vector was " & to_string(std_logic_vector(sprite_data_24bits));
         case sprite_bytenumber_in is
           when 0 => sprite_data_24bits(23 downto 16) <= sprite_data_in;
           when 1 => sprite_data_24bits(15 downto 8) <= sprite_data_in;
