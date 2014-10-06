@@ -2833,7 +2833,7 @@ begin
             & " data from $" & to_hstring("000"&sprite_data_address(16 downto 0));
           
           ramaddress <= sprite_data_address;
-          sprite_data_address <= sprite_data_address + 1;
+          sprite_data_address(5 downto 0) <= sprite_data_address(5 downto 0) + 1;
           raster_fetch_state <= SpriteDataFetch2;
         when SpriteDataFetch2 =>
           report "SPRITE: fetching sprite #"
@@ -2843,7 +2843,7 @@ begin
             & " from $" & to_hstring("000"&sprite_data_address(16 downto 0))
             & " for byte number " & integer'image(sprite_fetch_byte_number);
           sprite_bytenumber <= sprite_fetch_byte_number;
-          sprite_data_address <= sprite_data_address + 1;
+          sprite_data_address(5 downto 0) <= sprite_data_address(5 downto 0) + 1;
           sprite_fetch_byte_number <= sprite_fetch_byte_number + 1;
           sprite_data_byte <= ramdata;
           sprite_datavalid <= '1';
