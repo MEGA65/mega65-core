@@ -4,6 +4,10 @@
 */
 
 #include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <strings.h>
+#include <string.h>
 
 unsigned char bmpHeader[0x36]={
   0x42,0x4d,0x36,0xa0,0x8c,0x00,0x00,0x00,0x00,0x00,0x36,0x00,0x00,0x00,0x28,0x00,
@@ -53,7 +57,13 @@ int main(int argc,char **argv)
     char line[1024]; line[0]=0; fgets(line,1024,stdin); 
     unsigned int char_pix,sprite_pix;
 
-    if (strstr(line,"right edge")) printf("%s",line);
+    // if (strstr(line,"right edge")) printf("%s",line);
+    //    if (strstr(line,"SPRITE: Painting pixel using bits")) printf("%s",line);
+    // if (strstr(line,"SPRITE: drawing row")) printf("%s",line);
+    // if (strstr(line,"SPRITE: sprite #0 accepting data byte")) printf("%s",line);
+    // if (strstr(line,"SPRITE: fetching sprite #0")) printf("%s",line);
+    // if (strstr(line,"will fetch pointer value from")) printf("%s",line);
+
     if (sscanf(line,"viciv.vhdl:%*d:%*d:@%*[^:]:(report note): SPRITE: pre_pixel_colour = $%x, postsprite_pixel_colour = $%x",&char_pix,&sprite_pix)==2)
       {
 	if (sprite_pix!=char_pix) {
