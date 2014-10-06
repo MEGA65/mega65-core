@@ -840,7 +840,7 @@ begin
     port map (pixelclock => pixelclock,
               ioclock => ioclock,
 
-              sprite_datavalid_in => '1',
+              sprite_datavalid_in => sprite_datavalid,
               sprite_bytenumber_in => sprite_bytenumber,
               sprite_spritenumber_in => sprite_spritenumber,
               sprite_data_in => sprite_data_byte,
@@ -2804,6 +2804,7 @@ begin
             sprite_fetch_byte_number <= 0;
           end if;
         when SpritePointerFetch =>
+          sprite_datavalid <= '0';
           if sprite_fetch_sprite_number = 8 then
             -- Done fetching sprites
             raster_fetch_state <= Idle;
@@ -2845,6 +2846,7 @@ begin
           sprite_data_address <= sprite_data_address + 1;
           sprite_fetch_byte_number <= sprite_fetch_byte_number + 1;
           sprite_data_byte <= ramdata;
+          sprite_datavalid <= '1';
           if sprite_fetch_byte_number = 2 then
             sprite_fetch_byte_number <= 0;
             sprite_fetch_sprite_number <= sprite_fetch_sprite_number + 1;
