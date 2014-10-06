@@ -235,9 +235,8 @@ begin  -- behavioural
               report "SPRITE: end of sprite y reached. no longer drawing";
               sprite_drawing <= '0';
             end if;
-          else
-            y_expand_toggle <= not y_expand_toggle;
           end if;
+          y_expand_toggle <= not y_expand_toggle;
         end if;
       end if;
       -- Advance X position of sprite
@@ -258,10 +257,9 @@ begin  -- behavioural
             to_string(sprite_pixel_bits)
             &")";
           sprite_pixel_bits <= sprite_pixel_bits(45 downto 0)&"00";
-        else
-          report "SPRITE: toggling x_expand_toggle";
-          x_expand_toggle <= not x_expand_toggle;
         end if;
+        report "SPRITE: toggling x_expand_toggle";
+        x_expand_toggle <= not x_expand_toggle;
       end if;      
       
       
