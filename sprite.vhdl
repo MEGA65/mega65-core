@@ -125,6 +125,7 @@ begin  -- behavioural
 
       if sprite_datavalid_in = '1' and sprite_number_for_data_in = sprite_number then
         -- Record sprite data
+        report "SPRITE: accepting data byte $" & to_hstring(sprite_data_in) & " from VIC-IV";
         case sprite_number_for_data_in is
           when 0 => sprite_data_24bits(23 downto 16) <= sprite_data_in;
           when 1 => sprite_data_24bits(15 downto 8) <= sprite_data_in;
@@ -143,10 +144,10 @@ begin  -- behavioural
       for i in 0 to 11 loop
         -- multi-colour version copies the bit pair twice to stretch the colour
         -- over two pixels.
-        sprite_pixel_bits_mono(i*4) <= sprite_data_24bits(i*2);
-        sprite_pixel_bits_mono(i*4+1) <= sprite_data_24bits(i*2+1);
-        sprite_pixel_bits_mono(i*4+2) <= sprite_data_24bits(i*2);
-        sprite_pixel_bits_mono(i*4+3) <= sprite_data_24bits(i*2+1);
+        sprite_pixel_bits_mc(i*4) <= sprite_data_24bits(i*2);
+        sprite_pixel_bits_mc(i*4+1) <= sprite_data_24bits(i*2+1);
+        sprite_pixel_bits_mc(i*4+2) <= sprite_data_24bits(i*2);
+        sprite_pixel_bits_mc(i*4+3) <= sprite_data_24bits(i*2+1);
       end loop;
       
       if sprite_number_for_data_in = sprite_number then
@@ -171,34 +172,37 @@ begin  -- behavioural
       -- sprite data offset = y_offset * 3
       sprite_data_offset <= (y_offset * 2) + y_offset;
       if y_in = sprite_y then
-        report "SPRITE: y_top set";
+        --report "SPRITE: y_top set";
         y_top <= '1';
         y_offset <= 0;
         y_expand_toggle <= '0';
       end if;
-      report "SPRITE: #" & integer'image(sprite_number) & ": "
-        & "x_in=" & integer'image(x_in)
-        & ", y_in=" & integer'image(y_in)
-        & ", enable=" & std_logic'image(sprite_enable)
-        & ", drawing=" & std_logic'image(sprite_drawing)
-        & ", in_sprite=" & std_logic'image(x_in_sprite)
-        & ", sprite_x,y=" & to_hstring("000"&sprite_x) & "," &
-        to_hstring(sprite_y);
+      --report "SPRITE: #" & integer'image(sprite_number) & ": "
+      --  & "x_in=" & integer'image(x_in)
+      --  & ", y_in=" & integer'image(y_in)
+      --  & ", enable=" & std_logic'image(sprite_enable)
+      --  & ", drawing=" & std_logic'image(sprite_drawing)
+      --  & ", in_sprite=" & std_logic'image(x_in_sprite)
+      --  & ", sprite_x,y=" & to_hstring("000"&sprite_x) & "," &
+      --  to_hstring(sprite_y);
       if x_in = to_integer(sprite_x) and sprite_enable='1' and (y_top='1' or sprite_drawing = '1') then
         x_left <= '1';
         x_in_sprite <= '1';
         report "SPRITE: drawing row " & integer'image(y_offset)
-          & " of sprite " & integer'image(sprite_number);
+          & " of sprite " & integer'image(sprite_number)
+          & " using data bits %" & to_string(std_logic_vector(sprite_data_24bits));
         x_offset <= 0;
         x_is_odd <= '0';
-        if sprite_is_multicolour = '0' then          
-          sprite_pixel_bits <= sprite_pixel_bits_mono;
-        else
+        if sprite_is_multicolour = '1' then
+          report "SPRITE: using multi-colour pixel vector";
           sprite_pixel_bits <= sprite_pixel_bits_mc;
+        else
+          report "SPRITE: using mono pixel vector";
+          sprite_pixel_bits <= sprite_pixel_bits_mono;
         end if;
       else
-        report "SPRITE: not drawing a row: xcompare=" & boolean'image(x_in=sprite_x)
-          & ", sprite_x=" & integer'image(to_integer(sprite_x));
+--        report "SPRITE: not drawing a row: xcompare=" & boolean'image(x_in=sprite_x)
+--          & ", sprite_x=" & integer'image(to_integer(sprite_x));
       end if;
       if x_left = '1' and y_top = '1' and sprite_enable = '1' then
         report "SPRITE: sprite start hit and enabled: drawing xoffset="
@@ -227,6 +231,7 @@ begin  -- behavioural
       if (x_last /= x_in) and (x_in_sprite = '1') then
         -- X position has advanced while drawing a sprite
         x_last <= x_in;
+        report "SPRITE: drawing next pixel";
         if x_expand_toggle = '1' or sprite_stretch_x='0' then
           if x_offset /= 24 then
             x_offset <= x_offset + 1;
@@ -237,9 +242,13 @@ begin  -- behavioural
           end if;
           -- shift along to next pixel
           if sprite_is_multicolour='0' or x_is_odd='1' then
+            report "SPRITE: shifting pixel vector along (was "&
+              to_string(sprite_pixel_bits)
+              &")";
             sprite_pixel_bits <= sprite_pixel_bits(45 downto 0)&"00";
           end if;
         else
+          report "SPRITE: toggling x_expand_toggle";
           x_expand_toggle <= not x_expand_toggle;
         end if;
       end if;      
@@ -251,7 +260,7 @@ begin  -- behavioural
       -- XXX - sprite colission map generation is not implemented
       -- XXX - sprites draw on top of the border?
       if x_in_sprite='1' then
-        report "SPRITE: Painting pixel.";
+        report "SPRITE: Painting pixel using bits " & to_string(sprite_pixel_bits(47 downto 46));
         case sprite_pixel_bits(47 downto 46) is
           when "01" =>
             is_sprite_out <= '1';
