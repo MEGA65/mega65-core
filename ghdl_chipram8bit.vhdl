@@ -24,7 +24,7 @@ architecture behavioural of chipram8bit is
     8 => x"D2", 9 => x"D2", 10 => x"D2", 11 => x"D2",
     16 => x"D2", 17 => x"D2", 18 => x"D2", 19 => x"D2",
     -- some interesting data for a test sprite
-    5112 => x"01",
+    2040 => x"01", 5112 => x"01",
     64 => x"55", 65 => x"aa", 66 => x"81",
     4096 => x"03",
     4097 => x"08",
