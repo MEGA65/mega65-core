@@ -1966,8 +1966,8 @@ begin
         -- Thus we need to start the VIC-II horizontal counter at -24*2.9*0x2c
         -- = -3080 = -0x0c08 = 0xf3f8.
         -- However, we need to shift it right a few more pixels to cover the pipeline
-        -- delays.  
-        vicii_xcounter_sub <= x"f68c";
+        -- delays, about 0x294 should do it.  
+        vicii_xcounter_sub <= x"f154";
         chargen_x_sub <= (others => '0');
         raster_buffer_read_address <= (others => '0');
         chargen_active <= '0';
