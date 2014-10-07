@@ -1452,6 +1452,8 @@ begin
         screen_ram_base(14) <= not fastio_wdata(0);
         character_set_address(15) <= not fastio_wdata(1);
         character_set_address(14) <= not fastio_wdata(0);
+        vicii_sprite_pointer_address(15) <= not fastio_wdata(1);
+        vicii_sprite_pointer_address(14) <= not fastio_wdata(1);
       end if;
 
       -- Reading some registers clears IRQ flags
