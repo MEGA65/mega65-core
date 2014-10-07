@@ -1957,7 +1957,15 @@ begin
         -- End of raster reached.
         -- Bump raster number and start next raster.
         xcounter <= (others => '0');
-        vicii_xcounter_sub <= (others => '0');
+        -- To adjust the horizontal position of sprites we simply start the VIC-II
+        -- horizontal position counter at a non-zero value at the start of each
+        -- raster.  Left border ends at physical pixel 140, which should
+        -- correspond to sprite coordinate 24. Logical pixes are ~2.9 pixels wide
+        -- (horizontal scale factor of 0x2c/0x80)
+        -- so 140 physical pixels is roughly equivalent to 48 physical pixels.
+        -- Thus we need to start the VIC-II horizontal counter at -24*2.9*0x2c
+        -- = -3080 = -0x0c08 = 0xf3f8.        
+        vicii_xcounter_sub <= x"f3f8";
         chargen_x_sub <= (others => '0');
         raster_buffer_read_address <= (others => '0');
         chargen_active <= '0';
