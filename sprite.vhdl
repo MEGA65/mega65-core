@@ -277,10 +277,10 @@ begin  -- behavioural
             sprite_colour_out <= sprite_multi0_colour;
           when "10" =>
             is_sprite_out <= '1';
-            sprite_colour_out <= sprite_multi1_colour;
+            sprite_colour_out <= sprite_colour;
           when "11" =>
             is_sprite_out <= '1';
-            sprite_colour_out <= sprite_colour;
+            sprite_colour_out <= sprite_multi1_colour;
           when others =>
             -- background shows through
             is_sprite_out <= is_sprite_in;
