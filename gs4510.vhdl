@@ -1617,7 +1617,7 @@ begin
       slowram_ce <= slowram_ce_drive;
       slowram_oe <= slowram_oe_drive;
       slowram_lb <= slowram_lb_drive;
-      if slowram_we_drive = '1' then
+      if slowram_we_drive = '0' then
         slowram_data <= slowram_data_drive;
       else
         slowram_data <= (others => 'Z');
