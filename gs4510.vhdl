@@ -1620,7 +1620,7 @@ begin
       if slowram_we_drive = '1' then
         slowram_data <= slowram_data_drive;
       else
-        slowram_data <= 'Z';
+        slowram_data <= (others => 'Z');
       end if;
       slowram_data_in <= slowram_data;
       
