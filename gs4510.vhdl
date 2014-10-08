@@ -572,8 +572,8 @@ end component;
   signal smb_mask : unsigned(7 downto 0);
 
   signal slowram_addr_drive : std_logic_vector(22 downto 0);
-  --signal slowram_data_drive : std_logic_vector(15 downto 0);
-  --signal slowram_data_in : std_logic_vector(15 downto 0);
+  signal slowram_data_drive : std_logic_vector(15 downto 0);
+  signal slowram_data_in : std_logic_vector(15 downto 0);
   signal slowram_we_drive : std_logic;
   signal slowram_ce_drive : std_logic;
   signal slowram_oe_drive : std_logic;
@@ -1057,7 +1057,7 @@ begin
         accessing_shadow <= '0';
         accessing_slowram <= '1';
         slowram_addr_drive <= std_logic_vector(long_address(23 downto 1));
-        slowram_data <= (others => 'Z');  -- tristate data lines
+        slowram_data_drive <= (others => 'Z');  -- tristate data lines
         slowram_we_drive <= '1';
         slowram_ce_drive <= '0';
         slowram_oe_drive <= '0';
@@ -1206,10 +1206,10 @@ begin
         report "reading normal fastio byte $" & to_hstring(fastio_rdata) severity note;
         return unsigned(fastio_rdata);
       elsif accessing_slowram='1' then
-        report "reading slow RAM data. Word is $" & to_hstring(slowram_data) severity note;
+        report "reading slow RAM data. Word is $" & to_hstring(slowram_data_in) severity note;
         case slowram_lohi is
-          when '0' => return unsigned(slowram_data(7 downto 0));
-          when '1' => return unsigned(slowram_data(15 downto 8));
+          when '0' => return unsigned(slowram_data_in(7 downto 0));
+          when '1' => return unsigned(slowram_data_in(15 downto 8));
           when others => return x"FE";
         end case;
       else
@@ -1324,7 +1324,7 @@ begin
         slowram_lohi <= long_address(0);
         slowram_lb_drive <= std_logic(long_address(0));
         slowram_ub_drive <= std_logic(not long_address(0));
-        slowram_data <= std_logic_vector(value) & std_logic_vector(value);
+        slowram_data_drive <= std_logic_vector(value) & std_logic_vector(value);
         wait_states <= slowram_waitstates;
       elsif long_address(27 downto 24) = x"F" then
         accessing_fastio <= '1';
@@ -1617,6 +1617,12 @@ begin
       slowram_ce <= slowram_ce_drive;
       slowram_oe <= slowram_oe_drive;
       slowram_lb <= slowram_lb_drive;
+      if slowram_we_drive = '1' then
+        slowram_data <= slowram_data_drive;
+      else
+        slowram_data <= 'Z';
+      end if;
+      slowram_data_in <= slowram_data;
       
       --cpu_speed := vicii_2mhz&viciii_fast&viciv_fast;
       --case cpu_speed is
