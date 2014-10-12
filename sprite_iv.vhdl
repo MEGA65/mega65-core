@@ -66,20 +66,87 @@ end sprite;
 
 architecture behavioural of sprite is
 
-  signal sprite_enable : in std_logic;
-  signal sprite_x : in unsigned(10 downto 0);
-  signal sprite_y : in unsigned(10 downto 0);
-  signal sprite_colour : in unsigned(7 downto 0);
+  signal sprite_x : unsigned(11 downto 0);
+  signal sprite_y : unsigned(11 downto 0);
+  
   -- Transform matrix for rotations, flips etc.
-  signal transform_0_0 : in unsigned(15 downto 0);
-  signal transform_0_1 : in unsigned(15 downto 0);
-  signal transform_1_0 : in unsigned(15 downto 0);
-  signal transform_1_1 : in unsigned(15 downto 0);
-    
+  signal transform_0_0 : unsigned(15 downto 0);
+  signal transform_0_1 : unsigned(15 downto 0);
+  signal transform_1_0 : unsigned(15 downto 0);
+  signal transform_1_1 : unsigned(15 downto 0);
+
+  -- coordinate transformation pipeline uses a simple 2D linear
+  -- transformation matrix, which boils down to:
+  -- x' = 0_0*x + 0_1*y
+  -- y' = 1_0*x + 1_1*y
+  -- This can support rotation, horizontal and vertical flips, shears,
+  -- scaling and probably other effects.  The matrix coefficients are 16 bit
+  -- precision to allow for a wide range of zoom values.  Enhanced sprites are
+  -- drawn at 1920x1200 native resolution, so lower resolutions are obtained
+  -- exclusively through zooming.
+  -- Implementing this requires four DSP blocks.  We calculate 0_1*y and 1_1*y
+  -- first, and then use that (shifted down several bits) as the add coefficient
+  -- into the second DSP block that performs the *x operation and then adds the *y
+  -- result to that.  The reason for this construction is that we don't need to
+  -- worry about the extra latency from the *y calculation, since it will
+  -- remain constant for a whole raster line.  We could reduce the DSP block
+  -- count by calculating the *y values once per raster, provided it doesn't
+  -- mess up timing.  Will look at this later. 
+  
+  signal x : unsigned(11 downto 0);
+  signal y : unsigned(11 downto 0);
+  signal 1_0_times_x : unsigned(47 downto 0);
+  signal 1_1_times_y : unsigned(47 downto 0);
+
+  COMPONENT mult_and_add
+    PORT (
+      clk : IN STD_LOGIC;
+      a : IN STD_LOGIC_VECTOR(17 DOWNTO 0);
+      b : IN STD_LOGIC_VECTOR(17 DOWNTO 0);
+      c : IN STD_LOGIC_VECTOR(47 DOWNTO 0);
+      p : OUT STD_LOGIC_VECTOR(47 DOWNTO 0)
+      );
+  END COMPONENT;
+  
 begin  -- behavioural
   
   main: process (pixelclock,ioclock)
   begin  -- process main
+
+    -- Construct the 2D linear transformation pipeline
+    mult_and_add_0_y: mult_and_add port map(
+      clk => pixelclk,
+      a(17 downto 5) => sprite_y,
+      a(4 downto 0) => "00000",
+      b(17 downto 2) => transform_1_0,
+      b(1 downto 0) => "00",
+      c => (others => '0'),
+      p => 1_0_times_y);
+    mult_and_add_1_y: mult_and_add port map(
+      clk => pixelclk,
+      a(17 downto 5) => sprite_y,
+      a(4 downto 0) => "00000",
+      b(17 downto 2) => transform_1_1,
+      b(1 downto 0) => "00",
+      c => (others => '0'),
+      p => 1_1_times_y);
+    mult_and_add_x: mult_and_add port map(
+      clk => pixelclk,
+      a(17 downto 0) => sprite_x,
+      a(4 downto 0) => "00000",
+      b(17 downto 2) => transform_0_0,
+      b(1 downto 0) => "00",
+      c => 1_0_times_y,
+      p(33 downto 16) => x);
+    mult_and_add_y: mult_and_add port map(
+      clk => pixelclk,
+      a(17 downto 0) => sprite_x,
+      a(4 downto 0) => "00000",
+      b(17 downto 2) => transform_1_0,
+      b(1 downto 0) => "00",
+      c => 1_1_times_y,
+      p(33 downto 16) => y);    
+    
     if ioclock'event and ioclock='1' then -- rising clock edge
       -- IO registers:
       -- - 4KB for sprite data
@@ -98,16 +165,16 @@ begin  -- behavioural
         -- @IO:GS $D710-$D7FF - Enhanced sprite control registers (16 per enhanced sprite)
         case fastio_address(3 downto 0) is
         -- @IO:GS $D7x0-$D7x1 - Enhanced sprite X position in physical pixels (lower 12 bits)
-        -- @IO:GS $D7x1.4-7   - Enhanced sprite width (x4 pixels)
+        -- @IO:GS $D7x1.4-7   - Enhanced sprite width (4 -- 64 pixels)
           when x"0" => sprite_x(7 downto 0) <= fastio_wdata;
           when x"1" => sprite_x(11 downto 8) <= fastio_wdata(3 downto 0);
-                       sprite_width(5 downto 2) <= fastio_wdata(7 downto 4);
+                       sprite_width(5 downto 2) <= fastio_wdata(7 downto 4) + 1;
                        sprite_width(1 downto 0) <= "00";
         -- @IO:GS $D7x2-$D7x3 - Enhanced sprite Y position in physical pixels (16 bits)
-        -- @IO:GS $D7x3.4-7   - Enhanced sprite height (x4 pixels)
+        -- @IO:GS $D7x3.4-7   - Enhanced sprite height (4 -- 64 pixels)
           when x"2" => sprite_y(7 downto 0) <= fastio_wdata;
           when x"3" => sprite_y(11 downto 8) <= fastio_wdata(3 downto 0);
-                       sprite_height(5 downto 2) <= fastio_wdata(7 downto 4);
+                       sprite_height(5 downto 2) <= fastio_wdata(7 downto 4) + 1;
                        sprite_height(1 downto 0) <= "00";
         -- @IO:GS $D7x4 - Enhanced sprite data offset in its 4KB SpriteRAM (x16 bytes)
           when x"4" => sprite_base_addr(11 downto 4) <= fastio_wdata;
