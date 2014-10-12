@@ -1982,35 +1982,15 @@ txt_c65gsd81:	      .byte "C65GS   D81"
 ;;; CPU entry vectors
 ;;; ----------------------------------------------------------------------------
 reset_entry:
+
 		; get CPU state sensible
 		sei
 		cld
 		see
-		
+
+		; sprites off		
 		lda #$00
-		sta $d02f
-		lda #$21
-		sta $de01
-		lda #$c9
-		sta $de0c
-		lda #$00
-		sta $de0d
-		lda #$60     ; 96 bytes of packet
-		sta $de0e
-		lda #$00
-		sta $de0f
-		lda #$38
-		sta $de02
-		lda #$01
-		sta $de03
-		lda $de05
-		ldy #$00
-llllll:		sty $de08
-		iny
-		sty $de09
-		iny
-		cpy #$60
-		bne llllll
+		sta $d017		
 
 		lda #$00
 		tab
