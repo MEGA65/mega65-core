@@ -53,6 +53,13 @@ entity sprite_iv is
     signal sprite_colour_out : out unsigned(7 downto 0);
     signal is_sprite_out : out std_logic;
 
+    ioclock : in std_logic;
+    fastio_address : in unsigned(19 downto 0);
+    fastio_read : in std_logic;
+    fastio_write : out std_logic;
+    fastio_rdata : out unsigned(7 downto 0);
+    fastio_wdata : in unsigned(7 downto 0);
+    
 );
 
 end sprite;
@@ -77,6 +84,7 @@ begin  -- behavioural
       -- IO registers:
       -- - 4KB for sprite data
       -- - sprite control registers
+      fastio_rdata <= (others => 'Z');      
       if fastio_write='1' then
         if fastio_address(19 downto 16) = x"9" and
           to_integer(fastio_address(15 downto 12)) = sprite_number then
