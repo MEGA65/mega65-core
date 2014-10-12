@@ -197,7 +197,7 @@ end component;
   -- (Reading incurrs an extra waitstate due to read_data_copy)
   -- XXX An extra wait state seems to be necessary when reading from dual-port
   -- memories like colour ram.
-  constant slowram_48mhz : unsigned(7 downto 0) := x"06";
+  constant slowram_48mhz : unsigned(7 downto 0) := x"17";
   constant ioread_48mhz : unsigned(7 downto 0) := x"01";
   constant colourread_48mhz : unsigned(7 downto 0) := x"02";
   constant iowrite_48mhz : unsigned(7 downto 0) := x"00";
@@ -1057,7 +1057,7 @@ begin
         accessing_shadow <= '0';
         accessing_slowram <= '1';
         slowram_addr_drive <= std_logic_vector(long_address(23 downto 1));
-        slowram_data_drive <= (others => 'Z');  -- tristate data lines
+        -- slowram_data_drive <= (others => 'Z');  -- tristate data lines
         slowram_we_drive <= '1';
         slowram_ce_drive <= '0';
         slowram_oe_drive <= '0';
@@ -1617,10 +1617,10 @@ begin
       slowram_ce <= slowram_ce_drive;
       slowram_oe <= slowram_oe_drive;
       slowram_lb <= slowram_lb_drive;
-      if slowram_we_drive = '0' then
-        slowram_data <= slowram_data_drive;
-      else
+      if slowram_oe_drive = '1' then
         slowram_data <= (others => 'Z');
+      else
+        slowram_data <= slowram_data_drive;
       end if;
       slowram_data_in <= slowram_data;
       
