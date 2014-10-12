@@ -58,11 +58,11 @@ entity sprite_iv is
     fastio_read : in std_logic;
     fastio_write : out std_logic;
     fastio_rdata : out unsigned(7 downto 0);
-    fastio_wdata : in unsigned(7 downto 0);
+    fastio_wdata : in unsigned(7 downto 0)
     
-);
+    );
 
-end sprite;
+end sprite_iv;
 
 architecture behavioural of sprite is
 
@@ -95,8 +95,8 @@ architecture behavioural of sprite is
   
   signal x : unsigned(11 downto 0);
   signal y : unsigned(11 downto 0);
-  signal 1_0_times_x : unsigned(47 downto 0);
-  signal 1_1_times_y : unsigned(47 downto 0);
+  signal y_times_1_0 : unsigned(47 downto 0);
+  signal y_times_1_1 : unsigned(47 downto 0);
 
   COMPONENT mult_and_add
     PORT (
@@ -109,43 +109,45 @@ architecture behavioural of sprite is
   END COMPONENT;
   
 begin  -- behavioural
+
   
+  -- Construct the 2D linear transformation pipeline
+  mult_and_add_0_y: component mult_and_add
+    port map(
+      clk => pixelclk,
+      a(17 downto 5) => sprite_y,
+      a(4 downto 0) => "00000",
+      b(17 downto 2) => transform_1_0,
+      b(1 downto 0) => "00",
+      c => (others => '0'),
+      p => y_times_1_0);
+  mult_and_add_1_y: component mult_and_add port map(
+    clk => pixelclk,
+    a(17 downto 5) => sprite_y,
+    a(4 downto 0) => "00000",
+    b(17 downto 2) => transform_1_1,
+    b(1 downto 0) => "00",
+    c => (others => '0'),
+    p => y_1_1);
+  mult_and_add_x: component mult_and_add port map(
+    clk => pixelclk,
+    a(17 downto 0) => sprite_x,
+    a(4 downto 0) => "00000",
+    b(17 downto 2) => transform_0_0,
+    b(1 downto 0) => "00",
+    c => y_times_1_0,
+    p(33 downto 16) => x);
+  mult_and_add_y: component mult_and_add port map(
+    clk => pixelclk,
+    a(17 downto 0) => sprite_x,
+    a(4 downto 0) => "00000",
+    b(17 downto 2) => transform_1_0,
+    b(1 downto 0) => "00",
+    c => y_times_1_1,
+    p(33 downto 16) => y);    
+
   main: process (pixelclock,ioclock)
   begin  -- process main
-
-    -- Construct the 2D linear transformation pipeline
-    mult_and_add_0_y: mult_and_add port map(
-      clk => pixelclk,
-      a(17 downto 5) => sprite_y,
-      a(4 downto 0) => "00000",
-      b(17 downto 2) => transform_1_0,
-      b(1 downto 0) => "00",
-      c => (others => '0'),
-      p => 1_0_times_y);
-    mult_and_add_1_y: mult_and_add port map(
-      clk => pixelclk,
-      a(17 downto 5) => sprite_y,
-      a(4 downto 0) => "00000",
-      b(17 downto 2) => transform_1_1,
-      b(1 downto 0) => "00",
-      c => (others => '0'),
-      p => 1_1_times_y);
-    mult_and_add_x: mult_and_add port map(
-      clk => pixelclk,
-      a(17 downto 0) => sprite_x,
-      a(4 downto 0) => "00000",
-      b(17 downto 2) => transform_0_0,
-      b(1 downto 0) => "00",
-      c => 1_0_times_y,
-      p(33 downto 16) => x);
-    mult_and_add_y: mult_and_add port map(
-      clk => pixelclk,
-      a(17 downto 0) => sprite_x,
-      a(4 downto 0) => "00000",
-      b(17 downto 2) => transform_1_0,
-      b(1 downto 0) => "00",
-      c => 1_1_times_y,
-      p(33 downto 16) => y);    
     
     if ioclock'event and ioclock='1' then -- rising clock edge
       -- IO registers:
@@ -162,66 +164,68 @@ begin  -- behavioural
         end if;
         if fastio_address(19 downto 8) = x"D37" and
           to_integer(fastio_address(7 downto 4)) = sprite_number then
-        -- @IO:GS $D710-$D7FF - Enhanced sprite control registers (16 per enhanced sprite)
-        case fastio_address(3 downto 0) is
-        -- @IO:GS $D7x0-$D7x1 - Enhanced sprite X position in physical pixels (lower 12 bits)
-        -- @IO:GS $D7x1.4-7   - Enhanced sprite width (4 -- 64 pixels)
-          when x"0" => sprite_x(7 downto 0) <= fastio_wdata;
-          when x"1" => sprite_x(11 downto 8) <= fastio_wdata(3 downto 0);
-                       sprite_width(5 downto 2) <= fastio_wdata(7 downto 4) + 1;
-                       sprite_width(1 downto 0) <= "00";
-        -- @IO:GS $D7x2-$D7x3 - Enhanced sprite Y position in physical pixels (16 bits)
-        -- @IO:GS $D7x3.4-7   - Enhanced sprite height (4 -- 64 pixels)
-          when x"2" => sprite_y(7 downto 0) <= fastio_wdata;
-          when x"3" => sprite_y(11 downto 8) <= fastio_wdata(3 downto 0);
-                       sprite_height(5 downto 2) <= fastio_wdata(7 downto 4) + 1;
-                       sprite_height(1 downto 0) <= "00";
-        -- @IO:GS $D7x4 - Enhanced sprite data offset in its 4KB SpriteRAM (x16 bytes)
-          when x"4" => sprite_base_addr(11 downto 4) <= fastio_wdata;
-        -- @IO:GS $D7x5 - Enhanced sprite foreground mask
-        -- chargen/bitmap pixels which = $00 when anded with this mask will
-        -- appear behind this sprite.
-          when x"5" => sprite_background_mask <= fastio_wdata;
-        -- @IO:GS $D7x6       - Enhanced sprite colour AND mask (sprite not visible if result = $00)
-          when x"6" => sprite_and_mask <= fastio_wdata;
-        -- @IO:GS $D7x7       - Enhanced sprite colour OR mask
-          when x"7" => sprite_or_mask <= fastio_wdata;
-        -- @IO:GS $D718-$D7FF - Enhanced sprite linear transform matricies. These allow for hardware rotation, flipping etc.
-        -- @IO:GS $D7x8-$D7x9 - Enhanced sprite 2x2 linear transform matrix 0,0 (5.11 bits)
-          when x"8" => transform_0_0(7 downto 0) <= fastio_wdata;
-          when x"9" => transform_0_0(15 downto 8) <= fastio_wdata;
-        -- @IO:GS $D7xA-$D7xB - Enhanced sprite 2x2 linear transform matrix 0,1 (5.11 bits)
-          when x"a" => transform_0_1(7 downto 0) <= fastio_wdata;
-          when x"b" => transform_0_1(15 downto 8) <= fastio_wdata;
-        -- @IO:GS $D7xC-$D7xD - Enhanced sprite 2x2 linear transform matrix 1,0 (5.11 bits)
-          when x"c" => transform_1_0(7 downto 0) <= fastio_wdata;
-          when x"d" => transform_1_0(15 downto 8) <= fastio_wdata;
-        -- @IO:GS $D7xE-$D7xF - Enhanced sprite 2x2 linear transform matrix 1,1 (5.11 bits)
-          when x"e" => transform_1_1(7 downto 0) <= fastio_wdata;
-          when x"f" => transform_1_1(15 downto 8) <= fastio_wdata;
-          when others => null;
-        end case;
-    end if;
-    if pixelclock'event and pixelclock = '1' then  -- rising clock edge
-      
-      -- decide whether we are visible or not, and update sprite colour
-      -- accordingly.
-      if sprite_visible='1' then
-        report "SPRITE: Painting pixel using bits " & to_string(sprite_pixel_bits(47 downto 46));
-        is_sprite_out <= '1';
-        sprite_colour_out <= sprite_pixel;
-      else
-        is_sprite_out <= is_sprite_in;
-        sprite_colour_out <= sprite_colour_in;
-      end if;
-      is_border_out <= is_border_in;
-      is_foreground_out <= is_foreground_in;
-      x_out <= x_in;
-      y_out <= y_in;
-      pixel_out <= pixel_in;
-      
+          -- @IO:GS $D710-$D7FF - Enhanced sprite control registers (16 per enhanced sprite)
+          case fastio_address(3 downto 0) is
+            -- @IO:GS $D7x0-$D7x1 - Enhanced sprite X position in physical pixels (lower 12 bits)
+            -- @IO:GS $D7x1.4-7   - Enhanced sprite width (4 -- 64 pixels)
+            when x"0" => sprite_x(7 downto 0) <= fastio_wdata;
+            when x"1" => sprite_x(11 downto 8) <= fastio_wdata(3 downto 0);
+                         sprite_width(5 downto 2) <= fastio_wdata(7 downto 4) + 1;
+                         sprite_width(1 downto 0) <= "00";
+            -- @IO:GS $D7x2-$D7x3 - Enhanced sprite Y position in physical pixels (16 bits)
+            -- @IO:GS $D7x3.4-7   - Enhanced sprite height (4 -- 64 pixels)
+            when x"2" => sprite_y(7 downto 0) <= fastio_wdata;
+            when x"3" => sprite_y(11 downto 8) <= fastio_wdata(3 downto 0);
+                         sprite_height(5 downto 2) <= fastio_wdata(7 downto 4) + 1;
+                         sprite_height(1 downto 0) <= "00";
+            -- @IO:GS $D7x4 - Enhanced sprite data offset in its 4KB SpriteRAM (x16 bytes)
+            when x"4" => sprite_base_addr(11 downto 4) <= fastio_wdata;
+            -- @IO:GS $D7x5 - Enhanced sprite foreground mask
+            -- chargen/bitmap pixels which = $00 when anded with this mask will
+            -- appear behind this sprite.
+            when x"5" => sprite_background_mask <= fastio_wdata;
+            -- @IO:GS $D7x6       - Enhanced sprite colour AND mask (sprite not visible if result = $00)
+            when x"6" => sprite_and_mask <= fastio_wdata;
+            -- @IO:GS $D7x7       - Enhanced sprite colour OR mask
+            when x"7" => sprite_or_mask <= fastio_wdata;
+            -- @IO:GS $D718-$D7FF - Enhanced sprite linear transform matricies. These allow for hardware rotation, flipping etc.
+            -- @IO:GS $D7x8-$D7x9 - Enhanced sprite 2x2 linear transform matrix 0,0 (5.11 bits)
+            when x"8" => transform_0_0(7 downto 0) <= fastio_wdata;
+            when x"9" => transform_0_0(15 downto 8) <= fastio_wdata;
+            -- @IO:GS $D7xA-$D7xB - Enhanced sprite 2x2 linear transform matrix 0,1 (5.11 bits)
+            when x"a" => transform_0_1(7 downto 0) <= fastio_wdata;
+            when x"b" => transform_0_1(15 downto 8) <= fastio_wdata;
+            -- @IO:GS $D7xC-$D7xD - Enhanced sprite 2x2 linear transform matrix 1,0 (5.11 bits)
+            when x"c" => transform_1_0(7 downto 0) <= fastio_wdata;
+            when x"d" => transform_1_0(15 downto 8) <= fastio_wdata;
+            -- @IO:GS $D7xE-$D7xF - Enhanced sprite 2x2 linear transform matrix 1,1 (5.11 bits)
+            when x"e" => transform_1_1(7 downto 0) <= fastio_wdata;
+            when x"f" => transform_1_1(15 downto 8) <= fastio_wdata;
+            when others => null;
+          end case;
+        end if;
+        if pixelclock'event and pixelclock = '1' then  -- rising clock edge
+          
+          -- decide whether we are visible or not, and update sprite colour
+          -- accordingly.
+          if sprite_visible='1' then
+            report "SPRITE: Painting pixel using bits " & to_string(sprite_pixel_bits(47 downto 46));
+            is_sprite_out <= '1';
+            sprite_colour_out <= sprite_pixel;
+          else
+            is_sprite_out <= is_sprite_in;
+            sprite_colour_out <= sprite_colour_in;
+          end if;
+          is_border_out <= is_border_in;
+          is_foreground_out <= is_foreground_in;
+          x_out <= x_in;
+          y_out <= y_in;
+          pixel_out <= pixel_in;
+          
 --      report "SPRITE: leaving VIC-II sprite #" & integer'image(sprite_number);
+        end if;
+      end if;
     end if;
   end process main;
-
+  
 end behavioural;
