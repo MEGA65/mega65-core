@@ -197,7 +197,7 @@ end component;
   -- (Reading incurrs an extra waitstate due to read_data_copy)
   -- XXX An extra wait state seems to be necessary when reading from dual-port
   -- memories like colour ram.
-  constant slowram_48mhz : unsigned(7 downto 0) := x"17";
+  constant slowram_48mhz : unsigned(7 downto 0) := x"06";
   constant ioread_48mhz : unsigned(7 downto 0) := x"01";
   constant colourread_48mhz : unsigned(7 downto 0) := x"02";
   constant iowrite_48mhz : unsigned(7 downto 0) := x"00";
@@ -572,7 +572,7 @@ end component;
   signal smb_mask : unsigned(7 downto 0);
 
   signal slowram_addr_drive : std_logic_vector(22 downto 0);
-  signal slowram_data_drive : std_logic_vector(15 downto 0);
+  -- signal slowram_data_drive : std_logic_vector(15 downto 0);
   signal slowram_data_in : std_logic_vector(15 downto 0);
   signal slowram_we_drive : std_logic;
   signal slowram_ce_drive : std_logic;
@@ -1324,7 +1324,7 @@ begin
         slowram_lohi <= long_address(0);
         slowram_lb_drive <= std_logic(long_address(0));
         slowram_ub_drive <= std_logic(not long_address(0));
-        slowram_data_drive <= std_logic_vector(value) & std_logic_vector(value);
+        slowram_data <= std_logic_vector(value) & std_logic_vector(value);
         wait_states <= slowram_waitstates;
       elsif long_address(27 downto 24) = x"F" then
         accessing_fastio <= '1';
@@ -1620,7 +1620,7 @@ begin
       if slowram_oe_drive = '1' then
         slowram_data <= (others => 'Z');
       else
-        slowram_data <= slowram_data_drive;
+        slowram_data <= slowram_data;
       end if;
       slowram_data_in <= slowram_data;
       
