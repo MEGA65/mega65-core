@@ -138,23 +138,7 @@ begin  -- behavioural
     variable temp_cmd : unsigned(7 downto 0);
   begin
 
-    if fastio_read='1' and (fastio_addr(19 downto 12) = x"01") then
-      -- XXX Map buffer here in 4KB pieces
-    elsif fastio_read='1' and (fastio_addr(19 downto 4) = x"D500") then
-      case fastio_addr(3 downto 0) is
-        when x"0" => -- status flags
-          -- bit 7 = DONE
-          -- bit 6 = buffer overrun (only partial frame captured)
-        when x"1" =>  -- low byte of buffer pointer
-          fastio_rdata <= output_address_internal(7 downto 0);
-        when x"2" => -- high byte of buffer pointer
-          fastio_rdata <= "0000"&output_address_internal(11 downto 8);          
-        when others =>
-          fastio_rdata <= (others => 'Z');
-      end case;
-    else
-      fastio_rdata <= (others => 'Z');
-    end if;
+    fastio_rdata <= (others => 'Z');
    
     if rising_edge(ioclock) then
       -- Tell ethernet controller which half of the buffer we are writing to.
