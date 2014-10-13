@@ -64,7 +64,7 @@ entity sprite_iv is
 
 end sprite_iv;
 
-architecture behavioural of sprite is
+architecture behavioural of sprite_iv is
 
   signal sprite_x : unsigned(11 downto 0);
   signal sprite_y : unsigned(11 downto 0);
