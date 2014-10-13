@@ -641,8 +641,9 @@ begin
       end if;
 
       -- Now map the SIDs
-      -- $D440 = left SID
-      -- $D400 = right SID
+      -- @IO:C64 $D440-$D47F = left SID
+      -- @IO:C64 $D400-$D43F = right SID
+      -- @IO:C64 $D480-$D4FF = repeated images of SIDs
       -- Presumably repeated through to $D5FF.  But we will repeat to $D4FF only
       -- so that we can use $D500-$D5FF for other stuff.
       case address(19 downto 8) is
@@ -653,7 +654,7 @@ begin
         when others => leftsid_cs <= '0'; rightsid_cs <= '0';
       end case;
 
-      -- $D500 - $D50F is reserved for frame packer for remote graphic display
+      -- $D500 - $D5FF is not currently used.  Probably use some for FPU.
       
       -- $D600 - $D67F is reserved for 6551 serial UART emulation for C65
       -- compatibility.
