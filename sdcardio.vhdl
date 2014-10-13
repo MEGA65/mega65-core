@@ -404,6 +404,7 @@ begin  -- behavioural
             --NOBUF   clears the buffer read/write pointers
             fastio_rdata <= f011_cmd;
           when "00010" =>             -- READ $D082
+            -- @IO:C65 $D082 - F011 FDC Status A port (read only)
             -- STAT A  | BUSY  |  DRQ  |  EQ   |  RNF  |  CRC  | LOST  | PROT  |  TKQ  | 2 R
             --BUSY    command is being executed
             --DRQ     disk interface has transferred a byte
@@ -417,6 +418,7 @@ begin  -- behavioural
                             & f011_crc & f011_lost & f011_write_protected
                             & f011_track0;
           when "00011" =>             -- READ $D083 
+            -- @IO:C65 $D083 - F011 FDC Status B port (read only)
             -- STAT B  | RDREQ | WTREQ |  RUN  | NGATE | DSKIN | INDEX |  IRQ  | DSKCHG| 3 R
             -- RDREQ   sector found during formatted read
             -- WTREQ   sector found during formatted write
@@ -698,7 +700,8 @@ begin  -- behavioural
           or (fastio_addr(19 downto 5)&'0' = x"D308") then
           -- F011 FDC emulation registers
           case fastio_addr(4 downto 0) is
-            when "00000" =>           -- $D080
+            when "00000" =>
+              -- @IO:C65 $D080 - F011 FDC control
               -- CONTROL |  IRQ  |  LED  | MOTOR | SWAP  | SIDE  |  DS2  |  DS1  |  DS0  | 0 RW
               --IRQ     When set, enables interrupts to occur,  when reset clears and
               --        disables interrupts.
@@ -728,6 +731,7 @@ begin  -- behavioural
                 f011_disk_changed <= '0';
               end if;
             when "00001" =>           -- $D081
+              -- @IO:C65 $D081 - F011 FDC command
               -- COMMAND | WRITE | READ  | FREE  | STEP  |  DIR  | ALGO  |  ALT  | NOBUF | 1 RW
               --WRITE   must be set to perform write operations.
               --READ    must be set for all read operations.
@@ -860,10 +864,17 @@ begin  -- behavioural
                 when others =>        -- illegal command
                   null;
               end case;
-            when "00100" => f011_track <= fastio_wdata;
-            when "00101" => f011_sector <= fastio_wdata;
-            when "00110" => f011_side <= fastio_wdata;
+            when "00100" =>
+              -- @IO:C65 $D084 - F011 FDC track
+              f011_track <= fastio_wdata;
+            when "00101" =>
+              -- @IO:C65 $D085 - F011 FDC sector
+              f011_sector <= fastio_wdata;
+            when "00110" =>
+              -- @IO:C65 $D086 - F011 FDC side
+              f011_side <= fastio_wdata;
             when "00111" =>
+              -- @IO:C65 $D085 - F011 FDC data register
               -- Data register -- should probably be putting byte into the sector
               -- buffer.
               if last_was_d087='0' then
@@ -880,6 +891,7 @@ begin  -- behavioural
                or fastio_addr(19 downto 8) = x"D36") then
           -- microSD controller registers
           case fastio_addr(7 downto 0) is
+            -- @IO:GS $D680 - SD controller status/command
             when x"80" =>
               -- status / command register
               case fastio_wdata is
@@ -939,26 +951,38 @@ begin  -- behavioural
                 when others =>
                   sdio_error <= '1';
               end case;
-            when x"81" => sd_sector(7 downto 0) <= fastio_wdata;
+            when x"81" =>
+              -- @IO:GS $D681-$D684 - SD controller SD sector address
+              sd_sector(7 downto 0) <= fastio_wdata;
             when x"82" => sd_sector(15 downto 8) <= fastio_wdata;
             when x"83" => sd_sector(23 downto 16) <= fastio_wdata;
             when x"84" => sd_sector(31 downto 24) <= fastio_wdata;
+              -- @IO:GS $D68B - F011 emulation control register
             when x"8b" =>
+              -- @IO:GS $D68B.5 - F011 disk 2 write protect
               f011_disk2_write_protected <= not fastio_wdata(5);
+              -- @IO:GS $D68B.4 - F011 disk 2 present
               f011_disk2_present <= fastio_wdata(4);
+              -- @IO:GS $D68B.3 - F011 disk 2 disk image enable
               diskimage2_enable <= fastio_wdata(3);
               
+              -- @IO:GS $D68B.2 - F011 disk 1 write protect
               f011_write_protected <= not fastio_wdata(2);                
+              -- @IO:GS $D68B.1 - F011 disk 1 present
               f011_disk1_present <= fastio_wdata(1);
+              -- @IO:GS $D68B.0 - F011 disk 1 disk image enable
               diskimage1_enable <= fastio_wdata(0);
+            -- @IO:GS $D68C-$D68F - F011 disk 1 disk image address on SD card
             when x"8c" => diskimage_sector(7 downto 0) <= fastio_wdata;
             when x"8d" => diskimage_sector(15 downto 8) <= fastio_wdata;
             when x"8e" => diskimage_sector(23 downto 16) <= fastio_wdata;
             when x"8f" => diskimage_sector(31 downto 24) <= fastio_wdata;
+            -- @IO:GS $D690-$D693 - F011 disk 2 disk image address on SD card
             when x"90" => diskimage2_sector(7 downto 0) <= fastio_wdata;
             when x"91" => diskimage2_sector(15 downto 8) <= fastio_wdata;
             when x"92" => diskimage2_sector(23 downto 16) <= fastio_wdata;
             when x"93" => diskimage2_sector(31 downto 24) <= fastio_wdata;
+            -- @IO:GS $D6F3 - Accelerometer bit-bashing port
             when x"F3" =>
               -- Accelerometer
               aclMOSI <= fastio_wdata(1);
@@ -967,22 +991,27 @@ begin  -- behavioural
               aclSSinternal <= fastio_wdata(2);
               aclSCK <= fastio_wdata(3);
               aclSCKinternal <= fastio_wdata(3);
+            -- @IO:GS $D6F5 - Temperature sensor bit-bashing port
             when x"F5" =>
               -- Temperature sensor
               tmpSDAinternal <= fastio_wdata(0);
               tmpSDA <= fastio_wdata(0);
               tmpSCLinternal <= fastio_wdata(1);
               tmpSCL <= fastio_wdata(1);
+            -- @IO:GS $D6F8 - 8-bit digital audio out (left)
             when x"F8" =>
               -- 8-bit digital audio out
               pwm_value_new_left <= fastio_wdata;
             when x"F9" =>
+              -- @IO:GS $D6F9.0 - Enable audio amplifier
               -- enable/disable audio amplifiers
               ampSD <= fastio_wdata(0);
             when x"FA" =>
+              -- @IO:GS $D6FA - 8-bit digital audio out (left)
               -- 8-bit digital audio out
               pwm_value_new_right <= fastio_wdata;
             when x"FF" =>
+              -- @IO:GS $D6FF - Flash bit-bashing port
               -- Flash interface
               if fastio_wdata(0)='0' then
                 QspiDB(0) <= '0';
