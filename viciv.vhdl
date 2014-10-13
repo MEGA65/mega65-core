@@ -459,8 +459,11 @@ end component;
 
   -- New control registers
   -- Number added to card number for each row of characters, i.e., virtual
-  -- character display width.
+  -- character display width
   signal virtual_row_width : unsigned(15 downto 0) := to_unsigned(40,16);
+  signal virtual_row_width_minus1 : unsigned(15 downto 0) := to_unsigned(40,16);
+  signal end_of_row_16 : std_logic := '0';
+  signal end_of_row : std_logic := '0';
   -- Each logical pixel will be 128/n physical pixels wide
   -- 40 columns needs 24 (=$19)
   -- 80 columns needs 48 (=$2c)
@@ -2423,6 +2426,7 @@ begin
       bitmap_glyph_data_address
           <= (character_set_address(16 downto 13)&"0"&x"000")
         + (to_integer(screen_ram_buffer_address)+to_integer(first_card_of_row))*8+to_integer(chargen_y);
+      virtual_row_width_minus1 <= virtual_row_width - 1;
       
       case raster_fetch_state is
         when Idle => null;
@@ -2433,6 +2437,7 @@ begin
             ramaddress <= screen_row_current_address;
             screen_row_fetch_address <= screen_row_current_address + 1;
             character_number <= (others => '0');
+            end_of_row_16 <= '0'; end_of_row <= '0';
             screen_ram_buffer_address <= to_unsigned(0,9);
             report "ZEROing screen_ram_buffer_address" severity note;
             colourramaddress <= to_unsigned(to_integer(colour_ram_base) + to_integer(first_card_of_row),16);
@@ -2462,17 +2467,28 @@ begin
           screen_row_current_address <= screen_row_current_address + 1;
           screen_row_fetch_address <= screen_row_fetch_address + 1;
           character_number <= character_number + 1;
+          if character_number = virtual_row_width_minus1(7 downto 0)&'0' then
+            end_of_row_16 <= '1';
+          else
+            end_of_row_16 <= '0';
+          end if;
+          if character_number = '0'&virtual_row_width_minus1(7 downto 0) then
+            end_of_row <= '1';
+          else
+            end_of_row <= '0';
+          end if;     
+
           -- See if we already have enough bytes already.
           -- virtual_row_width bytes, unless in 16bit character set mode, in which
           -- case we need twice that many bytes.
           if sixteenbit_charset='1' then
-            if character_number = virtual_row_width(7 downto 0)&'0' then
+            if end_of_row_16 ='1' then
               raster_fetch_state <= FetchFirstCharacter;
             else
               raster_fetch_state <= FetchScreenRamNext;
             end if;
           else
-            if character_number = '0'&virtual_row_width(7 downto 0) then
+            if end_of_row = '1' then
               raster_fetch_state <= FetchFirstCharacter;
             else
               raster_fetch_state <= FetchScreenRamNext;
@@ -2731,7 +2747,17 @@ begin
           -- requested value
           -- Abort if we have already drawn enough characters.
           character_number <= character_number + 1;
-          if character_number = virtual_row_width then
+          if character_number = virtual_row_width_minus1(7 downto 0)&'0' then
+            end_of_row_16 <= '1';
+          else
+            end_of_row_16 <= '0';
+          end if;
+          if character_number = '0'&virtual_row_width_minus1(7 downto 0) then
+            end_of_row <= '1';
+          else
+            end_of_row <= '0';
+          end if;     
+          if end_of_row = '1' then
             raster_fetch_state <= EndOfChargen;
           else
             raster_fetch_state <= PaintDispatch;
