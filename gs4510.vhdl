@@ -2791,7 +2791,7 @@ begin
                 state <= CallSubroutine;
               end if;
             when DummyWrite =>
-              memory_access_address := memory_access_address;
+              memory_access_address := x"000"&reg_addr;
               memory_access_resolve_address := '0';
               memory_access_write := '1';
               memory_access_read := '0';
