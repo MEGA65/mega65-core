@@ -2917,10 +2917,10 @@ begin
             &paint_chardata(6)&paint_chardata(7);
           paint_buffer_hflip_ramdata <= paint_ramdata;
           paint_buffer_noflip_ramdata <=
-            paint_ramdata(1)&paint_ramdata(0)
-            &paint_ramdata(3)&paint_ramdata(2)
-            &paint_ramdata(5)&paint_ramdata(4)
-            &paint_ramdata(7)&paint_ramdata(6);
+            paint_ramdata(0)&paint_ramdata(1)
+            &paint_ramdata(2)&paint_ramdata(3)
+            &paint_ramdata(4)&paint_ramdata(5)
+            &paint_ramdata(6)&paint_ramdata(7);
           paint_fsm_state <= PaintMonoDrive;
         when PaintMonoDrive =>
           -- Paint 8 mono bits from ramdata or chardata
