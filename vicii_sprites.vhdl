@@ -736,6 +736,8 @@ begin
           end if;
         elsif register_number=16 then
           vicii_sprite_xmsbs <= fastio_wdata;
+        elsif register_number=21 then          -- $D015 compatibility sprite enable
+          vicii_sprite_enables <= fastio_wdata;
         elsif register_number=23 then          -- $D017 compatibility sprite enable
           vicii_sprite_y_expand <= fastio_wdata;
         elsif register_number=27 then          -- $D01B sprite background priority
