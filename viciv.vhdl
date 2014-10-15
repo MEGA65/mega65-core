@@ -624,6 +624,7 @@ end component;
   -- coordinates after applying the above scaling factors
   signal chargen_x : unsigned(2 downto 0) := (others => '0');
   signal chargen_y : unsigned(2 downto 0) := (others => '0');
+  signal chargen_y_hold : unsigned(2 downto 0) := (others => '0');
   -- fractional pixel position for scaling
   signal chargen_y_sub : unsigned(4 downto 0);
   signal chargen_x_sub : unsigned(4 downto 0);
@@ -2390,6 +2391,10 @@ begin
         -- Some house keeping first:
         -- Reset write address in raster buffer
         raster_buffer_write_address <= (others => '1');
+        -- Hold chargen_y for entire fetch, so that we don't get glitching when
+        -- chargen_y increases part way through resulting in characters on
+        -- right of display shifting up one physical pixel.
+        chargen_y_hold <= chargen_y;
         -- Work out colour ram address
         colourramaddress <= colour_ram_base + first_card_of_row;
         -- Work out the screen ram address.  We only need to re-fetch screen
@@ -2613,9 +2618,9 @@ begin
             -- from character ROM.  128KB/64 = 2048 possible glyphs.
             glyph_data_address(16 downto 6) <= glyph_number(10 downto 0);
             if glyph_flip_vertical='1' then
-              glyph_data_address(5 downto 3) <= not chargen_y;
+              glyph_data_address(5 downto 3) <= not chargen_y_hold;
             else
-              glyph_data_address(5 downto 3) <= chargen_y;
+              glyph_data_address(5 downto 3) <= chargen_y_hold;
             end if;
             if glyph_flip_horizontal='1' then
               glyph_data_address(2 downto 0) <= "111";
@@ -2629,11 +2634,11 @@ begin
             if glyph_flip_vertical='0' then
               glyph_data_address
                 <= character_set_address(16 downto 0)
-                + to_integer(glyph_number)*8+to_integer(chargen_y);
+                + to_integer(glyph_number)*8+to_integer(chargen_y_hold);
             else
               glyph_data_address
                 <= character_set_address(16 downto 0)
-                + to_integer(glyph_number)*8+7-to_integer(chargen_y);
+                + to_integer(glyph_number)*8+7-to_integer(chargen_y_hold);
             end if;
             -- Mark as possibly coming from ROM
             character_data_from_rom <= '1';
@@ -2644,7 +2649,7 @@ begin
             if glyph_data_address(16 downto 12) = "0"&x"1"
               or glyph_data_address(16 downto 12) = "0"&x"9" then
               report "reading from rom: glyph_data_address=$" & to_hstring(glyph_data_address(15 downto 0))
-                & "chargen_y=" & to_string(std_logic_vector(chargen_y)) severity note;
+                & "chargen_y_hold=" & to_string(std_logic_vector(chargen_y_hold)) severity note;
               character_data_from_rom <= '1';
             else
               character_data_from_rom <= '0';
@@ -2678,7 +2683,7 @@ begin
             if glyph_data_address(16 downto 12) = "0"&x"1"
               or glyph_data_address(16 downto 12) = "0"&x"9" then
               report "reading from rom: glyph_data_address=$" & to_hstring(glyph_data_address(15 downto 0))
-                & "chargen_y=" & to_string(std_logic_vector(chargen_y)) severity note;
+                & "chargen_y=" & to_string(std_logic_vector(chargen_y_hold)) severity note;
               character_data_from_rom <= '1';
             else
               character_data_from_rom <= '0';
@@ -2703,7 +2708,7 @@ begin
                   glyph_reverse <= colourramdata(5);
                   glyph_bold <= colourramdata(6);
                   glyph_colour(4) <= colourramdata(6);
-                  if chargen_y(2 downto 0)="111" then
+                  if chargen_y_hold(2 downto 0)="111" then
                     glyph_underline <= colourramdata(7);
                   end if;
                 end if;
@@ -2717,7 +2722,7 @@ begin
               glyph_reverse <= colourramdata(5);
               glyph_bold <= colourramdata(6);
               glyph_colour(4) <= colourramdata(6);
-              if chargen_y(2 downto 0)="111" then
+              if chargen_y_hold(2 downto 0)="111" then
                 glyph_underline <= colourramdata(7);
               end if;
             end if;
