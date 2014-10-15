@@ -527,10 +527,10 @@ begin  -- behavioural
             fastio_rdata(6) <= tmpCT;
             fastio_rdata(7) <= tmpInt or tmpCT;
           when x"F6" =>
-            -- Keyboard scan code reader (lower byte)
+            -- @IO:GS $D6F6 - Keyboard scan code reader (lower byte)
             fastio_rdata <= unsigned(last_scan_code(7 downto 0));
           when x"F7" =>
-            -- Keyboard scan code reader (upper nybl)
+            -- @IO:GS $D6F7 - Keyboard scan code reader (upper nybl)
             fastio_rdata <= unsigned("000"&last_scan_code(12 downto 8));
           when x"F8" =>
             -- PWM output
@@ -539,10 +539,10 @@ begin  -- behavioural
             -- PWM output
             fastio_rdata <= pwm_value_new_left;
           when x"FB" =>
-            -- microphone input
+            -- @IO:GS $D6FB - microphone input (left)
             fastio_rdata <= mic_value_left;
           when x"FC" =>
-            -- microphone input
+            -- @IO:GS $D6F7 - microphone input (right)
             fastio_rdata <= mic_value_right;
           when x"FD" =>
             -- Right SID audio (high) for debugging
