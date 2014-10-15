@@ -383,6 +383,9 @@ begin  -- behavioural
           when others => null;
         end case;
       end if;
+
+      portbout <= reg_portb_out or (not reg_portb_ddr);
+      portaout <= reg_porta_out or (not reg_porta_ddr);
       
       -- Check for register writing
       if fastio_write='1' and cs='1' then
@@ -390,10 +393,10 @@ begin  -- behavioural
         --  & " to CIA register $" & to_hstring(register_number) severity note;
         register_number := fastio_addr(3 downto 0);
         case register_number is
-          when x"0" => portaout<=std_logic_vector(fastio_wdata);
+          when x"0" => 
                        reg_porta_out<=std_logic_vector(fastio_wdata);
           when x"1" =>  
-            portbout<=std_logic_vector(fastio_wdata);
+            
             reg_portb_out<=std_logic_vector(fastio_wdata);
           when x"2" => reg_porta_ddr<=std_logic_vector(fastio_wdata);
           when x"3" => reg_portb_ddr<=std_logic_vector(fastio_wdata);
