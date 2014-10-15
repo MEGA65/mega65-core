@@ -273,13 +273,13 @@ begin  -- behavioural
         report "SPRITE: Painting pixel using bits " & to_string(sprite_pixel_bits(47 downto 46));
         case sprite_pixel_bits(47 downto 46) is
           when "01" =>
-            is_sprite_out <= '1';
+            is_sprite_out <= not border_in;
             sprite_colour_out <= sprite_multi0_colour;
           when "10" =>
-            is_sprite_out <= '1';
+            is_sprite_out <= not border_in;
             sprite_colour_out <= sprite_colour;
           when "11" =>
-            is_sprite_out <= '1';
+            is_sprite_out <= not border_in;
             sprite_colour_out <= sprite_multi1_colour;
           when others =>
             -- background shows through
