@@ -107,6 +107,9 @@ kickstart_entry:
 		; leave a blank line below kickstart banner
 		inc screenrow		
 
+		; check keyboard for 0-9 down to select alternate rom
+		jsr keyboardread
+
 		; Try to read the MBR from the SD card
 		ldx #<msg_tryingsdcard
 		ldy #>msg_tryingsdcard
@@ -682,7 +685,7 @@ rf2:
 		cmp #$01
 		bne romfilesizeerror
 
-		; XXX need to store checksum
+		; need to store checksum
 		jsr storeromsum
 		
 		; ROM file loaded, transfer control
@@ -1401,6 +1404,11 @@ checkromok:
 		lda $d6f1
 		and #$20
 		bne checksumfails
+		; or if loading a ROM other than C65GS.ROM, then assume ROM
+		; is invalid
+		lda txt_c65gsrom+5
+		cmp #$20
+		bne checksumfails
 	
 		; calculate checksum of loaded ROM ...
 		jsr calcromsum
@@ -1944,6 +1952,58 @@ l1:		; Enable VIC-IV / C65GS IO
 		lda #$53
 		sta $D02F
 		RTS
+
+; Check for digits 0 - 9 on keyboard, and change which ROM we intend to read
+; based on that.
+keyboardread:
+		lda #$ff
+		sta $dc03
+		lda #$00
+		sta $dc02
+		lda #$f7
+		sta $dc01
+		lda #$20
+		ldx $dc00
+		cpx #$7f
+		bne k1
+		lda #$31
+k1:		cpx #$ef
+		bne k9
+		lda #$39
+k9:		cpx #$f7
+		bne k7
+		lda #$37
+k7:		cmp #$fb
+		bne k5
+		lda #$35
+k5:		cmp #$fd
+		bne k3
+		lda #$33
+k3:		ldx #$7f
+		stx $dc01
+		ldx $dc00
+		cpx #$7f
+		bne k0
+		lda #$30
+k0:		cpx #$ef
+		bne k9
+		lda #$38
+k8:		cpx #$f7
+		bne k7
+		lda #$36
+k6:		cmp #$fb
+		bne k5
+		lda #$34
+k4:		cmp #$fd
+		bne k3
+		lda #$32
+k2:		
+		; put character into 6th byte position of ROM file name.
+		; so no key looks for C65GS.ROM, where as 0-9 will look
+		; for C65GSx.ROM, where x is the number.
+		sta txt_c65gsrom+5
+		rts
+
 
 ; messages.  All have to be 40 bytes long
 msg_kickstart:        .byte "C65GS KICKSTART V00.00 PRE-ALPHA        "
