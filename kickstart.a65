@@ -1986,16 +1986,16 @@ k3:		ldx #$7f
 		bne k0
 		lda #$30
 k0:		cpx #$ef
-		bne k9
+		bne k8
 		lda #$38
 k8:		cpx #$f7
-		bne k7
+		bne k6
 		lda #$36
 k6:		cmp #$fb
-		bne k5
+		bne k4
 		lda #$34
 k4:		cmp #$fd
-		bne k3
+		bne k2
 		lda #$32
 k2:		
 		; put character into 6th byte position of ROM file name.

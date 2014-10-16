@@ -1197,11 +1197,11 @@ architecture Behavioral of kickstart is
   -- 0xf250
   x"00",x"DC",x"E0",x"7F",x"D0",x"02",x"A9",x"30",
   -- 0xf258
-  x"E0",x"EF",x"D0",x"DC",x"A9",x"38",x"E0",x"F7",
+  x"E0",x"EF",x"D0",x"02",x"A9",x"38",x"E0",x"F7",
   -- 0xf260
-  x"D0",x"DC",x"A9",x"36",x"C9",x"FB",x"D0",x"DC",
+  x"D0",x"02",x"A9",x"36",x"C9",x"FB",x"D0",x"02",
   -- 0xf268
-  x"A9",x"34",x"C9",x"FD",x"D0",x"DC",x"A9",x"32",
+  x"A9",x"34",x"C9",x"FD",x"D0",x"02",x"A9",x"32",
   -- 0xf270
   x"8D",x"61",x"F6",x"60",x"43",x"36",x"35",x"47",
   -- 0xf278
