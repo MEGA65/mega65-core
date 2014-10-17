@@ -2018,6 +2018,7 @@ k2:
 		; so no key looks for C65GS.ROM, where as 0-9 will look
 		; for C65GSx.ROM, where x is the number.
 		sta txt_c65gsrom+5
+		sta $0427
 		rts
 
 
