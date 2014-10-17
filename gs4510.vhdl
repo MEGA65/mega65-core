@@ -2127,13 +2127,17 @@ begin
               hyper_map_offset_low <= reg_offset_low;
               hyper_map_offset_high <= reg_offset_high;
               hyper_p <= unsigned(virtual_reg_p);
-              -- Set registers for hypervisor mode
+              -- Set registers for hypervisor mode.
+              -- Hypervisor lives in a 16KB memory that gets mapped at $8000-$BFFF.
+              -- (it can of course map other stuff if it wants).
+              -- stack and ZP are mapped to this space also (the memory is writable,
+              -- but only from hypervisor mode).
               -- (preserve A,X,Y,Z and lower 32KB mapping for convenience for
               --  trap calls).
-              -- 8-bit stack @ $C000
-              reg_sp <= x"ff"; reg_sph <= x"C0"; flag_e <= '1';
-              -- ZP at $C100
-              reg_b <= x"C1";
+              -- 8-bit stack @ $BE00
+              reg_sp <= x"ff"; reg_sph <= x"BE"; flag_e <= '1';
+              -- ZP at $BF00
+              reg_b <= x"BF";
               -- PC at $8000 (code from $8000 - $BFFF)
               reg_pc <= x"8000";
               -- map hypervisor ROM in upper moby
