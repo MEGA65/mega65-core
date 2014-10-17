@@ -2116,6 +2116,36 @@ begin
                 monitor_mem_attention_granted <= '0';
                 state <= ProcessorHold;
               end if;
+            when TrapToHypervisor =>
+              -- Save all registers
+              hyper_a <= reg_a; hyper_x <= reg_x;
+              hyper_y <= reg_y; hyper_z <= reg_z;
+              hyper_b <= reg_b; hyper_sp <= reg_sp;
+              hyper_sph <= reg_sph; hyper_pc <= reg_pc;
+              hyper_mb_low <= reg_mb_low; hyper_mb_high <= reg_mb_high;
+              hyper_map_low <= reg_map_low; hyper_map_high <= reg_map_high;
+              hyper_map_offset_low <= reg_offset_low;
+              hyper_map_offset_high <= reg_offset_high;
+              hyper_p <= unsigned(virtual_reg_p);
+              -- Set registers for hypervisor mode
+              -- (preserve A,X,Y,Z and lower 32KB mapping for convenience for
+              --  trap calls).
+              -- 8-bit stack @ $C000
+              reg_sp <= x"ff"; reg_sph <= x"C0"; flag_e <= '1';
+              -- ZP at $C100
+              reg_b <= x"C1";
+              -- PC at $8000 (code from $8000 - $BFFF)
+              reg_pc <= x"c000";
+              -- map hypervisor ROM in upper moby
+              -- ROM is at $FFF8000-$FFFBFFF
+              reg_map_high <= "0011";
+              reg_offset_high <= x"f00"; -- add $F0000
+              reg_mb_high <= x"ff";
+
+              -- enable hypervisor mode flag
+              hypervisor_mode <= '1';
+              -- start fetching next instruction
+              state <= normal_fetch_state;
             when ReturnFromHypervisor =>
               -- Copy all registers back into place,
               reg_a <= hyper_a; reg_x <= hyper_x; reg_y <= hyper_y;
