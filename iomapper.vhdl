@@ -301,6 +301,7 @@ architecture behavioral of iomapper is
     ps2data   : in  std_logic;
     -- CIA ports
     porta_in  : in  std_logic_vector(7 downto 0);
+    portb_in  : in  std_logic_vector(7 downto 0);
     porta_out : out std_logic_vector(7 downto 0);
     portb_out : out std_logic_vector(7 downto 0);
 
@@ -457,6 +458,7 @@ begin
     last_scan_code => last_scan_code,
 --    key_status     => seg_led(1 downto 0),
     porta_in       => cia1porta_out,
+    portb_in       => cia1portb_out,
     porta_out      => cia1porta_in,
     portb_out      => cia1portb_in,
 

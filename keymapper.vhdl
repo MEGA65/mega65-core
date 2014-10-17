@@ -19,6 +19,7 @@ entity keymapper is
     ps2data   : in  std_logic;
     -- CIA ports
     porta_in  : in  std_logic_vector(7 downto 0);
+    portb_in  : in  std_logic_vector(7 downto 0);
     porta_out : out std_logic_vector(7 downto 0);
     portb_out : out std_logic_vector(7 downto 0);
 
@@ -75,6 +76,7 @@ begin  -- behavioural
   keyread: process (pixelclk, ps2data,ps2clock)
     variable full_scan_code : std_logic_vector(11 downto 0);
     variable portb_value : std_logic_vector(7 downto 0);
+    variable porta_value : std_logic_vector(7 downto 0);
   begin  -- process keyread
     if rising_edge(pixelclk) then
       -------------------------------------------------------------------------
@@ -395,6 +397,16 @@ begin  -- behavioural
           end loop;  -- j
         end if;        
       end loop;
+
+      -- We should also do it the otherway around as well
+      porta_value := x"FF";
+      for i in 0 to 7 loop
+        if portb_in(i)='0' then
+          for j in 0 to 7 loop
+            porta_value(j) := porta_value(j) and matrix((j*8)+i);
+          end loop;  -- j
+        end if;        
+      end loop;      
       
       -- Keyboard rows and joystick 1
       portb_out(7 downto 5) <= portb_value(7 downto 5);
@@ -405,12 +417,12 @@ begin  -- behavioural
       portb_out(0) <= portb_value(0) and joy1(0);
 
       -- Keyboard columns and joystick 2
-      porta_out(7 downto 5) <= porta_in(7 downto 5);
-      porta_out(4) <= porta_in(4) and joy2(4);
-      porta_out(3) <= porta_in(3) and joy2(3);
-      porta_out(2) <= porta_in(2) and joy2(2);
-      porta_out(1) <= porta_in(1) and joy2(1);
-      porta_out(0) <= porta_in(0) and joy2(0);
+      porta_out(7 downto 5) <= porta_value(7 downto 5);
+      porta_out(4) <= porta_value(4) and joy2(4);
+      porta_out(3) <= porta_value(3) and joy2(3);
+      porta_out(2) <= porta_value(2) and joy2(2);
+      porta_out(1) <= porta_value(1) and joy2(1);
+      porta_out(0) <= porta_value(0) and joy2(0);
     end if;
   end process keyread;
 
