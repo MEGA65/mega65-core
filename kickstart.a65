@@ -546,8 +546,24 @@ loadrom:
 		; C65GS.ROM
 nextdirectoryentry:
 		jsr fs_readdir
-		bcc sdcarderror
+		bcs l17e
 
+		; ROM not found: indicate which ROM we were looking for
+		ldx #$0b
+l17d:		lda txt_c65gsrom,x
+		sta msg_romnotfound+19,x
+		dex
+		bne l17d
+		ldx #<msg_romnotfound
+		ldy #>msg_romnotfound
+		jsr printmessage
+		jsr sdwaitawhile
+		jsr sdwaitawhile
+		jsr sdwaitawhile
+		jsr sdwaitawhile
+
+		jmp sdcarderror
+l17e:
 
 		ldx #$00
 l17b:		lda fs_direntry,x
@@ -1200,7 +1216,7 @@ sdtimeoutreset:
 		lda #$00
 		sta $0300
 		sta $0301
-		lda #$fa
+		lda #$f7
 		sta $0302
 		rts
 
@@ -2031,6 +2047,7 @@ msg_d81wronglength:   .byte "FAIL: C64GS.D81 IS NOT 819200 BYTES LONG"
 msg_d81fragged:       .byte "FAIL: C65GS.D81 IS FRAGMENTED: DEFRAG IT"
 msg_d81mounted:	      .byte "C65GS.D81 SUCCESSFULLY MOUNTED          "
 msg_releasesw15:      .byte "RELEASE SW15 TO CONTINUE BOOTING.       "
+msg_romnotfound:      .byte "COULD NOT FIND ROM C65GSXXXROM          "
 
 ; filename of ROM we want to load in FAT directory format
 txt_c65gsrom:	      .byte "C65GS   ROM"
