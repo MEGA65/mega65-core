@@ -2135,7 +2135,7 @@ begin
               -- ZP at $C100
               reg_b <= x"C1";
               -- PC at $8000 (code from $8000 - $BFFF)
-              reg_pc <= x"c000";
+              reg_pc <= x"8000";
               -- map hypervisor ROM in upper moby
               -- ROM is at $FFF8000-$FFFBFFF
               reg_map_high <= "0011";
