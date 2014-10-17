@@ -348,7 +348,9 @@ end component;
 --  signal accessing_ram : std_logic;
   signal accessing_slowram : std_logic;
   signal accessing_cpuport : std_logic;
+  signal accessing_hypervisor : std_logic;
   signal cpuport_num : unsigned(3 downto 0);
+  signal hyperport_num : unsigned(5 downto 0);
   signal cpuport_ddr : unsigned(7 downto 0) := x"FF";
   signal cpuport_value : unsigned(7 downto 0) := x"3F";
   signal the_read_address : unsigned(27 downto 0);
@@ -1011,7 +1013,7 @@ begin
       -- Schedule the memory read from the appropriate source.
       accessing_fastio <= '0'; accessing_vic_fastio <= '0';
       accessing_cpuport <= '0'; accessing_colour_ram_fastio <= '0';
-      accessing_slowram <= '0';
+      accessing_slowram <= '0'; accessing_hypervisor <= '0';
       wait_states <= io_read_wait_states;
 
       -- Clear fastio access so that we don't keep reading/writing last IO address
@@ -1029,6 +1031,16 @@ begin
       report "MEMORY long_address = $" & to_hstring(long_address);
       -- @IO:C64 $0000000 6510/45GS10 CPU port DDR
       -- @IO:C64 $0000001 6510/45GS10 CPU port data
+      if long_address(27 downto 6)&"00" = x"FFD364" and hypervisor_mode='1' then
+        accessing_hypervisor <= '1';
+        wait_states <= shadow_wait_states;
+        if shadow_wait_states=x"00" then
+          proceed <= '1';
+        else
+          proceed <= '0';
+        end if;
+        hyperport_num <= real_long_address(5 downto 0);
+      end if;
       if (long_address = x"0000000") or (long_address = x"0000001") then
         accessing_cpuport <= '1';
         wait_states <= shadow_wait_states;
@@ -1173,6 +1185,30 @@ begin
             return "0000000"&imask_ta_out;
           when others =>
             return x"ff";
+        end case;
+      elsif accessing_hypervisor='1' then
+        report "HYPERPORT: Reading hypervisor register";
+        case hyperport_num is
+          when "000000" => return hyper_a;
+          when "000001" => return hyper_x;
+          when "000010" => return hyper_y;
+          when "000011" => return hyper_z;
+          when "000100" => return hyper_b;
+          when "000101" => return hyper_p;
+          when "000110" => return hyper_sp;
+          when "000111" => return hyper_sph;
+          when "001000" => return hyper_pc(7 downto 0);
+          when "001001" => return hyper_pc(15 downto 8);                           
+          when "001010" => return unsigned(std_logic_vector(hyper_map_low)
+                                           & std_logic_vector(hyper_map_offset_low(11 downto 8)));
+          when "001011" => return hyper_map_offset_low(7 downto 0);
+          when "001100" => return unsigned(std_logic_vector(hyper_map_high)
+                                           & std_logic_vector(hyper_map_offset_high(11 downto 8)));
+          when "001101" => return hyper_map_offset_high(7 downto 0);
+          when "001110" => return hyper_mb_low;
+          when "001111" => return hyper_mb_high;
+          when "111111" => return x"48"; -- 'H' for Hypermode
+          when others => return x"ff";
         end case;
       elsif accessing_shadow='1' then
 --        report "reading from shadowram" severity note;
