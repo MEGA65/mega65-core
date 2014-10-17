@@ -289,6 +289,26 @@ end component;
   signal reg_offset_low : unsigned(11 downto 0);
   signal reg_offset_high : unsigned(11 downto 0);
 
+  -- Are we in hypervisor mode?
+  signal hypervisor_mode : std_logic := '1';
+  -- Duplicates of all CPU registers to hold user-space contents when trapping
+  -- to hypervisor.
+  signal hyper_p : unsigned(7 downto 0);
+  signal hyper_a : unsigned(7 downto 0);
+  signal hyper_b : unsigned(7 downto 0);
+  signal hyper_x : unsigned(7 downto 0);
+  signal hyper_y : unsigned(7 downto 0);
+  signal hyper_z : unsigned(7 downto 0);
+  signal hyper_sp : unsigned(7 downto 0);
+  signal hyper_sph : unsigned(7 downto 0);
+  signal hyper_pc : unsigned(15 downto 0);
+  signal hyper_mb_low : unsigned(7 downto 0);
+  signal hyper_mb_high : unsigned(7 downto 0);
+  signal hyper_map_low : std_logic_vector(3 downto 0);
+  signal hyper_map_high : std_logic_vector(3 downto 0);
+  signal hyper_map_offset_low : unsigned(11 downto 0);
+  signal hyper_map_offset_high : unsigned(11 downto 0);
+
   -- Flags to detect interrupts
   signal map_interrupt_inhibit : std_logic := '0';
   signal nmi_pending : std_logic := '0';
@@ -398,6 +418,9 @@ end component;
     Interrupt,InterruptPushPCL,InterruptPushP,
     VectorRead1,VectorRead2,VectorRead3, 
 
+    -- Hypervisor traps
+    TrapToHypervisor,ReturnFromHypervisor,
+    
     -- DMAgic
     DMAgicTrigger,DMAgicReadList,DMAgicGetReady,
     DMAgicFill,
@@ -743,9 +766,10 @@ begin
     procedure reset_cpu_state is
     begin
       -- Set microcode state for reset
-      -- This is a little bit fun because we need to basically make an opcode for
-      -- reset.  $FF in CPU personality 3 will do the trick.
 
+      -- CPU starts in hypervisor
+      hypervisor_mode <= '1';
+      
       instruction_phase <= x"0";
       
       -- Default register values
@@ -759,6 +783,7 @@ begin
       reg_pc <= x"8765";
 
       -- Clear CPU MMU registers, and bank in kickstart ROM
+      -- XXX Need to update this for hypervisor mode
       if no_kickstart='1' then
         -- no kickstart
         reg_offset_high <= x"000";
@@ -1339,6 +1364,73 @@ begin
         if long_address = x"FFC00A0" then
           slowram_waitstates <= value;
         end if;
+        -- @IO:GS $D640 - Hypervisor A register storage
+        if long_address = x"FFD3640" and hypervisor_mode='1' then
+          hyper_a <= value;
+        end if;
+        -- @IO:GS $D641 - Hypervisor X register storage
+        if long_address = x"FFD3641" and hypervisor_mode='1' then
+          hyper_x <= value;
+        end if;
+        -- @IO:GS $D642 - Hypervisor Y register storage
+        if long_address = x"FFD3642" and hypervisor_mode='1' then
+          hyper_y <= value;
+        end if;
+        -- @IO:GS $D643 - Hypervisor Z register storage
+        if long_address = x"FFD3643" and hypervisor_mode='1' then
+          hyper_z <= value;
+        end if;
+        -- @IO:GS $D644 - Hypervisor B register storage
+        if long_address = x"FFD3644" and hypervisor_mode='1' then
+          hyper_b <= value;
+        end if;
+        -- @IO:GS $D645 - Hypervisor SPL register storage
+        if long_address = x"FFD3645" and hypervisor_mode='1' then
+          hyper_sp <= value;
+        end if;
+        -- @IO:GS $D646 - Hypervisor SPH register storage
+        if long_address = x"FFD3646" and hypervisor_mode='1' then
+          hyper_sph <= value;
+        end if;
+        -- @IO:GS $D647 - Hypervisor P register storage
+        if long_address = x"FFD3647" and hypervisor_mode='1' then
+          hyper_p <= value;
+        end if;
+        -- @IO:GS $D648 - Hypervisor PC-low register storage
+        if long_address = x"FFD3648" and hypervisor_mode='1' then
+          hyper_pc(7 downto 0) <= value;
+        end if;
+        -- @IO:GS $D649 - Hypervisor PC-high register storage
+        if long_address = x"FFD3649" and hypervisor_mode='1' then
+          hyper_pc(15 downto 8) <= value;
+        end if;
+        -- @IO:GS $D64A - Hypervisor MAPLO register storage (high bits)
+        if long_address = x"FFD364A" and hypervisor_mode='1' then
+          hyper_map_low <= std_logic_vector(value(7 downto 4));
+          hyper_map_offset_low(11 downto 8) <= value(3 downto 0);
+        end if;
+        -- @IO:GS $D64B - Hypervisor MAPLO register storage (low bits)
+        if long_address = x"FFD364B" and hypervisor_mode='1' then
+          hyper_map_offset_low(7 downto 0) <= value;
+        end if;
+        -- @IO:GS $D64C - Hypervisor MAPHI register storage (high bits)
+        if long_address = x"FFD364C" and hypervisor_mode='1' then
+          hyper_map_high <= std_logic_vector(value(7 downto 4));
+          hyper_map_offset_high(11 downto 8) <= value(3 downto 0);
+        end if;
+        -- @IO:GS $D64D - Hypervisor MAPHI register storage (low bits)
+        if long_address = x"FFD364D" and hypervisor_mode='1' then
+          hyper_map_offset_high(7 downto 0) <= value;
+        end if;
+        -- @IO:GS $D64E - Hypervisor MAPLO mega-byte number register storage
+        if long_address = x"FFD364E" and hypervisor_mode='1' then
+          hyper_mb_low <= value;
+        end if;
+        -- @IO:GS $D64F - Hypervisor MAPHI mega-byte number register storage
+        if long_address = x"FFD364F" and hypervisor_mode='1' then
+          hyper_mb_high <= value;
+        end if;
+        
         if long_address(19 downto 16) = x"8" then
           colour_ram_cs <= '1';
         end if;
@@ -3180,6 +3272,18 @@ begin
             dma_pending <= '1';
             state <= DMAgicTrigger;
 
+            -- Don't increment PC if we were otherwise going to shortcut to
+            -- InstructionDecode next cycle
+            reg_pc <= reg_pc;
+          end if;
+          -- @IO:GS $D67F - Trigger trap to hypervisor
+          if memory_access_address = x"FFD367F" then
+            report "HYPERTRAP: Hypervisor trap/return triggered by write to $D67F";
+              if hypervisor_mode = '0' then
+                state <= TrapToHypervisor;
+              else
+                state <= ReturnFromHypervisor;
+              end if;
             -- Don't increment PC if we were otherwise going to shortcut to
             -- InstructionDecode next cycle
             reg_pc <= reg_pc;

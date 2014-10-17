@@ -656,10 +656,16 @@ begin
 
       -- $D500 - $D5FF is not currently used.  Probably use some for FPU.
       
-      -- $D600 - $D67F is reserved for 6551 serial UART emulation for C65
-      -- compatibility.
+      -- $D600 - $D60F is reserved for 6551 serial UART emulation for C65
+      -- compatibility (6551 actually only has 4 registers).
+      -- 6551 is not currently implemented, so this is just unmapped for now,
+      -- except for any read values required to allow the C65 ROM to function.
+
+      -- Hypervisor control (only visible from hypervisor mode) $D640 - $D67F
+      -- The hypervisor is a CPU provided function.
       
-      -- SD controller uses $D680 - $D6FF
+      -- SD controller and miscellaneous hardware (microphone, accelerometer etc)
+      -- uses $D680 - $D6FF
       
       -- CPU uses $FFD{0,1,2,3}700 for DMAgic and other CPU-hosted IO registers.
       
