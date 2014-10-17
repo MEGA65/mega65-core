@@ -2116,6 +2116,24 @@ begin
                 monitor_mem_attention_granted <= '0';
                 state <= ProcessorHold;
               end if;
+            when ReturnFromHypervisor =>
+              -- Copy all registers back into place,
+              reg_a <= hyper_a; reg_x <= hyper_x; reg_y <= hyper_y;
+              reg_z <= hyper_z; reg_b <= hyper_b; reg_sp <= hyper_sp;
+              reg_sph <= hyper_sph; reg_pc <= hyper_pc;
+              reg_mb_low <= hyper_mb_low; reg_mb_high <= hyper_mb_high;
+              reg_map_low <= hyper_map_low; reg_map_high <= hyper_map_high;
+              reg_offset_low <= hyper_map_offset_low;
+              reg_offset_high <= hyper_map_offset_high;
+              flag_n <= hyper_p(7); flag_v <= hyper_p(6);
+              flag_e <= hyper_p(5); flag_d <= hyper_p(3);
+              flag_i <= hyper_p(2); flag_z <= hyper_p(1);
+              flag_c <= hyper_p(0);
+              
+              -- clear hypervisor mode flag
+              hypervisor_mode <= '0';
+              -- start fetching next instruction
+              state <= normal_fetch_state;
             when DMAgicTrigger =>
               -- Clear DMA pending flag
               report "DMAgic: Processing DMA request";
