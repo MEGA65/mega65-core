@@ -1976,7 +1976,7 @@ keyboardread:
 		sta $dc03
 		lda #$00
 		sta $dc02
-		lda #$f7
+		lda #$fe
 		sta $dc01
 		lda #$20
 		ldx $dc00
@@ -1995,7 +1995,7 @@ k7:		cmp #$fb
 k5:		cmp #$fd
 		bne k3
 		lda #$33
-k3:		ldx #$7f
+k3:		ldx #$f7
 		stx $dc01
 		ldx $dc00
 		cpx #$7f
