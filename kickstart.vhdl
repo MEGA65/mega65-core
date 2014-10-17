@@ -1191,7 +1191,7 @@ architecture Behavioral of kickstart is
   -- 0xf238
   x"A9",x"FF",x"8D",x"03",x"DC",x"A9",x"00",x"8D",
   -- 0xf240
-  x"02",x"DC",x"A9",x"F7",x"8D",x"01",x"DC",x"A9",
+  x"02",x"DC",x"A9",x"FE",x"8D",x"01",x"DC",x"A9",
   -- 0xf248
   x"20",x"AE",x"00",x"DC",x"E0",x"7F",x"D0",x"02",
   -- 0xf250
@@ -1201,7 +1201,7 @@ architecture Behavioral of kickstart is
   -- 0xf260
   x"D0",x"02",x"A9",x"35",x"C9",x"FD",x"D0",x"02",
   -- 0xf268
-  x"A9",x"33",x"A2",x"7F",x"8E",x"01",x"DC",x"AE",
+  x"A9",x"33",x"A2",x"F7",x"8E",x"01",x"DC",x"AE",
   -- 0xf270
   x"00",x"DC",x"E0",x"7F",x"D0",x"02",x"A9",x"30",
   -- 0xf278
