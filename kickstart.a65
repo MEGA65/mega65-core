@@ -1989,10 +1989,10 @@ k1:		cpx #$ef
 k9:		cpx #$f7
 		bne k7
 		lda #$37
-k7:		cmp #$fb
+k7:		cpx #$fb
 		bne k5
 		lda #$35
-k5:		cmp #$fd
+k5:		cpx #$fd
 		bne k3
 		lda #$33
 k3:		ldx #$f7
@@ -2007,10 +2007,10 @@ k0:		cpx #$ef
 k8:		cpx #$f7
 		bne k6
 		lda #$36
-k6:		cmp #$fb
+k6:		cpx #$fb
 		bne k4
 		lda #$34
-k4:		cmp #$fd
+k4:		cpx #$fd
 		bne k2
 		lda #$32
 k2:		
