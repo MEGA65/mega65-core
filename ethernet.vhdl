@@ -185,6 +185,7 @@ architecture behavioural of ethernet is
   signal rrnet_notice_data_read : std_logic := '0';
   signal rrnet_addr : unsigned(15 downto 0) := (others => '0');
   signal rrnet_data : unsigned(15 downto 0) := (others => '0');
+  signal rrnet_eeprom_data : unsigned(15 downto 0) := (others => '0');
   signal rrnet_readaddress : integer range 0 to 4095 := 0;
   signal rrnet_txbuffer_addr : unsigned(15 downto 0) := (others => '0');
   signal rrnet_advance_buffer : std_logic := '0';
@@ -913,6 +914,10 @@ begin  -- behavioural
         when x"0000" =>
           -- Detect register: magic value that udpslave looks for
           rrnet_data <= x"630e";
+        when x"0042" =>
+          -- EEPROM Data Register
+          -- 64net/2 RR-NET uses this as a scratch pad
+          rrnet_data <= rrnet_eeprom_data;
         when x"0124" =>
           -- RX status
           -- otherwise, set register based on current state
@@ -1120,6 +1125,14 @@ begin  -- behavioural
         if fastio_addr = x"D0E03" and rrnet_enable='1' then
           -- @IO:C64 $DE03 RRNET register select register (low)
           rrnet_addr(15 downto 8) <= fastio_wdata;
+        end if;
+        if rrnet_enable='1' and rrnet_addr = x"0042" then
+          if fastio_addr = x"D0E04" then
+            rrnet_eeprom_data(7 downto 0) <= fastio_wdata;
+          end if;
+          if fastio_addr = x"D0E05" then
+            rrnet_eeprom_data(15 downto 8) <= fastio_wdata;
+          end if;
         end if;
         if fastio_addr = x"D0E06" and rrnet_enable='1' then
           -- @IO:C64 $DE06 write to even numbered RR-NET register
