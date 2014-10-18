@@ -1043,7 +1043,9 @@ begin
           when SetMemory8 =>
             target_address <= target_address + 1;
             if parse_position < cmdlen then
-              print_hex_byte(target_value,SetMemory2);
+              -- Don't print written bytes in an attempt to fix memory set getting
+              -- out of sync when fed data at speed.
+              state <= SetMemory2;
             else
               state <= NextCommand;
             end if;
