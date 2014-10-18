@@ -786,8 +786,12 @@ begin  -- behavioural
       report "MEMORY: Reading from fastio";
 
       -- RR-NET emulation
-      if rrnet_enable='1' and fastio_addr=x"D0E04" then
-        -- cs_packet_data low
+      if fastio_addr = x"D0E02" and rrnet_enable='1' then
+        fastio_rdata <= rrnet_addr(7 downto 0);        
+      elsif fastio_addr = x"D0E03" and rrnet_enable='1' then
+        fastio_rdata <= rrnet_addr(15 downto 8);
+      elsif rrnet_enable='1' and fastio_addr=x"D0E04" then
+        -- @IO:GS RR-NET emulation: cs_packet_data low
         fastio_rdata <= rrnet_data(7 downto 0);
         if rrnet_reading_bus_status = '1' then
           if rrnet_tx_state = CommandSet then
@@ -795,7 +799,7 @@ begin  -- behavioural
           end if;
         end if;
       elsif rrnet_enable='1' and fastio_addr=x"D0E05" then
-        -- cs_packet_data high
+        -- @IO:GS RR-NET emulation: cs_packet_data high
         report "MEMORY: Reading RR-NET reg high = $" & to_hstring(rrnet_data(15 downto 8));
         fastio_rdata <= rrnet_data(15 downto 8);
         if rrnet_reading_bus_status = '1' then
