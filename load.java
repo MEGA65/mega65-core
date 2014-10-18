@@ -47,10 +47,11 @@ public class load {
 		}
 		toSend = toSend + "\n";
 		outToServer.write(toSend.getBytes());
+		// C65GS serial interface writes a similar number of bytes back to us.  Allow for this to happen.
 		System.out.print(inFromServer.read());
 		//		System.out.println(toSend);
 	    }
-	    System.out.println("Done.");
+	    System.out.println("Data sent to serial proxy.  It may take some time to push through.");
 
 
 	} catch (Exception e) {

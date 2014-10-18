@@ -303,6 +303,14 @@ int slow_write(int fd,char *d,int l)
 	usleep(100);
 	write(fd,&d[i],1);
       }
+      if (d[i]=='\r'||d[i]=='\n') {
+	// CR/LF can cause the output of upto 256 bytes of data.
+	// We need to allow time for this.
+	// In reality for memory setting, we expect no more than ~40 characters
+	// so about 1.8ms should do it.  This should allow for a loading speed of
+	// ~1-3KB/sec.
+	usleep(1800);
+      }
     }
   return 0;
 }
