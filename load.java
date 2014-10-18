@@ -1,14 +1,15 @@
 import java.io.*;
+import java.net.*;
 
 public class load {
     public static void main(String[] args) {
 	if (args.length<3||args.length>4) {
-	    System.out.println("usage: load <ip> <port> <file> [load address]");
+	    System.out.println("usage: load <ip|hostname> <port> <file> [load address]");
 	    return;
 	}
 
 	// Parse arguments
-	String ip = args[0];
+	String hostname = args[0];
 	int port = Integer.parseInt(args[1]);
 	String fileName = args[2];
 	int loadAddress = -1;
@@ -23,10 +24,37 @@ public class load {
 		System.out.println("Could not read all of file. Aborting");
 		return;
 	    }	    
+	    System.out.println("Read " + data.length + " bytes.");
+	    
+	    Socket clientSocket = new Socket(hostname, port);   
+	    DataOutputStream outToServer 
+		= new DataOutputStream(clientSocket.getOutputStream());
+	    BufferedReader inFromServer 
+		= new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+	    int startOffset=0;
+	    if (loadAddress==-1) {
+		startOffset=2;
+		loadAddress = data[0]+256*data[1];
+	    }
+	    for(int i=startOffset; i<data.length; i+=16) {
+		int count = 16;
+		if (i+count>data.length) count=data.length-i;
+		//	System.out.println("Sending "+count+" bytes @ offset " + i);
+		// build string to send
+		String toSend = "s" + String.format("%x",loadAddress + i);
+		for(int j=0;j<count;j++) {
+		    toSend = toSend + String.format(" %x",data[i+j]);
+		}
+
+		System.out.println(toSend);
+	    }
+	    System.out.println("Done.");
+
+
 	} catch (Exception e) {
 	    e.printStackTrace();
 	}
+	
 
-	System.out.println("Read " + data.length + " bytes.");
     }
 }
