@@ -41,12 +41,14 @@ public class load {
 		if (i+count>data.length) count=data.length-i;
 		//	System.out.println("Sending "+count+" bytes @ offset " + i);
 		// build string to send
-		String toSend = "s" + String.format("%x",loadAddress + i);
+		String toSend = "s" + String.format("%x",loadAddress + i - startOffset);
 		for(int j=0;j<count;j++) {
 		    toSend = toSend + String.format(" %x",data[i+j]);
 		}
-
-		System.out.println(toSend);
+		toSend = toSend + "\n";
+		outToServer.write(toSend.getBytes());
+		System.out.print(inFromServer.read());
+		//		System.out.println(toSend);
 	    }
 	    System.out.println("Done.");
 
