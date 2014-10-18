@@ -36,8 +36,9 @@ public class load {
 		startOffset=2;
 		loadAddress = data[0]+256*data[1];
 	    }
-	    for(int i=startOffset; i<data.length; i+=16) {
-		int count = 16;
+	    int stepSize=16;
+	    for(int i=startOffset; i<data.length; i+=stepSize) {
+		int count = stepSize;
 		if (i+count>data.length) count=data.length-i;
 		//	System.out.println("Sending "+count+" bytes @ offset " + i);
 		// build string to send
@@ -52,7 +53,9 @@ public class load {
 		//		System.out.println(toSend);
 	    }
 	    System.out.println("Data sent to serial proxy.  It may take some time to push through.");
-
+	    while (true) {
+		System.out.print(inFromServer.read());
+	    }
 
 	} catch (Exception e) {
 	    e.printStackTrace();
