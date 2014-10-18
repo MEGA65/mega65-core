@@ -2000,19 +2000,19 @@ k3:		ldx #$f7
 		ldx $dc00
 		cpx #$7f
 		bne k0
-		lda #$38
+		lda #$32
 k0:		cpx #$ef
 		bne k8
-		lda #$36
+		lda #$30
 k8:		cpx #$f7
 		bne k6
-		lda #$34
+		lda #$38
 k6:		cpx #$fb
 		bne k4
-		lda #$32
+		lda #$36
 k4:		cpx #$fd
 		bne k2
-		lda #$30
+		lda #$34
 k2:		
 		; put character into 6th byte position of ROM file name.
 		; so no key looks for C65GS.ROM, where as 0-9 will look
