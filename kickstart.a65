@@ -1906,9 +1906,6 @@ l42:
 		lda #$82
 		sta $D680
 
-		; C64 IO map
-		clc
-		jsr enhanced_io
 		; copy routine to stack to switch to
 		; C64 memory map and enter via reset
 		; vector.  
@@ -1961,9 +1958,11 @@ g61:		sta $0800,x
 		sta $d650    ; CPU port $00
 		sta $d651    ; CPU port $01
 
+		lda #$00
+		sta $d652    ; C64 IO map
+
 		; Exit hypervisor and transfer control to ROM
-		
-		jmp $0140
+		sta $d67f
 	
 longpeek:
 		; Use DMAgic to read any byte of RAM in 28bit address space.
