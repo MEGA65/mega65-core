@@ -20,8 +20,8 @@ for b in bytes_read:
         romdata=romdata+","
     if c==8:
         c=0;
-    if c==0:
-#        romdata=romdata+"\n  -- "+hex(count+0xe000)+"\n  "
+    #if c==0:
+    #        romdata=romdata+"\n  -- "+hex(count+0xe000)+"\n  "
     romdata=romdata+"x\""+b.encode('hex').upper()+"\""
     count=count+1
     c=c+1;    

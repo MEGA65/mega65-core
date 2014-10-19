@@ -19,6 +19,8 @@
 ; success.
 ;
 
+	.alias reset_vector $fffc
+
 ; scratch space in ZP space usually used by kernel
 ; we try to use address space not normally used by C64 kernel, so that
 ; it is possible to make calls to kickstart after boot.  Eventually
@@ -73,7 +75,9 @@
 	; reliable access to the sdcard from the kickstart ROM, being hosted on
 	; fastio as it is.  Of course, it would be nice to fix the primary bug.
 
-	.org $E000
+	.org $8000
+
+	jmp reset_entry
 
 diskchooserstart:
 	.incbin "diskchooser"
@@ -2126,24 +2130,7 @@ msg_cpuerror:	.byte " **** CPU ERROR: OPCODE=$$ PC=$$$$ **** "
 ; --------------------------------------------------------------------------------
 ; Kickstart jump table of useful routines (subject to change)
 ; --------------------------------------------------------------------------------
-		.checkpc $FF00
-		.advance $FF00
-
-		jmp enhanced_io   ; enable or disable C65GS enhanced
-		    		  ; IO features
-		jmp sdmapsectorbuffer
-		jmp sdunmapsectorbuffer
-
-
-; C65GS specific vectors
-       		.checkpc $FFF0
-		.advance $FFF0
-		.word cpuerror_entry
-; 6502 interrupt and reset vectors
-		.checkpc $FFFA
-		.advance $FFFA
-nmi_vector:	.word nmi_entry
-reset_vector:	.word reset_entry
-irq_vector:	.word irq_entry
+		.checkpc $BE00
+		.advance $C000
 
 		 .outfile "kickstart65gs.bin"
