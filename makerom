@@ -7,7 +7,7 @@ from sys import argv, path
 
 w=open(argv[3]+".vhdl","w")
 
-# Read in combined kernel and basic ROM
+# Read in the ROM file
 romdata=""
 bytes_read = open(argv[2], "rb").read()
 first=True
@@ -21,7 +21,7 @@ for b in bytes_read:
     if c==8:
         c=0;
     if c==0:
-        romdata=romdata+"\n  -- "+hex(count+0xe000)+"\n  "
+#        romdata=romdata+"\n  -- "+hex(count+0xe000)+"\n  "
     romdata=romdata+"x\""+b.encode('hex').upper()+"\""
     count=count+1
     c=c+1;    

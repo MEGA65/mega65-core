@@ -5,7 +5,7 @@ use ieee.numeric_std.all;
 --
 entity THEROM is
   port (Clk : in std_logic;
-        address : in std_logic_vector(12 downto 0);
+        address : in std_logic_vector(13 downto 0);
         -- Yes, we do have a write enable, because we allow modification of ROMs
         -- in the running machine, unless purposely disabled.  This gives us
         -- something like the WOM that the Amiga had.
@@ -19,8 +19,8 @@ end THEROM;
 
 architecture Behavioral of THEROM is
 
--- 8K x 8bit pre-initialised RAM
-  type ram_t is array (0 to 8191) of std_logic_vector(7 downto 0);
+-- 16K x 8bit pre-initialised RAM
+  type ram_t is array (0 to 16383) of std_logic_vector(7 downto 0);
   signal ram : ram_t := (ROMDATA);
 
 begin
