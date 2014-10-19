@@ -258,6 +258,8 @@ architecture Behavioral of viciv is
 );
 end component;
 
+  signal iomode_set_toggle_last : std_logic := '0';    
+
   signal before_y_chargen_start : std_logic := '1';
 
   signal vicii_2mhz_internal : std_logic := '1';
@@ -1380,6 +1382,13 @@ begin
     
     if rising_edge(ioclock) then
 
+      -- Set IO mode when CPU tells us to.  This is done when entering/exiting
+      -- hypervisor mode.
+      if iomode_set_toggle /= iomode_set_toggle_last then
+        iomode_set_toggle_last <= iomode_set_toggle;
+        viciii_iomode <= iomode_set;
+      end if;
+      
       viciv_fast <= viciv_fast_internal;
       viciii_fast <= viciii_fast_internal;
       vicii_2mhz <= vicii_2mhz_internal;
