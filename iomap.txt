@@ -1,0 +1,261 @@
+C64 $0000000 6510/45GS10 CPU port DDR
+C64 $0000001 6510/45GS10 CPU port data
+C64 $D000 VIC-II sprite 0 horizontal position
+C64 $D001 VIC-II sprite 1 horizontal position
+C64 $D002 VIC-II sprite 2 horizontal position
+C64 $D003 VIC-II sprite 3 horizontal position
+C64 $D004 VIC-II sprite 4 horizontal position
+C64 $D005 VIC-II sprite 5 horizontal position
+C64 $D006 VIC-II sprite 6 horizontal position
+C64 $D007 VIC-II sprite 7 horizontal position
+C64 $D008 VIC-II sprite 0 vertical position
+C64 $D009 VIC-II sprite 1 vertical position
+C64 $D00A VIC-II sprite 2 vertical position
+C64 $D00B VIC-II sprite 3 vertical position
+C64 $D00C VIC-II sprite 4 vertical position
+C64 $D00D VIC-II sprite 5 vertical position
+C64 $D00E VIC-II sprite 6 vertical position
+C64 $D00F VIC-II sprite 7 vertical position
+C64 $D010 VIC-II sprite horizontal position MSBs
+C64 $D011 VIC-II control register
+C64 $D011.2-0 VIC-II 24/25 vertical smooth scroll
+C64 $D011.5 VIC-II 24/25 row select
+C64 $D011.5 VIC-II disable display
+C64 $D011.5 VIC-II text mode
+C64 $D011.6 VIC-II extended background mode
+C64 $D011.7 VIC-II raster compare bit 8
+C64 $D012 VIC-II raster compare bits 0 to 7
+C64 $D013 Coarse horizontal beam position (was lightpen X)
+C64 $D014 Coarse vertical beam position (was lightpen Y)
+C64 $D015 VIC-II sprite enable bits
+C64 $D016 VIC-II control register
+C64 $D016.2-0 VIC-II horizontal smooth scroll
+C64 $D016.3 VIC-II 38/40 column select
+C64 $D016.4 VIC-II Multi-colour mode
+C64 $D017 VIC-II sprite enable bits
+C64 $D018 VIC-II RAM addresses
+C64 $D018.3-1 VIC-II character set address location (*1KB)
+C64 $D018.7-4 VIC-II screen address (*1KB)
+C64 $D019 VIC-II IRQ control
+C64 $D019.0 VIC-II raster compare indicate or acknowledge
+C64 $D019.1 VIC-II sprite:bitmap collision indicate or acknowledge
+C64 $D019.2 VIC-II sprite:sprite collision indicate or acknowledge
+C64 $D01A compatibility IRQ mask bits
+C64 $D01A.2 VIC-II mask raster IRQ
+C64 $D01A.2 VIC-II mask sprite:bitmap colission IRQ
+C64 $D01A.2 VIC-II mask sprite:sprite colission IRQ
+C64 $D01B VIC-II sprite background priority bits
+C64 $D01C VIC-II sprite multicolour enable bits
+C64 $D01D VIC-II sprite horizontal expansion enable bits
+C64 $D01E VIC-II sprite/sprite collision indicate bits
+C64 $D01E sprite/sprite collissions
+C64 $D01F VIC-II sprite/sprite collision indicate bits
+C64 $D01F sprite/sprite collissions
+C64 $D020 Border colour
+C64 $D020.3-0 VIC-II display border colour (16 colour)
+C65 $D020.7-0 VIC-III/IV display border colour (256 colour)
+C64 $D021 Screen colour
+C64 $D021.3-0 VIC-II screen colour (16 colour)
+C65 $D021.7-0 VIC-III/IV screen colour (256 colour)
+C64 $D022 VIC-II multi-colour 1
+C64 $D022.3-0 VIC-II multi-colour 1 (16 colour)
+C65 $D022.7-0 VIC-III/IV multi-colour 1 (256 colour)
+C64 $D023 VIC-II multi-colour 2
+C64 $D023.3-0 VIC-II multi-colour 2 (16 colour)
+C65 $D023.7-0 VIC-III/IV multi-colour 2 (256 colour)
+C64 $D024 VIC-II multi-colour 3
+C64 $D024.3-0 VIC-II multi-colour 3 (16 colour)
+C65 $D024.7-0 VIC-III/IV multi-colour 3 (256 colour)
+C64 $D025 VIC-II/III/IV sprite multi-colour 0 (always 256 colour)
+C64 $D026 VIC-II/III/IV sprite multi-colour 1 (always 256 colour)
+C64 $D027 VIC-II sprite 0 colour (always 256 colour)
+C64 $D028 VIC-II sprite 1 colour (always 256 colour)
+C64 $D029 VIC-II sprite 2 colour (always 256 colour)
+C64 $D02A VIC-II sprite 3 colour (always 256 colour)
+C64 $D02B VIC-II sprite 4 colour (always 256 colour)
+C64 $D02C VIC-II sprite 5 colour (always 256 colour)
+C64 $D02D VIC-II sprite 6 colour (always 256 colour)
+C64 $D02E VIC-II sprite 7 colour (always 256 colour)
+C65 $D02F VIC-III KEY register for unlocking extended registers.
+GS $D02F Write $47 then $53 to enable C65GS/VIC-IV IO registers
+C65 $D02F Write $A5 then $96 to enable C65/VIC-III IO registers
+C65 $D02F Write anything else to return to C64/VIC-II IO map
+C64 $D030 C128 2MHz emulation
+C65 $D030 VIC-III Control Register A
+C64 $D030.0 2MHz select (not yet functional)
+C65 $D030.0 2nd KB of colour RAM @ $DC00-$DFFF
+C65 $D030.1 VIC-III EXT SYNC (not implemented)
+C65 $D030.2 Use PALETTE ROM or RAM entries for colours 0 - 15
+C65 $D030.3 Map C65 ROM @ $8000
+C65 $D030.4 Map C65 ROM @ $A000
+C65 $D030.5 Map C65 ROM @ $C000
+C65 $D030.6 Select between C64 and C65 charset.
+C65 $D030.7 Map C65 ROM @ $E000
+C65 $D031 VIC-III Control Register B
+C65 $D031.0 VIC-III INT(erlaced?) (not implemented)
+C65 $D031.1 VIC-III MONO (not implemented)
+C65 $D031.2 VIC-III H1280 (1280 horizontal pixels)
+C65 $D031.3 VIC-III V400 (400 vertical pixels)
+C65 $D031.4 VIC-III Bit-Plane Mode (not implemented)
+C65 $D031.5 VIC-III Enable extended attributes and 8 bit colour entries
+C65 $D031.6 C65 FAST mode (~3.5MHz)
+C65 $D031.7 VIC-III H640 (640 horizontal pixels)
+GS $D040 VIC-IV characters per logical text row (LSB)
+GS $D041 VIC-IV characters per logical text row (MSB)
+GS $D042 VIC-IV horizontal hardware scale setting
+GS $D043 VIC-IV vertical hardware scale setting
+GS $D044 VIC-IV left border position (LSB)
+GS $D045 VIC-IV left border position (MSB)
+GS $D046 VIC-IV right border position (LSB)
+GS $D047 VIC-IV right border position (MSB)
+GS $D048 VIC-IV top border position (LSB)
+GS $D049 VIC-IV top border position (MSB)
+GS $D04A VIC-IV bottom border position (LSB)
+GS $D04B VIC-IV bottom border position (MSB)
+GS $D04C VIC-IV character generator horizontal position (LSB)
+GS $D04D VIC-IV character generator horizontal position (MSB)
+GS $D04E VIC-IV character generator vertical position (LSB)
+GS $D04F VIC-IV character generator vertical position (MSB)
+GS $D050 VIC-IV read horizontal position (LSB)
+GS $D051 VIC-IV read horizontal position (MSB)
+GS $D052 VIC-IV read physical raster/set raster compare (LSB)
+GS $D053 VIC-IV read physical raster/set raster compare (MSB)
+GS $D054 VIC-IV Control register C
+GS $D054.0 VIC-IV enable 16-bit character numbers (two screen bytes per character)
+GS $D054.1 VIC-IV enable full-colour mode for character numbers <=$FF
+GS $D054.2 VIC-IV enable full-colour mode for character numbers >$FF
+GS $D054.3 VIC-IV video output smear filter enable
+GS $D054.6 VIC-IV/C65GS FAST mode (48MHz)
+GS $D060 VIC-IV screen RAM precise base address (bits 0 - 7)
+GS $D061 VIC-IV screen RAM precise base address (bits 15 - 8)
+GS $D062 VIC-IV screen RAM precise base address (bits 23 - 16)
+GS $D063 VIC-IV screen RAM precise base address (bits 31 - 24)
+GS $D064 VIC-IV colour RAM base address (bits 0 - 7)
+GS $D065 VIC-IV colour RAM base address (bits 15 - 8)
+GS $D068 VIC-IV character set precise base address (bits 0 - 7)
+GS $D069 VIC-IV character set precise base address (bits 15 - 8)
+GS $D06A VIC-IV character set precise base address (bits 23 - 16)
+GS $D06B VIC-IV character set precise base address (bits 31 - 24)
+GS $D06C VIC-IV sprite pointer address (bits 7 - 0)
+GS $D06D VIC-IV sprite pointer address (bits 15 - 8)
+GS $D06E VIC-IV sprite pointer address (bits 23 - 16)
+GS $D06F VIC-IV sprite pointer address (bits 31 - 24)
+GS $D070 VIC-IV palette bank selection
+GS $D070.3-2 VIC-IV sprite palette bank
+GS $D070.5-4 VIC-IV bitmap/text palette bank
+GS $D070.7-6 VIC-IV palette bank mapped at $D100-$D3FF
+GS $D07C VIC-IV debug X position (LSB)
+GS $D07D VIC-IV debug X position (MSB)
+GS $D07E VIC-IV debug Y position (LSB)
+GS $D07F VIC-IV debug X position (MSB)
+C65 $D080 - F011 FDC control
+C65 $D081 - F011 FDC command
+C65 $D082 - F011 FDC Status A port (read only)
+C65 $D083 - F011 FDC Status B port (read only)
+C65 $D084 - F011 FDC track
+C65 $D085 - F011 FDC data register
+C65 $D085 - F011 FDC sector
+C65 $D086 - F011 FDC side
+C65 $D100-$D1FF red palette values (reversed nybl order)
+C65 $D200-$D2FF green palette values (reversed nybl order)
+C65 $D300-$D3FF blue palette values (reversed nybl order)
+C64 $D400-$D43F = right SID
+C64 $D440-$D47F = left SID
+C64 $D480-$D4FF = repeated images of SIDs
+GS $D500-$D53F - 8x 64bit FPU input registers
+GS $D540-$D5BF - 16x 64bit FPU intermediate/output registers (read only)
+GS $D5C0 - FPU SIN/COS input register
+GS $D5C1 - FPU SIN/COS output register
+GS $D640 - Hypervisor A register storage
+GS $D641 - Hypervisor X register storage
+GS $D642 - Hypervisor Y register storage
+GS $D643 - Hypervisor Z register storage
+GS $D644 - Hypervisor B register storage
+GS $D645 - Hypervisor SPL register storage
+GS $D646 - Hypervisor SPH register storage
+GS $D647 - Hypervisor P register storage
+GS $D648 - Hypervisor PC-low register storage
+GS $D649 - Hypervisor PC-high register storage
+GS $D64A - Hypervisor MAPLO register storage (high bits)
+GS $D64B - Hypervisor MAPLO register storage (low bits)
+GS $D64C - Hypervisor MAPHI register storage (high bits)
+GS $D64D - Hypervisor MAPHI register storage (low bits)
+GS $D64E - Hypervisor MAPLO mega-byte number register storage
+GS $D64F - Hypervisor MAPHI mega-byte number register storage
+GS $D650 - Hypervisor CPU port $00 value
+GS $D651 - Hypervisor CPU port $01 value
+GS $D652 - Hypervisor VIC-IV IO mode
+GS $D67F - Trigger trap to hypervisor
+GS $D680 - SD controller status/command
+GS $D681-$D684 - SD controller SD sector address
+GS $D68B - F011 emulation control register
+GS $D68B.0 - F011 disk 1 disk image enable
+GS $D68B.1 - F011 disk 1 present
+GS $D68B.2 - F011 disk 1 write protect
+GS $D68B.3 - F011 disk 2 disk image enable
+GS $D68B.4 - F011 disk 2 present
+GS $D68B.5 - F011 disk 2 write protect
+GS $D68C-$D68F - F011 disk 1 disk image address on SD card
+GS $D690-$D693 - F011 disk 2 disk image address on SD card
+GS $D6E0 Ethernet control
+GS $D6E0.0 Clear to reset ethernet PHY
+GS $D6E0.1-2 Read ethernet TX bits currently on the wire
+GS $D6E0.3 Read ethernet RX data valid
+GS $D6E0.4 Allow remote keyboard input via magic ethernet frames
+GS $D6E1 - Ethernet interrupt and control register
+GS $D6E1.0 reset ethernet PHY
+GS $D6E1.1 - Set which RX buffer is memory mapped
+GS $D6E1.2 - Indicate which RX buffer was most recently used
+GS $D6E1.3 Enable real-time video streaming via ethernet
+GS $D6E1.4 - Ethernet TX IRQ status
+GS $D6E1.5 - Ethernet RX IRQ status
+GS $D6E1.6 - Enable ethernet TX IRQ
+GS $D6E1.7 - Enable ethernet RX IRQ
+GS $D6E2 - TX Packet size (low byte)
+GS $D6E2 Set low-order size of frame to TX
+GS $D6E3 - TX Packet size (high byte)
+GS $D6E3 Set high-order size of frame to TX
+GS $D6E4 = $00 = Clear ethernet TX trigger (debug)
+GS $D6E4 = $01 = Transmit packet
+GS $D6E4 Ethernet command
+GS $D6F3 - Accelerometer bit-bashing port
+GS $D6F5 - Temperature sensor bit-bashing port
+GS $D6F6 - Keyboard scan code reader (lower byte)
+GS $D6F7 - Keyboard scan code reader (upper nybl)
+GS $D6F7 - microphone input (right)
+GS $D6F8 - 8-bit digital audio out (left)
+GS $D6F9.0 - Enable audio amplifier
+GS $D6FA - 8-bit digital audio out (left)
+GS $D6FB - microphone input (left)
+GS $D6FF - Flash bit-bashing port
+GS $D710-$D7FF - Enhanced sprite control registers (16 per enhanced sprite)
+GS $D718-$D7FF - Enhanced sprite linear transform matricies. These allow for hardware rotation, flipping etc.
+GS $D7x0-$D7x1 - Enhanced sprite X position in physical pixels (lower 12 bits)
+GS $D7x1.4-7   - Enhanced sprite width (4 -- 64 pixels)
+GS $D7x2-$D7x3 - Enhanced sprite Y position in physical pixels (16 bits)
+GS $D7x3.4-7   - Enhanced sprite height (4 -- 64 pixels)
+GS $D7x4 - Enhanced sprite data offset in its 4KB SpriteRAM (x16 bytes)
+GS $D7x5 - Enhanced sprite foreground mask
+GS $D7x6       - Enhanced sprite colour AND mask (sprite not visible if result = $00)
+GS $D7x7       - Enhanced sprite colour OR mask
+GS $D7x8-$D7x9 - Enhanced sprite 2x2 linear transform matrix 0,0 (5.11 bits)
+GS $D7xA-$D7xB - Enhanced sprite 2x2 linear transform matrix 0,1 (5.11 bits)
+GS $D7xC-$D7xD - Enhanced sprite 2x2 linear transform matrix 1,0 (5.11 bits)
+GS $D7xE-$D7xF - Enhanced sprite 2x2 linear transform matrix 1,1 (5.11 bits)
+C64 $DE01.0 Enable RR-NET emulated clock port ethernet interface
+C64 $DE02 RRNET register select register (low)
+C64 $DE03 RRNET register select register (low)
+C64 $DE06 write to even numbered RR-NET register
+C64 $DE06 write to odd numbered RR-NET register
+C64 $DE08 RR-NET buffer port (even byte)
+C64 $DE09 RR-NET buffer port (even byte)
+C64 $DE0C RRNET tx_cmd register (high)
+C64 $DE0C RRNET tx_cmd register (low)
+C64 $DE0E Set RR-NET TX packet size
+C64 $DE0F Set RR-NET TX packet size
+GS $FF9x000-$FF9xFFF - Enhanced sprite data buffers (4KB each)
+GS $FFC00A0 45GS10 slowram wait-states (write-only)
+GS $FFDE800 - $FFDEFFF Ethernet RX buffer (read only)
+GS $FFDE800 - $FFDEFFF Ethernet TX buffer (write only)
+GS RR-NET emulation: cs_packet_data high
+GS RR-NET emulation: cs_packet_data low
