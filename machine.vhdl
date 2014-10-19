@@ -309,6 +309,8 @@ architecture Behavioral of machine is
       colour_ram_cs : out std_logic;
 
       viciii_iomode : in std_logic_vector(1 downto 0);
+      iomode_set : out std_logic_vector(1 downto 0);
+      iomode_set_toggle : out std_logic;
 
       colourram_at_dc00 : in std_logic;
       rom_at_e000 : in std_logic;
@@ -365,6 +367,8 @@ architecture Behavioral of machine is
       colour_ram_cs : in std_logic;
 
       viciii_iomode : out std_logic_vector(1 downto 0);
+      iomode_set : in std_logic_vector(1 downto 0);
+      iomode_set_toggle : in std_logic;
 
       vicii_2mhz : out std_logic;
       viciii_fast : out std_logic;
@@ -486,6 +490,10 @@ architecture Behavioral of machine is
   signal cpu_leds : std_logic_vector(3 downto 0);
   
   signal viciii_iomode : std_logic_vector(1 downto 0);
+
+  signal iomode_set : std_logic_vector(1 downto 0);
+  signal iomode_set_toggle : std_logic;
+
   signal vicii_2mhz : std_logic;
   signal viciii_fast : std_logic;
   signal viciv_fast : std_logic;
@@ -717,8 +725,14 @@ begin
     reset =>reset_combined,
     irq => combinedirq,
     nmi => combinednmi,
-    cpu_hypervisor_mode => cpu_hypervisor_mode,
 
+    -- Hypervisor signals: we need to tell kickstart memory whether
+    -- to map or not, and we also need to be able to set the VIC-III
+    -- IO mode.
+    cpu_hypervisor_mode => cpu_hypervisor_mode,
+    iomode_set => iomode_set,
+    iomode_set_toggle => iomode_set_toggle,
+    
     no_kickstart => no_kickstart,
     
     reg_isr_out => reg_isr_out,
@@ -835,6 +849,8 @@ begin
       fastio_rdata    => fastio_vic_rdata,
 
       viciii_iomode => viciii_iomode,
+      iomode_set_toggle => iomode_set_toggle,
+      iomode_set => iomode_set,
       vicii_2mhz => vicii_2mhz,
       viciii_fast => viciii_fast,
       viciv_fast => viciv_fast,

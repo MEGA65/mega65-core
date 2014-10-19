@@ -109,7 +109,10 @@ entity viciv is
     colour_ram_cs : in std_logic;
 
     viciii_iomode : out std_logic_vector(1 downto 0) := "11";
-    
+
+    iomode_set : in std_logic_vector(1 downto 0);
+    iomode_set_toggle : in std_logic;
+
     colourram_at_dc00 : out std_logic := '0';   
     rom_at_e000 : out std_logic;
     rom_at_c000 : out std_logic;

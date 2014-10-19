@@ -41,7 +41,9 @@ entity gs4510 is
     nmi : in std_logic;
 
     cpu_hypervisor_mode : out std_logic;
-    
+    iomode_set : out std_logic_vector(1 downto 0) := "11";
+    iomode_set_toggle : out std_logic := '0';
+
     no_kickstart : in std_logic;
     
     reg_isr_out : in unsigned(7 downto 0);
