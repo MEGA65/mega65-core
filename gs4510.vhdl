@@ -307,6 +307,8 @@ end component;
   signal hyper_pc : unsigned(15 downto 0);
   signal hyper_mb_low : unsigned(7 downto 0);
   signal hyper_mb_high : unsigned(7 downto 0);
+  signal hyper_port_00 : unsigned(7 downto 0);
+  signal hyper_port_01 : unsigned(7 downto 0);
   signal hyper_map_low : std_logic_vector(3 downto 0);
   signal hyper_map_high : std_logic_vector(3 downto 0);
   signal hyper_map_offset_low : unsigned(11 downto 0);
@@ -1210,6 +1212,8 @@ begin
           when "001101" => return hyper_map_offset_high(7 downto 0);
           when "001110" => return hyper_mb_low;
           when "001111" => return hyper_mb_high;
+          when "010000" => return hyper_port_00;
+          when "010001" => return hyper_port_01;
           when "111111" => return x"48"; -- 'H' for Hypermode
           when others => return x"ff";
         end case;
@@ -1468,6 +1472,14 @@ begin
         -- @IO:GS $D64F - Hypervisor MAPHI mega-byte number register storage
         if long_address = x"FFD364F" and hypervisor_mode='1' then
           hyper_mb_high <= value;
+        end if;
+        -- @IO:GS $D650 - Hypervisor CPU port $00 value
+        if long_address = x"FFD3650" and hypervisor_mode='1' then
+          hyper_port_00 <= value;
+        end if;
+        -- @IO:GS $D651 - Hypervisor CPU port $01 value
+        if long_address = x"FFD364F" and hypervisor_mode='1' then
+          hyper_port_01 <= value;
         end if;
         
         if long_address(19 downto 16) = x"8" then
@@ -2131,6 +2143,7 @@ begin
               hyper_map_low <= reg_map_low; hyper_map_high <= reg_map_high;
               hyper_map_offset_low <= reg_offset_low;
               hyper_map_offset_high <= reg_offset_high;
+              hyper_port_00 <= cpuport_ddr; hyper_port_01 <= cpuport_value;
               hyper_p <= unsigned(virtual_reg_p);
               -- Set registers for hypervisor mode.
               -- Hypervisor lives in a 16KB memory that gets mapped at $8000-$BFFF.
@@ -2150,6 +2163,8 @@ begin
               reg_map_high <= "0011";
               reg_offset_high <= x"f00"; -- add $F0000
               reg_mb_high <= x"ff";
+              -- IO, but no C64 ROMS
+              cpuport_ddr <= x"3f"; cpuport_value <= x"35";
 
               -- enable hypervisor mode flag
               hypervisor_mode <= '1';
@@ -2164,6 +2179,7 @@ begin
               reg_map_low <= hyper_map_low; reg_map_high <= hyper_map_high;
               reg_offset_low <= hyper_map_offset_low;
               reg_offset_high <= hyper_map_offset_high;
+              cpuport_ddr <= hyper_port_00; cpuport_value <= hyper_port_01;
               flag_n <= hyper_p(7); flag_v <= hyper_p(6);
               flag_e <= hyper_p(5); flag_d <= hyper_p(3);
               flag_i <= hyper_p(2); flag_z <= hyper_p(1);
