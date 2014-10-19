@@ -167,6 +167,8 @@ component shadowram is
         );
 end component;
 
+  signal iomode_set_toggle_internal : std_logic := '0';
+
   -- Instruction log
   signal last_instruction_pc : unsigned(15 downto 0) := x"FFFF";
   signal last_opcode : unsigned(7 downto 0);
@@ -300,6 +302,7 @@ end component;
   signal hypervisor_mode : std_logic := '1';
   -- Duplicates of all CPU registers to hold user-space contents when trapping
   -- to hypervisor.
+  signal hyper_iomode : unsigned(7 downto 0);
   signal hyper_p : unsigned(7 downto 0);
   signal hyper_a : unsigned(7 downto 0);
   signal hyper_b : unsigned(7 downto 0);
@@ -1218,6 +1221,7 @@ begin
           when "001111" => return hyper_mb_high;
           when "010000" => return hyper_port_00;
           when "010001" => return hyper_port_01;
+          when "010010" => return hyper_iomode;
           when "111111" => return x"48"; -- 'H' for Hypermode
           when others => return x"ff";
         end case;
@@ -1482,8 +1486,12 @@ begin
           hyper_port_00 <= value;
         end if;
         -- @IO:GS $D651 - Hypervisor CPU port $01 value
-        if long_address = x"FFD364F" and hypervisor_mode='1' then
+        if long_address = x"FFD3651" and hypervisor_mode='1' then
           hyper_port_01 <= value;
+        end if;
+        -- @IO:GS $D652 - Hypervisor VIC-IV IO mode
+        if long_address = x"FFD3652" and hypervisor_mode='1' then
+          hyper_iomode <= value;
         end if;
         
         if long_address(19 downto 16) = x"8" then
@@ -2142,6 +2150,7 @@ begin
               end if;
             when TrapToHypervisor =>
               -- Save all registers
+              hyper_iomode(1 downto 0) <= unsigned(viciii_iomode);
               hyper_a <= reg_a; hyper_x <= reg_x;
               hyper_y <= reg_y; hyper_z <= reg_z;
               hyper_b <= reg_b; hyper_sp <= reg_sp;
@@ -2179,6 +2188,9 @@ begin
               state <= normal_fetch_state;
             when ReturnFromHypervisor =>
               -- Copy all registers back into place,
+              iomode_set <= std_logic_vector(hyper_iomode(1 downto 0));
+              iomode_set_toggle <= not iomode_set_toggle_internal;
+              iomode_set_toggle_internal <= not iomode_set_toggle_internal;
               reg_a <= hyper_a; reg_x <= hyper_x; reg_y <= hyper_y;
               reg_z <= hyper_z; reg_b <= hyper_b; reg_sp <= hyper_sp;
               reg_sph <= hyper_sph; reg_pc <= hyper_pc;
