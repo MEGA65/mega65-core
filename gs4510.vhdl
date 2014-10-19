@@ -2162,6 +2162,12 @@ begin
               hyper_port_00 <= cpuport_ddr; hyper_port_01 <= cpuport_value;
               hyper_p <= unsigned(virtual_reg_p);
               -- Set registers for hypervisor mode.
+
+              -- Full hardware features available on entry to hypervisor
+              iomode_set <= "11";
+              iomode_set_toggle <= not iomode_set_toggle_internal;
+              iomode_set_toggle_internal <= not iomode_set_toggle_internal;
+
               -- Hypervisor lives in a 16KB memory that gets mapped at $8000-$BFFF.
               -- (it can of course map other stuff if it wants).
               -- stack and ZP are mapped to this space also (the memory is writable,
