@@ -624,8 +624,8 @@ rf1:
 		; start by setting MAP MB register to $80xxxxx
 		lda #$80
 		ldx #$0f		
-		ldy #$00   ; keep kickstart mapped at $E000-$FFFF
-		ldz #$8f
+		ldy #$00   ; keep kickstart mapped at $8000-$BFFF
+		ldz #$3f
 		map
 		eom
 
@@ -651,8 +651,8 @@ rf1:
 		ora #$40
 		tax
 		lda zptempv
-		ldy #$00   ; keep kickstart mapped at $E000-$FFFF
-		ldz #$8f
+		ldy #$00   ; keep kickstart mapped at $8000-$BFFF
+		ldz #$3f
 		map
 		eom
 
@@ -670,15 +670,15 @@ rr1:		lda $de00,x
 		; unmap block
 		lda #$00
 		tax
-		ldy #$00   ; keep kickstart mapped at $E000-$FFFF
-		ldz #$8f
+		ldy #$00   ; keep kickstart mapped at $8000-$BFFF
+		ldz #$3f
 		map
 		eom
 		; set MB pointers
 		lda #$00
 		ldx #$0f
-		ldy #$00   ; keep kickstart mapped at $E000-$FFFF
-		ldz #$8f
+		ldy #$00   ; keep kickstart mapped at $8000-$BFFF
+		ldz #$3f
 		map
 		eom
 
@@ -1478,14 +1478,14 @@ mapromchecksumrecord:
 		; select 128MB mark for mapping lower 32KB of address space
 		lda #$80
 		ldx #$0f
-		ldy #$00   ; keep kickstart mapped at $E000-$FFFF
-		ldz #$8f
+		ldy #$00   ; keep kickstart mapped at $8000-$BFFF
+		ldz #$3f
 		map
 		; then map $FC000 + $4000 = $00000 at $4000-$7FFF
 		lda #$c0
 		ldx #$cf
-		ldy #$00   ; keep kickstart mapped at $E000-$FFFF
-		ldz #$8f
+		ldy #$00   ; keep kickstart mapped at $8000-$BFFF
+		ldz #$3f
 		map
 		eom
 		
@@ -1557,8 +1557,8 @@ sumslab:	; romcheckslab indicates which 16KB piece.
 		asl
 		asl
 		asl
-		ldy #$00   ; keep kickstart mapped at $E000-$FFFF
-		ldz #$8f
+		ldy #$00   ; keep kickstart mapped at $8000-$BFFF
+		ldz #$3f
 		map
 		eom
 		
@@ -1908,8 +1908,78 @@ l2:		lda go64ramroutine,x
 		inx
 		cpx #go64ramroutineend-go64ramroutine
 		bne l2
+
+		; set contents of CPU registers for exit from hypervisor mode
+		lda #$00
+		sta $d640    ; A
+		sta $d641    ; X
+		sta $d642    ; Y
+		sta $d643    ; Z
+		sta $d644    ; B
+		lda #$ff
+		sta $d645    ; SPL
+		lda #$01
+		sta $d646    ; SPH
+		lda #$F7     ; All flags except decimal mode
+		sta $d647    ; P
+		; Set PC from $FFFC in ROM, i.e., $802FFFC
+		ldx #$FC
+		ldy #$FF
+		ldz #$02
+		lda #$00
+		jsr longpeek
+		sta $d648
+		ldx #$FD
+		ldy #$FF
+		ldz #$02
+		lda #$00
+		jsr longpeek
+		sta $d649
+		lda #$00
+		sta $d64a    ; MAPLO
+		sta $d64b    ; MAPLO
+		sta $d64c    ; MAPHI
+		sta $d64d    ; MAPHI
+		sta $d64e    ; MB LO
+		sta $d64f    ; MB HI
+		lda #$3f
+		sta $d650    ; CPU port $00
+		sta $d651    ; CPU port $01
+
 		jmp $0140
+	
+longpeek:
+		; Use DMAgic to read any byte of RAM in 28bit address space.
+		; Value gets read into $BC00
+		; ($FFFBC00 - $FFFBDFF)
+
+		; Patch DMA list
+		sta $d705 ; DMAgic source MB
+		lda #$ff
+		sta $d706 ; DMAgic destination MB
+		stx longpeekdmalist+3
+		sty longpeekdmalist+4
+		stz longpeekdmalist+5
+		; Set DMA list address
+		lda #>longpeekdmalist
+		sta $d701
+		lda #$0f
+		sta $d702 ; DMA list address is $xxFxxxx
+		lda #$ff
+		sta $d704 ; DMA list address is $FFxxxxx
+		; set bottom bits of DMA list address and trigger DMA
+		lda #<longpeekdmalist
+		sta $d700
+		rts
+
+longpeekdmalist:
+		.byte $00 ; COPY, no chain
+		.byte $01,$01 ; 1 byte
+		.byte $00,$00,$00 ; source address
+		.byte $00,$BC,$0F ; destination address ($xxFBC00)
+		.byte $00,00 ; Modulo
 		
+	
 ; This routine is copied to RAM, since writing to $01
 ; will de-map the kickstart ROM.
 go64ramroutine:	
@@ -1925,19 +1995,6 @@ g61:		sta $0800,x   ; $0145 = high byte of address here
 		cpy #$30
 		bne g61
 		
-		; disengage kickstart and start ROM
-		lda #$00
-		ldx #$0f
-		tay
-		ldz #$0f
-		map
-		tax
-		taz
-		map
-		eom
-		lda #$3f
-		sta $01
-		sta $00
 		jmp (reset_vector)
 go64ramroutineend:
 
@@ -1946,13 +2003,13 @@ resetmemmap:
 		; clear memory MAP MB offset register
 		lda #$00
 		ldx #$0f
-		ldy #$00   ; keep kickstart mapped at $E000-$FFFF
-		ldz #$8f
+		ldy #$00   ; keep kickstart mapped at $8000-$BFFF
+		ldz #$3f
 		map
 		; and clear all mapping
 		tax
-		ldy #$00   ; keep kickstart mapped at $E000-$FFFF
-		ldz #$8f
+		ldy #$00   ; keep kickstart mapped at $8000-$BFFF
+		ldz #$3f
 		map
 		eom
 		rts
