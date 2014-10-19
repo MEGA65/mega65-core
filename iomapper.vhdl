@@ -106,7 +106,7 @@ architecture behavioral of iomapper is
   component kickstart is
     port (
       Clk : in std_logic;
-      address : in std_logic_vector(12 downto 0);
+      address : in std_logic_vector(13 downto 0);
       we : in std_logic;
       cs : in std_logic;
       data_i : in std_logic_vector(7 downto 0);
@@ -380,7 +380,7 @@ architecture behavioral of iomapper is
 begin         
   kickstartrom : kickstart port map (
     clk     => clk,
-    address => address(12 downto 0),
+    address => address(13 downto 0),
     we      => w,
     cs      => kickstartcs,
     data_i  => data_i,
@@ -618,7 +618,7 @@ begin
   begin  -- process
 
     if (r or w) = '1' then
-      if address(19 downto 13)&'0' = x"FE" then
+      if address(19 downto 14)&"00" = x"F8" then
         kickstartcs<= '1';
       else
         kickstartcs <='0';

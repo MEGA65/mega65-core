@@ -785,7 +785,7 @@ begin
       reg_z <= x"00";
       reg_sp <= x"ff";
       reg_sph <= x"01";
-      reg_pc <= x"8765";
+      reg_pc <= x"8000";
 
       -- Clear CPU MMU registers, and bank in kickstart ROM
       -- XXX Need to update this for hypervisor mode
@@ -1971,9 +1971,11 @@ begin
 
           case state is
             when ResetLow =>
+              -- Reset now maps kickstart at $8000-$BFFF, and enters through $8000
+              -- by triggering the hypervisor.
+              -- XXX indicate source of hypervisor entry
               reset_cpu_state;
-              vector <= x"c";
-              state <= VectorRead1;
+              state <= TrapToHypervisor;
             when VectorRead1 =>
               memory_access_address := x"000FFF"&vector;
               vector <= vector + 1;
