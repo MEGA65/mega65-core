@@ -197,6 +197,9 @@ end component;
   -- (Reading incurrs an extra waitstate due to read_data_copy)
   -- XXX An extra wait state seems to be necessary when reading from dual-port
   -- memories like colour ram.
+  -- XXX: slowram seems to work with 5 waitstates instead of 6.  Need to also
+  -- cut waitstates to 1 or 2 when reading from same line.  Also need to cache
+  -- previously read value for fast follow-on fetch.
   constant slowram_48mhz : unsigned(7 downto 0) := x"06";
   constant ioread_48mhz : unsigned(7 downto 0) := x"01";
   constant colourread_48mhz : unsigned(7 downto 0) := x"02";
