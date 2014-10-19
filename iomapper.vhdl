@@ -16,6 +16,7 @@ entity iomapper is
         irq : out std_logic;
         nmi : out std_logic;
         restore_nmi : out std_logic;
+        cpu_hypervisor_mode : in std_logic;
         address : in std_logic_vector(19 downto 0);
         r : in std_logic;
         w : in std_logic;
@@ -619,7 +620,7 @@ begin
 
     if (r or w) = '1' then
       if address(19 downto 14)&"00" = x"F8" then
-        kickstartcs<= '1';
+        kickstartcs <= cpu_hypervisor_mode;
       else
         kickstartcs <='0';
       end if;

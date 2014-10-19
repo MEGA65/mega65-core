@@ -40,6 +40,8 @@ entity gs4510 is
     irq : in std_logic;
     nmi : in std_logic;
 
+    cpu_hypervisor_mode : out std_logic;
+    
     no_kickstart : in std_logic;
     
     reg_isr_out : in unsigned(7 downto 0);
@@ -1754,6 +1756,9 @@ begin
     
     -- BEGINNING OF MAIN PROCESS FOR CPU
     if rising_edge(clock) then
+
+      cpu_hypervisor_mode <= hypervisor_mode;
+      
       slowram_addr <= slowram_addr_drive;
       slowram_ub <= slowram_ub_drive;
       slowram_we <= slowram_we_drive;

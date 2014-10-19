@@ -224,6 +224,7 @@ architecture Behavioral of machine is
       reset : in std_logic;
       irq : in std_logic;
       nmi : in std_logic;
+      cpu_hypervisor_mode : out std_logic;
 
       no_kickstart : in std_logic;
       
@@ -384,6 +385,7 @@ architecture Behavioral of machine is
           
           reg_isr_out : out unsigned(7 downto 0);
           imask_ta_out : out std_logic;
+          cpu_hypervisor_mode : in std_logic;
 
           key_scancode : in unsigned(15 downto 0);
           key_scancode_toggle : in std_logic;
@@ -475,6 +477,8 @@ architecture Behavioral of machine is
 
   signal key_scancode : unsigned(15 downto 0);
   signal key_scancode_toggle : std_logic;
+
+  signal cpu_hypervisor_mode : std_logic;
 
   signal reg_isr_out : unsigned(7 downto 0);
   signal imask_ta_out : std_logic;
@@ -713,6 +717,7 @@ begin
     reset =>reset_combined,
     irq => combinedirq,
     nmi => combinednmi,
+    cpu_hypervisor_mode => cpu_hypervisor_mode,
 
     no_kickstart => no_kickstart,
     
@@ -845,6 +850,7 @@ begin
     clk => ioclock,
     pixelclk => pixelclock,
     clock50mhz => clock50mhz,
+    cpu_hypervisor_mode => cpu_hypervisor_mode,
 
     reg_isr_out => reg_isr_out,
     imask_ta_out => imask_ta_out,    
