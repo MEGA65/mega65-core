@@ -179,6 +179,8 @@ architecture behavioural of ethernet is
   signal rrnet_enable : std_logic := '0';
   signal rrnet_dup_read : std_logic := '0';
   signal rrnet_buffer_write_pending : std_logic := '0';
+  signal rrnet_buffer_odd_written : std_logic := '0';
+  signal rrnet_buffer_even_written : std_logic := '0';
   signal rrnet_buffer_addr_bump : std_logic := '0';
   signal rrnet_buffer_data : unsigned(7 downto 0) := x"00";
   signal rrnet_buffer_odd : std_logic := '0';
@@ -779,6 +781,7 @@ begin  -- behavioural
       
       rrnet_txbuffer_addr <= (others => '0');
       rrnet_tx_state <= CommandSet;
+      report "ETHBUFFERING: State moving to CommandSet";
     end procedure;
     
   begin
@@ -796,6 +799,7 @@ begin  -- behavioural
         fastio_rdata <= rrnet_data(7 downto 0);
         if rrnet_reading_bus_status = '1' then
           if rrnet_tx_state = CommandSet then
+            report "ETHBUFFERING: Switching from CommandSet to Buffering";
             rrnet_tx_state <= Buffering;
           end if;
         end if;
@@ -805,6 +809,7 @@ begin  -- behavioural
         fastio_rdata <= rrnet_data(15 downto 8);
         if rrnet_reading_bus_status = '1' then
           if rrnet_tx_state = CommandSet then
+            report "ETHBUFFERING: Switching from CommandSet to Buffering";
             rrnet_tx_state <= Buffering;
           end if;
         end if;
@@ -1013,18 +1018,22 @@ begin  -- behavioural
       end if;
 
       if rrnet_buffer_write_pending = '1' and rrnet_tx_state = Buffering then
-        -- Put byte into ethernet TX buffer        
+        -- Put byte into ethernet TX buffer
         if rrnet_buffer_odd='0' then
           txbuffer_writeaddress <= to_integer(rrnet_txbuffer_addr(10 downto 0));
+          report "ETHBUFFER: Writing byte $" & to_hstring(rrnet_buffer_data) & " to buffer offset $"
+            & to_hstring(to_unsigned(to_integer(rrnet_txbuffer_addr(10 downto 0))+0,12));
         else
           txbuffer_writeaddress <= to_integer(rrnet_txbuffer_addr(10 downto 0)) + 1;
+          report "ETHBUFFER: Writing byte $" & to_hstring(rrnet_buffer_data) & " to buffer offset $"
+          & to_hstring(to_unsigned(to_integer(rrnet_txbuffer_addr(10 downto 0))+1,12));
         end if;
         txbuffer_write <= '1';                
         txbuffer_wdata <= rrnet_buffer_data;
         rrnet_buffer_write_pending <= '0';
       end if;      
       if rrnet_buffer_addr_bump = '1' then
-        report "ETHTX: RR-NET bumping buffer pointer from "
+        report "ETHBUFFERING: RR-NET bumping buffer pointer from "
           & integer'image(to_integer(rrnet_txbuffer_addr));
         if (to_integer(eth_tx_size)
             = (to_integer(rrnet_txbuffer_addr(10 downto 0))+2))
@@ -1035,10 +1044,10 @@ begin  -- behavioural
           eth_tx_trigger <= '1';
           rrnet_tx_state <= Idle;
           rrnet_tx_toggle <= not rrnet_tx_toggle;
-          report "ETHTX: RR-NET toggling rrnet_tx_toggle: was "
+          report "ETHBUFFERING: RR-NET: Dispatching frame: Toggling rrnet_tx_toggle: was "
             & std_logic'image(rrnet_tx_toggle);
         else
-          report "ETHTX: RR-NET: "
+          report "ETHBUFFERING: RR-NET: "
             &integer'image(to_integer(eth_tx_size))
             &" != "
             &integer'image(to_integer(rrnet_txbuffer_addr(10 downto 0))+2);
@@ -1170,6 +1179,13 @@ begin  -- behavioural
         if fastio_addr = x"D0E08" and rrnet_enable='1' then
           if rrnet_tx_state = Buffering then
             -- write even numbered address
+            rrnet_buffer_even_written <= not rrnet_buffer_odd_written;
+            rrnet_buffer_addr_bump <= rrnet_buffer_odd_written;
+            if rrnet_buffer_odd_written = '1' then
+              report "ETHBUFFERING: Buffering RR-NET TX byte and bumping pointer.";
+              rrnet_buffer_odd_written <= '0';
+            end if;
+            
             rrnet_buffer_write_pending <= '1';
             rrnet_buffer_data <= fastio_wdata;
             rrnet_buffer_odd <= fastio_addr(0);
@@ -1182,9 +1198,14 @@ begin  -- behavioural
           -- but is it the even address that does it for reads? Or have
           -- I totally misunderstood something?
           if rrnet_tx_state = Buffering then
-            report "ETHTX: Buffering RR-NET TX byte and bumping pointer.";
+            rrnet_buffer_odd_written <= not rrnet_buffer_even_written;
+            rrnet_buffer_addr_bump <= rrnet_buffer_even_written;
+            if rrnet_buffer_even_written = '1' then
+              report "ETHBUFFERING: Buffering RR-NET TX byte and bumping pointer.";
+              rrnet_buffer_even_written <= '0';
+            end if;
+            
             rrnet_buffer_write_pending <= '1';
-            rrnet_buffer_addr_bump <= '1';
             rrnet_buffer_data <= fastio_wdata;
             rrnet_buffer_odd <= fastio_addr(0);
           end if;
