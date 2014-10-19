@@ -6,8 +6,8 @@
 ; 1. If checksum fails, load complete ROM from SD card.
 ; 2. Select default disk image for F011 emulation.
 ;
-; The kickstart ROM is 8KB in length, and maps at $E000-$FFFF
-; essentially the same as the C64 kernel.
+; The kickstart ROM is 16KB in length, and maps at $8000-$BFFF
+; in hypervisor mode.
 ;
 ; Kickstart modifies RAM from $0000-$07FF (ZP, stack, 40-column
 ; screen) during normal boot.
@@ -18,7 +18,6 @@
 ; We will use the convention of C=0 means failure, and C=1 means
 ; success.
 ;
-
 	.alias reset_vector $fffc
 
 ; scratch space in ZP space usually used by kernel
@@ -65,23 +64,34 @@
 
 	.text
 
-	; sdcard access routines sit in the first 4KB of the ROM,
-	; and get copied down to $1000-$1FFF so that they can be run
-	; from chipram instead of IO space, since there are problems with
-	; code in fastio space accessing 
-
-	; Routines for SD card access in kickstart ROM.
-	; These routines are copied into RAM to work around bugs that prevent
-	; reliable access to the sdcard from the kickstart ROM, being hosted on
-	; fastio as it is.  Of course, it would be nice to fix the primary bug.
-
 	.org $8000
 
-	jmp reset_entry
+;;; ----------------------------------------------------------------------------
+;;; CPU Hypervisor Entry Point (includes RESET and other sources) is $8000
+;;; ----------------------------------------------------------------------------
+reset_entry:
+		; get CPU state sensible
+		sei
+		cld
+		see
 
-diskchooserstart:
-	.incbin "diskchooser"
-diskchooserend:
+		; sprites off		
+		lda #$00
+		sta $d017		
+
+		lda #$00
+		tab
+		ldy #$01
+		tys
+		ldx #$ff
+		txs
+		lda #$7f
+		sta $DC0D
+		sta $DD0D
+		lda #$00
+		sta $D01A
+		
+		jmp kickstart_entry
 
 kickstart_entry:
 		; We DO NOT need to mess with $01, because
@@ -2116,78 +2126,16 @@ txt_c65gsrom:	      .byte "C65GS   ROM"
 ; filename of 1581 disk image we mount by default
 txt_c65gsd81:	      .byte "C65GS   D81"
 
+diskchooserstart:
+	.incbin "diskchooser"
+diskchooserend:
 
-;;; ----------------------------------------------------------------------------
-;;; CPU entry vectors
-;;; ----------------------------------------------------------------------------
-reset_entry:
+		.checkpc $BC00
 
-		; get CPU state sensible
-		sei
-		cld
-		see
+		; Hypervisor scratch pad aat $BC00-$BDFF
+		; ZP at $BE00-$BEFF
+		; Stack at $BF00-$BFFF
 
-		; sprites off		
-		lda #$00
-		sta $d017		
-
-		lda #$00
-		tab
-		ldy #$01
-		tys
-		ldx #$ff
-		txs
-		lda #$7f
-		sta $DC0D
-		sta $DD0D
-		lda #$00
-		sta $D01A
-		
-		jmp kickstart_entry
-
-; For now we have no use for NMI or IRQ
-nmi_entry:	
-irq_entry:	
-		pha
-		lda $dc0d
-		lda $dd0d
-		asl $d019
-		pla
-		rti
-
-cpuerror_entry:
-		sta $4000
-		stx $4001
-		sty $4002
-		stz $4003
-		sec
-		jsr enhanced_io
-
-		jsr resetdisplay
-		jsr resetpalette
-		jsr erasescreen
-
-		; display cpu error message
-		ldx #<msg_cpuerror
-		ldy #>msg_cpuerror
-		jsr printmessage
-		ldy #$00
-		ldz $4003
-		jsr printhex
-		ldz $4001		
-		jsr printhex
-		ldz $4002
-		jsr printhex
-*		
-		jmp -
-
-msg_cpuerror:	.byte " **** CPU ERROR: OPCODE=$$ PC=$$$$ **** "
-	
-
-; --------------------------------------------------------------------------------
-; Kickstart jump table of useful routines (subject to change)
-; --------------------------------------------------------------------------------
-		.checkpc $BE00
 		.advance $C000
 
 		 .outfile "kickstart65gs.bin"
