@@ -1912,12 +1912,15 @@ l42:
 		; copy routine to stack to switch to
 		; C64 memory map and enter via reset
 		; vector.  
+	
+		; erase kickstart ROM copy from RAM
+		; (well, at least enough so that BASIC doesn't get upset)
+		; XXX - use DMA
 		ldx #$00
-l2:		lda go64ramroutine,x
-		sta $0140,x
+		txa
+g61:		sta $0800,x
 		inx
-		cpx #go64ramroutineend-go64ramroutine
-		bne l2
+		bne g61		
 
 		; set contents of CPU registers for exit from hypervisor mode
 		lda #$00
@@ -1958,6 +1961,8 @@ l2:		lda go64ramroutine,x
 		sta $d650    ; CPU port $00
 		sta $d651    ; CPU port $01
 
+		; Exit hypervisor and transfer control to ROM
+		
 		jmp $0140
 	
 longpeek:
@@ -1991,25 +1996,6 @@ longpeekdmalist:
 		.byte $00,$BC,$0F ; destination address ($xxFBC00)
 		.byte $00,00 ; Modulo
 		
-	
-; This routine is copied to RAM, since writing to $01
-; will de-map the kickstart ROM.
-go64ramroutine:	
-		; erase kickstart ROM copy from RAM
-		; XXX - use DMA
-		ldx #$00
-		txa
-g61:		sta $0800,x   ; $0145 = high byte of address here
-		inx
-		bne g61
-		inc $0145
-		ldy $0145
-		cpy #$30
-		bne g61
-		
-		jmp (reset_vector)
-go64ramroutineend:
-
 ; reset memory map to default
 resetmemmap:
 		; clear memory MAP MB offset register
