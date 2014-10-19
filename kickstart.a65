@@ -1984,7 +1984,7 @@ longpeek:
 
 longpeekdmalist:
 		.byte $00 ; COPY, no chain
-		.byte $01,$01 ; 1 byte
+		.byte $01,$00 ; 1 byte
 		.byte $00,$00,$00 ; source address
 		.byte $00,$BC,$0F ; destination address ($xxFBC00)
 		.byte $00,00 ; Modulo
