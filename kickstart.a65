@@ -1938,12 +1938,14 @@ l2:		lda go64ramroutine,x
 		ldz #$02
 		lda #$00
 		jsr longpeek
+		lda $bc00
 		sta $d648
 		ldx #$FD
 		ldy #$FF
 		ldz #$02
 		lda #$00
 		jsr longpeek
+		lda $bc00
 		sta $d649
 		lda #$00
 		sta $d64a    ; MAPLO
