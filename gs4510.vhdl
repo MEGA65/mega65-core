@@ -1231,7 +1231,7 @@ begin
           when "010110" => return hyper_dmagic_list_addr(15 downto 8);
           when "010111" => return hyper_dmagic_list_addr(23 downto 16);
           when "011000" =>
-            return to_unsigned(0,4)&hyper_dmagic_list_addr(27 downto 23);
+            return to_unsigned(0,4)&hyper_dmagic_list_addr(27 downto 24);
           when "111111" => return x"48"; -- 'H' for Hypermode
           when others => return x"ff";
         end case;
