@@ -185,6 +185,12 @@ GS $D64F - Hypervisor MAPHI mega-byte number register storage
 GS $D650 - Hypervisor CPU port $00 value
 GS $D651 - Hypervisor CPU port $01 value
 GS $D652 - Hypervisor VIC-IV IO mode
+GS $D653 - Hypervisor DMAgic source MB
+GS $D654 - Hypervisor DMAgic destination MB
+GS $D655 - Hypervisor DMAGic list address bits 0-7
+GS $D656 - Hypervisor DMAGic list address bits 15-8
+GS $D657 - Hypervisor DMAGic list address bits 23-16
+GS $D658 - Hypervisor DMAGic list address bits 27-24
 GS $D67F - Trigger trap to hypervisor
 GS $D680 - SD controller status/command
 GS $D681-$D684 - SD controller SD sector address
