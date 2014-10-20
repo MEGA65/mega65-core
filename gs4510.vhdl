@@ -303,6 +303,9 @@ end component;
   -- Duplicates of all CPU registers to hold user-space contents when trapping
   -- to hypervisor.
   signal hyper_iomode : unsigned(7 downto 0);
+  signal hyper_dmagic_src_mb : unsigned(7 downto 0);
+  signal hyper_dmagic_dst_mb : unsigned(7 downto 0);
+  signal hyper_dmagic_list_addr : unsigned(27 downto 0);
   signal hyper_p : unsigned(7 downto 0);
   signal hyper_a : unsigned(7 downto 0);
   signal hyper_b : unsigned(7 downto 0);
@@ -1222,6 +1225,13 @@ begin
           when "010000" => return hyper_port_00;
           when "010001" => return hyper_port_01;
           when "010010" => return hyper_iomode;
+          when "010011" => return hyper_dmagic_src_mb;
+          when "010100" => return hyper_dmagic_dst_mb;
+          when "010101" => return hyper_dmagic_list_addr(7 downto 0);
+          when "010110" => return hyper_dmagic_list_addr(15 downto 8);
+          when "010111" => return hyper_dmagic_list_addr(23 downto 16);
+          when "011000" =>
+            return to_unsigned(0,4)&hyper_dmagic_list_addr(27 downto 23);
           when "111111" => return x"48"; -- 'H' for Hypermode
           when others => return x"ff";
         end case;
@@ -1492,6 +1502,30 @@ begin
         -- @IO:GS $D652 - Hypervisor VIC-IV IO mode
         if long_address = x"FFD3652" and hypervisor_mode='1' then
           hyper_iomode <= value;
+        end if;
+        -- @IO:GS $D653 - Hypervisor DMAgic source MB
+        if long_address = x"FFD3653" and hypervisor_mode='1' then
+          hyper_dmagic_src_mb <= value;
+        end if;
+        -- @IO:GS $D654 - Hypervisor DMAgic destination MB
+        if long_address = x"FFD3654" and hypervisor_mode='1' then
+          hyper_dmagic_dst_mb <= value;
+        end if;
+        -- @IO:GS $D655 - Hypervisor DMAGic list address bits 0-7
+        if long_address = x"FFD3655" and hypervisor_mode='1' then
+          hyper_dmagic_list_addr(7 downto 0) <= value;
+        end if;
+        -- @IO:GS $D656 - Hypervisor DMAGic list address bits 15-8
+        if long_address = x"FFD3656" and hypervisor_mode='1' then
+          hyper_dmagic_list_addr(15 downto 8) <= value;
+        end if;
+        -- @IO:GS $D657 - Hypervisor DMAGic list address bits 23-16
+        if long_address = x"FFD3657" and hypervisor_mode='1' then
+          hyper_dmagic_list_addr(23 downto 16) <= value;
+        end if;
+        -- @IO:GS $D658 - Hypervisor DMAGic list address bits 27-24
+        if long_address = x"FFD3658" and hypervisor_mode='1' then
+          hyper_dmagic_list_addr(27 downto 24) <= value(3 downto 0);
         end if;
         
         if long_address(19 downto 16) = x"8" then
@@ -2151,6 +2185,9 @@ begin
             when TrapToHypervisor =>
               -- Save all registers
               hyper_iomode(1 downto 0) <= unsigned(viciii_iomode);
+              hyper_dmagic_list_addr <= reg_dmagic_addr;
+              hyper_dmagic_src_mb <= reg_dmagic_src_mb;
+              hyper_dmagic_dst_mb <= reg_dmagic_dst_mb;
               hyper_a <= reg_a; hyper_x <= reg_x;
               hyper_y <= reg_y; hyper_z <= reg_z;
               hyper_b <= reg_b; hyper_sp <= reg_sp;
@@ -2197,6 +2234,9 @@ begin
               iomode_set <= std_logic_vector(hyper_iomode(1 downto 0));
               iomode_set_toggle <= not iomode_set_toggle_internal;
               iomode_set_toggle_internal <= not iomode_set_toggle_internal;
+              reg_dmagic_addr <= hyper_dmagic_list_addr;
+              reg_dmagic_src_mb <= hyper_dmagic_src_mb;
+              reg_dmagic_dst_mb <= hyper_dmagic_dst_mb;
               reg_a <= hyper_a; reg_x <= hyper_x; reg_y <= hyper_y;
               reg_z <= hyper_z; reg_b <= hyper_b; reg_sp <= hyper_sp;
               reg_sph <= hyper_sph; reg_pc <= hyper_pc;
