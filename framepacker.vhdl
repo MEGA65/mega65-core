@@ -180,24 +180,24 @@ begin  -- behavioural
       -- another process.
       last_access_is_thumbnail <= '0';
       if fastio_read='1' then
-        if fastio_addr = x"D367D" and hypervisor_mode='1' then
-          -- @IO:GS $D67D - Read port for thumbnail generator
+        if fastio_addr = x"D367E" then
+          -- @IO:GS $D67E - Read port for thumbnail generator
           fastio_rdata <= thumbnail_rdata;
           last_access_is_thumbnail <= '1';
           if last_access_is_thumbnail = '0' then
             thumbnail_read_address <= thumbnail_read_address + 1;
           end if;
-        elsif fastio_addr = x"D367E" and hypervisor_mode='1' then
+        elsif fastio_addr = x"D367D" then
           -- @IO:GS $D67D-$D67E - Read-only hardware-generated thumbnail of display (accessible only in hypervisor mode)
-          -- @IO:GS $D67E - Write to reset port address for thumbnail generator
-          -- @IO:GS $D67E - Read to obtain status of thumbnail generator.
-          -- @IO:GS $D67E.7 - Thumbnail is valid if 1.  Else there has not been a complete frame since elapsed without a trap to hypervisor mode, in which case the thumbnail may not reflect the current process.
-          -- @IO:GS $D67E.6 - Thumbnail drawing was in progress.
+          -- @IO:GS $D67D - Write to reset port address for thumbnail generator
+          -- @IO:GS $D67D - Read to obtain status of thumbnail generator.
+          -- @IO:GS $D67D.7 - Thumbnail is valid if 1.  Else there has not been a complete frame since elapsed without a trap to hypervisor mode, in which case the thumbnail may not reflect the current process.
+          -- @IO:GS $D67D.6 - Thumbnail drawing was in progress.
           
           thumbnail_read_address <= (others => '0');
           fastio_rdata(7) <= thumbnail_valid;
           fastio_rdata(6) <= thumbnail_started;
-          fastio_rdata(5 downto 0) <= (others => 'Z');
+          fastio_rdata(5 downto 0) <= (others => '0');
         else
           fastio_rdata <= (others => 'Z');
         end if;
