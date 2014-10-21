@@ -29,7 +29,8 @@ entity framepacker is
   port (
     pixelclock : in std_logic;
     ioclock : in std_logic;
-
+    hypervisor_mode : in std_logic;
+    
     -- Signals from VIC-IV
     pixel_stream_in : in unsigned (7 downto 0);
     pixel_y : in unsigned (11 downto 0);
@@ -105,7 +106,22 @@ architecture behavioural of framepacker is
   signal crc_calc_en : std_logic := '0';
   signal crc_d_valid : std_logic := '0';
 
-  
+  signal thumbnail_write_address : unsigned(11 downto 0);
+  signal thumbnail_read_address : unsigned(11 downto 0);
+  signal thumbnail_wdata : unsigned(7 downto 0);
+  signal thumbnail_rdata : unsigned(7 downto 0);
+  signal thumbnail_valid : std_logic := '0';
+  signal thumbnail_started : std_logic := '0';  
+  signal thumbnail_active_pixel : std_logic := '0';
+  signal thumbnail_active_row : std_logic := '0';
+
+  signal last_pixel_y : unsigned(11 downto 0);
+  signal pixel_drive : unsigned(7 downto 0);
+  signal last_hypervisor_mode : std_logic := '0'; 
+  signal last_access_is_thumbnail : std_logic := '0';
+  signal thumbnail_x_counter : integer range 0 to 24 := 0;
+  signal thumbnail_y_counter : integer range 0 to 24 := 0;
+
 begin  -- behavioural
 
   videobuffer0: videobuffer port map (
@@ -116,6 +132,16 @@ begin  -- behavioural
     clkb => ioclock,
     addrb => std_logic_vector(buffer_address),
     unsigned(doutb) => buffer_rdata
+    );
+
+  thumnailbuffer0: videobuffer port map (
+    clka => pixelclock,
+    wea(0) => '1',
+    addra => std_logic_vector(thumbnail_write_address),
+    dina => std_logic_vector(thumbnail_wdata),
+    clkb => ioclock,
+    addrb => std_logic_vector(thumbnail_read_address),
+    unsigned(doutb) => thumbnail_rdata
     );
 
   raster_crc : CRC
@@ -138,26 +164,47 @@ begin  -- behavioural
     variable temp_cmd : unsigned(7 downto 0);
   begin
 
-    fastio_rdata <= (others => 'Z');
    
     if rising_edge(ioclock) then
       -- Tell ethernet controller which half of the buffer we are writing to.
       -- Ethernet controller autonomously sends the contents of the other half
       -- whenever we switch halves.
       buffer_moby_toggle <= output_address_internal(11);
+
+      -- Provide read access to thumbnail buffer.  To simplify things, we won't
+      -- memory map the whole thing, but just provide a 2-byte interface to reset
+      -- the read address, and to read a byte of data.  We will also provide a
+      -- flag that indicates if a complete frame has been processed since the
+      -- last read of the reset register.  This will allow the hypervisor to
+      -- detect if the thumbnail is valid, or if it is still showing data from
+      -- another process.
+      last_access_is_thumbnail <= '0';
+      if fastio_read='1' then
+        if fastio_addr = x"D367D" and hypervisor_mode='1' then
+          -- @IO:GS $D67D - Read port for thumbnail generator
+          fastio_rdata <= thumbnail_rdata;
+          last_access_is_thumbnail <= '1';
+          if last_access_is_thumbnail = '0' then
+            thumbnail_read_address <= thumbnail_read_address + 1;
+          end if;
+        elsif fastio_addr = x"D367E" and hypervisor_mode='1' then
+          -- @IO:GS $D67E - Write to reset port address for thumbnail generator
+          thumbnail_read_address <= (others => '0');
+          fastio_rdata(7) <= thumbnail_valid;
+          fastio_rdata(6) <= thumbnail_started;
+          fastio_rdata(5 downto 0) <= (others => 'Z');
+        else
+          fastio_rdata <= (others => 'Z');
+        end if;
+      else
+        fastio_rdata <= (others => 'Z');
+      end if;        
     end if;
   end process;
 
   -- Receive pixels and compress
+  -- Also write pixels to thumbnail buffer
 
-  -- We use a very simple RLE scheme for now, which supports only 128 colours.
-  -- When we see a pixel of a new colour we write the bottom 7 bits of the
-  -- colour with 0 in the MSB.  During each subsequent instance, we write the
-  -- updated count with MSB set to 1, unless a different colour (or RLE overflow)
-  -- occurs, in which case we advance the address pointer, and write the new colour
-  -- and continue the process.  In this way we never need to write >1 byte per
-  -- cycle, and rasters without repetition take 1 byte per pixel.  It also
-  -- means that we never have any data to flush at the end of frame.
   process (pixel_newraster,pixel_stream_in,pixel_valid,
            pixel_y,pixel_newframe,pixelclock) is
   begin
@@ -168,6 +215,46 @@ begin  -- behavioural
       crc_d_valid <= pixel_valid;
       crc_data_in <= pixel_stream_in;
       crc_load_init <= '0';
+
+      -- Work out address to write pixel to in thumbnail buffer.
+      -- 80x50 pixels = 4,000 bytes.
+      -- 1200 / 50 = every 24th row 
+      -- 1920 / 80 = every 24th column
+      if last_pixel_y /= pixel_y then
+        if pixel_y = 0 then
+          thumbnail_write_address <= (others => '1');
+          thumbnail_y_counter <= 0;
+          thumbnail_x_counter <= 0;
+        end if;
+        if thumbnail_y_counter < 24 then
+          thumbnail_y_counter <= thumbnail_y_counter + 1;
+          thumbnail_active_row <= '0';
+        else
+          thumbnail_valid <= thumbnail_started;
+          thumbnail_started <= '1';
+          thumbnail_y_counter <= 0;
+          thumbnail_active_row <= '1';
+        end if;
+      end if;
+      if pixel_valid = '1' then
+        if thumbnail_x_counter < 24 then
+          thumbnail_x_counter <= thumbnail_x_counter + 1;
+          thumbnail_active_pixel <= '0';
+        else
+          thumbnail_x_counter <= 0;
+          thumbnail_active_pixel <= thumbnail_active_row;
+          thumbnail_write_address <= thumbnail_write_address + 1;
+        end if;
+      end if;
+      thumbnail_wdata <= pixel_drive;
+      pixel_drive <= pixel_stream_in;
+
+      if hypervisor_mode = '0' and last_hypervisor_mode = '1' then
+        thumbnail_started <= '0';
+        thumbnail_valid <= '0';
+      end if;
+
+      
       
       if pixel_valid='1' then
 --        report "PACKER: considering raw pixel $" & to_hstring(pixel_stream_in) & " in raster $" & to_hstring(pixel_y);        
@@ -178,7 +265,7 @@ begin  -- behavioural
           output_address <= output_address_internal + 1;
           output_data <= pixel_stream_in;
           output_write <= '1';
-        end if;        
+        end if;  
       else
         output_write <= '0';
         if new_raster_pending = '1' then

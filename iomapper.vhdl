@@ -319,6 +319,7 @@ architecture behavioral of iomapper is
     port (
       pixelclock : in std_logic;
       ioclock : in std_logic;
+      hypervisor_mode : in std_logic;
       
       pixel_stream_in : in unsigned (7 downto 0);
       pixel_y : in unsigned (11 downto 0);
@@ -390,6 +391,7 @@ begin
   framepacker0: framepacker port map (
     ioclock => clk,
     pixelclock => pixelclk,
+    hypervisor_mode => cpu_hypervisor_mode,
 
     pixel_stream_in => pixel_stream_in,
     pixel_y => pixel_y,
