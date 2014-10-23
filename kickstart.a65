@@ -95,10 +95,9 @@ reset_entry:
 
 kickstart_entry:
 		; We DO NOT need to mess with $01, because
-		; the 4510 starts up with kickstart mapped at $E000, 
-		; standard ($FFD0xxx) IO page mapped at $D000,
-		; and fast RAM elsewhere.  So we just need to key $D02F
-		; to get enhanced io
+		; the 4510 starts up with kickstart mapped at $8000-$BFFF 
+		; enhanced ($FFD3xxx) IO page mapped at $D000,
+		; and fast RAM elsewhere.
 
 		; disable IRQ sources
 		lda #$7f
