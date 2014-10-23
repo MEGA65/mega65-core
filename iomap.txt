@@ -166,6 +166,13 @@ GS $D500-$D53F - 8x 64bit FPU input registers
 GS $D540-$D5BF - 16x 64bit FPU intermediate/output registers (read only)
 GS $D5C0 - FPU SIN/COS input register
 GS $D5C1 - FPU SIN/COS output register
+GS $D630 - Read to obtain status of thumbnail generator.
+GS $D630 - Write to reset port address for thumbnail generator
+GS $D630-$D631 - Read-only hardware-generated thumbnail of display (accessible only in hypervisor mode)
+GS $D630.6 - Thumbnail drawing was in progress.
+GS $D630.7 - Thumbnail is valid if 1.  Else there has not been a complete frame since elapsed without a trap to hypervisor mode, in which case the thumbnail may not reflect the current process.
+GS $D631 - Read port for thumbnail generator
+GS $D632 - Lower 8 bits of thumbnail buffer read address (TEMPORARY DEBUG REGISTER)
 GS $D640 - Hypervisor A register storage
 GS $D641 - Hypervisor X register storage
 GS $D642 - Hypervisor Y register storage
@@ -191,12 +198,6 @@ GS $D655 - Hypervisor DMAGic list address bits 0-7
 GS $D656 - Hypervisor DMAGic list address bits 15-8
 GS $D657 - Hypervisor DMAGic list address bits 23-16
 GS $D658 - Hypervisor DMAGic list address bits 27-24
-GS $D67D - Read port for thumbnail generator
-GS $D67D-$D67E - Read-only hardware-generated thumbnail of display (accessible only in hypervisor mode)
-GS $D67E - Read to obtain status of thumbnail generator.
-GS $D67E - Write to reset port address for thumbnail generator
-GS $D67E.6 - Thumbnail drawing was in progress.
-GS $D67E.7 - Thumbnail is valid if 1.  Else there has not been a complete frame since elapsed without a trap to hypervisor mode, in which case the thumbnail may not reflect the current process.
 GS $D67F - Trigger trap to hypervisor
 GS $D680 - SD controller status/command
 GS $D681-$D684 - SD controller SD sector address
