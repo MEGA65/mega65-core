@@ -236,20 +236,27 @@ begin  -- behavioural
       -- 80x50 pixels = 4,000 bytes.
       -- 1200 / 50 = every 24th row 
       -- 1920 / 80 = every 24th column
-      if last_pixel_y /= pixel_y then
+      last_pixel_y <= pixel_y;
+      if to_integer(last_pixel_y) /= to_integer(pixel_y) then
         if pixel_y = 0 then
-          thumbnail_write_address <= (others => '1');
+          thumbnail_write_address <= (others => '0');
+          report "THUMB: Reset write address";
           thumbnail_y_counter <= 0;
           thumbnail_x_counter <= 0;
+          thumbnail_active_row <= '0';
         end if;
         if thumbnail_y_counter < 24 then
           thumbnail_y_counter <= thumbnail_y_counter + 1;
           thumbnail_active_row <= '0';
+          report "THUMB: active_row cleared on row "
+            & to_string(std_logic_vector(pixel_y));
         else
           thumbnail_valid <= thumbnail_started;
           thumbnail_started <= '1';
           thumbnail_y_counter <= 0;
           thumbnail_active_row <= '1';
+          report "THUMB: active_row asserted on row "
+            & to_string(std_logic_vector(pixel_y));
         end if;
       end if;
       if pixel_valid = '1' then
@@ -259,11 +266,14 @@ begin  -- behavioural
         else
           thumbnail_x_counter <= 0;
           thumbnail_active_pixel <= thumbnail_active_row;
-          thumbnail_write_address <= thumbnail_write_address + 1;
         end if;
       end if;
       if thumbnail_active_pixel='1' then
+        thumbnail_write_address
+          <= to_unsigned(to_integer(thumbnail_write_address) + 1,12);
         thumbnail_wdata <= pixel_drive;
+        report "THUMB: Writing pixel $" & to_hstring(pixel_drive)
+          & " @ $" & to_hstring(thumbnail_write_address);
       end if;
       pixel_drive <= pixel_stream_in;
 
