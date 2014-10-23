@@ -1030,6 +1030,7 @@ begin
       accessing_cpuport <= '0'; accessing_colour_ram_fastio <= '0';
       accessing_slowram <= '0'; accessing_hypervisor <= '0';
       wait_states <= io_read_wait_states;
+      
 
       -- Clear fastio access so that we don't keep reading/writing last IO address
       -- (this is bad when it is $DC0D for example, as it will stop IRQs from
@@ -1233,7 +1234,7 @@ begin
           when "011000" =>
             return to_unsigned(0,4)&hyper_dmagic_list_addr(27 downto 24);
           when "111111" => return x"48"; -- 'H' for Hypermode
-          when others => return x"ff";
+          when others => return x"FF";
         end case;
       elsif accessing_shadow='1' then
 --        report "reading from shadowram" severity note;

@@ -24,7 +24,7 @@ use IEEE.STD_LOGIC_1164.ALL;
 use ieee.numeric_std.all;
 use Std.TextIO.all;
 use work.debugtools.all;
-  
+
 entity framepacker is
   port (
     pixelclock : in std_logic;
@@ -71,17 +71,17 @@ architecture behavioural of framepacker is
 
   component CRC is
     Port 
-    (  
-      CLOCK               :   in  std_logic;
-      RESET               :   in  std_logic;
-      DATA                :   in  std_logic_vector(7 downto 0);
-      LOAD_INIT           :   in  std_logic;
-      CALC                :   in  std_logic;
-      D_VALID             :   in  std_logic;
-      CRC                 :   out std_logic_vector(7 downto 0);
-      CRC_REG             :   out std_logic_vector(31 downto 0);
-      CRC_VALID           :   out std_logic
-    );
+      (  
+        CLOCK               :   in  std_logic;
+        RESET               :   in  std_logic;
+        DATA                :   in  std_logic_vector(7 downto 0);
+        LOAD_INIT           :   in  std_logic;
+        CALC                :   in  std_logic;
+        D_VALID             :   in  std_logic;
+        CRC                 :   out std_logic_vector(7 downto 0);
+        CRC_REG             :   out std_logic_vector(31 downto 0);
+        CRC_VALID           :   out std_logic
+        );
   end component CRC;
   
   -- signals go here
@@ -164,46 +164,57 @@ begin  -- behavioural
     variable temp_cmd : unsigned(7 downto 0);
   begin
 
-   
+    -- Provide read access to thumbnail buffer.  To simplify things, we won't
+    -- memory map the whole thing, but just provide a 2-byte interface to reset
+    -- the read address, and to read a byte of data.  We will also provide a
+    -- flag that indicates if a complete frame has been processed since the
+    -- last read of the reset register.  This will allow the hypervisor to
+    -- detect if the thumbnail is valid, or if it is still showing data from
+    -- another process.
+    if fastio_read='1' then
+      if fastio_addr = x"D3632" then
+        -- @IO:GS $D632 - Lower 8 bits of thumbnail buffer read address (TEMPORARY DEBUG REGISTER)
+        fastio_rdata <= thumbnail_read_address(7 downto 0);
+      elsif fastio_addr = x"D3631" then
+        -- @IO:GS $D631 - Read port for thumbnail generator
+        fastio_rdata <= thumbnail_rdata;
+      elsif fastio_addr = x"D3630" then
+        -- @IO:GS $D630-$D631 - Read-only hardware-generated thumbnail of display (accessible only in hypervisor mode)
+        -- @IO:GS $D630 - Write to reset port address for thumbnail generator
+        -- @IO:GS $D630 - Read to obtain status of thumbnail generator.
+        -- @IO:GS $D630.7 - Thumbnail is valid if 1.  Else there has not been a complete frame since elapsed without a trap to hypervisor mode, in which case the thumbnail may not reflect the current process.
+        -- @IO:GS $D630.6 - Thumbnail drawing was in progress.
+        thumbnail_read_address <= (others => '0');
+        fastio_rdata(7) <= thumbnail_valid;
+        fastio_rdata(6) <= thumbnail_started;
+        fastio_rdata(5 downto 0) <= (others => '0');
+      else
+        fastio_rdata <= (others => 'Z');
+      end if;
+    else
+      fastio_rdata <= (others => 'Z');
+    end if;
+    
     if rising_edge(ioclock) then
+
       -- Tell ethernet controller which half of the buffer we are writing to.
       -- Ethernet controller autonomously sends the contents of the other half
       -- whenever we switch halves.
       buffer_moby_toggle <= output_address_internal(11);
 
-      -- Provide read access to thumbnail buffer.  To simplify things, we won't
-      -- memory map the whole thing, but just provide a 2-byte interface to reset
-      -- the read address, and to read a byte of data.  We will also provide a
-      -- flag that indicates if a complete frame has been processed since the
-      -- last read of the reset register.  This will allow the hypervisor to
-      -- detect if the thumbnail is valid, or if it is still showing data from
-      -- another process.
-      last_access_is_thumbnail <= '0';
+      -- Logic to control port address for thumbnail buffer
       if fastio_read='1' then
-        if fastio_addr = x"D367E" then
-          -- @IO:GS $D67E - Read port for thumbnail generator
-          fastio_rdata <= thumbnail_rdata;
+        if fastio_addr = x"D3631" then
           last_access_is_thumbnail <= '1';
           if last_access_is_thumbnail = '0' then
             thumbnail_read_address <= thumbnail_read_address + 1;
           end if;
-        elsif fastio_addr = x"D367D" then
-          -- @IO:GS $D67D-$D67E - Read-only hardware-generated thumbnail of display (accessible only in hypervisor mode)
-          -- @IO:GS $D67D - Write to reset port address for thumbnail generator
-          -- @IO:GS $D67D - Read to obtain status of thumbnail generator.
-          -- @IO:GS $D67D.7 - Thumbnail is valid if 1.  Else there has not been a complete frame since elapsed without a trap to hypervisor mode, in which case the thumbnail may not reflect the current process.
-          -- @IO:GS $D67D.6 - Thumbnail drawing was in progress.
-          
-          thumbnail_read_address <= (others => '0');
-          fastio_rdata(7) <= thumbnail_valid;
-          fastio_rdata(6) <= thumbnail_started;
-          fastio_rdata(5 downto 0) <= (others => '0');
         else
-          fastio_rdata <= (others => 'Z');
-        end if;
+          last_access_is_thumbnail <= '0';
+        end if;       
       else
-        fastio_rdata <= (others => 'Z');
-      end if;        
+        last_access_is_thumbnail <= '0';
+      end if;             
     end if;
   end process;
 
@@ -251,7 +262,9 @@ begin  -- behavioural
           thumbnail_write_address <= thumbnail_write_address + 1;
         end if;
       end if;
-      thumbnail_wdata <= pixel_drive;
+      if thumbnail_active_pixel='1' then
+        thumbnail_wdata <= pixel_drive;
+      end if;
       pixel_drive <= pixel_stream_in;
 
       if hypervisor_mode = '0' and last_hypervisor_mode = '1' then
@@ -309,20 +322,20 @@ begin  -- behavioural
                       crc_load_init <= '1';
                       crc_calc_en <= '0';
             when 8 => output_data <= x"00";
-              if pixel_y = (next_draw_raster+1) then
-                -- only draw one raster per packet, so flip buffer halves after
-                -- drawing a raster.
-                output_address(11) <= not output_address(11);
-                output_address(10 downto 0) <= (others => '0');
-                -- then work out the next raster to draw.
-                -- 1200 rasters, stepping 13 at a time cycles through them all,
-                -- and 13 x 9 byte raster records fits in less than 2048 bytes.
-                if to_integer(next_draw_raster)<(1200-13) then
-                  next_draw_raster <= to_unsigned(to_integer(next_draw_raster) + 13,12);
-                else
-                  next_draw_raster <= to_unsigned(to_integer(next_draw_raster) + 13 - 1200,12);
-                end if;
-              end if;
+                      if pixel_y = (next_draw_raster+1) then
+                        -- only draw one raster per packet, so flip buffer halves after
+                        -- drawing a raster.
+                        output_address(11) <= not output_address(11);
+                        output_address(10 downto 0) <= (others => '0');
+                        -- then work out the next raster to draw.
+                        -- 1200 rasters, stepping 13 at a time cycles through them all,
+                        -- and 13 x 9 byte raster records fits in less than 2048 bytes.
+                        if to_integer(next_draw_raster)<(1200-13) then
+                          next_draw_raster <= to_unsigned(to_integer(next_draw_raster) + 13,12);
+                        else
+                          next_draw_raster <= to_unsigned(to_integer(next_draw_raster) + 13 - 1200,12);
+                        end if;
+                      end if;
           end case;
           if new_raster_phase /= 8 then
             -- get ready to write the next byte in the sequence
