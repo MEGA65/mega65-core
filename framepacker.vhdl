@@ -262,7 +262,7 @@ begin  -- behavioural
       if pixel_valid = '1' then
         if thumbnail_x_counter < 23 then
           -- Make sure it doesn't wrap around within a frame if things go wrong.
-          if to_integer(thumbnail_x_counter)< 4000 then
+          if thumbnail_x_counter< 4000 then
             thumbnail_x_counter <= thumbnail_x_counter + 1;
           end if;
           thumbnail_active_pixel <= '0';
