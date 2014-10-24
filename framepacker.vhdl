@@ -245,7 +245,7 @@ begin  -- behavioural
           thumbnail_x_counter <= 0;
           thumbnail_active_row <= '0';
         end if;
-        if thumbnail_y_counter < 24 then
+        if thumbnail_y_counter < 23 then
           thumbnail_y_counter <= thumbnail_y_counter + 1;
           thumbnail_active_row <= '0';
           report "THUMB: active_row cleared on row "
@@ -260,8 +260,11 @@ begin  -- behavioural
         end if;
       end if;
       if pixel_valid = '1' then
-        if thumbnail_x_counter < 24 then
-          thumbnail_x_counter <= thumbnail_x_counter + 1;
+        if thumbnail_x_counter < 23 then
+          -- Make sure it doesn't wrap around within a frame if things go wrong.
+          if to_integer(thumbnail_x_counter)< 4000 then
+            thumbnail_x_counter <= thumbnail_x_counter + 1;
+          end if;
           thumbnail_active_pixel <= '0';
         else
           thumbnail_x_counter <= 0;
