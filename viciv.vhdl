@@ -373,6 +373,10 @@ end component;
   signal screen_row_current_address : unsigned(16 downto 0);
   signal screen_row_fetch_address : unsigned(16 downto 0);
 
+  signal full_colour_fetch_count : integer range 0 to 8;
+  signal full_colour_data : unsigned(63 downto 0);
+  signal paint_full_colour_data : unsigned(63 downto 0);
+
   -- Internal registers for drawing a single raster of character data to the
   -- raster buffer.
   signal character_number : unsigned(8 downto 0);
@@ -388,6 +392,7 @@ end component;
                            FetchTextCellColourAndSource,
                            FetchBitmapCell,
                            FetchBitmapData,
+                           PaintFullColourFetch,
                            PaintMemWait,
                            PaintMemWait2,
                            PaintMemWait3,
@@ -400,7 +405,7 @@ end component;
                            SpriteDataFetch2);
   signal raster_fetch_state : vic_chargen_fsm := Idle;
   type vic_paint_fsm is (Idle,
-                         PaintFullColour,
+                         PaintFullColour,PaintFullColourPixels,PaintFullColourDone,
                          PaintMono,PaintMonoDrive,PaintMonoBits,
                          PaintMultiColour,PaintMultiColourDrive,
                          PaintMultiColourBits,PaintMultiColourHold);
@@ -489,7 +494,7 @@ end component;
   -- Characters >255 are full-colour blocks when enabled.
   signal fullcolour_extendedchars : std_logic := '0';
   -- Characters <256 are full-colour blocks when enabled
-  signal fullcolour_8bitchars : std_logic := '0';
+  signal fullcolour_8bitchars : std_logic := '1';
   
   -- VIC-II style Mode control bits (correspond to bits in $D016 etc)
   -- -- Text/graphics mode select
@@ -2626,6 +2631,7 @@ begin
           -- normal, and whether we are flipping in either axis, and so can
           -- work out the address to fetch data from.
           if glyph_full_colour='1' then
+            report "glyph is full colour";
             -- Full colour glyphs come from 64*(glyph_number) in RAM, never
             -- from character ROM.  128KB/64 = 2048 possible glyphs.
             glyph_data_address(16 downto 6) <= glyph_number(10 downto 0);
@@ -2756,9 +2762,41 @@ begin
         when PaintMemWait =>
           -- Allow for 2 cycle delay to get data in paint_ramdata
           -- In this cycle chardata and ramdata will have the requested value
+          if glyph_full_colour = '1' then
+            if glyph_flip_horizontal = '0' then
+              glyph_data_address(2 downto 0) <= glyph_data_address(2 downto 0) + 1;
+            else
+              glyph_data_address(2 downto 0) <= glyph_data_address(2 downto 0) - 1;
+            end if;
+          end if;
           raster_fetch_state <= PaintMemWait2;
         when PaintMemWait2 =>
-          raster_fetch_state <= PaintMemWait3;
+          if glyph_full_colour = '1' then
+            if glyph_flip_horizontal = '0' then
+              glyph_data_address(2 downto 0) <= glyph_data_address(2 downto 0) + 1;
+            else
+              glyph_data_address(2 downto 0) <= glyph_data_address(2 downto 0) - 1;
+            end if;
+            full_colour_fetch_count <= 0;
+            raster_fetch_state <= PaintFullColourFetch;
+          else
+            raster_fetch_state <= PaintMemWait3;
+          end if;
+        when PaintFullColourFetch =>
+          -- Read and store the 8 bytes of data we need for a full-colour character
+          full_colour_data(63 downto 56) <= ramdata;
+          full_colour_data(55 downto 0) <= full_colour_data(63 downto 8);
+          if glyph_flip_horizontal = '0' then
+            glyph_data_address(2 downto 0) <= glyph_data_address(2 downto 0) + 1;
+          else
+            glyph_data_address(2 downto 0) <= glyph_data_address(2 downto 0) - 1;
+          end if;
+          if full_colour_data < 7 then
+            full_colour_fetch_count <= full_colour_fetch_count + 1;
+            raster_fetch_state <= PaintFullColourFetch;
+          else
+            raster_fetch_state <= PaintDispatch;
+          end if;          
         when PaintMemWait3 =>
           -- In this cycle paint_chardata and and paint_ramdata should have the
           -- requested value
@@ -2791,6 +2829,7 @@ begin
             -- Now work out exactly how we are painting
             if glyph_full_colour='1' then
               -- Paint full-colour glyph
+              report "Dispatching to PaintFullColour due to glyph_full_colour = 1";
               paint_fsm_state <= PaintFullColour;
             else
               if multicolour_mode='0' and extended_background_mode='0' then
@@ -2923,6 +2962,37 @@ begin
             paint_ready <= '1';
             report "asserting paint_ready" severity note;
           end if;
+        when PaintFullColour =>
+          -- Draw 8 pixels using a byte at a time from full_colour_data
+          paint_bits_remaining <= 8;
+          paint_ready <= '0';
+          paint_full_colour_data <= full_colour_data;
+          paint_fsm_state <= PaintFullColourPixels;
+        when PaintFullColourPixels =>
+          if paint_full_colour_data(7 downto 0) = x"00" then
+            -- background pixel
+            raster_buffer_write_data(8) <= '0';
+          else
+            -- fullground pixel
+            raster_buffer_write_data(8) <= '1';                                               
+          end if;
+          raster_buffer_write_data(7 downto 0) <= paint_full_colour_data(7 downto 0);
+          paint_full_colour_data(55 downto 0) <= paint_full_colour_data(63 downto 8);
+          raster_buffer_write_address <= raster_buffer_write_address + 1;
+          raster_buffer_write <= '1';
+          report "paint_bits_remaining=" & integer'image(paint_bits_remaining) severity note;
+          if paint_bits_remaining > 0 then
+            paint_bits_remaining <= paint_bits_remaining - 1;
+          else
+            paint_fsm_state <= PaintFullColourDone;
+          end if;
+          if paint_bits_remaining = 1 then
+            -- Tell character generator when we are able to become idle.
+            -- (the generator tells us when to go idle)
+            paint_ready <= '1';
+          end if;
+        when PaintFullColourDone =>
+          null;
         when PaintMono =>
           -- Drive stage costs us another cycle per glyph, but seems necessary
           -- to meet timing.
