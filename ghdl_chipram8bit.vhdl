@@ -19,27 +19,33 @@ architecture behavioural of chipram8bit is
 
   type ram_t is array (0 to 131071) of std_logic_vector(7 downto 0);
   signal ram : ram_t := (
-    0 => x"55", 1 => x"AA", 2 => x"55", 3 => x"AA",
-    4 => x"55", 5 => x"AA", 6 => x"55", 7 => x"AA",
-    8 => x"D2", 9 => x"D2", 10 => x"D2", 11 => x"D2",
-    16 => x"D2", 17 => x"D2", 18 => x"D2", 19 => x"D2",
-    -- some interesting data for a test sprite
-    2040 => x"01", 5112 => x"01",
-    64 => x"55", 65 => x"aa", 66 => x"81",
-    4096 => x"03",
-    4097 => x"08",
-    4098 => x"09",
-    4099 => x"10",
-    4100 => x"12",
-    4101 => x"01",
-    4102 => x"0d",
-    4135 => x"24",
-    4136 => x"31",
-    4176 => x"32",
-    4216 => x"33",
-    4256 => x"34",
-    4296 => x"35",
-    4336 => x"36",
+    -- Some data for testing full-colour mode
+    -- Screen starts @ $1000, so put a couple of glyph numbers that point
+    -- somewhere convenient there. Each full-colour glyph is 64 bytes long,
+    -- so char code $80 will be at $80 * 64 = $2000 = 8192
+    4096 => x"80",
+    4097 => x"81",
+
+    -- Colour values for first row of char $80
+    8192 => x"01",
+    8193 => x"02",
+    8194 => x"03",
+    8195 => x"04",
+    8196 => x"05",
+    8197 => x"06",
+    8198 => x"07",
+    8199 => x"08",
+
+    -- Colour values for first row of char $80
+    8256 => x"0a",
+    8257 => x"03",
+    8258 => x"0a",
+    8259 => x"03",
+    8260 => x"0a",
+    8261 => x"03",
+    8262 => x"0a",
+    8263 => x"03",
+
     others => x"BD" );
 
 begin
