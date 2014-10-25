@@ -494,7 +494,7 @@ end component;
   -- Characters >255 are full-colour blocks when enabled.
   signal fullcolour_extendedchars : std_logic := '0';
   -- Characters <256 are full-colour blocks when enabled
-  signal fullcolour_8bitchars : std_logic := '1';
+  signal fullcolour_8bitchars : std_logic := '0';
   
   -- VIC-II style Mode control bits (correspond to bits in $D016 etc)
   -- -- Text/graphics mode select
@@ -2674,7 +2674,7 @@ begin
             end if;
           end if;
           -- Ask for first byte of data so that paint can commence immediately.
-          report "setting ramaddress to $" & to_hstring("000"&glyph_data_address) & " for painting." severity note;
+          report "setting ramaddress to $" & to_hstring("000"&glyph_data_address) & " for glyph painting." severity note;
           ramaddress <= glyph_data_address;
           -- upper bit of charrom address is set by $D018, only 258*8 = 2K
           -- range of address is controlled here by character number.
@@ -2747,7 +2747,7 @@ begin
           end if;
 
           -- Ask for first byte of data so that paint can commence immediately.
-          report "setting ramaddress to $" & to_hstring("000"&glyph_data_address) & " for painting." severity note;
+          report "setting ramaddress to $" & to_hstring("000"&glyph_data_address) & " for glyph painting." severity note;
           ramaddress <= glyph_data_address;
           -- upper bit of charrom address is set by $D018, only 258*8 = 2K
           -- range of address is controlled here by character number.
@@ -2768,6 +2768,7 @@ begin
             else
               glyph_data_address(2 downto 0) <= glyph_data_address(2 downto 0) - 1;
             end if;
+            report "setting ramaddress to $x" & to_hstring(glyph_data_address(15 downto 0)) & " for full-colour glyph drawing";
             ramaddress <= glyph_data_address;
           end if;
           raster_fetch_state <= PaintMemWait2;
@@ -2778,6 +2779,8 @@ begin
             else
               glyph_data_address(2 downto 0) <= glyph_data_address(2 downto 0) - 1;
             end if;
+            report "setting ramaddress to $x" & to_hstring(glyph_data_address(15 downto 0)) & " for full-colour glyph drawing";
+            ramaddress <= glyph_data_address;
             full_colour_fetch_count <= 0;
             raster_fetch_state <= PaintFullColourFetch;
           else
@@ -2793,6 +2796,8 @@ begin
           else
             glyph_data_address(2 downto 0) <= glyph_data_address(2 downto 0) - 1;
           end if;
+          report "setting ramaddress to $x" & to_hstring(glyph_data_address(15 downto 0)) & " for full-colour glyph drawing";
+          ramaddress <= glyph_data_address;
           if full_colour_fetch_count < 7 then
             full_colour_fetch_count <= full_colour_fetch_count + 1;
             raster_fetch_state <= PaintFullColourFetch;
