@@ -494,7 +494,7 @@ end component;
   -- Characters >255 are full-colour blocks when enabled.
   signal fullcolour_extendedchars : std_logic := '0';
   -- Characters <256 are full-colour blocks when enabled
-  signal fullcolour_8bitchars : std_logic := '0';
+  signal fullcolour_8bitchars : std_logic := '1';
   
   -- VIC-II style Mode control bits (correspond to bits in $D016 etc)
   -- -- Text/graphics mode select
@@ -2971,7 +2971,7 @@ begin
           end if;
         when PaintFullColour =>
           -- Draw 8 pixels using a byte at a time from full_colour_data
-          paint_bits_remaining <= 8;
+          paint_bits_remaining <= 7;
           paint_ready <= '0';
           paint_full_colour_data <= full_colour_data;
           paint_fsm_state <= PaintFullColourPixels;
