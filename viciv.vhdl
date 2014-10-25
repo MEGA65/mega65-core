@@ -2768,6 +2768,7 @@ begin
             else
               glyph_data_address(2 downto 0) <= glyph_data_address(2 downto 0) - 1;
             end if;
+            ramaddress <= glyph_data_address;
           end if;
           raster_fetch_state <= PaintMemWait2;
         when PaintMemWait2 =>
@@ -2784,6 +2785,7 @@ begin
           end if;
         when PaintFullColourFetch =>
           -- Read and store the 8 bytes of data we need for a full-colour character
+          report "glyph reading full-colour pixel value $" & to_hstring(ramdata); 
           full_colour_data(63 downto 56) <= ramdata;
           full_colour_data(55 downto 0) <= full_colour_data(63 downto 8);
           if glyph_flip_horizontal = '0' then
@@ -2791,7 +2793,7 @@ begin
           else
             glyph_data_address(2 downto 0) <= glyph_data_address(2 downto 0) - 1;
           end if;
-          if full_colour_data < 7 then
+          if full_colour_fetch_count < 7 then
             full_colour_fetch_count <= full_colour_fetch_count + 1;
             raster_fetch_state <= PaintFullColourFetch;
           else
@@ -2976,11 +2978,12 @@ begin
             -- fullground pixel
             raster_buffer_write_data(8) <= '1';                                               
           end if;
+          report "full-colour glyph painting pixel $" & to_hstring(paint_full_colour_data(7 downto 0));
           raster_buffer_write_data(7 downto 0) <= paint_full_colour_data(7 downto 0);
           paint_full_colour_data(55 downto 0) <= paint_full_colour_data(63 downto 8);
           raster_buffer_write_address <= raster_buffer_write_address + 1;
           raster_buffer_write <= '1';
-          report "paint_bits_remaining=" & integer'image(paint_bits_remaining) severity note;
+          report "full colour glyph paint_bits_remaining=" & integer'image(paint_bits_remaining) severity note;
           if paint_bits_remaining > 0 then
             paint_bits_remaining <= paint_bits_remaining - 1;
           else
