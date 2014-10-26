@@ -381,13 +381,17 @@ end component;
   signal next_ramaddress : unsigned(16 downto 0);
   signal next_ramaccess_is_screen_row_fetch : std_logic := '0';
   signal this_ramaccess_is_screen_row_fetch : std_logic := '0';
+  signal last_ramaccess_is_screen_row_fetch : std_logic := '0';
   signal next_ramaccess_is_glyph_data_fetch : std_logic := '0';
   signal this_ramaccess_is_glyph_data_fetch : std_logic := '0';
+  signal last_ramaccess_is_glyph_data_fetch : std_logic := '0';
   signal next_ramaccess_is_sprite_data_fetch : std_logic := '0';
   signal this_ramaccess_is_sprite_data_fetch : std_logic := '0';
+  signal last_ramaccess_is_sprite_data_fetch : std_logic := '0';
   signal this_ramaccess_screen_row_buffer_address : unsigned(8 downto 0);
   signal next_ramaccess_screen_row_buffer_address : unsigned(8 downto 0);
-  
+  signal last_ramaccess_screen_row_buffer_address : unsigned(8 downto 0);
+  signal last_ramdata : unsigned(7 downto 0);
 
   -- Internal registers for drawing a single raster of character data to the
   -- raster buffer.
@@ -2467,15 +2471,23 @@ begin
       this_ramaccess_is_sprite_data_fetch <= next_ramaccess_is_sprite_data_fetch;
       this_ramaccess_screen_row_buffer_address
         <= next_ramaccess_screen_row_buffer_address;
+      last_ramaccess_is_screen_row_fetch <= this_ramaccess_is_screen_row_fetch;
+      last_ramaccess_is_glyph_data_fetch <= this_ramaccess_is_glyph_data_fetch;
+      last_ramaccess_is_sprite_data_fetch <= this_ramaccess_is_sprite_data_fetch;
+      last_ramaccess_screen_row_buffer_address
+        <= this_ramaccess_screen_row_buffer_address;
       screen_ram_buffer_address <= (others => '1');
       -- Screen ram row accesses
-      if next_ramaccess_is_screen_row_fetch='1' then
+      if this_ramaccess_is_screen_row_fetch='1' then
         ramaddress <= screen_row_fetch_address;
         report "chipram fetch for screen row data from $" & to_hstring(to_unsigned(to_integer(screen_row_fetch_address),16));
+        report "buffering screen ram byte $" & to_hstring(ramdata);
       end if;
-      screen_ram_buffer_write <= this_ramaccess_is_screen_row_fetch;
-      screen_ram_buffer_address <= this_ramaccess_screen_row_buffer_address;
-      screen_ram_buffer_din <= ramdata;
+      last_ramdata <= ramdata;
+      
+      screen_ram_buffer_write <= last_ramaccess_is_screen_row_fetch;
+      screen_ram_buffer_address <= last_ramaccess_screen_row_buffer_address;
+      screen_ram_buffer_din <= last_ramdata;
 
       report "raster_fetch_state = " & vic_chargen_fsm'image(raster_fetch_state);
       case raster_fetch_state is
