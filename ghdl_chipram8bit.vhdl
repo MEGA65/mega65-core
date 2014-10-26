@@ -25,6 +25,13 @@ architecture behavioural of chipram8bit is
     -- so char code $80 will be at $80 * 64 = $2000 = 8192
     4096 => x"80",
     4097 => x"81",
+    4098 => x"02",
+    4099 => x"03",
+    4100 => x"04",
+    4101 => x"05",
+    4102 => x"06",
+    4103 => x"07",
+    4104 => x"08",
 
     -- Colour values for first row of char $80
     8192 => x"01",

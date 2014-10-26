@@ -371,7 +371,6 @@ end component;
   -- Internal registers used to keep track of the screen ram for the current row
   signal screen_row_address : unsigned(16 downto 0);
   signal screen_row_current_address : unsigned(16 downto 0);
-  signal screen_row_fetch_address : unsigned(16 downto 0);
 
   signal full_colour_fetch_count : integer range 0 to 8;
   signal full_colour_data : unsigned(63 downto 0);
@@ -382,16 +381,24 @@ end component;
   signal next_ramaccess_is_screen_row_fetch : std_logic := '0';
   signal this_ramaccess_is_screen_row_fetch : std_logic := '0';
   signal last_ramaccess_is_screen_row_fetch : std_logic := '0';
+  signal final_ramaccess_is_screen_row_fetch : std_logic := '0';
   signal next_ramaccess_is_glyph_data_fetch : std_logic := '0';
   signal this_ramaccess_is_glyph_data_fetch : std_logic := '0';
   signal last_ramaccess_is_glyph_data_fetch : std_logic := '0';
+  signal final_ramaccess_is_glyph_data_fetch : std_logic := '0';
   signal next_ramaccess_is_sprite_data_fetch : std_logic := '0';
   signal this_ramaccess_is_sprite_data_fetch : std_logic := '0';
   signal last_ramaccess_is_sprite_data_fetch : std_logic := '0';
+  signal final_ramaccess_is_sprite_data_fetch : std_logic := '0';
   signal this_ramaccess_screen_row_buffer_address : unsigned(8 downto 0);
   signal next_ramaccess_screen_row_buffer_address : unsigned(8 downto 0);
   signal last_ramaccess_screen_row_buffer_address : unsigned(8 downto 0);
-  signal last_ramdata : unsigned(7 downto 0);
+  signal final_ramaccess_screen_row_buffer_address : unsigned(8 downto 0);
+  signal next_screen_row_fetch_address : unsigned(16 downto 0);
+  signal this_screen_row_fetch_address : unsigned(16 downto 0);
+  signal last_screen_row_fetch_address : unsigned(16 downto 0);
+  signal final_screen_row_fetch_address : unsigned(16 downto 0);
+  signal final_ramdata : unsigned(7 downto 0);
 
   -- Internal registers for drawing a single raster of character data to the
   -- raster buffer.
@@ -2471,23 +2478,34 @@ begin
       this_ramaccess_is_sprite_data_fetch <= next_ramaccess_is_sprite_data_fetch;
       this_ramaccess_screen_row_buffer_address
         <= next_ramaccess_screen_row_buffer_address;
+      this_screen_row_fetch_address <= next_screen_row_fetch_address;
       last_ramaccess_is_screen_row_fetch <= this_ramaccess_is_screen_row_fetch;
       last_ramaccess_is_glyph_data_fetch <= this_ramaccess_is_glyph_data_fetch;
       last_ramaccess_is_sprite_data_fetch <= this_ramaccess_is_sprite_data_fetch;
       last_ramaccess_screen_row_buffer_address
         <= this_ramaccess_screen_row_buffer_address;
+      last_screen_row_fetch_address <= this_screen_row_fetch_address;
+      final_ramdata <= ramdata;
+      final_ramaccess_is_screen_row_fetch <= last_ramaccess_is_screen_row_fetch;
+      final_ramaccess_is_glyph_data_fetch <= last_ramaccess_is_glyph_data_fetch;
+      final_ramaccess_is_sprite_data_fetch <= last_ramaccess_is_sprite_data_fetch;
+      final_ramaccess_screen_row_buffer_address
+        <= last_ramaccess_screen_row_buffer_address;
+      final_screen_row_fetch_address <= last_screen_row_fetch_address;
+
       screen_ram_buffer_address <= (others => '1');
       -- Screen ram row accesses
       if this_ramaccess_is_screen_row_fetch='1' then
-        ramaddress <= screen_row_fetch_address;
-        report "chipram fetch for screen row data from $" & to_hstring(to_unsigned(to_integer(screen_row_fetch_address),16));
-        report "buffering screen ram byte $" & to_hstring(ramdata);
+        ramaddress <= this_screen_row_fetch_address;
+        report "chipram fetch for screen row data from $" & to_hstring(to_unsigned(to_integer(this_screen_row_fetch_address),16));
       end if;
-      last_ramdata <= ramdata;
       
-      screen_ram_buffer_write <= last_ramaccess_is_screen_row_fetch;
-      screen_ram_buffer_address <= last_ramaccess_screen_row_buffer_address;
-      screen_ram_buffer_din <= last_ramdata;
+      if final_ramaccess_is_screen_row_fetch='1' then
+        report "buffering screen ram byte $" & to_hstring(final_ramdata) & " to address $" & to_hstring(to_unsigned(to_integer(final_ramaccess_screen_row_buffer_address),16));
+      end if;
+      screen_ram_buffer_write <= final_ramaccess_is_screen_row_fetch;
+      screen_ram_buffer_address <= final_ramaccess_screen_row_buffer_address;
+      screen_ram_buffer_din <= final_ramdata;
 
       report "raster_fetch_state = " & vic_chargen_fsm'image(raster_fetch_state);
       case raster_fetch_state is
@@ -2514,7 +2532,7 @@ begin
             next_ramaccess_is_glyph_data_fetch <= '0';
             next_ramaccess_is_sprite_data_fetch <= '0';
             next_ramaccess_screen_row_buffer_address <= to_unsigned(0,9);
-            screen_row_fetch_address <= screen_row_current_address;
+            next_screen_row_fetch_address <= screen_row_current_address;
                                         
             -- screen_ram_buffer_address <= to_unsigned(0,9);
             report "ZEROing screen_ram_buffer_address" severity note;
@@ -2553,7 +2571,7 @@ begin
             next_ramaccess_is_glyph_data_fetch <= '0';
             next_ramaccess_is_sprite_data_fetch <= '0';
             next_ramaccess_screen_row_buffer_address <= next_ramaccess_screen_row_buffer_address + 1;
-            screen_row_fetch_address <= screen_row_fetch_address + 1;
+            next_screen_row_fetch_address <= next_screen_row_fetch_address + 1;
           end if;
         when FetchFirstCharacter =>
           character_number <= (others => '0');
