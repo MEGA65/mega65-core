@@ -364,7 +364,8 @@ end component;
   -- Interface to buffer for screen ram (converts 64 bits wide to 8 bits
   -- wide for us)
   signal screen_ram_buffer_write  : std_logic := '0';
-  signal screen_ram_buffer_address : unsigned(8 downto 0);
+  signal screen_ram_buffer_read_address : unsigned(8 downto 0);
+  signal screen_ram_buffer_write_address : unsigned(8 downto 0);
   signal screen_ram_buffer_din : unsigned(7 downto 0);
   signal screen_ram_buffer_dout : unsigned(7 downto 0);
   
@@ -812,8 +813,8 @@ begin
       dina    => std_logic_vector(screen_ram_buffer_din),
       unsigned(doutb)   => screen_ram_buffer_dout,
       wea(0)  => screen_ram_buffer_write,
-      addra  => std_logic_vector(screen_ram_buffer_address(8 downto 0)),
-      addrb  => std_logic_vector(screen_ram_buffer_address(8 downto 0))
+      addra  => std_logic_vector(screen_ram_buffer_write_address(8 downto 0)),
+      addrb  => std_logic_vector(screen_ram_buffer_read_address(8 downto 0))
       );
 
   chipram0: component chipram8bit
@@ -2316,7 +2317,7 @@ begin
         debug_charrow <= charrow;
 --        debug_charaddress <= charaddress;
         debug_character_data_from_rom <= character_data_from_rom;
-        debug_screen_ram_buffer_address <= screen_ram_buffer_address;
+        debug_screen_ram_buffer_address <= screen_ram_buffer_read_address;
         debug_raster_buffer_read_address <= raster_buffer_read_address(7 downto 0);
         debug_raster_buffer_write_address <= raster_buffer_write_address(7 downto 0);
       end if;     
@@ -2446,7 +2447,8 @@ begin
           <= to_unsigned(to_integer(screen_ram_base(16 downto 0))
                          + to_integer(first_card_of_row),17);
         card_of_row <= (others =>'0');
-        screen_ram_buffer_address <= to_unsigned(0,9);
+        screen_ram_buffer_write_address <= to_unsigned(0,9);
+        screen_ram_buffer_read_address <= to_unsigned(0,9);
         report "ZEROing screen_ram_buffer_address" severity note;
         -- Finally decide which way we should go
         if to_integer(first_card_of_row) /= to_integer(prev_first_card_of_row) then          
@@ -2469,7 +2471,7 @@ begin
       -- Pre-calculate some expressions to flatten logic in critical path
       bitmap_glyph_data_address
           <= (character_set_address(16 downto 13)&"0"&x"000")
-        + (to_integer(screen_ram_buffer_address)+to_integer(first_card_of_row))*8+to_integer(chargen_y);
+        + (to_integer(screen_ram_buffer_read_address)+to_integer(first_card_of_row))*8+to_integer(chargen_y);
       virtual_row_width_minus1 <= virtual_row_width - 1;
 
       -- Do chipram read based on fetch scheduled in previous cycle
@@ -2493,7 +2495,7 @@ begin
         <= last_ramaccess_screen_row_buffer_address;
       final_screen_row_fetch_address <= last_screen_row_fetch_address;
 
-      screen_ram_buffer_address <= (others => '1');
+      screen_ram_buffer_read_address <= (others => '1');
       -- Screen ram row accesses
       if this_ramaccess_is_screen_row_fetch='1' then
         ramaddress <= this_screen_row_fetch_address;
@@ -2504,7 +2506,7 @@ begin
         report "buffering screen ram byte $" & to_hstring(final_ramdata) & " to address $" & to_hstring(to_unsigned(to_integer(final_ramaccess_screen_row_buffer_address),16));
       end if;
       screen_ram_buffer_write <= final_ramaccess_is_screen_row_fetch;
-      screen_ram_buffer_address <= final_ramaccess_screen_row_buffer_address;
+      screen_ram_buffer_write_address <= final_ramaccess_screen_row_buffer_address;
       screen_ram_buffer_din <= final_ramdata;
 
       report "raster_fetch_state = " & vic_chargen_fsm'image(raster_fetch_state);
@@ -2534,8 +2536,6 @@ begin
             next_ramaccess_screen_row_buffer_address <= to_unsigned(0,9);
             next_screen_row_fetch_address <= screen_row_current_address;
                                         
-            -- screen_ram_buffer_address <= to_unsigned(0,9);
-            report "ZEROing screen_ram_buffer_address" severity note;
             report "BADLINE, colour_ram_base=$" & to_hstring(colour_ram_base) severity note;
           end if;
         when FetchScreenRamLine2 =>
@@ -2574,11 +2574,15 @@ begin
             next_screen_row_fetch_address <= next_screen_row_fetch_address + 1;
           end if;
         when FetchFirstCharacter =>
+          next_ramaccess_is_screen_row_fetch <= '0';
+          next_ramaccess_is_glyph_data_fetch <= '0';
+          next_ramaccess_is_sprite_data_fetch <= '0';
+
+          screen_ram_buffer_read_address <= to_unsigned(0,9);
+          report "ZEROing screen_ram_buffer_read_address" severity note;
+          
           character_number <= (others => '0');
           card_of_row <= (others => '0');
-          screen_ram_buffer_write <= '0';
-          screen_ram_buffer_address <= to_unsigned(0,9);
-          report "SETting screen_ram_buffer_address to 1" severity note;
           raster_fetch_state <= FetchNextCharacter;         
         when FetchNextCharacter =>
           -- Fetch next character
@@ -2627,12 +2631,12 @@ begin
           -- calculate data address for bitmap mode in case we need it
           -- bitmap area is always on an 8KB boundary
           glyph_data_address <= bitmap_glyph_data_address;
-          report "bitmap srba="& integer'image(to_integer(screen_ram_buffer_address))
+          report "bitmap srba="& integer'image(to_integer(screen_ram_buffer_read_address))
             & ", fcor="& integer'image(to_integer(first_card_of_row))
             severity note;
 
-          screen_ram_buffer_address <= screen_ram_buffer_address + 1;
-          report "INCREMENTing screen_ram_buffer_address to " & integer'image(to_integer(screen_ram_buffer_address)+1) severity note;
+          screen_ram_buffer_read_address <= screen_ram_buffer_read_address + 1;
+          report "INCREMENTing screen_ram_buffer_read_address to " & integer'image(to_integer(screen_ram_buffer_read_address)+1) severity note;
 
           -- Clear 16-bit character attributes in case we are reading 8-bits only.
           glyph_flip_horizontal <= '0';
@@ -2673,12 +2677,12 @@ begin
           -- calculate data address for bitmap mode in case we need it
           -- bitmap area is always on an 8KB boundary
           glyph_data_address <= bitmap_glyph_data_address;
-          report "bitmap srba="& integer'image(to_integer(screen_ram_buffer_address))
+          report "bitmap srba="& integer'image(to_integer(screen_ram_buffer_read_address))
             & ", fcor="& integer'image(to_integer(first_card_of_row))
             severity note;
           
-          screen_ram_buffer_address <= screen_ram_buffer_address + 1;
-          report "INCREMENTing screen_ram_buffer_address to " & integer'image(to_integer(screen_ram_buffer_address)+1) severity note;
+          screen_ram_buffer_read_address <= screen_ram_buffer_read_address + 1;
+          report "INCREMENTing screen_ram_buffer_read_address to " & integer'image(to_integer(screen_ram_buffer_read_address)+1) severity note;
         when FetchBitmapCell =>
           report "from bitmap layout, we get glyph_data_address = $" & to_hstring("000"&glyph_data_address) severity note;
           raster_fetch_state <= FetchBitmapData;
