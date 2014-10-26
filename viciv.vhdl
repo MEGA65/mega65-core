@@ -2422,6 +2422,41 @@ begin
       --------------------------------------------------------------------------
       --------------------------------------------------------------------------
 
+      -- Do chipram read based on fetch scheduled in previous cycle
+      this_ramaccess_is_screen_row_fetch <= next_ramaccess_is_screen_row_fetch;
+      this_ramaccess_is_glyph_data_fetch <= next_ramaccess_is_glyph_data_fetch;
+      this_ramaccess_is_sprite_data_fetch <= next_ramaccess_is_sprite_data_fetch;
+      this_ramaccess_screen_row_buffer_address
+        <= next_ramaccess_screen_row_buffer_address;
+      this_screen_row_fetch_address <= next_screen_row_fetch_address;
+      last_ramaccess_is_screen_row_fetch <= this_ramaccess_is_screen_row_fetch;
+      last_ramaccess_is_glyph_data_fetch <= this_ramaccess_is_glyph_data_fetch;
+      last_ramaccess_is_sprite_data_fetch <= this_ramaccess_is_sprite_data_fetch;
+      last_ramaccess_screen_row_buffer_address
+        <= this_ramaccess_screen_row_buffer_address;
+      last_screen_row_fetch_address <= this_screen_row_fetch_address;
+      final_ramdata <= ramdata;
+      final_ramaccess_is_screen_row_fetch <= last_ramaccess_is_screen_row_fetch;
+      final_ramaccess_is_glyph_data_fetch <= last_ramaccess_is_glyph_data_fetch;
+      final_ramaccess_is_sprite_data_fetch <= last_ramaccess_is_sprite_data_fetch;
+      final_ramaccess_screen_row_buffer_address
+        <= last_ramaccess_screen_row_buffer_address;
+      final_screen_row_fetch_address <= last_screen_row_fetch_address;
+
+      -- Screen ram row accesses
+      if this_ramaccess_is_screen_row_fetch='1' then
+        ramaddress <= this_screen_row_fetch_address;
+        report "chipram fetch for screen row data from $" & to_hstring(to_unsigned(to_integer(this_screen_row_fetch_address),16));
+      end if;
+      
+      if final_ramaccess_is_screen_row_fetch='1' then
+        report "buffering screen ram byte $" & to_hstring(final_ramdata) & " to address $" & to_hstring(to_unsigned(to_integer(final_ramaccess_screen_row_buffer_address),16));
+      end if;
+      screen_ram_buffer_write <= final_ramaccess_is_screen_row_fetch;
+      screen_ram_buffer_write_address <= final_ramaccess_screen_row_buffer_address;
+      screen_ram_buffer_din <= final_ramdata;
+
+      
       if xbackporch_edge='1' then
         -- Start of filling raster buffer.
         -- We don't need to double-buffer, as we start filling from the back
@@ -2473,41 +2508,6 @@ begin
           <= (character_set_address(16 downto 13)&"0"&x"000")
         + (to_integer(screen_ram_buffer_read_address)+to_integer(first_card_of_row))*8+to_integer(chargen_y);
       virtual_row_width_minus1 <= virtual_row_width - 1;
-
-      -- Do chipram read based on fetch scheduled in previous cycle
-      this_ramaccess_is_screen_row_fetch <= next_ramaccess_is_screen_row_fetch;
-      this_ramaccess_is_glyph_data_fetch <= next_ramaccess_is_glyph_data_fetch;
-      this_ramaccess_is_sprite_data_fetch <= next_ramaccess_is_sprite_data_fetch;
-      this_ramaccess_screen_row_buffer_address
-        <= next_ramaccess_screen_row_buffer_address;
-      this_screen_row_fetch_address <= next_screen_row_fetch_address;
-      last_ramaccess_is_screen_row_fetch <= this_ramaccess_is_screen_row_fetch;
-      last_ramaccess_is_glyph_data_fetch <= this_ramaccess_is_glyph_data_fetch;
-      last_ramaccess_is_sprite_data_fetch <= this_ramaccess_is_sprite_data_fetch;
-      last_ramaccess_screen_row_buffer_address
-        <= this_ramaccess_screen_row_buffer_address;
-      last_screen_row_fetch_address <= this_screen_row_fetch_address;
-      final_ramdata <= ramdata;
-      final_ramaccess_is_screen_row_fetch <= last_ramaccess_is_screen_row_fetch;
-      final_ramaccess_is_glyph_data_fetch <= last_ramaccess_is_glyph_data_fetch;
-      final_ramaccess_is_sprite_data_fetch <= last_ramaccess_is_sprite_data_fetch;
-      final_ramaccess_screen_row_buffer_address
-        <= last_ramaccess_screen_row_buffer_address;
-      final_screen_row_fetch_address <= last_screen_row_fetch_address;
-
-      screen_ram_buffer_read_address <= (others => '1');
-      -- Screen ram row accesses
-      if this_ramaccess_is_screen_row_fetch='1' then
-        ramaddress <= this_screen_row_fetch_address;
-        report "chipram fetch for screen row data from $" & to_hstring(to_unsigned(to_integer(this_screen_row_fetch_address),16));
-      end if;
-      
-      if final_ramaccess_is_screen_row_fetch='1' then
-        report "buffering screen ram byte $" & to_hstring(final_ramdata) & " to address $" & to_hstring(to_unsigned(to_integer(final_ramaccess_screen_row_buffer_address),16));
-      end if;
-      screen_ram_buffer_write <= final_ramaccess_is_screen_row_fetch;
-      screen_ram_buffer_write_address <= final_ramaccess_screen_row_buffer_address;
-      screen_ram_buffer_din <= final_ramdata;
 
       report "raster_fetch_state = " & vic_chargen_fsm'image(raster_fetch_state);
       case raster_fetch_state is
