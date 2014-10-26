@@ -377,13 +377,24 @@ end component;
   signal full_colour_data : unsigned(63 downto 0);
   signal paint_full_colour_data : unsigned(63 downto 0);
 
+  -- chipram access management registers
+  signal next_ramaddress : unsigned(16 downto 0);
+  signal next_ramaccess_is_screen_row_fetch : std_logic := '0';
+  signal this_ramaccess_is_screen_row_fetch : std_logic := '0';
+  signal next_ramaccess_is_glyph_data_fetch : std_logic := '0';
+  signal this_ramaccess_is_glyph_data_fetch : std_logic := '0';
+  signal next_ramaccess_is_sprite_data_fetch : std_logic := '0';
+  signal this_ramaccess_is_sprite_data_fetch : std_logic := '0';
+  signal this_ramaccess_screen_row_buffer_address : unsigned(8 downto 0);
+  signal next_ramaccess_screen_row_buffer_address : unsigned(8 downto 0);
+  
+
   -- Internal registers for drawing a single raster of character data to the
   -- raster buffer.
   signal character_number : unsigned(8 downto 0);
   type vic_chargen_fsm is (Idle,
                            FetchScreenRamLine,
-                           FetchScreenRamWait,
-                           FetchScreenRamWait2,
+                           FetchScreenRamLine2,
                            FetchScreenRamNext,
                            FetchFirstCharacter,
                            FetchNextCharacter,
@@ -2449,47 +2460,62 @@ begin
           <= (character_set_address(16 downto 13)&"0"&x"000")
         + (to_integer(screen_ram_buffer_address)+to_integer(first_card_of_row))*8+to_integer(chargen_y);
       virtual_row_width_minus1 <= virtual_row_width - 1;
+
+      -- Do chipram read based on fetch scheduled in previous cycle
+      this_ramaccess_is_screen_row_fetch <= next_ramaccess_is_screen_row_fetch;
+      this_ramaccess_is_glyph_data_fetch <= next_ramaccess_is_glyph_data_fetch;
+      this_ramaccess_is_sprite_data_fetch <= next_ramaccess_is_sprite_data_fetch;
+      this_ramaccess_screen_row_buffer_address
+        <= next_ramaccess_screen_row_buffer_address;
+      screen_ram_buffer_address <= (others => '1');
+      -- Screen ram row accesses
+      if next_ramaccess_is_screen_row_fetch='1' then
+        ramaddress <= screen_row_current_address;
+      end if;
+      screen_ram_buffer_write <= this_ramaccess_is_screen_row_fetch;
+      screen_ram_buffer_address <= this_ramaccess_screen_row_buffer_address;
+      screen_ram_buffer_din <= ramdata;
       
       case raster_fetch_state is
         when Idle => null;
         when FetchScreenRamLine =>
+          -- Make sure that painting is not in progress
           if paint_ready='1' then
+            -- Set FSM state so that no painting occurrs, and so that we
+            -- continue to fetch the screen row.  Note that here we just
+            -- schedule the memory reads.  The data is written elsewhere.  This
+            -- helps to simplify the logic in terms of number of states in the
+            -- machine, as well as for accepting the data when it has been read.
             paint_fsm_state <= Idle;
-            raster_fetch_state <= FetchScreenRamWait;
-            ramaddress <= screen_row_current_address;
-            screen_row_fetch_address <= screen_row_current_address + 1;
-            character_number <= (others => '0');
+            raster_fetch_state <= FetchScreenRamLine2;
+
+            -- Reset screen row (bad line) state 
+            character_number <= to_unsigned(1,9);
             end_of_row_16 <= '0'; end_of_row <= '0';
-            screen_ram_buffer_address <= to_unsigned(0,9);
-            report "ZEROing screen_ram_buffer_address" severity note;
             colourramaddress <= to_unsigned(to_integer(colour_ram_base) + to_integer(first_card_of_row),16);
+
+            -- Now ask for the first byte.  We indicate all details of this
+            -- read so that it can be committed by the receiving side of the logic.
+            next_ramaccess_is_screen_row_fetch <= '1';
+            next_ramaccess_is_glyph_data_fetch <= '0';
+            next_ramaccess_is_sprite_data_fetch <= '0';
+            next_ramaccess_screen_row_buffer_address <= to_unsigned(0,9);
+            screen_row_current_address <= screen_row_fetch_address;
+                                        
+            -- Advance the fetch address ready for the next cycle
+            screen_row_fetch_address <= screen_row_fetch_address + 1;
+
+            -- screen_ram_buffer_address <= to_unsigned(0,9);
+            report "ZEROing screen_ram_buffer_address" severity note;
             report "BADLINE, colour_ram_base=$" & to_hstring(colour_ram_base) severity note;
           end if;
-        when FetchScreenRamWait =>
-          -- allow for two cycle delay caused by using doubly buffered version of ramdata
-          -- XXX we are wasting cycles between bytes instead of just pipelining
-          -- it.
-          ramaddress <= screen_row_fetch_address;
-          screen_row_fetch_address <= screen_row_fetch_address + 1;
-          raster_fetch_state <= FetchScreenRamWait2;
-        when FetchScreenRamWait2 =>
-          ramaddress <= screen_row_fetch_address;
-          screen_row_fetch_address <= screen_row_fetch_address + 1;
-          raster_fetch_state <= FetchScreenRamNext;
-        when FetchScreenRamNext =>
-          report "screen_row_fetch_address = $" & to_hstring("000"&screen_row_fetch_address) severity note;
-          -- Store current byte of screen RAM
-          screen_ram_buffer_write <= '1';
-          screen_ram_buffer_address <= character_number;
-          report "SETting screen_ram_buffer_address to $" & to_hstring("000"&character_number) severity note;
-          report "for screen_r paint_ramdata=$" & to_hstring(paint_ramdata) & ", raw ramdata=$" & to_hstring(ramdata) severity note;
-          screen_ram_buffer_din <= paint_ramdata;
-          ramaddress <= screen_row_fetch_address;
-          -- Ask for next byte of screen RAM
-          screen_row_current_address <= screen_row_current_address + 1;
-          screen_row_fetch_address <= screen_row_fetch_address + 1;
-          character_number <= character_number + 1;
-          if character_number = virtual_row_width_minus1(7 downto 0)&'0' then
+        when FetchScreenRamLine2 =>
+          -- Ask for the next byte.  We indicate all details of this
+          -- read so that it can be committed by the receiving side of the logic.
+          -- Otherwise, if we are at the end of the row, then stop.
+
+          -- Is this the last character in the row?
+          if character_number = virtual_row_width_minus1(7 downto 0)&'1' then
             end_of_row_16 <= '1';
           else
             end_of_row_16 <= '0';
@@ -2500,21 +2526,20 @@ begin
             end_of_row <= '0';
           end if;     
 
-          -- See if we already have enough bytes already.
-          -- virtual_row_width bytes, unless in 16bit character set mode, in which
-          -- case we need twice that many bytes.
-          if sixteenbit_charset='1' then
-            if end_of_row_16 ='1' then
-              raster_fetch_state <= FetchFirstCharacter;
-            else
-              raster_fetch_state <= FetchScreenRamNext;
-            end if;
+          -- Work out if we need to fetch any more 
+          if (sixteenbit_charset='1' and end_of_row_16='1')
+            or (sixteenbit_charset='0' and end_of_row='1') then
+            -- All done, move to actual row fetch
+            raster_fetch_state <= FetchFirstCharacter;
           else
-            if end_of_row = '1' then
-              raster_fetch_state <= FetchFirstCharacter;
-            else
-              raster_fetch_state <= FetchScreenRamNext;
-            end if;
+            -- More to fetch, so keep scheduling the reads
+            character_number <= character_number + 1;
+            next_ramaddress <= screen_row_current_address;
+            next_ramaccess_is_screen_row_fetch <= '1';
+            next_ramaccess_is_glyph_data_fetch <= '0';
+            next_ramaccess_is_sprite_data_fetch <= '0';
+            next_ramaccess_screen_row_buffer_address <= next_ramaccess_screen_row_buffer_address + 1;
+            screen_row_fetch_address <= screen_row_current_address + 1;
           end if;
         when FetchFirstCharacter =>
           character_number <= (others => '0');
