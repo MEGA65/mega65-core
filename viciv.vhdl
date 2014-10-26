@@ -2470,12 +2470,14 @@ begin
       screen_ram_buffer_address <= (others => '1');
       -- Screen ram row accesses
       if next_ramaccess_is_screen_row_fetch='1' then
-        ramaddress <= screen_row_current_address;
+        ramaddress <= screen_row_fetch_address;
+        report "chipram fetch for screen row data from $" & to_hstring(to_unsigned(to_integer(screen_row_fetch_address),16));
       end if;
       screen_ram_buffer_write <= this_ramaccess_is_screen_row_fetch;
       screen_ram_buffer_address <= this_ramaccess_screen_row_buffer_address;
       screen_ram_buffer_din <= ramdata;
-      
+
+      report "raster_fetch_state = " & vic_chargen_fsm'image(raster_fetch_state);
       case raster_fetch_state is
         when Idle => null;
         when FetchScreenRamLine =>
@@ -2500,11 +2502,8 @@ begin
             next_ramaccess_is_glyph_data_fetch <= '0';
             next_ramaccess_is_sprite_data_fetch <= '0';
             next_ramaccess_screen_row_buffer_address <= to_unsigned(0,9);
-            screen_row_current_address <= screen_row_fetch_address;
+            screen_row_fetch_address <= screen_row_current_address;
                                         
-            -- Advance the fetch address ready for the next cycle
-            screen_row_fetch_address <= screen_row_fetch_address + 1;
-
             -- screen_ram_buffer_address <= to_unsigned(0,9);
             report "ZEROing screen_ram_buffer_address" severity note;
             report "BADLINE, colour_ram_base=$" & to_hstring(colour_ram_base) severity note;
@@ -2531,6 +2530,9 @@ begin
             or (sixteenbit_charset='0' and end_of_row='1') then
             -- All done, move to actual row fetch
             raster_fetch_state <= FetchFirstCharacter;
+            next_ramaccess_is_screen_row_fetch <= '0';
+            next_ramaccess_is_glyph_data_fetch <= '0';
+            next_ramaccess_is_sprite_data_fetch <= '0';
           else
             -- More to fetch, so keep scheduling the reads
             character_number <= character_number + 1;
@@ -2539,7 +2541,7 @@ begin
             next_ramaccess_is_glyph_data_fetch <= '0';
             next_ramaccess_is_sprite_data_fetch <= '0';
             next_ramaccess_screen_row_buffer_address <= next_ramaccess_screen_row_buffer_address + 1;
-            screen_row_fetch_address <= screen_row_current_address + 1;
+            screen_row_fetch_address <= screen_row_fetch_address + 1;
           end if;
         when FetchFirstCharacter =>
           character_number <= (others => '0');
