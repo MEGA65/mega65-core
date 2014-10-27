@@ -1021,7 +1021,7 @@ begin
         y_chargen_start <= to_unsigned((0-3*3)+to_integer(vicii_y_smoothscroll)*3,12);
         chargen_y_scale <= x"02";
       end if;
-
+      
       screen_ram_base(13 downto 10) <= reg_d018_screen_addr;
       screen_ram_base(9 downto 0) <= (others => '0');
       -- Sprites fetch from screen ram base + $3F8 (or +$7F8 in VIC-III 80
@@ -2578,8 +2578,8 @@ begin
           next_ramaccess_is_glyph_data_fetch <= '0';
           next_ramaccess_is_sprite_data_fetch <= '0';
 
-          screen_ram_buffer_read_address <= to_unsigned(0,9);
           report "ZEROing screen_ram_buffer_read_address" severity note;
+          screen_ram_buffer_read_address <= to_unsigned(0,9);
           
           character_number <= (others => '0');
           card_of_row <= (others => '0');
@@ -2737,8 +2737,7 @@ begin
           -- Ask for first byte of data so that paint can commence immediately.
           report "setting ramaddress to $" & to_hstring("000"&glyph_data_address) & " for glyph painting." severity note;
           ramaddress <= glyph_data_address;
-          -- upper bit of charrom address is set by $D018, only 258*8 = 2K
-          -- range of address is controlled here by character number.
+
           report "setting charaddress to " & integer'image(to_integer(glyph_data_address(10 downto 0)))
             & " for painting glyph $" & to_hstring(glyph_number(11 downto 0)) severity note;
           charaddress <= to_integer(glyph_data_address(11 downto 0));
@@ -2863,7 +2862,7 @@ begin
             full_colour_fetch_count <= full_colour_fetch_count + 1;
             raster_fetch_state <= PaintFullColourFetch;
           else
-            raster_fetch_state <= PaintDispatch;
+            raster_fetch_state <= PaintMemWait3;
           end if;          
         when PaintMemWait3 =>
           -- In this cycle paint_chardata and and paint_ramdata should have the
