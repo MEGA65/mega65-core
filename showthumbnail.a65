@@ -124,9 +124,9 @@ tw3:    ; see if we need to retreat write address by (10*64-8)
 	; we do this 7 out of 8 rows
 	dey
 	bne tw4
+	ldy #80
 	dez
 	beq tw5
-	ldy #80
 	lda tw+1
 	sec
 	sbc #<632
@@ -136,7 +136,15 @@ tw3:    ; see if we need to retreat write address by (10*64-8)
 	sta tw+2
 	jmp tw4	
 tw5:
+	; every 8th row, just reverse by 8 bytes.
 	ldz #8
+	lda tw+1
+	sec
+	sbc #<8
+	sta tw+1
+	lda tw+2
+	sbc #>8
+	sta tw+2
 	
 tw4:
 	dec count
@@ -215,18 +223,18 @@ pl:	tya
 	lsr
 	lsr
 	lsr
-	ora #$01
+	ora #$00
 	sta $d100,y
 	tya
 	lsr
 	and #$0f
-	ora #$01
+	ora #$00
 	sta $d200,y
 	tya
 	asl
 	asl
 	and #$0f
-	ora #$02
+	ora #$00
 	sta $d300,y
 	iny
 	bne pl
