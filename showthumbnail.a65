@@ -99,7 +99,7 @@ irq_00:
 	 sta count+1
 	 ldx #8
 	 ldy #80
-
+	 ldz #$08
 twloop:
 	; get thumbnail byte
 	lda $d631
@@ -120,22 +120,32 @@ tw2:	; see if we need to advance write address by 64-8 = 56
 	lda tw+2
 	adc #$00
 	sta tw+2
-tw3:    ; see if we need to retreat write address by 9*64
+tw3:    ; see if we need to retreat write address by (10*64-8)
+	; we do this 7 out of 8 rows
 	dey
 	bne tw4
+	dez
+	beq tw5
 	ldy #80
 	lda tw+1
 	sec
-	sbc #<576
+	sbc #<632
 	sta tw+1
 	lda tw+2
-	sbc #>576
-	sta tw+2	
+	sbc #>632
+	sta tw+2
+	jmp tw4	
+tw5:
+	ldz #8
+	
 tw4:
 	dec count
 	bne twloop
 	dec count+1
 	bne twloop
+
+
+	ldz #$00
 
 	 ; switch to irq split at bottom
 	 lda #<irq_a0
