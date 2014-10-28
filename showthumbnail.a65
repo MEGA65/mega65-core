@@ -21,50 +21,8 @@ iter1:	 .byte 0
 
 	 sei
 
-	 ; arrange tiles in lower part of the screen to display the thumbnail.
-	 ; char $80-$FF are @ $2000-$3FFF.
-	 ; start by filling the region with $FF, and clearing that tile.
-	 lda #$ff
-	 ldy #$00
-l2:	 sta $06d0,y
-	 sta $0700,y
-	 iny
-	 bne l2
-
-	 ; now clear glyph $FF
-	 ldy #$3f
-	 lda #$00
-l3:	 sta $03c0,y
-	 dey
-	 bpl l3
-
-	 ; now draw the 80x50 space for the thumbnail.
-	 ; this will be 10x7 glyphs
-	 lda #<$06ee
-	 sta l4+1
-	 lda #>$06ee
-	 sta l4+2
-	 lda #$80
-	 ldx #$00
-	 ldy #$00
-l4:	 sta $06ee,x
-	 inc
-	 inx
-	 cpx #$0a
-	 bne l4
-	 pha
-	 clc
-	 lda l4+1
-	 adc #$28
-	 sta l4+1
-	 lda #$00
-	 adc l4+2
-	 sta l4+2
-	 pla
-	 ldx #$00
-	 iny
-	 cpy #$07
-	 bne l4
+	 jsr set_palette
+	 jsr redraw_fullcolour_area
 
 	 ; raster interrupt to toggle normal/full-colour mode
 	 
@@ -122,14 +80,146 @@ irq_00:
 	 lda #$1b
 	 sta $d011
 
+	 jsr redraw_fullcolour_area
+
+	 ; copy thumbnail data into our full-colour display
+	 ; read $D630 to reset read pointer
+	 lda $d630
+	 ; now read 4000 bytes out and store into the grid at $2000.
+	 ; thumbnail data is written linearly, so every 8 pixels we need to add
+	 ; 64-8 bytes, and at the end of every row, i.e., every 80 bytes, we need
+	 ; to subtract 9*64 = $240.
+	 lda #<$2000
+	 sta tw+1
+	 lda #>$2000
+	 sta tw+2
+	 lda #<4000
+	 sta count
+	 lda #>4000
+	 sta count+1
+	 ldx #8
+	 ldy #80
+
+twloop:
+	; get thumbnail byte
+	lda $d631
+tw:     ; store it in place
+	sta $2000
+	; advance write address by 1
+	inc tw+1
+	bne tw2
+	inc tw+2
+tw2:	; see if we need to advance write address by 64-8 = 56
+	dex
+	bne tw3
+	ldx #8
+	lda tw+1
+	clc
+	adc #56
+	sta tw+1
+	lda tw+2
+	adc #$00
+	sta tw+2
+tw3:    ; see if we need to retreat write address by 9*64
+	dey
+	bne tw4
+	ldy #80
+	lda tw+1
+	sec
+	sbc #<576
+	sta tw+1
+	lda tw+2
+	sbc #>576
+	sta tw+2	
+tw4:
+	dec count
+	bne twloop
+	dec count+1
+	bne twloop
+
 	 ; switch to irq split at bottom
 	 lda #<irq_a0
 	 sta $0314
 	 lda #>irq_a0
 	 sta $0315
 
+	 ; do keyboard input
 	 dec $d019
 	 jmp $ea31
 	 
+	 ; number of bytes to copy from thumbnail
+count:	 .byte $00,$00
+
+redraw_fullcolour_area:
+	 ; arrange tiles in lower part of the screen to display the thumbnail.
+	 ; char $80-$FF are @ $2000-$3FFF.
+	 ; start by filling the region with $FF, and clearing that tile.
+	 lda #$ff
+	 ldy #$00
+l2:	 sta $06d0,y
+	 sta $0700,y
+	 iny
+	 bne l2
+
+	 ; now clear glyph $FF
+	 ldy #$3f
+	 lda #$00
+l3:	 sta $3fc0,y
+	 dey
+	 bpl l3
+
+	 ; now draw the 80x50 space for the thumbnail.
+	 ; this will be 10x7 glyphs
+	 lda #<$06ee
+	 sta l4+1
+	 lda #>$06ee
+	 sta l4+2
+	 lda #$80
+	 ldx #$00
+	 ldy #$00
+l4:	 sta $06ee,x
+	 inc
+	 inx
+	 cpx #$0a
+	 bne l4
+	 pha
+	 clc
+	 lda l4+1
+	 adc #$28
+	 sta l4+1
+	 lda #$00
+	 adc l4+2
+	 sta l4+2
+	 pla
+	 ldx #$00
+	 iny
+	 cpy #$07
+	 bne l4
+	 rts
+
+set_palette:
+	ldy #$10
+	
+pl:	tya
+	lsr
+	lsr
+	lsr
+	lsr
+	ora #$01
+	sta $d100,y
+	tya
+	lsr
+	and #$0f
+	ora #$01
+	sta $d200,y
+	tya
+	asl
+	asl
+	and #$0f
+	ora #$02
+	sta $d300,y
+	iny
+	bne pl
+	rts
 
 	.scend
