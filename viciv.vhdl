@@ -2892,6 +2892,7 @@ begin
             if glyph_full_colour='1' then
               -- Paint full-colour glyph
               report "Dispatching to PaintFullColour due to glyph_full_colour = 1";
+              paint_background <= screen_colour;
               paint_fsm_state <= PaintFullColour;
             else
               if multicolour_mode='0' and extended_background_mode='0' then
@@ -3034,12 +3035,13 @@ begin
           if paint_full_colour_data(7 downto 0) = x"00" then
             -- background pixel
             raster_buffer_write_data(8) <= '0';
+            raster_buffer_write_data(7 downto 0) <= paint_background;
           else
             -- fullground pixel
             raster_buffer_write_data(8) <= '1';                                               
+            report "full-colour glyph painting pixel $" & to_hstring(paint_full_colour_data(7 downto 0));
+            raster_buffer_write_data(7 downto 0) <= paint_full_colour_data(7 downto 0);
           end if;
-          report "full-colour glyph painting pixel $" & to_hstring(paint_full_colour_data(7 downto 0));
-          raster_buffer_write_data(7 downto 0) <= paint_full_colour_data(7 downto 0);
           paint_full_colour_data(55 downto 0) <= paint_full_colour_data(63 downto 8);
           raster_buffer_write_address <= raster_buffer_write_address + 1;
           raster_buffer_write <= '1';
