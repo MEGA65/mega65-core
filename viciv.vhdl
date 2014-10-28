@@ -2823,11 +2823,6 @@ begin
           -- Allow for 2 cycle delay to get data in paint_ramdata
           -- In this cycle chardata and ramdata will have the requested value
           if glyph_full_colour = '1' then
-            if glyph_flip_horizontal = '0' then
-              glyph_data_address(2 downto 0) <= glyph_data_address(2 downto 0) + 1;
-            else
-              glyph_data_address(2 downto 0) <= glyph_data_address(2 downto 0) - 1;
-            end if;
             report "setting ramaddress to $x" & to_hstring(glyph_data_address(15 downto 0)) & " for full-colour glyph drawing";
             ramaddress <= glyph_data_address;
           end if;
