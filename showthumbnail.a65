@@ -1,0 +1,135 @@
+	.outfile "thumbnail.prg"
+
+	 .word $0801
+	 .org $0801
+
+	 .scope
+	 .word _next, 10                       ; Next line and current line number
+	 .byte $97, "2,0:", $9e, " 2014", $AA, "65",0      ; POKE 2,0 : SYS 2014+65
+_next:	 .word 0
+
+iter1:	 .byte 0
+
+	 .checkpc 2079
+	 .advance 2079
+
+	 ; C65GS IO
+	 lda #$47
+	 sta $d02f
+	 lda #$53
+	 sta $d02f
+
+	 sei
+
+	 ; arrange tiles in lower part of the screen to display the thumbnail.
+	 ; char $80-$FF are @ $2000-$3FFF.
+	 ; start by filling the region with $FF, and clearing that tile.
+	 lda #$ff
+	 ldy #$00
+l2:	 sta $06d0,y
+	 sta $0700,y
+	 iny
+	 bne l2
+
+	 ; now clear glyph $FF
+	 ldy #$3f
+	 lda #$00
+l3:	 sta $03c0,y
+	 dey
+	 bpl l3
+
+	 ; now draw the 80x50 space for the thumbnail.
+	 ; this will be 10x7 glyphs
+	 lda #<$06ee
+	 sta l4+1
+	 lda #>$06ee
+	 sta l4+2
+	 lda #$80
+	 ldx #$00
+	 ldy #$00
+l4:	 sta $06ee,x
+	 inc
+	 inx
+	 cpx #$0a
+	 bne l4
+	 pha
+	 clc
+	 lda l4+1
+	 adc #$28
+	 sta l4+1
+	 lda #$00
+	 adc l4+2
+	 sta l4+2
+	 pla
+	 ldx #$00
+	 iny
+	 cpy #$07
+	 bne l4
+
+	 ; raster interrupt to toggle normal/full-colour mode
+	 
+	 lda #$00
+	 sta $d012
+	 lda #$1b
+	 sta $d011
+	 lda #$81
+	 sta $d01a
+	 lda #$7f
+	 sta $dc0d
+	 sta $dd0d
+
+	 lda #<irq_00
+	 sta $0314
+	 lda #>irq_00
+	 sta $0315
+
+	 cli
+	 rts
+
+irq_a0:
+	 ; wait a bit to clear raster line
+	 ldx #$00
+l5:	 nop
+	 nop	 
+	 dex
+	 bne l5
+
+	 ; enable full-colour mode
+	 lda #$02
+	 sta $d054
+
+	 lda #$00
+	 sta $d012
+	 lda #$1b
+	 sta $d011
+
+	 ; switch to irq split at top of screen
+	 lda #<irq_00
+	 sta $0314
+	 lda #>irq_00
+	 sta $0315
+
+	 dec $d019
+	 jmp $ea81
+
+irq_00:
+	 ; disable full-colour mode
+	 lda #$00
+	 sta $d054
+
+	 lda #$c2
+	 sta $d012
+	 lda #$1b
+	 sta $d011
+
+	 ; switch to irq split at bottom
+	 lda #<irq_a0
+	 sta $0314
+	 lda #>irq_a0
+	 sta $0315
+
+	 dec $d019
+	 jmp $ea31
+	 
+
+	.scend
