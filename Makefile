@@ -3,16 +3,10 @@ ROUTEEFFORT=	std
 #ROUTEEFFORT=	high
 
 all:	ghdl-frame-gen \
-	makerom kernel.vhdl \
+	makerom \
 	container.prj \
+	thumbnail.prg \
 	gs4510.vhdl viciv.vhdl
-#	scp *.xise *.prj *vhd *vhdl 192.168.56.102:c64accel/
-#	ssh 192.168.56.102 "( cd c64accel ; /opt/Xilinx/14.7/ISE_DS/ISE/bin/lin/xst -intstyle ise -ifn \"/home/gardners/c64accel/container.xst\" -ofn \"/home/gardners/c64accel/container.syr\" )"
-#	ssh 192.168.56.102 "( cd c64accel ; /opt/Xilinx/14.7/ISE_DS/ISE/bin/lin/map -intstyle ise -p xc7a100t-csg324-1 -w -logic_opt off -ol "$(ROUTEEFFORT)" -xe n -t 1 -xt 0 -register_duplication off -r 4 -mt off -ir off -pr off -lc off -power off -o container_map.ncd container.ngd container.pcf )"
-#	ssh 192.168.56.102 "( cd c64accel ; /opt/Xilinx/14.7/ISE_DS/ISE/bin/lin/par -w -intstyle ise -ol "$(ROUTEEFFORT)" -xe n -mt off container_map.ncd container.ngd container.pcf )"
-	/opt/Xilinx/14.7/ISE_DS/ISE/bin/lin/xst -intstyle ise -ifn \"/home/gardners/c64accel/container.xst\" -ofn \"/home/gardners/c64accel/container.syr\"
-	/opt/Xilinx/14.7/ISE_DS/ISE/bin/lin/map -intstyle ise -p xc7a100t-csg324-1 -w -logic_opt off -ol "$(ROUTEEFFORT)" -xe n -t 1 -xt 0 -register_duplication off -r 4 -mt off -ir off -pr off -lc off -power off -o container_map.ncd container.ngd container.pcf
-	/opt/Xilinx/14.7/ISE_DS/ISE/bin/lin/par -w -intstyle ise -ol "$(ROUTEEFFORT)" -xe n -mt off container_map.ncd container.ngd container.pcf
 
 ethertest.prg:	ethertest.a65 Makefile
 	../Ophis/bin/ophis -4 ethertest.a65
@@ -25,6 +19,9 @@ diskchooser:	diskchooser.a65 Makefile
 
 kickstart65gs.bin:	kickstart.a65 Makefile diskchooser
 	../Ophis/bin/ophis -4 kickstart.a65 -l kickstart.list
+
+thumbnail.prg:	showthumbnail.a65 Makefile
+	../Ophis/bin/ophis -4 showthumbnail.a65
 
 kickstart.vhdl:	rom_template.vhdl kickstart65gs.bin makerom
 	./makerom rom_template.vhdl kickstart65gs.bin kickstart
