@@ -43,7 +43,7 @@ int slow_write(int fd,char *d,int l)
   int i;
   for(i=0;i<l;i++)
     {
-      usleep(100);
+      usleep(1000);
       write(fd,&d[i],1);
     }
   return 0;
