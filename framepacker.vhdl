@@ -238,7 +238,7 @@ begin  -- behavioural
       -- 1920 / 80 = every 24th column
       last_pixel_y <= pixel_y;
       if to_integer(last_pixel_y) /= to_integer(pixel_y) then
-        if pixel_y = 0 then
+        if to_integer(pixel_y) = 0 then
           thumbnail_write_address <= (others => '0');
           report "THUMB: Reset write address";
           thumbnail_y_counter <= 0;
