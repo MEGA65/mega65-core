@@ -24,6 +24,19 @@ iter1:	 .byte 0
 	 jsr set_palette
 	 jsr redraw_fullcolour_area
 
+	 ; clear $2000-$3FFF to make transparent
+	 lda #$00
+	 ldy #$00
+l7:	 sta $2d00,y
+	 sta $2e00,y
+	 sta $2f00,y
+	 sta $3000,y
+	 sta $3100,y
+	 iny
+	 bne l7
+
+	 inc $d020
+
 	 ; raster interrupt to toggle normal/full-colour mode
 	 
 	 lda #$00
@@ -99,61 +112,46 @@ irq_00:
 	 sta count+1
 	 ldx #8
 	 ldy #80
-	 ldz #$08
 twloop:
-	; get thumbnail byte
-	lda $d631
+	; get thumbnail byte, and do palette lookup
+	phy
+	ldy $d631
+	lda colour_table,y
+	ply
+
 tw:     ; store it in place
 	sta $2000
 	; advance write address by 1
 	inc tw+1
 	bne tw2
 	inc tw+2
-tw2:	; see if we need to advance write address by 64-8 = 56
+tw2:	; see if we need to advance write address by (64*7)-8 = 440
 	dex
 	bne tw3
 	ldx #8
 	lda tw+1
 	clc
-	adc #56
+	adc #<440
 	sta tw+1
 	lda tw+2
-	adc #$00
+	adc #>440
 	sta tw+2
-tw3:    ; see if we need to retreat write address by (10*64-8)
-	; we do this 7 out of 8 rows
+tw3:    ; see if we need to retreat write address by (10*(64*7)-8) = 4472
 	dey
 	bne tw4
 	ldy #80
-	dez
-	beq tw5
 	lda tw+1
 	sec
-	sbc #<632
+	sbc #<4472
 	sta tw+1
 	lda tw+2
-	sbc #>632
-	sta tw+2
-	jmp tw4	
-tw5:
-	; every 8th row, just reverse by 8 bytes.
-	ldz #8
-	lda tw+1
-	sec
-	sbc #<8
-	sta tw+1
-	lda tw+2
-	sbc #>8
-	sta tw+2
-	
+	sbc #>4472
+	sta tw+2	
 tw4:
 	dec count
 	bne twloop
 	dec count+1
 	bne twloop
-
-
-	ldz #$00
 
 	 ; switch to irq split at bottom
 	 lda #<irq_a0
@@ -187,7 +185,8 @@ l3:	 sta $3fc0,y
 	 bpl l3
 
 	 ; now draw the 80x50 space for the thumbnail.
-	 ; this will be 10x7 glyphs
+	 ; this will be 10x7 glyphs, numbered sequentially vertically, 
+	 ; not horizontally.
 	 lda #<$06ee
 	 sta l4+1
 	 lda #>$06ee
@@ -196,10 +195,15 @@ l3:	 sta $3fc0,y
 	 ldx #$00
 	 ldy #$00
 l4:	 sta $06ee,x
-	 inc
+	 clc
+	 adc #$07
 	 inx
 	 cpx #$0a
 	 bne l4
+	 iny
+	 tya
+	 clc
+	 adc #$80
 	 pha
 	 clc
 	 lda l4+1
@@ -210,14 +214,13 @@ l4:	 sta $06ee,x
 	 sta l4+2
 	 pla
 	 ldx #$00
-	 iny
 	 cpy #$07
 	 bne l4
 	 rts
 
 set_palette:
-	ldy #$10
-	
+	; generate colour cube
+	ldy #$10	
 pl:	tya
 	lsr
 	lsr
@@ -238,6 +241,25 @@ pl:	tya
 	sta $d300,y
 	iny
 	bne pl
+
+	; make basic colour lookup table
+	ldy #$00
+pl1:	tya
+	sta colour_table,y
+	iny
+	bne pl1
+	; now patch values for VIC-II colours so that there is no colour drift
+	; 
+	; blue
+	lda #$06
+	sta colour_table+$03
+	; light blue
+	lda #$0e
+	sta colour_table+$93
+
 	rts
+
+colour_table:
+	.advance colour_table+$100
 
 	.scend
