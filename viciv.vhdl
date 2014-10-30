@@ -688,7 +688,13 @@ end component;
   signal glyph_width_deduct : unsigned(1 downto 0);
   signal glyph_width : integer range 0 to 8;
   signal paint_glyph_width : integer range 0 to 8;
-  
+
+  signal short_line : std_logic := '0';
+  signal short_line_length : integer range 0 to 512;
+  signal screen_ram_is_ff : std_logic := '0';
+  signal screen_ram_high_is_ff : std_logic := '0';
+  signal row_advance : integer range 0 to 512;
+
   signal card_of_row : unsigned(7 downto 0);
   signal chargen_active : std_logic := '0';
   signal chargen_active_drive : std_logic := '0';
@@ -2249,6 +2255,12 @@ begin
         end if;
       end if;
 
+      if short_line='1' then
+        row_advance <= short_line_length;
+      else
+        row_advance <= to_integer(virtual_row_width);
+      end if;
+      
       if bump_screen_row_address='1' then
         bump_screen_row_address <= '0';
 
@@ -2256,9 +2268,11 @@ begin
         screen_row_address <= screen_ram_base(16 downto 0) + first_card_of_row;
 
         -- Increment card number every "bad line"
-        first_card_of_row <= to_unsigned(to_integer(first_card_of_row) + to_integer(virtual_row_width),16);
+        first_card_of_row <= to_unsigned(to_integer(first_card_of_row) + row_advance,16);
         -- Similarly update the colour ram fetch address
-        colourramaddress <= to_unsigned(to_integer(colour_ram_base) + to_integer(first_card_of_row),16);
+        colourramaddress <= to_unsigned(to_integer(colour_ram_base) + row_advance,16);
+
+        short_line <= '0';
       end if;
       
       display_active <= indisplay;
@@ -2646,7 +2660,13 @@ begin
           glyph_flip_vertical <= '0';
           glyph_width_deduct <= to_unsigned(0,2);
 
+          screen_ram_is_ff <= '0';
+          screen_ram_high_is_ff <= '0';
+          
           if sixteenbit_charset='1' then
+            if screen_ram_buffer_dout = x"ff" then
+              screen_ram_is_ff <= '1';
+            end if;
             raster_fetch_state <= FetchCharHighByte;
           else
             -- 8 bit character set / colour info mode
@@ -2673,6 +2693,9 @@ begin
             glyph_flip_horizontal <= screen_ram_buffer_dout(4);
             glyph_flip_vertical <= screen_ram_buffer_dout(5);
             glyph_width_deduct <= screen_ram_buffer_dout(7 downto 6);
+            if screen_ram_buffer_dout = x"ff" then
+              screen_ram_high_is_ff <= '1';
+            end if;
             raster_fetch_State <= FetchTextCell;
           else
             bitmap_colour_background <= screen_ram_buffer_dout;
@@ -2693,7 +2716,17 @@ begin
           raster_fetch_state <= FetchBitmapData;
         when FetchTextCell =>
           glyph_width <= 8 - (to_integer(glyph_width_deduct)*2);
-          
+
+          if screen_ram_is_ff='1' and screen_ram_high_is_ff='1' then
+            -- 16-bit Character is $FFFF, which is end of line marker.
+            -- So remember that this line is short, and don't add the virtual
+            -- row width, and abort drawing this line.
+            short_line <= '1';
+            short_line_length <= to_integer(screen_ram_buffer_read_address);
+            -- Now mark this row as though we have drawn it all.
+            character_number <= virtual_row_width_minus1(7 downto 0)&'0';
+          end if;
+
           report "from screen_ram we get glyph_number = $" & to_hstring(glyph_number) severity note;
           -- We now know the character number, and whether it is full-colour or
           -- normal, and whether we are flipping in either axis, and so can
