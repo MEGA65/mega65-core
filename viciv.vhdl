@@ -123,6 +123,35 @@ end viciv;
 
 architecture Behavioral of viciv is
 
+  component alpha_blend_top is
+  port(
+    pixclk:      in  std_logic;
+    reset:       in  std_logic;
+    hsync_strm0: in  std_logic;
+    vsync_strm0: in  std_logic;
+    de_strm0:    in  std_logic;
+    r_strm0:     in  std_logic_vector(9 downto 0);
+    g_strm0:     in  std_logic_vector(9 downto 0);              
+    b_strm0:     in  std_logic_vector(9 downto 0);
+    de_strm1:    in  std_logic;
+    r_strm1:     in  std_logic_vector(9 downto 0);
+    g_strm1:     in  std_logic_vector(9 downto 0);
+    b_strm1:     in  std_logic_vector(9 downto 0);
+    de_alpha:    in  std_logic;
+    alpha_strm:  in  std_logic_vector(9 downto 0);
+ 
+     pixclk_out: out std_logic;
+     hsync_blnd: out std_logic;
+     vsync_blnd: out std_logic;
+     de_blnd:    out std_logic;
+     r_blnd:     out std_logic_vector(9 downto 0);
+     g_blnd:     out std_logic_vector(9 downto 0);
+     b_blnd:     out std_logic_vector(9 downto 0);
+     dcm_locked:  out std_logic
+    ); 
+  end component;
+
+  
   component ram9x4k IS
   PORT (
     clka : IN STD_LOGIC;
