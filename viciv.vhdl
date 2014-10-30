@@ -783,7 +783,7 @@ end component;
   -- Read address is in 128th of pixels
   signal raster_buffer_read_address : unsigned(18 downto 0);
   signal raster_buffer_read_data : unsigned(17 downto 0);
-  signal raster_buffer_write_address : unsigned(10 downto 0);
+  signal raster_buffer_write_address : unsigned(11 downto 0);
   signal raster_buffer_write_data : unsigned(17 downto 0);
   signal raster_buffer_write : std_logic;  
 
@@ -823,7 +823,7 @@ begin
       wea(0) => raster_buffer_write,
       dina => std_logic_vector(raster_buffer_write_data),
       unsigned(doutb) => raster_buffer_read_data,
-      addra => std_logic_vector(raster_buffer_write_address),
+      addra => std_logic_vector(raster_buffer_write_address(10 downto 0)),
       addrb => std_logic_vector(raster_buffer_read_address(17 downto 7))
       );
   
