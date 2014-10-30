@@ -685,6 +685,9 @@ end component;
   signal glyph_full_colour : std_logic;
   signal glyph_flip_horizontal : std_logic;
   signal glyph_flip_vertical : std_logic;
+  signal glyph_width_deduct : unsigned(1 downto 0);
+  signal glyph_width : integer range 0 to 8;
+  signal paint_glyph_width : integer range 0 to 8;
   
   signal card_of_row : unsigned(7 downto 0);
   signal chargen_active : std_logic := '0';
@@ -2641,6 +2644,7 @@ begin
           -- Clear 16-bit character attributes in case we are reading 8-bits only.
           glyph_flip_horizontal <= '0';
           glyph_flip_vertical <= '0';
+          glyph_width_deduct <= to_unsigned(0,2);
 
           if sixteenbit_charset='1' then
             raster_fetch_state <= FetchCharHighByte;
@@ -2668,6 +2672,7 @@ begin
             glyph_number(11 downto 8) <= screen_ram_buffer_dout(3 downto 0);
             glyph_flip_horizontal <= screen_ram_buffer_dout(4);
             glyph_flip_vertical <= screen_ram_buffer_dout(5);
+            glyph_width_deduct <= screen_ram_buffer_dout(7 downto 6);
             raster_fetch_State <= FetchTextCell;
           else
             bitmap_colour_background <= screen_ram_buffer_dout;
@@ -2687,6 +2692,8 @@ begin
           report "from bitmap layout, we get glyph_data_address = $" & to_hstring("000"&glyph_data_address) severity note;
           raster_fetch_state <= FetchBitmapData;
         when FetchTextCell =>
+          glyph_width <= 8 - (to_integer(glyph_width_deduct)*2);
+          
           report "from screen_ram we get glyph_number = $" & to_hstring(glyph_number) severity note;
           -- We now know the character number, and whether it is full-colour or
           -- normal, and whether we are flipping in either axis, and so can
@@ -2888,6 +2895,7 @@ begin
             report "character rom address set to $" & to_hstring(glyph_data_address(11 downto 0)) severity note;
             -- Tell painter whether to flip horizontally or not.
             paint_flip_horizontal <= glyph_flip_horizontal;
+            paint_glyph_width <= glyph_width;
             -- Now work out exactly how we are painting
             if glyph_full_colour='1' then
               -- Paint full-colour glyph
@@ -3027,7 +3035,7 @@ begin
           end if;
         when PaintFullColour =>
           -- Draw 8 pixels using a byte at a time from full_colour_data
-          paint_bits_remaining <= 7;
+          paint_bits_remaining <= paint_glyph_width - 1;
           paint_ready <= '0';
           paint_full_colour_data <= full_colour_data;
           paint_fsm_state <= PaintFullColourPixels;
@@ -3098,11 +3106,11 @@ begin
           elsif paint_flip_horizontal='0' and paint_from_charrom='0' then
             paint_buffer <= paint_buffer_noflip_ramdata;
           end if;
-          paint_bits_remaining <= 8;
+          paint_bits_remaining <= paint_glyph_width;
           paint_ready <= '0';
           paint_fsm_state <= PaintMonoBits;
         when PaintMonoBits =>
-          if paint_bits_remaining = 8 then
+          if paint_bits_remaining = paint_glyph_width then
             report "painting card using data $" & to_hstring(paint_buffer) severity note;
           end if;
           if paint_bits_remaining /= 0 then
@@ -3164,11 +3172,11 @@ begin
           elsif paint_flip_horizontal='0' and paint_from_charrom='0' then
             paint_buffer <= paint_buffer_noflip_ramdata;
           end if;
-          paint_bits_remaining <= 4;
+          paint_bits_remaining <= (paint_glyph_width / 2);
           paint_ready <= '0';
           paint_fsm_state <= PaintMultiColourBits;
         when PaintMultiColourBits =>
-          if paint_bits_remaining = 4 then
+          if paint_bits_remaining = (paint_glyph_width / 2) then
             report "painting card using data $" & to_hstring(paint_buffer) severity note;
           end if;
           if paint_bits_remaining /= 0 then
