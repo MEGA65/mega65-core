@@ -700,6 +700,8 @@ end component;
   signal glyph_width_deduct : unsigned(1 downto 0);
   signal glyph_width : integer range 0 to 8;
   signal paint_glyph_width : integer range 0 to 8;
+  signal glyph_blink_or_alpha : std_logic;
+  signal paint_blink_or_alpha : std_logic;
 
   signal short_line : std_logic := '0';
   signal short_line_length : integer range 0 to 512;
@@ -2827,9 +2829,11 @@ begin
           glyph_underline <= '0';
           glyph_reverse <= '0';
           glyph_visible <= '1';
+          glyph_blink_or_alpha <= '0';
           if viciii_extended_attributes='1' then
             if colourramdata(4)='1' then
               -- Blinking glyph
+              glyph_blink_or_alpha <= '1';
               if colourramdata(5)='1'
                 or colourramdata(6)='1'
                 or colourramdata(7)='1' then
@@ -2941,6 +2945,8 @@ begin
             -- Tell painter whether to flip horizontally or not.
             paint_flip_horizontal <= glyph_flip_horizontal;
             paint_glyph_width <= glyph_width;
+            paint_blink_or_alpha <= glyph_blink_or_alpha;
+
             -- Now work out exactly how we are painting
             if glyph_full_colour='1' then
               -- Paint full-colour glyph
@@ -3087,13 +3093,24 @@ begin
         when PaintFullColourPixels =>
           if paint_full_colour_data(7 downto 0) = x"00" then
             -- background pixel
+            raster_buffer_write_data(16 downto 9) <= x"FF";  -- solid alpha
             raster_buffer_write_data(8) <= '0';
             raster_buffer_write_data(7 downto 0) <= paint_background;
           else
             -- fullground pixel
-            raster_buffer_write_data(8) <= '1';                                               
-            report "full-colour glyph painting pixel $" & to_hstring(paint_full_colour_data(7 downto 0));
-            raster_buffer_write_data(7 downto 0) <= paint_full_colour_data(7 downto 0);
+            if paint_blink_or_alpha='1' then
+              raster_buffer_write_data(16 downto 9) <= x"FF";  -- solid alpha
+              raster_buffer_write_data(8) <= '1';
+            
+              report "full-colour glyph painting pixel $" & to_hstring(paint_full_colour_data(7 downto 0));
+              raster_buffer_write_data(7 downto 0) <= paint_full_colour_data(7 downto 0);
+            else
+              raster_buffer_write_data(16 downto 9) <= paint_full_colour_data(7 downto 0);
+              raster_buffer_write_data(8) <= '1';
+            
+              report "full-colour glyph painting alpha pixel $" & to_hstring(paint_full_colour_data(7 downto 0)) & " with alpha value $" & to_hstring(paint_full_colour_data(7 downto 0));
+              raster_buffer_write_data(7 downto 0) <= paint_foreground;
+            end if;
           end if;
           paint_full_colour_data(55 downto 0) <= paint_full_colour_data(63 downto 8);
           raster_buffer_write_address <= raster_buffer_write_address + 1;
@@ -3144,9 +3161,11 @@ begin
           elsif paint_flip_horizontal='1' and paint_from_charrom='0' then
             paint_buffer <= paint_buffer_hflip_ramdata;
             if paint_ramdata(0)='1' then
-              raster_buffer_write_data <= '1'&paint_foreground;
+              raster_buffer_write_data(16 downto 9) <= x"FF";  -- solid alpha
+              raster_buffer_write_data(8 downto 0) <= '1'&paint_foreground;
             else
-              raster_buffer_write_data <= '0'&paint_background;
+              raster_buffer_write_data(16 downto 9) <= x"FF";  -- solid alpha
+              raster_buffer_write_data(8 downto 0) <= '0'&paint_background;
             end if;
           elsif paint_flip_horizontal='0' and paint_from_charrom='0' then
             paint_buffer <= paint_buffer_noflip_ramdata;
@@ -3160,11 +3179,12 @@ begin
           end if;
           if paint_bits_remaining /= 0 then
             paint_buffer<= '0'&paint_buffer(7 downto 1);
+            raster_buffer_write_data(16 downto 9) <= x"FF";  -- solid alpha
             if paint_buffer(0)='1' then
-              raster_buffer_write_data <= '1'&paint_foreground;
+              raster_buffer_write_data(8 downto 0) <= '1'&paint_foreground;
               report "Painting foreground pixel in colour $" & to_hstring(paint_foreground) severity note;
             else
-              raster_buffer_write_data <= '0'&paint_background;
+              raster_buffer_write_data(8 downto 0) <= '0'&paint_background;
               report "Painting background pixel in colour $" & to_hstring(paint_background) severity note;
             end if;
             raster_buffer_write_address <= raster_buffer_write_address + 1;
@@ -3209,10 +3229,11 @@ begin
             paint_buffer <= paint_buffer_noflip_chardata;
           elsif paint_flip_horizontal='1' and paint_from_charrom='0' then
             paint_buffer <= paint_buffer_hflip_ramdata;
+            raster_buffer_write_data(16 downto 9) <= x"FF";  -- solid alpha
             if paint_ramdata(0)='1' then
-              raster_buffer_write_data <= '1'&paint_foreground;
+              raster_buffer_write_data(8 downto 0) <= '1'&paint_foreground;
             else
-              raster_buffer_write_data <= '0'&paint_background;
+              raster_buffer_write_data(8 downto 0) <= '0'&paint_background;
             end if;
           elsif paint_flip_horizontal='0' and paint_from_charrom='0' then
             paint_buffer <= paint_buffer_noflip_ramdata;
@@ -3226,18 +3247,19 @@ begin
           end if;
           if paint_bits_remaining /= 0 then
             paint_buffer<= "00"&paint_buffer(7 downto 2);
+            raster_buffer_write_data(16 downto 9) <= x"FF";  -- solid alpha
             case paint_buffer(1 downto 0) is
               when "00" =>
-                raster_buffer_write_data <= '0'&paint_background;
+                raster_buffer_write_data(8 downto 0) <= '0'&paint_background;
                 report "Painting background pixel in colour $" & to_hstring(paint_background) severity note;
               when "01" =>
-                raster_buffer_write_data <= '1'&paint_mc1;
+                raster_buffer_write_data(8 downto 0) <= '1'&paint_mc1;
                 report "Painting multi-colour 2 pixel in colour $" & to_hstring(paint_mc1) severity note;
               when "10" =>
-                raster_buffer_write_data <= '1'&paint_mc2;
+                raster_buffer_write_data(8 downto 0) <= '1'&paint_mc2;
                 report "Painting multi-colour 3 pixel in colour $" & to_hstring(paint_mc2) severity note;
               when "11" =>
-                raster_buffer_write_data <= '1'&paint_foreground;
+                raster_buffer_write_data(8 downto 0) <= '1'&paint_foreground;
                 report "Painting foreground pixel in colour $" & to_hstring(paint_foreground) severity note;
               when others =>
                 null;
