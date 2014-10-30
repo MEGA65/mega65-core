@@ -2766,8 +2766,6 @@ begin
             -- row width, and abort drawing this line.
             short_line <= '1';
             short_line_length <= to_integer(screen_ram_buffer_read_address);
-            -- Now mark this row as though we have drawn it all.
-            character_number <= virtual_row_width_minus1(7 downto 0)&'0';
           end if;
 
           report "from screen_ram we get glyph_number = $" & to_hstring(glyph_number) severity note;
