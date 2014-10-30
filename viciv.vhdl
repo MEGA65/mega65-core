@@ -135,6 +135,18 @@ architecture Behavioral of viciv is
   );
   END component;
 
+  component ram18x2k IS
+  PORT (
+    clka : IN STD_LOGIC;
+    wea : IN STD_LOGIC_VECTOR(0 DOWNTO 0);
+    addra : IN STD_LOGIC_VECTOR(10 DOWNTO 0);
+    dina : IN STD_LOGIC_VECTOR(17 DOWNTO 0);
+    clkb : IN STD_LOGIC;
+    addrb : IN STD_LOGIC_VECTOR(10 DOWNTO 0);
+    doutb : OUT STD_LOGIC_VECTOR(17 DOWNTO 0)
+  );
+  END component;
+
   component screen_ram_buffer IS
     PORT (
       clka : IN STD_LOGIC;
@@ -770,9 +782,9 @@ end component;
   -- Raster buffer
   -- Read address is in 128th of pixels
   signal raster_buffer_read_address : unsigned(18 downto 0);
-  signal raster_buffer_read_data : unsigned(8 downto 0);
-  signal raster_buffer_write_address : unsigned(11 downto 0);
-  signal raster_buffer_write_data : unsigned(8 downto 0);
+  signal raster_buffer_read_data : unsigned(17 downto 0);
+  signal raster_buffer_write_address : unsigned(10 downto 0);
+  signal raster_buffer_write_data : unsigned(17 downto 0);
   signal raster_buffer_write : std_logic;  
 
   -- Colour RAM access for video controller
@@ -804,7 +816,7 @@ end component;
   
 begin
 
-  rasterbuffer1: component ram9x4k
+  rasterbuffer1: component ram18x2k
     port map (
       clka => pixelclock,
       clkb => pixelclock,
@@ -812,7 +824,7 @@ begin
       dina => std_logic_vector(raster_buffer_write_data),
       unsigned(doutb) => raster_buffer_read_data,
       addra => std_logic_vector(raster_buffer_write_address),
-      addrb => std_logic_vector(raster_buffer_read_address(18 downto 7))
+      addrb => std_logic_vector(raster_buffer_read_address(17 downto 7))
       );
   
   buffer1: component screen_ram_buffer
