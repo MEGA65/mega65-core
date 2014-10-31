@@ -2210,7 +2210,7 @@ begin
       end if;
 
       -- Stop drawing characters when we reach the end of the prepared data
-      if raster_buffer_write_address = (others => '1') then
+      if raster_buffer_write_address = "111111111111" then
         chargen_active <= '0';
         chargen_active_soon <= '0';
       end if;
