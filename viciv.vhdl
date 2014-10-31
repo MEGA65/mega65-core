@@ -2343,8 +2343,6 @@ begin
         first_card_of_row <= to_unsigned(to_integer(first_card_of_row) + row_advance,16);
         -- Similarly update the colour ram fetch address
         colourramaddress <= to_unsigned(to_integer(colour_ram_base) + row_advance,16);
-
-        short_line <= '0';
       end if;
       
       display_active <= indisplay;
@@ -2573,6 +2571,7 @@ begin
         card_of_row <= (others =>'0');
         screen_ram_buffer_write_address <= to_unsigned(0,9);
         screen_ram_buffer_read_address <= to_unsigned(0,9);
+        short_line <= '0';
         report "ZEROing screen_ram_buffer_address" severity note;
         -- Finally decide which way we should go
         if to_integer(first_card_of_row) /= to_integer(prev_first_card_of_row) then          
