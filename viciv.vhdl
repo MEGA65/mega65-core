@@ -2552,7 +2552,7 @@ begin
 
         -- Some house keeping first:
         -- Reset write address in raster buffer
-        raster_buffer_write_address <= (others => '1');
+        raster_buffer_write_address <= (others => '0');
         -- Hold chargen_y for entire fetch, so that we don't get glitching when
         -- chargen_y increases part way through resulting in characters on
         -- right of display shifting up one physical pixel.
