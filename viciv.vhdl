@@ -2645,8 +2645,7 @@ begin
           end if;     
 
           -- Work out if we need to fetch any more 
-          if (short_line='1')
-            or (sixteenbit_charset='1' and end_of_row_16='1')
+          if (sixteenbit_charset='1' and end_of_row_16='1')
             or (sixteenbit_charset='0' and end_of_row='1') then
             -- All done, move to actual row fetch
             raster_fetch_state <= FetchFirstCharacter;
@@ -2987,7 +2986,7 @@ begin
           else
             end_of_row <= '0';
           end if;     
-          if end_of_row = '1' then
+          if (end_of_row = '1') or (short_line='1') then
             raster_fetch_state <= EndOfChargen;
           else
             raster_fetch_state <= PaintDispatch;
