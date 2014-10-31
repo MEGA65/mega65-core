@@ -2210,6 +2210,10 @@ begin
       end if;
 
       -- Stop drawing characters when we reach the end of the prepared data
+      if raster_buffer_write_address = (others => '1') then
+        chargen_active <= '0';
+        chargen_active_soon <= '0';
+      end if;
       if raster_buffer_read_address(18 downto 7) > raster_buffer_write_address then
         report "stopping character generator due to buffer exhaustion"
           severity note;
@@ -2552,7 +2556,7 @@ begin
 
         -- Some house keeping first:
         -- Reset write address in raster buffer
-        raster_buffer_write_address <= (others => '0');
+        raster_buffer_write_address <= (others => '1');
         -- Hold chargen_y for entire fetch, so that we don't get glitching when
         -- chargen_y increases part way through resulting in characters on
         -- right of display shifting up one physical pixel.
