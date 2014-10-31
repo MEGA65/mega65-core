@@ -830,8 +830,16 @@ end component;
   signal palette_fastio_rdata : std_logic_vector(31 downto 0);
 
   -- Palette RAM access for video controller
+  -- -- colour lookup for primary pixel pipeline
   signal palette_address : std_logic_vector(9 downto 0);
   signal palette_rdata : std_logic_vector(31 downto 0);
+  -- -- colour lookup for anti-aliased font foreground colour
+  signal alias_palette_address : std_logic_vector(9 downto 0);
+  signal alias_palette_rdata : std_logic_vector(31 downto 0);
+  -- -- colour lookup for alpha blending of visible sprite over
+  --    character generator
+  signal sprite_alias_palette_address : std_logic_vector(9 downto 0);
+  signal sprite_alias_palette_rdata : std_logic_vector(31 downto 0);
 
   -- Palette bank selection registers
   signal palette_bank_fastio : std_logic_vector(1 downto 0);
@@ -899,7 +907,8 @@ begin
       unsigned(doutb) => colourramdata
       );
 
-  paletteram: component ram32x1024
+  -- Used for main pixel pipeline colour lookup
+  paletteram0: component ram32x1024
     port map (
       clka => cpuclock,
       ena => '1',
@@ -916,6 +925,26 @@ begin
       dinb => (others => '0'),
       doutb => palette_rdata
       );
+
+  -- Used for anti-aliased text colour lookup
+  paletteram1: component ram32x1024
+    port map (
+      clka => cpuclock,
+      ena => '1',
+      wea => palette_we,
+      addra => palette_fastio_address,
+      dina(31 downto 24) => fastio_wdata,
+      dina(23 downto 16) => fastio_wdata,
+      dina(15 downto 8) => fastio_wdata,
+      dina(7 downto 0) => fastio_wdata,
+      -- douta => palette_fastio_rdata,
+      clkb => pixelclock,
+      web => (others => '0'),
+      addrb => alias_palette_address,
+      dinb => (others => '0'),
+      doutb => alias_palette_rdata
+      );
+
   
   charrom1 : charrom
     port map (Clk => pixelclock,
