@@ -3007,7 +3007,16 @@ begin
             if glyph_full_colour='1' then
               -- Paint full-colour glyph
               report "Dispatching to PaintFullColour due to glyph_full_colour = 1";
-              paint_background <= screen_colour;
+              -- We set background colour to screen colour in full-colour mode
+              -- for transparent pixels, and for alpha blending of anti-aliased
+              -- text.  We do also support ECM mode.
+              case background_colour_select is
+                when "00" => paint_background <= screen_colour;
+                when "01" => paint_background <= multi1_colour;
+                when "10" => paint_background <= multi2_colour;
+                when "11" => paint_background <= multi3_colour;
+                when others => paint_background <= screen_colour;
+              end case;
               paint_fsm_state <= PaintFullColour;
             else
               if multicolour_mode='0' and extended_background_mode='0' then
@@ -3142,6 +3151,8 @@ begin
           end if;
         when PaintFullColour =>
           -- Draw 8 pixels using a byte at a time from full_colour_data
+          alias_palette_address <= palette_bank_chargen
+                             & std_logic_vector(paint_background);
           paint_bits_remaining <= paint_glyph_width - 1;
           paint_ready <= '0';
           paint_full_colour_data <= full_colour_data;
