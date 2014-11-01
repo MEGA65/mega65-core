@@ -726,11 +726,13 @@ end component;
   signal glyph_full_colour : std_logic;
   signal glyph_flip_horizontal : std_logic;
   signal glyph_flip_vertical : std_logic;
-  signal glyph_width_deduct : unsigned(1 downto 0);
+  signal glyph_width_deduct : unsigned(2 downto 0);
   signal glyph_width : integer range 0 to 8;
   signal paint_glyph_width : integer range 0 to 8;
   signal glyph_blink_or_alpha : std_logic;
   signal paint_blink_or_alpha : std_logic;
+  signal glyph_trim_top : integer range 0 to 7;
+  signal glyph_trim_bottom : integer range 0 to 7;
 
   signal short_line : std_logic := '0';
   signal short_line_length : integer range 0 to 512;
@@ -2733,7 +2735,7 @@ begin
           -- Clear 16-bit character attributes in case we are reading 8-bits only.
           glyph_flip_horizontal <= '0';
           glyph_flip_vertical <= '0';
-          glyph_width_deduct <= to_unsigned(0,2);
+          glyph_width_deduct <= to_unsigned(0,3);
 
           screen_ram_is_ff <= '0';
           screen_ram_high_is_ff <= '0';
@@ -2771,7 +2773,7 @@ begin
             glyph_number(11 downto 8) <= screen_ram_buffer_dout(3 downto 0);
             glyph_flip_horizontal <= screen_ram_buffer_dout(4);
             glyph_flip_vertical <= screen_ram_buffer_dout(5);
-            glyph_width_deduct <= screen_ram_buffer_dout(7 downto 6);
+            glyph_width_deduct(2 downto 1) <= screen_ram_buffer_dout(7 downto 6);
             if screen_ram_buffer_dout = x"ff" then
               screen_ram_high_is_ff <= '1';
             end if;
@@ -2794,7 +2796,7 @@ begin
           report "from bitmap layout, we get glyph_data_address = $" & to_hstring("000"&glyph_data_address) severity note;
           raster_fetch_state <= FetchBitmapData;
         when FetchTextCell =>
-          glyph_width <= 8 - (to_integer(glyph_width_deduct)*2);
+          glyph_width <= 8 - to_integer(glyph_width_deduct);
 
           if screen_ram_is_ff='1' and screen_ram_high_is_ff='1' then
             -- 16-bit Character is $FFFF, which is end of line marker.
@@ -2939,6 +2941,17 @@ begin
           
           raster_fetch_state <= PaintMemWait;
         when PaintMemWait =>
+          -- This is the time that the 2nd colour byte will be available if we
+          -- are in 16-bit text mode, so copy out the value.
+          if sixteenbit_charset='1' then
+            glyph_trim_top <= to_integer(colourramdata(7 downto 5));
+            glyph_trim_bottom <= to_integer(colourramdata(4 downto 2));
+            glyph_width_deduct(0) <= colourramdata(1);
+          else
+            glyph_trim_top <= 0;
+            glyph_trim_bottom <= 0;
+            glyph_width_deduct(0) <= '0';
+          end if;
           -- Allow for 2 cycle delay to get data in paint_ramdata
           -- In this cycle chardata and ramdata will have the requested value
           if glyph_full_colour = '1' then
