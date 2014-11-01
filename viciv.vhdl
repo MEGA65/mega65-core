@@ -124,56 +124,56 @@ end viciv;
 architecture Behavioral of viciv is
 
   component alpha_blend_top is
-  port(
-    pixclk:      in  std_logic;
-    reset:       in  std_logic;
-    hsync_strm0: in  std_logic;
-    vsync_strm0: in  std_logic;
-    de_strm0:    in  std_logic;
-    r_strm0:     in  std_logic_vector(9 downto 0);
-    g_strm0:     in  std_logic_vector(9 downto 0);              
-    b_strm0:     in  std_logic_vector(9 downto 0);
-    de_strm1:    in  std_logic;
-    r_strm1:     in  std_logic_vector(9 downto 0);
-    g_strm1:     in  std_logic_vector(9 downto 0);
-    b_strm1:     in  std_logic_vector(9 downto 0);
-    de_alpha:    in  std_logic;
-    alpha_strm:  in  std_logic_vector(9 downto 0);
- 
-     pixclk_out: out std_logic;
-     hsync_blnd: out std_logic;
-     vsync_blnd: out std_logic;
-     de_blnd:    out std_logic;
-     r_blnd:     out std_logic_vector(9 downto 0);
-     g_blnd:     out std_logic_vector(9 downto 0);
-     b_blnd:     out std_logic_vector(9 downto 0);
-     dcm_locked:  out std_logic
-    ); 
+    port(
+      pixclk:      in  std_logic;
+      reset:       in  std_logic;
+      hsync_strm0: in  std_logic;
+      vsync_strm0: in  std_logic;
+      de_strm0:    in  std_logic;
+      r_strm0:     in  std_logic_vector(9 downto 0);
+      g_strm0:     in  std_logic_vector(9 downto 0);              
+      b_strm0:     in  std_logic_vector(9 downto 0);
+      de_strm1:    in  std_logic;
+      r_strm1:     in  std_logic_vector(9 downto 0);
+      g_strm1:     in  std_logic_vector(9 downto 0);
+      b_strm1:     in  std_logic_vector(9 downto 0);
+      de_alpha:    in  std_logic;
+      alpha_strm:  in  std_logic_vector(9 downto 0);
+      
+      pixclk_out: out std_logic;
+      hsync_blnd: out std_logic;
+      vsync_blnd: out std_logic;
+      de_blnd:    out std_logic;
+      r_blnd:     out std_logic_vector(9 downto 0);
+      g_blnd:     out std_logic_vector(9 downto 0);
+      b_blnd:     out std_logic_vector(9 downto 0);
+      dcm_locked:  out std_logic
+      ); 
   end component;
 
   
   component ram9x4k IS
-  PORT (
-    clka : IN STD_LOGIC;
-    wea : IN STD_LOGIC_VECTOR(0 DOWNTO 0);
-    addra : IN STD_LOGIC_VECTOR(11 DOWNTO 0);
-    dina : IN STD_LOGIC_VECTOR(8 DOWNTO 0);
-    clkb : IN STD_LOGIC;
-    addrb : IN STD_LOGIC_VECTOR(11 DOWNTO 0);
-    doutb : OUT STD_LOGIC_VECTOR(8 DOWNTO 0)
-  );
+    PORT (
+      clka : IN STD_LOGIC;
+      wea : IN STD_LOGIC_VECTOR(0 DOWNTO 0);
+      addra : IN STD_LOGIC_VECTOR(11 DOWNTO 0);
+      dina : IN STD_LOGIC_VECTOR(8 DOWNTO 0);
+      clkb : IN STD_LOGIC;
+      addrb : IN STD_LOGIC_VECTOR(11 DOWNTO 0);
+      doutb : OUT STD_LOGIC_VECTOR(8 DOWNTO 0)
+      );
   END component;
 
   component ram18x2k IS
-  PORT (
-    clka : IN STD_LOGIC;
-    wea : IN STD_LOGIC_VECTOR(0 DOWNTO 0);
-    addra : IN STD_LOGIC_VECTOR(10 DOWNTO 0);
-    dina : IN STD_LOGIC_VECTOR(17 DOWNTO 0);
-    clkb : IN STD_LOGIC;
-    addrb : IN STD_LOGIC_VECTOR(10 DOWNTO 0);
-    doutb : OUT STD_LOGIC_VECTOR(17 DOWNTO 0)
-  );
+    PORT (
+      clka : IN STD_LOGIC;
+      wea : IN STD_LOGIC_VECTOR(0 DOWNTO 0);
+      addra : IN STD_LOGIC_VECTOR(10 DOWNTO 0);
+      dina : IN STD_LOGIC_VECTOR(17 DOWNTO 0);
+      clkb : IN STD_LOGIC;
+      addrb : IN STD_LOGIC_VECTOR(10 DOWNTO 0);
+      doutb : OUT STD_LOGIC_VECTOR(17 DOWNTO 0)
+      );
   END component;
 
   component screen_ram_buffer IS
@@ -250,54 +250,54 @@ architecture Behavioral of viciv is
   END component;
 
   component vicii_sprites is
-  Port (
-    ----------------------------------------------------------------------
-    -- dot clock & io clock
-    ----------------------------------------------------------------------
-    pixelclock : in  STD_LOGIC;
-    ioclock : in std_logic;
+    Port (
+      ----------------------------------------------------------------------
+      -- dot clock & io clock
+      ----------------------------------------------------------------------
+      pixelclock : in  STD_LOGIC;
+      ioclock : in std_logic;
 
-    -- Pull sprite data in along the chain from the previous sprite (or VIC-IV)
-    signal sprite_datavalid_in : in std_logic;
-    signal sprite_bytenumber_in : in integer range 0 to 2;
-    signal sprite_spritenumber_in : in integer range 0 to 7;
-    signal sprite_data_in : in unsigned(7 downto 0);
+      -- Pull sprite data in along the chain from the previous sprite (or VIC-IV)
+      signal sprite_datavalid_in : in std_logic;
+      signal sprite_bytenumber_in : in integer range 0 to 2;
+      signal sprite_spritenumber_in : in integer range 0 to 7;
+      signal sprite_data_in : in unsigned(7 downto 0);
 
-    -- which base offset for the VIC-II sprite data are we showing this raster line?
-    -- VIC-IV clocks sprite_number_for_data and each sprite replaces
-    -- sprite_data_offset with the appropriate value if the sprite number is itself
-    signal sprite_number_for_data_in : in integer range 0 to 7;
-    signal sprite_data_offset_out : out integer range 0 to 1023;    
-    signal sprite_number_for_data_out : out integer range 0 to 7;
-    
-    -- Is the pixel just passed in a foreground pixel?
-    -- Similarly, is the pixel a sprite pixel from another sprite?
-    signal is_foreground_in : in std_logic;
-    -- and what is the colour of the bitmap pixel?
-    signal x_in : in integer range 0 to 4095;
-    signal y_in : in integer range 0 to 4095;
-    signal border_in : in std_logic;
-    signal pixel_in : in unsigned(7 downto 0);
+      -- which base offset for the VIC-II sprite data are we showing this raster line?
+      -- VIC-IV clocks sprite_number_for_data and each sprite replaces
+      -- sprite_data_offset with the appropriate value if the sprite number is itself
+      signal sprite_number_for_data_in : in integer range 0 to 7;
+      signal sprite_data_offset_out : out integer range 0 to 1023;    
+      signal sprite_number_for_data_out : out integer range 0 to 7;
+      
+      -- Is the pixel just passed in a foreground pixel?
+      -- Similarly, is the pixel a sprite pixel from another sprite?
+      signal is_foreground_in : in std_logic;
+      -- and what is the colour of the bitmap pixel?
+      signal x_in : in integer range 0 to 4095;
+      signal y_in : in integer range 0 to 4095;
+      signal border_in : in std_logic;
+      signal pixel_in : in unsigned(7 downto 0);
 
-     -- Pass pixel information back out
-    signal x_out : out integer range 0 to 4095;
-    signal y_out : out integer range 0 to 4095;
-    signal border_out : out std_logic;
-    signal pixel_out : out unsigned(7 downto 0);
-    signal sprite_colour_out : out unsigned(7 downto 0);
-    signal is_sprite_out : out std_logic;
+      -- Pass pixel information back out
+      signal x_out : out integer range 0 to 4095;
+      signal y_out : out integer range 0 to 4095;
+      signal border_out : out std_logic;
+      signal pixel_out : out unsigned(7 downto 0);
+      signal sprite_colour_out : out unsigned(7 downto 0);
+      signal is_sprite_out : out std_logic;
 
-    -- We need the registers that describe the various sprites.
-    -- We could pull these in from the VIC-IV, but that would mean that they
-    -- would have to propogate within one pixelclock, which will be very
-    -- difficult to achieve.  A better way is to snoop the fastio bus, and read
-    -- them directly on the much slower ioclock, and provide them to each sprite.
-    fastio_addr : in std_logic_vector(19 downto 0);
-    fastio_write : in std_logic;
-    fastio_wdata : in std_logic_vector(7 downto 0)
+      -- We need the registers that describe the various sprites.
+      -- We could pull these in from the VIC-IV, but that would mean that they
+      -- would have to propogate within one pixelclock, which will be very
+      -- difficult to achieve.  A better way is to snoop the fastio bus, and read
+      -- them directly on the much slower ioclock, and provide them to each sprite.
+      fastio_addr : in std_logic_vector(19 downto 0);
+      fastio_write : in std_logic;
+      fastio_wdata : in std_logic_vector(7 downto 0)
 
-);
-end component;
+      );
+  end component;
 
   signal iomode_set_toggle_last : std_logic := '0';    
 
@@ -957,6 +957,31 @@ begin
               data_o => chardata
               );
 
+  --antialiasblender: component alpha_blend_top
+  --  port map (pixclk => pixelclock,
+  --            reset => '0',
+  --            hsync_strm0 => '0',
+  --            vsync_strm0 => '0',
+  --            de_strm0 => '1',
+  --            r_strm0(9 downto 2) => antialias_red,
+  --            r_strm0(1 downto 0) => (others => '0'),
+  --            g_strm0(9 downto 2) => antialias_green,
+  --            g_strm0(1 downto 0) => (others => '0'),
+  --            b_strm0(9 downto 2) => antialias_blue,
+  --            b_strm0(1 downto 0) => (others => '0'),
+  --            de_strm1 => '1',
+  --            r_strm1(9 downto 2) => antialias_red,
+  --            r_strm1(1 downto 0) => (others => '0'),
+  --            g_strm1(9 downto 2) => antialias_green,
+  --            g_strm1(1 downto 0) => (others => '0'),
+  --            b_strm1(9 downto 2) => antialias_blue,
+  --            b_strm1(1 downto 0) => (others => '0'),
+  --            de_alpha => '1',
+  --            alpha_strm(9 downto 2) => (7 downto 0),
+  --            alpha_strm(1 downto 0) => (0)
+  --            );
+  
+  
   vicii_sprites0: component vicii_sprites
     port map (pixelclock => pixelclock,
               ioclock => ioclock,
@@ -986,8 +1011,8 @@ begin
               fastio_write => fastio_write,
               fastio_wdata => fastio_wdata
               );
-              
-              
+  
+  
   
   process(cpuclock,ioclock,fastio_addr,fastio_read,chardata,
           sprite_x,sprite_y,vicii_sprite_xmsbs,ycounter,extended_background_mode,
@@ -1295,7 +1320,7 @@ begin
             & reg_rom_a000      -- ROM @ A000
             & reg_rom_8000      -- ROM @ 8000
             & reg_palrom        -- First sixteen palette entries are fixed
-                                -- (fetch from palette bank 3 on VIC-IV)
+            -- (fetch from palette bank 3 on VIC-IV)
             & "0"                         -- External sync
             & colourram_at_dc00_internal;  -- 2KB colour RAM
         elsif register_number=49 then
@@ -1446,9 +1471,9 @@ begin
         elsif register_number=112 then -- $D3070
           fastio_rdata <= palette_bank_fastio & palette_bank_chargen & palette_bank_sprites & "11";
         elsif register_number=113 then -- $D3071
-          --fastio_rdata <= std_logic_vector(x_chargen_start_minus17_drive(7 downto 0));
+        --fastio_rdata <= std_logic_vector(x_chargen_start_minus17_drive(7 downto 0));
         elsif register_number=114 then -- $D3072
-          --fastio_rdata <= "0000"&std_logic_vector(x_chargen_start_minus17_drive(11 downto 8));
+        --fastio_rdata <= "0000"&std_logic_vector(x_chargen_start_minus17_drive(11 downto 8));
         elsif register_number=115 then  -- $D3073
           fastio_rdata <= std_logic_vector(debug_raster_buffer_read_address_drive2(7 downto 0));
         elsif register_number=116 then  -- $D3074
@@ -1460,8 +1485,8 @@ begin
         elsif register_number=119 then  -- $D3077
           fastio_rdata <= std_logic_vector(debug_screen_ram_buffer_address_drive2(7 downto 0));
         elsif register_number=124 then
-          --fastio_rdata <=
-          --  std_logic_vector(to_unsigned(vic_fetch_fsm'pos(debug_char_fetch_cycle_drive2),8));
+        --fastio_rdata <=
+        --  std_logic_vector(to_unsigned(vic_fetch_fsm'pos(debug_char_fetch_cycle_drive2),8));
         elsif register_number=125 then
           fastio_rdata <= std_logic_vector(debug_charaddress_drive2(7 downto 0));
         elsif register_number=126 then
@@ -1503,7 +1528,7 @@ begin
       viciv_fast <= viciv_fast_internal;
       viciii_fast <= viciii_fast_internal;
       vicii_2mhz <= vicii_2mhz_internal;
-    
+      
       if reset='0' then
         -- Allow kickstart ROM to be visible on reset.
         rom_at_e000 <= '0';
@@ -1643,11 +1668,11 @@ begin
           vicii_raster_compare(7 downto 0) <= unsigned(fastio_wdata);
           vicii_is_raster_source <= '1';
         elsif register_number=19 then
-           -- @IO:C64 $D013 Coarse horizontal beam position (was lightpen X)
+        -- @IO:C64 $D013 Coarse horizontal beam position (was lightpen X)
         elsif register_number=20 then
-           -- @IO:C64 $D014 Coarse vertical beam position (was lightpen Y)
+        -- @IO:C64 $D014 Coarse vertical beam position (was lightpen Y)
         elsif register_number=21 then
-           -- @IO:C64 $D015 VIC-II sprite enable bits
+          -- @IO:C64 $D015 VIC-II sprite enable bits
           vicii_sprite_enables <= fastio_wdata;
         elsif register_number=22 then
           -- @IO:C64 $D016 VIC-II control register
@@ -1888,11 +1913,11 @@ begin
           y_chargen_start(11 downto 8) <= unsigned(fastio_wdata(3 downto 0)); 
         elsif register_number=80 then
           -- @IO:GS $D050 VIC-IV read horizontal position (LSB)
-                                        -- xcounter
+                    -- xcounter
           null;
         elsif register_number=81 then
           -- @IO:GS $D051 VIC-IV read horizontal position (MSB)
-                                        -- xcounter
+                    -- xcounter
           null;
         elsif register_number=82 then
           -- @IO:GS $D052 VIC-IV read physical raster/set raster compare (LSB)
@@ -2365,7 +2390,7 @@ begin
           report "VICIV: rb_read_address = $" & to_hstring(raster_buffer_read_address(18 downto 7))
             & ", data = $" & to_hstring(raster_buffer_read_data(7 downto 0)) severity note;
           pixel_colour <= raster_buffer_read_data(7 downto 0);
-          -- XXX 9th bit indicates foreground for sprite collission handling
+        -- XXX 9th bit indicates foreground for sprite collission handling
         end if;
       else
         pixel_colour <= x"00";
@@ -2599,7 +2624,7 @@ begin
 
       -- Pre-calculate some expressions to flatten logic in critical path
       bitmap_glyph_data_address
-          <= (character_set_address(16 downto 13)&"0"&x"000")
+        <= (character_set_address(16 downto 13)&"0"&x"000")
         + (to_integer(screen_ram_buffer_read_address)+to_integer(first_card_of_row))*8+to_integer(chargen_y);
       virtual_row_width_minus1 <= virtual_row_width - 1;
 
@@ -2629,7 +2654,7 @@ begin
             next_ramaccess_is_sprite_data_fetch <= '0';
             next_ramaccess_screen_row_buffer_address <= to_unsigned(0,9);
             next_screen_row_fetch_address <= screen_row_current_address;
-                                        
+            
             report "BADLINE, colour_ram_base=$" & to_hstring(colour_ram_base) severity note;
           end if;
         when FetchScreenRamLine2 =>
@@ -3172,7 +3197,7 @@ begin
         when PaintFullColour =>
           -- Draw 8 pixels using a byte at a time from full_colour_data
           alias_palette_address <= palette_bank_chargen
-                             & std_logic_vector(paint_background);
+                                   & std_logic_vector(paint_background);
           paint_bits_remaining <= paint_glyph_width - 1;
           paint_ready <= '0';
           paint_full_colour_data <= full_colour_data;
@@ -3188,13 +3213,13 @@ begin
             if paint_blink_or_alpha='1' then
               raster_buffer_write_data(16 downto 9) <= x"FF";  -- solid alpha
               raster_buffer_write_data(8) <= '1';
-            
+              
               report "full-colour glyph painting pixel $" & to_hstring(paint_full_colour_data(7 downto 0));
               raster_buffer_write_data(7 downto 0) <= paint_full_colour_data(7 downto 0);
             else
               raster_buffer_write_data(16 downto 9) <= paint_full_colour_data(7 downto 0);
               raster_buffer_write_data(8) <= '1';
-            
+              
               report "full-colour glyph painting alpha pixel $" & to_hstring(paint_full_colour_data(7 downto 0)) & " with alpha value $" & to_hstring(paint_full_colour_data(7 downto 0));
               raster_buffer_write_data(7 downto 0) <= paint_foreground;
             end if;
