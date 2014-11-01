@@ -2753,6 +2753,10 @@ begin
             end if;
           end if;
         when FetchCharHighByte =>
+
+          -- In 16-bit character mode we also need to read the 2nd colour byte
+          colourramaddress <= colourramaddress + 1;
+          
           -- Work out if character is full colour (ignored for bitmap mode but
           -- calculated outside of if test to flatten logic).
           if screen_ram_buffer_dout(3 downto 0) = "0000" then
