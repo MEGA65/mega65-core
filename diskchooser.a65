@@ -1084,7 +1084,7 @@ alldone:
 
 		.scend
 
-		.checkpc $CEFF
+		.checkpc $CEFD
 
 		.checkpc $CF7E
 		.advance $CF7E
