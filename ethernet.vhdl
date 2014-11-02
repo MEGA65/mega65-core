@@ -1259,7 +1259,10 @@ begin  -- behavioural
 
               -- @IO:GS $D6E1.3 Enable real-time video streaming via ethernet
               eth_videostream <= fastio_wdata(3);
-              
+
+              -- @IO:GS $D6E1.1 - Set which RX buffer is memory mapped
+              eth_rx_buffer_moby <= fastio_wdata(1);
+
               -- @IO:GS $D6E1.0 reset ethernet PHY
               eth_reset <= fastio_wdata(0);
               eth_reset_int <= fastio_wdata(0);
