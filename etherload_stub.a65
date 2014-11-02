@@ -34,11 +34,14 @@
 	 sta $d700
 
 	 ; All done.
-	 inc $d020
 	 ldx packet_number
 	 txa 
 	 sta $0680,x
 
+	 inc $0426
+	 bne i2
+	 inc $0427
+i2:
 	 rts
 
 	 ; Make sure we don't go past where we store the packet destination info

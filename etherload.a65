@@ -87,20 +87,11 @@ waitingforpacket:
 	cmp #<4510
 	bne waitingforpacket
 
-	; to clear the screen
-	lda #$93
-	jsr $ffd2
-
 	; write ethernet status to $0427
 	lda $d6e1
 	sta $0427
 
-	; to output a decimal number
-	ldx $6800
-	lda $6801
-	jsr $BDCD   ; C64 rom routine to print a 16-bit number
-
-	; Let's copy 1KB of buffer to the screen repeatedly
+	; Let's copy 512 bytes of packet to the screen repeatedly
 	ldx #$00
 loop1:	lda $6800,x
 	sta $0428,x
