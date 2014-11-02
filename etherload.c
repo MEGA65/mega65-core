@@ -9,6 +9,7 @@
 #include <string.h>
 #include <strings.h>
 #include <stdio.h>
+#include <fcntl.h>
 
 unsigned char dma_load_routine[128+1024]={
   // Routine that copies packet contents by DMA
@@ -49,11 +50,10 @@ int main(int argc, char**argv)
 {
    int sockfd;
    struct sockaddr_in servaddr;
-   char sendline[1000];
 
-   if (argc != 2)
+   if (argc != 3)
    {
-      printf("usage:  udpcli <IP address>\n");
+      printf("usage:  udpcli <IP address> <programme>\n");
       exit(1);
    }
 
@@ -66,9 +66,33 @@ int main(int argc, char**argv)
    servaddr.sin_addr.s_addr=inet_addr(argv[1]);
    servaddr.sin_port=htons(4510);
 
-   //   while (fgets(sendline, 10000,stdin) != NULL)
-   while(1)
+   int fd=open(argv[2],O_RDWR);
+   unsigned char buffer[1024];
+   int offset=0;
+   int bytes;
+
+   // Read 2 byte load address
+   bytes=read(fd,buffer,2);
+   if (bytes<2) {
+     fprintf(stderr,"Failed to read load address from file '%s'\n",
+	     argv[2]);
+     exit(-1);
+   }
+   int address=buffer[0]+256*buffer[1];
+   printf("Load address of programme is $%04x\n",address);
+
+   while((bytes=read(fd,buffer,1024))!=0)
    {     
+     printf("Read %d bytes at offset %d\n",bytes,offset);
+     offset+=bytes;
+
+     // Set load address of packet
+     dma_load_routine[DESTINATION_ADDRESS_OFFSET]=address&0xff;
+     dma_load_routine[DESTINATION_ADDRESS_OFFSET+1]=(address>>8)&0xff;
+
+     // Copy data into packet
+     bcopy(buffer,&dma_load_routine[DATA_OFFSET],bytes);
+     
      // XXX Send twice to work around C65GS ethernet buffer
      // moby selection bug.
      sendto(sockfd,dma_load_routine,sizeof dma_load_routine,0,
@@ -79,15 +103,7 @@ int main(int argc, char**argv)
      usleep(150);
 
      dma_load_routine[PACKET_NUMBER_OFFSET]++;
-
-     // Add counter to data section
-     dma_load_routine[DATA_OFFSET]++;
-     if (dma_load_routine[DATA_OFFSET]==0x00) {
-       dma_load_routine[DATA_OFFSET+1]++;
-       if (dma_load_routine[DATA_OFFSET+1]==0x00) {
-	 dma_load_routine[DATA_OFFSET+2]++;
-       }
-     }
+     address+=bytes;
    }
 
    return 0;
