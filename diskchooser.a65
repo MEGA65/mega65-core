@@ -1086,4 +1086,8 @@ alldone:
 
 		.checkpc $CEFF
 
+		.checkpc $CF7E
+		.advance $CF7E
+		.incbin "etherload.prg"
+
 		.outfile "diskchooser"
