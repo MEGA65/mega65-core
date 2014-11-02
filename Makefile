@@ -23,6 +23,12 @@ kickstart65gs.bin:	kickstart.a65 Makefile diskchooser
 thumbnail.prg:	showthumbnail.a65 Makefile
 	../Ophis/bin/ophis -4 showthumbnail.a65
 
+etherload.prg:	etherload.a65 Makefile
+	../Ophis/bin/ophis -4 etherload.a65
+
+etherload_stub.prg:	etherload_stub.a65 Makefile
+	../Ophis/bin/ophis -4 etherload_stub.a65
+
 kickstart.vhdl:	rom_template.vhdl kickstart65gs.bin makerom
 	./makerom rom_template.vhdl kickstart65gs.bin kickstart
 
@@ -31,6 +37,9 @@ slowram.vhdl:	c65gs.rom makeslowram slowram_template.vhdl
 
 rxvideo:	rxvideo.c
 	gcc -Wall -g -o rxvideo rxvideo.c -lpcap
+
+etherload:	etherload.c
+	gcc -Wall -g -o etherload etherload.c
 
 iomap.txt:	*.vhdl Makefile
 	egrep "IO:C6|IO:GS" *.vhdl | cut -f3- -d: | sort -k2 > iomap.txt

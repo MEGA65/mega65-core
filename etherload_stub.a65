@@ -1,0 +1,63 @@
+	 .org $6800
+
+	 ; Routine to DMA copy the packet to its correct location.
+	 ; For simplicity we will have the destination address and 
+	 ; length of the packet at a well known location in the packet.
+
+	 ; The packet is mapped at $6800, but to use an embedded DMA list we
+	 ; care about the true address, which is @ $FFDE800.
+	 ; so we need to set MB for DMA list, and also the source and destination
+	 ; MB of the DMA transfer
+
+	 ; Routine must begin with LDA #$xx for etherload to JSR to call this
+	 ; routine when it appears in a packet.
+
+	 ; Set DMA source and destination	 
+
+	 ; DMA source MB is in Mega-byte $FF
+	 lda #$00
+	 sta $d705
+	 ; DNA destination MB
+	 lda dest_mb
+	 sta $d706
+
+	 ; DMA list lives at $DE880
+	 lda #$0d
+	 sta $d702
+	 lda #$e8
+	 sta $d701
+	 ; DMA list lives in Mega-byte $FF ..
+	 LDA #$ff
+	 sta $d704
+	 ; set low byte of DMA list address and start DMA
+	 lda #$80
+	 sta $d700
+
+	 ; All done.
+	 inc $d020
+	 ldx packet_number
+	 txa 
+	 sta $0680,x
+
+	 rts
+
+	 ; Make sure we don't go past where we store the packet destination info
+	 .checkpc $6830
+	 .advance $6830
+
+dmalist:
+	.byte $00 ; copy and non-chained
+	.word 0 ; length
+	.word $e840 ; source bottom 16 bits
+	.byte $0d   ; source bank number
+	.word $0400 ; destination address bottom 16 bits
+	.byte $00   ; destination bank
+	.word $0000 ; modulo (unused)
+
+packet_number:
+	.byte $50  ; use as a sequence number for debugging purposes
+dest_mb:
+	.byte $00
+
+	.checkpc $6840
+	.advance $6840

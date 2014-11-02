@@ -82,7 +82,7 @@ int process_line(char *line,int live)
 	// Synchronised with monitor
 	state=0;
 	// Send ^U r <return> to print registers and get into a known state.
-	usleep(20000);
+	usleep(50000);
 	slow_write(fd,"\r",1);
 	usleep(50000);
 	slow_write(fd,"t0\r",3); // and set CPU going
@@ -111,7 +111,7 @@ int process_line(char *line,int live)
 	int load_addr=fgetc(f);
 	load_addr|=fgetc(f)<<8;
 	printf("Load address is $%04x\n",load_addr);
-	usleep(10000);
+	usleep(50000);
 	unsigned char buf[1024];
 	int b=fread(buf,1,1024,f);
 	while(b>0) {
@@ -129,7 +129,7 @@ int process_line(char *line,int live)
 		    buf[i+8],buf[i+9],buf[i+10],buf[i+11],buf[i+12],buf[i+13],buf[i+14],buf[i+15]);
 
 	    slow_write(fd,cmd,strlen(cmd));
-	    usleep(10000);
+	    usleep(50000);
 	    load_addr+=n;
 
 	    {
