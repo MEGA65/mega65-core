@@ -1,0 +1,38 @@
+; Program to exit etherload when all data has been received
+
+	 .org $682c
+	 .scope
+
+programentrypoint:
+	
+	; C65GS io
+	lda #$47
+	sta $d02f
+	lda #$53
+	sta $D02f
+
+	; Restore memory mapping
+	lda #$00
+	ldx #$0f
+	ldy #$00
+	ldz #$00
+	map
+	eom
+
+	; $DE000 - $6000 = $D8000
+	lda #$00
+	ldx #$00
+	ldy #$00
+	ldz #$00
+	map
+	eom
+	
+	; pop JSR return address so that we return from etherload completely
+	pla
+	pla
+
+	rts
+
+	.scend
+
+	.outfile "etherload_done.bin"
