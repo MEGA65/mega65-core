@@ -12,18 +12,18 @@
 
 unsigned char dma_load_routine[128+1024]={
   // Routine that copies packet contents by DMA
-  0xa9, 0x00, 0x8d, 0x05, 0xd7, 0xad, 0x68, 0x68,
+  0xa9, 0xff, 0x8d, 0x05, 0xd7, 0xad, 0x68, 0x68,
   0x8d, 0x06, 0xd7, 0xa9, 0x0d, 0x8d, 0x02, 0xd7,
   0xa9, 0xe8, 0x8d, 0x01, 0xd7, 0xa9, 0xff, 0x8d, 
-  0x04, 0xd7, 0xa9, 0x80, 0x8d, 0x00, 0xd7, 0xae, 
+  0x04, 0xd7, 0xa9, 0x5c, 0x8d, 0x00, 0xd7, 0xae, 
   0x67, 0x68, 0x8a, 0x9d, 0x80, 0x06, 0xee, 0x26, 
   0x04, 0xd0, 0x03, 0xee, 0x25, 0x04, 0x60, 0x00,
 
   // DMA list begins at offset $0030
   0x00, // DMA command ($0030)
 #define BYTE_COUNT_OFFSET 0x31
-  0x0f, 0x0f,  // DMA byte count ($0031-$0032)
-  0x80, 0xe8, 0x0d, // DMA source address (points to data in packet)
+  0x00, 0x04,  // DMA byte count ($0031-$0032)
+  0x80, 0xe8, 0x8d, // DMA source address (points to data in packet)
 #define DESTINATION_ADDRESS_OFFSET 0x36
   0x00, 0x10, // DMA Destination address (bottom 16 bits)
 #define DESTINATION_BANK_OFFSET 0x38
@@ -35,7 +35,9 @@ unsigned char dma_load_routine[128+1024]={
 #define DESTINATION_MB_OFFSET 0x3c
   // Destination MB at $003C
   0x00, 
-  0x00, 0x00, 0x00};
+  0x00, 0x00, 0x00
+#define DATA_OFFSET (0x80 - 0x2c)
+};
 
 // Test routine to increment border colour
 unsigned char test_routine[64]={
@@ -67,10 +69,25 @@ int main(int argc, char**argv)
    //   while (fgets(sendline, 10000,stdin) != NULL)
    while(1)
    {     
+     // XXX Send twice to work around C65GS ethernet buffer
+     // moby selection bug.
      sendto(sockfd,dma_load_routine,sizeof dma_load_routine,0,
              (struct sockaddr *)&servaddr,sizeof(servaddr));
+     usleep(150);
+     sendto(sockfd,dma_load_routine,sizeof dma_load_routine,0,
+             (struct sockaddr *)&servaddr,sizeof(servaddr));
+     usleep(150);
 
      dma_load_routine[PACKET_NUMBER_OFFSET]++;
+
+     // Add counter to data section
+     dma_load_routine[DATA_OFFSET]++;
+     if (dma_load_routine[DATA_OFFSET]==0x00) {
+       dma_load_routine[DATA_OFFSET+1]++;
+       if (dma_load_routine[DATA_OFFSET+1]==0x00) {
+	 dma_load_routine[DATA_OFFSET+2]++;
+       }
+     }
    }
 
    return 0;

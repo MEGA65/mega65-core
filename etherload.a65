@@ -1,19 +1,10 @@
-; Ethernet controller test program for the C65GS
+; Simple ethernet programme loader for C65GS.
+; Reads and checks packets, and then runs code contained in the packets.
+; This keeps the programme VERY small <128 bytes
 
-; Include C64 BASIC program load header
-
-	 .word $0801
-	 .org $0801
-
+	 .word $CF80
+	 .org $CF80
 	 .scope
-	 .word _next, 10                       ; Next line and current line number
-	 .byte $97, "2,0:", $9e, " 2014", $AA, "65",0      ; POKE 2,0 : SYS 2014+65
-_next:	 .word 0
-
-iter1:	 .byte 0
-
-	 .checkpc 2079
-	 .advance 2079
 
 programentrypoint:
 	
@@ -111,6 +102,7 @@ loop1:	lda $6800,x
 
 	jmp loop
 
+	.checkpc $CFFF
 	.scend
 
 	.outfile "etherload.prg"

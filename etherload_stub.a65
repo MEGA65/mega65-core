@@ -15,13 +15,13 @@
 	 ; Set DMA source and destination	 
 
 	 ; DMA source MB is in Mega-byte $FF
-	 lda #$00
+	 lda #$ff
 	 sta $d705
 	 ; DNA destination MB
 	 lda dest_mb
 	 sta $d706
 
-	 ; DMA list lives at $DE880
+	 ; DMA list lives at $DE85C
 	 lda #$0d
 	 sta $d702
 	 lda #$e8
@@ -30,7 +30,7 @@
 	 LDA #$ff
 	 sta $d704
 	 ; set low byte of DMA list address and start DMA
-	 lda #$80
+	 lda #<dmalist
 	 sta $d700
 
 	 ; All done.
