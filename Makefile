@@ -14,7 +14,7 @@ ethertest.prg:	ethertest.a65 Makefile
 f011test.prg:	f011test.a65 Makefile
 	../Ophis/bin/ophis -4 f011test.a65
 
-diskchooser:	diskchooser.a65 Makefile
+diskchooser:	diskchooser.a65 etherload.prg Makefile
 	../Ophis/bin/ophis -4 diskchooser.a65 -l diskchooser.list
 
 kickstart65gs.bin:	kickstart.a65 Makefile diskchooser
@@ -32,7 +32,7 @@ etherload_stub.prg:	etherload_stub.a65 Makefile
 etherload_done.prg:	etherload_done.a65 Makefile
 	../Ophis/bin/ophis -4 etherload_done.a65
 
-kickstart.vhdl:	rom_template.vhdl kickstart65gs.bin makerom
+kickstart.vhdl:	rom_template.vhdl diskchooser kickstart65gs.bin makerom
 	./makerom rom_template.vhdl kickstart65gs.bin kickstart
 
 slowram.vhdl:	c65gs.rom makeslowram slowram_template.vhdl
