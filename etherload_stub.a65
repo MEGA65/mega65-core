@@ -61,3 +61,5 @@ dest_mb:
 
 	.checkpc $6840
 	.advance $6840
+
+	.outfile "etherload_stub.bin"
