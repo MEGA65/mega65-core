@@ -218,6 +218,7 @@ GS $D6E0.4 Allow remote keyboard input via magic ethernet frames
 GS $D6E1 - Ethernet interrupt and control register
 GS $D6E1.0 reset ethernet PHY
 GS $D6E1.1 - Set which RX buffer is memory mapped
+GS $D6E1.1 - Set which RX buffer is memory mapped
 GS $D6E1.2 - Indicate which RX buffer was most recently used
 GS $D6E1.3 Enable real-time video streaming via ethernet
 GS $D6E1.4 - Ethernet TX IRQ status
