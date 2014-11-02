@@ -11,6 +11,14 @@
 #include <stdio.h>
 #include <fcntl.h>
 
+unsigned char all_done_routine[128]={
+  0xa9, 0x47, 0x8d, 0x2f, 0xd0, 0xa9, 0x53, 0x8d,
+  0x2f, 0xd0, 0xa9, 0x00, 0xa2, 0x0f, 0xa0, 0x00,
+  0xa3, 0x00, 0x5c, 0xea, 0xa9, 0x00, 0xa2, 0x00, 
+  0xa0, 0x00, 0xa3, 0x00, 0x5c, 0xea, 0x68, 0x68,
+  0x60
+};
+
 unsigned char dma_load_routine[128+1024]={
   // Routine that copies packet contents by DMA
   0xa9, 0xff, 0x8d, 0x05, 0xd7, 0xad, 0x68, 0x68,
@@ -104,6 +112,14 @@ int main(int argc, char**argv)
 
      dma_load_routine[PACKET_NUMBER_OFFSET]++;
      address+=bytes;
+   }
+
+   // Tell C65GS that we are all done
+   int i;
+   for(i=0;i<10;i++) {
+     sendto(sockfd,all_done_routine,sizeof all_done_routine,0,
+	    (struct sockaddr *)&servaddr,sizeof(servaddr));
+     usleep(150);
    }
 
    return 0;

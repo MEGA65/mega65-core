@@ -29,6 +29,9 @@ etherload.prg:	etherload.a65 Makefile
 etherload_stub.prg:	etherload_stub.a65 Makefile
 	../Ophis/bin/ophis -4 etherload_stub.a65
 
+etherload_done.prg:	etherload_done.a65 Makefile
+	../Ophis/bin/ophis -4 etherload_done.a65
+
 kickstart.vhdl:	rom_template.vhdl kickstart65gs.bin makerom
 	./makerom rom_template.vhdl kickstart65gs.bin kickstart
 
