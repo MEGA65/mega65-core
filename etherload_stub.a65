@@ -1,4 +1,4 @@
-	 .org $6800
+	 .org $682c
 
 	 ; Routine to DMA copy the packet to its correct location.
 	 ; For simplicity we will have the destination address and 
@@ -42,13 +42,13 @@
 	 rts
 
 	 ; Make sure we don't go past where we store the packet destination info
-	 .checkpc $6830
-	 .advance $6830
+	 .checkpc $685c
+	 .advance $685c
 
 dmalist:
 	.byte $00 ; copy and non-chained
 	.word 0 ; length
-	.word $e840 ; source bottom 16 bits
+	.word $e880 ; source bottom 16 bits
 	.byte $0d   ; source bank number
 	.word $0400 ; destination address bottom 16 bits
 	.byte $00   ; destination bank
@@ -59,7 +59,7 @@ packet_number:
 dest_mb:
 	.byte $00
 
-	.checkpc $6840
-	.advance $6840
+	.checkpc $6880
+	.advance $6880
 
 	.outfile "etherload_stub.bin"

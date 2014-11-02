@@ -10,6 +10,39 @@
 #include <strings.h>
 #include <stdio.h>
 
+unsigned char dma_load_routine[128]={
+  // Routine that copies packet contents by DMA
+  0xa9, 0x00, 0x8d, 0x05, 0xd7, 0xad, 0x68, 0x68,
+  0x8d, 0x06, 0xd7, 0xa9, 0x0d, 0x8d, 0x02, 0xd7,
+  0xa9, 0xe8, 0x8d, 0x01, 0xd7, 0xa9, 0xff, 0x8d, 
+  0x04, 0xd7, 0xa9, 0x80, 0x8d, 0x00, 0xd7, 0xee,
+  0x20, 0xd0, 0xae, 0x67, 0x68, 0x8a, 0x9d, 0x80,
+  0x06, 0x60, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+
+  // DMA list begins at offset $0030
+  0x00, // DMA command ($0030)
+#define BYTE_COUNT_OFFSET 0x31
+  0x00, 0x01,  // DMA byte count ($0031-$0032)
+  0x80, 0xe8, 0x0d, // DMA source address (points to data in packet)
+#define DESTINATION_ADDRESS_OFFSET 0x36
+  0x00, 0x07, // DMA Destination address (bottom 16 bits)
+#define DESTINATION_BANK_OFFSET 0x38
+  0x00, // DMA Destination bank
+  0x00, 0x00, // DMA modulo (ignored)
+  // Packet ID number at offset $003B
+#define PACKET_NUMBER_OFFSET 0x3b
+  0x30, 
+#define DESTINATION_MB_OFFSET 0x3c
+  // Destination MB at $003C
+  0x00, 
+  0x00, 0x00, 0x00};
+
+// Test routine to increment border colour
+unsigned char test_routine[64]={
+  0xa9,0x00,0xee,0x21,0xd0,0x60
+};
+
+
 int main(int argc, char**argv)
 {
    int sockfd;
@@ -32,8 +65,8 @@ int main(int argc, char**argv)
    servaddr.sin_port=htons(4510);
 
    while (fgets(sendline, 10000,stdin) != NULL)
-   {
-      sendto(sockfd,sendline,strlen(sendline),0,
+   {     
+     sendto(sockfd,dma_load_routine,64,0,
              (struct sockaddr *)&servaddr,sizeof(servaddr));
    }
 
