@@ -78,19 +78,6 @@ waitingforpacket:
 	cmp #<4510
 	bne waitingforpacket
 
-	; write ethernet status to $0427
-	lda $d6e1
-	sta $0427
-
-	; Let's copy 512 bytes of packet to the screen repeatedly
-	ldx #$00
-loop1:	lda $6800,x
-	sta $0428,x
-	lda $6900,x
-	sta $0528,x
-	inx
-	bne loop1
-
 	; packet body begins at $0444 / $682C.
 	; if it begins with $A9 = LDA immediate, then jsr to the packet body.
 	; packet body can do whatever is required to load data, keeping this
