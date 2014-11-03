@@ -3,8 +3,24 @@
 	 .org $682c
 	 .scope
 
+	 ; Tell etherload that this packet is executable
+	 lda #$00
+l2:	 
+	 inc $d020
+	 jmp l2
+
+	 ; copy routine to casette buffer, since the routine demaps the packet
+	 ; buffer from which it would otherwise be running.
+	 ldx #$00
+l1:	 lda programentrypoint,x
+	 sta $0340,x
+	 inx
+	 cpx #$40
+	 bne l1
+	 jmp $0340
+
 programentrypoint:
-	
+
 	; C65GS io
 	lda #$47
 	sta $d02f
