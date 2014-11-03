@@ -65,6 +65,7 @@ entity vicii_sprites is
     
     -- Is the pixel just passed in a foreground pixel?
     signal is_foreground_in : in std_logic;
+    signal is_background_in : in std_logic;
     -- and what is the colour of the bitmap pixel?
     signal x_in : in integer range 0 to 4095;
     signal y_in : in integer range 0 to 4095;
@@ -73,6 +74,7 @@ entity vicii_sprites is
 
     -- Pass pixel information back out, as well as the sprite colour information
     signal is_foreground_out : out std_logic;
+    signal is_background_out : out std_logic;
     signal x_out : out integer range 0 to 4095;
     signal y_out : out integer range 0 to 4095;
     signal border_out : out std_logic;
@@ -125,6 +127,7 @@ architecture behavioural of vicii_sprites is
       
       -- Is the pixel just passed in a foreground pixel?
       signal is_foreground_in : in std_logic;
+      signal is_background_in : in std_logic;
       -- and what is the colour of the bitmap pixel?
       signal x_in : in integer range 0 to 4095;
       signal y_in : in integer range 0 to 4095;
@@ -136,6 +139,7 @@ architecture behavioural of vicii_sprites is
       
       -- Pass pixel information back out, as well as the sprite colour information
       signal is_foreground_out : out std_logic;
+      signal is_background_out : out std_logic;
       signal x_out : out integer range 0 to 4095;
       signal y_out : out integer range 0 to 4095;
       signal border_out : out std_logic;
@@ -234,6 +238,13 @@ architecture behavioural of vicii_sprites is
   signal is_foreground_3_2 : std_logic;
   signal is_foreground_2_1 : std_logic;
   signal is_foreground_1_0 : std_logic;
+  signal is_background_7_6 : std_logic;
+  signal is_background_6_5 : std_logic;
+  signal is_background_5_4 : std_logic;
+  signal is_background_4_3 : std_logic;
+  signal is_background_3_2 : std_logic;
+  signal is_background_2_1 : std_logic;
+  signal is_background_1_0 : std_logic;
   signal x_7_6 : integer range 0 to 4095;
   signal x_6_5 : integer range 0 to 4095;
   signal x_5_4 : integer range 0 to 4095;
@@ -306,6 +317,7 @@ begin
              
              -- pixel data
              is_foreground_in => is_foreground_in,
+             is_background_in => is_background_in,
              x_in => x_in,
              y_in => y_in,
              border_in => border_in,
@@ -313,6 +325,7 @@ begin
              is_sprite_in => '0',
              sprite_colour_in => x"00",
              is_foreground_out => is_foreground_7_6,
+             is_background_out => is_background_7_6,
              x_out => x_7_6,
              y_out => y_7_6,
              border_out => border_7_6,
@@ -355,6 +368,7 @@ begin
 
              -- pixel data
              is_foreground_in => is_foreground_7_6,
+             is_background_in => is_background_7_6,
              x_in => x_7_6,
              y_in => y_7_6,
              border_in => border_7_6,
@@ -362,6 +376,7 @@ begin
              is_sprite_in => is_sprite_7_6,
              sprite_colour_in => sprite_colour_7_6,
              is_foreground_out => is_foreground_6_5,
+             is_background_out => is_background_6_5,
              x_out => x_6_5,
              y_out => y_6_5,
              border_out => border_6_5,
@@ -404,6 +419,7 @@ begin
 
              -- pixel data
              is_foreground_in => is_foreground_6_5,
+             is_background_in => is_background_6_5,
              x_in => x_6_5,
              y_in => y_6_5,
              border_in => border_6_5,
@@ -411,6 +427,7 @@ begin
              is_sprite_in => is_sprite_6_5,
              sprite_colour_in => sprite_colour_6_5,
              is_foreground_out => is_foreground_5_4,
+             is_background_out => is_background_5_4,
              x_out => x_5_4,
              y_out => y_5_4,
              border_out => border_5_4,
@@ -453,6 +470,7 @@ begin
 
              -- pixel data
              is_foreground_in => is_foreground_5_4,
+             is_background_in => is_background_5_4,
              x_in => x_5_4,
              y_in => y_5_4,
              border_in => border_5_4,
@@ -460,6 +478,7 @@ begin
              is_sprite_in => is_sprite_5_4,
              sprite_colour_in => sprite_colour_5_4,
              is_foreground_out => is_foreground_4_3,
+             is_background_out => is_background_4_3,
              x_out => x_4_3,
              y_out => y_4_3,
              border_out => border_4_3,
@@ -502,6 +521,7 @@ begin
 
              -- pixel data
              is_foreground_in => is_foreground_4_3,
+             is_background_in => is_background_4_3,
              x_in => x_4_3,
              y_in => y_4_3,
              border_in => border_4_3,
@@ -509,6 +529,7 @@ begin
              is_sprite_in => is_sprite_4_3,
              sprite_colour_in => sprite_colour_4_3,
              is_foreground_out => is_foreground_3_2,
+             is_background_out => is_background_3_2,
              x_out => x_3_2,
              y_out => y_3_2,
              border_out => border_3_2,
@@ -551,6 +572,7 @@ begin
 
              -- pixel data
              is_foreground_in => is_foreground_3_2,
+             is_background_in => is_background_3_2,
              x_in => x_3_2,
              y_in => y_3_2,
              border_in => border_3_2,
@@ -558,6 +580,7 @@ begin
              is_sprite_in => is_sprite_3_2,
              sprite_colour_in => sprite_colour_3_2,
              is_foreground_out => is_foreground_2_1,
+             is_background_out => is_background_2_1,
              x_out => x_2_1,
              y_out => y_2_1,
              border_out => border_2_1,
@@ -600,6 +623,7 @@ begin
 
              -- pixel data
              is_foreground_in => is_foreground_2_1,
+             is_background_in => is_background_2_1,
              x_in => x_2_1,
              y_in => y_2_1,
              border_in => border_2_1,
@@ -607,6 +631,7 @@ begin
              is_sprite_in => is_sprite_2_1,
              sprite_colour_in => sprite_colour_2_1,
              is_foreground_out => is_foreground_1_0,
+             is_background_out => is_background_1_0,
              x_out => x_1_0,
              y_out => y_1_0,
              border_out => border_1_0,
@@ -649,6 +674,7 @@ begin
 
              -- pixel data
              is_foreground_in => is_foreground_1_0,
+             is_background_in => is_background_1_0,
              x_in => x_1_0,
              y_in => y_1_0,
              border_in => border_1_0,
@@ -656,6 +682,7 @@ begin
              is_sprite_in => is_sprite_1_0,
              sprite_colour_in => sprite_colour_1_0,
              is_foreground_out => is_foreground_out,
+             is_background_out => is_background_out,
              x_out => x_out,
              y_out => y_out,
              border_out => border_out,

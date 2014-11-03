@@ -55,6 +55,7 @@ entity sprite is
     
     -- Is the pixel just passed in a foreground pixel?
     signal is_foreground_in : in std_logic;
+    signal is_background_in : in std_logic;
     -- and what is the colour of the bitmap pixel?
     signal x_in : in integer range 0 to 4095;
     signal y_in : in integer range 0 to 4095;
@@ -66,6 +67,7 @@ entity sprite is
 
     -- Pass pixel information back out, as well as the sprite colour information
     signal is_foreground_out : out std_logic;
+    signal is_background_out : out std_logic;
     signal x_out : out integer range 0 to 4095;
     signal y_out : out integer range 0 to 4095;
     signal border_out : out std_logic;
@@ -177,6 +179,7 @@ begin  -- behavioural
       y_out <= y_in;
       border_out <= border_in;
       is_foreground_out <= is_foreground_in;
+      is_background_out <= is_background_in;
 
       -- Work out when we start drawing the sprite
       y_last <= y_in;
