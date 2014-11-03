@@ -5,9 +5,6 @@
 
 	 ; Tell etherload that this packet is executable
 	 lda #$00
-l2:	 
-	 inc $d020
-	 jmp l2
 
 	 ; copy routine to casette buffer, since the routine demaps the packet
 	 ; buffer from which it would otherwise be running.
