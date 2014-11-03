@@ -40,11 +40,19 @@ programentrypoint:
 	; so LDA $6FFE ; LDX $6FFF ; jsr $BDCD should print packet length to screen
 
 	; make sure ethernet transceiver is on and not generating IRQs
-	; (we will poll it)
-	lda #$01
+	; (we will poll it).
+	; also make sure that we acknowledge the last received packet so that the
+	; ethernet controller knows it can receive.
+	lda $d6e1
+	lsr
+	and #$02
+	ora #$01
 	sta $d6e1
 
+
+
 loop:
+	
 
 waitingforpacket:
 	lda $d6e1
