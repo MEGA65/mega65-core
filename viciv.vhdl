@@ -56,6 +56,7 @@ entity viciv is
     -- dot clock
     ----------------------------------------------------------------------
     pixelclock : in  STD_LOGIC;
+    pixelclock2x : in std_logic;
     ----------------------------------------------------------------------
     -- CPU clock (used for chipram and fastio interfaces)
     ----------------------------------------------------------------------
@@ -125,7 +126,8 @@ architecture Behavioral of viciv is
 
   component alpha_blend_top is
     port(
-      pixclk:      in  std_logic;
+      clk1x:       in  std_logic;
+      clk2x:       in  std_logic;
       reset:       in  std_logic;
       hsync_strm0: in  std_logic;
       vsync_strm0: in  std_logic;
@@ -970,7 +972,8 @@ begin
               );
 
   antialiasblender: component alpha_blend_top
-    port map (pixclk => pixelclock,
+    port map (clk1x => pixelclock,
+              clk2x => pixelclock2x,
               reset => '0',
               hsync_strm0 => '0',
               vsync_strm0 => '0',

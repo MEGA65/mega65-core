@@ -59,7 +59,7 @@
 -- CLK_OUT2___193.750______0.000______50.0______104.840_____88.872
 -- CLK_OUT3____48.438______0.000______50.0______137.157_____88.872
 -- CLK_OUT4____64.583______0.000______50.0______129.132_____88.872
--- CLK_OUT5____32.292______0.000______50.0______149.826_____88.872
+-- CLK_OUT5___387.500______0.000______50.0_______92.425_____88.872
 --
 ------------------------------------------------------------------------------
 -- "Input Clock   Freq (MHz)    Input Jitter (UI)"
@@ -84,7 +84,7 @@ port
   CLK_OUT2          : out    std_logic;
   CLK_OUT3          : out    std_logic;
   CPUCLOCK          : out    std_logic;
-  IOCLOCK          : out    std_logic
+  PIX2CLOCK          : out    std_logic
  );
 end dotclock;
 
@@ -159,7 +159,7 @@ begin
     CLKOUT3_PHASE        => 0.000,
     CLKOUT3_DUTY_CYCLE   => 0.500,
     CLKOUT3_USE_FINE_PS  => FALSE,
-    CLKOUT4_DIVIDE       => 36,
+    CLKOUT4_DIVIDE       => 3,
     CLKOUT4_PHASE        => 0.000,
     CLKOUT4_DUTY_CYCLE   => 0.500,
     CLKOUT4_USE_FINE_PS  => FALSE,
@@ -238,7 +238,7 @@ begin
 
   clkout5_buf : BUFG
   port map
-   (O   => IOCLOCK,
+   (O   => PIX2CLOCK,
     I   => clkout4);
 
 end xilinx;

@@ -68,7 +68,8 @@ use unisim.vcomponents.all;
 
 entity alpha_blend_top is
   port(
-    pixclk:      in  std_logic;
+    clk1x:       in  std_logic;
+    clk2x:       in  std_logic;
     reset:       in  std_logic;
     hsync_strm0: in  std_logic;
     vsync_strm0: in  std_logic;
@@ -95,8 +96,6 @@ entity alpha_blend_top is
 end alpha_blend_top;
 
 architecture synth of alpha_blend_top is                 
-  signal   clk1x:    std_logic;      -- 1x clock from DCM
-  signal   clk2x:    std_logic;      -- 2x clock from DCM
   signal   fol_clk1x: std_logic;     -- clock follower of clk1x in clk2x domain
   signal   toggle:   std_logic;
   signal   toggle_1: std_logic;
@@ -197,18 +196,6 @@ begin  ------------------------------------------------------------------------
       fol_clk1x <= not (toggle xor toggle_1);
     end if;
   end process;
-  --
-  -- Create 1x and 2x clccks
-  --
-dcm_1x_2x_i : DCM_1x_2x  
-  port map(
-    CLKIN_IN         =>  pixclk, 
-    RST_IN           =>  reset, 
-    CLKIN_IBUFG_OUT  =>  open, 
-    CLK0_OUT         =>  clk1x, 
-    CLK2X_OUT        =>  clk2x, 
-    LOCKED_OUT       =>  dcm_locked
-  );
  --
  -- instantiate blend units for R G and B
  --    

@@ -155,6 +155,7 @@ architecture Behavioral of container is
 
   component machine is
   Port ( pixelclock : STD_LOGIC;
+         pixelclock2x : STD_LOGIC;
          cpuclock : std_logic;
          clock50mhz : std_logic;
          ioclock : std_logic;
@@ -267,6 +268,7 @@ architecture Behavioral of container is
   signal nmi : std_logic := '1';
   
   signal pixelclock : std_logic;
+  signal pixelclock2x : std_logic;
   signal cpuclock : std_logic;
   signal ioclock : std_logic;
   
@@ -288,12 +290,13 @@ begin
                -- the generated frames somewhere?
                clk_out2 => pixelclock,
                clk_out3 => cpuclock, -- 48MHz
---               cpuclock => cpuclock, -- 64MHz
+               PIX2CLOCK => pixelclock2x,
                ioclock => ioclock);
 
   machine0: machine
     port map (
       pixelclock      => pixelclock,
+      pixelclock2x      => pixelclock2x,
       cpuclock        => cpuclock,
       clock50mhz      => clock50mhz,
 --      ioclock         => ioclock, -- 32MHz
