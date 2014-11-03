@@ -52,6 +52,7 @@ architecture behavior of cpu_test is
   
   component machine is
     Port ( pixelclock : STD_LOGIC;
+           pixelclock2x : STD_LOGIC;
            cpuclock : STD_LOGIC;
            clock50mhz : in STD_LOGIC;
            ioclock : STD_LOGIC;
@@ -180,6 +181,9 @@ begin
   core0: machine
     port map (
       pixelclock      => pixelclock,
+      pixelclock2x    => pixelclock, -- XXX we don't need the 2x clock in
+                                     -- simulation. as it is only used for the
+                                     -- alpha blender.
       cpuclock      => cpuclock,
       clock50mhz   => clock50mhz,
       ioclock      => cpuclock,

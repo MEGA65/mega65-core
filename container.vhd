@@ -149,7 +149,8 @@ architecture Behavioral of container is
     CLK_OUT2          : out    std_logic;
     CLK_OUT3          : out    std_logic;
     CPUCLOCK          : out    std_logic;
-    IOCLOCK          : out    std_logic
+--    IOCLOCK          : out    std_logic;
+    PIX2CLOCK          : out    std_logic
       );
   end component;
 
@@ -270,7 +271,7 @@ architecture Behavioral of container is
   signal pixelclock : std_logic;
   signal pixelclock2x : std_logic;
   signal cpuclock : std_logic;
-  signal ioclock : std_logic;
+--  signal ioclock : std_logic;
   
   signal segled_counter : unsigned(31 downto 0) := (others => '0');
 
@@ -290,8 +291,9 @@ begin
                -- the generated frames somewhere?
                clk_out2 => pixelclock,
                clk_out3 => cpuclock, -- 48MHz
-               PIX2CLOCK => pixelclock2x,
-               ioclock => ioclock);
+               PIX2CLOCK => pixelclock2x
+--               clk_out3 => ioclock -- also 48MHz
+               );
 
   machine0: machine
     port map (
