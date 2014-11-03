@@ -152,6 +152,7 @@ architecture behavioural of ethernet is
 
   type ethernet_state is (Idle,
                           DebugRxFrameWait,DebugRxFrame,DebugRxFrameDone,
+                          SkippingFrame,
                           WaitingForPreamble,
                           ReceivingPreamble,
                           ReceivingFrame,
@@ -209,6 +210,9 @@ architecture behavioural of ethernet is
   signal eth_reset_int : std_logic := '1';
   -- which half of frame RX buffer is visible
   signal eth_rx_buffer_moby : std_logic := '0';
+  signal eth_rx_buffer_moby_int1 : std_logic := '0';
+  signal eth_rx_buffer_moby_int2 : std_logic := '0';
+  signal eth_rx_buffer_moby_50mhz : std_logic := '0';
   -- which half of frame buffer had the most recent frame delivery
   signal eth_rx_buffer_last_used_48mhz : std_logic := '1';
   signal eth_rx_buffer_last_used_int2 : std_logic := '1';
@@ -377,6 +381,11 @@ begin  -- behavioural
       -- We separate the RX/TX FSMs to allow true full-duplex operation.
       -- For now it is upto the user to ensure the 0.96us gap between packets.
       -- This is only 20 CPU cycles, so it is unlikely to be a problem.
+
+      -- Let 50MHz side know which buffer the CPU is looking at.
+      eth_rx_buffer_moby_int1 <= eth_rx_buffer_moby;
+      eth_rx_buffer_moby_int2 <= eth_rx_buffer_moby_int1;
+      eth_rx_buffer_moby_50mhz <= eth_rx_buffer_moby_int2;
       
       -- Ethernet TX FSM
       case eth_tx_state is
@@ -597,6 +606,16 @@ begin  -- behavioural
               eth_frame_len <= 2;
             end if;
             eth_bit_count <= 0;
+            -- Veto packet reception if the CPU is watching the buffer we were
+            -- going to write to.
+            if eth_rx_buffer_last_used_50mhz /= eth_rx_buffer_moby_50mhz then
+              eth_state <= SkippingFrame;
+            end if;
+          end if;
+        when SkippingFrame =>
+          -- Wait until RX frame stops 
+          if eth_rxdv='0' then
+             eth_state <= Idle;
           end if;
         when DebugRxFrameWait =>
           if debug_rx = '0' then
