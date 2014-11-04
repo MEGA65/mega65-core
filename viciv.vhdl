@@ -633,6 +633,9 @@ architecture Behavioral of viciv is
   signal antialias_red : unsigned(7 downto 0);
   signal antialias_green : unsigned(7 downto 0);
   signal antialias_blue : unsigned(7 downto 0);
+  signal antialiased_red : unsigned(7 downto 0);
+  signal antialiased_green : unsigned(7 downto 0);
+  signal antialiased_blue : unsigned(7 downto 0);
   signal is_background_in : std_logic;
   signal pixel_is_background_out : std_logic;
   signal chargen_pixel_colour : unsigned(7 downto 0);
@@ -995,7 +998,11 @@ begin
               b_strm1(1 downto 0) => (others => '0'),
               de_alpha => '1',
               alpha_strm(9 downto 2) => std_logic_vector(postsprite_pixel_colour(7 downto 0)),
-              alpha_strm(1 downto 0) => "00"
+              alpha_strm(1 downto 0) => "00",
+
+              unsigned(r_blnd) => antialiased_red,
+              unsigned(g_blnd) => antialiased_green,
+              unsigned(b_blnd(9 downto 2)) => antialiased_blue
               );
   
   
