@@ -16,8 +16,15 @@ iter1:	 .byte 0
 	 .advance 2079
 
 programentrypoint:
-	; Map ethernet registers at $6000 - $7FFF
 	
+	; Enable C65GS io
+	lda #$47
+	sta $d02f
+	lda #$53
+	sta $D02f
+
+	; Map ethernet registers at $6000 - $7FFF
+
 	; Ethernet controller really lives $FFDE000 - $FFDEFFF, so select $FF megabyte section for MAP LO
 	lda #$ff
 	ldx #$0f
@@ -38,37 +45,58 @@ programentrypoint:
 
 	; Ethernet registers should now be visible from $6000 - $6FFF
 	; read buffer will be at $6800 - $6FFF
-	; length of frame is in $6FFE / $6FFF in little-endian byte order
-	; so LDA $6FFE ; LDX $6FFF ; jsr $BDCD should print packet length to screen
 
-	; Let's copy 1KB of buffer to the screen repeatedly
-	ldx #$00
-loop1:	lda $6800,x
-	sta $0400,x
-	lda $6900,x
-	sta $0500,x
-	lda $6a00,x
-	sta $0600,x
-	lda $6b00,x
-	sta $0700,x
-	inx
-	jmp loop1
+	; make sure ethernet transceiver is on and not generating IRQs
+	; (we will poll it).
+	; also make sure that we acknowledge the last received packet so that the
+	; ethernet controller knows it can receive.
+	lda $d6e1
+	lsr
+	and #$02
+	ora #$01
+	sta $d6e1
+
+	lda #$17
+	sta $d018
+
+packetloop:
+
+	lda $d6e1
+	and #$20
+	beq packetloop
+	; clear eth RX signal, and leave ethernet tranceiver on
+	; and make last used RX buffer visible
+	lda $d6e1
+	and #$04
+	lsr
+	ora #$01
+	sta $d6e1
 
 	; to clear the screen
-	lda #$9d
+	lda #$93
 	jsr $ffd2
 
-	; to output a letter
-	lda #"A"
-	jsr $FFD2   ; C64 rom routine to print a character
-	; to output a decimal number
-	lda #<12345
-	ldx #>12345
-	jsr $BDCD   ; C64 rom routine to print a 16-bit number
-	jsr myroutine
+	; Show contents of latest packet
+	ldx #$00
+loop1:	lda $6800,x
+	sta $0428,x
+	lda $6900,x
+	sta $0528,x
+	lda $6a00,x
+	sta $0628,x
+	lda $6ac8,x
+	sta $0700,x
+	inx
+	bne loop1
 
-myroutine:
-	rts
+	; Print length of packet
+	lda $6801
+	ldx $6800
+	jsr $BDCD   
+	lda #$20
+	jsr $FFD2   
+
+	jmp packetloop
 
 	.scend
 
