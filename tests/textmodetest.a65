@@ -117,6 +117,65 @@ pum1:
 	jmp pum_nextpoint
 
 glyph_lookup:
+	; Get important information for a glyph from a font.
+	
+	; Start by building pointer to glyph list in font.
+	; glyph list is always at header+$100
+	lda fontheader+$100
+	sta $57
+	lda fontheader+$101
+	sta $58
+	; also get the number of glyphs so that we know when to stop looking
+	lda fontheader+$87
+	sta font_glyphs
+	lda fontheader+$88
+	sta font_glyphs+1
+	
+	; start looking at entry 0
+	lda #$00
+	sta temp_word
+	sta temp_word+1
+
+gl_nextpoint:
+	ldz #$00
+	lda ($57),z
+	cmp glyph_unicode_point
+	bne gl_checknextpoint
+	inz
+	lda ($57),z
+	cmp glyph_unicode_point+1
+	beq gl_foundpoint
+gl_checknextpoint: 
+	inc temp_word
+	bne gl_np2
+	inc temp_word+1
+gl_np2:
+	lda temp_word+1
+	cmp font_glyphs+1
+	bcc gl_nextpoint
+	beq gl_maybechecknextpoint
+gl_dontchecknextpoint:
+	ldz #$00
+	; FAIL no such point in font
+	lda #$00
+	sta glyph_address
+	sta glyph_address+1
+	sta glyph_tiles_high
+	sta glyph_tiles_wide
+	sta glyph_horizontal_trim
+	sta glyph_width
+	sta glyph_width+1
+	sta glyph_tile_list_address
+	rts
+gl_maybechecknextpoint:
+	lda temp_word
+	cmp font_glyphs
+	bcc gl_nextpoint
+	bra gl_dontchecknextpoint
+
+gl_foundpoint:
+
+
 
 	; finally work out glyph width in pixels
 	lda glyph_tiles_wide
@@ -178,8 +237,6 @@ glyph_might_fit:
 	cmp screen_line_pixels_width
 	bcs glyph_doesnt_fit
 glyph_fits:
-
-	; Check if glyph overflows the maximum line length
 
 	; Draw glyph tile numbers into screen ram buffer
 
@@ -286,6 +343,10 @@ ual_1:	lda ($57),z
 
 ; scratch space
 temp_word: .word 0
+
+; number of unicode points in font
+font_glyphs:
+	.word 0
 
 ; current glyph being drawn
 glyph_unicode_point:
