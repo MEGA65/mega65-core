@@ -211,6 +211,79 @@ unicode_apply_line:
 	; Take the contents of the screen RAM buffer and colour RAM buffer and
 	; apply (draw) it onto the screen
 
+	; get pointer to colour RAM buffer
+	lda #<colour_ram_buffer
+	sta $57
+	lda #>colour_ram_buffer
+	sta $58
+
+	ldy #$00
+ual_row:
+	; For this screen row, get the address of the screen ram buffer
+	lda #<screen_ram_buffer
+	sta $59
+	tya
+	clc
+	adc #>screen_ram_buffer
+	sta $5a
+
+	; and also of the screen RAM where we need to write
+	lda screen_ram_base
+	clc
+	adc screen_ram_pointer
+	sta $5b
+	lda screen_ram_base+1
+	adc screen_ram_pointer+1
+	sta $5c
+	
+	; and also the colour RAM where we need to write
+	; XXX - this only works for first KB of colour RAM - should use DMA
+	; to write colour RAM (and in fact to apply all the data)
+	lda #<$D800
+	clc
+	adc screen_ram_pointer
+	sta $5d
+	lda #>$D800
+	adc screen_ram_pointer+1
+	sta $5e
+
+	; copy bytes
+	ldz #$00
+ual_1:	lda ($57),z
+	sta ($59),z
+	lda ($5b),z
+	sta ($5d),z    ; XXX only works for first 1KB of colour RAM - should use DMA
+	inz
+	cpz screen_line_bytes
+	bne ual_1
+	; now append $FFFF to screen RAM and dummy bytes to colour RAM
+	lda #$FF
+	sta ($59),z
+	sta ($5D),z
+	inz
+	sta ($59),z
+	sta ($5D),z
+	inz
+
+	; advance screen RAM pointer
+	tza
+	clc
+	adc screen_ram_pointer
+	sta screen_ram_pointer
+	lda screen_ram_pointer+1
+	adc #$00
+	sta screen_ram_pointer+1
+	
+	; clear Z so we don't upset and 6502 code
+	ldz #$00
+
+	; check for next row
+	iny
+	cpy screen_line_height
+	bne ual_row
+
+	rts
+
 ; scratch space
 temp_word: .word 0
 
@@ -229,6 +302,9 @@ glyph_horizontal_trim:
 	.byte 0
 ; width of glyph in pixels
 glyph_width:
+	.word 0
+; address of glyph tile list
+glyph_tile_list_address:
 	.word 0
 
 ; Base number of glyph tiles
@@ -263,17 +339,17 @@ screen_line_height:
 ; number of those 8x8 tiles that are for underhang
 screen_line_underhang_height:
 	.byte 1
-; buffer for screen lines.  512 bytes per line in the line buffer for screen RAM
-; and colour RAM each limits lines to 256 8x8 tiles per line.  This seems a
+; buffer for screen lines.  256 bytes per line in the line buffer for screen RAM
+; and colour RAM each limits lines to 128 8x8 tiles per line.  This seems a
 ; reasonable memory/max line length trade-off.  The trickier trade-off is the
 ; maximum number of tiles high that a row can be.  This will need to be reworked
-; later, but for now, we will allow a line to be 8 tiles high. 8x512 = 4K.
+; later, but for now, we will allow a line to be 8 tiles high. 8x256 = 2K.
 ; colour RAM only needs one row of buffer, since the colour information will be
 ; duplicated on each row of tiles.
 screen_ram_buffer:
-	.advance screen_ram_buffer+$1000
+	.advance screen_ram_buffer+$800
 colour_ram_buffer:
-	.advance colour_ram_buffer+$200
+	.advance colour_ram_buffer+$100
 	
 
 ; Keep $3000 - $3FFF for screen RAM
