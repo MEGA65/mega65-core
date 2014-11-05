@@ -136,25 +136,39 @@ glyph_lookup:
 	sta temp_word
 	sta temp_word+1
 
-gl_nextpoint:
+gl_tryglyph:
 	ldz #$00
 	lda ($57),z
 	cmp glyph_unicode_point
-	bne gl_checknextpoint
+	bne gl_notthisglyph
 	inz
 	lda ($57),z
 	cmp glyph_unicode_point+1
-	beq gl_foundpoint
-gl_checknextpoint: 
-	inc temp_word
-	bne gl_np2
-	inc temp_word+1
-gl_np2:
+	beq gl_foundglyph
+gl_notthisglyph:
+	; advance address by 5 bytes to next glyph entry 
+	lda temp_word
+	clc
+	adc #$05
+	sta temp_word
 	lda temp_word+1
-	cmp font_glyphs+1
-	bcc gl_nextpoint
-	beq gl_maybechecknextpoint
-gl_dontchecknextpoint:
+	adc #$00
+	sta temp_word
+
+	; decrement number of glyphs left to check
+	lda font_glyphs
+	sec
+	sbc #$01
+	sta font_glyphs
+	lda font_glyphs+1
+	sbc #$00
+	sta font_glyphs+1
+
+	; see if there are more glyphs to consider
+	lda font_glyphs
+	ora font_glyphs+1
+	bne gl_tryglyph
+gl_nomoreglyphs:
 	ldz #$00
 	; FAIL no such point in font
 	lda #$00
@@ -167,13 +181,9 @@ gl_dontchecknextpoint:
 	sta glyph_width+1
 	sta glyph_tile_list_address
 	rts
-gl_maybechecknextpoint:
-	lda temp_word
-	cmp font_glyphs
-	bcc gl_nextpoint
-	bra gl_dontchecknextpoint
-
-gl_foundpoint:
+gl_foundglyph:
+	; We now know the point number.
+	
 
 
 
