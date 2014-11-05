@@ -311,6 +311,125 @@ glyph_fits:
 	; Glyph fits, so stamp it
 glyph_stamp:
 	; Draw a glyph into the screen & colour RAM buffers
+	
+	; The screen line is screen_line_height tiles high.
+	; screen_line_underhang_height of those tiles are below the baseline.
+	; So the highest numbered row is:
+	;   screen_line_height-1-screen_line_underhang_height
+
+	; The glyph is glyph_tiles_high+glyph_tiles_underhang tiles high.
+	; glyph_tiles_underhang are below the baseline.
+	; So the highest numbered row is:
+	;   glyph_tiles_high-1
+
+	; For efficiency we wish to go through the glyph tile map and convert the 
+	; glyph tile row number into the screen tile row number, and then decide
+	; whether to stamp that row or not.
+
+	; Work out where in the screen line the top line of the glyph corresponds
+	lda glyph_tiles_high
+	clc
+	adc screen_line_underhang_height
+	sta $57
+
+	; work out number of rows that the glyph provides
+	lda glyph_tiles_high
+	clc
+	adc glyph_tiles_underhang
+	sta $58
+	
+	; get pointer to tile list
+	lda glyph_tile_list_address
+	sta $59
+	lda glyph_tile_list_address+1
+	sta $5a
+	ldy #$00
+
+	; and to colour RAM buffer
+	lda #<colour_ram_buffer
+	sta $5d
+	lda #>colour_ram_buffer
+	sta $5e
+
+glyph_stamp_consider_row:
+	lda $58
+	beq stamping_done
+	lda $57
+	cmp screen_line_height
+	bcs glyph_stamp_done_row ; don't draw rows above the top of the line
+	bne stamping_done    ; stop if we go below the bottom of the line
+
+	; we need to stamp this row 
+
+	; get pointer to correct line of screen buffer in $5b/$5c
+	lda screen_ram_buffer
+	sta $5b
+	lda screen_ram_buffer+1
+	clc
+	adc screen_line_height
+	clc
+	sbc $57
+	sta $5c
+	ldz screen_line_bytes
+
+glyph_stamp_tile:
+	; Now for each column of the row, stamp the appropriate tile
+	ldx #$00
+	cpx glyph_tiles_wide
+	beq stamping_done
+	
+	; stamp column of glyph
+	lda ($59),y
+	clc
+	adc font_tile_base
+	sta ($5b),z
+	lda glyph_colour
+	sta ($5d),z
+	iny
+	inz
+	lda ($59),y
+	adc font_tile_base+1
+	sta ($5b),z
+	lda #$00
+	sta ($5d),z
+	iny
+	inz
+	
+	inx
+	bra glyph_stamp_tile
+
+	; apply horizontal trim to last tile drawn
+	; bits 2 and 1 are in upper byte of screen RAM:
+	lda glyph_horizontal_trim
+	asl
+	asl
+	asl
+	asl
+	asl
+	and #$c0
+	sta temp
+	dez
+	lda ($5b),z
+	ora temp
+	sta ($5b),z
+	; bit 0 is in upper byte of colour RAM:
+	lda glyph_horizontal_trim
+	asl
+	and #$02
+	sta temp
+	lda ($5d),z
+	ora temp
+	sta ($5d),z
+
+glyph_stamp_done_row:
+	dec $58
+	bra glyph_stamp_consider_row
+
+
+stamping_done:
+	ldz #$00
+
+	; XXX adjust bytes and pixels consumed
 
 	rts
 
@@ -415,6 +534,7 @@ ual_1:	lda ($57),z
 
 ; scratch space
 temp_word: .word 0
+temp:	   .byte 0
 
 ; number of unicode points in font
 font_glyphs:
@@ -442,6 +562,9 @@ glyph_width:
 ; address of glyph tile list
 glyph_tile_list_address:
 	.word 0
+
+glyph_colour:
+	.byte 1
 
 ; Base number of glyph tiles
 ; Tiles are at fontheader+something, so base number is $4000/64 = $100
