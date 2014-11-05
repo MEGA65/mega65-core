@@ -67,11 +67,14 @@ pl:	txa
 	inx
 	bne pl
 	
+	; calculate base tile number for this face
+	jsr face_calculate_tile_base
+
+	; Print a short Unicode encoded message using the proportional font we
+	; have loaded
 	lda #<unicodestring
 	ldx #>unicodestring
 	jsr printunicodemessage	
-
-	; XXX set colour RAM
 
 	; then do nothing
 loop:
@@ -116,22 +119,8 @@ pum1:
 	jsr glyph_print
 	jmp pum_nextpoint
 
-glyph_lookup:
-	; Get important information for a glyph from a font.
-	
-	; Start by building pointer to glyph list in font.
-	; glyph list is always at header+$100
-	lda fontheader+$100
-	sta $57
-	lda fontheader+$101
-	sta $58
-	; also get the number of glyphs so that we know when to stop looking
-	lda fontheader+$87
-	sta font_glyphs
-	lda fontheader+$88
-	sta font_glyphs+1
-	
-	; finally work out the base tile number for this font
+face_calculate_tile_base:
+	; work out the base tile number for this font
 	lda fontheader+$84
 	clc
 	adc #<fontheader
@@ -148,8 +137,24 @@ gl_2:	lsr glyph_tile_base+2
 	ror glyph_tile_base+1
 	ror glyph_tile_base
 	dex
-	bne gl_2	
+	bne gl_2
+	rts	
 
+glyph_lookup:
+	; Get important information for a glyph from a font.
+	
+	; Start by building pointer to glyph list in font.
+	; glyph list is always at header+$100
+	lda fontheader+$100
+	sta $57
+	lda fontheader+$101
+	sta $58
+	; also get the number of glyphs so that we know when to stop looking
+	lda fontheader+$87
+	sta font_glyphs
+	lda fontheader+$88
+	sta font_glyphs+1
+	
 	; start looking at entry 0
 	lda #$00
 	sta temp_word
