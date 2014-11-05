@@ -117,6 +117,28 @@ pum1:
 	jmp pum_nextpoint
 
 glyph_lookup:
+
+	; finally work out glyph width in pixels
+	lda glyph_tiles_wide
+	asl
+	asl
+	asl
+	sta glyph_width
+	lda glyph_tiles_wide
+	lsr
+	lsr
+	lsr
+	lsr
+	lsr
+	sta glyph_width+1
+	lda glyph_width
+	sec
+	sbc glyph_horizontal_trim
+	sta glyph_width
+	lda glyph_width+1
+	sbc #$00
+	sta glyph_width+1
+
 	rts
 
 glyph_print:
@@ -138,28 +160,12 @@ gp1:
 	jsr glyph_lookup
 
 	; work out how wide the line would be with this glyph added
-	lda glyph_tiles_wide
-	asl
-	asl
-	asl
+	lda glyph_width
 	clc
 	adc screen_line_pixels
 	sta temp_word
-	lda glyph_tiles_wide
-	lsr
-	lsr
-	lsr
-	lsr
-	lsr
+	lda glyph_width+1
 	adc screen_line_pixels+1
-	sta temp_word+1
-	lda temp_word
-	sec
-	sbc glyph_horizontal_trim
-	sta temp_word
-	lda temp_word+1
-	sbc #$00
-	sta temp_word+1
 	cmp screen_line_pixels_width+1
 	bcc glyph_fits
 	beq glyph_might_fit
@@ -221,6 +227,9 @@ glyph_tiles_wide:
 	.byte 0
 glyph_horizontal_trim:
 	.byte 0
+; width of glyph in pixels
+glyph_width:
+	.word 0
 
 ; Base number of glyph tiles
 ; Tiles are at $4000, so base number is $4000/64 = $100
