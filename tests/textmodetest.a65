@@ -131,6 +131,25 @@ glyph_lookup:
 	lda fontheader+$88
 	sta font_glyphs+1
 	
+	; finally work out the base tile number for this font
+	lda fontheader+$84
+	clc
+	adc #<fontheader
+	sta glyph_tile_base
+	lda fontheader+$85
+	adc #>fontheader
+	sta glyph_tile_base+1
+	lda fontheader+$86
+	adc #$00
+	sta glyph_tile_base+2
+	; shift right six times to divide by $40
+	ldx #$06
+gl_2:	lsr glyph_tile_base+2
+	ror glyph_tile_base+1
+	ror glyph_tile_base
+	dex
+	bne gl_2	
+
 	; start looking at entry 0
 	lda #$00
 	sta temp_word
@@ -284,8 +303,9 @@ glyph_might_fit:
 	cmp screen_line_pixels_width
 	bcs glyph_doesnt_fit
 glyph_fits:
-
-	; Draw glyph tile numbers into screen ram buffer
+	; Glyph fits, so stamp it
+glyph_stamp:
+	; Draw a glyph into the screen & colour RAM buffers
 
 	rts
 
@@ -395,6 +415,9 @@ temp_word: .word 0
 font_glyphs:
 	.word 0
 
+font_tile_base:
+	.word 0
+
 ; current glyph being drawn
 glyph_unicode_point:
 	.word 0
@@ -416,11 +439,11 @@ glyph_tile_list_address:
 	.word 0
 
 ; Base number of glyph tiles
-; Tiles are at $4000, so base number is $4000/64 = $100
+; Tiles are at fontheader+something, so base number is $4000/64 = $100
 ; this number gets added to the tile numbers extracted from the font
 ; to compute the VIC-IV tile number that points to the data.
 glyph_tile_base:
-	.word $0100
+	.word $0000,$0000
 
 ; Where screen RAM starts
 screen_ram_base:
