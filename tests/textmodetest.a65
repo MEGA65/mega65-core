@@ -430,6 +430,18 @@ stamping_done:
 	ldz #$00
 
 	; XXX adjust bytes and pixels consumed
+	lda screen_line_bytes
+	clc
+	adc glyph_tiles_wide
+	sta screen_line_bytes
+
+	lda screen_line_pixels
+	clc
+	adc glyph_width
+	sta screen_line_pixels
+	lda screen_line_pixels+1
+	adc glyph_width+1
+	sta screen_line_pixels+1
 
 	rts
 
