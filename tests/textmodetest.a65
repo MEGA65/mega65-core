@@ -1,0 +1,211 @@
+;
+;  Test programme for advanced text mode.
+;  This test concentrates on 16-bit text mode and displays proportional font text.
+;
+
+; Include C64 BASIC program load header
+
+	 .word $0801
+	 .org $0801
+
+	 .scope
+	 .word _next, 10                       ; Next line and current line number
+	 .byte $97, "2,0:", $9e, " 2014", $AA, "65",0      ; POKE 2,0 : SYS 2014+65
+_next:	 .word 0
+
+iter1:	 .byte 0
+
+	 .checkpc 2079
+	 .advance 2079
+
+programentrypoint:
+	; Enable C65GS IO
+	lda #$47
+	sta $d02f
+	lda #$53
+	sta $d02f
+
+	; Select 960x600 resolution
+	lda #$40
+	sta $d042
+	lda #$01
+	sta $d043
+
+	; Enable 16-bit text mode, with full-colour characters
+	lda #$47
+	sta $d054
+
+	; Make virtual row length $FF bytes
+	lda #$ff
+	sta $d040
+	lda #$00
+	sta $d041
+
+	; Put screen RAM at $3000
+	lda #$00
+	sta $D060
+	lda #$30
+	sta $D061
+	lda #$00
+	sta $D062
+	sta $D063
+	; colour RAM starting at $0000
+	sta $D064
+	sta $D065
+
+	; Set palette to grey gradient
+	ldx #$10
+pl:	txa
+	lsr
+	lsr
+	lsr
+	lsr
+	and #$0f
+	sta $d100,x
+	sta $d200,x
+	sta $d300,x
+	inx
+	bne pl
+	
+	lda #<unicodestring
+	ldx #>unicodestring
+	jsr printunicodemessage	
+
+	; XXX set colour RAM
+
+	; then do nothing
+loop:
+	jmp loop
+	
+; Text to display expressed as list of 16-bit unicode points.
+unicodestring:
+       .word 'H,'e,'l,'l,'o,$20,'W,'o,'r,'l,'d
+       .word $000d
+       .word $05d4,$05d3,$05d2,$05d1,$05d0
+       .word $000d
+       .word 0
+
+
+printunicodemessage:
+	; Display a unicode string using the proportional font loaded at
+	; fontheader.
+	
+	; save pointer to message
+	sta $fd
+	stx $fe
+
+pum_nextpoint:
+	; read next glyph number
+	ldy #$00
+	lda ($fd),y
+	sta glyph_unicode_point
+	iny
+	lda ($fd),y
+	sta glyph_unicode_point+1
+	; advance message pointer
+	inw $fd
+	inw $fd
+
+	; return if we have hit null character ($0000)
+	; as this marks end of string
+	ora glyph_unicode_point
+	bne pum1
+	rts
+pum1:
+	; non-zero point
+	jsr glyph_print
+	jmp pum_nextpoint
+
+glyph_lookup:
+	rts
+
+glyph_print:
+	lda glyph_unicode_point
+	cmp #$0d
+	bne gp1
+	lda glyph_unicode_point+1
+	cmp #$00
+	bne gp1
+	
+	; Found carriage return
+	jmp unicode_newline
+gp1:
+	; XXX Add other non-printable glyphs (eg colour changes) here
+
+	; Printable glyph
+
+	; Get details about glyph
+	jsr glyph_lookup
+
+	; 
+
+	rts
+
+unicode_newline:
+
+	rts
+
+; current glyph being drawn
+glyph_unicode_point:
+	.word 0
+glyph_address:
+	.word $0000
+glyph_tiles_high:
+	.byte 0
+glyph_tiles_underhang:
+	.byte 0
+glyph_tiles_wide:
+	.byte 0
+glyph_horizontal_trim:
+	.byte 0
+
+
+; Where screen RAM starts
+screen_ram_base:
+	.word $3000
+; Where we are relative to screen RAM
+screen_ram_pointer:
+	.word $0000
+; number of pixels used on current line
+screen_line_pixels:
+	.word $0000
+; number of bytes used to encode current screen line.
+; when end of line is reached, this is used to eliminate the excess characters.
+screen_line_bytes:
+	.byte 0
+; height of current line in 8x8 tiles (including underhang)
+screen_line_height:
+	.byte 3
+; number of those 8x8 tiles that are for underhang
+screen_line_underhang_height:
+	.byte 1
+; buffer for screen lines.  512 bytes per line in the line buffer for screen RAM
+; and colour RAM each limits lines to 256 8x8 tiles per line.  This seems a
+; reasonable memory/max line length trade-off.  The trickier trade-off is the
+; maximum number of tiles high that a row can be.  This will need to be reworked
+; later, but for now, we will allow a line to be 8 tiles high. 8x512 = 4K.
+; colour RAM only needs one row of buffer, since the colour information will be
+; duplicated on each row of tiles.
+screen_ram_buffer:
+	.advance screen_ram_buffer+$1000
+colour_ram_buffer:
+	.advance colour_ram_buffer+$200
+	
+
+; Keep $3000 - $3FFF for screen RAM
+	.checkpc $3000
+	.advance $3000
+
+; 
+
+; Include proportional font at $4000 (the file has 2 byte address header, so
+; start at $3FFE
+	.checkpc $3ffe
+	.advance $3ffe
+	.alias fontheader $4000
+
+	.incbin "dejavus.f65"
+
+	.scend
+
+	.outfile "textmodetest.prg"

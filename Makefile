@@ -6,6 +6,7 @@ all:	ghdl-frame-gen \
 	makerom \
 	container.prj \
 	thumbnail.prg \
+	tests/textmodetest.prg \
 	gs4510.vhdl viciv.vhdl
 
 ethertest.prg:	ethertest.a65 Makefile
@@ -31,6 +32,10 @@ etherload_stub.prg:	etherload_stub.a65 Makefile
 
 etherload_done.prg:	etherload_done.a65 Makefile
 	../Ophis/bin/ophis -4 etherload_done.a65
+
+tests/textmodetest.prg:	tests/textmodetest.a65 tests/dejavus.f65 Makefile
+	../Ophis/bin/ophis -4 tests/textmodetest.a65
+
 
 kickstart.vhdl:	rom_template.vhdl diskchooser kickstart65gs.bin makerom
 	./makerom rom_template.vhdl kickstart65gs.bin kickstart
