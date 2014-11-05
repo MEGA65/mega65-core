@@ -137,6 +137,42 @@ gp1:
 	; Get details about glyph
 	jsr glyph_lookup
 
+	; work out how wide the line would be with this glyph added
+	lda glyph_tiles_wide
+	asl
+	asl
+	asl
+	clc
+	adc screen_line_pixels
+	sta temp_word
+	lda glyph_tiles_wide
+	lsr
+	lsr
+	lsr
+	lsr
+	lsr
+	adc screen_line_pixels+1
+	sta temp_word+1
+	lda temp_word
+	sec
+	sbc glyph_horizontal_trim
+	sta temp_word
+	lda temp_word+1
+	sbc #$00
+	sta temp_word+1
+	cmp screen_line_pixels_width+1
+	bcc glyph_fits
+	beq glyph_might_fit
+glyph_doesnt_fit:
+	; start a new line if the glyph won't fit on the current line
+	jsr unicode_newline
+	bra glyph_fits
+glyph_might_fit:
+	lda temp_word
+	cmp screen_line_pixels_width
+	bcs glyph_doesnt_fit
+glyph_fits:
+
 	; Check if glyph overflows the maximum line length
 
 	; Draw glyph tile numbers into screen ram buffer
@@ -168,6 +204,9 @@ unl1:
 unicode_apply_line:
 	; Take the contents of the screen RAM buffer and colour RAM buffer and
 	; apply (draw) it onto the screen
+
+; scratch space
+temp_word: .word 0
 
 ; current glyph being drawn
 glyph_unicode_point:
