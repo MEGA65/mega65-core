@@ -137,13 +137,37 @@ gp1:
 	; Get details about glyph
 	jsr glyph_lookup
 
-	; 
+	; Check if glyph overflows the maximum line length
+
+	; Draw glyph tile numbers into screen ram buffer
 
 	rts
 
 unicode_newline:
+	; Clear unicode line status
+
+	; Render the current line
+	; (this will add the $FFFF EOL marker)
+	jsr unicode_apply_line
+
+	; Advance the screen RAM pointer to take account of the line
+	lda screen_ram_applied_pointer
+	sta screen_ram_pointer
+	lda screen_ram_applied_pointer+1
+	sta screen_ram_pointer+1
+
+unl1:
+	; reset horizontal position
+	lda #$00
+	sta screen_line_pixels
+	sta screen_line_pixels+1
+	sta screen_line_bytes
 
 	rts
+
+unicode_apply_line:
+	; Take the contents of the screen RAM buffer and colour RAM buffer and
+	; apply (draw) it onto the screen
 
 ; current glyph being drawn
 glyph_unicode_point:
@@ -159,13 +183,25 @@ glyph_tiles_wide:
 glyph_horizontal_trim:
 	.byte 0
 
+; Base number of glyph tiles
+; Tiles are at $4000, so base number is $4000/64 = $100
+; this number gets added to the tile numbers extracted from the font
+; to compute the VIC-IV tile number that points to the data.
+glyph_tile_base:
+	.word $0100
 
 ; Where screen RAM starts
 screen_ram_base:
 	.word $3000
-; Where we are relative to screen RAM
+; Where we are relative to screen RAM for start of line
 screen_ram_pointer:
 	.word $0000
+; Where we are relative to screen RAM after rendering the current line
+screen_ram_applied_pointer:
+	.word $0000
+; width of screen lines in pixels
+screen_line_pixels_width:
+	.word 960
 ; number of pixels used on current line
 screen_line_pixels:
 	.word $0000
