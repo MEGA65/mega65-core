@@ -182,31 +182,68 @@ gl_nomoreglyphs:
 	sta glyph_tile_list_address
 	rts
 gl_foundglyph:
-	; We now know the point number.
-	
+	; We have found the glyph entry in the font.
+	; Get the address of the tile map for this glyph
+	ldz #$02
+	lda ($57),z
+	sta glyph_tile_list_address
+	inz
+	lda ($57),z
+	sta glyph_tile_list_address+1
+	ldz #$00
 
+	; now get pointer to tile list
+	lda glyph_tile_list_address
+	clc
+	adc #<fontheader
+	sta $57
+	lda glyph_tile_list_address+1
+	adc #>fontheader
+	sta $58
 
+	; Get size information from tile list
+	lda ($57),z
+	sta glyph_tiles_high
+	inz
+	lda ($57),z
+	sta glyph_tiles_underhang
+	inz
+	lda ($57),z
+	sta glyph_tiles_wide
+	inz
+	lda ($57),z
+	sta glyph_horizontal_trim
+	ldz #$00
 
-	; finally work out glyph width in pixels
-	lda glyph_tiles_wide
-	asl
-	asl
-	asl
-	sta glyph_width
-	lda glyph_tiles_wide
-	lsr
-	lsr
-	lsr
-	lsr
-	lsr
-	sta glyph_width+1
-	lda glyph_width
-	sec
-	sbc glyph_horizontal_trim
-	sta glyph_width
-	lda glyph_width+1
-	sbc #$00
-	sta glyph_width+1
+	; Now put final tile list address in place
+	lda $57
+	clc
+	adc #$04
+	sta glyph_tile_list_address
+	lda $58
+	adc #$00
+	sta glyph_tile_list_address
+
+	; Finally work out the width of the this glyph in pixels
+       lda glyph_tiles_wide
+       asl
+       asl
+       asl
+       sta glyph_width
+       lda glyph_tiles_wide
+       lsr
+       lsr
+       lsr
+       lsr
+       lsr
+       sta glyph_width+1
+       lda glyph_width
+       sec
+       sbc glyph_horizontal_trim
+       sta glyph_width
+       lda glyph_width+1
+       sbc #$00
+       sta glyph_width+1
 
 	rts
 
