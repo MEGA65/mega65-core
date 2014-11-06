@@ -127,18 +127,18 @@ face_calculate_tile_base:
 	lda fontheader+$84
 	clc
 	adc #<fontheader
-	sta glyph_tile_base
+	sta face_tile_base
 	lda fontheader+$85
 	adc #>fontheader
-	sta glyph_tile_base+1
+	sta face_tile_base+1
 	lda fontheader+$86
 	adc #$00
-	sta glyph_tile_base+2
+	sta face_tile_base+2
 	; shift right six times to divide by $40
 	ldx #$06
-gl_2:	lsr glyph_tile_base+2
-	ror glyph_tile_base+1
-	ror glyph_tile_base      ; @$B5E
+gl_2:	lsr face_tile_base+2
+	ror face_tile_base+1
+	ror face_tile_base      ; @$B5E
 	dex
 	bne gl_2
 	rts	
@@ -203,8 +203,6 @@ gl_nomoreglyphs:
 	ldz #$00
 	; FAIL no such point in font
 	lda #$00
-	sta glyph_address
-	sta glyph_address+1
 	sta glyph_tiles_high
 	sta glyph_tiles_wide
 	sta glyph_horizontal_trim
@@ -388,14 +386,14 @@ glyph_stamp_tile:
 	; stamp column of glyph
 	lda ($59),y
 	clc
-	adc font_tile_base
+	adc face_tile_base
 	sta ($5b),z
 	lda glyph_colour
 	sta ($5d),z
 	iny
 	inz
 	lda ($59),y
-	adc font_tile_base+1
+	adc face_tile_base+1
 	sta ($5b),z
 	lda #$00
 	sta ($5d),z
@@ -551,22 +549,28 @@ ual_1:	lda ($57),z
 
 	rts
 
+	.checkpc $2600
+	.advance $2600
+
 ; scratch space
 temp_word: .word 0
-temp:	   .byte 0
+temp:	   .word 0
 
 ; number of unicode points in font
 font_glyphs:
 	.word 0
 
-font_tile_base:
-	.word 0
+; Base number of glyph tiles
+; Tiles are at fontheader+something, so base number is $4000/64 = $100
+; this number gets added to the tile numbers extracted from the font
+; to compute the VIC-IV tile number that points to the data.
+; (3rd byte holds MSB of address prior to being shifted down)
+face_tile_base:
+	.word $0000,$0000
 
 ; current glyph being drawn
 glyph_unicode_point:
 	.word 0
-glyph_address:
-	.word $0000
 glyph_tiles_high:
 	.byte 0
 glyph_tiles_underhang:
@@ -584,13 +588,6 @@ glyph_tile_list_address:
 
 glyph_colour:
 	.byte 1
-
-; Base number of glyph tiles
-; Tiles are at fontheader+something, so base number is $4000/64 = $100
-; this number gets added to the tile numbers extracted from the font
-; to compute the VIC-IV tile number that points to the data.
-glyph_tile_base:
-	.word $0000,$0000
 
 ; Where screen RAM starts
 screen_ram_base:
