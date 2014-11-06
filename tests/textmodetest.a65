@@ -225,10 +225,10 @@ gl_foundglyph:
 	; now get pointer to tile list
 	lda glyph_tile_list_address
 	clc
-	adc #<fontheader
+	adc fontheader+$82
 	sta $57
 	lda glyph_tile_list_address+1
-	adc #>fontheader
+	adc fontheader+$83
 	sta $58
 
 	; Get size information from tile list
