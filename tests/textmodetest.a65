@@ -210,6 +210,7 @@ gl_nomoreglyphs:
 	sta glyph_width+1
 	sta glyph_tile_list_address
 	rts
+; @$0961
 gl_foundglyph:
 	; We have found the glyph entry in the font.
 	; Get the address of the tile map for this glyph
@@ -227,6 +228,13 @@ gl_foundglyph:
 	sta $57
 	lda glyph_tile_list_address+1
 	adc fontheader+$83
+	sta $58
+	lda $57
+	clc
+	adc #<fontheader
+	sta $57
+	lda $58
+	adc #>fontheader
 	sta $58
 
 	; Get size information from tile list
@@ -251,7 +259,7 @@ gl_foundglyph:
 	sta glyph_tile_list_address
 	lda $58
 	adc #$00
-	sta glyph_tile_list_address
+	sta glyph_tile_list_address+1
 
 	; Finally work out the width of the this glyph in pixels
        lda glyph_tiles_wide
