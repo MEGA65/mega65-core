@@ -3001,7 +3001,7 @@ begin
               memory_access_read := '1';
               memory_access_address := x"000"&reg_addr;
               memory_access_resolve_address := '1';
-              state <= InnYReadVectorHigh;
+              state <= InnZReadVectorHigh;
             when InnZReadVectorHigh =>
               reg_addr <=
                 to_unsigned(to_integer(memory_read_value&reg_addr(7 downto 0))
