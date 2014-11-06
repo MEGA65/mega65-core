@@ -624,12 +624,14 @@ screen_line_underhang_height:
 ; later, but for now, we will allow a line to be 8 tiles high. 8x256 = 2K.
 ; colour RAM only needs one row of buffer, since the colour information will be
 ; duplicated on each row of tiles.
-screen_ram_buffer:
-	.advance screen_ram_buffer+$800
+
+  	.checkpc $2700
+	.advance $2700
 colour_ram_buffer:
 	.advance colour_ram_buffer+$100
+screen_ram_buffer:
+	.advance screen_ram_buffer+$800
 	
-
 ; Keep $3000 - $3FFF for screen RAM
 	.checkpc $3000
 	.advance $3000
