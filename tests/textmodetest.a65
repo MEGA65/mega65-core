@@ -54,7 +54,7 @@ programentrypoint:
 	sta $D065
 
 	; Set palette to grey gradient
-	ldx #$10
+	ldx #$00
 pl:	txa
 	lsr
 	lsr
@@ -66,10 +66,13 @@ pl:	txa
 	sta $d300,x
 	inx
 	bne pl
+
+	; set screen colour to black to help with contrast
+	lda #$00
+	sta $d021
 	
 	; calculate base tile number for this face
 	jsr face_calculate_tile_base
-
 	; Print a short Unicode encoded message using the proportional font we
 	; have loaded
 	lda #<unicodestring
@@ -101,7 +104,7 @@ pum_nextpoint:
 	; read next glyph number
 	ldy #$00
 	lda ($fd),y
-	sta glyph_unicode_point
+	sta glyph_unicode_point  ; @$0B51-2
 	iny
 	lda ($fd),y
 	sta glyph_unicode_point+1
@@ -116,7 +119,7 @@ pum_nextpoint:
 	rts
 pum1:
 	; non-zero point
-	jsr glyph_print
+	jsr glyph_print     ; @$09D8
 	jmp pum_nextpoint
 
 face_calculate_tile_base:
@@ -135,24 +138,28 @@ face_calculate_tile_base:
 	ldx #$06
 gl_2:	lsr glyph_tile_base+2
 	ror glyph_tile_base+1
-	ror glyph_tile_base
+	ror glyph_tile_base      ; @$B5E
 	dex
 	bne gl_2
 	rts	
 
+; @$08F0
 glyph_lookup:
 	; Get important information for a glyph from a font.
 	
 	; Start by building pointer to glyph list in font.
 	; glyph list is always at header+$100
-	lda fontheader+$100
+	lda #<$0100
+	clc
+	adc #<fontheader
 	sta $57
-	lda fontheader+$101
+	lda #>$0100
+	adc #>fontheader
 	sta $58
 	; also get the number of glyphs so that we know when to stop looking
-	lda fontheader+$87
+	lda fontheader+$80
 	sta font_glyphs
-	lda fontheader+$88
+	lda fontheader+$81
 	sta font_glyphs+1
 	
 	; start looking at entry 0
@@ -161,23 +168,23 @@ glyph_lookup:
 	sta temp_word+1
 
 gl_tryglyph:
-	ldz #$00
-	lda ($57),z
+	ldy #$00
+	lda ($57),y
 	cmp glyph_unicode_point
 	bne gl_notthisglyph
-	inz
-	lda ($57),z
+	iny
+	lda ($57),y
 	cmp glyph_unicode_point+1
 	beq gl_foundglyph
 gl_notthisglyph:
 	; advance address by 5 bytes to next glyph entry 
-	lda temp_word
+	lda $57
 	clc
 	adc #$05
-	sta temp_word
-	lda temp_word+1
+	sta $57
+	lda $58
 	adc #$00
-	sta temp_word
+	sta $58
 
 	; decrement number of glyphs left to check
 	lda font_glyphs
@@ -208,13 +215,12 @@ gl_nomoreglyphs:
 gl_foundglyph:
 	; We have found the glyph entry in the font.
 	; Get the address of the tile map for this glyph
-	ldz #$02
-	lda ($57),z
+	ldy #$02
+	lda ($57),y
 	sta glyph_tile_list_address
-	inz
-	lda ($57),z
+	iny
+	lda ($57),y
 	sta glyph_tile_list_address+1
-	ldz #$00
 
 	; now get pointer to tile list
 	lda glyph_tile_list_address
@@ -226,16 +232,17 @@ gl_foundglyph:
 	sta $58
 
 	; Get size information from tile list
-	lda ($57),z
+	ldy #$00
+	lda ($57),y
 	sta glyph_tiles_high
-	inz
-	lda ($57),z
+	iny
+	lda ($57),y
 	sta glyph_tiles_underhang
-	inz
-	lda ($57),z
+	iny
+	lda ($57),y
 	sta glyph_tiles_wide
-	inz
-	lda ($57),z
+	iny
+	lda ($57),y
 	sta glyph_horizontal_trim
 	ldz #$00
 
@@ -287,7 +294,7 @@ gp1:
 	; Printable glyph
 
 	; Get details about glyph
-	jsr glyph_lookup
+	jsr glyph_lookup   ; @$08F0
 
 	; work out how wide the line would be with this glyph added
 	lda glyph_width
@@ -626,6 +633,14 @@ colour_ram_buffer:
 ; Keep $3000 - $3FFF for screen RAM
 	.checkpc $3000
 	.advance $3000
+
+	; start by saying "Hello" manually until we fix it
+
+	.word $0159,$4177,$C15A,$C15A,$0183,$FFFF
+	.word $FFFF
+	.word $FFFF
+	.word $FFFF
+	.word $FFFF
 
 ; 
 
