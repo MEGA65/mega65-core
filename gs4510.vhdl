@@ -347,6 +347,13 @@ end component;
   signal reg_pc_jsr : unsigned(15 downto 0);
   -- Temporary address register (used for indirect modes)
   signal reg_addr : unsigned(15 downto 0);
+  -- Upper 16 bits of temporary address register. Used for 32-bit
+  -- absolute addresses
+  signal reg_addr_msbs : unsigned(15 downto 0);
+  -- Flag that indicates if a ($nn),Z access is using a 32-bit pointer
+  signal absolute32_addressing_enabled : std_logic := '0';
+  -- flag for progressive carry calculation when loading a 32-bit pointer
+  signal pointer_carry : std_logic;
   -- Temporary value holder (used for RMW instructions)
   signal reg_t : unsigned(7 downto 0);
   signal reg_t_high : unsigned(7 downto 0);
@@ -464,6 +471,9 @@ end component;
     InnYReadVectorHigh,
     InnZReadVectorLow,
     InnZReadVectorHigh,
+    InnZReadVectorByte2,
+    InnZReadVectorByte3,
+    InnZReadVectorByte4,
     CallSubroutine,CallSubroutine2,
     ZPRelReadZP,
     JumpAbsXReadArg2,
@@ -555,11 +565,11 @@ end component;
     M_impl,  M_nnnnY, M_impl,  M_nnnnY, M_nnnn,  M_nnnnX, M_nnnnX, M_nnrr,  
     M_immnn, M_InnX,  M_immnn, M_immnn, M_nn,    M_nn,    M_nn,    M_nn,    
     M_impl,  M_immnn, M_impl,  M_nnnn,  M_nnnn,  M_nnnn,  M_nnnn,  M_nnrr,  
-    M_rr,    M_InnY,  M_InnY,  M_rrrr,  M_nnX,   M_nnX,   M_nnY,   M_nn,    
+    M_rr,    M_InnY,  M_InnZ,  M_rrrr,  M_nnX,   M_nnX,   M_nnY,   M_nn,
     M_impl,  M_nnnnY, M_impl,  M_nnnnX, M_nnnnX, M_nnnnX, M_nnnnY, M_nnrr,  
     M_immnn, M_InnX,  M_immnn, M_nn,    M_nn,    M_nn,    M_nn,    M_nn,    
     M_impl,  M_immnn, M_impl,  M_nnnn,  M_nnnn,  M_nnnn,  M_nnnn,  M_nnrr,  
-    M_rr,    M_InnY,  M_InnZ,  M_rrrr,  M_nn,    M_nnX,   M_nnX,   M_nn,    
+    M_rr,    M_InnY,  M_InnZ,  M_rrrr,  M_nn,    M_nnX,   M_nnX,   M_nn,
     M_impl,  M_nnnnY, M_impl,  M_impl,  M_nnnn,  M_nnnnX, M_nnnnX, M_nnrr,  
     M_immnn, M_InnX,  M_InnSPY,M_nn,    M_nn,    M_nn,    M_nn,    M_nn,    
     M_impl,  M_immnn, M_impl,  M_nnnn,  M_nnnn,  M_nnnn,  M_nnnn,  M_nnrr,  
@@ -1768,6 +1778,9 @@ begin
 
     variable temp_addr : unsigned(15 downto 0);    
 
+    variable temp17 : unsigned(17 downto 0);    
+    variable temp9 : unsigned(8 downto 0);    
+
     variable cpu_speed : std_logic_vector(2 downto 0);
     
   begin
@@ -2477,14 +2490,15 @@ begin
                 pc_inc := '1';
 
                 report "Executing instruction " & instruction'image(instruction_lut(to_integer(memory_read_value)))
-                  severity note;
-              
+                  severity note;                
+                
                 -- See if this is a single cycle instruction.
                 -- Note that CLI and CLE take 2 cycles so that any
                 -- pending interrupt can happen immediately (interrupts cannot
                 -- happen immediately after a single cycle instruction, because
                 -- interrupts are only checked in InstructionFetch, not
                 -- InstructionDecode).
+                absolute32_addressing_enabled <= '0';
                 case memory_read_value is
                   when x"03" => flag_e <= '1';  -- SEE
                   when x"0A" => reg_a <= a_asl; set_nz(a_asl); flag_c <= reg_a(7); -- ASL A
@@ -2519,9 +2533,20 @@ begin
                   when x"D8" => flag_d <= '0';  -- CLD
                   when x"E8" => reg_x <= x_incremented; set_nz(x_incremented); -- INX
                   when x"EA" => map_interrupt_inhibit <= '0'; -- EOM
-                  when x"F8" => flag_d <= '1';  -- CLD                            
+                                -- Enable 32-bit pointer for ($nn),Z addressing
+                                -- mode
+                                absolute32_addressing_enabled <= '1';
+                  when x"F8" => flag_d <= '1';  -- CLD
                   when others => null;
                 end case;
+
+                -- Preserve absolute32_addressing_enabled value if the current
+                -- instruction is ($nn),Z, so that we can use a 32-bit pointer
+                -- for that instruction.  Fortunately these all have the same
+                -- bottom five bits, being $x2, where x is odd.
+                if memory_read_value(4 downto 0) = "10010" then
+                  absolute32_addressing_enabled <= absolute32_addressing_enabled;
+                end if;
                 
                 if op_is_single_cycle(to_integer(memory_read_value)) = '0' then
                   if (mode_lut(to_integer(memory_read_value)) = M_immnn)
@@ -3001,7 +3026,46 @@ begin
               memory_access_read := '1';
               memory_access_address := x"000"&reg_addr;
               memory_access_resolve_address := '1';
-              state <= InnZReadVectorHigh;
+              if absolute32_addressing_enabled='1' then
+                state <= InnZReadVectorByte2;
+              else
+                state <= InnZReadVectorHigh;
+              end if;
+            when InnZReadVectorByte2 =>
+              -- Do addition of Z register as we go along, so that we don't have
+              -- a 32-bit carry.
+              temp17 :=
+                to_unsigned(to_integer(memory_read_value&reg_addr(7 downto 0))
+                            + to_integer(reg_z),17);
+              reg_addr <= temp17(15 downto 0);
+              pointer_carry <= temp17(16);
+              state <= InnZReadVectorByte3;
+            when InnZReadVectorByte3 =>
+              -- Do addition of Z register as we go along, so that we don't have
+              -- a 32-bit carry.
+              if pointer_carry='1' then
+                temp9 := to_unsigned(to_integer(memory_read_value+1),9);
+              else 
+                temp9 := to_unsigned(to_integer(memory_read_value+0),9);
+              end if;
+              reg_addr_msbs(7 downto 0) <= temp9(7 downto 0);
+              pointer_carry <= temp9(8);
+              state <= InnZReadVectorByte4;
+            when InnZReadVectorByte4 =>
+              -- Do addition of Z register as we go along, so that we don't have
+              -- a 32-bit carry.
+              if pointer_carry='1' then
+                temp9 := to_unsigned(to_integer(memory_read_value+1),9);
+              else 
+                temp9 := to_unsigned(to_integer(memory_read_value+0),9);
+              end if;
+              reg_addr_msbs(15 downto 8) <= temp9(7 downto 0);
+              if is_load='1' or is_rmw='1' then
+                state <= LoadTarget;
+              else
+                -- (reading next instruction argument byte as default action)
+                state <= MicrocodeInterpret;
+              end if;
             when InnZReadVectorHigh =>
               reg_addr <=
                 to_unsigned(to_integer(memory_read_value&reg_addr(7 downto 0))
@@ -3066,16 +3130,25 @@ begin
               state <= WriteCommit;
             when WriteCommit =>
               memory_access_write := '1';
-              memory_access_address := x"000"&reg_addr;
-              memory_access_resolve_address := '1';
+              memory_access_resolve_address := not absolute32_addressing_enabled;
+              if absolute32_addressing_enabled='1' then
+                memory_access_address(27 downto 16) := reg_addr_msbs(11 downto 0);
+              else
+                memory_access_address(27 downto 16) := x"000";
+              end if;
               memory_access_wdata := reg_t;
               state <= normal_fetch_state;
             when LoadTarget =>
               -- For some addressing modes we load the target in a separate
               -- cycle to improve timing.
               memory_access_read := '1';
-              memory_access_address := x"000"&reg_addr;
-              memory_access_resolve_address := '1';
+              memory_access_address(15 downto 0) := reg_addr;
+              memory_access_resolve_address := not absolute32_addressing_enabled;
+              if absolute32_addressing_enabled='1' then
+                memory_access_address(27 downto 16) := reg_addr_msbs(11 downto 0);
+              else
+                memory_access_address(27 downto 16) := x"000";
+              end if;
               state <= MicrocodeInterpret;
             when MicrocodeInterpret =>
               -- By this stage we have the address of the operand in
@@ -3282,6 +3355,15 @@ begin
                 state <= WordOpReadHigh;
               end if;
               memory_access_write := reg_microcode.mcWriteMem;
+              if reg_microcode.mcWriteMem='1' then
+                memory_access_address(15 downto 0) := reg_addr;
+                memory_access_resolve_address := not absolute32_addressing_enabled;
+                if absolute32_addressing_enabled='1' then
+                memory_access_address(27 downto 16) := reg_addr_msbs(11 downto 0);
+                else
+                  memory_access_address(27 downto 16) := x"000";
+                end if;
+              end if;
             when WordOpReadHigh =>
               state <= WordOpWriteLow;
               case reg_instruction is
