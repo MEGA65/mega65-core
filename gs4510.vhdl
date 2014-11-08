@@ -347,9 +347,11 @@ end component;
   signal reg_pc_jsr : unsigned(15 downto 0);
   -- Temporary address register (used for indirect modes)
   signal reg_addr : unsigned(15 downto 0);
-  -- Upper 16 bits of temporary address register. Used for 32-bit
+  -- Upper and lower
+  -- 16 bits of temporary address register. Used for 32-bit
   -- absolute addresses
   signal reg_addr_msbs : unsigned(15 downto 0);
+  signal reg_addr_lsbs : unsigned(15 downto 0);
   -- Flag that indicates if a ($nn),Z access is using a 32-bit pointer
   signal absolute32_addressing_enabled : std_logic := '0';
   -- flag for progressive carry calculation when loading a 32-bit pointer
@@ -1778,7 +1780,7 @@ begin
 
     variable temp_addr : unsigned(15 downto 0);    
 
-    variable temp17 : unsigned(17 downto 0);    
+    variable temp17 : unsigned(16 downto 0);    
     variable temp9 : unsigned(8 downto 0);    
 
     variable cpu_speed : std_logic_vector(2 downto 0);
@@ -2491,7 +2493,7 @@ begin
 
                 report "Executing instruction " & instruction'image(instruction_lut(to_integer(memory_read_value)))
                   severity note;                
-                
+
                 -- See if this is a single cycle instruction.
                 -- Note that CLI and CLE take 2 cycles so that any
                 -- pending interrupt can happen immediately (interrupts cannot
@@ -2539,7 +2541,7 @@ begin
                   when x"F8" => flag_d <= '1';  -- CLD
                   when others => null;
                 end case;
-
+                                 
                 -- Preserve absolute32_addressing_enabled value if the current
                 -- instruction is ($nn),Z, so that we can use a 32-bit pointer
                 -- for that instruction.  Fortunately these all have the same
@@ -3022,31 +3024,42 @@ begin
                 state <= MicrocodeInterpret;
               end if;
             when InnZReadVectorLow =>
-              reg_addr(7 downto 0) <= memory_read_value;
+              reg_addr_lsbs(7 downto 0) <= memory_read_value;
               memory_access_read := '1';
               memory_access_address := x"000"&reg_addr;
               memory_access_resolve_address := '1';
               if absolute32_addressing_enabled='1' then
                 state <= InnZReadVectorByte2;
+                reg_addr <= reg_addr + 1;
               else
+                reg_addr(7 downto 0) <= memory_read_value;
                 state <= InnZReadVectorHigh;
               end if;
             when InnZReadVectorByte2 =>
               -- Do addition of Z register as we go along, so that we don't have
               -- a 32-bit carry.
+              memory_access_read := '1';
+              memory_access_address := x"000"&reg_addr;
+              memory_access_resolve_address := '1';
+              reg_addr <= reg_addr + 1;
+              report "ABS32: Adding " & integer'image(to_integer(memory_read_value&reg_addr_lsbs(7 downto 0)) )& " to " & integer'image(to_integer(reg_z));
+              
               temp17 :=
-                to_unsigned(to_integer(memory_read_value&reg_addr(7 downto 0))
+                to_unsigned(to_integer(memory_read_value&reg_addr_lsbs(7 downto 0))
                             + to_integer(reg_z),17);
-              reg_addr <= temp17(15 downto 0);
+              reg_addr_lsbs <= temp17(15 downto 0);
               pointer_carry <= temp17(16);
               state <= InnZReadVectorByte3;
             when InnZReadVectorByte3 =>
               -- Do addition of Z register as we go along, so that we don't have
               -- a 32-bit carry.
+              memory_access_read := '1';
+              memory_access_address := x"000"&reg_addr;
+              memory_access_resolve_address := '1';
               if pointer_carry='1' then
-                temp9 := to_unsigned(to_integer(memory_read_value+1),9);
+                temp9 := to_unsigned(to_integer(memory_read_value)+1,9);
               else 
-                temp9 := to_unsigned(to_integer(memory_read_value+0),9);
+                temp9 := to_unsigned(to_integer(memory_read_value)+0,9);
               end if;
               reg_addr_msbs(7 downto 0) <= temp9(7 downto 0);
               pointer_carry <= temp9(8);
@@ -3055,11 +3068,16 @@ begin
               -- Do addition of Z register as we go along, so that we don't have
               -- a 32-bit carry.
               if pointer_carry='1' then
-                temp9 := to_unsigned(to_integer(memory_read_value+1),9);
+                temp9 := to_unsigned(to_integer(memory_read_value)+1,9);
               else 
-                temp9 := to_unsigned(to_integer(memory_read_value+0),9);
+                temp9 := to_unsigned(to_integer(memory_read_value)+0,9);
               end if;
               reg_addr_msbs(15 downto 8) <= temp9(7 downto 0);
+              reg_addr(15 downto 0) <= reg_addr_lsbs;
+              report "ABS32: final address is $"
+                & to_hstring(temp9(3 downto 0))
+                & to_hstring(reg_addr_msbs(7 downto 0))
+                & to_hstring(reg_addr_lsbs);
               if is_load='1' or is_rmw='1' then
                 state <= LoadTarget;
               else
