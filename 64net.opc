@@ -176,7 +176,7 @@ AE   LDX $nnnn
 AF   BBS2 $nn,$rr
 B0   BCS $rr
 B1   LDA ($nn),Y
-B2   LDA ($nn),Y
+B2   LDA ($nn),Z
 B3   BCS $rrrr
 B4   LDY $nn,X
 B5   LDA $nn,X
