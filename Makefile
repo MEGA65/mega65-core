@@ -43,8 +43,8 @@ kickstart.vhdl:	rom_template.vhdl diskchooser kickstart65gs.bin makerom
 slowram.vhdl:	c65gs.rom makeslowram slowram_template.vhdl
 	./makeslowram slowram_template.vhdl c65gs.rom slowram
 
-rxvideo:	rxvideo.c
-	gcc -Wall -g -o rxvideo rxvideo.c -lpcap
+videoproxy:	videoproxy.c
+	gcc -Wall -g -o videoproxy videoproxy.c -lpcap
 
 etherload:	etherload.c
 	gcc -Wall -g -o etherload etherload.c
