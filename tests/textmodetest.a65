@@ -409,17 +409,19 @@ glyph_stamp_tile:
 glyph_stamp_tile_card:
 	cpx glyph_tiles_wide
 	beq stamping_done
-	
+
 	; stamp column of glyph
 	lda ($59),y
 	clc
 	adc face_tile_base
+	php
 	sta ($5b),z
 	lda glyph_colour
 	sta ($5d),z
 	iny
 	inz
 	lda ($59),y
+	plp
 	adc face_tile_base+1
 	sta ($5b),z
 	lda #$00
@@ -461,12 +463,16 @@ glyph_stamp_done_row:
 stamping_done:
 	ldz #$00
 
-	; XXX adjust bytes and pixels consumed
-	lda screen_line_bytes
+	; Adjust bytes and pixels consumed
+
+	; Each tile is two bytes wide
+	lda glyph_tiles_wide
+        asl
 	clc
-	adc glyph_tiles_wide
+	adc screen_line_bytes
 	sta screen_line_bytes
 
+	; Pixels are represented naturally.
 	lda screen_line_pixels
 	clc
 	adc glyph_width
@@ -479,6 +485,9 @@ stamping_done:
 
 unicode_newline:
 	; Clear unicode line status
+
+zzzm:	inc $d020
+	jmp zzzm
 
 	; Render the current line
 	; (this will add the $FFFF EOL marker)
@@ -541,19 +550,19 @@ ual_row:
 
 	; copy bytes
 	ldz #$00
-ual_1:	lda ($57),z
-	sta ($59),z
-	lda ($5b),z
+ual_1:	lda ($59),z
+	sta ($5b),z
+	lda ($57),z
 	sta ($5d),z    ; XXX only works for first 1KB of colour RAM - should use DMA
 	inz
 	cpz screen_line_bytes
 	bne ual_1
 	; now append $FFFF to screen RAM and dummy bytes to colour RAM
 	lda #$FF
-	sta ($59),z
+	sta ($5B),z
 	sta ($5D),z
 	inz
-	sta ($59),z
+	sta ($5B),z
 	sta ($5D),z
 	inz
 
