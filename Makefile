@@ -34,7 +34,7 @@ etherload_done.prg:	etherload_done.a65 Makefile
 	../Ophis/bin/ophis -4 etherload_done.a65
 
 tests/textmodetest.prg:	tests/textmodetest.a65 tests/dejavus.f65 Makefile
-	../Ophis/bin/ophis -4 tests/textmodetest.a65
+	../Ophis/bin/ophis -4 tests/textmodetest.a65 -l textmodetest.list
 
 
 kickstart.vhdl:	rom_template.vhdl diskchooser kickstart65gs.bin makerom

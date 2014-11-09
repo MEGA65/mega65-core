@@ -209,10 +209,21 @@ gl_nomoreglyphs:
 	sta glyph_width
 	sta glyph_width+1
 	sta glyph_tile_list_address
+
 	rts
 ; @$0961
 gl_foundglyph:
 	; We have found the glyph entry in the font.
+
+	; Save address of glyph entry in font
+	lda $57
+	sta glyph_entry_address
+	lda $58
+	sta glyph_entry_address+1
+	lda #$00
+	sta glyph_entry_address+2
+	sta glyph_entry_address+3
+
 	; Get the address of the tile map for this glyph
 	ldy #$02
 	lda ($57),y
@@ -281,8 +292,7 @@ gl_foundglyph:
        lda glyph_width+1
        sbc #$00
        sta glyph_width+1
-
-	rts
+       rts
 
 glyph_print:
 	lda glyph_unicode_point
@@ -324,7 +334,7 @@ glyph_fits:
 	; Glyph fits, so stamp it
 glyph_stamp:
 	; Draw a glyph into the screen & colour RAM buffers
-	
+
 	; The screen line is screen_line_height tiles high.
 	; screen_line_underhang_height of those tiles are below the baseline.
 	; So the highest numbered row is:
@@ -365,19 +375,25 @@ glyph_stamp:
 	sta $5e
 
 glyph_stamp_consider_row:
+	; have we stamped all rows of this glyph?
 	lda $58
 	beq stamping_done
-	lda $57
-	cmp screen_line_height
-	bcs glyph_stamp_done_row ; don't draw rows above the top of the line
-	bne stamping_done    ; stop if we go below the bottom of the line
+	; does the current glyph correspond to a row in the screen line buffer?
+	; (must be in the range [0..screen_line_height)
+	lda screen_line_height
+	cmp $57
+	; Z is set if equal
+	; C is set if screen_line_height>current_row_being_drawn($57)
+
+	bmi stamping_done ; don't draw rows below the bottom of the line
+	bcc glyph_stamp_done_row ; don't draw rows above the top of the line
 
 	; we need to stamp this row 
 
 	; get pointer to correct line of screen buffer in $5b/$5c
-	lda screen_ram_buffer
+	lda #<screen_ram_buffer
 	sta $5b
-	lda screen_ram_buffer+1
+	lda #>screen_ram_buffer
 	clc
 	adc screen_line_height
 	clc
@@ -387,7 +403,10 @@ glyph_stamp_consider_row:
 
 glyph_stamp_tile:
 	; Now for each column of the row, stamp the appropriate tile
+
 	ldx #$00
+
+glyph_stamp_tile_card:
 	cpx glyph_tiles_wide
 	beq stamping_done
 	
@@ -409,7 +428,7 @@ glyph_stamp_tile:
 	inz
 	
 	inx
-	bra glyph_stamp_tile
+	bra glyph_stamp_tile_card
 
 	; apply horizontal trim to last tile drawn
 	; bits 2 and 1 are in upper byte of screen RAM:
@@ -576,6 +595,7 @@ font_glyphs:
 face_tile_base:
 	.word $0000,$0000
 
+; @$260A
 ; current glyph being drawn
 glyph_unicode_point:
 	.word 0
@@ -587,28 +607,38 @@ glyph_tiles_wide:
 	.byte 0
 glyph_horizontal_trim:
 	.byte 0
+; @$2610
 ; width of glyph in pixels
 glyph_width:
 	.word 0
+; @$2612
 ; address of glyph tile list
 glyph_tile_list_address:
-	.word 0
+	.word $0000,$0000
+; @$2616
+glyph_entry_address:
+	.word $0000,$0000
 
+; @$261A
 glyph_colour:
 	.byte 1
-
+; @$261B
 ; Where screen RAM starts
 screen_ram_base:
 	.word $3000
+; @$261D
 ; Where we are relative to screen RAM for start of line
 screen_ram_pointer:
 	.word $0000
+; @$261F
 ; Where we are relative to screen RAM after rendering the current line
 screen_ram_applied_pointer:
 	.word $0000
+; @$2621
 ; width of screen lines in pixels
 screen_line_pixels_width:
 	.word 960
+; @$2623
 ; number of pixels used on current line
 screen_line_pixels:
 	.word $0000
