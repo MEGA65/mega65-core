@@ -680,10 +680,10 @@ screen_line_bytes:
 	.byte 0
 ; height of current line in 8x8 tiles (including underhang)
 screen_line_height:
-	.byte 8
+	.byte 16
 ; number of those 8x8 tiles that are for underhang
 screen_line_underhang_height:
-	.byte 2
+	.byte 4
 
 screen_line_char_row_used:
 ; 16 one byte flags to indicate if a given character row is ever used
