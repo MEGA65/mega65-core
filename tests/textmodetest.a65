@@ -486,9 +486,6 @@ stamping_done:
 unicode_newline:
 	; Clear unicode line status
 
-zzzm:	inc $d020
-	jmp zzzm
-
 	; Render the current line
 	; (this will add the $FFFF EOL marker)
 	jsr unicode_apply_line
@@ -518,6 +515,12 @@ unicode_apply_line:
 	lda #>colour_ram_buffer
 	sta $58
 
+	; Set applied pointer to current screen pointer
+	lda screen_ram_pointer
+	sta screen_ram_applied_pointer
+	lda screen_ram_pointer+1
+	sta screen_ram_applied_pointer+1
+
 	ldy #$00
 ual_row:
 	; For this screen row, get the address of the screen ram buffer
@@ -531,10 +534,10 @@ ual_row:
 	; and also of the screen RAM where we need to write
 	lda screen_ram_base
 	clc
-	adc screen_ram_pointer
+	adc screen_ram_applied_pointer
 	sta $5b
 	lda screen_ram_base+1
-	adc screen_ram_pointer+1
+	adc screen_ram_applied_pointer+1
 	sta $5c
 	
 	; and also the colour RAM where we need to write
@@ -542,10 +545,10 @@ ual_row:
 	; to write colour RAM (and in fact to apply all the data)
 	lda #<$D800
 	clc
-	adc screen_ram_pointer
+	adc screen_ram_applied_pointer
 	sta $5d
 	lda #>$D800
-	adc screen_ram_pointer+1
+	adc screen_ram_applied_pointer+1
 	sta $5e
 
 	; copy bytes
@@ -569,11 +572,11 @@ ual_1:	lda ($59),z
 	; advance screen RAM pointer
 	tza
 	clc
-	adc screen_ram_pointer
-	sta screen_ram_pointer
-	lda screen_ram_pointer+1
+	adc screen_ram_applied_pointer
+	sta screen_ram_applied_pointer
+	lda screen_ram_applied_pointer+1
 	adc #$00
-	sta screen_ram_pointer+1
+	sta screen_ram_applied_pointer+1
 	
 	; clear Z so we don't upset and 6502 code
 	ldz #$00
