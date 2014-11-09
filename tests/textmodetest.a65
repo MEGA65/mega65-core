@@ -353,27 +353,43 @@ glyph_stamp:
 	; So the highest numbered row is:
 	;   glyph_tiles_high-1
 
-	; For efficiency we wish to go through the glyph tile map and convert the 
-	; glyph tile row number into the screen tile row number, and then decide
-	; whether to stamp that row or not.
+	; We go through the motions of stamping each of the 16 character rows.
+	; If there is no character data for the current row, then we stamp blank
+	; tiles, and do the kerning adjustments, so that these rows stay in
+	; alignment with the rows that get stamped with glyph data
 
-	; Work out where in the screen line the top line of the glyph corresponds
-	lda glyph_tiles_high
-	clc
-	adc screen_line_underhang_height
-	sta $57
+	; Start stamping from row 0
+	lda #00
+	sta $58
 
-	; work out number of rows that the glyph provides
-	lda glyph_tiles_high
+	; Glyphs are described by glyph_tiles_high and glyph_tiles_underhang.
+	; Thus the first row to stamp is:
+	; screen_line_height-screen_line_underhang_height
+	; -glyph_tiles_high+glyph_tiles_underhang+1
+	lda screen_line_height
+	sec
+	sbc screen_line_underhang_height
+	sec
+	sbc glyph_tiles_high
 	clc
 	adc glyph_tiles_underhang
-	sta $58
-	
+	sta $57
+	sta $04fe ; XXX DEBUG OUTPUT
+	; the last row to stamp is the above + glyph_tiles_high - 1
+	clc
+	adc glyph_tiles_high
+	sec
+	sbc #$01
+	sta $5f
+	sta $04ff ; XXX DEBUG OUTPUT
+
 	; get pointer to tile list
 	lda glyph_tile_list_address
 	sta $59
 	lda glyph_tile_list_address+1
 	sta $5a
+
+	; Offset in tile list (not incremented when drawing dummy rows)
 	ldy #$00
 
 	; and to colour RAM buffer
@@ -385,42 +401,50 @@ glyph_stamp:
 glyph_stamp_consider_row:
 	; have we stamped all rows of this glyph?
 	lda $58
+	cmp screen_line_height
 	beq stamping_done
-	; does the current glyph correspond to a row in the screen line buffer?
-	; (must be in the range [0..screen_line_height)
-	lda screen_line_height
-	cmp $57
-	; Z is set if equal
-	; C is set if screen_line_height>current_row_being_drawn($57)
-
-	bmi stamping_done ; don't draw rows below the bottom of the line
-	bcc glyph_stamp_done_row ; don't draw rows above the top of the line
-
-	; we need to stamp this row 
 
 	; get pointer to correct line of screen buffer in $5b/$5c
 	lda #<screen_ram_buffer
 	sta $5b
 	lda #>screen_ram_buffer
 	clc
-	adc $57
+	adc $58
 	sta $5c
 	ldz screen_line_bytes
+
+	lda #$dd
+	ldx $58
+	sta $0440,x
+
+	; does the current glyph correspond to a row in the screen line buffer?
+	lda $58
+	cmp $57
+	bcc glyph_stamp_dummy_row
+	lda $5f
+	cmp $58
+	bcc glyph_stamp_dummy_row
+			
+	; we need to stamp this row 
+
+	lda #$55
+	sta $0440,x
+
 
 glyph_stamp_tile:
 	; Now for each column of the row, stamp the appropriate tile
 
 	; Mark this screen line as being used, so that it gets output.
-	ldx $57
+	ldx $58
 	lda #$99
 	sta screen_line_char_row_used,x
-	sta $0410,x
+	sta $0410,x ; XXX DEBUG OUTPUT
 
 	ldx #$00
 
 glyph_stamp_tile_card:
 	cpx glyph_tiles_wide
-	beq stamping_done
+	beq glyph_stamp_done_row
 
 	; stamp column of glyph
 	lda ($59),y
@@ -444,12 +468,26 @@ glyph_stamp_tile_card:
 	inx
 	bra glyph_stamp_tile_card
 
+glyph_stamp_dummy_row:
+	; Stamp a row with blank tiles
+	ldx #$00
+glyph_stamp_dummy_card:
+	cpx glyph_tiles_wide
+	beq glyph_stamp_done_row
+	lda #$00
+	sta ($5b),z
+	sta ($5d),z
+	inz
+	sta ($5b),z
+	sta ($5d),z
+	inz
+	inx
+	bra glyph_stamp_dummy_card
+
+	; fall through
+
 glyph_stamp_done_row:
-	dec $58
-	bra glyph_stamp_consider_row
-
-
-stamping_done:
+	inc $58
 
 	; apply horizontal trim to last tile drawn
 	; bits 2 and 1 are in upper byte of screen RAM:
@@ -474,6 +512,9 @@ stamping_done:
 	ora temp
 	sta ($5d),z
 
+	bra glyph_stamp_consider_row
+
+stamping_done:
 	ldz #$00
 	
 	; Adjust bytes and pixels consumed
@@ -523,7 +564,7 @@ screen_line_clear:
 	sta screen_line_bytes
 	; clear line used flags
 	ldx #$0f
-slc1:	;sta screen_line_char_row_used,x
+slc1:	sta screen_line_char_row_used,x
 	dex
 	bpl slc1	
 	rts
@@ -549,7 +590,7 @@ ual_row:
 	; Skip this row if there was nothing drawn in it.
 	lda screen_line_char_row_used,y
 	sta $0400,y
-	beq ual_next_row
+;	beq ual_next_row
 
 	; For this screen row, get the address of the screen ram buffer
 	lda #<screen_ram_buffer
