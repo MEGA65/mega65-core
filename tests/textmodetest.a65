@@ -476,11 +476,14 @@ glyph_stamp_dummy_row:
 glyph_stamp_dummy_card:
 	cpx glyph_tiles_wide
 	beq glyph_stamp_done_row
-	lda #$00
+	lda #<blank_tile_number
 	sta ($5b),z
+	lda #$00
 	sta ($5d),z
 	inz
+	lda #>blank_tile_number
 	sta ($5b),z
+	lda #$00
 	sta ($5d),z
 	inz
 	inx
@@ -660,7 +663,22 @@ ual_next_row:
 
 	rts
 
-	
+blank_tile:
+	.checkpc $25c0
+	.advance $25c0
+
+	.alias blank_tile_number $97
+
+	.byte 0,0,0,0,0,0,0,0
+	.byte 0,0,0,0,0,0,0,0
+	.byte 0,0,0,0,0,0,0,0
+	.byte 0,0,0,0,0,0,0,0
+	.byte 0,0,0,0,0,0,0,0
+	.byte 0,0,0,0,0,0,0,0
+	.byte 0,0,0,0,0,0,0,0
+	.byte 0,0,0,0,0,0,0,0
+
+
 	.checkpc $2600
 	.advance $2600
 
