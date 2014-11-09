@@ -371,13 +371,15 @@ glyph_stamp:
 	sbc screen_line_underhang_height
 	sec
 	sbc glyph_tiles_high
-	clc
-	adc glyph_tiles_underhang
+;	clc
+;	adc glyph_tiles_underhang
 	sta $57
 	sta $04fe ; XXX DEBUG OUTPUT
 	; the last row to stamp is the above + glyph_tiles_high - 1
 	clc
 	adc glyph_tiles_high
+	clc
+	adc glyph_tiles_underhang
 	sec
 	sbc #$01
 	sta $5f
