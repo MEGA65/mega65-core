@@ -73,6 +73,10 @@ pl:	txa
 	
 	; calculate base tile number for this face
 	jsr face_calculate_tile_base
+
+	; Clear current text line output status
+	jsr screen_line_clear
+
 	; Print a short Unicode encoded message using the proportional font we
 	; have loaded
 	lda #<unicodestring
@@ -89,6 +93,8 @@ unicodestring:
        .word $000d
        .word $05d4,$05d3,$05d2,$05d1,$05d0
        .word $000d
+       .word 'g,'a,'r,'y,$20,'j,'u,'p,'i,'t,'e,'r
+       .word $000d       
        .word 0
 
 
@@ -498,12 +504,22 @@ unicode_newline:
 	sta screen_ram_pointer+1
 
 unl1:
+	jsr screen_line_clear
+	rts
+
+screen_line_clear:
+	; Reset line drawing aparartus for the start of the current line
+
 	; reset horizontal position
 	lda #$00
 	sta screen_line_pixels
 	sta screen_line_pixels+1
 	sta screen_line_bytes
-
+	; clear line used flags
+	ldx #$0f
+slc1:	sta screen_line_char_row_used,x
+	dex
+	bne slc1	
 	rts
 
 unicode_apply_line:
@@ -589,6 +605,7 @@ ual_1:	lda ($59),z
 
 	rts
 
+	
 	.checkpc $2600
 	.advance $2600
 
@@ -661,10 +678,16 @@ screen_line_bytes:
 	.byte 0
 ; height of current line in 8x8 tiles (including underhang)
 screen_line_height:
-	.byte 3
+	.byte 8
 ; number of those 8x8 tiles that are for underhang
 screen_line_underhang_height:
-	.byte 1
+	.byte 2
+
+screen_line_char_row_used:
+; 16 one byte flags to indicate if a given character row is ever used
+; in the current row of text output
+     	.byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+
 ; buffer for screen lines.  256 bytes per line in the line buffer for screen RAM
 ; and colour RAM each limits lines to 128 8x8 tiles per line.  This seems a
 ; reasonable memory/max line length trade-off.  The trickier trade-off is the
