@@ -432,6 +432,13 @@ glyph_stamp_tile_card:
 	inx
 	bra glyph_stamp_tile_card
 
+glyph_stamp_done_row:
+	dec $58
+	bra glyph_stamp_consider_row
+
+
+stamping_done:
+
 	; apply horizontal trim to last tile drawn
 	; bits 2 and 1 are in upper byte of screen RAM:
 	lda glyph_horizontal_trim
@@ -455,14 +462,8 @@ glyph_stamp_tile_card:
 	ora temp
 	sta ($5d),z
 
-glyph_stamp_done_row:
-	dec $58
-	bra glyph_stamp_consider_row
-
-
-stamping_done:
 	ldz #$00
-
+	
 	; Adjust bytes and pixels consumed
 
 	; Each tile is two bytes wide
