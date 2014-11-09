@@ -3148,6 +3148,7 @@ begin
               state <= WriteCommit;
             when WriteCommit =>
               memory_access_write := '1';
+              memory_access_address(15 downto 0) := reg_addr;
               memory_access_resolve_address := not absolute32_addressing_enabled;
               if absolute32_addressing_enabled='1' then
                 memory_access_address(27 downto 16) := reg_addr_msbs(11 downto 0);
