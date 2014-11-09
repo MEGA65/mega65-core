@@ -590,7 +590,7 @@ ual_row:
 	; Skip this row if there was nothing drawn in it.
 	lda screen_line_char_row_used,y
 	sta $0400,y
-;	beq ual_next_row
+	beq ual_next_row
 
 	; For this screen row, get the address of the screen ram buffer
 	lda #<screen_ram_buffer
