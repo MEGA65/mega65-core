@@ -41,10 +41,10 @@ programentrypoint:
 	lda #$00
 	sta $d041
 
-	; Put screen RAM at $3000
-	lda #$00
+	; Put screen RAM at screen_ram
+	lda #<screen_ram
 	sta $D060
-	lda #$30
+	lda #>screen_ram
 	sta $D061
 	lda #$00
 	sta $D062
@@ -299,6 +299,8 @@ gl_foundglyph:
        sbc #$00
        sta glyph_width+1
        rts
+
+; Print the currently looked-up Unicode glyph onto the current line of output.
 
 glyph_print:
 	lda glyph_unicode_point
@@ -655,7 +657,7 @@ glyph_colour:
 ; @$261B
 ; Where screen RAM starts
 screen_ram_base:
-	.word $3000
+	.word screen_ram
 ; @$261D
 ; Where we are relative to screen RAM for start of line
 screen_ram_pointer:
@@ -701,12 +703,12 @@ screen_line_char_row_used:
 colour_ram_buffer:
 	.advance colour_ram_buffer+$100
 screen_ram_buffer:
-	.advance screen_ram_buffer+$800
+	.advance screen_ram_buffer+$1000
 	
 ; Keep $3000 - $3FFF for screen RAM
-	.checkpc $3000
-	.advance $3000
-
+	.checkpc $3800
+	.advance $3800
+screen_ram:
 	; start by saying "Hello" manually until we fix it
 
 	.word $0159,$4177,$C15A,$C15A,$0183,$FFFF
