@@ -19,6 +19,11 @@ iter1:	 .byte 0
 	 .advance 2079
 
 programentrypoint:
+
+	; no BASIC, so that we can see the font below
+	lda #$35
+	sta $01
+
 	; Enable C65GS IO
 	lda #$47
 	sta $d02f
