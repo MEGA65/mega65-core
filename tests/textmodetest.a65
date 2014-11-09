@@ -403,9 +403,7 @@ glyph_stamp_consider_row:
 	sta $5b
 	lda #>screen_ram_buffer
 	clc
-	adc screen_line_height
-	clc
-	sbc $57
+	adc $57
 	sta $5c
 	ldz screen_line_bytes
 
@@ -413,9 +411,10 @@ glyph_stamp_tile:
 	; Now for each column of the row, stamp the appropriate tile
 
 	; Mark this screen line as being used, so that it gets output.
-	ldx screen_line_height
-	lda #$01
+	ldx $57
+	lda #$99
 	sta screen_line_char_row_used,x
+	sta $0410,x
 
 	ldx #$00
 
@@ -524,7 +523,7 @@ screen_line_clear:
 	sta screen_line_bytes
 	; clear line used flags
 	ldx #$0f
-slc1:	sta screen_line_char_row_used,x
+slc1:	;sta screen_line_char_row_used,x
 	dex
 	bpl slc1	
 	rts
@@ -549,6 +548,7 @@ unicode_apply_line:
 ual_row:
 	; Skip this row if there was nothing drawn in it.
 	lda screen_line_char_row_used,y
+	sta $0400,y
 	beq ual_next_row
 
 	; For this screen row, get the address of the screen ram buffer
