@@ -526,7 +526,7 @@ screen_line_clear:
 	ldx #$0f
 slc1:	sta screen_line_char_row_used,x
 	dex
-	bne slc1	
+	bpl slc1	
 	rts
 
 unicode_apply_line:
@@ -605,11 +605,11 @@ ual_1:	lda ($59),z
 	lda screen_ram_applied_pointer+1
 	adc #$00
 	sta screen_ram_applied_pointer+1
-	
+
+ual_next_row:
 	; clear Z so we don't upset and 6502 code
 	ldz #$00
 
-ual_next_row:
 	; check for next row
 	iny
 	cpy screen_line_height
@@ -721,7 +721,7 @@ screen_ram_buffer:
 screen_ram:
 	; start by saying "Hello" manually until we fix it
 
-	.word $0159,$4177,$C15A,$C15A,$0183,$FFFF
+	.word $FFFF
 	.word $FFFF
 	.word $FFFF
 	.word $FFFF
