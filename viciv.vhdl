@@ -2868,8 +2868,6 @@ begin
           report "from bitmap layout, we get glyph_data_address = $" & to_hstring("000"&glyph_data_address) severity note;
           raster_fetch_state <= FetchBitmapData;
         when FetchTextCell =>
-          glyph_width <= 8 - to_integer(glyph_width_deduct);
-
           if screen_ram_is_ff='1' and screen_ram_high_is_ff='1' then
             -- 16-bit Character is $FFFF, which is end of line marker.
             -- So remember that this line is short, and don't add the virtual
@@ -2967,6 +2965,7 @@ begin
           glyph_reverse <= '0';
           glyph_visible <= '1';
           glyph_blink_or_alpha <= '0';
+          report "Reading low-byte of colour RAM (value $" & to_hstring(colourramdata)&")";
           if viciii_extended_attributes='1' then
             if colourramdata(4)='1' then
               -- Blinking glyph
@@ -3016,6 +3015,7 @@ begin
           -- This is the time that the 2nd colour byte will be available if we
           -- are in 16-bit text mode, so copy out the value.
           if sixteenbit_charset='1' then
+            report "Reading high-byte of colour RAM (value $" & to_hstring(colourramdata)&")";
             glyph_trim_top <= to_integer(colourramdata(7 downto 5));
             glyph_trim_bottom <= to_integer(colourramdata(4 downto 2));
             glyph_width_deduct(0) <= colourramdata(1);
@@ -3032,6 +3032,8 @@ begin
           end if;
           raster_fetch_state <= PaintMemWait2;
         when PaintMemWait2 =>
+          glyph_width <= 8 - to_integer(glyph_width_deduct);
+
           if glyph_full_colour = '1' then
             if glyph_flip_horizontal = '0' then
               glyph_data_address(2 downto 0) <= glyph_data_address(2 downto 0) + 1;
