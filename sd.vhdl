@@ -72,7 +72,26 @@ signal data_mode : std_logic := '1';
 signal response_mode : std_logic := '1';
 signal data_sig : std_logic_vector(7 downto 0) := x"00";
 
+-- Reset sequence to microsd card should be 80+ clocks at <400KHz.
+-- We previously just used CPU clock/2 = 16MHz, and it worked.
+-- But at 48MHz, and so 24MHz pulsetrain, it is less reliable.
+-- So let's do it right with a 100KHz - 400KHz pulse train.
+-- 48MHz clock means we should take at least 48000KHz / 400KHz
+-- = 120 cycles per clock.  Allowing a bit for the fact that we
+-- are really at about 193.5MHz/4 = 48.4MHz, suggests that about 150
+-- cycles per pulse should be okay.  So count to 75 for each half of clock.
+signal fourhundredkhz_counter : integer range 0 to 75 := 0;
+
 begin
+
+  process(clk)
+  begin
+    if fourhundredkhz_counter = 75 then
+      fourhundredkhz_counter <= 0;
+    else
+      fourhundredkhz_counter <= fourhundredkhz_counter + 1;
+    end if;
+  end process;
   
 	process(clk,reset,dm_in)
 		variable byte_counter : integer range 0 to WRITE_DATA_SIZE;
@@ -103,8 +122,10 @@ begin
 						cs <= '0';
 						state <= CMD0;
 					else
-						bit_counter := bit_counter - 1;
-						sclk_sig <= not sclk_sig;
+                                          if fourhundredkhz_counter = 0 then
+                                            bit_counter := bit_counter - 1;
+                                            sclk_sig <= not sclk_sig;
+                                          end if;
 					end if;	
 				
 				when CMD0 =>
