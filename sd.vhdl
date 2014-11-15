@@ -94,7 +94,7 @@ begin
 					byte_counter := 0;
 					cmd_mode <= '1'; -- 0=data, 1=command
 					response_mode <= '1';	-- 0=data, 1=command
-					bit_counter := 160;
+					bit_counter := 176;
 					cs <= '1';
 					state <= INIT;
 				
