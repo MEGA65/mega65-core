@@ -45,6 +45,8 @@ begin  -- behavioural
       when 6 => douta <= ram(to_integer(unsigned(addra(11 downto 3))))(55 downto 48);
       when others => douta <= ram(to_integer(unsigned(addra(11 downto 3))))(63 downto 56);
       end case;
+    else
+      douta <= (others => 'Z');
     end if;
     if(rising_edge(Clka)) then 
       if ena='1' then
