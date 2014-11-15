@@ -673,6 +673,7 @@ begin
         kickstartcs <='0';
       end if;
 
+      -- @IO:GS $FFF0000-$FFF0FFF - CPU far call stack (512x8 byte entries)
       if address(19 downto 12) = x"F0" then
         farcallstackcs <= '1';
       else
