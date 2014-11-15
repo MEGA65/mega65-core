@@ -7,6 +7,7 @@ use work.debugtools.all;
 
 entity iomapper is
   port (Clk : in std_logic;
+        cpuclock : in std_logic;
         pixelclk : in std_logic;
         uartclock : in std_logic;
         clock50mhz : in std_logic;
@@ -99,7 +100,16 @@ entity iomapper is
 
         viciii_iomode : in std_logic_vector(1 downto 0);
         
-        colourram_at_dc00 : in std_logic
+        colourram_at_dc00 : in std_logic;
+       
+        ---------------------------------------------------------------------------
+        -- IO port to far call stack
+        ---------------------------------------------------------------------------
+        farcallstack_we : in std_logic := '0';
+        farcallstack_addr : in std_logic_vector(8 downto 0) := (others => '0');
+        farcallstack_din : in std_logic_vector(63 downto 0) := (others => '0');
+        farcallstack_dout : out std_logic_vector(63 downto 0)
+
         );
 end iomapper;
 
@@ -343,6 +353,23 @@ architecture behavioral of iomapper is
       );
   end component;
 
+  component farcallstack IS
+  PORT (
+    -- CPU fastio port
+    clka : IN STD_LOGIC;
+    ena : IN STD_LOGIC;
+    wea : IN STD_LOGIC_VECTOR(0 DOWNTO 0);
+    addra : IN STD_LOGIC_VECTOR(11 DOWNTO 0);
+    dina : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
+    douta : OUT STD_LOGIC_VECTOR(7 DOWNTO 0);
+    -- CPU parallel push/pop port
+    clkb : IN STD_LOGIC;
+    web : IN STD_LOGIC_VECTOR(0 DOWNTO 0);
+    addrb : IN STD_LOGIC_VECTOR(8 DOWNTO 0);
+    dinb : IN STD_LOGIC_VECTOR(63 DOWNTO 0);
+    doutb : OUT STD_LOGIC_VECTOR(63 DOWNTO 0)
+    );
+  end component;
   
   signal kickstartcs : std_logic;
 
@@ -358,6 +385,11 @@ architecture behavioral of iomapper is
   signal sectorbuffercs : std_logic;
   signal sector_buffer_mapped_read : std_logic;
 
+  signal farcallstackcs : std_logic;
+  signal farcallstack_w : std_logic;
+  signal farcallstack_wdata : std_logic_vector(63 downto 0);
+  signal farcallstack_rdata : std_logic_vector(63 downto 0);
+                        
   signal last_scan_code : std_logic_vector(12 downto 0);
   
   signal cia1porta_out : std_logic_vector(7 downto 0);
@@ -589,6 +621,20 @@ begin
 
     );
 
+  farcallstack0: farcallstack port map (
+    clka => clk,
+    ena => farcallstackcs,
+    wea(0) => w,
+    addra => address(11 downto 0),
+    dina => data_i,
+    douta => data_o,
+    clkb => cpuclock,
+    web(0) => farcallstack_w,
+    addrb => farcallstack_addr,
+    dinb => farcallstack_wdata,
+    doutb => farcallstack_rdata
+    );
+  
   process(reset)
   begin
     reset_high <= not reset;
@@ -627,6 +673,12 @@ begin
         kickstartcs <='0';
       end if;
 
+      if address(19 downto 12) = x"F0" then
+        farcallstackcs <= '1';
+      else
+        farcallstackcs <= '0';
+      end if;
+      
       -- sdcard sector buffer: only mapped if no colour ram @ $DC00, and if
       -- the sectorbuffer mapping flag is set
       sectorbuffercs <= '0';
@@ -700,6 +752,7 @@ begin
       sectorbuffercs <= '0';
       leftsid_cs <= '0';
       rightsid_cs <= '0';
+      farcallstackcs <= '0';
     end if;
   end process;
 

@@ -317,7 +317,15 @@ architecture Behavioral of machine is
       rom_at_e000 : in std_logic;
       rom_at_c000 : in std_logic;
       rom_at_a000 : in std_logic;
-      rom_at_8000 : in std_logic
+      rom_at_8000 : in std_logic;
+
+      ---------------------------------------------------------------------------
+      -- IO port to far call stack
+      ---------------------------------------------------------------------------
+      farcallstack_we : in std_logic;
+      farcallstack_addr : in std_logic_vector(8 downto 0);
+      farcallstack_din : in std_logic_vector(63 downto 0);
+      farcallstack_dout : out std_logic_vector(63 downto 0)
 
       );
   end component;
@@ -386,6 +394,7 @@ architecture Behavioral of machine is
   
   component iomapper is
     port (Clk : in std_logic;
+          cpuclock : in std_logic;
           pixelclk : in std_logic;
           clock50mhz : in std_logic;
           
@@ -454,6 +463,14 @@ architecture Behavioral of machine is
           mosi_o : out std_logic;
           miso_i : in  std_logic;
 
+          ---------------------------------------------------------------------------
+          -- IO port to far call stack
+          ---------------------------------------------------------------------------
+          farcallstack_we : in std_logic;
+          farcallstack_addr : in std_logic_vector(8 downto 0);
+          farcallstack_din : in std_logic_vector(63 downto 0);
+          farcallstack_dout : out std_logic_vector(63 downto 0);
+          
           ---------------------------------------------------------------------------
           -- Lines for other devices that we handle here
           ---------------------------------------------------------------------------
@@ -592,7 +609,12 @@ architecture Behavioral of machine is
   signal pixel_valid : std_logic;
   signal pixel_newframe : std_logic;
   signal pixel_newraster : std_logic;
-  
+
+  signal farcallstack_we : std_logic;
+  signal farcallstack_addr : std_logic_vector(8 downto 0);
+  signal farcallstack_din : std_logic_vector(63 downto 0);
+  signal farcallstack_dout : std_logic_vector(63 downto 0);
+
 begin
 
   ----------------------------------------------------------------------------
@@ -810,8 +832,16 @@ begin
     rom_at_e000 => rom_at_e000,
     rom_at_c000 => rom_at_c000,
     rom_at_a000 => rom_at_a000,
-    rom_at_8000 => rom_at_8000
-    
+    rom_at_8000 => rom_at_8000,
+
+    ---------------------------------------------------------------------------
+    -- IO port to far call stack
+    ---------------------------------------------------------------------------
+    farcallstack_we => farcallstack_we,
+    farcallstack_addr => farcallstack_addr,
+    farcallstack_din => farcallstack_din,
+    farcallstack_dout => farcallstack_dout
+
     );
 
   viciv0: viciv
@@ -867,6 +897,7 @@ begin
   
   iomapper0: iomapper port map (
     clk => ioclock,
+    cpuclock => cpuclock,
     pixelclk => pixelclock,
     clock50mhz => clock50mhz,
     cpu_hypervisor_mode => cpu_hypervisor_mode,
@@ -901,12 +932,17 @@ begin
     pixel_valid => pixel_valid,
     pixel_newframe => pixel_newframe,
     pixel_newraster => pixel_newraster,
+
+    farcallstack_we => farcallstack_we,
+    farcallstack_addr => farcallstack_addr,
+    farcallstack_din => farcallstack_din,
+    farcallstack_dout => farcallstack_dout,
     
     cs_bo => cs_bo,
     sclk_o => sclk_o,
     mosi_o => mosi_o,
     miso_i => miso_i,
-
+    
     QspiSCK => QspiSCK,
     QspiDB => QspiDB,
     QspiCSn => QspiCSn,

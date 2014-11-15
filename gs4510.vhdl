@@ -143,7 +143,16 @@ entity gs4510 is
     rom_at_e000 : in std_logic;
     rom_at_c000 : in std_logic;
     rom_at_a000 : in std_logic;
-    rom_at_8000 : in std_logic
+    rom_at_8000 : in std_logic;
+
+    ---------------------------------------------------------------------------
+    -- IO port to far call stack
+    ---------------------------------------------------------------------------
+    farcallstack_we : in std_logic;
+    farcallstack_addr : in std_logic_vector(11 downto 0);
+    farcallstack_din : in std_logic_vector(7 downto 0);
+    farcallstack_dout : out std_logic_vector(7 downto 0)
+
     );
 end entity gs4510;
 
@@ -166,6 +175,8 @@ component shadowram is
         writes : out unsigned(7 downto 0)
         );
 end component;
+
+
 
   signal iomode_set_toggle_internal : std_logic := '0';
 
