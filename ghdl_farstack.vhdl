@@ -34,7 +34,8 @@ begin  -- behavioural
   -- 8-bit port
   process(clka)
   begin
-    case to_integer(unsigned(addra(2 downto 0))) is
+    if ena='1' then
+      case to_integer(unsigned(addra(2 downto 0))) is
       when 0 => douta <= ram(to_integer(unsigned(addra(11 downto 3))))(7 downto 0);
       when 1 => douta <= ram(to_integer(unsigned(addra(11 downto 3))))(15 downto 8);
       when 2 => douta <= ram(to_integer(unsigned(addra(11 downto 3))))(23 downto 16);
@@ -43,7 +44,8 @@ begin  -- behavioural
       when 5 => douta <= ram(to_integer(unsigned(addra(11 downto 3))))(47 downto 40);
       when 6 => douta <= ram(to_integer(unsigned(addra(11 downto 3))))(55 downto 48);
       when others => douta <= ram(to_integer(unsigned(addra(11 downto 3))))(63 downto 56);
-    end case;
+      end case;
+    end if;
     if(rising_edge(Clka)) then 
       if ena='1' then
         if(wea="1") then
