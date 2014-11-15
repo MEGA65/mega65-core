@@ -21,7 +21,7 @@ iter1:	 .byte 0
 programentrypoint:
 
 	; no BASIC, so that we can see the font below
-	lda #$35
+	lda #$36
 	sta $01
 
 	; Enable C65GS IO
@@ -36,7 +36,7 @@ programentrypoint:
 	lda #$01
 	sta $d043
 
-	; Enable 16-bit text mode, with full-colour characters
+	; Enable 16-bit text mode, with full-colour characters, fast CPU
 	lda #$47
 	sta $d054
 
@@ -379,7 +379,6 @@ glyph_stamp:
 ;	clc
 ;	adc glyph_tiles_underhang
 	sta $57
-	sta $04fe ; XXX DEBUG OUTPUT
 	; the last row to stamp is the above + glyph_tiles_high - 1
 	clc
 	adc glyph_tiles_high
@@ -388,7 +387,6 @@ glyph_stamp:
 	sec
 	sbc #$01
 	sta $5f
-	sta $04ff ; XXX DEBUG OUTPUT
 
 	; get pointer to tile list
 	lda glyph_tile_list_address
@@ -445,7 +443,6 @@ glyph_stamp_tile:
 	ldx $58
 	lda #$99
 	sta screen_line_char_row_used,x
-	sta $0410,x ; XXX DEBUG OUTPUT
 
 	ldx #$00
 
@@ -500,27 +497,19 @@ glyph_stamp_done_row:
 	inc $58
 
 	; apply horizontal trim to last tile drawn
-	; bits 2 and 1 are in upper byte of screen RAM:
+	; (upper 3 bits of upper byte of screen RAM):
 	lda glyph_horizontal_trim
 	asl
 	asl
 	asl
 	asl
 	asl
-	and #$c0
+	and #$e0
 	sta temp
 	dez
 	lda ($5b),z
 	ora temp
 	sta ($5b),z
-	; bit 0 is in upper byte of colour RAM:
-	lda glyph_horizontal_trim
-	asl
-	and #$02
-	sta temp
-	lda ($5d),z
-	ora temp
-	sta ($5d),z
 
 	bra glyph_stamp_consider_row
 
