@@ -2810,8 +2810,8 @@ begin
           glyph_width_deduct <= to_unsigned(0,3);
           glyph_flip_vertical <= '0';
           glyph_flip_horizontal <= '0';
-          glyph_trim_top <= to_unsigned(0,3);
-          glyph_trim_bottom <= to_unsigned(0,3);
+          glyph_trim_top <= 0;
+          glyph_trim_bottom <= 0;
 
           screen_ram_is_ff <= '0';
           screen_ram_high_is_ff <= '0';
