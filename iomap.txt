@@ -271,5 +271,8 @@ GS $FF9x000-$FF9xFFF - Enhanced sprite data buffers (4KB each)
 GS $FFC00A0 45GS10 slowram wait-states (write-only)
 GS $FFDE800 - $FFDEFFF Ethernet RX buffer (read only)
 GS $FFDE800 - $FFDEFFF Ethernet TX buffer (write only)
+GS $FFF0000-$FFF0FFF - CPU far call stack (512x8 byte entries)
+GS $FFF8000 Hypervisor entry point when $D67F is written
+GS $FFF8000-$FFFBFFF 16KB Kickstart/hypervisor ROM
 GS RR-NET emulation: cs_packet_data high
 GS RR-NET emulation: cs_packet_data low

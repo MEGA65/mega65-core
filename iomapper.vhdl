@@ -667,6 +667,8 @@ begin
   begin  -- process
 
     if (r or w) = '1' then
+      -- @IO:GS $FFF8000-$FFFBFFF 16KB Kickstart/hypervisor ROM
+      -- @IO:GS $FFF8000 Hypervisor entry point when $D67F is written
       if address(19 downto 14)&"00" = x"F8" then
         kickstartcs <= cpu_hypervisor_mode;
       else
