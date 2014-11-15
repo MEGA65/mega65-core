@@ -148,10 +148,10 @@ entity gs4510 is
     ---------------------------------------------------------------------------
     -- IO port to far call stack
     ---------------------------------------------------------------------------
-    farcallstack_we : in std_logic;
-    farcallstack_addr : in std_logic_vector(11 downto 0);
-    farcallstack_din : in std_logic_vector(7 downto 0);
-    farcallstack_dout : out std_logic_vector(7 downto 0)
+    farcallstack_we : out std_logic := '0';
+    farcallstack_addr : out std_logic_vector(8 downto 0) := (others => '0');
+    farcallstack_din : out std_logic_vector(63 downto 0) := (others => '0');
+    farcallstack_dout : in std_logic_vector(63 downto 0) := (others => '0')
 
     );
 end entity gs4510;
