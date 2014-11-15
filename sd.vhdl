@@ -95,7 +95,7 @@ begin
   
 	process(clk,reset,dm_in)
 		variable byte_counter : integer range 0 to WRITE_DATA_SIZE;
-		variable bit_counter : integer range 0 to 160;
+		variable bit_counter : integer range 0 to 176;
 	begin
 		data_mode <= dm_in;
 
