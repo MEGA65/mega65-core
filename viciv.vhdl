@@ -733,7 +733,7 @@ architecture Behavioral of viciv is
 
   -- Character drawing info
   signal background_colour_select : unsigned(1 downto 0);
-  signal glyph_number : unsigned(11 downto 0) := to_unsigned(0,12);
+  signal glyph_number : unsigned(12 downto 0) := to_unsigned(0,13);
   signal glyph_colour : unsigned(7 downto 0);
   signal glyph_attributes : unsigned(3 downto 0);
   signal glyph_visible : std_logic;
@@ -2061,7 +2061,7 @@ begin
     variable card_bg_colour : unsigned(7 downto 0) := (others => '0');
     variable card_fg_colour : unsigned(7 downto 0) := (others => '0');
     variable long_address : unsigned(31 downto 0) := (others => '0');
-    variable next_glyph_number_temp : std_logic_vector(11 downto 0) := (others => '0');
+    variable next_glyph_number_temp : std_logic_vector(12 downto 0) := (others => '0');
     variable next_glyph_colour_temp : std_logic_vector(7 downto 0) := (others => '0');
   begin    
     if rising_edge(pixelclock) then
@@ -2774,7 +2774,7 @@ begin
             -- Read 8 or 16 bit screen RAM data for character number information
             -- (the address was put on the bus for us already).
             -- Handle extended background colour mode here if required.
-            glyph_number(11 downto 8) <= x"0";
+            glyph_number(12 downto 8) <= "00000";
             glyph_number(5 downto 0) <= screen_ram_buffer_dout(5 downto 0);
             if extended_background_mode='1' then
               background_colour_select <= screen_ram_buffer_dout(7 downto 6);
@@ -2808,6 +2808,10 @@ begin
           glyph_flip_horizontal <= '0';
           glyph_flip_vertical <= '0';
           glyph_width_deduct <= to_unsigned(0,3);
+          glyph_flip_vertical <= '0';
+          glyph_flip_horizontal <= '0';
+          glyph_trim_top <= to_unsigned(0,3);
+          glyph_trim_bottom <= to_unsigned(0,3);
 
           screen_ram_is_ff <= '0';
           screen_ram_high_is_ff <= '0';
@@ -2841,14 +2845,19 @@ begin
           if text_mode='1' then
             -- We only allow 4096 characters in extended mode.
             -- The spare bits are used to provide some (hopefully useful)
-            -- extended attributes. 
-            glyph_number(11 downto 8) <= screen_ram_buffer_dout(3 downto 0);
-            glyph_flip_horizontal <= screen_ram_buffer_dout(4);
-            glyph_flip_vertical <= screen_ram_buffer_dout(5);
-            glyph_width_deduct(2 downto 1) <= screen_ram_buffer_dout(7 downto 6);
+            -- extended attributes.
+            glyph_number(12 downto 8) <= screen_ram_buffer_dout(4 downto 0);
+            glyph_width_deduct(2 downto 0) <= screen_ram_buffer_dout(7 downto 5);
             if screen_ram_buffer_dout = x"ff" then
               screen_ram_high_is_ff <= '1';
             end if;
+
+            -- Extra colour RAM byte has vertical controls
+            glyph_flip_vertical <= colourramdata(7);
+            glyph_flip_horizontal <= colourramdata(6);
+            glyph_trim_top <= to_integer(colourramdata(5 downto 3));
+            glyph_trim_bottom <= to_integer(colourramdata(2 downto 0));
+
             raster_fetch_State <= FetchTextCell;
           else
             bitmap_colour_background <= screen_ram_buffer_dout;
@@ -2876,7 +2885,7 @@ begin
             short_line_length <= to_integer(screen_ram_buffer_read_address);
           end if;
 
-          report "from screen_ram we get glyph_number = $" & to_hstring(glyph_number) severity note;
+          report "from screen_ram we get glyph_number = $" & to_hstring(to_unsigned(to_integer(glyph_number),16)) severity note;
           -- We now know the character number, and whether it is full-colour or
           -- normal, and whether we are flipping in either axis, and so can
           -- work out the address to fetch data from.
@@ -2928,7 +2937,7 @@ begin
           ramaddress <= glyph_data_address;
 
           report "setting charaddress to " & integer'image(to_integer(glyph_data_address(10 downto 0)))
-            & " for painting glyph $" & to_hstring(glyph_number(11 downto 0)) severity note;
+            & " for painting glyph $" & to_hstring(to_unsigned(to_integer(glyph_number),16)) severity note;
           charaddress <= to_integer(glyph_data_address(11 downto 0));
 
           -- Schedule next colour ram byte
@@ -3004,7 +3013,7 @@ begin
           -- upper bit of charrom address is set by $D018, only 258*8 = 2K
           -- range of address is controlled here by character number.
           report "setting charaddress to " & integer'image(to_integer(glyph_data_address(10 downto 0)))
-            & " for painting glyph $" & to_hstring(glyph_number(11 downto 0)) severity note;
+            & " for painting glyph $" & to_hstring(to_unsigned(to_integer(glyph_number),16)) severity note;
           charaddress <= to_integer(glyph_data_address(11 downto 0));
 
           -- Schedule next colour ram byte
@@ -3014,16 +3023,6 @@ begin
         when PaintMemWait =>
           -- This is the time that the 2nd colour byte will be available if we
           -- are in 16-bit text mode, so copy out the value.
-          if sixteenbit_charset='1' then
-            report "Reading high-byte of colour RAM (value $" & to_hstring(colourramdata)&")";
-            glyph_trim_top <= to_integer(colourramdata(7 downto 5));
-            glyph_trim_bottom <= to_integer(colourramdata(4 downto 2));
-            glyph_width_deduct(0) <= colourramdata(1);
-          else
-            glyph_trim_top <= 0;
-            glyph_trim_bottom <= 0;
-            glyph_width_deduct(0) <= '0';
-          end if;
           -- Allow for 2 cycle delay to get data in paint_ramdata
           -- In this cycle chardata and ramdata will have the requested value
           if glyph_full_colour = '1' then
