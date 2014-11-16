@@ -17,6 +17,8 @@ entity sd_controller is
     sclk : out std_logic;
 
     sdhc_mode : in std_logic;
+    half_speed : in std_logic;
+    
     rd : in std_logic;
     wr : in std_logic;
     dm_in : in std_logic;	-- data mode, 0 = write continuously, 1 = write single block
@@ -82,6 +84,8 @@ architecture rtl of sd_controller is
 -- cycles per pulse should be okay.  So count to 75 for each half of clock.
   signal fourhundredkhz_counter : integer range 0 to 75 := 0;
 
+  signal half_speed_toggle : std_logic := '0';
+
 begin
 
   process(clk)
@@ -96,6 +100,8 @@ begin
 
     if rising_edge(clk) then
 
+      half_speed_toggle <= not half_speed_toggle;
+      
       if fourhundredkhz_counter = 75 then
         fourhundredkhz_counter <= 0;
       else
@@ -219,14 +225,17 @@ begin
                 state <= RECEIVE_BYTE_WAIT;
                 data_ready <= '0';
               else
-                bit_counter := bit_counter - 1;
-                cmd_out <= cmd_out(54 downto 0) & '1';
+                if half_speed='0' or half_speed_toggle='0' then
+                  bit_counter := bit_counter - 1;
+                  cmd_out <= cmd_out(54 downto 0) & '1';
+                end if;
               end if;
             end if;
-            sclk_sig <= not sclk_sig;
-            
+            if half_speed='0' or half_speed_toggle='0' then
+              sclk_sig <= not sclk_sig;
+            end if;            
           when RECEIVE_BYTE_WAIT =>
-            if (sclk_sig = '1') then
+            if (sclk_sig = '1') and (half_speed='0' or half_speed_toggle='0') then
               if (miso = '0') then
                 recv_data <= (others => '0');
                 if (response_mode='0') then
@@ -237,10 +246,11 @@ begin
                 state <= RECEIVE_BYTE;
               end if;
             end if;
-            sclk_sig <= not sclk_sig;
-
+            if half_speed='0' or half_speed_toggle='0' then
+              sclk_sig <= not sclk_sig;
+            end if;
           when RECEIVE_BYTE =>
-            if (sclk_sig = '1') then
+            if (sclk_sig = '1') and (half_speed='0' or half_speed_toggle='0') then
               recv_data <= recv_data(6 downto 0) & miso;
               if (bit_counter = 0) then
                 state <= return_state;
@@ -251,7 +261,9 @@ begin
                 data_ready <= '0';
               end if;
             end if;
-            sclk_sig <= not sclk_sig;
+            if half_speed='0' or half_speed_toggle='0' then
+              sclk_sig <= not sclk_sig;
+            end if;            
 
           when WRITE_BLOCK_CMD =>
             cmd_mode <= '1';
@@ -295,7 +307,7 @@ begin
             
           when WRITE_BLOCK_BYTE =>
             data_ready <= '0';
-            if (sclk_sig = '1') then
+            if (sclk_sig = '1') and (half_speed='0' or half_speed_toggle='0') then
               if bit_counter=0 then
                 state <= WRITE_BLOCK_DATA;
               else
@@ -303,11 +315,12 @@ begin
                 bit_counter := bit_counter - 1;
               end if;
             end if;
-            sclk_sig <= not sclk_sig;
-            
+            if  (half_speed='0' or half_speed_toggle='0') then
+              sclk_sig <= not sclk_sig;
+            end if;
           when WRITE_BLOCK_WAIT =>
             response_mode <= '1';
-            if sclk_sig='1' then
+            if (sclk_sig = '1') and (half_speed='0' or half_speed_toggle='0') then
               if MISO='1' then
                 if (data_mode='0') then
                   state <= WRITE_BLOCK_INIT;
@@ -317,7 +330,9 @@ begin
                 end if;
               end if;
             end if;
-            sclk_sig <= not sclk_sig;
+            if  (half_speed='0' or half_speed_toggle='0') then
+              sclk_sig <= not sclk_sig;
+            end if;
 
           when others => state <= IDLE;
         end case;

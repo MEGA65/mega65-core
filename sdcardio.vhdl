@@ -138,6 +138,7 @@ architecture behavioural of sdcardio is
 
         sector_number : in std_logic_vector(31 downto 0);  -- sector number requested
         sdhc_mode : in std_logic;
+        half_speed : in std_logic;
         rd : in std_logic;
         wr : in std_logic;
         dm_in : in std_logic;   -- data mode, 0 = write continuously, 1 = write single block
@@ -204,7 +205,8 @@ architecture behavioural of sdcardio is
   signal sd_error        : std_logic;
   signal sd_reset        : std_logic := '1';
   signal sdhc_mode : std_logic := '0';
-
+  signal half_speed : std_logic := '0';
+  
   -- IO mapped register to indicate if SD card interface is busy
   signal sdio_busy : std_logic := '0';
   signal sdio_error : std_logic := '0';
@@ -291,6 +293,7 @@ begin  -- behavioural
 
         sector_number => std_logic_vector(sd_sector),
         sdhc_mode => sdhc_mode,
+        half_speed => half_speed,
 	rd =>  sd_doread,
 	wr =>  sd_dowrite,
 	dm_in => '1',	-- data mode, 0 = write continuously, 1 = write single block
@@ -355,7 +358,7 @@ begin  -- behavioural
            f011_track,f011_sector,f011_side,sdio_fsm_error,sdio_error,
            sd_state,f011_irqenable,f011_ds,f011_cmd,f011_busy,f011_crc,
            f011_track0,f011_rsector_found,f011_over_index,f011_rdata,
-           f011_buffer_next_read,sdhc_mode,sd_datatoken,sd_rdata,
+           f011_buffer_next_read,sdhc_mode,half_speed,sd_datatoken,sd_rdata,
            sector_offset,diskimage1_enable,f011_disk1_present,
            f011_disk1_write_protected,diskimage2_enable,f011_disk2_present,
            f011_disk2_write_protected,diskimage_sector,sw,btn,aclmiso,
@@ -472,7 +475,7 @@ begin  -- behavioural
             -- status / command register
             -- error status in bit 6 so that V flag can be used for check
             report "reading $D680 SDCARD status register" severity note;
-            fastio_rdata(7) <= '0';
+            fastio_rdata(7) <= half_speed;
             fastio_rdata(6) <= sdio_error;
             fastio_rdata(5) <= sdio_fsm_error;
             fastio_rdata(4) <= sdhc_mode;
@@ -940,8 +943,10 @@ begin  -- behavioural
                     sdio_error <= '0';
                     sdio_fsm_error <= '0';
                   end if;
+                when x"40" => sdhc_mode <= '0';
                 when x"41" => sdhc_mode <= '1';
-                when x"42" => sdhc_mode <= '0';
+                when x"42" => half_speed <= '0';
+                when x"43" => half_speed <= '1';
                 when x"81" => sector_buffer_mapped<='1';
                               sdio_error <= '0';
                               sdio_fsm_error <= '0';
