@@ -1515,7 +1515,7 @@ begin
           fastio_rdata <= std_logic_vector(debug_screen_ram_buffer_address_drive2(7 downto 0));
         elsif register_number=124 then
           fastio_rdata <=
-            std_logic_vector(to_unsigned(vic_fetch_fsm'pos(debug_char_fetch_cycle_drive2),8));
+            std_logic_vector(to_unsigned(vic_chargen_fsm'pos(debug_char_fetch_cycle_drive2),8));
         elsif register_number=125 then
           fastio_rdata <=
             std_logic_vector(to_unsigned(vic_paint_fsm'pos(debug_paint_fsm_state_drive2),8));
