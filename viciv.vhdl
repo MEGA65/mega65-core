@@ -502,7 +502,7 @@ architecture Behavioral of viciv is
   signal debug_raster_buffer_read_address : unsigned(7 downto 0);
   signal debug_raster_buffer_write_address : unsigned(7 downto 0);
   signal debug_cycles_to_next_card : unsigned(7 downto 0);
-  signal debug_char_fetch_cycle : vic_chargen_fsm;
+  signal debug_raster_fetch_state : vic_chargen_fsm;
   signal debug_paint_fsm_state : vic_paint_fsm;
   signal debug_chargen_active : std_logic;
   signal debug_chargen_active_soon : std_logic;
