@@ -503,6 +503,7 @@ architecture Behavioral of viciv is
   signal debug_raster_buffer_write_address : unsigned(7 downto 0);
   signal debug_cycles_to_next_card : unsigned(7 downto 0);
   signal debug_char_fetch_cycle : vic_chargen_fsm;
+  signal debug_paint_fsm_state : vic_paint_fsm;
   signal debug_chargen_active : std_logic;
   signal debug_chargen_active_soon : std_logic;
   signal debug_character_data_from_rom : std_logic;
@@ -512,6 +513,7 @@ architecture Behavioral of viciv is
   signal debug_screen_ram_buffer_address_drive : unsigned(8 downto 0);
   signal debug_cycles_to_next_card_drive : unsigned(7 downto 0);
   signal debug_char_fetch_cycle_drive : vic_chargen_fsm;
+  signal debug_paint_fsm_state_drive : vic_paint_fsm;
   signal debug_chargen_active_drive : std_logic;
   signal debug_chargen_active_soon_drive : std_logic;
   signal debug_character_data_from_rom_drive : std_logic;
@@ -525,6 +527,7 @@ architecture Behavioral of viciv is
   signal debug_raster_buffer_write_address_drive2 : unsigned(7 downto 0);
   signal debug_cycles_to_next_card_drive2 : unsigned(7 downto 0);
   signal debug_char_fetch_cycle_drive2 : vic_chargen_fsm;
+  signal debug_paint_fsm_state_drive2 : vic_paint_fsm;
   signal debug_chargen_active_drive2 : std_logic;
   signal debug_chargen_active_soon_drive2 : std_logic;
   signal debug_character_data_from_rom_drive2 : std_logic;
@@ -1511,10 +1514,12 @@ begin
         elsif register_number=119 then  -- $D3077
           fastio_rdata <= std_logic_vector(debug_screen_ram_buffer_address_drive2(7 downto 0));
         elsif register_number=124 then
-        --fastio_rdata <=
-        --  std_logic_vector(to_unsigned(vic_fetch_fsm'pos(debug_char_fetch_cycle_drive2),8));
+          fastio_rdata <=
+            std_logic_vector(to_unsigned(vic_fetch_fsm'pos(debug_char_fetch_cycle_drive2),8));
         elsif register_number=125 then
-          fastio_rdata <= std_logic_vector(debug_charaddress_drive2(7 downto 0));
+          fastio_rdata <=
+            std_logic_vector(to_unsigned(vic_paint_fsm'pos(debug_paint_fsm_state_drive2),8));
+          -- fastio_rdata <= std_logic_vector(debug_charaddress_drive2(7 downto 0));
         elsif register_number=126 then
           fastio_rdata <= "0000"
                           & std_logic_vector(debug_charaddress_drive2(11 downto 8));
@@ -1572,6 +1577,7 @@ begin
       debug_chargen_active_drive2 <= debug_chargen_active_drive;
       debug_chargen_active_soon_drive2 <= debug_chargen_active_soon_drive;
       debug_char_fetch_cycle_drive2 <= debug_char_fetch_cycle_drive;
+      debug_paint_fsm_state_drive2 <= debug_paint_fsm_state_drive;
       debug_charrow_drive2 <= debug_charrow_drive;
       debug_charaddress_drive2 <= debug_charaddress_drive;
       debug_character_data_from_rom_drive2 <= debug_character_data_from_rom_drive;
@@ -2448,6 +2454,7 @@ begin
       debug_chargen_active_drive <= debug_chargen_active;
       debug_chargen_active_soon_drive <= debug_chargen_active_soon;
       debug_char_fetch_cycle_drive <= debug_char_fetch_cycle;
+      debug_paint_fsm_state_drive <= debug_paint_fsm_state;
       debug_charrow_drive <= debug_charrow;
       debug_charaddress_drive <= debug_charaddress;
       debug_character_data_from_rom_drive <= debug_character_data_from_rom;
@@ -2463,7 +2470,8 @@ begin
         debug_cycles_to_next_card <= cycles_to_next_card;
         debug_chargen_active <= chargen_active;
         debug_chargen_active_soon <= chargen_active_soon;
---        debug_char_fetch_cycle <= char_fetch_cycle;
+        debug_char_fetch_cycle <= char_fetch_cycle;
+        debug_paint_fsm_state <= paint_fsm_state;
         debug_charrow <= charrow;
 --        debug_charaddress <= charaddress;
         debug_character_data_from_rom <= character_data_from_rom;
