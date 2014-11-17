@@ -512,7 +512,7 @@ architecture Behavioral of viciv is
 
   signal debug_screen_ram_buffer_address_drive : unsigned(8 downto 0);
   signal debug_cycles_to_next_card_drive : unsigned(7 downto 0);
-  signal debug_char_fetch_cycle_drive : vic_chargen_fsm;
+  signal debug_raster_fetch_state_drive : vic_chargen_fsm;
   signal debug_paint_fsm_state_drive : vic_paint_fsm;
   signal debug_chargen_active_drive : std_logic;
   signal debug_chargen_active_soon_drive : std_logic;
@@ -526,7 +526,7 @@ architecture Behavioral of viciv is
   signal debug_raster_buffer_read_address_drive2 : unsigned(7 downto 0);
   signal debug_raster_buffer_write_address_drive2 : unsigned(7 downto 0);
   signal debug_cycles_to_next_card_drive2 : unsigned(7 downto 0);
-  signal debug_char_fetch_cycle_drive2 : vic_chargen_fsm;
+  signal debug_raster_fetch_state_drive2 : vic_chargen_fsm;
   signal debug_paint_fsm_state_drive2 : vic_paint_fsm;
   signal debug_chargen_active_drive2 : std_logic;
   signal debug_chargen_active_soon_drive2 : std_logic;
@@ -1063,7 +1063,7 @@ begin
           chargen_y_scale,xcounter,chargen_active_soon,card_number,
           colour_ram_base,vicii_sprite_pointer_address,palette_bank_fastio,
           debug_cycles_to_next_card,
-          debug_chargen_active,debug_char_fetch_cycle,debug_charaddress,
+          debug_chargen_active,debug_raster_fetch_state,debug_charaddress,
           debug_charrow,palette_fastio_rdata,palette_bank_chargen,
           debug_chargen_active_soon,palette_bank_sprites,
           vicii_ycounter,displayx_drive,reg_rom_e000,reg_rom_c000,
@@ -1515,7 +1515,7 @@ begin
           fastio_rdata <= std_logic_vector(debug_screen_ram_buffer_address_drive2(7 downto 0));
         elsif register_number=124 then
           fastio_rdata <=
-            std_logic_vector(to_unsigned(vic_chargen_fsm'pos(debug_char_fetch_cycle_drive2),8));
+            std_logic_vector(to_unsigned(vic_chargen_fsm'pos(debug_raster_fetch_state_drive2),8));
         elsif register_number=125 then
           fastio_rdata <=
             std_logic_vector(to_unsigned(vic_paint_fsm'pos(debug_paint_fsm_state_drive2),8));
@@ -1576,7 +1576,7 @@ begin
       debug_cycles_to_next_card_drive2 <= debug_cycles_to_next_card_drive;
       debug_chargen_active_drive2 <= debug_chargen_active_drive;
       debug_chargen_active_soon_drive2 <= debug_chargen_active_soon_drive;
-      debug_char_fetch_cycle_drive2 <= debug_char_fetch_cycle_drive;
+      debug_raster_fetch_state_drive2 <= debug_raster_fetch_state_drive;
       debug_paint_fsm_state_drive2 <= debug_paint_fsm_state_drive;
       debug_charrow_drive2 <= debug_charrow_drive;
       debug_charaddress_drive2 <= debug_charaddress_drive;
@@ -2453,7 +2453,7 @@ begin
       debug_cycles_to_next_card_drive <= debug_cycles_to_next_card;
       debug_chargen_active_drive <= debug_chargen_active;
       debug_chargen_active_soon_drive <= debug_chargen_active_soon;
-      debug_char_fetch_cycle_drive <= debug_char_fetch_cycle;
+      debug_raster_fetch_state_drive <= debug_raster_fetch_state;
       debug_paint_fsm_state_drive <= debug_paint_fsm_state;
       debug_charrow_drive <= debug_charrow;
       debug_charaddress_drive <= debug_charaddress;
@@ -2470,7 +2470,7 @@ begin
         debug_cycles_to_next_card <= cycles_to_next_card;
         debug_chargen_active <= chargen_active;
         debug_chargen_active_soon <= chargen_active_soon;
-        debug_char_fetch_cycle <= char_fetch_cycle;
+        debug_raster_fetch_state <= raster_fetch_state;
         debug_paint_fsm_state <= paint_fsm_state;
         debug_charrow <= charrow;
 --        debug_charaddress <= charaddress;
