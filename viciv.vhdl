@@ -2628,49 +2628,7 @@ begin
       screen_ram_buffer_write <= final_ramaccess_is_screen_row_fetch;
       screen_ram_buffer_write_address <= final_ramaccess_screen_row_buffer_address;
       screen_ram_buffer_din <= final_ramdata;
-
-      
-      if xbackporch_edge='1' then
-        -- Start of filling raster buffer.
-        -- We don't need to double-buffer, as we start filling from the back
-        -- porch of the previous line, hundreds of cycles before the start of
-        -- the next line of display.
-
-        -- Some house keeping first:
-        -- Reset write address in raster buffer
-        raster_buffer_write_address <= (others => '1');
-        -- Hold chargen_y for entire fetch, so that we don't get glitching when
-        -- chargen_y increases part way through resulting in characters on
-        -- right of display shifting up one physical pixel.
-        chargen_y_hold <= chargen_y;
-        -- Work out colour ram address
-        colourramaddress <= colour_ram_base + first_card_of_row;
-        -- Work out the screen ram address.  We only need to re-fetch screen
-        -- RAM if first_card_of_row is different to last time.
-        prev_first_card_of_row <= first_card_of_row;
-
-        -- Set all signals for both eventuality, since none are shared between
-        -- the two paths.  This helps keep the logic shallow.
-        screen_row_current_address
-          <= to_unsigned(to_integer(screen_ram_base(16 downto 0))
-                         + to_integer(first_card_of_row),17);
-        card_of_row <= (others =>'0');
-        screen_ram_buffer_write_address <= to_unsigned(0,9);
-        screen_ram_buffer_read_address <= to_unsigned(0,9);
-        short_line <= '0';
-        report "ZEROing screen_ram_buffer_address" severity note;
-        -- Finally decide which way we should go
-        if to_integer(first_card_of_row) /= to_integer(prev_first_card_of_row) then          
-          raster_fetch_state <= FetchScreenRamLine;
-          report "BADLINE @ y = " & integer'image(to_integer(displayy)) severity note;
-          report "BADLINE first_card_of_row = %" & to_string(std_logic_vector(first_card_of_row)) severity note;
-          report "BADLINE prev_first_card_of_row = %" & to_string(std_logic_vector(prev_first_card_of_row)) severity note;
-        else
-          report "noBADLINE" severity note;
-          raster_fetch_state <= FetchFirstCharacter;
-        end if;
-      end if;
-
+ 
       if raster_fetch_state /= Idle or paint_fsm_state /= Idle then
         report "raster_fetch_state=" & vic_chargen_fsm'image(raster_fetch_state) & ", "
           & "paint_fsm_state=" & vic_paint_fsm'image(paint_fsm_state)
@@ -3462,6 +3420,49 @@ begin
         report "raster_fetch_state=" & vic_chargen_fsm'image(raster_fetch_state) & ", "
           & "paint_fsm_state=" & vic_paint_fsm'image(paint_fsm_state)
           & ", rb_w_addr=$" & to_hstring(raster_buffer_write_address) severity note;
+      end if;
+
+      -- Do end-of-raster detection last in the process so that the state
+      -- machine cannot get stuck.
+      if xbackporch_edge='1' then
+        -- Start of filling raster buffer.
+        -- We don't need to double-buffer, as we start filling from the back
+        -- porch of the previous line, hundreds of cycles before the start of
+        -- the next line of display.
+
+        -- Some house keeping first:
+        -- Reset write address in raster buffer
+        raster_buffer_write_address <= (others => '1');
+        -- Hold chargen_y for entire fetch, so that we don't get glitching when
+        -- chargen_y increases part way through resulting in characters on
+        -- right of display shifting up one physical pixel.
+        chargen_y_hold <= chargen_y;
+        -- Work out colour ram address
+        colourramaddress <= colour_ram_base + first_card_of_row;
+        -- Work out the screen ram address.  We only need to re-fetch screen
+        -- RAM if first_card_of_row is different to last time.
+        prev_first_card_of_row <= first_card_of_row;
+
+        -- Set all signals for both eventuality, since none are shared between
+        -- the two paths.  This helps keep the logic shallow.
+        screen_row_current_address
+          <= to_unsigned(to_integer(screen_ram_base(16 downto 0))
+                         + to_integer(first_card_of_row),17);
+        card_of_row <= (others =>'0');
+        screen_ram_buffer_write_address <= to_unsigned(0,9);
+        screen_ram_buffer_read_address <= to_unsigned(0,9);
+        short_line <= '0';
+        report "ZEROing screen_ram_buffer_address" severity note;
+        -- Finally decide which way we should go
+        if to_integer(first_card_of_row) /= to_integer(prev_first_card_of_row) then          
+          raster_fetch_state <= FetchScreenRamLine;
+          report "BADLINE @ y = " & integer'image(to_integer(displayy)) severity note;
+          report "BADLINE first_card_of_row = %" & to_string(std_logic_vector(first_card_of_row)) severity note;
+          report "BADLINE prev_first_card_of_row = %" & to_string(std_logic_vector(prev_first_card_of_row)) severity note;
+        else
+          report "noBADLINE" severity note;
+          raster_fetch_state <= FetchFirstCharacter;
+        end if;
       end if;
       
     end if;
