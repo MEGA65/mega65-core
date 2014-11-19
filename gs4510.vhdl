@@ -23,6 +23,8 @@
 -- *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 -- *  02111-1307  USA.
 
+-- @IO:65 $D0A0-$D0FF - Reserved for C65 RAM Expansion Controller.
+
 use WORK.ALL;
 
 library IEEE;
