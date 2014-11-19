@@ -3249,7 +3249,7 @@ begin
           else
             paint_fsm_state <= PaintFullColourDone;
           end if;
-          if paint_bits_remaining = 1 then
+          if paint_bits_remaining = 1 or paint_bits_remaining = 0 then
             -- Tell character generator when we are able to become idle.
             -- (the generator tells us when to go idle)
             paint_ready <= '1';
@@ -3320,7 +3320,7 @@ begin
             report "paint_bits_remaining=" & integer'image(paint_bits_remaining) severity note;
             paint_bits_remaining <= paint_bits_remaining - 1;
           end if;
-          if paint_bits_remaining = 1 then
+          if paint_bits_remaining = 1 or paint_bits_remaining = 0 then
             -- Tell character generator when we are able to become idle.
             -- (the generator tells us when to go idle)
             paint_ready <= '1';
