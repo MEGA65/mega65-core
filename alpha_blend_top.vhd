@@ -140,6 +140,14 @@ component DCM_1x_2x
 end component;
 
 begin  ------------------------------------------------------------------------
+
+  signal video0_r_drive : std_logic_vector(17 downto 0);
+  signal video0_g_drive : std_logic_vector(17 downto 0);
+  signal video0_b_drive : std_logic_vector(17 downto 0);
+  signal video1_r_drive : std_logic_vector(17 downto 0);
+  signal video1_g_drive : std_logic_vector(17 downto 0);
+  signal video1_b_drive : std_logic_vector(17 downto 0);
+  
 -- for multiplicands, repeat MSBs in the LSBs for greater range  
   video0_r <=  ('0' & r_strm0 & r_strm0(9 downto 3)); 
   video0_g <=  ('0' & g_strm0 & g_strm0(9 downto 3));
