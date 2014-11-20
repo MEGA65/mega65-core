@@ -61,6 +61,7 @@ entity sprite is
     signal y_in : in integer range 0 to 4095;
     signal border_in : in std_logic;
     signal pixel_in : in unsigned(7 downto 0);
+    signal alpha_in : in unsigned(7 downto 0);
     -- and information from the previous sprite
     signal is_sprite_in : in std_logic;
     signal sprite_colour_in : in unsigned(7 downto 0);
@@ -72,6 +73,7 @@ entity sprite is
     signal y_out : out integer range 0 to 4095;
     signal border_out : out std_logic;
     signal pixel_out : out unsigned(7 downto 0);
+    signal alpha_out : out unsigned(7 downto 0);
     signal sprite_colour_out : out unsigned(7 downto 0);
     signal is_sprite_out : out std_logic;
 
@@ -175,6 +177,7 @@ begin  -- behavioural
       -- copy pixel data chain from input side to output side
 
       pixel_out <= pixel_in;
+      alpha_out <= alpha_in;
       x_out <= x_in;
       y_out <= y_in;
       border_out <= border_in;

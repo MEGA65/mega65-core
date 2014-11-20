@@ -71,6 +71,7 @@ entity vicii_sprites is
     signal y_in : in integer range 0 to 4095;
     signal border_in : in std_logic;
     signal pixel_in : in unsigned(7 downto 0);
+    signal alpha_in : in unsigned(7 downto 0);
 
     -- Pass pixel information back out, as well as the sprite colour information
     signal is_foreground_out : out std_logic;
@@ -79,6 +80,7 @@ entity vicii_sprites is
     signal y_out : out integer range 0 to 4095;
     signal border_out : out std_logic;
     signal pixel_out : out unsigned(7 downto 0);
+    signal alpha_out : out unsigned(7 downto 0);
     signal sprite_colour_out : out unsigned(7 downto 0);
     signal is_sprite_out : out std_logic;
 
@@ -133,6 +135,7 @@ architecture behavioural of vicii_sprites is
       signal y_in : in integer range 0 to 4095;
       signal border_in : in std_logic;
       signal pixel_in : in unsigned(7 downto 0);
+      signal alpha_in : in unsigned(7 downto 0);
       -- and information from the previous sprite
       signal is_sprite_in : in std_logic;
       signal sprite_colour_in : in unsigned(7 downto 0);
@@ -144,6 +147,7 @@ architecture behavioural of vicii_sprites is
       signal y_out : out integer range 0 to 4095;
       signal border_out : out std_logic;
       signal pixel_out : out unsigned(7 downto 0);
+      signal alpha_out : out unsigned(7 downto 0);
       signal sprite_colour_out : out unsigned(7 downto 0);
       signal is_sprite_out : out std_logic;
 
@@ -290,7 +294,15 @@ architecture behavioural of vicii_sprites is
   signal pixel_2_1 : unsigned(7 downto 0);
   signal pixel_1_0 : unsigned(7 downto 0);  
   signal pixel_final : unsigned(7 downto 0);  
-  
+  signal alpha_7_6 : unsigned(7 downto 0);
+  signal alpha_6_5 : unsigned(7 downto 0);
+  signal alpha_5_4 : unsigned(7 downto 0);
+  signal alpha_4_3 : unsigned(7 downto 0);
+  signal alpha_3_2 : unsigned(7 downto 0);
+  signal alpha_2_1 : unsigned(7 downto 0);
+  signal alpha_1_0 : unsigned(7 downto 0);  
+  signal alpha_final : unsigned(7 downto 0);  
+
 begin
 
   -- The eight VIC-II sprites.
@@ -322,6 +334,7 @@ begin
              y_in => y_in,
              border_in => border_in,
              pixel_in => pixel_in,
+             alpha_in => alpha_in,
              is_sprite_in => '0',
              sprite_colour_in => x"00",
              is_foreground_out => is_foreground_7_6,
@@ -330,6 +343,7 @@ begin
              y_out => y_7_6,
              border_out => border_7_6,
              pixel_out => pixel_7_6,
+             alpha_out => alpha_7_6,
              is_sprite_out => is_sprite_7_6,
              sprite_colour_out => sprite_colour_7_6,
              
@@ -373,6 +387,7 @@ begin
              y_in => y_7_6,
              border_in => border_7_6,
              pixel_in => pixel_7_6,
+             alpha_in => alpha_7_6,
              is_sprite_in => is_sprite_7_6,
              sprite_colour_in => sprite_colour_7_6,
              is_foreground_out => is_foreground_6_5,
@@ -381,6 +396,7 @@ begin
              y_out => y_6_5,
              border_out => border_6_5,
              pixel_out => pixel_6_5,
+             alpha_out => alpha_6_5,
              is_sprite_out => is_sprite_6_5,
              sprite_colour_out => sprite_colour_6_5,
              
@@ -424,6 +440,7 @@ begin
              y_in => y_6_5,
              border_in => border_6_5,
              pixel_in => pixel_6_5,
+             alpha_in => alpha_6_5,
              is_sprite_in => is_sprite_6_5,
              sprite_colour_in => sprite_colour_6_5,
              is_foreground_out => is_foreground_5_4,
@@ -432,6 +449,7 @@ begin
              y_out => y_5_4,
              border_out => border_5_4,
              pixel_out => pixel_5_4,
+             alpha_out => alpha_5_4,
              is_sprite_out => is_sprite_5_4,
              sprite_colour_out => sprite_colour_5_4,
              
@@ -475,6 +493,7 @@ begin
              y_in => y_5_4,
              border_in => border_5_4,
              pixel_in => pixel_5_4,
+             alpha_in => alpha_5_4,
              is_sprite_in => is_sprite_5_4,
              sprite_colour_in => sprite_colour_5_4,
              is_foreground_out => is_foreground_4_3,
@@ -483,6 +502,7 @@ begin
              y_out => y_4_3,
              border_out => border_4_3,
              pixel_out => pixel_4_3,
+             alpha_out => alpha_4_3,
              is_sprite_out => is_sprite_4_3,
              sprite_colour_out => sprite_colour_4_3,
              
@@ -526,6 +546,7 @@ begin
              y_in => y_4_3,
              border_in => border_4_3,
              pixel_in => pixel_4_3,
+             alpha_in => alpha_4_3,
              is_sprite_in => is_sprite_4_3,
              sprite_colour_in => sprite_colour_4_3,
              is_foreground_out => is_foreground_3_2,
@@ -534,6 +555,7 @@ begin
              y_out => y_3_2,
              border_out => border_3_2,
              pixel_out => pixel_3_2,
+             alpha_out => alpha_3_2,
              is_sprite_out => is_sprite_3_2,
              sprite_colour_out => sprite_colour_3_2,
              
@@ -577,6 +599,7 @@ begin
              y_in => y_3_2,
              border_in => border_3_2,
              pixel_in => pixel_3_2,
+             alpha_in => alpha_3_2,
              is_sprite_in => is_sprite_3_2,
              sprite_colour_in => sprite_colour_3_2,
              is_foreground_out => is_foreground_2_1,
@@ -585,6 +608,7 @@ begin
              y_out => y_2_1,
              border_out => border_2_1,
              pixel_out => pixel_2_1,
+             alpha_out => alpha_2_1,
              is_sprite_out => is_sprite_2_1,
              sprite_colour_out => sprite_colour_2_1,
              
@@ -628,6 +652,7 @@ begin
              y_in => y_2_1,
              border_in => border_2_1,
              pixel_in => pixel_2_1,
+             alpha_in => alpha_2_1,
              is_sprite_in => is_sprite_2_1,
              sprite_colour_in => sprite_colour_2_1,
              is_foreground_out => is_foreground_1_0,
@@ -636,6 +661,7 @@ begin
              y_out => y_1_0,
              border_out => border_1_0,
              pixel_out => pixel_1_0,
+             alpha_out => alpha_1_0,
              is_sprite_out => is_sprite_1_0,
              sprite_colour_out => sprite_colour_1_0,
              
@@ -679,6 +705,7 @@ begin
              y_in => y_1_0,
              border_in => border_1_0,
              pixel_in => pixel_1_0,
+             alpha_in => alpha_1_0,
              is_sprite_in => is_sprite_1_0,
              sprite_colour_in => sprite_colour_1_0,
              is_foreground_out => is_foreground_out,
@@ -687,6 +714,7 @@ begin
              y_out => y_out,
              border_out => border_out,
              pixel_out => pixel_final,
+             alpha_out => alpha_final,
              is_sprite_out => is_sprite_final,
              sprite_colour_out => sprite_colour_final,
              
@@ -808,8 +836,10 @@ begin
     if is_sprite_final = '1' then
       report "VIC-II: SPRITE: Compositing sprite pixel colour $" & to_hstring(sprite_colour_final);
       pixel_out <= sprite_colour_final;
+      alpha_out <= x"ff";
     else
       pixel_out <= pixel_final;
+      alpha_out <= alpha_final;
     end if;
 
   end process;

@@ -281,12 +281,14 @@ architecture Behavioral of viciv is
       signal y_in : in integer range 0 to 4095;
       signal border_in : in std_logic;
       signal pixel_in : in unsigned(7 downto 0);
+      signal alpha_in : in unsigned(7 downto 0);
 
       -- Pass pixel information back out
       signal x_out : out integer range 0 to 4095;
       signal y_out : out integer range 0 to 4095;
       signal border_out : out std_logic;
       signal pixel_out : out unsigned(7 downto 0);
+      signal alpha_out : out unsigned(7 downto 0);
       signal sprite_colour_out : out unsigned(7 downto 0);
       signal is_sprite_out : out std_logic;
       signal is_background_out : out std_logic;
@@ -337,6 +339,7 @@ architecture Behavioral of viciv is
   signal vga_out_green : UNSIGNED (7 downto 0) := (others => '0');
   signal vga_out_blue : UNSIGNED (7 downto 0) := (others => '0');
   signal pixel_colour : unsigned(7 downto 0) := x"00";
+  signal pixel_alpha : unsigned(7 downto 0) := x"00";
   
   -- Video mode definition
 --  constant width : integer := 1600;
@@ -633,6 +636,9 @@ architecture Behavioral of viciv is
   signal pixel_is_background_in : std_logic;
   signal rgb_is_background : std_logic;
   signal rgb_is_background2 : std_logic;
+  signal antialias_bg_red : unsigned(7 downto 0);
+  signal antialias_bg_green : unsigned(7 downto 0);
+  signal antialias_bg_blue : unsigned(7 downto 0);
   signal antialias_red : unsigned(7 downto 0);
   signal antialias_green : unsigned(7 downto 0);
   signal antialias_blue : unsigned(7 downto 0);
@@ -642,7 +648,9 @@ architecture Behavioral of viciv is
   signal is_background_in : std_logic;
   signal pixel_is_background_out : std_logic;
   signal chargen_pixel_colour : unsigned(7 downto 0);
+  signal chargen_alpha_value : unsigned(7 downto 0);
   signal postsprite_pixel_colour : unsigned(7 downto 0);
+  signal postsprite_alpha_value : unsigned(7 downto 0);
   signal pixel_is_sprite : std_logic;
 
   signal sprite_fetch_sprite_number : integer range 0 to 8;
@@ -984,11 +992,12 @@ begin
               hsync_strm0 => '0',
               vsync_strm0 => '0',
               de_strm0 => '1',
-              r_strm0(9 downto 2) => std_logic_vector(antialias_red),
+              -- RGB of background colour
+              r_strm0(9 downto 2) => std_logic_vector(antialias_bg_red),
               r_strm0(1 downto 0) => (others => '0'),
-              g_strm0(9 downto 2) => std_logic_vector(antialias_green),
+              g_strm0(9 downto 2) => std_logic_vector(antialias_bg_green),
               g_strm0(1 downto 0) => (others => '0'),
-              b_strm0(9 downto 2) => std_logic_vector(antialias_blue),
+              b_strm0(9 downto 2) => std_logic_vector(antialias_bg_blue),
               b_strm0(1 downto 0) => (others => '0'),
               de_strm1 => '1',
               -- XXX: replace RGB and postsprite_pixel_colour values
@@ -1031,7 +1040,9 @@ begin
               y_in => to_integer(vicii_ycounter),
               border_in => inborder,
               pixel_in => chargen_pixel_colour,
+              alpha_in => chargen_alpha_value,
               pixel_out => postsprite_pixel_colour,
+              alpha_out => postsprite_alpha_value,
               border_out => postsprite_inborder,
               is_sprite_out => pixel_is_sprite,
               is_background_out => pixel_is_background_out,
@@ -2422,13 +2433,13 @@ begin
           report "VICIV: rb_read_address = $" & to_hstring(raster_buffer_read_address(18 downto 7))
             & ", data = $" & to_hstring(raster_buffer_read_data(7 downto 0)) severity note;
           pixel_colour <= raster_buffer_read_data(7 downto 0);
-        -- XXX 9th bit indicates foreground for sprite collission handling
-        -- Also used to cache background colour for alpha-blending of
-        -- anti-aliased text
+          pixel_alpha <= raster_buffer_read_data(16 downto 9);
+        -- 9th bit indicates foreground for sprite collission handling
           pixel_is_background <= not raster_buffer_read_data(8);
           pixel_is_foreground <= raster_buffer_read_data(8);
         end if;
       else
+        pixel_alpha <= x"ff";
         pixel_colour <= x"00";
         pixel_is_background <= '0';
         pixel_is_foreground <= '0';
@@ -2497,6 +2508,7 @@ begin
 
       -- Feed pixel into sprite pipeline
       chargen_pixel_colour <= pixel_colour;
+      chargen_alpha_value <= pixel_alpha;
       pixel_is_foreground_in <= pixel_is_foreground;
       pixel_is_background_in <= pixel_is_background;
 
@@ -2524,16 +2536,21 @@ begin
       
       rgb_is_background2 <= rgb_is_background;
 
-      if rgb_is_background2='1' then
-        -- remember background colour for anti-aliased full-colour text
-        antialias_red <= vga_buffer_red;
-        antialias_green <= vga_buffer_green;
-        antialias_blue <= vga_buffer_blue;
-      end if;
+      antialias_bg_red <= unsigned(alias_palette_rdata(31 downto 24));
+      antialias_bg_green <= unsigned(alias_palette_rdata(23 downto 16));
+      antialias_bg_blue <= unsigned(alias_palette_rdata(15 downto 8));
+
+      antialias_red <= vga_buffer_red;
+      antialias_green <= vga_buffer_green;
+      antialias_blue <= vga_buffer_blue;
       
-      vga_buffer2_red <= vga_buffer_red;
-      vga_buffer2_green <= vga_buffer_green;
-      vga_buffer2_blue <= vga_buffer_blue;
+      vga_buffer2_red <= antialiased_red(9 downto 2);
+      vga_buffer2_green <= antialiased_green(9 downto 2);
+      vga_buffer2_blue <= antialiased_blue(9 downto 2);
+
+      -- vga_buffer2_red <= vga_buffer_red;
+      -- vga_buffer2_green <= vga_buffer_green;
+      -- vga_buffer2_blue <= vga_buffer_blue;
 
       vga_buffer3_red <= vga_buffer2_red;
       vga_buffer3_green <= vga_buffer2_green;
@@ -2821,8 +2838,11 @@ begin
             -- Extra colour RAM byte has vertical controls
             glyph_flip_vertical <= colourramdata(7);
             glyph_flip_horizontal <= colourramdata(6);
-            glyph_trim_top <= to_integer(colourramdata(5 downto 3));
-            glyph_trim_bottom <= to_integer(colourramdata(2 downto 0));
+            if colourramdata(3)='1' then
+              glyph_trim_top <= to_integer(colourramdata(2 downto 0));
+            else
+              glyph_trim_bottom <= to_integer(colourramdata(2 downto 0));
+            end if;
 
             raster_fetch_State <= FetchTextCell;
           else
