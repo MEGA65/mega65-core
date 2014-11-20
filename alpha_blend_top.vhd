@@ -178,7 +178,13 @@ begin  ------------------------------------------------------------------------
       de_1 <= de_strm0;
       de_2 <= de_1;
       de_3 <= de_2;   
-      de_4 <= de_3; 
+      de_4 <= de_3;
+      video0_r_drive <= video0_r;
+      video0_g_drive <= video0_g;
+      video0_b_drive <= video0_b;
+      video1_r_drive <= video1_r;
+      video1_g_drive <= video1_g;
+      video1_b_drive <= video1_b;
     end if;  
   end process;
   -- create clock following circuit
@@ -205,8 +211,8 @@ begin  ------------------------------------------------------------------------
      clk2x            =>  clk2x, 
      reset            =>  reset,
      fol_clk1x        =>  fol_clk1x, 
-     video0           =>  video0_r,         
-     video1           =>  video1_r,        
+     video0           =>  video0_r_drive,         
+     video1           =>  video1_r_drive,        
      alpha            =>  alpha,          
      one_minus_alpha  =>  one_minus_alpha,
      round            =>  round,
@@ -219,8 +225,8 @@ begin  ------------------------------------------------------------------------
      clk2x             =>  clk2x,  
      reset             =>  reset,
      fol_clk1x        =>  fol_clk1x, 
-     video0            =>  video0_g,         
-     video1            =>  video1_g,        
+     video0            =>  video0_g_drive,         
+     video1            =>  video1_g_drive,        
      alpha             =>  alpha,          
      one_minus_alpha   =>  one_minus_alpha,
      round             =>  round,
@@ -233,8 +239,8 @@ begin  ------------------------------------------------------------------------
      clk2x             =>  clk2x,  
      reset             =>  reset,
      fol_clk1x         =>  fol_clk1x, 
-     video0            =>  video0_b,         
-     video1            =>  video1_b,        
+     video0            =>  video0_b_drive,         
+     video1            =>  video1_b_drive,        
      alpha             =>  alpha,          
      one_minus_alpha   =>  one_minus_alpha,
      round             =>  round,
