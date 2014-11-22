@@ -53,6 +53,7 @@ architecture behavioural of alpha_blend_top is
   signal g_strm1_drive: std_logic_vector(9 downto 0);              
   signal b_strm1_drive: std_logic_vector(9 downto 0);
   signal alpha_strm_drive: std_logic_vector(9 downto 0);
+  signal oneminusalpha : integer;
 
 begin
   
