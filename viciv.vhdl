@@ -645,6 +645,7 @@ architecture Behavioral of viciv is
   signal antialiased_red : unsigned(9 downto 0);
   signal antialiased_green : unsigned(9 downto 0);
   signal antialiased_blue : unsigned(9 downto 0);
+  signal antialiaser_enable : std_logic := '0';
   signal is_background_in : std_logic;
   signal pixel_is_background_out : std_logic;
   signal chargen_pixel_colour : unsigned(7 downto 0);
@@ -1451,8 +1452,9 @@ begin
           fastio_rdata(2 downto 0) <= std_logic_vector(ycounter_drive(10 downto 8));
         elsif register_number=84 then
                                         -- $D054 (53332) - New mode control register
-          fastio_rdata(7 downto 4) <= (others => '1');
+          fastio_rdata(7) <= antialiaser_enable;
           fastio_rdata(6) <= viciv_fast_internal;
+          fastio_rdata(5 downto 4) <= (others => '1');
           fastio_rdata(3) <= horizontal_smear;
           fastio_rdata(2) <= fullcolour_extendedchars;
           fastio_rdata(1) <= fullcolour_8bitchars;
@@ -1974,6 +1976,8 @@ begin
           vicii_is_raster_source <= '0';
         elsif register_number=84 then
           -- @IO:GS $D054 VIC-IV Control register C
+          -- @IO:GD $D054.7 VIC-IV/C65GS Anti-aliaser enable
+          antialiaser_enable <= fastio_wdata(7);
           -- @IO:GS $D054.6 VIC-IV/C65GS FAST mode (48MHz)
           viciv_fast_internal <= fastio_wdata(6);
           -- @IO:GS $D054.3 VIC-IV video output smear filter enable
@@ -2543,14 +2547,16 @@ begin
       antialias_red <= vga_buffer_red;
       antialias_green <= vga_buffer_green;
       antialias_blue <= vga_buffer_blue;
-      
-      vga_buffer2_red <= antialiased_red(9 downto 2);
-      vga_buffer2_green <= antialiased_green(9 downto 2);
-      vga_buffer2_blue <= antialiased_blue(9 downto 2);
 
-      -- vga_buffer2_red <= vga_buffer_red;
-      -- vga_buffer2_green <= vga_buffer_green;
-      -- vga_buffer2_blue <= vga_buffer_blue;
+      if antialiaser_enable='1' then
+        vga_buffer2_red <= antialiased_red(9 downto 2);
+        vga_buffer2_green <= antialiased_green(9 downto 2);
+        vga_buffer2_blue <= antialiased_blue(9 downto 2);
+      else
+        vga_buffer2_red <= vga_buffer_red;
+        vga_buffer2_green <= vga_buffer_green;
+        vga_buffer2_blue <= vga_buffer_blue;
+      end if;
 
       vga_buffer3_red <= vga_buffer2_red;
       vga_buffer3_green <= vga_buffer2_green;
