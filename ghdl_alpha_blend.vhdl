@@ -40,6 +40,12 @@ architecture behavioural of alpha_blend_top is
   signal g1  : integer;
   signal b0  : integer;
   signal b1  : integer;
+  signal r0drive  : integer;
+  signal r1drive  : integer;
+  signal g0drive  : integer;
+  signal g1drive  : integer;
+  signal b0drive  : integer;
+  signal b1drive  : integer;
   signal r_strm0_drive: std_logic_vector(9 downto 0);
   signal g_strm0_drive: std_logic_vector(9 downto 0);              
   signal b_strm0_drive: std_logic_vector(9 downto 0);
@@ -66,19 +72,25 @@ begin
             *to_integer(unsigned(alpha_strm));
       r1 <= to_integer(unsigned(r_strm1))
             *(1024-to_integer(unsigned(alpha_strm)));
-      r_blnd <= std_logic_vector(to_unsigned((r0+r1)/1024,10));
+      r0drive <= r0;
+      r1drive <= r1;
+      r_blnd <= std_logic_vector(to_unsigned((r0drive+r1drive)/1024,10));
 
       g0 <= to_integer(unsigned(g_strm0))
             *to_integer(unsigned(alpha_strm));
       g1 <= to_integer(unsigned(g_strm1))
             *(1024-to_integer(unsigned(alpha_strm)));
-      g_blnd <= std_logic_vector(to_unsigned((g0+g1)/1024,10));
+      g0drive <= g0;
+      g1drive <= g1;
+      g_blnd <= std_logic_vector(to_unsigned((g0drive+g1drive)/1024,10));
       
       b0 <= to_integer(unsigned(b_strm0))
             *to_integer(unsigned(alpha_strm));
       b1 <= to_integer(unsigned(b_strm1))
             *(1024-to_integer(unsigned(alpha_strm)));
-      b_blnd <= std_logic_vector(to_unsigned((b0+b1)/1024,10));
+      b0drive <= b0;
+      b1drive <= b1;
+      b_blnd <= std_logic_vector(to_unsigned((b0drive+b1drive)/1024,10));
     end if;
   end process;
 end behavioural;
