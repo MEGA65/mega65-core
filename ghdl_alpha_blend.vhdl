@@ -67,27 +67,25 @@ begin
       b_strm0_drive <= b_strm0;
       b_strm1_drive <= b_strm1;
       alpha_strm_drive <= alpha_strm;
+      oneminusalpha <= (1024-to_integer(unsigned(alpha_strm)));
       
       r0 <= to_integer(unsigned(r_strm0))
-            *to_integer(unsigned(alpha_strm));
-      r1 <= to_integer(unsigned(r_strm1))
-            *(1024-to_integer(unsigned(alpha_strm)));
+            *to_integer(unsigned(alpha_strm_drive));
+      r1 <= to_integer(unsigned(r_strm1))*oneminusalpha;
       r0drive <= r0;
       r1drive <= r1;
       r_blnd <= std_logic_vector(to_unsigned((r0drive+r1drive)/1024,10));
 
       g0 <= to_integer(unsigned(g_strm0))
-            *to_integer(unsigned(alpha_strm));
-      g1 <= to_integer(unsigned(g_strm1))
-            *(1024-to_integer(unsigned(alpha_strm)));
+            *to_integer(unsigned(alpha_strm_drive));
+      g1 <= to_integer(unsigned(g_strm1))*oneminusalpha;
       g0drive <= g0;
       g1drive <= g1;
       g_blnd <= std_logic_vector(to_unsigned((g0drive+g1drive)/1024,10));
       
       b0 <= to_integer(unsigned(b_strm0))
-            *to_integer(unsigned(alpha_strm));
-      b1 <= to_integer(unsigned(b_strm1))
-            *(1024-to_integer(unsigned(alpha_strm)));
+            *to_integer(unsigned(alpha_strm_drive));
+      b1 <= to_integer(unsigned(b_strm1))*oneminusalpha;
       b0drive <= b0;
       b1drive <= b1;
       b_blnd <= std_logic_vector(to_unsigned((b0drive+b1drive)/1024,10));
