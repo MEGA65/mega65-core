@@ -68,7 +68,7 @@ begin
       b_strm0_drive <= b_strm0;
       b_strm1_drive <= b_strm1;
       alpha_strm_drive <= alpha_strm;
-      oneminusalpha <= (1024-to_integer(unsigned(alpha_strm)));
+      oneminusalpha <= (1023-to_integer(unsigned(alpha_strm)));
       
       r0 <= to_integer(unsigned(r_strm0))
             *to_integer(unsigned(alpha_strm_drive));
