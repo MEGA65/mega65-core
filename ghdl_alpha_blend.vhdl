@@ -34,14 +34,13 @@ entity alpha_blend_top is
 end alpha_blend_top;
 
 architecture behavioural of alpha_blend_top is
-begin
-
   signal r0  : integer;
   signal r1  : integer;
   signal g0  : integer;
   signal g1  : integer;
   signal b0  : integer;
   signal b1  : integer;
+begin
   
   process (clk1x) is
     variable temp : integer;
