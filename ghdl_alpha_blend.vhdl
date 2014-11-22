@@ -40,12 +40,28 @@ architecture behavioural of alpha_blend_top is
   signal g1  : integer;
   signal b0  : integer;
   signal b1  : integer;
+  signal r_strm0_drive: std_logic_vector(9 downto 0);
+  signal g_strm0_drive: std_logic_vector(9 downto 0);              
+  signal b_strm0_drive: std_logic_vector(9 downto 0);
+  signal r_strm1_drive: std_logic_vector(9 downto 0);
+  signal g_strm1_drive: std_logic_vector(9 downto 0);              
+  signal b_strm1_drive: std_logic_vector(9 downto 0);
+  signal alpha_strm_drive: std_logic_vector(9 downto 0);
+
 begin
   
   process (clk1x) is
     variable temp : integer;
   begin
     if rising_edge(clk1x) then
+      r_strm0_drive <= r_strm0;
+      r_strm1_drive <= r_strm1;
+      g_strm0_drive <= g_strm0;
+      g_strm1_drive <= g_strm1;
+      b_strm0_drive <= b_strm0;
+      b_strm1_drive <= b_strm1;
+      alpha_strm_drive <= alpha_strm;
+      
       r0 <= to_integer(unsigned(r_strm0))
             *to_integer(unsigned(alpha_strm));
       r1 <= to_integer(unsigned(r_strm1))
