@@ -58,7 +58,7 @@ architecture behavioural of alpha_blend_top is
 begin
   
   process (clk1x) is
-    variable temp : integer;
+    variable temp : unsigned(19 downto 0);
   begin
     if rising_edge(clk1x) then
       r_strm0_drive <= r_strm0;
@@ -75,21 +75,24 @@ begin
       r1 <= to_integer(unsigned(r_strm1))*oneminusalpha;
       r0drive <= r0;
       r1drive <= r1;
-      r_blnd <= std_logic_vector(to_unsigned((r0drive+r1drive)/1024,10));
+      temp := to_unsigned(r0drive+r1drive,20);
+      r_blnd <= std_logic_vector(temp(19 downto 10));
 
       g0 <= to_integer(unsigned(g_strm0))
             *to_integer(unsigned(alpha_strm_drive));
       g1 <= to_integer(unsigned(g_strm1))*oneminusalpha;
       g0drive <= g0;
       g1drive <= g1;
-      g_blnd <= std_logic_vector(to_unsigned((g0drive+g1drive)/1024,10));
+      temp := to_unsigned(g0drive+g1drive,20);
+      g_blnd <= std_logic_vector(temp(19 downto 10));
       
       b0 <= to_integer(unsigned(b_strm0))
             *to_integer(unsigned(alpha_strm_drive));
       b1 <= to_integer(unsigned(b_strm1))*oneminusalpha;
       b0drive <= b0;
       b1drive <= b1;
-      b_blnd <= std_logic_vector(to_unsigned((b0drive+b1drive)/1024,10));
+      temp := to_unsigned(b0drive+b1drive,20);
+      b_blnd <= std_logic_vector(temp(19 downto 10));
     end if;
   end process;
 end behavioural;
