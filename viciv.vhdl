@@ -2823,8 +2823,11 @@ begin
           end if;
         when FetchCharHighByte =>
 
-          -- In 16-bit character mode we also need to read the 2nd colour byte
+          -- In 16-bit character mode we also need to read the 2nd colour byte,
+          -- which are doing now, so we need to advance colourramaddress ready
+          -- to read the low colour byte of the next character.
           colourramaddress <= colourramaddress + 1;
+          report "reading high colour byte";
           
           -- Work out if character is full colour (ignored for bitmap mode but
           -- calculated outside of if test to flatten logic).
@@ -2971,7 +2974,7 @@ begin
           glyph_visible <= '1';
           glyph_blink <= '0';
           glyph_with_alpha <= '0';
-          report "Reading low-byte of colour RAM (value $" & to_hstring(colourramdata)&")";
+          report "Reading high-byte of colour RAM (value $" & to_hstring(colourramdata)&")";
           if viciii_extended_attributes='1' then
             if colourramdata(4)='1' then
               -- Blinking glyph
@@ -3108,6 +3111,12 @@ begin
                 when "11" => paint_background <= multi3_colour;
                 when others => paint_background <= screen_colour;
               end case;
+              -- For alpha-blended pixels, we need to make sure that we set
+              -- paint_foreground from glyph_colour, which allows us to have
+              -- 32 colours of anti-aliased text (using VIC-III bold attribute
+              -- to provide the 5th bit), as well as the option of reversed
+              -- text, which should invert the alpha-values).
+              paint_foreground <= glyph_colour;
               paint_fsm_state <= PaintFullColour;
             else
               if multicolour_mode='0' and extended_background_mode='0' then
