@@ -758,8 +758,10 @@ architecture Behavioral of viciv is
   signal glyph_width_deduct : unsigned(2 downto 0);
   signal glyph_width : integer range 0 to 8;
   signal paint_glyph_width : integer range 0 to 8;
-  signal glyph_blink_or_alpha : std_logic;
-  signal paint_blink_or_alpha : std_logic;
+  signal glyph_blink : std_logic;
+  signal paint_blink : std_logic;
+  signal glyph_with_alpha : std_logic;
+  signal paint_with_alpha : std_logic;
   signal glyph_trim_top : integer range 0 to 7;
   signal glyph_trim_bottom : integer range 0 to 7;
 
@@ -2841,9 +2843,11 @@ begin
               screen_ram_high_is_ff <= '1';
             end if;
 
-            -- Extra colour RAM byte has vertical controls
+            -- First colour RAM byte has vertical controls
             glyph_flip_vertical <= colourramdata(7);
             glyph_flip_horizontal <= colourramdata(6);
+            glyph_with_alpha <= colourramdata(5);
+            -- bit 4 is spare for an extra attribute
             if colourramdata(3)='1' then
               glyph_trim_top <= to_integer(colourramdata(2 downto 0));
             else
@@ -2965,12 +2969,13 @@ begin
           glyph_underline <= '0';
           glyph_reverse <= '0';
           glyph_visible <= '1';
-          glyph_blink_or_alpha <= '0';
+          glyph_blink <= '0';
+          glyph_with_alpha <= '0';
           report "Reading low-byte of colour RAM (value $" & to_hstring(colourramdata)&")";
           if viciii_extended_attributes='1' then
             if colourramdata(4)='1' then
               -- Blinking glyph
-              glyph_blink_or_alpha <= '1';
+              glyph_blink <= '1';
               if colourramdata(5)='1'
                 or colourramdata(6)='1'
                 or colourramdata(7)='1' then
@@ -3086,7 +3091,8 @@ begin
             -- Tell painter whether to flip horizontally or not.
             paint_flip_horizontal <= glyph_flip_horizontal;
             paint_glyph_width <= glyph_width;
-            paint_blink_or_alpha <= glyph_blink_or_alpha;
+            paint_blink <= glyph_blink;
+            paint_with_alpha <= glyph_with_alpha;
 
             -- Now work out exactly how we are painting
             if glyph_full_colour='1' then
@@ -3250,7 +3256,7 @@ begin
             raster_buffer_write_data(7 downto 0) <= paint_background;
           else
             -- fullground pixel
-            if paint_blink_or_alpha='0' then
+            if paint_with_alpha='0' then
               report "full-colour glyph painting pixel $" & to_hstring(paint_full_colour_data(7 downto 0));
               raster_buffer_write_data(16 downto 9) <= x"FF";  -- solid alpha
               raster_buffer_write_data(8) <= '1';              
