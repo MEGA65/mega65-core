@@ -110,8 +110,3 @@ package cputypes is
   end record;
 
 end cputypes;
-
-package body cputypes is
-
-
-end cputypes;
