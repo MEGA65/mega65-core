@@ -11,7 +11,6 @@
 
 library IEEE;
 use IEEE.std_logic_1164.all;
-use IEEE.std_logic_unsigned.all;
 use IEEE.numeric_std.all;
 
 -------------------------------------------------------------------------------
@@ -62,7 +61,6 @@ end rtl;
 
 library IEEE;
 use IEEE.std_logic_1164.all;
-use IEEE.std_logic_unsigned.all;
 use IEEE.numeric_std.all;
 
 entity pwm_sdadc is
