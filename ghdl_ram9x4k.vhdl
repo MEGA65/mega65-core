@@ -10,7 +10,7 @@ ENTITY ram9x4k IS
   PORT (
     clka : IN STD_LOGIC;
     wea : IN STD_LOGIC_VECTOR(0 DOWNTO 0);
-    addra : IN STD_LOGIC_VECTOR(11 DOWNTO 0);
+    addraa : IN STD_LOGIC_VECTOR(11 DOWNTO 0);
     dina : IN STD_LOGIC_VECTOR(8 DOWNTO 0);
     clkb : IN STD_LOGIC;
     addrb : IN STD_LOGIC_VECTOR(11 DOWNTO 0);
@@ -30,7 +30,7 @@ begin  -- behavioural
   begin
     if(rising_edge(Clka)) then 
       if wea(0)='1' then
-        ram(to_integer(unsigned(addra))) <= dina;
+        ram(to_integer(unsigned(addraa))) <= dina;
       end if;        
 
       doutb <= ram(to_integer(unsigned(addrb)));

@@ -158,7 +158,7 @@ architecture Behavioral of viciv is
     PORT (
       clka : IN STD_LOGIC;
       wea : IN STD_LOGIC_VECTOR(0 DOWNTO 0);
-      addra : IN STD_LOGIC_VECTOR(11 DOWNTO 0);
+      addraa : IN STD_LOGIC_VECTOR(11 DOWNTO 0);
       dina : IN STD_LOGIC_VECTOR(8 DOWNTO 0);
       clkb : IN STD_LOGIC;
       addrb : IN STD_LOGIC_VECTOR(11 DOWNTO 0);
@@ -170,7 +170,7 @@ architecture Behavioral of viciv is
     PORT (
       clka : IN STD_LOGIC;
       wea : IN STD_LOGIC_VECTOR(0 DOWNTO 0);
-      addra : IN STD_LOGIC_VECTOR(10 DOWNTO 0);
+      addrl : IN STD_LOGIC_VECTOR(10 DOWNTO 0);
       dina : IN STD_LOGIC_VECTOR(17 DOWNTO 0);
       clkb : IN STD_LOGIC;
       addrb : IN STD_LOGIC_VECTOR(10 DOWNTO 0);
