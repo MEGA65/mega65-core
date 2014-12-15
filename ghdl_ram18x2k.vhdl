@@ -8,13 +8,13 @@ use work.debugtools.all;
 
 ENTITY ram18x2k IS
   PORT (
-    clka : IN STD_LOGIC;
-    wea : IN STD_LOGIC_VECTOR(0 DOWNTO 0);
+    clkl : IN STD_LOGIC;
+    wel : IN STD_LOGIC_VECTOR(0 DOWNTO 0);
     addrl : IN STD_LOGIC_VECTOR(10 DOWNTO 0);
-    dina : IN STD_LOGIC_VECTOR(17 DOWNTO 0);
-    clkb : IN STD_LOGIC;
-    addrb : IN STD_LOGIC_VECTOR(10 DOWNTO 0);
-    doutb : OUT STD_LOGIC_VECTOR(17 DOWNTO 0)
+    dinl : IN STD_LOGIC_VECTOR(17 DOWNTO 0);
+    clkr : IN STD_LOGIC;
+    addrr : IN STD_LOGIC_VECTOR(10 DOWNTO 0);
+    doutr : OUT STD_LOGIC_VECTOR(17 DOWNTO 0)
     );
 END ram18x2k;
 
@@ -25,15 +25,15 @@ architecture behavioural of ram18x2k is
   signal ram : ram_t;
 begin  -- behavioural
 
-  process(clka)
+  process(clkl)
     variable theram : ram_t;
   begin
-    if(rising_edge(Clka)) then 
-      if wea(0)='1' then
-        ram(to_integer(unsigned(addrl))) <= dina;
+    if(rising_edge(Clkl)) then 
+      if wel(0)='1' then
+        ram(to_integer(unsigned(addrl))) <= dinl;
       end if;        
 
-      doutb <= ram(to_integer(unsigned(addrb)));
+      doutr <= ram(to_integer(unsigned(addrr)));
     end if;
   end process;
 

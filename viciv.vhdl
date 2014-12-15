@@ -168,13 +168,13 @@ architecture Behavioral of viciv is
 
   component ram18x2k IS
     PORT (
-      clka : IN STD_LOGIC;
-      wea : IN STD_LOGIC_VECTOR(0 DOWNTO 0);
+      clkl : IN STD_LOGIC;
+      wel : IN STD_LOGIC_VECTOR(0 DOWNTO 0);
       addrl : IN STD_LOGIC_VECTOR(10 DOWNTO 0);
-      dina : IN STD_LOGIC_VECTOR(17 DOWNTO 0);
-      clkb : IN STD_LOGIC;
-      addrb : IN STD_LOGIC_VECTOR(10 DOWNTO 0);
-      doutb : OUT STD_LOGIC_VECTOR(17 DOWNTO 0)
+      dinl : IN STD_LOGIC_VECTOR(17 DOWNTO 0);
+      clkr : IN STD_LOGIC;
+      addrr : IN STD_LOGIC_VECTOR(10 DOWNTO 0);
+      doutr : OUT STD_LOGIC_VECTOR(17 DOWNTO 0)
       );
   END component;
 
@@ -890,13 +890,13 @@ begin
 
   rasterbuffer1: component ram18x2k
     port map (
-      clka => pixelclock,
-      clkb => pixelclock,
-      wea(0) => raster_buffer_write,
-      dina => std_logic_vector(raster_buffer_write_data),
-      unsigned(doutb) => raster_buffer_read_data,
-      addra => std_logic_vector(raster_buffer_write_address(10 downto 0)),
-      addrb => std_logic_vector(raster_buffer_read_address(17 downto 7))
+      clkl => pixelclock,
+      clkr => pixelclock,
+      wel(0) => raster_buffer_write,
+      dinl => std_logic_vector(raster_buffer_write_data),
+      unsigned(doutr) => raster_buffer_read_data,
+      addrl => std_logic_vector(raster_buffer_write_address(10 downto 0)),
+      addrr => std_logic_vector(raster_buffer_read_address(17 downto 7))
       );
   
   buffer1: component screen_ram_buffer
