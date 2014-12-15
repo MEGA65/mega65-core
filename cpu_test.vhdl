@@ -33,8 +33,15 @@ architecture behavior of cpu_test is
   signal led1 : std_logic;
   signal led2 : std_logic;
   signal led3 : std_logic;
+  signal led4 : std_logic;
+  signal led5 : std_logic;
   signal sw : std_logic_vector(15 downto 0) := (others => '0');
   signal btn : std_logic_vector(4 downto 0) := (others => '0');
+
+  signal qspidb : std_logic_vector(3 downto 0) := (others => '0');
+  signal qspicsn : std_logic;
+  signal qspisck : std_logic;
+  signal aclsck : std_logic;
 
   signal UART_TXD : std_logic;
   signal RsRx : std_logic;
@@ -72,6 +79,13 @@ architecture behavior of cpu_test is
            vgagreen : out  UNSIGNED (3 downto 0);
            vgablue : out  UNSIGNED (3 downto 0);
 
+           ----------------------------------------------------------------------
+           -- Flash RAM for holding config
+           ----------------------------------------------------------------------
+           QspiSCK : out std_logic;
+           QspiDB : inout std_logic_vector(3 downto 0);
+           QspiCSn : out std_logic;
+
            ---------------------------------------------------------------------------
            -- IO lines to the ethernet controller
            ---------------------------------------------------------------------------
@@ -98,6 +112,7 @@ architecture behavior of cpu_test is
            aclSS : out std_logic;
            aclInt1 : in std_logic;
            aclInt2 : in std_logic;
+           aclSCK : out std_logic;
     
            ampPWM : out std_logic;
            ampSD : out std_logic;
@@ -111,6 +126,8 @@ architecture behavior of cpu_test is
            tmpInt : in std_logic;
            tmpCT : in std_logic;
 
+
+           
            --------------------------------------------------------------------
            -- Slow RAM interface: null for now
            --------------------------------------------------------------------
@@ -136,6 +153,8 @@ architecture behavior of cpu_test is
            led1 : out std_logic;
            led2 : out std_logic;
            led3 : out std_logic;
+           led4 : out std_logic;
+           led5 : out std_logic;
            sw : in std_logic_vector(15 downto 0);
            btn : in std_logic_vector(4 downto 0);
 
@@ -199,6 +218,10 @@ begin
 
       miso_i => '1',
 
+      qspidb => qspidb,
+      qspicsn => qspicsn,      
+      qspisck => qspisck,     
+      aclsck => aclsck,
       aclMISO => '1',
       aclInt1 => '0',
       aclInt2 => '0',
@@ -227,6 +250,9 @@ begin
       led1            => led1,
       led2            => led2,
       led3            => led3,
+      led4            => led4,
+      led5            => led5,
+      
       sw              => sw,
       btn             => btn,
 
