@@ -19,6 +19,9 @@ iter1:	 .byte 0
 	 .advance 2079
 
 programentrypoint:
+	lda #$00
+	sta screen_ram_pointer
+	sta screen_ram_pointer+1
 
 	; no BASIC, so that we can see the font below
 	lda #$36
@@ -72,6 +75,10 @@ pl:	txa
 	inx
 	bne pl
 
+	; set border colour so that we can see how much raster time it takes
+	lda #$ff
+	sta $d020
+
 	; set screen colour to black to help with contrast
 	lda #$00
 	sta $d021
@@ -89,8 +96,13 @@ pl:	txa
 	jsr printunicodemessage	
 
 	; then do nothing
+	lda #$00
+	sta $d020
 loop:
-	jmp loop
+	lda $d012
+	cmp #$80
+	bne loop
+	jmp programentrypoint
 	
 ; Text to display expressed as list of 16-bit unicode points.
 unicodestring:
@@ -156,6 +168,10 @@ gl_2:	lsr face_tile_base+2
 
 ; @$08F0
 glyph_lookup:
+
+	lda #$7f
+	sta $d020
+
 	; Get important information for a glyph from a font.
 	
 	; Start by building pointer to glyph list in font.
@@ -220,6 +236,9 @@ gl_nomoreglyphs:
 	sta glyph_width
 	sta glyph_width+1
 	sta glyph_tile_list_address
+
+	lda #$ff
+	sta $d020
 
 	rts
 ; @$0961
@@ -303,6 +322,10 @@ gl_foundglyph:
        lda glyph_width+1
        sbc #$00
        sta glyph_width+1
+
+	lda #$ff
+	sta $d020
+
        rts
 
 ; Print the currently looked-up Unicode glyph onto the current line of output.
