@@ -2551,7 +2551,7 @@ begin
                                 -- Enable 32-bit pointer for ($nn),Z addressing
                                 -- mode
                                 absolute32_addressing_enabled <= '1';
-                  when x"F8" => flag_d <= '1';  -- CLD
+                  when x"F8" => flag_d <= '1';  -- SED                                
                   when others => null;
                 end case;
                                  
