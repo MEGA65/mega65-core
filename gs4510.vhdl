@@ -367,6 +367,10 @@ end component;
   signal reg_addr_lsbs : unsigned(15 downto 0);
   -- Flag that indicates if a ($nn),Z access is using a 32-bit pointer
   signal absolute32_addressing_enabled : std_logic := '0';
+  -- Flag that indicates far JMP, JSR or RTS
+  signal flat32_address : std_logic := '0';
+  -- Far jumps are prefixed with SED, CLD, so we need a flag to keep track of this.
+  signal last_was_sed : std_logic := '0';
   -- flag for progressive carry calculation when loading a 32-bit pointer
   signal pointer_carry : std_logic;
   -- Temporary value holder (used for RMW instructions)
@@ -2485,14 +2489,14 @@ begin
               last_instruction_pc <= reg_pc - 1;
               last_opcode <= memory_read_value;
               last_bytecount <= 1;
-
+              
               -- 4502 doesn't allow interrupts immediately following a
               -- single-cycle instruction
               if (no_interrupt = '0') and ((irq_pending='1' and flag_i='0') or nmi_pending='1') then
                 -- An interrupt has occurred
                 state <= Interrupt;
                 reg_pc <= reg_pc - 1;
-              else             
+              else
                 reg_opcode <= memory_read_value;
                 -- Present instruction to serial monitor;
                 monitor_opcode <= memory_read_value;
@@ -2514,6 +2518,9 @@ begin
                 -- interrupts are only checked in InstructionFetch, not
                 -- InstructionDecode).
                 absolute32_addressing_enabled <= '0';
+                last_was_sed <= '0';
+                flat32_address <= '0';
+                
                 case memory_read_value is
                   when x"03" => flag_e <= '1';  -- SEE
                   when x"0A" => reg_a <= a_asl; set_nz(a_asl); flag_c <= reg_a(7); -- ASL A
@@ -2546,12 +2553,14 @@ begin
                   when x"C8" => reg_y <= y_incremented; set_nz(y_incremented); -- INY
                   when x"CA" => reg_x <= x_decremented; set_nz(x_decremented); -- DEX
                   when x"D8" => flag_d <= '0';  -- CLD
+                                flat32_address <= '1';
                   when x"E8" => reg_x <= x_incremented; set_nz(x_incremented); -- INX
                   when x"EA" => map_interrupt_inhibit <= '0'; -- EOM
                                 -- Enable 32-bit pointer for ($nn),Z addressing
                                 -- mode
                                 absolute32_addressing_enabled <= '1';
-                  when x"F8" => flag_d <= '1';  -- SED                                
+                  when x"F8" => flag_d <= '1';  -- SED
+                                last_was_sed <= '1';
                   when others => null;
                 end case;
                                  
@@ -2562,6 +2571,21 @@ begin
                 if memory_read_value(4 downto 0) = "10010" then
                   absolute32_addressing_enabled <= absolute32_addressing_enabled;
                 end if;
+                -- Preset flat32_address value if the current instruction is
+                -- JMP, JSR or RTS
+                -- This is opcodes JMP absolute ($4C), JMP indirect ($6C),
+                -- JMP (absolute,X) ($7C), JSR absolute ($20), JSR (absolute) ($22)
+                -- JSR (absolute,X) ($23), RTS ($60), RTS immediate ($62)
+                case memory_read_value is
+                  when x"20" => flat32_address <= flat32_address;
+                  when x"22" => flat32_address <= flat32_address;
+                  when x"23" => flat32_address <= flat32_address;
+                  when x"4C" => flat32_address <= flat32_address;
+                  when x"60" => flat32_address <= flat32_address;
+                  when x"62" => flat32_address <= flat32_address;
+                  when x"6C" => flat32_address <= flat32_address;
+                  when others => null;
+                end case;
                 
                 if op_is_single_cycle(to_integer(memory_read_value)) = '0' then
                   if (mode_lut(to_integer(memory_read_value)) = M_immnn)
