@@ -23,7 +23,7 @@ entity cia6526 is
     -- fast IO port (clocked at core clock). 1MB address space
     ---------------------------------------------------------------------------
     cs : in std_logic;
-    fastio_addr : in unsigned(7 downto 0);
+    fastio_address : in unsigned(7 downto 0);
     fastio_write : in std_logic;
     fastio_wdata : in unsigned(7 downto 0);
     fastio_rdata : out unsigned(7 downto 0);
@@ -129,7 +129,7 @@ architecture behavioural of cia6526 is
 
 begin  -- behavioural
   
-  process(cpuclock,fastio_addr,fastio_write,flagin,cs,portain,portbin,
+  process(cpuclock,fastio_address,fastio_write,flagin,cs,portain,portbin,
           reg_porta_ddr,reg_portb_ddr,reg_porta_out,reg_portb_out,
           reg_timera,reg_timerb,read_tod_latched,read_tod_dsecs,
           reg_tod_secs,reg_tod_mins,reg_tod_hours,reg_tod_ampm,reg_read_sdr,
@@ -155,7 +155,7 @@ begin  -- behavioural
         -- reg_porta_read and portain (and same for port b)
         -- to extra registers for debugging.
         register_number(7 downto 5) := (others => '0');
-        register_number(4 downto 0) := fastio_addr(4 downto 0);
+        register_number(4 downto 0) := fastio_address(4 downto 0);
 
         -- Reading of registers
         if fastio_write='1' then
@@ -245,7 +245,7 @@ begin  -- behavioural
   variable register_number : unsigned(3 downto 0);
   begin
     if rising_edge(cpuclock) then
-      register_number := fastio_addr(3 downto 0);
+      register_number := fastio_address(3 downto 0);
 
       reg_isr_out(7) <= reg_isr(7);
       reg_isr_out(0) <= reg_isr(0);
@@ -364,7 +364,7 @@ begin  -- behavioural
       -- Check for register read side effects
       if fastio_write='0' and cs='1' then
         --report "Performing side-effects of reading from CIA register $" & to_hstring(register_number) severity note;
-        register_number := fastio_addr(3 downto 0);
+        register_number := fastio_address(3 downto 0);
         case register_number is
           when x"1" =>
             -- Reading or writing port B strobes PC high for 1 cycle
@@ -391,7 +391,7 @@ begin  -- behavioural
       if fastio_write='1' and cs='1' then
         --report "writing $" & to_hstring(fastio_wdata)
         --  & " to CIA register $" & to_hstring(register_number) severity note;
-        register_number := fastio_addr(3 downto 0);
+        register_number := fastio_address(3 downto 0);
         case register_number is
           when x"0" => 
                        reg_porta_out<=std_logic_vector(fastio_wdata);

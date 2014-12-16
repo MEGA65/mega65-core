@@ -277,7 +277,7 @@ architecture behavioral of iomapper is
       -- fast IO port (clocked at core clock). 1MB address space
       ---------------------------------------------------------------------------
       cs : in std_logic;
-      fastio_addr : in unsigned(7 downto 0);
+      fastio_address : in unsigned(7 downto 0);
       fastio_write : in std_logic;
       fastio_wdata : in unsigned(7 downto 0);
       fastio_rdata : out unsigned(7 downto 0);
@@ -451,7 +451,7 @@ begin
     reg_isr_out => reg_isr_out,
     imask_ta_out => imask_ta_out,
     cs => cia1cs,
-    fastio_addr => unsigned(address(7 downto 0)),
+    fastio_address => unsigned(address(7 downto 0)),
     fastio_write => w,
     std_logic_vector(fastio_rdata) => data_o,
     fastio_wdata => unsigned(data_i),
@@ -464,14 +464,14 @@ begin
     countin => '1'
     );
 
-  cia2: cia6526 port map (
+  cia2two: cia6526 port map (
     cpuclock => clk,
     phi0 => phi0,
     todclock => clock50hz,
     reset => reset,
     irq => nmi,
     cs => cia2cs,
-    fastio_addr => unsigned(address(7 downto 0)),
+    fastio_address => unsigned(address(7 downto 0)),
     fastio_write => w,
     std_logic_vector(fastio_rdata) => data_o,
     fastio_wdata => unsigned(data_i),
