@@ -2712,7 +2712,34 @@ begin
               end case;
               
               -- Process instruction next cycle
-              state <= Cycle3;
+              if flat32_address='1' then
+                -- 32bit absolute jsr/jmp
+                state <= Flat32Got2ndArgument;
+              else
+                -- normal instruction
+                state <= Cycle3;
+              end if;
+            when Flat32Got2ndArgument =>
+              -- Flat 32bit JMP/JSR instructions require 4 address bytes.
+              -- At this point, we have the 2nd byte.  If the addressing mode
+              -- is absolute, then we can keep the 2 bytes already read, and just
+              -- read the last two address bytes.  If indirect, or indirectX, then
+              -- we need to begin reading from the 1st byte at the prescribed
+              -- address. IndirectX mode for flat 32 bit addressing will
+              -- multiply X by 4, so that it allows referencing of 256 unique
+              -- non-overlapping addresses, unlike JSR/JMP ($nnnn,X) on the
+              -- 65CE02/4502 where X is not scaled, resulting in only 128
+              -- non-overlapping addresses.
+              if reg_addressingmode = M_nnnn then
+                -- Store and read last two bytes
+              elsif reg_addressingmode = M_Innnn then
+                -- Dereference, and read all four bytes
+              elsif reg_addressingmode = M_InnnnX then
+                -- Add (X*4), dereference, and read all four bytes
+              else
+                -- unknown mode
+                state <= normal_fetch_state;
+              end if;
             when Cycle3 =>
               -- Show serial monitor what we are doing.
               if (reg_addressingmode /= M_A) then
@@ -2762,6 +2789,7 @@ begin
                     monitor_ibytes(0) <= '1';
 
                     reg_addr(15 downto 8) <= memory_read_value;
+
                     -- If it is a branch, write the low bits of the programme
                     -- counter now.  We will read the 2nd argument next cycle
                     if reg_instruction = I_JSR or reg_instruction = I_BSR then
