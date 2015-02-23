@@ -286,8 +286,8 @@ architecture Behavioral of machine is
       slowram_oe : out std_logic;
       slowram_lb : out std_logic;
       slowram_ub : out std_logic;
-      slowram_datain : in std_logic_vector(15 downto 0);
-      slowram_dataout : out std_logic_vector(15 downto 0);
+      slowram_datain : out std_logic_vector(15 downto 0);
+      slowram_dataout : in std_logic_vector(15 downto 0);
 
       cpu_leds : out std_logic_vector(3 downto 0);              
 
