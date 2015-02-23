@@ -377,7 +377,7 @@ begin
       -- Slow RAM interface static lines
 --      ram_clk => '0',                       -- keep clock low for async access
 --      ram_ADVn => '0',                       -- async burst mode address advance
-      ram_CRE => '0',                        -- access memory or config registers
+--      ram_CRE => '0',                        -- access memory or config registers
       
       -- DDR2 interface
       ddr2_addr => ddr2_addr,
