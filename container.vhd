@@ -390,7 +390,6 @@ begin
       ddr2_dqs_p => ddr2_dqs_p,
       ddr2_dqs_n => ddr2_dqs_n
    );
-end Ram2Ddr;
   
   machine0: machine
     port map (
