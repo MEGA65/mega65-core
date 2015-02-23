@@ -284,7 +284,8 @@ architecture Behavioral of container is
          slowram_oe : out std_logic;
          slowram_lb : out std_logic;
          slowram_ub : out std_logic;
-         slowram_data : inout std_logic_vector(15 downto 0);
+         slowram_datain : out std_logic_vector(15 downto 0);
+         slowram_dataout : in std_logic_vector(15 downto 0);
          
          ----------------------------------------------------------------------
          -- PS/2 adapted USB keyboard & joystick connector.
@@ -373,6 +374,10 @@ begin
       ram_wen           => slowram_we,
       ram_ub            => slowram_ub,
       ram_lb            => slowram_lb,
+      -- Slow RAM interface static lines
+      ram_clk => '0',                       -- keep clock low for async access
+      ram_ADVn => '0',                       -- async burst mode address advance
+      ram_CRE => '0',                        -- access memory or config registers
       
       -- DDR2 interface
       ddr2_addr => ddr2_addr,
@@ -489,11 +494,6 @@ begin
   -- Hardware buttons for triggering IRQ & NMI
   irq <= not btn(0);
   nmi <= not btn(4);
-
-  -- Slow RAM interface static lines
-  RamCLK <= '0';                        -- keep clock low for async access
-  RamADVn <= '0';                       -- async burst mode address advance
-  RamCRE <= '0';                        -- access memory or config registers
 
   -- Generate 50MHz clock for ethernet
   process (clock100mhz) is
