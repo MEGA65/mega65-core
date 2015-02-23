@@ -107,17 +107,31 @@ entity container is
          ----------------------------------------------------------------------
          -- Cellular RAM interface for Slow RAM
          ----------------------------------------------------------------------
-         RamCLK : out std_logic;
-         RamADVn : out std_logic;
-         RamCEn : out std_logic;
-         RamCRE : out std_logic;
-         RamOEn : out std_logic;
-         RamWEn : out std_logic;
-         RamUBn : out std_logic;
-         RamLBn : out std_logic;
-         RamWait : in std_logic;
-         MemDB : inout std_logic_vector(15 downto 0);
-         MemAdr : inout std_logic_vector(22 downto 0);
+         --RamCLK : out std_logic;
+         --RamADVn : out std_logic;
+         --RamCEn : out std_logic;
+         --RamCRE : out std_logic;
+         --RamOEn : out std_logic;
+         --RamWEn : out std_logic;
+         --RamUBn : out std_logic;
+         --RamLBn : out std_logic;
+         --RamWait : in std_logic;
+         --MemDB : inout std_logic_vector(15 downto 0);
+         --MemAdr : inout std_logic_vector(22 downto 0);
+         ddr2_addr      : out   std_logic_vector(12 downto 0);
+         ddr2_ba        : out   std_logic_vector(2 downto 0);
+         ddr2_ras_n     : out   std_logic;
+         ddr2_cas_n     : out   std_logic;
+         ddr2_we_n      : out   std_logic;
+         ddr2_ck_p      : out   std_logic_vector(0 downto 0);
+         ddr2_ck_n      : out   std_logic_vector(0 downto 0);
+         ddr2_cke       : out   std_logic_vector(0 downto 0);
+         ddr2_cs_n      : out   std_logic_vector(0 downto 0);
+         ddr2_dm        : out   std_logic_vector(1 downto 0);
+         ddr2_odt       : out   std_logic_vector(0 downto 0);
+         ddr2_dq        : inout std_logic_vector(15 downto 0);
+         ddr2_dqs_p     : inout std_logic_vector(1 downto 0);
+         ddr2_dqs_n     : inout std_logic_vector(1 downto 0)
          
          ----------------------------------------------------------------------
          -- Debug interfaces on Nexys4 board
@@ -154,6 +168,41 @@ architecture Behavioral of container is
       );
   end component;
 
+  component Ram2Ddr is
+   port (
+      -- Common
+      clk_200MHz_i         : in    std_logic; -- 200 MHz system clock
+      rst_i                : in    std_logic; -- active high system reset
+      device_temp_i        : in    std_logic_vector(11 downto 0);
+      
+      -- RAM interface
+      ram_a                : in    std_logic_vector(26 downto 0);
+      ram_dq_i             : in    std_logic_vector(15 downto 0);
+      ram_dq_o             : out   std_logic_vector(15 downto 0);
+      ram_cen              : in    std_logic;
+      ram_oen              : in    std_logic;
+      ram_wen              : in    std_logic;
+      ram_ub               : in    std_logic;
+      ram_lb               : in    std_logic;
+      
+      -- DDR2 interface
+      ddr2_addr            : out   std_logic_vector(12 downto 0);
+      ddr2_ba              : out   std_logic_vector(2 downto 0);
+      ddr2_ras_n           : out   std_logic;
+      ddr2_cas_n           : out   std_logic;
+      ddr2_we_n            : out   std_logic;
+      ddr2_ck_p            : out   std_logic_vector(0 downto 0);
+      ddr2_ck_n            : out   std_logic_vector(0 downto 0);
+      ddr2_cke             : out   std_logic_vector(0 downto 0);
+      ddr2_cs_n            : out   std_logic_vector(0 downto 0);
+      ddr2_dm              : out   std_logic_vector(1 downto 0);
+      ddr2_odt             : out   std_logic_vector(0 downto 0);
+      ddr2_dq              : inout std_logic_vector(15 downto 0);
+      ddr2_dqs_p           : inout std_logic_vector(1 downto 0);
+      ddr2_dqs_n           : inout std_logic_vector(1 downto 0)
+   );
+  end component;
+  
   component machine is
   Port ( pixelclock : STD_LOGIC;
          pixelclock2x : STD_LOGIC;
@@ -277,6 +326,34 @@ architecture Behavioral of container is
 
   signal clock100mhz : std_logic := '0';
   signal clock50mhz : std_logic := '0';
+
+  signal slowram_addr :    std_logic_vector(22 downto 0);
+  signal slowram_we :      std_logic;
+  signal slowram_ce :      std_logic;
+  signal slowram_oe :      std_logic;
+  signal slowram_lb :      std_logic;
+  signal slowram_ub :      std_logic;
+  signal slowram_datain :  std_logic_vector(15 downto 0);
+  signal slowram_dataout : std_logic_vector(15 downto 0);
+
+  signal ddr2_dq              : std_logic_vector(15 downto 0);
+  signal ddr2_dqs_p           : std_logic_vector(1 downto 0);
+  signal ddr2_dqs_n           : std_logic_vector(1 downto 0);
+  signal ddr2_addr            : std_logic_vector(12 downto 0);
+  signal ddr2_ba              : std_logic_vector(2 downto 0);
+  signal ddr2_ras_n           : std_logic;
+  signal ddr2_cas_n           : std_logic;
+  signal ddr2_we_n            : std_logic;
+  signal ddr2_ck_p            : std_logic_vector(0 downto 0);
+  signal ddr2_ck_n            : std_logic_vector(0 downto 0);
+  signal ddr2_cke             : std_logic_vector(0 downto 0);
+  signal ddr2_cs_n            : std_logic_vector(0 downto 0);
+  signal ddr2_dm              : std_logic_vector(1 downto 0);
+  signal ddr2_odt             : std_logic_vector(0 downto 0);
+
+  -- XXX We should read the real temperature and feed this to the DDR controller
+  -- so that it can update timing whenever the temperature changes too much.
+  signal deviceTemperature : std_logic_vector(11 downto 0) := (others => '0');
   
 begin
   
@@ -295,6 +372,41 @@ begin
 --               clk_out3 => ioclock -- also 48MHz
                );
 
+  ram2ddr0: ram2ddr
+    port map (
+      -- Common
+      clk_200MHz_i => pixelclock,
+      rst_i => '0',
+      device_temp_i => deviceTemperature,
+      
+      -- RAM interface
+      ram_a             => slowram_addr,
+      ram_dq_i          => slowram_datain,
+      ram_dq_o          => slowram_dataout,
+      ram_cen           => slowram_ce,
+      ram_oen           => slowram_oe,
+      ram_wen           => slowram_we,
+      ram_ub            => slowram_ub,
+      ram_lb            => slowram_lb,
+      
+      -- DDR2 interface
+      ddr2_addr => ddr2_addr,
+      ddr2_ba => ddr2_ba,
+      ddr2_ras_n => ddr2_ras_n,
+      ddr2_cas_n => ddr2_cas_n,
+      ddr2_we_n  => ddr2_we_n ,
+      ddr2_ck_p  => ddr2_ck_p ,
+      ddr2_ck_n  => ddr2_ck_n ,
+      ddr2_cke   => ddr2_cke  ,
+      ddr2_cs_n  => ddr2_cs_n ,
+      ddr2_dm    => ddr2_dm   ,
+      ddr2_odt   => ddr2_odt  ,
+      ddr2_dq    => ddr2_dq   ,
+      ddr2_dqs_p => ddr2_dqs_p,
+      ddr2_dqs_n => ddr2_dqs_n
+   );
+end Ram2Ddr;
+  
   machine0: machine
     port map (
       pixelclock      => pixelclock,
@@ -360,13 +472,14 @@ begin
       ps2data =>      ps2data,
       ps2clock =>     ps2clk,
 
-      slowram_ce => RamCEn,
-      slowram_oe => RamOEn,
-      slowram_we => RamWEn,
-      slowram_lb => RamLBn,
-      slowram_ub => RamUBn,
-      slowram_data => MemDB,
-      slowram_addr => MemAdr,
+      slowram_ce => slowram_ce,
+      slowram_oe => slowram_oe,
+      slowram_we => slowram_we,
+      slowram_lb => slowram_lb,
+      slowram_ub => slowram_ub,
+      slowram_datain => slowram_datain,
+      slowram_dataout => slowram_dataout,
+      slowram_addr => slowram_addr,
 
 --      QspiSCK => QspiSCK,
       QspiDB => QspiDB,

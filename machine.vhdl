@@ -132,7 +132,8 @@ entity machine is
          slowram_oe : out std_logic;
          slowram_lb : out std_logic;
          slowram_ub : out std_logic;
-         slowram_data : inout std_logic_vector(15 downto 0);
+         slowram_datain : out std_logic_vector(15 downto 0);
+         slowram_dataout : in std_logic_vector(15 downto 0);
 
          ----------------------------------------------------------------------
          -- PS/2 adapted USB keyboard & joystick connector.
@@ -277,7 +278,7 @@ architecture Behavioral of machine is
       monitor_mem_trace_toggle : in std_logic;
 
       ---------------------------------------------------------------------------
-      -- Interface to Slow RAM (16MB cellular RAM chip)
+      -- Interface to Slow RAM (128MB DDR2 RAM disguised as SRAM)
       ---------------------------------------------------------------------------
       slowram_addr : out std_logic_vector(22 downto 0);
       slowram_we : out std_logic;
@@ -285,7 +286,8 @@ architecture Behavioral of machine is
       slowram_oe : out std_logic;
       slowram_lb : out std_logic;
       slowram_ub : out std_logic;
-      slowram_data : inout std_logic_vector(15 downto 0);
+      slowram_datain : in std_logic_vector(15 downto 0);
+      slowram_dataout : out std_logic_vector(15 downto 0);
 
       cpu_leds : out std_logic_vector(3 downto 0);              
 
@@ -808,7 +810,8 @@ begin
     slowram_oe => slowram_oe,
     slowram_lb => slowram_lb,
     slowram_ub => slowram_ub,
-    slowram_data => slowram_data,
+    slowram_datain => slowram_datain,
+    slowram_dataout => slowram_dataout,
 
     chipram_we => chipram_we,
     chipram_address => chipram_address,

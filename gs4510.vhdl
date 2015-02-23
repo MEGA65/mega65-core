@@ -108,7 +108,8 @@ entity gs4510 is
     slowram_oe : out std_logic := '0';
     slowram_lb : out std_logic := '0';
     slowram_ub : out std_logic := '0';
-    slowram_data : inout std_logic_vector(15 downto 0);
+    slowram_datain : out std_logic_vector(15 downto 0);
+    slowram_dataout : in std_logic_vector(15 downto 0);
 
     cpu_leds : out std_logic_vector(3 downto 0);
 
@@ -1441,7 +1442,7 @@ begin
         slowram_lohi <= long_address(0);
         slowram_lb_drive <= std_logic(long_address(0));
         slowram_ub_drive <= std_logic(not long_address(0));
-        slowram_data <= std_logic_vector(value) & std_logic_vector(value);
+        slowram_datain <= std_logic_vector(value) & std_logic_vector(value);
         wait_states <= slowram_waitstates;
       elsif long_address(27 downto 24) = x"F" then
         accessing_fastio <= '1';
@@ -1844,11 +1845,11 @@ begin
       slowram_oe <= slowram_oe_drive;
       slowram_lb <= slowram_lb_drive;
       if slowram_oe_drive = '1' then
-        slowram_data <= (others => 'Z');
+        slowram_datain <= (others => 'Z');
       else
-        slowram_data <= slowram_data;
+        slowram_datain <= slowram_data;
       end if;
-      slowram_data_in <= slowram_data;
+      slowram_data_in <= slowram_dataout;
       
       --cpu_speed := vicii_2mhz&viciii_fast&viciv_fast;
       --case cpu_speed is
