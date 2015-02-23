@@ -336,21 +336,6 @@ architecture Behavioral of container is
   signal slowram_datain :  std_logic_vector(15 downto 0);
   signal slowram_dataout : std_logic_vector(15 downto 0);
 
-  signal ddr2_dq              : std_logic_vector(15 downto 0);
-  signal ddr2_dqs_p           : std_logic_vector(1 downto 0);
-  signal ddr2_dqs_n           : std_logic_vector(1 downto 0);
-  signal ddr2_addr            : std_logic_vector(12 downto 0);
-  signal ddr2_ba              : std_logic_vector(2 downto 0);
-  signal ddr2_ras_n           : std_logic;
-  signal ddr2_cas_n           : std_logic;
-  signal ddr2_we_n            : std_logic;
-  signal ddr2_ck_p            : std_logic_vector(0 downto 0);
-  signal ddr2_ck_n            : std_logic_vector(0 downto 0);
-  signal ddr2_cke             : std_logic_vector(0 downto 0);
-  signal ddr2_cs_n            : std_logic_vector(0 downto 0);
-  signal ddr2_dm              : std_logic_vector(1 downto 0);
-  signal ddr2_odt             : std_logic_vector(0 downto 0);
-
   -- XXX We should read the real temperature and feed this to the DDR controller
   -- so that it can update timing whenever the temperature changes too much.
   signal deviceTemperature : std_logic_vector(11 downto 0) := (others => '0');
