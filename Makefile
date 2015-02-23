@@ -52,8 +52,8 @@ etherload:	etherload.c
 iomap.txt:	*.vhdl Makefile
 	egrep "IO:C6|IO:GS" *.vhdl | cut -f3- -d: | sort -k2 > iomap.txt
 
-transfer:	kickstart.vhdl version.vhdl kickstart65gs.bin makerom makeslowram iomap.txt
-	scp -p version.sh Makefile makerom c65gs.rom makerom makeslowram *.a65 *.ucf *.xise *.prj *vhd *vhdl kickstart65gs.bin 192.168.56.101:c64accel/
+transfer:	kickstart.vhdl version.vhdl kickstart65gs.bin makerom makeslowram iomap.txt ipcore_dir
+	scp -pr ipcore_dir version.sh Makefile makerom c65gs.rom makerom makeslowram *.a65 *.ucf *.xise *.prj *vhd *vhdl kickstart65gs.bin 192.168.56.101:c64accel/
 	scp -p .git/index 192.168.56.101:c64accel/.git/
 
 version.vhdl: version-template.vhdl version.sh .git/index *.vhdl *.vhd 
