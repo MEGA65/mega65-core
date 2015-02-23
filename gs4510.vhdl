@@ -1843,11 +1843,6 @@ begin
       slowram_ce <= slowram_ce_drive;
       slowram_oe <= slowram_oe_drive;
       slowram_lb <= slowram_lb_drive;
-      if slowram_oe_drive = '1' then
-        slowram_datain <= (others => 'Z');
-      else
-        slowram_datain <= slowram_datain;
-      end if;
       slowram_data_in <= slowram_dataout;
       
       --cpu_speed := vicii_2mhz&viciii_fast&viciv_fast;
