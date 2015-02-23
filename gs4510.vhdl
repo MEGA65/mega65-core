@@ -643,7 +643,6 @@ end component;
   signal smb_mask : unsigned(7 downto 0);
 
   signal slowram_addr_drive : std_logic_vector(22 downto 0);
-  -- signal slowram_data_drive : std_logic_vector(15 downto 0);
   signal slowram_data_in : std_logic_vector(15 downto 0);
   signal slowram_we_drive : std_logic;
   signal slowram_ce_drive : std_logic;
@@ -1847,7 +1846,7 @@ begin
       if slowram_oe_drive = '1' then
         slowram_datain <= (others => 'Z');
       else
-        slowram_datain <= slowram_data;
+        slowram_datain <= slowram_datain;
       end if;
       slowram_data_in <= slowram_dataout;
       
