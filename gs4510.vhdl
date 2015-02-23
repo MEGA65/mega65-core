@@ -102,7 +102,7 @@ entity gs4510 is
     ---------------------------------------------------------------------------
     -- Interface to Slow RAM (16MB cellular RAM chip)
     ---------------------------------------------------------------------------
-    slowram_addr : out std_logic_vector(22 downto 0);
+    slowram_addr : out std_logic_vector(26 downto 0);
     slowram_we : out std_logic := '0';
     slowram_ce : out std_logic := '0';
     slowram_oe : out std_logic := '0';
@@ -642,7 +642,7 @@ end component;
   signal rmb_mask : unsigned(7 downto 0);
   signal smb_mask : unsigned(7 downto 0);
 
-  signal slowram_addr_drive : std_logic_vector(22 downto 0);
+  signal slowram_addr_drive : std_logic_vector(26 downto 0);
   signal slowram_data_in : std_logic_vector(15 downto 0);
   signal slowram_we_drive : std_logic;
   signal slowram_ce_drive : std_logic;
@@ -1139,7 +1139,7 @@ begin
         -- emulation.
         accessing_shadow <= '0';
         accessing_slowram <= '1';
-        slowram_addr_drive <= std_logic_vector(long_address(23 downto 1));
+        slowram_addr_drive <= std_logic_vector(long_address(27 downto 1));
         -- slowram_data_drive <= (others => 'Z');  -- tristate data lines
         slowram_we_drive <= '1';
         slowram_ce_drive <= '0';
@@ -1434,7 +1434,7 @@ begin
         shadow_write <= '0';
         fastio_write <= '0';
         shadow_write_flags(2) <= '1';
-        slowram_addr_drive <= std_logic_vector(long_address(23 downto 1));
+        slowram_addr_drive <= std_logic_vector(long_address(27 downto 1));
         slowram_we_drive <= '0';
         slowram_ce_drive <= '0';
         slowram_oe_drive <= '0';

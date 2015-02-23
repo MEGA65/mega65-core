@@ -278,7 +278,7 @@ architecture Behavioral of container is
          ---------------------------------------------------------------------------
          -- Interface to Slow RAM (16MB cellular RAM chip)
          ---------------------------------------------------------------------------
-         slowram_addr : out std_logic_vector(22 downto 0);
+         slowram_addr : out std_logic_vector(26 downto 0);
          slowram_we : out std_logic;
          slowram_ce : out std_logic;
          slowram_oe : out std_logic;
@@ -328,7 +328,7 @@ architecture Behavioral of container is
   signal clock100mhz : std_logic := '0';
   signal clock50mhz : std_logic := '0';
 
-  signal slowram_addr :    std_logic_vector(22 downto 0);
+  signal slowram_addr :    std_logic_vector(26 downto 0);
   signal slowram_we :      std_logic;
   signal slowram_ce :      std_logic;
   signal slowram_oe :      std_logic;

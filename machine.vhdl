@@ -126,7 +126,7 @@ entity machine is
          ---------------------------------------------------------------------------
          -- Interface to Slow RAM (16MB cellular RAM chip)
          ---------------------------------------------------------------------------
-         slowram_addr : out std_logic_vector(22 downto 0);
+         slowram_addr : out std_logic_vector(26 downto 0);
          slowram_we : out std_logic;
          slowram_ce : out std_logic;
          slowram_oe : out std_logic;
@@ -280,7 +280,7 @@ architecture Behavioral of machine is
       ---------------------------------------------------------------------------
       -- Interface to Slow RAM (128MB DDR2 RAM disguised as SRAM)
       ---------------------------------------------------------------------------
-      slowram_addr : out std_logic_vector(22 downto 0);
+      slowram_addr : out std_logic_vector(26 downto 0);
       slowram_we : out std_logic;
       slowram_ce : out std_logic;
       slowram_oe : out std_logic;
