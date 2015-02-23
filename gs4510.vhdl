@@ -478,6 +478,7 @@ end component;
     InstructionFetch,
     InstructionDecode,  -- $0E
     Cycle2,Cycle3,
+    Flat32Got2ndArgument,
     Pull,
     RTI,RTI2,
     RTS,RTS1,RTS2,RTS3,
