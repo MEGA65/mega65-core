@@ -131,7 +131,7 @@ entity container is
          ddr2_odt       : out   std_logic_vector(0 downto 0);
          ddr2_dq        : inout std_logic_vector(15 downto 0);
          ddr2_dqs_p     : inout std_logic_vector(1 downto 0);
-         ddr2_dqs_n     : inout std_logic_vector(1 downto 0)
+         ddr2_dqs_n     : inout std_logic_vector(1 downto 0);
          
          ----------------------------------------------------------------------
          -- Debug interfaces on Nexys4 board
