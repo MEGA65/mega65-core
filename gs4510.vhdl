@@ -209,40 +209,41 @@ end component;
   signal shadow_write_flags : unsigned(3 downto 0) := "0000";
 
   signal slowram_lohi : std_logic;
+  -- On the original Nexys4 board:
   -- SlowRAM has 70ns access time, so need some wait states.
   -- At 48MHz we only need 4 cycles.
   -- (had +2 extra for drive stages)
+  -- On the Nexys4DDR board, the DDR2 ram is annoying MUCH slower,
+  -- requiring $16 = 22 cycles to be reliable!
+  -- We really are going to want to have a slowram cache!
   -- Shadow RAM has 0 wait states by default
   -- IO has one waitstate for reading, 0 for writing
   -- (Reading incurrs an extra waitstate due to read_data_copy)
   -- XXX An extra wait state seems to be necessary when reading from dual-port
   -- memories like colour ram.
-  -- XXX: slowram seems to work with 5 waitstates instead of 6.  Need to also
-  -- cut waitstates to 1 or 2 when reading from same line.  Also need to cache
-  -- previously read value for fast follow-on fetch.
-  constant slowram_48mhz : unsigned(7 downto 0) := x"06";
+  constant slowram_48mhz : unsigned(7 downto 0) := x"16";
   constant ioread_48mhz : unsigned(7 downto 0) := x"01";
   constant colourread_48mhz : unsigned(7 downto 0) := x"02";
   constant iowrite_48mhz : unsigned(7 downto 0) := x"00";
   constant shadow_48mhz :  unsigned(7 downto 0) := x"00";
 
-  constant slowram_3mhz : unsigned(7 downto 0) := x"0d";
-  constant ioread_3mhz : unsigned(7 downto 0) := x"0d";
-  constant colourread_3mhz : unsigned(7 downto 0) := x"0d";
-  constant iowrite_3mhz : unsigned(7 downto 0) := x"0d";
-  constant shadow_3mhz :  unsigned(7 downto 0) := x"0d";
+  --constant slowram_3mhz : unsigned(7 downto 0) := x"0d";
+  --constant ioread_3mhz : unsigned(7 downto 0) := x"0d";
+  --constant colourread_3mhz : unsigned(7 downto 0) := x"0d";
+  --constant iowrite_3mhz : unsigned(7 downto 0) := x"0d";
+  --constant shadow_3mhz :  unsigned(7 downto 0) := x"0d";
 
-  constant slowram_2mhz : unsigned(7 downto 0) := x"1b";
-  constant ioread_2mhz : unsigned(7 downto 0) := x"1b";
-  constant colourread_2mhz : unsigned(7 downto 0) := x"1b";
-  constant iowrite_2mhz : unsigned(7 downto 0) := x"1b";
-  constant shadow_2mhz :  unsigned(7 downto 0) := x"1b";
+  --constant slowram_2mhz : unsigned(7 downto 0) := x"1b";
+  --constant ioread_2mhz : unsigned(7 downto 0) := x"1b";
+  --constant colourread_2mhz : unsigned(7 downto 0) := x"1b";
+  --constant iowrite_2mhz : unsigned(7 downto 0) := x"1b";
+  --constant shadow_2mhz :  unsigned(7 downto 0) := x"1b";
 
-  constant slowram_1mhz : unsigned(7 downto 0) := x"2f";
-  constant ioread_1mhz : unsigned(7 downto 0) := x"2f";
-  constant colourread_1mhz : unsigned(7 downto 0) := x"2f";
-  constant iowrite_1mhz : unsigned(7 downto 0) := x"2f";
-  constant shadow_1mhz :  unsigned(7 downto 0) := x"2f";
+  --constant slowram_1mhz : unsigned(7 downto 0) := x"2f";
+  --constant ioread_1mhz : unsigned(7 downto 0) := x"2f";
+  --constant colourread_1mhz : unsigned(7 downto 0) := x"2f";
+  --constant iowrite_1mhz : unsigned(7 downto 0) := x"2f";
+  --constant shadow_1mhz :  unsigned(7 downto 0) := x"2f";
 
   signal slowram_waitstates : unsigned(7 downto 0) := slowram_48mhz;
   signal shadow_wait_states : unsigned(7 downto 0) := shadow_48mhz;

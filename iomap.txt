@@ -1,5 +1,6 @@
 C64 $0000000 6510/45GS10 CPU port DDR
 C64 $0000001 6510/45GS10 CPU port data
+GS $8000000 - $FEFFFFF Slow RAM (127MB)
 C64 $D000 VIC-II sprite 0 horizontal position
 C64 $D001 VIC-II sprite 1 horizontal position
 C64 $D002 VIC-II sprite 2 horizontal position
