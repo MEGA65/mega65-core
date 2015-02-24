@@ -1133,22 +1133,6 @@ begin
         end if;
         report "Reading from shadowed chipram address $"
           & to_hstring(long_address(19 downto 0)) severity note;
-      elsif long_address(27 downto 24) = x"8"
-        or long_address(27 downto 17)&'0' = x"002" then
-        -- Slow RAM maps to $8xxxxxx, and also $0020000 - $003FFFF for C65 ROM
-        -- emulation.
-        accessing_shadow <= '0';
-        accessing_slowram <= '1';
-        slowram_addr_drive <= std_logic_vector(long_address(27 downto 1));
-        -- slowram_data_drive <= (others => 'Z');  -- tristate data lines
-        slowram_we_drive <= '1';
-        slowram_ce_drive <= '0';
-        slowram_oe_drive <= '0';
-        slowram_lb_drive <= '0';
-        slowram_ub_drive <= '0';
-        slowram_lohi <= long_address(0);
-        wait_states <= slowram_waitstates;
-        proceed <= '0';
       elsif long_address(27 downto 20) = x"FF" then
         accessing_shadow <= '0';
         accessing_fastio <= '1';
@@ -1201,6 +1185,23 @@ begin
         fastio_addr <= std_logic_vector(long_address(19 downto 0));
         last_fastio_addr <= std_logic_vector(long_address(19 downto 0));
         fastio_read <= '1';
+        proceed <= '0';
+      elsif long_address(27) = '1'
+        or long_address(27 downto 17)&'0' = x"002" then
+        -- @IO:GS $8000000 - $FEFFFFF Slow RAM (127MB)
+        -- Slow RAM maps to $8000000-$FEFFFFF, and also $0020000 - $003FFFF for
+        -- C65 ROM emulation.
+        accessing_shadow <= '0';
+        accessing_slowram <= '1';
+        slowram_addr_drive <= std_logic_vector(long_address(27 downto 1));
+        -- slowram_data_drive <= (others => 'Z');  -- tristate data lines
+        slowram_we_drive <= '1';
+        slowram_ce_drive <= '0';
+        slowram_oe_drive <= '0';
+        slowram_lb_drive <= '0';
+        slowram_ub_drive <= '0';
+        slowram_lohi <= long_address(0);
+        wait_states <= slowram_waitstates;
         proceed <= '0';
       else
         -- Don't let unmapped memory jam things up
@@ -1428,21 +1429,6 @@ begin
         chipram_datain <= value;
         report "writing to chipram..." severity note;
         wait_states <= io_write_wait_states;
-      elsif long_address(27 downto 24) = x"8" then
-        report "writing to slowram..." severity note;
-        accessing_slowram <= '1';
-        shadow_write <= '0';
-        fastio_write <= '0';
-        shadow_write_flags(2) <= '1';
-        slowram_addr_drive <= std_logic_vector(long_address(27 downto 1));
-        slowram_we_drive <= '0';
-        slowram_ce_drive <= '0';
-        slowram_oe_drive <= '0';
-        slowram_lohi <= long_address(0);
-        slowram_lb_drive <= std_logic(long_address(0));
-        slowram_ub_drive <= std_logic(not long_address(0));
-        slowram_datain <= std_logic_vector(value) & std_logic_vector(value);
-        wait_states <= slowram_waitstates;
       elsif long_address(27 downto 24) = x"F" then
         accessing_fastio <= '1';
         shadow_write <= '0';
@@ -1574,6 +1560,21 @@ begin
           end if;                         -- $D{0,1,2,3}XXX
         end if;                           -- $DXXXX
         wait_states <= io_write_wait_states;
+      elsif long_address(27) = '1' then
+        report "writing to slowram..." severity note;
+        accessing_slowram <= '1';
+        shadow_write <= '0';
+        fastio_write <= '0';
+        shadow_write_flags(2) <= '1';
+        slowram_addr_drive <= std_logic_vector(long_address(27 downto 1));
+        slowram_we_drive <= '0';
+        slowram_ce_drive <= '0';
+        slowram_oe_drive <= '0';
+        slowram_lohi <= long_address(0);
+        slowram_lb_drive <= std_logic(long_address(0));
+        slowram_ub_drive <= std_logic(not long_address(0));
+        slowram_datain <= std_logic_vector(value) & std_logic_vector(value);
+        wait_states <= slowram_waitstates;
       else
         -- Don't let unmapped memory jam things up
         shadow_write <= '0';
