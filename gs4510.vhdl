@@ -100,7 +100,8 @@ entity gs4510 is
     chipram_datain : OUT unsigned(7 DOWNTO 0);
 
     ---------------------------------------------------------------------------
-    -- Interface to Slow RAM (16MB cellular RAM chip)
+    -- Interface to Slow RAM (128MB DDR2 RAM (or 16MB cellular RAM chip on
+    -- original non-DDR Nexys4 boards)
     ---------------------------------------------------------------------------
     slowram_addr : out std_logic_vector(26 downto 0);
     slowram_we : out std_logic := '0';
@@ -1194,7 +1195,7 @@ begin
         -- C65 ROM emulation.
         accessing_shadow <= '0';
         accessing_slowram <= '1';
-        slowram_addr_drive <= std_logic_vector(long_address(27 downto 1));
+        slowram_addr_drive <= std_logic_vector(long_address(26 downto 0));
         -- slowram_data_drive <= (others => 'Z');  -- tristate data lines
         slowram_we_drive <= '1';
         slowram_ce_drive <= '0';
@@ -1567,7 +1568,7 @@ begin
         shadow_write <= '0';
         fastio_write <= '0';
         shadow_write_flags(2) <= '1';
-        slowram_addr_drive <= std_logic_vector(long_address(27 downto 1));
+        slowram_addr_drive <= std_logic_vector(long_address(26 downto 0));
         slowram_we_drive <= '0';
         slowram_ce_drive <= '0';
         slowram_oe_drive <= '0';
