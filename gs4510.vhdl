@@ -217,6 +217,13 @@ end component;
   -- On the Nexys4DDR board, the DDR2 ram is annoying MUCH slower,
   -- requiring $16 = 22 cycles to be reliable!
   -- We really are going to want to have a slowram cache!
+  -- It will be fairly trivial to read 128 bits (16 bytes) of slowram at a time
+  -- and cache that, since that is exactly how the DDR RAM module wrapper works
+  -- internally.  Thus for sequential memory accesses, we can get 16 bytes every
+  -- 22 cycles, and potentially service memory reads with just one wait-state on
+  -- average (although the CPU state machine would make this a little interesting
+  -- to achieve.  2 wait states on the other hand would be quite achievable, and
+  -- would still be 3x the speed of slowram currently.
   -- Shadow RAM has 0 wait states by default
   -- IO has one waitstate for reading, 0 for writing
   -- (Reading incurrs an extra waitstate due to read_data_copy)
