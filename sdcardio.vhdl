@@ -496,23 +496,37 @@ begin  -- behavioural
             fastio_rdata(0) <= sector_offset(8);
             fastio_rdata(1) <= sector_offset(9);
           when x"8b" =>
+            -- @IO:GS $D68B - Diskimage control flags
             fastio_rdata(0) <= diskimage1_enable;
             fastio_rdata(1) <= f011_disk1_present;
             fastio_rdata(2) <= not f011_disk1_write_protected;
             fastio_rdata(3) <= diskimage2_enable;
             fastio_rdata(4) <= f011_disk2_present;
             fastio_rdata(5) <= not f011_disk2_write_protected;
-          when x"8c" => fastio_rdata <= diskimage_sector(7 downto 0);
-          when x"8d" => fastio_rdata <= diskimage_sector(15 downto 8);
-          when x"8e" => fastio_rdata <= diskimage_sector(23 downto 16);
-          when x"8f" => fastio_rdata <= diskimage_sector(31 downto 24);
-          when x"F0" => fastio_rdata(7 downto 0) <= unsigned(sw(7 downto 0));
-          when x"F1" => fastio_rdata(7 downto 0) <= unsigned(sw(15 downto 8));
+          when x"8c" =>
+            -- @IO:GS $D68C - Diskimage sector number (bits 0-7)
+            fastio_rdata <= diskimage_sector(7 downto 0);
+          when x"8d" =>
+            -- @IO:GS $D68D - Diskimage sector number (bits 8-15)
+            fastio_rdata <= diskimage_sector(15 downto 8);
+          when x"8e" =>
+            -- @IO:GS $D68E - Diskimage sector number (bits 16-23)
+            fastio_rdata <= diskimage_sector(23 downto 16);
+          when x"8f" =>
+            -- @IO:GS $D68F - Diskimage sector number (bits 24-31)
+            fastio_rdata <= diskimage_sector(31 downto 24);
+          when x"F0" =>
+            -- @IO:GS $D6F0 - Read FPGA switches 0-7
+            fastio_rdata(7 downto 0) <= unsigned(sw(7 downto 0));
+          when x"F1" =>
+            -- @IO:GS $D6F1 - Read FPGA switches 8-15
+            fastio_rdata(7 downto 0) <= unsigned(sw(15 downto 8));
           when x"F2" =>
+            -- @IO:GS $D6F2 - Read FPGA five-way buttons
             fastio_rdata(7 downto 5) <= "000";
             fastio_rdata(4 downto 0) <= unsigned(btn(4 downto 0));
           when x"F3" =>
-            -- Accelerometer inputs
+            -- @IO:GS $D6F3 Accelerometer inputs
             fastio_rdata(0) <= aclMISO;
             fastio_rdata(1) <= aclMOSIinternal;
             fastio_rdata(2) <= aclSSinternal;
@@ -522,7 +536,7 @@ begin  -- behavioural
             fastio_rdata(6) <= aclInt2;
             fastio_rdata(7) <= aclInt1 or aclInt2;
           when x"F5" =>
-            -- Temperature sensor
+            -- @IO:GS $D6F5 emperature sensor
             fastio_rdata(0) <= tmpSDAinternal;
             fastio_rdata(1) <= tmpSCLinternal;
             fastio_rdata(4 downto 2) <= "000";

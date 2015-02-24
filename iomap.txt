@@ -201,6 +201,7 @@ GS $D658 - Hypervisor DMAGic list address bits 27-24
 GS $D67F - Trigger trap to hypervisor
 GS $D680 - SD controller status/command
 GS $D681-$D684 - SD controller SD sector address
+GS $D68B - Diskimage control flags
 GS $D68B - F011 emulation control register
 GS $D68B.0 - F011 disk 1 disk image enable
 GS $D68B.1 - F011 disk 1 present
@@ -208,7 +209,11 @@ GS $D68B.2 - F011 disk 1 write protect
 GS $D68B.3 - F011 disk 2 disk image enable
 GS $D68B.4 - F011 disk 2 present
 GS $D68B.5 - F011 disk 2 write protect
+GS $D68C - Diskimage sector number (bits 0-7)
 GS $D68C-$D68F - F011 disk 1 disk image address on SD card
+GS $D68D - Diskimage sector number (bits 8-15)
+GS $D68E - Diskimage sector number (bits 16-23)
+GS $D68F - Diskimage sector number (bits 24-31)
 GS $D690-$D693 - F011 disk 2 disk image address on SD card
 GS $D6E0 Ethernet control
 GS $D6E0.0 Clear to reset ethernet PHY
@@ -232,8 +237,13 @@ GS $D6E3 Set high-order size of frame to TX
 GS $D6E4 = $00 = Clear ethernet TX trigger (debug)
 GS $D6E4 = $01 = Transmit packet
 GS $D6E4 Ethernet command
+GS $D6F0 - Read FPGA switches 0-7
+GS $D6F1 - Read FPGA switches 8-15
+GS $D6F2 - Read FPGA five-way buttons
 GS $D6F3 - Accelerometer bit-bashing port
+GS $D6F3 Accelerometer inputs
 GS $D6F5 - Temperature sensor bit-bashing port
+GS $D6F5 emperature sensor
 GS $D6F6 - Keyboard scan code reader (lower byte)
 GS $D6F7 - Keyboard scan code reader (upper nybl)
 GS $D6F7 - microphone input (right)
