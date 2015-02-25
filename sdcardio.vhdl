@@ -517,6 +517,12 @@ begin  -- behavioural
           when x"8f" =>
             -- @IO:GS $D68F - Diskimage sector number (bits 24-31)
             fastio_rdata <= diskimage_sector(31 downto 24);
+          when x"EE" =>
+            -- @IO:GS $D6EE - Temperature sensor (lower byte)
+            fastio_rdata <= unsigned("0000"&fpga_temperature(3 downto 0));
+          when x"EF" =>
+            -- @IO:GS $D6EF - Temperature sensor (upper byte)
+            fastio_rdata <= unsigned(fpga_temperature(11 downto 4));
           when x"F0" =>
             -- @IO:GS $D6F0 - Read FPGA switches 0-7
             fastio_rdata(7 downto 0) <= unsigned(sw(7 downto 0));
@@ -538,13 +544,13 @@ begin  -- behavioural
             fastio_rdata(6) <= aclInt2;
             fastio_rdata(7) <= aclInt1 or aclInt2;
           when x"F5" =>
-            -- @IO:GS $D6F5 FPGA temperature sensor
-            --fastio_rdata(0) <= tmpSDAinternal;
-            --fastio_rdata(1) <= tmpSCLinternal;
-            --fastio_rdata(4 downto 2) <= "000";
-            --fastio_rdata(5) <= tmpInt;
-            --fastio_rdata(6) <= tmpCT;
-            --fastio_rdata(7) <= tmpInt or tmpCT;
+            -- @IO:GS $D6F5 Bit-bashed temperature sensor
+            fastio_rdata(0) <= tmpSDAinternal;
+            fastio_rdata(1) <= tmpSCLinternal;
+            fastio_rdata(4 downto 2) <= "000";
+            fastio_rdata(5) <= tmpInt;
+            fastio_rdata(6) <= tmpCT;
+            fastio_rdata(7) <= tmpInt or tmpCT;
             fastio_rdata(7 downto 0) <= unsigned(fpga_temperature(11 downto 4));
           when x"F6" =>
             -- @IO:GS $D6F6 - Keyboard scan code reader (lower byte)
@@ -1013,14 +1019,12 @@ begin  -- behavioural
               aclSSinternal <= fastio_wdata(2);
               aclSCK <= fastio_wdata(3);
               aclSCKinternal <= fastio_wdata(3);
-            -- @IO:GS $D6F5 - FPGA Temperature sensor
+            -- @IO:GS $D6F5 - Temperature sensor
             when x"F5" =>
-              -- We now use the FPGA temperature sensor, so no bit-bashing required.
-              -- Temperature sensor
-              --tmpSDAinternal <= fastio_wdata(0);
-              --tmpSDA <= fastio_wdata(0);
-              --tmpSCLinternal <= fastio_wdata(1);
-              --tmpSCL <= fastio_wdata(1);
+              tmpSDAinternal <= fastio_wdata(0);
+              tmpSDA <= fastio_wdata(0);
+              tmpSCLinternal <= fastio_wdata(1);
+              tmpSCL <= fastio_wdata(1);
             -- @IO:GS $D6F8 - 8-bit digital audio out (left)
             when x"F8" =>
               -- 8-bit digital audio out
