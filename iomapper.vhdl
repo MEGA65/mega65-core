@@ -18,6 +18,7 @@ entity iomapper is
         nmi : out std_logic;
         restore_nmi : out std_logic;
         cpu_hypervisor_mode : in std_logic;
+        fpga_temperature : in std_logic_vector(11 downto 0);
         address : in std_logic_vector(19 downto 0);
         r : in std_logic;
         w : in std_logic;
@@ -186,6 +187,8 @@ architecture behavioral of iomapper is
       pixelclk : in std_logic;
       reset : in std_logic;
 
+      fpga_temperature : in std_logic_vector(11 downto 0);
+      
       ---------------------------------------------------------------------------
       -- fast IO port (clocked at core clock). 1MB address space
       ---------------------------------------------------------------------------
@@ -569,6 +572,8 @@ begin
     pixelclk => pixelclk,
     clock => clk,
     reset => reset,
+
+    fpga_temperature => fpga_temperature,
 
     fastio_addr => unsigned(address),
     fastio_write => w,

@@ -243,8 +243,8 @@ GS $D6F1 - Read FPGA switches 8-15
 GS $D6F2 - Read FPGA five-way buttons
 GS $D6F3 - Accelerometer bit-bashing port
 GS $D6F3 Accelerometer inputs
-GS $D6F5 - Temperature sensor bit-bashing port
-GS $D6F5 emperature sensor
+GS $D6F5 - FPGA Temperature sensor
+GS $D6F5 FPGA temperature sensor
 GS $D6F6 - Keyboard scan code reader (lower byte)
 GS $D6F7 - Keyboard scan code reader (upper nybl)
 GS $D6F7 - microphone input (right)

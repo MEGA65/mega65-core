@@ -123,6 +123,8 @@ entity machine is
          QspiDB : inout std_logic_vector(3 downto 0);
          QspiCSn : out std_logic;
 
+         fpga_temperature : in std_logic_vector(11 downto 0);
+         
          ---------------------------------------------------------------------------
          -- Interface to Slow RAM (16MB cellular RAM chip)
          ---------------------------------------------------------------------------
@@ -404,6 +406,8 @@ architecture Behavioral of machine is
           imask_ta_out : out std_logic;
           cpu_hypervisor_mode : in std_logic;
 
+          fpga_temperature : in std_logic_vector(11 downto 0);
+          
           key_scancode : in unsigned(15 downto 0);
           key_scancode_toggle : in std_logic;
           
@@ -905,6 +909,8 @@ begin
     clock50mhz => clock50mhz,
     cpu_hypervisor_mode => cpu_hypervisor_mode,
 
+    fpga_temperature => fpga_temperature,
+    
     reg_isr_out => reg_isr_out,
     imask_ta_out => imask_ta_out,    
 

@@ -168,6 +168,13 @@ architecture Behavioral of container is
       );
   end component;
 
+  component FPGAMonitor is
+    Generic (CLOCKFREQ : natural := 100); -- input CLK frequency in MHz
+    Port ( CLK_I : in  STD_LOGIC;
+           RST_I : in  STD_LOGIC;
+           TEMP_O : out  STD_LOGIC_VECTOR (11 downto 0));
+  end component;
+
   component Ram2Ddr is
    port (
       -- Common
@@ -275,8 +282,11 @@ architecture Behavioral of container is
          QspiDB : inout std_logic_vector(3 downto 0);
          QspiCSn : out std_logic;
 
+         -- Temperature of FPGA
+         fpga_temperature : in std_logic_vector(11 downto 0);
+         
          ---------------------------------------------------------------------------
-         -- Interface to Slow RAM (16MB cellular RAM chip)
+         -- Interface to Slow RAM (wrapper around a 128MB DDR2 RAM chip)
          ---------------------------------------------------------------------------
          slowram_addr : out std_logic_vector(26 downto 0);
          slowram_we : out std_logic;
@@ -339,7 +349,7 @@ architecture Behavioral of container is
 
   -- XXX We should read the real temperature and feed this to the DDR controller
   -- so that it can update timing whenever the temperature changes too much.
-  signal deviceTemperature : std_logic_vector(11 downto 0) := (others => '0');
+  signal fpga_temperature : std_logic_vector(11 downto 0) := (others => '0');
   
 begin
   
@@ -358,12 +368,19 @@ begin
 --               clk_out3 => ioclock -- also 48MHz
                );
 
+  fpgamonitor0: FPGAMonitor
+    port map (
+      rst_i => '0',
+      clk_i => cpuclock,
+      clockfreq => 48,
+      temp_o => fpga_temperature);
+  
   ram2ddr0: ram2ddr
     port map (
       -- Common
       clk_200MHz_i => pixelclock,
       rst_i => '0',
-      device_temp_i => deviceTemperature,
+      device_temp_i => fpga_temperature,
       
       -- RAM interface
       ram_a             => slowram_addr,
@@ -473,6 +490,8 @@ begin
 --      QspiSCK => QspiSCK,
       QspiDB => QspiDB,
       QspiCSn => QspiCSn,
+
+      fpga_temperature => fpga_temperature,
       
       led0 => led0,
       led1 => led1,

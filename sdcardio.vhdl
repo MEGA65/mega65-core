@@ -55,6 +55,8 @@ entity sdcardio is
     pixelclk : in std_logic;
     reset : in std_logic;
 
+    fpga_temperature : in std_logic_vector(11 downto 0);
+    
     ---------------------------------------------------------------------------
     -- fast IO port (clocked at core clock). 1MB address space
     ---------------------------------------------------------------------------
@@ -536,13 +538,14 @@ begin  -- behavioural
             fastio_rdata(6) <= aclInt2;
             fastio_rdata(7) <= aclInt1 or aclInt2;
           when x"F5" =>
-            -- @IO:GS $D6F5 emperature sensor
-            fastio_rdata(0) <= tmpSDAinternal;
-            fastio_rdata(1) <= tmpSCLinternal;
-            fastio_rdata(4 downto 2) <= "000";
-            fastio_rdata(5) <= tmpInt;
-            fastio_rdata(6) <= tmpCT;
-            fastio_rdata(7) <= tmpInt or tmpCT;
+            -- @IO:GS $D6F5 FPGA temperature sensor
+            --fastio_rdata(0) <= tmpSDAinternal;
+            --fastio_rdata(1) <= tmpSCLinternal;
+            --fastio_rdata(4 downto 2) <= "000";
+            --fastio_rdata(5) <= tmpInt;
+            --fastio_rdata(6) <= tmpCT;
+            --fastio_rdata(7) <= tmpInt or tmpCT;
+            fastio_rdata(7 downto 0) <= unsigned(fpga_temperature(11 downto 4));
           when x"F6" =>
             -- @IO:GS $D6F6 - Keyboard scan code reader (lower byte)
             fastio_rdata <= unsigned(last_scan_code(7 downto 0));
@@ -1010,13 +1013,14 @@ begin  -- behavioural
               aclSSinternal <= fastio_wdata(2);
               aclSCK <= fastio_wdata(3);
               aclSCKinternal <= fastio_wdata(3);
-            -- @IO:GS $D6F5 - Temperature sensor bit-bashing port
+            -- @IO:GS $D6F5 - FPGA Temperature sensor
             when x"F5" =>
+              -- We now use the FPGA temperature sensor, so no bit-bashing required.
               -- Temperature sensor
-              tmpSDAinternal <= fastio_wdata(0);
-              tmpSDA <= fastio_wdata(0);
-              tmpSCLinternal <= fastio_wdata(1);
-              tmpSCL <= fastio_wdata(1);
+              --tmpSDAinternal <= fastio_wdata(0);
+              --tmpSDA <= fastio_wdata(0);
+              --tmpSCLinternal <= fastio_wdata(1);
+              --tmpSCL <= fastio_wdata(1);
             -- @IO:GS $D6F8 - 8-bit digital audio out (left)
             when x"F8" =>
               -- 8-bit digital audio out
