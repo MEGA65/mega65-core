@@ -369,10 +369,10 @@ begin
                );
 
   fpgamonitor0: FPGAMonitor
+    generic map (      clockfreq => 48)
     port map (
       rst_i => '0',
       clk_i => cpuclock,
-      clockfreq => 48,
       temp_o => fpga_temperature);
   
   ram2ddr0: ram2ddr
