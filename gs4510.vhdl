@@ -651,6 +651,9 @@ end component;
   signal rmb_mask : unsigned(7 downto 0);
   signal smb_mask : unsigned(7 downto 0);
 
+  signal ddr_ram_banking : std_logic := '0';
+  signal ddr_ram_bank : std_logic_vector(2 downto 0);
+
   signal slowram_addr_drive : std_logic_vector(26 downto 0);
   signal slowram_data_in : std_logic_vector(15 downto 0);
   signal slowram_we_drive : std_logic;
@@ -885,6 +888,9 @@ begin
       slowram_we_drive <= '1';
       slowram_ce_drive <= '1';
       slowram_oe_drive <= '1';
+
+      ddr_ram_banking <= '0';
+      ddr_ram_bank <= "000";
       
       wait_states <= (others => '0');
       mem_reading <= '0';
@@ -1202,7 +1208,11 @@ begin
         -- C65 ROM emulation.
         accessing_shadow <= '0';
         accessing_slowram <= '1';
-        slowram_addr_drive <= std_logic_vector(long_address(26 downto 0));
+        if ddr_ram_banking='1' then
+          slowram_addr_drive <= std_logic_vector(long_address(23 downto 1))&ddr_ram_bank&std_logic(long_address(0));
+        else
+          slowram_addr_drive <= std_logic_vector(long_address(26 downto 0));
+        end if;
         -- slowram_data_drive <= (others => 'Z');  -- tristate data lines
         slowram_we_drive <= '1';
         slowram_ce_drive <= '0';
@@ -1273,6 +1283,8 @@ begin
           when "010111" => return hyper_dmagic_list_addr(23 downto 16);
           when "011000" =>
             return to_unsigned(0,4)&hyper_dmagic_list_addr(27 downto 24);
+          when "011001" =>
+            return unsigned(ddr_ram_banking&std_logic_vector(to_unsigned(0,4))&ddr_ram_bank(2 downto 0));
           when "111111" => return x"48"; -- 'H' for Hypermode
           when others => return x"FF";
         end case;
@@ -1553,6 +1565,13 @@ begin
         if long_address = x"FFD3658" and hypervisor_mode='1' then
           hyper_dmagic_list_addr(27 downto 24) <= value(3 downto 0);
         end if;
+        -- @IO:GS $D659 - Hypervisor DDR RAM banking control
+        -- @IO:GS $D659.7 - Enable DDR RAM banking
+        -- @IO:GS $D659.0-2 - Select which 16MB DDR RAM bank to make visible
+        if long_address = x"FFD3659" and hypervisor_mode='1' then
+          ddr_ram_banking <= value(7);
+          ddr_ram_bank <= value(2 downto 0);
+        end if;
         
         if long_address(19 downto 16) = x"8" then
           colour_ram_cs <= '1';
@@ -1575,7 +1594,11 @@ begin
         shadow_write <= '0';
         fastio_write <= '0';
         shadow_write_flags(2) <= '1';
-        slowram_addr_drive <= std_logic_vector(long_address(26 downto 0));
+        if ddr_ram_banking='1' then
+          slowram_addr_drive <= std_logic_vector(long_address(23 downto 1))&ddr_ram_bank&std_logic(long_address(0));
+        else
+          slowram_addr_drive <= std_logic_vector(long_address(26 downto 0));
+        end if;
         slowram_we_drive <= '0';
         slowram_ce_drive <= '0';
         slowram_oe_drive <= '0';

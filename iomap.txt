@@ -199,6 +199,9 @@ GS $D655 - Hypervisor DMAGic list address bits 0-7
 GS $D656 - Hypervisor DMAGic list address bits 15-8
 GS $D657 - Hypervisor DMAGic list address bits 23-16
 GS $D658 - Hypervisor DMAGic list address bits 27-24
+GS $D659 - Hypervisor DDR RAM banking control
+GS $D659.0-2 - Select which 16MB DDR RAM bank to make visible
+GS $D659.7 - Enable DDR RAM banking
 GS $D67F - Trigger trap to hypervisor
 GS $D680 - SD controller status/command
 GS $D681-$D684 - SD controller SD sector address
@@ -238,13 +241,15 @@ GS $D6E3 Set high-order size of frame to TX
 GS $D6E4 = $00 = Clear ethernet TX trigger (debug)
 GS $D6E4 = $01 = Transmit packet
 GS $D6E4 Ethernet command
+GS $D6EE - Temperature sensor (lower byte)
+GS $D6EF - Temperature sensor (upper byte)
 GS $D6F0 - Read FPGA switches 0-7
 GS $D6F1 - Read FPGA switches 8-15
 GS $D6F2 - Read FPGA five-way buttons
 GS $D6F3 - Accelerometer bit-bashing port
 GS $D6F3 Accelerometer inputs
-GS $D6F5 - FPGA Temperature sensor
-GS $D6F5 FPGA temperature sensor
+GS $D6F5 - Temperature sensor
+GS $D6F5 Bit-bashed temperature sensor
 GS $D6F6 - Keyboard scan code reader (lower byte)
 GS $D6F7 - Keyboard scan code reader (upper nybl)
 GS $D6F7 - microphone input (right)
