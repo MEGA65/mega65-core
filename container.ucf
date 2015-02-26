@@ -258,7 +258,13 @@ INST "*u_ddr2_infrastructure/gen_mmcm.mmcm_i" LOC=MMCME2_ADV_X1Y1;
 NET "*/iserdes_clk" TNM_NET = "TNM_ISERDES_CLK";
 INST "*/mc0/mc_read_idle_r" TNM = "TNM_SOURCE_IDLE";
 INST "*/input_[?].iserdes_dq_.iserdesdq" TNM = "TNM_DEST_ISERDES";
-TIMESPEC "TS_ISERDES_CLOCK" = PERIOD "TNM_ISERDES_CLK" 3333 ps;
+
+# DDR RAM is running at 193.5MHz, not 200MHz.  So do we need to reduce the SERDES clock?
+# Is this the source of the poor RAM timing?
+# @ 200MHz, the SERDES clock is 3.333ns.
+# so at 193.75MHz, it would be 3.229ns?
+
+TIMESPEC "TS_ISERDES_CLOCK" = PERIOD "TNM_ISERDES_CLK" 3229 ps;
 TIMESPEC TS_MULTICYCLEPATH = FROM "TNM_SOURCE_IDLE" TO "TNM_DEST_ISERDES" TS_ISERDES_CLOCK*6;
           
 
