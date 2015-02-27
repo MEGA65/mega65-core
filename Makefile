@@ -7,7 +7,9 @@ all:	ghdl-frame-gen \
 	container.prj \
 	thumbnail.prg \
 	tests/textmodetest.prg \
-	gs4510.vhdl viciv.vhdl
+	gs4510.vhdl viciv.vhdl \
+	kickstart65gs.bin \
+	etherload etherkick
 
 ethertest.prg:	ethertest.a65 Makefile
 	../Ophis/bin/ophis -4 ethertest.a65
@@ -48,6 +50,9 @@ videoproxy:	videoproxy.c
 
 etherload:	etherload.c
 	gcc -Wall -g -o etherload etherload.c
+
+etherkick:	etherkick.c
+	gcc -Wall -g -o etherkick etherkick.c
 
 iomap.txt:	*.vhdl Makefile
 	egrep "IO:C6|IO:GS" *.vhdl | cut -f3- -d: | sort -k2 > iomap.txt
