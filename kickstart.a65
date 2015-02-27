@@ -361,6 +361,92 @@ l16:		lda $DE2C,x
 		dex
 		bpl l16
 
+		jsr fs_cd_rootdir
+		jsr fs_opendir
+		bcc sdcarderror
+
+		; iterate through directory entries looking for ordinary file 
+		; KICKUP.G65 to load into hypervisor memory
+nextdirectoryentry3:
+		jsr fs_readdir
+		bcc nokickup
+
+		ldx #$00
+ku1:		lda fs_direntry,x
+		jsr toupper
+		cmp txt_kickupfile,x
+		bne nextdirectoryentry3
+		inx
+		cpx #$0b
+		bne ku1
+
+		; this is the entry
+		ldx #<msg_foundkickup
+		ldy #>msg_foundkickup
+		jsr printmessage
+
+		; Load kickup file into fast/chip RAM, and then jump into it
+
+		; Set 32-bit memory pointer to $00004000
+		lda #$00
+		sta zptempv+0		
+		sta zptempv+2
+		sta zptempv+3
+		lda #$40
+		sta zptempv+1
+
+		jsr fs_setfile
+		jsr fs_clustertosector
+		jsr fs_openfile
+		bcc couldntopenkickup
+		
+havekickupsector:
+		; We now have the a sector
+
+		; copy sector to memory
+		ldz #$00
+ku2:		lda $de00,y
+		nop ; trigger 32-bit pointer for indirect store
+		sta (zptempv),z
+		inz
+		bne ku2
+		inw zptempv+1
+ku3:		lda $df00,y
+		nop ; trigger 32-bit pointer for indirect store
+		sta (zptempv),z
+		inz
+		bne ku3
+		inw zptempv+1
+		
+		jsr fs_readnextsector
+		bcs havekickupsector
+
+		; We have loaded kickup file, so jump into it.
+
+		ldx #<msg_kickuploaded
+		ldy #>msg_kickuploaded
+		jsr printmessage
+		ldy #$00
+		ldz zptempv+3
+		jsr printhex
+		ldz zptempv+2
+		jsr printhex
+		ldz zptempv+1
+		jsr printhex
+		ldz zptempv+0
+		jsr printhex
+
+		jsr $4000
+		jmp postkickup
+
+couldntopenkickup:
+
+nokickup:
+		ldx #<msg_nokickup
+		ldy #>msg_nokickup
+		jsr printmessage
+postkickup:
+
 		; MILESTONE: Have file system properties.
 		lda #$3e           ; ">" character
 		sta $07c2          ; $0400+(24*40)+2
@@ -376,7 +462,7 @@ l16:		lda $DE2C,x
 		bcc sdcarderror
 
 		; iterate through directory entries looking for ordinary file 
-		; C65GS.ROM
+		; C65GS.D81
 nextdirectoryentry2:
 		jsr fs_readdir
 		bcc nod81
@@ -2078,6 +2164,104 @@ k2:
 		sta $0427
 		rts
 
+;-----------------------------------------------------------------------------
+	; This is an adaption of the etherload code, to allow loading of memory
+	; while waiting at the kickstart ROM.  Since this is an amazing security
+	; hole, we only do it if switch 8 is set.
+
+checkethernet:
+	lda $d6f1
+	and #$01
+	beq etherloadingisenabled
+	rts
+etherloadingisenabled:
+	; C65GS io
+	lda #$47
+	sta $d02f
+	lda #$53
+	sta $D02f
+
+	; Map ethernet registers at $6000 - $7FFF
+	
+	; Ethernet controller really lives $FFDE000 - $FFDEFFF, so select $FF megabyte section for MAP LO
+	lda #$ff
+	ldx #$0f
+	ldy #$00
+	ldz #$00
+	map
+	eom
+
+	; now enable mapping of $DE000-$DFFFF at $6000
+	; MAPs are offset based, so we need to subtract $6000 from the target address
+	; $DE000 - $6000 = $D8000
+	lda #$80
+	ldx #$8d
+	ldy #$00
+	ldz #$00
+	map
+	eom
+
+	; Ethernet registers should now be visible from $6000 - $6FFF
+	; read buffer will be at $6800 - $6FFF
+	; length of frame is in $6FFE / $6FFF in little-endian byte order
+	; so LDA $6FFE ; LDX $6FFF ; jsr $BDCD should print packet length to screen
+
+	; make sure ethernet transceiver is on and not generating IRQs
+	; (we will poll it).
+	; also make sure that we acknowledge the last received packet so that the
+	; ethernet controller knows it can receive.
+	lda $d6e1
+	lsr
+	and #$02
+	ora #$01
+	sta $d6e1
+
+readyforpacket:
+	lda $d6e1
+	and #$20
+	bne gotpacket
+	rts
+gotpacket:
+	; clear eth RX signal, and leave ethernet tranceiver on
+	; and make last used RX buffer visible
+	lda $d6e1
+	and #$04
+	lsr
+	ora #$01
+	sta $d6e1
+
+
+	; Got a packet.
+	; check whether it is UDP port 4510
+
+	; is it IPv4?
+	lda $6810
+	cmp #$45
+	bne badpacket
+	; is it UDP?
+	lda $6819
+	cmp #$11
+	bne badpacket
+	; UDP port #4510
+	lda $6826
+	cmp #>4510
+	bne badpacket
+	lda $6827
+	cmp #<4510
+	bne badpacket
+
+	; packet body begins at $0444 / $682C.
+	; if it begins with $A9 = LDA immediate, then jsr to the packet body.
+	; packet body can do whatever is required to load data, keeping this
+	; programme very simple.
+	lda $682c
+	cmp #$a9
+	bne badpacket
+	jsr $682C
+
+badpacket:
+	rts
+
 
 ; messages.  All have to be 40 bytes long
 msg_kickstart:        .byte "C65GS KICKSTART V00.00 PRE-ALPHA        "
@@ -2106,11 +2290,16 @@ msg_d81fragged:       .byte "FAIL: C65GS.D81 IS FRAGMENTED: DEFRAG IT"
 msg_d81mounted:	      .byte "C65GS.D81 SUCCESSFULLY MOUNTED          "
 msg_releasesw15:      .byte "RELEASE SW15 TO CONTINUE BOOTING.       "
 msg_romnotfound:      .byte "COULD NOT FIND ROM C65GSXXXROM          "
+msg_foundkickup:      .byte "LOADING KICKUP.G65 INTO HYPERVISOR      "
+msg_nokickup:         .byte "NO KICKUP.G65 TO LOAD (OR BROKEN)       "
+msg_kickuploaded:     .byte "KICKUP LOADED TO 00004000 - $$$$$$$$    "
 
 ; filename of ROM we want to load in FAT directory format
 txt_c65gsrom:	      .byte "C65GS   ROM"
 ; filename of 1581 disk image we mount by default
 txt_c65gsd81:	      .byte "C65GS   D81"
+; filename of kickstart update file
+txt_kickupfile:	      .byte "KICKUP  G65"
 
 diskchooserstart:
 	.incbin "diskchooser"
