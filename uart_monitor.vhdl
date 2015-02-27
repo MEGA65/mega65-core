@@ -212,6 +212,7 @@ architecture behavioural of uart_monitor is
                          ShowP1,ShowP2,ShowP3,ShowP4,ShowP5,ShowP6,ShowP7,ShowP8,
                          ShowP9,ShowP10,ShowP11,ShowP12,ShowP13a,
                          ShowP13,ShowP14,ShowP15,ShowP16,ShowP17,
+                         ShowP18,ShowP19,ShowP20,
                          TraceStep,CPUBreak1,WaitOneCycle
                          );
 
