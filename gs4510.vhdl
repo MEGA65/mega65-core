@@ -1570,7 +1570,7 @@ begin
         -- @IO:GS $D659 - Hypervisor DDR RAM banking control
         -- @IO:GS $D659.7 - Enable DDR RAM banking
         -- @IO:GS $D659.0-2 - Select which 16MB DDR RAM bank to make visible
-        if long_address = x"FFD3659" and hypervisora_mode='1' then
+        if long_address = x"FFD3659" and hypervisor_mode='1' then
           ddr_ram_banking <= value(7);
           ddr_ram_bank <= std_logic_vector(value(2 downto 0));
         end if;
