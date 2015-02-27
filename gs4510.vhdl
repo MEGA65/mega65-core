@@ -54,6 +54,8 @@ entity gs4510 is
       monitor_proceed : out std_logic;
       monitor_waitstates : out unsigned(7 downto 0);
       monitor_request_reflected : out std_logic;
+      monitor_hypervisor_mode : out std_logic;
+      monitor_ddr_ram_banking : out std_logic;
       monitor_pc : out unsigned(15 downto 0);
       monitor_state : out unsigned(15 downto 0);
       monitor_instruction : out unsigned(7 downto 0);
@@ -1568,7 +1570,7 @@ begin
         -- @IO:GS $D659 - Hypervisor DDR RAM banking control
         -- @IO:GS $D659.7 - Enable DDR RAM banking
         -- @IO:GS $D659.0-2 - Select which 16MB DDR RAM bank to make visible
-        if long_address = x"FFD3659" and hypervisor_mode='1' then
+        if long_address = x"FFD3659" and hypervisora_mode='1' then
           ddr_ram_banking <= value(7);
           ddr_ram_bank <= std_logic_vector(value(2 downto 0));
         end if;
@@ -1984,6 +1986,8 @@ begin
       
       monitor_watch_match <= '0';       -- set if writing to watched address
       monitor_state <= to_unsigned(processor_state'pos(state),8)&read_data;
+      monitor_hypervisor_mode <= hypervisor_mode;
+      monitor_ddr_ram_banking <= ddr_ram_banking;
       monitor_pc <= reg_pc;
       monitor_a <= reg_a;
       monitor_x <= reg_x;

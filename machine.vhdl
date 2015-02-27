@@ -186,6 +186,8 @@ architecture Behavioral of machine is
     monitor_waitstates : in unsigned(7 downto 0);
     monitor_request_reflected : in std_logic;
     monitor_pc : in unsigned(15 downto 0);
+    monitor_hypervisor_mode : in std_logic;
+    monitor_ddr_ram_banking : in std_logic;
     monitor_cpu_state : in unsigned(15 downto 0);
     monitor_instruction : in unsigned(7 downto 0);
     monitor_watch : out unsigned(27 downto 0) := x"7FFFFFF";
@@ -242,6 +244,8 @@ architecture Behavioral of machine is
       monitor_proceed : out std_logic;
       monitor_waitstates : out unsigned(7 downto 0);
       monitor_request_reflected : out std_logic;
+      monitor_hypervisor_mode : out std_logic;
+      monitor_ddr_ram_banking : out std_logic;
       monitor_pc : out unsigned(15 downto 0);
       monitor_state : out unsigned(15 downto 0);
       monitor_instruction : out unsigned(7 downto 0);
@@ -563,6 +567,8 @@ architecture Behavioral of machine is
   signal colour_ram_cs : std_logic := '0';
 
   signal monitor_pc : unsigned(15 downto 0);
+  signal monitor_hypervisor_mode : std_logic;
+  signal monitor_ddr_ram_banking : std_logic;
   signal monitor_state : unsigned(15 downto 0);
   signal monitor_instruction : unsigned(7 downto 0);
   signal monitor_watch : unsigned(27 downto 0);
@@ -776,6 +782,8 @@ begin
 --    monitor_debug_memory_access => monitor_debug_memory_access,
     monitor_waitstates => monitor_waitstates,
     monitor_request_reflected => monitor_request_reflected,
+    monitor_hypervisor_mode => monitor_hypervisor_mode,
+    monitor_ddr_ram_banking => monitor_ddr_ram_banking,
     monitor_pc => monitor_pc,
     monitor_watch => monitor_watch,
     monitor_watch_match => monitor_watch_match,
@@ -1014,6 +1022,8 @@ begin
     monitor_proceed => monitor_proceed,
     monitor_waitstates => monitor_waitstates,
     monitor_request_reflected => monitor_request_reflected,
+    monitor_hypervisor_mode => monitor_hypervisor_mode,
+    monitor_ddr_ram_banking => monitor_ddr_ram_banking,
     monitor_pc => monitor_pc,
     monitor_cpu_state => monitor_state,
     monitor_instruction => monitor_instruction,
