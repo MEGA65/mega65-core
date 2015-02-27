@@ -126,7 +126,7 @@ kickstart_entry:
 		; If switch 8 and 9 are set, then wait forever for ethernet packets
 		lda $d6f1
 		and #$02
-		bne normalboot
+		beq normalboot
 etherboot:
 		jsr checkethernet
 		jmp etherboot
@@ -2174,7 +2174,7 @@ k2:
 checkethernet:
 	lda $d6f1
 	and #$01
-	beq etherloadingisenabled
+	bne etherloadingisenabled
 	rts
 etherloadingisenabled:
 	; C65GS io
