@@ -1282,23 +1282,16 @@ redone:
 		sec
 		rts
 
+		
+		; Watch for ethernet packets while waiting for the SD card.
+		; this allows loading of code into the hypervisor for testing and
+		; bare-metal operation.
 sdwaitawhile:	jsr sdtimeoutreset
+
+		jsr checkethernet
 sw1:		
 		inc $d020
-		inc $d020
-		dec $d020
-		inc $d020
-		dec $d020
-		inc $d020
-		dec $d020
-		inc $d020
-		dec $d020
-		inc $d020
-		dec $d020
-		inc $d020
-		dec $d020
-		inc $d020
-		dec $d020
+		jsr readyforpacket
 		dec $d020
 
 		inc $0300
