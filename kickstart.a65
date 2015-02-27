@@ -2188,8 +2188,8 @@ etherloadingisenabled:
 	; Ethernet controller really lives $FFDE000 - $FFDEFFF, so select $FF megabyte section for MAP LO
 	lda #$ff
 	ldx #$0f
-	ldy #$00
-	ldz #$00
+	ldy #$00   ; keep kickstart mapped at $8000-$BFFF
+	ldz #$3f
 	map
 	eom
 
@@ -2198,8 +2198,8 @@ etherloadingisenabled:
 	; $DE000 - $6000 = $D8000
 	lda #$80
 	ldx #$8d
-	ldy #$00
-	ldz #$00
+	ldy #$00   ; keep kickstart mapped at $8000-$BFFF
+	ldz #$3f
 	map
 	eom
 
