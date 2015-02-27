@@ -128,8 +128,10 @@ kickstart_entry:
 		and #$02
 		beq normalboot
 etherboot:
+		jsr setupethernet
+etherloop:
 		jsr checkethernet
-		jmp etherboot
+		jmp etherloop
 
 normalboot:
 		; Try to read the MBR from the SD card
@@ -1297,10 +1299,9 @@ redone:
 		; bare-metal operation.
 sdwaitawhile:	jsr sdtimeoutreset
 
-		jsr checkethernet
 sw1:		
 		inc $d020
-		jsr readyforpacket
+		jsr checkethernet
 		dec $d020
 
 		inc $0300
@@ -2171,12 +2172,13 @@ k2:
 	; while waiting at the kickstart ROM.  Since this is an amazing security
 	; hole, we only do it if switch 8 is set.
 
-checkethernet:
+setupethernet:
+	; only do it if switch 8 is on
 	lda $d6f1
 	and #$01
-	bne etherloadingisenabled
+	bne e1
 	rts
-etherloadingisenabled:
+e1:
 	; C65GS io
 	lda #$47
 	sta $d02f
@@ -2218,7 +2220,16 @@ etherloadingisenabled:
 	ora #$01
 	sta $d6e1
 
-readyforpacket:
+	rts
+
+checkethernet:
+	; only do it if switch 8 is on
+	lda $d6f1
+	and #$01
+	bne e2
+	rts
+e2:
+
 	lda $d6e1
 	and #$20
 	bne gotpacket
