@@ -123,6 +123,15 @@ kickstart_entry:
 		; check keyboard for 0-9 down to select alternate rom
 		jsr keyboardread
 
+		; If switch 8 and 9 are set, then wait forever for ethernet packets
+		lda $d6f1
+		and #$02
+		bne normalboot
+etherboot:
+		jsr checkethernet
+		jmp etherboot
+
+normalboot:
 		; Try to read the MBR from the SD card
 		ldx #<msg_tryingsdcard
 		ldy #>msg_tryingsdcard
