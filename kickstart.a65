@@ -2244,10 +2244,10 @@ gotpacket:
 	bne badpacket
 	; UDP port #4510
 	lda $6826
-	cmp #>4510
+	cmp #>4511
 	bne badpacket
 	lda $6827
-	cmp #<4510
+	cmp #<4511
 	bne badpacket
 
 	; packet body begins at $0444 / $682C.
