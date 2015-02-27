@@ -415,17 +415,20 @@ havekickupsector:
 		; We now have the a sector
 
 		; copy sector to memory
+		ldy #$00
 		ldz #$00
-ku2:		lda $de00,z
-		nop ; trigger 32-bit pointer for indirect store
+ku2:		lda $de00,y
+		nop ; trigger 32-bit pointer for indirect store		
 		sta (zptempv),z
 		inz
+		iny
 		bne ku2
 		inw zptempv+1
-ku3:		lda $df00,z
+ku3:		lda $df00,y
 		nop ; trigger 32-bit pointer for indirect store
 		sta (zptempv),z
 		inz
+		iny
 		bne ku3
 		inw zptempv+1
 		
