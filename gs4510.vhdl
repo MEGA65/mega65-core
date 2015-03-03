@@ -111,8 +111,8 @@ entity gs4510 is
     slowram_oe : out std_logic := '0';
     slowram_read_toggle : in std_logic;
     slowram_write_toggle : out std_logic;
-    slowram_datain : out std_logic_vector(15 downto 0);
-    slowram_dataout : in std_logic_vector(15 downto 0);
+    slowram_datain : out std_logic_vector(7 downto 0);
+    slowram_dataout : in std_logic_vector(7 downto 0);
 
     cpu_leds : out std_logic_vector(3 downto 0);
 
@@ -658,7 +658,7 @@ end component;
   signal ddr_ram_bank : std_logic_vector(2 downto 0);
 
   signal slowram_addr_drive : std_logic_vector(26 downto 0);
-  signal slowram_data_in : std_logic_vector(15 downto 0);
+  signal slowram_data_in : std_logic_vector(7 downto 0);
   signal slowram_we_drive : std_logic;
   signal slowram_ce_drive : std_logic;
   signal slowram_oe_drive : std_logic;
@@ -1218,7 +1218,6 @@ begin
         slowram_ce_drive <= '0';
         slowram_oe_drive <= '0';
         slowram_last_read_toggle <= slowram_read_toggle;
-        slowram_lohi <= long_address(0);
         wait_states <= slowram_waitstates;
         proceed <= '0';
       else
@@ -1345,11 +1344,7 @@ begin
         return unsigned(fastio_rdata);
       elsif accessing_slowram='1' then
         report "reading slow RAM data. Word is $" & to_hstring(slowram_data_in) severity note;
-        case slowram_lohi is
-          when '0' => return unsigned(slowram_data_in(7 downto 0));
-          when '1' => return unsigned(slowram_data_in(15 downto 8));
-          when others => return x"FE";
-        end case;
+        return unsigned(slowram_data_in);
       else
         report "accessing unmapped memory" severity note;
         return x"A0";                     -- make unmmapped memory obvious
@@ -1602,7 +1597,7 @@ begin
         slowram_we_drive <= '0';
         slowram_ce_drive <= '0';
         slowram_oe_drive <= '0';
-        slowram_datain <= std_logic_vector(value) & std_logic_vector(value);
+        slowram_datain <= std_logic_vector(value);
         wait_states <= slowram_waitstates;
       else
         -- Don't let unmapped memory jam things up
