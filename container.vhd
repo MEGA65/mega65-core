@@ -345,8 +345,8 @@ architecture Behavioral of container is
   signal slowram_oe :      std_logic;
   signal slowram_write_toggle :      std_logic;
   signal slowram_read_toggle :      std_logic;
-  signal slowram_datain :  std_logic_vector(15 downto 0);
-  signal slowram_dataout : std_logic_vector(15 downto 0);
+  signal slowram_datain :  std_logic_vector(7 downto 0);
+  signal slowram_dataout : std_logic_vector(7 downto 0);
 
   -- XXX We should read the real temperature and feed this to the DDR controller
   -- so that it can update timing whenever the temperature changes too much.
