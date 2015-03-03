@@ -1213,10 +1213,10 @@ begin
         else
           slowram_addr_drive <= std_logic_vector(long_address(26 downto 0));
         end if;
-        -- slowram_data_drive <= (others => 'Z');  -- tristate data lines
         slowram_we_drive <= '1';
         slowram_ce_drive <= '0';
         slowram_oe_drive <= '0';
+        slowram_last_read_toggle <= slowram_read_toggle;
         slowram_lohi <= long_address(0);
         wait_states <= slowram_waitstates;
         proceed <= '0';
@@ -1597,6 +1597,7 @@ begin
         else
           slowram_addr_drive <= std_logic_vector(long_address(26 downto 0));
         end if;
+        slowram_last_write_toggle <= slowram_write_toggle;
         slowram_we_drive <= '0';
         slowram_ce_drive <= '0';
         slowram_oe_drive <= '0';
@@ -2050,6 +2051,13 @@ begin
           if wait_states = x"01" then
             -- Next cycle we can do stuff, provided that the serial monitor
             -- isn't asking us to do anything.
+            proceed <= '1';
+          end if;
+          -- Stop waiting on slow ram as soon as we have the result.
+          if accessing_slowram='1' and
+            ((slowram_last_write_toggle /= slowram_write_toggle)
+             or (slowram_last_read_toggle /= slowram_read_toggle)) then
+            wait_states <= x"00";
             proceed <= '1';
           end if;
         else
