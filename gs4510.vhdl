@@ -110,7 +110,7 @@ entity gs4510 is
     slowram_ce : out std_logic := '0';
     slowram_oe : out std_logic := '0';
     slowram_read_toggle : in std_logic;
-    slowram_write_toggle : out std_logic;
+    slowram_write_toggle : in std_logic;
     slowram_datain : out std_logic_vector(7 downto 0);
     slowram_dataout : in std_logic_vector(7 downto 0);
 
