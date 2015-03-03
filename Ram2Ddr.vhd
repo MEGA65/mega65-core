@@ -37,8 +37,8 @@ entity Ram2Ddr is
       ram_cen              : in    std_logic;
       ram_oen              : in    std_logic;
       ram_wen              : in    std_logic;
-      memory_read_toggle_internal : out std_logic := '0';
-      memory_write_toggle_internal : out std_logic := '0';
+      memory_read_toggle : out std_logic := '0';
+      memory_write_toggle : out std_logic := '0';
       
       -- DDR2 interface
       ddr2_addr            : out   std_logic_vector(12 downto 0);

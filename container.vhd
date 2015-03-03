@@ -189,8 +189,8 @@ architecture Behavioral of container is
       ram_cen              : in    std_logic;
       ram_oen              : in    std_logic;
       ram_wen              : in    std_logic;
-      memory_read_toggle_internal : out std_logic := '0';
-      memory_write_toggle_internal : out std_logic := '0';
+      memory_read_toggle : out std_logic := '0';
+      memory_write_toggle : out std_logic := '0';
 
       
       -- DDR2 interface
@@ -390,8 +390,8 @@ begin
       ram_cen           => slowram_ce,
       ram_oen           => slowram_oe,
       ram_wen           => slowram_we,
-      ram_ub            => slowram_ub,
-      ram_lb            => slowram_lb,
+      memory_read_toggle => slowram_read_toggle,
+      memory_write_toggle => slowram_write_toggle,
       -- Slow RAM interface static lines
 --      ram_clk => '0',                       -- keep clock low for async access
 --      ram_ADVn => '0',                       -- async burst mode address advance
