@@ -184,13 +184,14 @@ architecture Behavioral of container is
       
       -- RAM interface
       ram_a                : in    std_logic_vector(26 downto 0);
-      ram_dq_i             : in    std_logic_vector(15 downto 0);
-      ram_dq_o             : out   std_logic_vector(15 downto 0);
+      ram_dq_i             : in    std_logic_vector(7 downto 0);
+      ram_dq_o             : out   std_logic_vector(7 downto 0);
       ram_cen              : in    std_logic;
       ram_oen              : in    std_logic;
       ram_wen              : in    std_logic;
-      ram_ub               : in    std_logic;
-      ram_lb               : in    std_logic;
+      memory_read_toggle_internal : out std_logic := '0';
+      memory_write_toggle_internal : out std_logic := '0';
+
       
       -- DDR2 interface
       ddr2_addr            : out   std_logic_vector(12 downto 0);
@@ -292,10 +293,10 @@ architecture Behavioral of container is
          slowram_we : out std_logic;
          slowram_ce : out std_logic;
          slowram_oe : out std_logic;
-         slowram_lb : out std_logic;
-         slowram_ub : out std_logic;
-         slowram_datain : out std_logic_vector(15 downto 0);
-         slowram_dataout : in std_logic_vector(15 downto 0);
+         slowram_read_toggle : in std_logic;
+         slowram_write_toggle : in std_logic;
+         slowram_datain : out std_logic_vector(7 downto 0);
+         slowram_dataout : in std_logic_vector(7 downto 0);
          
          ----------------------------------------------------------------------
          -- PS/2 adapted USB keyboard & joystick connector.
@@ -342,8 +343,8 @@ architecture Behavioral of container is
   signal slowram_we :      std_logic;
   signal slowram_ce :      std_logic;
   signal slowram_oe :      std_logic;
-  signal slowram_lb :      std_logic;
-  signal slowram_ub :      std_logic;
+  signal slowram_write_toggle :      std_logic;
+  signal slowram_read_toggle :      std_logic;
   signal slowram_datain :  std_logic_vector(15 downto 0);
   signal slowram_dataout : std_logic_vector(15 downto 0);
 

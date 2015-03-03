@@ -132,8 +132,8 @@ entity machine is
          slowram_we : out std_logic;
          slowram_ce : out std_logic;
          slowram_oe : out std_logic;
-         slowram_lb : out std_logic;
-         slowram_ub : out std_logic;
+         slowram_read_toggle : in std_logic;
+         slowram_write_toggle : in std_logic;
          slowram_datain : out std_logic_vector(15 downto 0);
          slowram_dataout : in std_logic_vector(15 downto 0);
 
@@ -290,10 +290,10 @@ architecture Behavioral of machine is
       slowram_we : out std_logic;
       slowram_ce : out std_logic;
       slowram_oe : out std_logic;
-      slowram_lb : out std_logic;
-      slowram_ub : out std_logic;
-      slowram_datain : out std_logic_vector(15 downto 0);
-      slowram_dataout : in std_logic_vector(15 downto 0);
+      slowram_read_toggle : in std_logic;
+      slowram_write_toggle : in std_logic;
+      slowram_datain : out std_logic_vector(7 downto 0);
+      slowram_dataout : in std_logic_vector(7 downto 0);
 
       cpu_leds : out std_logic_vector(3 downto 0);              
 
@@ -820,8 +820,8 @@ begin
     slowram_we => slowram_we,
     slowram_ce => slowram_ce,
     slowram_oe => slowram_oe,
-    slowram_lb => slowram_lb,
-    slowram_ub => slowram_ub,
+    slowram_read_toggle => slowram_read_toggle,
+    slowram_write_toggle => slowram_write_toggle,
     slowram_datain => slowram_datain,
     slowram_dataout => slowram_dataout,
 

@@ -109,8 +109,8 @@ entity gs4510 is
     slowram_we : out std_logic := '0';
     slowram_ce : out std_logic := '0';
     slowram_oe : out std_logic := '0';
-    slowram_lb : out std_logic := '0';
-    slowram_ub : out std_logic := '0';
+    slowram_read_toggle : in std_logic;
+    slowram_write_toggle : out std_logic;
     slowram_datain : out std_logic_vector(15 downto 0);
     slowram_dataout : in std_logic_vector(15 downto 0);
 
@@ -661,8 +661,6 @@ end component;
   signal slowram_we_drive : std_logic;
   signal slowram_ce_drive : std_logic;
   signal slowram_oe_drive : std_logic;
-  signal slowram_lb_drive : std_logic;
-  signal slowram_ub_drive : std_logic;
 
 begin
 
@@ -1219,8 +1217,6 @@ begin
         slowram_we_drive <= '1';
         slowram_ce_drive <= '0';
         slowram_oe_drive <= '0';
-        slowram_lb_drive <= '0';
-        slowram_ub_drive <= '0';
         slowram_lohi <= long_address(0);
         wait_states <= slowram_waitstates;
         proceed <= '0';
@@ -1604,9 +1600,6 @@ begin
         slowram_we_drive <= '0';
         slowram_ce_drive <= '0';
         slowram_oe_drive <= '0';
-        slowram_lohi <= long_address(0);
-        slowram_lb_drive <= std_logic(long_address(0));
-        slowram_ub_drive <= std_logic(not long_address(0));
         slowram_datain <= std_logic_vector(value) & std_logic_vector(value);
         wait_states <= slowram_waitstates;
       else
@@ -1873,11 +1866,9 @@ begin
       cpu_hypervisor_mode <= hypervisor_mode;
       
       slowram_addr <= slowram_addr_drive;
-      slowram_ub <= slowram_ub_drive;
       slowram_we <= slowram_we_drive;
       slowram_ce <= slowram_ce_drive;
       slowram_oe <= slowram_oe_drive;
-      slowram_lb <= slowram_lb_drive;
       slowram_data_in <= slowram_dataout;
       
       --cpu_speed := vicii_2mhz&viciii_fast&viciv_fast;
