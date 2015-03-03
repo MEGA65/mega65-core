@@ -134,8 +134,8 @@ entity machine is
          slowram_oe : out std_logic;
          slowram_read_toggle : in std_logic;
          slowram_write_toggle : in std_logic;
-         slowram_datain : out std_logic_vector(15 downto 0);
-         slowram_dataout : in std_logic_vector(15 downto 0);
+         slowram_datain : out std_logic_vector(7 downto 0);
+         slowram_dataout : in std_logic_vector(7 downto 0);
 
          ----------------------------------------------------------------------
          -- PS/2 adapted USB keyboard & joystick connector.

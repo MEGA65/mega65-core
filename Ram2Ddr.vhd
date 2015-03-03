@@ -140,7 +140,7 @@ signal sreg                : std_logic_vector(1 downto 0);
 
 -- ram internal signals
 signal ram_a_int           : std_logic_vector(26 downto 0);
-signal ram_dq_i_int        : std_logic_vector(15 downto 0);
+signal ram_dq_i_int        : std_logic_vector(7 downto 0);
 signal ram_cen_int         : std_logic;
 signal ram_oen_int         : std_logic;
 signal ram_wen_int         : std_logic;
