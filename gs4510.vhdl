@@ -211,7 +211,8 @@ end component;
   signal last_write_address : unsigned(27 downto 0);
   signal shadow_write_flags : unsigned(3 downto 0) := "0000";
 
-  signal slowram_lohi : std_logic;
+  signal slowram_last_read_toggle : std_logic := '0';
+  signal slowram_last_write_toggle : std_logic := '0';
   -- On the original Nexys4 board:
   -- SlowRAM has 70ns access time, so need some wait states.
   -- At 48MHz we only need 4 cycles.
