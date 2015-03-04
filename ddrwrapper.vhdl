@@ -161,6 +161,7 @@ architecture Behavioral of ddrwrapper is
   signal sreg                : std_logic_vector(1 downto 0);
 
   signal ram_request_toggle_internal : std_logic := '0';
+  signal last_ram_request_toggle : std_logic := '0';
   signal ram_address_internal : std_logic_vector(26 downto 0);
   signal ram_write_data_internal : std_logic_vector(7 downto 0);
   signal ram_write_enable_internal : std_logic;
@@ -294,6 +295,7 @@ begin
         if (ram_request_toggle_internal /= last_ram_request_toggle) then
           -- A new memory request is happening.  Check if it can be serviced from
           -- the cache
+          last_ram_request_toggle <= ram_request_toggle_internal;
           if (last_ram_address(26 downto 4) = ram_address_internal(26 downto 4))
             and (ram_write_enable_internal = '0') then
             -- Memory read request that can be serviced from the cache.
