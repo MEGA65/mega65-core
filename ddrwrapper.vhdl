@@ -310,8 +310,14 @@ begin
                 when "1101" =>  ram_read_data <= last_ram_read_data(111 downto 104);
                 when "1110" =>  ram_read_data <= last_ram_read_data(119 downto 112);
                 when "1111" =>  ram_read_data <= last_ram_read_data(127 downto 120);
-                when others => null;
+                when others => null;                               
               end case;
+              ram_done_toggle <= not ram_request_toggle_internal;
+              cState <= stDone;
+              -- XXX Debug
+              if ram_address_internal(25)='1' then
+                ram_read_data <= x"C"&ram_address_internal(3 downto 0);
+              end if;             
             else
               -- This needs a new memory request, so start a new transaction, if
               -- the DDR RAM isn't busy calibrating.
@@ -355,6 +361,8 @@ begin
             nState <= stSendData;
           else
             nState <= stSetCmdRd;
+            -- Remember RAM address for cache lookup
+            last_ram_address <= ram_address_internal;
           end if;
           case (ram_address_internal(3 downto 0)) is
             when "0000" => mem_wdf_mask <= "1111111111111110";
@@ -417,10 +425,13 @@ begin
               when "1111" =>  ram_read_data <= mem_rd_data(127 downto 120);
               when others => null;
             end case;
+            -- XXX Debug
+            if ram_address_internal(25)='1' then
+              ram_read_data <= x"D"&ram_address_internal(3 downto 0);
+            end if;
             -- Remember the full 16 bytes read so that we can use it as a cache
             -- for subsequent reads.
             last_ram_read_data <= mem_rd_data;
-            last_ram_address <= ram_address_internal;
             ram_done_toggle <= not ram_request_toggle_internal;
             cState <= stDone;
           end if;
