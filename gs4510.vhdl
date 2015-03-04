@@ -652,7 +652,7 @@ end component;
   signal rmb_mask : unsigned(7 downto 0);
   signal smb_mask : unsigned(7 downto 0);
 
-  signal ddr_ram_banking : std_logic := '1';
+  signal ddr_ram_banking : std_logic := '0';
   signal ddr_ram_bank : std_logic_vector(2 downto 0);
 
   signal slowram_addr_drive : std_logic_vector(26 downto 0);
@@ -886,7 +886,7 @@ begin
       chipram_datain <= x"c0";    
       slowram_we_drive <= '0';
 
-      ddr_ram_banking <= '1';
+      ddr_ram_banking <= '0';
       ddr_ram_bank <= "000";
       
       wait_states <= (others => '0');
