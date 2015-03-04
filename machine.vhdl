@@ -814,8 +814,6 @@ begin
 
     slowram_addr => slowram_addr,
     slowram_we => slowram_we,
-    slowram_ce => slowram_ce,
-    slowram_oe => slowram_oe,
     slowram_request_toggle => slowram_request_toggle,
     slowram_done_toggle => slowram_done_toggle,
     slowram_datain => slowram_datain,
