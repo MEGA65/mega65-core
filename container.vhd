@@ -381,8 +381,8 @@ begin
       ram_write_data        => slowram_datain,
       ram_read_data         => slowram_dataout,
       ram_write_enable      => slowram_we,
-      memory_request_toggle => slowram_request_toggle,
-      memory_done_toggle    => slowram_done_toggle,
+      ram_request_toggle => slowram_request_toggle,
+      ram_done_toggle    => slowram_done_toggle,
       
       -- DDR2 interface
       ddr2_addr => ddr2_addr,
