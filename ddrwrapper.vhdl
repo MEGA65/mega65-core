@@ -405,7 +405,8 @@ begin
           mem_en <= '1';
           mem_cmd <= CMD_READ;
 
-          if mem_rdy = '1' then
+          if (mem_rdy='1')
+            and (mem_rd_data_valid = '1') and (mem_rd_data_end = '1') then
             case (ram_address_internal(3 downto 0)) is
               when "0000" =>  ram_read_data <= mem_rd_data(7 downto 0);
               when "0001" =>  ram_read_data <= mem_rd_data(15 downto 8);
