@@ -70,8 +70,7 @@ entity Ram2Ddr is
       ram_a                : in    std_logic_vector(26 downto 0);
       ram_dq_i             : in    std_logic_vector(7 downto 0);
       ram_dq_o             : out   std_logic_vector(7 downto 0);
-      ram_cen              : in    std_logic;
-      ram_oen              : in    std_logic;
+      ram_request_toggle   : in    std_logic;
       ram_wen              : in    std_logic;
       memory_read_toggle : out std_logic := '0';
       memory_write_toggle : out std_logic := '0';
@@ -175,8 +174,8 @@ signal sreg                : std_logic_vector(1 downto 0);
 -- ram internal signals
 signal ram_a_int           : std_logic_vector(26 downto 0);
 signal ram_dq_i_int        : std_logic_vector(7 downto 0);
-signal ram_cen_int         : std_logic;
-signal ram_oen_int         : std_logic;
+signal ram_request_toggle_int : std_logic;
+signal last_ram_request_toggle_int : std_logic := '0';
 signal ram_wen_int         : std_logic;
 
 signal memory_read_toggle_internal : std_logic := '0';
@@ -276,8 +275,7 @@ begin
       if rising_edge(mem_ui_clk) then
          ram_a_int <= ram_a;
          ram_dq_i_int <= ram_dq_i;
-         ram_cen_int <= ram_cen;
-         ram_oen_int <= ram_oen;
+         ram_request_toggle_int <= ram_request_toggle;
          ram_wen_int <= ram_wen;
       end if;
    end process REG_IN;
@@ -298,7 +296,7 @@ begin
    end process SYNC_PROCESS;
 
 -- Next state logic
-   NEXT_STATE_DECODE: process(cState, calib_complete, ram_cen_int, 
+   NEXT_STATE_DECODE: process(cState, calib_complete, ram_requesttoggle_int, 
    mem_rdy, mem_wdf_rdy)
    begin
       nState <= cState;
@@ -315,11 +313,14 @@ begin
          -- this additional state to make sure that all input
          -- transitions are fully settled and registered
          when stPreset =>
-            if ram_wen_int = '0' then
-               nState <= stSendData;
-            elsif ram_oen_int = '0' then
-               nState <= stSetCmdRd;
-            end if;
+            if (ram_requesttoggle_int /= last_ram_request_toggle_int) then
+              last_ram_request_toggle_int <= ram_requesttoggle_int;
+              if ram_wen_int = '0' then
+                nState <= stSendData;
+              else 
+                nState <= stSetCmdRd;
+              end if;
+            end if; 
          -- In a write transaction the data it written first
          -- giving higher priority to 'mem_wdf_rdy' frag over
          -- 'mem_rdy'
@@ -381,7 +382,7 @@ begin
    end process MEM_CTL;
    
 ------------------------------------------------------------------------
--- Decoding the least significant 3 bits of the address and creating
+-- Decoding the least significant 4 bits of the address and creating
 -- accordingly the 'mem_wdf_mask'
 ------------------------------------------------------------------------
    WR_DATA_MSK: process(mem_ui_clk)
@@ -443,8 +444,9 @@ begin
    RD_DATA: process(mem_ui_clk)
    begin
       if rising_edge(mem_ui_clk) then
-         if cState = stWaitCen and mem_rd_data_valid = '1' and 
-           mem_rd_data_end = '1' then
+        if (cState = stWaitCen)
+           and (mem_rd_data_valid = '1') 
+           and (mem_rd_data_end = '1') then
            memory_read_toggle <= not memory_read_toggle_internal;
            memory_read_toggle_internal <= not memory_read_toggle_internal;
             case(ram_a_int(3 downto 0)) is

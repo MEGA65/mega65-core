@@ -175,7 +175,7 @@ architecture Behavioral of container is
            TEMP_O : out  STD_LOGIC_VECTOR (11 downto 0));
   end component;
 
-  component Ram2Ddr is
+  component ddrwraper is
    port (
       -- Common
       clk_200MHz_i         : in    std_logic; -- 200 MHz system clock
@@ -183,15 +183,12 @@ architecture Behavioral of container is
       device_temp_i        : in    std_logic_vector(11 downto 0);
       
       -- RAM interface
-      ram_a                : in    std_logic_vector(26 downto 0);
-      ram_dq_i             : in    std_logic_vector(7 downto 0);
-      ram_dq_o             : out   std_logic_vector(7 downto 0);
-      ram_cen              : in    std_logic;
-      ram_oen              : in    std_logic;
-      ram_wen              : in    std_logic;
-      memory_read_toggle : out std_logic := '0';
-      memory_write_toggle : out std_logic := '0';
-
+      ram_address          : in    std_logic_vector(26 downto 0);
+      ram_read_data        : out   std_logic_vector(7 downto 0);
+      ram_write_data       : in    std_logic_vector(7 downto 0);
+      ram_write_enable     : in    std_logic;
+      ram_request_toggle   : in    std_logic;
+      ram_done_toggle      : out   std_logic;
       
       -- DDR2 interface
       ddr2_addr            : out   std_logic_vector(12 downto 0);
@@ -291,10 +288,8 @@ architecture Behavioral of container is
          ---------------------------------------------------------------------------
          slowram_addr : out std_logic_vector(26 downto 0);
          slowram_we : out std_logic;
-         slowram_ce : out std_logic;
-         slowram_oe : out std_logic;
-         slowram_read_toggle : in std_logic;
-         slowram_write_toggle : in std_logic;
+         slowram_request_toggle : out std_logic;
+         slowram_done_toggle : in std_logic;
          slowram_datain : out std_logic_vector(7 downto 0);
          slowram_dataout : in std_logic_vector(7 downto 0);
          
@@ -341,10 +336,8 @@ architecture Behavioral of container is
 
   signal slowram_addr :    std_logic_vector(26 downto 0);
   signal slowram_we :      std_logic;
-  signal slowram_ce :      std_logic;
-  signal slowram_oe :      std_logic;
-  signal slowram_write_toggle :      std_logic;
-  signal slowram_read_toggle :      std_logic;
+  signal slowram_request_toggle :      std_logic;
+  signal slowram_done_toggle :      std_logic;
   signal slowram_datain :  std_logic_vector(7 downto 0);
   signal slowram_dataout : std_logic_vector(7 downto 0);
 
@@ -376,7 +369,7 @@ begin
       clk_i => cpuclock,
       temp_o => fpga_temperature);
   
-  ram2ddr0: ram2ddr
+  ddrwrapper0: ddrwrapper
     port map (
       -- Common
       clk_200MHz_i => pixelclock,
@@ -384,18 +377,12 @@ begin
       device_temp_i => fpga_temperature,
       
       -- RAM interface
-      ram_a             => slowram_addr,
-      ram_dq_i          => slowram_datain,
-      ram_dq_o          => slowram_dataout,
-      ram_cen           => slowram_ce,
-      ram_oen           => slowram_oe,
-      ram_wen           => slowram_we,
-      memory_read_toggle => slowram_read_toggle,
-      memory_write_toggle => slowram_write_toggle,
-      -- Slow RAM interface static lines
---      ram_clk => '0',                       -- keep clock low for async access
---      ram_ADVn => '0',                       -- async burst mode address advance
---      ram_CRE => '0',                        -- access memory or config registers
+      ram_address           => slowram_addr,
+      ram_write_data        => slowram_datain,
+      ram_read_data         => slowram_dataout,
+      ram_write_enable      => slowram_we,
+      memory_request_toggle => slowram_request_toggle,
+      memory_done_toggle    => slowram_done_toggle,
       
       -- DDR2 interface
       ddr2_addr => ddr2_addr,
@@ -479,11 +466,9 @@ begin
       ps2data =>      ps2data,
       ps2clock =>     ps2clk,
 
-      slowram_ce => slowram_ce,
-      slowram_oe => slowram_oe,
       slowram_we => slowram_we,
-      slowram_read_toggle => slowram_read_toggle,
-      slowram_write_toggle => slowram_write_toggle,
+      slowram_request_toggle => slowram_request_toggle,
+      slowram_done_toggle => slowram_done_toggle,
       slowram_datain => slowram_datain,
       slowram_dataout => slowram_dataout,
       slowram_addr => slowram_addr,

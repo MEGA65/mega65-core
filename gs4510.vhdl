@@ -107,10 +107,8 @@ entity gs4510 is
     ---------------------------------------------------------------------------
     slowram_addr : out std_logic_vector(26 downto 0);
     slowram_we : out std_logic := '0';
-    slowram_ce : out std_logic := '0';
-    slowram_oe : out std_logic := '0';
-    slowram_read_toggle : in std_logic;
-    slowram_write_toggle : in std_logic;
+    slowram_request_toggle : out std_logic;
+    slowram_done_toggle : in std_logic;
     slowram_datain : out std_logic_vector(7 downto 0);
     slowram_dataout : in std_logic_vector(7 downto 0);
 
@@ -211,8 +209,6 @@ end component;
   signal last_write_address : unsigned(27 downto 0);
   signal shadow_write_flags : unsigned(3 downto 0) := "0000";
 
-  signal slowram_last_read_toggle : std_logic := '0';
-  signal slowram_last_write_toggle : std_logic := '0';
   -- On the original Nexys4 board:
   -- SlowRAM has 70ns access time, so need some wait states.
   -- At 48MHz we only need 4 cycles.
@@ -232,7 +228,7 @@ end component;
   -- (Reading incurrs an extra waitstate due to read_data_copy)
   -- XXX An extra wait state seems to be necessary when reading from dual-port
   -- memories like colour ram.
-  constant slowram_48mhz : unsigned(7 downto 0) := x"16";
+  constant slowram_48mhz : unsigned(7 downto 0) := x"ff";
   constant ioread_48mhz : unsigned(7 downto 0) := x"01";
   constant colourread_48mhz : unsigned(7 downto 0) := x"02";
   constant iowrite_48mhz : unsigned(7 downto 0) := x"00";
@@ -261,6 +257,8 @@ end component;
   signal io_read_wait_states : unsigned(7 downto 0) := ioread_48mhz;
   signal colourram_read_wait_states : unsigned(7 downto 0) := colourread_48mhz;
   signal io_write_wait_states : unsigned(7 downto 0) := iowrite_48mhz;
+
+  signal slowram_last_done_toggle : std_logic := '0';
 
   -- Number of pending wait states
   signal wait_states : unsigned(7 downto 0) := x"05";
@@ -886,9 +884,7 @@ begin
       fastio_write <= '0';
       chipram_we <= '0';        
       chipram_datain <= x"c0";    
-      slowram_we_drive <= '1';
-      slowram_ce_drive <= '1';
-      slowram_oe_drive <= '1';
+      slowram_we_drive <= '0';
 
       ddr_ram_banking <= '1';
       ddr_ram_bank <= "000";
@@ -1209,15 +1205,14 @@ begin
         -- C65 ROM emulation.
         accessing_shadow <= '0';
         accessing_slowram <= '1';
+        slowram_last_done_toggle <= slowram_done_toggle;
         if ddr_ram_banking='1' then
           slowram_addr_drive <= std_logic_vector(long_address(23 downto 1))&ddr_ram_bank&std_logic(long_address(0));
         else
           slowram_addr_drive <= std_logic_vector(long_address(26 downto 0));
         end if;
-        slowram_we_drive <= '1';
-        slowram_ce_drive <= '0';
-        slowram_oe_drive <= '0';
-        slowram_last_read_toggle <= slowram_read_toggle;
+        slowram_we_drive <= '0';
+        slowram_request_toggle <= not slowram_done_toggle;
         wait_states <= slowram_waitstates;
         proceed <= '0';
       else
@@ -1593,11 +1588,10 @@ begin
         else
           slowram_addr_drive <= std_logic_vector(long_address(26 downto 0));
         end if;
-        slowram_last_write_toggle <= slowram_write_toggle;
-        slowram_we_drive <= '0';
-        slowram_ce_drive <= '0';
-        slowram_oe_drive <= '0';
+        slowram_we_drive <= '1';
         slowram_datain <= std_logic_vector(value);
+        slowram_last_done_toggle <= slowram_done_toggle;
+        slowram_request_toggle <= not slowram_done_toggle;
         wait_states <= slowram_waitstates;
       else
         -- Don't let unmapped memory jam things up
@@ -1864,8 +1858,6 @@ begin
       
       slowram_addr <= slowram_addr_drive;
       slowram_we <= slowram_we_drive;
-      slowram_ce <= slowram_ce_drive;
-      slowram_oe <= slowram_oe_drive;
       slowram_data_in <= slowram_dataout;
       
       --cpu_speed := vicii_2mhz&viciii_fast&viciv_fast;
@@ -2050,9 +2042,9 @@ begin
             proceed <= '1';
           end if;
           -- Stop waiting on slow ram as soon as we have the result.
-          if accessing_slowram='1' and
-            ((slowram_last_write_toggle /= slowram_write_toggle)
-             or (slowram_last_read_toggle /= slowram_read_toggle)) then
+          if (accessing_slowram='1') and
+            (slowram_last_done_toggle /= slowram_done_toggle) then
+            slowram_last_done_toggle <= slowram_last_done_toggle;
             wait_states <= x"00";
             proceed <= '1';
           end if;
@@ -2064,8 +2056,6 @@ begin
 --          fastio_read <= '0';
           chipram_we <= '0';
           slowram_we_drive <= '1';
-          slowram_ce_drive <= '1';
-          slowram_oe_drive <= '1';
 
           if mem_reading='1' then
 --            report "resetting mem_reading (read $" & to_hstring(memory_read_value) & ")" severity note;
