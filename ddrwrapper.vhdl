@@ -57,7 +57,7 @@ entity ddrwrapper is
     ram_write_data       : in    std_logic_vector(7 downto 0);
     ram_write_enable     : in    std_logic;
     ram_request_toggle   : in    std_logic;
-    ram_done_toggle      : out   std_logic;
+    ram_done_toggle      : out   std_logic := '0';
     
     -- DDR2 interface
     ddr2_addr            : out   std_logic_vector(12 downto 0);
