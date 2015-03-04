@@ -175,7 +175,7 @@ architecture Behavioral of container is
            TEMP_O : out  STD_LOGIC_VECTOR (11 downto 0));
   end component;
 
-  component ddrwraper is
+  component ddrwrapper is
    port (
       -- Common
       clk_200MHz_i         : in    std_logic; -- 200 MHz system clock
