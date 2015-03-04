@@ -138,7 +138,7 @@ architecture Behavioral of ddrwrapper is
 ------------------------------------------------------------------------
 -- FSM
   type state_type is (stIdle, stPreset, stSendData, stSetCmdRd, stSetCmdWr,
-                      stWaitCen);
+                      stDone);
 
 ------------------------------------------------------------------------
 -- Constant Declarations
@@ -160,7 +160,7 @@ architecture Behavioral of ddrwrapper is
   signal rstn                : std_logic;
   signal sreg                : std_logic_vector(1 downto 0);
 
-  signal ram_done_toggle_internal : std_logic := '0';
+  signal ram_request_toggle_internal : std_logic := '0';
   signal ram_address_internal : std_logic_vector(26 downto 0);
   signal ram_write_data_internal : std_logic_vector(7 downto 0);
   signal ram_write_enable_internal : std_logic;
@@ -360,7 +360,7 @@ begin
         else
           nState <= stSetCmdRd;
         end if;
-        case (ram_a_int(3 downto 0)) is
+        case (ram_address_internal(3 downto 0)) is
           when "0000" => mem_wdf_mask <= "1111111111111110";
           when "0001" => mem_wdf_mask <= "1111111111111101";
           when "0010" => mem_wdf_mask <= "1111111111111011";
@@ -380,8 +380,6 @@ begin
           when others => null;
         end case;
         mem_addr <= ram_address_internal(26 downto 4) & "0000";
-        memory_write_toggle <= not memory_write_toggle_internal;
-        memory_write_toggle_internal <= not memory_write_toggle_internal;
         mem_wdf_data <= ram_write_data_internal & ram_write_data_internal
                         & ram_write_data_internal & ram_write_data_internal
                         & ram_write_data_internal & ram_write_data_internal
@@ -390,9 +388,6 @@ begin
                         & ram_write_data_internal & ram_write_data_internal
                         & ram_write_data_internal & ram_write_data_internal
                         & ram_write_data_internal & ram_write_data_internal;
-
-        
-        
       when stSendData =>
         -- Wait until memory finishes writing
         mem_wdf_wren <= '1';
@@ -429,7 +424,7 @@ begin
           -- Remember the full 16 bytes read so that we can use it as a cache
           -- for subsequent reads.
           last_ram_read_data <= mem_rd_data;
-          last_ram_read_address <= ram_address_internal;
+          last_ram_address <= ram_address_internal;
           ram_done_toggle <= not ram_request_toggle_internal;
           cState <= stDone;
         end if;
@@ -440,6 +435,8 @@ begin
           cState <= stDone;
         end if;
       when stDone =>
+        nState <= stIdle;
+      when others =>
         nState <= stIdle;
     end case;
   end process;
