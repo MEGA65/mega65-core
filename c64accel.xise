@@ -426,6 +426,10 @@
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="160"/>
       <association xil_pn:name="Implementation" xil_pn:seqID="160"/>
     </file>
+    <file xil_pn:name="ddrwrapper.vhdl" xil_pn:type="FILE_VHDL">
+      <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="161"/>
+      <association xil_pn:name="Implementation" xil_pn:seqID="161"/>
+    </file>
   </files>
 
   <properties>
