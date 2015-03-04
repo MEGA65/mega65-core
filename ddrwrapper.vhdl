@@ -271,176 +271,171 @@ begin
       else
         cState <= nState;
       end if;
-    end if;
-  end process REG_IN;
 
-  process(mem_ui_clk)
-  begin
+      mem_wdf_wren <= '0';
+      mem_wdf_end <= '0';
+      mem_en <= '0';
+      mem_cmd <= (others => '0');
 
-    mem_wdf_wren <= '0';
-    mem_wdf_end <= '0';
-    mem_en <= '0';
-    mem_cmd <= (others => '0');
+      -- Note that the state machine has a 1 cycle delay to match the DDR2
+      -- semantics.  This means that each state block will get executed twice,
+      -- but toggling of acknowledgement lines needs to be done just once, so
+      -- we do a short-circuit for the states when memory accesses end to make
+      -- that happen, by assigning cState directly instead of via nState.
+      nState <= cState;  -- by default keep the current state
 
-    -- Note that the state machine has a 1 cycle delay to match the DDR2
-    -- semantics.  This means that each state block will get executed twice,
-    -- but toggling of acknowledgement lines needs to be done just once, so
-    -- we do a short-circuit for the states when memory accesses end to make
-    -- that happen, by assigning cState directly instead of via nState.
-    cState <= nState;  -- do the delayed state assignment
-    nState <= cState;  -- by default keep the current state
-
-    case (cState) is
-      when stIdle =>
-        if (ram_request_toggle_internal /= last_ram_request_toggle) then
-          -- A new memory request is happening.  Check if it can be serviced from
-          -- the cache
-          last_ram_request_toggle <= ram_request_toggle_internal;
-          if (last_ram_address(26 downto 4) = ram_address_internal(26 downto 4))
-            and (ram_write_enable_internal = '0') then
-            -- Memory read request that can be serviced from the cache.
-            case (ram_address_internal(3 downto 0)) is
-              when "0000" =>  ram_read_data <= last_ram_read_data(7 downto 0);
-              when "0001" =>  ram_read_data <= last_ram_read_data(15 downto 8);
-              when "0010" =>  ram_read_data <= last_ram_read_data(23 downto 16);
-              when "0011" =>  ram_read_data <= last_ram_read_data(31 downto 24);
-              when "0100" =>  ram_read_data <= last_ram_read_data(39 downto 32);
-              when "0101" =>  ram_read_data <= last_ram_read_data(47 downto 40);
-              when "0110" =>  ram_read_data <= last_ram_read_data(55 downto 48);
-              when "0111" =>  ram_read_data <= last_ram_read_data(63 downto 56);
-              when "1000" =>  ram_read_data <= last_ram_read_data(71 downto 64);
-              when "1001" =>  ram_read_data <= last_ram_read_data(79 downto 72);
-              when "1010" =>  ram_read_data <= last_ram_read_data(87 downto 80);
-              when "1011" =>  ram_read_data <= last_ram_read_data(95 downto 88);
-              when "1100" =>  ram_read_data <= last_ram_read_data(103 downto 96);
-              when "1101" =>  ram_read_data <= last_ram_read_data(111 downto 104);
-              when "1110" =>  ram_read_data <= last_ram_read_data(119 downto 112);
-              when "1111" =>  ram_read_data <= last_ram_read_data(127 downto 120);
-              when others => null;
-            end case;
-          else
-            -- This needs a new memory request, so start a new transaction, if
-            -- the DDR RAM isn't busy calibrating.
-            if calib_complete = '1' then
-              nState <= stPreset;
-            end if;
-            -- Update cache line if necessary
+      case (cState) is
+        when stIdle =>
+          if (ram_request_toggle_internal /= last_ram_request_toggle) then
+            -- A new memory request is happening.  Check if it can be serviced from
+            -- the cache
+            last_ram_request_toggle <= ram_request_toggle_internal;
             if (last_ram_address(26 downto 4) = ram_address_internal(26 downto 4))
-              and (ram_write_enable_internal = '1') then
-              -- Memory write request should update cache
+              and (ram_write_enable_internal = '0') then
+              -- Memory read request that can be serviced from the cache.
               case (ram_address_internal(3 downto 0)) is
-                when "0000" =>  last_ram_read_data(7 downto 0) <= ram_write_data_internal;
-                when "0001" =>  last_ram_read_data(15 downto 8) <= ram_write_data_internal;
-                when "0010" =>  last_ram_read_data(23 downto 16) <= ram_write_data_internal;
-                when "0011" =>  last_ram_read_data(31 downto 24) <= ram_write_data_internal;
-                when "0100" =>  last_ram_read_data(39 downto 32) <= ram_write_data_internal;
-                when "0101" =>  last_ram_read_data(47 downto 40) <= ram_write_data_internal;
-                when "0110" =>  last_ram_read_data(55 downto 48) <= ram_write_data_internal;
-                when "0111" =>  last_ram_read_data(63 downto 56) <= ram_write_data_internal;
-                when "1000" =>  last_ram_read_data(71 downto 64) <= ram_write_data_internal;
-                when "1001" =>  last_ram_read_data(79 downto 72) <= ram_write_data_internal;
-                when "1010" =>  last_ram_read_data(87 downto 80) <= ram_write_data_internal;
-                when "1011" =>  last_ram_read_data(95 downto 88) <= ram_write_data_internal;
-                when "1100" =>  last_ram_read_data(103 downto 96) <= ram_write_data_internal;
-                when "1101" =>  last_ram_read_data(111 downto 104) <= ram_write_data_internal;
-                when "1110" =>  last_ram_read_data(119 downto 112) <= ram_write_data_internal;
-                when "1111" =>  last_ram_read_data(127 downto 120) <= ram_write_data_internal;
+                when "0000" =>  ram_read_data <= last_ram_read_data(7 downto 0);
+                when "0001" =>  ram_read_data <= last_ram_read_data(15 downto 8);
+                when "0010" =>  ram_read_data <= last_ram_read_data(23 downto 16);
+                when "0011" =>  ram_read_data <= last_ram_read_data(31 downto 24);
+                when "0100" =>  ram_read_data <= last_ram_read_data(39 downto 32);
+                when "0101" =>  ram_read_data <= last_ram_read_data(47 downto 40);
+                when "0110" =>  ram_read_data <= last_ram_read_data(55 downto 48);
+                when "0111" =>  ram_read_data <= last_ram_read_data(63 downto 56);
+                when "1000" =>  ram_read_data <= last_ram_read_data(71 downto 64);
+                when "1001" =>  ram_read_data <= last_ram_read_data(79 downto 72);
+                when "1010" =>  ram_read_data <= last_ram_read_data(87 downto 80);
+                when "1011" =>  ram_read_data <= last_ram_read_data(95 downto 88);
+                when "1100" =>  ram_read_data <= last_ram_read_data(103 downto 96);
+                when "1101" =>  ram_read_data <= last_ram_read_data(111 downto 104);
+                when "1110" =>  ram_read_data <= last_ram_read_data(119 downto 112);
+                when "1111" =>  ram_read_data <= last_ram_read_data(127 downto 120);
                 when others => null;
               end case;
-            end if;
-            -- Let caller go free if writing, now that we have accepted the data
-            if ram_write_enable_internal = '1' then
-              ram_done_toggle <= not ram_request_toggle_internal;
+            else
+              -- This needs a new memory request, so start a new transaction, if
+              -- the DDR RAM isn't busy calibrating.
+              if calib_complete = '1' then
+                nState <= stPreset;
+              end if;
+              -- Update cache line if necessary
+              if (last_ram_address(26 downto 4) = ram_address_internal(26 downto 4))
+                and (ram_write_enable_internal = '1') then
+                -- Memory write request should update cache
+                case (ram_address_internal(3 downto 0)) is
+                  when "0000" =>  last_ram_read_data(7 downto 0) <= ram_write_data_internal;
+                  when "0001" =>  last_ram_read_data(15 downto 8) <= ram_write_data_internal;
+                  when "0010" =>  last_ram_read_data(23 downto 16) <= ram_write_data_internal;
+                  when "0011" =>  last_ram_read_data(31 downto 24) <= ram_write_data_internal;
+                  when "0100" =>  last_ram_read_data(39 downto 32) <= ram_write_data_internal;
+                  when "0101" =>  last_ram_read_data(47 downto 40) <= ram_write_data_internal;
+                  when "0110" =>  last_ram_read_data(55 downto 48) <= ram_write_data_internal;
+                  when "0111" =>  last_ram_read_data(63 downto 56) <= ram_write_data_internal;
+                  when "1000" =>  last_ram_read_data(71 downto 64) <= ram_write_data_internal;
+                  when "1001" =>  last_ram_read_data(79 downto 72) <= ram_write_data_internal;
+                  when "1010" =>  last_ram_read_data(87 downto 80) <= ram_write_data_internal;
+                  when "1011" =>  last_ram_read_data(95 downto 88) <= ram_write_data_internal;
+                  when "1100" =>  last_ram_read_data(103 downto 96) <= ram_write_data_internal;
+                  when "1101" =>  last_ram_read_data(111 downto 104) <= ram_write_data_internal;
+                  when "1110" =>  last_ram_read_data(119 downto 112) <= ram_write_data_internal;
+                  when "1111" =>  last_ram_read_data(127 downto 120) <= ram_write_data_internal;
+                  when others => null;
+                end case;
+              end if;
+              -- Let caller go free if writing, now that we have accepted the data
+              if ram_write_enable_internal = '1' then
+                ram_done_toggle <= not ram_request_toggle_internal;
+              end if;
             end if;
           end if;
-        end if;
-      when stPreset =>
-        -- A memory request is ready and waiting, so start the transaction.
-        -- XXX: Couldn't this be done in the state above to avoid wasting a cycle?
-        if ram_write_enable = '1' then
-          nState <= stSendData;
-        else
-          nState <= stSetCmdRd;
-        end if;
-        case (ram_address_internal(3 downto 0)) is
-          when "0000" => mem_wdf_mask <= "1111111111111110";
-          when "0001" => mem_wdf_mask <= "1111111111111101";
-          when "0010" => mem_wdf_mask <= "1111111111111011";
-          when "0011" => mem_wdf_mask <= "1111111111110111";
-          when "0100" => mem_wdf_mask <= "1111111111101111";
-          when "0101" => mem_wdf_mask <= "1111111111011111";
-          when "0110" => mem_wdf_mask <= "1111111110111111";
-          when "0111" => mem_wdf_mask <= "1111111101111111";
-          when "1000" => mem_wdf_mask <= "1111111011111111";
-          when "1001" => mem_wdf_mask <= "1111110111111111";
-          when "1010" => mem_wdf_mask <= "1111101111111111";
-          when "1011" => mem_wdf_mask <= "1111011111111111";
-          when "1100" => mem_wdf_mask <= "1110111111111111";
-          when "1101" => mem_wdf_mask <= "1101111111111111";
-          when "1110" => mem_wdf_mask <= "1011111111111111";
-          when "1111" => mem_wdf_mask <= "0111111111111111";
-          when others => null;
-        end case;
-        mem_addr <= ram_address_internal(26 downto 4) & "0000";
-        mem_wdf_data <= ram_write_data_internal & ram_write_data_internal
-                        & ram_write_data_internal & ram_write_data_internal
-                        & ram_write_data_internal & ram_write_data_internal
-                        & ram_write_data_internal & ram_write_data_internal
-                        & ram_write_data_internal & ram_write_data_internal
-                        & ram_write_data_internal & ram_write_data_internal
-                        & ram_write_data_internal & ram_write_data_internal
-                        & ram_write_data_internal & ram_write_data_internal;
-      when stSendData =>
-        -- Wait until memory finishes writing
-        mem_wdf_wren <= '1';
-        mem_wdf_end <= '1';
-
-        if mem_wdf_rdy = '1' then
-          nState <= stSetCmdWr;
-        end if;
-      when stSetCmdRd =>
-        -- Wait for memory to be finish the read
-        mem_en <= '1';
-        mem_cmd <= CMD_READ;
-
-        if mem_rdy = '1' then
+        when stPreset =>
+          -- A memory request is ready and waiting, so start the transaction.
+          -- XXX: Couldn't this be done in the state above to avoid wasting a cycle?
+          if ram_write_enable = '1' then
+            nState <= stSendData;
+          else
+            nState <= stSetCmdRd;
+          end if;
           case (ram_address_internal(3 downto 0)) is
-            when "0000" =>  ram_read_data <= mem_rd_data(7 downto 0);
-            when "0001" =>  ram_read_data <= mem_rd_data(15 downto 8);
-            when "0010" =>  ram_read_data <= mem_rd_data(23 downto 16);
-            when "0011" =>  ram_read_data <= mem_rd_data(31 downto 24);
-            when "0100" =>  ram_read_data <= mem_rd_data(39 downto 32);
-            when "0101" =>  ram_read_data <= mem_rd_data(47 downto 40);
-            when "0110" =>  ram_read_data <= mem_rd_data(55 downto 48);
-            when "0111" =>  ram_read_data <= mem_rd_data(63 downto 56);
-            when "1000" =>  ram_read_data <= mem_rd_data(71 downto 64);
-            when "1001" =>  ram_read_data <= mem_rd_data(79 downto 72);
-            when "1010" =>  ram_read_data <= mem_rd_data(87 downto 80);
-            when "1011" =>  ram_read_data <= mem_rd_data(95 downto 88);
-            when "1100" =>  ram_read_data <= mem_rd_data(103 downto 96);
-            when "1101" =>  ram_read_data <= mem_rd_data(111 downto 104);
-            when "1110" =>  ram_read_data <= mem_rd_data(119 downto 112);
-            when "1111" =>  ram_read_data <= mem_rd_data(127 downto 120);
+            when "0000" => mem_wdf_mask <= "1111111111111110";
+            when "0001" => mem_wdf_mask <= "1111111111111101";
+            when "0010" => mem_wdf_mask <= "1111111111111011";
+            when "0011" => mem_wdf_mask <= "1111111111110111";
+            when "0100" => mem_wdf_mask <= "1111111111101111";
+            when "0101" => mem_wdf_mask <= "1111111111011111";
+            when "0110" => mem_wdf_mask <= "1111111110111111";
+            when "0111" => mem_wdf_mask <= "1111111101111111";
+            when "1000" => mem_wdf_mask <= "1111111011111111";
+            when "1001" => mem_wdf_mask <= "1111110111111111";
+            when "1010" => mem_wdf_mask <= "1111101111111111";
+            when "1011" => mem_wdf_mask <= "1111011111111111";
+            when "1100" => mem_wdf_mask <= "1110111111111111";
+            when "1101" => mem_wdf_mask <= "1101111111111111";
+            when "1110" => mem_wdf_mask <= "1011111111111111";
+            when "1111" => mem_wdf_mask <= "0111111111111111";
             when others => null;
           end case;
-          -- Remember the full 16 bytes read so that we can use it as a cache
-          -- for subsequent reads.
-          last_ram_read_data <= mem_rd_data;
-          last_ram_address <= ram_address_internal;
-          ram_done_toggle <= not ram_request_toggle_internal;
-          cState <= stDone;
-        end if;
-      when stSetCmdWr =>
-        mem_en <= '1';
-        mem_cmd <= CMD_WRITE;
-        if mem_rdy = '1' then
-          cState <= stDone;
-        end if;
-      when stDone =>
-        nState <= stIdle;
-      when others =>
-        nState <= stIdle;
-    end case;
+          mem_addr <= ram_address_internal(26 downto 4) & "0000";
+          mem_wdf_data <= ram_write_data_internal & ram_write_data_internal
+                          & ram_write_data_internal & ram_write_data_internal
+                          & ram_write_data_internal & ram_write_data_internal
+                          & ram_write_data_internal & ram_write_data_internal
+                          & ram_write_data_internal & ram_write_data_internal
+                          & ram_write_data_internal & ram_write_data_internal
+                          & ram_write_data_internal & ram_write_data_internal
+                          & ram_write_data_internal & ram_write_data_internal;
+        when stSendData =>
+          -- Wait until memory finishes writing
+          mem_wdf_wren <= '1';
+          mem_wdf_end <= '1';
+
+          if mem_wdf_rdy = '1' then
+            nState <= stSetCmdWr;
+          end if;
+        when stSetCmdRd =>
+          -- Wait for memory to be finish the read
+          mem_en <= '1';
+          mem_cmd <= CMD_READ;
+
+          if mem_rdy = '1' then
+            case (ram_address_internal(3 downto 0)) is
+              when "0000" =>  ram_read_data <= mem_rd_data(7 downto 0);
+              when "0001" =>  ram_read_data <= mem_rd_data(15 downto 8);
+              when "0010" =>  ram_read_data <= mem_rd_data(23 downto 16);
+              when "0011" =>  ram_read_data <= mem_rd_data(31 downto 24);
+              when "0100" =>  ram_read_data <= mem_rd_data(39 downto 32);
+              when "0101" =>  ram_read_data <= mem_rd_data(47 downto 40);
+              when "0110" =>  ram_read_data <= mem_rd_data(55 downto 48);
+              when "0111" =>  ram_read_data <= mem_rd_data(63 downto 56);
+              when "1000" =>  ram_read_data <= mem_rd_data(71 downto 64);
+              when "1001" =>  ram_read_data <= mem_rd_data(79 downto 72);
+              when "1010" =>  ram_read_data <= mem_rd_data(87 downto 80);
+              when "1011" =>  ram_read_data <= mem_rd_data(95 downto 88);
+              when "1100" =>  ram_read_data <= mem_rd_data(103 downto 96);
+              when "1101" =>  ram_read_data <= mem_rd_data(111 downto 104);
+              when "1110" =>  ram_read_data <= mem_rd_data(119 downto 112);
+              when "1111" =>  ram_read_data <= mem_rd_data(127 downto 120);
+              when others => null;
+            end case;
+            -- Remember the full 16 bytes read so that we can use it as a cache
+            -- for subsequent reads.
+            last_ram_read_data <= mem_rd_data;
+            last_ram_address <= ram_address_internal;
+            ram_done_toggle <= not ram_request_toggle_internal;
+            cState <= stDone;
+          end if;
+        when stSetCmdWr =>
+          mem_en <= '1';
+          mem_cmd <= CMD_WRITE;
+          if mem_rdy = '1' then
+            cState <= stDone;
+          end if;
+        when stDone =>
+          nState <= stIdle;
+        when others =>
+          nState <= stIdle;
+      end case;
+    end if; 
   end process;
 
 end behavioral;
