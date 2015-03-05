@@ -177,7 +177,8 @@ architecture Behavioral of container is
 
   component ddrwrapper is
    port (
-      -- Common
+     -- Common
+      cpuclock : in std_logic;
       clk_200MHz_i         : in    std_logic; -- 200 MHz system clock
       rst_i                : in    std_logic; -- active high system reset
       device_temp_i        : in    std_logic_vector(11 downto 0);
@@ -372,6 +373,7 @@ begin
   ddrwrapper0: ddrwrapper
     port map (
       -- Common
+      cpuclock => cpuclock,
       clk_200MHz_i => pixelclock,
       rst_i => '0',
       device_temp_i => fpga_temperature,
