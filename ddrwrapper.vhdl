@@ -52,6 +52,7 @@ use Std.TextIO.all;
 entity ddrwrapper is
   port (
     -- Common
+    cpuclock : in std_logic;
     clk_200MHz_i         : in    std_logic; -- 200 MHz system clock
     rst_i                : in    std_logic; -- active high system reset
     device_temp_i        : in    std_logic_vector(11 downto 0);
@@ -166,6 +167,8 @@ architecture Behavioral of ddrwrapper is
   signal ram_write_data_internal : std_logic_vector(7 downto 0);
   signal ram_write_enable_internal : std_logic;
 
+  signal ram_done_toggle_localclock : std_logic := '0';
+
   -- cache for 16 bytes we read at a time, to avoid wasting time with
   -- full requests for accesses in the same 16 bytes.
   -- (We also write to the cache when processing writes so that it stays
@@ -209,6 +212,19 @@ begin
       rstn <= not sreg(1);
     end if;
   end process RSTSYNC;
+
+------------------------------------------------------------------------
+-- Register output signals to CPU clock
+------------------------------------------------------------------------
+  process(cpuclock)
+  begin
+    if rising_edge(cpuclock) then
+      -- Delay done toggle to next CPU clock cycle so that the data lines
+      -- are definitely there first.
+      ram_done_toggle <= ram_done_togle_localclock;
+    end if;
+  end process;
+  
 
 ------------------------------------------------------------------------
 -- DDR controller instance
@@ -312,12 +328,22 @@ begin
                 when "1111" =>  ram_read_data <= last_ram_read_data(127 downto 120);
                 when others => null;                               
               end case;
-              ram_done_toggle <= not ram_request_toggle_internal;
+              ram_done_toggle_localclock <= not ram_request_toggle_internal;
               cState <= stDone;
               -- XXX Debug
-              if ram_address_internal(25)='1' then
-                ram_read_data <= x"C"&ram_address_internal(3 downto 0);
-              end if;             
+              case ram_address_internal(23 downto 20) is
+                when x"1" =>
+                  ram_read_data <= x"C"&ram_address_internal(3 downto 0);
+                when x"2" => ram_read_data <= ram_address_internal(7 downto 0);
+                when x"3" => ram_read_data <= ram_address_internal(15 downto 8);
+                when x"4" => ram_read_data <= ram_address_internal(23 downto 16);
+                when x"5" => ram_read_data <= x"0"&ram_address_internal(27 downto 24);
+                when x"6" => ram_read_data <= last_ram_address(7 downto 0);
+                when x"7" => ram_read_data <= last_ram_address(15 downto 8);
+                when x"8" => ram_read_data <= last_ram_address(23 downto 16);
+                when x"9" => ram_read_data <= x"0"&last_ram_address(27 downto 24);
+                when others => null;
+              end case;             
             else
               -- This needs a new memory request, so start a new transaction, if
               -- the DDR RAM isn't busy calibrating.
@@ -350,7 +376,7 @@ begin
               end if;
               -- Let caller go free if writing, now that we have accepted the data
               if ram_write_enable_internal = '1' then
-                ram_done_toggle <= not ram_request_toggle_internal;
+                ram_done_toggle_localclock <= not ram_request_toggle_internal;
               end if;
             end if;
           end if;
@@ -427,13 +453,24 @@ begin
               when others => null;
             end case;
             -- XXX Debug
-            if ram_address_internal(25)='1' then
-              ram_read_data <= x"D"&ram_address_internal(3 downto 0);
-            end if;
+            case ram_address_internal(23 downto 20) is
+              when x"1" =>   
+                ram_read_data <= x"D"&ram_address_internal(3 downto 0);
+              when x"2" => ram_read_data <= ram_address_internal(7 downto 0);
+              when x"3" => ram_read_data <= ram_address_internal(15 downto 8);
+              when x"4" => ram_read_data <= ram_address_internal(23 downto 16);
+              when x"5" => ram_read_data <= x"0"&ram_address_internal(27 downto 24);
+              when x"6" => ram_read_data <= last_ram_address(7 downto 0);
+              when x"7" => ram_read_data <= last_ram_address(15 downto 8);
+              when x"8" => ram_read_data <= last_ram_address(23 downto 16);
+              when x"9" => ram_read_data <= x"0"&last_ram_address(27 downto 24);
+              when others => null;
+            end case;
+
             -- Remember the full 16 bytes read so that we can use it as a cache
             -- for subsequent reads.
             last_ram_read_data <= mem_rd_data;
-            ram_done_toggle <= not ram_request_toggle_internal;
+            ram_done_toggle_localclock <= not ram_request_toggle_internal;
             cState <= stDone;
           end if;
         when stSetCmdWr =>
