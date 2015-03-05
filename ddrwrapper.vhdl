@@ -337,11 +337,11 @@ begin
                 when x"2" => ram_read_data <= ram_address_internal(7 downto 0);
                 when x"3" => ram_read_data <= ram_address_internal(15 downto 8);
                 when x"4" => ram_read_data <= ram_address_internal(23 downto 16);
-                when x"5" => ram_read_data <= x"0"&ram_address_internal(27 downto 24);
+                when x"5" => ram_read_data <= "00000"&ram_address_internal(26 downto 24);
                 when x"6" => ram_read_data <= last_ram_address(7 downto 0);
                 when x"7" => ram_read_data <= last_ram_address(15 downto 8);
                 when x"8" => ram_read_data <= last_ram_address(23 downto 16);
-                when x"9" => ram_read_data <= x"0"&last_ram_address(27 downto 24);
+                when x"9" => ram_read_data <= "00000"&last_ram_address(26 downto 24);
                 when others => null;
               end case;             
             else
