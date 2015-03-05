@@ -2045,8 +2045,11 @@ begin
           if (accessing_slowram='1') and
             (slowram_last_done_toggle /= slowram_done_toggle) then
             slowram_last_done_toggle <= slowram_last_done_toggle;
-            wait_states <= x"00";
-            proceed <= '1';
+            -- Leave one more cycle delay for slowram data to settle
+            -- XXX - This shouldn't be necessary!
+            wait_states <= x"01";
+            -- wait_states <= x"00";
+            -- proceed <= '1';
           end if;
         else
           -- End of wait states, so clear memory writing and reading
