@@ -636,15 +636,11 @@ begin
     -- XXX Allow switch 0 to mask IRQs
     combinedirq <= ((irq and io_irq and vic_irq) or sw(0));
     combinednmi <= (nmi and io_nmi and restore_nmi) or sw(14);
-    if sw(15)='1' then
-      reset_combined <= '1';
+    if btnCpuReset='0' then reset_combined <= '0';
+    elsif reset_out='0' then reset_combined <= '0';
+    elsif power_on_reset(0)='0' then reset_combined <= '0';
     else
-      if btnCpuReset='0' then reset_combined <= '0';
-      elsif reset_out='0' then reset_combined <= '0';
-      elsif power_on_reset(0)='0' then reset_combined <= '0';
-      else
-        reset_combined <= '1';
-      end if;
+      reset_combined <= '1';
     end if;
     -- report "btnCpuReset = " & std_logic'image(btnCpuReset) & ", reset_out = " & std_logic'image(reset_out) & ", sw(15) = " & std_logic'image(sw(15)) severity note;
     -- report "reset_combined = " & std_logic'image(reset_combined) severity note;
@@ -1003,7 +999,7 @@ begin
     tx       => UART_TXD,
     rx       => RsRx,
 
-    force_single_step => sw(8),
+    force_single_step => sw(11),
     
     fastio_read => fastio_read,
     fastio_write => fastio_write,
