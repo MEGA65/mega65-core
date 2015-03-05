@@ -221,7 +221,7 @@ begin
     if rising_edge(cpuclock) then
       -- Delay done toggle to next CPU clock cycle so that the data lines
       -- are definitely there first.
-      ram_done_toggle <= ram_done_togle_localclock;
+      ram_done_toggle <= ram_done_toggle_localclock;
     end if;
   end process;
   
