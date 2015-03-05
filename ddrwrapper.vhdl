@@ -340,6 +340,7 @@ begin
                 when "1111" =>  ram_read_data_localclock <= last_ram_read_data_localclock(127 downto 120);
                 when others => null;                               
               end case;
+              debug_counter_localclock <= debug_counter_localclock + 1;
               ram_done_toggle_localclock <= not ram_request_toggle_internal;
               nState <= stDone;
               -- XXX Debug
