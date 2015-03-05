@@ -14,7 +14,7 @@
 unsigned char all_done_routine[128]={  
   0xa9, 0x00,       // LDA #$00 so that kickstart recognises packet
   0xee,0x27,0x04,   // increment $0427 for visual debug indicator
-  0x4c, 0x00, 0x20  // jmp to $081F, which should be mapped to $000081F.
+  0x4c, 0x1f, 0x08  // jmp to $081F, which should be mapped to $000081F.
 };
 
 unsigned char dma_load_routine[128+1024]={
