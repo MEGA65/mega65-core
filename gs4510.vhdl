@@ -47,6 +47,9 @@ entity gs4510 is
     iomode_set_toggle : out std_logic := '0';
 
     no_kickstart : in std_logic;
+
+    ddr_counter : in unsigned(7 downto 0);
+    ddr_state : in unsigned(7 downto 0);   
     
     reg_isr_out : in unsigned(7 downto 0);
     imask_ta_out : in std_logic;
@@ -1242,6 +1245,10 @@ begin
           when x"3" =>
             -- CIA timera IRQ mask debug
             return "0000000"&imask_ta_out;
+          when x"4" =>
+            return ddr_state;
+          when x"5" =>
+            return ddr_counter;
           when others =>
             return x"ff";
         end case;

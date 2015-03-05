@@ -56,6 +56,8 @@ entity ddrwrapper is
     clk_200MHz_i         : in    std_logic; -- 200 MHz system clock
     rst_i                : in    std_logic; -- active high system reset
     device_temp_i        : in    std_logic_vector(11 downto 0);
+    ddr_state : out unsigned(7 downto 0);
+    ddr_counter : out unsigned(7 downto 0);
     
     -- RAM interface
     ram_address          : in    std_logic_vector(26 downto 0);
@@ -169,7 +171,8 @@ architecture Behavioral of ddrwrapper is
 
   signal ram_done_toggle_localclock : std_logic := '0';
   signal ram_read_data_localclock : std_logic_vector(7 downto 0);
-  signal debug_counter : unsigned(7 downto 0) := x"00";
+  signal debug_counter_localclock : unsigned(7 downto 0) := x"00";
+  signal ddr_state_localclock : unsigned(7 downto 0) := x"00";
 
   -- cache for 16 bytes we read at a time, to avoid wasting time with
   -- full requests for accesses in the same 16 bytes.
@@ -225,6 +228,9 @@ begin
       -- are definitely there first.
       ram_done_toggle <= ram_done_toggle_localclock;
       ram_read_data <= ram_read_data_localclock;
+      ddr_counter <= debug_counter_localclock;
+      ddr_state <= ddr_state_localclock;
+      
     end if;
   end process;
   
@@ -281,6 +287,9 @@ begin
   REG_IN: process(mem_ui_clk)
   begin
     if rising_edge(mem_ui_clk) then
+
+      ddr_state_localclock <= to_unsigned(state_type'pos(nState),8);
+      
       ram_address_internal <= ram_address;
       ram_write_data_internal <= ram_write_data;
       ram_request_toggle_internal <= ram_request_toggle;
@@ -345,7 +354,7 @@ begin
                 when x"7" => ram_read_data_localclock <= last_ram_address(15 downto 8);
                 when x"8" => ram_read_data_localclock <= last_ram_address(23 downto 16);
                 when x"9" => ram_read_data_localclock <= "00000"&last_ram_address(26 downto 24);
-                when x"a" => ram_read_data_localclock <= std_logic_vector(debug_counter);
+                when x"a" => ram_read_data_localclock <= std_logic_vector(debug_counter_localclock);
                 when others => null;
               end case;             
             else
@@ -393,7 +402,7 @@ begin
             nState <= stSetCmdRd;
             -- Remember RAM address for cache lookup
             last_ram_address <= ram_address_internal;
-            debug_counter <= debug_counter + 1;
+            debug_counter_localclock <= debug_counter_localclock + 1;
           end if;
           case (ram_address_internal(3 downto 0)) is
             when "0000" => mem_wdf_mask <= "1111111111111110";
@@ -469,7 +478,7 @@ begin
               when x"7" => ram_read_data_localclock <= last_ram_address(15 downto 8);
               when x"8" => ram_read_data_localclock <= last_ram_address(23 downto 16);
               when x"9" => ram_read_data_localclock <= "00000"&last_ram_address(26 downto 24);
-              when x"a" => ram_read_data_localclock <= std_logic_vector(debug_counter);
+              when x"a" => ram_read_data_localclock <= std_logic_vector(debug_counter_localclock);
               when x"b" => ram_read_data_localclock <= std_logic_vector(
                 to_unsigned(state_type'pos(nState),4)&to_unsigned(state_type'pos(cState),4));
               when others => null;

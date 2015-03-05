@@ -63,6 +63,9 @@ entity machine is
          nmi : in  STD_LOGIC;
 
          no_kickstart : in std_logic;
+
+         ddr_counter : in unsigned(7 downto 0);
+         ddr_state : in unsigned(7 downto 0);
          
          ----------------------------------------------------------------------
          -- VGA output
@@ -231,7 +234,10 @@ architecture Behavioral of machine is
       cpu_hypervisor_mode : out std_logic;
 
       no_kickstart : in std_logic;
-      
+
+      ddr_counter : in unsigned(7 downto 0);
+      ddr_state : in unsigned(7 downto 0);
+    
       reg_isr_out : in unsigned(7 downto 0);
       imask_ta_out : in std_logic;
 
@@ -754,6 +760,9 @@ begin
     irq => combinedirq,
     nmi => combinednmi,
 
+    ddr_state => ddr_state,
+    ddr_counter => ddr_counter,
+    
     -- Hypervisor signals: we need to tell kickstart memory whether
     -- to map or not, and we also need to be able to set the VIC-III
     -- IO mode.

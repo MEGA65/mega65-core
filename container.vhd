@@ -182,7 +182,9 @@ architecture Behavioral of container is
       clk_200MHz_i         : in    std_logic; -- 200 MHz system clock
       rst_i                : in    std_logic; -- active high system reset
       device_temp_i        : in    std_logic_vector(11 downto 0);
-      
+      ddr_state : out unsigned(7 downto 0);
+      ddr_counter : out unsigned(7 downto 0);
+
       -- RAM interface
       ram_address          : in    std_logic_vector(26 downto 0);
       ram_read_data        : out   std_logic_vector(7 downto 0);
@@ -221,6 +223,9 @@ architecture Behavioral of container is
          nmi : in  STD_LOGIC;
 
          no_kickstart : in std_logic;
+
+         ddr_counter : in unsigned(7 downto 0);
+         ddr_state : in unsigned(7 downto 0);
          
          ----------------------------------------------------------------------
          -- VGA output
@@ -341,6 +346,8 @@ architecture Behavioral of container is
   signal slowram_done_toggle :      std_logic;
   signal slowram_datain :  std_logic_vector(7 downto 0);
   signal slowram_dataout : std_logic_vector(7 downto 0);
+  signal ddr_state : unsigned(7 downto 0);
+  signal ddr_counter : unsigned(7 downto 0);
 
   -- XXX We should read the real temperature and feed this to the DDR controller
   -- so that it can update timing whenever the temperature changes too much.
@@ -377,6 +384,8 @@ begin
       clk_200MHz_i => pixelclock,
       rst_i => '0',
       device_temp_i => fpga_temperature,
+      ddr_state => ddr_state,
+      ddr_counter => ddr_counter,
       
       -- RAM interface
       ram_address           => slowram_addr,
@@ -418,6 +427,8 @@ begin
       nmi => nmi,
 
       no_kickstart => '0',
+      ddr_counter => ddr_counter,
+      ddr_state => ddr_state,
       
       vsync           => vsync,
       hsync           => hsync,
