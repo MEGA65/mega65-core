@@ -332,7 +332,6 @@ begin
                 when others => null;                               
               end case;
               ram_done_toggle_localclock <= not ram_request_toggle_internal;
-              cState <= stDone;
               nState <= stDone;
               -- XXX Debug
               case ram_address_internal(19 downto 16) is
@@ -480,7 +479,6 @@ begin
             -- for subsequent reads.
             last_ram_read_data_localclock <= mem_rd_data;
             ram_done_toggle_localclock <= not ram_request_toggle_internal;
-            cState <= stDone;
             nState <= stDone;
           end if;
         when stSetCmdWr =>
