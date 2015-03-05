@@ -657,6 +657,9 @@ end component;
 
   signal ddr_ram_banking : std_logic := '0';
   signal ddr_ram_bank : std_logic_vector(2 downto 0);
+  signal ddr_reply_counter : unsigned(7 downto 0) := x"00";
+  signal ddr_timeout_counter : unsigned(7 downto 0) := x"00";
+  signal ddr_got_reply : std_logic := '0';
 
   signal slowram_addr_drive : std_logic_vector(26 downto 0);
   signal slowram_data_in : std_logic_vector(7 downto 0);
@@ -1208,6 +1211,7 @@ begin
         -- C65 ROM emulation.
         accessing_shadow <= '0';
         accessing_slowram <= '1';
+        ddr_got_reply <= '0';
         slowram_last_done_toggle <= slowram_done_toggle;
         if ddr_ram_banking='1' then
           slowram_addr_drive <= std_logic_vector(long_address(23 downto 1))&ddr_ram_bank&std_logic(long_address(0));
@@ -1249,6 +1253,10 @@ begin
             return ddr_state;
           when x"5" =>
             return ddr_counter;
+          when x"6" =>
+            return ddr_reply_counter;
+          when x"7" =>
+            return ddr_timeout_counter;
           when others =>
             return x"ff";
         end case;
@@ -1346,6 +1354,9 @@ begin
         return unsigned(fastio_rdata);
       elsif accessing_slowram='1' then
         report "reading slow RAM data. Word is $" & to_hstring(slowram_data_in) severity note;
+        if ddr_got_reply = '0' then
+          ddr_timeout_counter <= ddr_timeout_counter + 1;
+        end if;
         return unsigned(slowram_data_in);
       else
         report "accessing unmapped memory" severity note;
@@ -1587,6 +1598,7 @@ begin
       elsif long_address(27) = '1' then
         report "writing to slowram..." severity note;
         accessing_slowram <= '1';
+        ddr_got_reply <= '0';
         shadow_write <= '0';
         fastio_write <= '0';
         shadow_write_flags(2) <= '1';
@@ -2054,6 +2066,8 @@ begin
             slowram_last_done_toggle <= slowram_last_done_toggle;
             -- Leave one more cycle delay for slowram data to settle
             -- XXX - This shouldn't be necessary!
+            ddr_reply_counter <= ddr_reply_counter + 1;
+            ddr_got_reply <= '1';
             wait_states <= x"01";
             -- wait_states <= x"00";
             -- proceed <= '1';
