@@ -168,6 +168,8 @@ architecture Behavioral of ddrwrapper is
   signal ram_write_enable_internal : std_logic;
 
   signal ram_done_toggle_localclock : std_logic := '0';
+  signal ram_read_data_localclock : std_logic_vector(7 downto 0);
+  signal debug_counter : unsigned(7 downto 0) := x"00";
 
   -- cache for 16 bytes we read at a time, to avoid wasting time with
   -- full requests for accesses in the same 16 bytes.
@@ -176,7 +178,7 @@ architecture Behavioral of ddrwrapper is
   -- XXX - We don't allow servicing reads from the cache while a write is
   -- in progress.
   signal last_ram_address : std_logic_vector(26 downto 0);
-  signal last_ram_read_data : std_logic_vector(127 downto 0);
+  signal last_ram_read_data_localclock : std_logic_vector(127 downto 0);
 
   
 -- ddr user interface signals
@@ -222,6 +224,7 @@ begin
       -- Delay done toggle to next CPU clock cycle so that the data lines
       -- are definitely there first.
       ram_done_toggle <= ram_done_toggle_localclock;
+      ram_read_data <= ram_read_data_localclock;
     end if;
   end process;
   
@@ -310,22 +313,22 @@ begin
               and (ram_write_enable_internal = '0') then
               -- Memory read request that can be serviced from the cache.
               case (ram_address_internal(3 downto 0)) is
-                when "0000" =>  ram_read_data <= last_ram_read_data(7 downto 0);
-                when "0001" =>  ram_read_data <= last_ram_read_data(15 downto 8);
-                when "0010" =>  ram_read_data <= last_ram_read_data(23 downto 16);
-                when "0011" =>  ram_read_data <= last_ram_read_data(31 downto 24);
-                when "0100" =>  ram_read_data <= last_ram_read_data(39 downto 32);
-                when "0101" =>  ram_read_data <= last_ram_read_data(47 downto 40);
-                when "0110" =>  ram_read_data <= last_ram_read_data(55 downto 48);
-                when "0111" =>  ram_read_data <= last_ram_read_data(63 downto 56);
-                when "1000" =>  ram_read_data <= last_ram_read_data(71 downto 64);
-                when "1001" =>  ram_read_data <= last_ram_read_data(79 downto 72);
-                when "1010" =>  ram_read_data <= last_ram_read_data(87 downto 80);
-                when "1011" =>  ram_read_data <= last_ram_read_data(95 downto 88);
-                when "1100" =>  ram_read_data <= last_ram_read_data(103 downto 96);
-                when "1101" =>  ram_read_data <= last_ram_read_data(111 downto 104);
-                when "1110" =>  ram_read_data <= last_ram_read_data(119 downto 112);
-                when "1111" =>  ram_read_data <= last_ram_read_data(127 downto 120);
+                when "0000" =>  ram_read_data_localclock <= last_ram_read_data_localclock(7 downto 0);
+                when "0001" =>  ram_read_data_localclock <= last_ram_read_data_localclock(15 downto 8);
+                when "0010" =>  ram_read_data_localclock <= last_ram_read_data_localclock(23 downto 16);
+                when "0011" =>  ram_read_data_localclock <= last_ram_read_data_localclock(31 downto 24);
+                when "0100" =>  ram_read_data_localclock <= last_ram_read_data_localclock(39 downto 32);
+                when "0101" =>  ram_read_data_localclock <= last_ram_read_data_localclock(47 downto 40);
+                when "0110" =>  ram_read_data_localclock <= last_ram_read_data_localclock(55 downto 48);
+                when "0111" =>  ram_read_data_localclock <= last_ram_read_data_localclock(63 downto 56);
+                when "1000" =>  ram_read_data_localclock <= last_ram_read_data_localclock(71 downto 64);
+                when "1001" =>  ram_read_data_localclock <= last_ram_read_data_localclock(79 downto 72);
+                when "1010" =>  ram_read_data_localclock <= last_ram_read_data_localclock(87 downto 80);
+                when "1011" =>  ram_read_data_localclock <= last_ram_read_data_localclock(95 downto 88);
+                when "1100" =>  ram_read_data_localclock <= last_ram_read_data_localclock(103 downto 96);
+                when "1101" =>  ram_read_data_localclock <= last_ram_read_data_localclock(111 downto 104);
+                when "1110" =>  ram_read_data_localclock <= last_ram_read_data_localclock(119 downto 112);
+                when "1111" =>  ram_read_data_localclock <= last_ram_read_data_localclock(127 downto 120);
                 when others => null;                               
               end case;
               ram_done_toggle_localclock <= not ram_request_toggle_internal;
@@ -333,15 +336,16 @@ begin
               -- XXX Debug
               case ram_address_internal(23 downto 20) is
                 when x"1" =>
-                  ram_read_data <= x"C"&ram_address_internal(3 downto 0);
-                when x"2" => ram_read_data <= ram_address_internal(7 downto 0);
-                when x"3" => ram_read_data <= ram_address_internal(15 downto 8);
-                when x"4" => ram_read_data <= ram_address_internal(23 downto 16);
-                when x"5" => ram_read_data <= "00000"&ram_address_internal(26 downto 24);
-                when x"6" => ram_read_data <= last_ram_address(7 downto 0);
-                when x"7" => ram_read_data <= last_ram_address(15 downto 8);
-                when x"8" => ram_read_data <= last_ram_address(23 downto 16);
-                when x"9" => ram_read_data <= "00000"&last_ram_address(26 downto 24);
+                  ram_read_data_localclock <= x"C"&ram_address_internal(3 downto 0);
+                when x"2" => ram_read_data_localclock <= ram_address_internal(7 downto 0);
+                when x"3" => ram_read_data_localclock <= ram_address_internal(15 downto 8);
+                when x"4" => ram_read_data_localclock <= ram_address_internal(23 downto 16);
+                when x"5" => ram_read_data_localclock <= "00000"&ram_address_internal(26 downto 24);
+                when x"6" => ram_read_data_localclock <= last_ram_address(7 downto 0);
+                when x"7" => ram_read_data_localclock <= last_ram_address(15 downto 8);
+                when x"8" => ram_read_data_localclock <= last_ram_address(23 downto 16);
+                when x"9" => ram_read_data_localclock <= "00000"&last_ram_address(26 downto 24);
+                when x"a" => ram_read_data_localclock <= std_logic_vector(debug_counter);
                 when others => null;
               end case;             
             else
@@ -355,22 +359,22 @@ begin
                 and (ram_write_enable_internal = '1') then
                 -- Memory write request should update cache
                 case (ram_address_internal(3 downto 0)) is
-                  when "0000" =>  last_ram_read_data(7 downto 0) <= ram_write_data_internal;
-                  when "0001" =>  last_ram_read_data(15 downto 8) <= ram_write_data_internal;
-                  when "0010" =>  last_ram_read_data(23 downto 16) <= ram_write_data_internal;
-                  when "0011" =>  last_ram_read_data(31 downto 24) <= ram_write_data_internal;
-                  when "0100" =>  last_ram_read_data(39 downto 32) <= ram_write_data_internal;
-                  when "0101" =>  last_ram_read_data(47 downto 40) <= ram_write_data_internal;
-                  when "0110" =>  last_ram_read_data(55 downto 48) <= ram_write_data_internal;
-                  when "0111" =>  last_ram_read_data(63 downto 56) <= ram_write_data_internal;
-                  when "1000" =>  last_ram_read_data(71 downto 64) <= ram_write_data_internal;
-                  when "1001" =>  last_ram_read_data(79 downto 72) <= ram_write_data_internal;
-                  when "1010" =>  last_ram_read_data(87 downto 80) <= ram_write_data_internal;
-                  when "1011" =>  last_ram_read_data(95 downto 88) <= ram_write_data_internal;
-                  when "1100" =>  last_ram_read_data(103 downto 96) <= ram_write_data_internal;
-                  when "1101" =>  last_ram_read_data(111 downto 104) <= ram_write_data_internal;
-                  when "1110" =>  last_ram_read_data(119 downto 112) <= ram_write_data_internal;
-                  when "1111" =>  last_ram_read_data(127 downto 120) <= ram_write_data_internal;
+                  when "0000" =>  last_ram_read_data_localclock(7 downto 0) <= ram_write_data_internal;
+                  when "0001" =>  last_ram_read_data_localclock(15 downto 8) <= ram_write_data_internal;
+                  when "0010" =>  last_ram_read_data_localclock(23 downto 16) <= ram_write_data_internal;
+                  when "0011" =>  last_ram_read_data_localclock(31 downto 24) <= ram_write_data_internal;
+                  when "0100" =>  last_ram_read_data_localclock(39 downto 32) <= ram_write_data_internal;
+                  when "0101" =>  last_ram_read_data_localclock(47 downto 40) <= ram_write_data_internal;
+                  when "0110" =>  last_ram_read_data_localclock(55 downto 48) <= ram_write_data_internal;
+                  when "0111" =>  last_ram_read_data_localclock(63 downto 56) <= ram_write_data_internal;
+                  when "1000" =>  last_ram_read_data_localclock(71 downto 64) <= ram_write_data_internal;
+                  when "1001" =>  last_ram_read_data_localclock(79 downto 72) <= ram_write_data_internal;
+                  when "1010" =>  last_ram_read_data_localclock(87 downto 80) <= ram_write_data_internal;
+                  when "1011" =>  last_ram_read_data_localclock(95 downto 88) <= ram_write_data_internal;
+                  when "1100" =>  last_ram_read_data_localclock(103 downto 96) <= ram_write_data_internal;
+                  when "1101" =>  last_ram_read_data_localclock(111 downto 104) <= ram_write_data_internal;
+                  when "1110" =>  last_ram_read_data_localclock(119 downto 112) <= ram_write_data_internal;
+                  when "1111" =>  last_ram_read_data_localclock(127 downto 120) <= ram_write_data_internal;
                   when others => null;
                 end case;
               end if;
@@ -389,6 +393,7 @@ begin
             nState <= stSetCmdRd;
             -- Remember RAM address for cache lookup
             last_ram_address <= ram_address_internal;
+            debug_counter <= debug_counter + 1;
           end if;
           case (ram_address_internal(3 downto 0)) is
             when "0000" => mem_wdf_mask <= "1111111111111110";
@@ -434,42 +439,43 @@ begin
           if (mem_rdy='1')
             and (mem_rd_data_valid = '1') and (mem_rd_data_end = '1') then
             case (ram_address_internal(3 downto 0)) is
-              when "0000" =>  ram_read_data <= mem_rd_data(7 downto 0);
-              when "0001" =>  ram_read_data <= mem_rd_data(15 downto 8);
-              when "0010" =>  ram_read_data <= mem_rd_data(23 downto 16);
-              when "0011" =>  ram_read_data <= mem_rd_data(31 downto 24);
-              when "0100" =>  ram_read_data <= mem_rd_data(39 downto 32);
-              when "0101" =>  ram_read_data <= mem_rd_data(47 downto 40);
-              when "0110" =>  ram_read_data <= mem_rd_data(55 downto 48);
-              when "0111" =>  ram_read_data <= mem_rd_data(63 downto 56);
-              when "1000" =>  ram_read_data <= mem_rd_data(71 downto 64);
-              when "1001" =>  ram_read_data <= mem_rd_data(79 downto 72);
-              when "1010" =>  ram_read_data <= mem_rd_data(87 downto 80);
-              when "1011" =>  ram_read_data <= mem_rd_data(95 downto 88);
-              when "1100" =>  ram_read_data <= mem_rd_data(103 downto 96);
-              when "1101" =>  ram_read_data <= mem_rd_data(111 downto 104);
-              when "1110" =>  ram_read_data <= mem_rd_data(119 downto 112);
-              when "1111" =>  ram_read_data <= mem_rd_data(127 downto 120);
+              when "0000" =>  ram_read_data_localclock <= mem_rd_data(7 downto 0);
+              when "0001" =>  ram_read_data_localclock <= mem_rd_data(15 downto 8);
+              when "0010" =>  ram_read_data_localclock <= mem_rd_data(23 downto 16);
+              when "0011" =>  ram_read_data_localclock <= mem_rd_data(31 downto 24);
+              when "0100" =>  ram_read_data_localclock <= mem_rd_data(39 downto 32);
+              when "0101" =>  ram_read_data_localclock <= mem_rd_data(47 downto 40);
+              when "0110" =>  ram_read_data_localclock <= mem_rd_data(55 downto 48);
+              when "0111" =>  ram_read_data_localclock <= mem_rd_data(63 downto 56);
+              when "1000" =>  ram_read_data_localclock <= mem_rd_data(71 downto 64);
+              when "1001" =>  ram_read_data_localclock <= mem_rd_data(79 downto 72);
+              when "1010" =>  ram_read_data_localclock <= mem_rd_data(87 downto 80);
+              when "1011" =>  ram_read_data_localclock <= mem_rd_data(95 downto 88);
+              when "1100" =>  ram_read_data_localclock <= mem_rd_data(103 downto 96);
+              when "1101" =>  ram_read_data_localclock <= mem_rd_data(111 downto 104);
+              when "1110" =>  ram_read_data_localclock <= mem_rd_data(119 downto 112);
+              when "1111" =>  ram_read_data_localclock <= mem_rd_data(127 downto 120);
               when others => null;
             end case;
             -- XXX Debug
             case ram_address_internal(23 downto 20) is
               when x"1" =>   
-                ram_read_data <= x"D"&ram_address_internal(3 downto 0);
-              when x"2" => ram_read_data <= ram_address_internal(7 downto 0);
-              when x"3" => ram_read_data <= ram_address_internal(15 downto 8);
-              when x"4" => ram_read_data <= ram_address_internal(23 downto 16);
-              when x"5" => ram_read_data <= "00000"&ram_address_internal(26 downto 24);
-              when x"6" => ram_read_data <= last_ram_address(7 downto 0);
-              when x"7" => ram_read_data <= last_ram_address(15 downto 8);
-              when x"8" => ram_read_data <= last_ram_address(23 downto 16);
-              when x"9" => ram_read_data <= "00000"&last_ram_address(26 downto 24);
+                ram_read_data_localclock <= x"D"&ram_address_internal(3 downto 0);
+              when x"2" => ram_read_data_localclock <= ram_address_internal(7 downto 0);
+              when x"3" => ram_read_data_localclock <= ram_address_internal(15 downto 8);
+              when x"4" => ram_read_data_localclock <= ram_address_internal(23 downto 16);
+              when x"5" => ram_read_data_localclock <= "00000"&ram_address_internal(26 downto 24);
+              when x"6" => ram_read_data_localclock <= last_ram_address(7 downto 0);
+              when x"7" => ram_read_data_localclock <= last_ram_address(15 downto 8);
+              when x"8" => ram_read_data_localclock <= last_ram_address(23 downto 16);
+              when x"9" => ram_read_data_localclock <= "00000"&last_ram_address(26 downto 24);
+              when x"a" => ram_read_data_localclock <= std_logic_vector(debug_counter);
               when others => null;
             end case;
 
             -- Remember the full 16 bytes read so that we can use it as a cache
             -- for subsequent reads.
-            last_ram_read_data <= mem_rd_data;
+            last_ram_read_data_localclock <= mem_rd_data;
             ram_done_toggle_localclock <= not ram_request_toggle_internal;
             cState <= stDone;
           end if;
