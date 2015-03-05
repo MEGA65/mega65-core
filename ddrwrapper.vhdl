@@ -333,6 +333,7 @@ begin
               end case;
               ram_done_toggle_localclock <= not ram_request_toggle_internal;
               cState <= stDone;
+              nState <= stDone;
               -- XXX Debug
               case ram_address_internal(19 downto 16) is
                 when x"1" =>
@@ -470,6 +471,8 @@ begin
               when x"8" => ram_read_data_localclock <= last_ram_address(23 downto 16);
               when x"9" => ram_read_data_localclock <= "00000"&last_ram_address(26 downto 24);
               when x"a" => ram_read_data_localclock <= std_logic_vector(debug_counter);
+              when x"b" => ram_read_data_localclock <= std_logic_vector(
+                to_unsigned(state_type'pos(nState),4)&to_unsigned(state_type'pos(cState),4));
               when others => null;
             end case;
 
@@ -478,12 +481,13 @@ begin
             last_ram_read_data_localclock <= mem_rd_data;
             ram_done_toggle_localclock <= not ram_request_toggle_internal;
             cState <= stDone;
+            nState <= stDone;
           end if;
         when stSetCmdWr =>
           mem_en <= '1';
           mem_cmd <= CMD_WRITE;
           if mem_rdy = '1' then
-            cState <= stDone;
+            nState <= stDone;
           end if;
         when stDone =>
           nState <= stIdle;
