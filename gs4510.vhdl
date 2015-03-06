@@ -1353,9 +1353,6 @@ begin
         return unsigned(fastio_rdata);
       elsif accessing_slowram='1' then
         report "reading slow RAM data. Word is $" & to_hstring(slowram_data_in) severity note;
-        if ddr_got_reply = '0' then
-          ddr_timeout_counter <= ddr_timeout_counter + 1;
-        end if;
         return unsigned(slowram_data_in);
       else
         report "accessing unmapped memory" severity note;
@@ -2059,6 +2056,9 @@ begin
             -- Next cycle we can do stuff, provided that the serial monitor
             -- isn't asking us to do anything.
             proceed <= '1';
+            if (ddr_got_reply = '0') and (accessing_slowram='1') then
+              ddr_timeout_counter <= ddr_timeout_counter + 1;
+            end if;
           end if;
           -- Stop waiting on slow ram as soon as we have the result.
           if (accessing_slowram='1') and
