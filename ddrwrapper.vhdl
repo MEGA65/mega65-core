@@ -163,6 +163,7 @@ architecture Behavioral of ddrwrapper is
   signal rstn                : std_logic;
   signal sreg                : std_logic_vector(1 downto 0);
 
+  signal ram_request_toggle_2 : std_logic := '0';
   signal ram_request_toggle_internal : std_logic := '0';
   signal last_ram_request_toggle : std_logic := '0';
   signal ram_address_internal : std_logic_vector(26 downto 0);
@@ -292,7 +293,10 @@ begin
       
       ram_address_internal <= ram_address;
       ram_write_data_internal <= ram_write_data;
-      ram_request_toggle_internal <= ram_request_toggle;
+      -- Delay memory access request toggle by an extra cycle to ensure that
+      -- the address (and possibly data) lines have settled.
+      ram_request_toggle_2 <= ram_request_toggle;
+      ram_request_toggle_internal <= ram_request_toggle_2;
       ram_write_enable_internal <= ram_write_enable;
       if mem_ui_rst = '1' then
         cState <= stIdle;
