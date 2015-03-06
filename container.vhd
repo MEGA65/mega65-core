@@ -492,8 +492,9 @@ begin
       slowram_request_toggle => slowram_request_toggle,
       slowram_done_toggle => slowram_done_toggle,
       slowram_datain => slowram_datain,
-      slowram_dataout => slowram_dataout,
       slowram_addr => slowram_addr,
+      cache_read_data => cache_read_data,
+      cache_address => cache_address,
 
 --      QspiSCK => QspiSCK,
       QspiDB => QspiDB,
