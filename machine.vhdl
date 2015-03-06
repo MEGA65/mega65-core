@@ -828,6 +828,8 @@ begin
     slowram_request_toggle => slowram_request_toggle,
     slowram_done_toggle => slowram_done_toggle,
     slowram_datain => slowram_datain,
+    cache_address => cache_address,
+    cache_read_data => cache_read_data,
     
     chipram_we => chipram_we,
     chipram_address => chipram_address,
