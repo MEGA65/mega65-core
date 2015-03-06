@@ -422,7 +422,7 @@ begin
           if (mem_rdy='1')
             and (mem_rd_data_valid = '1') and (mem_rd_data_end = '1') then
             cache_write_address <= ram_address_internal(12 downto 4);
-            cache_write_data(151 downto 128) <= ram_address_internal(26 downto 13);
+            cache_write_data(150 downto 128) <= ram_address_internal(26 downto 4);
             cache_write_data(127 downto 0) <= mem_rd_data;
             cache_write_enable <= '1';
             
