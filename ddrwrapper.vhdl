@@ -262,7 +262,6 @@ begin
       -- Delay done toggle to next CPU clock cycle so that the data lines
       -- are definitely there first.
       ram_done_toggle <= ram_done_toggle_localclock;
-      ram_read_data <= ram_read_data_localclock;
       ddr_counter <= debug_counter_localclock;
       ddr_state <= ddr_state_localclock;
       
@@ -426,7 +425,7 @@ begin
             cache_write_data(151 downto 128) <= ram_address_internal(26 downto 13);
             cache_write_data(127 downto 0) <= mem_rd_data;
             cache_write_enable <= '1';
-
+            
             -- Remember the full 16 bytes read so that we can use it as a cache
             -- for subsequent reads.
             last_ram_read_data_localclock <= mem_rd_data;
