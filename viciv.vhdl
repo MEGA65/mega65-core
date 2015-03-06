@@ -2118,7 +2118,7 @@ begin
       -- Hsync has trouble meeting timing, so I have spread out the control
       -- over 3 cycles, including one pure drive cycle, which should hopefully
       -- fix it once and for all.
-      xcounter_delayed = xcounter - xcounter_delay;
+      xcounter_delayed <= xcounter - xcounter_delay;
       if xcounter_delayed=(frame_h_front+width) then
         clear_hsync <= '1';
       else
