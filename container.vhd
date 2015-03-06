@@ -192,6 +192,11 @@ architecture Behavioral of container is
       ram_write_enable     : in    std_logic;
       ram_request_toggle   : in    std_logic;
       ram_done_toggle      : out   std_logic;
+
+      -- simple-dual-port cache RAM interface so that CPU doesn't have to read
+      -- data cross-clock
+      cache_address        : in std_logic_vector(8 downto 0);
+      cache_read_data      : out std_logic_vector(150 downto 0);
       
       -- DDR2 interface
       ddr2_addr            : out   std_logic_vector(12 downto 0);
@@ -297,7 +302,11 @@ architecture Behavioral of container is
          slowram_request_toggle : out std_logic;
          slowram_done_toggle : in std_logic;
          slowram_datain : out std_logic_vector(7 downto 0);
-         slowram_dataout : in std_logic_vector(7 downto 0);
+
+         -- simple-dual-port cache RAM interface so that CPU doesn't have to read
+         -- data cross-clock
+         cache_address        : out std_logic_vector(8 downto 0);
+         cache_read_data      : in std_logic_vector(150 downto 0);   
          
          ----------------------------------------------------------------------
          -- PS/2 adapted USB keyboard & joystick connector.
@@ -345,7 +354,6 @@ architecture Behavioral of container is
   signal slowram_request_toggle :      std_logic;
   signal slowram_done_toggle :      std_logic;
   signal slowram_datain :  std_logic_vector(7 downto 0);
-  signal slowram_dataout : std_logic_vector(7 downto 0);
   signal ddr_state : unsigned(7 downto 0);
   signal ddr_counter : unsigned(7 downto 0);
 
@@ -390,10 +398,11 @@ begin
       -- RAM interface
       ram_address           => slowram_addr,
       ram_write_data        => slowram_datain,
-      ram_read_data         => slowram_dataout,
       ram_write_enable      => slowram_we,
       ram_request_toggle => slowram_request_toggle,
       ram_done_toggle    => slowram_done_toggle,
+      slowram_cache_read_address => slowram_cache_read_address,
+      slowram_cache_read_data => slowram_cache_read_data,
       
       -- DDR2 interface
       ddr2_addr => ddr2_addr,

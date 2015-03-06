@@ -113,7 +113,10 @@ entity gs4510 is
     slowram_request_toggle : out std_logic;
     slowram_done_toggle : in std_logic;
     slowram_datain : out std_logic_vector(7 downto 0);
-    slowram_dataout : in std_logic_vector(7 downto 0);
+    -- simple-dual-port cache RAM interface so that CPU doesn't have to read
+    -- data cross-clock
+    cache_address        : out std_logic_vector(8 downto 0);
+    cache_read_data      : in std_logic_vector(150 downto 0);   
 
     cpu_leds : out std_logic_vector(3 downto 0);
 
@@ -1874,7 +1877,26 @@ begin
       
       slowram_addr <= slowram_addr_drive;
       slowram_we <= slowram_we_drive;
-      slowram_data_in <= slowram_dataout;
+      slowram_cache_read_address <= slowram_addr_drive(26 downto 13);
+      case slowram_cache_byteselect is
+        when "0000" => slowram_data_in <= slowram_cache_read_data(7 downto 0);
+        when "0001" => slowram_data_in <= slowram_cache_read_data(15 downto 8);
+        when "0010" => slowram_data_in <= slowram_cache_read_data(23 downto 16);
+        when "0011" => slowram_data_in <= slowram_cache_read_data(31 downto 24);
+        when "0100" => slowram_data_in <= slowram_cache_read_data(39 downto 32);
+        when "0101" => slowram_data_in <= slowram_cache_read_data(47 downto 40);
+        when "0110" => slowram_data_in <= slowram_cache_read_data(55 downto 48);
+        when "0111" => slowram_data_in <= slowram_cache_read_data(63 downto 56);
+        when "0000" => slowram_data_in <= slowram_cache_read_data(71 downto 64);
+        when "0001" => slowram_data_in <= slowram_cache_read_data(79 downto 72);
+        when "0010" => slowram_data_in <= slowram_cache_read_data(87 downto 80);
+        when "0011" => slowram_data_in <= slowram_cache_read_data(95 downto 88);
+        when "0100" => slowram_data_in <= slowram_cache_read_data(103 downto 96);
+        when "0101" => slowram_data_in <= slowram_cache_read_data(111 downto 104);
+        when "0110" => slowram_data_in <= slowram_cache_read_data(119 downto 112);
+        when "0111" => slowram_data_in <= slowram_cache_read_data(127 downto 0);
+        when others => slowram_data_in <= x"dd";
+      end case;
       
       --cpu_speed := vicii_2mhz&viciii_fast&viciv_fast;
       --case cpu_speed is

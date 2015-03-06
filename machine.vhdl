@@ -129,14 +129,17 @@ entity machine is
          fpga_temperature : in std_logic_vector(11 downto 0);
          
          ---------------------------------------------------------------------------
-         -- Interface to Slow RAM (16MB cellular RAM chip)
+         -- Interface to Slow RAM (128MB DDR2 RAM chip)
          ---------------------------------------------------------------------------
          slowram_addr : out std_logic_vector(26 downto 0);
          slowram_we : out std_logic;
          slowram_request_toggle : out std_logic;
          slowram_done_toggle : in std_logic;
          slowram_datain : out std_logic_vector(7 downto 0);
-         slowram_dataout : in std_logic_vector(7 downto 0);
+         -- simple-dual-port cache RAM interface so that CPU doesn't have to read
+         -- data cross-clock
+         cache_address        : out std_logic_vector(8 downto 0);
+         cache_read_data      : in std_logic_vector(150 downto 0);   
 
          ----------------------------------------------------------------------
          -- PS/2 adapted USB keyboard & joystick connector.
@@ -295,8 +298,11 @@ architecture Behavioral of machine is
       slowram_request_toggle : out std_logic;
       slowram_done_toggle : in std_logic;
       slowram_datain : out std_logic_vector(7 downto 0);
-      slowram_dataout : in std_logic_vector(7 downto 0);
-
+      -- simple-dual-port cache RAM interface so that CPU doesn't have to read
+      -- data cross-clock
+      cache_address        : out std_logic_vector(8 downto 0);
+      cache_read_data      : in std_logic_vector(150 downto 0);   
+      
       cpu_leds : out std_logic_vector(3 downto 0);              
 
       ---------------------------------------------------------------------------
