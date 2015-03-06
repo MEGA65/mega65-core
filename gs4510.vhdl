@@ -1078,7 +1078,7 @@ begin
       accessing_cpuport <= '0'; accessing_colour_ram_fastio <= '0';
       accessing_slowram <= '0'; accessing_hypervisor <= '0';
       wait_states <= io_read_wait_states;
-      
+      ddr_got_reply <= '0';
 
       -- Clear fastio access so that we don't keep reading/writing last IO address
       -- (this is bad when it is $DC0D for example, as it will stop IRQs from
@@ -1211,7 +1211,6 @@ begin
         -- C65 ROM emulation.
         accessing_shadow <= '0';
         accessing_slowram <= '1';
-        ddr_got_reply <= '0';
         slowram_last_done_toggle <= slowram_done_toggle;
         if ddr_ram_banking='1' then
           slowram_addr_drive <= std_logic_vector(long_address(23 downto 1))&ddr_ram_bank&std_logic(long_address(0));
@@ -1377,6 +1376,7 @@ begin
       accessing_cpuport <= '0'; accessing_colour_ram_fastio <= '0';
       accessing_shadow <= '0';
       accessing_slowram <= '0';
+      ddr_got_reply <= '0';
 
       shadow_write_flags(0) <= '1';
       shadow_write_flags(1) <= '1';
