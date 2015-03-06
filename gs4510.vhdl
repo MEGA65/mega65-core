@@ -261,7 +261,7 @@ end component;
   signal colourram_read_wait_states : unsigned(7 downto 0) := colourread_48mhz;
   signal io_write_wait_states : unsigned(7 downto 0) := iowrite_48mhz;
 
-  signal slowram_last_done_toggle : std_logic := '0';
+  signal slowram_desired_done_toggle : std_logic := '0';
 
   -- Number of pending wait states
   signal wait_states : unsigned(7 downto 0) := x"05";
@@ -1211,7 +1211,6 @@ begin
         -- C65 ROM emulation.
         accessing_shadow <= '0';
         accessing_slowram <= '1';
-        slowram_last_done_toggle <= slowram_done_toggle;
         if ddr_ram_banking='1' then
           slowram_addr_drive <= std_logic_vector(long_address(23 downto 1))&ddr_ram_bank&std_logic(long_address(0));
         else
@@ -1219,6 +1218,7 @@ begin
         end if;
         slowram_we_drive <= '0';
         slowram_request_toggle <= not slowram_done_toggle;
+        slowram_desired_done_toggle <= not slowram_done_toggle;
         wait_states <= slowram_waitstates;
         proceed <= '0';
       else
@@ -1606,7 +1606,7 @@ begin
         end if;
         slowram_we_drive <= '1';
         slowram_datain <= std_logic_vector(value);
-        slowram_last_done_toggle <= slowram_done_toggle;
+        slowram_desired_done_toggle <= not slowram_done_toggle;
         slowram_request_toggle <= not slowram_done_toggle;
         wait_states <= slowram_waitstates;
       else
@@ -2062,8 +2062,7 @@ begin
           end if;
           -- Stop waiting on slow ram as soon as we have the result.
           if (accessing_slowram='1') and
-            (slowram_last_done_toggle /= slowram_done_toggle) then
-            slowram_last_done_toggle <= slowram_last_done_toggle;
+            (slowram_desired_done_toggle = slowram_done_toggle) then
             -- Leave one more cycle delay for slowram data to settle
             -- XXX - This shouldn't be necessary!
             ddr_reply_counter <= ddr_reply_counter + 1;

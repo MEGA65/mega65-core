@@ -341,7 +341,7 @@ begin
                 when others => null;                               
               end case;
               debug_counter_localclock <= debug_counter_localclock + 1;
-              ram_done_toggle_localclock <= not ram_request_toggle_internal;
+              ram_done_toggle_localclock <= ram_request_toggle_internal;
               nState <= stDone;
               -- XXX Debug
               case ram_address_internal(19 downto 16) is
@@ -390,7 +390,7 @@ begin
               end if;
               -- Let caller go free if writing, now that we have accepted the data
               if ram_write_enable_internal = '1' then
-                ram_done_toggle_localclock <= not ram_request_toggle_internal;
+                ram_done_toggle_localclock <= ram_request_toggle_internal;
               end if;
             end if;
           end if;
@@ -488,7 +488,7 @@ begin
             -- Remember the full 16 bytes read so that we can use it as a cache
             -- for subsequent reads.
             last_ram_read_data_localclock <= mem_rd_data;
-            ram_done_toggle_localclock <= not ram_request_toggle_internal;
+            ram_done_toggle_localclock <= ram_request_toggle_internal;
             nState <= stDone;
           end if;
         when stSetCmdWr =>
