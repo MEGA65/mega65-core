@@ -373,6 +373,9 @@ architecture Behavioral of viciv is
   -- Frame generator counters
   -- DEBUG: Start frame at a point that will soon trigger a badline
   signal xcounter : unsigned(11 downto 0) := to_unsigned(frame_h_front+width-50,12);
+  signal xcounter_delayed : unsigned(11 downto 0) := to_unsigned(frame_h_front+width-50,12);
+  constant xcounter_delay : integer := 64;
+  
   signal xcounter_drive : unsigned(11 downto 0) := (others => '0');
   signal ycounter : unsigned(10 downto 0) := to_unsigned(frame_v_front+frame_v_syncheight,11);
   signal ycounter_drive : unsigned(10 downto 0) := (others => '0');
@@ -2115,12 +2118,13 @@ begin
       -- Hsync has trouble meeting timing, so I have spread out the control
       -- over 3 cycles, including one pure drive cycle, which should hopefully
       -- fix it once and for all.
-      if xcounter=(frame_h_front+width) then
+      xcounter_delayed = xcounter - xcounter_delay;
+      if xcounter_delayed=(frame_h_front+width) then
         clear_hsync <= '1';
       else
         clear_hsync <= '0';
       end if;
-      if xcounter=(frame_h_front+width+frame_h_syncwidth) then
+      if xcounter_delayed=(frame_h_front+width+frame_h_syncwidth) then
         set_hsync <= '1';
       else
         set_hsync <= '0';
@@ -2130,7 +2134,7 @@ begin
       elsif set_hsync='1' then
         hsync_drive <= '1';
       end if;
-      hsync <= hsync_drive;
+      hsync <= hsync_drive;      
 
       new_frame <= '0';
       if new_frame='1' then
