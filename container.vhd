@@ -187,7 +187,6 @@ architecture Behavioral of container is
 
       -- RAM interface
       ram_address          : in    std_logic_vector(26 downto 0);
-      ram_read_data        : out   std_logic_vector(7 downto 0);
       ram_write_data       : in    std_logic_vector(7 downto 0);
       ram_write_enable     : in    std_logic;
       ram_request_toggle   : in    std_logic;
@@ -354,6 +353,8 @@ architecture Behavioral of container is
   signal slowram_request_toggle :      std_logic;
   signal slowram_done_toggle :      std_logic;
   signal slowram_datain :  std_logic_vector(7 downto 0);
+  signal cache_address : std_logic_vector(8 downto 0);
+  signal cache_read_data : std_logic_vector(150 downto 0);
   signal ddr_state : unsigned(7 downto 0);
   signal ddr_counter : unsigned(7 downto 0);
 
@@ -401,8 +402,8 @@ begin
       ram_write_enable      => slowram_we,
       ram_request_toggle => slowram_request_toggle,
       ram_done_toggle    => slowram_done_toggle,
-      slowram_cache_read_address => slowram_cache_read_address,
-      slowram_cache_read_data => slowram_cache_read_data,
+      cache_address => cache_address,
+      cache_read_data => cache_read_data,
       
       -- DDR2 interface
       ddr2_addr => ddr2_addr,
