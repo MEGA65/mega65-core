@@ -234,12 +234,12 @@ begin
 ------------------------------------------------------------------------
   cacheram0: ram151x512
     port map (
-      clka => ui_clk,
+      clka => mem_ui_clk,
       wea(0) => cache_write_enable,
       addra => cache_write_address,
       dina => cache_write_data,
       clkb => cpuclock,
-      addrb => cache_read_address,
+      addrb => cache_address,
       doutb => cache_read_data);
   
 ------------------------------------------------------------------------
