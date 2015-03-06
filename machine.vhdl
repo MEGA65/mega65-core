@@ -828,8 +828,7 @@ begin
     slowram_request_toggle => slowram_request_toggle,
     slowram_done_toggle => slowram_done_toggle,
     slowram_datain => slowram_datain,
-    slowram_dataout => slowram_dataout,
-
+    
     chipram_we => chipram_we,
     chipram_address => chipram_address,
     chipram_datain => chipram_datain,
