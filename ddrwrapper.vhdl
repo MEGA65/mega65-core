@@ -488,7 +488,6 @@ begin
             -- Remember the full 16 bytes read so that we can use it as a cache
             -- for subsequent reads.
             last_ram_read_data_localclock <= mem_rd_data;
-            ram_done_toggle_localclock <= ram_request_toggle_internal;
             nState <= stDone;
           end if;
         when stSetCmdWr =>
@@ -498,6 +497,8 @@ begin
             nState <= stDone;
           end if;
         when stDone =>
+          -- Delay memory done announcement to give data plenty of time to settle
+          ram_done_toggle_localclock <= ram_request_toggle_internal;
           nState <= stIdle;
         when others =>
           nState <= stIdle;
