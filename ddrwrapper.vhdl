@@ -95,7 +95,7 @@ architecture Behavioral of ddrwrapper is
 -- Component Declarations
 ------------------------------------------------------------------------
 
-  ENTITY ram151x512 IS
+  component ram151x512 IS
   PORT (
     clka : IN STD_LOGIC;
     wea : IN STD_LOGIC_VECTOR(0 DOWNTO 0);
@@ -105,7 +105,7 @@ architecture Behavioral of ddrwrapper is
     addrb : IN STD_LOGIC_VECTOR(8 DOWNTO 0);
     doutb : OUT STD_LOGIC_VECTOR(150 DOWNTO 0)
     );
-  END ram151x512;
+  END component;
   
   component ddr
     port (
