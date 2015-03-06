@@ -1894,7 +1894,7 @@ begin
         when "1100" => slowram_data_in <= cache_read_data(103 downto 96);
         when "1101" => slowram_data_in <= cache_read_data(111 downto 104);
         when "1110" => slowram_data_in <= cache_read_data(119 downto 112);
-        when "1111" => slowram_data_in <= cache_read_data(127 downto 0);
+        when "1111" => slowram_data_in <= cache_read_data(127 downto 120);
         when others => slowram_data_in <= x"dd";
       end case;
       
