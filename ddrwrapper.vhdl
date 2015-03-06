@@ -344,7 +344,7 @@ begin
               ram_done_toggle_localclock <= ram_request_toggle_internal;
               nState <= stDone;
               -- XXX Debug
-              case ram_address_internal(19 downto 16) is
+              case ram_address_internal(23 downto 20) is
                 when x"1" =>
                   ram_read_data_localclock <= x"C"&ram_address_internal(3 downto 0);
                 when x"2" => ram_read_data_localclock <= ram_address_internal(7 downto 0);
@@ -468,7 +468,7 @@ begin
               when others => null;
             end case;
             -- XXX Debug
-            case ram_address_internal(19 downto 16) is
+            case ram_address_internal(23 downto 20) is
               when x"1" =>   
                 ram_read_data_localclock <= x"D"&ram_address_internal(3 downto 0);
               when x"2" => ram_read_data_localclock <= ram_address_internal(7 downto 0);
