@@ -95,7 +95,7 @@ architecture Behavioral of ddrwrapper is
 -- Component Declarations
 ------------------------------------------------------------------------
 
-  component ram151x512 IS
+  component ram151x512
   PORT (
     clka : IN STD_LOGIC;
     wea : IN STD_LOGIC_VECTOR(0 DOWNTO 0);
@@ -234,7 +234,7 @@ begin
 ------------------------------------------------------------------------
   cacheram0: ram151x512
     port map (
-      clka => ,
+      clka => ui_clk,
       wea(0) => cache_write_enable,
       addra => cache_write_address,
       dina => cache_write_data,
