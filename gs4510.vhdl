@@ -1877,7 +1877,7 @@ begin
       
       slowram_addr <= slowram_addr_drive;
       slowram_we <= slowram_we_drive;
-      cache_address <= slowram_addr_drive(26 downto 13);
+      cache_address <= slowram_addr_drive(12 downto 4);
       case slowram_addr_drive(3 downto 0) is
         when "0000" => slowram_data_in <= cache_read_data(7 downto 0);
         when "0001" => slowram_data_in <= cache_read_data(15 downto 8);
