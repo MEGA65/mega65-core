@@ -394,7 +394,7 @@ begin
             nState <= stSetCmdRd;
             -- Remember RAM address for cache lookup
             last_ram_address <= ram_address_internal;
-            debug_counter_localclock <= debug_counter_localclock + 1;
+            -- debug_counter_localclock <= debug_counter_localclock + 1;
           end if;
           case (ram_address_internal(3 downto 0)) is
             when "0000" => mem_wdf_mask <= "1111111111111110";
@@ -431,6 +431,7 @@ begin
 
           if mem_wdf_rdy = '1' then
             nState <= stSetCmdWr;
+            debug_counter_localclock <= debug_counter_localclock + 1;
           end if;
         when stSetCmdRd =>
           -- Wait for memory to be finish the read
