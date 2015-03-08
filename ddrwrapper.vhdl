@@ -157,7 +157,7 @@ architecture Behavioral of ddrwrapper is
 -- Local Type Declarations
 ------------------------------------------------------------------------
 -- FSM
-  type state_type is (stIdle, stRequestm,stPreset, stSendData, stSetCmdRd, stSetCmdWr,
+  type state_type is (stIdle, stRequest,stPreset, stSendData, stSetCmdRd, stSetCmdWr,
                       stDone);
 
 ------------------------------------------------------------------------
@@ -370,7 +370,7 @@ begin
             cache_write_data(7 downto 0) <= x"57"; -- 'W' for debugging
             cache_write_enable <= '1';
             -- Let caller go free if writing, now that we have accepted the data
-            ram_done_toggle_localclock <= ram_request_toggle_internal;
+            -- ram_done_toggle_localclock <= ram_request_toggle_internal;
           end if;
         when stPreset =>
           -- A memory request is ready and waiting, so start the transaction.
