@@ -900,6 +900,7 @@ begin
       ddr_ram_bank <= "000";
 
       slowram_request_toggle <= slowram_done_toggle;
+      slowram_desired_done_toggle <= slowram_done_toggle;
       
       wait_states <= (others => '0');
       mem_reading <= '0';
@@ -2093,8 +2094,8 @@ begin
           -- We know we have the result when the RAM is no longer busy, and the
           -- cache has the correct memory line.
           if (accessing_slowram='1') and (slowram_we_drive='0')
-            and (slowram_address_drive(26 downto 13) = slowram_data_in(150 downto 128))
-            and (desired_done_toggle = slowram_done_toggle) then
+            and (slowram_addr_drive(26 downto 4) = slowram_data_in(150 downto 128))
+            and (slowram_desired_done_toggle = slowram_done_toggle) then
             -- Leave one more cycle delay for slowram data to settle
             -- XXX - This shouldn't be necessary!
             ddr_reply_counter <= ddr_reply_counter + 1;
@@ -2106,8 +2107,8 @@ begin
           -- If the DDR memory is idle, and he cache has the wrong memory line,
           -- so ask the DDR controller to load the cache line.
           if (accessing_slowram='1') and (slowram_we_drive='0')
-            and (slowram_address_drive(26 downto 13) /= slowram_data_in(150 downto 128))
-            and (desired_done_toggle = slowram_done_toggle) then
+            and (slowram_addr_drive(26 downto 4) /= slowram_data_in(150 downto 128))
+            and (slowram_desired_done_toggle = slowram_done_toggle) then
             -- The address & WE has already been set in read_long_address()
             slowram_request_toggle <= not slowram_done_toggle;
             slowram_desired_done_toggle <= not slowram_done_toggle;
