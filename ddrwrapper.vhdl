@@ -183,6 +183,7 @@ architecture Behavioral of ddrwrapper is
   signal ram_request_toggle_2 : std_logic := '0';
   signal ram_request_toggle_internal : std_logic := '0';
   signal last_ram_request_toggle : std_logic := '0';
+  signal ram_address_held : std_logic_vector(26 downto 0);
   signal ram_address_internal : std_logic_vector(26 downto 0);
   signal ram_write_data_internal : std_logic_vector(7 downto 0);
   signal ram_write_enable_internal : std_logic;
@@ -362,15 +363,21 @@ begin
           if calib_complete = '1' then
             nState <= stPreset;
           end if;
+          cache_write_address <= ram_address_internal(12 downto 4);
+          -- Make sure that nothing odd happens if ram_address changes while we
+          -- are working.
+          ram_address_held <= ram_address_internal;
+          -- Set up dummy input to cache, which is only written if necessary.
+          cache_write_data(150 downto 128) <= (others => '1');
+          cache_write_data(127 downto 8) <= (others => '0');
+          cache_write_data(7 downto 0) <= x"57"; -- 'W' for debugging
           if (ram_write_enable_internal = '1') then
             -- Invalidate cache line if writing
-            cache_write_address <= ram_address_internal(12 downto 4);
-            cache_write_data(150 downto 128) <= (others => '1');
-            cache_write_data(127 downto 8) <= (others => '0');
-            cache_write_data(7 downto 0) <= x"57"; -- 'W' for debugging
             cache_write_enable <= '1';
             -- Let caller go free if writing, now that we have accepted the data
             -- ram_done_toggle_localclock <= ram_request_toggle_internal;
+          else
+            cache_write_enable <= '0';
           end if;
         when stPreset =>
           -- A memory request is ready and waiting, so start the transaction.
@@ -426,8 +433,8 @@ begin
 
           if (mem_rdy='1')
             and (mem_rd_data_valid = '1') and (mem_rd_data_end = '1') then
-            cache_write_address <= ram_address_internal(12 downto 4);
-            cache_write_data(150 downto 128) <= ram_address_internal(26 downto 4);
+            cache_write_address <= ram_address_held(12 downto 4);
+            cache_write_data(150 downto 128) <= ram_address_held(26 downto 4);
             cache_write_data(127 downto 0) <= mem_rd_data;
             cache_write_enable <= '1';
             
