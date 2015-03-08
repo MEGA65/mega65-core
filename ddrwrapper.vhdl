@@ -157,7 +157,7 @@ architecture Behavioral of ddrwrapper is
 -- Local Type Declarations
 ------------------------------------------------------------------------
 -- FSM
-  type state_type is (stIdle, stPreset, stSendData, stSetCmdRd, stSetCmdWr,
+  type state_type is (stIdle, stRequestm,stPreset, stSendData, stSetCmdRd, stSetCmdWr,
                       stDone);
 
 ------------------------------------------------------------------------
@@ -352,22 +352,25 @@ begin
       case (cState) is
         when stIdle =>
           if (ram_request_toggle_internal /= last_ram_request_toggle) then
-            -- A new memory request is happening.  
-            -- This needs a new memory request, so start a new transaction, if
-            -- the DDR RAM isn't busy calibrating.
-            if calib_complete = '1' then
-              nState <= stPreset;
-            end if;
-            if (ram_write_enable_internal = '1') then
-              -- Invalidate cache line if writing
-              cache_write_address <= ram_address_internal(12 downto 4);
-              cache_write_data(150 downto 128) <= (others => '1');
-              cache_write_data(127 downto 8) <= (others => '0');
-              cache_write_data(7 downto 0) <= x"57"; -- 'W' for debugging
-              cache_write_enable <= '1';
-              -- Let caller go free if writing, now that we have accepted the data
-              ram_done_toggle_localclock <= ram_request_toggle_internal;
-            end if;
+            -- Give address lines time to settle with cross-clock transfer
+            nState <= stRequest;
+          end if;
+        when stRequest =>
+          -- A new memory request is happening.  
+          -- This needs a new memory request, so start a new transaction, if
+          -- the DDR RAM isn't busy calibrating.
+          if calib_complete = '1' then
+            nState <= stPreset;
+          end if;
+          if (ram_write_enable_internal = '1') then
+            -- Invalidate cache line if writing
+            cache_write_address <= ram_address_internal(12 downto 4);
+            cache_write_data(150 downto 128) <= (others => '1');
+            cache_write_data(127 downto 8) <= (others => '0');
+            cache_write_data(7 downto 0) <= x"57"; -- 'W' for debugging
+            cache_write_enable <= '1';
+            -- Let caller go free if writing, now that we have accepted the data
+            ram_done_toggle_localclock <= ram_request_toggle_internal;
           end if;
         when stPreset =>
           -- A memory request is ready and waiting, so start the transaction.
