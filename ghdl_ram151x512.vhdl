@@ -30,7 +30,7 @@ begin  -- behavioural
   begin
     if(rising_edge(Clka)) then 
       if wea(0)='1' then
-        ram(to_integer(unsigned(addraa))) <= dina;
+        ram(to_integer(unsigned(addra))) <= dina;
       end if;        
 
       doutb <= ram(to_integer(unsigned(addrb)));
