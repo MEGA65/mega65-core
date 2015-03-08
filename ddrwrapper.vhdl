@@ -361,7 +361,9 @@ begin
             if (ram_write_enable_internal = '1') then
               -- Invalidate cache line if writing
               cache_write_address <= ram_address_internal(12 downto 4);
-              cache_write_data <= (others => '1');
+              cache_write_data(150 downto 128) <= (others => '1');
+              cache_write_data(127 downto 8) <= (others => '0');
+              cache_write_data(7 downto 0) <= x"57"; -- 'W' for debugging
               cache_write_enable <= '1';
               -- Let caller go free if writing, now that we have accepted the data
               ram_done_toggle_localclock <= ram_request_toggle_internal;

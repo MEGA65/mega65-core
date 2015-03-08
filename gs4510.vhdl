@@ -662,6 +662,7 @@ end component;
   signal ddr_ram_bank : std_logic_vector(2 downto 0);
   signal ddr_reply_counter : unsigned(7 downto 0) := x"00";
   signal ddr_timeout_counter : unsigned(7 downto 0) := x"00";
+  signal ddr_cache_load_counter : unsigned(7 downto 0) := x"00";
   signal ddr_got_reply : std_logic := '0';
 
   signal slowram_addr_drive : std_logic_vector(26 downto 0);
@@ -1220,8 +1221,10 @@ begin
           slowram_addr_drive <= std_logic_vector(long_address(26 downto 0));
         end if;
         slowram_we_drive <= '0';
-        slowram_request_toggle <= not slowram_done_toggle;
-        slowram_desired_done_toggle <= not slowram_done_toggle;
+        -- With the cache, we only request the cache be updated if we the wrong
+        -- cache line is loaded.  This happen while waiting for the memory to load.
+--        slowram_request_toggle <= not slowram_done_toggle;
+--        slowram_desired_done_toggle <= not slowram_done_toggle;        
         wait_states <= slowram_waitstates;
         proceed <= '0';
       else
@@ -1259,6 +1262,8 @@ begin
             return ddr_reply_counter;
           when x"7" =>
             return ddr_timeout_counter;
+          when x"8" =>
+            return ddr_cache_load_counter;
           when others =>
             return x"ff";
         end case;
@@ -2083,8 +2088,11 @@ begin
             end if;
           end if;
           -- Stop waiting on slow ram as soon as we have the result.
-          if (accessing_slowram='1') and
-            (slowram_desired_done_toggle = slowram_done_toggle) then
+          -- We know we have the result when the RAM is no longer busy, and the
+          -- cache has the correct memory line.
+          if (accessing_slowram='1') and (slowram_we_drive='0')
+            and (slowram_address_drive(26 downto 13) = slowram_data_in(150 downto 128))
+            and (desired_done_toggle = slowram_done_toggle) then
             -- Leave one more cycle delay for slowram data to settle
             -- XXX - This shouldn't be necessary!
             ddr_reply_counter <= ddr_reply_counter + 1;
@@ -2093,6 +2101,16 @@ begin
             -- wait_states <= x"00";
             -- proceed <= '1';
           end if;
+          -- If the DDR memory is idle, and he cache has the wrong memory line,
+          -- so ask the DDR controller to load the cache line.
+          if (accessing_slowram='1') and (slowram_we_drive='0')
+            and (slowram_address_drive(26 downto 13) /= slowram_data_in(150 downto 128))
+            and (desired_done_toggle = slowram_done_toggle) then
+            -- The address & WE has already been set in read_long_address()
+            slowram_request_toggle <= not slowram_done_toggle;
+            slowram_desired_done_toggle <= not slowram_done_toggle;
+            ddr_cache_load_counter <= ddr_cache_load_counter + 1;
+          end if;
         else
           -- End of wait states, so clear memory writing and reading
 
@@ -2100,7 +2118,7 @@ begin
           fastio_write <= '0';
 --          fastio_read <= '0';
           chipram_we <= '0';
-          slowram_we_drive <= '1';
+          slowram_we_drive <= '0';
 
           if mem_reading='1' then
 --            report "resetting mem_reading (read $" & to_hstring(memory_read_value) & ")" severity note;
