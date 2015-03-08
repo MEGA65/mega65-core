@@ -1267,6 +1267,8 @@ begin
             return ddr_timeout_counter;
           when x"8" =>
             return ddr_cache_load_counter;
+          when x"9" =>
+            return unsigned(slowram_desired_done_toggle&slowram_done_toggle&"000000");
           when others =>
             return x"ff";
         end case;
