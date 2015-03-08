@@ -110,7 +110,7 @@ entity gs4510 is
     ---------------------------------------------------------------------------
     slowram_addr : out std_logic_vector(26 downto 0);
     slowram_we : out std_logic := '0';
-    slowram_request_toggle : out std_logic;
+    slowram_request_toggle : out std_logic := '0';
     slowram_done_toggle : in std_logic;
     slowram_datain : out std_logic_vector(7 downto 0);
     -- simple-dual-port cache RAM interface so that CPU doesn't have to read
@@ -898,6 +898,8 @@ begin
 
       ddr_ram_banking <= '0';
       ddr_ram_bank <= "000";
+
+      slowram_request_toggle <= slowram_done_toggle;
       
       wait_states <= (others => '0');
       mem_reading <= '0';
