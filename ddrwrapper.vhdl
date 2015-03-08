@@ -454,6 +454,7 @@ begin
           ram_done_toggle_localclock <= ram_request_toggle_internal;
           nState <= stIdle;
         when others =>
+          ram_done_toggle_localclock <= ram_request_toggle_internal;
           nState <= stIdle;
       end case;
     end if; 
