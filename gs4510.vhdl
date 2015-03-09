@@ -2094,6 +2094,8 @@ begin
             proceed <= '1';
             if (ddr_got_reply = '0') and (accessing_slowram='1') then
               ddr_timeout_counter <= ddr_timeout_counter + 1;
+              slowram_request_toggle <= slowram_done_toggle;
+              slowram_desired_done_toggle <= slowram_done_toggle;
             end if;
           end if;
           -- Stop waiting on slow ram as soon as we have the result.
