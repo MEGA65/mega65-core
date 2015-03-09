@@ -194,6 +194,7 @@ architecture Behavioral of ddrwrapper is
   signal cache_write_enable : std_logic := '0';
   signal cache_write_address : std_logic_vector(8 downto 0) := (others => '0');
   signal cache_write_data : std_logic_vector(150 downto 0);
+  signal cache_read_data_drive : std_logic_vector(150 downto 0);
 
   signal ram_done_toggle_localclock : std_logic := '0';
   signal ram_read_data_localclock : std_logic_vector(7 downto 0);
@@ -244,7 +245,7 @@ begin
       dina => cache_write_data,
       clkb => cpuclock,
       addrb => cache_address,
-      doutb => cache_read_data);
+      doutb => cache_read_data_drive);
   
 ------------------------------------------------------------------------
 -- Registering the active-low reset for the MIG component
@@ -268,7 +269,7 @@ begin
       ram_done_toggle <= ram_done_toggle_localclock;
       ddr_counter <= debug_counter_localclock;
       ddr_state <= ddr_state_localclock;
-      
+      cache_read_data <= cache_read_data_drive;
     end if;
   end process;
   
