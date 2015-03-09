@@ -189,6 +189,7 @@ architecture Behavioral of ddrwrapper is
   signal ram_address_internal : std_logic_vector(26 downto 0);
   signal ram_write_data_internal : std_logic_vector(7 downto 0);
   signal ram_write_enable_internal : std_logic;
+  signal ram_write_enable_held : std_logic;
 
   signal cache_write_enable : std_logic := '0';
   signal cache_write_address : std_logic_vector(8 downto 0) := (others => '0');
