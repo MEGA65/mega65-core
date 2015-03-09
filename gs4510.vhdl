@@ -2102,13 +2102,10 @@ begin
           if (accessing_slowram='1') and (slowram_we_drive='0')
             and (slowram_addr_drive(26 downto 4) = cache_read_data(150 downto 128))
             and (slowram_desired_done_toggle = slowram_done_toggle) then
-            -- Leave one more cycle delay for slowram data to settle
-            -- XXX - This shouldn't be necessary!
             ddr_reply_counter <= ddr_reply_counter + 1;
             ddr_got_reply <= '1';
-            wait_states <= x"01";
-            -- wait_states <= x"00";
-            -- proceed <= '1';
+            wait_states <= x"00";
+            proceed <= '1';
           end if;
           -- If the DDR memory is idle, and he cache has the wrong memory line,
           -- so ask the DDR controller to load the cache line.
@@ -2127,7 +2124,7 @@ begin
           fastio_write <= '0';
 --          fastio_read <= '0';
           chipram_we <= '0';
-          -- slowram_we_drive <= '0';
+          slowram_we_drive <= '0';
 
           if mem_reading='1' then
 --            report "resetting mem_reading (read $" & to_hstring(memory_read_value) & ")" severity note;

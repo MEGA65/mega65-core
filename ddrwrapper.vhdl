@@ -361,6 +361,7 @@ begin
           if (ram_request_toggle_internal /= last_ram_request_toggle) then
             -- Give address lines time to settle with cross-clock transfer
             nState <= stRequest;
+            ram_write_enable_held <= ram_write_enable_internal;
           end if;
         when stRequest =>
           -- A new memory request is happening.  
@@ -377,7 +378,7 @@ begin
           cache_write_data(150 downto 128) <= (others => '1');
           cache_write_data(127 downto 8) <= (others => '0');
           cache_write_data(7 downto 0) <= x"57"; -- 'W' for debugging
-          if (ram_write_enable_internal = '1') then
+          if (ram_write_enable_held = '1') then
             -- Invalidate cache line if writing
             cache_write_enable <= '1';
             -- Let caller go free if writing, now that we have accepted the data
@@ -388,7 +389,7 @@ begin
         when stPreset =>
           -- A memory request is ready and waiting, so start the transaction.
           -- XXX: Couldn't this be done in the state above to avoid wasting a cycle?
-          if ram_write_enable = '1' then
+          if ram_write_enable_held = '1' then
             nState <= stSendData;
           else
             nState <= stSetCmdRd;
