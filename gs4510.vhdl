@@ -265,6 +265,7 @@ end component;
   signal io_write_wait_states : unsigned(7 downto 0) := iowrite_48mhz;
 
   signal slowram_desired_done_toggle : std_logic := '0';
+  signal slowram_data_valid : std_logic := '0';
 
   -- Number of pending wait states
   signal wait_states : unsigned(7 downto 0) := x"05";
