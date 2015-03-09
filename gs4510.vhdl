@@ -2127,7 +2127,7 @@ begin
           fastio_write <= '0';
 --          fastio_read <= '0';
           chipram_we <= '0';
-          slowram_we_drive <= '0';
+          -- slowram_we_drive <= '0';
 
           if mem_reading='1' then
 --            report "resetting mem_reading (read $" & to_hstring(memory_read_value) & ")" severity note;
