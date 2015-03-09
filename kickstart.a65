@@ -130,6 +130,7 @@ kickstart_entry:
 etherboot:
 		ldx #<msg_etherkick
 		ldy #>msg_etherkick
+		jsr printmessage
 		jsr setupethernet
 etherloop:
 		jsr checkethernet
