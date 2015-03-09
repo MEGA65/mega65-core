@@ -668,8 +668,6 @@ end component;
   signal slowram_addr_drive : std_logic_vector(26 downto 0);
   signal slowram_data_in : std_logic_vector(7 downto 0);
   signal slowram_we_drive : std_logic;
-  signal slowram_ce_drive : std_logic;
-  signal slowram_oe_drive : std_logic;
 
 begin
 
@@ -1218,6 +1216,7 @@ begin
         -- C65 ROM emulation.
         accessing_shadow <= '0';
         accessing_slowram <= '1';
+        slowram_data_valid <= '0';
         if ddr_ram_banking='1' then
           slowram_addr_drive <= std_logic_vector(long_address(23 downto 1))&ddr_ram_bank&std_logic(long_address(0));
         else
@@ -1889,6 +1888,7 @@ begin
       slowram_we <= slowram_we_drive;
       cache_address <= slowram_addr_drive(12 downto 4);
       if (slowram_addr_drive(26 downto 4) = cache_read_data(150 downto 128)) then
+        slowram_data_valid <= '1';
         case slowram_addr_drive(3 downto 0) is
           when "0000" => slowram_data_in <= cache_read_data(7 downto 0);
           when "0001" => slowram_data_in <= cache_read_data(15 downto 8);
@@ -1909,6 +1909,7 @@ begin
           when others => slowram_data_in <= x"dd";
         end case;
       else
+        slowram_data_valid <= '0';
         slowram_data_in <= x"CF";
       end if;
       
@@ -2102,8 +2103,7 @@ begin
           -- We know we have the result when the RAM is no longer busy, and the
           -- cache has the correct memory line.
           if (accessing_slowram='1') and (slowram_we_drive='0')
-            and (slowram_addr_drive(26 downto 4) = cache_read_data(150 downto 128))
-            and (slowram_desired_done_toggle = slowram_done_toggle) then
+            and (slowram_data_valid='1') then
             ddr_reply_counter <= ddr_reply_counter + 1;
             ddr_got_reply <= '1';
             wait_states <= x"00";
