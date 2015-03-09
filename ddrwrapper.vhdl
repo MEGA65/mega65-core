@@ -188,6 +188,7 @@ architecture Behavioral of ddrwrapper is
   signal ram_address_held : std_logic_vector(26 downto 0);
   signal ram_address_internal : std_logic_vector(26 downto 0);
   signal ram_write_data_internal : std_logic_vector(7 downto 0);
+  signal ram_write_data_held : std_logic_vector(7 downto 0);
   signal ram_write_enable_internal : std_logic;
   signal ram_write_enable_held : std_logic;
 
@@ -207,7 +208,6 @@ architecture Behavioral of ddrwrapper is
   -- consistent).
   -- XXX - We don't allow servicing reads from the cache while a write is
   -- in progress.
-  signal last_ram_address : std_logic_vector(26 downto 0);
   signal last_ram_read_data_localclock : std_logic_vector(127 downto 0);
 
   
@@ -376,6 +376,7 @@ begin
           -- Make sure that nothing odd happens if ram_address changes while we
           -- are working.
           ram_address_held <= ram_address_internal;
+          ram_write_data_held <= ram_write_data_internal;
           -- Set up dummy input to cache, which is only written if necessary.
           cache_write_data(150 downto 128) <= (others => '1');
           cache_write_data(127 downto 8) <= (others => '0');
@@ -395,11 +396,9 @@ begin
             nState <= stSendData;
           else
             nState <= stSetCmdRd;
-            -- Remember RAM address for cache lookup
-            last_ram_address <= ram_address_internal;
             -- debug_counter_localclock <= debug_counter_localclock + 1;
           end if;
-          case (ram_address_internal(3 downto 0)) is
+          case (ram_address_held(3 downto 0)) is
             when "0000" => mem_wdf_mask <= "1111111111111110";
             when "0001" => mem_wdf_mask <= "1111111111111101";
             when "0010" => mem_wdf_mask <= "1111111111111011";
@@ -418,15 +417,15 @@ begin
             when "1111" => mem_wdf_mask <= "0111111111111111";
             when others => null;
           end case;
-          mem_addr <= ram_address_internal(26 downto 4) & "0000";
-          mem_wdf_data <= ram_write_data_internal & ram_write_data_internal
-                          & ram_write_data_internal & ram_write_data_internal
-                          & ram_write_data_internal & ram_write_data_internal
-                          & ram_write_data_internal & ram_write_data_internal
-                          & ram_write_data_internal & ram_write_data_internal
-                          & ram_write_data_internal & ram_write_data_internal
-                          & ram_write_data_internal & ram_write_data_internal
-                          & ram_write_data_internal & ram_write_data_internal;
+          mem_addr <= ram_address_held(26 downto 4) & "0000";
+          mem_wdf_data <= ram_write_data_held & ram_write_data_held
+                          & ram_write_data_held & ram_write_data_held
+                          & ram_write_data_held & ram_write_data_held
+                          & ram_write_data_held & ram_write_data_held
+                          & ram_write_data_held & ram_write_data_held
+                          & ram_write_data_held & ram_write_data_held
+                          & ram_write_data_held & ram_write_data_held
+                          & ram_write_data_held & ram_write_data_held;
         when stSendData =>
           -- Wait until memory finishes writing
           mem_wdf_wren <= '1';
