@@ -128,6 +128,8 @@ kickstart_entry:
 		and #$02
 		beq normalboot
 etherboot:
+		ldx #<msg_etherkick
+		ldy #>msg_etherkick
 		jsr setupethernet
 etherloop:
 		jsr checkethernet
@@ -2309,6 +2311,7 @@ msg_romnotfound:      .byte "COULD NOT FIND ROM C65GSXXXROM          "
 msg_foundkickup:      .byte "LOADING KICKUP.G65 INTO HYPERVISOR      "
 msg_nokickup:         .byte "NO KICKUP.G65 TO LOAD (OR BROKEN)       "
 msg_kickuploaded:     .byte "KICKUP LOADED TO 00004000 - $$$$$$$$    "
+msg_etherkick:	      .byte "BOOTING VIA ETHERKICK: UDP PORT 4111    "
 
 ; filename of ROM we want to load in FAT directory format
 txt_c65gsrom:	      .byte "C65GS   ROM"
