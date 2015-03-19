@@ -1317,7 +1317,12 @@ begin
           when "011001" =>
             return unsigned(ddr_ram_banking&std_logic_vector(to_unsigned(0,4))&ddr_ram_bank(2 downto 0));
           when "111111" => return x"48"; -- 'H' for Hypermode
-          when "111110" => return unsigned(hypervisor_upgraded&"0000000");
+          when "111110" =>
+            if hypervisor_upgraded='1' then
+              return x"FF";
+            else
+              return x"00";
+            end if;
           when others => return x"FF";
         end case;
       elsif accessing_shadow='1' then
