@@ -202,6 +202,7 @@ GS $D658 - Hypervisor DMAGic list address bits 27-24
 GS $D659 - Hypervisor DDR RAM banking control
 GS $D659.0-2 - Select which 16MB DDR RAM bank to make visible
 GS $D659.7 - Enable DDR RAM banking
+GS $D67E - Hypervisor already-upgraded bit (sets permanently)
 GS $D67F - Trigger trap to hypervisor
 GS $D680 - SD controller status/command
 GS $D681-$D684 - SD controller SD sector address
