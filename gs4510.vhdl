@@ -332,7 +332,7 @@ end component;
 
   -- Are we in hypervisor mode?
   signal hypervisor_mode : std_logic := '1';
-  signal hypervisor_trap_port : unsigned (5 downto 0);
+  signal hypervisor_trap_port : unsigned (6 downto 0);
   -- Have we ever replaced the hypervisor with another?
   -- (used to allow once-only update of hypervisor by kick-up file)
   signal hypervisor_upgraded : std_logic := '0';
@@ -857,6 +857,7 @@ begin
       -- because $8000-$80FF in hypervisor space is reserved
       -- for 64 x 4 byte entry points for hypervisor traps
       -- from writing to $FFD3640-$FFD367F
+      hypervisor_trap_port <= "1000000";
       reg_pc <= x"8100";
 
       -- Clear CPU MMU registers, and bank in kickstart ROM
@@ -2374,7 +2375,7 @@ begin
               -- Actually, set PC based on address written to, so that
               -- writing to the 64 hypervisor registers act similar to the INT
               -- instruction on x86 machines.
-              reg_pc(7 downto 2) <= hypervisor_trap_port;              
+              reg_pc(8 downto 2) <= hypervisor_trap_port;              
               -- map hypervisor ROM in upper moby
               -- ROM is at $FFF8000-$FFFBFFF
               reg_map_high <= "0011";
@@ -3745,7 +3746,8 @@ begin
           -- @IO:GS $D67F - Trigger trap to hypervisor
           if memory_access_address(27 downto 6)&"111111" = x"FFD367F" then
             report "HYPERTRAP: Hypervisor trap/return triggered by write to $D640-$D67F";
-            hypervisor_trap_port <= memory_access_address(5 downto 0);
+            hypervisor_trap_port(5 downto 0) <= memory_access_address(5 downto 0);
+            hypervisor_trap_port(6) <= '0';
             if hypervisor_mode = '0' then
               state <= TrapToHypervisor;
             end if;
