@@ -524,7 +524,17 @@ l16:		lda $DE2C,x
 		bcc sdcarderror
 
 		; iterate through directory entries looking for ordinary file 
-		; KICKUP.G65 to load into hypervisor memory
+		; KICKUP.G65 to load into hypervisor memory ...
+		; ... but only if we are not running a kick-up'd kickstart now.
+		lda $d67e
+		beq nextdirectoryentry3
+
+		; already kicked
+		ldx #<msg_alreadykicked
+		ldy #<msg_alreadykicked
+		jsr printmessage
+		jmp postkickup
+
 nextdirectoryentry3:
 		jsr fs_readdir
 		bcc nokickup
@@ -543,7 +553,8 @@ ku1:		lda fs_direntry,x
 		ldy #>msg_foundkickup
 		jsr printmessage
 
-		; Load kickup file into fast/chip RAM, and then jump into it
+		; Load kickup file into fast/chip RAM, and then copy it
+		; overthe top of ourselves, and set the kicked-up flag
 
 		; Set 32-bit memory pointer to $00004000
 		lda #$00
@@ -597,8 +608,56 @@ ku3:		lda $df00,y
 		ldz zptempv+0
 		jsr printhex
 
-		jsr $4000
-		jmp postkickup
+		; Use DMAgic to copy $0004000-$0007FFF to $FFF8000-$FFFBFFF
+		; (We have to copy the routine to do this to RAM, since we will
+		; be replacing ourselves)
+		ldx #$00
+krc:		lda kickuproutine,x
+		sta $3000,x
+		inx
+		bne krc
+		jmp $3000
+
+kickuproutine:
+		; The following routine gets copied as-is to $3000 and run from there.
+		; The DMA list is still available in the kickstart ROM when it gets
+		; called, so we can just use it there, instead of working out where
+		; it gets copied to
+
+		; Set bottom 22 bits of DMA list address as for C65
+		; (8MB address range).  Kickstart ROM is at $FFF8000, so $FF goes
+		; in high-byte area
+		lda #$ff
+		sta $d702
+		lda #$ff   
+		sta $d704  ; dma list is in top MB of address space
+		sta $d706  ; similarly destination of copy is top MB of address space
+		lda #$00
+		sta $d705  ; source of copy is bottom MB of address space
+		lda #>kickupdmalist
+		sta $d701
+		lda #<kickupdmalist
+		sta $d700
+		; clear source/destination MB so that C65 ROM doesn't go bananas
+		lda #$00
+		sta $d706
+
+		; copy complete, so mark ourselves upgraded, and jump into hypervisor
+		; as though we were just reset.
+
+		sta $d67e   ; mark ourselves as having kicked up
+		jmp $8100
+
+kickupdmalist:
+		; copy $0004000-$0007FFF to $FFF8000-$FFFBFFF
+		; (MB offsets get set in routine)
+		.byte $00 ; copy + last request in chain
+		.word $4000 ; size of copy is 16KB
+		.word $4000 ; starting at $4000
+		.byte $00   ; of bank $0
+		.word $8000 ; destination address is $8000
+		.byte $0F   ; of bank $F
+		.word $0000 ; modulo (unused)
 
 couldntopenkickup:
 
@@ -2475,6 +2534,7 @@ msg_romnotfound:      .byte "COULD NOT FIND ROM C65GSXXXROM          "
 msg_foundkickup:      .byte "LOADING KICKUP.G65 INTO HYPERVISOR      "
 msg_nokickup:         .byte "NO KICKUP.G65 TO LOAD (OR BROKEN)       "
 msg_kickuploaded:     .byte "KICKUP LOADED TO 00004000 - $$$$$$$$    "
+msg_alreadykicked:    .byte "RUNNING KICKED HYPERVISOR               "
 msg_etherkick:	      .byte "BOOTING VIA ETHERKICK: UDP PORT 4111    "
 
 ; filename of ROM we want to load in FAT directory format
