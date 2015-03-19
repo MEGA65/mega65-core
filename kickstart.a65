@@ -30,7 +30,7 @@
 	.space zptempv 2
 	.space zptempv2 2
 
-	.org $cf00
+	.org $ce00
 	.space romslab 1
 	.space screenrow 1
 
@@ -61,6 +61,9 @@
 	.space d81_clusternumber 4
 	.space d81_clustersneeded 2
 	.space d81_clustercount 2
+
+	; make sure that we don't go past the 256 byte page reserved for hypervisor scratch space
+	.checkpc $CEFF
 
 	.text
 
