@@ -2455,6 +2455,79 @@ gotpacket:
 
 	; Got a packet.
 	; check whether it is UDP port 4510
+	; or whether it is an ARP request
+
+	; Here we want to check that $680E - $6817 =
+	; 08 06 00 01 08 00 06 04 00 01
+
+	ldx #$09
+arploop0:
+	lda $680e,x
+	cmp arptemplate,x
+	bne notarp
+	dex
+	bpl arploop0
+
+	; check that IP address asked for ends in .65
+	lda $682b
+	cmp #65
+	bne notarp
+
+	; ok, so we have an ARP request.
+	; now we need to build the ARP reply and send it.
+	; We should copy the sender's 
+
+	; XXX for now just increment border colour
+
+	; set output packet size
+	; 6+6+2 bytes ethernet header + 28 bytes of ARP reply = 42
+	lda #<42
+	sta $d6e2
+	lda #>42
+	sta $d6e3
+
+	; copy fixed ARP fields (we will overwrite some later)
+	; (note that TX buffer lacks 2 byte RX buffer header)
+	ldx #$14
+arploop1:
+	lda $6802,x
+	sta $6800,x
+	dex
+	bpl arploop1
+	; Copy ethernet source to ethernet destination in TX buffer
+	; Set our mac address in ethernet source address field in TX buffer
+	ldx #$05
+arploop2:
+	lda $6808,x    ; requestors mac from RX ethernet header
+	sta $6800,x    ; requestors mac into TX ethernet header
+	lda #$40
+	sta $6806,x    ; our mac in ethernet header
+	sta $6816,x    ; our mac in ARP payload
+	dex
+	bpl arploop2
+	; set packet as ARP reply
+	lda #$02     ; $02 = reply, $01 = request
+	sta $6815
+
+	ldx #$03
+	; copy requested IP address into reply IP address field
+arploop3:
+	lda $6828,x
+	sta $681c,x
+	dex
+	bpl arploop3
+	; copy requestors MAC+IP into target MAC+IP fields
+	ldx #9
+arploop4:
+	lda $6818,x
+	sta $6820,x
+	dex
+	bpl arploop4
+	
+	; packet should now all be ready - hit TX button
+	lda #$01
+	sta $d6e4
+notarp:
 
 	; is it IPv4?
 	lda $6810
@@ -2483,6 +2556,9 @@ gotpacket:
 
 badpacket:
 	rts
+
+arptemplate:
+	.byte $08,$06,$00,$01,$08,$00,$06,$04,$00,$01
 
 ;;; ----------------------------------------------------------------
 ;;; Hypervisor traps
