@@ -68,10 +68,151 @@
 	.text
 
 	.org $8000
+;;; ----------------------------------------------------------------------------
+;;; CPU Hypervisor Trap entry points (64 x 4 byte entries)
+;;; ----------------------------------------------------------------------------
+trap_entry_points:
+	; Traps $00-$07
+	jmp nosuchtrap
+	nop
+	jmp nosuchtrap
+	nop
+	jmp nosuchtrap
+	nop
+	jmp nosuchtrap
+	nop
+	jmp nosuchtrap
+	nop
+	jmp nosuchtrap
+	nop
+	jmp nosuchtrap
+	nop
+	jmp nosuchtrap
+	nop
+	; Traps $08-$0F
+	jmp nosuchtrap
+	nop
+	jmp nosuchtrap
+	nop
+	jmp nosuchtrap
+	nop
+	jmp nosuchtrap
+	nop
+	jmp nosuchtrap
+	nop
+	jmp nosuchtrap
+	nop
+	jmp nosuchtrap
+	nop
+	jmp nosuchtrap
+	nop
+	; Traps $10-$17
+	jmp nosuchtrap
+	nop
+	jmp nosuchtrap
+	nop
+	jmp nosuchtrap
+	nop
+	jmp nosuchtrap
+	nop
+	jmp nosuchtrap
+	nop
+	jmp nosuchtrap
+	nop
+	jmp nosuchtrap
+	nop
+	jmp nosuchtrap
+	nop
+	; Traps $18-$1F
+	jmp nosuchtrap
+	nop
+	jmp nosuchtrap
+	nop
+	jmp nosuchtrap
+	nop
+	jmp nosuchtrap
+	nop
+	jmp nosuchtrap
+	nop
+	jmp nosuchtrap
+	nop
+	jmp nosuchtrap
+	nop
+	jmp nosuchtrap
+	nop
+	; Traps $20-$27
+	jmp nosuchtrap
+	nop
+	jmp nosuchtrap
+	nop
+	jmp nosuchtrap
+	nop
+	jmp nosuchtrap
+	nop
+	jmp nosuchtrap
+	nop
+	jmp nosuchtrap
+	nop
+	jmp nosuchtrap
+	nop
+	jmp nosuchtrap
+	nop
+	; Traps $28-$2F
+	jmp nosuchtrap
+	nop
+	jmp nosuchtrap
+	nop
+	jmp nosuchtrap
+	nop
+	jmp nosuchtrap
+	nop
+	jmp nosuchtrap
+	nop
+	jmp nosuchtrap
+	nop
+	jmp nosuchtrap
+	nop
+	jmp nosuchtrap
+	nop
+	; Traps $30-$37
+	jmp nosuchtrap
+	nop
+	jmp nosuchtrap
+	nop
+	jmp nosuchtrap
+	nop
+	jmp nosuchtrap
+	nop
+	jmp nosuchtrap
+	nop
+	jmp nosuchtrap
+	nop
+	jmp nosuchtrap
+	nop
+	jmp nosuchtrap
+	nop
+	; Traps $38-$3F
+	jmp nosuchtrap
+	nop
+	jmp nosuchtrap
+	nop
+	jmp nosuchtrap
+	nop
+	jmp nosuchtrap
+	nop
+	jmp nosuchtrap
+	nop
+	jmp nosuchtrap
+	nop
+	jmp nosuchtrap
+	nop
+	jmp nosuchtrap
+	nop
 
 ;;; ----------------------------------------------------------------------------
-;;; CPU Hypervisor Entry Point (includes RESET and other sources) is $8000
+;;; CPU Hypervisor Entry Point on reset is $8100
 ;;; ----------------------------------------------------------------------------
+	.advance $8100
 reset_entry:
 		; get CPU state sensible
 		sei
@@ -2080,7 +2221,25 @@ k2:
 		sta txt_c65gsrom+5
 		sta $0427
 		rts
+;;; ----------------------------------------------------------------
+;;; Hypervisor traps
+;;; ----------------------------------------------------------------
+; Traps are triggered by writing to $D640-$D67F
+; and trap to $8000+((address & $3F)*4) in the hypervisor
 
+; Routine for unimplemented/reserved traps
+; (Consider replacing with trap to hypervisor error screen with option
+;  to return?)
+nosuchtrap:
+	; set C flag for caller to indicate failure
+	lda $d647
+	ora #$01   ; C flag is bit 0
+	sta $d647
+	; set A to $FF
+	lda #$ff
+	sta $d640
+	; return from hypervisor
+	sta $d67f
 
 ; messages.  All have to be 40 bytes long
 msg_kickstart:        .byte "C65GS KICKSTART V00.00 PRE-ALPHA        "
@@ -2122,8 +2281,8 @@ diskchooserend:
 		.checkpc $BC00
 
 		; Hypervisor scratch pad aat $BC00-$BDFF
-		; ZP at $BE00-$BEFF
-		; Stack at $BF00-$BFFF
+		; Stack at $BE00-$BEFF
+		; ZP at $BF00-$BFFF
 
 		.advance $C000
 

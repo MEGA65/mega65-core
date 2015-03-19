@@ -313,6 +313,11 @@ end component;
 
   -- Are we in hypervisor mode?
   signal hypervisor_mode : std_logic := '1';
+  signal hypervisor_trap_port : unsigned (5 downto 0);
+  -- Have we ever replaced the hypervisor with another?
+  -- (used to allow once-only update of hypervisor by kick-up file)
+  signal hypervisor_upgraded : std_logic := '0';
+  
   -- Duplicates of all CPU registers to hold user-space contents when trapping
   -- to hypervisor.
   signal hyper_iomode : unsigned(7 downto 0);
@@ -826,7 +831,11 @@ begin
       reg_z <= x"00";
       reg_sp <= x"ff";
       reg_sph <= x"01";
-      reg_pc <= x"8000";
+      -- Reset entry point is now $8100 instead of $8000,
+      -- because $8000-$80FF in hypervisor space is reserved
+      -- for 64 x 4 byte entry points for hypervisor traps
+      -- from writing to $FFD3640-$FFD367F
+      reg_pc <= x"8100";
 
       -- Clear CPU MMU registers, and bank in kickstart ROM
       -- XXX Need to update this for hypervisor mode
@@ -1263,6 +1272,7 @@ begin
           when "011000" =>
             return to_unsigned(0,4)&hyper_dmagic_list_addr(27 downto 24);
           when "111111" => return x"48"; -- 'H' for Hypermode
+          when "111110" => return unsigned(hypervisor_upgraded&"0000000");
           when others => return x"FF";
         end case;
       elsif accessing_shadow='1' then
@@ -1556,6 +1566,10 @@ begin
         -- @IO:GS $D658 - Hypervisor DMAGic list address bits 27-24
         if long_address = x"FFD3658" and hypervisor_mode='1' then
           hyper_dmagic_list_addr(27 downto 24) <= value(3 downto 0);
+        end if;
+        -- @IO:GS $D67E - Hypervisor already-upgraded bit (sets permanently)
+        if long_address = x"FFD367E" and hypervisor_mode='1' then
+          hypervisor_upgraded <= '1';
         end if;
         
         if long_address(19 downto 16) = x"8" then
@@ -2246,10 +2260,14 @@ begin
               --  trap calls).
               -- 8-bit stack @ $BE00
               reg_sp <= x"ff"; reg_sph <= x"BE"; flag_e <= '1';
-              -- ZP at $BF00
+              -- ZP at $BF00-$BFFF
               reg_b <= x"BF";
-              -- PC at $8000 (code from $8000 - $BFFF)
+              -- PC at $8000 (hypervisor code spans $8000 - $BFFF)
               reg_pc <= x"8000";
+              -- Actually, set PC based on address written to, so that
+              -- writing to the 64 hypervisor registers act similar to the INT
+              -- instruction on x86 machines.
+              reg_pc(7 downto 2) <= hypervisor_trap_port;              
               -- map hypervisor ROM in upper moby
               -- ROM is at $FFF8000-$FFFBFFF
               reg_map_high <= "0011";
@@ -3590,13 +3608,16 @@ begin
             reg_pc <= reg_pc;
           end if;
           -- @IO:GS $D67F - Trigger trap to hypervisor
-          if memory_access_address = x"FFD367F" then
-            report "HYPERTRAP: Hypervisor trap/return triggered by write to $D67F";
-              if hypervisor_mode = '0' then
-                state <= TrapToHypervisor;
-              else
-                state <= ReturnFromHypervisor;
-              end if;
+          if memory_access_address(27 downto 6)&"111111" = x"FFD367F" then
+            report "HYPERTRAP: Hypervisor trap/return triggered by write to $D640-$D67F";
+            hypervisor_trap_port <= memory_access_address(5 downto 0);
+            if hypervisor_mode = '0' then
+              state <= TrapToHypervisor;
+            end if;
+            if hypervisor_mode = '1'
+              and memory_access_address(5 downto 0) = (others => '1') then
+              state <= ReturnFromHypervisor;
+            end if;
             -- Don't increment PC if we were otherwise going to shortcut to
             -- InstructionDecode next cycle
             reg_pc <= reg_pc;

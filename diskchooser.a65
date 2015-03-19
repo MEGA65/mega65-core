@@ -46,7 +46,7 @@
 
 	.space sptemp 1
 
-	.checkpc $CFFF
+	.checkpc $CEFF
 
 	.text
 
