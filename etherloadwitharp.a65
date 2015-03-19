@@ -124,48 +124,49 @@ waitingforpacket:
 	sta $d020
 
 	; set output packet size
-	; 2+6+6+2 bytes ethernet header + 28 bytes of ARP reply = 44
-	lda #<44
+	; 6+6+2 bytes ethernet header + 28 bytes of ARP reply = 42
+	lda #<42
 	sta $d6e2
-	lda #>44
+	lda #>42
 	sta $d6e3
 
 	; copy fixed ARP fields (we will overwrite some later)
+	; (note that TX buffer lacks 2 byte RX buffer header)
 	ldx #$00
 arploop1:
-	lda $6800,x
-	sta $6000,x
+	lda $6802,x
+	sta $6800,x
 	inx
-	cpx #$17
+	cpx #$15
 	bne arploop1
 	; Copy ethernet source to ethernet destination in TX buffer
 	; Set our mac address in ethernet source address field in TX buffer
 	ldx #$00
 arploop2:
 	lda $6808,x    ; requestors mac from RX ethernet header
-	sta $6002,x    ; requestors mac into TX ethernet header
-	lda #$41
-	sta $6008,x    ; our mac in ethernet header
-	sta $6018,x    ; our mac in ARP payload
+	sta $6800,x    ; requestors mac into TX ethernet header
+	lda #$40
+	sta $6806,x    ; our mac in ethernet header
+	sta $6816,x    ; our mac in ARP payload
 	inx
 	cpx #$06
 	bne arploop2
 	; set packet as ARP reply
 	lda #$02     ; $02 = reply, $01 = request
-	sta $6017
+	sta $6815
 
 	ldx #$03
 	; copy requested IP address into reply IP address field
 arploop3:
 	lda $6828,x
-	sta $601e,x
+	sta $681c,x
 	dex
 	bpl arploop3
 	; copy requestors MAC+IP into target MAC+IP fields
 	ldx #9
 arploop4:
 	lda $6818,x
-	sta $6022,x
+	sta $6820,x
 	dex
 	bpl arploop4
 	
