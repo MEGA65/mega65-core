@@ -10,7 +10,7 @@
 	.space zptempv 2
 	.space zptempv2 2
 
-	.org $cf00
+	.org $ce00
 	.space romslab 1
 	.space screenrow 1
 
