@@ -3750,7 +3750,7 @@ begin
               state <= TrapToHypervisor;
             end if;
             if hypervisor_mode = '1'
-              and memory_access_address(5 downto 0) = (others => '1') then
+              and memory_access_address(5 downto 0) = "111111" then
               state <= ReturnFromHypervisor;
             end if;
             -- Don't increment PC if we were otherwise going to shortcut to
@@ -3761,7 +3761,7 @@ begin
         elsif memory_access_read='1' then 
           report "memory_access_read=1, addres=$"&to_hstring(memory_access_address) severity note;
           if memory_access_resolve_address = '1' then
-            memory_access_address := resolve_address_to_long(memory_access_address(15 downto 0),false);
+            memory_access_address := resolve_address_to_long(memory_access_address(15 downto 0),false); 
           end if;
           read_long_address(memory_access_address);
         end if;
