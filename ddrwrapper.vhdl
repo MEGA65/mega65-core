@@ -180,6 +180,7 @@ architecture Behavioral of ddrwrapper is
   signal mem_ui_rst          : std_logic;
   signal rst                 : std_logic;
   signal rstn                : std_logic;
+  signal rstn_2                : std_logic;
   signal sreg                : std_logic_vector(1 downto 0);
 
   signal ram_request_toggle_2 : std_logic := '0';
@@ -255,6 +256,7 @@ begin
     if rising_edge(clk_200MHz_i) then
       sreg <= sreg(0) & rst_i;
       rstn <= not sreg(1);
+      rstn_2 <= rstn;
     end if;
   end process RSTSYNC;
 
@@ -295,7 +297,7 @@ begin
       ddr2_odt             => ddr2_odt,
       -- Inputs
       sys_clk_i            => clk_200MHz_i,
-      sys_rst              => rstn,
+      sys_rst              => rstn_2,
       -- user interface signals
       app_addr             => mem_addr,
       app_cmd              => mem_cmd,
@@ -332,8 +334,8 @@ begin
       ram_address_internal <= ram_address;
       ram_write_data_internal <= ram_write_data;
       -- Reflect memory write details to CPU so that it knows when we have it right.
-      ram_address_reflect <= ram_address;
-      ram_write_reflect <= ram_write_data;
+      ram_address_reflect <= ram_address_internal;
+      ram_write_reflect <= ram_write_data_internal;
       -- Delay memory access request toggle by an extra cycle to ensure that
       -- the address (and possibly data) lines have settled.
       -- Our clock here is only ~6.8ns, while CPU is 20ns.  So we need at least
