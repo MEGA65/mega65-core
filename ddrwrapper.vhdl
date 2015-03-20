@@ -62,6 +62,8 @@ entity ddrwrapper is
     -- RAM interface
     ram_address          : in    std_logic_vector(26 downto 0);
     ram_write_data       : in    std_logic_vector(7 downto 0);
+    ram_address_reflect  : out   std_logic_vector(26 downto 0);
+    ram_write_reflect    : out    std_logic_vector(7 downto 0);
     ram_write_enable     : in    std_logic;
     ram_request_toggle   : in    std_logic;
     ram_done_toggle      : out   std_logic := '0';
@@ -180,8 +182,6 @@ architecture Behavioral of ddrwrapper is
   signal rstn                : std_logic;
   signal sreg                : std_logic_vector(1 downto 0);
 
-  signal ram_request_toggle_4 : std_logic := '0';
-  signal ram_request_toggle_3 : std_logic := '0';
   signal ram_request_toggle_2 : std_logic := '0';
   signal ram_request_toggle_internal : std_logic := '0';
   signal last_ram_request_toggle : std_logic := '0';
@@ -331,14 +331,15 @@ begin
       
       ram_address_internal <= ram_address;
       ram_write_data_internal <= ram_write_data;
+      -- Reflect memory write details to CPU so that it knows when we have it right.
+      ram_address_reflect <= ram_address;
+      ram_write_reflect <= ram_write_data;
       -- Delay memory access request toggle by an extra cycle to ensure that
       -- the address (and possibly data) lines have settled.
       -- Our clock here is only ~6.8ns, while CPU is 20ns.  So we need at least
       -- three cycle delay to allow for signal skew from the CPU.
       ram_request_toggle_2 <= ram_request_toggle;
-      ram_request_toggle_3 <= ram_request_toggle_2;
-      ram_request_toggle_4 <= ram_request_toggle_3;
-      ram_request_toggle_internal <= ram_request_toggle_4;
+      ram_request_toggle_internal <= ram_request_toggle_2;
       ram_write_enable_internal <= ram_write_enable;
       if mem_ui_rst = '1' then
         cState <= stIdle;

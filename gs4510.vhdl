@@ -108,6 +108,8 @@ entity gs4510 is
     -- Interface to Slow RAM (128MB DDR2 RAM (or 16MB cellular RAM chip on
     -- original non-DDR Nexys4 boards)
     ---------------------------------------------------------------------------
+    slowram_addr_reflect : in std_logic_vector(26 downto 0);
+    slowram_datain_reflect : in std_logic_vector(7 downto 0);
     slowram_addr : out std_logic_vector(26 downto 0);
     slowram_we : out std_logic := '0';
     slowram_request_toggle : out std_logic := '0';
@@ -674,6 +676,7 @@ end component;
 
   signal slowram_addr_drive : std_logic_vector(26 downto 0);
   signal slowram_data_in : std_logic_vector(7 downto 0);
+  signal slowram_datain_expected : std_logic_vector(7 downto 0);
   signal slowram_we_drive : std_logic;
 
 begin
@@ -1641,6 +1644,7 @@ begin
         end if;
         slowram_we_drive <= '1';
         slowram_datain <= std_logic_vector(value);
+        slowram_datain_expected <= std_logic_vector(value);
         slowram_trigger_write <= '1';
         wait_states <= slowram_waitstates;
       else
@@ -2146,7 +2150,9 @@ begin
           -- had a cycle to settled, toggle the request line, so that the DDR
           -- can get the write request without missing it.
           if (slowram_trigger_write='1')
-             and (slowram_desired_done_toggle = slowram_done_toggle) then
+            and (slowram_desired_done_toggle = slowram_done_toggle)
+            and (slowram_addr_reflect = slowram_addr_drive)
+            and (slowram_datain_reflect = slowram_datain_expected) then
             slowram_desired_done_toggle <= not slowram_done_toggle;
             slowram_request_toggle <= not slowram_done_toggle;
             slowram_trigger_write <= '0';

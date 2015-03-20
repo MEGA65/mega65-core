@@ -131,6 +131,8 @@ entity machine is
          ---------------------------------------------------------------------------
          -- Interface to Slow RAM (128MB DDR2 RAM chip)
          ---------------------------------------------------------------------------
+         slowram_addr_reflect : in std_logic_vector(26 downto 0);
+         slowram_datain_reflect : in std_logic_vector(7 downto 0);
          slowram_addr : out std_logic_vector(26 downto 0);
          slowram_we : out std_logic;
          slowram_request_toggle : out std_logic;
@@ -295,6 +297,8 @@ architecture Behavioral of machine is
       ---------------------------------------------------------------------------
       slowram_addr : out std_logic_vector(26 downto 0);
       slowram_we : out std_logic;
+      slowram_addr_reflect : in std_logic_vector(26 downto 0);
+      slowram_datain_reflect : in std_logic_vector(7 downto 0);
       slowram_request_toggle : out std_logic;
       slowram_done_toggle : in std_logic;
       slowram_datain : out std_logic_vector(7 downto 0);
@@ -828,6 +832,8 @@ begin
     slowram_request_toggle => slowram_request_toggle,
     slowram_done_toggle => slowram_done_toggle,
     slowram_datain => slowram_datain,
+    slowram_addr_reflect => slowram_addr_reflect,
+    slowram_datain_reflect => slowram_datain_reflect,
     cache_address => cache_address,
     cache_read_data => cache_read_data,
     

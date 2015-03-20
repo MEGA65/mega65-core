@@ -188,6 +188,8 @@ architecture Behavioral of container is
       -- RAM interface
       ram_address          : in    std_logic_vector(26 downto 0);
       ram_write_data       : in    std_logic_vector(7 downto 0);
+      ram_address_reflect  : out    std_logic_vector(26 downto 0);
+      ram_write_reflect    : out    std_logic_vector(7 downto 0);
       ram_write_enable     : in    std_logic;
       ram_request_toggle   : in    std_logic;
       ram_done_toggle      : out   std_logic;
@@ -349,10 +351,12 @@ architecture Behavioral of container is
   signal clock50mhz : std_logic := '0';
 
   signal slowram_addr :    std_logic_vector(26 downto 0);
+  signal slowram_addr_reflect :    std_logic_vector(26 downto 0);
   signal slowram_we :      std_logic;
   signal slowram_request_toggle :      std_logic;
   signal slowram_done_toggle :      std_logic;
   signal slowram_datain :  std_logic_vector(7 downto 0);
+  signal slowram_datain_reflect : std_logic_vector(7 downto 0);
   signal cache_address : std_logic_vector(8 downto 0);
   signal cache_read_data : std_logic_vector(150 downto 0);
   signal ddr_state : unsigned(7 downto 0);
@@ -399,6 +403,8 @@ begin
       -- RAM interface
       ram_address           => slowram_addr,
       ram_write_data        => slowram_datain,
+      ram_address_reflect   => slowram_addr_reflect,
+      ram_write_internal    => slowram_datain_reflect,
       ram_write_enable      => slowram_we,
       ram_request_toggle => slowram_request_toggle,
       ram_done_toggle    => slowram_done_toggle,
@@ -494,6 +500,8 @@ begin
       slowram_done_toggle => slowram_done_toggle,
       slowram_datain => slowram_datain,
       slowram_addr => slowram_addr,
+      slowram_addr_reflect => slowram_addr_reflect,
+      slowram_datain_reflect => slowram_datain_reflect,
       cache_read_data => cache_read_data,
       cache_address => cache_address,
 
