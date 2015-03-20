@@ -303,6 +303,8 @@ architecture Behavioral of container is
          slowram_request_toggle : out std_logic;
          slowram_done_toggle : in std_logic;
          slowram_datain : out std_logic_vector(7 downto 0);
+         slowram_addr_reflect : in std_logic_vector(26 downto 0);
+         slowram_datain_reflect : in std_logic_vector(7 downto 0);
 
          -- simple-dual-port cache RAM interface so that CPU doesn't have to read
          -- data cross-clock
@@ -404,7 +406,7 @@ begin
       ram_address           => slowram_addr,
       ram_write_data        => slowram_datain,
       ram_address_reflect   => slowram_addr_reflect,
-      ram_write_internal    => slowram_datain_reflect,
+      ram_write_reflect     => slowram_datain_reflect,
       ram_write_enable      => slowram_we,
       ram_request_toggle => slowram_request_toggle,
       ram_done_toggle    => slowram_done_toggle,
