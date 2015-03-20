@@ -1273,30 +1273,30 @@ begin
           when x"3" =>
             -- CIA timera IRQ mask debug
             return "0000000"&imask_ta_out;
-          when x"4" =>
-            return ddr_state;
-          when x"5" =>
-            return ddr_counter;
-          when x"6" =>
-            return ddr_reply_counter;
-          when x"7" =>
-            return ddr_timeout_counter;
-          when x"8" =>
-            return ddr_cache_load_counter;
+          --when x"4" =>
+          --  return ddr_state;
+          --when x"5" =>
+          --  return ddr_counter;
+          --when x"6" =>
+          --  return ddr_reply_counter;
+          --when x"7" =>
+          --  return ddr_timeout_counter;
+          --when x"8" =>
+          --  return ddr_cache_load_counter;
           when x"9" =>
             return slowram_desired_done_toggle&slowram_done_toggle&"000000";
-          when x"a" =>
-            return ddr_write_ready_counter;
-          when x"b" =>
-            return unsigned(slowram_datain_reflect);
-          when x"c" =>
-            return unsigned(slowram_addr_reflect(7 downto 0));
-          when x"d" =>
-            return unsigned(slowram_addr_reflect(15 downto 8));
-          when x"e" =>
-            return unsigned(slowram_addr_reflect(23 downto 16));
-          when x"f" =>
-            return "00000"&unsigned(slowram_addr_reflect(26 downto 24));
+          --when x"a" =>
+          --  return ddr_write_ready_counter;
+          --when x"b" =>
+          --  return unsigned(slowram_datain_reflect);
+          --when x"c" =>
+          --  return unsigned(slowram_addr_reflect(7 downto 0));
+          --when x"d" =>
+          --  return unsigned(slowram_addr_reflect(15 downto 8));
+          --when x"e" =>
+          --  return unsigned(slowram_addr_reflect(23 downto 16));
+          --when x"f" =>
+          --  return "00000"&unsigned(slowram_addr_reflect(26 downto 24));
           when others =>
             return x"ff";
         end case;
