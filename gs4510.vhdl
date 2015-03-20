@@ -672,6 +672,7 @@ end component;
   signal ddr_reply_counter : unsigned(7 downto 0) := x"00";
   signal ddr_timeout_counter : unsigned(7 downto 0) := x"00";
   signal ddr_cache_load_counter : unsigned(7 downto 0) := x"00";
+  signal ddr_write_ready_counter : unsigned(7 downto 0) := x"00";
   signal ddr_got_reply : std_logic := '0';
 
   signal slowram_addr_drive : std_logic_vector(26 downto 0);
@@ -1284,6 +1285,18 @@ begin
             return ddr_cache_load_counter;
           when x"9" =>
             return slowram_desired_done_toggle&slowram_done_toggle&"000000";
+          when x"a" =>
+            return ddr_write_ready_counter;
+          when x"b" =>
+            return slowram_datain_reflect;
+          when x"c" =>
+            return slowram_addr_reflect(7 downto 0);
+          when x"d" =>
+            return slowram_addr_reflect(15 downto 8);
+          when x"e" =>
+            return slowram_addr_reflect(23 downto 16);
+          when x"f" =>
+            return "00000"&slowram_addr_reflect(26 downto 24);
           when others =>
             return x"ff";
         end case;
@@ -2155,6 +2168,7 @@ begin
             and (slowram_datain_reflect = slowram_datain_expected) then
             slowram_desired_done_toggle <= not slowram_done_toggle;
             slowram_request_toggle <= not slowram_done_toggle;
+            ddr_write_ready_counter <= ddr_write_ready_counter + 1;
             slowram_trigger_write <= '0';
           end if;
 
