@@ -2132,6 +2132,7 @@ begin
             -- Next cycle we can do stuff, provided that the serial monitor
             -- isn't asking us to do anything.
             proceed <= '1';
+            -- timeout DDR memory if it isn't responding
             if (ddr_got_reply = '0') and (accessing_slowram='1') then
               ddr_timeout_counter <= ddr_timeout_counter + 1;
               slowram_request_toggle <= slowram_done_toggle;
@@ -2148,6 +2149,18 @@ begin
             wait_states <= x"00";
             proceed <= '1';
           end if;
+          -- Similarly, when writing to slowram, we return only once we have verified
+          -- that the value has been written.
+          if (accessing_slowram='1') and (slowram_we_drive='1')
+            and (slowram_data_valid='1')
+            and (slowram_datain_expected = slowram_data_in) then
+            ddr_write_ready_counter <= ddr_write_ready_counter + 1;
+            slowram_trigger_write <= '0';
+            ddr_got_reply <= '1';
+            wait_states <= x"00";
+            proceed <= '1';
+          end if;
+          
           -- If the DDR memory is idle, and he cache has the wrong memory line,
           -- so ask the DDR controller to load the cache line.
           if (accessing_slowram='1') and (slowram_we_drive='0')
@@ -2168,8 +2181,6 @@ begin
             and (slowram_datain_reflect = slowram_datain_expected) then
             slowram_desired_done_toggle <= not slowram_done_toggle;
             slowram_request_toggle <= not slowram_done_toggle;
-            ddr_write_ready_counter <= ddr_write_ready_counter + 1;
-            slowram_trigger_write <= '0';
           end if;
 
         else
