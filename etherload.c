@@ -1,17 +1,21 @@
 
 /* Sample UDP client */
 
+#ifdef _WIN32
+#include <winsock2.h>
+#else
 #include <arpa/inet.h>
-#include <stdlib.h>
-#include <unistd.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#endif
+#include <stdlib.h>
+#include <unistd.h>
 #include <string.h>
 #include <strings.h>
 #include <stdio.h>
 #include <fcntl.h>
 
-unsigned char all_done_routine[128]={
+char all_done_routine[128]={
   // Dummy inc $d020 jmp *-3 routine for debugging
   // 0xa9, 0x00, 0xee, 0x20, 0xd0, 0x4c, 0x2c, 0x68,
 
@@ -24,7 +28,7 @@ unsigned char all_done_routine[128]={
   0xa0, 0x00, 0xa3, 0x00, 0x5c, 0xea, 0x68, 0x68, 0x60
 };
 
-unsigned char dma_load_routine[128+1024]={
+char dma_load_routine[128+1024]={
   // Routine that copies packet contents by DMA
   0xa9, 0xff, 0x8d, 0x05, 0xd7, 0xad, 0x68, 0x68,
   0x8d, 0x06, 0xd7, 0xa9, 0x0d, 0x8d, 0x02, 0xd7,
@@ -54,7 +58,7 @@ unsigned char dma_load_routine[128+1024]={
 };
 
 // Test routine to increment border colour
-unsigned char test_routine[64]={
+char test_routine[64]={
   0xa9,0x00,0xee,0x21,0xd0,0x60
 };
 
@@ -72,9 +76,9 @@ int main(int argc, char**argv)
 
    sockfd=socket(AF_INET,SOCK_DGRAM,0);
    int broadcastEnable=1;
-   setsockopt(sockfd, SOL_SOCKET, SO_BROADCAST, &broadcastEnable, sizeof(broadcastEnable));
+   setsockopt(sockfd, SOL_SOCKET, SO_BROADCAST, (char*)&broadcastEnable, sizeof(broadcastEnable));
 
-   bzero(&servaddr,sizeof(servaddr));
+   memset(&servaddr,0,sizeof(servaddr));
    servaddr.sin_family = AF_INET;
    servaddr.sin_addr.s_addr=inet_addr(argv[1]);
    servaddr.sin_port=htons(4510);
@@ -104,7 +108,7 @@ int main(int argc, char**argv)
      dma_load_routine[DESTINATION_ADDRESS_OFFSET+1]=(address>>8)&0xff;
 
      // Copy data into packet
-     bcopy(buffer,&dma_load_routine[DATA_OFFSET],bytes);
+     memcpy(&dma_load_routine[DATA_OFFSET],buffer,bytes);
 
      sendto(sockfd,dma_load_routine,sizeof dma_load_routine,0,
 	    (struct sockaddr *)&servaddr,sizeof(servaddr));
