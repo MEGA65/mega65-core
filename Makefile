@@ -2,6 +2,13 @@ ROUTEEFFORT=	std
 #ROUTEEFFORT=	med
 #ROUTEEFFORT=	high
 
+UNAME := $(@shell uname)
+ifeq ($(UNAME),MINGW32_NT-6.1)
+SOCKLIBS = -l ws2_32
+else
+SOCKLIBS =
+endif
+
 all:	ghdl-frame-gen \
 	makerom \
 	container.prj \
@@ -49,7 +56,7 @@ videoproxy:	videoproxy.c
 	gcc -Wall -g -o videoproxy videoproxy.c -lpcap
 
 etherload:	etherload.c
-	gcc -Wall -g -o etherload etherload.c
+	gcc -Wall -g -o etherload etherload.c $(SOCKLIBS)
 
 etherkick:	etherkick.c
 	gcc -Wall -g -o etherkick etherkick.c
