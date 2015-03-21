@@ -181,6 +181,7 @@ architecture Behavioral of ddrwrapper is
   signal rst                 : std_logic;
   signal rstn                : std_logic;
   signal rstn_2                : std_logic;
+  signal rstn_3                : std_logic;
   signal sreg                : std_logic_vector(1 downto 0);
 
   signal ram_request_toggle_2 : std_logic := '0';
@@ -259,6 +260,7 @@ begin
       sreg <= sreg(0) & rst_i;
       rstn <= not sreg(1);
       rstn_2 <= rstn;
+      rstn_3 <= rstn_2;
     end if;
   end process RSTSYNC;
 
@@ -299,7 +301,7 @@ begin
       ddr2_odt             => ddr2_odt,
       -- Inputs
       sys_clk_i            => clk_200MHz_i,
-      sys_rst              => rstn_2,
+      sys_rst              => rstn_3,
       -- user interface signals
       app_addr             => mem_addr,
       app_cmd              => mem_cmd,
