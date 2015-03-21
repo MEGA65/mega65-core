@@ -1921,6 +1921,9 @@ begin
     -- BEGINNING OF MAIN PROCESS FOR CPU
     if rising_edge(clock) then
 
+      slowram_addr_reflect_drive <= slowram_addr_reflect;
+      slowram_datain_reflect_drive <= slowram_datain_reflect;
+      
       cpu_hypervisor_mode <= hypervisor_mode;
       
       slowram_addr <= slowram_addr_drive;
@@ -2177,8 +2180,8 @@ begin
           -- can get the write request without missing it.
           if (slowram_trigger_write='1')
             and (slowram_desired_done_toggle = slowram_done_toggle)
-            and (slowram_addr_reflect = slowram_addr_drive)
-            and (slowram_datain_reflect = slowram_datain_expected) then
+            and (slowram_addr_reflect_drive = slowram_addr_drive)
+            and (slowram_datain_reflect_drive = slowram_datain_expected) then
             slowram_desired_done_toggle <= not slowram_done_toggle;
             slowram_request_toggle <= not slowram_done_toggle;
           end if;
