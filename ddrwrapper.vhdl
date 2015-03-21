@@ -188,8 +188,10 @@ architecture Behavioral of ddrwrapper is
   signal last_ram_request_toggle : std_logic := '0';
   signal ram_address_held : std_logic_vector(26 downto 0);
   signal ram_address_internal : std_logic_vector(26 downto 0);
+  signal ram_address_reflect_drive : std_logic_vector(26 downto 0);
   signal ram_write_data_internal : std_logic_vector(7 downto 0);
   signal ram_write_data_held : std_logic_vector(7 downto 0);
+  signal ram_write_reflect_drive : std_logic_vector(7 downto 0);
   signal ram_write_enable_internal : std_logic;
   signal ram_write_enable_held : std_logic;
 
@@ -334,8 +336,10 @@ begin
       ram_address_internal <= ram_address;
       ram_write_data_internal <= ram_write_data;
       -- Reflect memory write details to CPU so that it knows when we have it right.
-      ram_address_reflect <= ram_address_internal;
-      ram_write_reflect <= ram_write_data_internal;
+      ram_address_reflect_drive <= ram_address_internal;
+      ram_address_reflect <= ram_address_reflect_drive;
+      ram_write_reflect_drive <= ram_write_data_internal;
+      ram_write_reflect <= ram_write_reflect_drive;
       -- Delay memory access request toggle by an extra cycle to ensure that
       -- the address (and possibly data) lines have settled.
       -- Our clock here is only ~6.8ns, while CPU is 20ns.  So we need at least
