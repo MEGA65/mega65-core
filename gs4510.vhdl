@@ -676,8 +676,10 @@ end component;
   signal ddr_got_reply : std_logic := '0';
 
   signal slowram_addr_drive : std_logic_vector(26 downto 0);
+  signal slowram_addr_reflect_drive : std_logic_vector(26 downto 0);
   signal slowram_data_in : std_logic_vector(7 downto 0);
   signal slowram_datain_expected : std_logic_vector(7 downto 0);
+  signal slowram_datain_reflect_drive : std_logic_vector(7 downto 0);
   signal slowram_we_drive : std_logic;
 
 begin
