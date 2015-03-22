@@ -2190,6 +2190,11 @@ begin
             and (slowram_datain_reflect_drive = slowram_datain_expected) then
             slowram_desired_done_toggle <= not slowram_done_toggle;
             slowram_request_toggle <= not slowram_done_toggle;
+            -- Reset waitstate timeout to allow for multiple writing to locations
+            -- to make up for unreliability of DDR interface.
+            -- This really shouldn't be needed, since the default timeout is
+            -- 255 cycles = ~5usec.  But we will try anyway...
+            wait_states <= slowram_waitstates;
           end if;
 
         else
