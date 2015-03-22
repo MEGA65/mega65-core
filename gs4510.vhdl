@@ -1290,15 +1290,15 @@ begin
           when x"a" =>
             return ddr_write_ready_counter;
           when x"b" =>
-            return unsigned(slowram_datain_reflect);
+            return unsigned(slowram_datain_reflect_drive);
           when x"c" =>
-            return unsigned(slowram_addr_reflect(7 downto 0));
+            return unsigned(slowram_addr_reflect_drive(7 downto 0));
           when x"d" =>
-            return unsigned(slowram_addr_reflect(15 downto 8));
+            return unsigned(slowram_addr_reflect_drive(15 downto 8));
           when x"e" =>
-            return unsigned(slowram_addr_reflect(23 downto 16));
+            return unsigned(slowram_addr_reflect_drive(23 downto 16));
           when x"f" =>
-            return "00000"&unsigned(slowram_addr_reflect(26 downto 24));
+            return "00000"&unsigned(slowram_addr_reflect_drive(26 downto 24));
           when others =>
             return x"ff";
         end case;

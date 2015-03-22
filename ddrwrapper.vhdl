@@ -301,7 +301,8 @@ begin
       ddr2_odt             => ddr2_odt,
       -- Inputs
       sys_clk_i            => clk_200MHz_i,
-      sys_rst              => rstn_3,
+      -- sys_rst              => rstn_3,
+      sys_rst              => rstn,
       -- user interface signals
       app_addr             => mem_addr,
       app_cmd              => mem_cmd,
