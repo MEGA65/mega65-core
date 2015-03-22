@@ -2167,6 +2167,7 @@ begin
             slowram_pending_write <= '0';
             ddr_got_reply <= '1';
             wait_states <= x"00";
+            slowram_we_drive <= '0';
             proceed <= '1';
           end if;
           
@@ -2210,7 +2211,7 @@ begin
 --            report "resetting mem_reading (read $" & to_hstring(memory_read_value) & ")" severity note;
             mem_reading <= '0';
             monitor_mem_reading <= '0';
-          end if;          
+          end if;
 
           proceed <= '1';
         end if;
