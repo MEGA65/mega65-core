@@ -974,9 +974,15 @@ rf1:
 		; copy sector into slow ram
 		ldx #$00
 rr1:		lda $de00,x
+buggyddrwriteretry1:
 		sta $4000,x
+		cmp $4000,x
+		bne buggyddrwriteretry1
 		lda $df00,x
+buggyddrwriteretry2:
 		sta $4100,x
+		cmp $4100,x
+		bne buggyddrwriteretry2
 		inx
 		bne rr1
 
