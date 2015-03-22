@@ -268,7 +268,7 @@ end component;
 
   signal slowram_desired_done_toggle : std_logic := '0';
   signal slowram_data_valid : std_logic := '0';
-  signal slowram_trigger_write : std_logic := '0';
+  signal slowram_pending_write : std_logic := '0';
 
   -- Number of pending wait states
   signal wait_states : unsigned(7 downto 0) := x"05";
@@ -1100,7 +1100,7 @@ begin
       accessing_fastio <= '0'; accessing_vic_fastio <= '0';
       accessing_cpuport <= '0'; accessing_colour_ram_fastio <= '0';
       accessing_slowram <= '0'; accessing_hypervisor <= '0';
-      slowram_trigger_write <= '0';
+      slowram_pending_write <= '0';
       wait_states <= io_read_wait_states;
       ddr_got_reply <= '0';
 
@@ -1423,7 +1423,7 @@ begin
       accessing_cpuport <= '0'; accessing_colour_ram_fastio <= '0';
       accessing_shadow <= '0';
       accessing_slowram <= '0';
-      slowram_trigger_write <= '0';
+      slowram_pending_write <= '0';
       ddr_got_reply <= '0';
 
       shadow_write_flags(0) <= '1';
@@ -1662,8 +1662,9 @@ begin
         slowram_we_drive <= '1';
         slowram_datain <= std_logic_vector(value);
         slowram_datain_expected <= std_logic_vector(value);
-        slowram_trigger_write <= '1';
+        slowram_pending_write <= '1';
         wait_states <= slowram_waitstates;
+        proceed <= '0';
       else
         -- Don't let unmapped memory jam things up
         shadow_write <= '0';
@@ -2144,7 +2145,7 @@ begin
               ddr_timeout_counter <= ddr_timeout_counter + 1;
               slowram_request_toggle <= slowram_done_toggle;
               slowram_desired_done_toggle <= slowram_done_toggle;
-              slowram_trigger_write <='0';
+              slowram_pending_write <='0';
             end if;
           end if;
           -- Stop waiting on slow ram as soon as we have the result.
@@ -2163,7 +2164,7 @@ begin
             and (slowram_data_valid='1')
             and (slowram_datain_expected = slowram_data_in) then
             ddr_write_ready_counter <= ddr_write_ready_counter + 1;
-            slowram_trigger_write <= '0';
+            slowram_pending_write <= '0';
             ddr_got_reply <= '1';
             wait_states <= x"00";
             proceed <= '1';
@@ -2183,7 +2184,7 @@ begin
           -- Now that the slowram signals have all been set for a write and
           -- had a cycle to settle, toggle the request line, so that the DDR
           -- can get the write request without missing it.
-          if (slowram_trigger_write='1')
+          if (slowram_pending_write='1')
             and (slowram_desired_done_toggle = slowram_done_toggle)
             and (slowram_addr_reflect_drive = slowram_addr_drive)
             and (slowram_datain_reflect_drive = slowram_datain_expected) then
