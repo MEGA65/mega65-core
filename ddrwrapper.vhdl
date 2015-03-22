@@ -180,9 +180,7 @@ architecture Behavioral of ddrwrapper is
   signal mem_ui_rst          : std_logic;
   signal rst                 : std_logic;
   signal rstn                : std_logic;
-  signal rstn_2                : std_logic;
-  signal rstn_3                : std_logic;
-  signal sreg                : std_logic_vector(1 downto 0);
+  signal sreg                : std_logic_vector(6 downto 0);
 
   signal ram_request_toggle_2 : std_logic := '0';
   signal ram_request_toggle_internal : std_logic := '0';
@@ -256,11 +254,9 @@ begin
 ------------------------------------------------------------------------
   RSTSYNC: process(clk_200MHz_i)
   begin
-    if rising_edge(clk_200MHz_i) then
-      sreg <= sreg(0) & rst_i;
-      rstn <= not sreg(1);
-      rstn_2 <= rstn;
-      rstn_3 <= rstn_2;
+    if rising_edge(clk_200MHz_i) then      
+      sreg <= sreg(5 downto 0) & (not rst_i);
+      rstn <= sreg(6);
     end if;
   end process RSTSYNC;
 
