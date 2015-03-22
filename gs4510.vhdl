@@ -1287,7 +1287,13 @@ begin
           when x"8" =>
             return ddr_cache_load_counter;
           when x"9" =>
-            return slowram_desired_done_toggle&slowram_done_toggle&accessing_slowram&"00000";
+            return slowram_desired_done_toggle
+              &slowram_done_toggle
+              &accessing_slowram
+              &slowram_we_drive
+              &slowram_pending_write
+              &slowram_data_valid
+              &"00";
           when x"a" =>
             return ddr_write_ready_counter;
           when x"b" =>
