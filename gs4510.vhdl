@@ -1286,7 +1286,7 @@ begin
           when x"8" =>
             return ddr_cache_load_counter;
           when x"9" =>
-            return slowram_desired_done_toggle&slowram_done_toggle&"000000";
+            return slowram_desired_done_toggle&slowram_done_toggle&accesing_slowram&"00000";
           when x"a" =>
             return ddr_write_ready_counter;
           when x"b" =>
@@ -1402,6 +1402,7 @@ begin
         return unsigned(fastio_rdata);
       elsif accessing_slowram='1' then
         report "reading slow RAM data. Word is $" & to_hstring(slowram_data_in) severity note;
+        accessing_slowram <= '0';
         return unsigned(slowram_data_in);
       else
         report "accessing unmapped memory" severity note;
@@ -2164,6 +2165,7 @@ begin
             ddr_got_reply <= '1';
             wait_states <= x"00";
             proceed <= '1';
+            accessing_slowram <= '0';
           end if;
           
           -- If the DDR memory is idle, and he cache has the wrong memory line,
@@ -2178,7 +2180,7 @@ begin
           end if;
 
           -- Now that the slowram signals have all been set for a write and
-          -- had a cycle to settled, toggle the request line, so that the DDR
+          -- had a cycle to settle, toggle the request line, so that the DDR
           -- can get the write request without missing it.
           if (slowram_trigger_write='1')
             and (slowram_desired_done_toggle = slowram_done_toggle)
