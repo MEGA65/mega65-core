@@ -1100,6 +1100,7 @@ begin
       accessing_fastio <= '0'; accessing_vic_fastio <= '0';
       accessing_cpuport <= '0'; accessing_colour_ram_fastio <= '0';
       accessing_slowram <= '0'; accessing_hypervisor <= '0';
+      slowram_trigger_write <= '0';
       wait_states <= io_read_wait_states;
       ddr_got_reply <= '0';
 
@@ -1402,7 +1403,6 @@ begin
         return unsigned(fastio_rdata);
       elsif accessing_slowram='1' then
         report "reading slow RAM data. Word is $" & to_hstring(slowram_data_in) severity note;
-        accessing_slowram <= '0';
         return unsigned(slowram_data_in);
       else
         report "accessing unmapped memory" severity note;
@@ -1423,6 +1423,7 @@ begin
       accessing_cpuport <= '0'; accessing_colour_ram_fastio <= '0';
       accessing_shadow <= '0';
       accessing_slowram <= '0';
+      slowram_trigger_write <= '0';
       ddr_got_reply <= '0';
 
       shadow_write_flags(0) <= '1';
@@ -2143,6 +2144,7 @@ begin
               ddr_timeout_counter <= ddr_timeout_counter + 1;
               slowram_request_toggle <= slowram_done_toggle;
               slowram_desired_done_toggle <= slowram_done_toggle;
+              slowram_trigger_write <='0';
             end if;
           end if;
           -- Stop waiting on slow ram as soon as we have the result.
@@ -2165,7 +2167,6 @@ begin
             ddr_got_reply <= '1';
             wait_states <= x"00";
             proceed <= '1';
-            accessing_slowram <= '0';
           end if;
           
           -- If the DDR memory is idle, and he cache has the wrong memory line,
