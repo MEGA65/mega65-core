@@ -1012,19 +1012,20 @@ buggyddrwriteretry2:
 rf2:		
 		lda rom_sectorsread+1
 		cmp #$02
-		beq romfilesizeerror
+		beq romfiletoolong
 
 		; else read next sector and continue
 		inc $d020
+		
 		jsr fs_readnextsector
 		bcs rf1
 
 
 		lda rom_sectorsread
-		bne romfilesizeerror
+		bne romfiletooshort
 		lda rom_sectorsread+1
 		cmp #$01
-		bne romfilesizeerror
+		bne romfiletooshort
 
 		; need to store checksum
 		jsr storeromsum
@@ -1035,9 +1036,19 @@ rf2:
 		jsr printmessage
 		jmp go64		
 
-romfilesizeerror:
-		ldx #<msg_romfilesizeerror
-		ldy #>msg_romfilesizeerror
+romfiletoolong:
+		ldx #<msg_romfilelongerror
+		ldy #>msg_romfilelongerror
+		jsr printmessage
+		ldz rom_sectorsread+1
+		jsr printhex
+		ldz rom_sectorsread
+		jsr printhex
+		jsr sdwaitawhile
+		jmp reset_entry
+romfiletooshort:
+		ldx #<msg_romfileshorterror
+		ldy #>msg_romfileshorterror
 		jsr printmessage
 		ldz rom_sectorsread+1
 		jsr printhex
@@ -1176,6 +1187,16 @@ of1:
 		jmp sd_readsector
 
 fs_readnextsector:
+		; if switch 12 set, then indicate when we are looking for a sector
+		lda $d6f1
+		and #$10
+		beq rs97
+		ldx #<msg_lookingfornextsector
+		ldy #>msg_lookingfornextsector
+		jsr printmessage
+		jsr sdwaitawhile
+rs97:
+
 		; load next sector of file
 		jsr sd_inc_fixedsectornumber
 		inc fs_sector_in_cluster
@@ -1193,6 +1214,7 @@ rs5:		; cluster number is right
 		jsr fs_clustertosector
 		jsr sd_fix_sectornumber
 		php
+		; display cluster number if switch 12 is set
 		lda $d6f1
 		and #$10
 		beq rs98
@@ -2608,7 +2630,8 @@ msg_sectornumber:     .byte " CLUSTER:$$$$$$$$ -> SECTOR:$$$$$$$$    "
 msg_foundromfile:     .byte "FOUND ROM FILE. START CLUSTER = $$$$$$$$"
 msg_fileopenerror:    .byte "COULD NOT OPEN ROM FILE FOR READING     "
 msg_readingfile:      .BYTE "READING ROM FILE...                     "
-msg_romfilesizeerror: .byte "ROM WRONG SIZE: (READ $$$$ SECTORS)     "
+msg_romfilelongerror: .byte "ROM TOO LONG: (READ $$$$ SECTORS)       "
+msg_romfileshorterror:.byte "ROM TOO SHORT: (READ $$$$ SECTORS)      "
 msg_clusternumber:    .byte " NEXT CLUSTER=$$$$$$$$                  "
 msg_sectoraddress:    .byte " NEXT SECTOR=$$$$$$$$                   "
 msg_checkpoint:	      .byte " CHECKPOINT $$ $$ $$ $$ $$ $$ $$ $$ $$  "
@@ -2624,6 +2647,8 @@ msg_nokickup:         .byte "NO KICKUP.G65 TO LOAD (OR BROKEN)       "
 msg_kickuploaded:     .byte "KICKUP LOADED TO 00004000 - $$$$$$$$    "
 msg_alreadykicked:    .byte "RUNNING KICKED HYPERVISOR               "
 msg_etherkick:	      .byte "BOOTING VIA ETHERKICK: UDP PORT 4111    "
+msg_lookingfornextsector:
+		      .byte "LOOKING FOR NEXT SECTOR OF FILE         "
 
 ; filename of ROM we want to load in FAT directory format
 txt_c65gsrom:	      .byte "C65GS   ROM"
