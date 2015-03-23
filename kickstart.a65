@@ -531,7 +531,7 @@ l16:		lda $DE2C,x
 
 		; already kicked
 		ldx #<msg_alreadykicked
-		ldy #<msg_alreadykicked
+		ldy #>msg_alreadykicked
 		jsr printmessage
 		jmp postkickup
 
@@ -1039,6 +1039,12 @@ romfilesizeerror:
 		ldx #<msg_romfilesizeerror
 		ldy #>msg_romfilesizeerror
 		jsr printmessage
+		ldz rom_sectorsread+1
+		jsr printhex
+		ldz rom_sectorsread
+		jsr printhex
+		jsr sdwaitawhile
+		jmp reset_entry
 
 fileopenerror:
 		ldx #<msg_fileopenerror
@@ -2602,7 +2608,7 @@ msg_sectornumber:     .byte " CLUSTER:$$$$$$$$ -> SECTOR:$$$$$$$$    "
 msg_foundromfile:     .byte "FOUND ROM FILE. START CLUSTER = $$$$$$$$"
 msg_fileopenerror:    .byte "COULD NOT OPEN ROM FILE FOR READING     "
 msg_readingfile:      .BYTE "READING ROM FILE...                     "
-msg_romfilesizeerror: .byte "ROM FILE WRONG SIZE: MUST BE 128KB      "
+msg_romfilesizeerror: .byte "ROM WRONG SIZE: (READ $$$$ SECTORS)     "
 msg_clusternumber:    .byte " NEXT CLUSTER=$$$$$$$$                  "
 msg_sectoraddress:    .byte " NEXT SECTOR=$$$$$$$$                   "
 msg_checkpoint:	      .byte " CHECKPOINT $$ $$ $$ $$ $$ $$ $$ $$ $$  "
