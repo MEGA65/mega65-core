@@ -26,9 +26,11 @@
 ; the desire is to have an SYS call that brings up a menu that lets
 ; you choose a disk image from a list.
 	.data 
-	.org $00fb
-	.space zptempv 2
+	.org $00f0
+	.space zptempv 4
 	.space zptempv2 2
+	.space zptempp 2
+	.space zptempp2 2
 
 	.org $ce00
 	.space romslab 1
@@ -2141,43 +2143,43 @@ checkpoint:
 		jmp printhex
 
 printmessage:
-		stx zptempv
-		sty zptempv+1
+		stx zptempp
+		sty zptempp+1
 		lda #$00
-		sta zptempv2
+		sta zptempp2
 		lda #$04
-		sta zptempv2+1
+		sta zptempp2+1
 		ldx screenrow
 pm2:		cpx #$00
 		beq pm1
 		clc
-		lda zptempv2
+		lda zptempp2
 		adc #$28
-		sta zptempv2
-		lda zptempv2+1
+		sta zptempp2
+		lda zptempp2+1
 		adc #$00
-		sta zptempv2+1
+		sta zptempp2+1
 		; if reached bottom of screen, then loop back to top of screen
 		cmp #$07
 		bcc pm5
-		lda zptempv2
+		lda zptempp2
 		cmp #$e8
 		bcc pm5
 	
 		lda #$00
-		sta zptempv2
+		sta zptempp2
 		lda #$04
-		sta zptempv2+1
+		sta zptempp2+1
 pm5:		dex
 		bne pm2
 pm1:
 		ldy #$27
-pm3:		lda (zptempv),y
+pm3:		lda (zptempp),y
 		; convert ASCII/PETSCII to screen codes
 		cmp #$40
 		bcc pm4
 		and #$1f
-pm4:		sta (zptempv2),y
+pm4:		sta (zptempp2),y
 		dey
 		bpl pm3
 
