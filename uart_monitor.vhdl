@@ -110,6 +110,7 @@ architecture behavioural of uart_monitor is
   END component;
 
   signal history_record : std_logic := '1';
+  signal history_record_continuous : std_logic := '0';
   signal history_address : integer range 0 to 1023 := 0;
   signal history_write : std_logic := '0';
   signal history_wdata : unsigned(176 downto 0);
@@ -631,8 +632,10 @@ begin
         history_write <= '1';
         history_address <= history_address + 1;
       else
-        history_write <= '0';
-        history_record <= '0';
+        -- Stop recording once we have 1024 entries, unless we are doing continuous
+        -- recording.
+        history_write <= history_record_continuous;
+        history_record <= history_record_continuous;
       end if;
       history_wdata(7 downto 0) <= monitor_p;
       history_wdata(15 downto 8) <= monitor_a;
@@ -847,6 +850,15 @@ begin
                   state <= NextCommand;
                   -- Also start capturing CPU history
                   history_record <= '1';
+                  history_record_continuous <= '0';
+                  history_address <= 0;
+                elsif cmdbuffer(2)='l' then
+                  -- Set CPU free running
+                  monitor_mem_trace_mode<='0';
+                  state <= NextCommand;
+                  -- Also start capturing CPU history continuously
+                  history_record <= '1';
+                  history_record_continuous <= '1';
                   history_address <= 0;
                 else
                   state <= TraceStep;
