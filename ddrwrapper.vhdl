@@ -204,6 +204,8 @@ architecture Behavioral of ddrwrapper is
   signal debug_counter_localclock : unsigned(7 downto 0) := x"00";
   signal ddr_state_localclock : unsigned(7 downto 0) := x"00";
 
+  signal ddr_timeout : unsigned(7 downto 0);
+  
   -- cache for 16 bytes we read at a time, to avoid wasting time with
   -- full requests for accesses in the same 16 bytes.
   -- (We also write to the cache when processing writes so that it stays
@@ -432,6 +434,7 @@ begin
                           & ram_write_data_held & ram_write_data_held
                           & ram_write_data_held & ram_write_data_held
                           & ram_write_data_held & ram_write_data_held;
+          ddr_timeout <= x"ff";
         when stSendData =>
           -- Wait until memory finishes writing
           mem_wdf_wren <= '1';
@@ -440,6 +443,12 @@ begin
           if mem_wdf_rdy = '1' then
             nState <= stSetCmdWr;
             debug_counter_localclock <= debug_counter_localclock + 1;
+          end if;
+          -- Allow writes to timeout.
+          if ddr_timeout = "00" then
+            nState <= stSetCmdWr;
+          else
+            ddr_timeout <= ddr_timeout - 1;
           end if;
         when stSetCmdRd =>
           -- Wait for memory to be finish the read
@@ -457,6 +466,13 @@ begin
             -- for subsequent reads.
             last_ram_read_data_localclock <= mem_rd_data;
             nState <= stDone;
+          else
+            -- Allow reads to timeout.
+            if ddr_timeout = "00" then
+              nState <= stDone;
+            else
+              ddr_timeout <= ddr_timeout - 1;
+            end if;
           end if;
         when stSetCmdWr =>
           mem_en <= '1';
@@ -464,6 +480,13 @@ begin
           if mem_rdy = '1' then
             nState <= stDone;
           end if;
+          -- Allow writes to timeout.
+          if ddr_timeout = "00" then
+            nState <= stDone;
+          else
+            ddr_timeout <= ddr_timeout - 1;
+          end if;
+
         when stDone =>
           -- Delay memory done announcement to give data plenty of time to settle
           ram_done_toggle_localclock <= ram_request_toggle_internal;
