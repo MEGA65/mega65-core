@@ -908,6 +908,7 @@ foundromfile:
 		ldy #>msg_foundromfile
 		jsr printmessage
 		ldy #$00
+
 		ldz fs_clusternumber+3
 		jsr printhex
 		ldz fs_clusternumber+2
@@ -927,6 +928,13 @@ foundromfile:
 		lda #$00
 		sta rom_sectorsread
 		sta rom_sectorsread+1
+
+		; Wait until switch 14 released before loading ROM so that we
+		; can intercept the routine to track down bugs
+lr96:		inc $d020
+		lda $d6f1
+		and #$40
+		bne lr96
 
 rf1:		
 		; Write sector to ROM space.
@@ -1020,8 +1028,18 @@ rf2:
 		inc $d020
 		
 		jsr fs_readnextsector
+		; XXX - Debug status of reading sectors
+		php
+		pla
+		sta $0427		
 		bcs rf1
 
+		; Wait until switch 14 released before loading ROM so that we
+		; can intercept the routine to track down bugs
+lr95:		inc $d020
+		lda $d6f1
+		and #$40
+		bne lr95
 
 		lda rom_sectorsread
 		bne romfiletooshort
@@ -2180,7 +2198,8 @@ pm3:		lda (zptempp),y
 		bcc pm4
 		and #$1f
 pm4:		sta (zptempp2),y
-		dey
+
+dey
 		bpl pm3
 
 		inc screenrow
@@ -2200,7 +2219,7 @@ printhex:
 printhexdigit:
 		; find next $ sign to replace with hex digit
 		tax
-phd3:		lda (zptempv2),y
+phd3:		lda (zptempp2),y
 		cmp #$24
 		beq phd2
 		iny
@@ -2213,7 +2232,7 @@ phd2:		txa
 		cmp #$3a
 		bcc phd1
 		sbc #$39
-phd1:		sta (zptempv2),y
+phd1:		sta (zptempp2),y
 		iny
 		rts
 
