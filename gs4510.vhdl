@@ -2173,7 +2173,6 @@ begin
             slowram_pending_write <= '0';
             ddr_got_reply <= '1';
             wait_states <= x"00";
-            slowram_we_drive <= '0';
             proceed <= '1';
           end if;
           
