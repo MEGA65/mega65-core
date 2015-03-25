@@ -24,10 +24,14 @@ architecture behavior of cpu_test is
   signal vgagreen : unsigned(3 downto 0);
   signal vgablue : unsigned(3 downto 0);
 
-  signal slowram_oe : std_logic;
-  signal slowram_data : std_logic_vector(15 downto 0);
-  signal slowram_addr : std_logic_vector(22 downto 0);
-  signal slowram_addr_integer : integer range 0 to 65535;
+  signal slowram_datain : std_logic_vector(7 downto 0);
+  signal slowram_addr : std_logic_vector(26 downto 0);
+  signal slowram_addr_integer : integer range 0 to (1048576*128-1);
+  signal slowram_we : std_logic;
+  signal slowram_request_toggle : std_logic;
+  signal slowram_done_toggle : std_logic;  
+  signal cache_address : std_logic_vector(8 downto 0);
+  signal cache_read_data : std_logic_vector(150 downto 0);
   
   signal led0 : std_logic;
   signal led1 : std_logic;
@@ -50,10 +54,13 @@ architecture behavior of cpu_test is
   signal sseg_an : std_logic_vector(7 downto 0);
 
   component slowram is
-  port (address : in integer range 0 to 65535;
-        -- output enable, active high       
-        oe : in std_logic;
-        data_o : out unsigned(15 downto 0)
+  port (address : in std_logic_vector(26 downto 0);
+        datain : in std_logic_vector(7 downto 0);
+        request_toggle : in std_logic;
+        done_toggle : out std_logic;
+        cache_address : in std_logic_vector(8 downto 0);
+        we : in std_logic;
+        cache_read_data : out std_logic_vector(150 downto 0)
         );
   end component;
   
@@ -70,6 +77,9 @@ architecture behavior of cpu_test is
 
            no_kickstart : in std_logic;
            
+           ddr_counter : in unsigned(7 downto 0);
+           ddr_state : in unsigned(7 downto 0);
+
            ----------------------------------------------------------------------
            -- VGA output
            ----------------------------------------------------------------------
@@ -85,6 +95,8 @@ architecture behavior of cpu_test is
            QspiSCK : out std_logic;
            QspiDB : inout std_logic_vector(3 downto 0);
            QspiCSn : out std_logic;
+
+           fpga_temperature : in std_logic_vector(11 downto 0);
 
            ---------------------------------------------------------------------------
            -- IO lines to the ethernet controller
@@ -131,13 +143,17 @@ architecture behavior of cpu_test is
            --------------------------------------------------------------------
            -- Slow RAM interface: null for now
            --------------------------------------------------------------------
-           slowram_addr : out std_logic_vector(22 downto 0);
+           slowram_addr_reflect : in std_logic_vector(26 downto 0);
+           slowram_datain_reflect : in std_logic_vector(7 downto 0);
+           slowram_addr : out std_logic_vector(26 downto 0);
            slowram_we : out std_logic;
-           slowram_ce : out std_logic;
-           slowram_oe : out std_logic;
-           slowram_lb : out std_logic;
-           slowram_ub : out std_logic;
-           slowram_data : inout std_logic_vector(15 downto 0);
+           slowram_request_toggle : out std_logic;
+           slowram_done_toggle : in std_logic;
+           slowram_datain : out std_logic_vector(7 downto 0);
+           -- simple-dual-port cache RAM interface so that CPU doesn't have to read
+           -- data cross-clock
+           cache_address        : out std_logic_vector(8 downto 0);
+           cache_read_data      : in std_logic_vector(150 downto 0);   
            
            ----------------------------------------------------------------------
            -- PS/2 adapted USB keyboard & joystick connector.
@@ -192,13 +208,21 @@ architecture behavior of cpu_test is
   
 begin
   slowram0: slowram
-    port map(address => slowram_addr_integer,
-             oe => slowram_oe,
-             std_logic_vector(data_o) => slowram_data
+    port map(address => slowram_addr,
+             datain => slowram_datain,
+             we => slowram_we,
+             request_toggle => slowram_request_toggle,
+             done_toggle => slowram_done_toggle,
+             cache_address => cache_address,
+             cache_read_data => cache_read_data
              );
 
   core0: machine
     port map (
+      ddr_counter => (others => '1'),
+      ddr_state => (others => '1'),
+      fpga_temperature => (others => '1'),
+      
       pixelclock      => pixelclock,
       pixelclock2x    => pixelclock, -- XXX we don't need the 2x clock in
                                      -- simulation. as it is only used for the
@@ -235,10 +259,16 @@ begin
       eth_rxdv => eth_rxdv,
       eth_rxer => '0',
       eth_interrupt => '0',
-      
-      slowram_data => slowram_data,
+
+      slowram_addr_reflect => slowram_addr,
+      slowram_datain_reflect => slowram_datain,
+      slowram_datain => slowram_datain,
       slowram_addr => slowram_addr,
-      slowram_oe => slowram_oe,
+      slowram_we => slowram_we,
+      slowram_request_toggle => slowram_request_toggle,
+      slowram_done_toggle => slowram_done_toggle,
+      cache_address => cache_address,
+      cache_read_data => cache_read_data,
       
       vsync           => vsync,
       hsync           => hsync,
@@ -261,16 +291,10 @@ begin
 
       sseg_ca         => sseg_ca,
       sseg_an         => sseg_an);
-
-  process(slowram_addr)
-  begin
-    slowram_addr_integer <= to_integer(unsigned(slowram_addr(15 downto 0)));
-  end process;
   
   process
   begin  -- process tb
     report "beginning simulation" severity note;
-    slowram_data <= (others => 'Z');
 
     for i in 1 to 2000000 loop
       pixelclock <= '0'; cpuclock <= '0'; ioclock <= '0';
