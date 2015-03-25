@@ -49,8 +49,8 @@ tests/textmodetest.prg:	tests/textmodetest.a65 tests/dejavus.f65 Makefile
 kickstart.vhdl:	rom_template.vhdl diskchooser kickstart65gs.bin makerom
 	./makerom rom_template.vhdl kickstart65gs.bin kickstart
 
-slowram.vhdl:	c65gs.rom makeslowram slowram_template.vhdl
-	./makeslowram slowram_template.vhdl c65gs.rom slowram
+#slowram.vhdl:	c65gs.rom makeslowram slowram_template.vhdl
+#	./makeslowram slowram_template.vhdl c65gs.rom slowram
 
 videoproxy:	videoproxy.c
 	gcc -Wall -g -o videoproxy videoproxy.c -lpcap
