@@ -414,7 +414,10 @@ architecture behavioral of iomapper is
   signal eth_keycode_toggle : std_logic;
   signal eth_keycode : unsigned(15 downto 0);
   
-begin         
+begin
+
+  block1: block
+  begin
   kickstartrom : kickstart port map (
     clk     => clk,
     address => address(13 downto 0),
@@ -422,7 +425,10 @@ begin
     cs      => kickstartcs,
     data_i  => data_i,
     data_o  => data_o);
+  end block;
 
+  block2: block
+  begin
   framepacker0: framepacker port map (
     ioclock => clk,
     pixelclock => pixelclk,
@@ -444,7 +450,10 @@ begin
     fastio_read => r,
     fastio_wdata => unsigned(data_i)
     );
-    
+  end block;
+
+  block3: block
+  begin
   cia1: cia6526 port map (
     cpuclock => clk,
     phi0 => phi0,
@@ -466,8 +475,11 @@ begin
     spin => '1',
     countin => '1'
     );
+  end block;
 
-  cia2two: cia6526 port map (
+  block4: block
+  begin
+  ciatwo: cia6526 port map (
     cpuclock => clk,
     phi0 => phi0,
     todclock => clock50hz,
@@ -486,7 +498,10 @@ begin
     spin => '1',
     countin => '1'
     );
+  end block;
 
+  block5: block
+  begin
   keymapper0 : keymapper port map (
     pixelclk       => clk,
     nmi => restore_nmi,
@@ -507,8 +522,11 @@ begin
     -- remote 
     eth_keycode_toggle => key_scancode_toggle,
     eth_keycode => key_scancode
-);
+    );
+  end block;
 
+  block6: block
+  begin
   leftsid: sid6581 port map (
     clk_1MHz => phi0,
     clk32 => clk,
@@ -521,7 +539,10 @@ begin
     pot_x => x"01",
     pot_y => x"02",
     audio_data => leftsid_audio);
+  end block;
 
+  block7: block
+  begin
   rightsid: sid6581 port map (
     clk_1MHz => phi0,
     clk32 => clk,
@@ -534,6 +555,7 @@ begin
     pot_x => x"03",
     pot_y => x"04",
     audio_data => rightsid_audio);
+  end block;
 
   ethernet0 : ethernet port map (
     clock50mhz => clock50mhz,
