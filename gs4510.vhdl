@@ -1355,7 +1355,7 @@ begin
 --        report "reading from shadowram" severity note;
         return shadow_rdata;
       else
---        report "reading from somewhere other than shadowram" severity note;
+        report "reading from somewhere other than shadowram" severity note;
         return read_data_copy;
       end if;
     end read_data;
@@ -2123,7 +2123,9 @@ begin
         fast_fetch_state <= ProcessorHold;
       end if;
 
-      memory_read_value := read_data;
+      if mem_reading='1' then
+        memory_read_value := read_data;
+      end if;
       
       -- report "reset = " & std_logic'image(reset) severity note;
       if reset='0' then
