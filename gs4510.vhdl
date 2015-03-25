@@ -2158,7 +2158,7 @@ begin
           -- We know we have the result when the RAM is no longer busy, and the
           -- cache has the correct memory line.
           if (accessing_slowram='1') and (slowram_we_drive='0')
-            and (slowram_data_valid='1') then
+            and (slowram_data_valid='1') and (proceed='0') then
             ddr_reply_counter <= ddr_reply_counter + 1;
             ddr_got_reply <= '1';
             wait_states <= x"00";
@@ -2167,7 +2167,7 @@ begin
           -- Similarly, when writing to slowram, we return only once we have verified
           -- that the value has been written.
           if (accessing_slowram='1') and (slowram_we_drive='1')
-            and (slowram_data_valid='1')
+            and (slowram_data_valid='1') and (proceed='0')
             and (slowram_datain_expected = slowram_data_in) then
             ddr_write_ready_counter <= ddr_write_ready_counter + 1;
             slowram_pending_write <= '0';
