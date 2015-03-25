@@ -258,6 +258,7 @@ architecture Behavioral of machine is
       monitor_pc : out unsigned(15 downto 0);
       monitor_state : out unsigned(15 downto 0);
       monitor_instruction : out unsigned(7 downto 0);
+      monitor_instructionpc : out unsigned(15 downto 0);
       monitor_watch : in unsigned(27 downto 0);
       monitor_watch_match : out std_logic;
       monitor_opcode : out unsigned(7 downto 0);
@@ -583,6 +584,7 @@ architecture Behavioral of machine is
   signal monitor_ddr_ram_banking : std_logic;
   signal monitor_state : unsigned(15 downto 0);
   signal monitor_instruction : unsigned(7 downto 0);
+  signal monitor_instructionpc : unsigned(15 downto 0);
   signal monitor_watch : unsigned(27 downto 0);
 --  signal monitor_debug_memory_access : std_logic_vector(31 downto 0);
   signal monitor_proceed : std_logic;
