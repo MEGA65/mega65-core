@@ -216,58 +216,6 @@ trap_entry_points:
 ;;; ----------------------------------------------------------------------------
 	.advance $8100
 reset_entry:
-		; XXX debug test reading vector from DDR RAM when exiting hypervisor
-		lda #$3f
-		sta $d650 ; cpu port $00
-		sta $d651 ; cpu port $01
-		lda #$00
-		sta $d652 ; c65 io map select (C64 mode)
-		sta $d648 ; PC low
-		sta $d64a    ; MAPLO
-		sta $d64b    ; MAPLO
-		sta $d64c    ; MAPHI
-		sta $d64d    ; MAPHI
-		sta $d64e    ; MB LO
-		sta $d64f    ; MB HI
-		lda #$e0
-		sta $d649 ; PC high		
-
-		; copy sector into slow ram to tickle stray write bug
-
-		; start by setting MAP MB register to $80xxxxx
-		lda #$80
-		ldx #$0f		
-		ldy #$00   ; keep kickstart mapped at $8000-$BFFF
-		ldz #$3f
-		map
-		eom
-		; now map $4000-$5FFF to slow ram
-		lda #$00
-		ldx #$40
-		ldy #$00   ; keep kickstart mapped at $8000-$BFFF
-		ldz #$3f
-		map
-		eom
-
-
-		ldx #$00
-qrr1:		lda $8000,x
-qbuggyddrwriteretry1:
-		sta $4000,x
-		cmp $4000,x
-		bne qbuggyddrwriteretry1
-		lda $8100,x
-qbuggyddrwriteretry2:
-		sta $4100,x
-		cmp $4100,x
-		bne qbuggyddrwriteretry2
-		inx
-		bne qrr1
-
-
-		; exit hypervisor
-		sta $d67f
-
 		; get CPU state sensible
 		sei
 		cld
