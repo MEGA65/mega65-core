@@ -1102,6 +1102,8 @@ begin
       accessing_cpuport <= '0'; accessing_colour_ram_fastio <= '0';
       accessing_slowram <= '0'; accessing_hypervisor <= '0';
       slowram_pending_write <= '0';
+      slowram_we_drive <= '0';
+
       wait_states <= io_read_wait_states;
       ddr_got_reply <= '0';
 
