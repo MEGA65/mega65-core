@@ -864,6 +864,7 @@ begin
       -- for 64 x 4 byte entry points for hypervisor traps
       -- from writing to $FFD3640-$FFD367F
       hypervisor_trap_port <= "1000000";
+      report "Setting PC to $8100 on reset";
       reg_pc <= x"8100";
 
       -- Clear CPU MMU registers, and bank in kickstart ROM
@@ -1355,7 +1356,7 @@ begin
 --        report "reading from shadowram" severity note;
         return shadow_rdata;
       else
-        report "reading from somewhere other than shadowram" severity note;
+        -- report "reading from somewhere other than shadowram" severity note;
         return read_data_copy;
       end if;
     end read_data;
@@ -1817,13 +1818,13 @@ begin
       end if;
 
       -- Return final value
-      report "add result of "
-        & "$" & to_hstring(std_logic_vector(i1)) 
-        & " + "
-        & "$" & to_hstring(std_logic_vector(i2)) 
-        & " + "
-        & "$" & std_logic'image(flag_c)
-        & " = " & to_hstring(std_logic_vector(tmp(7 downto 0))) severity note;
+      --report "add result of "
+      --  & "$" & to_hstring(std_logic_vector(i1)) 
+      --  & " + "
+      --  & "$" & to_hstring(std_logic_vector(i2)) 
+      --  & " + "
+      --  & "$" & std_logic'image(flag_c)
+      --  & " = " & to_hstring(std_logic_vector(tmp(7 downto 0))) severity note;
       return tmp;
     end function alu_op_add;
 
@@ -2245,10 +2246,12 @@ begin
               vector <= vector + 1;
               state <= VectorRead2;
             when VectorRead2 =>
+              report "Setting PC-low during vector read";
               reg_pc(7 downto 0) <= memory_read_value;
               memory_access_address := x"000FFF"&vector;
               state <= VectorRead3;
             when VectorRead3 =>
+              report "Setting PC-high during vector read";
               reg_pc(15 downto 8) <= memory_read_value;
               state <= normal_fetch_state;
             when Interrupt =>
@@ -2292,6 +2295,7 @@ begin
               stack_pop := '1';
               state <= RTS1;
             when RTS1 =>
+              report "Setting PC-low during RTS";
               reg_pc(7 downto 0) <= memory_read_value;
               report "RTS: high byte = $" & to_hstring(memory_read_value) severity note;
               stack_pop := '1';
@@ -2303,7 +2307,7 @@ begin
               -- interrupt the CPU immediately following an RTS.
               -- (we may also later introduce a stack cache that would allow RTS
               -- to execute in 1 cycle in certain circumstances)
-              report "RTS: low byte = $" & to_hstring(memory_read_value) severity note;
+              report "Setting PC: RTS: low byte = $" & to_hstring(memory_read_value) severity note;
               if reg_instruction = I_RTS then
                 reg_pc <= (memory_read_value&reg_pc(7 downto 0))+1;
               else
@@ -2359,6 +2363,7 @@ begin
                     -- Then set PC from InstructionWait state to make sure that we
                     -- don't write it here, only for it to get stomped.
                     state <= MonitorMemoryAccess;
+                    report "Setting PC (monitor)";
                     reg_pc <= unsigned(monitor_mem_address_drive(15 downto 0));
                     mem_reading <= '0';
                   else
@@ -2419,6 +2424,7 @@ begin
               -- ZP at $BF00-$BFFF
               reg_b <= x"BF";
               -- PC at $8000 (hypervisor code spans $8000 - $BFFF)
+              report "Setting PC to $80xx/8100 on hypervisor entry";
               reg_pc <= x"8000";
               -- Actually, set PC based on address written to, so that
               -- writing to the 64 hypervisor registers act similar to the INT
@@ -2447,6 +2453,7 @@ begin
               reg_a <= hyper_a; reg_x <= hyper_x; reg_y <= hyper_y;
               reg_z <= hyper_z; reg_b <= hyper_b; reg_sp <= hyper_sp;
               reg_sph <= hyper_sph; reg_pc <= hyper_pc;
+              report "Setting PC on hypervisor exit";
               reg_mb_low <= hyper_mb_low; reg_mb_high <= hyper_mb_high;
               reg_map_low <= hyper_map_low; reg_map_high <= hyper_map_high;
               reg_offset_low <= hyper_map_offset_low;
@@ -2668,6 +2675,7 @@ begin
               -- single-cycle instruction
               if (no_interrupt = '0') and ((irq_pending='1' and flag_i='0') or nmi_pending='1') then
                 -- An interrupt has occurred
+                report "Interrupt detected, decrementing PC";
                 state <= Interrupt;
                 reg_pc <= reg_pc - 1;
               else
@@ -2774,6 +2782,7 @@ begin
                       -- Fast-track RTI
                       state <= RTI;
                     else
+                      report "Skipping straight to microcode interpret from fetch";
                       state <= MicrocodeInterpret;
                     end if;
                   else
@@ -3025,6 +3034,7 @@ begin
                                    to_integer(reg_arg1(7)&reg_arg1(7)&reg_arg1(7)&reg_arg1(7)&
                                               reg_arg1(7)&reg_arg1(7)&reg_arg1(7)&reg_arg1(7)&
                                               reg_arg1);
+                      report "Setting PC (8-bit branch)";
                       reg_pc <= temp_addr;
                       -- Take an extra cycle when taking a branch.  This avoids
                       -- poor timing due to memory-to-memory activity in a
@@ -3177,9 +3187,11 @@ begin
               memory_access_resolve_address := '1';
               if fast_fetch_state = InstructionDecode then
                 -- Fast dispatch, so bump PC ready for next cycle
+                report "Setting PC in JSR/BSR (fast dispatch)";
                 reg_pc <= reg_addr + 1;
               else
                 -- Normal dispatch
+                report "Setting PC in JSR/BSR (normal dispatch)";
                 reg_pc <= reg_addr;
               end if;
               state <= fast_fetch_state;
@@ -3192,6 +3204,7 @@ begin
               state <= MicrocodeInterpret;
             when TakeBranch8 =>
               -- Branch will be taken
+              report "Setting PC: 8-bit branch will be taken";
               reg_pc <= reg_pc +
                           to_integer(reg_t(7)&reg_t(7)&reg_t(7)&reg_t(7)&
                                      reg_t(7)&reg_t(7)&reg_t(7)&reg_t(7)&
@@ -3213,6 +3226,7 @@ begin
               state <= fast_fetch_state;
               if fast_fetch_state = InstructionDecode then pc_inc := '1'; end if;
             when B16TakeBranch =>
+              report "Setting PC: 16-bit branch will be taken";
               reg_pc <= reg_pc + to_integer(reg_addr) - 1;
               state <= normal_fetch_state;
             when InnXReadVectorLow =>
@@ -3365,6 +3379,7 @@ begin
             when JumpDereference3 =>
               -- Finished dereferencing, set PC
               reg_addr <= memory_read_value&reg_t;
+              report "Setting PC: Finished dereferencing JMP";
               reg_pc <= memory_read_value&reg_t;
               if reg_instruction=I_JMP then
                 state <= normal_fetch_state;
@@ -3420,10 +3435,12 @@ begin
               if fast_fetch_state = InstructionDecode then
                 pc_inc := reg_microcode.mcIncPC;
               else
+                report "not setting pc_inc, because fast_fetch_state /= InstructionDecode";
                 pc_inc := '0';
               end if;
               pc_dec := reg_microcode.mcDecPC;
               if reg_microcode.mcInstructionFetch='1' then
+                report "Fast dispatch for next instruction by order of microcode";
                 state <= fast_fetch_state;
               else
                 -- (this gets overriden below for RMW and other instruction types)
@@ -3441,7 +3458,10 @@ begin
                 state <= Interrupt;
               end if;
               
-              if reg_microcode.mcJump='1' then reg_pc <= reg_addr; end if;
+              if reg_microcode.mcJump='1' then
+                report "Setting PC: mcJump=1";
+                reg_pc <= reg_addr;
+              end if;
 
               if reg_microcode.mcSetNZ='1' then set_nz(memory_read_value); end if;
               if reg_microcode.mcSetA='1' then
@@ -3789,23 +3809,26 @@ begin
 
             -- Don't increment PC if we were otherwise going to shortcut to
             -- InstructionDecode next cycle
+            report "Setting PC to self (DMAgic entry)";
             reg_pc <= reg_pc;
           end if;
           -- @IO:GS $D67F - Trigger trap to hypervisor
           if memory_access_address(27 downto 6)&"111111" = x"FFD367F" then
-            report "HYPERTRAP: Hypervisor trap/return triggered by write to $D640-$D67F";
             hypervisor_trap_port(5 downto 0) <= memory_access_address(5 downto 0);
             hypervisor_trap_port(6) <= '0';
             if hypervisor_mode = '0' then
+              report "HYPERTRAP: Hypervisor trap triggered by write to $D640-$D67F";
               state <= TrapToHypervisor;
             end if;
             if hypervisor_mode = '1'
               and memory_access_address(5 downto 0) = "111111" then
+              report "HYPERTRAP: Hypervisor return triggered by write to $D67F";
               state <= ReturnFromHypervisor;
             end if;
             -- Don't increment PC if we were otherwise going to shortcut to
             -- InstructionDecode next cycle
-            reg_pc <= reg_pc;
+            -- report "Setting PC to self (CPU port access)";
+            -- reg_pc <= reg_pc;
           end if;
           write_long_byte(memory_access_address,memory_access_wdata);
         elsif memory_access_read='1' then 
