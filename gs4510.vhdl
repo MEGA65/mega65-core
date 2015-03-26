@@ -266,6 +266,7 @@ end component;
   signal colourram_read_wait_states : unsigned(7 downto 0) := colourread_48mhz;
   signal io_write_wait_states : unsigned(7 downto 0) := iowrite_48mhz;
 
+  signal slowram_request_toggle_drive : std_logic := '0';
   signal slowram_desired_done_toggle : std_logic := '0';
   signal slowram_data_valid : std_logic := '0';
   signal slowram_pending_write : std_logic := '0';
@@ -916,7 +917,7 @@ begin
       ddr_ram_banking <= '0';
       ddr_ram_bank <= "000";
 
-      slowram_request_toggle <= slowram_done_toggle;
+      slowram_request_toggle_drive <= slowram_done_toggle;
       slowram_desired_done_toggle <= slowram_done_toggle;
       
       wait_states <= (others => '0');
@@ -1935,6 +1936,7 @@ begin
     -- BEGINNING OF MAIN PROCESS FOR CPU
     if rising_edge(clock) then
 
+      slowram_request_toggle <= slowram_request_toggle_drive;
       slowram_addr_reflect_drive <= slowram_addr_reflect;
       slowram_datain_reflect_drive <= slowram_datain_reflect;
       
@@ -2154,7 +2156,7 @@ begin
             -- timeout DDR memory if it isn't responding
             if (ddr_got_reply = '0') and (accessing_slowram='1') then
               ddr_timeout_counter <= ddr_timeout_counter + 1;
-              slowram_request_toggle <= slowram_done_toggle;
+              slowram_request_toggle_drive <= slowram_done_toggle;
               slowram_desired_done_toggle <= slowram_done_toggle;
               slowram_pending_write <='0';
               slowram_we_drive <= '0';
@@ -2189,7 +2191,7 @@ begin
             and (slowram_addr_drive(26 downto 4) /= cache_read_data(150 downto 128))
             and (slowram_desired_done_toggle = slowram_done_toggle) then
             -- The address & WE has already been set in read_long_address()
-            slowram_request_toggle <= not slowram_done_toggle;
+            slowram_request_toggle_drive <= not slowram_done_toggle;
             slowram_desired_done_toggle <= not slowram_done_toggle;
             ddr_cache_load_counter <= ddr_cache_load_counter + 1;
           end if;
@@ -2202,7 +2204,7 @@ begin
             and (slowram_addr_reflect_drive = slowram_addr_drive)
             and (slowram_datain_reflect_drive = slowram_datain_expected) then
             slowram_desired_done_toggle <= not slowram_done_toggle;
-            slowram_request_toggle <= not slowram_done_toggle;
+            slowram_request_toggle_drive <= not slowram_done_toggle;
           end if;
 
         else
