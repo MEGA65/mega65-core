@@ -49,12 +49,12 @@ begin
       -- Cache line read data
       for i in 0 to 15 loop
         cache_read_data((i*8+7) downto (i*8))
-          <= ddr_ram(to_integer(unsigned(address(19 downto 4)&"0000"))+i);
+          <= ddr_ram(to_integer(unsigned(address(19 downto 4)))*16+i);
         read_data((i*8+7) downto (i*8))
-          <= ddr_ram(to_integer(unsigned(address(19 downto 4)&"0000"))+i);
+          <= ddr_ram(to_integer(unsigned(address(19 downto 4)))*16+i);
       end loop;
       report "DDR: cache data read for " &
-        integer'image(to_integer(unsigned(address(19 downto 4)&"0000")))
+        integer'image(to_integer(unsigned(address(19 downto 4)))*16)
         & " is: $"
         & to_hstring(unsigned(read_data(127 downto 0)));
     end if;
