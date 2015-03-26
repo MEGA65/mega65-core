@@ -2157,6 +2157,7 @@ begin
               slowram_request_toggle <= slowram_done_toggle;
               slowram_desired_done_toggle <= slowram_done_toggle;
               slowram_pending_write <='0';
+              slowram_we_drive <= '0';
             end if;
           end if;
           -- Stop waiting on slow ram as soon as we have the result.
@@ -2176,6 +2177,7 @@ begin
             and (slowram_datain_expected = slowram_data_in) then
             ddr_write_ready_counter <= ddr_write_ready_counter + 1;
             slowram_pending_write <= '0';
+            slowram_we_drive <= '0';
             ddr_got_reply <= '1';
             wait_states <= x"00";
             proceed <= '1';
