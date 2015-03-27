@@ -454,6 +454,7 @@ begin
           -- Wait for memory to be finish the read
           mem_en <= '1';
           mem_cmd <= CMD_READ;
+          mem_wdf_mask <= "1111111111111111";
 
           if (mem_rdy='1')
             and (mem_rd_data_valid = '1') and (mem_rd_data_end = '1') then
@@ -489,10 +490,12 @@ begin
 
         when stDone =>
           -- Delay memory done announcement to give data plenty of time to settle
+          mem_wdf_mask <= "1111111111111111";
           ram_done_toggle_localclock <= ram_request_toggle_internal;
           last_ram_request_toggle <= ram_request_toggle_internal;
           nState <= stIdle;
         when others =>
+          mem_wdf_mask <= "1111111111111111";
           ram_done_toggle_localclock <= ram_request_toggle_internal;
           last_ram_request_toggle <= ram_request_toggle_internal;
           nState <= stIdle;
