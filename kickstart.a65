@@ -982,19 +982,25 @@ rf1:
 		eom
 
 		; copy sector into slow ram
+		; do it backwards to try to avoid DDR stray write bug
 		ldx #$00
-rr1:		lda $de00,x
+rr1:		
 buggyddrwriteretry1:
+		lda $de00,x
 		sta $4000,x
 		cmp $4000,x
 		bne buggyddrwriteretry1
-		lda $df00,x
+		inx
+		bne rr1
+
+rr2:
 buggyddrwriteretry2:
+		lda $df00,x
 		sta $4100,x
 		cmp $4100,x
 		bne buggyddrwriteretry2
 		inx
-		bne rr1
+		bne rr2
 
 		; clear memory mapping
 
@@ -1028,12 +1034,9 @@ rf2:
 		inc $d020
 		
 		jsr fs_readnextsector
-		; XXX - Debug status of reading sectors
-		php
-		pla
-		sta $0427		
-		bcs rf1
-
+		bcc notrf1
+		jmp rf1
+notrf1:
 		lda rom_sectorsread
 		bne romfiletooshort
 		lda rom_sectorsread+1
@@ -1048,6 +1051,14 @@ rf2:
 		ldy #>msg_romok
 		jsr printmessage
 		jmp go64		
+
+ddrdelay:
+		phy
+		ldy #$00
+dd1:		iny
+		bne dd1
+		ply
+		rts
 
 romfiletoolong:
 		ldx #<msg_romfilelongerror
