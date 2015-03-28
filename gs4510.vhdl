@@ -191,6 +191,7 @@ end component;
 
 
   signal iomode_set_toggle_internal : std_logic := '0';
+  signal rom_from_colour_ram : std_logic := '0';
 
   -- Instruction log
   signal last_instruction_pc : unsigned(15 downto 0) := x"FFFF";
@@ -1004,8 +1005,11 @@ begin
           case lhc(2 downto 0) is
             when "000" => temp_address(27 downto 12) := x"000D";  -- READ RAM
             when "001" => temp_address(27 downto 12) := x"002D";  -- CHARROM
+                          if rom_from_colour_ram='1' then temp_address(27 downto 16) := x"FF8"; end if;
             when "010" => temp_address(27 downto 12) := x"002D";  -- CHARROM
+                          if rom_from_colour_ram='1' then temp_address(27 downto 16) := x"FF8"; end if;       
             when "011" => temp_address(27 downto 12) := x"002D";  -- CHARROM
+                          if rom_from_colour_ram='1' then temp_address(27 downto 16) := x"FF8"; end if;       
             when "100" => temp_address(27 downto 12) := x"000D";  -- READ RAM
             when others =>
               -- All else accesses IO
@@ -1020,18 +1024,22 @@ begin
       if reg_map_high(3)='0' then
         if (blocknum=14) and (lhc(1)='1') and (writeP=false) then
           temp_address(27 downto 12) := x"002E";      
+          if rom_from_colour_ram='1' then temp_address(27 downto 16) := x"FF8"; end if;
         end if;
         if (blocknum=15) and (lhc(1)='1') and (writeP=false) then
           temp_address(27 downto 12) := x"002F";      
+          if rom_from_colour_ram='1' then temp_address(27 downto 16) := x"FF8"; end if;
         end if;
       end if;
       -- C64 BASIC
       if reg_map_high(1)='0' then
         if (blocknum=10) and (lhc(0)='1') and (lhc(1)='1') and (writeP=false) then
-          temp_address(27 downto 12) := x"002A";      
+          temp_address(27 downto 12) := x"002A";
+          if rom_from_colour_ram='1' then temp_address(27 downto 16) := x"FF8"; end if;
         end if;
         if (blocknum=11) and (lhc(0)='1') and (lhc(1)='1') and (writeP=false) then
           temp_address(27 downto 12) := x"002B";      
+          if rom_from_colour_ram='1' then temp_address(27 downto 16) := x"FF8"; end if;
         end if;
       end if;
 
@@ -1063,6 +1071,7 @@ begin
       end if;
       if (blocknum=12) and rom_at_c000='1' then
         temp_address(27 downto 12) := x"002C";
+        if rom_from_colour_ram='1' then temp_address(27 downto 16) := x"FF8"; end if;
       end if;
       if (blocknum=10 or blocknum=11) and rom_at_a000='1' then
         temp_address(27 downto 12) := x"003A";
@@ -1636,6 +1645,10 @@ begin
         if long_address = x"FFD3659" and hypervisor_mode='1' then
           ddr_ram_banking <= value(7);
           ddr_ram_bank <= std_logic_vector(value(2 downto 0));
+        end if;
+        -- @IO:GS $D67D.0 - Hypervisor C64 ROM source select (0=DDR,1=64KB colour RAM)
+        if long_address = x"FFD367D" and hypervisor_mode='1' then
+          rom_from_colour_ram <= value(0);
         end if;
         -- @IO:GS $D67E - Hypervisor already-upgraded bit (sets permanently)
         if long_address = x"FFD367E" and hypervisor_mode='1' then
