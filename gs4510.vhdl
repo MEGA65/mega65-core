@@ -397,6 +397,8 @@ end component;
   signal absolute32_addressing_enabled : std_logic := '0';
   -- Flag that indicates far JMP, JSR or RTS
   signal flat32_address : std_logic := '0';
+  signal flat32_address_prime : std_logic := '0';
+  signal flat32_enabled : std_logic := '0';
   -- Far jumps are prefixed with SED, CLD, so we need a flag to keep track of this.
   signal last_was_sed : std_logic := '0';
   -- flag for progressive carry calculation when loading a 32-bit pointer
@@ -504,7 +506,7 @@ end component;
     ProcessorHold,
     MonitorMemoryAccess,
     InstructionFetch,
-    InstructionDecode,  -- $0E
+    InstructionDecode,  -- $16
     Cycle2,Cycle3,
     Flat32Got2ndArgument,
     Pull,
@@ -1355,13 +1357,15 @@ begin
             return to_unsigned(0,4)&hyper_dmagic_list_addr(27 downto 24);
           when "011001" =>
             return unsigned(ddr_ram_banking&std_logic_vector(to_unsigned(0,4))&ddr_ram_bank(2 downto 0));
-          when "111111" => return x"48"; -- 'H' for Hypermode
+          when "111101" =>
+            return "111111" & flat32_enabled & rom_from_colour_ram;
           when "111110" =>
             if hypervisor_upgraded='1' then
               return x"FF";
             else
               return x"00";
             end if;
+          when "111111" => return x"48"; -- 'H' for Hypermode
           when others => return x"FF";
         end case;
       elsif accessing_shadow='1' then
@@ -1647,8 +1651,10 @@ begin
           ddr_ram_bank <= std_logic_vector(value(2 downto 0));
         end if;
         -- @IO:GS $D67D.0 - Hypervisor C64 ROM source select (0=DDR,1=64KB colour RAM)
+        -- @IO:GS $D67D.1 - Hypervisor enable 32-bit JMP/JSR etc
         if long_address = x"FFD367D" and hypervisor_mode='1' then
           rom_from_colour_ram <= value(0);
+          flat32_enabled <= value(1);
         end if;
         -- @IO:GS $D67E - Hypervisor already-upgraded bit (sets permanently)
         if long_address = x"FFD367E" and hypervisor_mode='1' then
@@ -2721,6 +2727,7 @@ begin
                 absolute32_addressing_enabled <= '0';
                 last_was_sed <= '0';
                 flat32_address <= '0';
+                flat32_address_prime <= '0';
                 
                 case memory_read_value is
                   when x"03" => flag_e <= '1';  -- SEE
@@ -2754,7 +2761,8 @@ begin
                   when x"C8" => reg_y <= y_incremented; set_nz(y_incremented); -- INY
                   when x"CA" => reg_x <= x_decremented; set_nz(x_decremented); -- DEX
                   when x"D8" => flag_d <= '0';  -- CLD
-                                flat32_address <= '1';
+                                flat32_address_prime <= '1';
+                                flat32_address <= flat32_address_prime;
                   when x"E8" => reg_x <= x_incremented; set_nz(x_incremented); -- INX
                   when x"EA" => map_interrupt_inhibit <= '0'; -- EOM
                                 -- Enable 32-bit pointer for ($nn),Z addressing
@@ -2914,7 +2922,7 @@ begin
               end case;
               
               -- Process instruction next cycle
-              if flat32_address='1' then
+              if flat32_address='1' and flat32_enabled='1' then
                 -- 32bit absolute jsr/jmp
                 state <= Flat32Got2ndArgument;
               else
