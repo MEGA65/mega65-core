@@ -159,7 +159,9 @@ architecture Behavioral of ddrwrapper is
 -- Local Type Declarations
 ------------------------------------------------------------------------
 -- FSM
-  type state_type is (stIdle, stRequest,stPreset, stSendData, stSetCmdRd, stSetCmdWr,
+  type state_type is (stIdle,
+                      stNormaliseRequest,stNormalisePreset, stNormaliseSetCmdRd, 
+                      stRequest,stPreset, stSendData, stSetCmdRd, stSetCmdWr,
                       stDone);
 
 ------------------------------------------------------------------------
@@ -369,10 +371,56 @@ begin
       case (cState) is
         when stIdle =>
           if (ram_request_toggle_internal /= last_ram_request_toggle) then
-            -- Give address lines time to settle with cross-clock transfer
-            nState <= stRequest;
-            ram_write_enable_held <= ram_write_enable_internal;
+            -- Give address lines time to settle with cross-clock transfer, so
+            -- we don't capture them just yet.
+
+            -- Also, since non-linear access seems to be what upsets things,
+            -- and since we get stray writes, let's do a preliminary request that
+            -- is definitely a read, and on the correct line of the DDR RAM.
+            -- This will hopefully mean that the DDR RAM is in the right state
+            -- to handle the real access, and won't accidentally serve up the wrong
+            -- data, or cause a write to the wrong place.
+            nState <= stNormaliseRequest;
           end if;
+
+        when stNormaliseRequest =>
+          -- A new memory request is happening.  
+          -- This needs a new memory request, so start a new transaction, if
+          -- the DDR RAM isn't busy calibrating.
+          if calib_complete = '1' then
+            nState <= stNormalisePreset;
+          end if;
+          cache_write_enable <= '0';
+          cache_write_address <= (others => '1');
+        when stNormalisePreset =>
+          nState <= stNormaliseSetCmdRd;
+          mem_addr <= ram_address_held(26 downto 4) & "0000";
+          mem_wdf_data <= x"99999999" & x"99999999" & x"99999999" & x"99999999";
+          ddr_timeout <= x"ff";
+
+          -- Register write enable now -- several cycles after the request has
+          -- been noticed, but also several cycles before we need to act on it.
+          ram_write_enable_held <= ram_write_enable_internal;
+
+        when stNormaliseSetCmdRd =>
+          -- Wait for memory to be finish the read
+          mem_en <= '1';
+          mem_cmd <= CMD_READ;
+          mem_wdf_mask <= "1111111111111111";
+          
+          if (mem_rdy='1')
+            and (mem_rd_data_valid = '1') and (mem_rd_data_end = '1') then
+            
+            nState <= stRequest;
+          else
+            -- Allow reads to timeout.
+            if ddr_timeout = "00" then
+              nState <= stDone;
+            else
+              ddr_timeout <= ddr_timeout - 1;
+            end if;
+          end if;
+          
         when stRequest =>
           -- A new memory request is happening.  
           -- This needs a new memory request, so start a new transaction, if
