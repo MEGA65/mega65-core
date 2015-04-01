@@ -458,7 +458,7 @@ begin
             nState <= stSendData;
           else
             if (ram_address_held(26 downto 24) = "111")
-              and (ram_address_held(23 downto 0) = (others => '0')) then
+              and (ram_address_held(23 downto 0) = x"000000") then
               nState <= stRecentWriteRead;
             else
               nState <= stSetCmdRd;
