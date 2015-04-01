@@ -162,6 +162,7 @@ architecture Behavioral of ddrwrapper is
   type state_type is (stIdle,
                       stNormaliseRequest,stNormalisePreset, stNormaliseSetCmdRd, 
                       stRequest,stPreset, stSendData, stSetCmdRd, stSetCmdWr,
+                      stRecentWriteRead,
                       stDone);
 
 ------------------------------------------------------------------------
