@@ -201,6 +201,11 @@ architecture Behavioral of ddrwrapper is
   signal cache_write_data : std_logic_vector(150 downto 0);
   signal cache_read_data_drive : std_logic_vector(150 downto 0);
 
+  signal recent_write_0 : std_logic_vector(31 downto 0);
+  signal recent_write_1 : std_logic_vector(31 downto 0);
+  signal recent_write_2 : std_logic_vector(31 downto 0);
+  signal recent_write_3 : std_logic_vector(31 downto 0);
+  
   signal ram_done_toggle_localclock : std_logic := '0';
   signal ram_read_data_localclock : std_logic_vector(7 downto 0);
   signal debug_counter_localclock : unsigned(7 downto 0) := x"00";
@@ -451,8 +456,13 @@ begin
           if ram_write_enable_held = '1' then
             nState <= stSendData;
           else
-            nState <= stSetCmdRd;
-            -- debug_counter_localclock <= debug_counter_localclock + 1;
+            if (ram_address_held(26 downto 24) = "111")
+              and (ram_address_held(23 downto 0) = (others => '0')) then
+              nState <= stRecentWriteRead;
+            else
+              nState <= stSetCmdRd;
+              -- debug_counter_localclock <= debug_counter_localclock + 1;
+            end if;
           end if;
           case (ram_address_held(3 downto 0)) is
             when "0000" => mem_wdf_mask <= "1111111111111110";
@@ -491,6 +501,12 @@ begin
           if mem_wdf_rdy = '1' then
             nState <= stSetCmdWr;
             debug_counter_localclock <= debug_counter_localclock + 1;
+
+            recent_write_0(31 downto 8) <= ram_address_held(23 downto 0);
+            recent_write_0(7 downto 0) <= ram_write_data_held;
+            recent_write_3 <= recent_write_2;
+            recent_write_2 <= recent_write_1;
+            recent_write_1 <= recent_write_0;
           end if;
           -- Allow writes to timeout.
           if ddr_timeout = "00" then
@@ -535,7 +551,15 @@ begin
           else
             ddr_timeout <= ddr_timeout - 1;
           end if;
-
+        when stRecentWriteRead =>
+          cache_write_address <= ram_address_held(12 downto 4);
+          cache_write_data(150 downto 128) <= ram_address_held(26 downto 4);
+          cache_write_data(127 downto 96) <= recent_write_3;
+          cache_write_data(95 downto 64) <= recent_write_2;
+          cache_write_data(63 downto 32) <= recent_write_1;
+          cache_write_data(31 downto 0) <= recent_write_0;
+          cache_write_enable <= '1';
+          nState <= stDone;
         when stDone =>
           -- Delay memory done announcement to give data plenty of time to settle
           mem_wdf_mask <= "1111111111111111";
