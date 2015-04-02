@@ -886,9 +886,9 @@ begin
         reg_offset_high <= x"F00";
         reg_map_high <= "1000";
         reg_offset_low <= x"000";
-        reg_map_low <= "0000";
+        reg_map_low <= "0100";
         reg_mb_high <= x"FF";
-        reg_mb_low <= x"00";
+        reg_mb_low <= x"80";
       end if;
       
       -- Map shadow RAM to unmapped address space at $C0000 (768KB)
@@ -1007,11 +1007,11 @@ begin
           case lhc(2 downto 0) is
             when "000" => temp_address(27 downto 12) := x"000D";  -- READ RAM
             when "001" => temp_address(27 downto 12) := x"002D";  -- CHARROM
-                          if rom_from_colour_ram='1' then temp_address(27 downto 16) := x"FF8"; end if;
+                          if rom_from_colour_ram='1' then temp_address(27 downto 16) := x"001"; end if;
             when "010" => temp_address(27 downto 12) := x"002D";  -- CHARROM
-                          if rom_from_colour_ram='1' then temp_address(27 downto 16) := x"FF8"; end if;       
+                          if rom_from_colour_ram='1' then temp_address(27 downto 16) := x"001"; end if;       
             when "011" => temp_address(27 downto 12) := x"002D";  -- CHARROM
-                          if rom_from_colour_ram='1' then temp_address(27 downto 16) := x"FF8"; end if;       
+                          if rom_from_colour_ram='1' then temp_address(27 downto 16) := x"001"; end if;       
             when "100" => temp_address(27 downto 12) := x"000D";  -- READ RAM
             when others =>
               -- All else accesses IO
@@ -1026,22 +1026,30 @@ begin
       if reg_map_high(3)='0' then
         if (blocknum=14) and (lhc(1)='1') and (writeP=false) then
           temp_address(27 downto 12) := x"002E";      
-          if rom_from_colour_ram='1' then temp_address(27 downto 16) := x"FF8"; end if;
+          if rom_from_colour_ram='1' then
+            temp_address(27 downto 12) := x"0018";
+          end if;
         end if;
         if (blocknum=15) and (lhc(1)='1') and (writeP=false) then
           temp_address(27 downto 12) := x"002F";      
-          if rom_from_colour_ram='1' then temp_address(27 downto 16) := x"FF8"; end if;
+          if rom_from_colour_ram='1' then
+            temp_address(27 downto 12) := x"0019";
+          end if;
         end if;
       end if;
       -- C64 BASIC
       if reg_map_high(1)='0' then
         if (blocknum=10) and (lhc(0)='1') and (lhc(1)='1') and (writeP=false) then
           temp_address(27 downto 12) := x"002A";
-          if rom_from_colour_ram='1' then temp_address(27 downto 16) := x"FF8"; end if;
+          if rom_from_colour_ram='1' then
+            temp_address(27 downto 12) := x"001A";
+          end if;
         end if;
         if (blocknum=11) and (lhc(0)='1') and (lhc(1)='1') and (writeP=false) then
           temp_address(27 downto 12) := x"002B";      
-          if rom_from_colour_ram='1' then temp_address(27 downto 16) := x"FF8"; end if;
+          if rom_from_colour_ram='1' then
+            temp_address(27 downto 12) := x"001B";
+          end if;
         end if;
       end if;
 

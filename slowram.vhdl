@@ -19,10 +19,11 @@ architecture Behavioral of slowram is
   signal last_request_toggle : std_logic := '0';
   -- 128MB RAM
   -- 128*1MB-1 = 134217727
-  -- But 128MB RAM here causes GHDL 0.31 to segfault
+  -- But 128MB RAM here causes GHDL 0.31 to segfault, so just 1MB
   type ram_t is array (0 to 1048575) of std_logic_vector(7 downto 0);
 
   signal read_data : std_logic_vector(127 downto 0);
+  signal cache_read_data_internal : std_logic_vector(150 downto 0);
 begin
   --process for read and write operation.
   PROCESS(request_toggle)
@@ -42,13 +43,17 @@ begin
           & " to address " & integer'image(to_integer(unsigned(address)));
         ddr_ram(to_integer(unsigned(address(19 downto 0)))) := datain;
       end if;
+
+      -- Simulate horrible DDR RAM latency
+
+      
       
       -- Cache line read address
-      cache_read_data(150 downto 128) <= address(26 downto 4);
+      cache_read_data_internal(150 downto 128) <= address(26 downto 4);
 
       -- Cache line read data
       for i in 0 to 15 loop
-        cache_read_data((i*8+7) downto (i*8))
+        cache_read_data_internal((i*8+7) downto (i*8))
           <= ddr_ram(to_integer(unsigned(address(19 downto 4)))*16+i);
         read_data((i*8+7) downto (i*8))
           <= ddr_ram(to_integer(unsigned(address(19 downto 4)))*16+i);
@@ -60,4 +65,14 @@ begin
     end if;
   END PROCESS;
 
+  PROCESS
+  begin
+    while (true) loop
+      wait for 200 ns;
+      cache_read_data <= cache_read_data_internal;
+      report "DDR: RAM output updated";
+    end loop;
+  end process;
+
+  
 end Behavioral;

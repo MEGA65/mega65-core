@@ -27,6 +27,12 @@ architecture behavioural of ram8x64k is
   type ram_t is array (0 to 65535) of std_logic_vector(7 downto 0);
   signal ram : ram_t := (
     0 => x"02", 1 => x"03", 2 => x"04", 3 => x"06", 4 => x"06", 5 => x"06", 6 => x"06", 7 => x"06", 8 => x"06", 39 => x"06",
+    65532 => x"00", 65533 => x"e0",
+    57344 => x"a9", 57345 => x"33",
+    57346 => x"8d", 57347 => x"0d", 57348 => x"dd",
+    57349 => x"ad", 57350 => x"0d", 57351 => x"dd",
+    57352 => x"8d", 57353 => x"0d", 57354 => x"dd",
+    57355 => x"4c", 57356 => x"00", 57357 => x"e0",
     others => x"07");
 
 begin  -- behavioural
@@ -40,8 +46,8 @@ begin  -- behavioural
       if ena='1' then
         if(wea="1") then
           ram(to_integer(unsigned(addra))) <= dina;
-          --report "COLOURRAM: A writing to $" & to_hstring(unsigned(addra))
-          --  & " = $" & to_hstring(dina);
+          report "COLOURRAM: A writing to $" & to_hstring(unsigned(addra))
+            & " = $" & to_hstring(dina);
         end if;
       end if;
     end if;
