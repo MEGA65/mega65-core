@@ -263,8 +263,9 @@ INST "*/input_[?].iserdes_dq_.iserdesdq" TNM = "TNM_DEST_ISERDES";
 # Is this the source of the poor RAM timing?
 # @ 200MHz, the SERDES clock is 3.333ns.
 # so at 193.75MHz, it would be 3.229ns?
+# WRONG! It will be slower, not faster!  so 3.4405ns
 
-TIMESPEC "TS_ISERDES_CLOCK" = PERIOD "TNM_ISERDES_CLK" 3229 ps;
+TIMESPEC "TS_ISERDES_CLOCK" = PERIOD "TNM_ISERDES_CLK" 3441 ps;
 TIMESPEC TS_MULTICYCLEPATH = FROM "TNM_SOURCE_IDLE" TO "TNM_DEST_ISERDES" TS_ISERDES_CLOCK*6;
           
 
