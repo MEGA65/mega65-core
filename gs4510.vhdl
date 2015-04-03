@@ -192,6 +192,7 @@ end component;
 
   signal iomode_set_toggle_internal : std_logic := '0';
   signal rom_from_colour_ram : std_logic := '0';
+  signal rom_writeprotect : std_logic := '0';
 
   -- Instruction log
   signal last_instruction_pc : unsigned(15 downto 0) := x"FFFF";
@@ -1403,7 +1404,7 @@ begin
           when "011001" =>
             return unsigned(ddr_ram_banking&std_logic_vector(to_unsigned(0,4))&ddr_ram_bank(2 downto 0));
           when "111101" =>
-            return "111111" & flat32_enabled & rom_from_colour_ram;
+            return "11111" & rom_writeprotect & flat32_enabled & rom_from_colour_ram;
           when "111110" =>
             if hypervisor_upgraded='1' then
               return x"FF";
@@ -1587,7 +1588,7 @@ begin
       elsif long_address(27 downto 17)="00000000001" then
         report "writing to ROM. addr=$" & to_hstring(long_address) severity note;
         shadow_write <= '0';
-        rom_write <= '1';
+        rom_write <= not rom_writeprotect;
         fastio_write <= '0';        
       elsif long_address(27 downto 24) = x"F" then
         accessing_fastio <= '1';
@@ -1714,9 +1715,11 @@ begin
         end if;
         -- @IO:GS $D67D.0 - Hypervisor C64 ROM source select (0=DDR,1=64KB colour RAM)
         -- @IO:GS $D67D.1 - Hypervisor enable 32-bit JMP/JSR etc
+        -- @IO:GS $D67D.2 - Hypervisor write protect C65 ROM $20000-$3FFFF
         if long_address = x"FFD367D" and hypervisor_mode='1' then
           rom_from_colour_ram <= value(0);
           flat32_enabled <= value(1);
+          rom_writeprotect <= value(2);
         end if;
         -- @IO:GS $D67E - Hypervisor already-upgraded bit (sets permanently)
         if long_address = x"FFD367E" and hypervisor_mode='1' then
