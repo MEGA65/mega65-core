@@ -374,7 +374,7 @@ architecture Behavioral of viciv is
   -- DEBUG: Start frame at a point that will soon trigger a badline
   signal xcounter : unsigned(11 downto 0) := to_unsigned(frame_h_front+width-50,12);
   signal xcounter_delayed : unsigned(11 downto 0) := to_unsigned(frame_h_front+width-50,12);
-  signal xcounter_delay : unsigned(7 downto 0) := 128;
+  signal xcounter_delay : unsigned(7 downto 0) := to_unsigned(128,8);
   
   signal xcounter_drive : unsigned(11 downto 0) := (others => '0');
   signal ycounter : unsigned(10 downto 0) := to_unsigned(frame_v_front+frame_v_syncheight,11);
