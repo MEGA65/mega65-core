@@ -374,7 +374,7 @@ architecture Behavioral of viciv is
   -- DEBUG: Start frame at a point that will soon trigger a badline
   signal xcounter : unsigned(11 downto 0) := to_unsigned(frame_h_front+width-50,12);
   signal xcounter_delayed : unsigned(11 downto 0) := to_unsigned(frame_h_front+width-50,12);
-  constant xcounter_delay : integer := 64;
+  signal xcounter_delay : unsigned(7 downto 0) := 128;
   
   signal xcounter_drive : unsigned(11 downto 0) := (others => '0');
   signal ycounter : unsigned(10 downto 0) := to_unsigned(frame_v_front+frame_v_syncheight,11);
@@ -1531,6 +1531,8 @@ begin
           fastio_rdata <= "00000" & debug_character_data_from_rom_drive2 & debug_chargen_active_drive2 & debug_chargen_active_soon_drive2;
         elsif register_number=119 then  -- $D3077
           fastio_rdata <= std_logic_vector(debug_screen_ram_buffer_address_drive2(7 downto 0));
+        elsif register_number=123 then  -- $D307B
+          fastio_rdata <= std_logic_vector(xcounter_delay);
         elsif register_number=124 then
           fastio_rdata <=
             std_logic_vector(to_unsigned(vic_chargen_fsm'pos(debug_raster_fetch_state_drive2),8));
@@ -2047,6 +2049,9 @@ begin
           palette_bank_chargen <= fastio_wdata(5 downto 4);
           -- @IO:GS $D070.3-2 VIC-IV sprite palette bank
           palette_bank_sprites <= fastio_wdata(3 downto 2);
+        elsif register_number=123
+          -- @IO:GS $D07B VIC-IV hsync adjust
+          xcounter_delay <= unsigned(fastio_wdata);
         elsif register_number=124 then
           -- @IO:GS $D07C VIC-IV debug X position (LSB)
           debug_x(7 downto 0) <= unsigned(fastio_wdata);
@@ -2371,7 +2376,7 @@ begin
       end if;
       vsync <= vsync_drive;
 
-      if displayx(4)='1' then
+      if displayx(5)='1' then
         displaycolumn0 <= '0';
       end if;
       if xcounter = 0 then
