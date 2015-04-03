@@ -2049,7 +2049,7 @@ begin
           palette_bank_chargen <= fastio_wdata(5 downto 4);
           -- @IO:GS $D070.3-2 VIC-IV sprite palette bank
           palette_bank_sprites <= fastio_wdata(3 downto 2);
-        elsif register_number=123
+        elsif register_number=123 then
           -- @IO:GS $D07B VIC-IV hsync adjust
           xcounter_delay <= unsigned(fastio_wdata);
         elsif register_number=124 then
