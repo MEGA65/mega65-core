@@ -1003,65 +1003,6 @@ buggyddrwriteretry2:
 		inx
 		bne rr2
 
-		; Also write the 2nd 32KB of ROM to $FF88000-$FF8FFFF, i.e.,
-		; into the upper half of colour RAM.  This is to allow running
-		; the C64 ROM from colour RAM as a temporary work around for the
-		; DDR RAM bugs.
-		
-		lda rom_sectorsread
-		and #$80
-		bne rf3
-		lda rom_sectorsread
-		and #$40
-		beq rf3
-
-		; start by setting MAP MB register to $FFxxxxx
-		lda #$FF
-		ldx #$0f		
-		ldy #$00   ; keep kickstart mapped at $8000-$BFFF
-		ldz #$3f
-		map
-		eom
-
-		; now map $4000-$5FFF to $80000 + (sector offset)
-		; allowing for the $4000 offset, this means $7C000 + (sector offset)
-		lda rom_sectorsread
-		asl
-		sta zptempv		
-		lda rom_sectorsread
-		lsr
-		lsr
-		lsr
-		lsr
-		lsr
-		lsr
-		lsr
-		sta zptempv+1
-		lda zptempv
-		clc
-		adc #$c0
-		sta zptempv
-		lda zptempv+1
-		adc #$07
-		ora #$40
-		tax
-		lda zptempv
-		ldy #$00   ; keep kickstart mapped at $8000-$BFFF
-		ldz #$3f
-		map
-		eom
-
-		; copy sector into slow ram
-		ldx #$00
-rr3:		
-		lda $de00,x
-		sta $4000,x
-		lda $df00,x
-		sta $4100,x
-		inx
-		bne rr3
-
-rf3:
 		; clear memory mapping
 
 		; unmap block
@@ -2317,20 +2258,6 @@ go64:
 l41:		lda $d6f1
 		bmi l41
 l42:
-
-		; If switch 6 set, then use colour RAM as ROM source, else
-		; use DDR RAM
-		lda #$00
-		sta $d67d
-		
-		lda $d6f0
-		and #$20
-		beq l43
-
-		lda #$01
-		sta $d67d
-
-l43:
 
 		; unmap sector buffer so C64 can see CIAs
 		lda #$82
