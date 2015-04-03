@@ -945,9 +945,11 @@ rf1:
 		; Because MAP is relative, the map offset will be
 		; $8020000+rom_sectorsread*512-$4000
 		; = $801C000+rom_sectorsread*512
+		; XXX - but this 128KB extra RAM to act as ROM change means
+		; it is back to $0020000-$003FFFF.
 
-		; start by setting MAP MB register to $80xxxxx
-		lda #$80
+		; start by setting MAP MB register to $00xxxxx
+		lda #$00
 		ldx #$0f		
 		ldy #$00   ; keep kickstart mapped at $8000-$BFFF
 		ldz #$3f
