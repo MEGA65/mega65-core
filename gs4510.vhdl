@@ -384,6 +384,7 @@ end component;
   signal reg_page2_physical : unsigned(15 downto 0);
   signal reg_page3_logical : unsigned(15 downto 0);
   signal reg_page3_physical : unsigned(15 downto 0);
+  signal reg_pagenumber : unsigned(17 downto 0);
 
   -- Flags to detect interrupts
   signal map_interrupt_inhibit : std_logic := '0';
@@ -532,9 +533,12 @@ end component;
     InstructionDecode,  -- $16
     Cycle2,Cycle3,
     Flat32Got2ndArgument,Flat32Byte3,Flat32Byte4,
+    Flat32SaveAddress,
+    Flat32SaveAddress1,Flat32SaveAddress2,Flat32SaveAddress3,Flat32SaveAddress4,
     Flat32Dereference0,
     Flat32Dereference1,Flat32Dereference2,Flat32Dereference3,Flat32Dereference4,
     Flat32Translate,Flat32Dispatch,
+    Flat32RTS,
     Pull,
     RTI,RTI2,
     RTS,RTS1,RTS2,RTS3,
@@ -1419,6 +1423,10 @@ begin
           when "011001" =>
             return unsigned(ddr_ram_banking&std_logic_vector(to_unsigned(0,4))&ddr_ram_bank(2 downto 0));
             -- Virtual memory page registers here
+          when "011101" =>
+            return unsigned(std_logic_vector(reg_pagenumber(1 downto 0))&"000000");
+          when "011110" => return reg_pagenumber(9 downto 2);
+          when "011111" => return reg_pagenumber(17 downto 10);
           when "100000" => return reg_page0_logical(7 downto 0);
           when "100001" => return reg_page0_logical(15 downto 8);
           when "100010" => return reg_page0_physical(7 downto 0);
@@ -1745,6 +1753,19 @@ begin
         if long_address = x"FFD3659" and hypervisor_mode='1' then
           ddr_ram_banking <= value(7);
           ddr_ram_bank <= std_logic_vector(value(2 downto 0));
+        end if;
+
+        -- @IO:GS $D65D - Hypervisor current virtual page number (low byte)
+        if long_address = x"FFD365D" and hypervisor_mode='1' then
+          reg_pagenumber(1 downto 0) <= value(7 downto 6);
+        end if;
+        -- @IO:GS $D65E - Hypervisor current virtual page number (mid byte)
+        if long_address = x"FFD365E" and hypervisor_mode='1' then
+          reg_pagenumber(9 downto 2) <= value;
+        end if;
+        -- @IO:GS $D65F - Hypervisor current virtual page number (high byte)
+        if long_address = x"FFD365F" and hypervisor_mode='1' then
+          reg_pagenumber(17 downto 10) <= value;
         end if;
         -- @IO:GS $D660 - Hypervisor virtual memory page 0 logical page low byte
         -- @IO:GS $D661 - Hypervisor virtual memory page 0 logical page high byte
@@ -2969,7 +2990,13 @@ begin
                     no_interrupt <= '0';
                     if memory_read_value=x"60" then
                       -- Fast-track RTS
-                      state <= RTS;
+                      if flat32_address = '0' then
+                        -- Normal 16-bit RTS
+                        state <= RTS;
+                      else
+                        -- 32-bit RTS, including virtual memory address resolution
+                        state <= Flat32RTS;
+                      end if;
                     elsif memory_read_value=x"40" then
                       -- Fast-track RTI
                       state <= RTI;
@@ -3131,7 +3158,52 @@ begin
             when Flat32Byte4 =>
               pc_inc := '1';
               reg_addr32(31 downto 24) <= memory_read_value;
-              state <= Flat32Translate;              
+              if (reg_instruction = I_JMP) then
+                state <= Flat32Translate;
+              else
+                state <= Flat32SaveAddress;
+              end if;
+            when Flat32SaveAddress =>
+              -- Convert address back to virtual memory form, so that RTS page-fault
+              -- and reload the page if necessary.
+              -- We do this easily by just remembering the page number when we
+              -- far JMP/JSR somewhere (or when the hypervisor sets it during a
+              -- page fault).
+              -- This also means that we can distinguish between physical pages
+              -- and virtual addressed pages.
+              reg_addr32(31 downto 14) <= reg_pagenumber;
+              reg_addr32(13 downto 0) <= reg_pc(13 downto 0);
+              pc_inc := '0';
+              stack_push := '1';
+              memory_access_wdata := reg_pc(7 downto 0);
+              state <= Flat32SaveAddress2;
+            when Flat32SaveAddress2 =>
+              pc_inc := '0';
+              stack_push := '1';
+              memory_access_wdata := reg_addr32(15 downto 8);
+              state <= Flat32SaveAddress3;
+            when Flat32SaveAddress3 =>
+              pc_inc := '0';
+              stack_push := '1';
+              memory_access_wdata := reg_addr32(23 downto 16);
+              state <= Flat32SaveAddress4;
+            when Flat32SaveAddress4 =>
+              pc_inc := '0';
+              stack_push := '1';
+              memory_access_wdata := reg_addr32(31 downto 24);
+              state <= Flat32Translate;
+            when Flat32RTS =>
+              -- Pull 32-bit address off the stack.
+              -- To save CPU complexity here, we will require the stack to have
+              -- the values LSB first, and then use the Flat32Dereference sequence
+              -- to pull the values in.
+              pc_inc := '0';
+              reg_addr <= reg_sp + 1;
+              reg_sp <= reg_sp + 4;
+              if flag_e='0' and reg_sp(7 downto 2)="111111" then
+                reg_sph <= reg_sph + 1;
+              end if;
+              state <= Flat32Dereference0;
             when Flat32Dereference0 =>
               pc_inc := '0';
               memory_access_read := '1';
@@ -3181,6 +3253,10 @@ begin
               -- only 1GB of virtual address space, and look at bits 29 downto
               -- 14.
               -- If bit31 is clear, then we assume it is direct addressed.
+
+              -- Remember page number for far RTS
+              reg_pagenumber <= reg_addr32(31 downto 14);
+              
               pc_inc := '0';
               state <= Flat32Dispatch;
               if (reg_addr32(31)='0') then
