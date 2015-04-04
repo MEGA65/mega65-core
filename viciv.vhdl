@@ -210,12 +210,12 @@ architecture Behavioral of viciv is
       clka : IN STD_LOGIC;
       ena : IN STD_LOGIC;
       wea : IN STD_LOGIC_VECTOR(0 DOWNTO 0);
-      addra : IN STD_LOGIC_VECTOR(14 DOWNTO 0);
+      addra : IN STD_LOGIC_VECTOR(15 DOWNTO 0);
       dina : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
       douta : OUT STD_LOGIC_VECTOR(7 DOWNTO 0);
       clkb : IN STD_LOGIC;
       web : IN STD_LOGIC_VECTOR(0 DOWNTO 0);
-      addrb : IN STD_LOGIC_VECTOR(14 DOWNTO 0);
+      addrb : IN STD_LOGIC_VECTOR(15 DOWNTO 0);
       dinb : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
       doutb : OUT STD_LOGIC_VECTOR(7 DOWNTO 0)
       );
@@ -353,17 +353,14 @@ architecture Behavioral of viciv is
 --  constant frame_v_front : integer := 1;
 --  constant frame_v_syncheight : integer := 3;
 
-  -- constant width : integer := 1920;
-  constant width : integer := 2000;
+  constant width : integer := 1920;
   constant height : integer := 1200;
 
   -- We compare to this value, thus the minus one.  Otherwise the frame will be
   -- 2593 pixels wide, which means that the CPU:VIC clock phase will not be
   -- consistent on all raster lines, and vertical rasters/splits would have a 4
   -- pixel wide saw-tooth effect.
-  -- dotclock is 200MHz instead of 192MHz, so correct this to keep exactly 60Hz
-  -- constant frame_width : integer := 2592-1;
-  constant frame_width : integer := 2700-1;
+  constant frame_width : integer := 2592-1;
   constant frame_h_front : integer := 128;
   constant frame_h_syncwidth : integer := 208;
 
@@ -928,26 +925,23 @@ begin
       addrb => std_logic_vector(ramaddress),
       unsigned(doutb) => ramdata
       );
-
-  colourramblock: block
-  begin
+  
   colourram1 : component ram8x64k
     PORT MAP (
       clka => cpuclock,
       ena => colour_ram_cs,
       wea(0) => fastio_write,
-      addra => std_logic_vector(colour_ram_fastio_address(14 downto 0)),
+      addra => std_logic_vector(colour_ram_fastio_address),
       dina => fastio_wdata,
       douta => colour_ram_fastio_rdata,
       -- video controller use port b of the dual-port colour ram.
       -- The CPU uses port a via the fastio interface
       clkb => pixelclock,
       web => (others => '0'),
-      addrb => std_logic_vector(colourramaddress(14 downto 0)),
+      addrb => std_logic_vector(colourramaddress),
       dinb => (others => '0'),
       unsigned(doutb) => colourramdata
       );
-  end block;
 
   -- Used for main pixel pipeline colour lookup
   paletteram0: component ram32x1024
@@ -1099,48 +1093,31 @@ begin
     begin      
       if reg_h640='0' and reg_h1280='0' then
         -- 40 column mode (5x pixels, standard side borders)
-        -- (actually 6x now that we are using 2000 pixel wide VGA display)
-        -- x_chargen_start
-        -- <= to_unsigned(frame_h_front+140+3+(to_integer(vicii_x_smoothscroll)*5),12);
         x_chargen_start
-          <= to_unsigned(frame_h_front+40+3+(to_integer(vicii_x_smoothscroll)*6),12);
+          <= to_unsigned(frame_h_front+140+3+(to_integer(vicii_x_smoothscroll)*5),12);
         -- set horizontal borders based on 40/38 columns
         if thirtyeightcolumns='0' then
-          -- border_x_left <= to_unsigned(140,12);
-          -- border_x_right <= to_unsigned(1920-140-1,12);
-          border_x_left <= to_unsigned(40,12);
-          border_x_right <= to_unsigned(2000-40-1,12);
+          border_x_left <= to_unsigned(140,12);
+          border_x_right <= to_unsigned(1920-140-1,12);
         else  
-          -- border_x_left <= to_unsigned(140+(7*5),12);
-          -- border_x_right <= to_unsigned(1920-140-1-(9*5),12);
-          border_x_left <= to_unsigned(40+(7*6),12);
-          border_x_right <= to_unsigned(2000-40-1-(9*6),12);
+          border_x_left <= to_unsigned(140+(7*5),12);
+          border_x_right <= to_unsigned(1920-140-1-(9*5),12);
         end if;
-        -- chargen_x_scale <= x"15";
-        chargen_x_scale <= x"15";
+        chargen_x_scale <= x"19";
         virtual_row_width <= to_unsigned(40,16);
       elsif reg_h640='1' and reg_h1280='0' then
         -- 80 column mode (3x pixels, no side border)
-        -- x_chargen_start
-        -- <= to_unsigned(frame_h_front+27+(to_integer(vicii_x_smoothscroll)*3),12);
         x_chargen_start
-          <= to_unsigned(frame_h_front+40+(to_integer(vicii_x_smoothscroll)*3),12);
+          <= to_unsigned(frame_h_front+27+(to_integer(vicii_x_smoothscroll)*3),12);
         -- set horizontal borders based on 40/38 columns
         if thirtyeightcolumns='0' then
           border_x_left <= to_unsigned(27,12);
           border_x_right <= to_unsigned(1920-27,12);
-          -- 2000 pixel wide display @ 200MHz dotclock
-          border_x_left <= to_unsigned(40,12);
-          border_x_right <= to_unsigned(2000-40,12);
         else  
-          -- border_x_left <= to_unsigned(27+(7*3),12);
-          -- border_x_right <= to_unsigned(1920-27-(9*3),12);
-          -- 2000 pixel wide display @ 200MHz dotclock
-          border_x_left <= to_unsigned(40+(7*3),12);
-          border_x_right <= to_unsigned(2000-40-(9*3),12);
+          border_x_left <= to_unsigned(27+(7*3),12);
+          border_x_right <= to_unsigned(1920-27-(9*3),12);
         end if;
-        -- chargen_x_scale <= x"2c";
-        chargen_x_scale <= x"30";
+        chargen_x_scale <= x"2c";
         virtual_row_width <= to_unsigned(80,16);
       elsif reg_h640='0' and reg_h1280='1' then        
         -- 160 column mode (natural pixels, fat side borders)
@@ -1159,21 +1136,17 @@ begin
         virtual_row_width <= to_unsigned(160,16);
       else
         -- 240 column mode (natural pixels, no side border)
-        -- (actually now 250 column mode with 200MHz dot clock
         x_chargen_start
           <= to_unsigned(frame_h_front+to_integer(vicii_x_smoothscroll)*3,12);
         -- set horizontal borders based on 40/38 columns
         if thirtyeightcolumns='0' then
           border_x_left <= to_unsigned(0,12);
-          -- border_x_right <= to_unsigned(1920-0,12);
-          border_x_right <= to_unsigned(2000-0,12);
+          border_x_right <= to_unsigned(1920-0,12);
         else  
           border_x_left <= to_unsigned(0+(7*3),12);
-          -- border_x_right <= to_unsigned(1920-(9*3),12);
-          border_x_right <= to_unsigned(2000-(9*1),12);
+          border_x_right <= to_unsigned(1920-(9*3),12);
         end if;
-        -- virtual_row_width <= to_unsigned(240,16);
-        virtual_row_width <= to_unsigned(250,16);
+        virtual_row_width <= to_unsigned(240,16);
         chargen_x_scale <= x"80";
       end if;
       if reg_v400='0' then

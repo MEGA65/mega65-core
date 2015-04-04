@@ -626,12 +626,8 @@ architecture Behavioral of machine is
   -- Our pixel clock is 192MHz.  195 ticks gives 984615Hz for NTSC.
   -- 188 ticks at 192MHz gives 1021276Hz, which is pretty close for PAL.
   -- Then divide by 2 again, since the loop toggles phi0.
-  -- With pixel clock now at 200MHz, the calculations are:
-  -- 202.99 ticks for NTSC (so 101 here)
-  -- 195.8 ticks for PAL (so 98 here)
   signal phi0 : std_logic := '0';
-  -- constant phi0_divisor : integer := 94;
-  constant phi0_divisor : integer := 98;
+  constant phi0_divisor : integer := 94;
   signal phi0_counter : integer range 0 to phi0_divisor;
 
   signal pixel_stream : unsigned (7 downto 0);
