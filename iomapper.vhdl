@@ -738,6 +738,10 @@ begin
         when x"D14" => leftsid_cs <= address(6); rightsid_cs <= not address(6);
         when x"D24" => leftsid_cs <= address(6); rightsid_cs <= not address(6);
         when x"D34" => leftsid_cs <= address(6); rightsid_cs <= not address(6);
+        -- Some C64 dual-sid programs expect the 2nd sid to be at $D500, so
+        -- we will make the SIDs visible at $D500 in c64 io context, and switched
+        -- sides.
+        when x"D05" => leftsid_cs <= not address(6); rightsid_cs <= address(6);
         when others => leftsid_cs <= '0'; rightsid_cs <= '0';
       end case;
 
