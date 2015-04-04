@@ -928,7 +928,9 @@ begin
       addrb => std_logic_vector(ramaddress),
       unsigned(doutb) => ramdata
       );
-  
+
+  colourramblock: block
+  begin
   colourram1 : component ram8x64k
     PORT MAP (
       clka => cpuclock,
@@ -945,6 +947,7 @@ begin
       dinb => (others => '0'),
       unsigned(doutb) => colourramdata
       );
+  end block;
 
   -- Used for main pixel pipeline colour lookup
   paletteram0: component ram32x1024

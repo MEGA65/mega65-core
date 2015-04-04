@@ -375,6 +375,16 @@ end component;
   signal hyper_map_offset_low : unsigned(11 downto 0);
   signal hyper_map_offset_high : unsigned(11 downto 0);
 
+  -- Page table for virtual memory
+  signal reg_page0_logical : unsigned(15 downto 0);
+  signal reg_page0_physical : unsigned(15 downto 0);
+  signal reg_page1_logical : unsigned(15 downto 0);
+  signal reg_page1_physical : unsigned(15 downto 0);
+  signal reg_page2_logical : unsigned(15 downto 0);
+  signal reg_page2_physical : unsigned(15 downto 0);
+  signal reg_page3_logical : unsigned(15 downto 0);
+  signal reg_page3_physical : unsigned(15 downto 0);
+
   -- Flags to detect interrupts
   signal map_interrupt_inhibit : std_logic := '0';
   signal nmi_pending : std_logic := '0';
@@ -398,6 +408,8 @@ end component;
   signal reg_pc_jsr : unsigned(15 downto 0);
   -- Temporary address register (used for indirect modes)
   signal reg_addr : unsigned(15 downto 0);
+  -- ... and this one for 32-bit flat addressing modes
+  signal reg_addr32 : unsigned(31 downto 0);
   -- Upper and lower
   -- 16 bits of temporary address register. Used for 32-bit
   -- absolute addresses
@@ -519,7 +531,10 @@ end component;
     InstructionFetch,
     InstructionDecode,  -- $16
     Cycle2,Cycle3,
-    Flat32Got2ndArgument,
+    Flat32Got2ndArgument,Flat32Byte3,Flat32Byte4,
+    Flat32Dereference0,
+    Flat32Dereference1,Flat32Dereference2,Flat32Dereference3,Flat32Dereference4,
+    Flat32Translate,Flat32Dispatch,
     Pull,
     RTI,RTI2,
     RTS,RTS1,RTS2,RTS3,
@@ -1403,6 +1418,24 @@ begin
             return to_unsigned(0,4)&hyper_dmagic_list_addr(27 downto 24);
           when "011001" =>
             return unsigned(ddr_ram_banking&std_logic_vector(to_unsigned(0,4))&ddr_ram_bank(2 downto 0));
+            -- Virtual memory page registers here
+          when "100000" => return reg_page0_logical(7 downto 0);
+          when "100001" => return reg_page0_logical(15 downto 8);
+          when "100010" => return reg_page0_physical(7 downto 0);
+          when "100011" => return reg_page0_physical(15 downto 8);
+          when "100100" => return reg_page1_logical(7 downto 0);
+          when "100101" => return reg_page1_logical(15 downto 8);
+          when "100110" => return reg_page1_physical(7 downto 0);
+          when "100111" => return reg_page1_physical(15 downto 8);
+          when "101000" => return reg_page2_logical(7 downto 0);
+          when "101001" => return reg_page2_logical(15 downto 8);
+          when "101010" => return reg_page2_physical(7 downto 0);
+          when "101011" => return reg_page2_physical(15 downto 8);
+          when "101100" => return reg_page3_logical(7 downto 0);
+          when "101101" => return reg_page3_logical(15 downto 8);
+          when "101110" => return reg_page3_physical(7 downto 0);
+          when "101111" => return reg_page3_physical(15 downto 8);
+                           
           when "111101" =>
             return "11111" & rom_writeprotect & flat32_enabled & rom_from_colour_ram;
           when "111110" =>
@@ -1713,6 +1746,72 @@ begin
           ddr_ram_banking <= value(7);
           ddr_ram_bank <= std_logic_vector(value(2 downto 0));
         end if;
+        -- @IO:GS $D660 - Hypervisor virtual memory page 0 logical page low byte
+        -- @IO:GS $D661 - Hypervisor virtual memory page 0 logical page high byte
+        -- @IO:GS $D662 - Hypervisor virtual memory page 0 logical page low byte
+        -- @IO:GS $D663 - Hypervisor virtual memory page 0 physical page high byte
+        if long_address = x"FFD3660" and hypervisor_mode='1' then
+          reg_page0_logical(7 downto 0) <= value;
+        end if;
+        if long_address = x"FFD3661" and hypervisor_mode='1' then
+          reg_page0_logical(15 downto 8) <= value;
+        end if;
+        if long_address = x"FFD3662" and hypervisor_mode='1' then
+          reg_page0_physical(7 downto 0) <= value;
+        end if;
+        if long_address = x"FFD3663" and hypervisor_mode='1' then
+          reg_page0_physical(15 downto 8) <= value;
+        end if;
+        -- @IO:GS $D664 - Hypervisor virtual memory page 1 logical page low byte
+        -- @IO:GS $D665 - Hypervisor virtual memory page 1 logical page high byte
+        -- @IO:GS $D666 - Hypervisor virtual memory page 1 logical page low byte
+        -- @IO:GS $D667 - Hypervisor virtual memory page 1 physical page high byte
+        if long_address = x"FFD3664" and hypervisor_mode='1' then
+          reg_page1_logical(7 downto 0) <= value;
+        end if;
+        if long_address = x"FFD3665" and hypervisor_mode='1' then
+          reg_page1_logical(15 downto 8) <= value;
+        end if;
+        if long_address = x"FFD3666" and hypervisor_mode='1' then
+          reg_page1_physical(7 downto 0) <= value;
+        end if;
+        if long_address = x"FFD3667" and hypervisor_mode='1' then
+          reg_page1_physical(15 downto 8) <= value;
+        end if;
+
+        -- @IO:GS $D668 - Hypervisor virtual memory page 2 logical page low byte
+        -- @IO:GS $D669 - Hypervisor virtual memory page 2 logical page high byte
+        -- @IO:GS $D66A - Hypervisor virtual memory page 2 logical page low byte
+        -- @IO:GS $D66B - Hypervisor virtual memory page 2 physical page high byte
+        if long_address = x"FFD3668" and hypervisor_mode='1' then
+          reg_page2_logical(7 downto 0) <= value;
+        end if;
+        if long_address = x"FFD3669" and hypervisor_mode='1' then
+          reg_page2_logical(15 downto 8) <= value;
+        end if;
+        if long_address = x"FFD366A" and hypervisor_mode='1' then
+          reg_page2_physical(7 downto 0) <= value;
+        end if;
+        if long_address = x"FFD366B" and hypervisor_mode='1' then
+          reg_page2_physical(15 downto 8) <= value;
+        end if;
+        -- @IO:GS $D66C - Hypervisor virtual memory page 1 logical page low byte
+        -- @IO:GS $D66D - Hypervisor virtual memory page 1 logical page high byte
+        -- @IO:GS $D66E - Hypervisor virtual memory page 1 logical page low byte
+        -- @IO:GS $D66F - Hypervisor virtual memory page 1 physical page high byte
+        if long_address = x"FFD366C" and hypervisor_mode='1' then
+          reg_page3_logical(7 downto 0) <= value;
+        end if;
+        if long_address = x"FFD366D" and hypervisor_mode='1' then
+          reg_page3_logical(15 downto 8) <= value;
+        end if;
+        if long_address = x"FFD366E" and hypervisor_mode='1' then
+          reg_page3_physical(7 downto 0) <= value;
+        end if;
+        if long_address = x"FFD366F" and hypervisor_mode='1' then
+          reg_page3_physical(15 downto 8) <= value;
+        end if;
+        
         -- @IO:GS $D67D.0 - Hypervisor C64 ROM source select (0=DDR,1=64KB colour RAM)
         -- @IO:GS $D67D.1 - Hypervisor enable 32-bit JMP/JSR etc
         -- @IO:GS $D67D.2 - Hypervisor write protect C65 ROM $20000-$3FFFF
@@ -3008,14 +3107,128 @@ begin
               -- non-overlapping addresses.
               if reg_addressingmode = M_nnnn then
                 -- Store and read last two bytes
+                reg_addr32(15 downto 8) <= memory_read_value;
+                reg_addr32(7 downto 0) <= reg_addr(7 downto 0);
+                pc_inc := '1';
+                state <= Flat32Byte3;
               elsif reg_addressingmode = M_Innnn then
                 -- Dereference, and read all four bytes
+                reg_addr(15 downto 8) <= memory_read_value;
+                state <= Flat32Dereference0;
               elsif reg_addressingmode = M_InnnnX then
                 -- Add (X*4), dereference, and read all four bytes
+                reg_addr(15 downto 2) <= (memory_read_value & reg_addr(7 downto 2))
+                                         + to_integer(reg_x);
+                state <= Flat32Dereference1;
               else
                 -- unknown mode
                 state <= normal_fetch_state;
               end if;
+            when Flat32Byte3 =>
+              pc_inc := '1';
+              reg_addr32(23 downto 16) <= memory_read_value;
+              state <= Flat32Byte4;              
+            when Flat32Byte4 =>
+              pc_inc := '1';
+              reg_addr32(31 downto 24) <= memory_read_value;
+              state <= Flat32Translate;              
+            when Flat32Dereference0 =>
+              pc_inc := '0';
+              memory_access_read := '1';
+              memory_access_address := x"000"&reg_addr;
+              memory_access_resolve_address := '1';                
+              reg_addr <= reg_addr + 1;
+              state <= Flat32Dereference1;
+            when Flat32Dereference1 =>
+              pc_inc := '0';
+              memory_access_read := '1';
+              memory_access_address := x"000"&reg_addr;
+              memory_access_resolve_address := '1';                
+              reg_addr <= reg_addr + 1;
+              reg_addr32(7 downto 0) <= memory_read_value;
+              state <= Flat32Dereference2;
+            when Flat32Dereference2 =>
+              pc_inc := '0';
+              memory_access_read := '1';
+              memory_access_address := x"000"&reg_addr;
+              memory_access_resolve_address := '1';                
+              reg_addr <= reg_addr + 1;
+              reg_addr32(15 downto 8) <= memory_read_value;
+              state <= Flat32Dereference3;
+            when Flat32Dereference3 =>
+              pc_inc := '0';
+              memory_access_read := '1';
+              memory_access_address := x"000"&reg_addr;
+              memory_access_resolve_address := '1';                
+              reg_addr <= reg_addr + 1;
+              reg_addr32(23 downto 16) <= memory_read_value;
+              state <= Flat32Dereference4;
+            when Flat32Dereference4 =>
+              memory_access_read := '1';
+              memory_access_address := x"000"&reg_addr;
+              memory_access_resolve_address := '1';                
+              reg_addr32(31 downto 24) <= memory_read_value;
+              state <= Flat32Translate;
+            when Flat32Translate =>
+              -- We have the 32-bit address for a far JMP or JSR.
+              -- See if this 16KB page is loaded anywhere, and if so,
+              -- map it in and jump there.  Else trap to hypervisor so that it
+              -- can be mapped.
+              -- We only allow a very few pages of VM to be loaded at a time.
+              -- VM addresses are indicated by bit 31 being set.  The bottom 14
+              -- bits are within a page, so the page number is indicated by bits
+              -- (30 downto 14) = 17 bits. How annoying. So for now we will allow
+              -- only 1GB of virtual address space, and look at bits 29 downto
+              -- 14.
+              -- If bit31 is clear, then we assume it is direct addressed.
+              pc_inc := '0';
+              state <= Flat32Dispatch;
+              if (reg_addr32(31)='0') then
+                -- Not virtal address, so map and jump
+                null;
+              else
+                -- Is virtual address, so see if it is in the page table.
+                state <= Flat32Dispatch;
+                if reg_addr32(29 downto 14) = reg_page0_logical then
+                  reg_addr32(29 downto 14) <= reg_page0_physical;
+                  reg_addr32(31 downto 30) <= "00";
+                elsif reg_addr32(29 downto 14) = reg_page1_logical then
+                  reg_addr32(29 downto 14) <= reg_page1_physical;
+                  reg_addr32(31 downto 30) <= "00";
+                elsif reg_addr32(29 downto 14) = reg_page2_logical then
+                  reg_addr32(29 downto 14) <= reg_page2_physical;
+                  reg_addr32(31 downto 30) <= "00";
+                elsif reg_addr32(29 downto 14) = reg_page3_logical then
+                  reg_addr32(29 downto 14) <= reg_page3_physical;
+                  reg_addr32(31 downto 30) <= "00";
+                else
+                  -- Page fault!
+                  state <= TrapToHypervisor;
+                  -- Trap #65 ($41) = Page fault.
+                  hypervisor_trap_port <= "1000001";
+                end if;
+              end if;
+            when Flat32Dispatch =>
+              -- MAP the appropriate 16KB block in to $4000-$7FFF,
+              -- then set PC to $4000 + (reg_addr32 & #$3FFF).
+              -- NOTE: To avoid complexity in the CPU, the $4000 offset is NOT
+              -- applied to the MAPping.  It is the hypervisor's job to
+              -- subtract $4000 from the address before storing in reg_pageX_physical
+              pc_inc := '0';
+              reg_pc(15 downto 14) <= "01";
+              reg_pc(13 downto 0) <= reg_addr32(13 downto 0);
+              -- Offsets are x 256 bytes.  16KB = 64 x 256 bytes, so the bottom
+              -- six bits of the offset will always be zero.
+              reg_offset_low(5 downto 0) <= "000000";
+              -- Then the upper 6 bits will be bits (19 downto 14) of reg_addr32
+              reg_offset_low(11 downto 6) <= reg_addr32(19 downto 14);
+              -- Finally, set the upper address bits into the MB register for
+              -- the lower map.
+              reg_mb_low <= reg_addr32(27 downto 20);
+              -- MAP upper 16KB of lower 32KB of address space
+              reg_map_low <= "1100";
+              -- Now we can start fetching the instruction.
+              state <= normal_fetch_state;
             when Cycle3 =>
               -- Show serial monitor what we are doing.
               if (reg_addressingmode /= M_A) then

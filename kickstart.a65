@@ -71,10 +71,12 @@
 
 	.org $8000
 ;;; ----------------------------------------------------------------------------
-;;; CPU Hypervisor Trap entry points (64 x 4 byte entries)
+;;; CPU Hypervisor Trap entry points.
+;;; 64 x 4 byte entries for user-land traps.
+;;; some more x 4 byte entries for system traps (reset, page fault etc)
 ;;; ----------------------------------------------------------------------------
 trap_entry_points:
-	; Traps $00-$07
+	; Traps $00-$07 (user callable)
 	jmp nosuchtrap
 	nop
 	jmp nosuchtrap
@@ -91,7 +93,7 @@ trap_entry_points:
 	nop
 	jmp nosuchtrap
 	nop
-	; Traps $08-$0F
+	; Traps $08-$0F (user callable)
 	jmp nosuchtrap
 	nop
 	jmp nosuchtrap
@@ -108,7 +110,7 @@ trap_entry_points:
 	nop
 	jmp nosuchtrap
 	nop
-	; Traps $10-$17
+	; Traps $10-$17 (user callable)
 	jmp nosuchtrap
 	nop
 	jmp nosuchtrap
@@ -125,7 +127,7 @@ trap_entry_points:
 	nop
 	jmp nosuchtrap
 	nop
-	; Traps $18-$1F
+	; Traps $18-$1F (user callable)
 	jmp nosuchtrap
 	nop
 	jmp nosuchtrap
@@ -142,7 +144,7 @@ trap_entry_points:
 	nop
 	jmp nosuchtrap
 	nop
-	; Traps $20-$27
+	; Traps $20-$27 (user callable)
 	jmp nosuchtrap
 	nop
 	jmp nosuchtrap
@@ -159,7 +161,7 @@ trap_entry_points:
 	nop
 	jmp nosuchtrap
 	nop
-	; Traps $28-$2F
+	; Traps $28-$2F (user callable)
 	jmp nosuchtrap
 	nop
 	jmp nosuchtrap
@@ -193,7 +195,7 @@ trap_entry_points:
 	nop
 	jmp nosuchtrap
 	nop
-	; Traps $38-$3F
+	; Traps $38-$3F (user callable)
 	jmp nosuchtrap
 	nop
 	jmp nosuchtrap
@@ -209,13 +211,17 @@ trap_entry_points:
 	jmp nosuchtrap
 	nop
 	jmp nosuchtrap
+	nop
+	; Traps $40-$4F (reset, page fault and other system-only traps)
+	jmp reset_entry  ; Trap #$40
+	nop
+	jmp page_fault   ; Trap #$41
 	nop
 
 ;;; ----------------------------------------------------------------------------
-;;; CPU Hypervisor Entry Point on reset is $8100
+;;; CPU Hypervisor Entry Point on reset
 ;;; ----------------------------------------------------------------------------
-	.advance $8100
-reset_entry:
+reset_machine_state:
 		; get CPU state sensible
 		sei
 		cld
@@ -236,10 +242,8 @@ reset_entry:
 		sta $DD0D
 		lda #$00
 		sta $D01A
-		
-		jmp kickstart_entry
 
-kickstart_entry:
+
 		; We DO NOT need to mess with $01, because
 		; the 4510 starts up with kickstart mapped at $8000-$BFFF 
 		; enhanced ($FFD3xxx) IO page mapped at $D000,
@@ -258,6 +262,39 @@ kickstart_entry:
 		jsr resetdisplay
 		jsr erasescreen
 		jsr resetpalette
+
+		rts
+
+;;; ----------------------------------------------------------------------------
+;;; CPU Hypervisor reset/trap routines
+;;; ----------------------------------------------------------------------------
+
+; Display error and infinite loop on page fault
+page_fault:
+		jsr reset_machine_state
+		ldx #<msg_pagefault
+		ldy #>msg_pagefault
+		jsr printmessage
+		ldy #$00
+		; Print PC
+		ldz $d649
+		jsr printhex
+		ldz $d648
+		jsr printhex
+		; and MAPLO state
+		ldz $d64f
+		jsr printhex
+		ldz $d64a
+		jsr printhex
+		ldz $d649
+		jsr printhex
+
+pf1:		inc $d020
+		jmp pf1
+
+reset_entry:
+kickstart_entry:
+		jsr reset_machine_state
 
 		; display welcome screen
 		ldx #<msg_kickstart
@@ -2675,6 +2712,7 @@ msg_alreadykicked:    .byte "RUNNING KICKED HYPERVISOR               "
 msg_etherkick:	      .byte "BOOTING VIA ETHERKICK: UDP PORT 4111    "
 msg_lookingfornextsector:
 		      .byte "LOOKING FOR NEXT SECTOR OF FILE         "
+msg_pagefault:        .byte "PAGE FAULT: PC=$$$$, MAP=$$.$$$$.00     "
 
 ; filename of ROM we want to load in FAT directory format
 txt_c65gsrom:	      .byte "C65GS   ROM"
