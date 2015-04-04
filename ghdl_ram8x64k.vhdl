@@ -29,11 +29,16 @@ architecture behavioural of ram8x64k is
     0 => x"02", 1 => x"03", 2 => x"04", 3 => x"06", 4 => x"06", 5 => x"06", 6 => x"06", 7 => x"06", 8 => x"06", 39 => x"06",
     others => x"07");
 
+  signal douta_drive : std_logic_vector(7 downto 0);
+  signal doutb_drive : std_logic_vector(7 downto 0);
+  
 begin  -- behavioural
 
   process(clka)
   begin
-    douta <= ram(to_integer(unsigned(addra(14 downto 0))));
+    douta_drive <= ram(to_integer(unsigned(addra(14 downto 0))));
+    douta <= douta_drive;
+
     --report "COLOURRAM: A Reading from $" & to_hstring(unsigned(addra))
     --  & " = $" & to_hstring(ram(to_integer(unsigned(addra))));
     if(rising_edge(Clka)) then 
@@ -49,7 +54,8 @@ begin  -- behavioural
 
   process (clkb,addrb,ram)
   begin
-    doutb <= ram(to_integer(unsigned(addrb(14 downto 0))));
+    doutb_drive <= ram(to_integer(unsigned(addrb(14 downto 0))));
+    doutb <= doutb_drive;
     if(rising_edge(Clkb)) then 
       if(web="1") then
 --        ram(to_integer(unsigned(addrb))) <= dinb;
