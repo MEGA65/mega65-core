@@ -203,6 +203,25 @@ GS $D658 - Hypervisor DMAGic list address bits 27-24
 GS $D659 - Hypervisor DDR RAM banking control
 GS $D659.0-2 - Select which 16MB DDR RAM bank to make visible
 GS $D659.7 - Enable DDR RAM banking
+GS $D65D - Hypervisor current virtual page number (low byte)
+GS $D65E - Hypervisor current virtual page number (mid byte)
+GS $D65F - Hypervisor current virtual page number (high byte)
+GS $D660 - Hypervisor virtual memory page 0 logical page low byte
+GS $D661 - Hypervisor virtual memory page 0 logical page high byte
+GS $D662 - Hypervisor virtual memory page 0 physical page low byte
+GS $D663 - Hypervisor virtual memory page 0 physical page high byte
+GS $D664 - Hypervisor virtual memory page 1 logical page low byte
+GS $D665 - Hypervisor virtual memory page 1 logical page high byte
+GS $D666 - Hypervisor virtual memory page 1 physical page low byte
+GS $D667 - Hypervisor virtual memory page 1 physical page high byte
+GS $D668 - Hypervisor virtual memory page 2 logical page low byte
+GS $D669 - Hypervisor virtual memory page 2 logical page high byte
+GS $D66A - Hypervisor virtual memory page 2 physical page low byte
+GS $D66B - Hypervisor virtual memory page 2 physical page high byte
+GS $D66C - Hypervisor virtual memory page 1 logical page low byte
+GS $D66D - Hypervisor virtual memory page 1 logical page high byte
+GS $D66E - Hypervisor virtual memory page 1 physical page low byte
+GS $D66F - Hypervisor virtual memory page 1 physical page high byte
 GS $D67D.0 - Hypervisor C64 ROM source select (0=DDR,1=64KB colour RAM)
 GS $D67D.1 - Hypervisor enable 32-bit JMP/JSR etc
 GS $D67D.2 - Hypervisor write protect C65 ROM $20000-$3FFFF
