@@ -353,14 +353,17 @@ architecture Behavioral of viciv is
 --  constant frame_v_front : integer := 1;
 --  constant frame_v_syncheight : integer := 3;
 
-  constant width : integer := 1920;
+  -- constant width : integer := 1920;
+  constant width : integer := 2000;
   constant height : integer := 1200;
 
   -- We compare to this value, thus the minus one.  Otherwise the frame will be
   -- 2593 pixels wide, which means that the CPU:VIC clock phase will not be
   -- consistent on all raster lines, and vertical rasters/splits would have a 4
   -- pixel wide saw-tooth effect.
-  constant frame_width : integer := 2592-1;
+  -- dotclock is 200MHz instead of 192MHz, so correct this to keep exactly 60Hz
+  -- constant frame_width : integer := 2592-1;
+  constant frame_width : integer := 2700-1;
   constant frame_h_front : integer := 128;
   constant frame_h_syncwidth : integer := 208;
 
@@ -1093,31 +1096,48 @@ begin
     begin      
       if reg_h640='0' and reg_h1280='0' then
         -- 40 column mode (5x pixels, standard side borders)
+        -- (actually 6x now that we are using 2000 pixel wide VGA display)
+        -- x_chargen_start
+        -- <= to_unsigned(frame_h_front+140+3+(to_integer(vicii_x_smoothscroll)*5),12);
         x_chargen_start
-          <= to_unsigned(frame_h_front+140+3+(to_integer(vicii_x_smoothscroll)*5),12);
+          <= to_unsigned(frame_h_front+40+3+(to_integer(vicii_x_smoothscroll)*6),12);
         -- set horizontal borders based on 40/38 columns
         if thirtyeightcolumns='0' then
-          border_x_left <= to_unsigned(140,12);
-          border_x_right <= to_unsigned(1920-140-1,12);
+          -- border_x_left <= to_unsigned(140,12);
+          -- border_x_right <= to_unsigned(1920-140-1,12);
+          border_x_left <= to_unsigned(40,12);
+          border_x_right <= to_unsigned(2000-40-1,12);
         else  
-          border_x_left <= to_unsigned(140+(7*5),12);
-          border_x_right <= to_unsigned(1920-140-1-(9*5),12);
+          -- border_x_left <= to_unsigned(140+(7*5),12);
+          -- border_x_right <= to_unsigned(1920-140-1-(9*5),12);
+          border_x_left <= to_unsigned(40+(7*6),12);
+          border_x_right <= to_unsigned(2000-40-1-(9*6),12);
         end if;
-        chargen_x_scale <= x"19";
+        -- chargen_x_scale <= x"15";
+        chargen_x_scale <= x"15";
         virtual_row_width <= to_unsigned(40,16);
       elsif reg_h640='1' and reg_h1280='0' then
         -- 80 column mode (3x pixels, no side border)
+        -- x_chargen_start
+        -- <= to_unsigned(frame_h_front+27+(to_integer(vicii_x_smoothscroll)*3),12);
         x_chargen_start
-          <= to_unsigned(frame_h_front+27+(to_integer(vicii_x_smoothscroll)*3),12);
+          <= to_unsigned(frame_h_front+40+(to_integer(vicii_x_smoothscroll)*3),12);
         -- set horizontal borders based on 40/38 columns
         if thirtyeightcolumns='0' then
           border_x_left <= to_unsigned(27,12);
           border_x_right <= to_unsigned(1920-27,12);
+          -- 2000 pixel wide display @ 200MHz dotclock
+          border_x_left <= to_unsigned(40,12);
+          border_x_right <= to_unsigned(2000-40,12);
         else  
-          border_x_left <= to_unsigned(27+(7*3),12);
-          border_x_right <= to_unsigned(1920-27-(9*3),12);
+          -- border_x_left <= to_unsigned(27+(7*3),12);
+          -- border_x_right <= to_unsigned(1920-27-(9*3),12);
+          -- 2000 pixel wide display @ 200MHz dotclock
+          border_x_left <= to_unsigned(40+(7*3),12);
+          border_x_right <= to_unsigned(2000-40-(9*3),12);
         end if;
-        chargen_x_scale <= x"2c";
+        -- chargen_x_scale <= x"2c";
+        chargen_x_scale <= x"30";
         virtual_row_width <= to_unsigned(80,16);
       elsif reg_h640='0' and reg_h1280='1' then        
         -- 160 column mode (natural pixels, fat side borders)
@@ -1136,17 +1156,21 @@ begin
         virtual_row_width <= to_unsigned(160,16);
       else
         -- 240 column mode (natural pixels, no side border)
+        -- (actually now 250 column mode with 200MHz dot clock
         x_chargen_start
           <= to_unsigned(frame_h_front+to_integer(vicii_x_smoothscroll)*3,12);
         -- set horizontal borders based on 40/38 columns
         if thirtyeightcolumns='0' then
           border_x_left <= to_unsigned(0,12);
-          border_x_right <= to_unsigned(1920-0,12);
+          -- border_x_right <= to_unsigned(1920-0,12);
+          border_x_right <= to_unsigned(2000-0,12);
         else  
           border_x_left <= to_unsigned(0+(7*3),12);
-          border_x_right <= to_unsigned(1920-(9*3),12);
+          -- border_x_right <= to_unsigned(1920-(9*3),12);
+          border_x_right <= to_unsigned(2000-(9*1),12);
         end if;
-        virtual_row_width <= to_unsigned(240,16);
+        -- virtual_row_width <= to_unsigned(240,16);
+        virtual_row_width <= to_unsigned(250,16);
         chargen_x_scale <= x"80";
       end if;
       if reg_v400='0' then

@@ -55,11 +55,11 @@
 -- "Output    Output      Phase     Duty      Pk-to-Pk        Phase"
 -- "Clock    Freq (MHz) (degrees) Cycle (%) Jitter (ps)  Error (ps)"
 ------------------------------------------------------------------------------
--- CLK_OUT1___100.000______0.000______50.0______118.360_____88.872
--- CLK_OUT2___193.750______0.000______50.0______104.840_____88.872
--- CLK_OUT3____48.438______0.000______50.0______137.157_____88.872
--- CLK_OUT4____64.583______0.000______50.0______129.132_____88.872
--- CLK_OUT5___387.500______0.000______50.0_______92.425_____88.872
+-- CLK_OUT1___100.000______0.000______50.0______115.831_____87.180
+-- CLK_OUT2___200.000______0.000______50.0______102.086_____87.180
+-- CLK_OUT3____50.000______0.000______50.0______132.683_____87.180
+-- CLK_OUT4____63.158______0.000______50.0______126.473_____87.180
+-- CLK_OUT5___400.000______0.000______50.0_______90.074_____87.180
 --
 ------------------------------------------------------------------------------
 -- "Input Clock   Freq (MHz)    Input Jitter (UI)"
@@ -90,7 +90,7 @@ end dotclock;
 
 architecture xilinx of dotclock is
   attribute CORE_GENERATION_INFO : string;
-  attribute CORE_GENERATION_INFO of xilinx : architecture is "dotclock,clk_wiz_v3_6,{component_name=dotclock,use_phase_alignment=true,use_min_o_jitter=true,use_max_i_jitter=false,use_dyn_phase_shift=false,use_inclk_switchover=false,use_dyn_reconfig=false,feedback_source=FDBK_AUTO,primtype_sel=MMCM_ADV,num_out_clk=5,clkin1_period=10.000,clkin2_period=10.000,use_power_down=false,use_reset=false,use_locked=false,use_inclk_stopped=false,use_status=false,use_freeze=false,use_clk_valid=false,feedback_type=SINGLE,clock_mgr_type=MANUAL,manual_override=false}";
+  attribute CORE_GENERATION_INFO of xilinx : architecture is "dotclock,clk_wiz_v3_6,{component_name=dotclock,use_phase_alignment=true,use_min_o_jitter=true,use_max_i_jitter=false,use_dyn_phase_shift=false,use_inclk_switchover=false,use_dyn_reconfig=false,feedback_source=FDBK_AUTO,primtype_sel=MMCM_ADV,num_out_clk=5,clkin1_period=10.0,clkin2_period=10.0,use_power_down=false,use_reset=false,use_locked=false,use_inclk_stopped=false,use_status=false,use_freeze=false,use_clk_valid=false,feedback_type=SINGLE,clock_mgr_type=MANUAL,manual_override=false}";
   -- Input clock buffering / unused connectors
   signal clkin1      : std_logic;
   -- Output clock buffering / unused connectors
@@ -122,10 +122,7 @@ begin
 
   -- Input buffering
   --------------------------------------
-  clkin1_buf : IBUFG
-  port map
-   (O => clkin1,
-    I => CLK_IN1);
+  clkin1 <= CLK_IN1;
 
 
   -- Clocking primitive
@@ -140,10 +137,10 @@ begin
     COMPENSATION         => "ZHOLD",
     STARTUP_WAIT         => FALSE,
     DIVCLK_DIVIDE        => 1,
-    CLKFBOUT_MULT_F      => 11.625,
+    CLKFBOUT_MULT_F      => 12.000,
     CLKFBOUT_PHASE       => 0.000,
     CLKFBOUT_USE_FINE_PS => FALSE,
-    CLKOUT0_DIVIDE_F     => 11.625,
+    CLKOUT0_DIVIDE_F     => 12.000,
     CLKOUT0_PHASE        => 0.000,
     CLKOUT0_DUTY_CYCLE   => 0.500,
     CLKOUT0_USE_FINE_PS  => FALSE,
@@ -155,7 +152,7 @@ begin
     CLKOUT2_PHASE        => 0.000,
     CLKOUT2_DUTY_CYCLE   => 0.500,
     CLKOUT2_USE_FINE_PS  => FALSE,
-    CLKOUT3_DIVIDE       => 18,
+    CLKOUT3_DIVIDE       => 19,
     CLKOUT3_PHASE        => 0.000,
     CLKOUT3_DUTY_CYCLE   => 0.500,
     CLKOUT3_USE_FINE_PS  => FALSE,
@@ -163,7 +160,7 @@ begin
     CLKOUT4_PHASE        => 0.000,
     CLKOUT4_DUTY_CYCLE   => 0.500,
     CLKOUT4_USE_FINE_PS  => FALSE,
-    CLKIN1_PERIOD        => 10.000,
+    CLKIN1_PERIOD        => 10.0,
     REF_JITTER1          => 0.010)
   port map
     -- Output clocks
