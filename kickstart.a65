@@ -218,6 +218,9 @@ trap_entry_points:
 	jmp page_fault   ; Trap #$41
 	nop
 
+	; Leave room for traps to $7F
+	.advance $8200
+
 ;;; ----------------------------------------------------------------------------
 ;;; CPU Hypervisor Entry Point on reset
 ;;; ----------------------------------------------------------------------------
