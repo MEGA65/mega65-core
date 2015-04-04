@@ -210,12 +210,12 @@ architecture Behavioral of viciv is
       clka : IN STD_LOGIC;
       ena : IN STD_LOGIC;
       wea : IN STD_LOGIC_VECTOR(0 DOWNTO 0);
-      addra : IN STD_LOGIC_VECTOR(15 DOWNTO 0);
+      addra : IN STD_LOGIC_VECTOR(14 DOWNTO 0);
       dina : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
       douta : OUT STD_LOGIC_VECTOR(7 DOWNTO 0);
       clkb : IN STD_LOGIC;
       web : IN STD_LOGIC_VECTOR(0 DOWNTO 0);
-      addrb : IN STD_LOGIC_VECTOR(15 DOWNTO 0);
+      addrb : IN STD_LOGIC_VECTOR(14 DOWNTO 0);
       dinb : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
       doutb : OUT STD_LOGIC_VECTOR(7 DOWNTO 0)
       );
@@ -934,14 +934,14 @@ begin
       clka => cpuclock,
       ena => colour_ram_cs,
       wea(0) => fastio_write,
-      addra => std_logic_vector(colour_ram_fastio_address),
+      addra => std_logic_vector(colour_ram_fastio_address(14 downto 0)),
       dina => fastio_wdata,
       douta => colour_ram_fastio_rdata,
       -- video controller use port b of the dual-port colour ram.
       -- The CPU uses port a via the fastio interface
       clkb => pixelclock,
       web => (others => '0'),
-      addrb => std_logic_vector(colourramaddress),
+      addrb => std_logic_vector(colourramaddress(14 downto 0)),
       dinb => (others => '0'),
       unsigned(doutb) => colourramdata
       );
