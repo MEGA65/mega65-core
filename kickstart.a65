@@ -217,6 +217,18 @@ trap_entry_points:
 	nop
 	jmp page_fault   ; Trap #$41
 	nop
+	jmp nosuchtrap
+	nop
+	jmp nosuchtrap
+	nop
+	jmp nosuchtrap
+	nop
+	jmp nosuchtrap
+	nop
+	jmp nosuchtrap
+	nop
+	jmp nosuchtrap
+	nop
 
 	; Leave room for traps to $7F
 	.advance $8200

@@ -414,6 +414,8 @@ end component;
   signal reg_addr : unsigned(15 downto 0);
   -- ... and this one for 32-bit flat addressing modes
   signal reg_addr32 : unsigned(31 downto 0);
+  -- ... and this one for pushing 32bit virtual address onto the stack
+  signal reg_addr32save : unsigned(31 downto 0);
   -- Upper and lower
   -- 16 bits of temporary address register. Used for 32-bit
   -- absolute addresses
@@ -422,11 +424,10 @@ end component;
   -- Flag that indicates if a ($nn),Z access is using a 32-bit pointer
   signal absolute32_addressing_enabled : std_logic := '0';
   -- Flag that indicates far JMP, JSR or RTS
+  -- (set by two CLD's in a row before the instruction)
   signal flat32_address : std_logic := '0';
   signal flat32_address_prime : std_logic := '0';
-  signal flat32_enabled : std_logic := '0';
-  -- Far jumps are prefixed with SED, CLD, so we need a flag to keep track of this.
-  signal last_was_sed : std_logic := '0';
+  signal flat32_enabled : std_logic := '1';
   -- flag for progressive carry calculation when loading a 32-bit pointer
   signal pointer_carry : std_logic;
   -- Temporary value holder (used for RMW instructions)
@@ -1777,7 +1778,7 @@ begin
         end if;
         -- @IO:GS $D660 - Hypervisor virtual memory page 0 logical page low byte
         -- @IO:GS $D661 - Hypervisor virtual memory page 0 logical page high byte
-        -- @IO:GS $D662 - Hypervisor virtual memory page 0 logical page low byte
+        -- @IO:GS $D662 - Hypervisor virtual memory page 0 physical page low byte
         -- @IO:GS $D663 - Hypervisor virtual memory page 0 physical page high byte
         if long_address = x"FFD3660" and hypervisor_mode='1' then
           reg_page0_logical(7 downto 0) <= value;
@@ -1793,7 +1794,7 @@ begin
         end if;
         -- @IO:GS $D664 - Hypervisor virtual memory page 1 logical page low byte
         -- @IO:GS $D665 - Hypervisor virtual memory page 1 logical page high byte
-        -- @IO:GS $D666 - Hypervisor virtual memory page 1 logical page low byte
+        -- @IO:GS $D666 - Hypervisor virtual memory page 1 physical page low byte
         -- @IO:GS $D667 - Hypervisor virtual memory page 1 physical page high byte
         if long_address = x"FFD3664" and hypervisor_mode='1' then
           reg_page1_logical(7 downto 0) <= value;
@@ -1810,7 +1811,7 @@ begin
 
         -- @IO:GS $D668 - Hypervisor virtual memory page 2 logical page low byte
         -- @IO:GS $D669 - Hypervisor virtual memory page 2 logical page high byte
-        -- @IO:GS $D66A - Hypervisor virtual memory page 2 logical page low byte
+        -- @IO:GS $D66A - Hypervisor virtual memory page 2 physical page low byte
         -- @IO:GS $D66B - Hypervisor virtual memory page 2 physical page high byte
         if long_address = x"FFD3668" and hypervisor_mode='1' then
           reg_page2_logical(7 downto 0) <= value;
@@ -1826,7 +1827,7 @@ begin
         end if;
         -- @IO:GS $D66C - Hypervisor virtual memory page 1 logical page low byte
         -- @IO:GS $D66D - Hypervisor virtual memory page 1 logical page high byte
-        -- @IO:GS $D66E - Hypervisor virtual memory page 1 logical page low byte
+        -- @IO:GS $D66E - Hypervisor virtual memory page 1 physical page low byte
         -- @IO:GS $D66F - Hypervisor virtual memory page 1 physical page high byte
         if long_address = x"FFD366C" and hypervisor_mode='1' then
           reg_page3_logical(7 downto 0) <= value;
@@ -2919,7 +2920,6 @@ begin
                 -- interrupts are only checked in InstructionFetch, not
                 -- InstructionDecode).
                 absolute32_addressing_enabled <= '0';
-                last_was_sed <= '0';
                 flat32_address <= '0';
                 flat32_address_prime <= '0';
                 
@@ -2963,7 +2963,6 @@ begin
                                 -- mode
                                 absolute32_addressing_enabled <= '1';
                   when x"F8" => flag_d <= '1';  -- SED
-                                last_was_sed <= '1';
                   when others => null;
                 end case;
                                  
@@ -3003,6 +3002,7 @@ begin
                         state <= RTS;
                       else
                         -- 32-bit RTS, including virtual memory address resolution
+                        report "Far-RTS";
                         state <= Flat32RTS;
                       end if;
                     elsif memory_read_value=x"40" then
@@ -3124,6 +3124,7 @@ begin
               -- Process instruction next cycle
               if flat32_address='1' and flat32_enabled='1' then
                 -- 32bit absolute jsr/jmp
+                report "Far-JSR/JMP - got 2nd arg";
                 state <= Flat32Got2ndArgument;
               else
                 -- normal instruction
@@ -3179,26 +3180,26 @@ begin
               -- page fault).
               -- This also means that we can distinguish between physical pages
               -- and virtual addressed pages.
-              reg_addr32(31 downto 14) <= reg_pagenumber;
-              reg_addr32(13 downto 0) <= reg_pc(13 downto 0);
+              reg_addr32save(31 downto 14) <= reg_pagenumber;
+              reg_addr32save(13 downto 0) <= reg_pc(13 downto 0);
               pc_inc := '0';
               stack_push := '1';
-              memory_access_wdata := reg_pc(7 downto 0);
+              memory_access_wdata := reg_pagenumber(17 downto 10);
               state <= Flat32SaveAddress2;
             when Flat32SaveAddress2 =>
               pc_inc := '0';
               stack_push := '1';
-              memory_access_wdata := reg_addr32(15 downto 8);
+              memory_access_wdata := reg_addr32save(23 downto 16);
               state <= Flat32SaveAddress3;
             when Flat32SaveAddress3 =>
               pc_inc := '0';
               stack_push := '1';
-              memory_access_wdata := reg_addr32(23 downto 16);
+              memory_access_wdata := reg_addr32save(15 downto 8);
               state <= Flat32SaveAddress4;
             when Flat32SaveAddress4 =>
               pc_inc := '0';
               stack_push := '1';
-              memory_access_wdata := reg_addr32(31 downto 24);
+              memory_access_wdata := reg_addr32save(7 downto 0);
               state <= Flat32Translate;
             when Flat32RTS =>
               -- Pull 32-bit address off the stack.
@@ -3206,13 +3207,15 @@ begin
               -- the values LSB first, and then use the Flat32Dereference sequence
               -- to pull the values in.
               pc_inc := '0';
-              reg_addr <= reg_sp + 1;
+              reg_addr <= ((reg_sph&reg_sp)+1);              
               reg_sp <= reg_sp + 4;
               if flag_e='0' and reg_sp(7 downto 2)="111111" then
                 reg_sph <= reg_sph + 1;
               end if;
               state <= Flat32Dereference0;
             when Flat32Dereference0 =>
+              report "Far return: pulling return address from stack at $"
+                & to_hstring(reg_addr);
               pc_inc := '0';
               memory_access_read := '1';
               memory_access_address := x"000"&reg_addr;
@@ -3264,16 +3267,25 @@ begin
 
               -- Remember page number for far RTS
               reg_pagenumber <= reg_addr32(31 downto 14);
+
+              report "Far translate: input address = $" & to_hstring(reg_addr32);
               
               pc_inc := '0';
               state <= Flat32Dispatch;
               if (reg_addr32(31)='0') then
                 -- Not virtal address, so map and jump
+                report "Far-JMP/JSR: Long address is physical, so not translating.";
                 null;
               else
                 -- Is virtual address, so see if it is in the page table.
+                report "Far JMP/JSR: Long address is virtual, so translate it";
                 state <= Flat32Dispatch;
                 if reg_addr32(29 downto 14) = reg_page0_logical then
+                  report "Far JMP/JSR: $" & to_hstring(reg_addr32)
+                    & " matches reg_page0_logical ( = page $"
+                    & to_hstring(reg_page0_logical)
+                    & "), so translating to physical page $"
+                    & to_hstring(reg_page0_physical);
                   reg_addr32(29 downto 14) <= reg_page0_physical;
                   reg_addr32(31 downto 30) <= "00";
                   reg_pageactive <= '1';
@@ -3295,12 +3307,16 @@ begin
                   reg_pageid <= "11";
                 else
                   -- Page fault!
+                  report "Far-JMP/JSR/RTS: Page fault! Trapping to hypervisor";
+                  report "Request is for virtual address $" & to_hstring(reg_addr32);
                   state <= TrapToHypervisor;
                   -- Trap #65 ($41) = Page fault.
                   hypervisor_trap_port <= "1000001";
                 end if;
               end if;
             when Flat32Dispatch =>
+              report "Far dispatch: physical address is $" & to_hstring(reg_addr32)
+                & " + $4000";
               -- MAP the appropriate 16KB block in to $4000-$7FFF,
               -- then set PC to $4000 + (reg_addr32 & #$3FFF).
               -- NOTE: To avoid complexity in the CPU, the $4000 offset is NOT
