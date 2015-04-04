@@ -385,6 +385,9 @@ end component;
   signal reg_page3_logical : unsigned(15 downto 0);
   signal reg_page3_physical : unsigned(15 downto 0);
   signal reg_pagenumber : unsigned(17 downto 0);
+  signal reg_pages_dirty : std_logic_vector(3 downto 0);
+  signal reg_pageid : unsigned(1 downto 0);
+  signal reg_pageactive : std_logic := '0';
 
   -- Flags to detect interrupts
   signal map_interrupt_inhibit : std_logic := '0';
@@ -1424,7 +1427,10 @@ begin
             return unsigned(ddr_ram_banking&std_logic_vector(to_unsigned(0,4))&ddr_ram_bank(2 downto 0));
             -- Virtual memory page registers here
           when "011101" =>
-            return unsigned(std_logic_vector(reg_pagenumber(1 downto 0))&"000000");
+            return unsigned(std_logic_vector(reg_pagenumber(1 downto 0))
+                            &"0"
+                            &reg_pageactive
+                            &reg_pages_dirty);
           when "011110" => return reg_pagenumber(9 downto 2);
           when "011111" => return reg_pagenumber(17 downto 10);
           when "100000" => return reg_page0_logical(7 downto 0);
@@ -1758,6 +1764,8 @@ begin
         -- @IO:GS $D65D - Hypervisor current virtual page number (low byte)
         if long_address = x"FFD365D" and hypervisor_mode='1' then
           reg_pagenumber(1 downto 0) <= value(7 downto 6);
+          reg_pageactive <= value(4);
+          reg_pages_dirty <= std_logic_vector(value(3 downto 0));
         end if;
         -- @IO:GS $D65E - Hypervisor current virtual page number (mid byte)
         if long_address = x"FFD365E" and hypervisor_mode='1' then
@@ -3268,15 +3276,23 @@ begin
                 if reg_addr32(29 downto 14) = reg_page0_logical then
                   reg_addr32(29 downto 14) <= reg_page0_physical;
                   reg_addr32(31 downto 30) <= "00";
+                  reg_pageactive <= '1';
+                  reg_pageid <= "00";
                 elsif reg_addr32(29 downto 14) = reg_page1_logical then
                   reg_addr32(29 downto 14) <= reg_page1_physical;
                   reg_addr32(31 downto 30) <= "00";
+                  reg_pageactive <= '1';
+                  reg_pageid <= "01";
                 elsif reg_addr32(29 downto 14) = reg_page2_logical then
                   reg_addr32(29 downto 14) <= reg_page2_physical;
                   reg_addr32(31 downto 30) <= "00";
+                  reg_pageactive <= '1';
+                  reg_pageid <= "10";
                 elsif reg_addr32(29 downto 14) = reg_page3_logical then
                   reg_addr32(29 downto 14) <= reg_page3_physical;
                   reg_addr32(31 downto 30) <= "00";
+                  reg_pageactive <= '1';
+                  reg_pageid <= "11";
                 else
                   -- Page fault!
                   state <= TrapToHypervisor;
@@ -4179,7 +4195,21 @@ begin
         -- because the resolution of some addresses is dependent on whether
         -- the operation is read or write.  ROM accesses are a good example.
         -- We delay the memory write until the next cycle to minimise logic depth
+
+        -- Mark pages dirty as necessary
         if memory_access_write='1' then
+          if (reg_pageactive = '1' ) then
+            if (memory_access_address(15 downto 14) = "01") then
+              case reg_pageid is
+                when "00" => reg_pages_dirty(0) <= '1'; 
+                when "01" => reg_pages_dirty(1) <= '1'; 
+                when "10" => reg_pages_dirty(2) <= '1'; 
+                when "11" => reg_pages_dirty(3) <= '1';
+                when others => null;
+              end case;
+            end if;
+          end if;
+
           if memory_access_resolve_address = '1' then
             memory_access_address := resolve_address_to_long(memory_access_address(15 downto 0),true);
           end if;
