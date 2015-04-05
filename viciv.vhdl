@@ -204,8 +204,8 @@ architecture Behavioral of viciv is
           );
   end component charrom;
 
-  -- 64KB internal colour RAM
-  component ram8x64k IS
+  -- 32KB internal colour RAM
+  component ram8x32k IS
     PORT (
       clka : IN STD_LOGIC;
       ena : IN STD_LOGIC;
@@ -928,7 +928,7 @@ begin
 
   colourram: block
   begin
-  colourram1 : component ram8x64k
+  colourram1 : component ram8x32k
     PORT MAP (
       clka => cpuclock,
       ena => colour_ram_cs,

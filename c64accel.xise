@@ -78,7 +78,7 @@
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="84"/>
       <association xil_pn:name="Implementation" xil_pn:seqID="80"/>
     </file>
-    <file xil_pn:name="ram8x64k.vhd" xil_pn:type="FILE_VHDL">
+    <file xil_pn:name="ram8x32k.vhd" xil_pn:type="FILE_VHDL">
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="85"/>
       <association xil_pn:name="Implementation" xil_pn:seqID="62"/>
     </file>
@@ -433,10 +433,6 @@
     <file xil_pn:name="ghdl_ram151x512.vhdl" xil_pn:type="FILE_VHDL">
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="162"/>
       <association xil_pn:name="Implementation" xil_pn:seqID="88"/>
-    </file>
-    <file xil_pn:name="ghdl_ram8x64k.vhdl" xil_pn:type="FILE_VHDL">
-      <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="163"/>
-      <association xil_pn:name="Implementation" xil_pn:seqID="163"/>
     </file>
   </files>
 
