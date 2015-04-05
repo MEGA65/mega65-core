@@ -223,13 +223,13 @@ begin  -- behavioural
                              end if;
                              
                            -- Joysticks
-                           when x"06c" =>  -- JOY1 LEFT
+                           when x"07d" =>  -- JOY1 LEFT
                              joy1(0) <= break;
-                           when x"069" =>  -- JOY1 RIGHT
+                           when x"07a" =>  -- JOY1 RIGHT
                              joy1(1) <= break;
-                           when x"07d" =>  -- JOY1 UP
+                           when x"06c" =>  -- JOY1 UP
                              joy1(2) <= break;
-                           when x"07a" =>  -- JOY1 DOWN
+                           when x"069" =>  -- JOY1 DOWN
                              joy1(3) <= break;
                            when x"070" =>  -- JOY1 FIRE
                              joy1(4) <= break;
