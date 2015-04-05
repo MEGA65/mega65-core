@@ -233,13 +233,13 @@ begin  -- behavioural
                              joy1(3) <= break;
                            when x"070" =>  -- JOY1 FIRE
                              joy1(4) <= break;
-                           when x"06b" =>  -- JOY2 LEFT
+                           when x"075" =>  -- JOY2 LEFT
                              joy2(0) <= break;
-                           when x"074" =>  -- JOY2 RIGHT
-                             joy2(1) <= break;
---                           when x"072" =>  -- JOY2 DOWN
+                           when x"074" =>  -- JOY2 DOWN
+                             joy2(3) <= break;
+--                           when x"072" =>  -- JOY2 RIGHT
 --                             joy2(3) <= break;
-                           when x"075" =>  -- JOY2 UP
+                           when x"06b" =>  -- JOY2 UP
                              joy2(2) <= break;
                            when x"073" =>  -- JOY2 FIRE
                              joy2(4) <= break;
@@ -253,10 +253,10 @@ begin  -- behavioural
                            when x"004" => matrix(5) <= break;
                            when x"003" => matrix(6) <= break;
                            when x"072" => matrix(7) <= break;
-                                          joy2(3) <= break;  -- keyrah
+                                          joy2(1) <= break;  -- keyrah
                                                              -- duplicate scan
                                                              -- code for down
-                                                             -- key and joy2 down?
+                                                             -- key and joy2 right?
 
                            -- 3, W, A, 4, Z, S, E, left-SHIFT
                            when x"026" => matrix(8) <= break;
