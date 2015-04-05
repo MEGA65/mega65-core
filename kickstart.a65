@@ -246,12 +246,6 @@ reset_machine_state:
 		lda #$00
 		sta $d017		
 
-		lda #$00
-		tab
-		ldy #$01
-		tys
-		ldx #$ff
-		txs
 		lda #$7f
 		sta $DC0D
 		sta $DD0D
