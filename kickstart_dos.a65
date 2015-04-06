@@ -128,3 +128,17 @@ trap_dos_exit_and_switch_to_task:
 trap_dos_switch_to_task:
 trap_dos_exit_task:
 	jmp invalid_subfunction;
+
+
+
+; Clear all file descriptors.
+; This just consists of setting the drive number to $ff,
+; which indicates "no such drive"
+; Drive number field is first byte of file descriptor for convenience
+dos_clear_filedescriptors:
+	lda #$ff
+	sta currenttask_filedescriptor0
+	sta currenttask_filedescriptor1
+	sta currenttask_filedescriptor2
+	sta currenttask_filedescriptor3
+	rts

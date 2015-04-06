@@ -6,6 +6,7 @@ KICKSTARTSRCS=kickstart.a65 \
 		kickstart_machine.a65 \
 		kickstart_process_descriptor.a65 \
 		kickstart_dos.a65 \
+		kickstart_task.a65 \
 		kickstart_mem.a65
 
 UNAME := $(@shell uname)

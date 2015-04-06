@@ -1,0 +1,90 @@
+
+task_set_c64_memorymap:
+	; set contents of CPU registers for exit from hypervisor mode
+	lda #$00
+	sta hypervisor_a
+	sta hypervisor_x
+	sta hypervisor_y
+	sta hypervisor_z
+	sta hypervisor_b
+	lda #$ff
+	sta hypervisor_spl
+	lda #$01
+	sta hypervisor_sph
+	lda #$F7     ; All flags except decimal mode
+	sta hypervisor_flags
+	lda #$00
+	sta hypervisor_maplolo
+	sta hypervisor_maplohi
+	sta hypervisor_maphilo
+	sta hypervisor_maphihi
+	sta hypervisor_maplomb
+	sta hypervisor_maphimb
+	lda #$3f
+	sta hypervisor_cpuport00
+	sta hypervisor_cpuport01
+
+	lda #$00
+	sta hypervisor_iomode    ; C64 IO map
+
+	; XXX - disable C65 ROM maps
+	rts
+	
+task_set_pc_to_reset_vector:
+	; Set PC from $FFFC in ROM, i.e., $802FFFC
+	ldx #<reset_vector
+	ldy #>reset_vector
+	ldz #$02
+	lda #$00
+	jsr longpeek
+	lda kickstart_scratchbyte0
+	sta hypervisor_pcl
+	ldx #<reset_vector
+	inx
+	ldy #>reset_vector
+	ldz #$02
+	lda #$00
+	jsr longpeek
+	lda kickstart_scratchbyte0
+	sta hypervisor_pch
+	rts
+
+; Set all page entries and current page number to all zeroes
+; so that we don't think any page is loaded.
+; XXX - Is all zeroes the best value here?  Physical page 0 is $00000000, which
+; is in chipram. It might be legitimate to try to map that.  Perhaps we should set
+; the pages to $FFFF instead (but that would reduce available VM space by 16KB).
+; Physical page 0 is probably reasonable for now. We can revisit as required.
+task_clear_pagetable:
+	lda #$00
+	ldx #<hypervisor_vm_currentpage_lo
+tcp1:	sta $d600,x
+	inx
+	cpx #[<hypervisor_vm_pagetable3_physicalpage_hi+1]
+	bne tcp1
+	rts	
+
+task_erase_processcontrolblock:
+	; Erase process control block
+	ldx #$00
+	txa
+tabs1:	sta currenttask_block,x
+	inx
+	bne tabs1
+	jsr task_clear_pagetable
+	; Mark all files as closed
+	jmp dos_clear_filedescriptors
+
+task_new_processcontrolblock:
+	jsr task_erase_processcontrolblock
+	jsr task_get_next_taskid
+	sta currenttask_id
+	rts
+
+; Initialise memory to indicate a new blank task.
+; (actually, it will be a task preconfigured for C64/C65 mode)
+task_asblankslate:
+	jsr task_new_processcontrolblock
+	
+	jsr task_set_c64_memorymap
+	rts

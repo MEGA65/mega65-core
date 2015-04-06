@@ -31,7 +31,9 @@ currenttask_name:
 
 currenttask_filedescriptor0:
 ; Which logical drive the file resides on
-; (or $FF for a free descriptor block = closed file)
+; (or $FF for a free descriptor block = closed file.
+;  we put this in the first byte for convience for checking
+;  if a file descriptor is free).
 currenttask_filedescriptor0_drivenumber:
 	.byte $00
 ; Starting cluster in file system
