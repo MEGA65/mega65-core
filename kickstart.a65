@@ -2354,48 +2354,49 @@ g61:		sta $0800,x
 
 		; set contents of CPU registers for exit from hypervisor mode
 		lda #$00
-		sta $d640    ; A
-		sta $d641    ; X
-		sta $d642    ; Y
-		sta $d643    ; Z
-		sta $d644    ; B
+		sta hypervisor_a
+		sta hypervisor_x
+		sta hypervisor_y
+		sta hypervisor_z
+		sta hypervisor_b
 		lda #$ff
-		sta $d645    ; SPL
+		sta hypervisor_spl
 		lda #$01
-		sta $d646    ; SPH
+		sta hypervisor_sph
 		lda #$F7     ; All flags except decimal mode
-		sta $d647    ; P
+		sta hypervisor_flags
 		; Set PC from $FFFC in ROM, i.e., $802FFFC
-		ldx #$FC
-		ldy #$FF
+		ldx #<reset_vector
+		ldy #>reset_vector
 		ldz #$02
 		lda #$00
 		jsr longpeek
-		lda $bc00
-		sta $d648
-		ldx #$FD
-		ldy #$FF
+		lda kickstart_scratch_byte0
+		sta hypervisor_pcl
+		ldx #<reset_vector
+		inx
+		ldy #>reset_vector
 		ldz #$02
 		lda #$00
 		jsr longpeek
-		lda $bc00
-		sta $d649
+		lda kickstart_scratch_byte0
+		sta hypervisor_pch
 		lda #$00
-		sta $d64a    ; MAPLO
-		sta $d64b    ; MAPLO
-		sta $d64c    ; MAPHI
-		sta $d64d    ; MAPHI
-		sta $d64e    ; MB LO
-		sta $d64f    ; MB HI
+		sta hypervisor_maplolo
+		sta hypervisor_maplohi
+		sta hypervisor_maphilo
+		sta hypervisor_maphihi
+		sta hypervisor_maplomb
+		sta hypervisor_maphimb
 		lda #$3f
-		sta $d650    ; CPU port $00
-		sta $d651    ; CPU port $01
+		sta hypervisor_cpuport00
+		sta hypervisor_cpuport01
 
 		lda #$00
-		sta $d652    ; C64 IO map
+		sta hypervisor_iomode    ; C64 IO map
 
 		; Exit hypervisor and transfer control to ROM
-		sta $d67f
+		sta hypervisor_enterexit_trigger
 	
 longpeek:
 		; Use DMAgic to read any byte of RAM in 28bit address space.
