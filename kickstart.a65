@@ -2666,7 +2666,7 @@ arptemplate:
 	.byte $08,$06,$00,$01,$08,$00,$06,$04,$00,$01
 
 ; messages.  All have to be 40 bytes long
-msg_kickstart:        .byte "C65GS KICKSTART V00.00 PRE-ALPHA        "
+msg_kickstart:        .byte "C65GS KICKSTART V00.01 PRE-ALPHA        "
 msg_romok:            .byte "ROM CHECKSUM OK - BOOTING               "
 msg_rombad:	      .byte "ROM CHECKSUM FAIL - LOADING ROM         "
 msg_tryingsdcard:     .byte "LOOKING FOR SDCARD...                   "
