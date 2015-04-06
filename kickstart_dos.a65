@@ -369,7 +369,7 @@ dos_disk_openpartition:
 
 	; Now pull the start sector from the structure and get ready to request
 	; that structure from the SD card.
-	ora fs_start_sector
+	ora #fs_start_sector
 	tay
 	ldx #$00
 ddop1:	lda dos_disk_table,y
@@ -415,7 +415,7 @@ ddop1:	lda dos_disk_table,y
 
 	; Determine system sector count
 	lda dos_disk_table_offset
-	ora fs_fat32_system_sectors
+	ora #fs_fat32_system_sectors
 	tay
 	ldx #$03
 ddop10:	lda [sd_sectorbuffer+$0E],x
