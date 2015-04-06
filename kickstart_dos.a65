@@ -307,9 +307,6 @@ makethispartitionthedefault:
 	sta dos_default_disk
 dontmakethispartitionthedefault:
 
-	; Update the number of disks we have
-	inc dos_disk_count
-
 partitionisnotinteresting:
 	; return OK
 	sec
@@ -610,7 +607,7 @@ ddop16:	lda [sd_sectorbuffer+$2C],x
 	ora #fs_type_and_source
 	tay
 	lda #$0f
-	sta dos_disk_table_offset,y
+	sta dos_disk_table,y
 
 	; ... and increment the number of disks we know
 	inc dos_disk_count
