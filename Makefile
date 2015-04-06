@@ -2,6 +2,10 @@ ROUTEEFFORT=	std
 #ROUTEEFFORT=	med
 #ROUTEEFFORT=	high
 
+KICKSTARTSRCS=kickstart.a65 \
+		kickstart_dos.a65 \
+		kickstart_mem.a65
+
 UNAME := $(@shell uname)
 ifeq ($(UNAME),MINGW32_NT-6.1)
 SOCKLIBS = -l ws2_32
@@ -27,7 +31,7 @@ f011test.prg:	f011test.a65 Makefile
 diskchooser:	diskchooser.a65 etherload.prg Makefile
 	../Ophis/bin/ophis -4 diskchooser.a65 -l diskchooser.list
 
-kickstart65gs.bin:	kickstart.a65 Makefile diskchooser
+kickstart65gs.bin:	$(KICKSTARTSRCS) Makefile diskchooser
 	../Ophis/bin/ophis -4 kickstart.a65 -l kickstart.list
 
 thumbnail.prg:	showthumbnail.a65 Makefile

@@ -1,5 +1,5 @@
 ; C65GS Kick Start ROM.
-; Paul Gardner-Stephen, 2014.
+; Paul Gardner-Stephen, 2014-2015.
 ;
 ; Purpose: 
 ; 1. Verify checksum of ROM area of slow RAM.
@@ -77,7 +77,7 @@
 ;;; ----------------------------------------------------------------------------
 trap_entry_points:
 	; Traps $00-$07 (user callable)
-	jmp nosuchtrap
+	jmp dos_and_process_trap
 	nop
 	jmp nosuchtrap
 	nop
@@ -234,6 +234,41 @@ trap_entry_points:
 	.advance $8200
 
 ;;; ----------------------------------------------------------------------------
+;;; Hypervisor traps
+;;; ----------------------------------------------------------------------------
+
+;;; ----------------------------------------------------------------------------
+;;; Illegal trap / trap sub-function handlers
+;;; ----------------------------------------------------------------------------
+; Traps are triggered by writing to $D640-$D67F
+; and trap to $8000+((address & $3F)*4) in the hypervisor
+
+; Routine for unimplemented/reserved traps
+; (Consider replacing with trap to hypervisor error screen with option
+;  to return?)
+nosuchtrap:
+	; set C flag for caller to indicate failure
+	lda $d647
+	ora #$01   ; C flag is bit 0
+	sta $d647
+	; set A to $FF
+	lda #$ff
+	sta $d640
+	; return from hypervisor
+	sta $d67f
+
+invalid_subfunction:
+	jmp nosuchtrap
+
+;;; ----------------------------------------------------------------------------
+;;; DOS, process control and related functions trap
+;;; ----------------------------------------------------------------------------
+		.include "kickstart_dos.a65"
+;;; ----------------------------------------------------------------------------
+;;; Virtual memory and memory management
+;;; ----------------------------------------------------------------------------
+		.include "kickstart_mem.a65"
+;;; ----------------------------------------------------------------------------
 ;;; CPU Hypervisor Entry Point on reset
 ;;; ----------------------------------------------------------------------------
 reset_machine_state:
@@ -277,29 +312,6 @@ reset_machine_state:
 ;;; ----------------------------------------------------------------------------
 ;;; CPU Hypervisor reset/trap routines
 ;;; ----------------------------------------------------------------------------
-
-; Display error and infinite loop on page fault
-page_fault:
-		jsr reset_machine_state
-		ldx #<msg_pagefault
-		ldy #>msg_pagefault
-		jsr printmessage
-		ldy #$00
-		; Print PC
-		ldz $d649
-		jsr printhex
-		ldz $d648
-		jsr printhex
-		; and MAPLO state
-		ldz $d64f
-		jsr printhex
-		ldz $d64a
-		jsr printhex
-		ldz $d649
-		jsr printhex
-
-pf1:		inc $d020
-		jmp pf1
 
 reset_entry:
 kickstart_entry:
@@ -2666,26 +2678,6 @@ badpacket:
 arptemplate:
 	.byte $08,$06,$00,$01,$08,$00,$06,$04,$00,$01
 
-;;; ----------------------------------------------------------------
-;;; Hypervisor traps
-;;; ----------------------------------------------------------------
-; Traps are triggered by writing to $D640-$D67F
-; and trap to $8000+((address & $3F)*4) in the hypervisor
-
-; Routine for unimplemented/reserved traps
-; (Consider replacing with trap to hypervisor error screen with option
-;  to return?)
-nosuchtrap:
-	; set C flag for caller to indicate failure
-	lda $d647
-	ora #$01   ; C flag is bit 0
-	sta $d647
-	; set A to $FF
-	lda #$ff
-	sta $d640
-	; return from hypervisor
-	sta $d67f
-
 ; messages.  All have to be 40 bytes long
 msg_kickstart:        .byte "C65GS KICKSTART V00.00 PRE-ALPHA        "
 msg_romok:            .byte "ROM CHECKSUM OK - BOOTING               "
@@ -2721,7 +2713,6 @@ msg_alreadykicked:    .byte "RUNNING KICKED HYPERVISOR               "
 msg_etherkick:	      .byte "BOOTING VIA ETHERKICK: UDP PORT 4111    "
 msg_lookingfornextsector:
 		      .byte "LOOKING FOR NEXT SECTOR OF FILE         "
-msg_pagefault:        .byte "PAGE FAULT: PC=$$$$, MAP=$$.$$$$.00     "
 
 ; filename of ROM we want to load in FAT directory format
 txt_c65gsrom:	      .byte "C65GS   ROM"
@@ -2740,6 +2731,6 @@ diskchooserend:
 		; Stack at $BE00-$BEFF
 		; ZP at $BF00-$BFFF
 
-		.advance $C000
+		.advance $C000, $00
 
 		 .outfile "kickstart65gs.bin"

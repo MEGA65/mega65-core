@@ -1,0 +1,24 @@
+; Display error and infinite loop on page fault
+page_fault:
+		jsr reset_machine_state
+		ldx #<msg_pagefault
+		ldy #>msg_pagefault
+		jsr printmessage
+		ldy #$00
+		; Print PC
+		ldz $d649
+		jsr printhex
+		ldz $d648
+		jsr printhex
+		; and MAPLO state
+		ldz $d64f
+		jsr printhex
+		ldz $d64a
+		jsr printhex
+		ldz $d649
+		jsr printhex
+
+pf1:		inc $d020
+		jmp pf1
+
+msg_pagefault:        .byte "PAGE FAULT: PC=$$$$, MAP=$$.$$$$.00     "
