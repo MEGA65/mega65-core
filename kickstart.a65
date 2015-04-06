@@ -26,11 +26,6 @@
 ; the desire is to have an SYS call that brings up a menu that lets
 ; you choose a disk image from a list.
 	.data 
-	.org $00f0
-	.space zptempv 4
-	.space zptempv2 2
-	.space zptempp 2
-	.space zptempp2 2
 
 	.org $ce00
 	.space romslab 1
@@ -642,11 +637,11 @@ ku1:		lda fs_direntry,x
 
 		; Set 32-bit memory pointer to $00004000
 		lda #$00
-		sta zptempv+0		
-		sta zptempv+2
-		sta zptempv+3
+		sta <zptempv+0		
+		sta <zptempv+2
+		sta <zptempv+3
 		lda #$40
-		sta zptempv+1
+		sta <zptempv+1
 
 		jsr fs_setfile
 		jsr fs_clustertosector
@@ -661,18 +656,18 @@ havekickupsector:
 		ldz #$00
 ku2:		lda $de00,y
 		nop ; trigger 32-bit pointer for indirect store		
-		sta (zptempv),z
+		sta (<zptempv),z
 		inz
 		iny
 		bne ku2
-		inw zptempv+1
+		inw [<zptempv+1]
 ku3:		lda $df00,y
 		nop ; trigger 32-bit pointer for indirect store
-		sta (zptempv),z
+		sta (<zptempv),z
 		inz
 		iny
 		bne ku3
-		inw zptempv+1
+		inw [<zptempv+1]
 		
 		jsr fs_readnextsector
 		bcs havekickupsector
@@ -683,13 +678,13 @@ ku3:		lda $df00,y
 		ldy #>msg_kickuploaded
 		jsr printmessage
 		ldy #$00
-		ldz zptempv+3
+		ldz <zptempv+3
 		jsr printhex
-		ldz zptempv+2
+		ldz <zptempv+2
 		jsr printhex
-		ldz zptempv+1
+		ldz <zptempv+1
 		jsr printhex
-		ldz zptempv+0
+		ldz <zptempv+0
 		jsr printhex
 
 		; Use DMAgic to copy $0004000-$0007FFF to $FFF8000-$FFFBFFF
@@ -1041,7 +1036,7 @@ rf1:
 		; now map $4000-$5FFF
 		lda rom_sectorsread
 		asl
-		sta zptempv		
+		sta <zptempv		
 		lda rom_sectorsread
 		lsr
 		lsr
@@ -1050,16 +1045,16 @@ rf1:
 		lsr
 		lsr
 		lsr
-		sta zptempv+1
-		lda zptempv
+		sta <zptempv+1
+		lda <zptempv
 		clc
 		adc #$c0
-		sta zptempv
-		lda zptempv+1
+		sta <zptempv
+		lda <zptempv+1
 		adc #$01
 		ora #$40
 		tax
-		lda zptempv
+		lda <zptempv
 		ldy #$00   ; keep kickstart mapped at $8000-$BFFF
 		ldz #$3f
 		map
@@ -2012,14 +2007,14 @@ sumslab:	; romcheckslab indicates which 16KB piece.
 		
 		; sum contents of 16KB slab
 		lda #$00
-		sta zptempv
+		sta <zptempv
 		lda #$40
-		sta zptempv+1
+		sta <zptempv+1
 		
 sumpage:	ldy #$00
 sumbyte:	lda checksum
 		clc
-		adc (zptempv),y
+		adc (<zptempv),y
 		sta checksum
 		bcc l6
 		inc checksum+1
@@ -2027,8 +2022,8 @@ sumbyte:	lda checksum
 		inc checksum+2
 l6:		iny
 		bne sumbyte
-		inc zptempv+1
-		lda zptempv+1
+		inc <zptempv+1
+		lda <zptempv+1
 		cmp #$80
 		bne sumpage
 		
@@ -2248,43 +2243,43 @@ checkpoint:
 		jmp printhex
 
 printmessage:
-		stx zptempp
-		sty zptempp+1
+		stx <zptempp
+		sty <zptempp+1
 		lda #$00
-		sta zptempp2
+		sta <zptempp2
 		lda #$04
-		sta zptempp2+1
+		sta <zptempp2+1
 		ldx screenrow
 pm2:		cpx #$00
 		beq pm1
 		clc
-		lda zptempp2
+		lda <zptempp2
 		adc #$28
-		sta zptempp2
-		lda zptempp2+1
+		sta <zptempp2
+		lda <zptempp2+1
 		adc #$00
-		sta zptempp2+1
+		sta <zptempp2+1
 		; if reached bottom of screen, then loop back to top of screen
 		cmp #$07
 		bcc pm5
-		lda zptempp2
+		lda <zptempp2
 		cmp #$e8
 		bcc pm5
 	
 		lda #$00
-		sta zptempp2
+		sta <zptempp2
 		lda #$04
-		sta zptempp2+1
+		sta <zptempp2+1
 pm5:		dex
 		bne pm2
 pm1:
 		ldy #$27
-pm3:		lda (zptempp),y
+pm3:		lda (<zptempp),y
 		; convert ASCII/PETSCII to screen codes
 		cmp #$40
 		bcc pm4
 		and #$1f
-pm4:		sta (zptempp2),y
+pm4:		sta (<zptempp2),y
 
 dey
 		bpl pm3
@@ -2306,7 +2301,7 @@ printhex:
 printhexdigit:
 		; find next $ sign to replace with hex digit
 		tax
-phd3:		lda (zptempp2),y
+phd3:		lda (<zptempp2),y
 		cmp #$24
 		beq phd2
 		iny
@@ -2319,7 +2314,7 @@ phd2:		txa
 		cmp #$3a
 		bcc phd1
 		sbc #$39
-phd1:		sta (zptempp2),y
+phd1:		sta (<zptempp2),y
 		iny
 		rts
 
@@ -2750,9 +2745,6 @@ dos_disk_table_offset:
 ; For providing feedback on why DOS calls have failed
 dos_error_code:
 		.byte $00
-; Temporary vector storage for DOS
-dos_scratch_vector:
-		.word $0000,$0000
 
 		.checkpc $BD00
 		.advance $BD00,$00
@@ -2765,6 +2757,12 @@ dos_scratch_vector:
 		; Kickstart ZP at $BF00-$BFFF
 		.checkpc $BF00
 		.advance $BF00,$00
+; Temporary vector storage for DOS
+  	.space dos_scratch_vector 4
+	.space zptempv 4
+	.space zptempv2 2
+	.space zptempp 2
+	.space zptempp2 2
 
 		.advance $C000, $00
 

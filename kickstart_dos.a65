@@ -239,22 +239,30 @@ dos_initialise_disklist:
 
 dos_consider_partition_entry:
 
-	lda #$01
+	lda #$00
 	sta dos_error_code
 
+	; Offset within partition table entry of partition type
 	ldy #$04
+	; Get partition type byte
 	lda (<dos_scratch_vector),y
+
 	; We like FAT32 partitions, whether LBA or CHS addressed, although we actually
 	; use LBA addressing.  XXX - Can this cause problems for CHS partitions?
 	; (SD cards which must really use LBA, can still show up with CHS partitions!
 	;  this is really annoying.)
 	cmp #constant_partition_type_fat32_lba
-	bne partitionisinteresting
+	beq partitionisinteresting
 	cmp #constant_partition_type_fat32_chs
-	bne partitionisinteresting
+	beq partitionisinteresting
+	lda #$0f
+	sta dos_error_code
 	jmp partitionisnotinteresting
 
 partitionisinteresting:
+	lda #$01
+	sta dos_error_code
+
 	; Partition is FAT32, so add it to the list
 
 	; Disk structures in dos_disk_table are 32 bytes long, so shift count left
@@ -345,6 +353,8 @@ partitionerror:
 ; Offset $1E - Two spare bytes.
 dos_disk_openpartition:
 	; A contains the disk number we are trying to open.
+	lda #$00
+	sta dos_error_code
 
 	; Load first sector of file system and parse.
 	; This is the Volume Boot Record
@@ -385,7 +395,7 @@ ddop1:	lda dos_disk_table,y
 	lda [sd_sectorbuffer+$1FE]
 	cmp #$55
 	bne partitionerror
-	lda [sd_sectorbuffer+$1FE]
+	lda [sd_sectorbuffer+$1FF]	
 	cmp #$AA
 	bne partitionerror
 
@@ -456,7 +466,7 @@ ddop2:	lda dos_disk_table,y
 	inx
 	dez
 	bpl ddop2
-	
+
 	; Now add length of fat for each copy of the fat
 	lda #$07
 	sta dos_error_code
