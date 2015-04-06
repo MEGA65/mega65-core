@@ -878,9 +878,10 @@ architecture Behavioral of viciv is
   signal sprite_alias_palette_rdata : std_logic_vector(31 downto 0);
 
   -- Palette bank selection registers
-  signal palette_bank_fastio : std_logic_vector(1 downto 0);
-  signal palette_bank_chargen : std_logic_vector(1 downto 0);
-  signal palette_bank_sprites : std_logic_vector(1 downto 0);
+  signal palette_bank_fastio : std_logic_vector(1 downto 0) := "11";
+  signal palette_bank_chargen : std_logic_vector(1 downto 0) := "11";
+  signal palette_bank_chargen256 : std_logic_vector(1 downto 0) := "11";
+  signal palette_bank_sprites : std_logic_vector(1 downto 0) := "11";
 
   signal clear_hsync : std_logic := '0';
   signal set_hsync : std_logic := '0';
@@ -1519,7 +1520,7 @@ begin
           fastio_rdata(7 downto 4) <= x"0";
           fastio_rdata(3 downto 0) <= std_logic_vector(vicii_sprite_pointer_address(27 downto 24));
         elsif register_number=112 then -- $D3070
-          fastio_rdata <= palette_bank_fastio & palette_bank_chargen & palette_bank_sprites & "11";
+          fastio_rdata <= palette_bank_fastio & palette_bank_chargen & palette_bank_sprites & palette_bank_chargen256;
         elsif register_number=113 then -- $D3071
         --fastio_rdata <= std_logic_vector(x_chargen_start_minus17_drive(7 downto 0));
         elsif register_number=114 then -- $D3072
@@ -2052,6 +2053,8 @@ begin
           palette_bank_chargen <= fastio_wdata(5 downto 4);
           -- @IO:GS $D070.3-2 VIC-IV sprite palette bank
           palette_bank_sprites <= fastio_wdata(3 downto 2);
+          -- @IO:GS $D070.1-0 VIC-IV bitmap/text palette bank
+          palette_bank_chargen256 <= fastio_wdata(1 downto 0);
         elsif register_number=123 then
           -- @IO:GS $D07B VIC-IV hsync adjust
           xcounter_delay <= unsigned(fastio_wdata);
@@ -2538,12 +2541,15 @@ begin
       if postsprite_pixel_colour(7 downto 4) = x"0" and reg_palrom='1' then
         palette_address <= "11" & std_logic_vector(postsprite_pixel_colour);
       else
+        palette_address(7 downto 0) <= postsprite_pixel_colour;
         if pixel_is_sprite='0' then
-          palette_address <= palette_bank_chargen
-                             & std_logic_vector(postsprite_pixel_colour);
+          if glyph_full_colour='1' then
+            palette_address(9 downto 8) <= palette_bank_chargen32;
+          else
+            palette_address(9 downto 8) <= palette_bank_chargen;
+          end if;
         else
-          palette_address <= palette_bank_sprites
-                             & std_logic_vector(postsprite_pixel_colour);
+          palette_address(9 downto 8) <= palette_bank_sprites;
         end if;          
       end if;
       rgb_is_background <= pixel_is_background_out;
@@ -3262,8 +3268,8 @@ begin
             report "asserting paint_ready" severity note;
           end if;
         when PaintFullColour =>
-          -- Draw 8 pixels using a byte at a time from full_colour_data
-          alias_palette_address <= palette_bank_chargen
+          -- Draw 8 pixels using a byte at a time from full_colour_data          
+          alias_palette_address <= palette_bank_chargen256
                                    & std_logic_vector(paint_background);
           paint_bits_remaining <= paint_glyph_width - 1;
           paint_ready <= '0';
