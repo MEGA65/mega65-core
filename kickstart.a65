@@ -373,6 +373,9 @@ tryreadmbr:
 		jmp tryreadmbr
 		
 gotmbr:
+		jsr dos_read_partitiontable
+		jsr readmbr
+
 		ldx #<msg_sdcardfound
 		ldy #>msg_sdcardfound
 		jsr printmessage
