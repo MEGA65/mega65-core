@@ -1,4 +1,13 @@
 
+; Return the next free task ID
+; XXX - Task ID $FF is hypervisor/operating system
+; XXX - For now just lie, and always say task $00 is next.
+; We should have a process allocation table that we consult.
+; (actual suspended processes should be held on SD card in files)
+task_get_next_taskid:
+	lda #$00
+	rts
+
 task_set_c64_memorymap:
 	; set contents of CPU registers for exit from hypervisor mode
 	lda #$00
