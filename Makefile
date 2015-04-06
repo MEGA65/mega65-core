@@ -3,6 +3,7 @@ ROUTEEFFORT=	std
 #ROUTEEFFORT=	high
 
 KICKSTARTSRCS=kickstart.a65 \
+		kickstart_machine.a65 \
 		kickstart_dos.a65 \
 		kickstart_mem.a65
 

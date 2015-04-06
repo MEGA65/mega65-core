@@ -1,0 +1,59 @@
+
+	.alias reset_vector $fffc
+	.alias irq_vector $fffe
+	.alias nmi_vector $fffa
+
+
+	.alias hypervisor_a $d640
+	.alias hypervisor_x $d641
+	.alias hypervisor_y $d642
+	.alias hypervisor_z $d643
+	.alias hypervisor_b $d644
+	.alias hypervisor_spl $d645
+	.alias hypervisor_sph $d646
+	.alias hypervisor_flags $d647
+	.alias hypervisor_pcl $d648
+	.alias hypervisor_pch $d649
+	.alias hypervisor_maplolo $d64a
+	.alias hypervisor_maplohi $d64b
+	.alias hypervisor_maphilo $d64c
+	.alias hypervisor_maphihi $d64d
+	.alias hypervisor_maplomb $d64e
+	.alias hypervisor_maphimb $d64f
+	.alias hypervisor_cpuport00 $d650
+	.alias hypervisor_cpuport01 $d651
+	.alias hypervisor_iomode $d652
+	.alias hypervisor_dmagic_srcmb $d653
+	.alias hypervisor_dmagic_dstmb $d654
+	.alias hypervisor_dmagic_list0 $d655
+	.alias hypervisor_dmagic_list1 $d656
+	.alias hypervisor_dmagic_list2 $d657
+	.alias hypervisor_dmagic_list3 $d658
+	.alias hypervisor_ddr_banking $d659
+
+	.alias hypervisor_vm_currentpage_lo $d65d
+	.alias hypervisor_vm_currentpage_mid $d65e
+	.alias hypervisor_vm_currentpage_hi $d65f
+
+	.alias hypervisor_vm_pagetable $d660
+	.alias hypervisor_vm_pagetable0_logicalpage_lo $d660
+	.alias hypervisor_vm_pagetable0_logicalpage_hi $d661
+	.alias hypervisor_vm_pagetable0_physicalpage_lo $d662
+	.alias hypervisor_vm_pagetable0_physicalpage_hi $d663
+	.alias hypervisor_vm_pagetable1_logicalpage_lo $d664
+	.alias hypervisor_vm_pagetable1_logicalpage_hi $d665
+	.alias hypervisor_vm_pagetable1_physicalpage_lo $d666
+	.alias hypervisor_vm_pagetable1_physicalpage_hi $d667
+	.alias hypervisor_vm_pagetable2_logicalpage_lo $d668
+	.alias hypervisor_vm_pagetable2_logicalpage_hi $d669
+	.alias hypervisor_vm_pagetable2_physicalpage_lo $d66a
+	.alias hypervisor_vm_pagetable2_physicalpage_hi $d66b
+	.alias hypervisor_vm_pagetable3_logicalpage_lo $d66c
+	.alias hypervisor_vm_pagetable3_logicalpage_hi $d66d
+	.alias hypervisor_vm_pagetable3_physicalpage_lo $d66e
+	.alias hypervisor_vm_pagetable3_physicalpage_hi $d66f
+
+	.alias hypervisor_feature_enables $d67d
+	.alias hypervisor_kickedup_flag $d67e
+	.alias hypervisor_enterexit_trigger $d67f
+	

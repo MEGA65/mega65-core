@@ -74,7 +74,7 @@ dos_and_process_trap_table:
 	.word trap_dos_switch_to_task
 	.word trap_dos_exit_task
 
-trap_dos_getversion:
+trap_dos_getversion:	
 trap_dos_getdefaultdrive:
 trap_dos_selectdrive:
 trap_dos_getdisksize:

@@ -18,7 +18,7 @@
 ; We will use the convention of C=0 means failure, and C=1 means
 ; success.
 ;
-	.alias reset_vector $fffc
+	.include "kickstart_machine.a65"
 
 ; scratch space in ZP space usually used by kernel
 ; we try to use address space not normally used by C64 kernel, so that
