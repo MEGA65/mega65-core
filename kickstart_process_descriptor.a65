@@ -1,0 +1,28 @@
+; Process descriptor block (fixed 256 bytes)
+;
+; This needs to have information about the current running task,
+; and also hold information about the current open files, if any.
+
+; Process description (first 128 bytes)
+
+currenttask_block:
+
+; Tasks are idenfied by what amounts to an 8-bit process id.
+; Process ID #$FF is special, and indicates that it is the operating system/hypervisor
+; that is active.  This affects how results are return from system calls, so that they
+currenttask_id:
+	.byte $FF
+
+; Name of task (16 characters, unused characters should be null)
+currenttask_name:
+	.byte "OPERATING SYSTEM"
+
+; Make sure we don't over-flow the available space
+	.checkpc currenttask_block+[$80]
+	.advance currenttask_block+[$80],$00
+
+; Now we have file control blocks for the open files/directories.
+; We have only 128 bytes for these, so not many files can be open at a time!
+
+	.checkpc currenttask_block+[$100]
+	.advance currenttask_block+[$100],$00
