@@ -1825,10 +1825,10 @@ begin
         if long_address = x"FFD366B" and hypervisor_mode='1' then
           reg_page2_physical(15 downto 8) <= value;
         end if;
-        -- @IO:GS $D66C - Hypervisor virtual memory page 1 logical page low byte
-        -- @IO:GS $D66D - Hypervisor virtual memory page 1 logical page high byte
-        -- @IO:GS $D66E - Hypervisor virtual memory page 1 physical page low byte
-        -- @IO:GS $D66F - Hypervisor virtual memory page 1 physical page high byte
+        -- @IO:GS $D66C - Hypervisor virtual memory page 3 logical page low byte
+        -- @IO:GS $D66D - Hypervisor virtual memory page 3 logical page high byte
+        -- @IO:GS $D66E - Hypervisor virtual memory page 3 physical page low byte
+        -- @IO:GS $D66F - Hypervisor virtual memory page 3 physical page high byte
         if long_address = x"FFD366C" and hypervisor_mode='1' then
           reg_page3_logical(7 downto 0) <= value;
         end if;
@@ -1848,7 +1848,7 @@ begin
         if long_address = x"FFD367D" and hypervisor_mode='1' then
           rom_from_colour_ram <= value(0);
           flat32_enabled <= value(1);
-          rom_writeprotect <= value(2);
+          rom_writeprotect <= value(2)
         end if;
         -- @IO:GS $D67E - Hypervisor already-upgraded bit (sets permanently)
         if long_address = x"FFD367E" and hypervisor_mode='1' then

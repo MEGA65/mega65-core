@@ -1,3 +1,6 @@
+	.alias os_version  $0101
+	.alias dos_version $0101
+	
 dos_and_process_trap:
 	; Sub-function is selected by X.
 	; Bits 6-1 are the only ones used.
@@ -74,7 +77,20 @@ dos_and_process_trap_table:
 	.word trap_dos_switch_to_task
 	.word trap_dos_exit_task
 
-trap_dos_getversion:	
+; Return OS and DOS version.
+; A/X = OS Version major/minor
+; Z/Y = DOS Version major/minor
+trap_dos_getversion:
+	lda #<os_version
+	sta hypervisor_x
+	lda #>os_version
+	sta hypervisor_a
+	lda #<dos_version
+	sta hypervisor_z
+	lda #>dos_version
+	sta hypervisor_y
+	jmp return_from_trap_with_success
+
 trap_dos_getdefaultdrive:
 trap_dos_selectdrive:
 trap_dos_getdisksize:
