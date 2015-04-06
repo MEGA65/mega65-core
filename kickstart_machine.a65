@@ -56,4 +56,6 @@
 	.alias hypervisor_feature_enables $d67d
 	.alias hypervisor_kickedup_flag $d67e
 	.alias hypervisor_enterexit_trigger $d67f
-	
+
+
+	.alias viciv_magic $d02f

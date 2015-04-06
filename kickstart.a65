@@ -2371,7 +2371,7 @@ g61:		sta $0800,x
 		ldz #$02
 		lda #$00
 		jsr longpeek
-		lda kickstart_scratch_byte0
+		lda kickstart_scratchbyte0
 		sta hypervisor_pcl
 		ldx #<reset_vector
 		inx
@@ -2379,7 +2379,7 @@ g61:		sta $0800,x
 		ldz #$02
 		lda #$00
 		jsr longpeek
-		lda kickstart_scratch_byte0
+		lda kickstart_scratchbyte0
 		sta hypervisor_pch
 		lda #$00
 		sta hypervisor_maplolo
@@ -2400,7 +2400,7 @@ g61:		sta $0800,x
 	
 longpeek:
 		; Use DMAgic to read any byte of RAM in 28bit address space.
-		; Value gets read into $BC00
+		; Value gets read into $BC00 (kickstart_scratchbyte0)
 		; ($FFFBC00 - $FFFBDFF)
 
 		; Patch DMA list
@@ -2424,9 +2424,14 @@ longpeek:
 
 longpeekdmalist:
 		.byte $00 ; COPY, no chain
-		.byte $01,$00 ; 1 byte
-		.byte $00,$00,$00 ; source address
-		.byte $00,$BC,$0F ; destination address ($xxFBC00)
+ 		; 1 byte
+		.word $0001
+		; source address
+		.word $0000
+		.byte $00
+		; destination address ($xxFBC00)
+		.word kickstart_scratchbyte0
+		.byte $0F 
 		.byte $00,00 ; Modulo
 		
 ; reset memory map to default
@@ -2452,13 +2457,13 @@ enhanced_io:
 		bcs l1
 		; Return to VIC-II / C64 IO
 		lda #$00
-		sta $D02F
+		sta VICIV_MAGIC
 		rts
 l1:		; Enable VIC-IV / C65GS IO
 		lda #$47
-		sta $D02F
+		sta VICIV_MAGIC
 		lda #$53
-		sta $D02F
+		sta VICIV_MAGIC
 		RTS
 
 ; Check for digits 0 - 9 on keyboard, and change which ROM we intend to read
@@ -2527,9 +2532,9 @@ setupethernet:
 e1:
 	; C65GS io
 	lda #$47
-	sta $d02f
+	sta viciv_magic
 	lda #$53
-	sta $D02f
+	sta viciv_magic
 
 	; Map ethernet registers at $6000 - $7FFF
 	
@@ -2744,11 +2749,25 @@ diskchooserstart:
 	.incbin "diskchooser"
 diskchooserend:
 
-		.checkpc $BC00
-
 		; Hypervisor scratch pad aat $BC00-$BDFF
-		; Stack at $BE00-$BEFF
-		; ZP at $BF00-$BFFF
+
+		.checkpc $BC00
+		.advance $BC00
+
+kickstart_scratchbyte0:
+		.byte $00
+
+		.checkpc $BD00
+		.advance $BD00,$00
+		.include "kickstart_process_descriptor.a65"
+
+		; Kickstart stack (8-bit)
+		.checkpc $BE00
+		.advance $BE00,$00
+
+		; Kickstart ZP at $BF00-$BFFF
+		.checkpc $BF00
+		.advance $BF00,$00
 
 		.advance $C000, $00
 
