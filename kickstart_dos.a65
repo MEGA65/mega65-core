@@ -404,6 +404,12 @@ ddop1:	lda dos_disk_table,y
 	lda [sd_sectorbuffer+$11]
 	bne partitionerror
 
+	ldx #$00
+zdfljk:	lda sd_sectorbuffer,x
+	sta $06C0,x
+	inx
+	bne zdfljk
+
 
 	; With root directory entries = 0, the reserved sector count
 	; is the number of reserved sectors, plus (copies of fat) *
@@ -416,20 +422,22 @@ ddop1:	lda dos_disk_table,y
 	tay
 	ldx #$03
 ddop10:	lda [sd_sectorbuffer+$0E],x
-	sta fs_syssectors,y
+	sta dos_disk_table,y
 	iny
 	dex
 	bpl ddop10
 
 	; Store length of one copy of the FAT
 	lda dos_disk_table_offset
+	ora #fs_fat32_length_of_fat
 	tay
-	ldx #$03
-ddop11:	lda [sd_sectorbuffer+$24],y
-	lda [dos_disk_table_offset+fs_fat32_length_of_fat],y
+	ldx #$00
+ddop11:	lda [sd_sectorbuffer+$24],x
+	lda dos_disk_table,y
 	iny
-	dex
-	bpl ddop11
+	inx
+	cpx #$04
+	bne ddop11
 
 	; Get number of reserved clusters.  We only allow upto 255 reserved
 	; clusters, so report an error if the upper two bytes are not both zero
@@ -438,7 +446,11 @@ ddop11:	lda [sd_sectorbuffer+$24],y
 	lda [sd_sectorbuffer+$2C+1]
 	ora [sd_sectorbuffer+$2C+2]
 	ora [sd_sectorbuffer+$2C+3]
-	bne partitionerror
+	; XXX - 16 bit BNE should be fine here!
+	;	bne partitionerror
+	beq ddop11ok
+	jmp partitionerror
+ddop11ok:
 	; <64K reserved clusters, so file system passes this test -- just copy number
 	ldy dos_disk_table_offset
 	lda [sd_sectorbuffer+$2C]
@@ -479,7 +491,7 @@ ddop_addnextfatsectors:
 ddop12:	plp
 	lda dos_disk_table,y
 	adc [sd_sectorbuffer+$24],x
-	sta fs_syssectors,y
+	sta dos_disk_table,y
 	php
 	inx
 	cpx #$04
@@ -517,11 +529,13 @@ ddop13:	phy
 	; (currently it is the raw number of sectors, we will divide by sectors
 	;  per cluster in a moment)
 	sta [dos_disk_table],y
-	sta fs_clustercount,x
+	dex
+	dey
 	dez
 	bpl ddop13
 
 	; Get sectors per cluster (and store in dos_disk_table entry)
+	; (this gets destoryed below, so we have to re-read it again after) 
 	lda dos_disk_table_offset
 	ora #fs_fat32_sectors_per_cluster
 	tay
@@ -566,6 +580,14 @@ ddop15:	lda dos_disk_table,y
 	and #$fe
 	bne ddop14
 ddop_gotclustercount:
+
+	; Re-get sectors per cluster (and store in dos_disk_table entry)
+	; (this was destroyed in the calculation above)
+	lda dos_disk_table_offset
+	ora #fs_fat32_sectors_per_cluster
+	tay
+	lda [sd_sectorbuffer+$0D]
+	sta dos_disk_table,y
 
 	; filter out non-FAT32 filesystems
 	; NOTE: FAT32 can have as few as 65525 clusters, but we do not support
