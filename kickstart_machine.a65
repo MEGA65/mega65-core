@@ -57,5 +57,11 @@
 	.alias hypervisor_kickedup_flag $d67e
 	.alias hypervisor_enterexit_trigger $d67f
 
+	; Where sector buffer maps (over $DE00-$DFFF IO expansion space)
+	.alias sd_sectorbuffer $DE00
+	.alias sd_address_byte0 $D681
+	.alias sd_address_byte1 $D682
+	.alias sd_address_byte2 $D683
+	.alias sd_address_byte3 $D684
 
 	.alias viciv_magic $d02f

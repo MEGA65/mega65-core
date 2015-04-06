@@ -309,7 +309,6 @@ reset_machine_state:
 		lda #$00
 		sta $D01A
 
-
 		; We DO NOT need to mess with $01, because
 		; the 4510 starts up with kickstart mapped at $8000-$BFFF 
 		; enhanced ($FFD3xxx) IO page mapped at $D000,
@@ -381,7 +380,7 @@ gotmbr:
 		lda #$3e           ; ">" character
 		sta $07c0          ; $0400+(24*40)
 
-		jsr sdmapsectorbuffer
+		jsr sd_map_sectorbuffer
 
 		; check for $55AA MBR signature
 		lda $DFFE
@@ -1623,7 +1622,7 @@ re2done:
 		; reading sectors will fail
 		jsr sdwaitawhile
 
-		jsr sdmapsectorbuffer
+		jsr sd_map_sectorbuffer
 
 		; write $02 to $D680 to read MBR as a test of reset
 		lda #$02
@@ -1691,13 +1690,13 @@ sr1:		clc
 sdisready:	sec
 		rts
 
-sdmapsectorbuffer:
+sd_map_sectorbuffer:
 		lda #$81
 		sta $D680
 		sec
 		rts
 
-sdunmapsectorbuffer:
+sd_unmap_sectorbuffer:
 		lda #$82
 		sta $D680
 		sec
@@ -2713,13 +2712,44 @@ diskchooserstart:
 	.incbin "diskchooser"
 diskchooserend:
 
+		.checkpc $BB00
+		.advance $BB00
+
+; Table of available disks.
+; This includes native FAT32 disks, as well as (in the future at least)
+; mounted .D41, .D71, .D81 and .DHD files using Commodore DOS filesystems.
+; But for now, we are supporting only FAT32 as the filesystem.
+; See kickstart_dos.a65 for information on how the table is used.
+; Entries are 32 bytes long, so we can have 8 of them.
+dos_disk_table:
+		
+
 		; Hypervisor scratch pad aat $BC00-$BDFF
 
 		.checkpc $BC00
 		.advance $BC00
 
 kickstart_scratchbyte0:
+		.byte $00		
+
+; The number of disks we have
+dos_disk_count:
 		.byte $00
+; The default disk
+dos_default_disk:
+		.byte $00
+; The current disk
+dos_disk_current_disk:
+		.byte $00
+; The offset of the entry in dos_disk_table for the current disk
+dos_disk_table_offset:
+		.byte $00
+; For providing feedback on why DOS calls have failed
+dos_error_code:
+		.byte $00
+; Temporary vector storage for DOS
+dos_scratch_vector:
+		.word $0000,$0000
 
 		.checkpc $BD00
 		.advance $BD00,$00

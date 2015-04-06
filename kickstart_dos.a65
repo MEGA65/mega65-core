@@ -1,5 +1,6 @@
 	.alias os_version  $0101
 	.alias dos_version $0101
+	.alias constant_partition_type_fat32_lba $0C
 	
 dos_and_process_trap:
 	; Sub-function is selected by X.
@@ -142,3 +143,426 @@ dos_clear_filedescriptors:
 	sta currenttask_filedescriptor2
 	sta currenttask_filedescriptor3
 	rts
+
+; Read partition table from SD card.
+; Add all FAT32 partitions to our list of known disks.
+; This routine assumes that the SD card has been reset and is ready to
+; service requests.
+; XXX - We don't support extended partition tables! Only the old-fashion
+; 4 DOS partitions.  We might get excited and add support for them later,
+; but 
+dos_read_partitiontable:
+	; clear error code
+	lda #0
+	sta dos_error_code
+
+	; Clear the list of known disks
+	jsr dos_initialise_disklist
+
+	; Make the sector buffer visible
+	jsr sd_map_sectorbuffer
+
+	jsr dos_read_mbr
+	bcs drpt_fail
+
+	; check for $55AA MBR signature
+	lda [sd_sectorbuffer+$1FE]
+	cmp #$55
+	bne drpt_fail
+	lda [sd_sectorbuffer+$1FF]
+	cmp #$AA
+	bne drpt_fail
+
+	; Partitions start at offsets $1BE, $1CE, $1DE, $1EE
+	; so consider each in turn.  Opening the partition causes other sectors to
+	; be read, so we must re-read the MBR between each
+
+	; get pointer to second half of sector buffer so that we can access the
+	; partition entries as we see fit.
+	lda #<[sd_sectorbuffer+$1BE]
+	sta dos_scratch_vector
+	lda #>[sd_sectorbuffer+$1BE]
+	sta dos_scratch_vector+1
+
+	jsr dos_consider_partition_entry
+	
+	jsr dos_read_mbr
+	bcs drpt_fail
+	lda #<[sd_sectorbuffer+$1CE]
+	sta dos_scratch_vector
+	jsr dos_consider_partition_entry
+
+	jsr dos_read_mbr
+	bcs drpt_fail
+	lda #<[sd_sectorbuffer+$1DE]
+	sta dos_scratch_vector
+	jsr dos_consider_partition_entry
+
+	jsr dos_read_mbr
+	bcs drpt_fail
+	lda #<[sd_sectorbuffer+$1EE]
+	sta dos_scratch_vector
+	jsr dos_consider_partition_entry
+
+	rts
+
+dos_read_mbr:
+	; Offset zero  on disk
+	sta sd_address_byte0
+	sta sd_address_byte1
+	sta sd_address_byte2
+	sta sd_address_byte3
+
+	; Read sector
+	jsr sd_readsector
+	bcs drpt_fail
+	rts
+
+dos_initialise_disklist:
+	lda #0
+	sta dos_disk_count
+	rts
+
+dos_consider_partition_entry:
+
+	ldy #$04
+	lda (<dos_scratch_vector),y
+	cmp #constant_partition_type_fat32_lba
+	bne partitionisnotinteresting
+
+	; Partition is FAT32, so add it to the list
+
+	; Disk structures in dos_disk_table are 32 bytes long, so shift count left
+	; 5 times to get offset in dos disk list table
+	lda dos_disk_count
+	asl
+	asl
+	asl
+	asl
+	asl
+	tax
+
+	; Copy relevant fields into place
+	; These are start of partition and length of partition (both in sectors)
+	; XXX - This requires that our dos_disk_table has these two fields together
+	; at the start of the structure.
+	ldy #$08
+dcpe1:	lda (<dos_scratch_vector),y
+	sta dos_disk_table,x
+	inx
+	iny
+	cpy #$10
+	bne dcpe1
+
+	; Examine the internals of the partition to get the remaining fields.
+	; At this point we no longer use the contents of the MBR
+	lda dos_disk_count
+	jsr dos_disk_openpartition
+	bcs partitionerror
+
+	; Check if partition is bootable (or the only partition)
+	; If so, make the partition the default disk
+	lda dos_disk_count
+	beq makethispartitionthedefault
+	ldy #$00
+	lda (<dos_scratch_vector),y
+	bpl dontmakethispartitionthedefault
+makethispartitionthedefault:
+	lda dos_disk_count
+	sta dos_default_disk
+dontmakethispartitionthedefault:
+
+	; Update the number of disks we have
+	inc dos_disk_count
+
+partitionisnotinteresting:
+	clc
+	rts
+
+drpt_fail:
+	
+partitionerror:
+	sec
+	rts
+
+; Examine a partitiomn to see if we can mount it.
+; This routine fills in the missing fields for the disk entry as required.
+; It assumes that fs_start_sector and fs_sector_count have been correctly set.
+; Each disk entry consists of;
+; Offset $00 - starting sector (4 bytes)
+  	 .alias fs_start_sector $00
+; Offset $04 - sector count (4 bytes)
+  	 .alias fs_sector_count $04
+; Offset $08 - Filesystem type & media source ($0x = FAT32, $xF = SD card, others reserved for now)
+  	 .alias fs_type_and_source $08
+; Remaining bytes are filesystem dependent:
+; For FAT32:
+; Offset $09 - length of fat (4 bytes) (FAT starts at fs_fat32_system_sectors)
+  	 .alias fs_fat32_length_of_fat $09
+; Offset $0D - system sectors (4 bytes)
+  	 .alias fs_fat32_system_sectors $0D
+; Offset $11 - reserved clusters (1 byte)
+  	 .alias fs_fat32_reserved_clusters $11
+; Offset $12 - root dir cluster (2 bytes) 
+  	 .alias fs_fat32_root_dir_cluster $12
+; Offset $14 - cluster count (4 bytes)
+  	 .alias fs_fat32_cluster_count $14
+; Offset $18 - sectors per cluster
+  	 .alias fs_fat32_sectors_per_cluster $18
+; Offset $19 - copies of FAT
+  	 .alias fs_fat32_fat_copies $19
+; Offset $1A - first sector of cluster zero (4 bytes)
+  	 .alias fs_fat32_cluster0_sector $1A
+; Offset $1E - Two spare bytes.
+dos_disk_openpartition:
+	; A contains the disk number we are trying to open.
+
+	; Load first sector of file system and parse.
+	; This is the Volume Boot Record
+
+	; Get offset of disk entry in our disk table structure 
+	asl
+	asl
+	asl
+	asl
+	asl
+	sta dos_disk_table_offset
+
+	; Now pull the start sector from the structure and get ready to request
+	; that structure from the SD card.
+	ora fs_start_sector
+	tay
+	ldx #$00
+ddop1:	lda dos_disk_table,y
+	sta sd_address_byte0,x
+	iny
+	inx
+	cpx #$04
+	bne ddop1
+	; Convert sector number to byte offset for non-HC SD cards
+	jsr sd_fix_sectornumber
+	; XXX - Why does sd_readsector give C=0 for error, while elsewhere we use
+	; C=1 for error?
+	jsr sd_readsector
+	bcc partitionerror
+
+	; We now have the sector, so parse.
+
+	; Check for 55/AA singature
+	lda [sd_sectorbuffer+$1FE]
+	cmp #$55
+	bne partitionerror
+	lda [sd_sectorbuffer+$1FE]
+	cmp #$AA
+	bne partitionerror
+
+	; Start populating fields
+
+	; Filter out obviously FAT16/FAT12 file systems
+	lda [sd_sectorbuffer+$11]
+	bne partitionerror
+
+
+	; With root directory entries = 0, the reserved sector count
+	; is the number of reserved sectors, plus (copies of fat) *
+	; (sectors in one copy of the fat).
+	; the first FAT begins immediately after the reserved sectors
+
+	; Determine system sector count
+	lda dos_disk_table_offset
+	ora fs_fat32_system_sectors
+	tay
+	ldx #$03
+ddop10:	lda [sd_sectorbuffer+$0E],x
+	sta fs_syssectors,y
+	iny
+	dex
+	bpl ddop10
+
+	; Store length of one copy of the FAT
+	lda dos_disk_table_offset
+	tay
+	ldx #$03
+ddop11:	lda [sd_sectorbuffer+$24],y
+	lda [dos_disk_table_offset+fs_fat32_length_of_fat],y
+	iny
+	dex
+	bpl ddop11
+
+	; Get number of reserved clusters.  We only allow upto 255 reserved
+	; clusters, so report an error if the upper two bytes are not both zero
+	lda [sd_sectorbuffer+$2C+1]
+	ora [sd_sectorbuffer+$2C+2]
+	ora [sd_sectorbuffer+$2C+3]
+	bne partitionerror
+	; <64K reserved clusters, so file system passes this test -- just copy number
+	ldy dos_disk_table_offset
+	lda [sd_sectorbuffer+$2C]
+	sta [dos_disk_table+fs_fat32_reserved_clusters],y
+
+	; Now work out the sector of cluster 0, by adding the length of
+	; each FAT to fs_fat32_system_sectors
+	; For efficiency, we pull the fields we need out of the sector buffer,
+	; instead of working out their offsets in the disk entry structure.
+
+	; Start with fs_fat32_system_sectors
+	lda dos_disk_table_offset
+	ora #fs_fat32_system_sectors
+	tay
+	lda dos_disk_table_offset
+	ora #fs_fat32_cluster0_sector
+	tax
+	ldz #$03
+ddop2:	lda dos_disk_table,y
+	sta dos_disk_table,x
+	iny
+	inx
+	dez
+	bpl ddop2
+	
+	; Now add length of fat for each copy of the fat
+	ldz [sd_sectorbuffer+$10]     ; # of FAT copies
+	beq partitionerror ; There must be at least one copy of the FAT!
+ddop_addnextfatsectors:
+	lda dos_disk_table_offset
+	ora #fs_fat32_cluster0_sector
+	tay
+	ldx #$00
+	clc
+	php
+ddop12:	plp
+	lda dos_disk_table,y
+	adc [sd_sectorbuffer+$24],x
+	sta fs_syssectors,y
+	php
+	inx
+	cpx #$04
+	bne ddop12
+	plp
+	dez
+	bne ddop_addnextfatsectors
+
+	; Next, we temporarily need the number of data sectors, so that we can work
+	; out the number of clusters in the file system.
+	; This is the total number of sectors in the partition, minus the offset of
+	; cluster 0 in the file system.
+
+	lda dos_disk_table_offset
+	ora #fs_fat32_system_sectors
+	tax
+	lda dos_disk_table_offset
+	ora #fs_fat32_cluster0_sector
+	tay
+
+	; Subtract (system reserved sectors) from (length of filesystem in sectors)
+	sec
+	ldz #$03
+	; There is no LDA $nnnn,Z mode, so we save Y, and put Z into Y while we
+	; do the load, and then put Y back after
+ddop13:	phy
+	tza
+	tay
+	; Load number of sectors in entire filesystem
+	lda [sd_sectorbuffer+$20],y
+	ply
+	; Subtract number of system sectors
+	sbc [dos_disk_table],x
+	; Store in cluster0 offset
+	; (currently it is the raw number of sectors, we will divide by sectors
+	;  per cluster in a moment)
+	sta [dos_disk_table],y
+	sta fs_clustercount,x
+	dez
+	bpl ddop13
+
+	; Get sectors per cluster (and store in dos_disk_table entry)
+	lda dos_disk_table_offset
+	ora #fs_fat32_sectors_per_cluster
+	tay
+	lda [sd_sectorbuffer+$0D]
+	sta dos_disk_table,y
+
+	; Now divide number of sectors available for clusters by the number of
+	; sectors per cluster to obtain the number of actual clusters in the file
+	; system.  Since clusters must contain a power-of-two number of sectors,
+	; we can implement the division using a simple shift.
+
+	; Put number of sectors per cluster into Z, and don't shift if there is only
+	; one sector per cluster.
+	taz
+	and #$fe
+	beq ddop_gotclustercount
+
+ddop14:
+	; Divide cluster count by two.  This is a 32-bit value, so we have to use
+	; ROR to do the shift, and propagate the carry bits between the bytes.
+	; This also entails doing it from the last byte, backwards.
+
+	; Get offset of start of (sectors_per_cluster) field
+	lda dos_disk_table_offset
+	ora #fs_fat32_sectors_per_cluster
+	; get offset of last byte in this field
+	clc 
+	adc #$03  
+	tay
+
+	ldx #$03
+	clc
+ddop15:	lda dos_disk_table,y
+	ror
+	sta dos_disk_table,y
+	dey
+	dex
+	bpl ddop15
+	tza
+	lsr
+	taz
+	and #$fe
+	bne ddop14
+ddop_gotclustercount:
+
+	; filter out non-FAT32 filesystems
+	; NOTE: FAT32 can have as few as 65525 clusters, but we do not support
+	; such file systems, which should be rare, anyway.
+
+	lda dos_disk_table_offset
+	ora #fs_fat32_sectors_per_cluster
+	tay
+	lda dos_disk_table+3,y
+	ora dos_disk_table+2,y
+	beq partitionerror
+
+	; Now get cluster of root directory.
+	lda dos_disk_table_offset
+	ora #fs_fat32_root_dir_cluster
+	tay
+	ldx #$03
+ddop16:	lda [sd_sectorbuffer+$2C],x
+	sta dos_disk_table,y
+	dex
+	bpl ddop16
+
+	; We have now set the following fields:
+	; fs_fat32_length_of_fat
+	; fs_fat32_system_sectors
+	; fs_fat32_reserved_clusters
+	; fs_fat32_root_dir_cluster
+	; fs_fat32_sectors_per_cluster
+	; fs_fat32_fat_copies
+	; fs_fat32_cluster0_sector
+	; Our caller has set:
+	; fs_start_sector
+	; fs_sector_count
+	; So all that is left for us is to set fs_type_and_source to $0F
+	; to indicate FAT32 filesystem on the SD card
+	lda dos_disk_table_offset
+	ora #fs_type_and_source
+	tay
+	lda #$0f
+	sta dos_disk_table_offset,y
+
+	; Return success
+	clc
+	rts
+
+	jmp partitionerror
