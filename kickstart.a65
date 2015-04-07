@@ -498,7 +498,7 @@ l11:		lda $DE0E,x
 		bpl l11
 		lda #$00
 		sta fs_syssectors+2
-				sta fs_syssectors+3
+		sta fs_syssectors+3
 		sta fs_startfat+2
 		sta fs_startfat+3
 		ldy $DE10

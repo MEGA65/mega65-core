@@ -333,21 +333,21 @@ partitionerror:
 ; For FAT32:
 ; Offset $09 - length of fat (4 bytes) (FAT starts at fs_fat32_system_sectors)
   	 .alias fs_fat32_length_of_fat $09
-; Offset $0D - system sectors (4 bytes)
+; Offset $0D - system sectors (2 bytes)
   	 .alias fs_fat32_system_sectors $0D
-; Offset $11 - reserved clusters (1 byte)
-  	 .alias fs_fat32_reserved_clusters $11
-; Offset $12 - root dir cluster (2 bytes) 
-  	 .alias fs_fat32_root_dir_cluster $12
-; Offset $14 - cluster count (4 bytes)
-  	 .alias fs_fat32_cluster_count $14
-; Offset $18 - sectors per cluster
-  	 .alias fs_fat32_sectors_per_cluster $18
-; Offset $19 - copies of FAT
-  	 .alias fs_fat32_fat_copies $19
-; Offset $1A - first sector of cluster zero (4 bytes)
-  	 .alias fs_fat32_cluster0_sector $1A
-; Offset $1E - Two spare bytes.
+; Offset $0F - reserved clusters (1 byte)
+  	 .alias fs_fat32_reserved_clusters $0F
+; Offset $10 - root dir cluster (2 bytes) 
+  	 .alias fs_fat32_root_dir_cluster $10
+; Offset $12 - cluster count (4 bytes)
+  	 .alias fs_fat32_cluster_count $12
+; Offset $16 - sectors per cluster
+  	 .alias fs_fat32_sectors_per_cluster $16
+; Offset $17 - copies of FAT
+  	 .alias fs_fat32_fat_copies $17
+; Offset $18 - first sector of cluster zero (4 bytes)
+  	 .alias fs_fat32_cluster0_sector $18
+; Offset $1C - Four spare bytes.
 dos_disk_openpartition:
 	; A contains the disk number we are trying to open.
 	lda #$00
@@ -410,6 +410,12 @@ zdfljk:	lda sd_sectorbuffer,x
 	inx
 	bne zdfljk
 
+	; get # copies of fat
+	lda dos_disk_table_offset
+	ora #fs_fat32_fat_copies
+	tay
+	lda [sd_sectorbuffer+$10]
+	sta dos_disk_table,y
 
 	; With root directory entries = 0, the reserved sector count
 	; is the number of reserved sectors, plus (copies of fat) *
@@ -417,15 +423,17 @@ zdfljk:	lda sd_sectorbuffer,x
 	; the first FAT begins immediately after the reserved sectors
 
 	; Determine system sector count
+	; Reserved sector field on disk is only 2 bytes!
 	lda dos_disk_table_offset
-	ora #fs_fat32_system_sectors
+	ora #fs_fat32_system_sectors	
 	tay
-	ldx #$03
+	ldx #$00
 ddop10:	lda [sd_sectorbuffer+$0E],x
 	sta dos_disk_table,y
 	iny
-	dex
-	bpl ddop10
+	inx
+	cpx #$02
+	bne ddop10
 
 	; Store length of one copy of the FAT
 	lda dos_disk_table_offset
@@ -433,7 +441,7 @@ ddop10:	lda [sd_sectorbuffer+$0E],x
 	tay
 	ldx #$00
 ddop11:	lda [sd_sectorbuffer+$24],x
-	lda dos_disk_table,y
+	sta dos_disk_table,y
 	iny
 	inx
 	cpx #$04
@@ -461,21 +469,25 @@ ddop11ok:
 	; For efficiency, we pull the fields we need out of the sector buffer,
 	; instead of working out their offsets in the disk entry structure.
 
-	; Start with fs_fat32_system_sectors
+	; Start with fs_fat32_system_sectors (which is 16 bits)
 	lda dos_disk_table_offset
 	ora #fs_fat32_system_sectors
 	tay
 	lda dos_disk_table_offset
 	ora #fs_fat32_cluster0_sector
 	tax
-	ldz #$03
+	ldz #$02
 ddop2:	lda dos_disk_table,y
 	sta dos_disk_table,x
 	iny
 	inx
 	dez
-	bpl ddop2
-
+	bne ddop2
+	; clear top 16 bits of cluster0_sector
+	tza
+	sta dos_disk_table,x
+	sta [dos_disk_table+1],x
+	
 	; Now add length of fat for each copy of the fat
 	lda #$07
 	sta dos_error_code
@@ -493,6 +505,7 @@ ddop12:	plp
 	adc [sd_sectorbuffer+$24],x
 	sta dos_disk_table,y
 	php
+	iny
 	inx
 	cpx #$04
 	bne ddop12
@@ -506,33 +519,33 @@ ddop12:	plp
 	; cluster 0 in the file system.
 
 	lda dos_disk_table_offset
-	ora #fs_fat32_system_sectors
+	ora #fs_fat32_cluster0_sector
 	tax
 	lda dos_disk_table_offset
-	ora #fs_fat32_cluster0_sector
+	ora #fs_fat32_cluster_count
 	tay
 
-	; Subtract (system reserved sectors) from (length of filesystem in sectors)
+	; Subtract (start of cluster 0 = 32 bits) from
+	; (length of filesystem in sectors = 32 bits)
+	ldz #$00
 	sec
-	ldz #$03
-	; There is no LDA $nnnn,Z mode, so we save Y, and put Z into Y while we
-	; do the load, and then put Y back after
-ddop13:	phy
+	php
+ddop13: 
+	phy
 	tza
 	tay
-	; Load number of sectors in entire filesystem
 	lda [sd_sectorbuffer+$20],y
 	ply
-	; Subtract number of system sectors
-	sbc [dos_disk_table],x
-	; Store in cluster0 offset
-	; (currently it is the raw number of sectors, we will divide by sectors
-	;  per cluster in a moment)
-	sta [dos_disk_table],y
-	dex
-	dey
-	dez
-	bpl ddop13
+	plp
+	sbc [dos_disk_table+0],x
+	php
+	sta [dos_disk_table+0],y
+	inx
+	iny
+	inz
+	cpz #$04
+	bne ddop13
+	plp
 
 	; Get sectors per cluster (and store in dos_disk_table entry)
 	; (this gets destoryed below, so we have to re-read it again after) 
@@ -547,6 +560,9 @@ ddop13:	phy
 	; system.  Since clusters must contain a power-of-two number of sectors,
 	; we can implement the division using a simple shift.
 
+	; copy number of sectors into number of sectors ready for shifting down
+	
+
 	; Put number of sectors per cluster into Z, and don't shift if there is only
 	; one sector per cluster.
 	taz
@@ -560,7 +576,7 @@ ddop14:
 
 	; Get offset of start of (sectors_per_cluster) field
 	lda dos_disk_table_offset
-	ora #fs_fat32_sectors_per_cluster
+	ora #fs_fat32_cluster_count
 	; get offset of last byte in this field
 	clc 
 	adc #$03  
@@ -574,6 +590,7 @@ ddop15:	lda dos_disk_table,y
 	dey
 	dex
 	bpl ddop15
+
 	tza
 	lsr
 	taz
