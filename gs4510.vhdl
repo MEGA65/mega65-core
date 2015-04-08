@@ -1286,9 +1286,9 @@ begin
 
         -- @IO:GS $FF7Exxx VIC-IV CHARROM write area
         if long_address(19 downto 12) = x"7E" then
-          report "VIC 64KB colour RAM access from VIC fastio" severity note;
-          accessing_colour_ram_fastio <= '1';
           charrom_write_cs <= '1';
+        else
+          charrom_write_cs <= '0';
         end if;
         if long_address(19 downto 16) = x"8" then
           report "VIC 64KB colour RAM access from VIC fastio" severity note;
