@@ -142,6 +142,7 @@ GS $D06D VIC-IV sprite pointer address (bits 15 - 8)
 GS $D06E VIC-IV sprite pointer address (bits 23 - 16)
 GS $D06F VIC-IV sprite pointer address (bits 31 - 24)
 GS $D070 VIC-IV palette bank selection
+GS $D070.1-0 VIC-IV bitmap/text palette bank
 GS $D070.3-2 VIC-IV sprite palette bank
 GS $D070.5-4 VIC-IV bitmap/text palette bank
 GS $D070.7-6 VIC-IV palette bank mapped at $D100-$D3FF
@@ -218,10 +219,10 @@ GS $D668 - Hypervisor virtual memory page 2 logical page low byte
 GS $D669 - Hypervisor virtual memory page 2 logical page high byte
 GS $D66A - Hypervisor virtual memory page 2 physical page low byte
 GS $D66B - Hypervisor virtual memory page 2 physical page high byte
-GS $D66C - Hypervisor virtual memory page 1 logical page low byte
-GS $D66D - Hypervisor virtual memory page 1 logical page high byte
-GS $D66E - Hypervisor virtual memory page 1 physical page low byte
-GS $D66F - Hypervisor virtual memory page 1 physical page high byte
+GS $D66C - Hypervisor virtual memory page 3 logical page low byte
+GS $D66D - Hypervisor virtual memory page 3 logical page high byte
+GS $D66E - Hypervisor virtual memory page 3 physical page low byte
+GS $D66F - Hypervisor virtual memory page 3 physical page high byte
 GS $D67D.0 - Hypervisor C64 ROM source select (0=DDR,1=64KB colour RAM)
 GS $D67D.1 - Hypervisor enable 32-bit JMP/JSR etc
 GS $D67D.2 - Hypervisor write protect C65 ROM $20000-$3FFFF
@@ -307,6 +308,7 @@ C64 $DE0C RRNET tx_cmd register (high)
 C64 $DE0C RRNET tx_cmd register (low)
 C64 $DE0E Set RR-NET TX packet size
 C64 $DE0F Set RR-NET TX packet size
+GS $FF7Exxx VIC-IV CHARROM write area
 GS $FF9x000-$FF9xFFF - Enhanced sprite data buffers (4KB each)
 GS $FFC00A0 45GS10 slowram wait-states (write-only)
 GS $FFDE800 - $FFDEFFF Ethernet RX buffer (read only)
