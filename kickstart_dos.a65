@@ -423,6 +423,14 @@ zdfljk:	lda sd_sectorbuffer,x
 	; the first FAT begins immediately after the reserved sectors
 
 	; Determine system sector count
+	; (= reserved sectors + fat_count * fat_sectors)
+	; $20 + $EE5 + $EE5 = $1DEA
+	; plus partition offset = $81 = $1E6B
+	; partition length = $3BAF7F
+	; $08 sectors / cluster
+	; so data sectors in partition = $3BAF7F - $1DEA = $3B9195
+	; = $77232 clusters
+	
 	; Reserved sector field on disk is only 2 bytes!
 	lda dos_disk_table_offset
 	ora #fs_fat32_system_sectors	
@@ -465,7 +473,7 @@ ddop11ok:
 	sta [dos_disk_table+fs_fat32_reserved_clusters],y
 
 	; Now work out the sector of cluster 0, by adding the length of
-	; each FAT to fs_fat32_system_sectors
+	; each FAT to fs_fat32_system_sectors to start of partition.
 	; For efficiency, we pull the fields we need out of the sector buffer,
 	; instead of working out their offsets in the disk entry structure.
 
@@ -485,7 +493,7 @@ ddop2:	lda dos_disk_table,y
 	bne ddop2
 	; clear top 16 bits of cluster0_sector
 	tza
-	sta dos_disk_table,x
+	sta [dos_disk_table+0],x
 	sta [dos_disk_table+1],x
 	
 	; Now add length of fat for each copy of the fat
@@ -501,9 +509,9 @@ ddop_addnextfatsectors:
 	clc
 	php
 ddop12:	plp
-	lda dos_disk_table,y
-	adc [sd_sectorbuffer+$24],x
-	sta dos_disk_table,y
+	lda dos_disk_table,y           ; cluster0_sector
+	adc [sd_sectorbuffer+$24],x    ; sectors per fat
+	sta dos_disk_table,y           ; cluster0_sector
 	php
 	iny
 	inx
@@ -515,8 +523,8 @@ ddop12:	plp
 
 	; Next, we temporarily need the number of data sectors, so that we can work
 	; out the number of clusters in the file system.
-	; This is the total number of sectors in the partition, minus the offset of
-	; cluster 0 in the file system.
+	; This is the total number of sectors in the partition, minus the number of
+	; reserved sectors.
 
 	lda dos_disk_table_offset
 	ora #fs_fat32_cluster0_sector
@@ -525,27 +533,29 @@ ddop12:	plp
 	ora #fs_fat32_cluster_count
 	tay
 
-	; Subtract (start of cluster 0 = 32 bits) from
+	; Subtract (reserved sectors = 16 bits) from
 	; (length of filesystem in sectors = 32 bits)
-	ldz #$00
-	sec
-	php
-ddop13: 
-	phy
-	tza
+
+	lda dos_disk_table_offset
+	ora #fs_fat32_system_sectors
+	tax
+	lda dos_disk_table_offset
+	ora #fs_fat32_cluster_count
 	tay
-	lda [sd_sectorbuffer+$20],y
-	ply
-	plp
+	sec
+	lda [sd_sectorbuffer+$20+0]
 	sbc [dos_disk_table+0],x
-	php
 	sta [dos_disk_table+0],y
-	inx
-	iny
-	inz
-	cpz #$04
-	bne ddop13
-	plp
+	lda [sd_sectorbuffer+$20+1]
+	sbc [dos_disk_table+1],x
+	sta [dos_disk_table+1],y
+	lda [sd_sectorbuffer+$20+2]
+	sbc #$00
+	sta [dos_disk_table+2],y
+	lda [sd_sectorbuffer+$20+3]
+	sbc #$00
+	sta [dos_disk_table+3],y
+	
 
 	; Get sectors per cluster (and store in dos_disk_table entry)
 	; (this gets destoryed below, so we have to re-read it again after) 
