@@ -2752,18 +2752,19 @@ dos_error_code:
 
 		; Kickstart stack (8-bit)
 		.checkpc $BE00
-		.advance $BE00,$00
+		.advance $BE00,$3d
 
 		; Kickstart ZP at $BF00-$BFFF
 		.checkpc $BF00
-		.advance $BF00,$00
+		.advance $BF00,$3e
 ; Temporary vector storage for DOS
-  	.space dos_scratch_vector 4
-	.space zptempv 4
-	.space zptempv2 2
-	.space zptempp 2
-	.space zptempp2 2
+dos_scratch_vector: .word 0,0
+zptempv:	    .word 0,0
+zptempv2:	    .word 0
+zptempp: 	    .word 0
+zptempp2: 	    .word 0
 
-		.advance $C000, $00
+		.checkpc $C000
+		.advance $C000, $3f
 
 		 .outfile "kickstart65gs.bin"
