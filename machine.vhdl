@@ -329,6 +329,7 @@ architecture Behavioral of machine is
       fastio_vic_rdata : in std_logic_vector(7 downto 0);
       fastio_colour_ram_rdata : in std_logic_vector(7 downto 0);
       colour_ram_cs : out std_logic;
+      charrom_write_cs : out std_logic;
 
       viciii_iomode : in std_logic_vector(1 downto 0);
       iomode_set : out std_logic_vector(1 downto 0);
@@ -396,6 +397,7 @@ architecture Behavioral of machine is
       fastio_rdata : out std_logic_vector(7 downto 0);
       colour_ram_fastio_rdata : out std_logic_vector(7 downto 0);
       colour_ram_cs : in std_logic;
+      charrom_write_cs : in std_logic;
 
       viciii_iomode : out std_logic_vector(1 downto 0);
       iomode_set : in std_logic_vector(1 downto 0);
@@ -578,6 +580,7 @@ architecture Behavioral of machine is
 
   signal colourram_at_dc00 : std_logic := '0';
   signal colour_ram_cs : std_logic := '0';
+  signal charrom_write_cs : std_logic := '0';
 
   signal monitor_pc : unsigned(15 downto 0);
   signal monitor_hypervisor_mode : std_logic;
@@ -855,6 +858,7 @@ begin
     fastio_vic_rdata => fastio_vic_rdata,
     fastio_colour_ram_rdata => colour_ram_fastio_rdata,
     colour_ram_cs => colour_ram_cs,
+    charrom_write_cs => charrom_write_cs,
 
     viciii_iomode => viciii_iomode,
   
@@ -904,6 +908,7 @@ begin
       chipram_datain => chipram_datain,
       colour_ram_fastio_rdata => colour_ram_fastio_rdata,
       colour_ram_cs => colour_ram_cs,
+      charrom_write_cs => charrom_write_cs,
 
       fastio_addr     => fastio_addr,
       fastio_read     => fastio_read,

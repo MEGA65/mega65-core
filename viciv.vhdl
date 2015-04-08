@@ -108,6 +108,7 @@ entity viciv is
     fastio_rdata : out std_logic_vector(7 downto 0);
     colour_ram_fastio_rdata : out std_logic_vector(7 downto 0);
     colour_ram_cs : in std_logic;
+    charrom_write_cs : in std_logic;
 
     viciii_iomode : out std_logic_vector(1 downto 0) := "11";
 
@@ -192,16 +193,20 @@ architecture Behavioral of viciv is
   
   component charrom is
     port (Clk : in std_logic;
-          address : in integer range 0 to 4095;
-          -- Yes, we do have a write enable, because we allow modification of ROMs
-          -- in the running machine, unless purposely disabled.  This gives us
-          -- something like the WOM that the Amiga had.
-          we : in std_logic;
-          -- chip select, active high       
-          cs : in std_logic;
-          data_i : in std_logic_vector(7 downto 0);
-          data_o : out std_logic_vector(7 downto 0)
-          );
+        address : in integer range 0 to 4095;
+        -- chip select, active low       
+        cs : in std_logic;
+        data_o : out std_logic_vector(7 downto 0);
+
+        writeclk : in std_logic;
+        -- Yes, we do have a write enable, because we allow modification of ROMs
+        -- in the running machine, unless purposely disabled.  This gives us
+        -- something like the WOM that the Amiga had.
+        writecs : in std_logic;
+        we : in std_logic;
+        writeaddress : in unsigned(11 downto 0);
+        data_i : in std_logic_vector(7 downto 0)
+      );
   end component charrom;
 
   -- 32KB internal colour RAM
@@ -989,10 +994,14 @@ begin
   charrom1 : charrom
     port map (Clk => pixelclock,
               address => charaddress,
-              we => '0',  -- read
               cs => '1',  -- active
-              data_i => (others => '1'),
-              data_o => chardata
+              data_o => chardata,
+
+              writeclk => cpuclock,
+              writecs => charrom_write_cs,
+              writeaddress => unsigned(fastio_addr(11 downto 0)),
+              we => fastio_write,
+              data_i => fastio_wdata
               );
 
   antialiasblender: component alpha_blend_top
@@ -2541,10 +2550,10 @@ begin
       if postsprite_pixel_colour(7 downto 4) = x"0" and reg_palrom='1' then
         palette_address <= "11" & std_logic_vector(postsprite_pixel_colour);
       else
-        palette_address(7 downto 0) <= postsprite_pixel_colour;
+        palette_address(7 downto 0) <= std_logic_vector(postsprite_pixel_colour);
         if pixel_is_sprite='0' then
           if glyph_full_colour='1' then
-            palette_address(9 downto 8) <= palette_bank_chargen32;
+            palette_address(9 downto 8) <= palette_bank_chargen256;
           else
             palette_address(9 downto 8) <= palette_bank_chargen;
           end if;

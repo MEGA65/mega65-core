@@ -7,15 +7,19 @@ use work.debugtools.all;
 entity charrom is
 port (Clk : in std_logic;
         address : in integer range 0 to 4095;
+        -- chip select, active low       
+        cs : in std_logic;
+        data_o : out std_logic_vector(7 downto 0);
+
+        writeclk : in std_logic;
         -- Yes, we do have a write enable, because we allow modification of ROMs
         -- in the running machine, unless purposely disabled.  This gives us
         -- something like the WOM that the Amiga had.
+        writecs : in std_logic;
         we : in std_logic;
-        -- chip select, active low       
-        cs : in std_logic;
-        data_i : in std_logic_vector(7 downto 0);
-        data_o : out std_logic_vector(7 downto 0)
-     );
+        writeaddress : in unsigned(11 downto 0);
+        data_i : in std_logic_vector(7 downto 0)
+      );
 end charrom;
 
 architecture Behavioral of charrom is
@@ -1060,10 +1064,10 @@ BEGIN
   --  severity note;
   data_o <= ram(address);          
 
-  if(rising_edge(Clk)) then 
-    if cs='1' then
+  if(rising_edge(writeClk)) then 
+    if writecs='1' then
       if(we='1') then
-            ram(address) <= data_i;
+            ram(to_integer(writeaddress)) <= data_i;
       end if;
     end if;
   end if;

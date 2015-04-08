@@ -148,6 +148,7 @@ entity gs4510 is
     fastio_vic_rdata : in std_logic_vector(7 downto 0);
     fastio_colour_ram_rdata : in std_logic_vector(7 downto 0);
     colour_ram_cs : out std_logic;
+    charrom_write_cs : out std_logic;
 
     viciii_iomode : in std_logic_vector(1 downto 0);
 
@@ -1282,6 +1283,13 @@ begin
         -- We make the distinction to separate reading of VIC-IV
         -- registers from all other IO registers, partly to work around some bugs,
         -- and partly because the banking of the VIC registers is the fiddliest part.
+
+        -- @IO:GS $FF7Exxx VIC-IV CHARROM write area
+        if long_address(19 downto 12) = x"7E" then
+          report "VIC 64KB colour RAM access from VIC fastio" severity note;
+          accessing_colour_ram_fastio <= '1';
+          charrom_write_cs <= '1';
+        end if;
         if long_address(19 downto 16) = x"8" then
           report "VIC 64KB colour RAM access from VIC fastio" severity note;
           accessing_colour_ram_fastio <= '1';
@@ -1848,7 +1856,7 @@ begin
         if long_address = x"FFD367D" and hypervisor_mode='1' then
           rom_from_colour_ram <= value(0);
           flat32_enabled <= value(1);
-          rom_writeprotect <= value(2)
+          rom_writeprotect <= value(2);
         end if;
         -- @IO:GS $D67E - Hypervisor already-upgraded bit (sets permanently)
         if long_address = x"FFD367E" and hypervisor_mode='1' then
