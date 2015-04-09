@@ -192,15 +192,15 @@ signal ram : ram_t := (
   -- PIXELS:   ***   
   -- PIXELS:         
   x"38", x"6c", x"c6", x"c6", x"c6", x"6c", x"38", x"00",
-  -- PIXELS: ******  
+  -- PIXELS:  *****  
   -- PIXELS:  **  ** 
   -- PIXELS:  **  ** 
   -- PIXELS:  *****  
   -- PIXELS:  **     
   -- PIXELS:  **     
-  -- PIXELS: ****    
+  -- PIXELS:  ***    
   -- PIXELS:         
-  x"fc", x"66", x"66", x"7c", x"60", x"60", x"f0", x"00",
+  x"7c", x"66", x"66", x"7c", x"60", x"60", x"70", x"00",
   -- PIXELS:  ****   
   -- PIXELS: **  **  
   -- PIXELS: **  **  
@@ -210,15 +210,15 @@ signal ram : ram_t := (
   -- PIXELS:    ***  
   -- PIXELS:         
   x"78", x"cc", x"cc", x"cc", x"dc", x"78", x"1c", x"00",
-  -- PIXELS: ******  
+  -- PIXELS:  *****  
   -- PIXELS:  **  ** 
   -- PIXELS:  **  ** 
   -- PIXELS:  *****  
   -- PIXELS:  ** **  
   -- PIXELS:  **  ** 
-  -- PIXELS: ***  ** 
+  -- PIXELS:  **  ** 
   -- PIXELS:         
-  x"fc", x"66", x"66", x"7c", x"6c", x"66", x"e6", x"00",
+  x"7c", x"66", x"66", x"7c", x"6c", x"66", x"66", x"00",
   -- PIXELS:  ****   
   -- PIXELS: **  **  
   -- PIXELS: ***     
@@ -229,14 +229,14 @@ signal ram : ram_t := (
   -- PIXELS:         
   x"78", x"cc", x"e0", x"70", x"1c", x"cc", x"78", x"00",
   -- PIXELS: ******  
-  -- PIXELS: * ** *  
   -- PIXELS:   **    
   -- PIXELS:   **    
   -- PIXELS:   **    
   -- PIXELS:   **    
-  -- PIXELS:  ****   
+  -- PIXELS:   **    
+  -- PIXELS:   **    
   -- PIXELS:         
-  x"fc", x"b4", x"30", x"30", x"30", x"30", x"78", x"00",
+  x"fc", x"30", x"30", x"30", x"30", x"30", x"30", x"00",
   -- PIXELS: **  **  
   -- PIXELS: **  **  
   -- PIXELS: **  **  
