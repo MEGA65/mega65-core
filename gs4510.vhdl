@@ -1285,10 +1285,6 @@ begin
         -- registers from all other IO registers, partly to work around some bugs,
         -- and partly because the banking of the VIC registers is the fiddliest part.
 
-        -- @IO:GS $FF7Exxx VIC-IV CHARROM write area
-        if long_address(19 downto 12) = x"7E" then
-          charrom_write_cs <= '1';
-        end if;
         if long_address(19 downto 16) = x"8" then
           report "VIC 64KB colour RAM access from VIC fastio" severity note;
           accessing_colour_ram_fastio <= '1';
@@ -1556,6 +1552,7 @@ begin
       accessing_slowram <= '0';
       slowram_pending_write <= '0';
       ddr_got_reply <= '0';
+      charrom_write_cs <= '0';
 
       shadow_write_flags(0) <= '1';
       shadow_write_flags(1) <= '1';
@@ -1860,6 +1857,11 @@ begin
         -- @IO:GS $D67E - Hypervisor already-upgraded bit (sets permanently)
         if long_address = x"FFD367E" and hypervisor_mode='1' then
           hypervisor_upgraded <= '1';
+        end if;
+
+        -- @IO:GS $FF7Exxx VIC-IV CHARROM write area
+        if long_address(19 downto 12) = x"7E" then
+          charrom_write_cs <= '1';
         end if;
         
         if long_address(19 downto 16) = x"8" then
