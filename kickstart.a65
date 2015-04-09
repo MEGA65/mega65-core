@@ -637,11 +637,11 @@ ku1:		lda fs_direntry,x
 
 		; Set 32-bit memory pointer to $00004000
 		lda #$00
-		sta <zptempv+0		
-		sta <zptempv+2
-		sta <zptempv+3
+		sta <zptempv32+0		
+		sta <zptempv32+2
+		sta <zptempv32+3
 		lda #$40
-		sta <zptempv+1
+		sta <zptempv32+1
 
 		jsr fs_setfile
 		jsr fs_clustertosector
@@ -656,18 +656,18 @@ havekickupsector:
 		ldz #$00
 ku2:		lda $de00,y
 		nop ; trigger 32-bit pointer for indirect store		
-		sta (<zptempv),z
+		sta (<zptempv32),z
 		inz
 		iny
 		bne ku2
-		inw [<zptempv+1]
+		inw [<zptempv32+1]
 ku3:		lda $df00,y
 		nop ; trigger 32-bit pointer for indirect store
-		sta (<zptempv),z
+		sta (<zptempv32),z
 		inz
 		iny
 		bne ku3
-		inw [<zptempv+1]
+		inw [<zptempv32+1]
 		
 		jsr fs_readnextsector
 		bcs havekickupsector
@@ -678,13 +678,13 @@ ku3:		lda $df00,y
 		ldy #>msg_kickuploaded
 		jsr printmessage
 		ldy #$00
-		ldz <zptempv+3
+		ldz <zptempv32+3
 		jsr printhex
-		ldz <zptempv+2
+		ldz <zptempv32+2
 		jsr printhex
-		ldz <zptempv+1
+		ldz <zptempv32+1
 		jsr printhex
-		ldz <zptempv+0
+		ldz <zptempv32+0
 		jsr printhex
 
 		; Use DMAgic to copy $0004000-$0007FFF to $FFF8000-$FFFBFFF
@@ -1006,6 +1006,24 @@ foundromfile:
 		sta rom_sectorsread
 		sta rom_sectorsread+1
 
+		; Prepare 32-bit pointer for loading charrom ($FF7E000)
+		lda #$00
+		sta <zptempv32+0
+		lda #$E0
+		sta <zptempv32+1
+		lda #$F7
+		sta <zptempv32+2
+		lda #$0F
+		sta <zptempv32+3
+
+		; Prepare 32-bit pointer for loading whole ROM ($0020000)
+		lda #$00
+		sta <zptempv32b+0
+		sta <zptempv32b+1
+		sta <zptempv32b+3
+		lda #$02
+		sta <zptempv32b+2
+
 		; Wait until switch 14 released before loading ROM so that we
 		; can intercept the routine to track down bugs
 lr96:		inc $d020
@@ -1014,89 +1032,50 @@ lr96:		inc $d020
 		bne lr96
 
 rf1:		
-		; Write sector to ROM space.
-		; Note that memory at $20000-$3FFFF where ROM maps
-		; can be READ but not WRITTEN.  To write, you have to
-		; do it in the natural address space of the slowram
-		; Map ($8020000+rom_sectorsread*512) at $4000-$5FFF
-		; Because MAP is relative, the map offset will be
-		; $8020000+rom_sectorsread*512-$4000
-		; = $801C000+rom_sectorsread*512
-		; XXX - but this 128KB extra RAM to act as ROM change means
-		; it is back to $0020000-$003FFFF.
+		; Write sector to ROM space ($20000-$3FFFF)
+		; (provided it is write-enabled!)
 
-		; start by setting MAP MB register to $00xxxxx
-		lda #$00
-		ldx #$0f		
-		ldy #$00   ; keep kickstart mapped at $8000-$BFFF
-		ldz #$3f
-		map
-		eom
-
-		; now map $4000-$5FFF
-		lda rom_sectorsread
-		asl
-		sta <zptempv		
-		lda rom_sectorsread
-		lsr
-		lsr
-		lsr
-		lsr
-		lsr
-		lsr
-		lsr
-		sta <zptempv+1
-		lda <zptempv
-		clc
-		adc #$c0
-		sta <zptempv
-		lda <zptempv+1
-		adc #$01
-		ora #$40
-		tax
-		lda <zptempv
-		ldy #$00   ; keep kickstart mapped at $8000-$BFFF
-		ldz #$3f
-		map
-		eom
-
-		; copy sector into slow ram
+		; copy sector into 128KB fast RAM / ROM
 		ldx #$00
-rr1:		
-buggyddrwriteretry1:
-		lda $de00,x
-		sta $4000,x
-		cmp $4000,x
-		bne buggyddrwriteretry1
+		ldz #$00
+rr1:		lda $de00,x
+		sta (<zptempv32b),z
+		inz
 		inx
 		bne rr1
-
-rr2:
-buggyddrwriteretry2:
-		lda $df00,x
-		sta $4100,x
-		cmp $4100,x
-		bne buggyddrwriteretry2
+		inw <zptempv32b+1
+rr1b:		lda $df00,x
+		sta (<zptempv32b),z
+		inz
 		inx
-		bne rr2
+		bne rr1b
+		inw <zptempv32b+1
 
-		; clear memory mapping
+		; copy charrom part of ROM to CHARRAM
+		lda rom_sectorsread
+		and #$98
+		cmp #$98
+		bne notcharromsector
 
-		; unmap block
-		lda #$00
-		tax
-		ldy #$00   ; keep kickstart mapped at $8000-$BFFF
-		ldz #$3f
-		map
-		eom
-		; set MB pointers
-		lda #$00
-		ldx #$0f
-		ldy #$00   ; keep kickstart mapped at $8000-$BFFF
-		ldz #$3f
-		map
-		eom
+		; is a sector for CHARROM, so copy, and advance charrom pointer
+		ldz #$00
+		ldx #$00
+rf43:		lda $4000,x
+		nop ; 32-bit dereference follows
+		sta (<zptempv32),z
+		inz
+		inx
+		bne rf43
+		inc zptempv32+1
+rf44:		lda $4100,x
+		eom ; 32-bit dereference follows
+		sta (<zptempv32),z
+		inz
+		inx
+		bne rf44
+		inc zptempv32+1		
 
+notcharromsector:
 		; see if there is another sector
 		; (but don't try if we have read ~256KB already, since we are
 		;  supposed to read 128KB only).
@@ -2759,10 +2738,13 @@ dos_error_code:
 		.advance $BF00,$3e
 ; Temporary vector storage for DOS
 dos_scratch_vector: .word 0,0
-zptempv:	    .word 0,0
+; general kickstart temporary variables
+zptempv:	    .word 0
 zptempv2:	    .word 0
 zptempp: 	    .word 0
 zptempp2: 	    .word 0
+zptempv32:	    .word 0,0
+zptempv32b:	    .word 0,0
 
 		.checkpc $C000
 		.advance $C000, $3f
