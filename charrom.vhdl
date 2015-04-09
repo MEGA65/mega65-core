@@ -284,13 +284,13 @@ signal ram : ram_t := (
   x"cc", x"cc", x"cc", x"78", x"30", x"30", x"78", x"00",
   -- PIXELS: ******* 
   -- PIXELS: **   ** 
-  -- PIXELS: *   **  
+  -- PIXELS:     **  
   -- PIXELS:    **   
-  -- PIXELS:   **  * 
+  -- PIXELS:   **    
   -- PIXELS:  **  ** 
   -- PIXELS: ******* 
   -- PIXELS:         
-  x"fe", x"c6", x"8c", x"18", x"32", x"66", x"fe", x"00",
+  x"fe", x"c6", x"0c", x"18", x"30", x"66", x"fe", x"00",
   -- PIXELS:         
   -- PIXELS:         
   -- PIXELS:         
