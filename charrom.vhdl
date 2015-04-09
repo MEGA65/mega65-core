@@ -156,13 +156,13 @@ signal ram : ram_t := (
   -- PIXELS:  **  ** 
   -- PIXELS:         
   x"66", x"66", x"6c", x"78", x"6c", x"66", x"66", x"00",
-  -- PIXELS: ***     
   -- PIXELS:  **     
   -- PIXELS:  **     
   -- PIXELS:  **     
   -- PIXELS:  **     
   -- PIXELS:  **     
-  -- PIXELS: *** *** 
+  -- PIXELS:  ****** 
+  -- PIXELS:  ****** 
   -- PIXELS:         
   x"60", x"60", x"60", x"60", x"60", x"7e", x"7e", x"00",
   -- PIXELS: **   ** 
