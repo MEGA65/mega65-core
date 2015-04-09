@@ -1168,6 +1168,7 @@ begin
       accessing_slowram <= '0'; accessing_hypervisor <= '0';
       slowram_pending_write <= '0';
       slowram_we_drive <= '0';
+      charrom_write_cs <= '0';
 
       wait_states <= io_read_wait_states;
       ddr_got_reply <= '0';
@@ -1287,8 +1288,6 @@ begin
         -- @IO:GS $FF7Exxx VIC-IV CHARROM write area
         if long_address(19 downto 12) = x"7E" then
           charrom_write_cs <= '1';
-        else
-          charrom_write_cs <= '0';
         end if;
         if long_address(19 downto 16) = x"8" then
           report "VIC 64KB colour RAM access from VIC fastio" severity note;
