@@ -1006,16 +1006,6 @@ foundromfile:
 		sta rom_sectorsread
 		sta rom_sectorsread+1
 
-		; Prepare 32-bit pointer for loading charrom ($FF7E000)
-		lda #$00
-		sta <zptempv32+0
-		lda #$E0
-		sta <zptempv32+1
-		lda #$F7
-		sta <zptempv32+2
-		lda #$0F
-		sta <zptempv32+3
-
 		; Prepare 32-bit pointer for loading whole ROM ($0020000)
 		lda #$00
 		sta <zptempv32b+0
@@ -1057,25 +1047,6 @@ rr1b:		lda $df00,x
 		cmp #$98
 		bne notcharromsector
 
-		; is a sector for CHARROM, so copy, and advance charrom pointer
-		ldz #$00
-		ldx #$00
-rf43:		lda $4000,x
-		nop ; 32-bit dereference follows
-		sta (<zptempv32),z
-		inz
-		inx
-		bne rf43
-		inc zptempv32+1
-rf44:		lda $4100,x
-		eom ; 32-bit dereference follows
-		sta (<zptempv32),z
-		inz
-		inx
-		bne rf44
-		inc zptempv32+1		
-
-notcharromsector:
 		; see if there is another sector
 		; (but don't try if we have read ~256KB already, since we are
 		;  supposed to read 128KB only).
