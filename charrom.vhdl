@@ -4663,7 +4663,7 @@ signal ram : ram_t := (
   -- PIXELS:         
   -- PIXELS:   **    
   -- PIXELS:         
-  x"78", x"cc", x"0c", x"18", x"30", x"00", x"30", x"00",
+  x"78", x"cc", x"0c", x"18", x"30", x"00", x"30", x"00"
 );
 
 begin
@@ -4681,7 +4681,7 @@ BEGIN
   if(rising_edge(writeClk)) then 
     if writecs='1' then
       if(we='1') then
-            ram(to_integer(writeaddress)) <= data_i;
+        ram(to_integer(writeaddress)) <= data_i;
       end if;
     end if;
   end if;
