@@ -48,526 +48,4622 @@ architecture Behavioral of charrom is
 
 type ram_t is array (0 to 4095) of std_logic_vector(7 downto 0);
 signal ram : ram_t := (
+  -- PIXELS:  *****  
+  -- PIXELS: **   ** 
+  -- PIXELS: ** **** 
+  -- PIXELS: ** **** 
+  -- PIXELS: ** **** 
+  -- PIXELS: **      
+  -- PIXELS:  ****   
+  -- PIXELS:         
   x"7c", x"c6", x"de", x"de", x"de", x"c0", x"78", x"00",
+  -- PIXELS:   **    
+  -- PIXELS:  ****   
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: ******  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS:         
   x"30", x"78", x"cc", x"cc", x"fc", x"cc", x"cc", x"00",
+  -- PIXELS: ******  
+  -- PIXELS:  **  ** 
+  -- PIXELS:  **  ** 
+  -- PIXELS:  *****  
+  -- PIXELS:  **  ** 
+  -- PIXELS:  **  ** 
+  -- PIXELS: ******  
+  -- PIXELS:         
   x"fc", x"66", x"66", x"7c", x"66", x"66", x"fc", x"00",
+  -- PIXELS:   ****  
+  -- PIXELS:  **  ** 
+  -- PIXELS: **      
+  -- PIXELS: **      
+  -- PIXELS: **      
+  -- PIXELS:  **  ** 
+  -- PIXELS:   ****  
+  -- PIXELS:         
   x"3c", x"66", x"c0", x"c0", x"c0", x"66", x"3c", x"00",
+  -- PIXELS: *****   
+  -- PIXELS:  ** **  
+  -- PIXELS:  **  ** 
+  -- PIXELS:  **  ** 
+  -- PIXELS:  **  ** 
+  -- PIXELS:  ** **  
+  -- PIXELS: *****   
+  -- PIXELS:         
   x"f8", x"6c", x"66", x"66", x"66", x"6c", x"f8", x"00",
+  -- PIXELS: ******* 
+  -- PIXELS:  **   * 
+  -- PIXELS:  ** *   
+  -- PIXELS:  ****   
+  -- PIXELS:  ** *   
+  -- PIXELS:  **   * 
+  -- PIXELS: ******* 
+  -- PIXELS:         
   x"fe", x"62", x"68", x"78", x"68", x"62", x"fe", x"00",
+  -- PIXELS: ******* 
+  -- PIXELS:  **   * 
+  -- PIXELS:  ** *   
+  -- PIXELS:  ****   
+  -- PIXELS:  ** *   
+  -- PIXELS:  **     
+  -- PIXELS: ****    
+  -- PIXELS:         
   x"fe", x"62", x"68", x"78", x"68", x"60", x"f0", x"00",
+  -- PIXELS:   ****  
+  -- PIXELS:  **  ** 
+  -- PIXELS: **      
+  -- PIXELS: **      
+  -- PIXELS: **  *** 
+  -- PIXELS:  **  ** 
+  -- PIXELS:   ***** 
+  -- PIXELS:         
   x"3c", x"66", x"c0", x"c0", x"ce", x"66", x"3e", x"00",
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: ******  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS:         
   x"cc", x"cc", x"cc", x"fc", x"cc", x"cc", x"cc", x"00",
+  -- PIXELS:  ****   
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:  ****   
+  -- PIXELS:         
   x"78", x"30", x"30", x"30", x"30", x"30", x"78", x"00",
+  -- PIXELS:    **** 
+  -- PIXELS:     **  
+  -- PIXELS:     **  
+  -- PIXELS:     **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS:  ****   
+  -- PIXELS:         
   x"1e", x"0c", x"0c", x"0c", x"cc", x"cc", x"78", x"00",
+  -- PIXELS: ***  ** 
+  -- PIXELS:  **  ** 
+  -- PIXELS:  ** **  
+  -- PIXELS:  ****   
+  -- PIXELS:  ** **  
+  -- PIXELS:  **  ** 
+  -- PIXELS: ***  ** 
+  -- PIXELS:         
   x"e6", x"66", x"6c", x"78", x"6c", x"66", x"e6", x"00",
+  -- PIXELS: ****    
+  -- PIXELS:  **     
+  -- PIXELS:  **     
+  -- PIXELS:  **     
+  -- PIXELS:  **   * 
+  -- PIXELS:  **  ** 
+  -- PIXELS: ******* 
+  -- PIXELS:         
   x"f0", x"60", x"60", x"60", x"62", x"66", x"fe", x"00",
+  -- PIXELS: **   ** 
+  -- PIXELS: *** *** 
+  -- PIXELS: ******* 
+  -- PIXELS: ******* 
+  -- PIXELS: ** * ** 
+  -- PIXELS: **   ** 
+  -- PIXELS: **   ** 
+  -- PIXELS:         
   x"c6", x"ee", x"fe", x"fe", x"d6", x"c6", x"c6", x"00",
+  -- PIXELS: **   ** 
+  -- PIXELS: ***  ** 
+  -- PIXELS: **** ** 
+  -- PIXELS: ** **** 
+  -- PIXELS: **  *** 
+  -- PIXELS: **   ** 
+  -- PIXELS: **   ** 
+  -- PIXELS:         
   x"c6", x"e6", x"f6", x"de", x"ce", x"c6", x"c6", x"00",
+  -- PIXELS:   ***   
+  -- PIXELS:  ** **  
+  -- PIXELS: **   ** 
+  -- PIXELS: **   ** 
+  -- PIXELS: **   ** 
+  -- PIXELS:  ** **  
+  -- PIXELS:   ***   
+  -- PIXELS:         
   x"38", x"6c", x"c6", x"c6", x"c6", x"6c", x"38", x"00",
+  -- PIXELS: ******  
+  -- PIXELS:  **  ** 
+  -- PIXELS:  **  ** 
+  -- PIXELS:  *****  
+  -- PIXELS:  **     
+  -- PIXELS:  **     
+  -- PIXELS: ****    
+  -- PIXELS:         
   x"fc", x"66", x"66", x"7c", x"60", x"60", x"f0", x"00",
+  -- PIXELS:  ****   
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: ** ***  
+  -- PIXELS:  ****   
+  -- PIXELS:    ***  
+  -- PIXELS:         
   x"78", x"cc", x"cc", x"cc", x"dc", x"78", x"1c", x"00",
+  -- PIXELS: ******  
+  -- PIXELS:  **  ** 
+  -- PIXELS:  **  ** 
+  -- PIXELS:  *****  
+  -- PIXELS:  ** **  
+  -- PIXELS:  **  ** 
+  -- PIXELS: ***  ** 
+  -- PIXELS:         
   x"fc", x"66", x"66", x"7c", x"6c", x"66", x"e6", x"00",
+  -- PIXELS:  ****   
+  -- PIXELS: **  **  
+  -- PIXELS: ***     
+  -- PIXELS:  ***    
+  -- PIXELS:    ***  
+  -- PIXELS: **  **  
+  -- PIXELS:  ****   
+  -- PIXELS:         
   x"78", x"cc", x"e0", x"70", x"1c", x"cc", x"78", x"00",
+  -- PIXELS: ******  
+  -- PIXELS: * ** *  
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:  ****   
+  -- PIXELS:         
   x"fc", x"b4", x"30", x"30", x"30", x"30", x"78", x"00",
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: ******  
+  -- PIXELS:         
   x"cc", x"cc", x"cc", x"cc", x"cc", x"cc", x"fc", x"00",
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS:  ****   
+  -- PIXELS:   **    
+  -- PIXELS:         
   x"cc", x"cc", x"cc", x"cc", x"cc", x"78", x"30", x"00",
+  -- PIXELS: **   ** 
+  -- PIXELS: **   ** 
+  -- PIXELS: **   ** 
+  -- PIXELS: ** * ** 
+  -- PIXELS: ******* 
+  -- PIXELS: *** *** 
+  -- PIXELS: **   ** 
+  -- PIXELS:         
   x"c6", x"c6", x"c6", x"d6", x"fe", x"ee", x"c6", x"00",
+  -- PIXELS: **   ** 
+  -- PIXELS: **   ** 
+  -- PIXELS:  ** **  
+  -- PIXELS:   ***   
+  -- PIXELS:   ***   
+  -- PIXELS:  ** **  
+  -- PIXELS: **   ** 
+  -- PIXELS:         
   x"c6", x"c6", x"6c", x"38", x"38", x"6c", x"c6", x"00",
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS:  ****   
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:  ****   
+  -- PIXELS:         
   x"cc", x"cc", x"cc", x"78", x"30", x"30", x"78", x"00",
+  -- PIXELS: ******* 
+  -- PIXELS: **   ** 
+  -- PIXELS: *   **  
+  -- PIXELS:    **   
+  -- PIXELS:   **  * 
+  -- PIXELS:  **  ** 
+  -- PIXELS: ******* 
+  -- PIXELS:         
   x"fe", x"c6", x"8c", x"18", x"32", x"66", x"fe", x"00",
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
   x"00", x"00", x"00", x"00", x"00", x"00", x"00", x"00",
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
   x"00", x"00", x"00", x"00", x"00", x"00", x"00", x"00",
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
   x"00", x"00", x"00", x"00", x"00", x"00", x"00", x"00",
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
   x"00", x"00", x"00", x"00", x"00", x"00", x"00", x"00",
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
   x"00", x"00", x"00", x"00", x"00", x"00", x"00", x"00",
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
   x"00", x"00", x"00", x"00", x"00", x"00", x"00", x"00",
+  -- PIXELS:    **   
+  -- PIXELS:   ****  
+  -- PIXELS:   ****  
+  -- PIXELS:    **   
+  -- PIXELS:    **   
+  -- PIXELS:         
+  -- PIXELS:    **   
+  -- PIXELS:         
   x"18", x"3c", x"3c", x"18", x"18", x"00", x"18", x"00",
+  -- PIXELS:  ** **  
+  -- PIXELS:  ** **  
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
   x"6c", x"6c", x"00", x"00", x"00", x"00", x"00", x"00",
+  -- PIXELS:  ** **  
+  -- PIXELS:  ** **  
+  -- PIXELS: ******* 
+  -- PIXELS:  ** **  
+  -- PIXELS: ******* 
+  -- PIXELS:  ** **  
+  -- PIXELS:  ** **  
+  -- PIXELS:         
   x"6c", x"6c", x"fe", x"6c", x"fe", x"6c", x"6c", x"00",
+  -- PIXELS:   **    
+  -- PIXELS:  *****  
+  -- PIXELS: **      
+  -- PIXELS:  ****   
+  -- PIXELS:     **  
+  -- PIXELS: *****   
+  -- PIXELS:   **    
+  -- PIXELS:         
   x"30", x"7c", x"c0", x"78", x"0c", x"f8", x"30", x"00",
+  -- PIXELS:         
+  -- PIXELS: **   ** 
+  -- PIXELS: **  **  
+  -- PIXELS:    **   
+  -- PIXELS:   **    
+  -- PIXELS:  **  ** 
+  -- PIXELS: **   ** 
+  -- PIXELS:         
   x"00", x"c6", x"cc", x"18", x"30", x"66", x"c6", x"00",
+  -- PIXELS:   ***   
+  -- PIXELS:  ** **  
+  -- PIXELS:   ***   
+  -- PIXELS:  *** ** 
+  -- PIXELS: ** ***  
+  -- PIXELS: **  **  
+  -- PIXELS:  *** ** 
+  -- PIXELS:         
   x"38", x"6c", x"38", x"76", x"dc", x"cc", x"76", x"00",
+  -- PIXELS:  **     
+  -- PIXELS:  **     
+  -- PIXELS: **      
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
   x"60", x"60", x"c0", x"00", x"00", x"00", x"00", x"00",
+  -- PIXELS:    **   
+  -- PIXELS:   **    
+  -- PIXELS:  **     
+  -- PIXELS:  **     
+  -- PIXELS:  **     
+  -- PIXELS:   **    
+  -- PIXELS:    **   
+  -- PIXELS:         
   x"18", x"30", x"60", x"60", x"60", x"30", x"18", x"00",
+  -- PIXELS:  **     
+  -- PIXELS:   **    
+  -- PIXELS:    **   
+  -- PIXELS:    **   
+  -- PIXELS:    **   
+  -- PIXELS:   **    
+  -- PIXELS:  **     
+  -- PIXELS:         
   x"60", x"30", x"18", x"18", x"18", x"30", x"60", x"00",
+  -- PIXELS:         
+  -- PIXELS:  **  ** 
+  -- PIXELS:   ****  
+  -- PIXELS: ********
+  -- PIXELS:   ****  
+  -- PIXELS:  **  ** 
+  -- PIXELS:         
+  -- PIXELS:         
   x"00", x"66", x"3c", x"ff", x"3c", x"66", x"00", x"00",
+  -- PIXELS:         
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS: ******  
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:         
+  -- PIXELS:         
   x"00", x"30", x"30", x"fc", x"30", x"30", x"00", x"00",
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:  **     
   x"00", x"00", x"00", x"00", x"00", x"30", x"30", x"60",
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS: ******  
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
   x"00", x"00", x"00", x"fc", x"00", x"00", x"00", x"00",
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:         
   x"00", x"00", x"00", x"00", x"00", x"30", x"30", x"00",
+  -- PIXELS:      ** 
+  -- PIXELS:     **  
+  -- PIXELS:    **   
+  -- PIXELS:   **    
+  -- PIXELS:  **     
+  -- PIXELS: **      
+  -- PIXELS: *       
+  -- PIXELS:         
   x"06", x"0c", x"18", x"30", x"60", x"c0", x"80", x"00",
+  -- PIXELS:  *****  
+  -- PIXELS: **   ** 
+  -- PIXELS: **  *** 
+  -- PIXELS: ** **** 
+  -- PIXELS: **** ** 
+  -- PIXELS: ***  ** 
+  -- PIXELS:  *****  
+  -- PIXELS:         
   x"7c", x"c6", x"ce", x"de", x"f6", x"e6", x"7c", x"00",
+  -- PIXELS:   **    
+  -- PIXELS:  ***    
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS: ******  
+  -- PIXELS:         
   x"30", x"70", x"30", x"30", x"30", x"30", x"fc", x"00",
+  -- PIXELS:  ****   
+  -- PIXELS: **  **  
+  -- PIXELS:     **  
+  -- PIXELS:   ***   
+  -- PIXELS:  **     
+  -- PIXELS: **  **  
+  -- PIXELS: ******  
+  -- PIXELS:         
   x"78", x"cc", x"0c", x"38", x"60", x"cc", x"fc", x"00",
+  -- PIXELS:  ****   
+  -- PIXELS: **  **  
+  -- PIXELS:     **  
+  -- PIXELS:   ***   
+  -- PIXELS:     **  
+  -- PIXELS: **  **  
+  -- PIXELS:  ****   
+  -- PIXELS:         
   x"78", x"cc", x"0c", x"38", x"0c", x"cc", x"78", x"00",
+  -- PIXELS:    ***  
+  -- PIXELS:   ****  
+  -- PIXELS:  ** **  
+  -- PIXELS: **  **  
+  -- PIXELS: ******* 
+  -- PIXELS:     **  
+  -- PIXELS:    **** 
+  -- PIXELS:         
   x"1c", x"3c", x"6c", x"cc", x"fe", x"0c", x"1e", x"00",
+  -- PIXELS: ******  
+  -- PIXELS: **      
+  -- PIXELS: *****   
+  -- PIXELS:     **  
+  -- PIXELS:     **  
+  -- PIXELS: **  **  
+  -- PIXELS:  ****   
+  -- PIXELS:         
   x"fc", x"c0", x"f8", x"0c", x"0c", x"cc", x"78", x"00",
+  -- PIXELS:   ***   
+  -- PIXELS:  **     
+  -- PIXELS: **      
+  -- PIXELS: *****   
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS:  ****   
+  -- PIXELS:         
   x"38", x"60", x"c0", x"f8", x"cc", x"cc", x"78", x"00",
+  -- PIXELS: ******  
+  -- PIXELS: **  **  
+  -- PIXELS:     **  
+  -- PIXELS:    **   
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:         
   x"fc", x"cc", x"0c", x"18", x"30", x"30", x"30", x"00",
+  -- PIXELS:  ****   
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS:  ****   
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS:  ****   
+  -- PIXELS:         
   x"78", x"cc", x"cc", x"78", x"cc", x"cc", x"78", x"00",
+  -- PIXELS:  ****   
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS:  *****  
+  -- PIXELS:     **  
+  -- PIXELS:    **   
+  -- PIXELS:  ***    
+  -- PIXELS:         
   x"78", x"cc", x"cc", x"7c", x"0c", x"18", x"70", x"00",
+  -- PIXELS:         
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:         
   x"00", x"30", x"30", x"00", x"00", x"30", x"30", x"00",
+  -- PIXELS:         
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:  **     
   x"00", x"30", x"30", x"00", x"00", x"30", x"30", x"60",
+  -- PIXELS:    **   
+  -- PIXELS:   **    
+  -- PIXELS:  **     
+  -- PIXELS: **      
+  -- PIXELS:  **     
+  -- PIXELS:   **    
+  -- PIXELS:    **   
+  -- PIXELS:         
   x"18", x"30", x"60", x"c0", x"60", x"30", x"18", x"00",
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS: ******  
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS: ******  
+  -- PIXELS:         
+  -- PIXELS:         
   x"00", x"00", x"fc", x"00", x"00", x"fc", x"00", x"00",
+  -- PIXELS:  **     
+  -- PIXELS:   **    
+  -- PIXELS:    **   
+  -- PIXELS:     **  
+  -- PIXELS:    **   
+  -- PIXELS:   **    
+  -- PIXELS:  **     
+  -- PIXELS:         
   x"60", x"30", x"18", x"0c", x"18", x"30", x"60", x"00",
+  -- PIXELS:  ****   
+  -- PIXELS: **  **  
+  -- PIXELS:     **  
+  -- PIXELS:    **   
+  -- PIXELS:   **    
+  -- PIXELS:         
+  -- PIXELS:   **    
+  -- PIXELS:         
   x"78", x"cc", x"0c", x"18", x"30", x"00", x"30", x"00",
 
   -- and repeat 7 more times
+  -- PIXELS:  *****  
+  -- PIXELS: **   ** 
+  -- PIXELS: ** **** 
+  -- PIXELS: ** **** 
+  -- PIXELS: ** **** 
+  -- PIXELS: **      
+  -- PIXELS:  ****   
+  -- PIXELS:         
   x"7c", x"c6", x"de", x"de", x"de", x"c0", x"78", x"00",
+  -- PIXELS:   **    
+  -- PIXELS:  ****   
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: ******  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS:         
   x"30", x"78", x"cc", x"cc", x"fc", x"cc", x"cc", x"00",
+  -- PIXELS: ******  
+  -- PIXELS:  **  ** 
+  -- PIXELS:  **  ** 
+  -- PIXELS:  *****  
+  -- PIXELS:  **  ** 
+  -- PIXELS:  **  ** 
+  -- PIXELS: ******  
+  -- PIXELS:         
   x"fc", x"66", x"66", x"7c", x"66", x"66", x"fc", x"00",
+  -- PIXELS:   ****  
+  -- PIXELS:  **  ** 
+  -- PIXELS: **      
+  -- PIXELS: **      
+  -- PIXELS: **      
+  -- PIXELS:  **  ** 
+  -- PIXELS:   ****  
+  -- PIXELS:         
   x"3c", x"66", x"c0", x"c0", x"c0", x"66", x"3c", x"00",
+  -- PIXELS: *****   
+  -- PIXELS:  ** **  
+  -- PIXELS:  **  ** 
+  -- PIXELS:  **  ** 
+  -- PIXELS:  **  ** 
+  -- PIXELS:  ** **  
+  -- PIXELS: *****   
+  -- PIXELS:         
   x"f8", x"6c", x"66", x"66", x"66", x"6c", x"f8", x"00",
+  -- PIXELS: ******* 
+  -- PIXELS:  **   * 
+  -- PIXELS:  ** *   
+  -- PIXELS:  ****   
+  -- PIXELS:  ** *   
+  -- PIXELS:  **   * 
+  -- PIXELS: ******* 
+  -- PIXELS:         
   x"fe", x"62", x"68", x"78", x"68", x"62", x"fe", x"00",
+  -- PIXELS: ******* 
+  -- PIXELS:  **   * 
+  -- PIXELS:  ** *   
+  -- PIXELS:  ****   
+  -- PIXELS:  ** *   
+  -- PIXELS:  **     
+  -- PIXELS: ****    
+  -- PIXELS:         
   x"fe", x"62", x"68", x"78", x"68", x"60", x"f0", x"00",
+  -- PIXELS:   ****  
+  -- PIXELS:  **  ** 
+  -- PIXELS: **      
+  -- PIXELS: **      
+  -- PIXELS: **  *** 
+  -- PIXELS:  **  ** 
+  -- PIXELS:   ***** 
+  -- PIXELS:         
   x"3c", x"66", x"c0", x"c0", x"ce", x"66", x"3e", x"00",
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: ******  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS:         
   x"cc", x"cc", x"cc", x"fc", x"cc", x"cc", x"cc", x"00",
+  -- PIXELS:  ****   
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:  ****   
+  -- PIXELS:         
   x"78", x"30", x"30", x"30", x"30", x"30", x"78", x"00",
+  -- PIXELS:    **** 
+  -- PIXELS:     **  
+  -- PIXELS:     **  
+  -- PIXELS:     **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS:  ****   
+  -- PIXELS:         
   x"1e", x"0c", x"0c", x"0c", x"cc", x"cc", x"78", x"00",
+  -- PIXELS: ***  ** 
+  -- PIXELS:  **  ** 
+  -- PIXELS:  ** **  
+  -- PIXELS:  ****   
+  -- PIXELS:  ** **  
+  -- PIXELS:  **  ** 
+  -- PIXELS: ***  ** 
+  -- PIXELS:         
   x"e6", x"66", x"6c", x"78", x"6c", x"66", x"e6", x"00",
+  -- PIXELS: ****    
+  -- PIXELS:  **     
+  -- PIXELS:  **     
+  -- PIXELS:  **     
+  -- PIXELS:  **   * 
+  -- PIXELS:  **  ** 
+  -- PIXELS: ******* 
+  -- PIXELS:         
   x"f0", x"60", x"60", x"60", x"62", x"66", x"fe", x"00",
+  -- PIXELS: **   ** 
+  -- PIXELS: *** *** 
+  -- PIXELS: ******* 
+  -- PIXELS: ******* 
+  -- PIXELS: ** * ** 
+  -- PIXELS: **   ** 
+  -- PIXELS: **   ** 
+  -- PIXELS:         
   x"c6", x"ee", x"fe", x"fe", x"d6", x"c6", x"c6", x"00",
+  -- PIXELS: **   ** 
+  -- PIXELS: ***  ** 
+  -- PIXELS: **** ** 
+  -- PIXELS: ** **** 
+  -- PIXELS: **  *** 
+  -- PIXELS: **   ** 
+  -- PIXELS: **   ** 
+  -- PIXELS:         
   x"c6", x"e6", x"f6", x"de", x"ce", x"c6", x"c6", x"00",
+  -- PIXELS:   ***   
+  -- PIXELS:  ** **  
+  -- PIXELS: **   ** 
+  -- PIXELS: **   ** 
+  -- PIXELS: **   ** 
+  -- PIXELS:  ** **  
+  -- PIXELS:   ***   
+  -- PIXELS:         
   x"38", x"6c", x"c6", x"c6", x"c6", x"6c", x"38", x"00",
+  -- PIXELS: ******  
+  -- PIXELS:  **  ** 
+  -- PIXELS:  **  ** 
+  -- PIXELS:  *****  
+  -- PIXELS:  **     
+  -- PIXELS:  **     
+  -- PIXELS: ****    
+  -- PIXELS:         
   x"fc", x"66", x"66", x"7c", x"60", x"60", x"f0", x"00",
+  -- PIXELS:  ****   
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: ** ***  
+  -- PIXELS:  ****   
+  -- PIXELS:    ***  
+  -- PIXELS:         
   x"78", x"cc", x"cc", x"cc", x"dc", x"78", x"1c", x"00",
+  -- PIXELS: ******  
+  -- PIXELS:  **  ** 
+  -- PIXELS:  **  ** 
+  -- PIXELS:  *****  
+  -- PIXELS:  ** **  
+  -- PIXELS:  **  ** 
+  -- PIXELS: ***  ** 
+  -- PIXELS:         
   x"fc", x"66", x"66", x"7c", x"6c", x"66", x"e6", x"00",
+  -- PIXELS:  ****   
+  -- PIXELS: **  **  
+  -- PIXELS: ***     
+  -- PIXELS:  ***    
+  -- PIXELS:    ***  
+  -- PIXELS: **  **  
+  -- PIXELS:  ****   
+  -- PIXELS:         
   x"78", x"cc", x"e0", x"70", x"1c", x"cc", x"78", x"00",
+  -- PIXELS: ******  
+  -- PIXELS: * ** *  
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:  ****   
+  -- PIXELS:         
   x"fc", x"b4", x"30", x"30", x"30", x"30", x"78", x"00",
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: ******  
+  -- PIXELS:         
   x"cc", x"cc", x"cc", x"cc", x"cc", x"cc", x"fc", x"00",
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS:  ****   
+  -- PIXELS:   **    
+  -- PIXELS:         
   x"cc", x"cc", x"cc", x"cc", x"cc", x"78", x"30", x"00",
+  -- PIXELS: **   ** 
+  -- PIXELS: **   ** 
+  -- PIXELS: **   ** 
+  -- PIXELS: ** * ** 
+  -- PIXELS: ******* 
+  -- PIXELS: *** *** 
+  -- PIXELS: **   ** 
+  -- PIXELS:         
   x"c6", x"c6", x"c6", x"d6", x"fe", x"ee", x"c6", x"00",
+  -- PIXELS: **   ** 
+  -- PIXELS: **   ** 
+  -- PIXELS:  ** **  
+  -- PIXELS:   ***   
+  -- PIXELS:   ***   
+  -- PIXELS:  ** **  
+  -- PIXELS: **   ** 
+  -- PIXELS:         
   x"c6", x"c6", x"6c", x"38", x"38", x"6c", x"c6", x"00",
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS:  ****   
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:  ****   
+  -- PIXELS:         
   x"cc", x"cc", x"cc", x"78", x"30", x"30", x"78", x"00",
+  -- PIXELS: ******* 
+  -- PIXELS: **   ** 
+  -- PIXELS: *   **  
+  -- PIXELS:    **   
+  -- PIXELS:   **  * 
+  -- PIXELS:  **  ** 
+  -- PIXELS: ******* 
+  -- PIXELS:         
   x"fe", x"c6", x"8c", x"18", x"32", x"66", x"fe", x"00",
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
   x"00", x"00", x"00", x"00", x"00", x"00", x"00", x"00",
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
   x"00", x"00", x"00", x"00", x"00", x"00", x"00", x"00",
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
   x"00", x"00", x"00", x"00", x"00", x"00", x"00", x"00",
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
   x"00", x"00", x"00", x"00", x"00", x"00", x"00", x"00",
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
   x"00", x"00", x"00", x"00", x"00", x"00", x"00", x"00",
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
   x"00", x"00", x"00", x"00", x"00", x"00", x"00", x"00",
+  -- PIXELS:    **   
+  -- PIXELS:   ****  
+  -- PIXELS:   ****  
+  -- PIXELS:    **   
+  -- PIXELS:    **   
+  -- PIXELS:         
+  -- PIXELS:    **   
+  -- PIXELS:         
   x"18", x"3c", x"3c", x"18", x"18", x"00", x"18", x"00",
+  -- PIXELS:  ** **  
+  -- PIXELS:  ** **  
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
   x"6c", x"6c", x"00", x"00", x"00", x"00", x"00", x"00",
+  -- PIXELS:  ** **  
+  -- PIXELS:  ** **  
+  -- PIXELS: ******* 
+  -- PIXELS:  ** **  
+  -- PIXELS: ******* 
+  -- PIXELS:  ** **  
+  -- PIXELS:  ** **  
+  -- PIXELS:         
   x"6c", x"6c", x"fe", x"6c", x"fe", x"6c", x"6c", x"00",
+  -- PIXELS:   **    
+  -- PIXELS:  *****  
+  -- PIXELS: **      
+  -- PIXELS:  ****   
+  -- PIXELS:     **  
+  -- PIXELS: *****   
+  -- PIXELS:   **    
+  -- PIXELS:         
   x"30", x"7c", x"c0", x"78", x"0c", x"f8", x"30", x"00",
+  -- PIXELS:         
+  -- PIXELS: **   ** 
+  -- PIXELS: **  **  
+  -- PIXELS:    **   
+  -- PIXELS:   **    
+  -- PIXELS:  **  ** 
+  -- PIXELS: **   ** 
+  -- PIXELS:         
   x"00", x"c6", x"cc", x"18", x"30", x"66", x"c6", x"00",
+  -- PIXELS:   ***   
+  -- PIXELS:  ** **  
+  -- PIXELS:   ***   
+  -- PIXELS:  *** ** 
+  -- PIXELS: ** ***  
+  -- PIXELS: **  **  
+  -- PIXELS:  *** ** 
+  -- PIXELS:         
   x"38", x"6c", x"38", x"76", x"dc", x"cc", x"76", x"00",
+  -- PIXELS:  **     
+  -- PIXELS:  **     
+  -- PIXELS: **      
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
   x"60", x"60", x"c0", x"00", x"00", x"00", x"00", x"00",
+  -- PIXELS:    **   
+  -- PIXELS:   **    
+  -- PIXELS:  **     
+  -- PIXELS:  **     
+  -- PIXELS:  **     
+  -- PIXELS:   **    
+  -- PIXELS:    **   
+  -- PIXELS:         
   x"18", x"30", x"60", x"60", x"60", x"30", x"18", x"00",
+  -- PIXELS:  **     
+  -- PIXELS:   **    
+  -- PIXELS:    **   
+  -- PIXELS:    **   
+  -- PIXELS:    **   
+  -- PIXELS:   **    
+  -- PIXELS:  **     
+  -- PIXELS:         
   x"60", x"30", x"18", x"18", x"18", x"30", x"60", x"00",
+  -- PIXELS:         
+  -- PIXELS:  **  ** 
+  -- PIXELS:   ****  
+  -- PIXELS: ********
+  -- PIXELS:   ****  
+  -- PIXELS:  **  ** 
+  -- PIXELS:         
+  -- PIXELS:         
   x"00", x"66", x"3c", x"ff", x"3c", x"66", x"00", x"00",
+  -- PIXELS:         
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS: ******  
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:         
+  -- PIXELS:         
   x"00", x"30", x"30", x"fc", x"30", x"30", x"00", x"00",
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:  **     
   x"00", x"00", x"00", x"00", x"00", x"30", x"30", x"60",
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS: ******  
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
   x"00", x"00", x"00", x"fc", x"00", x"00", x"00", x"00",
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:         
   x"00", x"00", x"00", x"00", x"00", x"30", x"30", x"00",
+  -- PIXELS:      ** 
+  -- PIXELS:     **  
+  -- PIXELS:    **   
+  -- PIXELS:   **    
+  -- PIXELS:  **     
+  -- PIXELS: **      
+  -- PIXELS: *       
+  -- PIXELS:         
   x"06", x"0c", x"18", x"30", x"60", x"c0", x"80", x"00",
+  -- PIXELS:  *****  
+  -- PIXELS: **   ** 
+  -- PIXELS: **  *** 
+  -- PIXELS: ** **** 
+  -- PIXELS: **** ** 
+  -- PIXELS: ***  ** 
+  -- PIXELS:  *****  
+  -- PIXELS:         
   x"7c", x"c6", x"ce", x"de", x"f6", x"e6", x"7c", x"00",
+  -- PIXELS:   **    
+  -- PIXELS:  ***    
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS: ******  
+  -- PIXELS:         
   x"30", x"70", x"30", x"30", x"30", x"30", x"fc", x"00",
+  -- PIXELS:  ****   
+  -- PIXELS: **  **  
+  -- PIXELS:     **  
+  -- PIXELS:   ***   
+  -- PIXELS:  **     
+  -- PIXELS: **  **  
+  -- PIXELS: ******  
+  -- PIXELS:         
   x"78", x"cc", x"0c", x"38", x"60", x"cc", x"fc", x"00",
+  -- PIXELS:  ****   
+  -- PIXELS: **  **  
+  -- PIXELS:     **  
+  -- PIXELS:   ***   
+  -- PIXELS:     **  
+  -- PIXELS: **  **  
+  -- PIXELS:  ****   
+  -- PIXELS:         
   x"78", x"cc", x"0c", x"38", x"0c", x"cc", x"78", x"00",
+  -- PIXELS:    ***  
+  -- PIXELS:   ****  
+  -- PIXELS:  ** **  
+  -- PIXELS: **  **  
+  -- PIXELS: ******* 
+  -- PIXELS:     **  
+  -- PIXELS:    **** 
+  -- PIXELS:         
   x"1c", x"3c", x"6c", x"cc", x"fe", x"0c", x"1e", x"00",
+  -- PIXELS: ******  
+  -- PIXELS: **      
+  -- PIXELS: *****   
+  -- PIXELS:     **  
+  -- PIXELS:     **  
+  -- PIXELS: **  **  
+  -- PIXELS:  ****   
+  -- PIXELS:         
   x"fc", x"c0", x"f8", x"0c", x"0c", x"cc", x"78", x"00",
+  -- PIXELS:   ***   
+  -- PIXELS:  **     
+  -- PIXELS: **      
+  -- PIXELS: *****   
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS:  ****   
+  -- PIXELS:         
   x"38", x"60", x"c0", x"f8", x"cc", x"cc", x"78", x"00",
+  -- PIXELS: ******  
+  -- PIXELS: **  **  
+  -- PIXELS:     **  
+  -- PIXELS:    **   
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:         
   x"fc", x"cc", x"0c", x"18", x"30", x"30", x"30", x"00",
+  -- PIXELS:  ****   
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS:  ****   
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS:  ****   
+  -- PIXELS:         
   x"78", x"cc", x"cc", x"78", x"cc", x"cc", x"78", x"00",
+  -- PIXELS:  ****   
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS:  *****  
+  -- PIXELS:     **  
+  -- PIXELS:    **   
+  -- PIXELS:  ***    
+  -- PIXELS:         
   x"78", x"cc", x"cc", x"7c", x"0c", x"18", x"70", x"00",
+  -- PIXELS:         
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:         
   x"00", x"30", x"30", x"00", x"00", x"30", x"30", x"00",
+  -- PIXELS:         
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:  **     
   x"00", x"30", x"30", x"00", x"00", x"30", x"30", x"60",
+  -- PIXELS:    **   
+  -- PIXELS:   **    
+  -- PIXELS:  **     
+  -- PIXELS: **      
+  -- PIXELS:  **     
+  -- PIXELS:   **    
+  -- PIXELS:    **   
+  -- PIXELS:         
   x"18", x"30", x"60", x"c0", x"60", x"30", x"18", x"00",
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS: ******  
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS: ******  
+  -- PIXELS:         
+  -- PIXELS:         
   x"00", x"00", x"fc", x"00", x"00", x"fc", x"00", x"00",
+  -- PIXELS:  **     
+  -- PIXELS:   **    
+  -- PIXELS:    **   
+  -- PIXELS:     **  
+  -- PIXELS:    **   
+  -- PIXELS:   **    
+  -- PIXELS:  **     
+  -- PIXELS:         
   x"60", x"30", x"18", x"0c", x"18", x"30", x"60", x"00",
+  -- PIXELS:  ****   
+  -- PIXELS: **  **  
+  -- PIXELS:     **  
+  -- PIXELS:    **   
+  -- PIXELS:   **    
+  -- PIXELS:         
+  -- PIXELS:   **    
+  -- PIXELS:         
   x"78", x"cc", x"0c", x"18", x"30", x"00", x"30", x"00",
 
+  -- PIXELS:  *****  
+  -- PIXELS: **   ** 
+  -- PIXELS: ** **** 
+  -- PIXELS: ** **** 
+  -- PIXELS: ** **** 
+  -- PIXELS: **      
+  -- PIXELS:  ****   
+  -- PIXELS:         
   x"7c", x"c6", x"de", x"de", x"de", x"c0", x"78", x"00",
+  -- PIXELS:   **    
+  -- PIXELS:  ****   
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: ******  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS:         
   x"30", x"78", x"cc", x"cc", x"fc", x"cc", x"cc", x"00",
+  -- PIXELS: ******  
+  -- PIXELS:  **  ** 
+  -- PIXELS:  **  ** 
+  -- PIXELS:  *****  
+  -- PIXELS:  **  ** 
+  -- PIXELS:  **  ** 
+  -- PIXELS: ******  
+  -- PIXELS:         
   x"fc", x"66", x"66", x"7c", x"66", x"66", x"fc", x"00",
+  -- PIXELS:   ****  
+  -- PIXELS:  **  ** 
+  -- PIXELS: **      
+  -- PIXELS: **      
+  -- PIXELS: **      
+  -- PIXELS:  **  ** 
+  -- PIXELS:   ****  
+  -- PIXELS:         
   x"3c", x"66", x"c0", x"c0", x"c0", x"66", x"3c", x"00",
+  -- PIXELS: *****   
+  -- PIXELS:  ** **  
+  -- PIXELS:  **  ** 
+  -- PIXELS:  **  ** 
+  -- PIXELS:  **  ** 
+  -- PIXELS:  ** **  
+  -- PIXELS: *****   
+  -- PIXELS:         
   x"f8", x"6c", x"66", x"66", x"66", x"6c", x"f8", x"00",
+  -- PIXELS: ******* 
+  -- PIXELS:  **   * 
+  -- PIXELS:  ** *   
+  -- PIXELS:  ****   
+  -- PIXELS:  ** *   
+  -- PIXELS:  **   * 
+  -- PIXELS: ******* 
+  -- PIXELS:         
   x"fe", x"62", x"68", x"78", x"68", x"62", x"fe", x"00",
+  -- PIXELS: ******* 
+  -- PIXELS:  **   * 
+  -- PIXELS:  ** *   
+  -- PIXELS:  ****   
+  -- PIXELS:  ** *   
+  -- PIXELS:  **     
+  -- PIXELS: ****    
+  -- PIXELS:         
   x"fe", x"62", x"68", x"78", x"68", x"60", x"f0", x"00",
+  -- PIXELS:   ****  
+  -- PIXELS:  **  ** 
+  -- PIXELS: **      
+  -- PIXELS: **      
+  -- PIXELS: **  *** 
+  -- PIXELS:  **  ** 
+  -- PIXELS:   ***** 
+  -- PIXELS:         
   x"3c", x"66", x"c0", x"c0", x"ce", x"66", x"3e", x"00",
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: ******  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS:         
   x"cc", x"cc", x"cc", x"fc", x"cc", x"cc", x"cc", x"00",
+  -- PIXELS:  ****   
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:  ****   
+  -- PIXELS:         
   x"78", x"30", x"30", x"30", x"30", x"30", x"78", x"00",
+  -- PIXELS:    **** 
+  -- PIXELS:     **  
+  -- PIXELS:     **  
+  -- PIXELS:     **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS:  ****   
+  -- PIXELS:         
   x"1e", x"0c", x"0c", x"0c", x"cc", x"cc", x"78", x"00",
+  -- PIXELS: ***  ** 
+  -- PIXELS:  **  ** 
+  -- PIXELS:  ** **  
+  -- PIXELS:  ****   
+  -- PIXELS:  ** **  
+  -- PIXELS:  **  ** 
+  -- PIXELS: ***  ** 
+  -- PIXELS:         
   x"e6", x"66", x"6c", x"78", x"6c", x"66", x"e6", x"00",
+  -- PIXELS: ****    
+  -- PIXELS:  **     
+  -- PIXELS:  **     
+  -- PIXELS:  **     
+  -- PIXELS:  **   * 
+  -- PIXELS:  **  ** 
+  -- PIXELS: ******* 
+  -- PIXELS:         
   x"f0", x"60", x"60", x"60", x"62", x"66", x"fe", x"00",
+  -- PIXELS: **   ** 
+  -- PIXELS: *** *** 
+  -- PIXELS: ******* 
+  -- PIXELS: ******* 
+  -- PIXELS: ** * ** 
+  -- PIXELS: **   ** 
+  -- PIXELS: **   ** 
+  -- PIXELS:         
   x"c6", x"ee", x"fe", x"fe", x"d6", x"c6", x"c6", x"00",
+  -- PIXELS: **   ** 
+  -- PIXELS: ***  ** 
+  -- PIXELS: **** ** 
+  -- PIXELS: ** **** 
+  -- PIXELS: **  *** 
+  -- PIXELS: **   ** 
+  -- PIXELS: **   ** 
+  -- PIXELS:         
   x"c6", x"e6", x"f6", x"de", x"ce", x"c6", x"c6", x"00",
+  -- PIXELS:   ***   
+  -- PIXELS:  ** **  
+  -- PIXELS: **   ** 
+  -- PIXELS: **   ** 
+  -- PIXELS: **   ** 
+  -- PIXELS:  ** **  
+  -- PIXELS:   ***   
+  -- PIXELS:         
   x"38", x"6c", x"c6", x"c6", x"c6", x"6c", x"38", x"00",
+  -- PIXELS: ******  
+  -- PIXELS:  **  ** 
+  -- PIXELS:  **  ** 
+  -- PIXELS:  *****  
+  -- PIXELS:  **     
+  -- PIXELS:  **     
+  -- PIXELS: ****    
+  -- PIXELS:         
   x"fc", x"66", x"66", x"7c", x"60", x"60", x"f0", x"00",
+  -- PIXELS:  ****   
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: ** ***  
+  -- PIXELS:  ****   
+  -- PIXELS:    ***  
+  -- PIXELS:         
   x"78", x"cc", x"cc", x"cc", x"dc", x"78", x"1c", x"00",
+  -- PIXELS: ******  
+  -- PIXELS:  **  ** 
+  -- PIXELS:  **  ** 
+  -- PIXELS:  *****  
+  -- PIXELS:  ** **  
+  -- PIXELS:  **  ** 
+  -- PIXELS: ***  ** 
+  -- PIXELS:         
   x"fc", x"66", x"66", x"7c", x"6c", x"66", x"e6", x"00",
+  -- PIXELS:  ****   
+  -- PIXELS: **  **  
+  -- PIXELS: ***     
+  -- PIXELS:  ***    
+  -- PIXELS:    ***  
+  -- PIXELS: **  **  
+  -- PIXELS:  ****   
+  -- PIXELS:         
   x"78", x"cc", x"e0", x"70", x"1c", x"cc", x"78", x"00",
+  -- PIXELS: ******  
+  -- PIXELS: * ** *  
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:  ****   
+  -- PIXELS:         
   x"fc", x"b4", x"30", x"30", x"30", x"30", x"78", x"00",
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: ******  
+  -- PIXELS:         
   x"cc", x"cc", x"cc", x"cc", x"cc", x"cc", x"fc", x"00",
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS:  ****   
+  -- PIXELS:   **    
+  -- PIXELS:         
   x"cc", x"cc", x"cc", x"cc", x"cc", x"78", x"30", x"00",
+  -- PIXELS: **   ** 
+  -- PIXELS: **   ** 
+  -- PIXELS: **   ** 
+  -- PIXELS: ** * ** 
+  -- PIXELS: ******* 
+  -- PIXELS: *** *** 
+  -- PIXELS: **   ** 
+  -- PIXELS:         
   x"c6", x"c6", x"c6", x"d6", x"fe", x"ee", x"c6", x"00",
+  -- PIXELS: **   ** 
+  -- PIXELS: **   ** 
+  -- PIXELS:  ** **  
+  -- PIXELS:   ***   
+  -- PIXELS:   ***   
+  -- PIXELS:  ** **  
+  -- PIXELS: **   ** 
+  -- PIXELS:         
   x"c6", x"c6", x"6c", x"38", x"38", x"6c", x"c6", x"00",
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS:  ****   
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:  ****   
+  -- PIXELS:         
   x"cc", x"cc", x"cc", x"78", x"30", x"30", x"78", x"00",
+  -- PIXELS: ******* 
+  -- PIXELS: **   ** 
+  -- PIXELS: *   **  
+  -- PIXELS:    **   
+  -- PIXELS:   **  * 
+  -- PIXELS:  **  ** 
+  -- PIXELS: ******* 
+  -- PIXELS:         
   x"fe", x"c6", x"8c", x"18", x"32", x"66", x"fe", x"00",
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
   x"00", x"00", x"00", x"00", x"00", x"00", x"00", x"00",
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
   x"00", x"00", x"00", x"00", x"00", x"00", x"00", x"00",
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
   x"00", x"00", x"00", x"00", x"00", x"00", x"00", x"00",
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
   x"00", x"00", x"00", x"00", x"00", x"00", x"00", x"00",
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
   x"00", x"00", x"00", x"00", x"00", x"00", x"00", x"00",
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
   x"00", x"00", x"00", x"00", x"00", x"00", x"00", x"00",
+  -- PIXELS:    **   
+  -- PIXELS:   ****  
+  -- PIXELS:   ****  
+  -- PIXELS:    **   
+  -- PIXELS:    **   
+  -- PIXELS:         
+  -- PIXELS:    **   
+  -- PIXELS:         
   x"18", x"3c", x"3c", x"18", x"18", x"00", x"18", x"00",
+  -- PIXELS:  ** **  
+  -- PIXELS:  ** **  
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
   x"6c", x"6c", x"00", x"00", x"00", x"00", x"00", x"00",
+  -- PIXELS:  ** **  
+  -- PIXELS:  ** **  
+  -- PIXELS: ******* 
+  -- PIXELS:  ** **  
+  -- PIXELS: ******* 
+  -- PIXELS:  ** **  
+  -- PIXELS:  ** **  
+  -- PIXELS:         
   x"6c", x"6c", x"fe", x"6c", x"fe", x"6c", x"6c", x"00",
+  -- PIXELS:   **    
+  -- PIXELS:  *****  
+  -- PIXELS: **      
+  -- PIXELS:  ****   
+  -- PIXELS:     **  
+  -- PIXELS: *****   
+  -- PIXELS:   **    
+  -- PIXELS:         
   x"30", x"7c", x"c0", x"78", x"0c", x"f8", x"30", x"00",
+  -- PIXELS:         
+  -- PIXELS: **   ** 
+  -- PIXELS: **  **  
+  -- PIXELS:    **   
+  -- PIXELS:   **    
+  -- PIXELS:  **  ** 
+  -- PIXELS: **   ** 
+  -- PIXELS:         
   x"00", x"c6", x"cc", x"18", x"30", x"66", x"c6", x"00",
+  -- PIXELS:   ***   
+  -- PIXELS:  ** **  
+  -- PIXELS:   ***   
+  -- PIXELS:  *** ** 
+  -- PIXELS: ** ***  
+  -- PIXELS: **  **  
+  -- PIXELS:  *** ** 
+  -- PIXELS:         
   x"38", x"6c", x"38", x"76", x"dc", x"cc", x"76", x"00",
+  -- PIXELS:  **     
+  -- PIXELS:  **     
+  -- PIXELS: **      
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
   x"60", x"60", x"c0", x"00", x"00", x"00", x"00", x"00",
+  -- PIXELS:    **   
+  -- PIXELS:   **    
+  -- PIXELS:  **     
+  -- PIXELS:  **     
+  -- PIXELS:  **     
+  -- PIXELS:   **    
+  -- PIXELS:    **   
+  -- PIXELS:         
   x"18", x"30", x"60", x"60", x"60", x"30", x"18", x"00",
+  -- PIXELS:  **     
+  -- PIXELS:   **    
+  -- PIXELS:    **   
+  -- PIXELS:    **   
+  -- PIXELS:    **   
+  -- PIXELS:   **    
+  -- PIXELS:  **     
+  -- PIXELS:         
   x"60", x"30", x"18", x"18", x"18", x"30", x"60", x"00",
+  -- PIXELS:         
+  -- PIXELS:  **  ** 
+  -- PIXELS:   ****  
+  -- PIXELS: ********
+  -- PIXELS:   ****  
+  -- PIXELS:  **  ** 
+  -- PIXELS:         
+  -- PIXELS:         
   x"00", x"66", x"3c", x"ff", x"3c", x"66", x"00", x"00",
+  -- PIXELS:         
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS: ******  
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:         
+  -- PIXELS:         
   x"00", x"30", x"30", x"fc", x"30", x"30", x"00", x"00",
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:  **     
   x"00", x"00", x"00", x"00", x"00", x"30", x"30", x"60",
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS: ******  
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
   x"00", x"00", x"00", x"fc", x"00", x"00", x"00", x"00",
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:         
   x"00", x"00", x"00", x"00", x"00", x"30", x"30", x"00",
+  -- PIXELS:      ** 
+  -- PIXELS:     **  
+  -- PIXELS:    **   
+  -- PIXELS:   **    
+  -- PIXELS:  **     
+  -- PIXELS: **      
+  -- PIXELS: *       
+  -- PIXELS:         
   x"06", x"0c", x"18", x"30", x"60", x"c0", x"80", x"00",
+  -- PIXELS:  *****  
+  -- PIXELS: **   ** 
+  -- PIXELS: **  *** 
+  -- PIXELS: ** **** 
+  -- PIXELS: **** ** 
+  -- PIXELS: ***  ** 
+  -- PIXELS:  *****  
+  -- PIXELS:         
   x"7c", x"c6", x"ce", x"de", x"f6", x"e6", x"7c", x"00",
+  -- PIXELS:   **    
+  -- PIXELS:  ***    
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS: ******  
+  -- PIXELS:         
   x"30", x"70", x"30", x"30", x"30", x"30", x"fc", x"00",
+  -- PIXELS:  ****   
+  -- PIXELS: **  **  
+  -- PIXELS:     **  
+  -- PIXELS:   ***   
+  -- PIXELS:  **     
+  -- PIXELS: **  **  
+  -- PIXELS: ******  
+  -- PIXELS:         
   x"78", x"cc", x"0c", x"38", x"60", x"cc", x"fc", x"00",
+  -- PIXELS:  ****   
+  -- PIXELS: **  **  
+  -- PIXELS:     **  
+  -- PIXELS:   ***   
+  -- PIXELS:     **  
+  -- PIXELS: **  **  
+  -- PIXELS:  ****   
+  -- PIXELS:         
   x"78", x"cc", x"0c", x"38", x"0c", x"cc", x"78", x"00",
+  -- PIXELS:    ***  
+  -- PIXELS:   ****  
+  -- PIXELS:  ** **  
+  -- PIXELS: **  **  
+  -- PIXELS: ******* 
+  -- PIXELS:     **  
+  -- PIXELS:    **** 
+  -- PIXELS:         
   x"1c", x"3c", x"6c", x"cc", x"fe", x"0c", x"1e", x"00",
+  -- PIXELS: ******  
+  -- PIXELS: **      
+  -- PIXELS: *****   
+  -- PIXELS:     **  
+  -- PIXELS:     **  
+  -- PIXELS: **  **  
+  -- PIXELS:  ****   
+  -- PIXELS:         
   x"fc", x"c0", x"f8", x"0c", x"0c", x"cc", x"78", x"00",
+  -- PIXELS:   ***   
+  -- PIXELS:  **     
+  -- PIXELS: **      
+  -- PIXELS: *****   
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS:  ****   
+  -- PIXELS:         
   x"38", x"60", x"c0", x"f8", x"cc", x"cc", x"78", x"00",
+  -- PIXELS: ******  
+  -- PIXELS: **  **  
+  -- PIXELS:     **  
+  -- PIXELS:    **   
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:         
   x"fc", x"cc", x"0c", x"18", x"30", x"30", x"30", x"00",
+  -- PIXELS:  ****   
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS:  ****   
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS:  ****   
+  -- PIXELS:         
   x"78", x"cc", x"cc", x"78", x"cc", x"cc", x"78", x"00",
+  -- PIXELS:  ****   
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS:  *****  
+  -- PIXELS:     **  
+  -- PIXELS:    **   
+  -- PIXELS:  ***    
+  -- PIXELS:         
   x"78", x"cc", x"cc", x"7c", x"0c", x"18", x"70", x"00",
+  -- PIXELS:         
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:         
   x"00", x"30", x"30", x"00", x"00", x"30", x"30", x"00",
+  -- PIXELS:         
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:  **     
   x"00", x"30", x"30", x"00", x"00", x"30", x"30", x"60",
+  -- PIXELS:    **   
+  -- PIXELS:   **    
+  -- PIXELS:  **     
+  -- PIXELS: **      
+  -- PIXELS:  **     
+  -- PIXELS:   **    
+  -- PIXELS:    **   
+  -- PIXELS:         
   x"18", x"30", x"60", x"c0", x"60", x"30", x"18", x"00",
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS: ******  
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS: ******  
+  -- PIXELS:         
+  -- PIXELS:         
   x"00", x"00", x"fc", x"00", x"00", x"fc", x"00", x"00",
+  -- PIXELS:  **     
+  -- PIXELS:   **    
+  -- PIXELS:    **   
+  -- PIXELS:     **  
+  -- PIXELS:    **   
+  -- PIXELS:   **    
+  -- PIXELS:  **     
+  -- PIXELS:         
   x"60", x"30", x"18", x"0c", x"18", x"30", x"60", x"00",
+  -- PIXELS:  ****   
+  -- PIXELS: **  **  
+  -- PIXELS:     **  
+  -- PIXELS:    **   
+  -- PIXELS:   **    
+  -- PIXELS:         
+  -- PIXELS:   **    
+  -- PIXELS:         
   x"78", x"cc", x"0c", x"18", x"30", x"00", x"30", x"00",
 
+  -- PIXELS:  *****  
+  -- PIXELS: **   ** 
+  -- PIXELS: ** **** 
+  -- PIXELS: ** **** 
+  -- PIXELS: ** **** 
+  -- PIXELS: **      
+  -- PIXELS:  ****   
+  -- PIXELS:         
   x"7c", x"c6", x"de", x"de", x"de", x"c0", x"78", x"00",
+  -- PIXELS:   **    
+  -- PIXELS:  ****   
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: ******  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS:         
   x"30", x"78", x"cc", x"cc", x"fc", x"cc", x"cc", x"00",
+  -- PIXELS: ******  
+  -- PIXELS:  **  ** 
+  -- PIXELS:  **  ** 
+  -- PIXELS:  *****  
+  -- PIXELS:  **  ** 
+  -- PIXELS:  **  ** 
+  -- PIXELS: ******  
+  -- PIXELS:         
   x"fc", x"66", x"66", x"7c", x"66", x"66", x"fc", x"00",
+  -- PIXELS:   ****  
+  -- PIXELS:  **  ** 
+  -- PIXELS: **      
+  -- PIXELS: **      
+  -- PIXELS: **      
+  -- PIXELS:  **  ** 
+  -- PIXELS:   ****  
+  -- PIXELS:         
   x"3c", x"66", x"c0", x"c0", x"c0", x"66", x"3c", x"00",
+  -- PIXELS: *****   
+  -- PIXELS:  ** **  
+  -- PIXELS:  **  ** 
+  -- PIXELS:  **  ** 
+  -- PIXELS:  **  ** 
+  -- PIXELS:  ** **  
+  -- PIXELS: *****   
+  -- PIXELS:         
   x"f8", x"6c", x"66", x"66", x"66", x"6c", x"f8", x"00",
+  -- PIXELS: ******* 
+  -- PIXELS:  **   * 
+  -- PIXELS:  ** *   
+  -- PIXELS:  ****   
+  -- PIXELS:  ** *   
+  -- PIXELS:  **   * 
+  -- PIXELS: ******* 
+  -- PIXELS:         
   x"fe", x"62", x"68", x"78", x"68", x"62", x"fe", x"00",
+  -- PIXELS: ******* 
+  -- PIXELS:  **   * 
+  -- PIXELS:  ** *   
+  -- PIXELS:  ****   
+  -- PIXELS:  ** *   
+  -- PIXELS:  **     
+  -- PIXELS: ****    
+  -- PIXELS:         
   x"fe", x"62", x"68", x"78", x"68", x"60", x"f0", x"00",
+  -- PIXELS:   ****  
+  -- PIXELS:  **  ** 
+  -- PIXELS: **      
+  -- PIXELS: **      
+  -- PIXELS: **  *** 
+  -- PIXELS:  **  ** 
+  -- PIXELS:   ***** 
+  -- PIXELS:         
   x"3c", x"66", x"c0", x"c0", x"ce", x"66", x"3e", x"00",
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: ******  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS:         
   x"cc", x"cc", x"cc", x"fc", x"cc", x"cc", x"cc", x"00",
+  -- PIXELS:  ****   
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:  ****   
+  -- PIXELS:         
   x"78", x"30", x"30", x"30", x"30", x"30", x"78", x"00",
+  -- PIXELS:    **** 
+  -- PIXELS:     **  
+  -- PIXELS:     **  
+  -- PIXELS:     **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS:  ****   
+  -- PIXELS:         
   x"1e", x"0c", x"0c", x"0c", x"cc", x"cc", x"78", x"00",
+  -- PIXELS: ***  ** 
+  -- PIXELS:  **  ** 
+  -- PIXELS:  ** **  
+  -- PIXELS:  ****   
+  -- PIXELS:  ** **  
+  -- PIXELS:  **  ** 
+  -- PIXELS: ***  ** 
+  -- PIXELS:         
   x"e6", x"66", x"6c", x"78", x"6c", x"66", x"e6", x"00",
+  -- PIXELS: ****    
+  -- PIXELS:  **     
+  -- PIXELS:  **     
+  -- PIXELS:  **     
+  -- PIXELS:  **   * 
+  -- PIXELS:  **  ** 
+  -- PIXELS: ******* 
+  -- PIXELS:         
   x"f0", x"60", x"60", x"60", x"62", x"66", x"fe", x"00",
+  -- PIXELS: **   ** 
+  -- PIXELS: *** *** 
+  -- PIXELS: ******* 
+  -- PIXELS: ******* 
+  -- PIXELS: ** * ** 
+  -- PIXELS: **   ** 
+  -- PIXELS: **   ** 
+  -- PIXELS:         
   x"c6", x"ee", x"fe", x"fe", x"d6", x"c6", x"c6", x"00",
+  -- PIXELS: **   ** 
+  -- PIXELS: ***  ** 
+  -- PIXELS: **** ** 
+  -- PIXELS: ** **** 
+  -- PIXELS: **  *** 
+  -- PIXELS: **   ** 
+  -- PIXELS: **   ** 
+  -- PIXELS:         
   x"c6", x"e6", x"f6", x"de", x"ce", x"c6", x"c6", x"00",
+  -- PIXELS:   ***   
+  -- PIXELS:  ** **  
+  -- PIXELS: **   ** 
+  -- PIXELS: **   ** 
+  -- PIXELS: **   ** 
+  -- PIXELS:  ** **  
+  -- PIXELS:   ***   
+  -- PIXELS:         
   x"38", x"6c", x"c6", x"c6", x"c6", x"6c", x"38", x"00",
+  -- PIXELS: ******  
+  -- PIXELS:  **  ** 
+  -- PIXELS:  **  ** 
+  -- PIXELS:  *****  
+  -- PIXELS:  **     
+  -- PIXELS:  **     
+  -- PIXELS: ****    
+  -- PIXELS:         
   x"fc", x"66", x"66", x"7c", x"60", x"60", x"f0", x"00",
+  -- PIXELS:  ****   
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: ** ***  
+  -- PIXELS:  ****   
+  -- PIXELS:    ***  
+  -- PIXELS:         
   x"78", x"cc", x"cc", x"cc", x"dc", x"78", x"1c", x"00",
+  -- PIXELS: ******  
+  -- PIXELS:  **  ** 
+  -- PIXELS:  **  ** 
+  -- PIXELS:  *****  
+  -- PIXELS:  ** **  
+  -- PIXELS:  **  ** 
+  -- PIXELS: ***  ** 
+  -- PIXELS:         
   x"fc", x"66", x"66", x"7c", x"6c", x"66", x"e6", x"00",
+  -- PIXELS:  ****   
+  -- PIXELS: **  **  
+  -- PIXELS: ***     
+  -- PIXELS:  ***    
+  -- PIXELS:    ***  
+  -- PIXELS: **  **  
+  -- PIXELS:  ****   
+  -- PIXELS:         
   x"78", x"cc", x"e0", x"70", x"1c", x"cc", x"78", x"00",
+  -- PIXELS: ******  
+  -- PIXELS: * ** *  
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:  ****   
+  -- PIXELS:         
   x"fc", x"b4", x"30", x"30", x"30", x"30", x"78", x"00",
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: ******  
+  -- PIXELS:         
   x"cc", x"cc", x"cc", x"cc", x"cc", x"cc", x"fc", x"00",
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS:  ****   
+  -- PIXELS:   **    
+  -- PIXELS:         
   x"cc", x"cc", x"cc", x"cc", x"cc", x"78", x"30", x"00",
+  -- PIXELS: **   ** 
+  -- PIXELS: **   ** 
+  -- PIXELS: **   ** 
+  -- PIXELS: ** * ** 
+  -- PIXELS: ******* 
+  -- PIXELS: *** *** 
+  -- PIXELS: **   ** 
+  -- PIXELS:         
   x"c6", x"c6", x"c6", x"d6", x"fe", x"ee", x"c6", x"00",
+  -- PIXELS: **   ** 
+  -- PIXELS: **   ** 
+  -- PIXELS:  ** **  
+  -- PIXELS:   ***   
+  -- PIXELS:   ***   
+  -- PIXELS:  ** **  
+  -- PIXELS: **   ** 
+  -- PIXELS:         
   x"c6", x"c6", x"6c", x"38", x"38", x"6c", x"c6", x"00",
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS:  ****   
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:  ****   
+  -- PIXELS:         
   x"cc", x"cc", x"cc", x"78", x"30", x"30", x"78", x"00",
+  -- PIXELS: ******* 
+  -- PIXELS: **   ** 
+  -- PIXELS: *   **  
+  -- PIXELS:    **   
+  -- PIXELS:   **  * 
+  -- PIXELS:  **  ** 
+  -- PIXELS: ******* 
+  -- PIXELS:         
   x"fe", x"c6", x"8c", x"18", x"32", x"66", x"fe", x"00",
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
   x"00", x"00", x"00", x"00", x"00", x"00", x"00", x"00",
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
   x"00", x"00", x"00", x"00", x"00", x"00", x"00", x"00",
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
   x"00", x"00", x"00", x"00", x"00", x"00", x"00", x"00",
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
   x"00", x"00", x"00", x"00", x"00", x"00", x"00", x"00",
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
   x"00", x"00", x"00", x"00", x"00", x"00", x"00", x"00",
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
   x"00", x"00", x"00", x"00", x"00", x"00", x"00", x"00",
+  -- PIXELS:    **   
+  -- PIXELS:   ****  
+  -- PIXELS:   ****  
+  -- PIXELS:    **   
+  -- PIXELS:    **   
+  -- PIXELS:         
+  -- PIXELS:    **   
+  -- PIXELS:         
   x"18", x"3c", x"3c", x"18", x"18", x"00", x"18", x"00",
+  -- PIXELS:  ** **  
+  -- PIXELS:  ** **  
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
   x"6c", x"6c", x"00", x"00", x"00", x"00", x"00", x"00",
+  -- PIXELS:  ** **  
+  -- PIXELS:  ** **  
+  -- PIXELS: ******* 
+  -- PIXELS:  ** **  
+  -- PIXELS: ******* 
+  -- PIXELS:  ** **  
+  -- PIXELS:  ** **  
+  -- PIXELS:         
   x"6c", x"6c", x"fe", x"6c", x"fe", x"6c", x"6c", x"00",
+  -- PIXELS:   **    
+  -- PIXELS:  *****  
+  -- PIXELS: **      
+  -- PIXELS:  ****   
+  -- PIXELS:     **  
+  -- PIXELS: *****   
+  -- PIXELS:   **    
+  -- PIXELS:         
   x"30", x"7c", x"c0", x"78", x"0c", x"f8", x"30", x"00",
+  -- PIXELS:         
+  -- PIXELS: **   ** 
+  -- PIXELS: **  **  
+  -- PIXELS:    **   
+  -- PIXELS:   **    
+  -- PIXELS:  **  ** 
+  -- PIXELS: **   ** 
+  -- PIXELS:         
   x"00", x"c6", x"cc", x"18", x"30", x"66", x"c6", x"00",
+  -- PIXELS:   ***   
+  -- PIXELS:  ** **  
+  -- PIXELS:   ***   
+  -- PIXELS:  *** ** 
+  -- PIXELS: ** ***  
+  -- PIXELS: **  **  
+  -- PIXELS:  *** ** 
+  -- PIXELS:         
   x"38", x"6c", x"38", x"76", x"dc", x"cc", x"76", x"00",
+  -- PIXELS:  **     
+  -- PIXELS:  **     
+  -- PIXELS: **      
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
   x"60", x"60", x"c0", x"00", x"00", x"00", x"00", x"00",
+  -- PIXELS:    **   
+  -- PIXELS:   **    
+  -- PIXELS:  **     
+  -- PIXELS:  **     
+  -- PIXELS:  **     
+  -- PIXELS:   **    
+  -- PIXELS:    **   
+  -- PIXELS:         
   x"18", x"30", x"60", x"60", x"60", x"30", x"18", x"00",
+  -- PIXELS:  **     
+  -- PIXELS:   **    
+  -- PIXELS:    **   
+  -- PIXELS:    **   
+  -- PIXELS:    **   
+  -- PIXELS:   **    
+  -- PIXELS:  **     
+  -- PIXELS:         
   x"60", x"30", x"18", x"18", x"18", x"30", x"60", x"00",
+  -- PIXELS:         
+  -- PIXELS:  **  ** 
+  -- PIXELS:   ****  
+  -- PIXELS: ********
+  -- PIXELS:   ****  
+  -- PIXELS:  **  ** 
+  -- PIXELS:         
+  -- PIXELS:         
   x"00", x"66", x"3c", x"ff", x"3c", x"66", x"00", x"00",
+  -- PIXELS:         
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS: ******  
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:         
+  -- PIXELS:         
   x"00", x"30", x"30", x"fc", x"30", x"30", x"00", x"00",
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:  **     
   x"00", x"00", x"00", x"00", x"00", x"30", x"30", x"60",
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS: ******  
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
   x"00", x"00", x"00", x"fc", x"00", x"00", x"00", x"00",
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:         
   x"00", x"00", x"00", x"00", x"00", x"30", x"30", x"00",
+  -- PIXELS:      ** 
+  -- PIXELS:     **  
+  -- PIXELS:    **   
+  -- PIXELS:   **    
+  -- PIXELS:  **     
+  -- PIXELS: **      
+  -- PIXELS: *       
+  -- PIXELS:         
   x"06", x"0c", x"18", x"30", x"60", x"c0", x"80", x"00",
+  -- PIXELS:  *****  
+  -- PIXELS: **   ** 
+  -- PIXELS: **  *** 
+  -- PIXELS: ** **** 
+  -- PIXELS: **** ** 
+  -- PIXELS: ***  ** 
+  -- PIXELS:  *****  
+  -- PIXELS:         
   x"7c", x"c6", x"ce", x"de", x"f6", x"e6", x"7c", x"00",
+  -- PIXELS:   **    
+  -- PIXELS:  ***    
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS: ******  
+  -- PIXELS:         
   x"30", x"70", x"30", x"30", x"30", x"30", x"fc", x"00",
+  -- PIXELS:  ****   
+  -- PIXELS: **  **  
+  -- PIXELS:     **  
+  -- PIXELS:   ***   
+  -- PIXELS:  **     
+  -- PIXELS: **  **  
+  -- PIXELS: ******  
+  -- PIXELS:         
   x"78", x"cc", x"0c", x"38", x"60", x"cc", x"fc", x"00",
+  -- PIXELS:  ****   
+  -- PIXELS: **  **  
+  -- PIXELS:     **  
+  -- PIXELS:   ***   
+  -- PIXELS:     **  
+  -- PIXELS: **  **  
+  -- PIXELS:  ****   
+  -- PIXELS:         
   x"78", x"cc", x"0c", x"38", x"0c", x"cc", x"78", x"00",
+  -- PIXELS:    ***  
+  -- PIXELS:   ****  
+  -- PIXELS:  ** **  
+  -- PIXELS: **  **  
+  -- PIXELS: ******* 
+  -- PIXELS:     **  
+  -- PIXELS:    **** 
+  -- PIXELS:         
   x"1c", x"3c", x"6c", x"cc", x"fe", x"0c", x"1e", x"00",
+  -- PIXELS: ******  
+  -- PIXELS: **      
+  -- PIXELS: *****   
+  -- PIXELS:     **  
+  -- PIXELS:     **  
+  -- PIXELS: **  **  
+  -- PIXELS:  ****   
+  -- PIXELS:         
   x"fc", x"c0", x"f8", x"0c", x"0c", x"cc", x"78", x"00",
+  -- PIXELS:   ***   
+  -- PIXELS:  **     
+  -- PIXELS: **      
+  -- PIXELS: *****   
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS:  ****   
+  -- PIXELS:         
   x"38", x"60", x"c0", x"f8", x"cc", x"cc", x"78", x"00",
+  -- PIXELS: ******  
+  -- PIXELS: **  **  
+  -- PIXELS:     **  
+  -- PIXELS:    **   
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:         
   x"fc", x"cc", x"0c", x"18", x"30", x"30", x"30", x"00",
+  -- PIXELS:  ****   
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS:  ****   
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS:  ****   
+  -- PIXELS:         
   x"78", x"cc", x"cc", x"78", x"cc", x"cc", x"78", x"00",
+  -- PIXELS:  ****   
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS:  *****  
+  -- PIXELS:     **  
+  -- PIXELS:    **   
+  -- PIXELS:  ***    
+  -- PIXELS:         
   x"78", x"cc", x"cc", x"7c", x"0c", x"18", x"70", x"00",
+  -- PIXELS:         
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:         
   x"00", x"30", x"30", x"00", x"00", x"30", x"30", x"00",
+  -- PIXELS:         
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:  **     
   x"00", x"30", x"30", x"00", x"00", x"30", x"30", x"60",
+  -- PIXELS:    **   
+  -- PIXELS:   **    
+  -- PIXELS:  **     
+  -- PIXELS: **      
+  -- PIXELS:  **     
+  -- PIXELS:   **    
+  -- PIXELS:    **   
+  -- PIXELS:         
   x"18", x"30", x"60", x"c0", x"60", x"30", x"18", x"00",
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS: ******  
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS: ******  
+  -- PIXELS:         
+  -- PIXELS:         
   x"00", x"00", x"fc", x"00", x"00", x"fc", x"00", x"00",
+  -- PIXELS:  **     
+  -- PIXELS:   **    
+  -- PIXELS:    **   
+  -- PIXELS:     **  
+  -- PIXELS:    **   
+  -- PIXELS:   **    
+  -- PIXELS:  **     
+  -- PIXELS:         
   x"60", x"30", x"18", x"0c", x"18", x"30", x"60", x"00",
+  -- PIXELS:  ****   
+  -- PIXELS: **  **  
+  -- PIXELS:     **  
+  -- PIXELS:    **   
+  -- PIXELS:   **    
+  -- PIXELS:         
+  -- PIXELS:   **    
+  -- PIXELS:         
   x"78", x"cc", x"0c", x"18", x"30", x"00", x"30", x"00",
 
+  -- PIXELS:  *****  
+  -- PIXELS: **   ** 
+  -- PIXELS: ** **** 
+  -- PIXELS: ** **** 
+  -- PIXELS: ** **** 
+  -- PIXELS: **      
+  -- PIXELS:  ****   
+  -- PIXELS:         
   x"7c", x"c6", x"de", x"de", x"de", x"c0", x"78", x"00",
+  -- PIXELS:   **    
+  -- PIXELS:  ****   
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: ******  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS:         
   x"30", x"78", x"cc", x"cc", x"fc", x"cc", x"cc", x"00",
+  -- PIXELS: ******  
+  -- PIXELS:  **  ** 
+  -- PIXELS:  **  ** 
+  -- PIXELS:  *****  
+  -- PIXELS:  **  ** 
+  -- PIXELS:  **  ** 
+  -- PIXELS: ******  
+  -- PIXELS:         
   x"fc", x"66", x"66", x"7c", x"66", x"66", x"fc", x"00",
+  -- PIXELS:   ****  
+  -- PIXELS:  **  ** 
+  -- PIXELS: **      
+  -- PIXELS: **      
+  -- PIXELS: **      
+  -- PIXELS:  **  ** 
+  -- PIXELS:   ****  
+  -- PIXELS:         
   x"3c", x"66", x"c0", x"c0", x"c0", x"66", x"3c", x"00",
+  -- PIXELS: *****   
+  -- PIXELS:  ** **  
+  -- PIXELS:  **  ** 
+  -- PIXELS:  **  ** 
+  -- PIXELS:  **  ** 
+  -- PIXELS:  ** **  
+  -- PIXELS: *****   
+  -- PIXELS:         
   x"f8", x"6c", x"66", x"66", x"66", x"6c", x"f8", x"00",
+  -- PIXELS: ******* 
+  -- PIXELS:  **   * 
+  -- PIXELS:  ** *   
+  -- PIXELS:  ****   
+  -- PIXELS:  ** *   
+  -- PIXELS:  **   * 
+  -- PIXELS: ******* 
+  -- PIXELS:         
   x"fe", x"62", x"68", x"78", x"68", x"62", x"fe", x"00",
+  -- PIXELS: ******* 
+  -- PIXELS:  **   * 
+  -- PIXELS:  ** *   
+  -- PIXELS:  ****   
+  -- PIXELS:  ** *   
+  -- PIXELS:  **     
+  -- PIXELS: ****    
+  -- PIXELS:         
   x"fe", x"62", x"68", x"78", x"68", x"60", x"f0", x"00",
+  -- PIXELS:   ****  
+  -- PIXELS:  **  ** 
+  -- PIXELS: **      
+  -- PIXELS: **      
+  -- PIXELS: **  *** 
+  -- PIXELS:  **  ** 
+  -- PIXELS:   ***** 
+  -- PIXELS:         
   x"3c", x"66", x"c0", x"c0", x"ce", x"66", x"3e", x"00",
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: ******  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS:         
   x"cc", x"cc", x"cc", x"fc", x"cc", x"cc", x"cc", x"00",
+  -- PIXELS:  ****   
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:  ****   
+  -- PIXELS:         
   x"78", x"30", x"30", x"30", x"30", x"30", x"78", x"00",
+  -- PIXELS:    **** 
+  -- PIXELS:     **  
+  -- PIXELS:     **  
+  -- PIXELS:     **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS:  ****   
+  -- PIXELS:         
   x"1e", x"0c", x"0c", x"0c", x"cc", x"cc", x"78", x"00",
+  -- PIXELS: ***  ** 
+  -- PIXELS:  **  ** 
+  -- PIXELS:  ** **  
+  -- PIXELS:  ****   
+  -- PIXELS:  ** **  
+  -- PIXELS:  **  ** 
+  -- PIXELS: ***  ** 
+  -- PIXELS:         
   x"e6", x"66", x"6c", x"78", x"6c", x"66", x"e6", x"00",
+  -- PIXELS: ****    
+  -- PIXELS:  **     
+  -- PIXELS:  **     
+  -- PIXELS:  **     
+  -- PIXELS:  **   * 
+  -- PIXELS:  **  ** 
+  -- PIXELS: ******* 
+  -- PIXELS:         
   x"f0", x"60", x"60", x"60", x"62", x"66", x"fe", x"00",
+  -- PIXELS: **   ** 
+  -- PIXELS: *** *** 
+  -- PIXELS: ******* 
+  -- PIXELS: ******* 
+  -- PIXELS: ** * ** 
+  -- PIXELS: **   ** 
+  -- PIXELS: **   ** 
+  -- PIXELS:         
   x"c6", x"ee", x"fe", x"fe", x"d6", x"c6", x"c6", x"00",
+  -- PIXELS: **   ** 
+  -- PIXELS: ***  ** 
+  -- PIXELS: **** ** 
+  -- PIXELS: ** **** 
+  -- PIXELS: **  *** 
+  -- PIXELS: **   ** 
+  -- PIXELS: **   ** 
+  -- PIXELS:         
   x"c6", x"e6", x"f6", x"de", x"ce", x"c6", x"c6", x"00",
+  -- PIXELS:   ***   
+  -- PIXELS:  ** **  
+  -- PIXELS: **   ** 
+  -- PIXELS: **   ** 
+  -- PIXELS: **   ** 
+  -- PIXELS:  ** **  
+  -- PIXELS:   ***   
+  -- PIXELS:         
   x"38", x"6c", x"c6", x"c6", x"c6", x"6c", x"38", x"00",
+  -- PIXELS: ******  
+  -- PIXELS:  **  ** 
+  -- PIXELS:  **  ** 
+  -- PIXELS:  *****  
+  -- PIXELS:  **     
+  -- PIXELS:  **     
+  -- PIXELS: ****    
+  -- PIXELS:         
   x"fc", x"66", x"66", x"7c", x"60", x"60", x"f0", x"00",
+  -- PIXELS:  ****   
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: ** ***  
+  -- PIXELS:  ****   
+  -- PIXELS:    ***  
+  -- PIXELS:         
   x"78", x"cc", x"cc", x"cc", x"dc", x"78", x"1c", x"00",
+  -- PIXELS: ******  
+  -- PIXELS:  **  ** 
+  -- PIXELS:  **  ** 
+  -- PIXELS:  *****  
+  -- PIXELS:  ** **  
+  -- PIXELS:  **  ** 
+  -- PIXELS: ***  ** 
+  -- PIXELS:         
   x"fc", x"66", x"66", x"7c", x"6c", x"66", x"e6", x"00",
+  -- PIXELS:  ****   
+  -- PIXELS: **  **  
+  -- PIXELS: ***     
+  -- PIXELS:  ***    
+  -- PIXELS:    ***  
+  -- PIXELS: **  **  
+  -- PIXELS:  ****   
+  -- PIXELS:         
   x"78", x"cc", x"e0", x"70", x"1c", x"cc", x"78", x"00",
+  -- PIXELS: ******  
+  -- PIXELS: * ** *  
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:  ****   
+  -- PIXELS:         
   x"fc", x"b4", x"30", x"30", x"30", x"30", x"78", x"00",
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: ******  
+  -- PIXELS:         
   x"cc", x"cc", x"cc", x"cc", x"cc", x"cc", x"fc", x"00",
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS:  ****   
+  -- PIXELS:   **    
+  -- PIXELS:         
   x"cc", x"cc", x"cc", x"cc", x"cc", x"78", x"30", x"00",
+  -- PIXELS: **   ** 
+  -- PIXELS: **   ** 
+  -- PIXELS: **   ** 
+  -- PIXELS: ** * ** 
+  -- PIXELS: ******* 
+  -- PIXELS: *** *** 
+  -- PIXELS: **   ** 
+  -- PIXELS:         
   x"c6", x"c6", x"c6", x"d6", x"fe", x"ee", x"c6", x"00",
+  -- PIXELS: **   ** 
+  -- PIXELS: **   ** 
+  -- PIXELS:  ** **  
+  -- PIXELS:   ***   
+  -- PIXELS:   ***   
+  -- PIXELS:  ** **  
+  -- PIXELS: **   ** 
+  -- PIXELS:         
   x"c6", x"c6", x"6c", x"38", x"38", x"6c", x"c6", x"00",
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS:  ****   
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:  ****   
+  -- PIXELS:         
   x"cc", x"cc", x"cc", x"78", x"30", x"30", x"78", x"00",
+  -- PIXELS: ******* 
+  -- PIXELS: **   ** 
+  -- PIXELS: *   **  
+  -- PIXELS:    **   
+  -- PIXELS:   **  * 
+  -- PIXELS:  **  ** 
+  -- PIXELS: ******* 
+  -- PIXELS:         
   x"fe", x"c6", x"8c", x"18", x"32", x"66", x"fe", x"00",
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
   x"00", x"00", x"00", x"00", x"00", x"00", x"00", x"00",
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
   x"00", x"00", x"00", x"00", x"00", x"00", x"00", x"00",
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
   x"00", x"00", x"00", x"00", x"00", x"00", x"00", x"00",
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
   x"00", x"00", x"00", x"00", x"00", x"00", x"00", x"00",
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
   x"00", x"00", x"00", x"00", x"00", x"00", x"00", x"00",
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
   x"00", x"00", x"00", x"00", x"00", x"00", x"00", x"00",
+  -- PIXELS:    **   
+  -- PIXELS:   ****  
+  -- PIXELS:   ****  
+  -- PIXELS:    **   
+  -- PIXELS:    **   
+  -- PIXELS:         
+  -- PIXELS:    **   
+  -- PIXELS:         
   x"18", x"3c", x"3c", x"18", x"18", x"00", x"18", x"00",
+  -- PIXELS:  ** **  
+  -- PIXELS:  ** **  
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
   x"6c", x"6c", x"00", x"00", x"00", x"00", x"00", x"00",
+  -- PIXELS:  ** **  
+  -- PIXELS:  ** **  
+  -- PIXELS: ******* 
+  -- PIXELS:  ** **  
+  -- PIXELS: ******* 
+  -- PIXELS:  ** **  
+  -- PIXELS:  ** **  
+  -- PIXELS:         
   x"6c", x"6c", x"fe", x"6c", x"fe", x"6c", x"6c", x"00",
+  -- PIXELS:   **    
+  -- PIXELS:  *****  
+  -- PIXELS: **      
+  -- PIXELS:  ****   
+  -- PIXELS:     **  
+  -- PIXELS: *****   
+  -- PIXELS:   **    
+  -- PIXELS:         
   x"30", x"7c", x"c0", x"78", x"0c", x"f8", x"30", x"00",
+  -- PIXELS:         
+  -- PIXELS: **   ** 
+  -- PIXELS: **  **  
+  -- PIXELS:    **   
+  -- PIXELS:   **    
+  -- PIXELS:  **  ** 
+  -- PIXELS: **   ** 
+  -- PIXELS:         
   x"00", x"c6", x"cc", x"18", x"30", x"66", x"c6", x"00",
+  -- PIXELS:   ***   
+  -- PIXELS:  ** **  
+  -- PIXELS:   ***   
+  -- PIXELS:  *** ** 
+  -- PIXELS: ** ***  
+  -- PIXELS: **  **  
+  -- PIXELS:  *** ** 
+  -- PIXELS:         
   x"38", x"6c", x"38", x"76", x"dc", x"cc", x"76", x"00",
+  -- PIXELS:  **     
+  -- PIXELS:  **     
+  -- PIXELS: **      
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
   x"60", x"60", x"c0", x"00", x"00", x"00", x"00", x"00",
+  -- PIXELS:    **   
+  -- PIXELS:   **    
+  -- PIXELS:  **     
+  -- PIXELS:  **     
+  -- PIXELS:  **     
+  -- PIXELS:   **    
+  -- PIXELS:    **   
+  -- PIXELS:         
   x"18", x"30", x"60", x"60", x"60", x"30", x"18", x"00",
+  -- PIXELS:  **     
+  -- PIXELS:   **    
+  -- PIXELS:    **   
+  -- PIXELS:    **   
+  -- PIXELS:    **   
+  -- PIXELS:   **    
+  -- PIXELS:  **     
+  -- PIXELS:         
   x"60", x"30", x"18", x"18", x"18", x"30", x"60", x"00",
+  -- PIXELS:         
+  -- PIXELS:  **  ** 
+  -- PIXELS:   ****  
+  -- PIXELS: ********
+  -- PIXELS:   ****  
+  -- PIXELS:  **  ** 
+  -- PIXELS:         
+  -- PIXELS:         
   x"00", x"66", x"3c", x"ff", x"3c", x"66", x"00", x"00",
+  -- PIXELS:         
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS: ******  
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:         
+  -- PIXELS:         
   x"00", x"30", x"30", x"fc", x"30", x"30", x"00", x"00",
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:  **     
   x"00", x"00", x"00", x"00", x"00", x"30", x"30", x"60",
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS: ******  
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
   x"00", x"00", x"00", x"fc", x"00", x"00", x"00", x"00",
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:         
   x"00", x"00", x"00", x"00", x"00", x"30", x"30", x"00",
+  -- PIXELS:      ** 
+  -- PIXELS:     **  
+  -- PIXELS:    **   
+  -- PIXELS:   **    
+  -- PIXELS:  **     
+  -- PIXELS: **      
+  -- PIXELS: *       
+  -- PIXELS:         
   x"06", x"0c", x"18", x"30", x"60", x"c0", x"80", x"00",
+  -- PIXELS:  *****  
+  -- PIXELS: **   ** 
+  -- PIXELS: **  *** 
+  -- PIXELS: ** **** 
+  -- PIXELS: **** ** 
+  -- PIXELS: ***  ** 
+  -- PIXELS:  *****  
+  -- PIXELS:         
   x"7c", x"c6", x"ce", x"de", x"f6", x"e6", x"7c", x"00",
+  -- PIXELS:   **    
+  -- PIXELS:  ***    
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS: ******  
+  -- PIXELS:         
   x"30", x"70", x"30", x"30", x"30", x"30", x"fc", x"00",
+  -- PIXELS:  ****   
+  -- PIXELS: **  **  
+  -- PIXELS:     **  
+  -- PIXELS:   ***   
+  -- PIXELS:  **     
+  -- PIXELS: **  **  
+  -- PIXELS: ******  
+  -- PIXELS:         
   x"78", x"cc", x"0c", x"38", x"60", x"cc", x"fc", x"00",
+  -- PIXELS:  ****   
+  -- PIXELS: **  **  
+  -- PIXELS:     **  
+  -- PIXELS:   ***   
+  -- PIXELS:     **  
+  -- PIXELS: **  **  
+  -- PIXELS:  ****   
+  -- PIXELS:         
   x"78", x"cc", x"0c", x"38", x"0c", x"cc", x"78", x"00",
+  -- PIXELS:    ***  
+  -- PIXELS:   ****  
+  -- PIXELS:  ** **  
+  -- PIXELS: **  **  
+  -- PIXELS: ******* 
+  -- PIXELS:     **  
+  -- PIXELS:    **** 
+  -- PIXELS:         
   x"1c", x"3c", x"6c", x"cc", x"fe", x"0c", x"1e", x"00",
+  -- PIXELS: ******  
+  -- PIXELS: **      
+  -- PIXELS: *****   
+  -- PIXELS:     **  
+  -- PIXELS:     **  
+  -- PIXELS: **  **  
+  -- PIXELS:  ****   
+  -- PIXELS:         
   x"fc", x"c0", x"f8", x"0c", x"0c", x"cc", x"78", x"00",
+  -- PIXELS:   ***   
+  -- PIXELS:  **     
+  -- PIXELS: **      
+  -- PIXELS: *****   
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS:  ****   
+  -- PIXELS:         
   x"38", x"60", x"c0", x"f8", x"cc", x"cc", x"78", x"00",
+  -- PIXELS: ******  
+  -- PIXELS: **  **  
+  -- PIXELS:     **  
+  -- PIXELS:    **   
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:         
   x"fc", x"cc", x"0c", x"18", x"30", x"30", x"30", x"00",
+  -- PIXELS:  ****   
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS:  ****   
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS:  ****   
+  -- PIXELS:         
   x"78", x"cc", x"cc", x"78", x"cc", x"cc", x"78", x"00",
+  -- PIXELS:  ****   
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS:  *****  
+  -- PIXELS:     **  
+  -- PIXELS:    **   
+  -- PIXELS:  ***    
+  -- PIXELS:         
   x"78", x"cc", x"cc", x"7c", x"0c", x"18", x"70", x"00",
+  -- PIXELS:         
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:         
   x"00", x"30", x"30", x"00", x"00", x"30", x"30", x"00",
+  -- PIXELS:         
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:  **     
   x"00", x"30", x"30", x"00", x"00", x"30", x"30", x"60",
+  -- PIXELS:    **   
+  -- PIXELS:   **    
+  -- PIXELS:  **     
+  -- PIXELS: **      
+  -- PIXELS:  **     
+  -- PIXELS:   **    
+  -- PIXELS:    **   
+  -- PIXELS:         
   x"18", x"30", x"60", x"c0", x"60", x"30", x"18", x"00",
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS: ******  
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS: ******  
+  -- PIXELS:         
+  -- PIXELS:         
   x"00", x"00", x"fc", x"00", x"00", x"fc", x"00", x"00",
+  -- PIXELS:  **     
+  -- PIXELS:   **    
+  -- PIXELS:    **   
+  -- PIXELS:     **  
+  -- PIXELS:    **   
+  -- PIXELS:   **    
+  -- PIXELS:  **     
+  -- PIXELS:         
   x"60", x"30", x"18", x"0c", x"18", x"30", x"60", x"00",
+  -- PIXELS:  ****   
+  -- PIXELS: **  **  
+  -- PIXELS:     **  
+  -- PIXELS:    **   
+  -- PIXELS:   **    
+  -- PIXELS:         
+  -- PIXELS:   **    
+  -- PIXELS:         
   x"78", x"cc", x"0c", x"18", x"30", x"00", x"30", x"00",
 
+  -- PIXELS:  *****  
+  -- PIXELS: **   ** 
+  -- PIXELS: ** **** 
+  -- PIXELS: ** **** 
+  -- PIXELS: ** **** 
+  -- PIXELS: **      
+  -- PIXELS:  ****   
+  -- PIXELS:         
   x"7c", x"c6", x"de", x"de", x"de", x"c0", x"78", x"00",
+  -- PIXELS:   **    
+  -- PIXELS:  ****   
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: ******  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS:         
   x"30", x"78", x"cc", x"cc", x"fc", x"cc", x"cc", x"00",
+  -- PIXELS: ******  
+  -- PIXELS:  **  ** 
+  -- PIXELS:  **  ** 
+  -- PIXELS:  *****  
+  -- PIXELS:  **  ** 
+  -- PIXELS:  **  ** 
+  -- PIXELS: ******  
+  -- PIXELS:         
   x"fc", x"66", x"66", x"7c", x"66", x"66", x"fc", x"00",
+  -- PIXELS:   ****  
+  -- PIXELS:  **  ** 
+  -- PIXELS: **      
+  -- PIXELS: **      
+  -- PIXELS: **      
+  -- PIXELS:  **  ** 
+  -- PIXELS:   ****  
+  -- PIXELS:         
   x"3c", x"66", x"c0", x"c0", x"c0", x"66", x"3c", x"00",
+  -- PIXELS: *****   
+  -- PIXELS:  ** **  
+  -- PIXELS:  **  ** 
+  -- PIXELS:  **  ** 
+  -- PIXELS:  **  ** 
+  -- PIXELS:  ** **  
+  -- PIXELS: *****   
+  -- PIXELS:         
   x"f8", x"6c", x"66", x"66", x"66", x"6c", x"f8", x"00",
+  -- PIXELS: ******* 
+  -- PIXELS:  **   * 
+  -- PIXELS:  ** *   
+  -- PIXELS:  ****   
+  -- PIXELS:  ** *   
+  -- PIXELS:  **   * 
+  -- PIXELS: ******* 
+  -- PIXELS:         
   x"fe", x"62", x"68", x"78", x"68", x"62", x"fe", x"00",
+  -- PIXELS: ******* 
+  -- PIXELS:  **   * 
+  -- PIXELS:  ** *   
+  -- PIXELS:  ****   
+  -- PIXELS:  ** *   
+  -- PIXELS:  **     
+  -- PIXELS: ****    
+  -- PIXELS:         
   x"fe", x"62", x"68", x"78", x"68", x"60", x"f0", x"00",
+  -- PIXELS:   ****  
+  -- PIXELS:  **  ** 
+  -- PIXELS: **      
+  -- PIXELS: **      
+  -- PIXELS: **  *** 
+  -- PIXELS:  **  ** 
+  -- PIXELS:   ***** 
+  -- PIXELS:         
   x"3c", x"66", x"c0", x"c0", x"ce", x"66", x"3e", x"00",
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: ******  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS:         
   x"cc", x"cc", x"cc", x"fc", x"cc", x"cc", x"cc", x"00",
+  -- PIXELS:  ****   
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:  ****   
+  -- PIXELS:         
   x"78", x"30", x"30", x"30", x"30", x"30", x"78", x"00",
+  -- PIXELS:    **** 
+  -- PIXELS:     **  
+  -- PIXELS:     **  
+  -- PIXELS:     **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS:  ****   
+  -- PIXELS:         
   x"1e", x"0c", x"0c", x"0c", x"cc", x"cc", x"78", x"00",
+  -- PIXELS: ***  ** 
+  -- PIXELS:  **  ** 
+  -- PIXELS:  ** **  
+  -- PIXELS:  ****   
+  -- PIXELS:  ** **  
+  -- PIXELS:  **  ** 
+  -- PIXELS: ***  ** 
+  -- PIXELS:         
   x"e6", x"66", x"6c", x"78", x"6c", x"66", x"e6", x"00",
+  -- PIXELS: ****    
+  -- PIXELS:  **     
+  -- PIXELS:  **     
+  -- PIXELS:  **     
+  -- PIXELS:  **   * 
+  -- PIXELS:  **  ** 
+  -- PIXELS: ******* 
+  -- PIXELS:         
   x"f0", x"60", x"60", x"60", x"62", x"66", x"fe", x"00",
+  -- PIXELS: **   ** 
+  -- PIXELS: *** *** 
+  -- PIXELS: ******* 
+  -- PIXELS: ******* 
+  -- PIXELS: ** * ** 
+  -- PIXELS: **   ** 
+  -- PIXELS: **   ** 
+  -- PIXELS:         
   x"c6", x"ee", x"fe", x"fe", x"d6", x"c6", x"c6", x"00",
+  -- PIXELS: **   ** 
+  -- PIXELS: ***  ** 
+  -- PIXELS: **** ** 
+  -- PIXELS: ** **** 
+  -- PIXELS: **  *** 
+  -- PIXELS: **   ** 
+  -- PIXELS: **   ** 
+  -- PIXELS:         
   x"c6", x"e6", x"f6", x"de", x"ce", x"c6", x"c6", x"00",
+  -- PIXELS:   ***   
+  -- PIXELS:  ** **  
+  -- PIXELS: **   ** 
+  -- PIXELS: **   ** 
+  -- PIXELS: **   ** 
+  -- PIXELS:  ** **  
+  -- PIXELS:   ***   
+  -- PIXELS:         
   x"38", x"6c", x"c6", x"c6", x"c6", x"6c", x"38", x"00",
+  -- PIXELS: ******  
+  -- PIXELS:  **  ** 
+  -- PIXELS:  **  ** 
+  -- PIXELS:  *****  
+  -- PIXELS:  **     
+  -- PIXELS:  **     
+  -- PIXELS: ****    
+  -- PIXELS:         
   x"fc", x"66", x"66", x"7c", x"60", x"60", x"f0", x"00",
+  -- PIXELS:  ****   
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: ** ***  
+  -- PIXELS:  ****   
+  -- PIXELS:    ***  
+  -- PIXELS:         
   x"78", x"cc", x"cc", x"cc", x"dc", x"78", x"1c", x"00",
+  -- PIXELS: ******  
+  -- PIXELS:  **  ** 
+  -- PIXELS:  **  ** 
+  -- PIXELS:  *****  
+  -- PIXELS:  ** **  
+  -- PIXELS:  **  ** 
+  -- PIXELS: ***  ** 
+  -- PIXELS:         
   x"fc", x"66", x"66", x"7c", x"6c", x"66", x"e6", x"00",
+  -- PIXELS:  ****   
+  -- PIXELS: **  **  
+  -- PIXELS: ***     
+  -- PIXELS:  ***    
+  -- PIXELS:    ***  
+  -- PIXELS: **  **  
+  -- PIXELS:  ****   
+  -- PIXELS:         
   x"78", x"cc", x"e0", x"70", x"1c", x"cc", x"78", x"00",
+  -- PIXELS: ******  
+  -- PIXELS: * ** *  
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:  ****   
+  -- PIXELS:         
   x"fc", x"b4", x"30", x"30", x"30", x"30", x"78", x"00",
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: ******  
+  -- PIXELS:         
   x"cc", x"cc", x"cc", x"cc", x"cc", x"cc", x"fc", x"00",
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS:  ****   
+  -- PIXELS:   **    
+  -- PIXELS:         
   x"cc", x"cc", x"cc", x"cc", x"cc", x"78", x"30", x"00",
+  -- PIXELS: **   ** 
+  -- PIXELS: **   ** 
+  -- PIXELS: **   ** 
+  -- PIXELS: ** * ** 
+  -- PIXELS: ******* 
+  -- PIXELS: *** *** 
+  -- PIXELS: **   ** 
+  -- PIXELS:         
   x"c6", x"c6", x"c6", x"d6", x"fe", x"ee", x"c6", x"00",
+  -- PIXELS: **   ** 
+  -- PIXELS: **   ** 
+  -- PIXELS:  ** **  
+  -- PIXELS:   ***   
+  -- PIXELS:   ***   
+  -- PIXELS:  ** **  
+  -- PIXELS: **   ** 
+  -- PIXELS:         
   x"c6", x"c6", x"6c", x"38", x"38", x"6c", x"c6", x"00",
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS:  ****   
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:  ****   
+  -- PIXELS:         
   x"cc", x"cc", x"cc", x"78", x"30", x"30", x"78", x"00",
+  -- PIXELS: ******* 
+  -- PIXELS: **   ** 
+  -- PIXELS: *   **  
+  -- PIXELS:    **   
+  -- PIXELS:   **  * 
+  -- PIXELS:  **  ** 
+  -- PIXELS: ******* 
+  -- PIXELS:         
   x"fe", x"c6", x"8c", x"18", x"32", x"66", x"fe", x"00",
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
   x"00", x"00", x"00", x"00", x"00", x"00", x"00", x"00",
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
   x"00", x"00", x"00", x"00", x"00", x"00", x"00", x"00",
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
   x"00", x"00", x"00", x"00", x"00", x"00", x"00", x"00",
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
   x"00", x"00", x"00", x"00", x"00", x"00", x"00", x"00",
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
   x"00", x"00", x"00", x"00", x"00", x"00", x"00", x"00",
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
   x"00", x"00", x"00", x"00", x"00", x"00", x"00", x"00",
+  -- PIXELS:    **   
+  -- PIXELS:   ****  
+  -- PIXELS:   ****  
+  -- PIXELS:    **   
+  -- PIXELS:    **   
+  -- PIXELS:         
+  -- PIXELS:    **   
+  -- PIXELS:         
   x"18", x"3c", x"3c", x"18", x"18", x"00", x"18", x"00",
+  -- PIXELS:  ** **  
+  -- PIXELS:  ** **  
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
   x"6c", x"6c", x"00", x"00", x"00", x"00", x"00", x"00",
+  -- PIXELS:  ** **  
+  -- PIXELS:  ** **  
+  -- PIXELS: ******* 
+  -- PIXELS:  ** **  
+  -- PIXELS: ******* 
+  -- PIXELS:  ** **  
+  -- PIXELS:  ** **  
+  -- PIXELS:         
   x"6c", x"6c", x"fe", x"6c", x"fe", x"6c", x"6c", x"00",
+  -- PIXELS:   **    
+  -- PIXELS:  *****  
+  -- PIXELS: **      
+  -- PIXELS:  ****   
+  -- PIXELS:     **  
+  -- PIXELS: *****   
+  -- PIXELS:   **    
+  -- PIXELS:         
   x"30", x"7c", x"c0", x"78", x"0c", x"f8", x"30", x"00",
+  -- PIXELS:         
+  -- PIXELS: **   ** 
+  -- PIXELS: **  **  
+  -- PIXELS:    **   
+  -- PIXELS:   **    
+  -- PIXELS:  **  ** 
+  -- PIXELS: **   ** 
+  -- PIXELS:         
   x"00", x"c6", x"cc", x"18", x"30", x"66", x"c6", x"00",
+  -- PIXELS:   ***   
+  -- PIXELS:  ** **  
+  -- PIXELS:   ***   
+  -- PIXELS:  *** ** 
+  -- PIXELS: ** ***  
+  -- PIXELS: **  **  
+  -- PIXELS:  *** ** 
+  -- PIXELS:         
   x"38", x"6c", x"38", x"76", x"dc", x"cc", x"76", x"00",
+  -- PIXELS:  **     
+  -- PIXELS:  **     
+  -- PIXELS: **      
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
   x"60", x"60", x"c0", x"00", x"00", x"00", x"00", x"00",
+  -- PIXELS:    **   
+  -- PIXELS:   **    
+  -- PIXELS:  **     
+  -- PIXELS:  **     
+  -- PIXELS:  **     
+  -- PIXELS:   **    
+  -- PIXELS:    **   
+  -- PIXELS:         
   x"18", x"30", x"60", x"60", x"60", x"30", x"18", x"00",
+  -- PIXELS:  **     
+  -- PIXELS:   **    
+  -- PIXELS:    **   
+  -- PIXELS:    **   
+  -- PIXELS:    **   
+  -- PIXELS:   **    
+  -- PIXELS:  **     
+  -- PIXELS:         
   x"60", x"30", x"18", x"18", x"18", x"30", x"60", x"00",
+  -- PIXELS:         
+  -- PIXELS:  **  ** 
+  -- PIXELS:   ****  
+  -- PIXELS: ********
+  -- PIXELS:   ****  
+  -- PIXELS:  **  ** 
+  -- PIXELS:         
+  -- PIXELS:         
   x"00", x"66", x"3c", x"ff", x"3c", x"66", x"00", x"00",
+  -- PIXELS:         
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS: ******  
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:         
+  -- PIXELS:         
   x"00", x"30", x"30", x"fc", x"30", x"30", x"00", x"00",
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:  **     
   x"00", x"00", x"00", x"00", x"00", x"30", x"30", x"60",
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS: ******  
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
   x"00", x"00", x"00", x"fc", x"00", x"00", x"00", x"00",
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:         
   x"00", x"00", x"00", x"00", x"00", x"30", x"30", x"00",
+  -- PIXELS:      ** 
+  -- PIXELS:     **  
+  -- PIXELS:    **   
+  -- PIXELS:   **    
+  -- PIXELS:  **     
+  -- PIXELS: **      
+  -- PIXELS: *       
+  -- PIXELS:         
   x"06", x"0c", x"18", x"30", x"60", x"c0", x"80", x"00",
+  -- PIXELS:  *****  
+  -- PIXELS: **   ** 
+  -- PIXELS: **  *** 
+  -- PIXELS: ** **** 
+  -- PIXELS: **** ** 
+  -- PIXELS: ***  ** 
+  -- PIXELS:  *****  
+  -- PIXELS:         
   x"7c", x"c6", x"ce", x"de", x"f6", x"e6", x"7c", x"00",
+  -- PIXELS:   **    
+  -- PIXELS:  ***    
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS: ******  
+  -- PIXELS:         
   x"30", x"70", x"30", x"30", x"30", x"30", x"fc", x"00",
+  -- PIXELS:  ****   
+  -- PIXELS: **  **  
+  -- PIXELS:     **  
+  -- PIXELS:   ***   
+  -- PIXELS:  **     
+  -- PIXELS: **  **  
+  -- PIXELS: ******  
+  -- PIXELS:         
   x"78", x"cc", x"0c", x"38", x"60", x"cc", x"fc", x"00",
+  -- PIXELS:  ****   
+  -- PIXELS: **  **  
+  -- PIXELS:     **  
+  -- PIXELS:   ***   
+  -- PIXELS:     **  
+  -- PIXELS: **  **  
+  -- PIXELS:  ****   
+  -- PIXELS:         
   x"78", x"cc", x"0c", x"38", x"0c", x"cc", x"78", x"00",
+  -- PIXELS:    ***  
+  -- PIXELS:   ****  
+  -- PIXELS:  ** **  
+  -- PIXELS: **  **  
+  -- PIXELS: ******* 
+  -- PIXELS:     **  
+  -- PIXELS:    **** 
+  -- PIXELS:         
   x"1c", x"3c", x"6c", x"cc", x"fe", x"0c", x"1e", x"00",
+  -- PIXELS: ******  
+  -- PIXELS: **      
+  -- PIXELS: *****   
+  -- PIXELS:     **  
+  -- PIXELS:     **  
+  -- PIXELS: **  **  
+  -- PIXELS:  ****   
+  -- PIXELS:         
   x"fc", x"c0", x"f8", x"0c", x"0c", x"cc", x"78", x"00",
+  -- PIXELS:   ***   
+  -- PIXELS:  **     
+  -- PIXELS: **      
+  -- PIXELS: *****   
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS:  ****   
+  -- PIXELS:         
   x"38", x"60", x"c0", x"f8", x"cc", x"cc", x"78", x"00",
+  -- PIXELS: ******  
+  -- PIXELS: **  **  
+  -- PIXELS:     **  
+  -- PIXELS:    **   
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:         
   x"fc", x"cc", x"0c", x"18", x"30", x"30", x"30", x"00",
+  -- PIXELS:  ****   
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS:  ****   
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS:  ****   
+  -- PIXELS:         
   x"78", x"cc", x"cc", x"78", x"cc", x"cc", x"78", x"00",
+  -- PIXELS:  ****   
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS:  *****  
+  -- PIXELS:     **  
+  -- PIXELS:    **   
+  -- PIXELS:  ***    
+  -- PIXELS:         
   x"78", x"cc", x"cc", x"7c", x"0c", x"18", x"70", x"00",
+  -- PIXELS:         
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:         
   x"00", x"30", x"30", x"00", x"00", x"30", x"30", x"00",
+  -- PIXELS:         
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:  **     
   x"00", x"30", x"30", x"00", x"00", x"30", x"30", x"60",
+  -- PIXELS:    **   
+  -- PIXELS:   **    
+  -- PIXELS:  **     
+  -- PIXELS: **      
+  -- PIXELS:  **     
+  -- PIXELS:   **    
+  -- PIXELS:    **   
+  -- PIXELS:         
   x"18", x"30", x"60", x"c0", x"60", x"30", x"18", x"00",
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS: ******  
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS: ******  
+  -- PIXELS:         
+  -- PIXELS:         
   x"00", x"00", x"fc", x"00", x"00", x"fc", x"00", x"00",
+  -- PIXELS:  **     
+  -- PIXELS:   **    
+  -- PIXELS:    **   
+  -- PIXELS:     **  
+  -- PIXELS:    **   
+  -- PIXELS:   **    
+  -- PIXELS:  **     
+  -- PIXELS:         
   x"60", x"30", x"18", x"0c", x"18", x"30", x"60", x"00",
+  -- PIXELS:  ****   
+  -- PIXELS: **  **  
+  -- PIXELS:     **  
+  -- PIXELS:    **   
+  -- PIXELS:   **    
+  -- PIXELS:         
+  -- PIXELS:   **    
+  -- PIXELS:         
   x"78", x"cc", x"0c", x"18", x"30", x"00", x"30", x"00",
 
+  -- PIXELS:  *****  
+  -- PIXELS: **   ** 
+  -- PIXELS: ** **** 
+  -- PIXELS: ** **** 
+  -- PIXELS: ** **** 
+  -- PIXELS: **      
+  -- PIXELS:  ****   
+  -- PIXELS:         
   x"7c", x"c6", x"de", x"de", x"de", x"c0", x"78", x"00",
+  -- PIXELS:   **    
+  -- PIXELS:  ****   
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: ******  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS:         
   x"30", x"78", x"cc", x"cc", x"fc", x"cc", x"cc", x"00",
+  -- PIXELS: ******  
+  -- PIXELS:  **  ** 
+  -- PIXELS:  **  ** 
+  -- PIXELS:  *****  
+  -- PIXELS:  **  ** 
+  -- PIXELS:  **  ** 
+  -- PIXELS: ******  
+  -- PIXELS:         
   x"fc", x"66", x"66", x"7c", x"66", x"66", x"fc", x"00",
+  -- PIXELS:   ****  
+  -- PIXELS:  **  ** 
+  -- PIXELS: **      
+  -- PIXELS: **      
+  -- PIXELS: **      
+  -- PIXELS:  **  ** 
+  -- PIXELS:   ****  
+  -- PIXELS:         
   x"3c", x"66", x"c0", x"c0", x"c0", x"66", x"3c", x"00",
+  -- PIXELS: *****   
+  -- PIXELS:  ** **  
+  -- PIXELS:  **  ** 
+  -- PIXELS:  **  ** 
+  -- PIXELS:  **  ** 
+  -- PIXELS:  ** **  
+  -- PIXELS: *****   
+  -- PIXELS:         
   x"f8", x"6c", x"66", x"66", x"66", x"6c", x"f8", x"00",
+  -- PIXELS: ******* 
+  -- PIXELS:  **   * 
+  -- PIXELS:  ** *   
+  -- PIXELS:  ****   
+  -- PIXELS:  ** *   
+  -- PIXELS:  **   * 
+  -- PIXELS: ******* 
+  -- PIXELS:         
   x"fe", x"62", x"68", x"78", x"68", x"62", x"fe", x"00",
+  -- PIXELS: ******* 
+  -- PIXELS:  **   * 
+  -- PIXELS:  ** *   
+  -- PIXELS:  ****   
+  -- PIXELS:  ** *   
+  -- PIXELS:  **     
+  -- PIXELS: ****    
+  -- PIXELS:         
   x"fe", x"62", x"68", x"78", x"68", x"60", x"f0", x"00",
+  -- PIXELS:   ****  
+  -- PIXELS:  **  ** 
+  -- PIXELS: **      
+  -- PIXELS: **      
+  -- PIXELS: **  *** 
+  -- PIXELS:  **  ** 
+  -- PIXELS:   ***** 
+  -- PIXELS:         
   x"3c", x"66", x"c0", x"c0", x"ce", x"66", x"3e", x"00",
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: ******  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS:         
   x"cc", x"cc", x"cc", x"fc", x"cc", x"cc", x"cc", x"00",
+  -- PIXELS:  ****   
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:  ****   
+  -- PIXELS:         
   x"78", x"30", x"30", x"30", x"30", x"30", x"78", x"00",
+  -- PIXELS:    **** 
+  -- PIXELS:     **  
+  -- PIXELS:     **  
+  -- PIXELS:     **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS:  ****   
+  -- PIXELS:         
   x"1e", x"0c", x"0c", x"0c", x"cc", x"cc", x"78", x"00",
+  -- PIXELS: ***  ** 
+  -- PIXELS:  **  ** 
+  -- PIXELS:  ** **  
+  -- PIXELS:  ****   
+  -- PIXELS:  ** **  
+  -- PIXELS:  **  ** 
+  -- PIXELS: ***  ** 
+  -- PIXELS:         
   x"e6", x"66", x"6c", x"78", x"6c", x"66", x"e6", x"00",
+  -- PIXELS: ****    
+  -- PIXELS:  **     
+  -- PIXELS:  **     
+  -- PIXELS:  **     
+  -- PIXELS:  **   * 
+  -- PIXELS:  **  ** 
+  -- PIXELS: ******* 
+  -- PIXELS:         
   x"f0", x"60", x"60", x"60", x"62", x"66", x"fe", x"00",
+  -- PIXELS: **   ** 
+  -- PIXELS: *** *** 
+  -- PIXELS: ******* 
+  -- PIXELS: ******* 
+  -- PIXELS: ** * ** 
+  -- PIXELS: **   ** 
+  -- PIXELS: **   ** 
+  -- PIXELS:         
   x"c6", x"ee", x"fe", x"fe", x"d6", x"c6", x"c6", x"00",
+  -- PIXELS: **   ** 
+  -- PIXELS: ***  ** 
+  -- PIXELS: **** ** 
+  -- PIXELS: ** **** 
+  -- PIXELS: **  *** 
+  -- PIXELS: **   ** 
+  -- PIXELS: **   ** 
+  -- PIXELS:         
   x"c6", x"e6", x"f6", x"de", x"ce", x"c6", x"c6", x"00",
+  -- PIXELS:   ***   
+  -- PIXELS:  ** **  
+  -- PIXELS: **   ** 
+  -- PIXELS: **   ** 
+  -- PIXELS: **   ** 
+  -- PIXELS:  ** **  
+  -- PIXELS:   ***   
+  -- PIXELS:         
   x"38", x"6c", x"c6", x"c6", x"c6", x"6c", x"38", x"00",
+  -- PIXELS: ******  
+  -- PIXELS:  **  ** 
+  -- PIXELS:  **  ** 
+  -- PIXELS:  *****  
+  -- PIXELS:  **     
+  -- PIXELS:  **     
+  -- PIXELS: ****    
+  -- PIXELS:         
   x"fc", x"66", x"66", x"7c", x"60", x"60", x"f0", x"00",
+  -- PIXELS:  ****   
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: ** ***  
+  -- PIXELS:  ****   
+  -- PIXELS:    ***  
+  -- PIXELS:         
   x"78", x"cc", x"cc", x"cc", x"dc", x"78", x"1c", x"00",
+  -- PIXELS: ******  
+  -- PIXELS:  **  ** 
+  -- PIXELS:  **  ** 
+  -- PIXELS:  *****  
+  -- PIXELS:  ** **  
+  -- PIXELS:  **  ** 
+  -- PIXELS: ***  ** 
+  -- PIXELS:         
   x"fc", x"66", x"66", x"7c", x"6c", x"66", x"e6", x"00",
+  -- PIXELS:  ****   
+  -- PIXELS: **  **  
+  -- PIXELS: ***     
+  -- PIXELS:  ***    
+  -- PIXELS:    ***  
+  -- PIXELS: **  **  
+  -- PIXELS:  ****   
+  -- PIXELS:         
   x"78", x"cc", x"e0", x"70", x"1c", x"cc", x"78", x"00",
+  -- PIXELS: ******  
+  -- PIXELS: * ** *  
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:  ****   
+  -- PIXELS:         
   x"fc", x"b4", x"30", x"30", x"30", x"30", x"78", x"00",
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: ******  
+  -- PIXELS:         
   x"cc", x"cc", x"cc", x"cc", x"cc", x"cc", x"fc", x"00",
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS:  ****   
+  -- PIXELS:   **    
+  -- PIXELS:         
   x"cc", x"cc", x"cc", x"cc", x"cc", x"78", x"30", x"00",
+  -- PIXELS: **   ** 
+  -- PIXELS: **   ** 
+  -- PIXELS: **   ** 
+  -- PIXELS: ** * ** 
+  -- PIXELS: ******* 
+  -- PIXELS: *** *** 
+  -- PIXELS: **   ** 
+  -- PIXELS:         
   x"c6", x"c6", x"c6", x"d6", x"fe", x"ee", x"c6", x"00",
+  -- PIXELS: **   ** 
+  -- PIXELS: **   ** 
+  -- PIXELS:  ** **  
+  -- PIXELS:   ***   
+  -- PIXELS:   ***   
+  -- PIXELS:  ** **  
+  -- PIXELS: **   ** 
+  -- PIXELS:         
   x"c6", x"c6", x"6c", x"38", x"38", x"6c", x"c6", x"00",
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS:  ****   
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:  ****   
+  -- PIXELS:         
   x"cc", x"cc", x"cc", x"78", x"30", x"30", x"78", x"00",
+  -- PIXELS: ******* 
+  -- PIXELS: **   ** 
+  -- PIXELS: *   **  
+  -- PIXELS:    **   
+  -- PIXELS:   **  * 
+  -- PIXELS:  **  ** 
+  -- PIXELS: ******* 
+  -- PIXELS:         
   x"fe", x"c6", x"8c", x"18", x"32", x"66", x"fe", x"00",
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
   x"00", x"00", x"00", x"00", x"00", x"00", x"00", x"00",
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
   x"00", x"00", x"00", x"00", x"00", x"00", x"00", x"00",
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
   x"00", x"00", x"00", x"00", x"00", x"00", x"00", x"00",
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
   x"00", x"00", x"00", x"00", x"00", x"00", x"00", x"00",
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
   x"00", x"00", x"00", x"00", x"00", x"00", x"00", x"00",
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
   x"00", x"00", x"00", x"00", x"00", x"00", x"00", x"00",
+  -- PIXELS:    **   
+  -- PIXELS:   ****  
+  -- PIXELS:   ****  
+  -- PIXELS:    **   
+  -- PIXELS:    **   
+  -- PIXELS:         
+  -- PIXELS:    **   
+  -- PIXELS:         
   x"18", x"3c", x"3c", x"18", x"18", x"00", x"18", x"00",
+  -- PIXELS:  ** **  
+  -- PIXELS:  ** **  
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
   x"6c", x"6c", x"00", x"00", x"00", x"00", x"00", x"00",
+  -- PIXELS:  ** **  
+  -- PIXELS:  ** **  
+  -- PIXELS: ******* 
+  -- PIXELS:  ** **  
+  -- PIXELS: ******* 
+  -- PIXELS:  ** **  
+  -- PIXELS:  ** **  
+  -- PIXELS:         
   x"6c", x"6c", x"fe", x"6c", x"fe", x"6c", x"6c", x"00",
+  -- PIXELS:   **    
+  -- PIXELS:  *****  
+  -- PIXELS: **      
+  -- PIXELS:  ****   
+  -- PIXELS:     **  
+  -- PIXELS: *****   
+  -- PIXELS:   **    
+  -- PIXELS:         
   x"30", x"7c", x"c0", x"78", x"0c", x"f8", x"30", x"00",
+  -- PIXELS:         
+  -- PIXELS: **   ** 
+  -- PIXELS: **  **  
+  -- PIXELS:    **   
+  -- PIXELS:   **    
+  -- PIXELS:  **  ** 
+  -- PIXELS: **   ** 
+  -- PIXELS:         
   x"00", x"c6", x"cc", x"18", x"30", x"66", x"c6", x"00",
+  -- PIXELS:   ***   
+  -- PIXELS:  ** **  
+  -- PIXELS:   ***   
+  -- PIXELS:  *** ** 
+  -- PIXELS: ** ***  
+  -- PIXELS: **  **  
+  -- PIXELS:  *** ** 
+  -- PIXELS:         
   x"38", x"6c", x"38", x"76", x"dc", x"cc", x"76", x"00",
+  -- PIXELS:  **     
+  -- PIXELS:  **     
+  -- PIXELS: **      
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
   x"60", x"60", x"c0", x"00", x"00", x"00", x"00", x"00",
+  -- PIXELS:    **   
+  -- PIXELS:   **    
+  -- PIXELS:  **     
+  -- PIXELS:  **     
+  -- PIXELS:  **     
+  -- PIXELS:   **    
+  -- PIXELS:    **   
+  -- PIXELS:         
   x"18", x"30", x"60", x"60", x"60", x"30", x"18", x"00",
+  -- PIXELS:  **     
+  -- PIXELS:   **    
+  -- PIXELS:    **   
+  -- PIXELS:    **   
+  -- PIXELS:    **   
+  -- PIXELS:   **    
+  -- PIXELS:  **     
+  -- PIXELS:         
   x"60", x"30", x"18", x"18", x"18", x"30", x"60", x"00",
+  -- PIXELS:         
+  -- PIXELS:  **  ** 
+  -- PIXELS:   ****  
+  -- PIXELS: ********
+  -- PIXELS:   ****  
+  -- PIXELS:  **  ** 
+  -- PIXELS:         
+  -- PIXELS:         
   x"00", x"66", x"3c", x"ff", x"3c", x"66", x"00", x"00",
+  -- PIXELS:         
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS: ******  
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:         
+  -- PIXELS:         
   x"00", x"30", x"30", x"fc", x"30", x"30", x"00", x"00",
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:  **     
   x"00", x"00", x"00", x"00", x"00", x"30", x"30", x"60",
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS: ******  
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
   x"00", x"00", x"00", x"fc", x"00", x"00", x"00", x"00",
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:         
   x"00", x"00", x"00", x"00", x"00", x"30", x"30", x"00",
+  -- PIXELS:      ** 
+  -- PIXELS:     **  
+  -- PIXELS:    **   
+  -- PIXELS:   **    
+  -- PIXELS:  **     
+  -- PIXELS: **      
+  -- PIXELS: *       
+  -- PIXELS:         
   x"06", x"0c", x"18", x"30", x"60", x"c0", x"80", x"00",
+  -- PIXELS:  *****  
+  -- PIXELS: **   ** 
+  -- PIXELS: **  *** 
+  -- PIXELS: ** **** 
+  -- PIXELS: **** ** 
+  -- PIXELS: ***  ** 
+  -- PIXELS:  *****  
+  -- PIXELS:         
   x"7c", x"c6", x"ce", x"de", x"f6", x"e6", x"7c", x"00",
+  -- PIXELS:   **    
+  -- PIXELS:  ***    
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS: ******  
+  -- PIXELS:         
   x"30", x"70", x"30", x"30", x"30", x"30", x"fc", x"00",
+  -- PIXELS:  ****   
+  -- PIXELS: **  **  
+  -- PIXELS:     **  
+  -- PIXELS:   ***   
+  -- PIXELS:  **     
+  -- PIXELS: **  **  
+  -- PIXELS: ******  
+  -- PIXELS:         
   x"78", x"cc", x"0c", x"38", x"60", x"cc", x"fc", x"00",
+  -- PIXELS:  ****   
+  -- PIXELS: **  **  
+  -- PIXELS:     **  
+  -- PIXELS:   ***   
+  -- PIXELS:     **  
+  -- PIXELS: **  **  
+  -- PIXELS:  ****   
+  -- PIXELS:         
   x"78", x"cc", x"0c", x"38", x"0c", x"cc", x"78", x"00",
+  -- PIXELS:    ***  
+  -- PIXELS:   ****  
+  -- PIXELS:  ** **  
+  -- PIXELS: **  **  
+  -- PIXELS: ******* 
+  -- PIXELS:     **  
+  -- PIXELS:    **** 
+  -- PIXELS:         
   x"1c", x"3c", x"6c", x"cc", x"fe", x"0c", x"1e", x"00",
+  -- PIXELS: ******  
+  -- PIXELS: **      
+  -- PIXELS: *****   
+  -- PIXELS:     **  
+  -- PIXELS:     **  
+  -- PIXELS: **  **  
+  -- PIXELS:  ****   
+  -- PIXELS:         
   x"fc", x"c0", x"f8", x"0c", x"0c", x"cc", x"78", x"00",
+  -- PIXELS:   ***   
+  -- PIXELS:  **     
+  -- PIXELS: **      
+  -- PIXELS: *****   
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS:  ****   
+  -- PIXELS:         
   x"38", x"60", x"c0", x"f8", x"cc", x"cc", x"78", x"00",
+  -- PIXELS: ******  
+  -- PIXELS: **  **  
+  -- PIXELS:     **  
+  -- PIXELS:    **   
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:         
   x"fc", x"cc", x"0c", x"18", x"30", x"30", x"30", x"00",
+  -- PIXELS:  ****   
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS:  ****   
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS:  ****   
+  -- PIXELS:         
   x"78", x"cc", x"cc", x"78", x"cc", x"cc", x"78", x"00",
+  -- PIXELS:  ****   
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS:  *****  
+  -- PIXELS:     **  
+  -- PIXELS:    **   
+  -- PIXELS:  ***    
+  -- PIXELS:         
   x"78", x"cc", x"cc", x"7c", x"0c", x"18", x"70", x"00",
+  -- PIXELS:         
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:         
   x"00", x"30", x"30", x"00", x"00", x"30", x"30", x"00",
+  -- PIXELS:         
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:  **     
   x"00", x"30", x"30", x"00", x"00", x"30", x"30", x"60",
+  -- PIXELS:    **   
+  -- PIXELS:   **    
+  -- PIXELS:  **     
+  -- PIXELS: **      
+  -- PIXELS:  **     
+  -- PIXELS:   **    
+  -- PIXELS:    **   
+  -- PIXELS:         
   x"18", x"30", x"60", x"c0", x"60", x"30", x"18", x"00",
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS: ******  
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS: ******  
+  -- PIXELS:         
+  -- PIXELS:         
   x"00", x"00", x"fc", x"00", x"00", x"fc", x"00", x"00",
+  -- PIXELS:  **     
+  -- PIXELS:   **    
+  -- PIXELS:    **   
+  -- PIXELS:     **  
+  -- PIXELS:    **   
+  -- PIXELS:   **    
+  -- PIXELS:  **     
+  -- PIXELS:         
   x"60", x"30", x"18", x"0c", x"18", x"30", x"60", x"00",
+  -- PIXELS:  ****   
+  -- PIXELS: **  **  
+  -- PIXELS:     **  
+  -- PIXELS:    **   
+  -- PIXELS:   **    
+  -- PIXELS:         
+  -- PIXELS:   **    
+  -- PIXELS:         
   x"78", x"cc", x"0c", x"18", x"30", x"00", x"30", x"00",
 
+  -- PIXELS:  *****  
+  -- PIXELS: **   ** 
+  -- PIXELS: ** **** 
+  -- PIXELS: ** **** 
+  -- PIXELS: ** **** 
+  -- PIXELS: **      
+  -- PIXELS:  ****   
+  -- PIXELS:         
   x"7c", x"c6", x"de", x"de", x"de", x"c0", x"78", x"00",
+  -- PIXELS:   **    
+  -- PIXELS:  ****   
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: ******  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS:         
   x"30", x"78", x"cc", x"cc", x"fc", x"cc", x"cc", x"00",
+  -- PIXELS: ******  
+  -- PIXELS:  **  ** 
+  -- PIXELS:  **  ** 
+  -- PIXELS:  *****  
+  -- PIXELS:  **  ** 
+  -- PIXELS:  **  ** 
+  -- PIXELS: ******  
+  -- PIXELS:         
   x"fc", x"66", x"66", x"7c", x"66", x"66", x"fc", x"00",
+  -- PIXELS:   ****  
+  -- PIXELS:  **  ** 
+  -- PIXELS: **      
+  -- PIXELS: **      
+  -- PIXELS: **      
+  -- PIXELS:  **  ** 
+  -- PIXELS:   ****  
+  -- PIXELS:         
   x"3c", x"66", x"c0", x"c0", x"c0", x"66", x"3c", x"00",
+  -- PIXELS: *****   
+  -- PIXELS:  ** **  
+  -- PIXELS:  **  ** 
+  -- PIXELS:  **  ** 
+  -- PIXELS:  **  ** 
+  -- PIXELS:  ** **  
+  -- PIXELS: *****   
+  -- PIXELS:         
   x"f8", x"6c", x"66", x"66", x"66", x"6c", x"f8", x"00",
+  -- PIXELS: ******* 
+  -- PIXELS:  **   * 
+  -- PIXELS:  ** *   
+  -- PIXELS:  ****   
+  -- PIXELS:  ** *   
+  -- PIXELS:  **   * 
+  -- PIXELS: ******* 
+  -- PIXELS:         
   x"fe", x"62", x"68", x"78", x"68", x"62", x"fe", x"00",
+  -- PIXELS: ******* 
+  -- PIXELS:  **   * 
+  -- PIXELS:  ** *   
+  -- PIXELS:  ****   
+  -- PIXELS:  ** *   
+  -- PIXELS:  **     
+  -- PIXELS: ****    
+  -- PIXELS:         
   x"fe", x"62", x"68", x"78", x"68", x"60", x"f0", x"00",
+  -- PIXELS:   ****  
+  -- PIXELS:  **  ** 
+  -- PIXELS: **      
+  -- PIXELS: **      
+  -- PIXELS: **  *** 
+  -- PIXELS:  **  ** 
+  -- PIXELS:   ***** 
+  -- PIXELS:         
   x"3c", x"66", x"c0", x"c0", x"ce", x"66", x"3e", x"00",
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: ******  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS:         
   x"cc", x"cc", x"cc", x"fc", x"cc", x"cc", x"cc", x"00",
+  -- PIXELS:  ****   
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:  ****   
+  -- PIXELS:         
   x"78", x"30", x"30", x"30", x"30", x"30", x"78", x"00",
+  -- PIXELS:    **** 
+  -- PIXELS:     **  
+  -- PIXELS:     **  
+  -- PIXELS:     **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS:  ****   
+  -- PIXELS:         
   x"1e", x"0c", x"0c", x"0c", x"cc", x"cc", x"78", x"00",
+  -- PIXELS: ***  ** 
+  -- PIXELS:  **  ** 
+  -- PIXELS:  ** **  
+  -- PIXELS:  ****   
+  -- PIXELS:  ** **  
+  -- PIXELS:  **  ** 
+  -- PIXELS: ***  ** 
+  -- PIXELS:         
   x"e6", x"66", x"6c", x"78", x"6c", x"66", x"e6", x"00",
+  -- PIXELS: ****    
+  -- PIXELS:  **     
+  -- PIXELS:  **     
+  -- PIXELS:  **     
+  -- PIXELS:  **   * 
+  -- PIXELS:  **  ** 
+  -- PIXELS: ******* 
+  -- PIXELS:         
   x"f0", x"60", x"60", x"60", x"62", x"66", x"fe", x"00",
+  -- PIXELS: **   ** 
+  -- PIXELS: *** *** 
+  -- PIXELS: ******* 
+  -- PIXELS: ******* 
+  -- PIXELS: ** * ** 
+  -- PIXELS: **   ** 
+  -- PIXELS: **   ** 
+  -- PIXELS:         
   x"c6", x"ee", x"fe", x"fe", x"d6", x"c6", x"c6", x"00",
+  -- PIXELS: **   ** 
+  -- PIXELS: ***  ** 
+  -- PIXELS: **** ** 
+  -- PIXELS: ** **** 
+  -- PIXELS: **  *** 
+  -- PIXELS: **   ** 
+  -- PIXELS: **   ** 
+  -- PIXELS:         
   x"c6", x"e6", x"f6", x"de", x"ce", x"c6", x"c6", x"00",
+  -- PIXELS:   ***   
+  -- PIXELS:  ** **  
+  -- PIXELS: **   ** 
+  -- PIXELS: **   ** 
+  -- PIXELS: **   ** 
+  -- PIXELS:  ** **  
+  -- PIXELS:   ***   
+  -- PIXELS:         
   x"38", x"6c", x"c6", x"c6", x"c6", x"6c", x"38", x"00",
+  -- PIXELS: ******  
+  -- PIXELS:  **  ** 
+  -- PIXELS:  **  ** 
+  -- PIXELS:  *****  
+  -- PIXELS:  **     
+  -- PIXELS:  **     
+  -- PIXELS: ****    
+  -- PIXELS:         
   x"fc", x"66", x"66", x"7c", x"60", x"60", x"f0", x"00",
+  -- PIXELS:  ****   
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: ** ***  
+  -- PIXELS:  ****   
+  -- PIXELS:    ***  
+  -- PIXELS:         
   x"78", x"cc", x"cc", x"cc", x"dc", x"78", x"1c", x"00",
+  -- PIXELS: ******  
+  -- PIXELS:  **  ** 
+  -- PIXELS:  **  ** 
+  -- PIXELS:  *****  
+  -- PIXELS:  ** **  
+  -- PIXELS:  **  ** 
+  -- PIXELS: ***  ** 
+  -- PIXELS:         
   x"fc", x"66", x"66", x"7c", x"6c", x"66", x"e6", x"00",
+  -- PIXELS:  ****   
+  -- PIXELS: **  **  
+  -- PIXELS: ***     
+  -- PIXELS:  ***    
+  -- PIXELS:    ***  
+  -- PIXELS: **  **  
+  -- PIXELS:  ****   
+  -- PIXELS:         
   x"78", x"cc", x"e0", x"70", x"1c", x"cc", x"78", x"00",
+  -- PIXELS: ******  
+  -- PIXELS: * ** *  
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:  ****   
+  -- PIXELS:         
   x"fc", x"b4", x"30", x"30", x"30", x"30", x"78", x"00",
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: ******  
+  -- PIXELS:         
   x"cc", x"cc", x"cc", x"cc", x"cc", x"cc", x"fc", x"00",
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS:  ****   
+  -- PIXELS:   **    
+  -- PIXELS:         
   x"cc", x"cc", x"cc", x"cc", x"cc", x"78", x"30", x"00",
+  -- PIXELS: **   ** 
+  -- PIXELS: **   ** 
+  -- PIXELS: **   ** 
+  -- PIXELS: ** * ** 
+  -- PIXELS: ******* 
+  -- PIXELS: *** *** 
+  -- PIXELS: **   ** 
+  -- PIXELS:         
   x"c6", x"c6", x"c6", x"d6", x"fe", x"ee", x"c6", x"00",
+  -- PIXELS: **   ** 
+  -- PIXELS: **   ** 
+  -- PIXELS:  ** **  
+  -- PIXELS:   ***   
+  -- PIXELS:   ***   
+  -- PIXELS:  ** **  
+  -- PIXELS: **   ** 
+  -- PIXELS:         
   x"c6", x"c6", x"6c", x"38", x"38", x"6c", x"c6", x"00",
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS:  ****   
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:  ****   
+  -- PIXELS:         
   x"cc", x"cc", x"cc", x"78", x"30", x"30", x"78", x"00",
+  -- PIXELS: ******* 
+  -- PIXELS: **   ** 
+  -- PIXELS: *   **  
+  -- PIXELS:    **   
+  -- PIXELS:   **  * 
+  -- PIXELS:  **  ** 
+  -- PIXELS: ******* 
+  -- PIXELS:         
   x"fe", x"c6", x"8c", x"18", x"32", x"66", x"fe", x"00",
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
   x"00", x"00", x"00", x"00", x"00", x"00", x"00", x"00",
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
   x"00", x"00", x"00", x"00", x"00", x"00", x"00", x"00",
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
   x"00", x"00", x"00", x"00", x"00", x"00", x"00", x"00",
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
   x"00", x"00", x"00", x"00", x"00", x"00", x"00", x"00",
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
   x"00", x"00", x"00", x"00", x"00", x"00", x"00", x"00",
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
   x"00", x"00", x"00", x"00", x"00", x"00", x"00", x"00",
+  -- PIXELS:    **   
+  -- PIXELS:   ****  
+  -- PIXELS:   ****  
+  -- PIXELS:    **   
+  -- PIXELS:    **   
+  -- PIXELS:         
+  -- PIXELS:    **   
+  -- PIXELS:         
   x"18", x"3c", x"3c", x"18", x"18", x"00", x"18", x"00",
+  -- PIXELS:  ** **  
+  -- PIXELS:  ** **  
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
   x"6c", x"6c", x"00", x"00", x"00", x"00", x"00", x"00",
+  -- PIXELS:  ** **  
+  -- PIXELS:  ** **  
+  -- PIXELS: ******* 
+  -- PIXELS:  ** **  
+  -- PIXELS: ******* 
+  -- PIXELS:  ** **  
+  -- PIXELS:  ** **  
+  -- PIXELS:         
   x"6c", x"6c", x"fe", x"6c", x"fe", x"6c", x"6c", x"00",
+  -- PIXELS:   **    
+  -- PIXELS:  *****  
+  -- PIXELS: **      
+  -- PIXELS:  ****   
+  -- PIXELS:     **  
+  -- PIXELS: *****   
+  -- PIXELS:   **    
+  -- PIXELS:         
   x"30", x"7c", x"c0", x"78", x"0c", x"f8", x"30", x"00",
+  -- PIXELS:         
+  -- PIXELS: **   ** 
+  -- PIXELS: **  **  
+  -- PIXELS:    **   
+  -- PIXELS:   **    
+  -- PIXELS:  **  ** 
+  -- PIXELS: **   ** 
+  -- PIXELS:         
   x"00", x"c6", x"cc", x"18", x"30", x"66", x"c6", x"00",
+  -- PIXELS:   ***   
+  -- PIXELS:  ** **  
+  -- PIXELS:   ***   
+  -- PIXELS:  *** ** 
+  -- PIXELS: ** ***  
+  -- PIXELS: **  **  
+  -- PIXELS:  *** ** 
+  -- PIXELS:         
   x"38", x"6c", x"38", x"76", x"dc", x"cc", x"76", x"00",
+  -- PIXELS:  **     
+  -- PIXELS:  **     
+  -- PIXELS: **      
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
   x"60", x"60", x"c0", x"00", x"00", x"00", x"00", x"00",
+  -- PIXELS:    **   
+  -- PIXELS:   **    
+  -- PIXELS:  **     
+  -- PIXELS:  **     
+  -- PIXELS:  **     
+  -- PIXELS:   **    
+  -- PIXELS:    **   
+  -- PIXELS:         
   x"18", x"30", x"60", x"60", x"60", x"30", x"18", x"00",
+  -- PIXELS:  **     
+  -- PIXELS:   **    
+  -- PIXELS:    **   
+  -- PIXELS:    **   
+  -- PIXELS:    **   
+  -- PIXELS:   **    
+  -- PIXELS:  **     
+  -- PIXELS:         
   x"60", x"30", x"18", x"18", x"18", x"30", x"60", x"00",
+  -- PIXELS:         
+  -- PIXELS:  **  ** 
+  -- PIXELS:   ****  
+  -- PIXELS: ********
+  -- PIXELS:   ****  
+  -- PIXELS:  **  ** 
+  -- PIXELS:         
+  -- PIXELS:         
   x"00", x"66", x"3c", x"ff", x"3c", x"66", x"00", x"00",
+  -- PIXELS:         
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS: ******  
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:         
+  -- PIXELS:         
   x"00", x"30", x"30", x"fc", x"30", x"30", x"00", x"00",
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:  **     
   x"00", x"00", x"00", x"00", x"00", x"30", x"30", x"60",
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS: ******  
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
   x"00", x"00", x"00", x"fc", x"00", x"00", x"00", x"00",
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:         
   x"00", x"00", x"00", x"00", x"00", x"30", x"30", x"00",
+  -- PIXELS:      ** 
+  -- PIXELS:     **  
+  -- PIXELS:    **   
+  -- PIXELS:   **    
+  -- PIXELS:  **     
+  -- PIXELS: **      
+  -- PIXELS: *       
+  -- PIXELS:         
   x"06", x"0c", x"18", x"30", x"60", x"c0", x"80", x"00",
+  -- PIXELS:  *****  
+  -- PIXELS: **   ** 
+  -- PIXELS: **  *** 
+  -- PIXELS: ** **** 
+  -- PIXELS: **** ** 
+  -- PIXELS: ***  ** 
+  -- PIXELS:  *****  
+  -- PIXELS:         
   x"7c", x"c6", x"ce", x"de", x"f6", x"e6", x"7c", x"00",
+  -- PIXELS:   **    
+  -- PIXELS:  ***    
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS: ******  
+  -- PIXELS:         
   x"30", x"70", x"30", x"30", x"30", x"30", x"fc", x"00",
+  -- PIXELS:  ****   
+  -- PIXELS: **  **  
+  -- PIXELS:     **  
+  -- PIXELS:   ***   
+  -- PIXELS:  **     
+  -- PIXELS: **  **  
+  -- PIXELS: ******  
+  -- PIXELS:         
   x"78", x"cc", x"0c", x"38", x"60", x"cc", x"fc", x"00",
+  -- PIXELS:  ****   
+  -- PIXELS: **  **  
+  -- PIXELS:     **  
+  -- PIXELS:   ***   
+  -- PIXELS:     **  
+  -- PIXELS: **  **  
+  -- PIXELS:  ****   
+  -- PIXELS:         
   x"78", x"cc", x"0c", x"38", x"0c", x"cc", x"78", x"00",
+  -- PIXELS:    ***  
+  -- PIXELS:   ****  
+  -- PIXELS:  ** **  
+  -- PIXELS: **  **  
+  -- PIXELS: ******* 
+  -- PIXELS:     **  
+  -- PIXELS:    **** 
+  -- PIXELS:         
   x"1c", x"3c", x"6c", x"cc", x"fe", x"0c", x"1e", x"00",
+  -- PIXELS: ******  
+  -- PIXELS: **      
+  -- PIXELS: *****   
+  -- PIXELS:     **  
+  -- PIXELS:     **  
+  -- PIXELS: **  **  
+  -- PIXELS:  ****   
+  -- PIXELS:         
   x"fc", x"c0", x"f8", x"0c", x"0c", x"cc", x"78", x"00",
+  -- PIXELS:   ***   
+  -- PIXELS:  **     
+  -- PIXELS: **      
+  -- PIXELS: *****   
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS:  ****   
+  -- PIXELS:         
   x"38", x"60", x"c0", x"f8", x"cc", x"cc", x"78", x"00",
+  -- PIXELS: ******  
+  -- PIXELS: **  **  
+  -- PIXELS:     **  
+  -- PIXELS:    **   
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:         
   x"fc", x"cc", x"0c", x"18", x"30", x"30", x"30", x"00",
+  -- PIXELS:  ****   
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS:  ****   
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS:  ****   
+  -- PIXELS:         
   x"78", x"cc", x"cc", x"78", x"cc", x"cc", x"78", x"00",
+  -- PIXELS:  ****   
+  -- PIXELS: **  **  
+  -- PIXELS: **  **  
+  -- PIXELS:  *****  
+  -- PIXELS:     **  
+  -- PIXELS:    **   
+  -- PIXELS:  ***    
+  -- PIXELS:         
   x"78", x"cc", x"cc", x"7c", x"0c", x"18", x"70", x"00",
+  -- PIXELS:         
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:         
   x"00", x"30", x"30", x"00", x"00", x"30", x"30", x"00",
+  -- PIXELS:         
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS:   **    
+  -- PIXELS:   **    
+  -- PIXELS:  **     
   x"00", x"30", x"30", x"00", x"00", x"30", x"30", x"60",
+  -- PIXELS:    **   
+  -- PIXELS:   **    
+  -- PIXELS:  **     
+  -- PIXELS: **      
+  -- PIXELS:  **     
+  -- PIXELS:   **    
+  -- PIXELS:    **   
+  -- PIXELS:         
   x"18", x"30", x"60", x"c0", x"60", x"30", x"18", x"00",
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS: ******  
+  -- PIXELS:         
+  -- PIXELS:         
+  -- PIXELS: ******  
+  -- PIXELS:         
+  -- PIXELS:         
   x"00", x"00", x"fc", x"00", x"00", x"fc", x"00", x"00",
+  -- PIXELS:  **     
+  -- PIXELS:   **    
+  -- PIXELS:    **   
+  -- PIXELS:     **  
+  -- PIXELS:    **   
+  -- PIXELS:   **    
+  -- PIXELS:  **     
+  -- PIXELS:         
   x"60", x"30", x"18", x"0c", x"18", x"30", x"60", x"00",
-  x"78", x"cc", x"0c", x"18", x"30", x"00", x"30", x"00"
+  -- PIXELS:  ****   
+  -- PIXELS: **  **  
+  -- PIXELS:     **  
+  -- PIXELS:    **   
+  -- PIXELS:   **    
+  -- PIXELS:         
+  -- PIXELS:   **    
+  -- PIXELS:         
+  x"78", x"cc", x"0c", x"18", x"30", x"00", x"30", x"00",
 );
 
 begin
