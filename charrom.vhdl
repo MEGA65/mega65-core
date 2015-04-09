@@ -66,13 +66,13 @@ signal ram : ram_t := (
   -- PIXELS: **  **  
   -- PIXELS:         
   x"30", x"78", x"cc", x"cc", x"fc", x"cc", x"cc", x"00",
-  -- PIXELS: ******  
+  -- PIXELS:  *****  
   -- PIXELS:  **  ** 
   -- PIXELS:  **  ** 
   -- PIXELS:  *****  
   -- PIXELS:  **  ** 
   -- PIXELS:  **  ** 
-  -- PIXELS: ******  
+  -- PIXELS:  *****  
   -- PIXELS:         
   x"7c", x"66", x"66", x"7c", x"66", x"66", x"7c", x"00",
   -- PIXELS:   ****  
@@ -84,33 +84,33 @@ signal ram : ram_t := (
   -- PIXELS:   ****  
   -- PIXELS:         
   x"3c", x"66", x"c0", x"c0", x"c0", x"66", x"3c", x"00",
-  -- PIXELS: *****   
+  -- PIXELS:  ****   
   -- PIXELS:  ** **  
   -- PIXELS:  **  ** 
   -- PIXELS:  **  ** 
   -- PIXELS:  **  ** 
   -- PIXELS:  ** **  
-  -- PIXELS: *****   
+  -- PIXELS:  ****   
   -- PIXELS:         
   x"78", x"6c", x"66", x"66", x"66", x"6c", x"78", x"00",
-  -- PIXELS: ******* 
-  -- PIXELS:  **   * 
-  -- PIXELS:  ** *   
-  -- PIXELS:  ****   
-  -- PIXELS:  ** *   
-  -- PIXELS:  **   * 
-  -- PIXELS: ******* 
-  -- PIXELS:         
-  x"7e", x"62", x"68", x"78", x"68", x"62", x"7e", x"00",
-  -- PIXELS: ******* 
-  -- PIXELS:  **   * 
-  -- PIXELS:  ** *   
-  -- PIXELS:  ****   
-  -- PIXELS:  ** *   
+  -- PIXELS:  ****** 
   -- PIXELS:  **     
-  -- PIXELS: ****    
+  -- PIXELS:  **     
+  -- PIXELS:  ****   
+  -- PIXELS:  **     
+  -- PIXELS:  **     
+  -- PIXELS:  ****** 
   -- PIXELS:         
-  x"7e", x"62", x"68", x"78", x"68", x"60", x"70", x"00",
+  x"7e", x"60", x"60", x"78", x"60", x"60", x"7e", x"00",
+  -- PIXELS:  ****** 
+  -- PIXELS:  **     
+  -- PIXELS:  **     
+  -- PIXELS:  ****   
+  -- PIXELS:  **     
+  -- PIXELS:  **     
+  -- PIXELS:  **     
+  -- PIXELS:         
+  x"7e", x"60", x"60", x"78", x"60", x"60", x"60", x"00",
   -- PIXELS:   ****  
   -- PIXELS:  **  ** 
   -- PIXELS: **      
@@ -147,24 +147,24 @@ signal ram : ram_t := (
   -- PIXELS:  ****   
   -- PIXELS:         
   x"1e", x"0c", x"0c", x"0c", x"cc", x"cc", x"78", x"00",
-  -- PIXELS: ***  ** 
+  -- PIXELS:  **  ** 
   -- PIXELS:  **  ** 
   -- PIXELS:  ** **  
   -- PIXELS:  ****   
   -- PIXELS:  ** **  
   -- PIXELS:  **  ** 
-  -- PIXELS: ***  ** 
+  -- PIXELS:  **  ** 
   -- PIXELS:         
   x"66", x"66", x"6c", x"78", x"6c", x"66", x"66", x"00",
-  -- PIXELS: ****    
+  -- PIXELS: ***     
   -- PIXELS:  **     
   -- PIXELS:  **     
   -- PIXELS:  **     
-  -- PIXELS:  **   * 
-  -- PIXELS:  **  ** 
-  -- PIXELS: ******* 
+  -- PIXELS:  **     
+  -- PIXELS:  **     
+  -- PIXELS: *** *** 
   -- PIXELS:         
-  x"f0", x"60", x"60", x"60", x"62", x"66", x"fe", x"00",
+  x"60", x"60", x"60", x"60", x"60", x"7e", x"7e", x"00",
   -- PIXELS: **   ** 
   -- PIXELS: *** *** 
   -- PIXELS: ******* 
