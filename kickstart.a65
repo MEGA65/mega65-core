@@ -958,9 +958,20 @@ lr1:		lda txt_c65gscharrom,x
 		ldx #<msg_charrombad
 		ldy #>msg_charrombad
 		jsr printmessage
+		jmp loadc65rom
 
 loadedcharromok:
-
+		ldx #<msg_charromloaded
+		ldy #>msg_charromloaded
+		jsr printmessage
+		ldy #$00
+		ldz file_sectorsread+1
+		jsr printhex
+		ldz file_sectorsread
+		jsr printhex
+		
+		
+loadc65rom:
 		; set file name of file to load (8.3 DOS name)
 		ldx #$0b
 lr1b:		lda txt_c65gsrom,x
@@ -1436,8 +1447,11 @@ l20:		lda $D681,x
 
 fs_readfileintomemory:
 
-		; Convert filename to upper case for comparison
+		; Clear number of sectors read
 		ldx #$00
+		stx file_sectorsread
+		stx file_sectorsread+1
+		; Convert filename to upper case for comparison		
 l17bb:		lda target_filename,x
 		jsr toupper
 		sta target_filename,x
@@ -1497,12 +1511,14 @@ rf1:
 		ldx #$00
 		ldz #$00
 rr1:		lda $de00,x
+		nop ; 32-bit pointer access follows
 		sta (<target_loadaddress),z
 		inz
 		inx
 		bne rr1
 		inw <target_loadaddress+1
 rr1b:		lda $df00,x
+		nop ; 32-bit pointer access follows
 		sta (<target_loadaddress),z
 		inz
 		inx
@@ -2637,6 +2653,7 @@ msg_kickstart:        .byte "C65GS KICKSTART V00.01 PRE-ALPHA        "
 msg_romok:            .byte "ROM CHECKSUM OK - BOOTING               "
 msg_rombad:	      .byte "ROM CHECKSUM FAIL - LOADING ROM         "
 msg_charrombad:	      .byte "COULD NOT LOAD CHARROM.G65              "
+msg_charromloaded:    .byte "LOADED CHARROM.G65 ($$$$ SECTORS)       "
 msg_tryingsdcard:     .byte "LOOKING FOR SDCARD...                   "
 msg_foundsdcard:      .byte "FOUND AND RESET SDCARD                  "
 msg_sdcarderror:      .byte "ERROR READING FROM SD CARD              "
