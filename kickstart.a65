@@ -934,12 +934,39 @@ loadrom:
 		ldy #>msg_rombad
 		jsr printmessage
 
-		; set file name of file to load (8.3 DOS name)
+
+		; Load CHARROM.G65 into character ROM
 		ldx #$0b
-lr1:		lda txt_c65gsrom,x
+lr1:		lda txt_c65gscharrom,x
 		sta target_filename,x
 		dex
 		bpl lr1
+
+		; Prepare 32-bit pointer for loading whole ROM ($0020000)
+		lda #$00
+		sta <target_loadaddress+0
+		lda #$E0
+		sta <target_loadaddress+1
+		lda #$F7
+		sta <target_loadaddress+2
+		lda #$0F
+		sta <target_loadaddress+3
+
+		jsr fs_readfileintomemory
+		bcs loadedcharromok
+
+		ldx #<msg_charrombad
+		ldy #>msg_charrombad
+		jsr printmessage
+
+loadedcharromok:
+
+		; set file name of file to load (8.3 DOS name)
+		ldx #$0b
+lr1b:		lda txt_c65gsrom,x
+		sta target_filename,x
+		dex
+		bpl lr1b
 
 		; Prepare 32-bit pointer for loading whole ROM ($0020000)
 		lda #$00
@@ -2609,6 +2636,7 @@ arptemplate:
 msg_kickstart:        .byte "C65GS KICKSTART V00.01 PRE-ALPHA        "
 msg_romok:            .byte "ROM CHECKSUM OK - BOOTING               "
 msg_rombad:	      .byte "ROM CHECKSUM FAIL - LOADING ROM         "
+msg_charrombad:	      .byte "COULD NOT LOAD CHARROM.G65              "
 msg_tryingsdcard:     .byte "LOOKING FOR SDCARD...                   "
 msg_foundsdcard:      .byte "FOUND AND RESET SDCARD                  "
 msg_sdcarderror:      .byte "ERROR READING FROM SD CARD              "
@@ -2641,6 +2669,8 @@ msg_etherkick:	      .byte "BOOTING VIA ETHERKICK: UDP PORT 4111    "
 msg_lookingfornextsector:
 		      .byte "LOOKING FOR NEXT SECTOR OF FILE         "
 
+; filename of character ROM
+txt_c65gscharrom:     .byte "CHARROM G65"
 ; filename of ROM we want to load in FAT directory format
 txt_c65gsrom:	      .byte "C65GS   ROM"
 ; filename of 1581 disk image we mount by default
