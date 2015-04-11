@@ -17,6 +17,19 @@ unsigned char all_done_routine[128]={
   0x4c, 0x1f, 0x08  // jmp to $081F, which should be mapped to $000081F.
 };
 
+// Routine to copy memory from $0004000-$0007FFF to $FFF8000-$FFFBFFF,
+// and then jump to $8100 to simulate reset.
+unsigned char kickstart_replace_routine[128]={
+  0xa9, 0x00, 0x5b, 0xa9, 0x00, 0x85, 0x80, 0xa9,
+  0x40, 0x85, 0x81, 0xa9, 0x00, 0x85, 0x82, 0xa9,
+  0x00, 0x85, 0x83, 0xa9, 0x00, 0x85, 0x84, 0xa9,
+  0x40, 0x85, 0x85, 0xa9, 0xff, 0x85, 0x86, 0xa9,
+  0x0f, 0x85, 0x87, 0xa3, 0x00, 0xea, 0xb2, 0x80,
+  0xea, 0x92, 0x80, 0x1b, 0xd0, 0xf7, 0xe6, 0x81,
+  0xe6, 0x83, 0xa5, 0x81, 0xc9, 0x80, 0xd0, 0xed,
+  0x4c, 0x00, 0x81 
+};
+
 unsigned char dma_load_routine[128+1024]={
   // Routine that copies packet contents by DMA
   0xa9, 0xff, 0x8d, 0x05, 0xd7, 0xad, 0x68, 0x68,
@@ -57,9 +70,18 @@ int main(int argc, char**argv)
    int sockfd;
    struct sockaddr_in servaddr;
 
-   if (argc != 3)
+   if (argc != 4)
    {
-      printf("usage:  udpcli <IP address> <programme>\n");
+      printf("usage:  etherkick <run|kickup> <IP address> <programme>\n");
+      exit(1);
+   }
+
+   int runmode=0;
+   
+   if (!strcmp(argv[1],"run")) runmode=1;
+   else if (!strcmp(argv[1],"kickup")) runmode=0;
+   else {
+      printf("usage:  etherkick <run|kickup> <IP address> <programme>\n");
       exit(1);
    }
 
@@ -69,23 +91,29 @@ int main(int argc, char**argv)
 
    bzero(&servaddr,sizeof(servaddr));
    servaddr.sin_family = AF_INET;
-   servaddr.sin_addr.s_addr=inet_addr(argv[1]);
+   servaddr.sin_addr.s_addr=inet_addr(argv[2]);
    servaddr.sin_port=htons(4511);
 
-   int fd=open(argv[2],O_RDWR);
+   int fd=open(argv[3],O_RDWR);
    unsigned char buffer[1024];
    int offset=0;
    int bytes;
-
-   // Read 2 byte load address
-   bytes=read(fd,buffer,2);
-   if (bytes<2) {
-     fprintf(stderr,"Failed to read load address from file '%s'\n",
-	     argv[2]);
-     exit(-1);
+   int address=0;
+   
+   if (runmode==1) {
+     // Read 2 byte load address
+     bytes=read(fd,buffer,2);
+     if (bytes<2) {
+       fprintf(stderr,"Failed to read load address from file '%s'\n",
+	       argv[2]);
+       exit(-1);
+     }
+     address=buffer[0]+256*buffer[1];
+     printf("Load address of programme is $%04x\n",address);
+   } else {
+     printf("Upgrading kickstart: load address fixed at $4000\n");
+     address=0x4000;
    }
-   int address=buffer[0]+256*buffer[1];
-   printf("Load address of programme is $%04x\n",address);
 
    while((bytes=read(fd,buffer,1024))!=0)
    {     
@@ -107,15 +135,25 @@ int main(int argc, char**argv)
      address+=bytes;
    }
 
-   if (1) {
+   if (runmode) {
      // Tell C65GS that we are all done
      int i;
+     printf("Trying to start program ...\n");
      for(i=0;i<10;i++) {
      sendto(sockfd,all_done_routine,sizeof all_done_routine,0,
 	    (struct sockaddr *)&servaddr,sizeof(servaddr));
      usleep(150);
      }
+   } else {
+     int i;
+     printf("Telling kickstart to upgrade ...\n");
+     for(i=0;i<10;i++) {
+     sendto(sockfd,kickstart_replace_routine,sizeof kickstart_replace_routine,0,
+	    (struct sockaddr *)&servaddr,sizeof(servaddr));
+     usleep(150);
+     }
    }
+     
 
    return 0;
 }
