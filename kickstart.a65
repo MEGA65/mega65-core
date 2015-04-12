@@ -336,7 +336,7 @@ kickstart_entry:
 		; display welcome screen
 		ldx #<msg_kickstart
 		ldy #>msg_kickstart
-		jsr printmessage
+		jsr printbanner
 		; leave a blank line below kickstart banner
 		ldx #<msg_blankline
 		ldy #>msg_blankline
@@ -2405,8 +2405,8 @@ pm1b:		lda #$20
 		cpy #$50
 		bne pm1b		
 
+writestring:
 		phz
-
 		ldy #$00
 		ldz #$00
 pm3:		lda (<zptempp),y
@@ -2431,6 +2431,17 @@ endofmessage:
 		plz
 		rts
 
+printbanner:
+		stx <zptempp
+		sty <zptempp+1
+		lda #<$0504
+		sta zptempp2
+		lda #>$0504
+		sta zptempp2+1
+		jsr writestring
+		dec screenrow
+		rts
+		
 printhex:	
 		; output contents of Z on last written screen line
 		tza
@@ -2817,7 +2828,7 @@ arptemplate:
 	.byte $08,$06,$00,$01,$08,$00,$06,$04,$00,$01
 
 ; messages.  All have to be 40 bytes long
-msg_kickstart:        .byte "C65GS KICKSTART V00.02 PRE-ALPHA",0
+msg_kickstart:        .byte "C65GS KICKSTART V00.03",0
 msg_romok:            .byte "ROM CHECKSUM OK - BOOTING",0
 msg_rombad:	      .byte "ROM CHECKSUM FAIL - LOADING ROM",0
 msg_charrombad:	      .byte "COULD NOT LOAD CHARROM.G65",0
