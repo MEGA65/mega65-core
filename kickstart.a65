@@ -2376,15 +2376,15 @@ pm2:		cpx #$00
 		adc #$00
 		sta <zptempp2+1
 		; if reached bottom of screen, then loop back to top of screen
-		cmp #$07
+		cmp #$0b
 		bcc pm5
 		lda <zptempp2
-		cmp #$e8
+		cmp #$d0
 		bcc pm5
 	
-		lda #$00
+		lda #$80
 		sta <zptempp2
-		lda #$04
+		lda #$06
 		sta <zptempp2+1
 pm5:		dex
 		bne pm2
