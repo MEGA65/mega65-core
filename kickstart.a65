@@ -934,7 +934,12 @@ lr11:		lda txt_bootlogo,x
 		dex
 		bpl lr11
 		jsr fs_readfileintomemory
-
+		bcs logook
+		
+		ldx #<msg_nologo
+		ldy #>msg_nologo
+		jsr printmessage
+logook:
 		; Check state of current ROM
 		jsr checkromok
 		bcc loadrom
@@ -2850,6 +2855,7 @@ msg_alreadykicked:    .byte "RUNNING KICKED HYPERVISOR",0
 msg_etherkick:	      .byte "BOOTING VIA ETHERKICK: UDP PORT 4111",0
 msg_lookingfornextsector:
 		      .byte "LOOKING FOR NEXT SECTOR OF FILE",0
+msg_nologo:	      .byte "COULD NOT LOAD BOOTLOGO.G65",0
 msg_blankline:	      .byte 0
 
 ; filename of character ROM
