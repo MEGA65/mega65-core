@@ -133,3 +133,6 @@ c65-911001-dos-context.bin:	911001.bin Makefile
 	dd if=911001.bin bs=4096 skip=12 count=1 >> c65-911001-dos-context.bin
 	dd if=/dev/zero bs=4096 count=1 >> c65-911001-dos-context.bin
 	dd if=911001.bin bs=8192 skip=15 count=1 >> c65-911001-dos-context.bin
+
+pngprepare:	pngprepare.c Makefile
+	gcc -g -Wall -o pngprepare pngprepare.c -lpng
