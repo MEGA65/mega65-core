@@ -404,12 +404,6 @@ ddop1:	lda dos_disk_table,y
 	lda [sd_sectorbuffer+$11]
 	bne partitionerror
 
-	ldx #$00
-zdfljk:	lda sd_sectorbuffer,x
-	sta $06C0,x
-	inx
-	bne zdfljk
-
 	; get # copies of fat
 	lda dos_disk_table_offset
 	ora #fs_fat32_fat_copies
