@@ -2492,6 +2492,15 @@ g61:		sta $0800,x
 		inx
 		bne g61		
 
+		; reset video mode to normal
+		lda #$00
+		sta $d054
+		lda #<40
+		sta $d040
+		lda #>40
+		sta $d041
+
+
 		jsr task_set_c64_memorymap
 		jsr task_set_pc_to_reset_vector
 
