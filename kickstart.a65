@@ -2444,7 +2444,8 @@ phd3:		lda (<zptempp2),y
 		cmp #$24
 		beq phd2
 		iny
-		cpy #$28
+		iny
+		cpy #$50
 		bne phd3
 		rts
 phd2:		txa
@@ -2454,6 +2455,7 @@ phd2:		txa
 		bcc phd1
 		sbc #$39
 phd1:		sta (<zptempp2),y
+		iny
 		iny
 		rts
 
