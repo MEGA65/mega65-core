@@ -187,8 +187,6 @@ dos_read_partitiontable:
 	sta dos_scratch_vector+1
 
 	jsr dos_consider_partition_entry
-	lda dos_error_code
-	sta $0424
 	
 	jsr dos_read_mbr
 	bcc drpt_fail
@@ -196,26 +194,17 @@ dos_read_partitiontable:
 	sta dos_scratch_vector
 	jsr dos_consider_partition_entry
 
-	lda dos_error_code
-	sta $0425
-
 	jsr dos_read_mbr
 	bcc drpt_fail
 	lda #<[sd_sectorbuffer+$1DE]
 	sta dos_scratch_vector
 	jsr dos_consider_partition_entry
 
-	lda dos_error_code
-	sta $0426
-
 	jsr dos_read_mbr
 	bcc drpt_fail
 	lda #<[sd_sectorbuffer+$1EE]
 	sta dos_scratch_vector
 	jsr dos_consider_partition_entry
-
-	lda dos_error_code
-	sta $0427
 
 	rts
 
