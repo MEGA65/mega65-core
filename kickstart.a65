@@ -377,8 +377,6 @@ gotmbr:
 		ldy #>msg_sdcardfound
 		jsr printmessage
 		; got master boot record
-		lda #$3e           ; ">" character
-		sta $07c0          ; $0400+(24*40)
 
 		jsr sd_map_sectorbuffer
 
@@ -434,8 +432,6 @@ l9:		lda part_startsector,x
 		bcc sdcarderror		
 
 		; MILESTONE: Have boot sector of file system
-		lda #$3e           ; ">" character
-		sta $07c1          ; $0400+(24*40)+1
 	
 		lda $DFFE
 		cmp #$55
@@ -749,8 +745,6 @@ nokickup:
 postkickup:
 
 		; MILESTONE: Have file system properties.
-		lda #$3e           ; ">" character
-		sta $07c2          ; $0400+(24*40)+2
 
 		; Look for C65GS.D81 to mount for F011 emulation
 		
@@ -2178,7 +2172,34 @@ resetpalette:
                 sta $D10f
                 sta $D20f
                 sta $D30f
+
+		; put a colour cube in other entries
+		ldx #$10
+paletteloop:
+		; R = upper 3 bits
+		txa
+		lsr
+		lsr
+		lsr
+		and #$0e
+		sta $d100,x
+
+		; G = next 3 bits
+		txa
+		lsr
+		and #$0e
+		sta $d200,x
 		
+		; B = lowest 2 bits
+		txa
+		asl
+		asl
+		and #$0c
+		sta $d300,x
+
+		inx
+		bne paletteloop
+
 		rts
 
 ; erase standard 40-column screen
@@ -2631,7 +2652,6 @@ k2:
 		; so no key looks for C65GS.ROM, where as 0-9 will look
 		; for C65GSx.ROM, where x is the number.
 		sta txt_c65gsrom+5
-		sta $0427
 		rts
 
 ;-----------------------------------------------------------------------------
