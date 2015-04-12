@@ -221,7 +221,8 @@ void process_file(int mode,char *outputfilename)
     if (bytes<4096) {
       fprintf(outfile,",\n");
       for(;bytes<4096;bytes+=8) {
-	fprintf(outfile,"x\"00\",x\"00\",x\"00\",x\"00\",x\"00\",x\"00\",x\"00\",x\"00\",\n");
+	fprintf(outfile,"x\"00\",x\"00\",x\"00\",x\"00\",x\"00\",x\"00\",x\"00\",x\"00\"%c\n",
+		bytes<(4096-8)?',':' ');
       }
     }
     fprintf(outfile,"%s",vhdl_suffix);
