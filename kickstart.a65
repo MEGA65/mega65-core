@@ -2237,6 +2237,53 @@ erasescreen:
 		lda #$08
 		sta screenrow
 
+		; draw 8x8 char block for logo
+		ldx #$00
+		ldy #$00
+logo1:		txa
+		sta $0400+[80*0],y
+		ora #$08
+		sta $0400+[80*1],y
+		txa
+		ora #$10
+		sta $0400+[80*2],y
+		txa
+		ora #$18
+		sta $0400+[80*3],y
+		txa
+		ora #$20
+		sta $0400+[80*4],y
+		txa
+		ora #$28
+		sta $0400+[80*5],y
+		txa
+		ora #$20
+		sta $0400+[80*6],y
+		txa
+		ora #$38
+		sta $0400+[80*7],y
+		iny
+		iny
+		inx
+		cpx #$08		
+		bne logo1
+		; then write the high bytes for these (all $01, so char range will be
+		; $100-$140. $100 x $40 = $4000-$4FFF
+		ldx #$00
+		lda #$01
+logo2:		sta $0401+[80*0],x
+		sta $0401+[80*1],x
+		sta $0401+[80*2],x
+		sta $0401+[80*3],x
+		sta $0401+[80*4],x
+		sta $0401+[80*5],x
+		sta $0401+[80*6],x
+		sta $0401+[80*7],x
+		inx
+		inx
+		cpx #$10
+		bne logo2
+
 		rts
 
 erasescreendmalist:
