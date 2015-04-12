@@ -918,6 +918,23 @@ nod81:
 		jsr printmessage
 
 findrom:
+		; Load and display boot logo
+		; Prepare 32-bit pointer for loading boot logo @ $0004000
+		lda #$00
+		sta <target_loadaddress+0
+		lda #$40
+		sta <target_loadaddress+1
+		lda #$00
+		sta <target_loadaddress+2
+		lda #$00
+		sta <target_loadaddress+3
+		ldx #$0b
+lr11:		lda txt_bootlogo,x
+		sta target_filename,x
+		dex
+		bpl lr11
+		jsr fs_readfileintomemory
+
 		; Check state of current ROM
 		jsr checkromok
 		bcc loadrom
@@ -2296,12 +2313,20 @@ erasescreendmalist:
 		.byte $00   ; screen is in bank $00
 		.word $0000 ; modulo (unused)
 		; Clear colour RAM
-		.byte $03 ; fill + chained request
+		.byte $07 ; fill + chained request
 		.word 2000 ; 40x25x2 = 2000
 		.byte $01 ; fill with white = $01
 		.byte $00,$00 ; rest of source address is ignored in fill
 		.word $d800 ; screen is at $0400
 		.byte $80   ; screen is in IO, so bank IO in to DMA context
+		.word $0000 ; modulo (unused)
+		; Clear $4000-$4FFF (for logo display) 
+		.byte $03 ; fill + last request
+		.word $1000 ; 64x64 = $1000
+		.byte $00 ; fill with black = $00
+		.byte $00,$00 ; rest of source address is ignored in fill
+		.word $4000 ; logo sits at $4000
+		.byte $00   ; ... in bottom half of chipram, so bank $00
 		.word $0000 ; modulo (unused)
 
 copydiskchooserdmalist:
@@ -2824,6 +2849,8 @@ txt_c65gsrom:	      .byte "C65GS   ROM"
 txt_c65gsd81:	      .byte "C65GS   D81"
 ; filename of kickstart update file
 txt_kickupfile:	      .byte "KICKUP  G65"
+; filename containing boot logo
+txt_bootlogo:	      .byte "BOOTLOGOG65"
 
 diskchooserstart:
 	.incbin "diskchooser"
