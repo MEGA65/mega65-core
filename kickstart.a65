@@ -2044,6 +2044,17 @@ resetdisplay:
 		lda #$ff
 		sta $DD01
 		sta $DD00
+
+		; Now switch to 16-bit text mode so that we can use proportional
+		; characters and full-colour characters for chars >$FF for the logo
+		lda #$05
+		sta $d054
+		; and 80 bytes (40 16-bit characters) per row.
+		lda #<80
+		sta $d040
+		lda #>80
+		sta $d041
+		
 		rts
 
 resetpalette:
@@ -2270,27 +2281,41 @@ pm5:		dex
 		bne pm2
 pm1:
 
-		; Clear line
-		ldy #$4f
+		; Clear line (16-bit chars, so write #$0020 to each word
+		ldy #$00
+pm1b:		lda #$20
+		sta (<zptempp2),y
+		iny
 		lda #$00
-pm1b:		sta (<zptempp2),y
-		dey
-		bpl pm1b		
+		sta (<zptempp2),y		
+		iny
+		cpy #$50
+		bne pm1b		
+
+		phz
 
 		ldy #$00
+		ldz #$00
 pm3:		lda (<zptempp),y
+		beq endofmessage
 		; convert ASCII/PETSCII to screen codes
 		cmp #$40
 		bcc pm4
 		and #$1f
-pm4:		sta (<zptempp2),y
+pm4:		; write 16-bit character code
+		sta (<zptempp2),z
+		inz
+		pha
+		lda #$00
+		sta (<zptempp2),z
+		pla
 		iny
-		; Treat messages as null terminated
-		cmp #$00
+		inz
 		bne pm3
-
+endofmessage:
 		inc screenrow
 
+		plz
 		rts
 
 printhex:	
