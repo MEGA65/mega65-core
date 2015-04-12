@@ -480,7 +480,7 @@ ddop11ok:
 	; Start with fs_fat32_system_sectors (which is 16 bits)
 	lda dos_disk_table_offset
 	ora #fs_fat32_system_sectors
-	tay
+	tay	
 	lda dos_disk_table_offset
 	ora #fs_fat32_cluster0_sector
 	tax

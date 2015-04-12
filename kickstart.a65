@@ -2187,7 +2187,8 @@ erasescreen:
 		trb $D030
 
 		; move cursor back to top of the screen
-		lda #$00
+		; (but leave 8 rows for logo and banner text)
+		lda #$08
 		sta screenrow
 
 		rts
@@ -2235,6 +2236,15 @@ printmessage:
 		lda #$04
 		sta <zptempp2+1
 		ldx screenrow
+
+		; if we have reached the bottom of the screen, start writing again
+		; from the top of the screen (but don't touch the top 8 rows for
+		; logo and banner)
+		cpx #[25-8]
+		bne pm2
+		ldx #$08
+		stx screenrow
+		
 pm2:		cpx #$00
 		beq pm1
 		clc
@@ -2649,7 +2659,7 @@ arptemplate:
 	.byte $08,$06,$00,$01,$08,$00,$06,$04,$00,$01
 
 ; messages.  All have to be 40 bytes long
-msg_kickstart:        .byte "C65GS KICKSTART V00.01 PRE-ALPHA        "
+msg_kickstart:        .byte "C65GS KICKSTART V00.02 PRE-ALPHA        "
 msg_romok:            .byte "ROM CHECKSUM OK - BOOTING               "
 msg_rombad:	      .byte "ROM CHECKSUM FAIL - LOADING ROM         "
 msg_charrombad:	      .byte "COULD NOT LOAD CHARROM.G65              "
