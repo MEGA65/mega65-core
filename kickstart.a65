@@ -2166,11 +2166,44 @@ erasescreen:
 		tsb $D030
 
 		; use DMA to clear screen and colour RAM
-
+		; The screen is in 16-bit bit mode, so we actually need to fill
+		; with $20,$00, ...
+		; We will cheat by setting the first four bytes, and then copying from
+		; there, and it will then read from the freshly written bytes.
+		; (two bytes might not be enough to allow the write from the last DMA
+		;  action to be avaialble for reading because of how the DMAgic is
+		;  pipelined).
+		lda #$20
+		sta $0400
+		sta $0402
+		lda #$00
+		sta $0401
+		sta $0403
+		
 		; Set bottom 22 bits of DMA list address as for C65
 		; (8MB address range)
 		lda #$ff
 		sta $d702
+		; Kickstart ROM is at $FFFE000 - $FFFFFFF, so
+		; we need to tell DMAgic that DMA list is in $FFxxxxx.
+		; this has to be done AFTER writing to $d702, as $d702
+		; clears bits 27 - 22 of the DMA list address to help with
+		; compatibility.
+		lda #$ff
+		sta $d704
+		; copy from MB $00 for screen clearing
+		lda #$00
+		sta $d705
+		; destination MB is $00, since we are writing to C64 RAM space.
+		lda #$00
+		sta $d706
+
+		lda #>erasescreendmalist
+		sta $d701
+		; set bottom 8 bits of address and trigger DMA.
+		lda #<erasescreendmalist
+		sta $d700
+
 		; Kickstart ROM is at $FFFE000 - $FFFFFFF, so
 		; we need to tell DMAgic that DMA list is in $FFxxxxx.
 		; this has to be done AFTER writing to $d702, as $d702
@@ -2185,10 +2218,10 @@ erasescreen:
 		lda #$00
 		sta $d706
 
-		lda #>erasescreendmalist
+		lda #>copydiskchooserdmalist
 		sta $d701
 		; set bottom 8 bits of address and trigger DMA.
-		lda #<erasescreendmalist
+		lda #<copydiskchooserdmalist
 		sta $d700
 
 		; clear source/destination MB so that C65 ROM doesn't go bananas
@@ -2208,21 +2241,23 @@ erasescreen:
 
 erasescreendmalist:
 		; Clear screen RAM
-		.byte $07 ; fill + chained request
-		.word 1000 ; 40x25 = 1000
-		.byte $20 ; fill with space = $20
-		.byte $00,$00 ; rest of source address is ignored in fill
-		.word $0400 ; screen is at $0400
+		.byte $04 ; COPY + chained request
+		.word 1996 ; 40x25x2-4 = 1996
+		.word $0400 ; copy from start of screen at $0400
+		.byte $00 ; source bank 00
+		.word $0404 ; ... to screen at $0402
 		.byte $00   ; screen is in bank $00
 		.word $0000 ; modulo (unused)
 		; Clear colour RAM
-		.byte $07 ; fill + chained request
-		.word 2000 ; 80x25 = 2000
+		.byte $03 ; fill + chained request
+		.word 2000 ; 40x25x2 = 2000
 		.byte $01 ; fill with white = $01
 		.byte $00,$00 ; rest of source address is ignored in fill
 		.word $d800 ; screen is at $0400
 		.byte $80   ; screen is in IO, so bank IO in to DMA context
 		.word $0000 ; modulo (unused)
+
+copydiskchooserdmalist:
 		; also copy diskchooser from $FFFE000-$FFFEFFF to $000C000-$000CFFF
 		.byte $00 ; copy + last request in chain
 		.word $1000
