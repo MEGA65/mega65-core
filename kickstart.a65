@@ -2300,7 +2300,7 @@ logo1:		txa
 		ora #$28
 		sta $0400+[80*5],y
 		txa
-		ora #$20
+		ora #$30
 		sta $0400+[80*6],y
 		txa
 		ora #$38
