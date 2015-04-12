@@ -194,6 +194,7 @@ void process_file(int mode,char *outputfilename)
 
   if (mode==1) {
     // charrom mode
+    int bytes=0;
     FILE *outfile=fopen(outputfilename,"w");
     fprintf(outfile,"%s",vhdl_prefix);
     if (width!=8) {
@@ -213,7 +214,15 @@ void process_file(int mode,char *outputfilename)
       char comma = ',';
       if (y==height-1) comma=' ';
       fprintf(outfile,"x\"%02x\"%c",byte,comma);
+      bytes++;
       if ((y&7)==7) fprintf(outfile,"\n");
+    }
+    // Fill in any missing bytes
+    if (bytes<4096) {
+      fprintf(outfile,",\n");
+      for(;bytes<4096;bytes+=8) {
+	fprintf(outfile,"x\"00\",x\"00\",x\"00\",x\"00\",x\"00\",x\"00\",x\"00\",x\"00\",\n");
+      }
     }
     fprintf(outfile,"%s",vhdl_suffix);
     fclose(outfile);
