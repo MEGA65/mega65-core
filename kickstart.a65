@@ -618,12 +618,6 @@ lr11:		lda txt_bootlogo,x
 		ldy #>msg_nologo
 		jsr printmessage
 logook:
-
-
-		jsr fs_cd_rootdir
-		jsr fs_opendir
-		bcc sdcarderror
-
 		; iterate through directory entries looking for ordinary file 
 		; KICKUP.G65 to load into hypervisor memory ...
 		; ... but only if we are not running a kick-up'd kickstart now.
@@ -637,62 +631,22 @@ logook:
 		jmp postkickup
 
 nextdirectoryentry3:
-		jsr fs_readdir
-		bcc nokickup
-
-		ldx #$00
-ku1:		lda fs_direntry,x
-		jsr toupper
-		cmp txt_kickupfile,x
-		bne nextdirectoryentry3
-		inx
-		cpx #$0b
-		bne ku1
-
-		; this is the entry
-		ldx #<msg_foundkickup
-		ldy #>msg_foundkickup
-		jsr printmessage
-
-		; Load kickup file into fast/chip RAM, and then copy it
-		; overthe top of ourselves, and set the kicked-up flag
-
-		; Set 32-bit memory pointer to $00004000
+		; Prepare 32-bit pointer for loading boot logo @ $0004000
 		lda #$00
-		sta <zptempv32+0		
-		sta <zptempv32+2
-		sta <zptempv32+3
+		sta <target_loadaddress+0
 		lda #$40
-		sta <zptempv32+1
-
-		jsr fs_setfile
-		jsr fs_clustertosector
-		jsr fs_openfile
-		bcc couldntopenkickup
-		
-havekickupsector:
-		; We now have the a sector
-
-		; copy sector to memory
-		ldy #$00
-		ldz #$00
-ku2:		lda $de00,y
-		nop ; trigger 32-bit pointer for indirect store		
-		sta (<zptempv32),z
-		inz
-		iny
-		bne ku2
-		inw [<zptempv32+1]
-ku3:		lda $df00,y
-		nop ; trigger 32-bit pointer for indirect store
-		sta (<zptempv32),z
-		inz
-		iny
-		bne ku3
-		inw [<zptempv32+1]
-		
-		jsr fs_readnextsector
-		bcs havekickupsector
+		sta <target_loadaddress+1
+		lda #$00
+		sta <target_loadaddress+2
+		lda #$00
+		sta <target_loadaddress+3
+		ldx #$0b
+lr12:		lda txt_kickupfile,x
+		sta target_filename,x
+		dex
+		bpl lr12
+		jsr fs_readfileintomemory
+		bcc nokickup
 
 		; We have loaded kickup file, so jump into it.
 
