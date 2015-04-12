@@ -338,7 +338,9 @@ kickstart_entry:
 		ldy #>msg_kickstart
 		jsr printmessage
 		; leave a blank line below kickstart banner
-		inc screenrow		
+		ldx #<msg_blankline
+		ldy #>msg_blankline
+		jsr printmessage
 
 		; check keyboard for 0-9 down to select alternate rom
 		jsr keyboardread
@@ -2730,6 +2732,7 @@ msg_alreadykicked:    .byte "RUNNING KICKED HYPERVISOR",0
 msg_etherkick:	      .byte "BOOTING VIA ETHERKICK: UDP PORT 4111",0
 msg_lookingfornextsector:
 		      .byte "LOOKING FOR NEXT SECTOR OF FILE",0
+msg_blankline:	      .byte 0
 
 ; filename of character ROM
 txt_c65gscharrom:     .byte "CHARROM G65"
