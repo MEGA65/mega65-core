@@ -2283,6 +2283,28 @@ logo2:		sta $0401+[80*0],x
 		cpx #$10
 		bne logo2
 
+		; finally work around the VIC-IV bug where the first normal character
+		; following a full-colour character gets skipped by inserting early
+		; end of line terminator markers on the lines. Without this, the first
+		; character of the next line would show
+		lda #$ff
+		sta $044e
+		sta $044f
+		sta $049e
+		sta $049f
+		sta $04ee
+		sta $04ef
+		sta $053e
+		sta $053f
+		sta $058e
+		sta $058f
+		sta $05de
+		sta $05df
+		sta $062e
+		sta $062f
+		sta $067e
+		sta $067f
+
 		rts
 
 erasescreendmalist:
