@@ -16,6 +16,59 @@
 #define PNG_DEBUG 3
 #include <png.h>
 
+char *vhdl_prefix="library IEEE;\n"
+  "use IEEE.STD_LOGIC_1164.ALL;\n"
+  "use ieee.numeric_std.all;\n"
+  "use work.debugtools.all;\n"
+  "\n"
+  "--\n"
+  "entity charrom is\n"
+  "port (Clk : in std_logic;\n"
+  "        address : in integer range 0 to 4095;\n"
+  "        -- chip select, active low       \n"
+  "        cs : in std_logic;\n"
+  "        data_o : out std_logic_vector(7 downto 0);\n"
+  "\n"
+  "        writeclk : in std_logic;\n"
+  "        -- Yes, we do have a write enable, because we allow modification of ROMs\n"
+  "        -- in the running machine, unless purposely disabled.  This gives us\n"
+  "        -- something like the WOM that the Amiga had.\n"
+  "        writecs : in std_logic;\n"
+  "        we : in std_logic;\n"
+  "        writeaddress : in unsigned(11 downto 0);\n"
+  "        data_i : in std_logic_vector(7 downto 0)\n"
+  "      );\n"
+  "end charrom;\n"
+  "\n"
+  "architecture Behavioral of charrom is\n"
+  "\n"
+  "-- 4K x 8bit pre-initialised RAM for character ROM\n"
+  "\n"
+  "type ram_t is array (0 to 4095) of std_logic_vector(7 downto 0);\n"
+  "signal ram : ram_t := (\n"
+  "\n";
+char *vhdl_suffix=
+  ");\n"
+  "\n"
+  "begin\n"
+  "\n"
+  "--process for read and write operation.\n"
+  "PROCESS(Clk)\n"
+  "BEGIN\n"
+  "  data_o <= ram(address);          \n"
+  "\n"
+  "  if(rising_edge(writeClk)) then \n"
+  "    if writecs='1' then\n"
+  "      if(we='1') then\n"
+  "        ram(to_integer(writeaddress)) <= data_i;\n"
+  "      end if;\n"
+  "    end if;\n"
+  "  end if;\n"
+  "END PROCESS;\n"
+  "\n"
+  "end Behavioral;\n";
+
+
 void abort_(const char * s, ...)
 {
   va_list args;
@@ -66,6 +119,9 @@ void read_png_file(char* file_name)
   png_init_io(png_ptr, fp);
   png_set_sig_bytes(png_ptr, 8);
 
+  // Convert palette to RGB values
+  png_set_expand(png_ptr);
+
   png_read_info(png_ptr, info_ptr);
 
   width = png_get_image_width(png_ptr, info_ptr);
@@ -75,7 +131,6 @@ void read_png_file(char* file_name)
 
   number_of_passes = png_set_interlace_handling(png_ptr);
   png_read_update_info(png_ptr, info_ptr);
-
 
   /* read file */
   if (setjmp(png_jmpbuf(png_ptr)))
@@ -92,13 +147,16 @@ void read_png_file(char* file_name)
 
 void process_file(int mode,char *outputfilename)
 {
+  int multiplier=-1;
   if (png_get_color_type(png_ptr, info_ptr) == PNG_COLOR_TYPE_RGB)
-    abort_("[process_file] input file is PNG_COLOR_TYPE_RGB but must be PNG_COLOR_TYPE_RGBA "
-	   "(lacks the alpha channel)");
+    multiplier=3;
+    
+  if (png_get_color_type(png_ptr, info_ptr) == PNG_COLOR_TYPE_RGBA)
+    multiplier=4;
 
-  if (png_get_color_type(png_ptr, info_ptr) != PNG_COLOR_TYPE_RGBA)
-    abort_("[process_file] color_type of input file must be PNG_COLOR_TYPE_RGBA (%d) (is %d)",
-	   PNG_COLOR_TYPE_RGBA, png_get_color_type(png_ptr, info_ptr));
+  if (multiplier==-1) {
+    fprintf(stderr,"Could not convert file to RGB or RGBA\n");
+  }
 
   if (mode==0) {
     // Logo mode
@@ -109,7 +167,7 @@ void process_file(int mode,char *outputfilename)
     for (y=0; y<height; y++) {
       png_byte* row = row_pointers[y];
       for (x=0; x<width; x++) {
-	png_byte* ptr = &(row[x*4]);
+	png_byte* ptr = &(row[x*multiplier]);
 	int r=ptr[0],g=ptr[1],b=ptr[2]; // a=ptr[3];
 
 	// Compute colour cube colour
@@ -133,20 +191,54 @@ void process_file(int mode,char *outputfilename)
     }
     fclose(outfile);
   }
+
+  if (mode==1) {
+    // charrom mode
+    FILE *outfile=fopen(outputfilename,"w");
+    fprintf(outfile,"%s",vhdl_prefix);
+    if (width!=8) {
+      fprintf(stderr,"Fonts must be 8 pixels wide\n");
+    }
+    for (y=0; y<height; y++) {
+      png_byte* row = row_pointers[y];
+      int byte=0;
+      
+      for (x=0; x<width; x++) {
+	png_byte* ptr = &(row[x*4]);
+	int r=ptr[0]; // g=ptr[1],b=ptr[2], a=ptr[3];
+
+	if (r>0x7f) byte|=(1<<x);
+	
+      }
+      char comma = ',';
+      if (y==height-1) comma=' ';
+      fprintf(outfile,"x\"%02x\"%c",byte,comma);
+      if ((y&7)==7) fprintf(outfile,"\n");
+    }
+    fprintf(outfile,"%s",vhdl_suffix);
+    fclose(outfile);
+  }
+
 }
 
 
 int main(int argc, char **argv)
 {
-  if (argc != 3) {
-    fprintf(stderr,"Usage: program_name <file_in> <file_out>\n");
+  if (argc != 4) {
+    fprintf(stderr,"Usage: program_name <logo|charrom> <file_in> <file_out>\n");
     exit(-1);
   }
 
-  int mode=0;
-	
-  read_png_file(argv[1]);
-  process_file(mode,argv[2]);
+  int mode=-1;
+
+  if (!strcasecmp("logo",argv[1])) mode=0;
+  if (!strcasecmp("charrom",argv[1])) mode=1;
+  if (mode==-1) {
+    fprintf(stderr,"Usage: program_name <logo|charrom> <file_in> <file_out>\n");
+    exit(-1);
+  }
+  read_png_file(argv[2]);
+  process_file(mode,argv[3]);
 
   return 0;
 }

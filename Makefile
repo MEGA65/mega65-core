@@ -136,3 +136,6 @@ c65-911001-dos-context.bin:	911001.bin Makefile
 
 pngprepare:	pngprepare.c Makefile
 	gcc -g -Wall -o pngprepare pngprepare.c -lpng
+
+charrom.vhdl:	pngprepare 8x8font.png
+	./pngprepare charrom 8x8font.png charrom.vhdl
