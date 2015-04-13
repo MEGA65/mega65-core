@@ -229,6 +229,85 @@ void process_file(int mode,char *outputfilename)
     fclose(outfile);
   }
 
+  if (mode==2) {
+    // hi-res image preparation mode
+    int bytes=0;
+    if (width%8||height%8) {
+      fprintf(stderr,"Image must be multiple of 8 pixels wide and high\n");
+    }
+    int problems=0;
+    int total=0;
+    int threes=0;
+    int fours=0;
+    int ones=0;
+
+    int tiles[8000][8][8];
+    int tile_count=0;
+
+    int this_tile[8][8];
+    
+    for (y=0; y<height; y+=8) {
+      for (x=0; x<width; x+=8) {
+	int yy,xx;
+	int i;
+	int colour_count=0;
+	int colours[64];
+
+	printf("[%d,%d]\n",x,y);
+	
+	total++;
+	
+	for(yy=y;yy<y+8;yy++) {
+	  png_byte* row = row_pointers[yy];
+	  for(xx=x;xx<x+8;xx++) {
+	    png_byte* ptr = &(row[xx*multiplier]);
+	    int r=ptr[0], g=ptr[1],b=ptr[2], a=ptr[3];
+	    int c=r+256*g+65536*b;
+	    this_tile[yy-y][xx-x]=c;
+	    for(i=0;i<colour_count;i++) if (c==colours[i]) break;
+	    if (i==colour_count) {
+	      colours[colour_count++]=c;
+	    }
+	  }
+	}
+
+	for(i=0;i<tile_count;i++) {
+	  int dud=0;
+	  int xx,yy;
+	  for(xx=0;xx<8;xx++)
+	    for(yy=0;yy<8;yy++) {
+	      if (this_tile[yy][xx]!=tiles[i][yy][xx]) dud=1;
+	    }
+	  if (!dud) break;
+	}
+	if (i==tile_count) {
+	  int xx,yy;
+	  for(xx=0;xx<8;xx++)
+	    for(yy=0;yy<8;yy++) {
+	      tiles[tile_count][yy][xx]=this_tile[yy][xx];
+	    }
+	  printf(".[%d]",tile_count); fflush(stdout);
+	  tile_count++;
+	  if (tile_count>=8000) {
+	    fprintf(stderr,"Too many tiles\n");
+	    exit(-1);
+	  }
+	}
+	
+	if (colour_count==1) ones++;
+	if (colour_count==3) threes++;
+	if (colour_count==4) fours++;
+	if (colour_count>2) {
+	  printf("%d colours in card\n",colour_count);
+	  problems++;
+	}
+      }
+    }
+    printf("%d problem tiles out of %d total tiles\n",problems,total);
+    printf("%d with 3, %d with 4, %d with only one colour\n",threes,fours,ones);
+    printf("%d unique tiles\n",tile_count);
+  }
+      
 }
 
 
@@ -243,6 +322,7 @@ int main(int argc, char **argv)
 
   if (!strcasecmp("logo",argv[1])) mode=0;
   if (!strcasecmp("charrom",argv[1])) mode=1;
+  if (!strcasecmp("hires",argv[1])) mode=2;
   if (mode==-1) {
     fprintf(stderr,"Usage: program_name <logo|charrom> <file_in> <file_out>\n");
     exit(-1);
