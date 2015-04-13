@@ -200,22 +200,44 @@ void process_file(int mode,char *outputfilename)
     if (width!=8) {
       fprintf(stderr,"Fonts must be 8 pixels wide\n");
     }
+
+    int spots[8][8];
+
     for (y=0; y<height; y++) {
       png_byte* row = row_pointers[y];
       int byte=0;
       
+      int yy=y&7;
       for (x=0; x<width; x++) {
-	png_byte* ptr = &(row[x*4]);
+	png_byte* ptr = &(row[x*multiplier]);
 	int r=ptr[0]; // g=ptr[1],b=ptr[2], a=ptr[3];
 
-	if (r>0x7f) byte|=(1<<(7-x));
+	int xx=x&7;
+
+	if (x<8) {
+	  if (r>0x7f) {
+	    byte|=(1<<(7-x));
+	    spots[yy][x]=1;
+	  } else spots[yy][x]=0;
+	}
 	
       }
+      fflush(stdout);
       char comma = ',';
       if (y==height-1) comma=' ';
       fprintf(outfile,"x\"%02x\"%c",byte,comma);
       bytes++;
-      if ((y&7)==7) fprintf(outfile,"\n");
+      if ((y&7)==7) {
+	fprintf(outfile,"\n");
+	int yy;
+	for(yy=0;yy<8;yy++) {
+	  fprintf(outfile,"-- [");
+	  for(x=0;x<8;x++) {
+	    if (spots[yy][x]) fprintf(outfile,"*"); else fprintf(outfile," ");	    
+	  }
+	  fprintf(outfile,"]\n");
+	}
+      }
     }
     // Fill in any missing bytes
     if (bytes<4096) {
