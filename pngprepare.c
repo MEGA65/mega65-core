@@ -212,8 +212,6 @@ void process_file(int mode,char *outputfilename)
 	png_byte* ptr = &(row[x*multiplier]);
 	int r=ptr[0]; // g=ptr[1],b=ptr[2], a=ptr[3];
 
-	int xx=x&7;
-
 	if (x<8) {
 	  if (r>0x7f) {
 	    byte|=(1<<(7-x));
@@ -253,7 +251,7 @@ void process_file(int mode,char *outputfilename)
 
   if (mode==2) {
     // hi-res image preparation mode
-    int bytes=0;
+    // int bytes=0;
     if (width%8||height%8) {
       fprintf(stderr,"Image must be multiple of 8 pixels wide and high\n");
     }
@@ -283,7 +281,7 @@ void process_file(int mode,char *outputfilename)
 	  png_byte* row = row_pointers[yy];
 	  for(xx=x;xx<x+8;xx++) {
 	    png_byte* ptr = &(row[xx*multiplier]);
-	    int r=ptr[0], g=ptr[1],b=ptr[2], a=ptr[3];
+	    int r=ptr[0], g=ptr[1],b=ptr[2]; // , a=ptr[3];
 	    int c=r+256*g+65536*b;
 	    this_tile[yy-y][xx-x]=c;
 	    for(i=0;i<colour_count;i++) if (c==colours[i]) break;
