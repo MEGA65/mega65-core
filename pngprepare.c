@@ -208,7 +208,7 @@ void process_file(int mode,char *outputfilename)
 	png_byte* ptr = &(row[x*4]);
 	int r=ptr[0]; // g=ptr[1],b=ptr[2], a=ptr[3];
 
-	if (r>0x7f) byte|=(1<<x);
+	if (r>0x7f) byte|=(1<<(7-x));
 	
       }
       char comma = ',';
