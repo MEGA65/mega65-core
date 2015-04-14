@@ -2861,7 +2861,7 @@ msg_foundkickup:      .byte "LOADING KICKUP.G65 INTO HYPERVISOR",0
 msg_nokickup:         .byte "NO KICKUP.G65 TO LOAD (OR BROKEN)",0
 msg_kickuploaded:     .byte "KICKUP LOADED TO 00004000 - $$$$$$$$",0
 msg_alreadykicked:    .byte "RUNNING KICKED HYPERVISOR",0
-msg_etherkick:	      .byte "BOOTING VIA ETHERKICK: UDP PORT 4111",0
+msg_etherkick:	      .byte "BOOTING VIA ETHERKICK: UDP PORT 4511",0
 msg_lookingfornextsector:
 		      .byte "LOOKING FOR NEXT SECTOR OF FILE",0
 msg_nologo:	      .byte "COULD NOT LOAD BOOTLOGO.G65",0
