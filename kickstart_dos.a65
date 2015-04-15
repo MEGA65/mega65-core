@@ -234,10 +234,6 @@ dos_read_partitiontable:
 	ldy #$00
 	ldz [dos_disk_table+fs_fat32_sectors_per_cluster]
 	jsr printhex
-	ldz #$00
-	jsr printhex
-	ldz #$00
-	jsr printhex
 	ldz [dos_disk_table+fs_fat32_system_sectors+1]
 	jsr printhex
 	ldz [dos_disk_table+fs_fat32_system_sectors+0]
@@ -585,18 +581,11 @@ ddop12:	plp
 	; This is the total number of sectors in the partition, minus the number of
 	; reserved sectors.
 
-	lda dos_disk_table_offset
-	ora #fs_fat32_cluster0_sector
-	tax
-	lda dos_disk_table_offset
-	ora #fs_fat32_cluster_count
-	tay
-
-	; Subtract (reserved sectors = 16 bits) from
+	; Subtract (cluster 0 sector = 32 bits) from
 	; (length of filesystem in sectors = 32 bits)
 
 	lda dos_disk_table_offset
-	ora #fs_fat32_system_sectors
+	ora #fs_fat32_cluster0_sector
 	tax
 	lda dos_disk_table_offset
 	ora #fs_fat32_cluster_count
@@ -605,15 +594,19 @@ ddop12:	plp
 	lda [sd_sectorbuffer+$20+0]
 	sbc [dos_disk_table+0],x
 	sta [dos_disk_table+0],y
+	sta $2000
 	lda [sd_sectorbuffer+$20+1]
 	sbc [dos_disk_table+1],x
 	sta [dos_disk_table+1],y
+	sta $2001
 	lda [sd_sectorbuffer+$20+2]
-	sbc #$00
+	sbc [dos_disk_table+2],x
 	sta [dos_disk_table+2],y
+	sta $2002
 	lda [sd_sectorbuffer+$20+3]
-	sbc #$00
+	sbc [dos_disk_table+3],x
 	sta [dos_disk_table+3],y
+	sta $2003
 	
 
 	; Get sectors per cluster (and store in dos_disk_table entry)
