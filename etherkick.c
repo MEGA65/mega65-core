@@ -96,6 +96,12 @@ int main(int argc, char**argv)
    servaddr.sin_port=htons(4511);
 
    int fd=open(argv[3],O_RDWR);
+
+   if (fd<0) {
+     fprintf(stderr,"Could not open file '%s'\n",argv[3]);
+     exit(-1);
+   }
+   
    unsigned char buffer[1024];
    int offset=0;
    int bytes;
