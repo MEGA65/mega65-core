@@ -185,7 +185,6 @@ dos_read_partitiontable:
 	sta dos_scratch_vector
 	lda #>[sd_sectorbuffer+$1BE]
 	sta dos_scratch_vector+1
-
 	jsr dos_consider_partition_entry
 	
 	jsr dos_read_mbr
@@ -205,6 +204,83 @@ dos_read_partitiontable:
 	lda #<[sd_sectorbuffer+$1EE]
 	sta dos_scratch_vector
 	jsr dos_consider_partition_entry
+
+	ldx #<msg_partitiondetails
+	ldy #>msg_partitiondetails
+	jsr printmessage
+	ldy #$00
+	ldz [dos_disk_table+fs_type_and_source]
+	jsr printhex
+	ldz [dos_disk_table+fs_start_sector+3]
+	jsr printhex
+	ldz [dos_disk_table+fs_start_sector+2]
+	jsr printhex
+	ldz [dos_disk_table+fs_start_sector+1]
+	jsr printhex
+	ldz [dos_disk_table+fs_start_sector+0]
+	jsr printhex
+	ldz [dos_disk_table+fs_sector_count+3]
+	jsr printhex
+	ldz [dos_disk_table+fs_sector_count+2]
+	jsr printhex
+	ldz [dos_disk_table+fs_sector_count+1]
+	jsr printhex
+	ldz [dos_disk_table+fs_sector_count+0]
+	jsr printhex
+
+	ldx #<msg_fsdetails
+	ldy #>msg_fsdetails
+	jsr printmessage
+	ldy #$00
+	ldz [dos_disk_table+fs_fat32_sectors_per_cluster]
+	jsr printhex
+	ldz #$00
+	jsr printhex
+	ldz #$00
+	jsr printhex
+	ldz [dos_disk_table+fs_fat32_system_sectors+1]
+	jsr printhex
+	ldz [dos_disk_table+fs_fat32_system_sectors+0]
+	jsr printhex
+	ldz #$00
+	jsr printhex
+	ldz #$00
+	jsr printhex
+	ldz #$00
+	jsr printhex
+	ldz [dos_disk_table+fs_fat32_root_dir_cluster+0]
+	jsr printhex
+
+	ldx #<msg_reservedsectors
+	ldy #>msg_reservedsectors
+	jsr printmessage
+	ldy #$00
+	ldz [dos_disk_table+fs_fat32_cluster0_sector+3]
+	jsr printhex
+	ldz [dos_disk_table+fs_fat32_cluster0_sector+2]
+	jsr printhex
+	ldz [dos_disk_table+fs_fat32_cluster0_sector+1]
+	jsr printhex
+	ldz [dos_disk_table+fs_fat32_cluster0_sector+0]
+	jsr printhex
+
+	ldz #$FF
+	jsr printhex
+	ldz #$FF
+	jsr printhex
+	ldz #$FF
+	jsr printhex
+	ldz #$FF
+	jsr printhex
+
+	ldz [dos_disk_table+fs_fat32_cluster_count+3]
+	jsr printhex
+	ldz [dos_disk_table+fs_fat32_cluster_count+2]
+	jsr printhex
+	ldz [dos_disk_table+fs_fat32_cluster_count+1]
+	jsr printhex
+	ldz [dos_disk_table+fs_fat32_cluster_count+0]
+	jsr printhex
 
 	rts
 
