@@ -41,6 +41,7 @@ entity gs4510 is
     reset : in std_logic;
     irq : in std_logic;
     nmi : in std_logic;
+    hyper_trap : in std_logic;
 
     cpu_hypervisor_mode : out std_logic;
     iomode_set : out std_logic_vector(1 downto 0) := "11";
@@ -2887,6 +2888,11 @@ begin
                 -- Make sure reg_instruction /= I_BRK, so that B flag is not
                 -- erroneously set.
                 reg_instruction <= I_SEI;
+              elsif (hyper_trap = '0' and hypervisor_mode='0') then
+                -- Trap to hypervisor
+                state <= TrapToHypervisor;
+                -- Trap #66 ($42) = RESTORE key double-tap
+                hypervisor_trap_port <= "1000010";                     
               else
                 -- Normal instruction execution
                 state <= InstructionDecode;

@@ -207,12 +207,12 @@ trap_entry_points:
 	nop
 	jmp nosuchtrap
 	nop
-	; Traps $40-$4F (reset, page fault and other system-only traps)
-	jmp reset_entry  ; Trap #$40
+	; Traps $40-$4F (reset, page fault and other system-generated traps)
+	jmp reset_entry  ; Trap #$40 (power on / reset)
 	nop
-	jmp page_fault   ; Trap #$41
+	jmp page_fault   ; Trap #$41 (page fault)
 	nop
-	jmp nosuchtrap
+	jmp nosuchtrap   ; Trap #$42 (double-tap RESTORE key)
 	nop
 	jmp nosuchtrap
 	nop

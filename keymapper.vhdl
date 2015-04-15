@@ -13,6 +13,7 @@ entity keymapper is
 
     nmi : out std_logic := 'Z';
     reset : out std_logic := 'Z';
+    hyper_trap : out std_logic := 'Z';
     
     -- PS2 keyboard interface
     ps2clock  : in  std_logic;
@@ -65,6 +66,7 @@ architecture behavioural of keymapper is
   signal restore_state : std_logic := '1';
   signal restore_event : std_logic := '0';
   signal restore_down_ticks : unsigned(7 downto 0) := (others => '0');  
+  signal restore_up_ticks : unsigned(7 downto 0) := (others => '0');  
   signal fiftyhz_counter : unsigned(7 downto 0) := (others => '0');
 
   signal eth_keycode_toggle_last : std_logic := '0';
@@ -98,7 +100,18 @@ begin  -- behavioural
         if fiftyhz_counter = 200 then
           fiftyhz_counter <= (others => '0');
           if restore_state='0' then
-            restore_down_ticks <= restore_down_ticks + 1;
+            if restore_down_ticks /= x"ff" then
+              restore_down_ticks <= restore_down_ticks + 1;
+            end if;
+            restore_up_ticks <= (others => '0');
+            if (restore_up_ticks>=1 and restore_up_ticks<8) then
+              -- Trap to hypervisor when restore is double-tapped
+              -- with the second tap occurring after not more than 12/50ths
+              -- (~240ms)
+              hyper_trap <= '0';
+            else
+              hyper_trap <= 'Z';
+            end if;
           else
             -- If restore key is not down, reset count of how long it has been
             -- down, and release NMI and reset lines in case we were asserting
@@ -109,8 +122,12 @@ begin  -- behavioural
             -- this should be extremely rare.  We have solved this by resetting
             -- fifyhz_counter when the reset key is released.
             restore_down_ticks <= (others => '0');
+            if restore_up_ticks /= x"ff" then
+              restore_up_ticks <= restore_up_ticks + 1;
+            end if;
             nmi <= 'Z';
             reset <= 'Z';
+            hyper_trap <= 'Z';
           end if;
         end if;
       end if;

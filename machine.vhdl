@@ -236,6 +236,7 @@ architecture Behavioral of machine is
       reset : in std_logic;
       irq : in std_logic;
       nmi : in std_logic;
+      hyper_trap : in std_logic;
       cpu_hypervisor_mode : out std_logic;
 
       no_kickstart : in std_logic;
@@ -436,6 +437,7 @@ architecture Behavioral of machine is
           reset_out : out std_logic;
           irq : out std_logic;
           nmi : out std_logic;
+          hyper_trap : out std_logic;
           restore_nmi : out std_logic;
           address : in std_logic_vector(19 downto 0);
           r : in std_logic;
@@ -559,6 +561,7 @@ architecture Behavioral of machine is
   signal combinedirq : std_logic;
   signal combinednmi : std_logic;
   signal restore_nmi : std_logic;
+  signal hyper_trap : std_logic;
 
   signal fastio_addr : std_logic_vector(19 downto 0);
   signal fastio_read : std_logic;
@@ -775,6 +778,7 @@ begin
     reset =>reset_combined,
     irq => combinedirq,
     nmi => combinednmi,
+    hyper_trap => hyper_trap,
 
     ddr_state => ddr_state,
     ddr_counter => ddr_counter,

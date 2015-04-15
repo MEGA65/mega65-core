@@ -16,6 +16,7 @@ entity iomapper is
         reset_out : out std_logic;
         irq : out std_logic;
         nmi : out std_logic;
+        hyper_trap : out std_logic;
         restore_nmi : out std_logic;
         cpu_hypervisor_mode : in std_logic;
         fpga_temperature : in std_logic_vector(11 downto 0);
@@ -309,6 +310,7 @@ architecture behavioral of iomapper is
 
     nmi : out std_logic := 'Z';
     reset : out std_logic := 'Z';
+    hyper_trap : out std_logic := 'Z';
     
     -- PS2 keyboard interface
     ps2clock  : in  std_logic;
@@ -505,6 +507,7 @@ begin
   keymapper0 : keymapper port map (
     pixelclk       => clk,
     nmi => restore_nmi,
+    hyper_trap => hyper_trap,
     reset => reset_out,
     ps2clock       => ps2clock,
     ps2data        => ps2data,
