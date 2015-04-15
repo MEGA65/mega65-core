@@ -97,6 +97,16 @@ entity viciv is
     chipram_we : IN STD_LOGIC;
     chipram_address : IN unsigned(16 DOWNTO 0);
     chipram_datain : IN unsigned(7 DOWNTO 0);
+
+    -----------------------------------------------------------------------------
+    -- CPU DMA access for bitplane engine
+    -----------------------------------------------------------------------------
+    dma_address : out unsigned(31 downto 0);
+    dma_count : out unsigned(7 downto 0);
+    dma_request_set : out std_logic := '0';
+    dma_data_valid : in std_logic;
+    dma_data_in : in unsigned(7 downto 0);
+    dma_count_in : in unsigned(7 downto 0);
     
     -----------------------------------------------------------------------------
     -- FastIO interface for accessing video registers
@@ -125,6 +135,42 @@ end viciv;
 
 architecture Behavioral of viciv is
 
+  component bitplanes is
+    port (
+      pixelclock : in std_logic;
+      ioclock : in std_logic;
+      cpuclock : in std_logic;
+      iomode : in std_logic_vector(1 downto 0);
+
+      -- Fastio interface to allow CPU to read and set registers
+      fastio_addr : in unsigned(19 downto 0);
+      fastio_write : in std_logic;
+      fastio_wdata : in unsigned(7 downto 0);
+      fastio_rdata : out std_logic_vector(7 downto 0);
+
+      -- CPU DMA interface to fetch data
+      -- (Set dma_address and dma_count, then raise dma_request_set until
+      -- dma_data_valid is asserted, then clear dma_request_set.
+      -- dma_count_in indicates which byte in the request is being presented.
+      -- dma_data_valid returns low after last byte has been supplied.
+      dma_address : out unsigned(31 downto 0);
+      dma_count : out unsigned(7 downto 0);
+      dma_request_set : out std_logic := '0';
+      dma_data_valid : in std_logic;
+      dma_data_in : in unsigned(7 downto 0);
+      dma_count_in : in unsigned(7 downto 0);
+    
+      -- XXX VIC-IV buffer interface for providing rendered raster lines of
+      -- bitplane data, and for indicating when safe to update raster buffer.
+      bitplanerenderbuffer_address : in unsigned(11 downto 0);
+      bitplanerenderbuffer_rdata : out unsigned(8 downto 0);
+      bitplanerenderbuffer_moby : out std_logic;
+      viciv_flyback : in std_logic;
+      -- and also what our current raster number is
+      viciv_physical_raster : in unsigned(11 downto 0)
+      );
+  end component;
+  
   component alpha_blend_top is
     port(
       clk1x:       in  std_logic;
@@ -894,9 +940,40 @@ architecture Behavioral of viciv is
   signal vsync_drive : std_logic := '0';
 
   signal new_frame : std_logic := '0';
-  
+
+  signal viciv_flyback : std_logic := '0';
+  signal bitplane_iomode : std_logic_vector(1 downto 0) := "11";
+  signal bitplane_y : unsigned(11 downto 0);
+
+  signal bitplanerenderbuffer_address : unsigned(11 downto 0);
+  signal bitplanerenderbuffer_rdata : unsigned(8 downto 0);
 begin
 
+  bitplaneengine1: component bitplanes
+    port map (
+      pixelclock => pixelclock,
+      ioclock => ioclock,
+      cpuclock => cpuclock,
+      iomode => bitplane_iomode,
+      fastio_addr => unsigned(fastio_addr),
+      fastio_write => fastio_write,
+      fastio_wdata => unsigned(fastio_wdata),
+      fastio_rdata => fastio_rdata,
+
+      viciv_flyback => viciv_flyback,
+      viciv_physical_raster => bitplane_y,
+
+      bitplanerenderbuffer_address => bitplanerenderbuffer_address,
+      bitplanerenderbuffer_rdata => bitplanerenderbuffer_rdata,
+      
+      dma_address => dma_address,
+      dma_count => dma_count,
+      dma_request_set => dma_request_set,
+      dma_data_valid => dma_data_valid,
+      dma_data_in => dma_data_in,
+      dma_count_in => dma_count_in
+      );
+      
   rasterbuffer1: component ram18x2k
     port map (
       clkl => pixelclock,
@@ -1587,6 +1664,7 @@ begin
       if iomode_set_toggle /= iomode_set_toggle_last then
         iomode_set_toggle_last <= iomode_set_toggle;
         viciii_iomode <= iomode_set;
+        bitplane_iomode <= iomode_set;
       end if;
       
       viciv_fast <= viciv_fast_internal;
@@ -1873,16 +1951,19 @@ begin
           -- @IO:C65 $D02F Write $A5 then $96 to enable C65/VIC-III IO registers
           -- @IO:C65 $D02F Write anything else to return to C64/VIC-II IO map
           viciii_iomode <= "00"; -- by default go back to VIC-II mode
+          bitplane_iomode <= "00";
           if reg_key=x"a5" then
             if fastio_wdata=x"96" then
               -- C65 VIC-III mode
               viciii_iomode <= "01";
+              bitplane_iomode <= "01";
             end if;
           -- @IO:GS $D02F Write $47 then $53 to enable C65GS/VIC-IV IO registers
           elsif reg_key=x"47" then
             if fastio_wdata=x"53" then
               -- C65GS VIC-IV mode
               viciii_iomode <= "11";
+              bitplane_iomode <= "11";
             end if;
           end if;
           reg_key <= unsigned(fastio_wdata);
@@ -2292,12 +2373,14 @@ begin
       if displayx<border_x_left or displayx>border_x_right or
         upper_border='1' or lower_border='1' then
         inborder<='1';
+        viciv_flyback <= '1';
         -- Fix 2 pixel gap at right of text display.
         -- (presumably it was video pipeline interaction to blame)
         inborder_t1 <= '1';
         inborder_t2 <= '1';
       else
         inborder<='0';
+        viciv_flyback <= '0';
       end if;
 
       if xfrontporch='1' or xbackporch='1' then
@@ -2612,6 +2695,7 @@ begin
         report "FRAMEPACKER: end of raster announcement";
         pixel_newraster <= '1';
         pixel_y <= displayy;
+        bitplane_y <= displayy;
       else
         -- output pixels as packed RGB instead of palette colours
         -- (this 8bpp format is what VNC uses anyway, so there is no functional

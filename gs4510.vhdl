@@ -105,6 +105,18 @@ entity gs4510 is
     chipram_address : OUT unsigned(16 DOWNTO 0) := "00000000000000000";
     chipram_datain : OUT unsigned(7 DOWNTO 0);
 
+    -- CPU DMA interface to fetch data for bitplane engine
+    -- (Set dma_address and dma_count, then raise dma_request_set until
+    -- dma_data_valid is asserted, then clear dma_request_set.
+    -- dma_count_in indicates which byte in the request is being presented.
+    -- dma_data_valid returns low after last byte has been supplied.
+    dma_address : in unsigned(31 downto 0);
+    dma_count : in unsigned(7 downto 0);
+    dma_request_set : in std_logic;
+    dma_data_valid : out std_logic := '0';
+    dma_data_in : out unsigned(7 downto 0) := x"00";
+    dma_count_in : out unsigned(7 downto 0) := x"00";
+    
     ---------------------------------------------------------------------------
     -- Interface to Slow RAM (128MB DDR2 RAM (or 16MB cellular RAM chip on
     -- original non-DDR Nexys4 boards)
