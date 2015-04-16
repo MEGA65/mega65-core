@@ -205,79 +205,6 @@ dos_read_partitiontable:
 	sta dos_scratch_vector
 	jsr dos_consider_partition_entry
 
-	ldx #<msg_partitiondetails
-	ldy #>msg_partitiondetails
-	jsr printmessage
-	ldy #$00
-	ldz [dos_disk_table+fs_type_and_source]
-	jsr printhex
-	ldz [dos_disk_table+fs_start_sector+3]
-	jsr printhex
-	ldz [dos_disk_table+fs_start_sector+2]
-	jsr printhex
-	ldz [dos_disk_table+fs_start_sector+1]
-	jsr printhex
-	ldz [dos_disk_table+fs_start_sector+0]
-	jsr printhex
-	ldz [dos_disk_table+fs_sector_count+3]
-	jsr printhex
-	ldz [dos_disk_table+fs_sector_count+2]
-	jsr printhex
-	ldz [dos_disk_table+fs_sector_count+1]
-	jsr printhex
-	ldz [dos_disk_table+fs_sector_count+0]
-	jsr printhex
-
-	ldx #<msg_fsdetails
-	ldy #>msg_fsdetails
-	jsr printmessage
-	ldy #$00
-	ldz [dos_disk_table+fs_fat32_sectors_per_cluster]
-	jsr printhex
-	ldz [dos_disk_table+fs_fat32_system_sectors+1]
-	jsr printhex
-	ldz [dos_disk_table+fs_fat32_system_sectors+0]
-	jsr printhex
-	ldz #$00
-	jsr printhex
-	ldz #$00
-	jsr printhex
-	ldz #$00
-	jsr printhex
-	ldz [dos_disk_table+fs_fat32_root_dir_cluster+0]
-	jsr printhex
-
-	ldx #<msg_reservedsectors
-	ldy #>msg_reservedsectors
-	jsr printmessage
-	ldy #$00
-	ldz [dos_disk_table+fs_fat32_cluster0_sector+3]
-	jsr printhex
-	ldz [dos_disk_table+fs_fat32_cluster0_sector+2]
-	jsr printhex
-	ldz [dos_disk_table+fs_fat32_cluster0_sector+1]
-	jsr printhex
-	ldz [dos_disk_table+fs_fat32_cluster0_sector+0]
-	jsr printhex
-
-	ldz #$FF
-	jsr printhex
-	ldz #$FF
-	jsr printhex
-	ldz #$FF
-	jsr printhex
-	ldz #$FF
-	jsr printhex
-
-	ldz [dos_disk_table+fs_fat32_cluster_count+3]
-	jsr printhex
-	ldz [dos_disk_table+fs_fat32_cluster_count+2]
-	jsr printhex
-	ldz [dos_disk_table+fs_fat32_cluster_count+1]
-	jsr printhex
-	ldz [dos_disk_table+fs_fat32_cluster_count+0]
-	jsr printhex
-
 	rts
 
 dos_read_mbr:
@@ -594,19 +521,15 @@ ddop12:	plp
 	lda [sd_sectorbuffer+$20+0]
 	sbc [dos_disk_table+0],x
 	sta [dos_disk_table+0],y
-	sta $2000
 	lda [sd_sectorbuffer+$20+1]
 	sbc [dos_disk_table+1],x
 	sta [dos_disk_table+1],y
-	sta $2001
 	lda [sd_sectorbuffer+$20+2]
 	sbc [dos_disk_table+2],x
 	sta [dos_disk_table+2],y
-	sta $2002
 	lda [sd_sectorbuffer+$20+3]
 	sbc [dos_disk_table+3],x
 	sta [dos_disk_table+3],y
-	sta $2003
 	
 
 	; Get sectors per cluster (and store in dos_disk_table entry)

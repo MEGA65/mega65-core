@@ -371,6 +371,13 @@ tryreadmbr:
 		
 gotmbr:
 		jsr dos_read_partitiontable
+		ldx #<msg_diskcount
+		ldy #>msg_diskcount
+		jsr printmessage
+		ldy #$00
+		lda dos_disk_count
+		jsr printhex
+
 		jsr readmbr
 
 		ldx #<msg_sdcardfound
@@ -2343,15 +2350,6 @@ copydiskchooserdmalist:
 		.byte $00   ; destination bank
 		.word $0000 ; modulo (unused)
 
-checkpoint:
-		pha
-		ldx #<msg_checkpoint
-		ldy #>msg_checkpoint
-		jsr printmessage
-		ldy #$00
-		plz
-		jmp printhex
-
 printmessage:
 		stx <zptempp
 		sty <zptempp+1
@@ -2836,6 +2834,7 @@ msg_charromloaded:    .byte "LOADED CHARROM.G65 ($$$$ SECTORS)",0
 msg_tryingsdcard:     .byte "LOOKING FOR SDCARD...",0
 msg_foundsdcard:      .byte "FOUND AND RESET SDCARD",0
 msg_sdcarderror:      .byte "ERROR READING FROM SD CARD",0
+
 msg_badformat:	      .byte "BAD MBR OR DOS BOOT SECTOR.",0
 msg_sdcardfound:      .byte "READ PARTITION TABLE FROM SDCARD",0
 msg_partitiondetails: .byte "PARTITION 1($$) @$$$$$$$$, SIZE $$$$$$$$",0
@@ -2843,13 +2842,14 @@ msg_fsdetails: 	      .byte " FS SPC:$$ RSVSEC:$$$$ RSVCLUS:$$$$$$$$",0
 msg_reservedsectors:  .byte " SYS:$$$$$$$$ DAT:$$$$$$$$ CLUS:$$$$$$$$",0
 msg_sectornumber:     .byte " CLUSTER:$$$$$$$$ -> SECTOR:$$$$$$$$",0
 msg_foundromfile:     .byte "FOUND ROM FILE. START CLUSTER = $$$$$$$$",0
+msg_diskcount:	      .byte "MOUNTED $$ PARTITIONS",0
+
 msg_fileopenerror:    .byte "COULD NOT OPEN ROM FILE FOR READING",0
 msg_readingfile:      .BYTE "READING ROM FILE...",0
 msg_romfilelongerror: .byte "ROM TOO LONG: (READ $$$$ SECTORS)",0
 msg_romfileshorterror:.byte "ROM TOO SHORT: (READ $$$$ SECTORS)",0
 msg_clusternumber:    .byte " NEXT CLUSTER=$$$$$$$$",0
 msg_sectoraddress:    .byte " NEXT SECTOR=$$$$$$$$",0
-msg_checkpoint:	      .byte " CHECKPOINT $$ $$ $$ $$ $$ $$ $$ $$ $$",0
 msg_nod81:	      .byte "CANNOT FIND C65GS.D81 - BOOTING DISKLESS",0
 msg_foundd81:	      .byte "MOUNTING C65GS.D81 @ INTERNAL F011 DRIVE",0
 msg_d81wronglength:   .byte "FAIL: C64GS.D81 IS NOT 819200 BYTES LONG",0
