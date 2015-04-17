@@ -1472,7 +1472,7 @@ dfanc44:
 
 	; read FAT sector
 	jsr sd_readsector
-	bcc gfail
+	bcc dfanc_fail
 
 	; now read the right four bytes out.
 	; cluster number needs to be shifted left 2 bits.
@@ -1614,3 +1614,23 @@ drfim_rr1b:
 	jmp dos_return_error
 drfim_eof:
 	jmp dos_return_success
+
+dos_setname:
+	stx dos_scratch_vector
+	sty dos_scratch_vector+1
+	ldy #$00
+lr11:	lda (dos_scratch_vector),y
+	sta dos_requested_filename,y
+	beq dsn_eon
+	iny
+	cpy #$40
+	bne lr11
+	lda #0
+	sta dos_requested_filename_len
+	lda #dos_errorcode_name_too_long
+	clc
+	rts
+dsn_eon:
+	sty dos_requested_filename_len
+	sec
+	rts

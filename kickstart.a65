@@ -374,13 +374,11 @@ gotmbr:
 		sta <dos_file_loadaddress+2
 		lda #$00
 		sta <dos_file_loadaddress+3
-		ldx #$00
-lr11:		lda txt_bootlogo,x
-		sta dos_requested_filename,x
-		dex
-		cmp #0
-		bne lr11
-		stx dos_requested_filename_len
+
+		ldx #<txt_bootlogo
+		ldy #>txt_bootlogo
+		jsr dos_setname		
+		
 		jsr dos_readfileintomemory
 		bcs logook
 		
@@ -410,13 +408,11 @@ nextdirectoryentry3:
 		sta <dos_file_loadaddress+2
 		lda #$00
 		sta <dos_file_loadaddress+3
-		ldx #$00
-lr12:		lda txt_kickupfile,x
-		sta dos_requested_filename,x
-		dex
-		cmp #0
-		bne lr12
-		stx dos_requested_filename_len
+
+		ldx #<txt_kickupfile
+		ldy #>txt_kickupfile
+		jsr dos_setname
+		
 		jsr dos_readfileintomemory
 		bcc nokickup
 
@@ -502,18 +498,14 @@ postkickup:
 		lda #$00
 		sta $d68b
 
-		jsr fs_cd_rootdir
-		jsr fs_opendir
+		jsr dos_cdroot
+		jsr dos_opendir
 		bcc sdcarderror
 
 		; set name of file we are looking for
-		ldx #$00
-lr17c:		lda txt_c65gsd81,x
-		sta dos_requested_filename,x
-		dex
-		cmp #0
-		bne lr17c
-		stx dos_requested_filename_len
+		ldx #<txt_c65gsd81
+		ldy #>txt_c65gsd81
+		jsr dos_setname
 
 		jsr dos_findfile
 		bcc nod81
@@ -561,7 +553,7 @@ l94:		tza
 
 		; Get current cluster of D81 file, so that
 		; we can check that clusters in file are contiguous
-		ldx #dos_current_file_descriptor_offset
+		ldx dos_current_file_descriptor_offset
 		ldy #0
 l94b:		lda dos_file_descriptors+dos_filedescriptor_offset_currentcluster,x
 		sta d81_clusternumber,y
@@ -576,7 +568,7 @@ d81nextcluster:
 		; well.
 
 		; check that it matches expected cluster number
-		ldx #dos_current_file_descriptor_offset
+		ldx dos_current_file_descriptor_offset
 		ldy #0
 l94a:		lda dos_file_descriptors+dos_filedescriptor_offset_currentcluster,x
 		cmp d81_clusternumber,y
@@ -674,14 +666,10 @@ loadrom:
 
 
 		; Load CHARROM.G65 into character ROM
-		ldx #$00
-lr11c:		lda txt_c65gscharrom,x
-		sta dos_requested_filename,x
-		dex
-		cmp #0
-		bne lr11c
-		stx dos_requested_filename_len
-
+		ldx #<txt_c65gscharrom
+		ldy #>txt_c65gscharrom
+		jsr dos_setname
+		
 		; Prepare 32-bit pointer for loading whole ROM ($FF7E000)
 		lda #$00
 		sta <dos_file_loadaddress+0
@@ -712,12 +700,9 @@ loadedcharromok:
 		
 		
 loadc65rom:
-		; set file name of file to load (8.3 DOS name)
-		ldx #$0b
-lr1b:		lda txt_c65gsrom,x
-		sta target_filename,x
-		dex
-		bpl lr1b
+		ldx #<txt_c65gsrom
+		ldy #>txt_c65gsrom
+		jsr dos_setname
 
 		; Prepare 32-bit pointer for loading whole ROM ($0020000)
 		lda #$00
@@ -811,298 +796,6 @@ toupper:	; convert ASCII character to upper case
 		bcs tu1
 		and #$5f
 tu1:		rts
-
-fs_cd_rootdir:
-		ldx #$00
-cd1:		lda fs_rootdircluster,x
-		sta fs_currentdircluster,x
-		inx
-		cpx #$04
-		bne cd1
-		sec
-		rts
-
-fs_opendir:
-		; assume cluster for directory is already set
-		ldx #$00
-od1:		lda fs_currentdircluster,x
-		sta fs_clusternumber,x
-		inx
-		cpx #$04
-		bne od1
-		lda #$00
-		sta fs_direntrynumber
-		jmp fs_openfile
-
-fs_readdir:
-		; read next entry from directory
-		lda fs_direntrynumber
-		cmp #$10
-
-		bcc rd2
-
-		; reached end of sector, so load next sector
-		lda #$00
-		sta fs_direntrynumber
-		jsr fs_readnextsector
-		; return with carry clear if we have readed the end of the directory
-		bcs rd2
-		rts
-
-rd2:		; have sector, so can copy entry
-		ldy #$00
-		lda fs_direntrynumber
-		and #$08
-		bne rd3
-		lda fs_direntrynumber
-		asl
-		asl
-		asl
-		asl
-		asl
-		tax
-rd1:		lda $DE00,x
-		sta fs_direntry,y
-		inx
-		iny
-		cpy #$20
-		bne rd1
-rddone:		inc fs_direntrynumber
-		sec		
-		rts
-rd3:		lda fs_direntrynumber
-		asl
-		asl
-		asl
-		asl
-		asl
-		tax
-rd4:		lda $DF00,x
-		sta fs_direntry,y
-		inx
-		iny
-		cpy #$20
-		bne rd4
-		inc fs_direntrynumber
-		sec
-		rts		
-
-fs_setfile:
-		; get cluster from directory entry and store in cluster number
-		lda fs_direntry+20
-		sta fs_clusternumber+2
-		lda fs_direntry+21
-		sta fs_clusternumber+3
-		lda fs_direntry+26
-		sta fs_clusternumber+0
-		lda fs_direntry+27
-		sta fs_clusternumber+1
-		sec
-		rts		
-
-fs_openfile:
-		; zero sector number in cluster
-		lda #$00
-		sta fs_sector_in_cluster
-
-		; Read first sector of first cluster
-		; (no need to add fs_sector_in_cluster since it is zero here)
-		jsr fs_clustertosector
-		bcs of1
-		rts
-of1:		
-		jsr sd_fix_sectornumber
-		jmp sd_readsector
-
-fs_readnextsector:
-		; if switch 12 set, then indicate when we are looking for a sector
-		lda $d6f1
-		and #$10
-		beq rs97
-		ldx #<msg_lookingfornextsector
-		ldy #>msg_lookingfornextsector
-		jsr printmessage
-		jsr sdwaitawhile
-rs97:
-
-		; load next sector of file
-		jsr sd_inc_fixedsectornumber
-		inc fs_sector_in_cluster
-		lda fs_sector_in_cluster
-		cmp fs_sectorspercluster
-		bne rs6
-		; need to advance cluster number
-		lda #$00
-		sta fs_sector_in_cluster
-		jsr fs_getnextclusteroffile
-		bcs rs5
-		; end of file or other error
-		rts
-rs5:		; cluster number is right
-		jsr fs_clustertosector
-		jsr sd_fix_sectornumber
-		php
-		; display cluster number if switch 12 is set
-		lda $d6f1
-		and #$10
-		beq rs98
-		jsr printsectornumber
-		jsr sdwaitawhile
-rs98:		plp
-
-rs6:		
-		jmp sd_readsector
-
-		.byte "ITS RIGHT HERE"
-
-fs_getnextclusteroffile:
-		; read chained cluster number for fs_clusternumber
-
-		; FAT32 uses 32-bit cluster numbers.
-		; 512 / 4 = 128 cluster numbers per sector.
-		; To get the sector of the FAT containin a particular
-		; cluster entry, we thus need to shift the cluster number
-		; right 7 bits.  Then we add the start sector number of the FAT.
-
-		; get cluster number into sector number registers
-		ldx #$00
-g1:		lda fs_clusternumber,x
-		sta $D681,x
-		inx
-		cpx #$04
-		bne g1
-
-		; shift right 7 times
-		ldy #$07
-g31:		clc		
-		ror $d684
-		ror $d683
-		ror $d682
-		ror $d681
-		dey
-		bne g31
-
-		; add start of partition offset
-		ldx #$00
-		clc
-		php
-g33:		plp
-		lda $d681,x
-		adc part_startsector,x
-		sta $d681,x
-		php
-		inx
-		cpx #$04
-		bne g33
-		plp
-
-		; add start of fat offset
-		ldx #$00
-		clc
-		php
-g3:		plp
-		lda $d681,x
-		adc fs_startfat,x
-		sta $d681,x
-		php
-		inx
-		cpx #$04
-		bne g3
-		plp
-
-		; turn sector number into byte address for non-SDHC cards
-		jsr sd_fix_sectornumber
-
-		; read FAT sector
-		jsr sd_readsector
-		bcc gfail
-
-		; now read the right four bytes out.
-		; cluster number needs to be shifted left 2 bits.
-		; we only need the lowest order byte.
-		lda fs_clusternumber
-		asl
-		asl
-		tax
-		ldy #$00
-		lda fs_clusternumber
-		and #$40
-		bne ghigh
-g6:		lda $de00,x
-		sta fs_clusternumber,y
-		inx
-		iny
-		cpy #$04
-		bne g6
-		bra gcheck
-ghigh:		lda $df00,x
-		sta fs_clusternumber,y
-		inx
-		iny
-		cpy #$04
-		bne ghigh
-gcheck:		; check that resulting cluster number is valid.
-
-		; First, only the lower 28-bits are valid
-		lda fs_clusternumber+3
-		and #$0f
-		sta fs_clusternumber+3
-
-		; Now check for special values:
-		; cluster 0 is invalid
-		lda fs_clusternumber+3
-		ora fs_clusternumber+2
-		ora fs_clusternumber+1
-		ora fs_clusternumber
-		cmp #$00
-		beq gfail
-		; $FFFFFF7 = bad cluster
-		; $FFFFFFF = end of file
-		lda fs_clusternumber+3
-		cmp #$0f
-		bne gok
-		lda fs_clusternumber+2
-		cmp #$ff
-		bne gok
-		lda fs_clusternumber+1
-		cmp #$ff
-		bne gok
-		lda fs_clusternumber
-		cmp #$ff
-		beq gfail
-		cmp #$f7
-		beq gfail
-
-gok:		; cluster number is okay
-		sec
-		rts
-
-gfail:		
-		clc
-		rts
-		
-printsectornumber:
-		ldx #<msg_sectornumber
-		ldy #>msg_sectornumber
-		jsr printmessage
-		ldy #$00
-		ldx #$03
-l19:		lda fs_clusternumber,x
-		taz
-		phx
-		jsr printhex
-		plx
-		dex
-		bpl l19
-		ldx #$03
-l20:		lda $D681,x
-		taz
-		phx
-		jsr printhex
-		plx
-		dex
-		bpl l20
-		rts
 
 ;;; ----------------------------------------------------------------------------
 ;;; MBP / partition routines
@@ -1307,21 +1000,6 @@ rereadsector:
 rsbusyfail:     ; fail
 		clc 
 		rts
-
-
-printclusternumber:
-		ldx #<msg_clusternumber
-		ldy #>msg_clusternumber
-		jsr printmessage
-		ldy #$00
-		ldz fs_clusternumber+3
-		jsr printhex
-		ldz fs_clusternumber+2
-		jsr printhex
-		ldz fs_clusternumber+1
-		jsr printhex
-		ldz fs_clusternumber+0
-		jmp printhex
 
 printsectoraddress:
 		ldx #<msg_sectoraddress
