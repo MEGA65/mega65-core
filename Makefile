@@ -142,3 +142,6 @@ pngprepare:	pngprepare.c Makefile
 
 charrom.vhdl:	pngprepare 8x8font.png
 	./pngprepare charrom 8x8font.png charrom.vhdl
+
+BOOTLOGO.G65:	pngprepare mega65_64x64.png
+	./pngprepare logo mega65_64x64.png BOOTLOGO.G65
