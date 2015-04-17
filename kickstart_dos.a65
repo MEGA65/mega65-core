@@ -10,6 +10,8 @@
 	.alias dos_errorcode_file_too_long $83
 	.alias dos_errorcode_too_many_open_files $84
 	.alias dos_errorcode_invalid_cluster $85
+	.alias dos_errorcode_is_a_directory $86
+	.alias dos_errorcode_not_a_directory $87
 
 	; FAT directory entry constants
 	.alias fs_fat32_dirent_offset_attributes 11
@@ -34,6 +36,21 @@
 	.alias fs_fat32_dirent_offset_lfn_part2_start 14
 	.alias fs_fat32_dirent_offset_lfn_part3_chars 2
 	.alias fs_fat32_dirent_offset_lfn_part3_start 28
+
+	.alias fs_fat32_attribute_isreadonly $01
+	.alias fs_fat32_attribute_ishidden $02
+	.alias fs_fat32_attribute_issystem $04
+	.alias fs_fat32_attribute_isvolumelabel $08
+	.alias fs_fat32_attribute_isdirectory $10
+	.alias fs_fat32_attribute_archiveset $20
+
+	; Possible file modes
+	.alias dos_filemode_directoryaccess $80
+	.alias dos_filemode_readonly 0
+	.alias dos_filemode_readwrite 1
+	; 256-byte fixed size records for REL emulaton
+	.alias dos_filemode_relative 2
+	
 
 dos_and_process_trap:
 	; Sub-function is selected by X.
@@ -476,7 +493,7 @@ ddop11:	lda [sd_sectorbuffer+$24],x
 	lda [sd_sectorbuffer+$2C+1]
 	ora [sd_sectorbuffer+$2C+2]
 	ora [sd_sectorbuffer+$2C+3]
-	; XXX - 16 bit BNE should be fine here!
+	; XXX - 16 bit BNE should be fine here! Why doesn't it work?
 	;	bne partitionerror
 	beq ddop11ok
 	jmp partitionerror
@@ -845,14 +862,85 @@ dgfd2:	sta dos_file_descriptors,y
 	sta dos_current_file_descriptor_offset
 	sec
 	rts
-	
+
+dos_openfile:
+	; Open the file that is in the dirent structure
+	; (to open a file by arbitrary name, you must first call dos_findfile)
+
+	; Check if the file is a directory, if so, refuse to open it.
+	lda dos_dirent_type_and_attribs
+	and #fs_fat32_attribute_isdirectory
+	beq dof_not_a_directory
+
+	lda #dos_errorcode_is_a_directory
+
+dos_closefile:
+	; Close the current file/directory
+	; If the file is read-only, we can just free the file descriptor and return.
+	; XXX - If the file is open for write, we might have a buffer to flush.
+	; (Worry about this when we implement writing. Opening files for write will
+	; probably require the caller to nominate a 512 byte buffer in user-space
+	; memory so that the convenience write-byte routine can work.  The other case,
+	; writing a sector at a time, should just be synchronous, so that there is no
+	; buffering required.)
+
+	lda dos_file_descriptors+dos_filedescriptor_offset_mode,x
+	cmp #dos_filemode_readwrite
+	bne dcf_simple
+
+	; This is where we would flush the write buffer, and update file length in
+	; directory, if required.  Note that to save space, we don't actually keep the
+	; location of the directory entry of the file in the file descriptor.  This
+	; complicates things somewhat, and we might need to change this.  However, the
+	; file descriptor table must be a power of two in length, and there isn't any
+	; space to double its' size.  Thus we will need a separate table that holds the
+	; directory sector and entry for any file being written to.  We might save a
+	; few bytes by allowing less than dos_filedescriptor_max files to be open for
+	; writing at any point in time.
+
+dcf_simple:
+	ldx dos_current_file_descriptor_offset
+	lda #$ff ; not allocated flag for file descriptor
+	sta dos_file_descriptors+dos_filedescriptor_offset_diskid,x
+	sec
+	rts
+
+dof_not_a_directory:
+	jsr dos_get_free_descriptor
+	bcc dos_return_error
+
+	jsr dos_set_current_file_from_dirent
+	bcc dos_return_error
+
+	jmp dos_open_current_file
 
 dos_findfile:
-	; Search for file in current directory
+	; Search for file in current directory	
 
 	; Convert name to upper case for searching
 	jsr dos_requested_filename_to_uppercase
 	bcc dos_return_error
+
+	jsr dos_opendir
+	bcc dos_return_error
+
+	; Directory is now open, and we can now iterate through directory entries
+	
+dff_try_next_entry:
+	; Get next directory entry
+	jsr dos_readdir
+	bcs dff_have_next_entry
+	jsr dos_closefile
+	rts
+dff_have_next_entry:
+	; Compare dos_dirent_longfilename with dos_requested_filename
+	jsr dos_dirent_compare_name_to_requested
+	bcc dff_try_next_entry
+	
+	; See if there is a next entry
+	bra dff_try_next_entry
+
+dos_opendir:
 
 	; Open the current directory as a file
 	jsr dos_get_free_descriptor
@@ -869,52 +957,22 @@ dos_findfile:
 	; load cluster of dir into file descriptor
 	ldx #$00
 dff1:	lda dos_disk_cwd_cluster,x
-	sta [dos_file_descriptors+dos_filedescriptor_offset_startcluster],x
+	sta [dos_file_descriptors+dos_filedescriptor_offset_startcluster],y
+	iny
 	inx
 	cpx #$04
 	bne dff1
 	jsr dos_cluster_to_sector
 
+	; Mark file descriptor as being a directory
+	ldx dos_current_file_descriptor_offset
+	lda #dos_filemode_directoryaccess
+	sta [dos_file_descriptors+dos_filedescriptor_offset_startcluster],x
+
 	jsr dos_open_current_file
 	bcc dos_return_error
 
-	; Directory is now open, and we can read a sector at a time and look at
-	; file entries.
-dff_try_next_entry:
-	; Get next directory entery
-	jsr dos_readdir_read_next_entry
-
-	; Compare dos_dirent_longfilename with dos_requested_filename
-
-	; Do the cheap check of comparing the lengths first
-	lda dos_dirent_longfilename_length
-	cmp dos_requested_filename_len
-	bne dff3
-
-	; lengths match, so compare bytes
-	; XXX - Needs to support * and ?
-	; see http://6502.org/source/strings/patmatch.htm for a routine to take
-	; inspiration from.
-	ldx dos_dirent_longfilename_length
-	dex
-dff4:	lda dos_dirent_longfilename,x
-	cmp dos_requested_filename,x
-	bne dff3
-	dex
-	bpl dff4
-
-	; File names match, so return success
-	sec
-	rts
-
-dff3:
-	; See if there is a next entry
-	bra dff_try_next_entry
-
-	lda #dos_errorcode_not_implemented
-	jmp dos_return_error
-
-dos_readdir_read_next_entry:
+dos_readdir:
 	; Get the current file entry, and advance pointer
 	; This requires parsing the current directory entry onwards, accumulating
 	; long filename parts as required.  We only support filenames to 64 chars,
@@ -922,6 +980,18 @@ dos_readdir_read_next_entry:
 	; LFN entries have an attribute byte of $0F (normally indicates volume label)
 	; LFN entries use 16-bit unicode values. For now we will just keep the lower
 	; byte of these
+
+	ldx dos_current_file_descriptor_offset
+	lda #dos_filemode_directoryaccess
+	cmp [dos_file_descriptors+dos_filedescriptor_offset_startcluster],x
+	beq drd_isdir
+
+	; refuse to read files as directories
+	lda #dos_errorcode_not_a_directory
+	clc
+	rts
+
+drd_isdir:
 
 	; Clear dirent structure
 	; WARNING - Uses carnal knowledge to know that dirent structure is
@@ -1097,12 +1167,70 @@ drce_already_have_long_name:
 
 	; now copy attribute field and other useful data
 
-	; XXX - not implemented
+	; starting cluster
+	ldy #fs_fat32_dirent_offset_clusters_low
+	lda (<dos_scratch_vector),y
+	sta dos_dirent_cluster
+	iny
+	lda (<dos_scratch_vector),y
+	sta dos_dirent_cluster+1
+	ldy #fs_fat32_dirent_offset_clusters_high
+	lda (<dos_scratch_vector),y
+	sta dos_dirent_cluster+2
+	iny
+	lda (<dos_scratch_vector),y
+	sta dos_dirent_cluster+3
 
+	; file length in bytes
+	ldy #fs_fat32_dirent_offset_file_length
+	ldx #0
+drce_fl:
+	lda (<dos_scratch_vector),y
+	sta dos_dirent_length,x
+	iny
+	inx
+	cpx #4
+	bne drce_fl
+
+	; attributes
+	ldy #fs_fat32_dirent_offset_attributes
+	lda (<dos_scratch_vector),y
+	sta dos_dirent_type_and_attribs
+
+	; return with success
+	sec
 	rts
 
 lfn_piece_offsets:
 	.byte 0,14,14*2,14*3,14*4
+
+dos_dirent_compare_name_to_requested:
+
+	; Do the cheap check of comparing the lengths first
+	lda dos_dirent_longfilename_length
+	cmp dos_requested_filename_len
+	bne dff3
+
+	; lengths match, so compare bytes
+	; XXX - Needs to support * and ?
+	; see http://6502.org/source/strings/patmatch.htm for a routine to take
+	; inspiration from.
+	ldx dos_dirent_longfilename_length
+	dex
+dff4:	lda dos_dirent_longfilename,x
+	cmp dos_requested_filename,x
+	bne dff3
+	dex
+	bpl dff4
+
+	; File names match, so return success
+	sec
+	rts
+
+dff3:
+	; file names don't match, so return failure
+	clc
+	rts
 
 dos_readdir_advance_to_next_entry:
 	ldy #dos_current_file_descriptor_offset+dos_filedescriptor_offset_offsetinsector
@@ -1131,9 +1259,47 @@ drce_there_is_another_sector:
 
 	jmp dos_file_read_current_sector
 
+dos_set_current_file_from_dirent:
+	; copy start cluster from dirent to start and current cluster
+	jsr dos_get_file_descriptor_offset
+	ldy #0
+dscffd1:
+	lda dos_dirent_cluster,y
+	sta dos_file_descriptors+dos_filedescriptor_offset_startcluster,x
+	sta dos_file_descriptors+dos_filedescriptor_offset_currentcluster,x
+	inx
+	iny
+	cpy #4
+	bne dscffd1
+
+	; set current cluster to start cluster
+
+	; set disk id
+	lda dos_disk_current_disk
+	sta dos_file_descriptors+dos_filedescriptor_offset_diskid,x
+
+	; set mode
+	lda #dos_filemode_readonly
+	sta dos_file_descriptors+dos_filedescriptor_offset_mode,x
+
+	; set sector in cluster (set to 0)
+	lda #$00
+	sta dos_file_descriptors+dos_filedescriptor_offset_sectorincluster,x
+	; set offset in sector (set to 0)
+	sta dos_file_descriptors+dos_filedescriptor_offset_offsetinsector+0,x
+	sta dos_file_descriptors+dos_filedescriptor_offset_offsetinsector+1,x
+	; file offset (set to 0 x $100)
+	sta dos_file_descriptors+dos_filedescriptor_offset_fileoffset+0,x
+	sta dos_file_descriptors+dos_filedescriptor_offset_fileoffset+1,x
+	sta dos_file_descriptors+dos_filedescriptor_offset_fileoffset+2,x
+
+	rts
+
 dos_open_current_file:
 	; copy start cluster to current cluster, and zero position in file
 	jsr dos_get_file_descriptor_offset
+
+	; XXX - What else needs to happen here?
 
 	sec
 	rts
