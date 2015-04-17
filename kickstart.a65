@@ -1003,6 +1003,9 @@ rereadsector:
 		jmp rs4
 
 rsbusyfail:     ; fail
+		lda #dos_errorcode_read_timeout
+		sta dos_error_code
+
 		clc 
 		rts
 

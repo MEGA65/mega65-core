@@ -1,9 +1,21 @@
+; XXX - Add debug output for every step of the dos progress: show file names, cluster and sector calculations etc.
+; the VFAT stuff is a likely candidate for something having gone wrong.
+; also how does a DOS error code of $FF get set?
+
 	.alias os_version  $0101
 	.alias dos_version $0101
 	.alias constant_partition_type_fat32_chs $0b
 	.alias constant_partition_type_fat32_lba $0c
 
 	; DOS error codes
+	.alias dos_errorcode_partition_not_interesting $01
+	.alias dos_errorcode_bad_signature $02
+	.alias dos_errorcode_is_small_fat $03
+	.alias dos_errorcode_too_many_reserved_clusters $04
+	.alias dos_errorcode_not_two_fats $05
+	.alias dos_errorcode_too_few_clusters $06
+	.alias dos_errorcode_read_timeout $07
+
 	.alias dos_errorcode_no_such_disk $80
 	.alias dos_errorcode_name_too_long $81
 	.alias dos_errorcode_not_implemented $82
@@ -187,11 +199,14 @@ trap_dos_exit_task:
 ; which indicates "no such drive"
 ; Drive number field is first byte of file descriptor for convenience
 dos_clear_filedescriptors:
+
+	; XXX - This doesn't close the underlying file descriptors!
 	lda #$ff
 	sta currenttask_filedescriptor0
 	sta currenttask_filedescriptor1
 	sta currenttask_filedescriptor2
 	sta currenttask_filedescriptor3
+	sec
 	rts
 
 ; Read partition table from SD card.
@@ -292,14 +307,11 @@ dos_consider_partition_entry:
 	beq partitionisinteresting
 	cmp #constant_partition_type_fat32_chs
 	beq partitionisinteresting
-	lda #$0f
+	lda #dos_errorcode_partition_not_interesting
 	sta dos_error_code
 	jmp partitionisnotinteresting
 
 partitionisinteresting:
-	lda #$01
-	sta dos_error_code
-
 	; Partition is FAT32, so add it to the list
 
 	; Disk structures in dos_disk_table are 32 bytes long, so shift count left
@@ -326,8 +338,6 @@ dcpe1:	lda (<dos_scratch_vector),y
 
 	; Examine the internals of the partition to get the remaining fields.
 	; At this point we no longer use the contents of the MBR
-	lda #$02
-	sta dos_error_code
 	lda dos_disk_count
 	jsr dos_disk_openpartition
 	bcc partitionerror
@@ -414,8 +424,6 @@ ddop1:	lda dos_disk_table,y
 	bne ddop1
 	; Convert sector number to byte offset for non-HC SD cards
 	jsr sd_fix_sectornumber
-	lda #$03
-	sta dos_error_code
 	jsr sd_readsector
 	bcc partitionerror
 
@@ -424,7 +432,7 @@ ddop1:	lda dos_disk_table,y
 	jsr sd_map_sectorbuffer
 
 	; Check for 55/AA singature
-	lda #$04
+	lda #dos_errorcode_bad_signature
 	sta dos_error_code
 	lda [sd_sectorbuffer+$1FE]
 	cmp #$55
@@ -436,7 +444,7 @@ ddop1:	lda dos_disk_table,y
 	; Start populating fields
 
 	; Filter out obviously FAT16/FAT12 file systems
-	lda #$05
+	lda #dos_errorcode_is_small_fat
 	sta dos_error_code
 	lda [sd_sectorbuffer+$11]
 	bne partitionerror
@@ -488,7 +496,7 @@ ddop11:	lda [sd_sectorbuffer+$24],x
 
 	; Get number of reserved clusters.  We only allow upto 255 reserved
 	; clusters, so report an error if the upper two bytes are not both zero
-	lda #$06
+	lda #dos_errorcode_too_many_reserved_clusters
 	sta dos_error_code
 	lda [sd_sectorbuffer+$2C+1]
 	ora [sd_sectorbuffer+$2C+2]
@@ -528,10 +536,12 @@ ddop2:	lda dos_disk_table,y
 	sta [dos_disk_table+1],x
 	
 	; Now add length of fat for each copy of the fat
-	lda #$07
+	lda #dos_errorcode_not_two_fats
 	sta dos_error_code
 	ldz [sd_sectorbuffer+$10]     ; # of FAT copies
 	beq partitionerror ; There must be at least one copy of the FAT!
+	cpz #2
+	bne partitionerror
 ddop_addnextfatsectors:
 	lda dos_disk_table_offset
 	ora #fs_fat32_cluster0_sector
@@ -647,7 +657,7 @@ ddop_gotclustercount:
 	lda dos_disk_table_offset
 	ora #fs_fat32_sectors_per_cluster
 	tay
-	lda #$08
+	lda #dos_errorcode_too_few_clusters
 	sta dos_error_code
 	lda dos_disk_table+3,y
 	ora dos_disk_table+2,y
@@ -875,12 +885,13 @@ dos_openfile:
 	lda #dos_errorcode_is_a_directory
 
 dos_clearall:
-	; Free all file descriptors
+	; Free all file descriptors with extreme prejudice
 	lda #$ff
 	sta dos_file_descriptors
 	sta dos_file_descriptors+$10
 	sta dos_file_descriptors+$20
 	sta dos_file_descriptors+$30
+	sec
 	rts	
 
 dos_closefile:
