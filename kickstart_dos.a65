@@ -954,10 +954,13 @@ dff_try_next_entry:
 dff_have_next_entry:
 	; Compare dos_dirent_longfilename with dos_requested_filename
 	jsr dos_dirent_compare_name_to_requested
+	; no match? try next entry
 	bcc dff_try_next_entry
 	
-	; See if there is a next entry
-	bra dff_try_next_entry
+	; we have a match, so close dir and return success
+	jsr dos_closefile
+	sec
+	rts
 
 dos_opendir:
 
