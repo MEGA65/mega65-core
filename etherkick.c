@@ -144,7 +144,9 @@ int main(int argc, char**argv)
      // Set load address of packet
      dma_load_routine[DESTINATION_ADDRESS_OFFSET]=address&0xff;
      dma_load_routine[DESTINATION_ADDRESS_OFFSET+1]=(address>>8)&0xff;
-
+     dma_load_routine[DESTINATION_BANK_OFFSET]=(address>>16)&0x0f;
+     dma_load_routine[DESTINATION_MB_OFFSET]=(address>>20)&0xff;
+     
      // Copy data into packet
      bcopy(buffer,&dma_load_routine[DATA_OFFSET],bytes);
 
