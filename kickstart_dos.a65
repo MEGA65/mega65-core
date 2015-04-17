@@ -824,7 +824,7 @@ drftu1:	lda dos_requested_filename,x
 	jsr toupper
 	sta dos_requested_filename,x
 	inx
-	cpx #dos_requested_filename_len
+	cpx dos_requested_filename_len
 	bne drftu1
 	sec
 	rts
@@ -1233,7 +1233,10 @@ dff3:
 	rts
 
 dos_readdir_advance_to_next_entry:
-	ldy #dos_current_file_descriptor_offset+dos_filedescriptor_offset_offsetinsector
+	lda dos_current_file_descriptor_offset
+	ora dos_filedescriptor_offset_offsetinsector
+	tay
+	
 	clc
 	lda dos_file_descriptors,y
 	adc #$20 ; length of FAT32/VFAT directory entry
@@ -1356,24 +1359,24 @@ dos_file_advance_to_next_sector:
 	; Increment file position offset by 2 pages
 	lda dos_current_file_descriptor_offset
 	ora dos_filedescriptor_offset_fileoffset
-	tay
+	tax
 	lda dos_file_descriptors,y
 	inc
 	inc
 	sta dos_file_descriptors,y
 	bcc dfatns1
-	inc dos_file_descriptors+1,y
+	inc dos_file_descriptors+1,x
 	bne dfatns1
-	inc dos_file_descriptors+2,y
+	inc dos_file_descriptors+2,x
 dfatns1:
 	; increase sector
 	lda dos_current_file_descriptor_offset
 	ora dos_filedescriptor_offset_sectorincluster
-	tay
+	tax
 	ldx dos_disk_table_offset
-	inc dos_file_descriptors,y
-	lda dos_file_descriptors,y
-	cmp dos_disk_table,x
+	inc dos_file_descriptors,x
+	lda dos_file_descriptors,x
+	cmp dos_disk_table,y
 	; and if necessary, advance to next cluster
 	beq dos_file_advance_to_next_cluster
 	sec
@@ -1605,7 +1608,9 @@ drfim_rr1b:
 	inw <dos_file_loadaddress+1
 
 	; Increment number of sectors read (16 bit valie)
-	inw dos_sectorsread
+	inc dos_sectorsread
+	bne drfim_sector_loop
+	inc dos_sectorsread+1
 	; see if there is another sector
 	bne drfim_sector_loop
 
@@ -1619,7 +1624,7 @@ dos_setname:
 	stx dos_scratch_vector
 	sty dos_scratch_vector+1
 	ldy #$00
-lr11:	lda (dos_scratch_vector),y
+lr11:	lda (<dos_scratch_vector),y
 	sta dos_requested_filename,y
 	beq dsn_eon
 	iny
