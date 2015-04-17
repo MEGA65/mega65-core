@@ -389,6 +389,7 @@ gotmbr:
 		ldy #$00
 		ldz dos_error_code
 		jsr printhex
+
 logook:
 		; iterate through directory entries looking for ordinary file 
 		; KICKUP.G65 to load into hypervisor memory ...

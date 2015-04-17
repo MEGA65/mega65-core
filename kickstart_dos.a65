@@ -1626,8 +1626,14 @@ drfim_rr1b:
 	inx
 	bne drfim_rr1b
 
+	inc $0428+$50+$50+2
+
 	jsr dos_file_advance_to_next_sector
-	
+	bcc drfim_eof
+
+	inc $0428+$50+$50+4
+
+
 	; We only allow loading into a 16MB space
 	; Provided that we check the load address before starting,
 	; this ensures that a user-land request cannot load a huge file
