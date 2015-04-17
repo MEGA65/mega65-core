@@ -2607,6 +2607,9 @@ dos_opendir_sector:
 dos_opendir_entry:
 		.byte 0
 
+; WARNING: dos_readdir_read_next_entry uses carnal knowledge about the following
+; structure, particularly the length as calculated here:
+		.alias dos_dirent_structure_length 64+1+11+4+4+1
 ; Current long filename (max 64 bytes)
 dos_dirent_longfilename:
 		.byte "Venezualen casaba melon productio"
@@ -2683,6 +2686,8 @@ dos_error_code:
 		.advance $BF00,$3e
 ; Temporary vector storage for DOS
 dos_scratch_vector: .word 0,0
+dos_scratch_byte_1: .byte 0
+dos_scratch_byte_2: .byte 0
 
 ; general kickstart temporary variables
 zptempv:	    .word 0

@@ -11,6 +11,30 @@
 	.alias dos_errorcode_too_many_open_files $84
 	.alias dos_errorcode_invalid_cluster $85
 
+	; FAT directory entry constants
+	.alias fs_fat32_dirent_offset_attributes 11
+	.alias fs_fat32_dirent_offset_shortname 0
+	.alias fs_fat32_dirent_offset_create_tenthsofseconds 13
+	.alias fs_fat32_dirent_offset_create_time 14
+	.alias fs_fat32_dirent_offset_create_date 16
+	.alias fs_fat32_dirent_offset_access_date 18
+	.alias fs_fat32_dirent_offset_clusters_high 20
+	.alias fs_fat32_dirent_offset_modify_time 22
+	.alias fs_fat32_dirent_offset_modify_date 24
+	.alias fs_fat32_dirent_offset_clusters_low 26
+	.alias fs_fat32_dirent_offset_file_length 28
+
+	; VFAT long file name entry constants
+	.alias fs_fat32_dirent_offset_lfn_part_number 0
+	.alias fs_fat32_dirent_offset_lfn_type 12
+	.alias fs_fat32_dirent_offset_lfn_checksum 13
+	.alias fs_fat32_dirent_offset_lfn_part1_chars 5
+	.alias fs_fat32_dirent_offset_lfn_part1_start 1
+	.alias fs_fat32_dirent_offset_lfn_part2_chars 6
+	.alias fs_fat32_dirent_offset_lfn_part2_start 14
+	.alias fs_fat32_dirent_offset_lfn_part3_chars 2
+	.alias fs_fat32_dirent_offset_lfn_part3_start 28
+
 dos_and_process_trap:
 	; Sub-function is selected by X.
 	; Bits 6-1 are the only ones used.
@@ -856,9 +880,9 @@ dff1:	lda dos_disk_cwd_cluster,x
 
 	; Directory is now open, and we can read a sector at a time and look at
 	; file entries.
-dff2:
+dff_try_next_entry:
 	; Get next directory entery
-	jsr dos_readdir_read_current_entry
+	jsr dos_readdir_read_next_entry
 
 	; Compare dos_dirent_longfilename with dos_requested_filename
 
@@ -868,6 +892,9 @@ dff2:
 	bne dff3
 
 	; lengths match, so compare bytes
+	; XXX - Needs to support * and ?
+	; see http://6502.org/source/strings/patmatch.htm for a routine to take
+	; inspiration from.
 	ldx dos_dirent_longfilename_length
 	dex
 dff4:	lda dos_dirent_longfilename,x
@@ -882,15 +909,13 @@ dff4:	lda dos_dirent_longfilename,x
 
 dff3:
 	; See if there is a next entry
-	jsr dos_readdir_advance_to_next_entry
-	bcs dff2
-
+	bra dff_try_next_entry
 
 	lda #dos_errorcode_not_implemented
 	jmp dos_return_error
 
-dos_readdir_read_current_entry:
-	; Get the current file entry.
+dos_readdir_read_next_entry:
+	; Get the current file entry, and advance pointer
 	; This requires parsing the current directory entry onwards, accumulating
 	; long filename parts as required.  We only support filenames to 64 chars,
 	; so long names longer than that will get ignored.
@@ -898,16 +923,213 @@ dos_readdir_read_current_entry:
 	; LFN entries use 16-bit unicode values. For now we will just keep the lower
 	; byte of these
 
-	; XXX - Not implemented
+	; Clear dirent structure
+	; WARNING - Uses carnal knowledge to know that dirent structure is
+	; 64+1+11+4+4+1 contiguous bytes
+	ldx #[dos_dirent_structure_length-1]
+	lda #$00
+drce1:	sta dos_dirent_longfilename,x
+	dex
+	bpl drce1
+	
+	; Read current sector
+	jsr dos_file_read_current_sector
+	bcc dos_return_error
+
+	jsr sd_map_sectorbuffer
+
+drce_next_piece:
+	; Offset in sector correctly indicates where we need to read.
+	; Sectors are 512 bytes, so we can't just do a register index.
+	; Instead we will setup a 16-bit pointer.
+	lda dos_current_file_descriptor_offset
+	ora #dos_filedescriptor_offset_offsetinsector
+	tax
+	lda dos_file_descriptors,x
+	sta dos_scratch_vector
+	inx
+	lda dos_file_descriptors
+	clc
+	adc #$DE   ; high byte of SD card sector buffer
+	sta dos_scratch_vector+1
+
+	; (dos_scratch_vector) now has the address of the directory entry
+	ldy #fs_fat32_dirent_offset_attributes
+	lda (<dos_scratch_vector),y
+	cmp #$0f              ; LFN entry special attribute value
+	bne drce_shortname
+	; make sure long entry type is "filename" (=$00)
+	ldy #fs_fat32_dirent_offset_lfn_type
+	lda (<dos_scratch_vector),y
+	bne drce_shortname
+
+	; verify checksum of long name
+	; XXX - Actually, we need to keep the checksum, and then compare it with the
+	; checksum we compute on the short name to check if this is the right long
+	; name.  We are just going to ignore this for now, and assume (and hope) that
+	; the LFN structure is always healthy.  I am sure this will come back to bite
+	; us at some point, and it can be fixed at that point in time.
+
+	; It's a long filename piece
+	; byte 0 gives the position in the LFN of this piece.
+	; Each piece has 14 16-bit unicode values.
+	; For now, we will only use the lower byte.  later we should gather the
+	; long filenames as UTF-16, and then convert them to UTF-8.
+	
+	lda #fs_fat32_dirent_offset_lfn_part_number
+	and #$3f ; mask out end of LFN indicator
+	; each piece has 14 chars, and we only allow 64 characters total, so any
+	; piece number >4 can be ignored
+	cmp #4
+	bcs drce_ignore_lfn_piece
+	tax
+	lda lfn_piece_offsets,x
+	tax
+	
+	; Copy first part of LFN
+	ldy #fs_fat32_dirent_offset_lfn_part1_start
+	ldz #fs_fat32_dirent_offset_lfn_part1_chars
+drce2:	lda (<dos_scratch_vector),y
+	beq drce_eot_in_filename
+	sta dos_dirent_longfilename,x
+	inx
+	; protect against over-long LFNs
+	cpx #$40
+	beq drce_eot_in_filename
+	iny
+	iny
+	dez
+	bne drce2
+
+	; Copy second part of LFN
+	ldy #fs_fat32_dirent_offset_lfn_part2_start
+	ldz #fs_fat32_dirent_offset_lfn_part2_chars
+drce3:	lda (<dos_scratch_vector),y
+	beq drce_eot_in_filename
+	sta dos_dirent_longfilename,x
+	inx
+	; protect against over-long LFNs
+	cpx #$40
+	beq drce_eot_in_filename
+	iny
+	iny
+	dez
+	bne drce3
+
+	; Copy first part of LFN
+	ldy #fs_fat32_dirent_offset_lfn_part3_start
+	ldz #fs_fat32_dirent_offset_lfn_part3_chars
+drce4:	lda (<dos_scratch_vector),y
+	beq drce_eot_in_filename
+	sta dos_dirent_longfilename,x
+	inx
+	; protect against over-long LFNs
+	cpx #$40
+	beq drce_eot_in_filename
+	iny
+	iny
+	dez
+	bne drce4
+
+drce_eot_in_filename:
+	; got all characters from this LFN piece
+	cpx dos_dirent_longfilename_length
+	bcc drce_piece_didnt_grow_name_length
+	stx dos_dirent_longfilename_length
+drce_piece_didnt_grow_name_length:
+
+drce_ignore_lfn_piece:
+
+	; We have finished processing this piece of long name.
+	; bump directory entry, read next sector if required, and re-enter loop
+	; above to keep accumulating
+
+	jsr dos_readdir_advance_to_next_entry
+	bcs drce_next_piece
 	rts
+
+drce_shortname:
+	; We have found a short name.
+
+	; store short name
+	ldy #fs_fat32_dirent_offset_shortname
+	ldx #$00
+drce5:	lda (<dos_scratch_vector),y
+	sta dos_dirent_shortfilename,x
+	inx
+	iny
+	cpx #11
+	bne drce5
+
+	; If we have no long name, copy it also to long name, inserting "." between
+	; name and extension as required.
+	lda dos_dirent_longfilename_length
+	bne drce_already_have_long_name
+
+	; copy name part
+	ldy #fs_fat32_dirent_offset_shortname
+	ldx #$00
+drce7:	lda (<dos_scratch_vector),y
+	sta dos_dirent_longfilename,x
+	inx
+	iny
+	cmp #$20            ; space indicates end of short name before extension
+	beq drce_insert_dot
+	cpx #8
+	bne drce7
+drce_insert_dot:
+	lda #'.
+	sta dos_dirent_longfilename,x
+	inx
+	; copy extension part
+	ldy #fs_fat32_dirent_offset_shortname+8
+drce6:	lda (<dos_scratch_vector),y
+	sta dos_dirent_longfilename,x
+	inx
+	iny
+	cmp #0
+	beq drce_copied_extension
+	cpx #3
+	bne drce6
+drce_copied_extension:	
+
+drce_already_have_long_name:
+
+	; now copy attribute field and other useful data
+
+	; XXX - not implemented
+
+	rts
+
+lfn_piece_offsets:
+	.byte 0,14,14*2,14*3,14*4
 
 dos_readdir_advance_to_next_entry:
-	; Add $20 to file offset, and read next sector as required
-
-	; XXX - Not implemented
+	ldy #dos_current_file_descriptor_offset+dos_filedescriptor_offset_offsetinsector
 	clc
+	lda dos_file_descriptors,y
+	adc #$20 ; length of FAT32/VFAT directory entry
+	sta dos_file_descriptors,y
+	bne drce_next_piece
+
+	; Increment upper byte
+	iny
+	lda dos_file_descriptors,y
+	inc
+	cmp #$02
+	beq drce_end_of_sector
+	sta dos_file_descriptors,y
+	jmp drce_next_piece
+
+drce_end_of_sector:
+
+	jsr dos_file_advance_to_next_sector
+	bcs drce_there_is_another_sector
 	rts
 
+drce_there_is_another_sector:
+
+	jmp dos_file_read_current_sector
 
 dos_open_current_file:
 	; copy start cluster to current cluster, and zero position in file
@@ -970,8 +1192,8 @@ dos_file_advance_to_next_sector:
 	ora dos_filedescriptor_offset_fileoffset
 	tay
 	lda dos_file_descriptors,y
-	clc
-	adc #$02
+	inc
+	inc
 	sta dos_file_descriptors,y
 	bcc dfatns1
 	inc dos_file_descriptors+1,y
@@ -990,7 +1212,7 @@ dfatns1:
 	beq dos_file_advance_to_next_cluster
 	sec
 	rts
-	
+
 dos_file_advance_to_next_cluster:
 	; set to sector 0 in cluster
 	lda dos_current_file_descriptor_offset
@@ -1020,7 +1242,7 @@ dfanc1:
 	; Remember low byte of cluster number so that we can pull the
 	; cluster number for the next cluster out of the FAT sector
 	lda dos_current_cluster
-	sta dos_scratch_vector
+	sta dos_scratch_byte_1
 
 	; shift right 7 times
 	ldy #$07
@@ -1089,9 +1311,9 @@ dfanc44:
 	; now read the right four bytes out.
 	; cluster number needs to be shifted left 2 bits.
 	; we only need the lowest order byte.
-	; Get low byte of old cluster number from dos_scratch_vector
+	; Get low byte of old cluster number from dos_scratch_byte_1
 	; where we put it.
-	lda dos_scratch_vector
+	lda dos_scratch_byte_1
 	asl
 	asl
 	tax
@@ -1101,9 +1323,9 @@ dfanc44:
 	ora #dos_filedescriptor_offset_currentcluster
 	tay
 	; ... and keep it handy, because we will need it a few times
-	sty dos_scratch_vector+1
+	sty dos_scratch_byte_2
 
-	lda dos_scratch_vector
+	lda dos_scratch_byte_1
 	and #$40
 	bne dfanc_high
 dfanc6:	lda $de00,x
@@ -1124,7 +1346,7 @@ dfanc_check:
 	; check that resulting cluster number is valid.
 
 	; get current cluster field address again
-	ldy dos_scratch_vector+1
+	ldy dos_scratch_byte_2
 
 	; First, only the lower 28-bits are valid
 	lda dos_file_descriptors+3,y
