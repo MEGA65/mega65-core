@@ -34,26 +34,6 @@
 	.space checksum 4
 	.space file_sectorsread 2
 
-	; structure for partition table
-	.space part_startsector 4
-
-	; structure for FAT32 file system
-	.space fs_startfat 4
-	.space fs_syssectors 4
-	.space fs_reservedclusters 4
-	.space fs_rootdircluster 4
-	.space fs_datasectors 4
-	.space fs_clustercount 4
-	.space fs_sectorspercluster 1
-
-	; structure for current directory entry
-	.space fs_currentdircluster 4
-	.space fs_direntry 32
-	.space fs_direntrynumber 1
-	; structure for current open file
-	.space fs_clusternumber 4
-	.space fs_sector_in_cluster 1
-
 	; variables for testing of D81 boot image
 	.space d81_clusternumber 4
 	.space d81_clustersneeded 2
@@ -242,9 +222,9 @@ trap_entry_points:
 ; (Consider replacing with trap to hypervisor error screen with option
 ;  to return?)
 nosuchtrap:
-	; set C flag for caller to indicate failure
+	; Clear C flag for caller to indicate failure
 	lda hypervisor_flags
-	ora #$01   ; C flag is bit 0
+	and #$FE   ; C flag is bit 0
 	sta hypervisor_flags
 	; set A to $FF
 	lda #$ff
@@ -254,9 +234,9 @@ nosuchtrap:
 
 ; Return from trap with C flag clear to indicate success
 return_from_trap_with_success:
-	; set C flag for caller to indicate failure
+	; set C flag for caller to indicate success
 	lda hypervisor_flags
-	and #$FE   ; C flag is bit 0
+	ora #$01   ; C flag is bit 0
 	sta hypervisor_flags
 	; return from hypervisor
 	sta hypervisor_enterexit_trigger
@@ -359,7 +339,8 @@ etherloop:
 		jmp etherloop
 
 normalboot:
-		; Try to read the MBR from the SD card
+		; Try to read the MBR from the SD card to ensure SD card is
+		; happy
 		ldx #<msg_tryingsdcard
 		ldy #>msg_tryingsdcard
 		jsr printmessage
@@ -370,238 +351,18 @@ tryreadmbr:
 		jmp tryreadmbr
 		
 gotmbr:
+		; Scan SD card for partitions and mount them.
 		jsr dos_read_partitiontable
 		ldx #<msg_diskcount
 		ldy #>msg_diskcount
 		jsr printmessage
 		ldy #$00
 		lda dos_disk_count
-		jsr printhex
+		jsr printhex		
 
-		jsr readmbr
-
-		ldx #<msg_sdcardfound
-		ldy #>msg_sdcardfound
-		jsr printmessage
-		; got master boot record
-
-		jsr sd_map_sectorbuffer
-
-		; check for $55AA MBR signature
-		lda $DFFE
-		cmp #$55
-		bne badfs
-		lda $DFFF
-		cmp #$AA
-		bne badfs
-
-		; read partition 1 details from $DFBE
-		; $DFBE - $80 = bootable, $00 = inactive.  We ignore this
-		; $DFC2 - Partition type
-		; $DFC6 - Starting SECTOR number
-		; $DFCA - Number of sectors in partition
-		ldx #<msg_partitiondetails
-		ldy #>msg_partitiondetails
-		jsr printmessage
-		; overwrite $ chars in template with hex digits
-		ldy #$00
-		ldz $DFC2
-		jsr printhex
-		ldz $DFC9
-		stz part_startsector+3
-		jsr printhex
-		ldz $DFC8
-		stz part_startsector+2
-		jsr printhex
-		ldz $DFC7
-		stz part_startsector+1
-		jsr printhex
-		ldz $DFC6
-		stz part_startsector+0
-		jsr printhex
-		ldz $DFCD
-		jsr printhex
-		ldz $DFCC
-		jsr printhex
-		ldz $DFCB
-		jsr printhex
-		ldz $DFCA
-		jsr printhex
-
-		; load start sector of partition into SD card sector register
-		ldx #$03
-l9:		lda part_startsector,x
-		sta $D681,x
-		dex
-		bpl l9
-		jsr sd_fix_sectornumber
-		jsr sd_readsector
-		bcc sdcarderror		
-
-		; MILESTONE: Have boot sector of file system
-	
-		lda $DFFE
-		cmp #$55
-		bne badfs
-		lda $DFFF
-		cmp #$AA
-		bne badfs
-
-		; report file system info
-		ldx #<msg_fsdetails
-		ldy #>msg_fsdetails
-		jsr printmessage			
-
-		; sectors per cluster
-		ldy #$00
-		ldz $DE0D
-		jsr printhex
-		; reserved sectors
-		ldz $DE0F
-		jsr printhex
-		ldz $DE0E
-		jsr printhex
-		; first cluster
-		ldz $DE00+47
-		jsr printhex
-		ldz $DE00+46
-		jsr printhex
-		ldz $DE00+45
-		jsr printhex
-		ldz $DE00+44
-		jsr printhex
-
-		; The information of relevance we have now is:
-		; $DE0D - sectors per cluster
-		; $DE0E-$DE0F - reserved sectors
-		; $DE10 - number of copies of FAT
-		; $DE11 - Root dir entry count (0 on FAT32)
-		; $DE20-$DE23 - number of sectors in the file system
-		; $DE24-$DE27 - number of sectors in one copy of the FAT
-		; $DE2C-$DE2F - number of reserved clusters
-		
-		; We need to work out if this is a FAT32 partition by working out
-		; the number of clusters.  To work that out, we need to work out
-		; the number of data sectors.  To work that out, we need to work out
-		; the number of reserved sectors.
-		
-		; first, filter out obviously FAT16/FAT12 file systems
-		lda $DE11
-		bne badfs
-
-		; With root directory entries = 0, the reserved sector count
-		; is the number of reserved sectors, plus (copies of fat) *
-		; (sectors in one copy of the fat).
-		; the first FAT begins immediately after the reserved sectors
-		ldx #$03
-l11:		lda $DE0E,x
-		sta fs_syssectors,x
-		sta fs_startfat,x
-		lda $DE2C,x
-		sta fs_reservedclusters,x
-		dex
-		bpl l11
-		lda #$00
-		sta fs_syssectors+2
-		sta fs_syssectors+3
-		sta fs_startfat+2
-		sta fs_startfat+3
-		ldy $DE10
-		beq addedfatsectors
-addnextfatsectors:
-		ldx #$00
-		clc
-		php
-l12:		plp
-		lda fs_syssectors,x
-		adc $DE24,x
-		sta fs_syssectors,x
-		php
-		inx
-		cpx #$04
-		bne l12
-		plp
-		dey
-		bne addnextfatsectors
-addedfatsectors:
-
-		; also calculate number of data sectors
-		sec
-		ldx #$03
-l13:		lda $DE20,x
-		sbc fs_syssectors,x
-		sta fs_datasectors,x
-		sta fs_clustercount,x
-		dex
-		bpl l13		
-
-		; from number of data sectors and sectors per cluster,
-		; we can work out the number of clusters.
-		lda $DE0D
-		sta fs_sectorspercluster
-		tay
-		and #$fe
-		beq gotclustercount
-l14:
-		ldx #$03
-		clc
-l15:		lda fs_clustercount,x
-		ror
-		sta fs_clustercount,x
-		dex
-		bpl l15
-		tya
-		lsr
-		tay
-		and #$fe
-		bne l14
-gotclustercount:
-
-		; filter out non-FAT32 filesystems
-		; NOTE: FAT32 can have as few as 65525 clusters, but we do not support
-		; such file systems, which should be rare, anyway.
-		lda fs_clustercount+3
-		ora fs_clustercount+2
-		beq badfs
-
-		ldx #<msg_reservedsectors
-		ldy #>msg_reservedsectors		
-		jsr printmessage
-		ldy #$00
-		ldz fs_syssectors+3
-		jsr printhex
-		ldz fs_syssectors+2
-		jsr printhex
-		ldz fs_syssectors+1
-		jsr printhex
-		ldz fs_syssectors+0
-		jsr printhex
-
-		ldz fs_datasectors+3
-		jsr printhex
-		ldz fs_datasectors+2
-		jsr printhex
-		ldz fs_datasectors+1
-		jsr printhex
-		ldz fs_datasectors+0
-		jsr printhex
-
-		ldz fs_clustercount+3
-		jsr printhex
-		ldz fs_clustercount+2
-		jsr printhex
-		ldz fs_clustercount+1
-		jsr printhex
-		ldz fs_clustercount+0
-		jsr printhex
-	
-		; Store cluster number of root directory
-		ldx #$03
-l16:		lda $DE2C,x
-		sta fs_rootdircluster,x
-		sta fs_clusternumber,x
-		dex
-		bpl l16
+		; Go to root directory on default disk
+		ldx dos_default_disk
+		jsr dos_cdroot
 
 		; Load and display boot logo
 		; Prepare 32-bit pointer for loading boot logo @ $0004000
@@ -618,7 +379,7 @@ lr11:		lda txt_bootlogo,x
 		sta target_filename,x
 		dex
 		bpl lr11
-		jsr fs_readfileintomemory
+		jsr dos_readfileintomemory
 		bcs logook
 		
 		ldx #<msg_nologo
@@ -923,7 +684,7 @@ lr1:		lda txt_c65gscharrom,x
 		dex
 		bpl lr1
 
-		; Prepare 32-bit pointer for loading whole ROM ($0020000)
+		; Prepare 32-bit pointer for loading whole ROM ($FF7E000)
 		lda #$00
 		sta <target_loadaddress+0
 		lda #$E0
@@ -1322,86 +1083,6 @@ gfail:
 		clc
 		rts
 		
-
-fs_clustertosector:
-	; convert a cluster number in fs_clustertosector into a sector 
-	; number loaded into $D681-$D684.
-
-	  	; put cluster number into sector number	
-		ldx #$03
-l21:		lda fs_clusternumber,x
-		sta $D681,x
-		dex
-		bpl l21
-
-		; subtract number of reserved clusters
-		ldx #$00
-		sec
-		php
-l17:		plp
-		lda $D681,x
-		sbc fs_reservedclusters,x
-		sta $D681,x
-		php
-		inx
-		cpx #$04
-		bne l17
-		plp
-
-		; now shift it left according to fs_sectorspercluster
-		lda fs_sectorspercluster
-		tay
-		and #$fe
-		beq multipliedclusternumber
-l22:		clc
-		rol $D681
-		rol $D682
-		rol $D683
-		rol $D684
-		tya
-		lsr
-		tay
-		and #$fe
-		bne l22
-multipliedclusternumber:
-		ldx #$00
-mmm1:		lda $d681,x
-		inx
-		cpx #$04
-		bne mmm1
-
-		; skip over filesystem reserved and FAT sectors
-		ldx #$00
-		clc
-		php
-l23:		plp
-		lda $D681,x
-		adc fs_syssectors,x
-		sta $D681,x
-		php
-		inx
-		cpx #$04
-		bne l23
-		plp	
-
-		; add start sector of partition
-		ldx #$00
-		clc
-		php
-l24:		plp
-		lda $D681,x
-		adc part_startsector,x
-		sta $D681,x
-		php
-		inx
-		cpx #$04
-		bne l24
-		plp
-		
-		; return success
-		sec
-		rts
-
 printsectornumber:
 		ldx #<msg_sectornumber
 		ldy #>msg_sectornumber
@@ -2894,7 +2575,7 @@ diskchooserend:
 dos_disk_table:
 		
 
-		; Hypervisor scratch pad aat $BC00-$BDFF
+		; Hypervisor DOS work area and scratch pad at $BC00-$BDFF
 
 		.checkpc $BC00
 		.advance $BC00
@@ -2911,10 +2592,81 @@ dos_default_disk:
 ; The current disk
 dos_disk_current_disk:
 		.byte $00
-; The offset of the entry in dos_disk_table for the current disk
+; Offset of current disk entry in disk table
 dos_disk_table_offset:
 		.byte $00
+; cluster of current directory of current disk
+dos_disk_cwd_cluster:
+		.byte 0,0,0,0
+
+; Current point in open directory
+dos_opendir_cluster:
+		.byte 0,0,0,0
+dos_opendir_sector:
+		.byte 0
+dos_opendir_entry:
+		.byte 0
+
+; Current long filename (max 64 bytes)
+dos_dirent_longfilename:
+		.byte "Venezualen casaba melon productio"
+		.byte "n statistics (2012-2015).txt     "
+dos_dirent_longfilename_length:
+		.byte 0
+dos_dirent_shortfilename:
+		.byte "FILENAMEEXT"
+dos_dirent_cluster:
+		.byte 0,0,0,0
+dos_dirent_length:
+		.byte 0,0,0,0
+dos_dirent_type_and_attribs:
+		.byte 0
+
+; Requested file name and length
+dos_requested_filename_len:
+		.byte 0
+dos_requested_filename:
+		.byte "Venezualen casaba melon productio"
+		.byte "n statistics (2007-2011).txt     "
+
+; Details about current DOS request
+dos_sectorsread: .word 0
+
+dos_current_sector:    .word 0,0
+dos_current_cluster:   .word 0,0
+dos_current_sector_in_cluster: .byte 0
+
+; Current file descriptors
+; Each descriptor has:
+;   disk id : 1 byte ($00-$07 = file open, $FF = file closed)
+;   access mode : 1 byte ($00 = read only)
+;   start cluster : 4 bytes
+;   current cluster : 4 bytes
+;   current sector in cluster : 1 byte
+;   offset in sector: 2 bytes
+;   file offset / $100 : 3 bytes
+    .alias dos_filedescriptor_max 4
+    .alias dos_filedescriptor_offset_diskid 0    
+    .alias dos_filedescriptor_offset_mode 1    
+    .alias dos_filedescriptor_offset_startcluster 2    
+    .alias dos_filedescriptor_offset_currentcluster 6
+    .alias dos_filedescriptor_offset_sectorincluster 10
+    .alias dos_filedescriptor_offset_offsetinsector 11
+    .alias dos_filedescriptor_offset_fileoffset 13
+dos_file_descriptors:
+	.byte $FF,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	.byte $FF,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	.byte $FF,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	.byte $FF,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+; The current file descriptor
+dos_current_file_descriptor:
+	.byte 0
+; Offset of current file descriptor
+dos_current_file_descriptor_offset:
+	.byte 0
+
 ; For providing feedback on why DOS calls have failed
+; There is a set of error codes defined in kickstart_dos.a65
 dos_error_code:
 		.byte $00
 
@@ -2931,6 +2683,7 @@ dos_error_code:
 		.advance $BF00,$3e
 ; Temporary vector storage for DOS
 dos_scratch_vector: .word 0,0
+
 ; general kickstart temporary variables
 zptempv:	    .word 0
 zptempv2:	    .word 0
@@ -2938,8 +2691,7 @@ zptempp: 	    .word 0
 zptempp2: 	    .word 0
 zptempv32:	    .word 0,0
 zptempv32b:	    .word 0,0
-target_loadaddress: .word 0,0
-target_filename:    .byte "12345678ABC"
+dos_file_loadaddress: .word 0,0
 
 		.checkpc $C000
 		.advance $C000, $3f

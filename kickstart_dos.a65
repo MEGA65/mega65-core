@@ -2,7 +2,15 @@
 	.alias dos_version $0101
 	.alias constant_partition_type_fat32_chs $0b
 	.alias constant_partition_type_fat32_lba $0c
-	
+
+	; DOS error codes
+	.alias dos_errorcode_no_such_disk $80
+	.alias dos_errorcode_name_too_long $81
+	.alias dos_errorcode_not_implemented $82
+	.alias dos_errorcode_file_too_long $83
+	.alias dos_errorcode_too_many_open_files $84
+	.alias dos_errorcode_invalid_cluster $85
+
 dos_and_process_trap:
 	; Sub-function is selected by X.
 	; Bits 6-1 are the only ones used.
@@ -307,7 +315,7 @@ partitionerror:
 	clc
 	rts
 
-; Examine a partitiomn to see if we can mount it.
+; Examine a partition to see if we can mount it.
 ; This routine fills in the missing fields for the disk entry as required.
 ; It assumes that fs_start_sector and fs_sector_count have been correctly set.
 ; Each disk entry consists of;
@@ -636,10 +644,585 @@ ddop16:	lda [sd_sectorbuffer+$2C],x
 	; ... and increment the number of disks we know
 	inc dos_disk_count
 
+dos_return_success:
 	; Return success
 	lda #$00
 	sta dos_error_code
 	sec
 	rts
 
-	jmp partitionerror
+dos_return_error:
+	clc
+	rts
+
+dos_set_current_disk:
+	; Is disk number valid?
+	lda dos_errorcode_no_such_disk
+	cpx dos_disk_count
+	bcs partitionerror
+	sec
+
+	stx dos_disk_current_disk
+	txa
+	asl
+	asl
+	asl
+	asl
+	asl
+	sta dos_disk_table_offset
+	
+	rts
+
+dos_cdroot:
+	; Change to root directory on specified disk
+	; (Changes current disk if required)
+	; X = disk
+
+	jsr dos_set_current_disk
+
+	; get offset of disk entry
+	ldx dos_disk_table_offset
+	lda [dos_disk_table+fs_fat32_root_dir_cluster+0],x
+	sta dos_disk_cwd_cluster
+	lda [dos_disk_table+fs_fat32_root_dir_cluster+1],x
+	sta dos_disk_cwd_cluster+1
+	lda #$00
+	sta dos_disk_cwd_cluster+2
+	sta dos_disk_cwd_cluster+3
+
+	; Nothing else to do, as it doesn't actually affect any existing DOS activity,
+	; only future file/directory operations.
+
+	jmp dos_return_success
+
+dos_cluster_to_sector:
+	; convert a cluster number in dos_current_cluster into a sector number
+	; pre-loaded into SD address registers
+	; It is assumed to be on the current disk
+
+	ldx #$03
+dcts0:	lda dos_current_cluster,x
+	sta $d681,x
+	dex
+	bpl dcts0
+
+	; now shift it left according to fs_sectors_per_cluster
+	ldx dos_disk_table_offset	
+	lda dos_disk_table+fs_fat32_sectors_per_cluster,x
+	tay
+	and #$fe
+	beq multipliedclusternumber
+dcts1:	clc
+	rol $D681
+	rol $D682
+	rol $D683
+	rol $D684
+	tya
+	lsr
+	tay
+	and #$fe
+	bne dcts1
+multipliedclusternumber:
+	ldx #$00
+mmm1:	lda $d681,x
+	inx
+	cpx #$04
+	bne mmm1
+
+	; skip over filesystem reserved and FAT sectors
+	lda dos_disk_table_offset	
+	ora #fs_fat32_cluster0_sector
+	tay
+	ldx #$00
+	clc
+	php
+l23:	plp
+	lda $D681,x
+	adc dos_disk_table,y
+	sta $D681,x
+	php
+	iny
+	inx
+	cpx #$04
+	bne l23
+	plp	
+
+	; add start sector of partition
+	lda dos_disk_table_offset	
+	ora #fs_start_sector
+	tay
+	ldx #$00
+	clc
+	php
+l24:	plp
+	lda $D681,x
+	adc dos_disk_table,y
+	sta $D681,x
+	php
+	iny
+	inx
+	cpx #$04
+	bne l24
+	plp
+
+	; XXX - Check that result does not exceed fs_start_sector+fs_sector_count
+	; and run over into another partition
+
+	; return success
+	sec
+	rts
+
+
+dos_requested_filename_to_uppercase:
+	; Convert filename to upper case for comparison
+	ldx dos_requested_filename_len
+	cpx #$3f
+	lda dos_errorcode_name_too_long
+	bcs dos_return_error
+drftu1:	lda dos_requested_filename,x
+	jsr toupper
+	sta dos_requested_filename,x
+	inx
+	cpx #dos_requested_filename_len
+	bne drftu1
+	sec
+	rts
+
+dos_get_free_descriptor:
+	ldx #$00
+dgfd1:	txa
+	asl
+	asl
+	asl
+	asl
+	lda [dos_file_descriptors+dos_filedescriptor_offset_diskid],x
+	cmp #$FF
+	beq dgfd_found_free
+	inx
+	cpx #dos_filedescriptor_max
+	bne dgfd1
+	lda #dos_errorcode_too_many_open_files
+	jmp dos_return_error
+dgfd_found_free:
+	; Clear descriptor entry
+	ldy #$0f
+	lda #$00
+dgfd2:	sta dos_file_descriptors,y
+	dey
+	bne dgfd2
+
+	; Return file descriptor in X
+	stx dos_current_file_descriptor
+	txa
+	asl
+	asl
+	asl
+	asl
+	sta dos_current_file_descriptor_offset
+	sec
+	rts
+	
+
+dos_findfile:
+	; Search for file in current directory
+
+	; Convert name to upper case for searching
+	jsr dos_requested_filename_to_uppercase
+	bcc dos_return_error
+
+	; Open the current directory as a file
+	jsr dos_get_free_descriptor
+	bcc dos_return_error
+
+	; get offset in file descriptor table
+	txa
+	asl
+	asl
+	asl
+	asl
+	tay
+
+	; load cluster of dir into file descriptor
+	ldx #$00
+dff1:	lda dos_disk_cwd_cluster,x
+	sta [dos_file_descriptors+dos_filedescriptor_offset_startcluster],x
+	inx
+	cpx #$04
+	bne dff1
+	jsr dos_cluster_to_sector
+
+	jsr dos_open_current_file
+	bcc dos_return_error
+
+	; Directory is now open, and we can read a sector at a time and look at
+	; file entries.
+dff2:
+	; Get next directory entery
+	jsr dos_readdir_read_current_entry
+
+	; Compare dos_dirent_longfilename with dos_requested_filename
+
+	; Do the cheap check of comparing the lengths first
+	lda dos_dirent_longfilename_length
+	cmp dos_requested_filename_len
+	bne dff3
+
+	; lengths match, so compare bytes
+	ldx dos_dirent_longfilename_length
+	dex
+dff4:	lda dos_dirent_longfilename,x
+	cmp dos_requested_filename,x
+	bne dff3
+	dex
+	bpl dff4
+
+	; File names match, so return success
+	sec
+	rts
+
+dff3:
+	; See if there is a next entry
+	jsr dos_readdir_advance_to_next_entry
+	bcs dff2
+
+
+	lda #dos_errorcode_not_implemented
+	jmp dos_return_error
+
+dos_readdir_read_current_entry:
+	; Get the current file entry.
+	; This requires parsing the current directory entry onwards, accumulating
+	; long filename parts as required.  We only support filenames to 64 chars,
+	; so long names longer than that will get ignored.
+	; LFN entries have an attribute byte of $0F (normally indicates volume label)
+	; LFN entries use 16-bit unicode values. For now we will just keep the lower
+	; byte of these
+
+	; XXX - Not implemented
+	rts
+
+dos_readdir_advance_to_next_entry:
+	; Add $20 to file offset, and read next sector as required
+
+	; XXX - Not implemented
+	clc
+	rts
+
+
+dos_open_current_file:
+	; copy start cluster to current cluster, and zero position in file
+	jsr dos_get_file_descriptor_offset
+
+	sec
+	rts
+
+
+dos_get_file_descriptor_offset:
+	lda dos_current_file_descriptor
+	asl
+	asl
+	asl
+	asl
+	tax
+	rts
+
+dos_set_current_cluster_from_file:
+	; copy cluster number in file to current cluster
+	jsr dos_get_file_descriptor_offset
+	ora dos_filedescriptor_offset_currentcluster
+	tay
+	ldx #$00
+dfrcs1:	lda dos_file_descriptors,y
+	sta dos_current_cluster,x
+	inx
+	cpx #$04
+	bne dfrcs1
+	rts
+
+dos_file_read_current_sector:
+	jsr dos_set_current_cluster_from_file
+	jsr dos_cluster_to_sector
+
+	; Add sector within cluster
+	jsr dos_get_file_descriptor_offset
+	ora dos_filedescriptor_offset_sectorincluster
+	tay
+	ldx #$00
+	clc
+	lda dos_file_descriptors,y
+	bne dfrcs4
+dfrcs2: lda #$00
+dfrcs4:
+	adc $d681,x
+	sta $d681,x
+	bcc dfrcs_inced
+	inx
+	cpx #$04
+	bne dfrcs2
+dfrcs_inced:
+
+	jsr sd_fix_sectornumber
+	jmp sd_readsector
+
+dos_file_advance_to_next_sector:
+	; Increment file position offset by 2 pages
+	lda dos_current_file_descriptor_offset
+	ora dos_filedescriptor_offset_fileoffset
+	tay
+	lda dos_file_descriptors,y
+	clc
+	adc #$02
+	sta dos_file_descriptors,y
+	bcc dfatns1
+	inc dos_file_descriptors+1,y
+	bne dfatns1
+	inc dos_file_descriptors+2,y
+dfatns1:
+	; increase sector
+	lda dos_current_file_descriptor_offset
+	ora dos_filedescriptor_offset_sectorincluster
+	tay
+	ldx dos_disk_table_offset
+	inc dos_file_descriptors,y
+	lda dos_file_descriptors,y
+	cmp dos_disk_table,x
+	; and if necessary, advance to next cluster
+	beq dos_file_advance_to_next_cluster
+	sec
+	rts
+	
+dos_file_advance_to_next_cluster:
+	; set to sector 0 in cluster
+	lda dos_current_file_descriptor_offset
+	ora dos_filedescriptor_offset_sectorincluster
+	tay
+	lda #$00
+	sta dos_file_descriptors,y
+
+	; read chained cluster number for fs_clusternumber
+
+	; FAT32 uses 32-bit cluster numbers.
+	; 512 / 4 = 128 cluster numbers per sector.
+	; To get the sector of the FAT containin a particular
+	; cluster entry, we thus need to shift the cluster number
+	; right 7 bits.  Then we add the start sector number of the FAT.
+
+	jsr dos_set_current_cluster_from_file	
+
+	; copy cluster to sector number
+	ldx #$03
+dfanc1:
+	lda dos_current_cluster,x
+	sta dos_current_sector,x
+	dex
+	bpl dfanc1
+
+	; Remember low byte of cluster number so that we can pull the
+	; cluster number for the next cluster out of the FAT sector
+	lda dos_current_cluster
+	sta dos_scratch_vector
+
+	; shift right 7 times
+	ldy #$07
+dfanc2:	clc		
+	ror dos_current_cluster+3
+	ror dos_current_cluster+2
+	ror dos_current_cluster+1
+	ror dos_current_cluster+0
+	dey
+	bne dfanc2
+
+	; add start of partition offset
+	ldy dos_disk_table_offset
+	tya
+	ora #fs_start_sector
+	tay
+	ldx #$00
+	clc
+	php
+dfanc3:	plp
+	lda dos_current_cluster,x
+	adc dos_disk_table,y
+	sta dos_current_cluster,x
+	php
+	iny
+	inx
+	cpx #$04
+	bne dfanc3
+	plp
+
+	; add start of fat offset
+	ldy dos_disk_table_offset
+	tya
+	ora #fs_fat32_system_sectors
+	tay
+	ldx #$00
+	clc
+	php
+dfanc4:	plp
+	lda dos_current_cluster,x
+	adc dos_disk_table,y
+	sta $d681,x
+	php
+	inx
+	cpx #$02
+	bne dfanc4
+dfanc44:
+	plp
+	lda dos_current_cluster,x
+	adc #$00
+	sta $d681,x
+	php
+	inx
+	cpx #$04
+	bne dfanc44
+
+	plp
+
+	; turn sector number into byte address for non-SDHC cards
+	jsr sd_fix_sectornumber
+
+	; read FAT sector
+	jsr sd_readsector
+	bcc gfail
+
+	; now read the right four bytes out.
+	; cluster number needs to be shifted left 2 bits.
+	; we only need the lowest order byte.
+	; Get low byte of old cluster number from dos_scratch_vector
+	; where we put it.
+	lda dos_scratch_vector
+	asl
+	asl
+	tax
+
+	; get offset to current cluster field in current file descriptor ...
+	lda dos_current_file_descriptor_offset
+	ora #dos_filedescriptor_offset_currentcluster
+	tay
+	; ... and keep it handy, because we will need it a few times
+	sty dos_scratch_vector+1
+
+	lda dos_scratch_vector
+	and #$40
+	bne dfanc_high
+dfanc6:	lda $de00,x
+	sta dos_file_descriptors,y
+	inx
+	iny
+	cpy #$04
+	bne dfanc6
+	bra dfanc_check
+dfanc_high:
+	lda $df00,x
+	sta dos_file_descriptors,y
+	inx
+	iny
+	cpy #$04
+	bne dfanc_high
+dfanc_check:
+	; check that resulting cluster number is valid.
+
+	; get current cluster field address again
+	ldy dos_scratch_vector+1
+
+	; First, only the lower 28-bits are valid
+	lda dos_file_descriptors+3,y
+	and #$0f
+	sta dos_file_descriptors+3,y
+
+	; Now check for special values:
+	; cluster 0 is invalid
+	lda dos_file_descriptors+3,y
+	ora dos_file_descriptors+2,y
+	ora dos_file_descriptors+1,y
+	ora dos_file_descriptors,y
+	cmp #$00
+	beq dfanc_fail
+	; $FFFFFF7 = bad cluster
+	; $FFFFFFF = end of file
+	lda dos_file_descriptors+3,y
+	cmp #$0f
+	bne dfanc_ok
+	lda dos_file_descriptors+2,y
+	cmp #$ff
+	bne dfanc_ok
+	lda dos_file_descriptors+1,y
+	cmp #$ff
+	bne dfanc_ok
+	lda dos_file_descriptors,y
+	cmp #$ff
+	beq dfanc_fail
+	cmp #$f7
+	beq dfanc_fail
+
+dfanc_ok:
+	; cluster number is okay
+	sec
+	rts
+
+dfanc_fail:
+	lda #dos_errorcode_invalid_cluster
+	jmp dos_return_error
+
+
+
+dos_readfileintomemory:
+	; file name must be already loaded into dos_requested_filename,
+	; with length in dos_requreste_filename_length
+
+	; Clear number of sectors read
+	ldx #$00
+	stx dos_sectorsread
+	stx dos_sectorsread+1
+
+	jsr dos_findfile
+	bcc dos_return_error
+
+	jsr dos_openfile
+	bcc dos_return_error
+
+	jsr sd_map_sectorbuffer
+
+drfim_sector_loop:
+	jsr dos_file_read_current_sector
+	bcc drfim_eof
+	
+	; copy sector to memory
+	ldx #$00
+	ldz #$00
+drfim_rr1:
+	lda $de00,x
+	nop ; 32-bit pointer access follows
+	sta (<dos_file_loadaddress),z
+	inz
+	inx
+	bne drfim_rr1
+	inw <dos_file_loadaddress+1
+drfim_rr1b:
+	lda $df00,x
+	nop ; 32-bit pointer access follows
+	sta (<dos_file_loadaddress),z
+	inz
+	inx
+	bne drfim_rr1b
+
+	jsr dos_file_advance_to_next_sector
+	
+	; We only allow loading into a 16MB space
+	; Provided that we check the load address before starting,
+	; this ensures that a user-land request cannot load a huge file
+	; that eventually overwrites the hypervisor and results in privilege
+	; escalation.
+	inw <dos_file_loadaddress+1
+
+	; Increment number of sectors read (16 bit valie)
+	inw dos_sectorsread
+	; see if there is another sector
+	bne drfim_sector_loop
+
+	; File is >65535 sectors (32MB), report error
+	lda #dos_errorcode_file_too_long
+	jmp dos_return_error
+drfim_eof:
+	jmp dos_return_success
