@@ -506,20 +506,17 @@ postkickup:
 		jsr fs_opendir
 		bcc sdcarderror
 
-		; iterate through directory entries looking for ordinary file 
-		; C65GS.D81
-nextdirectoryentry2:
-		jsr fs_readdir
-		bcc nod81
-
+		; set name of file we are looking for
 		ldx #$00
-l17c:		lda fs_direntry,x
-		jsr toupper
-		cmp txt_c65gsd81,x
-		bne nextdirectoryentry2
-		inx
-		cpx #$0b
-		bne l17c
+lr17c:		lda txt_c65gsd81,x
+		sta dos_requested_filename,x
+		dex
+		cmp #0
+		bne lr17c
+		stx dos_requested_filename_len
+
+		jsr dos_findfile
+		bcc nod81
 
 		; this is the entry
 		ldx #<msg_foundd81
@@ -527,31 +524,14 @@ l17c:		lda fs_direntry,x
 		jsr printmessage
 
 		; now we need to check that the file is long enough,
-		; and also that the cluster are contiguous.
+		; and also that the clusters are contiguous.
 
-		; get cluster number from directory entry.
-		jsr fs_setfile
-
-		; get the starting sector number in case it is good
-		jsr fs_clustertosector
-		jsr sd_fix_sectornumber
-		; copy to FDC starting sector register (but don't mark
-		; disk as available yet)
-		ldx #$03
-l91:		lda $d681,x
-		sta $d68c,x
-		dex
-		bpl l91
-	
-		; now check that file is long enough and has
-		; contiguous clusters
-		jsr fs_setfile
-		ldx #$03
-l92:		lda fs_clusternumber,x
-		sta d81_clusternumber,x
-		dex
-		bpl l92
-
+		; Start by opening the file
+		jsr dos_set_current_file_from_dirent
+		bcc nod81
+		jsr dos_openfile
+		bcc nod81
+		
 		; work out how many clusters we need
 		; We need 1600 sectors, so halve for every zero tail
 		; bit in sectors per cluster.  we can do this because
@@ -563,7 +543,12 @@ l92:		lda fs_clusternumber,x
 		sta d81_clustersneeded
 		lda #>1600
 		sta d81_clustersneeded+1
-		ldz fs_sectorspercluster
+
+		; get sectors per cluster of disk
+		ldx dos_disk_table_offset
+		lda dos_disk_table+fs_fat32_sectors_per_cluster,x
+		taz
+
 l94:		tza
 		and #$01
 		bne d81nextcluster
@@ -574,21 +559,34 @@ l94:		tza
 		ror d81_clustersneeded
 		jmp l94				
 
+		; Get current cluster of D81 file, so that
+		; we can check that clusters in file are contiguous
+		ldx #dos_current_file_descriptor_offset
+		ldy #0
+l94b:		lda dos_file_descriptors+dos_filedescriptor_offset_currentcluster,x
+		sta d81_clusternumber,y
+		inx
+		iny
+		cpy #4
+		bne l94b
+		
+
 d81nextcluster:
 		; Now read through clusters and make sure that all is
 		; well.
-		
-		; we start with the first cluster already read.
 
 		; check that it matches expected cluster number
-		ldx #$03
-l95:		lda d81_clusternumber,x
-		cmp fs_clusternumber,x
+		ldx #dos_current_file_descriptor_offset
+		ldy #0
+l94a:		lda dos_file_descriptors+dos_filedescriptor_offset_currentcluster,x
+		cmp d81_clusternumber,y
 		bne d81isfragged
-		dex
-		bpl l95
-		
-		; increment number of expected clusters found.
+		inx
+		iny
+		cpy #4
+		bne l94a
+
+		; increment number of clusters found so far
 		inc d81_clustercount
 		bne l96
 		inc d81_clustercount+1
@@ -609,7 +607,7 @@ l96:
 		adc #$00
 		sta d81_clusternumber+3
 
-		jsr fs_getnextclusteroffile
+		jsr dos_file_advance_to_next_cluster
 		bcs d81nextcluster
 
 		; read to end of D81 file, and it is contiguous
@@ -640,15 +638,6 @@ d81wronglength:
 		jmp findrom
 
 d81isfragged:
-		inc $d020
-		ldx #$00
-l98:		lda d81_clusternumber,x
-		sta $0428,x
-		lda fs_clusternumber,x
-		sta $0430,x
-		inx
-		cpx #$04
-		bne l98
 
 		ldx #<msg_d81fragged
 		ldy #>msg_d81fragged
@@ -660,6 +649,9 @@ nod81:
 		ldx #<msg_nod81
 		ldy #>msg_nod81
 		jsr printmessage
+		ldy #$00
+		ldz dos_error_code
+		jsr printhex
 
 findrom:
 		; Check state of current ROM
@@ -2535,7 +2527,7 @@ msg_romfilelongerror: .byte "ROM TOO LONG: (READ $$$$ SECTORS)",0
 msg_romfileshorterror:.byte "ROM TOO SHORT: (READ $$$$ SECTORS)",0
 msg_clusternumber:    .byte " NEXT CLUSTER=$$$$$$$$",0
 msg_sectoraddress:    .byte " NEXT SECTOR=$$$$$$$$",0
-msg_nod81:	      .byte "CANNOT FIND C65GS.D81 - BOOTING DISKLESS",0
+msg_nod81:	      .byte "CANNOT FIND C65GS.D81 - (ERRNO: $$)",0
 msg_foundd81:	      .byte "MOUNTING C65GS.D81 @ INTERNAL F011 DRIVE",0
 msg_d81wronglength:   .byte "FAIL: C64GS.D81 IS NOT 819200 BYTES LONG",0
 msg_d81fragged:       .byte "FAIL: C65GS.D81 IS FRAGMENTED: DEFRAG IT",0
