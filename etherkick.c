@@ -65,25 +65,38 @@ unsigned char test_routine[64]={
   0xa9,0x00,0xee,0x21,0xd0,0x60
 };
 
+int usage()
+{
+  printf("usage:  etherkick <run|kickup> <IP address> <programme>\n");
+  printf("        etherkick push <IP address> <file> <28-bit address (hex)>\n");
+  exit(1);
+}
 
 int main(int argc, char**argv)
 {
    int sockfd;
    struct sockaddr_in servaddr;
 
-   if (argc != 4)
+   if (argc < 4)
    {
-      printf("usage:  etherkick <run|kickup> <IP address> <programme>\n");
-      exit(1);
+     printf("Too few arguments.\n");
+     usage();
    }
 
    int runmode=0;
-   
+   int address=-1;
+
    if (!strcmp(argv[1],"run")) runmode=1;
    else if (!strcmp(argv[1],"kickup")) runmode=0;
-   else {
-      printf("usage:  etherkick <run|kickup> <IP address> <programme>\n");
-      exit(1);
+   else if (!strcmp(argv[1],"push")) {
+     runmode=2;
+     if (argc<5) {
+       printf("Too few arguments for push (argc=%d)\n",argc);
+       usage();
+     }
+     address=strtoll(argv[4],NULL,16);     
+   } else {
+     usage();
    }
 
    sockfd=socket(AF_INET,SOCK_DGRAM,0);
@@ -105,7 +118,6 @@ int main(int argc, char**argv)
    unsigned char buffer[1024];
    int offset=0;
    int bytes;
-   int address=0;
    
    if (runmode==1) {
      // Read 2 byte load address
@@ -117,9 +129,11 @@ int main(int argc, char**argv)
      }
      address=buffer[0]+256*buffer[1];
      printf("Load address of programme is $%04x\n",address);
-   } else {
+   } else if (runmode==0) {
      printf("Upgrading kickstart: load address fixed at $4000\n");
      address=0x4000;
+   } else {
+     printf("Load address is $%07x\n",address);
    }
 
    while((bytes=read(fd,buffer,1024))!=0)
@@ -142,7 +156,7 @@ int main(int argc, char**argv)
      address+=bytes;
    }
 
-   if (runmode) {
+   if (runmode==1) {
      // Tell C65GS that we are all done
      int i;
      printf("Trying to start program ...\n");
@@ -151,7 +165,7 @@ int main(int argc, char**argv)
 	    (struct sockaddr *)&servaddr,sizeof(servaddr));
      usleep(150);
      }
-   } else {
+   } else if (runmode==0) {
      int i;
      printf("Telling kickstart to upgrade ...\n");
      for(i=0;i<10;i++) {
@@ -159,6 +173,8 @@ int main(int argc, char**argv)
 	    (struct sockaddr *)&servaddr,sizeof(servaddr));
      usleep(150);
      }
+   } else {
+     printf("Push mode -- leaving C65GS in etherkick.\n");
    }
      
 
