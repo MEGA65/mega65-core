@@ -417,7 +417,7 @@ lr12:		lda txt_kickupfile,x
 		cmp #0
 		bne lr12
 		stx dos_requested_filename_len
-		jsr fs_readfileintomemory
+		jsr dos_readfileintomemory
 		bcc nokickup
 
 		; We have loaded kickup file, so jump into it.
@@ -674,11 +674,13 @@ loadrom:
 
 
 		; Load CHARROM.G65 into character ROM
-		ldx #$0b
-lr1:		lda txt_c65gscharrom,x
-		sta target_filename,x
+		ldx #$00
+lr11c:		lda txt_c65gscharrom,x
+		sta dos_requested_filename,x
 		dex
-		bpl lr1
+		cmp #0
+		bne lr11c
+		stx dos_requested_filename_len
 
 		; Prepare 32-bit pointer for loading whole ROM ($FF7E000)
 		lda #$00
@@ -690,7 +692,7 @@ lr1:		lda txt_c65gscharrom,x
 		lda #$0F
 		sta <dos_file_loadaddress+3
 
-		jsr fs_readfileintomemory
+		jsr dos_readfileintomemory
 		bcs loadedcharromok
 
 		ldx #<msg_charrombad
@@ -725,7 +727,7 @@ lr1b:		lda txt_c65gsrom,x
 		lda #$02
 		sta <dos_file_loadaddress+2
 
-		jsr fs_readfileintomemory
+		jsr dos_readfileintomemory
 		bcs loadedok
 
 		; ROM not found: indicate which ROM we were looking for
@@ -1101,105 +1103,6 @@ l20:		lda $D681,x
 		dex
 		bpl l20
 		rts
-
-
-fs_readfileintomemory:
-
-		; Clear number of sectors read
-		ldx #$00
-		stx file_sectorsread
-		stx file_sectorsread+1
-		; Convert filename to upper case for comparison		
-l17bb:		lda target_filename,x
-		jsr toupper
-		sta target_filename,x
-		inx
-		cpx #$0b
-		bne l17bb
-
-		; Now load root directory cluster.
-		; (fs_clusternumber was set above)
-		jsr fs_cd_rootdir
-		jsr fs_opendir
-		bcc sdcarderror
-
-		; iterate through directory entries looking for ordinary file 
-		; with matching name
-nextdirectoryentry:
-		jsr fs_readdir
-		bcs l17e
-
-		; End of directory, so return failure
-		rts
-l17e:
-
-		ldx #$00
-l17b:		lda fs_direntry,x
-		jsr toupper
-		cmp target_filename,x
-		bne nextdirectoryentry
-		inx
-		cpx #$0b
-		bne l17b
-		; this is the entry
-
-foundromfile:
-		; get cluster number from directory entry.
-		jsr fs_setfile
-		bcc fileopenerror		
-		jsr fs_openfile
-		bcc fileopenerror
-
-		lda #$00
-		sta file_sectorsread
-		sta file_sectorsread+1
-
-		; Wait until switch 14 released before loading sector so that we
-		; can intercept the routine to track down bugs
-lr96:		
-		lda $d6f1
-		and #$40
-		bne lr96
-
-rf1:		
-		; Write sector to address provided in dos_file_loadaddress
-		; (provided it is write-enabled!)
-
-		; copy sector into 128KB fast RAM / ROM
-		ldx #$00
-		ldz #$00
-rr1:		lda $de00,x
-		nop ; 32-bit pointer access follows
-		sta (<dos_file_loadaddress),z
-		inz
-		inx
-		bne rr1
-		inw <dos_file_loadaddress+1
-rr1b:		lda $df00,x
-		nop ; 32-bit pointer access follows
-		sta (<dos_file_loadaddress),z
-		inz
-		inx
-		bne rr1b
-		inw <dos_file_loadaddress+1
-
-		; see if there is another sector
-		; (but don't try if we have read ~256KB already, since we are
-		;  supposed to read 128KB only).
-		inc file_sectorsread
-		bne rf2
-		inc file_sectorsread+1
-rf2:		
-		lda file_sectorsread+1
-		
-		jsr fs_readnextsector
-		bcc notrf1
-		jmp rf1
-notrf1:
-		; Read last sector, so return success.
-		sec
-		rts
-		
 
 ;;; ----------------------------------------------------------------------------
 ;;; MBP / partition routines
@@ -2545,15 +2448,15 @@ msg_nologo:	      .byte "COULD NOT LOAD BOOTLOGO.G65",0
 msg_blankline:	      .byte 0
 
 ; filename of character ROM
-txt_c65gscharrom:     .byte "CHARROM G65"
+txt_c65gscharrom:     .byte "CHARROM.G65",0
 ; filename of ROM we want to load in FAT directory format
-txt_c65gsrom:	      .byte "C65GS   ROM"
+txt_c65gsrom:	      .byte "C65GS.ROM",0,0
 ; filename of 1581 disk image we mount by default
-txt_c65gsd81:	      .byte "C65GS   D81"
+txt_c65gsd81:	      .byte "C65GS.D81",0
 ; filename of kickstart update file
-txt_kickupfile:	      .byte "KICKUP  G65"
+txt_kickupfile:	      .byte "KICKUP.G65",0
 ; filename containing boot logo
-txt_bootlogo:	      .byte "BOOTLOGOG65"
+txt_bootlogo:	      .byte "BOOTLOGO.G65",0
 
 diskchooserstart:
 	.incbin "diskchooser"
