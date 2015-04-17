@@ -367,18 +367,20 @@ gotmbr:
 		; Load and display boot logo
 		; Prepare 32-bit pointer for loading boot logo @ $0004000
 		lda #$00
-		sta <target_loadaddress+0
+		sta <dos_file_loadaddress+0
 		lda #$40
-		sta <target_loadaddress+1
+		sta <dos_file_loadaddress+1
 		lda #$00
-		sta <target_loadaddress+2
+		sta <dos_file_loadaddress+2
 		lda #$00
-		sta <target_loadaddress+3
-		ldx #$0b
+		sta <dos_file_loadaddress+3
+		ldx #$00
 lr11:		lda txt_bootlogo,x
-		sta target_filename,x
+		sta dos_requested_filename,x
 		dex
-		bpl lr11
+		cmp #0
+		bne lr11
+		stx dos_requested_filename_len
 		jsr dos_readfileintomemory
 		bcs logook
 		
@@ -401,18 +403,20 @@ logook:
 nextdirectoryentry3:
 		; Prepare 32-bit pointer for loading boot logo @ $0004000
 		lda #$00
-		sta <target_loadaddress+0
+		sta <dos_file_loadaddress+0
 		lda #$40
-		sta <target_loadaddress+1
+		sta <dos_file_loadaddress+1
 		lda #$00
-		sta <target_loadaddress+2
+		sta <dos_file_loadaddress+2
 		lda #$00
-		sta <target_loadaddress+3
-		ldx #$0b
+		sta <dos_file_loadaddress+3
+		ldx #$00
 lr12:		lda txt_kickupfile,x
-		sta target_filename,x
+		sta dos_requested_filename,x
 		dex
-		bpl lr12
+		cmp #0
+		bne lr12
+		stx dos_requested_filename_len
 		jsr fs_readfileintomemory
 		bcc nokickup
 
@@ -686,13 +690,13 @@ lr1:		lda txt_c65gscharrom,x
 
 		; Prepare 32-bit pointer for loading whole ROM ($FF7E000)
 		lda #$00
-		sta <target_loadaddress+0
+		sta <dos_file_loadaddress+0
 		lda #$E0
-		sta <target_loadaddress+1
+		sta <dos_file_loadaddress+1
 		lda #$F7
-		sta <target_loadaddress+2
+		sta <dos_file_loadaddress+2
 		lda #$0F
-		sta <target_loadaddress+3
+		sta <dos_file_loadaddress+3
 
 		jsr fs_readfileintomemory
 		bcs loadedcharromok
@@ -723,11 +727,11 @@ lr1b:		lda txt_c65gsrom,x
 
 		; Prepare 32-bit pointer for loading whole ROM ($0020000)
 		lda #$00
-		sta <target_loadaddress+0
-		sta <target_loadaddress+1
-		sta <target_loadaddress+3
+		sta <dos_file_loadaddress+0
+		sta <dos_file_loadaddress+1
+		sta <dos_file_loadaddress+3
 		lda #$02
-		sta <target_loadaddress+2
+		sta <dos_file_loadaddress+2
 
 		jsr fs_readfileintomemory
 		bcs loadedok
@@ -1166,7 +1170,7 @@ lr96:
 		bne lr96
 
 rf1:		
-		; Write sector to address provided in target_loadaddress
+		; Write sector to address provided in dos_file_loadaddress
 		; (provided it is write-enabled!)
 
 		; copy sector into 128KB fast RAM / ROM
@@ -1174,18 +1178,18 @@ rf1:
 		ldz #$00
 rr1:		lda $de00,x
 		nop ; 32-bit pointer access follows
-		sta (<target_loadaddress),z
+		sta (<dos_file_loadaddress),z
 		inz
 		inx
 		bne rr1
-		inw <target_loadaddress+1
+		inw <dos_file_loadaddress+1
 rr1b:		lda $df00,x
 		nop ; 32-bit pointer access follows
-		sta (<target_loadaddress),z
+		sta (<dos_file_loadaddress),z
 		inz
 		inx
 		bne rr1b
-		inw <target_loadaddress+1
+		inw <dos_file_loadaddress+1
 
 		; see if there is another sector
 		; (but don't try if we have read ~256KB already, since we are
