@@ -1642,10 +1642,13 @@ drfim_rr1b:
 	; see if there is another sector
 	bne drfim_sector_loop
 
+	jsr dos_closefile
+
 	; File is >65535 sectors (32MB), report error
 	lda #dos_errorcode_file_too_long
 	jmp dos_return_error
 drfim_eof:
+	jsr dos_closefile
 	jmp dos_return_success
 
 dos_setname:
