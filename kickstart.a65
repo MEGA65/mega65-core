@@ -352,6 +352,7 @@ tryreadmbr:
 		
 gotmbr:
 		; Scan SD card for partitions and mount them.
+		jsr dos_clearall
 		jsr dos_read_partitiontable
 		ldx #<msg_diskcount
 		ldy #>msg_diskcount
@@ -385,6 +386,9 @@ gotmbr:
 		ldx #<msg_nologo
 		ldy #>msg_nologo
 		jsr printmessage
+		ldy #$00
+		ldz dos_error_code
+		jsr printhex
 logook:
 		; iterate through directory entries looking for ordinary file 
 		; KICKUP.G65 to load into hypervisor memory ...
@@ -2122,7 +2126,7 @@ msg_alreadykicked:    .byte "RUNNING KICKED HYPERVISOR",0
 msg_etherkick:	      .byte "BOOTING VIA ETHERKICK: UDP PORT 4511",0
 msg_lookingfornextsector:
 		      .byte "LOOKING FOR NEXT SECTOR OF FILE",0
-msg_nologo:	      .byte "COULD NOT LOAD BOOTLOGO.G65",0
+msg_nologo:	      .byte "COULD NOT LOAD BOOTLOGO.G65 (ERRNO:$$)",0
 msg_blankline:	      .byte 0
 
 ; filename of character ROM

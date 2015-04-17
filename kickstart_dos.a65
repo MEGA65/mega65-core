@@ -698,7 +698,7 @@ dos_return_error:
 
 dos_set_current_disk:
 	; Is disk number valid?
-	lda dos_errorcode_no_such_disk
+	lda #dos_errorcode_no_such_disk
 	cpx dos_disk_count
 	bcs partitionerror
 	sec
@@ -818,7 +818,7 @@ dos_requested_filename_to_uppercase:
 	; Convert filename to upper case for comparison
 	ldx dos_requested_filename_len
 	cpx #$3f
-	lda dos_errorcode_name_too_long
+	lda #dos_errorcode_name_too_long
 	bcs dos_return_error
 drftu1:	lda dos_requested_filename,x
 	jsr toupper
@@ -874,6 +874,15 @@ dos_openfile:
 
 	lda #dos_errorcode_is_a_directory
 
+dos_clearall:
+	; Free all file descriptors
+	lda #$ff
+	sta dos_file_descriptors
+	sta dos_file_descriptors+$10
+	sta dos_file_descriptors+$20
+	sta dos_file_descriptors+$30
+	rts	
+
 dos_closefile:
 	; Close the current file/directory
 	; If the file is read-only, we can just free the file descriptor and return.
@@ -917,16 +926,26 @@ dof_not_a_directory:
 dos_findfile:
 	; Search for file in current directory	
 
+	inc $0430
+
 	; Convert name to upper case for searching
 	jsr dos_requested_filename_to_uppercase
 	bcc dos_return_error
 
+	inc $0432
+
 	jsr dos_opendir
+	sta $0440
 	bcc dos_return_error
+
+	inc $0434
 
 	; Directory is now open, and we can now iterate through directory entries
 	
 dff_try_next_entry:
+
+	inc $0436
+
 	; Get next directory entry
 	jsr dos_readdir
 	bcs dff_have_next_entry
@@ -1562,6 +1581,8 @@ dos_readfileintomemory:
 	; file name must be already loaded into dos_requested_filename,
 	; with length in dos_requreste_filename_length
 
+	inc $0428
+
 	; Clear number of sectors read
 	ldx #$00
 	stx dos_sectorsread
@@ -1570,8 +1591,12 @@ dos_readfileintomemory:
 	jsr dos_findfile
 	bcc dos_return_error
 
+	inc $0428+$50
+
 	jsr dos_openfile
 	bcc dos_return_error
+
+	inc $0428+$50+$50
 
 	jsr sd_map_sectorbuffer
 
