@@ -15,6 +15,7 @@
 	.alias dos_errorcode_not_two_fats $05
 	.alias dos_errorcode_too_few_clusters $06
 	.alias dos_errorcode_read_timeout $07
+	.alias dos_errorcode_partition_error $08
 
 	.alias dos_errorcode_no_such_disk $80
 	.alias dos_errorcode_name_too_long $81
@@ -24,6 +25,7 @@
 	.alias dos_errorcode_invalid_cluster $85
 	.alias dos_errorcode_is_a_directory $86
 	.alias dos_errorcode_not_a_directory $87
+	.alias dos_errorcode_file_not_found $88
 
 	; FAT directory entry constants
 	.alias fs_fat32_dirent_offset_attributes 11
@@ -231,6 +233,8 @@ dos_read_partitiontable:
 	; Make the sector buffer visible
 	jsr sd_map_sectorbuffer
 
+	lda #dos_errorcode_bad_signature
+	sta dos_error_code
 	; check for $55AA MBR signature
 	lda [sd_sectorbuffer+$1FE]
 	cmp #$55
@@ -269,6 +273,9 @@ dos_read_partitiontable:
 	sta dos_scratch_vector
 	jsr dos_consider_partition_entry
 
+	lda #0
+	sta dos_error_code
+	sec
 	rts
 
 dos_read_mbr:
@@ -360,7 +367,7 @@ partitionisnotinteresting:
 	rts
 
 drpt_fail:
-	
+	; error code will already be set	
 partitionerror:
 	; return ERROR
 	clc
@@ -703,6 +710,8 @@ dos_return_success:
 	rts
 
 dos_return_error:
+	sta dos_error_code
+dos_return_error_already_set:
 	clc
 	rts
 
@@ -730,6 +739,7 @@ dos_cdroot:
 	; X = disk
 
 	jsr dos_set_current_disk
+	bcc dos_return_error_already_set
 
 	; get offset of disk entry
 	ldx dos_disk_table_offset
@@ -740,6 +750,9 @@ dos_cdroot:
 	lda #$00
 	sta dos_disk_cwd_cluster+2
 	sta dos_disk_cwd_cluster+3
+
+	lda #$50
+	jsr debug_wait_for_switch_toggle
 
 	; Nothing else to do, as it doesn't actually affect any existing DOS activity,
 	; only future file/directory operations.
@@ -757,6 +770,29 @@ dcts0:	lda dos_current_cluster,x
 	dex
 	bpl dcts0
 
+	lda #$40
+	jsr debug_wait_for_switch_toggle
+
+	; subtract 2 from the cluster number (clusters 0 and 1 don't actually exist
+	; on FAT32).
+	lda $d681
+	sec
+	sbc #$02
+	sta $d681
+	lda $d682
+	sbc #0
+	sta $d682
+	lda $d683
+	sbc #0
+	sta $d683
+	lda $d684
+	sbc #0
+	sta $d684
+	
+
+	lda #$41
+	jsr debug_wait_for_switch_toggle
+	
 	; now shift it left according to fs_sectors_per_cluster
 	ldx dos_disk_table_offset	
 	lda dos_disk_table+fs_fat32_sectors_per_cluster,x
@@ -780,6 +816,9 @@ mmm1:	lda $d681,x
 	cpx #$04
 	bne mmm1
 
+	lda #$42
+	jsr debug_wait_for_switch_toggle
+
 	; skip over filesystem reserved and FAT sectors
 	lda dos_disk_table_offset	
 	ora #fs_fat32_cluster0_sector
@@ -798,6 +837,9 @@ l23:	plp
 	bne l23
 	plp	
 
+	lda #$43
+	jsr debug_wait_for_switch_toggle	
+
 	; add start sector of partition
 	lda dos_disk_table_offset	
 	ora #fs_start_sector
@@ -815,6 +857,9 @@ l24:	plp
 	cpx #$04
 	bne l24
 	plp
+
+	lda #$44
+	jsr debug_wait_for_switch_toggle	
 
 	; XXX - Check that result does not exceed fs_start_sector+fs_sector_count
 	; and run over into another partition
@@ -873,17 +918,6 @@ dgfd2:	sta dos_file_descriptors,y
 	sec
 	rts
 
-dos_openfile:
-	; Open the file that is in the dirent structure
-	; (to open a file by arbitrary name, you must first call dos_findfile)
-
-	; Check if the file is a directory, if so, refuse to open it.
-	lda dos_dirent_type_and_attribs
-	and #fs_fat32_attribute_isdirectory
-	beq dof_not_a_directory
-
-	lda #dos_errorcode_is_a_directory
-
 dos_clearall:
 	; Free all file descriptors with extreme prejudice
 	lda #$ff
@@ -925,12 +959,24 @@ dcf_simple:
 	sec
 	rts
 
+dos_openfile:
+	; Open the file that is in the dirent structure
+	; (to open a file by arbitrary name, you must first call dos_findfile)
+
+	; Check if the file is a directory, if so, refuse to open it.
+	lda dos_dirent_type_and_attribs
+	and #fs_fat32_attribute_isdirectory
+	beq dof_not_a_directory
+
+	lda #dos_errorcode_is_a_directory
+	jmp dos_return_error
+
 dof_not_a_directory:
 	jsr dos_get_free_descriptor
-	bcc dos_return_error
+	bcc dos_return_error_already_set
 
 	jsr dos_set_current_file_from_dirent
-	bcc dos_return_error
+	bcc dos_return_error_already_set
 
 	jmp dos_open_current_file
 
@@ -941,13 +987,13 @@ dos_findfile:
 
 	; Convert name to upper case for searching
 	jsr dos_requested_filename_to_uppercase
-	bcc dos_return_error
+	bcc dos_return_error_already_set
 
 	inc $0432
 
 	jsr dos_opendir
 	sta $0440
-	bcc dos_return_error
+	bcc dos_return_error_already_set
 
 	inc $0434
 
@@ -966,7 +1012,9 @@ dff_try_next_entry:
 	jsr debug_wait_for_switch_toggle
 
 	jsr dos_closefile
-	rts
+
+	lda #dos_errorcode_file_not_found
+	jmp dos_return_error
 dff_have_next_entry:
 
 	lda #$0a
@@ -986,7 +1034,7 @@ dos_opendir:
 
 	; Open the current directory as a file
 	jsr dos_get_free_descriptor
-	bcc dos_return_error
+	bcc dos_return_error_already_set
 
 	; get offset in file descriptor table
 	txa
@@ -996,23 +1044,31 @@ dos_opendir:
 	asl
 	tay
 
+	; set disk id
+	lda dos_disk_current_disk
+	sta dos_file_descriptors+dos_filedescriptor_offset_diskid,y
+
 	; load cluster of dir into file descriptor
 	ldx #$00
 dff1:	lda dos_disk_cwd_cluster,x
+	sta $06d0,x
 	sta [dos_file_descriptors+dos_filedescriptor_offset_startcluster],y
+	sta [dos_file_descriptors+dos_filedescriptor_offset_currentcluster],y
 	iny
 	inx
 	cpx #$04
 	bne dff1
-	jsr dos_cluster_to_sector
 
 	; Mark file descriptor as being a directory
 	ldx dos_current_file_descriptor_offset
 	lda #dos_filemode_directoryaccess
-	sta [dos_file_descriptors+dos_filedescriptor_offset_startcluster],x
+	sta [dos_file_descriptors+dos_filedescriptor_offset_mode],x
+
+	lda #$55
+	jsr debug_wait_for_switch_toggle
 
 	jsr dos_open_current_file
-	bcc dos_return_error
+	bcc dos_return_error_already_set
 	rts
 
 dos_readdir:
@@ -1024,6 +1080,8 @@ dos_readdir:
 	; LFN entries use 16-bit unicode values. For now we will just keep the lower
 	; byte of these
 
+	jsr dos_file_read_current_sector
+
 	ldx dos_current_file_descriptor_offset
 	lda #dos_filemode_directoryaccess
 	cmp [dos_file_descriptors+dos_filedescriptor_offset_startcluster],x
@@ -1031,8 +1089,7 @@ dos_readdir:
 
 	; refuse to read files as directories
 	lda #dos_errorcode_not_a_directory
-	clc
-	rts
+	jmp dos_return_error
 
 drd_isdir:
 
@@ -1047,13 +1104,13 @@ drce1:	sta dos_dirent_longfilename,x
 	
 	; Read current sector
 	jsr dos_file_read_current_sector
-	bcc dos_return_error
+	bcc dos_return_error_already_set
 
 	jsr sd_map_sectorbuffer
 
 drce_next_piece:
 
-	lda #1
+	lda #$0e
 	jsr debug_wait_for_switch_toggle
 
 	; Offset in sector correctly indicates where we need to read.
@@ -1337,6 +1394,11 @@ drce_there_is_another_sector:
 dos_set_current_file_from_dirent:
 	; copy start cluster from dirent to start and current cluster
 	jsr dos_get_file_descriptor_offset
+
+	; set disk id
+	lda dos_disk_current_disk
+	sta dos_file_descriptors+dos_filedescriptor_offset_diskid,x
+
 	ldy #0
 dscffd1:
 	lda dos_dirent_cluster,y
@@ -1374,7 +1436,25 @@ dos_open_current_file:
 	; copy start cluster to current cluster, and zero position in file
 	jsr dos_get_file_descriptor_offset
 
-	; XXX - What else needs to happen here?
+	; Copy start cluster to current cluster
+	ldy #3
+docf1:	lda dos_file_descriptors+dos_filedescriptor_offset_startcluster,x
+	sta dos_file_descriptors+dos_filedescriptor_offset_currentcluster,x
+	inx
+	dey
+	bpl docf1
+	jsr dos_get_file_descriptor_offset
+	lda #$00
+
+	; sectorincluster, offsetinsector, fileoffset are contiguous, which allows
+	; us to clear these more efficiently.
+	ldy #6
+docf2:	sta dos_file_descriptors+dos_filedescriptor_offset_sectorincluster,x
+	inx
+	dey
+	bne docf2
+
+	jsr dos_get_file_descriptor_offset
 
 	sec
 	rts
@@ -1392,13 +1472,12 @@ dos_get_file_descriptor_offset:
 dos_set_current_cluster_from_file:
 	; copy cluster number in file to current cluster
 	jsr dos_get_file_descriptor_offset
-	ora dos_filedescriptor_offset_currentcluster
-	tay
-	ldx #$00
-dfrcs1:	lda dos_file_descriptors,y
-	sta dos_current_cluster,x
+	ldy #$00
+dfrcs1:	lda dos_file_descriptors+dos_filedescriptor_offset_currentcluster,x
+	sta dos_current_cluster,y
 	inx
-	cpx #$04
+	iny
+	cpy #$04
 	bne dfrcs1
 	rts
 
@@ -1424,7 +1503,14 @@ dfrcs4:
 	bne dfrcs2
 dfrcs_inced:
 
+	lda #$12
+	jsr debug_wait_for_switch_toggle
+
 	jsr sd_fix_sectornumber
+
+	lda #$13
+	jsr debug_wait_for_switch_toggle
+
 	jmp sd_readsector
 
 dos_file_advance_to_next_sector:
@@ -1566,6 +1652,8 @@ dfanc44:
 	; ... and keep it handy, because we will need it a few times
 	sty dos_scratch_byte_2
 
+	jsr sd_map_sectorbuffer
+
 	lda dos_scratch_byte_1
 	and #$40
 	bne dfanc_high
@@ -1642,12 +1730,12 @@ dos_readfileintomemory:
 	stx dos_sectorsread+1
 
 	jsr dos_findfile
-	bcc dos_return_error
+	bcc dos_return_error_already_set
 
 	inc $0428+$50
 
 	jsr dos_openfile
-	bcc dos_return_error
+	bcc dos_return_error_already_set
 
 	inc $0428+$50+$50
 

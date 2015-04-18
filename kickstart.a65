@@ -358,7 +358,7 @@ gotmbr:
 		ldy #>msg_diskcount
 		jsr printmessage
 		ldy #$00
-		lda dos_disk_count
+		ldz dos_disk_count
 		jsr printhex		
 
 		; Go to root directory on default disk
@@ -504,7 +504,6 @@ postkickup:
 		sta $d68b
 
 		jsr dos_cdroot
-		jsr dos_opendir
 		bcc sdcarderror
 
 		; set name of file we are looking for
@@ -2104,8 +2103,8 @@ nth1:	sec
 
 debug_wait_for_switch_toggle:	
 		php
-		pha
 		phx
+		pha
 		
 		and #$0f
 		jsr nybltohex
@@ -2130,7 +2129,52 @@ debug_wait_for_switch_toggle:
 		and #$f
 		jsr nybltohex
 		sta $0686
-		
+
+		; Show current sector number as well.
+		lda $d684
+		lsr
+		lsr
+		lsr
+		lsr
+		jsr nybltohex
+		sta $068a
+		lda $d684
+		and #$f
+		jsr nybltohex
+		sta $068c
+		lda $d683
+		lsr
+		lsr
+		lsr
+		lsr
+		jsr nybltohex
+		sta $068e
+		lda $d683
+		and #$f
+		jsr nybltohex
+		sta $0690
+		lda $d682
+		lsr
+		lsr
+		lsr
+		lsr
+		jsr nybltohex
+		sta $0692
+		lda $d682
+		and #$f
+		jsr nybltohex
+		sta $0694
+		lda $d681
+		lsr
+		lsr
+		lsr
+		lsr
+		jsr nybltohex
+		sta $0696
+		lda $d681
+		and #$f
+		jsr nybltohex
+		sta $0698
 
 		lda $d6f1
 		ldx $d6f0
@@ -2154,8 +2198,8 @@ d1:		inx
 		bne d1
 		
 
-		plx
 		pla
+		plx
 		plp
 		rts
 
@@ -2268,10 +2312,11 @@ dos_opendir_entry:
 dos_dirent_longfilename:
 		.byte "Venezualen casaba melon productio"
 		.byte "n statistics (2012-2015).txt     "
+		.byte 0
 dos_dirent_longfilename_length:
 		.byte 0
 dos_dirent_shortfilename:
-		.byte "FILENAMEEXT"
+		.byte "FILENAME.EXT",0		
 dos_dirent_cluster:
 		.byte 0,0,0,0
 dos_dirent_length:
@@ -2307,6 +2352,8 @@ dos_current_sector_in_cluster: .byte 0
     .alias dos_filedescriptor_offset_mode 1    
     .alias dos_filedescriptor_offset_startcluster 2    
     .alias dos_filedescriptor_offset_currentcluster 6
+    ; These last three fields must be contiguous, as dos_open_current_file
+    ; relies on it.
     .alias dos_filedescriptor_offset_sectorincluster 10
     .alias dos_filedescriptor_offset_offsetinsector 11
     .alias dos_filedescriptor_offset_fileoffset 13
