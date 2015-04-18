@@ -1062,9 +1062,6 @@ dos_readdir:
 	lda #0
 	sta dos_dirent_longfilename_length
 
-	lda #$39
-	jsr debug_wait_for_switch_toggle
-
 	jsr dos_file_read_current_sector
 
 	ldx dos_current_file_descriptor_offset
@@ -1100,9 +1097,6 @@ drce1:	sta dos_dirent_longfilename,x
 	jsr sd_map_sectorbuffer
 
 drce_next_piece:
-
-	lda #$0e
-	jsr debug_wait_for_switch_toggle
 
 	; Offset in sector correctly indicates where we need to read.
 	; Sectors are 512 bytes, so we can't just do a register index.
@@ -1375,35 +1369,35 @@ dff3:
 	rts
 
 dos_readdir_advance_to_next_entry:
-	lda dos_current_file_descriptor_offset
-	ora #dos_filedescriptor_offset_offsetinsector
-	tay
+	ldy dos_current_file_descriptor_offset
 	
 	clc
-	lda dos_file_descriptors,y
+	lda dos_file_descriptors+dos_filedescriptor_offset_offsetinsector+0,y
 	adc #$20 ; length of FAT32/VFAT directory entry
-	sta dos_file_descriptors,y
+	sta dos_file_descriptors+dos_filedescriptor_offset_offsetinsector+0,y
 	bne dratne_done
 
 	; Increment upper byte
-	iny
-	lda dos_file_descriptors,y
+	lda dos_file_descriptors+dos_filedescriptor_offset_offsetinsector+1,y
 	inc
-	cmp #$02
-	beq drce_end_of_sector
-	sta dos_file_descriptors,y
+	cmp #$01
+	bne drce_end_of_sector
+	sta dos_file_descriptors+dos_filedescriptor_offset_offsetinsector+1,y
 dratne_done:
 	sec
 	rts
 
 drce_end_of_sector:
+	; Reset pointer back to start of sector
+	lda #$00
+	sta dos_file_descriptors+dos_filedescriptor_offset_offsetinsector+1,y
+	sty $2000
+
+	lda #$36
+	jsr debug_wait_for_switch_toggle
 
 	jsr dos_file_advance_to_next_sector
 	rts
-
-drce_there_is_another_sector:
-
-	jmp dos_file_read_current_sector
 
 dos_set_current_file_from_dirent:
 	; copy start cluster from dirent to start and current cluster
