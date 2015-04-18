@@ -27,6 +27,8 @@
 	.alias dos_errorcode_not_a_directory $87
 	.alias dos_errorcode_file_not_found $88
 
+	.alias dos_errorcode_eof $FF
+
 	; FAT directory entry constants
 	.alias fs_fat32_dirent_offset_attributes 11
 	.alias fs_fat32_dirent_offset_shortname 0
@@ -60,6 +62,7 @@
 
 	; Possible file modes
 	.alias dos_filemode_directoryaccess $80
+	.alias dos_filemode_end_of_directory $81
 	.alias dos_filemode_readonly 0
 	.alias dos_filemode_readwrite 1
 	; 256-byte fixed size records for REL emulaton
@@ -1083,10 +1086,16 @@ dos_readdir:
 	jsr dos_file_read_current_sector
 
 	ldx dos_current_file_descriptor_offset
-	lda #dos_filemode_directoryaccess
-	cmp [dos_file_descriptors+dos_filedescriptor_offset_mode],x
+	lda [dos_file_descriptors+dos_filedescriptor_offset_mode],x
+	cmp #dos_filemode_directoryaccess
 	beq drd_isdir
+	cmp #dos_filemode_end_of_directory
+	bne drd_notadir
 
+	lda #dos_errorcode_eof
+	jmp dos_return_error
+
+drd_notadir:
 	; refuse to read files as directories
 	lda #dos_errorcode_not_a_directory
 	jmp dos_return_error
@@ -1326,7 +1335,22 @@ drce_fl:
 	lda #6
 	jsr debug_wait_for_switch_toggle
 
-	; return with success
+	jsr dos_readdir_advance_to_next_entry
+	bcs drce_noteof
+
+	; We need to pass the error through here to indicate EOF in directory,
+	; but in a way that can be defered to the next call to dos_readdir, because
+	; we have a valid entry right now.  We do this with a special file mode which
+	; is EOF of directory (dos_filemode_end_of_directory)
+	ldx dos_current_file_descriptor_offset
+	lda #dos_filemode_end_of_directory
+	sta dos_file_descriptors+dos_filedescriptor_offset_mode,x
+
+	ldx dos_current_file_descriptor_offset
+	lda [dos_file_descriptors+dos_filedescriptor_offset_mode],x
+
+
+drce_noteof:
 	sec
 	rts
 
@@ -1384,7 +1408,6 @@ dos_readdir_advance_to_next_entry:
 drce_end_of_sector:
 
 	jsr dos_file_advance_to_next_sector
-	bcs drce_there_is_another_sector
 	rts
 
 drce_there_is_another_sector:
