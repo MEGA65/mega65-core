@@ -1387,7 +1387,7 @@ dff3:
 
 dos_readdir_advance_to_next_entry:
 	lda dos_current_file_descriptor_offset
-	ora dos_filedescriptor_offset_offsetinsector
+	ora #dos_filedescriptor_offset_offsetinsector
 	tay
 	
 	clc
@@ -1510,7 +1510,7 @@ dos_file_read_current_sector:
 
 	; Add sector within cluster
 	jsr dos_get_file_descriptor_offset
-	ora dos_filedescriptor_offset_sectorincluster
+	ora #dos_filedescriptor_offset_sectorincluster
 	tay
 	ldx #$00
 	clc
@@ -1539,7 +1539,7 @@ dfrcs_inced:
 dos_file_advance_to_next_sector:
 	; Increment file position offset by 2 pages
 	lda dos_current_file_descriptor_offset
-	ora dos_filedescriptor_offset_fileoffset
+	ora #dos_filedescriptor_offset_fileoffset
 	tax
 	lda dos_file_descriptors,y
 	inc
@@ -1552,7 +1552,7 @@ dos_file_advance_to_next_sector:
 dfatns1:
 	; increase sector
 	lda dos_current_file_descriptor_offset
-	ora dos_filedescriptor_offset_sectorincluster
+	ora #dos_filedescriptor_offset_sectorincluster
 	tax
 	ldx dos_disk_table_offset
 	inc dos_file_descriptors,x
@@ -1566,7 +1566,7 @@ dfatns1:
 dos_file_advance_to_next_cluster:
 	; set to sector 0 in cluster
 	lda dos_current_file_descriptor_offset
-	ora dos_filedescriptor_offset_sectorincluster
+	ora #dos_filedescriptor_offset_sectorincluster
 	tay
 	lda #$00
 	sta dos_file_descriptors,y
