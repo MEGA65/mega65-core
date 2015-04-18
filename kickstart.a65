@@ -1738,6 +1738,8 @@ phd1:		sta (<zptempp2),y
 		iny
 		rts
 
+
+
 ; Transfer control to C64 kernel.
 ; (This also allows entry to C65 mode, because the
 ;  C64-mode kernel on the C65 checks if C65 mode
@@ -2090,6 +2092,73 @@ badpacket:
 
 arptemplate:
 	.byte $08,$06,$00,$01,$08,$00,$06,$04,$00,$01
+
+nybltohex:
+	cmp #$a
+	bcs nth1
+	ora #$30
+	rts
+nth1:	sec
+	sbc #9
+	rts
+
+debug_wait_for_switch_toggle:	
+		php
+		pha
+		phx
+		
+		and #$0f
+		jsr nybltohex
+		sta $0682
+		pla
+		pha
+		lsr
+		lsr
+		lsr
+		lsr
+		jsr nybltohex
+		sta $0680
+
+		lda dos_error_code
+		lsr
+		lsr
+		lsr
+		lsr
+		jsr nybltohex
+		sta $0684
+		lda dos_error_code
+		and #$f
+		jsr nybltohex
+		sta $0686
+		
+
+		lda $d6f1
+		ldx $d6f0
+dwfst_loop:
+		cmp $d6f1
+		bne dwfst_done
+		cpx $d6f0
+		bne dwfst_done
+		inc $d020
+		jmp dwfst_loop
+dwfst_done:
+		; now wait a bit for de-bounce
+		ldx #0
+		ldy #0
+		ldz #$f0
+d1:		inx
+		bne d1
+		iny
+		bne d1
+		inz
+		bne d1
+		
+
+		plx
+		pla
+		plp
+		rts
+
 
 ; messages.  All have to be 40 bytes long
 msg_kickstart:        .byte "C65GS KICKSTART V00.03",0

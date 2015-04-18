@@ -955,14 +955,23 @@ dos_findfile:
 	
 dff_try_next_entry:
 
-	inc $0436
+	lda #$09
+	jsr debug_wait_for_switch_toggle
 
 	; Get next directory entry
 	jsr dos_readdir
 	bcs dff_have_next_entry
+
+	lda #$0b
+	jsr debug_wait_for_switch_toggle
+
 	jsr dos_closefile
 	rts
 dff_have_next_entry:
+
+	lda #$0a
+	jsr debug_wait_for_switch_toggle
+
 	; Compare dos_dirent_longfilename with dos_requested_filename
 	jsr dos_dirent_compare_name_to_requested
 	; no match? try next entry
@@ -1004,6 +1013,7 @@ dff1:	lda dos_disk_cwd_cluster,x
 
 	jsr dos_open_current_file
 	bcc dos_return_error
+	rts
 
 dos_readdir:
 	; Get the current file entry, and advance pointer
@@ -1042,6 +1052,10 @@ drce1:	sta dos_dirent_longfilename,x
 	jsr sd_map_sectorbuffer
 
 drce_next_piece:
+
+	lda #1
+	jsr debug_wait_for_switch_toggle
+
 	; Offset in sector correctly indicates where we need to read.
 	; Sectors are 512 bytes, so we can't just do a register index.
 	; Instead we will setup a 16-bit pointer.
@@ -1088,7 +1102,10 @@ drce_next_piece:
 	tax
 	lda lfn_piece_offsets,x
 	tax
-	
+
+	lda #2
+	jsr debug_wait_for_switch_toggle
+
 	; Copy first part of LFN
 	ldy #fs_fat32_dirent_offset_lfn_part1_start
 	ldz #fs_fat32_dirent_offset_lfn_part1_chars
@@ -1148,11 +1165,16 @@ drce_ignore_lfn_piece:
 	; above to keep accumulating
 
 	jsr dos_readdir_advance_to_next_entry
-	bcs drce_next_piece
+	bcc drce_no_more_pieces
+	jmp drce_next_piece
+drce_no_more_pieces:
 	rts
 
 drce_shortname:
 	; We have found a short name.
+
+	lda #3
+	jsr debug_wait_for_switch_toggle
 
 	; store short name
 	ldy #fs_fat32_dirent_offset_shortname
@@ -1168,6 +1190,9 @@ drce5:	lda (<dos_scratch_vector),y
 	; name and extension as required.
 	lda dos_dirent_longfilename_length
 	bne drce_already_have_long_name
+
+	lda #4
+	jsr debug_wait_for_switch_toggle
 
 	; copy name part
 	ldy #fs_fat32_dirent_offset_shortname
@@ -1192,11 +1217,14 @@ drce6:	lda (<dos_scratch_vector),y
 	iny
 	cmp #0
 	beq drce_copied_extension
-	cpx #3
+	cpx #[8+1+3]
 	bne drce6
 drce_copied_extension:	
 
 drce_already_have_long_name:
+
+	lda #5
+	jsr debug_wait_for_switch_toggle
 
 	; now copy attribute field and other useful data
 
@@ -1229,6 +1257,17 @@ drce_fl:
 	ldy #fs_fat32_dirent_offset_attributes
 	lda (<dos_scratch_vector),y
 	sta dos_dirent_type_and_attribs
+
+	; print filename for debug
+	ldx #<dos_dirent_shortfilename
+	ldy #>dos_dirent_shortfilename
+	jsr printmessage
+	ldx #<dos_dirent_longfilename
+	ldy #>dos_dirent_longfilename
+	jsr printmessage
+
+	lda #6
+	jsr debug_wait_for_switch_toggle
 
 	; return with success
 	sec
