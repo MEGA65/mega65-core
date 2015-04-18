@@ -1,6 +1,7 @@
-; XXX - Add debug output for every step of the dos progress: show file names, cluster and sector calculations etc.
-; the VFAT stuff is a likely candidate for something having gone wrong.
-; also how does a DOS error code of $FF get set?
+; XXX - Track down file descriptor leaks.
+; XXX - Track down why 2nd and subsequent LFN blocks are not used.
+; XXX - Track down why files are not loading.
+; XXX - Refactor dos_findfile into dos_findfirst and dos_findnext
 
 	.alias os_version  $0101
 	.alias dos_version $0101
@@ -869,6 +870,10 @@ drftu1:	lda dos_requested_filename,x
 	rts
 
 dos_get_free_descriptor:
+
+	lda #$77
+	jsr debug_wait_for_switch_toggle
+
 	ldx #$00
 dgfd1:	txa
 	asl
@@ -961,12 +966,31 @@ dos_openfile:
 	jmp dos_return_error
 
 dof_not_a_directory:
+
+	lda #$a1
+	jsr debug_wait_for_switch_toggle
+
 	jsr dos_set_current_file_from_dirent
 	bcc dos_return_error_already_set
+
+	lda #$a2
+	jsr debug_wait_for_switch_toggle
 
 	jmp dos_open_current_file
 
 dos_findfile:
+	; Convenience wrapper around dos_findfirst to make sure that we don't
+	; leave any hanging file descriptors.
+
+	jsr dos_findfirst
+	php
+	jsr dos_closefile
+	plp
+	bcc dos_return_error_already_set
+	sec
+	rts
+
+dos_findfirst:
 	; Search for file in current directory	
 
 	; Convert name to upper case for searching
@@ -977,7 +1001,12 @@ dos_findfile:
 	bcc dos_return_error_already_set
 
 	; Directory is now open, and we can now iterate through directory entries
-	
+	jmp dos_findnext
+
+
+dos_findnext:
+	; Keep searching in directory for another match
+
 dff_try_next_entry:
 
 	; Get next directory entry
@@ -995,8 +1024,9 @@ dff_have_next_entry:
 	; no match? try next entry
 	bcc dff_try_next_entry
 	
-	; we have a match, so close dir and return success
-	jsr dos_closefile
+	; we have a match, so return success
+	; (we don't close the file handle for the directory search, because the
+	; caller may want to find multiple matches)
 	sec
 	rts
 
@@ -1424,6 +1454,7 @@ dscffd1:
 	sta dos_file_descriptors+dos_filedescriptor_offset_fileoffset+1,x
 	sta dos_file_descriptors+dos_filedescriptor_offset_fileoffset+2,x
 
+	sec
 	rts
 
 dos_open_current_file:
@@ -1708,7 +1739,12 @@ dos_readfileintomemory:
 	stx dos_sectorsread
 	stx dos_sectorsread+1
 
-	jsr dos_findfile
+	jsr dos_findfirst
+	php
+	; close directory now that we have what we were looking for ...
+	jsr dos_closefile
+	plp
+	; ... but report if we hit an error
 	bcc dos_return_error_already_set
 
 	lda #$72

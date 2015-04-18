@@ -523,6 +523,7 @@ postkickup:
 
 		jsr dos_findfile
 		bcc nod81
+		jsr dos_closefile
 
 		; this is the entry
 		ldx #<msg_foundd81
