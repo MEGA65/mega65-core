@@ -1516,26 +1516,22 @@ dfrcs_inced:
 
 dos_file_advance_to_next_sector:
 	; Increment file position offset by 2 pages
-	lda dos_current_file_descriptor_offset
-	ora #dos_filedescriptor_offset_fileoffset
-	tax
-	lda dos_file_descriptors,y
+	ldx dos_current_file_descriptor_offset
+
+	lda dos_file_descriptors+dos_filedescriptor_offset_fileoffset+0,x
 	inc
 	inc
-	sta dos_file_descriptors,y
+	sta dos_file_descriptors+dos_filedescriptor_offset_fileoffset+0,x
 	bcc dfatns1
-	inc dos_file_descriptors+1,x
+	inc dos_file_descriptors+dos_filedescriptor_offset_fileoffset+1,x
 	bne dfatns1
-	inc dos_file_descriptors+2,x
+	inc dos_file_descriptors+dos_filedescriptor_offset_fileoffset+2,x
 dfatns1:
 	; increase sector
-	lda dos_current_file_descriptor_offset
-	ora #dos_filedescriptor_offset_sectorincluster
-	tax
-	ldx dos_disk_table_offset
-	inc dos_file_descriptors,x
-	lda dos_file_descriptors,x
-	cmp dos_disk_table,y
+	inc dos_file_descriptors+dos_filedescriptor_offset_sectorincluster,x
+	lda dos_file_descriptors+dos_filedescriptor_offset_sectorincluster,x
+	ldy dos_disk_table_offset
+	cmp dos_disk_table+fs_fat32_sectors_per_cluster,y
 	; and if necessary, advance to next cluster
 	beq dos_file_advance_to_next_cluster
 	sec
@@ -1543,11 +1539,9 @@ dfatns1:
 
 dos_file_advance_to_next_cluster:
 	; set to sector 0 in cluster
-	lda dos_current_file_descriptor_offset
-	ora #dos_filedescriptor_offset_sectorincluster
-	tay
+	ldy dos_current_file_descriptor_offset
 	lda #$00
-	sta dos_file_descriptors,y
+	sta dos_file_descriptors+dos_filedescriptor_offset_sectorincluster,y
 
 	; read chained cluster number for fs_clusternumber
 
