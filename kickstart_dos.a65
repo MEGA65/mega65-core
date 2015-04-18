@@ -875,7 +875,8 @@ dgfd1:	txa
 	asl
 	asl
 	asl
-	lda [dos_file_descriptors+dos_filedescriptor_offset_diskid],x
+	tay
+	lda [dos_file_descriptors+dos_filedescriptor_offset_diskid],y
 	cmp #$FF
 	beq dgfd_found_free
 	inx
@@ -922,6 +923,10 @@ dos_closefile:
 	; writing a sector at a time, should just be synchronous, so that there is no
 	; buffering required.)
 
+	lda #$71
+	jsr debug_wait_for_switch_toggle
+
+	ldx dos_current_file_descriptor_offset
 	lda dos_file_descriptors+dos_filedescriptor_offset_mode,x
 	cmp #dos_filemode_readwrite
 	bne dcf_simple
@@ -956,9 +961,6 @@ dos_openfile:
 	jmp dos_return_error
 
 dof_not_a_directory:
-	jsr dos_get_free_descriptor
-	bcc dos_return_error_already_set
-
 	jsr dos_set_current_file_from_dirent
 	bcc dos_return_error_already_set
 
@@ -967,26 +969,16 @@ dof_not_a_directory:
 dos_findfile:
 	; Search for file in current directory	
 
-	inc $0430
-
 	; Convert name to upper case for searching
 	jsr dos_requested_filename_to_uppercase
 	bcc dos_return_error_already_set
 
-	inc $0432
-
 	jsr dos_opendir
-	sta $0440
 	bcc dos_return_error_already_set
-
-	inc $0434
 
 	; Directory is now open, and we can now iterate through directory entries
 	
 dff_try_next_entry:
-
-	lda #$09
-	jsr debug_wait_for_switch_toggle
 
 	; Get next directory entry
 	jsr dos_readdir
@@ -1029,7 +1021,6 @@ dos_opendir:
 	; load cluster of dir into file descriptor
 	ldx #$00
 dff1:	lda dos_disk_cwd_cluster,x
-	sta $06d0,x
 	sta [dos_file_descriptors+dos_filedescriptor_offset_startcluster],y
 	sta [dos_file_descriptors+dos_filedescriptor_offset_currentcluster],y
 	iny
@@ -1041,9 +1032,6 @@ dff1:	lda dos_disk_cwd_cluster,x
 	ldx dos_current_file_descriptor_offset
 	lda #dos_filemode_directoryaccess
 	sta [dos_file_descriptors+dos_filedescriptor_offset_mode],x
-
-	lda #$55
-	jsr debug_wait_for_switch_toggle
 
 	jsr dos_open_current_file
 	bcc dos_return_error_already_set
@@ -1308,15 +1296,15 @@ drce_fl:
 	sta dos_dirent_type_and_attribs
 
 	; print filename for debug
-	ldx #<dos_dirent_shortfilename
-	ldy #>dos_dirent_shortfilename
-	jsr printmessage
+;	ldx #<dos_dirent_shortfilename
+;	ldy #>dos_dirent_shortfilename
+;	jsr printmessage
 	ldx #<dos_dirent_longfilename
 	ldy #>dos_dirent_longfilename
 	jsr printmessage
 
-	lda #6
-	jsr debug_wait_for_switch_toggle
+;	lda #6
+;	jsr debug_wait_for_switch_toggle
 
 	jsr dos_readdir_advance_to_next_entry
 	bcs drce_noteof
@@ -1391,22 +1379,20 @@ drce_end_of_sector:
 	; Reset pointer back to start of sector
 	lda #$00
 	sta dos_file_descriptors+dos_filedescriptor_offset_offsetinsector+1,y
-	sty $2000
-
-	lda #$36
-	jsr debug_wait_for_switch_toggle
 
 	jsr dos_file_advance_to_next_sector
 	rts
 
 dos_set_current_file_from_dirent:
 	; copy start cluster from dirent to start and current cluster
+	jsr dos_get_free_descriptor
 	jsr dos_get_file_descriptor_offset
 
 	; set disk id
 	lda dos_disk_current_disk
 	sta dos_file_descriptors+dos_filedescriptor_offset_diskid,x
 
+	; set current cluster to start cluster
 	ldy #0
 dscffd1:
 	lda dos_dirent_cluster,y
@@ -1417,7 +1403,7 @@ dscffd1:
 	cpy #4
 	bne dscffd1
 
-	; set current cluster to start cluster
+	jsr dos_get_file_descriptor_offset
 
 	; set disk id
 	lda dos_disk_current_disk
@@ -1717,8 +1703,6 @@ dos_readfileintomemory:
 	; file name must be already loaded into dos_requested_filename,
 	; with length in dos_requreste_filename_length
 
-	inc $0428
-
 	; Clear number of sectors read
 	ldx #$00
 	stx dos_sectorsread
@@ -1727,19 +1711,24 @@ dos_readfileintomemory:
 	jsr dos_findfile
 	bcc dos_return_error_already_set
 
-	inc $0428+$50
+	lda #$72
+	jsr debug_wait_for_switch_toggle
 
 	jsr dos_openfile
 	bcc dos_return_error_already_set
 
-	inc $0428+$50+$50
-
 	jsr sd_map_sectorbuffer
 
 drfim_sector_loop:
+	lda #$73
+	jsr debug_wait_for_switch_toggle
+
 	jsr dos_file_read_current_sector
 	bcc drfim_eof
-	
+
+	lda #$74
+	jsr debug_wait_for_switch_toggle
+
 	; copy sector to memory
 	ldx #$00
 	ldz #$00
@@ -1759,13 +1748,14 @@ drfim_rr1b:
 	inx
 	bne drfim_rr1b
 
-	inc $0428+$50+$50+2
+	lda #$75
+	jsr debug_wait_for_switch_toggle
 
 	jsr dos_file_advance_to_next_sector
 	bcc drfim_eof
 
-	inc $0428+$50+$50+4
-
+	lda #$76
+	jsr debug_wait_for_switch_toggle
 
 	; We only allow loading into a 16MB space
 	; Provided that we check the load address before starting,
@@ -1787,6 +1777,9 @@ drfim_rr1b:
 	lda #dos_errorcode_file_too_long
 	jmp dos_return_error
 drfim_eof:
+	lda #$7f
+	jsr debug_wait_for_switch_toggle
+
 	jsr dos_closefile
 	jmp dos_return_success
 
