@@ -754,9 +754,6 @@ dos_cdroot:
 	sta dos_disk_cwd_cluster+2
 	sta dos_disk_cwd_cluster+3
 
-	lda #$50
-	jsr debug_wait_for_switch_toggle
-
 	; Nothing else to do, as it doesn't actually affect any existing DOS activity,
 	; only future file/directory operations.
 
@@ -773,9 +770,6 @@ dcts0:	lda dos_current_cluster,x
 	dex
 	bpl dcts0
 
-	lda #$40
-	jsr debug_wait_for_switch_toggle
-
 	; subtract 2 from the cluster number (clusters 0 and 1 don't actually exist
 	; on FAT32).
 	lda $d681
@@ -791,10 +785,6 @@ dcts0:	lda dos_current_cluster,x
 	lda $d684
 	sbc #0
 	sta $d684
-	
-
-	lda #$41
-	jsr debug_wait_for_switch_toggle
 	
 	; now shift it left according to fs_sectors_per_cluster
 	ldx dos_disk_table_offset	
@@ -819,9 +809,6 @@ mmm1:	lda $d681,x
 	cpx #$04
 	bne mmm1
 
-	lda #$42
-	jsr debug_wait_for_switch_toggle
-
 	; skip over filesystem reserved and FAT sectors
 	lda dos_disk_table_offset	
 	ora #fs_fat32_cluster0_sector
@@ -840,9 +827,6 @@ l23:	plp
 	bne l23
 	plp	
 
-	lda #$43
-	jsr debug_wait_for_switch_toggle	
-
 	; add start sector of partition
 	lda dos_disk_table_offset	
 	ora #fs_start_sector
@@ -860,9 +844,6 @@ l24:	plp
 	cpx #$04
 	bne l24
 	plp
-
-	lda #$44
-	jsr debug_wait_for_switch_toggle	
 
 	; XXX - Check that result does not exceed fs_start_sector+fs_sector_count
 	; and run over into another partition
@@ -1011,17 +992,11 @@ dff_try_next_entry:
 	jsr dos_readdir
 	bcs dff_have_next_entry
 
-	lda #$0b
-	jsr debug_wait_for_switch_toggle
-
 	jsr dos_closefile
 
 	lda #dos_errorcode_file_not_found
 	jmp dos_return_error
 dff_have_next_entry:
-
-	lda #$0a
-	jsr debug_wait_for_switch_toggle
 
 	; Compare dos_dirent_longfilename with dos_requested_filename
 	jsr dos_dirent_compare_name_to_requested
@@ -1083,6 +1058,13 @@ dos_readdir:
 	; LFN entries use 16-bit unicode values. For now we will just keep the lower
 	; byte of these
 
+	; clear long file name data from last call
+	lda #0
+	sta dos_dirent_longfilename_length
+
+	lda #$39
+	jsr debug_wait_for_switch_toggle
+
 	jsr dos_file_read_current_sector
 
 	ldx dos_current_file_descriptor_offset
@@ -1119,10 +1101,6 @@ drce1:	sta dos_dirent_longfilename,x
 
 drce_next_piece:
 
-	; clear long file name data from last call
-	lda #0
-	sta dos_dirent_longfilename_length
-
 	lda #$0e
 	jsr debug_wait_for_switch_toggle
 
@@ -1134,8 +1112,7 @@ drce_next_piece:
 	tax
 	lda dos_file_descriptors,x
 	sta dos_scratch_vector
-	inx
-	lda dos_file_descriptors
+	lda dos_file_descriptors+1,x
 	clc
 	adc #$DE   ; high byte of SD card sector buffer
 	sta dos_scratch_vector+1
@@ -1172,9 +1149,6 @@ drce_next_piece:
 	tax
 	lda lfn_piece_offsets,x
 	tax
-
-	lda #2
-	jsr debug_wait_for_switch_toggle
 
 	; Copy first part of LFN
 	ldy #fs_fat32_dirent_offset_lfn_part1_start
@@ -1226,6 +1200,13 @@ drce_eot_in_filename:
 	cpx dos_dirent_longfilename_length
 	bcc drce_piece_didnt_grow_name_length
 	stx dos_dirent_longfilename_length
+	cpx #$3f
+	bcs drce_eot_in_filename2
+	; null terminate if there is space, for convenience
+	lda #$00
+	sta dos_dirent_longfilename,x
+drce_eot_in_filename2:
+
 drce_piece_didnt_grow_name_length:
 
 drce_ignore_lfn_piece:
@@ -1238,13 +1219,11 @@ drce_ignore_lfn_piece:
 	bcc drce_no_more_pieces
 	jmp drce_next_piece
 drce_no_more_pieces:
-	rts
+	lda #dos_errorcode_eof
+	jmp dos_return_error
 
 drce_shortname:
 	; We have found a short name.
-
-	lda #3
-	jsr debug_wait_for_switch_toggle
 
 	; store short name
 	ldy #fs_fat32_dirent_offset_shortname
@@ -1260,9 +1239,6 @@ drce5:	lda (<dos_scratch_vector),y
 	; name and extension as required.
 	lda dos_dirent_longfilename_length
 	bne drce_already_have_long_name
-
-	lda #4
-	jsr debug_wait_for_switch_toggle
 
 	; copy name part
 	ldy #fs_fat32_dirent_offset_shortname
@@ -1283,13 +1259,13 @@ drce_insert_dot:
 	inx
 	; copy extension part
 	ldy #fs_fat32_dirent_offset_shortname+8
+	ldz #0
 drce6:	lda (<dos_scratch_vector),y
 	sta dos_dirent_longfilename,x
 	inx
 	iny
-	; relies on presence of null character fixed in memory to terminate extension
-	; this byte exists following dos_dirent_shortfilename
-	cmp #$00                   
+	inz
+	cpz #3  ; short name extensions are <=3 chars
 	beq drce_copied_extension
 	; also terminate extensions early if they are <3 chars
 	cmp #$20
@@ -1304,9 +1280,6 @@ drce_copied_extension:
 	stx dos_dirent_longfilename_length
 
 drce_already_have_long_name:
-
-	lda #5
-	jsr debug_wait_for_switch_toggle
 
 	; now copy attribute field and other useful data
 
@@ -1410,7 +1383,7 @@ dos_readdir_advance_to_next_entry:
 	lda dos_file_descriptors,y
 	adc #$20 ; length of FAT32/VFAT directory entry
 	sta dos_file_descriptors,y
-	bne drce_next_piece
+	bne dratne_done
 
 	; Increment upper byte
 	iny
@@ -1419,7 +1392,9 @@ dos_readdir_advance_to_next_entry:
 	cmp #$02
 	beq drce_end_of_sector
 	sta dos_file_descriptors,y
-	jmp drce_next_piece
+dratne_done:
+	sec
+	rts
 
 drce_end_of_sector:
 
@@ -1542,14 +1517,7 @@ dfrcs4:
 	bne dfrcs2
 dfrcs_inced:
 
-	lda #$12
-	jsr debug_wait_for_switch_toggle
-
 	jsr sd_fix_sectornumber
-
-	lda #$13
-	jsr debug_wait_for_switch_toggle
-
 	jmp sd_readsector
 
 dos_file_advance_to_next_sector:
