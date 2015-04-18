@@ -720,7 +720,6 @@ dos_set_current_disk:
 	lda #dos_errorcode_no_such_disk
 	cpx dos_disk_count
 	bcs partitionerror
-	sec
 
 	stx dos_disk_current_disk
 	txa
@@ -731,6 +730,7 @@ dos_set_current_disk:
 	asl
 	sta dos_disk_table_offset
 	
+	sec
 	rts
 
 dos_cdroot:
@@ -1084,7 +1084,7 @@ dos_readdir:
 
 	ldx dos_current_file_descriptor_offset
 	lda #dos_filemode_directoryaccess
-	cmp [dos_file_descriptors+dos_filedescriptor_offset_startcluster],x
+	cmp [dos_file_descriptors+dos_filedescriptor_offset_mode],x
 	beq drd_isdir
 
 	; refuse to read files as directories
