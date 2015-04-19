@@ -410,7 +410,7 @@ end component;
   signal nmi_state : std_logic := '1';
   signal no_interrupt : std_logic := '0';
   signal hyper_trap_pending : std_logic := '0';
-  signal hyper_state : std_logic := '1';
+  signal hyper_trap_state : std_logic := '1';
   -- Interrupt/reset vector being used
   signal vector : unsigned(3 downto 0);
   
