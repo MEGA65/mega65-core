@@ -34,7 +34,10 @@ f011test.prg:	f011test.a65 Makefile
 diskchooser:	diskchooser.a65 etherload.prg Makefile
 	../Ophis/bin/ophis -4 diskchooser.a65 -l diskchooser.list
 
-kickstart65gs.bin:	$(KICKSTARTSRCS) Makefile diskchooser
+version.a65:	*.vhdl *.a65 *.vhd Makefile
+	./version.sh
+
+kickstart65gs.bin:	$(KICKSTARTSRCS) Makefile diskchooser version.a65
 	../Ophis/bin/ophis -4 kickstart.a65 -l kickstart.list
 
 thumbnail.prg:	showthumbnail.a65 Makefile

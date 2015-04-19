@@ -344,6 +344,11 @@ reset_entry_common:
 		ldy #>msg_blankline
 		jsr printmessage
 
+		; Display GIT commit
+		ldx #<msg_gitcommit
+		ldy #<msg_gitcommit
+		jsr printmessage
+
 		; check keyboard for 0-9 down to select alternate rom
 		jsr keyboardread
 
@@ -1972,10 +1977,6 @@ default_rom:
 		lda #'M
 		sta txt_c65gsrom,x
 
-		ldx #<txt_c65gsrom
-		ldy #>txt_c65gsrom
-		jsr printmessage
-
 		rts
 
 ;-----------------------------------------------------------------------------
@@ -2316,6 +2317,7 @@ msg_lookingfornextsector:
 		      .byte "LOOKING FOR NEXT SECTOR OF FILE",0
 msg_nologo:	      .byte "COULD NOT LOAD BOOTLOGO.G65 (ERRNO:$$)",0
 msg_cdrootfailed:     .byte "COULD NOT CHDIR TO / (ERRNO:$$)",0
+		      .include "version.a65"
 
 msg_blankline:	      .byte 0
 
