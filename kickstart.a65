@@ -677,9 +677,6 @@ l96:
 		adc #$00
 		sta d81_clusternumber+3
 
-		lda #$d8
-		jsr debug_wait_for_switch_toggle
-
 		jsr dos_file_advance_to_next_cluster
 		bcs d81nextcluster
 

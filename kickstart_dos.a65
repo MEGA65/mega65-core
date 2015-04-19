@@ -869,9 +869,6 @@ drftu1:	lda dos_requested_filename,x
 
 dos_get_free_descriptor:
 
-	lda #$77
-	jsr debug_wait_for_switch_toggle
-
 	ldx #$00
 dgfd1:	txa
 	asl
@@ -925,9 +922,6 @@ dos_closefile:
 	; memory so that the convenience write-byte routine can work.  The other case,
 	; writing a sector at a time, should just be synchronous, so that there is no
 	; buffering required.)
-
-	lda #$71
-	jsr debug_wait_for_switch_toggle
 
 	ldx dos_current_file_descriptor_offset
 	lda dos_file_descriptors+dos_filedescriptor_offset_mode,x
@@ -1550,9 +1544,6 @@ dfatns1:
 
 dos_file_advance_to_next_cluster:
 
-	lda #$df
-	jsr debug_wait_for_switch_toggle
-
 	; set to sector 0 in cluster
 	ldy dos_current_file_descriptor_offset
 	lda #$00
@@ -1568,8 +1559,6 @@ dos_file_advance_to_next_cluster:
 
 	jsr dos_set_current_cluster_from_file	
 
-	jsr dos_print_current_cluster
-
 	; copy cluster to sector number
 	ldx #$03
 dfanc1:
@@ -1577,8 +1566,6 @@ dfanc1:
 	sta dos_current_sector,x
 	dex
 	bpl dfanc1
-
-	jsr dos_print_current_cluster
 
 	; Remember low byte of cluster number so that we can pull the
 	; cluster number for the next cluster out of the FAT sector
@@ -1594,8 +1581,6 @@ dfanc2:	clc
 	ror dos_current_cluster+0
 	dey
 	bne dfanc2
-
-	jsr dos_print_current_cluster   ; result = $0B
 
 	; add start of partition offset
 	ldy dos_disk_table_offset
@@ -1613,8 +1598,6 @@ dfanc3:	plp
 	bne dfanc3
 	plp
 
-	jsr dos_print_current_cluster   ; result = $8C
-
 	; add start of fat offset
 	ldy dos_disk_table_offset
 	ldx #$00
@@ -1630,8 +1613,6 @@ dfanc4:	plp
 	cpx #$02
 	bne dfanc4
 
-	jsr dos_print_current_cluster   ; result = $AC
-
 	; copy from current cluster to SD sector address register
 	ldx #$03
 dfanc41:
@@ -1640,9 +1621,6 @@ dfanc41:
 	dex
 	bpl dfanc41
 
-	lda #$d9
-	jsr debug_wait_for_switch_toggle
-	
 dfanc44:
 	plp
 	lda dos_current_cluster,x
@@ -1653,16 +1631,10 @@ dfanc44:
 	cpx #$04
 	bne dfanc44
 
-	lda #$da
-	jsr debug_wait_for_switch_toggle
-
 	plp
 
 	; turn sector number into byte address for non-SDHC cards
 	jsr sd_fix_sectornumber
-
-	lda #$db
-	jsr debug_wait_for_switch_toggle
 
 	; read FAT sector
 	jsr sd_readsector
@@ -1864,9 +1836,6 @@ drfim_rr1b:
 	lda #dos_errorcode_file_too_long
 	jmp dos_return_error
 drfim_eof:
-	lda #$7f
-	jsr debug_wait_for_switch_toggle
-
 	jsr dos_closefile
 	jmp dos_return_success
 
