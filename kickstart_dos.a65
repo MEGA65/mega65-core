@@ -1550,6 +1550,9 @@ dfatns1:
 
 dos_file_advance_to_next_cluster:
 
+	lda #$df
+	jsr debug_wait_for_switch_toggle
+
 	; set to sector 0 in cluster
 	ldy dos_current_file_descriptor_offset
 	lda #$00
@@ -1565,6 +1568,8 @@ dos_file_advance_to_next_cluster:
 
 	jsr dos_set_current_cluster_from_file	
 
+	jsr dos_print_current_cluster
+
 	; copy cluster to sector number
 	ldx #$03
 dfanc1:
@@ -1573,12 +1578,14 @@ dfanc1:
 	dex
 	bpl dfanc1
 
+	jsr dos_print_current_cluster
+
 	; Remember low byte of cluster number so that we can pull the
 	; cluster number for the next cluster out of the FAT sector
 	lda dos_current_cluster
 	sta dos_scratch_byte_1
 
-	; shift right 7 times
+	; shift right 7 times = divide by 128
 	ldy #$07
 dfanc2:	clc		
 	ror dos_current_cluster+3
@@ -1588,17 +1595,16 @@ dfanc2:	clc
 	dey
 	bne dfanc2
 
+	jsr dos_print_current_cluster   ; result = $0B
+
 	; add start of partition offset
 	ldy dos_disk_table_offset
-	tya
-	ora #fs_start_sector
-	tay
 	ldx #$00
 	clc
 	php
 dfanc3:	plp
 	lda dos_current_cluster,x
-	adc dos_disk_table,y
+	adc dos_disk_table+fs_start_sector,y
 	sta dos_current_cluster,x
 	php
 	iny
@@ -1607,40 +1613,60 @@ dfanc3:	plp
 	bne dfanc3
 	plp
 
+	jsr dos_print_current_cluster   ; result = $8C
+
 	; add start of fat offset
 	ldy dos_disk_table_offset
-	tya
-	ora #fs_fat32_system_sectors
-	tay
 	ldx #$00
 	clc
 	php
 dfanc4:	plp
 	lda dos_current_cluster,x
-	adc dos_disk_table,y
-	sta $d681,x
+	adc dos_disk_table+fs_fat32_system_sectors,y
+	sta dos_current_cluster,x
 	php
+	iny
 	inx
 	cpx #$02
 	bne dfanc4
+
+	jsr dos_print_current_cluster   ; result = $AC
+
+	; copy from current cluster to SD sector address register
+	ldx #$03
+dfanc41:
+	lda dos_current_cluster,x
+	sta $d681,x
+	dex
+	bpl dfanc41
+
+	lda #$d9
+	jsr debug_wait_for_switch_toggle
+	
 dfanc44:
 	plp
 	lda dos_current_cluster,x
 	adc #$00
-	sta $d681,x
+	sta dos_current_cluster,x
 	php
 	inx
 	cpx #$04
 	bne dfanc44
+
+	lda #$da
+	jsr debug_wait_for_switch_toggle
 
 	plp
 
 	; turn sector number into byte address for non-SDHC cards
 	jsr sd_fix_sectornumber
 
+	lda #$db
+	jsr debug_wait_for_switch_toggle
+
 	; read FAT sector
 	jsr sd_readsector
-	bcc dfanc_fail
+	bcc dos_return_error_already_set
 
 	jsr sd_map_sectorbuffer
 
@@ -1688,6 +1714,31 @@ dfanc_high:
 dfanc_check:
 	; check that resulting cluster number is valid.
 
+	ldx #<msg_clusternumber
+	ldy #>msg_clusternumber
+	jsr printmessage
+	ldy #$00
+	; get current cluster field address again
+	lda dos_file_descriptors+3,y
+	taz
+	phy
+	jsr printhex
+	ply
+	lda dos_file_descriptors+2,y
+	taz
+	phy
+	jsr printhex
+	ply
+	lda dos_file_descriptors+1,y
+	taz
+	phy
+	jsr printhex
+	ply
+	lda dos_file_descriptors+0,y
+	taz
+	jsr printhex
+
+
 	; get current cluster field address again
 	ldy dos_scratch_byte_2
 
@@ -1730,8 +1781,21 @@ dfanc_fail:
 	lda #dos_errorcode_invalid_cluster
 	jmp dos_return_error
 
+dos_print_current_cluster:
+	ldx #<msg_clusternumber
+	ldy #>msg_clusternumber
+	jsr printmessage
+	ldy #$00
+	ldz dos_current_cluster+3
+	jsr printhex
+	ldz dos_current_cluster+2
+	jsr printhex
+	ldz dos_current_cluster+1
+	jsr printhex
+	ldz dos_current_cluster+0
+	jmp printhex
 
-
+	
 dos_readfileintomemory:
 	; file name must be already loaded into dos_requested_filename,
 	; with length in dos_requreste_filename_length
