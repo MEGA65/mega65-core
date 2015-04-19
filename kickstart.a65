@@ -188,7 +188,7 @@ trap_entry_points:
 	jmp nosuchtrap
 	nop
 	; Traps $40-$4F (reset, page fault and other system-generated traps)
-	jmp reset_entry  ; Trap #$40 (power on / reset)
+	jmp reset_entry_allow_etherkick  ; Trap #$40 (power on / reset)
 	nop
 	jmp page_fault   ; Trap #$41 (page fault)
 	nop
@@ -209,8 +209,18 @@ trap_entry_points:
 	.advance $8200
 
 ;;; ----------------------------------------------------------------------------
+;;; Etherkick / kickup utility functions
+;;; ----------------------------------------------------------------------------
+; We place a small routine at precisely $8200 that allows etherkick to reset
+; kickstart, without it allowing etherkick mode until reset.  This allows the
+; etherkick process to update kickstart, and then start it normally, without
+; requiring the operator to fiddle any switches.
+  	    jmp reset_entry_no_etherkick
+
+;;; ----------------------------------------------------------------------------
 ;;; Hypervisor traps
 ;;; ----------------------------------------------------------------------------
+	
 
 ;;; ----------------------------------------------------------------------------
 ;;; Illegal trap / trap sub-function handlers
@@ -309,8 +319,20 @@ reset_machine_state:
 ;;; CPU Hypervisor reset/trap routines
 ;;; ----------------------------------------------------------------------------
 
-reset_entry:
-kickstart_entry:
+reset_entry_allow_etherkick:
+		sei
+		lda #$00
+		sta kickstart_boot_flags
+		jmp reset_entry_common
+
+reset_entry_no_etherkick:
+		sei
+		lda #$80
+		sta kickstart_boot_flags
+		jmp reset_entry_common
+
+reset_entry_common:
+
 		jsr reset_machine_state
 
 		; display welcome screen
@@ -325,7 +347,10 @@ kickstart_entry:
 		; check keyboard for 0-9 down to select alternate rom
 		jsr keyboardread
 
-		; If switch 8 and 9 are set, then wait forever for ethernet packets
+		; If switch 8 and 9 are set, and etherkick mode is not disabled
+		; then wait forever for ethernet packets
+		lda kickstart_boot_flags
+		bmi normalboot
 		lda $d6f1
 		and #$02
 		beq normalboot
@@ -773,7 +798,7 @@ romfiletoolong:
 		ldz file_sectorsread
 		jsr printhex
 		jsr sdwaitawhile
-		jmp reset_entry
+		jmp reset_entry_allow_etherkick
 romfiletooshort:
 		ldx #<msg_romfileshorterror
 		ldy #>msg_romfileshorterror
@@ -783,7 +808,7 @@ romfiletooshort:
 		ldz file_sectorsread
 		jsr printhex
 		jsr sdwaitawhile
-		jmp reset_entry
+		jmp reset_entry_allow_etherkick
 
 fileopenerror:
 		ldx #<msg_fileopenerror
@@ -794,13 +819,13 @@ sdcarderror:	ldx #<msg_sdcarderror
 		ldy #>msg_sdcarderror
 		jsr printmessage
 		jsr sdwaitawhile
-		jmp reset_entry
+		jmp reset_entry_allow_etherkick
 
 badfs:		ldx #<msg_badformat
 		ldy #>msg_badformat
 		jsr printmessage
 		jsr sdwaitawhile
-		jmp reset_entry
+		jmp reset_entry_allow_etherkick
 ;;; ----------------------------------------------------------------------------
 ;;; FAT file system routines
 ;;; ----------------------------------------------------------------------------
@@ -2398,6 +2423,11 @@ dos_error_code:
 		; Kickstart ZP at $BF00-$BFFF
 		.checkpc $BF00
 		.advance $BF00,$3e
+
+kickstart_boot_flags:
+			; $80 = disable etherkick this boot only
+			.byte 0
+			
 ; Temporary vector storage for DOS
 dos_scratch_vector: .word 0,0
 dos_scratch_byte_1: .byte 0
