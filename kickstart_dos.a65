@@ -1,7 +1,5 @@
-; XXX - Track down file descriptor leaks.
 ; XXX - Track down why 2nd and subsequent LFN blocks are not used.
-; XXX - Track down why files are not loading.
-; XXX - Refactor dos_findfile into dos_findfirst and dos_findnext
+; XXX - Debug D81 fragmentation detection
 
 	.alias os_version  $0101
 	.alias dos_version $0101
@@ -1567,9 +1565,6 @@ dos_file_advance_to_next_cluster:
 
 	jsr dos_set_current_cluster_from_file	
 
-	lda #$c0
-	jsr debug_wait_for_switch_toggle
-
 	; copy cluster to sector number
 	ldx #$03
 dfanc1:
@@ -1643,20 +1638,11 @@ dfanc44:
 	; turn sector number into byte address for non-SDHC cards
 	jsr sd_fix_sectornumber
 
-	lda #$c1
-	jsr debug_wait_for_switch_toggle
-
 	; read FAT sector
 	jsr sd_readsector
 	bcc dfanc_fail
 
-	lda #$c2
-	jsr debug_wait_for_switch_toggle
-
 	jsr sd_map_sectorbuffer
-
-	lda #$c3
-	jsr debug_wait_for_switch_toggle
 
 	; now read the right four bytes out.
 	; cluster number needs to be shifted left 2 bits.
@@ -1702,9 +1688,6 @@ dfanc_high:
 dfanc_check:
 	; check that resulting cluster number is valid.
 
-	lda #$c4
-	jsr debug_wait_for_switch_toggle
-
 	; get current cluster field address again
 	ldy dos_scratch_byte_2
 
@@ -1744,9 +1727,6 @@ dfanc_ok:
 	rts
 
 dfanc_fail:
-	lda #$c5
-	jsr debug_wait_for_switch_toggle
-
 	lda #dos_errorcode_invalid_cluster
 	jmp dos_return_error
 

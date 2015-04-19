@@ -583,7 +583,7 @@ postkickup:
 
 l94:		tza
 		and #$01
-		bne d81nextcluster
+		bne d81firstcluster
 		tza
 		lsr
 		taz
@@ -591,6 +591,7 @@ l94:		tza
 		ror d81_clustersneeded
 		jmp l94				
 
+d81firstcluster:
 		; Get current cluster of D81 file, so that
 		; we can check that clusters in file are contiguous
 		ldx dos_current_file_descriptor_offset
@@ -601,11 +602,48 @@ l94b:		lda dos_file_descriptors+dos_filedescriptor_offset_currentcluster,x
 		iny
 		cpy #4
 		bne l94b
-		
+
+		ldx #<msg_clusternumber
+		ldy #>msg_clusternumber
+		jsr printmessage
+		ldy #$00
+		ldz d81_clusternumber+3
+		jsr printhex
+		ldz d81_clusternumber+2
+		jsr printhex
+		ldz d81_clusternumber+1
+		jsr printhex
+		ldz d81_clusternumber+0
+		jsr printhex
+
 
 d81nextcluster:
 		; Now read through clusters and make sure that all is
 		; well.
+
+		ldx #<msg_clusternumber
+		ldy #>msg_clusternumber
+		jsr printmessage
+		ldy #$00
+		ldx dos_current_file_descriptor_offset
+		lda dos_file_descriptors+dos_filedescriptor_offset_currentcluster+3,x
+		taz
+		phx
+		jsr printhex
+		plx
+		lda dos_file_descriptors+dos_filedescriptor_offset_currentcluster+2,x
+		taz
+		phx
+		jsr printhex
+		plx
+		lda dos_file_descriptors+dos_filedescriptor_offset_currentcluster+1,x
+		taz
+		phx
+		jsr printhex
+		plx
+		lda dos_file_descriptors+dos_filedescriptor_offset_currentcluster+0,x
+		taz
+		jsr printhex
 
 		; check that it matches expected cluster number
 		ldx dos_current_file_descriptor_offset
