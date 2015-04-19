@@ -2139,6 +2139,8 @@ nth1:	sec
 
 debug_wait_for_switch_toggle:	
 		php
+		phz
+		phy
 		phx
 		pha
 		
@@ -2236,6 +2238,8 @@ d1:		inx
 
 		pla
 		plx
+		ply
+		plz
 		plp
 		rts
 

@@ -967,14 +967,8 @@ dos_openfile:
 
 dof_not_a_directory:
 
-	lda #$a1
-	jsr debug_wait_for_switch_toggle
-
 	jsr dos_set_current_file_from_dirent
 	bcc dos_return_error_already_set
-
-	lda #$a2
-	jsr debug_wait_for_switch_toggle
 
 	jmp dos_open_current_file
 
@@ -1532,6 +1526,7 @@ dfrcs_inced:
 	jmp sd_readsector
 
 dos_file_advance_to_next_sector:
+
 	; Increment file position offset by 2 pages
 	ldx dos_current_file_descriptor_offset
 
@@ -1548,6 +1543,7 @@ dfatns1:
 	inc dos_file_descriptors+dos_filedescriptor_offset_sectorincluster,x
 	lda dos_file_descriptors+dos_filedescriptor_offset_sectorincluster,x
 	ldy dos_disk_table_offset
+
 	cmp dos_disk_table+fs_fat32_sectors_per_cluster,y
 	; and if necessary, advance to next cluster
 	beq dos_file_advance_to_next_cluster
@@ -1555,6 +1551,7 @@ dfatns1:
 	rts
 
 dos_file_advance_to_next_cluster:
+
 	; set to sector 0 in cluster
 	ldy dos_current_file_descriptor_offset
 	lda #$00
@@ -1569,6 +1566,9 @@ dos_file_advance_to_next_cluster:
 	; right 7 bits.  Then we add the start sector number of the FAT.
 
 	jsr dos_set_current_cluster_from_file	
+
+	lda #$c0
+	jsr debug_wait_for_switch_toggle
 
 	; copy cluster to sector number
 	ldx #$03
@@ -1643,9 +1643,20 @@ dfanc44:
 	; turn sector number into byte address for non-SDHC cards
 	jsr sd_fix_sectornumber
 
+	lda #$c1
+	jsr debug_wait_for_switch_toggle
+
 	; read FAT sector
 	jsr sd_readsector
 	bcc dfanc_fail
+
+	lda #$c2
+	jsr debug_wait_for_switch_toggle
+
+	jsr sd_map_sectorbuffer
+
+	lda #$c3
+	jsr debug_wait_for_switch_toggle
 
 	; now read the right four bytes out.
 	; cluster number needs to be shifted left 2 bits.
@@ -1664,8 +1675,11 @@ dfanc44:
 	; ... and keep it handy, because we will need it a few times
 	sty dos_scratch_byte_2
 
-	jsr sd_map_sectorbuffer
-
+	; get offset of current cluster number field in file descriptor
+	; so that we can write the new cluster number in there.
+	ldy dos_scratch_byte_2
+	
+	ldz #$00
 	lda dos_scratch_byte_1
 	and #$40
 	bne dfanc_high
@@ -1673,7 +1687,8 @@ dfanc6:	lda $de00,x
 	sta dos_file_descriptors,y
 	inx
 	iny
-	cpy #$04
+	inz
+	cpz #$04
 	bne dfanc6
 	bra dfanc_check
 dfanc_high:
@@ -1681,10 +1696,14 @@ dfanc_high:
 	sta dos_file_descriptors,y
 	inx
 	iny
-	cpy #$04
+	inz
+	cpz #$04
 	bne dfanc_high
 dfanc_check:
 	; check that resulting cluster number is valid.
+
+	lda #$c4
+	jsr debug_wait_for_switch_toggle
 
 	; get current cluster field address again
 	ldy dos_scratch_byte_2
@@ -1725,6 +1744,9 @@ dfanc_ok:
 	rts
 
 dfanc_fail:
+	lda #$c5
+	jsr debug_wait_for_switch_toggle
+
 	lda #dos_errorcode_invalid_cluster
 	jmp dos_return_error
 
@@ -1747,23 +1769,14 @@ dos_readfileintomemory:
 	; ... but report if we hit an error
 	bcc dos_return_error_already_set
 
-	lda #$72
-	jsr debug_wait_for_switch_toggle
-
 	jsr dos_openfile
 	bcc dos_return_error_already_set
 
 	jsr sd_map_sectorbuffer
 
 drfim_sector_loop:
-	lda #$73
-	jsr debug_wait_for_switch_toggle
-
 	jsr dos_file_read_current_sector
 	bcc drfim_eof
-
-	lda #$74
-	jsr debug_wait_for_switch_toggle
 
 	; copy sector to memory
 	ldx #$00
@@ -1784,14 +1797,8 @@ drfim_rr1b:
 	inx
 	bne drfim_rr1b
 
-	lda #$75
-	jsr debug_wait_for_switch_toggle
-
 	jsr dos_file_advance_to_next_sector
 	bcc drfim_eof
-
-	lda #$76
-	jsr debug_wait_for_switch_toggle
 
 	; We only allow loading into a 16MB space
 	; Provided that we check the load address before starting,
