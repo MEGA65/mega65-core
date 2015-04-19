@@ -344,7 +344,7 @@ reset_entry_common:
 
 		; Display GIT commit
 		ldx #<msg_gitcommit
-		ldy #<msg_gitcommit
+		ldy #>msg_gitcommit
 		jsr printmessage
 
 		; check keyboard for 0-9 down to select alternate rom
