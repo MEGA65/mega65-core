@@ -32,7 +32,7 @@
 	.space screenrow 1
 
 	.space checksum 4
-	.space file_sectorsread 2
+	.space file_pagesread 2
 
 	; variables for testing of D81 boot image
 	.space d81_clusternumber 4
@@ -603,47 +603,9 @@ l94b:		lda dos_file_descriptors+dos_filedescriptor_offset_currentcluster,x
 		cpy #4
 		bne l94b
 
-		ldx #<msg_clusternumber
-		ldy #>msg_clusternumber
-		jsr printmessage
-		ldy #$00
-		ldz d81_clusternumber+3
-		jsr printhex
-		ldz d81_clusternumber+2
-		jsr printhex
-		ldz d81_clusternumber+1
-		jsr printhex
-		ldz d81_clusternumber+0
-		jsr printhex
-
-
 d81nextcluster:
 		; Now read through clusters and make sure that all is
 		; well.
-
-		ldx #<msg_clusternumber
-		ldy #>msg_clusternumber
-		jsr printmessage
-		ldy #$00
-		ldx dos_current_file_descriptor_offset
-		lda dos_file_descriptors+dos_filedescriptor_offset_currentcluster+3,x
-		taz
-		phx
-		jsr printhex
-		plx
-		lda dos_file_descriptors+dos_filedescriptor_offset_currentcluster+2,x
-		taz
-		phx
-		jsr printhex
-		plx
-		lda dos_file_descriptors+dos_filedescriptor_offset_currentcluster+1,x
-		taz
-		phx
-		jsr printhex
-		plx
-		lda dos_file_descriptors+dos_filedescriptor_offset_currentcluster+0,x
-		taz
-		jsr printhex
 
 		; check that it matches expected cluster number
 		ldx dos_current_file_descriptor_offset
@@ -679,6 +641,8 @@ l96:
 
 		jsr dos_file_advance_to_next_cluster
 		bcs d81nextcluster
+
+		jsr dos_closefile
 
 		; read to end of D81 file, and it is contiguous
 		; now check that it is the right length
@@ -767,13 +731,19 @@ loadrom:
 		jmp loadc65rom
 
 loadedcharromok:
+		ldx dos_current_file_descriptor_offset
+		lda dos_file_descriptors+dos_filedescriptor_offset_fileoffset+0,x
+		sta file_pagesread
+		lda dos_file_descriptors+dos_filedescriptor_offset_fileoffset+1,x
+		sta file_pagesread+1
+
 		ldx #<msg_charromloaded
 		ldy #>msg_charromloaded
 		jsr printmessage
 		ldy #$00
-		ldz file_sectorsread+1
+		ldz file_pagesread+1
 		jsr printhex
-		ldz file_sectorsread
+		ldz file_pagesread
 		jsr printhex
 		
 		
@@ -809,13 +779,18 @@ l17d:		lda txt_c65gsrom,x
 
 		jmp sdcarderror
 loadedok:
+		ldx dos_current_file_descriptor_offset
+		lda dos_file_descriptors+dos_filedescriptor_offset_fileoffset+0,x
+		sta file_pagesread
+		lda dos_file_descriptors+dos_filedescriptor_offset_fileoffset+1,x
+		sta file_pagesread+1
 
-		lda file_sectorsread
+		lda file_pagesread
 		bne romfiletooshort
-		lda file_sectorsread+1
+		lda file_pagesread+1
 		cmp #$00
 		beq romfiletooshort
-		cmp #$01
+		cmp #$02
 		bne romfiletoolong
 
 		; need to store checksum
@@ -831,9 +806,9 @@ romfiletoolong:
 		ldx #<msg_romfilelongerror
 		ldy #>msg_romfilelongerror
 		jsr printmessage
-		ldz file_sectorsread+1
+		ldz file_pagesread+1
 		jsr printhex
-		ldz file_sectorsread
+		ldz file_pagesread
 		jsr printhex
 		jsr sdwaitawhile
 		jmp reset_entry_allow_etherkick
@@ -841,9 +816,9 @@ romfiletooshort:
 		ldx #<msg_romfileshorterror
 		ldy #>msg_romfileshorterror
 		jsr printmessage
-		ldz file_sectorsread+1
+		ldz file_pagesread+1
 		jsr printhex
-		ldz file_sectorsread
+		ldz file_pagesread
 		jsr printhex
 		jsr sdwaitawhile
 		jmp reset_entry_allow_etherkick
@@ -1175,7 +1150,7 @@ checkromok:
 		; or if loading a ROM other than C65GS.ROM, then assume ROM
 		; is invalid
 		lda txt_c65gsrom+5
-		cmp #$20
+		cmp #'.
 		bne checksumfails
 	
 		; calculate checksum of loaded ROM ...
@@ -1979,7 +1954,28 @@ k2:
 		; put character into 6th byte position of ROM file name.
 		; so no key looks for C65GS.ROM, where as 0-9 will look
 		; for C65GSx.ROM, where x is the number.
-		sta txt_c65gsrom+5
+		ldx #5
+		cmp #$20
+		beq default_rom
+		sta txt_c65gsrom,x
+		inx
+default_rom:
+		lda #'.
+		sta txt_c65gsrom,x
+		inx
+		lda #'R
+		sta txt_c65gsrom,x
+		inx
+		lda #'O
+		sta txt_c65gsrom,x
+		inx
+		lda #'M
+		sta txt_c65gsrom,x
+
+		ldx #<txt_c65gsrom
+		ldy #>txt_c65gsrom
+		jsr printmessage
+
 		rts
 
 ;-----------------------------------------------------------------------------
@@ -2287,24 +2283,21 @@ msg_kickstart:        .byte "C65GS KICKSTART V00.03",0
 msg_romok:            .byte "ROM CHECKSUM OK - BOOTING",0
 msg_rombad:	      .byte "ROM CHECKSUM FAIL - LOADING ROM",0
 msg_charrombad:	      .byte "COULD NOT LOAD CHARROM.G65",0
-msg_charromloaded:    .byte "LOADED CHARROM.G65 ($$$$ SECTORS)",0
+msg_charromloaded:    .byte "LOADED CHARROM.G65 ($$$$ PAGES)",0
 msg_tryingsdcard:     .byte "LOOKING FOR SDCARD...",0
 msg_foundsdcard:      .byte "FOUND AND RESET SDCARD",0
 msg_sdcarderror:      .byte "ERROR READING FROM SD CARD",0
 
 msg_badformat:	      .byte "BAD MBR OR DOS BOOT SECTOR.",0
 msg_sdcardfound:      .byte "READ PARTITION TABLE FROM SDCARD",0
-msg_partitiondetails: .byte "PARTITION 1($$) @$$$$$$$$, SIZE $$$$$$$$",0
-msg_fsdetails: 	      .byte " FS SPC:$$ RSVSEC:$$$$ RSVCLUS:$$$$$$$$",0
-msg_reservedsectors:  .byte " SYS:$$$$$$$$ DAT:$$$$$$$$ CLUS:$$$$$$$$",0
-msg_sectornumber:     .byte " CLUSTER:$$$$$$$$ -> SECTOR:$$$$$$$$",0
 msg_foundromfile:     .byte "FOUND ROM FILE. START CLUSTER = $$$$$$$$",0
 msg_diskcount:	      .byte "MOUNTED $$ PARTITIONS",0
+msg_filelengths:      .byte "LOOKING FOR $$ BYTES, I SEE $$ BYTES",0
 
 msg_fileopenerror:    .byte "COULD NOT OPEN ROM FILE FOR READING",0
 msg_readingfile:      .BYTE "READING ROM FILE...",0
-msg_romfilelongerror: .byte "ROM TOO LONG: (READ $$$$ SECTORS)",0
-msg_romfileshorterror:.byte "ROM TOO SHORT: (READ $$$$ SECTORS)",0
+msg_romfilelongerror: .byte "ROM TOO LONG: (READ $$$$ PAGES)",0
+msg_romfileshorterror:.byte "ROM TOO SHORT: (READ $$$$ PAGES)",0
 msg_clusternumber:    .byte " NEXT CLUSTER=$$$$$$$$",0
 msg_sectoraddress:    .byte " NEXT SECTOR=$$$$$$$$",0
 msg_nod81:	      .byte "CANNOT FIND C65GS.D81 - (ERRNO: $$)",0

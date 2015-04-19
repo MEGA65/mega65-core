@@ -1318,17 +1318,6 @@ drce_fl:
 	lda (<dos_scratch_vector),y
 	sta dos_dirent_type_and_attribs
 
-	; print filename for debug
-;	ldx #<dos_dirent_shortfilename
-;	ldy #>dos_dirent_shortfilename
-;	jsr printmessage
-	ldx #<dos_dirent_longfilename
-	ldy #>dos_dirent_longfilename
-	jsr printmessage
-
-	lda #6
-	jsr debug_wait_for_switch_toggle
-
 	jsr dos_readdir_advance_to_next_entry
 	bcs drce_noteof
 
@@ -1369,6 +1358,10 @@ lfn_piece_offsets:
 
 dos_dirent_compare_name_to_requested:
 
+	; print debug message showing what we are comparing
+
+	; print filename for debug
+
 	; Do the cheap check of comparing the lengths first
 	lda dos_dirent_longfilename_length
 	cmp dos_requested_filename_len
@@ -1384,7 +1377,7 @@ dff4:	lda dos_dirent_longfilename,x
 	cmp dos_requested_filename,x
 	bne dff3
 	dex
-	bpl dff4
+	bne dff4
 
 	; File names match, so return success
 	sec
@@ -1458,10 +1451,6 @@ dscffd1:
 	; set offset in sector (set to 0)
 	sta dos_file_descriptors+dos_filedescriptor_offset_offsetinsector+0,x
 	sta dos_file_descriptors+dos_filedescriptor_offset_offsetinsector+1,x
-	; file offset (set to 0 x $100)
-	sta dos_file_descriptors+dos_filedescriptor_offset_fileoffset+0,x
-	sta dos_file_descriptors+dos_filedescriptor_offset_fileoffset+1,x
-	sta dos_file_descriptors+dos_filedescriptor_offset_fileoffset+2,x
 
 	sec
 	rts
@@ -1546,14 +1535,15 @@ dos_file_advance_to_next_sector:
 	ldx dos_current_file_descriptor_offset
 
 	lda dos_file_descriptors+dos_filedescriptor_offset_fileoffset+0,x
-	inc
-	inc
+	clc
+	adc #$02
 	sta dos_file_descriptors+dos_filedescriptor_offset_fileoffset+0,x
 	bcc dfatns1
 	inc dos_file_descriptors+dos_filedescriptor_offset_fileoffset+1,x
 	bne dfatns1
 	inc dos_file_descriptors+dos_filedescriptor_offset_fileoffset+2,x
 dfatns1:
+	
 	; increase sector
 	inc dos_file_descriptors+dos_filedescriptor_offset_sectorincluster,x
 	lda dos_file_descriptors+dos_filedescriptor_offset_sectorincluster,x
@@ -1709,9 +1699,6 @@ dfanc_high:
 dfanc_check:
 	; check that resulting cluster number is valid.
 
-	ldx #<msg_clusternumber
-	ldy #>msg_clusternumber
-	jsr printmessage
 	ldy #$00
 	; get current cluster field address again
 	lda dos_file_descriptors+3,y
@@ -1879,5 +1866,9 @@ lr11:	lda (<dos_scratch_vector),y
 	rts
 dsn_eon:
 	sty dos_requested_filename_len
+
+	lda #$11
+	jsr debug_wait_for_switch_toggle
+
 	sec
 	rts
