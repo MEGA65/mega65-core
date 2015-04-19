@@ -1225,6 +1225,13 @@ drce_shortname:
 
 	; store short name
 	ldy #fs_fat32_dirent_offset_shortname
+
+	; Ignore empty and deleted entries (first byte $00 or $E5 respectively)
+	lda (<dos_scratch_vector),y
+	beq drd_deleted_or_invalid_entry
+	cmp #$e5
+	beq drd_deleted_or_invalid_entry
+
 	ldx #$00
 drce5:	lda (<dos_scratch_vector),y
 	sta dos_dirent_shortfilename,x
@@ -1319,8 +1326,8 @@ drce_fl:
 	ldy #>dos_dirent_longfilename
 	jsr printmessage
 
-;	lda #6
-;	jsr debug_wait_for_switch_toggle
+	lda #6
+	jsr debug_wait_for_switch_toggle
 
 	jsr dos_readdir_advance_to_next_entry
 	bcs drce_noteof
@@ -1338,8 +1345,24 @@ drce_fl:
 
 
 drce_noteof:
+	; Ignore zero-length filenames (corresponding to empty directory entries)
+	lda dos_dirent_longfilename_length
+	cmp #0
+	beq dos_readdir
+	lda dos_dirent_shortfilename
+	cmp #$20
+	beq dos_readdir
+	cmp #$00
+	beq dos_readdir
+
 	sec
 	rts
+
+drd_deleted_or_invalid_entry:
+	jsr dos_readdir_advance_to_next_entry
+	bcs dos_readdir
+	jmp dos_return_error_already_set
+
 
 lfn_piece_offsets:
 	.byte 0,14,14*2,14*3,14*4
