@@ -1867,8 +1867,5 @@ lr11:	lda (<dos_scratch_vector),y
 dsn_eon:
 	sty dos_requested_filename_len
 
-	lda #$11
-	jsr debug_wait_for_switch_toggle
-
 	sec
 	rts
