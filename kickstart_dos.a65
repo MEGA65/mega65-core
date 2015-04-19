@@ -1,5 +1,4 @@
 ; XXX - Track down why 2nd and subsequent LFN blocks are not used.
-; XXX - Debug D81 fragmentation detection
 
 	.alias os_version  $0101
 	.alias dos_version $0101
@@ -83,34 +82,34 @@ dos_and_process_trap_table:
 	; $00 - $0E
 	.word trap_dos_getversion
 	.word trap_dos_getdefaultdrive
+	.word trap_dos_getcurrentdrive
 	.word trap_dos_selectdrive
 	.word trap_dos_getdisksize
 	.word trap_dos_getcwd
 	.word trap_dos_chdir
 	.word trap_dos_mkdir
-	.word trap_dos_rmdir
 	; $10 - $1E
+	.word trap_dos_rmdir
 	.word trap_dos_opendir
 	.word trap_dos_readdir
 	.word trap_dos_closedir
-	.word trap_dos_mkfile
 	.word trap_dos_openfile
-	.word trap_dos_closefile
 	.word trap_dos_readfile
 	.word trap_dos_writefile
+	.word trap_dos_mkfile
 	; $20 - $2E
+	.word trap_dos_closefile
+	.word trap_dos_closeall
 	.word trap_dos_seekfile
 	.word trap_dos_rmfile
 	.word trap_dos_fstat
 	.word trap_dos_rename
 	.word trap_dos_filedate
-	.word invalid_subfunction
-	.word invalid_subfunction
-	.word invalid_subfunction
+	.word trap_dos_setname
 	; $30 - $3E
-	.word invalid_subfunction
-	.word invalid_subfunction
-	.word invalid_subfunction
+	.word trap_dos_findfirst
+	.word trap_dos_findnext
+	.word trap_dos_loadfile
 	.word invalid_subfunction
 	.word invalid_subfunction
 	.word invalid_subfunction
@@ -159,19 +158,80 @@ trap_dos_getversion:
 	jmp return_from_trap_with_success
 
 trap_dos_getdefaultdrive:
+	lda dos_default_disk
+	sta hypervisor_a
+	jmp return_from_trap_with_success
+
 trap_dos_selectdrive:
+	jsr dos_set_current_disk
+return_from_trap_with_carry_flag:
+	bcs return_from_trap_with_success
+	bcc return_from_trap_with_failure
+
+trap_dos_closeall:
+	jsr dos_clear_filedescriptors
+	jmp return_from_trap_with_success	
+
+trap_dos_loadfile:
+	; Only allow loading into lower 16MB to avoid possibility of writing
+	; over hypervisor
+	lda hypervisor_x
+	sta dos_file_loadaddress
+	lda hypervisor_y
+	sta dos_file_loadaddress+1
+	lda hypervisor_z
+	sta dos_file_loadaddress+2
+	lda #$00
+	sta dos_file_loadaddress+3
+	jsr dos_readfileintomemory
+	jmp return_from_trap_with_carry_flag
+
+trap_dos_setname:
+	; read file name from any where in bottom 32KB of RAM, as mapped on entry
+	; to the hypervisor (this prevents the user from setting the filename to some
+	; piece of the hypervisor, and thus leaking hypervisor data to user-land if the
+	; user were to later query the filename).
+	lda hypervisor_x
+	sta dos_scratch_vector
+	lda hypervisor_y
+	and #$7f
+	sta dos_scratch_vector+1
+	ldy #$3f
+tdsn1:	lda (<dos_scratch_vector),y
+	sta dos_requested_filename,y
+	dey
+	bpl tdsn1
+	; upper case the filename for comparison
+	jsr dos_requested_filename_to_uppercase
+	; now set length
+	lda hypervisor_z
+	cmp #$3f
+	bcc tdsn2
+	lda #dos_errorcode_name_too_long
+	sta dos_error_code
+	jmp return_from_trap_with_failure
+tdsn2:  jmp return_from_trap_with_success
+
+trap_dos_getcurrentdrive:
+	lda dos_disk_current_disk
+	sta hypervisor_a
+	jmp return_from_trap_with_success
+
+trap_dos_opendir:
+trap_dos_readdir:
+trap_dos_closedir:
+trap_dos_openfile:
+trap_dos_closefile:
+trap_dos_readfile:
+trap_dos_findfirst:
+trap_dos_findnext:
+
 trap_dos_getdisksize:
 trap_dos_getcwd:
 trap_dos_chdir:
 trap_dos_mkdir:
 trap_dos_rmdir:
-trap_dos_opendir:
-trap_dos_readdir:
-trap_dos_closedir:
 trap_dos_mkfile:
-trap_dos_openfile:
-trap_dos_closefile:
-trap_dos_readfile:
 trap_dos_writefile:
 trap_dos_seekfile:
 trap_dos_rmfile:
