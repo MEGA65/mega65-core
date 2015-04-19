@@ -68,10 +68,9 @@
 	
 
 dos_and_process_trap:
-	; Sub-function is selected by X.
+	; Sub-function is selected by A.
 	; Bits 6-1 are the only ones used.
 	; Mask out bit 0 so that indirect jmp's are valid.
-	txa
 	and #$FE
 	; to save memory we only allow this table to be 128 bytes long,
 	; thus we have to check that bit 7 is clear.
