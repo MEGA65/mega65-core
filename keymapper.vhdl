@@ -100,6 +100,7 @@ begin  -- behavioural
         if fiftyhz_counter = 200 then
           fiftyhz_counter <= (others => '0');
           if restore_state='0' then
+            -- Restore key is down
             if restore_down_ticks /= x"ff" then
               restore_down_ticks <= restore_down_ticks + 1;
             end if;

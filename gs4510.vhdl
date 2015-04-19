@@ -409,6 +409,8 @@ end component;
   signal irq_pending : std_logic := '0';
   signal nmi_state : std_logic := '1';
   signal no_interrupt : std_logic := '0';
+  signal hyper_trap_pending : std_logic := '0';
+  signal hyper_state : std_logic := '1';
   -- Interrupt/reset vector being used
   signal vector : unsigned(3 downto 0);
   
@@ -995,6 +997,10 @@ begin
           nmi_pending <= '1';        
         end if;
         nmi_state <= nmi;
+        if hyper_trap = '0' and hyper_trap_state = '1' then
+          hyper_trap_pending <= '1';        
+        end if;
+        hyper_trap_state <= hyper_trap;
         -- IRQ is level triggered.
         if (irq = '0') and (flag_i='0') then
           irq_pending <= '1';
@@ -2484,7 +2490,13 @@ begin
               reset_cpu_state;
               state <= TrapToHypervisor;
             when VectorRead1 =>
-              memory_access_address := x"000FFF"&vector;
+              if hyper_mode='1' then
+                -- Vectors move in hypervisor mode to be inside the hypervisor
+                -- ROM at $81Fx
+                memory_access_address := x"FFF801F"&vector;
+              else
+                memory_access_address := x"000FFF"&vector;
+              end if;
               vector <= vector + 1;
               state <= VectorRead2;
             when VectorRead2 =>
@@ -2900,8 +2912,9 @@ begin
                 -- Make sure reg_instruction /= I_BRK, so that B flag is not
                 -- erroneously set.
                 reg_instruction <= I_SEI;
-              elsif (hyper_trap = '0' and hypervisor_mode='0') then
+              elsif (hyper_trap_pending = '1' and hypervisor_mode='0') then
                 -- Trap to hypervisor
+                hyper_trap_pending <= '0';
                 state <= TrapToHypervisor;
                 -- Trap #66 ($42) = RESTORE key double-tap
                 hypervisor_trap_port <= "1000010";                     

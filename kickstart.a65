@@ -205,17 +205,15 @@ trap_entry_points:
 	jmp nosuchtrap
 	nop
 
-	; Leave room for traps to $7F
-	.advance $8200
+	; Leave room for traps to $7E
+	.advance $81F8
+	; Then we have relocated CPU vectors
+	.word reset_entry_allow_etherkick ; unused vector
+	.word hypervisor_nmi ; NMI
+	.word reset_entry_allow_etherkick ; RESET
+	.word hypervisor_irq ; IRQ
 
-;;; ----------------------------------------------------------------------------
-;;; Etherkick / kickup utility functions
-;;; ----------------------------------------------------------------------------
-; We place a small routine at precisely $8200 that allows etherkick to reset
-; kickstart, without it allowing etherkick mode until reset.  This allows the
-; etherkick process to update kickstart, and then start it normally, without
-; requiring the operator to fiddle any switches.
-  	    jmp reset_entry_no_etherkick
+	.advance $8200
 
 ;;; ----------------------------------------------------------------------------
 ;;; Hypervisor traps
@@ -2277,6 +2275,14 @@ d1:		inx
 		plz
 		plp
 		rts
+
+hypervisor_nmi:
+hypervisor_irq:
+		; Default interrupt handlers for hypervisor: for now just mask the
+		; interrupt source.  Later we can have raster splits in the boot
+		; display if we so choose.
+		sei
+		rti
 
 
 ; messages.  All have to be 40 bytes long
