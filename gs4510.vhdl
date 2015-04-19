@@ -2490,10 +2490,10 @@ begin
               reset_cpu_state;
               state <= TrapToHypervisor;
             when VectorRead1 =>
-              if hyper_mode='1' then
+              if hypervisor_mode='1' then
                 -- Vectors move in hypervisor mode to be inside the hypervisor
                 -- ROM at $81Fx
-                memory_access_address := x"FFF801F"&vector;
+                memory_access_address := x"FF801F"&vector;
               else
                 memory_access_address := x"000FFF"&vector;
               end if;
