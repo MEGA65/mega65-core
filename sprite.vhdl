@@ -155,7 +155,7 @@ begin  -- behavioural
       for i in 0 to 23 loop
         -- mono version just copies the bits stretching each bit to two to
         -- select the foreground colour.
-        sprite_pixel_bits_mono(i*2) <= sprite_data_24bits(i);
+        sprite_pixel_bits_mono(i*2) <= '0';
         sprite_pixel_bits_mono(i*2+1) <= sprite_data_24bits(i);
       end loop;
       for i in 0 to 11 loop
