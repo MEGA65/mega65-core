@@ -322,6 +322,11 @@ architecture Behavioral of viciv is
       signal sprite_number_for_data_in : in integer range 0 to 7;
       signal sprite_data_offset_out : out integer range 0 to 1023;    
       signal sprite_number_for_data_out : out integer range 0 to 7;
+
+      -- Extended sprite features
+      signal sprite_extended_height_enables : std_logic_vector(7 downto 0) := "00000000";
+      signal sprite_extended_height_size : unsigned(7 downto 0) := to_unsigned(21,8);
+      signal sprite_extended_width_enables : std_logic_vector(7 downto 0) := "00000000";
       
       -- Is the pixel just passed in a foreground pixel?
       -- Similarly, is the pixel a sprite pixel from another sprite?
@@ -1555,17 +1560,30 @@ begin
           fastio_rdata(1) <= fullcolour_8bitchars;
           fastio_rdata(0) <= sixteenbit_charset;
         elsif register_number=85 then
-          fastio_rdata <= x"FF";
+          fastio_rdata <= sprite_extended_height_enables;
         elsif register_number=86 then
-          fastio_rdata <= std_logic_vector(cycles_to_next_card_drive);
+          fastio_rdata <= std_logic_value(sprite_extended_height_size);
         elsif register_number=87 then
-          fastio_rdata(7) <= xfrontporch_drive;
-          fastio_rdata(6) <= xbackporch;
-          fastio_rdata(5) <= chargen_active_drive;
-          fastio_rdata(4) <= inborder_drive;
-          fastio_rdata(3) <= chargen_active_soon_drive;
-          fastio_rdata(2 downto 0) <= "111";
+          fastio_rdata <= sprite_extended_width_enables;
         elsif register_number=88 then
+          fastio_rdata <= std_logic_vector(virtual_row_width(7 downto 0));
+        elsif register_number=89 then
+          fastio_rdata <= std_logic_vector(virtual_row_width(15 downto 8));
+        elsif register_number=90 then
+          fastio_rdata <= std_logic_vector(chargen_x_scale);
+        elsif register_number=91 then
+          fastio_rdata <= std_logic_vector(chargen_y_scale);
+        elsif register_number=92 then
+          fastio_rdata <= std_logic_vector(border_x_left(7 downto 0));
+        elsif register_number=93 then
+          fastio_rdata(7 downto 4) <= x"0";
+          fastio_rdata(3 downto 0) <= std_logic_vector(border_x_left(11 downto 8));
+        elsif register_number=94 then
+          fastio_rdata <= std_logic_vector(border_x_right(7 downto 0));
+        elsif register_number=95 then
+          fastio_rdata(7 downto 4) <= x"0";
+          fastio_rdata(3 downto 0) <= std_logic_vector(border_x_right(11 downto 8));
+          
           fastio_rdata <= std_logic_vector(card_number_drive(7 downto 0));
           fastio_rdata <= x"FF";
         elsif register_number=96 then
@@ -1945,7 +1963,9 @@ begin
         --  This is tolerable, since the registers most likely used to detect a
         --  C65 are made non-functional.  See:
         -- http://www.devili.iki.fi/Computers/Commodore/C65/System_Specification/Chapter_2/page101.html
-        -- http://www.devili.iki.fi/Computers/Commodore/C65/System_Specification/Chapter_2/page102.html
+          -- http://www.devili.iki.fi/Computers/Commodore/C65/System_Specification/Chapter_2/page102.html
+          -- That said, we are changing the VIC-IV so that $D040-$D047 are not
+          -- overloaded, allowing us to eventually support the bitplane DAT.
         elsif register_number=47 then
           -- @IO:C65 $D02F VIC-III KEY register for unlocking extended registers.
           -- @IO:C65 $D02F Write $A5 then $96 to enable C65/VIC-III IO registers
@@ -2010,28 +2030,28 @@ begin
           -- @IO:C65 $D031.0 VIC-III INT(erlaced?) (not implemented)
           viciv_legacy_mode_registers_touched <= '1';
         elsif register_number=64 then
-          -- @IO:GS $D040 VIC-IV characters per logical text row (LSB)
+          -- @IO:GS $D040 DEPRECATED - VIC-IV characters per logical text row (LSB)
           virtual_row_width(7 downto 0) <= unsigned(fastio_wdata);
         elsif register_number=65 then
-          -- @IO:GS $D041 VIC-IV characters per logical text row (MSB)
+          -- @IO:GS $D041 DEPRECATED - VIC-IV characters per logical text row (MSB)
           virtual_row_width(15 downto 8) <= unsigned(fastio_wdata);
         elsif register_number=66 then
-          -- @IO:GS $D042 VIC-IV horizontal hardware scale setting
+          -- @IO:GS $D042 DEPRECATED - VIC-IV horizontal hardware scale setting
           chargen_x_scale <= unsigned(fastio_wdata);
         elsif register_number=67 then
-          -- @IO:GS $D043 VIC-IV vertical hardware scale setting
+          -- @IO:GS $D043 DEPRECATED - VIC-IV vertical hardware scale setting
           chargen_y_scale <= unsigned(fastio_wdata);
         elsif register_number=68 then
-          -- @IO:GS $D044 VIC-IV left border position (LSB)
+          -- @IO:GS $D044 DEPRECATED - VIC-IV left border position (LSB)
           border_x_left(7 downto 0) <= unsigned(fastio_wdata);
         elsif register_number=69 then
-          -- @IO:GS $D045 VIC-IV left border position (MSB)
+          -- @IO:GS $D045 DEPRECATED - VIC-IV left border position (MSB)
           border_x_left(11 downto 8) <= unsigned(fastio_wdata(3 downto 0));
         elsif register_number=70 then
-          -- @IO:GS $D046 VIC-IV right border position (LSB)
+          -- @IO:GS $D046 DEPRECATED - VIC-IV right border position (LSB)
           border_x_right(7 downto 0) <= unsigned(fastio_wdata);
         elsif register_number=71 then
-          -- @IO:GS $D047 VIC-IV right border position (MSB)
+          -- @IO:GS $D047 DEPRECATED - VIC-IV right border position (MSB)
           border_x_right(11 downto 8) <= unsigned(fastio_wdata(3 downto 0)); 
         elsif register_number=72 then
           -- @IO:GS $D048 VIC-IV top border position (LSB)
@@ -2089,6 +2109,39 @@ begin
           fullcolour_8bitchars <= fastio_wdata(1);
           -- @IO:GS $D054.0 VIC-IV enable 16-bit character numbers (two screen bytes per character)
           sixteenbit_charset <= fastio_wdata(0);
+        elsif register_number=85 then
+          -- $D055 (53333) - Sprite extended height enable (one bit per sprite)
+          sprite_extended_height_enables <= fastio_wdata;
+        elsif register_number=86 then
+          -- $D056 (53334) - Sprite extended height size (sprite pixels high)
+          sprite_extended_height_enables <= fastio_wdata;
+        elsif register_number=87 then
+          -- $D057 (53335) - Sprite extended width enables
+          sprite_extended_width_enables <= fastio_wdata;
+        elsif register_number=88 then
+          -- @IO:GS $D058 VIC-IV characters per logical text row (LSB)
+          virtual_row_width(7 downto 0) <= unsigned(fastio_wdata);
+        elsif register_number=89 then
+          -- @IO:GS $D059 VIC-IV characters per logical text row (MSB)
+          virtual_row_width(15 downto 8) <= unsigned(fastio_wdata);
+        elsif register_number=90 then
+          -- @IO:GS $D05A VIC-IV horizontal hardware scale setting
+          chargen_x_scale <= unsigned(fastio_wdata);
+        elsif register_number=91 then
+          -- @IO:GS $D05B VIC-IV vertical hardware scale setting
+          chargen_y_scale <= unsigned(fastio_wdata);
+        elsif register_number=92 then
+          -- @IO:GS $D05C VIC-IV left border position (LSB)
+          border_x_left(7 downto 0) <= unsigned(fastio_wdata);
+        elsif register_number=93 then
+          -- @IO:GS $D05D VIC-IV left border position (MSB)
+          border_x_left(11 downto 8) <= unsigned(fastio_wdata(3 downto 0));
+        elsif register_number=94 then
+          -- @IO:GS $D05E VIC-IV right border position (LSB)
+          border_x_right(7 downto 0) <= unsigned(fastio_wdata);
+        elsif register_number=95 then
+          -- @IO:GS $D05F VIC-IV right border position (MSB)
+          border_x_right(11 downto 8) <= unsigned(fastio_wdata(3 downto 0)); 
         elsif register_number=96 then
           -- @IO:GS $D060 VIC-IV screen RAM precise base address (bits 0 - 7)
           screen_ram_base(7 downto 0) <= unsigned(fastio_wdata);
