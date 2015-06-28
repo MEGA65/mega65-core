@@ -103,7 +103,7 @@ architecture behavioural of sprite is
   signal x_last : integer range 0 to 4095;
   signal x_left : std_logic := '0';
   signal y_top : std_logic := '0';
-  signal y_offset : integer range 0 to 21;
+  signal y_offset : integer range 0 to 255;
   signal x_offset : integer range 0 to 24;
   signal x_is_odd : std_logic := '0';
   signal x_in_sprite : std_logic := '0';
