@@ -329,13 +329,17 @@ begin
              sprite_bytenumber_out => sprite_bytenumber_7_6,
              sprite_spritenumber_out => sprite_spritenumber_7_6,
              sprite_data_out => sprite_data_7_6,
-
+             
              -- Sprite offset data chain for VIC-IV
              sprite_number_for_data_in => sprite_number_for_data_in,
              sprite_data_offset_in => 0,
              sprite_data_offset_out => sprite_data_offset_7_6,
              sprite_number_for_data_out => sprite_number_for_data_7_6,
-             
+
+             sprite_extended_height_size => sprite_extended_height_size,
+             sprite_extended_height_enable => sprite_extended_height_enables(7),
+             sprite_extended_width_enable => sprite_extended_height_enables(7),
+
              -- pixel data
              is_foreground_in => is_foreground_in,
              is_background_in => is_background_in,
@@ -388,6 +392,10 @@ begin
              sprite_data_offset_in => sprite_data_offset_7_6,
              sprite_data_offset_out => sprite_data_offset_6_5,
              sprite_number_for_data_out => sprite_number_for_data_6_5,
+
+             sprite_extended_height_size => sprite_extended_height_size,
+             sprite_extended_height_enable => sprite_extended_height_enables(6),
+             sprite_extended_width_enable => sprite_extended_height_enables(6),
 
              -- pixel data
              is_foreground_in => is_foreground_7_6,
@@ -442,6 +450,10 @@ begin
              sprite_data_offset_out => sprite_data_offset_5_4,
              sprite_number_for_data_out => sprite_number_for_data_5_4,
 
+             sprite_extended_height_size => sprite_extended_height_size,
+             sprite_extended_height_enable => sprite_extended_height_enables(5),
+             sprite_extended_width_enable => sprite_extended_height_enables(5),
+
              -- pixel data
              is_foreground_in => is_foreground_6_5,
              is_background_in => is_background_6_5,
@@ -488,6 +500,10 @@ begin
              sprite_bytenumber_out => sprite_bytenumber_4_3,
              sprite_spritenumber_out => sprite_spritenumber_4_3,
              sprite_data_out => sprite_data_4_3,
+
+             sprite_extended_height_size => sprite_extended_height_size,
+             sprite_extended_height_enable => sprite_extended_height_enables(4),
+             sprite_extended_width_enable => sprite_extended_height_enables(4),
 
              -- Sprite offset data chain for VIC-IV
              sprite_number_for_data_in => sprite_number_for_data_5_4,
@@ -542,6 +558,10 @@ begin
              sprite_spritenumber_out => sprite_spritenumber_3_2,
              sprite_data_out => sprite_data_3_2,
 
+             sprite_extended_height_size => sprite_extended_height_size,
+             sprite_extended_height_enable => sprite_extended_height_enables(3),
+             sprite_extended_width_enable => sprite_extended_height_enables(3),
+
              -- Sprite offset data chain for VIC-IV
              sprite_number_for_data_in => sprite_number_for_data_4_3,
              sprite_data_offset_in => sprite_data_offset_4_3,
@@ -595,6 +615,10 @@ begin
              sprite_spritenumber_out => sprite_spritenumber_2_1,
              sprite_data_out => sprite_data_2_1,
 
+             sprite_extended_height_size => sprite_extended_height_size,
+             sprite_extended_height_enable => sprite_extended_height_enables(2),
+             sprite_extended_width_enable => sprite_extended_height_enables(2),
+             
              -- Sprite offset data chain for VIC-IV
              sprite_number_for_data_in => sprite_number_for_data_3_2,
              sprite_data_offset_in => sprite_data_offset_3_2,
@@ -648,6 +672,10 @@ begin
              sprite_spritenumber_out => sprite_spritenumber_1_0,
              sprite_data_out => sprite_data_1_0,
 
+             sprite_extended_height_size => sprite_extended_height_size,
+             sprite_extended_height_enable => sprite_extended_height_enables(1),
+             sprite_extended_width_enable => sprite_extended_height_enables(1),
+             
              -- Sprite offset data chain for VIC-IV
              sprite_number_for_data_in => sprite_number_for_data_2_1,
              sprite_data_offset_in => sprite_data_offset_2_1,
@@ -700,6 +728,10 @@ begin
              sprite_bytenumber_out => sprite_bytenumber_out,
              sprite_spritenumber_out => sprite_spritenumber_out,
              sprite_data_out => sprite_data_out,
+
+             sprite_extended_height_size => sprite_extended_height_size,
+             sprite_extended_height_enable => sprite_extended_height_enables(0),
+             sprite_extended_width_enable => sprite_extended_height_enables(0),
 
              -- Sprite offset data chain for VIC-IV
              sprite_number_for_data_in => sprite_number_for_data_1_0,
