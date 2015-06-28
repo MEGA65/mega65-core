@@ -239,7 +239,11 @@ begin  -- behavioural
         if sprite_drawing = '1' then
           -- Y position has advanced while drawing a sprite
           if y_expand_toggle = '1' or sprite_stretch_y/='1' then
-            if y_offset /= 20 then
+            if ((sprite_extended_height_enable = '0')
+                and (y_offset /= 20))
+              or
+              ((sprite_extended_height_enable = '1')
+               and (y_offset /= sprite_extended_height_size)) then
               y_offset <= y_offset + 1;
             else
               report "SPRITE: end of sprite y reached. no longer drawing";
