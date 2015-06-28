@@ -326,11 +326,6 @@ architecture Behavioral of viciv is
       signal sprite_number_for_data_in : in integer range 0 to 7;
       signal sprite_data_offset_out : out integer range 0 to 1023;    
       signal sprite_number_for_data_out : out integer range 0 to 7;
-
-      -- Extended sprite features
-      signal sprite_extended_height_enables : std_logic_vector(7 downto 0) := "00000000";
-      signal sprite_extended_height_size : unsigned(7 downto 0) := to_unsigned(21,8);
-      signal sprite_extended_width_enables : std_logic_vector(7 downto 0) := "00000000";
       
       -- Is the pixel just passed in a foreground pixel?
       -- Similarly, is the pixel a sprite pixel from another sprite?
@@ -666,6 +661,11 @@ architecture Behavioral of viciv is
   signal sprite_x : sprite_vector_8;
   signal sprite_y : sprite_vector_8;
   signal sprite_colours : sprite_vector_8;
+
+  -- Extended sprite features
+  signal sprite_extended_height_enables : std_logic_vector(7 downto 0) := "00000000";
+  signal sprite_extended_height_size : unsigned(7 downto 0) := to_unsigned(21,8);
+  signal sprite_extended_width_enables : std_logic_vector(7 downto 0) := "00000000";
 
   -- VIC-II sprites are in a separate module as a chain.  To avoid the need to
   -- route to all sprites from the main VIC-IV section, they are arranged as a
@@ -1570,7 +1570,7 @@ begin
         elsif register_number=85 then
           fastio_rdata <= sprite_extended_height_enables;
         elsif register_number=86 then
-          fastio_rdata <= std_logic_value(sprite_extended_height_size);
+          fastio_rdata <= std_logic_vector(sprite_extended_height_size);
         elsif register_number=87 then
           fastio_rdata <= sprite_extended_width_enables;
         elsif register_number=88 then
