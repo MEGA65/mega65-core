@@ -56,6 +56,11 @@ entity vicii_sprites is
     signal sprite_spritenumber_in : in integer range 0 to 7;
     signal sprite_data_in : in unsigned(7 downto 0);
 
+    -- Extended sprite size control registers
+    signal sprite_extended_height_enables : in std_logic_vector(7 downto 0);
+    signal sprite_extended_height_size : in unsigned(7 downto 0);
+    signal sprite_extended_width_enables : in std_logic_vector(7 downto 0);
+
     -- which base offset for the VIC-II sprite data are we showing this raster line?
     -- VIC-IV clocks sprite_number_for_data and each sprite replaces
     -- sprite_data_offset with the appropriate value if the sprite number is itself
@@ -113,6 +118,10 @@ architecture behavioural of vicii_sprites is
       signal sprite_spritenumber_in : in integer range 0 to 7;
       signal sprite_data_in : in unsigned(7 downto 0);
 
+      signal sprite_extended_height_enable : in std_logic;
+      signal sprite_extended_width_enable : in std_logic;
+      signal sprite_extended_height_size : in unsigned(7 downto 0);
+      
       -- Pass sprite data out along the chain to the next sprite
       signal sprite_datavalid_out : out std_logic;
       signal sprite_bytenumber_out : out integer range 0 to 2;

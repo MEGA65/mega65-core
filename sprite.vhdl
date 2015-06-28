@@ -33,6 +33,10 @@ entity sprite is
 
     signal sprite_number : in integer range 0 to 7;
 
+    signal sprite_extended_height_enable : in std_logic;
+    signal sprite_extended_width_enable : in std_logic;
+    signal sprite_extended_height_size : in unsigned(7 downto 0);  
+
     -- Pull sprite data in along the chain from the previous sprite (or VIC-IV)
     signal sprite_datavalid_in : in std_logic;
     signal sprite_bytenumber_in : in integer range 0 to 2;

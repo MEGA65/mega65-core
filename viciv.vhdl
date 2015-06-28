@@ -316,6 +316,10 @@ architecture Behavioral of viciv is
       signal sprite_spritenumber_in : in integer range 0 to 7;
       signal sprite_data_in : in unsigned(7 downto 0);
 
+      signal sprite_extended_height_enables : in std_logic_vector(7 downto 0);
+      signal sprite_extended_height_size : in unsigned(7 downto 0);
+      signal sprite_extended_width_enables : in std_logic_vector(7 downto 0);
+      
       -- which base offset for the VIC-II sprite data are we showing this raster line?
       -- VIC-IV clocks sprite_number_for_data and each sprite replaces
       -- sprite_data_offset with the appropriate value if the sprite number is itself
@@ -1127,6 +1131,10 @@ begin
               sprite_bytenumber_in => sprite_bytenumber,
               sprite_spritenumber_in => sprite_spritenumber,
               sprite_data_in => sprite_data_byte,
+
+              sprite_extended_width_enables => sprite_extended_width_enables,
+              sprite_extended_height_enables => sprite_extended_height_enables,
+              sprite_extended_height_size => sprite_extended_height_size,
 
               sprite_number_for_data_in => sprite_number_for_data_tx,
               sprite_data_offset_out => sprite_data_offset_rx,
