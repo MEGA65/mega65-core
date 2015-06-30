@@ -69,6 +69,8 @@ entity sprite is
     -- and information from the previous sprite
     signal is_sprite_in : in std_logic;
     signal sprite_colour_in : in unsigned(7 downto 0);
+    signal sprite_map_in : in std_logic_vector(7 downto 0);
+    signal sprite_fg_map_in : in std_logic_vector(7 downto 0);
 
     -- Pass pixel information back out, as well as the sprite colour information
     signal is_foreground_out : out std_logic;
@@ -80,7 +82,9 @@ entity sprite is
     signal alpha_out : out unsigned(7 downto 0);
     signal sprite_colour_out : out unsigned(7 downto 0);
     signal is_sprite_out : out std_logic;
-
+    signal sprite_map_out : out std_logic_vector(7 downto 0);
+    signal sprite_fg_map_out : out std_logic_vector(7 downto 0);
+    
     signal sprite_enable : in std_logic;
     signal sprite_x : in unsigned(8 downto 0);
     signal sprite_y : in unsigned(7 downto 0);
@@ -290,18 +294,34 @@ begin  -- behavioural
       -- XXX - foreground priority is not implemented.
       -- XXX - sprite colission map generation is not implemented
       -- XXX - sprites draw on top of the border?
+      -- check for sprite/foreground colission
+      sprite_fg_map_out <= sprite_fg_map_in;
+      if (x_in_sprite='1') and (border_in='0') and (is_foreground_in='1') and
+        (sprite_pixel_bits(127 downto 126) /= "00") then
+        -- Sprite and foreground colission
+        sprite_fg_map_out(sprite_number) <= '1';
+      end if;
       if (is_foreground_in='0' or sprite_priority='1') and (x_in_sprite='1') then
         report "SPRITE: Painting pixel using bits " & to_string(sprite_pixel_bits(127 downto 126));
         case sprite_pixel_bits(127 downto 126) is
           when "01" =>
+            -- Set this sprite in the colission map        
+            sprite_map_out <= sprite_map_in;
+            sprite_map_out(sprite_number) <= '1';
             is_sprite_out <= not border_in;
             sprite_colour_out <= sprite_multi0_colour;
           when "10" =>
+            -- Set this sprite in the colission map        
+            sprite_map_out <= sprite_map_in;
+            sprite_map_out(sprite_number) <= '1';
             is_sprite_out <= not border_in;
             sprite_colour_out <= sprite_colour;
           when "11" =>
             is_sprite_out <= not border_in;
             sprite_colour_out <= sprite_multi1_colour;
+            -- Set this sprite in the colission map        
+            sprite_map_out <= sprite_map_in;
+            sprite_map_out(sprite_number) <= '1';
           when others =>
             -- background shows through
             is_sprite_out <= is_sprite_in;
@@ -310,6 +330,7 @@ begin  -- behavioural
       else
         is_sprite_out <= is_sprite_in;
         sprite_colour_out <= sprite_colour_in;
+        sprite_map_out <= sprite_map_in;
       end if;
 
 --      report "SPRITE: leaving VIC-II sprite #" & integer'image(sprite_number);

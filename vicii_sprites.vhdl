@@ -148,6 +148,8 @@ architecture behavioural of vicii_sprites is
       -- and information from the previous sprite
       signal is_sprite_in : in std_logic;
       signal sprite_colour_in : in unsigned(7 downto 0);
+      signal sprite_map_in : in std_logic_vector(7 downto 0);
+      signal sprite_fg_map_in : in std_logic_vector(7 downto 0);
       
       -- Pass pixel information back out, as well as the sprite colour information
       signal is_foreground_out : out std_logic;
@@ -159,6 +161,8 @@ architecture behavioural of vicii_sprites is
       signal alpha_out : out unsigned(7 downto 0);
       signal sprite_colour_out : out unsigned(7 downto 0);
       signal is_sprite_out : out std_logic;
+      signal sprite_map_out : out std_logic_vector(7 downto 0);
+      signal sprite_fg_map_out : out std_logic_vector(7 downto 0);
 
       signal sprite_enable : in std_logic;
       signal sprite_x : in unsigned(8 downto 0);
@@ -244,6 +248,24 @@ architecture behavioural of vicii_sprites is
   signal sprite_data_offset_2_1 : integer range 0 to 1023;
   signal sprite_data_offset_1_0 : integer range 0 to 1023;
 
+  signal sprite_fg_map_7_6 : std_logic_vector(7 downto 0);
+  signal sprite_fg_map_6_5 : std_logic_vector(7 downto 0);
+  signal sprite_fg_map_5_4 : std_logic_vector(7 downto 0);
+  signal sprite_fg_map_4_3 : std_logic_vector(7 downto 0);
+  signal sprite_fg_map_3_2 : std_logic_vector(7 downto 0);
+  signal sprite_fg_map_2_1 : std_logic_vector(7 downto 0);
+  signal sprite_fg_map_1_0 : std_logic_vector(7 downto 0);
+  signal sprite_fg_map_final : std_logic_vector(7 downto 0);
+
+  signal sprite_map_7_6 : std_logic_vector(7 downto 0);
+  signal sprite_map_6_5 : std_logic_vector(7 downto 0);
+  signal sprite_map_5_4 : std_logic_vector(7 downto 0);
+  signal sprite_map_4_3 : std_logic_vector(7 downto 0);
+  signal sprite_map_3_2 : std_logic_vector(7 downto 0);
+  signal sprite_map_2_1 : std_logic_vector(7 downto 0);
+  signal sprite_map_1_0 : std_logic_vector(7 downto 0);
+  signal sprite_map_final : std_logic_vector(7 downto 0);
+  
   signal is_foreground_7_6 : std_logic;
   signal is_foreground_6_5 : std_logic;
   signal is_foreground_5_4 : std_logic;
@@ -372,7 +394,11 @@ begin
              sprite_multi1_colour => sprite_multi1_colour,
              sprite_is_multicolour => vicii_sprite_multicolour_bits(7),
              sprite_stretch_x => vicii_sprite_x_expand(7),
-             sprite_stretch_y => vicii_sprite_y_expand(7)
+             sprite_stretch_y => vicii_sprite_y_expand(7),
+             sprite_map_in => x"00",
+             sprite_fg_map_in => "00000000",
+             sprite_map_out => sprite_map_7_6,
+             sprite_fg_map_out => sprite_fg_map_7_6
              );
   sprite6: component sprite
     port map(pixelclock => pixelclock,
@@ -429,7 +455,12 @@ begin
              sprite_multi1_colour => sprite_multi1_colour,
              sprite_is_multicolour => vicii_sprite_multicolour_bits(6),
              sprite_stretch_x => vicii_sprite_x_expand(6),
-             sprite_stretch_y => vicii_sprite_y_expand(6)
+             sprite_stretch_y => vicii_sprite_y_expand(6),
+
+             sprite_fg_map_in => sprite_fg_map_7_6,
+             sprite_map_in => sprite_map_7_6,
+             sprite_map_out => sprite_map_6_5,
+             sprite_fg_map_out => sprite_fg_map_6_5
              );
     sprite5: component sprite
     port map(pixelclock => pixelclock,
@@ -486,7 +517,12 @@ begin
              sprite_multi1_colour => sprite_multi1_colour,
              sprite_is_multicolour => vicii_sprite_multicolour_bits(5),
              sprite_stretch_x => vicii_sprite_x_expand(5),
-             sprite_stretch_y => vicii_sprite_y_expand(5)
+             sprite_stretch_y => vicii_sprite_y_expand(5),
+
+             sprite_fg_map_in => sprite_fg_map_6_5,
+             sprite_map_in => sprite_map_6_5,
+             sprite_map_out => sprite_map_5_4,
+             sprite_fg_map_out => sprite_fg_map_5_4
              );
     sprite4: component sprite
     port map(pixelclock => pixelclock,
@@ -543,7 +579,12 @@ begin
              sprite_multi1_colour => sprite_multi1_colour,
              sprite_is_multicolour => vicii_sprite_multicolour_bits(4),
              sprite_stretch_x => vicii_sprite_x_expand(4),
-             sprite_stretch_y => vicii_sprite_y_expand(4)
+             sprite_stretch_y => vicii_sprite_y_expand(4),
+
+             sprite_fg_map_in => sprite_fg_map_5_4,
+             sprite_map_in => sprite_map_5_4,
+             sprite_map_out => sprite_map_4_3,
+             sprite_fg_map_out => sprite_fg_map_4_3
              );
     sprite3: component sprite
     port map(pixelclock => pixelclock,
@@ -600,7 +641,12 @@ begin
              sprite_multi1_colour => sprite_multi1_colour,
              sprite_is_multicolour => vicii_sprite_multicolour_bits(3),
              sprite_stretch_x => vicii_sprite_x_expand(3),
-             sprite_stretch_y => vicii_sprite_y_expand(3)
+             sprite_stretch_y => vicii_sprite_y_expand(3),
+
+             sprite_fg_map_in => sprite_fg_map_4_3,
+             sprite_map_in => sprite_map_4_3,
+             sprite_map_out => sprite_map_3_2,
+             sprite_fg_map_out => sprite_fg_map_3_2
              );
     sprite2: component sprite
     port map(pixelclock => pixelclock,
@@ -657,7 +703,12 @@ begin
              sprite_multi1_colour => sprite_multi1_colour,
              sprite_is_multicolour => vicii_sprite_multicolour_bits(2),
              sprite_stretch_x => vicii_sprite_x_expand(2),
-             sprite_stretch_y => vicii_sprite_y_expand(2)
+             sprite_stretch_y => vicii_sprite_y_expand(2),
+
+             sprite_fg_map_in => sprite_fg_map_3_2,
+             sprite_map_in => sprite_map_3_2,
+             sprite_map_out => sprite_map_2_1,
+             sprite_fg_map_out => sprite_fg_map_2_1
              );
     sprite1: component sprite
     port map(pixelclock => pixelclock,
@@ -714,7 +765,12 @@ begin
              sprite_multi1_colour => sprite_multi1_colour,
              sprite_is_multicolour => vicii_sprite_multicolour_bits(1),
              sprite_stretch_x => vicii_sprite_x_expand(1),
-             sprite_stretch_y => vicii_sprite_y_expand(1)
+             sprite_stretch_y => vicii_sprite_y_expand(1),
+
+             sprite_fg_map_in => sprite_fg_map_2_1,
+             sprite_map_in => sprite_map_2_1,
+             sprite_map_out => sprite_map_1_0,
+             sprite_fg_map_out => sprite_fg_map_1_0
              );
     sprite0: component sprite
     port map(pixelclock => pixelclock,
@@ -771,7 +827,12 @@ begin
              sprite_multi1_colour => sprite_multi1_colour,
              sprite_is_multicolour => vicii_sprite_multicolour_bits(0),
              sprite_stretch_x => vicii_sprite_x_expand(0),
-             sprite_stretch_y => vicii_sprite_y_expand(0)
+             sprite_stretch_y => vicii_sprite_y_expand(0),
+
+             sprite_fg_map_in => sprite_fg_map_1_0,
+             sprite_map_in => sprite_map_1_0,
+             sprite_map_out => sprite_map_final,
+             sprite_fg_map_out => sprite_fg_map_final
              );
   
   
