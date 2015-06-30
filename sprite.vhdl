@@ -39,13 +39,13 @@ entity sprite is
 
     -- Pull sprite data in along the chain from the previous sprite (or VIC-IV)
     signal sprite_datavalid_in : in std_logic;
-    signal sprite_bytenumber_in : in integer range 0 to 2;
+    signal sprite_bytenumber_in : in integer range 0 to 7;
     signal sprite_spritenumber_in : in integer range 0 to 7;
     signal sprite_data_in : in unsigned(7 downto 0);
 
     -- Pass sprite data out along the chain to the next sprite
     signal sprite_datavalid_out : out std_logic;
-    signal sprite_bytenumber_out : out integer range 0 to 2;
+    signal sprite_bytenumber_out : out integer range 0 to 7;
     signal sprite_spritenumber_out : out integer range 0 to 7;
     signal sprite_data_out : out unsigned(7 downto 0);
 
@@ -110,10 +110,10 @@ architecture behavioural of sprite is
   signal sprite_drawing : std_logic := '0';
   signal x_expand_toggle : std_logic := '0';
   signal y_expand_toggle : std_logic := '0';
-  signal sprite_pixel_bits_mono : std_logic_vector(47 downto 0) := (others => '1');
-  signal sprite_pixel_bits_mc : std_logic_vector(47 downto 0) := (others => '1');
-  signal sprite_pixel_bits : std_logic_vector(47 downto 0) := (others => '1');
-  signal sprite_data_24bits : unsigned(23 downto 0);
+  signal sprite_pixel_bits_mono : std_logic_vector(127 downto 0) := (others => '1');
+  signal sprite_pixel_bits_mc : std_logic_vector(127 downto 0) := (others => '1');
+  signal sprite_pixel_bits : std_logic_vector(127 downto 0) := (others => '1');
+  signal sprite_data_64bits : unsigned(63 downto 0);
   
 begin  -- behavioural
   
@@ -146,29 +146,34 @@ begin  -- behavioural
         report "SPRITE: sprite #" & integer'image(sprite_number)
           & " accepting data byte $" & to_hstring(sprite_data_in)
           & " from VIC-IV for byte #" & integer'image(sprite_bytenumber_in)
-          & " vector was " & to_string(std_logic_vector(sprite_data_24bits));
+          & " vector was " & to_string(std_logic_vector(sprite_data_64bits));
         case sprite_bytenumber_in is
-          when 0 => sprite_data_24bits(23 downto 16) <= sprite_data_in;
-          when 1 => sprite_data_24bits(15 downto 8) <= sprite_data_in;
-          when 2 => sprite_data_24bits(7 downto 0) <= sprite_data_in;
+          when 0 => sprite_data_64bits(63 downto 56) <= sprite_data_in;
+          when 1 => sprite_data_64bits(55 downto 48) <= sprite_data_in;
+          when 2 => sprite_data_64bits(47 downto 40) <= sprite_data_in;
+          when 3 => sprite_data_64bits(39 downto 32) <= sprite_data_in;
+          when 4 => sprite_data_64bits(31 downto 24) <= sprite_data_in;
+          when 5 => sprite_data_64bits(23 downto 16) <= sprite_data_in;
+          when 6 => sprite_data_64bits(15 downto 8) <= sprite_data_in;
+          when 7 => sprite_data_64bits(7 downto 0) <= sprite_data_in;
           when others => null;
         end case;
       end if;
 
       -- Every cycle update mono and multi-colour bit expansion of sprite
-      for i in 0 to 23 loop
+      for i in 0 to 63 loop
         -- mono version just copies the bits stretching each bit to two to
         -- select the foreground colour.
         sprite_pixel_bits_mono(i*2) <= '0';
-        sprite_pixel_bits_mono(i*2+1) <= sprite_data_24bits(i);
+        sprite_pixel_bits_mono(i*2+1) <= sprite_data_64bits(i);
       end loop;
-      for i in 0 to 11 loop
+      for i in 0 to 31 loop
         -- multi-colour version copies the bit pair twice to stretch the colour
         -- over two pixels.
-        sprite_pixel_bits_mc(i*4) <= sprite_data_24bits(i*2);
-        sprite_pixel_bits_mc(i*4+1) <= sprite_data_24bits(i*2+1);
-        sprite_pixel_bits_mc(i*4+2) <= sprite_data_24bits(i*2);
-        sprite_pixel_bits_mc(i*4+3) <= sprite_data_24bits(i*2+1);
+        sprite_pixel_bits_mc(i*4) <= sprite_data_64bits(i*2);
+        sprite_pixel_bits_mc(i*4+1) <= sprite_data_64bits(i*2+1);
+        sprite_pixel_bits_mc(i*4+2) <= sprite_data_64bits(i*2);
+        sprite_pixel_bits_mc(i*4+3) <= sprite_data_64bits(i*2+1);
       end loop;
       
       if sprite_number_for_data_in = sprite_number then
@@ -213,7 +218,7 @@ begin  -- behavioural
         x_in_sprite <= '1';
         report "SPRITE: drawing row " & integer'image(y_offset)
           & " of sprite " & integer'image(sprite_number)
-          & " using data bits %" & to_string(std_logic_vector(sprite_data_24bits));
+          & " using data bits %" & to_string(std_logic_vector(sprite_data_64bits));
         x_offset <= 0;
         x_is_odd <= '0';
         if sprite_is_multicolour = '1' then
@@ -260,7 +265,9 @@ begin  -- behavioural
         x_last <= x_in;
         report "SPRITE: drawing next pixel";
         if (x_expand_toggle = '1') or (sprite_stretch_x/='1') then
-          if x_offset /= 24 then
+          if ((x_offset /= 24) and (sprite_extended_width_enable='0'))
+            or ((x_offset /= 64) and (sprite_extended_width_enable='1'))
+              then
             x_offset <= x_offset + 1;
             x_is_odd <= not x_is_odd;
           else
@@ -271,7 +278,7 @@ begin  -- behavioural
           report "SPRITE: shifting pixel vector along (was "&
             to_string(sprite_pixel_bits)
             &")";
-          sprite_pixel_bits <= sprite_pixel_bits(45 downto 0)&"00";
+          sprite_pixel_bits <= sprite_pixel_bits(125 downto 0)&"00";
         end if;
         report "SPRITE: toggling x_expand_toggle";
         x_expand_toggle <= not x_expand_toggle;
@@ -283,9 +290,9 @@ begin  -- behavioural
       -- XXX - foreground priority is not implemented.
       -- XXX - sprite colission map generation is not implemented
       -- XXX - sprites draw on top of the border?
-      if x_in_sprite='1' then
-        report "SPRITE: Painting pixel using bits " & to_string(sprite_pixel_bits(47 downto 46));
-        case sprite_pixel_bits(47 downto 46) is
+      if (is_foreground_in='0' or sprite_priority='1') and (x_in_sprite='1') then
+        report "SPRITE: Painting pixel using bits " & to_string(sprite_pixel_bits(127 downto 126));
+        case sprite_pixel_bits(127 downto 126) is
           when "01" =>
             is_sprite_out <= not border_in;
             sprite_colour_out <= sprite_multi0_colour;

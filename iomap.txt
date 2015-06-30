@@ -101,14 +101,14 @@ C65 $D031.4 VIC-III Bit-Plane Mode (not implemented)
 C65 $D031.5 VIC-III Enable extended attributes and 8 bit colour entries
 C65 $D031.6 C65 FAST mode (~3.5MHz)
 C65 $D031.7 VIC-III H640 (640 horizontal pixels)
-GS $D040 VIC-IV characters per logical text row (LSB)
-GS $D041 VIC-IV characters per logical text row (MSB)
-GS $D042 VIC-IV horizontal hardware scale setting
-GS $D043 VIC-IV vertical hardware scale setting
-GS $D044 VIC-IV left border position (LSB)
-GS $D045 VIC-IV left border position (MSB)
-GS $D046 VIC-IV right border position (LSB)
-GS $D047 VIC-IV right border position (MSB)
+GS $D040 DEPRECATED - VIC-IV characters per logical text row (LSB)
+GS $D041 DEPRECATED - VIC-IV characters per logical text row (MSB)
+GS $D042 DEPRECATED - VIC-IV horizontal hardware scale setting
+GS $D043 DEPRECATED - VIC-IV vertical hardware scale setting
+GS $D044 DEPRECATED - VIC-IV left border position (LSB)
+GS $D045 DEPRECATED - VIC-IV left border position (MSB)
+GS $D046 DEPRECATED - VIC-IV right border position (LSB)
+GS $D047 DEPRECATED - VIC-IV right border position (MSB)
 GS $D048 VIC-IV top border position (LSB)
 GS $D049 VIC-IV top border position (MSB)
 GS $D04A VIC-IV bottom border position (LSB)
@@ -127,6 +127,17 @@ GS $D054.1 VIC-IV enable full-colour mode for character numbers <=$FF
 GS $D054.2 VIC-IV enable full-colour mode for character numbers >$FF
 GS $D054.3 VIC-IV video output smear filter enable
 GS $D054.6 VIC-IV/C65GS FAST mode (48MHz)
+GS $D055 VIC-IV sprite extended height enable (one bit per sprite)
+GS $D056 VIC-IV Sprite extended height size (sprite pixels high)
+GS $D057 VIC-IV Sprite extended width enables
+GS $D058 VIC-IV characters per logical text row (LSB)
+GS $D059 VIC-IV characters per logical text row (MSB)
+GS $D05A VIC-IV horizontal hardware scale setting
+GS $D05B VIC-IV vertical hardware scale setting
+GS $D05C VIC-IV left border position (LSB)
+GS $D05D VIC-IV left border position (MSB)
+GS $D05E VIC-IV right border position (LSB)
+GS $D05F VIC-IV right border position (MSB)
 GS $D060 VIC-IV screen RAM precise base address (bits 0 - 7)
 GS $D061 VIC-IV screen RAM precise base address (bits 15 - 8)
 GS $D062 VIC-IV screen RAM precise base address (bits 23 - 16)

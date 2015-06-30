@@ -52,7 +52,7 @@ entity vicii_sprites is
 
     -- Pull sprite data in along the chain from the previous sprite (or VIC-IV)
     signal sprite_datavalid_in : in std_logic;
-    signal sprite_bytenumber_in : in integer range 0 to 2;
+    signal sprite_bytenumber_in : in integer range 0 to 7;
     signal sprite_spritenumber_in : in integer range 0 to 7;
     signal sprite_data_in : in unsigned(7 downto 0);
 
@@ -114,7 +114,7 @@ architecture behavioural of vicii_sprites is
       
       -- Pull sprite data in along the chain from the previous sprite (or VIC-IV)
       signal sprite_datavalid_in : in std_logic;
-      signal sprite_bytenumber_in : in integer range 0 to 2;
+      signal sprite_bytenumber_in : in integer range 0 to 7;
       signal sprite_spritenumber_in : in integer range 0 to 7;
       signal sprite_data_in : in unsigned(7 downto 0);
 
@@ -124,7 +124,7 @@ architecture behavioural of vicii_sprites is
       
       -- Pass sprite data out along the chain to the next sprite
       signal sprite_datavalid_out : out std_logic;
-      signal sprite_bytenumber_out : out integer range 0 to 2;
+      signal sprite_bytenumber_out : out integer range 0 to 7;
       signal sprite_spritenumber_out : out integer range 0 to 7;
       signal sprite_data_out : out unsigned(7 downto 0);
 
@@ -195,37 +195,37 @@ architecture behavioural of vicii_sprites is
 
   -- Pass sprite data out along the chain and out the end 
   signal sprite_datavalid_out : std_logic;
-  signal sprite_bytenumber_out : integer range 0 to 2;
+  signal sprite_bytenumber_out : integer range 0 to 7;
   signal sprite_spritenumber_out : integer range 0 to 7;
   signal sprite_data_out : unsigned(7 downto 0);
 
   -- And between the sprites
   signal sprite_datavalid_7_6 : std_logic;
-  signal sprite_bytenumber_7_6 : integer range 0 to 2;
+  signal sprite_bytenumber_7_6 : integer range 0 to 7;
   signal sprite_spritenumber_7_6 : integer range 0 to 7;
   signal sprite_data_7_6 : unsigned(7 downto 0);
   signal sprite_datavalid_6_5 : std_logic;
-  signal sprite_bytenumber_6_5 : integer range 0 to 2;
+  signal sprite_bytenumber_6_5 : integer range 0 to 7;
   signal sprite_spritenumber_6_5 : integer range 0 to 7;
   signal sprite_data_6_5 : unsigned(7 downto 0);
   signal sprite_datavalid_5_4 : std_logic;
-  signal sprite_bytenumber_5_4 : integer range 0 to 2;
+  signal sprite_bytenumber_5_4 : integer range 0 to 7;
   signal sprite_spritenumber_5_4 : integer range 0 to 7;
   signal sprite_data_5_4 : unsigned(7 downto 0);
   signal sprite_datavalid_4_3 : std_logic;
-  signal sprite_bytenumber_4_3 : integer range 0 to 2;
+  signal sprite_bytenumber_4_3 : integer range 0 to 7;
   signal sprite_spritenumber_4_3 : integer range 0 to 7;
   signal sprite_data_4_3 : unsigned(7 downto 0);
   signal sprite_datavalid_3_2 : std_logic;
-  signal sprite_bytenumber_3_2 : integer range 0 to 2;
+  signal sprite_bytenumber_3_2 : integer range 0 to 7;
   signal sprite_spritenumber_3_2 : integer range 0 to 7;
   signal sprite_data_3_2 : unsigned(7 downto 0);
   signal sprite_datavalid_2_1 : std_logic;
-  signal sprite_bytenumber_2_1 : integer range 0 to 2;
+  signal sprite_bytenumber_2_1 : integer range 0 to 7;
   signal sprite_spritenumber_2_1 : integer range 0 to 7;
   signal sprite_data_2_1 : unsigned(7 downto 0);
   signal sprite_datavalid_1_0 : std_logic;
-  signal sprite_bytenumber_1_0 : integer range 0 to 2;
+  signal sprite_bytenumber_1_0 : integer range 0 to 7;
   signal sprite_spritenumber_1_0 : integer range 0 to 7;
   signal sprite_data_1_0 : unsigned(7 downto 0);
 

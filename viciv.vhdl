@@ -312,7 +312,7 @@ architecture Behavioral of viciv is
 
       -- Pull sprite data in along the chain from the previous sprite (or VIC-IV)
       signal sprite_datavalid_in : in std_logic;
-      signal sprite_bytenumber_in : in integer range 0 to 2;
+      signal sprite_bytenumber_in : in integer range 0 to 7;
       signal sprite_spritenumber_in : in integer range 0 to 7;
       signal sprite_data_in : in unsigned(7 downto 0);
 
@@ -688,7 +688,7 @@ architecture Behavioral of viciv is
   signal sprite_data_offsets : sprite_data_offset_8;
   -- Similarly we need to deliver the bytes of data to the VIC-II sprite chain
   signal sprite_datavalid : std_logic;
-  signal sprite_bytenumber : integer range 0 to 2 := 0;
+  signal sprite_bytenumber : integer range 0 to 7 := 0;
   signal sprite_spritenumber : integer range 0 to 7 := 0;
   signal sprite_data_byte : unsigned(7 downto 0);
   -- The sprite chain also has the opportunity to modify the pixel colour being
@@ -718,7 +718,7 @@ architecture Behavioral of viciv is
   signal pixel_is_sprite : std_logic;
 
   signal sprite_fetch_sprite_number : integer range 0 to 8;
-  signal sprite_fetch_byte_number : integer range 0 to 3;
+  signal sprite_fetch_byte_number : integer range 0 to 8;
   signal sprite_data_address : unsigned(16 downto 0);
 
   -- Compatibility registers
@@ -2118,13 +2118,13 @@ begin
           -- @IO:GS $D054.0 VIC-IV enable 16-bit character numbers (two screen bytes per character)
           sixteenbit_charset <= fastio_wdata(0);
         elsif register_number=85 then
-          -- $D055 (53333) - Sprite extended height enable (one bit per sprite)
+          -- @IO:GS $D055 VIC-IV sprite extended height enable (one bit per sprite)
           sprite_extended_height_enables <= fastio_wdata;
         elsif register_number=86 then
-          -- $D056 (53334) - Sprite extended height size (sprite pixels high)
+          -- @IO:GS $D056 VIC-IV Sprite extended height size (sprite pixels high)
           sprite_extended_height_enables <= fastio_wdata;
         elsif register_number=87 then
-          -- $D057 (53335) - Sprite extended width enables
+          -- @IO:GS $D057 VIC-IV Sprite extended width enables
           sprite_extended_width_enables <= fastio_wdata;
         elsif register_number=88 then
           -- @IO:GS $D058 VIC-IV characters per logical text row (LSB)
@@ -3406,7 +3406,9 @@ begin
           sprite_fetch_byte_number <= sprite_fetch_byte_number + 1;
           sprite_data_byte <= ramdata;
           sprite_datavalid <= '1';
-          if sprite_fetch_byte_number = 2 then
+          -- XXX - always fetches 8 bytes of sprite data instead of 3, even if
+          -- sprite is not set to 64 pixels wide mode.
+          if sprite_fetch_byte_number = 8 then
             sprite_fetch_byte_number <= 0;
             sprite_fetch_sprite_number <= sprite_fetch_sprite_number + 1;
             raster_fetch_state <= SpritePointerFetch;
