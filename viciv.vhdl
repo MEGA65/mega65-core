@@ -758,7 +758,11 @@ architecture Behavioral of viciv is
   signal mask_colissionspritesprite : std_logic := '0';
   signal mask_colissionspritebitmap : std_logic := '0';
   signal mask_raster : std_logic := '0';
-
+  signal clear_colissionspritebitmap : std_logic := '0';
+  signal clear_colissionspritebitmap_1 : std_logic := '0';
+  signal clear_colissionspritesprite : std_logic := '0';
+  signal clear_colissionspritesprite_1 : std_logic := '0';
+  
   -- Used for hardware character blinking ala C65
   signal viciii_blink_phase : std_logic := '0';
   -- 60 frames = 1 second, and means no tearing.
@@ -1793,15 +1797,22 @@ begin
       end if;
 
       -- Reading some registers clears IRQ flags
+      ack_colissionspritebitmap <= '0';
+      ack_colissionspritesprite <= '0';
       if fastio_read='1' then
         if register_number=30 then
           -- @IO:C64 $D01E sprite/sprite collissions
-          vicii_sprite_sprite_colissions <= "00000000";
+          clear_colissionspritebitmap_1 <= '1';
         elsif register_number=31 then
           -- @IO:C64 $D01F sprite/sprite collissions
-          vicii_sprite_bitmap_colissions <= "00000000";
+          clear_colissionspritesprite_1 <= '1';
         end if;
       end if;
+      -- One cycle delay so that CPU can read these registers with 1 cycle
+      -- wait-state without the colission bits disappearing before the CPU
+      -- latches the value.
+      clear_colissionspritebitmap <= clear_colissionspritebitmap_1;
+      clear_colissionspritesprite <= clear_colissionspritesprite_1;
       
       -- $D000 registers
       if fastio_write='1'
@@ -2311,6 +2322,16 @@ begin
       end case;
       if vicii_sprite_bitmap_colissions /= "00000000" then
         irq_colissionspritebitmap <= '1';
+      end if;
+
+      -- Reading $D01E/$D01F clears the previous colission bits.
+      -- Note that this doesn't clear the IRQ, just the visible bits
+      if clear_colissionspritesprite='1' then
+        vicii_sprite_sprite_colissions <= vicii_sprite_sprite_colission_map;
+      end if;
+
+      if clear_colissionspritebitmap='1' then
+        vicii_sprite_bitmap_colissions <= vicii_sprite_bitmap_colission_map;
       end if;
       
       -- Acknowledge IRQs after reading $D019     
