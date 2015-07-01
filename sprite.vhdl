@@ -255,7 +255,6 @@ begin  -- behavioural
               ((sprite_extended_height_enable = '1')
                and (y_offset /= sprite_extended_height_size)) then
               y_offset <= y_offset + 1;
-              check_colissions <= '1';
             else
               report "SPRITE: end of sprite y reached. no longer drawing";
               sprite_drawing <= '0';
@@ -263,6 +262,10 @@ begin  -- behavioural
             end if;
           end if;
           y_expand_toggle <= not y_expand_toggle;
+          -- Check colissions whenever we start a new logical sprite pixel row, even
+          -- if it is just a VIC-II stretch of the above one, since it could collide
+          -- with a non-expanded sprite that starts here.
+          check_colissions <= '1';
         end if;
       end if;
       -- Advance X position of sprite
