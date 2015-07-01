@@ -88,6 +88,8 @@ entity vicii_sprites is
     signal alpha_out : out unsigned(7 downto 0);
     signal sprite_colour_out : out unsigned(7 downto 0);
     signal is_sprite_out : out std_logic;
+    signal sprite_fg_map_final : out std_logic_vector(7 downto 0);
+    signal sprite_map_final : out std_logic_vector(7 downto 0);
 
     -- We need the registers that describe the various sprites.
     -- We could pull these in from the VIC-IV, but that would mean that they
@@ -255,7 +257,6 @@ architecture behavioural of vicii_sprites is
   signal sprite_fg_map_3_2 : std_logic_vector(7 downto 0);
   signal sprite_fg_map_2_1 : std_logic_vector(7 downto 0);
   signal sprite_fg_map_1_0 : std_logic_vector(7 downto 0);
-  signal sprite_fg_map_final : std_logic_vector(7 downto 0);
 
   signal sprite_map_7_6 : std_logic_vector(7 downto 0);
   signal sprite_map_6_5 : std_logic_vector(7 downto 0);
@@ -264,7 +265,6 @@ architecture behavioural of vicii_sprites is
   signal sprite_map_3_2 : std_logic_vector(7 downto 0);
   signal sprite_map_2_1 : std_logic_vector(7 downto 0);
   signal sprite_map_1_0 : std_logic_vector(7 downto 0);
-  signal sprite_map_final : std_logic_vector(7 downto 0);
   
   signal is_foreground_7_6 : std_logic;
   signal is_foreground_6_5 : std_logic;

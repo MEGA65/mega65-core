@@ -347,6 +347,8 @@ architecture Behavioral of viciv is
       signal sprite_colour_out : out unsigned(7 downto 0);
       signal is_sprite_out : out std_logic;
       signal is_background_out : out std_logic;
+      signal sprite_fg_map_final : out std_logic_vector(7 downto 0);
+      signal sprite_map_final : out std_logic_vector(7 downto 0);
 
       -- We need the registers that describe the various sprites.
       -- We could pull these in from the VIC-IV, but that would mean that they
@@ -735,8 +737,17 @@ architecture Behavioral of viciv is
   signal vicii_sprite_y_expand : std_logic_vector(7 downto 0);
   signal vicii_sprite_priority_bits : std_logic_vector(7 downto 0);
   signal vicii_sprite_multicolour_bits : std_logic_vector(7 downto 0);
+
+  -- Here are the signals received from the sprites, which get ored onto
+  -- the following signals.
+  signal vicii_sprite_sprite_colission_map : std_logic_vector(7 downto 0);
+  signal vicii_sprite_bitmap_colission_map : std_logic_vector(7 downto 0);
+
+  -- HEre is what gets read from the VIC-II register (and then zeroed in the process)
+  -- and which also get checked for interrupt generation
   signal vicii_sprite_sprite_colissions : std_logic_vector(7 downto 0);
   signal vicii_sprite_bitmap_colissions : std_logic_vector(7 downto 0);
+  
   signal viciii_extended_attributes : std_logic := '1';
   signal irq_colissionspritesprite : std_logic := '0';
   signal irq_colissionspritebitmap : std_logic := '0';
@@ -1140,6 +1151,8 @@ begin
               sprite_data_offset_out => sprite_data_offset_rx,
               sprite_number_for_data_out => sprite_number_for_data_rx,
 
+              
+              
               is_foreground_in => pixel_is_foreground_in,
               is_background_in => pixel_is_foreground_in,
               -- VIC-II sprites care only about VIC-II coordinates
@@ -1156,12 +1169,14 @@ begin
               is_sprite_out => pixel_is_sprite,
               is_background_out => pixel_is_background_out,
 
+              -- Get sprite colission info
+              sprite_fg_map_final => vicii_sprite_bitmap_colission_map,
+              sprite_map_final => vicii_sprite_sprite_colission_map,
+
               fastio_addr => fastio_addr,
               fastio_write => fastio_write,
               fastio_wdata => fastio_wdata
               );
-  
-  
   
   process(cpuclock,ioclock,fastio_addr,fastio_read,chardata,
           sprite_x,sprite_y,vicii_sprite_xmsbs,ycounter,extended_background_mode,
@@ -1735,6 +1750,45 @@ begin
         viciv_interpret_legacy_mode_registers;
         viciv_legacy_mode_registers_touched <= '0';
       end if;
+
+      -- Add new sprite colission bits to the bitmap
+      case vicii_sprite_sprite_colission_map is
+        when "00000000" => null;
+        when "10000000" => null;
+        when "01000000" => null;
+        when "00100000" => null;
+        when "00010000" => null;
+        when "00001000" => null;
+        when "00000100" => null;
+        when "00000010" => null;
+        when "00000001" => null;
+        when others =>
+          -- Sprite colission, so add it to the existing map
+          vicii_sprite_sprite_colissions
+            <= vicii_sprite_sprite_colissions or vicii_sprite_sprite_colission_map;
+      end case;
+      -- Sprite foreground colission is easier: always add it on.
+      vicii_sprite_bitmap_colissions
+        <= vicii_sprite_bitmap_colissions or vicii_sprite_bitmap_colission_map;
+      
+      -- Now check if we need to trigger an IRQ due to sprite colissions:
+      case vicii_sprite_sprite_colissions is
+        when "00000000" => null;
+        when "10000000" => null;
+        when "01000000" => null;
+        when "00100000" => null;
+        when "00010000" => null;
+        when "00001000" => null;
+        when "00000100" => null;
+        when "00000010" => null;
+        when "00000001" => null;
+        when others =>
+          irq_colissionspritesprite <= '1';
+      end case;
+      if vicii_sprite_bitmap_colissions /= "00000000" then
+        irq_colissionspritebitmap <= '1';
+      end if;
+
       
       ack_colissionspritesprite <= '0';
       ack_colissionspritebitmap <= '0';
@@ -1781,10 +1835,10 @@ begin
       if fastio_read='1' then
         if register_number=30 then
           -- @IO:C64 $D01E sprite/sprite collissions
-          ack_colissionspritesprite <= '1';
+          vicii_sprite_sprite_colissions <= "00000000";
         elsif register_number=31 then
           -- @IO:C64 $D01F sprite/sprite collissions
-          ack_colissionspritebitmap <= '1';
+          vicii_sprite_bitmap_colissions <= "00000000";
         end if;
       end if;
       
@@ -1899,10 +1953,10 @@ begin
           vicii_sprite_x_expand <= fastio_wdata;
         elsif register_number=30 then
           -- @IO:C64 $D01E VIC-II sprite/sprite collision indicate bits
-          vicii_sprite_sprite_colissions <= fastio_wdata;
+          -- vicii_sprite_sprite_colissions <= fastio_wdata;
         elsif register_number=31 then
           -- @IO:C64 $D01F VIC-II sprite/sprite collision indicate bits
-          vicii_sprite_bitmap_colissions <= fastio_wdata;
+          -- vicii_sprite_bitmap_colissions <= fastio_wdata;
         elsif register_number=32 then
           -- @IO:C64 $D020 Border colour
           -- @IO:C64 $D020.3-0 VIC-II display border colour (16 colour)
