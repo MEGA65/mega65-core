@@ -118,6 +118,7 @@ architecture behavioural of sprite is
   signal sprite_pixel_bits_mc : std_logic_vector(127 downto 0) := (others => '1');
   signal sprite_pixel_bits : std_logic_vector(127 downto 0) := (others => '1');
   signal sprite_data_64bits : unsigned(63 downto 0);
+  signal check_colissions : std_logic := '0';
   
 begin  -- behavioural
   
@@ -254,6 +255,7 @@ begin  -- behavioural
               ((sprite_extended_height_enable = '1')
                and (y_offset /= sprite_extended_height_size)) then
               y_offset <= y_offset + 1;
+              check_colissions <= '1';
             else
               report "SPRITE: end of sprite y reached. no longer drawing";
               sprite_drawing <= '0';
@@ -277,6 +279,14 @@ begin  -- behavioural
           else
             report "SPRITE: right edge of sprite encountered. stopping drawing.";
             x_in_sprite <= '0';
+            -- Only check colissions on first raster of each sprite pixel
+            -- so that we don't trigger colission interrupts on each physical raster
+            -- of a single pixel row of a sprite, which might cause some games
+            -- to get confused and trigger the colission routine 5x for each colission
+            -- instead of just once -- especially since there are ~640 CPU
+            -- cycles per physical raster = ~ 3,000 CPU cycles per sprite pixel
+            -- row.
+            check_colissions <= '0';
           end if;
           -- shift along to next pixel
           report "SPRITE: shifting pixel vector along (was "&
@@ -299,7 +309,9 @@ begin  -- behavioural
       if (x_in_sprite='1') and (border_in='0') and (is_foreground_in='1') and
         (sprite_pixel_bits(127 downto 126) /= "00") then
         -- Sprite and foreground colission
-        sprite_fg_map_out(sprite_number) <= '1';
+        if check_colissions='1' then
+          sprite_fg_map_out(sprite_number) <= '1';
+        end if;
       end if;
       if (is_foreground_in='0' or sprite_priority='1') and (x_in_sprite='1') then
         report "SPRITE: Painting pixel using bits " & to_string(sprite_pixel_bits(127 downto 126));
@@ -307,13 +319,17 @@ begin  -- behavioural
           when "01" =>
             -- Set this sprite in the colission map        
             sprite_map_out <= sprite_map_in;
-            sprite_map_out(sprite_number) <= '1';
+            if check_colissions='1' then
+              sprite_map_out(sprite_number) <= '1';
+            end if;
             is_sprite_out <= not border_in;
             sprite_colour_out <= sprite_multi0_colour;
           when "10" =>
             -- Set this sprite in the colission map        
             sprite_map_out <= sprite_map_in;
-            sprite_map_out(sprite_number) <= '1';
+            if check_colissions='1' then
+              sprite_map_out(sprite_number) <= '1';
+            end if;
             is_sprite_out <= not border_in;
             sprite_colour_out <= sprite_colour;
           when "11" =>
@@ -321,7 +337,9 @@ begin  -- behavioural
             sprite_colour_out <= sprite_multi1_colour;
             -- Set this sprite in the colission map        
             sprite_map_out <= sprite_map_in;
-            sprite_map_out(sprite_number) <= '1';
+            if check_colissions='1' then
+              sprite_map_out(sprite_number) <= '1';
+            end if;
           when others =>
             -- background shows through
             is_sprite_out <= is_sprite_in;
