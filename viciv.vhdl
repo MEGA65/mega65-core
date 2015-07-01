@@ -1750,45 +1750,6 @@ begin
         viciv_interpret_legacy_mode_registers;
         viciv_legacy_mode_registers_touched <= '0';
       end if;
-
-      -- Add new sprite colission bits to the bitmap
-      case vicii_sprite_sprite_colission_map is
-        when "00000000" => null;
-        when "10000000" => null;
-        when "01000000" => null;
-        when "00100000" => null;
-        when "00010000" => null;
-        when "00001000" => null;
-        when "00000100" => null;
-        when "00000010" => null;
-        when "00000001" => null;
-        when others =>
-          -- Sprite colission, so add it to the existing map
-          vicii_sprite_sprite_colissions
-            <= vicii_sprite_sprite_colissions or vicii_sprite_sprite_colission_map;
-      end case;
-      -- Sprite foreground colission is easier: always add it on.
-      vicii_sprite_bitmap_colissions
-        <= vicii_sprite_bitmap_colissions or vicii_sprite_bitmap_colission_map;
-      
-      -- Now check if we need to trigger an IRQ due to sprite colissions:
-      case vicii_sprite_sprite_colissions is
-        when "00000000" => null;
-        when "10000000" => null;
-        when "01000000" => null;
-        when "00100000" => null;
-        when "00010000" => null;
-        when "00001000" => null;
-        when "00000100" => null;
-        when "00000010" => null;
-        when "00000001" => null;
-        when others =>
-          irq_colissionspritesprite <= '1';
-      end case;
-      if vicii_sprite_bitmap_colissions /= "00000000" then
-        irq_colissionspritebitmap <= '1';
-      end if;
-
       
       ack_colissionspritesprite <= '0';
       ack_colissionspritebitmap <= '0';
@@ -2314,6 +2275,44 @@ begin
       ramdata_drive <= ramdata;
       paint_ramdata <= ramdata_drive;
 
+      -- Add new sprite colission bits to the bitmap
+      case vicii_sprite_sprite_colission_map is
+        when "00000000" => null;
+        when "10000000" => null;
+        when "01000000" => null;
+        when "00100000" => null;
+        when "00010000" => null;
+        when "00001000" => null;
+        when "00000100" => null;
+        when "00000010" => null;
+        when "00000001" => null;
+        when others =>
+          -- Sprite colission, so add it to the existing map
+          vicii_sprite_sprite_colissions
+            <= vicii_sprite_sprite_colissions or vicii_sprite_sprite_colission_map;
+      end case;
+      -- Sprite foreground colission is easier: always add it on.
+      vicii_sprite_bitmap_colissions
+        <= vicii_sprite_bitmap_colissions or vicii_sprite_bitmap_colission_map;
+      
+      -- Now check if we need to trigger an IRQ due to sprite colissions:
+      case vicii_sprite_sprite_colissions is
+        when "00000000" => null;
+        when "10000000" => null;
+        when "01000000" => null;
+        when "00100000" => null;
+        when "00010000" => null;
+        when "00001000" => null;
+        when "00000100" => null;
+        when "00000010" => null;
+        when "00000001" => null;
+        when others =>
+          irq_colissionspritesprite <= '1';
+      end case;
+      if vicii_sprite_bitmap_colissions /= "00000000" then
+        irq_colissionspritebitmap <= '1';
+      end if;
+      
       -- Acknowledge IRQs after reading $D019     
       irq_raster <= irq_raster and (not ack_raster);
       irq_colissionspritebitmap <= irq_colissionspritebitmap and (not ack_colissionspritebitmap);
