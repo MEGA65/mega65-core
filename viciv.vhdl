@@ -3456,8 +3456,8 @@ begin
           sprite_data_address(16) <= '0';
           sprite_data_address(15) <= screen_ram_base(15);
           sprite_data_address(14) <= screen_ram_base(14);
-          sprite_data_address(13 downto 6) <= ramdata + (to_unsigned(sprite_data_offsets(sprite_fetch_sprite_number),10)/64);
-          sprite_data_address(5 downto 0) <= to_unsigned(sprite_data_offsets(sprite_fetch_sprite_number),6);
+          sprite_data_address(13 downto 0) <= (ramdata&"000000") + to_unsigned(sprite_data_offsets(sprite_fetch_sprite_number),14);
+          -- sprite_data_address(5 downto 0) <= to_unsigned(sprite_data_offsets(sprite_fetch_sprite_number),6);
           report "SPRITE: sprite #"
             & integer'image(sprite_fetch_sprite_number)
             & " pointer value = $" & to_hstring(ramdata);
