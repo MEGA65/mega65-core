@@ -3449,10 +3449,14 @@ begin
         when SpritePointerCompute =>
           -- Sprite data address is 64*pointer value, plus the 16KB bank
           -- from $DD00.  Then we need to add the data offset for this sprite.
+          -- 64-pixel wide and upto 255-pixel heigh extended size sprites means
+          -- we need to allow the address computation to add the sprite number
+          -- from the ram data to be added to the upper bits of the
+          -- sprite_data_offsets() value for the sprite
           sprite_data_address(16) <= '0';
           sprite_data_address(15) <= screen_ram_base(15);
           sprite_data_address(14) <= screen_ram_base(14);
-          sprite_data_address(13 downto 6) <= ramdata;
+          sprite_data_address(13 downto 6) <= ramdata + (to_unsigned(sprite_data_offsets(sprite_fetch_sprite_number),10)/64);
           sprite_data_address(5 downto 0) <= to_unsigned(sprite_data_offsets(sprite_fetch_sprite_number),6);
           report "SPRITE: sprite #"
             & integer'image(sprite_fetch_sprite_number)
