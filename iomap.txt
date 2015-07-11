@@ -110,13 +110,17 @@ GS $D045 DEPRECATED - VIC-IV left border position (MSB)
 GS $D046 DEPRECATED - VIC-IV right border position (LSB)
 GS $D047 DEPRECATED - VIC-IV right border position (MSB)
 GS $D048 VIC-IV top border position (LSB)
-GS $D049 VIC-IV top border position (MSB)
+GS $D049.3-0 VIC-IV top border position (MSB)
+GS $D049.7-4 VIC-IV sprite 3-0 bitplane-modify-mode enables
 GS $D04A VIC-IV bottom border position (LSB)
-GS $D04B VIC-IV bottom border position (MSB)
+GS $D04B.3-0 VIC-IV bottom border position (MSB)
+GS $D04B.7-4 VIC-IV sprite 7-4 bitplane-modify-mode enables
 GS $D04C VIC-IV character generator horizontal position (LSB)
-GS $D04D VIC-IV character generator horizontal position (MSB)
+GS $D04D.3-0 VIC-IV character generator horizontal position (MSB)
+GS $D04D.7-4 VIC-IV sprite 3-0 horizontal tile enables
 GS $D04E VIC-IV character generator vertical position (LSB)
-GS $D04F VIC-IV character generator vertical position (MSB)
+GS $D04F.3-0 VIC-IV character generator vertical position (MSB)
+GS $D04F.7-4 VIC-IV sprite 7-4 horizontal tile enables
 GS $D050 VIC-IV read horizontal position (LSB)
 GS $D051 VIC-IV read horizontal position (MSB)
 GS $D052 VIC-IV read physical raster/set raster compare (LSB)

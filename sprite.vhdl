@@ -33,6 +33,8 @@ entity sprite is
 
     signal sprite_number : in integer range 0 to 7;
 
+    signal sprite_horizontal_tile_enable : in std_logic;
+    signal sprite_bitplane_enable : in std_logic;
     signal sprite_extended_height_enable : in std_logic;
     signal sprite_extended_width_enable : in std_logic;
     signal sprite_extended_height_size : in unsigned(7 downto 0);  
@@ -108,7 +110,7 @@ architecture behavioural of sprite is
   signal x_left : std_logic := '0';
   signal y_top : std_logic := '0';
   signal y_offset : integer range 0 to 255;
-  signal x_offset : integer range 0 to 24;
+  signal x_offset : integer range 0 to 64;
   signal x_is_odd : std_logic := '0';
   signal x_in_sprite : std_logic := '0';
   signal sprite_drawing : std_logic := '0';
@@ -127,6 +129,7 @@ begin  -- behavioural
   -- inputs : pixelclock, <reset>
   -- outputs: colour, is_sprite_out
   main: process (pixelclock)
+    variable sprite_number_mod_4 : integer range 0 to 7 := (sprite_number mod 4) * 2;
   begin  -- process main
     if pixelclock'event and pixelclock = '1' then  -- rising clock edge
 --      report "SPRITE: entering VIC-II sprite #" & integer'image(sprite_number);
@@ -276,6 +279,7 @@ begin  -- behavioural
         if (x_expand_toggle = '1') or (sprite_stretch_x/='1') then
           if ((x_offset /= 24) and (sprite_extended_width_enable='0'))
             or ((x_offset /= 64) and (sprite_extended_width_enable='1'))
+            or (sprite_horizontal_tile_enable='1')
               then
             x_offset <= x_offset + 1;
             x_is_odd <= not x_is_odd;
@@ -318,36 +322,57 @@ begin  -- behavioural
       end if;
       if (is_foreground_in='0' or sprite_priority='1') and (x_in_sprite='1') then
         report "SPRITE: Painting pixel using bits " & to_string(sprite_pixel_bits(127 downto 126));
-        case sprite_pixel_bits(127 downto 126) is
-          when "01" =>
-            -- Set this sprite in the colission map        
-            sprite_map_out <= sprite_map_in;
-            if check_colissions='1' then
-              sprite_map_out(sprite_number) <= '1';
-            end if;
-            is_sprite_out <= not border_in;
-            sprite_colour_out <= sprite_multi0_colour;
-          when "10" =>
-            -- Set this sprite in the colission map        
-            sprite_map_out <= sprite_map_in;
-            if check_colissions='1' then
-              sprite_map_out(sprite_number) <= '1';
-            end if;
-            is_sprite_out <= not border_in;
-            sprite_colour_out <= sprite_colour;
-          when "11" =>
-            is_sprite_out <= not border_in;
-            sprite_colour_out <= sprite_multi1_colour;
-            -- Set this sprite in the colission map        
-            sprite_map_out <= sprite_map_in;
-            if check_colissions='1' then
-              sprite_map_out(sprite_number) <= '1';
-            end if;
-          when others =>
-            -- background shows through
+        if sprite_bitplane_enable='1' then
+          -- Bitmap mode of sprites modifies the palette entry of the
+          -- sprite/graphics instead of drawing a sprite. Thus multiple
+          -- sprites can be combined to get more colours, like on the Amiga,
+          -- but also with the background, e.g., to modify colour of background
+          -- when a "shadow" or "highlight" or sprite of other purpose is drawn
+          if sprite_is_multicolour = '0' then
             is_sprite_out <= is_sprite_in;
             sprite_colour_out <= sprite_colour_in;
-        end case;
+            pixel_out(sprite_number) <= sprite_pixel_bits(126) xor pixel_in(sprite_number);
+            sprite_colour_out(sprite_number) <= sprite_pixel_bits(126) xor sprite_colour_in(sprite_number);
+          else
+            is_sprite_out <= is_sprite_in;
+            sprite_colour_out <= sprite_colour_in;
+            pixel_out(sprite_number_mod_4 + 1) <= sprite_pixel_bits(127) xor pixel_in(sprite_number_mod_4 + 1);
+            pixel_out(sprite_number_mod_4) <= sprite_pixel_bits(126) xor pixel_in(sprite_number_mod_4);
+            sprite_colour_out(sprite_number_mod_4 + 1) <= sprite_pixel_bits(127) xor sprite_colour_in(sprite_number_mod_4 + 1);
+            sprite_colour_out(sprite_number_mod_4) <= sprite_pixel_bits(126) xor sprite_colour_in(sprite_number_mod_4);
+          end if;
+        else
+          case sprite_pixel_bits(127 downto 126) is
+            when "01" =>
+              -- Set this sprite in the colission map        
+              sprite_map_out <= sprite_map_in;
+              if check_colissions='1' then
+                sprite_map_out(sprite_number) <= '1';
+              end if;
+              is_sprite_out <= not border_in;
+              sprite_colour_out <= sprite_multi0_colour;
+            when "10" =>
+              -- Set this sprite in the colission map        
+              sprite_map_out <= sprite_map_in;
+              if check_colissions='1' then
+                sprite_map_out(sprite_number) <= '1';
+              end if;
+              is_sprite_out <= not border_in;
+              sprite_colour_out <= sprite_colour;
+            when "11" =>
+              is_sprite_out <= not border_in;
+              sprite_colour_out <= sprite_multi1_colour;
+              -- Set this sprite in the colission map        
+              sprite_map_out <= sprite_map_in;
+              if check_colissions='1' then
+                sprite_map_out(sprite_number) <= '1';
+              end if;
+            when others =>
+              -- background shows through
+              is_sprite_out <= is_sprite_in;
+              sprite_colour_out <= sprite_colour_in;
+          end case;
+        end if;
       else
         is_sprite_out <= is_sprite_in;
         sprite_colour_out <= sprite_colour_in;

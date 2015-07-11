@@ -318,6 +318,8 @@ architecture Behavioral of viciv is
       signal sprite_spritenumber_in : in integer range 0 to 7;
       signal sprite_data_in : in unsigned(7 downto 0);
 
+      signal sprite_horizontal_tile_enables : in std_logic_vector(7 downto 0);
+      signal sprite_bitplane_enables : in std_logic_vector(7 downto 0);
       signal sprite_extended_height_enables : in std_logic_vector(7 downto 0);
       signal sprite_extended_height_size : in unsigned(7 downto 0);
       signal sprite_extended_width_enables : in std_logic_vector(7 downto 0);
@@ -671,6 +673,8 @@ architecture Behavioral of viciv is
   signal sprite_extended_height_enables : std_logic_vector(7 downto 0) := "00000000";
   signal sprite_extended_height_size : unsigned(7 downto 0) := to_unsigned(21,8);
   signal sprite_extended_width_enables : std_logic_vector(7 downto 0) := "00000000";
+  signal sprite_horizontal_tile_enables : std_logic_vector(7 downto 0) := "00000000";
+  signal sprite_bitplane_enables : std_logic_vector(7 downto 0) := "00000000";
 
   -- VIC-II sprites are in a separate module as a chain.  To avoid the need to
   -- route to all sprites from the main VIC-IV section, they are arranged as a
@@ -1151,6 +1155,8 @@ begin
               sprite_spritenumber_in => sprite_spritenumber,
               sprite_data_in => sprite_data_byte,
 
+              sprite_horizontal_tile_enables => sprite_horizontal_tile_enables,
+              sprite_bitplane_enables => sprite_bitplane_enables,
               sprite_extended_width_enables => sprite_extended_width_enables,
               sprite_extended_height_enables => sprite_extended_height_enables,
               sprite_extended_height_size => sprite_extended_height_size,
@@ -1550,27 +1556,26 @@ begin
         elsif register_number=70 then
           fastio_rdata <= std_logic_vector(border_x_right(7 downto 0));
         elsif register_number=71 then
-          fastio_rdata(7 downto 4) <= x"0";
           fastio_rdata(3 downto 0) <= std_logic_vector(border_x_right(11 downto 8));
         elsif register_number=72 then
           fastio_rdata <= std_logic_vector(border_y_top(7 downto 0));
         elsif register_number=73 then
-          fastio_rdata(7 downto 4) <= x"0";
+          fastio_rdata(7 downto 4) <= sprite_bitplane_enables(3 downto 0);
           fastio_rdata(3 downto 0) <= std_logic_vector(border_y_top(11 downto 8));
         elsif register_number=74 then
           fastio_rdata <= std_logic_vector(border_y_bottom(7 downto 0));
         elsif register_number=75 then
-          fastio_rdata(7 downto 4) <= x"0";
+          fastio_rdata(7 downto 4) <= sprite_bitplane_enables(7 downto 4);
           fastio_rdata(3 downto 0) <= std_logic_vector(border_y_bottom(11 downto 8));
         elsif register_number=76 then
           fastio_rdata <= std_logic_vector(x_chargen_start(7 downto 0));
         elsif register_number=77 then
-          fastio_rdata(7 downto 4) <= x"0";
+          fastio_rdata(7 downto 4) <= sprite_horizontal_tile_enables(3 downto 0);
           fastio_rdata(3 downto 0) <= std_logic_vector(x_chargen_start(11 downto 8));
         elsif register_number=78 then
           fastio_rdata <= std_logic_vector(y_chargen_start(7 downto 0));
         elsif register_number=79 then
-          fastio_rdata(7 downto 4) <= x"0";
+          fastio_rdata(7 downto 4) <= sprite_horizontal_tile_enables(7 downto 4);
           fastio_rdata(3 downto 0) <= std_logic_vector(y_chargen_start(11 downto 8));
         elsif register_number=80 then
           fastio_rdata <= std_logic_vector(xcounter_drive(7 downto 0));
@@ -2096,26 +2101,34 @@ begin
           -- @IO:GS $D048 VIC-IV top border position (LSB)
           border_y_top(7 downto 0) <= unsigned(fastio_wdata);
         elsif register_number=73 then
-          -- @IO:GS $D049 VIC-IV top border position (MSB)
+          -- @IO:GS $D049.3-0 VIC-IV top border position (MSB)
           border_y_top(11 downto 8) <= unsigned(fastio_wdata(3 downto 0)); 
+          -- @IO:GS $D049.7-4 VIC-IV sprite 3-0 bitplane-modify-mode enables
+          sprite_bitplane_enables(3 downto 0) <= fastio_wdata(7 downto 4);
         elsif register_number=74 then
           -- @IO:GS $D04A VIC-IV bottom border position (LSB)
           border_y_bottom(7 downto 0) <= unsigned(fastio_wdata);
         elsif register_number=75 then
-          -- @IO:GS $D04B VIC-IV bottom border position (MSB)
+          -- @IO:GS $D04B.3-0 VIC-IV bottom border position (MSB)
           border_y_bottom(11 downto 8) <= unsigned(fastio_wdata(3 downto 0));
+          -- @IO:GS $D04B.7-4 VIC-IV sprite 7-4 bitplane-modify-mode enables
+          sprite_bitplane_enables(7 downto 4) <= fastio_wdata(7 downto 4);
         elsif register_number=76 then
           -- @IO:GS $D04C VIC-IV character generator horizontal position (LSB)
           x_chargen_start(7 downto 0) <= unsigned(fastio_wdata);
         elsif register_number=77 then
-          -- @IO:GS $D04D VIC-IV character generator horizontal position (MSB)
+          -- @IO:GS $D04D.3-0 VIC-IV character generator horizontal position (MSB)
           x_chargen_start(11 downto 8) <= unsigned(fastio_wdata(3 downto 0));
+          -- @IO:GS $D04D.7-4 VIC-IV sprite 3-0 horizontal tile enables
+          sprite_horizontal_tile_enables(3 downto 0) <= fastio_wdata(7 downto 4);
         elsif register_number=78 then
           -- @IO:GS $D04E VIC-IV character generator vertical position (LSB)
           y_chargen_start(7 downto 0) <= unsigned(fastio_wdata);
         elsif register_number=79 then
-          -- @IO:GS $D04F VIC-IV character generator vertical position (MSB)
+          -- @IO:GS $D04F.3-0 VIC-IV character generator vertical position (MSB)
           y_chargen_start(11 downto 8) <= unsigned(fastio_wdata(3 downto 0)); 
+          -- @IO:GS $D04F.7-4 VIC-IV sprite 7-4 horizontal tile enables
+          sprite_horizontal_tile_enables(7 downto 4) <= fastio_wdata(7 downto 4);
         elsif register_number=80 then
           -- @IO:GS $D050 VIC-IV read horizontal position (LSB)
                     -- xcounter
