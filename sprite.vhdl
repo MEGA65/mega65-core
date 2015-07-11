@@ -206,7 +206,11 @@ begin  -- behavioural
       x_left <= '0';
       y_top <= '0';
       -- sprite data offset = y_offset * 3
-      sprite_data_offset <= (y_offset * 2) + y_offset;
+      if sprite_extended_width_enable='0' then
+        sprite_data_offset <= (y_offset * 2) + y_offset;
+      else
+        sprite_data_offset <= (y_offset * 8);
+      end if;
       if y_in = sprite_y then
         --report "SPRITE: y_top set";
         y_top <= '1';
