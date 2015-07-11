@@ -3486,7 +3486,7 @@ begin
           sprite_datavalid <= '1';
           -- XXX - always fetches 8 bytes of sprite data instead of 3, even if
           -- sprite is not set to 64 pixels wide mode.
-          if sprite_fetch_byte_number = 8 then
+          if sprite_fetch_byte_number = 7 then
             sprite_fetch_byte_number <= 0;
             sprite_fetch_sprite_number <= sprite_fetch_sprite_number + 1;
             raster_fetch_state <= SpritePointerFetch;
