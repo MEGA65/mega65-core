@@ -192,8 +192,6 @@ begin  -- behavioural
       end if;
 
       -- copy pixel data chain from input side to output side
-
-      pixel_out <= pixel_in;
       alpha_out <= alpha_in;
       x_out <= x_in;
       y_out <= y_in;
@@ -330,22 +328,33 @@ begin  -- behavioural
         -- sprites can be combined to get more colours, like on the Amiga,
         -- but also with the background, e.g., to modify colour of background
         -- when a "shadow" or "highlight" or sprite of other purpose is drawn
+        is_sprite_out <= is_sprite_in;
         if sprite_is_multicolour = '0' then
-          is_sprite_out <= is_sprite_in;
-          sprite_colour_out <= sprite_colour_in;
+          for bit in 0 to 7 loop
+            if bit /= sprite_number then
+              sprite_colour_out(bit) <= sprite_colour_in(bit);
+              pixel_out(bit) <= pixel_in(bit);
+            end if;
+          end loop;
           pixel_out(sprite_number) <= sprite_pixel_bits(126) xor pixel_in(sprite_number);
           sprite_colour_out(sprite_number) <= sprite_pixel_bits(126) xor sprite_colour_in(sprite_number);
         else
-          is_sprite_out <= is_sprite_in;
-          sprite_colour_out <= sprite_colour_in;
+          for bit in 0 to 7 loop
+            if (bit /= sprite_number_mod_4)
+               and (bit /= (sprite_number_mod_4 +1)) then
+              sprite_colour_out(bit) <= sprite_colour_in(bit);
+              pixel_out(bit) <= pixel_in(bit);
+            end if;
+          end loop;
           pixel_out(sprite_number_mod_4 + 1) <= sprite_pixel_bits(127) xor pixel_in(sprite_number_mod_4 + 1);
           pixel_out(sprite_number_mod_4) <= sprite_pixel_bits(126) xor pixel_in(sprite_number_mod_4);
           sprite_colour_out(sprite_number_mod_4 + 1) <= sprite_pixel_bits(127) xor sprite_colour_in(sprite_number_mod_4 + 1);
           sprite_colour_out(sprite_number_mod_4) <= sprite_pixel_bits(126) xor sprite_colour_in(sprite_number_mod_4);
         end if;
       else
-        if ((is_foreground_in='0') or (sprite_priority='1')) and (x_in_sprite='1') then
-        report "SPRITE: Painting pixel using bits " & to_string(sprite_pixel_bits(127 downto 126));
+        pixel_out <= pixel_in;
+        if ((is_foreground_in='0') or (sprite_priority='0')) and (x_in_sprite='1') then
+          report "SPRITE: Painting pixel using bits " & to_string(sprite_pixel_bits(127 downto 126));
           case sprite_pixel_bits(127 downto 126) is
             when "01" =>
               -- Set this sprite in the colission map        
@@ -376,13 +385,12 @@ begin  -- behavioural
               is_sprite_out <= is_sprite_in;
               sprite_colour_out <= sprite_colour_in;
           end case;
+        else
+          is_sprite_out <= is_sprite_in;
+          sprite_colour_out <= sprite_colour_in;
+          sprite_map_out <= sprite_map_in;
         end if;
-      else
-        is_sprite_out <= is_sprite_in;
-        sprite_colour_out <= sprite_colour_in;
-        sprite_map_out <= sprite_map_in;
       end if;
-
 --      report "SPRITE: leaving VIC-II sprite #" & integer'image(sprite_number);
     end if;
   end process main;
