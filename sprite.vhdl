@@ -324,7 +324,7 @@ begin  -- behavioural
           sprite_fg_map_out(sprite_number) <= '1';
         end if;
       end if;
-      if sprite_bitplane_enable='1' then
+      if sprite_bitplane_enable='1' and (x_in_sprite='1') then
         -- Bitmap mode of sprites modifies the palette entry of the
         -- sprite/graphics instead of drawing a sprite. Thus multiple
         -- sprites can be combined to get more colours, like on the Amiga,
@@ -344,7 +344,7 @@ begin  -- behavioural
           sprite_colour_out(sprite_number_mod_4) <= sprite_pixel_bits(126) xor sprite_colour_in(sprite_number_mod_4);
         end if;
       else
-          if ((is_foreground_in='0') or (sprite_priority='1')) and (x_in_sprite='1') then
+        if ((is_foreground_in='0') or (sprite_priority='1')) and (x_in_sprite='1') then
         report "SPRITE: Painting pixel using bits " & to_string(sprite_pixel_bits(127 downto 126));
           case sprite_pixel_bits(127 downto 126) is
             when "01" =>
