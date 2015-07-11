@@ -375,6 +375,8 @@ architecture Behavioral of machine is
 
       led : in std_logic;
       motor : in std_logic;
+
+      xray_mode : in std_logic;
       
       ----------------------------------------------------------------------
       -- VGA output
@@ -545,6 +547,8 @@ architecture Behavioral of machine is
   signal key_scancode : unsigned(15 downto 0);
   signal key_scancode_toggle : std_logic;
 
+  signal xray_mode : std_logic;
+  
   signal cpu_hypervisor_mode : std_logic;
 
   signal reg_isr_out : unsigned(7 downto 0);
@@ -710,6 +714,8 @@ begin
       led3 <= combinednmi;
       led4 <= io_irq;
       led5 <= io_nmi;
+
+      xray_mode <= sw(1);
       
       segled_counter <= segled_counter + 1;
 
@@ -925,6 +931,8 @@ begin
 
       led => led,
       motor => motor,
+
+      xray_mode => xray_mode,
       
       vsync           => vsync,
       hsync           => hsync,

@@ -75,6 +75,8 @@ entity viciv is
     vicii_2mhz : out std_logic;
     viciii_fast : out std_logic;
     viciv_fast : out std_logic;     
+
+    xray_mode : in std_logic;
     
     ----------------------------------------------------------------------
     -- VGA output
@@ -347,6 +349,7 @@ architecture Behavioral of viciv is
       signal sprite_colour_out : out unsigned(7 downto 0);
       signal is_sprite_out : out std_logic;
       signal is_background_out : out std_logic;
+      signal is_foreground_out : out std_logic;
       signal sprite_fg_map_final : out std_logic_vector(7 downto 0);
       signal sprite_map_final : out std_logic_vector(7 downto 0);
 
@@ -713,6 +716,7 @@ architecture Behavioral of viciv is
   signal antialiaser_enable : std_logic := '0';
   signal is_background_in : std_logic;
   signal pixel_is_background_out : std_logic;
+  signal pixel_is_foreground_out : std_logic;
   signal chargen_pixel_colour : unsigned(7 downto 0);
   signal chargen_alpha_value : unsigned(7 downto 0);
   signal postsprite_pixel_colour : unsigned(7 downto 0);
@@ -1172,6 +1176,7 @@ begin
               border_out => postsprite_inborder,
               is_sprite_out => pixel_is_sprite,
               is_background_out => pixel_is_background_out,
+              is_foreground_out => pixel_is_foreground_out,
 
               -- Get sprite colission info
               sprite_fg_map_final => vicii_sprite_bitmap_colission_map,
@@ -2780,6 +2785,16 @@ begin
         end if;          
       end if;
       rgb_is_background <= pixel_is_background_out;
+
+      if xray_mode='1' then
+        -- Debug mode enabled using switch 1 to show whether we think pixels
+        -- are foreground, background, sprite and/or border.
+        palette_address(9 downto 4) <= (others => '0');
+        palette_address(3) <= postsprite_inborder;
+        palette_address(2) <= pixel_is_foreground_out;
+        palette_address(1) <= pixel_is_background_out;
+        palette_address(0) <= pixel_is_sprite;
+      end if;     
       
       vga_buffer_red <= unsigned(palette_rdata(31 downto 24));
       vga_buffer_green <= unsigned(palette_rdata(23 downto 16));
