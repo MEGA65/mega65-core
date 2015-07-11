@@ -427,7 +427,7 @@ begin
 
              sprite_extended_height_size => sprite_extended_height_size,
              sprite_extended_height_enable => sprite_extended_height_enables(6),
-             sprite_extended_width_enable => sprite_extended_height_enables(6),
+             sprite_extended_width_enable => sprite_extended_width_enables(6),
              sprite_horizontal_tile_enable => sprite_horizontal_tile_enables(6),
              sprite_bitplane_enable => sprite_bitplane_enables(6),
 
@@ -491,7 +491,7 @@ begin
 
              sprite_extended_height_size => sprite_extended_height_size,
              sprite_extended_height_enable => sprite_extended_height_enables(5),
-             sprite_extended_width_enable => sprite_extended_height_enables(5),
+             sprite_extended_width_enable => sprite_extended_width_enables(5),
              sprite_horizontal_tile_enable => sprite_horizontal_tile_enables(5),
              sprite_bitplane_enable => sprite_bitplane_enables(5),
 
@@ -549,7 +549,7 @@ begin
 
              sprite_extended_height_size => sprite_extended_height_size,
              sprite_extended_height_enable => sprite_extended_height_enables(4),
-             sprite_extended_width_enable => sprite_extended_height_enables(4),
+             sprite_extended_width_enable => sprite_extended_width_enables(4),
              sprite_horizontal_tile_enable => sprite_horizontal_tile_enables(4),
              sprite_bitplane_enable => sprite_bitplane_enables(4),
 
@@ -613,7 +613,7 @@ begin
 
              sprite_extended_height_size => sprite_extended_height_size,
              sprite_extended_height_enable => sprite_extended_height_enables(3),
-             sprite_extended_width_enable => sprite_extended_height_enables(3),
+             sprite_extended_width_enable => sprite_extended_width_enables(3),
              sprite_horizontal_tile_enable => sprite_horizontal_tile_enables(3),
              sprite_bitplane_enable => sprite_bitplane_enables(3),
 
@@ -677,7 +677,7 @@ begin
 
              sprite_extended_height_size => sprite_extended_height_size,
              sprite_extended_height_enable => sprite_extended_height_enables(2),
-             sprite_extended_width_enable => sprite_extended_height_enables(2),
+             sprite_extended_width_enable => sprite_extended_width_enables(2),
              sprite_horizontal_tile_enable => sprite_horizontal_tile_enables(2),
              sprite_bitplane_enable => sprite_bitplane_enables(2),
              
@@ -741,7 +741,7 @@ begin
 
              sprite_extended_height_size => sprite_extended_height_size,
              sprite_extended_height_enable => sprite_extended_height_enables(1),
-             sprite_extended_width_enable => sprite_extended_height_enables(1),
+             sprite_extended_width_enable => sprite_extended_width_enables(1),
              sprite_horizontal_tile_enable => sprite_horizontal_tile_enables(1),
              sprite_bitplane_enable => sprite_bitplane_enables(1),
              
@@ -805,7 +805,7 @@ begin
 
              sprite_extended_height_size => sprite_extended_height_size,
              sprite_extended_height_enable => sprite_extended_height_enables(0),
-             sprite_extended_width_enable => sprite_extended_height_enables(0),
+             sprite_extended_width_enable => sprite_extended_width_enables(0),
              sprite_horizontal_tile_enable => sprite_horizontal_tile_enables(0),
              sprite_bitplane_enable => sprite_bitplane_enables(0),
 
