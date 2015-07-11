@@ -295,7 +295,7 @@ begin  -- behavioural
           report "SPRITE: shifting pixel vector along (was "&
             to_string(sprite_pixel_bits)
             &")";
-          sprite_pixel_bits <= sprite_pixel_bits(125 downto 0)&"00";
+          sprite_pixel_bits <= sprite_pixel_bits(125 downto 0)&sprite_pixel_bits(127 downto 126);
         end if;
         report "SPRITE: toggling x_expand_toggle";
         x_expand_toggle <= not x_expand_toggle;
