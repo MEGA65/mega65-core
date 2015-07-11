@@ -2166,7 +2166,7 @@ begin
           sprite_extended_height_enables <= fastio_wdata;
         elsif register_number=86 then
           -- @IO:GS $D056 VIC-IV Sprite extended height size (sprite pixels high)
-          sprite_extended_height_enables <= fastio_wdata;
+          sprite_extended_height_size <= fastio_wdata;
         elsif register_number=87 then
           -- @IO:GS $D057 VIC-IV Sprite extended width enables
           sprite_extended_width_enables <= fastio_wdata;

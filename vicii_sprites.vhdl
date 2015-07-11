@@ -364,7 +364,7 @@ begin
 
              sprite_extended_height_size => sprite_extended_height_size,
              sprite_extended_height_enable => sprite_extended_height_enables(7),
-             sprite_extended_width_enable => sprite_extended_height_enables(7),
+             sprite_extended_width_enable => sprite_extended_width_enables(7),
              sprite_horizontal_tile_enable => sprite_horizontal_tile_enables(7),
              sprite_bitplane_enable => sprite_bitplane_enables(7),
 
