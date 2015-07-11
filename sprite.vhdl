@@ -277,8 +277,8 @@ begin  -- behavioural
         x_last <= x_in;
         report "SPRITE: drawing next pixel";
         if (x_expand_toggle = '1') or (sprite_stretch_x/='1') then
-          if ((x_offset /= 24) and (sprite_extended_width_enable='0'))
-            or ((x_offset /= 64) and (sprite_extended_width_enable='1'))
+          if ((x_offset /= 23) and (sprite_extended_width_enable='0'))
+            or ((x_offset /= 63) and (sprite_extended_width_enable='1'))
             or (sprite_horizontal_tile_enable='1')
               then
             x_offset <= x_offset + 1;
