@@ -322,6 +322,13 @@ begin  -- behavioural
           sprite_fg_map_out(sprite_number) <= '1';
         end if;
       end if;
+      
+      -- Stop drawing sprites in right fly-back, to prevent glitches with
+      -- horizontally tiled sprites.
+      if x_in > 416 then
+        x_in_sprite <= '0';
+      end if;
+      
       if (sprite_bitplane_enable='1') and (x_in_sprite='1') then
         -- Bitmap mode of sprites modifies the palette entry of the
         -- sprite/graphics instead of drawing a sprite. Thus multiple
