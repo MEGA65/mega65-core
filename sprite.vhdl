@@ -336,8 +336,8 @@ begin  -- behavioural
               pixel_out(bit) <= pixel_in(bit);
             end if;
           end loop;
-          pixel_out(sprite_number) <= sprite_pixel_bits(126) xor pixel_in(sprite_number);
-          sprite_colour_out(sprite_number) <= sprite_pixel_bits(126) xor sprite_colour_in(sprite_number);
+          pixel_out(sprite_number) <= sprite_pixel_bits(127) xor pixel_in(sprite_number);
+          sprite_colour_out(sprite_number) <= sprite_pixel_bits(127) xor sprite_colour_in(sprite_number);
         else
           for bit in 0 to 7 loop
             if (bit /= sprite_number_mod_4)
