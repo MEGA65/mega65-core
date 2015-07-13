@@ -83,7 +83,7 @@ entity bitplanes is
 
 end bitplanes;
 
-architecture behavioural of sprite is
+architecture behavioural of bitplanes is
 
   signal y_last : integer range 0 to 4095;
   signal x_last : integer range 0 to 4095;
