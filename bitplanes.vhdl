@@ -87,6 +87,9 @@ architecture behavioural of bitplanes is
 
   signal y_last : integer range 0 to 4095;
   signal x_last : integer range 0 to 4095;
+
+  type bdo is array(0 to 7) of integer range 0 to 65535;
+  signal bitplane_data_offsets : bdo;
   
 begin  -- behavioural
   
@@ -95,7 +98,6 @@ begin  -- behavioural
   -- inputs : pixelclock, <reset>
   -- outputs: colour, is_sprite_out
   main: process (pixelclock)
-    variable sprite_number_mod_4 : integer range 0 to 7 := (sprite_number mod 4) * 2;
   begin  -- process main
     if pixelclock'event and pixelclock = '1' then  -- rising clock edge
 --      report "SPRITE: entering VIC-II sprite #" & integer'image(sprite_number);
@@ -106,17 +108,16 @@ begin  -- behavioural
       sprite_data_out <= sprite_data_in;
       sprite_number_for_data_out <= sprite_number_for_data_in;
       
-      if sprite_datavalid_in = '1' and sprite_spritenumber_in = sprite_number then
+      if sprite_datavalid_in = '1' and sprite_spritenumber_in > 7 then
         -- Record sprite data
         report "BITPLANES:"
           & " accepting data byte $" & to_hstring(sprite_data_in)
-          & " from VIC-IV for byte #" & integer'image(sprite_bytenumber_in)
-          & " vector was " & to_string(std_logic_vector(sprite_data_64bits));
+          & " from VIC-IV for byte #" & integer'image(sprite_bytenumber_in);
       end if;
       
       if sprite_number_for_data_in > 7 then
         -- Tell VIC-IV our current bitplane data offsets
-        sprite_data_offset_out <= bitplane_data_offset;
+        sprite_data_offset_out <= bitplane_data_offsets(sprite_number_for_data_in mod 8);
       else
         sprite_data_offset_out <= sprite_data_offset_in;
       end if;
