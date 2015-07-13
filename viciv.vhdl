@@ -1727,7 +1727,7 @@ begin
         & integer'image(sprite_number_for_data_rx)
         & " = " & integer'image(sprite_data_offset_rx);
       sprite_data_offsets(sprite_number_for_data_rx) <= sprite_data_offset_rx;
-      -- Ask for the next one
+      -- Ask for the next one (8 sprites + 8 C65 bitplanes)
       if sprite_number_counter = 15 then
         sprite_number_counter <= 0;
         sprite_number_for_data_tx <= 0;

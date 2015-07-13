@@ -31,7 +31,7 @@ entity sprite is
     ----------------------------------------------------------------------
     pixelclock : in  STD_LOGIC;
 
-    signal sprite_number : in integer range 0 to 7;
+    signal sprite_number : in integer range 0 to 15;
 
     signal sprite_horizontal_tile_enable : in std_logic;
     signal sprite_bitplane_enable : in std_logic;
@@ -41,23 +41,23 @@ entity sprite is
 
     -- Pull sprite data in along the chain from the previous sprite (or VIC-IV)
     signal sprite_datavalid_in : in std_logic;
-    signal sprite_bytenumber_in : in integer range 0 to 7;
-    signal sprite_spritenumber_in : in integer range 0 to 7;
+    signal sprite_bytenumber_in : in integer range 0 to 79;
+    signal sprite_spritenumber_in : in integer range 0 to 15;
     signal sprite_data_in : in unsigned(7 downto 0);
 
     -- Pass sprite data out along the chain to the next sprite
     signal sprite_datavalid_out : out std_logic;
-    signal sprite_bytenumber_out : out integer range 0 to 7;
-    signal sprite_spritenumber_out : out integer range 0 to 7;
+    signal sprite_bytenumber_out : out integer range 0 to 79;
+    signal sprite_spritenumber_out : out integer range 0 to 15;
     signal sprite_data_out : out unsigned(7 downto 0);
 
     -- which base offset for the VIC-II sprite data are we showing this raster line?
     -- VIC-IV clocks sprite_number_for_data and each sprite replaces
     -- sprite_data_offset with the appropriate value if the sprite number is itself
-    signal sprite_number_for_data_in : in integer range 0 to 7;
-    signal sprite_data_offset_in : in integer range 0 to 1023;    
-    signal sprite_data_offset_out : out integer range 0 to 1023;    
-    signal sprite_number_for_data_out : out integer range 0 to 7;
+    signal sprite_number_for_data_in : in integer range 0 to 15;
+    signal sprite_data_offset_in : in integer range 0 to 65535;    
+    signal sprite_data_offset_out : out integer range 0 to 65535;    
+    signal sprite_number_for_data_out : out integer range 0 to 15;
     
     -- Is the pixel just passed in a foreground pixel?
     signal is_foreground_in : in std_logic;
