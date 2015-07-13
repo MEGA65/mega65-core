@@ -317,16 +317,6 @@ architecture Behavioral of machine is
       chipram_we : OUT STD_LOGIC;
       chipram_address : OUT unsigned(16 DOWNTO 0);
       chipram_datain : OUT unsigned(7 DOWNTO 0);
-
-      ---------------------------------------------------------------------------
-      -- bitplane engine DMA access
-      ---------------------------------------------------------------------------
-      dma_address : in unsigned(31 downto 0);
-      dma_count : in unsigned(7 downto 0);
-      dma_request_set : in std_logic;
-      dma_data_valid : out std_logic := '0';
-      dma_data_in : out unsigned(7 downto 0) := x"00";
-      dma_count_in : out unsigned(7 downto 0) := x"00";
       
       ---------------------------------------------------------------------------
       -- fast IO port (clocked at core clock). 1MB address space
@@ -400,13 +390,6 @@ architecture Behavioral of machine is
       chipram_address : IN unsigned(16 DOWNTO 0);
       chipram_datain : IN unsigned(7 DOWNTO 0);
 
-      dma_address : out unsigned(31 downto 0);
-      dma_count : out unsigned(7 downto 0);
-      dma_request_set : out std_logic := '0';
-      dma_data_valid : in std_logic;
-      dma_data_in : in unsigned(7 downto 0);
-      dma_count_in : in unsigned(7 downto 0);
-      
       -----------------------------------------------------------------------------
       -- FastIO interface for accessing video registers
       -----------------------------------------------------------------------------
@@ -593,13 +576,6 @@ architecture Behavioral of machine is
   signal colour_ram_fastio_rdata : std_logic_vector(7 downto 0);
   signal sector_buffer_mapped : std_logic;
 
-  signal dma_address : unsigned(31 downto 0);
-  signal dma_count : unsigned(7 downto 0);
-  signal dma_request_set : std_logic := '0';
-  signal dma_data_valid : std_logic;
-  signal dma_data_in : unsigned(7 downto 0);
-  signal dma_count_in : unsigned(7 downto 0);
-  
   signal chipram_we : STD_LOGIC;
   signal chipram_address : unsigned(16 DOWNTO 0);
   signal chipram_datain : unsigned(7 DOWNTO 0);
@@ -813,13 +789,6 @@ begin
     ddr_state => ddr_state,
     ddr_counter => ddr_counter,
 
-    dma_address => dma_address,
-    dma_count => dma_count,
-    dma_request_set => dma_request_set,
-    dma_data_valid => dma_data_valid,
-    dma_data_in => dma_data_in,
-    dma_count_in => dma_count_in,
-    
     -- Hypervisor signals: we need to tell kickstart memory whether
     -- to map or not, and we also need to be able to set the VIC-III
     -- IO mode.
@@ -958,13 +927,6 @@ begin
       fastio_write    => fastio_write,
       fastio_wdata    => fastio_wdata,
       fastio_rdata    => fastio_vic_rdata,
-
-      dma_address => dma_address,
-      dma_count => dma_count,
-      dma_request_set => dma_request_set,
-      dma_data_valid => dma_data_valid,
-      dma_data_in => dma_data_in,
-      dma_count_in => dma_count_in,
     
       viciii_iomode => viciii_iomode,
       iomode_set_toggle => iomode_set_toggle,

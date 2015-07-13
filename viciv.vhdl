@@ -99,16 +99,6 @@ entity viciv is
     chipram_we : IN STD_LOGIC;
     chipram_address : IN unsigned(16 DOWNTO 0);
     chipram_datain : IN unsigned(7 DOWNTO 0);
-
-    -----------------------------------------------------------------------------
-    -- CPU DMA access for bitplane engine
-    -----------------------------------------------------------------------------
-    dma_address : out unsigned(31 downto 0);
-    dma_count : out unsigned(7 downto 0);
-    dma_request_set : out std_logic := '0';
-    dma_data_valid : in std_logic;
-    dma_data_in : in unsigned(7 downto 0);
-    dma_count_in : in unsigned(7 downto 0);
     
     -----------------------------------------------------------------------------
     -- FastIO interface for accessing video registers
@@ -136,42 +126,6 @@ entity viciv is
 end viciv;
 
 architecture Behavioral of viciv is
-
-  component bitplanes is
-    port (
-      pixelclock : in std_logic;
-      ioclock : in std_logic;
-      cpuclock : in std_logic;
-      iomode : in std_logic_vector(1 downto 0);
-
-      -- Fastio interface to allow CPU to read and set registers
-      fastio_addr : in unsigned(19 downto 0);
-      fastio_write : in std_logic;
-      fastio_wdata : in unsigned(7 downto 0);
-      fastio_rdata : out std_logic_vector(7 downto 0);
-
-      -- CPU DMA interface to fetch data
-      -- (Set dma_address and dma_count, then raise dma_request_set until
-      -- dma_data_valid is asserted, then clear dma_request_set.
-      -- dma_count_in indicates which byte in the request is being presented.
-      -- dma_data_valid returns low after last byte has been supplied.
-      dma_address : out unsigned(31 downto 0);
-      dma_count : out unsigned(7 downto 0);
-      dma_request_set : out std_logic := '0';
-      dma_data_valid : in std_logic;
-      dma_data_in : in unsigned(7 downto 0);
-      dma_count_in : in unsigned(7 downto 0);
-    
-      -- XXX VIC-IV buffer interface for providing rendered raster lines of
-      -- bitplane data, and for indicating when safe to update raster buffer.
-      bitplanerenderbuffer_address : in unsigned(11 downto 0);
-      bitplanerenderbuffer_rdata : out unsigned(8 downto 0);
-      bitplanerenderbuffer_moby : out std_logic;
-      viciv_flyback : in std_logic;
-      -- and also what our current raster number is
-      viciv_physical_raster : in unsigned(11 downto 0)
-      );
-  end component;
   
   component alpha_blend_top is
     port(
@@ -314,8 +268,8 @@ architecture Behavioral of viciv is
 
       -- Pull sprite data in along the chain from the previous sprite (or VIC-IV)
       signal sprite_datavalid_in : in std_logic;
-      signal sprite_bytenumber_in : in integer range 0 to 7;
-      signal sprite_spritenumber_in : in integer range 0 to 7;
+      signal sprite_bytenumber_in : in integer range 0 to 39;
+      signal sprite_spritenumber_in : in integer range 0 to 15;
       signal sprite_data_in : in unsigned(7 downto 0);
 
       signal sprite_horizontal_tile_enables : in std_logic_vector(7 downto 0);
@@ -327,9 +281,9 @@ architecture Behavioral of viciv is
       -- which base offset for the VIC-II sprite data are we showing this raster line?
       -- VIC-IV clocks sprite_number_for_data and each sprite replaces
       -- sprite_data_offset with the appropriate value if the sprite number is itself
-      signal sprite_number_for_data_in : in integer range 0 to 7;
-      signal sprite_data_offset_out : out integer range 0 to 1023;    
-      signal sprite_number_for_data_out : out integer range 0 to 7;
+      signal sprite_number_for_data_in : in integer range 0 to 15;
+      signal sprite_data_offset_out : out integer range 0 to 65535;    
+      signal sprite_number_for_data_out : out integer range 0 to 15;
       
       -- Is the pixel just passed in a foreground pixel?
       -- Similarly, is the pixel a sprite pixel from another sprite?
@@ -669,6 +623,13 @@ architecture Behavioral of viciv is
   signal sprite_y : sprite_vector_8;
   signal sprite_colours : sprite_vector_8;
 
+  -- VIC-III bitplane registers
+  signal bitplane_enables : std_logic_vector(7 downto 0) := "00000000";
+  signal bitplane_complements : std_logic_vector(7 downto 0) := "00000000";
+  signal dat_x : unsigned(7 downto 0) := x"00";
+  signal dat_y : unsigned(7 downto 0) := x"00";
+  signal bitplane_addresses : sprite_vector_8;
+  
   -- Extended sprite features
   signal sprite_extended_height_enables : std_logic_vector(7 downto 0) := "00000000";
   signal sprite_extended_height_size : unsigned(7 downto 0) := to_unsigned(21,8);
@@ -689,16 +650,20 @@ architecture Behavioral of viciv is
   -- since there is no reason to maintain this fairly artificial limit.  Even
   -- in the VIC-II the only logic cost would have been the extra register (or
   -- register per sprite).
-  signal sprite_data_offset_rx : integer range 0 to 1023;
-  signal sprite_number_counter : integer range 0 to 7 := 0;
-  signal sprite_number_for_data_tx : integer range 0 to 7 := 0;
-  signal sprite_number_for_data_rx : integer range 0 to 7;
-  type sprite_data_offset_8 is array(0 to 7) of integer range 0 to 1023;
+  --
+  -- C65 VIC-III bitplanes will be implemented using the same sprite data pipeline
+  -- so that no further stress is placed on the VIC-IV memory access logic,
+  -- which is already rather strained at the 192MHz pixel clock.
+  signal sprite_data_offset_rx : integer range 0 to 65535;
+  signal sprite_number_counter : integer range 0 to 15 := 0;
+  signal sprite_number_for_data_tx : integer range 0 to 15 := 0;
+  signal sprite_number_for_data_rx : integer range 0 to 15;
+  type sprite_data_offset_8 is array(0 to 15) of integer range 0 to 65535;
   signal sprite_data_offsets : sprite_data_offset_8;
   -- Similarly we need to deliver the bytes of data to the VIC-II sprite chain
   signal sprite_datavalid : std_logic;
-  signal sprite_bytenumber : integer range 0 to 7 := 0;
-  signal sprite_spritenumber : integer range 0 to 7 := 0;
+  signal sprite_bytenumber : integer range 0 to 79 := 0;
+  signal sprite_spritenumber : integer range 0 to 15 := 0;
   signal sprite_data_byte : unsigned(7 downto 0);
   -- The sprite chain also has the opportunity to modify the pixel colour being
   -- drawn so that the sprites can be overlayed on the display.
@@ -727,8 +692,8 @@ architecture Behavioral of viciv is
   signal postsprite_alpha_value : unsigned(7 downto 0);
   signal pixel_is_sprite : std_logic;
 
-  signal sprite_fetch_sprite_number : integer range 0 to 8;
-  signal sprite_fetch_byte_number : integer range 0 to 8;
+  signal sprite_fetch_sprite_number : integer range 0 to 15;
+  signal sprite_fetch_byte_number : integer range 0 to 79;
   signal sprite_data_address : unsigned(16 downto 0);
 
   -- Compatibility registers
@@ -974,37 +939,7 @@ architecture Behavioral of viciv is
   signal new_frame : std_logic := '0';
 
   signal viciv_flyback : std_logic := '0';
-  signal bitplane_iomode : std_logic_vector(1 downto 0) := "11";
-  signal bitplane_y : unsigned(11 downto 0);
-
-  signal bitplanerenderbuffer_address : unsigned(11 downto 0);
-  signal bitplanerenderbuffer_rdata : unsigned(8 downto 0);
 begin
-
-  bitplaneengine1: component bitplanes
-    port map (
-      pixelclock => pixelclock,
-      ioclock => ioclock,
-      cpuclock => cpuclock,
-      iomode => bitplane_iomode,
-      fastio_addr => unsigned(fastio_addr),
-      fastio_write => fastio_write,
-      fastio_wdata => unsigned(fastio_wdata),
-      fastio_rdata => fastio_rdata,
-
-      viciv_flyback => viciv_flyback,
-      viciv_physical_raster => bitplane_y,
-
-      bitplanerenderbuffer_address => bitplanerenderbuffer_address,
-      bitplanerenderbuffer_rdata => bitplanerenderbuffer_rdata,
-      
-      dma_address => dma_address,
-      dma_count => dma_count,
-      dma_request_set => dma_request_set,
-      dma_data_valid => dma_data_valid,
-      dma_data_in => dma_data_in,
-      dma_count_in => dma_count_in
-      );
       
   rasterbuffer1: component ram18x2k
     port map (
@@ -1221,7 +1156,7 @@ begin
           reg_h640,reg_h1280,reg_v400,xcounter_drive,ycounter_drive,
           horizontal_smear,xfrontporch_drive,chargen_active_drive,
           inborder_drive,chargen_active_soon_drive,card_number_drive) is
-
+    variable bitplane_number : integer;
     procedure viciv_interpret_legacy_mode_registers is
     begin      
       if reg_h640='0' and reg_h1280='0' then
@@ -1524,22 +1459,36 @@ begin
                                         --  C65 are made non-functional.
                                         --  For more C65 register info, see:
                                         -- http://www.zimmers.net/cbmpics/cbm/c65/c65manual.txt
-          -- $D032 - Bitplane enable bits
-          -- $D033 - Bitplane 0 address
-          -- $D034 - Bitplane 1 address
-          -- $D035 - Bitplane 2 address
-          -- $D036 - Bitplane 3 address
-          -- $D037 - Bitplane 4 address
-          -- $D038 - Bitplane 5 address
-          -- $D039 - Bitplane 6 address
-          -- $D03A - Bitplane 7 address
-          -- $D03B - Set bits to NOT bitplane contents
-          -- $D03C - Bitplane X
-          -- $D03D - Bitplane Y
+          -- @IO:65 $D032 - Bitplane enable bits
+        elsif register_number=50 then
+          fastio_rdata <= bitplane_enables;
+          -- @IO:65 $D033 - Bitplane 0 address
+          -- @IO:65 $D034 - Bitplane 1 address
+          -- @IO:65 $D035 - Bitplane 2 address
+          -- @IO:65 $D036 - Bitplane 3 address
+          -- @IO:65 $D037 - Bitplane 4 address
+          -- @IO:65 $D038 - Bitplane 5 address
+          -- @IO:65 $D039 - Bitplane 6 address
+          -- @IO:65 $D03A - Bitplane 7 address
+        elsif register_number >= 51 and register_number <= 58 then
+          -- @IO:65 $D033-$D03A - VIC-III Bitplane addresses
+          bitplane_number := to_integer(register_number(3 downto 0)-"001");
+          fastio_rdata <= std_logic_vector(bitplane_addresses(bitplane_number));
+          -- @IO:65 $D03B - Set bits to NOT bitplane contents
+        elsif register_number=59 then
+          fastio_rdata <= bitplane_complements;
+          -- @IO:65 $D03C - Bitplane X
+        elsif register_number=60 then
+          fastio_rdata <= std_logic_vector(dat_x);
+          -- @IO:65 $D03D - Bitplane Y
+        elsif register_number=61 then
+          fastio_rdata <= std_logic_vector(dat_y);
           -- $D03E - Horizontal position (screen verniers?)
           -- $D03F - Vertical position (screen verniers?)
-          -- $D040 - $D047 DAT memory ports for bitplanes 0 through 7
           
+          -- $D040 - $D047 DAT memory ports for bitplanes 0 through 7
+          -- XXX: Deprecated old addresses for some VIC-IV features currently occupy
+          -- these addresses
         elsif register_number=64 then
           fastio_rdata <= std_logic_vector(virtual_row_width(7 downto 0));
         elsif register_number=65 then
@@ -1719,7 +1668,6 @@ begin
       if iomode_set_toggle /= iomode_set_toggle_last then
         iomode_set_toggle_last <= iomode_set_toggle;
         viciii_iomode <= iomode_set;
-        bitplane_iomode <= iomode_set;
       end if;
       
       viciv_fast <= viciv_fast_internal;
@@ -1780,7 +1728,7 @@ begin
         & " = " & integer'image(sprite_data_offset_rx);
       sprite_data_offsets(sprite_number_for_data_rx) <= sprite_data_offset_rx;
       -- Ask for the next one
-      if sprite_number_counter = 7 then
+      if sprite_number_counter = 15 then
         sprite_number_counter <= 0;
         sprite_number_for_data_tx <= 0;
       else
@@ -2015,19 +1963,16 @@ begin
           -- @IO:C65 $D02F Write $A5 then $96 to enable C65/VIC-III IO registers
           -- @IO:C65 $D02F Write anything else to return to C64/VIC-II IO map
           viciii_iomode <= "00"; -- by default go back to VIC-II mode
-          bitplane_iomode <= "00";
           if reg_key=x"a5" then
             if fastio_wdata=x"96" then
               -- C65 VIC-III mode
               viciii_iomode <= "01";
-              bitplane_iomode <= "01";
             end if;
           -- @IO:GS $D02F Write $47 then $53 to enable C65GS/VIC-IV IO registers
           elsif reg_key=x"47" then
             if fastio_wdata=x"53" then
               -- C65GS VIC-IV mode
               viciii_iomode <= "11";
-              bitplane_iomode <= "11";
             end if;
           end if;
           reg_key <= unsigned(fastio_wdata);
@@ -2073,7 +2018,29 @@ begin
           -- @IO:C65 $D031.1 VIC-III MONO (not implemented)
           -- @IO:C65 $D031.0 VIC-III INT(erlaced?) (not implemented)
           viciv_legacy_mode_registers_touched <= '1';
-        elsif register_number=64 then
+        elsif register_number=50 then
+          bitplane_enables <= fastio_wdata;
+          -- @IO:65 $D033 - Bitplane 0 address
+          -- @IO:65 $D034 - Bitplane 1 address
+          -- @IO:65 $D035 - Bitplane 2 address
+          -- @IO:65 $D036 - Bitplane 3 address
+          -- @IO:65 $D037 - Bitplane 4 address
+          -- @IO:65 $D038 - Bitplane 5 address
+          -- @IO:65 $D039 - Bitplane 6 address
+          -- @IO:65 $D03A - Bitplane 7 address
+        elsif register_number >= 51 and register_number <= 58 then
+          -- @IO:65 $D033-$D03A - VIC-III Bitplane addresses
+          bitplane_number := to_integer(register_number(3 downto 0)-"001");
+          bitplane_addresses(bitplane_number) <= unsigned(fastio_wdata);
+          -- @IO:65 $D03B - Set bits to NOT bitplane contents
+        elsif register_number=59 then
+          bitplane_complements <= fastio_wdata;
+          -- @IO:65 $D03C - Bitplane X
+        elsif register_number=60 then
+          dat_x <= unsigned(fastio_wdata);
+          -- @IO:65 $D03D - Bitplane Y
+        elsif register_number=61 then
+          dat_y <= unsigned(fastio_wdata);        elsif register_number=64 then
           -- @IO:GS $D040 DEPRECATED - VIC-IV characters per logical text row (LSB)
           virtual_row_width(7 downto 0) <= unsigned(fastio_wdata);
         elsif register_number=65 then
@@ -2858,7 +2825,6 @@ begin
         report "FRAMEPACKER: end of raster announcement";
         pixel_newraster <= '1';
         pixel_y <= displayy;
-        bitplane_y <= displayy;
       else
         -- output pixels as packed RGB instead of palette colours
         -- (this 8bpp format is what VNC uses anyway, so there is no functional
@@ -3461,15 +3427,50 @@ begin
           end if;
         when SpritePointerFetch =>
           sprite_datavalid <= '0';
-          if sprite_fetch_sprite_number = 8 then
+          if sprite_fetch_sprite_number = 16 then
             -- Done fetching sprites
             raster_fetch_state <= Idle;
-          else
+          elsif sprite_fetch_sprite_number < 8 then
+            -- Fetch sprites
             sprite_data_address(16 downto 3) <= vicii_sprite_pointer_address(16 downto 3);
             sprite_data_address(2 downto 0) <=  to_unsigned(sprite_fetch_sprite_number,3);
             report "SPRITE: will fetch pointer value from $" &
               to_hstring("000"&(vicii_sprite_pointer_address(16 downto 0) + sprite_fetch_sprite_number));
             raster_fetch_state <= SpritePointerFetch2;
+          else
+            -- Fetch VIC-III bitplanes
+            -- Bitplanes for odd raster lines
+
+            -- Odd bitplanes come from 2nd 64KB RAM, even bitplanes from first.
+            if (sprite_fetch_sprite_number mod 2) = 0 then
+              sprite_data_address(16) <= '0';
+            else
+              sprite_data_address(16) <= '1';
+            end if;
+            -- Interlacing selects which of two bitplane address register
+            -- fields to use
+            if (reg_v400='1') and (vicii_ycounter(0)='1') then
+              -- Use odd scan set
+              sprite_data_address(15 downto 13)
+                <= bitplane_addresses(sprite_fetch_sprite_number mod 8)
+                (7 downto 5);
+            else
+              -- Use even scan set
+              sprite_data_address(15 downto 13)
+                <= bitplane_addresses(sprite_fetch_sprite_number mod 8)
+                (3 downto 1);
+            end if;
+            -- XXX: VIC-IV should allow setting of the lower bits of the bitplane
+            -- address
+            sprite_data_address(12 downto 0) <= (others => '0');
+            if bitplane_enables(sprite_fetch_sprite_number mod 8)='0' then
+              -- Don't waste fetch cycles on bitplanes that are turned off
+              sprite_fetch_byte_number <= 0;
+              sprite_fetch_sprite_number <= sprite_fetch_sprite_number + 1;
+              raster_fetch_state <= SpritePointerFetch;
+            else
+              raster_fetch_state <= SpriteDataFetch2;
+            end if;
           end if;
         when SpritePointerFetch2 =>
           ramaddress <= sprite_data_address;
@@ -3481,16 +3482,18 @@ begin
           -- we need to allow the address computation to add the sprite number
           -- from the ram data to be added to the upper bits of the
           -- sprite_data_offsets() value for the sprite
-          sprite_data_address(16) <= '0';
-          sprite_data_address(15) <= screen_ram_base(15);
-          sprite_data_address(14) <= screen_ram_base(14);
-          sprite_data_address(13 downto 0) <= (ramdata&"000000") + to_unsigned(sprite_data_offsets(sprite_fetch_sprite_number),14);
-          -- sprite_data_address(5 downto 0) <= to_unsigned(sprite_data_offsets(sprite_fetch_sprite_number),6);
-          report "SPRITE: sprite #"
-            & integer'image(sprite_fetch_sprite_number)
-            & " pointer value = $" & to_hstring(ramdata);
+          if sprite_fetch_sprite_number < 8 then
+            sprite_data_address(16) <= '0';
+            sprite_data_address(15) <= screen_ram_base(15);
+            sprite_data_address(14) <= screen_ram_base(14);
+            sprite_data_address(13 downto 0) <= (ramdata&"000000") + to_unsigned(sprite_data_offsets(sprite_fetch_sprite_number),14);
+            -- sprite_data_address(5 downto 0) <= to_unsigned(sprite_data_offsets(sprite_fetch_sprite_number),6);
+            report "SPRITE: sprite #"
+              & integer'image(sprite_fetch_sprite_number)
+              & " pointer value = $" & to_hstring(ramdata);
+          end if;
           sprite_spritenumber <= sprite_fetch_sprite_number;
-          raster_fetch_state <= SpriteDataFetch;
+          raster_fetch_state <= SpriteDataFetch;          
         when SpriteDataFetch =>
           report "SPRITE: fetching sprite #"
             & integer'image(sprite_fetch_sprite_number)
@@ -3514,7 +3517,11 @@ begin
           sprite_datavalid <= '1';
           -- XXX - always fetches 8 bytes of sprite data instead of 3, even if
           -- sprite is not set to 64 pixels wide mode.
-          if sprite_fetch_byte_number = 7 then
+          -- Bitplanes are fetched using the sprite fetch pipeline, so we fetch
+          -- 40 bytes for those.
+          if ((sprite_fetch_byte_number = 7) and (sprite_fetch_sprite_number < 8))
+            or (sprite_fetch_byte_number = 39)
+          then
             sprite_fetch_byte_number <= 0;
             sprite_fetch_sprite_number <= sprite_fetch_sprite_number + 1;
             raster_fetch_state <= SpritePointerFetch;
