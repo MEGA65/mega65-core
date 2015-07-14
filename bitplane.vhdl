@@ -75,8 +75,8 @@ begin
       end if;
 
       -- Accept new data if available
-      if data_valid_in='1' then
-        byte_buffer_3 <= data_in;
+      if data_in_valid='1' then
+        byte_buffer_3 <= std_logic_vector(data_in);
         bb_valid_3 <= '1';
       end if;
 
@@ -84,7 +84,7 @@ begin
       if bb_valid_h='0' and bb_valid_2='1' then
         byte_buffer_head <= byte_buffer_2;
         byte_bits_available <= 8;
-        bb_valid_head <= '1';
+        bb_valid_h <= '1';
         if bb_valid_3='1' then
           byte_buffer_head <= byte_buffer_2;
           bb_valid_2 <= '1';
@@ -103,7 +103,7 @@ begin
           pixel_out <= byte_buffer_head(7);
           if byte_bits_available = 1 then
             -- We are using the last bit, so mark byte as empty.
-            bb_valid_head <= '0';
+            bb_valid_h <= '0';
           end if;
         else
           byte_bits_available <= byte_bits_available - 4;
@@ -111,9 +111,9 @@ begin
           byte_buffer_head(3 downto 0) <= x"0";
           if byte_bits_available < 4 then
             -- We are using the last bit, so mark byte as empty.
-            bb_valid_head <= '0';
+            bb_valid_h <= '0';
           end if;
-          pixel16_out <= byte_buffer_head(7 downto 4);
+          pixel16_out <= unsigned(byte_buffer_head(7 downto 4));
         end if;
       end if;
       
