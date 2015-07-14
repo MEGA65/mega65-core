@@ -120,6 +120,14 @@ architecture behavioural of bitplanes is
 
   signal y_last : integer range 0 to 4095;
   signal x_last : integer range 0 to 4095;
+  signal x_left : std_logic := '0';
+  signal y_top : std_logic := '0';
+  signal x_in_bitplanes : std_logic := '0';
+  signal bitplane_drawing : std_logic := '0';
+  signal bitplane_x_start : integer range 0 to 4095 := 256;
+  signal bitplane_y_start : integer range 0 to 4095 := 30;
+  signal bitplanes_answer_data_request_timeout : integer range 0 to 255 := 0;
+  
 
   type bdo is array(0 to 7) of integer range 0 to 65535;
   signal bitplane_data_offsets : bdo;
@@ -141,6 +149,9 @@ architecture behavioural of bitplanes is
   signal bitplanes_pixel16_out : nybl_array_8;
   type bitplane_offsets_8 is array(0 to 7) of integer range 0 to 511;
   signal bitplanes_byte_numbers : bitplane_offsets_8;
+
+  signal bitplanedata_fetching : std_logic := '0';
+  signal bitplanedata_fetch_bitplane : integer range 0 to 7;
   
 begin  -- behavioural
 
@@ -204,7 +215,7 @@ begin  -- behavioural
         bitplanedatabuffer_write <= '1';
       else
         bitplanedatabuffer_write <= '0';
-      end if;
+      end if;      
       
       if sprite_number_for_data_in > 7 then
         -- Tell VIC-IV our current bitplane data offsets
@@ -221,9 +232,54 @@ begin  -- behavioural
       is_foreground_out <= is_foreground_in;
       is_background_out <= is_background_in;
 
-      -- Work out when we start drawing the sprite
+      -- Work out if we need to fetch a byte
+      bitplanedata_fetching <= '0';
+      if bitplanes_answer_data_request_timeout = 0 then        
+        for i in 7 downto 0 loop
+          if bitplanes_data_request(i) = '1' then
+            bitplanedatabuffer_address(11 downto 9) <= to_unsigned(i,3);
+            bitplanedatabuffer_address(8 downto 0)
+              <= to_unsigned(bitplanes_byte_numbers(i),9);
+            bitplanedata_fetching <= '1';
+            bitplanedata_fetch_bitplane <= i;
+            bitplanes_byte_numbers(i) <= bitplanes_byte_numbers(i) + 1;
+          end if;
+        end loop;
+      else
+        -- Reduce timeout before we honour bitplane fetch requests
+        bitplanes_answer_data_request_timeout
+          <= bitplanes_answer_data_request_timeout - 1;
+      end if;
+      
+      -- Pass fetched data to bitplanes if data is available
+      bitplanes_data_in_valid <= "00000000";
+      if bitplanedata_fetching = '1' then
+        bitplanes_data_in <= bitplanedatabuffer_rdata(7 downto 0);
+        bitplanes_data_in_valid(bitplanedata_fetch_bitplane) <= '1';
+      end if;
+      
+      -- Work out when we start drawing the bitplane
       y_last <= y_in;
+      if y_last = bitplane_y_start then
+        y_top <= '1';
+        -- Start requesting pixels from bitplanes to empty their buffers.
+        bitplanes_advance_pixel <= "11111111";
+        -- Allow enough cycles to flush the buffers in single-colour (C65) bitplane mode
+        bitplanes_answer_data_request_timeout <= 64;
+      else
+        y_top <= '0';
+      end if;
 
+      bitplanes_advance_pixel <= "00000000";
+      if x_in = bitplane_x_start
+        and (y_top='1' or bitplane_drawing='1') then
+        x_left <= '1';
+        x_in_bitplanes <= '1';
+        -- Request first pixel from each bitplane
+        bitplanes_advance_pixel <= "11111111";
+      end if;
+      
+      
       is_sprite_out <= is_sprite_in;
       sprite_colour_out <= sprite_colour_in;
       pixel_out <= pixel_in;
