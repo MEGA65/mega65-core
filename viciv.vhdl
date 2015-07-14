@@ -1757,6 +1757,8 @@ begin
       -- Reading some registers clears IRQ flags
       ack_colissionspritebitmap <= '0';
       ack_colissionspritesprite <= '0';
+      clear_colissionspritebitmap <= '0';
+      clear_colissionspritesprite <= '0';
       if fastio_read='1' then
         if register_number=30 then
           -- @IO:C64 $D01E sprite/sprite collissions
