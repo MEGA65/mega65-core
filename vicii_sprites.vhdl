@@ -49,6 +49,13 @@ entity vicii_sprites is
     ----------------------------------------------------------------------
     pixelclock : in  STD_LOGIC;
     ioclock : in std_logic;
+    
+    signal bitplanes_x_start : in unsigned(7 downto 0);
+    signal bitplanes_y_start : in unsigned(7 downto 0);
+    signal bitplane_mode_in : in std_logic;
+    signal bitplane_enables_in : in std_logic_vector(7 downto 0);
+    signal bitplane_complements_in : in std_logic_vector(7 downto 0);
+    signal bitplane_sixteen_colour_mode_flags_in : in std_logic_vector(7 downto 0);
 
     -- Pull sprite data in along the chain from the previous sprite (or VIC-IV)
     signal sprite_datavalid_in : in std_logic;
@@ -198,6 +205,13 @@ architecture behavioural of vicii_sprites is
       signal sprite_data_in : in unsigned(7 downto 0);
 
       -- XXX Bitplane registers
+      signal bitplane_mode_in : in std_logic;
+      signal bitplane_enables_in : in std_logic_vector(7 downto 0);
+      signal bitplane_complements_in : in std_logic_vector(7 downto 0);
+      signal bitplanes_x_start : in unsigned(7 downto 0);
+      signal bitplanes_y_start : in unsigned(7 downto 0);
+      signal bitplane_sixteen_colour_mode_flags : in std_logic_vector(7 downto 0);
+
       
       -- Pass sprite data out along the chain to the next sprite
       signal sprite_datavalid_out : out std_logic;
@@ -935,6 +949,16 @@ begin
 
   bitplanes0: component bitplanes
     port map(pixelclock => pixelclock,
+
+             -- Bitplane mode information
+             bitplane_mode_in => bitplane_mode_in,
+             bitplane_enables_in => bitplane_enables_in,
+             bitplane_complements_in => bitplane_complements_in,
+             bitplanes_y_start => bitplanes_y_start,
+             bitplanes_x_start => bitplanes_x_start,
+             bitplane_sixteen_colour_mode_flags =>
+               bitplane_sixteen_colour_mode_flags_in,
+             
              -- Receive sprite data chain to receive data from VIC-IV
              sprite_datavalid_in => sprite_datavalid_0_bp,
              sprite_bytenumber_in => sprite_bytenumber_0_bp,

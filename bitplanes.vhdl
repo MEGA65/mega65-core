@@ -50,6 +50,13 @@ entity bitplanes is
     signal sprite_data_offset_in : in integer range 0 to 65535;    
     signal sprite_data_offset_out : out integer range 0 to 65535;    
     signal sprite_number_for_data_out : out integer range 0 to 15;
+
+    signal bitplane_mode_in : in std_logic;
+    signal bitplane_enables_in : in std_logic_vector(7 downto 0);
+    signal bitplane_complements_in : in std_logic_vector(7 downto 0);
+    signal bitplanes_x_start : in unsigned(7 downto 0);
+    signal bitplanes_y_start : in unsigned(7 downto 0);
+    signal bitplane_sixteen_colour_mode_flags : in std_logic_vector(7 downto 0);
     
     -- Is the pixel just passed in a foreground pixel?
     signal is_foreground_in : in std_logic;
@@ -124,10 +131,13 @@ architecture behavioural of bitplanes is
   signal y_top : std_logic := '0';
   signal x_in_bitplanes : std_logic := '0';
   signal bitplane_drawing : std_logic := '0';
-  signal bitplane_x_start : integer range 0 to 4095 := 256;
+  signal bitplane_x_start : integer range 0 to 4095 := 30;
   signal bitplane_y_start : integer range 0 to 4095 := 30;
   signal bitplanes_answer_data_request_timeout : integer range 0 to 255 := 0;
-  
+
+  signal bitplane_mode : std_logic;
+  signal bitplane_enables : std_logic_vector(7 downto 0);
+  signal bitplane_complements : std_logic_vector(7 downto 0);
 
   type bdo is array(0 to 7) of integer range 0 to 65535;
   signal bitplane_data_offsets : bdo;
@@ -193,7 +203,12 @@ begin  -- behavioural
   main: process (pixelclock)
   begin  -- process main
     if pixelclock'event and pixelclock = '1' then  -- rising clock edge
---      report "SPRITE: entering VIC-II sprite #" & integer'image(sprite_number);
+
+      -- Have a drive stage on bitplane mode bits to ease timing.
+      bitplane_mode <= bitplane_mode_in;      
+      bitplane_enables <= bitplane_enables_in;
+      bitplane_complements <= bitplane_complements_in;
+      
       -- copy sprite data chain from input side to output side      
       sprite_spritenumber_out <= sprite_spritenumber_in;
       sprite_datavalid_out <= sprite_datavalid_in;
@@ -240,9 +255,12 @@ begin  -- behavioural
             bitplanedatabuffer_address(11 downto 9) <= to_unsigned(i,3);
             bitplanedatabuffer_address(8 downto 0)
               <= to_unsigned(bitplanes_byte_numbers(i),9);
-            bitplanedata_fetching <= '1';
             bitplanedata_fetch_bitplane <= i;
             bitplanes_byte_numbers(i) <= bitplanes_byte_numbers(i) + 1;
+            -- Only fetch the byte if we have not reached the end of the bitplane
+            if bitplanes_byte_numbers(i) < 80 then
+              bitplanedata_fetching <= '1';
+            end if;
           end if;
         end loop;
       else
@@ -271,18 +289,61 @@ begin  -- behavioural
       end if;
 
       bitplanes_advance_pixel <= "00000000";
+      -- XXX: Bitplane output is delayed by one physical pixel here.
+      -- This means that the bitplanes needs to be fed the x value one pixel clock
+      -- early, or bitplanes will be offset by one physical pixel.
+      -- Also, we need to have a 640 and 1280 pixel clock to do
+      -- higher-resolution bitplanes for full C65 compatibility.
+      -- None of the above has yet been done.
       if x_in = bitplane_x_start
         and (y_top='1' or bitplane_drawing='1') then
         x_left <= '1';
         x_in_bitplanes <= '1';
-        -- Request first pixel from each bitplane
-        bitplanes_advance_pixel <= "11111111";
       end if;
-      
+      if (x_in /= x_last) and (bitplane_drawing='1') then
+        -- Request first or next pixel from each bitplane.
+        -- In 16-colour mode we only update pixels every four pixels
+        for i in 0 to 7 loop
+          if bitplanes_sixteen_colour_mode(i)='0' then
+            bitplanes_advance_pixel(i) <= '1';
+          else
+            if (x_in mod 4) = 0 then
+              bitplanes_advance_pixel(i) <= '1';
+            end if;
+          end if;
+        end loop;
+      end if;              
+
+      if bitplane_mode='1' then
+        -- Display bitplanes, and set foreground based on bitplane 2
+        -- (but not for 16-colour bitplanes)
+        for i in 0 to 7 loop
+          if bitplane_enables(i)='1' then
+            if bitplanes_sixteen_colour_mode(i)='0' then
+              pixel_out(i) <= bitplanes_pixel_out(i) xor bitplane_complements(i);
+              if i = 2 then
+                is_foreground_out <= bitplanes_pixel_out(i) xor bitplane_complements(i);
+              end if;
+            else
+              -- 16 colour bitplane mode modifies four bits of the colour,
+              -- depending on which bitplane it is.
+              if bitplanes_pixel16_out(i) /= x"0" then                
+                pixel_out((3+(i mod 4)) downto (i mod 4)) <= bitplanes_pixel16_out(i);
+              end if;
+            end if;
+          else
+            pixel_out(i) <= bitplane_complements(i);
+            if i = 2 then
+              is_foreground_out <= bitplane_complements(i);
+            end if;
+          end if;
+        end loop;
+      else
+        pixel_out <= pixel_in;
+      end if;
       
       is_sprite_out <= is_sprite_in;
       sprite_colour_out <= sprite_colour_in;
-      pixel_out <= pixel_in;
     end if;
   end process main;
 

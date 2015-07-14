@@ -266,6 +266,13 @@ architecture Behavioral of viciv is
       pixelclock : in  STD_LOGIC;
       ioclock : in std_logic;
 
+      signal bitplanes_x_start : in unsigned(7 downto 0);
+      signal bitplanes_y_start : in unsigned(7 downto 0);
+      signal bitplane_mode_in : in std_logic;
+      signal bitplane_enables_in : in std_logic_vector(7 downto 0);
+      signal bitplane_complements_in : in std_logic_vector(7 downto 0);
+      signal bitplane_sixteen_colour_mode_flags_in : in std_logic_vector(7 downto 0);
+           
       -- Pull sprite data in along the chain from the previous sprite (or VIC-IV)
       signal sprite_datavalid_in : in std_logic;
       signal sprite_bytenumber_in : in integer range 0 to 39;
@@ -624,8 +631,12 @@ architecture Behavioral of viciv is
   signal sprite_colours : sprite_vector_8;
 
   -- VIC-III bitplane registers
+  signal bitplane_mode : std_logic := '0';
   signal bitplane_enables : std_logic_vector(7 downto 0) := "00000000";
   signal bitplane_complements : std_logic_vector(7 downto 0) := "00000000";
+  signal bitplane_sixteen_colour_mode_flags : std_logic_vector(7 downto 0) := "00000000";
+  signal bitplanes_x_start : unsigned(7 downto 0) := to_unsigned(30,8);
+  signal bitplanes_y_start : unsigned(7 downto 0) := to_unsigned(30,8);
   signal dat_x : unsigned(7 downto 0) := x"00";
   signal dat_y : unsigned(7 downto 0) := x"00";
   signal bitplane_addresses : sprite_vector_8;
@@ -930,7 +941,7 @@ architecture Behavioral of viciv is
   signal palette_bank_chargen : std_logic_vector(1 downto 0) := "11";
   signal palette_bank_chargen256 : std_logic_vector(1 downto 0) := "11";
   signal palette_bank_sprites : std_logic_vector(1 downto 0) := "11";
-
+  
   signal clear_hsync : std_logic := '0';
   signal set_hsync : std_logic := '0';
   signal hsync_drive : std_logic := '0';
@@ -1085,6 +1096,14 @@ begin
     port map (pixelclock => pixelclock,
               ioclock => ioclock,
 
+              bitplane_mode_in => bitplane_mode,
+              bitplane_enables_in => bitplane_enables,
+              bitplane_complements_in => bitplane_complements,
+              bitplanes_y_start => bitplanes_y_start,
+              bitplanes_x_start => bitplanes_x_start,
+              bitplane_sixteen_colour_mode_flags_in =>
+                bitplane_sixteen_colour_mode_flags,
+              
               sprite_datavalid_in => sprite_datavalid,
               sprite_bytenumber_in => sprite_bytenumber,
               sprite_spritenumber_in => sprite_spritenumber,
@@ -1444,7 +1463,7 @@ begin
             reg_h640                           -- H640
             & viciii_fast_internal             -- FAST
             & viciii_extended_attributes  -- ATTR (8bit colour RAM features)
-            & "0"                         -- BPM
+            & bitplane_mode                    -- BPM
             & reg_v400                         -- V400
             & reg_h1280                         -- H1280
             & "0"                         -- MONO
@@ -1612,11 +1631,11 @@ begin
         elsif register_number=112 then -- $D3070
           fastio_rdata <= palette_bank_fastio & palette_bank_chargen & palette_bank_sprites & palette_bank_chargen256;
         elsif register_number=113 then -- $D3071
-        --fastio_rdata <= std_logic_vector(x_chargen_start_minus17_drive(7 downto 0));
+          fastio_rdata <= bitplane_sixteen_colour_mode_flags;
         elsif register_number=114 then -- $D3072
-        --fastio_rdata <= "0000"&std_logic_vector(x_chargen_start_minus17_drive(11 downto 8));
+          fastio_rdata <= std_logic_vector(bitplanes_x_start);
         elsif register_number=115 then  -- $D3073
-          fastio_rdata <= std_logic_vector(debug_raster_buffer_read_address_drive2(7 downto 0));
+          fastio_rdata <= std_logic_vector(bitplanes_y_start);
         elsif register_number=116 then  -- $D3074
           fastio_rdata <= std_logic_vector(debug_raster_buffer_write_address_drive2(7 downto 0));
         elsif register_number=117 then  -- $D3075
@@ -2011,6 +2030,7 @@ begin
           -- @IO:C65 $D031.5 VIC-III Enable extended attributes and 8 bit colour entries
           viciii_extended_attributes <= fastio_wdata(5);
           -- @IO:C65 $D031.4 VIC-III Bit-Plane Mode (not implemented)
+          bitplane_mode <= fastio_wdata(4);
           -- @IO:C65 $D031.3 VIC-III V400 (400 vertical pixels)
           reg_v400 <= fastio_wdata(3);
           -- @IO:C65 $D031.2 VIC-III H1280 (1280 horizontal pixels)
@@ -2217,6 +2237,15 @@ begin
           palette_bank_sprites <= fastio_wdata(3 downto 2);
           -- @IO:GS $D070.1-0 VIC-IV bitmap/text palette bank
           palette_bank_chargen256 <= fastio_wdata(1 downto 0);
+        elsif register_number=113 then -- $D3071
+          -- @IO:GS $D071 VIC-IV 16-colour bitplane enable flags
+          bitplane_sixteen_colour_mode_flags <= fastio_wdata;
+        elsif register_number=114 then -- $D3072
+          -- @IO:GS $D072 VIC-IV bitplanes horizontal start (in VIC-II pixels)
+          bitplanes_x_start <= unsigned(fastio_wdata);
+        elsif register_number=115 then  -- $D3073
+          -- @IO:GS $D073 VIC-IV bitplanes vertical start (in VIC-II pixels)
+          bitplanes_y_start <= unsigned(fastio_wdata);
         elsif register_number=123 then
           -- @IO:GS $D07B VIC-IV hsync adjust
           xcounter_delay <= unsigned(fastio_wdata);

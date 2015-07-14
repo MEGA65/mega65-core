@@ -161,6 +161,9 @@ GS $D070.1-0 VIC-IV bitmap/text palette bank
 GS $D070.3-2 VIC-IV sprite palette bank
 GS $D070.5-4 VIC-IV bitmap/text palette bank
 GS $D070.7-6 VIC-IV palette bank mapped at $D100-$D3FF
+GS $D071 VIC-IV 16-colour bitplane enable flags
+GS $D072 VIC-IV bitplanes horizontal start (in VIC-II pixels)
+GS $D073 VIC-IV bitplanes vertical start (in VIC-II pixels)
 GS $D07B VIC-IV hsync adjust
 GS $D07C VIC-IV debug X position (LSB)
 GS $D07D VIC-IV debug X position (MSB)
