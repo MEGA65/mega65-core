@@ -159,7 +159,21 @@ begin  -- behavioural
               unsigned(doutb) => bitplanedatabuffer_rdata
               );
 
-  
+  generate_bitplanes:  
+  for index in 0 to 7 generate  
+    begin  
+      bitplane_inst : bitplane
+      port map (  
+        pixelclock => pixelclock,
+        advance_pixel => bitplanes_advance_pixel(index),
+        sixteen_colour_mode => bitplanes_sixteen_colour_mode(index),
+        data_in_valid => bitplanes_data_in_valid(index),
+        data_in => bitplanes_data_in,
+        data_request => bitplanes_data_request(index),
+        pixel_out => bitplanes_pixel_out(index),
+        pixel16_out => bitplanes_pixel16_out(index)
+      );  
+  end generate;  
   
   -- purpose: sprite drawing
   -- type   : sequential
