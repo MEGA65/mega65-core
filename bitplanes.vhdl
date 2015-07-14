@@ -1,6 +1,6 @@
 --
 -- Written by
---    Paul Gardner-Stephen <hld@c64.org>  2014
+--    Paul Gardner-Stephen <hld@c64.org>  2014-2015
 --
 -- *  This program is free software; you can redistribute it and/or modify
 -- *  it under the terms of the GNU Lesser General Public License as
@@ -85,6 +85,27 @@ end bitplanes;
 
 architecture behavioural of bitplanes is
 
+  component bitplane is
+  Port (
+    ----------------------------------------------------------------------
+    -- dot clock
+    ----------------------------------------------------------------------
+    pixelclock : in  STD_LOGIC;
+
+    advance_pixel : in std_logic;
+    sixteen_colour_mode : in std_logic;
+
+    data_in_valid : in std_logic;
+    data_in : in unsigned(7 downto 0);
+    data_request : out std_logic := '0';
+    
+    pixel_out : out std_logic := '0';
+    pixel16_out : out unsigned(3 downto 0) := x"0"
+    );
+
+  end component;
+
+  
   component ram9x4k IS
     PORT (
       clka : IN STD_LOGIC;
