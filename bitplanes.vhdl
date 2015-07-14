@@ -129,7 +129,19 @@ architecture behavioural of bitplanes is
   signal bitplanedatabuffer_waddress : unsigned(11 downto 0);
   signal bitplanedatabuffer_rdata : unsigned(8 downto 0);
   signal bitplanedatabuffer_address : unsigned(11 downto 0);
-    
+
+  -- Signals into and out of bitplane pixel engines
+  signal bitplanes_advance_pixel : std_logic_vector(7 downto 0) := "00000000";
+  signal bitplanes_sixteen_colour_mode : std_logic_vector(7 downto 0) := "00000000";
+  signal bitplanes_data_in_valid : std_logic_vector(7 downto 0) := "00000000";
+  signal bitplanes_data_in : unsigned(7 downto 0) := x"00";
+  signal bitplanes_data_request : std_logic_vector(7 downto 0);
+  signal bitplanes_pixel_out : std_logic_vector(7 downto 0);
+  type nybl_array_8 is array(0 to 7) of unsigned(3 downto 0);
+  signal bitplanes_pixel16_out : nybl_array_8;
+  type bitplane_offsets_8 is array(0 to 7) of integer range 0 to 511;
+  signal bitplanes_byte_numbers : bitplane_offsets_8;
+  
 begin  -- behavioural
 
   -- 4K buffer for holding buffered bitplane data for rendering.
@@ -146,6 +158,8 @@ begin  -- behavioural
               addrb => std_logic_vector(bitplanedatabuffer_address),
               unsigned(doutb) => bitplanedatabuffer_rdata
               );
+
+  
   
   -- purpose: sprite drawing
   -- type   : sequential
