@@ -85,13 +85,46 @@ end bitplanes;
 
 architecture behavioural of bitplanes is
 
+  component ram9x4k IS
+    PORT (
+      clka : IN STD_LOGIC;
+      wea : IN STD_LOGIC_VECTOR(0 DOWNTO 0);
+      addraa : IN STD_LOGIC_VECTOR(11 DOWNTO 0);
+      dina : IN STD_LOGIC_VECTOR(8 DOWNTO 0);
+      clkb : IN STD_LOGIC;
+      addrb : IN STD_LOGIC_VECTOR(11 DOWNTO 0);
+      doutb : OUT STD_LOGIC_VECTOR(8 DOWNTO 0)
+      );
+  END component;
+
   signal y_last : integer range 0 to 4095;
   signal x_last : integer range 0 to 4095;
 
   type bdo is array(0 to 7) of integer range 0 to 65535;
   signal bitplane_data_offsets : bdo;
-  
+
+  signal bitplanedatabuffer_write : std_logic := '0';
+  signal bitplanedatabuffer_wdata : unsigned(8 downto 0);
+  signal bitplanedatabuffer_waddress : unsigned(11 downto 0);
+  signal bitplanedatabuffer_rdata : unsigned(8 downto 0);
+  signal bitplanedatabuffer_address : unsigned(11 downto 0);
+    
 begin  -- behavioural
+
+  -- 4K buffer for holding buffered bitplane data for rendering.
+  -- 8 bitplanes x 512 bytes = 4KB.
+  -- This is plenty, since we actually only read 80 bytes max per bitplane per
+  -- line
+  bitplanedatabuffer: component ram9x4k
+    port map (clka => pixelclock,
+              wea(0) => bitplanedatabuffer_write,
+              dina => std_logic_vector(bitplanedatabuffer_wdata),
+              addraa => std_logic_vector(bitplanedatabuffer_waddress),
+
+              clkb => pixelclock,
+              addrb => std_logic_vector(bitplanedatabuffer_address),
+              unsigned(doutb) => bitplanedatabuffer_rdata
+              );
   
   -- purpose: sprite drawing
   -- type   : sequential
@@ -108,11 +141,20 @@ begin  -- behavioural
       sprite_data_out <= sprite_data_in;
       sprite_number_for_data_out <= sprite_number_for_data_in;
       
-      if sprite_datavalid_in = '1' and sprite_spritenumber_in > 7 then
+      if sprite_datavalid_in = '1' and (sprite_spritenumber_in > 7) then
         -- Record sprite data
         report "BITPLANES:"
           & " accepting data byte $" & to_hstring(sprite_data_in)
           & " from VIC-IV for byte #" & integer'image(sprite_bytenumber_in);
+        bitplanedatabuffer_waddress(11 downto 9)
+          <= to_unsigned(sprite_spritenumber_in mod 8, 3);
+        bitplanedatabuffer_waddress(8 downto 0)
+          <= to_unsigned(sprite_bytenumber_in, 9);
+        bitplanedatabuffer_wdata(8) <= '0';
+        bitplanedatabuffer_wdata(7 downto 0) <= sprite_data_in;
+        bitplanedatabuffer_write <= '1';
+      else
+        bitplanedatabuffer_write <= '0';
       end if;
       
       if sprite_number_for_data_in > 7 then
