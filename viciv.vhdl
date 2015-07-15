@@ -1648,7 +1648,7 @@ begin
         elsif register_number=115 then  -- $D3073
           fastio_rdata <= std_logic_vector(bitplanes_y_start);
         elsif register_number=116 then  -- $D3074
-          fastio_rdata <= std_logic_vector(debug_raster_buffer_write_address_drive2(7 downto 0));
+          fastio_rdata <= std_logic_vector(vicii_sprite_sprite_colission_map);
         elsif register_number=117 then  -- $D3075
           fastio_rdata <= std_logic_vector(debug_cycles_to_next_card_drive2(7 downto 0));
         elsif register_number=118 then  -- $D3076

@@ -208,6 +208,10 @@ begin  -- behavioural
   begin  -- process main
     if pixelclock'event and pixelclock = '1' then  -- rising clock edge
 
+      -- Copy sprite colission status out
+      sprite_map_out <= sprite_map_in;
+      sprite_fg_map_out <= sprite_fg_map_in;
+      
       -- Have a drive stage on bitplane mode bits to ease timing.
       bitplane_mode <= bitplane_mode_in;      
       bitplane_enables <= bitplane_enables_in;
