@@ -312,7 +312,8 @@ begin  -- behavioural
         end loop;
       end if;              
 
-      if bitplane_mode='1' then
+      pixel_out <= pixel_in;
+      if (bitplane_mode='1') and (in_border='0') and (bitplane_drawing='1') then
         -- Display bitplanes, and set foreground based on bitplane 2
         -- (but not for 16-colour bitplanes)
         for i in 0 to 7 loop
@@ -336,8 +337,6 @@ begin  -- behavioural
             end if;
           end if;
         end loop;
-      else
-        pixel_out <= pixel_in;
       end if;
       
       is_sprite_out <= is_sprite_in;
