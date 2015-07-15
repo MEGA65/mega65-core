@@ -3338,6 +3338,12 @@ begin
           else
             glyph_data_address(2 downto 0) <= glyph_data_address(2 downto 0) - 1;
           end if;
+          if glyph_visible='0' then
+            full_colour_data(63 downto 56) <= "00000000";
+          end if;
+          if glyph_reverse='1' then
+            full_colour_data(63 downto 56) <= not ramdata;
+          end if;
           if glyph_underline='1' then
             full_colour_data(63 downto 56) <= "11111111";
           end if;
@@ -3657,18 +3663,39 @@ begin
         when PaintMono =>
           -- Drive stage costs us another cycle per glyph, but seems necessary
           -- to meet timing.
-          paint_buffer_hflip_chardata <= paint_chardata;
-          paint_buffer_noflip_chardata <=
-            paint_chardata(0)&paint_chardata(1)
-            &paint_chardata(2)&paint_chardata(3)
-            &paint_chardata(4)&paint_chardata(5)
-            &paint_chardata(6)&paint_chardata(7);
-          paint_buffer_hflip_ramdata <= paint_ramdata;
-          paint_buffer_noflip_ramdata <=
-            paint_ramdata(0)&paint_ramdata(1)
-            &paint_ramdata(2)&paint_ramdata(3)
-            &paint_ramdata(4)&paint_ramdata(5)
-            &paint_ramdata(6)&paint_ramdata(7);
+          if glyph_reverse='0' then
+            paint_buffer_hflip_chardata <= not paint_chardata;
+            paint_buffer_noflip_chardata <= not
+              paint_chardata(0)&paint_chardata(1)
+              &paint_chardata(2)&paint_chardata(3)
+              &paint_chardata(4)&paint_chardata(5)
+              &paint_chardata(6)&paint_chardata(7);
+            paint_buffer_hflip_ramdata <= not paint_ramdata;
+            paint_buffer_noflip_ramdata <= not
+              paint_ramdata(0)&paint_ramdata(1)
+              &paint_ramdata(2)&paint_ramdata(3)
+              &paint_ramdata(4)&paint_ramdata(5)
+              &paint_ramdata(6)&paint_ramdata(7);
+          else
+            paint_buffer_hflip_chardata <= paint_chardata;
+            paint_buffer_noflip_chardata <=
+              paint_chardata(0)&paint_chardata(1)
+              &paint_chardata(2)&paint_chardata(3)
+              &paint_chardata(4)&paint_chardata(5)
+              &paint_chardata(6)&paint_chardata(7);
+            paint_buffer_hflip_ramdata <= paint_ramdata;
+            paint_buffer_noflip_ramdata <=
+              paint_ramdata(0)&paint_ramdata(1)
+              &paint_ramdata(2)&paint_ramdata(3)
+              &paint_ramdata(4)&paint_ramdata(5)
+              &paint_ramdata(6)&paint_ramdata(7);
+          end if;
+          if glyph_visible='0' then
+            paint_buffer_noflip_ramdata <= "00000000";
+            paint_buffer_hflip_ramdata <= "00000000";
+            paint_buffer_noflip_chardata <= "00000000";
+            paint_buffer_hflip_chardata <= "00000000";
+          end if;
           if glyph_underline='1' then
             paint_buffer_noflip_ramdata <= "11111111";
             paint_buffer_hflip_ramdata <= "11111111";
@@ -3730,18 +3757,39 @@ begin
         when PaintMultiColour =>
           -- Drive stage costs us another cycle per glyph, but seems necessary
           -- to meet timing.
-          paint_buffer_hflip_chardata <= paint_chardata;
-          paint_buffer_noflip_chardata <=
-            paint_chardata(1)&paint_chardata(0)
-            &paint_chardata(3)&paint_chardata(2)
-            &paint_chardata(5)&paint_chardata(4)
-            &paint_chardata(7)&paint_chardata(6);
-          paint_buffer_hflip_ramdata <= paint_ramdata;
-          paint_buffer_noflip_ramdata <=
-            paint_ramdata(1)&paint_ramdata(0)
-            &paint_ramdata(3)&paint_ramdata(2)
-            &paint_ramdata(5)&paint_ramdata(4)
-            &paint_ramdata(7)&paint_ramdata(6);
+          if glyph_reverse='0' then
+            paint_buffer_hflip_chardata <= not paint_chardata;
+            paint_buffer_noflip_chardata <= not
+              paint_chardata(0)&paint_chardata(1)
+              &paint_chardata(2)&paint_chardata(3)
+              &paint_chardata(4)&paint_chardata(5)
+              &paint_chardata(6)&paint_chardata(7);
+            paint_buffer_hflip_ramdata <= not paint_ramdata;
+            paint_buffer_noflip_ramdata <= not
+              paint_ramdata(0)&paint_ramdata(1)
+              &paint_ramdata(2)&paint_ramdata(3)
+              &paint_ramdata(4)&paint_ramdata(5)
+              &paint_ramdata(6)&paint_ramdata(7);
+          else
+            paint_buffer_hflip_chardata <= paint_chardata;
+            paint_buffer_noflip_chardata <=
+              paint_chardata(0)&paint_chardata(1)
+              &paint_chardata(2)&paint_chardata(3)
+              &paint_chardata(4)&paint_chardata(5)
+              &paint_chardata(6)&paint_chardata(7);
+            paint_buffer_hflip_ramdata <= paint_ramdata;
+            paint_buffer_noflip_ramdata <=
+              paint_ramdata(0)&paint_ramdata(1)
+              &paint_ramdata(2)&paint_ramdata(3)
+              &paint_ramdata(4)&paint_ramdata(5)
+              &paint_ramdata(6)&paint_ramdata(7);
+          end if;
+          if glyph_visible='0' then
+            paint_buffer_noflip_ramdata <= "00000000";
+            paint_buffer_hflip_ramdata <= "00000000";
+            paint_buffer_noflip_chardata <= "00000000";
+            paint_buffer_hflip_chardata <= "00000000";
+          end if;
           if glyph_underline='1' then
             paint_buffer_noflip_ramdata <= "11111111";
             paint_buffer_hflip_ramdata <= "11111111";
