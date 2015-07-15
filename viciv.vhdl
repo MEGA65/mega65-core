@@ -3269,7 +3269,7 @@ begin
                   glyph_reverse <= colourramdata(5);
                   glyph_bold <= colourramdata(6);
                   glyph_colour(4) <= colourramdata(6);
-                  if chargen_y_hold(2 downto 0)="111" then
+                  if chargen_y_hold="111" then
                     glyph_underline <= colourramdata(7);
                   end if;
                 end if;
@@ -3283,7 +3283,7 @@ begin
               glyph_reverse <= colourramdata(5);
               glyph_bold <= colourramdata(6);
               glyph_colour(4) <= colourramdata(6);
-              if chargen_y_hold(2 downto 0)="111" then
+              if chargen_y_hold="111" then
                 glyph_underline <= colourramdata(7);
               end if;
             end if;
