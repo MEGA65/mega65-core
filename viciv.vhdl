@@ -3338,6 +3338,9 @@ begin
           else
             glyph_data_address(2 downto 0) <= glyph_data_address(2 downto 0) - 1;
           end if;
+          if glyph_underline='1' then
+            full_colour_data(63 downto 56) <= "11111111";
+          end if;
           report "setting ramaddress to $x" & to_hstring(glyph_data_address(15 downto 0)) & " for full-colour glyph drawing";
           ramaddress <= glyph_data_address;
           if full_colour_fetch_count < 7 then
@@ -3666,6 +3669,10 @@ begin
             &paint_ramdata(2)&paint_ramdata(3)
             &paint_ramdata(4)&paint_ramdata(5)
             &paint_ramdata(6)&paint_ramdata(7);
+          if glyph_underline='1' then
+            paint_buffer_noflip_ramdata <= "11111111";
+            paint_buffer_hflip_ramdata <= "11111111";
+          end if;
           paint_fsm_state <= PaintMonoDrive;
         when PaintMonoDrive =>
           -- Paint 8 mono bits from ramdata or chardata
@@ -3735,6 +3742,11 @@ begin
             &paint_ramdata(3)&paint_ramdata(2)
             &paint_ramdata(5)&paint_ramdata(4)
             &paint_ramdata(7)&paint_ramdata(6);
+          if glyph_underline='1' then
+            paint_buffer_noflip_ramdata <= "11111111";
+            paint_buffer_hflip_ramdata <= "11111111";
+          end if;
+
           paint_fsm_state <= PaintMultiColourDrive;
         when PaintMultiColourDrive =>
           -- Paint 4 multi-colour half-nybls from ramdata or chardata
