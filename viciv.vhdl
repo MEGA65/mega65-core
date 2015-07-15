@@ -1433,7 +1433,7 @@ begin
           fastio_rdata <= vicii_sprite_x_expand;
         elsif register_number=30 then          -- $D01E sprite/sprite collissions
           fastio_rdata <= vicii_sprite_sprite_colissions;
-        elsif register_number=31 then          -- $D01F sprite/sprite collissions
+        elsif register_number=31 then          -- $D01F sprite/foreground collissions
           fastio_rdata <= vicii_sprite_bitmap_colissions;
         elsif register_number=32 then
           fastio_rdata <= std_logic_vector(border_colour);
@@ -1790,10 +1790,10 @@ begin
       if fastio_read='1' then
         if register_number=30 then
           -- @IO:C64 $D01E sprite/sprite collissions
-          clear_colissionspritebitmap_1 <= '1';
+          clear_colissionspritesprite_1 <= '1';
         elsif register_number=31 then
           -- @IO:C64 $D01F sprite/sprite collissions
-          clear_colissionspritesprite_1 <= '1';
+          clear_colissionspritebitmap_1 <= '1';
         end if;
       end if;
       -- One cycle delay so that CPU can read these registers with 1 cycle
