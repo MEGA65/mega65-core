@@ -646,6 +646,7 @@ architecture Behavioral of viciv is
   signal dat_x : unsigned(7 downto 0) := x"00";
   signal dat_y : unsigned(7 downto 0) := x"00";
   signal bitplane_addresses : sprite_vector_8;
+  signal max_sprite_fetch_byte_number : integer range 0 to 319 := 0;
   
   -- Extended sprite features
   signal sprite_extended_height_enables : std_logic_vector(7 downto 0) := "00000000";
@@ -679,7 +680,7 @@ architecture Behavioral of viciv is
   signal sprite_data_offsets : sprite_data_offset_8;
   -- Similarly we need to deliver the bytes of data to the VIC-II sprite chain
   signal sprite_datavalid : std_logic;
-  signal sprite_bytenumber : integer range 0 to 79 := 0;
+  signal sprite_bytenumber : integer range 0 to 319 := 0;
   signal sprite_spritenumber : integer range 0 to 15 := 0;
   signal sprite_data_byte : unsigned(7 downto 0);
   -- The sprite chain also has the opportunity to modify the pixel colour being
@@ -710,7 +711,7 @@ architecture Behavioral of viciv is
   signal pixel_is_sprite : std_logic;
 
   signal sprite_fetch_sprite_number : integer range 0 to 15;
-  signal sprite_fetch_byte_number : integer range 0 to 79;
+  signal sprite_fetch_byte_number : integer range 0 to 319;
   signal sprite_data_address : unsigned(16 downto 0);
 
   -- Compatibility registers
@@ -3473,6 +3474,7 @@ begin
             raster_fetch_state <= Idle;
           elsif sprite_fetch_sprite_number < 8 then
             -- Fetch sprites
+            max_sprite_fetch_byte_number <= 7;
             sprite_data_address(16 downto 3) <= vicii_sprite_pointer_address(16 downto 3);
             sprite_data_address(2 downto 0) <=  to_unsigned(sprite_fetch_sprite_number,3);
             report "SPRITE: will fetch pointer value from $" &
@@ -3481,7 +3483,31 @@ begin
           else
             -- Fetch VIC-III bitplanes
             -- Bitplanes for odd raster lines
-
+            if (reg_h640='0' and reg_h1280='0') then
+              if bitplane_sixteen_colour_mode_flags(sprite_fetch_sprite_number mod 8)='0'
+              then
+                -- 320px, mono bitplane = 40 bytes for 320 pixels
+                max_sprite_fetch_byte_number <= 39;
+              else
+                -- 320px, 16-colour bitplane = 160 bytes for 320 pixels
+                max_sprite_fetch_byte_number <= 159;
+              end if;
+            end if;    
+            if (reg_h640='1' and reg_h1280='0') then
+              if bitplane_sixteen_colour_mode_flags(sprite_fetch_sprite_number mod 8)='0'
+              then
+                -- 320px, mono bitplane = 80 bytes for 640 pixels
+                max_sprite_fetch_byte_number <= 79;
+              else
+                -- 320px, 16-colour bitplane = 320 bytes for 640 pixels
+                max_sprite_fetch_byte_number <= 319;
+              end if;
+            end if;
+            -- Don't waste time fetching bitplanes that are disabled.
+            if bitplane_enables(sprite_fetch_sprite_number mod 8)='0' then
+              max_sprite_fetch_byte_number <= 1;
+            end if;
+            
             -- Odd bitplanes come from 2nd 64KB RAM, even bitplanes from first.
             if (sprite_fetch_sprite_number mod 2) = 0 then
               sprite_data_address(16) <= '0';
@@ -3541,7 +3567,7 @@ begin
             & " data from $" & to_hstring("000"&sprite_data_address(16 downto 0));
           
           ramaddress <= sprite_data_address;
-          sprite_data_address(5 downto 0) <= sprite_data_address(5 downto 0) + 1;
+          sprite_data_address(16 downto 0) <= sprite_data_address(16 downto 0) + 1;
           raster_fetch_state <= SpriteDataFetch2;
         when SpriteDataFetch2 =>
           report "SPRITE: fetching sprite #"
@@ -3551,7 +3577,7 @@ begin
             & " from $" & to_hstring("000"&sprite_data_address(16 downto 0))
             & " for byte number " & integer'image(sprite_fetch_byte_number);
           sprite_bytenumber <= sprite_fetch_byte_number;
-          sprite_data_address(5 downto 0) <= sprite_data_address(5 downto 0) + 1;
+          sprite_data_address(16 downto 0) <= sprite_data_address(16 downto 0) + 1;
           ramaddress <= sprite_data_address;
           sprite_fetch_byte_number <= sprite_fetch_byte_number + 1;
           sprite_data_byte <= ramdata;
@@ -3561,7 +3587,7 @@ begin
           -- Bitplanes are fetched using the sprite fetch pipeline, so we fetch
           -- 40 bytes for those.
           if ((sprite_fetch_byte_number = 7) and (sprite_fetch_sprite_number < 8))
-            or (sprite_fetch_byte_number = 39)
+            or (sprite_fetch_byte_number = max_sprite_fetch_byte_number)
           then
             sprite_fetch_byte_number <= 0;
             sprite_fetch_sprite_number <= sprite_fetch_sprite_number + 1;

@@ -306,15 +306,9 @@ begin  -- behavioural
       end if;
       if (x_in /= x_last) and (bitplane_drawing='1') then
         -- Request first or next pixel from each bitplane.
-        -- In 16-colour mode we only update pixels every four pixels
+        -- We now fetch enough bytes for 16-colour bitplanes to be at full resolution.
         for i in 0 to 7 loop
-          if bitplanes_sixteen_colour_mode(i)='0' then
-            bitplanes_advance_pixel(i) <= '1';
-          else
-            if (x_in mod 4) = 0 then
-              bitplanes_advance_pixel(i) <= '1';
-            end if;
-          end if;
+          bitplanes_advance_pixel(i) <= '1';
         end loop;
       end if;              
 
