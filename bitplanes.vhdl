@@ -51,6 +51,8 @@ entity bitplanes is
     signal sprite_data_offset_out : out integer range 0 to 65535;    
     signal sprite_number_for_data_out : out integer range 0 to 15;
 
+    signal bitplane_h640 : in std_logic;
+    signal bitplane_h1280 : in std_logic;
     signal bitplane_mode_in : in std_logic;
     signal bitplane_enables_in : in std_logic_vector(7 downto 0);
     signal bitplane_complements_in : in std_logic_vector(7 downto 0);
@@ -63,6 +65,8 @@ entity bitplanes is
     signal is_background_in : in std_logic;
     -- and what is the colour of the bitmap pixel?
     signal x_in : in integer range 0 to 4095;
+    signal x640_in : in integer range 0 to 4095;
+    signal x1280_in : in integer range 0 to 4095;
     signal y_in : in integer range 0 to 4095;
     signal border_in : in std_logic;
     signal pixel_in : in unsigned(7 downto 0);

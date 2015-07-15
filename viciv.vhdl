@@ -266,6 +266,8 @@ architecture Behavioral of viciv is
       pixelclock : in  STD_LOGIC;
       ioclock : in std_logic;
 
+      signal bitplane_h640 : in std_logic;
+      signal bitplane_h1280 : in std_logic;
       signal bitplanes_x_start : in unsigned(7 downto 0);
       signal bitplanes_y_start : in unsigned(7 downto 0);
       signal bitplane_mode_in : in std_logic;
@@ -298,6 +300,8 @@ architecture Behavioral of viciv is
       signal is_background_in : in std_logic;
       -- and what is the colour of the bitmap pixel?
       signal x_in : in integer range 0 to 4095;
+      signal x640_in : in integer range 0 to 4095;
+      signal x1280_in : in integer range 0 to 4095;
       signal y_in : in integer range 0 to 4095;
       signal border_in : in std_logic;
       signal pixel_in : in unsigned(7 downto 0);
@@ -417,6 +421,8 @@ architecture Behavioral of viciv is
 
   signal vicii_xcounter_sub : unsigned(15 downto 0) := (others => '0');
   signal last_vicii_xcounter : unsigned(8 downto 0);
+  signal last_vicii_xcounter640 : unsigned(9 downto 0);
+  signal last_vicii_xcounter1280 : unsigned(10 downto 0);
 
   -- Actual pixel positions in the frame
   signal displayx : unsigned(11 downto 0) := (others => '0');
@@ -1096,6 +1102,8 @@ begin
     port map (pixelclock => pixelclock,
               ioclock => ioclock,
 
+              bitplane_h640 => reg_h640,
+              bitplane_h1280 => reg_h1280,
               bitplane_mode_in => bitplane_mode,
               bitplane_enables_in => bitplane_enables,
               bitplane_complements_in => bitplane_complements,
@@ -1127,6 +1135,8 @@ begin
               -- XXX 40 and 80 column displays should have the same aspect
               -- ratio for this to really work.
               x_in => to_integer(last_vicii_xcounter),
+              x640_in => to_integer(last_vicii_xcounter640),
+              x1280_in => to_integer(last_vicii_xcounter1280),
               y_in => to_integer(vicii_ycounter),
               border_in => inborder,
               pixel_in => chargen_pixel_colour,
@@ -2405,6 +2415,8 @@ begin
       
       indisplay :='1';
       last_vicii_xcounter <= vicii_xcounter_sub(15 downto 7);
+      last_vicii_xcounter640 <= vicii_xcounter_sub(15 downto 6);
+      last_vicii_xcounter1280 <= vicii_xcounter_sub(15 downto 5);
       report "VICII: SPRITE: xcounter = " & integer'image(to_integer(last_vicii_xcounter))
         & " (raw = " & to_hstring(vicii_xcounter_sub);
       if xcounter<frame_width then

@@ -50,6 +50,8 @@ entity vicii_sprites is
     pixelclock : in  STD_LOGIC;
     ioclock : in std_logic;
     
+    signal bitplane_h640 : in std_logic;
+    signal bitplane_h1280 : in std_logic;
     signal bitplanes_x_start : in unsigned(7 downto 0);
     signal bitplanes_y_start : in unsigned(7 downto 0);
     signal bitplane_mode_in : in std_logic;
@@ -82,6 +84,9 @@ entity vicii_sprites is
     signal is_background_in : in std_logic;
     -- and what is the colour of the bitmap pixel?
     signal x_in : in integer range 0 to 4095;
+    signal x640_in : in integer range 0 to 4095;
+    signal x1280_in : in integer range 0 to 4095;
+
     signal y_in : in integer range 0 to 4095;
     signal border_in : in std_logic;
     signal pixel_in : in unsigned(7 downto 0);
@@ -205,6 +210,8 @@ architecture behavioural of vicii_sprites is
       signal sprite_data_in : in unsigned(7 downto 0);
 
       -- XXX Bitplane registers
+      signal bitplane_h640 : in std_logic;
+      signal bitplane_h1280 : in std_logic;
       signal bitplane_mode_in : in std_logic;
       signal bitplane_enables_in : in std_logic_vector(7 downto 0);
       signal bitplane_complements_in : in std_logic_vector(7 downto 0);
@@ -232,6 +239,8 @@ architecture behavioural of vicii_sprites is
       signal is_background_in : in std_logic;
       -- and what is the colour of the bitmap pixel?
       signal x_in : in integer range 0 to 4095;
+      signal x640_in : in integer range 0 to 4095;
+      signal x1280_in : in integer range 0 to 4095;
       signal y_in : in integer range 0 to 4095;
       signal border_in : in std_logic;
       signal pixel_in : in unsigned(7 downto 0);
@@ -951,6 +960,8 @@ begin
     port map(pixelclock => pixelclock,
 
              -- Bitplane mode information
+             bitplane_h640 => bitplane_h640,
+             bitplane_h1280 => bitplane_h1280,
              bitplane_mode_in => bitplane_mode_in,
              bitplane_enables_in => bitplane_enables_in,
              bitplane_complements_in => bitplane_complements_in,
@@ -982,6 +993,8 @@ begin
              is_foreground_in => is_foreground_0_bp,
              is_background_in => is_background_0_bp,
              x_in => x_0_bp,
+             x640_in => x640_in,
+             x1280_in => x1280_in,
              y_in => y_0_bp,
              border_in => border_0_bp,
              pixel_in => pixel_0_bp,
