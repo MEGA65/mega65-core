@@ -308,6 +308,18 @@ begin  -- behavioural
         x_left <= '1';
         x_in_bitplanes <= '1';
       end if;
+      -- Start drawing once we hit the top of the bitplanes.
+      -- Note: the logic here means that bitplanes must be enabled at this
+      -- point, or they will not be shown at all on the frame!
+      if x_left = '1' and y_top = '1' and bitplane_mode_in = '1' then
+        bitplane_drawing <= '1';
+      end if;
+      -- Always stop drawing bitplanes at raster 255 (just a little into the
+      -- lower border).
+      if y_in = 255 then
+        bitplane_drawing <= '0';
+      end if;
+        
       if (x_in /= x_last) and (bitplane_drawing='1') then
         -- Request first or next pixel from each bitplane.
         -- We now fetch enough bytes for 16-colour bitplanes to be at full resolution.
