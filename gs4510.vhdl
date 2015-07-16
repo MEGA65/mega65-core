@@ -515,7 +515,19 @@ end component;
     16#F8# => '1',
     others => '0'
     );
-  
+
+  -- Pause 1usec per cycle of instruction for 1MHz operation
+  -- This is only approximate, because it doesnt count the time spent
+  -- executing the instruction, or the cycle to setup the delay.
+  -- Offsetting this is the lack of badlines, so the end result is probably
+  -- close enough for now.  It can be improved later to allow for more exact
+  -- timing for demos etc.
+  constant pause_per_cycle : unsigned(8 downto 0) := to_unsigned(48,9);
+  signal pause_cycles : unsigned(8 downto 0) := "000000000";
+  signal pause_cycles_counter : unsigned(8 downto 0) := "000000000";
+  signal cpu_pause_shift : integer range 0 to 2 := 0;
+
+
   type processor_state is (
     -- Reset and interrupts
     ResetLow,
@@ -536,6 +548,8 @@ end component;
     InstructionWait,                    -- Wait for PC to become available on
                                         -- interrupt/reset
     ProcessorHold,
+    ProcessorPause,
+    ProcessorPausing,
     MonitorMemoryAccess,
     InstructionFetch,
     InstructionDecode,  -- $16
@@ -2201,60 +2215,6 @@ begin
         slowram_data_in <= x"CF";
       end if;
       
-      --cpu_speed := vicii_2mhz&viciii_fast&viciv_fast;
-      --case cpu_speed is
-      --  when "000" => -- 1mhz
-      --    slowram_waitstates <= slowram_1mhz;
-      --    shadow_wait_states <= shadow_1mhz;
-      --    io_read_wait_states <= ioread_1mhz;
-      --    colourram_read_wait_states <= colourread_1mhz;
-      --    io_write_wait_states <= iowrite_1mhz;
-      --  when "001" => -- 1mhz
-      --    slowram_waitstates <= slowram_1mhz;
-      --    shadow_wait_states <= shadow_1mhz;
-      --    io_read_wait_states <= ioread_1mhz;
-      --    colourram_read_wait_states <= colourread_1mhz;
-      --    io_write_wait_states <= iowrite_1mhz;
-      --  when "010" => -- 3.5mhz
-      --    slowram_waitstates <= slowram_3mhz;
-      --    shadow_wait_states <= shadow_3mhz;
-      --    io_read_wait_states <= ioread_3mhz;
-      --    colourram_read_wait_states <= colourread_3mhz;
-      --    io_write_wait_states <= iowrite_3mhz;
-      --  when "011" => -- 48mhz
-      --    slowram_waitstates <= slowram_48mhz;
-      --    shadow_wait_states <= shadow_48mhz;
-      --    io_read_wait_states <= ioread_48mhz;
-      --    colourram_read_wait_states <= colourread_48mhz;
-      --    io_write_wait_states <= iowrite_48mhz;
-      --  when "100" => -- 2mhz
-      --    slowram_waitstates <= slowram_48mhz;
-      --    shadow_wait_states <= shadow_48mhz;
-      --    io_read_wait_states <= ioread_48mhz;
-      --    colourram_read_wait_states <= colourread_48mhz;
-      --    io_write_wait_states <= iowrite_48mhz;
-      --  when "101" => -- 48mhz
-      --    slowram_waitstates <= slowram_48mhz;
-      --    shadow_wait_states <= shadow_48mhz;
-      --    io_read_wait_states <= ioread_48mhz;
-      --    colourram_read_wait_states <= colourread_48mhz;
-      --    io_write_wait_states <= iowrite_48mhz;
-      --  when "110" => -- 3.5mhz
-      --    slowram_waitstates <= slowram_3mhz;
-      --    shadow_wait_states <= shadow_3mhz;
-      --    io_read_wait_states <= ioread_3mhz;
-      --    colourram_read_wait_states <= colourread_3mhz;
-      --    io_write_wait_states <= iowrite_3mhz;
-      --  when "111" => -- 48mhz
-      --    slowram_waitstates <= slowram_48mhz;
-      --    shadow_wait_states <= shadow_48mhz;
-      --    io_read_wait_states <= ioread_48mhz;
-      --    colourram_read_wait_states <= colourread_48mhz;
-      --    io_write_wait_states <= iowrite_48mhz;
-      --  when others =>
-      --    null;
-      --end case;
-      
       check_for_interrupts;
       
       if wait_states = x"00" then
@@ -2358,6 +2318,38 @@ begin
         fast_fetch_state <= ProcessorHold;
       end if;
 
+      cpu_speed := vicii_2mhz&viciii_fast&viciv_fast;
+      case cpu_speed is
+        when "000" => -- 1mhz
+          normal_fetch_state <= ProcessorPause;
+          fast_fetch_state <= ProcessorPause;
+          cpu_pause_shift <= 0;
+        when "001" => -- 1mhz
+          normal_fetch_state <= ProcessorPause;
+          fast_fetch_state <= ProcessorPause;          
+          cpu_pause_shift <= 0;
+        when "010" => -- 3.5mhz
+          normal_fetch_state <= ProcessorPause;
+          fast_fetch_state <= ProcessorPause;          
+          cpu_pause_shift <= 2;
+        when "011" => -- 48mhz
+          null;
+        when "100" => -- 2mhz
+          normal_fetch_state <= ProcessorPause;
+          fast_fetch_state <= ProcessorPause;          
+          cpu_pause_shift <= 1;
+        when "101" => -- 48mhz
+          null;
+        when "110" => -- 3.5mhz
+          normal_fetch_state <= ProcessorPause;
+          fast_fetch_state <= ProcessorPause;          
+          cpu_pause_shift <= 2;
+        when "111" => -- 48mhz
+          null;
+        when others =>
+          null;
+      end case;
+      
       if mem_reading='1' then
         memory_read_value := read_data;
       end if;
@@ -2567,6 +2559,25 @@ begin
                 report "Pre-incrementing PC for immediate dispatch" severity note;
               end if;
               state <= fast_fetch_state;
+            when ProcessorPause =>
+              -- Pause CPU before next instruction to simulate 1MHz, 2MHz or 3.5MHz
+              -- operation.
+              pc_inc := '0';
+              if cpu_pause_shift=1 then
+                pause_cycles_counter <= '0'&pause_cycles(8 downto 1);
+              elsif cpu_pause_shift=2 then
+                pause_cycles_counter <= "00"&pause_cycles(8 downto 2);
+              else
+                pause_cycles_counter <= pause_cycles;
+              end if;
+              state <= ProcessorPausing;
+            when ProcessorPausing =>
+              pc_inc := '0';
+              if pause_cycles_counter /=0 then
+                pause_cycles_counter <= pause_cycles_counter - 1;
+              else
+                state <= InstructionFetch;
+              end if;
             when ProcessorHold =>
               -- Hold CPU while blocked by monitor
 
@@ -2952,7 +2963,7 @@ begin
                 flat32_address_prime <= '0';
                 
                 case memory_read_value is
-                  when x"03" => flag_e <= '1';  -- SEE
+                  when x"03" => flag_e <= '1'; -- SEE
                   when x"0A" => reg_a <= a_asl; set_nz(a_asl); flag_c <= reg_a(7); -- ASL A
                   when x"0B" => reg_y <= reg_sph; set_nz(reg_sph); -- TSY
                   when x"18" => flag_c <= '0';  -- CLC
@@ -3043,7 +3054,47 @@ begin
                   else
                     state <= Cycle2;
                   end if;
+                  case mode_lut(to_integer(memory_read_value)) is
+                    when M_IMPL =>
+                      pause_cycles <= pause_per_cycle * 2;
+                    when M_nn =>
+                      pause_cycles <= pause_per_cycle * 3;
+                    when M_immnn =>
+                      pause_cycles <= pause_per_cycle * 2;
+                    when M_A =>
+                      pause_cycles <= pause_per_cycle * 2;
+                    when M_nnnn =>
+                      pause_cycles <= pause_per_cycle * 4;
+                    when M_nnrr =>
+                      pause_cycles <= pause_per_cycle * 4;
+                    when M_rr =>
+                      pause_cycles <= pause_per_cycle * 3;
+                    when M_InnY =>
+                      pause_cycles <= pause_per_cycle * 5;
+                    when M_InnZ =>
+                      pause_cycles <= pause_per_cycle * 5;
+                    when M_rrrr =>
+                      pause_cycles <= pause_per_cycle * 4;
+                    when M_nnX =>
+                      pause_cycles <= pause_per_cycle * 3;
+                    when M_nnnnY =>
+                      pause_cycles <= pause_per_cycle * 4;
+                    when M_nnnnX =>
+                      pause_cycles <= pause_per_cycle * 4;
+                    when M_Innnn =>
+                      pause_cycles <= pause_per_cycle * 5;
+                    when M_InnnnX =>
+                      pause_cycles <= pause_per_cycle * 5;
+                    when M_InnSPY =>
+                      pause_cycles <= pause_per_cycle * 6;
+                    when M_nnY =>
+                      pause_cycles <= pause_per_cycle * 3;
+                    when M_immnnnn =>
+                      pause_cycles <= pause_per_cycle * 7;
+                    when others =>
+                  end case;
                 else
+                  pause_cycles <= pause_per_cycle * 1;
                   no_interrupt <= '1';
                   -- Allow monitor to trace through single-cycle instructions
                   if monitor_mem_trace_mode='1' or debugging_single_stepping='1' then
