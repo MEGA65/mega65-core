@@ -3665,11 +3665,11 @@ begin
           -- to meet timing.
           if glyph_reverse='1' then
             paint_buffer_hflip_chardata <= not paint_chardata;
-            paint_buffer_noflip_chardata <= not
+            paint_buffer_noflip_chardata <= not (
               paint_chardata(0)&paint_chardata(1)
               &paint_chardata(2)&paint_chardata(3)
               &paint_chardata(4)&paint_chardata(5)
-              &paint_chardata(6)&paint_chardata(7);
+              &paint_chardata(6)&paint_chardata(7));
             paint_buffer_hflip_ramdata <= not paint_ramdata;
             paint_buffer_noflip_ramdata <= not (
               paint_ramdata(0)&paint_ramdata(1)
