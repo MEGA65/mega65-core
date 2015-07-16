@@ -757,7 +757,7 @@ architecture Behavioral of viciv is
   -- Used for hardware character blinking ala C65
   signal viciii_blink_phase : std_logic := '0';
   -- 60 frames = 1 second, and means no tearing.
-  signal viciii_blink_phase_counter : integer range 0 to 60 := 0;
+  signal viciii_blink_phase_counter : integer range 0 to 30 := 0;
 
   -- And faster version for blinking drive led
   signal drive_blink_phase : std_logic := '0';
@@ -2401,7 +2401,7 @@ begin
       if new_frame='1' then
         -- C65/VIC-III style 1Hz blink attribute clock
         viciii_blink_phase_counter <= viciii_blink_phase_counter + 1;
-        if viciii_blink_phase_counter = 60 then
+        if viciii_blink_phase_counter = 30 then
           viciii_blink_phase_counter <= 0;
           viciii_blink_phase <= not viciii_blink_phase;
         end if;
