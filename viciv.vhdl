@@ -3699,6 +3699,8 @@ begin
           if glyph_underline='1' then
             paint_buffer_noflip_ramdata <= "11111111";
             paint_buffer_hflip_ramdata <= "11111111";
+            paint_buffer_noflip_chardata <= "11111111";
+            paint_buffer_hflip_chardata <= "11111111";
           end if;
           paint_fsm_state <= PaintMonoDrive;
         when PaintMonoDrive =>
@@ -3793,6 +3795,8 @@ begin
           if glyph_underline='1' then
             paint_buffer_noflip_ramdata <= "11111111";
             paint_buffer_hflip_ramdata <= "11111111";
+            paint_buffer_noflip_chardata <= "11111111";
+            paint_buffer_hflip_chardata <= "11111111";
           end if;
 
           paint_fsm_state <= PaintMultiColourDrive;
