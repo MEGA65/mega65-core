@@ -522,7 +522,7 @@ end component;
   -- Offsetting this is the lack of badlines, so the end result is probably
   -- close enough for now.  It can be improved later to allow for more exact
   -- timing for demos etc.
-  constant pause_per_cycle : unsigned(8 downto 0) := to_unsigned(48,9);
+  constant pause_per_cycle : integer := 48;
   signal pause_cycles : unsigned(8 downto 0) := "000000000";
   signal pause_cycles_counter : unsigned(8 downto 0) := "000000000";
   signal cpu_pause_shift : integer range 0 to 2 := 0;
@@ -3056,45 +3056,45 @@ begin
                   end if;
                   case mode_lut(to_integer(memory_read_value)) is
                     when M_IMPL =>
-                      pause_cycles <= pause_per_cycle * 2;
+                      pause_cycles <= to_unsigned(pause_per_cycle * 2,9);
                     when M_nn =>
-                      pause_cycles <= pause_per_cycle * 3;
+                      pause_cycles <= to_unsigned(pause_per_cycle * 3,9);
                     when M_immnn =>
-                      pause_cycles <= pause_per_cycle * 2;
+                      pause_cycles <= to_unsigned(pause_per_cycle * 2,9);
                     when M_A =>
-                      pause_cycles <= pause_per_cycle * 2;
+                      pause_cycles <= to_unsigned(pause_per_cycle * 2,9);
                     when M_nnnn =>
-                      pause_cycles <= pause_per_cycle * 4;
+                      pause_cycles <= to_unsigned(pause_per_cycle * 4,9);
                     when M_nnrr =>
-                      pause_cycles <= pause_per_cycle * 4;
+                      pause_cycles <= to_unsigned(pause_per_cycle * 4,9);
                     when M_rr =>
-                      pause_cycles <= pause_per_cycle * 3;
+                      pause_cycles <= to_unsigned(pause_per_cycle * 3,9);
                     when M_InnY =>
-                      pause_cycles <= pause_per_cycle * 5;
+                      pause_cycles <= to_unsigned(pause_per_cycle * 5,9);
                     when M_InnZ =>
-                      pause_cycles <= pause_per_cycle * 5;
+                      pause_cycles <= to_unsigned(pause_per_cycle * 5,9);
                     when M_rrrr =>
-                      pause_cycles <= pause_per_cycle * 4;
+                      pause_cycles <= to_unsigned(pause_per_cycle * 4,9);
                     when M_nnX =>
-                      pause_cycles <= pause_per_cycle * 3;
+                      pause_cycles <= to_unsigned(pause_per_cycle * 3,9);
                     when M_nnnnY =>
-                      pause_cycles <= pause_per_cycle * 4;
+                      pause_cycles <= to_unsigned(pause_per_cycle * 4,9);
                     when M_nnnnX =>
-                      pause_cycles <= pause_per_cycle * 4;
+                      pause_cycles <= to_unsigned(pause_per_cycle * 4,9);
                     when M_Innnn =>
-                      pause_cycles <= pause_per_cycle * 5;
+                      pause_cycles <= to_unsigned(pause_per_cycle * 5,9);
                     when M_InnnnX =>
-                      pause_cycles <= pause_per_cycle * 5;
+                      pause_cycles <= to_unsigned(pause_per_cycle * 5,9);
                     when M_InnSPY =>
-                      pause_cycles <= pause_per_cycle * 6;
+                      pause_cycles <= to_unsigned(pause_per_cycle * 6,9);
                     when M_nnY =>
-                      pause_cycles <= pause_per_cycle * 3;
+                      pause_cycles <= to_unsigned(pause_per_cycle * 3,9);
                     when M_immnnnn =>
-                      pause_cycles <= pause_per_cycle * 7;
+                      pause_cycles <= to_unsigned(pause_per_cycle * 7,9);
                     when others =>
                   end case;
                 else
-                  pause_cycles <= pause_per_cycle * 1;
+                  pause_cycles <= to_unsigned(pause_per_cycle,9);
                   no_interrupt <= '1';
                   -- Allow monitor to trace through single-cycle instructions
                   if monitor_mem_trace_mode='1' or debugging_single_stepping='1' then
