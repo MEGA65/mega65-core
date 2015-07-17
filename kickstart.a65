@@ -282,6 +282,19 @@ reset_machine_state:
 		cld
 		see
 
+		sec
+		jsr enhanced_io
+
+		; switch to fast mode
+		; 1. C65 fast-mode enable
+		lda $d031
+		ora #$40
+		sta $d031
+		; 2. MEGA65 48MHz enable (requires C65 or C128 fast mode to truly enable, hence the above)
+		lda $d054
+		ora #$40
+		sta $d054
+
 		; sprites off		
 		lda #$00
 		sta $d017		
@@ -303,9 +316,6 @@ reset_machine_state:
 		sta $DD0D
 		LDA #$00
 		STA $D019
-
-		sec
-		jsr enhanced_io
 
 		jsr resetdisplay
 		jsr erasescreen
@@ -1325,8 +1335,10 @@ resetdisplay:
 		; reset screen
 		lda #$40
 		sta $d030
-		lda #$00
+		lda $d031
+		and #$40
 		sta $d031
+		lda #$00
 		sta $D020
 		sta $D021
 		sta $D054
@@ -1349,9 +1361,9 @@ resetdisplay:
 		sta $d054
 		; and 80 bytes (40 16-bit characters) per row.
 		lda #<80
-		sta $d040
+		sta $d058
 		lda #>80
-		sta $d041
+		sta $d059
 		
 		rts
 
@@ -1830,9 +1842,9 @@ g61:		sta $0800,x
 		lda #$00
 		sta $d054
 		lda #<40
-		sta $d040
+		sta $d058
 		lda #>40
-		sta $d041
+		sta $d059
 
 
 		jsr task_set_c64_memorymap
