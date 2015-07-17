@@ -2306,7 +2306,41 @@ begin
         and (monitor_mem_attention_request_drive='0') then
         monitor_mem_trace_toggle_last <= monitor_mem_trace_toggle;
         normal_fetch_state <= InstructionFetch;
+
+        -- Or select slower CPU mode if required.
+        -- Test goes here so that it doesn't break the monitor interface.
         fast_fetch_state <= InstructionDecode;
+              cpu_speed := vicii_2mhz&viciii_fast&viciv_fast;
+        case cpu_speed is
+          when "000" => -- 1mhz
+            normal_fetch_state <= ProcessorPause;
+            fast_fetch_state <= ProcessorPause;
+            cpu_pause_shift <= 0;
+          when "001" => -- 1mhz
+            normal_fetch_state <= ProcessorPause;
+            fast_fetch_state <= ProcessorPause;          
+            cpu_pause_shift <= 0;
+          when "010" => -- 3.5mhz
+            normal_fetch_state <= ProcessorPause;
+            fast_fetch_state <= ProcessorPause;          
+            cpu_pause_shift <= 2;
+          when "011" => -- 48mhz
+            null;
+          when "100" => -- 2mhz
+            normal_fetch_state <= ProcessorPause;
+            fast_fetch_state <= ProcessorPause;          
+            cpu_pause_shift <= 1;
+          when "101" => -- 48mhz
+            null;
+          when "110" => -- 3.5mhz
+            normal_fetch_state <= ProcessorPause;
+            fast_fetch_state <= ProcessorPause;          
+            cpu_pause_shift <= 2;
+          when "111" => -- 48mhz
+          null;
+        when others =>
+          null;
+        end case;
       else
         normal_fetch_state <= ProcessorHold;
         fast_fetch_state <= ProcessorHold;
@@ -2317,38 +2351,6 @@ begin
         normal_fetch_state <= ProcessorHold;
         fast_fetch_state <= ProcessorHold;
       end if;
-
-      cpu_speed := vicii_2mhz&viciii_fast&viciv_fast;
-      case cpu_speed is
-        when "000" => -- 1mhz
-          normal_fetch_state <= ProcessorPause;
-          fast_fetch_state <= ProcessorPause;
-          cpu_pause_shift <= 0;
-        when "001" => -- 1mhz
-          normal_fetch_state <= ProcessorPause;
-          fast_fetch_state <= ProcessorPause;          
-          cpu_pause_shift <= 0;
-        when "010" => -- 3.5mhz
-          normal_fetch_state <= ProcessorPause;
-          fast_fetch_state <= ProcessorPause;          
-          cpu_pause_shift <= 2;
-        when "011" => -- 48mhz
-          null;
-        when "100" => -- 2mhz
-          normal_fetch_state <= ProcessorPause;
-          fast_fetch_state <= ProcessorPause;          
-          cpu_pause_shift <= 1;
-        when "101" => -- 48mhz
-          null;
-        when "110" => -- 3.5mhz
-          normal_fetch_state <= ProcessorPause;
-          fast_fetch_state <= ProcessorPause;          
-          cpu_pause_shift <= 2;
-        when "111" => -- 48mhz
-          null;
-        when others =>
-          null;
-      end case;
       
       if mem_reading='1' then
         memory_read_value := read_data;
