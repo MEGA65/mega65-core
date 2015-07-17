@@ -2312,31 +2312,31 @@ begin
         fast_fetch_state <= InstructionDecode;
               cpu_speed := vicii_2mhz&viciii_fast&viciv_fast;
         case cpu_speed is
-          when "000" => -- 1mhz
+          when "100" => -- 1mhz
             normal_fetch_state <= ProcessorPause;
             fast_fetch_state <= ProcessorPause;
             cpu_pause_shift <= 0;
-          when "001" => -- 1mhz
+          when "101" => -- 1mhz
             normal_fetch_state <= ProcessorPause;
             fast_fetch_state <= ProcessorPause;          
             cpu_pause_shift <= 0;
-          when "010" => -- 3.5mhz
-            normal_fetch_state <= ProcessorPause;
-            fast_fetch_state <= ProcessorPause;          
-            cpu_pause_shift <= 2;
-          when "011" => -- 48mhz
-            null;
-          when "100" => -- 2mhz
-            normal_fetch_state <= ProcessorPause;
-            fast_fetch_state <= ProcessorPause;          
-            cpu_pause_shift <= 1;
-          when "101" => -- 48mhz
-            null;
           when "110" => -- 3.5mhz
             normal_fetch_state <= ProcessorPause;
             fast_fetch_state <= ProcessorPause;          
             cpu_pause_shift <= 2;
           when "111" => -- 48mhz
+            null;
+          when "000" => -- 2mhz
+            normal_fetch_state <= ProcessorPause;
+            fast_fetch_state <= ProcessorPause;          
+            cpu_pause_shift <= 1;
+          when "001" => -- 48mhz
+            null;
+          when "010" => -- 3.5mhz
+            normal_fetch_state <= ProcessorPause;
+            fast_fetch_state <= ProcessorPause;          
+            cpu_pause_shift <= 2;
+          when "011" => -- 48mhz
           null;
         when others =>
           null;
