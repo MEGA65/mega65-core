@@ -2309,38 +2309,41 @@ begin
 
         -- Or select slower CPU mode if required.
         -- Test goes here so that it doesn't break the monitor interface.
+        -- But the hypervisor always runs at full speed.
         fast_fetch_state <= InstructionDecode;
               cpu_speed := vicii_2mhz&viciii_fast&viciv_fast;
-        case cpu_speed is
-          when "100" => -- 1mhz
-            normal_fetch_state <= ProcessorPause;
-            fast_fetch_state <= ProcessorPause;
-            cpu_pause_shift <= 0;
-          when "101" => -- 1mhz
-            normal_fetch_state <= ProcessorPause;
-            fast_fetch_state <= ProcessorPause;          
-            cpu_pause_shift <= 0;
-          when "110" => -- 3.5mhz
-            normal_fetch_state <= ProcessorPause;
-            fast_fetch_state <= ProcessorPause;          
-            cpu_pause_shift <= 2;
-          when "111" => -- 48mhz
-            null;
-          when "000" => -- 2mhz
-            normal_fetch_state <= ProcessorPause;
-            fast_fetch_state <= ProcessorPause;          
-            cpu_pause_shift <= 1;
-          when "001" => -- 48mhz
-            null;
-          when "010" => -- 3.5mhz
-            normal_fetch_state <= ProcessorPause;
-            fast_fetch_state <= ProcessorPause;          
-            cpu_pause_shift <= 2;
-          when "011" => -- 48mhz
-          null;
-        when others =>
-          null;
-        end case;
+        if hypervisor_mode='0' then
+          case cpu_speed is
+            when "100" => -- 1mhz
+              normal_fetch_state <= ProcessorPause;
+              fast_fetch_state <= ProcessorPause;
+              cpu_pause_shift <= 0;
+            when "101" => -- 1mhz
+              normal_fetch_state <= ProcessorPause;
+              fast_fetch_state <= ProcessorPause;          
+              cpu_pause_shift <= 0;
+            when "110" => -- 3.5mhz
+              normal_fetch_state <= ProcessorPause;
+              fast_fetch_state <= ProcessorPause;          
+              cpu_pause_shift <= 2;
+            when "111" => -- 48mhz
+              null;
+            when "000" => -- 2mhz
+              normal_fetch_state <= ProcessorPause;
+              fast_fetch_state <= ProcessorPause;          
+              cpu_pause_shift <= 1;
+            when "001" => -- 48mhz
+              null;
+            when "010" => -- 3.5mhz
+              normal_fetch_state <= ProcessorPause;
+              fast_fetch_state <= ProcessorPause;          
+              cpu_pause_shift <= 2;
+            when "011" => -- 48mhz
+              null;
+            when others =>
+              null;
+          end case;
+        end if;
       else
         normal_fetch_state <= ProcessorHold;
         fast_fetch_state <= ProcessorHold;

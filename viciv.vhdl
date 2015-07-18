@@ -1711,7 +1711,7 @@ begin
         -- Set CPU to 48MHz
         viciv_fast_internal <= '1';
         viciii_fast_internal <= '1';
-        vicii_2mhz_internal <= '1';
+        vicii_2mhz_internal <= '0';
       end if;
       
       report "drive led = " & std_logic'image(led)
