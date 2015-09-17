@@ -14,6 +14,9 @@ entity keymapper is
     nmi : out std_logic := 'Z';
     reset : out std_logic := 'Z';
     hyper_trap : out std_logic := 'Z';
+
+    -- appears as bit0 of $D607 (see C65 keyboard scan routine at $E406)
+    capslock_out : out std_logic := 'Z';
     
     -- PS2 keyboard interface
     ps2clock  : in  std_logic;
@@ -24,6 +27,14 @@ entity keymapper is
     porta_out : out std_logic_vector(7 downto 0);
     portb_out : out std_logic_vector(7 downto 0);
 
+    -- read from bit1 of $D607 (see C65 keyboard scan routine at $E406)?
+    keyboard_column8_select_in : in std_logic;
+
+    pmod_clock : in std_logic;
+    pmod_start_of_sequence : in std_logic;
+    pmod_data_in : in std_logic_vector(3 downto 0);
+    pmod_data_out : out std_logic_vector(1 downto 0) := "ZZ";
+    
     -- ethernet keyboard input interface for remote head mode
     eth_keycode_toggle : in std_logic;
     eth_keycode : in unsigned(15 downto 0)
@@ -37,6 +48,10 @@ architecture behavioural of keymapper is
                      ParityBit,StopBit);
   signal ps2state : ps2_state := Idle;
 
+  signal resetbutton_state : std_logic := 'Z';
+  signal matrix_offset : integer range 0 to 255 := 252;
+  signal last_pmod_clock : std_logic := '1';
+  
   signal scan_code : unsigned(7 downto 0) := x"FF";
   signal parity : std_logic := '0';
 
@@ -59,7 +74,7 @@ architecture behavioural of keymapper is
   signal extended : std_logic := '0';
   signal break : std_logic := '0';
 
-  signal matrix : std_logic_vector(63 downto 0) := (others =>'1');
+  signal matrix : std_logic_vector(71 downto 0) := (others =>'1');
   signal joy1 : std_logic_vector(4 downto 0) := (others =>'1');
   signal joy2 : std_logic_vector(4 downto 0) := (others =>'1');
 
@@ -127,12 +142,67 @@ begin  -- behavioural
               restore_up_ticks <= restore_up_ticks + 1;
             end if;
             nmi <= 'Z';
-            reset <= 'Z';
+            reset <= resetbutton_state;
             hyper_trap <= 'Z';
           end if;
         end if;
       end if;
 
+      ------------------------------------------------------------------------
+      -- Read from MEGA keyboard/joystick/expansion port PMOD interface
+      ------------------------------------------------------------------------
+      -- This interface has a clock, start-of-sequence signal and 4 data lines
+      -- The data is pumped out in the correct order for us to just stash it
+      -- into the matrix (or, at least it will when it is implemented ;)
+      last_pmod_clock <= pmod_clock;
+      if pmod_clock='1' and last_pmod_clock='0' then
+        -- Data available
+        if pmod_start_of_sequence='1' then
+          -- Write first four bits, and set offset for next time
+          matrix_offset <= 4;
+          matrix(3 downto 0) <= pmod_data_in;
+        else
+          if matrix_offset < 252 then
+            matrix_offset <= matrix_offset+ 4;
+          end if;
+          -- Read keyboard matrix when required
+          if matrix_offset < 72 then
+            matrix((matrix_offset +3) downto matrix_offset) <= pmod_data_in;
+          end if;
+          -- Joysticks + restore + capslock + reset? (72-79, 80-87)
+          if matrix_offset = 76 then
+            -- restore is active low, like all other keys
+            restore_state <= pmod_data_in(3);
+            capslock_out <= pmod_data_in(2);
+            if pmod_data_in(3)='1' and restore_state='0' then
+              if restore_down_ticks < 25 then
+                nmi <= '0';
+              -- But holding it down for >2 seconds does nothing,
+              -- incase someone holds it by mistake.
+              elsif restore_down_ticks < 100 then
+                reset <= '0';
+              end if;
+              -- Make sure that next check for releasing NMI
+              -- and reset is not for almost 1/50th of a second.
+              fiftyhz_counter <= (others => '0');
+            end if;
+          end if;
+          if matrix_offset = 84 then
+            if pmod_data_in(3)='0' then
+              resetbutton_state <= '0';
+            else
+              resetbutton_state <= 'Z';
+            end if;
+          end if;
+          -- Expansion port state (88-127)
+          -- Reserved for extra stuff (128-255)
+        end if;
+      end if;
+
+      ------------------------------------------------------------------------
+      -- Read from PS/2 keyboard/mouse interface
+      ------------------------------------------------------------------------
+      
       ps2clock_samples <= ps2clock_samples(6 downto 0) & ps2clock;
       if ps2clock_samples = "11111111" then
         ps2clock_debounced <= '1';
@@ -415,6 +485,11 @@ begin  -- behavioural
           end loop;  -- j
         end if;        
       end loop;
+      if keyboard_column8_select_in='0' then
+        for j in 0 to 7 loop
+          portb_value(j) := portb_value(j) and matrix(64+j);
+        end loop;  -- j
+      end if;
 
       -- We should also do it the otherway around as well
       porta_value := x"FF";
