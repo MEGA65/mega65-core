@@ -319,6 +319,14 @@ architecture Behavioral of container is
          ps2clock : in std_logic;         
 
          ----------------------------------------------------------------------
+         -- PMOD interface for keyboard, joystick, expansion port etc board.
+         ----------------------------------------------------------------------
+         pmod_clock : in std_logic;
+         pmod_start_of_sequence : in std_logic;
+         pmod_data_in : in std_logic_vector(3 downto 0);
+         pmod_data_out : out std_logic_vector(1 downto 0);
+
+         ----------------------------------------------------------------------
          -- Debug interfaces on Nexys4 board
          ----------------------------------------------------------------------
          led0 : out std_logic;
@@ -497,6 +505,11 @@ begin
       ps2data =>      ps2data,
       ps2clock =>     ps2clk,
 
+      pmod_clock => pmod_clock,
+      pmod_start_of_sequence => pmod_start_of_sequence,
+      pmod_data_in => pmod_data_in,
+      pmod_data_out => pmod_data_out,
+      
       slowram_we => slowram_we,
       slowram_request_toggle => slowram_request_toggle,
       slowram_done_toggle => slowram_done_toggle,

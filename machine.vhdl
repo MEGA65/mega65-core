@@ -145,11 +145,19 @@ entity machine is
 
          ----------------------------------------------------------------------
          -- PS/2 adapted USB keyboard & joystick connector.
-         -- For now we will use a keyrah adapter to connect to the keyboard.
+         -- (For using a keyrah adapter to connect to the keyboard.)
          ----------------------------------------------------------------------
          ps2data : in std_logic;
          ps2clock : in std_logic;
 
+         ----------------------------------------------------------------------
+         -- PMOD interface for keyboard, joystick, expansion port etc board.
+         ----------------------------------------------------------------------
+         pmod_clock : in std_logic;
+         pmod_start_of_sequence : in std_logic;
+         pmod_data_in : in std_logic_vector(3 downto 0);
+         pmod_data_out : out std_logic_vector(1 downto 0);
+         
          ----------------------------------------------------------------------
          -- Debug interfaces on Nexys4 board
          ----------------------------------------------------------------------
@@ -458,6 +466,11 @@ architecture Behavioral of machine is
           btn : in std_logic_vector(4 downto 0);
           seg_led : out unsigned(31 downto 0);
 
+          pmod_clock : in std_logic;
+          pmod_start_of_sequence : in std_logic;
+          pmod_data_in : in std_logic_vector(3 downto 0);
+          pmod_data_out : out std_logic_vector(1 downto 0);
+          
           pixel_stream_in : in unsigned (7 downto 0);
           pixel_y : in unsigned (11 downto 0);
           pixel_valid : in std_logic;
@@ -982,6 +995,11 @@ begin
     pixel_newframe => pixel_newframe,
     pixel_newraster => pixel_newraster,
 
+    pmod_clock => pmod_clock,
+    pmod_start_of_sequence => pmod_start_of_sequence,
+    pmod_data_in => pmod_data_in,
+    pmod_data_out => pmod_data_out,
+    
     farcallstack_we => farcallstack_we,
     farcallstack_addr => farcallstack_addr,
     farcallstack_din => farcallstack_din,

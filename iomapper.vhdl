@@ -40,6 +40,11 @@ entity iomapper is
         ps2data : in std_logic;
         ps2clock : in std_logic;
 
+        pmod_clock : in std_logic;
+        pmod_start_of_sequence : in std_logic;
+        pmod_data_in : in std_logic_vector(3 downto 0);
+        pmod_data_out : out std_logic_vector(1 downto 0);
+        
         pixel_stream_in : in unsigned (7 downto 0);
         pixel_y : in unsigned (11 downto 0);
         pixel_valid : in std_logic;
@@ -265,6 +270,27 @@ architecture behavioral of iomapper is
 
       );
   end component;
+
+  component uart6551 is
+    port (
+      cpuclock : in std_logic;
+      phi0 : in std_logic;
+      reset : in std_logic;
+      irq : out std_logic := '1';
+
+      porte_out : out std_logic_vector(1 downto 0);
+      porte_in : in std_logic_vector(1 downto 0);
+
+      ---------------------------------------------------------------------------
+      -- fast IO port (clocked at core clock). 1MB address space
+      ---------------------------------------------------------------------------
+      cs : in std_logic;
+      fastio_address : in unsigned(7 downto 0);
+      fastio_write : in std_logic;
+      fastio_wdata : in unsigned(7 downto 0);
+      fastio_rdata : out unsigned(7 downto 0)
+      );
+  end component;
   
   component cia6526 is
     port (
@@ -315,6 +341,14 @@ architecture behavioral of iomapper is
     -- PS2 keyboard interface
     ps2clock  : in  std_logic;
     ps2data   : in  std_logic;
+
+    capslock_out : out std_logic;
+    keyboard_column8_select_in : in std_logic;
+    pmod_clock : in std_logic;
+    pmod_start_of_sequence : in std_logic;
+    pmod_data_in : in std_logic_vector(3 downto 0);
+    pmod_data_out : out std_logic_vector(1 downto 0);
+    
     -- CIA ports
     porta_in  : in  std_logic_vector(7 downto 0);
     portb_in  : in  std_logic_vector(7 downto 0);
@@ -387,6 +421,8 @@ architecture behavioral of iomapper is
   signal cia1cs : std_logic;
   signal cia2cs : std_logic;
 
+  signal uart6551cs : std_logic;
+
   signal sectorbuffercs : std_logic;
   signal sector_buffer_mapped_read : std_logic;
 
@@ -415,6 +451,10 @@ architecture behavioral of iomapper is
 
   signal eth_keycode_toggle : std_logic;
   signal eth_keycode : unsigned(15 downto 0);
+
+  signal keyboard_column8_select : std_logic;
+  signal capslock_state : std_logic;
+  signal dummy_bit : std_logic;
   
 begin
 
@@ -502,6 +542,28 @@ begin
     );
   end block;
 
+  block4b: block
+  begin
+    uart6551zero: uart6551 port map (
+      cpuclock => clk,
+      phi0 => phi0,
+      reset => reset,
+      irq => nmi,
+      cs => uart6551cs,
+      fastio_address => unsigned(address(7 downto 0)),
+      fastio_write => w,
+      std_logic_vector(fastio_rdata) => data_o,
+      fastio_wdata => unsigned(data_i),
+      -- Port E is used for extra keys on C65 keyboard:
+      -- bit0 = caps lock (input only)
+      -- bit1 = column 8 select (output only)      
+      porte_in(1) => keyboard_column8_select,
+      porte_in(0) => '1',
+      porte_out(0) => capslock_state,
+      porte_out(1) => dummy_bit
+      );
+  end block;
+  
   block5: block
   begin
   keymapper0 : keymapper port map (
@@ -518,6 +580,13 @@ begin
     porta_out      => cia1porta_in,
     portb_out      => cia1portb_in,
 
+    capslock_out => capslock_state,
+    keyboard_column8_select_in => keyboard_column8_select,
+    pmod_clock => pmod_clock,
+    pmod_start_of_sequence => pmod_start_of_sequence,
+    pmod_data_in => pmod_data_in,
+    pmod_data_out => pmod_data_out,
+    
     -- remote keyboard input via ethernet
 --    eth_keycode_toggle => eth_keycode_toggle,
 --    eth_keycode => eth_keycode
@@ -754,6 +823,13 @@ begin
       -- compatibility (6551 actually only has 4 registers).
       -- 6551 is not currently implemented, so this is just unmapped for now,
       -- except for any read values required to allow the C65 ROM to function.
+      case address(19 downto 4) is
+        when x"D060" => uart6551cs <= '1';
+        when x"D160" => uart6551cs <= '1';
+        when x"D260" => uart6551cs <= '1';
+        when x"D360" => uart6551cs <= '1';
+        when others =>  uart6551cs <= '0';
+      end case;
 
       -- Hypervisor control (only visible from hypervisor mode) $D640 - $D67F
       -- The hypervisor is a CPU provided function.
@@ -783,6 +859,7 @@ begin
         end case;
       end if;
     else
+      uart6551cs <= '0';
       cia1cs <= '0';
       cia2cs <= '0';
       kickstartcs <= '0';

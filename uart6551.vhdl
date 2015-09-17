@@ -10,14 +10,8 @@ entity uart6551 is
   port (
     cpuclock : in std_logic;
     phi0 : in std_logic;
-    todclock : in std_logic;
     reset : in std_logic;
     irq : out std_logic := 'Z';
-
-    seg_led : out unsigned(31 downto 0);
-
-    reg_isr_out : out unsigned(7 downto 0);
-    imask_ta_out : out std_logic;
     
     ---------------------------------------------------------------------------
     -- fast IO port (clocked at core clock). 1MB address space
@@ -29,8 +23,8 @@ entity uart6551 is
     fastio_rdata : out unsigned(7 downto 0);
 
     porte_out : out std_logic_vector(1 downto 0);
-    porte_in : in std_logic_vector(1 downto 0);
-    
+    porte_in : in std_logic_vector(1 downto 0)
+    );
 end uart6551;
 
 architecture behavioural of uart6551 is
@@ -66,11 +60,10 @@ begin  -- behavioural
           case register_number is
             when x"07" =>
               fastio_rdata(7 downto 2) <= (others => 'Z');
-              -- XXX we ignore the DDR here: we should honour it
-              fastio_rdata(1 downto 0) <= porte_in;
+              fastio_rdata(1 downto 0) <= reg_porte_read;
             when x"08" =>
               fastio_rdata(7 downto 2) <= (others => 'Z');
-              fastio_rdata(1 downto 0) <= porte_ddr;
+              fastio_rdata(1 downto 0) <= unsigned(reg_porte_ddr);
             when others => fastio_rdata <= (others => 'Z');
           end case;
         end if;

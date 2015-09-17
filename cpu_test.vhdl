@@ -161,6 +161,14 @@ architecture behavior of cpu_test is
            ----------------------------------------------------------------------
            ps2data : in std_logic;
            ps2clock : in std_logic;        
+
+           ----------------------------------------------------------------------
+           -- PMOD interface for keyboard, joystick, expansion port etc board.
+           ----------------------------------------------------------------------
+           pmod_clock : in std_logic;
+           pmod_start_of_sequence : in std_logic;
+           pmod_data_in : in std_logic_vector(3 downto 0);
+           pmod_data_out : out std_logic_vector(1 downto 0);
            
            ----------------------------------------------------------------------
            -- Debug interfaces on Nexys4 board
@@ -239,12 +247,16 @@ begin
       
       ps2data => '1',
       ps2clock => '1',
+               
+      pmod_clock => '0',
+      pmod_start_of_sequence => '1',
+      pmod_data_in => "0000",
 
       miso_i => '1',
 
       qspidb => qspidb,
       qspicsn => qspicsn,      
-      qspisck => qspisck,     
+      qspisck => qspisck,
       aclsck => aclsck,
       aclMISO => '1',
       aclInt1 => '0',
