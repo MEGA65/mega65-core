@@ -170,10 +170,15 @@ begin  -- behavioural
             matrix((matrix_offset +3) downto matrix_offset) <= pmod_data_in;
           end if;
           -- Joysticks + restore + capslock + reset? (72-79, 80-87)
+          if matrix_offset = 72 then
+            -- joy 1 directions
+            joy1(3 downto 0) <= pmod_data_in;
+          end if;
           if matrix_offset = 76 then
             -- restore is active low, like all other keys
             restore_state <= pmod_data_in(3);
             capslock_out <= pmod_data_in(2);
+            joy1(4) <= pmod_data_in(0);
             if pmod_data_in(3)='1' and restore_state='0' then
               if restore_down_ticks < 25 then
                 nmi <= '0';
@@ -187,12 +192,17 @@ begin  -- behavioural
               fiftyhz_counter <= (others => '0');
             end if;
           end if;
+          if matrix_offset = 80 then
+            -- joy 2 directions
+            joy2(3 downto 0) <= pmod_data_in;
+          end if;
           if matrix_offset = 84 then
             if pmod_data_in(3)='0' then
               resetbutton_state <= '0';
             else
               resetbutton_state <= 'Z';
             end if;
+            joy2(4) <= pmod_data_in(0);
           end if;
           -- Expansion port state (88-127)
           -- Reserved for extra stuff (128-255)
