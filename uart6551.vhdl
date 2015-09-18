@@ -78,7 +78,7 @@ begin  -- behavioural
       i                              : in std_logic_vector(1 downto 0);
       o                              : in std_logic_vector(1 downto 0))
     return unsigned is
-    variable result : unsigned(2 downto 0);     
+    variable result : unsigned(1 downto 0);     
   begin  -- ddr_pick
     --report "determining read value for CIA port." &
     --  "  DDR=$" & to_hstring(ddr) &
