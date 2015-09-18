@@ -98,6 +98,11 @@ entity container is
          ps2data : in std_logic;
 
          ----------------------------------------------------------------------
+         -- PMOD B for input PCB
+         ----------------------------------------------------------------------
+         jb : inout std_logic_vector(10 downto 1) := (others => 'Z');
+         
+         ----------------------------------------------------------------------
          -- Flash RAM for holding config
          ----------------------------------------------------------------------
 --         QspiSCK : out std_logic;
@@ -505,10 +510,10 @@ begin
       ps2data =>      ps2data,
       ps2clock =>     ps2clk,
 
-      pmod_clock => pmod_clock,
-      pmod_start_of_sequence => pmod_start_of_sequence,
-      pmod_data_in => pmod_data_in,
-      pmod_data_out => pmod_data_out,
+      pmod_clock => jb(1),
+      pmod_start_of_sequence => jb(2),
+      pmod_data_in => jb(6 downto 3),
+      pmod_data_out => jb(8 downto 7),
       
       slowram_we => slowram_we,
       slowram_request_toggle => slowram_request_toggle,
