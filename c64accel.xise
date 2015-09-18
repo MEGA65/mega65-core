@@ -442,6 +442,10 @@
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="164"/>
       <association xil_pn:name="Implementation" xil_pn:seqID="164"/>
     </file>
+    <file xil_pn:name="uart6551.vhdl" xil_pn:type="FILE_VHDL">
+      <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="165"/>
+      <association xil_pn:name="Implementation" xil_pn:seqID="165"/>
+    </file>
   </files>
 
   <properties>
