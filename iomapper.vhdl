@@ -548,7 +548,7 @@ begin
       cpuclock => clk,
       phi0 => phi0,
       reset => reset,
-      irq => nmi,
+--      irq => nmi,
       cs => uart6551cs,
       fastio_address => unsigned(address(7 downto 0)),
       fastio_write => w,
