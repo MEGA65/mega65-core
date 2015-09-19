@@ -100,7 +100,8 @@ entity container is
          ----------------------------------------------------------------------
          -- PMOD B for input PCB
          ----------------------------------------------------------------------
-         jb : inout std_logic_vector(10 downto 1) := (others => 'Z');
+         jblo : inout std_logic_vector(4 downto 1) := (others => 'Z');
+         jbhi : inout std_logic_vector(10 downto 7) := (others => 'Z');
          
          ----------------------------------------------------------------------
          -- Flash RAM for holding config
@@ -510,10 +511,11 @@ begin
       ps2data =>      ps2data,
       ps2clock =>     ps2clk,
 
-      pmod_clock => jb(1),
-      pmod_start_of_sequence => jb(2),
-      pmod_data_in => jb(6 downto 3),
-      pmod_data_out => jb(10 downto 7),
+      pmod_clock => jblo(1),
+      pmod_start_of_sequence => jblo(2),
+      pmod_data_in(1 downto 0) => jblo(4 downto 3),
+      pmod_data_in(3 downto 2) => jbhi(8 downto 7),
+      pmod_data_out => jbhi(10 downto 9),
       
       slowram_we => slowram_we,
       slowram_request_toggle => slowram_request_toggle,
