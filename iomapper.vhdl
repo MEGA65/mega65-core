@@ -281,7 +281,7 @@ architecture behavioral of iomapper is
 
       porte_out : out std_logic_vector(1 downto 0);
       porte_in : in std_logic_vector(1 downto 0);
-      portf : out std_logic_vector(7 downto 0);
+      portf : inout std_logic_vector(7 downto 0);
 
       ---------------------------------------------------------------------------
       -- fast IO port (clocked at core clock). 1MB address space

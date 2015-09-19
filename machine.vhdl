@@ -542,6 +542,9 @@ architecture Behavioral of machine is
           );
   end component;
 
+  signal pmodb_in_buffer : std_logic_vector(5 downto 0);
+  signal pmodb_out_buffer : std_logic_vector(1 downto 0);
+  
   signal key_scancode : unsigned(15 downto 0);
   signal key_scancode_toggle : std_logic;
 
@@ -997,10 +1000,11 @@ begin
     pixel_newframe => pixel_newframe,
     pixel_newraster => pixel_newraster,
 
-    pmod_clock => pmod_clock,
-    pmod_start_of_sequence => pmod_start_of_sequence,
-    pmod_data_in => pmod_data_in,
-    pmod_data_out => pmod_data_out,
+    pmod_clock => pmodb_in_buffer(0),
+    pmod_start_of_sequence => pmodb_in_buffer(1),
+    pmod_data_in => pmodb_in_buffer(5 downto 2),
+    pmod_data_out => pmodb_out_buffer(1 downto 0),
+    
     pmoda => pmoda,
     
     farcallstack_we => farcallstack_we,
@@ -1111,6 +1115,16 @@ begin
     monitor_mem_stage_trace_mode => monitor_mem_stage_trace_mode,
     monitor_mem_trace_toggle => monitor_mem_trace_toggle
   );
+
+  process (cpuclock) is
+  begin
+    if rising_edge(cpuclock) then
+      pmodb_in_buffer(0) <= pmod_clock;
+      pmodb_in_buffer(1) <= pmod_start_of_sequence;
+      pmodb_in_buffer(5 downto 2) <= pmod_data_in;
+      pmod_data_out <= pmodb_out_buffer;
+    end if;
+  end process;
   
 end Behavioral;
 
