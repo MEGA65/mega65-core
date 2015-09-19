@@ -329,7 +329,7 @@ architecture Behavioral of container is
          pmod_clock : in std_logic;
          pmod_start_of_sequence : in std_logic;
          pmod_data_in : in std_logic_vector(3 downto 0);
-         pmod_data_out : out std_logic_vector(1 downto 0);
+         pmod_data_out : out std_logic_vector(3 downto 0);
 
          ----------------------------------------------------------------------
          -- Debug interfaces on Nexys4 board
@@ -513,7 +513,7 @@ begin
       pmod_clock => jb(1),
       pmod_start_of_sequence => jb(2),
       pmod_data_in => jb(6 downto 3),
-      pmod_data_out => jb(8 downto 7),
+      pmod_data_out => jb(10 downto 7),
       
       slowram_we => slowram_we,
       slowram_request_toggle => slowram_request_toggle,

@@ -43,7 +43,7 @@ entity iomapper is
         pmod_clock : in std_logic;
         pmod_start_of_sequence : in std_logic;
         pmod_data_in : in std_logic_vector(3 downto 0);
-        pmod_data_out : out std_logic_vector(1 downto 0);
+        pmod_data_out : out std_logic_vector(3 downto 0);
         
         pixel_stream_in : in unsigned (7 downto 0);
         pixel_y : in unsigned (11 downto 0);
@@ -347,7 +347,7 @@ architecture behavioral of iomapper is
     pmod_clock : in std_logic;
     pmod_start_of_sequence : in std_logic;
     pmod_data_in : in std_logic_vector(3 downto 0);
-    pmod_data_out : out std_logic_vector(1 downto 0);
+    pmod_data_out : out std_logic_vector(3 downto 0);
     
     -- CIA ports
     porta_in  : in  std_logic_vector(7 downto 0);

@@ -33,7 +33,7 @@ entity keymapper is
     pmod_clock : in std_logic;
     pmod_start_of_sequence : in std_logic;
     pmod_data_in : in std_logic_vector(3 downto 0);
-    pmod_data_out : out std_logic_vector(1 downto 0) := "ZZ";
+    pmod_data_out : out std_logic_vector(3 downto 0) := "ZZZZ";
     
     -- ethernet keyboard input interface for remote head mode
     eth_keycode_toggle : in std_logic;
