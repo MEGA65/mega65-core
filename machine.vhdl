@@ -157,6 +157,7 @@ entity machine is
          pmod_start_of_sequence : in std_logic;
          pmod_data_in : in std_logic_vector(3 downto 0);
          pmod_data_out : out std_logic_vector(1 downto 0);
+         pmoda : inout std_logic_vector(7 downto 0);
          
          ----------------------------------------------------------------------
          -- Debug interfaces on Nexys4 board
@@ -999,6 +1000,7 @@ begin
     pmod_start_of_sequence => pmod_start_of_sequence,
     pmod_data_in => pmod_data_in,
     pmod_data_out => pmod_data_out,
+    pmoda => pmoda,
     
     farcallstack_we => farcallstack_we,
     farcallstack_addr => farcallstack_addr,

@@ -104,6 +104,12 @@ entity container is
          jbhi : inout std_logic_vector(10 downto 7) := (others => 'Z');
          
          ----------------------------------------------------------------------
+         -- PMOD A for general IO while debugging and testing
+         ----------------------------------------------------------------------
+         jalo : inout std_logic_vector(4 downto 1) := (others => 'Z');
+         jahi : inout std_logic_vector(10 downto 7) := (others => 'Z');
+         
+         ----------------------------------------------------------------------
          -- Flash RAM for holding config
          ----------------------------------------------------------------------
 --         QspiSCK : out std_logic;
@@ -516,6 +522,8 @@ begin
       pmod_data_in(1 downto 0) => jblo(4 downto 3),
       pmod_data_in(3 downto 2) => jbhi(8 downto 7),
       pmod_data_out => jbhi(10 downto 9),
+      pmoda(3 downto 0) => jalo(4 downto 1);
+      pmoda(7 downto 4) => jahi(10 downto 7);
       
       slowram_we => slowram_we,
       slowram_request_toggle => slowram_request_toggle,

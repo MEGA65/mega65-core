@@ -23,7 +23,10 @@ entity uart6551 is
     fastio_rdata : out unsigned(7 downto 0);
 
     porte_out : out std_logic_vector(1 downto 0);
-    porte_in : in std_logic_vector(1 downto 0)
+    porte_in : in std_logic_vector(1 downto 0);
+
+    portf : inout std_logic_vector(7 downto 0)
+    
     );
 end uart6551;
 
@@ -32,6 +35,9 @@ architecture behavioural of uart6551 is
   signal reg_porte_out : std_logic_vector(1 downto 0) := (others => '0');
   signal reg_porte_ddr : std_logic_vector(1 downto 0) := (others => '0');
   signal reg_porte_read : unsigned(1 downto 0) := (others => '0');
+  signal reg_portf_out : std_logic_vector(7 downto 0) := (others => '0');
+  signal reg_portf_ddr : std_logic_vector(7 downto 0) := (others => '0');
+  signal reg_portf_read : unsigned(7 downto 0) := (others => '0');
 
 begin  -- behavioural
   
@@ -43,10 +49,6 @@ begin  -- behavioural
       -- Tri-state read lines if not selected
       fastio_rdata <= (others => 'Z');
     else
---      if rising_edge(cpuclock) then
-        -- XXX For debugging have 32 registers, and map
-        -- reg_porta_read and portain (and same for port b)
-        -- to extra registers for debugging.
         register_number(7 downto 4) := (others => '0');
         register_number(3 downto 0) := fastio_address(3 downto 0);
 
@@ -64,6 +66,12 @@ begin  -- behavioural
             when x"08" =>
               fastio_rdata(7 downto 2) <= (others => 'Z');
               fastio_rdata(1 downto 0) <= unsigned(reg_porte_ddr);
+            when x"0e" =>
+              -- @IO:65 $D60E PMOD port A on FPGA board (data bits)
+              fastio_rdata(7 downto 0) <= reg_portf_read;
+            when x"0f" =>
+              -- @IO:65 $D60F PMOD port A on FPGA board (DDR)
+              fastio_rdata(7 downto 0) <= unsigned(reg_portf_ddr);
             when others => fastio_rdata <= (others => 'Z');
           end case;
         end if;
@@ -100,8 +108,29 @@ begin  -- behavioural
 
       -- Calculate read value for porta and portb
       reg_porte_read <= ddr_pick(reg_porte_ddr,porte_in,reg_porte_out);        
+      reg_portf_read(7 downto 6) <= ddr_pick(reg_portf_ddr(7 downto 6),
+                                             portf(7 downto 6),
+                                             reg_portf_out(7 downto 6));
+      reg_portf_read(5 downto 4) <= ddr_pick(reg_portf_ddr(5 downto 4),
+                                             portf(5 downto 4),
+                                             reg_portf_out(5 downto 4));
+      reg_portf_read(3 downto 2) <= ddr_pick(reg_portf_ddr(3 downto 2),
+                                             portf(3 downto 2),
+                                             reg_portf_out(3 downto 2));
+      reg_portf_read(1 downto 0) <= ddr_pick(reg_portf_ddr(1 downto 0),
+                                             portf(1 downto 0),
+                                             reg_portf_out(1 downto 0));
 
       porte_out <= reg_porte_out or (not reg_porte_ddr);
+      -- Support proper tri-stating on port F which connects to FPGA board PMOD
+      -- connector.
+      for bit in 0 to 7 loop
+        if reg_portf_ddr(bit)='1' then
+          portf(bit) <= reg_portf_out(bit) or (not reg_portf_ddr(bit));
+        else
+          portf(bit) <= 'Z';
+        end if;
+      end loop;
       
       -- Check for register writing
       if fastio_write='1' and cs='1' then

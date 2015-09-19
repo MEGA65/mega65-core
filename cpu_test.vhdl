@@ -10,6 +10,8 @@ end cpu_test;
 
 architecture behavior of cpu_test is
 
+  signal pmoda : std_logic_vector(7 downto 0) := "ZZZZZZZZ";
+  
   signal pixelclock : std_logic := '0';
   signal cpuclock : std_logic := '0';
   signal ioclock : std_logic := '0';
@@ -169,6 +171,7 @@ architecture behavior of cpu_test is
            pmod_start_of_sequence : in std_logic;
            pmod_data_in : in std_logic_vector(3 downto 0);
            pmod_data_out : out std_logic_vector(1 downto 0);
+           pmoda : inout std_logic_vector(7 downto 0);
            
            ----------------------------------------------------------------------
            -- Debug interfaces on Nexys4 board
@@ -251,6 +254,7 @@ begin
       pmod_clock => '0',
       pmod_start_of_sequence => '1',
       pmod_data_in => "0000",
+      pmoda => pmoda,
 
       miso_i => '1',
 

@@ -44,6 +44,7 @@ entity iomapper is
         pmod_start_of_sequence : in std_logic;
         pmod_data_in : in std_logic_vector(3 downto 0);
         pmod_data_out : out std_logic_vector(1 downto 0);
+        pmoda : inout std_logic_vector(7 downto 0);
         
         pixel_stream_in : in unsigned (7 downto 0);
         pixel_y : in unsigned (11 downto 0);
@@ -280,6 +281,7 @@ architecture behavioral of iomapper is
 
       porte_out : out std_logic_vector(1 downto 0);
       porte_in : in std_logic_vector(1 downto 0);
+      portf : out std_logic_vector(7 downto 0);
 
       ---------------------------------------------------------------------------
       -- fast IO port (clocked at core clock). 1MB address space
@@ -560,7 +562,8 @@ begin
       porte_in(1) => keyboard_column8_select,
       porte_in(0) => '1',
       porte_out(0) => capslock_state,
-      porte_out(1) => dummy_bit
+      porte_out(1) => dummy_bit,
+      portf => pmoda
       );
   end block;
   
