@@ -139,7 +139,7 @@ begin  -- behavioural
           when x"7" => reg_porte_out<=std_logic_vector(fastio_wdata(1 downto 0));
           when x"8" => reg_porte_ddr<=std_logic_vector(fastio_wdata(1 downto 0));
           when x"e" => reg_portf_out <= std_logic_vector(fastio_wdata);
-          when x"f" => reg_portf_ddrout <= std_logic_vector(fastio_wdata);
+          when x"f" => reg_portf_ddr <= std_logic_vector(fastio_wdata);
           when others => null;
         end case;
       end if;
