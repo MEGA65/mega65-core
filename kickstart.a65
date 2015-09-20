@@ -317,12 +317,12 @@ reset_machine_state:
 		LDA #$00
 		STA $D019
 
-		; Disable reset watchdog, enable flat-32 bit addressing and ROM
-		; write-protect.		
+		; Disable reset watchdog, enable flat-32 bit addressing, don't engage
+		; ROM write protect (yet).		
 		; (The watchdog was added to catch reset problems where the machine
 		; would run off somewhere odd instead of resetting properly. Now it
 		; will auto-reset after 65535 cycles if the watchdog is not cleared).
-		lda #$06
+		lda #$02
 		sta $d67d
 
 		jsr resetdisplay
