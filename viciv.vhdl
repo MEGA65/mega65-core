@@ -265,7 +265,7 @@ architecture Behavioral of viciv is
       ----------------------------------------------------------------------
       pixelclock : in  STD_LOGIC;
       ioclock : in std_logic;
-
+      
       signal bitplane_h640 : in std_logic;
       signal bitplane_h1280 : in std_logic;
       signal bitplanes_x_start : in unsigned(7 downto 0);
@@ -332,6 +332,8 @@ architecture Behavioral of viciv is
       );
   end component;
 
+  signal reset_drive : std_logic;
+  
   signal iomode_set_toggle_last : std_logic := '0';    
 
   signal before_y_chargen_start : std_logic := '1';
@@ -1703,8 +1705,9 @@ begin
       viciv_fast <= viciv_fast_internal;
       viciii_fast <= viciii_fast_internal;
       vicii_2mhz <= vicii_2mhz_internal;
-      
-      if reset='0' then
+
+      reset_drive <= reset;
+      if reset_drive='0' then
         -- Allow kickstart ROM to be visible on reset.
         rom_at_e000 <= '0';
 

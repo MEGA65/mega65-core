@@ -190,7 +190,7 @@ component shadowram is
         );
 end component;
 
-
+  signal reset_drive : std_logic := '0';
 
   signal iomode_set_toggle_internal : std_logic := '0';
   signal rom_from_colour_ram : std_logic := '0';
@@ -2380,7 +2380,8 @@ begin
       end if;
       
       -- report "reset = " & std_logic'image(reset) severity note;
-      if reset='0' or watchdog_reset='1' then
+      reset_drive <= reset;
+      if reset_drive='0' or watchdog_reset='1' then
         state <= ResetLow;
         proceed <= '0';
         wait_states <= x"00";

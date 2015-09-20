@@ -56,6 +56,8 @@ end sid6581;
 
 architecture Behavioral of sid6581 is
 
+  signal reset_drive : std_logic;
+  
 	signal Voice_1_Freq_lo	: unsigned(7 downto 0)	:= (others => '0');
 	signal Voice_1_Freq_hi	: unsigned(7 downto 0)	:= (others => '0');
 	signal Voice_1_Pw_lo		: unsigned(7 downto 0)	:= (others => '0');
@@ -120,7 +122,7 @@ begin
 	sid_voice_1: entity work.sid_voice
 	port map(
 		clk_1MHz				=> clk_1MHz,
-		reset					=> reset,
+		reset					=> reset_drive,
 		Freq_lo				=> Voice_1_Freq_lo,
 		Freq_hi				=> Voice_1_Freq_hi,
 		Pw_lo					=> Voice_1_Pw_lo,
@@ -138,7 +140,7 @@ begin
 	sid_voice_2: entity work.sid_voice
 	port map(
 		clk_1MHz				=> clk_1MHz,
-		reset					=> reset,
+		reset					=> reset_drive,
 		Freq_lo				=> Voice_2_Freq_lo,
 		Freq_hi				=> Voice_2_Freq_hi,
 		Pw_lo					=> Voice_2_Pw_lo,
@@ -156,7 +158,7 @@ begin
 	sid_voice_3: entity work.sid_voice
 	port map(
 		clk_1MHz				=> clk_1MHz,
-		reset					=> reset,
+		reset					=> reset_drive,
 		Freq_lo				=> Voice_3_Freq_lo,
 		Freq_hi				=> Voice_3_Freq_hi,
 		Pw_lo					=> Voice_3_Pw_lo,
@@ -198,7 +200,7 @@ begin
         
 	process (clk_1MHz,reset)
 	begin
-		if reset='1' then
+		if reset_drive='1' then
 			ff1<='0';
 		else
 			if rising_edge(clk_1MHz) then
@@ -209,10 +211,11 @@ begin
 
 	process(clk32)
 	begin
-		if rising_edge(clk32) then
-			tick_q1 <= ff1;
-			tick_q2 <= tick_q1;
-		end if;
+          if rising_edge(clk32) then
+            reset_drive <= reset;
+            tick_q1 <= ff1;
+            tick_q2 <= tick_q1;
+          end if;
 	end process;
 
 	input_valid <= '1' when tick_q1 /=tick_q2 else '0';
@@ -224,7 +227,7 @@ begin
 	filters: entity work.sid_filters 
 	port map (
 		clk			=> clk32,
-		rst			=> reset,
+		rst			=> reset_drive,
 		-- SID registers.
 		Fc_lo			=> Filter_Fc_lo,
 		Fc_hi			=> Filter_Fc_hi,
@@ -250,7 +253,7 @@ begin
 	register_decoder:process(clk32)
 	begin
 		if rising_edge(clk32) then
-			if (reset = '1') then
+			if (reset_drive = '1') then
 				--------------------------------------- Voice-1
 				Voice_1_Freq_lo	<= (others => '0');
 				Voice_1_Freq_hi	<= (others => '0');

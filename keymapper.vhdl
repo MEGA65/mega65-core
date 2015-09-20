@@ -83,6 +83,7 @@ architecture behavioural of keymapper is
   signal restore_down_ticks : unsigned(7 downto 0) := (others => '0');  
   signal restore_up_ticks : unsigned(7 downto 0) := (others => '0');  
   signal fiftyhz_counter : unsigned(7 downto 0) := (others => '0');
+  signal reset_drive : std_logic;
 
   signal eth_keycode_toggle_last : std_logic := '0';
   signal ethernet_keyevent : std_logic := '0';
@@ -95,7 +96,8 @@ begin  -- behavioural
     variable portb_value : std_logic_vector(7 downto 0);
     variable porta_value : std_logic_vector(7 downto 0);
   begin  -- process keyread
-    if rising_edge(pixelclk) then
+    if rising_edge(pixelclk) then      
+      reset <= reset_drive;
       -------------------------------------------------------------------------
       -- Generate timer for keyscan timeout
       -------------------------------------------------------------------------
@@ -142,7 +144,7 @@ begin  -- behavioural
               restore_up_ticks <= restore_up_ticks + 1;
             end if;
             nmi <= 'Z';
-            reset <= resetbutton_state;
+            reset_drive <= resetbutton_state;
             hyper_trap <= 'Z';
           end if;
         end if;
@@ -185,7 +187,7 @@ begin  -- behavioural
               -- But holding it down for >2 seconds does nothing,
               -- incase someone holds it by mistake.
               elsif restore_down_ticks < 100 then
-                reset <= '0';
+                reset_drive <= '0';
               end if;
               -- Make sure that next check for releasing NMI
               -- and reset is not for almost 1/50th of a second.
@@ -313,7 +315,7 @@ begin  -- behavioural
                                -- But holding it down for >2 seconds does nothing,
                                -- incase someone holds it by mistake.
                                elsif restore_down_ticks < 100 then
-                                 reset <= '0';
+                                 reset_drive <= '0';
                                end if;
                                -- Make sure that next check for releasing NMI
                                -- and reset is not for almost 1/50th of a second.
