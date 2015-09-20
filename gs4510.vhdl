@@ -738,6 +738,10 @@ end component;
   signal slowram_datain_reflect_drive : std_logic_vector(7 downto 0);
   signal slowram_we_drive : std_logic;
 
+  signal watchdog_reset : std_logic := '0';
+  signal watchdog_fed : std_logic := '0';
+  signal watchdog_countdown : integer range 0 to 65535;
+
 begin
 
   shadowram0 : shadowram port map (
@@ -1870,10 +1874,12 @@ begin
         -- @IO:GS $D67D.0 - Hypervisor C64 ROM source select (0=DDR,1=64KB colour RAM)
         -- @IO:GS $D67D.1 - Hypervisor enable 32-bit JMP/JSR etc
         -- @IO:GS $D67D.2 - Hypervisor write protect C65 ROM $20000-$3FFFF
+        -- @IO:GS $D67D - Hypervisor watchdog register: writing any value clears the watch dog
         if long_address = x"FFD367D" and hypervisor_mode='1' then
           rom_from_colour_ram <= value(0);
           flat32_enabled <= value(1);
           rom_writeprotect <= value(2);
+          watchdog_fed <= '1';
         end if;
         -- @IO:GS $D67E - Hypervisor already-upgraded bit (sets permanently)
         if long_address = x"FFD367E" and hypervisor_mode='1' then
@@ -2358,12 +2364,28 @@ begin
       if mem_reading='1' then
         memory_read_value := read_data;
       end if;
+
+      -- Count down reset watchdog, and trigger reset if required.
+      watchdog_reset <= '0';
+      if (watchdog_fed='0') and
+        ((monitor_mem_attention_request_drive='0')
+         and (monitor_mem_trace_mode='0')) then
+        if watchdog_countdown = 0 then
+          -- Watchdog reset triggered
+          watchdog_reset <= '1';
+          watchdog_countdown <= 65535;
+        else
+          watchdog_countdown <= watchdog_countdown - 1;
+        end if;
+      end if;
       
       -- report "reset = " & std_logic'image(reset) severity note;
-      if reset='0' then
+      if reset='0' or watchdog_reset='1' then
         state <= ResetLow;
         proceed <= '0';
         wait_states <= x"00";
+        watchdog_fed <= '0';
+        watchdog_countdown <= 65535;
         reset_cpu_state;
       else
         -- Honour wait states on memory accesses
