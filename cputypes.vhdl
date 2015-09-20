@@ -71,7 +71,6 @@ package cputypes is
     mcDelayedWrite : std_logic;
     mcWriteMem : std_logic;
     mcWriteRegAddr : std_logic;
-    mcPush : std_logic;
     mcPop : std_logic;
     mcBreakFlag : std_logic;
     

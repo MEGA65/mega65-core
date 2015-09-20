@@ -4114,7 +4114,20 @@ begin
                 memory_access_address := x"000"&reg_addr;
                 memory_access_resolve_address := '1';
               end if;
-              stack_push := reg_microcode.mcPush;
+              -- XXX Timing closure issue:
+              -- There are only 5 push instructions, but we currently read the
+              -- push indication from microcode, which is pushing timing
+              -- closure out for the CPU.  So we should instead just do a case
+              -- statement on the opcode
+              -- stack_push := reg_microcode.mcPush;
+              case reg_instruction is
+                when I_PHA => stack_push := '1';
+                when I_PHP => stack_push := '1';
+                when I_PHX => stack_push := '1';
+                when I_PHY => stack_push := '1';
+                when I_PHZ => stack_push := '1';
+                when others => stack_push := '0';
+              end case;              
               stack_pop := reg_microcode.mcPop;
               if reg_microcode.mcPop='1' then
                 state <= Pop;
