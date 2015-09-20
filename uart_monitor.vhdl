@@ -143,7 +143,7 @@ architecture behavioural of uart_monitor is
     crlf &
     crlf &
     "--------------------------------" & crlf &
-    "65GS Serial Monitor" & crlf &
+    "MEGA65 Serial Monitor" & crlf &
     "build " & gitcommit & crlf &
     "--------------------------------" & crlf &
     "Type ? for help." & crlf;
