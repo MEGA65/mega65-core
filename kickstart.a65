@@ -1,4 +1,4 @@
-; C65GS Kick Start ROM.
+; MEGA65 Kick Start ROM.
 ; Paul Gardner-Stephen, 2014-2015.
 ;
 ; Purpose: 
@@ -317,6 +317,14 @@ reset_machine_state:
 		LDA #$00
 		STA $D019
 
+		; Disable reset watchdog, enable flat-32 bit addressing and ROM
+		; write-protect.		
+		; (The watchdog was added to catch reset problems where the machine
+		; would run off somewhere odd instead of resetting properly. Now it
+		; will auto-reset after 65535 cycles if the watchdog is not cleared).
+		lda #$06
+		sta $d67d
+
 		jsr resetdisplay
 		jsr erasescreen
 		jsr resetpalette
@@ -440,7 +448,7 @@ mountsystemdiskok:
 
 logook:
 		; iterate through directory entries looking for ordinary file 
-		; KICKUP.G65 to load into hypervisor memory ...
+		; KICKUP.M65 to load into hypervisor memory ...
 		; ... but only if we are not running a kick-up'd kickstart now.
 		lda $d67e
 		beq nextdirectoryentry3
@@ -545,7 +553,7 @@ postkickup:
 
 		; MILESTONE: Have file system properties.
 
-		; Look for C65GS.D81 to mount for F011 emulation
+		; Look for MEGA65.D81 to mount for F011 emulation
 		
 		; for now indicate that there is no disk in drive
 		lda #$00
@@ -720,7 +728,7 @@ loadrom:
 		jsr printmessage
 
 
-		; Load CHARROM.G65 into character ROM
+		; Load CHARROM.M65 into character ROM
 		ldx #<txt_c65gscharrom
 		ldy #>txt_c65gscharrom
 		jsr dos_setname
@@ -1160,9 +1168,9 @@ checkromok:
 		lda $d6f1
 		and #$20
 		bne checksumfails
-		; or if loading a ROM other than C65GS.ROM, then assume ROM
+		; or if loading a ROM other than MEGA65.ROM, then assume ROM
 		; is invalid
-		lda txt_c65gsrom+5
+		lda txt_c65gsrom+6
 		cmp #'.
 		bne checksumfails
 	
@@ -1914,7 +1922,7 @@ enhanced_io:
 		lda #$00
 		sta VICIV_MAGIC
 		rts
-l1:		; Enable VIC-IV / C65GS IO
+l1:		; Enable VIC-IV / MEGA65 IO
 		lda #$47
 		sta VICIV_MAGIC
 		lda #$53
@@ -1967,9 +1975,9 @@ k4:		cpx #$fd
 		lda #$34
 k2:		
 		; put character into 6th byte position of ROM file name.
-		; so no key looks for C65GS.ROM, where as 0-9 will look
-		; for C65GSx.ROM, where x is the number.
-		ldx #5
+		; so no key looks for MEGA65.ROM, where as 0-9 will look
+		; for MEGA65x.ROM, where x is the number.
+		ldx #6
 		cmp #$20
 		beq default_rom
 		sta txt_c65gsrom,x
@@ -2297,12 +2305,12 @@ hypervisor_irq:
 		rti
 
 
-; messages.  All have to be 40 bytes long
-msg_kickstart:        .byte "C65GS KICKSTART V00.03",0
+; messages.  All have to be <=40 bytes long
+msg_kickstart:        .byte "MEGA65 KICKSTART V00.04",0
 msg_romok:            .byte "ROM CHECKSUM OK - BOOTING",0
 msg_rombad:	      .byte "ROM CHECKSUM FAIL - LOADING ROM",0
-msg_charrombad:	      .byte "COULD NOT LOAD CHARROM.G65",0
-msg_charromloaded:    .byte "LOADED CHARROM.G65 ($$$$ PAGES)",0
+msg_charrombad:	      .byte "COULD NOT LOAD CHARROM.M65",0
+msg_charromloaded:    .byte "LOADED CHARROM.M65 ($$$$ PAGES)",0
 msg_tryingsdcard:     .byte "LOOKING FOR SDCARD...",0
 msg_foundsdcard:      .byte "FOUND AND RESET SDCARD",0
 msg_sdcarderror:      .byte "ERROR READING FROM SD CARD",0
@@ -2319,36 +2327,36 @@ msg_romfilelongerror: .byte "ROM TOO LONG: (READ $$$$ PAGES)",0
 msg_romfileshorterror:.byte "ROM TOO SHORT: (READ $$$$ PAGES)",0
 msg_clusternumber:    .byte " NEXT CLUSTER=$$$$$$$$",0
 msg_sectoraddress:    .byte " NEXT SECTOR=$$$$$$$$",0
-msg_nod81:	      .byte "CANNOT FIND C65GS.D81 - (ERRNO: $$)",0
-msg_foundd81:	      .byte "MOUNTING C65GS.D81 @ INTERNAL F011 DRIVE",0
-msg_d81wronglength:   .byte "FAIL: C64GS.D81 IS NOT 819200 BYTES LONG",0
-msg_d81fragged:       .byte "FAIL: C65GS.D81 IS FRAGMENTED: DEFRAG IT",0
-msg_d81mounted:	      .byte "C65GS.D81 SUCCESSFULLY MOUNTED",0
+msg_nod81:	      .byte "CANNOT FIND MEGA65.D81 - (ERRNO: $$)",0
+msg_foundd81:	      .byte "MOUNTING MEGA65.D81 @ INTERNAL F011 DRIVE",0
+msg_d81wronglength:   .byte "FAIL: MEGA65.D81 IS NOT 819200 BYTES LONG",0
+msg_d81fragged:       .byte "FAIL: MEGA65.D81 IS FRAGMENTED: DEFRAG IT",0
+msg_d81mounted:	      .byte "MEGA65.D81 SUCCESSFULLY MOUNTED",0
 msg_releasesw15:      .byte "RELEASE SW15 TO CONTINUE BOOTING.",0
-msg_romnotfound:      .byte "COULD NOT FIND ROM C65GSXXXROM",0
-msg_foundkickup:      .byte "LOADING KICKUP.G65 INTO HYPERVISOR",0
-msg_nokickup:         .byte "NO KICKUP.G65 TO LOAD (OR BROKEN)",0
+msg_romnotfound:      .byte "COULD NOT FIND ROM MEGA65XXROM",0
+msg_foundkickup:      .byte "LOADING KICKUP.M65 INTO HYPERVISOR",0
+msg_nokickup:         .byte "NO KICKUP.M65 TO LOAD (OR BROKEN)",0
 msg_kickuploaded:     .byte "KICKUP LOADED TO 00004000 - $$$$$$$$",0
 msg_alreadykicked:    .byte "RUNNING KICKED HYPERVISOR",0
 msg_etherkick:	      .byte "BOOTING VIA ETHERKICK: UDP PORT 4511",0
 msg_lookingfornextsector:
 		      .byte "LOOKING FOR NEXT SECTOR OF FILE",0
-msg_nologo:	      .byte "COULD NOT LOAD BOOTLOGO.G65 (ERRNO:$$)",0
+msg_nologo:	      .byte "COULD NOT LOAD BOOTLOGO.M65 (ERRNO:$$)",0
 msg_cdrootfailed:     .byte "COULD NOT CHDIR TO / (ERRNO:$$)",0
 		      .include "version.a65"
 
 msg_blankline:	      .byte 0
 
 ; filename of character ROM
-txt_c65gscharrom:     .byte "CHARROM.G65",0
+txt_c65gscharrom:     .byte "CHARROM.M65",0
 ; filename of ROM we want to load in FAT directory format
-txt_c65gsrom:	      .byte "C65GS.ROM",0,0
+txt_c65gsrom:	      .byte "MEGA65.ROM",0,0
 ; filename of 1581 disk image we mount by default
-txt_c65gsd81:	      .byte "C65GS.D81",0
+txt_c65gsd81:	      .byte "MEGA65.D81",0
 ; filename of kickstart update file
-txt_kickupfile:	      .byte "KICKUP.G65",0
+txt_kickupfile:	      .byte "KICKUP.M65",0
 ; filename containing boot logo
-txt_bootlogo:	      .byte "BOOTLOGO.G65",0
+txt_bootlogo:	      .byte "BOOTLOGO.M65",0
 
 diskchooserstart:
 	.incbin "diskchooser"
