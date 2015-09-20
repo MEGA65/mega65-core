@@ -505,6 +505,7 @@ architecture Behavioral of viciv is
                            EndOfChargen,
                            SpritePointerFetch,
                            SpritePointerFetch2,
+                           SpritePointerCompute1,
                            SpritePointerCompute,
                            SpriteDataFetch,
                            SpriteDataFetch2);
@@ -712,8 +713,12 @@ architecture Behavioral of viciv is
   signal postsprite_alpha_value : unsigned(7 downto 0);
   signal pixel_is_sprite : std_logic;
 
+  signal sprite_fetch_drive : std_logic := '0';
   signal sprite_fetch_sprite_number : integer range 0 to 15;
   signal sprite_fetch_byte_number : integer range 0 to 319;
+  signal sprite_fetch_sprite_number_drive : integer range 0 to 15;
+  signal sprite_fetch_byte_number_drive : integer range 0 to 319;
+  signal sprite_pointer_address : unsigned(16 downto 0);
   signal sprite_data_address : unsigned(16 downto 0);
 
   -- Compatibility registers
@@ -2314,6 +2319,8 @@ begin
       ramdata_drive <= ramdata;
       paint_ramdata <= ramdata_drive;
 
+      sprite_fetch_drive <= '0';
+      
       -- Add new sprite colission bits to the bitmap
       case vicii_sprite_sprite_colission_map is
         when "00000000" => null;
@@ -3487,8 +3494,8 @@ begin
           elsif sprite_fetch_sprite_number < 8 then
             -- Fetch sprites
             max_sprite_fetch_byte_number <= 7;
-            sprite_data_address(16 downto 3) <= vicii_sprite_pointer_address(16 downto 3);
-            sprite_data_address(2 downto 0) <=  to_unsigned(sprite_fetch_sprite_number,3);
+            sprite_pointer_address(16 downto 3) <= vicii_sprite_pointer_address(16 downto 3);
+            sprite_pointer_address(2 downto 0) <=  to_unsigned(sprite_fetch_sprite_number,3);
             report "SPRITE: will fetch pointer value from $" &
               to_hstring("000"&(vicii_sprite_pointer_address(16 downto 0) + sprite_fetch_sprite_number));
             raster_fetch_state <= SpritePointerFetch2;
@@ -3522,26 +3529,26 @@ begin
             
             -- Odd bitplanes come from 2nd 64KB RAM, even bitplanes from first.
             if (sprite_fetch_sprite_number mod 2) = 0 then
-              sprite_data_address(16) <= '0';
+              sprite_pointer_address(16) <= '0';
             else
-              sprite_data_address(16) <= '1';
+              sprite_pointer_address(16) <= '1';
             end if;
             -- Interlacing selects which of two bitplane address register
             -- fields to use
             if (reg_v400='1') and (vicii_ycounter(0)='1') then
               -- Use odd scan set
-              sprite_data_address(15 downto 13)
+              sprite_pointer_address(15 downto 13)
                 <= bitplane_addresses(sprite_fetch_sprite_number mod 8)
                 (7 downto 5);
             else
               -- Use even scan set
-              sprite_data_address(15 downto 13)
+              sprite_pointer_address(15 downto 13)
                 <= bitplane_addresses(sprite_fetch_sprite_number mod 8)
                 (3 downto 1);
             end if;
             -- XXX: VIC-IV should allow setting of the lower bits of the bitplane
             -- address
-            sprite_data_address(12 downto 0) <= (others => '0');
+            sprite_pointer_address(12 downto 0) <= (others => '0');
             if bitplane_enables(sprite_fetch_sprite_number mod 8)='0' then
               -- Don't waste fetch cycles on bitplanes that are turned off
               sprite_fetch_byte_number <= 0;
@@ -3552,7 +3559,10 @@ begin
             end if;
           end if;
         when SpritePointerFetch2 =>
-          ramaddress <= sprite_data_address;
+          ramaddress <= sprite_pointer_address;
+          raster_fetch_state <= SpritePointerCompute1;
+        when SpritePointerCompute1 =>
+          -- Drive stage for ram data to improve timing closure
           raster_fetch_state <= SpritePointerCompute;
         when SpritePointerCompute =>
           -- Sprite data address is 64*pointer value, plus the 16KB bank
@@ -3565,13 +3575,14 @@ begin
             sprite_data_address(16) <= '0';
             sprite_data_address(15) <= screen_ram_base(15);
             sprite_data_address(14) <= screen_ram_base(14);
-            sprite_data_address(13 downto 0) <= (ramdata&"000000") + to_unsigned(sprite_data_offsets(sprite_fetch_sprite_number),14);
+            sprite_data_address(13 downto 0) <= (ramdata_drive&"000000") + to_unsigned(sprite_data_offsets(sprite_fetch_sprite_number),14);
             -- sprite_data_address(5 downto 0) <= to_unsigned(sprite_data_offsets(sprite_fetch_sprite_number),6);
             report "SPRITE: sprite #"
               & integer'image(sprite_fetch_sprite_number)
-              & " pointer value = $" & to_hstring(ramdata);
+              & " pointer value = $" & to_hstring(ramdata_drive);
+          else
+            sprite_data_address <= sprite_pointer_address;
           end if;
-          sprite_spritenumber <= sprite_fetch_sprite_number;
           raster_fetch_state <= SpriteDataFetch;          
         when SpriteDataFetch =>
           report "SPRITE: fetching sprite #"
@@ -3588,12 +3599,16 @@ begin
             to_hstring(ramdata)
             & " from $" & to_hstring("000"&sprite_data_address(16 downto 0))
             & " for byte number " & integer'image(sprite_fetch_byte_number);
-          sprite_bytenumber <= sprite_fetch_byte_number;
           sprite_data_address(16 downto 0) <= sprite_data_address(16 downto 0) + 1;
           ramaddress <= sprite_data_address;
           sprite_fetch_byte_number <= sprite_fetch_byte_number + 1;
-          sprite_data_byte <= ramdata;
-          sprite_datavalid <= '1';
+
+          -- Schedule pushing fetched sprite/bitplane byte to next cycle when
+          -- the data will be available in ramdata_drive
+          sprite_fetch_drive <= '1';
+          sprite_fetch_byte_number_drive <= sprite_fetch_byte_number;
+          sprite_fetch_sprite_number_drive <= sprite_fetch_sprite_number;
+          
           -- XXX - always fetches 8 bytes of sprite data instead of 3, even if
           -- sprite is not set to 64 pixels wide mode.
           -- Bitplanes are fetched using the sprite fetch pipeline, so we fetch
@@ -3608,6 +3623,14 @@ begin
         when others => null;
       end case;
 
+      -- Push sprite data out in a drive cycle to improve timing closure.
+      if sprite_fetch_drive = '1' then
+        sprite_datavalid <= '1';
+        sprite_spritenumber <= sprite_fetch_sprite_number_drive;
+        sprite_bytenumber <= sprite_fetch_byte_number_drive;
+        sprite_data_byte <= ramdata_drive;
+      end if;
+      
       raster_buffer_write <= '0';
       case paint_fsm_state is
         when Idle =>
