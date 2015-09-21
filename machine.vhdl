@@ -374,6 +374,7 @@ architecture Behavioral of machine is
 
       led : in std_logic;
       motor : in std_logic;
+      drive_led_out : out std_logic;
 
       xray_mode : in std_logic;
       
@@ -462,6 +463,7 @@ architecture Behavioral of machine is
 
           led : out std_logic;
           motor : out std_logic;
+          drive_led_out : in std_logic;
 
           sw : in std_logic_vector(15 downto 0);
           btn : in std_logic_vector(4 downto 0);
@@ -568,6 +570,7 @@ architecture Behavioral of machine is
 
   signal led : std_logic;
   signal motor : std_logic;
+  signal drive_led_out : std_logic;
   
   signal seg_led_data : unsigned(31 downto 0);
 
@@ -918,6 +921,7 @@ begin
 
       led => led,
       motor => motor,
+      drive_led_out => drive_led_out,
 
       xray_mode => xray_mode,
       
@@ -988,6 +992,7 @@ begin
     colourram_at_dc00 => colourram_at_dc00,
     led => led,
     motor => motor,
+    drive_led_out => drive_led_out,
     sw => sw,
     btn => btn,
     seg_led => seg_led_data,

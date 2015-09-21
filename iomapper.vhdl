@@ -36,6 +36,7 @@ entity iomapper is
         
         led : out std_logic := '0';
         motor : out std_logic := '0';
+        drive_led_out : in std_logic;
 
         ps2data : in std_logic;
         ps2clock : in std_logic;
@@ -334,6 +335,9 @@ architecture behavioral of iomapper is
   port (
     pixelclk : in std_logic;
 
+    cpu_hypervisor_mode : in std_logic;
+    drive_led_out : in std_logic;
+
     last_scan_code : out std_logic_vector(12 downto 0);
 
     nmi : out std_logic := 'Z';
@@ -571,6 +575,8 @@ begin
   begin
   keymapper0 : keymapper port map (
     pixelclk       => clk,
+    cpu_hypervisor_mode => cpu_hypervisor_mode,
+    drive_led_out => drive_led_out,
     nmi => restore_nmi,
     hyper_trap => hyper_trap,
     reset => reset_out,

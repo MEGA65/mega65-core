@@ -72,6 +72,10 @@ entity viciv is
     led : in std_logic;
     motor : in std_logic;
 
+    -- Actual drive LED (including blink status) for keyboard
+    -- (the F011 does this on a real C65)
+    drive_led_out : out std_logic;
+
     vicii_2mhz : out std_logic;
     viciii_fast : out std_logic;
     viciv_fast : out std_logic;     
@@ -2895,10 +2899,12 @@ begin
         and (((led='1') and (drive_blink_phase='1'))
              or (motor='1')) then
         report "drawing drive led OSD" severity note;
+        drive_led_out <= '1';
         vgared <= x"F";
         vgagreen <= x"0";
         vgablue <= x"0";
       else
+        drive_led_out <= '0';
         vgared <= vga_out_red(3 downto 0);
         vgagreen <= vga_out_green(3 downto 0);
         vgablue <= vga_out_blue(3 downto 0);

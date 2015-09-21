@@ -9,6 +9,9 @@ entity keymapper is
   port (
     pixelclk : in std_logic;
 
+    cpu_hypervisor_mode : in std_logic;
+    drive_led_out : in std_logic;
+
     last_scan_code : out std_logic_vector(12 downto 0);
 
     nmi : out std_logic := 'Z';
@@ -163,7 +166,15 @@ begin  -- behavioural
           -- Write first four bits, and set offset for next time
           matrix_offset <= 4;
           matrix(3 downto 0) <= pmod_data_in;
+          -- First two bits of output from FPGA to input PCB is the status of
+          -- the two LEDs: power LED is on when CPU is not in hypervisor mode,
+          -- drive LED shows F011 drive status.
+          pmod_data_out(0) <= not cpu_hypervisor_mode;
+          pmod_data_out(1) <= drive_led_out;
         else
+          -- Clear output bits for bit positions for which we yet have no assignment
+          pmod_data_out <= "00";
+          
           if matrix_offset < 252 then
             matrix_offset <= matrix_offset+ 4;
           end if;
