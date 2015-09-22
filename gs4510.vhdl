@@ -136,6 +136,8 @@ entity gs4510 is
     vicii_2mhz : in std_logic;
     viciii_fast : in std_logic;
     viciv_fast : in std_logic;
+    speed_gate : in std_logic;
+    speed_gate_enable : out std_logic := '1';
     
     ---------------------------------------------------------------------------
     -- fast IO port (clocked at core clock). 1MB address space
@@ -1874,11 +1876,13 @@ begin
         -- @IO:GS $D67D.0 - Hypervisor C64 ROM source select (0=DDR,1=64KB colour RAM)
         -- @IO:GS $D67D.1 - Hypervisor enable 32-bit JMP/JSR etc
         -- @IO:GS $D67D.2 - Hypervisor write protect C65 ROM $20000-$3FFFF
+        -- @IO:GS $D67D.3 - Hypervisor enable ASC/DIN CAPS LOCK key to enable/disable CPU slow-down in C64/C128/C65 modes
         -- @IO:GS $D67D - Hypervisor watchdog register: writing any value clears the watch dog
         if long_address = x"FFD367D" and hypervisor_mode='1' then
           rom_from_colour_ram <= value(0);
           flat32_enabled <= value(1);
           rom_writeprotect <= value(2);
+          speed_gate_enable <= value(3);
           watchdog_fed <= '1';
         end if;
         -- @IO:GS $D67E - Hypervisor already-upgraded bit (sets permanently)
@@ -2318,7 +2322,7 @@ begin
         -- But the hypervisor always runs at full speed.
         fast_fetch_state <= InstructionDecode;
               cpu_speed := vicii_2mhz&viciii_fast&viciv_fast;
-        if hypervisor_mode='0' then
+        if hypervisor_mode='0' and speed_gate='1' then
           case cpu_speed is
             when "100" => -- 1mhz
               normal_fetch_state <= ProcessorPause;

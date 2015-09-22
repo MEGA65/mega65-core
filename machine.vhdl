@@ -259,6 +259,8 @@ architecture Behavioral of machine is
       vicii_2mhz : in std_logic;
       viciii_fast : in std_logic;
       viciv_fast : in std_logic;
+      speed_gate : in std_logic;
+      speed_gate_enable : out std_logic;
       
       monitor_proceed : out std_logic;
       monitor_waitstates : out unsigned(7 downto 0);
@@ -442,6 +444,9 @@ architecture Behavioral of machine is
           
           key_scancode : in unsigned(15 downto 0);
           key_scancode_toggle : in std_logic;
+
+          speed_gate : out std_logic;
+          speed_gate_enable : in std_logic;
           
           uartclock : in std_logic;
           phi0 : in std_logic;
@@ -567,7 +572,9 @@ architecture Behavioral of machine is
   signal vicii_2mhz : std_logic;
   signal viciii_fast : std_logic;
   signal viciv_fast : std_logic;
-
+  signal speed_gate : std_logic;
+  signal speed_gate_enable : std_logic;
+  
   signal led : std_logic;
   signal motor : std_logic;
   signal drive_led_out : std_logic;
@@ -806,7 +813,9 @@ begin
     irq => combinedirq,
     nmi => combinednmi,
     hyper_trap => hyper_trap,
-
+    speed_gate => speed_gate,
+    speed_gate_enable => speed_gate_enable,
+    
     ddr_state => ddr_state,
     ddr_counter => ddr_counter,
 
@@ -970,7 +979,9 @@ begin
     pixelclk => pixelclock,
     clock50mhz => clock50mhz,
     cpu_hypervisor_mode => cpu_hypervisor_mode,
-
+    speed_gate => speed_gate,
+    speed_gate_enable => speed_gate_enable,
+    
     fpga_temperature => fpga_temperature,
     
     reg_isr_out => reg_isr_out,

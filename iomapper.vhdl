@@ -16,6 +16,8 @@ entity iomapper is
         reset_out : out std_logic;
         irq : out std_logic;
         nmi : out std_logic;
+        speed_gate : out std_logic;
+        speed_gate_enable : in std_logic;
         hyper_trap : out std_logic;
         restore_nmi : out std_logic;
         cpu_hypervisor_mode : in std_logic;
@@ -348,7 +350,10 @@ architecture behavioral of iomapper is
     ps2clock  : in  std_logic;
     ps2data   : in  std_logic;
 
-    capslock_out : out std_logic;
+    speed_gate : out std_logic;
+    speed_gate_enable : in std_logic;
+    
+    capslock_out : out std_logic;    
     keyboard_column8_select_in : in std_logic;
     pmod_clock : in std_logic;
     pmod_start_of_sequence : in std_logic;
@@ -588,6 +593,9 @@ begin
     portb_in       => cia1portb_out,
     porta_out      => cia1porta_in,
     portb_out      => cia1portb_in,
+
+    speed_gate => speed_gate,
+    speed_gate_enable => speed_gate_enable,
 
     capslock_out => capslock_state,
     keyboard_column8_select_in => keyboard_column8_select,

@@ -1713,7 +1713,7 @@ begin
       
       viciv_fast <= viciv_fast_internal;
       viciii_fast <= viciii_fast_internal;
-      vicii_2mhz <= vicii_2mhz_internal;
+      vicii_2mhz <= not vicii_2mhz_internal;
 
       reset_drive <= reset;
       if reset_drive='0' then

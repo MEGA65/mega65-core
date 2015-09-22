@@ -18,6 +18,10 @@ entity keymapper is
     reset : out std_logic := 'Z';
     hyper_trap : out std_logic := 'Z';
 
+    -- USE ASC/DIN / CAPS LOCK key to control CPU speed instead of CAPS LOCK function
+    speed_gate : out std_logic := '1';
+    speed_gate_enable : in std_logic := '1';
+    
     -- appears as bit0 of $D607 (see C65 keyboard scan routine at $E406)
     capslock_out : out std_logic := 'Z';
     
@@ -190,7 +194,11 @@ begin  -- behavioural
           if matrix_offset = 76 then
             -- restore is active low, like all other keys
             restore_state <= pmod_data_in(3);
-            capslock_out <= pmod_data_in(2);
+            if speed_gate_enable='1' then
+              speed_gate <= pmod_data_in(2);
+            else
+              capslock_out <= pmod_data_in(2);
+            end if;
             joy1(4) <= pmod_data_in(0);
             if pmod_data_in(3)='1' and restore_state='0' then
               if restore_down_ticks < 25 then
