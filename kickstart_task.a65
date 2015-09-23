@@ -118,5 +118,5 @@ double_restore_trap:
 	and #$0f
 	sta $D020
 
-	; return from trap
-	sta $D67F
+	; return from hypervisor
+	sta hypervisor_enterexit_trigger
