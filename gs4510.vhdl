@@ -1005,10 +1005,6 @@ begin
           nmi_pending <= '1';        
         end if;
         nmi_state <= nmi;
-        if hyper_trap = '0' and hyper_trap_state = '1' then
-          hyper_trap_pending <= '1';        
-        end if;
-        hyper_trap_state <= hyper_trap;
         -- IRQ is level triggered.
         if (irq = '0') and (flag_i='0') then
           irq_pending <= '1';
@@ -2190,6 +2186,11 @@ begin
     -- BEGINNING OF MAIN PROCESS FOR CPU
     if rising_edge(clock) then
 
+      if hyper_trap = '0' and hyper_trap_state = '1' then
+        hyper_trap_pending <= '1';        
+      end if;
+      hyper_trap_state <= hyper_trap;
+      
       slowram_request_toggle <= slowram_request_toggle_drive;
       slowram_addr_reflect_drive <= slowram_addr_reflect;
       slowram_datain_reflect_drive <= slowram_datain_reflect;
