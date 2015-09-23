@@ -1481,7 +1481,7 @@ begin
           when "101110" => return reg_page3_physical(7 downto 0);
           when "101111" => return reg_page3_physical(15 downto 8);
           when "111100" =>
-            return "1111" & force_fast & speed_gate_enable_internal & rom_writeprotect
+            return "111" & force_fast & speed_gate_enable_internal & rom_writeprotect
               & flat32_enabled & rom_from_colour_ram;
           when "111101" =>
             return "11111" & rom_writeprotect & flat32_enabled & rom_from_colour_ram;
