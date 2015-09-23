@@ -194,6 +194,7 @@ GS $D630.6 - Thumbnail drawing was in progress.
 GS $D630.7 - Thumbnail is valid if 1.  Else there has not been a complete frame since elapsed without a trap to hypervisor mode, in which case the thumbnail may not reflect the current process.
 GS $D631 - Read port for thumbnail generator
 GS $D632 - Lower 8 bits of thumbnail buffer read address (TEMPORARY DEBUG REGISTER)
+GS $D63F.0 - Enable CPU speed control via $D030, $D031, $D054
 GS $D640 - Hypervisor A register storage
 GS $D641 - Hypervisor X register storage
 GS $D642 - Hypervisor Y register storage

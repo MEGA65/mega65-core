@@ -194,6 +194,8 @@ end component;
 
   signal reset_drive : std_logic := '0';
 
+  signal allow_slow : std_logic := '0';
+
   signal iomode_set_toggle_internal : std_logic := '0';
   signal rom_from_colour_ram : std_logic := '0';
   signal rom_writeprotect : std_logic := '0';
@@ -1679,6 +1681,11 @@ begin
         if long_address = x"FFC00A0" then
           slowram_waitstates <= value;
         end if;
+        -- @IO:GS $D63F.0 - Enable CPU speed control via $D030, $D031, $D054
+        -- (available from C64 IO context to make life easy)
+        if long_address = x"FFD063F" or long_address = x"FFD363F" then
+          allow_slow <= value(0);
+        end if;
         -- @IO:GS $D640 - Hypervisor A register storage
         if long_address = x"FFD3640" and hypervisor_mode='1' then
           hyper_a <= value;
@@ -2323,7 +2330,7 @@ begin
         -- But the hypervisor always runs at full speed.
         fast_fetch_state <= InstructionDecode;
               cpu_speed := vicii_2mhz&viciii_fast&viciv_fast;
-        if hypervisor_mode='0' and speed_gate='1' then
+        if hypervisor_mode='0' and (speed_gate='1' and allow_slow='1') then
           case cpu_speed is
             when "100" => -- 1mhz
               normal_fetch_state <= ProcessorPause;
