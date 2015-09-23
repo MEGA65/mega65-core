@@ -129,7 +129,7 @@ begin  -- behavioural
               restore_down_ticks <= restore_down_ticks + 1;
             end if;
             restore_up_ticks <= (others => '0');
-            if (restore_up_ticks>=1 and restore_up_ticks<8) then
+            if (restore_up_ticks>=1 and restore_up_ticks<18) then
               -- Trap to hypervisor when restore is double-tapped
               -- with the second tap occurring after not more than 12/50ths
               -- (~240ms)
