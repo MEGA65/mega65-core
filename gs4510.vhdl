@@ -194,7 +194,8 @@ end component;
 
   signal reset_drive : std_logic := '0';
 
-  signal allow_slow : std_logic := '0';
+  signal force_fast : std_logic := '1';
+  signal speed_gate_enable_internal : std_logic := '1';
 
   signal iomode_set_toggle_internal : std_logic := '0';
   signal rom_from_colour_ram : std_logic := '0';
@@ -976,6 +977,7 @@ begin
 
       cpuport_ddr <= x"FF";
       cpuport_value <= x"3F";
+      force_fast <= '1';
 
       -- Stop memory accesses
       colour_ram_cs <= '0';
@@ -1478,7 +1480,9 @@ begin
           when "101101" => return reg_page3_logical(15 downto 8);
           when "101110" => return reg_page3_physical(7 downto 0);
           when "101111" => return reg_page3_physical(15 downto 8);
-                           
+          when "111100" =>
+            return "1111" & force_fast & speed_gate_enable_internal & rom_writeprotect
+              & flat32_enabled & rom_from_colour_ram;
           when "111101" =>
             return "11111" & rom_writeprotect & flat32_enabled & rom_from_colour_ram;
           when "111110" =>
@@ -1596,7 +1600,13 @@ begin
       -- Write to CPU port
       if (long_address = x"0000000") then
         report "MEMORY: Writing to CPU DDR register" severity note;
-        cpuport_ddr <= value;
+        if value = x"40" then
+          force_fast <= '0';
+        elsif value = x"41" then
+          force_fast <= '1';
+        else
+          cpuport_ddr <= value;
+        end if;
       elsif (long_address = x"0000001") then
         report "MEMORY: Writing to CPU PORT register" severity note;
         cpuport_value <= value;
@@ -1680,11 +1690,6 @@ begin
         -- @IO:GS $FFC00A0 45GS10 slowram wait-states (write-only)
         if long_address = x"FFC00A0" then
           slowram_waitstates <= value;
-        end if;
-        -- @IO:GS $D63F.0 - Enable CPU speed control via $D030, $D031, $D054
-        -- (available from C64 IO context to make life easy)
-        if long_address = x"FFD063F" or long_address = x"FFD363F" then
-          allow_slow <= value(0);
         end if;
         -- @IO:GS $D640 - Hypervisor A register storage
         if long_address = x"FFD3640" and hypervisor_mode='1' then
@@ -1886,6 +1891,7 @@ begin
           flat32_enabled <= value(1);
           rom_writeprotect <= value(2);
           speed_gate_enable <= value(3);
+          speed_gate_enable_internal <= value(3);
           watchdog_fed <= '1';
         end if;
         -- @IO:GS $D67E - Hypervisor already-upgraded bit (sets permanently)
@@ -2330,7 +2336,7 @@ begin
         -- But the hypervisor always runs at full speed.
         fast_fetch_state <= InstructionDecode;
               cpu_speed := vicii_2mhz&viciii_fast&viciv_fast;
-        if hypervisor_mode='0' and (speed_gate='1' and allow_slow='1') then
+        if hypervisor_mode='0' and ((speed_gate='1') and (force_fast='0')) then
           case cpu_speed is
             when "100" => -- 1mhz
               normal_fetch_state <= ProcessorPause;
