@@ -3447,8 +3447,8 @@ begin
                   -- not.
                   paint_foreground <= glyph_colour(7 downto 4)&'0'&glyph_colour(2 downto 0);
                 else
-                  paint_mc1 <= bitmap_colour_foreground;
-                  paint_mc2 <= bitmap_colour_background;
+                  paint_mc2 <= bitmap_colour_foreground;
+                  paint_mc1 <= bitmap_colour_background;
                   paint_foreground <= glyph_colour;
                 end if;       
                 if text_mode='1' and glyph_colour(3)='0' then
