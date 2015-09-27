@@ -3440,8 +3440,8 @@ begin
                 -- Multicolour mode
                 paint_background <= screen_colour;
                 if text_mode='1' then
-                  paint_mc1 <= multi1_colour;
-                  paint_mc2 <= multi2_colour;
+                  paint_mc1 <= multi2_colour;
+                  paint_mc2 <= multi1_colour;
                   -- multi-colour text mode masks bit 3 of the foreground
                   -- colour to select whether the character is multi-colour or
                   -- not.
