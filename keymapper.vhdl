@@ -119,7 +119,26 @@ begin  -- behavioural
         -- Use this 10KHz loop to divide down to 50 hz to work out how many
         -- 50Hz ticks the restore key has been down.  If restore is not down,
         -- then reset the count to zero.
+        -- Complementary to this, we also need to know how long RESTORE has
+        -- been UP, so that we can send the hypervisor trap/freeze signal when
+        -- RESTORE has been double-tapped.
 
+        -- Double-tap restore is detected by DOWN-UP-DOWN signature.
+        -- We note how long the UP is, and if it is within our acceptable
+        -- timeframe, then we consider a double-tap to have occurred.
+        if restore_state='0' then
+          if (restore_up_ticks>=1 and restore_up_ticks<18) then
+            -- Trap to hypervisor when restore is double-tapped
+            -- with the second tap occurring after not more than 12/50ths
+            -- (~240ms)
+            hyper_trap <= '0';
+          else
+            hyper_trap <= 'Z';
+          end if;
+        else
+          hyper_trap <= 'Z';
+        end if;
+        
         fiftyhz_counter <= fiftyhz_counter + 1;
         if fiftyhz_counter = 200 then
           fiftyhz_counter <= (others => '0');
@@ -129,14 +148,6 @@ begin  -- behavioural
               restore_down_ticks <= restore_down_ticks + 1;
             end if;
             restore_up_ticks <= (others => '0');
-            if (restore_up_ticks>=1 and restore_up_ticks<18) then
-              -- Trap to hypervisor when restore is double-tapped
-              -- with the second tap occurring after not more than 12/50ths
-              -- (~240ms)
-              hyper_trap <= '0';
-            else
-              hyper_trap <= 'Z';
-            end if;
           else
             -- If restore key is not down, reset count of how long it has been
             -- down, and release NMI and reset lines in case we were asserting
@@ -200,6 +211,8 @@ begin  -- behavioural
               capslock_out <= pmod_data_in(2);
             end if;
             joy1(4) <= pmod_data_in(0);
+            -- Check for RESTORE key being released, and adjust action
+            -- based on how long it was being held down.
             if pmod_data_in(3)='1' and restore_state='0' then
               if restore_down_ticks < 25 then
                 nmi <= '0';
