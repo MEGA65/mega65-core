@@ -16,6 +16,7 @@ entity iomapper is
         reset_out : out std_logic;
         irq : out std_logic;
         nmi : out std_logic;
+        capslock_state : out std_logic;
         speed_gate : out std_logic;
         speed_gate_enable : in std_logic;
         hyper_trap : out std_logic;
@@ -464,7 +465,6 @@ architecture behavioral of iomapper is
   signal eth_keycode : unsigned(15 downto 0);
 
   signal keyboard_column8_select : std_logic;
-  signal capslock_state : std_logic;
   signal dummy_bit : std_logic;
   
 begin

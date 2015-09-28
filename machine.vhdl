@@ -440,6 +440,7 @@ architecture Behavioral of machine is
           key_scancode : in unsigned(15 downto 0);
           key_scancode_toggle : in std_logic;
 
+          capslock_state : out std_logic;
           speed_gate : out std_logic;
           speed_gate_enable : in std_logic;
           
@@ -567,6 +568,7 @@ architecture Behavioral of machine is
   signal vicii_2mhz : std_logic;
   signal viciii_fast : std_logic;
   signal viciv_fast : std_logic;
+  signal capslock_state : std_logic;
   signal speed_gate : std_logic;
   signal speed_gate_enable : std_logic;
   
@@ -713,9 +715,10 @@ begin
       led(3) <= combinednmi;
       led(4) <= io_irq;
       led(5) <= io_nmi;
-      led(13 downto 6) <= (others => '0');
+      led(12 downto 6) <= (others => '0');
       led(15) <= speed_gate_enable;
       led(14) <= speed_gate;
+      led(13) <= capslock_state;
 
       xray_mode <= sw(1);
       
@@ -977,6 +980,7 @@ begin
     pixelclk => pixelclock,
     clock50mhz => clock50mhz,
     cpu_hypervisor_mode => cpu_hypervisor_mode,
+    capslock_state => capslock_state,
     speed_gate => speed_gate,
     speed_gate_enable => speed_gate_enable,
     
