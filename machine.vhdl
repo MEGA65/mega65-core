@@ -440,7 +440,7 @@ architecture Behavioral of machine is
           key_scancode : in unsigned(15 downto 0);
           key_scancode_toggle : in std_logic;
 
-          capslock_state : out std_logic;
+          capslock_state : inout std_logic;
           speed_gate : out std_logic;
           speed_gate_enable : in std_logic;
           
