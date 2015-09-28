@@ -162,12 +162,7 @@ entity machine is
          ----------------------------------------------------------------------
          -- Debug interfaces on Nexys4 board
          ----------------------------------------------------------------------
-         led0 : out std_logic;
-         led1 : out std_logic;
-         led2 : out std_logic;
-         led3 : out std_logic;
-         led4 : out std_logic;
-         led5 : out std_logic;
+         led : out std_logic_vector(15 downto 0);
          sw : in std_logic_vector(15 downto 0);
          btn : in std_logic_vector(4 downto 0);
 
@@ -466,7 +461,7 @@ architecture Behavioral of machine is
           colourram_at_dc00 : in std_logic;
           viciii_iomode : in std_logic_vector(1 downto 0);
 
-          led : out std_logic;
+          drive_led : out std_logic;
           motor : out std_logic;
           drive_led_out : in std_logic;
 
@@ -575,7 +570,7 @@ architecture Behavioral of machine is
   signal speed_gate : std_logic;
   signal speed_gate_enable : std_logic;
   
-  signal led : std_logic;
+  signal drive_led : std_logic;
   signal motor : std_logic;
   signal drive_led_out : std_logic;
   
@@ -712,12 +707,15 @@ begin
       power_on_reset(7) <= '1';
       power_on_reset(6 downto 0) <= power_on_reset(7 downto 1);
 
-            led0 <= irq;
-      led1 <= nmi;
-      led2 <= combinedirq;
-      led3 <= combinednmi;
-      led4 <= io_irq;
-      led5 <= io_nmi;
+      led(0) <= irq;
+      led(1) <= nmi;
+      led(2) <= combinedirq;
+      led(3) <= combinednmi;
+      led(4) <= io_irq;
+      led(5) <= io_nmi;
+      led(13 downto 6) <= (others => '0');
+      led(15) <= speed_gate_enable;
+      led(14) <= speed_gate;
 
       xray_mode <= sw(1);
       
@@ -928,7 +926,7 @@ begin
       irq             => vic_irq,
       reset           => reset_combined,
 
-      led => led,
+      led => drive_led,
       motor => motor,
       drive_led_out => drive_led_out,
 
@@ -1001,7 +999,7 @@ begin
     r => fastio_read, w => fastio_write,
     data_i => fastio_wdata, data_o => fastio_rdata,
     colourram_at_dc00 => colourram_at_dc00,
-    led => led,
+    drive_led => drive_led,
     motor => motor,
     drive_led_out => drive_led_out,
     sw => sw,

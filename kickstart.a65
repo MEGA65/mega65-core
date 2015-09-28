@@ -317,7 +317,7 @@ reset_machine_state:
 		LDA #$00
 		STA $D019
 
-		; Disable reset watchdog, enable flat-32 bit addressing, don't engage
+		; Disable reset watchdog, enable flat 32-bit addressing, don't engage
 		; ROM write protect (yet), do make ASC/DIN / CAPS LOCK control CPU speed.		
 		; (The watchdog was added to catch reset problems where the machine
 		; would run off somewhere odd instead of resetting properly. Now it

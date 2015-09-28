@@ -35,8 +35,8 @@ entity iomapper is
         
         reg_isr_out : out unsigned(7 downto 0);
         imask_ta_out : out std_logic;
-        
-        led : out std_logic := '0';
+
+        drive_led : out std_logic := '0';
         motor : out std_logic := '0';
         drive_led_out : in std_logic;
 
@@ -216,7 +216,7 @@ architecture behavioral of iomapper is
       sectorbuffermapped2 : out std_logic;
       sectorbuffercs : in std_logic;
       
-      led : out std_logic := '0';
+      drive_led : out std_logic := '0';
       motor : out std_logic := '0';
 
       -------------------------------------------------------------------------
@@ -697,9 +697,9 @@ begin
     sectorbuffermapped2 => sector_buffer_mapped_read,
     sectorbuffercs => sectorbuffercs,
 
-    led => led,
+    drive_led => drive_led,
     motor => motor,
-    
+
     sw => sw,
     btn => btn,
     cs_bo => cs_bo,

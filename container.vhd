@@ -148,12 +148,7 @@ entity container is
          ----------------------------------------------------------------------
          -- Debug interfaces on Nexys4 board
          ----------------------------------------------------------------------
-         led0 : out std_logic;
-         led1 : out std_logic;
-         led2 : out std_logic;
-         led3 : out std_logic;
-         led4 : out std_logic;
-         led5 : out std_logic;
+         led : out std_logic_vector(15 downto 0);
          sw : in std_logic_vector(15 downto 0);
          btn : in std_logic_vector(4 downto 0);
 
@@ -342,12 +337,7 @@ architecture Behavioral of container is
          ----------------------------------------------------------------------
          -- Debug interfaces on Nexys4 board
          ----------------------------------------------------------------------
-         led0 : out std_logic;
-         led1 : out std_logic;
-         led2 : out std_logic;
-         led3 : out std_logic;
-         led4 : out std_logic;
-         led5 : out std_logic;
+         led : out std_logic_vector(15 downto 0);
          sw : in std_logic_vector(15 downto 0);
          btn : in std_logic_vector(4 downto 0);
 
@@ -542,12 +532,7 @@ begin
 
       fpga_temperature => fpga_temperature,
       
-      led0 => led0,
-      led1 => led1,
-      led2 => led2,
-      led3 => led3,
-      led4 => led4,
-      led5 => led5,
+      led => led,
       sw => sw,
       btn => btn,
 

@@ -75,7 +75,7 @@ entity sdcardio is
 
     last_scan_code : in std_logic_vector(12 downto 0);
     
-    led : out std_logic := '0';
+    drive_led : out std_logic := '0';
     motor : out std_logic := '0';
     
     sw : in std_logic_vector(15 downto 0);
@@ -743,7 +743,7 @@ begin  -- behavioural
               --        output will go true (low).
               f011_irqenable <= fastio_wdata(7);
               f011_led <= fastio_wdata(6);
-              led <= fastio_wdata(6);
+              drive_led <= fastio_wdata(6);
               f011_motor <= fastio_wdata(5);
               motor <= fastio_wdata(5);
               f011_swap <= fastio_wdata(4);

@@ -35,12 +35,7 @@ architecture behavior of cpu_test is
   signal cache_address : std_logic_vector(8 downto 0);
   signal cache_read_data : std_logic_vector(150 downto 0);
   
-  signal led0 : std_logic;
-  signal led1 : std_logic;
-  signal led2 : std_logic;
-  signal led3 : std_logic;
-  signal led4 : std_logic;
-  signal led5 : std_logic;
+  signal led : std_logic_vector(15 downto 0);
   signal sw : std_logic_vector(15 downto 0) := (others => '0');
   signal btn : std_logic_vector(4 downto 0) := (others => '0');
 
@@ -176,12 +171,7 @@ architecture behavior of cpu_test is
            ----------------------------------------------------------------------
            -- Debug interfaces on Nexys4 board
            ----------------------------------------------------------------------
-           led0 : out std_logic;
-           led1 : out std_logic;
-           led2 : out std_logic;
-           led3 : out std_logic;
-           led4 : out std_logic;
-           led5 : out std_logic;
+           led : out std_logic_vector(15 downto 0);
            sw : in std_logic_vector(15 downto 0);
            btn : in std_logic_vector(4 downto 0);
 
@@ -292,13 +282,7 @@ begin
       vgagreen        => vgagreen,
       vgablue         => vgablue,
       
-      led0            => led0,
-      led1            => led1,
-      led2            => led2,
-      led3            => led3,
-      led4            => led4,
-      led5            => led5,
-      
+      led             => led,
       sw              => sw,
       btn             => btn,
 
