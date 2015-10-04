@@ -24,7 +24,7 @@ entity keymapper is
     speed_gate_enable : in std_logic := '1';
     
     -- appears as bit0 of $D607 (see C65 keyboard scan routine at $E406)
-    capslock_out : out std_logic := '0';
+    capslock_out : out std_logic := '1';
     
     -- PS2 keyboard interface
     ps2clock  : in  std_logic;
@@ -217,7 +217,7 @@ begin  -- behavioural
             restore_state <= pmod_data_in(3);
             if speed_gate_enable='1' then
               speed_gate <= pmod_data_in(2);
-              capslock_out <= '0';
+              capslock_out <= '1';
             else
               capslock_out <= pmod_data_in(2);
             end if;
