@@ -17,7 +17,7 @@ entity keymapper is
     nmi : out std_logic := 'Z';
     reset : out std_logic := 'Z';
     hyper_trap : out std_logic := '1';
-    hyper_trap_count : out unsigned(7 downto 0): := x"00";
+    hyper_trap_count : out unsigned(7 downto 0) := x"00";
 
     -- USE ASC/DIN / CAPS LOCK key to control CPU speed instead of CAPS LOCK function
     speed_gate : out std_logic := '1';
