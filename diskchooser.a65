@@ -1,5 +1,8 @@
-; C65GS Disk Chooser
-; Paul Gardner-Stephen, 2014.
+; MEGA65 Disk Chooser
+; Paul Gardner-Stephen, 2014-2015.
+;
+; XXX - Directly bashes the SD card, instead of using the hypervisor SD card file
+; system routines.
 ;
 ; Purpose: 
 
