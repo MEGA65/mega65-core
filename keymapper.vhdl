@@ -35,6 +35,11 @@ entity keymapper is
     porta_out : out std_logic_vector(7 downto 0);
     portb_out : out std_logic_vector(7 downto 0);
 
+    pota_x : out unsigned(7 downto 0) := x"ff";
+    pota_y : out unsigned(7 downto 0) := x"ff";
+    potb_x : out unsigned(7 downto 0) := x"ff";    
+    potb_y : out unsigned(7 downto 0) := x"ff";
+    
     -- read from bit1 of $D607 (see C65 keyboard scan routine at $E406)?
     keyboard_column8_select_in : in std_logic;
 
@@ -246,6 +251,31 @@ begin  -- behavioural
           end if;
           -- Expansion port state (88-127)
           -- Reserved for extra stuff (128-255)
+          -- 4x 8-bit analog paddle inputs
+          if matrix_offset = 128 then
+            pota_x(7 downto 4) <= unsigned(pmod_data_in);
+          end if;
+          if matrix_offset = 132 then
+            pota_x(3 downto 0) <= unsigned(pmod_data_in);
+          end if;
+          if matrix_offset = 136 then
+            pota_y(7 downto 4) <= unsigned(pmod_data_in);
+          end if;
+          if matrix_offset = 140 then
+            pota_y(3 downto 0) <= unsigned(pmod_data_in);
+          end if;
+          if matrix_offset = 144 then
+            potb_x(7 downto 4) <= unsigned(pmod_data_in);
+          end if;
+          if matrix_offset = 148 then
+            potb_x(3 downto 0) <= unsigned(pmod_data_in);
+          end if;
+          if matrix_offset = 152 then
+            potb_y(7 downto 4) <= unsigned(pmod_data_in);
+          end if;
+          if matrix_offset = 156 then
+            potb_y(3 downto 0) <= unsigned(pmod_data_in);
+          end if;
         end if;
       end if;
 

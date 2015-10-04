@@ -369,6 +369,11 @@ architecture behavioral of iomapper is
     porta_out : out std_logic_vector(7 downto 0);
     portb_out : out std_logic_vector(7 downto 0);
 
+    pota_x : out unsigned(7 downto 0);
+    pota_y : out unsigned(7 downto 0);
+    potb_x : out unsigned(7 downto 0);    
+    potb_y : out unsigned(7 downto 0);
+    
     ---------------------------------------------------------------------------
     -- keyboard event capture via ethernet
     ---------------------------------------------------------------------------    
@@ -423,6 +428,11 @@ architecture behavioral of iomapper is
     doutb : OUT STD_LOGIC_VECTOR(63 DOWNTO 0)
     );
   end component;
+
+  signal pota_x : unsigned(7 downto 0);
+  signal pota_y : unsigned(7 downto 0);
+  signal potb_x : unsigned(7 downto 0);
+  signal potb_y : unsigned(7 downto 0);
   
   signal kickstartcs : std_logic;
 
@@ -599,6 +609,11 @@ begin
     porta_out      => cia1porta_in,
     portb_out      => cia1portb_in,
 
+    pota_x => pota_x,
+    pota_y => pota_y,
+    potb_x => potb_x,
+    potb_y => potb_y,
+    
     speed_gate => speed_gate,
     speed_gate_enable => speed_gate_enable,
 
@@ -630,8 +645,8 @@ begin
     addr => unsigned(address(4 downto 0)),
     di => unsigned(data_i),
     std_logic_vector(do) => data_o,
-    pot_x => x"01",
-    pot_y => x"02",
+    pot_x => pota_x,
+    pot_y => pota_y,
     audio_data => leftsid_audio);
   end block;
 
@@ -646,8 +661,8 @@ begin
     addr => unsigned(address(4 downto 0)),
     di => unsigned(data_i),
     std_logic_vector(do) => data_o,
-    pot_x => x"03",
-    pot_y => x"04",
+    pot_x => potb_x,
+    pot_y => potb_y,
     audio_data => rightsid_audio);
   end block;
 
