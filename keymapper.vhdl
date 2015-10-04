@@ -16,7 +16,7 @@ entity keymapper is
 
     nmi : out std_logic := 'Z';
     reset : out std_logic := 'Z';
-    hyper_trap : out std_logic := 'Z';
+    hyper_trap : out std_logic := '1';
 
     -- USE ASC/DIN / CAPS LOCK key to control CPU speed instead of CAPS LOCK function
     speed_gate : out std_logic := '1';
@@ -133,10 +133,10 @@ begin  -- behavioural
             -- (~240ms)
             hyper_trap <= '0';
           else
-            hyper_trap <= 'Z';
+            hyper_trap <= '1';
           end if;
         else
-          hyper_trap <= 'Z';
+          hyper_trap <= '1';
         end if;
         
         fiftyhz_counter <= fiftyhz_counter + 1;
@@ -163,7 +163,7 @@ begin  -- behavioural
             end if;
             nmi <= 'Z';
             reset_drive <= resetbutton_state;
-            hyper_trap <= 'Z';
+            hyper_trap <= '1';
           end if;
         end if;
       end if;
