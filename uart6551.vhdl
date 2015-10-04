@@ -69,7 +69,7 @@ begin  -- behavioural
               fastio_rdata(1 downto 0) <= unsigned(reg_porte_ddr);
             when x"0d" =>
               -- @IO:65 $D60D DEBUG - Read hyper_trap_count: will be removed after debugging.
-              fastio_rdata(7 downto 0) <= portf;
+              fastio_rdata(7 downto 0) <= unsigned(portf);
             when x"0e" =>
               -- @IO:65 $D60E PMOD port A on FPGA board (data bits)
               fastio_rdata(7 downto 0) <= reg_portf_read;
