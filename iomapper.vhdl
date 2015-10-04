@@ -286,6 +286,7 @@ architecture behavioral of iomapper is
       porte_out : out std_logic_vector(1 downto 0);
       porte_in : in std_logic_vector(1 downto 0);
       portf : inout std_logic_vector(7 downto 0);
+      portg : in std_logic_vector(7 downto 0);
 
       ---------------------------------------------------------------------------
       -- fast IO port (clocked at core clock). 1MB address space
@@ -345,7 +346,8 @@ architecture behavioral of iomapper is
 
     nmi : out std_logic := 'Z';
     reset : out std_logic := 'Z';
-    hyper_trap : out std_logic := 'Z';
+    hyper_trap : out std_logic := '1';
+    hyper_trap_count : out unsigned(7 downto 0) := x"00";
     
     -- PS2 keyboard interface
     ps2clock  : in  std_logic;
@@ -425,6 +427,8 @@ architecture behavioral of iomapper is
   signal kickstartcs : std_logic;
 
   signal reset_high : std_logic;
+
+  signal hyper_trap_count : unsigned(7 downto 0) := x"00";
   
   signal clock50hz : std_logic := '1';
   constant divisor50hz : integer := 640000; -- 64MHz/50Hz/2;
@@ -571,7 +575,8 @@ begin
       porte_in(1) => keyboard_column8_select,
       porte_in(0) => capslock_state,
       porte_out => dummy_bits,
-      portf => pmoda
+      portf => pmoda,
+      portg => std_logic_vector(hyper_trap_count)
       );
   end block;
   
@@ -583,6 +588,7 @@ begin
     drive_led_out => drive_led_out,
     nmi => restore_nmi,
     hyper_trap => hyper_trap,
+    hyper_trap_count => hyper_trap_count,
     reset => reset_out,
     ps2clock       => ps2clock,
     ps2data        => ps2data,

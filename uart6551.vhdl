@@ -25,7 +25,8 @@ entity uart6551 is
     porte_out : out std_logic_vector(1 downto 0);
     porte_in : in std_logic_vector(1 downto 0);
 
-    portf : inout std_logic_vector(7 downto 0)
+    portf : inout std_logic_vector(7 downto 0);
+    portg : in std_logic_vector(7 downto 0)
     
     );
 end uart6551;
@@ -66,6 +67,9 @@ begin  -- behavioural
             when x"08" =>
               fastio_rdata(7 downto 2) <= (others => 'Z');
               fastio_rdata(1 downto 0) <= unsigned(reg_porte_ddr);
+            when x"0d" =>
+              -- @IO:65 $D60D DEBUG - Read hyper_trap_count: will be removed after debugging.
+              fastio_rdata(7 downto 0) <= portf;
             when x"0e" =>
               -- @IO:65 $D60E PMOD port A on FPGA board (data bits)
               fastio_rdata(7 downto 0) <= reg_portf_read;

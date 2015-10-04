@@ -17,6 +17,7 @@ entity keymapper is
     nmi : out std_logic := 'Z';
     reset : out std_logic := 'Z';
     hyper_trap : out std_logic := '1';
+    hyper_trap_count : out unsigned(7 downto 0): := x"00";
 
     -- USE ASC/DIN / CAPS LOCK key to control CPU speed instead of CAPS LOCK function
     speed_gate : out std_logic := '1';
@@ -68,6 +69,8 @@ architecture behavioural of keymapper is
   constant ps2timeout : integer := 9600;
   signal ps2timer : integer range 0 to ps2timeout := 0;
 
+  signal hyper_trap_count_internal : unsigned(7 downto 0) := x"00";
+  
   signal ps2clock_samples : std_logic_vector(7 downto 0) := (others => '1');
   signal ps2clock_debounced : std_logic := '0';
 
@@ -132,6 +135,8 @@ begin  -- behavioural
             -- with the second tap occurring after not more than 12/50ths
             -- (~240ms)
             hyper_trap <= '0';
+            hyper_trap_count <= hyper_trap_count_internal + 1;
+            hyper_trap_count_internal <= hyper_trap_count_internal + 1;
           else
             hyper_trap <= '1';
           end if;
