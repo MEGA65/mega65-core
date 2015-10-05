@@ -194,7 +194,7 @@ end component;
 
   signal reset_drive : std_logic := '0';
 
-  signal force_fast : std_logic := '1';
+  signal force_fast : std_logic := '0';
   signal speed_gate_enable_internal : std_logic := '1';
 
   signal iomode_set_toggle_internal : std_logic := '0';
@@ -977,7 +977,7 @@ begin
 
       cpuport_ddr <= x"FF";
       cpuport_value <= x"3F";
-      force_fast <= '1';
+      force_fast <= '0';
 
       -- Stop memory accesses
       colour_ram_cs <= '0';
@@ -1885,6 +1885,7 @@ begin
         -- @IO:GS $D67D.1 - Hypervisor enable 32-bit JMP/JSR etc
         -- @IO:GS $D67D.2 - Hypervisor write protect C65 ROM $20000-$3FFFF
         -- @IO:GS $D67D.3 - Hypervisor enable ASC/DIN CAPS LOCK key to enable/disable CPU slow-down in C64/C128/C65 modes
+        -- @IO:GS $D67D.4 - Hypervisor force CPU to 48MHz for userland (userland can override via POKE0)
         -- @IO:GS $D67D - Hypervisor watchdog register: writing any value clears the watch dog
         if long_address = x"FFD367D" and hypervisor_mode='1' then
           rom_from_colour_ram <= value(0);
@@ -1892,6 +1893,7 @@ begin
           rom_writeprotect <= value(2);
           speed_gate_enable <= value(3);
           speed_gate_enable_internal <= value(3);
+          force_fast <= value(4);
           watchdog_fed <= '1';
         end if;
         -- @IO:GS $D67E - Hypervisor already-upgraded bit (sets permanently)

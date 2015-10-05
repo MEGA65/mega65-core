@@ -246,6 +246,7 @@ GS $D67D.0 - Hypervisor C64 ROM source select (0=DDR,1=64KB colour RAM)
 GS $D67D.1 - Hypervisor enable 32-bit JMP/JSR etc
 GS $D67D.2 - Hypervisor write protect C65 ROM $20000-$3FFFF
 GS $D67D.3 - Hypervisor enable ASC/DIN CAPS LOCK key to enable/disable CPU slow-down in C64/C128/C65 modes
+GS $D67D.4 - Hypervisor force CPU to 48MHz for userland (userland can override via POKE0)
 GS $D67E - Hypervisor already-upgraded bit (sets permanently)
 GS $D67F - Trigger trap to hypervisor
 GS $D680 - SD controller status/command

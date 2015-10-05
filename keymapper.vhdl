@@ -216,9 +216,12 @@ begin  -- behavioural
             -- restore is active low, like all other keys
             restore_state <= pmod_data_in(3);
             if speed_gate_enable='1' then
-              speed_gate <= pmod_data_in(2);
+              -- CAPS LOCK UP = force 48MHz, down = enable speed control
+              speed_gate <= not pmod_data_in(2);
               capslock_out <= '1';
             else
+              -- CAPS LOCK does CAPS LOCK, and speed control is enabled
+              speed_gate <= '1';
               capslock_out <= pmod_data_in(2);
             end if;
             joy1(4) <= pmod_data_in(0);
