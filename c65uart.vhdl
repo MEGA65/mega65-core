@@ -8,6 +8,7 @@ use work.debugtools.all;
 
 entity c65uart is
   port (
+    pixelclock : in std_logic;
     cpuclock : in std_logic;
     phi0 : in std_logic;
     reset : in std_logic;
@@ -33,19 +34,53 @@ end c65uart;
 
 architecture behavioural of c65uart is
 
+  -- Work out what fraction of a 7.09375MHz tick we cover every pixel clock.
+  -- This is used to allow us to match C65 UART speeds.
+  -- 7.09375 / 193.5 * 65536 = 2403;
+  constant baud_subcounter_step : integer := 2403;
+  signal baud_subcounter : integer range 0 to (65536 + baud_subcounter_step);
+  -- If 1, then use approximated 7.09375MHz clock, if 0 use 193.5MHz clock
+  signal clock709375 : std_logic := '1';
+
+  -- Work out 7.09375ishMHz clock ticks;
+  signal tick709375 : std_logic := '0';
+
+  -- Then merge this with 193.5MHz clock to have a single clock source used for
+  -- generating half-ticks at the requested baud rate
+  signal fine_tick : std_logic := '0';
+
+  -- Count how many fine ticks per half-baud
+  signal reg_tick_countdown : unsigned(15 downto 0) := (others => '0');
+
+  -- From that work out the half-baud ticks
+  signal half_tick : std_logic := '1';
+  
+  -- Actual C65 UART registers
+  signal reg_status : std_logic_vector(7 downto 0) := (others => '0');
+  signal reg_control : std_logic_vector(7 downto 0) := (others => '0');
+  signal reg_divisor : unsigned(15 downto 0) := (others => '0');
+  signal reg_intmask : std_logic_vector(7 downto 0) := (others => '0');
+  signal reg_intflag : std_logic_vector(7 downto 0) := (others => '0');
+  signal reg_data_tx : std_logic_vector(7 downto 0) := (others => '0');
+  signal reg_data_rx : std_logic_vector(7 downto 0) := (others => '0');
+
+  -- C65 extra 2-bit port for keyboard column 8 and capslock key state.
   signal reg_porte_out : std_logic_vector(1 downto 0) := (others => '0');
   signal reg_porte_ddr : std_logic_vector(1 downto 0) := (others => '0');
   signal reg_porte_read : unsigned(1 downto 0) := (others => '0');
+
+  -- MEGA65 PMOD register for debugging and fiddling
   signal reg_portf_out : std_logic_vector(7 downto 0) := (others => '0');
   signal reg_portf_ddr : std_logic_vector(7 downto 0) := (others => '0');
   signal reg_portf_read : unsigned(7 downto 0) := (others => '0');
 
 begin  -- behavioural
   
-  process(cpuclock,fastio_address,fastio_write
+  process(pixelclock,cpuclock,fastio_address,fastio_write
           ) is
     variable register_number : unsigned(7 downto 0);
   begin
+
     if cs='0' then
       -- Tri-state read lines if not selected
       fastio_rdata <= (others => 'Z');
@@ -61,15 +96,55 @@ begin  -- behavioural
           -- See 2.3.3.3 in c65manual.txt for register assignments
           -- (in a real C65 these registers are in the 4510)
           case register_number is
+            when x"00" =>
+              -- @IO:65 $D600 C65 UART data register (read or write)
+              fastio_rdata <= unsigned(reg_data_rx);
+              -- Clear byte read flag
+              reg_status(0) <= '0';
+              -- Clear RX over-run flag
+              reg_status(1) <= '0';
+              -- Clear RX parity error flag
+              reg_status(2) <= '0';
+              -- Clear RX framing error flag
+              reg_status(3) <= '0';
+            when x"01" =>
+              -- @IO:65 $D601 C65 UART status register
+              -- @IO:65 $D601.0 C65 UART RX byte ready flag (clear by reading $D600)
+              -- @IO:65 $D601.1 C65 UART RX overrun flag (clear by reading $D600)
+              -- @IO:65 $D601.2 C65 UART RX parity error flag (clear by reading $D600)
+              -- @IO:65 $D601.3 C65 UART RX framing error flag (clear by reading $D600)
+              fastio_rdata <= unsigned(reg_status);
+            when x"02" =>
+              -- @IO:65 $D602 C65 UART control register
+              fastio_rdata <= unsigned(reg_control);
+            when x"03" =>
+              -- @IO:65 $D603 C65 UART baud rate divisor (low byte)
+              fastio_rdata <= reg_divisor(7 downto 0);
+            when x"04" =>
+              -- @IO:65 $D604 C65 UART baud rate divisor (high byte)
+              fastio_rdata <= reg_divisor(15 downto 8);
+            when x"05" =>
+              -- @IO:65 $D605 C65 UART interrupt mask register              
+              fastio_rdata <= unsigned(reg_intmask);
+            when x"06" =>
+              -- @IO:65 $D606 C65 UART interrupt flag register              
+              fastio_rdata <= unsigned(reg_intflag);
             when x"07" =>
+              -- @IO:65 $D607 C65 UART 2-bit port data register (used for C65 keyboard)
               fastio_rdata(7 downto 2) <= (others => 'Z');
               fastio_rdata(1 downto 0) <= reg_porte_read;
             when x"08" =>
+              -- @IO:65 $D607 C65 UART 2-bit port data direction register (used for C65 keyboard)
               fastio_rdata(7 downto 2) <= (others => 'Z');
               fastio_rdata(1 downto 0) <= unsigned(reg_porte_ddr);
+            when x"09" =>
+              -- @IO:65 $D609 MEGA65 extended UART control register
+              -- @IO:65 $D609.0 UART BAUD clock source: 1 = 7.09375MHz, 0 = 193.5MHz
+              fastio_rdata(0) <= clock709375;
+              fastio_rdata(7 downto 1) <= (others => '1');
             when x"0d" =>
               -- @IO:65 $D60D DEBUG - Read hyper_trap_count: will be removed after debugging.
-              fastio_rdata(7 downto 0) <= unsigned(portf);
+              fastio_rdata(7 downto 0) <= unsigned(portg);
             when x"0e" =>
               -- @IO:65 $D60E PMOD port A on FPGA board (data bits)
               fastio_rdata(7 downto 0) <= reg_portf_read;
@@ -107,6 +182,41 @@ begin  -- behavioural
 
   variable register_number : unsigned(3 downto 0);
   begin
+    if rising_edge(pixelclock) then
+      if (baud_subcounter + baud_subcounter_step < 65536) then
+        baud_subcounter <= baud_subcounter + baud_subcounter_step;
+        tick709375 <= '0';
+      else
+        baud_subcounter <= baud_subcounter + baud_subcounter_step - 65536;
+
+        -- One baud divisor tick has elapsed.
+        -- Based on TX and RX modes, take the appropriate action.
+        -- Each tick here is 1/2 a bit.
+        tick709375 <= '1';
+      end if;
+      if tick709375='1' or clock709375='0' then
+        -- Depending on whether we are running from the 7.09375MHz
+        -- clock or the 193.5MHz pixel clock, see if we are at a baud tick
+        -- (193.5MHz clock is used for baud rates above 57.6K.)
+        fine_tick <= '1';
+      else
+        fine_tick <= '0';
+      end if;
+      if fine_tick='1' then
+        if reg_tick_countdown > 0 then
+          reg_tick_countdown <= reg_tick_countdown - 1;
+          half_tick <= '0';
+        else
+          reg_tick_countdown <= reg_divisor;
+          half_tick <= '1';
+        end if;
+      end if;
+      if half_tick = '1' then
+        -- Here we have a clock tick twice per intended bit
+        -- XXX work out what to do
+      end if;
+    end if;
+    
     if rising_edge(cpuclock) then
       register_number := fastio_address(3 downto 0);
 

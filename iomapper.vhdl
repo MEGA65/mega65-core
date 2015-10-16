@@ -278,6 +278,7 @@ architecture behavioral of iomapper is
 
   component c65uart is
     port (
+      pixelclock : in std_logic;
       cpuclock : in std_logic;
       phi0 : in std_logic;
       reset : in std_logic;
@@ -570,6 +571,7 @@ begin
   block4b: block
   begin
     c65uart0: c65uart port map (
+      pixelclock => pixelclk,
       cpuclock => clk,
       phi0 => phi0,
       reset => reset,
