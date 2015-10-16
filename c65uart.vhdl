@@ -6,7 +6,7 @@ use ieee.numeric_std.all;
 use Std.TextIO.all;
 use work.debugtools.all;
 
-entity uart6551 is
+entity c65uart is
   port (
     cpuclock : in std_logic;
     phi0 : in std_logic;
@@ -29,9 +29,9 @@ entity uart6551 is
     portg : in std_logic_vector(7 downto 0)
     
     );
-end uart6551;
+end c65uart;
 
-architecture behavioural of uart6551 is
+architecture behavioural of c65uart is
 
   signal reg_porte_out : std_logic_vector(1 downto 0) := (others => '0');
   signal reg_porte_ddr : std_logic_vector(1 downto 0) := (others => '0');

@@ -276,7 +276,7 @@ architecture behavioral of iomapper is
       );
   end component;
 
-  component uart6551 is
+  component c65uart is
     port (
       cpuclock : in std_logic;
       phi0 : in std_logic;
@@ -447,7 +447,7 @@ architecture behavioral of iomapper is
   signal cia1cs : std_logic;
   signal cia2cs : std_logic;
 
-  signal uart6551cs : std_logic;
+  signal c65uartcs : std_logic;
 
   signal sectorbuffercs : std_logic;
   signal sector_buffer_mapped_read : std_logic;
@@ -569,12 +569,12 @@ begin
 
   block4b: block
   begin
-    uart6551zero: uart6551 port map (
+    c65uart0: c65uart port map (
       cpuclock => clk,
       phi0 => phi0,
       reset => reset,
 --      irq => nmi,
-      cs => uart6551cs,
+      cs => c65uartcs,
       fastio_address => unsigned(address(7 downto 0)),
       fastio_write => w,
       std_logic_vector(fastio_rdata) => data_o,
@@ -856,16 +856,16 @@ begin
 
       -- $D500 - $D5FF is not currently used.  Probably use some for FPU.
       
-      -- $D600 - $D60F is reserved for 6551 serial UART emulation for C65
-      -- compatibility (6551 actually only has 4 registers).
+      -- $D600 - $D60F is reserved for C65 serial UART emulation for C65
+      -- compatibility (C65 UART actually only has 7 registers).
       -- 6551 is not currently implemented, so this is just unmapped for now,
       -- except for any read values required to allow the C65 ROM to function.
       case address(19 downto 4) is
-        when x"D060" => uart6551cs <= '1';
-        when x"D160" => uart6551cs <= '1';
-        when x"D260" => uart6551cs <= '1';
-        when x"D360" => uart6551cs <= '1';
-        when others =>  uart6551cs <= '0';
+        when x"D060" => c65uartcs <= '1';
+        when x"D160" => c65uartcs <= '1';
+        when x"D260" => c65uartcs <= '1';
+        when x"D360" => c65uartcs <= '1';
+        when others =>  c65uartcs <= '0';
       end case;
 
       -- Hypervisor control (only visible from hypervisor mode) $D640 - $D67F
@@ -896,7 +896,7 @@ begin
         end case;
       end if;
     else
-      uart6551cs <= '0';
+      c65uartcs <= '0';
       cia1cs <= '0';
       cia2cs <= '0';
       kickstartcs <= '0';
