@@ -108,6 +108,7 @@ entity container is
          ----------------------------------------------------------------------
          jalo : inout std_logic_vector(4 downto 1) := (others => 'Z');
          jahi : inout std_logic_vector(10 downto 7) := (others => 'Z');
+         jclo : inout std_logic_vector(4 downto 1) := (others => 'Z');
          
          ----------------------------------------------------------------------
          -- Flash RAM for holding config
