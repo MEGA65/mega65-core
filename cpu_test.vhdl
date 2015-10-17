@@ -11,6 +11,7 @@ end cpu_test;
 architecture behavior of cpu_test is
 
   signal pmoda : std_logic_vector(7 downto 0) := "ZZZZZZZZ";
+  signal pmodc : std_logic_vector(7 downto 0) := "ZZZZZZZZ";
   
   signal pixelclock : std_logic := '0';
   signal cpuclock : std_logic := '0';
@@ -167,7 +168,10 @@ architecture behavior of cpu_test is
            pmod_data_in : in std_logic_vector(3 downto 0);
            pmod_data_out : out std_logic_vector(1 downto 0);
            pmoda : inout std_logic_vector(7 downto 0);
-           
+
+           uart_rx : in std_logic;
+           uart_tx : out std_logic;
+
            ----------------------------------------------------------------------
            -- Debug interfaces on Nexys4 board
            ----------------------------------------------------------------------
@@ -246,6 +250,9 @@ begin
       pmod_data_in => "0000",
       pmoda => pmoda,
 
+      uart_rx => pmodc(1),
+      uart_tx => pmodc(2),
+
       miso_i => '1',
 
       qspidb => qspidb,
@@ -286,6 +293,7 @@ begin
       sw              => sw,
       btn             => btn,
 
+      -- UART monitor interface
       uart_txd        => uart_txd,
       rsrx            => rsrx,
 

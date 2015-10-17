@@ -333,6 +333,8 @@ architecture Behavioral of container is
          pmod_data_in : in std_logic_vector(3 downto 0);
          pmod_data_out : out std_logic_vector(1 downto 0);
          pmoda : inout std_logic_vector(7 downto 0);
+         uart_rx : in std_logic;
+         uart_tx : out std_logic;
 
          ----------------------------------------------------------------------
          -- Debug interfaces on Nexys4 board
@@ -515,6 +517,9 @@ begin
       pmod_data_out => jbhi(10 downto 9),
       pmoda(3 downto 0) => jalo(4 downto 1),
       pmoda(7 downto 4) => jahi(10 downto 7),
+
+      uart_rx => jclo(1),
+      uart_tx => jclo(2),
       
       slowram_we => slowram_we,
       slowram_request_toggle => slowram_request_toggle,

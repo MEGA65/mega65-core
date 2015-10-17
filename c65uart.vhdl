@@ -26,6 +26,9 @@ entity c65uart is
     porte_out : out std_logic_vector(1 downto 0);
     porte_in : in std_logic_vector(1 downto 0);
 
+    uart_rx : in std_logic;
+    uart_tx : out std_logic;
+    
     portf : inout std_logic_vector(7 downto 0);
     portg : in std_logic_vector(7 downto 0)
     
@@ -70,7 +73,6 @@ architecture behavioural of c65uart is
   signal tx_buffer : std_logic_vector(7 downto 0);
   signal tx_in_progress : std_logic := '0';
   signal tx_bits_to_send : integer range 0 to 8;
-  signal tx_start_bit_sent : std_logic := '0';
   signal tx_stop_bit_sent : std_logic := '0';
   signal tx_parity_bit_sent : std_logic := '0';
   signal tx_space_bit_sent : std_logic := '0';
@@ -81,7 +83,6 @@ architecture behavioural of c65uart is
   signal rx_bits_remaining : integer range 0 to 8;
   signal rx_stop_bit_got : std_logic := '0';
   signal rx_clear_flags : std_logic := '0';
-  signal uart_rx : std_logic;
   
   -- Actual C65 UART registers
   signal reg_status0_rx_full : std_logic := '0';
@@ -273,7 +274,6 @@ begin  -- behavioural
 
       -- Keep track of last 16 samples, and update RX value accordingly.
       -- We require consensus to switch between 0 and 1
-      uart_rx <= portf(0);
       rx_samples(15 downto 1) <= rx_samples(14 downto 0);
       rx_samples(0) <= uart_rx;
       if rx_samples = "1111111111111111" then
@@ -289,7 +289,36 @@ begin  -- behavioural
         -- So we now have a clock which is the target baud rate.
         -- XXX We should adjust our timing position to try to match the phase
         -- of the sender, but we aren't doing that right now. Instead, we will
-        -- use the simple consensus filtered RX signal, and just read it.        
+        -- use the simple consensus filtered RX signal, and just read it.
+
+        -- Progress TX state machine
+        uart_tx <= '1';
+        if tx_in_progress = '0' and reg_status6_tx_empty='0' and reg_ctrl7_tx_enable='1' then
+          -- Sent stop bit
+          uart_tx <= '0';
+          tx_in_progress <= '1';
+          tx_bits_to_send <= 8 - to_integer(reg_ctrl23_char_length_deduct);
+          tx_buffer <= reg_data_tx;
+          reg_status6_tx_empty <= '1';
+        end if;
+        if tx_in_progress='1' then
+          if tx_bits_to_send > 0 then
+            uart_tx <= tx_buffer(0);
+            tx_buffer(6 downto 0) <= tx_buffer(7 downto 1);
+            tx_bits_to_send <= tx_bits_to_send - 1;
+          else
+            -- Stop bit
+            -- XXX We don't support parity
+            uart_tx <= '0';
+            tx_stop_bit_sent <= '1';
+          end if;
+          if tx_stop_bit_sent = '1' then
+            tx_in_progress <= '0';
+            tx_stop_bit_sent <= '0';
+          end if;
+        end if;
+        
+        -- Progress RX state machine
         if rx_in_progress='0' then
           -- Not yet receiving a byte, so see if we see something interesting
           if filtered_rx='0' and reg_ctrl6_rx_enable='1' then

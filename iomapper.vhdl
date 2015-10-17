@@ -49,7 +49,10 @@ entity iomapper is
         pmod_data_in : in std_logic_vector(3 downto 0);
         pmod_data_out : out std_logic_vector(1 downto 0);
         pmoda : inout std_logic_vector(7 downto 0);
-        
+
+        uart_rx : in std_logic;
+        uart_tx : out std_logic;
+
         pixel_stream_in : in unsigned (7 downto 0);
         pixel_y : in unsigned (11 downto 0);
         pixel_valid : in std_logic;
@@ -284,6 +287,9 @@ architecture behavioral of iomapper is
       reset : in std_logic;
       irq : out std_logic := '1';
 
+      uart_rx : in std_logic;
+      uart_tx : out std_logic;
+      
       porte_out : out std_logic_vector(1 downto 0);
       porte_in : in std_logic_vector(1 downto 0);
       portf : inout std_logic_vector(7 downto 0);
@@ -587,6 +593,8 @@ begin
       porte_in(1) => keyboard_column8_select,
       porte_in(0) => capslock_state,
       porte_out => dummy_bits,
+      uart_rx => uart_rx,
+      uart_tx => uart_tx,
       portf => pmoda,
       portg => std_logic_vector(hyper_trap_count)
       );

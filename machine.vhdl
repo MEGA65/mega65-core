@@ -158,7 +158,10 @@ entity machine is
          pmod_data_in : in std_logic_vector(3 downto 0);
          pmod_data_out : out std_logic_vector(1 downto 0);
          pmoda : inout std_logic_vector(7 downto 0);
-         
+
+         uart_rx : in std_logic;
+         uart_tx : out std_logic;
+    
          ----------------------------------------------------------------------
          -- Debug interfaces on Nexys4 board
          ----------------------------------------------------------------------
@@ -539,7 +542,10 @@ architecture Behavioral of machine is
           tmpSCL : out std_logic;
           tmpInt : in std_logic;
           tmpCT : in std_logic;
-          
+
+          uart_rx : in std_logic;
+          uart_tx : out std_logic;
+
           ps2data : in std_logic;
           ps2clock : in std_logic
           );
@@ -1024,6 +1030,9 @@ begin
     pmod_data_out => pmodb_out_buffer(1 downto 0),
     
     pmoda => pmoda,
+
+    uart_rx => uart_rx,
+    uart_tx => uart_tx,
     
     farcallstack_we => farcallstack_we,
     farcallstack_addr => farcallstack_addr,
