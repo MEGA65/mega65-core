@@ -80,6 +80,7 @@ architecture behavioural of c65uart is
   signal rx_in_progress : std_logic := '0';
   signal rx_bits_remaining : integer range 0 to 8;
   signal rx_stop_bit_got : std_logic := '0';
+  signal rx_clear_flags : std_logic := '0';
   signal uart_rx : std_logic;
   
   -- Actual C65 UART registers
@@ -119,99 +120,6 @@ begin  -- behavioural
   
   process(pixelclock,cpuclock,fastio_address,fastio_write
           ) is
-    variable register_number : unsigned(7 downto 0);
-  begin
-
-    if cs='0' then
-      -- Tri-state read lines if not selected
-      fastio_rdata <= (others => 'Z');
-    else
-        register_number(7 downto 4) := (others => '0');
-        register_number(3 downto 0) := fastio_address(3 downto 0);
-
-        -- Reading of registers
-        if fastio_write='1' then
-          -- Tri-state read lines if writing
-          fastio_rdata <= (others => 'Z');
-        else
-          -- See 2.3.3.3 in c65manual.txt for register assignments
-          -- (in a real C65 these registers are in the 4510)
-          case register_number is
-            when x"00" =>
-              -- @IO:65 $D600 C65 UART data register (read or write)
-              fastio_rdata <= unsigned(reg_data_rx);
-              -- Clear byte read flag
-              reg_status0_rx_full <= '0';
-              -- Clear RX over-run flag
-              reg_status1_rx_overrun <= '0';
-              -- Clear RX parity error flag
-              reg_status2_rx_parity_error <= '0';
-              -- Clear RX framing error flag
-              reg_status3_rx_framing_error <= '0';
-            when x"01" =>
-              -- @IO:65 $D601 C65 UART status register
-              -- @IO:65 $D601.0 C65 UART RX byte ready flag (clear by reading $D600)
-              -- @IO:65 $D601.1 C65 UART RX overrun flag (clear by reading $D600)
-              -- @IO:65 $D601.2 C65 UART RX parity error flag (clear by reading $D600)
-              -- @IO:65 $D601.3 C65 UART RX framing error flag (clear by reading $D600)
-              fastio_rdata(0) <= reg_status0_rx_full;
-              fastio_rdata(1) <= reg_status1_rx_overrun;
-              fastio_rdata(2) <= reg_status2_rx_parity_error;
-              fastio_rdata(3) <= reg_status3_rx_framing_error;
-              fastio_rdata(4) <= reg_status4_rx_idle_mode;
-              fastio_rdata(5) <= reg_status5_tx_eot;
-              fastio_rdata(6) <= reg_status6_tx_empty;
-              fastio_rdata(7) <= reg_status7_xmit_on;              
-            when x"02" =>
-              -- @IO:65 $D602 C65 UART control register
-              fastio_rdata(0) <= reg_ctrl0_parity_even;
-              fastio_rdata(1) <= reg_ctrl1_parity_enable;
-              fastio_rdata(3 downto 2) <= reg_ctrl23_char_length_deduct;
-              fastio_rdata(5 downto 4) <= unsigned(reg_ctrl45_sync_mode_flags);
-              fastio_rdata(6) <= reg_ctrl6_rx_enable;
-              fastio_rdata(7) <= reg_ctrl7_tx_enable;
-            when x"03" =>
-              -- @IO:65 $D603 C65 UART baud rate divisor (low byte)
-              fastio_rdata <= reg_divisor(7 downto 0);
-            when x"04" =>
-              -- @IO:65 $D604 C65 UART baud rate divisor (high byte)
-              fastio_rdata <= reg_divisor(15 downto 8);
-            when x"05" =>
-              -- @IO:65 $D605 C65 UART interrupt mask register              
-              fastio_rdata <= unsigned(reg_intmask);
-            when x"06" =>
-              -- @IO:65 $D606 C65 UART interrupt flag register              
-              fastio_rdata <= unsigned(reg_intflag);
-            when x"07" =>
-              -- @IO:65 $D607 C65 UART 2-bit port data register (used for C65 keyboard)
-              fastio_rdata(7 downto 2) <= (others => 'Z');
-              fastio_rdata(1 downto 0) <= reg_porte_read;
-            when x"08" =>
-              -- @IO:65 $D607 C65 UART 2-bit port data direction register (used for C65 keyboard)
-              fastio_rdata(7 downto 2) <= (others => 'Z');
-              fastio_rdata(1 downto 0) <= unsigned(reg_porte_ddr);
-            when x"09" =>
-              -- @IO:65 $D609 MEGA65 extended UART control register
-              -- @IO:65 $D609.0 UART BAUD clock source: 1 = 7.09375MHz, 0 = 193.5MHz
-              fastio_rdata(0) <= clock709375;
-              fastio_rdata(7 downto 1) <= (others => '1');
-            when x"0d" =>
-              -- @IO:65 $D60D DEBUG - Read hyper_trap_count: will be removed after debugging.
-              fastio_rdata(7 downto 0) <= unsigned(portg);
-            when x"0e" =>
-              -- @IO:65 $D60E PMOD port A on FPGA board (data bits)
-              fastio_rdata(7 downto 0) <= reg_portf_read;
-            when x"0f" =>
-              -- @IO:65 $D60F PMOD port A on FPGA board (DDR)
-              fastio_rdata(7 downto 0) <= unsigned(reg_portf_ddr);
-            when others => fastio_rdata <= (others => 'Z');
-          end case;
-        end if;
-      end if;
---    end if;
-  end process;
-
-  process(cpuclock) is
     -- purpose: use DDR to show either input or output bits
     function ddr_pick (
       ddr                            : in std_logic_vector(1 downto 0);
@@ -233,9 +141,107 @@ begin  -- behavioural
     return result;
   end ddr_pick;
 
-  variable register_number : unsigned(3 downto 0);
+    variable register_number : unsigned(3 downto 0);
   begin
+
+    if cs='0' then
+      -- Tri-state read lines if not selected
+      fastio_rdata <= (others => 'Z');
+    else
+        register_number(3 downto 0) := fastio_address(3 downto 0);
+
+        if rising_edge(cpuclock) then
+          rx_clear_flags <= '0';
+          if fastio_write='0' and register_number = x"0" then
+            rx_clear_flags <= '1';
+          end if;
+        end if;
+        
+        -- Reading of registers
+        if fastio_write='1' then
+          -- Tri-state read lines if writing
+          fastio_rdata <= (others => 'Z');
+        else
+          -- See 2.3.3.3 in c65manual.txt for register assignments
+          -- (in a real C65 these registers are in the 4510)
+          case register_number is
+            when x"0" =>
+              -- @IO:65 $D600 C65 UART data register (read or write)
+              fastio_rdata <= unsigned(reg_data_rx);            
+            when x"1" =>
+              -- @IO:65 $D601 C65 UART status register
+              -- @IO:65 $D601.0 C65 UART RX byte ready flag (clear by reading $D600)
+              -- @IO:65 $D601.1 C65 UART RX overrun flag (clear by reading $D600)
+              -- @IO:65 $D601.2 C65 UART RX parity error flag (clear by reading $D600)
+              -- @IO:65 $D601.3 C65 UART RX framing error flag (clear by reading $D600)
+              fastio_rdata(0) <= reg_status0_rx_full;
+              fastio_rdata(1) <= reg_status1_rx_overrun;
+              fastio_rdata(2) <= reg_status2_rx_parity_error;
+              fastio_rdata(3) <= reg_status3_rx_framing_error;
+              fastio_rdata(4) <= reg_status4_rx_idle_mode;
+              fastio_rdata(5) <= reg_status5_tx_eot;
+              fastio_rdata(6) <= reg_status6_tx_empty;
+              fastio_rdata(7) <= reg_status7_xmit_on;              
+            when x"2" =>
+              -- @IO:65 $D602 C65 UART control register
+              fastio_rdata(0) <= reg_ctrl0_parity_even;
+              fastio_rdata(1) <= reg_ctrl1_parity_enable;
+              fastio_rdata(3 downto 2) <= reg_ctrl23_char_length_deduct;
+              fastio_rdata(5 downto 4) <= unsigned(reg_ctrl45_sync_mode_flags);
+              fastio_rdata(6) <= reg_ctrl6_rx_enable;
+              fastio_rdata(7) <= reg_ctrl7_tx_enable;
+            when x"3" =>
+              -- @IO:65 $D603 C65 UART baud rate divisor (low byte)
+              fastio_rdata <= reg_divisor(7 downto 0);
+            when x"4" =>
+              -- @IO:65 $D604 C65 UART baud rate divisor (high byte)
+              fastio_rdata <= reg_divisor(15 downto 8);
+            when x"5" =>
+              -- @IO:65 $D605 C65 UART interrupt mask register              
+              fastio_rdata <= unsigned(reg_intmask);
+            when x"6" =>
+              -- @IO:65 $D606 C65 UART interrupt flag register              
+              fastio_rdata <= unsigned(reg_intflag);
+            when x"7" =>
+              -- @IO:65 $D607 C65 UART 2-bit port data register (used for C65 keyboard)
+              fastio_rdata(7 downto 2) <= (others => 'Z');
+              fastio_rdata(1 downto 0) <= reg_porte_read;
+            when x"8" =>
+              -- @IO:65 $D607 C65 UART 2-bit port data direction register (used for C65 keyboard)
+              fastio_rdata(7 downto 2) <= (others => 'Z');
+              fastio_rdata(1 downto 0) <= unsigned(reg_porte_ddr);
+            when x"9" =>
+              -- @IO:65 $D609 MEGA65 extended UART control register
+              -- @IO:65 $D609.0 UART BAUD clock source: 1 = 7.09375MHz, 0 = 193.5MHz
+              fastio_rdata(0) <= clock709375;
+              fastio_rdata(7 downto 1) <= (others => '1');
+            when x"d" =>
+              -- @IO:65 $D60D DEBUG - Read hyper_trap_count: will be removed after debugging.
+              fastio_rdata(7 downto 0) <= unsigned(portg);
+            when x"e" =>
+              -- @IO:65 $D60E PMOD port A on FPGA board (data bits)
+              fastio_rdata(7 downto 0) <= reg_portf_read;
+            when x"f" =>
+              -- @IO:65 $D60F PMOD port A on FPGA board (DDR)
+              fastio_rdata(7 downto 0) <= unsigned(reg_portf_ddr);
+            when others => fastio_rdata <= (others => 'Z');
+          end case;
+        end if;
+      end if;
+        
     if rising_edge(pixelclock) then
+
+      if rx_clear_flags='1' then
+        -- Clear byte read flag
+        reg_status0_rx_full <= '0';
+        -- Clear RX over-run flag
+        reg_status1_rx_overrun <= '0';
+        -- Clear RX parity error flag
+        reg_status2_rx_parity_error <= '0';
+        -- Clear RX framing error flag
+        reg_status3_rx_framing_error <= '0';
+      end if;
+      
       if (baud_subcounter + baud_subcounter_step < 1048576) then
         baud_subcounter <= baud_subcounter + baud_subcounter_step;
         tick709375 <= '0';
@@ -283,7 +289,7 @@ begin  -- behavioural
         -- So we now have a clock which is the target baud rate.
         -- XXX We should adjust our timing position to try to match the phase
         -- of the sender, but we aren't doing that right now. Instead, we will
-        -- use the simple consensus filtered RX signal, and just read it.
+        -- use the simple consensus filtered RX signal, and just read it.        
         if rx_in_progress='0' then
           -- Not yet receiving a byte, so see if we see something interesting
           if filtered_rx='0' and reg_ctrl6_rx_enable='1' then
