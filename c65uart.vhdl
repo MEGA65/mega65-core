@@ -378,7 +378,7 @@ begin  -- behavioural
             fastio_rdata(7) <= reg_ctrl7_tx_enable;
           when x"3" => reg_divisor(7 downto 0) <= fastio_wdata;
           when x"4" => reg_divisor(15 downto 8) <= fastio_wdata;
-          when x"5" => reg_intmask <= std_logic_vector(fastio_wdata(7 downto 4));
+          when x"5" => reg_intmask <= std_logic_vector(fastio_wdata);
           when x"6" =>
             -- reg_intflag
             -- This register is not used in the C65 ROM, so we don't know how it
