@@ -36,9 +36,14 @@ architecture behavioural of c65uart is
 
   -- Work out what fraction of a 7.09375MHz tick we cover every pixel clock.
   -- This is used to allow us to match C65 UART speeds.
-  -- 7.09375 / 193.5 * 65536 = 2403;
+  -- 7.09375 / 193.5 / 16 * 1048576 = 2403;
+  -- Note that these ticks are in 1/16ths of the desired baud rate.
+  -- This limits our maximum usable baud rate to something like 193.5MHz/16 = ~10MHz
+  -- But I am not totally convinced that I have all the calculations right
+  -- here. Will need to check what actually comes out the port at particular claimed
+  -- speeds to be sure.
   constant baud_subcounter_step : integer := 2403;
-  signal baud_subcounter : integer range 0 to (65536 + baud_subcounter_step);
+  signal baud_subcounter : integer range 0 to (1048576 + baud_subcounter_step);
   -- If 1, then use approximated 7.09375MHz clock, if 0 use 193.5MHz clock
   signal clock709375 : std_logic := '1';
 
@@ -52,12 +57,48 @@ architecture behavioural of c65uart is
   -- Count how many fine ticks per half-baud
   signal reg_tick_countdown : unsigned(15 downto 0) := (others => '0');
 
-  -- From that work out the half-baud ticks
-  signal half_tick : std_logic := '1';
+  -- From that work out the baud ticks
+  signal baud_tick : std_logic := '1';
+
+  -- Filtered UART RX line
+  signal filtered_rx : std_logic := '1';
+  signal rx_samples : std_logic_vector(15 downto 0);
+
+  -- Transmit buffer for current byte
+  -- (Note the UART can also have a byte buffered in reg_data_tx, to allow
+  -- back-to-back char sending)
+  signal tx_buffer : std_logic_vector(7 downto 0);
+  signal tx_in_progress : std_logic := '0';
+  signal tx_bits_to_send : integer range 0 to 8;
+  signal tx_start_bit_sent : std_logic := '0';
+  signal tx_stop_bit_sent : std_logic := '0';
+  signal tx_parity_bit_sent : std_logic := '0';
+  signal tx_space_bit_sent : std_logic := '0';
+
+  -- Similarly track incoming bytes
+  signal rx_buffer : std_logic_vector(7 downto 0);
+  signal rx_in_progress : std_logic := '0';
+  signal rx_bits_remaining : integer range 0 to 8;
+  signal rx_stop_bit_got : std_logic := '0';
+  signal uart_rx : std_logic;
   
   -- Actual C65 UART registers
-  signal reg_status : std_logic_vector(7 downto 0) := (others => '0');
-  signal reg_control : std_logic_vector(7 downto 0) := (others => '0');
+  signal reg_status0_rx_full : std_logic := '0';
+  signal reg_status1_rx_overrun : std_logic := '0';
+  signal reg_status2_rx_parity_error : std_logic := '0';
+  signal reg_status3_rx_framing_error : std_logic := '0';
+  signal reg_status4_rx_idle_mode : std_logic := '0';  -- XXX not implemented
+  signal reg_status5_tx_eot : std_logic := '0';
+  signal reg_status6_tx_empty : std_logic := '1';
+  signal reg_status7_xmit_on : std_logic := '0';
+
+  signal reg_ctrl0_parity_even : std_logic := '0';
+  signal reg_ctrl1_parity_enable : std_logic := '0';
+  signal reg_ctrl23_char_length_deduct : unsigned(1 downto 0) := "00";
+  signal reg_ctrl45_sync_mode_flags : std_logic_vector(1 downto 0) := "00"; -- XXX not implemented
+  signal reg_ctrl6_rx_enable : std_logic := '1';
+  signal reg_ctrl7_tx_enable : std_logic := '1';
+  
   signal reg_divisor : unsigned(15 downto 0) := (others => '0');
   signal reg_intmask : std_logic_vector(7 downto 0) := (others => '0');
   signal reg_intflag : std_logic_vector(7 downto 0) := (others => '0');
@@ -100,23 +141,35 @@ begin  -- behavioural
               -- @IO:65 $D600 C65 UART data register (read or write)
               fastio_rdata <= unsigned(reg_data_rx);
               -- Clear byte read flag
-              reg_status(0) <= '0';
+              reg_status0_rx_full <= '0';
               -- Clear RX over-run flag
-              reg_status(1) <= '0';
+              reg_status1_rx_overrun <= '0';
               -- Clear RX parity error flag
-              reg_status(2) <= '0';
+              reg_status2_rx_parity_error <= '0';
               -- Clear RX framing error flag
-              reg_status(3) <= '0';
+              reg_status3_rx_framing_error <= '0';
             when x"01" =>
               -- @IO:65 $D601 C65 UART status register
               -- @IO:65 $D601.0 C65 UART RX byte ready flag (clear by reading $D600)
               -- @IO:65 $D601.1 C65 UART RX overrun flag (clear by reading $D600)
               -- @IO:65 $D601.2 C65 UART RX parity error flag (clear by reading $D600)
               -- @IO:65 $D601.3 C65 UART RX framing error flag (clear by reading $D600)
-              fastio_rdata <= unsigned(reg_status);
+              fastio_rdata(0) <= reg_status0_rx_full;
+              fastio_rdata(1) <= reg_status1_rx_overrun;
+              fastio_rdata(2) <= reg_status2_rx_parity_error;
+              fastio_rdata(3) <= reg_status3_rx_framing_error;
+              fastio_rdata(4) <= reg_status4_rx_idle_mode;
+              fastio_rdata(5) <= reg_status5_tx_eot;
+              fastio_rdata(6) <= reg_status6_tx_empty;
+              fastio_rdata(7) <= reg_status7_xmit_on;              
             when x"02" =>
               -- @IO:65 $D602 C65 UART control register
-              fastio_rdata <= unsigned(reg_control);
+              fastio_rdata(0) <= reg_ctrl0_parity_even;
+              fastio_rdata(1) <= reg_ctrl1_parity_enable;
+              fastio_rdata(3 downto 2) <= reg_ctrl23_char_length_deduct;
+              fastio_rdata(5 downto 4) <= unsigned(reg_ctrl45_sync_mode_flags);
+              fastio_rdata(6) <= reg_ctrl6_rx_enable;
+              fastio_rdata(7) <= reg_ctrl7_tx_enable;
             when x"03" =>
               -- @IO:65 $D603 C65 UART baud rate divisor (low byte)
               fastio_rdata <= reg_divisor(7 downto 0);
@@ -183,11 +236,11 @@ begin  -- behavioural
   variable register_number : unsigned(3 downto 0);
   begin
     if rising_edge(pixelclock) then
-      if (baud_subcounter + baud_subcounter_step < 65536) then
+      if (baud_subcounter + baud_subcounter_step < 1048576) then
         baud_subcounter <= baud_subcounter + baud_subcounter_step;
         tick709375 <= '0';
       else
-        baud_subcounter <= baud_subcounter + baud_subcounter_step - 65536;
+        baud_subcounter <= baud_subcounter + baud_subcounter_step - 1048576;
 
         -- One baud divisor tick has elapsed.
         -- Based on TX and RX modes, take the appropriate action.
@@ -205,15 +258,76 @@ begin  -- behavioural
       if fine_tick='1' then
         if reg_tick_countdown > 0 then
           reg_tick_countdown <= reg_tick_countdown - 1;
-          half_tick <= '0';
+          baud_tick <= '0';
         else
           reg_tick_countdown <= reg_divisor;
-          half_tick <= '1';
+          baud_tick <= '1';
         end if;
       end if;
-      if half_tick = '1' then
-        -- Here we have a clock tick twice per intended bit
-        -- XXX work out what to do
+
+      -- Keep track of last 16 samples, and update RX value accordingly.
+      -- We require consensus to switch between 0 and 1
+      uart_rx <= portf(0);
+      rx_samples(15 downto 1) <= rx_samples(14 downto 0);
+      rx_samples(0) <= uart_rx;
+      if rx_samples = "1111111111111111" then
+        filtered_rx <= '1';
+      end if;
+      if rx_samples = "0000000000000000" then
+        filtered_rx <= '0';
+      end if;
+      
+      if baud_tick = '1' then
+        -- Here we have a clock tick that is 7.09375MHz/reg_divisor
+        -- (or 193.5MHz/reg_divisor if clock709375 is not asserted).
+        -- So we now have a clock which is the target baud rate.
+        -- XXX We should adjust our timing position to try to match the phase
+        -- of the sender, but we aren't doing that right now. Instead, we will
+        -- use the simple consensus filtered RX signal, and just read it.
+        if rx_in_progress='0' then
+          -- Not yet receiving a byte, so see if we see something interesting
+          if filtered_rx='0' and reg_ctrl6_rx_enable='1' then
+            -- Start bit
+            rx_buffer <= (others => '1');
+            rx_in_progress <= '1';
+            rx_bits_remaining <= 8 - to_integer(reg_ctrl23_char_length_deduct);
+          end if;
+        else
+          -- Receiving data, parity and/or stop bit
+          if rx_bits_remaining > 0 then
+            -- Receive next bit
+            rx_buffer(6 downto 0) <= rx_buffer(7 downto 1);
+            rx_buffer(7) <= filtered_rx;
+            rx_bits_remaining <= rx_bits_remaining - 1;
+          else
+            -- Receive stop bit (or parity when we support it)
+            rx_in_progress <= '0';
+            -- Stop bit:
+            if filtered_rx='0' then
+              -- Received byte
+              reg_status0_rx_full <= '1';
+              if reg_status0_rx_full = '1' then
+              end if;
+              -- Allow short bytes
+              case reg_ctrl23_char_length_deduct is
+                when "01" => reg_data_rx(6 downto 0) <= rx_buffer(7 downto 1);
+                             reg_data_rx(7) <= '1';
+                when "10" => reg_data_rx(5 downto 0) <= rx_buffer(7 downto 2);
+                             reg_data_rx(7 downto 6) <= (others => '1');
+                when "11" => reg_data_rx(4 downto 0) <= rx_buffer(7 downto 3);
+                             reg_data_rx(7 downto 5) <= (others => '1');
+                when others => reg_data_rx <= rx_buffer;
+              end case;
+              -- XXX Work out parity and set state for reading it.
+            else
+              -- Framing error
+              reg_status3_rx_framing_error <= '1';
+              -- Make bad data visible, purely for debug purposes
+              reg_data_rx <= rx_buffer;
+            end if;
+            -- XXX Assert IRQ and/or NMI according to RX interrupt masks
+          end if;
+        end if;
       end if;
     end if;
     
@@ -250,6 +364,29 @@ begin  -- behavioural
       if fastio_write='1' and cs='1' then
         register_number := fastio_address(3 downto 0);
         case register_number is
+          when x"0" =>
+            reg_data_tx <= std_logic_vector(fastio_wdata);
+            reg_status5_tx_eot <= '0';
+            reg_status6_tx_empty <= '0';
+          when x"1" => null;
+          when x"2" =>
+            fastio_rdata(0) <= reg_ctrl0_parity_even;
+            fastio_rdata(1) <= reg_ctrl1_parity_enable;
+            fastio_rdata(3 downto 2) <= unsigned(reg_ctrl23_char_length_deduct);
+            fastio_rdata(5 downto 4) <= unsigned(reg_ctrl45_sync_mode_flags);
+            fastio_rdata(6) <= reg_ctrl6_rx_enable;
+            fastio_rdata(7) <= reg_ctrl7_tx_enable;
+          when x"3" => reg_divisor(7 downto 0) <= fastio_wdata;
+          when x"4" => reg_divisor(15 downto 8) <= fastio_wdata;
+          when x"5" => reg_intmask <= std_logic_vector(fastio_wdata(7 downto 4));
+          when x"6" =>
+            -- reg_intflag
+            -- This register is not used in the C65 ROM, so we don't know how it
+            -- should behave.  What is clear, is that there is some other mechanism
+            -- besides reading this register that actually clears the IRQ.
+            -- Perhaps just reading the data register is enough to clear an RX
+            -- IRQ?  What about TX ready IRQ? It seems like writing a character
+            -- or disabling the transmitter should clear it.
           when x"7" => reg_porte_out<=std_logic_vector(fastio_wdata(1 downto 0));
           when x"8" => reg_porte_ddr<=std_logic_vector(fastio_wdata(1 downto 0));
           when x"e" => reg_portf_out <= std_logic_vector(fastio_wdata);
