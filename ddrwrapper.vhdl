@@ -238,6 +238,8 @@ architecture Behavioral of ddrwrapper is
   signal mem_rd_data_valid   : std_logic; -- active-high 'rd_data' valid
   signal calib_complete      : std_logic; -- active-high calibration complete
 
+  signal debug_mode : std_logic := '0';
+  
   attribute FSM_ENCODING              : string;
   attribute FSM_ENCODING of cState    : signal is "GRAY";
 
@@ -457,12 +459,25 @@ begin
           if ram_write_enable_held = '1' then
             nState <= stSendData;
           else
+            -- XXX: Debug measure:
+            -- Memory address $F000000 reads the four most recent write addresses
+            -- instead of reading data from RAM            
             if (ram_address_held(26 downto 24) = "111")
               and (ram_address_held(23 downto 0) = x"000000") then
               nState <= stRecentWriteRead;
             else
               nState <= stSetCmdRd;
               -- debug_counter_localclock <= debug_counter_localclock + 1;
+            end if;
+            -- Reading $F000010 enables debug mode, and reading $F000020 disables
+            -- debug mode
+            if (ram_address_held(26 downto 24) = "111")
+              and (ram_address_held(23 downto 0) = x"000010") then
+              debug_mode <= '1';
+            end if;
+            if (ram_address_held(26 downto 24) = "111")
+              and (ram_address_held(23 downto 0) = x"000020") then
+              debug_mode <= '0';
             end if;
           end if;
           case (ram_address_held(3 downto 0)) is
@@ -525,8 +540,14 @@ begin
             and (mem_rd_data_valid = '1') and (mem_rd_data_end = '1') then
             cache_write_address <= ram_address_held(12 downto 4);
             cache_write_data(150 downto 128) <= ram_address_held(26 downto 4);
-            cache_write_data(127 downto 0) <= mem_rd_data;
-            cache_write_enable <= '1';
+            if debug_mode='0' then
+              cache_write_data(127 downto 0) <= mem_rd_data;
+            else
+              cache_write_data(127 downto 123) <= (others => '0');
+              cache_write_data(122 downto 96) <= ram_address_held(26 downto 0);
+              cache_write_data(95 downto 0) <= mem_rd_data(95 downto 0);
+            end if;
+           cache_write_enable <= '1';
             
             -- Remember the full 16 bytes read so that we can use it as a cache
             -- for subsequent reads.
