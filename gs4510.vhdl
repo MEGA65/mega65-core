@@ -230,6 +230,11 @@ end component;
   signal rom_no_write_count : unsigned(7 downto 0);
   signal rom_write : std_logic := '0';
 
+  -- GeoRAM emulation: by default point it somewhere at the DDR RAM
+  signal georam_page : unsigned(19 downto 0) := x"e0000";
+  signal georam_blockmask : unsigned(7 downto 0) := x"ff";
+  signal georam_block : unsigned(7 downto 0) := x"00";
+  signal georam_blockpage : unsigned(7 downto 0) := x"00";
 
   signal last_fastio_addr : std_logic_vector(19 downto 0);
   signal last_write_address : unsigned(27 downto 0);
@@ -1178,7 +1183,13 @@ begin
       
       -- Stop writing when reading.     
       fastio_write <= '0'; shadow_write <= '0';
-       
+
+      -- Remap GeoRAM memory accesses
+      if real_long_address(27 downto 16) = x"FFD"
+        and real_long_address(11 downto 8) = x"E" then
+        long_address := georam_page&real_long_address(7 downto 0);
+      end if;
+      
       if real_long_address(27 downto 12) = x"001F" and real_long_address(11)='1' then
         -- colour ram access: remap to $FF80000 - $FF807FF
         long_address := x"FF80"&'0'&real_long_address(10 downto 0);
@@ -1587,7 +1598,23 @@ begin
       shadow_write_flags(1) <= '1';
       
       wait_states <= shadow_wait_states;
-      
+
+      -- Remap GeoRAM memory accesses
+      if real_long_address(27 downto 16) = x"FFD"
+        and real_long_address(11 downto 8)= x"E" then
+        long_address := georam_page&real_long_address(7 downto 0);
+      end if;
+
+      -- Set GeoRAM page (gets munged later with GeoRAM base and mask values
+      -- provided by the hypervisor)
+      if real_long_address(27 downto 16) = x"ffd" then
+        if real_long_address(11 downto 0) = x"fff" then
+          georam_block <= value;
+        elsif real_long_address(11 downto 0) = x"fff" then
+          georam_blockpage <= value;
+        end if;
+      end if;
+
       if real_long_address(27 downto 12) = x"001F" and real_long_address(11)='1' then
         -- colour ram access: remap to $FF80000 - $FF807FF
         long_address := x"FF80"&'0'&real_long_address(10 downto 0);
@@ -1880,6 +1907,17 @@ begin
         if long_address = x"FFD366F" and hypervisor_mode='1' then
           reg_page3_physical(15 downto 8) <= value;
         end if;
+
+        -- @IO:GS $D670 - Hypervisor GeoRAM base address (x MB) (write-only for
+        -- now)
+        if long_address = x"FFD3670" and hypervisor_mode='1' then
+          georam_page(19 downto 12) <= value;
+        end if;
+        -- @IO:GS $D671 - Hypervisor GeoRAM address mask (applied to GeoRAM block
+        -- register) (write-only for now)
+        if long_address = x"FFD3671" and hypervisor_mode='1' then
+          georam_blockmask <= value;
+        end if;        
         
         -- @IO:GS $D67D.0 - Hypervisor C64 ROM source select (0=DDR,1=64KB colour RAM)
         -- @IO:GS $D67D.1 - Hypervisor enable 32-bit JMP/JSR etc
@@ -2201,6 +2239,10 @@ begin
     -- BEGINNING OF MAIN PROCESS FOR CPU
     if rising_edge(clock) then
 
+      -- Work out actual georam page
+      georam_page(5 downto 0) <= georam_blockpage(5 downto 0);
+      georam_page(13 downto 6) <= georam_block and georam_blockmask;
+      
       if hyper_trap = '0' and hyper_trap_state = '1' then
         hyper_trap_pending <= '1';        
       end if;
