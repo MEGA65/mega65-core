@@ -72,7 +72,7 @@ etherkick:	etherkick.c
 	gcc -Wall -g -o etherkick etherkick.c
 
 iomap.txt:	*.vhdl Makefile
-	egrep "IO:C6|IO:GS" *.vhdl | cut -f3- -d: | sort -k2 > iomap.txt
+	egrep "IO:C6|IO:GS" *.vhdl | cut -f3- -d: | sort -u -k2 > iomap.txt
 
 transfer:	kickstart.vhdl version.vhdl kickstart65gs.bin makerom makeslowram iomap.txt ipcore_dir
 	scp -pr ipcore_dir version.sh Makefile makerom c65gs.rom makerom makeslowram *.a65 *.ucf *.xise *.prj *vhd *vhdl kickstart65gs.bin 192.168.56.101:c64accel/
