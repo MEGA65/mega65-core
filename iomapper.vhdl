@@ -298,9 +298,9 @@ architecture behavioral of iomapper is
       ---------------------------------------------------------------------------
       -- fast IO port (clocked at core clock). 1MB address space
       ---------------------------------------------------------------------------
-      cs : in std_logic;
-      fastio_address : in unsigned(7 downto 0);
+      fastio_address : in unsigned(19 downto 0);
       fastio_write : in std_logic;
+      fastio_read : in std_logic;
       fastio_wdata : in unsigned(7 downto 0);
       fastio_rdata : out unsigned(7 downto 0)
       );
@@ -454,8 +454,6 @@ architecture behavioral of iomapper is
   signal cia1cs : std_logic;
   signal cia2cs : std_logic;
 
-  signal c65uartcs : std_logic;
-
   signal sectorbuffercs : std_logic;
   signal sector_buffer_mapped_read : std_logic;
 
@@ -582,9 +580,9 @@ begin
       phi0 => phi0,
       reset => reset,
 --      irq => nmi,
-      cs => c65uartcs,
-      fastio_address => unsigned(address(7 downto 0)),
+      fastio_address => unsigned(address(19 downto 0)),
       fastio_write => w,
+      fastio_read => r,
       std_logic_vector(fastio_rdata) => data_o,
       fastio_wdata => unsigned(data_i),
       -- Port E is used for extra keys on C65 keyboard:
@@ -870,13 +868,6 @@ begin
       -- compatibility (C65 UART actually only has 7 registers).
       -- 6551 is not currently implemented, so this is just unmapped for now,
       -- except for any read values required to allow the C65 ROM to function.
-      case address(19 downto 4) is
-        when x"D060" => c65uartcs <= '1';
-        when x"D160" => c65uartcs <= '1';
-        when x"D260" => c65uartcs <= '1';
-        when x"D360" => c65uartcs <= '1';
-        when others =>  c65uartcs <= '0';
-      end case;
 
       -- Hypervisor control (only visible from hypervisor mode) $D640 - $D67F
       -- The hypervisor is a CPU provided function.
@@ -906,7 +897,6 @@ begin
         end case;
       end if;
     else
-      c65uartcs <= '0';
       cia1cs <= '0';
       cia2cs <= '0';
       kickstartcs <= '0';
