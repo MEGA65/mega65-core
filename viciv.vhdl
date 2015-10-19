@@ -1500,28 +1500,28 @@ begin
                                         --  C65 are made non-functional.
                                         --  For more C65 register info, see:
                                         -- http://www.zimmers.net/cbmpics/cbm/c65/c65manual.txt
-          -- @IO:65 $D032 - Bitplane enable bits
+          -- @IO:C65 $D032 - Bitplane enable bits
         elsif register_number=50 then
           fastio_rdata <= bitplane_enables;
-          -- @IO:65 $D033 - Bitplane 0 address
-          -- @IO:65 $D034 - Bitplane 1 address
-          -- @IO:65 $D035 - Bitplane 2 address
-          -- @IO:65 $D036 - Bitplane 3 address
-          -- @IO:65 $D037 - Bitplane 4 address
-          -- @IO:65 $D038 - Bitplane 5 address
-          -- @IO:65 $D039 - Bitplane 6 address
-          -- @IO:65 $D03A - Bitplane 7 address
+          -- @IO:C65 $D033 - Bitplane 0 address
+          -- @IO:C65 $D034 - Bitplane 1 address
+          -- @IO:C65 $D035 - Bitplane 2 address
+          -- @IO:C65 $D036 - Bitplane 3 address
+          -- @IO:C65 $D037 - Bitplane 4 address
+          -- @IO:C65 $D038 - Bitplane 5 address
+          -- @IO:C65 $D039 - Bitplane 6 address
+          -- @IO:C65 $D03A - Bitplane 7 address
         elsif register_number >= 51 and register_number <= 58 then
-          -- @IO:65 $D033-$D03A - VIC-III Bitplane addresses
+          -- @IO:C65 $D033-$D03A - VIC-III Bitplane addresses
           bitplane_number := to_integer(register_number(3 downto 0)-"001");
           fastio_rdata <= std_logic_vector(bitplane_addresses(bitplane_number));
-          -- @IO:65 $D03B - Set bits to NOT bitplane contents
+          -- @IO:C65 $D03B - Set bits to NOT bitplane contents
         elsif register_number=59 then
           fastio_rdata <= bitplane_complements;
-          -- @IO:65 $D03C - Bitplane X
+          -- @IO:C65 $D03C - Bitplane X
         elsif register_number=60 then
           fastio_rdata <= std_logic_vector(dat_x);
-          -- @IO:65 $D03D - Bitplane Y
+          -- @IO:C65 $D03D - Bitplane Y
         elsif register_number=61 then
           fastio_rdata <= std_logic_vector(dat_y);
           -- $D03E - Horizontal position (screen verniers?)
@@ -2063,25 +2063,25 @@ begin
           viciv_legacy_mode_registers_touched <= '1';
         elsif register_number=50 then
           bitplane_enables <= fastio_wdata;
-          -- @IO:65 $D033 - Bitplane 0 address
-          -- @IO:65 $D034 - Bitplane 1 address
-          -- @IO:65 $D035 - Bitplane 2 address
-          -- @IO:65 $D036 - Bitplane 3 address
-          -- @IO:65 $D037 - Bitplane 4 address
-          -- @IO:65 $D038 - Bitplane 5 address
-          -- @IO:65 $D039 - Bitplane 6 address
-          -- @IO:65 $D03A - Bitplane 7 address
+          -- @IO:C65 $D033 - Bitplane 0 address
+          -- @IO:C65 $D034 - Bitplane 1 address
+          -- @IO:C65 $D035 - Bitplane 2 address
+          -- @IO:C65 $D036 - Bitplane 3 address
+          -- @IO:C65 $D037 - Bitplane 4 address
+          -- @IO:C65 $D038 - Bitplane 5 address
+          -- @IO:C65 $D039 - Bitplane 6 address
+          -- @IO:C65 $D03A - Bitplane 7 address
         elsif register_number >= 51 and register_number <= 58 then
-          -- @IO:65 $D033-$D03A - VIC-III Bitplane addresses
+          -- @IO:C65 $D033-$D03A - VIC-III Bitplane addresses
           bitplane_number := to_integer(register_number(3 downto 0)-"001");
           bitplane_addresses(bitplane_number) <= unsigned(fastio_wdata);
-          -- @IO:65 $D03B - Set bits to NOT bitplane contents
+          -- @IO:C65 $D03B - Set bits to NOT bitplane contents
         elsif register_number=59 then
           bitplane_complements <= fastio_wdata;
-          -- @IO:65 $D03C - Bitplane X
+          -- @IO:C65 $D03C - Bitplane X
         elsif register_number=60 then
           dat_x <= unsigned(fastio_wdata);
-          -- @IO:65 $D03D - Bitplane Y
+          -- @IO:C65 $D03D - Bitplane Y
         elsif register_number=61 then
           dat_y <= unsigned(fastio_wdata);        elsif register_number=64 then
           -- @IO:GS $D040 DEPRECATED - VIC-IV characters per logical text row (LSB)
