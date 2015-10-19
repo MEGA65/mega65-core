@@ -101,6 +101,19 @@ C65 $D031.4 VIC-III Bit-Plane Mode (not implemented)
 C65 $D031.5 VIC-III Enable extended attributes and 8 bit colour entries
 C65 $D031.6 C65 FAST mode (~3.5MHz)
 C65 $D031.7 VIC-III H640 (640 horizontal pixels)
+C65 $D032 - Bitplane enable bits
+C65 $D033 - Bitplane 0 address
+C65 $D033-$D03A - VIC-III Bitplane addresses
+C65 $D034 - Bitplane 1 address
+C65 $D035 - Bitplane 2 address
+C65 $D036 - Bitplane 3 address
+C65 $D037 - Bitplane 4 address
+C65 $D038 - Bitplane 5 address
+C65 $D039 - Bitplane 6 address
+C65 $D03A - Bitplane 7 address
+C65 $D03B - Set bits to NOT bitplane contents
+C65 $D03C - Bitplane X
+C65 $D03D - Bitplane Y
 GS $D040 DEPRECATED - VIC-IV characters per logical text row (LSB)
 GS $D041 DEPRECATED - VIC-IV characters per logical text row (MSB)
 GS $D042 DEPRECATED - VIC-IV horizontal hardware scale setting
@@ -274,7 +287,6 @@ GS $D6E0.3 Read ethernet RX data valid
 GS $D6E0.4 Allow remote keyboard input via magic ethernet frames
 GS $D6E1 - Ethernet interrupt and control register
 GS $D6E1.0 reset ethernet PHY
-GS $D6E1.1 - Set which RX buffer is memory mapped
 GS $D6E1.1 - Set which RX buffer is memory mapped
 GS $D6E1.2 - Indicate which RX buffer was most recently used
 GS $D6E1.3 Enable real-time video streaming via ethernet
