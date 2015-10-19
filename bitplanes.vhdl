@@ -30,7 +30,12 @@ entity bitplanes is
     -- dot clock
     ----------------------------------------------------------------------
     pixelclock : in  STD_LOGIC;
+    ioclock : in std_logic;
 
+    signal fastio_address :in unsigned(19 downto 0);
+    signal fastio_write : in std_logic;
+    signal fastio_wdata : in unsigned(7 downto 0);
+    
     -- Pull sprite data in along the chain from the previous sprite (or VIC-IV)
     signal sprite_datavalid_in : in std_logic;
     signal sprite_bytenumber_in : in integer range 0 to 15;
@@ -172,7 +177,7 @@ begin  -- behavioural
   -- 4K buffer for holding buffered bitplane data for rendering.
   -- 8 bitplanes x 512 bytes = 4KB.
   -- This is plenty, since we actually only read 80 bytes max per bitplane per
-  -- line
+  -- line (actually upto 320 bytes per line when using bitplanes in 16-colour mode)
   bitplanedatabuffer: component ram9x4k
     port map (clka => pixelclock,
               wea(0) => bitplanedatabuffer_write,
@@ -200,12 +205,24 @@ begin  -- behavioural
       );  
   end generate;  
   
-  -- purpose: sprite drawing
+  -- purpose: bitplane drawing
   -- type   : sequential
   -- inputs : pixelclock, <reset>
   -- outputs: colour, is_sprite_out
   main: process (pixelclock)
   begin  -- process main
+    if ioclock'event and ioclock = '1' then
+      -- Allow writing to bitplane buffer memory directly for debugging
+      -- (will be overridden if VIC-IV data pipeline is feeding us data)
+      -- @IO:GS $FFBF000 - $FFBFFFF - DEBUG allow writing directly to the bitplane data buffer.  Will be removed in production.
+      if fastio_write='1' and fastio_address(19 downto 12) = x"BF" then
+        bitplanedatabuffer_waddress(11 downto 0)
+          <= fastio_address(11 downto 0);
+        bitplanedatabuffer_wdata(8) <= '0';
+        bitplanedatabuffer_wdata(7 downto 0) <= fastio_wdata;
+        bitplanedatabuffer_write <= '1';
+      end if;
+    end if;
     if pixelclock'event and pixelclock = '1' then  -- rising clock edge
 
       -- Copy sprite colission status out
@@ -236,8 +253,6 @@ begin  -- behavioural
         bitplanedatabuffer_wdata(8) <= '0';
         bitplanedatabuffer_wdata(7 downto 0) <= sprite_data_in;
         bitplanedatabuffer_write <= '1';
-      else
-        bitplanedatabuffer_write <= '0';
       end if;      
       
       if sprite_number_for_data_in > 7 then

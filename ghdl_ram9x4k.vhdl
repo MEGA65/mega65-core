@@ -22,6 +22,7 @@ architecture behavioural of ram9x4k is
 
   type ram_t is array (0 to 4095) of std_logic_vector(8 downto 0);
 
+  -- Put some values in to help debug bitplanes
   signal ram : ram_t;
 begin  -- behavioural
 

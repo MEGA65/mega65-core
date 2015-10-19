@@ -49,7 +49,7 @@ entity vicii_sprites is
     ----------------------------------------------------------------------
     pixelclock : in  STD_LOGIC;
     ioclock : in std_logic;
-    
+
     signal bitplane_h640 : in std_logic;
     signal bitplane_h1280 : in std_logic;
     signal bitplanes_x_start : in unsigned(7 downto 0);
@@ -202,6 +202,11 @@ architecture behavioural of vicii_sprites is
       -- dot clock
       ----------------------------------------------------------------------
       pixelclock : in  STD_LOGIC;
+      ioclock : in std_logic;
+
+      signal fastio_address : in unsigned(19 downto 0);
+      signal fastio_write : in std_logic;
+      signal fastio_wdata : in unsigned(7 downto 0);
       
       -- Pull sprite data in along the chain from the previous sprite (or VIC-IV)
       signal sprite_datavalid_in : in std_logic;
@@ -958,6 +963,11 @@ begin
 
   bitplanes0: component bitplanes
     port map(pixelclock => pixelclock,
+             ioclock => ioclock,
+
+             fastio_address => unsigned(fastio_addr),
+             fastio_wdata => unsigned(fastio_wdata),
+             fastio_write => fastio_write,
 
              -- Bitplane mode information
              bitplane_h640 => bitplane_h640,

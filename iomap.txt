@@ -190,6 +190,7 @@ C65 $D084 - F011 FDC track
 C65 $D085 - F011 FDC data register
 C65 $D085 - F011 FDC sector
 C65 $D086 - F011 FDC side
+C65 $D0A0-$D0FF - Reserved for C65 RAM Expansion Controller.
 C65 $D100-$D1FF red palette values (reversed nybl order)
 C65 $D200-$D2FF green palette values (reversed nybl order)
 C65 $D300-$D3FF blue palette values (reversed nybl order)
@@ -345,6 +346,7 @@ C64 $DE0E Set RR-NET TX packet size
 C64 $DE0F Set RR-NET TX packet size
 GS $FF7Exxx VIC-IV CHARROM write area
 GS $FF9x000-$FF9xFFF - Enhanced sprite data buffers (4KB each)
+GS $FFBF000 - $FFBFFFF - DEBUG allow writing directly to the bitplane data buffer.  Will be removed in production.
 GS $FFC00A0 45GS10 slowram wait-states (write-only)
 GS $FFDE800 - $FFDEFFF Ethernet RX buffer (read only)
 GS $FFDE800 - $FFDEFFF Ethernet TX buffer (write only)
