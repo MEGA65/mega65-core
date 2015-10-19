@@ -236,6 +236,19 @@ end component;
   signal georam_block : unsigned(7 downto 0) := x"00";
   signal georam_blockpage : unsigned(7 downto 0) := x"00";
 
+  -- REU emulation
+  signal reu_reg_status : unsigned(7 downto 0) := x"00"; -- read only
+  signal reu_cmd_autoload : std_logic := '0';
+  signal reu_cmd_ff00decode : std_logic := '0';
+  signal reu_cmd_operation : std_logic_vector(1 downto 0) := "00";
+  signal reu_c64_startaddr : unsigned(15 downto 0) := x"0000";
+  signal reu_reu_startaddr : unsigned(23 downto 0) := x"000000";
+  signal reu_transfer_length : unsigned(15 downto 0) := x"0000";
+  signal reu_useless_interrupt_mask : unsigned(7 downto 5) := "000";
+  signal reu_hold_c64_address : std_logic := '0';
+  signal reu_hold_reu_address : std_logic := '0';
+  signal reu_ff00_pending : std_logic := '0';
+
   signal last_fastio_addr : std_logic_vector(19 downto 0);
   signal last_write_address : unsigned(27 downto 0);
   signal shadow_write_flags : unsigned(3 downto 0) := "0000";
@@ -1610,11 +1623,52 @@ begin
       if real_long_address(27 downto 16) = x"ffd" then
         if real_long_address(11 downto 0) = x"fff" then
           georam_block <= value;
-        elsif real_long_address(11 downto 0) = x"fff" then
+        elsif real_long_address(11 downto 0) = x"ffe" then
           georam_blockpage <= value;
         end if;
       end if;
 
+      -- And REU registers
+      if real_long_address(15 downto 0) = x"ff00" then
+        if reu_ff00_pending = '1' then
+          -- XXX Start REU job
+        end if;
+      end if;
+      if real_long_address(27 downto 16) = x"ffd" then
+        if real_long_address(11 downto 0) = x"f01" then
+          reu_cmd_autoload <= value(5);
+          reu_cmd_ff00decode <= value(4);
+          reu_cmd_operation <= std_logic_vector(value(1 downto 0));
+          if value(7)='1' and value(4)='0' then
+            -- XXX Start REU job by copying REU registers to DMAgic registers,
+            -- setting REU job flag and starting the job.
+          elsif value(7)='1' and value(4)='1' then
+            -- XXX Defer starting REU job until $FF00 is written
+            reu_ff00_pending <= '1';
+          end if;
+        elsif real_long_address(11 downto 0) = x"f02" then
+          reu_c64_startaddr(7 downto 0) <= value;
+        elsif real_long_address(11 downto 0) = x"f03" then
+          reu_c64_startaddr(15 downto 8) <= value;
+        elsif real_long_address(11 downto 0) = x"f04" then
+          reu_c64_startaddr(7 downto 0) <= value;
+        elsif real_long_address(11 downto 0) = x"f05" then
+          reu_reu_startaddr(15 downto 8) <= value;
+        elsif real_long_address(11 downto 0) = x"f06" then
+          reu_reu_startaddr(23 downto 16) <= value;
+        elsif real_long_address(11 downto 0) = x"f07" then
+          reu_transfer_length(7 downto 0) <= value;
+        elsif real_long_address(11 downto 0) = x"f08" then
+          reu_transfer_length(15 downto 8) <= value;
+        elsif real_long_address(11 downto 0) = x"f09" then
+          reu_useless_interrupt_mask(7 downto 5) <= value(7 downto 5);
+        elsif real_long_address(11 downto 0) = x"f0a" then
+          reu_hold_c64_address <= value(7);
+          reu_hold_reu_address <= value(6);
+        end if;        
+      end if;
+
+      
       if real_long_address(27 downto 12) = x"001F" and real_long_address(11)='1' then
         -- colour ram access: remap to $FF80000 - $FF807FF
         long_address := x"FF80"&'0'&real_long_address(10 downto 0);
