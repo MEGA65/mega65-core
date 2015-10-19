@@ -718,9 +718,9 @@ architecture Behavioral of viciv is
   signal pixel_is_sprite : std_logic;
 
   signal sprite_fetch_drive : std_logic := '0';
-  signal sprite_fetch_sprite_number : integer range 0 to 15;
+  signal sprite_fetch_sprite_number : integer range 0 to 31;
   signal sprite_fetch_byte_number : integer range 0 to 319;
-  signal sprite_fetch_sprite_number_drive : integer range 0 to 15;
+  signal sprite_fetch_sprite_number_drive : integer range 0 to 31;
   signal sprite_fetch_byte_number_drive : integer range 0 to 319;
   signal sprite_pointer_address : unsigned(16 downto 0);
   signal sprite_data_address : unsigned(16 downto 0);
@@ -3616,9 +3616,10 @@ begin
           sprite_fetch_sprite_number_drive <= sprite_fetch_sprite_number;
           
           -- XXX - always fetches 8 bytes of sprite data instead of 3, even if
-          -- sprite is not set to 64 pixels wide mode.
-          -- Bitplanes are fetched using the sprite fetch pipeline, so we fetch
-          -- 40 bytes for those.
+          -- sprite is not set to 64 pixels wide mode. This wastes a little
+          -- raster time.
+          -- Bitplanes are also fetched using the sprite fetch pipeline, so we fetch
+          -- more bytes for those, according to the bitplane width.
           if ((sprite_fetch_byte_number = 7) and (sprite_fetch_sprite_number < 8))
             or (sprite_fetch_byte_number = max_sprite_fetch_byte_number)
           then
