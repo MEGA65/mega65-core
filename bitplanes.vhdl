@@ -245,7 +245,13 @@ begin  -- behavioural
         -- Record sprite data
         report "BITPLANES:"
           & " accepting data byte $" & to_hstring(sprite_data_in)
-          & " from VIC-IV for byte #" & integer'image(sprite_bytenumber_in);
+          & " from VIC-IV for bitplane #"
+          & integer'image(sprite_spritenumber_in)
+          & " byte #" & integer'image(sprite_bytenumber_in)
+          & " x=" & integer'image(x_in)
+          & " x_start=" & integer'image(bitplane_x_start)
+          & " y=" & integer'image(y_in)
+          & " y_start=" & integer'image(bitplane_y_start);
         bitplanedatabuffer_waddress(11 downto 9)
           <= to_unsigned(sprite_spritenumber_in mod 8, 3);
         bitplanedatabuffer_waddress(8 downto 0)
@@ -279,9 +285,13 @@ begin  -- behavioural
             bitplanedatabuffer_address(8 downto 0)
               <= to_unsigned(bitplanes_byte_numbers(i),9);
             bitplanedata_fetch_bitplane <= i;
-            bitplanes_byte_numbers(i) <= bitplanes_byte_numbers(i) + 1;
+            if bitplanes_byte_numbers(i) < 511 then
+              bitplanes_byte_numbers(i) <= bitplanes_byte_numbers(i) + 1;
+            else
+              bitplanes_byte_numbers(i) <= 0;
+            end if;
             -- Only fetch the byte if we have not reached the end of the bitplane
-            if bitplanes_byte_numbers(i) < 80 then
+            if bitplanes_byte_numbers(i) < 320 then
               bitplanedata_fetching <= '1';
             end if;
           end if;
@@ -323,33 +333,43 @@ begin  -- behavioural
         x_left <= '1';
         x_in_bitplanes <= '1';
       end if;
+      -- Clear bitplane byte numbers at the start of each raster.
+      if x_in = 0 then
+        for i in 7 downto 0 loop
+          bitplanes_byte_numbers(i) <= 0; 
+        end loop;
+      end if;
+
       -- Start drawing once we hit the top of the bitplanes.
       -- Note: the logic here means that bitplanes must be enabled at this
       -- point, or they will not be shown at all on the frame!
       if x_left = '1' and y_top = '1' and bitplane_mode_in = '1' then
         bitplane_drawing <= '1';
+        report "bitplane_drawing asserted.";
       end if;
       -- Always stop drawing bitplanes at raster 255 (just a little into the
       -- lower border).
       if y_in = 255 then
         bitplane_drawing <= '0';
+        report "bitplane_drawing cleared.";
       end if;
         
       if (x_in /= x_last) and (bitplane_drawing='1') then
         -- Request first or next pixel from each bitplane.
         -- We now fetch enough bytes for 16-colour bitplanes to be at full resolution.
-        for i in 0 to 7 loop
-          bitplanes_advance_pixel(i) <= '1';
-        end loop;
+        bitplanes_advance_pixel <= "11111111";
       end if;              
 
       pixel_out <= pixel_in;
       if (bitplane_mode='1') and (border_in='0') and (bitplane_drawing='1') then
         -- Display bitplanes, and set foreground based on bitplane 2
         -- (but not for 16-colour bitplanes)
+        report "bitplane pixel";
         for i in 0 to 7 loop
           if bitplane_enables(i)='1' then
             if bitplanes_sixteen_colour_mode(i)='0' then
+              report "bitplanes_pixel_out(" & integer'image(i) & ") = " &
+                std_logic'image(bitplanes_pixel_out(i));
               pixel_out(i) <= bitplanes_pixel_out(i) xor bitplane_complements(i);
               if i = 2 then
                 is_foreground_out <= bitplanes_pixel_out(i) xor bitplane_complements(i);
