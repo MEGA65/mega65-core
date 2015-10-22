@@ -3302,6 +3302,9 @@ begin
               -- To improve timing we copy first argument of instruction, and
               -- proceed to read the next byte.
               -- But all processing is done in the next cycle.
+              -- XXX - This is at the cost of 1 cycle on most 2 or 3 byte, which
+              -- is really bad. ZP is practically pointless as a result.  See below
+              -- for optimising this away for most instructions.
 
               reg_pc_jsr <= reg_pc;
               
@@ -3313,24 +3316,6 @@ begin
               reg_arg1 <= memory_read_value;
               reg_addr(7 downto 0) <= memory_read_value;
               
-              -- Fetch arg2 if required (only for 3 byte addressing modes)
-              case reg_addressingmode is
-                when M_impl => null;
-                when M_InnX => null;
-                when M_nn => null;
-                when M_immnn => null;
-                when M_A => null;
-                when M_rr => null;
-                when M_InnY => null;
-                when M_InnZ => null;
-                when M_nnX => null;
-                when M_InnSPY => null;
-                when M_nnY => null;
-                when others =>
-                  pc_inc := '1';
-                  null;
-              end case;
-
               -- Work out relevant bit mask for RMB/SMB
               case reg_opcode(6 downto 4) is
                 when "000" => rmb_mask <= "11111110"; smb_mask <= "00000001";
@@ -3353,6 +3338,56 @@ begin
                 -- normal instruction
                 state <= Cycle3;
               end if;
+
+              -- Fetch arg2 if required (only for 3 byte addressing modes)
+              -- Also begin processing operations that don't need any more data
+              -- to start, so that we don't waste a cycle on every 2-byte instruction.
+              -- (We have this block last, so that it can override the destination
+              -- state).
+              case reg_addressingmode is
+                when M_impl => null;
+                when M_InnX => null;
+                when M_nn =>
+                  temp_addr := reg_b & memory_read_value;
+                  reg_addr <= temp_addr;
+                  if is_load='1' or is_rmw='1' then
+                    state <= LoadTarget;
+                  else
+                    -- (reading next instruction argument byte as default action)
+                    state <= MicrocodeInterpret;
+                  end if;
+                when M_immnn => null;
+                                -- handled in MicrocodeInterpret
+                when M_A => null;
+                            -- handled in MicrocodeInterpret
+                when M_rr => null;
+                when M_InnY => null;
+                when M_InnZ => null;
+                when M_nnX =>
+                  temp_addr := reg_b & (memory_read_value + reg_X);
+                  reg_addr <= temp_addr;
+                  if is_load='1' or is_rmw='1' then
+                    state <= LoadTarget;
+                  else
+                    -- (reading next instruction argument byte as default action)
+                    state <= MicrocodeInterpret;
+                  end if;
+                when M_InnSPY => null;
+                when M_nnY =>
+                  temp_addr := reg_b & (memory_read_value + reg_Y);
+                  reg_addr <= temp_addr;
+                  if is_load='1' or is_rmw='1' then
+                    state <= LoadTarget;
+                  else
+                    -- (reading next instruction argument byte as default action)
+                    state <= MicrocodeInterpret;
+                  end if;
+                when others =>
+                  pc_inc := '1';
+                  null;
+              end case;
+
+              
             when Flat32Got2ndArgument =>
               -- Flat 32bit JMP/JSR instructions require 4 address bytes.
               -- At this point, we have the 2nd byte.  If the addressing mode
