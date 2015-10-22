@@ -244,14 +244,17 @@ begin  -- behavioural
       if sprite_datavalid_in = '1' and (sprite_spritenumber_in > 7) then
         -- Record sprite data
         report "BITPLANES:"
-          & " accepting data byte $" & to_hstring(sprite_data_in)
-          & " from VIC-IV for bitplane #"
+          & "  byte $" & to_hstring(sprite_data_in)
+          & " from VIC-IV for bp#"
           & integer'image(sprite_spritenumber_in)
           & " byte #" & integer'image(sprite_bytenumber_in)
           & " x=" & integer'image(x_in)
           & " x_start=" & integer'image(bitplane_x_start)
           & " y=" & integer'image(y_in)
-          & " y_start=" & integer'image(bitplane_y_start);
+          & " y_start=" & integer'image(bitplane_y_start)
+          & " border_in=" & std_logic'image(border_in)
+          & " bitplane_mode_in=" & std_logic'image(bitplane_mode_in)
+          & " bitplane_drawing=" & std_logic'image(bitplane_drawing);
         bitplanedatabuffer_waddress(11 downto 9)
           <= to_unsigned(sprite_spritenumber_in mod 8, 3);
         bitplanedatabuffer_waddress(8 downto 0)
@@ -313,6 +316,7 @@ begin  -- behavioural
       y_last <= y_in;
       if y_last = bitplane_y_start then
         y_top <= '1';
+        report "asserting y_top";
         -- Start requesting pixels from bitplanes to empty their buffers.
         bitplanes_advance_pixel <= "11111111";
         -- Allow enough cycles to flush the buffers in single-colour (C65) bitplane mode
@@ -332,6 +336,9 @@ begin  -- behavioural
         and (y_top='1' or bitplane_drawing='1') then
         x_left <= '1';
         x_in_bitplanes <= '1';
+        report "asserting x_left and x_in_bitplanes";
+      else
+        x_left <= '0';
       end if;
       -- Clear bitplane byte numbers at the start of each raster.
       if x_in = 0 then
@@ -343,7 +350,7 @@ begin  -- behavioural
       -- Start drawing once we hit the top of the bitplanes.
       -- Note: the logic here means that bitplanes must be enabled at this
       -- point, or they will not be shown at all on the frame!
-      if x_left = '1' and y_top = '1' and bitplane_mode_in = '1' then
+      if (y_top = '1') and (bitplane_mode_in = '1') then
         bitplane_drawing <= '1';
         report "bitplane_drawing asserted.";
       end if;
