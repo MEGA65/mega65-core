@@ -3382,6 +3382,22 @@ begin
                     -- (reading next instruction argument byte as default action)
                     state <= MicrocodeInterpret;
                   end if;
+                when M_rr =>
+                  -- XXX For non-taken branches, we can just proceed directly to fetching
+                  -- the next instruction: this makes non-taken branches need only
+                  -- 2 cycles, like on real 6502.  If a branch is taken, then it
+                  -- takes one extra cycle (see Cycle3)
+                  if (reg_instruction=I_BEQ and flag_z='0') or
+                    (reg_instruction=I_BNE and flag_z='1') or
+                    (reg_instruction=I_BCS and flag_c='0') or
+                    (reg_instruction=I_BCC and flag_c='1') or
+                    (reg_instruction=I_BVS and flag_v='0') or
+                    (reg_instruction=I_BVC and flag_v='1') or
+                    (reg_instruction=I_BMI and flag_n='0') or
+                    (reg_instruction=I_BPL and flag_n='1') then
+                    state <= fast_fetch_state;
+                    if fast_fetch_state = InstructionDecode then pc_inc := '1'; end if;
+                  end if;             
                 when others =>
                   pc_inc := '1';
                   null;
@@ -3714,17 +3730,17 @@ begin
                       -- XXX consider using the disabled faster (fewer cycles) option
                       -- below, if the timing will tolerate it.  But disabled
                       -- for now, since it increases synthesis time.
-                      state <= normal_fetch_state;
+                      -- state <= normal_fetch_state;
 
-                      --memory_access_read := '1';
-                      --memory_access_address := x"000"&temp_addr;
-                      --memory_access_resolve_address := '1';
+                      memory_access_read := '1';
+                      memory_access_address := x"000"&temp_addr;
+                      memory_access_resolve_address := '1';
                       -- Read next instruction now to save a cycle, i.e.,
                       -- 8-bit branches will take 2 cycles, whether taken or not.
-                      --state <= fast_fetch_state;
-                      --if fast_fetch_state = InstructionDecode then
-                      --  reg_pc <= temp_addr + 1;
-                      --end if;
+                      state <= fast_fetch_state;
+                      if fast_fetch_state = InstructionDecode then
+                        reg_pc <= temp_addr + 1;
+                      end if;
                     else
                       report "NOT Taking 8-bit branch" severity note;
                       -- Branch will not be taken.
