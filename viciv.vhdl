@@ -3529,7 +3529,8 @@ begin
               end if;
             end if;
             -- Don't waste time fetching bitplanes that are disabled.
-            if bitplane_enables(sprite_fetch_sprite_number mod 8)='0' then
+            if (bitplane_enables(sprite_fetch_sprite_number mod 8)='0')
+              or (bitplane_mode='0') then
               max_sprite_fetch_byte_number <= 1;
             end if;
             
