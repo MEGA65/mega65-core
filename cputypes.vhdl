@@ -27,9 +27,16 @@ package cputypes is
     I_ROW,I_RTI,I_RTS,I_SBC,I_SEC,I_SED,I_SEE,I_SEI,    
     I_SMB,I_STA,I_STX,I_STY,I_STZ,I_TAB,I_TAX,I_TAY,
     I_TAZ,I_TBA,I_TRB,I_TSB,I_TSX,I_TSY,I_TXA,I_TXS,
-    I_TYA,I_TYS,I_TZA);
+    I_TYA,I_TYS,I_TZA,
 
-  type ilut8bit is array(0 to 255) of instruction;
+    -- 6502 illegals
+    I_SLO,I_RLA,I_SRE,I_RRA,I_SAX,I_LAX,I_DCP,I_ISC,
+    I_ANC,I_ALR,I_ARR,I_XAA,I_AXS,I_AHX,I_SHY,I_SHX,
+    I_TAS,I_LAS,I_NOP,I_KIL
+    
+    );
+
+  type ilut9bit is array(0 to 511) of instruction;
 
   type microcodeops is record
     -- Do we increment PC?

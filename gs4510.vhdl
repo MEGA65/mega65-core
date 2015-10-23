@@ -645,7 +645,8 @@ end component;
     M_nnY => 1,
     M_immnnnn => 2);
   
-  constant instruction_lut : ilut8bit := (
+constant instruction_lut : ilut9bit := (
+  -- 4502 personality
     I_BRK,I_ORA,I_CLE,I_SEE,I_TSB,I_ORA,I_ASL,I_RMB,I_PHP,I_ORA,I_ASL,I_TSY,I_TSB,I_ORA,I_ASL,I_BBR,
     I_BPL,I_ORA,I_ORA,I_BPL,I_TRB,I_ORA,I_ASL,I_RMB,I_CLC,I_ORA,I_INC,I_INZ,I_TRB,I_ORA,I_ASL,I_BBR,
     I_JSR,I_AND,I_JSR,I_JSR,I_BIT,I_AND,I_ROL,I_RMB,I_PLP,I_AND,I_ROL,I_TYS,I_BIT,I_AND,I_ROL,I_BBR,
@@ -661,11 +662,32 @@ end component;
     I_CPY,I_CMP,I_CPZ,I_DEW,I_CPY,I_CMP,I_DEC,I_SMB,I_INY,I_CMP,I_DEX,I_ASW,I_CPY,I_CMP,I_DEC,I_BBS,
     I_BNE,I_CMP,I_CMP,I_BNE,I_CPZ,I_CMP,I_DEC,I_SMB,I_CLD,I_CMP,I_PHX,I_PHZ,I_CPZ,I_CMP,I_DEC,I_BBS,
     I_CPX,I_SBC,I_LDA,I_INW,I_CPX,I_SBC,I_INC,I_SMB,I_INX,I_SBC,I_EOM,I_ROW,I_CPX,I_SBC,I_INC,I_BBS,
-    I_BEQ,I_SBC,I_SBC,I_BEQ,I_PHW,I_SBC,I_INC,I_SMB,I_SED,I_SBC,I_PLX,I_PLZ,I_PHW,I_SBC,I_INC,I_BBS);
+    I_BEQ,I_SBC,I_SBC,I_BEQ,I_PHW,I_SBC,I_INC,I_SMB,I_SED,I_SBC,I_PLX,I_PLZ,I_PHW,I_SBC,I_INC,I_BBS,
+
+    -- 6502 personality
+    -- XXX Currently just a copy of 4502 personality
+    I_BRK,I_ORA,I_KIL,I_SLO,I_NOP,I_ORA,I_ASL,I_SLO,I_PHP,I_ORA,I_ASL,I_ANC,I_NOP,I_ORA,I_ASL,I_SLO,
+    I_BPL,I_ORA,I_KIL,I_SLO,I_NOP,I_ORA,I_ASL,I_SLO,I_CLC,I_ORA,I_NOP,I_SLO,I_NOP,I_ORA,I_ASL,I_SLO,
+    I_JSR,I_AND,I_KIL,I_RLA,I_BIT,I_AND,I_ROL,I_RLA,I_PLP,I_AND,I_ROL,I_ANC,I_BIT,I_AND,I_ROL,I_RLA,
+    I_BMI,I_AND,I_KIL,I_RLA,I_NOP,I_AND,I_ROL,I_RLA,I_SEC,I_AND,I_NOP,I_RLA,I_NOP,I_AND,I_ROL,I_RLA,
+    I_RTI,I_EOR,I_KIL,I_SRE,I_NOP,I_EOR,I_LSR,I_SRE,I_PHA,I_EOR,I_LSR,I_ALR,I_JMP,I_EOR,I_LSR,I_SRE,
+    I_BVC,I_EOR,I_KIL,I_SRE,I_NOP,I_EOR,I_LSR,I_SRE,I_CLI,I_EOR,I_NOP,I_SRE,I_NOP,I_EOR,I_LSR,I_SRE,
+    I_RTS,I_ADC,I_KIL,I_RRA,I_NOP,I_ADC,I_ROR,I_RRA,I_PLA,I_ADC,I_ROR,I_ARR,I_JMP,I_ADC,I_ROR,I_RRA,
+    I_BVS,I_ADC,I_KIL,I_RRA,I_NOP,I_ADC,I_ROR,I_RRA,I_SEI,I_ADC,I_NOP,I_RRA,I_NOP,I_ADC,I_ROR,I_RRA,
+    I_NOP,I_STA,I_NOP,I_SAX,I_STY,I_STA,I_STX,I_SAX,I_DEY,I_NOP,I_TXA,I_XAA,I_STY,I_STA,I_STX,I_SAX,
+    I_BCC,I_STA,I_KIL,I_AHX,I_STY,I_STA,I_STX,I_SAX,I_TYA,I_STA,I_TXS,I_TAS,I_SHY,I_STA,I_SHX,I_AHX,
+    I_LDY,I_LDA,I_LDX,I_LAX,I_LDY,I_LDA,I_LDX,I_LAX,I_TAY,I_LDA,I_TAX,I_LAX,I_LDY,I_LDA,I_LDX,I_LAX,
+    I_BCS,I_LDA,I_KIL,I_LAX,I_LDY,I_LDA,I_LDX,I_LAX,I_CLV,I_LDA,I_TSX,I_LAS,I_LDY,I_LDA,I_LDX,I_LAX,
+    I_CPY,I_CMP,I_NOP,I_DCP,I_CPY,I_CMP,I_DEC,I_DCP,I_INY,I_CMP,I_DEX,I_AXS,I_CPY,I_CMP,I_DEC,I_DCP,
+    I_BNE,I_CMP,I_KIL,I_DCP,I_NOP,I_CMP,I_DEC,I_DCP,I_CLD,I_CMP,I_NOP,I_DCP,I_NOP,I_CMP,I_DEC,I_DCP,
+    I_CPX,I_SBC,I_NOP,I_ISC,I_CPX,I_SBC,I_INC,I_ISC,I_INX,I_SBC,I_NOP,I_SBC,I_CPX,I_SBC,I_INC,I_ISC,
+    I_BEQ,I_SBC,I_KIL,I_ISC,I_NOP,I_SBC,I_INC,I_ISC,I_SED,I_SBC,I_NOP,I_ISC,I_NOP,I_SBC,I_INC,I_ISC
+    );
 
   
-  type mlut8bit is array(0 to 255) of addressingmode;
-  constant mode_lut : mlut8bit := (
+  type mlut9bit is array(0 to 511) of addressingmode;
+constant mode_lut : mlut9bit := (
+  -- 4502 personality first
     M_impl,  M_InnX,  M_impl,  M_impl,  M_nn,    M_nn,    M_nn,    M_nn,    
     M_impl,  M_immnn, M_A,     M_impl,  M_nnnn,  M_nnnn,  M_nnnn,  M_nnrr,  
     M_rr,    M_InnY,  M_InnZ,  M_rrrr,  M_nn,    M_nnX,   M_nnX,   M_nn,    
@@ -699,7 +721,43 @@ end component;
     M_immnn, M_InnX,  M_InnSPY,M_nn,    M_nn,    M_nn,    M_nn,    M_nn,    
     M_impl,  M_immnn, M_impl,  M_nnnn,  M_nnnn,  M_nnnn,  M_nnnn,  M_nnrr,  
     M_rr,    M_InnY,  M_InnZ,  M_rrrr,  M_immnnnn,M_nnX,   M_nnX,   M_nn,    
-    M_impl,  M_nnnnY, M_impl,  M_impl,  M_nnnn,  M_nnnnX, M_nnnnX, M_nnrr);
+    M_impl,  M_nnnnY, M_impl,  M_impl,  M_nnnn,  M_nnnnX, M_nnnnX, M_nnrr,
+
+    -- 6502 personality
+    -- XXX currently just a copy of 4502 personality
+    M_impl,M_InnX,M_impl,M_InnX,M_nn,M_nn,M_nn,M_nn,
+    M_impl,M_immnn,M_impl,M_immnn,M_nnnn,M_nnnn,M_nnnn,M_nnnn,
+    M_rr,M_InnY,M_impl,M_InnY,M_nnX,M_nnX,M_nnX,M_nnX,
+    M_impl,M_nnnnY,M_impl,M_nnnnY,M_nnnnX,M_nnnnX,M_nnnnX,M_nnnnX,
+    M_nnnn,M_InnX,M_impl,M_InnX,M_nn,M_nn,M_nn,M_nn,
+    M_impl,M_immnn,M_impl,M_immnn,M_nnnn,M_nnnn,M_nnnn,M_nnnn,
+    M_rr,M_InnY,M_impl,M_InnY,M_nnX,M_nnX,M_nnX,M_nnX,
+    M_impl,M_nnnnY,M_impl,M_nnnnY,M_nnnnX,M_nnnnX,M_nnnnX,M_nnnnX,
+    M_impl,M_InnX,M_impl,M_InnX,M_nn,M_nn,M_nn,M_nn,
+    M_impl,M_immnn,M_impl,M_immnn,M_nnnn,M_nnnn,M_nnnn,M_nnnn,
+    M_rr,M_InnY,M_impl,M_InnY,M_nnX,M_nnX,M_nnX,M_nnX,
+    M_impl,M_nnnnY,M_impl,M_nnnnY,M_nnnnX,M_nnnnX,M_nnnnX,M_nnnnX,
+    M_impl,M_InnX,M_impl,M_InnX,M_nn,M_nn,M_nn,M_nn,
+    M_impl,M_immnn,M_impl,M_immnn,M_Innnn,M_nnnn,M_nnnn,M_nnnn,
+    M_rr,M_InnY,M_impl,M_InnY,M_nnX,M_nnX,M_nnX,M_nnX,
+    M_impl,M_nnnnY,M_impl,M_nnnnY,M_nnnnX,M_nnnnX,M_nnnnX,M_nnnnX,
+    M_immnn,M_InnX,M_immnn,M_InnX,M_nn,M_nn,M_nn,M_nn,
+    M_impl,M_immnn,M_impl,M_immnn,M_nnnn,M_nnnn,M_nnnn,M_nnnn,
+    M_rr,M_InnY,M_impl,M_InnY,M_nnX,M_nnX,M_nnY,M_nnY,
+    M_impl,M_nnnnY,M_impl,M_nnnnY,M_nnnnX,M_nnnnX,M_nnnnY,M_nnnnY,
+    M_immnn,M_InnX,M_immnn,M_InnX,M_nn,M_nn,M_nn,M_nn,
+    M_impl,M_immnn,M_impl,M_immnn,M_nnnn,M_nnnn,M_nnnn,M_nnnn,
+    M_rr,M_InnY,M_impl,M_InnY,M_nnX,M_nnX,M_nnY,M_nnY,
+    M_impl,M_nnnnY,M_impl,M_nnnnY,M_nnnnX,M_nnnnX,M_nnnnY,M_nnnnY,
+    M_immnn,M_InnX,M_immnn,M_InnX,M_nn,M_nn,M_nn,M_nn,
+    M_impl,M_immnn,M_impl,M_immnn,M_nnnn,M_nnnn,M_nnnn,M_nnnn,
+    M_rr,M_InnY,M_impl,M_InnY,M_nnX,M_nnX,M_nnX,M_nnX,
+    M_impl,M_nnnnY,M_impl,M_nnnnY,M_nnnnX,M_nnnnX,M_nnnnX,M_nnnnX,
+    M_immnn,M_InnX,M_immnn,M_InnX,M_nn,M_nn,M_nn,M_nn,
+    M_impl,M_immnn,M_impl,M_immnn,M_nnnn,M_nnnn,M_nnnn,M_nnnn,
+    M_rr,M_InnY,M_impl,M_InnY,M_nnX,M_nnX,M_nnX,M_nnX,
+    M_impl,M_nnnnY,M_impl,M_nnnnY,M_nnnnX,M_nnnnX,M_nnnnX,M_nnnnX);
+
 
   signal reg_addressingmode : addressingmode;
   signal reg_instruction : instruction;
@@ -765,6 +823,9 @@ end component;
   signal watchdog_fed : std_logic := '0';
   signal watchdog_countdown : integer range 0 to 65535;
 
+  signal emu6502 : std_logic := '0';
+  signal force_4502 : std_logic := '1';
+
 begin
 
   shadowram0 : shadowram port map (
@@ -817,7 +878,7 @@ begin
         s(17 to 19) := t(3 to 5);
 
         -- Draw 0-7 digit on BBS/BBR instructions
-        case instruction_lut(to_integer(last_opcode)) is
+        case instruction_lut(to_integer(emu6502&last_opcode)) is
           when I_BBS =>
             s(20 to 20) := to_hstring("0"&last_opcode(6 downto 4))(1 to 1);
           when I_BBR =>
@@ -827,7 +888,7 @@ begin
         end case;
 
         -- Draw arguments
-        case mode_lut(to_integer(last_opcode)) is
+        case mode_lut(to_integer(emu6502&last_opcode)) is
           when M_impl => null;
           when M_InnX =>
             s(22 to 23) := "($";
@@ -1505,7 +1566,7 @@ begin
           when "101110" => return reg_page3_physical(7 downto 0);
           when "101111" => return reg_page3_physical(15 downto 8);
           when "111100" =>
-            return "111" & force_fast & speed_gate_enable_internal & rom_writeprotect
+            return "11" & force_4502 & force_fast & speed_gate_enable_internal & rom_writeprotect
               & flat32_enabled & rom_from_colour_ram;
           when "111101" =>
             return "11111" & rom_writeprotect & flat32_enabled & rom_from_colour_ram;
@@ -1978,6 +2039,7 @@ begin
         -- @IO:GS $D67D.2 - Hypervisor write protect C65 ROM $20000-$3FFFF
         -- @IO:GS $D67D.3 - Hypervisor enable ASC/DIN CAPS LOCK key to enable/disable CPU slow-down in C64/C128/C65 modes
         -- @IO:GS $D67D.4 - Hypervisor force CPU to 48MHz for userland (userland can override via POKE0)
+        -- @IO:GS $D67D.5 - Hypervisor force CPU to 4502 personality, even in C64 IO mode.
         -- @IO:GS $D67D - Hypervisor watchdog register: writing any value clears the watch dog
         if long_address = x"FFD367D" and hypervisor_mode='1' then
           rom_from_colour_ram <= value(0);
@@ -1986,6 +2048,7 @@ begin
           speed_gate_enable <= value(3);
           speed_gate_enable_internal <= value(3);
           force_fast <= value(4);
+          force_4502 <= value(5);
           watchdog_fed <= '1';
         end if;
         -- @IO:GS $D67E - Hypervisor already-upgraded bit (sets permanently)
@@ -2293,6 +2356,14 @@ begin
     -- BEGINNING OF MAIN PROCESS FOR CPU
     if rising_edge(clock) then
 
+      -- Select CPU personality based on IO mode, but hypervisor can override to
+      -- for 4502 mode, and the hypervisor itself always runs in 4502 mode.
+      if (viciii_iomode="00") and (force_4502='0') and (hypervisor_mode='0') then
+        emu6502 <= '1';
+      else
+        emu6502 <= '0';
+      end if;
+      
       -- Work out actual georam page
       georam_page(5 downto 0) <= georam_blockpage(5 downto 0);
       georam_page(13 downto 6) <= georam_block and georam_blockmask;
@@ -3093,7 +3164,7 @@ begin
                 -- instructions for now.  oh well.)
                 pc_inc := '1';
 
-                report "Executing instruction " & instruction'image(instruction_lut(to_integer(memory_read_value)))
+                report "Executing instruction " & instruction'image(instruction_lut(to_integer(emu6502&memory_read_value)))
                   severity note;                
 
                 -- See if this is a single cycle instruction.
@@ -3172,10 +3243,10 @@ begin
                   when others => null;
                 end case;
                 
-                if op_is_single_cycle(to_integer(memory_read_value)) = '0' then
-                  if (mode_lut(to_integer(memory_read_value)) = M_immnn)
-                    or (mode_lut(to_integer(memory_read_value)) = M_impl)
-                    or (mode_lut(to_integer(memory_read_value)) = M_A)
+                if op_is_single_cycle(to_integer(emu6502&memory_read_value)) = '0' then
+                  if (mode_lut(to_integer(emu6502&memory_read_value)) = M_immnn)
+                    or (mode_lut(to_integer(emu6502&memory_read_value)) = M_impl)
+                    or (mode_lut(to_integer(emu6502&memory_read_value)) = M_A)
                   then
                     no_interrupt <= '0';
                     if memory_read_value=x"60" then
@@ -3198,7 +3269,7 @@ begin
                   else
                     state <= Cycle2;
                   end if;
-                  case mode_lut(to_integer(memory_read_value)) is
+                  case mode_lut(to_integer(emu6502&memory_read_value)) is
                     when M_IMPL =>
                       pause_cycles <= to_unsigned(pause_per_cycle * 2,9);
                     when M_nn =>
@@ -3249,13 +3320,13 @@ begin
                 
                 -- Prepare microcode vector in case we need it next cycle
                 reg_microcode_address <=
-                  instruction_lut(to_integer(memory_read_value));
-                reg_addressingmode <= mode_lut(to_integer(memory_read_value));
-                reg_instruction <= instruction_lut(to_integer(memory_read_value));
-                monitor_instruction <= to_unsigned(instruction'pos(instruction_lut(to_integer(memory_read_value))),8);
+                  instruction_lut(to_integer(emu6502&memory_read_value));
+                reg_addressingmode <= mode_lut(to_integer(emu6502&memory_read_value));
+                reg_instruction <= instruction_lut(to_integer(emu6502&memory_read_value));
+                monitor_instruction <= to_unsigned(instruction'pos(instruction_lut(to_integer(emu6502&memory_read_value))),8);
                 is_rmw <= '0'; is_load <= '0'; is_store <= '0';
                 rmw_dummy_write_done <= '0';
-                case instruction_lut(to_integer(memory_read_value)) is
+                case instruction_lut(to_integer(emu6502&memory_read_value)) is
                   -- Note if instruction is RMW
                   when I_INC => is_rmw <= '1';
                   when I_DEC => is_rmw <= '1';
@@ -3294,6 +3365,10 @@ begin
                   when I_STX => is_store <= '1';
                   when I_STY => is_store <= '1';
                   when I_STZ => is_store <= '1';
+
+                  -- 6502 illegal opcodes
+                                
+                                
                   -- Nothing special for other instructions
                   when others => null;
                 end case;
