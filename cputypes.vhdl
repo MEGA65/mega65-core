@@ -115,4 +115,6 @@ package cputypes is
     
   end record;
 
+  type microcoderom_t is array (instruction) of microcodeops;
+  
 end cputypes;
