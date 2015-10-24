@@ -195,7 +195,7 @@ begin
 --process for read and write operation.
   PROCESS(Clk,address)
   BEGIN
-    data_o := ram(address);
+    data_o <= ram(address);
   END PROCESS;
 
 end Behavioral;
