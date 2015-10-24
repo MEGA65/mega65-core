@@ -135,25 +135,36 @@ architecture Behavioral of microcode is
     -- 6502 illegals
     -- XXX - incomplete: these have only the microcode for the "dominant" action
     -- for the most part so far.
+    -- Shift left, then OR accumulator with result of operation
     I_SLO => (mcASL => '1', mcORA => '1',
               mcDelayedWrite => '1', others => '0'),
+    -- Rotate left, then AND accumulator with result of operation
     I_RLA => (mcROL => '1', mcAND => '1',
               mcDelayedWrite => '1', others => '0'),
+    -- LSR, then EOR accumulator with result of operation
     I_SRE => (mcLSR => '1', mcEOR => '1',
               mcDelayedWrite => '1', others => '0'),
+    -- Rotate right, then ADC accumulator with result of operation
     I_RRA => (mcROR => '1', mcADC => '1',
               mcDelayedWrite => '1', others => '0'),
+    -- Store AND of A and X: Doesn't touch any flags
     I_SAX => (mcStoreA => '1', mcStoreX => '1',
               mcWriteMem => '1', mcInstructionFetch => '1', 
               mcWriteRegAddr => '1',mcIncPC => '1',  others => '0'),
+    -- Load A and X at the same time, one of the more useful results
     I_LAX => (mcSetX => '1', mcSetA => '1',
               mcSetNZ => '1', mcIncPC => '1', 
               mcInstructionFetch => '1', others => '0'),
+    -- Decrement, and then compare with accumulator
     I_DCP => (mcDEC => '1', mcCMP => '1',
               mcDelayedWrite => '1', others => '0'),
+    -- INC, then subtract result from accumulator
     I_ISC => (mcINC => '1', mcSBC => '1',
               mcDelayedWrite => '1', others => '0'),
-    I_ANC => (mcAND => '1', mcInstructionFetch => '1', mcIncPC => '1',
+    -- Like AND, but pushes bit7 into C.  Here we can simply enable both AND
+    -- and ROL in the microcode, and everything will already work.
+    I_ANC => (mcAND => '1', mcROL => '1',
+              mcInstructionFetch => '1', mcIncPC => '1',
               -- XXX push bit7 to carry
               others => '0'),
     I_ALR => (mcAND => '1', mcLSR => '1',
@@ -184,7 +195,7 @@ begin
 --process for read and write operation.
   PROCESS(Clk,address)
   BEGIN
-    data_o <= ram(address);
+    data_o := ram(address);
   END PROCESS;
 
 end Behavioral;
