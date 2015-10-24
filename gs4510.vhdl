@@ -622,6 +622,7 @@ end component;
   signal normal_fetch_state : processor_state := InstructionFetch;
   
   signal reg_microcode : microcodeops;
+  signal reg_microcode_drive : microcodeops;
   signal reg_microcode_address : instruction;
 
   constant mode_bytes_lut : mode_list := (
@@ -2356,6 +2357,14 @@ begin
     -- BEGINNING OF MAIN PROCESS FOR CPU
     if rising_edge(clock) then
 
+      -- Make a buffered copy of reg_microcode so that we can use that instead
+      -- of depending on the value read directly from memory.
+      -- This should relax timing for the CPU a bit.
+      -- Better solution would be to read reg_microcode during the InstructionDecode
+      -- cycle.  That would require putting it in an array, and hoping that ISE
+      -- infers it as a memory.
+      reg_microcode_drive <= reg_microcode;
+      
       -- Select CPU personality based on IO mode, but hypervisor can override to
       -- for 4502 mode, and the hypervisor itself always runs in 4502 mode.
       if (viciii_iomode="00") and (force_4502='0') and (hypervisor_mode='0') then
@@ -4220,7 +4229,7 @@ begin
                 state <= Interrupt;
               end if;
               
-              if reg_microcode.mcJump='1' then
+              if reg_microcode_drive.mcJump='1' then
                 report "Setting PC: mcJump=1";
                 reg_pc <= reg_addr;
               end if;
@@ -4238,7 +4247,7 @@ begin
                 flag_n <= memory_read_value(7);
                 flag_v <= memory_read_value(6);
               end if;
-              if reg_microcode.mcCMP='1' then
+              if reg_microcode.mcCMP='1' and (is_rmw='0') then
                 alu_op_cmp(reg_a,memory_read_value);
               end if;
               if reg_microcode.mcCPX='1' then
@@ -4250,26 +4259,26 @@ begin
               if reg_microcode.mcCPZ='1' then
                 alu_op_cmp(reg_z,memory_read_value);
               end if;
-              if reg_microcode.mcADC='1' then
+              if reg_microcode.mcADC='1' and (is_rmw='0') then
                 reg_a <= a_add(7 downto 0);
                 flag_c <= a_add(8);  flag_z <= a_add(9);
                 flag_v <= a_add(10); flag_n <= a_add(11);
               end if;
-              if reg_microcode.mcSBC='1' then
+              if reg_microcode.mcSBC='1' and (is_rmw='0') then
                 reg_a <= a_sub(7 downto 0);
                 flag_c <= a_sub(8);  flag_z <= a_sub(9);
                 flag_v <= a_sub(10); flag_n <= a_sub(11);
               end if;
-              if reg_microcode.mcAND='1' then
+              if reg_microcode.mcAND='1' and (is_rmw='0') then
                 reg_a <= with_nz(reg_a and memory_read_value);
               end if;
-              if reg_microcode.mcORA='1' then
+              if reg_microcode.mcORA='1' and (is_rmw='0') then
                 reg_a <= with_nz(reg_a or memory_read_value);
               end if;
-              if reg_microcode.mcEOR='1' then
+              if reg_microcode.mcEOR='1' and (is_rmw='0') then
                 reg_a <= with_nz(reg_a xor memory_read_value);
               end if;
-              if reg_microcode.mcDEC='1' then
+              if reg_microcode_drive.mcDEC='1' then
                 temp_value := memory_read_value - 1;
                 reg_t <= temp_value;                
                 flag_n <= temp_value(7);
@@ -4277,7 +4286,7 @@ begin
                   flag_z <= '1'; else flag_z <= '0';
                 end if;
               end if;
-              if reg_microcode.mcINC='1' then
+              if reg_microcode_drive.mcINC='1' then
                 temp_value := memory_read_value + 1;
                 reg_t <= temp_value;                
                 flag_n <= temp_value(7);
@@ -4285,7 +4294,7 @@ begin
                   flag_z <= '1'; else flag_z <= '0';
                 end if;
               end if;
-              if reg_microcode.mcASR='1' then
+              if reg_microcode_drive.mcASR='1' then
                 temp_value := memory_read_value(7)&memory_read_value(7 downto 1);
                 reg_t <= temp_value;
                 flag_c <= memory_read_value(0);
@@ -4294,7 +4303,7 @@ begin
                   flag_z <= '1'; else flag_z <= '0';
                 end if;
               end if;
-              if reg_microcode.mcLSR='1' then
+              if reg_microcode_drive.mcLSR='1' then
                 temp_value := '0'&memory_read_value(7 downto 1);
                 reg_t <= temp_value;
                 flag_c <= memory_read_value(0);
@@ -4303,7 +4312,7 @@ begin
                   flag_z <= '1'; else flag_z <= '0';
                 end if;
               end if;
-              if reg_microcode.mcROR='1' then
+              if reg_microcode_drive.mcROR='1' then
                 temp_value := flag_c&memory_read_value(7 downto 1);
                 reg_t <= temp_value;
                 flag_c <= memory_read_value(0);
@@ -4312,7 +4321,7 @@ begin
                   flag_z <= '1'; else flag_z <= '0';
                 end if;
               end if;
-              if reg_microcode.mcASL='1' then
+              if reg_microcode_drive.mcASL='1' then
                 temp_value := memory_read_value(6 downto 0)&'0';
                 reg_t <= temp_value;
                 flag_c <= memory_read_value(7);
@@ -4321,7 +4330,7 @@ begin
                   flag_z <= '1'; else flag_z <= '0';
                 end if;
               end if;
-              if reg_microcode.mcROL='1' then
+              if reg_microcode_drive.mcROL='1' then
                 temp_value := memory_read_value(6 downto 0)&flag_c;
                 reg_t <= temp_value;
                 flag_c <= memory_read_value(7);
@@ -4330,11 +4339,11 @@ begin
                   flag_z <= '1'; else flag_z <= '0';
                 end if;
               end if;
-              if reg_microcode.mcRMB='1' then
+              if reg_microcode_drive.mcRMB='1' then
                 -- Clear bit based on opcode
                 reg_t <= memory_read_value and rmb_mask;
               end if;
-              if reg_microcode.mcSMB='1' then
+              if reg_microcode_drive.mcSMB='1' then
                 -- Set bit based on opcode
                 reg_t <= memory_read_value or smb_mask;
               end if;
@@ -4351,7 +4360,7 @@ begin
                  memory_access_wdata := unsigned(virtual_reg_p);
                  memory_access_wdata(4) := '1';  -- B always set when pushed
               end if;              
-              if reg_microcode.mcWriteRegAddr='1' then
+              if reg_microcode_drive.mcWriteRegAddr='1' then
                 memory_access_address := x"000"&reg_addr;
                 memory_access_resolve_address := '1';
               end if;
@@ -4373,10 +4382,10 @@ begin
               if reg_microcode.mcPop='1' then
                 state <= Pop;
               end if;
-              if reg_microcode.mcStoreTRB='1' then
+              if reg_microcode_drive.mcStoreTRB='1' then
                 reg_t <= (reg_a xor x"FF") and memory_read_value;
               end if;
-              if reg_microcode.mcStoreTSB='1' then
+              if reg_microcode_drive.mcStoreTSB='1' then
                 report "memory_read_value = $" & to_hstring(memory_read_value) & ", A = $" & to_hstring(reg_a) severity note;
                 reg_t <= reg_a or memory_read_value;
               end if;
@@ -4387,7 +4396,7 @@ begin
                   flag_z <= '0';
                 end if;
               end if;
-              if reg_microcode.mcDelayedWrite='1' then
+              if reg_microcode_drive.mcDelayedWrite='1' then
                 -- Do dummy write for RMW instructions if touching $D019
                 reg_t_high <= memory_read_value;
 
