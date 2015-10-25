@@ -173,13 +173,6 @@ entity gs4510 is
 end entity gs4510;
 
 architecture Behavioural of gs4510 is
-
-  component microcode is
-    port (Clk : in std_logic;
-          address : in instruction;
-          data_o : out microcodeops
-          );
-  end component;
   
 component shadowram is
   port (Clk : in std_logic;
@@ -622,8 +615,6 @@ end component;
   signal normal_fetch_state : processor_state := InstructionFetch;
   
   signal reg_microcode : microcodeops;
-  signal reg_microcode_drive : microcodeops;
-  signal reg_microcode_address : instruction;
 
   constant mode_bytes_lut : mode_list := (
     M_impl => 0,
@@ -827,6 +818,166 @@ constant mode_lut : mlut9bit := (
   signal emu6502 : std_logic := '0';
   signal force_4502 : std_logic := '1';
 
+  type microcode_lut_t is array (instruction)
+    of microcodeops;
+  signal microcode_lut : microcode_lut_t := (
+    I_ADC => (mcADC => '1', mcInstructionFetch => '1', mcIncPC => '1', others => '0'),
+    I_AND => (mcAND => '1', mcInstructionFetch => '1', mcIncPC => '1', others => '0'),
+    I_ASL => (mcASL => '1', mcDelayedWrite => '1', others => '0'),
+    I_ASR => (mcASR => '1', mcDelayedWrite => '1', others => '0'),
+    I_ASW => (mcWordOp => '1', others => '0'),
+    -- I_BBR - handled elsewhere
+    -- I_BBS - handled elsewhere
+    -- I_BCC - handled elsewhere
+    -- I_BCS - handled elsewhere
+    -- I_BEQ - handled elsewhere
+    I_BIT => (mcBIT => '1', mcInstructionFetch => '1', mcIncPC => '1', others => '0'),
+    -- I_BMI - handled elsewhere
+    -- I_BNE - handled elsewhere
+    -- I_BPL - handled elsewhere
+    -- I_BRA - handled elsewhere
+    I_BRK => (mcBRK => '1', others => '0'),
+    -- I_BSR - handled elsewhere
+    -- I_BVC - handled elsewhere
+    -- I_BVS - handled elsewhere
+    -- I_CLC - Handled as a single-cycle op elsewhere
+    -- I_CLD - handled as a single-cycle op elsewhere
+    I_CLE => (mcClearE => '1', mcDecPC => '1', others => '0'),
+    I_CLI => (mcClearI => '1', mcDecPC => '1', others => '0'),
+    -- I_CLV - handled as a single-cycle op elsewhere
+    I_CMP => (mcCMP => '1', mcInstructionFetch => '1', mcIncPC => '1', others => '0'),
+    I_CPX => (mcCPX => '1', mcInstructionFetch => '1', mcIncPC => '1', others => '0'),
+    I_CPY => (mcCPY => '1', mcInstructionFetch => '1', mcIncPC => '1', others => '0'),
+    I_CPZ => (mcCPZ => '1', mcInstructionFetch => '1', mcIncPC => '1', others => '0'),
+    I_DEC => (mcDEC => '1', mcDelayedWrite => '1', others => '0'),
+    I_DEW => (mcWordOp => '1', others => '0'),
+    -- I_EOM - handled as a single-cycle op elsewhere
+    I_EOR => (mcEOR => '1', mcInstructionFetch => '1', mcIncPC => '1', others => '0'),
+    I_INC => (mcINC => '1', mcDelayedWrite => '1', others => '0'),
+    I_INW => (mcWordOp => '1', others => '0'),
+    -- I_INX - handled as a single-cycle op elsewhere
+    -- I_INY - handled as a single-cycle op elsewhere
+    -- I_INZ - handled as a single-cycle op elsewhere
+    I_JMP => (mcJump => '1', others => '0'),
+    I_JSR => (mcJump => '1', others => '0'),
+    I_LDA => (mcSetA => '1', mcSetNZ => '1', mcIncPC => '1', 
+              mcInstructionFetch => '1', others => '0'),
+    I_LDX => (mcSetX => '1', mcSetNZ => '1', mcIncPC => '1', 
+              mcInstructionFetch => '1', others => '0'),
+    I_LDY => (mcSetY => '1', mcSetNZ => '1', mcIncPC => '1', 
+              mcInstructionFetch => '1', others => '0'),
+    I_LDZ => (mcSetZ => '1', mcSetNZ => '1', mcIncPC => '1', 
+              mcInstructionFetch => '1', others => '0'),
+    I_LSR => (mcLSR => '1', mcDelayedWrite => '1', others => '0'),
+    I_MAP => (mcMap => '1', mcDecPC => '1', others => '0'),
+    -- I_NEG - handled as a single-cycle op elsewhere
+    I_ORA => (mcORA => '1', mcInstructionFetch => '1', mcIncPC => '1', others => '0'),
+    I_PHA => (mcStoreA => '1', mcDecPC => '1', others => '0'),
+    I_PHP => (mcStoreP => '1', mcDecPC => '1', others => '0'),
+    I_PHW => (mcWordOp => '1', others => '0'),
+    I_PHX => (mcStoreX => '1', mcDecPC => '1', others => '0'),
+    I_PHY => (mcStoreY => '1', mcDecPC => '1', others => '0'),
+    I_PHZ => (mcStoreZ => '1', mcDecPC => '1', others => '0'),
+    I_PLA => (mcPop => '1', mcStackA => '1', mcDecPC => '1', others => '0'),
+    I_PLP => (mcPop => '1', mcStackP => '1', mcDecPC => '1', others => '0'),
+    I_PLX => (mcPop => '1', mcStackX => '1', mcDecPC => '1', others => '0'),
+    I_PLY => (mcPop => '1', mcStackY => '1', mcDecPC => '1', others => '0'),
+    I_PLZ => (mcPop => '1', mcStackZ => '1', mcDecPC => '1', others => '0'),
+    I_RMB => (mcRMB => '1', mcDelayedWrite => '1', others => '0'),
+    I_ROL => (mcROL => '1', mcDelayedWrite => '1', others => '0'),
+    I_ROR => (mcROR => '1', mcDelayedWrite => '1', others => '0'),
+    I_ROW => (mcWordOp => '1', others => '0'),
+    -- I_RTI - handled directly in gs4510.vhdl
+    -- I_RTS - handled directly in gs4510.vhdl
+    I_SBC => (mcSBC => '1', mcInstructionFetch => '1', mcIncPC => '1', others => '0'),
+    -- I_SEC - handled as a single-cycle op elsewhere   
+    -- I_SED - handled as a single-cycle op elsewhere   
+    -- I_SEE - handled as a single-cycle op elsewhere   
+    -- I_SEI - handled as a single-cycle op elsewhere   
+    I_SMB => (mcSMB => '1', mcDelayedWrite => '1', others => '0'),
+    I_STA => (mcStoreA => '1', mcWriteMem => '1', mcInstructionFetch => '1', 
+              mcWriteRegAddr => '1',mcIncPC => '1',  others => '0'),
+    I_STX => (mcStoreX => '1', mcWriteMem => '1', mcInstructionFetch => '1', 
+              mcWriteRegAddr => '1',mcIncPC => '1',  others => '0'),
+    I_STY => (mcStoreY => '1', mcWriteMem => '1', mcInstructionFetch => '1', 
+              mcWriteRegAddr => '1',mcIncPC => '1',  others => '0'),
+    I_STZ => (mcStoreZ => '1', mcWriteMem => '1', mcInstructionFetch => '1', 
+              mcWriteRegAddr => '1',mcIncPC => '1',  others => '0'),
+    -- I_TAX - handled as a single-cycle op elsewhere   
+    -- I_TAY - handled as a single-cycle op elsewhere   
+    -- I_TAZ - handled as a single-cycle op elsewhere   
+    -- I_TBA - handled as a single-cycle op elsewhere   
+    I_TRB => (mcStoreTRB => '1', mcDelayedWrite => '1', mcTestAZ => '1', 
+              others => '0'),
+    I_TSB => (mcStoreTSB => '1', mcDelayedWrite => '1', mcTestAZ => '1', 
+              others => '0'),
+    -- I_TSX - handled as a single-cycle op elsewhere   
+    -- I_TSY - handled as a single-cycle op elsewhere   
+    -- I_TXA - handled as a single-cycle op elsewhere   
+    -- I_TXS - handled as a single-cycle op elsewhere   
+    -- I_TYA - handled as a single-cycle op elsewhere   
+    -- I_TYS - handled as a single-cycle op elsewhere   
+    -- I_TZA - handled as a single-cycle op elsewhere   
+
+    -- 6502 illegals
+    -- XXX - incomplete: these have only the microcode for the "dominant" action
+    -- for the most part so far.
+    -- Shift left, then OR accumulator with result of operation
+    I_SLO => (mcASL => '1', mcORA => '1',
+              mcDelayedWrite => '1', others => '0'),
+    -- Rotate left, then AND accumulator with result of operation
+    I_RLA => (mcROL => '1', mcAND => '1',
+              mcDelayedWrite => '1', others => '0'),
+    -- LSR, then EOR accumulator with result of operation
+    I_SRE => (mcLSR => '1', mcEOR => '1',
+              mcDelayedWrite => '1', others => '0'),
+    -- Rotate right, then ADC accumulator with result of operation
+    I_RRA => (mcROR => '1', mcADC => '1',
+              mcDelayedWrite => '1', others => '0'),
+    -- Store AND of A and X: Doesn't touch any flags
+    I_SAX => (mcStoreA => '1', mcStoreX => '1',
+              mcWriteMem => '1', mcInstructionFetch => '1', 
+              mcWriteRegAddr => '1',mcIncPC => '1',  others => '0'),
+    -- Load A and X at the same time, one of the more useful results
+    I_LAX => (mcSetX => '1', mcSetA => '1',
+              mcSetNZ => '1', mcIncPC => '1', 
+              mcInstructionFetch => '1', others => '0'),
+    -- Decrement, and then compare with accumulator
+    I_DCP => (mcDEC => '1', mcCMP => '1',
+              mcDelayedWrite => '1', others => '0'),
+    -- INC, then subtract result from accumulator
+    I_ISC => (mcINC => '1', mcSBC => '1',
+              mcDelayedWrite => '1', others => '0'),
+    -- Like AND, but pushes bit7 into C.  Here we can simply enable both AND
+    -- and ROL in the microcode, and everything will already work.
+    I_ANC => (mcAND => '1', mcROL => '1',
+              mcInstructionFetch => '1', mcIncPC => '1',
+              -- XXX push bit7 to carry
+              others => '0'),
+    I_ALR => (mcAND => '1', mcLSR => '1',
+              mcInstructionFetch => '1', mcIncPC => '1', others => '0'),
+    I_ARR => (mcROR => '1', mcDelayedWrite => '1', others => '0'),
+    I_XAA => (mcAND => '1',
+              mcInstructionFetch => '1', mcIncPC => '1', others => '0'),
+    I_AXS => (mcAND => '1', mcInstructionFetch => '1', mcIncPC => '1',
+              others => '0'),
+    I_AHX => (mcStoreA => '1', mcWriteMem => '1', mcInstructionFetch => '1', 
+              mcWriteRegAddr => '1',mcIncPC => '1',  others => '0'),
+    I_SHY => (mcStoreY => '1', mcWriteMem => '1', mcInstructionFetch => '1', 
+              mcWriteRegAddr => '1',mcIncPC => '1',  others => '0'),
+    I_SHX => (mcStoreX => '1', mcWriteMem => '1', mcInstructionFetch => '1', 
+              mcWriteRegAddr => '1',mcIncPC => '1',  others => '0'),
+    I_TAS => (mcStoreA => '1', mcWriteMem => '1', mcInstructionFetch => '1', 
+              mcWriteRegAddr => '1',mcIncPC => '1',  others => '0'),
+    I_LAS => (mcSetA => '1',
+              mcSetNZ => '1', mcIncPC => '1', 
+              mcInstructionFetch => '1', others => '0'),
+    I_NOP => ( others=>'0'),
+    -- I_KIL - XXX needs to be handled as Hypervisor trap elsewhere
+    
+    others => ( mcInstructionFetch => '1', others => '0'));
+
+
 begin
 
   shadowram0 : shadowram port map (
@@ -846,12 +997,6 @@ begin
     data_o  => rom_rdata,
     no_writes => rom_no_write_count,
     writes => rom_write_count);
-
-  
-  microcode0: microcode port map (
-    clk => clock,
-    address => reg_microcode_address,
-    data_o => reg_microcode);
   
   process(clock,reset,reg_a,reg_x,reg_y,reg_z,flag_c)
     procedure disassemble_last_instruction is
@@ -2356,19 +2501,25 @@ begin
     
     -- BEGINNING OF MAIN PROCESS FOR CPU
     if rising_edge(clock) then
-
-      -- Make a buffered copy of reg_microcode so that we can use that instead
-      -- of depending on the value read directly from memory.
-      -- This should relax timing for the CPU a bit.
-      -- Better solution would be to read reg_microcode during the InstructionDecode
-      -- cycle.  That would require putting it in an array, and hoping that ISE
-      -- infers it as a memory.
-      reg_microcode_drive <= reg_microcode;
       
       -- Select CPU personality based on IO mode, but hypervisor can override to
       -- for 4502 mode, and the hypervisor itself always runs in 4502 mode.
       if (viciii_iomode="00") and (force_4502='0') and (hypervisor_mode='0') then
-        emu6502 <= '1';
+        -- Use 6502 mode when IO mode is in C64/VIC-II mode, since no C64 program
+        -- should enable VIC-III IO map and expect 6502 CPU.  However, the one
+        -- catch to this is that the C64 mode kernal on a C65 uses new
+        -- instructions when checking the drive number to decide whether to use
+        -- the new DOS or IEC serial.  Thus we need code in the Kernal to run
+        -- in 4502 mode.  XXX The check here is not completely perfect, but
+        -- should cover all likely situations, since only the use of MAP could
+        -- upset it.
+        if (reg_pc(15 downto 11) = "111")
+          and ((cpuport_value(1) or (not cpuport_ddr(1)))='1')
+          and (reg_map_high(3) = '0') then
+          emu6502 <= '0';
+        else 
+          emu6502 <= '1';
+        end if;
       else
         emu6502 <= '0';
       end if;
@@ -3153,6 +3304,12 @@ begin
               last_instruction_pc <= reg_pc - 1;
               last_opcode <= memory_read_value;
               last_bytecount <= 1;
+
+              -- Prepare microcode vector in case we need it next cycles
+              reg_microcode <=
+                microcode_lut(instruction_lut(to_integer(emu6502&memory_read_value)));
+              reg_addressingmode <= mode_lut(to_integer(emu6502&memory_read_value));
+              reg_instruction <= instruction_lut(to_integer(emu6502&memory_read_value));
               
               -- 4502 doesn't allow interrupts immediately following a
               -- single-cycle instruction
@@ -3327,11 +3484,6 @@ begin
                   end if;
                 end if;
                 
-                -- Prepare microcode vector in case we need it next cycle
-                reg_microcode_address <=
-                  instruction_lut(to_integer(emu6502&memory_read_value));
-                reg_addressingmode <= mode_lut(to_integer(emu6502&memory_read_value));
-                reg_instruction <= instruction_lut(to_integer(emu6502&memory_read_value));
                 monitor_instruction <= to_unsigned(instruction'pos(instruction_lut(to_integer(emu6502&memory_read_value))),8);
                 is_rmw <= '0'; is_load <= '0'; is_store <= '0';
                 rmw_dummy_write_done <= '0';
@@ -4229,7 +4381,7 @@ begin
                 state <= Interrupt;
               end if;
               
-              if reg_microcode_drive.mcJump='1' then
+              if reg_microcode.mcJump='1' then
                 report "Setting PC: mcJump=1";
                 reg_pc <= reg_addr;
               end if;
@@ -4278,7 +4430,7 @@ begin
               if reg_microcode.mcEOR='1' and (is_rmw='0') then
                 reg_a <= with_nz(reg_a xor memory_read_value);
               end if;
-              if reg_microcode_drive.mcDEC='1' then
+              if reg_microcode.mcDEC='1' then
                 temp_value := memory_read_value - 1;
                 reg_t <= temp_value;                
                 flag_n <= temp_value(7);
@@ -4286,7 +4438,7 @@ begin
                   flag_z <= '1'; else flag_z <= '0';
                 end if;
               end if;
-              if reg_microcode_drive.mcINC='1' then
+              if reg_microcode.mcINC='1' then
                 temp_value := memory_read_value + 1;
                 reg_t <= temp_value;                
                 flag_n <= temp_value(7);
@@ -4294,7 +4446,7 @@ begin
                   flag_z <= '1'; else flag_z <= '0';
                 end if;
               end if;
-              if reg_microcode_drive.mcASR='1' then
+              if reg_microcode.mcASR='1' then
                 temp_value := memory_read_value(7)&memory_read_value(7 downto 1);
                 reg_t <= temp_value;
                 flag_c <= memory_read_value(0);
@@ -4303,7 +4455,7 @@ begin
                   flag_z <= '1'; else flag_z <= '0';
                 end if;
               end if;
-              if reg_microcode_drive.mcLSR='1' then
+              if reg_microcode.mcLSR='1' then
                 temp_value := '0'&memory_read_value(7 downto 1);
                 reg_t <= temp_value;
                 flag_c <= memory_read_value(0);
@@ -4312,7 +4464,7 @@ begin
                   flag_z <= '1'; else flag_z <= '0';
                 end if;
               end if;
-              if reg_microcode_drive.mcROR='1' then
+              if reg_microcode.mcROR='1' then
                 temp_value := flag_c&memory_read_value(7 downto 1);
                 reg_t <= temp_value;
                 flag_c <= memory_read_value(0);
@@ -4321,7 +4473,7 @@ begin
                   flag_z <= '1'; else flag_z <= '0';
                 end if;
               end if;
-              if reg_microcode_drive.mcASL='1' then
+              if reg_microcode.mcASL='1' then
                 temp_value := memory_read_value(6 downto 0)&'0';
                 reg_t <= temp_value;
                 flag_c <= memory_read_value(7);
@@ -4330,7 +4482,7 @@ begin
                   flag_z <= '1'; else flag_z <= '0';
                 end if;
               end if;
-              if reg_microcode_drive.mcROL='1' then
+              if reg_microcode.mcROL='1' then
                 temp_value := memory_read_value(6 downto 0)&flag_c;
                 reg_t <= temp_value;
                 flag_c <= memory_read_value(7);
@@ -4339,11 +4491,11 @@ begin
                   flag_z <= '1'; else flag_z <= '0';
                 end if;
               end if;
-              if reg_microcode_drive.mcRMB='1' then
+              if reg_microcode.mcRMB='1' then
                 -- Clear bit based on opcode
                 reg_t <= memory_read_value and rmb_mask;
               end if;
-              if reg_microcode_drive.mcSMB='1' then
+              if reg_microcode.mcSMB='1' then
                 -- Set bit based on opcode
                 reg_t <= memory_read_value or smb_mask;
               end if;
@@ -4360,7 +4512,7 @@ begin
                  memory_access_wdata := unsigned(virtual_reg_p);
                  memory_access_wdata(4) := '1';  -- B always set when pushed
               end if;              
-              if reg_microcode_drive.mcWriteRegAddr='1' then
+              if reg_microcode.mcWriteRegAddr='1' then
                 memory_access_address := x"000"&reg_addr;
                 memory_access_resolve_address := '1';
               end if;
@@ -4382,10 +4534,10 @@ begin
               if reg_microcode.mcPop='1' then
                 state <= Pop;
               end if;
-              if reg_microcode_drive.mcStoreTRB='1' then
+              if reg_microcode.mcStoreTRB='1' then
                 reg_t <= (reg_a xor x"FF") and memory_read_value;
               end if;
-              if reg_microcode_drive.mcStoreTSB='1' then
+              if reg_microcode.mcStoreTSB='1' then
                 report "memory_read_value = $" & to_hstring(memory_read_value) & ", A = $" & to_hstring(reg_a) severity note;
                 reg_t <= reg_a or memory_read_value;
               end if;
@@ -4396,7 +4548,7 @@ begin
                   flag_z <= '0';
                 end if;
               end if;
-              if reg_microcode_drive.mcDelayedWrite='1' then
+              if reg_microcode.mcDelayedWrite='1' then
                 -- Do dummy write for RMW instructions if touching $D019
                 reg_t_high <= memory_read_value;
 

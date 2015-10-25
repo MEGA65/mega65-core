@@ -98,10 +98,6 @@
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="83"/>
       <association xil_pn:name="Implementation" xil_pn:seqID="63"/>
     </file>
-    <file xil_pn:name="microcode.vhdl" xil_pn:type="FILE_VHDL">
-      <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="87"/>
-      <association xil_pn:name="Implementation" xil_pn:seqID="67"/>
-    </file>
     <file xil_pn:name="cputypes.vhdl" xil_pn:type="FILE_VHDL">
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="88"/>
       <association xil_pn:name="Implementation" xil_pn:seqID="38"/>
