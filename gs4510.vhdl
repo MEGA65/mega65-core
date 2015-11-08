@@ -47,6 +47,9 @@ entity gs4510 is
     iomode_set : out std_logic_vector(1 downto 0) := "11";
     iomode_set_toggle : out std_logic := '0';
 
+    cpuis6502 : out std_logic;
+    cpuspeed : out unsigned(7 downto 0);
+
     no_kickstart : in std_logic;
 
     ddr_counter : in unsigned(7 downto 0);
@@ -2523,6 +2526,7 @@ begin
       else
         emu6502 <= '0';
       end if;
+      cpuis6502 <= emu6502;
       
       -- Work out actual georam page
       georam_page(5 downto 0) <= georam_blockpage(5 downto 0);
@@ -2671,27 +2675,35 @@ begin
               normal_fetch_state <= ProcessorPause;
               fast_fetch_state <= ProcessorPause;
               cpu_pause_shift <= 0;
+              cpuspeed <= x"01";
             when "101" => -- 1mhz
               normal_fetch_state <= ProcessorPause;
               fast_fetch_state <= ProcessorPause;          
               cpu_pause_shift <= 0;
+              cpuspeed <= x"01";
             when "110" => -- 3.5mhz
               normal_fetch_state <= ProcessorPause;
               fast_fetch_state <= ProcessorPause;          
               cpu_pause_shift <= 2;
+              cpuspeed <= x"04";
             when "111" => -- 48mhz
+              cpuspeed <= x"48";
               null;
             when "000" => -- 2mhz
               normal_fetch_state <= ProcessorPause;
               fast_fetch_state <= ProcessorPause;          
               cpu_pause_shift <= 1;
+              cpuspeed <= x"02";
             when "001" => -- 48mhz
+              cpuspeed <= x"48";
               null;
             when "010" => -- 3.5mhz
               normal_fetch_state <= ProcessorPause;
               fast_fetch_state <= ProcessorPause;          
               cpu_pause_shift <= 2;
+              cpuspeed <= x"04";
             when "011" => -- 48mhz
+              cpuspeed <= x"48";
               null;
             when others =>
               null;
@@ -3596,7 +3608,22 @@ begin
                                 -- handled in MicrocodeInterpret
                 when M_A => null;
                             -- handled in MicrocodeInterpret
-                when M_rr =>   null;
+                when M_rr =>
+                  -- XXX For non-taken branches, we can just proceed directly to fetching
+                  -- the next instruction: this makes non-taken branches need only
+                  -- 2 cycles, like on real 6502.  If a branch is taken, then it
+                  -- takes one extra cycle (see Cycle3)
+                  if (reg_instruction=I_BEQ and flag_z='0') or
+                    (reg_instruction=I_BNE and flag_z='1') or
+                    (reg_instruction=I_BCS and flag_c='0') or
+                    (reg_instruction=I_BCC and flag_c='1') or
+                    (reg_instruction=I_BVS and flag_v='0') or
+                    (reg_instruction=I_BVC and flag_v='1') or
+                    (reg_instruction=I_BMI and flag_n='0') or
+                    (reg_instruction=I_BPL and flag_n='1') then
+                    state <= fast_fetch_state;
+                    if fast_fetch_state = InstructionDecode then pc_inc := '1'; end if;
+                  end if;
                 when M_InnY => null;
                 when M_InnZ => null;
                 when M_nnX =>
@@ -3621,9 +3648,7 @@ begin
                 when others =>
                   pc_inc := '1';
                   null;
-              end case;
-
-              
+              end case;              
             when Flat32Got2ndArgument =>
               -- Flat 32bit JMP/JSR instructions require 4 address bytes.
               -- At this point, we have the 2nd byte.  If the addressing mode

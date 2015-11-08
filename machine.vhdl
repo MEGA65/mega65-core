@@ -246,6 +246,9 @@ architecture Behavioral of machine is
       hyper_trap : in std_logic;
       cpu_hypervisor_mode : out std_logic;
 
+      cpuis6502 : out std_logic;
+      cpuspeed : out unsigned(7 downto 0);
+      
       no_kickstart : in std_logic;
 
       ddr_counter : in unsigned(7 downto 0);
@@ -660,6 +663,10 @@ architecture Behavioral of machine is
   signal monitor_ibytes : std_logic_vector(3 downto 0);
   signal monitor_arg1 : unsigned(7 downto 0);
   signal monitor_arg2 : unsigned(7 downto 0);
+
+  signal cpuis6502 : std_logic;
+  signal cpuspeed : unsigned(7 downto 0);
+
   
   signal segled_counter : unsigned(19 downto 0) := (others => '0');
 
@@ -750,41 +757,49 @@ begin
       --elsif segled_counter(17 downto 15)=7 then
       --  digit := std_logic_vector(monitor_state(15 downto 12));
       --end if;
-      if segled_counter(17 downto 15)=0 then
-        digit := std_logic_vector(slowram_addr_reflect(3 downto 0));
-      elsif segled_counter(17 downto 15)=1 then
-        digit := std_logic_vector(slowram_addr_reflect(7 downto 4));
-      elsif segled_counter(17 downto 15)=2 then
-        digit := std_logic_vector(slowram_addr_reflect(11 downto 8));
-      elsif segled_counter(17 downto 15)=3 then
-        digit := std_logic_vector(slowram_addr_reflect(15 downto 12));
-      elsif segled_counter(17 downto 15)=4 then
-        digit := std_logic_vector(slowram_addr_reflect(19 downto 16));
-      elsif segled_counter(17 downto 15)=5 then
-        digit := std_logic_vector(slowram_addr_reflect(23 downto 20));
-      elsif segled_counter(17 downto 15)=6 then
-        digit := '1'&std_logic_vector(slowram_addr_reflect(26 downto 24));
-      elsif segled_counter(17 downto 15)=7 then
-        digit := std_logic_vector(slowram_datain_reflect(3 downto 0));
-      end if;
       --if segled_counter(17 downto 15)=0 then
-      --  digit := std_logic_vector(seg_led_data(3 downto 0));
+      --  digit := std_logic_vector(slowram_addr_reflect(3 downto 0));
       --elsif segled_counter(17 downto 15)=1 then
-      --  digit := std_logic_vector(seg_led_data(7 downto 4));
+      --  digit := std_logic_vector(slowram_addr_reflect(7 downto 4));
       --elsif segled_counter(17 downto 15)=2 then
-      --  digit := std_logic_vector(seg_led_data(11 downto 8));
+      --  digit := std_logic_vector(slowram_addr_reflect(11 downto 8));
       --elsif segled_counter(17 downto 15)=3 then
-      --  digit := std_logic_vector(seg_led_data(15 downto 12));
+      --  digit := std_logic_vector(slowram_addr_reflect(15 downto 12));
       --elsif segled_counter(17 downto 15)=4 then
-      --  digit := std_logic_vector(seg_led_data(19 downto 16));
+      --  digit := std_logic_vector(slowram_addr_reflect(19 downto 16));
       --elsif segled_counter(17 downto 15)=5 then
-      --  digit := std_logic_vector(seg_led_data(23 downto 20));
+      --  digit := std_logic_vector(slowram_addr_reflect(23 downto 20));
       --elsif segled_counter(17 downto 15)=6 then
-      --  digit := std_logic_vector(seg_led_data(27 downto 24));
+      --  digit := '1'&std_logic_vector(slowram_addr_reflect(26 downto 24));
       --elsif segled_counter(17 downto 15)=7 then
-      --  digit := std_logic_vector(seg_led_data(31 downto 28));
+      --  digit := std_logic_vector(slowram_datain_reflect(3 downto 0));
       --end if;
-
+      if segled_counter(17 downto 15)=0 then
+        digit := std_logic_vector(seg_led_data(3 downto 0));
+      elsif segled_counter(17 downto 15)=1 then
+        digit := std_logic_vector(seg_led_data(7 downto 4));
+      elsif segled_counter(17 downto 15)=2 then
+        digit := std_logic_vector(seg_led_data(11 downto 8));
+      elsif segled_counter(17 downto 15)=3 then
+        digit := std_logic_vector(seg_led_data(15 downto 12));
+      elsif segled_counter(17 downto 15)=4 then
+        --digit := std_logic_vector(seg_led_data(19 downto 16));
+        digit := (others => '0');
+      elsif segled_counter(17 downto 15)=5 then
+        --digit := std_logic_vector(seg_led_data(23 downto 20));
+        digit := (others => '0');
+      elsif segled_counter(17 downto 15)=6 then
+        digit := std_logic_vector(seg_led_data(27 downto 24));
+      elsif segled_counter(17 downto 15)=7 then
+        digit := std_logic_vector(seg_led_data(31 downto 28));
+      end if;
+      
+      if cpuis6502 = '1' then
+        seg_led_data(15 downto 0) <= x"6510";
+      else
+        seg_led_data(15 downto 0) <= x"4502";
+      end if;
+      seg_led_data(31 downto 24) <= cpuspeed;
       
       -- segments are:
       -- 7 - decimal point
@@ -839,6 +854,8 @@ begin
     hyper_trap => hyper_trap,
     speed_gate => speed_gate,
     speed_gate_enable => speed_gate_enable,
+    cpuis6502 => cpuis6502,
+    cpuspeed => cpuspeed,
     
     ddr_state => ddr_state,
     ddr_counter => ddr_counter,
@@ -1031,7 +1048,7 @@ begin
     drive_led_out => drive_led_out,
     sw => sw,
     btn => btn,
-    seg_led => seg_led_data,
+--    seg_led => seg_led_data,
     viciii_iomode => viciii_iomode,
     sector_buffer_mapped => sector_buffer_mapped,
 
