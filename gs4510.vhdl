@@ -188,6 +188,7 @@ component shadowram is
         );
 end component;
 
+
   signal reset_drive : std_logic := '0';
 
   signal force_fast : std_logic := '0';
@@ -248,6 +249,10 @@ end component;
   signal last_fastio_addr : std_logic_vector(19 downto 0);
   signal last_write_address : unsigned(27 downto 0);
   signal shadow_write_flags : unsigned(3 downto 0) := "0000";
+  -- Registers to hold delayed write to hypervisor and related CPU registers
+  -- to improve CPU timing closure.
+  signal last_write_value : unsigned(7 downto 0);
+  signal last_write_pending : std_logic := '0';
 
   -- On the original Nexys4 board:
   -- SlowRAM has 70ns access time, so need some wait states.
@@ -1978,233 +1983,16 @@ begin
         fastio_write <= '1'; fastio_read <= '0';
         report "raising fastio_write" severity note;
         fastio_wdata <= std_logic_vector(value);
-        -- @IO:GS $FFC00A0 45GS10 slowram wait-states (write-only)
-        if long_address = x"FFC00A0" then
-          slowram_waitstates <= value;
-        end if;
-        -- @IO:GS $D640 - Hypervisor A register storage
-        if long_address = x"FFD3640" and hypervisor_mode='1' then
-          hyper_a <= value;
-        end if;
-        -- @IO:GS $D641 - Hypervisor X register storage
-        if long_address = x"FFD3641" and hypervisor_mode='1' then
-          hyper_x <= value;
-        end if;
-        -- @IO:GS $D642 - Hypervisor Y register storage
-        if long_address = x"FFD3642" and hypervisor_mode='1' then
-          hyper_y <= value;
-        end if;
-        -- @IO:GS $D643 - Hypervisor Z register storage
-        if long_address = x"FFD3643" and hypervisor_mode='1' then
-          hyper_z <= value;
-        end if;
-        -- @IO:GS $D644 - Hypervisor B register storage
-        if long_address = x"FFD3644" and hypervisor_mode='1' then
-          hyper_b <= value;
-        end if;
-        -- @IO:GS $D645 - Hypervisor SPL register storage
-        if long_address = x"FFD3645" and hypervisor_mode='1' then
-          hyper_sp <= value;
-        end if;
-        -- @IO:GS $D646 - Hypervisor SPH register storage
-        if long_address = x"FFD3646" and hypervisor_mode='1' then
-          hyper_sph <= value;
-        end if;
-        -- @IO:GS $D647 - Hypervisor P register storage
-        if long_address = x"FFD3647" and hypervisor_mode='1' then
-          hyper_p <= value;
-        end if;
-        -- @IO:GS $D648 - Hypervisor PC-low register storage
-        if long_address = x"FFD3648" and hypervisor_mode='1' then
-          hyper_pc(7 downto 0) <= value;
-        end if;
-        -- @IO:GS $D649 - Hypervisor PC-high register storage
-        if long_address = x"FFD3649" and hypervisor_mode='1' then
-          hyper_pc(15 downto 8) <= value;
-        end if;
-        -- @IO:GS $D64A - Hypervisor MAPLO register storage (high bits)
-        if long_address = x"FFD364A" and hypervisor_mode='1' then
-          hyper_map_low <= std_logic_vector(value(7 downto 4));
-          hyper_map_offset_low(11 downto 8) <= value(3 downto 0);
-        end if;
-        -- @IO:GS $D64B - Hypervisor MAPLO register storage (low bits)
-        if long_address = x"FFD364B" and hypervisor_mode='1' then
-          hyper_map_offset_low(7 downto 0) <= value;
-        end if;
-        -- @IO:GS $D64C - Hypervisor MAPHI register storage (high bits)
-        if long_address = x"FFD364C" and hypervisor_mode='1' then
-          hyper_map_high <= std_logic_vector(value(7 downto 4));
-          hyper_map_offset_high(11 downto 8) <= value(3 downto 0);
-        end if;
-        -- @IO:GS $D64D - Hypervisor MAPHI register storage (low bits)
-        if long_address = x"FFD364D" and hypervisor_mode='1' then
-          hyper_map_offset_high(7 downto 0) <= value;
-        end if;
-        -- @IO:GS $D64E - Hypervisor MAPLO mega-byte number register storage
-        if long_address = x"FFD364E" and hypervisor_mode='1' then
-          hyper_mb_low <= value;
-        end if;
-        -- @IO:GS $D64F - Hypervisor MAPHI mega-byte number register storage
-        if long_address = x"FFD364F" and hypervisor_mode='1' then
-          hyper_mb_high <= value;
-        end if;
-        -- @IO:GS $D650 - Hypervisor CPU port $00 value
-        if long_address = x"FFD3650" and hypervisor_mode='1' then
-          hyper_port_00 <= value;
-        end if;
-        -- @IO:GS $D651 - Hypervisor CPU port $01 value
-        if long_address = x"FFD3651" and hypervisor_mode='1' then
-          hyper_port_01 <= value;
-        end if;
-        -- @IO:GS $D652 - Hypervisor VIC-IV IO mode
-        if long_address = x"FFD3652" and hypervisor_mode='1' then
-          hyper_iomode <= value;
-        end if;
-        -- @IO:GS $D653 - Hypervisor DMAgic source MB
-        if long_address = x"FFD3653" and hypervisor_mode='1' then
-          hyper_dmagic_src_mb <= value;
-        end if;
-        -- @IO:GS $D654 - Hypervisor DMAgic destination MB
-        if long_address = x"FFD3654" and hypervisor_mode='1' then
-          hyper_dmagic_dst_mb <= value;
-        end if;
-        -- @IO:GS $D655 - Hypervisor DMAGic list address bits 0-7
-        if long_address = x"FFD3655" and hypervisor_mode='1' then
-          hyper_dmagic_list_addr(7 downto 0) <= value;
-        end if;
-        -- @IO:GS $D656 - Hypervisor DMAGic list address bits 15-8
-        if long_address = x"FFD3656" and hypervisor_mode='1' then
-          hyper_dmagic_list_addr(15 downto 8) <= value;
-        end if;
-        -- @IO:GS $D657 - Hypervisor DMAGic list address bits 23-16
-        if long_address = x"FFD3657" and hypervisor_mode='1' then
-          hyper_dmagic_list_addr(23 downto 16) <= value;
-        end if;
-        -- @IO:GS $D658 - Hypervisor DMAGic list address bits 27-24
-        if long_address = x"FFD3658" and hypervisor_mode='1' then
-          hyper_dmagic_list_addr(27 downto 24) <= value(3 downto 0);
-        end if;
-        -- @IO:GS $D659 - Hypervisor DDR RAM banking control
-        -- @IO:GS $D659.7 - Enable DDR RAM banking
-        -- @IO:GS $D659.0-2 - Select which 16MB DDR RAM bank to make visible
-        if long_address = x"FFD3659" and hypervisor_mode='1' then
-          ddr_ram_banking <= value(7);
-          ddr_ram_bank <= std_logic_vector(value(2 downto 0));
-        end if;
 
-        -- @IO:GS $D65D - Hypervisor current virtual page number (low byte)
-        if long_address = x"FFD365D" and hypervisor_mode='1' then
-          reg_pagenumber(1 downto 0) <= value(7 downto 6);
-          reg_pageactive <= value(4);
-          reg_pages_dirty <= std_logic_vector(value(3 downto 0));
-        end if;
-        -- @IO:GS $D65E - Hypervisor current virtual page number (mid byte)
-        if long_address = x"FFD365E" and hypervisor_mode='1' then
-          reg_pagenumber(9 downto 2) <= value;
-        end if;
-        -- @IO:GS $D65F - Hypervisor current virtual page number (high byte)
-        if long_address = x"FFD365F" and hypervisor_mode='1' then
-          reg_pagenumber(17 downto 10) <= value;
-        end if;
-        -- @IO:GS $D660 - Hypervisor virtual memory page 0 logical page low byte
-        -- @IO:GS $D661 - Hypervisor virtual memory page 0 logical page high byte
-        -- @IO:GS $D662 - Hypervisor virtual memory page 0 physical page low byte
-        -- @IO:GS $D663 - Hypervisor virtual memory page 0 physical page high byte
-        if long_address = x"FFD3660" and hypervisor_mode='1' then
-          reg_page0_logical(7 downto 0) <= value;
-        end if;
-        if long_address = x"FFD3661" and hypervisor_mode='1' then
-          reg_page0_logical(15 downto 8) <= value;
-        end if;
-        if long_address = x"FFD3662" and hypervisor_mode='1' then
-          reg_page0_physical(7 downto 0) <= value;
-        end if;
-        if long_address = x"FFD3663" and hypervisor_mode='1' then
-          reg_page0_physical(15 downto 8) <= value;
-        end if;
-        -- @IO:GS $D664 - Hypervisor virtual memory page 1 logical page low byte
-        -- @IO:GS $D665 - Hypervisor virtual memory page 1 logical page high byte
-        -- @IO:GS $D666 - Hypervisor virtual memory page 1 physical page low byte
-        -- @IO:GS $D667 - Hypervisor virtual memory page 1 physical page high byte
-        if long_address = x"FFD3664" and hypervisor_mode='1' then
-          reg_page1_logical(7 downto 0) <= value;
-        end if;
-        if long_address = x"FFD3665" and hypervisor_mode='1' then
-          reg_page1_logical(15 downto 8) <= value;
-        end if;
-        if long_address = x"FFD3666" and hypervisor_mode='1' then
-          reg_page1_physical(7 downto 0) <= value;
-        end if;
-        if long_address = x"FFD3667" and hypervisor_mode='1' then
-          reg_page1_physical(15 downto 8) <= value;
-        end if;
-
-        -- @IO:GS $D668 - Hypervisor virtual memory page 2 logical page low byte
-        -- @IO:GS $D669 - Hypervisor virtual memory page 2 logical page high byte
-        -- @IO:GS $D66A - Hypervisor virtual memory page 2 physical page low byte
-        -- @IO:GS $D66B - Hypervisor virtual memory page 2 physical page high byte
-        if long_address = x"FFD3668" and hypervisor_mode='1' then
-          reg_page2_logical(7 downto 0) <= value;
-        end if;
-        if long_address = x"FFD3669" and hypervisor_mode='1' then
-          reg_page2_logical(15 downto 8) <= value;
-        end if;
-        if long_address = x"FFD366A" and hypervisor_mode='1' then
-          reg_page2_physical(7 downto 0) <= value;
-        end if;
-        if long_address = x"FFD366B" and hypervisor_mode='1' then
-          reg_page2_physical(15 downto 8) <= value;
-        end if;
-        -- @IO:GS $D66C - Hypervisor virtual memory page 3 logical page low byte
-        -- @IO:GS $D66D - Hypervisor virtual memory page 3 logical page high byte
-        -- @IO:GS $D66E - Hypervisor virtual memory page 3 physical page low byte
-        -- @IO:GS $D66F - Hypervisor virtual memory page 3 physical page high byte
-        if long_address = x"FFD366C" and hypervisor_mode='1' then
-          reg_page3_logical(7 downto 0) <= value;
-        end if;
-        if long_address = x"FFD366D" and hypervisor_mode='1' then
-          reg_page3_logical(15 downto 8) <= value;
-        end if;
-        if long_address = x"FFD366E" and hypervisor_mode='1' then
-          reg_page3_physical(7 downto 0) <= value;
-        end if;
-        if long_address = x"FFD366F" and hypervisor_mode='1' then
-          reg_page3_physical(15 downto 8) <= value;
-        end if;
-
-        -- @IO:GS $D670 - Hypervisor GeoRAM base address (x MB) (write-only for
-        -- now)
-        if long_address = x"FFD3670" and hypervisor_mode='1' then
-          georam_page(19 downto 12) <= value;
-        end if;
-        -- @IO:GS $D671 - Hypervisor GeoRAM address mask (applied to GeoRAM block
-        -- register) (write-only for now)
-        if long_address = x"FFD3671" and hypervisor_mode='1' then
-          georam_blockmask <= value;
-        end if;        
+        -- Setup delayed write to hypervisor registers
+        -- (this removes the fan-out to 64 more registers from being on the
+        -- critical path.  The side-effect is that writing to hypervisor
+        -- registers (except $D67F) has the effect delayed by one cycle. Should
+        -- only matter if you run self-modifying code in these registers from the
+        -- hypervisor. If you do that, then you probably deserve to see problems.
+        last_write_value <= value;
+        last_write_pending <= '1';
         
-        -- @IO:GS $D67D.0 - Hypervisor C64 ROM source select (0=DDR,1=64KB colour RAM)
-        -- @IO:GS $D67D.1 - Hypervisor enable 32-bit JMP/JSR etc
-        -- @IO:GS $D67D.2 - Hypervisor write protect C65 ROM $20000-$3FFFF
-        -- @IO:GS $D67D.3 - Hypervisor enable ASC/DIN CAPS LOCK key to enable/disable CPU slow-down in C64/C128/C65 modes
-        -- @IO:GS $D67D.4 - Hypervisor force CPU to 48MHz for userland (userland can override via POKE0)
-        -- @IO:GS $D67D.5 - Hypervisor force CPU to 4502 personality, even in C64 IO mode.
-        -- @IO:GS $D67D - Hypervisor watchdog register: writing any value clears the watch dog
-        if long_address = x"FFD367D" and hypervisor_mode='1' then
-          rom_from_colour_ram <= value(0);
-          flat32_enabled <= value(1);
-          rom_writeprotect <= value(2);
-          speed_gate_enable <= value(3);
-          speed_gate_enable_internal <= value(3);
-          force_fast <= value(4);
-          force_4502 <= value(5);
-          watchdog_fed <= '1';
-        end if;
-        -- @IO:GS $D67E - Hypervisor already-upgraded bit (sets permanently)
-        if long_address = x"FFD367E" and hypervisor_mode='1' then
-          hypervisor_upgraded <= '1';
-        end if;
-
         -- @IO:GS $FF7Exxx VIC-IV CHARROM write area
         if long_address(19 downto 12) = x"7E" then
           charrom_write_cs <= '1';
@@ -2474,7 +2262,7 @@ begin
     variable cpu_speed : std_logic_vector(2 downto 0);
     
   begin
-
+    
     -- Begin calculating results for operations immediately to help timing.
     -- The trade-off is consuming a bit of extra silicon.
     a_incremented <= reg_a + 1;
@@ -2531,6 +2319,241 @@ begin
       -- Work out actual georam page
       georam_page(5 downto 0) <= georam_blockpage(5 downto 0);
       georam_page(13 downto 6) <= georam_block and georam_blockmask;
+
+      -- Write to hypervisor registers if requested
+      if last_write_pending = '1' then
+        last_write_pending <= '0';
+
+        -- @IO:GS $FFC00A0 45GS10 slowram wait-states (write-only)
+        if last_write_address = x"FFC00A0" then
+          slowram_waitstates <= last_value;
+        end if;
+
+        -- @IO:GS $D640 - Hypervisor A register storage
+        if last_write_address = x"FFD3640" and hypervisor_mode='1' then
+          hyper_a <= last_value;
+        end if;
+        -- @IO:GS $D641 - Hypervisor X register storage
+        if last_write_address = x"FFD3641" and hypervisor_mode='1' then
+          hyper_x <= last_value;
+        end if;
+        -- @IO:GS $D642 - Hypervisor Y register storage
+        if last_write_address = x"FFD3642" and hypervisor_mode='1' then
+          hyper_y <= last_value;
+        end if;
+        -- @IO:GS $D643 - Hypervisor Z register storage
+        if last_write_address = x"FFD3643" and hypervisor_mode='1' then
+          hyper_z <= last_value;
+        end if;
+        -- @IO:GS $D644 - Hypervisor B register storage
+        if last_write_address = x"FFD3644" and hypervisor_mode='1' then
+          hyper_b <= last_value;
+        end if;
+        -- @IO:GS $D645 - Hypervisor SPL register storage
+        if last_write_address = x"FFD3645" and hypervisor_mode='1' then
+          hyper_sp <= last_value;
+        end if;
+        -- @IO:GS $D646 - Hypervisor SPH register storage
+        if last_write_address = x"FFD3646" and hypervisor_mode='1' then
+          hyper_sph <= last_value;
+        end if;
+        -- @IO:GS $D647 - Hypervisor P register storage
+        if last_write_address = x"FFD3647" and hypervisor_mode='1' then
+          hyper_p <= last_value;
+        end if;
+        -- @IO:GS $D648 - Hypervisor PC-low register storage
+        if last_write_address = x"FFD3648" and hypervisor_mode='1' then
+          hyper_pc(7 downto 0) <= last_value;
+        end if;
+        -- @IO:GS $D649 - Hypervisor PC-high register storage
+        if last_write_address = x"FFD3649" and hypervisor_mode='1' then
+          hyper_pc(15 downto 8) <= last_value;
+        end if;
+        -- @IO:GS $D64A - Hypervisor MAPLO register storage (high bits)
+        if last_write_address = x"FFD364A" and hypervisor_mode='1' then
+          hyper_map_low <= std_logic_vector(last_value(7 downto 4));
+          hyper_map_offset_low(11 downto 8) <= last_value(3 downto 0);
+        end if;
+        -- @IO:GS $D64B - Hypervisor MAPLO register storage (low bits)
+        if last_write_address = x"FFD364B" and hypervisor_mode='1' then
+          hyper_map_offset_low(7 downto 0) <= last_value;
+        end if;
+        -- @IO:GS $D64C - Hypervisor MAPHI register storage (high bits)
+        if last_write_address = x"FFD364C" and hypervisor_mode='1' then
+          hyper_map_high <= std_logic_vector(last_value(7 downto 4));
+          hyper_map_offset_high(11 downto 8) <= last_value(3 downto 0);
+        end if;
+        -- @IO:GS $D64D - Hypervisor MAPHI register storage (low bits)
+        if last_write_address = x"FFD364D" and hypervisor_mode='1' then
+          hyper_map_offset_high(7 downto 0) <= last_value;
+        end if;
+        -- @IO:GS $D64E - Hypervisor MAPLO mega-byte number register storage
+        if last_write_address = x"FFD364E" and hypervisor_mode='1' then
+          hyper_mb_low <= last_value;
+        end if;
+        -- @IO:GS $D64F - Hypervisor MAPHI mega-byte number register storage
+        if last_write_address = x"FFD364F" and hypervisor_mode='1' then
+          hyper_mb_high <= last_value;
+        end if;
+        -- @IO:GS $D650 - Hypervisor CPU port $00 value
+        if last_write_address = x"FFD3650" and hypervisor_mode='1' then
+          hyper_port_00 <= last_value;
+        end if;
+        -- @IO:GS $D651 - Hypervisor CPU port $01 value
+        if last_write_address = x"FFD3651" and hypervisor_mode='1' then
+          hyper_port_01 <= last_value;
+        end if;
+        -- @IO:GS $D652 - Hypervisor VIC-IV IO mode
+        if last_write_address = x"FFD3652" and hypervisor_mode='1' then
+          hyper_iomode <= last_value;
+        end if;
+        -- @IO:GS $D653 - Hypervisor DMAgic source MB
+        if last_write_address = x"FFD3653" and hypervisor_mode='1' then
+          hyper_dmagic_src_mb <= last_value;
+        end if;
+        -- @IO:GS $D654 - Hypervisor DMAgic destination MB
+        if last_write_address = x"FFD3654" and hypervisor_mode='1' then
+          hyper_dmagic_dst_mb <= last_value;
+        end if;
+        -- @IO:GS $D655 - Hypervisor DMAGic list address bits 0-7
+        if last_write_address = x"FFD3655" and hypervisor_mode='1' then
+          hyper_dmagic_list_addr(7 downto 0) <= last_value;
+        end if;
+        -- @IO:GS $D656 - Hypervisor DMAGic list address bits 15-8
+        if last_write_address = x"FFD3656" and hypervisor_mode='1' then
+          hyper_dmagic_list_addr(15 downto 8) <= last_value;
+        end if;
+        -- @IO:GS $D657 - Hypervisor DMAGic list address bits 23-16
+        if last_write_address = x"FFD3657" and hypervisor_mode='1' then
+          hyper_dmagic_list_addr(23 downto 16) <= last_value;
+        end if;
+        -- @IO:GS $D658 - Hypervisor DMAGic list address bits 27-24
+        if last_write_address = x"FFD3658" and hypervisor_mode='1' then
+          hyper_dmagic_list_addr(27 downto 24) <= last_value(3 downto 0);
+        end if;
+        -- @IO:GS $D659 - Hypervisor DDR RAM banking control
+        -- @IO:GS $D659.7 - Enable DDR RAM banking
+        -- @IO:GS $D659.0-2 - Select which 16MB DDR RAM bank to make visible
+        if last_write_address = x"FFD3659" and hypervisor_mode='1' then
+          ddr_ram_banking <= last_value(7);
+          ddr_ram_bank <= std_logic_vector(last_value(2 downto 0));
+        end if;
+
+        -- @IO:GS $D65D - Hypervisor current virtual page number (low byte)
+        if last_write_address = x"FFD365D" and hypervisor_mode='1' then
+          reg_pagenumber(1 downto 0) <= last_value(7 downto 6);
+          reg_pageactive <= last_value(4);
+          reg_pages_dirty <= std_logic_vector(last_value(3 downto 0));
+        end if;
+        -- @IO:GS $D65E - Hypervisor current virtual page number (mid byte)
+        if last_write_address = x"FFD365E" and hypervisor_mode='1' then
+          reg_pagenumber(9 downto 2) <= last_value;
+        end if;
+        -- @IO:GS $D65F - Hypervisor current virtual page number (high byte)
+        if last_write_address = x"FFD365F" and hypervisor_mode='1' then
+          reg_pagenumber(17 downto 10) <= last_value;
+        end if;
+        -- @IO:GS $D660 - Hypervisor virtual memory page 0 logical page low byte
+        -- @IO:GS $D661 - Hypervisor virtual memory page 0 logical page high byte
+        -- @IO:GS $D662 - Hypervisor virtual memory page 0 physical page low byte
+        -- @IO:GS $D663 - Hypervisor virtual memory page 0 physical page high byte
+        if last_write_address = x"FFD3660" and hypervisor_mode='1' then
+          reg_page0_logical(7 downto 0) <= last_value;
+        end if;
+        if last_write_address = x"FFD3661" and hypervisor_mode='1' then
+          reg_page0_logical(15 downto 8) <= last_value;
+        end if;
+        if last_write_address = x"FFD3662" and hypervisor_mode='1' then
+          reg_page0_physical(7 downto 0) <= last_value;
+        end if;
+        if last_write_address = x"FFD3663" and hypervisor_mode='1' then
+          reg_page0_physical(15 downto 8) <= last_value;
+        end if;
+        -- @IO:GS $D664 - Hypervisor virtual memory page 1 logical page low byte
+        -- @IO:GS $D665 - Hypervisor virtual memory page 1 logical page high byte
+        -- @IO:GS $D666 - Hypervisor virtual memory page 1 physical page low byte
+        -- @IO:GS $D667 - Hypervisor virtual memory page 1 physical page high byte
+        if last_write_address = x"FFD3664" and hypervisor_mode='1' then
+          reg_page1_logical(7 downto 0) <= last_value;
+        end if;
+        if last_write_address = x"FFD3665" and hypervisor_mode='1' then
+          reg_page1_logical(15 downto 8) <= last_value;
+        end if;
+        if last_write_address = x"FFD3666" and hypervisor_mode='1' then
+          reg_page1_physical(7 downto 0) <= last_value;
+        end if;
+        if last_write_address = x"FFD3667" and hypervisor_mode='1' then
+          reg_page1_physical(15 downto 8) <= last_value;
+        end if;
+
+        -- @IO:GS $D668 - Hypervisor virtual memory page 2 logical page low byte
+        -- @IO:GS $D669 - Hypervisor virtual memory page 2 logical page high byte
+        -- @IO:GS $D66A - Hypervisor virtual memory page 2 physical page low byte
+        -- @IO:GS $D66B - Hypervisor virtual memory page 2 physical page high byte
+        if last_write_address = x"FFD3668" and hypervisor_mode='1' then
+          reg_page2_logical(7 downto 0) <= last_value;
+        end if;
+        if last_write_address = x"FFD3669" and hypervisor_mode='1' then
+          reg_page2_logical(15 downto 8) <= last_value;
+        end if;
+        if last_write_address = x"FFD366A" and hypervisor_mode='1' then
+          reg_page2_physical(7 downto 0) <= last_value;
+        end if;
+        if last_write_address = x"FFD366B" and hypervisor_mode='1' then
+          reg_page2_physical(15 downto 8) <= last_value;
+        end if;
+        -- @IO:GS $D66C - Hypervisor virtual memory page 3 logical page low byte
+        -- @IO:GS $D66D - Hypervisor virtual memory page 3 logical page high byte
+        -- @IO:GS $D66E - Hypervisor virtual memory page 3 physical page low byte
+        -- @IO:GS $D66F - Hypervisor virtual memory page 3 physical page high byte
+        if last_write_address = x"FFD366C" and hypervisor_mode='1' then
+          reg_page3_logical(7 downto 0) <= last_value;
+        end if;
+        if last_write_address = x"FFD366D" and hypervisor_mode='1' then
+          reg_page3_logical(15 downto 8) <= last_value;
+        end if;
+        if last_write_address = x"FFD366E" and hypervisor_mode='1' then
+          reg_page3_physical(7 downto 0) <= last_value;
+        end if;
+        if last_write_address = x"FFD366F" and hypervisor_mode='1' then
+          reg_page3_physical(15 downto 8) <= last_value;
+        end if;
+
+        -- @IO:GS $D670 - Hypervisor GeoRAM base address (x MB) (write-only for
+        -- now)
+        if last_write_address = x"FFD3670" and hypervisor_mode='1' then
+          georam_page(19 downto 12) <= last_value;
+        end if;
+        -- @IO:GS $D671 - Hypervisor GeoRAM address mask (applied to GeoRAM block
+        -- register) (write-only for now)
+        if last_write_address = x"FFD3671" and hypervisor_mode='1' then
+          georam_blockmask <= last_value;
+        end if;        
+        
+        -- @IO:GS $D67D.0 - Hypervisor C64 ROM source select (0=DDR,1=64KB colour RAM)
+        -- @IO:GS $D67D.1 - Hypervisor enable 32-bit JMP/JSR etc
+        -- @IO:GS $D67D.2 - Hypervisor write protect C65 ROM $20000-$3FFFF
+        -- @IO:GS $D67D.3 - Hypervisor enable ASC/DIN CAPS LOCK key to enable/disable CPU slow-down in C64/C128/C65 modes
+        -- @IO:GS $D67D.4 - Hypervisor force CPU to 48MHz for userland (userland can override via POKE0)
+        -- @IO:GS $D67D.5 - Hypervisor force CPU to 4502 personality, even in C64 IO mode.
+        -- @IO:GS $D67D - Hypervisor watchdog register: writing any value clears the watch dog
+        if last_write_address = x"FFD367D" and hypervisor_mode='1' then
+          rom_from_colour_ram <= last_value(0);
+          flat32_enabled <= last_value(1);
+          rom_writeprotect <= last_value(2);
+          speed_gate_enable <= last_value(3);
+          speed_gate_enable_internal <= last_value(3);
+          force_fast <= last_value(4);
+          force_4502 <= last_value(5);
+          watchdog_fed <= '1';
+        end if;
+        -- @IO:GS $D67E - Hypervisor already-upgraded bit (sets permanently)
+        if last_write_address = x"FFD367E" and hypervisor_mode='1' then
+          hypervisor_upgraded <= '1';
+        end if;
+
+      end if;
+
       
       if hyper_trap = '0' and hyper_trap_state = '1' then
         hyper_trap_pending <= '1';        
