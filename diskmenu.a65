@@ -1,0 +1,432 @@
+;
+;  Display list of disk images on SD card on MEGA65, and allow user to pick which one
+;  to mount.
+;
+;  Display configuration will (for now) be 40x25 screen with 16 character filenames
+;  in columns.  The on-screen order is to allow moving sideways to skip 25 disks
+;  at a time.  Only two columns will be shown on screen at a time.
+;
+;  To save memory, we will only cache the names of the disk images. When one is selected
+;  then we repeat the directory scan to find the matching disk image name, and then mount
+;  it from there. Hopefully this won't be too slow. It would also be nice to sort the list
+;  alphabetically when it is displayed.
+;
+
+	.outfile "diskmenu.prg"
+
+	 .word $0801
+	 .org $0801
+
+	 ; List of disk names begins at $1000 - $9FFF
+	 ; 16 bytes each, so 36KB can hold 2,304 disks
+	 .alias disknamearray $1000
+	 ; 16-bit pointers to current disk and number of
+	 ; disks.
+	 .alias diskpointer $fd
+	 .alias currentdisk $fb
+	 ; pointer for where we are drawing on screen
+	 .alias screenpointer $f9
+
+	 .scope
+	 .word _next, 10                       ; Next line and current line number
+	 .byte $97, "2,0:", $9e, " 2014", $AA, "65",0      ; POKE 2,0 : SYS 2014+65
+_next:	 .word 0
+    
+	 .checkpc 2079
+	 .advance 2079
+
+	 ; enable enhanced registers
+	 lda #$47
+	 sta $d02f
+	 lda #$53
+	 sta $d02f
+
+	 ; Clear screen
+	 lda #$0e
+	 sta $d020
+	 lda #$06
+	 sta $d021
+	 lda #$0e
+	 jsr $ffd2
+	 
+	 ldx #0
+ll9:	 lda #$20
+	 sta $0400,x
+	 sta $0500,x
+	 sta $0600,x
+	 sta $0700,x
+	 lda #$e
+	 sta $d800,x
+	 sta $d900,x
+	 sta $da00,x
+	 sta $db00,x
+	 inx
+	 bne ll9
+
+	 ; top and bottom text
+	 ldy #39
+ll13:	 lda topbanner,y
+	 ora #$80
+	 sta $0400,y
+	 lda bottombanner,y
+	 ora #$80
+	 sta $07c0,y
+	 dey
+	 bpl ll13
+
+
+	 ; reset state
+	 lda #$00
+	 sta currentitem
+	 sta currentitem+1
+	 sta diskcount
+	 sta diskcount+1
+	 sta screenitem
+   	 sta screenitem+1
+
+	 ; get list of disks
+	 ; XXX - For now, just claim we have a lot of disks
+	 lda #<1100
+	 sta diskcount
+	 lda #>1100   
+	 lda diskcount+1   	    
+
+mainloop:
+	 ; display current screen of disks
+	 jsr updatescreen
+
+waitforkey:
+	 ; check for keyboard input
+	 jsr $ffe4
+	 cmp #$11
+	 bne notdownkey
+	 ldx #1
+	 ldy #0
+	 jsr adjustcurrentitem
+	 jsr adjustcurrentscreen
+	 jmp mainloop
+ notdownkey:
+	 cmp #$91
+	 bne notupkey
+	 ldx #$ff
+	 ldy #$ff
+	 jsr adjustcurrentitem
+	 jsr adjustcurrentscreen
+	 jmp mainloop
+ notupkey:
+	 cmp #$1D
+	 bne notrightkey
+	 ldx #23
+	 ldy #0
+	 jsr adjustcurrentitem
+	 jsr adjustcurrentscreen
+	 jmp mainloop
+ notrightkey:
+	 cmp #$9D
+	 bne notleftkey
+	 ldx #233
+	 ldy #$ff
+	 jsr adjustcurrentitem
+	 jsr adjustcurrentscreen
+	 jmp mainloop
+ notleftkey:
+	cmp #$30
+	bne notzerokey
+	jsr jumptofirstitem
+        jsr adjustcurrentscreen
+	jmp mainloop
+notzerokey:
+	cmp #$39
+	bne notninekey
+	jsr jumptolastitem
+        jsr adjustcurrentscreen
+	jmp mainloop
+notninekey:
+
+	 jmp waitforkey
+	 rts
+
+adjustcurrentscreen:
+
+	; Check if current item is before what we are displaying now,
+	; if so, move display to the left a column
+	
+	lda currentitem
+	sec
+	sbc screenitem
+	lda currentitem+1
+	sbc screenitem+1
+	bcs notbeforehere
+
+	lda screenitem
+	sec
+	sbc #23
+	sta screenitem
+	lda screenitem+1
+	sbc #0
+	sta screenitem+1
+	jmp adjustcurrentscreen
+
+notbeforehere:
+
+	; Now check the select item would be off to the right of the
+	; edge of the screen.
+
+	; work out where edge of the screen would be
+	lda screenitem
+	clc
+	adc #45
+	sta temp16
+	lda screenitem+1
+	adc #0
+	sta temp16+1
+
+	; now do the comparison
+	lda temp16
+	sec
+	sbc currentitem
+	lda temp16+1
+	sbc currentitem+1
+	bcs notafterhere
+
+	lda screenitem
+	clc
+	adc #23
+	sta screenitem
+	lda screenitem+1
+	adc #0
+	sta screenitem+1
+	jmp adjustcurrentscreen
+
+notafterhere:
+	rts
+	
+
+
+adjustcurrentitem:
+	txa
+	clc
+	adc currentitem
+	sta currentitem
+	tya
+	adc currentitem+1
+	sta currentitem+1
+	bmi itemnegative	
+	sec
+	sbc diskcount
+	bmi itemnumbermaybetoolarge
+	; Item number is ok
+	rts
+itemnumbermaybetoolarge:
+	lda currentitem
+	cmp diskcount
+	bcs itemnumbertoolarge
+	; Item number is ok
+	rts	
+
+itemnumbertoolarge:
+	; item negative, so limit to end of list
+	; ... or better, wrap around for convenience
+jumptofirstitem:
+	lda #0
+	sta currentitem
+	sta currentitem+1
+	rts
+
+itemnegative:
+	; if trying to go before start of list, then limit to start of
+	; list.
+	; ... or better, wrap around for convenience
+
+jumptolastitem:
+	lda diskcount
+	sec
+	sbc #1
+	sta currentitem
+	lda diskcount+1
+	sbc #0
+	sta currentitem+1
+	rts
+
+
+updatescreen:
+	; Draw 2 columns x 25 disk image names
+	; Current selection is displayed reversed
+
+	; get pointer to start of array
+	lda #<disknamearray
+	sta diskpointer
+	lda #>disknamearray
+	sta diskpointer+1
+
+	; add on for starting item on the screen
+
+	lda screenitem
+    	sta temp16
+	lda screenitem+1
+	sta temp16+1
+	ldx #$04
+ll1:	clc
+	rol temp16
+	rol temp16+1
+	dex
+	bne ll1
+	lda diskpointer
+	clc
+	adc temp16
+	sta diskpointer
+	lda diskpointer+1
+	adc temp16+1
+	sta diskpointer+1
+
+	; Now display 2 columns of 23 names each
+
+	lda #<$042a
+	sta screenpointer
+	lda #>$042a
+	sta screenpointer+1
+
+	; Keep track of which item is current, so that we can
+	; highlight it when drawing
+	lda screenitem
+	sta temp16
+	lda screenitem+1
+	sta temp16+1
+
+	ldx #$00
+ drawnextdiskname:
+
+	; Is the item we are drawing past the end of the list?
+	lda temp16
+	cmp diskcount
+	bcc ll10
+	lda temp16+1
+	cmp diskcount+1
+	bcc ll10
+
+	; Item is past end of list, so don't draw
+	ldy #$0f
+	lda #$20
+ll12:	sta (screenpointer),y
+	dey
+	bpl ll12
+	jmp ll11
+
+ll10:
+	ldy #$0f
+ll2:	lda (diskpointer),y
+	sta (screenpointer),y
+	dey
+	bpl ll2
+
+ll11:
+
+	; Work out drawing attributes for this item
+	lda #$0e
+	sta colour
+	lda #$00
+	sta reverse
+	
+	; is this the current item?
+	lda currentitem
+	cmp temp16
+	bne ll5
+	lda currentitem+1
+	cmp temp16+1
+	bne ll5
+
+	; it's the current item, so draw in reverse white
+	; instead
+	lda #$01
+	sta colour
+	lda #$80
+	sta reverse
+
+ll5:
+	; set reverse video as required
+	ldy #$0f
+ll6:	lda (screenpointer),y
+	ora reverse
+	sta (screenpointer),y
+	dey
+	bpl ll6
+
+	; jump to colour ram
+	lda screenpointer+1
+	clc
+	and #$03
+	ora #$d8
+	sta screenpointer+1
+
+	ldy #$0f
+	lda colour
+ll7:	sta (screenpointer),y
+	dey
+	bpl ll7
+
+	; switch back to screen RAM
+	lda screenpointer+1
+	and #$03
+	ora #$04
+	sta screenpointer+1	
+
+	; advance screen item number for comparison with current
+	; selected item.
+	inc temp16
+	lda temp16+1
+	adc #0
+	sta temp16+1
+
+	; advance screen pointer ready for drawing next item
+	
+	lda screenpointer
+	clc
+	adc #$28
+	sta screenpointer
+	lda screenpointer+1
+	adc #0
+	sta screenpointer+1
+
+	; advance disk name pointer
+	lda diskpointer
+	clc
+	adc #$10
+	sta diskpointer
+	lda diskpointer+1
+	adc #0
+	sta diskpointer+1
+
+	; XXX - Reverse video for current item	
+
+	inx
+	cpx #23
+	bne ll4
+
+	; Disk 13 is start of 2nd column, so update screen pointer
+	lda #<$043e
+	sta screenpointer
+	lda #>$043e
+	sta screenpointer+1
+
+ll4:
+	cpx #46
+	beq alldonedrawing
+    	jmp drawnextdiskname
+alldonedrawing:
+	rts
+
+	.scend
+
+iter1:	 .byte 0
+
+diskcount:     .byte 0,0
+screenitem:    .byte 0,0
+currentitem:   .byte 0,0
+temp16:	       .byte 0,0
+colour:	       .byte 14 ; light blue
+reverse:       .byte 0
+
+topbanner:
+		.byte "MEGA65 DISK IMAGE CHOOSER V00.01        "		
+bottombanner:
+		.byte ">> ARROWS TO NAVIGATE, ENTER TO MOUNT <<"

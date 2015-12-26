@@ -17,6 +17,7 @@ SOCKLIBS =
 endif
 
 all:	ghdl-frame-gen \
+	diskmenu.prg \
 	makerom \
 	container.prj \
 	thumbnail.prg \
@@ -30,6 +31,9 @@ ethertest.prg:	ethertest.a65 Makefile
 
 f011test.prg:	f011test.a65 Makefile
 	../Ophis/bin/ophis -4 f011test.a65
+
+diskmenu.prg:	diskmenu.a65 Makefile
+	../Ophis/bin/ophis -4 diskmenu.a65 -l diskmenu.list
 
 diskchooser:	diskchooser.a65 etherload.prg Makefile
 	../Ophis/bin/ophis -4 diskchooser.a65 -l diskchooser.list
