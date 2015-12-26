@@ -74,7 +74,6 @@ ll13:	 lda topbanner,y
 	 dey
 	 bpl ll13
 
-
 	 ; reset state
 	 lda #$00
 	 sta currentitem
@@ -84,6 +83,28 @@ ll13:	 lda topbanner,y
 	 sta screenitem
    	 sta screenitem+1
 
+	 ; enquire hypervisor version
+	 lda #$00
+	 sta $d640
+	 cmp #$00
+	 bne getdisklist
+
+	 ; no hypervisor. not on a mega65?
+	 ldx #39
+ll15:	 lda nohypermsg,x
+	 sta $05e0,x
+	 dex
+	 bpl ll15
+ll16:	 jmp ll16
+
+nohypermsg:
+	 .byte "NO REPLY FROM HYPERVISOR - NOT A MEGA65?"
+
+getdisklist:
+	; make sure Z = $00 after OS & DOS version enquiry 
+	lda #$00
+	taz
+	
 	 ; get list of disks
 	 ; XXX - For now, just claim we have a lot of disks
 	 lda #<1100
