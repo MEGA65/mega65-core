@@ -89,10 +89,11 @@ ll13:	 lda topbanner,y
 	 lda #<1100
 	 sta diskcount
 	 lda #>1100   
-	 lda diskcount+1   	    
+	 sta diskcount+1   	    
 
 mainloop:
 	 ; display current screen of disks
+
 	 jsr updatescreen
 
 waitforkey:
@@ -116,7 +117,7 @@ waitforkey:
  notupkey:
 	 cmp #$1D
 	 bne notrightkey
-	 ldx #23
+	 ldx #21
 	 ldy #0
 	 jsr adjustcurrentitem
 	 jsr adjustcurrentscreen
@@ -124,7 +125,7 @@ waitforkey:
  notrightkey:
 	 cmp #$9D
 	 bne notleftkey
-	 ldx #233
+	 ldx #235
 	 ldy #$ff
 	 jsr adjustcurrentitem
 	 jsr adjustcurrentscreen
@@ -160,7 +161,7 @@ adjustcurrentscreen:
 
 	lda screenitem
 	sec
-	sbc #23
+	sbc #21
 	sta screenitem
 	lda screenitem+1
 	sbc #0
@@ -175,7 +176,7 @@ notbeforehere:
 	; work out where edge of the screen would be
 	lda screenitem
 	clc
-	adc #45
+	adc #41
 	sta temp16
 	lda screenitem+1
 	adc #0
@@ -191,7 +192,7 @@ notbeforehere:
 
 	lda screenitem
 	clc
-	adc #23
+	adc #21
 	sta screenitem
 	lda screenitem+1
 	adc #0
@@ -213,8 +214,8 @@ adjustcurrentitem:
 	sta currentitem+1
 	bmi itemnegative	
 	sec
-	sbc diskcount
-	bmi itemnumbermaybetoolarge
+	sbc diskcount+1
+	bpl itemnumbermaybetoolarge
 	; Item number is ok
 	rts
 itemnumbermaybetoolarge:
@@ -279,11 +280,11 @@ ll1:	clc
 	adc temp16+1
 	sta diskpointer+1
 
-	; Now display 2 columns of 23 names each
+	; Now display 2 columns of 21 names each
 
-	lda #<$042a
+	lda #<$0452
 	sta screenpointer
-	lda #>$042a
+	lda #>$0452
 	sta screenpointer+1
 
 	; Keep track of which item is current, so that we can
@@ -399,17 +400,17 @@ ll7:	sta (screenpointer),y
 	; XXX - Reverse video for current item	
 
 	inx
-	cpx #23
+	cpx #21
 	bne ll4
 
-	; Disk 13 is start of 2nd column, so update screen pointer
-	lda #<$043e
+	; Disk 22 is start of 2nd column, so update screen pointer
+	lda #<$0466
 	sta screenpointer
-	lda #>$043e
+	lda #>$0466
 	sta screenpointer+1
 
 ll4:
-	cpx #46
+	cpx #42
 	beq alldonedrawing
     	jmp drawnextdiskname
 alldonedrawing:
