@@ -2436,7 +2436,7 @@ dos_opendir_entry:
 ; Current long filename (max 64 bytes)
 dos_dirent_longfilename:
 		.byte "Venezualen casaba melon productio"
-		.byte "n statistics (2012-2015).txt     "
+		.byte "n statistics (2012-2015).txt  "
 		.byte 0
 dos_dirent_longfilename_length:
 		.byte 0
