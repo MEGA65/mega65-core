@@ -26,6 +26,7 @@
 	.alias dos_errorcode_is_a_directory $86
 	.alias dos_errorcode_not_a_directory $87
 	.alias dos_errorcode_file_not_found $88
+	.alias dos_errorcode_invalid_file_descriptor $89
 
 	.alias dos_errorcode_eof $FF
 
@@ -238,8 +239,14 @@ trap_dos_readdir:
 	; in first 32KB of mapped address space
 
 	; Get offset to current file descriptor
+	; (we can't use X register, as has been clobbered in the jump
+	; table dispatch code)
+	ldx hypervisor_x
 	stx dos_current_file_descriptor
+	stx $0400
+
 	jsr dos_get_file_descriptor_offset
+	bcc return_from_trap_with_failure
 	sta dos_current_file_descriptor_offset
 
 	jsr dos_readdir
@@ -1522,6 +1529,7 @@ dos_set_current_file_from_dirent:
 	; copy start cluster from dirent to start and current cluster
 	jsr dos_get_free_descriptor
 	jsr dos_get_file_descriptor_offset
+	bcc dos_return_error_already_set
 
 	; set disk id
 	lda dos_disk_current_disk
@@ -1539,6 +1547,7 @@ dscffd1:
 	bne dscffd1
 
 	jsr dos_get_file_descriptor_offset
+	bcc dos_return_error_already_set
 
 	; set disk id
 	lda dos_disk_current_disk
@@ -1561,6 +1570,7 @@ dscffd1:
 dos_open_current_file:
 	; copy start cluster to current cluster, and zero position in file
 	jsr dos_get_file_descriptor_offset
+	bcc dos_return_error_already_set
 
 	; Copy start cluster to current cluster
 	ldy #3
@@ -1588,16 +1598,24 @@ docf2:	sta dos_file_descriptors+dos_filedescriptor_offset_sectorincluster,x
 
 dos_get_file_descriptor_offset:
 	lda dos_current_file_descriptor
+	cmp #4
+	bcs dos_bad_file_descriptor
 	asl
 	asl
 	asl
 	asl
 	tax
+	sec
 	rts
+
+dos_bad_file_descriptor:
+	lda #dos_errorcode_invalid_file_descriptor
+	jmp dos_return_error
 
 dos_set_current_cluster_from_file:
 	; copy cluster number in file to current cluster
 	jsr dos_get_file_descriptor_offset
+	bcc dos_return_error_already_set
 	ldy #$00
 dfrcs1:	lda dos_file_descriptors+dos_filedescriptor_offset_currentcluster,x
 	sta dos_current_cluster,y
@@ -1613,6 +1631,7 @@ dos_file_read_current_sector:
 
 	; Add sector within cluster
 	jsr dos_get_file_descriptor_offset
+	bcc dos_return_error_already_set
 	ora #dos_filedescriptor_offset_sectorincluster
 	tay
 	ldx #$00
