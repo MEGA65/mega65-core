@@ -3,7 +3,7 @@
 ;  to mount.
 ;
 ;  Display configuration will (for now) be 40x25 screen with 16 character filenames
-;  in columns.  The on-screen order is to allow moving sideways to skip 25 disks
+;  in columns.  The on-screen order is to allow moving sideways to skip 21 disks
 ;  at a time.  Only two columns will be shown on screen at a time.
 ;
 ;  To save memory, we will only cache the names of the disk images. When one is selected
@@ -11,11 +11,6 @@
 ;  it from there. Hopefully this won't be too slow. It would also be nice to sort the list
 ;  alphabetically when it is displayed.
 ;
-
-	.outfile "diskmenu.prg"
-
-	 .word $0801
-	 .org $0801
 
 	 ; List of disk names begins at $1000 - $9FFF
 	 ; 16 bytes each, so 36KB can hold 2,304 disks
@@ -26,14 +21,6 @@
 	 .alias currentdisk $fb
 	 ; pointer for where we are drawing on screen
 	 .alias screenpointer $f9
-
-	 .scope
-	 .word _next, 10                       ; Next line and current line number
-	 .byte $97, "2,0:", $9e, " 2014", $AA, "65",0      ; POKE 2,0 : SYS 2014+65
-_next:	 .word 0
-    
-	 .checkpc 2079
-	 .advance 2079
 
 	 ; enable enhanced registers
 	 lda #$47

@@ -32,8 +32,8 @@ ethertest.prg:	ethertest.a65 Makefile
 f011test.prg:	f011test.a65 Makefile
 	../Ophis/bin/ophis -4 f011test.a65
 
-diskmenu.prg:	diskmenu.a65 Makefile
-	../Ophis/bin/ophis -4 diskmenu.a65 -l diskmenu.list
+diskmenu.prg:	diskmenuprg.a65 diskmenu.a65 Makefile
+	../Ophis/bin/ophis -4 diskmenuprg.a65 -l diskmenuprg.list
 
 diskchooser:	diskchooser.a65 etherload.prg Makefile
 	../Ophis/bin/ophis -4 diskchooser.a65 -l diskchooser.list
@@ -41,8 +41,11 @@ diskchooser:	diskchooser.a65 etherload.prg Makefile
 version.a65:	*.vhdl *.a65 *.vhd Makefile
 	./version.sh
 
-kickstart65gs.bin:	$(KICKSTARTSRCS) Makefile diskchooser version.a65
+kickstart65gs.bin:	$(KICKSTARTSRCS) Makefile diskmenu_c000.bin version.a65
 	../Ophis/bin/ophis -4 kickstart.a65 -l kickstart.list
+
+diskmenu_c000.bin:	diskmenuc000.a65 diskmenu.a65
+	../Ophis/bin/ophis -4 diskmenuc000.a65 -l diskmenuc000.list
 
 thumbnail.prg:	showthumbnail.a65 Makefile
 	../Ophis/bin/ophis -4 showthumbnail.a65
