@@ -104,7 +104,12 @@ getdisklist:
 	; make sure Z = $00 after OS & DOS version enquiry 
 	lda #$00
 	taz
+
+	; Open current directory via Hypervisor
+	lda #$12
+	sta $d640
 	
+
 	 ; get list of disks
 	 ; XXX - For now, just claim we have a lot of disks
 	 lda #<1100
