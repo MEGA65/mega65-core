@@ -165,7 +165,7 @@ ll20:
 	; Bump directory count
 	inc diskcount
 	lda diskcount+1
-	adc #$01
+	adc #$00
 	sta diskcount+1
 
 	; update pointer address for dirent
@@ -176,6 +176,14 @@ ll20:
 	lda diskpointer+1
 	adc #$00
 	sta diskpointer+1
+
+	; XXX - Debug: wait for a key press between reading each entry
+ll22:
+	jsr $ffe4
+	cmp #$00
+	beq ll22
+	
+	jmp readnextentry
 
 endofdir:
 	lda diskcount
