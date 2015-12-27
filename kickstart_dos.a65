@@ -233,12 +233,12 @@ tdod1:
 	jmp return_from_trap_with_success
     
 trap_dos_readdir:
-	; Read next directory entry from file descriptor $ZZ
-	; Return dirent structure to $YYXX
+	; Read next directory entry from file descriptor $XX
+	; Return dirent structure to $YY00
 	; in first 32KB of mapped address space
 
 	; Get offset to current file descriptor
-	stz dos_current_file_descriptor
+	stx dos_current_file_descriptor
 	jsr dos_get_file_descriptor_offset
 	sta dos_current_file_descriptor_offset
 

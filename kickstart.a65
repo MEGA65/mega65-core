@@ -2317,9 +2317,9 @@ hypervisor_setup_copy_region:
 	bmi hscr1
 	cmp #$7f
 	beq hscr1
-	sta dos_scratch_vector
-	lda hypervisor_x
 	sta dos_scratch_vector+1
+	lda #$00
+	sta dos_scratch_vector
 	sec
 	rts
 hscr1:
