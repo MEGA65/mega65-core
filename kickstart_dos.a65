@@ -15,6 +15,8 @@
 	.alias dos_errorcode_read_timeout $07
 	.alias dos_errorcode_partition_error $08
 
+	.alias dos_errorcode_invalid_address $10
+
 	.alias dos_errorcode_no_such_disk $80
 	.alias dos_errorcode_name_too_long $81
 	.alias dos_errorcode_not_implemented $82
@@ -217,7 +219,47 @@ trap_dos_getcurrentdrive:
 	jmp return_from_trap_with_success
 
 trap_dos_opendir:
+	; Open the current working directory for iteration.
+	jsr dos_opendir
+	bcc tdod1
+	; Something has gone wrong. Assume dos_opendir will
+	; have set error code
+	jmp return_from_trap_with_failure
+tdod1:
+	; Directory opened ok.
+	lda dos_current_file_descriptor
+	sta hypervisor_a
+	jmp return_from_trap_with_success
+    
 trap_dos_readdir:
+	; Read next directory entry from file descriptor $ZZ
+	; Return dirent structure to $YYXX
+	; in first 32KB of mapped address space
+
+	; Get offset to current file descriptor
+	stz dos_current_file_descriptor
+	jsr dos_get_file_descriptor_offset
+	sta dos_current_file_descriptor_offset
+
+	jsr dos_readdir
+	bcs tdrd1
+
+	; Read the directory entry, now copy it to userland
+	jsr hypervisor_setup_copy_region
+	bcs tdrd1
+
+	; We can now copy the bytes of the dirent to user-space
+	ldy #dos_dirent_structure_length-1
+tdrd2:
+	lda dos_dirent_longfilename,y
+	sta (<hypervisor_userspace_copy_vector),y
+	dey
+	bpl tdrd2
+
+	jmp return_from_trap_with_success
+tdrd1:
+	jmp return_from_trap_with_failure
+	
 trap_dos_closedir:
 trap_dos_openfile:
 trap_dos_closefile:
@@ -1146,7 +1188,7 @@ drd_isdir:
 
 	; Clear dirent structure
 	; WARNING - Uses carnal knowledge to know that dirent structure is
-	; 64+1+11+4+4+1 contiguous bytes
+	; 64+1+11+4+4+1 = 85 contiguous bytes
 	ldx #[dos_dirent_structure_length-1]
 	lda #$00
 drce1:	sta dos_dirent_longfilename,x
