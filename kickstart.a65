@@ -2305,6 +2305,26 @@ hypervisor_irq:
 		sei
 		rti
 
+hypervisor_setup_copy_region:
+	; Hypervisor copy region sit entirely within the first 32KB of
+	; mapped address space. Since we allow a 256 byte copy region,
+	; we limit the start address to the range $0000-$7EFF
+	; XXX - We should also return an error if there is an IO
+	; region mapped there, so that the hypervisor can't be tricked
+	; into doing privileged IO operations as part of the copy-back
+	
+	lda hypervisor_y
+	bmi hscr1
+	cmp #$7f
+	beq hscr1
+	sta dos_scratch_vector
+	lda hypervisor_x
+	sta dos_scratch_vector+1
+	clc
+	rts
+hscr1:
+	lda #dos_errorcode_invalid_address
+	jmp dos_return_error		
 
 ; messages.  All have to be <=40 bytes long
 msg_kickstart:        .byte "MEGA65 KICKSTART V00.04",0
@@ -2497,6 +2517,9 @@ dos_scratch_vector: .word 0,0
 dos_scratch_byte_1: .byte 0
 dos_scratch_byte_2: .byte 0
 
+; Vectors for copying data between hypervisor and user-space
+hypervisor_userspace_copy_vector:    .word 0
+    
 ; general kickstart temporary variables
 zptempv:	    .word 0
 zptempv2:	    .word 0
