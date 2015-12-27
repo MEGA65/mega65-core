@@ -73,6 +73,10 @@ ll13:	 lda topbanner,y
 	 ; enquire hypervisor version
 	 lda #$00
 	 sta $d640
+	 ; XXX - work around bug in hypervisor traps, where the byte
+	 ; after a trap may or may not get executed	 
+	 nop
+	 
 	 cmp #$00
 	 bne getdisklist
 
@@ -95,7 +99,7 @@ getdisklist:
 	; Open current directory via Hypervisor
 	lda #$12
 	sta $d640
-	
+	; XXX - Work around hypervisor trap bug
 
 	 ; get list of disks
 	 ; XXX - For now, just claim we have a lot of disks
