@@ -221,9 +221,10 @@ trap_dos_getcurrentdrive:
 trap_dos_opendir:
 	; Open the current working directory for iteration.
 	jsr dos_opendir
-	bcc tdod1
+	bcs tdod1
 	; Something has gone wrong. Assume dos_opendir will
 	; have set error code
+	lda dos_error_code
 	jmp return_from_trap_with_failure
 tdod1:
 	; Directory opened ok.
@@ -242,11 +243,11 @@ trap_dos_readdir:
 	sta dos_current_file_descriptor_offset
 
 	jsr dos_readdir
-	bcs tdrd1
+	bcc tdrd1
 
 	; Read the directory entry, now copy it to userland
 	jsr hypervisor_setup_copy_region
-	bcs tdrd1
+	bcc tdrd1
 
 	; We can now copy the bytes of the dirent to user-space
 	ldy #dos_dirent_structure_length-1
@@ -258,6 +259,7 @@ tdrd2:
 
 	jmp return_from_trap_with_success
 tdrd1:
+	lda dos_error_code
 	jmp return_from_trap_with_failure
 	
 trap_dos_closedir:

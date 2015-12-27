@@ -2320,7 +2320,7 @@ hypervisor_setup_copy_region:
 	sta dos_scratch_vector
 	lda hypervisor_x
 	sta dos_scratch_vector+1
-	clc
+	sec
 	rts
 hscr1:
 	lda #dos_errorcode_invalid_address
