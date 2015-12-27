@@ -71,12 +71,17 @@ ll13:	 lda topbanner,y
    	 sta screenitem+1
 
 	 ; enquire hypervisor version
+	 ; (protect NMI handler from non-zero Z register value which
+	 ; can upset some 6502 instructions).
+	 sei
 	 lda #$00
 	 sta $d640
 	 ; XXX - work around bug in hypervisor traps, where the byte
 	 ; after a trap may or may not get executed	 
 	 nop
-	 
+	 ldz #$00
+	 cli
+
 	 cmp #$00
 	 bne getdisklist
 
@@ -119,7 +124,9 @@ noopendirmsg:
 
 
 opendirok:
-
+	; Remember file descriptor for calls to readdir
+	sta filedescriptor
+	
 	; get pointer ready for writing disk names from DIRENT structure
 	lda #<disknamearray
 	sta diskpointer
@@ -130,10 +137,11 @@ readnextentry:
 	; ask for next directory entry
 	lda #$14
 	; Ask for entry to be written to screen RAM for debugging
-	ldx #<$0400
+	ldx filedescriptor
 	ldy #>$0400
 	sta $d640
 	nop
+	sta $0425
 	bcc endofdir
 
 	; Got an entry - copy name
@@ -147,7 +155,7 @@ ll19:	lda $0400,y
 	; get length byte from dirent structure
 	ldy $0400+64
 	lda #$20
-ll21:	cpy #$f
+ll21:	cpy #$10
 	bcs ll20
 	sta (diskpointer),y
 	iny
@@ -170,6 +178,10 @@ ll20:
 	sta diskpointer+1
 
 endofdir:
+	lda diskcount
+	sta $0426
+	lda diskcount+1
+	sta $0427
 
 mainloop:
 	 ; display current screen of disks
@@ -506,6 +518,7 @@ currentitem:   .byte 0,0
 temp16:	       .byte 0,0
 colour:	       .byte 14 ; light blue
 reverse:       .byte 0
+filedescriptor:	     .byte 0
 
 topbanner:
 		.byte "MEGA65 DISK IMAGE CHOOSER V00.01        "		
