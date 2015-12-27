@@ -100,13 +100,76 @@ getdisklist:
 	lda #$12
 	sta $d640
 	; XXX - Work around hypervisor trap bug
+	nop
+	bcs opendirok
+	
+	; Couldn't open directory
+	sta $0427 ; write return code
 
-	 ; get list of disks
-	 ; XXX - For now, just claim we have a lot of disks
-	 lda #<1100
-	 sta diskcount
-	 lda #>1100   
-	 sta diskcount+1   	    
+         ; Display error message	 
+	 ldx #39
+ll17:	 lda noopendirmsg,x
+	 sta $05e0,x
+	 dex
+	 bpl ll17
+	 jmp ll16
+
+noopendirmsg:
+	 .byte "  COULDN'T OPEN DIRECTORY FOR READING   "
+
+
+opendirok:
+
+	; get pointer ready for writing disk names from DIRENT structure
+	lda #<disknamearray
+	sta diskpointer
+	lda #>disknamearray
+	sta diskpointer+1
+
+readnextentry:
+	; ask for next directory entry
+	lda #$14
+	; Ask for entry to be written to screen RAM for debugging
+	ldx #<$0400
+	ldy #>$0400
+	sta $d640
+	nop
+	bcc endofdir
+
+	; Got an entry - copy name
+	ldy #$0f
+ll19:	lda $0400,y
+	sta (diskpointer),y
+	dey
+	bpl ll19
+
+        ; blank out beyond end of filename
+	; get length byte from dirent structure
+	ldy $0400+64
+	lda #$20
+ll21:	cpy #$f
+	bcs ll20
+	sta (diskpointer),y
+	iny
+	jmp ll21
+ll20:
+
+	; Bump directory count
+	inc diskcount
+	lda diskcount+1
+	adc #$01
+	sta diskcount+1
+
+	; update pointer address for dirent
+	lda diskpointer
+	clc
+	adc #$10
+	sta diskpointer
+	lda diskpointer+1
+	adc #$00
+	sta diskpointer+1
+
+endofdir:
 
 mainloop:
 	 ; display current screen of disks
