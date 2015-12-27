@@ -243,7 +243,6 @@ trap_dos_readdir:
 	; table dispatch code)
 	ldx hypervisor_x
 	stx dos_current_file_descriptor
-	stx $0400
 
 	jsr dos_get_file_descriptor_offset
 	bcc return_from_trap_with_failure
