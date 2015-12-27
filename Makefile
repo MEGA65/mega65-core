@@ -18,12 +18,12 @@ endif
 
 all:	ghdl-frame-gen \
 	diskmenu.prg \
+	kickstart65gs.bin \
 	makerom \
 	container.prj \
 	thumbnail.prg \
 	tests/textmodetest.prg \
 	gs4510.vhdl viciv.vhdl \
-	kickstart65gs.bin \
 	etherload etherkick
 
 ethertest.prg:	ethertest.a65 Makefile
@@ -142,7 +142,7 @@ c65-911001-dos-context.bin:	911001.bin Makefile
 	dd if=911001.bin bs=8192 skip=15 count=1 >> c65-911001-dos-context.bin
 
 pngprepare:	pngprepare.c Makefile
-	gcc -g -Wall -o pngprepare pngprepare.c -lpng
+	gcc -g -Wall -I/usr/local/include -L/usr/local/lib -o pngprepare pngprepare.c -lpng
 
 charrom.vhdl:	pngprepare 8x8font.png
 	./pngprepare charrom 8x8font.png charrom.vhdl
