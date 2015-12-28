@@ -1997,6 +1997,9 @@ default_rom:
 		inx
 		lda #'M
 		sta txt_c65gsrom,x
+		inx
+		lda #0
+   		sta txt_c65gsrom,x    
 
 		rts
 
@@ -2373,6 +2376,9 @@ msg_blankline:	      .byte 0
 ; filename of character ROM
 txt_c65gscharrom:     .byte "CHARROM.M65",0
 ; filename of ROM we want to load in FAT directory format
+; (the two zero bytes are so that we can insert an extra digit after
+; the 5, when a user presses a key, so that they can choose a
+; different ROM to load).
 txt_c65gsrom:	      .byte "MEGA65.ROM",0,0
 ; filename of 1581 disk image we mount by default
 txt_c65gsd81:	      .byte "MEGA65.D81",0
