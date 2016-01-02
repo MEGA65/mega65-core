@@ -1,5 +1,5 @@
 ; MEGA65 Kick Start ROM.
-; Paul Gardner-Stephen, 2014-2015.
+; Paul Gardner-Stephen, 2014-2016.
 ;
 ; Purpose: 
 ; 1. Verify checksum of ROM area of slow RAM.
@@ -9,8 +9,8 @@
 ; The kickstart ROM is 16KB in length, and maps at $8000-$BFFF
 ; in hypervisor mode.
 ;
-; Kickstart modifies RAM from $0000-$07FF (ZP, stack, 40-column
-; screen) during normal boot.
+; Kickstart modifies RAM from $0000-$07FFF (ZP, stack, 40-column
+; screen, 16-bit text mode) during normal boot.
 ;
 ; If Kickstart needs to load the ROM from SD card, then it may
 ; modify the first 64KB of fast ram.
@@ -2457,10 +2457,10 @@ cp5:	lda msg_checkpoint,x
 	sta hypervisor_write_char_to_serial_monitor
 	inx
 
-	; delay at least 4,000 cycles to allow character to be written
+	; delay at least 2,000 cycles to allow character to be written
 	; each inner loop is 2 + 256 * (2+3) = ~1,250 cycles
-	; so 4 such loops should take long enough
-	ldy #4
+	; so 2 such loops should take long enough
+	ldy #2
 	ldz #0
 cp6:	inz
 	bne cp6
