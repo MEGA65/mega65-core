@@ -2557,7 +2557,7 @@ begin
         end if;        
 
         -- @IO:GS $D67C - Hypervisor write serial output to UART monitor (must wait atleast approx 4,000 cycles between writes to allow char to flush)
-        if last_write_address = x"FFD3671" and hypervisor_mode='1' then
+        if last_write_address = x"FFD367C" and hypervisor_mode='1' then
           monitor_char <= last_value;
           monitor_char_toggle <= monitor_char_toggle_internal;
           monitor_char_toggle_internal <= not monitor_char_toggle_internal;
