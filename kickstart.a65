@@ -2439,8 +2439,8 @@ nocheckpointmessage:
 
 	; output checkpoint message to serial monitor
 	ldx #0
-	lda msg_checkpoint,x
-cp5:	sta hypervisor_write_char_to_serial_monitor
+cp5:	lda msg_checkpoint,x
+	sta hypervisor_write_char_to_serial_monitor
 	inx
 
 	; delay at least 4,000 cycles to allow character to be written
