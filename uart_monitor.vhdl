@@ -113,6 +113,7 @@ architecture behavioural of uart_monitor is
   END component;
 
   signal monitor_char_toggle_last : std_logic := '1';
+  signal monitor_char_count : unsigned(15 downto 0) := x"0000";
   
   signal history_record : std_logic := '1';
   signal history_record_continuous : std_logic := '0';
@@ -785,6 +786,11 @@ begin
               monitor_char_toggle_last <= monitor_char_toggle;
               try_output_char(character'val(to_integer(monitor_char)),
                               AcceptingInput);
+              if monitor_char_count < 65535 then
+                monitor_char_count <= monitor_char_count + 1;
+              else
+                monitor_char_count <= x"0000";
+              end if;
             elsif rx_ready = '1' and rx_acknowledge='0' then
               blink <= not blink;
               activity <= blink;
@@ -832,6 +838,8 @@ begin
               if (cmdbuffer(1) = 'h' or cmdbuffer(1) = 'H' or cmdbuffer(1) = '?') then
                 banner_position <= 1;
                 state <= PrintHelp;
+              elsif cmdbuffer(1) = 'c' or cmdbuffer(1) = 'C' then
+                print_hex("00"&monitor_char_toggle&monitor_char_toggle_last&monitor_char&monitor_char_count,7,NextCommand);
               elsif cmdbuffer(1) = 's' or cmdbuffer(1) = 'S' then
                 parse_position <= 2;
                 parse_hex(SetMemory1);
