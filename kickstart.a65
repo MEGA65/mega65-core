@@ -2426,7 +2426,7 @@ cp3:	lda (<checkpoint_pcl),y
 	beq endofcheckpointmessage
 	nop
 	sta msg_checkpointmsg,x
-	inz
+	inx
 	iny
 	cpy #40
 	bne cp3
