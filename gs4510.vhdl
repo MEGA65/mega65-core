@@ -190,7 +190,7 @@ end component;
 
   -- Pre-calculated long addresses for 16 by 4KB sections.
   -- (used to flatten logic depth)
-  type address_block_array is array(31 downto 0) of unsigned(31 downto 8);
+  type address_block_array is array(31 downto 0) of unsigned(31 downto 0);
   signal block_addresses : address_block_array;
   signal block_update_number : integer range 0 to 31 := 0;
 
@@ -2303,10 +2303,10 @@ begin
       -- from the critical path in each cycle to a separate process.
       if block_update_number < 16 then
         block_addresses(block_update_number)
-          <= resolve_address_to_long(to_unsigned(block_update_number,4),false);
+          <= "0000"&resolve_address_to_long(to_unsigned(block_update_number,4)&"000000000000",false);
       else
         block_addresses(block_update_number)
-          <= resolve_address_to_long(to_unsigned(block_update_number,4),true);
+          <= "0000"&resolve_address_to_long(to_unsigned(block_update_number,4)&"000000000000",true);
       end if;
       if block_update_number = 31 then
         block_update_number <= 0;
