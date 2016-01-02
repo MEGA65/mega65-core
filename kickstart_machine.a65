@@ -31,6 +31,10 @@
 	.alias hypervisor_dmagic_list3 $d658
 	.alias hypervisor_ddr_banking $d659
 
+	; d65a
+	; d65b
+	; d65c
+
 	.alias hypervisor_vm_currentpage_lo $d65d
 	.alias hypervisor_vm_currentpage_mid $d65e
 	.alias hypervisor_vm_currentpage_hi $d65f
@@ -52,6 +56,20 @@
 	.alias hypervisor_vm_pagetable3_logicalpage_hi $d66d
 	.alias hypervisor_vm_pagetable3_physicalpage_lo $d66e
 	.alias hypervisor_vm_pagetable3_physicalpage_hi $d66f
+
+	.alias hypervisor_georam_base_mb $d670
+	.alias hypervsior_georam_block_mask $d671
+
+	; d672
+	; d673
+	; d674
+	; d675
+	; d676
+	; d677
+	; d678
+	; d679
+	; d67a
+	; d67b
 
 	.alias hypervisor_write_char_to_serial_monitor $d67c
 
