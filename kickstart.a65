@@ -2350,14 +2350,6 @@ checkpoint:
 	pla
 	sta checkpoint_p
 
-	; Only do checkpoints if switch 12 is set
-	lda $d6f1
-	and #$10
-	beq checkpoint_return
-
-
-	inc $d020
-
 	; pull PC return address from stack
 	; (JSR pushes return_address-1, so add one)
 	pla
@@ -2367,6 +2359,13 @@ checkpoint:
 	pla
 	adc #$00
 	sta checkpoint_pch
+
+	; Only do checkpoints if switch 12 is set
+	lda $d6f1
+	and #$10
+	beq checkpoint_return
+
+	inc $d020
 
 	; Write checkpoint byte values out as hex into message template
 	ldx checkpoint_a
