@@ -2347,6 +2347,18 @@ checkpoint:
 	pla
 	sta checkpoint_p
 
+	inc $d020
+
+	lda checkpoint_ptr32+1
+	cmp #$40
+	bcs checkpointramok
+
+	; Checkpoint overflow
+cp1:	inc $d020
+	jmp cp1
+
+checkpointramok:
+
 	; pull PC return address from stack
 	; (JSR pushes return_address-1, so add one)
 	pla
@@ -2356,6 +2368,47 @@ checkpoint:
 	pla
 	adc #$00
 	sta checkpoint_pch
+
+	; Store checkpoint data: 7 contiguous bytes
+	ldz #$00
+	ldx #$00
+cp2:	lda checkpoint_a,x
+	nop
+	sta (<checkpoint_ptr32),z
+	inz
+	inx
+	cpx #$07
+	bne cp2
+
+	; Read next byte following the return address to see if it is $00,
+	; if so, then also store the $00-terminated text message that follows.
+	; e.g.:
+	; jsr checkpoint
+	; .text 0,"OPEN DIRECTORY",0
+	; to record a checkpoint with the string "OPEN DIRECTORY"	
+	ldy #$01
+	lda (<checkpoint_pcl),y
+	bne nocheckpointmessage
+
+	; XXX - Not yet implemented
+	
+nocheckpointmessage:
+	; Add nul byte following message
+	lda #$00
+	nop
+	sta (<checkpoint_ptr32),z
+
+	; Bump checkpoint end address.
+	; We only bump the lower 16-bits, to ensure checkpoint logs are only written
+	; to the colour RAM.
+	tza
+	clc
+	adc checkpoint_ptr32+0
+	sta checkpoint_ptr32+0
+	lda checkpoint_ptr32+1
+	adc #$00
+	sta checkpoint_ptr32+1
+
 
 	; restore registers
 	lda checkpoint_p
@@ -2368,6 +2421,22 @@ checkpoint:
 
 	; return by jumping to the 
 	jmp (checkpoint_pcl)
+
+checkpointreset:
+	; Initialise checkpoint system
+
+	; XXX - If there are currently stored checkpoints, then show them first.
+
+	lda #$0f
+	sta checkpoint_ptr32+3
+	lda #$f8
+	sta checkpoint_ptr32+2
+	lda #$40 ; 16KB into colour RAM
+	sta checkpoint_ptr32+1
+	lda #$00
+	sta checkpoint_ptr32
+
+	rts;
 
 
 ; messages.  All have to be <=40 bytes long
@@ -2577,6 +2646,7 @@ zptempv32:	    .word 0,0
 zptempv32b:	    .word 0,0
 dos_file_loadaddress: .word 0,0
 
+; Used for checkpoint debug system of hypervisor
 checkpoint_a:	      .byte 0
 checkpoint_x:	      .byte 0
 checkpoint_y:	      .byte 0
@@ -2584,7 +2654,7 @@ checkpoint_z:	      .byte 0
 checkpoint_p:	      .byte 0
 checkpoint_pcl:	      .byte 0
 checkpoint_pch:	      .byte 0
-
+checkpoint_ptr32:      .byte $00,$40,$F8,$0F
 
 		.checkpc $C000
 		.advance $C000, $3f
