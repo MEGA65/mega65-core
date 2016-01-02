@@ -238,22 +238,40 @@ trap_dos_readdir:
 	; Return dirent structure to $YY00
 	; in first 32KB of mapped address space
 
+	jsr checkpoint
+
+	jsr sd_map_sectorbuffer
+
+	jsr checkpoint
+
 	; Get offset to current file descriptor
 	; (we can't use X register, as has been clobbered in the jump
 	; table dispatch code)
 	ldx hypervisor_x
 	stx dos_current_file_descriptor
 
+	jsr checkpoint
+
 	jsr dos_get_file_descriptor_offset
-	bcc return_from_trap_with_failure
+	php
+	jsr checkpoint
+
+	plp
+	bcc tdrd1
 	sta dos_current_file_descriptor_offset
+
+	jsr checkpoint
 
 	jsr dos_readdir
 	bcc tdrd1
 
+	jsr checkpoint
+
 	; Read the directory entry, now copy it to userland
 	jsr hypervisor_setup_copy_region
 	bcc tdrd1
+
+	jsr checkpoint
 
 	; We can now copy the bytes of the dirent to user-space
 	ldy #dos_dirent_structure_length-1
@@ -263,8 +281,12 @@ tdrd2:
 	dey
 	bpl tdrd2
 
+	jsr checkpoint
+
 	jmp return_from_trap_with_success
 tdrd1:
+	jsr checkpoint
+	
 	lda dos_error_code
 	jmp return_from_trap_with_failure
 	
@@ -1171,11 +1193,17 @@ dos_readdir:
 	; LFN entries use 16-bit unicode values. For now we will just keep the lower
 	; byte of these
 
+	jsr checkpoint
+	
 	; clear long file name data from last call
 	lda #0
 	sta dos_dirent_longfilename_length
 
+	jsr checkpoint
+	
 	jsr dos_file_read_current_sector
+
+	jsr checkpoint
 
 	ldx dos_current_file_descriptor_offset
 	lda [dos_file_descriptors+dos_filedescriptor_offset_mode],x
@@ -1183,6 +1211,8 @@ dos_readdir:
 	beq drd_isdir
 	cmp #dos_filemode_end_of_directory
 	bne drd_notadir
+
+	jsr checkpoint
 
 	lda #dos_errorcode_eof
 	jmp dos_return_error
@@ -1194,6 +1224,8 @@ drd_notadir:
 
 drd_isdir:
 
+	jsr checkpoint
+
 	; Clear dirent structure
 	; WARNING - Uses carnal knowledge to know that dirent structure is
 	; 64+1+11+4+4+1 = 85 contiguous bytes
@@ -1203,13 +1235,21 @@ drce1:	sta dos_dirent_longfilename,x
 	dex
 	bpl drce1
 	
+	jsr checkpoint
+
 	; Read current sector
 	jsr dos_file_read_current_sector
 	bcc dos_return_error_already_set
 
+	jsr checkpoint
+
 	jsr sd_map_sectorbuffer
 
+	jsr checkpoint
+	
 drce_next_piece:
+
+	jsr checkpoint
 
 	; Offset in sector correctly indicates where we need to read.
 	; Sectors are 512 bytes, so we can't just do a register index.
@@ -1234,6 +1274,8 @@ drce_next_piece:
 	lda (<dos_scratch_vector),y
 	bne drce_shortname
 
+	jsr checkpoint
+	
 	; verify checksum of long name
 	; XXX - Actually, we need to keep the checksum, and then compare it with the
 	; checksum we compute on the short name to check if this is the right long
@@ -1257,6 +1299,8 @@ drce_next_piece:
 	lda lfn_piece_offsets,x
 	tax
 
+	jsr checkpoint
+	
 	; Copy first part of LFN
 	ldy #fs_fat32_dirent_offset_lfn_part1_start
 	ldz #fs_fat32_dirent_offset_lfn_part1_chars
@@ -1273,6 +1317,8 @@ drce2:	lda (<dos_scratch_vector),y
 	dez
 	bne drce2
 
+	jsr checkpoint
+	
 	; Copy second part of LFN
 	ldy #fs_fat32_dirent_offset_lfn_part2_start
 	ldz #fs_fat32_dirent_offset_lfn_part2_chars
@@ -1289,6 +1335,8 @@ drce3:	lda (<dos_scratch_vector),y
 	dez
 	bne drce3
 
+	jsr checkpoint
+	
 	; Copy first part of LFN
 	ldy #fs_fat32_dirent_offset_lfn_part3_start
 	ldz #fs_fat32_dirent_offset_lfn_part3_chars
@@ -1305,6 +1353,8 @@ drce4:	lda (<dos_scratch_vector),y
 	dez
 	bne drce4
 
+	jsr checkpoint
+	
 drce_eot_in_filename:
 	; got all characters from this LFN piece
 	cpx dos_dirent_longfilename_length
@@ -1322,20 +1372,29 @@ drce_piece_didnt_grow_name_length:
 
 drce_ignore_lfn_piece:
 
+	jsr checkpoint
+    
 	; We have finished processing this piece of long name.
 	; bump directory entry, read next sector if required, and re-enter loop
 	; above to keep accumulating
 
 	jsr dos_readdir_advance_to_next_entry
 	bcc drce_no_more_pieces
+
+	jsr checkpoint
+	    
 	jmp drce_next_piece
 drce_no_more_pieces:
+	jsr checkpoint
+
 	lda #dos_errorcode_eof
 	jmp dos_return_error
 
 drce_shortname:
 	; We have found a short name.
 
+	jsr checkpoint
+	
 	; store short name
 	ldy #fs_fat32_dirent_offset_shortname
 
@@ -1345,6 +1404,8 @@ drce_shortname:
 	cmp #$e5
 	beq drd_deleted_or_invalid_entry
 
+	jsr checkpoint
+
 	ldx #$00
 drce5:	lda (<dos_scratch_vector),y
 	sta dos_dirent_shortfilename,x
@@ -1352,6 +1413,8 @@ drce5:	lda (<dos_scratch_vector),y
 	iny
 	cpx #11
 	bne drce5
+
+	jsr checkpoint
 
 	; If we have no long name, copy it also to long name, inserting "." between
 	; name and extension as required.
@@ -1393,7 +1456,9 @@ drce6:	lda (<dos_scratch_vector),y
 	beq drce_copied_extension
 	cpx #[8+1+3]
 	bne drce6
-drce_copied_extension:
+    drce_copied_extension:
+	jsr checkpoint
+
 	; null terminate short name for convenience in our debugging
 	lda #$00
 	sta dos_dirent_longfilename,x	
@@ -1401,6 +1466,8 @@ drce_copied_extension:
 	stx dos_dirent_longfilename_length
 
 drce_already_have_long_name:
+
+	jsr checkpoint
 
 	; now copy attribute field and other useful data
 
@@ -1434,8 +1501,12 @@ drce_fl:
 	lda (<dos_scratch_vector),y
 	sta dos_dirent_type_and_attribs
 
+	jsr checkpoint
+
 	jsr dos_readdir_advance_to_next_entry
 	bcs drce_noteof
+
+	jsr checkpoint
 
 	; We need to pass the error through here to indicate EOF in directory,
 	; but in a way that can be defered to the next call to dos_readdir, because
@@ -1450,6 +1521,9 @@ drce_fl:
 
 
 drce_noteof:
+
+	jsr checkpoint
+
 	; Ignore zero-length filenames (corresponding to empty directory entries)
 	lda dos_dirent_longfilename_length
 	cmp #0
@@ -1464,6 +1538,8 @@ drce_noteof:
 	rts
 
 drd_deleted_or_invalid_entry:
+	jsr checkpoint
+
 	jsr dos_readdir_advance_to_next_entry
 	bcs dos_readdir
 	jmp dos_return_error_already_set

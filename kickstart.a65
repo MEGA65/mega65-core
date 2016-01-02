@@ -2331,6 +2331,45 @@ hscr1:
 	lda #dos_errorcode_invalid_address
 	jmp dos_return_error		
 
+checkpoint:
+	; Routine to record the progress of code through the hypervisor for
+	; debugging problems in the hypervisor.
+	; If the JSR checkpoint is followed by $00, then a text string describing the
+	; checkpoint is inserted into the checkpoint log.
+	; Checkpoint data is recorded in the 2nd 16KB of colour RAM.
+
+	; Save all registers and CPU flags
+	sta checkpoint_a
+	stx checkpoint_x
+	sty checkpoint_y
+	stz checkpoint_z
+	php
+	pla
+	sta checkpoint_p
+
+	; pull PC return address from stack
+	; (JSR pushes return_address-1, so add one)
+	pla
+	clc
+	adc #$01
+	sta checkpoint_pcl
+	pla
+	adc #$00
+	sta checkpoint_pch
+
+	; restore registers
+	lda checkpoint_p
+	php
+	lda checkpoint_a
+	ldx checkpoint_x
+	ldy checkpoint_y
+	ldz checkpoint_z
+	plp
+
+	; return by jumping to the 
+	jmp (checkpoint_pcl)
+
+
 ; messages.  All have to be <=40 bytes long
 msg_kickstart:        .byte "MEGA65 KICKSTART V00.04",0
 msg_romok:            .byte "ROM CHECKSUM OK - BOOTING",0
@@ -2537,6 +2576,15 @@ zptempp2: 	    .word 0
 zptempv32:	    .word 0,0
 zptempv32b:	    .word 0,0
 dos_file_loadaddress: .word 0,0
+
+checkpoint_a:	      .byte 0
+checkpoint_x:	      .byte 0
+checkpoint_y:	      .byte 0
+checkpoint_z:	      .byte 0
+checkpoint_p:	      .byte 0
+checkpoint_pcl:	      .byte 0
+checkpoint_pch:	      .byte 0
+
 
 		.checkpc $C000
 		.advance $C000, $3f
