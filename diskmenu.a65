@@ -15,6 +15,8 @@
 	 ; List of disk names begins at $1000 - $9FFF
 	 ; 16 bytes each, so 36KB can hold 2,304 disks
 	 .alias disknamearray $1000
+	 ; Where to get Hypervisor to copy dirent structures
+	 .alias dirent $0f00
 	 ; 16-bit pointers to current disk and number of
 	 ; disks.
 	 .alias diskpointer $fd
@@ -134,30 +136,34 @@ opendirok:
 	sta diskpointer+1
 
 readnextentry:
+	inc $0421
+
 	; ask for next directory entry
 	lda #$14
 	; Ask for entry to be written to screen RAM for debugging
 	ldx filedescriptor
-	ldy #>$0400
+	ldy #>dirent
 	sta $d640
 	nop
-	sta $0425
 	bcc endofdir
+
+	inc $0428
+	jmp readnextentry	
 
 	; Got an entry - copy name
 	ldy #$0f
-ll19:	lda $0400,y
+ll19:	lda dirent,y
 	sta (diskpointer),y
 	dey
 	bpl ll19
 
         ; blank out beyond end of filename
 	; get length byte from dirent structure
-	ldy $0400+64
+	ldy dirent+64
 	lda #$20
 ll21:	cpy #$10
 	bcs ll20
-	sta (diskpointer),y
+;	sta (diskpointer),y
 	iny
 	jmp ll21
 ll20:
@@ -167,25 +173,28 @@ ll20:
 	lda diskcount+1
 	adc #$00
 	sta diskcount+1
+	; Limit directory to fit between $1000-$8FFF
+	; (= 2,304 entries)
+	cmp #$90
+	bcs endofdir
 
 	; update pointer address for dirent
 	lda diskpointer
 	clc
 	adc #$10
 	sta diskpointer
+	sta $0424
 	lda diskpointer+1
 	adc #$00
 	sta diskpointer+1
+	sta $0425
 
-	; XXX - Debug: wait for a key press between reading each entry
-ll22:
-	jsr $ffe4
-	cmp #$00
-	beq ll22
+	jsr updatescreen
 	
 	jmp readnextentry
 
 endofdir:
+	ldz #0
 	lda diskcount
 	sta $0426
 	lda diskcount+1
