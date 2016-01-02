@@ -4017,17 +4017,17 @@ begin
                       -- XXX consider using the disabled faster (fewer cycles) option
                       -- below, if the timing will tolerate it.  But disabled
                       -- for now, since it increases synthesis time.
-                      -- state <= normal_fetch_state;
+                      state <= normal_fetch_state;
 
-                      memory_access_read := '1';
-                      memory_access_address := x"000"&temp_addr;
-                      memory_access_resolve_address := '1';
-                      -- Read next instruction now to save a cycle, i.e.,
-                      -- 8-bit branches will take 2 cycles, whether taken or not.
-                      state <= fast_fetch_state;
-                      if fast_fetch_state = InstructionDecode then
-                        reg_pc <= temp_addr + 1;
-                      end if;
+                      -- memory_access_read := '1';
+                      -- memory_access_address := x"000"&temp_addr;
+                      -- memory_access_resolve_address := '1';
+                      -- -- Read next instruction now to save a cycle, i.e.,
+                      -- -- 8-bit branches will take 2 cycles, whether taken or not.
+                      -- state <= fast_fetch_state;
+                      -- if fast_fetch_state = InstructionDecode then
+                      --  reg_pc <= temp_addr + 1;
+                      -- end if;
                     else
                       report "NOT Taking 8-bit branch" severity note;
                       -- Branch will not be taken.
@@ -4178,7 +4178,7 @@ begin
               reg_addr <= x"00"&reg_x + to_integer(memory_read_value&reg_addr(7 downto 0));
               state <= MicrocodeInterpret;
             when TakeBranch8 =>
-              -- Branch will be taken
+              -- Branch will be taken (for ZP bit fiddle instructions only)
               report "Setting PC: 8-bit branch will be taken";
               reg_pc <= reg_pc +
                           to_integer(reg_t(7)&reg_t(7)&reg_t(7)&reg_t(7)&
