@@ -194,6 +194,9 @@ architecture Behavioral of machine is
     
     fastio_read : in std_logic;
     fastio_write : in std_logic;
+
+    monitor_char : in unsigned(7 downto 0);
+    monitor_char_toggle : in std_logic;
     
     monitor_proceed : in std_logic;
     monitor_waitstates : in unsigned(7 downto 0);
@@ -262,7 +265,10 @@ architecture Behavioral of machine is
       viciv_fast : in std_logic;
       speed_gate : in std_logic;
       speed_gate_enable : out std_logic;
-      
+
+      monitor_char : out unsigned(7 downto 0);
+      monitor_char_toggle : out std_logic;    
+
       monitor_proceed : out std_logic;
       monitor_waitstates : out unsigned(7 downto 0);
       monitor_request_reflected : out std_logic;
@@ -650,6 +656,8 @@ architecture Behavioral of machine is
   signal monitor_mem_stage_trace_mode : std_logic;
   signal monitor_mem_trace_mode : std_logic;
   signal monitor_mem_trace_toggle : std_logic;
+  signal monitor_char : unsigned(7 downto 0);
+  signal monitor_char_toggle : std_logic;
   
   signal monitor_a : unsigned(7 downto 0);
   signal monitor_b : unsigned(7 downto 0);
@@ -875,7 +883,9 @@ begin
     vicii_2mhz => vicii_2mhz,
     viciii_fast => viciii_fast,
     viciv_fast => viciv_fast,
-    
+
+    monitor_char => monitor_char,
+    monitor_char_toggle => monitor_char_toggle,
     monitor_proceed => monitor_proceed,
 --    monitor_debug_memory_access => monitor_debug_memory_access,
     monitor_waitstates => monitor_waitstates,
@@ -1135,6 +1145,8 @@ begin
     key_scancode => key_scancode,
     key_scancode_toggle => key_scancode_toggle,
 
+    monitor_char => monitor_char,
+    monitor_char_toggle => monitor_char_toggle,
 --    monitor_debug_memory_access => monitor_debug_memory_access,
 --    monitor_debug_memory_access => (others => '1'),
     monitor_proceed => monitor_proceed,

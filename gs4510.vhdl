@@ -58,6 +58,9 @@ entity gs4510 is
     reg_isr_out : in unsigned(7 downto 0);
     imask_ta_out : in std_logic;
 
+    monitor_char : out unsigned(7 downto 0);
+    monitor_char_toggle : out std_logic;
+    
       monitor_proceed : out std_logic;
       monitor_waitstates : out unsigned(7 downto 0);
       monitor_request_reflected : out std_logic;
@@ -830,6 +833,8 @@ constant mode_lut : mlut9bit := (
 
   signal emu6502 : std_logic := '0';
   signal force_4502 : std_logic := '1';
+
+  signal monitor_char_toggle_internal : std_logic := '0';
 
   type microcode_lut_t is array (instruction)
     of microcodeops;
@@ -2550,7 +2555,13 @@ begin
         if last_write_address = x"FFD3671" and hypervisor_mode='1' then
           georam_blockmask <= last_value;
         end if;        
-        
+
+        -- @IO:GS $D67C - Hypervisor write serial output to UART monitor (must wait atleast approx 4,000 cycles between writes to allow char to flush)
+        if last_write_address = x"FFD3671" and hypervisor_mode='1' then
+          monitor_char <= last_value;
+          monitor_char_toggle <= monitor_char_toggle_internal;
+          monitor_char_toggle_internal <= not monitor_char_toggle_internal;
+        end if;
         -- @IO:GS $D67D.0 - Hypervisor C64 ROM source select (0=DDR,1=64KB colour RAM)
         -- @IO:GS $D67D.1 - Hypervisor enable 32-bit JMP/JSR etc
         -- @IO:GS $D67D.2 - Hypervisor write protect C65 ROM $20000-$3FFFF
