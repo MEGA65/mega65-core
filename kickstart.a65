@@ -287,6 +287,9 @@ reset_machine_state:
 		sec
 		jsr enhanced_io
 
+		jsr checkpoint
+		.byte 0,"reset_machine_state <enter>",0
+
 		; switch to fast mode
 		; 1. C65 fast-mode enable
 		lda $d031
@@ -333,7 +336,7 @@ reset_machine_state:
 		jsr resetpalette
 
 		jsr checkpoint
-		.byte 0,"RESET.MACHINE.STATE",0
+		.byte 0,"reset_machine_state <exit>",0
 
 		rts
 
@@ -388,6 +391,7 @@ etherboot:
 		jsr setupethernet
 etherloop:
 		jsr checkethernet
+		.byte 0,"etherloop",0
 		jmp etherloop
 
 normalboot:
@@ -2360,10 +2364,10 @@ checkpoint:
 	adc #$00
 	sta checkpoint_pch
 
-	; Only do checkpoints if switch 12 is set
+	; Only do checkpoints visibly if switch 12 is set
 	lda $d6f1
 	and #$10
-	beq checkpoint_return
+	beq cp9
 
 	inc $d020
 
@@ -2403,7 +2407,7 @@ checkpoint:
 cp4:	sta msg_checkpointmsg,x
 	dex
 	bpl cp4
-
+cp9:
 	; Read next byte following the return address to see if it is $00,
 	; if so, then also store the $00-terminated text message that follows.
 	; e.g.:
@@ -2441,6 +2445,11 @@ nocheckpointmessage:
 	lda checkpoint_pch
 	adc #$00
 	sta checkpoint_pch
+
+	; Only do checkpoints visibly if switch 12 is set
+	lda $d6f1
+	and #$10
+	beq checkpoint_return
 
 	; output checkpoint message to serial monitor
 	ldx #0
