@@ -332,6 +332,9 @@ reset_machine_state:
 		jsr erasescreen
 		jsr resetpalette
 
+		jsr checkpoint
+		.byte 0,"RESET.MACHINE.STATE",0
+
 		rts
 
 ;;; ----------------------------------------------------------------------------
@@ -2386,17 +2389,41 @@ cp2:	lda checkpoint_a,x
 	; jsr checkpoint
 	; .text 0,"OPEN DIRECTORY",0
 	; to record a checkpoint with the string "OPEN DIRECTORY"	
-	ldy #$01
+	ldy #$00
 	lda (<checkpoint_pcl),y
+
 	bne nocheckpointmessage
 
-	; XXX - Not yet implemented
+	; Copy null-terminated checkpoint string
+	iny
+cp3:	lda (<checkpoint_pcl),y
+	beq endofcheckpointmessage
+	nop
+	sta (<checkpoint_ptr32),z
+	inz
+	iny
+	bne cp3
+
+endofcheckpointmessage:
+	; Skip $00 at end of message
+	iny
 	
 nocheckpointmessage:
 	; Add nul byte following message
 	lda #$00
 	nop
 	sta (<checkpoint_ptr32),z
+	inz
+
+	; Advance return address following any checkpoint message
+	tya
+	clc	
+	adc checkpoint_pcl
+	sta checkpoint_pcl
+	lda checkpoint_pch
+	adc #$00
+	sta checkpoint_pch
+	
 
 	; Bump checkpoint end address.
 	; We only bump the lower 16-bits, to ensure checkpoint logs are only written
@@ -2436,7 +2463,7 @@ checkpointreset:
 	lda #$00
 	sta checkpoint_ptr32
 
-	rts;
+	rts
 
 
 ; messages.  All have to be <=40 bytes long
