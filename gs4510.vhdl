@@ -2303,10 +2303,10 @@ begin
       -- from the critical path in each cycle to a separate process.
       if block_update_number < 16 then
         block_addresses(block_update_number)
-          <= resolve_address_to_long(to_unsigned(block_update_number and 15),0);
+          <= resolve_address_to_long(to_unsigned(block_update_number,4),false);
       else
         block_addresses(block_update_number)
-          <= resolve_address_to_long(to_unsigned(block_update_number and 15),1);
+          <= resolve_address_to_long(to_unsigned(block_update_number,4),true);
       end if;
       if block_update_number = 31 then
         block_update_number <= 0;
