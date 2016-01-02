@@ -2370,32 +2370,32 @@ checkpoint:
 	; Write checkpoint byte values out as hex into message template
 	ldx checkpoint_a
 	jsr checkpoint_bytetohex
-	stx msg_checkpoint_a+0
-	sty msg_checkpoint_a+1
+	sty msg_checkpoint_a+0
+	stx msg_checkpoint_a+1
 	ldx checkpoint_x
 	jsr checkpoint_bytetohex
-	stx msg_checkpoint_x+0
-	sty msg_checkpoint_x+1
+	sty msg_checkpoint_x+0
+	stx msg_checkpoint_x+1
 	ldx checkpoint_y
 	jsr checkpoint_bytetohex
-	stx msg_checkpoint_y+0
-	sty msg_checkpoint_y+1
+	sty msg_checkpoint_y+0
+	stx msg_checkpoint_y+1
 	ldx checkpoint_z
 	jsr checkpoint_bytetohex
-	stx msg_checkpoint_z+0
-	sty msg_checkpoint_z+1
+	sty msg_checkpoint_z+0
+	stx msg_checkpoint_z+1
 	ldx checkpoint_p
 	jsr checkpoint_bytetohex
-	stx msg_checkpoint_p+0
-	sty msg_checkpoint_p+1
+	sty msg_checkpoint_p+0
+	stx msg_checkpoint_p+1
 	ldx checkpoint_pch
 	jsr checkpoint_bytetohex
-	stx msg_checkpoint_pc+0
-	sty msg_checkpoint_pc+1
+	sty msg_checkpoint_pc+0
+	stx msg_checkpoint_pc+1
 	ldx checkpoint_pcl
 	jsr checkpoint_bytetohex
-	stx msg_checkpoint_pc+2
-	sty msg_checkpoint_pc+3
+	sty msg_checkpoint_pc+2
+	stx msg_checkpoint_pc+3
 
 	; Clear out checkpoint message
 	ldx #39
@@ -2476,6 +2476,10 @@ checkpoint_return:
 checkpoint_bytetohex:
 	txa
 	and #$f0
+	lsr
+	lsr
+	lsr
+	lsr
 	jsr checkpoint_nybltohex
 	tay
 	txa
@@ -2484,11 +2488,12 @@ checkpoint_bytetohex:
 	tax	
 	rts
 checkpoint_nybltohex:
+	and #$0f
 	ora #$30
 	cmp #$3a
-	bcc cpnth1
+	bcs cpnth1
 	rts
-cpnth1:	adc #6
+cpnth1:	adc #$06
 	rts
 
 ; checkpoint message
