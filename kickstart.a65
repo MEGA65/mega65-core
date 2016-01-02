@@ -2350,6 +2350,12 @@ checkpoint:
 	pla
 	sta checkpoint_p
 
+	; Only do checkpoints if switch 12 is set
+	lda $d6f1
+	and #$10
+	beq checkpoint_return
+
+
 	inc $d020
 
 	; pull PC return address from stack
@@ -2455,7 +2461,7 @@ cp6:	inz
 
 	cmp #10
 	bne cp5
-
+checkpoint_return:
 	; restore registers
 	lda checkpoint_p
 	php
