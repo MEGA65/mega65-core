@@ -53,6 +53,8 @@
 	.alias hypervisor_vm_pagetable3_physicalpage_lo $d66e
 	.alias hypervisor_vm_pagetable3_physicalpage_hi $d66f
 
+	.alias hypervisor_write_char_to_serial_monitor $d67c
+
 	.alias hypervisor_feature_enables $d67d
 	.alias hypervisor_kickedup_flag $d67e
 	.alias hypervisor_enterexit_trigger $d67f

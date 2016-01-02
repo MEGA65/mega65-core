@@ -257,6 +257,7 @@ GS $D66E - Hypervisor virtual memory page 3 physical page low byte
 GS $D66F - Hypervisor virtual memory page 3 physical page high byte
 GS $D670 - Hypervisor GeoRAM base address (x MB) (write-only for
 GS $D671 - Hypervisor GeoRAM address mask (applied to GeoRAM block
+GS $D67C - Hypervisor write serial output to UART monitor (must wait atleast approx 4,000 cycles between writes to allow char to flush)
 GS $D67D - Hypervisor watchdog register: writing any value clears the watch dog
 GS $D67D.0 - Hypervisor C64 ROM source select (0=DDR,1=64KB colour RAM)
 GS $D67D.1 - Hypervisor enable 32-bit JMP/JSR etc

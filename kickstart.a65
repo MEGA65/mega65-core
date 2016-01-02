@@ -2352,16 +2352,6 @@ checkpoint:
 
 	inc $d020
 
-	lda checkpoint_ptr32+1
-	cmp #$40
-	bcs checkpointramok
-
-	; Checkpoint overflow
-cp1:	inc $d020
-	jmp cp1
-
-checkpointramok:
-
 	; pull PC return address from stack
 	; (JSR pushes return_address-1, so add one)
 	pla
@@ -2372,16 +2362,42 @@ checkpointramok:
 	adc #$00
 	sta checkpoint_pch
 
-	; Store checkpoint data: 7 contiguous bytes
-	ldz #$00
-	ldx #$00
-cp2:	lda checkpoint_a,x
-	nop
-	sta (<checkpoint_ptr32),z
-	inz
-	inx
-	cpx #$07
-	bne cp2
+	; Write checkpoint byte values out as hex into message template
+	ldx checkpoint_a
+	jsr checkpoint_bytetohex
+	stx msg_checkpoint_a+0
+	sty msg_checkpoint_a+1
+	ldx checkpoint_x
+	jsr checkpoint_bytetohex
+	stx msg_checkpoint_x+0
+	sty msg_checkpoint_x+1
+	ldx checkpoint_y
+	jsr checkpoint_bytetohex
+	stx msg_checkpoint_y+0
+	sty msg_checkpoint_y+1
+	ldx checkpoint_z
+	jsr checkpoint_bytetohex
+	stx msg_checkpoint_z+0
+	sty msg_checkpoint_z+1
+	ldx checkpoint_p
+	jsr checkpoint_bytetohex
+	stx msg_checkpoint_p+0
+	sty msg_checkpoint_p+1
+	ldx checkpoint_pch
+	jsr checkpoint_bytetohex
+	stx msg_checkpoint_pc+0
+	sty msg_checkpoint_pc+1
+	ldx checkpoint_pcl
+	jsr checkpoint_bytetohex
+	stx msg_checkpoint_pc+2
+	sty msg_checkpoint_pc+3
+
+	; Clear out checkpoint message
+	ldx #39
+	lda #$20
+cp4:	sta msg_checkpointmsg,x
+	dex
+	bpl cp4
 
 	; Read next byte following the return address to see if it is $00,
 	; if so, then also store the $00-terminated text message that follows.
@@ -2395,13 +2411,15 @@ cp2:	lda checkpoint_a,x
 	bne nocheckpointmessage
 
 	; Copy null-terminated checkpoint string
+	ldx #$00
 	iny
 cp3:	lda (<checkpoint_pcl),y
 	beq endofcheckpointmessage
 	nop
-	sta (<checkpoint_ptr32),z
+	sta msg_checkpointmsg,x
 	inz
 	iny
+	cpy #40
 	bne cp3
 
 endofcheckpointmessage:
@@ -2409,11 +2427,6 @@ endofcheckpointmessage:
 	iny
 	
 nocheckpointmessage:
-	; Add nul byte following message
-	lda #$00
-	nop
-	sta (<checkpoint_ptr32),z
-	inz
 
 	; Advance return address following any checkpoint message
 	tya
@@ -2423,19 +2436,25 @@ nocheckpointmessage:
 	lda checkpoint_pch
 	adc #$00
 	sta checkpoint_pch
-	
 
-	; Bump checkpoint end address.
-	; We only bump the lower 16-bits, to ensure checkpoint logs are only written
-	; to the colour RAM.
-	tza
-	clc
-	adc checkpoint_ptr32+0
-	sta checkpoint_ptr32+0
-	lda checkpoint_ptr32+1
-	adc #$00
-	sta checkpoint_ptr32+1
+	; output checkpoint message to serial monitor
+	ldx #0
+	lda msg_checkpoint,x
+cp5:	sta hypervisor_write_char_to_serial_monitor
+	inx
 
+	; delay at least 4,000 cycles to allow character to be written
+	; each inner loop is 2 + 256 * (2+3) = ~1,250 cycles
+	; so 4 such loops should take long enough
+	ldy #4
+	ldz #0
+cp6:	inz
+	bne cp6
+	dey
+	bpl cp6
+
+	cmp #10
+	bne cp5
 
 	; restore registers
 	lda checkpoint_p
@@ -2449,22 +2468,35 @@ nocheckpointmessage:
 	; return by jumping to the 
 	jmp (checkpoint_pcl)
 
-checkpointreset:
-	; Initialise checkpoint system
-
-	; XXX - If there are currently stored checkpoints, then show them first.
-
-	lda #$0f
-	sta checkpoint_ptr32+3
-	lda #$f8
-	sta checkpoint_ptr32+2
-	lda #$40 ; 16KB into colour RAM
-	sta checkpoint_ptr32+1
-	lda #$00
-	sta checkpoint_ptr32
-
+checkpoint_bytetohex:
+	txa
+	and #$f0
+	jsr checkpoint_nybltohex
+	tay
+	txa
+	and #$0f
+	jsr checkpoint_nybltohex
+	tax	
+	rts
+checkpoint_nybltohex:
+	ora #$30
+	cmp #$3a
+	bcc cpnth1
+	rts
+cpnth1:	adc #6
 	rts
 
+; checkpoint message
+msg_checkpoint:	      .byte "Checkpoint @ $"
+msg_checkpoint_pc:    .byte "%%%% A:$"
+msg_checkpoint_a:     .byte "%%, X:$"
+msg_checkpoint_x:     .byte "%%, Y:$"
+msg_checkpoint_y:     .byte "%%, Z:$"
+msg_checkpoint_z:     .byte "%%, P:$"
+msg_checkpoint_p:     .byte "%% :"
+msg_checkpointmsg:    .byte "                                        "
+		      .byte 13,10  ; CR/LF
+msg_checkpoint_eom:		     
 
 ; messages.  All have to be <=40 bytes long
 msg_kickstart:        .byte "MEGA65 KICKSTART V00.04",0
@@ -2681,7 +2713,6 @@ checkpoint_z:	      .byte 0
 checkpoint_p:	      .byte 0
 checkpoint_pcl:	      .byte 0
 checkpoint_pch:	      .byte 0
-checkpoint_ptr32:      .byte $00,$40,$F8,$0F
 
 		.checkpc $C000
 		.advance $C000, $3f
