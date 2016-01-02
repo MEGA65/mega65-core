@@ -2924,7 +2924,13 @@ begin
             when VectorRead2 =>
               report "Setting PC-low during vector read";
               reg_pc(7 downto 0) <= memory_read_value;
-              memory_access_address := x"000FFF"&vector;
+              if hypervisor_mode='1' then
+                -- Vectors move in hypervisor mode to be inside the hypervisor
+                -- ROM at $81Fx
+                memory_access_address := x"FF801F"&vector;
+              else
+                memory_access_address := x"000FFF"&vector;
+              end if;
               state <= VectorRead3;
             when VectorRead3 =>
               report "Setting PC-high during vector read";
