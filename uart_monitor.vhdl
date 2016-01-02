@@ -839,7 +839,7 @@ begin
                 banner_position <= 1;
                 state <= PrintHelp;
               elsif cmdbuffer(1) = 'c' or cmdbuffer(1) = 'C' then
-                print_hex("00"&monitor_char_toggle&monitor_char_toggle_last&monitor_char&monitor_char_count,7,NextCommand);
+                print_hex("000000"&monitor_char_toggle&monitor_char_toggle_last&monitor_char&monitor_char_count,7,NextCommand);
               elsif cmdbuffer(1) = 's' or cmdbuffer(1) = 'S' then
                 parse_position <= 2;
                 parse_hex(SetMemory1);
