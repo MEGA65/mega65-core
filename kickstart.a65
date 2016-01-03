@@ -204,8 +204,25 @@ trap_entry_points:
 	nop
 	jmp nosuchtrap
 	nop
+	jmp nosuchtrap
+	nop
+	jmp nosuchtrap
+	nop
+	jmp nosuchtrap
+	nop
+	jmp nosuchtrap
+	nop
+	jmp nosuchtrap
+	nop
+	jmp nosuchtrap
+	nop
+	jmp nosuchtrap
+	nop
+	jmp nosuchtrap
+	nop
 
 	; Leave room for traps to $7E
+	.checkpc $81F8
 	.advance $81F8
 	; Then we have relocated CPU vectors
 	.word reset_entry_allow_etherkick ; unused vector
@@ -294,9 +311,6 @@ reset_machine_state:
 		sec
 		jsr enhanced_io
 
-		jsr checkpoint
-		.byte 0,"reset_machine_state <enter>",0
-
 		; switch to fast mode
 		; 1. C65 fast-mode enable
 		lda $d031
@@ -336,7 +350,7 @@ reset_machine_state:
 		jsr resetpalette
 
 		jsr checkpoint
-		.byte 0,"reset_machine_state <exit>",0
+		.byte 0,"reset_machine_state",0
 
 		rts
 
@@ -900,8 +914,10 @@ sd_map_sectorbuffer:
 		rts
 
 sd_unmap_sectorbuffer:
+		pha
 		lda #$82
 		sta $D680
+		pla
 		sec
 		rts
 
