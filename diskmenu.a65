@@ -157,6 +157,7 @@ readnextentry:
 	sta $d640
 	nop
 	bcc endofdir
+	sta $0426
 
 	; Got an entry - copy name
 	ldy #$0f
@@ -557,6 +558,11 @@ wos1:	jsr waitoneframe
 	rts
 
 asciitocharrom:
+	; NUL ($00) becomes a space
+	cmp #0
+	bne atc0
+	lda #$20
+atc0:
 	; @ becomes $00
 	cmp #$40
 	bne atc1
