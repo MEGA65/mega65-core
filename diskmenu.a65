@@ -19,7 +19,8 @@
 	 .alias dirent $0f00
 	 ; 16-bit pointers to current disk and number of
 	 ; disks.
-	 .alias diskpointer $fd
+	 .alias displaydiskpointer $40
+	 .alias diskpointer $fe
 	 .alias currentdisk $fb
 	 ; pointer for where we are drawing on screen
 	 .alias screenpointer $f9
@@ -35,6 +36,7 @@
 	 sta $d020
 	 lda #$06
 	 sta $d021
+	 ; Lower-case
 	 lda #$0e
 	 jsr $ffd2
 	 
@@ -55,9 +57,11 @@ ll9:	 lda #$20
 	 ; top and bottom text
 	 ldy #39
 ll13:	 lda topbanner,y
+	 jsr asciitocharrom
 	 ora #$80
 	 sta $0400,y
 	 lda bottombanner,y
+	 jsr asciitocharrom
 	 ora #$80
 	 sta $07c0,y
 	 dey
@@ -90,18 +94,23 @@ ll13:	 lda topbanner,y
 	 ; no hypervisor. not on a mega65?
 	 ldx #39
 ll15:	 lda nohypermsg,x
+	 jsr asciitocharrom
 	 sta $05e0,x
 	 dex
 	 bpl ll15
 ll16:	 jmp ll16
 
 nohypermsg:
-	 .byte "NO REPLY FROM HYPERVISOR - NOT A MEGA65?"
+	 .byte "No reply from Hypervisor - not a MEGA65?"
 
 getdisklist:
 	; make sure Z = $00 after OS & DOS version enquiry 
 	lda #$00
 	taz
+
+	; Now that we know we are on a real MEGA65, ask for fast CPU
+	lda #65
+	sta 0
 
 	; Open current directory via Hypervisor
 	lda #$12
@@ -116,13 +125,14 @@ getdisklist:
          ; Display error message	 
 	 ldx #39
 ll17:	 lda noopendirmsg,x
+	 jsr asciitocharrom
 	 sta $05e0,x
 	 dex
 	 bpl ll17
 	 jmp ll16
 
 noopendirmsg:
-	 .byte "  COULDN'T OPEN DIRECTORY FOR READING   "
+	 .byte "  Couldn't open directory for reading   "
 
 
 opendirok:
@@ -147,9 +157,6 @@ readnextentry:
 	sta $d640
 	nop
 	bcc endofdir
-
-	inc $0428
-	jmp readnextentry	
 
 	; Got an entry - copy name
 	ldy #$0f
@@ -184,14 +191,11 @@ ll20:
 	clc
 	adc #$10
 	sta diskpointer
-	sta $0424
 	lda diskpointer+1
 	adc #$00
 	sta diskpointer+1
-	sta $0425
 
 	jsr updatescreen
-	
 	jmp readnextentry
 
 endofdir:
@@ -366,9 +370,9 @@ updatescreen:
 
 	; get pointer to start of array
 	lda #<disknamearray
-	sta diskpointer
+	sta displaydiskpointer
 	lda #>disknamearray
-	sta diskpointer+1
+	sta displaydiskpointer+1
 
 	; add on for starting item on the screen
 
@@ -382,13 +386,13 @@ ll1:	clc
 	rol temp16+1
 	dex
 	bne ll1
-	lda diskpointer
+	lda displaydiskpointer
 	clc
 	adc temp16
-	sta diskpointer
-	lda diskpointer+1
+	sta displaydiskpointer
+	lda displaydiskpointer+1
 	adc temp16+1
-	sta diskpointer+1
+	sta displaydiskpointer+1
 
 	; Now display 2 columns of 21 names each
 
@@ -425,7 +429,8 @@ ll12:	sta (screenpointer),y
 
 ll10:
 	ldy #$0f
-ll2:	lda (diskpointer),y
+ll2:	lda (displaydiskpointer),y
+	jsr asciitocharrom
 	sta (screenpointer),y
 	dey
 	bpl ll2
@@ -499,13 +504,13 @@ ll7:	sta (screenpointer),y
 	sta screenpointer+1
 
 	; advance disk name pointer
-	lda diskpointer
+	lda displaydiskpointer
 	clc
 	adc #$10
-	sta diskpointer
-	lda diskpointer+1
+	sta displaydiskpointer
+	lda displaydiskpointer+1
 	adc #0
-	sta diskpointer+1
+	sta displaydiskpointer+1
 
 	; XXX - Reverse video for current item	
 
@@ -526,6 +531,60 @@ ll4:
 alldonedrawing:
 	rts
 
+waitoneframe:
+	lda $d012
+wof1:	
+	cmp $d012
+	beq wof1
+wof2:	
+	cmp $d012
+	bne wof2
+	rts
+
+waitonesecond:
+	pha
+	phx
+	phy
+	phz
+	ldx #60
+wos1:	jsr waitoneframe
+	dex
+	bpl wos1
+	plz
+	ply
+	plx
+	pla
+	rts
+
+asciitocharrom:
+	; @ becomes $00
+	cmp #$40
+	bne atc1
+	lda #0
+	rts
+atc1:
+	cmp #$5b
+	bcs atc2
+	; A to Z -> leave unchanged
+	rts
+atc2:
+	cmp #$5b
+	bcc atc3
+	cmp #$60
+	bcs atc3
+	; [ \ ] ^ _ -> subtract $40
+	and #$1f
+	rts
+atc3:
+	cmp #$61
+	bcc atc4
+	cmp #$7b
+	bcs atc4
+	; a - z -> subtract $60
+	and #$1f
+	rts
+atc4:	rts
+
 	.scend
 
 iter1:	 .byte 0
@@ -539,6 +598,6 @@ reverse:       .byte 0
 filedescriptor:	     .byte 0
 
 topbanner:
-		.byte "MEGA65 DISK IMAGE CHOOSER V00.01        "		
+		.byte "MEGA65 Disk Image Chooser V00.01        "		
 bottombanner:
-		.byte ">> ARROWS TO NAVIGATE, ENTER TO MOUNT <<"
+		.byte ">> Arrows to navigate, ENTER to mount <<"
