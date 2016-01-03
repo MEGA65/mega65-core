@@ -143,6 +143,7 @@ readnextentry:
 	; Ask for entry to be written to screen RAM for debugging
 	ldx filedescriptor
 	ldy #>dirent
+	; XXX - NOP after trap to hypervisor to work around CPU bug
 	sta $d640
 	nop
 	bcc endofdir
