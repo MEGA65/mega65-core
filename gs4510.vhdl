@@ -3389,7 +3389,7 @@ begin
               -- single-cycle instruction
               if (hypervisor_mode='0') and (
                 (no_interrupt = '0')
-                and ((ifrq_pending='1' and flag_i='0') or nmi_pending='1')) then
+                and ((irq_pending='1' and flag_i='0') or nmi_pending='1')) then
                 -- An interrupt has occurred
                 report "Interrupt detected, decrementing PC";
                 state <= Interrupt;
