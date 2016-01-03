@@ -195,12 +195,15 @@ isd81file:
 	sta dirent+64
 
 	; Got an entry - copy name
-	ldy #$0f
+	ldy #$00
 ll19:	lda dirent,y
 	sta (diskpointer),y
-	dey
-	bpl ll19
-
+	iny
+	cpy dirent+64
+	beq ll19b
+	cpy #$10
+	bne ll19
+ll19b:
         ; blank out beyond end of filename
 	; get length byte from dirent structure
 	ldy dirent+64
