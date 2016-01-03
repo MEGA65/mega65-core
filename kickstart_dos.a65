@@ -2169,7 +2169,7 @@ dos_d81attach:
 		jsr dos_findfile
 		bcs d81a1
 		lda #dos_errorcode_file_not_found
-		sec
+		clc
 		rts
 		
 d81a1:		; XXX - Why do we call closefile here?
@@ -2261,6 +2261,11 @@ l96:
 
 		jsr dos_file_advance_to_next_cluster
 		bcs d81nextcluster
+
+		; The above continues until EOF is reached, so clear DOS
+		; error after.
+		lda #$00
+		sta dos_error_code
 
 		jsr dos_closefile
 

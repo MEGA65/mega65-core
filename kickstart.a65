@@ -582,7 +582,7 @@ postkickup:
 		jsr dos_closefile
 
 		jsr dos_d81attach
-		bcs d81attachfail
+		bcc d81attachfail
 		
 		ldx #<msg_d81mounted
 		ldy #>msg_d81mounted
