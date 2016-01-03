@@ -3121,7 +3121,7 @@ begin
               -- (preserve A,X,Y,Z and lower 32KB mapping for convenience for
               --  trap calls).
               -- 8-bit stack @ $BE00
-              reg_sp <= x"ff"; reg_sph <= x"BE"; flag_e <= '1';
+              reg_sp <= x"ff"; reg_sph <= x"BE"; flag_e <= '1'; flag_i<='1';
               -- ZP at $BF00-$BFFF
               reg_b <= x"BF";
               -- PC at $8000 (hypervisor code spans $8000 - $BFFF)
