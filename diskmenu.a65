@@ -159,6 +159,41 @@ readnextentry:
 	bcc endofdir
 	sta $0426
 
+	; Check file type: we only want regular files
+
+	; Skip "hidden" files
+	lda dirent
+	cmp #$2e
+	beq readnextentry
+
+	; Check if filename ends in .D81
+	; Begin by checking length >4 (i.e, something.d81)
+	lda dirent+64
+	cmp #5
+	bcc readnextentry
+	tay
+	dey
+	lda dirent,y
+	cmp #$31
+	bne readnextentry
+	dey
+	lda dirent,y
+	cmp #$38
+	bne readnextentry
+	dey
+	lda dirent,y
+	cmp #$44
+	beq isd81file
+	cmp #$64
+	bne readnextentry
+isd81file:
+
+	; Chop extension from filename
+	lda dirent+64
+	sec
+	sbc #$04
+	sta dirent+64
+
 	; Got an entry - copy name
 	ldy #$0f
 ll19:	lda dirent,y
