@@ -2763,6 +2763,8 @@ begin
             when others =>
               null;
           end case;
+        else
+          cpuspeed <= x"48";
         end if;
       else
         normal_fetch_state <= ProcessorHold;
