@@ -284,6 +284,13 @@ reset_machine_state:
 		cld
 		see
 
+		; disable IRQ/NMI sources
+		lda #$7f
+		sta $DC0D
+		sta $DD0D
+		LDA #$00
+		STA $D019
+
 		sec
 		jsr enhanced_io
 
@@ -314,13 +321,6 @@ reset_machine_state:
 		; the 4510 starts up with kickstart mapped at $8000-$BFFF 
 		; enhanced ($FFD3xxx) IO page mapped at $D000,
 		; and fast RAM elsewhere.
-
-		; disable IRQ sources
-		lda #$7f
-		sta $DC0D
-		sta $DD0D
-		LDA #$00
-		STA $D019
 
 		; Disable reset watchdog, enable flat 32-bit addressing, don't engage
 		; ROM write protect (yet), do make ASC/DIN / CAPS LOCK control CPU speed.
@@ -2424,7 +2424,6 @@ cp9:
 	iny
 cp3:	lda (<checkpoint_pcl),y
 	beq endofcheckpointmessage
-	nop
 	sta msg_checkpointmsg,x
 	inx
 	iny
