@@ -3353,7 +3353,8 @@ begin
             when InstructionWait =>
               state <= InstructionFetch;
             when InstructionFetch =>
-              if (irq_pending='1' and flag_i='0') or nmi_pending='1' then
+              if (hypervisor_mode='0')
+                and ((irq_pending='1' and flag_i='0') or nmi_pending='1') then
                 -- An interrupt has occurred
                 state <= Interrupt;
                 -- Make sure reg_instruction /= I_BRK, so that B flag is not
@@ -3386,7 +3387,9 @@ begin
               
               -- 4502 doesn't allow interrupts immediately following a
               -- single-cycle instruction
-              if (no_interrupt = '0') and ((irq_pending='1' and flag_i='0') or nmi_pending='1') then
+              if (hypervisor_mode='0') and (
+                (no_interrupt = '0')
+                and ((ifrq_pending='1' and flag_i='0') or nmi_pending='1')) then
                 -- An interrupt has occurred
                 report "Interrupt detected, decrementing PC";
                 state <= Interrupt;
