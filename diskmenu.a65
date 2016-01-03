@@ -206,11 +206,12 @@ ll19:	lda dirent,y
 ll19b:
         ; blank out beyond end of filename
 	; get length byte from dirent structure
-	ldy dirent+64
+	cpy #$10
+	bcs ll20
 	lda #$20
 ll21:	cpy #$10
 	bcs ll20
-;	sta (diskpointer),y
+	sta (diskpointer),y
 	iny
 	jmp ll21
 ll20:
