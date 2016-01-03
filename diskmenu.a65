@@ -217,7 +217,10 @@ ll21:	cpy #$10
 ll20:
 
 	; Bump directory count
-	inc diskcount
+	lda diskcount
+	clc
+	adc #$01
+	sta diskcount
 	lda diskcount+1
 	adc #$00
 	sta diskcount+1
