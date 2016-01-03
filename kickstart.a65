@@ -581,114 +581,9 @@ postkickup:
 		bcc nod81
 		jsr dos_closefile
 
-		; this is the entry
-		ldx #<msg_foundd81
-		ldy #>msg_foundd81
-		jsr printmessage
-
-		; now we need to check that the file is long enough,
-		; and also that the clusters are contiguous.
-
-		; Start by opening the file
-		jsr dos_set_current_file_from_dirent
-		bcc nod81
-		jsr dos_openfile
-		bcc nod81
+		jsr dos_d81attach
+		bcs d81attachfail
 		
-		; work out how many clusters we need
-		; We need 1600 sectors, so halve for every zero tail
-		; bit in sectors per cluster.  we can do this because
-		; clusters in FAT must be 2^n sectors.
-		lda #$00
-		sta d81_clustercount 
-		sta d81_clustercount+1
-		lda #<1600
-		sta d81_clustersneeded
-		lda #>1600
-		sta d81_clustersneeded+1
-
-		; get sectors per cluster of disk
-		ldx dos_disk_table_offset
-		lda dos_disk_table+fs_fat32_sectors_per_cluster,x
-		taz
-
-l94:		tza
-		and #$01
-		bne d81firstcluster
-		tza
-		lsr
-		taz
-		lsr d81_clustersneeded+1
-		ror d81_clustersneeded
-		jmp l94				
-
-d81firstcluster:
-		; Get current cluster of D81 file, so that
-		; we can check that clusters in file are contiguous
-		ldx dos_current_file_descriptor_offset
-		ldy #0
-l94b:		lda dos_file_descriptors+dos_filedescriptor_offset_currentcluster,x
-		sta d81_clusternumber,y
-		inx
-		iny
-		cpy #4
-		bne l94b
-
-d81nextcluster:
-		; Now read through clusters and make sure that all is
-		; well.
-
-		; check that it matches expected cluster number
-		ldx dos_current_file_descriptor_offset
-		ldy #0
-l94a:		lda dos_file_descriptors+dos_filedescriptor_offset_currentcluster,x
-		cmp d81_clusternumber,y
-		bne d81isfragged
-		inx
-		iny
-		cpy #4
-		bne l94a
-
-		; increment number of clusters found so far
-		inc d81_clustercount
-		bne l96
-		inc d81_clustercount+1
-l96:
-
-		; increment expected cluster number
-		clc
-		lda d81_clusternumber
-		adc #$01
-		sta d81_clusternumber
-		lda d81_clusternumber+1
-		adc #$00
-		sta d81_clusternumber+1
-		lda d81_clusternumber+2
-		adc #$00
-		sta d81_clusternumber+2
-		lda d81_clusternumber+3
-		adc #$00
-		sta d81_clusternumber+3
-
-		jsr dos_file_advance_to_next_cluster
-		bcs d81nextcluster
-
-		jsr dos_closefile
-
-		; read to end of D81 file, and it is contiguous
-		; now check that it is the right length
-
-		lda d81_clustersneeded
-		cmp d81_clustercount
-		bne d81wronglength
-		
-		lda d81_clustersneeded+1
-		cmp d81_clustercount+1
-		bne d81wronglength
-
-		; D81 is good, so set flag 
-		lda #$07
-		sta $d68b
 		ldx #<msg_d81mounted
 		ldy #>msg_d81mounted
 		jsr printmessage
@@ -696,20 +591,7 @@ l96:
 		; all done, move on to loading the ROM
 		jmp findrom
 
-d81wronglength:
-		ldx #<msg_d81wronglength
-		ldy #>msg_d81wronglength
-		jsr printmessage
-		jmp findrom
-
-d81isfragged:
-
-		ldx #<msg_d81fragged
-		ldy #>msg_d81fragged
-		jsr printmessage
-		jmp findrom
-
-nod81:
+d81attachfail:
 		; we couldn't find the D81 file, so tell the user
 		ldx #<msg_nod81
 		ldy #>msg_nod81
@@ -2538,10 +2420,7 @@ msg_romfilelongerror: .byte "ROM TOO LONG: (READ $$$$ PAGES)",0
 msg_romfileshorterror:.byte "ROM TOO SHORT: (READ $$$$ PAGES)",0
 msg_clusternumber:    .byte " NEXT CLUSTER=$$$$$$$$",0
 msg_sectoraddress:    .byte " NEXT SECTOR=$$$$$$$$",0
-msg_nod81:	      .byte "CANNOT FIND MEGA65.D81 - (ERRNO: $$)",0
-msg_foundd81:	      .byte "MOUNTING MEGA65.D81 @ INTERNAL F011 DRIVE",0
-msg_d81wronglength:   .byte "FAIL: MEGA65.D81 IS NOT 819200 BYTES LONG",0
-msg_d81fragged:       .byte "FAIL: MEGA65.D81 IS FRAGMENTED: DEFRAG IT",0
+msg_nod81:	      .byte "CANNOT MOUNT MEGA65.D81 - (ERRNO: $$)",0
 msg_d81mounted:	      .byte "MEGA65.D81 SUCCESSFULLY MOUNTED",0
 msg_releasesw15:      .byte "RELEASE SW15 TO CONTINUE BOOTING.",0
 msg_romnotfound:      .byte "COULD NOT FIND ROM MEGA65XXROM",0

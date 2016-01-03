@@ -27,6 +27,8 @@
 	.alias dos_errorcode_not_a_directory $87
 	.alias dos_errorcode_file_not_found $88
 	.alias dos_errorcode_invalid_file_descriptor $89
+	.alias dos_errorcode_image_wrong_length $8A
+	.alias dos_errorcode_image_fragmented $8B
 
 	.alias dos_errorcode_eof $FF
 
@@ -115,8 +117,8 @@ dos_and_process_trap_table:
 	; $30 - $3E
 	.word trap_dos_findfirst
 	.word trap_dos_findnext
+	.word trap_dos_findfile
 	.word trap_dos_loadfile
-	.word invalid_subfunction
 	.word invalid_subfunction
 	.word invalid_subfunction
 	.word invalid_subfunction
@@ -243,12 +245,9 @@ trap_dos_readdir:
 	; in first 32KB of mapped address space
 
 	jsr checkpoint
-	.byte 0,"trap_dos_readdir <1>",0
+	.byte 0,"trap_dos_readdir",0
 
 	jsr sd_map_sectorbuffer
-
-	jsr checkpoint
-	.byte 0,"trap_dos_readdir <2>",0
 
 	; Get offset to current file descriptor
 	; (we can't use X register, as has been clobbered in the jump
@@ -256,33 +255,16 @@ trap_dos_readdir:
 	ldx hypervisor_x
 	stx dos_current_file_descriptor
 
-	jsr checkpoint
-	.byte 0,"trap_dos_readdir <3>",0
-
 	jsr dos_get_file_descriptor_offset
-	php
-	jsr checkpoint
-	.byte 0,"trap_dos_readdir <4>",0
-
-	plp
 	bcc tdrd1
 	sta dos_current_file_descriptor_offset
-
-	jsr checkpoint
-	.byte 0,"trap_dos_readdir <5>",0
 
 	jsr dos_readdir
 	bcc tdrd1
 
-	jsr checkpoint
-	.byte 0,"trap_dos_readdir <6>",0
-
 	; Read the directory entry, now copy it to userland
 	jsr hypervisor_setup_copy_region
 	bcc tdrd1
-
-	jsr checkpoint
-	.byte 0,"trap_dos_readdir <7>",0
 
 	; We can now copy the bytes of the dirent to user-space
 	ldy #dos_dirent_structure_length-1
@@ -293,23 +275,69 @@ tdrd2:
 	bpl tdrd2
 
 	jsr checkpoint
-	.byte 0,"trap_dos_readdir <8>",0
+	.byte 0,"trap_dos_readdir <success>",0
 
 	jmp return_from_trap_with_success
 tdrd1:
 	jsr checkpoint
-	.byte 0,"trap_dos_readdir <9>",0
+	.byte 0,"trap_dos_readdir <failure>",0
 	
 	lda dos_error_code
 	jmp return_from_trap_with_failure
 	
 trap_dos_closedir:
-trap_dos_openfile:
-trap_dos_closefile:
-trap_dos_readfile:
-trap_dos_findfirst:
-trap_dos_findnext:
+	jmp trap_dos_closefile
 
+trap_dos_openfile:
+	; Opens file in current dirent structure
+	; XXX - This means we must preserve the dirent struct when
+	; context-switching to avoid a race-condition
+	
+	jsr dos_openfile
+	bcc tdof1
+
+	jsr checkpoint
+	.byte 0,"trap_dos_openfile <success>",0
+	jmp return_from_trap_with_success
+tdof1:
+	jsr checkpoint
+	.byte 0,"trap_dos_openfile <failure>",0
+	
+	lda dos_error_code
+	jmp return_from_trap_with_failure
+
+trap_dos_closefile:
+	ldx hypervisor_x
+	stx dos_current_file_descriptor
+
+	jsr dos_get_file_descriptor_offset
+	bcc tdcf1
+	jsr dos_closefile
+	bcc tdcf1
+
+	jsr checkpoint
+	.byte 0,"trap_dos_closefile <success>",0
+
+	jmp return_from_trap_with_success
+tdcf1:
+	jsr checkpoint
+	.byte 0,"trap_dos_closefile <failure>",0
+	
+	lda dos_error_code
+	jmp return_from_trap_with_failure
+
+trap_dos_findfile:
+	jsr dos_findfile
+	jmp return_from_trap_with_carry_flag
+trap_dos_findfirst:
+	jsr dos_findfirst
+	jmp return_from_trap_with_carry_flag
+	
+trap_dos_findnext:
+	jsr dos_findnext
+	jmp return_from_trap_with_carry_flag
+
+trap_dos_readfile:
 trap_dos_getdisksize:
 trap_dos_getcwd:
 trap_dos_chdir:
@@ -2112,3 +2140,134 @@ dsn_eon:
 
 	sec
 	rts
+
+dos_d81attach:
+	; Assumes only that D81 file name has been set with dos_setname.
+		jsr dos_findfile
+		bcs d81a1
+		lda #dos_errorcode_file_not_found
+		sec
+		rts
+		
+d81a1:		; XXX - Why do we call closefile here?
+		jsr dos_closefile
+
+		; now we need to check that the file is long enough,
+		; and also that the clusters are contiguous.
+
+		; Start by opening the file
+		jsr dos_set_current_file_from_dirent
+		bcc nod81
+		jsr dos_openfile
+		bcc nod81
+		
+		; work out how many clusters we need
+		; We need 1600 sectors, so halve for every zero tail
+		; bit in sectors per cluster.  we can do this because
+		; clusters in FAT must be 2^n sectors.
+		lda #$00
+		sta d81_clustercount 
+		sta d81_clustercount+1
+		lda #<1600
+		sta d81_clustersneeded
+		lda #>1600
+		sta d81_clustersneeded+1
+
+		; get sectors per cluster of disk
+		ldx dos_disk_table_offset
+		lda dos_disk_table+fs_fat32_sectors_per_cluster,x
+		taz
+
+l94:		tza
+		and #$01
+		bne d81firstcluster
+		tza
+		lsr
+		taz
+		lsr d81_clustersneeded+1
+		ror d81_clustersneeded
+		jmp l94				
+
+d81firstcluster:
+		; Get current cluster of D81 file, so that
+		; we can check that clusters in file are contiguous
+		ldx dos_current_file_descriptor_offset
+		ldy #0
+l94b:		lda dos_file_descriptors+dos_filedescriptor_offset_currentcluster,x
+		sta d81_clusternumber,y
+		inx
+		iny
+		cpy #4
+		bne l94b
+
+d81nextcluster:
+		; Now read through clusters and make sure that all is
+		; well.
+
+		; check that it matches expected cluster number
+		ldx dos_current_file_descriptor_offset
+		ldy #0
+l94a:		lda dos_file_descriptors+dos_filedescriptor_offset_currentcluster,x
+		cmp d81_clusternumber,y
+		bne d81isfragged
+		inx
+		iny
+		cpy #4
+		bne l94a
+
+		; increment number of clusters found so far
+		inc d81_clustercount
+		bne l96
+		inc d81_clustercount+1
+l96:
+
+		; increment expected cluster number
+		clc
+		lda d81_clusternumber
+		adc #$01
+		sta d81_clusternumber
+		lda d81_clusternumber+1
+		adc #$00
+		sta d81_clusternumber+1
+		lda d81_clusternumber+2
+		adc #$00
+		sta d81_clusternumber+2
+		lda d81_clusternumber+3
+		adc #$00
+		sta d81_clusternumber+3
+
+		jsr dos_file_advance_to_next_cluster
+		bcs d81nextcluster
+
+		jsr dos_closefile
+
+		; read to end of D81 file, and it is contiguous
+		; now check that it is the right length
+
+		lda d81_clustersneeded
+		cmp d81_clustercount
+		bne d81wronglength
+		
+		lda d81_clustersneeded+1
+		cmp d81_clustercount+1
+		bne d81wronglength
+
+		; D81 is good, so set flag 
+		lda #$07
+		sta $d68b
+
+		sec
+		rts
+		
+d81wronglength:
+		lda #dos_errorcode_image_wrong_length
+		clc
+		rts		
+
+d81isfragged:
+		lda #dos_errorcode_image_fragmented
+		clc
+		rts
+nod81:
+		clc
+		rts
