@@ -16,6 +16,7 @@
 	.alias dos_errorcode_partition_error $08
 
 	.alias dos_errorcode_invalid_address $10
+	.alias dos_errorcode_illegal_value $11
 
 	.alias dos_errorcode_no_such_disk $80
 	.alias dos_errorcode_name_too_long $81
@@ -119,7 +120,7 @@ dos_and_process_trap_table:
 	.word trap_dos_findnext
 	.word trap_dos_findfile
 	.word trap_dos_loadfile
-	.word invalid_subfunction
+	.word trap_dos_geterrorcode
 	.word invalid_subfunction
 	.word invalid_subfunction
 	.word invalid_subfunction
@@ -218,7 +219,45 @@ tdsn1:	lda (<dos_scratch_vector),y
 	lda #dos_errorcode_name_too_long
 	sta dos_error_code
 	jmp return_from_trap_with_failure
-tdsn2:  jmp return_from_trap_with_success
+tdsn2:
+	; setname succeeded
+	stz dos_requested_filename_len
+
+	; Display filename in checkpoint message
+	cpz #30
+	bcc tdsn3
+	ldz #30
+tdsn3:
+	tza
+	tay
+tdsn4:	lda dos_requested_filename,y
+	beq illegalvalue
+	sta setnamemsg+9,y
+	dey
+	bpl tdsn4
+
+	tza
+	tay
+	lda #'\)
+	sta setnamemsg+9,y
+	lda #$20
+tdsn6:	cpy #31
+	beq tdsn5
+	sta setnamemsg+9,y
+	iny
+	bra tdsn6
+tdsn5:
+	jsr checkpoint
+	.byte 0
+setnamemsg:
+	.byte "setname(                                "
+	.byte 0
+
+	jmp return_from_trap_with_success
+
+illegalvalue:
+	lda #dos_errorcode_illegal_value
+	jmp return_from_trap_with_failure
 
 trap_dos_getcurrentdrive:
 	lda dos_disk_current_disk
@@ -336,6 +375,11 @@ trap_dos_findfirst:
 trap_dos_findnext:
 	jsr dos_findnext
 	jmp return_from_trap_with_carry_flag
+
+trap_dos_geterrorcode:
+	lda dos_error_code
+	sta hypervisor_a
+	jmp return_from_trap_with_success
 
 trap_dos_d81attach:
 	lda #$00
