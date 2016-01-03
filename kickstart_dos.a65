@@ -338,14 +338,15 @@ trap_dos_findnext:
 	jmp return_from_trap_with_carry_flag
 
 trap_dos_d81attach:
+	lda #$00
+	sta $d68b
 	jsr dos_d81attach
 	jmp return_from_trap_with_carry_flag
 	
 trap_dos_d81detach:
 	lda #$00
 	sta $d68b
-	sec
-	rts
+	jmp return_from_trap_with_success
 	
 trap_dos_d81writeen:	
 	lda $d68b
@@ -354,13 +355,12 @@ trap_dos_d81writeen:
 	bne td81we1
  	ora #$04
 	sta $d68b
-	sec
-	rts
+	jmp return_from_trap_with_success
 td81we1:
 	; No disk image mounted
 	lda #dos_errorcode_no_such_disk
-	clc
-	rts
+	sta dos_error_code
+	jmp return_from_trap_with_failure
 
 
 trap_dos_readfile:
