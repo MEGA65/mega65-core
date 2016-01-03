@@ -71,6 +71,10 @@
 	
 
 dos_and_process_trap:
+	; XXX - Machine is being updated to automatically disable IRQs on trapping
+	; to hypervisor, but for now, we need to do this explicitly.
+	; Should be able to be removed after 20160103
+	sei
 	; Sub-function is selected by A.
 	; Bits 6-1 are the only ones used.
 	; Mask out bit 0 so that indirect jmp's are valid.
