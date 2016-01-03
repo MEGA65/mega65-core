@@ -21,7 +21,6 @@
 	 ; disks.
 	 .alias displaydiskpointer $40
 	 .alias diskpointer $fe
-	 .alias currentdisk $fb
 	 ; pointer for where we are drawing on screen
 	 .alias screenpointer $f9
 
@@ -208,7 +207,7 @@ ll19b:
 	; get length byte from dirent structure
 	cpy #$10
 	bcs ll20
-	lda #$20
+	lda #$00
 ll21:	cpy #$10
 	bcs ll20
 	sta (diskpointer),y
@@ -300,9 +299,134 @@ notzerokey:
         jsr adjustcurrentscreen
 	jmp mainloop
 notninekey:
+	cmp #$0d
+	bne notreturnkey
+
+	; RETURN pressed, so mount image and exit
+	; To do this, we just need the name of the .D81 file (with extension)
+	; and call the DOS setname trap, and then the d81attach trap
+	; So first step is to find any copy the disk image name
+	lda currentitem
+	asl
+	asl
+	asl
+	asl
+	sta diskpointer
+	lda currentitem
+	lsr
+	lsr
+	lsr
+	lsr
+	sta diskpointer+1
+	lda currentitem+1
+	asl
+	asl
+	asl
+	asl
+	ora diskpointer+1
+	clc
+	adc #>disknamearray
+	sta diskpointer+1
+
+	ldy #$00
+r1:	lda (diskpointer),y
+	beq eoname
+	sta $0400,y
+	iny
+	cpy #$10
+	bne r1
+eoname:	ldx #0
+eoname1:
+	lda dotd81,x
+	sta $0400,y
+	iny
+	inx
+	cpx #5
+	bne eoname1
+
+	; call DOS setname function
+	tya
+	taz
+	lda #$2e
+	ldx #<$0400
+	ldy #>$0400
+	sta $d640
+	nop
+	ldz #$00
+	bcc mounterror
+
+	; call DOS disk image mount function
+	lda #$40
+	sta $d640
+	nop
+	bcc mounterror
+
+	jmp mainloop
+
+mounterror:
+
+	; Get DOS error code from hypervisor
+	lda #$38
+	sta $d640
+	nop
+
+	; Put dos error code into mount error message
+	tax
+	jsr checkpoint_bytetohex
+	stx msg_mounterror+34
+	stx msg_mounterror+35	
+	
+	ldx #39
+me1:	lda msg_mounterror,x
+	jsr asciitocharrom
+	ora #$80
+	sta $07c0,x
+	dex
+	bpl me1
+	jmp mainloop
+
+msg_mounterror:
+	.byte "Error mounting disk image (errno=$nn)   "
+dotd81:
+	.byte ".d81",0
+
+notreturnkey:
 
 	 jmp waitforkey
 	 rts
+
+nybltohex:
+	cmp #$a
+	bcs nth1
+	ora #$30
+	rts
+nth1:	sec
+	sbc #9
+	rts
+
+checkpoint_bytetohex:
+	txa
+	and #$f0
+	lsr
+	lsr
+	lsr
+	lsr
+	jsr checkpoint_nybltohex
+	tay
+	txa
+	and #$0f
+	jsr checkpoint_nybltohex
+	tax	
+	rts
+checkpoint_nybltohex:
+	and #$0f
+	ora #$30
+	cmp #$3a
+	bcs cpnth1
+	rts
+cpnth1:	adc #$06
+	rts
+
 
 adjustcurrentscreen:
 
