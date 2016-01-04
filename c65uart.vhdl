@@ -168,6 +168,7 @@ begin  -- behavioural
         or (fastio_address(11 downto 4) /= x"60") then
         fastio_rdata <= (others => 'Z');
       else
+        report "Reading C65 UART controller register";
         case register_number is
           when x"0" =>
             -- @IO:C65 $D600 C65 UART data register (read or write)
