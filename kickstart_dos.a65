@@ -377,11 +377,17 @@ trap_dos_findnext:
 	jmp return_from_trap_with_carry_flag
 
 trap_dos_geterrorcode:
+	jsr checkpoint
+	.byte 0,"dos_d81attach",0
+
 	lda dos_error_code
 	sta hypervisor_a
 	jmp return_from_trap_with_success
 
 trap_dos_d81attach:
+	jsr checkpoint
+	.byte 0,"trap_dos_d81attach",0
+
 	lda #$00
 	sta $d68b
 	jsr dos_d81attach
@@ -2209,6 +2215,9 @@ dsn_eon:
 	rts
 
 dos_d81attach:
+	jsr checkpoint
+	.byte 0,"dos_d81attach",0
+
 	; Assumes only that D81 file name has been set with dos_setname.
 		jsr dos_findfile
 		bcs d81a1
@@ -2311,6 +2320,9 @@ l96:
 		lda #$00
 		sta dos_error_code
 
+		jsr checkpoint
+		.byte 0,"dos_d81attach <measured end of image>",0
+
 		jsr dos_closefile
 
 		; read to end of D81 file, and it is contiguous
@@ -2329,18 +2341,30 @@ l96:
 		lda #$03
 		sta $d68b
 
+		jsr checkpoint
+		.byte 0,"dos_d81attach <success>",0
+
 		sec
 		rts
 		
 d81wronglength:
+		jsr checkpoint
+		.byte 0,"dos_d81attach <wrong length>",0
+
 		lda #dos_errorcode_image_wrong_length
 		clc
 		rts		
 
 d81isfragged:
+		jsr checkpoint
+		.byte 0,"dos_d81attach <fragmented>",0
+
 		lda #dos_errorcode_image_fragmented
 		clc
 		rts
 nod81:
+		jsr checkpoint
+		.byte 0,"dos_d81attach <file not found>",0
+
 		clc
 		rts
