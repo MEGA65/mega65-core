@@ -214,11 +214,11 @@ C65 $D605 C65 UART interrupt mask register
 C65 $D606 C65 UART interrupt flag register              
 C65 $D607 C65 UART 2-bit port data direction register (used for C65 keyboard)
 C65 $D607 C65 UART 2-bit port data register (used for C65 keyboard)
-C65 $D609 MEGA65 extended UART control register
-C65 $D609.0 UART BAUD clock source: 1 = 7.09375MHz, 0 = 193.5MHz
-C65 $D60D DEBUG - Read hyper_trap_count: will be removed after debugging. XXX - Temporarily reading restore_up_ticks instead
-C65 $D60E PMOD port A on FPGA board (data bits)
-C65 $D60F PMOD port A on FPGA board (DDR)
+GS $D609 MEGA65 extended UART control register
+GS $D609.0 UART BAUD clock source: 1 = 7.09375MHz, 0 = 193.5MHz
+GS $D60D DEBUG - Read hyper_trap_count: will be removed after debugging. XXX - Temporarily reading restore_up_ticks instead
+GS $D60E PMOD port A on FPGA board (data bits)
+GS $D60F PMOD port A on FPGA board (DDR)
 GS $D630 - Read to obtain status of thumbnail generator.
 GS $D630 - Write to reset port address for thumbnail generator
 GS $D630-$D631 - Read-only hardware-generated thumbnail of display (accessible only in hypervisor mode)
