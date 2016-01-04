@@ -134,14 +134,15 @@ begin  -- behavioural
         -- Double-tap restore is detected by DOWN-UP-DOWN signature.
         -- We note how long the UP is, and if it is within our acceptable
         -- timeframe, then we consider a double-tap to have occurred.
+        hyper_trap_count <= restore_up_ticks;
         if restore_state='0' then
           if (restore_up_ticks>=1 and restore_up_ticks<18) then
             -- Trap to hypervisor when restore is double-tapped
             -- with the second tap occurring after not more than 12/50ths
             -- (~240ms)
             hyper_trap <= '0';
-            hyper_trap_count <= hyper_trap_count_internal + 1;
-            hyper_trap_count_internal <= hyper_trap_count_internal + 1;
+--            hyper_trap_count <= hyper_trap_count_internal + 1;
+--            hyper_trap_count_internal <= hyper_trap_count_internal + 1;
           else
             hyper_trap <= '1';
           end if;

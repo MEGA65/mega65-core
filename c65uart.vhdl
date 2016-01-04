@@ -220,7 +220,7 @@ begin  -- behavioural
             fastio_rdata(0) <= clock709375;
             fastio_rdata(7 downto 1) <= (others => '1');
           when x"d" =>
-            -- @IO:65 $D60D DEBUG - Read hyper_trap_count: will be removed after debugging.     
+            -- @IO:65 $D60D DEBUG - Read hyper_trap_count: will be removed after debugging. XXX - Temporarily reading restore_up_ticks instead
             fastio_rdata(7 downto 0) <= unsigned(portg);
           when x"e" =>
             -- @IO:65 $D60E PMOD port A on FPGA board (data bits)
