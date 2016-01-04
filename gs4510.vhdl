@@ -585,6 +585,7 @@ end component;
     MonitorMemoryAccess,
     InstructionFetch,
     InstructionDecode,  -- $16
+    InstructionDecode6502,
     Cycle2,Cycle3,
     Flat32Got2ndArgument,Flat32Byte3,Flat32Byte4,
     Flat32SaveAddress,
@@ -3405,7 +3406,7 @@ begin
               
                 -- Always read the next instruction byte after reading opcode
                 -- (this means we can't interrupt the CPU in between single-cycle
-                -- instructions for now.  oh well.)
+                -- instructions -- this is actually correct behaviour for the 4502)
                 pc_inc := '1';
 
                 report "Executing instruction " & instruction'image(instruction_lut(to_integer(emu6502&memory_read_value)))
@@ -3487,6 +3488,201 @@ begin
                   when others => null;
                 end case;
                 
+                if op_is_single_cycle(to_integer(emu6502&memory_read_value)) = '0' then
+                  if (mode_lut(to_integer(emu6502&memory_read_value)) = M_immnn)
+                    or (mode_lut(to_integer(emu6502&memory_read_value)) = M_impl)
+                    or (mode_lut(to_integer(emu6502&memory_read_value)) = M_A)
+                  then
+                    no_interrupt <= '0';
+                    if memory_read_value=x"60" then
+                      -- Fast-track RTS
+                      if flat32_address = '0' then
+                        -- Normal 16-bit RTS
+                        state <= RTS;
+                      else
+                        -- 32-bit RTS, including virtual memory address resolution
+                        report "Far-RTS";
+                        state <= Flat32RTS;
+                      end if;
+                    elsif memory_read_value=x"40" then
+                      -- Fast-track RTI
+                      state <= RTI;
+                    else
+                      report "Skipping straight to microcode interpret from fetch";
+                      state <= MicrocodeInterpret;
+                    end if;
+                  else
+                    state <= Cycle2;
+                  end if;
+                  case mode_lut(to_integer(emu6502&memory_read_value)) is
+                    when M_IMPL =>
+                      pause_cycles <= to_unsigned(pause_per_cycle * 2,9);
+                    when M_nn =>
+                      pause_cycles <= to_unsigned(pause_per_cycle * 3,9);
+                    when M_immnn =>
+                      pause_cycles <= to_unsigned(pause_per_cycle * 2,9);
+                    when M_A =>
+                      pause_cycles <= to_unsigned(pause_per_cycle * 2,9);
+                    when M_nnnn =>
+                      pause_cycles <= to_unsigned(pause_per_cycle * 4,9);
+                    when M_nnrr =>
+                      pause_cycles <= to_unsigned(pause_per_cycle * 4,9);
+                    when M_rr =>
+                      pause_cycles <= to_unsigned(pause_per_cycle * 3,9);
+                    when M_InnY =>
+                      pause_cycles <= to_unsigned(pause_per_cycle * 5,9);
+                    when M_InnZ =>
+                      pause_cycles <= to_unsigned(pause_per_cycle * 5,9);
+                    when M_rrrr =>
+                      pause_cycles <= to_unsigned(pause_per_cycle * 4,9);
+                    when M_nnX =>
+                      pause_cycles <= to_unsigned(pause_per_cycle * 3,9);
+                    when M_nnnnY =>
+                      pause_cycles <= to_unsigned(pause_per_cycle * 4,9);
+                    when M_nnnnX =>
+                      pause_cycles <= to_unsigned(pause_per_cycle * 4,9);
+                    when M_Innnn =>
+                      pause_cycles <= to_unsigned(pause_per_cycle * 5,9);
+                    when M_InnnnX =>
+                      pause_cycles <= to_unsigned(pause_per_cycle * 5,9);
+                    when M_InnSPY =>
+                      pause_cycles <= to_unsigned(pause_per_cycle * 6,9);
+                    when M_nnY =>
+                      pause_cycles <= to_unsigned(pause_per_cycle * 3,9);
+                    when M_immnnnn =>
+                      pause_cycles <= to_unsigned(pause_per_cycle * 7,9);
+                    when others =>
+                  end case;
+                else
+                  pause_cycles <= to_unsigned(pause_per_cycle,9);
+                  no_interrupt <= '1';
+                  -- Allow monitor to trace through single-cycle instructions
+                  if monitor_mem_trace_mode='1' or debugging_single_stepping='1' then
+                    state <= normal_fetch_state;
+                    pc_inc := '0';
+                  end if;
+                end if;
+                
+                monitor_instruction <= to_unsigned(instruction'pos(instruction_lut(to_integer(emu6502&memory_read_value))),8);
+                is_rmw <= '0'; is_load <= '0'; is_store <= '0';
+                rmw_dummy_write_done <= '0';
+                case instruction_lut(to_integer(emu6502&memory_read_value)) is
+                  -- Note if instruction is RMW
+                  when I_INC => is_rmw <= '1';
+                  when I_DEC => is_rmw <= '1';
+                  when I_ROL => is_rmw <= '1';
+                  when I_ROR => is_rmw <= '1';
+                  when I_ASL => is_rmw <= '1';
+                  when I_ASR => is_rmw <= '1';
+                  when I_LSR => is_rmw <= '1';
+                  when I_TSB => is_rmw <= '1';
+                  when I_TRB => is_rmw <= '1';
+                  when I_RMB => is_rmw <= '1';
+                  when I_SMB => is_rmw <= '1';
+                  -- There are a few 16-bit RMWs as well
+                  when I_INW => is_rmw <= '1';
+                  when I_DEW => is_rmw <= '1';
+                  when I_ASW => is_rmw <= '1';
+                  when I_PHW => is_rmw <= '1';
+                  when I_ROW => is_rmw <= '1';
+                  -- Note if instruction LOADs value from memory
+                  when I_BIT => is_load <= '1';
+                  when I_AND => is_load <= '1';
+                  when I_ORA => is_load <= '1';
+                  when I_EOR => is_load <= '1';
+                  when I_ADC => is_load <= '1';
+                  when I_SBC => is_load <= '1';
+                  when I_CMP => is_load <= '1';
+                  when I_CPX => is_load <= '1';
+                  when I_CPY => is_load <= '1';
+                  when I_CPZ => is_load <= '1';
+                  when I_LDA => is_load <= '1';
+                  when I_LDX => is_load <= '1';
+                  when I_LDY => is_load <= '1';
+                  when I_LDZ => is_load <= '1';
+                  -- Note if instruction is STORE
+                  when I_STA => is_store <= '1';
+                  when I_STX => is_store <= '1';
+                  when I_STY => is_store <= '1';
+                  when I_STZ => is_store <= '1';
+                                
+                  -- Nothing special for other instructions
+                  when others => null;
+                end case;
+              end if;
+            when InstructionDecode6502 =>
+              -- Show previous instruction
+              disassemble_last_instruction;
+              -- Start recording this instruction
+              last_instruction_pc <= reg_pc - 1;
+              last_opcode <= memory_read_value;
+              last_bytecount <= 1;
+
+              -- Prepare microcode vector in case we need it next cycles
+              reg_microcode <=
+                microcode_lut(instruction_lut(to_integer(emu6502&memory_read_value)));
+              reg_addressingmode <= mode_lut(to_integer(emu6502&memory_read_value));
+              reg_instruction <= instruction_lut(to_integer(emu6502&memory_read_value));
+              
+              if (hypervisor_mode='0') 
+                and ((irq_pending='1' and flag_i='0') or nmi_pending='1') then
+                -- An interrupt has occurred 
+                report "Interrupt detected in 6502 mode, decrementing PC";
+                state <= Interrupt;
+                reg_pc <= reg_pc - 1;
+              else
+                reg_opcode <= memory_read_value;
+                -- Present instruction to serial monitor;
+                monitor_opcode <= memory_read_value;
+                monitor_ibytes <= "0000";
+                monitor_instructionpc <= reg_pc - 1;              
+
+                -- In 6502 mode, we don't advance the PC 
+                pc_inc := '0';
+                
+                report "Executing instruction " & instruction'image(instruction_lut(to_integer(emu6502&memory_read_value)))
+                  severity note;                
+
+                -- See if this is a single cycle instruction in 4502 mode.
+                -- We take 2 cycles for these, and allow interrupts following
+                -- them, however.
+                absolute32_addressing_enabled <= '0';
+                flat32_address <= '0';
+                flat32_address_prime <= '0';
+                
+                case memory_read_value is
+                  when x"0A" => reg_a <= a_asl; set_nz(a_asl); flag_c <= reg_a(7); -- ASL A
+                  when x"18" => flag_c <= '0';  -- CLC
+                  when x"2A" => reg_a <= a_rol; set_nz(a_rol); flag_c <= reg_a(7); -- ROL A
+                  when x"38" => flag_c <= '1';  -- SEC
+                  when x"3A" => reg_a <= a_decremented; set_nz(a_decremented); -- DEC A
+                  when x"43" => reg_a <= a_asr; set_nz(a_asr); -- ASR A
+                  when x"4A" => reg_a <= a_lsr; set_nz(a_lsr); flag_c <= reg_a(0); -- LSR A
+                  when x"5B" => reg_b <= reg_a; -- TAB
+                  when x"6A" => reg_a <= a_ror; set_nz(a_ror); flag_c <= reg_a(0); -- ROR A
+                  when x"78" => flag_i <= '1';  -- SEI
+                  when x"88" => reg_y <= y_decremented; set_nz(y_decremented); -- DEY
+                  when x"8A" => reg_a <= reg_x; set_nz(reg_x); -- TXA
+                  when x"98" => reg_a <= reg_y; set_nz(reg_y); -- TYA
+                  when x"9A" => reg_sp <= reg_x; -- TXS
+                  when x"A8" => reg_y <= reg_a; set_nz(reg_a); -- TAY
+                  when x"AA" => reg_x <= reg_a; set_nz(reg_a); -- TAX
+                  when x"B8" => flag_v <= '0';  -- CLV
+                  when x"BA" => reg_x <= reg_sp; set_nz(reg_sp); -- TSX
+                  when x"C8" => reg_y <= y_incremented; set_nz(y_incremented); -- INY
+                  when x"CA" => reg_x <= x_decremented; set_nz(x_decremented); -- DEX
+                  when x"D8" => flag_d <= '0';  -- CLD
+                                flat32_address_prime <= '1';
+                                flat32_address <= flat32_address_prime;
+                  when x"E8" => reg_x <= x_incremented; set_nz(x_incremented); -- INX
+                  when x"EA" => map_interrupt_inhibit <= '0'; -- EOM
+                                -- Enable 32-bit pointer for ($nn),Z addressing
+                                -- mode
+                                absolute32_addressing_enabled <= '1';
+                  when x"F8" => flag_d <= '1';  -- SED
+                  when others => null;
+                end case;
+                                                 
                 if op_is_single_cycle(to_integer(emu6502&memory_read_value)) = '0' then
                   if (mode_lut(to_integer(emu6502&memory_read_value)) = M_immnn)
                     or (mode_lut(to_integer(emu6502&memory_read_value)) = M_impl)
