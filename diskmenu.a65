@@ -373,7 +373,7 @@ mounterror:
 	; Put dos error code into mount error message
 	tax
 	jsr checkpoint_bytetohex
-	stx msg_mounterror+34
+	sty msg_mounterror+34
 	stx msg_mounterror+35	
 	
 	ldx #39
