@@ -200,18 +200,18 @@ trap_dos_setname:
 	; to the hypervisor (this prevents the user from setting the filename to some
 	; piece of the hypervisor, and thus leaking hypervisor data to user-land if the
 	; user were to later query the filename).
-	lda hypervisor_x
-	sta dos_scratch_vector
-	lda hypervisor_y
-	and #$7f
-	sta dos_scratch_vector+1
+
+	jsr checkpoint
+	.byte 0,"trap_dos_setname",0
+
+	jsr hypervisor_setup_copy_region
+	bcc tdsnfailure
+
 	ldy #$3f
-tdsn1:	lda (<dos_scratch_vector),y
+tdsn1:	lda (<hypervisor_userspace_copy_vector),y
 	sta dos_requested_filename,y
 	dey
 	bpl tdsn1
-	; upper case the filename for comparison
-	jsr dos_requested_filename_to_uppercase
 	; now set length
 	lda hypervisor_z
 	cmp #$3f
@@ -223,40 +223,60 @@ tdsn2:
 	; setname succeeded
 	stz dos_requested_filename_len
 
-	; Display filename in checkpoint message
-	cpz #30
-	bcc tdsn3
-	ldz #30
-tdsn3:
-	tza
-	tay
-tdsn4:	lda dos_requested_filename,y
-	beq illegalvalue
-	sta setnamemsg+9,y
-	dey
-	bpl tdsn4
+	; upper case the filename for comparison
+	jsr dos_requested_filename_to_uppercase
 
-	tza
-	tay
-	lda #'\)
-	sta setnamemsg+9,y
-	lda #$20
-tdsn6:	cpy #31
-	beq tdsn5
-	sta setnamemsg+9,y
-	iny
-	bra tdsn6
-tdsn5:
-	jsr checkpoint
-	.byte 0
-setnamemsg:
-	.byte "setname(                                "
-	.byte 0
+;	; Display filename in checkpoint message
+;	cpz #30
+;	bcc tdsn3
+;	ldz #30
+;tdsn3:
+;	tza
+;	tay
+;	dey
+;tdsn4:	lda dos_requested_filename,y
+;	beq illegalvalue
+;	sta setnamemsg+8,y
+;	dey
+;	bpl tdsn4
+
+;	tza
+;	tay
+;	lda #'\)
+;	sta setnamemsg+8,y
+;	lda #$2e
+;tdsn6:	cpy #31
+;	beq tdsn5
+;	sta setnamemsg+8,y
+;	iny
+;	bra tdsn6
+;tdsn5:
+;	jsr checkpoint
+;	.byte 0
+;setnamemsg:
+;	.byte "setname(                                "
+;	.byte 0
 
 	jmp return_from_trap_with_success
 
+tdsnfailure:
+	lda dos_error_code
+	jmp return_from_trap_with_failure
+
 illegalvalue:
+
+;	tya
+;	tax
+;	jsr checkpoint_bytetohex
+;	sty iv1+0
+;	stx iv1+1
+;
+;	jsr checkpoint
+;	.byte 0,"Filename contains $00 @ position $"
+;iv1:	.byte "%%",0
+
 	lda #dos_errorcode_illegal_value
+	sta dos_error_code
 	jmp return_from_trap_with_failure
 
 trap_dos_getcurrentdrive:

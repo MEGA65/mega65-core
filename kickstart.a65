@@ -264,6 +264,10 @@ return_from_trap_with_success:
 	lda hypervisor_flags
 	ora #$01   ; C flag is bit 0
 	sta hypervisor_flags
+
+	jsr checkpoint
+	.byte 0,"return_from_trap_with_success",0
+
 	; return from hypervisor
 	sta hypervisor_enterexit_trigger
 
@@ -274,6 +278,10 @@ return_from_trap_with_failure:
 	lda hypervisor_flags
 	and #$fe   ; C flag is bit 0
 	sta hypervisor_flags
+
+	jsr checkpoint
+	.byte 0,"return_from_trap_with_failure",0
+
 	; return from hypervisor
 	sta hypervisor_enterexit_trigger	
 
@@ -310,6 +318,8 @@ reset_machine_state:
 
 		sec
 		jsr enhanced_io
+
+		lda $d60d
 
 		; switch to fast mode
 		; 1. C65 fast-mode enable
@@ -2230,9 +2240,16 @@ hypervisor_setup_copy_region:
 	sta hypervisor_userspace_copy_vector+1
 	lda #$00
 	sta hypervisor_userspace_copy_vector
+
+	jsr checkpoint
+	.byte 0,"hypervisor_setup_copy_region <success>",0
+
 	sec
 	rts
 hscr1:
+	jsr checkpoint
+	.byte 0,"hypervisor_setup_copy_region <failure>",0
+
 	lda #dos_errorcode_invalid_address
 	jmp dos_return_error		
 
