@@ -377,11 +377,19 @@ trap_dos_findnext:
 	jmp return_from_trap_with_carry_flag
 
 trap_dos_geterrorcode:
-	jsr checkpoint
-	.byte 0,"dos_d81attach",0
 
 	lda dos_error_code
 	sta hypervisor_a
+
+	tax
+	jsr checkpoint_bytetohex
+	sty tdgec1+0
+	stx tdgec1+1
+
+	jsr checkpoint
+	.byte 0,"dos_geterrorcode <=$"
+tdgec1:	.byte "%%>",0
+
 	jmp return_from_trap_with_success
 
 trap_dos_d81attach:
