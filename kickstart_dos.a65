@@ -226,36 +226,53 @@ tdsn2:
 	; upper case the filename for comparison
 	jsr dos_requested_filename_to_uppercase
 
-;	; Display filename in checkpoint message
-;	cpz #30
-;	bcc tdsn3
-;	ldz #30
-;tdsn3:
-;	tza
-;	tay
-;	dey
-;tdsn4:	lda dos_requested_filename,y
-;	beq illegalvalue
-;	sta setnamemsg+8,y
-;	dey
-;	bpl tdsn4
+	; clear out checkpoint message to make sure there are no $00 chars hiding
+	; to cause grief.
+	lda #$2e
+	ldy #39
+tdsn6:		
+	sta setnamemsg,y
+	dey
+	cpy #11
+	bne tdsn6
+tdsn5:
 
-;	tza
-;	tay
-;	lda #'\)
-;	sta setnamemsg+8,y
-;	lda #$2e
-;tdsn6:	cpy #31
-;	beq tdsn5
-;	sta setnamemsg+8,y
-;	iny
-;	bra tdsn6
-;tdsn5:
-;	jsr checkpoint
-;	.byte 0
-;setnamemsg:
-;	.byte "setname(                                "
-;	.byte 0
+	; display name length in checkpoint message
+	tza
+	tax
+	jsr checkpoint_bytetohex
+	sty setnamemsglen+0
+	stx setnamemsglen+1
+
+	; Display filename in checkpoint message
+	cpz #24
+	bcc tdsn3
+	ldz #24
+tdsn3:
+	tza
+	tay
+	dey
+tdsn4:	lda dos_requested_filename,y
+	bne tdsn7
+	lda #$3f ; ? mark in place of $00 chars
+tdsn7:
+	sta setnamemsgname,y
+	dey
+	bpl tdsn4
+	tza
+	tay
+	lda #'\)
+	sta setnamemsgname,y
+
+	jsr checkpoint
+	.byte 0
+setnamemsg:
+	.byte "setname($"
+setnamemsglen:
+	.byte "%%,"
+setnamemsgname:
+	.byte "                            "
+	.byte 0
 
 	jmp return_from_trap_with_success
 
