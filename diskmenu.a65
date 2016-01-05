@@ -331,14 +331,14 @@ notninekey:
 	ldy #$00
 r1:	lda (diskpointer),y
 	beq eoname
-	sta $0400,y
+	sta scratch_filename,y
 	iny
 	cpy #$10
 	bne r1
 eoname:	ldx #0
 eoname1:
 	lda dotd81,x
-	sta $0400,y
+	sta scratch_filename,y
 	iny
 	inx
 	cpx #5
@@ -349,8 +349,8 @@ eoname1:
 	tya
 	taz
 	lda #$2e
-	ldx #<$0400
-	ldy #>$0400
+	ldx #<scratch_filename
+	ldy #>scratch_filename
 	sta $d640
 	nop
 	ldz #$00
@@ -362,7 +362,17 @@ eoname1:
 	nop
 	bcc mounterror
 
+	ldx #39
+me11:	lda msg_mountsuccess,x
+	jsr asciitocharrom
+	ora #$80
+	sta $07c0,x
+	dex
+	bpl me11
 	jmp mainloop
+
+msg_mountsuccess:
+	.byte "Disk image mounted. RUN/STOP to exit.   "
 
 mounterror:
 
@@ -774,3 +784,6 @@ topbanner:
 		.byte "MEGA65 Disk Image Chooser V00.01        "		
 bottombanner:
 		.byte ">> Arrows to navigate, ENTER to mount <<"
+scratch_filename:
+	.byte "                                "
+	.byte "                                "
