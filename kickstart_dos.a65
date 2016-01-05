@@ -228,7 +228,7 @@ tdsn2:
 
 	; clear out checkpoint message to make sure there are no $00 chars hiding
 	; to cause grief.
-	lda #$2e
+	lda #$20
 	ldy #39
 tdsn6:		
 	sta setnamemsg,y
