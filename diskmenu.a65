@@ -294,9 +294,9 @@ notninekey:
 	cmp #$03
 	bne notrunstopkey
 
-	; Exit nicely.
+	; Exit nicely to basic.
 	ldz #$00
-	rts
+	jmp ($a002)
 
 notrunstopkey:
 	cmp #$0d
