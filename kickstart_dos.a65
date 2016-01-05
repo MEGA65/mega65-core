@@ -2397,6 +2397,7 @@ d81wronglength:
 		.byte 0,"dos_d81attach <wrong length>",0
 
 		lda #dos_errorcode_image_wrong_length
+		sta dos_error_code
 		clc
 		rts		
 
@@ -2405,6 +2406,7 @@ d81isfragged:
 		.byte 0,"dos_d81attach <fragmented>",0
 
 		lda #dos_errorcode_image_fragmented
+		sta dos_error_code
 		clc
 		rts
 nod81:
