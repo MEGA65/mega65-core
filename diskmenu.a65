@@ -345,6 +345,7 @@ eoname1:
 	bne eoname1
 
 	; call DOS setname function
+	dey
 	tya
 	taz
 	lda #$2e
