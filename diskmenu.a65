@@ -299,6 +299,14 @@ notzerokey:
         jsr adjustcurrentscreen
 	jmp mainloop
 notninekey:
+	cmp #$03
+	bne notrunstopkey
+
+	; Exit nicely.
+	ldz #$00
+	rts
+
+notrunstopkey:
 	cmp #$0d
 	bne notreturnkey
 
