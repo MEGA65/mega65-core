@@ -18,7 +18,7 @@
 	 ; Where to get Hypervisor to copy dirent structures
 	 .alias dirent $0f00
 	 ; temporary filename structure (must also be <32KB)
-	 .alias scratch_filename $0ec0
+	 .alias scratch_filename $0e00
 	 ; 16-bit pointers to current disk and number of
 	 ; disks.
 	 .alias displaydiskpointer $40
@@ -302,6 +302,15 @@ notrunstopkey:
 	cmp #$0d
 	bne notreturnkey
 
+	ldx #39
+me12:	lda msg_mounttrying,x
+	jsr asciitocharrom
+	ora #$80
+	sta $07c0,x
+	dex
+	bpl me12
+
+
 	; RETURN pressed, so mount image and exit
 	; To do this, we just need the name of the .D81 file (with extension)
 	; and call the DOS setname trap, and then the d81attach trap
@@ -373,6 +382,8 @@ me11:	lda msg_mountsuccess,x
 
 msg_mountsuccess:
 	.byte "Disk image mounted. RUN/STOP to exit.   "
+msg_mounttrying:
+	.byte "Attempting to mount disk image...       "
 
 mounterror:
 
