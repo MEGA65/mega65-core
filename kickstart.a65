@@ -2327,7 +2327,7 @@ cp9:
 	; if so, then also store the $00-terminated text message that follows.
 	; e.g.:
 	; jsr checkpoint
-	; .text 0,"OPEN DIRECTORY",0
+	; .byte 0,"OPEN DIRECTORY",0
 	; to record a checkpoint with the string "OPEN DIRECTORY"	
 	ldy #$00
 	lda (<checkpoint_pcl),y
@@ -2344,6 +2344,12 @@ cp3:	lda (<checkpoint_pcl),y
 	iny
 	cpy #40
 	bne cp3
+	; flush out any excess bytes at end of message
+cp44:	lda (<checkpoint_pcl),y
+	beq endofcheckpointmessage
+	iny
+	bra cp44
+	
 
 endofcheckpointmessage:
 	; Skip $00 at end of message
