@@ -17,6 +17,8 @@
 	 .alias disknamearray $1000
 	 ; Where to get Hypervisor to copy dirent structures
 	 .alias dirent $0f00
+	 ; temporary filename structure (must also be <32KB)
+	 .alias scratch_filename $0ec0
 	 ; 16-bit pointers to current disk and number of
 	 ; disks.
 	 .alias displaydiskpointer $40
@@ -792,6 +794,3 @@ topbanner:
 		.byte "MEGA65 Disk Image Chooser V00.01        "		
 bottombanner:
 		.byte ">> Arrows to navigate, ENTER to mount <<"
-scratch_filename:
-	.byte "                                "
-	.byte "                                "
