@@ -120,9 +120,6 @@ getdisklist:
 	nop
 	bcs opendirok
 	
-	; Couldn't open directory
-	sta $0427 ; write return code
-
          ; Display error message	 
 	 ldx #39
 ll17:	 lda noopendirmsg,x
@@ -147,8 +144,6 @@ opendirok:
 	sta diskpointer+1
 
 readnextentry:
-	inc $0421
-
 	; ask for next directory entry
 	lda #$14
 	; Ask for entry to be written to screen RAM for debugging
@@ -158,7 +153,6 @@ readnextentry:
 	sta $d640
 	nop
 	bcc endofdir
-	sta $0426
 
 	; Check file type: we only want regular files
 
@@ -244,10 +238,6 @@ ll20:
 
 endofdir:
 	ldz #0
-	lda diskcount
-	sta $0426
-	lda diskcount+1
-	sta $0427
 
 mainloop:
 	 ; display current screen of disks
