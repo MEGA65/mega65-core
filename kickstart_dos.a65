@@ -1436,23 +1436,11 @@ drce_next_piece:
 	
 	ldy #fs_fat32_dirent_offset_lfn_part_number
 	lda (<dos_scratch_vector),y
-
-	pha
-	tax
-	jsr checkpoint_bytetohex
-	sty lfnpmsg+0
-	stx lfnpmsg+1
-	jsr checkpoint
-	.byte 0,"saw long filename piece #$"
-lfnpmsg:
-	.byte "xx",0
-	pla
-
 	and #$3f ; mask out end of LFN indicator
 	dec ; subtract one, since pieces are numbered from 1 upwards
-	; each piece has 14 chars, and we only allow 64 characters total, so any
+	; each piece has 13 chars, and we only allow 64 characters total, so any
 	; piece number >4 can be ignored
-	cmp #4
+	cmp #5
 	bcs drce_ignore_lfn_piece
 	tax
 	lda lfn_piece_offsets,x
