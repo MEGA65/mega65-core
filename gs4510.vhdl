@@ -1233,6 +1233,7 @@ begin
       -- Wait for memory to reconfigure
       memory_reconfiguring <= '1';
       memory_reconfiguring_counter <= 31;
+      report "Memory reconfigure due to reset";
       
       -- Stop memory accesses
       colour_ram_cs <= '0';
@@ -1971,11 +1972,13 @@ begin
           cpuport_ddr <= value;
           memory_reconfiguring <= '1';
           memory_reconfiguring_counter <= 31;
+          report "Memory reconfigure due to write to port $00";
         end if;
       elsif (long_address = x"0000001") then
         report "MEMORY: Writing to CPU PORT register" severity note;
         memory_reconfiguring <= '1';
         memory_reconfiguring_counter <= 31;
+        report "Memory reconfigure due to write to port $01";
         cpuport_value <= value;
       -- Write to DMAgic registers if required
       elsif (long_address = x"FFD3700") or (long_address = x"FFD1700") then        
@@ -2201,6 +2204,7 @@ begin
       -- updated to contain hypervisor memory
       memory_reconfiguring <= '1';
       memory_reconfiguring_counter <= 31;
+      report "Memory reconfigure due to write to MAP instruction";
       
     end c65_map_instruction;
 
@@ -2882,7 +2886,7 @@ begin
       -- Keep track of memory reconfiguration state
       if memory_reconfiguring = '1' then
         if memory_reconfiguring_counter = 0 then
-          memory_reconfiguring <= '1';
+          memory_reconfiguring <= '0';
         else
           memory_reconfiguring_counter <= memory_reconfiguring_counter - 1;
         end if;
