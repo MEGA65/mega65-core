@@ -44,7 +44,7 @@ version.a65:	*.vhdl *.a65 *.vhd Makefile
 kickstart65gs.bin:	$(KICKSTARTSRCS) Makefile diskmenu_c000.bin version.a65
 	../Ophis/bin/ophis -4 kickstart.a65 -l kickstart.list
 
-diskmenu_c000.bin:	diskmenuc000.a65 diskmenu.a65
+diskmenu_c000.bin:	diskmenuc000.a65 diskmenu.a65 etherload.prg
 	../Ophis/bin/ophis -4 diskmenuc000.a65 -l diskmenuc000.list
 
 thumbnail.prg:	showthumbnail.a65 Makefile
