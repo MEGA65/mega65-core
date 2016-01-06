@@ -2902,6 +2902,7 @@ begin
         viciii_iomode_last <= viciii_iomode;
         memory_reconfiguring <= '1';
         memory_reconfiguring_counter <= 31;
+        report "Memory reconfiguration due to VIC-III IO mode change";
       end if;
       if (rom_at_e000 /= rom_at_e000_last)
         or (rom_at_c000 /= rom_at_c000_last)
@@ -2913,6 +2914,7 @@ begin
         rom_at_8000_last <= rom_at_8000;
         memory_reconfiguring <= '1';
         memory_reconfiguring_counter <= 31;
+        report "Memory reconfiguration due to VIC-III ROM@ line change";
       end if;
       
       -- report "reset = " & std_logic'image(reset) severity note;
@@ -3001,7 +3003,7 @@ begin
               slowram_request_toggle_drive <= not slowram_done_toggle;
             end if;
           else
-            report "Waiting for memory to reconfigure";
+            report "Waiting " & integer'image(memory_reconfiguring_counter) & " cycles for memory to reconfigure";
           end if;
         else
           -- End of wait states, so clear memory writing and reading
@@ -3024,7 +3026,7 @@ begin
         monitor_proceed <= proceed;
         monitor_request_reflected <= monitor_mem_attention_request_drive;
         
-        if proceed='1' then
+        if (proceed='1') and (memory_reconfiguring='0') then
           -- Main state machine for CPU
           report "CPU state = " & processor_state'image(state) & ", PC=$" & to_hstring(reg_pc) severity note;
 
@@ -3274,6 +3276,7 @@ begin
               -- Wait for memory to reconfigure on entering hypervisor
               memory_reconfiguring <= '1';
               memory_reconfiguring_counter <= 31;
+              report "Memory reconfiguring due to entering hypervisor";
 
               -- enable hypervisor mode flag
               hypervisor_mode <= '1';
@@ -5161,7 +5164,10 @@ begin
             -- memory_access_address := resolve_address_to_long(memory_access_address(15 downto 0),true);
             -- Lookup long address from block_addresses short-cut array to reduce
             -- logic depth.
-            memory_access_address := block_addresses(to_integer(memory_access_address(15 downto 12))+16) + (x"0000" & memory_access_address(11 downto 0));
+            memory_access_address := to_unsigned(
+              ((to_integer(block_addresses(to_integer(memory_access_address(15 downto 12))+16))
+                + to_integer(memory_access_address(11 downto 0)))
+              ),28);
           end if;
           if memory_access_address = x"FFD3700"
             or memory_access_address = x"FFD1700" then
@@ -5198,7 +5204,12 @@ begin
           if memory_access_resolve_address = '1' then
             -- memory_access_address := resolve_address_to_long(memory_access_address(15 downto 0),false);
             -- Do memory address resolution using pre-computed table
-            memory_access_address := block_addresses(to_integer(memory_access_address(15 downto 12))+0) + (x"0000" & memory_access_address(11 downto 0));
+            report "Reading from memory bank " & integer'image(to_integer(memory_access_address(15 downto 12)));
+            report "  memory bank base address = $" & to_hstring(block_addresses(to_integer(memory_access_address(15 downto 12))));
+            memory_access_address := to_unsigned(
+              ((to_integer(block_addresses(to_integer(memory_access_address(15 downto 12))+0))
+                + to_integer(memory_access_address(11 downto 0)))
+              ),28);
 
           end if;
           read_long_address(memory_access_address);
