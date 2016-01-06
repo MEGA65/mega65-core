@@ -323,6 +323,8 @@ end component;
   -- Keep track of memory reconfiguration delays
   signal memory_reconfiguring : std_logic := '1';
   signal memory_reconfiguring_counter : integer range 0 to 31 := 31;
+
+  signal viciii_iomode_last : std_logic_vector(1 downto 0) := "00";
   
   signal word_flag : std_logic := '0';
 
@@ -2884,6 +2886,14 @@ begin
         else
           memory_reconfiguring_counter <= memory_reconfiguring_counter - 1;
         end if;
+      end if;
+      -- Delay for memory reconfiguration whenever VIC-III IO mode changes,
+      -- so that we can make sure the CPU sees the changed register banks
+      -- immediately.
+      if viciii_iomode /= viciii_iomode_last then
+        viciii_iomode_last <= viciii_iomode;
+        memory_reconfiguring <= '1';
+        memory_reconfiguring_counter <= 31;
       end if;
       
       -- report "reset = " & std_logic'image(reset) severity note;
