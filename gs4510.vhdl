@@ -325,6 +325,10 @@ end component;
   signal memory_reconfiguring_counter : integer range 0 to 31 := 31;
 
   signal viciii_iomode_last : std_logic_vector(1 downto 0) := "00";
+  signal rom_at_e000_last : std_logic := '0';
+  signal rom_at_c000_last : std_logic := '0';
+  signal rom_at_a000_last : std_logic := '0';
+  signal rom_at_8000_last : std_logic := '0';
   
   signal word_flag : std_logic := '0';
 
@@ -2899,6 +2903,17 @@ begin
         memory_reconfiguring <= '1';
         memory_reconfiguring_counter <= 31;
       end if;
+      if (rom_at_e000 /= rom_at_e000_last)
+        or (rom_at_c000 /= rom_at_c000_last)
+        or (rom_at_a000 /= rom_at_a000_last)
+        or (rom_at_8000 /= rom_at_8000_last) then
+        rom_at_e000_last <= rom_at_e000;
+        rom_at_c000_last <= rom_at_c000;
+        rom_at_a000_last <= rom_at_a000;
+        rom_at_8000_last <= rom_at_8000;
+        memory_reconfiguring <= '1';
+        memory_reconfiguring_counter <= 31;
+      end if;
       
       -- report "reset = " & std_logic'image(reset) severity note;
       reset_drive <= reset;
@@ -5143,7 +5158,10 @@ begin
           end if;
 
           if memory_access_resolve_address = '1' then
-            memory_access_address := resolve_address_to_long(memory_access_address(15 downto 0),true);
+            -- memory_access_address := resolve_address_to_long(memory_access_address(15 downto 0),true);
+            -- Lookup long address from block_addresses short-cut array to reduce
+            -- logic depth.
+            memory_access_address := block_addresses(to_integer(memory_access_address(15 downto 12))+16) + (x"0000" & memory_access_address(11 downto 0));
           end if;
           if memory_access_address = x"FFD3700"
             or memory_access_address = x"FFD1700" then
@@ -5178,7 +5196,10 @@ begin
         elsif memory_access_read='1' then 
           report "memory_access_read=1, addres=$"&to_hstring(memory_access_address) severity note;
           if memory_access_resolve_address = '1' then
-            memory_access_address := resolve_address_to_long(memory_access_address(15 downto 0),false); 
+            -- memory_access_address := resolve_address_to_long(memory_access_address(15 downto 0),false);
+            -- Do memory address resolution using pre-computed table
+            memory_access_address := block_addresses(to_integer(memory_access_address(15 downto 12))+0) + (x"0000" & memory_access_address(11 downto 0));
+
           end if;
           read_long_address(memory_access_address);
         end if;
