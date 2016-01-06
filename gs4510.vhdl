@@ -318,6 +318,7 @@ end component;
 
   -- Number of pending wait states
   signal wait_states : unsigned(7 downto 0) := x"05";
+  signal wait_states_non_zero : std_logic := '1';
   
   signal word_flag : std_logic := '0';
 
@@ -1240,6 +1241,7 @@ begin
       slowram_desired_done_toggle <= slowram_done_toggle;
       
       wait_states <= (others => '0');
+      wait_states_non_zero <= '0';
       mem_reading <= '0';
       
     end procedure reset_cpu_state;
@@ -1448,6 +1450,12 @@ begin
       charrom_write_cs <= '0';
 
       wait_states <= io_read_wait_states;
+      if io_read_wait_states /= x"00" then
+        wait_states_non_zero <= '1';
+      else
+        wait_states_non_zero <= '0';
+      end if; 
+        
       ddr_got_reply <= '0';
 
       -- Clear fastio access so that we don't keep reading/writing last IO address
@@ -1471,8 +1479,10 @@ begin
         accessing_hypervisor <= '1';
         wait_states <= shadow_wait_states;
         if shadow_wait_states=x"00" then
+          wait_states_non_zero <= '0';
           proceed <= '1';
         else
+          wait_states_non_zero <= '1';
           proceed <= '0';
         end if;
         hyperport_num <= real_long_address(5 downto 0);
@@ -1481,8 +1491,10 @@ begin
         accessing_cpuport <= '1';
         wait_states <= shadow_wait_states;
         if shadow_wait_states=x"00" then
+          wait_states_non_zero <= '0';
           proceed <= '1';
         else
+          wait_states_non_zero <= '1';
           proceed <= '0';
         end if;
         cpuport_num <= real_long_address(3 downto 0);
@@ -1493,8 +1505,10 @@ begin
         accessing_cpuport <= '1';
         wait_states <= shadow_wait_states;
         if shadow_wait_states=x"00" then
+          wait_states_non_zero <= '0';
           proceed <= '1';
         else
+          wait_states_non_zero <= '1';
           proceed <= '0';
         end if;
         cpuport_num <= real_long_address(3 downto 0);
@@ -1505,8 +1519,10 @@ begin
         accessing_shadow <= '1';
         wait_states <= shadow_wait_states;
         if shadow_wait_states=x"00" then
+          wait_states_non_zero <= '0';
           proceed <= '1';
         else
+          wait_states_non_zero <= '1';
           proceed <= '0';
         end if;
         report "Reading from shadow ram address $" & to_hstring(long_address(17 downto 0))
@@ -1518,8 +1534,10 @@ begin
         accessing_rom <= '0';
         wait_states <= shadow_wait_states;
         if shadow_wait_states=x"00" then
+          wait_states_non_zero <= '0';
           proceed <= '1';
         else
+          wait_states_non_zero <= '1';
           proceed <= '0';
         end if;
         report "Reading from shadowed chipram address $"
@@ -1530,8 +1548,10 @@ begin
         accessing_rom <= '1';
         wait_states <= shadow_wait_states;
         if shadow_wait_states=x"00" then
+          wait_states_non_zero <= '0';
           proceed <= '1';
         else
+          wait_states_non_zero <= '1';
           proceed <= '0';
         end if;
         report "Reading from ROM address $"
@@ -1548,7 +1568,12 @@ begin
         -- wait state due to the dual-port memories.
         -- But for now, just apply the wait state to all fastio addresses.
         wait_states <= io_read_wait_states;
-
+        if io_read_wait_states /= x"00" then
+          wait_states_non_zero <= '1';
+        else
+          wait_states_non_zero <= '0';
+        end if;
+        
         -- If reading IO page from $D{0,1,2,3}0{0-7}X, then the access is from
         -- the VIC-IV.
         -- If reading IO page from $D{0,1,2,3}{1,2,3}XX, then the access is from
@@ -1567,6 +1592,11 @@ begin
           accessing_colour_ram_fastio <= '1';
           colour_ram_cs <= '1';
           wait_states <= colourram_read_wait_states;
+          if colourram_read_wait_states /= x"00" then
+            wait_states_non_zero <= '1';
+          else
+            wait_states_non_zero <= '0';
+          end if;
         end if;
         if long_address(19 downto 16) = x"D" then
           if long_address(15 downto 14) = "00" then    --   $D{0,1,2,3}XXX
@@ -1583,6 +1613,11 @@ begin
                 accessing_colour_ram_fastio <= '1';            
                 colour_ram_cs <= '1';
                 wait_states <= colourram_read_wait_states;
+                if colourram_read_wait_states /= x"00" then
+                  wait_states_non_zero <= '1';
+                else
+                  wait_states_non_zero <= '0';
+                end if;
               end if;
             end if;
           end if;                         -- $D{0,1,2,3}XXX
@@ -1610,6 +1645,7 @@ begin
 --        slowram_request_toggle <= not slowram_done_toggle;
 --        slowram_desired_done_toggle <= not slowram_done_toggle;        
         wait_states <= slowram_waitstates;
+        wait_states_non_zero <= '1';
         proceed <= '0';
       else
         -- Don't let unmapped memory jam things up
@@ -1617,6 +1653,11 @@ begin
         accessing_shadow <= '0';
         accessing_rom <= '0';
         wait_states <= shadow_wait_states;
+        if shadow_wait_states /= x"00" then
+          wait_states_non_zero <= '1';
+        else
+          wait_states_non_zero <= '0';
+        end if;
         proceed <= '1';
       end if;
 
@@ -1837,6 +1878,11 @@ begin
       shadow_write_flags(1) <= '1';
       
       wait_states <= shadow_wait_states;
+      if shadow_wait_states /= x"00" then
+        wait_states_non_zero <= '1';
+      else
+        wait_states_non_zero <= '0';
+      end if;
 
       -- Remap GeoRAM memory accesses
       if real_long_address(27 downto 16) = x"FFD"
@@ -1979,6 +2025,11 @@ begin
         chipram_datain <= value;
         report "writing to chipram..." severity note;
         wait_states <= io_write_wait_states;
+        if io_write_wait_states /= x"00" then
+          wait_states_non_zero <= '1';
+        else
+          wait_states_non_zero <= '0';
+        end if;
       elsif long_address(27 downto 17)="00000000001" then
         report "writing to ROM. addr=$" & to_hstring(long_address) severity note;
         shadow_write <= '0';
@@ -2024,6 +2075,11 @@ begin
           end if;                         -- $D{0,1,2,3}XXX
         end if;                           -- $DXXXX
         wait_states <= io_write_wait_states;
+        if io_write_wait_states /= x"00" then
+          wait_states_non_zero <= '1';
+        else
+          wait_states_non_zero <= '0';
+        end if;
       elsif long_address(27) = '1' then
         report "writing to slowram..." severity note;
         accessing_slowram <= '1';
@@ -2042,6 +2098,11 @@ begin
         slowram_datain_expected <= std_logic_vector(value);
         slowram_pending_write <= '1';
         wait_states <= slowram_waitstates;
+        if slowram_waitstates /= x"00" then
+          wait_states_non_zero <= '1';
+        else
+          wait_states_non_zero <= '0';
+        end if;
         proceed <= '0';
       else
         -- Don't let unmapped memory jam things up
@@ -2348,6 +2409,8 @@ begin
       georam_page(13 downto 6) <= georam_block and georam_blockmask;
 
       -- Write to hypervisor registers if requested
+      -- (This is separated out from the previous cycle to reduce the logic depth,
+      -- and thus help achieve timing closure.)
       if last_write_pending = '1' then
         last_write_pending <= '0';
 
@@ -2802,13 +2865,16 @@ begin
         state <= ResetLow;
         proceed <= '0';
         wait_states <= x"00";
+        wait_states_non_zero <= '0';
         watchdog_fed <= '0';
         watchdog_countdown <= 65535;
         reset_cpu_state;
       else
         -- Honour wait states on memory accesses
         -- Clear memory access lines unless we are in a memory wait state
-        if wait_states /= x"00" then
+        -- XXX replace with single bit test flag for wait_states = 0 to reduce
+        -- logic depth        
+        if wait_states_non_zero = '1' then
           report "  $" & to_hstring(wait_states)
             &" memory waitstates remaining.  Fastio_rdata = $"
             & to_hstring(fastio_rdata)
@@ -2828,6 +2894,9 @@ begin
               slowram_pending_write <='0';
               slowram_we_drive <= '0';
             end if;
+            wait_states_non_zero <= '0';
+          else
+            wait_states_non_zero <= '1';            
           end if;
           -- Stop waiting on slow ram as soon as we have the result.
           -- We know we have the result when the RAM is no longer busy, and the
@@ -2837,6 +2906,7 @@ begin
             ddr_reply_counter <= ddr_reply_counter + 1;
             ddr_got_reply <= '1';
             wait_states <= x"00";
+            wait_states_non_zero <= '0';
             proceed <= '1';
           end if;
           -- Similarly, when writing to slowram, we return only once we have verified
@@ -2849,6 +2919,7 @@ begin
             slowram_we_drive <= '0';
             ddr_got_reply <= '1';
             wait_states <= x"00";
+            wait_states_non_zero <= '0';
             proceed <= '1';
           end if;
           
