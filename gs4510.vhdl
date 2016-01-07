@@ -560,13 +560,14 @@ end component;
   signal pause_cycles_counter : unsigned(8 downto 0) := "000000000";
   signal cpu_pause_shift : integer range 0 to 2 := 0;
 
+  signal vector_read_stage : integer range 0 to 15 := 0;
 
   type processor_state is (
     -- Reset and interrupts
     ResetLow,
     ResetReady,
     Interrupt,InterruptPushPCL,InterruptPushP,
-    VectorRead1,VectorRead2,VectorRead3, 
+    VectorRead,
 
     -- Hypervisor traps
     TrapToHypervisor,ReturnFromHypervisor,
@@ -2985,7 +2986,7 @@ begin
               -- XXX indicate source of hypervisor entry
               reset_cpu_state;
               state <= TrapToHypervisor;
-            when VectorRead1 =>
+            when VectorRead =>
               if hypervisor_mode='1' then
                 -- Vectors move in hypervisor mode to be inside the hypervisor
                 -- ROM at $81Fx
@@ -2994,22 +2995,21 @@ begin
                 memory_access_address := x"000FFF"&vector;
               end if;
               vector <= vector + 1;
-              state <= VectorRead2;
-            when VectorRead2 =>
-              report "Setting PC-low during vector read";
-              reg_pc(7 downto 0) <= memory_read_value;
-              if hypervisor_mode='1' then
-                -- Vectors move in hypervisor mode to be inside the hypervisor
-                -- ROM at $81Fx
-                memory_access_address := x"FF801F"&vector;
-              else
-                memory_access_address := x"000FFF"&vector;
-              end if;
-              state <= VectorRead3;
-            when VectorRead3 =>
-              report "Setting PC-high during vector read";
-              reg_pc(15 downto 8) <= memory_read_value;
-              state <= normal_fetch_state;
+              state <= VectorRead;
+              case vector_read_stage is
+                when 0 =>
+                  -- First cycle, we just wait for the address to load
+                  null;
+                when 1 =>
+                  -- 2nd cycle, store low byte of PC
+                  reg_pc(7 downto 0) <= memory_read_value;
+                when 2 =>
+                  -- 3rd cycle, store high byte of PC, and dispatch instruction
+                  reg_pc(15 downto 8) <= memory_read_value;
+                  state <= normal_fetch_state;
+                when others =>
+                  null;
+              end case;
             when Interrupt =>
               -- BRK or IRQ
               -- Push P and PC
@@ -3039,7 +3039,8 @@ begin
               -- Push flags to stack (already put in reg_t a few cycles earlier)
               stack_push := '1';
               memory_access_wdata := reg_t;
-              state <= VectorRead1;
+              state <= VectorRead;
+              vector_read_stage <= 0;
             when RTI =>
               stack_pop := '1';
               state <= RTI2;
@@ -3452,7 +3453,7 @@ begin
               last_instruction_pc <= reg_pc - 1;
               last_opcode <= memory_read_value;
               last_bytecount <= 1;
-
+ 
               -- Prepare microcode vector in case we need it next cycles
               reg_microcode <=
                 microcode_lut(instruction_lut(to_integer(emu6502&memory_read_value)));
