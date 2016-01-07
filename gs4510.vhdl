@@ -562,6 +562,21 @@ end component;
 
   signal vector_read_stage : integer range 0 to 15 := 0;
 
+  type memory_source is (
+    DMAgicRegister,
+    HypervisorRegister,
+    CPUPort,
+    Shadow,
+    ROMRAM,
+    FastIO,
+    ColourRAM,
+    VICIV,
+    SlowRAM,
+    Unmapped
+    );
+
+  signal read_source : memory_source;
+
   type processor_state is (
     -- Reset and interrupts
     ResetLow,
@@ -1465,6 +1480,9 @@ begin
       fastio_addr <= x"FFFFF"; fastio_write <= '0'; fastio_read <= '0';
       
       the_read_address <= long_address;
+      if (long_address(27 downto 8) = x"FFD17") or (long_address(27 downto 8) = x"FFD37") then
+        read_source <= DMAgicRegister;
+      end if;      
 
       -- Get the shadow RAM or ROM address on the bus fast to improve timing.
       shadow_write <= '0';
@@ -1477,46 +1495,41 @@ begin
       -- @IO:C64 $0000000 6510/45GS10 CPU port DDR
       -- @IO:C64 $0000001 6510/45GS10 CPU port data
       if long_address(27 downto 6)&"00" = x"FFD364" and hypervisor_mode='1' then
+        read_source <= HypervisorRegister;
         accessing_hypervisor <= '1';
-        wait_states <= shadow_wait_states;
-        if shadow_wait_states=x"00" then
-          wait_states_non_zero <= '0';
-          proceed <= '1';
-        else
-          wait_states_non_zero <= '1';
-          proceed <= '0';
-        end if;
+        -- One cycle wait-state on hypervisor registers to remove the register
+        -- decode from the critical path of memory access.
+        wait_states <= x"01";
+        wait_states_non_zero <= '1';
+        proceed <= '0';
         hyperport_num <= real_long_address(5 downto 0);
       end if;
       if (long_address = x"0000000") or (long_address = x"0000001") then
         accessing_cpuport <= '1';
-        wait_states <= shadow_wait_states;
-        if shadow_wait_states=x"00" then
-          wait_states_non_zero <= '0';
-          proceed <= '1';
-        else
-          wait_states_non_zero <= '1';
-          proceed <= '0';
-        end if;
+        read_source <= CPUPort;
+        -- One cycle wait-state on hypervisor registers to remove the register
+        -- decode from the critical path of memory access.
+        wait_states <= x"01";
+        wait_states_non_zero <= '1';
+        proceed <= '0';
         cpuport_num <= real_long_address(3 downto 0);
       elsif long_address(27 downto 4) = x"400000" then
         -- More CPU ports for debugging.
         -- (this was added to debug CIA IRQ bugs where reading/writing from
         -- fastio space would prevent the bug from manifesting)
+        read_source <= CPUPort;
         accessing_cpuport <= '1';
-        wait_states <= shadow_wait_states;
-        if shadow_wait_states=x"00" then
-          wait_states_non_zero <= '0';
-          proceed <= '1';
-        else
-          wait_states_non_zero <= '1';
-          proceed <= '0';
-        end if;
+        -- One cycle wait-state on hypervisor registers to remove the register
+        -- decode from the critical path of memory access.
+        wait_states <= x"01";
+        wait_states_non_zero <= '1';
+        proceed <= '0';
         cpuport_num <= real_long_address(3 downto 0);
       elsif long_address(27 downto 16)="0000"&shadow_bank then
         -- Reading from 256KB shadow ram (which includes 128KB fixed shadowing of
         -- chipram).  This is the only memory running at the CPU's native clock.
         -- Think of it as a kind of direct-mapped L1 cache.
+        read_source <= Shadow;
         accessing_shadow <= '1';
         wait_states <= shadow_wait_states;
         if shadow_wait_states=x"00" then
@@ -1531,6 +1544,7 @@ begin
       elsif long_address(27 downto 17)="00000000000" then
         -- Reading from chipram, so read from the bottom 128KB of the shadow RAM
         -- instead.
+        read_source <= Shadow;
         accessing_shadow <= '1';
         accessing_rom <= '0';
         wait_states <= shadow_wait_states;
@@ -1545,6 +1559,7 @@ begin
           & to_hstring(long_address(19 downto 0)) severity note;
       elsif long_address(27 downto 17)="00000000001" then
         -- Reading from 128KB ROM
+        read_source <= ROMRAM;
         accessing_shadow <= '0';
         accessing_rom <= '1';
         wait_states <= shadow_wait_states;
@@ -1558,6 +1573,7 @@ begin
         report "Reading from ROM address $"
           & to_hstring(long_address(19 downto 0)) severity note;
       elsif long_address(27 downto 20) = x"FF" then
+        read_source <= FastIO;
         accessing_shadow <= '0';
         accessing_rom <= '0';
         accessing_fastio <= '1';
@@ -1591,6 +1607,7 @@ begin
         if long_address(19 downto 16) = x"8" then
           report "VIC 64KB colour RAM access from VIC fastio" severity note;
           accessing_colour_ram_fastio <= '1';
+          read_source <= ColourRAM;
           colour_ram_cs <= '1';
           wait_states <= colourram_read_wait_states;
           if colourram_read_wait_states /= x"00" then
@@ -1605,13 +1622,15 @@ begin
               if long_address(11 downto 7) /= "00001" then  -- ! $D.0{8-F}X (FDC, RAM EX)
                 report "VIC register from VIC fastio" severity note;
                 accessing_vic_fastio <= '1';
+                read_source <= VICIV;
               end if;            
             end if;
             -- Colour RAM at $D800-$DBFF and optionally $DC00-$DFFF
             if long_address(11)='1' then
               if (long_address(10)='0') or (colourram_at_dc00='1') then
                 report "RAM: D800-DBFF/DC00-DFFF colour ram access from VIC fastio" severity note;
-                accessing_colour_ram_fastio <= '1';            
+                accessing_colour_ram_fastio <= '1';
+                read_source <= ColourRAM;
                 colour_ram_cs <= '1';
                 wait_states <= colourram_read_wait_states;
                 if colourram_read_wait_states /= x"00" then
@@ -1631,6 +1650,7 @@ begin
         -- @IO:GS $8000000 - $FEFFFFF Slow RAM (127MB)
         -- Slow RAM maps to $8000000-$FEFFFFF, and also $0020000 - $003FFFF for
         -- C65 ROM emulation.
+        read_source <= SlowRAM;
         accessing_shadow <= '0';
         accessing_rom <= '0';
         accessing_slowram <= '1';
@@ -1651,6 +1671,7 @@ begin
       else
         -- Don't let unmapped memory jam things up
         report "hit unmapped memory -- clearing wait_states" severity note;
+        read_source <= Unmapped;
         accessing_shadow <= '0';
         accessing_rom <= '0';
         wait_states <= shadow_wait_states;
@@ -1667,135 +1688,13 @@ begin
     impure function read_data
       return unsigned is
     begin  -- read_data
-      if accessing_cpuport='1' then
-        report "reading from CPU port" severity note;
-        case cpuport_num is
-          when x"0" =>
-            -- DDR $00
-            return cpuport_ddr;
-          when x"1" =>
-            -- CPU port $01
-            return cpuport_value;
-          when x"2" =>
-            -- CIA ISR IRQ debug
-            return reg_isr_out;
-          when x"3" =>
-            -- CIA timera IRQ mask debug
-            return "0000000"&imask_ta_out;
-          when x"4" =>
-            return ddr_state;
-          when x"5" =>
-            return ddr_counter;
-          when x"6" =>
-            return ddr_reply_counter;
-          when x"7" =>
-            return ddr_timeout_counter;
-          when x"8" =>
-            return ddr_cache_load_counter;
-          when x"9" =>
-            return slowram_desired_done_toggle
-              &slowram_done_toggle
-              &accessing_slowram
-              &slowram_we_drive
-              &slowram_pending_write
-              &slowram_data_valid
-              &"00";
-          when x"a" =>
-            return ddr_write_ready_counter;
-          when x"b" =>
-            return unsigned(slowram_datain_reflect_drive);
-          when x"c" =>
-            return unsigned(slowram_addr_reflect_drive(7 downto 0));
-          when x"d" =>
-            return unsigned(slowram_addr_reflect_drive(15 downto 8));
-          when x"e" =>
-            return unsigned(slowram_addr_reflect_drive(23 downto 16));
-          when x"f" =>
-            return "00000"&unsigned(slowram_addr_reflect_drive(26 downto 24));
-          when others =>
-            return x"ff";
-        end case;
-      elsif accessing_hypervisor='1' then
-        report "HYPERPORT: Reading hypervisor register";
-        case hyperport_num is
-          when "000000" => return hyper_a;
-          when "000001" => return hyper_x;
-          when "000010" => return hyper_y;
-          when "000011" => return hyper_z;
-          when "000100" => return hyper_b;
-          when "000101" => return hyper_p;
-          when "000110" => return hyper_sp;
-          when "000111" => return hyper_sph;
-          when "001000" => return hyper_pc(7 downto 0);
-          when "001001" => return hyper_pc(15 downto 8);                           
-          when "001010" => return unsigned(std_logic_vector(hyper_map_low)
-                                           & std_logic_vector(hyper_map_offset_low(11 downto 8)));
-          when "001011" => return hyper_map_offset_low(7 downto 0);
-          when "001100" => return unsigned(std_logic_vector(hyper_map_high)
-                                           & std_logic_vector(hyper_map_offset_high(11 downto 8)));
-          when "001101" => return hyper_map_offset_high(7 downto 0);
-          when "001110" => return hyper_mb_low;
-          when "001111" => return hyper_mb_high;
-          when "010000" => return hyper_port_00;
-          when "010001" => return hyper_port_01;
-          when "010010" => return hyper_iomode;
-          when "010011" => return hyper_dmagic_src_mb;
-          when "010100" => return hyper_dmagic_dst_mb;
-          when "010101" => return hyper_dmagic_list_addr(7 downto 0);
-          when "010110" => return hyper_dmagic_list_addr(15 downto 8);
-          when "010111" => return hyper_dmagic_list_addr(23 downto 16);
-          when "011000" =>
-            return to_unsigned(0,4)&hyper_dmagic_list_addr(27 downto 24);
-          when "011001" =>
-            return unsigned(ddr_ram_banking&std_logic_vector(to_unsigned(0,4))&ddr_ram_bank(2 downto 0));
-            -- Virtual memory page registers here
-          when "011101" =>
-            return unsigned(std_logic_vector(reg_pagenumber(1 downto 0))
-                            &"0"
-                            &reg_pageactive
-                            &reg_pages_dirty);
-          when "011110" => return reg_pagenumber(9 downto 2);
-          when "011111" => return reg_pagenumber(17 downto 10);
-          when "100000" => return reg_page0_logical(7 downto 0);
-          when "100001" => return reg_page0_logical(15 downto 8);
-          when "100010" => return reg_page0_physical(7 downto 0);
-          when "100011" => return reg_page0_physical(15 downto 8);
-          when "100100" => return reg_page1_logical(7 downto 0);
-          when "100101" => return reg_page1_logical(15 downto 8);
-          when "100110" => return reg_page1_physical(7 downto 0);
-          when "100111" => return reg_page1_physical(15 downto 8);
-          when "101000" => return reg_page2_logical(7 downto 0);
-          when "101001" => return reg_page2_logical(15 downto 8);
-          when "101010" => return reg_page2_physical(7 downto 0);
-          when "101011" => return reg_page2_physical(15 downto 8);
-          when "101100" => return reg_page3_logical(7 downto 0);
-          when "101101" => return reg_page3_logical(15 downto 8);
-          when "101110" => return reg_page3_physical(7 downto 0);
-          when "101111" => return reg_page3_physical(15 downto 8);
-          when "111100" =>
-            return "11" & force_4502 & force_fast & speed_gate_enable_internal & rom_writeprotect
-              & flat32_enabled & rom_from_colour_ram;
-          when "111101" =>
-            return "11111" & rom_writeprotect & flat32_enabled & rom_from_colour_ram;
-          when "111110" =>
-            if hypervisor_upgraded='1' then
-              return x"FF";
-            else
-              return x"00";
-            end if;
-          when "111111" => return x"48"; -- 'H' for Hypermode
-          when others => return x"FF";
-        end case;
-      elsif accessing_shadow='1' then
---        report "reading from shadowram" severity note;
-        return shadow_rdata;
-      elsif accessing_rom='1' then
---        report "reading from shadowram" severity note;
-        return rom_rdata;
-      else
-        -- report "reading from somewhere other than shadowram" severity note;
-        return read_data_copy;
-      end if;
+      case read_source is
+        when Shadow => return shadow_rdata;
+        when ROMRAM => return rom_rdata;
+        when others =>
+          -- report "reading from somewhere other than shadowram" severity note;
+          return read_data_copy;
+      end case;
     end read_data;
 
     -- purpose: obtain the byte of memory that has been read
@@ -1803,58 +1702,136 @@ begin
       return unsigned is
     begin  -- read_data
       -- CPU hosted IO registers
-      if (the_read_address = x"FFD3703") or (the_read_address = x"FFD1703") then
-        return reg_dmagic_status;
---    elsif (the_read_address = x"FFD370B") then
---      return reg_dmagic_addr(7 downto 0);
---    elsif (the_read_address = x"FFD370C") then
---      return reg_dmagic_addr(15 downto 8);
---    elsif (the_read_address = x"FFD370D") then
---      return reg_dmagic_addr(23 downto 16);
---    elsif (the_read_address = x"FFD370E") then
---      return x"0" & reg_dmagic_addr(27 downto 24);
-      elsif (the_read_address = x"FFD37FE") or (the_read_address = x"FFD17FE") then
-        return shadow_bank;
-      --elsif (the_read_address = x"FFD37FD") or (the_read_address = x"FFD17FD") then
-      --  return shadow_write_count;
-      --elsif (the_read_address = x"FFD37FC") or (the_read_address = x"FFD17FC") then
-      --  return shadow_no_write_count;
-      --elsif (the_read_address = x"FFD37FB") or (the_read_address = x"FFD17FB") then
-      --  return shadow_try_write_count;
-      --elsif (the_read_address = x"FFD37FA") or (the_read_address = x"FFD17FA") then
-      --  return shadow_observed_write_count;
-      elsif (the_read_address = x"FFD37F0") or (the_read_address = x"FFD17F0") then
-        return shadow_write_flags&last_write_address(27 downto 24);
-      elsif (the_read_address = x"FFD37F1") or (the_read_address = x"FFD17F1") then
-        return last_write_address(23 downto 16);
-      elsif (the_read_address = x"FFD37F2") or (the_read_address = x"FFD17F2") then
-        return last_write_address(15 downto 8);
-      elsif (the_read_address = x"FFD37F3") or (the_read_address = x"FFD17F3") then
-        return last_write_address(7 downto 0);
-      end if;
-
-      if accessing_shadow='1' then
-        report "reading from shadow RAM" severity note;
-        return shadow_rdata;
-      elsif accessing_rom='1' then
-        report "reading from ROM RAM" severity note;
-        return rom_rdata;
-      elsif accessing_colour_ram_fastio='1' then 
-        report "reading colour RAM fastio byte $" & to_hstring(fastio_vic_rdata) severity note;
-        return unsigned(fastio_colour_ram_rdata);
-      elsif accessing_vic_fastio='1' then 
-        report "reading VIC fastio byte $" & to_hstring(fastio_vic_rdata) severity note;
-        return unsigned(fastio_vic_rdata);
-      elsif accessing_fastio='1' then
-        report "reading normal fastio byte $" & to_hstring(fastio_rdata) severity note;
-        return unsigned(fastio_rdata);
-      elsif accessing_slowram='1' then
-        report "reading slow RAM data. Word is $" & to_hstring(slowram_data_in) severity note;
-        return unsigned(slowram_data_in);
-      else
-        report "accessing unmapped memory" severity note;
-        return x"A0";                     -- make unmmapped memory obvious
-      end if;
+      case read_source is
+        when DMAgicRegister =>
+          -- Actually, this is all of $D700-$D7FF decoded by the CPU at present
+          case the_read_address(7 downto 0) is
+            when x"03" => return reg_dmagic_status;
+            when others => return x"ff";
+          end case;
+        when HypervisorRegister =>
+          report "HYPERPORT: Reading hypervisor register";
+          case hyperport_num is
+            when "000000" => return hyper_a;
+            when "000001" => return hyper_x;
+            when "000010" => return hyper_y;
+            when "000011" => return hyper_z;
+            when "000100" => return hyper_b;
+            when "000101" => return hyper_p;
+            when "000110" => return hyper_sp;
+            when "000111" => return hyper_sph;
+            when "001000" => return hyper_pc(7 downto 0);
+            when "001001" => return hyper_pc(15 downto 8);                           
+            when "001010" =>
+              return unsigned(std_logic_vector(hyper_map_low)
+                              & std_logic_vector(hyper_map_offset_low(11 downto 8)));
+            when "001011" => return hyper_map_offset_low(7 downto 0);
+            when "001100" =>
+              return unsigned(std_logic_vector(hyper_map_high)
+                              & std_logic_vector(hyper_map_offset_high(11 downto 8)));
+            when "001101" => return hyper_map_offset_high(7 downto 0);
+            when "001110" => return hyper_mb_low;
+            when "001111" => return hyper_mb_high;
+            when "010000" => return hyper_port_00;
+            when "010001" => return hyper_port_01;
+            when "010010" => return hyper_iomode;
+            when "010011" => return hyper_dmagic_src_mb;
+            when "010100" => return hyper_dmagic_dst_mb;
+            when "010101" => return hyper_dmagic_list_addr(7 downto 0);
+            when "010110" => return hyper_dmagic_list_addr(15 downto 8);
+            when "010111" => return hyper_dmagic_list_addr(23 downto 16);
+            when "011000" =>
+              return to_unsigned(0,4)&hyper_dmagic_list_addr(27 downto 24);
+            when "011001" =>
+              return unsigned(ddr_ram_banking&std_logic_vector(to_unsigned(0,4))
+                              &ddr_ram_bank(2 downto 0));
+            -- Virtual memory page registers here
+            when "011101" =>
+              return unsigned(std_logic_vector(reg_pagenumber(1 downto 0))
+                              &"0"
+                              &reg_pageactive
+                              &reg_pages_dirty);
+            when "011110" => return reg_pagenumber(9 downto 2);
+            when "011111" => return reg_pagenumber(17 downto 10);
+            when "100000" => return reg_page0_logical(7 downto 0);
+            when "100001" => return reg_page0_logical(15 downto 8);
+            when "100010" => return reg_page0_physical(7 downto 0);
+            when "100011" => return reg_page0_physical(15 downto 8);
+            when "100100" => return reg_page1_logical(7 downto 0);
+            when "100101" => return reg_page1_logical(15 downto 8);
+            when "100110" => return reg_page1_physical(7 downto 0);
+            when "100111" => return reg_page1_physical(15 downto 8);
+            when "101000" => return reg_page2_logical(7 downto 0);
+            when "101001" => return reg_page2_logical(15 downto 8);
+            when "101010" => return reg_page2_physical(7 downto 0);
+            when "101011" => return reg_page2_physical(15 downto 8);
+            when "101100" => return reg_page3_logical(7 downto 0);
+            when "101101" => return reg_page3_logical(15 downto 8);
+            when "101110" => return reg_page3_physical(7 downto 0);
+            when "101111" => return reg_page3_physical(15 downto 8);
+            when "111100" =>
+              return "11" & force_4502 & force_fast
+                & speed_gate_enable_internal & rom_writeprotect
+                & flat32_enabled & rom_from_colour_ram;
+            when "111101" =>
+              return "11111" & rom_writeprotect
+                & flat32_enabled & rom_from_colour_ram;
+            when "111110" =>
+              if hypervisor_upgraded='1' then
+                return x"FF";
+              else
+                return x"00";
+              end if;
+            when "111111" => return x"48"; -- 'H' for Hypermode
+            when others => return x"FF";
+          end case;
+        when CPUPort =>
+          report "reading from CPU port" severity note;
+          case cpuport_num is
+            when x"0" => return cpuport_ddr;
+            when x"1" => return cpuport_value;
+            when x"4" => return ddr_state;
+            when x"5" => return ddr_counter;
+            when x"6" => return ddr_reply_counter;
+            when x"7" => return ddr_timeout_counter;
+            when x"8" => return ddr_cache_load_counter;
+            when x"9" => return slowram_desired_done_toggle
+                           &slowram_done_toggle
+                           &accessing_slowram
+                           &slowram_we_drive
+                           &slowram_pending_write
+                           &slowram_data_valid
+                           &"00";
+            when x"a" => return ddr_write_ready_counter;
+            when x"b" => return unsigned(slowram_datain_reflect_drive);
+            when x"c" => return unsigned(slowram_addr_reflect_drive(7 downto 0));
+            when x"d" => return unsigned(slowram_addr_reflect_drive(15 downto 8));
+            when x"e" => return unsigned(slowram_addr_reflect_drive(23 downto 16));
+            when x"f" => return "00000"&unsigned(slowram_addr_reflect_drive(26 downto 24));
+            when others => return x"ff";
+          end case;
+        when Shadow =>
+          report "reading from shadow RAM" severity note;
+          return shadow_rdata;
+        when ROMRAM =>
+          report "reading from ROM RAM" severity note;
+          return rom_rdata;
+        when ColourRAM =>
+          report "reading colour RAM fastio byte $" & to_hstring(fastio_vic_rdata) severity note;
+          return unsigned(fastio_colour_ram_rdata);
+        when VICIV =>
+          report "reading VIC fastio byte $" & to_hstring(fastio_vic_rdata) severity note;
+          return unsigned(fastio_vic_rdata);
+        when FastIO =>
+          report "reading normal fastio byte $" & to_hstring(fastio_rdata) severity note;
+          return unsigned(fastio_rdata);
+        when SlowRAM =>
+          report "reading slow RAM data. Word is $" & to_hstring(slowram_data_in) severity note;
+          return unsigned(slowram_data_in);
+        when Unmapped =>
+          report "accessing unmapped memory" severity note;
+          return x"A0";                     -- make unmmapped memory obvious
+      end case;
     end read_data_complex; 
 
     procedure write_long_byte(
@@ -1875,6 +1852,13 @@ begin
       ddr_got_reply <= '0';
       charrom_write_cs <= '0';
 
+      -- Get the shadow RAM or ROM address on the bus fast to improve timing.
+      shadow_write <= '0';
+      shadow_write_flags(1) <= '1';
+      shadow_address <= to_integer(long_address(16 downto 0));
+      rom_address <= to_integer(long_address(16 downto 0));
+      rom_write <= '0';
+      
       shadow_write_flags(0) <= '1';
       shadow_write_flags(1) <= '1';
       
@@ -5095,6 +5079,14 @@ begin
           if memory_access_resolve_address = '1' then
             memory_access_address := resolve_address_to_long(memory_access_address(15 downto 0),true);
           end if;
+
+          -- Get the shadow RAM or ROM address on the bus fast to improve timing.
+          shadow_write <= '0';
+          shadow_write_flags(1) <= '1';
+          shadow_address <= to_integer(memory_access_address(16 downto 0));
+          rom_address <= to_integer(memory_access_address(16 downto 0));
+          rom_write <= '0';
+          
           if memory_access_address = x"FFD3700"
             or memory_access_address = x"FFD1700" then
             report "DMAgic: DMA pending";
