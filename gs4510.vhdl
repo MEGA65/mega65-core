@@ -319,16 +319,6 @@ end component;
   -- Number of pending wait states
   signal wait_states : unsigned(7 downto 0) := x"05";
   signal wait_states_non_zero : std_logic := '1';
-
-  -- Keep track of memory reconfiguration delays
-  signal memory_reconfiguring : std_logic := '1';
-  signal memory_reconfiguring_counter : integer range 0 to 31 := 31;
-
-  signal viciii_iomode_last : std_logic_vector(1 downto 0) := "00";
-  signal rom_at_e000_last : std_logic := '0';
-  signal rom_at_c000_last : std_logic := '0';
-  signal rom_at_a000_last : std_logic := '0';
-  signal rom_at_8000_last : std_logic := '0';
   
   signal word_flag : std_logic := '0';
 
@@ -1234,11 +1224,6 @@ begin
       cpuport_value <= x"3F";
       force_fast <= '0';
 
-      -- Wait for memory to reconfigure
-      memory_reconfiguring <= '1';
-      memory_reconfiguring_counter <= 31;
-      report "Memory reconfigure due to reset";
-      
       -- Stop memory accesses
       colour_ram_cs <= '0';
       shadow_write <= '0';
@@ -1974,15 +1959,9 @@ begin
           force_fast <= '1';
         else
           cpuport_ddr <= value;
-          memory_reconfiguring <= '1';
-          memory_reconfiguring_counter <= 31;
-          report "Memory reconfigure due to write to port $00";
         end if;
       elsif (long_address = x"0000001") then
         report "MEMORY: Writing to CPU PORT register" severity note;
-        memory_reconfiguring <= '1';
-        memory_reconfiguring_counter <= 31;
-        report "Memory reconfigure due to write to port $01";
         cpuport_value <= value;
       -- Write to DMAgic registers if required
       elsif (long_address = x"FFD3700") or (long_address = x"FFD1700") then        
@@ -2203,13 +2182,6 @@ begin
       -- Inhibit all interrupts until EOM (opcode $EA, which used to be NOP)
       -- is executed.
       map_interrupt_inhibit <= '1';
-
-      -- Also mark memory as reconfiguring, to give bank addresses to be
-      -- updated to contain hypervisor memory
-      memory_reconfiguring <= '1';
-      memory_reconfiguring_counter <= 31;
-      report "Memory reconfigure due to write to MAP instruction";
-      
     end c65_map_instruction;
 
     procedure alu_op_cmp (
@@ -2886,36 +2858,6 @@ begin
           watchdog_countdown <= watchdog_countdown - 1;
         end if;
       end if;
-
-      -- Keep track of memory reconfiguration state
-      if memory_reconfiguring = '1' then
-        if memory_reconfiguring_counter = 0 then
-          memory_reconfiguring <= '0';
-        else
-          memory_reconfiguring_counter <= memory_reconfiguring_counter - 1;
-        end if;
-      end if;
-      -- Delay for memory reconfiguration whenever VIC-III IO mode changes,
-      -- so that we can make sure the CPU sees the changed register banks
-      -- immediately.
-      if viciii_iomode /= viciii_iomode_last then
-        viciii_iomode_last <= viciii_iomode;
-        memory_reconfiguring <= '1';
-        memory_reconfiguring_counter <= 31;
-        report "Memory reconfiguration due to VIC-III IO mode change";
-      end if;
-      if (rom_at_e000 /= rom_at_e000_last)
-        or (rom_at_c000 /= rom_at_c000_last)
-        or (rom_at_a000 /= rom_at_a000_last)
-        or (rom_at_8000 /= rom_at_8000_last) then
-        rom_at_e000_last <= rom_at_e000;
-        rom_at_c000_last <= rom_at_c000;
-        rom_at_a000_last <= rom_at_a000;
-        rom_at_8000_last <= rom_at_8000;
-        memory_reconfiguring <= '1';
-        memory_reconfiguring_counter <= 31;
-        report "Memory reconfiguration due to VIC-III ROM@ line change";
-      end if;
       
       -- report "reset = " & std_logic'image(reset) severity note;
       reset_drive <= reset;
@@ -2927,84 +2869,82 @@ begin
         watchdog_fed <= '0';
         watchdog_countdown <= 65535;
         reset_cpu_state;
-      else        
+      else
         -- Honour wait states on memory accesses
         -- Clear memory access lines unless we are in a memory wait state
-        -- We use a single bit test here to keep logic depth shallow
-        if (wait_states_non_zero = '1') or (memory_reconfiguring='1') then
+        -- XXX replace with single bit test flag for wait_states = 0 to reduce
+        -- logic depth        
+        if wait_states_non_zero = '1' then
           report "  $" & to_hstring(wait_states)
             &" memory waitstates remaining.  Fastio_rdata = $"
             & to_hstring(fastio_rdata)
             & ", mem_reading=" & std_logic'image(mem_reading)
             & ", fastio_addr=$" & to_hstring(fastio_addr)
             severity note;
-          if memory_reconfiguring='0' then
-            wait_states <= wait_states - 1;
-            if wait_states = x"01" then
-              -- Next cycle we can do stuff, provided that the serial monitor
-              -- isn't asking us to do anything.
-              proceed <= '1';
-              -- timeout DDR memory if it isn't responding
-              if (ddr_got_reply = '0') and (accessing_slowram='1') then
-                ddr_timeout_counter <= ddr_timeout_counter + 1;
-                slowram_request_toggle_drive <= slowram_done_toggle;
-                slowram_desired_done_toggle <= slowram_done_toggle;
-                slowram_pending_write <='0';
-                slowram_we_drive <= '0';
-              end if;
-              wait_states_non_zero <= '0';
-            else
-              wait_states_non_zero <= '1';            
-            end if;
-            -- Stop waiting on slow ram as soon as we have the result.
-            -- We know we have the result when the RAM is no longer busy, and the
-            -- cache has the correct memory line.
-            if (accessing_slowram='1') and (slowram_we_drive='0')
-              and (slowram_data_valid='1') and (proceed='0') then
-              ddr_reply_counter <= ddr_reply_counter + 1;
-              ddr_got_reply <= '1';
-              wait_states <= x"00";
-              wait_states_non_zero <= '0';
-              proceed <= '1';
-            end if;
-            -- Similarly, when writing to slowram, we return only once we have verified
-            -- that the value has been written.
-            if (accessing_slowram='1') and (slowram_we_drive='1')
-              and (slowram_data_valid='1') and (proceed='0')
-              and (slowram_datain_expected = slowram_data_in) then
-              ddr_write_ready_counter <= ddr_write_ready_counter + 1;
-              slowram_pending_write <= '0';
+          wait_states <= wait_states - 1;
+          if wait_states = x"01" then
+            -- Next cycle we can do stuff, provided that the serial monitor
+            -- isn't asking us to do anything.
+            proceed <= '1';
+            -- timeout DDR memory if it isn't responding
+            if (ddr_got_reply = '0') and (accessing_slowram='1') then
+              ddr_timeout_counter <= ddr_timeout_counter + 1;
+              slowram_request_toggle_drive <= slowram_done_toggle;
+              slowram_desired_done_toggle <= slowram_done_toggle;
+              slowram_pending_write <='0';
               slowram_we_drive <= '0';
-              ddr_got_reply <= '1';
-              wait_states <= x"00";
-              wait_states_non_zero <= '0';
-              proceed <= '1';
             end if;
-          
-            -- If the DDR memory is idle, and he cache has the wrong memory line,
-            -- so ask the DDR controller to load the cache line.
-            if (accessing_slowram='1') and (slowram_we_drive='0')
-              and (slowram_addr_drive(26 downto 4) /= cache_read_data(150 downto 128))
-              and (slowram_desired_done_toggle = slowram_done_toggle) then
-              -- The address & WE has already been set in read_long_address()
-              slowram_request_toggle_drive <= not slowram_done_toggle;
-              slowram_desired_done_toggle <= not slowram_done_toggle;
-              ddr_cache_load_counter <= ddr_cache_load_counter + 1;
-            end if;
-
-            -- Now that the slowram signals have all been set for a write and
-            -- had a cycle to settle, toggle the request line, so that the DDR
-            -- can get the write request without missing it.
-            if (slowram_pending_write='1')
-              and (slowram_desired_done_toggle = slowram_done_toggle)
-              and (slowram_addr_reflect_drive = slowram_addr_drive)
-              and (slowram_datain_reflect_drive = slowram_datain_expected) then
-              slowram_desired_done_toggle <= not slowram_done_toggle;
-              slowram_request_toggle_drive <= not slowram_done_toggle;
-            end if;
+            wait_states_non_zero <= '0';
           else
-            report "Waiting " & integer'image(memory_reconfiguring_counter) & " cycles for memory to reconfigure";
+            wait_states_non_zero <= '1';            
           end if;
+          -- Stop waiting on slow ram as soon as we have the result.
+          -- We know we have the result when the RAM is no longer busy, and the
+          -- cache has the correct memory line.
+          if (accessing_slowram='1') and (slowram_we_drive='0')
+            and (slowram_data_valid='1') and (proceed='0') then
+            ddr_reply_counter <= ddr_reply_counter + 1;
+            ddr_got_reply <= '1';
+            wait_states <= x"00";
+            wait_states_non_zero <= '0';
+            proceed <= '1';
+          end if;
+          -- Similarly, when writing to slowram, we return only once we have verified
+          -- that the value has been written.
+          if (accessing_slowram='1') and (slowram_we_drive='1')
+            and (slowram_data_valid='1') and (proceed='0')
+            and (slowram_datain_expected = slowram_data_in) then
+            ddr_write_ready_counter <= ddr_write_ready_counter + 1;
+            slowram_pending_write <= '0';
+            slowram_we_drive <= '0';
+            ddr_got_reply <= '1';
+            wait_states <= x"00";
+            wait_states_non_zero <= '0';
+            proceed <= '1';
+          end if;
+          
+          -- If the DDR memory is idle, and he cache has the wrong memory line,
+          -- so ask the DDR controller to load the cache line.
+          if (accessing_slowram='1') and (slowram_we_drive='0')
+            and (slowram_addr_drive(26 downto 4) /= cache_read_data(150 downto 128))
+            and (slowram_desired_done_toggle = slowram_done_toggle) then
+            -- The address & WE has already been set in read_long_address()
+            slowram_request_toggle_drive <= not slowram_done_toggle;
+            slowram_desired_done_toggle <= not slowram_done_toggle;
+            ddr_cache_load_counter <= ddr_cache_load_counter + 1;
+          end if;
+
+          -- Now that the slowram signals have all been set for a write and
+          -- had a cycle to settle, toggle the request line, so that the DDR
+          -- can get the write request without missing it.
+          if (slowram_pending_write='1')
+            and (slowram_desired_done_toggle = slowram_done_toggle)
+            and (slowram_addr_reflect_drive = slowram_addr_drive)
+            and (slowram_datain_reflect_drive = slowram_datain_expected) then
+            slowram_desired_done_toggle <= not slowram_done_toggle;
+            slowram_request_toggle_drive <= not slowram_done_toggle;
+          end if;
+
         else
           -- End of wait states, so clear memory writing and reading
 
@@ -3026,7 +2966,7 @@ begin
         monitor_proceed <= proceed;
         monitor_request_reflected <= monitor_mem_attention_request_drive;
         
-        if (proceed='1') and (memory_reconfiguring='0') then
+        if proceed='1' then
           -- Main state machine for CPU
           report "CPU state = " & processor_state'image(state) & ", PC=$" & to_hstring(reg_pc) severity note;
 
@@ -3273,11 +3213,6 @@ begin
               -- IO, but no C64 ROMS
               cpuport_ddr <= x"3f"; cpuport_value <= x"35";
 
-              -- Wait for memory to reconfigure on entering hypervisor
-              memory_reconfiguring <= '1';
-              memory_reconfiguring_counter <= 31;
-              report "Memory reconfiguring due to entering hypervisor";
-
               -- enable hypervisor mode flag
               hypervisor_mode <= '1';
               -- start fetching next instruction
@@ -3303,10 +3238,6 @@ begin
               flag_e <= hyper_p(5); flag_d <= hyper_p(3);
               flag_i <= hyper_p(2); flag_z <= hyper_p(1);
               flag_c <= hyper_p(0);
-
-              -- Wait for memory to reconfigure on exiting hypervisor
-              memory_reconfiguring <= '1';
-              memory_reconfiguring_counter <= 31;
               
               -- clear hypervisor mode flag
               hypervisor_mode <= '0';
@@ -5161,13 +5092,7 @@ begin
           end if;
 
           if memory_access_resolve_address = '1' then
-            -- memory_access_address := resolve_address_to_long(memory_access_address(15 downto 0),true);
-            -- Lookup long address from block_addresses short-cut array to reduce
-            -- logic depth.
-            memory_access_address := to_unsigned(
-              ((to_integer(block_addresses(to_integer(memory_access_address(15 downto 12))+16))
-                + to_integer(memory_access_address(11 downto 0)))
-              ),28);
+            memory_access_address := resolve_address_to_long(memory_access_address(15 downto 0),true);
           end if;
           if memory_access_address = x"FFD3700"
             or memory_access_address = x"FFD1700" then
@@ -5202,15 +5127,7 @@ begin
         elsif memory_access_read='1' then 
           report "memory_access_read=1, addres=$"&to_hstring(memory_access_address) severity note;
           if memory_access_resolve_address = '1' then
-            -- memory_access_address := resolve_address_to_long(memory_access_address(15 downto 0),false);
-            -- Do memory address resolution using pre-computed table
-            report "Reading from memory bank " & integer'image(to_integer(memory_access_address(15 downto 12)));
-            report "  memory bank base address = $" & to_hstring(block_addresses(to_integer(memory_access_address(15 downto 12))));
-            memory_access_address := to_unsigned(
-              ((to_integer(block_addresses(to_integer(memory_access_address(15 downto 12))+0))
-                + to_integer(memory_access_address(11 downto 0)))
-              ),28);
-
+            memory_access_address := resolve_address_to_long(memory_access_address(15 downto 0),false); 
           end if;
           read_long_address(memory_access_address);
         end if;
