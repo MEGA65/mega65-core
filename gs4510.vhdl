@@ -2980,6 +2980,7 @@ begin
               end if;
               vector <= vector + 1;
               state <= VectorRead;
+              vector_read_stage <= vector_read_stage + 1;
               case vector_read_stage is
                 when 0 =>
                   -- First cycle, we just wait for the address to load
