@@ -262,7 +262,7 @@ waitforkey:
 
 havekey:
 	 cmp #$11
-
+	 bne notdownkey
 	 ldx #1
 	 ldy #0
 	 jsr adjustcurrentitem
