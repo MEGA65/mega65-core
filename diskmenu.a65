@@ -23,6 +23,7 @@
 	 ; disks.
 	 .alias displaydiskpointer $40
 	 .alias diskpointer $fe
+	 .alias sortpointer $f7
 	 ; pointer for where we are drawing on screen
 	 .alias screenpointer $f9
 
@@ -233,7 +234,16 @@ ll20:
 	adc #$00
 	sta diskpointer+1
 
-	jsr updatescreen
+
+;	jsr updatescreen
+
+	; check if entry is the only / first one and don't sort if so
+	lda diskcount+1
+	bne readnextentry
+	lda diskcount
+	cmp #$01
+	bcc readnextentry
+	jsr sortentry
 	jmp readnextentry
 
 endofdir:
@@ -247,8 +257,12 @@ mainloop:
 waitforkey:
 	 ; check for keyboard input
 	 jsr $ffe4
+	 bne havekey
+	 jsr scanjoystick
+
+havekey:
 	 cmp #$11
-	 bne notdownkey
+
 	 ldx #1
 	 ldy #0
 	 jsr adjustcurrentitem
@@ -553,6 +567,92 @@ jumptolastitem:
 	rts
 
 
+sortentry:
+	; char offset for comparing the entries (max 16)
+	ldy #00
+	; flag if proper position has been found AND entry must be moved
+	ldx #00
+
+	lda diskpointer
+	sta sortpointer
+	lda	diskpointer+1
+	sta sortpointer+1
+
+sortloop2:
+	sec
+	lda sortpointer+1
+	sbc #$10
+	sta sortpointer+1
+	lda	sortpointer
+	sbc #$00
+	sta sortpointer
+
+sortloop1:
+	lda (diskpointer),y
+	cmp (sortpointer),y
+	bcs sortgreatervalue
+	bne sortlesservalue
+	iny
+	; advance to next char
+	jmp sortloop1
+
+sortlesservalue:
+	ldx #$01
+	jmp sortloop2
+
+sortgreatervalue:
+	txa
+	; if X flag is not set sorting is not necessary (because last entry stays last)
+	beq exitsort
+
+	; Prepare to do DMA copy to make space for this entry
+
+	; First, we add $0f to diskpointer to get the last byte to
+	; get the copy source address.
+	clc
+	lda	diskpointer
+	adc #15
+	sta sortdmasrc
+	lda diskpointer+1
+	adc #$00
+	sta sortdmasrc+1
+
+    ; the destination address is $10 more, so that we make 16 bytes of space
+    ; for the sorted entry to be copied into
+	clc
+	lda	diskpointer
+	adc #31
+	sta sortdmadst
+	lda diskpointer+1
+	adc #$00
+	sta sortdmadst+1
+
+    ; We need to copy diskpointer-sortpointer bytes
+	sec
+	lda diskpointer
+	sbc sortpointer
+	sta sortdmacnt
+	lda diskpointer+1
+	sbc sortpointer+1
+	sta sortdmacnt+1
+
+    ; Set DMAgic list address and trigger job
+    ; (Since we are on a MEGA65, also clear the high bytes of list and src/dst address)
+	lda #$00
+	sta $d702
+	sta $d704
+	sta $d705
+	sta $d706
+	lda #>sortdmalist
+	sta $d701
+	lda #<sortdmalist
+	sta $d700
+
+exitsort:
+	rts
+
+
+
 updatescreen:
 	; Draw 2 columns x 25 disk image names
 	; Current selection is displayed reversed
@@ -779,11 +879,36 @@ atc3:
 	rts
 atc4:	rts
 
+
+scanjoystick:
+	lda $dc00
+	and $dc01
+	and #$1f
+	tay
+	lda joysticktable,y
+	rts
+
+joysticktable:
+; UDLRF $91,$11,$9d,$1d,$0d
+	.byte $00,$91,$11,$00,$9d,$91,$11,$00
+	.byte $1d,$91,$10,$00,$00,$00,$00,$00
+	.byte $0d,$0d,$0d,$0d,$0d,$0d,$0d,$0d
+	.byte $0d,$0d,$0d,$0d,$0d,$0d,$0d,$0d
+
 	.scend
 
 iter1:	 .byte 0
 
 diskcount:     .byte 0,0
+
+sortdmalist:	.byte $00 ; copy non-chained job 
+sortdmacnt:		.word $0001 ; number of bytes to copy
+sortdmasrc:		.word $0000 ; source address
+				.byte $40 ; source bank number / direction
+sortdmadst:		.word $0000 ; destination address
+				.byte $40 ; destination bank number / direction
+				.word $0000 ; modulo
+
 screenitem:    .byte 0,0
 currentitem:   .byte 0,0
 temp16:	       .byte 0,0
