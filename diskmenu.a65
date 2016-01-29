@@ -26,7 +26,8 @@
 	 .alias sortpointer $f7
 	 ; pointer for where we are drawing on screen
 	 .alias screenpointer $f9
-
+	 .scope
+	 
 	 ; enable enhanced registers
 	 lda #$47
 	 sta $d02f
@@ -647,6 +648,14 @@ sortgreatervalue:
 	sta $d701
 	lda #<sortdmalist
 	sta $d700
+
+	;now copy the new entry to the space we just freed
+	ldx	#15
+sortcopy:
+	lda diskpointer+15,x
+	sta sortpointer,x
+	dex
+	bne sortcopy
 
 exitsort:
 	rts
