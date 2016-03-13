@@ -176,11 +176,11 @@ architecture Behavioral of container is
       );
   end component;
 
-  component FPGAMonitor is
-    Generic (CLOCKFREQ : natural := 100); -- input CLK frequency in MHz
-    Port ( CLK_I : in  STD_LOGIC;
-           RST_I : in  STD_LOGIC;
-           TEMP_O : out  STD_LOGIC_VECTOR (11 downto 0));
+  component fpgatemp is
+    Generic ( DELAY_CYCLES : natural := 480 ); -- 10us @ 48 Mhz
+    Port ( clk : in  STD_LOGIC;
+           rst : in  STD_LOGIC;
+           temp : out  STD_LOGIC_VECTOR (11 downto 0));
   end component;
 
   component ddrwrapper is
@@ -399,12 +399,12 @@ begin
 --               clk_out3 => ioclock -- also 48MHz
                );
 
-  fpgamonitor0: FPGAMonitor
-    generic map (      clockfreq => 48)
+  fpgatemp0: fpgatemp
+    generic map (DELAY_CYCLES => 480)
     port map (
-      rst_i => '0',
-      clk_i => cpuclock,
-      temp_o => fpga_temperature);
+      rst => '0',
+      clk => cpuclock,
+      temp => fpga_temperature);
   
   ddrwrapper0: ddrwrapper
     port map (

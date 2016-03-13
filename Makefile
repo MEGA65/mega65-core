@@ -9,12 +9,15 @@ KICKSTARTSRCS=kickstart.a65 \
 		kickstart_task.a65 \
 		kickstart_mem.a65
 
-UNAME := $(@shell uname)
-ifeq ($(UNAME),MINGW32_NT-6.1)
+# Unlikely anyone uses Windows 9x anymore
+ifeq ($(OS),Windows_NT)
 SOCKLIBS = -l ws2_32
 else
 SOCKLIBS =
 endif
+
+fpga:	kickstart.vhdl \
+	charrom.vhdl
 
 all:	ghdl-frame-gen \
 	diskmenu.prg \
@@ -23,7 +26,6 @@ all:	ghdl-frame-gen \
 	container.prj \
 	thumbnail.prg \
 	tests/textmodetest.prg \
-	gs4510.vhdl viciv.vhdl \
 	etherload etherkick
 
 ethertest.prg:	ethertest.a65 Makefile
@@ -41,7 +43,8 @@ diskchooser:	diskchooser.a65 etherload.prg Makefile
 version.a65:	*.vhdl *.a65 *.vhd Makefile
 	./version.sh
 
-kickstart65gs.bin:	$(KICKSTARTSRCS) Makefile diskmenu_c000.bin version.a65
+# diskmenu_c000.bin yet b0rken
+kickstart65gs.bin:	$(KICKSTARTSRCS) Makefile diskchooser version.a65
 	../Ophis/bin/ophis -4 kickstart.a65 -l kickstart.list
 
 diskmenu_c000.bin:	diskmenuc000.a65 diskmenu.a65 etherload.prg
@@ -76,7 +79,7 @@ etherload:	etherload.c
 	gcc -Wall -g -o etherload etherload.c $(SOCKLIBS)
 
 etherkick:	etherkick.c
-	gcc -Wall -g -o etherkick etherkick.c
+	gcc -Wall -g -o etherkick etherkick.c $(SOCKLIBS)
 
 iomap.txt:	*.vhdl Makefile
 	egrep "IO:C6|IO:GS" *.vhdl | cut -f3- -d: | sort -u -k2 > iomap.txt
@@ -152,3 +155,13 @@ charrom.vhdl:	pngprepare 8x8font.png
 
 BOOTLOGO.G65:	pngprepare mega65_64x64.png
 	./pngprepare logo mega65_64x64.png BOOTLOGO.G65
+
+clean:
+	rm -f *.gise *.bgn *.bld *.cmd_log *.drc *.lso *.ncd *.ngc *.ngd *.ngr *.pad *.par *.pcf *.ptwx *.stx *.syr *.twr *.twx *.unroutes *.ut *.xpi *.xst *.xwbt
+	rm -f *.map *.mrp *.psr *.xrpt *.csv *.list *.log *.xml
+	rm -f container_summary.* container_usage.* usage_statistics_webtalk.* par_usage_statistics.*
+	rm -f ipcore_dir/*.asy ipcore_dir/*.gise ipcore_dir/*.ncf ipcore_dir/*.sym ipcore_dir/*.xdc
+	rm -f ipcore_dir/*.cgp ipcore_dir/*.txt ipcore_dir/*.log
+
+cleangen:
+	rm kickstart.vhdl charrom.vhdl kickstart65gs.bin

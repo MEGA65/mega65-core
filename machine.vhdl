@@ -252,6 +252,8 @@ architecture Behavioral of machine is
       cpuis6502 : out std_logic;
       cpuspeed : out unsigned(7 downto 0);
       
+      irq_hypervisor : in std_logic_vector(2 downto 0);  -- JBM
+
       no_kickstart : in std_logic;
 
       ddr_counter : in unsigned(7 downto 0);
@@ -736,7 +738,10 @@ begin
       led(3) <= combinednmi;
       led(4) <= io_irq;
       led(5) <= io_nmi;
-      led(12 downto 6) <= (others => '0');
+      led(9 downto 6) <= (others => '0');
+      led(10) <= cpu_hypervisor_mode;           -- JBM
+      led(11) <= monitor_hypervisor_mode;       -- JBM
+      led(12) <= '0';                           -- JBM
       led(15) <= speed_gate_enable;
       led(14) <= speed_gate;
       led(13) <= capslock_state;
@@ -864,6 +869,8 @@ begin
     speed_gate_enable => speed_gate_enable,
     cpuis6502 => cpuis6502,
     cpuspeed => cpuspeed,
+
+    irq_hypervisor => sw(4 downto 2),    -- JBM
     
     ddr_state => ddr_state,
     ddr_counter => ddr_counter,

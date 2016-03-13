@@ -2492,7 +2492,8 @@ txt_bootlogo:	      .byte "BOOTLOGO.M65",0
 
 diskchooserstart:
 	; Pre-compiled disk chooser
-	.incbin "diskmenu_c000.bin"
+	.incbin "diskchooser"
+	;.incbin "diskmenu_c000.bin"
 diskchooserend:
 
 		.checkpc $BB00

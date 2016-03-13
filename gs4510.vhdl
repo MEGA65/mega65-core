@@ -50,6 +50,8 @@ entity gs4510 is
     cpuis6502 : out std_logic;
     cpuspeed : out unsigned(7 downto 0);
 
+    irq_hypervisor : in std_logic_vector(2 downto 0) := "000";    -- JBM
+
     no_kickstart : in std_logic;
 
     ddr_counter : in unsigned(7 downto 0);
@@ -3413,7 +3415,7 @@ begin
             when InstructionWait =>
               state <= InstructionFetch;
             when InstructionFetch =>
-              if (hypervisor_mode='0')
+              if (hypervisor_mode='0' or irq_hypervisor(0)='0')    -- JBM
                 and ((irq_pending='1' and flag_i='0') or nmi_pending='1') then
                 -- An interrupt has occurred
                 state <= Interrupt;
@@ -3447,7 +3449,7 @@ begin
               
               -- 4502 doesn't allow interrupts immediately following a
               -- single-cycle instruction
-              if (hypervisor_mode='0') and (
+              if (hypervisor_mode='0' or irq_hypervisor(1)='0') and (    -- JBM
                 (no_interrupt = '0')
                 and ((irq_pending='1' and flag_i='0') or nmi_pending='1')) then
                 -- An interrupt has occurred
@@ -3681,7 +3683,7 @@ begin
               reg_addressingmode <= mode_lut(to_integer(emu6502&memory_read_value));
               reg_instruction <= instruction_lut(to_integer(emu6502&memory_read_value));
               
-              if (hypervisor_mode='0') 
+              if (hypervisor_mode='0' or irq_hypervisor(2)='0')    -- JBM
                 and ((irq_pending='1' and flag_i='0') or nmi_pending='1') then
                 -- An interrupt has occurred 
                 report "Interrupt detected in 6502 mode, decrementing PC";
