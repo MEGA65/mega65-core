@@ -56,6 +56,17 @@ task_set_pc_to_reset_vector:
 	jsr longpeek
 	lda kickstart_scratchbyte0
 	sta hypervisor_pch
+
+	; Also set $0318 to point to a sensible location so that any NMI
+	; that occurs before the C64/C65 ROM has a chance to configure the NMI
+	; vector there doesn't result in the CPU going to lumpa land.
+	lda #<$0040
+	sta $0318
+	lda #>$0040
+	sta $0319
+	lda #$40 ; RTI
+	sta $0040
+
 	rts
 
 ; Set all page entries and current page number to all zeroes
