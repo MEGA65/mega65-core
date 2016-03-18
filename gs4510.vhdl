@@ -1772,7 +1772,7 @@ begin
             when "101110" => return reg_page3_physical(7 downto 0);
             when "101111" => return reg_page3_physical(15 downto 8);
             when "111100" =>
-              return "11" & force_4502 & force_fast
+              return nmi_pending & irq_pending & force_4502 & force_fast
                 & speed_gate_enable_internal & rom_writeprotect
                 & flat32_enabled & rom_from_colour_ram;
             when "111101" =>
@@ -2512,7 +2512,7 @@ begin
         -- @IO:GS $D659.7 - Enable DDR RAM banking
         -- @IO:GS $D659.0-2 - Select which 16MB DDR RAM bank to make visible
         if last_write_address = x"FFD3659" and hypervisor_mode='1' then
-          ddr_ram_banking <= last_value(7);
+          ddr_ram_banking <= last_value(7);          
           ddr_ram_bank <= std_logic_vector(last_value(2 downto 0));
         end if;
 
@@ -2619,6 +2619,8 @@ begin
         -- @IO:GS $D67D.3 - Hypervisor enable ASC/DIN CAPS LOCK key to enable/disable CPU slow-down in C64/C128/C65 modes
         -- @IO:GS $D67D.4 - Hypervisor force CPU to 48MHz for userland (userland can override via POKE0)
         -- @IO:GS $D67D.5 - Hypervisor force CPU to 4502 personality, even in C64 IO mode.
+        -- @IO:GS $D67D.6 - Cause an IRQ to occur on exit from Hypervisor.
+        -- @IO:GS $D67D.7 - Cause an NMI to occur on exit from Hypervisor.
         -- @IO:GS $D67D - Hypervisor watchdog register: writing any value clears the watch dog
         if last_write_address = x"FFD367D" and hypervisor_mode='1' then
           rom_from_colour_ram <= last_value(0);
@@ -2628,6 +2630,8 @@ begin
           speed_gate_enable_internal <= last_value(3);
           force_fast <= last_value(4);
           force_4502 <= last_value(5);
+          irq_pending <= last_value(6);
+          nmi_pending <= last_value(7);
           watchdog_fed <= '1';
         end if;
         -- @IO:GS $D67E - Hypervisor already-upgraded bit (sets permanently)

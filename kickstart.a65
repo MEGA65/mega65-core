@@ -349,11 +349,12 @@ reset_machine_state:
 		; Disable reset watchdog, enable flat 32-bit addressing, don't engage
 		; ROM write protect (yet), do make ASC/DIN / CAPS LOCK control CPU speed.
 		; also force 4502 CPU personality (6502 personality is still incomplete)
+		; and clear any pending IRQ or NMI event.
 		; (The watchdog was added to catch reset problems where the machine
 		; would run off somewhere odd instead of resetting properly. Now it
 		; will auto-reset after 65535 cycles if the watchdog is not cleared).
 		lda #$2a
-		sta $d67d
+		sta hypervisor_feature_enables
 
 		jsr resetdisplay
 		jsr erasescreen
@@ -1775,6 +1776,11 @@ g61:		sta $0800,x
 
 		jsr task_set_c64_memorymap
 		jsr task_set_pc_to_reset_vector
+
+		; Clear any pending IRQ or NMI to avoid problems
+		lda hypervisor_feature_enables
+		and #$3f
+		sta hypervisor_feature_enables
 
 		; Exit hypervisor and transfer control to ROM
 		sta hypervisor_enterexit_trigger
