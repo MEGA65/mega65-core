@@ -353,7 +353,7 @@ reset_machine_state:
 		; would run off somewhere odd instead of resetting properly. Now it
 		; will auto-reset after 65535 cycles if the watchdog is not cleared).
 		lda #$2a
-		sta $d67d
+		sta hypervisor_feature_enables
 
 		jsr resetdisplay
 		jsr erasescreen
@@ -1775,6 +1775,7 @@ g61:		sta $0800,x
 
 		jsr task_set_c64_memorymap
 		jsr task_set_pc_to_reset_vector
+		jsr task_dummy_nmi_vector
 
 		; Exit hypervisor and transfer control to ROM
 		sta hypervisor_enterexit_trigger

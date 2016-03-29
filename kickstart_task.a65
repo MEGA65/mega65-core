@@ -58,6 +58,16 @@ task_set_pc_to_reset_vector:
 	sta hypervisor_pch
 	rts
 
+; Set dummy C64 NMI vector
+; This avoid a nasty crash if NMI is called during kickstart
+; Points to a RTI instruction in $FEC1
+task_dummy_nmi_vector:
+	lda #<$FEC1
+	sta $0318
+	lda #>$FEC1
+	sta $0319
+	rts
+
 ; Set all page entries and current page number to all zeroes
 ; so that we don't think any page is loaded.
 ; XXX - Is all zeroes the best value here?  Physical page 0 is $00000000, which
