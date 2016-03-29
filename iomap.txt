@@ -279,8 +279,6 @@ GS $D67D.2 - Hypervisor write protect C65 ROM $20000-$3FFFF
 GS $D67D.3 - Hypervisor enable ASC/DIN CAPS LOCK key to enable/disable CPU slow-down in C64/C128/C65 modes
 GS $D67D.4 - Hypervisor force CPU to 48MHz for userland (userland can override via POKE0)
 GS $D67D.5 - Hypervisor force CPU to 4502 personality, even in C64 IO mode.
-GS $D67D.6 - Cause an IRQ to occur on exit from Hypervisor.
-GS $D67D.7 - Cause an NMI to occur on exit from Hypervisor.
 GS $D67E - Hypervisor already-upgraded bit (sets permanently)
 GS $D67F - Trigger trap to hypervisor
 GS $D680 - SD controller status/command

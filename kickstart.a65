@@ -331,9 +331,9 @@ reset_machine_state:
 		ora #$40
 		sta $d054
 
-		; sprites off		
+		; sprites off
 		lda #$00
-		sta $d017		
+		sta $d017
 
 		lda #$7f
 		sta $DC0D
@@ -1777,11 +1777,6 @@ g61:		sta $0800,x
 		jsr task_set_c64_memorymap
 		jsr task_set_pc_to_reset_vector
 		jsr task_dummy_nmi_vector
-
-		; Clear any pending IRQ or NMI to avoid problems
-		lda hypervisor_feature_enables
-		and #$3f
-		sta hypervisor_feature_enables
 
 		; Exit hypervisor and transfer control to ROM
 		sta hypervisor_enterexit_trigger
