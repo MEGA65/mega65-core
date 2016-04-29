@@ -5,7 +5,7 @@
 [Introduction](#Introduction)
 
 [container](#container)
-
+ [machine](#machine)
 
 ## Introduction
 
@@ -16,7 +16,7 @@ Contributors: please order the components within this file as they appear in Xil
 ## container
 the toplevel component within the fpga design
 
-![container](./images/container.jpg)
+[![container](./images/container-small.jpg)](./images/container.jpg)
 
 48MHz clock comes in, is buffered and fed to a CLKDLL
 the CLKDLL outputs four clock signals that are used within the design
@@ -30,5 +30,10 @@ The [DDRcontroller](#DDRcontroller] component is currently not working. Its func
 The machine component holds the significant rest of the architecture.
 
 Other 'logic' includes signal routing, input debouncing, etc.
+
+## machine
+this component holds most of the fpga design, including CPU, Memory, VIC/SID chips
+
+[![machine](./images/machine-small.jpg)](./images/machine.jpg)
 
 The End.
