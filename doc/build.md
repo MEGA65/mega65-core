@@ -17,10 +17,11 @@
 
 The overall process from go-to-whoa takes about 90 minutes.
 Basically you:
-1.  download the repository from github (5 mins),
-1.  make the nessessary pre-compiling (5 mins)
-1.  use Xilinx ISE to compile the design into a bitstream (60 mins)
-1.  copy bitstream onto fpga board
+
+1. download the repository from github (5 mins),
+1. make the nessessary pre-compiling (5 mins)
+1. use Xilinx ISE to compile the design into a bitstream (60 mins)
+1. copy bitstream onto fpga board
 
 Detailled instructions are below.
 
