@@ -17,6 +17,8 @@
 
 ## Introduction
 
+Thanks for justburn for his contributions
+
 The overall process from go-to-whoa takes about 90 minutes.
 Basically you:
 
