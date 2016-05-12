@@ -776,7 +776,7 @@ screen_line_underhang_height:
 screen_line_char_row_used:
 ; 16 one byte flags to indicate if a given character row is ever used
 ; in the current row of text output
-     	.byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	.byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
 
 ; buffer for screen lines.  256 bytes per line in the line buffer for screen RAM
 ; and colour RAM each limits lines to 128 8x8 tiles per line.  This seems a
@@ -786,7 +786,7 @@ screen_line_char_row_used:
 ; colour RAM only needs one row of buffer, since the colour information will be
 ; duplicated on each row of tiles.
 
-  	.checkpc $2700
+	.checkpc $2700
 	.advance $2700
 colour_ram_buffer:
 	.advance colour_ram_buffer+$100
@@ -813,7 +813,7 @@ screen_ram:
 	.advance $3ffe
 	.alias fontheader $4000
 
-	.incbin "dejavus.f65"
+	.incbin "textmodetest-dejavus.f65"
 
 	.scend
 

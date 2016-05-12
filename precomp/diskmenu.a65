@@ -26,7 +26,7 @@
 	 .alias sortpointer $f7
 	 ; pointer for where we are drawing on screen
 	 .alias screenpointer $f9
-	 .scope
+;	 .scope
 	 
 	 ; enable enhanced registers
 	 lda #$47
