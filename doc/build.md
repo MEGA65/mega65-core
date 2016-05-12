@@ -17,9 +17,10 @@
 
 ## Introduction
 
-Thanks for justburn for his contributions
+Thanks for justburn for his contributions on getting this file started!
 
 The overall process from go-to-whoa takes about 90 minutes.
+
 Basically you:
 
 1. download the repository from github (5 mins),
@@ -45,7 +46,7 @@ $> cd $GIT_ROOT
 ```
 Clone the following two git repositories into your working directory
 ```
-$GIT_ROOT$> git clone https://github.com/gardners/c65gs.git
+$GIT_ROOT$> git clone https://github.com/Ben-401/c65gs.git
 $GIT_ROOT$> 
 $GIT_ROOT$> git clone https://github.com/gardners/Ophis.git
 $GIT_ROOT$> 
@@ -70,7 +71,8 @@ You are now ready to pre-compile some files.
 
 ## Patching
 
-Currently I dont think we need to patch anything, so skip this and goto Pre-compiling [to be confirmed]
+Currently I dont think we need to patch anything, so skip this and goto Pre-compiling [to be confirmed].
+
 Currently two files are required to be used as an offline patch. Unzip both files and overwrite all changes.
 ```
 $GIT_ROOT$/c65gs> unzip ddr.tgz .
@@ -103,10 +105,10 @@ $GIT_ROOT$/c65gs>
 The following warnings may appear, but these are OK:
 ```
 WARNING: branch out of range, replacing with 16-bit relative branch
-
 ```
 All pre-compiling (for the minimal build) should now be done.
-If you want to ```make all``` you can, but this is currently now supported.
+
+If you want to ```make all``` you can, but this is currently not supported.
 
 ## Generating the Bitstream
 
@@ -114,7 +116,7 @@ The following is assumed:
 
 1. you have Xilinx ISE 14.7 WebPACK installed, with a valid licence
 
-Open ISE and ```Project -> Open``` and choose the ```"reboot65"``` project.
+Open ISE and ```Project -> Open``` and choose the ```"mega65"``` project.
 
 You should be able to double-click on the ```"Generate Programming File"``` and a bit-stream should be created.
 
