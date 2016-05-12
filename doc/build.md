@@ -70,6 +70,7 @@ You are now ready to pre-compile some files.
 
 ## Patching
 
+Currently I dont think we need to patch anything, so skip this and goto Pre-compiling [to be confirmed]
 Currently two files are required to be used as an offline patch. Unzip both files and overwrite all changes.
 ```
 $GIT_ROOT$/c65gs> unzip ddr.tgz .
@@ -92,26 +93,20 @@ The following is assumed:
 1. you have ```python``` installed (I have ver 2.7.10) (for some scripts ???)
 1. you have ```libpng12-dev``` installed (for the image manipulation)
 
-In your working directory: type "make" a few times
+In your working directory: type the following
 ```
-$GIT_ROOT$/c65gs> make
-$GIT_ROOT$/c65gs> make
-$GIT_ROOT$/c65gs> make
+$GIT_ROOT$/c65gs> cd precomp
+$GIT_ROOT$/c65gs/precomp> make fpga
+$GIT_ROOT$/c65gs/precomp> cd ..
+$GIT_ROOT$/c65gs> 
 ```
-The following warnings may appear, but Paul says this is OK.
+The following warnings may appear, but these are OK:
 ```
-etherload.a65
-diskchooser.a65 
-c65gs/diskmenu.a65
-c65gs/kickstart_dos.a65
-kickstart.a65
 WARNING: branch out of range, replacing with 16-bit relative branch
+
 ```
-Now create the charrom by typing:
-```
-$GIT_ROOT$/c65gs> make charrom.vhdl
-```
-All pre-compiling should bow be done.
+All pre-compiling (for the minimal build) should now be done.
+If you want to ```make all``` you can, but this is currently now supported.
 
 ## Generating the Bitstream
 

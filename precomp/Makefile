@@ -17,6 +17,7 @@ SOCKLIBS =
 endif
 
 fpga:	kickstart.vhdl \
+	version.vhdl \
 	charrom.vhdl
 
 all:	ghdl-frame-gen \
@@ -344,9 +345,9 @@ clean:
 	rm -f c65-rom-911001.txt c65-911001-rom-annotations.txt c65-dos-context.bin c65-911001-dos-context.bin
 	rm -f thumbnail.prg kickstart65gs.bin diskmenuc000.list diskmenu_c000.bin diskchooser diskchooser.list 
 	rm -f textmodetest.prg textmodetest.list etherload_done.bin etherload_stub.bin etherload.prg diskmenu.prg diskmenuprg.list ethertest.prg
-	rm -f kickstart.vhdl videoproxy etherload etherkick
+	rm -f videoproxy etherload etherkick
 	rm -f iomap.txt
-	rm -f version.vhdl version.a65
+	rm -f kickstart.vhdl charrom.vhdl version.vhdl version.a65
 	rm -f monitor_drive monitor_load read_mem ghdl-frame-gen chargen_debug dis4510 em4510 4510tables pngprepare BOOTLOGO.G65
 
 cleangen:
