@@ -2619,6 +2619,11 @@ begin
         -- @IO:GS $D67D.3 - Hypervisor enable ASC/DIN CAPS LOCK key to enable/disable CPU slow-down in C64/C128/C65 modes
         -- @IO:GS $D67D.4 - Hypervisor force CPU to 48MHz for userland (userland can override via POKE0)
         -- @IO:GS $D67D.5 - Hypervisor force CPU to 4502 personality, even in C64 IO mode.
+        -- @IO:GS $D67D.6 - Hypervisor force/clear CPU to suffer IRQ on exit
+        -- from hypervisor.
+        -- @IO:GS $D67D.7 - Hypervisor force/clear CPU to suffer NMI on exit
+        -- from hypervisor.
+        
         -- @IO:GS $D67D - Hypervisor watchdog register: writing any value clears the watch dog
         if last_write_address = x"FFD367D" and hypervisor_mode='1' then
           rom_from_colour_ram <= last_value(0);
@@ -2628,6 +2633,8 @@ begin
           speed_gate_enable_internal <= last_value(3);
           force_fast <= last_value(4);
           force_4502 <= last_value(5);
+          irq_pending <= last_value(6);
+          nmi_pending <= last_value(7);
           watchdog_fed <= '1';
         end if;
         -- @IO:GS $D67E - Hypervisor already-upgraded bit (sets permanently)
@@ -3415,7 +3422,7 @@ begin
             when InstructionWait =>
               state <= InstructionFetch;
             when InstructionFetch =>
-              if (hypervisor_mode='0' or irq_hypervisor(0)='0')    -- JBM
+              if (hypervisor_mode='0')
                 and ((irq_pending='1' and flag_i='0') or nmi_pending='1') then
                 -- An interrupt has occurred
                 state <= Interrupt;
@@ -3449,7 +3456,7 @@ begin
               
               -- 4502 doesn't allow interrupts immediately following a
               -- single-cycle instruction
-              if (hypervisor_mode='0' or irq_hypervisor(1)='0') and (    -- JBM
+              if (hypervisor_mode='0') and (
                 (no_interrupt = '0')
                 and ((irq_pending='1' and flag_i='0') or nmi_pending='1')) then
                 -- An interrupt has occurred
@@ -3683,7 +3690,7 @@ begin
               reg_addressingmode <= mode_lut(to_integer(emu6502&memory_read_value));
               reg_instruction <= instruction_lut(to_integer(emu6502&memory_read_value));
               
-              if (hypervisor_mode='0' or irq_hypervisor(2)='0')    -- JBM
+              if (hypervisor_mode='0')
                 and ((irq_pending='1' and flag_i='0') or nmi_pending='1') then
                 -- An interrupt has occurred 
                 report "Interrupt detected in 6502 mode, decrementing PC";
