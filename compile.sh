@@ -13,6 +13,18 @@ outfile4="compile4-par.log"
 outfile5="compile5-trc.log"
 outfile6="compile6-bit.log"
 
+if test ! -e "./xst/"; then
+  echo "Creating ./xst/"
+  mkdir ./xst/
+fi
+if test ! -e "./xst/projnav.tmp/"; then
+  echo "Creating ./xst/projnav.tmp/"
+  mkdir ./xst/projnav.tmp
+fi
+
+
+exit 1
+
 datetime=`date +%Y-%m-%d.%H:%M:%S`
 echo "========================================================== $datetime xst"
 xst -intstyle ise -ifn "container.xst" -ofn "container.syr" > $outfile1
