@@ -8,7 +8,7 @@ The following components are currently documented (at least in part):
 
 * [container](#container)
 * [machine](#machine)
-* [ddrwrapper](#ddrwrapper)
+* [ddrwrapper](#ddrwrapper) - **now removed**
 
 ## Introduction
 
@@ -20,6 +20,7 @@ Contributors: please order the components within this file as they appear in Xil
 the toplevel component within the fpga design 
 ( [PDF](./images/container.pdf) 2Mb )
 [![container](./images/container-small.jpg)](./images/container.jpg)
+DDRcontroller/DDRwrapper component needs to be removed from image
 
 48MHz clock comes in, is buffered and fed to a CLKDLL
 the CLKDLL outputs four clock signals that are used within the design
@@ -27,8 +28,6 @@ the CLKDLL outputs four clock signals that are used within the design
 clk_out0 - designed to be 48MHz
 
 clk_out1 - designed to be 24MHz
-
-The [ddrwrapper](#ddrwrapper) component is currently not working. Its function is to provide access between the external DDR2-ram chip and the internal 'machine' component.
 
 The [machine](#machine) component holds the significant rest of the architecture.
 
@@ -40,6 +39,6 @@ this component holds most of the fpga design, including CPU, Memory, VIC/SID chi
 [![machine](./images/machine-small.jpg)](./images/machine.jpg)
 
 ## ddrwrapper
-this component is currently not working, and will soon be removed from the design.
+now removed temporarily to lessen compile time, as it was not functioning
 
 The End.
