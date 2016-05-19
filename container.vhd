@@ -131,20 +131,20 @@ entity container is
          --RamWait : in std_logic;
          --MemDB : inout std_logic_vector(15 downto 0);
          --MemAdr : inout std_logic_vector(22 downto 0);
-         ddr2_addr      : out   std_logic_vector(12 downto 0);
-         ddr2_ba        : out   std_logic_vector(2 downto 0);
-         ddr2_ras_n     : out   std_logic;
-         ddr2_cas_n     : out   std_logic;
-         ddr2_we_n      : out   std_logic;
-         ddr2_ck_p      : out   std_logic_vector(0 downto 0);
-         ddr2_ck_n      : out   std_logic_vector(0 downto 0);
-         ddr2_cke       : out   std_logic_vector(0 downto 0);
-         ddr2_cs_n      : out   std_logic_vector(0 downto 0);
-         ddr2_dm        : out   std_logic_vector(1 downto 0);
-         ddr2_odt       : out   std_logic_vector(0 downto 0);
-         ddr2_dq        : inout std_logic_vector(15 downto 0);
-         ddr2_dqs_p     : inout std_logic_vector(1 downto 0);
-         ddr2_dqs_n     : inout std_logic_vector(1 downto 0);
+--         ddr2_addr      : out   std_logic_vector(12 downto 0);
+--         ddr2_ba        : out   std_logic_vector(2 downto 0);
+--         ddr2_ras_n     : out   std_logic;
+--         ddr2_cas_n     : out   std_logic;
+--         ddr2_we_n      : out   std_logic;
+--         ddr2_ck_p      : out   std_logic_vector(0 downto 0);
+--         ddr2_ck_n      : out   std_logic_vector(0 downto 0);
+--         ddr2_cke       : out   std_logic_vector(0 downto 0);
+--         ddr2_cs_n      : out   std_logic_vector(0 downto 0);
+--         ddr2_dm        : out   std_logic_vector(1 downto 0);
+--         ddr2_odt       : out   std_logic_vector(0 downto 0);
+--         ddr2_dq        : inout std_logic_vector(15 downto 0);
+--         ddr2_dqs_p     : inout std_logic_vector(1 downto 0);
+--         ddr2_dqs_n     : inout std_logic_vector(1 downto 0);
          
          ----------------------------------------------------------------------
          -- Debug interfaces on Nexys4 board
@@ -205,23 +205,23 @@ architecture Behavioral of container is
       -- simple-dual-port cache RAM interface so that CPU doesn't have to read
       -- data cross-clock
       cache_address        : in std_logic_vector(8 downto 0);
-      cache_read_data      : out std_logic_vector(150 downto 0);
+      cache_read_data      : out std_logic_vector(150 downto 0)
       
       -- DDR2 interface
-      ddr2_addr            : out   std_logic_vector(12 downto 0);
-      ddr2_ba              : out   std_logic_vector(2 downto 0);
-      ddr2_ras_n           : out   std_logic;
-      ddr2_cas_n           : out   std_logic;
-      ddr2_we_n            : out   std_logic;
-      ddr2_ck_p            : out   std_logic_vector(0 downto 0);
-      ddr2_ck_n            : out   std_logic_vector(0 downto 0);
-      ddr2_cke             : out   std_logic_vector(0 downto 0);
-      ddr2_cs_n            : out   std_logic_vector(0 downto 0);
-      ddr2_dm              : out   std_logic_vector(1 downto 0);
-      ddr2_odt             : out   std_logic_vector(0 downto 0);
-      ddr2_dq              : inout std_logic_vector(15 downto 0);
-      ddr2_dqs_p           : inout std_logic_vector(1 downto 0);
-      ddr2_dqs_n           : inout std_logic_vector(1 downto 0)
+--      ddr2_addr            : out   std_logic_vector(12 downto 0);
+--      ddr2_ba              : out   std_logic_vector(2 downto 0);
+--      ddr2_ras_n           : out   std_logic;
+--      ddr2_cas_n           : out   std_logic;
+--      ddr2_we_n            : out   std_logic;
+--      ddr2_ck_p            : out   std_logic_vector(0 downto 0);
+--      ddr2_ck_n            : out   std_logic_vector(0 downto 0);
+--      ddr2_cke             : out   std_logic_vector(0 downto 0);
+--      ddr2_cs_n            : out   std_logic_vector(0 downto 0);
+--      ddr2_dm              : out   std_logic_vector(1 downto 0);
+--      ddr2_odt             : out   std_logic_vector(0 downto 0);
+--      ddr2_dq              : inout std_logic_vector(15 downto 0);
+--      ddr2_dqs_p           : inout std_logic_vector(1 downto 0);
+--      ddr2_dqs_n           : inout std_logic_vector(1 downto 0)
    );
   end component;
   
@@ -425,23 +425,23 @@ begin
       ram_request_toggle => slowram_request_toggle,
       ram_done_toggle    => slowram_done_toggle,
       cache_address => cache_address,
-      cache_read_data => cache_read_data,
+      cache_read_data => cache_read_data
       
       -- DDR2 interface
-      ddr2_addr => ddr2_addr,
-      ddr2_ba => ddr2_ba,
-      ddr2_ras_n => ddr2_ras_n,
-      ddr2_cas_n => ddr2_cas_n,
-      ddr2_we_n  => ddr2_we_n ,
-      ddr2_ck_p  => ddr2_ck_p ,
-      ddr2_ck_n  => ddr2_ck_n ,
-      ddr2_cke   => ddr2_cke  ,
-      ddr2_cs_n  => ddr2_cs_n ,
-      ddr2_dm    => ddr2_dm   ,
-      ddr2_odt   => ddr2_odt  ,
-      ddr2_dq    => ddr2_dq   ,
-      ddr2_dqs_p => ddr2_dqs_p,
-      ddr2_dqs_n => ddr2_dqs_n
+--      ddr2_addr => ddr2_addr,
+--      ddr2_ba => ddr2_ba,
+--      ddr2_ras_n => ddr2_ras_n,
+--      ddr2_cas_n => ddr2_cas_n,
+--      ddr2_we_n  => ddr2_we_n ,
+--      ddr2_ck_p  => ddr2_ck_p ,
+--      ddr2_ck_n  => ddr2_ck_n ,
+--      ddr2_cke   => ddr2_cke  ,
+--      ddr2_cs_n  => ddr2_cs_n ,
+--      ddr2_dm    => ddr2_dm   ,
+--      ddr2_odt   => ddr2_odt  ,
+--      ddr2_dq    => ddr2_dq   ,
+--      ddr2_dqs_p => ddr2_dqs_p,
+--      ddr2_dqs_n => ddr2_dqs_n
    );
   
   machine0: machine
