@@ -22,9 +22,6 @@ if test ! -e "./xst/projnav.tmp/"; then
   mkdir ./xst/projnav.tmp
 fi
 
-
-exit 1
-
 datetime=`date +%Y-%m-%d.%H:%M:%S`
 echo "========================================================== $datetime xst"
 xst -intstyle ise -ifn "container.xst" -ofn "container.syr" > $outfile1
