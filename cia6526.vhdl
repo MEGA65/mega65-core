@@ -245,6 +245,16 @@ begin  -- behavioural
   variable register_number : unsigned(3 downto 0);
   begin
     if rising_edge(cpuclock) then
+
+      if reset='0' then
+        -- Clear interrupt flags on reset
+        imask_flag <= '0';
+        imask_serialport <= '0';
+        imask_alarm <= '0';
+        imask_tb <= '0';
+        imask_ta <= '0';
+      end if;
+      
       register_number := fastio_address(3 downto 0);
 
       reg_isr_out(7) <= reg_isr(7);

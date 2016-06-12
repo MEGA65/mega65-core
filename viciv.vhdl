@@ -1724,6 +1724,14 @@ begin
         viciv_fast_internal <= '1';
         viciii_fast_internal <= '1';
         vicii_2mhz_internal <= '0';
+
+        -- Clear all VIC-II/III/IV interrupts on reset
+        mask_colissionspritebitmap <= '0';
+        mask_colissionspritesprite <= '0';
+        mask_raster <= '0';
+
+        -- Also turn sprites off on reset
+        vicii_sprite_enables <= (others => '0');
       end if;
       
       report "drive led = " & std_logic'image(led)
