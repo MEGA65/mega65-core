@@ -434,6 +434,11 @@ end component;
   signal no_interrupt : std_logic := '0';
   signal hyper_trap_pending : std_logic := '0';
   signal hyper_trap_state : std_logic := '1';
+  -- To defer interrupts in the hypervisor, we have a special mechanism for this.
+  signal irq_defer_request : std_logic := '0';
+  signal irq_defer_counter : integer range 0 to 65535 := 0;
+  signal irq_defer_active : std_logic := '0';
+
   -- Interrupt/reset vector being used
   signal vector : unsigned(3 downto 0);
   
@@ -1269,19 +1274,39 @@ begin
       -- No interrupts of any sort between MAP and EOM instructions.
       if map_interrupt_inhibit='0' then
         -- NMI is edge triggered.
-        if nmi = '0' and nmi_state = '1' then
+        if (nmi = '0' and nmi_state = '1') and (irq_defer_active='0') then
           nmi_pending <= '1';        
         end if;
         nmi_state <= nmi;
         -- IRQ is level triggered.
-        if (irq = '0') and (flag_i='0') then
+        if ((irq = '0') and (flag_i='0')) and (irq_defer_active='0') then
           irq_pending <= '1';
         else
           irq_pending <= '0';
         end if;
       else
         irq_pending <= '0';
-      end if;     
+      end if;
+
+      -- Allow hypervisor to ban interrupts for 65,535 48MHz CPU cycles,
+      -- i.e., ~1,365 1MHz CPU cycles, i.e., ~1.37ms.  This is intended mainly
+      -- to be used by the hypervisor when passing control to the C64/C65 ROM
+      -- on boot, so that the IRQ/NMI vectors can be setup, before any
+      -- interrupt can occur.  The CIA and VIC chips now also properly clear
+      -- interrupts on reset, so hopefully this won't be needed, but it is a
+      -- good insurance policy in any case, including if some dill hits RESTORE
+      -- too fast during boot, which is also a hazard on a real C64/C65.
+      if irq_defer_request = '1' then
+        irq_defer_counter <= 65535;
+      else
+        if irq_defer_counter = 0 then
+          irq_defer_active <= '0';
+        else
+          irq_defer_active <= '1';
+          irq_defer_counter <= irq_defer_counter - 1;
+        end if;
+      end if;
+      
     end procedure check_for_interrupts;
 
     -- purpose: Convert a 16-bit C64 address to native RAM (or I/O or ROM) address
@@ -2613,16 +2638,15 @@ begin
           monitor_char_toggle <= monitor_char_toggle_internal;
           monitor_char_toggle_internal <= not monitor_char_toggle_internal;
         end if;
-        -- @IO:GS $D67D.0 - Hypervisor C64 ROM source select (0=DDR,1=64KB colour RAM)
+        -- @IO:GS $D67D.0 - Hypervisor C64 ROM source select (0=normal,1=colour RAM)
         -- @IO:GS $D67D.1 - Hypervisor enable 32-bit JMP/JSR etc
         -- @IO:GS $D67D.2 - Hypervisor write protect C65 ROM $20000-$3FFFF
         -- @IO:GS $D67D.3 - Hypervisor enable ASC/DIN CAPS LOCK key to enable/disable CPU slow-down in C64/C128/C65 modes
         -- @IO:GS $D67D.4 - Hypervisor force CPU to 48MHz for userland (userland can override via POKE0)
         -- @IO:GS $D67D.5 - Hypervisor force CPU to 4502 personality, even in C64 IO mode.
-        -- @IO:GS $D67D.6 - Hypervisor force/clear CPU to suffer IRQ on exit
-        -- from hypervisor.
-        -- @IO:GS $D67D.7 - Hypervisor force/clear CPU to suffer NMI on exit
-        -- from hypervisor.
+        -- @IO:GS $D67D.6 - Hypervisor flag to indicate if an IRQ is pending on exit from the hypervisor / set 1 to force IRQ/NMI deferal for 1,024 cycles on exit from hypervisor.
+
+        -- @IO:GS $D67D.7 - Hypervisor flag to indicate if an NMI is pending on exit from the hypervisor.
         
         -- @IO:GS $D67D - Hypervisor watchdog register: writing any value clears the watch dog
         if last_write_address = x"FFD367D" and hypervisor_mode='1' then
@@ -2633,8 +2657,10 @@ begin
           speed_gate_enable_internal <= last_value(3);
           force_fast <= last_value(4);
           force_4502 <= last_value(5);
-          irq_pending <= last_value(6);
-          nmi_pending <= last_value(7);
+          irq_defer_request <= last_value(6);
+          
+          report "irq_pending, nmi_pending <= " & std_logic'image(last_value(6))
+            & "," & std_logic'image(last_value(7));
           watchdog_fed <= '1';
         end if;
         -- @IO:GS $D67E - Hypervisor already-upgraded bit (sets permanently)
@@ -5119,6 +5145,8 @@ begin
             if hypervisor_mode = '1'
               and memory_access_address(5 downto 0) = "111111" then
               report "HYPERTRAP: Hypervisor return triggered by write to $D67F";
+              report "           irq_pending = " & std_logic'image(irq_pending);
+              report "           nmi_pending = " & std_logic'image(nmi_pending);
               state <= ReturnFromHypervisor;
             end if;
             -- Don't increment PC if we were otherwise going to shortcut to
