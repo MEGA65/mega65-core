@@ -353,7 +353,7 @@ reset_machine_state:
 		; (The watchdog was added to catch reset problems where the machine
 		; would run off somewhere odd instead of resetting properly. Now it
 		; will auto-reset after 65535 cycles if the watchdog is not cleared).
-		lda #$2a
+		lda #$6a
 		sta hypervisor_feature_enables
 
 		jsr resetdisplay
