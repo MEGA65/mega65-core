@@ -75,7 +75,7 @@ echo "==> $datetime Finished!"
 echo "Refer to compile[1-6].*.log for the output of each Xilinx command."
 
 # now timestamp the file and rename with git-status
-datetime=`date +%Y%m%d_%H%M%S`
+datetime=`date +%m%d_%H%M_`
 gitstring=`git describe --always --abbrev=7 --dirty=~`
 echo "mv ./container.bit ./bit$datetime$gitstring.bit"
 mv       ./container.bit ./bit$datetime$gitstring.bit
