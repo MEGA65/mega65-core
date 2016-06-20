@@ -2,13 +2,11 @@
 
 # Table of Contents:
 
-[Introduction](#Introduction)
-
-[Downloading Repository](#Downloading-Repository)
-
-[Compiling](#Compiling)
-
-[Programming the FPGA](#Programming-the-FPGA)
+[Introduction](#introduction)  
+[Downloading Repository](#downloading-repository)  
+[Compiling](#compiling)  
+[Modifying the design using ISE](#modifying-the-design-using-ise)  
+[Programming the FPGA](#programming-the-fpga)
 
 ## Introduction
 
@@ -30,7 +28,7 @@ The following is assumed:
 
 1. you have linux, say, Ubuntu 15
 1. you have git installed
-```bash
+```
 $> sudo apt-get install git
 ```
 
@@ -86,18 +84,18 @@ WARNING: branch out of range, replacing with 16-bit relative branch
 
 ## Modifying the design using ISE
 
-Open ISE and ```Project -> Open``` and choose the ```"mega65"``` project.
+Open ISE, and then ```Project -> Open``` and choose the ```"mega65"``` project.
 
 You should be able to double-click on the ```"Generate Programming File"``` and a bit-stream should be created.
 
 ## Programming the FPGA
 
-We Load the bitstream into the Nexys 4 DDR board via USB stick:
+Then load the bitstream into the Nexys 4 DDR board via USB stick:
 
 1. you need a USB stick formatted as FAT32
 1. copy the bitstream to the root directory of the USB stick
 ```
-$GIT_ROOT$/c65gs> cp container.bit /media/sdc1
+$GIT_ROOT$/c65gs> cp *.bit /media/sdc1
 ```
 
 1. power OFF nexys board

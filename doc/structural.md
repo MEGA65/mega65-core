@@ -2,7 +2,7 @@
 
 # Table of Contents:
 
-[Introduction](#Introduction)
+[Introduction](#introduction)
 
 The following components are currently documented (at least in part):
 
@@ -19,15 +19,13 @@ Contributors: please order the components within this file as they appear in Xil
 ## container
 the toplevel component within the fpga design 
 ( [PDF](./images/container.pdf) 2Mb )
-[![container](./images/container-small.jpg)](./images/container.jpg)
-DDRcontroller/DDRwrapper component needs to be removed from image
+[![container](./images/container-small.jpg)](./images/container.jpg)  
+**DDRcontroller/DDRwrapper component needs to be removed from image**
 
-48MHz clock comes in, is buffered and fed to a CLKDLL
-the CLKDLL outputs four clock signals that are used within the design
-
-clk_out0 - designed to be 48MHz
-
-clk_out1 - designed to be 24MHz
+ie: 48MHz clock comes in, is buffered and fed to a CLKDLL  
+ie: the CLKDLL outputs four clock signals that are used within the design  
+ie: clk_out0 - designed to be 48MHz  
+ie: clk_out1 - designed to be 24MHz  
 
 The [machine](#machine) component holds the significant rest of the architecture.
 
