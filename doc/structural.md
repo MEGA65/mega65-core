@@ -47,7 +47,7 @@ Sub-components include:
 * "[iomapper](#iomapper)"  
 * "uart_monitor" (to be do)  
 
-As shown in the diagram below, the "machine" component holds the four sub-components listed above.
+As shown in the diagram below, the "machine" component holds the four sub-components listed above.  
 In addition, the "machine" component includes:
 * a process to generate interrupt/reset,  
 * a process for reset-logic, LEDs, 7-seg display,  
@@ -65,14 +65,14 @@ This components includes the following functionality:
 
 Sub-components include:  
 * "[kickstart](#kickstart)"  
-* "keymapper" (to be do)  
-* "c65uart" (to be do)  
-* "cia" (to be do)  
-* "sid" (to be do)  
-* "sdcardio" (to be do)  
+* "[framepacker](#framepacker)"  
+* "[cia](#cia)"  
+* "[c65uart](#c65uart)"  
+* "[keymapper](#keymapper)"  
+* "[sid](#sid)"  
+* "[ethernet](#ethernet)"  
+* "[sdcardio](#sdcardio)"  
 * "[farcallstack](#farcallstack)"  
-* "framepacker" (to be do)  
-* "ethernet" (to be do)  
 
 [![iomapper](./images/iomapper-small.jpg)](./images/iomapper.jpg)  
 Click the image above for a hi-res JPG, else the [PDF link](./images/iomapper.pdf).
@@ -80,7 +80,66 @@ Click the image above for a hi-res JPG, else the [PDF link](./images/iomapper.pd
 ## kickstart
 This component is basically just a ROM, and is just implemented using processes, ie no sub-components.
 
+## framepacker
+This component seems not-required for core functionality of the MEGA65.  
+It seems to sub-sample the video stream and buffer this for later transmission to the ethernet component.  
+This component contains:
+* two "videobuffer" components, which are currently RAM components of size "8-bit by 4096" each, and  
+* one "CRC" component, which seems to calculate the CRC for ethernet transmission.  
+Also refer to the "ethernet" controller.
+
+
+## cia
+There are two of these components.  
+To do.
+
+
+## c65uart
+To do.
+
+
+## keymapper
+To do.
+
+
+## sid
+This component implements the sound chip of the C64/C65.  
+The MEGA65 project uses stereo (LEFT and RIGHT) audio channels, whereas the c64 just uses a mono channel.  
+I understand that this module was sourced from another online C6x project.  
+This component contains:
+* three channels each using the "sid_voice" component,  
+* "sid_filter" and "sid_coeffs" subcomponents.
+* some top-level process(es) to hook everything up.
+
+
+## ethernet
+This component seems to implement an ethernet interface.  
+Currently it is not entirely understood.  
+This component contains: (enuff that it probly warrants a drawing)
+* a RX and TX buffer, of size "8-bit by 4096" each,
+* a CRC component for each of the RX and TX data streams,
+* an RRNET buffer, of size "8-bit by 4096", and
+* two StateMachines, one for RX and one for TX, and
+* process(s) to do memory-mapping (of the ETH-state for c65-mode ???)
+
+
+## sdcardio
+This component seems to be multi-purpose:
+* provides an interface to the SDcard  
+* interfaces to switches/buttons/colourram/audioin/audioout  
+
+It is suggested that this component be broken up into more discrete components.  
+
+This component contains: (enuff that it probly warrants a drawing)
+* three RAM components, each of size "8-bit by 512",
+* a single StateMachine to do all the work
+
+
 ## farcallstack
-This component seems to be a dualport RAM, and is just implemented using processes, ie no sub-components.
+This component seems to be a dualport RAM, and is just implemented using processes, ie no sub-components.  
+The size is "64-bit by 512".  
+I think this component samples the CPU InstructionRegister, ProgramCounter, A,X,Y-registers, ALU-state, etc, and stores these in a circular-buffer. This data can be accessed from the buffer when the Hypervisor-mode is used, or by using the UART-debugger.  
+This component is not fully understood.  
+
 
 The End.
