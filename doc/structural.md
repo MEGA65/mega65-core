@@ -11,25 +11,32 @@ The following components are currently documented (at least in part):
 * [container/machine](#machine)
 * [container/machine/iomapper](#iomapper)
 * [container/machine/iomapper/kickstart](#kickstart)
+* [container/machine/iomapper/framepacker](#framepacker)
+* [container/machine/iomapper/cia](#cia)
+* [container/machine/iomapper/c65uart](#c65uart)
+* [container/machine/iomapper/keymapper](#keymapper)
+* [container/machine/iomapper/sid](#sid)
+* [container/machine/iomapper/ethernet](#ethernet)
+* [container/machine/iomapper/sdcardio](#sdcardio)
 * [container/machine/iomapper/farcallstack](#farcallstack)
 
 ## Introduction
 
-This page will give an overview of *some* of the components, especially the components at the upper levels. For lower-level components, it is recommended that state-machine diagrams or data-flow diagrams$
+This page will give an overview of *some* of the components, especially the components at the upper levels. For lower-level components, it is recommended that state-machine diagrams or data-flow diagrams be used.
 
 Contributors: please order the components within this file as they appear in Xilinx ISE.
 
 ## container
-the toplevel component within the fpga design.  
+The toplevel component within the fpga design.  
 [![container](./images/container-small.jpg)](./images/container.jpg)  
 Click the image above for a hi-res JPG, else the [PDF link](./images/machine.pdf).  
 **NOTE that the DDRcontroller/DDRwrapper component needs to be removed from image**
 
-
-ie: 48MHz clock comes in, is buffered and fed to a CLKDLL  
-ie: the CLKDLL outputs four clock signals that are used within the design  
-ie: clk_out0 - designed to be 48MHz  
-ie: clk_out1 - designed to be 24MHz  
+This component (for example)(to be revised):
+* 48MHz clock comes in, is buffered and fed to a CLKDLL  
+* the CLKDLL outputs four clock signals that are used within the design  
+* clk_out0 - designed to be 48MHz  
+* clk_out1 - designed to be 24MHz  
 
 The [machine](#machine) component holds the significant rest of the architecture.
 
@@ -86,6 +93,7 @@ It seems to sub-sample the video stream and buffer this for later transmission t
 This component contains:
 * two "videobuffer" components, which are currently RAM components of size "8-bit by 4096" each, and  
 * one "CRC" component, which seems to calculate the CRC for ethernet transmission.  
+
 Also refer to the "ethernet" controller.
 
 
