@@ -6,6 +6,8 @@
 [c64 mode](#c64-mode)  
 [diskimages](#disk-images)  
 [converting D64 images to D81 image format](#converting-d64-images-to-d81-image-format)  
+[Files required on SDcard](#files-required-on-sdcard)  
+[Files required on USBcard](#files-required-on-usbcard)  
 [debugger](#debugger)  
 
 ## Introduction
@@ -83,7 +85,21 @@ http://www.zimmers.net/anonftp/pub/cbm/crossplatform/converters/unix/cbmconvert-
 http://www.zimmers.net/anonftp/pub/cbm/crossplatform/converters/unix/cbmconvert.html
 1. converting a D64 image to D81 format, verbosely, you can do:  
 ```./cbmconvert -v2 -D8 crest-2_years_crest.d81 -d crest-2_years_crest.d64```  
-1. then put the D81 file on the SDcard of the c65gs and enjoy.
+1. then put the D81 file on the SDcard of the c65gs and enjoy.  
+
+* NOTE that I had 'defrag' problems when mounting some D81 files. It seems the SDcard reader can only mount the image if the D81-file is contiguous, IE: if the SDcard is fragmented, it cannot load.  \
+* So, ensure that the SDcard is defragmented, either ```defrag``` on windows, or format the card, then copy on all files required.
+
+## Files required on SDcard
+
+* ```BOOTLOGO.G65``` -- image displayed on kickstart screen, refer ```/precomp/Makefile```   
+* ```CHARROM.M65``` -- the proprietary CBM character rom (download at: ...?)  
+* ```MEGA65.ROM``` -- unsure...  
+* ```user.bit``` -- (optional) place a bitstream on the SDcard as a fallback when USB is unavailable  
+
+## Files required on USBstick
+
+* ```user.bit``` -- bitstream to load on the USBstick when FPGA is powered ON.  
 
 ## debugger
 With the MEGA65 running in c64 mode:
