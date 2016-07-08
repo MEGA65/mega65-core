@@ -92,7 +92,7 @@ http://www.zimmers.net/anonftp/pub/cbm/crossplatform/converters/unix/cbmconvert.
 
 ## Files required on SDcard
 
-* ```BOOTLOGO.G65``` -- image displayed on kickstart screen, refer ```/precomp/Makefile```   
+* ```BOOTLOGO.G65``` -- (not critical) image displayed on kickstart screen, refer ```/precomp/Makefile```   
 * ```CHARROM.M65``` -- the proprietary CBM character rom (download at: ...?)  
 * ```MEGA65.ROM``` -- unsure...  
 * ```user.bit``` -- (optional) place a bitstream on the SDcard as a fallback when USB is unavailable  
@@ -101,14 +101,14 @@ http://www.zimmers.net/anonftp/pub/cbm/crossplatform/converters/unix/cbmconvert.
 
 * ```user.bit``` -- bitstream to load on the USBstick when FPGA is powered ON.  
 
-## debugger
-With the MEGA65 running in c64 mode:
+## Debugger
+With the MEGA65 running in either c65/c64 mode:
 
 1. connect USB cable between PROG/UART header of the FPGA-board and a USB port of the PC.
 1. the PC should detect that there is a USB-device on the FPGA-end of the cable.
 1. using a terminal window, open/connect communication by: ```sudo cu -l /dev/cu.usbserial<???> -s 230400```
 1. pressing 'return' will bring up the prompt
 1. typing ```?<return>``` will provide some help text
-1. unsure how to kill the serial-comminications
+1. to close the connection, type ```~.``` at the start of a blank line.
 
 The End.

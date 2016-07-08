@@ -145,6 +145,7 @@ architecture behavioural of uart_monitor is
   signal trace_continuous : std_logic := '0';
   
   constant crlf : string := cr & lf;
+
   constant bannerMessage : String :=
     crlf &
     crlf &
@@ -152,18 +153,29 @@ architecture behavioural of uart_monitor is
     "MEGA65 Serial Monitor" & crlf &
     "build " & gitcommit & crlf &
     "--------------------------------" & crlf &
-    "Type ? for help." & crlf;
+    "Type ?/h/H for help." & crlf;
+
   signal banner_position : integer range 0 to 511 := 1;
+
   constant helpMessage : String :=
     "f<low> <high> <byte> - Fill memory" &    crlf &
     "g<addr> - Set PC" & crlf &
-    "m<addr> - Dump memory (28bit addresses)" & crlf &
-    "d<addr> - Dump memory (CPU context)" & crlf &
-    "r - Print registers" & crlf &
+    "m<addr> - Dump memory (28bit addresses) (1-line)" & crlf &
+    "M<addr> - Dump memory (28bit addresses) (32-lines)" & crlf &
+    "d<addr> - Dump memory (CPU context) (1-line)" & crlf &
+    "D<addr> - Dump memory (CPU context) (32-lines)" & crlf &
+    "r/R - Print registers" & crlf &
+    "c/C - UNSURE" & crlf &
+    "e/E - UNSURE" & crlf &
+    "z/Z - UNSURE" & crlf &
+    "l/L - UNSURE" & crlf &
+    "w/W - UNSURE" & crlf &
+    "?/h/H - this help" & crlf &
     "s<addr> <value> ... - Set memory (28bit addresses)" & crlf &
     "S<addr> <value> ... - Set memory (CPU memory context)" & crlf &
-    "b[<addr>] - Set or clear CPU breakpoint" & crlf &
-    "t<0|1> - Enable/disable tracing" & crlf &
+    "b - Clear CPU breakpoint" & crlf &
+    "b<addr> - Set CPU breakpoint" & crlf &
+    "t<0|1|2> - Enable/disable tracing" & crlf &
     "tc - Traced execution until keypress" & crlf &
     "t|BLANK LINE - Step one cpu cycle if in trace mode" & crlf;
 
@@ -224,9 +236,9 @@ architecture behavioural of uart_monitor is
                          );
 
   subtype command_len_t is integer range 0 to 64;
-  type command_len_history_t is array (0 to 15) of command_len_t;
+  type    command_len_history_t is array (0 to 15) of command_len_t;
   subtype command_t is String(1 to 64);
-  type command_history_t is array (0 to 15) of command_t;
+  type    command_history_t is array (0 to 15) of command_t;
   signal command_history : command_history_t;
   signal command_lengths : command_len_history_t := (others => 0);
   signal command_history_next : integer range 0 to 15 := 0;
@@ -462,6 +474,7 @@ begin
       success_state <= next_state;
       state <= PrintHex;
     end print_hex;
+	 
     procedure print_spaces (
       digits     : in integer;
       next_state : in monitor_state) is
@@ -472,18 +485,21 @@ begin
       success_state <= next_state;
       state <= PrintSpaces;
     end print_spaces;
+	 
     procedure print_hex_addr (
       value      : in unsigned(27 downto 0);
       next_state : in monitor_state) is
     begin  -- print_hex
       print_hex(value & x"0",7,next_state);
     end print_hex_addr;
+	 
     procedure print_hex_byte (
       value      : in unsigned(7 downto 0);
       next_state : in monitor_state) is
     begin  -- print_hex
       print_hex(value & x"000000",2,next_state);
     end print_hex_byte;
+	 
     procedure print_two_spaces (
       next_state : in monitor_state) is
     begin  -- print_hex
@@ -712,6 +728,7 @@ begin
           when Reseting =>
             banner_position <= 1;
             state <= PrintBanner;
+				
           when PrintHelp =>
             if tx_ready='1' then
               tx_data <= to_std_logic_vector(helpMessage(banner_position));
@@ -723,6 +740,7 @@ begin
                 cmdlen <= 1;
               end if;
             end if;
+				
           when PrintBanner =>
             if tx_ready='1' then
               tx_data <= to_std_logic_vector(bannerMessage(banner_position));
@@ -734,6 +752,7 @@ begin
                 cmdlen <= 1;
               end if;
             end if;
+				
           when PrintError =>
             if tx_ready='1' then
               tx_data <= to_std_logic_vector(errorMessage(banner_position));
@@ -744,6 +763,7 @@ begin
                 print_hex_byte(errorCode,PrintError2);
               end if;
             end if;
+				
           when PrintError2 => try_output_char(cr,PrintError3);
           when PrintError3 => try_output_char(lf,PrintError4);
           when PrintError4 =>
@@ -755,6 +775,7 @@ begin
             else
               state <= NextCommand;
             end if;
+				
           when PrintRequestTimeoutError =>
             monitor_mem_attention_request <= '0';
             if tx_ready='1' then
@@ -766,6 +787,7 @@ begin
                 state <= NextCommand;
               end if;
             end if;
+				
           when PrintReplyTimeoutError =>
             monitor_mem_attention_request <= '0';
             if tx_ready='1' then
@@ -777,9 +799,12 @@ begin
                 state <= NextCommand;
               end if;
             end if;
+				
           when NextCommand => cmdlen <= 1; try_output_char(cr,NextCommand2);
           when NextCommand2 => try_output_char(lf,PrintPrompt);
+			 
           when PrintPrompt => cmdlen <= 1; try_output_char('.',AcceptingInput);
+			 
           when AcceptingInput =>
             -- If there is a character waiting
             if monitor_char_toggle /= monitor_char_toggle_last then
@@ -801,6 +826,7 @@ begin
             if trace_continuous='1' then
               state <= EnterPressed;
             end if;
+				
           when RedrawInputBuffer => try_output_char(cr,RedrawInputBuffer2);
           when RedrawInputBuffer2 => redraw_position <= 1; try_output_char('.',RedrawInputBuffer3);
           when RedrawInputBuffer3 =>
@@ -816,6 +842,7 @@ begin
             else
               state <= RedrawInputBuffer4;
             end if;
+				
           when RedrawInputBuffer4 =>
             if redraw_position>cmdlen then
               if tx_ready='1' then
@@ -825,10 +852,12 @@ begin
             else
               state <= AcceptingInput;
             end if;
+				
           when EraseInputBuffer =>
             redraw_position<=1;
             cmdlen <= 1;
             state <= RedrawInputBuffer;
+				
           when EnterPressed =>
             prev_cmdlen <= cmdlen;
             parse_position<=2; try_output_char(cr,EnterPressed2);
@@ -973,6 +1002,7 @@ begin
               cmdlen <= 1;
               state <= ShowRegisters;
             end if;
+				
           when CPUHistory =>
             history_record <= '0';
             history_address <= to_integer(hex_value(9 downto 0));
@@ -980,10 +1010,10 @@ begin
           when CPUHistory1 =>
             history_buffer <= history_rdata;
             state <= ShowRegisters2;
+				
           when CPUStateLog =>
             if banner_position /= cpu_state_count then
-              print_hex_byte(cpu_state_buf(banner_position)(15 downto 8),
-                             CPUStateLog2);
+              print_hex_byte(cpu_state_buf(banner_position)(15 downto 8),CPUStateLog2);
             else
               state <= NextCommand;
             end if;
@@ -991,14 +1021,14 @@ begin
             try_output_char(':',CPUStateLog3);
           when CPUStateLog3 =>
             if banner_position /= cpu_state_count then
-              print_hex_byte(cpu_state_buf(banner_position)(7 downto 0),
-                             CPUStateLog4);
+              print_hex_byte(cpu_state_buf(banner_position)(7 downto 0),CPUStateLog4);
               banner_position <= banner_position + 1;
             else
               state <= NextCommand;
             end if;
           when CPUStateLog4 =>
             try_output_char(' ',CPUStateLog);
+				
           when FillMemory1 =>
             target_address <= hex_value(27 downto 0);
             skip_space(FillMemory2);
@@ -1021,8 +1051,10 @@ begin
               target_address <= target_address + 1;
               cpu_transaction(FillMemory5);
             end if;
+				
           when Watch1 => monitor_watch <= hex_value(27 downto 0);
                          state <= NextCommand;
+								 
           when LoadMemory1 => target_address <= hex_value(27 downto 0);
                              skip_space(LoadMemory2);
           when LoadMemory2 => parse_hex(LoadMemory3);
@@ -1051,6 +1083,7 @@ begin
               rx_acknowledge <= '0';
               state <= NextCommand;
             end if;
+				
           when SetMemory1 =>
             if cmdbuffer(1) = 'S' then
               target_address <= x"777"&hex_value(15 downto 0);
@@ -1081,7 +1114,9 @@ begin
             else
               state <= NextCommand;
             end if;
+				
           when ParseHex => parse_hex_digit;
+			 
           when PrintHex =>
             if hex_digits_output<hex_digits_read then
               if tx_ready='1' then
@@ -1092,6 +1127,7 @@ begin
             else
               state <= success_state;
             end if;
+				
           when PrintSpaces =>
             if hex_digits_output<hex_digits_read then
               if tx_ready='1' then
@@ -1101,9 +1137,11 @@ begin
             else
               state <= success_state;
             end if;
+				
           when ParseFlagBreak =>
             flag_break_mask <= hex_value(15 downto 0);
             state <= NextCommand;
+				
           when ShowMemoryCPU1 =>
             -- Read memory from CPU's perspective
             target_address <= x"777"&hex_value(15 downto 0);
@@ -1151,9 +1189,11 @@ begin
             byte_number <= byte_number + 1;
             print_hex_byte(membuf(byte_number),ShowMemory7);
           when ShowMemory9 => try_output_char(lf,ShowMemory2);
+			 
           when ShowRegisters =>
             show_register_delay <= 255;
             state <= ShowRegistersDelay;
+				
           when ShowRegistersDelay =>
             -- Wait 60 cycles to give instruction time to run (even when loaded
             -- from slow ram), so that when we latch the exposed CPU state it is post-instruction, not pre-
@@ -1163,6 +1203,7 @@ begin
             else
               show_register_delay <= show_register_delay - 1;
             end if;
+				
           when ShowRegistersRead =>            
             history_buffer(7 downto 0) <= monitor_p;
             history_buffer(15 downto 8) <= monitor_a;
@@ -1198,6 +1239,7 @@ begin
             
             banner_position <= 1; state<= ShowRegisters1;
             monitor_mem_setpc <= '0';
+				
           when ShowRegisters1 =>
             if tx_ready='1' then
               tx_data <= to_std_logic_vector(registerMessage(banner_position));
@@ -1399,20 +1441,26 @@ begin
             else
               try_output_char('-',NextCommand);
             end if;
+				
           when EraseCharacter => try_output_char(' ',EraseCharacter1);
           when EraseCharacter1 => try_output_char(bs,AcceptingInput);
+			 
           when SyntaxError =>
             banner_position <= 1; state <= PrintError;
+				
           when RequestTimeoutError =>
             banner_position <= 1; state <= PrintRequestTimeoutError;
+				
           when ReplyTimeoutError =>
             banner_position <= 1; state <= PrintReplyTimeoutError;
+				
           when SetPC1 =>
             monitor_mem_address(15 downto 0) <= hex_value(15 downto 0);
             monitor_mem_read <= '1';
             monitor_mem_setpc <= '1';
             monitor_mem_write <= '0';
             cpu_transaction(ShowRegisters);
+				
           when CPUTransaction1 =>
             if monitor_mem_attention_granted='0' then
               monitor_mem_attention_request <= '1';
@@ -1446,10 +1494,12 @@ begin
               end if;
               timeout <= timeout - 1;              
             end if;
+				
           when CPUBreak1 =>
             break_address <= hex_value(15 downto 0);
             break_enabled <= '1';
             state <= NextCommand;
+				
           when TraceStep =>
             -- Toggle trace flag so that CPU knows it can do one more instruction
             monitor_mem_trace_toggle <= not monitor_mem_trace_toggle_internal;
@@ -1457,8 +1507,11 @@ begin
             -- Give CPU a couple of cycles to leave instruction fetch state
             post_transaction_state <= ShowRegisters;
             state <= WaitOneCycle;
+				
           when WaitOneCycle => state <= post_transaction_state;
+			 
           when others => null;
+			 
         end case;
       end if;
     end if;
