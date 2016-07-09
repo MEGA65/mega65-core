@@ -1178,6 +1178,12 @@ begin
         if flag_i='1' then s(105) := 'I'; end if;
         if flag_z='1' then s(106) := 'Z'; end if;
         if flag_c='1' then s(107) := 'C'; end if;
+
+        if hypervisor_mode='1' then
+          s(109) := 'H';
+        else
+          s(109) := 'U';
+        end if;
         
         -- Display disassembly
         report s severity note;
