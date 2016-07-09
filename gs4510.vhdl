@@ -193,6 +193,9 @@ component shadowram is
         );
 end component;
 
+  signal cpuspeed_internal : unsigned(7 downto 0);
+
+
   -- Pre-calculated long addresses for 16 by 4KB sections.
   -- (used to flatten logic depth)
   type address_block_array is array(31 downto 0) of unsigned(31 downto 0);
@@ -1045,7 +1048,7 @@ begin
     procedure disassemble_last_instruction is
       variable justification : side := RIGHT;
       variable size : width := 0;
-      variable s : string(1 to 110) := (others => ' ');
+      variable s : string(1 to 119) := (others => ' ');
       variable t : string(1 to 100) := (others => ' ');
       variable virtual_reg_p : std_logic_vector(7 downto 0);
     begin
@@ -1179,11 +1182,20 @@ begin
         if flag_z='1' then s(106) := 'Z'; end if;
         if flag_c='1' then s(107) := 'C'; end if;
 
+        -- Show hypervisor/user mode flag
         if hypervisor_mode='1' then
           s(109) := 'H';
         else
           s(109) := 'U';
         end if;
+
+        -- Show current CPU speed
+        s(111 to 113) := "000";
+        if vicii_2mhz='1' then s(111) := '1'; end if;
+        if viciii_fast='1' then s(112) := '1'; end if;
+        if viciv_fast='1' then s(113) := '1'; end if;
+        s(115 to 116) := to_hstring(cpuspeed_internal);
+        s(117 to 119) := "MHz";
         
         -- Display disassembly
         report s severity note;
@@ -2821,40 +2833,49 @@ begin
               fast_fetch_state <= ProcessorPause;
               cpu_pause_shift <= 0;
               cpuspeed <= x"01";
+              cpuspeed_internal <= x"01";
             when "101" => -- 1mhz
               normal_fetch_state <= ProcessorPause;
               fast_fetch_state <= ProcessorPause;          
               cpu_pause_shift <= 0;
               cpuspeed <= x"01";
+              cpuspeed_internal <= x"01";
             when "110" => -- 3.5mhz
               normal_fetch_state <= ProcessorPause;
               fast_fetch_state <= ProcessorPause;          
               cpu_pause_shift <= 2;
               cpuspeed <= x"04";
+              cpuspeed_internal <= x"04";
             when "111" => -- 48mhz
               cpuspeed <= x"48";
+              cpuspeed_internal <= x"48";
               null;
             when "000" => -- 2mhz
               normal_fetch_state <= ProcessorPause;
               fast_fetch_state <= ProcessorPause;          
               cpu_pause_shift <= 1;
               cpuspeed <= x"02";
+              cpuspeed_internal <= x"02";
             when "001" => -- 48mhz
               cpuspeed <= x"48";
+              cpuspeed_internal <= x"48";
               null;
             when "010" => -- 3.5mhz
               normal_fetch_state <= ProcessorPause;
               fast_fetch_state <= ProcessorPause;          
               cpu_pause_shift <= 2;
               cpuspeed <= x"04";
+              cpuspeed_internal <= x"04";
             when "011" => -- 48mhz
               cpuspeed <= x"48";
+              cpuspeed_internal <= x"48";
               null;
             when others =>
               null;
           end case;
         else
           cpuspeed <= x"48";
+          cpuspeed_internal <= x"48";
         end if;
       else
         normal_fetch_state <= ProcessorHold;
