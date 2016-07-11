@@ -44,7 +44,7 @@ version.a65:	*.vhdl *.a65 *.vhd Makefile
 	./version.sh
 
 # diskmenu_c000.bin yet b0rken
-kickstart65gs.bin:	$(KICKSTARTSRCS) Makefile diskchooser version.a65
+kickstart65gs.bin:	$(KICKSTARTSRCS) Makefile diskchooser version.a65 diskmenu_c000.bin
 	../Ophis/bin/ophis -4 kickstart.a65 -l kickstart.list
 
 diskmenu_c000.bin:	diskmenuc000.a65 diskmenu.a65 etherload.prg
