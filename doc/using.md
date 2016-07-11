@@ -8,7 +8,7 @@
 [converting D64 images to D81 image format](#converting-d64-images-to-d81-image-format)  
 [Files required on SDcard](#files-required-on-sdcard)  
 [Files required on USBcard](#files-required-on-usbcard)  
-[debugger](#debugger)  
+[Serial Monitor](#serial-monitor)  
 
 ## Introduction
 
@@ -101,8 +101,12 @@ http://www.zimmers.net/anonftp/pub/cbm/crossplatform/converters/unix/cbmconvert.
 
 * ```user.bit``` -- bitstream to load on the USBstick when FPGA is powered ON.  
 
-## Debugger
-With the MEGA65 running in either c65/c64 mode:
+## Serial Monitor
+The monitor can be used to gain a closer look at what the CPU (and other parts of the design) are doing. If you are familiar with a debugger or machine-code-monitor, then the Serial Monitor will be familiar to you.  
+The monitor allows a user to interface within a serial port program on a PC, to the internals of the FPGA.  
+Refer to the [monitor](./monitor.md) page for detailled instructions on how to use it.  
+
+Basically, with the MEGA65 running in either c65/c64 mode:
 
 1. connect USB cable between PROG/UART header of the FPGA-board and a USB port of the PC.
 1. the PC should detect that there is a USB-device on the FPGA-end of the cable.
