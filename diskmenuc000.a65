@@ -10,6 +10,8 @@
 
     .include "diskmenu.a65"
 
+    .scend
+
     .checkpc $CE00
     ; $CE00 - $CEFF is reserved for hypervisor/filesystem scratch space
     ; (see kickstart.a65 for the allocations in this space)
