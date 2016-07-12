@@ -22,6 +22,9 @@ if test ! -e "./xst/projnav.tmp/"; then
   mkdir ./xst/projnav.tmp
 fi
 
+# time for the output filename
+datetime2=`date +%m%d_%H%M_`
+
 datetime=`date +%Y%m%d_%H:%M:%S`
 echo "==> $datetime Starting: xst, see container.syr"
 xst -intstyle ise -ifn "container.xst" -ofn "container.syr" > $outfile1
@@ -75,8 +78,7 @@ echo "==> $datetime Finished!"
 echo "Refer to compile[1-6].*.log for the output of each Xilinx command."
 
 # now timestamp the file and rename with git-status
-datetime=`date +%m%d_%H%M_`
 gitstring=`git describe --always --abbrev=7 --dirty=~`
-echo "mv ./container.bit ./bit$datetime$gitstring.bit"
-mv       ./container.bit ./bit$datetime$gitstring.bit
-ls -al ./bit$datetime$gitstring.bit
+echo "mv ./container.bit ./bit$datetime2$gitstring.bit"
+mv       ./container.bit ./bit$datetime2$gitstring.bit
+ls -al ./bit$datetime2$gitstring.bit
