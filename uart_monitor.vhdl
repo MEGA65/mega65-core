@@ -103,6 +103,7 @@ architecture behavioural of uart_monitor is
   end component;
 
   component ram128x1k IS
+  -- NOTE: is actually 177-bits and NOT 128-bits as the name suggests
     PORT (
       clk : IN STD_LOGIC;
       w : IN STD_LOGIC;
@@ -295,7 +296,7 @@ architecture behavioural of uart_monitor is
   
 begin
 
-  uart_tx0: uart_tx_ctrl
+  uart_tx0: UART_TX_CTRL
     port map (
       send    => tx_trigger,
       clk     => clock,
@@ -311,6 +312,7 @@ begin
                data_acknowledge => rx_acknowledge);
 
   historyram0: ram128x1k
+  -- NOTE: is actually 177-bits and NOT 128-bits as the name suggests
     port map ( clk => clock,
                w => history_write,
                addr => history_address,

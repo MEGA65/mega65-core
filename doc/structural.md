@@ -19,6 +19,7 @@ The following components are currently documented (at least in part):
 * [container/machine/iomapper/ethernet](#ethernet)
 * [container/machine/iomapper/sdcardio](#sdcardio)
 * [container/machine/iomapper/farcallstack](#farcallstack)
+* [container/machine/monitor](#monitor)
 
 ## Introduction
 
@@ -52,7 +53,7 @@ Sub-components include:
 * "viciv" (to be do)  
 * "gs4510" (to be do)  
 * "[iomapper](#iomapper)"  
-* "uart_monitor" (to be do)  
+* "[monitor](#monitor)"
 
 As shown in the diagram below, the "machine" component holds the four sub-components listed above.  
 In addition, the "machine" component includes:
@@ -148,6 +149,20 @@ This component seems to be a dualport RAM, and is just implemented using process
 The size is "64-bit by 512".  
 I think this component samples the CPU InstructionRegister, ProgramCounter, A,X,Y-registers, ALU-state, etc, and stores these in a circular-buffer. This data can be accessed from the buffer when the Hypervisor-mode is used, or by using the UART-debugger.  
 This component is not fully understood.  
+
+
+## monitor
+This components includes the following functionality:  
+* provides a debug interface between FPGA and host-PC
+* refer to the [monitor](./monitor.md) page for details on how to use this component
+
+Sub-components include:  
+* "uart_rx" (simple serial UART that RX'es bytes)  
+* "uart_tx" (simple serial UART that TX'es bytes)  
+* "historyram" (a RAM used for storing the CPU states)  
+
+[![monitor](./images/monitor-small.jpg)](./images/monitor.jpg)  
+Click the image above for a hi-res JPG, else the [PDF link](./images/monitor.pdf).
 
 
 The End.
