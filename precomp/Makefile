@@ -32,7 +32,7 @@ all:	ghdl-frame-gen \
 # ============================ done moved, print-warn, clean-target
 # ophis converts the *.a65 file (assembly text) to *.prg (assembly bytes)
 ethertest.prg:	ethertest.a65
-	$(warning making ethertest.prg)
+	$(warning ~~~~~~~~~~~~~~~~> Making: ethertest.prg)
 	./../../Ophis/bin/ophis -4 ethertest.a65
 
 
@@ -46,13 +46,13 @@ f011test.prg:	f011test.a65
 # the "l" option created a verbose listing of the output
 # NOTE that to get to compile i needed to comment out the ".scope" in the "diskmenu.a65" file
 diskmenu.prg:	diskmenuprg.a65 diskmenu.a65
-	$(warning making diskmenu.prg and diskmenuprg.list)
+	$(warning ~~~~~~~~~~~~~~~~> Making: diskmenu.prg and diskmenuprg.list)
 	./../../Ophis/bin/ophis -4 diskmenuprg.a65 -l diskmenuprg.list
 
 
 # ============================ done moved, print-warn, clean-target
 diskchooser:	diskchooser.a65 etherload.prg
-	$(warning making diskchooser)
+	$(warning ~~~~~~~~~~~~~~~~> Making: diskchooser)
 	./../../Ophis/bin/ophis -4 diskchooser.a65 -l diskchooser.list
 
 
@@ -64,44 +64,44 @@ diskchooser:	diskchooser.a65 etherload.prg
 # ============================ done moved, print-warn, clean-target
 #??? diskmenu_c000.bin yet b0rken
 kickstart65gs.bin:	$(KICKSTARTSRCS) diskchooser diskmenu_c000.bin version.a65
-	$(warning making kickstart65gs.bin and kickstart.list)
+	$(warning ~~~~~~~~~~~~~~~~> Making: kickstart65gs.bin and kickstart.list)
 	./../../Ophis/bin/ophis -4 kickstart.a65 -l kickstart.list
 
 
 # ============================ done moved, print-warn, clean-target
 diskmenu_c000.bin:	diskmenuc000.a65 diskmenu.a65 etherload.prg
-	$(warning making diskmenu_c000.bin and diskmenuc000.list)
+	$(warning ~~~~~~~~~~~~~~~~> Making: diskmenu_c000.bin and diskmenuc000.list)
 	./../../Ophis/bin/ophis -4 diskmenuc000.a65 -l diskmenuc000.list
 
 
 # ============================ done moved, print-warn, clean-target
 thumbnail.prg:	showthumbnail.a65
-	$(warning making thumbnail.prg)
+	$(warning ~~~~~~~~~~~~~~~~> Making: thumbnail.prg)
 	./../../Ophis/bin/ophis -4 showthumbnail.a65
 
 
 # ============================ done moved, print-warn, clean-target
 etherload.prg:	etherload.a65
-	$(warning making etherload.prg)
+	$(warning ~~~~~~~~~~~~~~~~> Making: etherload.prg)
 	./../../Ophis/bin/ophis -4 etherload.a65
 
 
 # ============================ done moved, print-warn, clean-target
 etherload_stub.bin:	etherload_stub.a65
-	$(warning making etherload_stub.bin)
+	$(warning ~~~~~~~~~~~~~~~~> Making: etherload_stub.bin)
 	./../../Ophis/bin/ophis -4 etherload_stub.a65
 
 
 # ============================ done moved, print-warn, clean-target
 etherload_done.bin:	etherload_done.a65
-	$(warning making etherload_done.bin)
+	$(warning ~~~~~~~~~~~~~~~~> Making: etherload_done.bin)
 	./../../Ophis/bin/ophis -4 etherload_done.a65
 
 
 # ============================ done moved, print-warn, clean-target
 # dejavus.f65 seems to be a font tile
 textmodetest.prg:	textmodetest.a65 textmodetest-dejavus.f65
-	$(warning making textmodetest.prg)
+	$(warning ~~~~~~~~~~~~~~~~> Making: textmodetest.prg)
 	./../../Ophis/bin/ophis -4 textmodetest.a65 -l textmodetest.list
 
 
@@ -110,7 +110,7 @@ textmodetest.prg:	textmodetest.a65 textmodetest-dejavus.f65
 # the line below would generate the kickstart.vhdl file, (note no file extention on arg[3])
 # two files are read (arg[1] and arg[2]) and somehow compared, looking for THEROM and ROMDATA
 kickstart.vhdl:	rom_template.vhdl kickstart65gs.bin makerom
-	$(warning making kickstart.vhdl)
+	$(warning ~~~~~~~~~~~~~~~~> Making: kickstart.vhdl)
 #       script    arg[1]            arg[2]            arg[3]
 	./makerom rom_template.vhdl kickstart65gs.bin kickstart
 
@@ -125,7 +125,7 @@ kickstart.vhdl:	rom_template.vhdl kickstart65gs.bin makerom
 # and displays the images on the users screen using vncserver
 # does not currently compile
 videoproxy:	videoproxy.c
-	$(warning making videoproxy)
+	$(warning ~~~~~~~~~~~~~~~~> Making: videoproxy)
 	gcc -Wall -g -o videoproxy videoproxy.c -lpcap
 
 
@@ -133,7 +133,7 @@ videoproxy:	videoproxy.c
 # c-code that makes and executable that seems to read a file and transferrs that file
 # to the fpga via ethernet
 etherload:	etherload.c
-	$(warning making etherload)
+	$(warning ~~~~~~~~~~~~~~~~> Making: etherload)
 	gcc -Wall -g -o etherload etherload.c $(SOCKLIBS)
 
 
@@ -141,7 +141,7 @@ etherload:	etherload.c
 # c-code that makes and executable that seems to read a file and transferrs that file
 # to the fpga via ethernet
 etherkick:	etherkick.c
-	$(warning making etherkick)
+	$(warning ~~~~~~~~~~~~~~~~> Making: etherkick)
 	gcc -Wall -g -o etherkick etherkick.c $(SOCKLIBS)
 
 
@@ -150,7 +150,7 @@ etherkick:	etherkick.c
 # within both the c64 and the c65gs
 # note that the iomap.txt file already comes from github
 iomap.txt:	./../*.vhdl 
-	$(warning making iomap.txt)
+	$(warning ~~~~~~~~~~~~~~~~> Making: iomap.txt)
 	egrep "IO:C6|IO:GS" ./../*.vhdl | cut -f3- -d: | sort -u -k2 > iomap.txt
 
 
@@ -172,7 +172,7 @@ transfer:	kickstart.vhdl version.vhdl kickstart65gs.bin makerom makeslowram ioma
 # for now we will always update the version info whenever we do a make.
 .PHONY: version.vhdl version.a65
 version.vhdl version.a65:
-	$(warning making version.vhdl and version.a65)
+	$(warning ~~~~~~~~~~~~~~~~> Making: version.vhdl and version.a65)
 	./version.sh
 
 
@@ -215,7 +215,7 @@ testadder:	tb_adder.vhdl debugtools.vhdl
 # c-code that makes and executable that seems to be the 'load-wedge'
 # for the serial-monitor
 monitor_drive:	monitor_drive.c Makefile
-	$(warning making monitor_drive)
+	$(warning ~~~~~~~~~~~~~~~~> Making: monitor_drive)
 	gcc -g -Wall -o monitor_drive monitor_drive.c
 
 
@@ -224,7 +224,7 @@ monitor_drive:	monitor_drive.c Makefile
 # via the serial monitor to the fpga
 # currently has warnings upon compile
 monitor_load:	monitor_load.c Makefile
-	$(warning making monitor_load)
+	$(warning ~~~~~~~~~~~~~~~~> Making: monitor_load)
 	gcc -g -Wall -o monitor_load monitor_load.c
 
 
@@ -233,28 +233,28 @@ monitor_load:	monitor_load.c Makefile
 # dump that to a file.
 # makes use of the serial monitor within the fpga
 read_mem:	read_mem.c Makefile
-	$(warning making read_mem)
+	$(warning ~~~~~~~~~~~~~~~~> Making: read_mem)
 	gcc -g -Wall -o read_mem read_mem.c
 
 
 # ============================ done moved, Makefile-dep, print-warn, clean-target
 # c-code that makes and executable that seems to generate a 'frame.bmp' file
 ghdl-frame-gen:	ghdl-frame-gen.c Makefile
-	$(warning making ghdl-frame-gen)
+	$(warning ~~~~~~~~~~~~~~~~> Making: ghdl-frame-gen)
 	gcc -Wall -o ghdl-frame-gen ghdl-frame-gen.c
 
 
 # ============================ done moved, Makefile-dep, print-warn, clean-target
 # c-code that makes and executable that seems to read serial commands from serial-port
 chargen_debug:	chargen_debug.c Makefile
-	$(warning making chargen_debug)
+	$(warning ~~~~~~~~~~~~~~~~> Making: chargen_debug)
 	gcc -Wall -o chargen_debug chargen_debug.c
 
 
 # ============================ done moved, Makefile-dep, print-warn, clean-target
 # c-code that makes and executable that seems to disassemble assembly code
 dis4510:	dis4510.c Makefile
-	$(warning making dis4510)
+	$(warning ~~~~~~~~~~~~~~~~> Making: dis4510)
 	gcc -g -Wall -o dis4510 dis4510.c
 
 
@@ -262,7 +262,7 @@ dis4510:	dis4510.c Makefile
 # c-code that makes an executable that seems to emulate assembly code
 # currently does not compile
 em4510:	em4510.c Makefile
-	$(warning making em4510)
+	$(warning ~~~~~~~~~~~~~~~~> Making: em4510)
 	gcc -g -Wall -o em4510 em4510.c
 
 
@@ -270,28 +270,28 @@ em4510:	em4510.c Makefile
 # c-code that makes an executable, unsure what for
 # loads 64net.opc (a list of the opcodes)
 4510tables:	4510tables.c Makefile
-	$(warning making 4510tables)
+	$(warning ~~~~~~~~~~~~~~~~> Making: 4510tables)
 	gcc -g -Wall -o 4510tables 4510tables.c
 
 
 # ============================ done moved, Makefile-dep, print-warn, clean-target
 # i think this one needs 64net.opc
 c65-rom-disassembly.txt:	dis4510 c65-dos-context.bin c65-rom-annotations.txt
-	$(warning making c65-rom-disassembly.txt)
+	$(warning ~~~~~~~~~~~~~~~~> Making: c65-rom-disassembly.txt)
 	./dis4510 c65-dos-context.bin 2000 c65-rom-annotations.txt > c65-rom-disassembly.txt
 
 
 # ============================ done moved, Makefile-dep, print-warn, clean-target
 # BG added this because the file "c65-911001-rom-annotations.txt" is missing
 c65-911001-rom-annotations.txt:	c65-rom-annotations.txt
-	$(warning making c65-911001-rom-annotations.txt)
+	$(warning ~~~~~~~~~~~~~~~~> Making: c65-911001-rom-annotations.txt)
 	cp c65-rom-annotations.txt c65-911001-rom-annotations.txt
 
 
 # ============================ done moved, Makefile-dep, print-warn, clean-target
 # i think this one needs 64net.opc
 c65-rom-911001.txt:	dis4510 c65-911001-dos-context.bin c65-911001-rom-annotations.txt
-	$(warning making c65-rom-911001.txt)
+	$(warning ~~~~~~~~~~~~~~~~> Making: c65-rom-911001.txt)
 	./dis4510 c65-911001-dos-context.bin 2000 c65-911001rom-annotations.txt > c65-rom-911001.txt
 
 
@@ -299,7 +299,7 @@ c65-rom-911001.txt:	dis4510 c65-911001-dos-context.bin c65-911001-rom-annotation
 # reads c65-rom-910111.bin and generates c65-dos*.bin
 # needed to create c65-rom-910111.bin for this to work, need to ask PGS where is the correct file
 c65-dos-context.bin:	c65-rom-910111.bin
-	$(warning making c65-dos-context.bin)
+	$(warning ~~~~~~~~~~~~~~~~> Making: c65-dos-context.bin)
 	dd if=c65-rom-910111.bin bs=8192  skip=9  count=3 >  c65-dos-context.bin
 	dd if=c65-rom-910111.bin bs=16384 skip=0  count=1 >> c65-dos-context.bin
 	dd if=c65-rom-910111.bin bs=4096  skip=12 count=1 >> c65-dos-context.bin
@@ -310,7 +310,7 @@ c65-dos-context.bin:	c65-rom-910111.bin
 # reads 911001.bin and outputs c65-911001*.bin
 # needed to create 911001.bin for this to work, need to ask PGS where is the correct file
 c65-911001-dos-context.bin:	911001.bin Makefile
-	$(warning making c65-911001-dos-context.bin)
+	$(warning ~~~~~~~~~~~~~~~~> Making: c65-911001-dos-context.bin)
 	dd if=911001.bin bs=8192  skip=9  count=3 >  c65-911001-dos-context.bin
 	dd if=911001.bin bs=16384 skip=0  count=1 >> c65-911001-dos-context.bin
 	dd if=911001.bin bs=4096  skip=12 count=1 >> c65-911001-dos-context.bin
@@ -320,13 +320,13 @@ c65-911001-dos-context.bin:	911001.bin Makefile
 # ============================ done moved, Makefile-dep, print-warn, clean-target
 # c-code that makes an executable that processes images, and can make a vhdl file
 pngprepare:	pngprepare.c Makefile
-	$(warning making pngprepare)
+	$(warning ~~~~~~~~~~~~~~~~> Making: pngprepare)
 	gcc -g -Wall -I/usr/local/include -L/usr/local/lib -o pngprepare pngprepare.c -lpng
 
 # i think 'charrom' is used to put the pngprepare file into a special mode that
 # generates the charrom.vhdl file that is embedded with the contents of the 8x8font.png file
 charrom.vhdl:	pngprepare 8x8font.png
-	$(warning making charrom.vhdl)
+	$(warning ~~~~~~~~~~~~~~~~> Making: charrom.vhdl)
 #       exe          option  infile      outfile
 	./pngprepare charrom 8x8font.png charrom.vhdl
 
@@ -334,7 +334,7 @@ charrom.vhdl:	pngprepare 8x8font.png
 # i think the 'logo' is used to put the pngprepare into a special mode that
 # generates the BOOTLOGO.G65 file that is embedded with the contents of the mega65*.png file
 BOOTLOGO.G65:	pngprepare mega65_64x64.png
-	$(warning making BOOTLOGO.G65)
+	$(warning ~~~~~~~~~~~~~~~~> Making: BOOTLOGO.G65)
 #       exe          opt  infile           outfile
 	./pngprepare logo mega65_64x64.png BOOTLOGO.G65
 
