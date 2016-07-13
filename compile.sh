@@ -6,12 +6,15 @@ cd ..
 
 source /opt/Xilinx/14.7/ISE_DS/settings64.sh
 
-outfile1="compile1-xst.log"
-outfile2="compile2-ngd.log"
-outfile3="compile3-map.log"
-outfile4="compile4-par.log"
-outfile5="compile5-trc.log"
-outfile6="compile6-bit.log"
+# time for the output filenames
+datetime2=`date +%m%d_%H%M_`
+
+outfile1="compile-${datetime2}1-xst.log"
+outfile2="compile-${datetime2}2-ngd.log"
+outfile3="compile-${datetime2}3-map.log"
+outfile4="compile-${datetime2}4-par.log"
+outfile5="compile-${datetime2}5-trc.log"
+outfile6="compile-${datetime2}6-bit.log"
 
 if test ! -e "./xst/"; then
   echo "Creating ./xst/"
@@ -21,9 +24,6 @@ if test ! -e "./xst/projnav.tmp/"; then
   echo "Creating ./xst/projnav.tmp/"
   mkdir ./xst/projnav.tmp
 fi
-
-# time for the output filename
-datetime2=`date +%m%d_%H%M_`
 
 datetime=`date +%Y%m%d_%H:%M:%S`
 echo "==> $datetime Starting: xst, see container.syr"

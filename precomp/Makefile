@@ -2,7 +2,7 @@ ROUTEEFFORT=	std
 #ROUTEEFFORT=	med
 #ROUTEEFFORT=	high
 
-KICKSTARTSRCS=kickstart.a65 \
+KICKSTARTSRCS = kickstart.a65 \
 		kickstart_machine.a65 \
 		kickstart_process_descriptor.a65 \
 		kickstart_dos.a65 \
@@ -63,7 +63,7 @@ diskchooser:	diskchooser.a65 etherload.prg
 
 # ============================ done moved, print-warn, clean-target
 #??? diskmenu_c000.bin yet b0rken
-kickstart65gs.bin:	$(KICKSTARTSRCS) diskchooser version.a65
+kickstart65gs.bin:	$(KICKSTARTSRCS) diskchooser diskmenu_c000.bin version.a65
 	$(warning making kickstart65gs.bin and kickstart.list)
 	./../../Ophis/bin/ophis -4 kickstart.a65 -l kickstart.list
 
@@ -106,11 +106,12 @@ textmodetest.prg:	textmodetest.a65 textmodetest-dejavus.f65
 
 
 # ============================ done moved, print-warn, clean-target
-# makerom is a python script that reads two files and generates one.
+# makerom is a python script that reads two files (arg[1,2]) and generates one (arg[3]).
 # the line below would generate the kickstart.vhdl file, (note no file extention on arg[3])
-# two files are read (arg[1] and arg[2]) and somehow compared, look for THEROM and ROMDATA
-kickstart.vhdl:	rom_template.vhdl diskchooser kickstart65gs.bin makerom
+# two files are read (arg[1] and arg[2]) and somehow compared, looking for THEROM and ROMDATA
+kickstart.vhdl:	rom_template.vhdl kickstart65gs.bin makerom
 	$(warning making kickstart.vhdl)
+#       script    arg[1]            arg[2]            arg[3]
 	./makerom rom_template.vhdl kickstart65gs.bin kickstart
 
 
@@ -169,8 +170,8 @@ transfer:	kickstart.vhdl version.vhdl kickstart65gs.bin makerom makeslowram ioma
 # NOTE that we should use make to build the ISE project so that the
 # version information is updated.
 # for now we will always update the version info whenever we do a make.
-.PHONY: ALWAYS
-version.vhdl version.a65: ALWAYS
+.PHONY: version.vhdl version.a65
+version.vhdl version.a65:
 	$(warning making version.vhdl and version.a65)
 	./version.sh
 
@@ -325,6 +326,8 @@ pngprepare:	pngprepare.c Makefile
 # i think 'charrom' is used to put the pngprepare file into a special mode that
 # generates the charrom.vhdl file that is embedded with the contents of the 8x8font.png file
 charrom.vhdl:	pngprepare 8x8font.png
+	$(warning making charrom.vhdl)
+#       exe          option  infile      outfile
 	./pngprepare charrom 8x8font.png charrom.vhdl
 
 # ============================ done moved, Makefile-dep, print-warn, clean-target
