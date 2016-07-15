@@ -7,6 +7,7 @@
   * [monitor](./monitor.md) - how to interface with the FPGA using a serial port monitor  
 * [hardware](./hardware.md) - the interconnectivity of major components  
 * [structural](./structural.md) - fpga firmware diagrams and descriptions  
+* [viciv](./viciv-modes.md) - information on the viciv (VIC-4) video chip (unsure if this is accurate)  
 
 Below are misc URLs:
 
