@@ -22,14 +22,14 @@ ISE_MAP_OPTS="-p xc7a100t-csg324-1 -w -logic_opt on -ol high -t 1 -xt 0 -registe
 ISE_PAR_OPTS="-w -ol std -mt off"
 ISE_TRCE_OPTS="-v 3 -s 1 -n 3 -fastpaths -xml"
 
-#if test ! -e "./xst/"; then
-#  echo "Creating ./xst/"
-#  mkdir ./xst/
-#fi
-#if test ! -e "./xst/projnav.tmp/"; then
-#  echo "Creating ./xst/projnav.tmp/"
-#  mkdir ./xst/projnav.tmp
-#fi
+if test ! -e "./isework/xst/"; then
+  echo "Creating ./isework/xst/"
+  mkdir ./isework/xst/
+fi
+if test ! -e "./isework/xst/projnav.tmp/"; then
+  echo "Creating ./isework/xst/projnav.tmp/"
+  mkdir ./isework/xst/projnav.tmp
+fi
 
 datetime=`date +%Y%m%d_%H:%M:%S`
 echo "==> $datetime Starting: xst, see container.syr"
@@ -85,6 +85,6 @@ echo "Refer to compile[1-6].*.log for the output of each Xilinx command."
 
 # now timestamp the file and rename with git-status
 gitstring=`git describe --always --abbrev=7 --dirty=~`
-echo "cp ./iseword/container.bit ./bit$datetime2$gitstring.bit"
-cp       ./iseword/container.bit ./bit$datetime2$gitstring.bit
+echo "cp ./isework/container.bit ./bit$datetime2$gitstring.bit"
+cp       ./isework/container.bit ./bit$datetime2$gitstring.bit
 ls -al                           ./bit$datetime2$gitstring.bit
