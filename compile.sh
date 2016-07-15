@@ -16,18 +16,24 @@ outfile4="compile-${datetime2}4-par.log"
 outfile5="compile-${datetime2}5-trc.log"
 outfile6="compile-${datetime2}6-bit.log"
 
-if test ! -e "./xst/"; then
-  echo "Creating ./xst/"
-  mkdir ./xst/
-fi
-if test ! -e "./xst/projnav.tmp/"; then
-  echo "Creating ./xst/projnav.tmp/"
-  mkdir ./xst/projnav.tmp
-fi
+ISE_COMMON_OPTS="-intstyle ise"
+ISE_NGDBUILD_OPTS="-p xc7a100t-csg324-1 -dd _ngo -sd ipcore_dir -nt timestamp"
+ISE_MAP_OPTS="-p xc7a100t-csg324-1 -w -logic_opt on -ol high -t 1 -xt 0 -register_duplication on -r 4 -mt off -ir off -ignore_keep_hierarchy -pr b -lc off -power off"
+ISE_PAR_OPTS="-w -ol std -mt off"
+ISE_TRCE_OPTS="-v 3 -s 1 -n 3 -fastpaths -xml"
+
+#if test ! -e "./xst/"; then
+#  echo "Creating ./xst/"
+#  mkdir ./xst/
+#fi
+#if test ! -e "./xst/projnav.tmp/"; then
+#  echo "Creating ./xst/projnav.tmp/"
+#  mkdir ./xst/projnav.tmp
+#fi
 
 datetime=`date +%Y%m%d_%H:%M:%S`
 echo "==> $datetime Starting: xst, see container.syr"
-xst -intstyle ise -ifn "container.xst" -ofn "container.syr" > $outfile1
+xst ${ISE_COMMON_OPTS} -ifn "./isework/container.xst" -ofn "./isework/container.syr"> $outfile1
 retcode=$?
 if [ $retcode -ne 0 ] ; then
   echo "xst failed with return code $retcode" && exit 1
@@ -35,7 +41,7 @@ fi
 
 datetime=`date +%Y%m%d_%H:%M:%S`
 echo "==> $datetime Starting: ngdbuild, see container.bld"
-ngdbuild -intstyle ise -dd _ngo -sd ipcore_dir -nt timestamp -uc container.ucf -p xc7a100t-csg324-1 container.ngc container.ngd > $outfile2
+ngdbuild ${ISE_COMMON_OPTS} ${ISE_NGDBUILD_OPTS} -uc ./src/container.ucf ./isework/container.ngc ./isework/container.ngd > $outfile2
 retcode=$?
 if [ $retcode -ne 0 ] ; then
   echo "ngdbuild failed with return code $retcode" && exit 1
@@ -43,7 +49,7 @@ fi
 
 datetime=`date +%Y%m%d_%H:%M:%S`
 echo "==> $datetime Starting: map, see container_map.mrp"
-map -intstyle ise -p xc7a100t-csg324-1 -w -logic_opt on -ol high -t 1 -xt 0 -register_duplication on -r 4 -mt off -ir off -ignore_keep_hierarchy -pr b -lc off -power off -o container_map.ncd container.ngd container.pcf > $outfile3
+map ${ISE_COMMON_OPTS} ${ISE_MAP_OPTS} -o ./isework/container_map.ncd ./isework/container.ngd ./isework/container.pcf > $outfile3
 retcode=$?
 if [ $retcode -ne 0 ] ; then
   echo "map failed with return code $retcode" && exit 1
@@ -51,7 +57,7 @@ fi
 
 datetime=`date +%Y%m%d_%H:%M:%S`
 echo "==> $datetime Starting: par, see container.par"
-par -w -intstyle ise -ol std -mt off container_map.ncd container.ncd container.pcf > $outfile4
+par ${ISE_COMMON_OPTS} ${ISE_PAR_OPTS} ./isework/container_map.ncd ./isework/container.ncd ./isework/container.pcf > $outfile4
 retcode=$?
 if [ $retcode -ne 0 ] ; then
   echo "par failed with return code $retcode" && exit 1
@@ -59,7 +65,7 @@ fi
 
 datetime=`date +%Y%m%d_%H:%M:%S`
 echo "==> $datetime Starting: trce, see container.twr"
-trce -intstyle ise -v 3 -s 1 -n 3 -fastpaths -xml container.twx container.ncd -o container.twr container.pcf -ucf container.ucf > $outfile5
+trce ${ISE_COMMON_OPTS} ${ISE_TRCE_OPTS} ./isework/container.twx ./isework/container.ncd -o ./isework/container.twr ./isework/container.pcf -ucf ./src/container.ucf > $outfile5
 retcode=$?
 if [ $retcode -ne 0 ] ; then
   echo "trce failed with return code $retcode" && exit 1
@@ -67,7 +73,7 @@ fi
 
 datetime=`date +%Y%m%d_%H:%M:%S`
 echo "==> $datetime Starting: bitgen, see container.bgn"
-bitgen -intstyle ise -f container.ut container.ncd > $outfile6
+bitgen ${ISE_COMMON_OPTS} -f ./isework/container.ut ./isework/container.ncd > $outfile6
 retcode=$?
 if [ $retcode -ne 0 ] ; then
   echo "bitgen failed with return code $retcode" && exit 1
@@ -79,6 +85,6 @@ echo "Refer to compile[1-6].*.log for the output of each Xilinx command."
 
 # now timestamp the file and rename with git-status
 gitstring=`git describe --always --abbrev=7 --dirty=~`
-echo "mv ./container.bit ./bit$datetime2$gitstring.bit"
-mv       ./container.bit ./bit$datetime2$gitstring.bit
-ls -al ./bit$datetime2$gitstring.bit
+echo "cp ./iseword/container.bit ./bit$datetime2$gitstring.bit"
+cp       ./iseword/container.bit ./bit$datetime2$gitstring.bit
+ls -al                           ./bit$datetime2$gitstring.bit
