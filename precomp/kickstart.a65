@@ -635,6 +635,18 @@ findrom:
 		ldx #<msg_romok
 		ldy #>msg_romok
 		jsr printmessage
+
+		;delay a bit to allow messages to be observed
+		ldx #255
+		ldy #0
+		ldz #0
+delay:		dez
+		bne delay
+		dey
+		bne delay
+		dex
+		bne delay
+
 		jmp go64
 
 loadrom:

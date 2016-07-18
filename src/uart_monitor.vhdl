@@ -156,6 +156,9 @@ architecture behavioural of uart_monitor is
     "--------------------------------" & crlf &
     "Type ?/h/H for help." & crlf;
 
+  -- iterator to iterate through each message,
+  -- so each message/string should be no more than 512 chars.
+  -- If you need more than 512 chars, have two strings as per HelpMessage-states
   signal banner_position : integer range 0 to 511 := 1;
 
   constant helpMessage : String :=
@@ -169,7 +172,8 @@ architecture behavioural of uart_monitor is
     "c/C - UNSURE" & crlf &
     "e/E - UNSURE" & crlf &
     "z/Z - UNSURE" & crlf &
-    "l/L - UNSURE" & crlf &
+    "l/L - UNSURE" & crlf;
+  constant helpMessage2 : String :=
     "w/W - UNSURE" & crlf &
     "?/h/H - this help" & crlf &
     "s<addr> <value> ... - Set memory (28bit addresses)" & crlf &
@@ -188,7 +192,8 @@ architecture behavioural of uart_monitor is
   constant registerMessage : string := crlf & "PC   A  X  Y  Z  B  SP   MAPL MAPH LAST-OP     P  P-FLAGS   RGP uS IO" & crlf;
   
   type monitor_state is (Reseting,
-                         PrintBanner,PrintHelp,
+                         PrintBanner,
+								 PrintHelp,PrintHelp2,
                          PrintError,PrintError2,PrintError3,PrintError4,
                          PrintRequestTimeoutError,
                          PrintReplyTimeoutError,
@@ -623,6 +628,10 @@ begin
       timeout <= 65535;
       state <= CPUTransaction1;
     end cpu_transaction;
+
+  -- ----------------------------------------------------
+  -- Main State Machine
+  -- ----------------------------------------------------
     
   begin  -- process testclock
     if reset='0' then
@@ -731,18 +740,29 @@ begin
             banner_position <= 1;
             state <= PrintBanner;
 				
-          when PrintHelp =>
+          when PrintHelp => -- complete help-string displayed using two states (see PrintHelp2)
             if tx_ready='1' then
               tx_data <= to_std_logic_vector(helpMessage(banner_position));
               tx_trigger <= '1';
               if banner_position<helpMessage'length then
                 banner_position <= banner_position + 1;
               else
+                state <= PrintHelp2;
+                cmdlen <= 1;
+              end if;
+            end if;
+			 when PrintHelp2 =>
+            if tx_ready='1' then
+              tx_data <= to_std_logic_vector(helpMessage2(banner_position));
+              tx_trigger <= '1';
+              if banner_position<helpMessage2'length then
+                banner_position <= banner_position + 1;
+              else
                 state <= PrintPrompt;
                 cmdlen <= 1;
               end if;
             end if;
-				
+
           when PrintBanner =>
             if tx_ready='1' then
               tx_data <= to_std_logic_vector(bannerMessage(banner_position));
@@ -1514,9 +1534,10 @@ begin
 			 
           when others => null;
 			 
-        end case;
-      end if;
-    end if;
+        end case;     -- case state is
+      end if;       -- if tx_trigger/='1' then
+    end if;       -- elsif rising_edge(clock) then
+
   end process testclock;
   
 end behavioural;
