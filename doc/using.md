@@ -110,7 +110,7 @@ Basically, with the MEGA65 running in either c65/c64 mode:
 
 1. connect USB cable between PROG/UART header of the FPGA-board and a USB port of the PC.
 1. the PC should detect that there is a USB-device on the FPGA-end of the cable.
-1. using a terminal window, open/connect communication by: ```sudo cu -l /dev/cu.usbserial<???> -s 230400```
+1. using a terminal window, open/connect communication by: ```sudo cu -l /dev/cu.usbserial<???> -s 230400```. If you dont have the program ```cu```, then get it by ```sudo apt-get install cu```.
 1. pressing 'return' will bring up the prompt
 1. typing ```?<return>``` will provide some help text
 1. to close the connection, type ```~.``` at the start of a blank line.
