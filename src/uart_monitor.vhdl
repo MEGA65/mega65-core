@@ -193,7 +193,7 @@ architecture behavioural of uart_monitor is
   
   type monitor_state is (Reseting,
                          PrintBanner,
-								 PrintHelp,PrintHelp2,
+                         PrintHelp,PrintHelp2,
                          PrintError,PrintError2,PrintError3,PrintError4,
                          PrintRequestTimeoutError,
                          PrintReplyTimeoutError,
@@ -747,11 +747,12 @@ begin
               if banner_position<helpMessage'length then
                 banner_position <= banner_position + 1;
               else
+                banner_position <= 1;
                 state <= PrintHelp2;
                 cmdlen <= 1;
               end if;
             end if;
-			 when PrintHelp2 =>
+          when PrintHelp2 =>
             if tx_ready='1' then
               tx_data <= to_std_logic_vector(helpMessage2(banner_position));
               tx_trigger <= '1';
