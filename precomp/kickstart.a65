@@ -847,7 +847,7 @@ sd_resetsequence:
 re1:		jsr sdreadytest
 		bcs re1done	; success, so return
 		bne re1		; not timed out, so keep trying
-		rts 		; timeout, so return
+		rts		; timeout, so return
 re1done:	
 		; write $01 to $D680 to complete reset
 		lda #$01
@@ -856,7 +856,7 @@ re1done:
 re2:		jsr sdreadytest
 		bcs re2done	; success, so return
 		bne re2		; not timed out, so keep trying
-		rts 		; timeout, so return
+		rts		; timeout, so return
 re2done:
 		; give card some time to settle after reset, otherwise 
 		; reading sectors will fail
@@ -1819,7 +1819,7 @@ longpeek:
 
 longpeekdmalist:
 		.byte $00 ; COPY, no chain
- 		; 1 byte
+		; 1 byte
 		.word $0001
 		; source address
 		.word $0000
@@ -1928,7 +1928,7 @@ default_rom:
 		sta txt_c65gsrom,x
 		inx
 		lda #0
-   		sta txt_c65gsrom,x    
+		sta txt_c65gsrom,x    
 
 		rts
 
@@ -2486,21 +2486,26 @@ msg_lookingfornextsector:
 		      .byte "LOOKING FOR NEXT SECTOR OF FILE",0
 msg_nologo:	      .byte "COULD NOT LOAD BOOTLOGO.M65 (ERRNO:$$)",0
 msg_cdrootfailed:     .byte "COULD NOT CHDIR TO / (ERRNO:$$)",0
+
 		      .include "version.a65"
 
 msg_blankline:	      .byte 0
 
 ; filename of character ROM
 txt_c65gscharrom:     .byte "CHARROM.M65",0
+
 ; filename of ROM we want to load in FAT directory format
 ; (the two zero bytes are so that we can insert an extra digit after
 ; the 5, when a user presses a key, so that they can choose a
 ; different ROM to load).
 txt_c65gsrom:	      .byte "MEGA65.ROM",0,0
+
 ; filename of 1581 disk image we mount by default
 txt_c65gsd81:	      .byte "MEGA65.D81",0
+
 ; filename of kickstart update file
 txt_kickupfile:	      .byte "KICKUP.M65",0
+
 ; filename containing boot logo
 txt_bootlogo:	      .byte "BOOTLOGO.M65",0
 
@@ -2650,8 +2655,8 @@ hypervisor_userspace_copy_vector:    .word 0
 ; general kickstart temporary variables
 zptempv:	    .word 0
 zptempv2:	    .word 0
-zptempp: 	    .word 0
-zptempp2: 	    .word 0
+zptempp:	    .word 0
+zptempp2:	    .word 0
 zptempv32:	    .word 0,0
 zptempv32b:	    .word 0,0
 dos_file_loadaddress: .word 0,0
