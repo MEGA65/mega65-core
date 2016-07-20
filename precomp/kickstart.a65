@@ -636,16 +636,10 @@ findrom:
 		ldy #>msg_romok
 		jsr printmessage
 
-		;delay a bit to allow messages to be observed
-		ldx #255
-		ldy #0
-		ldz #0
-delay:		dez
-		bne delay
-		dey
-		bne delay
-		dex
-		bne delay
+		;wait for space-bar
+spacechk:	lda $dc01
+		cmp #$ef
+		bne spacechk
 
 		jmp go64
 
