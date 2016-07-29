@@ -93,8 +93,8 @@ http://www.zimmers.net/anonftp/pub/cbm/crossplatform/converters/unix/cbmconvert.
 ## Files required on SDcard
 
 * ```BOOTLOGO.G65``` -- (not critical) image displayed on kickstart screen, refer ```/precomp/Makefile```   
-* ```CHARROM.M65``` -- the proprietary CBM character rom (download at: ...?)  
-* ```MEGA65.ROM``` -- unsure...  
+* ```CHARROM.M65``` -- the proprietary CBM character rom (download at: ...?), cannot determine how this is built or sourced  
+* ```MEGA65.ROM``` -- unsure, but likely to be some form of the 911001.bin file which is assumed to be the original ROM file extracted from one of the real c65 machines.  
 * ```user.bit``` -- (optional) place a bitstream on the SDcard as a fallback when USB is unavailable  
 
 ## Files required on USBstick
