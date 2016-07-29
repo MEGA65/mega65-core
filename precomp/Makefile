@@ -1,4 +1,4 @@
-ROUTEEFFORT=	std
+read_dataROUTEEFFORT=	std
 #ROUTEEFFORT=	med
 #ROUTEEFFORT=	high
 
@@ -16,18 +16,36 @@ else
 SOCKLIBS =
 endif
 
-fpga:	kickstart.vhdl \
-	version.vhdl \
-	charrom.vhdl
+fpga:	
+	$(warning make-target:fpga is not implemented in the makefile yet, refer to ./../compile.sh)
+	$(warning ISE build to go here, ie xst, ngdbuild, map, par, bitgen)
 
-all:	ghdl-frame-gen \
+
+precomp:	kickstart.vhdl \
+	charrom.vhdl
+#	version.vhdl \ # other files depend on this, so no need to specify it here
+
+
+# files destined to go on the SD-card
+sdcard:	BOOTLOGO.G65 \
+#	plus other binaries required on the SDcard, but these are not 100% determined at the moment
+
+
+simulate:	ghdl-frame-gen \
 	diskmenu.prg \
 	kickstart65gs.bin \
 	makerom \
 	container.prj \
 	thumbnail.prg \
 	textmodetest.prg \
-	etherload etherkick
+	etherload \
+	etherkick
+
+all:	precomp \ # pre-compiled binaries for Xilinx ISE FPGA implementation
+	fpga \    # ise will go here
+	sdcard \  # files destined for the SDcard to be loaded upon fpga-boot-up
+	simulate  # files to simulate the design
+
 
 # ============================ done moved, print-warn, clean-target
 # ophis converts the *.a65 file (assembly text) to *.prg (assembly bytes)

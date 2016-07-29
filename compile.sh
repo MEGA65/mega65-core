@@ -1,7 +1,7 @@
 #!/bin/bash
 
 cd precomp
-make fpga
+make precomp
 retcode=$?
 
 cd ..
