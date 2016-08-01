@@ -78,6 +78,11 @@ dos_and_process_trap:
 	; to hypervisor, but for now, we need to do this explicitly.
 	; Should be able to be removed after 20160103
 	sei
+
+	; XXX - We have just added a fix for this in the CPU, to CLEAR DECIMAL MODE
+	; on entry to the hypervisor. But I'm not taking any chances just now.
+	CLD
+
 	; Sub-function is selected by A.
 	; Bits 6-1 are the only ones used.
 	; Mask out bit 0 so that indirect jmp's are valid.

@@ -3229,6 +3229,13 @@ begin
               hyper_map_offset_high <= reg_offset_high;
               hyper_port_00 <= cpuport_ddr; hyper_port_01 <= cpuport_value;
               hyper_p <= unsigned(virtual_reg_p);
+
+              -- NEVER leave the @#$%! decimal flag set when entering the hypervisor
+              -- (This took MONTHS to realise as the source of a MYRIAD of hypervisor
+              -- problems.  Anyone removing this without asking Paul first will
+              -- be appropriately punished.)
+              flag_d <= '0';
+
               -- Set registers for hypervisor mode.
 
               -- Full hardware features available on entry to hypervisor
