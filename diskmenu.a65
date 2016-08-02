@@ -893,6 +893,7 @@ scanjoystick:
 	lda $dc00
 	and $dc01
 	and #$1f
+	eor #$1f
 	tay
 	lda joysticktable,y
 	rts
