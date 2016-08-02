@@ -1526,6 +1526,7 @@ begin
       
       the_read_address <= long_address;
       if (long_address(27 downto 8) = x"FFD17") or (long_address(27 downto 8) = x"FFD37") then
+        report "Preparing to read from a DMAgicRegister";
         read_source <= DMAgicRegister;
       end if;      
 
@@ -1540,6 +1541,7 @@ begin
       -- @IO:C64 $0000000 6510/45GS10 CPU port DDR
       -- @IO:C64 $0000001 6510/45GS10 CPU port data
       if long_address(27 downto 6)&"00" = x"FFD364" and hypervisor_mode='1' then
+        report "Preparing for reading hypervisor register";
         read_source <= HypervisorRegister;
         accessing_hypervisor <= '1';
         -- One cycle wait-state on hypervisor registers to remove the register
@@ -1548,9 +1550,9 @@ begin
         wait_states_non_zero <= '1';
         proceed <= '0';
         hyperport_num <= real_long_address(5 downto 0);
-      end if;
-      if (long_address = x"0000000") or (long_address = x"0000001") then
+      elsif (long_address = x"0000000") or (long_address = x"0000001") then
         accessing_cpuport <= '1';
+        report "Preparing to read from a CPUPort";
         read_source <= CPUPort;
         -- One cycle wait-state on hypervisor registers to remove the register
         -- decode from the critical path of memory access.
@@ -1562,6 +1564,7 @@ begin
         -- More CPU ports for debugging.
         -- (this was added to debug CIA IRQ bugs where reading/writing from
         -- fastio space would prevent the bug from manifesting)
+        report "Preparing to read from a CPUPort";
         read_source <= CPUPort;
         accessing_cpuport <= '1';
         -- One cycle wait-state on hypervisor registers to remove the register
@@ -1574,6 +1577,7 @@ begin
         -- Reading from 256KB shadow ram (which includes 128KB fixed shadowing of
         -- chipram).  This is the only memory running at the CPU's native clock.
         -- Think of it as a kind of direct-mapped L1 cache.
+        report "Preparing to read from Shadow";
         read_source <= Shadow;
         accessing_shadow <= '1';
         wait_states <= shadow_wait_states;
@@ -1589,6 +1593,7 @@ begin
       elsif long_address(27 downto 17)="00000000000" then
         -- Reading from chipram, so read from the bottom 128KB of the shadow RAM
         -- instead.
+        report "Preparing to read from Shadow";
         read_source <= Shadow;
         accessing_shadow <= '1';
         accessing_rom <= '0';
@@ -1604,6 +1609,7 @@ begin
           & to_hstring(long_address(19 downto 0)) severity note;
       elsif long_address(27 downto 17)="00000000001" then
         -- Reading from 128KB ROM
+        report "Preparing to read from ROMRAM";
         read_source <= ROMRAM;
         accessing_shadow <= '0';
         accessing_rom <= '1';
@@ -1618,6 +1624,7 @@ begin
         report "Reading from ROM address $"
           & to_hstring(long_address(19 downto 0)) severity note;
       elsif long_address(27 downto 20) = x"FF" then
+        report "Preparing to read from FastIO";
         read_source <= FastIO;
         accessing_shadow <= '0';
         accessing_rom <= '0';
@@ -1652,6 +1659,7 @@ begin
         if long_address(19 downto 16) = x"8" then
           report "VIC 64KB colour RAM access from VIC fastio" severity note;
           accessing_colour_ram_fastio <= '1';
+          report "Preparing to read from ColourRAM";
           read_source <= ColourRAM;
           colour_ram_cs <= '1';
           wait_states <= colourram_read_wait_states;
@@ -1667,6 +1675,7 @@ begin
               if long_address(11 downto 7) /= "00001" then  -- ! $D.0{8-F}X (FDC, RAM EX)
                 report "VIC register from VIC fastio" severity note;
                 accessing_vic_fastio <= '1';
+                report "Preparing to read from VICIV";
                 read_source <= VICIV;
               end if;            
             end if;
@@ -1675,6 +1684,7 @@ begin
               if (long_address(10)='0') or (colourram_at_dc00='1') then
                 report "RAM: D800-DBFF/DC00-DFFF colour ram access from VIC fastio" severity note;
                 accessing_colour_ram_fastio <= '1';
+                report "Preparing to read from ColourRAM";
                 read_source <= ColourRAM;
                 colour_ram_cs <= '1';
                 wait_states <= colourram_read_wait_states;
@@ -1695,6 +1705,7 @@ begin
         -- @IO:GS $8000000 - $FEFFFFF Slow RAM (127MB)
         -- Slow RAM maps to $8000000-$FEFFFFF, and also $0020000 - $003FFFF for
         -- C65 ROM emulation.
+        report "Preparing to read from SlowRAM";
         read_source <= SlowRAM;
         accessing_shadow <= '0';
         accessing_rom <= '0';
@@ -1716,6 +1727,7 @@ begin
       else
         -- Don't let unmapped memory jam things up
         report "hit unmapped memory -- clearing wait_states" severity note;
+        report "Preparing to read from Unmapped";
         read_source <= Unmapped;
         accessing_shadow <= '0';
         accessing_rom <= '0';
