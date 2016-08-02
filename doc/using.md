@@ -131,14 +131,26 @@ http://www.zimmers.net/anonftp/pub/cbm/crossplatform/converters/unix/cbmconvert.
 
 ## Files required on SDcard
 
-* ```BOOTLOGO.G65``` -- (not critical) image displayed on kickstart screen, refer ```/precomp/Makefile```   
-* ```CHARROM.M65``` -- the proprietary CBM character rom (download at: ...?), cannot determine how this is built or sourced  
-* ```MEGA65.ROM``` -- unsure, but likely to be some form of the 911001.bin file which is assumed to be the original ROM file extracted from one of the real c65 machines.  
-* ```user.bit``` -- (optional) place a bitstream on the SDcard as a fallback when USB is unavailable  
+This info sourced from the youtube [video](https://www.youtube.com/watch?v=f_0QCLBKfpc) titled "First Steps".  
+Seems the video may be outdated with the github-repo, ie: all references to "c65gs" should be replaced with "mega65", i thinks.  
+Unsure if UPPER/LOWER case of filenames is important, to do [  ].  
+Unsure if we need "G65" or "M65", to do [  ].  
+
+* ```MEGA65.ROM``` -- c65 kernal ROM, renamed from 911001.bin (or 910111 ???) which is the original ROM file extracted from one of the real c65 machines. Search for it on the internet.
+* ```C65GS.ROM``` -- as above, but unsure which needs to get loaded, need to look into the kickstart.a65 code to see which ROM is required.
+* ```C65GSx.ROM``` -- (optional) as above, but with ```x``` in the filename where ```x``` is a digit, unsure if this is still implemented, need to look into the kickstart.a65 code to see.
+* ```KICKUP.G65``` -- (optional) an updated version of the kickup-code (ie kickup.a65, which is compiled into the bitstream), but this ```kickup.G65``` is loaded at boot-up and replaces the code in the bitstream. This is useful for developing the kickup-code without having to recompile the entire design/bitstream.
+* ```CHARROM.M65``` -- (optional) the proprietary CBM character ROM, which is the original ROM file, cannot determine how this is built or sourced  
+* ```BOOTLOGO.G65``` -- (optional) image displayed on kickstart screen, refer ```/precomp/Makefile```   
+* ```MEGA65.D81``` -- (optional) disk-image automatically mounted at boot-up
+* ```user.bit``` -- (optional) place a bitstream on the SDcard as a fallback when no "*.bit" file is found on the USB
 
 ## Files required on USBstick
 
-* ```user.bit``` -- bitstream to load on the USBstick when FPGA is powered ON.  
+NOTE: that at least one bitstream (```"*.bit"```) needs to either be on the USB-stick (see below), SD-card (see above), or EEPROM (to be do'ed).  
+NOTE: that a jumper on the NexysDDR board determines where to look for the bitstream.
+
+* ```user.bit``` -- (optional) bitstream to load when FPGA is powered ON.  
 
 ## Serial Monitor
 The monitor can be used to gain a closer look at what the CPU (and other parts of the design) are doing. If you are familiar with a debugger or machine-code-monitor, then the Serial Monitor will be familiar to you.  
