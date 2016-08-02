@@ -12,6 +12,12 @@ _next:	 .word 0
 	 .checkpc 2079
 	 .advance 2079
 
-	 .include "diskmenu.a65"
+	 ; Test goes here
+	 
+
+	 .include "diskmenu_sort.a65"
+
+	 .checkpc $1000
+	 .advance $1000
 
 	 .scend

@@ -226,6 +226,8 @@ ll20:
 	cmp #$90
 	bcs endofdir
 
+	jsr sortnames
+
 	; update pointer address for dirent
 	lda diskpointer
 	clc
@@ -235,20 +237,14 @@ ll20:
 	adc #$00
 	sta diskpointer+1
 
-
 ;	jsr updatescreen
 
-	; check if entry is the only / first one and don't sort if so
-	lda diskcount+1
-	bne readnextentry
-	lda diskcount
-	cmp #$01
-	bcc readnextentry
-	jsr sortentry
 	jmp readnextentry
 
 endofdir:
 	ldz #0
+
+	.include "diskmenu_sort.a65"
 
 mainloop:
 	 ; display current screen of disks
@@ -569,14 +565,14 @@ jumptolastitem:
 
 
 sortentry:
-	; char offset for comparing the entries (max 16)
+	; char offset for comparing the entries (max 16 bytes)
 	ldy #00
 	; flag if proper position has been found AND entry must be moved
 	ldx #00
 
 	lda diskpointer
 	sta sortpointer
-	lda	diskpointer+1
+	lda diskpointer+1
 	sta sortpointer+1
 
 sortloop2:
@@ -584,7 +580,7 @@ sortloop2:
 	lda sortpointer+1
 	sbc #$10
 	sta sortpointer+1
-	lda	sortpointer
+	lda sortpointer
 	sbc #$00
 	sta sortpointer
 
@@ -910,14 +906,6 @@ joysticktable:
 iter1:	 .byte 0
 
 diskcount:     .byte 0,0
-
-sortdmalist:	.byte $00 ; copy non-chained job 
-sortdmacnt:		.word $0001 ; number of bytes to copy
-sortdmasrc:		.word $0000 ; source address
-				.byte $40 ; source bank number / direction
-sortdmadst:		.word $0000 ; destination address
-				.byte $40 ; destination bank number / direction
-				.word $0000 ; modulo
 
 screenitem:    .byte 0,0
 currentitem:   .byte 0,0

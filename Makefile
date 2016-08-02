@@ -47,7 +47,7 @@ version.a65:	*.vhdl *.a65 *.vhd Makefile
 kickstart65gs.bin:	$(KICKSTARTSRCS) Makefile diskchooser version.a65 diskmenu_c000.bin
 	../Ophis/bin/ophis -4 kickstart.a65 -l kickstart.list
 
-diskmenu_c000.bin:	diskmenuc000.a65 diskmenu.a65 etherload.prg
+diskmenu_c000.bin:	diskmenuc000.a65 diskmenu.a65 etherload.prg diskmenu_sort.a65
 	../Ophis/bin/ophis -4 diskmenuc000.a65 -l diskmenuc000.list
 
 thumbnail.prg:	showthumbnail.a65 Makefile
@@ -85,8 +85,8 @@ iomap.txt:	*.vhdl Makefile
 	egrep "IO:C6|IO:GS" *.vhdl | cut -f3- -d: | sort -u -k2 > iomap.txt
 
 transfer:	kickstart.vhdl version.vhdl kickstart65gs.bin makerom makeslowram iomap.txt ipcore_dir
-	scp -pr ipcore_dir version.sh Makefile makerom c65gs.rom makerom makeslowram *.a65 *.ucf *.xise *.prj *vhd *vhdl kickstart65gs.bin 192.168.56.101:c64accel/
-	scp -p .git/index 192.168.56.101:c64accel/.git/
+	scp -pr ipcore_dir version.sh Makefile makerom c65gs.rom makerom makeslowram *.a65 *.ucf *.xise *.prj *vhd *vhdl kickstart65gs.bin 192.168.56.102:c64accel/
+	scp -p .git/index 192.168.56.102:c64accel/.git/
 
 version.vhdl: version-template.vhdl version.sh .git/index *.vhdl *.vhd 
 	./version.sh
@@ -165,3 +165,6 @@ clean:
 
 cleangen:
 	rm kickstart.vhdl charrom.vhdl kickstart65gs.bin
+
+test_diskmenu_sort.prg:	test_diskmenu_sort.a65 diskmenu_sort.a65 Makefile
+	../Ophis/bin/ophis -4 test_diskmenu_sort.a65 -l test_diskmenu_sort.list

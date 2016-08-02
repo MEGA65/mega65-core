@@ -1,0 +1,134 @@
+
+sortnames:
+	; Sort list of disk names
+
+	; start by setting pointer of compare to the newly added item
+	lda diskpointer
+	sta sortpointer
+	lda diskpointer+1
+	sta sortpointer+1
+
+	; Now do sortpointer-- to make it point to the last string
+	; already added.
+	jsr sortpointer_minus_minus
+	; return if list is empty
+	bne nameloop
+	rts
+
+nameloop:
+	; Now iterate through the strings, to work out where the new string
+	; should be inserted.
+	jsr comparenames
+	bne doinsertnamehere
+
+	; keep searching for insert point
+	jsr sortpointer_minus_minus
+	; If we hit the start of the list, then it must go there
+	beq doinsertnamehere
+	; else, keep searching
+	jmp nameloop
+
+doinsertnamehere:
+	; sortpointer points to where the new entry should go.
+	; so we need to copy [sortpointer,diskpointer+$0f) -> sortpointer+$10
+	; and copy the new disk name from [diskpointer,diskpointer+$0f)
+	; to sortpointer.  This means we need to put [diskpointer,diskpointer+$0f)
+	; somewhere safe while we DMA the rest up.
+
+	; Save the name at [diskpointer,diskpointer+$0f)
+	ldy #$0f
+din1:	lda diskpointer,y
+	sta nametemp,y
+	dey
+	bpl din1
+
+	; Set sortpointer as DMA source address ...
+	; ... and set destination to source + $10
+	lda sortpointer+0
+	sta sortdmasrc+0
+	clc
+	adc #$10
+	sta sortdmadst+0
+	lda sortpointer+1
+	sta sortdmasrc+1
+	adc #$00
+	sta sortdmadst+1
+
+	; Set the copy length to diskpointer-sortpointer bytes.
+	lda diskpointer+0
+	sec
+	sbc sortpointer+0
+	sta sortdmacnt+0
+	lda diskpointer+1
+	sbc sortpointer+1
+	sta sortdmacnt+1
+
+	; Ask DMAgic to do the transfer.
+	; (clear DMAgic src/dst MB values, since the list lives in the first 1MB
+	; address space)
+	lda #$00
+	sta $d702
+	sta $d704
+	sta $d705
+	sta $d706
+	lda #>sortdmalist
+	sta $d701
+	lda #<sortdmalist
+	sta $d700
+
+	; Now copy the saved entry to sortpointer
+	ldy #$0f
+din2:	lda nametemp,y
+	sta sortpointer,y
+	dey
+	bpl din2 
+
+	; Now we are all done
+
+	rts
+
+sortdmalist:	.byte $00 ; copy non-chained job 
+sortdmacnt:		.word $0001 ; number of bytes to copy
+sortdmasrc:		.word $0000 ; source address
+				.byte $40 ; source bank number / direction
+sortdmadst:		.word $0000 ; destination address
+				.byte $40 ; destination bank number / direction
+				.word $0000 ; modulo
+nametemp:	.byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+
+
+; To sort the names of disks, we first need a routine to compare the names of
+; two disks, and indicate which is the lesser.
+comparenames:
+	ldy #$00
+cnl:
+	lda (diskpointer),y
+	cmp (sortpointer),y
+	bcs cn_gt
+	bne cn_lt
+	; chars equal
+	iny
+	cpy #$10
+	bne cnl
+	; names match
+	lda #$00
+	rts
+cn_gt:	; name @ sortpointer > name @ diskpointer
+	; so they need to swap
+	lda #$01
+	rts
+cn_lt:	; name @ sortpointer < name @ diskpointer
+	; so no need to swap
+	lda #$00
+	rts
+
+;  Make sortpointer point to the previous entry in the list
+sortpointer_minus_minus:
+	sec
+	lda sortpointer+1
+	sbc #$10
+	sta sortpointer+1
+	lda sortpointer
+	sbc #$00
+	sta sortpointer
+	rts
