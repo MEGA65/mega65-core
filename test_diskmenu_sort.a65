@@ -29,11 +29,57 @@ _next:	 .word 0
 
 
 	 ; Test goes here
-	 
+	 ; Basically add pseudo random entries, call sort, and see if they end up
+	 ; sorted at the end.  This is nice and easy to arrange, as we can just have
+	 ; the list of entries at $1000 ready, and increase diskpointer to incorporate
+	 ; more of the list each iteration.
 
+addnextentry:
+	 ; 1. Add next entry
+	 ; diskpointer++
+	 lda diskpointer
+	 clc
+	 adc #$10
+	 sta diskpointer
+	 lda diskpointer+1
+	 adc #$00
+	 sta diskpointer+1
+
+	 ; See if we have gone past the end of the test data, if so, stop.
+	 lda diskpointer+1
+	 cmp #>endoftestdata
+	 bcc definitelyok
+	 lda diskpointer
+	 cmp #<endoftestdata
+	 bcc definitelyok
+
+	 ; end of test
+
+	 rts
+
+definitelyok:
+	; 2. Apply sort.
+	jsr sortnames
+
+	; 3. Check that it worked
+
+
+	jmp addnextentry
+
+	 ; Include sort routine that we are testing
 	 .include "diskmenu_sort.a65"
 
 	 .checkpc $1000
 	 .advance $1000
+
+	 ; Test data goes here
+	 .byte "abcdefghijklmnop"
+	 .byte "0000000000000002"
+	 .byte "0000000000000001"
+	 .byte "zzzzzzzzzzzzzzzz"
+	 .byte "potato sauce    "
+	 .byte "A               "
+	 .byte "B               "
+endoftestdata:
 
 	 .scend
