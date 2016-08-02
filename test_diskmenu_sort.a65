@@ -55,6 +55,9 @@ addnextentry:
 
 	 ; end of test
 
+	 ; XXX - Finally compare sorted list with what we think it should look like.
+
+
 	 rts
 
 definitelyok:
@@ -73,13 +76,34 @@ definitelyok:
 	 .advance $1000
 
 	 ; Test data goes here
+	 ; We need to have entries that should go to the start, end, and in the middle of the list
+	 ; and have enough entries to cover more than one page of RAM, to exercise the 16-bit calculations
 	 .byte "abcdefghijklmnop"
 	 .byte "0000000000000002"
 	 .byte "0000000000000001"
 	 .byte "zzzzzzzzzzzzzzzz"
 	 .byte "potato sauce    "
 	 .byte "A               "
-	 .byte "B               "
+	 .byte "J               "
+	 .byte "D               "
+	 .byte "O               "
+	 .byte "G               "
+	 .byte "F               "
+	 .byte "O               "
+	 .byte "O               "
+	 .byte "D               "
+	 .byte "I               "
+	 .byte "S               "
+	 .byte "YUMMY           "
+	 .byte "We              "
+	 .byte "need            "
+	 .byte "to              "
+	 .byte "have            "
+	 .byte "more            "
+	 .byte "test            "
+	 .byte "entries         "
+	 
+	 
 endoftestdata:
 
 	 .scend
