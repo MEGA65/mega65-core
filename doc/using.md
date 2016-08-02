@@ -3,7 +3,9 @@
 # Table of Contents:
 
 [Introduction](#introduction)  
-[c64 mode](#c64-mode)  
+[c64 mode - general](#c64-mode---general)  
+[c64 mode - loading from SDcard](#c64-mode---loading-from-sdcard)  
+[General Usage](#general-usage)  
 [diskimages](#disk-images)  
 [converting D64 images to D81 image format](#converting-d64-images-to-d81-image-format)  
 [Files required on SDcard](#files-required-on-sdcard)  
@@ -34,23 +36,60 @@ From the keyboard, you can now do c65 things. Details to be provided l8r.
 
 I suggest you type "GO64" followed by 'Y'. This will put you into c64 mode.
 
-## c64 mode
+## c64 mode - general
 
-1. From here you can write a BASIC program and RUN it. Details to be provided later.
-1. To LOAD files from the SDcard:
- 1. type ```sys49152``` and press enter
+When in c64 mode, you can generally do a number of things:
+
+1. you can write a BASIC program and RUN it.
+ 1. Details to be provided later [ ].
+1. you can load a program from the SDcard.
+ 1. first you need to mount the SDcard, then run a "disk-load" program (see [below](#c64-mode---loading-from-sdcard))
+1. you can use the serial-monitor from a PC to talk with the mega65.
+ 1. the serial monitor allows you to disassemble memory, assemble a machine language (ML) program, execute the ML program, step through the ML program, etc (see [below](#serial-monitor)).
+
+## c64 mode - loading from SDcard
+
+Basically: to load from SDcard, you first need to mount a disk-image of file-format "*.D81".
+Once that disk-image is mounted, then you just as-per-normal ```load"$",8```, ```list``` and ```load...```.
+Details of this are below.
+
+NOTE: that to mount a disk-image, the current design supports two different methods.
+These two different methods are selectable when compiling the design.
+Please refer to ```kickstart.a65``` and see the section:
+```
+diskchooserstart:
+        ; Pre-compiled disk chooser
+        .incbin "diskchooser"
+        ;  .incbin "diskmenu_c000.bin"
+diskchooserend:
+```
+In the above code-snippet, you can comment out the ```diskchooser``` line and uncomment the ```diskmenuc000.bin``` line to select the alternate disk-mount code.
+
+Currently, "diskchooser" is simple and seems to work, and is therefore the default in this git-repo.  
+
+The "diskmenu_c000.bin" is not currently working. This alternate version uses a much nicer interface.
+
+So, assuming you have the diskchooser compiled in, and you are in c64 mode,  
+
+1. To LOAD files from the SDcard, first mount a disk-image:
+ 1. type ```sys49152``` and press enter. This executes code at $c000.
  1. a list of the files on the SDcard will be listed. Press "Y" to mount the [diskimage](#disk-image) listed, or any other key to keep going through the list.
  1. NOTE: that files that have been written to SDcard, *then deleted*, will still appear, but will be shown with the "|" symbol as the first char of the filename.
- 1. NOTE also: that to quit the listing, ```hold RUN-STOP``` and ```tap RESTORE```. You can then re-enter ```sys49152```.
- 1. once a "D81" image is mounted, you can then either:
+ 1. NOTE also: that to quit the listing, ```hold RUN-STOP``` and ```tap RESTORE```. You can then re-enter ```sys49152```.  
+
+1. Once a "D81" disk-image is mounted, you can then either:
+ 1. - hold ```<shift>``` and tap ```<run-stop>``` to load the first file on the mounted disk-image, or
  1. - type ```LOAD"$",8``` followed by ```list``` to display a directory listing of the mounted disk image, or
- 1. - type ```LOAD"FILENAME",8,1```, where ```FILENAME``` is a file on the disk, which will load a program you know is on the disk image.
+ 1. - type ```LOAD"FILENAME",8,1```, where ```FILENAME``` is a file located within the mounted disk-image, which will load a program that you know is on the disk-image.
  1. Alternatively, to load the "DONKEYKONG" program, you can ```LOAD"DON*",8,1```, which will load the first file on the disk with matching filename starting with "DON".
  1. Generally when a program is loaded, you can just type ```RUN``` to start the program.
+
+## general usage
+
 1. To reset/restart the system, press the red "CPU RESET" button on the Nexyx board. This is the button closest to the center of the board.
-1. The [debugger](#debugger)-mode allows a serial communication between PC and FPGA, to debug/monitor the CPU.
-1. Switch 15 can be asserted to disable interrupts.
-1. Switch 14 can be used to do something strange with the video colours.
+1. The [serial-monitor](#serial-monitor) allows a serial communication between PC and FPGA, to debug/monitor the CPU.
+1. Switch 15 can be asserted to disable interrupts. This is especially useful when stepping/tracing through a program using the serial-monitor and you want to ignore interrupts.
+1. Switch 14 can be used to do something strange with the video colours. This is yet to be determined.
 
 
 ## disk images
@@ -87,7 +126,7 @@ http://www.zimmers.net/anonftp/pub/cbm/crossplatform/converters/unix/cbmconvert.
 ```./cbmconvert -v2 -D8 crest-2_years_crest.d81 -d crest-2_years_crest.d64```  
 1. then put the D81 file on the SDcard of the c65gs and enjoy.  
 
-* NOTE that I had 'defrag' problems when mounting some D81 files. It seems the SDcard reader can only mount the image if the D81-file is contiguous, IE: if the SDcard is fragmented, it cannot load.  \
+* NOTE that I had 'defrag' problems when mounting some D81 files. It seems the SDcard reader can only mount the image if the D81-file is contiguous, IE: if the SDcard is fragmented, it cannot load.  
 * So, ensure that the SDcard is defragmented, either ```defrag``` on windows, or format the card, then copy on all files required.
 
 ## Files required on SDcard
