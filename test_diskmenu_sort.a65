@@ -1,5 +1,20 @@
 
-	.outfile "diskmenu.prg"
+	.outfile "test_diskmenu_sort.prg"
+
+	 ; List of disk names begins at $1000 - $9FFF
+	 ; 16 bytes each, so 36KB can hold 2,304 disks
+	 .alias disknamearray $1000
+	 ; Where to get Hypervisor to copy dirent structures
+	 .alias dirent $0f00
+	 ; temporary filename structure (must also be <32KB)
+	 .alias scratch_filename $0e00
+	 ; 16-bit pointers to current disk and number of
+	 ; disks.
+	 .alias displaydiskpointer $40
+	 .alias diskpointer $fe
+	 .alias sortpointer $f7
+	 ; pointer for where we are drawing on screen
+	 .alias screenpointer $f9
 
 	 .word $0801
 	 .org $0801
@@ -11,6 +26,7 @@ _next:	 .word 0
     
 	 .checkpc 2079
 	 .advance 2079
+
 
 	 ; Test goes here
 	 
