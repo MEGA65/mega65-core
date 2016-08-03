@@ -2398,19 +2398,22 @@ l96:
 
 		; Get cluster number again, convert to sector, and copy to
 		; SD controller FDC emulation disk image offset registers
-				ldx dos_current_file_descriptor_offset
+		ldx dos_current_file_descriptor_offset
 		ldy #0
 l94c:		lda dos_file_descriptors+dos_filedescriptor_offset_currentcluster,x
 		sta dos_current_cluster,y
+		sta $0400,y
 		inx
 		iny
 		cpy #4
 		bne l94c
 		jsr dos_cluster_to_sector
+		jsr sd_fix_sectornumber
 		; copy sector number from $D681 to $D68c
 		ldx #$03
 l94d:		lda $d681,x
 		sta $d68c,x
+		sta $0408,x
 		dex
 		bpl l94d
 		
