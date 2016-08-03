@@ -308,7 +308,7 @@ notninekey:
 
 	; Exit nicely to basic.
 	ldz #$00
-	jmp ($a002)
+	jmp $FE66
 
 notrunstopkey:
 	cmp #$0d
