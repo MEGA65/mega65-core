@@ -2400,9 +2400,8 @@ l96:
 		; SD controller FDC emulation disk image offset registers
 		ldx dos_current_file_descriptor_offset
 		ldy #0
-l94c:		lda dos_file_descriptors+dos_filedescriptor_offset_currentcluster,x
+l94c:		lda dos_file_descriptors+dos_filedescriptor_offset_startcluster,x
 		sta dos_current_cluster,y
-		sta $0400,y
 		inx
 		iny
 		cpy #4
@@ -2413,7 +2412,6 @@ l94c:		lda dos_file_descriptors+dos_filedescriptor_offset_currentcluster,x
 		ldx #$03
 l94d:		lda $d681,x
 		sta $d68c,x
-		sta $0408,x
 		dex
 		bpl l94d
 		
