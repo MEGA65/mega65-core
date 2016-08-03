@@ -879,11 +879,11 @@ sw1:
 		jsr checkethernet
 		dec $d020
 
-		inc $0300
+		inc sdcounter+0
 		bne sw1
-		inc $0301
+		inc sdcounter+1
 		bne sw1
-		inc $0302
+		inc sdcounter+2
 		bne sw1
 		rts
 
@@ -891,10 +891,10 @@ sw1:
 		; (if it is too short, the SD card won't reset)
 sdtimeoutreset:
 		lda #$00
-		sta $0300
-		sta $0301
+		sta sdcounter+0
+		sta sdcounter+1
 		lda #$f7
-		sta $0302
+		sta sdcounter+2
 		rts
 
 sdreadytest:	; check if SD card is ready, or if timeout has occurred
@@ -903,11 +903,11 @@ sdreadytest:	; check if SD card is ready, or if timeout has occurred
 		lda $d680
 		and #$03
 		beq sdisready
-		inc $0300
+		inc sdcounter+0
 		bne sr1
-		inc $0301
+		inc sdcounter+1
 		bne sr1
-		inc $0302
+		inc sdcounter+2
 		bne sr1
 
 		; timeout
@@ -2652,6 +2652,9 @@ checkpoint_z:	      .byte 0
 checkpoint_p:	      .byte 0
 checkpoint_pcl:	      .byte 0
 checkpoint_pch:	      .byte 0
+
+; SD card timeout handling
+sdcounter:	  .byte 0,0,0
 
 		.checkpc $C000
 		.advance $C000, $3f
