@@ -226,7 +226,7 @@ ll20:
 	cmp #$90
 	bcs endofdir
 
-	jsr sortnames
+;	jsr sortnames
 
 	; update pointer address for dirent
 	lda diskpointer
@@ -237,7 +237,7 @@ ll20:
 	adc #$00
 	sta diskpointer+1
 
-;	jsr updatescreen
+	jsr updatescreen
 
 	jmp readnextentry
 
