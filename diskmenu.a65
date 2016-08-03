@@ -243,6 +243,7 @@ ll20:
 
 endofdir:
 	ldz #0
+	jmp mainloop
 
 	.include "diskmenu_sort.a65"
 
