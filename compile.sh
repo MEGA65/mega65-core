@@ -1,6 +1,5 @@
 #!/bin/bash
 
-
 ( cd src ; make firmware generated_vhdl )
 retcode=$?
 
@@ -12,6 +11,8 @@ source /opt/Xilinx/14.7/ISE_DS/settings64.sh
 
 # time for the output filenames
 datetime2=`date +%m%d_%H%M_`
+# gitstring for the output filenames
+gitstring=`git describe --always --abbrev=7 --dirty=~`
 
 outfile1="compile-${datetime2}1-xst.log"
 outfile2="compile-${datetime2}2-ngd.log"
@@ -45,7 +46,7 @@ fi
 
 datetime=`date +%Y%m%d_%H:%M:%S`
 echo "==> $datetime Starting: ngdbuild, see container.bld"
-ngdbuild ${ISE_COMMON_OPTS} ${ISE_NGDBUILD_OPTS} -uc ./src/container.ucf ./isework/container.ngc ./isework/container.ngd > $outfile2
+ngdbuild ${ISE_COMMON_OPTS} ${ISE_NGDBUILD_OPTS} -uc ./vhdl/container.ucf ./isework/container.ngc ./isework/container.ngd > $outfile2
 retcode=$?
 if [ $retcode -ne 0 ] ; then
   echo "ngdbuild failed with return code $retcode" && exit 1
@@ -88,7 +89,6 @@ echo "==> $datetime Finished!"
 echo "Refer to compile[1-6].*.log for the output of each Xilinx command."
 
 # now timestamp the file and rename with git-status
-gitstring=`git describe --always --abbrev=7 --dirty=~`
 echo "cp ./isework/container.bit ./bit$datetime2$gitstring.bit"
 cp       ./isework/container.bit ./bit$datetime2$gitstring.bit
 ls -al                           ./bit$datetime2$gitstring.bit
