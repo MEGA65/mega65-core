@@ -31,7 +31,7 @@ lines=open(argv[1]).readlines()
 
 for line in lines:
     if line.find("THEROM")>-1:
-        line=line.replace("THEROM",argv[3])
+        line=line.replace("THEROM",argv[4])
     if line.find("ROMDATA")>-1:
         line=line.replace("ROMDATA",romdata)
     w.write(line)

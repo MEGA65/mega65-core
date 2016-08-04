@@ -1,10 +1,8 @@
 #!/bin/bash
 
-cd precomp
-make precomp
-retcode=$?
 
-cd ..
+( cd src ; make firmware generated_vhdl )
+retcode=$?
 
 if [ $retcode -ne 0 ] ; then
   echo "make failed with return code $retcode" && exit 1

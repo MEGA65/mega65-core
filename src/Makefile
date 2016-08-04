@@ -121,7 +121,7 @@ textmodetest.prg:	textmodetest.a65 textmodetest-dejavus.f65
 $(VHDLSRCDIR)/kickstart.vhdl:	rom_template.vhdl KICKUP.M65 makerom
 	$(warning ~~~~~~~~~~~~~~~~> Making: $(VHDLSRCDIR)/kickstart.vhdl)
 #       script    arg[1]            arg[2]            arg[3]
-	./makerom rom_template.vhdl KICKUP.M65 $(VHDLSRCDIR)/kickstart
+	./makerom rom_template.vhdl KICKUP.M65 $(VHDLSRCDIR)/kickstart kickstart
 
 
 # unsure why the below is commented out
