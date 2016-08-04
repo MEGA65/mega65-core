@@ -2670,4 +2670,4 @@ sdcounter:	  .byte 0,0,0
 		.checkpc $C000
 		.advance $C000, $3f
 
-		 .outfile "kickstart65gs.bin"
+		 .outfile "KICKUP.M65"

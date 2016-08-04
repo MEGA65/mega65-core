@@ -16,6 +16,11 @@ else
 SOCKLIBS =
 endif
 
+#	precomp   = pre-compiled binaries for Xilinx ISE FPGA implementation
+#	sdcard    = files destined for the SDcard to be loaded upon fpga-boot-up
+
+all:	precomp sdcard
+
 fpga:	
 	$(warning make-target:fpga is not implemented in the makefile yet, refer to ./../compile.sh)
 	$(warning ISE build to go here, ie xst, ngdbuild, map, par, bitgen)
@@ -27,24 +32,19 @@ precomp:	kickstart.vhdl \
 
 
 # files destined to go on the SD-card
-sdcard:	BOOTLOGO.G65 \
+sdcard:	BOOTLOGO.M65 \
 #	plus other binaries required on the SDcard, but these are not 100% determined at the moment
 
 
 simulate:	ghdl-frame-gen \
 	diskmenu.prg \
-	kickstart65gs.bin \
+	KICKUP.M65 \
 	makerom \
 	container.prj \
 	thumbnail.prg \
 	textmodetest.prg \
 	etherload \
 	etherkick
-
-all:	precomp \ # pre-compiled binaries for Xilinx ISE FPGA implementation
-	fpga \    # ise will go here
-	sdcard \  # files destined for the SDcard to be loaded upon fpga-boot-up
-	simulate  # files to simulate the design
 
 
 # ============================ done moved, print-warn, clean-target
@@ -81,8 +81,8 @@ diskchooser:	diskchooser.a65 etherload.prg
 
 # ============================ done moved, print-warn, clean-target
 #??? diskmenu_c000.bin yet b0rken
-kickstart65gs.bin:	$(KICKSTARTSRCS) diskchooser diskmenu_c000.bin version.a65
-	$(warning ~~~~~~~~~~~~~~~~> Making: kickstart65gs.bin and kickstart.list)
+KICKUP.M65:	$(KICKSTARTSRCS) diskchooser diskmenu_c000.bin version.a65
+	$(warning ~~~~~~~~~~~~~~~~> Making: KICKUP.M65 and kickstart.list)
 	./../../Ophis/bin/ophis -4 kickstart.a65 -l kickstart.list
 
 
@@ -127,10 +127,10 @@ textmodetest.prg:	textmodetest.a65 textmodetest-dejavus.f65
 # makerom is a python script that reads two files (arg[1,2]) and generates one (arg[3]).
 # the line below would generate the kickstart.vhdl file, (note no file extention on arg[3])
 # two files are read (arg[1] and arg[2]) and somehow compared, looking for THEROM and ROMDATA
-kickstart.vhdl:	rom_template.vhdl kickstart65gs.bin makerom
+kickstart.vhdl:	rom_template.vhdl KICKUP.M65 makerom
 	$(warning ~~~~~~~~~~~~~~~~> Making: kickstart.vhdl)
 #       script    arg[1]            arg[2]            arg[3]
-	./makerom rom_template.vhdl kickstart65gs.bin kickstart
+	./makerom rom_template.vhdl KICKUP.M65 kickstart
 
 
 # unsure why the below is commented out
@@ -177,8 +177,8 @@ iomap.txt:	./../*.vhdl
 # =========
 # performs a secure-copy from one machine to another machine on the network.
 # i doubt this is still used, but remains here for historical purposes
-transfer:	kickstart.vhdl version.vhdl kickstart65gs.bin makerom makeslowram iomap.txt ipcore_dir
-	scp -pr ipcore_dir version.sh Makefile makerom c65gs.rom makerom makeslowram *.a65 *.ucf *.xise *.prj *vhd *vhdl kickstart65gs.bin 192.168.56.101:c64accel/
+transfer:	kickstart.vhdl version.vhdl KICKUP.M65 makerom makeslowram iomap.txt ipcore_dir
+	scp -pr ipcore_dir version.sh Makefile makerom c65gs.rom makerom makeslowram *.a65 *.ucf *.xise *.prj *vhd *vhdl KICKUP.M65 192.168.56.101:c64accel/
 	scp -p .git/index 192.168.56.101:c64accel/.git/
 
 
@@ -350,11 +350,11 @@ charrom.vhdl:	pngprepare 8x8font.png
 
 # ============================ done moved, Makefile-dep, print-warn, clean-target
 # i think the 'logo' is used to put the pngprepare into a special mode that
-# generates the BOOTLOGO.G65 file that is embedded with the contents of the mega65*.png file
-BOOTLOGO.G65:	pngprepare mega65_64x64.png
-	$(warning ~~~~~~~~~~~~~~~~> Making: BOOTLOGO.G65)
+# generates the BOOTLOGO.M65 file that is embedded with the contents of the mega65*.png file
+BOOTLOGO.M65:	pngprepare mega65_64x64.png
+	$(warning ~~~~~~~~~~~~~~~~> Making: BOOTLOGO.M65)
 #       exe          opt  infile           outfile
-	./pngprepare logo mega65_64x64.png BOOTLOGO.G65
+	./pngprepare logo mega65_64x64.png BOOTLOGO.M65
 
 
 clean:
@@ -364,12 +364,12 @@ clean:
 	rm -f ipcore_dir/*.asy ipcore_dir/*.gise ipcore_dir/*.ncf ipcore_dir/*.sym ipcore_dir/*.xdc
 	rm -f ipcore_dir/*.cgp ipcore_dir/*.txt ipcore_dir/*.log
 	rm -f c65-rom-911001.txt c65-911001-rom-annotations.txt c65-dos-context.bin c65-911001-dos-context.bin
-	rm -f thumbnail.prg kickstart65gs.bin diskmenuc000.list diskmenu_c000.bin diskchooser diskchooser.list 
+	rm -f thumbnail.prg KICKUP.M65 diskmenuc000.list diskmenu_c000.bin diskchooser diskchooser.list 
 	rm -f textmodetest.prg textmodetest.list etherload_done.bin etherload_stub.bin etherload.prg diskmenu.prg diskmenuprg.list ethertest.prg
 	rm -f videoproxy etherload etherkick
 	rm -f iomap.txt
 	rm -f kickstart.vhdl charrom.vhdl version.vhdl version.a65
-	rm -f monitor_drive monitor_load read_mem ghdl-frame-gen chargen_debug dis4510 em4510 4510tables pngprepare BOOTLOGO.G65
+	rm -f monitor_drive monitor_load read_mem ghdl-frame-gen chargen_debug dis4510 em4510 4510tables pngprepare BOOTLOGO.M65
 
 cleangen:
-	rm kickstart.vhdl charrom.vhdl kickstart65gs.bin
+	rm kickstart.vhdl charrom.vhdl *.M65
