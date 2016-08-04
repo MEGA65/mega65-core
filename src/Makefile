@@ -18,22 +18,18 @@ else
 SOCKLIBS =
 endif
 
-#	precomp   = pre-compiled binaries for Xilinx ISE FPGA implementation
-#	sdcard    = files destined for the SDcard to be loaded upon fpga-boot-up
-
-all:	precomp sdcard
+all:	generated_vhdl firmware ../iomap.txt
 
 fpga:	
 	$(warning make-target:fpga is not implemented in the makefile yet, refer to ./../compile.sh)
 	$(warning ISE build to go here, ie xst, ngdbuild, map, par, bitgen)
 
 
-precomp:	$(VHDLSRCDIR)/kickstart.vhdl $(VHDLSRCDIR)/charrom.vhdl $(VHDLSRCDIR)/version.vhdl
+generated_vhdl:	$(VHDLSRCDIR)/kickstart.vhdl $(VHDLSRCDIR)/charrom.vhdl $(VHDLSRCDIR)/version.vhdl
 
 
-# files destined to go on the SD-card
-sdcard:	BOOTLOGO.M65 \
-#	plus other binaries required on the SDcard, but these are not 100% determined at the moment
+# files destined to go on the SD-card to serve as firmware for the MEGA65
+firmware:	BOOTLOGO.M65 KICKUP.M65
 
 
 simulate:	ghdl-frame-gen \
@@ -162,9 +158,9 @@ etherkick:	etherkick.c
 # unix command to generate the 'iomap.txt' file that represents the registers
 # within both the c64 and the c65gs
 # note that the iomap.txt file already comes from github
-iomap.txt:	$(VHDLSRCDIR)/*.vhdl 
-	$(warning ~~~~~~~~~~~~~~~~> Making: iomap.txt)
-	egrep "IO:C6|IO:GS" $(VHDLSRCDIR)/*.vhdl | cut -f3- -d: | sort -u -k2 > iomap.txt
+../iomap.txt:	$(VHDLSRCDIR)/*.vhdl 
+	$(warning ~~~~~~~~~~~~~~~~> Making: ../iomap.txt)
+	egrep "IO:C6|IO:GS" $(VHDLSRCDIR)/*.vhdl | cut -f3- -d: | sort -u -k2 > ../iomap.txt
 
 # ============================ done moved, Makefile-dep, print-warn, clean-target
 # script to extract the git-status from the ./.git filesystem, and to embed that string

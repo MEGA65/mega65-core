@@ -18,10 +18,6 @@ charrom.vhdl:
 version.vhdl:
 	( cd ../src ; make ../vhdl/version.vhdl )
 
-transfer:	kickstart.vhdl version.vhdl KICKUP.M65 makerom makeslowram iomap.txt ipcore_dir
-	scp -pr ipcore_dir version.sh Makefile makerom c65gs.rom makerom makeslowram *.a65 *.ucf *.xise *.prj *vhd *vhdl KICKUP.M65 192.168.56.102:c64accel/
-	scp -p .git/index 192.168.56.102:c64accel/.git/
-
 SIMULATIONFILES=	viciv.vhdl bitplanes.vhdl bitplane.vhdl cputypes.vhdl sid_voice.vhd sid_coeffs.vhd sid_filters.vhd sid_components.vhd version.vhdl kickstart.vhdl iomapper.vhdl container.vhd cpu_test.vhdl gs4510.vhdl UART_TX_CTRL.vhd uart_rx.vhdl uart_monitor.vhdl machine.vhdl cia6526.vhdl c65uart.vhdl keymapper.vhdl ghdl_ram8x32k.vhdl charrom.vhdl ghdl_chipram8bit.vhdl ghdl_screen_ram_buffer.vhdl ghdl_ram9x4k.vhdl ghdl_ram18x2k.vhdl sdcardio.vhdl ghdl_ram8x512.vhdl ethernet.vhdl ramlatch64.vhdl shadowram.vhdl cputypes.vhdl version.vhdl sid_6581.vhd ghdl_ram128x1k.vhdl ghdl_ram8x4096.vhdl crc.vhdl slowram.vhdl framepacker.vhdl ghdl_videobuffer.vhdl vicii_sprites.vhdl sprite.vhdl ghdl_alpha_blend.vhdl ghdl_farstack.vhdl debugtools.vhdl
 simulate:	$(SIMULATIONFILES)
 	ghdl -i $(SIMULATIONFILES) 
@@ -41,4 +37,4 @@ clean:
 	rm -f ipcore_dir/*.cgp ipcore_dir/*.txt ipcore_dir/*.log
 
 cleangen:
-	rm version.vhdl kickstart.vhdl charrom.vhdl KICKUP.M65
+	rm version.vhdl kickstart.vhdl charrom.vhdl
