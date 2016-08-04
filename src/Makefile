@@ -2,7 +2,7 @@ read_dataROUTEEFFORT=	std
 #ROUTEEFFORT=	med
 #ROUTEEFFORT=	high
 
-VHDLSRCDIR=	../src
+VHDLSRCDIR=	../vhdl
 
 KICKSTARTSRCS = kickstart.a65 \
 		kickstart_machine.a65 \
