@@ -6,7 +6,7 @@ version=`git describe --always --abbrev=7 --dirty=+DIRTY`
 datetime=`date +%m%d_%H%M`
 stringout="${version},${datetime}"
 echo $stringout
-cat > version.vhdl <<ENDTEMPLATE
+cat > ../src/version.vhdl <<ENDTEMPLATE
 library ieee;
 use Std.TextIO.all;
 use ieee.STD_LOGIC_1164.all;
@@ -18,7 +18,7 @@ package version is
 
 end version;
 ENDTEMPLATE
-echo "wrote: version.vhdl"
+echo "wrote: ../src/version.vhdl"
 
 # try git describe --always --abbrev=7 --dirty=*+DIRTY
 #version=`git log | head | grep commit | head -1 | cut -f2 -d" " | tr "abcdef" "ABCDEF" | cut -c1-15`\*`[[ $(git diff --shortstat 2> /dev/null | tail -n1) != "" ]] && echo "+DIRTY"`

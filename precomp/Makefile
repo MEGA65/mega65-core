@@ -2,6 +2,8 @@ read_dataROUTEEFFORT=	std
 #ROUTEEFFORT=	med
 #ROUTEEFFORT=	high
 
+VHDLSRCDIR=	../src
+
 KICKSTARTSRCS = kickstart.a65 \
 		kickstart_machine.a65 \
 		kickstart_process_descriptor.a65 \
@@ -26,9 +28,7 @@ fpga:
 	$(warning ISE build to go here, ie xst, ngdbuild, map, par, bitgen)
 
 
-precomp:	kickstart.vhdl \
-	charrom.vhdl
-#	version.vhdl \ # other files depend on this, so no need to specify it here
+precomp:	$(VHDLSRCDIR)/kickstart.vhdl $(VHDLSRCDIR)/charrom.vhdl $(VHDLSRCDIR)/version.vhdl
 
 
 # files destined to go on the SD-card
@@ -72,11 +72,6 @@ diskmenu.prg:	diskmenuprg.a65 diskmenu.a65
 diskchooser:	diskchooser.a65 etherload.prg
 	$(warning ~~~~~~~~~~~~~~~~> Making: diskchooser)
 	./../../Ophis/bin/ophis -4 diskchooser.a65 -l diskchooser.list
-
-
-# this seems duplicated with the "version.vhdl", so will remove this one
-#version.a65:	*.a65 *.vhd Makefile
-#	./version.sh
 
 
 # ============================ done moved, print-warn, clean-target
@@ -127,10 +122,10 @@ textmodetest.prg:	textmodetest.a65 textmodetest-dejavus.f65
 # makerom is a python script that reads two files (arg[1,2]) and generates one (arg[3]).
 # the line below would generate the kickstart.vhdl file, (note no file extention on arg[3])
 # two files are read (arg[1] and arg[2]) and somehow compared, looking for THEROM and ROMDATA
-kickstart.vhdl:	rom_template.vhdl KICKUP.M65 makerom
-	$(warning ~~~~~~~~~~~~~~~~> Making: kickstart.vhdl)
+$(VHDLSRCDIR)/kickstart.vhdl:	rom_template.vhdl KICKUP.M65 makerom
+	$(warning ~~~~~~~~~~~~~~~~> Making: $(VHDLSRCDIR)/kickstart.vhdl)
 #       script    arg[1]            arg[2]            arg[3]
-	./makerom rom_template.vhdl KICKUP.M65 kickstart
+	./makerom rom_template.vhdl KICKUP.M65 $(VHDLSRCDIR)/kickstart
 
 
 # unsure why the below is commented out
@@ -167,20 +162,9 @@ etherkick:	etherkick.c
 # unix command to generate the 'iomap.txt' file that represents the registers
 # within both the c64 and the c65gs
 # note that the iomap.txt file already comes from github
-iomap.txt:	./../*.vhdl 
+iomap.txt:	$(VHDLSRCDIR)/*.vhdl 
 	$(warning ~~~~~~~~~~~~~~~~> Making: iomap.txt)
-	egrep "IO:C6|IO:GS" ./../*.vhdl | cut -f3- -d: | sort -u -k2 > iomap.txt
-
-
-# =========
-# ========= not included in build as it seems not required
-# =========
-# performs a secure-copy from one machine to another machine on the network.
-# i doubt this is still used, but remains here for historical purposes
-transfer:	kickstart.vhdl version.vhdl KICKUP.M65 makerom makeslowram iomap.txt ipcore_dir
-	scp -pr ipcore_dir version.sh Makefile makerom c65gs.rom makerom makeslowram *.a65 *.ucf *.xise *.prj *vhd *vhdl KICKUP.M65 192.168.56.101:c64accel/
-	scp -p .git/index 192.168.56.101:c64accel/.git/
-
+	egrep "IO:C6|IO:GS" $(VHDLSRCDIR)/*.vhdl | cut -f3- -d: | sort -u -k2 > iomap.txt
 
 # ============================ done moved, Makefile-dep, print-warn, clean-target
 # script to extract the git-status from the ./.git filesystem, and to embed that string
@@ -189,45 +173,9 @@ transfer:	kickstart.vhdl version.vhdl KICKUP.M65 makerom makeslowram iomap.txt i
 # version information is updated.
 # for now we will always update the version info whenever we do a make.
 .PHONY: version.vhdl version.a65
-version.vhdl version.a65:
-	$(warning ~~~~~~~~~~~~~~~~> Making: version.vhdl and version.a65)
+$(VHDLSRCDIR)/version.vhdl version.a65:
+	$(warning ~~~~~~~~~~~~~~~~> Making: $(VHDLSRCDIR)/version.vhdl and version.a65)
 	./version.sh
-
-
-# =========
-# ========= not included in build as it seems not required
-# =========
-# ghdl is an open source simulator for the VHDL language
-# cant seem to apt-install-ghdl
-SIMULATIONFILES=viciv.vhdl bitplanes.vhdl bitplane.vhdl cputypes.vhdl sid_voice.vhd sid_coeffs.vhd sid_filters.vhd sid_components.vhd \
-		version.vhdl kickstart.vhdl iomapper.vhdl container.vhd cpu_test.vhdl gs4510.vhdl \
-		UART_TX_CTRL.vhd uart_rx.vhdl uart_monitor.vhdl machine.vhdl cia6526.vhdl c65uart.vhdl keymapper.vhdl \
-		ghdl_ram8x32k.vhdl charrom.vhdl ghdl_chipram8bit.vhdl ghdl_screen_ram_buffer.vhdl ghdl_ram9x4k.vhdl ghdl_ram18x2k.vhdl \
-		sdcardio.vhdl ghdl_ram8x512.vhdl ethernet.vhdl ramlatch64.vhdl shadowram.vhdl cputypes.vhdl version.vhdl sid_6581.vhd \
-		ghdl_ram128x1k.vhdl ghdl_ram8x4096.vhdl crc.vhdl slowram.vhdl framepacker.vhdl \
-		ghdl_videobuffer.vhdl vicii_sprites.vhdl sprite.vhdl ghdl_alpha_blend.vhdl ghdl_farstack.vhdl debugtools.vhdl
-simulate:	$(SIMULATIONFILES)
-	ghdl -i $(SIMULATIONFILES) 
-	ghdl -m cpu_test
-
-
-# =========
-# ========= not included in build as it seems not required
-# =========
-# ghdl is an open source simulator for the VHDL language
-# cant seem to apt-install-ghdl
-testcia:	tb_cia.vhdl cia6526.vhdl debugtools.vhdl
-	ghdl -c tb_cia.vhdl cia6526.vhdl debugtools.vhdl -r tb_cia
-
-
-# =========
-# ========= not included in build as it seems not required
-# =========
-# ghdl is an open source simulator for the VHDL language
-# cant seem to apt-install-ghdl
-testadder:	tb_adder.vhdl debugtools.vhdl
-	ghdl -c tb_adder.vhdl debugtools.vhdl -r tb_adder
-
 
 # ============================ done moved, Makefile-dep, print-warn, clean-target
 # c-code that makes and executable that seems to be the 'load-wedge'
@@ -254,14 +202,6 @@ read_mem:	read_mem.c Makefile
 	$(warning ~~~~~~~~~~~~~~~~> Making: read_mem)
 	gcc -g -Wall -o read_mem read_mem.c
 
-
-# ============================ done moved, Makefile-dep, print-warn, clean-target
-# c-code that makes and executable that seems to generate a 'frame.bmp' file
-ghdl-frame-gen:	ghdl-frame-gen.c Makefile
-	$(warning ~~~~~~~~~~~~~~~~> Making: ghdl-frame-gen)
-	gcc -Wall -o ghdl-frame-gen ghdl-frame-gen.c
-
-
 # ============================ done moved, Makefile-dep, print-warn, clean-target
 # c-code that makes and executable that seems to read serial commands from serial-port
 chargen_debug:	chargen_debug.c Makefile
@@ -285,8 +225,7 @@ em4510:	em4510.c Makefile
 
 
 # ============================ done moved, Makefile-dep, print-warn, clean-target
-# c-code that makes an executable, unsure what for
-# loads 64net.opc (a list of the opcodes)
+# Generate VHDL instruction and addressing mode tables for 4510 CPU
 4510tables:	4510tables.c Makefile
 	$(warning ~~~~~~~~~~~~~~~~> Making: 4510tables)
 	gcc -g -Wall -o 4510tables 4510tables.c
@@ -343,10 +282,10 @@ pngprepare:	pngprepare.c Makefile
 
 # i think 'charrom' is used to put the pngprepare file into a special mode that
 # generates the charrom.vhdl file that is embedded with the contents of the 8x8font.png file
-charrom.vhdl:	pngprepare 8x8font.png
-	$(warning ~~~~~~~~~~~~~~~~> Making: charrom.vhdl)
+$(VHDLSRCDIR)/charrom.vhdl:	pngprepare 8x8font.png
+	$(warning ~~~~~~~~~~~~~~~~> Making: $(VHDLSRCDIR)/charrom.vhdl)
 #       exe          option  infile      outfile
-	./pngprepare charrom 8x8font.png charrom.vhdl
+	./pngprepare charrom 8x8font.png $(VHDLSRCDIR)/charrom.vhdl
 
 # ============================ done moved, Makefile-dep, print-warn, clean-target
 # i think the 'logo' is used to put the pngprepare into a special mode that
@@ -358,18 +297,13 @@ BOOTLOGO.M65:	pngprepare mega65_64x64.png
 
 
 clean:
-	rm -f *.gise *.bgn *.bld *.cmd_log *.drc *.lso *.ncd *.ngc *.ngd *.ngr *.pad *.par *.pcf *.ptwx *.stx *.syr *.twr *.twx *.unroutes *.ut *.xpi *.xst *.xwbt
-	rm -f *.map *.mrp *.psr *.xrpt *.csv *.list *.log *.xml
-	rm -f container_summary.* container_usage.* usage_statistics_webtalk.* par_usage_statistics.*
-	rm -f ipcore_dir/*.asy ipcore_dir/*.gise ipcore_dir/*.ncf ipcore_dir/*.sym ipcore_dir/*.xdc
-	rm -f ipcore_dir/*.cgp ipcore_dir/*.txt ipcore_dir/*.log
 	rm -f c65-rom-911001.txt c65-911001-rom-annotations.txt c65-dos-context.bin c65-911001-dos-context.bin
 	rm -f thumbnail.prg KICKUP.M65 diskmenuc000.list diskmenu_c000.bin diskchooser diskchooser.list 
 	rm -f textmodetest.prg textmodetest.list etherload_done.bin etherload_stub.bin etherload.prg diskmenu.prg diskmenuprg.list ethertest.prg
 	rm -f videoproxy etherload etherkick
 	rm -f iomap.txt
-	rm -f kickstart.vhdl charrom.vhdl version.vhdl version.a65
+	rm -f $(VHDLSRCDIR)/kickstart.vhdl $(VHDLSRCDIR)/charrom.vhdl $(VHDLSRCDIR)/version.vhdl version.a65
 	rm -f monitor_drive monitor_load read_mem ghdl-frame-gen chargen_debug dis4510 em4510 4510tables pngprepare BOOTLOGO.M65
 
 cleangen:
-	rm kickstart.vhdl charrom.vhdl *.M65
+	rm $(VHDLSRCDIR)/kickstart.vhdl $(VHDLSRCDIR)/charrom.vhdl *.M65
