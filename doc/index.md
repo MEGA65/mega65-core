@@ -1,12 +1,12 @@
-## This is the toplevel documentation file.
+## This is the 'toplevel' documentation file.
 
 # Table of Contents:
 
-* [build](./build.md) - download source code, pre-building, compiling bitstream, loading into FPGA, etc  
+* [build](./build.md) - how to download source code, pre-building, compiling bitstream, loading into FPGA, etc  
 * [using](./using.md) - how to use the architecture when it is running in the fpga  
   * [monitor](./monitor.md) - how to interface with the FPGA using a serial port monitor  
-* [hardware](./hardware.md) - the interconnectivity of major components  
-* [structural](./structural.md) - fpga firmware diagrams and descriptions  
+* [hardware](./hardware.md) - details the interconnectivity of major hardware components  
+* [structural](./structural.md) - vhdl/fpga firmware diagrams and descriptions  
 * [viciv](./viciv-modes.md) - information on the viciv (VIC-4) video chip (unsure if this is accurate)  
 
 Below are misc URLs:
