@@ -1,4 +1,4 @@
-## This is the 'toplevel' documentation file.
+## This is the 'toplevel' documentation file. <[how to edit](./howtoedit.md)>
 
 # Table of Contents:
 
