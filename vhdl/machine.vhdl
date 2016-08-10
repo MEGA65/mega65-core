@@ -597,6 +597,7 @@ architecture Behavioral of machine is
   signal seg_led_data : unsigned(31 downto 0);
 
   signal reset_out : std_logic;
+  signal monitor_reset : std_logic;
   -- Holds reset on for 8 cycles so that reset line entry is used on start up,
   -- instead of implicit startup state.
   signal power_on_reset : std_logic_vector(7 downto 0) := (others => '0');
@@ -717,6 +718,7 @@ begin
     if btnCpuReset='0' then reset_combined <= '0';
     elsif reset_out='0' then reset_combined <= '0';
     elsif power_on_reset(0)='0' then reset_combined <= '0';
+    elsif monitor_reset='0' then reset_combined <= '0';
     else
       reset_combined <= '1';
     end if;
@@ -1141,7 +1143,7 @@ begin
   -----------------------------------------------------------------------------
   monitor0 : uart_monitor port map (
     reset => reset_combined,
-    reset_out => reset_combined,
+    reset_out => reset_monitor,
     clock => uartclock,
     tx       => UART_TXD,
     rx       => RsRx,
