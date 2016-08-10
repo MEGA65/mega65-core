@@ -718,7 +718,7 @@ begin
     if btnCpuReset='0' then reset_combined <= '0';
     elsif reset_out='0' then reset_combined <= '0';
     elsif power_on_reset(0)='0' then reset_combined <= '0';
-    elsif monitor_reset='0' then reset_combined <= '0';
+    elsif reset_monitor='0' then reset_combined <= '0';
     else
       reset_combined <= '1';
     end if;
