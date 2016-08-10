@@ -1,4 +1,4 @@
-## This is the **build** documentation file.
+## This is the 'build' documentation file.
 
 # Table of Contents:
 
@@ -38,7 +38,7 @@ $> cd $GIT_ROOT
 ```
 Clone the following two git repositories into your working directory
 ```
-$GIT_ROOT$> git clone https://github.com/Ben-401/c65gs.git
+$GIT_ROOT$> git clone https://github.com/MEGA65/mega65-core.git
 $GIT_ROOT$> git clone https://github.com/gardners/Ophis.git
 $GIT_ROOT$> 
 ```
@@ -50,10 +50,12 @@ $GIT_ROOT$> cd c65gs
 $GIT_ROOT$/c65gs>
 ```
 
-The current branch that we support is the ```dockit``` branch, so update your files to reflect this branch:
-``` 
-$GIT_ROOT$/c65gs> git checkout dockit
-```
+Currently, the MASTER branch (the default branch) is what you should compile.  
+
+If you want to try a different (development) branch, do the following: ie to see/use the example banana branch, type ```$GIT_ROOT$/c65gs> git checkout banana```. To revert back to the MASTER branch, type ```git checkout master```.
+
+You may want to type ```git status``` or ```git branch``` to check what branch you have checked out.  
+
 To make sure that you have the latest files, all you have to do is type:
 ``` 
 $GIT_ROOT$/c65gs> git pull
@@ -70,6 +72,18 @@ The following is assumed:
 1. you have ```libpng12-dev``` installed (for the image manipulation)
 1. you have Xilinx ISE 14.7 WebPACK installed, with a valid licence
 
+Overview of the compile process:  
+
+1. pre-compile BEFORE running the ISE build
+1. run the ISE build
+1. optionally: see design run in fpga hardware
+1. optionally: see design run in ghdl simulator
+
+The following instructions are for running in the fpga.  
+
+* As there are many end-use cases, i will not cover them all here, just the one that suits me.  
+Someone else please document how the simulate function(s) work and what compile options etc.  
+
 In your working directory: type the following
 ```
 $GIT_ROOT$/c65gs> ./compile.sh
@@ -77,7 +91,7 @@ $GIT_ROOT$/c65gs>
 ```
 The ```compile.sh``` script performs two main tasks:  
 
-1. calls the ```make``` command in the ```./precomp``` directory, which pre-compiles files used in the design, and  
+1. calls the ```make``` command in the ```./src``` directory, which pre-compiles files used in the design, and  
 1. issues several commands to build the design using ISE commands.  
 
 The image below may be useful to understand which file builds what file during the pre-compile.  
