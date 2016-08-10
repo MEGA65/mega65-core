@@ -30,7 +30,9 @@ https://guides.github.com/features/mastering-markdown/
 1. grip can be found here:  
 https://github.com/joeyespo/grip  
  1. clone the repo
- 1. pip install grip
+ 1. cd into the base dir
+ 1. sudo python setup.py install
+ 1. sudo pip install grip
  1. cd to <mega65>/c65gs/doc
  1. grip index.md &
  1. in browser, goto http://localhost:6419/ where grip is rendering the index.md file
