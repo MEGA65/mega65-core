@@ -42,23 +42,23 @@ $GIT_ROOT$> git clone https://github.com/MEGA65/mega65-core.git
 $GIT_ROOT$> git clone https://github.com/gardners/Ophis.git
 $GIT_ROOT$> 
 ```
-You should now have two directories in your working directory, ie ```c65gs``` and ```Ophis```.
+You should now have two directories in your working directory, ie ```mega65-core``` and ```Ophis```.
 
-Change directory into the ```c65gs``` working directory.
+Change directory into the ```mega65-core``` working directory.
 ```
-$GIT_ROOT$> cd c65gs
-$GIT_ROOT$/c65gs>
+$GIT_ROOT$> cd mega65-core
+$GIT_ROOT$/mega65-core>
 ```
 
 Currently, the MASTER branch (the default branch) is what you should compile.  
 
-If you want to try a different (development) branch, do the following: ie to see/use the example banana branch, type ```$GIT_ROOT$/c65gs> git checkout banana```. To revert back to the MASTER branch, type ```git checkout master```.
+If you want to try a different (development) branch, do the following: ie to see/use the example banana branch, type ```$GIT_ROOT$/mega65-core> git checkout banana```. To revert back to the MASTER branch, type ```git checkout master```.
 
 You may want to type ```git status``` or ```git branch``` to check what branch you have checked out.  
 
 To make sure that you have the latest files, all you have to do is type:
 ``` 
-$GIT_ROOT$/c65gs> git pull
+$GIT_ROOT$/mega65-core> git pull
 ```
 You are now ready to compile the design.
 
@@ -86,8 +86,8 @@ Someone else please document how the simulate function(s) work and what compile 
 
 In your working directory: type the following
 ```
-$GIT_ROOT$/c65gs> ./compile.sh
-$GIT_ROOT$/c65gs> 
+$GIT_ROOT$/mega65-core> ./compile.sh
+$GIT_ROOT$/mega65-core> 
 ```
 The ```compile.sh``` script performs two main tasks:  
 
@@ -126,7 +126,7 @@ Then load the bitstream into the Nexys 4 DDR board via USB stick:
 1. you need a USB stick formatted as FAT32
 1. copy the bitstream to the root directory of the USB stick
 ```
-$GIT_ROOT$/c65gs> cp *.bit /media/sdc1
+$GIT_ROOT$/mega65-core> cp *.bit /media/sdc1
 ```
 
 1. power OFF nexys board
