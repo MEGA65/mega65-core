@@ -597,7 +597,7 @@ architecture Behavioral of machine is
   signal seg_led_data : unsigned(31 downto 0);
 
   signal reset_out : std_logic;
-  signal monitor_reset : std_logic;
+  signal reset_monitor : std_logic;
   -- Holds reset on for 8 cycles so that reset line entry is used on start up,
   -- instead of implicit startup state.
   signal power_on_reset : std_logic_vector(7 downto 0) := (others => '0');
