@@ -430,6 +430,8 @@ tryreadmbr:
 		bcs gotmbr
 
 		jmp tryreadmbr
+
+; initial comments just to test
 		
 gotmbr:
 		; Scan SD card for partitions and mount them.
