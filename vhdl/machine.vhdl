@@ -182,6 +182,7 @@ architecture Behavioral of machine is
   component uart_monitor
     port (
     reset : in std_logic;
+    reset_out : out std_logic;
     clock : in std_logic;
     tx : out std_logic;
     rx : in  std_logic;
@@ -1140,6 +1141,7 @@ begin
   -----------------------------------------------------------------------------
   monitor0 : uart_monitor port map (
     reset => reset_combined,
+    reset_out => reset_combined,
     clock => uartclock,
     tx       => UART_TXD,
     rx       => RsRx,

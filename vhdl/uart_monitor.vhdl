@@ -27,6 +27,7 @@ use work.version.all;
 entity uart_monitor is
   port (
     reset : in std_logic;
+    reset_out : out std_logic;
     clock : in std_logic;
     tx : out std_logic;
     rx : in  std_logic;
@@ -150,39 +151,39 @@ architecture behavioural of uart_monitor is
   constant bannerMessage : String :=
     crlf &
     crlf &
-    "--------------------------------" & crlf &
     "MEGA65 Serial Monitor" & crlf &
     "build " & gitcommit & crlf &
     "--------------------------------" & crlf &
-    "Type ?/h/H for help." & crlf;
+    "See source code for help." & crlf;
 
   -- iterator to iterate through each message,
-  -- so each message/string should be no more than 512 chars.
-  -- If you need more than 512 chars, have two strings as per HelpMessage-states
-  signal banner_position : integer range 0 to 511 := 1;
+  -- so each message/string should be no more than 256 chars.
+  -- If you need more than 255 chars, have two strings as per HelpMessage-states
+  signal banner_position : integer range 0 to 255 := 1;
 
-  constant helpMessage : String :=
-    "f<low> <high> <byte> - Fill memory" &    crlf &
-    "g<addr> - Set PC" & crlf &
-    "m<addr> - Dump memory (28bit addresses) (1-line)" & crlf &
-    "M<addr> - Dump memory (28bit addresses) (32-lines)" & crlf &
-    "d<addr> - Dump memory (CPU context) (1-line)" & crlf &
-    "D<addr> - Dump memory (CPU context) (32-lines)" & crlf &
-    "r/R - Print registers" & crlf &
-    "c/C - UNSURE" & crlf &
-    "e/E - UNSURE" & crlf &
-    "z/Z - UNSURE" & crlf &
-    "l/L - UNSURE" & crlf;
-  constant helpMessage2 : String :=
-    "w/W - UNSURE" & crlf &
-    "?/h/H - this help" & crlf &
-    "s<addr> <value> ... - Set memory (28bit addresses)" & crlf &
-    "S<addr> <value> ... - Set memory (CPU memory context)" & crlf &
-    "b - Clear CPU breakpoint" & crlf &
-    "b<addr> - Set CPU breakpoint" & crlf &
-    "t<0|1|2> - Enable/disable tracing" & crlf &
-    "tc - Traced execution until keypress" & crlf &
-    "t|BLANK LINE - Step one cpu cycle if in trace mode" & crlf;
+--   constant helpMessage : String :=
+--     "f<low> <high> <byte> - Fill memory" &    crlf &
+--     "g<addr> - Set PC" & crlf &
+--     "m<addr> - Dump memory (28bit addr)" & crlf &
+--     "M<addr> - (as above, but 32-lines)" & crlf &
+--     "d<addr> - Dump memory (CPU context)" & crlf &
+--     "D<addr> - (as above, but 32-lines)" & crlf &
+--     "r/R - Print registers" & crlf &
+--     "c/C - Debugger debugging debug function (undocumented)" & crlf &
+--     "e/E - Break on CPU flag values" & crlf &
+--     "z/Z - Last 1000 CPU state log" & crlf &
+--     "l/L - Binary memory set" & crlf;
+--   constant helpMessage2 : String :=
+--     "w/W - UNSURE" & crlf &
+--     "?/h/H - this help" & crlf &
+--     "s<addr> <value> ... - Set memory (28bit addresses)" & crlf &
+--     "S<addr> <value> ... - Set memory (CPU memory context)" & crlf &
+--     "b - Clear CPU breakpoint" & crlf &
+--     "b<addr> - Set CPU breakpoint" & crlf &
+--     "t<0|1|2> - Enable/disable tracing" & crlf &
+--     "tc - Traced execution until keypress" & crlf &
+--     "t|BLANK LINE - Step one cpu cycle if in trace mode" & crlf;
+--     "! - reset CPU" & crlf;
 
   constant errorMessage : string := crlf & "?SYNTAX  ERROR ";
   constant timeoutMessage : string := crlf & "?CPU NOT READY  ERROR" & crlf;
@@ -193,7 +194,6 @@ architecture behavioural of uart_monitor is
   
   type monitor_state is (Reseting,
                          PrintBanner,
-                         PrintHelp,PrintHelp2,
                          PrintError,PrintError2,PrintError3,PrintError4,
                          PrintRequestTimeoutError,
                          PrintReplyTimeoutError,
@@ -740,30 +740,6 @@ begin
             banner_position <= 1;
             state <= PrintBanner;
 				
-          when PrintHelp => -- complete help-string displayed using two states (see PrintHelp2)
-            if tx_ready='1' then
-              tx_data <= to_std_logic_vector(helpMessage(banner_position));
-              tx_trigger <= '1';
-              if banner_position<helpMessage'length then
-                banner_position <= banner_position + 1;
-              else
-                banner_position <= 1;
-                state <= PrintHelp2;
-                cmdlen <= 1;
-              end if;
-            end if;
-          when PrintHelp2 =>
-            if tx_ready='1' then
-              tx_data <= to_std_logic_vector(helpMessage2(banner_position));
-              tx_trigger <= '1';
-              if banner_position<helpMessage2'length then
-                banner_position <= banner_position + 1;
-              else
-                state <= PrintPrompt;
-                cmdlen <= 1;
-              end if;
-            end if;
-
           when PrintBanner =>
             if tx_ready='1' then
               tx_data <= to_std_logic_vector(bannerMessage(banner_position));
@@ -823,7 +799,7 @@ begin
               end if;
             end if;
 				
-          when NextCommand => cmdlen <= 1; try_output_char(cr,NextCommand2);
+          when NextCommand => cmdlen <= 1; try_output_char(cr,NextCommand2); reset_out <= '1';
           when NextCommand2 => try_output_char(lf,PrintPrompt);
 			 
           when PrintPrompt => cmdlen <= 1; try_output_char('.',AcceptingInput);
@@ -889,7 +865,7 @@ begin
             if cmdlen>1 then              
               if (cmdbuffer(1) = 'h' or cmdbuffer(1) = 'H' or cmdbuffer(1) = '?') then
                 banner_position <= 1;
-                state <= PrintHelp;
+                state <= PrintBanner;
               elsif cmdbuffer(1) = 'c' or cmdbuffer(1) = 'C' then
                 print_hex("000000"&monitor_char_toggle&monitor_char_toggle_last&monitor_char&monitor_char_count,7,NextCommand);
               elsif cmdbuffer(1) = 's' or cmdbuffer(1) = 'S' then
@@ -952,6 +928,8 @@ begin
                   report "trying to parse hex" severity note;
                   parse_hex(CPUBreak1);
                 end if;
+              elsif cmdbuffer(1) = '!' then
+                reset_out <= '0';
               elsif cmdbuffer(1) = 'z' or cmdbuffer(1) = 'Z' then
                 banner_position <= 0;
                 if cmdlen=2 then
