@@ -8,6 +8,9 @@
 * [hardware](./hardware.md) - details the interconnectivity of major hardware components  
 * [structural](./structural.md) - vhdl/fpga firmware diagrams and descriptions  
 * [viciv](./viciv-modes.md) - information on the viciv (VIC-4) video chip (unsure if this is accurate)  
+* [User Manual](./usermanual0.md) - user manual sourced from  
+https://docs.google.com/document/d/1fmEUg6hDdWRb2tFZ3n4LG7S1mNP04_SUAW5DrE8zRpk/edit  
+accessed 10-AUG-2016, now maintained here.  
 
 Below are misc URLs:
 
