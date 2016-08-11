@@ -317,6 +317,7 @@ reset_machine_state:
 		STA $D019
 
 		sec
+		; determine VIC mode and set it accordingly in VICIV_MAGIC
 		jsr enhanced_io
 
 		lda $d60d
@@ -360,6 +361,10 @@ reset_machine_state:
 		jsr erasescreen
 		jsr resetpalette
 
+;note that this first message does not get displayed correctly
+		jsr checkpoint
+		.byte 0,"reset_machine_state",0
+;but this second message does
 		jsr checkpoint
 		.byte 0,"reset_machine_state",0
 
@@ -428,6 +433,12 @@ normalboot:
 tryreadmbr:
 		jsr readmbr
 		bcs gotmbr
+
+		; it seems to never get down to here, but if it does, I want to know about it the boot-screen
+		; Display re-trying to read-mbr
+		ldx #<msg_retryreadmbr
+		ldy #>msg_retryreadmbr
+		jsr printmessage
 
 		jmp tryreadmbr
 
@@ -1705,6 +1716,12 @@ printbanner:
 		rts
 		
 printhex:	
+		; seems to want to print the value if the z-reg onto the previous line written to the screen,
+		; so currently the scteen consists of say "mounted $$ images"
+		; and this routine will no go and change the "$$" to the value in the z-reg
+		;
+		; BG: surely this can be replaced with updating the "$$" before printing the string
+		;
 		; output contents of Z on last written screen line
 		tza
 		lsr
@@ -2448,6 +2465,7 @@ msg_checkpointmsg:    .byte "                                        "
 msg_checkpoint_eom:		     
 
 ; messages.  All have to be <=40 bytes long
+msg_retryreadmbr:     .byte "RE-TRYING TO READ MBR",0
 msg_kickstart:        .byte "MEGA65 KICKSTART V00.04",0
 msg_romok:            .byte "ROM CHECKSUM OK - BOOTING",0
 msg_rombad:	      .byte "ROM CHECKSUM FAIL - LOADING ROM",0
