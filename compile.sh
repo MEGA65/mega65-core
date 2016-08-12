@@ -7,6 +7,8 @@ if [ $retcode -ne 0 ] ; then
   echo "make failed with return code $retcode" && exit 1
 fi
 
+# here we need to detect if you have 32 or 64 bit machine
+# can someone else do this?
 source /opt/Xilinx/14.7/ISE_DS/settings64.sh
 
 # time for the output filenames
@@ -14,6 +16,7 @@ datetime2=`date +%m%d_%H%M_`
 # gitstring for the output filenames
 gitstring=`git describe --always --abbrev=7 --dirty=~`
 
+outfile0="compile-${datetime2}0.log"
 outfile1="compile-${datetime2}1-xst.log"
 outfile2="compile-${datetime2}2-ngd.log"
 outfile3="compile-${datetime2}3-map.log"
@@ -27,23 +30,37 @@ ISE_MAP_OPTS="-p xc7a100t-csg324-1 -w -logic_opt on -ol high -t 1 -xt 0 -registe
 ISE_PAR_OPTS="-w -ol std -mt off"
 ISE_TRCE_OPTS="-v 3 -s 1 -n 3 -fastpaths -xml"
 
-if test ! -e "./isework/xst/"; then
+# ensure these directory exists, if not, make them
+if test ! -e    "./isework/xst/"; then
   echo "Creating ./isework/xst/"
-  mkdir ./isework/xst/
+  mkdir          ./isework/xst/
 fi
-if test ! -e "./isework/xst/projnav.tmp/"; then
+if test ! -e    "./isework/xst/projnav.tmp/"; then
   echo "Creating ./isework/xst/projnav.tmp/"
-  mkdir ./isework/xst/projnav.tmp
+  mkdir          ./isework/xst/projnav.tmp
 fi
 
+# begin the ISE build:
+echo "Beginning the ISE build."
+echo "Check ./compile-<datetime>-X.log for the log files, X={1,2,3,4,5,6}"
+
+# first, put the git-commit-ID in the first log file.
+echo ${gitstring} > $outfile0
+
+#
+# ISE: synthesize
+#
 datetime=`date +%Y%m%d_%H:%M:%S`
 echo "==> $datetime Starting: xst, see container.syr"
-xst ${ISE_COMMON_OPTS} -ifn "./isework/container.xst" -ofn "./isework/container.syr"> $outfile1
+xst ${ISE_COMMON_OPTS} -ifn "./isework/container.xst" -ofn "./isework/container.syr" >> $outfile1
 retcode=$?
 if [ $retcode -ne 0 ] ; then
   echo "xst failed with return code $retcode" && exit 1
 fi
 
+#
+# ISE: ngdbuild
+#
 datetime=`date +%Y%m%d_%H:%M:%S`
 echo "==> $datetime Starting: ngdbuild, see container.bld"
 ngdbuild ${ISE_COMMON_OPTS} ${ISE_NGDBUILD_OPTS} -uc ./vhdl/container.ucf ./isework/container.ngc ./isework/container.ngd > $outfile2
@@ -52,6 +69,9 @@ if [ $retcode -ne 0 ] ; then
   echo "ngdbuild failed with return code $retcode" && exit 1
 fi
 
+#
+# ISE: map
+#
 datetime=`date +%Y%m%d_%H:%M:%S`
 echo "==> $datetime Starting: map, see container_map.mrp"
 map ${ISE_COMMON_OPTS} ${ISE_MAP_OPTS} -o ./isework/container_map.ncd ./isework/container.ngd ./isework/container.pcf > $outfile3
@@ -60,6 +80,9 @@ if [ $retcode -ne 0 ] ; then
   echo "map failed with return code $retcode" && exit 1
 fi
 
+#
+# ISE: place and route
+#
 datetime=`date +%Y%m%d_%H:%M:%S`
 echo "==> $datetime Starting: par, see container.par"
 par ${ISE_COMMON_OPTS} ${ISE_PAR_OPTS} ./isework/container_map.ncd ./isework/container.ncd ./isework/container.pcf > $outfile4
@@ -68,6 +91,9 @@ if [ $retcode -ne 0 ] ; then
   echo "par failed with return code $retcode" && exit 1
 fi
 
+#
+# ISE: trace
+#
 datetime=`date +%Y%m%d_%H:%M:%S`
 echo "==> $datetime Starting: trce, see container.twr"
 trce ${ISE_COMMON_OPTS} ${ISE_TRCE_OPTS} ./isework/container.twx ./isework/container.ncd -o ./isework/container.twr ./isework/container.pcf -ucf ./src/container.ucf > $outfile5
@@ -76,6 +102,9 @@ if [ $retcode -ne 0 ] ; then
   echo "trce failed with return code $retcode" && exit 1
 fi
 
+#
+# ISE: bitgen
+#
 datetime=`date +%Y%m%d_%H:%M:%S`
 echo "==> $datetime Starting: bitgen, see container.bgn"
 bitgen ${ISE_COMMON_OPTS} -f ./isework/container.ut ./isework/container.ncd > $outfile6
@@ -84,11 +113,29 @@ if [ $retcode -ne 0 ] ; then
   echo "bitgen failed with return code $retcode" && exit 1
 fi
 
+#
+# ISE -> all done
+#
 datetime=`date +%Y%m%d_%H:%M:%S`
 echo "==> $datetime Finished!"
 echo "Refer to compile[1-6].*.log for the output of each Xilinx command."
 
-# now timestamp the file and rename with git-status
+# find interesting build stats and append them to the 0.log file.
+echo "From $outfile1: =================================================" >> $outfile0
+ tail -n 9 $outfile1 >> $outfile0
+echo "From $outfile2: =================================================" >> $outfile0
+ grep "Total" $outfile2 >> $outfile0
+echo "From $outfile3: =================================================" >> $outfile0
+ tail -n 8 $outfile3 >> $outfile0
+echo "From $outfile4: =================================================" >> $outfile0
+ grep "Generating Pad Report" -A 100 $outfile4 >> $outfile0
+echo "From $outfile5: =================================================" >> $outfile0
+ tail -n 1 $outfile5 >> $outfile0
+echo "From $outfile6: =================================================" >> $outfile0
+ echo "Nil"
+
+
+# now copy the bit-file to the top-level-directory, and timestamp it with time and git-status
 echo "cp ./isework/container.bit ./bit$datetime2$gitstring.bit"
 cp       ./isework/container.bit ./bit$datetime2$gitstring.bit
 ls -al                           ./bit$datetime2$gitstring.bit
