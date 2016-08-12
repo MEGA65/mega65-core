@@ -27,7 +27,7 @@ use work.version.all;
 entity uart_monitor is
   port (
     reset : in std_logic;
-    reset_out : out std_logic;
+    reset_out : out std_logic := '1';
     clock : in std_logic;
     tx : out std_logic;
     rx : in  std_logic;
@@ -638,6 +638,7 @@ begin
       state <= Reseting;
       key_state <= 0;
       trace_continuous <= '0';
+      reset_out <= '1';
     elsif rising_edge(clock) then
 
       -- Allow a hardware switch to force stopping of the CPU
