@@ -25,6 +25,7 @@
 ; it is possible to make calls to kickstart after boot.  Eventually
 ; the desire is to have an SYS call that brings up a menu that lets
 ; you choose a disk image from a list.
+;
 	.data 
 
 	.org $ce00
@@ -222,9 +223,12 @@ trap_entry_points:
 	nop
 
 	; Leave room for traps to $7E
+	;
 	.checkpc $81F8
 	.advance $81F8
+
 	; Then we have relocated CPU vectors
+	;
 	.word reset_entry_allow_etherkick ; unused vector
 	.word hypervisor_nmi ; NMI
 	.word reset_entry_allow_etherkick ; RESET
@@ -240,12 +244,14 @@ trap_entry_points:
 ;;; ----------------------------------------------------------------------------
 ;;; Illegal trap / trap sub-function handlers
 ;;; ----------------------------------------------------------------------------
+;
 ; Traps are triggered by writing to $D640-$D67F
 ; and trap to $8000+((address & $3F)*4) in the hypervisor
 
 ; Routine for unimplemented/reserved traps
 ; (Consider replacing with trap to hypervisor error screen with option
 ;  to return?)
+;
 nosuchtrap:
 	; Clear C flag for caller to indicate failure
 	lda hypervisor_flags
@@ -258,6 +264,7 @@ nosuchtrap:
 	sta hypervisor_enterexit_trigger
 
 ; Return from trap with C flag clear to indicate success
+;
 return_from_trap_with_success:
 	jsr sd_unmap_sectorbuffer	
 	; set C flag for caller to indicate success
@@ -303,6 +310,7 @@ invalid_subfunction:
 ;;; ----------------------------------------------------------------------------
 ;;; CPU Hypervisor Entry Point on reset
 ;;; ----------------------------------------------------------------------------
+;
 reset_machine_state:
 		; get CPU state sensible
 		sei
@@ -354,6 +362,7 @@ reset_machine_state:
 		; (The watchdog was added to catch reset problems where the machine
 		; would run off somewhere odd instead of resetting properly. Now it
 		; will auto-reset after 65535 cycles if the watchdog is not cleared).
+		;
 		lda #$6a
 		sta hypervisor_feature_enables
 
@@ -373,7 +382,7 @@ reset_machine_state:
 ;;; ----------------------------------------------------------------------------
 ;;; CPU Hypervisor reset/trap routines
 ;;; ----------------------------------------------------------------------------
-
+;
 reset_entry_allow_etherkick:
 		sei
 		lda #$00
@@ -424,12 +433,15 @@ etherloop:
 		.byte 0,"etherloop",0
 		jmp etherloop
 
+;	========================
+
 normalboot:
-		; Try to read the MBR from the SD card to ensure SD card is
-		; happy
+		; Try to read the MBR from the SD card to ensure SD card is happy
+		;
 		ldx #<msg_tryingsdcard
 		ldy #>msg_tryingsdcard
 		jsr printmessage
+
 tryreadmbr:
 		jsr readmbr
 		bcs gotmbr
@@ -442,12 +454,14 @@ tryreadmbr:
 
 		jmp tryreadmbr
 
-; initial comments just to test
+;	========================
 		
 gotmbr:
 		; Scan SD card for partitions and mount them.
+		;
 		jsr dos_clearall
 		jsr dos_read_partitiontable
+
 		ldx #<msg_diskcount
 		ldy #>msg_diskcount
 		jsr printmessage
@@ -456,6 +470,7 @@ gotmbr:
 		jsr printhex		
 
 		; Go to root directory on default disk
+		;
 		ldx dos_default_disk
 		jsr dos_cdroot
 		bcs mountsystemdiskok
@@ -498,14 +513,18 @@ logook:
 		; iterate through directory entries looking for ordinary file 
 		; KICKUP.M65 to load into hypervisor memory ...
 		; ... but only if we are not running a kick-up'd kickstart now.
+		;
 		lda $d67e
 		beq nextdirectoryentry3
 
 		; already kicked
+		;
 		ldx #<msg_alreadykicked
 		ldy #>msg_alreadykicked
 		jsr printmessage
 		jmp postkickup
+
+;	========================
 
 nextdirectoryentry3:
 		; Prepare 32-bit pointer for loading boot logo @ $0004000
@@ -550,15 +569,21 @@ krc:		lda kickuproutine,x
 		bne krc
 		jmp $3000
 
+;	========================
+
 kickuproutine:
 		; The following routine gets copied as-is to $3000 and run from there.
 		; The DMA list is still available in the kickstart ROM when it gets
 		; called, so we can just use it there, instead of working out where
 		; it gets copied to
 
+		; NOTE that only 256-bytes are copied, so the kickuproutine and kickupdmalist
+		;      cannot exceed this limit, else revise the krc routine.
+
 		; Set bottom 22 bits of DMA list address as for C65
 		; (8MB address range).  Kickstart ROM is at $FFF8000, so $FF goes
 		; in high-byte area
+		;
 		lda #$ff
 		sta $d702
 		lda #$ff   
@@ -591,12 +616,15 @@ kickupdmalist:
 		.byte $0F   ; of bank $F
 		.word $0000 ; modulo (unused)
 
+;	========================
+
 couldntopenkickup:
 
 nokickup:
 		ldx #<msg_nokickup
 		ldy #>msg_nokickup
 		jsr printmessage
+
 postkickup:
 
 		; MILESTONE: Have file system properties.
@@ -604,6 +632,7 @@ postkickup:
 		; Look for MEGA65.D81 to mount for F011 emulation
 		
 		; for now indicate that there is no disk in drive
+		;
 		lda #$00
 		sta $d68b
 
@@ -611,6 +640,7 @@ postkickup:
 		bcc sdcarderror
 
 		; set name of file we are looking for
+		;
 		ldx #<txt_c65gsd81
 		ldy #>txt_c65gsd81
 		jsr dos_setname
@@ -627,10 +657,14 @@ postkickup:
 		jsr printmessage
 
 		; all done, move on to loading the ROM
+		;
 		jmp findrom
+
+;	========================
 
 d81attachfail:
 		; we couldn't find the D81 file, so tell the user
+		;
 		ldx #<msg_nod81
 		ldy #>msg_nod81
 		jsr printmessage
@@ -640,36 +674,36 @@ d81attachfail:
 
 findrom:
 		; Check state of current ROM
+		;
 		jsr checkromok
 		bcc loadrom
 
-		; ROM is loaded and ready, so transfer control
-		; to it.
+		; ROM is loaded and ready, so transfer control to it.
+		;
 		ldx #<msg_romok
 		ldy #>msg_romok
 		jsr printmessage
 
-		;wait for space-bar
-spacechk:	lda $dc01
-		cmp #$ef
-		bne spacechk
-
 		jmp go64
+
+;	========================
 
 loadrom:
 		; ROM is not loaded, so try to load it, or prompt
 		; for user to insert SD card
+		;
 		ldx #<msg_rombad
 		ldy #>msg_rombad
 		jsr printmessage
 
-
 		; Load CHARROM.M65 into character ROM
+		;
 		ldx #<txt_c65gscharrom
 		ldy #>txt_c65gscharrom
 		jsr dos_setname
 		
 		; Prepare 32-bit pointer for loading whole ROM ($FF7E000)
+		;
 		lda #$00
 		sta <dos_file_loadaddress+0
 		lda #$E0
@@ -685,7 +719,10 @@ loadrom:
 		ldx #<msg_charrombad
 		ldy #>msg_charrombad
 		jsr printmessage
+
 		jmp loadc65rom
+
+;	========================
 
 loadedcharromok:
 		ldx dos_current_file_descriptor_offset
@@ -702,14 +739,14 @@ loadedcharromok:
 		jsr printhex
 		ldz file_pagesread
 		jsr printhex
-		
-		
+
 loadc65rom:
 		ldx #<txt_c65gsrom
 		ldy #>txt_c65gsrom
 		jsr dos_setname
 
 		; Prepare 32-bit pointer for loading whole ROM ($0020000)
+		;
 		lda #$00
 		sta <dos_file_loadaddress+0
 		sta <dos_file_loadaddress+1
@@ -721,6 +758,7 @@ loadc65rom:
 		bcs loadedok
 
 		; ROM not found: indicate which ROM we were looking for
+		;
 		ldx #$0b
 l17d:		lda txt_c65gsrom,x
 		sta msg_romnotfound+19,x
@@ -729,12 +767,16 @@ l17d:		lda txt_c65gsrom,x
 		ldx #<msg_romnotfound
 		ldy #>msg_romnotfound
 		jsr printmessage
+
 		jsr sdwaitawhile
 		jsr sdwaitawhile
 		jsr sdwaitawhile
 		jsr sdwaitawhile
 
 		jmp sdcarderror
+
+;	========================
+
 loadedok:
 		ldx dos_current_file_descriptor_offset
 		lda dos_file_descriptors+dos_filedescriptor_offset_fileoffset+0,x
@@ -751,13 +793,17 @@ loadedok:
 		bne romfiletoolong
 
 		; need to store checksum
+		;
 		jsr storeromsum
 		
 		; ROM file loaded, transfer control
+		;
 		ldx #<msg_romok
 		ldy #>msg_romok
 		jsr printmessage
 		jmp go64		
+
+;	========================
 
 romfiletoolong:
 		ldx #<msg_romfilelongerror
@@ -769,6 +815,7 @@ romfiletoolong:
 		jsr printhex
 		jsr sdwaitawhile
 		jmp reset_entry_allow_etherkick
+
 romfiletooshort:
 		ldx #<msg_romfileshorterror
 		ldy #>msg_romfileshorterror
@@ -780,6 +827,8 @@ romfiletooshort:
 		jsr sdwaitawhile
 		jmp reset_entry_allow_etherkick
 
+;	========================
+
 fileopenerror:
 		ldx #<msg_fileopenerror
 		ldy #>msg_fileopenerror
@@ -788,17 +837,23 @@ fileopenerror:
 sdcarderror:	ldx #<msg_sdcarderror
 		ldy #>msg_sdcarderror
 		jsr printmessage
+
 		jsr sdwaitawhile
 		jmp reset_entry_allow_etherkick
+
+;	========================
 
 badfs:		ldx #<msg_badformat
 		ldy #>msg_badformat
 		jsr printmessage
+
 		jsr sdwaitawhile
 		jmp reset_entry_allow_etherkick
+
 ;;; ----------------------------------------------------------------------------
 ;;; FAT file system routines
 ;;; ----------------------------------------------------------------------------
+;
 toupper:	; convert ASCII character to upper case
 		cmp #$60
 		bcc tu1
@@ -810,10 +865,12 @@ tu1:		rts
 ;;; ----------------------------------------------------------------------------
 ;;; MBP / partition routines
 ;;; ----------------------------------------------------------------------------
-
+;
 ; read master boot record. Does not sanity check anything.
+;
 readmbr:
 		; begin by resetting SD card
+		;
 		jsr sdreset
 		bcs l7
 		rts
@@ -822,7 +879,8 @@ l7:		ldx #<msg_foundsdcard
 		ldy #>msg_foundsdcard
 		jsr printmessage
 
-		; MBR is sector 0	
+		; MBR is sector 0
+		;
 		lda #$00
 		sta $D681
 		sta $d682
@@ -834,20 +892,25 @@ l7:		ldx #<msg_foundsdcard
 ;;; ----------------------------------------------------------------------------
 ;;; SD Card access routines
 ;;; ----------------------------------------------------------------------------
+;
 sdreset:
 		; try SD-HC mode first
+		;
 ;		lda #$41
 ;		sta $D680
 ;		jsr sd_resetsequence
 ;		bcc sdr1
 ;		rts
+
 sdr1:		; fall back to SD mode
+		;
 		lda #$42
 		sta $d680
 		; fall through		
 
 sd_resetsequence:
 		; write $00 to $D680 to start reset
+		;
 		lda #$00
 		sta $D680
 		jsr sdtimeoutreset
@@ -855,8 +918,10 @@ re1:		jsr sdreadytest
 		bcs re1done	; success, so return
 		bne re1		; not timed out, so keep trying
 		rts		; timeout, so return
+
 re1done:	
 		; write $01 to $D680 to complete reset
+		;
 		lda #$01
 		sta $D680
 		jsr sdtimeoutreset
@@ -864,14 +929,17 @@ re2:		jsr sdreadytest
 		bcs re2done	; success, so return
 		bne re2		; not timed out, so keep trying
 		rts		; timeout, so return
+
 re2done:
 		; give card some time to settle after reset, otherwise 
 		; reading sectors will fail
+		;
 		jsr sdwaitawhile
 
 		jsr sd_map_sectorbuffer
 
 		; write $02 to $D680 to read MBR as a test of reset
+		;
 		lda #$02
 		sta $D680
 		jsr sdtimeoutreset
@@ -883,15 +951,19 @@ re3:		; allow time for read to happen
 		bne re3		; not timed out, so keep trying
 		; timeout -- so call reset again
 		rts
+
 redone:		
 		sec
 		rts
 
+;	========================
 		
 		; Watch for ethernet packets while waiting for the SD card.
 		; this allows loading of code into the hypervisor for testing and
 		; bare-metal operation.
-sdwaitawhile:	jsr sdtimeoutreset
+		;
+sdwaitawhile:
+		jsr sdtimeoutreset
 
 sw1:		
 		inc $d020
@@ -906,9 +978,12 @@ sw1:
 		bne sw1
 		rts
 
+;	========================
+
+sdtimeoutreset:
 		; count to timeout value when trying to read from SD card
 		; (if it is too short, the SD card won't reset)
-sdtimeoutreset:
+		;
 		lda #$00
 		sta sdcounter+0
 		sta sdcounter+1
@@ -916,9 +991,12 @@ sdtimeoutreset:
 		sta sdcounter+2
 		rts
 
+;	========================
+
 sdreadytest:	; check if SD card is ready, or if timeout has occurred
 		; C is set if ready.
 		; Z is set if timeout has occurred.
+		;
 		lda $d680
 		and #$03
 		beq sdisready
@@ -930,18 +1008,24 @@ sdreadytest:	; check if SD card is ready, or if timeout has occurred
 		bne sr1
 
 		; timeout
+		;
 		lda #$00 ; set Z
 
 sr1:		clc
 		rts
+
 sdisready:	sec
 		rts
+
+;	========================
 
 sd_map_sectorbuffer:
 		lda #$81
 		sta $D680
 		sec
 		rts
+
+;	========================
 
 sd_unmap_sectorbuffer:
 		pha
@@ -951,21 +1035,28 @@ sd_unmap_sectorbuffer:
 		sec
 		rts
 
+;	========================
+
 sd_readsector:
 		; Assumes fixed sector number (or byte address in case of SD cards)
 		; is loaded into $D681 - $D684		
 
 		; check if sd card is busy
+		;
 		lda $d680
 		and #$01
 		bne rsbusyfail
 
 		; try reading sector fast the first time
+		;
 		jmp rs4
+
+;	========================
 
 redoread:	
 		; when retrying, introduce a delay.  This seems to be needed often
-		; when reading the first sector after SD card reset.  
+		; when reading the first sector after SD card reset.
+		;
 		ldx #$f0
 		ldy #$00
 		ldz #$00
@@ -978,10 +1069,12 @@ r1:		inz
 
 rs4:
 		; ask for sector to be read
+		;
 		lda #$02
 		sta $d680
 
 		; wait for sector to be read
+		;
 		jsr sdtimeoutreset
 rs3:		
 		jsr sdreadytest
@@ -989,12 +1082,15 @@ rs3:
 		bne rs3
 		jmp rereadsector
 
+;	========================
+
 rsread:
 		lda $d680
 		and #$01
 		bne rs3
 
 		; check that we read 512 bytes
+		;
 		lda $d688
 		lda $d689
 
@@ -1004,17 +1100,23 @@ rsread:
 		sec
 		rts
 
-		; reset sd card and try again
+;	========================
+
 rereadsector:
-		jsr sdreset		
+		; reset sd card and try again
+		;
+		jsr sdreset
 		jmp rs4
 
 rsbusyfail:     ; fail
+		;
 		lda #dos_errorcode_read_timeout
 		sta dos_error_code
 
 		clc 
 		rts
+
+;	========================
 
 printsectoraddress:
 		ldx #<msg_sectoraddress
@@ -1034,10 +1136,13 @@ sd_inc_fixedsectornumber:
 		; increment fixed sector number.
 		; if SDHC, then increment is simple.
 		; if SD, then we add $200
+		;
 		lda $D680
 		and #$10
 		bne sdhc1
+
 		; sd card mode: add $200
+		;
 		lda $d682
 		clc
 		adc #$02
@@ -1050,6 +1155,8 @@ sd_inc_fixedsectornumber:
 		sta $d684
 		rts
 
+;	========================
+
 sdhc1:		; SDHC card mode: add 1
 		inc $d681
 		bcc s1
@@ -1061,22 +1168,33 @@ s2:		bcc s1
 s1:		
 		rts
 
+;	========================
+
 sd_fix_sectornumber:
 		; assumes sector number has been loaded into 
 		; $D681 - $D684
+		;
 		; We need to check if the card is SDHC or SD.
-		; If SD, we need to shift sector number left 9 bits,
-		; as SD cards address by byte, not sector.
-		; If card is SD, then shift it all left nine bits
+		; - If SD, we need to shift sector number left 9 bits,
+		;   as SD cards address by byte, not sector.
+		; - If card is SD, then shift it all left nine bits.
+		;
 		; We detect SD versus SDHC by reading whether SD controller is
 		; in SDHC or SD mode.
+		;
 		lda $D680
 		and #$10
 		beq sdcardmode
+
 		; SDHC mode, so nothing to do
+		;
 		rts
+
+;	========================
+
 sdcardmode:     
 		; shift left 8 bits first
+		;
 		lda $D683
 		sta $D684
 		lda $D682
@@ -1085,7 +1203,9 @@ sdcardmode:
 		sta $D682
 		lda #$00
 		sta $D681
+
 		; now shift it all left one bit
+		;
 		lda $D682
 		asl
 		sta $D682
@@ -1103,22 +1223,27 @@ sdcardmode:
 
 checkromok:
 		; read switch 13.  If set, assume ROM is invalid
+		;
 		lda $d6f1
 		and #$20
 		bne checksumfails
+
 		; or if loading a ROM other than MEGA65.ROM, then assume ROM
 		; is invalid
+		;
 		lda txt_c65gsrom+6
 		cmp #'.
 		bne checksumfails
 	
 		; calculate checksum of loaded ROM ...
+		;
 		jsr calcromsum
 		; ... then fall through to testing it
 testromsum:
 		; have checksum for all slabs.
 
 		jsr mapromchecksumrecord
+
 		lda $4000
 		cmp checksum
 		bne checksumfails
@@ -1134,12 +1259,17 @@ testromsum:
 		sec
 		rts
 
+;	========================
+
 		; check failed
 checksumfails:	clc
 		rts
 
+;	========================
+
 storeromsum:
 		jsr mapromchecksumrecord
+
 		lda checksum
 		sta $4000
 		lda checksum+1
@@ -1148,22 +1278,30 @@ storeromsum:
 		sta $4002
 		rts
 
+;	========================
+
 mapromchecksumrecord:
+
 		; Map in ROM load record, and compare checksum
 		; Here we have to use our extension to MAP to access >1MB
 		; as only 128KB of slow ram is shadowed to $20000.
-		; again, we have to take the relative nature of MAP, so
+		;
+		; Again, we have to take the relative nature of MAP, so
 		; we ask for $FC000 to be mapped at $0000, which means that
 		; $4000 will correspond to $0000 (MAP instruction address
 		; space wraps around at the 1MB mark)
 		
 		; select 128MB mark for mapping lower 32KB of address space
+		;
 		lda #$80
 		ldx #$0f
 		ldy #$00   ; keep kickstart mapped at $8000-$BFFF
 		ldz #$3f
+
 		map
+
 		; then map $FC000 + $4000 = $00000 at $4000-$7FFF
+		;
 		lda #$c0
 		ldx #$cf
 		ldy #$00   ; keep kickstart mapped at $8000-$BFFF
@@ -1173,20 +1311,25 @@ mapromchecksumrecord:
 		
 		rts
 
+;	========================
+
 calcromsum:	; calculate checksum of 128KB ROM
 		
 		; use MAP to map C65 ROM address space in 16KB
 		; slabs at $4000-$7FFF.  Check sum each, and
 		; then compare checksum to ROM load record.
+		;
 		; ROMs get loaded into slow RAM at $8020000-$803FFFF,
 		; which is shadowed for reading using C65 MAP instruction to
 		; C65 address space $20000-$3FFFF.
+		;
 		; Checksum and ROM load record are stored in
 		; $8000000 - $800FFFF, i.e., the first 64KB of
 		; slow RAM.
 		;
 		; The 4510 MAP instruction does not normally provide access to the
 		; full 28-bit address space, so we need to use a trick.
+		;
 		; We do this by interpretting a MAP instruction that says to
 		; map none of the 8KB pages, but provides an offset in the range
 		; $F0000 - $FFF00 to set the "super page" register for that 32KB
@@ -1200,6 +1343,7 @@ calcromsum:	; calculate checksum of 128KB ROM
 		; checksum is not all zeroes, so that if RAM initialises with
 		; all zeroes, including in the checksum field, the checksum will
 		; not pass.
+		;
 		lda #$03
 		sta checksum
 		sta checksum+1
@@ -1209,13 +1353,15 @@ calcromsum:	; calculate checksum of 128KB ROM
 		; start with bottom 16KB of ROM
 		; we count in 16KB slabs, and ROM starts at 128KB mark,
 		; so we want to check from the 8th to 15th slabs inclusive.
+		;
 		lda #$08
 		sta romslab
 
 		; Summing can be done using normal use of MAP instruction,
 		; since slow RAM is shadowed as ROM to $20000-$3FFFF
 
-sumslab:	; romcheckslab indicates which 16KB piece.
+sumslab:
+		; romcheckslab indicates which 16KB piece.
 		; MAP uses 256-byte granularity, so we need to shift left
 		; 6 bits into A, and right 2 bits into X.
 		; We then set the upper two bits in X to indicate that the mapping
@@ -1223,6 +1369,7 @@ sumslab:	; romcheckslab indicates which 16KB piece.
 		; BUT MAP is relative, and since we are mapping at the 16KB mark,
 		; we need to subtract 1 lot of 16KB from the result.
 		; this is easy -- we just sbc #$01 from romslab before using it.
+		;
 		lda romslab
 		sec 
 		sbc #$01
@@ -1241,10 +1388,12 @@ sumslab:	; romcheckslab indicates which 16KB piece.
 		asl
 		ldy #$00   ; keep kickstart mapped at $8000-$BFFF
 		ldz #$3f
+
 		map
 		eom
 		
 		; sum contents of 16KB slab
+		;
 		lda #$00
 		sta <zptempv
 		lda #$40
@@ -1279,33 +1428,47 @@ l6:		iny
 
 resetdisplay:
 		; reset screen
-		lda #$40
-		sta $d030
-		lda $d031
-		and #$40
+		;
+		lda #$40	; 0100 0000 = choose charset
+		sta $d030	; VIC-III Control Register A
+
+		lda $d031	; VIC-III Control Register B
+		and #$40	; bit-6 is 4mhz
 		sta $d031
+
+		lda #$08
+		sta $D020	; border
+		sta $D021	; background
+
 		lda #$00
-		sta $D020
-		sta $D021
-		sta $D054
+		sta $D054	;VIC-IV Control Register C
+
 		; We use VIC-II style registers as this resets video frame in
 		; least instructions, and 40 columns is fine for us.
-		lda #$14
-		sta $D018
-		lda #$1B
-		sta $D011
-		lda #$C8
-		sta $D016
+		;
+		lda #$14	; 0001 0100
+		sta $D018	; VIC-II Character/Screen location
+
+		lda #$1B	; 0001 1011
+		sta $D011	; VIC-II Control Register
+
+		lda #$C8	; 1100 1000
+		sta $D016	; VIC-II Control Register
+
 		; point VIC-IV to bottom 16KB of display memory
+		;
 		lda #$ff
 		sta $DD01
 		sta $DD00
 
 		; Now switch to 16-bit text mode so that we can use proportional
 		; characters and full-colour characters for chars >$FF for the logo
-		lda #$05
-		sta $d054
+		;
+		lda #$05	; 0000 0101
+		sta $d054	; VIC-IV Control Register C
+
 		; and 80 bytes (40 16-bit characters) per row.
+		;
 		lda #<80
 		sta $d058
 		lda #>80
@@ -1313,105 +1476,130 @@ resetdisplay:
 		
 		rts
 
+;	========================
+
 resetpalette:
 		; reset VIC-IV palette to sensible defaults.
 		; load C64 colours into palette bank 3 for use when
 		; PAL bit in $D030 is set.
+		;
 		lda #$04
 		sta $D030	; enable PAL bit in $D030
+
 		lda #$ff
 		sta $D070	; select palette bank 3 for display and edit
 
 		; C64 colours designed to look like C65 colours on an
 		; RGBI screen.
+		;
+		; formatted in ASM to help visualise what each code is for.
+		;
                 lda #$00
-                sta $D100
-                sta $D200
-                sta $D300
-                lda #$ff
-                sta $D101
-                sta $D201
-                sta $D301
-                lda #$ba
-                sta $D102
+	                sta $D100
+			sta $D200
+			sta $D300
+
+		lda #$ff
+			sta $D101
+			sta $D201
+			sta $D301
+
+		lda #$ba
+	                sta $D102
                 lda #$13
-                sta $D202
+	                sta $D202
                 lda #$62
-                sta $D302
+	                sta $D302
+
                 lda #$66
-                sta $D103
+	                sta $D103
                 lda #$ad
-                sta $D203
+	                sta $D203
                 lda #$ff
-                sta $D303
+	                sta $D303
+
                 lda #$bb
-                sta $D104
+	                sta $D104
                 lda #$f3
-                sta $D204
+	                sta $D204
                 lda #$8b
-                sta $D304
+	                sta $D304
+
                 lda #$55
-                sta $D105
+	                sta $D105
                 lda #$ec
-                sta $D205
+	                sta $D205
                 lda #$85
-                sta $D305
+	                sta $D305
+
                 lda #$d1
-                sta $D106
+	                sta $D106
                 lda #$e0
-                sta $D206
+	                sta $D206
                 lda #$79
-                sta $D306
+	                sta $D306
+
                 lda #$ae
-                sta $D107
+	                sta $D107
                 lda #$5f
-                sta $D207
+	                sta $D207
                 lda #$c7
-                sta $D307
+	                sta $D307
+
                 lda #$9b
-                sta $D108
+	                sta $D108
                 lda #$47
-                sta $D208
+	                sta $D208
                 lda #$81
-                sta $D308
+	                sta $D308
+
                 lda #$87
-                sta $D109
+	                sta $D109
                 lda #$37
-                sta $D209
+	                sta $D209
                 lda #$00
-                sta $D309
+	                sta $D309
+
                 lda #$dd
-                sta $D10a
+	                sta $D10a
                 lda #$39
-                sta $D20a
+	                sta $D20a
                 lda #$78
-                sta $D30a
+	                sta $D30a
+
                 lda #$b5
-                sta $D10b
-                sta $D20b
-                sta $D30b
+	                sta $D10b
+	                sta $D20b
+	                sta $D30b
+
                 lda #$b8
-                sta $D10c
-                sta $D20c
-                sta $D30c
+	                sta $D10c
+	                sta $D20c
+	                sta $D30c
+
                 lda #$0b
-                sta $D10d
+	                sta $D10d
                 lda #$4f
-                sta $D20d
+	                sta $D20d
                 lda #$ca
-                sta $D30d
+	                sta $D30d
+
                 lda #$aa
-                sta $D10e
+	                sta $D10e
                 lda #$d9
-                sta $D20e
+	                sta $D20e
                 lda #$fe
-                sta $D30e
+	                sta $D30e
+
                 lda #$8b
-                sta $D10f
-                sta $D20f
-                sta $D30f
+	                sta $D10f
+	                sta $D20f
+	                sta $D30f
+
+;	========================
 
 		; put a colour cube in other entries
+		;
 		ldx #$10
 paletteloop:
 		; R = upper 3 bits
@@ -1440,20 +1628,26 @@ paletteloop:
 
 		rts
 
+;	========================
+
 ; erase standard 40-column screen
+;
 erasescreen:
 		; bank in 2nd KB of colour RAM
+		;
 		lda #$01
 		tsb $D030
 
 		; use DMA to clear screen and colour RAM
 		; The screen is in 16-bit bit mode, so we actually need to fill
 		; with $20,$00, ...
+		;
 		; We will cheat by setting the first four bytes, and then copying from
 		; there, and it will then read from the freshly written bytes.
 		; (two bytes might not be enough to allow the write from the last DMA
 		;  action to be avaialble for reading because of how the DMAgic is
 		;  pipelined).
+		;
 		lda #$20
 		sta $0400
 		sta $0402
@@ -1463,25 +1657,34 @@ erasescreen:
 		
 		; Set bottom 22 bits of DMA list address as for C65
 		; (8MB address range)
+		;
 		lda #$ff
 		sta $d702
+
 		; Kickstart ROM is at $FFFE000 - $FFFFFFF, so
 		; we need to tell DMAgic that DMA list is in $FFxxxxx.
 		; this has to be done AFTER writing to $d702, as $d702
 		; clears bits 27 - 22 of the DMA list address to help with
 		; compatibility.
+		;
 		lda #$ff
 		sta $d704
+
 		; copy from MB $00 for screen clearing
+		;
 		lda #$00
 		sta $d705
+
 		; destination MB is $00, since we are writing to C64 RAM space.
+		;
 		lda #$00
 		sta $d706
 
 		lda #>erasescreendmalist
 		sta $d701
+
 		; set bottom 8 bits of address and trigger DMA.
+		;
 		lda #<erasescreendmalist
 		sta $d700
 
@@ -1490,35 +1693,48 @@ erasescreen:
 		; this has to be done AFTER writing to $d702, as $d702
 		; clears bits 27 - 22 of the DMA list address to help with
 		; compatibility.
+		;
 		lda #$ff
 		sta $d704
-		; similarly we need to tell DMAgic that we are copying data from
-		; MB $FF (this is for copying the disk chooser)
+
+		; similarly we need to tell DMAgic that we are copying data
+		; from MB $FF (this is for copying the disk chooser)
+		;
 		sta $d705
+
 		; destination MB is $00, since we are writing to C64 RAM space.
+		;
 		lda #$00
 		sta $d706
 
 		lda #>copydiskchooserdmalist
 		sta $d701
+
 		; set bottom 8 bits of address and trigger DMA.
+		;
 		lda #<copydiskchooserdmalist
 		sta $d700
 
 		; clear source/destination MB so that C65 ROM doesn't go bananas
+		;
 		lda #$00
 		sta $d705
 
 		; bank 2nd KB of colour RAM back out
+		;
 		lda #$01
 		trb $D030
 
+;	========================
+
 		; move cursor back to top of the screen
 		; (but leave 8 rows for logo and banner text)
+		;
 		lda #$08
 		sta screenrow
 
 		; draw 8x8 char block for logo
+		;
 		ldx #$00
 		ldy #$00
 logo1:		txa
@@ -1548,8 +1764,10 @@ logo1:		txa
 		inx
 		cpx #$08		
 		bne logo1
+
 		; then write the high bytes for these (all $01, so char range will be
 		; $100-$140. $100 x $40 = $4000-$4FFF
+		;
 		ldx #$00
 		lda #$01
 logo2:		sta $0401+[80*0],x
@@ -1569,6 +1787,7 @@ logo2:		sta $0401+[80*0],x
 		; following a full-colour character gets skipped by inserting early
 		; end of line terminator markers on the lines. Without this, the first
 		; character of the next line would show
+		;
 		lda #$ff
 		sta $044e
 		sta $044f
@@ -1589,8 +1808,11 @@ logo2:		sta $0401+[80*0],x
 
 		rts
 
+;	========================
+
 erasescreendmalist:
 		; Clear screen RAM
+		;
 		.byte $04 ; COPY + chained request
 		.word 1996 ; 40x25x2-4 = 1996
 		.word $0400 ; copy from start of screen at $0400
@@ -1598,7 +1820,9 @@ erasescreendmalist:
 		.word $0404 ; ... to screen at $0402
 		.byte $00   ; screen is in bank $00
 		.word $0000 ; modulo (unused)
+
 		; Clear colour RAM
+		;
 		.byte $07 ; fill + chained request
 		.word 2000 ; 40x25x2 = 2000
 		.byte $01 ; fill with white = $01
@@ -1606,7 +1830,9 @@ erasescreendmalist:
 		.word $d800 ; screen is at $0400
 		.byte $80   ; screen is in IO, so bank IO in to DMA context
 		.word $0000 ; modulo (unused)
+
 		; Clear $4000-$4FFF (for logo display) 
+		;
 		.byte $03 ; fill + last request
 		.word $1000 ; 64x64 = $1000
 		.byte $00 ; fill with black = $00
@@ -1625,7 +1851,20 @@ copydiskchooserdmalist:
 		.byte $00   ; destination bank
 		.word $0000 ; modulo (unused)
 
+;	========================
+
 printmessage:
+		; This subroutine takes inputs from the X and Y registers,
+		; so set these registers before calling this subroutine,
+		; The X and Y registers need to point to a message as shown below:
+		;
+		;	ldx #<msg_foundsdcard
+		;	ldy #>msg_foundsdcard
+		;	jsr printmessage
+		;
+		; Ie: the X is the high-byte of the 16-bit address, and
+		;     the Y is the low-byte  of the 16-bit address.
+
 		stx <zptempp
 		sty <zptempp+1
 		lda #$00
@@ -1643,6 +1882,7 @@ printmessage:
 		stx screenrow
 
 		; work out the screen address
+		;
 pm2:		cpx #$00
 		beq pm1
 		clc
@@ -1652,7 +1892,9 @@ pm2:		cpx #$00
 		lda <zptempp2+1
 		adc #$00
 		sta <zptempp2+1
+
 		; if reached bottom of screen, then loop back to top of screen
+		;
 		cmp #$0b
 		bcc pm5
 		lda <zptempp2
@@ -1668,6 +1910,7 @@ pm5:		dex
 pm1:
 
 		; Clear line (16-bit chars, so write #$0020 to each word
+		;
 		ldy #$00
 pm1b:		lda #$20
 		sta (<zptempp2),y
@@ -1684,11 +1927,15 @@ writestring:
 		ldz #$00
 pm3:		lda (<zptempp),y
 		beq endofmessage
+
 		; convert ASCII/PETSCII to screen codes
+		;
 		cmp #$40
 		bcc pm4
 		and #$1f
+
 pm4:		; write 16-bit character code
+		;
 		sta (<zptempp2),z
 		inz
 		pha
@@ -1704,6 +1951,8 @@ endofmessage:
 		plz
 		rts
 
+;	========================
+
 printbanner:
 		stx <zptempp
 		sty <zptempp+1
@@ -1714,6 +1963,8 @@ printbanner:
 		jsr writestring
 		dec screenrow
 		rts
+
+;	========================
 		
 printhex:	
 		; seems to want to print the value if the z-reg onto the previous line written to the screen,
@@ -1723,6 +1974,7 @@ printhex:
 		; BG: surely this can be replaced with updating the "$$" before printing the string
 		;
 		; output contents of Z on last written screen line
+		;
 		tza
 		lsr
 		lsr
@@ -1733,6 +1985,7 @@ printhex:
 		and #$0f
 printhexdigit:
 		; find next $ sign to replace with hex digit
+		;
 		tax
 phd3:		lda (<zptempp2),y
 		cmp #$24
@@ -1753,18 +2006,22 @@ phd1:		sta (<zptempp2),y
 		iny
 		rts
 
+;	========================
 
+go64:
 
 ; Transfer control to C64 kernel.
 ; (This also allows entry to C65 mode, because the
 ;  C64-mode kernel on the C65 checks if C65 mode
 ;  should be entered.)
-go64:
+
 		; Check if hold boot switch is set (switch 15)?
+		;
 		lda $d6f1
 		bpl l42      ; no, so continue		
 
 		; yes, display message
+		;
 		ldx #<msg_releasesw15
 		ldy #>msg_releasesw15
 		jsr printmessage
@@ -1774,6 +2031,7 @@ l41:		lda $d6f1
 l42:
 
 		; unmap sector buffer so C64 can see CIAs
+		;
 		lda #$82
 		sta $D680
 
@@ -1784,6 +2042,7 @@ l42:
 		; erase kickstart ROM copy from RAM
 		; (well, at least enough so that BASIC doesn't get upset)
 		; XXX - use DMA
+		;
 		ldx #$00
 		txa
 g61:		sta $0800,x
@@ -1793,39 +2052,54 @@ g61:		sta $0800,x
 		; reset video mode to normal
 		lda #$00
 		sta $d054
+
 		lda #<40
 		sta $d058
 		lda #>40
 		sta $d059
-
 
 		jsr task_set_c64_memorymap
 		jsr task_set_pc_to_reset_vector
 		jsr task_dummy_nmi_vector
 
 		; Exit hypervisor and transfer control to ROM
+		;
 		sta hypervisor_enterexit_trigger
-	
+
+		; BG: i think the line above causes the HYP to take control,
+		;     and so execution does not continue to the next line.
+
+;	========================
+
+; BG: the longpeek subroutine does not get called from kickstart,
+;     it gets called only from the kickstart_task file,
+;     so i suggest moving this subroutine to that file.
+
 longpeek:
 		; Use DMAgic to read any byte of RAM in 28bit address space.
 		; Value gets read into $BC00 (kickstart_scratchbyte0)
 		; ($FFFBC00 - $FFFBDFF)
 
 		; Patch DMA list
+		;
 		sta $d705 ; DMAgic source MB
 		lda #$ff
 		sta $d706 ; DMAgic destination MB
 		stx longpeekdmalist+3
 		sty longpeekdmalist+4
 		stz longpeekdmalist+5
+
 		; Set DMA list address
+		;
 		lda #>longpeekdmalist
 		sta $d701
 		lda #$0f
 		sta $d702 ; DMA list address is $xxFxxxx
 		lda #$ff
 		sta $d704 ; DMA list address is $FFxxxxx
+
 		; set bottom bits of DMA list address and trigger DMA
+		;
 		lda #<longpeekdmalist
 		sta $d700
 		rts
@@ -1841,23 +2115,32 @@ longpeekdmalist:
 		.word kickstart_scratchbyte0
 		.byte $0F 
 		.byte $00,00 ; Modulo
+
+;	========================
 		
 ; reset memory map to default
 resetmemmap:
 		; clear memory MAP MB offset register
+		;
 		lda #$00
 		ldx #$0f
 		ldy #$00   ; keep kickstart mapped at $8000-$BFFF
 		ldz #$3f
+
 		map
+
 		; and clear all mapping
+		;
 		tax
 		ldy #$00   ; keep kickstart mapped at $8000-$BFFF
 		ldz #$3f
+
 		map
 		eom
+
 		rts
 
+;	========================
 
 ; If C=1, enable enhanced IO bank, else return to
 ; C64 standard IO map.
@@ -1874,9 +2157,14 @@ l1:		; Enable VIC-IV / MEGA65 IO
 		sta VICIV_MAGIC
 		RTS
 
+
+;	========================
+
+keyboardread:
+
 ; Check for digits 0 - 9 on keyboard, and change which ROM we intend to read
 ; based on that.
-keyboardread:
+
 		lda #$ff
 		sta $dc03
 		lda #$00
@@ -2138,7 +2426,12 @@ nth1:	sec
 	sbc #9
 	rts
 
-debug_wait_for_switch_toggle:	
+;	========================
+
+debug_wait_for_switch_toggle:
+
+; BG: this function is not called from this file, or any other files.
+
 		php
 		phz
 		phy
@@ -2244,6 +2537,8 @@ d1:		inx
 		plp
 		rts
 
+;	========================
+
 hypervisor_nmi:
 hypervisor_irq:
 		; Default interrupt handlers for hypervisor: for now just mask the
@@ -2280,7 +2575,10 @@ hscr1:
 	lda #dos_errorcode_invalid_address
 	jmp dos_return_error		
 
+;	========================
+
 checkpoint:
+
 	; Routine to record the progress of code through the hypervisor for
 	; debugging problems in the hypervisor.
 	; If the JSR checkpoint is followed by $00, then a text string describing the
@@ -2318,26 +2616,32 @@ checkpoint:
 	jsr checkpoint_bytetohex
 	sty msg_checkpoint_a+0
 	stx msg_checkpoint_a+1
+
 	ldx checkpoint_x
 	jsr checkpoint_bytetohex
 	sty msg_checkpoint_x+0
 	stx msg_checkpoint_x+1
+
 	ldx checkpoint_y
 	jsr checkpoint_bytetohex
 	sty msg_checkpoint_y+0
 	stx msg_checkpoint_y+1
+
 	ldx checkpoint_z
 	jsr checkpoint_bytetohex
 	sty msg_checkpoint_z+0
 	stx msg_checkpoint_z+1
+
 	ldx checkpoint_p
 	jsr checkpoint_bytetohex
 	sty msg_checkpoint_p+0
 	stx msg_checkpoint_p+1
+
 	ldx checkpoint_pch
 	jsr checkpoint_bytetohex
 	sty msg_checkpoint_pc+0
 	stx msg_checkpoint_pc+1
+
 	ldx checkpoint_pcl
 	jsr checkpoint_bytetohex
 	sty msg_checkpoint_pc+2
@@ -2353,9 +2657,12 @@ cp9:
 	; Read next byte following the return address to see if it is $00,
 	; if so, then also store the $00-terminated text message that follows.
 	; e.g.:
+	;
 	; jsr checkpoint
 	; .byte 0,"OPEN DIRECTORY",0
-	; to record a checkpoint with the string "OPEN DIRECTORY"	
+	;
+	; to record a checkpoint with the string "OPEN DIRECTORY"
+
 	ldy #$00
 	lda (<checkpoint_pcl),y
 
@@ -2371,6 +2678,7 @@ cp3:	lda (<checkpoint_pcl),y
 	iny
 	cpy #40
 	bne cp3
+
 	; flush out any excess bytes at end of message
 cp44:	lda (<checkpoint_pcl),y
 	beq endofcheckpointmessage
@@ -2416,6 +2724,7 @@ cp6:	inz
 
 	cmp #10
 	bne cp5
+
 checkpoint_return:
 	; restore registers
 	lda checkpoint_p
@@ -2428,6 +2737,8 @@ checkpoint_return:
 
 	; return by jumping to the 
 	jmp (checkpoint_pcl)
+
+;	========================
 
 checkpoint_bytetohex:
 	txa
@@ -2452,7 +2763,10 @@ checkpoint_nybltohex:
 cpnth1:	adc #$06
 	rts
 
+;	========================
+
 ; checkpoint message
+
 msg_checkpoint:	      .byte "Checkpoint @ $"
 msg_checkpoint_pc:    .byte "%%%% A:$"
 msg_checkpoint_a:     .byte "%%, X:$"
@@ -2462,11 +2776,15 @@ msg_checkpoint_z:     .byte "%%, P:$"
 msg_checkpoint_p:     .byte "%% :"
 msg_checkpointmsg:    .byte "                                        "
 		      .byte 13,10  ; CR/LF
-msg_checkpoint_eom:		     
 
-; messages.  All have to be <=40 bytes long
+;	========================
+
+msg_checkpoint_eom:
+
+; messages all have to be <=40 bytes long
+
 msg_retryreadmbr:     .byte "RE-TRYING TO READ MBR",0
-msg_kickstart:        .byte "MEGA65 KICKSTART V00.04",0
+msg_kickstart:        .byte "MEGA65 KICKSTART V00.05",0
 msg_romok:            .byte "ROM CHECKSUM OK - BOOTING",0
 msg_rombad:	      .byte "ROM CHECKSUM FAIL - LOADING ROM",0
 msg_charrombad:	      .byte "COULD NOT LOAD CHARROM.M65",0
@@ -2501,32 +2819,45 @@ msg_lookingfornextsector:
 msg_nologo:	      .byte "COULD NOT LOAD BOOTLOGO.M65 (ERRNO:$$)",0
 msg_cdrootfailed:     .byte "COULD NOT CHDIR TO / (ERRNO:$$)",0
 
-		      .include "version.a65"
+			; include the GIT-STRING as a message
+			;
+			.include "version.a65"
 
 msg_blankline:	      .byte 0
 
+;	========================
+
 ; filename of character ROM
+;
 txt_c65gscharrom:     .byte "CHARROM.M65",0
 
 ; filename of ROM we want to load in FAT directory format
 ; (the two zero bytes are so that we can insert an extra digit after
 ; the 5, when a user presses a key, so that they can choose a
 ; different ROM to load).
+;
 txt_c65gsrom:	      .byte "MEGA65.ROM",0,0
 
 ; filename of 1581 disk image we mount by default
+;
 txt_c65gsd81:	      .byte "MEGA65.D81",0
 
 ; filename of kickstart update file
+;
 txt_kickupfile:	      .byte "KICKUP.M65",0
 
 ; filename containing boot logo
+;
 txt_bootlogo:	      .byte "BOOTLOGO.M65",0
+
+;	========================
 
 diskchooserstart:
 	; Pre-compiled disk menu
 	.incbin "diskmenu_c000.bin"
 diskchooserend:
+
+;	========================
 
 		.checkpc $BB00
 		.advance $BB00
@@ -2537,8 +2868,8 @@ diskchooserend:
 ; But for now, we are supporting only FAT32 as the filesystem.
 ; See kickstart_dos.a65 for information on how the table is used.
 ; Entries are 32 bytes long, so we can have 8 of them.
+;
 dos_disk_table:
-		
 
 		; Hypervisor DOS work area and scratch pad at $BC00-$BDFF
 
@@ -2546,25 +2877,35 @@ dos_disk_table:
 		.advance $BC00
 
 kickstart_scratchbyte0:
-		.byte $00		
+		.byte $00
 
 ; The number of disks we have
+;
 dos_disk_count:
 		.byte $00
+
 ; The default disk
+;
 dos_default_disk:
 		.byte $00
+
 ; The current disk
+;
 dos_disk_current_disk:
 		.byte $00
+
 ; Offset of current disk entry in disk table
+;
 dos_disk_table_offset:
 		.byte $00
+
 ; cluster of current directory of current disk
+;
 dos_disk_cwd_cluster:
 		.byte 0,0,0,0
 
 ; Current point in open directory
+;
 dos_opendir_cluster:
 		.byte 0,0,0,0
 dos_opendir_sector:
@@ -2573,37 +2914,47 @@ dos_opendir_entry:
 		.byte 0
 
 ; WARNING: dos_readdir_read_next_entry uses carnal knowledge about the following
-; structure, particularly the length as calculated here:
+;          structure, particularly the length as calculated here:
+;
 		.alias dos_dirent_structure_length 64+1+11+4+4+1
+
 ; Current long filename (max 64 bytes)
+;
 dos_dirent_longfilename:
 		.byte "Venezualen casaba melon productio"
 		.byte "n statistics (2012-2015).txt  "
 		.byte 0
+
 dos_dirent_longfilename_length:
 		.byte 0
+
 dos_dirent_shortfilename:
 		.byte "FILENAME.EXT",0		
+
 dos_dirent_cluster:
 		.byte 0,0,0,0
+
 dos_dirent_length:
 		.byte 0,0,0,0
+
 dos_dirent_type_and_attribs:
 		.byte 0
 
 ; Requested file name and length
+;
 dos_requested_filename_len:
 		.byte 0
+
 dos_requested_filename:
 		.byte "Venezualen casaba melon productio"
 		.byte "n statistics (2007-2011).txt     "
 
 ; Details about current DOS request
-dos_sectorsread: .word 0
-
-dos_current_sector:    .word 0,0
-dos_current_cluster:   .word 0,0
-dos_current_sector_in_cluster: .byte 0
+;
+dos_sectorsread:		.word 0
+dos_current_sector:		.word 0,0
+dos_current_cluster:		.word 0,0
+dos_current_sector_in_cluster:	.byte 0
 
 ; Current file descriptors
 ; Each descriptor has:
@@ -2614,40 +2965,57 @@ dos_current_sector_in_cluster: .byte 0
 ;   current sector in cluster : 1 byte
 ;   offset in sector: 2 bytes
 ;   file offset / $100 : 3 bytes
+;
     .alias dos_filedescriptor_max 4
     .alias dos_filedescriptor_offset_diskid 0    
     .alias dos_filedescriptor_offset_mode 1    
     .alias dos_filedescriptor_offset_startcluster 2    
     .alias dos_filedescriptor_offset_currentcluster 6
-    ; These last three fields must be contiguous, as dos_open_current_file
-    ; relies on it.
+;
+; These last three fields must be contiguous, as dos_open_current_file
+; relies on it.
+;
     .alias dos_filedescriptor_offset_sectorincluster 10
     .alias dos_filedescriptor_offset_offsetinsector 11
     .alias dos_filedescriptor_offset_fileoffset 13
+
 dos_file_descriptors:
 	.byte $FF,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
 	.byte $FF,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
 	.byte $FF,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
 	.byte $FF,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+
 ; The current file descriptor
+;
 dos_current_file_descriptor:
 	.byte 0
+
 ; Offset of current file descriptor
+;
 dos_current_file_descriptor_offset:
 	.byte 0
 
 ; For providing feedback on why DOS calls have failed
 ; There is a set of error codes defined in kickstart_dos.a65
+;
 dos_error_code:
 		.byte $00
 
+;	========================
+
 		.checkpc $BD00
 		.advance $BD00,$00
+
 		.include "kickstart_process_descriptor.a65"
 
+;	========================
+
 		; Kickstart stack (8-bit)
+
 		.checkpc $BE00
 		.advance $BE00,$3d
+
+;	========================
 
 		; Kickstart ZP at $BF00-$BFFF
 		.checkpc $BF00
@@ -2658,23 +3026,27 @@ kickstart_boot_flags:
 			.byte 0
 			
 ; Temporary vector storage for DOS
+;
 dos_scratch_vector: .word 0,0
 dos_scratch_byte_1: .byte 0
 dos_scratch_byte_2: .byte 0
 
 ; Vectors for copying data between hypervisor and user-space
+;
 hypervisor_userspace_copy_vector:    .word 0
     
 ; general kickstart temporary variables
-zptempv:	    .word 0
-zptempv2:	    .word 0
-zptempp:	    .word 0
-zptempp2:	    .word 0
-zptempv32:	    .word 0,0
-zptempv32b:	    .word 0,0
-dos_file_loadaddress: .word 0,0
+;
+zptempv:		.word 0
+zptempv2:		.word 0
+zptempp:		.word 0
+zptempp2:		.word 0
+zptempv32:		.word 0,0
+zptempv32b:		.word 0,0
+dos_file_loadaddress:	.word 0,0
 
 ; Used for checkpoint debug system of hypervisor
+;
 checkpoint_a:	      .byte 0
 checkpoint_x:	      .byte 0
 checkpoint_y:	      .byte 0
@@ -2684,9 +3056,12 @@ checkpoint_pcl:	      .byte 0
 checkpoint_pch:	      .byte 0
 
 ; SD card timeout handling
-sdcounter:	  .byte 0,0,0
+;
+sdcounter:		.byte 0,0,0
 
-		.checkpc $C000
-		.advance $C000, $3f
+;	========================
 
-		 .outfile "KICKUP.M65"
+			.checkpc $C000
+			.advance $C000, $3f
+
+			.outfile "KICKUP.M65"
