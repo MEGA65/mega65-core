@@ -1400,9 +1400,6 @@ drce1:	sta dos_dirent_longfilename,x
 	
 drce_next_piece:
 
-	jsr checkpoint
-	.byte 0,"drce_next_piece",0
-
 	; Offset in sector correctly indicates where we need to read.
 	; Sectors are 512 bytes, so we can't just do a register index.
 	; Instead we will setup a 16-bit pointer.
@@ -1417,6 +1414,26 @@ drce_next_piece:
 	sta dos_scratch_vector+1
 
 	; (dos_scratch_vector) now has the address of the directory entry
+
+
+	phx
+	ldy #fs_fat32_dirent_offset_shortname
+	ldx #0
+eight31:
+	lda (<dos_scratch_vector),y
+	jsr makeprintable
+	sta eight3,x
+	iny
+	inx
+	cpx #11
+	bne eight31
+	plx
+	jsr checkpoint
+	.byte 0,"drce_next_piece (8.3="
+eight3:	.byte "ABCDEFGHABC)",0
+
+
+
 	ldy #fs_fat32_dirent_offset_attributes
 	lda (<dos_scratch_vector),y
 	cmp #$0f              ; LFN entry special attribute value
@@ -2448,4 +2465,15 @@ nod81:
 		.byte 0,"dos_d81attach <file not found>",0
 
 		clc
+		rts
+
+makeprintable:
+		; Make the byte in A be printable ASCII
+		cmp #$20
+		bcc currentlyunprintable
+		cmp #$7e
+		bcs currentlyunprintable
+		rts
+currentlyunprintable:
+		lda #$3f ; question-mark
 		rts
