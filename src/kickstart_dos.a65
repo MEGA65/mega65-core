@@ -1429,10 +1429,8 @@ eight31:
 	bne eight31
 	plx
 	jsr checkpoint
-	.byte 0,"drce_next_piece (8.3="
-eight3:	.byte "ABCDEFGHABC)",0
-
-
+	.byte 0,"next piece (8.3) ="
+eight3:	.byte "ABCDEFGHABC",0
 
 	ldy #fs_fat32_dirent_offset_attributes
 	lda (<dos_scratch_vector),y
@@ -1487,9 +1485,6 @@ drce2:	lda (<dos_scratch_vector),y
 	dez
 	bne drce2
 
-	lda #1
-	jsr lfndebug
-
 	; Copy second part of LFN
 	ldy #fs_fat32_dirent_offset_lfn_part2_start
 	ldz #fs_fat32_dirent_offset_lfn_part2_chars
@@ -1505,9 +1500,6 @@ drce3:	lda (<dos_scratch_vector),y
 	iny
 	dez
 	bne drce3
-
-	lda #2
-	jsr lfndebug
 
 	; Copy first part of LFN
 	ldy #fs_fat32_dirent_offset_lfn_part3_start
@@ -1525,17 +1517,11 @@ drce4:	lda (<dos_scratch_vector),y
 	dez
 	bne drce4
 
-	lda #3
-	jsr lfndebug
-	
 drce_eot_in_filename:
 
 	jsr checkpoint
 	.byte 0,"drce_eot_in_filename",0
 	
-	lda #4
-	jsr lfndebug
-
 	; got all characters from this LFN piece
 	cpx dos_dirent_longfilename_length
 	bcc drce_piece_didnt_grow_name_length
@@ -1719,11 +1705,17 @@ drce_noteof:
 	lda dos_dirent_longfilename_length
 	cmp #0
 	beq dos_readdir
+
 	lda dos_dirent_shortfilename
+	beq dos_readdir
 	cmp #$20
 	beq dos_readdir
-	cmp #$00
-	beq dos_readdir
+
+	jsr checkpoint
+	.byte 0,"drce_noteof <success>",0
+
+	lda #9
+	jsr lfndebug
 
 	sec
 	rts
@@ -1736,9 +1728,8 @@ lfndebug:
 	phx
 	ldx #29
 drce23:	lda dos_dirent_longfilename,x
-	bne drce22
-	lda #$3f
-drce22:	sta fnmsg1,x
+	jsr makeprintable
+	sta fnmsg1,x
 	dex
 	bpl drce23
 	plx
