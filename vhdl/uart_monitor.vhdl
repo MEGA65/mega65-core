@@ -930,6 +930,7 @@ begin
                 end if;
               elsif cmdbuffer(1) = '!' then
                 reset_out <= '0';
+                state <= NextCommand;
               elsif cmdbuffer(1) = 'z' or cmdbuffer(1) = 'Z' then
                 banner_position <= 0;
                 if cmdlen=2 then
