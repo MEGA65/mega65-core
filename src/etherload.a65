@@ -71,6 +71,8 @@ waitingforpacket:
 	; check whether it is UDP port 4510
 	; or whether it is an ARP request
 
+	inc $d020
+
 	; Here we want to check that $680E - $6817 =
 	; 08 06 00 01 08 00 06 04 00 01
 
@@ -91,7 +93,7 @@ arploop0:
 	; now we need to build the ARP reply and send it.
 	; We should copy the sender's 
 
-	; XXX for now just increment border colour
+	inc $0427 ; XXX for debug
 
 	; set output packet size
 	; 6+6+2 bytes ethernet header + 28 bytes of ARP reply = 42
