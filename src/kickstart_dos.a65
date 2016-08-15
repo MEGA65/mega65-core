@@ -1883,7 +1883,8 @@ docf2:	sta dos_file_descriptors+dos_filedescriptor_offset_sectorincluster,x
 	sec
 	rts
 
-
+; Load A & X with the offset of the current file descriptor, relative to
+; dos_file_descriptors.
 dos_get_file_descriptor_offset:
 	lda dos_current_file_descriptor
 	cmp #4
@@ -1920,11 +1921,22 @@ dos_file_read_current_sector:
 	; Add sector within cluster
 	jsr dos_get_file_descriptor_offset
 	bcc dos_return_error_already_set
+	; Set A to the offset of the sectorincluster field of the current
+	; file descriptor
 	ora #dos_filedescriptor_offset_sectorincluster
+	; Now put that offset in y, so that we can load the sector number in the
+	; current cluster for the current file descriptor
 	tay
+	; Reset X to zero, so that we can use it as index for adding the sector number
+	; to the sector number of the current cluster
 	ldx #$00
 	clc
+
+	; Load the sector number in the current cluster
 	lda dos_file_descriptors,y
+	; If non-zero, then use the value, else allow us to
+	; load zero again, because the load with zero is used in the inner loop
+	; for propagating the carry flag through addition.
 	bne dfrcs4
 dfrcs2: lda #$00
 dfrcs4:
