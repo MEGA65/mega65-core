@@ -283,8 +283,6 @@ architecture behavioural of ethernet is
  signal eth_key_debug : unsigned(7 downto 0) := x"00";
  signal eth_byte_fail : unsigned(7 downto 0) := x"00";
  signal eth_offset_fail : unsigned(7 downto 0) := x"00";
-
- signal eth_txd_reg : unsigned(1 downto 0) := "00";
  
  -- Reverse the input vector.
  function reversed(slv: std_logic_vector) return std_logic_vector is
@@ -381,8 +379,9 @@ begin  -- behavioural
   begin
     if rising_edge(clock50mhz) then
 
-      -- Register ethernet data lines
-      eth_txd <= eth_txd_reg;
+      -- Register ethernet data lines and data valid signal
+      eth_txd <= eth_txd_int;
+      eth_txdv <= eth_txdv_int;
       
       -- We separate the RX/TX FSMs to allow true full-duplex operation.
       -- For now it is upto the user to ensure the 0.96us gap between packets.
@@ -401,7 +400,7 @@ begin  -- behavioural
           -- 0.96 * 50 = 48 cycles.  We will wait 50 just to be sure.
 
           -- make sure we release the transceiver.
-          eth_txen <= '0';
+          eth_txen_reg <= '0';
 
           eth_tx_wait <= 50;
           eth_tx_state <= InterPacketGap;
@@ -426,9 +425,8 @@ begin  -- behavioural
             eth_tx_commenced <= '1';
             eth_tx_complete <= '0';
             tx_preamble_count <= 29;
-            eth_txen <= '1';
+            eth_txen_reg <= '1';
             eth_txen_int <= '1';
-            eth_txd_reg <= "01";
             eth_txd_int <= "01";
             eth_tx_state <= WaitBeforeTX;
             eth_tx_viciv <= '0';
@@ -446,7 +444,6 @@ begin  -- behavioural
             tx_preamble_count <= 29;
             eth_txen <= '1';
             eth_txen_int <= '1';
-            eth_txd_reg <= "01";
             eth_txd_int <= "01";
             eth_tx_state <= WaitBeforeTX;
             eth_tx_viciv <= '1';
@@ -457,7 +454,6 @@ begin  -- behavioural
           tx_fcs_crc_load_init <= '1';
         when SendingPreamble =>
           if tx_preamble_count = 0 then
-            eth_txd_reg <= "11";
             eth_txd_int <= "11";
             eth_tx_state <= SendingFrame;
             eth_tx_bit_count <= 0;
@@ -473,7 +469,6 @@ begin  -- behavioural
               tx_fcs_crc_data_in <= x"ff";
             end if;
           else
-            eth_txd_reg <= "01";
             eth_txd_int <= "01";
             tx_preamble_count <= tx_preamble_count - 1;
           end if;
@@ -484,7 +479,6 @@ begin  -- behavioural
         when SendingFrame =>
           tx_fcs_crc_d_valid <= '0';
           tx_fcs_crc_calc_en <= '0';
-          eth_txd_reg <= eth_tx_bits(1 downto 0);
           eth_txd_int <= eth_tx_bits(1 downto 0);
           if eth_tx_bit_count = 6 then
             -- Prepare to send from next byte
@@ -563,13 +557,10 @@ begin  -- behavioural
         when SendFCS =>
           report "ETHTX: writing FCS";
           if eth_tx_crc_count /= 0 then
-            eth_txd(0) <= eth_tx_crc_bits(31);
-            eth_txd(1) <= eth_tx_crc_bits(30);
             eth_txd_int <= unsigned(eth_tx_crc_bits(31 downto 30));
             eth_tx_crc_bits(31 downto 2) <= eth_tx_crc_bits(29 downto 0);
             eth_tx_crc_count <= eth_tx_crc_count - 1;
           else
-            eth_txen <= '0';
             eth_txen_int <= '0';
             eth_tx_state <= SentFrame;
             eth_tx_toggle_50mhz <= not eth_tx_toggle_50mhz;
