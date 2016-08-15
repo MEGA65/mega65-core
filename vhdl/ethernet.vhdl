@@ -283,6 +283,8 @@ architecture behavioural of ethernet is
  signal eth_key_debug : unsigned(7 downto 0) := x"00";
  signal eth_byte_fail : unsigned(7 downto 0) := x"00";
  signal eth_offset_fail : unsigned(7 downto 0) := x"00";
+
+ signal eth_txd_reg : unsigned(1 downto 0) := "00";
  
  -- Reverse the input vector.
  function reversed(slv: std_logic_vector) return std_logic_vector is
@@ -378,6 +380,10 @@ begin  -- behavioural
     variable frame_length : unsigned(11 downto 0);
   begin
     if rising_edge(clock50mhz) then
+
+      -- Register ethernet data lines
+      eth_txd <= eth_txd_reg;
+      
       -- We separate the RX/TX FSMs to allow true full-duplex operation.
       -- For now it is upto the user to ensure the 0.96us gap between packets.
       -- This is only 20 CPU cycles, so it is unlikely to be a problem.
@@ -422,7 +428,7 @@ begin  -- behavioural
             tx_preamble_count <= 29;
             eth_txen <= '1';
             eth_txen_int <= '1';
-            eth_txd <= "01";
+            eth_txd_reg <= "01";
             eth_txd_int <= "01";
             eth_tx_state <= WaitBeforeTX;
             eth_tx_viciv <= '0';
@@ -440,7 +446,7 @@ begin  -- behavioural
             tx_preamble_count <= 29;
             eth_txen <= '1';
             eth_txen_int <= '1';
-            eth_txd <= "01";
+            eth_txd_reg <= "01";
             eth_txd_int <= "01";
             eth_tx_state <= WaitBeforeTX;
             eth_tx_viciv <= '1';
@@ -451,7 +457,7 @@ begin  -- behavioural
           tx_fcs_crc_load_init <= '1';
         when SendingPreamble =>
           if tx_preamble_count = 0 then
-            eth_txd <= "11";
+            eth_txd_reg <= "11";
             eth_txd_int <= "11";
             eth_tx_state <= SendingFrame;
             eth_tx_bit_count <= 0;
@@ -467,7 +473,7 @@ begin  -- behavioural
               tx_fcs_crc_data_in <= x"ff";
             end if;
           else
-            eth_txd <= "01";
+            eth_txd_reg <= "01";
             eth_txd_int <= "01";
             tx_preamble_count <= tx_preamble_count - 1;
           end if;
@@ -478,7 +484,7 @@ begin  -- behavioural
         when SendingFrame =>
           tx_fcs_crc_d_valid <= '0';
           tx_fcs_crc_calc_en <= '0';
-          eth_txd <= eth_tx_bits(1 downto 0);
+          eth_txd_reg <= eth_tx_bits(1 downto 0);
           eth_txd_int <= eth_tx_bits(1 downto 0);
           if eth_tx_bit_count = 6 then
             -- Prepare to send from next byte
