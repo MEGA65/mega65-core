@@ -560,9 +560,7 @@ begin
     if rising_edge(clock100mhz) then
       report "50MHz tick";
       clock50mhz <= not clock50mhz;
-      -- Ethernet clock needs to be inverted, with respect to the internal
-      -- 50MHz clock, so that the ethernet phy can latch on falling-edge.
-      eth_clock <= clock50mhz;
+      eth_clock <= not clock50mhz;
     end if;
   end process;
   
