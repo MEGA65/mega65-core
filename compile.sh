@@ -1,10 +1,12 @@
 #!/bin/bash
 
-( cd src ; make firmware generated_vhdl )
+( cd src ; make firmware generated_vhdl ../iomap.txt tools )
 retcode=$?
 
 if [ $retcode -ne 0 ] ; then
   echo "make failed with return code $retcode" && exit 1
+else
+  echo "make completed."
 fi
 
 # here we need to detect if you have 32 or 64 bit machine

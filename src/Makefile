@@ -1,6 +1,3 @@
-read_dataROUTEEFFORT=	std
-#ROUTEEFFORT=	med
-#ROUTEEFFORT=	high
 
 VHDLSRCDIR=	../vhdl
 
@@ -20,12 +17,11 @@ else
 SOCKLIBS =
 endif
 
-all:	generated_vhdl firmware ../iomap.txt utility.d81
+all:	generated_vhdl firmware ../iomap.txt utility.d81 tools
 
 fpga:	
-	$(warning make-target:fpga is not implemented in the makefile yet, refer to ./../compile.sh)
+	$(warning ~~~~~~~~~~~~~~~~> The 'fpga'-target is not implemented in the makefile yet, refer to ./../compile.sh)
 	$(warning ISE build to go here, ie xst, ngdbuild, map, par, bitgen)
-
 
 generated_vhdl:	$(VHDLSRCDIR)/kickstart.vhdl $(VHDLSRCDIR)/charrom.vhdl $(VHDLSRCDIR)/version.vhdl
 
@@ -33,6 +29,7 @@ generated_vhdl:	$(VHDLSRCDIR)/kickstart.vhdl $(VHDLSRCDIR)/charrom.vhdl $(VHDLSR
 # files destined to go on the SD-card to serve as firmware for the MEGA65
 firmware:	BOOTLOGO.M65 KICKUP.M65
 
+tools:	etherkick
 
 simulate:	ghdl-frame-gen \
 	diskmenu.prg \
@@ -154,9 +151,9 @@ etherload:	etherload.c
 # ============================ done moved, print-warn, clean-target
 # c-code that makes and executable that seems to read a file and transferrs that file
 # to the fpga via ethernet
-etherkick:	etherkick.c
+etherkick:	./tools/etherkick/etherkick.c
 	$(warning ~~~~~~~~~~~~~~~~> Making: etherkick)
-	gcc -Wall -g -o etherkick etherkick.c $(SOCKLIBS)
+	gcc -Wall -g -o ./tools/etherkick/etherkick ./tools/etherkick/etherkick.c $(SOCKLIBS)
 
 
 # ============================ done *deleted*, Makefile-dep, print-warn, clean-target
@@ -301,7 +298,8 @@ clean:
 	rm -f c65-rom-911001.txt c65-911001-rom-annotations.txt c65-dos-context.bin c65-911001-dos-context.bin
 	rm -f thumbnail.prg KICKUP.M65 diskmenuc000.list diskmenu_c000.bin diskchooser diskchooser.list 
 	rm -f textmodetest.prg textmodetest.list etherload_done.bin etherload_stub.bin etherload.prg diskmenu.prg diskmenuprg.list ethertest.prg
-	rm -f videoproxy etherload etherkick
+	rm -f videoproxy etherload
+	rm -f tools/etherkick/etherkick
 	rm -f iomap.txt
 	rm -f $(VHDLSRCDIR)/kickstart.vhdl $(VHDLSRCDIR)/charrom.vhdl $(VHDLSRCDIR)/version.vhdl version.a65
 	rm -f monitor_drive monitor_load read_mem ghdl-frame-gen chargen_debug dis4510 em4510 4510tables pngprepare BOOTLOGO.M65
