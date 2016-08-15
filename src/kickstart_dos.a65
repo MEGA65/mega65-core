@@ -1097,11 +1097,6 @@ dcts1:	clc
 	and #$fe
 	bne dcts1
 multipliedclusternumber:
-	ldx #$00
-mmm1:	lda $d681,x
-	inx
-	cpx #$04
-	bne mmm1
 
 	; skip over filesystem reserved and FAT sectors
 	lda dos_disk_table_offset	
