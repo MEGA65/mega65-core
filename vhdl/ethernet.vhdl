@@ -400,7 +400,7 @@ begin  -- behavioural
           -- 0.96 * 50 = 48 cycles.  We will wait 50 just to be sure.
 
           -- make sure we release the transceiver.
-          eth_txen_reg <= '0';
+          eth_txen_int <= '0';
 
           eth_tx_wait <= 50;
           eth_tx_state <= InterPacketGap;
@@ -425,7 +425,6 @@ begin  -- behavioural
             eth_tx_commenced <= '1';
             eth_tx_complete <= '0';
             tx_preamble_count <= 29;
-            eth_txen_reg <= '1';
             eth_txen_int <= '1';
             eth_txd_int <= "01";
             eth_tx_state <= WaitBeforeTX;
