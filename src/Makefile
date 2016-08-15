@@ -11,6 +11,8 @@ KICKSTARTSRCS = kickstart.a65 \
 		kickstart_task.a65 \
 		kickstart_mem.a65
 
+UTILITIES=	ethertest.prg etherload.prg diskmenu.prg
+
 # Unlikely anyone uses Windows 9x anymore
 ifeq ($(OS),Windows_NT)
 SOCKLIBS = -l ws2_32
@@ -18,7 +20,7 @@ else
 SOCKLIBS =
 endif
 
-all:	generated_vhdl firmware ../iomap.txt
+all:	generated_vhdl firmware ../iomap.txt utility.d81
 
 fpga:	
 	$(warning make-target:fpga is not implemented in the makefile yet, refer to ./../compile.sh)
@@ -42,12 +44,15 @@ simulate:	ghdl-frame-gen \
 	etherload \
 	etherkick
 
+utility.d81:	$(UTILITIES)
+	if [ -a utility.d81 ]; then rm utility.d81; fi;
+	cbmconvert -D8 utility.d81 $(UTILITIES)
 
 # ============================ done moved, print-warn, clean-target
 # ophis converts the *.a65 file (assembly text) to *.prg (assembly bytes)
-ethertest.prg:	ethertest.a65
+ethertest.prg:	utilities/ethertest.a65
 	$(warning ~~~~~~~~~~~~~~~~> Making: ethertest.prg)
-	./../../Ophis/bin/ophis -4 ethertest.a65
+	./../../Ophis/bin/ophis -4 utilities/ethertest.a65
 
 
 # does not exist, so will not be included in the build
