@@ -2504,9 +2504,8 @@ txt_kickupfile:	      .byte "KICKUP.M65",0
 txt_bootlogo:	      .byte "BOOTLOGO.M65",0
 
 diskchooserstart:
-	; Pre-compiled disk chooser
-	.incbin "diskchooser"
-	;  .incbin "diskmenu_c000.bin"
+	; Pre-compiled disk menu
+	.incbin "diskmenu_c000.bin"
 diskchooserend:
 
 		.checkpc $BB00
