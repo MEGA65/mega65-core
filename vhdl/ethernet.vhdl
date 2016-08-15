@@ -381,7 +381,7 @@ begin  -- behavioural
 
       -- Register ethernet data lines and data valid signal
       eth_txd <= eth_txd_int;
-      eth_txdv <= eth_txdv_int;
+      eth_txen <= eth_txen_int;
       
       -- We separate the RX/TX FSMs to allow true full-duplex operation.
       -- For now it is upto the user to ensure the 0.96us gap between packets.
