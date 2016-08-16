@@ -1057,6 +1057,13 @@ redoread:
 		; when retrying, introduce a delay.  This seems to be needed often
 		; when reading the first sector after SD card reset.
 		;
+
+		; debug output
+		;
+		ldx #<msg_sdredoread
+		ldy #>msg_sdredoread
+		jsr printmessage
+
 		ldx #$f0
 		ldy #$00
 		ldz #$00
@@ -1436,7 +1443,7 @@ resetdisplay:
 		and #$40	; bit-6 is 4mhz
 		sta $d031
 
-		lda #$08
+		lda #$0b	; dark-grey
 		sta $D020	; border
 		sta $D021	; background
 
@@ -2792,6 +2799,7 @@ msg_charromloaded:    .byte "LOADED CHARROM.M65 ($$$$ PAGES)",0
 msg_tryingsdcard:     .byte "LOOKING FOR SDCARD...",0
 msg_foundsdcard:      .byte "FOUND AND RESET SDCARD",0
 msg_sdcarderror:      .byte "ERROR READING FROM SD CARD",0
+msg_sdredoread:       .byte "RE-READING SDCARD",0
 
 msg_badformat:	      .byte "BAD MBR OR DOS BOOT SECTOR.",0
 msg_sdcardfound:      .byte "READ PARTITION TABLE FROM SDCARD",0
