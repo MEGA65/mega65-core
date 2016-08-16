@@ -514,7 +514,8 @@ dos_clear_filedescriptors:
 ; service requests.
 ; XXX - We don't support extended partition tables! Only the old-fashion
 ; 4 DOS partitions.  We might get excited and add support for them later,
-; but 
+; but
+;
 dos_read_partitiontable:
 
 	; clear error code
