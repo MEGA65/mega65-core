@@ -1930,19 +1930,7 @@ dos_file_read_current_sector:
 
 	; Load the sector number in the current cluster
 	lda dos_file_descriptors,y
-	; If non-zero, then use the value, else allow us to
-	; load zero again, because the load with zero is used in the inner loop
-	; for propagating the carry flag through addition.
-	bne dfrcs4
-dfrcs2: lda #$00
-dfrcs4:
-	adc $d681,x
-	sta $d681,x
-	bcc dfrcs_inced
-	inx
-	cpx #$04
-	bne dfrcs2
-dfrcs_inced:
+	jsr sdsector_add_uint8
 
 	jsr sd_fix_sectornumber
 	jmp sd_readsector
