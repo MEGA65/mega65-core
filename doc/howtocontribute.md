@@ -1,7 +1,7 @@
 ## This is the 'how to contribute' documentation file.
 
 # Introduction  
-This page describes some etiquette and guidelines for contributing to this project.
+This page describes some etiquette and guidelines for contributing to this project.  
 Can other developers please add to this file.
 
 # Etiquette

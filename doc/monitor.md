@@ -1,8 +1,10 @@
-## This is the **monitor** documentation file.
+## This is the 'monitor' documentation file.
 
 # Table of Contents:
 
 [Introduction](#introduction)  
+[Setup on the PC](#setup-on-the-pc)  
+[How to use](#how-to-use)  
 [Breakpoint](#breakpoint)  
 
 ## Introduction
@@ -10,8 +12,51 @@
 The Serial Monitor (monitor) can be used to gain a closer look at what the CPU (and other parts of the design) are doing.  
 The VHDL-code for the monitor is located in ```uart_monitor.vhdl```.
 
+## Setup on the PC
+
+You need a terminal program on your PC that communicates to the serial port. a number of options exist:
+
+* hyperterminal  
+should be pre-loaded on XP.
+
+* cygwin/picocom  
+ ```
+git clone https://github.com/npat-efault/picocom
+cd picocom
+make
+./picocom.exe
+./picocom.exe --help
+./picocom.exe --b 230400 /dev/ttyS3
+```
+to exit: ```CTRL-a CTRL-x```
+
+* macintosh/cu
+ ```
+sudo apt-get install cu
+sudo cu -s 230400 -l /dev/cu.usbserial<???>
+```
+to exit: ```~.```
+
+* use the m65dbg program (suggested option)  
+refer to [https://github.com/MEGA65/m65dbg](https://github.com/MEGA65/m65dbg) for install instructions
+ ```
+git clone https://github.com/MEGA65/m65dbg.git
+cd m65dbg
+make
+./m65dbg -d /dev/ttyS3
+```
+
+For all the above options, the following settings are required:  
+
+1. 230400 baud rate
+1. 8 data bits
+1. No flow control required
+1. 1 stop bit
+
+## How to use
+
 Below are some instructions on how to use the monitor:  
-(It is assumed that you are connected)
+(It is assumed that you are connected, using cygwin/picocom)
 
 1. tapping ```<enter>``` will print the status-display with the most recent values of the registers.
 1. holding ```<enter>``` will continue to print the status-display as above, but notice that many hundreds of clock-cycles would have been traversed between successive prints of the status-display. This can be accepted as the Program-Counter (PC) does not show consecutive addresses.
@@ -20,6 +65,7 @@ Below are some instructions on how to use the monitor:
  1. pressing ```<enter>``` will STEP the CPU one instruction. This can be seen as the PC is incremented by a couple/few addresses.
  1. Also note that the instruction shown under the ```LAST-OP``` field will display the last instruction processed by the CPU.
  1. holding ```<enter>``` will continue to STEP the CPU one instruction at a time, and if you hold ENTER for long enough, you may see the CURSOR blink ON or OFF.
+1. typing ```?``` followed by ```<enter>``` will print some help-text.
 
 ## Breakpoint 
 
@@ -42,3 +88,5 @@ The following will set a breakpoint at a memory location just before the cursors
 1. unsure if multiple BREAKPOINTS can be set.
 
 The End.
+
+

@@ -1,4 +1,4 @@
-## This is the **structural** documentation file.
+## This is the 'structural' documentation file.
 
 # Table of Contents:
 

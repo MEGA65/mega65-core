@@ -1,4 +1,4 @@
-## This is the **using** documentation file.
+## This is the 'using' documentation file.
 
 # Table of Contents:
 
@@ -154,6 +154,7 @@ NOTE: that a jumper on the NexysDDR board determines where to look for the bitst
 
 ## Serial Monitor
 The monitor can be used to gain a closer look at what the CPU (and other parts of the design) are doing. If you are familiar with a debugger or machine-code-monitor, then the Serial Monitor will be familiar to you.  
+
 The monitor allows a user to interface within a serial port program on a PC, to the internals of the FPGA.  
 Refer to the [monitor](./monitor.md) page for detailled instructions on how to use it.  
 
@@ -161,9 +162,8 @@ Basically, with the MEGA65 running in either c65/c64 mode:
 
 1. connect USB cable between PROG/UART header of the FPGA-board and a USB port of the PC.
 1. the PC should detect that there is a USB-device on the FPGA-end of the cable.
-1. using a terminal window, open/connect communication by: ```sudo cu -l /dev/cu.usbserial<???> -s 230400```. If you dont have the program ```cu```, then get it by ```sudo apt-get install cu```.
-1. pressing 'return' will bring up the prompt
-1. typing ```?<return>``` will provide some help text
-1. to close the connection, type ```~.``` at the start of a blank line.
+1. using a terminal window, open/connect communication to the serial-port.
+1. now send commands to the FPGA-board to tell it what to do, or
+1. receive status information from the FPGA-board.
 
 The End.

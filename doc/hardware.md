@@ -1,4 +1,4 @@
-## This is the **hardware** documentation file.
+## This is the 'hardware' documentation file.
 
 # Table of Contents:
 
