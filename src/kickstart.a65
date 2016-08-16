@@ -1443,7 +1443,7 @@ resetdisplay:
 		and #$40	; bit-6 is 4mhz
 		sta $d031
 
-		lda #$0b	; dark-grey
+		lda #$00	; black
 		sta $D020	; border
 		sta $D021	; background
 
