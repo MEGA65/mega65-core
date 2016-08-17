@@ -2461,3 +2461,12 @@ l23:		plp
 		bne l23
 		plp	
 		rts
+
+; Convert unprintable ASCII characters to question marks
+makeprintable:
+		cmp #$1f
+		bcs ok
+		cmp #$7e
+		bcc ok
+		lda #$3f
+ok:		rts
