@@ -168,6 +168,33 @@ int load_memory_context(char *dir,struct memory_context *c)
   return 0;
 }
 
+int save_memory(char *file,struct memory_context *c)
+{
+  int modified=0;
+  
+  FILE *f=fopen(file,"w");
+  if (!f) {
+    perror(file); usage("Could not write memory file for updated instance.");
+    return -1;
+  }
+
+  // Horribly inefficient -- use memory map instead
+  for(int i=0;i<65536;i++) {
+    if (c->modified[i]) {
+      fwrite(&c->currentValues[i],1,1,f);
+      modified++;
+    } else
+      fwrite(&c->initialValues[i],1,1,f);
+  }  
+  
+  fclose(f);
+
+  printf("Wrote new memory data to %s (%d bytes updated from running process)\n",
+	 file,modified);
+  
+  return 0;
+}
+
 int load_memory(char *file,struct memory_context *c)
 {
   int fd=open(file,O_RDONLY);
@@ -291,16 +318,16 @@ int update_variables(struct memory_context *old,struct memory_context *new)
 		  ignored++;
 		  
 		} else {
-		  printf("Translating %s+%d ($%04X) : $%02X to %s+%d ($%04X) $%02X\n",
+		  printf("Translating %s+%d ($%04X) : $%02X to ($%04X), replacing initial value $%02X\n",
 			 old->labels[old_label_id],
 			 i-old->label_addresses[old_label_id],
 			 i,
 			 old->currentValues[i],
-			 new->labels[new_label_id],
-			 new_addr-new->label_addresses[new_label_id],
 			 new_addr,
-			 old->currentValues[i]);
-		  changed++;
+			 new->initialValues[new_addr]);
+		  new->currentValues[new_addr]=old->currentValues[i];
+		  new->modified[new_addr]=1;
+		  changed++;		  
 		}
 	      }
 	    }
@@ -344,5 +371,9 @@ int main(int argc,char **argv)
   // Translate variables
   update_variables(&old,&new);
 
-  
+  // XXX Update stack & registers
+
+  save_memory(argv[5],&new);
+
+  return 0;
 }
