@@ -1067,19 +1067,13 @@ dcts0:	lda dos_current_cluster,x
 
 	; subtract 2 from the cluster number (clusters 0 and 1 don't actually exist
 	; on FAT32).
-	lda $d681
-	sec
-	sbc #$02
-	sta $d681
-	lda $d682
-	sbc #0
-	sta $d682
-	lda $d683
-	sbc #0
-	sta $d683
-	lda $d684
-	sbc #0
-	sta $d684
+
+	lda #$ff
+	tax
+	tay
+	taz
+	lda #$fe
+	jsr sdsector_add_uint32
 	
 	; now shift it left according to fs_sectors_per_cluster
 	ldx dos_disk_table_offset	
@@ -1100,40 +1094,12 @@ dcts1:	clc
 multipliedclusternumber:
 
 	; skip over filesystem reserved and FAT sectors
-	lda dos_disk_table_offset	
-	ora #fs_fat32_cluster0_sector
-	tay
-	ldx #$00
-	clc
-	php
-l23:	plp
-	lda $D681,x
-	adc dos_disk_table,y
-	sta $D681,x
-	php
-	iny
-	inx
-	cpx #$04
-	bne l23
-	plp	
+	lda #fs_fat32_cluster0_sector
+	jsr sdsector_add_uint32_from_disktable
 
 	; add start sector of partition
-	lda dos_disk_table_offset	
-	ora #fs_start_sector
-	tay
-	ldx #$00
-	clc
-	php
-l24:	plp
-	lda $D681,x
-	adc dos_disk_table,y
-	sta $D681,x
-	php
-	iny
-	inx
-	cpx #$04
-	bne l24
-	plp
+	lda #fs_start_sector
+	jsr sdsector_add_uint32_from_disktable
 
 	; XXX - Check that result does not exceed fs_start_sector+fs_sector_count
 	; and run over into another partition
@@ -1148,7 +1114,8 @@ dos_requested_filename_to_uppercase:
 	ldx dos_requested_filename_len
 	cpx #$3f
 	lda #dos_errorcode_name_too_long
-	bcs dos_return_error
+	bcc drftu1
+	jmp dos_return_error	
 drftu1:	lda dos_requested_filename,x
 	jsr toupper
 	sta dos_requested_filename,x
@@ -1923,15 +1890,11 @@ dos_file_read_current_sector:
 	; Now put that offset in y, so that we can load the sector number in the
 	; current cluster for the current file descriptor
 	tay
-	; Reset X to zero, so that we can use it as index for adding the sector number
-	; to the sector number of the current cluster
-	ldx #$00
-	clc
-
-	; Load the sector number in the current cluster
 	lda dos_file_descriptors,y
+	; add sector number in cluster to current sector number (which is the
+        ; start of the cluster)
 	jsr sdsector_add_uint8
-
+	
 	jsr sd_fix_sectornumber
 	jmp sd_readsector
 
@@ -2454,13 +2417,47 @@ nod81:
 		clc
 		rts
 
-makeprintable:
-		; Make the byte in A be printable ASCII
-		cmp #$20
-		bcc currentlyunprintable
-		cmp #$7e
-		bcs currentlyunprintable
+sdsector_add_uint8:
+		pha
+		lda #0
+		tax
+		tay
+		taz
+		pla
+		; FALL THROUGH to sdsector_add_uint32
+
+sdsector_add_uint32:
+		; Add the 32-bit value contained in A,X,Y,Z to
+		; $D681-$D684, the SD card sector number.
+		clc
+		adc $D681
+		sta $D681
+		txa
+		adc $d682
+		sta $d682
+		tya
+		adc $d683
+		sta $d683
+		tza
+		adc $d684
+		sta $d684
+		ldz #$00
 		rts
-currentlyunprintable:
-		lda #$3f ; question-mark
+
+sdsector_add_uint32_from_disktable:
+		ora dos_disk_table_offset	
+		tay	
+		ldx #$00
+		clc
+		php
+l23:		plp
+		lda $D681,x
+		adc dos_disk_table,y
+		sta $D681,x
+		php
+		iny
+		inx
+		cpx #$04
+		bne l23
+		plp	
 		rts
