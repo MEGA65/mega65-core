@@ -2464,9 +2464,11 @@ l23:		plp
 
 ; Convert unprintable ASCII characters to question marks
 makeprintable:
-		cmp #$1f
-		bcs ok
-		cmp #$7e
-		bcc ok
-		lda #$3f
-ok:		rts
+		cmp #$20
+		bcc unprintable
+		cmp #$7f
+		bcs unprintable
+		rts
+unprintable:	lda #$3f
+		rts
+
