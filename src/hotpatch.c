@@ -30,6 +30,8 @@
 #include <string.h>
 #include <unistd.h>
 #include <dirent.h>
+#include <sys/mman.h>
+#include <fcntl.h>
 
 #ifndef uint16_t
 #define uint16_t unsigned
@@ -40,6 +42,7 @@ struct memory_context {
   unsigned char initialised[65536];
   unsigned char initialValues[65536];
   unsigned char currentValues[65536];
+  unsigned char modified[65536];
 
   char *labels[65536];
   uint16_t label_addresses[65536];
@@ -121,6 +124,21 @@ int load_map_file(char *file,struct memory_context *c)
     return -1;
   }
 
+  char line[1024];
+  line[0]=0; fgets(line,1024,f);
+  while(line[0]) {
+    unsigned addr;
+    char name[1024];
+    if (sscanf(line,"$%x %s",&addr,name)==2) {
+      if (c->label_count<65536) {
+	c->label_addresses[c->label_count]=addr;
+	c->labels[c->label_count]=strdup(name);
+	c->label_count++;
+      }
+    }
+    
+    line[0]=0; fgets(line,1024,f);
+  }
   fclose(f);
   return 0;
 }
@@ -146,15 +164,99 @@ int load_memory_context(char *dir,struct memory_context *c)
     }
   }
 
+  closedir(d);
+  return 0;
+}
+
+int load_memory(char *file,struct memory_context *c)
+{
+  int fd=open(file,O_RDONLY);
+  if (fd<0) {
+    perror(file); usage("Could not load memory for running instance.");
+    return -1;
+  }
+  unsigned char *mem = mmap(NULL,65536,PROT_READ,MAP_SHARED,fd,0);
+
+  if (mem==MAP_FAILED) {
+    perror(file); usage("Could not map memory for running instance.");
+    return -1;
+  }
+
+  for(int i=0;i<65536;i++) {
+    c->currentValues[i]=mem[i];
+    if (c->initialised[i]) {
+      if (mem[i]!=c->initialValues[i]) c->modified[i]=1;
+    }
+  }
+  close(fd);
+  return 0;
+}
+
+int find_nearest_label(struct memory_context *c, unsigned addr)
+{
+  int best_addr=0;
+  int best_id=-1;
+
+  for(int i=0;i<c->label_count;i++) {
+    if ((c->label_addresses[i]>=best_addr)
+	&&(c->label_addresses[i]<=addr)) {
+      best_id=i; best_addr=c->label_addresses[i];
+    }
+  }
+
+  return best_id;
+}
+
+int context_report(struct memory_context *c)
+{
   int codeBytes=0;
   int initialisedBytes=0;
   for(int i=0;i<65536;i++) {
     if (c->isCode[i]) codeBytes++;
     if (c->initialised[i]) initialisedBytes++;
   }
-  printf("%d bytes (%d code)\n",initialisedBytes,codeBytes);
+  
+  int modified=0;
+  int modifiedCode=0;
+  for(int i=0;i<65536;i++) {
+    if (c->initialised[i]) {
+      if (c->modified[i]) {
+	modified++;
+	if (c->isCode[i]) modifiedCode++;
+      }
+    }
+  }
+      
+  printf("%d bytes (%d code), %d labels and symbols.\n",
+	 initialisedBytes,codeBytes,c->label_count);
+  printf("%d bytes no longer hold their initial value (%d code).\n",
+	 modified,modifiedCode);
 
-  closedir(d);
+  for(int i=0;i<65536;i++) {
+    if (c->initialised[i]) {
+      if (c->modified[i]) {
+	if (!c->isCode[i]) {
+	  // Modified non-code.
+	  // Try to describe the location.
+	  int label_id=find_nearest_label(c,i);
+	  if (label_id>=0) {
+	    if (0) printf("%s+%d ($%04X) : $%02X -> $%02X\n",
+			  c->labels[label_id],
+			  i-c->label_addresses[label_id],
+			  i,
+			  c->initialValues[i],
+			  c->currentValues[i]);
+	  } else {
+	    if (0) printf("No information for $%04X : $%02X -> $%02X\n",
+			  i,
+			  c->initialValues[i],
+			  c->currentValues[i]);		   
+	  }
+	}
+      }
+    }
+  }
+  
   return 0;
 }
 
@@ -166,7 +268,14 @@ int main(int argc,char **argv)
 
   if (argc!=7) usage("Incorrect number of arguments");
 
+  // Load old context
   load_memory_context(argv[1],&old);
+  // Load memory that is currently loaded, taking note of data bytes
+  // that have changed.
+  load_memory(argv[2],&old);
+  // Print some statistics
+  context_report(&old);  
+  
   load_memory_context(argv[4],&new);
   
 }
