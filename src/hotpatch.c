@@ -372,6 +372,14 @@ int main(int argc,char **argv)
   update_variables(&old,&new);
 
   // XXX Update stack & registers
+  // XXX Stack fixing should consider only plausible return addresses,
+  // i.e., those corresponding with the start of an instruction in a code
+  // area.  We could go further, and look for jsr and bsr instructions,
+  // and only allow returning to addresses following those.
+  // This could be done fairly easily since the .list file has one line
+  // per instruction, and also has the instructions listed.
+  // This will still be able to be tricked by other arguments pushed on the stack,
+  // however, it has a chance of resisting when it goes wrong.
 
   save_memory(argv[5],&new);
 
