@@ -231,33 +231,95 @@ int context_report(struct memory_context *c)
 	 initialisedBytes,codeBytes,c->label_count);
   printf("%d bytes no longer hold their initial value (%d code).\n",
 	 modified,modifiedCode);
+  
+  return 0;
+}
 
+int find_label(struct memory_context *c,char *label)
+{
+  for(int i=0;i<c->label_count;i++)
+    if (!strcasecmp(c->labels[i],label)) return i;
+  return -1;
+}
+
+int update_variables(struct memory_context *old,struct memory_context *new)
+{
+  int ignored=0;
+  int changed=0;
+  int code=0;
+  
   for(int i=0;i<65536;i++) {
-    if (c->initialised[i]) {
-      if (c->modified[i]) {
-	if (!c->isCode[i]) {
+    if (old->initialised[i]) {
+      if (old->modified[i]) {
+	if (old->isCode[i]) {
+	  code++;
+	} else {	  
 	  // Modified non-code.
 	  // Try to describe the location.
-	  int label_id=find_nearest_label(c,i);
-	  if (label_id>=0) {
-	    if (0) printf("%s+%d ($%04X) : $%02X -> $%02X\n",
-			  c->labels[label_id],
-			  i-c->label_addresses[label_id],
-			  i,
-			  c->initialValues[i],
-			  c->currentValues[i]);
+	  int old_label_id=find_nearest_label(old,i);
+	  if (old_label_id>=0) {
+	    int new_label_id=find_label(new,old->labels[old_label_id]);
+	    int delta=i-old->label_addresses[old_label_id];
+	    if (new_label_id<0) {
+	      printf("WARNING: Label %s has disappeared, not propagating changed value at $%04X.\n",
+		     old->labels[old_label_id],i);
+	      ignored++;
+	    } else {
+	      int new_addr=new->label_addresses[new_label_id]+delta;
+	      int new_nearest_id=find_nearest_label(new,new_addr);
+	      if (new_nearest_id!=new_label_id) {
+		printf("WARNING: %s+%d ($%04X) : $%02X -> $%02X is ambiguous :$%04X is now best described as %s+%d, not propagating changed value.\n",
+		       old->labels[old_label_id],delta,
+		       i,
+		       old->initialValues[i],
+		       old->currentValues[i],
+		       i,
+		       new->labels[new_nearest_id],
+		       (new_addr-new->label_addresses[new_nearest_id])
+		       );
+		ignored++;
+	      } else {
+		if (new->isCode[new_addr]) {
+		  printf("WARNING: %s+%d ($%04X) : $%02X -> $%02X now points to code ($%04X), not propagating changed value.\n",
+			 old->labels[old_label_id],
+			 i-old->label_addresses[old_label_id],
+			 i,
+			 old->initialValues[i],
+			 old->currentValues[i],			 
+			 new_addr
+			 );
+		  ignored++;
+		  
+		} else {
+		  printf("Translating %s+%d ($%04X) : $%02X to %s+%d ($%04X) $%02X\n",
+			 old->labels[old_label_id],
+			 i-old->label_addresses[old_label_id],
+			 i,
+			 old->currentValues[i],
+			 new->labels[new_label_id],
+			 new_addr-new->label_addresses[new_label_id],
+			 new_addr,
+			 old->currentValues[i]);
+		  changed++;
+		}
+	      }
+	    }
 	  } else {
-	    if (0) printf("No information for $%04X : $%02X -> $%02X\n",
-			  i,
-			  c->initialValues[i],
-			  c->currentValues[i]);		   
+	    printf("WARNING: No information for $%04X : $%02X -> $%02X, not propagating\n",
+		   i,
+		   old->initialValues[i],
+		   old->currentValues[i]);
+	    ignored++;
 	  }
 	}
       }
     }
   }
-  
+
+  printf("%d bytes translated, %d ignored, %d excluded (not data)\n",
+	 changed,ignored,code);
   return 0;
+
 }
 
 int main(int argc,char **argv)
@@ -274,8 +336,13 @@ int main(int argc,char **argv)
   // that have changed.
   load_memory(argv[2],&old);
   // Print some statistics
-  context_report(&old);  
-  
+  context_report(&old);
+
+  // Load new context
   load_memory_context(argv[4],&new);
+
+  // Translate variables
+  update_variables(&old,&new);
+
   
 }
