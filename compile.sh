@@ -11,7 +11,12 @@ fi
 
 # here we need to detect if you have 32 or 64 bit machine
 # can someone else do this?
-source /opt/Xilinx/14.7/ISE_DS/settings64.sh
+if [ -e /opt/Xilinx/14.7/ISE_DS/settings64.sh ]; then
+  source /opt/Xilinx/14.7/ISE_DS/settings64.sh
+fi
+if [ -e /opt/Xilinx/14.7/ISE_DS/settings32.sh ]; then
+  source /opt/Xilinx/14.7/ISE_DS/settings32.sh
+fi
 
 # time for the output filenames
 datetime2=`date +%m%d_%H%M_`
