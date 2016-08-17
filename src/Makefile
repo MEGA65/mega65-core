@@ -162,6 +162,8 @@ etherkick:	./tools/etherkick/etherkick.c
 # note that the iomap.txt file already comes from github
 ../iomap.txt:	$(VHDLSRCDIR)/*.vhdl 
 	$(warning ~~~~~~~~~~~~~~~~> Making: ../iomap.txt)
+	# Force consistent ordering of items according to natural byte values
+	export LC_ALL=C
 	egrep "IO:C6|IO:GS" $(VHDLSRCDIR)/*.vhdl | cut -f3- -d: | sort -u -k2 > ../iomap.txt
 
 # ============================ done moved, Makefile-dep, print-warn, clean-target

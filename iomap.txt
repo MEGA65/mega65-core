@@ -18,55 +18,55 @@ C64 $D00D VIC-II sprite 5 vertical position
 C64 $D00E VIC-II sprite 6 vertical position
 C64 $D00F VIC-II sprite 7 vertical position
 C64 $D010 VIC-II sprite horizontal position MSBs
+C64 $D011 VIC-II control register
 C64 $D011.2-0 VIC-II 24/25 vertical smooth scroll
 C64 $D011.5 VIC-II 24/25 row select
 C64 $D011.5 VIC-II disable display
 C64 $D011.5 VIC-II text mode
 C64 $D011.6 VIC-II extended background mode
 C64 $D011.7 VIC-II raster compare bit 8
-C64 $D011 VIC-II control register
 C64 $D012 VIC-II raster compare bits 0 to 7
 C64 $D013 Coarse horizontal beam position (was lightpen X)
 C64 $D014 Coarse vertical beam position (was lightpen Y)
 C64 $D015 VIC-II sprite enable bits
+C64 $D016 VIC-II control register
 C64 $D016.2-0 VIC-II horizontal smooth scroll
 C64 $D016.3 VIC-II 38/40 column select
 C64 $D016.4 VIC-II Multi-colour mode
-C64 $D016 VIC-II control register
 C64 $D017 VIC-II sprite enable bits
+C64 $D018 VIC-II RAM addresses
 C64 $D018.3-1 VIC-II character set address location (*1KB)
 C64 $D018.7-4 VIC-II screen address (*1KB)
-C64 $D018 VIC-II RAM addresses
+C64 $D019 VIC-II IRQ control
 C64 $D019.0 VIC-II raster compare indicate or acknowledge
 C64 $D019.1 VIC-II sprite:bitmap collision indicate or acknowledge
 C64 $D019.2 VIC-II sprite:sprite collision indicate or acknowledge
-C64 $D019 VIC-II IRQ control
+C64 $D01A compatibility IRQ mask bits
 C64 $D01A.2 VIC-II mask raster IRQ
 C64 $D01A.2 VIC-II mask sprite:bitmap colission IRQ
 C64 $D01A.2 VIC-II mask sprite:sprite colission IRQ
-C64 $D01A compatibility IRQ mask bits
 C64 $D01B VIC-II sprite background priority bits
 C64 $D01C VIC-II sprite multicolour enable bits
 C64 $D01D VIC-II sprite horizontal expansion enable bits
-C64 $D01E sprite/sprite collissions
 C64 $D01E VIC-II sprite/sprite collision indicate bits
-C64 $D01F sprite/sprite collissions
+C64 $D01E sprite/sprite collissions
 C64 $D01F VIC-II sprite/sprite collision indicate bits
+C64 $D01F sprite/sprite collissions
+C64 $D020 Border colour
 C64 $D020.3-0 VIC-II display border colour (16 colour)
 C65 $D020.7-0 VIC-III/IV display border colour (256 colour)
-C64 $D020 Border colour
+C64 $D021 Screen colour
 C64 $D021.3-0 VIC-II screen colour (16 colour)
 C65 $D021.7-0 VIC-III/IV screen colour (256 colour)
-C64 $D021 Screen colour
+C64 $D022 VIC-II multi-colour 1
 C64 $D022.3-0 VIC-II multi-colour 1 (16 colour)
 C65 $D022.7-0 VIC-III/IV multi-colour 1 (256 colour)
-C64 $D022 VIC-II multi-colour 1
+C64 $D023 VIC-II multi-colour 2
 C64 $D023.3-0 VIC-II multi-colour 2 (16 colour)
 C65 $D023.7-0 VIC-III/IV multi-colour 2 (256 colour)
-C64 $D023 VIC-II multi-colour 2
+C64 $D024 VIC-II multi-colour 3
 C64 $D024.3-0 VIC-II multi-colour 3 (16 colour)
 C65 $D024.7-0 VIC-III/IV multi-colour 3 (256 colour)
-C64 $D024 VIC-II multi-colour 3
 C64 $D025 VIC-II/III/IV sprite multi-colour 0 (always 256 colour)
 C64 $D026 VIC-II/III/IV sprite multi-colour 1 (always 256 colour)
 C64 $D027 VIC-II sprite 0 colour (always 256 colour)
@@ -81,6 +81,8 @@ C65 $D02F VIC-III KEY register for unlocking extended registers.
 GS $D02F Write $47 then $53 to enable C65GS/VIC-IV IO registers
 C65 $D02F Write $A5 then $96 to enable C65/VIC-III IO registers
 C65 $D02F Write anything else to return to C64/VIC-II IO map
+C64 $D030 C128 2MHz emulation
+C65 $D030 VIC-III Control Register A
 C64 $D030.0 2MHz select (not yet functional)
 C65 $D030.0 2nd KB of colour RAM @ $DC00-$DFFF
 C65 $D030.1 VIC-III EXT SYNC (not implemented)
@@ -90,8 +92,7 @@ C65 $D030.4 Map C65 ROM @ $A000
 C65 $D030.5 Map C65 ROM @ $C000
 C65 $D030.6 Select between C64 and C65 charset.
 C65 $D030.7 Map C65 ROM @ $E000
-C64 $D030 C128 2MHz emulation
-C65 $D030 VIC-III Control Register A
+C65 $D031 VIC-III Control Register B
 C65 $D031.0 VIC-III INT(erlaced?) (not implemented)
 C65 $D031.1 VIC-III MONO (not implemented)
 C65 $D031.2 VIC-III H1280 (1280 horizontal pixels)
@@ -100,7 +101,6 @@ C65 $D031.4 VIC-III Bit-Plane Mode (not implemented)
 C65 $D031.5 VIC-III Enable extended attributes and 8 bit colour entries
 C65 $D031.6 C65 FAST mode (~3.5MHz)
 C65 $D031.7 VIC-III H640 (640 horizontal pixels)
-C65 $D031 VIC-III Control Register B
 C65 $D032 - Bitplane enable bits
 C65 $D033 - Bitplane 0 address
 C65 $D033-$D03A - VIC-III Bitplane addresses
@@ -138,12 +138,12 @@ GS $D050 VIC-IV read horizontal position (LSB)
 GS $D051 VIC-IV read horizontal position (MSB)
 GS $D052 VIC-IV read physical raster/set raster compare (LSB)
 GS $D053 VIC-IV read physical raster/set raster compare (MSB)
+GS $D054 VIC-IV Control register C
 GS $D054.0 VIC-IV enable 16-bit character numbers (two screen bytes per character)
 GS $D054.1 VIC-IV enable full-colour mode for character numbers <=$FF
 GS $D054.2 VIC-IV enable full-colour mode for character numbers >$FF
 GS $D054.3 VIC-IV video output smear filter enable
 GS $D054.6 VIC-IV/C65GS FAST mode (48MHz)
-GS $D054 VIC-IV Control register C
 GS $D055 VIC-IV sprite extended height enable (one bit per sprite)
 GS $D056 VIC-IV Sprite extended height size (sprite pixels high)
 GS $D057 VIC-IV Sprite extended width enables
@@ -169,11 +169,11 @@ GS $D06C VIC-IV sprite pointer address (bits 7 - 0)
 GS $D06D VIC-IV sprite pointer address (bits 15 - 8)
 GS $D06E VIC-IV sprite pointer address (bits 23 - 16)
 GS $D06F VIC-IV sprite pointer address (bits 31 - 24)
+GS $D070 VIC-IV palette bank selection
 GS $D070.1-0 VIC-IV bitmap/text palette bank
 GS $D070.3-2 VIC-IV sprite palette bank
 GS $D070.5-4 VIC-IV bitmap/text palette bank
 GS $D070.7-6 VIC-IV palette bank mapped at $D100-$D3FF
-GS $D070 VIC-IV palette bank selection
 GS $D071 VIC-IV 16-colour bitplane enable flags
 GS $D072 VIC-IV bitplanes horizontal start (in VIC-II pixels)
 GS $D073 VIC-IV bitplanes vertical start (in VIC-II pixels)
@@ -198,11 +198,11 @@ C64 $D400-$D43F = right SID
 C64 $D440-$D47F = left SID
 C64 $D480-$D4FF = repeated images of SIDs
 C65 $D600 C65 UART data register (read or write)
+C65 $D601 C65 UART status register
 C65 $D601.0 C65 UART RX byte ready flag (clear by reading $D600)
 C65 $D601.1 C65 UART RX overrun flag (clear by reading $D600)
 C65 $D601.2 C65 UART RX parity error flag (clear by reading $D600)
 C65 $D601.3 C65 UART RX framing error flag (clear by reading $D600)
-C65 $D601 C65 UART status register
 C65 $D602 C65 UART control register
 C65 $D603 C65 UART baud rate divisor (low byte)
 C65 $D604 C65 UART baud rate divisor (high byte)
@@ -210,16 +210,16 @@ C65 $D605 C65 UART interrupt mask register
 C65 $D606 C65 UART interrupt flag register              
 C65 $D607 C65 UART 2-bit port data direction register (used for C65 keyboard)
 C65 $D607 C65 UART 2-bit port data register (used for C65 keyboard)
-GS $D609.0 UART BAUD clock source: 1 = 7.09375MHz, 0 = 193.5MHz
 GS $D609 MEGA65 extended UART control register
+GS $D609.0 UART BAUD clock source: 1 = 7.09375MHz, 0 = 193.5MHz
 GS $D60D DEBUG - Read hyper_trap_count: will be removed after debugging. XXX - Temporarily reading restore_up_ticks instead
 GS $D60E PMOD port A on FPGA board (data bits)
 GS $D60F PMOD port A on FPGA board (DDR)
-GS $D630.6 - Thumbnail drawing was in progress.
-GS $D630.7 - Thumbnail is valid if 1.  Else there has not been a complete frame since elapsed without a trap to hypervisor mode, in which case the thumbnail may not reflect the current process.
-GS $D630-$D631 - Read-only hardware-generated thumbnail of display (accessible only in hypervisor mode)
 GS $D630 - Read to obtain status of thumbnail generator.
 GS $D630 - Write to reset port address for thumbnail generator
+GS $D630-$D631 - Read-only hardware-generated thumbnail of display (accessible only in hypervisor mode)
+GS $D630.6 - Thumbnail drawing was in progress.
+GS $D630.7 - Thumbnail is valid if 1.  Else there has not been a complete frame since elapsed without a trap to hypervisor mode, in which case the thumbnail may not reflect the current process.
 GS $D631 - Read port for thumbnail generator
 GS $D632 - Lower 8 bits of thumbnail buffer read address (TEMPORARY DEBUG REGISTER)
 GS $D640 - Hypervisor A register storage
@@ -247,9 +247,9 @@ GS $D655 - Hypervisor DMAGic list address bits 0-7
 GS $D656 - Hypervisor DMAGic list address bits 15-8
 GS $D657 - Hypervisor DMAGic list address bits 23-16
 GS $D658 - Hypervisor DMAGic list address bits 27-24
+GS $D659 - Hypervisor DDR RAM banking control
 GS $D659.0-2 - Select which 16MB DDR RAM bank to make visible
 GS $D659.7 - Enable DDR RAM banking
-GS $D659 - Hypervisor DDR RAM banking control
 GS $D65D - Hypervisor current virtual page number (low byte)
 GS $D65E - Hypervisor current virtual page number (mid byte)
 GS $D65F - Hypervisor current virtual page number (high byte)
@@ -272,6 +272,7 @@ GS $D66F - Hypervisor virtual memory page 3 physical page high byte
 GS $D670 - Hypervisor GeoRAM base address (x MB) (write-only for
 GS $D671 - Hypervisor GeoRAM address mask (applied to GeoRAM block
 GS $D67C - Hypervisor write serial output to UART monitor (must wait atleast approx 4,000 cycles between writes to allow char to flush)
+GS $D67D - Hypervisor watchdog register: writing any value clears the watch dog
 GS $D67D.0 - Hypervisor C64 ROM source select (0=normal,1=colour RAM)
 GS $D67D.1 - Hypervisor enable 32-bit JMP/JSR etc
 GS $D67D.2 - Hypervisor write protect C65 ROM $20000-$3FFFF
@@ -280,30 +281,30 @@ GS $D67D.4 - Hypervisor force CPU to 48MHz for userland (userland can override v
 GS $D67D.5 - Hypervisor force CPU to 4502 personality, even in C64 IO mode.
 GS $D67D.6 - Hypervisor flag to indicate if an IRQ is pending on exit from the hypervisor / set 1 to force IRQ/NMI deferal for 1,024 cycles on exit from hypervisor.
 GS $D67D.7 - Hypervisor flag to indicate if an NMI is pending on exit from the hypervisor.
-GS $D67D - Hypervisor watchdog register: writing any value clears the watch dog
 GS $D67E - Hypervisor already-upgraded bit (sets permanently)
 GS $D67F - Trigger trap to hypervisor
 GS $D680 - SD controller status/command
 GS $D681-$D684 - SD controller SD sector address
+GS $D68B - Diskimage control flags
+GS $D68B - F011 emulation control register
 GS $D68B.0 - F011 disk 1 disk image enable
 GS $D68B.1 - F011 disk 1 present
 GS $D68B.2 - F011 disk 1 write protect
 GS $D68B.3 - F011 disk 2 disk image enable
 GS $D68B.4 - F011 disk 2 present
 GS $D68B.5 - F011 disk 2 write protect
-GS $D68B - Diskimage control flags
-GS $D68B - F011 emulation control register
-GS $D68C-$D68F - F011 disk 1 disk image address on SD card
 GS $D68C - Diskimage sector number (bits 0-7)
+GS $D68C-$D68F - F011 disk 1 disk image address on SD card
 GS $D68D - Diskimage sector number (bits 8-15)
 GS $D68E - Diskimage sector number (bits 16-23)
 GS $D68F - Diskimage sector number (bits 24-31)
 GS $D690-$D693 - F011 disk 2 disk image address on SD card
+GS $D6E0 Ethernet control
 GS $D6E0.0 Clear to reset ethernet PHY
 GS $D6E0.1-2 Read ethernet TX bits currently on the wire
 GS $D6E0.3 Read ethernet RX data valid
 GS $D6E0.4 Allow remote keyboard input via magic ethernet frames
-GS $D6E0 Ethernet control
+GS $D6E1 - Ethernet interrupt and control register
 GS $D6E1.0 reset ethernet PHY
 GS $D6E1.1 - Set which RX buffer is memory mapped
 GS $D6E1.2 - Indicate which RX buffer was most recently used
@@ -312,11 +313,10 @@ GS $D6E1.4 - Ethernet TX IRQ status
 GS $D6E1.5 - Ethernet RX IRQ status
 GS $D6E1.6 - Enable ethernet TX IRQ
 GS $D6E1.7 - Enable ethernet RX IRQ
-GS $D6E1 - Ethernet interrupt and control register
-GS $D6E2 Set low-order size of frame to TX
 GS $D6E2 - TX Packet size (low byte)
-GS $D6E3 Set high-order size of frame to TX
+GS $D6E2 Set low-order size of frame to TX
 GS $D6E3 - TX Packet size (high byte)
+GS $D6E3 Set high-order size of frame to TX
 GS $D6E4 = $00 = Clear ethernet TX trigger (debug)
 GS $D6E4 = $01 = Transmit packet
 GS $D6E4 Ethernet command
@@ -327,8 +327,8 @@ GS $D6F1 - Read FPGA switches 8-15
 GS $D6F2 - Read FPGA five-way buttons
 GS $D6F3 - Accelerometer bit-bashing port
 GS $D6F3 Accelerometer inputs
-GS $D6F5 Bit-bashed temperature sensor
 GS $D6F5 - Temperature sensor
+GS $D6F5 Bit-bashed temperature sensor
 GS $D6F6 - Keyboard scan code reader (lower byte)
 GS $D6F7 - Keyboard scan code reader (upper nybl)
 GS $D6F7 - microphone input (right)
@@ -354,7 +354,7 @@ GS $FFC00A0 45GS10 slowram wait-states (write-only)
 GS $FFDE800 - $FFDEFFF Ethernet RX buffer (read only)
 GS $FFDE800 - $FFDEFFF Ethernet TX buffer (write only)
 GS $FFF0000-$FFF0FFF - CPU far call stack (512x8 byte entries)
-GS $FFF8000-$FFFBFFF 16KB Kickstart/hypervisor ROM
 GS $FFF8000 Hypervisor entry point when $D67F is written
+GS $FFF8000-$FFFBFFF 16KB Kickstart/hypervisor ROM
 GS RR-NET emulation: cs_packet_data high
 GS RR-NET emulation: cs_packet_data low
