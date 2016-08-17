@@ -88,7 +88,7 @@ int load_list_file(char *file,struct memory_context *c)
     unsigned address=strtol(s,NULL,16);
     while(s) {
       if (count) {
-	if (strlen(s)==2) {
+	if ((strlen(s)==2)&&(s[0]!='|')) {
 	  c->initialValues[address+count-1]=strtol(s,NULL,16);
 	  c->isCode[address+count-1]=1;
 	  c->initialised[address+count-1]=1;
