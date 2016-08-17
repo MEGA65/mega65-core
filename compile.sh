@@ -7,15 +7,23 @@ if [ $retcode -ne 0 ] ; then
   echo "make failed with return code $retcode" && exit 1
 else
   echo "make completed."
+  echo " "
 fi
 
 # here we need to detect if you have 32 or 64 bit machine
-# can someone else do this?
+# on a 32-bit installation, only the settings32 exists.
+# on a 64-bit installation, both 32 and 64 bit settings files exist.
 if [ -e /opt/Xilinx/14.7/ISE_DS/settings64.sh ]; then
+  echo "Detected 64-bit Xilinx installation"
   source /opt/Xilinx/14.7/ISE_DS/settings64.sh
-fi
-if [ -e /opt/Xilinx/14.7/ISE_DS/settings32.sh ]; then
-  source /opt/Xilinx/14.7/ISE_DS/settings32.sh
+else
+  if [ -e /opt/Xilinx/14.7/ISE_DS/settings32.sh ]; then
+    echo "Detected 32-bit Xilinx installation"
+    source /opt/Xilinx/14.7/ISE_DS/settings32.sh
+  else
+    echo "Cannot detect a Xilinx installation"
+    exit 0;
+  fi
 fi
 
 # time for the output filenames
