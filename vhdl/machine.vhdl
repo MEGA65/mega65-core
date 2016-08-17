@@ -601,6 +601,7 @@ architecture Behavioral of machine is
   -- Holds reset on for 8 cycles so that reset line entry is used on start up,
   -- instead of implicit startup state.
   signal power_on_reset : std_logic_vector(7 downto 0) := (others => '0');
+  signal reset_monitor : std_logic;
   signal reset_combined : std_logic;
   
   signal io_irq : std_logic;
