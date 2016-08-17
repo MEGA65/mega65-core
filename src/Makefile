@@ -10,6 +10,8 @@ KICKSTARTSRCS = kickstart.a65 \
 
 UTILITIES=	ethertest.prg etherload.prg diskmenu.prg
 
+TOOLS=	etherkick hotpatch
+
 # Unlikely anyone uses Windows 9x anymore
 ifeq ($(OS),Windows_NT)
 SOCKLIBS = -l ws2_32
@@ -29,7 +31,7 @@ generated_vhdl:	$(VHDLSRCDIR)/kickstart.vhdl $(VHDLSRCDIR)/charrom.vhdl $(VHDLSR
 # files destined to go on the SD-card to serve as firmware for the MEGA65
 firmware:	BOOTLOGO.M65 KICKUP.M65
 
-tools:	etherkick
+tools:	$(TOOLS)
 
 simulate:	ghdl-frame-gen \
 	diskmenu.prg \
@@ -151,9 +153,14 @@ etherload:	etherload.c
 # ============================ done moved, print-warn, clean-target
 # c-code that makes and executable that seems to read a file and transferrs that file
 # to the fpga via ethernet
-etherkick:	./tools/etherkick/etherkick.c
+etherkick:	tools/etherkick/etherkick.c
 	$(warning ~~~~~~~~~~~~~~~~> Making: etherkick)
 	gcc -Wall -g -o ./tools/etherkick/etherkick ./tools/etherkick/etherkick.c $(SOCKLIBS)
+
+hotpatch:	hotpatch.c Makefile
+	$(warning ~~~~~~~~~~~~~~~~> Making: hotpatch)
+	gcc -Wall -g -o hotpatch hotpatch.c
+
 
 
 # ============================ done *deleted*, Makefile-dep, print-warn, clean-target
