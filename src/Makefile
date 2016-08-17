@@ -63,32 +63,32 @@ f011test.prg:	f011test.a65
 # NOTE that to get to compile i needed to comment out the ".scope" in the "diskmenu.a65" file
 diskmenu.prg:	diskmenuprg.a65 diskmenu.a65
 	$(warning ~~~~~~~~~~~~~~~~> Making: diskmenu.prg and diskmenuprg.list)
-	./../../Ophis/bin/ophis -4 diskmenuprg.a65 -l diskmenuprg.list
+	./../../Ophis/bin/ophis -4 diskmenuprg.a65 -l diskmenuprg.list -m diskmenuprg.map
 
 
 # ============================ done moved, print-warn, clean-target
 diskchooser:	diskchooser.a65 etherload.prg
 	$(warning ~~~~~~~~~~~~~~~~> Making: diskchooser)
-	./../../Ophis/bin/ophis -4 diskchooser.a65 -l diskchooser.list
+	./../../Ophis/bin/ophis -4 diskchooser.a65 -l diskchooser.list -m diskchooser.map
 
 
 # ============================ done moved, print-warn, clean-target
 #??? diskmenu_c000.bin yet b0rken
 KICKUP.M65:	$(KICKSTARTSRCS) diskchooser diskmenu_c000.bin version.a65
 	$(warning ~~~~~~~~~~~~~~~~> Making: KICKUP.M65 and kickstart.list)
-	./../../Ophis/bin/ophis -4 kickstart.a65 -l kickstart.list
+	./../../Ophis/bin/ophis -4 kickstart.a65 -l kickstart.list -m kickstart.map
 
 
 # ============================ done moved, print-warn, clean-target
 diskmenu_c000.bin:	diskmenuc000.a65 diskmenu.a65 etherload.prg
 	$(warning ~~~~~~~~~~~~~~~~> Making: diskmenu_c000.bin and diskmenuc000.list)
-	./../../Ophis/bin/ophis -4 diskmenuc000.a65 -l diskmenuc000.list
+	./../../Ophis/bin/ophis -4 diskmenuc000.a65 -l diskmenuc000.list -m diskmenuc000.map
 
 
 # ============================ done moved, print-warn, clean-target
 thumbnail.prg:	showthumbnail.a65
 	$(warning ~~~~~~~~~~~~~~~~> Making: thumbnail.prg)
-	./../../Ophis/bin/ophis -4 showthumbnail.a65
+	./../../Ophis/bin/ophis -4 showthumbnail.a65 -m showthumbnail.map -l showthumbnail.list
 
 
 # ============================ done moved, print-warn, clean-target
