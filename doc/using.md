@@ -121,7 +121,16 @@ There are numerous ways to skin a cat, but here is the method I use:
 1. Download the ```cmbconvert``` program (i use version 2.1.2).  
 http://www.zimmers.net/anonftp/pub/cbm/crossplatform/converters/unix/cbmconvert-2.1.2.tar.gz
 1. compile it using the instructions:  
-http://www.zimmers.net/anonftp/pub/cbm/crossplatform/converters/unix/cbmconvert.html
+http://www.zimmers.net/anonftp/pub/cbm/crossplatform/converters/unix/cbmconvert.html  
+or for unix:  
+ ```
+tar xvfz cbm...
+cd cbm...
+make -f Makefile.unix
+sudo make -f Makefile.unix install
+```
+you can now run cbmconvert from any directory.
+
 1. converting a D64 image to D81 format, verbosely, you can do:  
 ```./cbmconvert -v2 -D8 crest-2_years_crest.d81 -d crest-2_years_crest.d64```  
 1. then put the D81 file on the SDcard of the c65gs and enjoy.  
