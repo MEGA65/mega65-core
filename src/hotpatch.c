@@ -96,7 +96,8 @@ int load_list_file(char *file,struct memory_context *c)
 	  if (s[0]=='|') {
 	    // Data block ASCII marker -- so all these bytes we have read are data,
 	    // not code.
-	    for(int i=0;i<count;i++) c->isCode[address+i]=0;
+            int i;
+	    for(i=0;i<count;i++) c->isCode[address+i]=0;
 	    break;
 	  } else {
 	    // Presumably a code block.  Do nothing.
@@ -179,7 +180,8 @@ int save_memory(char *file,struct memory_context *c)
   }
 
   // Horribly inefficient -- use memory map instead
-  for(int i=0;i<65536;i++) {
+  int i;
+  for(i=0;i<65536;i++) {
     if (c->modified[i]) {
       fwrite(&c->currentValues[i],1,1,f);
       modified++;
@@ -209,7 +211,8 @@ int load_memory(char *file,struct memory_context *c)
     return -1;
   }
 
-  for(int i=0;i<65536;i++) {
+  int i;
+  for(i=0;i<65536;i++) {
     c->currentValues[i]=mem[i];
     if (c->initialised[i]) {
       if (mem[i]!=c->initialValues[i]) c->modified[i]=1;
@@ -224,7 +227,8 @@ int find_nearest_label(struct memory_context *c, unsigned addr)
   int best_addr=0;
   int best_id=-1;
 
-  for(int i=0;i<c->label_count;i++) {
+  int i;
+  for(i=0;i<c->label_count;i++) {
     if ((c->label_addresses[i]>=best_addr)
 	&&(c->label_addresses[i]<=addr)) {
       best_id=i; best_addr=c->label_addresses[i];
@@ -238,14 +242,15 @@ int context_report(struct memory_context *c)
 {
   int codeBytes=0;
   int initialisedBytes=0;
-  for(int i=0;i<65536;i++) {
+  int i;
+  for(i=0;i<65536;i++) {
     if (c->isCode[i]) codeBytes++;
     if (c->initialised[i]) initialisedBytes++;
   }
   
   int modified=0;
   int modifiedCode=0;
-  for(int i=0;i<65536;i++) {
+  for(i=0;i<65536;i++) {
     if (c->initialised[i]) {
       if (c->modified[i]) {
 	modified++;
@@ -264,7 +269,8 @@ int context_report(struct memory_context *c)
 
 int find_label(struct memory_context *c,char *label)
 {
-  for(int i=0;i<c->label_count;i++)
+  int i;
+  for(i=0;i<c->label_count;i++)
     if (!strcasecmp(c->labels[i],label)) return i;
   return -1;
 }
@@ -274,8 +280,9 @@ int update_variables(struct memory_context *old,struct memory_context *new)
   int ignored=0;
   int changed=0;
   int code=0;
+  int i;
   
-  for(int i=0;i<65536;i++) {
+  for(i=0;i<65536;i++) {
     if (old->initialised[i]) {
       if (old->modified[i]) {
 	if (old->isCode[i]) {
