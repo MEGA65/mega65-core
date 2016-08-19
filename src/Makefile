@@ -71,6 +71,7 @@ diskmenu.prg:	diskmenuprg.a65 diskmenu.a65
 
 
 # ============================ done moved, print-warn, clean-target
+# we do not use this initial version anymore, but here for learning from
 diskchooser:	diskchooser.a65 etherload.prg
 	$(warning ~~~~~~~~~~~~~~~~> Making: diskchooser)
 	./../../Ophis/bin/ophis -4 diskchooser.a65 -l diskchooser.list -m diskchooser.map
@@ -78,7 +79,7 @@ diskchooser:	diskchooser.a65 etherload.prg
 
 # ============================ done moved, print-warn, clean-target
 #??? diskmenu_c000.bin yet b0rken
-KICKUP.M65:	$(KICKSTARTSRCS) diskchooser diskmenu_c000.bin version.a65
+KICKUP.M65:	$(KICKSTARTSRCS) diskmenu_c000.bin version.a65
 	$(warning ~~~~~~~~~~~~~~~~> Making: KICKUP.M65 and kickstart.list)
 	./../../Ophis/bin/ophis -4 kickstart.a65 -l kickstart.list -m kickstart.map
 
@@ -309,7 +310,7 @@ clean:
 	rm -f c65-rom-911001.txt c65-911001-rom-annotations.txt c65-dos-context.bin c65-911001-dos-context.bin
 	rm -f thumbnail.prg
 	rm -f KICKUP.M65 kickstart.list kickstart.map
-	rm -f diskmenuc000.list diskmenu_c000.bin diskchooser diskchooser.list 
+	rm -f diskmenu_c000.bin diskmenuc000.list diskmenuc000.map
 	rm -f textmodetest.prg textmodetest.list etherload_done.bin etherload_stub.bin etherload.prg diskmenu.prg diskmenuprg.list ethertest.prg
 	rm -f videoproxy etherload
 	rm -f tools/etherkick/etherkick
