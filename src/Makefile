@@ -8,9 +8,13 @@ KICKSTARTSRCS = kickstart.a65 \
 		kickstart_task.a65 \
 		kickstart_mem.a65
 
-UTILITIES=	ethertest.prg etherload.prg diskmenu.prg
+UTILITIES=	ethertest.prg \
+		etherload.prg \
+		diskmenu.prg
 
-TOOLS=	etherkick hotpatch
+TOOLS=	etherkick \
+	etherload \
+	hotpatch
 
 # Unlikely anyone uses Windows 9x anymore
 ifeq ($(OS),Windows_NT)
@@ -33,8 +37,9 @@ firmware:	BOOTLOGO.M65 KICKUP.M65
 
 tools:	$(TOOLS)
 
-simulate:	ghdl-frame-gen \
-	diskmenu.prg \
+utilities:	$(UTILITIES)
+
+simulate:	diskmenu.prg \
 	KICKUP.M65 \
 	makerom \
 	container.prj \
@@ -42,6 +47,7 @@ simulate:	ghdl-frame-gen \
 	textmodetest.prg \
 	etherload \
 	etherkick
+
 
 # ============================, print-warn, clean target
 # verbose, for 1581 format, overwrite
@@ -52,7 +58,7 @@ utility.d81:	$(UTILITIES)
 # ============================ done moved, print-warn, clean-target
 # ophis converts the *.a65 file (assembly text) to *.prg (assembly bytes)
 ethertest.prg:	utilities/ethertest.a65
-	$(warning ~~~~~~~~~~~~~~~~> Making: ethertest.prg)
+	$(warning ~~~~~~~~~~~~~~~~> Making: utilities/ethertest.prg)
 	./../../Ophis/bin/ophis -4 utilities/ethertest.a65
 
 
@@ -71,11 +77,10 @@ diskmenu.prg:	diskmenuprg.a65 diskmenu.a65
 
 
 # ============================ done moved, print-warn, clean-target
-# we do not use this initial version anymore, but here for learning from
-diskchooser:	diskchooser.a65 etherload.prg
+# we do not use this initial version anymore, but remains here for learning from
+diskchooser:	diskchooser.a65
 	$(warning ~~~~~~~~~~~~~~~~> Making: diskchooser)
-	./../../Ophis/bin/ophis -4 diskchooser.a65 -l diskchooser.list -m diskchooser.map
-
+	./../../Ophis/bin/ophis -4 diskchooser.a65
 
 # ============================ done moved, print-warn, clean-target
 #??? diskmenu_c000.bin yet b0rken
@@ -85,7 +90,7 @@ KICKUP.M65:	$(KICKSTARTSRCS) diskmenu_c000.bin version.a65
 
 
 # ============================ done moved, print-warn, clean-target
-diskmenu_c000.bin:	diskmenuc000.a65 diskmenu.a65 etherload.prg
+diskmenu_c000.bin:	diskmenuc000.a65 diskmenu.a65
 	$(warning ~~~~~~~~~~~~~~~~> Making: diskmenu_c000.bin and diskmenuc000.list)
 	./../../Ophis/bin/ophis -4 diskmenuc000.a65 -l diskmenuc000.list -m diskmenuc000.map
 
@@ -97,18 +102,20 @@ thumbnail.prg:	showthumbnail.a65
 
 
 # ============================ done moved, print-warn, clean-target
-etherload.prg:	etherload.a65
-	$(warning ~~~~~~~~~~~~~~~~> Making: etherload.prg)
-	./../../Ophis/bin/ophis -4 etherload.a65
+etherload.prg:	utilities/etherload.a65
+	$(warning ~~~~~~~~~~~~~~~~> Making: utilities/etherload.prg)
+	./../../Ophis/bin/ophis -4 utilities/etherload.a65 -l utilities/etherload.list -m utilities/etherload.map
 
 
 # ============================ done moved, print-warn, clean-target
+# keep this in _unused for time being
 etherload_stub.bin:	etherload_stub.a65
 	$(warning ~~~~~~~~~~~~~~~~> Making: etherload_stub.bin)
 	./../../Ophis/bin/ophis -4 etherload_stub.a65
 
 
 # ============================ done moved, print-warn, clean-target
+# keep this in _unused for time being
 etherload_done.bin:	etherload_done.a65
 	$(warning ~~~~~~~~~~~~~~~~> Making: etherload_done.bin)
 	./../../Ophis/bin/ophis -4 etherload_done.a65
@@ -148,16 +155,16 @@ videoproxy:	videoproxy.c
 # ============================ done moved, print-warn, clean-target
 # c-code that makes and executable that seems to read a file and transferrs that file
 # to the fpga via ethernet
-etherload:	etherload.c
-	$(warning ~~~~~~~~~~~~~~~~> Making: etherload)
-	gcc -Wall -g -o etherload etherload.c $(SOCKLIBS)
+etherload:	tools/etherload/etherload.c
+	$(warning ~~~~~~~~~~~~~~~~> Making: tools/etherload/etherload)
+	gcc -Wall -g -o tools/etherload/etherload tools/etherload/etherload.c $(SOCKLIBS)
 
 
 # ============================ done moved, print-warn, clean-target
 # c-code that makes and executable that seems to read a file and transferrs that file
 # to the fpga via ethernet
 etherkick:	tools/etherkick/etherkick.c
-	$(warning ~~~~~~~~~~~~~~~~> Making: etherkick)
+	$(warning ~~~~~~~~~~~~~~~~> Making: tools/etherkick/etherkick)
 	gcc -Wall -g -o ./tools/etherkick/etherkick ./tools/etherkick/etherkick.c $(SOCKLIBS)
 
 hotpatch:	hotpatch.c Makefile
@@ -311,9 +318,11 @@ clean:
 	rm -f thumbnail.prg
 	rm -f KICKUP.M65 kickstart.list kickstart.map
 	rm -f diskmenu_c000.bin diskmenuc000.list diskmenuc000.map
-	rm -f textmodetest.prg textmodetest.list etherload_done.bin etherload_stub.bin etherload.prg diskmenu.prg diskmenuprg.list ethertest.prg
-	rm -f videoproxy etherload
-	rm -f tools/etherkick/etherkick
+	rm -f textmodetest.prg textmodetest.list etherload_done.bin etherload_stub.bin
+	rm -f diskmenu.prg diskmenuprg.list ethertest.prg
+	rm -f videoproxy
+	rm -f tools/etherkick/etherkick tools/etherload/etherload
+	rm -f utilities/etherload.prg utilities/etherload.list utilities/etherload.map
 	rm -f hotpatch
 	rm -f iomap.txt
 	rm -f utility.d81
