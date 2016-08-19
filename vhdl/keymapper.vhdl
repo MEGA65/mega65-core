@@ -7,7 +7,7 @@ use work.debugtools.all;
 entity keymapper is
   
   port (
-    pixelclk : in std_logic;
+    ioclock : in std_logic;
 
     cpu_hypervisor_mode : in std_logic;
     drive_led_out : in std_logic;
@@ -94,10 +94,10 @@ architecture behavioural of keymapper is
   signal joy2 : std_logic_vector(4 downto 0) := (others =>'1');
 
   signal restore_state : std_logic := '1';
-  signal restore_event : std_logic := '0';
-  signal restore_down_ticks : unsigned(7 downto 0) := (others => '0');  
-  signal restore_up_ticks : unsigned(7 downto 0) := (others => '0');  
-  signal fiftyhz_counter : unsigned(7 downto 0) := (others => '0');
+  signal last_restore_state : std_logic := '1';
+  signal restore_down_ticks : unsigned(15 downto 0) := (others => '0');  
+  signal restore_up_ticks : unsigned(15 downto 0) := (others => '0');  
+  signal fiftyhz_counter : unsigned(28 downto 0) := (others => '0');
   signal reset_drive : std_logic;
 
   signal eth_keycode_toggle_last : std_logic := '0';
@@ -106,13 +106,60 @@ architecture behavioural of keymapper is
 begin  -- behavioural
 
 -- purpose: read from ps2 keyboard interface
-  keyread: process (pixelclk, ps2data,ps2clock)
+  keyread: process (ioclock, ps2data,ps2clock)
     variable full_scan_code : std_logic_vector(11 downto 0);
     variable portb_value : std_logic_vector(7 downto 0);
     variable porta_value : std_logic_vector(7 downto 0);
   begin  -- process keyread
-    if rising_edge(pixelclk) then      
+    if rising_edge(ioclock) then      
       reset <= reset_drive;
+
+      fiftyhz_counter <= fiftyhz_counter + 1;
+      if fiftyhz_counter = ( 48000000 / 50 ) then
+        fiftyhz_counter <= (others => '0');        
+
+        last_restore_state <= restore_state;
+
+        -- 0= restore down (pressed), 1 = restore up (not-pressed)
+        if restore_state='0' and last_restore_state='1' then
+          -- Restore has just been pressed
+          if (restore_up_ticks > 1) and (restore_up_ticks < 16) then
+            -- If between 50ms and 800ms, then it is a double-tap:
+            -- triger a hypervisor trap
+            hyper_trap <= '0';
+            hyper_trap_count <= hyper_trap_count_internal + 1;
+            hyper_trap_count_internal <= hyper_trap_count_internal + 1;
+          end if;
+        elsif restore_state='1' and last_restore_state='0' then
+          -- Restore has just been released
+          if restore_down_ticks < 32 then
+            nmi <= '0';
+          -- But holding it down for >2 seconds does nothing,
+          -- incase someone holds it by mistake.
+          elsif restore_down_ticks < 128 then
+            reset_drive <= '0';
+          end if;
+        else
+          hyper_trap <= '1';
+          nmi <= 'Z';
+          reset_drive <= resetbutton_state;
+        end if;
+        
+        if restore_state='0' then
+          -- Restore key is down
+          restore_up_ticks <= (others => '0');
+          if restore_down_ticks /= x"ffff" then
+            restore_down_ticks <= restore_down_ticks + 1;
+          end if;
+        else
+          -- Restore key is up
+          restore_down_ticks <= (others => '0');
+          if restore_up_ticks /= x"ffff" then
+            restore_up_ticks <= restore_up_ticks + 1;
+          end if;
+        end if;
+      end if;      
+      
       -------------------------------------------------------------------------
       -- Generate timer for keyscan timeout
       -------------------------------------------------------------------------
@@ -123,60 +170,6 @@ begin  -- behavioural
         -- Reset ps2 keyboard timer
         ps2timer <= 0;
         ps2state <= Idle;
-
-        -- Use this 10KHz loop to divide down to 50 hz to work out how many
-        -- 50Hz ticks the restore key has been down.  If restore is not down,
-        -- then reset the count to zero.
-        -- Complementary to this, we also need to know how long RESTORE has
-        -- been UP, so that we can send the hypervisor trap/freeze signal when
-        -- RESTORE has been double-tapped.
-
-        -- Double-tap restore is detected by DOWN-UP-DOWN signature.
-        -- We note how long the UP is, and if it is within our acceptable
-        -- timeframe, then we consider a double-tap to have occurred.
-        hyper_trap_count <= restore_up_ticks;
-        if restore_state='0' then
-          if (restore_up_ticks>=1 and restore_up_ticks<18) then
-            -- Trap to hypervisor when restore is double-tapped
-            -- with the second tap occurring after not more than 12/50ths
-            -- (~240ms)
-            hyper_trap <= '0';
---            hyper_trap_count <= hyper_trap_count_internal + 1;
---            hyper_trap_count_internal <= hyper_trap_count_internal + 1;
-          else
-            hyper_trap <= '1';
-          end if;
-        else
-          hyper_trap <= '1';
-        end if;
-        
-        fiftyhz_counter <= fiftyhz_counter + 1;
-        if fiftyhz_counter = 200 then
-          fiftyhz_counter <= (others => '0');
-          if restore_state='0' then
-            -- Restore key is down
-            if restore_down_ticks /= x"ff" then
-              restore_down_ticks <= restore_down_ticks + 1;
-            end if;
-            restore_up_ticks <= (others => '0');
-          else
-            -- If restore key is not down, reset count of how long it has been
-            -- down, and release NMI and reset lines in case we were asserting
-            -- them.
-            -- NOTE: This approach means that NMI and RESET will be asserted for
-            -- between 1 cycle and 1/50th of a second. There is a possible problem
-            -- with reset and NMI being asserted for less than 2 cycles, but
-            -- this should be extremely rare.  We have solved this by resetting
-            -- fifyhz_counter when the reset key is released.
-            restore_down_ticks <= (others => '0');
-            if restore_up_ticks /= x"ff" then
-              restore_up_ticks <= restore_up_ticks + 1;
-            end if;
-            nmi <= 'Z';
-            reset_drive <= resetbutton_state;
-            hyper_trap <= '1';
-          end if;
-        end if;
       end if;
 
       ------------------------------------------------------------------------

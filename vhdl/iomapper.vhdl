@@ -344,7 +344,7 @@ architecture behavioral of iomapper is
   end component;
   component keymapper is    
   port (
-    pixelclk : in std_logic;
+    ioclock : in std_logic;
 
     cpu_hypervisor_mode : in std_logic;
     drive_led_out : in std_logic;
@@ -601,7 +601,7 @@ begin
   block5: block
   begin
   keymapper0 : keymapper port map (
-    pixelclk       => clk,
+    ioclock       => clk,
     cpu_hypervisor_mode => cpu_hypervisor_mode,
     drive_led_out => drive_led_out,
     nmi => restore_nmi,
