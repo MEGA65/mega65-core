@@ -16,28 +16,30 @@ TOOLS=	etherkick \
 	etherload \
 	hotpatch
 
-# Unlikely anyone uses Windows 9x anymore
-ifeq ($(OS),Windows_NT)
-SOCKLIBS = -l ws2_32
-else
-SOCKLIBS =
-endif
+all:	$(warning ~~~~~~~~~~~~~~~~> The 'all'-target is not implemented in the makefile yet, refer to ./../compile.sh)
+	$(warning You need to explicitly know what to make, else use ./../compile.sh)
+	$(warning Common targets are: generated_vhdl, firmware, tools, itilities)
+	$(warning Other  targets are: simulate, utility.d81)
 
-all:	generated_vhdl firmware ../iomap.txt utility.d81 tools
 
-fpga:	
+fpga:
 	$(warning ~~~~~~~~~~~~~~~~> The 'fpga'-target is not implemented in the makefile yet, refer to ./../compile.sh)
 	$(warning ISE build to go here, ie xst, ngdbuild, map, par, bitgen)
 
-generated_vhdl:	$(VHDLSRCDIR)/kickstart.vhdl $(VHDLSRCDIR)/charrom.vhdl $(VHDLSRCDIR)/version.vhdl
+generated_vhdl:	$(VHDLSRCDIR)/kickstart.vhdl \
+		$(VHDLSRCDIR)/charrom.vhdl \
+		$(VHDLSRCDIR)/version.vhdl
 
 
 # files destined to go on the SD-card to serve as firmware for the MEGA65
 firmware:	BOOTLOGO.M65 KICKUP.M65
 
+# c-programs
 tools:	$(TOOLS)
 
+# assembly files (a65 -> prg)
 utilities:	$(UTILITIES)
+
 
 simulate:	diskmenu.prg \
 	KICKUP.M65 \
@@ -155,7 +157,7 @@ videoproxy:	videoproxy.c
 # ============================ done moved, print-warn, clean-target
 # c-code that makes and executable that seems to read a file and transferrs that file
 # to the fpga via ethernet
-etherload:	tools/etherload/etherload.c
+etherload:	tools/etherload/etherload.c Makefile
 	$(warning ~~~~~~~~~~~~~~~~> Making: tools/etherload/etherload)
 	gcc -Wall -g -o tools/etherload/etherload tools/etherload/etherload.c $(SOCKLIBS)
 
@@ -163,14 +165,15 @@ etherload:	tools/etherload/etherload.c
 # ============================ done moved, print-warn, clean-target
 # c-code that makes and executable that seems to read a file and transferrs that file
 # to the fpga via ethernet
-etherkick:	tools/etherkick/etherkick.c
+etherkick:	tools/etherkick/etherkick.c Makefile
 	$(warning ~~~~~~~~~~~~~~~~> Making: tools/etherkick/etherkick)
-	gcc -Wall -g -o ./tools/etherkick/etherkick ./tools/etherkick/etherkick.c $(SOCKLIBS)
+	gcc -Wall -g -o tools/etherkick/etherkick ./tools/etherkick/etherkick.c $(SOCKLIBS)
 
-hotpatch:	hotpatch.c Makefile
-	$(warning ~~~~~~~~~~~~~~~~> Making: hotpatch)
-	gcc -Wall -g -o hotpatch hotpatch.c
 
+# ============================ print-warn, clean-target
+hotpatch:	tools/hotpatch/hotpatch.c Makefile
+	$(warning ~~~~~~~~~~~~~~~~> Making: tools/hotpatch/hotpatch)
+	gcc -Wall -g -o tools/hotpatch/hotpatch tools/hotpatch/hotpatch.c
 
 
 # ============================ done *deleted*, Makefile-dep, print-warn, clean-target
@@ -317,12 +320,13 @@ clean:
 	rm -f c65-rom-911001.txt c65-911001-rom-annotations.txt c65-dos-context.bin c65-911001-dos-context.bin
 	rm -f thumbnail.prg
 	rm -f KICKUP.M65 kickstart.list kickstart.map
+	rm -f diskmenu.prg diskmenuprg.list diskmenuprg.map
 	rm -f diskmenu_c000.bin diskmenuc000.list diskmenuc000.map
 	rm -f textmodetest.prg textmodetest.list etherload_done.bin etherload_stub.bin
-	rm -f diskmenu.prg diskmenuprg.list ethertest.prg
 	rm -f videoproxy
 	rm -f tools/etherkick/etherkick tools/etherload/etherload
 	rm -f utilities/etherload.prg utilities/etherload.list utilities/etherload.map
+	rm -f utilities/ethertest.prg utilities/ethertest.list utilities/ethertest.map
 	rm -f hotpatch
 	rm -f iomap.txt
 	rm -f utility.d81

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-( cd src ; make firmware generated_vhdl ../iomap.txt tools )
+( cd src ; make generated_vhdl firmware ../iomap.txt tools utilities )
 retcode=$?
 
 if [ $retcode -ne 0 ] ; then

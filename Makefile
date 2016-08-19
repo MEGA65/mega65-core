@@ -1,6 +1,5 @@
 all:
-	( cd src ; make )
-	( cd vhdl ; make simulate )
+	./compile.sh
 
 clean:
 	( cd src ; make clean )
