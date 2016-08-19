@@ -43,9 +43,11 @@ simulate:	ghdl-frame-gen \
 	etherload \
 	etherkick
 
+# ============================, print-warn, clean target
+# verbose, for 1581 format, overwrite
 utility.d81:	$(UTILITIES)
-	if [ -a utility.d81 ]; then rm utility.d81; fi;
-	cbmconvert -D8 utility.d81 $(UTILITIES)
+	$(warning ~~~~~~~~~~~~~~~~> Making: utility.d81)
+	cbmconvert -v2 -D8o utility.d81 $(UTILITIES)
 
 # ============================ done moved, print-warn, clean-target
 # ophis converts the *.a65 file (assembly text) to *.prg (assembly bytes)
@@ -305,11 +307,15 @@ BOOTLOGO.M65:	pngprepare mega65_64x64.png
 
 clean:
 	rm -f c65-rom-911001.txt c65-911001-rom-annotations.txt c65-dos-context.bin c65-911001-dos-context.bin
-	rm -f thumbnail.prg KICKUP.M65 diskmenuc000.list diskmenu_c000.bin diskchooser diskchooser.list 
+	rm -f thumbnail.prg
+	rm -f KICKUP.M65 kickstart.list kickstart.map
+	rm -f diskmenuc000.list diskmenu_c000.bin diskchooser diskchooser.list 
 	rm -f textmodetest.prg textmodetest.list etherload_done.bin etherload_stub.bin etherload.prg diskmenu.prg diskmenuprg.list ethertest.prg
 	rm -f videoproxy etherload
 	rm -f tools/etherkick/etherkick
+	rm -f hotpatch
 	rm -f iomap.txt
+	rm -f utility.d81
 	rm -f $(VHDLSRCDIR)/kickstart.vhdl $(VHDLSRCDIR)/charrom.vhdl $(VHDLSRCDIR)/version.vhdl version.a65
 	rm -f monitor_drive monitor_load read_mem ghdl-frame-gen chargen_debug dis4510 em4510 4510tables pngprepare BOOTLOGO.M65
 
