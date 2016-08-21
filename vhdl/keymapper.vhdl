@@ -143,11 +143,14 @@ begin  -- behavioural
           -- incase someone holds it by mistake.
           elsif restore_down_ticks < 128 then
             reset_drive <= '0';
+            report "asserting reset via RESTORE key";
           end if;
         else
           hyper_trap <= '1';
           nmi <= 'Z';
           reset_drive <= resetbutton_state;
+          report "setting reset=" & std_logic'image(resetbutton_state)
+            & " via FPGA board reset button";
         end if;
         
         if restore_state='0' then
@@ -233,6 +236,7 @@ begin  -- behavioural
               -- incase someone holds it by mistake.
               elsif restore_down_ticks < 100 then
                 reset_drive <= '0';
+                report "asserting reset via RESTORE key on widget board";
               end if;
               -- Make sure that next check for releasing NMI
               -- and reset is not for almost 1/50th of a second.
@@ -378,20 +382,7 @@ begin  -- behavioural
                            when x"17D" =>
                               -- Restore key shall do NMI as expected, but also
                               -- reset
-                             restore_state <= break;
-                             if break='1' then
-                               if restore_down_ticks < 25 then
-                                 nmi <= '0';
-                               -- But holding it down for >2 seconds does nothing,
-                               -- incase someone holds it by mistake.
-                               elsif restore_down_ticks < 100 then
-                                 reset_drive <= '0';
-                               end if;
-                               -- Make sure that next check for releasing NMI
-                               -- and reset is not for almost 1/50th of a second.
-                               fiftyhz_counter <= (others => '0');
-                             end if;
-                             
+                             restore_state <= break;                             
                            -- Joysticks
                            when x"07d" =>  -- JOY1 LEFT
                              joy1(0) <= break;
