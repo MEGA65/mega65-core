@@ -18,6 +18,8 @@ entity keymapper is
     reset : out std_logic := 'Z';
     hyper_trap : out std_logic := '1';
     hyper_trap_count : out unsigned(7 downto 0) := x"00";
+    restore_up_count : out unsigned(7 downto 0) := x"00";
+    restore_down_count : out unsigned(7 downto 0) := x"00";
 
     -- USE ASC/DIN / CAPS LOCK key to control CPU speed instead of CAPS LOCK function
     speed_gate : out std_logic := '1';
@@ -113,6 +115,9 @@ begin  -- behavioural
   begin  -- process keyread
     if rising_edge(ioclock) then      
       reset <= reset_drive;
+
+      restore_up_count <= restore_up_ticks(7 downto 0);
+      restore_down_count <= restore_down_ticks(7 downto 0);
 
       fiftyhz_counter <= fiftyhz_counter + 1;
       if fiftyhz_counter = ( 48000000 / 50 ) then
