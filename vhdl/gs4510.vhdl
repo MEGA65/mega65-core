@@ -2929,6 +2929,8 @@ begin
         wait_states_non_zero <= '0';
         watchdog_fed <= '0';
         watchdog_countdown <= 65535;
+        report "resetting cpu: reset_drive = " & std_logic'image(reset_drive)
+          & ", watchdog_reset=" & std_logic'image(watchdog_reset);
         reset_cpu_state;
       else
         -- Honour wait states on memory accesses

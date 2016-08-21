@@ -320,7 +320,8 @@ begin
       pixelclock <= '0'; cpuclock <= '1'; ioclock <= '1';
       wait for 5 ns;     
       pixelclock <= '1'; cpuclock <= '1'; ioclock <= '1';
-      wait for 5 ns;     
+      wait for 5 ns;
+      report "releasing reset" severity note;
       reset <= '1';
     end loop;  -- i
     assert false report "End of simulation" severity failure;

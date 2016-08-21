@@ -100,7 +100,7 @@ architecture behavioural of keymapper is
   signal restore_down_ticks : unsigned(15 downto 0) := (others => '0');  
   signal restore_up_ticks : unsigned(15 downto 0) := (others => '0');  
   signal fiftyhz_counter : unsigned(28 downto 0) := (others => '0');
-  signal reset_drive : std_logic;
+  signal reset_drive : std_logic := '1';
 
   signal eth_keycode_toggle_last : std_logic := '0';
   signal ethernet_keyevent : std_logic := '0';

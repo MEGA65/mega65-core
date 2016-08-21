@@ -601,7 +601,7 @@ architecture Behavioral of machine is
   -- Holds reset on for 8 cycles so that reset line entry is used on start up,
   -- instead of implicit startup state.
   signal power_on_reset : std_logic_vector(7 downto 0) := (others => '0');
-  signal reset_combined : std_logic;
+  signal reset_combined : std_logic := '1';
   
   signal io_irq : std_logic;
   signal io_nmi : std_logic;
@@ -710,20 +710,28 @@ begin
   -- interrupt.
   -----------------------------------------------------------------------------
   process(irq,nmi,restore_nmi,io_irq,vic_irq,io_nmi,sw,reset_out,btnCpuReset,
-          power_on_reset)
+          power_on_reset,reset_monitor)
   begin
     -- XXX Allow switch 0 to mask IRQs
     combinedirq <= ((irq and io_irq and vic_irq) or sw(0));
     combinednmi <= (nmi and io_nmi and restore_nmi) or sw(14);
-    if btnCpuReset='0' then reset_combined <= '0';
-    elsif reset_out='0' then reset_combined <= '0';
-    elsif power_on_reset(0)='0' then reset_combined <= '0';
-    elsif reset_monitor='0' then reset_combined <= '0';
+    if btnCpuReset='0' then
+      report "reset asserted via btnCpuReset";
+      reset_combined <= '0';
+    elsif reset_out='0' then
+      report "reset asserted via reset_out";
+      reset_combined <= '0';
+    elsif power_on_reset(0)='0' then
+      report "reset asserted via power_on_reset(0)";
+      reset_combined <= '0';
+    elsif reset_monitor='0' then
+      report "reset asserted via reset_monitor";
+      reset_combined <= '0';
     else
       reset_combined <= '1';
     end if;
-    -- report "btnCpuReset = " & std_logic'image(btnCpuReset) & ", reset_out = " & std_logic'image(reset_out) & ", sw(15) = " & std_logic'image(sw(15)) severity note;
-    -- report "reset_combined = " & std_logic'image(reset_combined) severity note;
+    report "btnCpuReset = " & std_logic'image(btnCpuReset) & ", reset_out = " & std_logic'image(reset_out) & ", sw(15) = " & std_logic'image(sw(15)) severity note;
+    report "reset_combined = " & std_logic'image(reset_combined) severity note;
   end process;
   
   process(pixelclock,ioclock)
