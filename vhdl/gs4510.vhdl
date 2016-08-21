@@ -195,13 +195,6 @@ end component;
 
   signal cpuspeed_internal : unsigned(7 downto 0);
 
-
-  -- Pre-calculated long addresses for 16 by 4KB sections.
-  -- (used to flatten logic depth)
-  type address_block_array is array(31 downto 0) of unsigned(31 downto 0);
-  signal block_addresses : address_block_array;
-  signal block_update_number : integer range 0 to 31 := 0;
-
   signal reset_drive : std_logic := '0';
 
   signal force_fast : std_logic := '0';
@@ -2409,22 +2402,11 @@ begin
     -- BEGINNING OF MAIN PROCESS FOR CPU
     if rising_edge(clock) then
 
-      -- Continuously update the address resolution for each 4KB block
-      -- This allows us to relocate most of the complex calculation of addresses
-      -- from the critical path in each cycle to a separate process.
-      if block_update_number < 16 then
-        block_addresses(block_update_number)
-          <= "0000"&resolve_address_to_long(to_unsigned(block_update_number,4)&"000000000000",false);
-      else
-        block_addresses(block_update_number)
-          <= "0000"&resolve_address_to_long(to_unsigned(block_update_number,4)&"000000000000",true);
+      if hyper_trap = '0' and hyper_trap_state = '1' then
+        hyper_trap_pending <= '1';        
       end if;
-      if block_update_number = 31 then
-        block_update_number <= 0;
-      else
-        block_update_number <= block_update_number + 1;
-      end if;
-  
+      hyper_trap_state <= hyper_trap;
+              
       -- Select CPU personality based on IO mode, but hypervisor can override to
       -- for 4502 mode, and the hypervisor itself always runs in 4502 mode.
       if (viciii_iomode="00") and (force_4502='0') and (hypervisor_mode='0') then
@@ -2701,12 +2683,6 @@ begin
         end if;
 
       end if;
-
-      
-      if hyper_trap = '0' and hyper_trap_state = '1' then
-        hyper_trap_pending <= '1';        
-      end if;
-      hyper_trap_state <= hyper_trap;
       
       slowram_request_toggle <= slowram_request_toggle_drive;
       slowram_addr_reflect_drive <= slowram_addr_reflect;
