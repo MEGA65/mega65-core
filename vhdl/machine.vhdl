@@ -730,8 +730,8 @@ begin
     else
       reset_combined <= '1';
     end if;
-    report "btnCpuReset = " & std_logic'image(btnCpuReset) & ", reset_out = " & std_logic'image(reset_out) & ", sw(15) = " & std_logic'image(sw(15)) severity note;
-    report "reset_combined = " & std_logic'image(reset_combined) severity note;
+    -- report "btnCpuReset = " & std_logic'image(btnCpuReset) & ", reset_out = " & std_logic'image(reset_out) & ", sw(15) = " & std_logic'image(sw(15)) severity note;
+    -- report "reset_combined = " & std_logic'image(reset_combined) severity note;
   end process;
   
   process(pixelclock,ioclock)
