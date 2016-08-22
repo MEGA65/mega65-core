@@ -756,12 +756,12 @@ begin
       led(4) <= io_irq;
       led(5) <= io_nmi;
       led(9 downto 6) <= (others => '0');
-      led(10) <= cpu_hypervisor_mode;           -- JBM
-      led(11) <= monitor_hypervisor_mode;       -- JBM
-      led(12) <= '0';                           -- JBM
-      led(15) <= speed_gate_enable;
+      led(10) <= cpu_hypervisor_mode;
+      led(11) <= hyper_trap;
+      led(12) <= hyper_trap_combined;
+      led(13) <= monitor_hyper_trap;
       led(14) <= speed_gate;
-      led(13) <= capslock_state;
+      led(15) <= speed_gate_enable;
 
       xray_mode <= sw(1);
       
