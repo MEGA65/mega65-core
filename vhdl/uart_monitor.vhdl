@@ -895,6 +895,7 @@ begin
                   else
                     monitor_hyper_trap <= '0';
                   end if;
+                  state <= NextCommand;
                 elsif cmdbuffer(1) = 'r' or cmdbuffer(1) = 'R' then
                   state <= ShowRegisters;                
                 elsif cmdbuffer(1) = 't' or cmdbuffer(1) = 'T' then
