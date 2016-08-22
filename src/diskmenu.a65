@@ -254,10 +254,11 @@ mainloop:
 	 jsr updatescreen
 
 waitforkey:
+
 	 ; check for keyboard input
 	 jsr $ffe4
 	 bne havekey
-	 jsr scanjoystick
+;	 jsr scanjoystick
 
 havekey:
 	 cmp #$11
