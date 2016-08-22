@@ -610,9 +610,9 @@ architecture Behavioral of machine is
   signal combinedirq : std_logic;
   signal combinednmi : std_logic;
   signal restore_nmi : std_logic;
-  signal hyper_trap : std_logic;
-  signal hyper_trap_combined : std_logic;
-  signal monitor_hyper_trap : std_logic;
+  signal hyper_trap : std_logic := '1';
+  signal hyper_trap_combined : std_logic := '1';
+  signal monitor_hyper_trap : std_logic := '1';
 
   signal fastio_addr : std_logic_vector(19 downto 0);
   signal fastio_read : std_logic;
@@ -1050,6 +1050,7 @@ begin
   
   iomapper0: iomapper port map (
     clk => ioclock,
+    hyper_trap => hyper_trap,
     cpuclock => cpuclock,
     pixelclk => pixelclock,
     clock50mhz => clock50mhz,
