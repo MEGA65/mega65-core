@@ -183,6 +183,7 @@ architecture Behavioral of machine is
     port (
     reset : in std_logic;
     reset_out : out std_logic;
+    monitor_hyper_trap : out std_logic := '1';
     clock : in std_logic;
     tx : out std_logic;
     rx : in  std_logic;
@@ -610,6 +611,8 @@ architecture Behavioral of machine is
   signal combinednmi : std_logic;
   signal restore_nmi : std_logic;
   signal hyper_trap : std_logic;
+  signal hyper_trap_combined : std_logic;
+  signal monitor_hyper_trap : std_logic;
 
   signal fastio_addr : std_logic_vector(19 downto 0);
   signal fastio_read : std_logic;
@@ -730,6 +733,9 @@ begin
     else
       reset_combined <= '1';
     end if;
+
+    hyper_trap_combined <= hyper_trap and monitor_hyper_trap;
+    
     -- report "btnCpuReset = " & std_logic'image(btnCpuReset) & ", reset_out = " & std_logic'image(reset_out) & ", sw(15) = " & std_logic'image(sw(15)) severity note;
     -- report "reset_combined = " & std_logic'image(reset_combined) severity note;
   end process;
@@ -875,7 +881,7 @@ begin
     reset =>reset_combined,
     irq => combinedirq,
     nmi => combinednmi,
-    hyper_trap => hyper_trap,
+    hyper_trap => hyper_trap_combined,
     speed_gate => speed_gate,
     speed_gate_enable => speed_gate_enable,
     cpuis6502 => cpuis6502,
@@ -1152,6 +1158,7 @@ begin
   monitor0 : uart_monitor port map (
     reset => reset_combined,
     reset_out => reset_monitor,
+    monitor_hyper_trap => monitor_hyper_trap,
     clock => uartclock,
     tx       => UART_TXD,
     rx       => RsRx,

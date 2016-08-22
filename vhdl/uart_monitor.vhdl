@@ -28,6 +28,7 @@ entity uart_monitor is
   port (
     reset : in std_logic;
     reset_out : out std_logic := '1';
+    monitor_hyper_trap : out std_logic := '1';
     clock : in std_logic;
     tx : out std_logic;
     rx : in  std_logic;
@@ -886,6 +887,14 @@ begin
                 elsif cmdbuffer(1) = 'g' or cmdbuffer(1) = 'G' then
                   parse_position <= 2;
                   parse_hex(SetPC1);
+                elsif cmdbuffer(1) = '#' then
+                  -- #0 - Trigger hypervisor trap
+                  -- #1 - Release hypervisor trap
+                  if cmdbuffer(2)='1' then
+                    monitor_hyper_trap <= '1';
+                  else
+                    monitor_hyper_trap <= '0';
+                  end if;
                 elsif cmdbuffer(1) = 'r' or cmdbuffer(1) = 'R' then
                   state <= ShowRegisters;                
                 elsif cmdbuffer(1) = 't' or cmdbuffer(1) = 'T' then
