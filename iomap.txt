@@ -215,6 +215,8 @@ GS $D609 MEGA65 extended UART control register
 GS $D60D DEBUG - Read hyper_trap_count: will be removed after debugging. XXX - Temporarily reading restore_up_ticks instead
 GS $D60E PMOD port A on FPGA board (data bits)
 GS $D60F PMOD port A on FPGA board (DDR)
+GS $D610 DEBUG - Read restore_up_count: will be removed after debugging. XXX - Temporarily reading restore_up_ticks instead
+GS $D611 DEBUG - Read restore_down_count: will be removed after debugging. XXX - Temporarily reading restore_up_ticks instead
 GS $D630.6 - Thumbnail drawing was in progress.
 GS $D630.7 - Thumbnail is valid if 1.  Else there has not been a complete frame since elapsed without a trap to hypervisor mode, in which case the thumbnail may not reflect the current process.
 GS $D630-$D631 - Read-only hardware-generated thumbnail of display (accessible only in hypervisor mode)
