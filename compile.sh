@@ -1,6 +1,6 @@
 #!/bin/bash
 
-( cd src ; make firmware generated_vhdl ../iomap.txt tools )
+( cd src ; make generated_vhdl firmware ../iomap.txt tools utilities )
 retcode=$?
 
 if [ $retcode -ne 0 ] ; then
@@ -27,7 +27,7 @@ else
 fi
 
 # time for the output filenames
-datetime2=`date +%m%d_%H%M_`
+datetime2=`date +%m%d-%H%M`
 # gitstring for the output filenames, results in '10bef97' or similar
 gitstring=`git describe --always --abbrev=7 --dirty=~`
 # git status of 'B'ranch in 'S'hort format, for the output filename
@@ -35,13 +35,13 @@ branch=`git status -b -s | head -n 1`
 # get from charpos3, for 6 chars
 branch2=${branch:3:6}
 
-outfile0="compile-${datetime2}0.log"
-outfile1="compile-${datetime2}1-xst.log"
-outfile2="compile-${datetime2}2-ngd.log"
-outfile3="compile-${datetime2}3-map.log"
-outfile4="compile-${datetime2}4-par.log"
-outfile5="compile-${datetime2}5-trc.log"
-outfile6="compile-${datetime2}6-bit.log"
+outfile0="compile-${datetime2}_0.log"
+outfile1="compile-${datetime2}_1-xst.log"
+outfile2="compile-${datetime2}_2-ngd.log"
+outfile3="compile-${datetime2}_3-map.log"
+outfile4="compile-${datetime2}_4-par.log"
+outfile5="compile-${datetime2}_5-trc.log"
+outfile6="compile-${datetime2}_6-bit.log"
 
 ISE_COMMON_OPTS="-intstyle ise"
 ISE_NGDBUILD_OPTS="-p xc7a100t-csg324-1 -dd _ngo -sd ipcore_dir -nt timestamp"
@@ -65,6 +65,9 @@ echo "Check ./compile-<datetime>-X.log for the log files, X={1,2,3,4,5,6}"
 
 # first, put the git-commit-ID in the first log file.
 echo ${gitstring} > $outfile0
+# put the git-branch-ID in the log file.
+echo ${branch}  >> $outfile0
+echo ${branch2} >> $outfile0
 
 #
 # ISE: synthesize
@@ -151,10 +154,10 @@ echo "From $outfile4: =================================================" >> $out
 echo "From $outfile5: =================================================" >> $outfile0
  tail -n 1 $outfile5 >> $outfile0
 echo "From $outfile6: =================================================" >> $outfile0
- echo "Nil"
+ echo "Nil" >> $outfile0
 
-
+echo " "
 # now copy the bit-file to the top-level-directory, and timestamp it with time and git-status
-echo "cp ./isework/container.bit ./bit$datetime2${gitstring}${branch2}.bit"
-cp       ./isework/container.bit ./bit$datetime2${gitstring}${branch2}.bit
-ls -al                           ./bit$datetime2${gitstring}${branch2}.bit
+echo "cp ./isework/container.bit ./bit${datetime2}_${branch2}_${gitstring}.bit"
+cp       ./isework/container.bit ./bit${datetime2}_${branch2}_${gitstring}.bit
+ls                               ./bit${datetime2}_${branch2}_${gitstring}.bit
