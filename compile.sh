@@ -27,7 +27,7 @@ else
 fi
 
 # time for the output filenames
-datetime2=`date +%m%d-%H%M`
+datetime2=`date +%m%d%H%M`
 # gitstring for the output filenames, results in '10bef97' or similar
 gitstring=`git describe --always --abbrev=7 --dirty=~`
 # git status of 'B'ranch in 'S'hort format, for the output filename
