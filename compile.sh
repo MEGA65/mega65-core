@@ -35,13 +35,13 @@ branch=`git status -b -s | head -n 1`
 # get from charpos3, for 6 chars
 branch2=${branch:3:6}
 
-outfile0="compile-${datetime2}0.log"
-outfile1="compile-${datetime2}1-xst.log"
-outfile2="compile-${datetime2}2-ngd.log"
-outfile3="compile-${datetime2}3-map.log"
-outfile4="compile-${datetime2}4-par.log"
-outfile5="compile-${datetime2}5-trc.log"
-outfile6="compile-${datetime2}6-bit.log"
+outfile0="compile-${datetime2}_0.log"
+outfile1="compile-${datetime2}_1-xst.log"
+outfile2="compile-${datetime2}_2-ngd.log"
+outfile3="compile-${datetime2}_3-map.log"
+outfile4="compile-${datetime2}_4-par.log"
+outfile5="compile-${datetime2}_5-trc.log"
+outfile6="compile-${datetime2}_6-bit.log"
 
 ISE_COMMON_OPTS="-intstyle ise"
 ISE_NGDBUILD_OPTS="-p xc7a100t-csg324-1 -dd _ngo -sd ipcore_dir -nt timestamp"
