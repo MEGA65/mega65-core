@@ -2,63 +2,115 @@
 
 
 C65GS
+
 FPGA Computer
+
 User Manual
 
 1.0 Introduction
+
 1.1 Purpose
+
 1.2 Get Involved
+
 2.0 Overview
+
 2.1 Processing Cores
+
 2.2 Power-on/Reset Via The C65GS Hypervisor
+
 2.3 C65/C64 KERNAL & BASIC
+
 3.0 Getting Started
+
 3.1 Switching Modes, Mounting Disks and Loading Files via Ethernet
+
 3.2 Simple D81 Chooser for the SD Card
+
 4.0 System Documentation
+
 4.1 Keyboard Control and Mapping
+
 4.2 Remote Head and Screen-Shotting via VNC
+
 4.3 Remote Serial Monitor (handy for debugging)
+
 4.4 VIC-IV
+
 4.4.1 Enhanced Sprites
+
 4.5 Task Switcher
+
 4.5.1 Overview
+
 4.5.2 Hypervisor
+
 4.5.3 Task Registers
+
 4.5.4 Thumbnail
+
 4.6 Colour RAM
+
 5.0 Memory Maps
+
 5.1 Banking Memory
+
 5.2 Addressing 32-bit Locations
+
 32-bit Memory Addresses using 32-bit indirect zero-page indexed addressing
+
 5.3 Common Locations
+
 5.4 C64 Locations
+
 5.5 C65 Locations
+
 5.6 GS Locations
+
 6.0 Code Recipes
+
 6.1 Overview
+
 6.2 The MAP Opcode
+
 6.3 Character Mode
+
 6.4 Clear the Raster IRQ
+
 6.5 Clearing bits in a byte
+
 6.6 32-bit Memory Addresses using 32-bit indirect zero-page indexed addressing
+
 6.7 Sending an Ethernet Frame
+
 6.8 Loading Data Via Ethernet
+
 7.0 Differences Between the C65’s 4502 and C65GS’s GS4510
+
 7.1 Overview
+
 7.2 Emulated NMOS Read-Modify-Write Behaviour for C64 Compatibility
+
 7.3 Flat Memory Map Addressing Modes & Access
+
 8. 4502 Opcodes
+
 4502 Opcode Table
+
 9. 4502 Registers
+
 10. 65CE02 Interrupts
+
 11. 65CE02 Addressing Modes
+
 12. 65CE02 Instruction Set
 
 
 
-1.0 Introduction
-1.1 Purpose
+# 1.0 Introduction
+
+## 1.1 Purpose
+
 “...rather a bit of reimagining the C65 for the 21st century with good backward compatibility.” - Paul (1 Feb 2014)
 
 The C65GS is a re-imagination of the C65/C64DX computer using a modern FPGA to implement most functions.  It differs from the C65 in that it aims to offer a near 100% C64-compatible mode by providing a dedicated 6510+VIC-II emulation independent of the additional more capable processor and video chips. That plan is that both functions operate in parallel, and input and output is switched dynamically between the two under programmer control. Dedicated VIC-II is currently unlikely due to space constraints.  6510/6502 emulation, with illegal instructions, however is still planned. This will be implemented by the GS4510 emulating a 6502, using a little dedicated hardware support. 
@@ -66,27 +118,45 @@ The C65GS is a re-imagination of the C65/C64DX computer using a modern FPGA to i
 The designer, Dr. Paul Gardner-Stephen, intends to create “the most powerful 8-bit computer to date by various measures”:
 
 Better graphics than the Apple IIgs, Atari 800 or Plus/4: 1920x1200 @ 60Hz, 256 colour palette from 4,096 colours (and later from 24-bit colour palette with HDMI output) via the VIC-IV video controller.
+
 Better sprites than the C64.
+
 Faster CPU than the SuperCPU or any available 65C816 CPU (20MHz), and ideally with enough headroom to beat a 20MHz 65C816 running in 16-bit mode.
+
 More RAM than a fully expanded Apple IIgs or C65 (~8.125MB). It will initially have 128KB of chipram like the C65, plus 16MB of slowram (which is also used as ROM).
-    Presently the 128MB DDR2 RAM on the Nexys4 DDR board isn’t supported. I’ll take a look at this when I have time, but it has been rather frustrating so far.
+
+Presently the 128MB DDR2 RAM on the Nexys4 DDR board isn’t supported. I’ll take a look at this when I have time, but it has been rather frustrating so far.
+
 Comparable or better sound capability than the Apple IIgs.
+
 More backward compatible than the C65 or any 65C816 based machine. The main issue here is actually quite easy to fix, consisting of restoring the 6502 read-write-modify behaviour of instructions like INC and ASL.
+
 Sufficiently C65 compatible to be able to run a stock C65 ROM.
 
 Note that perfect C65 compatibility is not high on the list, given the relative lack of software available for it anyway. There is no intention of implementing the bit-planar graphics modes, as they were never really a good idea for an 8-bit computer, requiring way too many cycles to edit individual pixels, and the C65’s bitplanes lacking the features necessary to allow efficient scrolling.
  
 Instead, the new graphics modes are enhanced forms of character mode. Enhancements to  text mode include:
+
 16-bit character set mode, where two screen RAM and two colour RAM bytes describe each character, allowing up to 8,192 distinct characters in a character set.
+
 Allowing characters to be composed of 8x8 fully addressable 256-colour pixels, i.e., requiring 64 bytes per character. This also saves lots of RAM and CPU cycles when most of the screen is blank or repetitive.
+
 The same display can include a mix of 256-colour characters and regular bi-colour/multi-colour characters.
+
 VIC-III extended attributes for each character: blink, bold, reverse and underline.
+
 New VIC-IV extended attributes: flip horizontally and flip vertically.
+
 Variable character width, to make rendering proportional fonts easier.
+
 Variable character height, to make rendering proportional fonts easier (work in progress).
+
 Terminate character generator token ($FFFF) in 16-bit character set mode to save screen and colour RAM with large and variable-width character displays.
+
 Anti-aliased text mode where 64-byte character definitions are composed of alpha-values to blend between the current foreground and background colour, allowing multi-colour anti-aliased text without consuming extra palette entries (work in progress).
+
 High-resolution bi-colour and multi-colour modes will also be available.  
+
 As with the VIC-II, these modes can be mixed and matched on the same display. 
 
 Enhanced sprites are also planned that will feature their own 4KB sprite data memory, allowing up to 64x64 256-colour sprites (work in progress).  
@@ -97,20 +167,23 @@ In short, this project aims to preserve most of the fun elements of an 8-bit com
  
 From a hardware perspective, the C65GS is purposely being implemented using an off-the-shelf FPGA development board designed for university students (Nexys4 FPGA board and a 2 giga-byte SD card) for several reasons. First, the boards are relatively cheap for their performance, and the price will only reduce over time. Second, the Nexys4 board has many built-in peripherals, like ethernet, VGA output, USB keyboard input. Finally, availability of the C65GS will not be based on community production runs.
 
-1.2 Get Involved
+## 1.2 Get Involved
                    
 You can follow Dr. Paul's blog at: http://c65gs.blogspot.com/, where he posts regular progress reports.
 
 If you're a hardware hacker and into VHDL, you can tinker with the programming itself at: https://github.com/gardners/c65gs. Equipment you need:
 
 A Nexys4 FPGA board, available from Digilent and their distributors. If you have a university or school email address, i.e., *@*.edu.* or *@*.edu, the board is available at half-price.
+
 An SD card.  For the time being it is safest to use a 2GB or smaller SD card, as large capacity card (SDHC) support is not well tested.
 
 You can also join the Google Group at: https://groups.google.com/forum/#!forum/c65gs-development.
 
 
-2.0 Overview
+# 2.0 Overview
+
 The following diagram gives a general, if slightly misleading view of the C65GS architecture.
+```
 KEYS
  + USER PORT
  | + CONTROL PORTS                 EXPANSION PORT
@@ -136,8 +209,9 @@ KEYS
 SERIAL BUS     ||      SPEAKERS
                ++
              SD CARD
+```
 
-2.1 Processing Cores
+## 2.1 Processing Cores
 
 The C65GS computer is planned to have several processing cores and video cores that operate in an integrated manner.
 
@@ -157,8 +231,10 @@ Compatibility cores for 1541 emulation (not yet implemented, likely to be create
 - 6502 compatible processor
 - 6522 compatible CIA cores.
 
+
 * On the prototype Nexys4 FPGA and some other FPGA boards the colour depth of the VIC-IV is limited to 12-bit due to limitations in the VGA interface hardware.
-2.2 Power-on/Reset Via The C65GS Hypervisor 
+
+## 2.2 Power-on/Reset Via The C65GS Hypervisor 
                    
 On reset C65GS switches the CPU to hypervisor mode, maps the 16KB hypervisor ROM at $8000-$BFFF, and jumps to $8100.  In hypervisor mode all CPU registers, including the normally inaccessible memory mapping registers are exposed at $D640-$D67F, allowing the hypervisor to freely manipulate the state of the computer.  In this mode, it initialises the SD card interface, uses a simple FAT32 implementation to find the 128KB C65 ROM which must be called C65GS.ROM and be located in the root directory, loads it into fastram at $20000-$3FFFF, configures the machine state to act as though it had just reset and loaded the reset vector from the ROM. The hypervisor then exits and transfers control to the loaded rom by writing to $D67F.
 
@@ -167,7 +243,8 @@ To provide further convenience, the hypervisor code checks if any of the numbers
 The hypervisor also attempts to find a D81 disk image named C65GS.D81 in the root directory of the SD card, and then mount it using the F011 emulation hardware. 
 
 The final convenience that the hypervisor provides is to load two utility programs into memory between $C000 and $CFFF, so that they can be easily accessed from C64 mode.  A D81 image selector is loaded at $C000 (SYS 49152), allowing mounting of any D81 file from the root directory of the SD card.  A simple ethernet loading programme is loaded at $CF80 (SYS 53120) that can be used to execute special UDP packets.  The etherload programme from the C65GS github repository uses this to provide a very fast loader, achieving typical load speeds of around 2,000KB/second.  Typical 40KB C64 programmes appear to load instantaneously.
-2.3 C65/C64 KERNAL & BASIC
+
+## 2.3 C65/C64 KERNAL & BASIC
                    
 The C65GS currently uses a stock C65 ROM (currently version 910111) to operate C65 and C64 mode.  This has several benefits.  First, it provides the most convenient path for C65 compatibility.  Second, it is also convenient for a reasonable level of C64 compatibility, while still providing access to the SD card interface via the C65 internal drive DOS. 
  
@@ -178,8 +255,10 @@ For the curious, the differences between the C64 KERNAL and the C65 one is prima
 The internal drive DOS routines have been intercepted using an interesting approach. First, $C0 ceases to indicate the tape motor state, and instead indicates whether the current drive is on the serial IEC bus, or handled by the internal 1581 DOS. This is checked using one of the new 4510 opcodes, BBS7, which branches on whether bit 7 is set in a zero-page byte, without having to use the accumulator. If the drive is on the IEC bus, then the normal C64 KERNAL routine is used. However, if the drive is the internal one, then the C65 1581 DOS is banked in to $8000 - $BFFF (conveniently leaving the C64 KERNAL still in view), and then the appropriate vector in that ROM is called. Notice the use of the new indirect mode of the JSR instruction (opcode $22).
 
 Memory banking, including to switch between C64, C65 and DOS memory contexts involves the use of the MAP instruction, which sets the memory map. One of the curious features of the 4510 is that all interrupts, both IRQs and NMIs are inhibited until a NOP instruction ($EA) is  The interesting thing for now is to know that NOP is no longer really NOP. The MAP instruction prevents both IRQ and NMI interrupts until a NOP instruction is run. NOP is consequentially also known as End Of Mapping (EOM) on the 4510.
-3.0 Getting Started
-3.1 Switching Modes, Mounting Disks and Loading Files via Ethernet
+
+# 3.0 Getting Started
+
+## 3.1 Switching Modes, Mounting Disks and Loading Files via Ethernet
                    
 GO64 will get you from C65 mode into C64 mode.
 
@@ -190,7 +269,7 @@ SYS53120 ($CF80) in C64 mode will start an ethernet slave program that allows me
 SYS58552 in C64 mode will take you back to C65 mode, without un-mounting the last disk image.
 
 
-3.2 Simple D81 Chooser for the SD Card
+## 3.2 Simple D81 Chooser for the SD Card
                    
 This chooser reuses much of the FAT32 code from the kickstart ROM, and allows you to say Y or N to each image in turn. Once you say Y to an image, it makes it available for use. It is included in the Kickstart ROM, which then copies the program to $C000, so that it can be entered with SYS49152 from C64 mode.
 
@@ -199,25 +278,35 @@ One of Paul’s students is working on an improved menu-based disk chooser.
 
 
 
-4.0 System Documentation
-4.1 Keyboard Control and Mapping
+# 4.0 System Documentation
+
+## 4.1 Keyboard Control and Mapping
+
 The USB keyboard layout is designed for use with a KeyRah v2, and is largely positional.  RESTORE is PAGEUP.
 
 Holding RESTORE down for 3 - 5 seconds will reset the machine instead of triggering an NMI.  Consequently, NMIs are triggered when the RESTORE key is released.  Holding RESTORE down for more than about 5 seconds does nothing -- neither an NMI nor RESET is produced.
-4.2 Remote Head and Screen-Shotting via VNC
+
+## 4.2 Remote Head and Screen-Shotting via VNC
+
 The C65GS is also capable of automatically outputting its 1920x1200 graphical display via its 100mbit ethernet port.  This can be combined with the videoproxy and vncserver programmes for UNIX-like systems (Linux and Mac) in the http://github.com/gardners/c65gs repository to provide remote VNC access to the C65GS -- complete with graphical display and keyboard/joystick input -- and to the serial monitor interface.  By default the VNC server runs on port 5900, and the serial monitor interface is made available on port 4510.
 
 To start the VNC server, first make sure that vncserver and videoproxy are compiled.  The videoproxy program currently requires promiscuous mode on the ethernet adapter, so must be run as root.  It takes the name of the ethernet port to which the C65GS is connected as its sole argument.  It may be run in the background. The ethernet adapter must be configured to allow ethernet frames of at least 2048 bytes.  The method for configuring this varies from operating-system to operating-system.  The final step is to run vncserver giving it the full path to the virtual serial port as its sole argument.  This is required because the serial monitor interface is used to deliver key-presses to the C65GS.  Drawing this all together, the following commands are one example of how the VNC server can be started:
+
+```
 $ sudo ./videoproxy en0 &
 $ ./vncserver /dev/cu.usbserial-1237B
+```
 
 You should now be able to connect to the C65GS via VNC on localhost:5900.  Note that on some operating systems you will need to install a VNC client, because the included VNC client may not work with VNC servers that do not require a password. VNC Viewer is a good option for Apple computers.
 
 Note that when connected by VNC, RESTORE is mapped to F9.  Thus to reset the C65GS via VNC one must hold the F9 key for approximately 3 seconds.
+
 Note also that the remote head reflects the display of the single C65GS instance. That is, a local operator and one or more remote operators will all be typing into the same computer.  This can have both entertaining and frustrating effect.
 
 Finally, the remote video display is quantised to an 8-bit colour cube, and does not display the full data of each raster line due to bandwidth limitations of the 100mbit ethernet interface.  Therefore colour tinting and at times severe artifacts may be visible on the remote display.  Also, the remote display is 1920x1200, and so you may need to manually configure client window scaling in your VNC client so that your “big” computer can handle the display from your “little” one.
-4.3 Remote Serial Monitor (handy for debugging)
+
+## 4.3 Remote Serial Monitor (handy for debugging)
+
 The USB power cable for the Nexys4 also provides a virtual serial port. This is used to create a debug interface for the C65GS.  By connecting at 230400 bps to the serial port exposed by the cable, one is able to interact with a monitor-like interface that allows dumping, filling and setting of memory, as well as inspecting, single-stepping and issuing breakpoints to the CPU.
 
 Note that you may not put a space between serial monitor commands and their first argument, or you will receive a syntax error. You may, however, leave leading zeroes off of hexadecimal values.  For example “s 0400 08 05 0c 0c 0f” would be invalid, but “s400 8 5 c c f” would be accepted.
@@ -261,8 +350,10 @@ e - set a break point to occur based on CPU flags.
 h - display slightly outdated and misleading help.
 
 f<addr> <addr> <value> - fill memory
-4.4 VIC-IV
-4.4.1 Enhanced Sprites
+
+## 4.4 VIC-IV
+
+### 4.4.1 Enhanced Sprites
                
 The basic design of the new VIC-IV sprites, is that each sprite will have a dedicated 4KB memory buffer, and will be strictly one byte per pixel.  This allows for sprites of up to 64x64 256 colour pixels. It is likely that different sizes and shapes will be selectable.
 
@@ -279,21 +370,35 @@ The registers for the VIC-IV sprites are currently planned to live at $D710-$D7F
 All this is subject to change, as is the register map, but here is the structure I am currently looking at:
 
 $D7x0-$D7x1 - Enhanced sprite X position in physical pixels (lower 12 bits)
+
 $D7x1.4-7   - Enhanced sprite width (4 -- 64 pixels)
+
 $D7x2-$D7x3 - Enhanced sprite Y position in physical pixels (16 bits)
+
 $D7x3.4-7   - Enhanced sprite height (4 -- 64 pixels)
+
 $D7x4       - Enhanced sprite data offset in its 4KB SpriteRAM (x16 bytes)
+
 $D7x5       - Enhanced sprite foreground mask
+
 $D7x6       - Enhanced sprite colour AND mask (sprite not visible if result = $00)
+
 $D7x7       - Enhanced sprite colour OR mask
+
 $D7x8-$D7x9 - Enhanced sprite 2x2 linear transform matrix 0,0 (5.11 bits)
+
 $D7xA-$D7xB - Enhanced sprite 2x2 linear transform matrix 0,1 (5.11 bits)
+
 $D7xC-$D7xD - Enhanced sprite 2x2 linear transform matrix 1,0 (5.11 bits)
+
 $D7xE-$D7xF - Enhanced sprite 2x2 linear transform matrix 1,1 (5.11 bits)
 
 The attentive reader will note that nowhere does this address the 4KB data blocks for each sprite.  This will be direct mapped in the 28-bit address space.  I am tossing around the idea of over-mapping it with the 64KB colour RAM at $FF80000 (the first 1KB of which is also available at $D800 for C64 compatibility).  The reason for this is that the 4KB sprite RAM will probably be write-only to simplify the data plumbing.  However, to allow for freezing (and hence multi-tasking), I really do want some way to read the sprite data.  The trade-off of course is that this means that you wouldn't be able to use all 64KB for colour RAM if it also being used as a proxy to the sprite RAM data.
-4.5 Task Switcher               
-4.5.1 Overview 
+
+## 4.5 Task Switcher               
+
+### 4.5.1 Overview 
+
 One of the features I have wanted to include in the C65GS from early on is some sort of task switching and rudimentary multi-tasking.
 
 Given the memory and processor constraints, I don't see the C65GS as running lots of independent processes at the same time.  Rather, I want it to be possible to easily switch between different tasks you have running.
@@ -309,19 +414,25 @@ For all these scenarios, it also makes sense to be able to quarantine one task f
 Thus, what we really want is something like VirtualBox that can run a hypervisor to virtualise the C65GS, so that it can have C64 or C65 "guest operating systems" beneath, and keep them all separate from each other.
 
 This doesn't actually need much extra hardware to do in a simplistic manner.
-4.5.2 Hypervisor
+
+### 4.5.2 Hypervisor
                    
 First, we need the supervisor/hypervisor CPU mode that maps some extra registers.  I have already implemented this with registers at $D640-$D67F.
+
 Second, to make hypervisor calls fast, the CPU should save all CPU registers and automatically switch the memory map when entering and leaving the hypervisor.  I have already implemented this, so that a call-up into the hypervisor takes just one cycle, as does returning from the hypervisor.
 
 Third, we need to make the hypervisor programme memory only visible from in hypervisor mode.  I have already implemented this.  The hypervisor program is mapped at $8000-$BFFF, with the last 1KB reserved as scratch space, relocated zero-page (using the 4510's B register), and relocated stack (again, using the 4510's SPH register).  The KickStart ROM starts in hypervisor mode, loads the target operating system, prepares the CPU state for the target, including reading the reset entry vector from $FFFC-D of the target ROM, and then exits hypervisor mode, causing the target operating system to start.
-4.5.3 Task Registers               
+
+### 4.5.3 Task Registers               
+
 Fourth, we need some registers that allow us to control which address lines on the 16MB RAM are available to a given task, and what the value of the other address lines should be.  This would allow us to allocate any power-of-two number of 64KB memory blocks to a task.  When a task is suspended, it's 128KB chipram and 64KB colour RAM and IO status can be saved into other 64KB memory blocks that are not addressable by the task when it is running.  This I have yet to do.
 
 Fifth, we need to be able to control what events result in a hypervisor trap, so that background processes can run, and also so that the hypervisor can switch tasks.  The NMI line is one signal I definitely want to trap, so that pressing RESTORE can activate the hypervisor.
 
 By finishing these things, and then writing the appropriate software for the hypervisor, it shouldn't be too hard to get task switching running on the C65GS.
-4.5.4 Thumbnail                   
+
+### 4.5.4 Thumbnail                   
+
 For a task-switcher to be nice, it would be really handy to be able to show a low-res screen-shot of the last state of each task so that the user can visually select which one they want.  In other words, to have something that is not too unlike the Windows and OSX window/task switcher interfaces.
 
 However, this is tricky on an 8-bit computer that has no frame buffer, and may be using all sorts of crazy raster effects.
@@ -331,15 +442,19 @@ Thus I need some way to have the VIC-IV update a little low-res screen shot, i.e
 So I set about implementing a little 4KB thumbnail buffer which is automatically written to by the VIC-IV, and which can be read from the hypervisor.  This resolution allows for 80x50, which should be sufficient to get the idea of what is on a display.  Each pixel is an 8-bit RRRGGGBB colour byte.
 
 Because the VIC-IV writes the thumbnail data directly from the pixel stream, it occurs after palette selection, sprites and all raster effects.  That is, the thumbnails it generates should be "true".
-4.6 Colour RAM
+
+## 4.6 Colour RAM
                    
 The $DFFx memory accesses are not to the CIAs, but to the end of screen RAM.  Setting bit 0 in $D030 replaces $DC00-$DFFF with an extra 1KB of colour RAM, which is in fact the last 2KB of the 128KB of main RAM of a C65, and hence is 8 bit RAM, unlike the 4-bit colour RAM on the C64.
+
 The $D030 flag is primarily for making the 2KB colour RAM conveniently available to the kernel when working with an 80-column, and hence 2,000 byte screen.  Of course this leaves a few bytes spare at the end that are nicely used here to save and restore registers when the stack cannot be used because memory is being remapped.
 
 On the C64 the colour RAM is a separate 1KB x 4 bit memory.  The C65, however, which can require almost 2KB of colour RAM for 80 column mode.  Also, the upper four bits of the colour RAM represent extended attributes.  As a result the C65 needs 2KB of 8-bit RAM for colour RAM.  Rather than require a separate part, the designers of the C65 would have its colour RAM as the top 2KB ($1F800-$1FFFF) of the 128KB main memory.
 
 This means that a stock C65 actually has a little bit less RAM available than a C128. Actually, a stock C65 has quite a bit less available RAM, because the DOS eats another 8KB of RAM.
+
 When I began designing the C65GS, I had in mind that it would support much larger text modes than the C64 or C65. With a native resolution of 1920x1200, it is possible to run a 240x150 character text mode. This means we need up to 36,000 (35.2KB) bytes of colour RAM. It seemed bad enough to lose 2KB of precious chip RAM, let alone losing more than 1/4 of all RAM, just for colour data for text mode. Factoring in the actual screen RAM, this would mean that 240x150 text mode would consume more than 1/2 of the total memory. That just wasn't going to fly.
+
 
 My preferred solution was to have 256KB or 512KB of chipram, but the FPGA I am using can't combine that much BRAM at a high enough clock speed. However, I was pleasantly surprised to find that I could make a 64KB x 8-bit memory as well as the 128KB chipram (in its 16KB x 64-bit form factor). So I implemented colour RAM that way, mapping it to $D800-$DBFF (or $DFFF when the right bit is set in the VIC-III), as well as at the C65GS extended address $FF80000-$FF8FFFF.  Colour RAM is currently 32KB because I ran out of BRAM.
 
@@ -356,12 +471,19 @@ Some more poking around revealed that accessing colour RAM at $FF8xxxx worked pe
 To use this feature, you first enable 16-bit text mode / color mode, by setting bit 0 in $D054 ($D054 = $01). Two bytes are used to describe each character. The first byte is the low 8 bits of the character number, and the low nybl of the second byte are extra character number bits. The top two bits of the second byte set the width of the character as it is displayed on screen.
 
 Second byte of screen RAM:
+
 bits 0 - 4 = bits 8 - 12 of the character number. i.e., there can now be 8,192 characters in a character set.
+
 bits 5 - 7 = character width (000 = standard, 111 = only the left-most pixel is drawn)
+
 Second byte of colour RAM:
+
 bit 7 = flip character vertically
+
 bit 6 = flip character horizontally
-    bits 3 - 5 = number of rows of pixels to trim from top of character    
+
+bits 3 - 5 = number of rows of pixels to trim from top of character    
+
 bits 0 - 2 = number of rows of pixels to trim from bottom of character
 
 NOTE: These bit assignments are likely to change!
@@ -373,24 +495,37 @@ Combining this with variable width characters introduces even more opportunity t
 
 
 
-5.0 Memory Maps
-5.1 Banking Memory
+# 5.0 Memory Maps
+
+## 5.1 Banking Memory
                    
 The $0000/$0001 CPU register only appears in bank 0, and the MAP and $D030 methods of banking take precedence over it, except for controlling the appearance of IO at $D000.
-5.2 Addressing 32-bit Locations
+
+## 5.2 Addressing 32-bit Locations
+
 Once I started to write software for the machine, it became immediately apparent that using DMA and memory banking are fine for accessing slabs of memory, but would be rather inconvenient for the normal use case of reading or writing some random piece of memory somewhere.
+
 What I found was that if I had a pointer to memory and wanted to PEEK or POKE through that pointer, it was going to be a herculean task, and one that would waste many bytes of code and cycles of CPU to accomplish -- not good for a task that is the mainstay of software.
+
 I was also reminded that the ($nn),Y operations of the 6502 are essentially pointer-dereference operations.  So I thought, why don't I just allow the pointers to grow from 16-bits to 32-bits.  Then one could just use ($nn),Y or ($nn),Z operations to act directly on distant pieces of memory.
+
 Slight problem with this is that the 4502 has all 256 opcodes occupied, so I couldn't just assign a new one.  I would need some sort of flag to indicate what size pointers should be.  This had to be done in a way that would not break existing 6502 or 4502 code.
+
 The experience of the 65816 led me to think that a global flag was not a good idea, because it makes it really hard to work out what is going on just by looking at a piece of code, especially where instruction lengths change.
+
 So I decided to go for a bit of an ugly hack: If an instruction that uses the ($nn),Z addressing mode immediately follows and EOM instruction (which is what NOP is called on the 4502), then the pointer would be 32-bits instead of 16-bits.
+
 While ugly, it seems to me that it should be safe, because no 6502 code uses ($nn),Z, because it doesn't exist. Similarly, there is so little C65 software that it is unlikely that any even uses ($nn),Z, and even less of it should have an EOM just before such an instruction.  
+
 In fact, in the process of implementing 32-bit pointers, I discovered that ($nn),Z on the 4510 was actually doing ($nn),Y, among other bugs.  So clearly the C65 ROM mustn't have even been using the addressing mode at all!
+
 Here is the summary of how this new addressing mode works in practise. 
+
 32-bit Memory Addresses using 32-bit indirect zero-page indexed addressing
 
 The ($nn),Z addressing mode is normally identical in behaviour to ($nn),Y other than that the indexing is by the Z register instead of the Y register.  That is, two bytes of zero-page memory are used to form a 16-bit pointer to the address to be accessed. However, if an instruction  using the ($nn),Z addressing mode is immediately preceded by an EOM instruction, then it uses four bytes of zero-page address to form a 32-bit address.  So for example:
 
+```
 zppointer: .byte $11,$22,$33,$04
 
 lda #<zppointer
@@ -398,6 +533,7 @@ tab
 ldz #$05
 eom
 lda (<zppointer),Z
+```
 
 Would load the contents of memory location $4332216 into the accumulator.
 
@@ -408,10 +544,12 @@ Memory accesses made using 32-bit indirect zero-page indexed addressing require 
 This makes it fairly easy to access any byte of memory in the full 28-bit address space.  The upper four bits should be zeroes for now, so that in future we can expand the C65GS to 4GB address space.
 
 Document far-JMP, far-JSR and far-RTS
-5.3 Common Locations
 
-5.4 C64 Locations
+## 5.3 Common Locations
 
+## 5.4 C64 Locations
+
+```
 C64 $D400-$D43F = right SID
 C64 $D440-$D47F = left SID
 C64 $D500-$D53F = also the left SID
@@ -428,8 +566,11 @@ C64 $DE0C RRNET tx_cmd register (high)
 C64 $DE0C RRNET tx_cmd register (low)
 C64 $DE0E Set RR-NET TX packet size
 C64 $DE0F Set RR-NET TX packet size
-5.5 C65 Locations
+```
 
+## 5.5 C65 Locations
+
+```
 C65 $D030.0 2nd KB of colour RAM @ $DC00-$DFFF
 C65 $D030.1 VIC-III EXT SYNC (not implemented)
 C65 $D030.2 Use PALETTE ROM or RAM entries for colours 0 - 15
@@ -459,9 +600,11 @@ C65 $D086 - F011 FDC side
 C65 $D100-$D1FF red palette values (reversed nybl order)
 C65 $D200-$D2FF green palette values (reversed nybl order)
 C65 $D300-$D3FF blue palette values (reversed nybl order)
+```
 
-5.6 GS Locations
-                   
+## 5.6 GS Locations
+
+```                 
 $0000000        6510/45GS10 CPU port DDR
 $0000001        6510/45GS10 CPU port data
 $0400-            Screen RAM
@@ -636,39 +779,58 @@ $FFDE800-$FFDEFFF    Ethernet TX buffer write-only. 2k received frame buffer. By
                 If bit 15 is high, then the frame failed CRC.
 $FFDE043-4            Ethernet TX frame length
 $FFDE045            Ethernet command register. Write $01 to send frame.
+```
 
 
 
 
+# 6.0 Code Recipes
 
-6.0 Code Recipes
-6.1 Overview
-6.2 The MAP Opcode
+## 6.1 Overview
+
+##6.2 The MAP Opcode
+
 The 4502 MAP instruction works on 8KB pieces.  It relies on the Accumulator (A)’s upper four bits as flags to indicate whether mapping is done at $0000, $2000, $4000, or $6000.  The lower four bits form bits 8 thru 11 of the mapping offset.  Meanwhile, the X register has bits 12 thru 19.
 
 A good MAP example is when using the Ethernet controller’s read buffer.  This lives at $FFDE800-$FFDEFFF.  We will map it to $6800-$6FFF.  Since the 4502 MAP instruction works on 8KB pieces, we will actually map $6000-$7FFF to $FFDE000-$FFDFFFF.  Since this is above $00FFFFF, we need to set the C65GS-specific 45GS02 mega-byte number to $FF, i.e., to indicate the memory range $FF00000-$FFFFFFF, for the memory mapper before mapping the memory.  We only need to do this for the bottom-half of memory, so we will leave Y and Z zeroed out so that we don't change that one.
 
+```
 lda #$ff
 ldx #$0f
 ldy #$00
 ldz #$00
 map
 eom
+```
 
 Now looking at the $DE800 address within the mega-byte, we use the normal 4502/C65 MAP instruction semantic.  The Accumulator (A) contains four bits to select whether mapping happens at $0000, $2000, $4000 and/or $6000. We want to map only at $6000, so we only set bit 7. The bottom four bits of A are bits 8 to 11 of the mapping offset, which in this case is zero.  X has bits 12 to 19, which needs to be $D8, so that the offset all together is $D8000.  We use this value, and not $DE000, because it is an offset, and $D8000 + $6000 = $DE000, our target address.  It's all a bit weird until you get used to it.
-6.3 Character Mode          
+
+## 6.3 Character Mode          
+
 $F4 is the C65 BASIC/KERNEL reverse flag, distinct from the VIC-III/IV reverse glyph flag. Setting and clearing reverse character mode is done by setting bit 7 in $F4. On the C64 or C128 this would require an LDA / ORA / STA or LDA / AND / STA instruction sequence, requiring six bytes and a dozen or so cycles.
 
 The C65's 4510 on the other hand has instructions for setting and clearing bits in bytes directly. SMB0 through SMB7 set the corresponding bit in a zero-page memory location, and RMB0 through RMB7 clear the bit. As a result the C65's reverse-on routine is simply SMB7 $F4 followed by an RTS. Three bytes instead of six, and just four cycles for the memory modification, and no registers or flags modified in the process. Those new instructions really do help to write faster and more compact bit-fiddling code.
-6.4 Clear the Raster IRQ
+
+## 6.4 Clear the Raster IRQ
+
+```
 INC $D019
-6.5 Clearing bits in a byte         
+```
+
+## 6.5 Clearing bits in a byte         
+
+```
 LDA #01
 TRB $D030
+```
+
 ...clears out bit 0 in $D030, which on a C65 will bank out the second kilobyte of color RAM from $DC00 thru $DFFF so you can see the CIAs again.
-6.6 32-bit Memory Addresses using 32-bit indirect zero-page indexed addressing
+
+## 6.6 32-bit Memory Addresses using 32-bit indirect zero-page indexed addressing
+
 The ($nn),Z addressing mode is normally identical in behaviour to ($nn),Y other than that the indexing is by the Z register instead of the Y register.  That is, two bytes of zero-page memory are used to form a 16-bit pointer to the address to be accessed. However, if an instruction using the ($nn),Z addressing mode is immediately preceded by an EOM instruction, then it uses four bytes of zero-page address to form a 32-bit address.  So for example:
 
+```
 zppointer:    .byte $11,$22,$33,$04
 
         lda #>zppointer
@@ -676,7 +838,7 @@ tab
         ldz #$05
         eom
         lda (<zppointer),Z
-        
+```
 
 Would load the contents of $4332216 into the accumulator.
 
@@ -685,52 +847,84 @@ LDA, STA, EOR, AND, ORA, ADC and SBC are all available with this addressing mode
 Memory accesses made using 32-bit indirect zero-page indexed addressing require three extra cycles compared to 16-bit indirect zero-page indexed addressing: one for the EOM, and two for the extra pointer value fetches.
 
 This makes it fairly easy to access any byte of memory in the full 28-bit address space.  The upper four bits should be zeroes for now, so that in future we can expand the C65GS to 4GB address space.
-6.7 Sending an Ethernet Frame     
+
+## 6.7 Sending an Ethernet Frame     
+
 To send a frame, you write the bytes to $FFDE800 - $FFDEFFF, write the frame length to $DE043/$DE044, and then write $01 to $DE045. $D6Ex provides access to some of these registers so that ethernet operations can be more easily performed without having to bank things.
+
 Note that the TX buffer is mapped to the same address range as the RX buffer. In other words, the TX buffer is write-only, while the RX buffers are read-only. When you transmit a frame, the ethernet adapter automatically calculates and appends the ethernet CRC to the end of the frame.
 
-6.8 Loading Data Via Ethernet              
+##6.8 Loading Data Via Ethernet              
+
 Note: The ethernet controller will not load a packet to the buffer that the CPU is watching, so the CPU needs to make sure that it is not watching the buffer that the ethernet controller wants to write to next. It is just a few lines of code to do this.
+
 Because the C65GS ethernet buffer is direct memory mapped, I can use a nice trick, of having the main loading routine actually inside the packets. This means that the ethernet load programme on the C65GS can be <128 bytes, and yet support very flexible features, since the sending side can send whatever code it likes. It is only about 100 lines of 4502 assembler, so I'll just include the whole thing here.
 
-
+```
 .org $CF80
+```
+
 First, we need to turn on C65GS enhanced IO so that we can access the ethernet controller:
+
+```
 lda #$47
 sta $d02f
 lda #$53
 sta $D02f
+```
+
 Then we need to map the ethernet controller's read buffer.  This lives at $FFDE800-$FFDEFFF.  We will map it at $6800-$6FFF.  The 4502 MAP instruction works on 8KB pieces, so we will actually map $6000-$7FFF to $FFDE000-$FFDFFFF.  Since this is above $00FFFFF, we need to set the C65GS mega-byte number to $FF for the memory mapper before mapping the memory.  We only need to do this for the bottom-half of memory, so we will leave Y and Z zeroed out so that we don't change that one.
+
+```
 lda #$ff
 ldx #$0f
 ldy #$00
 ldz #$00
 map
 eom
+```
 Now looking at the $DE800 address within the mega-byte, we use the normal 4502/C65 MAP instruction semantic.  A contains four bits to select whether mapping happens at $0000, $2000, $4000 and/or $6000. We want to map only at $6000, so we only set bit 7.  The bottom four bits of A are bits 8 to 11 of the mapping offset, which in this case is zero.  X has bits 12 to 19, which needs to be $D8, so that the offset all together is $D8000.  We use this value, and not $DE000, because it is an offset, and $D8000 + $6000 = $DE000, our target address.  It's all a bit weird until you get used to it.
+
+```
 lda #$80
 ldx #$8d
 ldy #$00
 ldz #$00
 map
 eom
+```
+
 Now we are ready to make sure that the ethernet controller is running:
+
+```
 lda #$01
 sta $d6e1
+```
+
 Finally we get to the interesting part, where we loop waiting for packets.  Basically we wait until the packet RX flag is set
+
+```
 loop:
 
 waitingforpacket:
 lda $d6e1
 and #$20
 beq waitingforpacket
+```
+
 So a packet has arrived.  Bit 2 has the buffer number that the packet was read into (0 or 1), and so we shift that down to bit 1, which selects which buffer is currently visible.  Then we write this to $D6E1, which also has the effect of clearing the ethernet IRQ if it is pending.
+
+```
 lda $d6e1
 and #$04
 lsr
 ora #$01
 sta $d6e1
+```
+
 Now we check that it is an IPv4 UDP packet addressed to port 4510
+
+```
 ; is it IPv4?
 lda $6810
 cmp #$45
@@ -746,7 +940,11 @@ bne waitingforpacket
 lda $6827
 cmp #<4510
 bne waitingforpacket
+```
+
 If it is, we give some visual indication that stuff is happening. I'll take this out once I have the whole thing debugged, because it wastes a lot of time to copy 512 bytes this way, since I am not even using the DMAgic to do it efficiently.  In fact, this takes more time than actually loading a 1KB packet of data.
+
+```
 ; write ethernet status to $0427
 lda $d6e1
 sta $0427
@@ -759,13 +957,22 @@ lda $6900,x
 sta $0528,x
 inx
 bne loop1
+```
+
 The final check we do on the packet is to see that the first data byte is $A9 for LDA immediate mode.  If so, we assume it is a packet that contains code we can run, and we then JSR to it:
+
+```
 lda $682c
 cmp #$a9
 bne loop
 jsr $682C
+```
+
 Then we just go looking for the next packet:
+
+```
 jmp loop
+```
 
 As you can see, the whole program is really simple, especially once it hits the loop.  This is really due to the hardware design, which with the combination of DMA and memory mapping avoids insane fiddling to move data around, particularly the ability to execute an ethernet frame as code while it sits in the buffer.
 
@@ -774,18 +981,29 @@ The code in the ethernet frame just executes a DMAgic job to copy the payload in
 On the server side, I wrote a little server program that sends out the UDP packets as it reads through a .PRG file.  Due to a bug in the ethernet controller buffer selection on the C65GS it currently has to send every packet twice, effectively halving the maximum speed to a little under 6MB/sec.  That bug should be easy to fix, allowing the load speed to be restored to ~10MB/sec.  (Note that at the moment the protocol is completely unidirectional, but that this could be changed by sending packets that download code that is able to send packets.)
 
 When the server reaches the end of the file, the server sends a packet with a little routine that pops the return address from the JSR to the packet from the stack, and then returns, thus effectively returning to BASIC -- although it does seem to mess up sometimes, which I need to look int
-7.0 Differences Between the C65’s 4502 and C65GS’s GS4510
-7.1 Overview
-7.2 Emulated NMOS Read-Modify-Write Behaviour for C64 Compatibility
+
+# 7.0 Differences Between the C65’s 4502 and C65GS’s GS4510
+
+## 7.1 Overview
+
+## 7.2 Emulated NMOS Read-Modify-Write Behaviour for C64 Compatibility
+
 One of the greatest incompatibilities between the C65 and the C64 was the move to the CMOS 4502 processor, which lacked the dummy write in read-modify-write (RMW) instructions. The RMW instructions are those that both read and write a memory location, and include INCrement, DECrement, Arithmetic Shift Left and several others.  
 
 On the NMOS 6502, which is the heart of the C64’s 6510, these instructions read the target memory location, write the original value that was in that location back, and then write back the updated value.  So, for example, INC $D019, where $D019 contains $81 would do the following three memory accesses:
+```
     #1 - read $81 from $D019
     #2 - write $81 back to $D019, while calculating that $81 + $01 = $82
     #3 - write $82 back to $D019
+```
+
 On the CMOS 6502 and derivatives, memory access #2 doesn’t happen, instead it is just:
+
+```
     #1 - read $81 from $D019, and calculate $81 + $01 = $82
     #2 - write $82 to $D019
+```
+
 This is normally a good thing, because the faster internal logic of the CMOS implementation allows that extra cycle to be avoided, and so INC on a CMOS 6502, like the 4502 or 65816, is one cycle faster than on the C64’s NMOS 6502.
 
 However, there is a lot of software for the C64 that assumes that the dummy write occurs, even if the people writing the software didn’t realise that this was the case.  This is because INC $D019, DEC $D019, ASL $D019, LSR $D019 or some other RMW instruction is commonly used to clear VIC-II raster interrupts.  This works because to clear an interrupt on the VIC-II you need to write back the bits that are set in $D019.  
@@ -796,7 +1014,8 @@ On the CMOS 6502, only the intentional write of $82 to $D019 occurs, which doesn
 
 Thus for C64 compatibility the dummy write must be present.  However, for maximum performance it should be avoided.  The GS4510 achieves both, by including the extra write ONLY if the target address is $D019, thus incurring the one cycle penalty only when it is required, and avoiding it completely otherwise.
 
-7.3 Flat Memory Map Addressing Modes & Access
+## 7.3 Flat Memory Map Addressing Modes & Access
+
 TODO: PGS plans to add 32-bit indirect indexed modes, so that ($nn),Z addressing mode works on a 32-bit pointer instead of a 16-bit pointer, but ONLY when the ($nn),Z mode instruction immediately follows and EOM (opcode $EA = NOP on 6502).  This will allow easy access to full 28-bit address space. Expect instruction to take 3 cycles longer than a normal ($nn),Y or ($nn),Z (one for the EOM preceeding it, and two extra cycles for reading the extra pointer bytes.  Combined with TAB/TBA, this allows any piece of RAM to be used as a 32-bit pointer.
 
 (These will allow faster more convenient random memory access than using DMAgic, which is more efficient for block transfers.)
@@ -815,10 +1034,12 @@ These changes allow programs to be arbitrarily large, with the only caveat that 
 
 
 
-8. 4502 Opcodes
+# 8. 4502 Opcodes
                    
 TODO: Double check the new opcodes with 64NET.OPC on github, as I have a vague recollection that one or more opcodes have been moved or renamed.
+
 Overview
+
 The 4502, upon reset, looks and acts like any other CMOS 6502 processor, with the exception that many instructions are shorter or require less cycles than they used to. This causes programs to execute in less time that older versions, even at the same clock frequency.
 
 The stack pointer has been expanded to 16 bits, but can be used in two different modes. It can be used as a full 16-bit (word) stack pointer, or as an 8-bit (byte) pointer whose stack page is programmable. On reset, the byte mode is selected with page 1 set as the stack page. This is done to make it fully 65C02 compatible.
@@ -828,6 +1049,8 @@ The zero page is also programmable via a new register, the "B" or "Base Page" re
 A third index register, "Z", has been added to increase flexibility in data manipulation. This register is also cleared, on reset, so that the STZ instructions still do what they used to, for compatibility.
 
 This is a list of opcodes that have been added to the 210 previously defined MOS, Rockwell, and GTE opcodes.
+
+```
 Branches and Jumps
 93 BCC label word-relative
 B3 BCS label word-relative
@@ -922,11 +1145,13 @@ words, set the staack pointer to 8 bit mode.
 
 5C MAP Enter MAP mode, and start setting up a memory mapping.
 Exit MAP mode by executing a NOP, opcode EA.
-
+```
 
 
 
 4502 Opcode Table
+
+```
   0    1    2    3    4    5    6    7    8    9    A    B    C    D    E    F
 +----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+
 |BRK |ORA |CLE*|SEE*|TSB |ORA |ASL |RMB0|PHP |ORA |ASL |TSY*|TSB |ORA |ASL |BBR0|
@@ -977,12 +1202,15 @@ Exit MAP mode by executing a NOP, opcode EA.
 |BEQ |SBC |SBC |BEQ*|PHD*|SBC |INC |SMB7|SED |SBC |PLX |PLZ*|PHD*|SBC |INC |BBS7|
 |REL |INDY|INDZ|WREL|IMM |ZPX |ZPX |ZP  |    |ABSY|    |    |ABS |ABSX ABSX|ZP  | F
 +----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+
+```
 
-9. 4502 Registers
+# 9. 4502 Registers
 
 Overview
+
 The 4502 has the following 8 user registers:
 
+```
 A accumulator
 X index-X
 Y index-Y
@@ -992,20 +1220,26 @@ B Base-page
 P Processor status
 SP Stack pointer
 PC Program counter
+```
             
 Accumulator
+
 The accumulator is the only general purpose computational register. It can be used for arithmetic functions add, subtract, shift, rotate, negate, and for Boolean functions and, or, exclusive-or, and bit operations. It cannot, however, be used as an index register.
 
 Index X
+
 The index register X has the largest number of opcodes pertaining to, or using it. It can be incremented, decremented, or compared, but not used for arithmetic or logical (Boolean) operations. It differs from other index registers in that it is the only register that can be used in indexed-indirect or (bp,X) operations. It cannot be used in indirect-indexed or (bp),Y mode.
         
 Index Y        
+
 The index register Y has the same computational constraints as the X register, but finds itself in a lot less of the opcodes, making it less generally used. But the index Y has one advantage over index X, in that it can be used in indirect-indexed operations or (bp),Y mode.
 
 Index Z        
+
 The index register Z is the most unique, in that it is used in the smallest number of opcodes. It also has the same computation limitations as the X and Y registers, but has an extra feature. Upon reset, the Z register is cleared so that the STZ (store zero) opcodes and non-indexed indirect opcodes from previous 65C02 designs are emulated. The Z register can also be used in indirect-indexed or (bp),Z operations.
 
 Base page B register
+
 Early versions of 6502 microprocessors had a special subset of instructions that required less code and less time to execute. These were referred to as the "zero page" instructions. Since the addressing page was always known, and known to be zero, addresses could be specified as a single byte, instead of two bytes.
 
 The CSG 4502 also implements this same "zero page" set of instructions, but goes one step further by allowing the programmer to specify which page is to be the "zero page". Now that the programmer can program this page, it is now, not necessarily page zero, but instead, the "selected page". The term "base page" is used, however.
@@ -1013,9 +1247,11 @@ The CSG 4502 also implements this same "zero page" set of instructions, but goes
 The B register selects which page will be the "base page", and the user sets it by transferring the contents of the accumulator to it. At reset, the B register is cleared, giving initially a true "zero page".
 
 Processor status P register
+
 The processor status register is an 8-bit register which is used to indicate the status of the microprocessor. It contains 8 processor "flags". Some of the flags are set or reset based on the results of various types of operations. Others are more specific. The flags are...
 Flag Name Typical indication
 
+```
 N Negative result of operation is negative
 V Overflow result of add or subtract causes signed overflow
 E Extend disables stack pointer extension
@@ -1024,14 +1260,17 @@ D Decimal perform add/subtract using BCD math
 I Interrupt disable IRQ interrupts
 Z Zero result of Operation is zero
 C Carry operation caused a carry
+```
 
 Stack Pointer SP
+
 The stack pointer is a 16 bit register that has two modes. It can be programmed to be either an 8-bit page programmable pointer, or a full 16-bit pointer. The processor status E bit selects which mode will be used. When set, the E bit selects the 8-bit mode. When reset, the E bit selects the 16-bit mode.
 
 Upon reset, the CSG 4502 will come up in the 8-bit page- programmable mode, with the stack page set to 1. This makes it compatible with earlier 6502 products. The programmer can quickly change the default stack page by loading the Y register with the desired page and transferring its contents to the stack pointer high byte, using the TYS opcode. The 8-bit stack pointer can be set by loading the X register with the desired value, and transferring its contents to the stack pointer low byte, using the TXS opcode.
 
 To select the 16-bit stack pointer mode, the user must execute a CLE (for CLear Extend disable) opcode. Setting the 16-bit pointer is done by loading the X and Y registers with the desired stack pointer low and high bytes, respectively, and then transferring their contents to the stack pointer using TXS and TYS. To return to 8-bit page mode, simple execute a SEE (SEt Extend disable) opcode.
 
+```
 *************************************************************
 * WARNING *
 * 
@@ -1043,85 +1282,116 @@ To select the 16-bit stack pointer mode, the user must execute a CLE (for CLear 
 * stack pointer bytes, causing a potential for writing *
 * stack data to an unwanted area. *
 *************************************************************
+```
 
 Program Counter PC
+
 The program counter is a 16-bit up-only counter that determines what area of memory that program information will be fetched from. The user generally only modifies it using jumps, branches, subroutine calls, or returns. It is set initially, and by interrupts, from vectors at memory addresses $FFFA through $FFFF (hex). See "Interrupts" below.
 
 
-10. 65CE02 Interrupts
+# 10. 65CE02 Interrupts
+
 Overview
+
 There are four basic interrupt sources on the CSG 4502. These are RES*, IRQ*, NMI*, and SO, for Reset, Interrupt Request, Non-Maskable Interrupt, and Set Overflow. The Reset is a hard non-recoverable interrupt that stops everything. The IRQ is a "maskable" interrupt, in that its occurance can be prevented. The MMI is "non-maskable", and if such an event occurs, cannot be prevented. The SO, or Set Overflow, is not really an interrupt, but causes an externally generated condition, which can be used for control of program flow.
+
 One important design feature, which must be remembered is that no interrupt can occur immediately after a one-cycle opcode. This is very important, because there are times when you want to temporarily prevent interrupts from occurring. The best example of this is, when setting a 16-bit stack pointer, you do not want an interrupt to occur between the times you set the low-order byte, and the high-order byte. If it could happen, the interrupt would do stack writes using a pointer that was only partially set, thus, writing to an unwanted area.
 
 IRQ*
+
 The IRQ* (Interrupt ReQuest) input will cause an interrupt, if it is at a low logic level, and the I processor status flag is reset. The interrupt sequence will begin with the first SYNC after a multiple-cycle opcode. The two program counter bytes PCH and PCL, and the processor status register P, are pushed onto the stack. (This causes the stack pointer SP to be decremented by 3.) Then the program counter bytes PCL and PCH are loaded from memory addresses FFFE and FFFF, respectively.
+
 An interrupt caused by the IRQ* input, is similar to the BRK opcode, but differs, as follows. The program counter value stored on the stack points to the opcode that would have been executed, had the interrupt not occurred. On return from interrupt, the processor will return to that opcode. Also, when the P register is pushed onto the stack, the B or "break" flag pushed, is zero, to indicate that the interrupt was not software generated.
 
 NMI*
+
 The NMI* (Non-Maskable Interrupt) input will cause an interrupt after receiving high to low transition. The interrupt sequence will begin with the first SYNC after a multiple-cycle opcode. NMI* inputs cannot be masked by the processor status register I flag. The two program counter bytes PCH and PCL, and the processor status register P, are pushed onto the stack. (This causes the stack pointer SP to be decremented by 3.) Then the program counter bytes PCL and PCH are loaded from memory addresses FFFA and FFFB.
+
 As with IRQ*, when the P register is pushed onto the stack, the B or "break" flag pushed, is zero, to indicate that the interrupt was not software generated.
 
 RES*
+
 The RES* (RESet) input will cause a hard reset instantly as it is brought to a low logic level. This effects the following conditions. The currently executing opcode will be terminated. The B and Z registers will be cleared. The stack pointer will be set to "byte" mode/with the stack page set to page 1. The processor status bits E and I will be set.
+
 The RES* input should be held low for at least 2 clock cycles. But once brought high, the reset sequence begins on the CPU cycle. The first four cycles of the reset sequence do nothing. Then the program counter bytes PCL and PCH are loaded from memory addresses FFFC and FFFD, and normal program execution begins.
 
 
 
-11. 65CE02 Addressing Modes
+# 11. 65CE02 Addressing Modes
+
 Overview
+
 It should be noted that all 8-bit addresses are referred to as "byte" addresses, and all 16-bit addresses are referred to as "word" addresses. In all word addresses, the low-order byte of the address is fetched from the lower of two consecutive memory addresses, and the high-order byte of the address is fetched the higher of the two. So, in all operations, the low-order address is fetched first.
 
 Implied                 OPR
+
 The register or flag affected is identified entirely by the opcode in this (usually) single cycle instruction. In this document, any implied operation, where the implied register is not explicitly declared, implies the accumulator. Example: INC with no arguments implies "increment the accumulator".
 
 Immediate (byte, word)        OPR #xx
+
 The data used in the operation is taken from the byte or bytes immediately following the opcode in the 2-byte or 3-byte instruction.
 
 Base Page                OPR bp (formerly Zero Page)
+
 The second byte of the two-byte instruction contains the low-order address byte, and the B register contains the high-order address byte of the memory location to be used by the operation.
 
 Base Page, indexed by X        OPR bp,X (formerly Zero Page,X)
+
 The second byte of the two-byte instruction is added to the X index register to form the low-order address byte, and the B register contains the high-order address byte of the memory location to be used by the operation.
 
 Base Page, indexed by Y        OPR bp,Y (formerly Zero Page,Y)
+
 The second byte of the two-byte instruction is added to the Y index register to form the low-order address byte, and the B register contains the high-order address byte of the memory location to be used by the operation.
 
 Absolute                OPR abs
+
 The second and third bytes of the three-byte instruction contain the low-order and high-order address bytes, respectively, of the memory location to be used by the operation.
 
 Absolute, indexed by X        OPR abs,X
+
 The second and third bytes of the three-byte instruction are added to the unsigned contents of the X index register to form the low-order and high-order address bytes, respectively, of the memory location to be used by the operation.
 
 Absolute, indexed by Y        OPR abs,Y
+
 The second and third bytes of the three-byte instruction are added to the unsigned contents of the Y index register to form the low-order and high-order address bytes, respectively, of the memory location to be used by the operation.
 
 Indirect (word)            OPR (abs) (JMP and JSR only)
+
 The second and third bytes of the three-byte instruction contain the low-order and high-order address bytes, respectively, of two memory locations containing the low-order and high-order JMP or JSR addresses, respectively.
 
 Indexed by X, indirect (byte)    OPR (bp,X) (formerly (zp,X) )
+
 The second byte of the two-byte instruction is added to the contents of the X register to form the low-order address byte, and the contents of the B register contains the high-order address byte, of two memory locations that contain the low-order and high-order address of the memory location to be used by the operation.
 
 Indexed by X, indirect (word) OPR (abs,X) (JMP and JSR only)
+
 The second and third bytes of the three-byte instruction are added to the unsigned contents of the X index register to form the low-order and high-order address bytes, respectively, of two memory locations containing the low-order and high-order JMP or JSR address bytes.
 
 Indirect, indexed by Y OPR (bp),Y (formerly (zp),Y )
+
 The second byte of the two-byte instruction contains the low-order byte, and the B register contains the high-order address byte of two memory locations whose contents are added to the unsigned Y index register to form the address of the memory location to be used by the operation.
 
 Indirect, indexed by Z OPR (bp),Z (formerly (zp) )
+
 The second byte of the two-byte instruction contains the low-order byte, and the B register contains the high-order address byte of two memory locations whose contents are added to the unsigned Z index register to form the address of the memory location to be used by the operation.
 
 Stack Pointer Indirect, indexed by Y OPR (d,SP),Y (new)
+
 The second byte of the two-byte instruction contains an unsigned offset value, d, which is added to the stack pointer (word) to form the address of two memory locations whose contents are added to the unsigned Y register to form the address of the memory location to be used by the operation.
 
 Relative (byte) Bxx LABEL (branches only)
+
 The second byte of the two-byte branch instruction is sign-extended to a full word and added to the program counter (now containing the opcode address plus two). If the condition of the branch is true, the sum is stored back into the program counter.
 
 Relative (word) Bxx LABEL (branches only)
+
 The second and third bytes of the three-byte branch instruction are added to the low-order and high-order program counter bytes, respectively. (the program counter now contains the opcode address plus two). If the condition of the branch is true, the sum is stored back into the program counter.
 
 
 
-12. 65CE02 Instruction Set
+# 12. 65CE02 Instruction Set
+
+```
 Add memory to accumulator with carry ADC
 
 A=A+M+C
@@ -1900,6 +2170,6 @@ Bytes Cycles Mode
 Flags
 N V E B D I Z C
 - - - - - - Z -
-
+```
 
 
