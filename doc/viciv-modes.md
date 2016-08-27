@@ -13,8 +13,8 @@ unlikely to ever be.  This is because bitplanar modes are crazy on an
 8-bit computer.  First, they are a pain to manipulate.  Second, they
 require bucket loads of RAM for a large high-resolution display --
 even if most of the image is empty or repetative.  For example, a 256
-colour 1920x1200 (the native resolution of the C65GS) image would
-require 2250KB of RAM.  But the C65 and C65GS only have 128KB of
+colour 1920x1200 (the native resolution of the MEGA65) image would
+require 2250KB of RAM.  But the C65 and MEGA65 only have 128KB of
 chipram!
 
 This is likely to be the most significant cause of incompatibility
@@ -75,7 +75,7 @@ modes) to something else.  The screen memory and colour memory base
 can also be set to any multiple of 8.  Together, these allow arbitrary
 panning through large virtual screen maps.  This feature makes VSP and
 other DMA-delay techniques obsolete, which is good, because neither
-the C65 nor C65GS support VSP due to the significantly different
+the C65 nor MEGA65 support VSP due to the significantly different
 timing of the VIC-III and VIC-IV compared with the VIC-II (and each
 other). 
 
