@@ -1,111 +1,79 @@
+# C65GS<br>FPGA Computer<br>User Manual
+
+<!-- START doctoc generated TOC please keep comment here to allow auto update -->
+<!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 
 
+- [1.0 Introduction](#10-introduction)
+  - [1.1 Purpose](#11-purpose)
+  - [1.2 Get Involved](#12-get-involved)
+- [2.0 Overview](#20-overview)
+  - [2.1 Processing Cores](#21-processing-cores)
+  - [2.2 Power-on/Reset Via The C65GS Hypervisor](#22-power-onreset-via-the-c65gs-hypervisor)
+  - [2.3 C65/C64 KERNAL & BASIC](#23-c65c64-kernal-&-basic)
+- [3.0 Getting Started](#30-getting-started)
+  - [3.1 Switching Modes, Mounting Disks and Loading Files via Ethernet](#31-switching-modes-mounting-disks-and-loading-files-via-ethernet)
+  - [3.2 Simple D81 Chooser for the SD Card](#32-simple-d81-chooser-for-the-sd-card)
+- [4.0 System Documentation](#40-system-documentation)
+  - [4.1 Keyboard Control and Mapping](#41-keyboard-control-and-mapping)
+  - [4.2 Remote Head and Screen-Shotting via VNC](#42-remote-head-and-screen-shotting-via-vnc)
+  - [4.3 Remote Serial Monitor (handy for debugging)](#43-remote-serial-monitor-handy-for-debugging)
+  - [4.4 VIC-IV](#44-vic-iv)
+    - [4.4.1 Enhanced Sprites](#441-enhanced-sprites)
+  - [4.5 Task Switcher](#45-task-switcher)
+    - [4.5.1 Overview](#451-overview)
+    - [4.5.2 Hypervisor](#452-hypervisor)
+    - [4.5.3 Task Registers](#453-task-registers)
+    - [4.5.4 Thumbnail](#454-thumbnail)
+  - [4.6 Colour RAM](#46-colour-ram)
+- [5.0 Memory Maps](#50-memory-maps)
+  - [5.1 Banking Memory](#51-banking-memory)
+  - [5.2 Addressing 32-bit Locations](#52-addressing-32-bit-locations)
+  - [5.3 Common Locations](#53-common-locations)
+  - [5.4 C64 Locations](#54-c64-locations)
+  - [5.5 C65 Locations](#55-c65-locations)
+  - [5.6 GS Locations](#56-gs-locations)
+- [6.0 Code Recipes](#60-code-recipes)
+  - [6.1 Overview](#61-overview)
+  - [6.3 Character Mode](#63-character-mode)
+  - [6.4 Clear the Raster IRQ](#64-clear-the-raster-irq)
+  - [6.5 Clearing bits in a byte](#65-clearing-bits-in-a-byte)
+  - [6.6 32-bit Memory Addresses using 32-bit indirect zero-page indexed addressing](#66-32-bit-memory-addresses-using-32-bit-indirect-zero-page-indexed-addressing)
+  - [6.7 Sending an Ethernet Frame](#67-sending-an-ethernet-frame)
+- [7.0 Differences Between the C65’s 4502 and C65GS’s GS4510](#70-differences-between-the-c65%E2%80%99s-4502-and-c65gs%E2%80%99s-gs4510)
+  - [7.1 Overview](#71-overview)
+  - [7.2 Emulated NMOS Read-Modify-Write Behaviour for C64 Compatibility](#72-emulated-nmos-read-modify-write-behaviour-for-c64-compatibility)
+  - [7.3 Flat Memory Map Addressing Modes & Access](#73-flat-memory-map-addressing-modes-&-access)
+- [8. 4502 Opcodes](#8-4502-opcodes)
+- [9. 4502 Registers](#9-4502-registers)
+- [10. 65CE02 Interrupts](#10-65ce02-interrupts)
+- [11. 65CE02 Addressing Modes](#11-65ce02-addressing-modes)
+- [12. 65CE02 Instruction Set](#12-65ce02-instruction-set)
+  - [Add memory to accumulator with carry ADC](#add-memory-to-accumulator-with-carry-adc)
+  - [And memory logically with accumulator AND](#and-memory-logically-with-accumulator-and)
+  - [Arithmetic shifts, memory or accumulator, left or right ASL ASR ASW](#arithmetic-shifts-memory-or-accumulator-left-or-right-asl-asr-asw)
+  - [Branch conditional or unconditional BCC BCS BEQ BMI BNE BPL BRA BVC BVS](#branch-conditional-or-unconditional-bcc-bcs-beq-bmi-bne-bpl-bra-bvc-bvs)
+  - [Break: (force an interrupt) BRK](#break-force-an-interrupt-brk)
+  - [Branch to subroutine BSR](#branch-to-subroutine-bsr)
+  - [Clear processor status bits CLC CLD CLE CLI CLV](#clear-processor-status-bits-clc-cld-cle-cli-clv)
+  - [Compare registers with memory CMP CTX CPY CPZ](#compare-registers-with-memory-cmp-ctx-cpy-cpz)
+  - [Compare registers with memory CMP CPX CPY CPZ](#compare-registers-with-memory-cmp-cpx-cpy-cpz)
+  - [Exclusive OR accumulator logically with memory EOR](#exclusive-or-accumulator-logically-with-memory-eor)
+  - [Jump to subroutine JSR](#jump-to-subroutine-jsr)
+  - [Load registers LDA LDX LDY LDZ](#load-registers-lda-ldx-ldy-ldz)
+  - [Negate (twos complement) accumulator NEG](#negate-twos-complement-accumulator-neg)
+  - [No-operation NOP](#no-operation-nop)
+  - [Or memory logically with accumulator ORA](#or-memory-logically-with-accumulator-ora)
+  - [Pull register data from stack PLA PLP PLX PLY PLZ](#pull-register-data-from-stack-pla-plp-plx-ply-plz)
+  - [Push registers or data onto stack PHA PHP PHW PHX PHY PHZ](#push-registers-or-data-onto-stack-pha-php-phw-phx-phy-phz)
+  - [Reset memory bits RMB](#reset-memory-bits-rmb)
+  - [Rotate memory or accumulator, left or right ROL ROR ROW](#rotate-memory-or-accumulator-left-or-right-rol-ror-row)
+  - [Return from BRK, interrupt, kernal, or subroutine RTI RTN RTS](#return-from-brk-interrupt-kernal-or-subroutine-rti-rtn-rts)
+  - [Set memory bits SMB](#set-memory-bits-smb)
+  - [Store registers STA STX STY STZ](#store-registers-sta-stx-sty-stz)
+  - [Transfers (between registers) TAB TAX TAY TAZ TBA TSX TSY TXA TXS TYA TYS TZA](#transfers-between-registers-tab-tax-tay-taz-tba-tsx-tsy-txa-txs-tya-tys-tza)
 
-C65GS
-
-FPGA Computer
-
-User Manual
-
-1.0 Introduction
-
-1.1 Purpose
-
-1.2 Get Involved
-
-2.0 Overview
-
-2.1 Processing Cores
-
-2.2 Power-on/Reset Via The C65GS Hypervisor
-
-2.3 C65/C64 KERNAL & BASIC
-
-3.0 Getting Started
-
-3.1 Switching Modes, Mounting Disks and Loading Files via Ethernet
-
-3.2 Simple D81 Chooser for the SD Card
-
-4.0 System Documentation
-
-4.1 Keyboard Control and Mapping
-
-4.2 Remote Head and Screen-Shotting via VNC
-
-4.3 Remote Serial Monitor (handy for debugging)
-
-4.4 VIC-IV
-
-4.4.1 Enhanced Sprites
-
-4.5 Task Switcher
-
-4.5.1 Overview
-
-4.5.2 Hypervisor
-
-4.5.3 Task Registers
-
-4.5.4 Thumbnail
-
-4.6 Colour RAM
-
-5.0 Memory Maps
-
-5.1 Banking Memory
-
-5.2 Addressing 32-bit Locations
-
-32-bit Memory Addresses using 32-bit indirect zero-page indexed addressing
-
-5.3 Common Locations
-
-5.4 C64 Locations
-
-5.5 C65 Locations
-
-5.6 GS Locations
-
-6.0 Code Recipes
-
-6.1 Overview
-
-6.2 The MAP Opcode
-
-6.3 Character Mode
-
-6.4 Clear the Raster IRQ
-
-6.5 Clearing bits in a byte
-
-6.6 32-bit Memory Addresses using 32-bit indirect zero-page indexed addressing
-
-6.7 Sending an Ethernet Frame
-
-6.8 Loading Data Via Ethernet
-
-7.0 Differences Between the C65’s 4502 and C65GS’s GS4510
-
-7.1 Overview
-
-7.2 Emulated NMOS Read-Modify-Write Behaviour for C64 Compatibility
-
-7.3 Flat Memory Map Addressing Modes & Access
-
-8. 4502 Opcodes
-
-4502 Opcode Table
-
-9. 4502 Registers
-
-10. 65CE02 Interrupts
-
-11. 65CE02 Addressing Modes
-
-12. 65CE02 Instruction Set
-
-
+<!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
 # 1.0 Introduction
 
@@ -1391,9 +1359,9 @@ The second and third bytes of the three-byte branch instruction are added to the
 
 # 12. 65CE02 Instruction Set
 
-```
-Add memory to accumulator with carry ADC
+## Add memory to accumulator with carry ADC
 
+```
 A=A+M+C
 
 Addressing Mode Abbrev. Opcode
@@ -1431,10 +1399,12 @@ exceeds 255 (binary mode) or 99 (decimal mode).
 Flags
 N V E B D I Z C
 N V - - - - Z C
+```
 
 
-And memory logically with accumulator AND
+## And memory logically with accumulator AND
 
+```
 A=A.and.M
 
 Addressing Mode Abbrev. Opcode
@@ -1468,10 +1438,12 @@ bits are zero, otherwise, it is cleared.
 Flags
 N V E B D I Z C
 N - - - - - Z -
+```
 
 
-Arithmetic shifts, memory or accumulator, left or right ASL ASR ASW
+## Arithmetic shifts, memory or accumulator, left or right ASL ASR ASW
 
+```
 ASL Arithmetic shift left A or M A<A<<1 or M<M<<1
 ASR Arithmetic shift right A or M A<A>>1 or M<M>>1
 ASW Arithmetic shift left M (word) Mx<Mw<<1
@@ -1525,11 +1497,12 @@ Otherwise, it is cleared.
 Flags
 N V E B D I Z C
 N - - - - - Z C
+```
 
 
-Branch conditional or unconditional BCC BCS BEQ BMI BNE
-BPL BRA BVC BVS
+## Branch conditional or unconditional BCC BCS BEQ BMI BNE BPL BRA BVC BVS
 
+```
 Opcode Opcode Byte Opcode Word Opcode
 Title Relative Relative Purpose
 
@@ -1557,10 +1530,12 @@ instruction bytes.
 Flags
 N V E B D I Z C
 - - - - - - - -
+```
 
 
-Break: (force an interrupt) BRK
+## Break: (force an interrupt) BRK
 
+```
 Bytes Cycles Mode Opcode
 2 7 implied 00 (stack)<PC+1w,P SP<SP-2
 
@@ -1584,9 +1559,11 @@ interrupts push P with the B flag cleared.
 Flags
 N V E B D I Z C
 - - - - - - - -
+```
 
-Branch to subroutine BSR
+## Branch to subroutine BSR
 
+```
 Bytes Cycles Mode Opcode
 3 5 word-relative 63 (stack)<PC+2w SP<SP-2
 
@@ -1602,10 +1579,12 @@ consistant will other word-relative operations.
 Flags
 N V E B D I Z C
 - - - - - - - -
+```
 
 
-Clear processor status bits CLC CLD CLE CLI CLV
+## Clear processor status bits CLC CLD CLE CLI CLV
 
+```
 Opcode Cycles Flags
 
 N V E B D I Z C
@@ -1623,10 +1602,12 @@ long. Most of them require a single CPU cycle. The CLI and CLE require
 2 cycles. The purpose of extending the CLI to 2 cycles, is to enable
 an interrupt to occur immediately, if one is pending. Interrupts
 cannot occur after single cycle instructions.
+```
 
 
-Compare registers with memory CMP CTX CPY CPZ
+## Compare registers with memory CMP CTX CPY CPZ
 
+```
 CMP Compare accumulator with memory (A-M)
 CPX Compare index X with memory (X-M)
 CPY Compare index Y with memory (Y-M)
@@ -1664,10 +1645,12 @@ equal to the unsigned memory value.
 Flags
 N V E B D I Z C
 N - - - - - Z C
+```
 
 
-Compare registers with memory CMP CPX CPY CPZ
+## Compare registers with memory CMP CPX CPY CPZ
 
+```
 CMP Compare accumulator with memory (A-M)
 CPX Compare index X with memory (X-M)
 CPY Compare index Y with memory (Y-M)
@@ -1705,10 +1688,12 @@ equal to the unsigned memory value.
 Flags
 N V E B D I Z C
 N - - - - - Z C
+```
 
 
-Exclusive OR accumulator logically with memory EOR
+## Exclusive OR accumulator logically with memory EOR
 
+```
 A=A.or.M.and..not.(A.and.M)
 
 Addressing Mode Abbrev. Opcode
@@ -1742,10 +1727,12 @@ bits are zero, otherwise, it is cleared.
 Flags
 N V E B D I Z C
 N - - - - - Z -
+```
 
 
-Jump to subroutine JSR
+## Jump to subroutine JSR
 
+```
 Addressing Mode Abbrev. Opcode bytes cycles
 
 absolute ABS 20 3 5
@@ -1761,10 +1748,12 @@ third byte of the three-byte JSR instruction.
 Flags
 N V E B D I Z C
 - - - - - - - -
+```
 
 
-Load registers LDA LDX LDY LDZ
+## Load registers LDA LDX LDY LDZ
 
+```
 LDA Load Accumulator from memory A<M
 LDX Load index X from memory X<M
 LDY Load index Y from memory Y<M
@@ -1799,9 +1788,11 @@ zero, otherwise, it is cleared.
 Flags
 N V E B D I Z C
 7 - - - - - Z -
+```
 
-Negate (twos complement) accumulator NEG
+## Negate (twos complement) accumulator NEG
 
+```
 A=-A
 
 Addressing Mode Opcode Bytes Cycles
@@ -1819,10 +1810,12 @@ the accumulator is (and was) zero.
 Flags
 N V E B D I Z C
 N - - - - - Z -
+```
 
 
-No-operation NOP
+## No-operation NOP
 
+```
 Addressing Mode Opcode Bytes Cycles
 
 implied EA 1 1
@@ -1834,9 +1827,11 @@ instruction. (See EOM)
 Flags
 N V E B D I Z C
 - - - - - - - -
+```
 
-Or memory logically with accumulator ORA
+## Or memory logically with accumulator ORA
 
+```
 A=A.or.M
 
 Addressing Mode Abbrev. Opcode
@@ -1870,10 +1865,12 @@ bits are zero, otherwise, it is cleared.
 Flags
 N V E B D I Z C
 N - - - - - Z -
+```
 
 
-Pull register data from stack PLA PLP PLX PLY PLZ
+## Pull register data from stack PLA PLP PLX PLY PLZ
 
+```
 Opcode
 
 PLA Pull Accumulator from stack 68
@@ -1901,10 +1898,12 @@ Flags
 N V E B D I Z C
 N - - - - - Z - (except PLP)
 7 6 - - 3 2 1 0 (PLP only)
+```
 
 
-Push registers or data onto stack PHA PHP PHW PHX PHY PHZ
+## Push registers or data onto stack PHA PHP PHW PHX PHY PHZ
 
+```
 PHA Push Accumulator onto stack
 PHP Push Processor status onto stack
 PHW Push a word from memory onto stack
@@ -1934,10 +1933,12 @@ changed.
 Flags
 N V E B D I Z C
 - - - - - - - -
+```
 
 
-Reset memory bits RMB
+## Reset memory bits RMB
 
+```
 M=M.and.-bit
 
 Opcode to reset bit
@@ -1954,10 +1955,12 @@ specified by the opcode. No flags are modified.
 Flags
 N V E B D I Z C
 - - - - - - - -
+```
 
 
-Rotate memory or accumulator, left or right ROL ROR ROW
+## Rotate memory or accumulator, left or right ROL ROR ROW
 
+```
 ROL Rotate memory or accumulator left throught carry
 ROR Rotate memory or accumulator right throught carry
 ROW Rotate memory (word) left throught carry
@@ -2009,9 +2012,11 @@ Otherwise, it is cleared.
 Flags
 N V E B D I Z C
 N - - - - - Z C
+```
 
-Return from BRK, interrupt, kemal, or subroutine RTI RTN RTS
+## Return from BRK, interrupt, kernal, or subroutine RTI RTN RTS
 
+```
 Operation description Opcode bytes cycles
 
 RTI Return from interrupt 40 1 5 P,PCw<(SP),SP<SP+3
@@ -2043,9 +2048,11 @@ Flags
 N V E B D I Z C
 - - - - - - - - (RTN and RTS)
 7 6 - - 3 2 1 0 (RTI)
+```
 
-Set memory bits SMB
+## Set memory bits SMB
 
+```
 M=M.or.bit
 
 Opcode to set bit
@@ -2060,9 +2067,11 @@ specified by the opcode. No flags are modified.
 
 Flags
 N V E B D I Z C
+```
 
-Store registers STA STX STY STZ
+## Store registers STA STX STY STZ
 
+```
 STA Store Accumulator to memory M<A
 STX Store index X to memory M<X
 STY Store index Y to memory M<Y
@@ -2094,11 +2103,11 @@ flags are affected.
 Flags
 N V E B D I Z C
 - - - - - - - -
+```
 
-Transfers (between registers) TAB TAX TAY TAZ
-TBA TSX TSY TXA
-TXS TYA TYS TZA
+## Transfers (between registers) TAB TAX TAY TAZ TBA TSX TSY TXA TXS TYA TYS TZA
 
+```
 Operation Flags Transfer
 Symbol Code N V E B D I Z C from to
 
