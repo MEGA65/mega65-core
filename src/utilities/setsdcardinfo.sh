@@ -53,10 +53,12 @@ echo -e "\n========================="
 echo "Formatting"
 # verbose, check first
 # F fat-size is 32-bits
-# h no hidden partitions
+# h 129 hidden partitions
+# n volume name
+# R reserved sectors 568
 # s sectors-per-cluster 8
 # S logical-sector-size 512
-sudo mkfs.vfat -v -c -F 32 -h 0 -s 8 -S 512 /dev/sdc1
+sudo mkfs.vfat -v -c -F 32 -h 129 -n LOUD -R 568 -s 8 -S 512 /dev/sdc1
 
 # display new format information
 echo -e "\n========================="
