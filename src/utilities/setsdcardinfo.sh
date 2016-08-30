@@ -24,14 +24,14 @@ fi
 
 echo -e "\n========================="
 echo "zero first 10M of ${1}"
-dd if=/dev/zero of=$1 bs=10240 count=1024
+sudo dd if=/dev/zero of=$1 bs=10240 count=1024
 
 echo -e "\n========================="
 echo "Creating partition..."
 # Print current partition information
 # New, Primary, One, <default>, size
 # Type, W95 FAT32,
-sudo fdisk -c=dos --sector-size 2048 $1 <<END-FDISK-TEMPLATE
+sudo fdisk -c=dos --sector-size 512 $1 <<END-FDISK-TEMPLATE
 p
 n
 p
@@ -51,8 +51,12 @@ sudo fdisk -l $1
 # format partition 1 as FAT32
 echo -e "\n========================="
 echo "Formatting"
-# refer to man pages for details on these settings
-sudo mkfs.vfat -v -c -F 32 -h 0 -r 112 -R 8 -s 4 -S 2048 /dev/sdc1
+# verbose, check first
+# F fat-size is 32-bits
+# h no hidden partitions
+# s sectors-per-cluster 8
+# S logical-sector-size 512
+sudo mkfs.vfat -v -c -F 32 -h 0 -s 8 -S 512 /dev/sdc1
 
 # display new format information
 echo -e "\n========================="
