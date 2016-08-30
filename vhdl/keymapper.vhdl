@@ -91,6 +91,12 @@ architecture behavioural of keymapper is
   signal extended : std_logic := '0';
   signal break : std_logic := '0';
 
+  signal cursor_left : std_logic := '1';
+  signal cursor_up : std_logic := '1';
+  signal cursor_right : std_logic := '1';
+  signal cursor_down : std_logic := '1';
+  signal right_shift : std_logic := '1';
+  signal ps2 : std_logic := '0';
   signal matrix : std_logic_vector(71 downto 0) := (others =>'1');
   signal joy1 : std_logic_vector(4 downto 0) := (others =>'1');
   signal joy2 : std_logic_vector(4 downto 0) := (others =>'1');
@@ -300,7 +306,7 @@ begin  -- behavioural
       ps2data_samples <= ps2data_samples(6 downto 0) & ps2data;
       if ps2data_samples = "11111111" then
         ps2data_debounced <= '1';
-      end if;
+      end if; 
       if ps2data_samples = "00000000" then
         ps2data_debounced <= '0';
       end if;
@@ -408,16 +414,18 @@ begin  -- behavioural
                            -- DELETE, RETURN, RIGHT, F7, F1, F3, F5, down
                            when x"066" => matrix(0) <= break;
                            when x"05A" => matrix(1) <= break;
-                           when x"174" => matrix(2) <= break;
+                           when x"174" => cursor_right <= break; ps2 <= '1';
                            when x"083" => matrix(3) <= break;
                            when x"005" => matrix(4) <= break;
                            when x"004" => matrix(5) <= break;
                            when x"003" => matrix(6) <= break;
-                           when x"072" => matrix(7) <= break;
+                           when x"072" => cursor_down <= break; ps2 <= '1';
                                           joy2(1) <= break;  -- keyrah
                                                              -- duplicate scan
                                                              -- code for down
                                                              -- key and joy2 right?
+                           when x"175" => cursor_up <= break; ps2 <= '1';
+                           when x"17B" => cursor_left <= break; ps2 <= '1';
 
                            -- 3, W, A, 4, Z, S, E, left-SHIFT
                            when x"026" => matrix(8) <= break;
@@ -474,7 +482,7 @@ begin  -- behavioural
                            when x"05B" => matrix(49) <= break;
                            when x"052" => matrix(50) <= break;
                            when x"16C" => matrix(51) <= break;
-                           when x"059" => matrix(52) <= break;
+                           when x"059" => right_shift <= break; ps2 <= '1';
                            when x"05D" => matrix(53) <= break;
                            when x"171" => matrix(54) <= break;
                            when x"04A" => matrix(55) <= break;
@@ -503,6 +511,15 @@ begin  -- behavioural
         end case;        
       end if;      
 
+      -- Cursor left and up are down and right + right shift,
+      -- so combine these appropriately
+      if ps2 = '1' then
+        matrix(7) <= cursor_down and cursor_up;
+        matrix(2) <= cursor_left and cursor_right;
+        matrix(52) <= right_shift and cursor_up and cursor_left;
+        ps2 <= '0';
+      end if;
+      
       -------------------------------------------------------------------------
       -- Update C64 CIA ports
       -------------------------------------------------------------------------
