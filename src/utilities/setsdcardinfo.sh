@@ -39,7 +39,7 @@ p
 
 +500M
 t
-b
+c
 w
 END-FDISK-TEMPLATE
 

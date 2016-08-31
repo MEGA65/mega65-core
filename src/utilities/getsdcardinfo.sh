@@ -43,13 +43,13 @@ echo "================================ sudo fdisk -l ${1}" >  ./sdcardinfo-${dat
 
 echo "getting fsck info for ${1} then ${1}1 (ignore open error)"
 # first try /dev/sdc
-echo "================================ sudo fsck.fat -v -n ${1}"
-echo "================================ sudo fsck.fat -v -n ${1}" >> ./sdcardinfo-${datetime}.fdisk.${2}
-                                       sudo fsck.fat -v -n ${1}  >> ./sdcardinfo-${datetime}.fdisk.${2}
+echo "================================ sudo fsck.vfat -v -n ${1}"
+echo "================================ sudo fsck.vfat -v -n ${1}" >> ./sdcardinfo-${datetime}.fdisk.${2}
+                                       sudo fsck.vfat -v -n ${1}  >> ./sdcardinfo-${datetime}.fdisk.${2}
 # then  try /dev/sdc1
-echo "================================ sudo fsck.fat -v -n ${1}1"
-echo "================================ sudo fsck.fat -v -n ${1}1" >> ./sdcardinfo-${datetime}.fdisk.${2}
-                                       sudo fsck.fat -v -n ${1}1  >> ./sdcardinfo-${datetime}.fdisk.${2}
+echo "================================ sudo fsck.vfat -v -n ${1}1"
+echo "================================ sudo fsck.vfat -v -n ${1}1" >> ./sdcardinfo-${datetime}.fdisk.${2}
+                                       sudo fsck.vfat -v -n ${1}1  >> ./sdcardinfo-${datetime}.fdisk.${2}
 
 # write the first 100MB chunk of device to a file
 echo "================================"
@@ -65,7 +65,7 @@ hexdump -v -C ./sdcardinfo-${datetime}.img > ./sdcardinfo-${datetime}.hdump
 echo "================================"
 cat ./sdcardinfo-${datetime}.fdisk.${2}
 echo " "
-head -n 20 ./sdcardinfo-${datetime}.hdump
+head -n 32 ./sdcardinfo-${datetime}.hdump
 echo " "
 
 # done
