@@ -425,7 +425,7 @@ begin  -- behavioural
                                                              -- code for down
                                                              -- key and joy2 right?
                            when x"175" => cursor_up <= break; ps2 <= '1';
-                           when x"17B" => cursor_left <= break; ps2 <= '1';
+                           when x"16B" => cursor_left <= break; ps2 <= '1';
 
                            -- 3, W, A, 4, Z, S, E, left-SHIFT
                            when x"026" => matrix(8) <= break;
@@ -509,11 +509,9 @@ begin  -- behavioural
           when StopBit => ps2state <= Idle;
           when others => ps2state <= Idle;
         end case;        
-      end if;      
-
       -- Cursor left and up are down and right + right shift,
       -- so combine these appropriately
-      if ps2 = '1' then
+      elsif ps2 = '1' then
         matrix(7) <= cursor_down and cursor_up;
         matrix(2) <= cursor_left and cursor_right;
         matrix(52) <= right_shift and cursor_up and cursor_left;
