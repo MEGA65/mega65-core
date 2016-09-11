@@ -813,6 +813,13 @@ begin  -- behavioural
                   -- drive.
                   -- put sector number into sd_sector, and then trigger read.
                   -- If no disk image is enabled, then report an error.
+
+                  -- PGS Force pointer to be reset after reading a sector to
+                  -- avoid out-by-two error we have been seeing with C65 DOS.
+                  -- reset buffer (but take SWAP into account)
+                  f011_buffer_next_read(7 downto 0) <= (others => '0');
+                  f011_buffer_next_read(8) <= f011_swap;
+                  
                   if f011_ds="000" and (diskimage1_enable='0' or f011_disk1_present='0') then
                     f011_rnf <= '1';
                   elsif f011_ds="001" and (diskimage2_enable='0' or f011_disk2_present='0') then
@@ -850,6 +857,13 @@ begin  -- behavioural
                   -- The F011 can in theory do unbuffered sector writes, but
                   -- we don't support them.  The C65 ROM does buffered
                   -- writes, anyway, so it isn't a problem.
+
+                  -- PGS Force pointer to be reset after reading a sector to
+                  -- avoid out-by-two error we have been seeing with C65 DOS.
+                  -- reset buffer (but take SWAP into account)
+                  f011_buffer_next_read(7 downto 0) <= (others => '0');
+                  f011_buffer_next_read(8) <= f011_swap;
+                  
                   if f011_ds="000" and (diskimage1_enable='0' or f011_disk1_present='0' or f011_disk1_write_protected='1') then
                     f011_rnf <= '1';
                   elsif f011_ds="001" and (diskimage2_enable='0' or f011_disk2_present='0' or f011_disk2_write_protected='1') then
