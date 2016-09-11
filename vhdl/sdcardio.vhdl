@@ -247,6 +247,7 @@ architecture behavioural of sdcardio is
   signal f011_buffer_wdata : unsigned(7 downto 0);
   signal f011_buffer_rdata : unsigned(7 downto 0);
   signal f011_flag_eq : std_logic := '1';
+  signal f011_flag_eq_inhibit : std_logic := '1';
   signal f011_swap : std_logic := '0';
   signal f011_rdata : unsigned(7 downto 0);
   signal f011_buffer_write : std_logic := '0';
@@ -460,9 +461,9 @@ begin  -- behavioural
             -- P CODE  |  P7   |  P6   |  P5   |  P4   |  P3   |  P2   |  P1   |  P0   | A R
             fastio_rdata <= (others => 'Z');
             
-          when "11110" => -- Extra: $D09E = read buffer pointer low bits
+          when "11110" => -- @IO:GS $D09E - read buffer pointer low bits (DEBUG)
             fastio_rdata <= f011_buffer_next_read(7 downto 0);
-          when "11111" => -- Extra: $D09F = read buffer pointer high bit
+          when "11111" => -- @IO:GS $D09F - read buffer pointer high bit (DEBUG)
             fastio_rdata(0) <= f011_buffer_next_read(8);
             fastio_rdata(7 downto 1) <= (others => '0');
           when others =>
@@ -602,6 +603,7 @@ begin  -- behavioural
           if last_was_d087='0' then
             f011_buffer_next_read <= f011_buffer_next_read + 1;
             f011_drq <= '0';
+            f011_flag_eq_inhibit <= '0';
           end if;
           last_was_d087 <= '1';
         end if;
@@ -677,10 +679,17 @@ begin  -- behavioural
       -- and write.  Nothing seems to work for the write routines.
       if f011_buffer_address = f011_buffer_next_read then
         -- if 1, then reading from disk infinite loops waiting for 0
-        f011_flag_eq <= sw(13);
+        f011_flag_eq <= '0';
       else
-        -- if 1, then something else doesn't work? 
-        f011_flag_eq <= sw(12);
+        -- if 1, then something else doesn't work?
+        -- LGB worked out that the problem here is that the eq flag should only
+        -- be set whenever the CPU side of the buffer advances to match the FDC
+        -- side's pointer.
+        if f011_flag_eq_inhibit='0' then
+          f011_flag_eq <= '1';
+        else
+          f011_flag_eq <= '0';
+        end if;
       end if;
       f011_buffer_write <= '0';
       if f011_head_track="0000000" then
@@ -819,6 +828,8 @@ begin  -- behavioural
                   -- reset buffer (but take SWAP into account)
                   f011_buffer_next_read(7 downto 0) <= (others => '0');
                   f011_buffer_next_read(8) <= f011_swap;
+
+                  f011_flag_eq_inhibit <= '1';
                   
                   if f011_ds="000" and (diskimage1_enable='0' or f011_disk1_present='0') then
                     f011_rnf <= '1';
@@ -858,6 +869,8 @@ begin  -- behavioural
                   -- we don't support them.  The C65 ROM does buffered
                   -- writes, anyway, so it isn't a problem.
 
+                  f011_flag_eq_inhibit <= '1';
+                  
                   -- PGS Force pointer to be reset after reading a sector to
                   -- avoid out-by-two error we have been seeing with C65 DOS.
                   -- reset buffer (but take SWAP into account)
@@ -1129,6 +1142,7 @@ begin  -- behavioural
                 if f011_drq='1' then f011_lost <= '1'; end if;
                 f011_drq <= '1';
                 -- Update F011 sector buffer
+                f011_flag_eq_inhibit <= '1';
                 f011_buffer_address <= f011_buffer_address + 1;
                 f011_buffer_write <= '1';
                 f011_buffer_wdata <= unsigned(sd_rdata);
@@ -1166,6 +1180,7 @@ begin  -- behavioural
           sector_offset <= "0"&f011_buffer_address;
           sb_wdata <= f011_rdata;
           sb_w <= '1';
+          f011_flag_eq_inhibit <= '1';
           if f011_buffer_address /= "111111111" then
             -- Schedule reading of the next byte
             f011_buffer_address <= f011_buffer_address + 1;
