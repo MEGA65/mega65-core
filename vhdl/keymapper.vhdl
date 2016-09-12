@@ -63,6 +63,8 @@ architecture behavioural of keymapper is
                      ParityBit,StopBit);
   signal ps2state : ps2_state := Idle;
 
+  signal leftorupcount : unsigned(2 downto 0) := 0;
+  
   signal resetbutton_state : std_logic := 'Z';
   signal matrix_offset : integer range 0 to 255 := 252;
   signal last_pmod_clock : std_logic := '1';
@@ -382,7 +384,7 @@ begin  -- behavioural
 
                          -- Let the CPU read the most recent scan code for
                          -- debugging keyboard layout.
-                         last_scan_code <= break & full_scan_code;
+                         last_scan_code <= break & leftorupcount(2 downto 0) & full_scan_code(8 downto 0);
 
                          case full_scan_code is
                            when x"17D" =>
@@ -512,6 +514,7 @@ begin  -- behavioural
       -- Cursor left and up are down and right + right shift,
       -- so combine these appropriately
       elsif ps2 = '1' then
+        leftorupcount <= leftorupcount + 1;
         matrix(7) <= cursor_down and cursor_up;
         matrix(2) <= cursor_left and cursor_right;
         matrix(52) <= right_shift and cursor_up and cursor_left;
