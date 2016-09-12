@@ -1221,6 +1221,7 @@ begin  -- behavioural
           end if;
         when DoneReadingSector =>
           sdio_busy <= '0';
+          f011_busy <= '0';
           sd_state <= Idle;
         when DoneWritingSector =>
           sdio_busy <= '0';
