@@ -428,8 +428,8 @@ begin  -- behavioural
                                                              -- duplicate scan
                                                              -- code for down
                                                              -- key and joy2 right?
-                           when x"175" => cursor_up <= break; ps2 <= '1';
-                           when x"16B" => cursor_left <= break; ps2 <= '1';
+                           when x"075" => cursor_up <= break; ps2 <= '1';
+                           when x"06B" => cursor_left <= break; ps2 <= '1';
 
                            -- 3, W, A, 4, Z, S, E, left-SHIFT
                            when x"026" => matrix(8) <= break;
