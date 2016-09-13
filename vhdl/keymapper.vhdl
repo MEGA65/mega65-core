@@ -404,14 +404,10 @@ begin  -- behavioural
                              joy1(3) <= break;
                            when x"070" =>  -- JOY1 FIRE
                              joy1(4) <= break;
-                           when x"075" =>  -- JOY2 LEFT
-                             joy2(0) <= break;
                            when x"074" =>  -- JOY2 DOWN
                              joy2(3) <= break;
 --                           when x"072" =>  -- JOY2 RIGHT
 --                             joy2(3) <= break;
-                           when x"06b" =>  -- JOY2 UP
-                             joy2(2) <= break;
                            when x"073" =>  -- JOY2 FIRE
                              joy2(4) <= break;
                                            
@@ -428,8 +424,12 @@ begin  -- behavioural
                                                              -- duplicate scan
                                                              -- code for down
                                                              -- key and joy2 right?
-                           when x"075" => cursor_up <= break; ps2 <= '1';
-                           when x"06B" => cursor_left <= break; ps2 <= '1';
+                           when x"075" => -- JOY2 LEFT
+                             joy2(0) <= break;
+                             cursor_up <= break; ps2 <= '1';
+                           when x"06B" => -- JOY2 UP
+                             joy2(2) <= break;
+                             cursor_left <= break; ps2 <= '1';
 
                            -- 3, W, A, 4, Z, S, E, left-SHIFT
                            when x"026" => matrix(8) <= break;
