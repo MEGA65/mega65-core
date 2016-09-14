@@ -2108,19 +2108,17 @@ dfanc_check:
 	beq dfanc_fail
 	; $FFFFFF7 = bad cluster
 	; $FFFFFFF = end of file
+	; (we'll treat anything from $FFFFFF0-F as bad/invalid for simplicity)
 	lda dos_file_descriptors+3,y
 	cmp #$0f
 	bne dfanc_ok
 	lda dos_file_descriptors+2,y
-	cmp #$ff
-	bne dfanc_ok
-	lda dos_file_descriptors+1,y
+	and dos_file_descriptors+1,y
 	cmp #$ff
 	bne dfanc_ok
 	lda dos_file_descriptors,y
-	cmp #$ff
-	beq dfanc_fail
-	cmp #$f7
+	and #$f0
+	cmp #$f0
 	beq dfanc_fail
 
 dfanc_ok:
