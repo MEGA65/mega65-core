@@ -12,14 +12,23 @@
 ; Kickstart modifies RAM from $0000-$07FFF (ZP, stack, 40-column
 ; screen, 16-bit text mode) during normal boot.
 ;
+;
+; BG: is the below true still, I dont think so.
 ; If Kickstart needs to load the ROM from SD card, then it may
 ; modify the first 64KB of fast ram.
 ;
-; We will use the convention of C=0 means failure, and C=1 means
-; success.
 ;
+; We will use the convention of C=0 means failure, ie CLC/RTS,
+;                           and C=1 means success, ie SEC/RTS.
+;
+;
+;	; this included file defines many of the alias used throughout
+;	; it also suggests some memory-map definitions
+;	;
+
 	.include "kickstart_machine.a65"
 
+;
 ; scratch space in ZP space usually used by kernel
 ; we try to use address space not normally used by C64 kernel, so that
 ; it is possible to make calls to kickstart after boot.  Eventually
@@ -28,7 +37,10 @@
 ;
 	.data 
 
+;	========================
 	.org $ce00
+;	========================
+
 	.space romslab 1
 	.space screenrow 1
 
@@ -36,25 +48,33 @@
 	.space file_pagesread 2
 
 	; variables for testing of D81 boot image
+	;
 	.space d81_clusternumber 4
 	.space d81_clustersneeded 2
 	.space d81_clustercount 2
 
 	; make sure that we don't go past the 256 byte page reserved for hypervisor scratch space
+	;
 	.checkpc $CEFF
 
 	.text
 
+;	========================
 	.org $8000
+;	========================
+
 ;;; ----------------------------------------------------------------------------
 ;;; CPU Hypervisor Trap entry points.
 ;;; 64 x 4 byte entries for user-land traps.
 ;;; some more x 4 byte entries for system traps (reset, page fault etc)
 ;;; ----------------------------------------------------------------------------
+
 trap_entry_points:
+
 	; Traps $00-$07 (user callable)
-	jmp dos_and_process_trap
-	nop
+	;
+	jmp dos_and_process_trap	; Trap #$00 (unsure what to call it)
+	nop				; refer: kickstart_dos
 	jmp nosuchtrap
 	nop
 	jmp nosuchtrap
@@ -69,7 +89,9 @@ trap_entry_points:
 	nop
 	jmp nosuchtrap
 	nop
+
 	; Traps $08-$0F (user callable)
+	;
 	jmp nosuchtrap
 	nop
 	jmp nosuchtrap
@@ -86,7 +108,9 @@ trap_entry_points:
 	nop
 	jmp nosuchtrap
 	nop
+
 	; Traps $10-$17 (user callable)
+	;
 	jmp nosuchtrap
 	nop
 	jmp nosuchtrap
@@ -103,7 +127,9 @@ trap_entry_points:
 	nop
 	jmp nosuchtrap
 	nop
+
 	; Traps $18-$1F (user callable)
+	;
 	jmp nosuchtrap
 	nop
 	jmp nosuchtrap
@@ -120,7 +146,9 @@ trap_entry_points:
 	nop
 	jmp nosuchtrap
 	nop
+
 	; Traps $20-$27 (user callable)
+	;
 	jmp nosuchtrap
 	nop
 	jmp nosuchtrap
@@ -137,7 +165,9 @@ trap_entry_points:
 	nop
 	jmp nosuchtrap
 	nop
+
 	; Traps $28-$2F (user callable)
+	;
 	jmp nosuchtrap
 	nop
 	jmp nosuchtrap
@@ -154,7 +184,9 @@ trap_entry_points:
 	nop
 	jmp nosuchtrap
 	nop
+
 	; Traps $30-$37
+	;
 	jmp nosuchtrap
 	nop
 	jmp nosuchtrap
@@ -171,7 +203,9 @@ trap_entry_points:
 	nop
 	jmp nosuchtrap
 	nop
+
 	; Traps $38-$3F (user callable)
+	;
 	jmp nosuchtrap
 	nop
 	jmp nosuchtrap
@@ -188,15 +222,21 @@ trap_entry_points:
 	nop
 	jmp nosuchtrap
 	nop
+
+;	========================
+
 	; Traps $40-$4F (reset, page fault and other system-generated traps)
-	jmp reset_entry_allow_etherkick  ; Trap #$40 (power on / reset)
-	nop
-	jmp page_fault   ; Trap #$41 (page fault)
-	nop
-	jmp double_restore_trap   ; Trap #$42 (double-tap RESTORE key)
-	nop
-	jmp nosuchtrap
-	nop
+	jmp reset_entry_allow_etherkick	; Trap #$40 (power on / reset)
+	nop				; refer: below in this file
+
+	jmp page_fault			; Trap #$41 (page fault)
+	nop				; refer: kickstart_mem
+
+	jmp double_restore_trap		; Trap #$42 (double-tap RESTORE key)
+	nop				; refer: kickstart_task 
+
+	jmp nosuchtrap			; common-trap (catch all)
+	nop				; refer: below in this file
 	jmp nosuchtrap
 	nop
 	jmp nosuchtrap
@@ -222,7 +262,8 @@ trap_entry_points:
 	jmp nosuchtrap
 	nop
 
-	; Leave room for traps to $7E
+
+	; Leave room for traps to $7E (BG: why 7E ?)
 	;
 	.checkpc $81F8
 	.advance $81F8
@@ -234,6 +275,7 @@ trap_entry_points:
 	.word reset_entry_allow_etherkick ; RESET
 	.word hypervisor_irq ; IRQ
 
+	.checkpc $8200
 	.advance $8200
 
 ;;; ----------------------------------------------------------------------------
@@ -253,21 +295,32 @@ trap_entry_points:
 ;  to return?)
 ;
 nosuchtrap:
+
 	; Clear C flag for caller to indicate failure
+	;
 	lda hypervisor_flags
 	and #$FE   ; C flag is bit 0
 	sta hypervisor_flags
+
 	; set A to $FF
+	;
 	lda #$ff
 	sta hypervisor_a
+
 	; return from hypervisor
+	;
 	sta hypervisor_enterexit_trigger
 
-; Return from trap with C flag clear to indicate success
-;
+;	========================
+
 return_from_trap_with_success:
+
+	; Return from trap with C flag clear to indicate success
+
 	jsr sd_unmap_sectorbuffer	
+
 	; set C flag for caller to indicate success
+	;
 	lda hypervisor_flags
 	ora #$01   ; C flag is bit 0
 	sta hypervisor_flags
@@ -278,12 +331,17 @@ return_from_trap_with_success:
 	; return from hypervisor
 	sta hypervisor_enterexit_trigger
 
+;	========================
+
 return_from_trap_with_failure:
+
 	jsr sd_unmap_sectorbuffer	
+
 	; report error in A
+	;
 	sta hypervisor_a
 	lda hypervisor_flags
-	and #$fe   ; C flag is bit 0
+	and #$fe   ; C flag is bit 0 (ie clear bit-0)
 	sta hypervisor_flags
 
 	jsr checkpoint
@@ -292,25 +350,33 @@ return_from_trap_with_failure:
 	; return from hypervisor
 	sta hypervisor_enterexit_trigger	
 
+;	========================
+
 invalid_subfunction:
+
 	jmp nosuchtrap
+
+;	========================
 
 ;;; ----------------------------------------------------------------------------
 ;;; DOS, process control and related functions trap
 ;;; ----------------------------------------------------------------------------
 		.include "kickstart_dos.a65"
+
 ;;; ----------------------------------------------------------------------------
 ;;; Virtual memory and memory management
 ;;; ----------------------------------------------------------------------------
 		.include "kickstart_mem.a65"
+
 ;;; ----------------------------------------------------------------------------
 ;;; Task (process) management
 ;;; ----------------------------------------------------------------------------
 		.include "kickstart_task.a65"
+
 ;;; ----------------------------------------------------------------------------
 ;;; CPU Hypervisor Entry Point on reset
 ;;; ----------------------------------------------------------------------------
-;
+
 reset_machine_state:
 		; get CPU state sensible
 		sei
@@ -442,6 +508,10 @@ etherloop:
 ;	========================
 
 normalboot:
+		jsr dump_disk_table
+
+		jsr dumpcurrentfd
+
 		; Try to read the MBR from the SD card to ensure SD card is happy
 		;
 		ldx #<msg_tryingsdcard
@@ -452,13 +522,14 @@ tryreadmbr:
 		jsr readmbr
 		bcs gotmbr
 
-		; Display debug message
+		; Oops
+		; display debug message to screen
 		;
 		ldx #<msg_retryreadmbr
 		ldy #>msg_retryreadmbr
 		jsr printmessage
 
-		; print debug message to uart
+		; display debug message to uart
 		;
 		jsr checkpoint
 		.byte 0,"re-try reading MBR of sdcard",0
@@ -468,6 +539,8 @@ tryreadmbr:
 ;	========================
 		
 gotmbr:
+		; good, was able to read the MBR
+
 		; Scan SD card for partitions and mount them.
 		;
 		jsr dos_clearall
@@ -485,109 +558,10 @@ gotmbr:
 		ldz dos_default_disk
 		jsr printhex
 
+		jsr dump_disk_table
+
 ;	========================
 
-
-
-		ldx #<msg_diskdata
-		ldy #>msg_diskdata
-		jsr printmessage
-
-		ldy #$00
-		ldz #$00		; offset
-		jsr printhex
-		ldy #$00
-		ldz dos_disk_table+0
-		jsr printhex
-		ldz dos_disk_table+1
-		jsr printhex
-		ldz dos_disk_table+2
-		jsr printhex
-		ldz dos_disk_table+3
-		jsr printhex
-		ldz dos_disk_table+4
-		jsr printhex
-		ldz dos_disk_table+5
-		jsr printhex
-		ldz dos_disk_table+6
-		jsr printhex
-		ldz dos_disk_table+7
-		jsr printhex
-
-		ldx #<msg_diskdata
-		ldy #>msg_diskdata
-		jsr printmessage
-
-		ldy #$00
-		ldz #$08		; offset
-		jsr printhex
-		ldy #$00
-		ldz dos_disk_table+8
-		jsr printhex
-		ldz dos_disk_table+9
-		jsr printhex
-		ldz dos_disk_table+10
-		jsr printhex
-		ldz dos_disk_table+11
-		jsr printhex
-		ldz dos_disk_table+12
-		jsr printhex
-		ldz dos_disk_table+13
-		jsr printhex
-		ldz dos_disk_table+14
-		jsr printhex
-		ldz dos_disk_table+15
-		jsr printhex
-
-		ldx #<msg_diskdata
-		ldy #>msg_diskdata
-		jsr printmessage
-
-		ldy #$00
-		ldz #$10 ; offset
-		jsr printhex
-		ldy #$00
-		ldz dos_disk_table+16
-		jsr printhex
-		ldz dos_disk_table+17
-		jsr printhex
-		ldz dos_disk_table+18
-		jsr printhex
-		ldz dos_disk_table+19
-		jsr printhex
-		ldz dos_disk_table+20
-		jsr printhex
-		ldz dos_disk_table+21
-		jsr printhex
-		ldz dos_disk_table+22
-		jsr printhex
-		ldz dos_disk_table+23
-		jsr printhex
-
-		ldx #<msg_diskdata
-		ldy #>msg_diskdata
-		jsr printmessage
-
-		ldy #$00
-		ldz #$18 ; offset
-		jsr printhex
-		ldy #$00
-		ldz dos_disk_table+24
-		jsr printhex
-		ldz dos_disk_table+25
-		jsr printhex
-		ldz dos_disk_table+26
-		jsr printhex
-		ldz dos_disk_table+27
-		jsr printhex
-		ldz dos_disk_table+28
-		jsr printhex
-		ldz dos_disk_table+29
-		jsr printhex
-		ldz dos_disk_table+30
-		jsr printhex
-		ldz dos_disk_table+31
-		jsr printhex
 
 		; Go to root directory on default disk
 		;
@@ -790,6 +764,9 @@ postkickup:
 		;
 		jsr checkpoint
 		.byte 0,"  Here we are POST-KICKUP",0
+
+		jsr dumpcurrentfd
+
 		
 		; for now indicate that there is no disk in drive
 		;
@@ -828,6 +805,7 @@ postkickup:
 
 		; all done, move on to loading the ROM
 		;
+
 		jmp findrom
 
 ;	========================
@@ -864,6 +842,10 @@ findrom:
 ;	========================
 
 loadrom:
+
+		jsr dumpcurrentfd
+
+
 		; ROM is not loaded, so try to load it, or prompt
 		; for user to insert SD card
 		;
@@ -952,6 +934,8 @@ loadc65rom:
 		jsr dos_readfileintomemory
 		bcs loadedok
 
+;	========================
+
 		; ROM not found: indicate which ROM we were looking for
 		;
 		ldx #$0b
@@ -972,6 +956,7 @@ l17d:		lda txt_c65gsrom,x
 
 ;	========================
 
+		; ROM was found and loaded
 loadedok:
 		ldx dos_current_file_descriptor_offset
 		lda dos_file_descriptors+dos_filedescriptor_offset_fileoffset+0,x
@@ -1056,6 +1041,12 @@ badfs:		ldx #<msg_badformat
 ;;; ----------------------------------------------------------------------------
 ;
 toupper:	; convert ASCII character to upper case
+		;
+		; INPUT:  .A is the ASCII char to convert up uppercase
+		; OUTPUT: .A will hold the resulting uppersace
+		;
+		; BG has not verified this yet
+		;
 		cmp #$60
 		bcc tu1
 		cmp #$7a
@@ -1076,8 +1067,6 @@ readmbr:
 	jsr checkpoint
 	.byte 0,"Resetting SDCARD",0
 
-
-
 		jsr sdreset
 		bcs l7
 		rts
@@ -1089,10 +1078,10 @@ l7:		ldx #<msg_foundsdcard
 		; MBR is sector 0
 		;
 		lda #$00
-		sta $D681
-		sta $d682
-		sta $d683
-		sta $d684
+		sta sd_address_byte0 ; is $D681
+		sta sd_address_byte1 ; is $d682
+		sta sd_address_byte2 ; is $d683
+		sta sd_address_byte0 ; is $d684
 
 		jmp sd_readsector
 
@@ -1103,11 +1092,11 @@ l7:		ldx #<msg_foundsdcard
 sdreset:
 		; try SD-HC mode first
 		;
-;		lda #$41
-;		sta $D680
-;		jsr sd_resetsequence
-;		bcc sdr1
-;		rts
+	;	lda #$41
+	;	sta $D680
+	;	jsr sd_resetsequence
+	;	bcc sdr1
+	;	rts
 
 sdr1:		; fall back to SD mode
 		;
@@ -1227,6 +1216,7 @@ sdisready:	sec
 ;	========================
 
 sd_map_sectorbuffer:
+
 		lda #$81
 		sta $D680
 		sec
@@ -1235,6 +1225,7 @@ sd_map_sectorbuffer:
 ;	========================
 
 sd_unmap_sectorbuffer:
+
 		pha
 		lda #$82
 		sta $D680
@@ -1246,46 +1237,13 @@ sd_unmap_sectorbuffer:
 
 sd_readsector:
 		; Assumes fixed sector number (or byte address in case of SD cards)
-		; is loaded into $D681 - $D684		
+		; is loaded into $D681 - $D684
 
 		; print out debug info
 		;
-;		jsr printsectoraddress
+;		jsr printsectoraddress	; to screen
 
-
-
-	; print out this message to Checkpoint
-	;
-
-	ldx sd_address_byte3	;MSB	; convert .X to char-representation for display
-	jsr checkpoint_bytetohex	; returns: .X and .Y (Y is MSB, X is LSB, print YX)
-	stx sdrscp3+1;                  
-	sty sdrscp3
-
-	ldx sd_address_byte2
-	jsr checkpoint_bytetohex
-	stx sdrscp2+1
-	sty sdrscp2
-
-	ldx sd_address_byte1
-	jsr checkpoint_bytetohex
-	stx sdrscp1+1
-	sty sdrscp1
-
-	ldx sd_address_byte0	;LSB
-	jsr checkpoint_bytetohex
-	stx sdrscp0+1
-	sty sdrscp0
-
-	jsr checkpoint
-	.byte 0,"sd_read(ing)sector: $d681="
-sdrscp3:	.byte "xx"
-sdrscp2:	.byte "xx"
-sdrscp1:	.byte "xx"
-sdrscp0:	.byte "xx.",0
-
-
-
+		jsr dumpsectoraddress	; checkpoint message
 
 		; check if sd card is busy
 		;
@@ -1379,21 +1337,183 @@ rsbusyfail:     ; fail
 ;	========================
 
 printsectoraddress:
+
+		; debug message to boot-screen
+		;
 		ldx #<msg_sectoraddress
 		ldy #>msg_sectoraddress
 		jsr printmessage
+
 		ldy #$00
-		ldz $D681+3
+		ldz sd_address_byte3 ; is $D681+3
 		jsr printhex
-		ldz $D681+2
+		ldz sd_address_byte2 ; is $D681+2
 		jsr printhex
-		ldz $D681+1
+		ldz sd_address_byte1 ; is $D681+1
 		jsr printhex
-		ldz $D681+0
+		ldz sd_address_byte0 ; is $D681+0
 		jsr printhex
 		rts
 
+
+;	========================
+
+
+dumpsectoraddress:
+
+	; print out this message to Checkpoint
+	;
+
+	ldx sd_address_byte3	;MSB	; convert .X to char-representation for display
+	jsr checkpoint_bytetohex	; returns: .X and .Y (Y is MSB, X is LSB, print YX)
+	stx sdrscp3+1;                  
+	sty sdrscp3
+
+	ldx sd_address_byte2
+	jsr checkpoint_bytetohex
+	stx sdrscp2+1
+	sty sdrscp2
+
+	ldx sd_address_byte1
+	jsr checkpoint_bytetohex
+	stx sdrscp1+1
+	sty sdrscp1
+
+	ldx sd_address_byte0	;LSB
+	jsr checkpoint_bytetohex
+	stx sdrscp0+1
+	sty sdrscp0
+
+	jsr checkpoint
+	.byte 0,"sd_sector: $d681="
+sdrscp3:	.byte "xx"
+sdrscp2:	.byte "xx"
+sdrscp1:	.byte "xx"
+sdrscp0:	.byte "xx.",0
+
+	rts
+
+;	========================
+
+dumpcurrentfd:
+	ldx dos_current_file_descriptor	; convert .X to char-representation for display
+	jsr checkpoint_bytetohex	; returns: .X and .Y (Y is MSB, X is LSB, print YX)
+	stx dcfd0+1;                  
+	sty dcfd0
+
+	ldx dos_current_file_descriptor_offset
+	jsr checkpoint_bytetohex
+	stx dcfd1+1
+	sty dcfd1
+
+	jsr checkpoint
+	.byte 0,"current file desc:"
+dcfd0:	.byte "xx"
+dcfd1:	.byte "xx.",0
+
+	rts
+
+
+;	========================
+
+dumpfiledescriptor:
+
+	ldx dos_file_descriptors+0	; convert .X to char-representation for display
+	jsr checkpoint_bytetohex	; returns: .X and .Y (Y is MSB, X is LSB, print YX)
+	stx dfd0+1
+	sty dfd0
+	ldx dos_file_descriptors+1	; convert .X to char-representation for display
+	jsr checkpoint_bytetohex	; returns: .X and .Y (Y is MSB, X is LSB, print YX)
+	stx dfd1+1
+	sty dfd1
+	ldx dos_file_descriptors+2	; convert .X to char-representation for display
+	jsr checkpoint_bytetohex	; returns: .X and .Y (Y is MSB, X is LSB, print YX)
+	stx dfd2+1
+	sty dfd2
+	ldx dos_file_descriptors+3	; convert .X to char-representation for display
+	jsr checkpoint_bytetohex	; returns: .X and .Y (Y is MSB, X is LSB, print YX)
+	stx dfd3+1
+	sty dfd3
+	ldx dos_file_descriptors+4	; convert .X to char-representation for display
+	jsr checkpoint_bytetohex	; returns: .X and .Y (Y is MSB, X is LSB, print YX)
+	stx dfd4+1
+	sty dfd4
+	ldx dos_file_descriptors+5	; convert .X to char-representation for display
+	jsr checkpoint_bytetohex	; returns: .X and .Y (Y is MSB, X is LSB, print YX)
+	stx dfd5+1
+	sty dfd5
+	ldx dos_file_descriptors+6	; convert .X to char-representation for display
+	jsr checkpoint_bytetohex	; returns: .X and .Y (Y is MSB, X is LSB, print YX)
+	stx dfd6+1
+	sty dfd6
+	ldx dos_file_descriptors+7	; convert .X to char-representation for display
+	jsr checkpoint_bytetohex	; returns: .X and .Y (Y is MSB, X is LSB, print YX)
+	stx dfd7+1
+	sty dfd7
+
+	jsr checkpoint
+	.byte 0,"FD<="
+dfd0:	.byte	"xx,"
+dfd1:	.byte	"xx,"
+dfd2:	.byte	"xx,"
+dfd3:	.byte	"xx,"
+dfd4:	.byte	"xx,"
+dfd5:	.byte	"xx,"
+dfd6:	.byte	"xx,"
+dfd7:	.byte	"xx"
+	.byte 0
+
+	ldx dos_file_descriptors+8	; convert .X to char-representation for display
+	jsr checkpoint_bytetohex	; returns: .X and .Y (Y is MSB, X is LSB, print YX)
+	stx dfd8+1
+	sty dfd8
+	ldx dos_file_descriptors+9	; convert .X to char-representation for display
+	jsr checkpoint_bytetohex	; returns: .X and .Y (Y is MSB, X is LSB, print YX)
+	stx dfd9+1
+	sty dfd9
+	ldx dos_file_descriptors+10	; convert .X to char-representation for display
+	jsr checkpoint_bytetohex	; returns: .X and .Y (Y is MSB, X is LSB, print YX)
+	stx dfda+1
+	sty dfda
+	ldx dos_file_descriptors+11	; convert .X to char-representation for display
+	jsr checkpoint_bytetohex	; returns: .X and .Y (Y is MSB, X is LSB, print YX)
+	stx dfdb+1
+	sty dfdb
+	ldx dos_file_descriptors+12	; convert .X to char-representation for display
+	jsr checkpoint_bytetohex	; returns: .X and .Y (Y is MSB, X is LSB, print YX)
+	stx dfdc+1
+	sty dfdc
+	ldx dos_file_descriptors+13	; convert .X to char-representation for display
+	jsr checkpoint_bytetohex	; returns: .X and .Y (Y is MSB, X is LSB, print YX)
+	stx dfdd+1
+	sty dfdd
+	ldx dos_file_descriptors+14	; convert .X to char-representation for display
+	jsr checkpoint_bytetohex	; returns: .X and .Y (Y is MSB, X is LSB, print YX)
+	stx dfde+1
+	sty dfde
+	ldx dos_file_descriptors+15	; convert .X to char-representation for display
+	jsr checkpoint_bytetohex	; returns: .X and .Y (Y is MSB, X is LSB, print YX)
+	stx dfdf+1
+	sty dfdf
+
+	jsr checkpoint
+	.byte 0,"FD>="
+dfd8:	.byte	"xx,"
+dfd9:	.byte	"xx,"
+dfda:	.byte	"xx,"
+dfdb:	.byte	"xx,"
+dfdc:	.byte	"xx,"
+dfdd:	.byte	"xx,"
+dfde:	.byte	"xx,"
+dfdf:	.byte	"xx"
+	.byte 0
+
+	rts
+
+;	========================
+
 sd_inc_fixedsectornumber:
+
 		; increment fixed sector number.
 		; if SDHC, then increment is simple.
 		; if SD, then we add $200
@@ -1404,28 +1524,35 @@ sd_inc_fixedsectornumber:
 
 		; sd card mode: add $200
 		;
-		lda $d682
+		lda sd_address_byte1 ;d682
 		clc
 		adc #$02
-		sta $d682
-		lda $d683
+		sta sd_address_byte1 ;d682
+
+		lda sd_address_byte2 ;d683
 		adc #$00
-		sta $d683
-		lda $d684
+		sta sd_address_byte2 ;d683
+
+		lda sd_address_byte3 ;d684
 		adc #$00
-		sta $d684
+		sta sd_address_byte3 ;d684
 		rts
 
 ;	========================
 
 sdhc1:		; SDHC card mode: add 1
-		inc $d681
+		;
+
+		jsr checkpoint	; this is not supported
+		.byte 0,"ERROR: sdhc1:",0
+
+		inc sd_address_byte0
 		bcc s1
-		inc $d682
+		inc sd_address_byte1
 s2:		bcc s1
-		inc $d683
+		inc sd_address_byte2
 		bcc s1
-		inc $d684
+		inc sd_address_byte3
 s1:		
 		rts
 
@@ -1449,14 +1576,18 @@ sd_fix_sectornumber:
 
 		; SDHC mode, so nothing to do
 		;
+
+		jsr checkpoint	; this is not supported
+		.byte 0,"ERROR: sd_fix_sectornumber:",0
+
 		rts
 
 ;	========================
 
 sdcardmode:
 
-;		jsr checkpoint
-;		.byte 0,"sdcardmode:",0
+		jsr checkpoint
+		.byte 0,"SDcard mode, ie not SDHC, so shifting",0
      
 		; shift left 8 bits first
 		;
@@ -2118,7 +2249,8 @@ copydiskchooserdmalist:
 
 ;	========================
 
-printmessage:
+printmessage:	;HELPER routine
+		;
 		; This subroutine takes inputs from the X and Y registers,
 		; so set these registers before calling this subroutine,
 		; The X and Y registers need to point to a message as shown below:
@@ -2130,14 +2262,15 @@ printmessage:
 		; Ie: the X is the high-byte of the 16-bit address, and
 		;     the Y is the low-byte  of the 16-bit address.
 
-		stx <zptempp
+		stx <zptempp	;zptempp is 16-bit pointer to message
 		sty <zptempp+1
+
 		lda #$00
-		sta <zptempp2
+		sta <zptempp2	;zptempp2 is 16-bit pointer to screen
 		lda #$04
 		sta <zptempp2+1
-		ldx screenrow
 
+		ldx screenrow
 		; if we have reached the bottom of the screen, start writing again
 		; from the top of the screen (but don't touch the top 8 rows for
 		; logo and banner)
@@ -2264,7 +2397,6 @@ phd3:		lda (<zptempp2),y
 		rts
 
 phd2:		txa
-
 		ora #$30
 		cmp #$3a
 		bcc phd1
@@ -2807,6 +2939,118 @@ d1:		inx
 
 ;	========================
 
+dump_disk_table:
+		; HELPER routine, for debug to screen
+
+		ldx #<msg_diskdata
+		ldy #>msg_diskdata
+		jsr printmessage
+
+		ldy #$00
+		ldz #$00		; offset
+		jsr printhex
+		ldy #$00
+		ldz dos_disk_table+0
+		jsr printhex
+		ldz dos_disk_table+1
+		jsr printhex
+		ldz dos_disk_table+2
+		jsr printhex
+		ldz dos_disk_table+3
+		jsr printhex
+		ldz dos_disk_table+4
+		jsr printhex
+		ldz dos_disk_table+5
+		jsr printhex
+		ldz dos_disk_table+6
+		jsr printhex
+		ldz dos_disk_table+7
+		jsr printhex
+
+		ldx #<msg_diskdata
+		ldy #>msg_diskdata
+		jsr printmessage
+
+		ldy #$00
+		ldz #$08		; offset
+		jsr printhex
+		ldy #$00
+		ldz dos_disk_table+8
+		jsr printhex
+		ldz dos_disk_table+9
+		jsr printhex
+		ldz dos_disk_table+10
+		jsr printhex
+		ldz dos_disk_table+11
+		jsr printhex
+		ldz dos_disk_table+12
+		jsr printhex
+		ldz dos_disk_table+13
+		jsr printhex
+		ldz dos_disk_table+14
+		jsr printhex
+		ldz dos_disk_table+15
+		jsr printhex
+
+		ldx #<msg_diskdata
+		ldy #>msg_diskdata
+		jsr printmessage
+
+		ldy #$00
+		ldz #$10		; offset
+		jsr printhex
+		ldy #$00
+		ldz dos_disk_table+16
+		jsr printhex
+		ldz dos_disk_table+17
+		jsr printhex
+		ldz dos_disk_table+18
+		jsr printhex
+		ldz dos_disk_table+19
+		jsr printhex
+		ldz dos_disk_table+20
+		jsr printhex
+		ldz dos_disk_table+21
+		jsr printhex
+		ldz dos_disk_table+22
+		jsr printhex
+		ldz dos_disk_table+23
+		jsr printhex
+
+		ldx #<msg_diskdata
+		ldy #>msg_diskdata
+		jsr printmessage
+
+		ldy #$00
+		ldz #$18		 ; offset
+		jsr printhex
+		ldy #$00
+		ldz dos_disk_table+24
+		jsr printhex
+		ldz dos_disk_table+25
+		jsr printhex
+		ldz dos_disk_table+26
+		jsr printhex
+		ldz dos_disk_table+27
+		jsr printhex
+		ldz dos_disk_table+28
+		jsr printhex
+		ldz dos_disk_table+29
+		jsr printhex
+		ldz dos_disk_table+30
+		jsr printhex
+		ldz dos_disk_table+31
+		jsr printhex
+
+		rts
+
+;	========================
+
+
+
+;	========================
+
+
 hypervisor_nmi:
 hypervisor_irq:
 		; Default interrupt handlers for hypervisor: for now just mask the
@@ -2980,6 +3224,8 @@ cp5:	lda msg_checkpoint,x
 	sta hypervisor_write_char_to_serial_monitor
 	inx
 
+	; BG this should not blindly send, but to wait until the char has been sent
+	;
 	; delay at least 2,000 cycles to allow character to be written
 	; each inner loop is 2 + 256 * (2+3) = ~1,250 cycles
 	; so 2 such loops should take long enough
@@ -3077,15 +3323,17 @@ msg_sdredoread:       .byte "RE-READING SDCARD",0
 msg_badformat:	      .byte "BAD MBR OR DOS BOOT SECTOR.",0
 msg_sdcardfound:      .byte "READ PARTITION TABLE FROM SDCARD",0
 msg_foundromfile:     .byte "FOUND ROM FILE. START CLUSTER = $$$$$$$$",0
-msg_diskcount:	      .byte "MOUNTED $$ PARTITIONS",0
+msg_diskcount:	      .byte "DISK_COUNT=$$, DEFAULT_DISK=$$",0
+msg_diskdata:	      .byte "BB$$:$$.$$.$$.$$.$$.$$.$$.$$",0
+
 msg_filelengths:      .byte "LOOKING FOR $$ BYTES, I SEE $$ BYTES",0
 
 msg_fileopenerror:    .byte "COULD NOT OPEN ROM FILE FOR READING",0
 msg_readingfile:      .BYTE "READING ROM FILE...",0
 msg_romfilelongerror: .byte "ROM TOO LONG: (READ $$$$ PAGES)",0
 msg_romfileshorterror:.byte "ROM TOO SHORT: (READ $$$$ PAGES)",0
-msg_clusternumber:    .byte " NEXT CLUSTER=$$$$$$$$",0
-msg_sectoraddress:    .byte " NEXT SECTOR=$$$$$$$$",0
+msg_clusternumber:    .byte "CURRENT CLUSTER=$$$$$$$$",0
+msg_sectoraddress:    .byte "CURRENT SECTOR= $$$$$$$$",0
 msg_nod81:	      .byte "CANNOT MOUNT MEGA65.D81 - (ERRNO: $$)",0
 msg_d81mounted:	      .byte "MEGA65.D81 SUCCESSFULLY MOUNTED",0
 msg_releasesw15:      .byte "RELEASE SW15 TO CONTINUE BOOTING.",0
@@ -3112,30 +3360,30 @@ msg_blankline:	      .byte 0
 ;
 txt_c65gscharrom:     .byte "CHARROM.M65",0
 
-; filename of ROM we want to load in FAT directory format
-; (the two zero bytes are so that we can insert an extra digit after
-; the 5, when a user presses a key, so that they can choose a
-; different ROM to load).
-;
-txt_c65gsrom:	      .byte "MEGA65.ROM",0,0
+			; filename of ROM we want to load in FAT directory format
+			; (the two zero bytes are so that we can insert an extra digit after
+			; the 5, when a user presses a key, so that they can choose a
+			; different ROM to load).
+			;
+txt_c65gsrom:		.byte "MEGA65.ROM",0,0
 
-; filename of 1581 disk image we mount by default
-;
-txt_c65gsd81:	      .byte "MEGA65.D81",0
+			; filename of 1581 disk image we mount by default
+			;
+txt_c65gsd81:		.byte "MEGA65.D81",0
 
-; filename of kickstart update file
-;
-txt_kickupfile:	      .byte "KICKUP.M65",0
+			; filename of kickstart update file
+			;
+txt_kickupfile:		.byte "KICKUP.M65",0
 
-; filename containing boot logo
-;
-txt_bootlogo:	      .byte "BOOTLOGO.M65",0
+			; filename containing boot logo
+			;
+txt_bootlogo:		.byte "BOOTLOGO.M65",0
 
 ;	========================
 
 diskchooserstart:
 	; Pre-compiled disk menu
-	.incbin "diskmenu_c000.bin"
+;	.incbin "diskmenu_c000.bin"
 
 diskchooserend:
 

@@ -996,7 +996,7 @@ dos_disk_openpartition:
 	; Now pull the start sector from the structure and get ready to request
 	; that structure from the SD card.
 	;
-	ora #fs_start_sector
+	ora #fs_start_sector	; OR with 00 does nothing, but this is the standard
 	tay
 	ldx #$00
 
@@ -1007,14 +1007,24 @@ ddop1:	lda dos_disk_table,y
 	cpx #$04
 	bne ddop1
 
+jsr dumpsectoraddress
+
 	; Convert sector number to byte offset for non-HC SD cards
+	;
+	; BG does not support/understand this routine
+	;
 	jsr sd_fix_sectornumber
+
+jsr dumpsectoraddress
+
 	jsr sd_readsector
 	bcc partitionerror
 
 	; We now have the sector, so parse.
 
 	jsr sd_map_sectorbuffer
+
+;	========================
 
 	; Check for 55/AA singature (again, for the Vol-ID of this partition)
 	;
@@ -1024,11 +1034,14 @@ ddop1:	lda dos_disk_table,y
 
 	lda [sd_sectorbuffer+$1FE]
 	cmp #$55
-	bne partitionerror
+	beq ddop1a
+	jmp partitionerror
+ddop1a:
 	lda [sd_sectorbuffer+$1FF]	
 	cmp #$AA
-	bne partitionerror
-
+	beq ddop1b
+	jmp partitionerror
+ddop1b:
 	jsr checkpoint
 	.byte 0,"Partn has $55AA GOOD",0
 
@@ -1353,7 +1366,11 @@ dos_set_current_disk:
 
 	; Is disk number valid?
 	;
+	; INPUT: .X = disk
+	;
 	lda #dos_errorcode_no_such_disk
+	sta dos_error_code
+
 	cpx dos_disk_count
 	bcs partitionerror
 
@@ -1365,6 +1382,11 @@ dos_set_current_disk:
 	asl
 	asl
 	sta dos_disk_table_offset
+
+		; print debug message
+		;
+		jsr checkpoint
+		.byte 0,"dos_set_current_disk",0
 	
 	sec
 	rts
@@ -1375,7 +1397,8 @@ dos_cdroot:
 
 	; Change to root directory on specified disk
 	; (Changes current disk if required)
-	; X = disk
+	;
+	; INPUT: .X = disk
 
 	jsr dos_set_current_disk
 	bcc dos_return_error_already_set
@@ -1383,10 +1406,11 @@ dos_cdroot:
 	; get offset of disk entry
 	;
 	ldx dos_disk_table_offset
-	lda [dos_disk_table+fs_fat32_root_dir_cluster+0],x
+	lda [dos_disk_table + fs_fat32_root_dir_cluster +0],x
 	sta dos_disk_cwd_cluster
-	lda [dos_disk_table+fs_fat32_root_dir_cluster+1],x
+	lda [dos_disk_table + fs_fat32_root_dir_cluster +1],x
 	sta dos_disk_cwd_cluster+1
+
 	lda #$00
 	sta dos_disk_cwd_cluster+2
 	sta dos_disk_cwd_cluster+3
@@ -1533,6 +1557,11 @@ dos_clearall:
 
 	; Free all file descriptors with extreme prejudice
 	;
+		; display debug message to uart
+		;
+		jsr checkpoint
+		.byte 0,"dos_clearall:",0
+
 	lda #$ff
 	sta dos_file_descriptors
 	sta dos_file_descriptors+$10
@@ -1731,7 +1760,7 @@ dos_readdir:
 	;
 	ldy dos_current_file_descriptor_offset
 	clc
-	lda dos_file_descriptors+dos_filedescriptor_offset_offsetinsector+0,y
+	lda dos_file_descriptors + dos_filedescriptor_offset_offsetinsector +0,y
 
 	tax				; convert .X to char-representation for display
 	jsr checkpoint_bytetohex	; returns: .X and .Y (Y is MSB, X is LSB, print YX)
@@ -1740,7 +1769,7 @@ dos_readdir:
 
 	ldy dos_current_file_descriptor_offset
 	clc
-	lda dos_file_descriptors+dos_filedescriptor_offset_offsetinsector+1,y
+	lda dos_file_descriptors + dos_filedescriptor_offset_offsetinsector +1,y
 
 	tax				; convert .X to char-representation for display
 	jsr checkpoint_bytetohex	; returns: .X and .Y (Y is MSB, X is LSB, print YX)
@@ -1842,12 +1871,35 @@ eight31:
 	sty eight3attrib+0
 	stx eight3attrib+1
 
-	plx
+	; char1
+	;
+	ldy #$00
+	lda (<dos_scratch_vector),y
+	tax				; convert .X to char-representation for display
+	jsr checkpoint_bytetohex	; returns: .X and .Y (Y is MSB, X is LSB, print YX)
+	sty eight3char1+0
+	stx eight3char1+1
+
+	plx	; as the code above clobbers X
 
 	jsr checkpoint
 	.byte 0," (8.3)+ATTRIB ="
 eight3:	.byte "FILENAMEEXT "
-eight3attrib:	.byte "xx",0
+eight3attrib:	.byte "xx "
+eight3char1:	.byte "xx",0
+
+;	========================
+
+	; first, check if the entry begins with zero, suggesting END-OF-DIRECTORY
+
+	ldy #fs_fat32_dirent_offset_shortname	; Y=0 (first char of entry)
+	lda (<dos_scratch_vector),y
+	cmp #$00
+	beq drd_deleted_or_invalid_entry
+
+	; then check if the entry begins with $E5, suggesting deleted
+	cmp #$e5
+	beq drd_deleted_or_invalid_entry
 
 	; now check the attrib
 
@@ -1867,6 +1919,7 @@ eight3attrib:	.byte "xx",0
 	; if bits xx3210 = xx1111 -> is a long filename
 	; we process these differently to the standard (shortname) entries
 	;
+	; i dont know how to compare 0F, so take 0F and see if its zero
 	sec
 	sbc #$0f;%00001111	; LFN entry special attribute value (xxxx1111)
 	bne drce_cont1
@@ -1956,7 +2009,7 @@ drce_longname:
 	tax
 
 	jsr checkpoint
-	.byte 0,"drce_next_piece: found LFN piece",0
+	.byte 0,"BGOK drce_next_piece: found LFN piece",0
 	
 	; Copy first part of LFN
 	;
@@ -2012,7 +2065,7 @@ drce4:	lda (<dos_scratch_vector),y
 drce_eot_in_filename:
 
 	jsr checkpoint
-	.byte 0,"drce_eot_in_filename",0
+	.byte 0,"BGOK drce_eot_in_filename",0
 	
 	; got all characters from this LFN piece
 	;
@@ -2078,10 +2131,11 @@ drce_cont_next_part:
 	bcs dos_readdir
 	jmp dos_return_error_already_set
 
+;	========================
 
 drce_normalrecord:
 	; PGS: We have found a short name.
-	; BG: shortname could be hidden/system/etc
+	; BG: shortname could be hidden/system/deleted/etc
 
 
 	jsr checkpoint
@@ -2224,7 +2278,7 @@ drce_fl:
 drce_is_eof:
 
 	jsr checkpoint
-	.byte 0,"BGOK drce_fl <2>",0
+	.byte 0,"BGOK drce_fl drce_is_eof <2>",0
 
 	; We need to pass the error through here to indicate EOF in directory,
 	; but in a way that can be defered to the next call to dos_readdir, because
@@ -2233,11 +2287,13 @@ drce_is_eof:
 	;
 	ldx dos_current_file_descriptor_offset
 	lda #dos_filemode_end_of_directory
-	sta dos_file_descriptors+dos_filedescriptor_offset_mode,x
+	sta dos_file_descriptors + dos_filedescriptor_offset_mode ,x
 
 	ldx dos_current_file_descriptor_offset
-	lda [dos_file_descriptors+dos_filedescriptor_offset_mode],x
+	lda [dos_file_descriptors + dos_filedescriptor_offset_mode],x
 
+	sec
+	rts
 
 drce_not_eof:
 
@@ -2301,8 +2357,15 @@ fnmsg1:
 
 drd_deleted_or_invalid_entry:
 
+	tax
+					; convert .X to char-representation for display
+	jsr checkpoint_bytetohex	; returns: .X and .Y (Y is MSB, X is LSB, print YX)
+	sty ddie+0
+	stx ddie+1
+	
 	jsr checkpoint
-	.byte 0,"drd_deleted_or_invalid_entry",0
+	.byte 0
+ddie:	.byte "xx drd_deleted_or_invalid_entry",0
 
 	jsr dos_readdir_advance_to_next_entry
 	bcs dos_readdir
@@ -2358,18 +2421,18 @@ dos_readdir_advance_to_next_entry:
 	ldy dos_current_file_descriptor_offset
 	
 	clc
-	lda dos_file_descriptors+dos_filedescriptor_offset_offsetinsector+0,y
+	lda dos_file_descriptors + dos_filedescriptor_offset_offsetinsector +0,y
 	adc #$20 ; length of FAT32/VFAT directory entry
-	sta dos_file_descriptors+dos_filedescriptor_offset_offsetinsector+0,y
+	sta dos_file_descriptors + dos_filedescriptor_offset_offsetinsector +0,y
 	bne dratne_done
 
 	; Increment upper byte
 	;
-	lda dos_file_descriptors+dos_filedescriptor_offset_offsetinsector+1,y
+	lda dos_file_descriptors + dos_filedescriptor_offset_offsetinsector +1,y
 	inc
 	cmp #$01
 	bne drce_end_of_sector
-	sta dos_file_descriptors+dos_filedescriptor_offset_offsetinsector+1,y
+	sta dos_file_descriptors + dos_filedescriptor_offset_offsetinsector +1,y
 
 dratne_done:
 	sec
@@ -2846,8 +2909,15 @@ dos_print_current_cluster:
 	
 dos_readfileintomemory:
 
-	; file name must be already loaded into dos_requested_filename,
-	; with length in dos_requreste_filename_length
+	; assumes that filename is already set using "dos_setname", which 
+	; copies filename string into "dos_requested_filename",
+	;        and sets length into "dos_requested_filename_length".
+	;
+	; assumes that 32-bit pointer is set by storing at "dos_file_loadaddress+{0-3}"
+
+	; print some debug information
+	;
+	jsr dos_print_current_cluster
 
 	; Clear number of sectors read
 	ldx #$00
@@ -2883,7 +2953,7 @@ drfim_sector_loop:
 	ldx #$00
 	ldz #$00
 drfim_rr1:
-	lda $de00,x
+	lda sd_sectorbuffer,x		; is $DE00
 	nop ; 32-bit pointer access follows
 	sta (<dos_file_loadaddress),z
 	inz
@@ -2893,7 +2963,7 @@ drfim_rr1:
 	inw <dos_file_loadaddress+1
 
 drfim_rr1b:
-	lda $df00,x
+	lda sd_sectorbuffer+$100,x	; is $DF00
 	nop ; 32-bit pointer access follows
 	sta (<dos_file_loadaddress),z
 	inz
@@ -2903,6 +2973,7 @@ drfim_rr1b:
 	jsr dos_file_advance_to_next_sector
 	bcc drfim_eof
 
+	; BG: this comment does not belong here, as here does not do actual checking
 	; We only allow loading into a 16MB space
 	; Provided that we check the load address before starting,
 	; this ensures that a user-land request cannot load a huge file
@@ -2937,6 +3008,10 @@ drfim_eof:
 ;	========================
 
 dos_setname:
+
+	; INPUT: .X .Y = pointer to filename,
+	;		filename string must be terminated with $00
+	;		filename string must be <= $3F chars
 
 	stx dos_scratch_vector
 	sty dos_scratch_vector+1
