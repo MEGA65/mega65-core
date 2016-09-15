@@ -1,5 +1,5 @@
 
-VHDLSRCDIR=	../vhdl
+VHDLSRCDIR=	vhdl
 
 KICKSTARTSRCS = kickstart.a65 \
 		kickstart_machine.a65 \
