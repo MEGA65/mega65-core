@@ -19,7 +19,7 @@ _next:	 .word 0
 	 sta $d02f
 
 	 ; set FDC track, sector and side register
-	 lda #$01
+	 lda #40
 	 sta $d084 ; set track number
 	 lda #$00
 	 sta $d085 ; set sector number
@@ -53,7 +53,8 @@ waitforabyte:
 	 lda $d082
 	 and #$20
 	 bne waitforabyte
-	 lda $d087 ; read the byte and do nothing with it
+	 lda $d087
+	 sta $0428,y
 	 iny
 	 bne waitforabyte
 	 inc $0401
@@ -62,7 +63,8 @@ waitforabyte2:
 	 lda $d082
 	 and #$20
 	 bne waitforabyte2
-	 lda $d087 ; read the byte and do nothing with it
+	 lda $d087
+	 sta $0528,y
 	 iny
 	 bne waitforabyte2
 	 inc $0402
