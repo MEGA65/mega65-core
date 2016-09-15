@@ -383,6 +383,10 @@ begin  -- behavioural
     variable temp_cmd : unsigned(7 downto 0);
   begin
 
+  -- ==================================================================
+  -- here is a combinational process (ie: not clocked)
+  -- ==================================================================
+
     if fastio_read='1' and sectorbuffercs='0' then
       if (fastio_addr(19 downto 5)&'0' = x"D108")
         or (fastio_addr(19 downto 5)&'0' = x"D308") then
@@ -611,6 +615,8 @@ begin  -- behavioural
       end if;
     end if;
 
+  -- ==================================================================
+  -- ==================================================================
     
     if rising_edge(clock) then
 
@@ -693,6 +699,7 @@ begin  -- behavioural
       -- EQ flag is asserted when buffer address matches where we are upto
       -- reading or writing.  On complete reads this should correspond to the
       -- start of the buffer.
+
       -- XXX This formulation isn't right, as we can't properly signal buffer
       -- full/empty status in a way that the C65 ROM understands for both read
       -- and write.  Nothing seems to work for the write routines.
@@ -750,12 +757,24 @@ begin  -- behavioural
         sectorbuffermapped <= sector_buffer_mapped;
         sectorbuffermapped2 <= sector_buffer_mapped;
       end if;
-            
+
+    end if; --     if rising_edge(clock) then
+  -- ==================================================================
+  -- ==================================================================
+    if rising_edge(clock) then
+
       if fastio_write='1' then
-        if (fastio_addr(19 downto 5)&'0' = x"D108")
+
+        if   (fastio_addr(19 downto 5)&'0' = x"D108")
           or (fastio_addr(19 downto 5)&'0' = x"D308") then
+
+          -- ================================================================== START
+          -- the section below is for the F011
+          -- ==================================================================
+
           -- F011 FDC emulation registers
           case fastio_addr(4 downto 0) is
+
             when "00000" =>
               -- @IO:C65 $D080 - F011 FDC control
               -- CONTROL |  IRQ  |  LED  | MOTOR | SWAP  | SIDE  |  DS2  |  DS1  |  DS0  | 0 RW
@@ -786,6 +805,7 @@ begin  -- behavioural
               if fastio_wdata(2 downto 0) /= f011_ds then
                 f011_disk_changed <= '0';
               end if;
+
             when "00001" =>           -- $D081
               -- @IO:C65 $D081 - F011 FDC command
               -- COMMAND | WRITE | READ  | FREE  | STEP  |  DIR  | ALGO  |  ALT  | NOBUF | 1 RW
@@ -834,9 +854,11 @@ begin  -- behavioural
                 f011_buffer_next_read(7 downto 0) <= (others => '0');
                 f011_buffer_next_read(8) <= f011_swap;
               end if;
+
               temp_cmd := fastio_wdata(7 downto 3) & "000";
               report "F011 command $" & to_hstring(temp_cmd) & " issued.";
               case temp_cmd is
+
                 when x"40" =>         -- read sector
                   -- calculate sector number.
                   -- physical sector on disk = track * $14 + sector on track
@@ -887,7 +909,8 @@ begin  -- behavioural
                     f011_buffer_next_read(7 downto 0) <= (others => '0');
                     f011_buffer_next_read(8) <= f011_swap;
                     
-                  end if;                    
+                  end if;  
+                  
                 when x"80" =>         -- write sector
                   -- Copy sector from F011 buffer to SD buffer, and then
                   -- pretend the SD card registers were used to trigger a write.
@@ -935,6 +958,7 @@ begin  -- behavioural
                     sdio_fsm_error <= '0';
                     report "Commencing FDC buffered write.";
                   end if;
+
                 when x"10" =>         -- head step out, or no step
                   if fastio_wdata(2)='1' then
                     -- time, but don't step
@@ -950,15 +974,19 @@ begin  -- behavioural
                 when others =>        -- illegal command
                   null;
               end case;
+
             when "00100" =>
               -- @IO:C65 $D084 - F011 FDC track
               f011_track <= fastio_wdata;
+
             when "00101" =>
               -- @IO:C65 $D085 - F011 FDC sector
               f011_sector <= fastio_wdata;
+
             when "00110" =>
               -- @IO:C65 $D086 - F011 FDC side
               f011_side <= fastio_wdata;
+
             when "00111" =>
               -- @IO:C65 $D085 - F011 FDC data register
               -- Data register -- should probably be putting byte into the sector
@@ -973,12 +1001,25 @@ begin  -- behavioural
                 f011_drq <= '0';                         
               end if;
               last_was_d087<='1';
-            when others => null;           
+
+            when others => null;
+
           end case;
+          -- ================================================================== END
+          -- the section above was for the F011
+          -- ==================================================================
+
+
         elsif (fastio_addr(19 downto 8) = x"D16"
-               or fastio_addr(19 downto 8) = x"D36") then
+            or fastio_addr(19 downto 8) = x"D36") then
+
+          -- ================================================================== START
+          -- the section below is for the SDcard
+          -- ==================================================================
+
           -- microSD controller registers
           case fastio_addr(7 downto 0) is
+
             -- @IO:GS $D680 - SD controller status/command
             when x"80" =>
               -- status / command register
@@ -990,24 +1031,28 @@ begin  -- behavioural
                   sdio_error <= '0';
                   sdio_fsm_error <= '0';
                   sd_sector <= (others => '0');
+
                 when x"10" =>
                   -- Reset SD card with flags specified
                   sd_reset <= '1';
                   sd_state <= Idle;
                     sdio_error <= '0';
                   sdio_fsm_error <= '0';
+
                 when x"01" =>
                   -- End reset
                   sd_reset <= '0';
                   sd_state <= Idle;
                   sdio_error <= '0';
                   sdio_fsm_error <= '0';
+
                 when x"11" =>
                   -- End reset
                   sd_reset <= '0';
                   sd_state <= Idle;
                   sdio_error <= '0';
                   sdio_fsm_error <= '0';
+
                 when x"02" =>
                   -- Read sector
                   if sdio_busy='1' then
@@ -1018,6 +1063,7 @@ begin  -- behavioural
                     sdio_error <= '0';
                     sdio_fsm_error <= '0';
                   end if;
+
                 when x"03" =>
                   -- Write sector
                   if sdio_busy='1' then
@@ -1028,25 +1074,39 @@ begin  -- behavioural
                     sdio_error <= '0';
                     sdio_fsm_error <= '0';
                   end if;
+
                 when x"40" => sdhc_mode <= '0';
                 when x"41" => sdhc_mode <= '1';
                 when x"42" => half_speed <= '0';
                 when x"43" => half_speed <= '1';
+
                 when x"81" => sector_buffer_mapped<='1';
                               sdio_error <= '0';
                               sdio_fsm_error <= '0';
+
                 when x"82" => sector_buffer_mapped<='0';
                               sdio_error <= '0';
                               sdio_fsm_error <= '0';
+
                 when others =>
                   sdio_error <= '1';
               end case;
+
             when x"81" =>
               -- @IO:GS $D681-$D684 - SD controller SD sector address
-              sd_sector(7 downto 0) <= fastio_wdata;
+                           sd_sector(7 downto 0) <= fastio_wdata;
             when x"82" => sd_sector(15 downto 8) <= fastio_wdata;
             when x"83" => sd_sector(23 downto 16) <= fastio_wdata;
             when x"84" => sd_sector(31 downto 24) <= fastio_wdata;
+
+          -- ================================================================== END
+          -- the section above was for the SDcard
+          -- ==================================================================
+
+          -- ================================================================== START
+          -- the section below is for OTHER I/O
+          -- ==================================================================
+
               -- @IO:GS $D68B - F011 emulation control register
             when x"8b" =>
               -- @IO:GS $D68B.5 - F011 disk 2 write protect
@@ -1063,43 +1123,51 @@ begin  -- behavioural
               -- @IO:GS $D68B.0 - F011 disk 1 disk image enable
               diskimage1_enable <= fastio_wdata(0);
               report "writing $" & to_hstring(fastio_wdata) & " to FDC control";
+
             -- @IO:GS $D68C-$D68F - F011 disk 1 disk image address on SD card
             when x"8c" => diskimage_sector(7 downto 0) <= fastio_wdata;
             when x"8d" => diskimage_sector(15 downto 8) <= fastio_wdata;
             when x"8e" => diskimage_sector(23 downto 16) <= fastio_wdata;
             when x"8f" => diskimage_sector(31 downto 24) <= fastio_wdata;
+
             -- @IO:GS $D690-$D693 - F011 disk 2 disk image address on SD card
             when x"90" => diskimage2_sector(7 downto 0) <= fastio_wdata;
             when x"91" => diskimage2_sector(15 downto 8) <= fastio_wdata;
             when x"92" => diskimage2_sector(23 downto 16) <= fastio_wdata;
             when x"93" => diskimage2_sector(31 downto 24) <= fastio_wdata;
+
             -- @IO:GS $D6F3 - Accelerometer bit-bashing port
             when x"F3" =>
               -- Accelerometer
-              aclMOSI <= fastio_wdata(1);
+              aclMOSI         <= fastio_wdata(1);
               aclMOSIinternal <= fastio_wdata(1);
-              aclSS <= fastio_wdata(2);
-              aclSSinternal <= fastio_wdata(2);
-              aclSCK <= fastio_wdata(3);
-              aclSCKinternal <= fastio_wdata(3);
+              aclSS           <= fastio_wdata(2);
+              aclSSinternal   <= fastio_wdata(2);
+              aclSCK          <= fastio_wdata(3);
+              aclSCKinternal  <= fastio_wdata(3);
+
             -- @IO:GS $D6F5 - Temperature sensor
             when x"F5" =>
               tmpSDAinternal <= fastio_wdata(0);
-              tmpSDA <= fastio_wdata(0);
+              tmpSDA         <= fastio_wdata(0);
               tmpSCLinternal <= fastio_wdata(1);
-              tmpSCL <= fastio_wdata(1);
+              tmpSCL         <= fastio_wdata(1);
+
             -- @IO:GS $D6F8 - 8-bit digital audio out (left)
             when x"F8" =>
               -- 8-bit digital audio out
               pwm_value_new_left <= fastio_wdata;
+
             when x"F9" =>
               -- @IO:GS $D6F9.0 - Enable audio amplifier
               -- enable/disable audio amplifiers
               ampSD <= fastio_wdata(0);
+
             when x"FA" =>
               -- @IO:GS $D6FA - 8-bit digital audio out (left)
               -- 8-bit digital audio out
               pwm_value_new_right <= fastio_wdata;
+
             when x"FF" =>
               -- @IO:GS $D6FF - Flash bit-bashing port
               -- Flash interface
@@ -1123,6 +1191,7 @@ begin  -- behavioural
               else
                 QspiDB(3) <= 'Z';
               end if;
+
               -- XXX We should protect CS so that we can prevent use of the flash
               -- if we want.  As it is a malicious program could reprogram or
               -- mess up the configuration flash.
@@ -1131,13 +1200,27 @@ begin  -- behavioural
               QspiSCK <= fastio_wdata(7);
               QspiSCKInternal <= fastio_wdata(7);
             when others => null;
+
+          -- ================================================================== END
+          -- the section above was for OTHER I/O
+          -- ==================================================================
+
           end case;
-        end if;
-      end if;
-                
+
+        end if; --     if (fastio_addr(19 downto ...
+
+      end if; --    if fastio_write='1' then
+
+    end if; --     if rising_edge(clock) then
+  -- ==================================================================
+  -- ==================================================================
+    if rising_edge(clock) then
+
       sb_w <= '0';
       report "SD interface state = " & sd_state_t'image(sd_state);
+
       case sd_state is
+
         when Idle =>
           sdio_busy <= '0';
           -- Allow CPU to write to sector buffers if we are not talking to the
@@ -1150,6 +1233,7 @@ begin  -- behavioural
           else
             sb_w <= '0';
           end if;
+
         when ReadSector =>
           -- Begin reading a sector into the buffer
           if sdio_busy='0' then
@@ -1162,6 +1246,7 @@ begin  -- behavioural
           else
             sd_doread <= '0';
           end if;
+
         when ReadingSector =>
           if data_ready='1' then
             sd_doread <= '0';
@@ -1191,6 +1276,7 @@ begin  -- behavioural
               skip <= skip - 1;
             end if;
           end if;
+
         when ReadingSectorAckByte =>
           -- Wait until controller acknowledges that we have acked it
           if data_ready='0' then
@@ -1208,6 +1294,7 @@ begin  -- behavioural
               sd_state <= ReadingSector;
             end if;
           end if;
+
         when F011WriteSector =>
           -- Sit out the wait state for reading the next sector buffer byte
           -- as we copy the F011 sector buffer to the primary SD card sector buffer.
@@ -1216,6 +1303,7 @@ begin  -- behavioural
           f011_buffer_address <= f011_buffer_address;
           f011_buffer_next_read <= (others => '0');
           sd_state <= F011WriteSectorCopying;
+
         when F011WriteSectorCopying =>	
           -- Write byte to SD sector buffer		
           sb_writeaddress <= to_integer("0"&f011_buffer_next_read);		
@@ -1231,6 +1319,7 @@ begin  -- behavioural
             f011_buffer_next_read <= (others => '0');		
             sd_state <= WriteSector;		
           end if;
+
         when WriteSector =>
           -- Begin writing a sector into the buffer
           sb_w <= '0';
@@ -1244,6 +1333,7 @@ begin  -- behavioural
           else
             sd_dowrite <= '0';
           end if;
+
         when WritingSector =>
           if data_ready='1' then
             sd_dowrite <= '0';
@@ -1258,6 +1348,7 @@ begin  -- behavioural
               sd_state <= WritingSectorAckByte;
             end if;
           end if;
+
         when WritingSectorAckByte =>
           -- Wait until controller acknowledges that we have acked it
           if data_ready='0' then
@@ -1270,10 +1361,12 @@ begin  -- behavioural
               sd_state <= WritingSector;
             end if;
           end if;
+
         when DoneReadingSector =>
           sdio_busy <= '0';
           f011_busy <= '0';
           sd_state <= Idle;
+
         when DoneWritingSector =>
           sdio_busy <= '0';
           sd_state <= Idle;
