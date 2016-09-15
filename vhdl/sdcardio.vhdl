@@ -683,9 +683,8 @@ begin  -- behavioural
       -- full/empty status in a way that the C65 ROM understands for both read
       -- and write.  Nothing seems to work for the write routines.
       if f011_buffer_address = f011_buffer_next_read then
-        -- if 1, then reading from disk infinite loops waiting for 0
-        f011_flag_eq <= '0';
-      else
+        -- pointers point to same place, so EQUAL flag should be set,
+        -- unless inhibited, because buffer is full, not empty.
         -- if 1, then something else doesn't work?
         -- LGB worked out that the problem here is that the eq flag should only
         -- be set whenever the CPU side of the buffer advances to match the FDC
@@ -695,6 +694,9 @@ begin  -- behavioural
         else
           f011_flag_eq <= '0';
         end if;
+      else
+        -- pointers not at the same place, so flag should be clear
+        f011_flag_eq <= '0';
       end if;
       f011_buffer_write <= '0';
       if f011_head_track="0000000" then
