@@ -1,3 +1,5 @@
+
+
 ; XXX - Track down why 2nd and subsequent LFN blocks are not used.
 
 	.alias os_version  $0102
@@ -82,12 +84,14 @@
 	;
 	.alias dos_filemode_relative 2
 	
+;	========================
 
 dos_and_process_trap:
+
 	; XXX - Machine is being updated to automatically disable IRQs on trapping
 	; to hypervisor, but for now, we need to do this explicitly.
 	; Should be able to be removed after 20160103
-	;
+	; BG: cannot confirm removal of the instruction below. Dated 20160902
 	sei
 
 	; XXX - We have just added a fix for this in the CPU, to CLEAR DECIMAL MODE
@@ -100,41 +104,53 @@ dos_and_process_trap:
 	; Mask out bit 0 so that indirect jmp's are valid.
 	;
 	and #$FE
+
 	; to save memory we only allow this table to be 128 bytes long,
 	; thus we have to check that bit 7 is clear.
 	;
-	bmi invalid_subfunction
+	bmi invalid_subfunction		; defined in kickstart
 	tax
 	jmp (dos_and_process_trap_table,x)
+
+;	========================
+
 dos_and_process_trap_table:
+
 	; $00 - $0E
+	;
 	.word trap_dos_getversion
 	.word trap_dos_getdefaultdrive
 	.word trap_dos_getcurrentdrive		; appears out-of-order (is far below)
 	.word trap_dos_selectdrive
-	.word trap_dos_getdisksize
-	.word trap_dos_getcwd
-	.word trap_dos_chdir
-	.word trap_dos_mkdir
+	.word trap_dos_getdisksize		; not currently implememted
+	.word trap_dos_getcwd			; not currently implememted
+	.word trap_dos_chdir			; not currently implememted
+	.word trap_dos_mkdir			; not currently implememted
+
 	; $10 - $1E
-	.word trap_dos_rmdir
+	;
+	.word trap_dos_rmdir			; not currently implememted
 	.word trap_dos_opendir
 	.word trap_dos_readdir
 	.word trap_dos_closedir
 	.word trap_dos_openfile
-	.word trap_dos_readfile
-	.word trap_dos_writefile
-	.word trap_dos_mkfile
+	.word trap_dos_readfile		; not currently implememted
+	.word trap_dos_writefile	; not currently implememted
+	.word trap_dos_mkfile			; not currently implememted
+
 	; $20 - $2E
+	;
 	.word trap_dos_closefile
 	.word trap_dos_closeall
-	.word trap_dos_seekfile
-	.word trap_dos_rmfile
-	.word trap_dos_fstat
-	.word trap_dos_rename
-	.word trap_dos_filedate
+	.word trap_dos_seekfile		; not currently implememted
+	.word trap_dos_rmfile		; not currently implememted
+	.word trap_dos_fstat		; not currently implememted
+	.word trap_dos_rename		; not currently implememted
+	.word trap_dos_filedate		; not currently implememted
 	.word trap_dos_setname
+
 	; $30 - $3E
+	;
 	.word trap_dos_findfirst
 	.word trap_dos_findnext
 	.word trap_dos_findfile
@@ -143,7 +159,9 @@ dos_and_process_trap_table:
 	.word invalid_subfunction
 	.word invalid_subfunction
 	.word invalid_subfunction
+
 	; $40 - $4E
+	;
 	.word trap_dos_d81attach
 	.word trap_dos_d81detach
 	.word trap_dos_d81writeen
@@ -152,24 +170,28 @@ dos_and_process_trap_table:
 	.word invalid_subfunction
 	.word invalid_subfunction
 	.word invalid_subfunction
+
 	; $50 - $5E
-	.word trap_dos_gettasklist
-	.word trap_dos_sendmessage
-	.word trap_dos_receivemessage
-	.word trap_dos_writeintotask
-	.word trap_dos_readoutoftask
+	;
+	.word trap_dos_gettasklist		; not currently implememted
+	.word trap_dos_sendmessage		; not currently implememted	
+	.word trap_dos_receivemessage		; not currently implememted
+	.word trap_dos_writeintotask		; not currently implememted
+	.word trap_dos_readoutoftask		; not currently implememted
 	.word invalid_subfunction
 	.word invalid_subfunction
 	.word invalid_subfunction
+
 	; $60 - $6E
-	.word trap_dos_terminateothertask
-	.word trap_dos_create_task_native
-	.word trap_dos_load_into_task
-	.word trap_dos_create_task_c64
-	.word trap_dos_create_task_c65
-	.word trap_dos_exit_and_switch_to_task
-	.word trap_dos_switch_to_task
-	.word trap_dos_exit_task
+	;
+	.word trap_dos_terminateothertask	; not currently implememted
+	.word trap_dos_create_task_native	; not currently implememted
+	.word trap_dos_load_into_task		; not currently implememted
+	.word trap_dos_create_task_c64		; not currently implememted
+	.word trap_dos_create_task_c65		; not currently implememted
+	.word trap_dos_exit_and_switch_to_task	; not currently implememted
+	.word trap_dos_switch_to_task		; not currently implememted
+	.word trap_dos_exit_task		; not currently implememted
 
 ;	========================
 
@@ -687,7 +709,7 @@ dos_read_partitiontable:
 	lda #>[sd_sectorbuffer+$1BE]
 	sta dos_scratch_vector+1
 		jsr checkpoint
-		.byte 0,"Checking Partition #1",0
+		.byte 0,"=== Checking Partition #1 at $01BE",0
 	jsr dos_consider_partition_entry
 	
 	jsr dos_read_mbr
@@ -695,7 +717,7 @@ dos_read_partitiontable:
 	lda #<[sd_sectorbuffer+$1CE]
 	sta dos_scratch_vector
 		jsr checkpoint
-		.byte 0,"Checking Partition #2",0
+		.byte 0,"=== Checking Partition #2 at $01CE",0
 	jsr dos_consider_partition_entry
 
 	jsr dos_read_mbr
@@ -703,7 +725,7 @@ dos_read_partitiontable:
 	lda #<[sd_sectorbuffer+$1DE]
 	sta dos_scratch_vector
 		jsr checkpoint
-		.byte 0,"Checking Partition #3",0
+		.byte 0,"=== Checking Partition #3 at $01DE",0
 	jsr dos_consider_partition_entry
 
 	jsr dos_read_mbr
@@ -711,7 +733,7 @@ dos_read_partitiontable:
 	lda #<[sd_sectorbuffer+$1EE]
 	sta dos_scratch_vector
 		jsr checkpoint
-		.byte 0,"Checking Partition #4",0
+		.byte 0,"=== Checking Partition #4 at $01EE",0
 	jsr dos_consider_partition_entry
 
 	lda #0
@@ -758,6 +780,8 @@ dos_consider_partition_entry:
 
 	; Offset within partition table entry of partition type
 	;
+	; BG: make this a hash-define
+	;
 	ldy #$04
 
 	; Get partition type byte
@@ -799,42 +823,58 @@ partitionisinteresting_chs:
 
 partitionisinteresting:
 
-	; Partition is FAT32, so add it to the list
+	; Partition is FAT32 (either 0B or 0C), so add it to the list
 
 	; Disk structures in dos_disk_table are 32 bytes long, so shift count left
 	; 5 times to get offset in dos disk list table
 	;
+	; initially, dos_disk_count=00 so shifting results in =00
+	;
+	lda dos_disk_count
+
+	; print out this message to Checkpoint
+	;
+	tax				; convert .X to char-representation for display
+	jsr checkpoint_bytetohex	; returns: .X and .Y (Y is MSB, X is LSB, print YX)
+	sty partisint
+	stx partisint+1
+	jsr checkpoint
+	.byte 0,"dos_disk_count = "
+partisint:
+	.byte "xx",0
+
 	lda dos_disk_count
 	asl
 	asl
 	asl
 	asl
 	asl
-	tax
+	tax	; x is offset into dos_disk_table
 
 	; Copy relevant fields into place
 	; These are start of partition and length of partition (both in sectors)
 	; XXX - This requires that our dos_disk_table has these two fields together
 	; at the start of the structure.
 	;
-	ldy #$08
+	ldy #$08	; partition_lba_begin (4 bytes)
 
 dcpe1:	lda (<dos_scratch_vector),y
 	sta dos_disk_table,x
 	inx
 	iny
-	cpy #$10
+	cpy #$10	; partition_num_sectors (4 bytes)
 	bne dcpe1
 
 	; Examine the internals of the partition to get the remaining fields.
 	; At this point we no longer use the contents of the MBR
 	;
-	lda dos_disk_count
 	jsr dos_disk_openpartition
 	bcc partitionerror
 
 	; Check if partition is bootable (or the only partition)
 	; If so, make the partition the default disk
+	;
+	; BG, we should examine all four partitions before setting the default disk
 	;
 	lda dos_disk_count
 	beq makethispartitionthedefault
@@ -925,13 +965,14 @@ perr:	.byte "xx",0
 	clc
 	rts
 
-;	========================
+;;; ----------------------------------------------------------------------------
 
-; Examine a partition to see if we can mount it.
-; This routine fills in the missing fields for the disk entry as required.
-; It assumes that fs_start_sector and fs_sector_count have been correctly set.
-;
+		; Examine a partition to see if we can mount it.
+		; This routine fills in the missing fields for the disk entry as required.
+		; It assumes that fs_start_sector and fs_sector_count have been correctly set.
+		;
 ; Each disk entry consists of;
+;
 ; Offset $00 - starting sector (4 bytes)
   	 .alias fs_start_sector $00
 
@@ -941,8 +982,9 @@ perr:	.byte "xx",0
 ; Offset $08 - Filesystem type & media source ($0x = FAT32, $xF = SD card, others reserved for now)
   	 .alias fs_type_and_source $08
 
-; Remaining bytes are filesystem dependent:
-; For FAT32:
+		; Remaining bytes are filesystem dependent:
+		; For FAT32:
+		;
 ; Offset $09 - length of fat (4 bytes) (FAT starts at fs_fat32_system_sectors)
   	 .alias fs_fat32_length_of_fat $09
 
@@ -974,7 +1016,7 @@ perr:	.byte "xx",0
 dos_disk_openpartition:
 
 	jsr checkpoint
-	.byte 0,"dos_disk_openpartition:",0
+	.byte 0,"dos_disk_openpartition: (examine Vol ID)",0
 
 	; A contains the disk number we are trying to open.
 	;
@@ -982,10 +1024,11 @@ dos_disk_openpartition:
 	sta dos_error_code
 
 	; Load first sector of file system and parse.
-	; This is the Volume Boot Record
+	; This is the Volume ID pointed to by the PartitionTable in the MBR
 
 	; Get offset of disk entry in our disk table structure
 	;
+	lda dos_disk_count
 	asl
 	asl
 	asl
@@ -1049,20 +1092,29 @@ ddop1b:
 
 ;	BG assumes this is all correct...
 
+;	========================
+
 	; Filter out obviously FAT16/FAT12 file systems
 	;
 	lda #dos_errorcode_is_small_fat
 	sta dos_error_code
+	;
+	; BG i think we dont need to check this for minimal operation
+	;
 	lda [sd_sectorbuffer+$11]
 	bne partitionerror
+
+;	========================
 
 	; get # copies of fat
 	;
 	lda dos_disk_table_offset
 	ora #fs_fat32_fat_copies
 	tay
-	lda [sd_sectorbuffer+$10]
+	lda [sd_sectorbuffer+$10]	; should be 2
 	sta dos_disk_table,y
+
+;	========================
 
 	; With root directory entries = 0, the reserved sector count
 	; is the number of reserved sectors, plus (copies of fat) *
@@ -1077,11 +1129,13 @@ ddop1b:
 	; $08 sectors / cluster
 	; so data sectors in partition = $3BAF7F - $1DEA = $3B9195
 	; = $77232 clusters
+
+	; BG does not like the above reasoning, ie fixed number of reserved sectors.
 	
 	; Reserved sector field on disk is only 2 bytes!
 	;
 	lda dos_disk_table_offset
-	ora #fs_fat32_system_sectors	
+	ora #fs_fat32_system_sectors	;is $0D	
 	tay
 	ldx #$00
 
@@ -1092,23 +1146,30 @@ ddop10:	lda [sd_sectorbuffer+$0E],x
 	cpx #$02
 	bne ddop10
 
+;	========================
+
 	; Store length of one copy of the FAT
 	;
 	lda dos_disk_table_offset
-	ora #fs_fat32_length_of_fat
+	ora #fs_fat32_length_of_fat	; is $09
 	tay
 	ldx #$00
 
-ddop11:	lda [sd_sectorbuffer+$24],x
+ddop11:	lda [sd_sectorbuffer+$24],x	; sectors_per_fat
 	sta dos_disk_table,y
 	iny
 	inx
 	cpx #$04
 	bne ddop11
 
+;	========================
+
 	; Get number of reserved clusters.  We only allow upto 255 reserved
 	; clusters, so report an error if the upper two bytes are not both zero
 	;
+	; BG: why only 255 reserved clusters? and isnt it reserved sectors instead?
+	; and seems to be looking at the root_dir_first_cluster
+	; 
 	lda #dos_errorcode_too_many_reserved_clusters
 	sta dos_error_code
 	lda [sd_sectorbuffer+$2C+1]
@@ -1117,6 +1178,7 @@ ddop11:	lda [sd_sectorbuffer+$24],x
 
 	; XXX - 16 bit BNE should be fine here! Why doesn't it work?
 	;	bne partitionerror
+
 	beq ddop11ok
 	jmp partitionerror
 
@@ -1126,9 +1188,15 @@ ddop11ok:
 
 	; <64K reserved clusters, so file system passes this test -- just copy number
 	;
+	; BG does not agree with the logic, of <64k reservedclusters to passes
+	;
 	ldy dos_disk_table_offset
-	lda [sd_sectorbuffer+$2C]
+	lda [sd_sectorbuffer+$2C]	; 2c is the RootDirFirstCluster
 	sta [dos_disk_table+fs_fat32_reserved_clusters],y
+
+	; BG refer to the above, i think we should copy all 4x bytes of the rootDirFirstCluster
+
+;	========================
 
 	; Now work out the sector of cluster 0, by adding the length of
 	; each FAT to fs_fat32_system_sectors to start of partition.
@@ -1138,10 +1206,10 @@ ddop11ok:
 	; Start with fs_fat32_system_sectors (which is 16 bits)
 	;
 	lda dos_disk_table_offset
-	ora #fs_fat32_system_sectors
-	tay	
+	ora #fs_fat32_system_sectors	; is $0D
+	tay
 	lda dos_disk_table_offset
-	ora #fs_fat32_cluster0_sector
+	ora #fs_fat32_cluster0_sector	; is $18
 	tax
 	ldz #$02
 
@@ -1154,14 +1222,20 @@ ddop2:	lda dos_disk_table,y
 
 	; clear top 16 bits of cluster0_sector
 	;
+	; BG: why tza, just do lda#$00
 	tza
 	sta [dos_disk_table+0],x
 	sta [dos_disk_table+1],x
-	
+
+;	========================
+
 	; Now add length of fat for each copy of the fat
 	;
 	lda #dos_errorcode_not_two_fats
 	sta dos_error_code
+
+	; BG #FATs should be sourced from dos_disk_table[17], not from buffer+$10
+
 	ldz [sd_sectorbuffer+$10]     ; # of FAT copies
 	beq partitionerror ; There must be at least one copy of the FAT!
 	cpz #2
@@ -1170,7 +1244,7 @@ ddop2:	lda dos_disk_table,y
 ddop_addnextfatsectors:
 
 	lda dos_disk_table_offset
-	ora #fs_fat32_cluster0_sector
+	ora #fs_fat32_cluster0_sector	; is $18
 	tay
 	ldx #$00
 	clc
@@ -1178,7 +1252,7 @@ ddop_addnextfatsectors:
 
 ddop12:	plp
 	lda dos_disk_table,y           ; cluster0_sector
-	adc [sd_sectorbuffer+$24],x    ; sectors per fat
+	adc [sd_sectorbuffer+$24],x    ; sectors per fat ;BG should load from dos_disk_table[09]
 	sta dos_disk_table,y           ; cluster0_sector
 	php
 	iny
@@ -1187,8 +1261,13 @@ ddop12:	plp
 	bne ddop12
 
 	plp
+	;
+	; as Z was initially 2 (#FATs), we do this loop twice
+	; resulting in 2x the sectorsPerFat added to "reservedSectors"?
 	dez
 	bne ddop_addnextfatsectors
+
+; BG does not agree with the calculations below, why do we need to calculate it this way?
 
 	; Next, we temporarily need the number of data sectors, so that we can work
 	; out the number of clusters in the file system.
@@ -1199,10 +1278,10 @@ ddop12:	plp
 	; (length of filesystem in sectors = 32 bits)
 
 	lda dos_disk_table_offset
-	ora #fs_fat32_cluster0_sector
+	ora #fs_fat32_cluster0_sector	; is $18
 	tax
 	lda dos_disk_table_offset
-	ora #fs_fat32_cluster_count
+	ora #fs_fat32_cluster_count	; is $12
 	tay
 	sec
 	lda [sd_sectorbuffer+$20+0]
@@ -1218,14 +1297,18 @@ ddop12:	plp
 	sbc [dos_disk_table+3],x
 	sta [dos_disk_table+3],y
 
+;	========================
+
 	; Get sectors per cluster (and store in dos_disk_table entry)
 	; (this gets destoryed below, so we have to re-read it again after) 
 	;
 	lda dos_disk_table_offset
-	ora #fs_fat32_sectors_per_cluster
+	ora #fs_fat32_sectors_per_cluster	; is $16
 	tay
 	lda [sd_sectorbuffer+$0D]
 	sta dos_disk_table,y
+
+;	========================
 
 	; Now divide number of sectors available for clusters by the number of
 	; sectors per cluster to obtain the number of actual clusters in the file
@@ -1249,7 +1332,7 @@ ddop14:
 	; Get offset of start of (sectors_per_cluster) field
 	;
 	lda dos_disk_table_offset
-	ora #fs_fat32_cluster_count
+	ora #fs_fat32_cluster_count	; is $12
 
 	; get offset of last byte in this field
 	;
@@ -1279,20 +1362,23 @@ ddop_gotclustercount:
 	; (this was destroyed in the calculation above)
 	;
 	lda dos_disk_table_offset
-	ora #fs_fat32_sectors_per_cluster
+	ora #fs_fat32_sectors_per_cluster	; is $16
 	tay
 	lda [sd_sectorbuffer+$0D]
 	sta dos_disk_table,y
+
+;	========================
 
 	; filter out non-FAT32 filesystems
 	; NOTE: FAT32 can have as few as 65525 clusters, but we do not support
 	; such file systems, which should be rare, anyway.
 
 	lda dos_disk_table_offset
-	ora #fs_fat32_sectors_per_cluster
+	ora #fs_fat32_sectors_per_cluster	; is $16
 	tay
 	lda #dos_errorcode_too_few_clusters
 	sta dos_error_code
+
 	lda dos_disk_table+3,y
 	ora dos_disk_table+2,y
 	beq partitionerror
@@ -1300,10 +1386,10 @@ ddop_gotclustercount:
 	; Now get cluster of root directory.
 	;
 	lda dos_disk_table_offset
-	ora #fs_fat32_root_dir_cluster
+	ora #fs_fat32_root_dir_cluster		; is $10
 	tay
-	ldx #$03
 
+	ldx #$03
 ddop16:	lda [sd_sectorbuffer+$2C],x
 	sta dos_disk_table,y
 	dex
@@ -1328,13 +1414,13 @@ ddop16:	lda [sd_sectorbuffer+$2C],x
 	; to indicate FAT32 filesystem on the SD card ...
 	;
 	lda dos_disk_table_offset
-	ora #fs_type_and_source
+	ora #fs_type_and_source		; is $08
 	tay
 	lda #$0f
 	sta dos_disk_table,y
 
 	jsr checkpoint
-	.byte 0,"FAT32 partition data copied to ",0
+	.byte 0,"FAT32 partition data copied to dos_disk_table",0
 
 	; ... and increment the number of disks we know
 	inc dos_disk_count
@@ -1349,6 +1435,7 @@ dos_return_success:
 	sec
 	rts
 
+;	========================
 ;	========================
 
 dos_return_error:
@@ -1782,6 +1869,9 @@ dos_readdir:
 	.byte 0,"dos_readdir["
 drdcp0:	.byte"xxyy]==========================================",0
 
+	jsr dumpsectoraddress
+	jsr dumpfiledescriptor
+
 	; clear long file name data from last call
 	;
 	lda #0
@@ -1847,7 +1937,7 @@ drce_next_piece:
 
 	; (dos_scratch_vector) now has the address of the directory entry
 
-	phx
+	phx	; as the code below clobbers X
 
 	; print out filename and attrib
 	;
@@ -2887,6 +2977,8 @@ dfanc_fail:
 
 dos_print_current_cluster:
 
+	; prints a message to the screen
+	;
 	ldx #<msg_clusternumber
 	ldy #>msg_clusternumber
 	jsr printmessage
