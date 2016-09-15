@@ -11,6 +11,7 @@ KICKSTARTSRCS = kickstart.a65 \
 UTILITIES=	utilities/ethertest.prg \
 		utilities/etherload.prg \
 		utilities/test01prg.prg \
+		utilities/c65test02prg.prg \
 		tests/test_fdc_equal_flag.prg \
 		diskmenu.prg
 
@@ -57,12 +58,13 @@ simulate:	diskmenu.prg \
 
 # ============================, print-warn, clean target
 # verbose, for 1581 format, overwrite
-utility.d81:	$(UTILITIES)
-	$(warning ~~~~~~~~~~~~~~~~> Making: utility.d81)
-
-	cbmconvert -v2 -D8o utility.d81 utilities/ethertest.prg \
+MEGA65.D81:	$(UTILITIES)
+	$(warning ~~~~~~~~~~~~~~~~> Making: MEGA65.D81)
+#	cbmconvert -v2 -D8o utility.d81 $(UTILITIES)
+	cbmconvert -v2 -D8o MEGA65.D81 utilities/ethertest.prg \
                                         utilities/etherload.prg \
                                         utilities/test01prg.prg \
+                                        utilities/c65test02prg.prg \
 					tests/test_fdc_equal_flag.prg \
                                         diskmenu.prg
 
@@ -121,8 +123,13 @@ utilities/etherload.prg:	utilities/etherload.a65
 # ============================ done moved, print-warn, clean-target
 utilities/test01prg.prg:	utilities/test01prg.a65
 	$(warning ~~~~~~~~~~~~~~~~> Making: utilities/test01prg.prg)
-	./../../Ophis/bin/ophis -4 utilities/test01prg.a65
 	./../../Ophis/bin/ophis -4 utilities/test01prg.a65 -l utilities/test01prg.list -m utilities/test01prg.map
+
+
+# ============================ done moved, print-warn, clean-target
+utilities/c65test02prg.prg:	utilities/c65test02prg.a65
+	$(warning ~~~~~~~~~~~~~~~~> Making: utilities/c65test02prg.prg)
+	./../../Ophis/bin/ophis -4 utilities/c65test02prg.a65 -l utilities/c65test02prg.list -m utilities/c65test02prg.map
 
 
 # ============================ done moved, print-warn, clean-target
@@ -342,6 +349,7 @@ clean:
 	rm -f utilities/etherload.prg utilities/etherload.list utilities/etherload.map
 	rm -f utilities/ethertest.prg utilities/ethertest.list utilities/ethertest.map
 	rm -f utilities/test01prg.prg utilities/test01prg.list utilities/test01prg.map
+	rm -f utilities/c65test02prg.prg utilities/c65test02prg.list utilities/c65test02prg.map
 	rm -f iomap.txt
 	rm -f utility.d81
 	rm -f $(VHDLSRCDIR)/kickstart.vhdl $(VHDLSRCDIR)/charrom.vhdl $(VHDLSRCDIR)/version.vhdl version.a65
