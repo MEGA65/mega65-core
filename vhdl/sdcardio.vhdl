@@ -461,6 +461,11 @@ begin  -- behavioural
             -- P CODE  |  P7   |  P6   |  P5   |  P4   |  P3   |  P2   |  P1   |  P0   | A R
             fastio_rdata <= (others => 'Z');
             
+          when "11100" => -- @IO:GS $D09C - FDC read buffer pointer low bits (DEBUG)
+            fastio_rdata <= f011_buffer_address(7 downto 0);
+          when "11101" => -- @IO:GS $D09D - FDC read buffer pointer high bit (DEBUG)
+            fastio_rdata(0) <= f011_buffer_address(8);
+            fastio_rdata(7 downto 1) <= (others => '0');
           when "11110" => -- @IO:GS $D09E - read buffer pointer low bits (DEBUG)
             fastio_rdata <= f011_buffer_next_read(7 downto 0);
           when "11111" => -- @IO:GS $D09F - read buffer pointer high bit (DEBUG)
