@@ -15,154 +15,154 @@
   <version xil_pn:ise_version="14.7" xil_pn:schema_version="2"/>
 
   <files>
-    <file xil_pn:name="src/uart_monitor.vhdl" xil_pn:type="FILE_VHDL">
+    <file xil_pn:name="src/vhdl/uart_monitor.vhdl" xil_pn:type="FILE_VHDL">
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="1"/>
       <association xil_pn:name="Implementation" xil_pn:seqID="38"/>
     </file>
-    <file xil_pn:name="src/UART_TX_CTRL.vhd" xil_pn:type="FILE_VHDL">
+    <file xil_pn:name="src/vhdl/UART_TX_CTRL.vhd" xil_pn:type="FILE_VHDL">
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="2"/>
       <association xil_pn:name="Implementation" xil_pn:seqID="16"/>
     </file>
-    <file xil_pn:name="src/uart_rx.vhdl" xil_pn:type="FILE_VHDL">
+    <file xil_pn:name="src/vhdl/uart_rx.vhdl" xil_pn:type="FILE_VHDL">
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="3"/>
       <association xil_pn:name="Implementation" xil_pn:seqID="17"/>
     </file>
-    <file xil_pn:name="src/ghdl_ram128x1k.vhdl" xil_pn:type="FILE_VHDL">
+    <file xil_pn:name="src/vhdl/ghdl_ram128x1k.vhdl" xil_pn:type="FILE_VHDL">
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="4"/>
       <association xil_pn:name="Implementation" xil_pn:seqID="24"/>
     </file>
-    <file xil_pn:name="src/bitplane.vhdl" xil_pn:type="FILE_VHDL">
+    <file xil_pn:name="src/vhdl/bitplane.vhdl" xil_pn:type="FILE_VHDL">
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="5"/>
       <association xil_pn:name="Implementation" xil_pn:seqID="5"/>
     </file>
-    <file xil_pn:name="src/bitplanes.vhdl" xil_pn:type="FILE_VHDL">
+    <file xil_pn:name="src/vhdl/bitplanes.vhdl" xil_pn:type="FILE_VHDL">
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="6"/>
       <association xil_pn:name="Implementation" xil_pn:seqID="14"/>
     </file>
-    <file xil_pn:name="src/c65uart.vhdl" xil_pn:type="FILE_VHDL">
+    <file xil_pn:name="src/vhdl/c65uart.vhdl" xil_pn:type="FILE_VHDL">
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="7"/>
       <association xil_pn:name="Implementation" xil_pn:seqID="31"/>
     </file>
-    <file xil_pn:name="src/cia6526.vhdl" xil_pn:type="FILE_VHDL">
+    <file xil_pn:name="src/vhdl/cia6526.vhdl" xil_pn:type="FILE_VHDL">
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="8"/>
       <association xil_pn:name="Implementation" xil_pn:seqID="30"/>
     </file>
-    <file xil_pn:name="src/container.ucf" xil_pn:type="FILE_UCF">
+    <file xil_pn:name="src/vhdl/container.ucf" xil_pn:type="FILE_UCF">
       <association xil_pn:name="Implementation" xil_pn:seqID="0"/>
     </file>
-    <file xil_pn:name="src/container.vhd" xil_pn:type="FILE_VHDL">
+    <file xil_pn:name="src/vhdl/container.vhd" xil_pn:type="FILE_VHDL">
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="10"/>
       <association xil_pn:name="Implementation" xil_pn:seqID="45"/>
     </file>
-    <file xil_pn:name="src/crc.vhdl" xil_pn:type="FILE_VHDL">
+    <file xil_pn:name="src/vhdl/crc.vhdl" xil_pn:type="FILE_VHDL">
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="11"/>
       <association xil_pn:name="Implementation" xil_pn:seqID="13"/>
     </file>
-    <file xil_pn:name="src/ddrwrapper.vhdl" xil_pn:type="FILE_VHDL">
+    <file xil_pn:name="src/vhdl/ddrwrapper.vhdl" xil_pn:type="FILE_VHDL">
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="12"/>
       <association xil_pn:name="Implementation" xil_pn:seqID="43"/>
     </file>
-    <file xil_pn:name="src/ethernet.vhdl" xil_pn:type="FILE_VHDL">
+    <file xil_pn:name="src/vhdl/ethernet.vhdl" xil_pn:type="FILE_VHDL">
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="13"/>
       <association xil_pn:name="Implementation" xil_pn:seqID="29"/>
     </file>
-    <file xil_pn:name="src/fpgatemp.vhd" xil_pn:type="FILE_VHDL">
+    <file xil_pn:name="src/vhdl/fpgatemp.vhd" xil_pn:type="FILE_VHDL">
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="14"/>
       <association xil_pn:name="Implementation" xil_pn:seqID="42"/>
     </file>
-    <file xil_pn:name="src/framepacker.vhdl" xil_pn:type="FILE_VHDL">
+    <file xil_pn:name="src/vhdl/framepacker.vhdl" xil_pn:type="FILE_VHDL">
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="15"/>
       <association xil_pn:name="Implementation" xil_pn:seqID="28"/>
     </file>
-    <file xil_pn:name="src/ghdl_alpha_blend.vhdl" xil_pn:type="FILE_VHDL">
+    <file xil_pn:name="src/vhdl/ghdl_alpha_blend.vhdl" xil_pn:type="FILE_VHDL">
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="16"/>
       <association xil_pn:name="Implementation" xil_pn:seqID="27"/>
     </file>
-    <file xil_pn:name="src/ghdl_chipram8bit.vhdl" xil_pn:type="FILE_VHDL">
+    <file xil_pn:name="src/vhdl/ghdl_chipram8bit.vhdl" xil_pn:type="FILE_VHDL">
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="17"/>
       <association xil_pn:name="Implementation" xil_pn:seqID="26"/>
     </file>
-    <file xil_pn:name="src/ghdl_farstack.vhdl" xil_pn:type="FILE_VHDL">
+    <file xil_pn:name="src/vhdl/ghdl_farstack.vhdl" xil_pn:type="FILE_VHDL">
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="18"/>
       <association xil_pn:name="Implementation" xil_pn:seqID="25"/>
     </file>
-    <file xil_pn:name="src/ghdl_ram8x512.vhdl" xil_pn:type="FILE_VHDL">
+    <file xil_pn:name="src/vhdl/ghdl_ram8x512.vhdl" xil_pn:type="FILE_VHDL">
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="19"/>
       <association xil_pn:name="Implementation" xil_pn:seqID="11"/>
     </file>
-    <file xil_pn:name="src/ghdl_ram8x4096.vhdl" xil_pn:type="FILE_VHDL">
+    <file xil_pn:name="src/vhdl/ghdl_ram8x4096.vhdl" xil_pn:type="FILE_VHDL">
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="20"/>
       <association xil_pn:name="Implementation" xil_pn:seqID="12"/>
     </file>
-    <file xil_pn:name="src/ghdl_ram9x4k.vhdl" xil_pn:type="FILE_VHDL">
+    <file xil_pn:name="src/vhdl/ghdl_ram9x4k.vhdl" xil_pn:type="FILE_VHDL">
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="21"/>
       <association xil_pn:name="Implementation" xil_pn:seqID="4"/>
     </file>
-    <file xil_pn:name="src/ghdl_ram18x2k.vhdl" xil_pn:type="FILE_VHDL">
+    <file xil_pn:name="src/vhdl/ghdl_ram18x2k.vhdl" xil_pn:type="FILE_VHDL">
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="22"/>
       <association xil_pn:name="Implementation" xil_pn:seqID="23"/>
     </file>
-    <file xil_pn:name="src/ghdl_screen_ram_buffer.vhdl" xil_pn:type="FILE_VHDL">
+    <file xil_pn:name="src/vhdl/ghdl_screen_ram_buffer.vhdl" xil_pn:type="FILE_VHDL">
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="23"/>
       <association xil_pn:name="Implementation" xil_pn:seqID="22"/>
     </file>
-    <file xil_pn:name="src/ghdl_videobuffer.vhdl" xil_pn:type="FILE_VHDL">
+    <file xil_pn:name="src/vhdl/ghdl_videobuffer.vhdl" xil_pn:type="FILE_VHDL">
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="24"/>
       <association xil_pn:name="Implementation" xil_pn:seqID="10"/>
     </file>
-    <file xil_pn:name="src/gs4510.vhdl" xil_pn:type="FILE_VHDL">
+    <file xil_pn:name="src/vhdl/gs4510.vhdl" xil_pn:type="FILE_VHDL">
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="25"/>
       <association xil_pn:name="Implementation" xil_pn:seqID="40"/>
     </file>
-    <file xil_pn:name="src/iomapper.vhdl" xil_pn:type="FILE_VHDL">
+    <file xil_pn:name="src/vhdl/iomapper.vhdl" xil_pn:type="FILE_VHDL">
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="26"/>
       <association xil_pn:name="Implementation" xil_pn:seqID="39"/>
     </file>
-    <file xil_pn:name="src/keymapper.vhdl" xil_pn:type="FILE_VHDL">
+    <file xil_pn:name="src/vhdl/keymapper.vhdl" xil_pn:type="FILE_VHDL">
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="27"/>
       <association xil_pn:name="Implementation" xil_pn:seqID="21"/>
     </file>
-    <file xil_pn:name="src/machine.vhdl" xil_pn:type="FILE_VHDL">
+    <file xil_pn:name="src/vhdl/machine.vhdl" xil_pn:type="FILE_VHDL">
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="28"/>
       <association xil_pn:name="Implementation" xil_pn:seqID="41"/>
     </file>
-    <file xil_pn:name="src/sd.vhdl" xil_pn:type="FILE_VHDL">
+    <file xil_pn:name="src/vhdl/sd.vhdl" xil_pn:type="FILE_VHDL">
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="29"/>
       <association xil_pn:name="Implementation" xil_pn:seqID="9"/>
     </file>
-    <file xil_pn:name="src/sdcardio.vhdl" xil_pn:type="FILE_VHDL">
+    <file xil_pn:name="src/vhdl/sdcardio.vhdl" xil_pn:type="FILE_VHDL">
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="30"/>
       <association xil_pn:name="Implementation" xil_pn:seqID="20"/>
     </file>
-    <file xil_pn:name="src/shadowram.vhdl" xil_pn:type="FILE_VHDL">
+    <file xil_pn:name="src/vhdl/shadowram.vhdl" xil_pn:type="FILE_VHDL">
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="31"/>
       <association xil_pn:name="Implementation" xil_pn:seqID="19"/>
     </file>
-    <file xil_pn:name="src/sid_6581.vhd" xil_pn:type="FILE_VHDL">
+    <file xil_pn:name="src/vhdl/sid_6581.vhd" xil_pn:type="FILE_VHDL">
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="32"/>
       <association xil_pn:name="Implementation" xil_pn:seqID="18"/>
     </file>
-    <file xil_pn:name="src/sid_coeffs.vhd" xil_pn:type="FILE_VHDL">
+    <file xil_pn:name="src/vhdl/sid_coeffs.vhd" xil_pn:type="FILE_VHDL">
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="33"/>
       <association xil_pn:name="Implementation" xil_pn:seqID="3"/>
     </file>
-    <file xil_pn:name="src/sid_filters.vhd" xil_pn:type="FILE_VHDL">
+    <file xil_pn:name="src/vhdl/sid_filters.vhd" xil_pn:type="FILE_VHDL">
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="34"/>
       <association xil_pn:name="Implementation" xil_pn:seqID="8"/>
     </file>
-    <file xil_pn:name="src/sid_voice.vhd" xil_pn:type="FILE_VHDL">
+    <file xil_pn:name="src/vhdl/sid_voice.vhd" xil_pn:type="FILE_VHDL">
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="35"/>
       <association xil_pn:name="Implementation" xil_pn:seqID="7"/>
     </file>
-    <file xil_pn:name="src/sprite.vhdl" xil_pn:type="FILE_VHDL">
+    <file xil_pn:name="src/vhdl/sprite.vhdl" xil_pn:type="FILE_VHDL">
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="36"/>
       <association xil_pn:name="Implementation" xil_pn:seqID="6"/>
     </file>
-    <file xil_pn:name="src/vicii_sprites.vhdl" xil_pn:type="FILE_VHDL">
+    <file xil_pn:name="src/vhdl/vicii_sprites.vhdl" xil_pn:type="FILE_VHDL">
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="37"/>
       <association xil_pn:name="Implementation" xil_pn:seqID="15"/>
     </file>
-    <file xil_pn:name="src/viciv.vhdl" xil_pn:type="FILE_VHDL">
+    <file xil_pn:name="src/vhdl/viciv.vhdl" xil_pn:type="FILE_VHDL">
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="38"/>
       <association xil_pn:name="Implementation" xil_pn:seqID="37"/>
     </file>
@@ -178,23 +178,23 @@
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="47"/>
       <association xil_pn:name="Implementation" xil_pn:seqID="36"/>
     </file>
-    <file xil_pn:name="precomp/charrom.vhdl" xil_pn:type="FILE_VHDL">
+    <file xil_pn:name="src/vhdl/charrom.vhdl" xil_pn:type="FILE_VHDL">
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="51"/>
       <association xil_pn:name="Implementation" xil_pn:seqID="34"/>
     </file>
-    <file xil_pn:name="precomp/kickstart.vhdl" xil_pn:type="FILE_VHDL">
+    <file xil_pn:name="src/vhdl/kickstart.vhdl" xil_pn:type="FILE_VHDL">
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="52"/>
       <association xil_pn:name="Implementation" xil_pn:seqID="33"/>
     </file>
-    <file xil_pn:name="src/debugtools.vhdl" xil_pn:type="FILE_VHDL">
+    <file xil_pn:name="src/vhdl/debugtools.vhdl" xil_pn:type="FILE_VHDL">
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="66"/>
       <association xil_pn:name="Implementation" xil_pn:seqID="1"/>
     </file>
-    <file xil_pn:name="src/cputypes.vhdl" xil_pn:type="FILE_VHDL">
+    <file xil_pn:name="src/vhdl/cputypes.vhdl" xil_pn:type="FILE_VHDL">
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="67"/>
       <association xil_pn:name="Implementation" xil_pn:seqID="2"/>
     </file>
-    <file xil_pn:name="precomp/version.vhdl" xil_pn:type="FILE_VHDL">
+    <file xil_pn:name="src/vhdl/version.vhdl" xil_pn:type="FILE_VHDL">
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="68"/>
       <association xil_pn:name="Implementation" xil_pn:seqID="32"/>
     </file>
@@ -324,7 +324,7 @@
     <property xil_pn:name="Ignore User Timing Constraints Map" xil_pn:value="false" xil_pn:valueState="default"/>
     <property xil_pn:name="Ignore User Timing Constraints Par" xil_pn:value="false" xil_pn:valueState="default"/>
     <property xil_pn:name="Implementation Top" xil_pn:value="Architecture|container|Behavioral" xil_pn:valueState="non-default"/>
-    <property xil_pn:name="Implementation Top File" xil_pn:value="../vhdl/container.vhd" xil_pn:valueState="non-default"/>
+    <property xil_pn:name="Implementation Top File" xil_pn:value="../src/vhdl/container.vhd" xil_pn:valueState="non-default"/>
     <property xil_pn:name="Implementation Top Instance Path" xil_pn:value="/container" xil_pn:valueState="non-default"/>
     <property xil_pn:name="Include 'uselib Directive in Verilog File" xil_pn:value="false" xil_pn:valueState="default"/>
     <property xil_pn:name="Include SIMPRIM Models in Verilog File" xil_pn:value="false" xil_pn:valueState="default"/>
