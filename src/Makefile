@@ -10,7 +10,8 @@ KICKSTARTSRCS = kickstart.a65 \
 
 UTILITIES=	ethertest.prg \
 		etherload.prg \
-		diskmenu.prg
+		diskmenu.prg \
+		test_fdc_equal_flag.prg
 
 TOOLS=	etherkick \
 	etherload \
@@ -79,6 +80,11 @@ diskmenu.prg:	diskmenuprg.a65 diskmenu.a65
 diskchooser:	diskchooser.a65
 	$(warning ~~~~~~~~~~~~~~~~> Making: diskchooser)
 	./../../Ophis/bin/ophis -4 diskchooser.a65
+
+test_fdc_equal_flag.prg:	tests/test_fdc_equal_flag.a65
+	$(warning ~~~~~~~~~~~~~~~~> Making: diskmenu.prg and diskmenuprg.list)
+	./../../Ophis/bin/ophis -4 tests/test_fdc_equal_flag.a65
+
 
 # ============================ done moved, print-warn, clean-target
 #??? diskmenu_c000.bin yet b0rken

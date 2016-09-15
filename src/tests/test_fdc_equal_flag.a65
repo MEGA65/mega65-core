@@ -1,0 +1,79 @@
+
+	.outfile "test_fdc_equal_flag.prg"
+
+	 .word $0801
+	 .org $0801
+
+	 .scope
+	 .word _next, 10                       ; Next line and current line number
+	 .byte $97, "2,0:", $9e, " 2014", $AA, "65",0      ; POKE 2,0 : SYS 2014+65
+_next:	 .word 0
+    
+	 .checkpc 2079
+	 .advance 2079
+
+	 ; enable FDC controller registers to be visible
+	 lda #$47
+	 sta $d02f
+	 lda #$53
+	 sta $d02f
+
+	 ; set FDC track, sector and side register
+	 lda #$01
+	 sta $d084 ; set track number
+	 lda #$00
+	 sta $d085 ; set sector number
+	 lda #$00
+	 sta $d086  ; read from first side of the disk
+
+	 ; command FDC to read sector
+	 lda #$40
+	 sta $d081
+
+wait_for_read_ready:
+	 ; complain if it failed to read a sector
+	 lda $d082
+	 and #$10
+	 bne failed_could_not_read_sector
+
+	 ; wait until read is ready
+	 lda $d083
+	 bpl wait_for_read_ready
+
+	 ; read FDC status
+	 lda $d082
+	 ; mask out EQUAL flag bit
+	 and #$20
+	 ; write it onto the screen
+	 sta $0400
+
+	 ; read 256 bytes
+	 ldy #$00
+waitforabyte:
+	 lda $d082
+	 and #$20
+	 bne waitforabyte
+	 lda $d087 ; read the byte and do nothing with it
+	 iny
+	 bne waitforabyte
+	 inc $0401
+
+waitforabyte2:
+	 lda $d082
+	 and #$20
+	 bne waitforabyte2
+	 lda $d087 ; read the byte and do nothing with it
+	 iny
+	 bne waitforabyte2
+	 inc $0402
+	 
+
+	 ; exit when done
+	 rts
+
+	 ; make screen colour go funny if an error happened
+failed_could_not_read_sector:
+	inc $d020
+	jmp failed_could_not_read_sector
+
+	 .scend
