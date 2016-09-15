@@ -1170,6 +1170,8 @@ begin  -- behavioural
               -- Update F011 FDC emulation status registers
               f011_sector_fetch <= '0';
               f011_busy <= '0';
+              -- Don't forget to rotate FDC buffer pointer back to zero as well.
+              f011_buffer_address <= (others => '0');
               sd_state <= DoneReadingSector;
             else
               -- Still more bytes to read.
@@ -1194,6 +1196,7 @@ begin  -- behavioural
             sd_state <= F011WriteSector;
           else
             -- Got all bytes, so proceed to writing sector.
+            f011_buffer_address <= (others => '0');
             sd_state <= WriteSector;
           end if;          
         when WriteSector =>
