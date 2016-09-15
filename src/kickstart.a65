@@ -773,8 +773,13 @@ postkickup:
 		lda #$00
 		sta $d68b	; f011 emulation
 
+		; Go to root directory on default disk
+		;
+		ldx dos_default_disk
 		jsr dos_cdroot
 		bcc sdcarderror
+
+
 
 		; set name of file we are looking for
 		;
@@ -1589,7 +1594,7 @@ sdcardmode:
 		jsr checkpoint
 		.byte 0,"SDcard mode, ie not SDHC, so shifting",0
      
-		; shift left 8 bits first
+		; shift right 8 bits first
 		;
 		lda $D683
 		sta $D684
@@ -3160,7 +3165,7 @@ checkpoint:
 	stx msg_checkpoint_pc+3
 
 	; Clear out checkpoint message
-	ldx #39
+	ldx #59
 	lda #$20
 cp4:	sta msg_checkpointmsg,x
 	dex
@@ -3188,7 +3193,7 @@ cp3:	lda (<checkpoint_pcl),y
 	sta msg_checkpointmsg,x
 	inx
 	iny
-	cpy #40
+	cpy #60
 	bne cp3
 
 	; flush out any excess bytes at end of message
@@ -3300,7 +3305,7 @@ msg_checkpoint_x:     .byte "%%, Y:$"
 msg_checkpoint_y:     .byte "%%, Z:$"
 msg_checkpoint_z:     .byte "%%, P:$"
 msg_checkpoint_p:     .byte "%% :"
-msg_checkpointmsg:    .byte "                                        "
+msg_checkpointmsg:    .byte "                                                             "
 		      .byte 13,10  ; CR/LF
 
 ;	========================
@@ -3401,7 +3406,9 @@ diskchooserend:
 ;
 dos_disk_table:
 
-		; Hypervisor DOS work area and scratch pad at $BC00-$BDFF
+;;; ----------------------------------------------------------------------------
+;;; Hypervisor DOS work area and scratch pad at $BC00-$BCFF
+;;; ----------------------------------------------------------------------------
 
 		.checkpc $BC00
 		.advance $BC00
@@ -3409,33 +3416,35 @@ dos_disk_table:
 kickstart_scratchbyte0:
 		.byte $00
 
-; The number of disks we have
-;
+		; The number of disks we have
+		;
 dos_disk_count:
 		.byte $00
 
-; The default disk
-;
+		; The default disk
+		;
 dos_default_disk:
 		.byte $00
 
-; The current disk
-;
+		; The current disk
+		;
 dos_disk_current_disk:
 		.byte $00
 
-; Offset of current disk entry in disk table
-;
+		; Offset of current disk entry in disk table
+		;
 dos_disk_table_offset:
 		.byte $00
 
-; cluster of current directory of current disk
-;
+		; cluster of current directory of current disk
+		;
 dos_disk_cwd_cluster:
 		.byte 0,0,0,0
 
-; Current point in open directory
-;
+;	========================
+
+		; Current point in open directory
+		;
 dos_opendir_cluster:
 		.byte 0,0,0,0
 dos_opendir_sector:
@@ -3443,16 +3452,18 @@ dos_opendir_sector:
 dos_opendir_entry:
 		.byte 0
 
-; WARNING: dos_readdir_read_next_entry uses carnal knowledge about the following
-;          structure, particularly the length as calculated here:
-;
+;	========================
+
+		; WARNING: dos_readdir_read_next_entry uses carnal knowledge about the following
+		;          structure, particularly the length as calculated here:
+		;
 		.alias dos_dirent_structure_length 64+1+11+4+4+1
 
-; Current long filename (max 64 bytes)
-;
+		; Current long filename (max 64 bytes)
+		;
 dos_dirent_longfilename:
-		.byte "Venezualen casaba melon productio"
-		.byte "n statistics (2012-2015).txt  "
+		.byte "Venezualen casaba melon productio" ; 33-chars
+		.byte "n statistics (2012-2015).txt  "    ; 30-chars
 		.byte 0
 
 dos_dirent_longfilename_length:
@@ -3470,8 +3481,10 @@ dos_dirent_length:
 dos_dirent_type_and_attribs:
 		.byte 0
 
-; Requested file name and length
-;
+;	========================
+
+		; Requested file name and length
+		;
 dos_requested_filename_len:
 		.byte 0
 
@@ -3479,8 +3492,10 @@ dos_requested_filename:
 		.byte "Venezualen casaba melon productio"
 		.byte "n statistics (2007-2011).txt     "
 
-; Details about current DOS request
-;
+;	========================
+
+		; Details about current DOS request
+		;
 dos_sectorsread:		.word 0
 dos_current_sector:		.word 0,0
 dos_current_cluster:		.word 0,0
@@ -3510,7 +3525,7 @@ dos_current_sector_in_cluster:	.byte 0
     .alias dos_filedescriptor_offset_fileoffset 13
 
 dos_file_descriptors:
-	.byte $FF,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	.byte $FF,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0	; each is 16 bytes
 	.byte $FF,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
 	.byte $FF,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
 	.byte $FF,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
@@ -3525,29 +3540,34 @@ dos_current_file_descriptor:
 dos_current_file_descriptor_offset:
 	.byte 0
 
+;	========================
+
 ; For providing feedback on why DOS calls have failed
 ; There is a set of error codes defined in kickstart_dos.a65
 ;
 dos_error_code:
 		.byte $00
 
-;	========================
+;;; ----------------------------------------------------------------------------
+;;; reserved space for Hypervisor Process work area $BD00-$BDFF
+;;; ----------------------------------------------------------------------------
 
 		.checkpc $BD00
 		.advance $BD00,$00
 
 		.include "kickstart_process_descriptor.a65"
 
-;	========================
-
-		; Kickstart stack (8-bit)
+;;; ----------------------------------------------------------------------------
+;;; reserved space for Kickstart stack (8-bit) $BE00-$BEFF
+;;; ----------------------------------------------------------------------------
 
 		.checkpc $BE00
 		.advance $BE00,$3d
 
-;	========================
+;;; ----------------------------------------------------------------------------
+;;; reserved space for Kickstart ZP at $BF00-$BFFF
+;;; ----------------------------------------------------------------------------
 
-		; Kickstart ZP at $BF00-$BFFF
 		.checkpc $BF00
 		.advance $BF00,$3e
 
@@ -3555,18 +3575,18 @@ kickstart_boot_flags:
 			; $80 = disable etherkick this boot only
 			.byte 0
 			
-; Temporary vector storage for DOS
-;
+		; Temporary vector storage for DOS
+		;
 dos_scratch_vector: .word 0,0
 dos_scratch_byte_1: .byte 0
 dos_scratch_byte_2: .byte 0
 
-; Vectors for copying data between hypervisor and user-space
-;
+		; Vectors for copying data between hypervisor and user-space
+		;
 hypervisor_userspace_copy_vector:    .word 0
     
-; general kickstart temporary variables
-;
+		; general kickstart temporary variables
+		;
 zptempv:		.word 0
 zptempv2:		.word 0
 zptempp:		.word 0
@@ -3575,8 +3595,8 @@ zptempv32:		.word 0,0
 zptempv32b:		.word 0,0
 dos_file_loadaddress:	.word 0,0
 
-; Used for checkpoint debug system of hypervisor
-;
+		; Used for checkpoint debug system of hypervisor
+		;
 checkpoint_a:	      .byte 0
 checkpoint_x:	      .byte 0
 checkpoint_y:	      .byte 0
@@ -3585,13 +3605,16 @@ checkpoint_p:	      .byte 0
 checkpoint_pcl:	      .byte 0
 checkpoint_pch:	      .byte 0
 
-; SD card timeout handling
-;
+		; SD card timeout handling
+		;
 sdcounter:		.byte 0,0,0
 
-;	========================
+;;; ----------------------------------------------------------------------------
+;;; end of KICKUP-rom
+;;; ----------------------------------------------------------------------------
 
 			.checkpc $C000
 			.advance $C000, $3f
 
 			.outfile "KICKUP.M65"
+
