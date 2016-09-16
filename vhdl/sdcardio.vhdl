@@ -689,7 +689,7 @@ begin  -- behavioural
         -- LGB worked out that the problem here is that the eq flag should only
         -- be set whenever the CPU side of the buffer advances to match the FDC
         -- side's pointer.
-        if (f011_flag_eq_inhibit='0') and (sw(13)='1') then
+        if (f011_flag_eq_inhibit='0') then
           f011_flag_eq <= '1';
         else
           f011_flag_eq <= '0';
