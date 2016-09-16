@@ -68,7 +68,39 @@ waitforabyte2:
 	 iny
 	 bne waitforabyte2
 	 inc $0402
-	 
+
+	 ; Now command it to write after filling buffer with known values
+	 lda #$01
+	 sta $d081 ; reset buffer pointer to be sure
+
+	 ; $00-$FF then $0F-$00,$1F-$10 etc to $F0
+	 ldy #$00
+ f001:	 tya
+ 	 sta $d087
+	 iny
+	 bne f001
+f002:	 tya
+	 eor #$0f
+	 sta $d087
+	 iny
+	 bne f002
+
+	 ; write to track 0 sector 0
+	 lda #$0
+	 sta $d084
+	 sta $d085
+	 sta $d086
+
+	 ; now command write
+	 lda #$80
+	 sta $d081
+
+	 ; then loop showing FDC status
+f003:	 lda $d082
+	 sta $0628,y
+	 iny
+	 bra f003
+
 
 	 ; exit when done
 	 rts
