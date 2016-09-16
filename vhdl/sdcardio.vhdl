@@ -916,6 +916,8 @@ begin  -- behavioural
                     report "Drive 0 or 1 selected, and image present.";
                     -- f011_buffer_address gets pre-incremented, so start
                     -- with it pointing to the end of the buffer first
+                    f011_buffer_address(7 downto 0) <= (others => '0');
+                    f011_buffer_address(8) <= '0';
                     f011_sector_fetch <= '1';
                     f011_busy <= '1';
                     -- XXX Doesn't trigger an error for bad track/sector:
@@ -1228,6 +1230,8 @@ begin  -- behavioural
             -- Byte has been accepted, write next one
             sd_state <= WritingSectorAckByte;
             sector_offset <= sector_offset + 1;
+            -- Update FDC buffer pointer to reflect position in write
+            f011_buffer_address <= sector_offset(8 downto 0) + 1;            
           end if;
         when WritingSectorAckByte =>
           -- Wait until controller acknowledges that we have acked it
