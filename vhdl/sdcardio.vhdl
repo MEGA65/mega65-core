@@ -226,8 +226,7 @@ architecture behavioural of sdcardio is
   type sd_state_t is (Idle,
                       ReadSector,ReadingSector,ReadingSectorAckByte,DoneReadingSector,
                       WriteSector,WritingSector,WritingSectorAckByte,
-                      F011WriteSector,F011WriteSectorCopying,
-                      DoneWritingSector);
+                      F011WriteSector,DoneWritingSector);
   signal sd_state : sd_state_t := Idle;
 
   -- F011 FDC emulation registers and flags
