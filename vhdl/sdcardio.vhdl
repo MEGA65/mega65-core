@@ -307,6 +307,10 @@ begin  -- behavioural
 	clk => clock	-- twice the SPI clk.  XXX Cannot exceed 50MHz
         );
 
+  -- This buffer is used for the CPU to be able to read the sector buffer.
+  -- The SD card side writes to it as data is read from the SD card, or
+  -- if the CPU requests to write to it.  When the CPU writes to it, the write
+  -- request is actually passed to the SD card side, which then schedules the write.
   sdsectorbuffer0: ram8x512
     port map (
       clk => clock,
@@ -323,6 +327,11 @@ begin  -- behavioural
       wdata => sb_wdata
       );
 
+  -- This buffer is the same as above, except that it is for reading by the SD
+  -- card side.  This is only required for writing sectors, as in that case the
+  -- SD card side needs to be able to read the F011 emulation sector buffer
+  -- that is stored here (and in the buffer above).
+  -- This does use an extra BRAM, and it would be nice if we could merge this.
   sdsectorbuffer1: ram8x512
     port map (
       clk => clock,
@@ -821,6 +830,7 @@ begin  -- behavioural
                 f011_buffer_next_read(8) <= f011_swap;
               end if;
               temp_cmd := fastio_wdata(7 downto 3) & "000";
+              report "F011 command $" & to_hstring(temp_cmd) & " issued.";
               case temp_cmd is
                 when x"40" =>         -- read sector
                   -- calculate sector number.
@@ -840,12 +850,16 @@ begin  -- behavioural
                   
                   if f011_ds="000" and (diskimage1_enable='0' or f011_disk1_present='0') then
                     f011_rnf <= '1';
+                    report "Drive 0 selected, but not mounted.";
                   elsif f011_ds="001" and (diskimage2_enable='0' or f011_disk2_present='0') then
                     f011_rnf <= '1';
+                    report "Drive 1 selected, but not mounted.";
                   elsif f011_ds(2 downto 1) /= x"00" then
                     -- only 2 drives supported for now
                     f011_rnf <= '1';
+                    report "Drive 2-7 selected, but not supported.";
                   else
+                    report "Drive 0 or 1 selected and active.";
                     -- f011_buffer_address gets pre-incremented, so start
                     -- with it pointing to the end of the buffer first
                     f011_buffer_address(7 downto 0) <= (others => '1');
@@ -886,12 +900,16 @@ begin  -- behavioural
                   
                   if f011_ds="000" and (diskimage1_enable='0' or f011_disk1_present='0' or f011_disk1_write_protected='1') then
                     f011_rnf <= '1';
+                    report "Drive 0 selected, but not mounted.";
                   elsif f011_ds="001" and (diskimage2_enable='0' or f011_disk2_present='0' or f011_disk2_write_protected='1') then
                     f011_rnf <= '1';
+                    report "Drive 1 selected, but not mounted.";
                   elsif f011_ds(2 downto 1) /= x"00" then
                     -- only 2 drives supported for now
                     f011_rnf <= '1';
+                    report "Drive 2-7 selected, but not mounted.";
                   else
+                    report "Drive 0 or 1 selected, and image present.";
                     -- f011_buffer_address gets pre-incremented, so start
                     -- with it pointing to the end of the buffer first
                     f011_sector_fetch <= '1';
@@ -908,6 +926,7 @@ begin  -- behavioural
                     f011_buffer_address <= (others => '0');
                     sdio_error <= '0';
                     sdio_fsm_error <= '0';
+                    report "Commencing FDC buffered write.";
                   end if;
                 when x"10" =>         -- head step out, or no step
                   if fastio_wdata(2)='1' then
@@ -1034,6 +1053,7 @@ begin  -- behavioural
               f011_disk1_present <= fastio_wdata(1);
               -- @IO:GS $D68B.0 - F011 disk 1 disk image enable
               diskimage1_enable <= fastio_wdata(0);
+              report "writing $" & to_hstring(fastio_wdata) & " to FDC control";
             -- @IO:GS $D68C-$D68F - F011 disk 1 disk image address on SD card
             when x"8c" => diskimage_sector(7 downto 0) <= fastio_wdata;
             when x"8d" => diskimage_sector(15 downto 8) <= fastio_wdata;
@@ -1107,6 +1127,7 @@ begin  -- behavioural
       end if;
                 
       sb_w <= '0';
+      report "SD interface state = " & sd_state_t'image(sd_state);
       case sd_state is
         when Idle =>
           sdio_busy <= '0';
@@ -1119,7 +1140,7 @@ begin  -- behavioural
             sb_writeaddress <= to_integer(fastio_addr(8 downto 0));
           else
             sb_w <= '0';
-          end if;              
+          end if;
         when ReadSector =>
           -- Begin reading a sector into the buffer
           if sdio_busy='0' then
@@ -1181,24 +1202,11 @@ begin  -- behavioural
         when F011WriteSector =>
           -- Sit out the wait state for reading the next sector buffer byte
           -- as we copy the F011 sector buffer to the primary SD card sector buffer.
+          report "Starting to write sector from unified FDC/SD buffer.";
           sb_w <= '0';
           f011_buffer_address <= f011_buffer_address;
-          sd_state <= F011WriteSectorCopying;
-        when F011WriteSectorCopying =>
-          -- Write byte to SD sector buffer
-          sector_offset <= "0"&f011_buffer_address;
-          sb_wdata <= f011_rdata;
-          sb_w <= '1';
-          f011_flag_eq_inhibit <= '1';
-          if f011_buffer_address /= "111111111" then
-            -- Schedule reading of the next byte
-            f011_buffer_address <= f011_buffer_address + 1;
-            sd_state <= F011WriteSector;
-          else
-            -- Got all bytes, so proceed to writing sector.
-            f011_buffer_address <= (others => '0');
-            sd_state <= WriteSector;
-          end if;          
+          f011_buffer_address <= (others => '0');
+          sd_state <= WriteSector;
         when WriteSector =>
           -- Begin writing a sector into the buffer
           sb_w <= '0';
