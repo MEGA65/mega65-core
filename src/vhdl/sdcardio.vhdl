@@ -365,7 +365,7 @@ begin  -- behavioural
       );
 
   
-  -- XXX also implement F1011 floppy controller emulation.
+  -- XXX also implement F011 floppy controller emulation.
   process (clock,fastio_addr,fastio_wdata,sector_buffer_mapped,sdio_busy,
            sd_reset,fastio_read,sd_sector,fastio_write,
            f011_track,f011_sector,f011_side,sdio_fsm_error,sdio_error,
@@ -388,9 +388,11 @@ begin  -- behavioural
   -- ==================================================================
 
     if fastio_read='1' and sectorbuffercs='0' then
+
       if (fastio_addr(19 downto 5)&'0' = x"D108")
-        or (fastio_addr(19 downto 5)&'0' = x"D308") then
+      or (fastio_addr(19 downto 5)&'0' = x"D308") then
         -- F011 FDC emulation registers
+
         case fastio_addr(4 downto 0) is
           when "00000" =>
             -- CONTROL |  IRQ  |  LED  | MOTOR | SWAP  | SIDE  |  DS2  |  DS1  |  DS0  | 0 RW
@@ -409,6 +411,7 @@ begin  -- behavioural
             fastio_rdata <=
               f011_irqenable & f011_led & f011_motor & f011_swap &
               f011_side(0) & f011_ds;
+
           when "00001" =>
             -- COMMAND | WRITE | READ  | FREE  | STEP  |  DIR  | ALGO  |  ALT  | NOBUF | 1 RW
             --WRITE   must be set to perform write operations.
@@ -423,6 +426,7 @@ begin  -- behavioural
             --        must be set for ALT to work.
             --NOBUF   clears the buffer read/write pointers
             fastio_rdata <= f011_cmd;
+
           when "00010" =>             -- READ $D082
             -- @IO:C65 $D082 - F011 FDC Status A port (read only)
             -- STAT A  | BUSY  |  DRQ  |  EQ   |  RNF  |  CRC  | LOST  | PROT  |  TKQ  | 2 R
@@ -437,6 +441,7 @@ begin  -- behavioural
             fastio_rdata <= f011_busy & f011_drq & f011_flag_eq & f011_rnf
                             & f011_crc & f011_lost & f011_write_protected
                             & f011_track0;
+
           when "00011" =>             -- READ $D083 
             -- @IO:C65 $D083 - F011 FDC Status B port (read only)
             -- STAT B  | RDREQ | WTREQ |  RUN  | NGATE | DSKIN | INDEX |  IRQ  | DSKCHG| 3 R
@@ -453,25 +458,32 @@ begin  -- behavioural
             fastio_rdata <= f011_rsector_found & f011_wsector_found &
                             f011_rsector_found & f011_write_gate & f011_disk_present &
                             f011_over_index & f011_irq & f011_disk_changed;
+
           when "00100" =>
             -- TRACK   |  T7   |  T6   |  T5   |  T4   |  T3   |  T2   |  T1   |  T0   | 4 RW
             fastio_rdata <= f011_track;
+
           when "00101" =>
             -- SECTOR  |  S7   |  S6   |  S5   |  S4   |  S3   |  S2   |  S1   |  S0   | 5 RW
             fastio_rdata <= f011_sector;
+
           when "00110" =>
             -- SIDE    |  S7   |  S6   |  S5   |  S4   |  S3   |  S2   |  S1   |  S0   | 6 RW
             fastio_rdata <= f011_side;
+
           when "00111" =>
             -- DATA    |  D7   |  D6   |  D5   |  D4   |  D3   |  D2   |  D1   |  D0   | 7 RW
             fastio_rdata <= f011_buffer_rdata;
-          when "01000" =>
+ 
+         when "01000" =>
             -- CLOCK   |  C7   |  C6   |  C5   |  C4   |  C3   |  C2   |  C1   |  C0   | 8 RW
             fastio_rdata <= (others => 'Z');
-          when "01001" =>
+ 
+         when "01001" =>
             -- STEP    |  S7   |  S6   |  S5   |  S4   |  S3   |  S2   |  S1   |  S0   | 9 RW
             fastio_rdata <= (others => 'Z');
-          when "01010" =>
+ 
+         when "01010" =>
             -- P CODE  |  P7   |  P6   |  P5   |  P4   |  P3   |  P2   |  P1   |  P0   | A R
             fastio_rdata <= (others => 'Z');
           when "11100" => -- @IO:GS $D09C - FDC read buffer pointer low bits (DEBUG)
@@ -489,11 +501,15 @@ begin  -- behavioural
             fastio_rdata(1) <= f011_flag_eq_inhibit;
             fastio_rdata(2) <= f011_flag_eq;
             fastio_rdata(7 downto 3) <= (others => '0');
+
           when others =>
             fastio_rdata <= (others => 'Z');
         end case;
-      elsif (fastio_addr(19 downto 8) = x"D16"
-             or fastio_addr(19 downto 8) = x"D36") then
+
+  -- ==================================================================
+
+      elsif (fastio_addr(19 downto 8) = x"D16")
+         or (fastio_addr(19 downto 8) = x"D36") then
         -- microSD controller registers
         report "reading SDCARD registers" severity note;
         case fastio_addr(7 downto 0) is
@@ -507,21 +523,29 @@ begin  -- behavioural
             fastio_rdata(4) <= sdhc_mode;
             fastio_rdata(3) <= sector_buffer_mapped;
             fastio_rdata(2) <= sd_reset;
-            fastio_rdata(1) <= sdio_busy;
-            fastio_rdata(0) <= sdio_busy;
-          when x"81" => fastio_rdata <= sd_sector(7 downto 0);
-          when x"82" => fastio_rdata <= sd_sector(15 downto 8);
-          when x"83" => fastio_rdata <= sd_sector(23 downto 16);
-          when x"84" => fastio_rdata <= sd_sector(31 downto 24);        
+            fastio_rdata(1) <= sdio_busy;  -- SD-status, is busy if asserted ??
+            fastio_rdata(0) <= sdio_busy;  -- why map to two bits?
+
+          when x"81" => fastio_rdata <= sd_sector(7 downto 0); -- SD-control, LSByte of address
+          when x"82" => fastio_rdata <= sd_sector(15 downto 8); -- SD-control
+          when x"83" => fastio_rdata <= sd_sector(23 downto 16); -- SD-controll
+          when x"84" => fastio_rdata <= sd_sector(31 downto 24); -- SD-control, MSByte of address
+
+		-- maybe these next four are for debugging
           when x"85" => fastio_rdata <= to_unsigned(sd_state_t'pos(sd_state),8);
           when x"86" => fastio_rdata <= sd_datatoken;
           when x"87" => fastio_rdata <= unsigned(sd_rdata);                        
           when x"88" => fastio_rdata <= sector_offset(7 downto 0);
+
+
           when x"89" =>
+		-- this register is currently used for checking how many bytes have been read.
             fastio_rdata(7 downto 1) <= (others => '0');
             fastio_rdata(0) <= sector_offset(8);
             fastio_rdata(1) <= sector_offset(9);
+
           when x"8b" =>
+	-- BG the description seems in conflict with the assignment in the write section (below)
             -- @IO:GS $D68B - Diskimage control flags
             fastio_rdata(0) <= diskimage1_enable;
             fastio_rdata(1) <= f011_disk1_present;

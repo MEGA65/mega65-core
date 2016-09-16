@@ -22,7 +22,7 @@ TOOLS=	etherkick \
 all:
 	$(warning ~~~~~~~~~~~~~~~~> The 'all'-target is not implemented in the makefile yet, refer to ./../compile.sh)
 	$(warning You need to explicitly know what to make, else use ./../compile.sh)
-	$(warning Common targets are: generated_vhdl, firmware, tools, itilities)
+	$(warning Common targets are: generated_vhdl, firmware, tools, utilities)
 	$(warning Other  targets are: simulate, utility.d81)
 
 
@@ -37,7 +37,8 @@ generated_vhdl:	$(VHDLSRCDIR)/kickstart.vhdl \
 
 # files destined to go on the SD-card to serve as firmware for the MEGA65
 firmware:	BOOTLOGO.M65 \
-		KICKUP.M65
+		KICKUP.M65 \
+		MEGA65.D81
 
 # c-programs
 tools:	$(TOOLS)

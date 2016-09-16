@@ -508,7 +508,7 @@ etherloop:
 ;	========================
 
 normalboot:
-		jsr dump_disk_table
+		jsr print_disk_table
 
 		jsr dumpcurrentfd
 
@@ -558,7 +558,7 @@ gotmbr:
 		ldz dos_default_disk
 		jsr printhex
 
-		jsr dump_disk_table
+		jsr print_disk_table
 
 ;	========================
 
@@ -1074,6 +1074,8 @@ readmbr:
 
 		jsr sdreset
 		bcs l7
+	jsr checkpoint
+	.byte 0,"FAILED resetting SDCARD",0
 		rts
 
 l7:		ldx #<msg_foundsdcard
@@ -1238,7 +1240,12 @@ sd_unmap_sectorbuffer:
 		sec
 		rts
 
+
 ;	========================
+
+;======================================================================================
+;====self-contained====================================================================
+;======================================================================================
 
 sd_readsector:
 		; Assumes fixed sector number (or byte address in case of SD cards)
@@ -1256,13 +1263,14 @@ sd_readsector:
 		and #$01
 		bne rsbusyfail
 
-		; try reading sector fast the first time
 		;
-		jmp rs4
+		jmp rs4		; skipping the redoread-delay below
 
 ;	========================
 
 redoread:	
+		; redo-read delay
+		;
 		; when retrying, introduce a delay.  This seems to be needed often
 		; when reading the first sector after SD card reset.
 		;
@@ -1272,8 +1280,8 @@ redoread:
 		ldy #>msg_sdredoread
 		jsr printmessage
 
-	jsr checkpoint
-	.byte 0,"redoread:",0
+	jsr checkpoint			; we never want to do a redo-read
+	.byte 0,"ERROR redoread:",0
 
 		ldx #$f0
 		ldy #$00
@@ -1306,11 +1314,12 @@ rs3:
 rsread:
 		lda $d680
 		and #$01	;B#0000.0001
-		bne rs3		; branch if set
+		bne rs3		; branch if set, suggesting not finished yet.
 
+		; now, the above bne fails, suggesting sdcard has finished.
 		; check that we read 512 bytes
 		;
-		lda $d688
+		lda $d688	; BG: why ?
 		lda $d689
 
 		cmp #$02
@@ -1325,8 +1334,8 @@ rereadsector:
 		; reset sd card and try again
 		;
 
-		jsr checkpoint
-		.byte 0,"rereadsector:",0
+		jsr checkpoint			; we should never get here
+		.byte 0,"ERROR rereadsector:",0
 
 		jsr sdreset
 		jmp rs4
@@ -1335,187 +1344,16 @@ rsbusyfail:     ; fail
 		;
 		lda #dos_errorcode_read_timeout
 		sta dos_error_code
+		jsr checkpoint			; we should not ever get here
+		.byte 0,"ERROR rsbusyfail:",0
 
 		clc 
 		rts
 
-;	========================
+;======================================================================================
+;====self-contained====================================================================
+;======================================================================================
 
-printsectoraddress:
-
-		; debug message to boot-screen
-		;
-		ldx #<msg_sectoraddress
-		ldy #>msg_sectoraddress
-		jsr printmessage
-
-		ldy #$00
-		ldz sd_address_byte3 ; is $D681+3
-		jsr printhex
-		ldz sd_address_byte2 ; is $D681+2
-		jsr printhex
-		ldz sd_address_byte1 ; is $D681+1
-		jsr printhex
-		ldz sd_address_byte0 ; is $D681+0
-		jsr printhex
-		rts
-
-
-;	========================
-
-
-dumpsectoraddress:
-
-	; print out this message to Checkpoint
-	;
-
-	ldx sd_address_byte3	;MSB	; convert .X to char-representation for display
-	jsr checkpoint_bytetohex	; returns: .X and .Y (Y is MSB, X is LSB, print YX)
-	stx sdrscp3+1;                  
-	sty sdrscp3
-
-	ldx sd_address_byte2
-	jsr checkpoint_bytetohex
-	stx sdrscp2+1
-	sty sdrscp2
-
-	ldx sd_address_byte1
-	jsr checkpoint_bytetohex
-	stx sdrscp1+1
-	sty sdrscp1
-
-	ldx sd_address_byte0	;LSB
-	jsr checkpoint_bytetohex
-	stx sdrscp0+1
-	sty sdrscp0
-
-	jsr checkpoint
-	.byte 0,"sd_sector: $d681="
-sdrscp3:	.byte "xx"
-sdrscp2:	.byte "xx"
-sdrscp1:	.byte "xx"
-sdrscp0:	.byte "xx.",0
-
-	rts
-
-;	========================
-
-dumpcurrentfd:
-	ldx dos_current_file_descriptor	; convert .X to char-representation for display
-	jsr checkpoint_bytetohex	; returns: .X and .Y (Y is MSB, X is LSB, print YX)
-	stx dcfd0+1;                  
-	sty dcfd0
-
-	ldx dos_current_file_descriptor_offset
-	jsr checkpoint_bytetohex
-	stx dcfd1+1
-	sty dcfd1
-
-	jsr checkpoint
-	.byte 0,"current file desc:"
-dcfd0:	.byte "xx"
-dcfd1:	.byte "xx.",0
-
-	rts
-
-
-;	========================
-
-dumpfiledescriptor:
-
-	ldx dos_file_descriptors+0	; convert .X to char-representation for display
-	jsr checkpoint_bytetohex	; returns: .X and .Y (Y is MSB, X is LSB, print YX)
-	stx dfd0+1
-	sty dfd0
-	ldx dos_file_descriptors+1	; convert .X to char-representation for display
-	jsr checkpoint_bytetohex	; returns: .X and .Y (Y is MSB, X is LSB, print YX)
-	stx dfd1+1
-	sty dfd1
-	ldx dos_file_descriptors+2	; convert .X to char-representation for display
-	jsr checkpoint_bytetohex	; returns: .X and .Y (Y is MSB, X is LSB, print YX)
-	stx dfd2+1
-	sty dfd2
-	ldx dos_file_descriptors+3	; convert .X to char-representation for display
-	jsr checkpoint_bytetohex	; returns: .X and .Y (Y is MSB, X is LSB, print YX)
-	stx dfd3+1
-	sty dfd3
-	ldx dos_file_descriptors+4	; convert .X to char-representation for display
-	jsr checkpoint_bytetohex	; returns: .X and .Y (Y is MSB, X is LSB, print YX)
-	stx dfd4+1
-	sty dfd4
-	ldx dos_file_descriptors+5	; convert .X to char-representation for display
-	jsr checkpoint_bytetohex	; returns: .X and .Y (Y is MSB, X is LSB, print YX)
-	stx dfd5+1
-	sty dfd5
-	ldx dos_file_descriptors+6	; convert .X to char-representation for display
-	jsr checkpoint_bytetohex	; returns: .X and .Y (Y is MSB, X is LSB, print YX)
-	stx dfd6+1
-	sty dfd6
-	ldx dos_file_descriptors+7	; convert .X to char-representation for display
-	jsr checkpoint_bytetohex	; returns: .X and .Y (Y is MSB, X is LSB, print YX)
-	stx dfd7+1
-	sty dfd7
-
-	jsr checkpoint
-	.byte 0,"FD<="
-dfd0:	.byte	"xx,"
-dfd1:	.byte	"xx,"
-dfd2:	.byte	"xx,"
-dfd3:	.byte	"xx,"
-dfd4:	.byte	"xx,"
-dfd5:	.byte	"xx,"
-dfd6:	.byte	"xx,"
-dfd7:	.byte	"xx"
-	.byte 0
-
-	ldx dos_file_descriptors+8	; convert .X to char-representation for display
-	jsr checkpoint_bytetohex	; returns: .X and .Y (Y is MSB, X is LSB, print YX)
-	stx dfd8+1
-	sty dfd8
-	ldx dos_file_descriptors+9	; convert .X to char-representation for display
-	jsr checkpoint_bytetohex	; returns: .X and .Y (Y is MSB, X is LSB, print YX)
-	stx dfd9+1
-	sty dfd9
-	ldx dos_file_descriptors+10	; convert .X to char-representation for display
-	jsr checkpoint_bytetohex	; returns: .X and .Y (Y is MSB, X is LSB, print YX)
-	stx dfda+1
-	sty dfda
-	ldx dos_file_descriptors+11	; convert .X to char-representation for display
-	jsr checkpoint_bytetohex	; returns: .X and .Y (Y is MSB, X is LSB, print YX)
-	stx dfdb+1
-	sty dfdb
-	ldx dos_file_descriptors+12	; convert .X to char-representation for display
-	jsr checkpoint_bytetohex	; returns: .X and .Y (Y is MSB, X is LSB, print YX)
-	stx dfdc+1
-	sty dfdc
-	ldx dos_file_descriptors+13	; convert .X to char-representation for display
-	jsr checkpoint_bytetohex	; returns: .X and .Y (Y is MSB, X is LSB, print YX)
-	stx dfdd+1
-	sty dfdd
-	ldx dos_file_descriptors+14	; convert .X to char-representation for display
-	jsr checkpoint_bytetohex	; returns: .X and .Y (Y is MSB, X is LSB, print YX)
-	stx dfde+1
-	sty dfde
-	ldx dos_file_descriptors+15	; convert .X to char-representation for display
-	jsr checkpoint_bytetohex	; returns: .X and .Y (Y is MSB, X is LSB, print YX)
-	stx dfdf+1
-	sty dfdf
-
-	jsr checkpoint
-	.byte 0,"FD>="
-dfd8:	.byte	"xx,"
-dfd9:	.byte	"xx,"
-dfda:	.byte	"xx,"
-dfdb:	.byte	"xx,"
-dfdc:	.byte	"xx,"
-dfdd:	.byte	"xx,"
-dfde:	.byte	"xx,"
-dfdf:	.byte	"xx"
-	.byte 0
-
-	rts
-
-;	========================
 
 sd_inc_fixedsectornumber:
 
@@ -1590,6 +1428,7 @@ sd_fix_sectornumber:
 ;	========================
 
 sdcardmode:
+		; multiply the current address by $200
 
 		jsr checkpoint
 		.byte 0,"SDcard mode, ie not SDHC, so shifting",0
@@ -2944,113 +2783,6 @@ d1:		inx
 
 ;	========================
 
-dump_disk_table:
-		; HELPER routine, for debug to screen
-
-		ldx #<msg_diskdata
-		ldy #>msg_diskdata
-		jsr printmessage
-
-		ldy #$00
-		ldz #$00		; offset
-		jsr printhex
-		ldy #$00
-		ldz dos_disk_table+0
-		jsr printhex
-		ldz dos_disk_table+1
-		jsr printhex
-		ldz dos_disk_table+2
-		jsr printhex
-		ldz dos_disk_table+3
-		jsr printhex
-		ldz dos_disk_table+4
-		jsr printhex
-		ldz dos_disk_table+5
-		jsr printhex
-		ldz dos_disk_table+6
-		jsr printhex
-		ldz dos_disk_table+7
-		jsr printhex
-
-		ldx #<msg_diskdata
-		ldy #>msg_diskdata
-		jsr printmessage
-
-		ldy #$00
-		ldz #$08		; offset
-		jsr printhex
-		ldy #$00
-		ldz dos_disk_table+8
-		jsr printhex
-		ldz dos_disk_table+9
-		jsr printhex
-		ldz dos_disk_table+10
-		jsr printhex
-		ldz dos_disk_table+11
-		jsr printhex
-		ldz dos_disk_table+12
-		jsr printhex
-		ldz dos_disk_table+13
-		jsr printhex
-		ldz dos_disk_table+14
-		jsr printhex
-		ldz dos_disk_table+15
-		jsr printhex
-
-		ldx #<msg_diskdata
-		ldy #>msg_diskdata
-		jsr printmessage
-
-		ldy #$00
-		ldz #$10		; offset
-		jsr printhex
-		ldy #$00
-		ldz dos_disk_table+16
-		jsr printhex
-		ldz dos_disk_table+17
-		jsr printhex
-		ldz dos_disk_table+18
-		jsr printhex
-		ldz dos_disk_table+19
-		jsr printhex
-		ldz dos_disk_table+20
-		jsr printhex
-		ldz dos_disk_table+21
-		jsr printhex
-		ldz dos_disk_table+22
-		jsr printhex
-		ldz dos_disk_table+23
-		jsr printhex
-
-		ldx #<msg_diskdata
-		ldy #>msg_diskdata
-		jsr printmessage
-
-		ldy #$00
-		ldz #$18		 ; offset
-		jsr printhex
-		ldy #$00
-		ldz dos_disk_table+24
-		jsr printhex
-		ldz dos_disk_table+25
-		jsr printhex
-		ldz dos_disk_table+26
-		jsr printhex
-		ldz dos_disk_table+27
-		jsr printhex
-		ldz dos_disk_table+28
-		jsr printhex
-		ldz dos_disk_table+29
-		jsr printhex
-		ldz dos_disk_table+30
-		jsr printhex
-		ldz dos_disk_table+31
-		jsr printhex
-
-		rts
-
-;	========================
-
 
 
 ;	========================
@@ -3305,7 +3037,7 @@ msg_checkpoint_x:     .byte "%%, Y:$"
 msg_checkpoint_y:     .byte "%%, Z:$"
 msg_checkpoint_z:     .byte "%%, P:$"
 msg_checkpoint_p:     .byte "%% :"
-msg_checkpointmsg:    .byte "                                                             "
+msg_checkpointmsg:    .byte "                                                             " ; END_OF_STRING
 		      .byte 13,10  ; CR/LF
 
 ;	========================
@@ -3383,6 +3115,10 @@ txt_kickupfile:		.byte "KICKUP.M65",0
 			; filename containing boot logo
 			;
 txt_bootlogo:		.byte "BOOTLOGO.M65",0
+
+;	========================
+
+	.include "kickstart_debug.a65"
 
 ;	========================
 
@@ -3530,21 +3266,20 @@ dos_file_descriptors:
 	.byte $FF,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
 	.byte $FF,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
 
-; The current file descriptor
-;
+	; The current file descriptor
+	;
 dos_current_file_descriptor:
 	.byte 0
 
-; Offset of current file descriptor
-;
+	; Offset of current file descriptor
+	;
 dos_current_file_descriptor_offset:
 	.byte 0
 
 ;	========================
 
-; For providing feedback on why DOS calls have failed
-; There is a set of error codes defined in kickstart_dos.a65
-;
+	; For providing feedback on why DOS calls have failed
+	; There is a set of error codes defined in kickstart_dos.a65
 dos_error_code:
 		.byte $00
 
