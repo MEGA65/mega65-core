@@ -930,6 +930,8 @@ dontmakethispartitionthedefault:
 mtptd2:
 	.byte "x NOT set to the default_disk",0
 
+jsr dump_disk_table
+
 	; return OK
 	;
 
@@ -1211,8 +1213,7 @@ ddop11ok:
 	; each FAT to fs_fat32_system_sectors to start of partition.
 	;
 	; For efficiency, we pull the fields we need out of the sector buffer,
-	; instead of working out their offsets in the disk entry structure.
-	; BG: what disk-entry-structure? It has not been populated yet, i think.
+	; instead of working out their offsets in the dos_disk_table structure.
 
 	; Start with fs_fat32_system_sectors (which is 16 bits)
 	;
