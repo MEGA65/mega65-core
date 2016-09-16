@@ -2391,7 +2391,7 @@ l94d:		lda $d681,x
 		bpl l94d
 		
 
-		; Set flags to indicate it is mounted (but read-only)
+		; Set flags to indicate it is mounted (and read-write)
 		lda #$03
 		sta $d68b
 
