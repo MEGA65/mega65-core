@@ -727,14 +727,8 @@ begin  -- behavioural
         sectorbuffermapped <= sector_buffer_mapped;
         sectorbuffermapped2 <= sector_buffer_mapped;
       end if;
-
-    end if; --     if rising_edge(clock) then
-  -- ==================================================================
-  -- ==================================================================
-    if rising_edge(clock) then
-
+            
       if fastio_write='1' then
-
         if   (fastio_addr(19 downto 5)&'0' = x"D108")
           or (fastio_addr(19 downto 5)&'0' = x"D308") then
 
@@ -1148,10 +1142,7 @@ begin  -- behavioural
 
       end if; --    if fastio_write='1' then
 
-    end if; --     if rising_edge(clock) then
-  -- ==================================================================
-  -- ==================================================================
-    if rising_edge(clock) then
+
 
       sb_w <= '0';
 
