@@ -476,9 +476,14 @@ begin  -- behavioural
             fastio_rdata(7 downto 1) <= (others => '0');
           when "11110" => -- @IO:GS $D09E - read buffer pointer low bits (DEBUG)
             fastio_rdata <= f011_buffer_next_read(7 downto 0);
-          when "11111" => -- @IO:GS $D09F - read buffer pointer high bit (DEBUG)
+          when "11111" =>
+            -- @IO:GS $D09F.0 - read buffer pointer high bit (DEBUG)
+            -- @IO:GS $D09F.1 - EQ flag inhibit bit (DEBUG)
+            -- @IO:GS $D09F.2 - EQ flag (DEBUG)
             fastio_rdata(0) <= f011_buffer_next_read(8);
-            fastio_rdata(7 downto 1) <= (others => '0');
+            fastio_rdata(1) <= f011_flag_eq_inhibit;
+            fastio_rdata(2) <= f011_flag_eq;
+            fastio_rdata(7 downto 3) <= (others => '0');
           when others =>
             fastio_rdata <= (others => 'Z');
         end case;

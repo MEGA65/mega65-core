@@ -190,6 +190,8 @@ C65 $D084 - F011 FDC track
 C65 $D085 - F011 FDC data register
 C65 $D085 - F011 FDC sector
 C65 $D086 - F011 FDC side
+GS $D09C - FDC read buffer pointer low bits (DEBUG)
+GS $D09D - FDC read buffer pointer high bit (DEBUG)
 GS $D09E - read buffer pointer low bits (DEBUG)
 GS $D09F - read buffer pointer high bit (DEBUG)
 C65 $D0A0-$D0FF - Reserved for C65 RAM Expansion Controller.
