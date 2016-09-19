@@ -1,0 +1,434 @@
+;======================================================================================
+;======================================================================================
+;======================================================================================
+; These routines provide support for FAT32 and SDCARD support.
+
+
+;;; ----------------------------------------------------------------------------
+;;; FAT file system routines
+;;; ----------------------------------------------------------------------------
+;
+toupper:	; convert ASCII character to upper case
+		;
+		; INPUT:  .A is the ASCII char to convert up uppercase
+		; OUTPUT: .A will hold the resulting uppersace
+		;
+		; BG has not verified this yet
+		;
+		cmp #$60
+		bcc tu1
+		cmp #$7a
+		bcs tu1
+		and #$5f
+tu1:		rts
+
+
+
+;;; ----------------------------------------------------------------------------
+;;; MBP / partition routines
+;;; ----------------------------------------------------------------------------
+;
+; read master boot record. Does not sanity check anything.
+;
+readmbr:
+		; begin by resetting SD card
+		;
+
+	jsr checkpoint
+	.byte 0,"Resetting SDCARD",0
+
+		jsr sdreset
+		bcs l7
+	jsr checkpoint
+	.byte 0,"FAILED resetting SDCARD",0
+		rts
+
+l7:		ldx #<msg_foundsdcard
+		ldy #>msg_foundsdcard
+		jsr printmessage
+
+		; MBR is sector 0
+		;
+		lda #$00
+		sta sd_address_byte0 ; is $D681
+		sta sd_address_byte1 ; is $d682
+		sta sd_address_byte2 ; is $d683
+		sta sd_address_byte0 ; is $d684
+
+		jmp sd_readsector
+
+;;; ----------------------------------------------------------------------------
+;;; SD Card access routines
+;;; ----------------------------------------------------------------------------
+;
+sdreset:
+		; try SD-HC mode first
+		;
+	;	lda #$41
+	;	sta $D680
+	;	jsr sd_resetsequence
+	;	bcc sdr1
+	;	rts
+
+sdr1:		; fall back to SD mode
+		;
+		lda #$42	;B#0100.0010
+		sta $d680
+		; fall through		
+
+sd_resetsequence:
+		; write $00 to $D680 to start reset
+		;
+		lda #$00
+		sta $D680
+		jsr sdtimeoutreset
+re1:		jsr sdreadytest
+		bcs re1done	; success, so return
+		bne re1		; not timed out, so keep trying
+		rts		; timeout, so return
+
+re1done:	
+		; write $01 to $D680 to complete reset
+		;
+		lda #$01
+		sta $D680
+		jsr sdtimeoutreset
+re2:		jsr sdreadytest
+		bcs re2done	; success, so return
+		bne re2		; not timed out, so keep trying
+		rts		; timeout, so return
+
+re2done:
+		; give card some time to settle after reset, otherwise 
+		; reading sectors will fail
+		;
+		jsr sdwaitawhile
+
+		jsr sd_map_sectorbuffer
+
+		; write $02 to $D680 to read MBR as a test of reset
+		;
+		lda #$02	;B#0000.0010
+		sta $D680
+		jsr sdtimeoutreset
+		
+re3:		; allow time for read to happen
+		lda $d680
+		jsr sdreadytest
+		bcs redone	; success, so return
+		bne re3		; not timed out, so keep trying
+			; timeout -- so call reset again
+		rts
+
+redone:		
+		sec
+		rts
+
+;	========================
+		
+		; Watch for ethernet packets while waiting for the SD card.
+		; this allows loading of code into the hypervisor for testing and
+		; bare-metal operation.
+		;
+sdwaitawhile:
+		jsr sdtimeoutreset
+
+sw1:		
+		inc $d020
+		jsr checkethernet
+		dec $d020
+
+		inc sdcounter+0
+		bne sw1
+		inc sdcounter+1
+		bne sw1
+		inc sdcounter+2
+		bne sw1
+		rts
+
+;	========================
+
+sdtimeoutreset:
+		; count to timeout value when trying to read from SD card
+		; (if it is too short, the SD card won't reset)
+		;
+		lda #$00
+		sta sdcounter+0
+		sta sdcounter+1
+		lda #$f7
+		sta sdcounter+2
+		rts
+
+;	========================
+
+sdreadytest:	; check if SD card is ready, or if timeout has occurred
+		; C is set if ready.
+		; Z is set if timeout has occurred.
+		;
+		lda $d680
+		and #$03
+		beq sdisready
+		inc sdcounter+0
+		bne sr1
+		inc sdcounter+1
+		bne sr1
+		inc sdcounter+2
+		bne sr1
+
+		; timeout
+		;
+		lda #$00 ; set Z
+
+sr1:		clc
+		rts
+
+sdisready:	sec
+		rts
+
+;	========================
+
+sd_map_sectorbuffer:
+
+		lda #$81
+		sta $D680
+		sec
+		rts
+
+;	========================
+
+sd_unmap_sectorbuffer:
+
+		pha
+		lda #$82
+		sta $D680
+		pla
+		sec
+		rts
+
+
+;	========================
+
+;======================================================================================
+;====below function is self-contained==================================================
+;======================================================================================
+
+sd_readsector:
+		; Assumes fixed sector number (or byte address in case of SD cards)
+		; is loaded into $D681 - $D684
+
+		; print out debug info
+		;
+;		jsr printsectoraddress	; to screen
+
+		jsr dumpsectoraddress	; checkpoint message
+
+		; check if sd card is busy
+		;
+		lda $d680
+		and #$01
+		bne rsbusyfail
+
+		;
+		jmp rs4		; skipping the redoread-delay below
+
+;	========================
+
+redoread:	
+		; redo-read delay
+		;
+		; when retrying, introduce a delay.  This seems to be needed often
+		; when reading the first sector after SD card reset.
+		;
+		; print out a debug message to indicate RE-reading (ie previous read failed)
+		;
+		ldx #<msg_sdredoread
+		ldy #>msg_sdredoread
+		jsr printmessage
+
+	jsr checkpoint			; we never want to do a redo-read
+	.byte 0,"ERROR redoread:",0
+
+		ldx #$f0
+		ldy #$00
+		ldz #$00
+r1:		inz
+		bne r1
+		iny
+		bne r1
+		inx
+		bne r1
+
+rs4:
+
+		; ask for sector to be read
+		;
+		lda #$02
+		sta $d680
+
+		; wait for sector to be read
+		;
+		jsr sdtimeoutreset
+rs3:		
+		jsr sdreadytest
+		bcs rsread	;yes, sdcard is ready
+		bne rs3		; not ready, so check if ready now?
+		jmp rereadsector	;Z was set, ie timeout
+
+;	========================
+
+rsread:
+		lda $d680
+		and #$01	;B#0000.0001
+		bne rs3		; branch if set, suggesting not finished yet.
+
+		; now, the above bne fails, suggesting sdcard has finished.
+		; check that we read 512 bytes
+		;
+		lda $d688	; BG: why ?
+		lda $d689
+
+		cmp #$02
+		bne redoread
+
+		sec
+		rts
+
+;	========================
+
+rereadsector:
+		; reset sd card and try again
+		;
+
+		jsr checkpoint			; we should never get here
+		.byte 0,"ERROR rereadsector:",0
+
+		jsr sdreset
+		jmp rs4
+
+rsbusyfail:     ; fail
+		;
+		lda #dos_errorcode_read_timeout
+		sta dos_error_code
+		jsr checkpoint			; we should not ever get here
+		.byte 0,"ERROR rsbusyfail:",0
+
+		clc 
+		rts
+
+;======================================================================================
+;====above function is self-contained==================================================
+;======================================================================================
+
+sd_inc_fixedsectornumber:
+
+		; increment fixed sector number.
+		; if SDHC, then increment is simple.
+		; if SD, then we add $200
+		;
+		lda $D680
+		and #$10	;B#0001.0000
+		bne sdhc1	;branch if clear
+
+		; sd card mode: add $200
+		;
+		lda sd_address_byte1 ;d682
+		clc
+		adc #$02
+		sta sd_address_byte1 ;d682
+
+		lda sd_address_byte2 ;d683
+		adc #$00
+		sta sd_address_byte2 ;d683
+
+		lda sd_address_byte3 ;d684
+		adc #$00
+		sta sd_address_byte3 ;d684
+		rts
+
+;	========================
+
+sdhc1:		; SDHC card mode: add 1
+		;
+
+		jsr checkpoint	; this is not supported
+		.byte 0,"ERROR: sdhc1:",0
+
+		inc sd_address_byte0
+		bcc s1
+		inc sd_address_byte1
+s2:		bcc s1
+		inc sd_address_byte2
+		bcc s1
+		inc sd_address_byte3
+s1:		
+		rts
+
+;	========================
+
+sd_fix_sectornumber:
+		; assumes sector number has been loaded into 
+		; $D681 - $D684
+		;
+		; We need to check if the card is SDHC or SD.
+		; - If SD, we need to shift sector number left 9 bits,
+		;   as SD cards address by byte, not sector.
+		; - If card is SD, then shift it all left nine bits.
+		;
+		; We detect SD versus SDHC by reading whether SD controller is
+		; in SDHC or SD mode.
+		;
+		lda $D680
+		and #$10
+		beq sdcardmode
+
+		; SDHC mode, so nothing to do
+		;
+
+		jsr checkpoint	; this is not supported
+		.byte 0,"ERROR: sd_fix_sectornumber:",0
+
+		rts
+
+;	========================
+
+sdcardmode:
+		; multiply the current address by $200
+
+		jsr checkpoint
+		.byte 0,"SDcard mode, ie not SDHC, so shifting",0
+     
+		; shift right 8 bits first
+		;
+		lda $D683
+		sta $D684
+		lda $D682
+		sta $D683
+		lda $D681
+		sta $D682
+		lda #$00
+		sta $D681
+
+		; now shift it all left one bit
+		;
+		lda $D682
+		asl
+		sta $D682
+		lda $D683
+		rol
+		sta $D683
+		lda $D684
+		rol
+		sta $D684
+		rts
+
+
+
+
+
+
+;	========================
+
+
+
+
+
