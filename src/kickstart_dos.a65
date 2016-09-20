@@ -1655,7 +1655,8 @@ dgfd2:	sta dos_file_descriptors,y
 dos_clearall:
 
 	; Free all file descriptors with extreme prejudice
-	;
+	; Clear dos_disk_table
+
 		; display debug message to uart
 		;
 		jsr checkpoint
@@ -1666,6 +1667,11 @@ dos_clearall:
 	sta dos_file_descriptors+$10
 	sta dos_file_descriptors+$20
 	sta dos_file_descriptors+$30
+	ldx #$00
+	lda #$00
+dca1:	sta dos_disk_table,x
+	inx
+	bne dca1
 	sec
 	rts	
 
