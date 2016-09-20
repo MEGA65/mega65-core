@@ -189,6 +189,8 @@ sdisready:	sec
 
 sd_map_sectorbuffer:
 
+; BG this clobbers .A, maybe we should protect .A as the UNMAP-function does? (see below)
+
 		lda #$81
 		sta $D680
 		sec
