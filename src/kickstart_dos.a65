@@ -1391,7 +1391,7 @@ ddop_gotclustercount:
 	lda #dos_errorcode_too_few_clusters
 	sta dos_error_code
 
-	lda dos_disk_table+3,y
+	lda dos_disk_table+3,y	; BG this seems to creep-out-of-bounds from +16 to +19
 	ora dos_disk_table+2,y
 	beq partitionerror
 
@@ -1402,9 +1402,10 @@ ddop_gotclustercount:
 	tay
 
 	ldx #$03
-ddop16:	lda [sd_sectorbuffer+$2C],x
+ddop16:	lda [sd_sectorbuffer+$2C],x	; +$2c is rootDirFirstCluster[3..0]
 	sta dos_disk_table,y
 	dex
+; BG should there be a "dey" here somewhere?
 	bpl ddop16
 
 	; We have now set the following fields:
@@ -1413,6 +1414,7 @@ ddop16:	lda [sd_sectorbuffer+$2C],x
 	; fs_fat32_system_sectors
 	; fs_fat32_reserved_clusters
 	; fs_fat32_root_dir_cluster
+	; 12,13,14,15 ?
 	; fs_fat32_sectors_per_cluster
 	; fs_fat32_fat_copies
 	; fs_fat32_cluster0_sector
@@ -1471,7 +1473,7 @@ dos_set_current_disk:
 	sta dos_error_code
 
 	cpx dos_disk_count
-	bcs partitionerror
+	bcs partitionerror	; BG shouldnt this be bmi?
 
 	stx dos_disk_current_disk
 	txa
