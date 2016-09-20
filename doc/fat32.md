@@ -208,6 +208,7 @@ It then looks at each of the four partition entries, located at $1BE, $1CE, $1DE
 ##dos_consider_partition_entry
 This routine makes use of a preset vector (or pointer) located in "dos_scratch_vector", which points to the start of the partition entry to be considered. Offsets in the Y-register are then used to access information in the partition entry.
 First, a check that the $04'th byte is either $0B or $0C denoting FAT32. If so, execution continues at "partitionisinteresting:". If not, the routine returns.
+
 At "partitionisinteresting:", we begin to record details about the partition from the MBR's partition-entry into our dos_disk_table.
 We index through the dos_disk_table using the X-register.
 We populate the following fields (refer dos_disk_table for details):
@@ -222,24 +223,29 @@ We then call "dos_disk_openpartition:" which populates other fields in the dos_d
 We then examine the MBR:partition_address+$00 (boot_flag) and see if the partition is bootable. NOTE that only one primary partition on a device can be bootable. If the partition is bootable, we record in "dos_default_disk:" the value of the entry we are populating within the dos_disk_table (ie $00..$07).
 NOTE that this logic does not seem to be correct.
 
+
+
 ##dos_disk_openpartition
 This routine relies on the "dos_disk_count" to be set to a valid value, namely the partition entry within the "dos_disk_table" that we are about to open.
 Additionally, it is assumed that the "dos_disk_table" for this entry already has the data populated at offsets +$00 and +$04 within the dos_disk_table.
 
 This routine looks into the "Volume ID" of the specified partition, which is pointed to by the address stored in "partition_lba_begin" within offset +00 of the dos_disk_table.
 
-At "ddop1:", the "partition_lba_begin" is copied gtom the dos_disk_table into the sd_address[3..0] registers.
+At "ddop1:", the "partition_lba_begin" is copied from the dos_disk_table into the sd_address[3..0] registers.
+In our example, the value at "partition_lba_begin" is "$00000800" and has units of 'sector'.
 
-NOTE that there is a difference between SD and SDHC cards, namely that the SD cards are accessed by byte-address, whereas the SDHC are accessed directly by their sector-address. In this regard, we need to convert the sector-address now in sd_address[3..0] to the byte-address. We do this using the "sd_fix_sectornumber:" routine which just multiplies the sector-address by $200. Further details of this are below in ##sdcardmode
+NOTE that there is a difference between SD and SDHC cards, namely that the SD cards are accessed by byte-address, whereas the SDHC are accessed directly by their sector-address. In this regard, we need to convert the sector-address now in sd_address[3..0] to the byte-address. We do this using the "sd_fix_sectornumber:" routine which just multiplies the sector-address by $200. Further details of this are below in ##sdcardmode, but basically results in the byte-address of $00100000.
 
-Then the scdard is issues with the read-command, which reads the sector at the location within the sd_address[3..0], followed by mapping the sector_buffer.
+Then the sdcard is issues with the read-command, which reads the sector at the location within the sd_address[3..0], followed by mapping the sector_buffer.
 
-Now, in a similar way to the MBR being examined, the Volume-ID will now be examined.
+Now, in a similar way to the MBR being examined, the Volume-ID will now be examined at about "ddop1a:".
 First, a check is performed to see if the signature bytes $AA55 appear at the end of the sector.
-Then, the MSByte of the number-of-FATs is checked for ZERO.
 
-Then, the LSByte of the number-of-FATs is stored into the dos_disk_table at offset +$17.
-+17 with VID:+$11 (LSB-only of number_of_fats)
+Then, the byte at offset-11 is checked for ZERO.
+BG does not agree with this.
+
+Then, the number-of-FATs is stored into the dos_disk_table at offset +$17.
++17 with VID:+$10 (number_of_fats)
 
 Then, the number of reserved-sectors (2 bytes) is stored into the dos_disk_table at offset +$0D.
 +0D,0E with VID:+$0E (number of reserved (system) sectors)
@@ -254,43 +260,67 @@ Then, the root-directory-first-cluster (4 bytes) is stored into the dos_disk_tab
 +0F with VID:+$2C (root-directory-first-cluster)
 Ben401: why only one byte when the address is four bytes.
 
-Then, at around "ddop2:", a calculation is made.
+Then, at around "ddop2:", a calculation is made to find the cluster_0 of the root-directory.
+The formula used is "fs_fat32_system_sectors + (2x number_of_fats) + fs_start_sector"
+First, "fs_fat32_system_sectors[1.0]" is copied into dos_disk_table[18-19], then upper two bytes set to zero.
+Second, added to dos_disk_table[18-1B] is the number of sectors per one fat.
+Third, added to dos_disk_table[18-1B] is the number of sectors per one fat, yes this is done twice because there are two FATs.
 
+Fourth, we do something strange. We calculate the number_of_data_sectors being equal to "total number of sectors in the partition" minus the "number of reserved sectors". BG does not agree with this calculation. The code suggests:
+dos_disk_table[12..15] = "number_of_sectors_in_partition" minus "dos_disk_table[18..1B]"
+NOTE that "dos_disk_table[18..1B]" currently holds the value calculated above in 'Third, ...'
+NOTE that this calculation suggests that it clobbers a value in dos_disk_table[16], but I cannot see that it clobbers anything.
 
+Then, the number of sectors-per-cluster (1 byte) is stored into the dos_disk_table at offset +$16. This is at "get_sec_per_cluster:".
++16 with VID:+$0D (sectors-per-cluster)
 
+Then, ad "ddop14:", I do not follow what is going on.
 
+At "ddop_gotclustercount:", an apparently clobbered variable gets re-instated (dos_disk_table[16]=fs_fat32_sectors_per_cluster}
+
+Then, at about "ddop16:", the code seems to copy the four bytes of "rootDirFirstCluster" and store each over the top of the other at dos_disk_table+$10.
++10 with rootDirFirstCluster.
+BG: Yes, this does seem to clash with dos_disk_table+$0f
+NOTE that dos_disk_table+$11 seems to never get set.
+
+Then, just before "dos_return_success:", the value in dos_disk_table+$08 is set to indicate the type of file-system just parsed.
++08 with $0f (fs_type_and_source)
+
+The "dos_disk_openpartition" function then returns.
 
 ##dos_disk_table
 Each section of the dos_disk_table is $20 bytes, allowing for 8 entries. (Q: why 8x when there are only four primary partitions on a sdcard?, A:to allow other devices to appear like /dev/sdc3 and /dev/sdd1 for example).
 
-Each section is made up as follows: (sourced from the 
+Each section is made up as follows: (sourced from the "kickstart.a65 file describing $BB00)
 
 When accessing one-of-the-eight entries, you first need to get the value in "dos_disk_table_offset:", then multiply that value by $20 (left-shift 5x times). Then add to that result the desired offset specified in an alias located at "fs_dos_disk_table_offsets:".
 Basically,
 Offsets        Description
-+00,01,02,03 = starting sector
-+04,05,06,07 = sector_count
-+08          = file-system type
-+09,0A,0B,0C = FAT32 specific, length of fat
-+0D,0E       = FAT32 specific, system sectors
-+0F          = FAT32 specific, reserved clusters
-+10,11       = FAT32 specific, root directory cluster
-+12,13,14,15 = FAT32 specific, cluster count
-+16          = FAT32 specific, sectors per cluster
-+17          = FAT32 specific, # copies of the fat
-+18,19,1A,1B = FAT32 specific, first sector of data cluster zero
++00,01,02,03 = starting sector (fs_start_sector:)
++04,05,06,07 = sector_count (fs_sector_count:)
++08          = file-system type (fs_type_and_source:)
++09,0A,0B,0C = FAT32 specific, length of fat (fs_fat32_length_of_fat:)
++0D,0E       = FAT32 specific, system sectors (fs_fat32_system_sectors:)
++0F          = FAT32 specific, reserved clusters (fs_fat32_reserved_clusters)
++10,11       = FAT32 specific, root directory cluster (fs_fat32_root_dir_cluster:)
++12,13,14,15 = FAT32 specific, cluster count 
++16          = FAT32 specific, sectors per cluster (fs_fat32_sectors_per_cluster:)
++17          = FAT32 specific, # copies of the fat (fs_fat32_fat_copies:)
++18,19,1A,1B = FAT32 specific, first sector of data cluster zero (fs_fat32_cluster0_sector:)
 +1C,1D,1E,1F = FAT32 specific, unallocated
 
-
-
-
-
 ##sd_map_sectorbuffer
-sd_map_sectorbuffer sd_unmap_sectorbuffer
+There are two functions, "sd_map_sectorbuffer:" and "sd_unmap_sectorbuffer:".
+These functions just either store #$81 or #$82 respectively into the sdcard-control-register of $D680.
+I understand that the $D680 register is mapped directly to the sd-card-controller, and that these functions may swap the pointers between the two 512-byte buffers.
 
 ##dos_cdroot
+This function does some sanity-checks on the chosen "dos_default_disk", and stores values in "dos_disk_cwd_cluster[3..0]".
+I do not think that the "dos_disk_cwd_cluster" registers are currently used.
+I do not think that this routine impacts the current code at all.
 
 ##dos_default_disk
+This is a register that holds an index into the dos_disk_table. It should have values between "00" and "07" as we currently only allow 8x disk-devices.
 
 ##sdcardmode
 
@@ -299,7 +329,6 @@ A dos-file-descriptor is invalid/unallocated when the first byte is $FF.
 
 dos_file_descriptors:
 	.byte $FF,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0	; each is 16 bytes
-
 
 When you try and load a file, first the directory is searched for the filename.
 The directory (or better referred to as FAT) is searched.
@@ -333,17 +362,22 @@ BYTE-OFFSET	Description
 ----------------------------------------
 xx=dont-care
 000001be+0	xx boot flag
+
 000001be+1	xx chs_begin
 000001be+2	xx "
 000001be+3	xx "
+
 000001be+4	0c type (FAT32)
+
 000001be+5	xx chs_end
 000001be+6	xx "
 000001be+7	xx "
+
 000001be+8	00 partition_lba_begin ($00000800)
 000001be+9	08 "
 000001be+A	00 "
 000001be+B	00 "
+
 000001be+C	xx number_of_sectors
 000001be+D	xx "
 000001be+E	xx "
@@ -378,18 +412,24 @@ Volume ID (FIRST SECTOR OF FILE SYSTEM)
 00100000	xx Volume ID
 00100000+B	00 bytes_per_sector ($0200=#512)
 00100000+C	02 "
+
 00100000+D	08 sectors_per_cluster (#08)
+
 00100000+E	38 number_reserved_sectors ($0238)
 00100000+F	02 "
+
 00100000+10	02 number_of_FATs (#02)
+
 00100000+24	e6 sectors_per_FAT ($000003e6)
 00100000+25	03 "
 00100000+26	00 "
 00100000+27	00 "
+
 00100000+2C	02 root_dir_first_cluster ($00000002)
 00100000+2D	00 "
 00100000+2E	00 "
 00100000+2F	00 "
+
 00100000+1FE	55 signature ($AA55)
 00100000+1FF	AA "
 

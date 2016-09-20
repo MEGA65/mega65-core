@@ -632,6 +632,10 @@ trap_dos_exit_task:
 
 ;	========================
 
+;======================================================================================
+;======================================================================================
+;======================================================================================
+
 ; Clear all file descriptors.
 ; This just consists of setting the drive number to $ff,
 ; which indicates "no such drive"
@@ -745,7 +749,7 @@ dos_read_partitiontable:
 
 dos_read_mbr:
 
-	; Offset zero  on disk
+	; Offset zero on disk
 	;
 
 	lda #0
@@ -1061,7 +1065,7 @@ ddop1:	lda dos_disk_table,y
 	cpx #$04
 	bne ddop1
 
-jsr dumpsectoraddress
+jsr dumpsectoraddress	; debugging
 
 	; Convert sector number to byte offset for non-HC SD cards
 	;
@@ -1069,7 +1073,7 @@ jsr dumpsectoraddress
 	;
 	jsr sd_fix_sectornumber
 
-jsr dumpsectoraddress
+jsr dumpsectoraddress	; debugging
 
 	jsr sd_readsector
 	bcc partitionerror
@@ -1112,7 +1116,9 @@ ddop1b:
 	;
 	; BG i think we dont need to check this for minimal operation
 	;
-	lda [sd_sectorbuffer+$11]	; this is the MBSyte of the number of FATs
+	; for fat32, the 11'th entry is unused, http://www.easeus.com/resource/fat32-disk-structure.htm
+	;
+	lda [sd_sectorbuffer+$11]	; this is NOT the MBSyte of the number of FATs
 	bne partitionerror
 
 ;	========================
@@ -1120,7 +1126,7 @@ ddop1b:
 	; get # copies of fat
 	;
 	lda dos_disk_table_offset
-	ora #fs_fat32_fat_copies
+	ora #fs_fat32_fat_copies	; is $17
 	tay
 	lda [sd_sectorbuffer+$10]	; should be 2
 	sta dos_disk_table,y
@@ -1199,23 +1205,39 @@ ddop11:	lda [sd_sectorbuffer+$24],x	; sectors_per_fat
 ddop11ok:
 
 	; <64K reserved clusters, so file system passes this test -- just copy number
+	;
 	; BG does not agree with the logic, of <64k reservedclusters to passes
+	; BG the code below could be changed to be same as lda,ora,tay
+	;
+	; BG, so by design, we reject any Vol_ID that has
+	; RootDirFirstCluster[3..0] not equal to $00000002
 	;
 	ldy dos_disk_table_offset
-	lda [sd_sectorbuffer+$2C]	; 2c is the RootDirFirstCluster
+	lda [sd_sectorbuffer+$2C]	; 2c is the ClusterNumberOfFirstRootDir
 	sta [dos_disk_table + fs_fat32_reserved_clusters],y
 
-	; BG refer to the above, i think we should copy all 4x bytes of the rootDirFirstCluster
+jsr checkpoint
+.byte 0,"dos_disk_table-1",0
+jsr dump_disk_table	; debugging
+
+; dos_disk_table[00-07] = 00,08,00,00,00,A0,0F,00 = (fs_start_sector),                       (fs_sector_count)
+; dos_disk_table[08-0F] = 00,E6,03,00,00,38,02,02 = type, (sectorsPerFat),(reservedSectors),(reservedClusters)
+; dos_disk_table[10-17] = 00,00,00,00,00,00,00,02 = x..x                                ,(fs_fat32_fat_copies)
+; dos_disk_table[18-1F] = 00,00,00,00,xx,xx,xx,xx
 
 ;	========================
 
-	; Now work out the sector of cluster 0, by adding the length of
-	; each FAT to fs_fat32_system_sectors to start of partition.
+	; Now work out the sector of cluster 0, by adding:
+	;   fs_fat32_system_sectors
+	; + the length of each FAT
+	; + start of partition,
+	; and store this result in dos_disk_table[18..1B]
 	;
 	; For efficiency, we pull the fields we need out of the sector buffer,
 	; instead of working out their offsets in the dos_disk_table structure.
+	; BG disagree, we know the offsets of the fields in dos_disk_table
 
-	; Start with fs_fat32_system_sectors (which is 16 bits)
+	; Start with fs_fat32_system_sectors (which is 16 bits), then pad MSBs with zero
 	;
 	lda dos_disk_table_offset
 	ora #fs_fat32_system_sectors	; is $0D
@@ -1232,12 +1254,22 @@ ddop2:	lda dos_disk_table,y
 	dez
 	bne ddop2
 
-	; clear top 16 bits of cluster0_sector
+	; clear top 16 bits of cluster0_sector (dos_disk_table[1A,1B])
 	;
 	; BG: why tza, just do lda#$00
 	tza
 	sta [dos_disk_table+0],x
 	sta [dos_disk_table+1],x
+
+jsr checkpoint
+.byte 0,"dos_disk_table-2",0
+jsr dump_disk_table	; debugging
+
+; dos_disk_table[00-07] = 00,08,00,00,00,A0,0F,00
+; dos_disk_table[08-0F] = 00,E6,03,00,00,38,02,02
+; dos_disk_table[10-17] = 00,00,00,00,00,00,00,02
+; dos_disk_table[18-1F] = 38,02,00,00,xx,xx,xx,xx -> $00000238
+
 
 ;	========================
 
@@ -1260,9 +1292,9 @@ ddop_addnextfatsectors:
 	tay
 	ldx #$00
 	clc
-	php
+	php	; push processor-status (to remember the carry-flag)
 
-ddop12:	plp
+ddop12:	plp	; pull processor-status
 	lda dos_disk_table,y           ; cluster0_sector
 	adc [sd_sectorbuffer+$24],x    ; sectors per fat ;BG should load from dos_disk_table[09]
 	sta dos_disk_table,y           ; cluster0_sector
@@ -1275,9 +1307,18 @@ ddop12:	plp
 	plp
 	;
 	; as Z was initially 2 (#FATs), we do this loop twice
-	; resulting in 2x the sectorsPerFat added to "reservedSectors"?
+	; resulting in 2x the sectorsPerFat added to "reservedSectors".
 	dez
 	bne ddop_addnextfatsectors
+
+jsr checkpoint
+.byte 0,"dos_disk_table-3",0
+jsr dump_disk_table	; debugging
+
+; dos_disk_table[00-07] = 00,08,00,00,00,A0,0F,00
+; dos_disk_table[08-0F] = 00,E6,03,00,00,38,02,02
+; dos_disk_table[10-17] = 00,00,00,00,00,00,00,02
+; dos_disk_table[18-1F] = 04,0A,00,00,xx,xx,xx,xx -> $00000238 + ($000003e6 + $000003e6) = $00000A04
 
 ; BG does not agree with the calculations below, why do we need to calculate it this way?
 
@@ -1296,9 +1337,9 @@ ddop12:	plp
 	ora #fs_fat32_cluster_count	; is $12
 	tay
 	sec
-	lda [sd_sectorbuffer+$20+0]
-	sbc [dos_disk_table+0],x
-	sta [dos_disk_table+0],y
+	lda [sd_sectorbuffer+$20+0]	; from FAT spec, this is number of sectors in partition
+	sbc [dos_disk_table+0],x	; x=$18 initially
+	sta [dos_disk_table+0],y	; y=$12 initially
 	lda [sd_sectorbuffer+$20+1]
 	sbc [dos_disk_table+1],x
 	sta [dos_disk_table+1],y
@@ -1311,6 +1352,7 @@ ddop12:	plp
 
 ;	========================
 
+get_sec_per_cluster:
 	; Get sectors per cluster (and store in dos_disk_table entry)
 	; (this gets destoryed below, so we have to re-read it again after) 
 	;
@@ -1319,6 +1361,16 @@ ddop12:	plp
 	tay
 	lda [sd_sectorbuffer+$0D]
 	sta dos_disk_table,y
+
+jsr checkpoint
+.byte 0,"dos_disk_table-4",0
+jsr dump_disk_table	; debugging
+
+; dos_disk_table[00-07] = 00,08,00,00,00,A0,0F,00
+; dos_disk_table[08-0F] = 00,E6,03,00,00,38,02,02
+; dos_disk_table[10-17] = 00,00,FC,95,0F,00,08,02 -> new data appears
+; dos_disk_table[18-1F] = 04,0A,00,00,xx,xx,xx,xx
+ 
 
 ;	========================
 
@@ -1332,8 +1384,10 @@ ddop12:	plp
 	; Put number of sectors per cluster into Z, and don't shift if there is only
 	; one sector per cluster.
 	;
-	taz
-	and #$fe
+	lda [sd_sectorbuffer+$0D]	; because of the checkpoint message above
+	taz				; why store .A in .Z anyway
+
+	and #$fe	; #%1111.1110
 	beq ddop_gotclustercount
 
 ddop14:
@@ -1370,6 +1424,16 @@ ddop15:	lda dos_disk_table,y
 
 ddop_gotclustercount:
 
+jsr checkpoint
+.byte 0,"dos_disk_table-5",0
+jsr dump_disk_table	; debugging
+
+; dos_disk_table[00-07] = 00,08,00,00,00,A0,0F,00
+; dos_disk_table[08-0F] = 00,E6,03,00,00,38,02,02
+; dos_disk_table[10-17] = 00,00,AF,7C,00,00,08,02 -> new data appears
+; dos_disk_table[18-1F] = 04,0A,00,00,xx,xx,xx,xx
+
+
 	; Re-get sectors per cluster (and store in dos_disk_table entry)
 	; (this was destroyed in the calculation above)
 	;
@@ -1378,6 +1442,15 @@ ddop_gotclustercount:
 	tay
 	lda [sd_sectorbuffer+$0D]
 	sta dos_disk_table,y
+
+jsr checkpoint
+.byte 0,"dos_disk_table-6",0
+jsr dump_disk_table	; debugging
+
+; dos_disk_table[00-07] = 00,08,00,00,00,A0,0F,00
+; dos_disk_table[08-0F] = 00,E6,03,00,00,38,02,02
+; dos_disk_table[10-17] = 00,00,AF,7C,00,00,08,02
+; dos_disk_table[18-1F] = 04,0A,00,00,xx,xx,xx,xx
 
 ;	========================
 
@@ -1424,6 +1497,15 @@ ddop16:	lda [sd_sectorbuffer+$2C],x	; +$2c is rootDirFirstCluster[3..0]
 	; fs_start_sector
 	; fs_sector_count
 
+jsr checkpoint
+.byte 0,"dos_disk_table-7",0
+jsr dump_disk_table	; debugging
+
+; dos_disk_table[00-07] = 00,08,00,00,00,A0,0F,00
+; dos_disk_table[08-0F] = 00,E6,03,00,00,38,02,02
+; dos_disk_table[10-17] = 02,00,AF,7C,00,00,08,02 -> new data appears in [10]
+; dos_disk_table[18-1F] = 04,0A,00,00,xx,xx,xx,xx
+
 	; So all that is left for us is to set fs_type_and_source to $0F
 	; to indicate FAT32 filesystem on the SD card ...
 	;
@@ -1433,11 +1515,20 @@ ddop16:	lda [sd_sectorbuffer+$2C],x	; +$2c is rootDirFirstCluster[3..0]
 	lda #$0f
 	sta dos_disk_table,y
 
+jsr dump_disk_table	; debugging
+
+; dos_disk_table[00-07] = 00,08,00,00,00,A0,0F,00
+; dos_disk_table[08-0F] = 0F,E6,03,00,00,38,02,02 -> new data appears in [08]
+; dos_disk_table[10-17] = 02,00,AF,7C,00,00,08,02
+; dos_disk_table[18-1F] = 04,0A,00,00,xx,xx,xx,xx
+
+
 	jsr checkpoint
 	.byte 0,"FAT32 partition data copied to dos_disk_table",0
 
 	; ... and increment the number of disks we know
 	inc dos_disk_count
+
 
 dos_return_success:
 
@@ -1513,7 +1604,7 @@ dos_cdroot:
 	sta dos_disk_cwd_cluster+1
 
 	lda #$00
-	sta dos_disk_cwd_cluster+2
+	sta dos_disk_cwd_cluster+2	; BG here we assume that the 2x MSB's are zero
 	sta dos_disk_cwd_cluster+3
 
 	; Nothing else to do, as it doesn't actually affect any existing DOS activity,
