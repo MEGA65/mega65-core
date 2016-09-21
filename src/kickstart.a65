@@ -488,6 +488,12 @@ reset_entry_common:
 		ldy #>msg_gitcommit
 		jsr printmessage
 
+		; Display help text
+		;
+		ldx #<msg_kickstarthelp
+		ldy #>msg_kickstarthelp
+		jsr printmessage
+
 		; check keyboard for 0-9 down to select alternate rom
 		;
 		jsr keyboardread
@@ -513,8 +519,9 @@ etherloop:
 ;	========================
 
 normalboot:
-		jsr print_disk_table	; debugging
-		jsr dumpcurrentfd	; debugging
+
+	jsr dump_disk_count	; debugging to Checkpoint
+	jsr dumpcurrentfd	; debugging to Checkpoint
 
 		; Try to read the MBR from the SD card to ensure SD card is happy
 		;
@@ -564,7 +571,9 @@ gotmbr:
 		ldz dos_default_disk
 		jsr printhex
 
-		jsr print_disk_table	; debugging
+	jsr dump_disk_count	; debugging to Checkpoint
+	jsr dumpcurrentfd	; debugging to Checkpoint
+;	jsr print_disk_table	; debugging to Screen
 
 ;	========================
 
@@ -615,6 +624,8 @@ mountsystemdiskok:
 		jsr dos_readfileintomemory
 		bcs logook
 		
+;	========================
+
 		; FAILED: print debug message
 		;
 		jsr checkpoint
@@ -631,6 +642,9 @@ mountsystemdiskok:
 
 		jsr checkpoint
 		.byte 0,"FAILED loading BOOTLOGO",0
+
+;	========================
+
 logook:
 		; iterate through directory entries looking for ordinary file 
 		; KICKUP.M65 to load into hypervisor memory ...
@@ -676,7 +690,10 @@ allowkickup:	; BG was label nextdirectoryentry3:
 		jsr dos_readfileintomemory
 		bcc nokickup
 
+;	========================
+
 		; We have loaded a kickup file, so jump into it.
+
 
 		; print debug message
 		;
@@ -779,12 +796,12 @@ postkickup:
 		jsr checkpoint
 		.byte 0,"  Here we are POST-KICKUP",0
 
-		jsr dumpcurrentfd	; debugging
+	jsr dumpcurrentfd	; debugging to Checkpoint
 		
 		; for now indicate that there is no disk in drive
 		;
 		lda #$00
-		sta $d68b	; f011 emulation
+		sta $d68b	; f011 emulation, BG: should have an alias
 
 		; Go to root directory on default disk
 		;
@@ -857,9 +874,9 @@ findrom:
 
 loadrom:
 
-		jsr dumpcurrentfd	; debugging
+	jsr dumpcurrentfd	; debugging to Checkpoint
 
-		; ROM is not loaded, so try to load it, or prompt
+		; ROMs are not loaded, so try to load them, or prompt
 		; for user to insert SD card
 		;
 		ldx #<msg_rombad
@@ -890,6 +907,8 @@ loadrom:
 
 		jsr dos_readfileintomemory
 		bcs loadedcharromok
+
+;	========================
 
 		; FAILED
 		ldx #<msg_charrombad
@@ -929,6 +948,9 @@ loadedcharromok:
 		jsr printhex
 
 loadc65rom:
+
+	jsr dumpcurrentfd	; debugging to Checkpoint
+
 		; print debug message
 		;
 		jsr checkpoint
@@ -1010,6 +1032,8 @@ loadedok:
 		;
 		jsr checkpoint
 		.byte 0,"JUMPing into ROM-code",0
+
+	jsr dumpcurrentfd	; debugging to Checkpoint
 
 		jmp go64		
 
@@ -2543,8 +2567,9 @@ msg_checkpoint_eom:
 
 msg_retryreadmbr:     .byte "RE-TRYING TO READ MBR",0
 msg_kickstart:        .byte "MEGA65 KICKSTART V00.07",0
+msg_kickstarthelp:    .byte "SW15=HOLD-BOOT, SW12=DEBUG-COMMS",0
 msg_romok:            .byte "ROM CHECKSUM OK - BOOTING",0
-msg_rombad:	      .byte "ROM CHECKSUM FAIL - LOADING ROM",0
+msg_rombad:	      .byte "ROM CHECKSUM FAIL - LOADING ROMS",0
 msg_charrombad:	      .byte "COULD NOT LOAD CHARROM.M65",0
 msg_charromloaded:    .byte "LOADED CHARROM.M65 ($$$$ PAGES)",0
 msg_tryingsdcard:     .byte "LOOKING FOR SDCARD...",0
@@ -2555,7 +2580,8 @@ msg_sdredoread:       .byte "RE-READING SDCARD",0
 msg_badformat:	      .byte "BAD MBR OR DOS BOOT SECTOR.",0
 msg_sdcardfound:      .byte "READ PARTITION TABLE FROM SDCARD",0
 msg_foundromfile:     .byte "FOUND ROM FILE. START CLUSTER = $$$$$$$$",0
-msg_diskcount:	      .byte "DISK_COUNT=$$, DEFAULT_DISK=$$",0
+msg_diskcount:	      .byte "DISK-COUNT=$$, DEFAULT-DISK=$$",0
+msg_diskdata0:	      .byte "DISK-TABLE:",0
 msg_diskdata:	      .byte "BB$$:$$.$$.$$.$$.$$.$$.$$.$$",0
 
 msg_filelengths:      .byte "LOOKING FOR $$ BYTES, I SEE $$ BYTES",0

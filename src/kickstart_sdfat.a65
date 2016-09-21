@@ -396,8 +396,8 @@ sd_fix_sectornumber:
 sdcardmode:
 		; multiply the current address by $200
 
-		jsr checkpoint
-		.byte 0,"SDcard mode, ie not SDHC, so shifting",0
+		;	jsr checkpoint
+		;	.byte 0,"SDcard mode, ie not SDHC, so x$200",0
      
 		; shift right 8 bits first
 		;
