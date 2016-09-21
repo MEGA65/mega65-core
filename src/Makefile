@@ -11,8 +11,8 @@ KICKSTARTSRCS = kickstart.a65 \
 UTILITIES=	utilities/ethertest.prg \
 		utilities/etherload.prg \
 		utilities/test01prg.prg \
-		diskmenu.prg \
-		test_fdc_equal_flag.prg
+		tests/test_fdc_equal_flag.prg \
+		diskmenu.prg
 
 TOOLS=	etherkick \
 	etherload \
@@ -63,6 +63,7 @@ utility.d81:	$(UTILITIES)
 	cbmconvert -v2 -D8o utility.d81 utilities/ethertest.prg \
                                         utilities/etherload.prg \
                                         utilities/test01prg.prg \
+					tests/test_fdc_equal_flag.prg \
                                         diskmenu.prg
 
 # ============================ done moved, print-warn, clean-target
