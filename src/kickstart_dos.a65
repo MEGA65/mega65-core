@@ -1515,6 +1515,16 @@ drce_ignore_lfn_piece:
 	.byte 0,"drce_ignore_lfn_piece <2>",0
 	    
 	jmp drce_next_piece
+
+drd_end_of_directory:
+	; If we have pieces, then emit the final filename,
+	; else return EOF on the directory by falling through to the following
+	; Can we ever be in such a position?  Let's assume for the time being that
+	; we can't.  If we start losing the last name in a directory list, then we
+	; can worry about fixing it then.
+
+	; FALL THROUGH to drce_no_more_pieces
+
 drce_no_more_pieces:
 	jsr checkpoint
 	.byte 0,"drce_no_more_pieces",0
@@ -1533,7 +1543,7 @@ drce_shortname:
 
 	; Ignore empty and deleted entries (first byte $00 or $E5 respectively)
 	lda (<dos_scratch_vector),y
-	beq drd_deleted_or_invalid_entry
+	beq drd_end_of_directory
 	cmp #$e5
 	beq drd_deleted_or_invalid_entry
 
@@ -2108,19 +2118,17 @@ dfanc_check:
 	beq dfanc_fail
 	; $FFFFFF7 = bad cluster
 	; $FFFFFFF = end of file
+	; (we'll treat anything from $FFFFFF0-F as bad/invalid for simplicity)
 	lda dos_file_descriptors+3,y
 	cmp #$0f
 	bne dfanc_ok
 	lda dos_file_descriptors+2,y
-	cmp #$ff
-	bne dfanc_ok
-	lda dos_file_descriptors+1,y
+	and dos_file_descriptors+1,y
 	cmp #$ff
 	bne dfanc_ok
 	lda dos_file_descriptors,y
-	cmp #$ff
-	beq dfanc_fail
-	cmp #$f7
+	and #$f0
+	cmp #$f0
 	beq dfanc_fail
 
 dfanc_ok:
@@ -2383,7 +2391,7 @@ l94d:		lda $d681,x
 		bpl l94d
 		
 
-		; Set flags to indicate it is mounted (but read-only)
+		; Set flags to indicate it is mounted (and read-write)
 		lda #$03
 		sta $d68b
 

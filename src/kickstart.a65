@@ -646,7 +646,7 @@ postkickup:
 		jsr dos_setname
 
 		jsr dos_findfile
-		bcc nod81
+		bcc d81attachfail
 		jsr dos_closefile
 
 		jsr dos_d81attach
