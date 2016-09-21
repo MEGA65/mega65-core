@@ -8,9 +8,11 @@ KICKSTARTSRCS = kickstart.a65 \
 		kickstart_task.a65 \
 		kickstart_mem.a65
 
+# if you want your PRG to appear on "utility.d81", then also ADD your file to the "utility.d81" target
 UTILITIES=	utilities/ethertest.prg \
 		utilities/etherload.prg \
 		utilities/test01prg.prg \
+		tests/test_fdc_equal_flag.a65 \
 		diskmenu.prg
 
 TOOLS=	etherkick \
@@ -63,6 +65,13 @@ utility.d81:	$(UTILITIES)
                                         utilities/etherload.prg \
                                         utilities/test01prg.prg \
                                         diskmenu.prg
+
+# ============================ done moved, print-warn, clean-target
+# PGS program for testing the F011 floppy write, etc.
+tests/test_fdc_equal_flag.prg:	tests/test_fdc_equal_flag.a65
+	$(warning ~~~~~~~~~~~~~~~~> Making: tests/test_fdc_equal_flag.a65)
+	./../../Ophis/bin/ophis -4 tests/test_fdc_equal_flag.a65 -l tests/test_fdc_equal_flag.list -m tests/test_fdc_equal_flag.map
+
 
 # ============================ done moved, print-warn, clean-target
 # ophis converts the *.a65 file (assembly text) to *.prg (assembly bytes)
@@ -335,6 +344,7 @@ clean:
 	rm -f utilities/etherload.prg utilities/etherload.list utilities/etherload.map
 	rm -f utilities/ethertest.prg utilities/ethertest.list utilities/ethertest.map
 	rm -f utilities/test01prg.prg utilities/test01prg.list utilities/test01prg.map
+	rm -f tests/test_fdc_equal_flag.prg tests/test_fdc_equal_flag.list tests/test_fdc_equal_flag.map
 	rm -f iomap.txt
 	rm -f utility.d81
 	rm -f $(VHDLSRCDIR)/kickstart.vhdl $(VHDLSRCDIR)/charrom.vhdl $(VHDLSRCDIR)/version.vhdl version.a65
