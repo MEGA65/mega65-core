@@ -835,19 +835,6 @@ partitionisinteresting:
 	; initially, dos_disk_count=00 so shifting results in =00
 	;
 	lda dos_disk_count
-
-	; print out this message to Checkpoint
-	;
-	tax				; convert .X to char-representation for display
-	jsr checkpoint_bytetohex	; returns: .X and .Y (Y is MSB, X is LSB, print YX)
-	sty partisint
-	stx partisint+1
-	jsr checkpoint
-	.byte 0,"dos_disk_count = "
-partisint:
-	.byte "xx",0
-
-	lda dos_disk_count
 	asl
 	asl
 	asl
@@ -872,8 +859,6 @@ dcpe1:	lda (<dos_scratch_vector),y
 	; Examine the internals of the partition to get the remaining fields.
 	; At this point we no longer use the contents of the MBR
 	;
-
-jsr dump_disk_table
 
 	jsr dos_disk_openpartition
 	bcc partitionerror
@@ -909,7 +894,7 @@ makethispartitionthedefault:
 mtptd:
 	.byte "xx",0
 
-jsr dump_disk_table
+;jsr dump_disk_table
 
 	; return OK
 	;
@@ -1216,9 +1201,9 @@ ddop11ok:
 	lda [sd_sectorbuffer+$2C]	; 2c is the ClusterNumberOfFirstRootDir
 	sta [dos_disk_table + fs_fat32_reserved_clusters],y
 
-jsr checkpoint
-.byte 0,"dos_disk_table-1",0
-jsr dump_disk_table	; debugging
+;jsr checkpoint
+;.byte 0,"dos_disk_table-1",0
+;jsr dump_disk_table	; debugging
 
 ; dos_disk_table[00-07] = 00,08,00,00,00,A0,0F,00 = (fs_start_sector),                       (fs_sector_count)
 ; dos_disk_table[08-0F] = 00,E6,03,00,00,38,02,02 = type, (sectorsPerFat),(reservedSectors),(reservedClusters)
@@ -1261,9 +1246,9 @@ ddop2:	lda dos_disk_table,y
 	sta [dos_disk_table+0],x
 	sta [dos_disk_table+1],x
 
-jsr checkpoint
-.byte 0,"dos_disk_table-2",0
-jsr dump_disk_table	; debugging
+;jsr checkpoint
+;.byte 0,"dos_disk_table-2",0
+;jsr dump_disk_table	; debugging
 
 ; dos_disk_table[00-07] = 00,08,00,00,00,A0,0F,00
 ; dos_disk_table[08-0F] = 00,E6,03,00,00,38,02,02
@@ -1311,9 +1296,9 @@ ddop12:	plp	; pull processor-status
 	dez
 	bne ddop_addnextfatsectors
 
-jsr checkpoint
-.byte 0,"dos_disk_table-3",0
-jsr dump_disk_table	; debugging
+;jsr checkpoint
+;.byte 0,"dos_disk_table-3",0
+;jsr dump_disk_table	; debugging
 
 ; dos_disk_table[00-07] = 00,08,00,00,00,A0,0F,00
 ; dos_disk_table[08-0F] = 00,E6,03,00,00,38,02,02
@@ -1362,9 +1347,9 @@ get_sec_per_cluster:
 	lda [sd_sectorbuffer+$0D]
 	sta dos_disk_table,y
 
-jsr checkpoint
-.byte 0,"dos_disk_table-4",0
-jsr dump_disk_table	; debugging
+;jsr checkpoint
+;.byte 0,"dos_disk_table-4",0
+;jsr dump_disk_table	; debugging
 
 ; dos_disk_table[00-07] = 00,08,00,00,00,A0,0F,00
 ; dos_disk_table[08-0F] = 00,E6,03,00,00,38,02,02
@@ -1424,9 +1409,9 @@ ddop15:	lda dos_disk_table,y
 
 ddop_gotclustercount:
 
-jsr checkpoint
-.byte 0,"dos_disk_table-5",0
-jsr dump_disk_table	; debugging
+;jsr checkpoint
+;.byte 0,"dos_disk_table-5",0
+;jsr dump_disk_table	; debugging
 
 ; dos_disk_table[00-07] = 00,08,00,00,00,A0,0F,00
 ; dos_disk_table[08-0F] = 00,E6,03,00,00,38,02,02
@@ -1443,9 +1428,9 @@ jsr dump_disk_table	; debugging
 	lda [sd_sectorbuffer+$0D]
 	sta dos_disk_table,y
 
-jsr checkpoint
-.byte 0,"dos_disk_table-6",0
-jsr dump_disk_table	; debugging
+;jsr checkpoint
+;.byte 0,"dos_disk_table-6",0
+;jsr dump_disk_table	; debugging
 
 ; dos_disk_table[00-07] = 00,08,00,00,00,A0,0F,00
 ; dos_disk_table[08-0F] = 00,E6,03,00,00,38,02,02
@@ -1497,9 +1482,9 @@ ddop16:	lda [sd_sectorbuffer+$2C],x	; +$2c is rootDirFirstCluster[3..0]
 	; fs_start_sector
 	; fs_sector_count
 
-jsr checkpoint
-.byte 0,"dos_disk_table-7",0
-jsr dump_disk_table	; debugging
+;jsr checkpoint
+;.byte 0,"dos_disk_table-7",0
+;jsr dump_disk_table	; debugging
 
 ; dos_disk_table[00-07] = 00,08,00,00,00,A0,0F,00
 ; dos_disk_table[08-0F] = 00,E6,03,00,00,38,02,02
@@ -1515,7 +1500,7 @@ jsr dump_disk_table	; debugging
 	lda #$0f
 	sta dos_disk_table,y
 
-jsr dump_disk_table	; debugging
+;jsr dump_disk_table	; debugging
 
 ; dos_disk_table[00-07] = 00,08,00,00,00,A0,0F,00
 ; dos_disk_table[08-0F] = 0F,E6,03,00,00,38,02,02 -> new data appears in [08]
@@ -1575,10 +1560,16 @@ dos_set_current_disk:
 	asl
 	sta dos_disk_table_offset
 
+	ldx dos_disk_current_disk	; convert .X to char-representation for display
+	jsr checkpoint_bytetohex	; returns: .X and .Y (Y is MSB, X is LSB, print YX)
+	sty dscd+0
+	stx dscd+1
+
 		; print debug message
 		;
 		jsr checkpoint
-		.byte 0,"dos_set_current_disk",0
+		.byte 0,"dos_set_current_disk="
+dscd:		.byte "xx",0
 	
 	sec
 	rts
@@ -1782,7 +1773,7 @@ dos_closefile:
 	; buffering required.)
 
 	ldx dos_current_file_descriptor_offset
-	lda dos_file_descriptors+dos_filedescriptor_offset_mode,x
+	lda dos_file_descriptors + dos_filedescriptor_offset_mode,x
 	cmp #dos_filemode_readwrite
 	bne dcf_simple
 
@@ -1800,7 +1791,7 @@ dcf_simple:
 
 	ldx dos_current_file_descriptor_offset
 	lda #$ff ; not allocated flag for file descriptor
-	sta dos_file_descriptors+dos_filedescriptor_offset_diskid,x
+	sta dos_file_descriptors + dos_filedescriptor_offset_diskid,x
 	sec
 	rts
 
@@ -1936,7 +1927,7 @@ dff1:	lda dos_disk_cwd_cluster,x
 	;
 	ldx dos_current_file_descriptor_offset
 	lda #dos_filemode_directoryaccess
-	sta [dos_file_descriptors+dos_filedescriptor_offset_mode],x
+	sta [dos_file_descriptors + dos_filedescriptor_offset_mode],x
 
 	jsr dos_open_current_file
 	bcc dos_return_error_already_set
@@ -3107,7 +3098,7 @@ dos_readfileintomemory:
 
 	; print some debug information
 	;
-	jsr dos_print_current_cluster
+	;	jsr dos_print_current_cluster
 
 	; Clear number of sectors read
 	ldx #$00

@@ -19,8 +19,8 @@ dumpcurrentfd:
 
 	; this function prints to Checkpoint the current_file_descriptor and the offset.
 
-	ldx dos_current_file_descriptor	; convert .X to char-representation for display
-	jsr checkpoint_bytetohex	; returns: .X and .Y (Y is MSB, X is LSB, print YX)
+	ldx dos_current_file_descriptor			; convert .X to char-representation for display
+	jsr checkpoint_bytetohex			; returns: .X and .Y (Y is MSB, X is LSB, print YX)
 	stx dcfd0+1;                  
 	sty dcfd0
 
@@ -200,6 +200,10 @@ printsectoraddress:
 print_disk_table:
 
 		; HELPER routine, for debug to screen
+
+		ldx #<msg_diskdata0
+		ldy #>msg_diskdata0
+		jsr printmessage
 
 		ldx #<msg_diskdata
 		ldy #>msg_diskdata
@@ -496,6 +500,25 @@ ddt1f:	.byte	"xx"
 	rts
 
 ;	========================
+
+dump_disk_count:
+
+	lda dos_disk_count
+
+	; print out this message to Checkpoint
+	;
+	tax				; convert .X to char-representation for display
+	jsr checkpoint_bytetohex	; returns: .X and .Y (Y is MSB, X is LSB, print YX)
+	sty ddc
+	stx ddc+1
+	jsr checkpoint
+	.byte 0,"dos_disk_count = "
+ddc:	.byte "xx",0
+
+;	========================
+
+
+
 
 delay1sec:
 
