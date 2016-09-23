@@ -13,7 +13,10 @@ fi
 # here we need to detect if you have 32 or 64 bit machine
 # on a 32-bit installation, only the settings32 exists.
 # on a 64-bit installation, both 32 and 64 bit settings files exist.
-if [ -e /opt/Xilinx/14.7/ISE_DS/settings64.sh ]; then
+if [ -e /usr/local/Xilinx/14.7/ISE_DS/settings64.sh ]; then
+  echo "Detected 64-bit Xilinx installation"
+  source /usr/local/Xilinx/14.7/ISE_DS/settings64.sh
+else if [ -e /opt/Xilinx/14.7/ISE_DS/settings64.sh ]; then
   echo "Detected 64-bit Xilinx installation"
   source /opt/Xilinx/14.7/ISE_DS/settings64.sh
 else
