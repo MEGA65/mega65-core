@@ -853,6 +853,10 @@ d81attachfail:
 		ldz dos_error_code
 		jsr printhex
 
+	; debug
+	jsr checkpoint
+	.byte 0," couldnt mount/attach MEGA65.D81",0
+
 findrom:
 		; Check state of current ROM
 		;
@@ -918,7 +922,7 @@ loadrom:
 		; print debug message
 		;
 		jsr checkpoint
-		.byte 0,"  BAD CHAR-ROM",0
+		.byte 0," couldnt load CHARROM.M65",0
 
 		jmp loadc65rom
 

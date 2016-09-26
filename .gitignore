@@ -3,6 +3,9 @@
 # object files
 *.o
 
+# backup files
+*.*~
+
 # files generated using make
 charrom.vhdl
 cpu_test.exe

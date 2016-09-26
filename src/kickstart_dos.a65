@@ -919,7 +919,7 @@ dontmakethispartitionthedefault:
 mtptd2:
 	.byte "x NOT set to the default_disk",0
 
-jsr dump_disk_table
+;jsr dump_disk_table
 
 	; return OK
 	;
@@ -1945,8 +1945,18 @@ dos_readdir:
 	; LFN entries use 16-bit unicode values. For now we will just keep the lower
 	; byte of these
 
-	;debug info, unsure what byte is being displayed...
+	; clear long file name data from last call
 	;
+	lda #0
+	sta dos_dirent_longfilename_length
+
+	jsr dos_file_read_current_sector
+
+;debug info, unsure what byte is being displayed...
+;
+	jsr checkpoint	; just a (near) blank line
+	.byte 0,"-",0
+
 	ldy dos_current_file_descriptor_offset
 	clc
 	lda dos_file_descriptors + dos_filedescriptor_offset_offsetinsector +0,y
@@ -1962,24 +1972,17 @@ dos_readdir:
 
 	tax				; convert .X to char-representation for display
 	jsr checkpoint_bytetohex	; returns: .X and .Y (Y is MSB, X is LSB, print YX)
-	sty drdcp0
+	sty drdcp0+0
 	stx drdcp0+1
-
-
 
 	jsr checkpoint
 	.byte 0,"dos_readdir["
 drdcp0:	.byte"xxyy]==========================================",0
 
-	jsr dumpsectoraddress
-	jsr dumpfddata
+jsr dumpsectoraddress	;debug
+jsr dumpfddata		;debug
 
-	; clear long file name data from last call
-	;
-	lda #0
-	sta dos_dirent_longfilename_length
-
-	jsr dos_file_read_current_sector
+; end of debug
 
 	ldx dos_current_file_descriptor_offset
 	lda [dos_file_descriptors + dos_filedescriptor_offset_mode] ,x
@@ -2075,7 +2078,7 @@ eight31:
 	plx	; as the code above clobbers X
 
 	jsr checkpoint
-	.byte 0," (8.3)+ATTRIB ="
+	.byte 0," (8.3)+(ATTRIB)+(NAME[0]) = "
 eight3:	.byte "FILENAMEEXT "
 eight3attrib:	.byte "xx "
 eight3char1:	.byte "xx",0
@@ -2115,7 +2118,18 @@ eight3char1:	.byte "xx",0
 	sec
 	sbc #$0f;%00001111	; LFN entry special attribute value (xxxx1111)
 	bne drce_cont1
-	jmp drce_longname
+	jmp drce_longname	; MATCH -> must be LFN
+
+drce_cont0:
+	tya	;from safe keeping
+
+	;if bit-4 = 1 -> Directory
+	; we ignore directories (for now)
+	;
+	and #$10
+	cmp #$10		;%00010000 Directory
+	bne drce_cont1
+	jmp drce_directory	; MATCH -> must be Directory
 
 drce_cont1:
 	tya	;from safe keeping
@@ -2134,7 +2148,7 @@ drce_cont2:
 	;check for bits 2 or 1 asserted
 	; we should ignore these hidden/system files (for now)
 	;
-	and #$06;%00000110
+	and #$06		;%00000110
 	beq drce_cont3	; branch if equal to zero (ie not Hidden/System)
 	jmp drce_hidden
 
@@ -2150,7 +2164,7 @@ drce_cont3:
 drce_hidden:
 
 	jsr checkpoint
-	.byte 0," is hidden/system",0
+	.byte 0," is hidden/system, so skip this record",0
 
 	jmp drce_cont_next_part
 
@@ -2160,6 +2174,15 @@ drce_volumeid:
 
 	jsr checkpoint
 	.byte 0," is Volume ID, so skip this record",0
+
+	jmp drce_cont_next_part
+
+;	========================
+
+drce_directory:
+
+	jsr checkpoint
+	.byte 0," is Directory, so skip this record",0
 
 	jmp drce_cont_next_part
 
@@ -2327,11 +2350,10 @@ drce_cont_next_part:
 
 drce_normalrecord:
 	; PGS: We have found a short name.
-	; BG: shortname could be hidden/system/deleted/etc
 
 
 	jsr checkpoint
-	.byte 0,"BGOK drce: not longname",0
+	.byte 0," processing SHORT-name",0
 	
 	; store short name
 	;
@@ -2340,14 +2362,7 @@ drce_normalrecord:
 	; Ignore empty and deleted entries (first byte $00 or $E5 respectively)
 	;
 	lda (<dos_scratch_vector),y
-<<<<<<< HEAD
 	beq drd_end_of_directory
-=======
-
-	;ERROR it seems not to detect 00 (end of directory)
-
-	beq drd_deleted_or_invalid_entry
->>>>>>> 5ec2c9e... comment/debug messages, display fat32 sectors, and
 	cmp #$e5
 	beq drd_deleted_or_invalid_entry
 
@@ -2428,7 +2443,6 @@ drce_already_have_long_name:
 	ldy #fs_fat32_dirent_offset_clusters_low
 	lda (<dos_scratch_vector),y
 	sta dos_dirent_cluster
-
 	iny
 	lda (<dos_scratch_vector),y
 	sta dos_dirent_cluster+1
@@ -2436,11 +2450,9 @@ drce_already_have_long_name:
 	ldy #fs_fat32_dirent_offset_clusters_high
 	lda (<dos_scratch_vector),y
 	sta dos_dirent_cluster+2
-
 	iny
 	lda (<dos_scratch_vector),y
 	sta dos_dirent_cluster+3
-
 
 
 	; file length in bytes
@@ -2462,7 +2474,7 @@ drce_fl:
 	sta dos_dirent_type_and_attribs
 
 	jsr checkpoint
-	.byte 0,"BGOK drce_fl populated fields",0
+	.byte 0," drce_fl populated fields",0
 
 	jsr dos_readdir_advance_to_next_entry
 	bcs drce_not_eof
@@ -2470,7 +2482,7 @@ drce_fl:
 drce_is_eof:
 
 	jsr checkpoint
-	.byte 0,"BGOK drce_fl drce_is_eof <2>",0
+	.byte 0," DEBUG drce_is_eof <!>",0
 
 	; We need to pass the error through here to indicate EOF in directory,
 	; but in a way that can be defered to the next call to dos_readdir, because
@@ -2490,7 +2502,7 @@ drce_is_eof:
 drce_not_eof:
 
 	jsr checkpoint
-	.byte 0,"BGOK drce_not_eof <1/3>",0
+	.byte 0," drce_not_eof CHECK<1/3>",0
 
 	; Ignore zero-length filenames (corresponding to empty directory entries)
 	;
@@ -2499,7 +2511,7 @@ drce_not_eof:
 	beq dos_readdir
 
 	jsr checkpoint
-	.byte 0,"BGOK drce_not_eof <2/3>",0
+	.byte 0," drce_not_eof CHECK<2/3>",0
 
 	lda dos_dirent_shortfilename
 	beq dos_readdir
@@ -2507,7 +2519,7 @@ drce_not_eof:
 	beq dos_readdir
 
 	jsr checkpoint
-	.byte 0,"BGOK drce_not_eof <3/3>",0
+	.byte 0," drce_not_eof CHECK<3/3>",0
 
 	ldx dos_dirent_longfilename_length
 	jsr lfndebug
@@ -2567,6 +2579,8 @@ ddie:	.byte "xx drd_deleted_or_invalid_entry",0
 
 lfn_piece_offsets:
 	.byte 0,13,13*2,13*3,13*4
+
+;	========================
 
 dos_dirent_compare_name_to_requested:
 
@@ -3049,11 +3063,7 @@ dfanc_check:
 
 	; $FFFFFF7 = bad cluster
 	; $FFFFFFF = end of file
-<<<<<<< HEAD
 	; (we'll treat anything from $FFFFFF0-F as bad/invalid for simplicity)
-=======
-	;
->>>>>>> 5ec2c9e... comment/debug messages, display fat32 sectors, and
 	lda dos_file_descriptors+3,y
 	cmp #$0f
 	bne dfanc_ok
@@ -3397,12 +3407,8 @@ l94d:		lda $d681,x
 		dex
 		bpl l94d
 		
-<<<<<<< HEAD
 
 		; Set flags to indicate it is mounted (and read-write)
-=======
-		; Set flags to indicate it is mounted (but read-only)
->>>>>>> 5ec2c9e... comment/debug messages, display fat32 sectors, and
 		lda #$03
 		sta $d68b
 
