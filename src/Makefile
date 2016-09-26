@@ -355,8 +355,7 @@ clean:
 	rm -f utilities/test01prg.prg utilities/test01prg.list utilities/test01prg.map
 	rm -f utilities/c65test02prg.prg utilities/c65test02prg.list utilities/c65test02prg.map
 	rm -f tests/test_fdc_equal_flag.prg tests/test_fdc_equal_flag.list tests/test_fdc_equal_flag.map
-	rm -f iomap.txt
-	rm -f utility.d81
+	rm -f MEGA65.D81
 	rm -f $(VHDLSRCDIR)/kickstart.vhdl $(VHDLSRCDIR)/charrom.vhdl $(VHDLSRCDIR)/version.vhdl version.a65
 	rm -f monitor_drive monitor_load read_mem ghdl-frame-gen chargen_debug dis4510 em4510 4510tables pngprepare BOOTLOGO.M65
 	rm -f c65-rom-911001.txt c65-911001-rom-annotations.txt c65-dos-context.bin c65-911001-dos-context.bin

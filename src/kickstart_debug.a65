@@ -76,17 +76,6 @@ dumpfddata:
 	stx dfdd7+1
 	sty dfdd7
 
-	jsr checkpoint
-	.byte 0,"File<="
-dfdd0:	.byte	"xx,"
-dfdd1:	.byte	"xx,"
-dfdd2:	.byte	"xx,"
-dfdd3:	.byte	"xx,"
-dfdd4:	.byte	"xx,"
-dfdd5:	.byte	"xx,"
-dfdd6:	.byte	"xx,"
-dfdd7:	.byte	"xx"
-	.byte 0
 
 	ldx dos_file_descriptors+8	; convert .X to char-representation for display
 	jsr checkpoint_bytetohex	; returns: .X and .Y (Y is MSB, X is LSB, print YX)
@@ -122,7 +111,16 @@ dfdd7:	.byte	"xx"
 	sty dfddf
 
 	jsr checkpoint
-	.byte 0,"Desc>="
+	.byte 0,"FileDesc<="
+dfdd0:	.byte	"xx,"
+dfdd1:	.byte	"xx,"
+dfdd2:	.byte	"xx,"
+dfdd3:	.byte	"xx,"
+dfdd4:	.byte	"xx,"
+dfdd5:	.byte	"xx,"
+dfdd6:	.byte	"xx,"
+dfdd7:	.byte	"xx - "
+
 dfdd8:	.byte	"xx,"
 dfdd9:	.byte	"xx,"
 dfdda:	.byte	"xx,"
