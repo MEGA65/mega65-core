@@ -13,6 +13,7 @@ UTILITIES=	utilities/ethertest.prg \
 		utilities/etherload.prg \
 		utilities/test01prg.prg \
 		utilities/c65test02prg.prg \
+		utilities/userPRGs/* \
 		tests/test_fdc_equal_flag.prg \
 		diskmenu.prg
 
@@ -62,12 +63,12 @@ simulate:	diskmenu.prg \
 # verbose, for 1581 format, overwrite
 MEGA65.D81:	$(UTILITIES)
 	$(warning ~~~~~~~~~~~~~~~~> Making: MEGA65.D81)
-#	cbmconvert -v2 -D8o utility.d81 $(UTILITIES)
 	cbmconvert -v2 -D8o MEGA65.D81 utilities/ethertest.prg \
                                         utilities/etherload.prg \
                                         utilities/test01prg.prg \
                                         utilities/c65test02prg.prg \
-					tests/test_fdc_equal_flag.prg \
+                                        tests/test_fdc_equal_flag.prg \
+                                        utilities/userPRGs/*.prg \
                                         diskmenu.prg
 
 # ============================ done moved, print-warn, clean-target
