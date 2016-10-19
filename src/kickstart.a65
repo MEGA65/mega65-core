@@ -1017,9 +1017,33 @@ loadedok:
 		cmp #$02
 		bne romfiletoolong
 
+		; the loaded ROM was OK in size
 		; need to store checksum
 		;
 		jsr storeromsum
+
+loadedmegaromok:
+		; print debug message
+		;
+		jsr checkpoint
+		.byte 0,"  OK-loading CHARROM",0
+
+		; prepare debug message
+		;
+		ldx dos_current_file_descriptor_offset
+		lda dos_file_descriptors + dos_filedescriptor_offset_fileoffset+0,x
+		sta file_pagesread
+		lda dos_file_descriptors + dos_filedescriptor_offset_fileoffset+1,x
+		sta file_pagesread+1
+
+		ldx #<msg_megaromloaded
+		ldy #>msg_megaromloaded
+		jsr printmessage
+		ldy #$00
+		ldz file_pagesread+1
+		jsr printhex
+		ldz file_pagesread
+		jsr printhex
 		
 		; ROM file loaded, transfer control
 		;
@@ -2576,6 +2600,7 @@ msg_romok:            .byte "ROM CHECKSUM OK - BOOTING",0
 msg_rombad:	      .byte "ROM CHECKSUM FAIL - LOADING ROMS",0
 msg_charrombad:	      .byte "COULD NOT LOAD CHARROM.M65",0
 msg_charromloaded:    .byte "LOADED CHARROM.M65 ($$$$ PAGES)",0
+msg_megaromloaded:    .byte "LOADED MEGA65ROM.M65 ($$$$ PAGES)",0
 msg_tryingsdcard:     .byte "LOOKING FOR SDCARD...",0
 msg_foundsdcard:      .byte "FOUND AND RESET SDCARD",0
 msg_sdcarderror:      .byte "ERROR READING FROM SD CARD",0
