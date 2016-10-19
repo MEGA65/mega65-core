@@ -4,6 +4,7 @@
 
 [Introduction](#introduction)
 
+This file is currently outdated.  
 The following components are currently documented (at least in part):
 
 * [container](#container)

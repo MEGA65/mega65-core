@@ -55,10 +55,18 @@ loop:
 	
 
 waitingforpacket:
+
+	; do something so that we know it has not crashed
+	lda $d020	;border
+	adc #$01
+	sta $d020
+
 	lda $d6e1
 	and #$20
 	beq waitingforpacket
-	; clear eth RX signal, and leave ethernet tranceiver on
+
+	; we have detected that we have recieved a packet
+	; so, clear eth RX signal, and leave ethernet tranceiver on
 	; and make last used RX buffer visible
 	lda $d6e1
 	and #$04
@@ -71,11 +79,11 @@ waitingforpacket:
 	; check whether it is UDP port 4510
 	; or whether it is an ARP request
 
-	inc $d020
+	inc $d020 ; XXX for debug
 
 	; Here we want to check that $680E - $6817 =
 	; 08 06 00 01 08 00 06 04 00 01
-
+	;
 	ldx #$09
 arploop0:
 	lda $680e,x
@@ -84,7 +92,9 @@ arploop0:
 	dex
 	bpl arploop0
 
+	; yes, we have ARP
 	; check that IP address asked for ends in .65
+	;
 	lda $682b
 	cmp #65
 	bne notarp
@@ -144,17 +154,23 @@ arploop4:
 	lda #$01
 	sta $d6e4	
 
+; BG should this fall through ???
 
 notarp:
 	; is it IPv4?
+	;
 	lda $6810
 	cmp #$45
 	bne waitingforpacket
+
 	; is it UDP?
+	;
 	lda $6819
 	cmp #$11
 	bne waitingforpacket
+
 	; UDP port #4510
+	;
 	lda $6826
 	cmp #>4510
 	bne waitingforpacket
@@ -166,11 +182,18 @@ notarp:
 	; if it begins with $A9 = LDA immediate, then jsr to the packet body.
 	; packet body can do whatever is required to load data, keeping this
 	; programme very simple.
+	;
 	lda $682c
 	cmp #$a9
 	bne loop
+
+	; packet does begin with A9, so JSR there
+	;
 	jsr $682C
 
+	; BG i think the above should be a JMP,
+	; BG or the below an RTS
+	;
 	jmp loop
 
 arptemplate:
@@ -179,4 +202,4 @@ arptemplate:
 	.checkpc $CFFF
 	.scend
 
-	.outfile "etherload.prg"
+	.outfile "utilities/etherload.prg"

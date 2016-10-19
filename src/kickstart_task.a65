@@ -1,15 +1,22 @@
+;	========================
 
 ; Return the next free task ID
 ; XXX - Task ID $FF is hypervisor/operating system
 ; XXX - For now just lie, and always say task $00 is next.
 ; We should have a process allocation table that we consult.
 ; (actual suspended processes should be held on SD card in files)
+
 task_get_next_taskid:
+
 	lda #$00
 	rts
 
+;	========================
+
 task_set_c64_memorymap:
+
 	; set contents of CPU registers for exit from hypervisor mode
+
 	lda #$00
 	sta hypervisor_a
 	sta hypervisor_x
@@ -39,8 +46,12 @@ task_set_c64_memorymap:
 	; XXX - disable C65 ROM maps
 	rts
 	
+;	========================
+
 task_set_pc_to_reset_vector:
+
 	; Set PC from $FFFC in ROM, i.e., $802FFFC
+	;
 	ldx #<reset_vector
 	ldy #>reset_vector
 	ldz #$02
@@ -59,15 +70,21 @@ task_set_pc_to_reset_vector:
 
 	rts
 
+;	========================
+
 ; Set dummy C64 NMI vector
 ; This avoid a nasty crash if NMI is called during kickstart
 ; Points to a RTI instruction in $FEC1
+
 task_dummy_nmi_vector:
+
 	lda #<$FEC1
 	sta $0318
 	lda #>$FEC1
 	sta $0319
 	rts
+
+;	========================
 
 ; Set all page entries and current page number to all zeroes
 ; so that we don't think any page is loaded.
@@ -75,7 +92,9 @@ task_dummy_nmi_vector:
 ; is in chipram. It might be legitimate to try to map that.  Perhaps we should set
 ; the pages to $FFFF instead (but that would reduce available VM space by 16KB).
 ; Physical page 0 is probably reasonable for now. We can revisit as required.
+
 task_clear_pagetable:
+
 	lda #$00
 	ldx #<hypervisor_vm_currentpage_lo
 tcp1:	sta $d600,x
@@ -84,50 +103,74 @@ tcp1:	sta $d600,x
 	bne tcp1
 	rts	
 
+;	========================
+
 task_erase_processcontrolblock:
+
 	; Erase process control block
+	;
 	ldx #$00
 	txa
 tabs1:	sta currenttask_block,x
 	inx
 	bne tabs1
 	jsr task_clear_pagetable
+
 	; Mark all files as closed
+
 	jmp dos_clear_filedescriptors
 
+;	========================
+
 task_new_processcontrolblock:
+
 	jsr task_erase_processcontrolblock
 	jsr task_get_next_taskid
 	sta currenttask_id
 	rts
 
+;	========================
+
 ; Initialise memory to indicate a new blank task.
 ; (actually, it will be a task preconfigured for C64/C65 mode)
+
 task_asblankslate:
+
 	jsr task_new_processcontrolblock
 	
 	jsr task_set_c64_memorymap
 	rts
 
+;	========================
+
 double_restore_trap:
+
 	; For now we just want to toggle the CPU speed between 48MHz and
 	; 1MHz
 
 	; enable 48MHz for fast mode instead of 3.5MHz
+	;
 	lda $D054
 	eor #$40
 	sta $D054
 
 	; enable FAST mode,
+	;
 	lda $D031
 	ora #$40
 	sta $D031
 
 	; bump border colour so that we know something has happened
+	;
 	lda $D020
 	inc
 	and #$0f
 	sta $D020
 
 	; return from hypervisor
+	;
 	sta hypervisor_enterexit_trigger
+
+;	========================
+
+

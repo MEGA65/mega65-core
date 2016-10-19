@@ -1,5 +1,13 @@
 #!/bin/bash
 
+# first things first, make the ISE-project-script-file Read-Only for all groups.
+# this is done to stop the ISE-GUI from overwriting the file, which may be
+# causing the compile-script to fail due to invalid relative addresses.
+# a possible fix is to move the mega65.gise (ISE project file) into ./isework
+ls -al    isework/container.xst
+chmod a-w isework/container.xst
+ls -al    isework/container.xst
+
 ( cd src ; make generated_vhdl firmware ../iomap.txt tools utilities )
 retcode=$?
 
@@ -27,7 +35,7 @@ else
 fi
 
 # time for the output filenames
-datetime2=`date +%m%d-%H%M`
+datetime2=`date +%m%d%H%M`
 # gitstring for the output filenames, results in '10bef97' or similar
 gitstring=`git describe --always --abbrev=7 --dirty=~`
 # git status of 'B'ranch in 'S'hort format, for the output filename
@@ -85,7 +93,7 @@ fi
 #
 datetime=`date +%Y%m%d_%H:%M:%S`
 echo "==> $datetime Starting: ngdbuild, see container.bld"
-ngdbuild ${ISE_COMMON_OPTS} ${ISE_NGDBUILD_OPTS} -uc ./vhdl/container.ucf ./isework/container.ngc ./isework/container.ngd > $outfile2
+ngdbuild ${ISE_COMMON_OPTS} ${ISE_NGDBUILD_OPTS} -uc ./src/vhdl/container.ucf ./isework/container.ngc ./isework/container.ngd > $outfile2
 retcode=$?
 if [ $retcode -ne 0 ] ; then
   echo "ngdbuild failed with return code $retcode" && exit 1

@@ -1,5 +1,5 @@
 
-VHDLSRCDIR=	../vhdl
+VHDLSRCDIR=	vhdl
 
 KICKSTARTSRCS = kickstart.a65 \
 		kickstart_machine.a65 \
@@ -8,17 +8,23 @@ KICKSTARTSRCS = kickstart.a65 \
 		kickstart_task.a65 \
 		kickstart_mem.a65
 
-UTILITIES=	ethertest.prg \
-		etherload.prg \
+# if you want your PRG to appear on "utility.d81", then also ADD your file to the "utility.d81" target
+UTILITIES=	utilities/ethertest.prg \
+		utilities/etherload.prg \
+		utilities/test01prg.prg \
+		utilities/c65test02prg.prg \
+		utilities/userPRGs/* \
+		tests/test_fdc_equal_flag.prg \
 		diskmenu.prg
 
 TOOLS=	etherkick \
 	etherload \
 	hotpatch
 
-all:	$(warning ~~~~~~~~~~~~~~~~> The 'all'-target is not implemented in the makefile yet, refer to ./../compile.sh)
+all:
+	$(warning ~~~~~~~~~~~~~~~~> The 'all'-target is not implemented in the makefile yet, refer to ./../compile.sh)
 	$(warning You need to explicitly know what to make, else use ./../compile.sh)
-	$(warning Common targets are: generated_vhdl, firmware, tools, itilities)
+	$(warning Common targets are: generated_vhdl, firmware, tools, utilities)
 	$(warning Other  targets are: simulate, utility.d81)
 
 
@@ -32,7 +38,9 @@ generated_vhdl:	$(VHDLSRCDIR)/kickstart.vhdl \
 
 
 # files destined to go on the SD-card to serve as firmware for the MEGA65
-firmware:	BOOTLOGO.M65 KICKUP.M65
+firmware:	BOOTLOGO.M65 \
+		KICKUP.M65 \
+		MEGA65.D81
 
 # c-programs
 tools:	$(TOOLS)
@@ -53,27 +61,35 @@ simulate:	diskmenu.prg \
 
 # ============================, print-warn, clean target
 # verbose, for 1581 format, overwrite
-utility.d81:	$(UTILITIES)
-	$(warning ~~~~~~~~~~~~~~~~> Making: utility.d81)
-	cbmconvert -v2 -D8o utility.d81 $(UTILITIES)
+MEGA65.D81:	$(UTILITIES)
+	$(warning ~~~~~~~~~~~~~~~~> Making: MEGA65.D81)
+	cbmconvert -v2 -D8o MEGA65.D81 utilities/ethertest.prg \
+                                        utilities/etherload.prg \
+                                        utilities/test01prg.prg \
+                                        utilities/c65test02prg.prg \
+                                        tests/test_fdc_equal_flag.prg \
+                                        utilities/userPRGs/*.prg \
+                                        diskmenu.prg
+
+# ============================ done moved, print-warn, clean-target
+# PGS program for testing the F011 floppy write, etc.
+tests/test_fdc_equal_flag.prg:	tests/test_fdc_equal_flag.a65
+	$(warning ~~~~~~~~~~~~~~~~> Making: tests/test_fdc_equal_flag.a65)
+	./../../Ophis/bin/ophis -4 tests/test_fdc_equal_flag.a65 -l tests/test_fdc_equal_flag.list -m tests/test_fdc_equal_flag.map
+
 
 # ============================ done moved, print-warn, clean-target
 # ophis converts the *.a65 file (assembly text) to *.prg (assembly bytes)
-ethertest.prg:	utilities/ethertest.a65
+utilities/ethertest.prg:	utilities/ethertest.a65
 	$(warning ~~~~~~~~~~~~~~~~> Making: utilities/ethertest.prg)
-	./../../Ophis/bin/ophis -4 utilities/ethertest.a65
-
-
-# does not exist, so will not be included in the build
-f011test.prg:	f011test.a65 
-	./../../Ophis/bin/ophis -4 f011test.a65
+	./../../Ophis/bin/ophis -4 utilities/ethertest.a65 -l utilities/ethertest.list -m utilities/ethertest.map
 
 
 # ============================ done moved, print-warn, clean-target
 # ophis converts the (two) *.a65 file (assembly text) to *.prg (assembly bytes)
 # the "l" option created a verbose listing of the output
 # NOTE that to get to compile i needed to comment out the ".scope" in the "diskmenu.a65" file
-diskmenu.prg:	diskmenuprg.a65 diskmenu.a65
+diskmenu.prg:	diskmenuprg.a65 diskmenu.a65 utilities/etherload.prg
 	$(warning ~~~~~~~~~~~~~~~~> Making: diskmenu.prg and diskmenuprg.list)
 	./../../Ophis/bin/ophis -4 diskmenuprg.a65 -l diskmenuprg.list -m diskmenuprg.map
 
@@ -92,7 +108,7 @@ KICKUP.M65:	$(KICKSTARTSRCS) diskmenu_c000.bin version.a65
 
 
 # ============================ done moved, print-warn, clean-target
-diskmenu_c000.bin:	diskmenuc000.a65 diskmenu.a65
+diskmenu_c000.bin:	diskmenuc000.a65 diskmenu.a65 utilities/etherload.prg
 	$(warning ~~~~~~~~~~~~~~~~> Making: diskmenu_c000.bin and diskmenuc000.list)
 	./../../Ophis/bin/ophis -4 diskmenuc000.a65 -l diskmenuc000.list -m diskmenuc000.map
 
@@ -104,9 +120,21 @@ thumbnail.prg:	showthumbnail.a65
 
 
 # ============================ done moved, print-warn, clean-target
-etherload.prg:	utilities/etherload.a65
+utilities/etherload.prg:	utilities/etherload.a65
 	$(warning ~~~~~~~~~~~~~~~~> Making: utilities/etherload.prg)
 	./../../Ophis/bin/ophis -4 utilities/etherload.a65 -l utilities/etherload.list -m utilities/etherload.map
+
+
+# ============================ done moved, print-warn, clean-target
+utilities/test01prg.prg:	utilities/test01prg.a65
+	$(warning ~~~~~~~~~~~~~~~~> Making: utilities/test01prg.prg)
+	./../../Ophis/bin/ophis -4 utilities/test01prg.a65 -l utilities/test01prg.list -m utilities/test01prg.map
+
+
+# ============================ done moved, print-warn, clean-target
+utilities/c65test02prg.prg:	utilities/c65test02prg.a65
+	$(warning ~~~~~~~~~~~~~~~~> Making: utilities/c65test02prg.prg)
+	./../../Ophis/bin/ophis -4 utilities/c65test02prg.a65 -l utilities/c65test02prg.list -m utilities/c65test02prg.map
 
 
 # ============================ done moved, print-warn, clean-target
@@ -196,6 +224,27 @@ hotpatch:	tools/hotpatch/hotpatch.c Makefile
 $(VHDLSRCDIR)/version.vhdl version.a65:
 	$(warning ~~~~~~~~~~~~~~~~> Making: $(VHDLSRCDIR)/version.vhdl and version.a65)
 	./version.sh
+
+# ============================ done moved, Makefile-dep, print-warn, clean-target
+# c-code that makes an executable that processes images, and can make a vhdl file
+pngprepare:	pngprepare.c Makefile
+	$(warning ~~~~~~~~~~~~~~~~> Making: pngprepare)
+	gcc -g -Wall -I/usr/local/include -L/usr/local/lib -o pngprepare pngprepare.c -lpng
+
+# i think 'charrom' is used to put the pngprepare file into a special mode that
+# generates the charrom.vhdl file that is embedded with the contents of the 8x8font.png file
+$(VHDLSRCDIR)/charrom.vhdl:	pngprepare 8x8font.png
+	$(warning ~~~~~~~~~~~~~~~~> Making: $(VHDLSRCDIR)/charrom.vhdl)
+#       exe          option  infile      outfile
+	./pngprepare charrom 8x8font.png $(VHDLSRCDIR)/charrom.vhdl
+
+# ============================ done moved, Makefile-dep, print-warn, clean-target
+# i think the 'logo' is used to put the pngprepare into a special mode that
+# generates the BOOTLOGO.M65 file that is embedded with the contents of the mega65*.png file
+BOOTLOGO.M65:	pngprepare mega65_64x64.png
+	$(warning ~~~~~~~~~~~~~~~~> Making: BOOTLOGO.M65)
+#       exe          opt  infile           outfile
+	./pngprepare logo mega65_64x64.png BOOTLOGO.M65
 
 # ============================ done moved, Makefile-dep, print-warn, clean-target
 # c-code that makes and executable that seems to be the 'load-wedge'
@@ -294,44 +343,26 @@ c65-911001-dos-context.bin:	911001.bin Makefile
 	dd if=/dev/zero  bs=4096          count=1 >> c65-911001-dos-context.bin
 	dd if=911001.bin bs=8192  skip=15 count=1 >> c65-911001-dos-context.bin
 
-# ============================ done moved, Makefile-dep, print-warn, clean-target
-# c-code that makes an executable that processes images, and can make a vhdl file
-pngprepare:	pngprepare.c Makefile
-	$(warning ~~~~~~~~~~~~~~~~> Making: pngprepare)
-	gcc -g -Wall -I/usr/local/include -L/usr/local/lib -o pngprepare pngprepare.c -lpng
-
-# i think 'charrom' is used to put the pngprepare file into a special mode that
-# generates the charrom.vhdl file that is embedded with the contents of the 8x8font.png file
-$(VHDLSRCDIR)/charrom.vhdl:	pngprepare 8x8font.png
-	$(warning ~~~~~~~~~~~~~~~~> Making: $(VHDLSRCDIR)/charrom.vhdl)
-#       exe          option  infile      outfile
-	./pngprepare charrom 8x8font.png $(VHDLSRCDIR)/charrom.vhdl
-
-# ============================ done moved, Makefile-dep, print-warn, clean-target
-# i think the 'logo' is used to put the pngprepare into a special mode that
-# generates the BOOTLOGO.M65 file that is embedded with the contents of the mega65*.png file
-BOOTLOGO.M65:	pngprepare mega65_64x64.png
-	$(warning ~~~~~~~~~~~~~~~~> Making: BOOTLOGO.M65)
-#       exe          opt  infile           outfile
-	./pngprepare logo mega65_64x64.png BOOTLOGO.M65
-
 
 clean:
-	rm -f c65-rom-911001.txt c65-911001-rom-annotations.txt c65-dos-context.bin c65-911001-dos-context.bin
-	rm -f thumbnail.prg
 	rm -f KICKUP.M65 kickstart.list kickstart.map
 	rm -f diskmenu.prg diskmenuprg.list diskmenuprg.map
 	rm -f diskmenu_c000.bin diskmenuc000.list diskmenuc000.map
-	rm -f textmodetest.prg textmodetest.list etherload_done.bin etherload_stub.bin
-	rm -f videoproxy
-	rm -f tools/etherkick/etherkick tools/etherload/etherload
+	rm -f tools/etherkick/etherkick
+	rm -f tools/etherload/etherload
+	rm -f tools/hotpatch/hotpatch
 	rm -f utilities/etherload.prg utilities/etherload.list utilities/etherload.map
 	rm -f utilities/ethertest.prg utilities/ethertest.list utilities/ethertest.map
-	rm -f hotpatch
-	rm -f iomap.txt
-	rm -f utility.d81
+	rm -f utilities/test01prg.prg utilities/test01prg.list utilities/test01prg.map
+	rm -f utilities/c65test02prg.prg utilities/c65test02prg.list utilities/c65test02prg.map
+	rm -f tests/test_fdc_equal_flag.prg tests/test_fdc_equal_flag.list tests/test_fdc_equal_flag.map
+	rm -f MEGA65.D81
 	rm -f $(VHDLSRCDIR)/kickstart.vhdl $(VHDLSRCDIR)/charrom.vhdl $(VHDLSRCDIR)/version.vhdl version.a65
 	rm -f monitor_drive monitor_load read_mem ghdl-frame-gen chargen_debug dis4510 em4510 4510tables pngprepare BOOTLOGO.M65
+	rm -f c65-rom-911001.txt c65-911001-rom-annotations.txt c65-dos-context.bin c65-911001-dos-context.bin
+	rm -f thumbnail.prg
+	rm -f textmodetest.prg textmodetest.list etherload_done.bin etherload_stub.bin
+	rm -f videoproxy
 
 cleangen:
 	rm $(VHDLSRCDIR)/kickstart.vhdl $(VHDLSRCDIR)/charrom.vhdl *.M65

@@ -14,21 +14,21 @@
 
 ## Introduction
 
-When the bitstream has been loaded into the fpga, the fpga will begin to execute the bitstream.
+When the bitstream has been loaded into the fpga (refer to the [build](./build.md) page for detailled instructions), the fpga will then begin to execute the bitstream.
 
 The following is a basic list of the startup:
 
 1. "MEGA65 KICKSTART Vxx.xx".
- 1. insert photo of screen
+ 1. insert photo of screen (todo)
 1. The above kickstart screen:
  1. shows the git-version
  1. SDcard: looks for it, resets it, and mounts it
  1. attempts to load "BOOTLOGO.M65", if so, displays logo in top left
- 1. runs the kicked hypervisor (details to be found...)
- 1. mounts a disk image (MEGA65.D81) from SDcard
+ 1. runs the kicked hypervisor (if it exists on sdcard)
+ 1. mounts a disk image (MEGA65.D81) from SDcard (if it exists)
  1. seems to check for a ROM, does not find it so attempts to load it from the SDcard.
 1. The system then drops into MEGA65 (c65) mode.
- 1. insert photo of c65 screen
+ 1. insert photo of c65 screen (todo)
 
 NOW is a good time to remoove the USB-stick and put in the USB-keyboard.
 
@@ -46,43 +46,6 @@ When in c64 mode, you can generally do a number of things:
  1. first you need to mount the SDcard, then run a "disk-load" program (see [below](#c64-mode---loading-from-sdcard))
 1. you can use the serial-monitor from a PC to talk with the mega65.
  1. the serial monitor allows you to disassemble memory, assemble a machine language (ML) program, execute the ML program, step through the ML program, etc (see [below](#serial-monitor)).
-
-## c64 mode - loading from SDcard
-
-Basically: to load from SDcard, you first need to mount a disk-image of file-format "*.D81".
-Once that disk-image is mounted, then you just as-per-normal ```load"$",8```, ```list``` and ```load...```.
-Details of this are below.
-
-NOTE: that to mount a disk-image, the current design supports two different methods.
-These two different methods are selectable when compiling the design.
-Please refer to ```kickstart.a65``` and see the section:
-```
-diskchooserstart:
-        ; Pre-compiled disk chooser
-        .incbin "diskchooser"
-        ;  .incbin "diskmenu_c000.bin"
-diskchooserend:
-```
-In the above code-snippet, you can comment out the ```diskchooser``` line and uncomment the ```diskmenuc000.bin``` line to select the alternate disk-mount code.
-
-Currently, "diskchooser" is simple and seems to work, and is therefore the default in this git-repo.  
-
-The "diskmenu_c000.bin" is not currently working. This alternate version uses a much nicer interface.
-
-So, assuming you have the diskchooser compiled in, and you are in c64 mode,  
-
-1. To LOAD files from the SDcard, first mount a disk-image:
- 1. type ```sys49152``` and press enter. This executes code at $c000.
- 1. a list of the files on the SDcard will be listed. Press "Y" to mount the [diskimage](#disk-image) listed, or any other key to keep going through the list.
- 1. NOTE: that files that have been written to SDcard, *then deleted*, will still appear, but will be shown with the "|" symbol as the first char of the filename.
- 1. NOTE also: that to quit the listing, ```hold RUN-STOP``` and ```tap RESTORE```. You can then re-enter ```sys49152```.  
-
-1. Once a "D81" disk-image is mounted, you can then either:
- 1. - hold ```<shift>``` and tap ```<run-stop>``` to load the first file on the mounted disk-image, or
- 1. - type ```LOAD"$",8``` followed by ```list``` to display a directory listing of the mounted disk image, or
- 1. - type ```LOAD"FILENAME",8,1```, where ```FILENAME``` is a file located within the mounted disk-image, which will load a program that you know is on the disk-image.
- 1. Alternatively, to load the "DONKEYKONG" program, you can ```LOAD"DON*",8,1```, which will load the first file on the disk with matching filename starting with "DON".
- 1. Generally when a program is loaded, you can just type ```RUN``` to start the program.
 
 ## general usage
 
@@ -145,12 +108,11 @@ Seems the video may be outdated with the github-repo, ie: all references to "c65
 Unsure if UPPER/LOWER case of filenames is important, to do [  ].  
 Unsure if we need "G65" or "M65", to do [  ].  
 
-* ```MEGA65.ROM``` -- c65 kernal ROM, renamed from 911001.bin (or 910111 ???) which is the original ROM file extracted from one of the real c65 machines. Search for it on the internet.
-* ```C65GS.ROM``` -- as above, but unsure which needs to get loaded, need to look into the kickstart.a65 code to see which ROM is required.
-* ```C65GSx.ROM``` -- (optional) as above, but with ```x``` in the filename where ```x``` is a digit, unsure if this is still implemented, need to look into the kickstart.a65 code to see.
-* ```KICKUP.G65``` -- (optional) an updated version of the kickup-code (ie kickup.a65, which is compiled into the bitstream), but this ```kickup.G65``` is loaded at boot-up and replaces the code in the bitstream. This is useful for developing the kickup-code without having to recompile the entire design/bitstream.
+* ```MEGA65.ROM``` -- c65 kernal ROM, renamed from 910111.bin which is the original ROM file extracted from one of the real c65 machines. Search for it on the internet.
+* ```MEGA65x.ROM``` -- (optional) as above, but with ```x``` in the filename where ```x``` is a digit, unsure if this is still implemented, need to look into the kickstart.a65 code to see.
+* ```KICKUP.M65``` -- (optional) an updated version of the kickup-code.
 * ```CHARROM.M65``` -- (optional) the proprietary CBM character ROM, which is the original ROM file, cannot determine how this is built or sourced  
-* ```BOOTLOGO.G65``` -- (optional) image displayed on kickstart screen, refer ```/precomp/Makefile```   
+* ```BOOTLOGO.M65``` -- (optional) image displayed on kickstart screen, refer ```/precomp/Makefile```   
 * ```MEGA65.D81``` -- (optional) disk-image automatically mounted at boot-up
 * ```user.bit``` -- (optional) place a bitstream on the SDcard as a fallback when no "*.bit" file is found on the USB
 

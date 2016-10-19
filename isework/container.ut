@@ -2,7 +2,6 @@
 -g DebugBitstream:No
 -g Binary:no
 -g CRC:Enable
--g ConfigRate:22
 -g CclkPin:PullUp
 -g M0Pin:PullUp
 -g M1Pin:PullUp
@@ -20,8 +19,6 @@
 -g ConfigFallback:Disable
 -g BPI_page_size:1
 -g BPI_sync_mode:Disable
--g SPI_32bit_addr:Yes
--g SPI_buswidth:4
 -g SPI_Fall_Edge:No
 -g OverTempPowerDown:Disable
 -g USR_ACCESS:None

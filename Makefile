@@ -3,4 +3,3 @@ all:
 
 clean:
 	( cd src ; make clean )
-	( cd vhdl ; make clean )

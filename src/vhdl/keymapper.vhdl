@@ -63,6 +63,8 @@ architecture behavioural of keymapper is
                      ParityBit,StopBit);
   signal ps2state : ps2_state := Idle;
 
+  signal leftorupcount : unsigned(2 downto 0) := "000";
+  
   signal resetbutton_state : std_logic := 'Z';
   signal matrix_offset : integer range 0 to 255 := 252;
   signal last_pmod_clock : std_logic := '1';
@@ -91,6 +93,12 @@ architecture behavioural of keymapper is
   signal extended : std_logic := '0';
   signal break : std_logic := '0';
 
+  signal cursor_left : std_logic := '1';
+  signal cursor_up : std_logic := '1';
+  signal cursor_right : std_logic := '1';
+  signal cursor_down : std_logic := '1';
+  signal right_shift : std_logic := '1';
+  signal ps2 : std_logic := '0';
   signal matrix : std_logic_vector(71 downto 0) := (others =>'1');
   signal joy1 : std_logic_vector(4 downto 0) := (others =>'1');
   signal joy2 : std_logic_vector(4 downto 0) := (others =>'1');
@@ -218,8 +226,8 @@ begin  -- behavioural
             -- restore is active low, like all other keys
             restore_state <= pmod_data_in(3);
             if speed_gate_enable='1' then
-              -- CAPS LOCK UP = force 48MHz, down = enable speed control
-              speed_gate <= not pmod_data_in(2);
+              -- CAPS LOCK UP = force 48MHz, up = enable speed control
+              speed_gate <= pmod_data_in(2);
               capslock_out <= '1';
             else
               -- CAPS LOCK does CAPS LOCK, and speed control is enabled
@@ -300,7 +308,7 @@ begin  -- behavioural
       ps2data_samples <= ps2data_samples(6 downto 0) & ps2data;
       if ps2data_samples = "11111111" then
         ps2data_debounced <= '1';
-      end if;
+      end if; 
       if ps2data_samples = "00000000" then
         ps2data_debounced <= '0';
       end if;
@@ -376,7 +384,9 @@ begin  -- behavioural
 
                          -- Let the CPU read the most recent scan code for
                          -- debugging keyboard layout.
-                         last_scan_code <= break & full_scan_code;
+                         last_scan_code(12) <= break;
+                         last_scan_code(11 downto 9) <= std_logic_vector(leftorupcount(2 downto 0));
+                         last_scan_code(8 downto 0) <= full_scan_code(8 downto 0);
 
                          case full_scan_code is
                            when x"17D" =>
@@ -394,30 +404,32 @@ begin  -- behavioural
                              joy1(3) <= break;
                            when x"070" =>  -- JOY1 FIRE
                              joy1(4) <= break;
-                           when x"075" =>  -- JOY2 LEFT
-                             joy2(0) <= break;
                            when x"074" =>  -- JOY2 DOWN
                              joy2(3) <= break;
 --                           when x"072" =>  -- JOY2 RIGHT
 --                             joy2(3) <= break;
-                           when x"06b" =>  -- JOY2 UP
-                             joy2(2) <= break;
                            when x"073" =>  -- JOY2 FIRE
                              joy2(4) <= break;
                                            
                            -- DELETE, RETURN, RIGHT, F7, F1, F3, F5, down
                            when x"066" => matrix(0) <= break;
                            when x"05A" => matrix(1) <= break;
-                           when x"174" => matrix(2) <= break;
+                           when x"174" => cursor_right <= break; ps2 <= '1';
                            when x"083" => matrix(3) <= break;
                            when x"005" => matrix(4) <= break;
                            when x"004" => matrix(5) <= break;
                            when x"003" => matrix(6) <= break;
-                           when x"072" => matrix(7) <= break;
+                           when x"072" => cursor_down <= break; ps2 <= '1';
                                           joy2(1) <= break;  -- keyrah
                                                              -- duplicate scan
                                                              -- code for down
                                                              -- key and joy2 right?
+                           when x"075" => -- JOY2 LEFT
+                             joy2(0) <= break;
+                             cursor_up <= break; ps2 <= '1';
+                           when x"06B" => -- JOY2 UP
+                             joy2(2) <= break;
+                             cursor_left <= break; ps2 <= '1';
 
                            -- 3, W, A, 4, Z, S, E, left-SHIFT
                            when x"026" => matrix(8) <= break;
@@ -474,7 +486,7 @@ begin  -- behavioural
                            when x"05B" => matrix(49) <= break;
                            when x"052" => matrix(50) <= break;
                            when x"16C" => matrix(51) <= break;
-                           when x"059" => matrix(52) <= break;
+                           when x"059" => right_shift <= break; ps2 <= '1';
                            when x"05D" => matrix(53) <= break;
                            when x"171" => matrix(54) <= break;
                            when x"04A" => matrix(55) <= break;
@@ -501,8 +513,16 @@ begin  -- behavioural
           when StopBit => ps2state <= Idle;
           when others => ps2state <= Idle;
         end case;        
-      end if;      
-
+      -- Cursor left and up are down and right + right shift,
+      -- so combine these appropriately
+      elsif ps2 = '1' then
+        leftorupcount <= leftorupcount + 1;
+        matrix(7) <= cursor_down and cursor_up;
+        matrix(2) <= cursor_left and cursor_right;
+        matrix(52) <= right_shift and cursor_up and cursor_left;
+        ps2 <= '0';
+      end if;
+      
       -------------------------------------------------------------------------
       -- Update C64 CIA ports
       -------------------------------------------------------------------------
