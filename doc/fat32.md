@@ -22,6 +22,7 @@
 
 ## Introduction
 
+This file is a work in progress.  
 The system uses an SD-card for accessing files during boot-up and during operation.
 
 URLs used for reference include:  

@@ -3,25 +3,21 @@
 # Table of Contents:
 
 [Introduction](#introduction)  
-[Setup on the PC](#setup-on-the-pc)  
-[How to use](#how-to-use)  
-[Breakpoint](#breakpoint)  
 
 ## Introduction
 
-The Serial Mo
-,.,.,.,,,.,
+This file is a work in progresss, and should not be used/read yet.
 
-ce00-ceff
- possibly scratch space
+```
+ce00-ceff  
+ possibly scratch space  
 
+8000  
+ trap_entry_points  
 
-8000
- trap_entry_points
-
-81f8
- relocated cpu vectors
-81ff
+81f8  
+ relocated cpu vectors  
+81ff  
 
 8200
  hypervisor trap entry points
@@ -162,7 +158,7 @@ Kickstart ZP at $BF00-$BFFF
  sdcounter
 
 c000
-
+```
 
 
 
