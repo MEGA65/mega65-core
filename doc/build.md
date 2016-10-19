@@ -6,7 +6,8 @@
 [Downloading Repository](#downloading-repository)  
 [Compiling](#compiling)  
 [Modifying the design using ISE](#modifying-the-design-using-ise)  
-[Programming the FPGA](#programming-the-fpga)
+[Programming the FPGA via USB](#programming-the-fpga-via-usb)  
+[Programming the FPGA via sdcard](#programming-the-fpga-via-sdcard)
 
 ## Introduction
 
@@ -76,8 +77,8 @@ Overview of the compile process:
 
 1. pre-compile BEFORE running the ISE build
 1. run the ISE build
-1. optionally: see design run in fpga hardware
-1. optionally: see design run in ghdl simulator
+1. optionally: see design run in fpga hardware (to do)
+1. optionally: see design run in ghdl simulator (to do)
 
 The following instructions are for running in the fpga.  
 
@@ -91,15 +92,16 @@ $GIT_ROOT$/mega65-core>
 ```
 The ```compile.sh``` script performs two main tasks:  
 
-1. calls the ```make``` command in the ```./src``` directory, which pre-compiles files used in the design, and  
+1. calls the ```make``` command in the ```./src``` directory, which pre-compiles files used in the design, and then  
 1. issues several commands to build the design using ISE commands.  
 
-The image below may be useful to understand which file builds what file during the pre-compile.  
+The image below may be useful to understand which file builds what file during the pre-compile.   
+PLEASE NOTE that this file is now outdated.  
 
 [![precomp](./images/precomp-small.jpg)](./images/precomp.jpg)  
 Click the image above for a hi-res JPG, else the [PDF link](./images/precomp.pdf).  
 
-During the pre-compile, ```Ophis``` may generate the following warnings, but I am told that these are OK:
+During the pre-compile, ```Ophis``` may generate the following warnings, but these are OK:
 ```
 WARNING: branch out of range, replacing with 16-bit relative branch
 ```
@@ -115,13 +117,15 @@ There are two sets of log-files:
 
 Open ISE, and then ```Project -> Open``` and choose the ```"mega65"``` project.
 
-You should be able to double-click on the ```"Generate Programming File"``` and a bit-stream should be created.  
+You should be able to double-click on the ```"Generate Programming File"``` and a bit-stream should be created. (To-be-reconfirmed)  
 
 NOTE that every compile of a bitstream that is destined for the FPGA, should be compiled using ```./compile.sh``` script, because this script ensures that the pre-comp files are generated correctly.
 
-## Programming the FPGA
+## Programming the FPGA via USB
 
-Then load the bitstream into the Nexys 4 DDR board via USB stick:
+To get the bitstream onto the FPGA, you can use either the USB-Stick or the SD-card. See next section for sdcard.  
+
+To load the bitstream into the Nexys 4 DDR board via USB stick:
 
 1. you need a USB stick formatted as FAT32
 1. copy the bitstream to the root directory of the USB stick
@@ -136,5 +140,9 @@ $GIT_ROOT$/mega65-core> cp *.bit /media/sdc1
 1. power ON nexys
 
 Upon powerup, the bitstream is copied from USB into FPGA, then the FPGA executes it.
+
+## Programming the FPGA via sdcard
+
+Alternatively, the bitstream can be put onto an SD-card and that SD-card inserted into the Nexys 4 board. If you choose to use this method, just follow the above instructions re the use of the USB-stick, but change the "jumper JP2 to SD".  
 
 The End.
