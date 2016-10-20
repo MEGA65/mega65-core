@@ -8,7 +8,17 @@ ls -al    isework/container.xst
 chmod a-w isework/container.xst
 ls -al    isework/container.xst
 
-( cd src ; make generated_vhdl firmware ../iomap.txt tools utilities )
+# ensure these directory exists, if not, make them
+if test ! -e    "./sdcard-files"; then
+  echo "Creating ./sdcard-files"
+  mkdir          ./sdcard-files
+fi
+if test ! -e    "./sdcard-files/old-bitfiles"; then
+  echo "Creating ./sdcard-files/old-bitfiles"
+  mkdir          ./sdcard-files/old-bitfiles
+fi
+
+( cd src ; make generated_vhdl firmware ../iomap.txt tools utilities roms)
 retcode=$?
 
 if [ $retcode -ne 0 ] ; then
@@ -165,7 +175,17 @@ echo "From $outfile6: =================================================" >> $out
  echo "Nil" >> $outfile0
 
 echo " "
-# now copy the bit-file to the top-level-directory, and timestamp it with time and git-status
-echo "cp ./isework/container.bit ./bit${datetime2}_${branch2}_${gitstring}.bit"
-cp       ./isework/container.bit ./bit${datetime2}_${branch2}_${gitstring}.bit
-ls                               ./bit${datetime2}_${branch2}_${gitstring}.bit
+# now prepare the sdcard-output directory by moving any existing bit-file
+for filename in ./sdcard-files/*.bit; do
+  echo "mv ${filename} ./sdcard-files/old-bitfiles"
+        mv ${filename} ./sdcard-files/old-bitfiles
+done
+# now copy the bit-file to the sdcard-output directory, and timestamp it with time and git-status
+echo "cp ./isework/container.bit ./sdcard-files/bit${datetime2}_${branch2}_${gitstring}.bit"
+cp       ./isework/container.bit ./sdcard-files/bit${datetime2}_${branch2}_${gitstring}.bit
+# and the KICKUP file
+echo "cp ./src/KICKUP.M65 ./sdcard-files"
+      cp ./src/KICKUP.M65 ./sdcard-files
+
+echo " "
+ls -al ./sdcard-files
