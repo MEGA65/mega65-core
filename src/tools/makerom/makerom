@@ -1,0 +1,68 @@
+#!/usr/bin/env python
+
+from os.path import realpath, dirname, join
+from sys import argv, path
+
+if len(argv) < 4:
+  print "Usage:", argv[0], "<template-file> <binary-file> <output-file> <component-name>"
+  exit()
+
+print "argv=", argv
+print "argv[0]= the name of this python script"
+print "argv[1]= the template vhdl file"
+print "argv[2]= the binary data to embedd into the ROM"
+print "argv[3]= the name of the output vhdl-file (without extension)"
+print "argv[4]= the component name within the output vhdl-file"
+
+# Read a binary file and use it to make an initialised RAM
+
+file3=open(argv[3]+".vhdl","w")
+print "Opened ", file3.name, "for ", file3.mode
+
+# Read in the ROM file
+romdata=""
+
+file2 = open(argv[2], "rb")
+print "Opened ", file2.name, "for ", file2.mode
+
+bytes_read = file2.read()
+
+first=True
+c=0;
+count=0
+for b in bytes_read:
+    if first:
+        first=False
+    else:
+        romdata=romdata+","
+    if c==8:
+        c=0;
+    #if c==0:
+    #        romdata=romdata+"\n  -- "+hex(count+0xe000)+"\n  "
+    romdata=romdata+"x\""+b.encode('hex').upper()+"\""
+    count=count+1
+    c=c+1;    
+
+print "read ", count, " bytes from", file2.name
+
+# Read ROM template file
+file1=open(argv[1])
+print "Opened ", file1.name, "for ", file1.mode
+
+lines=file1.readlines()
+for line in lines:
+    if line.find("THEROM")>-1:
+        line=line.replace("THEROM",argv[4])
+    if line.find("ROMDATA")>-1:
+        line=line.replace("ROMDATA",romdata)
+    file3.write(line)
+
+print "Wrote ", file3.name
+
+# Close the opened files
+file3.close
+print "Closed ", file3.name
+file2.close
+print "Closed ", file2.name
+file1.close
+print "Closed ", file1.name

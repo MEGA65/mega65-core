@@ -8,7 +8,22 @@ ls -al    isework/container.xst
 chmod a-w isework/container.xst
 ls -al    isework/container.xst
 
-( cd src ; make generated_vhdl firmware ../iomap.txt tools utilities )
+# ensure these directory exists, if not, make them
+LOGDIR="build-logs"
+if test ! -e    "./${LOGDIR}"; then
+  echo "Creating ./${LOGDIR}"
+  mkdir          ./${LOGDIR}
+fi
+if test ! -e    "./sdcard-files"; then
+  echo "Creating ./sdcard-files"
+  mkdir          ./sdcard-files
+fi
+if test ! -e    "./sdcard-files/old-bitfiles"; then
+  echo "Creating ./sdcard-files/old-bitfiles"
+  mkdir          ./sdcard-files/old-bitfiles
+fi
+
+( cd src ; make generated_vhdl firmware ../iomap.txt tools utilities roms)
 retcode=$?
 
 if [ $retcode -ne 0 ] ; then
@@ -43,13 +58,14 @@ branch=`git status -b -s | head -n 1`
 # get from charpos3, for 6 chars
 branch2=${branch:3:6}
 
-outfile0="compile-${datetime2}_0.log"
-outfile1="compile-${datetime2}_1-xst.log"
-outfile2="compile-${datetime2}_2-ngd.log"
-outfile3="compile-${datetime2}_3-map.log"
-outfile4="compile-${datetime2}_4-par.log"
-outfile5="compile-${datetime2}_5-trc.log"
-outfile6="compile-${datetime2}_6-bit.log"
+
+outfile0="${LOGDIR}/compile-${datetime2}_0.log"
+outfile1="${LOGDIR}/compile-${datetime2}_1-xst.log"
+outfile2="${LOGDIR}/compile-${datetime2}_2-ngd.log"
+outfile3="${LOGDIR}/compile-${datetime2}_3-map.log"
+outfile4="${LOGDIR}/compile-${datetime2}_4-par.log"
+outfile5="${LOGDIR}/compile-${datetime2}_5-trc.log"
+outfile6="${LOGDIR}/compile-${datetime2}_6-bit.log"
 
 ISE_COMMON_OPTS="-intstyle ise"
 ISE_NGDBUILD_OPTS="-p xc7a100t-csg324-1 -dd _ngo -sd ipcore_dir -nt timestamp"
@@ -69,7 +85,9 @@ fi
 
 # begin the ISE build:
 echo "Beginning the ISE build."
-echo "Check ./compile-<datetime>-X.log for the log files, X={1,2,3,4,5,6}"
+echo " "
+echo "Check ./${LOGDIR}/compile-<datetime>-X.log for the log files, X={1,2,3,4,5,6}"
+echo " "
 
 # first, put the git-commit-ID in the first log file.
 echo ${gitstring} > $outfile0
@@ -165,7 +183,17 @@ echo "From $outfile6: =================================================" >> $out
  echo "Nil" >> $outfile0
 
 echo " "
-# now copy the bit-file to the top-level-directory, and timestamp it with time and git-status
-echo "cp ./isework/container.bit ./bit${datetime2}_${branch2}_${gitstring}.bit"
-cp       ./isework/container.bit ./bit${datetime2}_${branch2}_${gitstring}.bit
-ls                               ./bit${datetime2}_${branch2}_${gitstring}.bit
+# now prepare the sdcard-output directory by moving any existing bit-file
+for filename in ./sdcard-files/*.bit; do
+  echo "mv ${filename} ./sdcard-files/old-bitfiles"
+        mv ${filename} ./sdcard-files/old-bitfiles
+done
+# now copy the bit-file to the sdcard-output directory, and timestamp it with time and git-status
+echo "cp ./isework/container.bit ./sdcard-files/bit${datetime2}_${branch2}_${gitstring}.bit"
+cp       ./isework/container.bit ./sdcard-files/bit${datetime2}_${branch2}_${gitstring}.bit
+# and the KICKUP file
+echo "cp ./src/KICKUP.M65 ./sdcard-files"
+      cp ./src/KICKUP.M65 ./sdcard-files
+
+echo " "
+ls -al ./sdcard-files
