@@ -203,11 +203,11 @@ textmodetest.prg:	textmodetest.a65 textmodetest-dejavus.f65
 # makerom is a python script that reads two files (arg[1,2]) and generates one (arg[3]).
 # the line below would generate the kickstart.vhdl file, (note no file extention on arg[3])
 # two files are read (arg[1] and arg[2]) and somehow compared, looking for THEROM and ROMDATA
-$(VHDLSRCDIR)/kickstart.vhdl:	rom_template.vhdl KICKUP.M65 makerom
+$(VHDLSRCDIR)/kickstart.vhdl:	tools/makerom/rom_template.vhdl KICKUP.M65 tools/makerom/makerom
 	$(warning =============================================================)
 	$(warning ~~~~~~~~~~~~~~~~> Making: $(VHDLSRCDIR)/kickstart.vhdl)
-#       script    arg[1]            arg[2]            arg[3]
-	./makerom rom_template.vhdl KICKUP.M65 $(VHDLSRCDIR)/kickstart kickstart
+#       script                arg[1]                          arg[2]     arg[3]                  arg[4]
+	tools/makerom/makerom tools/makerom/rom_template.vhdl KICKUP.M65 $(VHDLSRCDIR)/kickstart kickstart
 
 
 # unsure why the below is commented out
