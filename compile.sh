@@ -9,6 +9,11 @@ chmod a-w isework/container.xst
 ls -al    isework/container.xst
 
 # ensure these directory exists, if not, make them
+LOGDIR="build-logs"
+if test ! -e    "./${LOGDIR}"; then
+  echo "Creating ./${LOGDIR}"
+  mkdir          ./${LOGDIR}
+fi
 if test ! -e    "./sdcard-files"; then
   echo "Creating ./sdcard-files"
   mkdir          ./sdcard-files
@@ -53,13 +58,14 @@ branch=`git status -b -s | head -n 1`
 # get from charpos3, for 6 chars
 branch2=${branch:3:6}
 
-outfile0="compile-${datetime2}_0.log"
-outfile1="compile-${datetime2}_1-xst.log"
-outfile2="compile-${datetime2}_2-ngd.log"
-outfile3="compile-${datetime2}_3-map.log"
-outfile4="compile-${datetime2}_4-par.log"
-outfile5="compile-${datetime2}_5-trc.log"
-outfile6="compile-${datetime2}_6-bit.log"
+
+outfile0="${LOGDIR}/compile-${datetime2}_0.log"
+outfile1="${LOGDIR}/compile-${datetime2}_1-xst.log"
+outfile2="${LOGDIR}/compile-${datetime2}_2-ngd.log"
+outfile3="${LOGDIR}/compile-${datetime2}_3-map.log"
+outfile4="${LOGDIR}/compile-${datetime2}_4-par.log"
+outfile5="${LOGDIR}/compile-${datetime2}_5-trc.log"
+outfile6="${LOGDIR}/compile-${datetime2}_6-bit.log"
 
 ISE_COMMON_OPTS="-intstyle ise"
 ISE_NGDBUILD_OPTS="-p xc7a100t-csg324-1 -dd _ngo -sd ipcore_dir -nt timestamp"
@@ -79,7 +85,9 @@ fi
 
 # begin the ISE build:
 echo "Beginning the ISE build."
-echo "Check ./compile-<datetime>-X.log for the log files, X={1,2,3,4,5,6}"
+echo " "
+echo "Check ./${LOGDIR}/compile-<datetime>-X.log for the log files, X={1,2,3,4,5,6}"
+echo " "
 
 # first, put the git-commit-ID in the first log file.
 echo ${gitstring} > $outfile0

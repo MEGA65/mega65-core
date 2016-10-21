@@ -46,7 +46,7 @@ sdcard-files/MEGA65.ROM
 sdcard-files/old-bitfiles/*
 
 # files generated during compilation using ./compile.sh script
-compile-*.log
+build-logs/compile-*.log
 bit*.bit
 isework/container.bit
 
