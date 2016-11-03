@@ -150,7 +150,7 @@ architecture behavioural of sdcardio is
                                         -- for writing
         din : in std_logic_vector(7 downto 0);
         dout : out std_logic_vector(7 downto 0);
-        clk : in std_logic      -- twice the SPI clk
+        clk : in std_logic    -- twice the SPI clk
         );
   end component;
 
@@ -201,6 +201,7 @@ architecture behavioural of sdcardio is
 
   -- Signals to communicate with SD controller core
   signal sd_sector       : unsigned(31 downto 0) := (others => '0');
+
   signal sd_datatoken    : unsigned(7 downto 0);
   signal sd_rdata        : unsigned(7 downto 0);
   signal sd_wdata        : unsigned(7 downto 0) := (others => '0');
@@ -208,7 +209,7 @@ architecture behavioural of sdcardio is
   signal sd_reset        : std_logic := '1';
   signal sdhc_mode : std_logic := '0';
   signal half_speed : std_logic := '0';
-  
+
   -- IO mapped register to indicate if SD card interface is busy
   signal sdio_busy : std_logic := '0';
   signal sdio_error : std_logic := '0';
@@ -226,7 +227,7 @@ architecture behavioural of sdcardio is
   type sd_state_t is (Idle,
                       ReadSector,ReadingSector,ReadingSectorAckByte,DoneReadingSector,
                       WriteSector,WritingSector,WritingSectorAckByte,
-                      F011WriteSector,DoneWritingSector);
+                      F011WriteSector,F011WriteSectorCopying,DoneWritingSector);
   signal sd_state : sd_state_t := Idle;
 
   -- F011 FDC emulation registers and flags
@@ -245,6 +246,7 @@ architecture behavioural of sdcardio is
   signal f011_buffer_next_read : unsigned(8 downto 0) := (others => '0');
   signal f011_buffer_wdata : unsigned(7 downto 0);
   signal f011_buffer_rdata : unsigned(7 downto 0);
+
   signal f011_flag_eq : std_logic := '1';
   signal f011_flag_eq_inhibit : std_logic := '1';
   signal f011_swap : std_logic := '0';
@@ -468,7 +470,6 @@ begin  -- behavioural
           when "01010" =>
             -- P CODE  |  P7   |  P6   |  P5   |  P4   |  P3   |  P2   |  P1   |  P0   | A R
             fastio_rdata <= (others => 'Z');
-            
           when "11100" => -- @IO:GS $D09C - FDC read buffer pointer low bits (DEBUG)
             fastio_rdata <= f011_buffer_address(7 downto 0);
           when "11101" => -- @IO:GS $D09D - FDC read buffer pointer high bit (DEBUG)
@@ -964,10 +965,12 @@ begin  -- behavioural
               -- buffer.
               if last_was_d087='0' then
                 f011_wdata <= fastio_wdata;
+                f011_buffer_write <= '0';
+                f011_buffer_address <= f011_buffer_next_read;
                 f011_buffer_wdata <= fastio_wdata;
-                f011_buffer_write <= '1';
                 f011_buffer_next_read <= f011_buffer_next_read + 1;
-                f011_drq <= '0';                                    
+                f011_buffer_write <= '1';
+                f011_drq <= '0';                         
               end if;
               last_was_d087<='1';
             when others => null;           
@@ -1166,7 +1169,7 @@ begin  -- behavioural
             -- sector_buffer(to_integer(sector_offset)) <= unsigned(sd_rdata);
             sb_w <= '1';
             sb_wdata <= unsigned(sd_rdata);
-            sb_writeaddress <= to_integer(sector_offset);
+            sb_writeaddress <= to_integer(sector_offset);	-- read it from the same address
             sd_state <= ReadingSectorAckByte;
             if skip=0 then
               sector_offset <= sector_offset + 1;
@@ -1182,10 +1185,10 @@ begin  -- behavioural
                 f011_buffer_wdata <= unsigned(sd_rdata);
               end if;
             else
-              skip <= skip - 1;
               if skip=2 then
                 sd_datatoken <= unsigned(sd_rdata);
               end if;
+              skip <= skip - 1;
             end if;
           end if;
         when ReadingSectorAckByte =>
@@ -1211,27 +1214,49 @@ begin  -- behavioural
           report "Starting to write sector from unified FDC/SD buffer.";
           sb_w <= '0';
           f011_buffer_address <= f011_buffer_address;
-          f011_buffer_address <= (others => '0');
-          sd_state <= WriteSector;
+          f011_buffer_next_read <= (others => '0');
+          sd_state <= F011WriteSectorCopying;
+        when F011WriteSectorCopying =>	
+          -- Write byte to SD sector buffer		
+          sb_writeaddress <= to_integer("0"&f011_buffer_next_read);		
+          sb_wdata <= f011_buffer_rdata;		
+          sb_w <= '1';		
+          f011_flag_eq_inhibit <= '1';		
+          if f011_buffer_next_read /= "111111111" then		
+            -- Schedule reading of the next byte		
+            f011_buffer_next_read <= f011_buffer_next_read + 1;		
+            sd_state <= F011WriteSectorCopying;		
+          else		
+            -- Got all bytes, so proceed to writing sector.		
+            f011_buffer_next_read <= (others => '0');		
+            sd_state <= WriteSector;		
+          end if;
         when WriteSector =>
           -- Begin writing a sector into the buffer
           sb_w <= '0';
           if sdio_busy='0' then
             sd_dowrite <= '1';
             sdio_busy <= '1';
+            skip <= 1;
             sd_state <= WritingSector;
             sector_offset <= (others => '0');
+            sb_writeaddress <= to_integer(sector_offset);
           else
             sd_dowrite <= '0';
           end if;
         when WritingSector =>
           if data_ready='1' then
             sd_dowrite <= '0';
-            -- Byte has been accepted, write next one
-            sd_state <= WritingSectorAckByte;
-            sector_offset <= sector_offset + 1;
-            -- Update FDC buffer pointer to reflect position in write
-            f011_buffer_address <= sector_offset(8 downto 0) + 1;            
+            if skip = 0 then
+              -- Byte has been accepted, write next one
+              sd_state <= WritingSectorAckByte;
+              sector_offset <= sector_offset + 1;
+              -- Update FDC buffer pointer to reflect position in write
+              f011_buffer_address <= f011_buffer_address + 1;            
+            else
+              skip <= skip - 1;
+              sd_state <= WritingSectorAckByte;
+            end if;
           end if;
         when WritingSectorAckByte =>
           -- Wait until controller acknowledges that we have acked it
@@ -1262,3 +1287,4 @@ begin  -- behavioural
   end process;
 
 end behavioural;
+

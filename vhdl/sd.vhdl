@@ -18,7 +18,7 @@ entity sd_controller is
 
     sdhc_mode : in std_logic;
     half_speed : in std_logic;
-    
+   
     rd : in std_logic;
     wr : in std_logic;
     dm_in : in std_logic;	-- data mode, 0 = write continuously, 1 = write single block
@@ -30,6 +30,7 @@ entity sd_controller is
     din : in std_logic_vector(7 downto 0);
     dout : out std_logic_vector(7 downto 0);
     clk : in std_logic	-- twice the SPI clk
+
     );
 
 end sd_controller;
@@ -62,7 +63,6 @@ architecture rtl of sd_controller is
 
 -- one start byte, plus 512 bytes of data, plus two FF end bytes (CRC)
   constant WRITE_DATA_SIZE : integer := 515;
-
 
   signal state, return_state : states;
   signal sclk_sig : std_logic := '0';
@@ -253,9 +253,15 @@ begin
             if (sclk_sig = '1') and (half_speed='0' or half_speed_toggle='0') then
               recv_data <= recv_data(6 downto 0) & miso;
               if (bit_counter = 0) then
-                state <= return_state;
-                dout <= recv_data(6 downto 0) & miso;
-                data_ready <= '1';
+                if (return_state = WRITE_BLOCK_INIT) then
+                  state <= return_state;
+                elsif (return_state = WRITE_BLOCK_WAIT) then
+                  state <= return_state;
+                else
+                  state <= return_state;
+                  dout <= recv_data(6 downto 0) & miso;
+                  data_ready <= '1';
+                end if;
               else
                 bit_counter := bit_counter - 1;
                 data_ready <= '0';
@@ -286,6 +292,7 @@ begin
               state <= RECEIVE_BYTE_WAIT;
               return_state <= WRITE_BLOCK_WAIT;
               response_mode <= '0';
+              cmd_mode <= '1';
             else 	
               if ((byte_counter = 2) or (byte_counter = 1)) then
                 data_sig <= x"FF"; -- two CRC bytes
@@ -342,6 +349,6 @@ begin
 
   sclk <= sclk_sig;
   mosi <= cmd_out(55) when cmd_mode='1' else data_sig(7);
-  
+  			
 end rtl;
 
