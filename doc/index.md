@@ -8,6 +8,8 @@
   * [monitor](./monitor.md) - how to interface with the FPGA using a serial port monitor  
 * [hardware](./hardware.md) - details the interconnectivity of major hardware components  
 * [structural](./structural.md) - vhdl/fpga firmware diagrams and descriptions  
+* [kickup](./kickup.md) - firmware description and boot code  
+  * [fat32](./fat32.md) - implementation of fat32 file system  
 * [viciv](./viciv-modes.md) - information on the viciv (VIC-4) video chip (unsure if this is accurate)  
 * [User Manual](./usermanual0.md) - user manual sourced from  
 https://docs.google.com/document/d/1fmEUg6hDdWRb2tFZ3n4LG7S1mNP04_SUAW5DrE8zRpk/edit  

@@ -8,12 +8,15 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #endif
+
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
 #include <strings.h>
 #include <stdio.h>
 #include <fcntl.h>
+
+#define PORTNUM 4510
 
 char all_done_routine[128]={
   // Dummy inc $d020 jmp *-3 routine for debugging
@@ -70,7 +73,7 @@ int main(int argc, char**argv)
 
    if (argc != 3)
    {
-      printf("usage:  udpcli <IP address> <programme>\n");
+      printf("usage: %s <IP address> <programme>\n",argv[0]);
       exit(1);
    }
 
@@ -81,7 +84,11 @@ int main(int argc, char**argv)
    memset(&servaddr,0,sizeof(servaddr));
    servaddr.sin_family = AF_INET;
    servaddr.sin_addr.s_addr=inet_addr(argv[1]);
-   servaddr.sin_port=htons(4510);
+   servaddr.sin_port=htons(PORTNUM);
+
+   // print out debug info
+   printf("Using dst-addr: %s\n",inet_ntoa(servaddr.sin_addr));
+   printf("Using src-port: %d\n",ntohs(servaddr.sin_port));
 
    int fd=open(argv[2],O_RDWR);
    unsigned char buffer[1024];
@@ -95,11 +102,12 @@ int main(int argc, char**argv)
 	     argv[2]);
      exit(-1);
    }
+
    int address=buffer[0]+256*buffer[1];
    printf("Load address of programme is $%04x\n",address);
 
    while((bytes=read(fd,buffer,1024))!=0)
-   {     
+   {
      printf("Read %d bytes at offset %d\n",bytes,offset);
      offset+=bytes;
 
@@ -110,6 +118,7 @@ int main(int argc, char**argv)
      // Copy data into packet
      memcpy(&dma_load_routine[DATA_OFFSET],buffer,bytes);
 
+     printf("Sending\n");
      sendto(sockfd,dma_load_routine,sizeof dma_load_routine,0,
 	    (struct sockaddr *)&servaddr,sizeof(servaddr));
      usleep(150);
@@ -118,14 +127,30 @@ int main(int argc, char**argv)
      address+=bytes;
    }
 
+   // print out debug info
+   printf("Sent %s to %s on port %d.\n\n", argv[2],
+                                           inet_ntoa(servaddr.sin_addr),
+                                           ntohs(servaddr.sin_port));
+
    if (1) {
-     // Tell C65GS that we are all done
+
+     printf("Now tell MEGA65 that we are all done");
+
      int i;
      for(i=0;i<10;i++) {
-     sendto(sockfd,all_done_routine,sizeof all_done_routine,0,
-	    (struct sockaddr *)&servaddr,sizeof(servaddr));
-     usleep(150);
+
+       printf(".");
+
+       sendto(sockfd,
+              all_done_routine,
+              sizeof all_done_routine,0,
+              (struct sockaddr *)&servaddr,
+              sizeof(servaddr));
+
+       usleep(150);
      }
+
+     printf("\n");
    }
 
    return 0;

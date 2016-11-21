@@ -649,7 +649,13 @@ begin
           reset_timeout <= reset_timeout - 1;
         end if;
       else
-
+        if reset_timeout = 0 then
+          reset_out <= '1';
+        else
+          reset_out <= '0';
+          reset_timeout <= reset_timeout - 1;
+        end if;        
+        
         -- Allow a hardware switch to force stopping of the CPU
         if force_single_step='1' then
           monitor_mem_trace_mode<='1';

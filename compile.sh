@@ -1,6 +1,29 @@
 #!/bin/bash
 
-( cd src ; make generated_vhdl firmware ../iomap.txt tools utilities )
+# first things first, make the ISE-project-script-file Read-Only for all groups.
+# this is done to stop the ISE-GUI from overwriting the file, which may be
+# causing the compile-script to fail due to invalid relative addresses.
+# a possible fix is to move the mega65.gise (ISE project file) into ./isework
+ls -al    isework/container.xst
+chmod a-w isework/container.xst
+ls -al    isework/container.xst
+
+# ensure these directory exists, if not, make them
+LOGDIR="build-logs"
+if test ! -e    "./${LOGDIR}"; then
+  echo "Creating ./${LOGDIR}"
+  mkdir          ./${LOGDIR}
+fi
+if test ! -e    "./sdcard-files"; then
+  echo "Creating ./sdcard-files"
+  mkdir          ./sdcard-files
+fi
+if test ! -e    "./sdcard-files/old-bitfiles"; then
+  echo "Creating ./sdcard-files/old-bitfiles"
+  mkdir          ./sdcard-files/old-bitfiles
+fi
+
+( cd src ; make generated_vhdl firmware ../iomap.txt tools utilities roms)
 retcode=$?
 
 if [ $retcode -ne 0 ] ; then
@@ -27,7 +50,7 @@ else
 fi
 
 # time for the output filenames
-datetime2=`date +%m%d-%H%M`
+datetime2=`date +%m%d%H%M`
 # gitstring for the output filenames, results in '10bef97' or similar
 gitstring=`git describe --always --abbrev=7 --dirty=~`
 # git status of 'B'ranch in 'S'hort format, for the output filename
@@ -35,13 +58,14 @@ branch=`git status -b -s | head -n 1`
 # get from charpos3, for 6 chars
 branch2=${branch:3:6}
 
-outfile0="compile-${datetime2}_0.log"
-outfile1="compile-${datetime2}_1-xst.log"
-outfile2="compile-${datetime2}_2-ngd.log"
-outfile3="compile-${datetime2}_3-map.log"
-outfile4="compile-${datetime2}_4-par.log"
-outfile5="compile-${datetime2}_5-trc.log"
-outfile6="compile-${datetime2}_6-bit.log"
+
+outfile0="${LOGDIR}/compile-${datetime2}_0.log"
+outfile1="${LOGDIR}/compile-${datetime2}_1-xst.log"
+outfile2="${LOGDIR}/compile-${datetime2}_2-ngd.log"
+outfile3="${LOGDIR}/compile-${datetime2}_3-map.log"
+outfile4="${LOGDIR}/compile-${datetime2}_4-par.log"
+outfile5="${LOGDIR}/compile-${datetime2}_5-trc.log"
+outfile6="${LOGDIR}/compile-${datetime2}_6-bit.log"
 
 ISE_COMMON_OPTS="-intstyle ise"
 ISE_NGDBUILD_OPTS="-p xc7a100t-csg324-1 -dd _ngo -sd ipcore_dir -nt timestamp"
@@ -61,7 +85,9 @@ fi
 
 # begin the ISE build:
 echo "Beginning the ISE build."
-echo "Check ./compile-<datetime>-X.log for the log files, X={1,2,3,4,5,6}"
+echo " "
+echo "Check ./${LOGDIR}/compile-<datetime>-X.log for the log files, X={1,2,3,4,5,6}"
+echo " "
 
 # first, put the git-commit-ID in the first log file.
 echo ${gitstring} > $outfile0
@@ -85,7 +111,7 @@ fi
 #
 datetime=`date +%Y%m%d_%H:%M:%S`
 echo "==> $datetime Starting: ngdbuild, see container.bld"
-ngdbuild ${ISE_COMMON_OPTS} ${ISE_NGDBUILD_OPTS} -uc ./vhdl/container.ucf ./isework/container.ngc ./isework/container.ngd > $outfile2
+ngdbuild ${ISE_COMMON_OPTS} ${ISE_NGDBUILD_OPTS} -uc ./src/vhdl/container.ucf ./isework/container.ngc ./isework/container.ngd > $outfile2
 retcode=$?
 if [ $retcode -ne 0 ] ; then
   echo "ngdbuild failed with return code $retcode" && exit 1
@@ -157,7 +183,17 @@ echo "From $outfile6: =================================================" >> $out
  echo "Nil" >> $outfile0
 
 echo " "
-# now copy the bit-file to the top-level-directory, and timestamp it with time and git-status
-echo "cp ./isework/container.bit ./bit${datetime2}_${branch2}_${gitstring}.bit"
-cp       ./isework/container.bit ./bit${datetime2}_${branch2}_${gitstring}.bit
-ls                               ./bit${datetime2}_${branch2}_${gitstring}.bit
+# now prepare the sdcard-output directory by moving any existing bit-file
+for filename in ./sdcard-files/*.bit; do
+  echo "mv ${filename} ./sdcard-files/old-bitfiles"
+        mv ${filename} ./sdcard-files/old-bitfiles
+done
+# now copy the bit-file to the sdcard-output directory, and timestamp it with time and git-status
+echo "cp ./isework/container.bit ./sdcard-files/bit${datetime2}_${branch2}_${gitstring}.bit"
+cp       ./isework/container.bit ./sdcard-files/bit${datetime2}_${branch2}_${gitstring}.bit
+# and the KICKUP file
+echo "cp ./src/KICKUP.M65 ./sdcard-files"
+      cp ./src/KICKUP.M65 ./sdcard-files
+
+echo " "
+ls -al ./sdcard-files

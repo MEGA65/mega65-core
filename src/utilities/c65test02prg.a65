@@ -1,0 +1,57 @@
+	.outfile "utilities/c65test02prg.prg"
+
+	.word	$2000
+	.org	$2000
+
+	.scope
+
+;	.word _next, 10			; Next line and current line number
+
+;	.byte $97			; POKE 2,0
+;	.byte "2,0:"
+
+	.byte $00,$0b		; line number "10"
+	.byte $20,$0a,$00	; unsure
+	.byte $8f		; REM
+	.byte " C65"		; rem comment
+
+	.byte $00,$19,$20,$14,$00
+
+	.byte $9e, " 8192", $aa, "32"	; SYS 8192+32
+
+	.byte 0,0,0			; end of BASIC
+
+_next:	.word 0
+
+	.checkpc $2020
+	.advance $2020
+
+
+			; unsure
+	lda #$47
+	sta $d02f
+	lda #$53
+	sta $d02f
+
+			; memory mapping i think
+	lda #$ff
+	ldx #$0f
+	ldy #$00
+	ldz #$00
+	map
+	nop
+
+			; memory mapping i think
+	lda #$80
+	ldx #$8d
+	ldy #$00
+	ldz #$00
+	map
+	nop
+
+	inc $d020
+
+	brk		; to return back to basic (not RTS)
+
+	.scend
+
