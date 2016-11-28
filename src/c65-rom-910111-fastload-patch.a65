@@ -1,0 +1,251 @@
+	; Patch C65 910111 ROM to load faster from the internal drive.
+	; The concept is somple: When attempting to read a character from the drive,
+	; see if we have some buffered bytes in the spare bytes in the 2KB colour RAM
+	; between the 2000 bytes of screen RAM (allowing for 80 col mode) and the
+	; 14 bytes used by the existing DOS/context switch routine.
+	; 2048 - 2000 - 14 = 34 bytes starting at $DFD0 (when 2K colour RAM is banked
+	; in). This will save the very expensive context switch to 1581 DOS every time
+	; we read a byte.  The hope is to speed up reading each byte by a factor of 10
+	; or so, and thus allow loading at ~10KB/sec on a real C65, instead of
+	; ~1KB/sec.  Notably, this optimisation will also work for sequential reading
+	; of files as well, not just the LOAD routine (which as described below, we can
+	; optimise much further).
+	
+	.alias doscache_firstbyte $DFD0
+	.alias doscache_cachedbytes $DFD1
+	.alias doscache_usedbytes $DFD2
+	.alias doscache_buffer $DFD3
+	.alias doscache_maxbytes $DFF1-doscache_buffer
+
+	; The C64-mode C65 ROM calls $F72C at $F805 to bank in 1581 DOS. This is the
+	; point we need to use to check our cache, and fill it up if required.
+
+	; Then we also need to trap UNTALK so that we can invalidate our cache when
+	; the C64 tells the drive to stop talking. We need at that point to also
+	; copy the buffer pointer back to the 1581 DOS, in case we have read some bytes
+	; so that everything stays consistent.
+	; The place for that is the call to $F72C at $F823
+
+	; A further nicety would be to optimise the LOAD routine to probe the 1581 DOS
+	; status after reading each byte, and pull in as many bytes as are available
+	; in one go by DMA (and also fix loading under IO and kernal at the same time)
+	; Such an optimisation should allow loading at close to the speed of the floppy
+	; drive.
+
+	; C65 1581 DOS internal addresses we care about
+	; XXX - Likely to differ on different C65 ROM versions
+	.alias dos_logical_channel_index $04
+	.alias dos_ready_flags $11
+	.alias dos_buffer0_pages $51
+	.alias dos_buffer1_pages $5D
+	.alias dos_channel_ready $B1
+	.alias dos_channel_table $BD
+	.alias dos_drive_number $FB
+	.alias secondary_address $0158
+
+
+	; Candidate memory areas in the C65's C64-mode KERNAL:
+	;
+	; $E4E0-$E4EB (pause after finding a file on casette)
+	; $F2C8-$F2EB (close cassette device)
+	;             Patch $F2A9 : BNE $F2C8 to not enter it.
+	; $F38B-$F3D4 (open for cassette device, open cassette for input)
+	;             Patch $F386 : BNE $F38B to not enter it.
+	; $F539-$F5AE (another casette routine)
+	;             Patch $F534 : BCS $F539 to not enter it
+	; $F65F-$F68E (save ram to cassette)
+	;             Patch $F65A : BCS $F65F to not enter it.
+	; $FB97-$FC53 (previously cassette routines, previously freed by C65 ROM)
+	; $FC61-$FC92 (previously cassette routines, previously freed by C65 ROM)
+
+	.org $fb97
+
+; Trap UNTALK routine
+; XXX - Currently not implemented.
+f823_trap:
+	BRK
+
+; Trap to read byte from internal disk drive
+f805_trap:
+	jsr doscache_enter
+
+	; do stuff
+
+	; call normal internal DOS read byte
+	jsr $f72c
+	jsr $f808	
+
+f805_trap_read_from_cache:
+
+	lda doscache_usedbytes
+	bne cache_has_contents
+
+	; cache is currently empty
+
+	; Do 1581 DOS call to read a single byte as normal,
+	; to ensure that the DOS has some bytes ready to read for this channel.
+	; This is a bit "interesting" because $f72c pulls the return address from
+	; the C64-mode stack and puts it on the 1581 DOS stack.  So we need a surrogate
+	; return address, which we achieve by JSRing to the address that will call
+	; the $f72c routine.
+	; (note that we are already using the 1581 DOS stack, because we map the DOS
+	; 8KB at $0000-$1FFF on entry to the DOS cache memory context, so that we
+	; don't have to do it twice).
+	jsr next_instruction
+next_instruction:
+	jsr $f72c
+	jsr ($800e)
+	; because we saved our return address with the extra JSR above, we can call
+	; the return from 1581 DOS routine
+	jsr $f77c
+	; and the status of the C flag, too.
+	php
+	; push A, which has the byte just read, because we will want to return that
+	pha
+	; okay, now we can re-activate our DOS cache memory map, 3.5MHz mode etc, and
+	; slurp out any extra bytes (which also re-disables interrupts to keep things
+	; safe)
+	jsr doscache_enter
+	; We can now work out the buffer we care about, how many bytes are available,
+	; and copy them to the right location.
+
+	; Here we need to emulate the steps taken in the 1581 DOS to work out if we
+	; have an active buffer etc.
+
+	; Is DOS ready, and not reading a directory
+	lda dos_ready_flags
+	and #$81
+	cmp #$80
+	bne nothingtocache
+	
+
+	; Don't cache command channel, as it doesn't live in a normal buffer
+	lda secondary_address
+	and #$0f
+	cmp #$0f
+	beq nothingtocache
+
+	; From secondary address, get the offset into the channel lookup table
+	clc
+	ldx dos_drive_number
+	beq is_drive0
+	adc #$10
+is_drive0:
+	tax
+	; X now contains the offset in the channel lookup table for this channel+drive
+
+	; So get the buffer # from the table
+	lda dos_channel_table,x
+
+	; Nothing to cache if buffer is for writing
+	bmi nothingtocache
+
+	; Mask out flag bits
+	and #$0f
+
+	; check if channel ready
+	lda dos_channel_ready,x
+	bpl nothingtocache
+
+	; See getbyt.
+	; buftab has the pointers to the current bytes to read in each buffer.
+	; We want to find the correct one of those, then check with lstchr,y to
+	; see how many bytes we have left.  Then if that is greater than we can fit
+	; in our cache, reduce it to that number. Then copy the bytes to the cache,
+	; and set # of bytes in cache.
+
+	ldy dos_logical_channel_index
+	lda dos_buffer0_pages,y
+	bpl notinbuffer1
+	lda dos_buffer1_pages,y
+notinbuffer1:
+	; convert to offset in list of buffers
+	and #$bf
+	asl
+	tax
+
+	; Y still has the buffer number, so we can check the number of bytes available
+	; in the buffer.  If buffer is empty, do nothing.
+	lda dos_last_char_in_buffer,y
+	beq nothingtocache
+
+	; X now has the offset in the list of buffers, so we can do an (zp,x) load
+	; to read the current byte of the buffer, assuming we have space.
+
+	; XXX - Now we need to pull the bytes out as efficiently as possible.
+	; We should ideally do this in a way that allows us to quickly and easily
+	; update the buffer offset on the DOS side when we UNTALK or run out of
+	; bytes in the cache. This probably requires that we note the address of the
+	; buffer pointer.
+
+nothingtocache:
+	; nothing to cache, so just restore state and exit
+	jsr doscache_exit
+	pla
+	plp
+	rts
+
+cache_has_contents:
+	phx
+
+	; Read byte from cache
+	ldx doscache_usedbytes
+	lda doscache_buffer,x
+	; Mark byte as used up
+	inc doscache_usedbytes
+	plx
+	; stash on stack for returning to C64 kernal
+	pha
+
+	; Put memory back to C64 context
+	jsr doscache_exit
+
+	; Pull actual read byte from stack
+	pla
+	rts
+
+doscache_enter:
+	; Call Map instruction to block IRQs and NMIs until we call EOM on exit
+	; Map the 8KB of DOS RAM while we are at it, to save time later.
+	; This means stack is now at $10100-$101FF.  Shouldn't be a problem, but worth
+	; keeping in mind.
+	lda #$00
+	ldx #$11
+	tay
+	taz
+	map
+
+	; enable enhanced IO
+	lda #$a5
+	sta $D02F
+	lda #$96
+	sta $D02f
+
+	; 3.5MHz mode
+	lda #$40
+	tsb $D031
+
+	; Map 2nd KB colour RAM at $DC00 and ROM at $C000
+	lda #$21
+	tsb $d030
+
+	rts
+
+doscache_exit:
+	; Unmap 2nd KB colour RAM at $DC00 and ROM at $C000
+	lda #$21
+	trb $d030
+
+	; 1MHz mode
+	lda #$40
+	trb $D031
+
+	; disable enhanced IO
+	sta $D02F
+
+	; allow NMIs again
+	eom
+
+	rts
+
+	.checkpc $FC53
