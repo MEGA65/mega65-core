@@ -308,6 +308,12 @@ notninekey:
 	cmp #$03
 	bne notrunstopkey
 
+        ; Quit back to BASIC
+
+	; Allow CPU to go slow again
+	lda #$40
+	sta $00
+
 	; Exit nicely to basic.
 	ldz #$00
 	jmp $FE66
