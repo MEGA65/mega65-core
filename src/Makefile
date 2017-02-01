@@ -51,7 +51,8 @@ generated_vhdl:	$(VHDLSRCDIR)/kickstart.vhdl \
 # files destined to go on the SD-card to serve as firmware for the MEGA65
 firmware:	$(SDCARD_DIR)/BOOTLOGO.M65 \
 		KICKUP.M65 \
-		$(SDCARD_DIR)/MEGA65.D81
+		$(SDCARD_DIR)/MEGA65.D81 \
+		$(SDCARD_DIR)/C000UTIL.BIN
 
 roms:		$(SDCARD_DIR)/CHARROM.M65 \
 		$(SDCARD_DIR)/MEGA65.ROM
@@ -304,6 +305,10 @@ $(SDCARD_DIR)/BOOTLOGO.M65:	tools/pngprepare/pngprepare mega65_64x64.png
 	$(warning ~~~~~~~~~~~~~~~~> Making: $(SDCARD_DIR)/BOOTLOGO.M65)
 #       exe          opt  infile           outfile
 	tools/pngprepare/pngprepare logo mega65_64x64.png $(SDCARD_DIR)/BOOTLOGO.M65
+
+# disk menu program for loading from SD card to $C000 on boot by kickstart
+$(SDCARD_DIR)/C000UTIL.BIN:	diskmenu_c000.bin
+	cp diskmenu_c000.bin $(SDCARD_DIR)/C000UTIL.BIN
 
 # ============================ done moved, Makefile-dep, print-warn, clean-target
 # c-code that makes and executable that seems to be the 'load-wedge'
