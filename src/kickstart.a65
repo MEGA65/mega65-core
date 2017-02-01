@@ -1063,6 +1063,32 @@ loadedmegaromok:
 
 	jsr dumpcurrentfd	; debugging to Checkpoint
 
+loaddiskmenu:
+
+                ; print debug message
+                ;
+                jsr checkpoint
+                .byte 0,"  try-loading $C000 Utility",0
+
+                ldx #<txt_C000UTIL
+                ldy #>txt_C000UTIL
+                jsr dos_setname
+
+                ; Prepare 32-bit pointer for loading whole ROM ($0020000)
+                ;
+                lda #$00
+                sta <dos_file_loadaddress+0
+                sta <dos_file_loadaddress+2
+                sta <dos_file_loadaddress+3
+                lda #$c0
+                sta <dos_file_loadaddress+1
+
+                jsr dos_readfileintomemory
+;                bcs loadedok
+
+	jsr dumpcurrentfd	; debugging to Checkpoint
+
+
 		jmp go64		
 
 ;	========================
@@ -1583,33 +1609,6 @@ erasescreen:
 		lda #<erasescreendmalist
 		sta $d700
 
-		; Kickstart ROM is at $FFFE000 - $FFFFFFF, so
-		; we need to tell DMAgic that DMA list is in $FFxxxxx.
-		; this has to be done AFTER writing to $d702, as $d702
-		; clears bits 27 - 22 of the DMA list address to help with
-		; compatibility.
-		;
-		lda #$ff
-		sta $d704
-
-		; similarly we need to tell DMAgic that we are copying data
-		; from MB $FF (this is for copying the disk chooser)
-		;
-		sta $d705
-
-		; destination MB is $00, since we are writing to C64 RAM space.
-		;
-		lda #$00
-		sta $d706
-
-		lda #>copydiskchooserdmalist
-		sta $d701
-
-		; set bottom 8 bits of address and trigger DMA.
-		;
-		lda #<copydiskchooserdmalist
-		sta $d700
-
 		; clear source/destination MB so that C65 ROM doesn't go bananas
 		;
 		lda #$00
@@ -1734,16 +1733,6 @@ erasescreendmalist:
 		.byte $00,$00 ; rest of source address is ignored in fill
 		.word $4000 ; logo sits at $4000
 		.byte $00   ; ... in bottom half of chipram, so bank $00
-		.word $0000 ; modulo (unused)
-
-copydiskchooserdmalist:
-		; also copy diskchooser from $FFFE000-$FFFEFFF to $000C000-$000CFFF
-		.byte $00 ; copy + last request in chain
-		.word $1000
-		.word diskchooserstart ; source address 
-		.byte $0F ; source bank
-		.word $c000 ; destination address
-		.byte $00   ; destination bank
 		.word $0000 ; modulo (unused)
 
 ;	========================
@@ -2642,6 +2631,9 @@ msg_cdrootfailed:     .byte "COULD NOT CHDIR TO / (ERRNO:$$)",0
 msg_blankline:	      .byte 0
 
 ;	========================
+			; filename of utility to pre-load at $C000
+			; (typically the "disk menu" program)
+txt_C000UTIL:		.byte "C000UTIL.BIN",0
 
 			; filename of character ROM
 			;
@@ -2669,14 +2661,6 @@ txt_BOOTLOGOM65:	.byte "BOOTLOGO.M65",0
 ;	========================
 
 	.include "kickstart_debug.a65"
-
-;	========================
-
-diskchooserstart:
-	; Pre-compiled disk menu
-;	.incbin "diskmenu_c000.bin"
-
-diskchooserend:
 
 ;	========================
 
