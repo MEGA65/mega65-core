@@ -176,10 +176,10 @@ utilities/c65test02prg.prg:	utilities/c65test02prg.a65
 	./../../Ophis/bin/ophis -4 utilities/c65test02prg.a65 -l utilities/c65test02prg.list -m utilities/c65test02prg.map
 
 
-utilities/c65-rom-910111-fastload-patch.prg:	c65-rom-910111-fastload-patch.a65
+utilities/c65-rom-910111-fastload-patch.prg:	utilities/c65-rom-910111-fastload-patch.a65
 	$(warning =============================================================)
-	$(warning ~~~~~~~~~~~~~~~~> Making: tests/test_fdc_equal_flag.a65)
-	./../../Ophis/bin/ophis -4 c65-rom-910111-fastload-patch.a65 -l c65-rom-910111-fastload-patch.list -m c65-rom-910111-fastload-patch.map
+	$(warning ~~~~~~~~~~~~~~~~> Making: utilities/c65-rom-910111-fastload-patch.prg)
+	./../../Ophis/bin/ophis -4 utilities/c65-rom-910111-fastload-patch.a65 -l utilities/c65-rom-910111-fastload-patch.list -m utilities/c65-rom-910111-fastload-patch.map
 
 
 # ============================ done moved, print-warn, clean-target

@@ -166,7 +166,9 @@ notinbuffer1:
 
 	; Y still has the buffer number, so we can check the number of bytes available
 	; in the buffer.  If buffer is empty, do nothing.
-	lda dos_last_char_in_buffer,y
+;
+;BNG: PGS said to comment out the following line because the compiler cannot find the label "dos_last_char_in_buffer"
+;	lda dos_last_char_in_buffer,y
 	beq nothingtocache
 
 	; X now has the offset in the list of buffers, so we can do an (zp,x) load
