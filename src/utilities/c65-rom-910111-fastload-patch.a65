@@ -1,3 +1,5 @@
+	.outfile "utilities/c65-rom-910111-fastload-patch.prg"
+
 	; Patch C65 910111 ROM to load faster from the internal drive.
 	; The concept is somple: When attempting to read a character from the drive,
 	; see if we have some buffered bytes in the spare bytes in the 2KB colour RAM

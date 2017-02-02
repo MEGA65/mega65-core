@@ -11,6 +11,13 @@ KICKSTARTSRCS = kickstart.a65 \
 		kickstart_mem.a65
 
 # if you want your PRG to appear on "MEGA65.D81", then put your PRG in "./src/utilities/userPRGs"
+# ie: COMMANDO.PRG
+#
+# if you want your .a65 source code compiled and then embedded within "MEGA65.D81", then put
+# your source.a65 in the 'utilities' directory, and ensure it is listed below.
+#
+# NOTE: that all files listed below will be embedded within the "MEGA65.D81".
+#
 UTILITIES=	utilities/ethertest.prg \
 		utilities/etherload.prg \
 		utilities/test01prg.prg \
@@ -87,13 +94,7 @@ $(SDCARD_DIR)/MEGA65.ROM:
 $(SDCARD_DIR)/MEGA65.D81:	$(UTILITIES)
 	$(warning =============================================================)
 	$(warning ~~~~~~~~~~~~~~~~> Making: $(SDCARD_DIR)/MEGA65.D81)
-	cbmconvert -v2 -D8o $(SDCARD_DIR)/MEGA65.D81 utilities/ethertest.prg \
-	                                             utilities/etherload.prg \
-	                                             utilities/test01prg.prg \
-	                                             utilities/c65test02prg.prg \
-	                                             tests/test_fdc_equal_flag.prg \
-	                                             utilities/userPRGs/*.prg \
-	                                             diskmenu.prg
+	cbmconvert -v2 -D8o $(SDCARD_DIR)/MEGA65.D81 $(UTILITIES)
 
 # ============================ done moved, print-warn, clean-target
 # PGS program for testing the F011 floppy write, etc.
