@@ -414,6 +414,18 @@ BYTE-OFFSET	Description
 
 ```
 xx=dont-care
+
+00000000	xx bootstrap code area
+
+000001b8	xx disk signature
+000001b9	xx "
+000001ba	xx "
+000001bb	xx "
+000001bc	xx disk signature copy protect
+000001bd	xx "
+
+then the partition table begins
+
 000001be+0	xx boot flag
 
 000001be+1	xx chs_begin
