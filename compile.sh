@@ -194,9 +194,9 @@ done
 # now copy the bit-file to the sdcard-output directory, and timestamp it with time and git-status
 echo "cp ./isework/container.bit ./sdcard-files/bit${datetime2}_${branch2}_${gitstring}.bit"
 cp       ./isework/container.bit ./sdcard-files/bit${datetime2}_${branch2}_${gitstring}.bit
-# and the KICKUP file
-echo "cp ./src/KICKUP.M65 ./sdcard-files"
-      cp ./src/KICKUP.M65 ./sdcard-files
+# # and the KICKUP file
+# echo "cp ./src/KICKUP.M65 ./sdcard-files"
+#       cp ./src/KICKUP.M65 ./sdcard-files
 
 echo " "
 ls -al ./sdcard-files
