@@ -147,6 +147,8 @@ entity gs4510 is
     speed_gate : in std_logic;
     speed_gate_enable : out std_logic := '1';
     
+    support_f018b : inout std_logic := '0';
+
     ---------------------------------------------------------------------------
     -- fast IO port (clocked at core clock). 1MB address space
     ---------------------------------------------------------------------------
@@ -330,6 +332,7 @@ end component;
   signal dma_pending : std_logic := '0';
   signal dma_checksum : unsigned(23 downto 0) := x"000000";
   signal dmagic_cmd : unsigned(7 downto 0);
+  signal dmagic_subcmd : unsigned(7 downto 0);	-- F018A/B extention
   signal dmagic_count : unsigned(15 downto 0);
   signal dmagic_tally : unsigned(15 downto 0);
   signal reg_dmagic_src_mb : unsigned(7 downto 0);
@@ -1758,7 +1761,7 @@ begin
         when DMAgicRegister =>
           -- Actually, this is all of $D700-$D7FF decoded by the CPU at present
           case the_read_address(7 downto 0) is
-            when x"03" => return reg_dmagic_status;
+            when x"03" => return reg_dmagic_status(7 downto 1) & support_f018b;
             when others => return x"ff";
           end case;
         when HypervisorRegister =>
@@ -2015,6 +2018,8 @@ begin
         reg_dmagic_addr(22 downto 16) <= value(6 downto 0);
         reg_dmagic_addr(27 downto 23) <= (others => '0');
         reg_dmagic_withio <= value(7);
+      elsif (long_address = x"FFD3703") or (long_address = x"FFD1703") then
+        support_f018b <= value(0);	-- setable dmagic mode
       elsif (long_address = x"FFD3704") or (long_address = x"FFD1704") then
         reg_dmagic_addr(27 downto 20) <= value;
       elsif (long_address = x"FFD3705") or (long_address = x"FFD1705") then
@@ -3313,7 +3318,12 @@ begin
               -- shift read byte into DMA registers and shift everything around
               dmagic_modulo(15 downto 8) <= memory_read_value;
               dmagic_modulo(7 downto 0) <= dmagic_modulo(15 downto 8);
-              dmagic_dest_bank_temp <= dmagic_modulo(7 downto 0);
+              if (support_f018b = '1') then
+                dmagic_subcmd <= dmagic_modulo(7 downto 0);
+                dmagic_dest_bank_temp <= dmagic_subcmd;
+              else
+                dmagic_dest_bank_temp <= dmagic_modulo(7 downto 0);
+              end if;
               dmagic_dest_addr(15 downto 8) <= dmagic_dest_bank_temp;
               dmagic_dest_addr(7 downto 0) <= dmagic_dest_addr(15 downto 8);
               dmagic_src_bank_temp <= dmagic_dest_addr(7 downto 0);
@@ -3322,7 +3332,9 @@ begin
               dmagic_count(15 downto 8) <= dmagic_src_addr(7 downto 0);
               dmagic_count(7 downto 0) <= dmagic_count(15 downto 8);
               dmagic_cmd <= dmagic_count(7 downto 0);
-              if dmagic_list_counter = 10 then
+              if (support_f018b = '0') and (dmagic_list_counter = 10) then
+                state <= DMAgicGetReady;
+              elsif dmagic_list_counter = 11 then
                 state <= DMAgicGetReady;
               else
                 dmagic_list_counter <= dmagic_list_counter + 1;
@@ -3335,18 +3347,37 @@ begin
                 & "src=$"
                 & to_hstring(dmagic_src_addr(15 downto 0))
                 & "dest=$" & to_hstring(dmagic_dest_addr(15 downto 0));
-              dmagic_src_addr(27 downto 20) <= reg_dmagic_src_mb;
-              dmagic_src_addr(19 downto 16) <= dmagic_src_bank_temp(3 downto 0);
-              dmagic_dest_addr(27 downto 20) <= reg_dmagic_dst_mb;
-              dmagic_dest_addr(19 downto 16) <= dmagic_dest_bank_temp(3 downto 0);
+              if (support_f018b = '1') then
+                dmagic_src_addr(27 downto 20) <= reg_dmagic_src_mb + dmagic_src_bank_temp(6 downto 4);
+                dmagic_src_addr(19 downto 16) <= dmagic_src_bank_temp(3 downto 0);
+                dmagic_dest_addr(27 downto 20) <= reg_dmagic_dst_mb + dmagic_dest_bank_temp(6 downto 4);
+                dmagic_dest_addr(19 downto 16) <= dmagic_dest_bank_temp(3 downto 0);
+              else
+                dmagic_src_addr(27 downto 20) <= reg_dmagic_src_mb;
+                dmagic_src_addr(19 downto 16) <= dmagic_src_bank_temp(3 downto 0);
+                dmagic_dest_addr(27 downto 20) <= reg_dmagic_dst_mb;
+                dmagic_dest_addr(19 downto 16) <= dmagic_dest_bank_temp(3 downto 0);
+              end if;               
               dmagic_src_io <= dmagic_src_bank_temp(7);
-              dmagic_src_direction <= dmagic_src_bank_temp(6);
-              dmagic_src_modulo <= dmagic_src_bank_temp(5);
-              dmagic_src_hold <= dmagic_src_bank_temp(4);
+              if (support_f018b = '1') then
+                dmagic_src_direction <= dmagic_cmd(4);
+                dmagic_src_modulo <= dmagic_subcmd(0);
+                dmagic_src_hold <= dmagic_subcmd(1);
+              else
+                dmagic_src_direction <= dmagic_src_bank_temp(6);
+                dmagic_src_modulo <= dmagic_src_bank_temp(5);
+                dmagic_src_hold <= dmagic_src_bank_temp(4);
+              end if;
               dmagic_dest_io <= dmagic_dest_bank_temp(7);
-              dmagic_dest_direction <= dmagic_dest_bank_temp(6);
-              dmagic_dest_modulo <= dmagic_dest_bank_temp(5);
-              dmagic_dest_hold <= dmagic_dest_bank_temp(4);
+              if (support_f018b = '1') then
+                dmagic_dest_direction <= dmagic_cmd(5);
+                dmagic_dest_modulo <= dmagic_subcmd(2);
+                dmagic_dest_hold <= dmagic_subcmd(3);
+              else
+                dmagic_dest_direction <= dmagic_dest_bank_temp(6);
+                dmagic_dest_modulo <= dmagic_dest_bank_temp(5);
+                dmagic_dest_hold <= dmagic_dest_bank_temp(4);
+              end if;
               case dmagic_cmd(1 downto 0) is                
                 when "11" => -- fill
                   state <= DMAgicFill;
