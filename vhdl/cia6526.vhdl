@@ -124,8 +124,12 @@ architecture behavioural of cia6526 is
   signal prev_phi0 : std_logic;
   signal prev_countin : std_logic;
 
+  signal prev_todclock : std_logic;
+
   signal clear_isr : std_logic := '0';  -- flag to clear ISR after reading
   signal clear_isr_count : unsigned(4 downto 0) := "00000";
+  
+  signal todcounter : integer := 0;
 
 begin  -- behavioural
   
@@ -287,6 +291,60 @@ begin  -- behavioural
         reg_isr(7)<='0'; irq<='Z';
       end if;
       
+      prev_todclock <= todclock;
+      if todclock='0' and prev_todclock='1' then
+        if todcounter = 5 then
+          todcounter <= 0;
+          if( reg_tod_dsecs(3 downto 0) = 9) then
+            reg_tod_dsecs(3 downto 0) <= "0000";
+            if( reg_tod_secs(3 downto 0) = 9) then
+              reg_tod_secs(3 downto 0) <= "0000";
+              if( reg_tod_secs(7 downto 4) = 5) then
+                reg_tod_secs(7 downto 4) <= "0000";
+                if( reg_tod_mins(3 downto 0) = 9) then
+                  reg_tod_mins(3 downto 0) <= "0000";
+                  if( reg_tod_mins(7 downto 4) = 5) then
+                    reg_tod_mins(7 downto 4) <= "0000";
+                    if( reg_tod_hours(6 downto 4) = 1) then
+                      if( reg_tod_hours(3 downto 0) = 1) then
+                        reg_tod_hours(3 downto 0) <= "0000";
+                        reg_tod_hours(6 downto 4) <= "000";
+                        if(reg_tod_ampm = '1') then
+                          reg_tod_ampm <= '0';
+		        else
+		          reg_tod_ampm <= '1';
+		        end if;
+		      else
+                        reg_tod_hours(3 downto 0) <= reg_tod_hours(3 downto 0) + 1;
+		      end if;
+                    else
+                      if( reg_tod_hours(3 downto 0) = 9) then
+                        reg_tod_hours(3 downto 0) <= "0000";
+                        reg_tod_hours(6 downto 4) <= reg_tod_hours(6 downto 4) + 1;
+                      else
+                        reg_tod_hours(3 downto 0) <= reg_tod_hours(3 downto 0) + 1;
+                      end if;
+                    end if;
+                  else
+                    reg_tod_mins(7 downto 4) <= reg_tod_mins(7 downto 4) + 1;
+		  end if;
+                else
+                  reg_tod_mins(3 downto 0) <= reg_tod_mins(3 downto 0) + 1;
+                end if;
+              else
+                reg_tod_secs(7 downto 4) <= reg_tod_secs(7 downto 4) + 1;
+              end if;
+            else
+              reg_tod_secs(3 downto 0) <= reg_tod_secs(3 downto 0) + 1;
+            end if;
+          else
+            reg_tod_dsecs(3 downto 0) <= reg_tod_dsecs(3 downto 0) + 1;
+          end if;
+        else
+          todcounter <= todcounter + 1;
+        end if;
+      end if;
+
       -- Look for timera and timerb tick events
       prev_phi0 <= phi0;
       prev_countin <= countin;
