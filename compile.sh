@@ -33,23 +33,25 @@ else
   echo " "
 fi
 
-# here we need to detect if you have 32 or 64 bit machine
-# on a 32-bit installation, only the settings32 exists.
+# here we need to detect if you have 64 or 32 bit machine
 # on a 64-bit installation, both 32 and 64 bit settings files exist.
+# on a 32-bit installation, only the settings32 exists.
+# -> so first check for the 64-bit settings file.
+#       special case/path for Colossus Supercomputer
 if [ -e /usr/local/Xilinx/14.7/ISE_DS/settings64.sh ]; then
-  echo "Detected 64-bit Xilinx installation"
+  echo "Detected 64-bit Xilinx installation on Colossus"
   source /usr/local/Xilinx/14.7/ISE_DS/settings64.sh
-else if [ -e /opt/Xilinx/14.7/ISE_DS/settings64.sh ]; then
+#       standard install location for 32/64 bit Xilinx installation
+elif [ -e /opt/Xilinx/14.7/ISE_DS/settings64.sh ]; then
   echo "Detected 64-bit Xilinx installation"
   source /opt/Xilinx/14.7/ISE_DS/settings64.sh
+#       standard install location for 32/64 bit Xilinx installation
+elif [ -e /opt/Xilinx/14.7/ISE_DS/settings32.sh ]; then
+  echo "Detected 32-bit Xilinx installation"
+  source /opt/Xilinx/14.7/ISE_DS/settings32.sh
 else
-  if [ -e /opt/Xilinx/14.7/ISE_DS/settings32.sh ]; then
-    echo "Detected 32-bit Xilinx installation"
-    source /opt/Xilinx/14.7/ISE_DS/settings32.sh
-  else
-    echo "Cannot detect a Xilinx installation"
-    exit 0;
-  fi
+  echo "Cannot detect a Xilinx installation"
+  exit 0;
 fi
 
 # time for the output filenames
