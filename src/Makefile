@@ -8,8 +8,9 @@ KICKSTARTSRCS = kickstart.a65 \
 		kickstart_task.a65 \
 		kickstart_mem.a65
 
-UTILITIES=	ethertest.prg \
-		etherload.prg \
+UTILITIES=	utilities/ethertest.prg \
+		utilities/etherload.prg \
+		utilities/test01prg.prg \
 		diskmenu.prg \
 		test_fdc_equal_flag.prg
 
@@ -17,7 +18,8 @@ TOOLS=	etherkick \
 	etherload \
 	hotpatch
 
-all:	$(warning ~~~~~~~~~~~~~~~~> The 'all'-target is not implemented in the makefile yet, refer to ./../compile.sh)
+all:
+	$(warning ~~~~~~~~~~~~~~~~> The 'all'-target is not implemented in the makefile yet, refer to ./../compile.sh)
 	$(warning You need to explicitly know what to make, else use ./../compile.sh)
 	$(warning Common targets are: generated_vhdl, firmware, tools, itilities)
 	$(warning Other  targets are: simulate, utility.d81)
@@ -57,20 +59,24 @@ simulate:	diskmenu.prg \
 # verbose, for 1581 format, overwrite
 utility.d81:	$(UTILITIES)
 	$(warning ~~~~~~~~~~~~~~~~> Making: utility.d81)
-	cbmconvert -v2 -D8o utility.d81 $(UTILITIES)
+
+	cbmconvert -v2 -D8o utility.d81 utilities/ethertest.prg \
+                                        utilities/etherload.prg \
+                                        utilities/test01prg.prg \
+                                        diskmenu.prg
 
 # ============================ done moved, print-warn, clean-target
 # ophis converts the *.a65 file (assembly text) to *.prg (assembly bytes)
-ethertest.prg:	utilities/ethertest.a65
+utilities/ethertest.prg:	utilities/ethertest.a65
 	$(warning ~~~~~~~~~~~~~~~~> Making: utilities/ethertest.prg)
-	./../../Ophis/bin/ophis -4 utilities/ethertest.a65
+	./../../Ophis/bin/ophis -4 utilities/ethertest.a65 -l utilities/ethertest.list -m utilities/ethertest.map
 
 
 # ============================ done moved, print-warn, clean-target
 # ophis converts the (two) *.a65 file (assembly text) to *.prg (assembly bytes)
 # the "l" option created a verbose listing of the output
 # NOTE that to get to compile i needed to comment out the ".scope" in the "diskmenu.a65" file
-diskmenu.prg:	diskmenuprg.a65 diskmenu.a65
+diskmenu.prg:	diskmenuprg.a65 diskmenu.a65 utilities/etherload.prg
 	$(warning ~~~~~~~~~~~~~~~~> Making: diskmenu.prg and diskmenuprg.list)
 	./../../Ophis/bin/ophis -4 diskmenuprg.a65 -l diskmenuprg.list -m diskmenuprg.map
 
@@ -94,7 +100,7 @@ KICKUP.M65:	$(KICKSTARTSRCS) diskmenu_c000.bin version.a65
 
 
 # ============================ done moved, print-warn, clean-target
-diskmenu_c000.bin:	diskmenuc000.a65 diskmenu.a65
+diskmenu_c000.bin:	diskmenuc000.a65 diskmenu.a65 utilities/etherload.prg
 	$(warning ~~~~~~~~~~~~~~~~> Making: diskmenu_c000.bin and diskmenuc000.list)
 	./../../Ophis/bin/ophis -4 diskmenuc000.a65 -l diskmenuc000.list -m diskmenuc000.map
 
@@ -106,9 +112,16 @@ thumbnail.prg:	showthumbnail.a65
 
 
 # ============================ done moved, print-warn, clean-target
-etherload.prg:	utilities/etherload.a65
+utilities/etherload.prg:	utilities/etherload.a65
 	$(warning ~~~~~~~~~~~~~~~~> Making: utilities/etherload.prg)
 	./../../Ophis/bin/ophis -4 utilities/etherload.a65 -l utilities/etherload.list -m utilities/etherload.map
+
+
+# ============================ done moved, print-warn, clean-target
+utilities/test01prg.prg:	utilities/test01prg.a65
+	$(warning ~~~~~~~~~~~~~~~~> Making: utilities/test01prg.prg)
+	./../../Ophis/bin/ophis -4 utilities/test01prg.a65
+	./../../Ophis/bin/ophis -4 utilities/test01prg.a65 -l utilities/test01prg.list -m utilities/test01prg.map
 
 
 # ============================ done moved, print-warn, clean-target
@@ -322,15 +335,16 @@ clean:
 	rm -f KICKUP.M65 kickstart.list kickstart.map
 	rm -f diskmenu.prg diskmenuprg.list diskmenuprg.map
 	rm -f diskmenu_c000.bin diskmenuc000.list diskmenuc000.map
-	rm -f tools/etherkick/etherkick tools/etherload/etherload
+	rm -f tools/etherkick/etherkick
+	rm -f tools/etherload/etherload
+	rm -f tools/hotpatch/hotpatch
 	rm -f utilities/etherload.prg utilities/etherload.list utilities/etherload.map
 	rm -f utilities/ethertest.prg utilities/ethertest.list utilities/ethertest.map
-	rm -f hotpatch
+	rm -f utilities/test01prg.prg utilities/test01prg.list utilities/test01prg.map
 	rm -f iomap.txt
 	rm -f utility.d81
 	rm -f $(VHDLSRCDIR)/kickstart.vhdl $(VHDLSRCDIR)/charrom.vhdl $(VHDLSRCDIR)/version.vhdl version.a65
 	rm -f monitor_drive monitor_load read_mem ghdl-frame-gen chargen_debug dis4510 em4510 4510tables pngprepare BOOTLOGO.M65
-
 	rm -f c65-rom-911001.txt c65-911001-rom-annotations.txt c65-dos-context.bin c65-911001-dos-context.bin
 	rm -f thumbnail.prg
 	rm -f textmodetest.prg textmodetest.list etherload_done.bin etherload_stub.bin

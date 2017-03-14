@@ -100,4 +100,4 @@ loop1:	lda $6800,x
 
 	.scend
 
-	.outfile "ethertest.prg"
+	.outfile "utilities/ethertest.prg"

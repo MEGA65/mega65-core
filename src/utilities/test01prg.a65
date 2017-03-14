@@ -1,0 +1,21 @@
+         .outfile "utilities/test01prg.prg"
+
+         .word $0801
+         .org $0801
+
+         .scope
+         .word _next, 10                       ; Next line and current line number
+         .byte $97, "2,0:", $9e, " 2014", $AA, "65",0      ; POKE 2,0 : SYS 2014+65
+_next:   .word 0
+    
+         .checkpc 2079
+         .advance 2079
+
+         lda $0400
+         adc #$01
+         sta $0400
+         and #$0f
+         sta $d020
+         rts
+
+         .scend
