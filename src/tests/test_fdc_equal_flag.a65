@@ -1,5 +1,5 @@
 
-	.outfile "test_fdc_equal_flag.prg"
+	.outfile "tests/test_fdc_equal_flag.prg"
 
 	 .word $0801
 	 .org $0801
