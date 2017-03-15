@@ -15,6 +15,7 @@
 https://docs.google.com/document/d/1fmEUg6hDdWRb2tFZ3n4LG7S1mNP04_SUAW5DrE8zRpk/edit  
 accessed 10-AUG-2016, now maintained here.  
 * [xemu](./xemu.md) - emulator for the mega65, how to compile and use  
+* [test](./test.md) - test procedure to verify the behaviour of the design  
 
 Below are misc URLs:
 
