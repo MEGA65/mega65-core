@@ -2493,23 +2493,21 @@ nocheckpointmessage:
 
 	; output checkpoint message to serial monitor
 	ldx #0
-cp5:	lda msg_checkpoint,x
+	; do not adjust x-reg until label "checkpoint_return"
+cp5:
+
+	; wait for uart to be not busy
+	lda hypervisor_write_char_to_serial_monitor	; LSB is busy status
+	bne cp5		; branch if busy (LSB=1)
+
+	; uart is not busy, so write the char
+	lda msg_checkpoint,x
 	sta hypervisor_write_char_to_serial_monitor
 	inx
 
-	; BG this should not blindly send, but to wait until the char has been sent
-	;
-	; delay at least 2,000 cycles to allow character to be written
-	; each inner loop is 2 + 256 * (2+3) = ~1,250 cycles
-	; so 2 such loops should take long enough
-	ldy #2
-	ldz #0
-cp6:	inz
-	bne cp6
-	dey
-	bpl cp6
 
-	cmp #10
+
+	cmp #10		; compare A-reg with "LineFeed"
 	bne cp5
 
 checkpoint_return:
@@ -2583,7 +2581,7 @@ msg_checkpoint_eom:
 ; messages all have to be <=40 bytes long
 
 msg_retryreadmbr:     .byte "RE-TRYING TO READ MBR",0
-msg_kickstart:        .byte "MEGA65 KICKSTART V00.09",0
+msg_kickstart:        .byte "MEGA65 KICKSTART V00.10",0
 msg_kickstarthelp:    .byte "SW15=HOLD-BOOT, SW12=DEBUG-COMMS",0
 msg_romok:            .byte "ROM CHECKSUM OK - BOOTING",0
 msg_rombad:	      .byte "ROM CHECKSUM FAIL - LOADING ROMS",0

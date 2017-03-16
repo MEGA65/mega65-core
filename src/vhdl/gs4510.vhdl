@@ -62,6 +62,7 @@ entity gs4510 is
 
     monitor_char : out unsigned(7 downto 0);
     monitor_char_toggle : out std_logic;
+    monitor_char_busy : in std_logic;
     
       monitor_proceed : out std_logic;
       monitor_waitstates : out unsigned(7 downto 0);
@@ -261,6 +262,10 @@ end component;
   -- to improve CPU timing closure.
   signal last_write_value : unsigned(7 downto 0);
   signal last_write_pending : std_logic := '0';
+  -- Flag used to ensure monitor serial character out busy flag gets asserted
+  -- immediately on writing a character, without having to wait for the uart
+  -- monitor to have a serial port tick (which is when it checks on that side)
+  signal immediate_monitor_char_busy : std_logic := '0';
 
   -- On the original Nexys4 board:
   -- SlowRAM has 70ns access time, so need some wait states.
@@ -858,7 +863,7 @@ constant mode_lut : mlut9bit := (
   signal emu6502 : std_logic := '0';
   signal force_4502 : std_logic := '1';
 
-  signal monitor_char_toggle_internal : std_logic := '0';
+  signal monitor_char_toggle_internal : std_logic := '1';
 
   type microcode_lut_t is array (instruction)
     of microcodeops;
@@ -1824,13 +1829,18 @@ begin
             when "101101" => return reg_page3_logical(15 downto 8);
             when "101110" => return reg_page3_physical(7 downto 0);
             when "101111" => return reg_page3_physical(15 downto 8);
-            when "111100" =>
-              return "11" & force_4502 & force_fast
-                & speed_gate_enable_internal & rom_writeprotect
-                & flat32_enabled & rom_from_colour_ram;
-            when "111101" =>
-              return "11111" & rom_writeprotect
-                & flat32_enabled & rom_from_colour_ram;
+
+            when "111100" => -- $D640+$3C
+              -- @IO:GS $D67C.6 - (read) Hypervisor internal immediate UART monitor busy flag (can write when 0)
+              -- @IO:GS $D67C.7 - (read) Hypervisor serial output from UART monitor busy flag (can write when 0)
+              -- the serial monitor interface takes a while to assert its busy flag (one serial bit of time)
+              -- so we have an immediate busy flag that we manage separately.
+              return "000000" & immediate_monitor_char_busy & monitor_char_busy;
+
+            when "111101" =>                                                   -- this section
+              return "11" & force_4502 & force_fast                            -- was previously
+                & speed_gate_enable_internal & rom_writeprotect                -- mapped to io-reg
+                & flat32_enabled & rom_from_colour_ram;                        -- D67C / "111100"
             when "111110" =>
               if hypervisor_upgraded='1' then
                 return x"FF";
@@ -1840,6 +1850,7 @@ begin
             when "111111" => return x"48"; -- 'H' for Hypermode
             when others => return x"FF";
           end case;
+
         when CPUPort =>
           report "reading from CPU port" severity note;
           case cpuport_num is
@@ -2439,6 +2450,13 @@ begin
       georam_page(5 downto 0) <= georam_blockpage(5 downto 0);
       georam_page(13 downto 6) <= georam_block and georam_blockmask;
 
+      -- If the serial monitor interface has received the character, we can clear
+      -- our temporary busy flag, then rely upon the serial monitor to deassert
+      -- the "monitor_char_busy" signal when it has finished sending the char,
+      if monitor_char_busy = '1' then
+        immediate_monitor_char_busy <= '0';
+      end if;
+
       -- Write to hypervisor registers if requested
       -- (This is separated out from the previous cycle to reduce the logic depth,
       -- and thus help achieve timing closure.)
@@ -2651,12 +2669,17 @@ begin
           georam_blockmask <= last_value;
         end if;        
 
-        -- @IO:GS $D67C - Hypervisor write serial output to UART monitor (must wait atleast approx 4,000 cycles between writes to allow char to flush)
+        -- @IO:GS $D67C.0-7 - (write) Hypervisor write serial output to UART monitor
         if last_write_address = x"FFD367C" and hypervisor_mode='1' then
           monitor_char <= last_value;
           monitor_char_toggle <= monitor_char_toggle_internal;
           monitor_char_toggle_internal <= not monitor_char_toggle_internal;
+          -- It can take hundreds of cycles before the serial monitor interface asserts
+          -- its busy flag, so we have an internal flag we assert until the monitor
+          -- interface asserts its.
+          immediate_monitor_char_busy <= '1';
         end if;
+
         -- @IO:GS $D67D.0 - Hypervisor C64 ROM source select (0=normal,1=colour RAM)
         -- @IO:GS $D67D.1 - Hypervisor enable 32-bit JMP/JSR etc
         -- @IO:GS $D67D.2 - Hypervisor write protect C65 ROM $20000-$3FFFF
@@ -2664,7 +2687,6 @@ begin
         -- @IO:GS $D67D.4 - Hypervisor force CPU to 48MHz for userland (userland can override via POKE0)
         -- @IO:GS $D67D.5 - Hypervisor force CPU to 4502 personality, even in C64 IO mode.
         -- @IO:GS $D67D.6 - Hypervisor flag to indicate if an IRQ is pending on exit from the hypervisor / set 1 to force IRQ/NMI deferal for 1,024 cycles on exit from hypervisor.
-
         -- @IO:GS $D67D.7 - Hypervisor flag to indicate if an NMI is pending on exit from the hypervisor.
         
         -- @IO:GS $D67D - Hypervisor watchdog register: writing any value clears the watch dog

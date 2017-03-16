@@ -199,6 +199,7 @@ architecture Behavioral of machine is
 
     monitor_char : in unsigned(7 downto 0);
     monitor_char_toggle : in std_logic;
+    monitor_char_busy : out std_logic;
     
     monitor_proceed : in std_logic;
     monitor_waitstates : in unsigned(7 downto 0);
@@ -272,6 +273,7 @@ architecture Behavioral of machine is
 
       monitor_char : out unsigned(7 downto 0);
       monitor_char_toggle : out std_logic;    
+      monitor_char_busy : in std_logic;
 
       monitor_proceed : out std_logic;
       monitor_waitstates : out unsigned(7 downto 0);
@@ -665,6 +667,7 @@ architecture Behavioral of machine is
   signal monitor_mem_trace_toggle : std_logic;
   signal monitor_char : unsigned(7 downto 0);
   signal monitor_char_toggle : std_logic;
+  signal monitor_char_busy : std_logic;
   
   signal monitor_a : unsigned(7 downto 0);
   signal monitor_b : unsigned(7 downto 0);
@@ -910,6 +913,8 @@ begin
 
     monitor_char => monitor_char,
     monitor_char_toggle => monitor_char_toggle,
+    monitor_char_busy => monitor_char_busy,
+
     monitor_proceed => monitor_proceed,
 --    monitor_debug_memory_access => monitor_debug_memory_access,
     monitor_waitstates => monitor_waitstates,
@@ -1174,6 +1179,7 @@ begin
 
     monitor_char => monitor_char,
     monitor_char_toggle => monitor_char_toggle,
+    monitor_char_busy => monitor_char_busy,
 --    monitor_debug_memory_access => monitor_debug_memory_access,
 --    monitor_debug_memory_access => (others => '1'),
     monitor_proceed => monitor_proceed,

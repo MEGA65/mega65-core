@@ -71,6 +71,7 @@ entity uart_monitor is
 
     monitor_char : in unsigned(7 downto 0);
     monitor_char_toggle : in std_logic;
+    monitor_char_busy : out std_logic;
 
     monitor_mem_address : out unsigned(27 downto 0);
     monitor_mem_rdata : in unsigned(7 downto 0);
@@ -201,7 +202,8 @@ architecture behavioural of uart_monitor is
                          PrintRequestTimeoutError,
                          PrintReplyTimeoutError,
                          NextCommand,NextCommand2,PrintPrompt,
-                         AcceptingInput,EraseCharacter,EraseCharacter1,
+                         AcceptingInput,AcceptingInput2,
+                         EraseCharacter,EraseCharacter1,
                          RedrawInputBuffer,RedrawInputBuffer2,RedrawInputBuffer3,
                          RedrawInputBuffer4,
                          EnterPressed,EnterPressed2,EnterPressed3,
@@ -638,17 +640,22 @@ begin
     
   begin  -- process testclock
     if rising_edge(clock) then
-      if reset='0' then
+
+      if reset='0' then -- reset is asserted
+
         state <= Reseting;
         key_state <= 0;
         trace_continuous <= '0';
+
         if reset_timeout = 0 then
           reset_out <= '1';
         else
           reset_out <= '0';
           reset_timeout <= reset_timeout - 1;
         end if;
+
       else
+
         if reset_timeout = 0 then
           reset_out <= '1';
         else
@@ -816,8 +823,8 @@ begin
               end if;
               
             when NextCommand => cmdlen <= 1; try_output_char(cr,NextCommand2); 
-            when NextCommand2 => try_output_char(lf,PrintPrompt);
-                                 
+            when NextCommand2 => cmdlen <= 1; try_output_char(lf,PrintPrompt);
+
             when PrintPrompt => cmdlen <= 1; try_output_char('.',AcceptingInput);
                                 
             when AcceptingInput =>
@@ -825,7 +832,7 @@ begin
               if monitor_char_toggle /= monitor_char_toggle_last then
                 monitor_char_toggle_last <= monitor_char_toggle;
                 try_output_char(character'val(to_integer(monitor_char)),
-                                AcceptingInput);
+                                AcceptingInput2);
                 if monitor_char_count < 65535 then
                   monitor_char_count <= monitor_char_count + 1;
                 else
@@ -838,8 +845,14 @@ begin
                 trace_continuous <= '0';
                 character_received(to_character(rx_data));
               end if;
+
               if trace_continuous='1' then
                 state <= EnterPressed;
+              end if;
+
+            when AcceptingInput2 =>
+              if tx_ready = '1' then
+                state <= AcceptingInput;
               end if;
               
             when RedrawInputBuffer => try_output_char(cr,RedrawInputBuffer2);
@@ -1545,5 +1558,41 @@ begin
     end if;           -- if rising_edge(clock) then
     
   end process testclock;
-  
+
+  -- a process to output the current state of the state machine and/or tx-uart,
+  -- currently it only outputs NOT-BUSY (zero) when the state machine is in the 'AcceptingInput' state.
+  -- when the state machine is RX chars, or TX chars, etc, then the SM is not ready to recieve
+  -- a char from CPU to transmit out of serial port. 
+  -- if output signal is '1' (ie BUSY), then CPU should wait before requesting to transmit a char.
+  --
+  -- Additionally, there is a delay between when CPU sends a char, and when state machine becomes
+  -- busy sending the char. This time delay may be due to the state machine not being clocked at
+  -- full CPU rate, or something else.
+  -- To account for this, the CPU has been programmed to assert its BUSY signal into the ASM when
+  -- either: - immediately after the CPU has told the uart to transmit a char, OR
+  --         - when the uart is infact busy.
+  --
+  -- So, the ASM needs to:
+  --   LOOP:
+  --    wait for UART to be NOT-BUSY,
+  --    then transfer char from CPU to UART, (CPU immediately considered uart to be BUSY)
+  --    branch to LOOP if more chars to send.
+  --
+  process (clock, reset, state) is
+  begin
+    if (reset = '0') then -- reset asserted
+      monitor_char_busy <= '1';
+    else
+      if rising_edge(clock) then
+        if (state = AcceptingInput) and (tx_ready='1') then
+          monitor_char_busy <= '0'; -- OK to write char
+        else
+          monitor_char_busy <= '1'; -- need to wait as uart is busy
+        end if;
+      end if;
+    end if;
+  end process;
+
 end behavioural;
+
+
