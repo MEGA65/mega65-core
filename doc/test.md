@@ -10,7 +10,7 @@
 
 This document describes a number of tests that can be performed to verify that the design works as it should.
 
-Within each test procedure, the tests are denoted as a bullet-points, with text describing what to do.  
+Within each test procedure, the tests are denoted as bullet-points, followed by some text describing what to do.  
 Results are denoted as "-> something", where something is the expected result.
 
 A description of the hardware is shown below:  
@@ -38,5 +38,7 @@ All tests, unless otherwise noted, begin with the hardware as described above in
 
 For the individual tests, please see below.
 * [Power and BOOT-up](./test-powerandbootup.md) - applies power and describes what should happen when the buttons/switches are manipulated.  
+* [c65 mode](./test-c65mode.md) - navigates around the c65 environment exploring its features.  
+
 
 The End.
