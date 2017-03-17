@@ -39,11 +39,10 @@ NOTE that the list displayed should be identical to when pressing "F3"
 type ```load"$",8``` followed by "ENTER"  
 -> the following should be displayed:  
 ```
-SEARCHING FOR $
-LOADING
+SEARCHING FOR $  
+LOADING  
 READY.
-```  
-
+```
 -> during disk access, the red square should be displayed in the upper-LHS of the screen,  
 type "LIST" and press "ENTER"  
 -> a directory listing of the currently mounted "D81" image-file should be displayed.  
