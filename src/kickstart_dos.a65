@@ -2054,9 +2054,9 @@ eight31:
 	sta eight3,x
 	iny
 	inx
-	cpx #11
+	cpx #11		; 11 chars in the filename (8+3)
 	bne eight31
-
+	;
 	; attrib
 	;
 	ldy #fs_fat32_dirent_offset_attributes	; = 0x0B
@@ -2065,7 +2065,7 @@ eight31:
 	jsr checkpoint_bytetohex	; returns: .X and .Y (Y is MSB, X is LSB, print YX)
 	sty eight3attrib+0
 	stx eight3attrib+1
-
+	;
 	; char1
 	;
 	ldy #$00
@@ -2114,10 +2114,9 @@ eight3char1:	.byte "xx",0
 	; if bits xx3210 = xx1111 -> is a long filename
 	; we process these differently to the standard (shortname) entries
 	;
-	; i dont know how to compare 0F, so take 0F and see if its zero
-	sec
-	sbc #$0f;%00001111	; LFN entry special attribute value (xxxx1111)
-	bne drce_cont1
+	and #$0f
+	cmp #$0f		;%00001111 LFN entry special attribute value (xxxx1111)
+	bne drce_cont0
 	jmp drce_longname	; MATCH -> must be LFN
 
 drce_cont0:
@@ -2137,10 +2136,10 @@ drce_cont1:
 	;if bit-3 = 1 -> Vol ID
 	; we process the Vol ID different (for now)
 	;
-	sec
-	sbc #$08;%00001000
+	and #$08
+	cmp #$08		;%00001000 Vol-ID
 	bne drce_cont2
-	jmp drce_volumeid
+	jmp drce_volumeid	; MATCH -> must be Vol-ID
 
 drce_cont2:
 	tya	;from safe keeping
@@ -2149,7 +2148,7 @@ drce_cont2:
 	; we should ignore these hidden/system files (for now)
 	;
 	and #$06		;%00000110
-	beq drce_cont3	; branch if equal to zero (ie not Hidden/System)
+	beq drce_cont3	; branch if equal to zero (ie not Hidden OR System)
 	jmp drce_hidden
 
 drce_cont3:
@@ -2190,6 +2189,11 @@ drce_directory:
 
 drce_longname:
 
+	jsr checkpoint
+	.byte 0," is LFN, so skip this record",0
+
+	jmp drce_cont_next_part
+
 	; make sure long entry type is "filename" (=$00)
 	;
 	ldy #fs_fat32_dirent_offset_lfn_type
@@ -2224,7 +2228,7 @@ drce_longname:
 	tax
 
 	jsr checkpoint
-	.byte 0,"BGOK drce_next_piece: found LFN piece",0
+	.byte 0," found LFN piece <start>",0
 	
 	; Copy first part of LFN
 	;
@@ -2332,7 +2336,7 @@ drd_end_of_directory:
 
 drce_no_more_pieces:
 	jsr checkpoint
-	.byte 0,"BGOK drce_no_more_pieces",0
+	.byte 0," FOUND END_OF_DIRECTORY",0
 
 	lda #dos_errorcode_eof
 	jmp dos_return_error
@@ -2359,12 +2363,14 @@ drce_normalrecord:
 	;
 	ldy #fs_fat32_dirent_offset_shortname
 
-	; Ignore empty and deleted entries (first byte $00 or $E5 respectively)
-	;
-	lda (<dos_scratch_vector),y
-	beq drd_end_of_directory
-	cmp #$e5
-	beq drd_deleted_or_invalid_entry
+; this test has already been done
+;
+;	; Ignore empty and deleted entries (first byte $00 or $E5 respectively)
+;	;
+;	lda (<dos_scratch_vector),y
+;	beq drd_end_of_directory
+;	cmp #$e5
+;	beq drd_deleted_or_invalid_entry
 
 	ldx #$00
 drce5:	lda (<dos_scratch_vector),y
@@ -3409,6 +3415,7 @@ l94d:		lda $d681,x
 		
 
 		; Set flags to indicate it is mounted (and read-write)
+		;
 		lda #$03
 		sta $d68b
 
