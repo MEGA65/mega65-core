@@ -2090,7 +2090,7 @@ eight3char1:	.byte "xx",0
 	ldy #fs_fat32_dirent_offset_shortname	; Y=0 (first char of entry)
 	lda (<dos_scratch_vector),y
 	cmp #$00
-	beq drd_deleted_or_invalid_entry
+	beq drd_end_of_directory
 
 	; then check if the entry begins with $E5, suggesting deleted
 	cmp #$e5
