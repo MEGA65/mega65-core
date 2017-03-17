@@ -79,6 +79,117 @@
 
 ## 1.1 Purpose
 
+
+C65GS
+
+FPGA Computer
+
+User Manual
+
+1.0 Introduction
+
+1.1 Purpose
+
+1.2 Get Involved
+
+2.0 Overview
+
+2.1 Processing Cores
+
+2.2 Power-on/Reset Via The C65GS Hypervisor
+
+2.3 C65/C64 KERNAL & BASIC
+
+3.0 Getting Started
+
+3.1 Switching Modes, Mounting Disks and Loading Files via Ethernet
+
+3.2 Simple D81 Chooser for the SD Card
+
+4.0 System Documentation
+
+4.1 Keyboard Control and Mapping
+
+4.2 Remote Head and Screen-Shotting via VNC
+
+4.3 Remote Serial Monitor (handy for debugging)
+
+4.4 VIC-IV
+
+4.4.1 Enhanced Sprites
+
+4.5 Task Switcher
+
+4.5.1 Overview
+
+4.5.2 Hypervisor
+
+4.5.3 Task Registers
+
+4.5.4 Thumbnail
+
+4.6 Colour RAM
+
+5.0 Memory Maps
+
+5.1 Banking Memory
+
+5.2 Addressing 32-bit Locations
+
+32-bit Memory Addresses using 32-bit indirect zero-page indexed addressing
+
+5.3 Common Locations
+
+5.4 C64 Locations
+
+5.5 C65 Locations
+
+5.6 GS Locations
+
+6.0 Code Recipes
+
+6.1 Overview
+
+6.2 The MAP Opcode
+
+6.3 Character Mode
+
+6.4 Clear the Raster IRQ
+
+6.5 Clearing bits in a byte
+
+6.6 32-bit Memory Addresses using 32-bit indirect zero-page indexed addressing
+
+6.7 Sending an Ethernet Frame
+
+6.8 Loading Data Via Ethernet
+
+7.0 Differences Between the C65’s 4502 and C65GS’s GS4510
+
+7.1 Overview
+
+7.2 Emulated NMOS Read-Modify-Write Behaviour for C64 Compatibility
+
+7.3 Flat Memory Map Addressing Modes & Access
+
+8. 4502 Opcodes
+
+4502 Opcode Table
+
+9. 4502 Registers
+
+10. 65CE02 Interrupts
+
+11. 65CE02 Addressing Modes
+
+12. 65CE02 Instruction Set
+
+
+
+# 1.0 Introduction
+
+## 1.1 Purpose
+
 “...rather a bit of reimagining the C65 for the 21st century with good backward compatibility.” - Paul (1 Feb 2014)
 
 The C65GS is a re-imagination of the C65/C64DX computer using a modern FPGA to implement most functions.  It differs from the C65 in that it aims to offer a near 100% C64-compatible mode by providing a dedicated 6510+VIC-II emulation independent of the additional more capable processor and video chips. That plan is that both functions operate in parallel, and input and output is switched dynamically between the two under programmer control. Dedicated VIC-II is currently unlikely due to space constraints.  6510/6502 emulation, with illegal instructions, however is still planned. This will be implemented by the GS4510 emulating a 6502, using a little dedicated hardware support. 
