@@ -76,4 +76,21 @@ type "D 2000" and press "ENTER"
 type "X" and press "ENTER"  
 -> the "READY." prompt should be displayed indicating that you have exited out of the MONITOR-mode.
 
+* go into c64 mode
+type "GO64" and press "ENTER"  
+-> you will be presented with the following:
+```ARE YOU SURE?```
+TYPE ``` Y ``` and press "ENTER".
+-> you will be dropped into the c64 mode.
+
+* boot into C64 mode
+in either c64 mode or c65 mode, press and hold the CBM/COMMODORE key (on USB-KB this is the Left-CTRL),
+-> nothing should happen.
+while holding Left-CTRL, press and release the CPU_RESET button
+-> the machine will reset,
+-> after the boot-screen, if the Left-CTRL is depressed, you will drop directly into the c64 mode. This mode is shown below.
+[image c64 mode]
+
+
+
 The End.

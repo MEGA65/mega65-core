@@ -178,4 +178,20 @@ Checkpoint @ $9E7D A:$00, X:$00, Y:$19, Z:$00, P:$35 :JUMPing into ROM-code
 release SW-15 by pushing it DOWN/OFF,  
 -> boot-screen should disappear and c65 mode presented.  
 
+* RUN-STOP and RESTORE
+press and hold the CBM/RUNSTOP key (on USB-KB this is the ESC key),
+-> with ESC key pressed, the cursor will flash fast,
+with ESC pressed, tap CBM/RESTORE (on USB-KB this is the PG-UP key).
+-> the screen will clear,  
+-> the colors of the background and border will return to their default values,
+-> cursor will go to the top-left, with a ```READY.``` prompt.
+release the ESC key.
+
+* RESET with RUNSTOP and RESTORE
+press and hold the CBM/RUNSTOP key (on USB-KB this is the ESC key),
+-> with ESC key pressed, the cursor will flash fast,
+with ESC pressed, press and hold CBM/RESTORE for at least 1-second,
+-> the machine will reboot,  
+release the ESC key.
+
 The End.
