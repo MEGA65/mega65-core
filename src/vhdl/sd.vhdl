@@ -148,10 +148,17 @@ begin
             state <= SEND_CMD;
 
           when CMD8 =>
-            cmd_out <= x"FF48" & x"000001aa" & x"87"; -- 8d or 40h = 48h
-            bit_counter := 55;
-            return_state <= CMD55;
-            state <= SEND_CMD;
+            -- Initialising SDHC cards is not as simple as it should be.
+            -- It seems to always fail first time around.
+            -- Retry CMD0 until it gives result 0x01 (Idle, no errors)
+            if recv_data = "00000001" then            
+              cmd_out <= x"FF48" & x"000001aa" & x"87"; -- 8d or 40h = 48h
+              bit_counter := 55;
+              return_state <= CMD55;
+              state <= SEND_CMD;
+            else
+              state <= CMD0;
+            end if;
 
           when CMD55 =>
             cmd_out <= x"FF770000000001";	-- 55d OR 40h = 77h
@@ -170,6 +177,7 @@ begin
             if (recv_data(0) = '0') then
               state <= IDLE;
             else
+              -- Failed to accept CMD55, so retry until it accepts it.
               state <= CMD55;
             end if;
             
