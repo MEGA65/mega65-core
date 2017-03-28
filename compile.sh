@@ -4,6 +4,7 @@
 # this is done to stop the ISE-GUI from overwriting the file, which may be
 # causing the compile-script to fail due to invalid relative addresses.
 # a possible fix is to move the mega65.gise (ISE project file) into ./isework
+# BG: these commands are likely to be removed once I get around to implementing my 'cleaner' branch
 ls -al    isework/container.xst
 chmod a-w isework/container.xst
 ls -al    isework/container.xst
@@ -100,6 +101,27 @@ echo ${gitstring} > $outfile0
 echo ${branch}  >> $outfile0
 echo ${branch2} >> $outfile0
 
+NONDDR="nonddr" # filename to indicate target is Nexys4 (non-ddr) board
+# if the file exists, target the non-ddr board
+if test -e ${NONDDR}; then
+  echo "Compiling for the Nexys4 (non-DDR) board."
+  UCF_TARGET_FPGA="./src/vhdl/container-nonddr.ucf"
+  # format a tag to either be "_nonddr" or an empty-string, for the output filename BIT-file
+  NONDDR_TAG="_${NONDDR}"
+else
+  echo "Compiling for the Nexys4DDR board (the default)."
+  echo "To compile for the Nexys4 (non-DDR) board, the \"./${NONDDR}\" file must exist"
+  UCF_TARGET_FPGA="./src/vhdl/container-ddr.ucf"
+  NONDDR_TAG=""
+echo ${branch2} >> $outfile0
+fi
+echo "Compiling for the Nexys4${branch2} board" >> $outfile0
+
+echo " "
+cat ./src/version.a65
+pwd
+echo " "
+
 #
 # ISE: synthesize
 #
@@ -116,7 +138,7 @@ fi
 #
 datetime=`date +%Y%m%d_%H:%M:%S`
 echo "==> $datetime Starting: ngdbuild, see container.bld"
-ngdbuild ${ISE_COMMON_OPTS} ${ISE_NGDBUILD_OPTS} -uc ./src/vhdl/container.ucf ./isework/container.ngc ./isework/container.ngd > $outfile2
+ngdbuild ${ISE_COMMON_OPTS} ${ISE_NGDBUILD_OPTS} -uc ${UCF_TARGET_FPGA} ./isework/container.ngc ./isework/container.ngd > $outfile2
 retcode=$?
 if [ $retcode -ne 0 ] ; then
   echo "ngdbuild failed with return code $retcode" && exit 1
@@ -149,7 +171,7 @@ fi
 #
 datetime=`date +%Y%m%d_%H:%M:%S`
 echo "==> $datetime Starting: trce, see container.twr"
-trce ${ISE_COMMON_OPTS} ${ISE_TRCE_OPTS} ./isework/container.twx ./isework/container.ncd -o ./isework/container.twr ./isework/container.pcf -ucf ./src/container.ucf > $outfile5
+trce ${ISE_COMMON_OPTS} ${ISE_TRCE_OPTS} ./isework/container.twx ./isework/container.ncd -o ./isework/container.twr ./isework/container.pcf -ucf ./src/containerNULL.ucf > $outfile5
 retcode=$?
 if [ $retcode -ne 0 ] ; then
   echo "trce failed with return code $retcode" && exit 1
@@ -193,9 +215,10 @@ for filename in ./sdcard-files/*.bit; do
   echo "mv ${filename} ./sdcard-files/old-bitfiles"
         mv ${filename} ./sdcard-files/old-bitfiles
 done
+
 # now copy the bit-file to the sdcard-output directory, and timestamp it with time and git-status
-echo "cp ./isework/container.bit ./sdcard-files/bit${datetime2}_${branch2}_${gitstring}.bit"
-cp       ./isework/container.bit ./sdcard-files/bit${datetime2}_${branch2}_${gitstring}.bit
+echo "cp ./isework/container.bit ./sdcard-files/bit${datetime2}_${branch2}_${gitstring}${NONDDR_TAG}.bit"
+cp       ./isework/container.bit ./sdcard-files/bit${datetime2}_${branch2}_${gitstring}${NONDDR_TAG}.bit
 # # and the KICKUP file
 # echo "cp ./src/KICKUP.M65 ./sdcard-files"
 #       cp ./src/KICKUP.M65 ./sdcard-files
