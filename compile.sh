@@ -113,9 +113,8 @@ else
   echo "To compile for the Nexys4 (non-DDR) board, the \"./${NONDDR}\" file must exist"
   UCF_TARGET_FPGA="./src/vhdl/container-ddr.ucf"
   NONDDR_TAG=""
-echo ${branch2} >> $outfile0
 fi
-echo "Compiling for the Nexys4${branch2} board" >> $outfile0
+echo "Compiling for the Nexys4${NONDDR_TAG} board" >> $outfile0
 
 echo " "
 cat ./src/version.a65
