@@ -43,6 +43,7 @@ entity iomapper is
 
         ps2data : in std_logic;
         ps2clock : in std_logic;
+	scancode_out : out std_logic_vector(12 downto 0); 												  
 
         pmod_clock : in std_logic;
         pmod_start_of_sequence : in std_logic;
@@ -347,7 +348,7 @@ architecture behavioral of iomapper is
   component keymapper is    
   port (
     ioclock : in std_logic;
-
+    disableKeyboard : in std_logic;
     cpu_hypervisor_mode : in std_logic;
     drive_led_out : in std_logic;
 
@@ -609,6 +610,7 @@ begin
   block5: block
   begin
   keymapper0 : keymapper port map (
+    disableKeyboard => sw(5),
     ioclock       => clk,
     cpu_hypervisor_mode => cpu_hypervisor_mode,
     drive_led_out => drive_led_out,
@@ -794,6 +796,7 @@ begin
     reset_high <= not reset;
   end process;
 
+  scancode_out<=last_scan_code;
   process(clk)
   begin
     if rising_edge(clk) then

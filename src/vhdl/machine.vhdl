@@ -179,6 +179,33 @@ end machine;
 
 architecture Behavioral of machine is
 
+  component compositor is
+    port (
+      uart_in : in std_logic;
+      xcounter_in : in unsigned(11 downto 0);
+      ycounter_in : in unsigned(10 downto 0);			
+      clk : in std_logic;
+      pixelclock : in std_logic; 
+      matrix_mode_enable : in  STD_LOGIC;
+      vgared_in : in  unsigned (3 downto 0);
+      vgagreen_in : in  unsigned (3 downto 0);
+      vgablue_in : in  unsigned (3 downto 0);
+      vgared_out : out  unsigned (3 downto 0);
+      vgagreen_out : out  unsigned (3 downto 0);
+      vgablue_out : out  unsigned (3 downto 0)
+    );
+  end component;
+
+  component ps2_to_uart is
+    port (
+      clk : in  STD_LOGIC;
+      reset : in  STD_LOGIC;
+      enabled : in STD_LOGIC;
+      scan_code : in STD_LOGIC_VECTOR(12 downto 0);
+      tx_ps2 : out STD_LOGIC
+    );
+  end component;	 
+
   component uart_monitor
     port (
     reset : in std_logic;
@@ -379,6 +406,8 @@ architecture Behavioral of machine is
   
   component viciv is
     Port (
+      xcounter_out : out unsigned(11 downto 0);
+      ycounter_out : out unsigned(10 downto 0);						 
       pixelclock : in  STD_LOGIC;
       pixelclock2x : in  STD_LOGIC;
       cpuclock : in std_logic;
@@ -562,7 +591,9 @@ architecture Behavioral of machine is
           uart_tx : out std_logic;
 
           ps2data : in std_logic;
-          ps2clock : in std_logic
+          ps2clock : in std_logic;
+	  
+          scancode_out : out std_logic_vector(12 downto 0)
           );
   end component;
 
@@ -707,6 +738,17 @@ architecture Behavioral of machine is
   signal farcallstack_addr : std_logic_vector(8 downto 0);
   signal farcallstack_din : std_logic_vector(63 downto 0);
   signal farcallstack_dout : std_logic_vector(63 downto 0);
+
+  -- Matrix Mode signals
+  signal scancode_out : std_logic_vector(12 downto 0); 
+  signal tx_switch : std_logic; 
+  signal tx_ps2 : std_logic; 
+  signal vgablue_sig : unsigned(3 downto 0);
+  signal vgared_sig : unsigned(3 downto 0);
+  signal vgagreen_sig : unsigned(3 downto 0);
+  signal xcounter : unsigned(11 downto 0);
+  signal ycounter : unsigned(10 downto 0); 
+  signal uart_txd_sig : std_logic;
 
 begin
 
@@ -1000,6 +1042,8 @@ begin
 
   viciv0: viciv
     port map (
+      xcounter_out => xcounter,
+      ycounter_out => ycounter,
       pixelclock      => pixelclock,
       pixelclock2x      => pixelclock2x,
       cpuclock        => cpuclock,
@@ -1016,9 +1060,9 @@ begin
       
       vsync           => vsync,
       hsync           => hsync,
-      vgared          => vgared,
-      vgagreen        => vgagreen,
-      vgablue         => vgablue,
+      vgared          => vgared_sig,
+      vgagreen        => vgagreen_sig,
+      vgablue         => vgablue_sig,
 
       pixel_stream_out => pixel_stream,
       pixel_y => pixel_y,
@@ -1155,9 +1199,34 @@ begin
     eth_interrupt => eth_interrupt,
     
     ps2data => ps2data,
-    ps2clock => ps2clock
+    ps2clock => ps2clock,
+    
+    scancode_out => scancode_out
     );
 
+  ps2_to_uart0 : ps2_to_uart port map(
+    clk => uartclock,
+    reset => reset_combined,
+    enabled => sw(5),
+    scan_code => scancode_out,       
+    tx_ps2 => tx_ps2
+    ); 
+
+  compositor0 : compositor port map(
+    uart_in => uart_txd_sig,
+    xcounter_in => xcounter,
+    ycounter_in => ycounter,	
+    clk => uartclock,
+    pixelclock => pixelclock,
+    matrix_mode_enable => sw(5), 					
+    vgared_in => vgared_sig,
+    vgagreen_in => vgagreen_sig,
+    vgablue_in => vgablue_sig,
+    vgared_out => vgared,
+    vgagreen_out => vgagreen,
+    vgablue_out => vgablue
+    ); 
+    
   -----------------------------------------------------------------------------
   -- UART interface for monitor debugging and loading data
   -----------------------------------------------------------------------------
@@ -1166,9 +1235,9 @@ begin
     reset_out => reset_monitor,
     monitor_hyper_trap => monitor_hyper_trap,
     clock => uartclock,
-    tx       => UART_TXD,
-    rx       => RsRx,
-
+    tx       => uart_txd_sig,
+    rx       => tx_switch, --RsRx,
+	
     force_single_step => sw(11),
     
     fastio_read => fastio_read,
@@ -1231,6 +1300,9 @@ begin
       pmod_data_out <= pmodb_out_buffer;
     end if;
   end process;
+  
+  UART_TXD<=uart_txd_sig; 
+  tx_switch <= tx_ps2 when sw(5)='1' else RsRx; --uart monitor: serial input or ps2 keyboard input
   
 end Behavioral;
 

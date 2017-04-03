@@ -52,6 +52,8 @@ use work.debugtools.all;
 
 entity viciv is
   Port (
+    xcounter_out : out unsigned(11 downto 0);
+    ycounter_out : out unsigned(10 downto 0);
     ----------------------------------------------------------------------
     -- dot clock
     ----------------------------------------------------------------------
@@ -3969,5 +3971,9 @@ begin
     end if;
   end process;
 
+ --Route out position counters for compositor
+  xcounter_out <= xcounter; 
+  ycounter_out <= ycounter;
+  
 end Behavioral;
 
