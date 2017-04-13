@@ -23,6 +23,7 @@ use ieee.numeric_std.all;
 use Std.TextIO.all;
 use work.debugtools.all;
 use work.cputypes.all;
+use work.victypes.all;
 
 entity sprite is
   Port (
@@ -31,7 +32,7 @@ entity sprite is
     ----------------------------------------------------------------------
     pixelclock : in  STD_LOGIC;
 
-    signal sprite_number : in integer range 0 to 15;
+    signal sprite_number : in spritenumber;
 
     signal sprite_horizontal_tile_enable : in std_logic;
     signal sprite_bitplane_enable : in std_logic;
@@ -41,30 +42,30 @@ entity sprite is
 
     -- Pull sprite data in along the chain from the previous sprite (or VIC-IV)
     signal sprite_datavalid_in : in std_logic;
-    signal sprite_bytenumber_in : in integer range 0 to 79;
-    signal sprite_spritenumber_in : in integer range 0 to 15;
+    signal sprite_bytenumber_in : in spritebytenumber;
+    signal sprite_spritenumber_in : in spritenumber;
     signal sprite_data_in : in unsigned(7 downto 0);
 
     -- Pass sprite data out along the chain to the next sprite
     signal sprite_datavalid_out : out std_logic;
-    signal sprite_bytenumber_out : out integer range 0 to 79;
-    signal sprite_spritenumber_out : out integer range 0 to 15;
+    signal sprite_bytenumber_out : out spritebytenumber;
+    signal sprite_spritenumber_out : out spritenumber;
     signal sprite_data_out : out unsigned(7 downto 0);
 
     -- which base offset for the VIC-II sprite data are we showing this raster line?
     -- VIC-IV clocks sprite_number_for_data and each sprite replaces
     -- sprite_data_offset with the appropriate value if the sprite number is itself
-    signal sprite_number_for_data_in : in integer range 0 to 15;
-    signal sprite_data_offset_in : in integer range 0 to 65535;    
-    signal sprite_data_offset_out : out integer range 0 to 65535;    
-    signal sprite_number_for_data_out : out integer range 0 to 15;
+    signal sprite_number_for_data_in : in spritenumber;
+    signal sprite_data_offset_in : in spritedatabytenumber;    
+    signal sprite_data_offset_out : out spritedatabytenumber;    
+    signal sprite_number_for_data_out : out spritenumber;
     
     -- Is the pixel just passed in a foreground pixel?
     signal is_foreground_in : in std_logic;
     signal is_background_in : in std_logic;
     -- and what is the colour of the bitmap pixel?
-    signal x_in : in integer range 0 to 4095;
-    signal y_in : in integer range 0 to 4095;
+    signal x_in : in xposition;
+    signal y_in : in yposition;
     signal border_in : in std_logic;
     signal pixel_in : in unsigned(7 downto 0);
     signal alpha_in : in unsigned(7 downto 0);
@@ -77,8 +78,8 @@ entity sprite is
     -- Pass pixel information back out, as well as the sprite colour information
     signal is_foreground_out : out std_logic;
     signal is_background_out : out std_logic;
-    signal x_out : out integer range 0 to 4095;
-    signal y_out : out integer range 0 to 4095;
+    signal x_out : out xposition;
+    signal y_out : out yposition;
     signal border_out : out std_logic;
     signal pixel_out : out unsigned(7 downto 0);
     signal alpha_out : out unsigned(7 downto 0);

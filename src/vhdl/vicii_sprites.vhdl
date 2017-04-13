@@ -41,6 +41,7 @@ use ieee.numeric_std.all;
 use Std.TextIO.all;
 use work.debugtools.all;
 use work.cputypes.all;
+use work.victypes.all;
 
 entity vicii_sprites is
   Port (
@@ -61,8 +62,8 @@ entity vicii_sprites is
 
     -- Pull sprite data in along the chain from the previous sprite (or VIC-IV)
     signal sprite_datavalid_in : in std_logic;
-    signal sprite_bytenumber_in : in integer range 0 to 7;
-    signal sprite_spritenumber_in : in integer range 0 to 7;
+    signal sprite_bytenumber_in : in spritebytenumber;
+    signal sprite_spritenumber_in : in spritenumber;
     signal sprite_data_in : in unsigned(7 downto 0);
 
     -- Extended sprite size control registers
@@ -75,19 +76,19 @@ entity vicii_sprites is
     -- which base offset for the VIC-II sprite data are we showing this raster line?
     -- VIC-IV clocks sprite_number_for_data and each sprite replaces
     -- sprite_data_offset with the appropriate value if the sprite number is itself
-    signal sprite_number_for_data_in : in integer range 0 to 7;
-    signal sprite_data_offset_out : out integer range 0 to 1023;    
-    signal sprite_number_for_data_out : out integer range 0 to 7;
+    signal sprite_number_for_data_in : in spritenumber;
+    signal sprite_data_offset_out : out spritedatabytenumber;    
+    signal sprite_number_for_data_out : out spritenumber;
     
     -- Is the pixel just passed in a foreground pixel?
     signal is_foreground_in : in std_logic;
     signal is_background_in : in std_logic;
     -- and what is the colour of the bitmap pixel?
-    signal x_in : in integer range 0 to 4095;
-    signal x640_in : in integer range 0 to 4095;
-    signal x1280_in : in integer range 0 to 4095;
+    signal x_in : in xposition;
+    signal x640_in : in xposition;
+    signal x1280_in : in xposition;
 
-    signal y_in : in integer range 0 to 4095;
+    signal y_in : in yposition;
     signal border_in : in std_logic;
     signal pixel_in : in unsigned(7 downto 0);
     signal alpha_in : in unsigned(7 downto 0);
@@ -95,8 +96,8 @@ entity vicii_sprites is
     -- Pass pixel information back out, as well as the sprite colour information
     signal is_foreground_out : out std_logic;
     signal is_background_out : out std_logic;
-    signal x_out : out integer range 0 to 4095;
-    signal y_out : out integer range 0 to 4095;
+    signal x_out : out xposition;
+    signal y_out : out yposition;
     signal border_out : out std_logic;
     signal pixel_out : out unsigned(7 downto 0);
     signal alpha_out : out unsigned(7 downto 0);
@@ -126,12 +127,12 @@ architecture behavioural of vicii_sprites is
       ----------------------------------------------------------------------
       pixelclock : in  STD_LOGIC;
 
-      signal sprite_number : in integer range 0 to 15;
+      signal sprite_number : in spritenumber;
       
       -- Pull sprite data in along the chain from the previous sprite (or VIC-IV)
       signal sprite_datavalid_in : in std_logic;
-      signal sprite_bytenumber_in : in integer range 0 to 79;
-      signal sprite_spritenumber_in : in integer range 0 to 15;
+      signal sprite_bytenumber_in : in spritebytenumber;
+      signal sprite_spritenumber_in : in spritenumber;
       signal sprite_data_in : in unsigned(7 downto 0);
 
       signal sprite_horizontal_tile_enable : in std_logic;
@@ -142,24 +143,24 @@ architecture behavioural of vicii_sprites is
       
       -- Pass sprite data out along the chain to the next sprite
       signal sprite_datavalid_out : out std_logic;
-      signal sprite_bytenumber_out : out integer range 0 to 79;
-      signal sprite_spritenumber_out : out integer range 0 to 15;
+      signal sprite_bytenumber_out : out spritebytenumber;
+      signal sprite_spritenumber_out : out spritenumber;
       signal sprite_data_out : out unsigned(7 downto 0);
 
       -- which base offset for the VIC-II sprite data are we showing this raster line?
       -- VIC-IV clocks sprite_number_for_data and each sprite replaces
       -- sprite_data_offset with the appropriate value if the sprite number is itself
-      signal sprite_number_for_data_in : in integer range 0 to 15;
-      signal sprite_data_offset_in : in integer range 0 to 65535;    
-      signal sprite_data_offset_out : out integer range 0 to 65535;    
-      signal sprite_number_for_data_out : out integer range 0 to 15;
+      signal sprite_number_for_data_in : in spritenumber;
+      signal sprite_data_offset_in : in spritedatabytenumber;    
+      signal sprite_data_offset_out : out spritedatabytenumber;    
+      signal sprite_number_for_data_out : out spritenumber;
       
       -- Is the pixel just passed in a foreground pixel?
       signal is_foreground_in : in std_logic;
       signal is_background_in : in std_logic;
       -- and what is the colour of the bitmap pixel?
-      signal x_in : in integer range 0 to 4095;
-      signal y_in : in integer range 0 to 4095;
+      signal x_in : in xposition;
+      signal y_in : in yposition;
       signal border_in : in std_logic;
       signal pixel_in : in unsigned(7 downto 0);
       signal alpha_in : in unsigned(7 downto 0);
@@ -172,8 +173,8 @@ architecture behavioural of vicii_sprites is
       -- Pass pixel information back out, as well as the sprite colour information
       signal is_foreground_out : out std_logic;
       signal is_background_out : out std_logic;
-      signal x_out : out integer range 0 to 4095;
-      signal y_out : out integer range 0 to 4095;
+      signal x_out : out xposition;
+      signal y_out : out yposition;
       signal border_out : out std_logic;
       signal pixel_out : out unsigned(7 downto 0);
       signal alpha_out : out unsigned(7 downto 0);
@@ -210,8 +211,8 @@ architecture behavioural of vicii_sprites is
       
       -- Pull sprite data in along the chain from the previous sprite (or VIC-IV)
       signal sprite_datavalid_in : in std_logic;
-      signal sprite_bytenumber_in : in integer range 0 to 79;
-      signal sprite_spritenumber_in : in integer range 0 to 15;
+      signal sprite_bytenumber_in : in spritebytenumber;
+      signal sprite_spritenumber_in : in spritenumber;
       signal sprite_data_in : in unsigned(7 downto 0);
 
       -- XXX Bitplane registers
@@ -227,26 +228,26 @@ architecture behavioural of vicii_sprites is
       
       -- Pass sprite data out along the chain to the next sprite
       signal sprite_datavalid_out : out std_logic;
-      signal sprite_bytenumber_out : out integer range 0 to 79;
-      signal sprite_spritenumber_out : out integer range 0 to 15;
+      signal sprite_bytenumber_out : out spritebytenumber;
+      signal sprite_spritenumber_out : out spritenumber;
       signal sprite_data_out : out unsigned(7 downto 0);
 
       -- which base offset for the VIC-II sprite data are we showing this raster line?
       -- VIC-IV clocks sprite_number_for_data and each sprite replaces
       -- sprite_data_offset with the appropriate value if the sprite number is itself
-      signal sprite_number_for_data_in : in integer range 0 to 15;
-      signal sprite_data_offset_in : in integer range 0 to 65535;    
-      signal sprite_data_offset_out : out integer range 0 to 65535;    
-      signal sprite_number_for_data_out : out integer range 0 to 15;
+      signal sprite_number_for_data_in : in spritenumber;
+      signal sprite_data_offset_in : in spritedatabytenumber;    
+      signal sprite_data_offset_out : out spritedatabytenumber;    
+      signal sprite_number_for_data_out : out spritenumber;
       
       -- Is the pixel just passed in a foreground pixel?
       signal is_foreground_in : in std_logic;
       signal is_background_in : in std_logic;
       -- and what is the colour of the bitmap pixel?
-      signal x_in : in integer range 0 to 4095;
-      signal x640_in : in integer range 0 to 4095;
-      signal x1280_in : in integer range 0 to 4095;
-      signal y_in : in integer range 0 to 4095;
+      signal x_in : in xposition;
+      signal x640_in : in xposition;
+      signal x1280_in : in xposition;
+      signal y_in : in xposition;
       signal border_in : in std_logic;
       signal pixel_in : in unsigned(7 downto 0);
       signal alpha_in : in unsigned(7 downto 0);
@@ -259,8 +260,8 @@ architecture behavioural of vicii_sprites is
       -- Pass pixel information back out, as well as the sprite colour information
       signal is_foreground_out : out std_logic;
       signal is_background_out : out std_logic;
-      signal x_out : out integer range 0 to 4095;
-      signal y_out : out integer range 0 to 4095;
+      signal x_out : out xposition;
+      signal y_out : out yposition;
       signal border_out : out std_logic;
       signal pixel_out : out unsigned(7 downto 0);
       signal alpha_out : out unsigned(7 downto 0);
@@ -294,60 +295,60 @@ architecture behavioural of vicii_sprites is
 
   -- Pass sprite data out along the chain and out the end 
   signal sprite_datavalid_out : std_logic;
-  signal sprite_bytenumber_out : integer range 0 to 79;
-  signal sprite_spritenumber_out : integer range 0 to 15;
+  signal sprite_bytenumber_out : spritebytenumber;
+  signal sprite_spritenumber_out : spritenumber;
   signal sprite_data_out : unsigned(7 downto 0);
 
   -- And between the sprites
   signal sprite_datavalid_7_6 : std_logic;
-  signal sprite_bytenumber_7_6 : integer range 0 to 79;
-  signal sprite_spritenumber_7_6 : integer range 0 to 15;
+  signal sprite_bytenumber_7_6 : spritebytenumber;
+  signal sprite_spritenumber_7_6 : spritenumber;
   signal sprite_data_7_6 : unsigned(7 downto 0);
   signal sprite_datavalid_6_5 : std_logic;
-  signal sprite_bytenumber_6_5 : integer range 0 to 79;
-  signal sprite_spritenumber_6_5 : integer range 0 to 15;
+  signal sprite_bytenumber_6_5 : spritebytenumber;
+  signal sprite_spritenumber_6_5 : spritenumber;
   signal sprite_data_6_5 : unsigned(7 downto 0);
   signal sprite_datavalid_5_4 : std_logic;
-  signal sprite_bytenumber_5_4 : integer range 0 to 79;
-  signal sprite_spritenumber_5_4 : integer range 0 to 15;
+  signal sprite_bytenumber_5_4 : spritebytenumber;
+  signal sprite_spritenumber_5_4 : spritenumber;
   signal sprite_data_5_4 : unsigned(7 downto 0);
   signal sprite_datavalid_4_3 : std_logic;
-  signal sprite_bytenumber_4_3 : integer range 0 to 79;
-  signal sprite_spritenumber_4_3 : integer range 0 to 15;
+  signal sprite_bytenumber_4_3 : spritebytenumber;
+  signal sprite_spritenumber_4_3 : spritenumber;
   signal sprite_data_4_3 : unsigned(7 downto 0);
   signal sprite_datavalid_3_2 : std_logic;
-  signal sprite_bytenumber_3_2 : integer range 0 to 79;
-  signal sprite_spritenumber_3_2 : integer range 0 to 15;
+  signal sprite_bytenumber_3_2 : spritebytenumber;
+  signal sprite_spritenumber_3_2 : spritenumber;
   signal sprite_data_3_2 : unsigned(7 downto 0);
   signal sprite_datavalid_2_1 : std_logic;
-  signal sprite_bytenumber_2_1 : integer range 0 to 79;
-  signal sprite_spritenumber_2_1 : integer range 0 to 15;
+  signal sprite_bytenumber_2_1 : spritebytenumber;
+  signal sprite_spritenumber_2_1 : spritenumber;
   signal sprite_data_2_1 : unsigned(7 downto 0);
   signal sprite_datavalid_1_0 : std_logic;
-  signal sprite_bytenumber_1_0 : integer range 0 to 79;
-  signal sprite_spritenumber_1_0 : integer range 0 to 15;
+  signal sprite_bytenumber_1_0 : spritebytenumber;
+  signal sprite_spritenumber_1_0 : spritenumber;
   signal sprite_data_1_0 : unsigned(7 downto 0);
   signal sprite_datavalid_0_bp : std_logic;
-  signal sprite_bytenumber_0_bp : integer range 0 to 79;
-  signal sprite_spritenumber_0_bp : integer range 0 to 15;
+  signal sprite_bytenumber_0_bp : spritebytenumber;
+  signal sprite_spritenumber_0_bp : spritenumber;
   signal sprite_data_0_bp : unsigned(7 downto 0);
 
-  signal sprite_number_for_data_7_6 : integer range 0 to 15;
-  signal sprite_number_for_data_6_5 : integer range 0 to 15;
-  signal sprite_number_for_data_5_4 : integer range 0 to 15;
-  signal sprite_number_for_data_4_3 : integer range 0 to 15;
-  signal sprite_number_for_data_3_2 : integer range 0 to 15;
-  signal sprite_number_for_data_2_1 : integer range 0 to 15;
-  signal sprite_number_for_data_1_0 : integer range 0 to 15;
-  signal sprite_number_for_data_0_bp : integer range 0 to 15;
-  signal sprite_data_offset_7_6 : integer range 0 to 65535;
-  signal sprite_data_offset_6_5 : integer range 0 to 65535;
-  signal sprite_data_offset_5_4 : integer range 0 to 65535;
-  signal sprite_data_offset_4_3 : integer range 0 to 65535;
-  signal sprite_data_offset_3_2 : integer range 0 to 65535;
-  signal sprite_data_offset_2_1 : integer range 0 to 65535;
-  signal sprite_data_offset_1_0 : integer range 0 to 65535;
-  signal sprite_data_offset_0_bp : integer range 0 to 65535;
+  signal sprite_number_for_data_7_6 : spritenumber;
+  signal sprite_number_for_data_6_5 : spritenumber;
+  signal sprite_number_for_data_5_4 : spritenumber;
+  signal sprite_number_for_data_4_3 : spritenumber;
+  signal sprite_number_for_data_3_2 : spritenumber;
+  signal sprite_number_for_data_2_1 : spritenumber;
+  signal sprite_number_for_data_1_0 : spritenumber;
+  signal sprite_number_for_data_0_bp : spritenumber;
+  signal sprite_data_offset_7_6 : spritedatabytenumber;
+  signal sprite_data_offset_6_5 : spritedatabytenumber;
+  signal sprite_data_offset_5_4 : spritedatabytenumber;
+  signal sprite_data_offset_4_3 : spritedatabytenumber;
+  signal sprite_data_offset_3_2 : spritedatabytenumber;
+  signal sprite_data_offset_2_1 : spritedatabytenumber;
+  signal sprite_data_offset_1_0 : spritedatabytenumber;
+  signal sprite_data_offset_0_bp : spritedatabytenumber;
 
   signal sprite_fg_map_7_6 : std_logic_vector(7 downto 0);
   signal sprite_fg_map_6_5 : std_logic_vector(7 downto 0);
@@ -383,22 +384,22 @@ architecture behavioural of vicii_sprites is
   signal is_background_2_1 : std_logic;
   signal is_background_1_0 : std_logic;
   signal is_background_0_bp : std_logic;
-  signal x_7_6 : integer range 0 to 4095;
-  signal x_6_5 : integer range 0 to 4095;
-  signal x_5_4 : integer range 0 to 4095;
-  signal x_4_3 : integer range 0 to 4095;
-  signal x_3_2 : integer range 0 to 4095;
-  signal x_2_1 : integer range 0 to 4095;
-  signal x_1_0 : integer range 0 to 4095;
-  signal x_0_bp : integer range 0 to 4095;
-  signal y_7_6 : integer range 0 to 4095;
-  signal y_6_5 : integer range 0 to 4095;
-  signal y_5_4 : integer range 0 to 4095;
-  signal y_4_3 : integer range 0 to 4095;
-  signal y_3_2 : integer range 0 to 4095;
-  signal y_2_1 : integer range 0 to 4095;
-  signal y_1_0 : integer range 0 to 4095;
-  signal y_0_bp : integer range 0 to 4095;
+  signal x_7_6 : xposition;
+  signal x_6_5 : xposition;
+  signal x_5_4 : xposition;
+  signal x_4_3 : xposition;
+  signal x_3_2 : xposition;
+  signal x_2_1 : xposition;
+  signal x_1_0 : xposition;
+  signal x_0_bp : xposition;
+  signal y_7_6 : yposition;
+  signal y_6_5 : yposition;
+  signal y_5_4 : yposition;
+  signal y_4_3 : yposition;
+  signal y_3_2 : yposition;
+  signal y_2_1 : yposition;
+  signal y_1_0 : yposition;
+  signal y_0_bp : yposition;
   signal border_7_6 : std_logic;
   signal border_6_5 : std_logic;
   signal border_5_4 : std_logic;

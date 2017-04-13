@@ -40,6 +40,7 @@ use IEEE.STD_LOGIC_1164.ALL;
 use ieee.numeric_std.all;
 use Std.TextIO.all;
 use work.debugtools.all;
+use work.victypes.all;
 
 -- Uncomment the following library declaration if using
 -- arithmetic functions with Signed or Unsigned values
@@ -281,8 +282,8 @@ architecture Behavioral of viciv is
            
       -- Pull sprite data in along the chain from the previous sprite (or VIC-IV)
       signal sprite_datavalid_in : in std_logic;
-      signal sprite_bytenumber_in : in integer range 0 to 39;
-      signal sprite_spritenumber_in : in integer range 0 to 15;
+      signal sprite_bytenumber_in : in spritebytenumber;
+      signal sprite_spritenumber_in : in spritenumber;
       signal sprite_data_in : in unsigned(7 downto 0);
 
       signal sprite_horizontal_tile_enables : in std_logic_vector(7 downto 0);
@@ -303,17 +304,17 @@ architecture Behavioral of viciv is
       signal is_foreground_in : in std_logic;
       signal is_background_in : in std_logic;
       -- and what is the colour of the bitmap pixel?
-      signal x_in : in integer range 0 to 4095;
-      signal x640_in : in integer range 0 to 4095;
-      signal x1280_in : in integer range 0 to 4095;
-      signal y_in : in integer range 0 to 4095;
+      signal x_in : in xposition;
+      signal x640_in : in xposition;
+      signal x1280_in : in xposition;
+      signal y_in : in yposition;
       signal border_in : in std_logic;
       signal pixel_in : in unsigned(7 downto 0);
       signal alpha_in : in unsigned(7 downto 0);
 
       -- Pass pixel information back out
-      signal x_out : out integer range 0 to 4095;
-      signal y_out : out integer range 0 to 4095;
+      signal x_out : out xposition;
+      signal y_out : out yposition;
       signal border_out : out std_logic;
       signal pixel_out : out unsigned(7 downto 0);
       signal alpha_out : out unsigned(7 downto 0);
@@ -687,8 +688,8 @@ architecture Behavioral of viciv is
   signal sprite_data_offsets : sprite_data_offset_8;
   -- Similarly we need to deliver the bytes of data to the VIC-II sprite chain
   signal sprite_datavalid : std_logic;
-  signal sprite_bytenumber : integer range 0 to 319 := 0;
-  signal sprite_spritenumber : integer range 0 to 15 := 0;
+  signal sprite_bytenumber : spritebytenumber := 0;
+  signal sprite_spritenumber : spritenumber := 0;
   signal sprite_data_byte : unsigned(7 downto 0);
   -- The sprite chain also has the opportunity to modify the pixel colour being
   -- drawn so that the sprites can be overlayed on the display.
@@ -1146,10 +1147,10 @@ begin
               -- VIC-II sprites care only about VIC-II coordinates
               -- XXX 40 and 80 column displays should have the same aspect
               -- ratio for this to really work.
-              x_in => to_integer(last_vicii_xcounter),
-              x640_in => to_integer(last_vicii_xcounter640),
-              x1280_in => to_integer(last_vicii_xcounter1280),
-              y_in => to_integer(vicii_ycounter),
+              x_in => to_xposition(last_vicii_xcounter),
+              x640_in => to_xposition(last_vicii_xcounter640),
+              x1280_in => to_xposition(last_vicii_xcounter1280),
+              y_in => to_yposition(vicii_ycounter),
               border_in => inborder,
               pixel_in => chargen_pixel_colour,
               alpha_in => chargen_alpha_value,
