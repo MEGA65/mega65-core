@@ -31,13 +31,17 @@ entity keymapper is
     -- PS2 keyboard interface
     ps2clock  : in  std_logic;
     ps2data   : in  std_logic;
-    -- CIA ports
+    -- CIA1 ports
     porta_in  : in  std_logic_vector(7 downto 0);
     portb_in  : in  std_logic_vector(7 downto 0);
     porta_out : out std_logic_vector(7 downto 0);
     portb_out : out std_logic_vector(7 downto 0);
     porta_ddr : in  std_logic_vector(7 downto 0);
     portb_ddr : in  std_logic_vector(7 downto 0);
+
+    -- Actual physical pins for CIA1
+    porta_pins : inout std_logic_vector(7 downto 0);
+    portb_pins : inout std_logic_vector(7 downto 0);
 
     pota_x : out unsigned(7 downto 0) := x"ff";
     pota_y : out unsigned(7 downto 0) := x"ff";
@@ -102,8 +106,8 @@ architecture behavioural of keymapper is
   signal right_shift : std_logic := '1';
   signal ps2 : std_logic := '0';
   signal matrix : std_logic_vector(71 downto 0) := (others =>'1');
-  signal joy1 : std_logic_vector(4 downto 0) := (others =>'1');
-  signal joy2 : std_logic_vector(4 downto 0) := (others =>'1');
+  signal joy1 : std_logic_vector(7 downto 0) := (others =>'1');
+  signal joy2 : std_logic_vector(7 downto 0) := (others =>'1');
 
   signal restore_state : std_logic := '1';
   signal last_restore_state : std_logic := '1';
@@ -595,22 +599,44 @@ begin  -- behavioural
           end loop;  -- j
         end if;        
       end loop;      
-      
-      -- Keyboard rows and joystick 1
-      portb_out(7 downto 5) <= portb_value(7 downto 5);
-      portb_out(4) <= portb_value(4) and joy1(4);
-      portb_out(3) <= portb_value(3) and joy1(3);
-      portb_out(2) <= portb_value(2) and joy1(2);
-      portb_out(1) <= portb_value(1) and joy1(1);
-      portb_out(0) <= portb_value(0) and joy1(0);
 
-      -- Keyboard columns and joystick 2
-      porta_out(7 downto 5) <= porta_value(7 downto 5);
-      porta_out(4) <= porta_value(4) and joy2(4);
-      porta_out(3) <= porta_value(3) and joy2(3);
-      porta_out(2) <= porta_value(2) and joy2(2);
-      porta_out(1) <= porta_value(1) and joy2(1);
-      porta_out(0) <= porta_value(0) and joy2(0);
+      -- Update physical pins to reflect what the CIA is asking for
+      for b in 0 to 7 loop
+        if porta_ddr(b)='1' then
+          -- Pin is output
+          porta_pins(b) <= porta_in(b);
+        else
+          -- Pin is input, i.e., tri-stated
+          porta_pins(b) <= 'Z';
+        end if;
+        if portb_ddr(b)='1' then
+          -- Pin is output
+          portb_pins(b) <= portb_in(b);
+        else
+          -- Pin is input, i.e., tri-stated
+          portb_pins(b) <= 'Z';
+        end if;
+      end loop;
+
+      -- Reading the CIAs requires us to take into account our modeled port
+      -- values for the keyboard matrix, combined with the actual values coming
+      -- in on the pins.  If DDR='1', then we don't want to read the pin, but if
+      -- DDR='0', and if the pin is '0', then it should pull low.
+      for b in 0 to 7 loop
+        if (porta_ddr(b) = '0') and (porta_pins(b) = '0') then
+          -- CIA should read bit as low
+          porta_out(b) <= '0';
+        else
+          porta_out(b) <= porta_value(b) and joy2(b);
+        end if;
+        if (portb_ddr(b) = '0') and (portb_pins(b) = '0') then
+          -- CIA should read bit as low
+          portb_out(b) <= '0';
+        else
+          portb_out(b) <= portb_value(b) and joy1(b);
+        end if;
+      end loop;
+      
     end if;
   end process keyread;
 
