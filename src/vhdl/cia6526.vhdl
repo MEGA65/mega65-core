@@ -30,11 +30,11 @@ entity cia6526 is
 
     portaout : out std_logic_vector(7 downto 0);
     portain : in std_logic_vector(7 downto 0);
-    poraddr : out std_logic_vector(7 downto 0);
+    portaddr : out std_logic_vector(7 downto 0);
     
     portbout : out std_logic_vector(7 downto 0);
     portbin : in std_logic_vector(7 downto 0);
-    porbddr : out std_logic_vector(7 downto 0);
+    portbddr : out std_logic_vector(7 downto 0);
 
     flagin : in std_logic;
 
