@@ -36,6 +36,8 @@ entity keymapper is
     portb_in  : in  std_logic_vector(7 downto 0);
     porta_out : out std_logic_vector(7 downto 0);
     portb_out : out std_logic_vector(7 downto 0);
+    porta_ddr : in  std_logic_vector(7 downto 0);
+    portb_ddr : in  std_logic_vector(7 downto 0);
 
     pota_x : out unsigned(7 downto 0) := x"ff";
     pota_y : out unsigned(7 downto 0) := x"ff";

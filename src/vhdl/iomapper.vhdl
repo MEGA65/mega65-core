@@ -329,9 +329,11 @@ architecture behavioral of iomapper is
       fastio_rdata : out unsigned(7 downto 0);
 
       portaout : out std_logic_vector(7 downto 0);
+      portaddr : out std_logic_vector(7 downto 0);
       portain : in std_logic_vector(7 downto 0);
       
       portbout : out std_logic_vector(7 downto 0);
+      portbddr : out std_logic_vector(7 downto 0);
       portbin : in std_logic_vector(7 downto 0);
 
       flagin : in std_logic;
@@ -379,6 +381,8 @@ architecture behavioral of iomapper is
     portb_in  : in  std_logic_vector(7 downto 0);
     porta_out : out std_logic_vector(7 downto 0);
     portb_out : out std_logic_vector(7 downto 0);
+    porta_ddr : in  std_logic_vector(7 downto 0);
+    portb_ddr : in  std_logic_vector(7 downto 0);
 
     pota_x : out unsigned(7 downto 0);
     pota_y : out unsigned(7 downto 0);
@@ -470,8 +474,10 @@ architecture behavioral of iomapper is
                         
   signal last_scan_code : std_logic_vector(12 downto 0);
   
+  signal cia1porta_ddr : std_logic_vector(7 downto 0);
   signal cia1porta_out : std_logic_vector(7 downto 0);
   signal cia1porta_in : std_logic_vector(7 downto 0);
+  signal cia1portb_ddr : std_logic_vector(7 downto 0);
   signal cia1portb_out : std_logic_vector(7 downto 0);
   signal cia1portb_in : std_logic_vector(7 downto 0);
 
@@ -549,6 +555,8 @@ begin
     portbout => cia1portb_out,
     portain => cia1porta_in,
     portbin => cia1portb_in,
+    portaddr => cia1porta_ddr,
+    portbddr => cia1portb_ddr,
     flagin => '1',
     spin => '1',
     countin => '1'
@@ -623,9 +631,11 @@ begin
     last_scan_code => last_scan_code,
 --    key_status     => seg_led(1 downto 0),
     porta_in       => cia1porta_out,
-    portb_in       => cia1portb_out,
+    portb_in       => cia1portb_out,    
     porta_out      => cia1porta_in,
     portb_out      => cia1portb_in,
+    porta_ddr      => cia1porta_ddr,
+    portb_ddr      => cia1portb_ddr,
 
     pota_x => pota_x,
     pota_y => pota_y,
