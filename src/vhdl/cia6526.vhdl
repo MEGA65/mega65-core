@@ -30,9 +30,11 @@ entity cia6526 is
 
     portaout : out std_logic_vector(7 downto 0);
     portain : in std_logic_vector(7 downto 0);
+    poraddr : out std_logic_vector(7 downto 0);
     
     portbout : out std_logic_vector(7 downto 0);
     portbin : in std_logic_vector(7 downto 0);
+    porbddr : out std_logic_vector(7 downto 0);
 
     flagin : in std_logic;
 
@@ -258,6 +260,9 @@ begin  -- behavioural
         imask_tb <= '0';
         imask_ta <= '0';
       end if;
+
+      portaddr <= reg_porta_ddr;
+      portbddr <= reg_portb_ddr;
       
       register_number := fastio_address(3 downto 0);
 
