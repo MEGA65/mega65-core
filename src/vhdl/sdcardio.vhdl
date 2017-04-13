@@ -159,9 +159,9 @@ architecture behavioural of sdcardio is
     clk : IN STD_LOGIC;
     cs : IN STD_LOGIC;
     w : IN std_logic;
-    write_address : IN integer range 0 to 511;
+    write_address : IN integer;
     wdata : IN unsigned(7 DOWNTO 0);
-    address : IN integer range 0 to 511;
+    address : IN integer;
     rdata : OUT unsigned(7 DOWNTO 0)
     );
   END component;
