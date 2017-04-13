@@ -77,6 +77,12 @@ entity machine is
          vgablue : out  UNSIGNED (3 downto 0);
 
          -------------------------------------------------------------------------
+         -- CIA1 ports for keyboard and joysticks
+         -------------------------------------------------------------------------
+         porta_pins : inout  std_logic_vector(7 downto 0);
+         portb_pins : inout  std_logic_vector(7 downto 0);
+         
+         -------------------------------------------------------------------------
          -- Lines for the SDcard interface itself
          -------------------------------------------------------------------------
          cs_bo : out std_logic;
@@ -487,6 +493,9 @@ architecture Behavioral of machine is
           sw : in std_logic_vector(15 downto 0);
           btn : in std_logic_vector(4 downto 0);
           seg_led : out unsigned(31 downto 0);
+
+          porta_pins : inout  std_logic_vector(7 downto 0);
+          portb_pins : inout  std_logic_vector(7 downto 0);
 
           pmod_clock : in std_logic;
           pmod_start_of_sequence : in std_logic;
@@ -1092,6 +1101,9 @@ begin
     viciii_iomode => viciii_iomode,
     sector_buffer_mapped => sector_buffer_mapped,
 
+    porta_pins => porta_pins,
+    portb_pins => portb_pins,
+    
     pixel_stream_in => pixel_stream,
     pixel_y => pixel_y,
     pixel_valid => pixel_valid,

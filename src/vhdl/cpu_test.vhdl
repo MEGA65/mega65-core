@@ -96,6 +96,9 @@ architecture behavior of cpu_test is
 
            fpga_temperature : in std_logic_vector(11 downto 0);
 
+          porta_pins : inout  std_logic_vector(7 downto 0);
+          portb_pins : inout  std_logic_vector(7 downto 0);
+           
            ---------------------------------------------------------------------------
            -- IO lines to the ethernet controller
            ---------------------------------------------------------------------------

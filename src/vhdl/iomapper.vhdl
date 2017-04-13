@@ -41,9 +41,12 @@ entity iomapper is
         motor : out std_logic := '0';
         drive_led_out : in std_logic;
 
+        porta_pins : inout  std_logic_vector(7 downto 0);
+        portb_pins : inout  std_logic_vector(7 downto 0);
+        
         ps2data : in std_logic;
         ps2clock : in std_logic;
-
+       
         pmod_clock : in std_logic;
         pmod_start_of_sequence : in std_logic;
         pmod_data_in : in std_logic_vector(3 downto 0);
@@ -383,6 +386,8 @@ architecture behavioral of iomapper is
     portb_out : out std_logic_vector(7 downto 0);
     porta_ddr : in  std_logic_vector(7 downto 0);
     portb_ddr : in  std_logic_vector(7 downto 0);
+    porta_pins : inout  std_logic_vector(7 downto 0);
+    portb_pins : inout  std_logic_vector(7 downto 0);
 
     pota_x : out unsigned(7 downto 0);
     pota_y : out unsigned(7 downto 0);
@@ -636,6 +641,9 @@ begin
     portb_out      => cia1portb_in,
     porta_ddr      => cia1porta_ddr,
     portb_ddr      => cia1portb_ddr,
+
+    porta_pins => porta_pins,
+    portb_pins => portb_pins,
 
     pota_x => pota_x,
     pota_y => pota_y,

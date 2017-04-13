@@ -37,7 +37,13 @@ entity container is
          btnCpuReset : in  STD_LOGIC;
 --         irq : in  STD_LOGIC;
 --         nmi : in  STD_LOGIC;
-
+         
+         ----------------------------------------------------------------------
+         -- CIA1 ports for keyboard/joystick 
+         ----------------------------------------------------------------------
+         porta_pins : inout  std_logic_vector(7 downto 0);
+         portb_pins : inout  std_logic_vector(7 downto 0);
+         
          ----------------------------------------------------------------------
          -- VGA output
          ----------------------------------------------------------------------
@@ -240,6 +246,12 @@ architecture Behavioral of container is
 
          ddr_counter : in unsigned(7 downto 0);
          ddr_state : in unsigned(7 downto 0);
+
+         ----------------------------------------------------------------------
+         -- CIA1 ports for keyboard/joystick 
+         ----------------------------------------------------------------------
+         porta_pins : inout  std_logic_vector(7 downto 0);
+         portb_pins : inout  std_logic_vector(7 downto 0);
          
          ----------------------------------------------------------------------
          -- VGA output
@@ -468,6 +480,9 @@ begin
       vgagreen        => vgagreen,
       vgablue         => vgablue,
 
+      porta_pins => porta_pins,
+      portb_pins => portb_pins,
+      
       ---------------------------------------------------------------------------
       -- IO lines to the ethernet controller
       ---------------------------------------------------------------------------
