@@ -423,7 +423,7 @@ begin
       pmod_clock => '1',
       pmod_start_of_sequence => '0',
       pmod_data_in => (others => '1'),
-      pmoda => pmod_dummy,
+      pmoda => pmoda_dummy,
       sw => (others => '0'),
       uart_rx => '1',
       btn => (others => '1')
