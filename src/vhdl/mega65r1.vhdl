@@ -294,15 +294,7 @@ architecture Behavioral of container is
   signal clock100mhz : std_logic := '0';
   signal clock50mhz : std_logic := '0';
 
-  signal slowram_addr :    std_logic_vector(26 downto 0);
-  signal slowram_addr_reflect :    std_logic_vector(26 downto 0);
-  signal slowram_we :      std_logic;
-  signal slowram_request_toggle :      std_logic;
-  signal slowram_done_toggle :      std_logic;
-  signal slowram_datain :  std_logic_vector(7 downto 0);
-  signal slowram_datain_reflect : std_logic_vector(7 downto 0);
-  signal cache_address : std_logic_vector(8 downto 0);
-  signal cache_read_data : std_logic_vector(150 downto 0);
+  signal pmoda_dummy :  std_logic_vector(7 downto 0) := (others => '1');
   signal ddr_state : unsigned(7 downto 0);
   signal ddr_counter : unsigned(7 downto 0);
 
@@ -431,8 +423,9 @@ begin
       pmod_clock => '1',
       pmod_start_of_sequence => '0',
       pmod_data_in => (others => '1'),
-      pmoda => (others => '1'),
+      pmoda => pmod_dummy,
       sw => (others => '0'),
+      uart_rx => '1',
       btn => (others => '1')
          
       );
