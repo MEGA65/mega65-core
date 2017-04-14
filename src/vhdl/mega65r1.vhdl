@@ -392,6 +392,7 @@ begin
       miso_i => sdMISO,
 
 --      aclMISO => aclMISO,
+      aclMISO => '1',
 --      aclMOSI => aclMOSI,
 --      aclSS => aclSS,
 --      aclSCK => aclSCK,
