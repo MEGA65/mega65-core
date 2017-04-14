@@ -296,8 +296,8 @@ begin
   process (pixelclock) is
   begin
     vdac_clk <= pixelclock;
-    vdac_sync_n <= '1';
-    vdac_blank_n <= '0';
+    vdac_sync_n <= '0';  -- no sync on green
+    vdac_blank_n <= '0'; -- DAC always operating
     if rising_edge(pixelclock) then
       vga_hsync <= v_hsync;
       vga_vsync <= v_vsync;
