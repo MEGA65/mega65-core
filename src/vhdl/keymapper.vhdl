@@ -27,6 +27,7 @@ entity keymapper is
     
     -- appears as bit0 of $D607 (see C65 keyboard scan routine at $E406)
     capslock_out : out std_logic := '1';
+    capslock_in : in std_logic;
     
     -- PS2 keyboard interface
     ps2clock  : in  std_logic;
