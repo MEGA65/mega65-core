@@ -164,11 +164,12 @@ NET "RsRx"           LOC=V20 | IOSTANDARD=LVCMOS33; #
 
 ##Micro SD Connector
 # XXX - No microSD connector on first revision PCBs.  Break out on an expansion connector somewhere?
-#NET "sdClock"        LOC= | IOSTANDARD=LVCMOS33; #
-#NET "sdReset"        LOC= | IOSTANDARD=LVCMOS33; #
-#NET "sdMISO"         LOC= | IOSTANDARD=LVCMOS33; #
-#NET "sdMOSI"         LOC= | IOSTANDARD=LVCMOS33; #
-#NET "sd_dat<0>"      LOC= | IOSTANDARD=LVCMOS33; #
+# Broken out on TestPad1-TestPad5
+NET "sdClock"        LOC=T16 | IOSTANDARD=LVCMOS33; #
+NET "sdReset"        LOC=U16 | IOSTANDARD=LVCMOS33; #
+NET "sdMISO"         LOC=W16 | IOSTANDARD=LVCMOS33; #
+NET "sdMOSI"         LOC=W15 | IOSTANDARD=LVCMOS33; #
+NET "sd_dat<0>"      LOC=T15 | IOSTANDARD=LVCMOS33; #
 #NET "sd_dat<1>"      LOC= | IOSTANDARD=LVCMOS33; #
 #NET "sd_dat<2>"      LOC= | IOSTANDARD=LVCMOS33; #
 #NET "sd_dat<3>"      LOC= | IOSTANDARD=LVCMOS33; #
