@@ -16,7 +16,7 @@ entity iomapper is
         reset_out : out std_logic;
         irq : out std_logic;
         nmi : out std_logic;
-        capslock_state : inout std_logic;
+        capslock_state : in std_logic;
         speed_gate : out std_logic;
         speed_gate_enable : in std_logic;
         hyper_trap : out std_logic;
@@ -668,7 +668,6 @@ begin
     speed_gate_enable => speed_gate_enable,
 
     capslock_in => keyboard_capslock,
-    capslock_out => capslock_state,
     keyboard_column8_select_out => keyboard_column8_out,
     keyboard_column8_select_in => keyboard_column8_select,
     pmod_clock => pmod_clock,

@@ -466,7 +466,7 @@ architecture Behavioral of machine is
           key_scancode : in unsigned(15 downto 0);
           key_scancode_toggle : in std_logic;
 
-          capslock_state : inout std_logic;
+          capslock_state : in std_logic;
           speed_gate : out std_logic;
           speed_gate_enable : in std_logic;
           
@@ -1105,7 +1105,8 @@ begin
     porta_pins => porta_pins,
     portb_pins => portb_pins,
     capslock_state => keyboard_capslock,
-    keyboard_column8_select => keyboard_column8,
+    -- XXX C65 extra keys won't work
+--    keyboard_column8_select => keyboard_column8,
     
     pixel_stream_in => pixel_stream,
     pixel_y => pixel_y,
