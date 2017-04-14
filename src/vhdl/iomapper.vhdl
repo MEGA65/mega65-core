@@ -355,61 +355,6 @@ architecture behavioral of iomapper is
       countout : out std_logic;
       countin : in std_logic);
   end component;
-  component keymapper is    
-  port (
-    ioclock : in std_logic;
-
-    cpu_hypervisor_mode : in std_logic;
-    drive_led_out : in std_logic;
-
-    last_scan_code : out std_logic_vector(12 downto 0);
-
-    nmi : out std_logic := 'Z';
-    reset : out std_logic := 'Z';
-    hyper_trap : out std_logic := '1';
-    hyper_trap_count : out unsigned(7 downto 0) := x"00";
-    restore_up_count : out unsigned(7 downto 0) := x"00";
-    restore_down_count : out unsigned(7 downto 0) := x"00";
-    
-    -- PS2 keyboard interface
-    ps2clock  : in  std_logic;
-    ps2data   : in  std_logic;
-
-    speed_gate : out std_logic;
-    speed_gate_enable : in std_logic;
-
-    capslock_in : in std_logic;
-    capslock_out : out std_logic;    
-    keyboard_column8_select_in : in std_logic;
-    keyboard_column8_select_out : out std_logic;
-    pmod_clock : in std_logic;
-    pmod_start_of_sequence : in std_logic;
-    pmod_data_in : in std_logic_vector(3 downto 0);
-    pmod_data_out : out std_logic_vector(1 downto 0);
-    
-    -- CIA ports
-    porta_in  : in  std_logic_vector(7 downto 0);
-    portb_in  : in  std_logic_vector(7 downto 0);
-    porta_out : out std_logic_vector(7 downto 0);
-    portb_out : out std_logic_vector(7 downto 0);
-    porta_ddr : in  std_logic_vector(7 downto 0);
-    portb_ddr : in  std_logic_vector(7 downto 0);
-    porta_pins : inout  std_logic_vector(7 downto 0);
-    portb_pins : inout  std_logic_vector(7 downto 0);
-
-    pota_x : out unsigned(7 downto 0);
-    pota_y : out unsigned(7 downto 0);
-    potb_x : out unsigned(7 downto 0);    
-    potb_y : out unsigned(7 downto 0);
-    
-    ---------------------------------------------------------------------------
-    -- keyboard event capture via ethernet
-    ---------------------------------------------------------------------------    
-    eth_keycode_toggle : in std_logic;
-    eth_keycode : in unsigned(15 downto 0)
-    
-    );
-  end component;
 
   component framepacker is
     port (
