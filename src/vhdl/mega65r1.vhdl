@@ -154,7 +154,7 @@ architecture Behavioral of container is
          -------------------------------------------------------------------------
          porta_pins : inout  std_logic_vector(7 downto 0);
          portb_pins : inout  std_logic_vector(7 downto 0);
-         viciii_column8 : inout std_logic;
+         keyboard_column8 : inout std_logic;
          caps_lock : inout std_logic;
          
          -------------------------------------------------------------------------

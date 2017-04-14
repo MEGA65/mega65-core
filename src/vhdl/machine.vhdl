@@ -81,7 +81,7 @@ entity machine is
          -------------------------------------------------------------------------
          porta_pins : inout  std_logic_vector(7 downto 0);
          portb_pins : inout  std_logic_vector(7 downto 0);
-         viciii_column8 : inout std_logic;
+         keyboard_column8 : inout std_logic;
          caps_lock : inout std_logic;
          
          -------------------------------------------------------------------------
@@ -1105,8 +1105,7 @@ begin
     porta_pins => porta_pins,
     portb_pins => portb_pins,
     capslock_state => caps_lock,
-    -- XXX C65 extra keys won't work
---    keyboard_column8_select => keyboard_column8,
+    keyboard_column8_select => keyboard_column8,
     
     pixel_stream_in => pixel_stream,
     pixel_y => pixel_y,
