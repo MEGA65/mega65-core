@@ -106,6 +106,8 @@ entity sdcardio is
     
     -- Audio output
     ampPWM : out std_logic;
+    ampPWM_l : out std_logic;
+    ampPWM_r : out std_logic;
     ampSD : out std_logic := '1';  -- default to amplifier on
 
     -- Microphone
@@ -177,11 +179,19 @@ architecture behavioural of sdcardio is
   signal tmpSDAinternal : std_logic := '0';
   signal tmpSCLinternal : std_logic := '0';
 
+  -- Combined 10-bit left/right audio
   signal pwm_value_new_left : unsigned(7 downto 0) := x"00";
   signal pwm_value_new_right : unsigned(7 downto 0) := x"00";
   signal pwm_value_combined : unsigned(9 downto 0) := "0000000000";
   signal pwm_value : unsigned(9 downto 0) := "0000000000";
   signal pwm_phase : unsigned(9 downto 0) := "0000000000";
+  -- Separate left and right channels (9-bit)
+  signal pwm_value_left : unsigned(8 downto 0) := "0000000000";
+  signal pwm_value_right : unsigned(8 downto 0) := "0000000000";
+  signal l_pwm_value : unsigned(8 downto 0) := "0000000000";
+  signal l_pwm_phase : unsigned(8 downto 0) := "0000000000";
+  signal r_pwm_value : unsigned(8 downto 0) := "0000000000";
+  signal r_pwm_phase : unsigned(8 downto 0) := "0000000000";
 
   signal mic_divider : unsigned(4 downto 0) := "00000";
   signal mic_counter : unsigned(7 downto 0) := "00000000";
@@ -663,8 +673,13 @@ begin  -- behavioural
                                         + to_integer(rightsid_audio(17 downto 10))
                                         + to_integer(pwm_value_new_left)
                                         + to_integer(pwm_value_new_right),10);
+      pwm_value_left <= to_unsigned(to_integer(leftsid_audio(17 downto 10))
+                                        + to_integer(pwm_value_new_left),9);
+      pwm_value_right <= to_unsigned(to_integer(leftsid_audio(17 downto 10))
+                                        + to_integer(pwm_value_new_right),9);
+
       
-      -- Implement 10-bit digital audio output
+      -- Implement 10-bit digital combined audio output
       pwm_phase <= pwm_phase + 1;
       if pwm_phase = "0000000000" then
         if pwm_value = "0000000000" then
@@ -679,7 +694,40 @@ begin  -- behavioural
         if pwm_phase = "1111111111" then
           pwm_value <= pwm_value_combined;
         end if;
+      end if;
+
+      -- Implement 9-bit digital left and right audio outputs
+      l_pwm_phase <= l_pwm_phase + 1;
+      if l_pwm_phase = "000000000" then
+        if l_pwm_value = "000000000" then
+          ampPWM_l <= '0';
+        else
+          ampPWM_l <= '1';
+        end if;
+      else
+        if l_pwm_value=l_pwm_phase then
+          ampPWM_l <= '0';
+        end if;
+        if l_pwm_phase = "111111111" then
+          l_pwm_value <= pwm_value_left;
+        end if;
       end if;      
+      r_pwm_phase <= r_pwm_phase + 1;
+      if r_pwm_phase = "000000000" then
+        if r_pwm_value = "000000000" then
+          ampPWM_r <= '0';
+        else
+          ampPWM_r <= '1';
+        end if;
+      else
+        if r_pwm_value=r_pwm_phase then
+          ampPWM_r <= '0';
+        end if;
+        if r_pwm_phase = "111111111" then
+          r_pwm_value <= pwm_value_right;
+        end if;
+      end if;      
+
 
       -- microphone sampling process
       -- max frequency is 3MHz. 48MHz/16 ~= 3MHz
