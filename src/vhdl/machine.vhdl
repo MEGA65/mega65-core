@@ -1104,7 +1104,7 @@ begin
 
     porta_pins => porta_pins,
     portb_pins => portb_pins,
-    capslock_state => keyboard_capslock,
+    capslock_state => caps_lock,
     -- XXX C65 extra keys won't work
 --    keyboard_column8_select => keyboard_column8,
     
