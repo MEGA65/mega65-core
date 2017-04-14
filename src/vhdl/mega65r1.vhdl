@@ -406,8 +406,6 @@ begin
 --      micClk => micClk,
 --      micLRSel => micLRSel,
 
-      tmpint => '1',
-      tmpct => '1',
       
       ampPWM_l => pwm_l,
       ampPWM_r => pwm_r,
@@ -423,8 +421,19 @@ begin
       UART_TXD => UART_TXD,
       RsRx => RsRx,
 
-      -- Ignore widget board interface
-      pmod_clock => '1'
+      -- Ignore widget board interface and other things
+      tmpint => '1',
+      tmpct => '1',
+      slowram_addr_reflect => (others => '1'),
+      slowram_datain_reflect => (others => '1'),
+      slowram_done_toggle => '1',
+      cache_read_data => (others => '1'),
+      pmod_clock => '1',
+      pmod_start_of_sequence => '0',
+      pmod_data_in => (others => '1'),
+      pmoda => (others => '1'),
+      sw => (others => '0'),
+      btn => (others => '1')
          
       );
 
