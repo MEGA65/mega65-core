@@ -407,6 +407,7 @@ begin
 --      micLRSel => micLRSel,
 
       tmpint => '1',
+      tmpct => '1',
       
       ampPWM_l => pwm_l,
       ampPWM_r => pwm_r,
