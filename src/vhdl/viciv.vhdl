@@ -2844,9 +2844,12 @@ begin
       -- VIC-III palette RGB values have only the high bits in the low nybl, and
       -- the high-nybl is reserved.
       -- VIC-IV puts the low nybl in those reserved high-nybl bits
-      vga_buffer_red <= unsigned(palette_rdata(27 downto 24)&palette_rdata(31 downto 28));
-      vga_buffer_green <= unsigned(palette_rdata(19 downto 16)palette_rdata(23 downto 20));
-      vga_buffer_blue <= unsigned(palette_rdata(11 downto 8)&palette_rdata(15 downto 12));      
+      vga_buffer_red(7 downto 4) <= unsigned(palette_rdata(27 downto 24));
+      vga_buffer_red(3 downto 0) <= unsigned(palette_rdata(31 downto 28));
+      vga_buffer_green(7 downto 4) <= unsigned(palette_rdata(19 downto 16));
+      vga_buffer_green(3 downto 0) <= unsigned(palette_rdata(23 downto 20));
+      vga_buffer_blue(7 downto 4) <= unsigned(palette_rdata(11 downto 8));
+      vga_buffer_blue(3 downto 0) <= unsigned(palette_rdata(15 downto 12));      
       
       rgb_is_background2 <= rgb_is_background;
 
