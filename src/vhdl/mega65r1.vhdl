@@ -21,7 +21,7 @@ library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use ieee.numeric_std.all;
 use Std.TextIO.all;
-
+use work.machine.all;
 
 -- Uncomment the following library declaration if using
 -- arithmetic functions with Signed or Unsigned values
@@ -302,8 +302,8 @@ begin
     vdac_sync_n <= '0';  -- no sync on green
     vdac_blank_n <= not (v_hsync or v_vsync); 
     if rising_edge(pixelclock) then
-      vga_hsync <= v_hsync;
-      vga_vsync <= v_vsync;
+      hsync <= v_hsync;
+      vsync <= v_vsync;
       vgared <= v_red;
       vgagreen <= v_green;
       vgablue <= v_blue;
