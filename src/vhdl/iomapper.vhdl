@@ -44,7 +44,6 @@ entity iomapper is
         porta_pins : inout  std_logic_vector(7 downto 0);
         portb_pins : inout  std_logic_vector(7 downto 0);
         keyboard_column8_out : out std_logic;
-        keyboard_capslock : in std_logic;
         
         ps2data : in std_logic;
         ps2clock : in std_logic;
@@ -667,7 +666,7 @@ begin
     speed_gate => speed_gate,
     speed_gate_enable => speed_gate_enable,
 
-    capslock_in => keyboard_capslock,
+    capslock_in => capslock_state,
     keyboard_column8_select_out => keyboard_column8_out,
     keyboard_column8_select_in => keyboard_column8_select,
     pmod_clock => pmod_clock,
