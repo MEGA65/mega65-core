@@ -398,6 +398,8 @@ begin
 --      aclSCK => aclSCK,
 --      aclInt1 => aclInt1,
 --      aclInt2 => aclInt2,
+      aclInt1 => '1',
+      aclInt2 => '1',
     
 --      micData => micData,
 --      micClk => micClk,
