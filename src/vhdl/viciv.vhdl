@@ -88,9 +88,9 @@ entity viciv is
     ----------------------------------------------------------------------
     vsync : out  STD_LOGIC;
     hsync : out  STD_LOGIC;
-    vgared : out  UNSIGNED (3 downto 0);
-    vgagreen : out  UNSIGNED (3 downto 0);
-    vgablue : out  UNSIGNED (3 downto 0);
+    vgared : out  UNSIGNED (7 downto 0);
+    vgagreen : out  UNSIGNED (7 downto 0);
+    vgablue : out  UNSIGNED (7 downto 0);
 
     pixel_stream_out : out unsigned (7 downto 0);
     pixel_y : out unsigned (11 downto 0);
@@ -2840,10 +2840,13 @@ begin
         palette_address(1) <= pixel_is_background_out;
         palette_address(0) <= pixel_is_sprite;
       end if;     
-      
-      vga_buffer_red <= unsigned(palette_rdata(31 downto 24));
-      vga_buffer_green <= unsigned(palette_rdata(23 downto 16));
-      vga_buffer_blue <= unsigned(palette_rdata(15 downto 8));      
+
+      -- VIC-III palette RGB values have only the high bits in the low nybl, and
+      -- the high-nybl is reserved.
+      -- VIC-IV puts the low nybl in those reserved high-nybl bits
+      vga_buffer_red <= unsigned(palette_rdata(27 downto 24)&palette_rdata(31 downto 28));
+      vga_buffer_green <= unsigned(palette_rdata(19 downto 16)palette_rdata(23 downto 20));
+      vga_buffer_blue <= unsigned(palette_rdata(11 downto 8)&palette_rdata(15 downto 12));      
       
       rgb_is_background2 <= rgb_is_background;
 
@@ -2894,9 +2897,9 @@ begin
         -- output pixels as packed RGB instead of palette colours
         -- (this 8bpp format is what VNC uses anyway, so there is no functional
         -- loss of colour resolution).
-        pixel_stream_out(7 downto 5) <= vga_buffer3_red(3 downto 1);
-        pixel_stream_out(4 downto 2) <= vga_buffer3_green(3 downto 1);
-        pixel_stream_out(1 downto 0) <= vga_buffer3_blue(3 downto 2);
+        pixel_stream_out(7 downto 5) <= vga_buffer3_red(7 downto 5);
+        pixel_stream_out(4 downto 2) <= vga_buffer3_green(7 downto 5);
+        pixel_stream_out(1 downto 0) <= vga_buffer3_blue(7 downto 6);
         pixel_valid <= indisplay;
         pixel_newraster <= '0';
       end if;
@@ -2909,14 +2912,14 @@ begin
              or (motor='1')) then
         report "drawing drive led OSD" severity note;
         drive_led_out <= '1';
-        vgared <= x"F";
-        vgagreen <= x"0";
-        vgablue <= x"0";
+        vgared <= x"FF";
+        vgagreen <= x"00";
+        vgablue <= x"00";
       else
         drive_led_out <= '0';
-        vgared <= vga_out_red(3 downto 0);
-        vgagreen <= vga_out_green(3 downto 0);
-        vgablue <= vga_out_blue(3 downto 0);
+        vgared <= vga_out_red(7 downto 0);
+        vgagreen <= vga_out_green(7 downto 0);
+        vgablue <= vga_out_blue(7 downto 0);
       end if;
 
       --------------------------------------------------------------------------
