@@ -1071,7 +1071,6 @@ begin
     pixelclk => pixelclock,
     clock50mhz => clock50mhz,
     cpu_hypervisor_mode => cpu_hypervisor_mode,
-    capslock_state => capslock_state,
     speed_gate => speed_gate,
     speed_gate_enable => speed_gate_enable,
     
@@ -1105,7 +1104,7 @@ begin
 
     porta_pins => porta_pins,
     portb_pins => portb_pins,
-    capslock_in => keyboard_capslock,
+    capslock_state => keyboard_capslock,
     keyboard_column8_select => keyboard_column8,
     
     pixel_stream_in => pixel_stream,

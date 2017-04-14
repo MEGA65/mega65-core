@@ -276,6 +276,9 @@ begin
       
       UART_TXD => UART_TXD,
       RsRx => RsRx,
+
+      -- Ignore widget board interface
+      pmod_clock => '1'
          
       );
 
