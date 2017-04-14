@@ -50,6 +50,8 @@ entity keymapper is
     
     -- read from bit1 of $D607 (see C65 keyboard scan routine at $E406)?
     keyboard_column8_select_in : in std_logic;
+    -- and pushed out to the real keyboard
+    keyboard_column8_select_out : out std_logic;
 
     pmod_clock : in std_logic;
     pmod_start_of_sequence : in std_logic;
@@ -130,6 +132,8 @@ begin  -- behavioural
     if rising_edge(ioclock) then      
       reset <= reset_drive;
 
+      keyboard_column8_select_out <= keyboard_column8_select_in;
+      
       restore_up_count <= restore_up_ticks(7 downto 0);
       restore_down_count <= restore_down_ticks(7 downto 0);
 

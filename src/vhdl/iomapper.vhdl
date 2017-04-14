@@ -381,6 +381,7 @@ architecture behavioral of iomapper is
     capslock_in : in std_logic;
     capslock_out : out std_logic;    
     keyboard_column8_select_in : in std_logic;
+    keyboard_column8_select_out : out std_logic;
     pmod_clock : in std_logic;
     pmod_start_of_sequence : in std_logic;
     pmod_data_in : in std_logic_vector(3 downto 0);
