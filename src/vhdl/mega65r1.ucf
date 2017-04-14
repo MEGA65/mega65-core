@@ -1,0 +1,208 @@
+## This file is a general .ucf for the Nexys4 DDR Rev C board
+## To use it in a project:
+## - uncomment the lines corresponding to used pins
+## - rename the used signals according to the project
+
+## Clock signal (100MHz)
+NET "clk_in"   LOC = "V13"	| IOSTANDARD = "LVCMOS33";
+NET "clk_in" TNM_NET = sys_clk_pin;
+TIMESPEC TS_sys_clk_pin = PERIOD sys_clk_pin 100 MHz HIGH 50%; 
+
+## Buttons
+# XXX - Currently resets FPGA, rather than CPU
+#NET "btnCpuReset"     LOC= | IOSTANDARD=LVCMOS33; #
+
+# Floppy drive LED
+NET "FLOPLED" LOC=J16 | IOSTANDARD=LVCMOS33
+
+# C65 Keyboard
+NET "column<0>"       LOC=M18 | IOSTANDARD=LVCMOS33; #
+NET "column<1>"       LOC=L18 | IOSTANDARD=LVCMOS33; #
+NET "column<2>"       LOC=N18 | IOSTANDARD=LVCMOS33; #
+NET "column<3>"       LOC=N19 | IOSTANDARD=LVCMOS33; #
+NET "column<4>"       LOC=N20 | IOSTANDARD=LVCMOS33; #
+NET "column<5>"       LOC=M20 | IOSTANDARD=LVCMOS33; #
+NET "column<6>"       LOC=K13 | IOSTANDARD=LVCMOS33; #
+NET "column<7>"       LOC=K14 | IOSTANDARD=LVCMOS33; #
+NET "column<8>"       LOC=M13 | IOSTANDARD=LVCMOS33; #
+NET "row<8>"       LOC=L13 | IOSTANDARD=LVCMOS33; #
+NET "row<7>"       LOC=K17 | IOSTANDARD=LVCMOS33; #
+NET "row<6>"       LOC=J17 | IOSTANDARD=LVCMOS33; #
+NET "row<5>"       LOC=L14 | IOSTANDARD=LVCMOS33; #
+NET "row<4>"       LOC=L15 | IOSTANDARD=LVCMOS33; #
+NET "row<3>"       LOC=L16 | IOSTANDARD=LVCMOS33; #
+NET "row<2>"       LOC=K16 | IOSTANDARD=LVCMOS33; #
+NET "row<1>"       LOC=M15 | IOSTANDARD=LVCMOS33; #
+NET "row<0>"       LOC=M16 | IOSTANDARD=LVCMOS33; #
+
+
+# Joystick port A
+NET "FA_DOWN" LOC=F16 | IOSTANDARD=LVCMOS33
+NET "FA_UP" LOC=C14 | IOSTANDARD=LVCMOS33
+NET "FA_LEFT" LOC=F14 | IOSTANDARD=LVCMOS33
+NET "FA_RIGHT" LOC=F13 | IOSTANDARD=LVCMOS33
+NET "FA_FIRE" LOC=E17 | IOSTANDARD=LVCMOS33
+
+# Joystick port B
+NET "FB_DOWN" LOC=P20 | IOSTANDARD=LVCMOS33
+NET "FB_UP" LOC=AA20 | IOSTANDARD=LVCMOS33
+NET "FB_LEFT" LOC=AA20 | IOSTANDARD=LVCMOS33
+NET "FB_RIGHT" LOC=F21 | IOSTANDARD=LVCMOS33
+NET "FB_FIRE" LOC=C15 | IOSTANDARD=LVCMOS33
+
+##VGA Connector
+
+# XXX - Is this needed?
+NET "VDAC_CLK" LOC=AA9 | IOSTANDARD=LVCMOS33
+NET "VDAC_SYNC_N" LOC=V10 | IOSTANDARD=LVCMOS33
+NET "VDAC_BLANK_N" LOC=VW11 | IOSTANDARD=LVCMOS33
+
+NET "vgaRed<0>"       LOC=U15 | IOSTANDARD=LVCMOS33; #
+NET "vgaRed<1>"       LOC=V15 | IOSTANDARD=LVCMOS33; #
+NET "vgaRed<2>"       LOC=T14 | IOSTANDARD=LVCMOS33; #
+NET "vgaRed<3>"       LOC=Y17 | IOSTANDARD=LVCMOS33; #IO_0_13
+NET "vgaRed<4>"       LOC=Y16 | IOSTANDARD=LVCMOS33; #IO_L1P_T0_13
+NET "vgaRed<5>"       LOC=AB17 | IOSTANDARD=LVCMOS33; #IO_L2N_T0_13
+NET "vgaRed<6>"       LOC=AA16 | IOSTANDARD=LVCMOS33; #IO_L1N_T0_13
+NET "vgaRed<7>"       LOC=AB16 | IOSTANDARD=LVCMOS33; #IO_L2P_T0_13
+
+NET "vgaGreen<0>"       LOC=Y14 | IOSTANDARD=LVCMOS33; #
+NET "vgaGreen<1>"       LOC=W14 | IOSTANDARD=LVCMOS33; #
+NET "vgaGreen<2>"       LOC=AA15 | IOSTANDARD=LVCMOS33; #IO_L4P_T0_13
+NET "vgaGreen<3>"       LOC=AB15 | IOSTANDARD=LVCMOS33; #IO_L4N_T0_13
+NET "vgaGreen<4>"       LOC=Y13 | IOSTANDARD=LVCMOS33; #
+NET "vgaGreen<5>"       LOC=AA14 | IOSTANDARD=LVCMOS33; #
+NET "vgaGreen<6>"       LOC=AA13 | IOSTANDARD=LVCMOS33; #IO_L3P_T0_DQS_13
+NET "vgaGreen<7>"       LOC=AB13 | IOSTANDARD=LVCMOS33; #IO_L3N_T0_DQS_13
+
+NET "vgaBlue<0>"       LOC=W10 | IOSTANDARD=LVCMOS33; #
+NET "vgaBlue<1>"       LOC=Y12 | IOSTANDARD=LVCMOS33; #
+NET "vgaBlue<2>"       LOC=AB12 | IOSTANDARD=LVCMOS33; #
+NET "vgaBlue<3>"       LOC=AA11 | IOSTANDARD=LVCMOS33; #
+NET "vgaBlue<4>"       LOC=AB11 | IOSTANDARD=LVCMOS33; #
+NET "vgaBlue<5>"       LOC=Y11 | IOSTANDARD=LVCMOS33; #
+NET "vgaBlue<6>"       LOC=AB10 | IOSTANDARD=LVCMOS33; #
+NET "vgaBlue<7>"       LOC=AA10 | IOSTANDARD=LVCMOS33; #
+
+NET "hsync"            LOC=W12 | IOSTANDARD=LVCMOS33; #
+NET "vsync"            LOC=V14 | IOSTANDARD=LVCMOS33; #
+
+# HDMI output
+NET "HDMI_SCL" LOC=T3  | IOSTANDARD=LVCMOS33; #
+NET "HDMI_SDA" LOC=U7  | IOSTANDARD=LVCMOS33; #
+
+NET "hdmiRed<0>"       LOC=T6 | IOSTANDARD=LVCMOS33; #
+NET "hdmiRed<1>"       LOC=U1 | IOSTANDARD=LVCMOS33; #
+NET "hdmiRed<2>"       LOC=U5 | IOSTANDARD=LVCMOS33; #
+NET "hdmiRed<3>"       LOC=U6 | IOSTANDARD=LVCMOS33; #IO_0_13
+NET "hdmiRed<4>"       LOC=U2 | IOSTANDARD=LVCMOS33; #IO_L1P_T0_13
+NET "hdmiRed<5>"       LOC=U3 | IOSTANDARD=LVCMOS33; #IO_L2N_T0_13
+NET "hdmiRed<6>"       LOC=V4 | IOSTANDARD=LVCMOS33; #IO_L1N_T0_13
+NET "hdmiRed<7>"       LOC=V2 | IOSTANDARD=LVCMOS33; #IO_L2P_T0_13
+
+NET "hdmiGreen<0>"       LOC=Y1 | IOSTANDARD=LVCMOS33; #
+NET "hdmiGreen<1>"       LOC=Y3 | IOSTANDARD=LVCMOS33; #
+NET "hdmiGreen<2>"       LOC=W4 | IOSTANDARD=LVCMOS33; #IO_L4P_T0_13
+NET "hdmiGreen<3>"       LOC=W5 | IOSTANDARD=LVCMOS33; #IO_L4N_T0_13
+NET "hdmiGreen<4>"       LOC=V7 | IOSTANDARD=LVCMOS33; #
+NET "hdmiGreen<5>"       LOC=V8 | IOSTANDARD=LVCMOS33; #
+NET "hdmiGreen<6>"       LOC=AB1 | IOSTANDARD=LVCMOS33; #IO_L3P_T0_DQS_13
+NET "hdmiGreen<7>"       LOC=W6 | IOSTANDARD=LVCMOS33; #IO_L3N_T0_DQS_13
+
+NET "hdmiBlue<0>"       LOC=AB3 | IOSTANDARD=LVCMOS33; #
+NET "hdmiBlue<1>"       LOC=Y4 | IOSTANDARD=LVCMOS33; #
+NET "hdmiBlue<2>"       LOC=AA4 | IOSTANDARD=LVCMOS33; #
+NET "hdmiBlue<3>"       LOC=AA5 | IOSTANDARD=LVCMOS33; #
+NET "hdmiBlue<4>"       LOC=AB5 | IOSTANDARD=LVCMOS33; #
+NET "hdmiBlue<5>"       LOC=Y6 | IOSTANDARD=LVCMOS33; #
+NET "hdmiBlue<6>"       LOC=AA6 | IOSTANDARD=LVCMOS33; #
+NET "hdmiBlue<7>"       LOC=AB6 | IOSTANDARD=LVCMOS33; #
+
+# XXX - We may need to tell the HDMI driver to set the appropriate operating mode
+# XXX - We may need to provide a Data Enable signal to tell the HDMI driver when pixels are drawing
+NET "hdmi_hsync"            LOC=R4 | IOSTANDARD=LVCMOS33; #
+NET "hdmi_vsync"            LOC=R6 | IOSTANDARD=LVCMOS33; #
+NET "HDMI_DE" LOC=R2 | IOSTANDARD=LVCMOS33; # Data Enable
+
+NET "hdmi_spdif" LOC=AA1 | IOSTANDARD=LVCMOS33;  
+NET "hdmi_spdifout" LOC=AA8 | IOSTANDARD=LVCMOS33;  
+
+# PWM Audio
+NET "PWM_L" LOC=L6  | IOSTANDARD=LVCMOS33; #
+NET "PWM_R" LOC=F4  | IOSTANDARD=LVCMOS33; #
+
+##USB HID (PS/2)
+# XXX - Not currently wired on the first prototypes: May break this out on a PMOD or expansion header?
+#NET "PS2Clk"        LOC= | IOSTANDARD=LVCMOS33; #
+#NET "PS2Data"       LOC= | IOSTANDARD=LVCMOS33; #
+
+##Quad SPI Flash
+#NET "QspiCSn"       LOC= | IOSTANDARD=LVCMOS33; #
+#NET "QspiDB<0>"     LOC= | IOSTANDARD=LVCMOS33; #
+#NET "QspiDB<1>"     LOC= | IOSTANDARD=LVCMOS33; #
+#NET "QspiDB<2>"     LOC= | IOSTANDARD=LVCMOS33; #
+#NET "QspiDB<3>"     LOC= | IOSTANDARD=LVCMOS33; #
+
+##SMSC Ethernet PHY
+NET "eth_Rxd<0>"     LOC=P4 | IOSTANDARD=LVCMOS33; #
+NET "eth_Rxd<1>"     LOC=L1 | IOSTANDARD=LVCMOS33; #
+NET "eth_Txd<0>"     LOC=L3 | IOSTANDARD=LVCMOS33; #
+NET "eth_Txd<1>"     LOC=K3 | IOSTANDARD=LVCMOS33; #
+NET "eth_rxdv"       LOC=K4 | IOSTANDARD=LVCMOS33; #
+#NET "eth_Interrupt"  LOC= | IOSTANDARD=LVCMOS33; #
+NET "eth_Mdc"        LOC=J6 | IOSTANDARD=LVCMOS33; #
+NET "eth_Mdio"       LOC=L5 | IOSTANDARD=LVCMOS33; #
+NET "eth_clock"      LOC=L4 | IOSTANDARD=LVCMOS33; #
+NET "eth_reset"      LOC=K6 | IOSTANDARD=LVCMOS33; #
+NET "eth_TxEn"       LOC=J4 | IOSTANDARD=LVCMOS33; #
+NET "eth_Rxer"       LOC=M6 | IOSTANDARD=LVCMOS33; #
+
+##USB-RS232 Interface
+NET "uart_txd"       LOC=U20 | IOSTANDARD=LVCMOS33; #
+NET "RsRx"           LOC=V20 | IOSTANDARD=LVCMOS33; #
+
+##Micro SD Connector
+# XXX - No microSD connector on first revision PCBs.  Break out on an expansion connector somewhere?
+#NET "sdClock"        LOC= | IOSTANDARD=LVCMOS33; #
+#NET "sdReset"        LOC= | IOSTANDARD=LVCMOS33; #
+#NET "sdMISO"         LOC= | IOSTANDARD=LVCMOS33; #
+#NET "sdMOSI"         LOC= | IOSTANDARD=LVCMOS33; #
+#NET "sd_dat<0>"      LOC= | IOSTANDARD=LVCMOS33; #
+#NET "sd_dat<1>"      LOC= | IOSTANDARD=LVCMOS33; #
+#NET "sd_dat<2>"      LOC= | IOSTANDARD=LVCMOS33; #
+#NET "sd_dat<3>"      LOC= | IOSTANDARD=LVCMOS33; #
+
+## Pmod Header JA
+#NET "jalo<1>"          LOC= | IOSTANDARD=LVCMOS33; #
+#NET "jalo<2>"          LOC= | IOSTANDARD=LVCMOS33; #
+#NET "jalo<3>"          LOC= | IOSTANDARD=LVCMOS33; #
+#NET "jalo<4>"          LOC= | IOSTANDARD=LVCMOS33; #
+#NET "jahi<7>"          LOC= | IOSTANDARD=LVCMOS33; #
+#NET "jahi<8>"          LOC= | IOSTANDARD=LVCMOS33; #
+#NET "jahi<9>"          LOC= | IOSTANDARD=LVCMOS33; #
+#NET "jahi<10>"         LOC= | IOSTANDARD=LVCMOS33; #
+
+## Pmod Header JB
+#NET "jblo<1>"          LOC= | IOSTANDARD=LVCMOS33; #
+#NET "jblo<2>"          LOC= | IOSTANDARD=LVCMOS33; #
+#NET "jblo<3>"          LOC= | IOSTANDARD=LVCMOS33; #
+#NET "jblo<4>"          LOC= | IOSTANDARD=LVCMOS33; #
+#NET "jbhi<7>"          LOC= | IOSTANDARD=LVCMOS33; #
+#NET "jbhi<8>"          LOC= | IOSTANDARD=LVCMOS33; #
+#NET "jbhi<9>"          LOC= | IOSTANDARD=LVCMOS33; #
+#NET "jbhi<10>"         LOC= | IOSTANDARD=LVCMOS33; #
+
+## Pmod Header JC
+#NET "jclo<1>"          LOC= | IOSTANDARD=LVCMOS33; #
+#NET "jclo<2>"          LOC= | IOSTANDARD=LVCMOS33; #
+#NET "jc<3>"          LOC= | IOSTANDARD=LVCMOS33; #
+#NET "jc<4>"          LOC= | IOSTANDARD=LVCMOS33; #
+#NET "jc<7>"          LOC= | IOSTANDARD=LVCMOS33; #
+#NET "jc<8>"          LOC= | IOSTANDARD=LVCMOS33; #
+#NET "jc<9>"          LOC= | IOSTANDARD=LVCMOS33; #
+#NET "jc<10>"         LOC= | IOSTANDARD=LVCMOS33; #
+
+# XXX - Do we need something like this?
+# CONFIG INTERNAL_VREF_BANK34= 0.900;
+
+         
