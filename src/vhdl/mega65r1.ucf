@@ -16,6 +16,7 @@ TIMESPEC TS_sys_clk_pin = PERIOD sys_clk_pin 100 MHz HIGH 50%;
 NET "FLOPLED" LOC=J16 | IOSTANDARD=LVCMOS33;
 
 # C65 Keyboard
+NET "restore_key" LOC=M17 | IOSTANDARD=LVCMOS33; #
 NET "column<0>"       LOC=M18 | IOSTANDARD=LVCMOS33; #
 NET "column<1>"       LOC=L18 | IOSTANDARD=LVCMOS33; #
 NET "column<2>"       LOC=N18 | IOSTANDARD=LVCMOS33; #
