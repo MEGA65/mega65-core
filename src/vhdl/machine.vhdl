@@ -72,15 +72,17 @@ entity machine is
          ----------------------------------------------------------------------
          vsync : out  STD_LOGIC;
          hsync : out  STD_LOGIC;
-         vgared : out  UNSIGNED (3 downto 0);
-         vgagreen : out  UNSIGNED (3 downto 0);
-         vgablue : out  UNSIGNED (3 downto 0);
+         vgared : out  UNSIGNED (7 downto 0);
+         vgagreen : out  UNSIGNED (7 downto 0);
+         vgablue : out  UNSIGNED (7 downto 0);
 
          -------------------------------------------------------------------------
          -- CIA1 ports for keyboard and joysticks
          -------------------------------------------------------------------------
          porta_pins : inout  std_logic_vector(7 downto 0);
          portb_pins : inout  std_logic_vector(7 downto 0);
+         viciii_column8 : inout std_logic;
+         caps_lock : inout std_logic;
          
          -------------------------------------------------------------------------
          -- Lines for the SDcard interface itself
@@ -404,9 +406,9 @@ architecture Behavioral of machine is
       ----------------------------------------------------------------------
       vsync : out  STD_LOGIC;
       hsync : out  STD_LOGIC;
-      vgared : out  UNSIGNED (3 downto 0);
-      vgagreen : out  UNSIGNED (3 downto 0);
-      vgablue : out  UNSIGNED (3 downto 0);
+      vgared : out  UNSIGNED (7 downto 0);
+      vgagreen : out  UNSIGNED (7 downto 0);
+      vgablue : out  UNSIGNED (7 downto 0);
 
       pixel_stream_out : out unsigned (7 downto 0);
       pixel_y : out unsigned (11 downto 0);
@@ -1103,6 +1105,8 @@ begin
 
     porta_pins => porta_pins,
     portb_pins => portb_pins,
+    capslock_in => keyboard_capslock,
+    keyboard_column8_select => keyboard_column8,
     
     pixel_stream_in => pixel_stream,
     pixel_y => pixel_y,
