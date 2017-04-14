@@ -1,10 +1,10 @@
 set -tmpdir "./isework/xst/projnav.tmp"
 set -xsthdpdir "./isework/xst"
 run
--ifn ./isework/container.prj
--ofn ./isework/container
+-ifn ./isework/mega65r1.prj
+-ofn ./isework/mega65r1
 -ofmt NGC
--p xc7a200t-2-fbg484c
+-p xc7a200t-2-fbg484
 -top container
 -opt_mode Speed
 -opt_level 0
