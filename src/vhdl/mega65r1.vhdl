@@ -366,7 +366,7 @@ begin
       porta_pins => column(7 downto 0),
       portb_pins => row(7 downto 0),
       keyboard_column8 => column(8),
-      keyboard_capslock => row(8),
+      caps_lock => row(8),
       
       ---------------------------------------------------------------------------
       -- IO lines to the ethernet controller
