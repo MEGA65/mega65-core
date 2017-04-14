@@ -402,6 +402,7 @@ begin
       aclInt2 => '1',
     
 --      micData => micData,
+      micData => '1',
 --      micClk => micClk,
 --      micLRSel => micLRSel,
 
