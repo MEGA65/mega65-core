@@ -404,9 +404,12 @@ begin
 
       ampPWM_l => pwm_l,
       ampPWM_r => pwm_r,
-          
-      ps2data =>      ps2data,
-      ps2clock =>     ps2clk,
+
+      -- XXX no PS/2 keyboard for now
+--      ps2data =>      ps2data,
+--      ps2clock =>     ps2clk,      
+      ps2data =>      '1',
+      ps2clock =>     '1',
 
       fpga_temperature => fpga_temperature,
       
