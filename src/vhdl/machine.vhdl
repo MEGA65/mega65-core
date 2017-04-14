@@ -1105,7 +1105,7 @@ begin
     porta_pins => porta_pins,
     portb_pins => portb_pins,
     capslock_state => caps_lock,
-    keyboard_column8_select => keyboard_column8,
+--    keyboard_column8_select => keyboard_column8,
     
     pixel_stream_in => pixel_stream,
     pixel_y => pixel_y,
