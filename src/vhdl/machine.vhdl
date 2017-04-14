@@ -103,6 +103,8 @@ entity machine is
          aclInt2 : in std_logic;
     
          ampPWM : out std_logic;
+         ampPWM_l : out std_logic;
+         ampPWM_r : out std_logic;
          ampSD : out std_logic;
 
          micData : in std_logic;
@@ -558,6 +560,8 @@ architecture Behavioral of machine is
           aclInt2 : in std_logic;
     
           ampPWM : out std_logic;
+          ampPWM_l : out std_logic;
+          ampPWM_r : out std_logic;
           ampSD : out std_logic;
 
           micData : in std_logic;

@@ -176,6 +176,8 @@ architecture Behavioral of container is
          aclInt2 : in std_logic;
     
          ampPWM : out std_logic;
+         ampPWM_l : out std_logic;
+         ampPWM_r : out std_logic;
          ampSD : out std_logic;
 
          micData : in std_logic;
@@ -389,16 +391,16 @@ begin
       mosi_o => sdMOSI,
       miso_i => sdMISO,
 
-      aclMISO => aclMISO,
-      aclMOSI => aclMOSI,
-      aclSS => aclSS,
-      aclSCK => aclSCK,
-      aclInt1 => aclInt1,
-      aclInt2 => aclInt2,
+--      aclMISO => aclMISO,
+--      aclMOSI => aclMOSI,
+--      aclSS => aclSS,
+--      aclSCK => aclSCK,
+--      aclInt1 => aclInt1,
+--      aclInt2 => aclInt2,
     
-      micData => micData,
-      micClk => micClk,
-      micLRSel => micLRSel,
+--      micData => micData,
+--      micClk => micClk,
+--      micLRSel => micLRSel,
 
       ampPWM_l => pwm_l,
       ampPWM_r => pwm_r,
