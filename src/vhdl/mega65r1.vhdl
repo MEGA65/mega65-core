@@ -297,7 +297,7 @@ begin
   begin
     vdac_clk <= pixelclock;
     vdac_sync_n <= '0';  -- no sync on green
-    vdac_blank_n <= '0'; -- DAC always operating
+    vdac_blank_n <= not (v_hsync or v_vsync); 
     if rising_edge(pixelclock) then
       vga_hsync <= v_hsync;
       vga_vsync <= v_vsync;
