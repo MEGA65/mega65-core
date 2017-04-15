@@ -136,7 +136,8 @@ architecture Behavioral of container is
          nmi : in  STD_LOGIC;
 
          no_kickstart : in std_logic;
-
+         flopled : out std_logic;
+         
          ddr_counter : in unsigned(7 downto 0);
          ddr_state : in unsigned(7 downto 0);
          
