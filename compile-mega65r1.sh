@@ -197,7 +197,7 @@ done
 echo "cp ./isework/mega65r1.bit ./sdcard-files/bit${datetime2}_${branch2}_${gitstring}.bit"
 cp       ./isework/mega65r1.bit ./sdcard-files/bit${datetime2}_${branch2}_${gitstring}.bit
 echo "Generating .MCS SPI flash file from .BIT file..."
-promgen -spi -p mcs -w -o ./sdcard-files/bit${datetime2}_${branch2}_${gitstring}.mcs -s 16384 -u 0 mega65r1.bit
+promgen -spi -p mcs -w -o ./sdcard-files/bit${datetime2}_${branch2}_${gitstring}.mcs -s 16384 -u 0 isework/mega65r1.bit
 
 # # and the KICKUP file
 # echo "cp ./src/KICKUP.M65 ./sdcard-files"
