@@ -64,6 +64,8 @@ entity machine is
 
          no_kickstart : in std_logic;
 
+         flopled : out std_logic;
+         
          ddr_counter : in unsigned(7 downto 0);
          ddr_state : in unsigned(7 downto 0);
          
@@ -1149,6 +1151,8 @@ begin
     aclInt2 => aclInt2,
     
     ampPWM => ampPWM,
+    ampPWM_l => ampPWM_l,
+    ampPWM_r => ampPWM_r,
     ampSD => ampSD,
     
     micData => micData,
@@ -1248,6 +1252,7 @@ begin
       pmodb_in_buffer(1) <= pmod_start_of_sequence;
       pmodb_in_buffer(5 downto 2) <= pmod_data_in;
       pmod_data_out <= pmodb_out_buffer;
+      flopled <= drive_led_out;
     end if;
   end process;
   

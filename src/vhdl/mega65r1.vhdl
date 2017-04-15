@@ -399,7 +399,7 @@ begin
 --      micClk => micClk,
 --      micLRSel => micLRSel,
 
-      
+      flopled => flopled,
       ampPWM_l => pwm_l,
       ampPWM_r => pwm_r,
 
