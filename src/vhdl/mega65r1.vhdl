@@ -90,7 +90,7 @@ entity container is
          eth_rxer : in std_logic;
          eth_txen : out std_logic;
          eth_rxdv : in std_logic;
-         eth_interrupt : in std_logic;
+--         eth_interrupt : in std_logic;
          eth_clock : out std_logic;
          
          -------------------------------------------------------------------------
@@ -374,7 +374,7 @@ begin
       eth_txen => eth_txen,
       eth_rxer => eth_rxer,
       eth_rxdv => eth_rxdv,
-      eth_interrupt => eth_interrupt,
+      eth_interrupt => '0',
       
       -------------------------------------------------------------------------
       -- Lines for the SDcard interface itself
