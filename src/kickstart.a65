@@ -1361,7 +1361,9 @@ resetdisplay:
 		sta $D020	; border
 		sta $D021	; background
 
-		lda #$00
+		; Enable alpha blending and horizontal blending to smooth display
+		; slightly
+		lda #$88
 		sta $D054	;VIC-IV Control Register C
 
 		; We use VIC-II style registers as this resets video frame in
