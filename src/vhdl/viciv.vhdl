@@ -1,4 +1,4 @@
-x--
+--
 -- Written by
 --    Paul Gardner-Stephen <hld@c64.org>  2013-2014
 --
@@ -369,6 +369,15 @@ architecture Behavioral of viciv is
   signal vga_buffer3_red : UNSIGNED (7 downto 0) := (others => '0');
   signal vga_buffer3_green : UNSIGNED (7 downto 0) := (others => '0');
   signal vga_buffer3_blue : UNSIGNED (7 downto 0) := (others => '0');
+  signal vga_buffer4_red : UNSIGNED (7 downto 0) := (others => '0');
+  signal vga_buffer4_green : UNSIGNED (7 downto 0) := (others => '0');
+  signal vga_buffer4_blue : UNSIGNED (7 downto 0) := (others => '0');
+  signal vga_buffer5_red : UNSIGNED (7 downto 0) := (others => '0');
+  signal vga_buffer5_green : UNSIGNED (7 downto 0) := (others => '0');
+  signal vga_buffer5_blue : UNSIGNED (7 downto 0) := (others => '0');
+  signal vga_filtered_red : UNSIGNED (9 downto 0) := (others => '0');
+  signal vga_filtered_green : UNSIGNED (9 downto 0) := (others => '0');
+  signal vga_filtered_blue : UNSIGNED (9 downto 0) := (others => '0');
   signal vga_out_red : UNSIGNED (7 downto 0) := (others => '0');
   signal vga_out_green : UNSIGNED (7 downto 0) := (others => '0');
   signal vga_out_blue : UNSIGNED (7 downto 0) := (others => '0');
@@ -2875,14 +2884,35 @@ begin
       vga_buffer3_green <= vga_buffer2_green;
       vga_buffer3_blue <= vga_buffer2_blue;
 
+      vga_buffer4_red <= vga_buffer3_red;
+      vga_buffer4_green <= vga_buffer3_green;
+      vga_buffer4_blue <= vga_buffer3_blue;
+
+      vga_buffer5_red <= vga_buffer4_red;
+      vga_buffer5_green <= vga_buffer4_green;
+      vga_buffer5_blue <= vga_buffer4_blue;
+
+      vga_filtered_red <= to_unsigned(to_integer(vga_buffer5_red)
+                                      +to_integer(vga_buffer4_red)
+                                      +to_integer(vga_buffer3_red)
+                                      +to_integer(vga_buffer2_red),10);
+      vga_filtered_green <= to_unsigned(to_integer(vga_buffer5_green)
+                                      +to_integer(vga_buffer4_green)
+                                      +to_integer(vga_buffer3_green)
+                                      +to_integer(vga_buffer2_green),10);
+      vga_filtered_blue <= to_unsigned(to_integer(vga_buffer5_blue)
+                                      +to_integer(vga_buffer4_blue)
+                                      +to_integer(vga_buffer3_blue)
+                                      +to_integer(vga_buffer2_blue),10);
+      
       if horizontal_filter='0' then
         vga_out_red <= vga_buffer3_red;
         vga_out_green <= vga_buffer3_green;
         vga_out_blue <= vga_buffer3_blue;
       else
-        vga_out_red <= to_unsigned(to_integer('0'&vga_buffer3_red(7 downto 1))+to_integer('0'&vga_buffer2_red(7 downto 1)),8);
-        vga_out_green <= to_unsigned(to_integer('0'&vga_buffer3_green(7 downto 1))+to_integer('0'&vga_buffer2_green(7 downto 1)),8);
-        vga_out_blue <= to_unsigned(to_integer('0'&vga_buffer3_blue(7 downto 1))+to_integer('0'&vga_buffer2_blue(7 downto 1)),8);
+        vga_out_red <= vga_filtered_red(9 downto 2);
+        vga_out_green <= vga_filtered_green(9 downto 2);
+        vga_out_blue <= vga_filtered_blue(9 downto 2);
       end if;
 
       -- Also use pixel colour to produce RLE compressed video stream for
