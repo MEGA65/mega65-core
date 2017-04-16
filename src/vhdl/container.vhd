@@ -243,6 +243,7 @@ architecture Behavioral of container is
          nmi : in  STD_LOGIC;
 
          caps_lock : inout std_logic;
+         restore_key : in std_logic;
 
          no_kickstart : in std_logic;
 
