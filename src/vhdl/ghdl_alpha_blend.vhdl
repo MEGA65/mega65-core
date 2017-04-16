@@ -34,25 +34,25 @@ entity alpha_blend_top is
 end alpha_blend_top;
 
 architecture behavioural of alpha_blend_top is
-  signal r0  : integer;
-  signal r1  : integer;
-  signal g0  : integer;
-  signal g1  : integer;
-  signal b0  : integer;
-  signal b1  : integer;
-  signal r0drive  : integer;
-  signal r1drive  : integer;
-  signal g0drive  : integer;
-  signal g1drive  : integer;
-  signal b0drive  : integer;
-  signal b1drive  : integer;
+  signal r0  : integer := 0;
+  signal r1  : integer := 0;
+  signal g0  : integer := 0;
+  signal g1  : integer := 0;
+  signal b0  : integer := 0;
+  signal b1  : integer := 0;
+  signal r0drive  : integer := 0;
+  signal r1drive  : integer := 0;
+  signal g0drive  : integer := 0;
+  signal g1drive  : integer := 0;
+  signal b0drive  : integer := 0;
+  signal b1drive  : integer := 0;
   signal r_strm0_drive: std_logic_vector(9 downto 0);
   signal g_strm0_drive: std_logic_vector(9 downto 0);              
   signal b_strm0_drive: std_logic_vector(9 downto 0);
   signal r_strm1_drive: std_logic_vector(9 downto 0);
   signal g_strm1_drive: std_logic_vector(9 downto 0);              
   signal b_strm1_drive: std_logic_vector(9 downto 0);
-  signal alpha_strm_drive: std_logic_vector(9 downto 0);
+  signal alpha_strm_drive: unsigned(10 downto 0);
   signal oneminusalpha : integer;
 
 begin
@@ -70,11 +70,11 @@ begin
 
       -- Add one to alpha values so that they scale up to 100%, instead
       -- of ~99.54%
-      alpha_strm_drive <= alpha_strm +1;
+      alpha_strm_drive <= unsigned("0"&alpha_strm) +1;
       oneminusalpha <= (1024-to_integer(unsigned(alpha_strm)));
       
       r0 <= to_integer(unsigned(r_strm0))
-            *to_integer(unsigned(alpha_strm_drive));
+            *to_integer(alpha_strm_drive);
       r1 <= to_integer(unsigned(r_strm1))*oneminusalpha;
       r0drive <= r0;
       r1drive <= r1;
@@ -82,7 +82,7 @@ begin
       r_blnd <= std_logic_vector(temp(19 downto 10));
 
       g0 <= to_integer(unsigned(g_strm0))
-            *to_integer(unsigned(alpha_strm_drive));
+            *to_integer(alpha_strm_drive);
       g1 <= to_integer(unsigned(g_strm1))*oneminusalpha;
       g0drive <= g0;
       g1drive <= g1;
@@ -90,7 +90,7 @@ begin
       g_blnd <= std_logic_vector(temp(19 downto 10));
       
       b0 <= to_integer(unsigned(b_strm0))
-            *to_integer(unsigned(alpha_strm_drive));
+            *to_integer(alpha_strm_drive);
       b1 <= to_integer(unsigned(b_strm1))*oneminusalpha;
       b0drive <= b0;
       b1drive <= b1;
