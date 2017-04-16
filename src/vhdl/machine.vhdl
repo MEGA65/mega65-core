@@ -61,6 +61,7 @@ entity machine is
          btnCpuReset : in  STD_LOGIC;
          irq : in  STD_LOGIC;
          nmi : in  STD_LOGIC;
+         restore_key : in std_logic;
 
          no_kickstart : in std_logic;
 
@@ -464,6 +465,7 @@ architecture Behavioral of machine is
           reg_isr_out : out unsigned(7 downto 0);
           imask_ta_out : out std_logic;
           cpu_hypervisor_mode : in std_logic;
+          restore_key : in std_logic;
 
           fpga_temperature : in std_logic_vector(11 downto 0);
           
@@ -1081,6 +1083,8 @@ begin
     speed_gate_enable => speed_gate_enable,
     
     fpga_temperature => fpga_temperature,
+
+    restore_key => restore_key,
     
     reg_isr_out => reg_isr_out,
     imask_ta_out => imask_ta_out,    

@@ -348,6 +348,7 @@ begin
       btncpureset => btncpureset,
       irq => irq,
       nmi => nmi,
+      restore_physical => restore_key,
 
       no_kickstart => '0',
       ddr_counter => ddr_counter,
@@ -431,10 +432,6 @@ begin
       btn => (others => '1')
          
       );
-
-  
-  -- Hardware buttons for triggering IRQ & NMI
-  nmi <= not restore_key;
 
   -- Generate 50MHz clock for ethernet
   process (clock100mhz) is

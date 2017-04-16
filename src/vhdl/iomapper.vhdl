@@ -20,6 +20,7 @@ entity iomapper is
         speed_gate : out std_logic;
         speed_gate_enable : in std_logic;
         hyper_trap : out std_logic;
+        restore_key : in std_logic;
         restore_nmi : out std_logic;
         cpu_hypervisor_mode : in std_logic;
         fpga_temperature : in std_logic_vector(11 downto 0);
@@ -151,6 +152,8 @@ architecture behavioral of iomapper is
 
     cpu_hypervisor_mode : in std_logic;
     drive_led_out : in std_logic;
+
+    restore_key : in std_logic;
 
     last_scan_code : out std_logic_vector(12 downto 0);
 
@@ -639,6 +642,7 @@ begin
     cpu_hypervisor_mode => cpu_hypervisor_mode,
     drive_led_out => drive_led_out,
     nmi => restore_nmi,
+    restore_key => restore_key,
     hyper_trap => hyper_trap,
     hyper_trap_count => hyper_trap_count,
     restore_up_count => restore_up_count,

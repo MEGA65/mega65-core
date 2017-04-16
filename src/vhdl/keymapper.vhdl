@@ -15,6 +15,7 @@ entity keymapper is
     last_scan_code : out std_logic_vector(12 downto 0);
 
     nmi : out std_logic := 'Z';
+    restore_key : in std_logic;
     reset : out std_logic := 'Z';
     hyper_trap : out std_logic := '1';
     hyper_trap_count : out unsigned(7 downto 0) := x"00";
@@ -73,7 +74,8 @@ architecture behavioural of keymapper is
   signal ps2state : ps2_state := Idle;
 
   signal leftorupcount : unsigned(2 downto 0) := "000";
-  
+
+  signal widget_restore : std_logic := '1';
   signal resetbutton_state : std_logic := 'Z';
   signal matrix_offset : integer range 0 to 255 := 252;
   signal last_pmod_clock : std_logic := '1';
@@ -142,6 +144,7 @@ begin  -- behavioural
       if fiftyhz_counter = ( 48000000 / 50 ) then
         fiftyhz_counter <= (others => '0');        
 
+        restore_state <= restore_key and widget_restore;
         last_restore_state <= restore_state;
 
         -- 0= restore down (pressed), 1 = restore up (not-pressed)
@@ -166,7 +169,7 @@ begin  -- behavioural
           end if;
         else
           hyper_trap <= '1';
-          nmi <= 'Z';
+          nmi <= 'Z';          
           reset_drive <= resetbutton_state;
           report "setting reset=" & std_logic'image(resetbutton_state)
             & " via FPGA board reset button";
@@ -235,7 +238,7 @@ begin  -- behavioural
           end if;
           if matrix_offset = 76 then
             -- restore is active low, like all other keys
-            restore_state <= pmod_data_in(3);
+            widget_restore <= pmod_data_in(3);
             if speed_gate_enable='1' then
               -- CAPS LOCK UP = force 48MHz, up = enable speed control
               speed_gate <= pmod_data_in(2);
