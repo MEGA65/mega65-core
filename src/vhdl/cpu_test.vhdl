@@ -23,9 +23,9 @@ architecture behavior of cpu_test is
 
   signal vsync : std_logic;
   signal hsync : std_logic;
-  signal vgared : unsigned(3 downto 0);
-  signal vgagreen : unsigned(3 downto 0);
-  signal vgablue : unsigned(3 downto 0);
+  signal vgared : unsigned(7 downto 0);
+  signal vgagreen : unsigned(7 downto 0);
+  signal vgablue : unsigned(7 downto 0);
 
   signal slowram_datain : std_logic_vector(7 downto 0);
   signal slowram_addr : std_logic_vector(26 downto 0);
@@ -72,6 +72,7 @@ architecture behavior of cpu_test is
            btnCpuReset : in  STD_LOGIC;
            irq : in  STD_LOGIC;
            nmi : in  STD_LOGIC;
+           restore_key : in std_logic;
 
            no_kickstart : in std_logic;
            
@@ -83,9 +84,9 @@ architecture behavior of cpu_test is
            ----------------------------------------------------------------------
            vsync : out  STD_LOGIC;
            hsync : out  STD_LOGIC;
-           vgared : out  UNSIGNED (3 downto 0);
-           vgagreen : out  UNSIGNED (3 downto 0);
-           vgablue : out  UNSIGNED (3 downto 0);
+           vgared : out  UNSIGNED (7 downto 0);
+           vgagreen : out  UNSIGNED (7 downto 0);
+           vgablue : out  UNSIGNED (7 downto 0);
 
            ----------------------------------------------------------------------
            -- Flash RAM for holding config
@@ -242,6 +243,7 @@ begin
       btnCpuReset      => reset,
       irq => '1',
       nmi => '1',
+      restore_key => '1',
 
       no_kickstart => '0',
       
