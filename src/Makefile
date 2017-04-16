@@ -68,6 +68,7 @@ SIMULATIONFILES=	vhdl/UART_TX_CTRL.vhd vhdl/bitplane.vhdl vhdl/bitplanes.vhdl vh
 simulate:	$(SIMULATIONFILES)
 	ghdl -i $(SIMULATIONFILES)
 	ghdl -m cpu_test
+	./cpu_test || ghdl -r cpu_test
 
 # =======================================================================
 # =======================================================================
