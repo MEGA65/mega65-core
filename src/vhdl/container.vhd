@@ -482,7 +482,7 @@ begin
       btncpureset => btncpureset,
       irq => irq,
       nmi => nmi,
-      restore_physical => btncpurestore,
+      restore_key => btn(1),
 
       -- Wire up a dummy caps_lock key on switch 9
       caps_lock => sw(9),
