@@ -473,7 +473,6 @@ architecture Behavioral of machine is
           key_scancode : in unsigned(15 downto 0);
           key_scancode_toggle : in std_logic;
 
-          capslock_state : in std_logic;
           speed_gate : out std_logic;
           speed_gate_enable : in std_logic;
           
@@ -609,7 +608,6 @@ architecture Behavioral of machine is
   signal vicii_2mhz : std_logic;
   signal viciii_fast : std_logic;
   signal viciv_fast : std_logic;
-  signal capslock_state : std_logic;
   signal speed_gate : std_logic;
   signal speed_gate_enable : std_logic;
   
