@@ -1,4 +1,4 @@
---
+x--
 -- Written by
 --    Paul Gardner-Stephen <hld@c64.org>  2013-2014
 --
@@ -699,16 +699,16 @@ architecture Behavioral of viciv is
   signal pixel_is_background_in : std_logic;
   signal rgb_is_background : std_logic;
   signal rgb_is_background2 : std_logic;
-  signal antialias_bg_red : unsigned(7 downto 0);
-  signal antialias_bg_green : unsigned(7 downto 0);
-  signal antialias_bg_blue : unsigned(7 downto 0);
-  signal antialias_red : unsigned(7 downto 0);
-  signal antialias_green : unsigned(7 downto 0);
-  signal antialias_blue : unsigned(7 downto 0);
-  signal antialiased_red : unsigned(9 downto 0);
-  signal antialiased_green : unsigned(9 downto 0);
-  signal antialiased_blue : unsigned(9 downto 0);
-  signal antialiaser_enable : std_logic := '0';
+  signal composite_bg_red : unsigned(7 downto 0);
+  signal composite_bg_green : unsigned(7 downto 0);
+  signal composite_bg_blue : unsigned(7 downto 0);
+  signal composite_red : unsigned(7 downto 0);
+  signal composite_green : unsigned(7 downto 0);
+  signal composite_blue : unsigned(7 downto 0);
+  signal composited_red : unsigned(9 downto 0);
+  signal composited_green : unsigned(9 downto 0);
+  signal composited_blue : unsigned(9 downto 0);
+  signal compositer_enable : std_logic := '0';
   signal is_background_in : std_logic;
   signal pixel_is_background_out : std_logic;
   signal pixel_is_foreground_out : std_logic;
@@ -1078,7 +1078,7 @@ begin
               data_i => fastio_wdata
               );
 
-  antialiasblender: component alpha_blend_top
+  compositeblender: component alpha_blend_top
     port map (clk1x => pixelclock,
               clk2x => pixelclock2x,
               reset => '0',
@@ -1086,28 +1086,28 @@ begin
               vsync_strm0 => '0',
               de_strm0 => '1',
               -- RGB of background colour
-              r_strm0(9 downto 2) => std_logic_vector(antialias_bg_red),
+              r_strm0(9 downto 2) => std_logic_vector(composite_bg_red),
               r_strm0(1 downto 0) => (others => '0'),
-              g_strm0(9 downto 2) => std_logic_vector(antialias_bg_green),
+              g_strm0(9 downto 2) => std_logic_vector(composite_bg_green),
               g_strm0(1 downto 0) => (others => '0'),
-              b_strm0(9 downto 2) => std_logic_vector(antialias_bg_blue),
+              b_strm0(9 downto 2) => std_logic_vector(composite_bg_blue),
               b_strm0(1 downto 0) => (others => '0'),
               de_strm1 => '1',
               -- XXX: replace RGB and postsprite_pixel_colour values
               -- with appropriately delayed signals
-              r_strm1(9 downto 2) => std_logic_vector(antialias_red),
+              r_strm1(9 downto 2) => std_logic_vector(composite_red),
               r_strm1(1 downto 0) => (others => '0'),
-              g_strm1(9 downto 2) => std_logic_vector(antialias_green),
+              g_strm1(9 downto 2) => std_logic_vector(composite_green),
               g_strm1(1 downto 0) => (others => '0'),
-              b_strm1(9 downto 2) => std_logic_vector(antialias_blue),
+              b_strm1(9 downto 2) => std_logic_vector(composite_blue),
               b_strm1(1 downto 0) => (others => '0'),
               de_alpha => '1',
               alpha_strm(9 downto 2) => std_logic_vector(postsprite_pixel_colour(7 downto 0)),
               alpha_strm(1 downto 0) => "00",
 
-              unsigned(r_blnd) => antialiased_red,
-              unsigned(g_blnd) => antialiased_green,
-              unsigned(b_blnd) => antialiased_blue
+              unsigned(r_blnd) => composited_red,
+              unsigned(g_blnd) => composited_green,
+              unsigned(b_blnd) => composited_blue
               );
   
   
@@ -1580,7 +1580,7 @@ begin
           fastio_rdata(2 downto 0) <= std_logic_vector(ycounter_drive(10 downto 8));
         elsif register_number=84 then
                                         -- $D054 (53332) - New mode control register
-          fastio_rdata(7) <= antialiaser_enable;
+          fastio_rdata(7) <= compositer_enable;
           fastio_rdata(6) <= viciv_fast_internal;
           fastio_rdata(5 downto 4) <= (others => '1');
           fastio_rdata(3) <= horizontal_smear;
@@ -2169,7 +2169,7 @@ begin
         elsif register_number=84 then
           -- @IO:GS $D054 VIC-IV Control register C
           -- @IO:GD $D054.7 VIC-IV/C65GS Anti-aliaser enable
-          antialiaser_enable <= fastio_wdata(7);
+          compositer_enable <= fastio_wdata(7);
           -- @IO:GS $D054.6 VIC-IV/C65GS FAST mode (48MHz)
           viciv_fast_internal <= fastio_wdata(6);
           -- @IO:GS $D054.3 VIC-IV video output smear filter enable
@@ -2853,18 +2853,18 @@ begin
       
       rgb_is_background2 <= rgb_is_background;
 
-      antialias_bg_red <= unsigned(alias_palette_rdata(31 downto 24));
-      antialias_bg_green <= unsigned(alias_palette_rdata(23 downto 16));
-      antialias_bg_blue <= unsigned(alias_palette_rdata(15 downto 8));
+      composite_bg_red <= unsigned(alias_palette_rdata(31 downto 24));
+      composite_bg_green <= unsigned(alias_palette_rdata(23 downto 16));
+      composite_bg_blue <= unsigned(alias_palette_rdata(15 downto 8));
 
-      antialias_red <= vga_buffer_red;
-      antialias_green <= vga_buffer_green;
-      antialias_blue <= vga_buffer_blue;
+      composite_red <= vga_buffer_red;
+      composite_green <= vga_buffer_green;
+      composite_blue <= vga_buffer_blue;
 
-      if antialiaser_enable='1' then
-        vga_buffer2_red <= antialiased_red(9 downto 2);
-        vga_buffer2_green <= antialiased_green(9 downto 2);
-        vga_buffer2_blue <= antialiased_blue(9 downto 2);
+      if compositer_enable='1' then
+        vga_buffer2_red <= composited_red(9 downto 2);
+        vga_buffer2_green <= composited_green(9 downto 2);
+        vga_buffer2_blue <= composited_blue(9 downto 2);
       else
         vga_buffer2_red <= vga_buffer_red;
         vga_buffer2_green <= vga_buffer_green;
