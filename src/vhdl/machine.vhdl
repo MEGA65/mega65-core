@@ -466,6 +466,7 @@ architecture Behavioral of machine is
           imask_ta_out : out std_logic;
           cpu_hypervisor_mode : in std_logic;
           restore_key : in std_logic;
+          capslock_key : in std_logic;
 
           fpga_temperature : in std_logic_vector(11 downto 0);
           
