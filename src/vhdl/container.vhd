@@ -476,9 +476,9 @@ begin
       
       vsync           => vsync,
       hsync           => hsync,
-      vgared          => vgared,
-      vgagreen        => vgagreen,
-      vgablue         => vgablue,
+      vgared(7 downto 4)          => vgared,
+      vgagreen(7 downto 4)        => vgagreen,
+      vgablue(7 downto 4)         => vgablue,
 
       porta_pins => porta_pins,
       portb_pins => portb_pins,
