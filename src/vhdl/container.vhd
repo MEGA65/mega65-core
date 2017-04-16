@@ -242,7 +242,7 @@ architecture Behavioral of container is
          irq : in  STD_LOGIC;
          nmi : in  STD_LOGIC;
 
-         caps_lock : inout std_logic;
+         caps_lock_key : in std_logic;
          restore_key : in std_logic;
 
          no_kickstart : in std_logic;
@@ -486,7 +486,7 @@ begin
       restore_key => btn(1),
 
       -- Wire up a dummy caps_lock key on switch 9
-      caps_lock => sw(9),
+      caps_lock_key => sw(9),
       
       no_kickstart => '0',
       ddr_counter => ddr_counter,

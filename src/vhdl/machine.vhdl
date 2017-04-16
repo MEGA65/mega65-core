@@ -85,7 +85,7 @@ entity machine is
          porta_pins : inout  std_logic_vector(7 downto 0);
          portb_pins : inout  std_logic_vector(7 downto 0);
          keyboard_column8 : inout std_logic;
-         caps_lock : inout std_logic := '1';
+         caps_lock_key : in std_logic := '1';
          
          -------------------------------------------------------------------------
          -- Lines for the SDcard interface itself
@@ -1114,7 +1114,7 @@ begin
 
     porta_pins => porta_pins,
     portb_pins => portb_pins,
-    capslock_state => caps_lock,
+    capslock_key => caps_lock_key,
 --    keyboard_column8_select => keyboard_column8,
     
     pixel_stream_in => pixel_stream,

@@ -242,11 +242,11 @@ begin  -- behavioural
             if speed_gate_enable='1' then
               -- CAPS LOCK UP = force 48MHz, up = enable speed control
               speed_gate <= pmod_data_in(2);
-              capslock_out <= '1';
+              capslock_out <= capslock_in;
             else
               -- CAPS LOCK does CAPS LOCK, and speed control is enabled
               speed_gate <= '1';
-              capslock_out <= pmod_data_in(2);
+              capslock_out <= capslock_in and pmod_data_in(2);
             end if;
             joy1(4) <= pmod_data_in(0);
             -- Check for RESTORE key being released, and adjust action

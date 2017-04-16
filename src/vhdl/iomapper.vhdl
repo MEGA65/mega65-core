@@ -16,7 +16,7 @@ entity iomapper is
         reset_out : out std_logic;
         irq : out std_logic;
         nmi : out std_logic;
-        capslock_state : in std_logic;
+        capslock_key : in std_logic;
         speed_gate : out std_logic;
         speed_gate_enable : in std_logic;
         hyper_trap : out std_logic;
@@ -474,6 +474,8 @@ end component;
 
   signal reset_high : std_logic;
 
+  signal capslock_from_keymapper : std_logic := '1';
+
   signal hyper_trap_count : unsigned(7 downto 0) := x"00";
   signal restore_up_count : unsigned(7 downto 0) := x"00";
   signal restore_down_count : unsigned(7 downto 0) := x"00";
@@ -624,7 +626,7 @@ begin
       -- bit0 = caps lock (input only)
       -- bit1 = column 8 select (output only)      
       porte_in(1) => keyboard_column8_select,
-      porte_in(0) => capslock_state,
+      porte_in(0) => capslock_from_keymapper,
       porte_out => dummy_bits,
       uart_rx => uart_rx,
       uart_tx => uart_tx,
@@ -670,7 +672,8 @@ begin
     speed_gate => speed_gate,
     speed_gate_enable => speed_gate_enable,
 
-    capslock_in => capslock_state,
+    capslock_in => capslock_key,
+    capslock_out => capslock_from_keymapper,
     keyboard_column8_select_out => keyboard_column8_out,
     keyboard_column8_select_in => keyboard_column8_select,
     pmod_clock => pmod_clock,
