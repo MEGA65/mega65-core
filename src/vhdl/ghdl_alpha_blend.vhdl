@@ -67,8 +67,11 @@ begin
       g_strm1_drive <= g_strm1;
       b_strm0_drive <= b_strm0;
       b_strm1_drive <= b_strm1;
-      alpha_strm_drive <= alpha_strm;
-      oneminusalpha <= (1023-to_integer(unsigned(alpha_strm)));
+
+      -- Add one to alpha values so that they scale up to 100%, instead
+      -- of ~99.54%
+      alpha_strm_drive <= alpha_strm +1;
+      oneminusalpha <= (1024-to_integer(unsigned(alpha_strm)));
       
       r0 <= to_integer(unsigned(r_strm0))
             *to_integer(unsigned(alpha_strm_drive));
