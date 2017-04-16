@@ -537,7 +537,7 @@ architecture Behavioral of viciv is
   signal paint_chardata : unsigned(7 downto 0);
   signal paint_ramdata : unsigned(7 downto 0);
 
-  signal horizontal_smear : std_logic := '1';
+  signal horizontal_filter : std_logic := '1';
   
   signal debug_x : unsigned(11 downto 0) := "111111111110";
   signal debug_y : unsigned(11 downto 0) := "111111111110";
@@ -1196,7 +1196,7 @@ begin
           vicii_ycounter,displayx_drive,reg_rom_e000,reg_rom_c000,
           reg_rom_a000,reg_c65_charset,reg_rom_8000,reg_palrom,
           reg_h640,reg_h1280,reg_v400,xcounter_drive,ycounter_drive,
-          horizontal_smear,xfrontporch_drive,chargen_active_drive,
+          horizontal_filter,xfrontporch_drive,chargen_active_drive,
           inborder_drive,chargen_active_soon_drive,card_number_drive) is
     variable bitplane_number : integer;
     procedure viciv_interpret_legacy_mode_registers is
@@ -1583,7 +1583,7 @@ begin
           fastio_rdata(7) <= compositer_enable;
           fastio_rdata(6) <= viciv_fast_internal;
           fastio_rdata(5 downto 4) <= (others => '1');
-          fastio_rdata(3) <= horizontal_smear;
+          fastio_rdata(3) <= horizontal_filter;
           fastio_rdata(2) <= fullcolour_extendedchars;
           fastio_rdata(1) <= fullcolour_8bitchars;
           fastio_rdata(0) <= sixteenbit_charset;
@@ -2168,12 +2168,12 @@ begin
           vicii_is_raster_source <= '0';
         elsif register_number=84 then
           -- @IO:GS $D054 VIC-IV Control register C
-          -- @IO:GD $D054.7 VIC-IV/C65GS Anti-aliaser enable
+          -- @IO:GD $D054.7 VIC-IV/C65GS Alpha compositor enable
           compositer_enable <= fastio_wdata(7);
           -- @IO:GS $D054.6 VIC-IV/C65GS FAST mode (48MHz)
           viciv_fast_internal <= fastio_wdata(6);
-          -- @IO:GS $D054.3 VIC-IV video output smear filter enable
-          horizontal_smear <= fastio_wdata(3);
+          -- @IO:GS $D054.3 VIC-IV video output horizontal smoothing enable
+          horizontal_filter <= fastio_wdata(3);
           -- @IO:GS $D054.2 VIC-IV enable full-colour mode for character numbers >$FF
           fullcolour_extendedchars <= fastio_wdata(2);
           -- @IO:GS $D054.1 VIC-IV enable full-colour mode for character numbers <=$FF
@@ -2875,7 +2875,7 @@ begin
       vga_buffer3_green <= vga_buffer2_green;
       vga_buffer3_blue <= vga_buffer2_blue;
 
-      if horizontal_smear='0' then
+      if horizontal_filter='0' then
         vga_out_red <= vga_buffer3_red;
         vga_out_green <= vga_buffer3_green;
         vga_out_blue <= vga_buffer3_blue;
