@@ -258,9 +258,9 @@ architecture Behavioral of container is
          ----------------------------------------------------------------------
          vsync : out  STD_LOGIC;
          hsync : out  STD_LOGIC;
-         vgared : out  UNSIGNED (3 downto 0);
-         vgagreen : out  UNSIGNED (3 downto 0);
-         vgablue : out  UNSIGNED (3 downto 0);
+         vgared : out  UNSIGNED (7 downto 0);
+         vgagreen : out  UNSIGNED (7 downto 0);
+         vgablue : out  UNSIGNED (7 downto 0);
 
          ---------------------------------------------------------------------------
          -- IO lines to the ethernet controller
@@ -367,7 +367,11 @@ architecture Behavioral of container is
   
   signal irq : std_logic := '1';
   signal nmi : std_logic := '1';
-  
+ 
+  signal dummy_vgared : unsigned(3 downto 0);
+  signal dummy_vgagreen : unsigned(3 downto 0);
+  signal dummy_vgablue : unsigned(3 downto 0);
+
   signal pixelclock : std_logic;
   signal pixelclock2x : std_logic;
   signal cpuclock : std_logic;
@@ -477,8 +481,11 @@ begin
       vsync           => vsync,
       hsync           => hsync,
       vgared(7 downto 4)          => vgared,
+      vgared(3 downto 0)          => dummy_vgared,
       vgagreen(7 downto 4)        => vgagreen,
+      vgagreen(3 downto 0)        => dummy_vgagreen,
       vgablue(7 downto 4)         => vgablue,
+      vgablue(3 downto 0)         => dummy_vgablue,
 
       porta_pins => porta_pins,
       portb_pins => portb_pins,
