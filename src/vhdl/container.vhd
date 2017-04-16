@@ -250,8 +250,8 @@ architecture Behavioral of container is
          ----------------------------------------------------------------------
          -- CIA1 ports for keyboard/joystick 
          ----------------------------------------------------------------------
-         porta_pins : inout  std_logic_vector(7 downto 0);
-         portb_pins : inout  std_logic_vector(7 downto 0);
+--         porta_pins : inout  std_logic_vector(7 downto 0);
+--         portb_pins : inout  std_logic_vector(7 downto 0);
          
          ----------------------------------------------------------------------
          -- VGA output
@@ -396,6 +396,13 @@ architecture Behavioral of container is
   signal ddr_state : unsigned(7 downto 0);
   signal ddr_counter : unsigned(7 downto 0);
 
+  signal vgaredignore : unsigned(3 downto 0);
+  signal vgagreenignore : unsigned(3 downto 0);
+  signal vgablueignore : unsigned(3 downto 0);
+
+  signal porta_pins : std_logic_vector(7 downto 0) := (others => '1');
+  signal portb_pins : std_logic_vector(7 downto 0) := (others => '1');
+  
   -- XXX We should read the real temperature and feed this to the DDR controller
   -- so that it can update timing whenever the temperature changes too much.
   signal fpga_temperature : std_logic_vector(11 downto 0) := (others => '0');
