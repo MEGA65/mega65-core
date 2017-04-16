@@ -253,8 +253,8 @@ architecture Behavioral of container is
          ----------------------------------------------------------------------
          -- CIA1 ports for keyboard/joystick 
          ----------------------------------------------------------------------
---         porta_pins : inout  std_logic_vector(7 downto 0);
---         portb_pins : inout  std_logic_vector(7 downto 0);
+         porta_pins : inout  std_logic_vector(7 downto 0);
+         portb_pins : inout  std_logic_vector(7 downto 0);
          
          ----------------------------------------------------------------------
          -- VGA output
