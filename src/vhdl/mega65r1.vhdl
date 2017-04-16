@@ -33,7 +33,7 @@ use Std.TextIO.all;
 
 entity container is
   Port ( CLK_IN : STD_LOGIC;         
---         btnCpuReset : in  STD_LOGIC;
+         btnCpuReset : in  STD_LOGIC;
 --         irq : in  STD_LOGIC;
 --         nmi : in  STD_LOGIC;
          
@@ -284,7 +284,6 @@ architecture Behavioral of container is
   
   signal irq : std_logic := '1';
   signal nmi : std_logic := '1';
-  signal btnCpuReset : std_logic := '1';
 
   signal halfpixelclock : std_logic := '1';  
   signal pixelclock : std_logic;
