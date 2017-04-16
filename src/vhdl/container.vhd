@@ -41,8 +41,8 @@ entity container is
          ----------------------------------------------------------------------
          -- CIA1 ports for keyboard/joystick 
          ----------------------------------------------------------------------
-         porta_pins : inout  std_logic_vector(7 downto 0);
-         portb_pins : inout  std_logic_vector(7 downto 0);
+--         porta_pins : inout  std_logic_vector(7 downto 0);
+--         portb_pins : inout  std_logic_vector(7 downto 0);
          
          ----------------------------------------------------------------------
          -- VGA output
@@ -371,6 +371,8 @@ architecture Behavioral of container is
   signal dummy_vgared : unsigned(3 downto 0);
   signal dummy_vgagreen : unsigned(3 downto 0);
   signal dummy_vgablue : unsigned(3 downto 0);
+  signal porta_pins : std_logic_vector(7 downto 0);
+  signal portb_pins : std_logic_vector(7 downto 0);
 
   signal pixelclock : std_logic;
   signal pixelclock2x : std_logic;
