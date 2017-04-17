@@ -41,6 +41,7 @@ use ieee.numeric_std.all;
 use Std.TextIO.all;
 use work.debugtools.all;
 use work.victypes.all;
+use work.all;
 
 -- Uncomment the following library declaration if using
 -- arithmetic functions with Signed or Unsigned values
@@ -160,8 +161,7 @@ architecture Behavioral of viciv is
       dcm_locked:  out std_logic
       ); 
   end component;
-
-  
+      
   component ram9x4k IS
     PORT (
       clka : IN STD_LOGIC;
@@ -378,6 +378,12 @@ architecture Behavioral of viciv is
   signal vga_filtered_red : UNSIGNED (9 downto 0) := (others => '0');
   signal vga_filtered_green : UNSIGNED (9 downto 0) := (others => '0');
   signal vga_filtered_blue : UNSIGNED (9 downto 0) := (others => '0');
+  signal vga_palin_red : UNSIGNED (7 downto 0) := (others => '0');
+  signal vga_palin_green : UNSIGNED (7 downto 0) := (others => '0');
+  signal vga_palin_blue : UNSIGNED (7 downto 0) := (others => '0');
+  signal vga_palout_red : UNSIGNED (7 downto 0) := (others => '0');
+  signal vga_palout_green : UNSIGNED (7 downto 0) := (others => '0');
+  signal vga_palout_blue : UNSIGNED (7 downto 0) := (others => '0');
   signal vga_out_red : UNSIGNED (7 downto 0) := (others => '0');
   signal vga_out_green : UNSIGNED (7 downto 0) := (others => '0');
   signal vga_out_blue : UNSIGNED (7 downto 0) := (others => '0');
@@ -547,6 +553,7 @@ architecture Behavioral of viciv is
   signal paint_ramdata : unsigned(7 downto 0);
 
   signal horizontal_filter : std_logic := '1';
+  signal pal_simulate : std_logic := '1';
   
   signal debug_x : unsigned(11 downto 0) := "111111111110";
   signal debug_y : unsigned(11 downto 0) := "111111111110";
@@ -1118,7 +1125,20 @@ begin
               unsigned(g_blnd) => composited_green,
               unsigned(b_blnd) => composited_blue
               );
-  
+
+  pal_sim0: entity work.pal_simulation
+    port map(
+      clock => pixelclock,
+      red_in => vga_palin_red,
+      green_in => vga_palin_green,
+      blue_in => vga_palin_blue,
+      red_out => vga_palout_red,
+      green_out => vga_palout_green,
+      blue_out => vga_palout_blue,
+      x_position => displayx,
+      y_position => displayy
+      );  
+      
   
   vicii_sprites0: component vicii_sprites
     port map (pixelclock => pixelclock,
@@ -1591,7 +1611,8 @@ begin
                                         -- $D054 (53332) - New mode control register
           fastio_rdata(7) <= compositer_enable;
           fastio_rdata(6) <= viciv_fast_internal;
-          fastio_rdata(5 downto 4) <= (others => '1');
+          fastio_rdata(5) <= pal_simulate;
+          fastio_rdata(4) <= '1'; -- reserved
           fastio_rdata(3) <= horizontal_filter;
           fastio_rdata(2) <= fullcolour_extendedchars;
           fastio_rdata(1) <= fullcolour_8bitchars;
@@ -2181,6 +2202,8 @@ begin
           compositer_enable <= fastio_wdata(7);
           -- @IO:GS $D054.6 VIC-IV/C65GS FAST mode (48MHz)
           viciv_fast_internal <= fastio_wdata(6);
+          -- @IO:GS $D054.3 VIC-IV video output pal simulation
+          pal_simulate <= fastio_wdata(5);
           -- @IO:GS $D054.3 VIC-IV video output horizontal smoothing enable
           horizontal_filter <= fastio_wdata(3);
           -- @IO:GS $D054.2 VIC-IV enable full-colour mode for character numbers >$FF
@@ -2904,17 +2927,27 @@ begin
                                       +to_integer(vga_buffer4_blue)
                                       +to_integer(vga_buffer3_blue)
                                       +to_integer(vga_buffer2_blue),10);
-      
+
       if horizontal_filter='0' then
-        vga_out_red <= vga_buffer3_red;
-        vga_out_green <= vga_buffer3_green;
-        vga_out_blue <= vga_buffer3_blue;
+        vga_palin_red <= vga_buffer3_red;
+        vga_palin_green <= vga_buffer3_green;
+        vga_palin_blue <= vga_buffer3_blue;
       else
-        vga_out_red <= vga_filtered_red(9 downto 2);
-        vga_out_green <= vga_filtered_green(9 downto 2);
-        vga_out_blue <= vga_filtered_blue(9 downto 2);
+        vga_palin_red <= vga_filtered_red(9 downto 2);
+        vga_palin_green <= vga_filtered_green(9 downto 2);
+        vga_palin_blue <= vga_filtered_blue(9 downto 2);
       end if;
 
+      if pal_simulate='1' then
+        vga_out_red <= vga_palout_red;
+        vga_out_green <= vga_palout_green;
+        vga_out_blue <= vga_palout_blue;        
+      else
+        vga_out_red <= vga_palin_red;
+        vga_out_green <= vga_palin_green;
+        vga_out_blue <= vga_palin_blue;        
+      end if;      
+      
       -- Also use pixel colour to produce RLE compressed video stream for
       -- pushing over ethernet on ff10::6565:6565:6565 IPv6 transient
       -- multi-cast address or via serial console.  However we do it, we first
