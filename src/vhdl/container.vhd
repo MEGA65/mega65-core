@@ -483,7 +483,7 @@ begin
       btncpureset => btncpureset,
       irq => irq,
       nmi => nmi,
-      restore_key => btn(1),
+      restore_key => not btn(1),
 
       -- Wire up a dummy caps_lock key on switch 8
       caps_lock_key => sw(8),
