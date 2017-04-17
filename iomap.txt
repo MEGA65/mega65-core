@@ -142,7 +142,9 @@ GS $D054 VIC-IV Control register C
 GS $D054.0 VIC-IV enable 16-bit character numbers (two screen bytes per character)
 GS $D054.1 VIC-IV enable full-colour mode for character numbers <=$FF
 GS $D054.2 VIC-IV enable full-colour mode for character numbers >$FF
-GS $D054.3 VIC-IV video output smear filter enable
+GS $D054.3 VIC-IV video output horizontal smoothing enable
+GS $D054.3 VIC-IV video output pal simulation
+GS $D054.4 VIC-IV video output pal simulation shadow mask enable
 GS $D054.6 VIC-IV/C65GS FAST mode (48MHz)
 GS $D055 VIC-IV sprite extended height enable (one bit per sprite)
 GS $D056 VIC-IV Sprite extended height size (sprite pixels high)
@@ -223,6 +225,10 @@ GS $D60E PMOD port A on FPGA board (data bits)
 GS $D60F PMOD port A on FPGA board (DDR)
 GS $D610 DEBUG - Read restore_up_count: will be removed after debugging. XXX - Temporarily reading restore_up_ticks instead
 GS $D611 DEBUG - Read restore_down_count: will be removed after debugging. XXX - Temporarily reading restore_up_ticks instead
+GS $D612.0 DEBUG - Enable widget board keyboard/joystick input
+GS $D612.1 DEBUG - Enable ps2 keyboard/joystick input
+GS $D612.2 DEBUG - Enable physical joystick input
+GS $D613 DEBUG - Keyboard debug flags: will be removed after debugging
 GS $D630 - Read to obtain status of thumbnail generator.
 GS $D630 - Write to reset port address for thumbnail generator
 GS $D630-$D631 - Read-only hardware-generated thumbnail of display (accessible only in hypervisor mode)
