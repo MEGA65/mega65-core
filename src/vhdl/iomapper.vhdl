@@ -145,69 +145,6 @@ architecture behavioral of iomapper is
       data_i : in std_logic_vector(7 downto 0);
       data_o : out std_logic_vector(7 downto 0));
   end component;
-
-  component keymapper is  
-  port (
-    ioclock : in std_logic;
-
-    cpu_hypervisor_mode : in std_logic;
-    drive_led_out : in std_logic;
-
-    restore_key : in std_logic;
-
-    last_scan_code : out std_logic_vector(12 downto 0);
-
-    nmi : out std_logic := 'Z';
-    reset : out std_logic := 'Z';
-    hyper_trap : out std_logic := '1';
-    hyper_trap_count : out unsigned(7 downto 0) := x"00";
-    restore_up_count : out unsigned(7 downto 0) := x"00";
-    restore_down_count : out unsigned(7 downto 0) := x"00";
-
-    -- USE ASC/DIN / CAPS LOCK key to control CPU speed instead of CAPS LOCK function
-    speed_gate : out std_logic := '1';
-    speed_gate_enable : in std_logic := '1';
-    
-    -- appears as bit0 of $D607 (see C65 keyboard scan routine at $E406)
-    capslock_out : out std_logic := '1';
-    capslock_in : in std_logic;
-    
-    -- PS2 keyboard interface
-    ps2clock  : in  std_logic;
-    ps2data   : in  std_logic;
-    -- CIA1 ports
-    porta_in  : in  std_logic_vector(7 downto 0);
-    portb_in  : in  std_logic_vector(7 downto 0);
-    porta_out : out std_logic_vector(7 downto 0);
-    portb_out : out std_logic_vector(7 downto 0);
-    porta_ddr : in  std_logic_vector(7 downto 0);
-    portb_ddr : in  std_logic_vector(7 downto 0);
-
-    -- Actual physical pins for CIA1
-    porta_pins : inout std_logic_vector(7 downto 0);
-    portb_pins : inout std_logic_vector(7 downto 0);
-
-    pota_x : out unsigned(7 downto 0) := x"ff";
-    pota_y : out unsigned(7 downto 0) := x"ff";
-    potb_x : out unsigned(7 downto 0) := x"ff";    
-    potb_y : out unsigned(7 downto 0) := x"ff";
-    
-    -- read from bit1 of $D607 (see C65 keyboard scan routine at $E406)?
-    keyboard_column8_select_in : in std_logic;
-    -- and pushed out to the real keyboard
-    keyboard_column8_select_out : out std_logic;
-
-    pmod_clock : in std_logic;
-    pmod_start_of_sequence : in std_logic;
-    pmod_data_in : in std_logic_vector(3 downto 0);
-    pmod_data_out : out std_logic_vector(1 downto 0) := "ZZ";
-    
-    -- ethernet keyboard input interface for remote head mode
-    eth_keycode_toggle : in std_logic;
-    eth_keycode : in unsigned(15 downto 0)
-    );
-end component;
-
   
   component sid6581 is
     port (
@@ -351,35 +288,6 @@ end component;
       );
   end component;
 
-  component c65uart is
-    port (
-      pixelclock : in std_logic;
-      cpuclock : in std_logic;
-      phi0 : in std_logic;
-      reset : in std_logic;
-      irq : out std_logic := '1';
-
-      uart_rx : in std_logic;
-      uart_tx : out std_logic;
-      
-      porte_out : out std_logic_vector(1 downto 0);
-      porte_in : in std_logic_vector(1 downto 0);
-      portf : inout std_logic_vector(7 downto 0);
-      portg : in std_logic_vector(7 downto 0);
-      porth : in std_logic_vector(7 downto 0);
-      porti : in std_logic_vector(7 downto 0);
-
-      ---------------------------------------------------------------------------
-      -- fast IO port (clocked at core clock). 1MB address space
-      ---------------------------------------------------------------------------
-      fastio_address : in unsigned(19 downto 0);
-      fastio_write : in std_logic;
-      fastio_read : in std_logic;
-      fastio_wdata : in unsigned(7 downto 0);
-      fastio_rdata : out unsigned(7 downto 0)
-      );
-  end component;
-  
   component cia6526 is
     port (
       cpuclock : in std_logic;
@@ -475,6 +383,9 @@ end component;
   signal reset_high : std_logic;
 
   signal capslock_from_keymapper : std_logic := '1';
+  signal key_debug : std_logic_vector(7 downto 0);
+  signal widget_enable : std_logic;
+  signal ps2_enable : std_logic;
 
   signal hyper_trap_count : unsigned(7 downto 0) := x"00";
   signal restore_up_count : unsigned(7 downto 0) := x"00";
@@ -611,7 +522,7 @@ begin
 
   block4b: block
   begin
-    c65uart0: c65uart port map (
+    c65uart0: entity work.c65uart port map (
       pixelclock => pixelclk,
       cpuclock => clk,
       phi0 => phi0,
@@ -628,6 +539,9 @@ begin
       porte_in(1) => keyboard_column8_select,
       porte_in(0) => capslock_from_keymapper,
       porte_out => dummy_bits,
+      key_debug => key_debug,
+      widget_enable => widget_enable,
+      ps2_enable => ps2_enable,
       uart_rx => uart_rx,
       uart_tx => uart_tx,
       portf => pmoda,
@@ -639,7 +553,9 @@ begin
   
   block5: block
   begin
-  keymapper0 : keymapper port map (
+    keymapper0 : entity work.keymapper port map (
+    widget_enable => widget_enable,
+    ps2_enable => ps2_enable,
     ioclock       => clk,
     cpu_hypervisor_mode => cpu_hypervisor_mode,
     drive_led_out => drive_led_out,
@@ -661,6 +577,8 @@ begin
     porta_ddr      => cia1porta_ddr,
     portb_ddr      => cia1portb_ddr,
 
+    key_debug_out => key_debug,
+  
     porta_pins => porta_pins,
     portb_pins => portb_pins,
 

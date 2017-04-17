@@ -456,135 +456,6 @@ architecture Behavioral of machine is
       );
   end component;
   
-  component iomapper is
-    port (Clk : in std_logic;
-          cpuclock : in std_logic;
-          pixelclk : in std_logic;
-          clock50mhz : in std_logic;
-          
-          reg_isr_out : out unsigned(7 downto 0);
-          imask_ta_out : out std_logic;
-          cpu_hypervisor_mode : in std_logic;
-          restore_key : in std_logic;
-          capslock_key : in std_logic;
-
-          fpga_temperature : in std_logic_vector(11 downto 0);
-          
-          key_scancode : in unsigned(15 downto 0);
-          key_scancode_toggle : in std_logic;
-
-          speed_gate : out std_logic;
-          speed_gate_enable : in std_logic;
-          
-          uartclock : in std_logic;
-          phi0 : in std_logic;
-          reset : in std_logic;
-          reset_out : out std_logic;
-          irq : out std_logic;
-          nmi : out std_logic;
-          hyper_trap : out std_logic;
-          restore_nmi : out std_logic;
-          address : in std_logic_vector(19 downto 0);
-          r : in std_logic;
-          w : in std_logic;
-          data_i : in std_logic_vector(7 downto 0);
-          data_o : out std_logic_vector(7 downto 0);
-          sd_data_o : out std_logic_vector(7 downto 0);
-          sector_buffer_mapped : out std_logic;
-          colourram_at_dc00 : in std_logic;
-          viciii_iomode : in std_logic_vector(1 downto 0);
-
-          drive_led : out std_logic;
-          motor : out std_logic;
-          drive_led_out : in std_logic;
-
-          sw : in std_logic_vector(15 downto 0);
-          btn : in std_logic_vector(4 downto 0);
-          seg_led : out unsigned(31 downto 0);
-
-          porta_pins : inout  std_logic_vector(7 downto 0);
-          portb_pins : inout  std_logic_vector(7 downto 0);
-
-          pmod_clock : in std_logic;
-          pmod_start_of_sequence : in std_logic;
-          pmod_data_in : in std_logic_vector(3 downto 0);
-          pmod_data_out : out std_logic_vector(1 downto 0);
-          pmoda : inout std_logic_vector(7 downto 0);
-          
-          pixel_stream_in : in unsigned (7 downto 0);
-          pixel_y : in unsigned (11 downto 0);
-          pixel_valid : in std_logic;
-          pixel_newframe : in std_logic;
-          pixel_newraster : in std_logic;   
-          
-          ---------------------------------------------------------------------------
-          -- IO lines to the ethernet controller
-          ---------------------------------------------------------------------------
-          eth_mdio : inout std_logic;
-          eth_mdc : out std_logic;
-          eth_reset : out std_logic;
-          eth_rxd : in unsigned(1 downto 0);
-          eth_txd : out unsigned(1 downto 0);
-          eth_txen : out std_logic;
-          eth_rxdv : in std_logic;
-          eth_rxer : in std_logic;
-          eth_interrupt : in std_logic;
-
-          ----------------------------------------------------------------------
-          -- Flash RAM for holding config
-          ----------------------------------------------------------------------
-          QspiSCK : out std_logic;
-          QspiDB : inout std_logic_vector(3 downto 0);
-          QspiCSn : out std_logic;
-          
-          -------------------------------------------------------------------------
-          -- Lines for the SDcard interface itself
-          -------------------------------------------------------------------------
-          cs_bo : out std_logic;
-          sclk_o : out std_logic;
-          mosi_o : out std_logic;
-          miso_i : in  std_logic;
-
-          ---------------------------------------------------------------------------
-          -- IO port to far call stack
-          ---------------------------------------------------------------------------
-          farcallstack_we : in std_logic;
-          farcallstack_addr : in std_logic_vector(8 downto 0);
-          farcallstack_din : in std_logic_vector(63 downto 0);
-          farcallstack_dout : out std_logic_vector(63 downto 0);
-          
-          ---------------------------------------------------------------------------
-          -- Lines for other devices that we handle here
-          ---------------------------------------------------------------------------
-          aclMISO : in std_logic;
-          aclMOSI : out std_logic;
-          aclSS : out std_logic;
-          aclSCK : out std_logic;
-          aclInt1 : in std_logic;
-          aclInt2 : in std_logic;
-    
-          ampPWM : out std_logic;
-          ampPWM_l : out std_logic;
-          ampPWM_r : out std_logic;
-          ampSD : out std_logic;
-
-          micData : in std_logic;
-          micClk : out std_logic;
-          micLRSel : out std_logic;
-
-          tmpSDA : out std_logic;
-          tmpSCL : out std_logic;
-          tmpInt : in std_logic;
-          tmpCT : in std_logic;
-
-          uart_rx : in std_logic;
-          uart_tx : out std_logic;
-
-          ps2data : in std_logic;
-          ps2clock : in std_logic
-          );
-  end component;
-
   signal pmodb_in_buffer : std_logic_vector(5 downto 0);
   signal pmodb_out_buffer : std_logic_vector(1 downto 0);
   
@@ -1071,7 +942,8 @@ begin
       rom_at_8000 => rom_at_8000      
       );
   
-  iomapper0: iomapper port map (
+  iomapper0: entity work.iomapper
+    port map (
     clk => ioclock,
     hyper_trap => hyper_trap,
     cpuclock => cpuclock,

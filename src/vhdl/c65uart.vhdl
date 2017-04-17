@@ -28,6 +28,10 @@ entity c65uart is
 
     uart_rx : in std_logic;
     uart_tx : out std_logic;
+
+    key_debug : in std_logic_vector(7 downto 0);
+    widget_enable : out std_logic;
+    ps2_enable : out std_logic;
     
     portf : inout std_logic_vector(7 downto 0);
     portg : in std_logic_vector(7 downto 0);
@@ -119,6 +123,9 @@ architecture behavioural of c65uart is
   signal reg_portf_ddr : std_logic_vector(7 downto 0) := (others => '0');
   signal reg_portf_read : unsigned(7 downto 0) := (others => '0');
 
+  signal widget_enable_internal : std_logic := '1';
+  signal ps2_enable_internal : std_logic := '1';
+  
 begin  -- behavioural
   
   process(pixelclock,cpuclock,fastio_address,fastio_write
@@ -151,6 +158,10 @@ begin  -- behavioural
     register_number(4 downto 0) := fastio_address(4 downto 0);
     
     if rising_edge(cpuclock) then
+
+      widget_enable <= widget_enable_internal;
+      ps2_enable <= ps2_enable_internal;
+      
       rx_clear_flags <= '0';
       if (fastio_address(19 downto 16) = x"D")
         and (fastio_address(11 downto 5) = "0110000") then
@@ -231,6 +242,11 @@ begin  -- behavioural
         when x"11" =>
           -- @IO:GS $D611 DEBUG - Read restore_down_count: will be removed after debugging. XXX - Temporarily reading restore_up_ticks instead
           fastio_rdata(7 downto 0) <= unsigned(porti);
+        when x"12" =>
+          -- @IO:GS $D612.0 DEBUG - Enable widget board keyboard/joystick input
+          fastio_rdata(0) <= widget_enable_internal;
+          -- @IO:GS $D612.1 DEBUG - Enable ps2 keyboard/joystick input
+          fastio_rdata(1) <= ps2_enable_internal;
         when others => fastio_rdata <= (others => 'Z');
       end case;
     else
@@ -436,6 +452,9 @@ begin  -- behavioural
           when x"08" => reg_porte_ddr<=std_logic_vector(fastio_wdata(1 downto 0));
           when x"0e" => reg_portf_out <= std_logic_vector(fastio_wdata);
           when x"0f" => reg_portf_ddr <= std_logic_vector(fastio_wdata);
+          when x"12" =>
+            widget_enable_internal <= std_logic(fastio_wdata(0));
+            ps2_enable_internal <= std_logic(fastio_wdata(1));
           when others => null;
         end case;
       end if;

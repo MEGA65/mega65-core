@@ -5,10 +5,12 @@ use Std.TextIO.all;
 use work.debugtools.all;
 
 entity keymapper is
-  
   port (
     ioclock : in std_logic;
 
+    widget_enable : in std_logic;
+    ps2_enable : in std_logic;
+    
     cpu_hypervisor_mode : in std_logic;
     drive_led_out : in std_logic;
 
@@ -29,6 +31,8 @@ entity keymapper is
     -- appears as bit0 of $D607 (see C65 keyboard scan routine at $E406)
     capslock_out : out std_logic := '1';
     capslock_in : in std_logic;
+
+    key_debug_out : out std_logic_vector(7 downto 0);
     
     -- PS2 keyboard interface
     ps2clock  : in  std_logic;
@@ -139,6 +143,16 @@ begin  -- behavioural
 
       keyboard_column8_select_out <= keyboard_column8_select_in;
       capslock_out <= capslock_in and widget_capslock;
+
+      -- Debug problems with restore and capslock
+      key_debug_out(0) <= capslock_in;
+      key_debug_out(1) <= widget_capslock;
+      key_debug_out(2) <= restore_key;
+      key_debug_out(3) <= widget_restore;
+      key_debug_out(4) <= ps2_restore;
+      key_debug_out(5) <= restore_state;
+      key_debug_out(6) <= last_restore_state;
+      key_debug_out(7) <= '1';
       
       restore_up_count <= restore_up_ticks(7 downto 0);
       restore_down_count <= restore_down_ticks(7 downto 0);
