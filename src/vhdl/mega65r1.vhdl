@@ -171,7 +171,7 @@ begin
 --               clk_out3 => ioclock -- also 48MHz
                );
 
-  fpgatemp0: entit work.fpgatemp
+  fpgatemp0: entity work.fpgatemp
     generic map (DELAY_CYCLES => 480)
     port map (
       rst => '0',
