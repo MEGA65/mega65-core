@@ -249,7 +249,7 @@ begin  -- behavioural
           fastio_rdata(1) <= ps2_enable_internal;
         when x"13" =>
           -- @IO:GS $D613 DEBUG - Keyboard debug flags: will be removed after debugging
-          fastio_rdata <= key_debug;
+          fastio_rdata <= unsigned(key_debug);
         when others => fastio_rdata <= (others => 'Z');
       end case;
     else
