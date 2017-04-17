@@ -2697,7 +2697,7 @@ begin
       end if;
       vsync <= vsync_drive;
 
-      if displayx(5)='1' then
+      if displayx(5)='1' and displayx(4)='1' then
         displaycolumn0 <= '0';
       end if;
       if xcounter = 0 then
