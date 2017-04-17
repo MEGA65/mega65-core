@@ -75,7 +75,9 @@ architecture behavioural of keymapper is
 
   signal leftorupcount : unsigned(2 downto 0) := "000";
 
+  signal ps2_restore : std_logic := '1';
   signal widget_restore : std_logic := '1';
+  signal widget_capslock : std_logic := '1';
   signal resetbutton_state : std_logic := 'Z';
   signal matrix_offset : integer range 0 to 255 := 252;
   signal last_pmod_clock : std_logic := '1';
@@ -136,15 +138,17 @@ begin  -- behavioural
       reset <= reset_drive;
 
       keyboard_column8_select_out <= keyboard_column8_select_in;
+      capslock_out <= capslock_in and widget_capslock;
       
       restore_up_count <= restore_up_ticks(7 downto 0);
       restore_down_count <= restore_down_ticks(7 downto 0);
 
-      fiftyhz_counter <= fiftyhz_counter + 1;
-      if fiftyhz_counter = ( 48000000 / 50 ) then
+      if fiftyhz_counter /= ( 48000000 / 50 ) then
+        fiftyhz_counter <= fiftyhz_counter + 1;
+      else
         fiftyhz_counter <= (others => '0');        
 
-        restore_state <= restore_key and widget_restore;
+        restore_state <= restore_key and widget_restore and ps2_restore;
         last_restore_state <= restore_state;
 
         -- 0= restore down (pressed), 1 = restore up (not-pressed)
@@ -246,7 +250,7 @@ begin  -- behavioural
             else
               -- CAPS LOCK does CAPS LOCK, and speed control is enabled
               speed_gate <= '1';
-              capslock_out <= capslock_in and pmod_data_in(2);
+              widget_capslock <= pmod_data_in(2);
             end if;
             joy1(4) <= pmod_data_in(0);
             -- Check for RESTORE key being released, and adjust action
@@ -406,7 +410,7 @@ begin  -- behavioural
                            when x"17D" =>
                               -- Restore key shall do NMI as expected, but also
                               -- reset
-                             restore_state <= break;                             
+                             ps2_restore <= break;                             
                            -- Joysticks
                            when x"07d" =>  -- JOY1 LEFT
                              joy1(0) <= break;
