@@ -137,6 +137,7 @@ architecture Behavioral of container is
 
          no_kickstart : in std_logic;
          flopled : out std_logic;
+	 restore_key : in std_logic;
          
          ddr_counter : in unsigned(7 downto 0);
          ddr_state : in unsigned(7 downto 0);
@@ -156,7 +157,7 @@ architecture Behavioral of container is
          porta_pins : inout  std_logic_vector(7 downto 0);
          portb_pins : inout  std_logic_vector(7 downto 0);
          keyboard_column8 : inout std_logic;
-         caps_lock : inout std_logic;
+         caps_lock_key : in std_logic;
          
          -------------------------------------------------------------------------
          -- Lines for the SDcard interface itself
@@ -348,7 +349,7 @@ begin
       btncpureset => btncpureset,
       irq => irq,
       nmi => nmi,
-      restore_physical => restore_key,
+      restore_key => restore_key,
 
       no_kickstart => '0',
       ddr_counter => ddr_counter,
@@ -363,7 +364,7 @@ begin
       porta_pins => column(7 downto 0),
       portb_pins => row(7 downto 0),
       keyboard_column8 => column(8),
-      caps_lock => row(8),
+      caps_lock_key => row(8),
       
       ---------------------------------------------------------------------------
       -- IO lines to the ethernet controller
