@@ -407,9 +407,8 @@ reset_machine_state:
 		ora #$40
 		sta $d031
 		; 2. MEGA65 48MHz enable (requires C65 or C128 fast mode to truly enable, hence the above)
-		lda $d054
-		ora #$40
-		sta $d054
+		lda #$40
+		tsb $d054
 
 		; sprites off
 		lda #$00
@@ -1363,7 +1362,7 @@ resetdisplay:
 
 		; Enable alpha blending and horizontal blending to smooth display
 		; slightly
-		lda #$88
+		lda #$a8
 		sta $D054	;VIC-IV Control Register C
 
 		; We use VIC-II style registers as this resets video frame in
@@ -1388,7 +1387,7 @@ resetdisplay:
 		; characters and full-colour characters for chars >$FF for the logo
 		;
 		lda #$05	; 0000 0101
-		sta $d054	; VIC-IV Control Register C
+		tsb $d054	; VIC-IV Control Register C
 
 		; and 80 bytes (40 16-bit characters) per row.
 		;
@@ -1940,8 +1939,8 @@ g61:		sta $0800,x
 		inx
 		bne g61		
 
-		; reset video mode to normal
-		lda #$00
+		; reset video mode to normal (but with PAL + compositing enabled)
+		lda #$a8
 		sta $d054
 
 		lda #<40
