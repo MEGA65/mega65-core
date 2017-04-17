@@ -147,7 +147,7 @@ begin
           when 4 => luma := luma - 30;
           when 0 => luma := luma - 15;
           when others => null;    
-        end if;       
+        end case;       
       end if;
 
       scaled := to_unsigned(to_integer(red_in) * luma,16);
