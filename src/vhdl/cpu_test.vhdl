@@ -73,6 +73,7 @@ architecture behavior of cpu_test is
            irq : in  STD_LOGIC;
            nmi : in  STD_LOGIC;
            restore_key : in std_logic;
+           caps_lock_key : in std_logic;
 
            no_kickstart : in std_logic;
            
@@ -245,6 +246,8 @@ begin
       nmi => '1',
       restore_key => '1',
 
+      caps_lock_key => '1',
+      
       no_kickstart => '0',
       
       ps2data => '1',
