@@ -112,6 +112,7 @@ entity container is
          -- ps2data : in std_logic;
 
          flopled : out std_logic;
+         flopmotor : out std_logic;
          
          ----------------------------------------------------------------------
          -- Debug interfaces on Nexys4 board
@@ -256,6 +257,7 @@ begin
 --      micLRSel => micLRSel,
 
       flopled => flopled,
+--      flopmotor => flopmotor,
       ampPWM_l => pwm_l,
       ampPWM_r => pwm_r,
 

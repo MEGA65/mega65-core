@@ -66,6 +66,7 @@ entity machine is
          no_kickstart : in std_logic;
 
          flopled : out std_logic;
+         flopmotor : out std_logic;
          
          ddr_counter : in unsigned(7 downto 0);
          ddr_state : in unsigned(7 downto 0);
@@ -657,7 +658,9 @@ begin
       led(3) <= combinednmi;
       led(4) <= io_irq;
       led(5) <= io_nmi;
-      led(9 downto 6) <= (others => '0');
+      led(7 downto 6) <= (others => '0');
+      led(8) <= motor;
+      led(9) <= drive_led_out;
       led(10) <= cpu_hypervisor_mode;
       led(11) <= hyper_trap;
       led(12) <= hyper_trap_combined;
@@ -1150,6 +1153,7 @@ begin
       pmodb_in_buffer(5 downto 2) <= pmod_data_in;
       pmod_data_out <= pmodb_out_buffer;
       flopled <= drive_led_out;
+      flopmotor <= motor;
     end if;
   end process;
   
