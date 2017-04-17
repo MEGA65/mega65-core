@@ -1120,7 +1120,8 @@ begin
               b_strm1(1 downto 0) => (others => '0'),
               de_alpha => '1',
               alpha_strm(9 downto 2) => std_logic_vector(postsprite_pixel_colour(7 downto 0)),
-              alpha_strm(1 downto 0) => "00",
+              alpha_strm(1) => postsprite_pixel_colour(0),
+              alpha_strm(0) => postsprite_pixel_colour(0),
 
               unsigned(r_blnd) => composited_red,
               unsigned(g_blnd) => composited_green,

@@ -68,9 +68,10 @@ begin
       b_strm0_drive <= b_strm0;
       b_strm1_drive <= b_strm1;
 
-      -- Add one to alpha values so that they scale up to 100%, instead
-      -- of ~99.54%
-      alpha_strm_drive <= unsigned("0"&alpha_strm) +1;
+      -- Keep alpha values as-is, as we sign-extend the lowest bit into the bottom
+      -- two bits, so full brightness will be $3FF/$400 = 99.9%, which is fine,
+      -- and will avoid the wrap-around from stark white to black that we are seeing.
+      alpha_strm_drive <= unsigned("0"&alpha_strm);
       oneminusalpha <= (1024-to_integer(unsigned(alpha_strm)));
       
       r0 <= to_integer(unsigned(r_strm0))
