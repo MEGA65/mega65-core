@@ -1036,7 +1036,10 @@ begin  -- behavioural
                   f011_head_track <= f011_head_track + 1;
                 when x"20" =>         -- motor spin up
                   f011_motor <= '1';
+                  motor <= '1';
                 when x"00" =>         -- cancel running command (not implemented)
+                  f011_motor <= '0';
+                  motor <= '0';
                 when others =>        -- illegal command
                   null;
               end case;
