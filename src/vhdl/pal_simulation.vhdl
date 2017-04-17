@@ -1,4 +1,4 @@
-use work.all;
+
 
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
@@ -23,7 +23,7 @@ end pal_simulation;
       
 architecture behavioural of pal_simulation is
 
-  signal x_mod5 : integer := 0;
+  signal x_mod40 : integer := 0;
   signal y_mod40 : integer := 0;
 
 begin
