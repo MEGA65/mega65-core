@@ -362,10 +362,10 @@ begin
       fa_right => jdlo(4),
 
       fb_fire => jc(10),
-      fb_up => jdhi(5),
-      fb_left => jdhi(6),
-      fb_down => jdhi(7),
-      fb_right => jdhi(8),
+      fb_up => jdhi(7),
+      fb_left => jdhi(8),
+      fb_down => jdhi(9),
+      fb_right => jdhi(10),
       
       no_kickstart => '0',
       ddr_counter => ddr_counter,
