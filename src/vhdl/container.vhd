@@ -114,7 +114,10 @@ entity container is
          ----------------------------------------------------------------------
          jalo : inout std_logic_vector(4 downto 1) := (others => 'Z');
          jahi : inout std_logic_vector(10 downto 7) := (others => 'Z');
+         jdlo : inout std_logic_vector(4 downto 1) := (others => 'Z');
+         jdhi : inout std_logic_vector(10 downto 7) := (others => 'Z');
          jclo : inout std_logic_vector(4 downto 1) := (others => 'Z');
+         jc : inout std_logic_vector(10 downto 9) := (others => 'Z');
          
          ----------------------------------------------------------------------
          -- Flash RAM for holding config
@@ -353,16 +356,16 @@ begin
       caps_lock_key => sw(8),
 
       fa_fire => jc(9),
-      fa_up =>  jd(1),
-      fa_left => jd(2),
-      fa_down => jd(3),
-      fa_right => jd(4),
+      fa_up =>  jdlo(1),
+      fa_left => jdlo(2),
+      fa_down => jdlo(3),
+      fa_right => jdlo(4),
 
       fb_fire => jc(10),
-      fb_up => jd(5),
-      fb_left => jd(6),
-      fb_down => jd(7),
-      fb_right => jd(8),
+      fb_up => jdhi(5),
+      fb_left => jdhi(6),
+      fb_down => jdhi(7),
+      fb_right => jdhi(8),
       
       no_kickstart => '0',
       ddr_counter => ddr_counter,

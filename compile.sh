@@ -160,7 +160,7 @@ fi
 #
 datetime=`date +%Y%m%d_%H:%M:%S`
 echo "==> $datetime Starting: bitgen, see container.bgn"
-bitgen ${ISE_COMMON_OPTS} -g SPI_buswidth:4 -g ConfigRate:66 -f ./isework/container.ut ./isework/container.ncd > $outfile6
+bitgen ${ISE_COMMON_OPTS} -g SPI_buswidth:4 -g ConfigRate:33 -f ./isework/container.ut ./isework/container.ncd > $outfile6
 retcode=$?
 if [ $retcode -ne 0 ] ; then
   echo "bitgen failed with return code $retcode" && exit 1
