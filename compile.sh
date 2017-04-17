@@ -160,7 +160,7 @@ fi
 #
 datetime=`date +%Y%m%d_%H:%M:%S`
 echo "==> $datetime Starting: bitgen, see container.bgn"
-bitgen ${ISE_COMMON_OPTS} -f ./isework/container.ut ./isework/container.ncd > $outfile6
+bitgen ${ISE_COMMON_OPTS} -g SPI_buswidth:4 -g ConfigRate:66 -f ./isework/container.ut ./isework/container.ncd > $outfile6
 retcode=$?
 if [ $retcode -ne 0 ] ; then
   echo "bitgen failed with return code $retcode" && exit 1
@@ -196,6 +196,9 @@ done
 # now copy the bit-file to the sdcard-output directory, and timestamp it with time and git-status
 echo "cp ./isework/container.bit ./sdcard-files/bit${datetime2}_${branch2}_${gitstring}.bit"
 cp       ./isework/container.bit ./sdcard-files/bit${datetime2}_${branch2}_${gitstring}.bit
+echo "Generating .MCS SPI flash file from .BIT file..."
+promgen -spi -p mcs -w -o ./sdcard-files/bit${datetime2}_${branch2}_${gitstring}.mcs -s 16384 -u 0 isework/container.bit
+
 # # and the KICKUP file
 # echo "cp ./src/KICKUP.M65 ./sdcard-files"
 #       cp ./src/KICKUP.M65 ./sdcard-files
