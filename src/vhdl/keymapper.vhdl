@@ -81,6 +81,7 @@ architecture behavioural of keymapper is
 
   signal ps2_restore : std_logic := '1';
   signal widget_restore : std_logic := '1';
+  signal ps2_capslock : std_logic := '1';
   signal widget_capslock : std_logic := '1';
   signal resetbutton_state : std_logic := 'Z';
   signal matrix_offset : integer range 0 to 255 := 252;
@@ -140,19 +141,27 @@ begin  -- behavioural
   begin  -- process keyread
     if rising_edge(ioclock) then      
       reset <= reset_drive;
-
+      
       keyboard_column8_select_out <= keyboard_column8_select_in;
-      capslock_out <= capslock_in and widget_capslock;
+      if widget_enable='1' and ps2_enable='1' then
+        capslock_out <= capslock_in and widget_capslock and ps2_capslock;
+      elsif ps2_enable='1' then
+        capslock_out <= capslock_in and ps2_capslock;
+      elsif widget_enable='1' then
+        capslock_out <= capslock_in and widget_capslock;
+      else
+        capslock_out <= capslock_in;
+      end if;
 
       -- Debug problems with restore and capslock
       key_debug_out(0) <= capslock_in;
       key_debug_out(1) <= widget_capslock;
-      key_debug_out(2) <= restore_key;
-      key_debug_out(3) <= widget_restore;
-      key_debug_out(4) <= ps2_restore;
-      key_debug_out(5) <= restore_state;
-      key_debug_out(6) <= last_restore_state;
-      key_debug_out(7) <= '1';
+      key_debug_out(2) <= ps2_capslock;
+      key_debug_out(3) <= restore_key;
+      key_debug_out(4) <= widget_restore;
+      key_debug_out(5) <= ps2_restore;
+      key_debug_out(6) <= restore_state;
+      key_debug_out(7) <= last_restore_state;
       
       restore_up_count <= restore_up_ticks(7 downto 0);
       restore_down_count <= restore_down_ticks(7 downto 0);
@@ -162,7 +171,16 @@ begin  -- behavioural
       else
         fiftyhz_counter <= (others => '0');        
 
-        restore_state <= restore_key and widget_restore and ps2_restore;
+        if ps2_enable = '1' and widget_enable = '1' then
+          restore_state <= restore_key and widget_restore and ps2_restore;
+        elsif ps2_enable = '1' then
+          restore_state <= restore_key and ps2_restore;
+        elsif widget_enable = '1' then
+          restore_state <= restore_key and widget_restore;
+        else
+          restore_state <= restore_key;
+        end if;
+        
         last_restore_state <= restore_state;
 
         -- 0= restore down (pressed), 1 = restore up (not-pressed)
@@ -260,7 +278,8 @@ begin  -- behavioural
             if speed_gate_enable='1' then
               -- CAPS LOCK UP = force 48MHz, up = enable speed control
               speed_gate <= pmod_data_in(2);
-              capslock_out <= capslock_in;
+              -- So no caps lock indication from this key
+              widget_capslock <= '1';
             else
               -- CAPS LOCK does CAPS LOCK, and speed control is enabled
               speed_gate <= '1';
@@ -421,6 +440,11 @@ begin  -- behavioural
                          last_scan_code(8 downto 0) <= full_scan_code(8 downto 0);
 
                          case full_scan_code is
+                           when x"058" =>
+                             -- caps lock key: toggle caps lock state on release
+                             if break='1' then
+                               ps2_capslock <= not ps2_capslock;
+                             end if;
                            when x"17D" =>
                               -- Restore key shall do NMI as expected, but also
                               -- reset
