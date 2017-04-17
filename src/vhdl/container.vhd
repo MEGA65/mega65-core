@@ -485,8 +485,8 @@ begin
       nmi => nmi,
       restore_key => btn(1),
 
-      -- Wire up a dummy caps_lock key on switch 9
-      caps_lock_key => sw(9),
+      -- Wire up a dummy caps_lock key on switch 8
+      caps_lock_key => sw(8),
       
       no_kickstart => '0',
       ddr_counter => ddr_counter,
