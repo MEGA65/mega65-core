@@ -142,8 +142,11 @@ begin
       -- Put a narrow dim region between each horizontal H320 pixel to simulate
       -- CRT phosphor resolution
       if shadow_mask_enable='1' then
-        if x_mod5 = 4 then
-          luma := luma - 30;
+        case x_mod5 is
+          when 3 => luma := luma - 15;
+          when 4 => luma := luma - 30;
+          when 0 => luma := luma - 15;
+          when others => null;    
         end if;       
       end if;
 
