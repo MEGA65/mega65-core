@@ -352,17 +352,17 @@ begin
       -- Wire up a dummy caps_lock key on switch 8
       caps_lock_key => sw(8),
 
-      fa_fire => '1',
-      fa_up => '1',
-      fa_left => '1',
-      fa_down => '1',
-      fa_right => '1',
+      fa_fire => jc(9),
+      fa_up =>  jd(1),
+      fa_left => jd(2),
+      fa_down => jd(3),
+      fa_right => jd(4),
 
-      fb_fire => '1',
-      fb_up => '1',
-      fb_left => '1',
-      fb_down => '1',
-      fb_right => '1',
+      fb_fire => jc(10),
+      fb_up => jd(5),
+      fb_left => jd(6),
+      fb_down => jd(7),
+      fb_right => jd(8),
       
       no_kickstart => '0',
       ddr_counter => ddr_counter,
