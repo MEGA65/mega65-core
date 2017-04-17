@@ -81,7 +81,7 @@ architecture behavioural of keymapper is
 
   signal ps2_restore : std_logic := '1';
   signal widget_restore : std_logic := '1';
-  signal ps2_capslock : std_logic := '1';
+  signal ps2_capslock : std_logic := '0';
   signal widget_capslock : std_logic := '1';
   signal resetbutton_state : std_logic := 'Z';
   signal matrix_offset : integer range 0 to 255 := 252;
@@ -144,9 +144,9 @@ begin  -- behavioural
       
       keyboard_column8_select_out <= keyboard_column8_select_in;
       if widget_enable='1' and ps2_enable='1' then
-        capslock_out <= capslock_in and widget_capslock and ps2_capslock;
+        capslock_out <= capslock_in and (widget_capslock xor ps2_capslock);
       elsif ps2_enable='1' then
-        capslock_out <= capslock_in and ps2_capslock;
+        capslock_out <= capslock_in xor ps2_capslock;
       elsif widget_enable='1' then
         capslock_out <= capslock_in and widget_capslock;
       else
