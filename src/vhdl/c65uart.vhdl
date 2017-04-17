@@ -247,6 +247,9 @@ begin  -- behavioural
           fastio_rdata(0) <= widget_enable_internal;
           -- @IO:GS $D612.1 DEBUG - Enable ps2 keyboard/joystick input
           fastio_rdata(1) <= ps2_enable_internal;
+        when x"13" =>
+          -- @IO:GS $D613 DEBUG - Keyboard debug flags: will be removed after debugging
+          fastio_rdata <= key_debug;
         when others => fastio_rdata <= (others => 'Z');
       end case;
     else
