@@ -45,6 +45,17 @@ entity iomapper is
         porta_pins : inout  std_logic_vector(7 downto 0);
         portb_pins : inout  std_logic_vector(7 downto 0);
         keyboard_column8_out : out std_logic;
+
+        fa_left : in std_logic;
+        fa_right : in std_logic;
+        fa_up : in std_logic;
+        fa_down : in std_logic;
+        fa_fire : in std_logic;
+        fb_left : in std_logic;
+        fb_right : in std_logic;
+        fb_up : in std_logic;
+        fb_down : in std_logic;
+        fb_fire : in std_logic;
         
         ps2data : in std_logic;
         ps2clock : in std_logic;
@@ -386,6 +397,7 @@ architecture behavioral of iomapper is
   signal key_debug : std_logic_vector(7 downto 0);
   signal widget_enable : std_logic;
   signal ps2_enable : std_logic;
+  signal joy_enable : std_logic;
 
   signal hyper_trap_count : unsigned(7 downto 0) := x"00";
   signal restore_up_count : unsigned(7 downto 0) := x"00";
@@ -542,6 +554,7 @@ begin
       key_debug => key_debug,
       widget_enable => widget_enable,
       ps2_enable => ps2_enable,
+      joy_enable => joy_enable,
       uart_rx => uart_rx,
       uart_tx => uart_tx,
       portf => pmoda,
@@ -556,6 +569,7 @@ begin
     keymapper0 : entity work.keymapper port map (
     widget_enable => widget_enable,
     ps2_enable => ps2_enable,
+    joy_enable => joy_enable,
     ioclock       => clk,
     cpu_hypervisor_mode => cpu_hypervisor_mode,
     drive_led_out => drive_led_out,
@@ -577,6 +591,18 @@ begin
     porta_ddr      => cia1porta_ddr,
     portb_ddr      => cia1portb_ddr,
 
+    fa_fire => fa_fire,
+    fa_up => fa_up,
+    fa_left => fa_left,
+    fa_down => fa_down,
+    fa_right => fa_right,
+    
+    fb_fire => fb_fire,
+    fb_up => fb_up,
+    fb_left => fb_left,
+    fb_down => fb_down,
+    fb_right => fb_right,  
+    
     key_debug_out => key_debug,
   
     porta_pins => porta_pins,

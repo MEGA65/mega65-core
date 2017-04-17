@@ -10,6 +10,7 @@ entity keymapper is
 
     widget_enable : in std_logic;
     ps2_enable : in std_logic;
+    joy_enable : in std_logic;
     
     cpu_hypervisor_mode : in std_logic;
     drive_led_out : in std_logic;
@@ -48,7 +49,19 @@ entity keymapper is
     -- Actual physical pins for CIA1
     porta_pins : inout std_logic_vector(7 downto 0);
     portb_pins : inout std_logic_vector(7 downto 0);
-
+    -- And for the joysticks (we can later make these separately readable, without
+    -- interfering with the keyboard scanning)
+    fa_left : in std_logic;
+    fa_right : in std_logic;
+    fa_up : in std_logic;
+    fa_down : in std_logic;
+    fa_fire : in std_logic;
+    fb_left : in std_logic;
+    fb_right : in std_logic;
+    fb_up : in std_logic;
+    fb_down : in std_logic;
+    fb_fire : in std_logic;
+    
     pota_x : out unsigned(7 downto 0) := x"ff";
     pota_y : out unsigned(7 downto 0) := x"ff";
     potb_x : out unsigned(7 downto 0) := x"ff";    
@@ -118,9 +131,13 @@ architecture behavioural of keymapper is
   signal right_shift : std_logic := '1';
   signal ps2 : std_logic := '0';
   signal matrix : std_logic_vector(71 downto 0) := (others =>'1');
+  -- PS2 joystick keys
   signal joy1 : std_logic_vector(7 downto 0) := (others =>'1');
   signal joy2 : std_logic_vector(7 downto 0) := (others =>'1');
-
+  -- Physical joysticks
+  signal phyjoy1 : std_logic_vector(7 downto 0) := (others =>'1');
+  signal phyjoy2 : std_logic_vector(7 downto 0) := (others =>'1');
+  
   signal restore_state : std_logic := '1';
   signal last_restore_state : std_logic := '1';
   signal restore_down_ticks : unsigned(15 downto 0) := (others => '0');  
@@ -141,6 +158,23 @@ begin  -- behavioural
   begin  -- process keyread
     if rising_edge(ioclock) then      
       reset <= reset_drive;
+
+      if joy_enable='1' then
+        phyjoy1(0) <= fa_left;
+        phyjoy1(1) <= fa_right;
+        phyjoy1(2) <= fa_up;
+        phyjoy1(3) <= fa_down;
+        phyjoy1(4) <= fa_fire;
+      
+        phyjoy2(0) <= fb_left;
+        phyjoy2(1) <= fb_right;
+        phyjoy2(2) <= fb_up;
+        phyjoy2(3) <= fb_down;
+        phyjoy2(4) <= fb_fire;
+      else
+        phyjoy1 <= (others =>'1');
+        phyjoy2 <= (others =>'1');
+      end if;
       
       keyboard_column8_select_out <= keyboard_column8_select_in;
       if widget_enable='1' and ps2_enable='1' then
@@ -677,13 +711,13 @@ begin  -- behavioural
           -- CIA should read bit as low
           porta_out(b) <= '0';
         else
-          porta_out(b) <= porta_value(b) and joy2(b);
+          porta_out(b) <= porta_value(b) and joy2(b) and phyjoy2(b);
         end if;
         if (portb_ddr(b) = '0') and (portb_pins(b) = '0') then
           -- CIA should read bit as low
           portb_out(b) <= '0';
         else
-          portb_out(b) <= portb_value(b) and joy1(b);
+          portb_out(b) <= portb_value(b) and joy1(b) and phyjoy1(b);
         end if;
       end loop;
       

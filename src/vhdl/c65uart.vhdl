@@ -32,6 +32,7 @@ entity c65uart is
     key_debug : in std_logic_vector(7 downto 0);
     widget_enable : out std_logic;
     ps2_enable : out std_logic;
+    joy_enable : out std_logic;
     
     portf : inout std_logic_vector(7 downto 0);
     portg : in std_logic_vector(7 downto 0);
@@ -125,6 +126,7 @@ architecture behavioural of c65uart is
 
   signal widget_enable_internal : std_logic := '1';
   signal ps2_enable_internal : std_logic := '1';
+  signal joy_enable_internal : std_logic := '1';
   
 begin  -- behavioural
   
@@ -161,6 +163,7 @@ begin  -- behavioural
 
       widget_enable <= widget_enable_internal;
       ps2_enable <= ps2_enable_internal;
+      joy_enable <= joy_enable_internal;
       
       rx_clear_flags <= '0';
       if (fastio_address(19 downto 16) = x"D")
@@ -247,6 +250,8 @@ begin  -- behavioural
           fastio_rdata(0) <= widget_enable_internal;
           -- @IO:GS $D612.1 DEBUG - Enable ps2 keyboard/joystick input
           fastio_rdata(1) <= ps2_enable_internal;
+          -- @IO:GS $D612.2 DEBUG - Enable physical joystick input
+          fastio_rdata(2) <= joy_enable_internal;
         when x"13" =>
           -- @IO:GS $D613 DEBUG - Keyboard debug flags: will be removed after debugging
           fastio_rdata <= unsigned(key_debug);
@@ -458,6 +463,7 @@ begin  -- behavioural
           when x"12" =>
             widget_enable_internal <= std_logic(fastio_wdata(0));
             ps2_enable_internal <= std_logic(fastio_wdata(1));
+            joy_enable_internal <= std_logic(fastio_wdata(2));
           when others => null;
         end case;
       end if;

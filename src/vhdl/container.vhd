@@ -231,142 +231,6 @@ architecture Behavioral of container is
    );
   end component;
   
-  component machine is
-  Port ( pixelclock : STD_LOGIC;
-         pixelclock2x : STD_LOGIC;
-         cpuclock : std_logic;
-         clock50mhz : std_logic;
-         ioclock : std_logic;
-         uartclock : std_logic;
-         btnCpuReset : in  STD_LOGIC;
-         irq : in  STD_LOGIC;
-         nmi : in  STD_LOGIC;
-
-         caps_lock_key : in std_logic;
-         restore_key : in std_logic;
-
-         no_kickstart : in std_logic;
-
-         ddr_counter : in unsigned(7 downto 0);
-         ddr_state : in unsigned(7 downto 0);
-
-         ----------------------------------------------------------------------
-         -- CIA1 ports for keyboard/joystick 
-         ----------------------------------------------------------------------
-         porta_pins : inout  std_logic_vector(7 downto 0);
-         portb_pins : inout  std_logic_vector(7 downto 0);
-         
-         ----------------------------------------------------------------------
-         -- VGA output
-         ----------------------------------------------------------------------
-         vsync : out  STD_LOGIC;
-         hsync : out  STD_LOGIC;
-         vgared : out  UNSIGNED (7 downto 0);
-         vgagreen : out  UNSIGNED (7 downto 0);
-         vgablue : out  UNSIGNED (7 downto 0);
-
-         ---------------------------------------------------------------------------
-         -- IO lines to the ethernet controller
-         ---------------------------------------------------------------------------
-         eth_mdio : inout std_logic;
-         eth_mdc : out std_logic;
-         eth_reset : out std_logic;
-         eth_rxd : in unsigned(1 downto 0);
-         eth_txd : out unsigned(1 downto 0);
-         eth_txen : out std_logic;
-         eth_rxer : in std_logic;
-         eth_rxdv : in std_logic;
-         eth_interrupt : in std_logic;
-         
-         -------------------------------------------------------------------------
-         -- Lines for the SDcard interface itself
-         -------------------------------------------------------------------------
-         cs_bo : out std_logic;
-         sclk_o : out std_logic;
-         mosi_o : out std_logic;
-         miso_i : in  std_logic;
-
-         ---------------------------------------------------------------------------
-         -- Lines for other devices that we handle here
-         ---------------------------------------------------------------------------
-         aclMISO : in std_logic;
-         aclMOSI : out std_logic;
-         aclSS : out std_logic;
-         aclSCK : out std_logic;
-         aclInt1 : in std_logic;
-         aclInt2 : in std_logic;
-    
-         micData : in std_logic;
-         micClk : out std_logic;
-         micLRSel : out std_logic;
-
-         ampPWM : out std_logic;
-         ampSD : out std_logic;
-
-         tmpSDA : out std_logic;
-         tmpSCL : out std_logic;
-         tmpInt : in std_logic;
-         tmpCT : in std_logic;
-
-         ----------------------------------------------------------------------
-         -- Flash RAM for holding config
-         ----------------------------------------------------------------------
-         QspiSCK : out std_logic;
-         QspiDB : inout std_logic_vector(3 downto 0);
-         QspiCSn : out std_logic;
-
-         -- Temperature of FPGA
-         fpga_temperature : in std_logic_vector(11 downto 0);
-         
-         ---------------------------------------------------------------------------
-         -- Interface to Slow RAM (wrapper around a 128MB DDR2 RAM chip)
-         ---------------------------------------------------------------------------
-         slowram_addr : out std_logic_vector(26 downto 0);
-         slowram_we : out std_logic;
-         slowram_request_toggle : out std_logic;
-         slowram_done_toggle : in std_logic;
-         slowram_datain : out std_logic_vector(7 downto 0);
-         slowram_addr_reflect : in std_logic_vector(26 downto 0);
-         slowram_datain_reflect : in std_logic_vector(7 downto 0);
-
-         -- simple-dual-port cache RAM interface so that CPU doesn't have to read
-         -- data cross-clock
-         cache_address        : out std_logic_vector(8 downto 0);
-         cache_read_data      : in std_logic_vector(150 downto 0);   
-         
-         ----------------------------------------------------------------------
-         -- PS/2 adapted USB keyboard & joystick connector.
-         -- For now we will use a keyrah adapter to connect to the keyboard.
-         ----------------------------------------------------------------------
-         ps2data : in std_logic;
-         ps2clock : in std_logic;         
-
-         ----------------------------------------------------------------------
-         -- PMOD interface for keyboard, joystick, expansion port etc board.
-         ----------------------------------------------------------------------
-         pmod_clock : in std_logic;
-         pmod_start_of_sequence : in std_logic;
-         pmod_data_in : in std_logic_vector(3 downto 0);
-         pmod_data_out : out std_logic_vector(1 downto 0);
-         pmoda : inout std_logic_vector(7 downto 0);
-         uart_rx : in std_logic;
-         uart_tx : out std_logic;
-
-         ----------------------------------------------------------------------
-         -- Debug interfaces on Nexys4 board
-         ----------------------------------------------------------------------
-         led : out std_logic_vector(15 downto 0);
-         sw : in std_logic_vector(15 downto 0);
-         btn : in std_logic_vector(4 downto 0);
-
-         UART_TXD : out std_logic;
-         RsRx : in std_logic;
-         
-         sseg_ca : out std_logic_vector(7 downto 0);
-         sseg_an : out std_logic_vector(7 downto 0)
-         );
-  end component;
-
   
   signal irq : std_logic := '1';
   signal nmi : std_logic := '1';
@@ -470,7 +334,7 @@ begin
 --      ddr2_dqs_n => ddr2_dqs_n
    );
   
-  machine0: machine
+  machine0: entity work.machine
     port map (
       pixelclock      => pixelclock,
       pixelclock2x      => pixelclock2x,
@@ -487,6 +351,18 @@ begin
 
       -- Wire up a dummy caps_lock key on switch 8
       caps_lock_key => sw(8),
+
+      fa_fire => '1',
+      fa_up => '1',
+      fa_left => '1',
+      fa_down => '1',
+      fa_right => '1',
+
+      fb_fire => '1',
+      fb_up => '1',
+      fb_left => '1',
+      fb_down => '1',
+      fb_right => '1',
       
       no_kickstart => '0',
       ddr_counter => ddr_counter,
