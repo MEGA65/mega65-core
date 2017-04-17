@@ -9,6 +9,7 @@ use work.debugtools.all;
 entity pal_simulation is
   port(
     clock : in std_logic;
+    shadow_mask_enable : in std_logic;
     vertical_phase : in unsigned(7 downto 0) := "00000000";
     red_in : in unsigned(7 downto 0);
     green_in : in unsigned(7 downto 0);
@@ -23,7 +24,7 @@ end pal_simulation;
       
 architecture behavioural of pal_simulation is
 
-  signal x_mod40 : integer := 0;
+  signal x_mod5 : integer := 0;
   signal y_mod40 : integer := 0;
 
 begin
@@ -34,7 +35,7 @@ begin
     if rising_edge(clock) then
 
       if x_position = "000000000000" then
-        x_mod40 <= 0;
+        x_mod5 <= 0;
 
         if y_position = "000000000000" then
         y_mod40 <= to_integer(vertical_phase);
@@ -47,10 +48,10 @@ begin
       end if;
       
       else
-        if x_mod40 = 39 then
-          x_mod40 <= 0;
+        if x_mod5 = 4 then
+          x_mod5 <= 0;
         else
-          x_mod40 <= x_mod40 + 1;
+          x_mod5 <= x_mod5 + 1;
         end if;
       end if;
 
@@ -137,6 +138,14 @@ begin
         -- else...
         when others => luma := 256;
       end case;
+
+      -- Put a narrow dim region between each horizontal H320 pixel to simulate
+      -- CRT phosphor resolution
+      if shadow_mask_enable='1' then
+        if x_mod5 = 4 then
+          luma := luma - 30;
+        end if;       
+      end if;
 
       scaled := to_unsigned(to_integer(red_in) * luma,16);
       red_out <= scaled(15 downto 8);

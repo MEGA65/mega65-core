@@ -554,6 +554,7 @@ architecture Behavioral of viciv is
 
   signal horizontal_filter : std_logic := '1';
   signal pal_simulate : std_logic := '1';
+  signal shadow_mask_enable : std_logic := '1';
   
   signal debug_x : unsigned(11 downto 0) := "111111111110";
   signal debug_y : unsigned(11 downto 0) := "111111111110";
@@ -1129,6 +1130,7 @@ begin
   pal_sim0: entity work.pal_simulation
     port map(
       clock => pixelclock,
+      shadow_mask_enable => shadow_mask_enable,
       red_in => vga_palin_red,
       green_in => vga_palin_green,
       blue_in => vga_palin_blue,
@@ -1612,7 +1614,7 @@ begin
           fastio_rdata(7) <= compositer_enable;
           fastio_rdata(6) <= viciv_fast_internal;
           fastio_rdata(5) <= pal_simulate;
-          fastio_rdata(4) <= '1'; -- reserved
+          fastio_rdata(4) <= shadow_mask_enable;
           fastio_rdata(3) <= horizontal_filter;
           fastio_rdata(2) <= fullcolour_extendedchars;
           fastio_rdata(1) <= fullcolour_8bitchars;
@@ -2204,6 +2206,8 @@ begin
           viciv_fast_internal <= fastio_wdata(6);
           -- @IO:GS $D054.3 VIC-IV video output pal simulation
           pal_simulate <= fastio_wdata(5);
+          -- @IO:GS $D054.4 VIC-IV video output pal simulation shadow mask enable
+          shadow_mask_enable <= fastio_wdata(4);
           -- @IO:GS $D054.3 VIC-IV video output horizontal smoothing enable
           horizontal_filter <= fastio_wdata(3);
           -- @IO:GS $D054.2 VIC-IV enable full-colour mode for character numbers >$FF
