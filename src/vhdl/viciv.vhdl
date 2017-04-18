@@ -606,9 +606,11 @@ architecture Behavioral of viciv is
   signal virtual_row_width_minus1 : unsigned(15 downto 0) := to_unsigned(40,16);
   signal end_of_row_16 : std_logic := '0';
   signal end_of_row : std_logic := '0';
-  -- Each logical pixel will be 128/n physical pixels wide
-  -- 40 columns needs 24 (=$19)
-  -- 80 columns needs 48 (=$2c)
+  -- Each logical pixel will be 120/n physical pixels wide
+  -- (it must be a multiple of both 3 and 5 to allow integer scaling for 40 and
+  -- 80 column modes)
+  -- 40 columns needs 120/5=24 (=$18)
+  -- 80 columns needs 120/3=40 (=$2c)
   signal chargen_x_scale : unsigned(7 downto 0) := x"19";  
   signal sprite_x_scale : unsigned(7 downto 0) := x"19";  
   -- Each character pixel will be (n+1) pixels high
@@ -944,7 +946,8 @@ architecture Behavioral of viciv is
 
   -- Raster buffer
   -- Read address is in 128th of pixels
-  signal raster_buffer_read_address : unsigned(18 downto 0);
+  signal raster_buffer_read_address : unsigned(10 downto 0);
+  signal raster_buffer_read_address_sub : unsigned(9 downto 0);
   signal raster_buffer_read_data : unsigned(17 downto 0);
   signal raster_buffer_write_address : unsigned(11 downto 0);
   signal raster_buffer_write_data : unsigned(17 downto 0);
@@ -997,7 +1000,7 @@ begin
       dinl => std_logic_vector(raster_buffer_write_data),
       unsigned(doutr) => raster_buffer_read_data,
       addrl => std_logic_vector(raster_buffer_write_address(10 downto 0)),
-      addrr => std_logic_vector(raster_buffer_read_address(17 downto 7))
+      addrr => std_logic_vector(raster_buffer_read_address)
       );
   
   buffer1: component screen_ram_buffer
@@ -1246,7 +1249,7 @@ begin
           border_x_left <= to_unsigned(140+(7*5),12);
           border_x_right <= to_unsigned(1920-140-1-(9*5),12);
         end if;
-        chargen_x_scale <= x"19";
+        chargen_x_scale <= x"18";
         virtual_row_width <= to_unsigned(40,16);
       elsif reg_h640='1' and reg_h1280='0' then
         -- 80 column mode (3x pixels, no side border)
@@ -1260,7 +1263,7 @@ begin
           border_x_left <= to_unsigned(27+(7*3),12);
           border_x_right <= to_unsigned(1920-27-(9*3),12);
         end if;
-        chargen_x_scale <= x"2c";
+        chargen_x_scale <= x"28";
         virtual_row_width <= to_unsigned(80,16);
       elsif reg_h640='0' and reg_h1280='1' then        
         -- 160 column mode (natural pixels, fat side borders)
@@ -1275,7 +1278,7 @@ begin
           border_x_left <= to_unsigned(320+(7*1),12);
           border_x_right <= to_unsigned(1920-320-(9*1),12);
         end if;
-        chargen_x_scale <= x"80";
+        chargen_x_scale <= x"78";
         virtual_row_width <= to_unsigned(160,16);
       else
         -- 240 column mode (natural pixels, no side border)
@@ -1290,7 +1293,7 @@ begin
           border_x_right <= to_unsigned(1920-(9*3),12);
         end if;
         virtual_row_width <= to_unsigned(240,16);
-        chargen_x_scale <= x"80";
+        chargen_x_scale <= x"78";
       end if;
       if reg_v400='0' then
         -- set vertical borders based on twentyfourlines
@@ -2234,7 +2237,7 @@ begin
           -- @IO:GS $D059 VIC-IV characters per logical text row (MSB)
           virtual_row_width(15 downto 8) <= unsigned(fastio_wdata);
         elsif register_number=90 then
-          -- @IO:GS $D05A VIC-IV horizontal hardware scale setting
+          -- @IO:GS $D05A VIC-IV horizontal hardware scale setting (pixel 120ths)
           chargen_x_scale <= unsigned(fastio_wdata);
         elsif register_number=91 then
           -- @IO:GS $D05B VIC-IV vertical hardware scale setting
@@ -2620,7 +2623,7 @@ begin
         chargen_active <= '0';
         chargen_active_soon <= '0';
       end if;
-      if raster_buffer_read_address(18 downto 7) > raster_buffer_write_address then
+      if raster_buffer_read_address > raster_buffer_write_address then
         report "stopping character generator due to buffer exhaustion"
           severity note;
         chargen_active <= '0';
@@ -2630,7 +2633,15 @@ begin
       -- Update current horizontal sub-pixel and pixel position
       -- Work out if a new logical pixel starts on the next physical pixel
       -- (overrides general advance).
-      raster_buffer_read_address <= raster_buffer_read_address + chargen_x_scale;
+      if raster_buffer_read_address_sub >= 240 then
+        raster_buffer_read_address_sub <= raster_buffer_read_address_sub - 240 + chargen_x_scale;
+        raster_buffer_read_address <= raster_buffer_read_address + 2;
+      elsif raster_buffer_read_address_sub >= 120 then
+        raster_buffer_read_address_sub <= raster_buffer_read_address_sub - 120 + chargen_x_scale;
+        raster_buffer_read_address <= raster_buffer_read_address + 1;
+      else
+        raster_buffer_read_address_sub <= raster_buffer_read_address_sub + chargen_x_scale;
+      end if;    
 
       report "chargen_active=" & std_logic'image(chargen_active)
         & ", xcounter = " & to_string(std_logic_vector(xcounter))
@@ -2650,6 +2661,7 @@ begin
         report "reset chargen_x" severity note;
         -- Request first byte of pre-rendered character data
         raster_buffer_read_address <= (others => '0');
+        raster_buffer_read_address_sub <= (others => '0');
       end if;
       if xcounter = x_chargen_start then
         -- Gets masked to 0 below if displayy is above y_chargen_start
@@ -2766,7 +2778,7 @@ begin
           report "VICIV: no character pixel data as chargen_active=0" severity note;
         else
           -- Otherwise read pixel data from raster buffer
-          report "VICIV: rb_read_address = $" & to_hstring(raster_buffer_read_address(18 downto 7))
+          report "VICIV: rb_read_address = $" & to_hstring(raster_buffer_read_address)
             & ", data = $" & to_hstring(raster_buffer_read_data(7 downto 0)) severity note;
           pixel_colour <= raster_buffer_read_data(7 downto 0);
           pixel_alpha <= raster_buffer_read_data(16 downto 9);
