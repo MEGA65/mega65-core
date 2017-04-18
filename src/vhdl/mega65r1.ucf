@@ -15,6 +15,65 @@ NET "btnCpuReset"     LOC=AA18 | IOSTANDARD=LVCMOS33; #
 # Floppy drive LED
 NET "FLOPLED" LOC=J16 | IOSTANDARD=LVCMOS33;
 
+# CBM-488/IEC serial port
+NET "iec_clk_en" LOC=AA21 | IOSTANDARD=LVCMOS33; #
+NET "iec_data_en" LOC=Y21 | IOSTANDARD=LVCMOS33; #
+NET "iec_data_o" LOC=Y22 | IOSTANDARD=LVCMOS33; #
+NET "iec_reset" LOC=AB21 | IOSTANDARD=LVCMOS33; #
+NET "iec_clk_o" LOC=AB22 | IOSTANDARD=LVCMOS33; #
+NET "iec_data_i" LOC=W19 | IOSTANDARD=LVCMOS33; #
+NET "iec_clk_i" LOC=Y19 | IOSTANDARD=LVCMOS33; #
+NET "iec_atn" LOC=P14 | IOSTANDARD=LVCMOS33; #
+
+# C64 Cartridge port control lines
+# *_dir=1 means FPGA->Port, =0 means Port->FPGA
+NET "cart_ctrl_dir" LOC=Y18 | IOSTANDARD=LVCMOS33; #  R/_W, ROMH, IO1, GAME, EXROM, IO2, ROML, BA
+NET "cart_haddr_dir" LOC=L19 | IOSTANDARD=LVCMOS33; # A15-8
+NET "cart_laddr_dir" LOC=L20 | IOSTANDARD=LVCMOS33; # A7-0
+NET "cart_data_dir" LOC=W21 | IOSTANDARD=LVCMOS33; # D7-D0
+
+# C64 Cartridge port
+NET "cart_phi2" LOC=V22 | IOSTANDARD=LVCMOS33; #  output only
+NET "cart_dotclock" LOC=U21 | IOSTANDARD=LVCMOS33; # output only
+NET "cart_reset" LOC=W22 | IOSTANDARD=LVCMOS33; # output only
+NET "cart_nmi" LOC=W20 | IOSTANDARD=LVCMOS33; # input only
+NET "cart_irq" LOC=V18 | IOSTANDARD=LVCMOS33; # input only
+NET "cart_dma" LOC=AB18 | IOSTANDARD=LVCMOS33; # input only
+NET "cart_exrom" LOC=R18 | IOSTANDARD=LVCMOS33; # bidirectional
+NET "cart_ba" LOC=N15 | IOSTANDARD=LVCMOS33; # bidirectional
+NET "cart_rw" LOC=AA19 | IOSTANDARD=LVCMOS33; # bidirectional
+NET "cart_roml" LOC=R19 | IOSTANDARD=LVCMOS33; # bidirectional
+NET "cart_romh" LOC=V17 | IOSTANDARD=LVCMOS33; # bidirectional
+NET "cart_io1" LOC=W17 | IOSTANDARD=LVCMOS33; # bidirectional
+NET "cart_game" LOC=U17 | IOSTANDARD=LVCMOS33; # bidirectional
+NET "cart_io2" LOC=T18 | IOSTANDARD=LVCMOS33; # bidirectional
+NET "cart_d<7>" LOC=N17 | IOSTANDARD=LVCMOS33; #
+NET "cart_d<6>" LOC=P17 | IOSTANDARD=LVCMOS33; #
+NET "cart_d<5>" LOC=P15 | IOSTANDARD=LVCMOS33; #
+NET "cart_d<4>" LOC=R16 | IOSTANDARD=LVCMOS33; #
+NET "cart_d<3>" LOC=N13 | IOSTANDARD=LVCMOS33; #
+NET "cart_d<2>" LOC=N14 | IOSTANDARD=LVCMOS33; #
+NET "cart_d<1>" LOC=P16 | IOSTANDARD=LVCMOS33; #
+NET "cart_d<0>" LOC=R17 | IOSTANDARD=LVCMOS33; #
+NET "cart_a<15>" LOC=G17 | IOSTANDARD=LVCMOS33; #
+NET "cart_a<14>" LOC=G18 | IOSTANDARD=LVCMOS33; #
+NET "cart_a<13>" LOC=J15 | IOSTANDARD=LVCMOS33; #
+NET "cart_a<12>" LOC=H15 | IOSTANDARD=LVCMOS33; #
+NET "cart_a<11>" LOC=H17 | IOSTANDARD=LVCMOS33; #
+NET "cart_a<10>" LOC=H18 | IOSTANDARD=LVCMOS33; #
+NET "cart_a<9>" LOC=M21 | IOSTANDARD=LVCMOS33; #
+NET "cart_a<8>" LOC=L21 | IOSTANDARD=LVCMOS33; #
+NET "cart_a<7>" LOC=K21 | IOSTANDARD=LVCMOS33; #
+NET "cart_a<6>" LOC=G20 | IOSTANDARD=LVCMOS33; #
+NET "cart_a<5>" LOC=H20 | IOSTANDARD=LVCMOS33; #
+NET "cart_a<4>" LOC=J21 | IOSTANDARD=LVCMOS33; #
+NET "cart_a<3>" LOC=J20 | IOSTANDARD=LVCMOS33; #
+NET "cart_a<2>" LOC=K22 | IOSTANDARD=LVCMOS33; #
+NET "cart_a<1>" LOC=H19 | IOSTANDARD=LVCMOS33; #
+NET "cart_a<0>" LOC=K18 | IOSTANDARD=LVCMOS33; #
+
+
+
 # C65 Keyboard
 NET "restore_key" LOC=M17 | IOSTANDARD=LVCMOS33; #
 NET "column<0>"       LOC=M18 | IOSTANDARD=LVCMOS33; #
