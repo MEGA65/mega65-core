@@ -1263,7 +1263,7 @@ begin
           border_x_left <= to_unsigned(27+(7*3),12);
           border_x_right <= to_unsigned(1920-27-(9*3),12);
         end if;
-        chargen_x_scale <= x"28";
+        chargen_x_scale <= x"29";
         virtual_row_width <= to_unsigned(80,16);
       elsif reg_h640='0' and reg_h1280='1' then        
         -- 160 column mode (natural pixels, fat side borders)
@@ -2495,9 +2495,9 @@ begin
         -- horizontal position counter at a non-zero value at the start of each
         -- raster.  Left border ends at physical pixel 140, which should
         -- correspond to sprite coordinate 24. Logical pixes are ~2.9 pixels wide
-        -- (horizontal scale factor of 0x2c/0x80)
+        -- (horizontal scale factor of 0x29/0x78)
         -- so 140 physical pixels is roughly equivalent to 48 physical pixels.
-        -- Thus we need to start the VIC-II horizontal counter at -24*2.9*0x2c
+        -- Thus we need to start the VIC-II horizontal counter at -24*2.9*0x2d
         -- = -3080 = -0x0c08 = 0xf3f8.
         -- However, we need to shift it right a few more pixels to cover the pipeline
         -- delays, about 0x294 should do it.  
