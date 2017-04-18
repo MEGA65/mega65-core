@@ -1265,6 +1265,7 @@ begin
         end if;
         chargen_x_scale <= x"29";
         virtual_row_width <= to_unsigned(80,16);
+        
       elsif reg_h640='0' and reg_h1280='1' then        
         -- 160 column mode (natural pixels, fat side borders)
         x_chargen_start
@@ -2946,7 +2947,7 @@ begin
                                       +to_integer(vga_buffer3_blue)
                                       +to_integer(vga_buffer2_blue),10);
 
-      if horizontal_filter='0' then
+      if horizontal_filter='0' or reg_h1280='1' then
         vga_palin_red <= vga_buffer3_red;
         vga_palin_green <= vga_buffer3_green;
         vga_palin_blue <= vga_buffer3_blue;
@@ -2956,7 +2957,7 @@ begin
         vga_palin_blue <= vga_filtered_blue(9 downto 2);
       end if;
 
-      if pal_simulate='1' then
+      if pal_simulate='1' and (reg_h1280 = '0') then
         vga_out_red <= vga_palout_red;
         vga_out_green <= vga_palout_green;
         vga_out_blue <= vga_palout_blue;        
