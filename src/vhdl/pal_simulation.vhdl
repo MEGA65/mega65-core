@@ -139,6 +139,10 @@ begin
         when others => luma := 256;
       end case;
 
+      -- Reduce intensity of VIC-II differential raster brightness, as it is
+      -- currently too harsh
+      luma := luma + ((256-luma) /2);
+      
       -- Put a narrow dim region between each horizontal H320 pixel to simulate
       -- CRT phosphor resolution
       if shadow_mask_enable='1' then
