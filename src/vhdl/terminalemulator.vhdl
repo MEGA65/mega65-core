@@ -33,7 +33,7 @@ use ieee.std_logic_unsigned.all;
 
 entity terminalemulator is
   Port (
-    clk : in  STD_LOGIC;
+    clk : in  STD_LOGIC; --200Mhz?
     uart_clk : in std_logic; --48MHz
   --reset : in  STD_LOGIC;
     uart_in : in  STD_LOGIC;
@@ -66,7 +66,9 @@ type terminal_emulator_state is (clearAck,
                                  newFrame,
                                  clearLine,
                                  linefeed, linefeed2,
-                                 backspace);--,nextchar, carRet, linefeed);--clearFrame
+                                 backspace,
+											writeCursor,writeCursor2,
+											clearCursor,clearCursor2);--,nextchar, carRet, linefeed);--clearFrame
 signal state : terminal_emulator_state := waitforinput;
 signal next_state : terminal_emulator_state;
 
@@ -101,17 +103,56 @@ topofframe_out <= topOfFrame;--b"000000000000";--topOfFrame;
   begin
     if rising_edge(uart_clk) then	 	 
 	   case state is 						  
-		  when waitforinput => 	  
+		  when waitforinput => 
 		    if rx_ready = '1' and rx_acknowledge='0' then
 		        rx_acknowledge<='1';
-            if rx_data < x"20" then --ASCII < x"20" is a command											
-              state<=processCommand;
+            if rx_data < x"20" and rx_data /=x"0A" then --ASCII < x"20" is a command											              				     			  
+				  state<=clearCursor;
+				  next_state<=processCommand;
+				elsif rx_data =x"0A" then
+				   --(Uart monitor sends CR then LF, so we can check if its on first character)
+				   if charX=x"00" then --Don't clear first character. 
+					  state<=processCommand;
+					else
+					  state<=clearCursor; --Clear character (for LF no CR, on Syntax Errors)
+				     next_state<=processCommand;
+					end if;
+				  
 			   else 			 
 			     state<=writeChar;
 				  dataToWrite<=rx_data-32;
-            end if; 		    		  
+            end if;
+         --else
+           --state<=writeCursor;
+           --next_state<=waitforinput;  
 		   end if;
-
+		
+      --Write cursor by setting bit 7 of the memory location, which will invert output.		
+		--Because memory read isn't implmented from this module (yet), we cant put cursor over characters		
+      when writeCursor=>
+		dinl_out<=b"10000000";
+		addrl_out<=charCursor;
+		wel_out<=b"1";
+		state<=writeCursor2;
+		
+		when writeCursor2=>		
+		wel_out<=b"0";
+		state<=next_state;
+		
+		--Normally cursor would be overwritten by a new character
+		--But in the case of: backspace, CR, LF, etc. character doesnt get written at cursor
+		--Call before moving charCursor
+		
+		when clearCursor=>
+		  dinl_out<=b"00000000";
+		  addrl_out<=charCursor;
+		  wel_out<=b"1";		
+	     state<=clearCursor2;
+		  
+      when clearCursor2=>
+		  wel_out<=b"0";
+        state<=next_state;
+		  
 	   when writeChar =>
 		  addrl_out<=charCursor; --latch address
         dinl_out<=dataToWrite; --latch output data		  
@@ -122,6 +163,7 @@ topofframe_out <= topOfFrame;--b"000000000000";--topOfFrame;
 		  rx_acknowledge<='0'; --clear acknowledged 
 		  wel_out<=b"0";
 	     state<=incChar;
+
         
 		  --Increase char position by 1
         when incChar =>
@@ -134,14 +176,16 @@ topofframe_out <= topOfFrame;--b"000000000000";--topOfFrame;
 			   lastLineStart<=CharMemStart;--others=>'0');
             hasHitEoF<='1';
 		  	 else 
-			   charCursor<=charCursor+1;			  
+			   charCursor<=charCursor+1;				
 		      state<=newLine;	
 			end if;
 			
 		   else 		  		  
 		    charCursor<=charCursor+1;
 		    charX<=charX+1; 
-			 state<=clearAck;			
+			 --state<=clearAck; 
+          state<=writeCursor;
+          next_state<=clearAck;  			 
 		  end if;
 				 
 		when newFrame=>
@@ -156,38 +200,39 @@ topofframe_out <= topOfFrame;--b"000000000000";--topOfFrame;
       when newLine=>		
 		  lastLineStart<=charCursor;				
 		  clearLineStart<=charCursor;
-        clearLineEnd<=charCursor+80;
-		  state<=newLine2;
-		  
+        clearLineEnd<=charCursor+80;		  
+		  --Write new cursor whenever charCursor moves
+		  state<=newLine2;         		  
 		when newLine2=>  
 		  next_state<=clearAck;
 		  state<=clearLine;
-
+		  
 		when processCommand =>        	
-		  if rx_data = x"0D" then --CR carriage return
-		    charCursor<=lastLineStart; --go back to start of line?
+		  if rx_data = x"0D" then --CR carriage return		  
+          charCursor<=lastLineStart; --go back to start of line?
 			 charX<=(others=>'0');
 			 state<=clearAck;	
 		  elsif rx_data =x"0A" then --LF line feed		    			 			
-			   charCursor<=charCursor+80;
-		 	   lastLineStart<=lastLineStart+80;
-			   state<=linefeed;
-
+		    charCursor<=charCursor+80;
+		    lastLineStart<=lastLineStart+80;
+		    state<=linefeed;
 		  elsif rx_data =x"08" then --BS
           charCursor<=charCursor-1;
           charX<=charX-1;			
 			 dataToWrite<=x"00";
-			 wel_out<=b"1";
+			 wel_out<=b"1";			 
+			 --state<=backspace;
+			 state<=writeCursor;
+			 next_state<=clearAck;
 			 
-			 state<=backspace;
 		  else 
 		    state<=clearAck;
 		  end if;
-		  
-		 when backspace=>
+		 
+       when backspace=> --writes blank char
 		  addrl_out<=charCursor; --latch address
         dinl_out<=dataToWrite; --latch output data		  		  
-        state<=clearAck;  
+        state<=clearAck;  		 
 		  
        --Clear acknowledge, ready for next Char
        when clearAck=>
@@ -195,7 +240,7 @@ topofframe_out <= topOfFrame;--b"000000000000";--topOfFrame;
        rx_acknowledge<='0';	 
 		 state<=waitforinput;
 
-
+		  
 		when linefeed=>
 		--Fix boundaries      >3969
         if charCursor>CharMemEnd then--b"110001111111" then
@@ -232,7 +277,7 @@ topofframe_out <= topOfFrame;--b"000000000000";--topOfFrame;
 			
 			if (clearLineStart=clearLineEnd) then			
 			  wel_out<=b"0";
-		     state<=clearAck;
+			  state<=clearAck;         
 			end if;				
 		end case;  
     end if;	 

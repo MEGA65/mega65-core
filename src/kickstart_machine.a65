@@ -60,7 +60,9 @@
 	.alias hypervisor_georam_base_mb $d670
 	.alias hypervsior_georam_block_mask $d671
 
-	; d672
+	; d672 110 010
+	.alias secure_mode $d672
+	
 	; d673
 	; d674
 	; d675

@@ -7,6 +7,7 @@ use work.debugtools.all;
 
 entity iomapper is
   port (Clk : in std_logic;
+        protected_hardware_in : in unsigned(7 downto 0);
         cpuclock : in std_logic;
         pixelclk : in std_logic;
         uartclock : in std_logic;
@@ -43,7 +44,7 @@ entity iomapper is
 
         ps2data : in std_logic;
         ps2clock : in std_logic;
-	scancode_out : out std_logic_vector(12 downto 0); 												  
+	     scancode_out : out std_logic_vector(12 downto 0); 												  
 
         pmod_clock : in std_logic;
         pmod_start_of_sequence : in std_logic;
@@ -610,7 +611,7 @@ begin
   block5: block
   begin
   keymapper0 : keymapper port map (
-    disableKeyboard => sw(5),
+    disableKeyboard => protected_hardware_in(6),
     ioclock       => clk,
     cpu_hypervisor_mode => cpu_hypervisor_mode,
     drive_led_out => drive_led_out,

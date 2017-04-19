@@ -181,6 +181,10 @@ architecture Behavioral of machine is
 
   component compositor is
     port (
+	   display_shift_in : in std_logic_vector(2 downto 0);
+	   shift_ready_in : in std_logic;
+	   shift_ack_out : out std_logic;
+	   mm_displayMode_in : std_logic_vector(1 downto 0);
       uart_in : in std_logic;
       xcounter_in : in unsigned(11 downto 0);
       ycounter_in : in unsigned(10 downto 0);			
@@ -198,10 +202,15 @@ architecture Behavioral of machine is
 
   component ps2_to_uart is
     port (
+	 	display_shift_out : out std_logic_vector(2 downto 0);
+	   shift_ready_out : out std_logic;
+	   shift_ack_in : in std_logic;	 
       clk : in  STD_LOGIC;
       reset : in  STD_LOGIC;
       enabled : in STD_LOGIC;
       scan_code : in STD_LOGIC_VECTOR(12 downto 0);
+		matrix_trap_out : out std_logic;
+      mm_displayMode_out : out std_logic_vector(1 downto 0); 
       tx_ps2 : out STD_LOGIC
     );
   end component;	 
@@ -271,6 +280,7 @@ architecture Behavioral of machine is
 
   component gs4510
     port (
+	   protected_hardware : out unsigned(7 downto 0);
       Clock : in std_logic;
       ioclock : in std_logic;
       reset : in std_logic;
@@ -278,7 +288,7 @@ architecture Behavioral of machine is
       nmi : in std_logic;
       hyper_trap : in std_logic;
       cpu_hypervisor_mode : out std_logic;
-
+      matrix_trap_in : in std_logic;
       cpuis6502 : out std_logic;
       cpuspeed : out unsigned(7 downto 0);
       
@@ -474,6 +484,7 @@ architecture Behavioral of machine is
   
   component iomapper is
     port (Clk : in std_logic;
+	       protected_hardware_in : in unsigned(7 downto 0);
           cpuclock : in std_logic;
           pixelclk : in std_logic;
           clock50mhz : in std_logic;
@@ -738,9 +749,13 @@ architecture Behavioral of machine is
   signal farcallstack_addr : std_logic_vector(8 downto 0);
   signal farcallstack_din : std_logic_vector(63 downto 0);
   signal farcallstack_dout : std_logic_vector(63 downto 0);
+  signal uart_tx_buffer : std_logic; 
+  signal uart_rx_buffer : std_logic;
+  signal protected_hardware_sig : unsigned(7 downto 0);
 
   -- Matrix Mode signals
   signal scancode_out : std_logic_vector(12 downto 0); 
+  signal mm_displayMode : std_logic_vector(1 downto 0):=b"10"; 
   signal tx_switch : std_logic; 
   signal tx_ps2 : std_logic; 
   signal vgablue_sig : unsigned(3 downto 0);
@@ -749,6 +764,10 @@ architecture Behavioral of machine is
   signal xcounter : unsigned(11 downto 0);
   signal ycounter : unsigned(10 downto 0); 
   signal uart_txd_sig : std_logic;
+  signal display_shift : std_logic_vector(2 downto 0);
+  signal shift_ready : std_logic;
+  signal shift_ack : std_logic; 
+  signal matrix_trap : std_logic;  
 
 begin
 
@@ -921,6 +940,8 @@ begin
   end process;
   
   cpu0: gs4510 port map(
+    matrix_trap_in=>matrix_trap,
+    protected_hardware => protected_hardware_sig,
     clock => cpuclock,
     ioclock => ioclock,
     reset =>reset_combined,
@@ -1099,6 +1120,7 @@ begin
   
   iomapper0: iomapper port map (
     clk => ioclock,
+	 protected_hardware_in => protected_hardware_sig, 
     hyper_trap => hyper_trap,
     cpuclock => cpuclock,
     pixelclk => pixelclock,
@@ -1205,20 +1227,29 @@ begin
     );
 
   ps2_to_uart0 : ps2_to_uart port map(
+    matrix_trap_out=>matrix_trap,
+    display_shift_out => display_shift,
+	 shift_ready_out => shift_ready,
+	 shift_ack_in => shift_ack,
     clk => uartclock,
+	 mm_displayMode_out=>mm_displayMode,
     reset => reset_combined,
-    enabled => sw(5),
+    enabled => protected_hardware_sig(6),--sw(5),
     scan_code => scancode_out,       
     tx_ps2 => tx_ps2
     ); 
 
   compositor0 : compositor port map(
+    display_shift_in=>display_shift,
+	 shift_ready_in => shift_ready,
+	 shift_ack_out => shift_ack,
+    mm_displayMode_in => mm_displayMode,
     uart_in => uart_txd_sig,
     xcounter_in => xcounter,
     ycounter_in => ycounter,	
     clk => uartclock,
     pixelclock => pixelclock,
-    matrix_mode_enable => sw(5), 					
+    matrix_mode_enable => protected_hardware_sig(6),--sw(5), 					
     vgared_in => vgared_sig,
     vgagreen_in => vgagreen_sig,
     vgablue_in => vgablue_sig,
@@ -1235,8 +1266,8 @@ begin
     reset_out => reset_monitor,
     monitor_hyper_trap => monitor_hyper_trap,
     clock => uartclock,
-    tx       => uart_txd_sig,
-    rx       => tx_switch, --RsRx,
+    tx       => uart_txd_sig,--uart_txd_sig,
+    rx       => tx_switch,--tx_switch, --RsRx,
 	
     force_single_step => sw(11),
     
@@ -1302,7 +1333,7 @@ begin
   end process;
   
   UART_TXD<=uart_txd_sig; 
-  tx_switch <= tx_ps2 when sw(5)='1' else RsRx; --uart monitor: serial input or ps2 keyboard input
+  tx_switch <= tx_ps2 when protected_hardware_sig(6)='1' else RsRx; --uart monitor: serial input or ps2 keyboard input
   
 end Behavioral;
 

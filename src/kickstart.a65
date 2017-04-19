@@ -42,7 +42,7 @@
 ;	========================
 
 	.space romslab 1
-	.space screenrow 1
+	.space screenrow 1 
 
 	.space checksum 4
 	.space file_pagesread 2
@@ -191,8 +191,11 @@ trap_entry_points:
 	nop
 	jmp nosuchtrap
 	nop
-	jmp nosuchtrap
-	nop
+
+	jmp protected_hardware_config	; Trap #$32 (Protected Hardware Configuration) 
+	nop			  	; refer: kickstart_task
+
+
 	jmp nosuchtrap
 	nop
 	jmp nosuchtrap
@@ -233,12 +236,13 @@ trap_entry_points:
 	nop				; refer: kickstart_mem
 
 	jmp double_restore_trap		; Trap #$42 (double-tap RESTORE key)
-	nop				; refer: kickstart_task 
+	nop				; refer: kickstart_task "1000010" x"42"
+
+	jmp matrix_mode_toggle          ; Trap #$43 (matrix mode toggle)
+	nop				; refer: kickstart_task
 
 	jmp nosuchtrap			; common-trap (catch all)
 	nop				; refer: below in this file
-	jmp nosuchtrap
-	nop
 	jmp nosuchtrap
 	nop
 	jmp nosuchtrap
@@ -2564,12 +2568,12 @@ cpnth1:	adc #$06
 
 ; checkpoint message
 
-msg_checkpoint:	      .byte "Checkpoint @ $"
-msg_checkpoint_pc:    .byte "%%%% A:$"
-msg_checkpoint_a:     .byte "%%, X:$"
-msg_checkpoint_x:     .byte "%%, Y:$"
-msg_checkpoint_y:     .byte "%%, Z:$"
-msg_checkpoint_z:     .byte "%%, P:$"
+msg_checkpoint:	      .byte "$"
+msg_checkpoint_pc:    .byte "%%%% A:"
+msg_checkpoint_a:     .byte "%%, X:"
+msg_checkpoint_x:     .byte "%%, Y:"
+msg_checkpoint_y:     .byte "%%, Z:"
+msg_checkpoint_z:     .byte "%%, P:"
 msg_checkpoint_p:     .byte "%% :"
 msg_checkpointmsg:    .byte "                                                             " ; END_OF_STRING
 		      .byte 13,10  ; CR/LF

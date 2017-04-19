@@ -42,7 +42,18 @@ entity gs4510 is
     irq : in std_logic;
     nmi : in std_logic;
     hyper_trap : in std_logic;
-
+	 matrix_trap_in : in std_logic;
+    protected_hardware : out unsigned(7 downto 0);	
+	 --Protected Hardware Bits
+	 --Bit 1: TBD
+	 --Bit 2: TBD
+	 --Bit 3: TBD
+	 --Bit 4: TBD
+	 --Bit 5: TBD
+	 --Bit 6: Matrix Mode enable
+	 --Bit 7: Secure Mode enable 
+	 
+	 
     cpu_hypervisor_mode : out std_logic;
     iomode_set : out std_logic_vector(1 downto 0) := "11";
     iomode_set_toggle : out std_logic := '0';
@@ -415,7 +426,8 @@ end component;
   signal hyper_map_high : std_logic_vector(3 downto 0);
   signal hyper_map_offset_low : unsigned(11 downto 0);
   signal hyper_map_offset_high : unsigned(11 downto 0);
-
+  signal hyper_protected_hardware : unsigned(7 downto 0); 
+  
   -- Page table for virtual memory
   signal reg_page0_logical : unsigned(15 downto 0);
   signal reg_page0_physical : unsigned(15 downto 0);
@@ -438,6 +450,7 @@ end component;
   signal no_interrupt : std_logic := '0';
   signal hyper_trap_pending : std_logic := '0';
   signal hyper_trap_state : std_logic := '1';
+  signal matrix_trap_pending : std_logic := '0';
   -- To defer interrupts in the hypervisor, we have a special mechanism for this.
   signal irq_defer_request : std_logic := '0';
   signal irq_defer_counter : integer range 0 to 65535 := 0;
@@ -1498,7 +1511,10 @@ begin
       if real_long_address(27 downto 12) = x"001F" and real_long_address(11)='1' then
         -- colour ram access: remap to $FF80000 - $FF807FF
         long_address := x"FF80"&'0'&real_long_address(10 downto 0);
-      else
+		  -- also remap to $7F40000 - $7F407FF
+      elsif real_long_address(27 downto 16) = x"7F4" then
+		  long_address := x"FF80"&'0'&real_long_address(10 downto 0);
+		else
         long_address := real_long_address;
       end if;
 
@@ -1593,7 +1609,8 @@ begin
         end if;
         report "Reading from shadow ram address $" & to_hstring(long_address(17 downto 0))
           & ", word $" & to_hstring(long_address(18 downto 3)) severity note;
-      elsif long_address(27 downto 17)="00000000000" then
+			                                                        --Also mapped to 7F00000 - 7F1FFFF
+      elsif long_address(27 downto 17)="00000000000" or long_address(27 downto 17)="01111111000" then
         -- Reading from chipram, so read from the bottom 128KB of the shadow RAM
         -- instead.
         report "Preparing to read from Shadow";
@@ -1610,7 +1627,8 @@ begin
         end if;
         report "Reading from shadowed chipram address $"
           & to_hstring(long_address(19 downto 0)) severity note;
-      elsif long_address(27 downto 17)="00000000001" then
+			                                              --Also mapped to 7F2 0000 - 7F3 FFFF
+      elsif long_address(27 downto 17)="00000000001" or long_address(27 downto 17)="01111111001" then
         -- Reading from 128KB ROM
         report "Preparing to read from ROMRAM";
         read_source <= ROMRAM;
@@ -1829,7 +1847,9 @@ begin
             when "101101" => return reg_page3_logical(15 downto 8);
             when "101110" => return reg_page3_physical(7 downto 0);
             when "101111" => return reg_page3_physical(15 downto 8);
-
+				--$D672 - Protected Hardware
+            when "110010" => return hyper_protected_hardware;
+				
             when "111100" => -- $D640+$3C
               -- @IO:GS $D67C.6 - (read) Hypervisor internal immediate UART monitor busy flag (can write when 0)
               -- @IO:GS $D67C.7 - (read) Hypervisor serial output from UART monitor busy flag (can write when 0)
@@ -1995,6 +2015,9 @@ begin
       if real_long_address(27 downto 12) = x"001F" and real_long_address(11)='1' then
         -- colour ram access: remap to $FF80000 - $FF807FF
         long_address := x"FF80"&'0'&real_long_address(10 downto 0);
+		  
+      elsif real_long_address(27 downto 16) = x"7F4" then
+		  long_address := x"FF80"&'0'&real_long_address(10 downto 0);
       else
         long_address := real_long_address;
       end if;
@@ -2066,7 +2089,7 @@ begin
         rom_write <= '0';
         shadow_write_flags(3) <= '1';
       end if;
-      if long_address(27 downto 17)="00000000000" then
+      if long_address(27 downto 17)="00000000000" or (long_address(27 downto 17)="01111111000" and hypervisor_mode='1') then
         report "writing to shadow RAM via chipram shadowing. addr=$" & to_hstring(long_address) severity note;
         shadow_write <= '1';
         rom_write <= '0';
@@ -2082,13 +2105,13 @@ begin
           wait_states_non_zero <= '1';
         else
           wait_states_non_zero <= '0';
-        end if;
-      elsif long_address(27 downto 17)="00000000001" then
+        end if;                                                       --Also mapped to 7F20000-7F3FFFF
+      elsif long_address(27 downto 17)="00000000001" or long_address(27 downto 17)="01111111001" then
         report "writing to ROM. addr=$" & to_hstring(long_address) severity note;
         shadow_write <= '0';
         rom_write <= not rom_writeprotect;
         fastio_write <= '0';        
-      elsif long_address(27 downto 24) = x"F" then
+      elsif long_address(27 downto 24) = x"F" then --
         accessing_fastio <= '1';
         shadow_write <= '0';
         rom_write <= '0';
@@ -2418,8 +2441,12 @@ begin
     -- BEGINNING OF MAIN PROCESS FOR CPU
     if rising_edge(clock) then
 
-      if hyper_trap = '0' and hyper_trap_state = '1' then
-        hyper_trap_pending <= '1';        
+      --Check for system-generated traps (matrix mode, and double tap restore)
+      if (hyper_trap = '0' or matrix_trap_in ='1') and hyper_trap_state = '1' then
+        hyper_trap_pending <= '1'; 
+        if matrix_trap_in='1' then 
+		    matrix_trap_pending <='1';
+		  end if;
       end if;
       hyper_trap_state <= hyper_trap;
               
@@ -2667,7 +2694,12 @@ begin
         -- register) (write-only for now)
         if last_write_address = x"FFD3671" and hypervisor_mode='1' then
           georam_blockmask <= last_value;
-        end if;        
+        end if;   
+ 		  
+		  -- @IO:GS $D672 - Protected Hardware configuration 
+		  if last_write_address = x"FFD3672" and hypervisor_mode='1' then
+          hyper_protected_hardware(7 downto 0) <= last_value;
+        end if; 
 
         -- @IO:GS $D67C.0-7 - (write) Hypervisor write serial output to UART monitor
         if last_write_address = x"FFD367C" and hypervisor_mode='1' then
@@ -2714,7 +2746,7 @@ begin
       slowram_request_toggle <= slowram_request_toggle_drive;
       slowram_addr_reflect_drive <= slowram_addr_reflect;
       slowram_datain_reflect_drive <= slowram_datain_reflect;
-      
+		protected_hardware <= hyper_protected_hardware;      
       cpu_hypervisor_mode <= hypervisor_mode;
       
       slowram_addr <= slowram_addr_drive;
@@ -3536,10 +3568,15 @@ begin
                 reg_instruction <= I_SEI;
               elsif (hyper_trap_pending = '1' and hypervisor_mode='0') then
                 -- Trap to hypervisor
-                hyper_trap_pending <= '0';
+                hyper_trap_pending <= '0';					 
                 state <= TrapToHypervisor;
                 -- Trap #66 ($42) = RESTORE key double-tap
-                hypervisor_trap_port <= "1000010";                     
+					 if matrix_trap_pending = '1' then
+					   hypervisor_trap_port <= "1000011";                     
+						matrix_trap_pending <= '0';
+					 else
+                  hypervisor_trap_port <= "1000010";                     
+					 end if;	
               else
                 -- Normal instruction execution
                 state <= InstructionDecode;

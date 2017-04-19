@@ -34,13 +34,24 @@ use ieee.std_logic_unsigned.all;
 
 entity ps2_to_uart is
   Port (
-    clk : in  STD_LOGIC;
+    clk : in  STD_LOGIC; --48mhz
     reset : in  STD_LOGIC;
     enabled : in std_logic;
     scan_code: in std_logic_vector (12 downto 0);
-    tx_ps2 : out STD_LOGIC
+	 mm_displayMode_out : out std_logic_vector(1 downto 0); 
+    tx_ps2 : out STD_LOGIC;
+	 display_shift_out : out std_logic_vector(2 downto 0);
+	 shift_ready_out : out std_logic;
+	 matrix_trap_out : out std_logic;
+	 shift_ack_in : in std_logic	 
   );
 end ps2_to_uart;
+
+--
+--  signal display_shift : std_logic_vector(1 downto 0):=b"00"; --direction to shift. 1=up, 2=right, 3=down, 4=left
+--  signal shift_ack : std_logic; --Has the compositor shifted the display already.
+--  signal shift_ready : std_logic;
+
 
 architecture Behavioral of ps2_to_uart is
 
@@ -54,6 +65,17 @@ architecture Behavioral of ps2_to_uart is
     );
   end component;
   
+  -- Determines which display scale mode to use for matrix mode
+  -- 0=1:1 (640x320), 1=2:1 (1280x640), 2=3:1 (1920x960) (Fullscreen)
+  -- CMD: Alt-1     , Alt-2           , Alt-3
+  signal mm_displayMode : std_logic_vector(1 downto 0):=b"10";
+  
+  -- Pressing a cursor key will shift the matrix mode display by 8px
+  -- Only on modes 0 and 1
+  signal display_shift : std_logic_vector(2 downto 0):=b"000"; --direction to shift. 1=up, 2=right, 3=down, 4=left
+  signal shift_ack : std_logic; --Has the compositor shifted the display already.
+  signal shift_ready : std_logic;
+  -- If a cursor key is pressed 
   
   
   --UART Signals
@@ -61,7 +83,7 @@ architecture Behavioral of ps2_to_uart is
   signal tx_ready : std_logic; 
   signal tx_trigger : std_logic := '0';
   
-    -- States in FSM
+  -- States in FSM
   type ps2_to_uart_state is (WaitForKey,Enter,KeyPress, Output);
   signal state : ps2_to_uart_state := WaitForKey;
   signal next_state : ps2_to_uart_state;
@@ -71,15 +93,14 @@ architecture Behavioral of ps2_to_uart is
   constant timer200ms : std_logic_vector(23 downto 0):=b"110100100111110010011001";
   constant timer30ms : std_logic_vector(20 downto 0):=b"111011111100100010111";
   signal repeatCounter1 : std_logic_vector(23 downto 0):=timer200ms;
-  signal repeatCounter2 : std_logic_vector(20 downto 0):=timer30ms;
-
+  signal repeatCounter2 : std_logic_vector(20 downto 0):=timer30ms;  
   --Keyboard signals
   signal caps : std_logic;
   signal previousScanCode : std_logic_vector (12 downto 0);
   signal firstPress : std_logic;
   signal inputKey : std_logic;
   signal firstRepeatDone : std_logic;
-  
+  signal altcode : std_logic;
   begin
 
   uart_tx1: UART_TX_CTRL
@@ -94,11 +115,11 @@ architecture Behavioral of ps2_to_uart is
   uart_test: process (clk)
   begin
     if rising_edge(CLK) then
-	if enabled='1' then --Only run when matrix mode is enabled	     
+	if enabled='1' then --Input only run when matrix mode is enabled	     
 	     case state is 
 		    when WaitForKey => 
 		      tx_trigger <='0';
-
+				
 		    when KeyPress =>
 		      state<=Output;
 		      next_state<=WaitForKey;
@@ -127,7 +148,21 @@ architecture Behavioral of ps2_to_uart is
   
   
   
+  --CursorKeys
+  -- E0 75 up
+  -- E0 6B left
+  -- E0 72 down
+  -- E0 74 right
+  -- ScanCode(8) is extended code
   
+--Check alt-1/2/3 combos
+  -- ALT: x"11" b"00010001"
+  -- Don't care whats in bits 11-8
+  --If the previous key was alt, and is still held. 
+  --To Fix: previousScanCode does not update on key up, checking previousScanCode(12) is pointless. 
+
+ --  else --Otherwise normal key press
+
   -- When keyboard has no keys pressed its last code is a break code
   -- When a key is pressed scan_code(12) will be '1' i.e. make code
   -- Input first keystroke
@@ -135,16 +170,14 @@ architecture Behavioral of ps2_to_uart is
   -- firstRepeatDone will be '1'
   -- When first repeat is done second counter will count down ~50ms ish before inputting keys again  
   -- If breakcode or new code is sent, reset everything. 
-  
-  
-  
-  if scan_code(12)='0' and firstPress = '0'  then          
-    inputKey<='1'; --input key when first instance of key is pressed    		
+  -- If the previous scan code wasnt ALT, do normal keys. (this is so 1/2/3 arent input when switching modes)
+  if scan_code(12)='0' and firstPress = '0' then --and (previousScanCode(12)&previousScanCode(7 downto 0) /= b"000010001")  then              
+    inputKey<='1'; --input key when first instance of key is pressed    	
 	 firstPress<='1';
 	 previousScanCode <= scan_code;
   elsif scan_code(12)='0' and firstPress='1' then -- if it has been held down    
 	 if repeatCounter1=x"000000" then --timer is zero
-      if firstRepeatDone='0' then --if the 
+      if firstRepeatDone='0' then 
 	      firstRepeatDone<='1';        
 	    end if;	  
 	  else	 
@@ -159,7 +192,28 @@ architecture Behavioral of ps2_to_uart is
 	else --otherwise decrement the timer
        repeatCounter2<=repeatCounter2-1;    
 	  end if;  
-  end if;
+  end if;   
+  
+--if previousScanCode(12)&previousScanCode(7 downto 0) = b"000010001" and altcode='1' then
+--if altcode='1' then or something?!
+if previousScanCode(12)&previousScanCode(7 downto 0) = b"000010001" and altcode='1' then
+  --1= x"16", 2=x"1E", 3="26"  
+    case scan_code(12)&scan_code(7 downto 0) is --make sure its a MAKE code. 
+	   when '0'&x"16" => --1
+	     mm_displayMode <= b"00";
+	   when '0'&x"1E" => --2
+  	     mm_displayMode <= b"01";
+	   when '0'&x"26" => --3
+	     mm_displayMode <= b"10";		  
+   	when '0'&x"0D"=> --Alt-tab, activates matrix mode. These are probably temporary commands
+        matrix_trap_out<='1'; --setup trap.
+		when others => --Alt anything
+        --Do Nothing
+      --altcode<='0'; --Why is this here. 
+    end case;
+else 
+  matrix_trap_out<='0';	 --reset trap
+end if; 
   
   --when any key is released or a new key is down, reset repeat timers  
   if scan_code(12)='1' or scan_code/=previousScanCode then 
@@ -170,22 +224,53 @@ architecture Behavioral of ps2_to_uart is
 	 firstPress<='0';
   end if;	 
   
+  --If a key is lefted, no longer an alt-code (keys need to be down at same time)
+  if scan_code(12)='1' then
+  	 altcode<='0';
+  end if;	 
+  
+  if shift_ack = '1' then
+    shift_ready<='0';
+  end if;
+
   --Can possibly rewrite this? using "case caps&scan_code(7 downto 0) is" and have it mux the 9-bit code
   --rather than have check for caps each time
   
-  if inputKey='1' and state/=Output and state/=KeyPress then
+  --if inputKey='1' and state/=Output and state/=KeyPress then
+  if inputKey='1' then
     inputKey<='0'; --Disable input character.
-    case scan_code(7 downto 0) is
+    case scan_code(7 downto 0) is	     	 
+		  when x"11" =>
+        altcode<='1';		  
+		  --up / numpad 8 --Don't bother checking for extended code, as numpad isn't implemented
+		  when x"75" =>
+          display_shift<=b"001";
+			 shift_ready<='1';
+		  --left / numpad 4
+		  when x"6B" => 
+		    display_shift<=b"100";
+			 shift_ready<='1';
+		  --down / numpad 2
+		  when x"72" => 
+		    display_shift<=b"011";
+			 shift_ready<='1';
+		  --right / numpad 6
+		  when x"74" => 
+		    display_shift<=b"010";
+			 shift_ready<='1';
+	    
 		  --when x"1C" => tx_data <= 
         -- 3, W, A, 4, Z, S, E, left-SHIFT
         when x"26" =>
+		  if altcode = '0' then			 
         if caps='0' then		  --3/#
 		    tx_data <= x"33";
 		  else
 		    tx_data<=x"23"; 
         end if;		  
 		    state<= KeyPress;
-			
+		  end if; 
+		  
         when x"1D" => --W
 		  if caps='0' then
 		    tx_data <= x"77";
@@ -463,21 +548,27 @@ architecture Behavioral of ps2_to_uart is
 		  state<= KeyPress;--,/<
         
 		when x"16" =>
+      if altcode = '0' then		
 		  if caps='0' then		  		 		  
 		    tx_data <= x"31";
 		  else
 		    tx_data <= x"21";		    
         end if;
-		  state<= KeyPress;	--1/!
+		  state<= KeyPress;	--1/!		 
+		 end if;
 		  
+		 
       when x"1E" =>
+		if altcode = '0' then			 
 		if caps='0' then		  		
 		  tx_data <= x"32";
 		else 
 		  tx_data <= x"40";  		  
 		end if; 
 		state<= KeyPress;	--2/@		 
- 
+      end if;
+		
+		
       when x"15" =>
 		if caps='0' then		  		
 		  tx_data <= x"71";
@@ -503,6 +594,11 @@ architecture Behavioral of ps2_to_uart is
   end if;	 
   end if;	 
   end process uart_test;
+  
+  mm_displayMode_out <= mm_displayMode;
+  shift_ready_out <= shift_ready;
+  shift_ack <= shift_ack_in; 
+  display_shift_out <= display_shift;
 end Behavioral;
 
 
