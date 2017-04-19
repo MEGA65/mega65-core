@@ -1,0 +1,59 @@
+
+	.org $0
+
+	.byte "C64 CARTRIDGE   "
+	.byte 0,0,0,$40
+	.byte $01,$00,$00,$00
+	.byte $01,$00  ; EXROM, but not GAME
+	.byte 0,0,0,0,0,0
+	.byte "MEGA65 MEGACartridge"
+
+	.checkpc $40
+	.advance $40,$20
+
+	.byte "CHIP",0,0,$20,$10,0,0,0,0,$80,0,$20,0
+
+	.checkpc $50
+	.advance $50,$00
+
+	.org $8000
+
+	.word c64_cart_reset_entry
+	.word c64_cart_nmi_entry
+	.byte $c3,$c2,$cd,"80"
+
+c64_cart_reset_entry:
+	sei
+	jsr $FF84 ; initialise I/O
+	jsr $ff87 ; Get ready for BASIC
+	jsr $ff8a ; setup IRQ etc vectors
+	jsr $FF81 ; initialise screen
+	jsr $FFCC ; clear IO channel
+	cli
+	ldy #0
+msgloop:
+	lda not_mega65,y
+	beq msgdone
+	sty $fd
+	jsr $ffd2
+	ldy $fd
+	iny
+	bne msgloop
+msgdone:
+	jmp msgdone
+
+c64_cart_nmi_entry:
+	inc $d021
+	jmp $ea81
+
+not_mega65:
+	.byte 5,13
+	.byte "  THIS CARTRIDGE REQUIRES A MEGA65",13
+	.byte 13
+	.byte "  PLEASE VISIT MEGA65.ORG",13
+	.byte 0
+
+	.checkpc $A000
+	.advance $A000,$FF
+
+	.outfile "megacart.crt"

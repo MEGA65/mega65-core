@@ -119,6 +119,11 @@ diskmenu.prg:	diskmenuprg.a65 diskmenu.a65 utilities/etherload.prg
 	$(warning ~~~~~~~~~~~~~~~~> Making: diskmenu.prg and diskmenuprg.list)
 	./../../Ophis/bin/ophis -4 diskmenuprg.a65 -l diskmenuprg.list -m diskmenuprg.map
 
+megacart.crt:	megacartstub.a65
+	$(warning =============================================================)
+	$(warning ~~~~~~~~~~~~~~~~> Making: diskmenu.prg and diskmenuprg.list)
+	./../../Ophis/bin/ophis -4 megacartstub.a65 -l megacart.list -m megacart.map
+
 
 # ============================ done moved, print-warn, clean-target
 # we do not use this initial version anymore, but remains here for learning from
