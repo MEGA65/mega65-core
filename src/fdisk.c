@@ -64,6 +64,27 @@ void build_mbr(const uint32_t sdcard_sectors,const uint32_t partition_sectors)
   sector_buffer[0x1ff]=0xaa;
 }
 
+void build_dosbootsector(const uint8_t volume_name[11])
+{
+  clear_sector_buffer();
+}
+
+void build_fs_information_sector(const uint8_t fs_clusters)
+{
+  clear_sector_buffer();
+}
+
+
+void build_empty_fat()
+{
+  clear_sector_buffer();
+}
+
+void build_root_dir(const uint8_t volume_name[11])
+{
+  clear_sector_buffer();
+}
+
 int main(int argc,char **argv)
 {
   sdcard_open();
@@ -75,14 +96,39 @@ int main(int argc,char **argv)
 
   // Calculate clusters for file system, and FAT size
   uint32_t fs_clusters=0;
+  uint32_t reserved_sectors=576; // not sure why we use this value
   uint32_t rootdir_sector=0;
   uint32_t fat_sectors=0;
   uint32_t fat1_sector=0;
   uint32_t fat2_sector=0;
-  uint8_t volumename[11];
+  uint8_t sectors_per_cluster=8;  // 4KB clusters
+  uint8_t volume_name[11];
+  
+  // Work out maximum number of clusters we can accommodate
+  uint32_t sectors_required;
+  uint32_t available_sectors=partition_sectors-reserved_sectors;
+
+  fprintf(stderr,"Partition has 0x%x sectors (0x%x available)\n",
+	  partition_sectors,available_sectors);
+  
+  fs_clusters=available_sectors/(sectors_per_cluster);
+  fat_sectors=fs_clusters/(512/4); if (fs_clusters%(512/4)) fat_sectors++;
+  sectors_required=2*fat_sectors+((fs_clusters-2)*sectors_per_cluster);
+  while(sectors_required>available_sectors) {
+    uint32_t excess_sectors=sectors_required-available_sectors;
+    uint32_t delta=(excess_sectors/(1+sectors_per_cluster));
+    if (delta<1) delta=1;
+    fprintf(stderr,"%d clusters would take %d too many sectors.\n",
+	    fs_clusters,sectors_required-available_sectors);
+    fs_clusters-=delta;
+    fat_sectors=fs_clusters/(512/4); if (fs_clusters%(512/4)) fat_sectors++;
+    sectors_required=2*fat_sectors+((fs_clusters-2)*sectors_per_cluster);
+  }
+  fprintf(stderr,"Creating file system with %u (0x%x) clusters, %d sectors per FAT.\n",
+	  fs_clusters,fs_clusters,fat_sectors);
   
   // MBR is always the first sector of a disk
-  build_mbr(sdcard_sectors);
+  build_mbr(sdcard_sectors,partition_sectors);
   sdcard_writesector(0,sector_buffer);
 
   // Blank intervening sectors
