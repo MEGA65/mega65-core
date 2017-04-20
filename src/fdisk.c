@@ -21,13 +21,57 @@
 
 uint8_t sector_buffer[512];
 
+void clear_sector_buffer(void)
+{
+  for(int i=0;i<512;i++) sector_buffer[i]=0;
+}
+
+
+/* Build a master boot record that has the single partition we need in
+   the correct place, and with the size of the partition set correctly.
+*/
+void build_mbr(const uint32_t sdcard_sectors,const uint32_t partition_sectors)
+{
+  clear_sector_buffer();
+
+  // Set disk signature (fixed value)
+  sector_buffer[0x1b8]=0x83;
+  sector_buffer[0x1b9]=0x7d;
+  sector_buffer[0x1ba]=0xcb;
+  sector_buffer[0x1bb]=0xa6;
+
+  // FAT32 Partition entry
+  sector_buffer[0x1be]=0x00;  // Not bootable by DOS
+  sector_buffer[0x1bf]=0x20;  // 3 bytes CHS starting point
+  sector_buffer[0x1c0]=0x21;
+  sector_buffer[0x1c1]=0x20;
+  sector_buffer[0x1c2]=0x0c;  // Partition type (VFAT32)
+  sector_buffer[0x1c3]=0xdd;  // 3 bytes CHS end point - SHOULD CHANGE WITH DISK SIZE
+  sector_buffer[0x1c4]=0x1e;
+  sector_buffer[0x1c5]=0x3f;
+  sector_buffer[0x1c6]=0x00;  // LBA starting sector of partition (0x0800 = sector 2,048)
+  sector_buffer[0x1c7]=0x08;
+  sector_buffer[0x1c8]=0x00;
+  sector_buffer[0x1c9]=0x00;
+  // LBA size of partition in sectors
+  sector_buffer[0x1ca]=(partition_sectors>>0)&0xff;  
+  sector_buffer[0x1cb]=(partition_sectors>>8)&0xff;  
+  sector_buffer[0x1cc]=(partition_sectors>>16)&0xff;  
+  sector_buffer[0x1cd]=(partition_sectors>>24)&0xff;  
+
+  // MBR signature
+  sector_buffer[0x1fe]=0x55;
+  sector_buffer[0x1ff]=0xaa;
+}
+
 int main(int argc,char **argv)
 {
   sdcard_open();
   uint32_t sdcard_sectors = sdcard_getsize();
 
   // Calculate sectors for partition
-  uint32_t partition_sectors=0;
+  // This is the size of the card, minus 2,048 (=0x0800) sectors
+  uint32_t partition_sectors=sdcard_sectors-0x0800;
 
   // Calculate clusters for file system, and FAT size
   uint32_t fs_clusters=0;
@@ -38,7 +82,7 @@ int main(int argc,char **argv)
   uint8_t volumename[11];
   
   // MBR is always the first sector of a disk
-  build_mbr();
+  build_mbr(sdcard_sectors);
   sdcard_writesector(0,sector_buffer);
 
   // Blank intervening sectors
