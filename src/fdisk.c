@@ -82,7 +82,11 @@ void build_empty_fat()
 
 void build_root_dir(const uint8_t volume_name[11])
 {
+  uint8_t bytes[15]={8,0,0,0x53,0xae,0x93,0x4a,0x93,0x4a,0,0,0x53,0xae,0x93,0x4a};
   clear_sector_buffer();
+  int i;
+  for(i=0;i<11;i++) sector_buffer[i]=volume_name[i];
+  for(i=0;i<15;i++) sector_buffer[11+i]=bytes[i];
 }
 
 int main(int argc,char **argv)
@@ -102,7 +106,7 @@ int main(int argc,char **argv)
   uint32_t fat1_sector=0;
   uint32_t fat2_sector=0;
   uint8_t sectors_per_cluster=8;  // 4KB clusters
-  uint8_t volume_name[11];
+  uint8_t volume_name[11]="M.E.G.A.65!";
   
   // Work out maximum number of clusters we can accommodate
   uint32_t sectors_required;
