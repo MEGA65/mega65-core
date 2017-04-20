@@ -126,6 +126,10 @@ int main(int argc,char **argv)
   }
   fprintf(stderr,"Creating file system with %u (0x%x) clusters, %d sectors per FAT.\n",
 	  fs_clusters,fs_clusters,fat_sectors);
+
+  fat1_sector=0x0800+reserved_sectors;
+  fat2_sector=fat1_sector+fat_sectors;
+  rootdir_sector=fat2_sector+fat_sectors;
   
   // MBR is always the first sector of a disk
   build_mbr(sdcard_sectors,partition_sectors);
