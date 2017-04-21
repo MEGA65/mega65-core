@@ -1,0 +1,16 @@
+#!/bin/sh -f
+
+mb=500
+
+if [ "x$1" != "x" ]; then
+  mb=$1
+fi
+
+dd if=/dev/zero of=sdcard.img bs=1048576 count=$mb
+./fdisk.native
+hexdump -C sdcard.img  > ${mb}mb_bad.txt
+hdiutil attach -imagekey diskimage-class=CRawDiskImage -nomount sdcard.img
+fsck_msdos -y /dev/disk2s1 | tee ${mb}mb_fsck.log
+hdiutil detach disk2
+hexdump -C sdcard.img  > ${mb}mb_fixed.txt
+diff ${mb}mb_bad.txt ${mb}mb_fixed.txt
