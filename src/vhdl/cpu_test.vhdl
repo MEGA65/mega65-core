@@ -85,6 +85,42 @@ architecture behavior of cpu_test is
   signal eth_rxd : unsigned(1 downto 0) := "00";
   signal eth_txen : std_logic;
   signal eth_txd : unsigned(1 downto 0);
+
+  signal cart_ctrl_dir : std_logic;
+  signal cart_haddr_dir : std_logic;
+  signal cart_laddr_dir : std_logic;
+  signal cart_data_dir : std_logic;
+  signal cart_phi2 : std_logic;
+  signal cart_dotclock : std_logic;
+  signal cart_reset : std_logic;
+
+  signal cart_nmi : std_logic;
+  signal cart_irq : std_logic;
+  signal cart_dma : std_logic;
+
+  signal cart_exrom : std_logic := 'Z';
+  signal cart_ba : std_logic := 'Z';
+  signal cart_rw : std_logic := 'Z';
+  signal cart_roml : std_logic := 'Z';
+  signal cart_romh : std_logic := 'Z';
+  signal cart_io1 : std_logic := 'Z';
+  signal cart_game : std_logic := 'Z';
+  signal cart_io2 : std_logic := 'Z';
+
+  signal cart_d : std_logic_vector(7 downto 0) := (others => 'Z');
+  signal cart_a : std_logic_vector(15 downto 0) := (others => 'Z');
+         
+  ----------------------------------------------------------------------
+  -- CBM floppy serial port
+  ----------------------------------------------------------------------
+  signal iec_clk_en : std_logic;
+  signal iec_data_en : std_logic;
+  signal iec_data_o : std_logic;
+  signal iec_reset : std_logic;
+  signal iec_clk_o : std_logic;
+  signal iec_data_i : std_logic;
+  signal iec_clk_i : std_logic;
+  signal iec_atn : std_logic;  
   
 begin
   slowram0: slowram
@@ -134,6 +170,46 @@ begin
       fb_up => '1',
       fb_down => '1',
       fb_fire => '1',
+
+      ----------------------------------------------------------------------
+      -- Expansion/cartridge port
+      ----------------------------------------------------------------------
+      cart_ctrl_dir => cart_ctrl_dir,
+      cart_haddr_dir => cart_haddr_dir,
+      cart_laddr_dir => cart_laddr_dir,
+      cart_data_dir => cart_data_dir,
+      cart_phi2 => cart_phi2,
+      cart_dotclock => cart_dotclock,
+      cart_reset => cart_reset,
+      
+      cart_nmi => cart_nmi,
+      cart_irq => cart_irq,
+      cart_dma => cart_dma,
+      
+      cart_exrom => cart_exrom,
+      cart_ba => cart_ba,
+      cart_rw => cart_rw,
+      cart_roml => cart_roml,
+      cart_romh => cart_romh,
+      cart_io1 => cart_io1,
+      cart_game => cart_game,
+      cart_io2 => cart_io2,
+      
+      cart_d => cart_d,
+      cart_a => cart_a,
+      
+      ----------------------------------------------------------------------
+      -- CBM floppy  std_logic_vectorerial port
+      ----------------------------------------------------------------------
+      iec_clk_en => iec_clk_en,
+      iec_data_en => iec_data_en,
+      iec_data_o => iec_data_o,
+      iec_reset => iec_reset,
+      iec_clk_o => iec_clk_o,
+      iec_data_i => iec_data_i,
+      iec_clk_i => iec_clk_i,
+      iec_atn => iec_atn,
+
       
       pmod_clock => '0',
       pmod_start_of_sequence => '1',

@@ -270,6 +270,43 @@ architecture Behavioral of container is
 
   signal porta_pins : std_logic_vector(7 downto 0) := (others => '1');
   signal portb_pins : std_logic_vector(7 downto 0) := (others => '1');
+
+  signal cart_ctrl_dir : std_logic := 'Z';
+  signal cart_haddr_dir : std_logic := 'Z';
+  signal cart_laddr_dir : std_logic := 'Z';
+  signal cart_data_dir : std_logic := 'Z';
+  signal cart_phi2 : std_logic := 'Z';
+  signal cart_dotclock : std_logic := 'Z';
+  signal cart_reset : std_logic := 'Z';
+
+  signal cart_nmi : std_logic := 'Z';
+  signal cart_irq : std_logic := 'Z';
+  signal cart_dma : std_logic := 'Z';
+
+  signal cart_exrom : std_logic := 'Z';
+  signal cart_ba : std_logic := 'Z';
+  signal cart_rw : std_logic := 'Z';
+  signal cart_roml : std_logic := 'Z';
+  signal cart_romh : std_logic := 'Z';
+  signal cart_io1 : std_logic := 'Z';
+  signal cart_game : std_logic := 'Z';
+  signal cart_io2 : std_logic := 'Z';
+
+  signal cart_d : std_logic_vector(7 downto 0) := (others => 'Z');
+  signal cart_a : std_logic_vector(15 downto 0) := (others => 'Z');
+         
+  ----------------------------------------------------------------------
+  -- CBM floppy serial port
+  ----------------------------------------------------------------------
+  signal iec_clk_en : std_logic := 'Z';
+  signal iec_data_en : std_logic := 'Z';
+  signal iec_data_o : std_logic := 'Z';
+  signal iec_reset : std_logic := 'Z';
+  signal iec_clk_o : std_logic := 'Z';
+  signal iec_data_i : std_logic := 'Z';
+  signal iec_clk_i : std_logic := 'Z';
+  signal iec_atn : std_logic := 'Z';  
+
   
   -- XXX We should read the real temperature and feed this to the DDR controller
   -- so that it can update timing whenever the temperature changes too much.
@@ -366,6 +403,45 @@ begin
       fb_left => jdhi(8),
       fb_down => jdhi(9),
       fb_right => jdhi(10),
+
+      ----------------------------------------------------------------------
+      -- Expansion/cartridge port
+      ----------------------------------------------------------------------
+      cart_ctrl_dir => cart_ctrl_dir,
+      cart_haddr_dir => cart_haddr_dir,
+      cart_laddr_dir => cart_laddr_dir,
+      cart_data_dir => cart_data_dir,
+      cart_phi2 => cart_phi2,
+      cart_dotclock => cart_dotclock,
+      cart_reset => cart_reset,
+      
+      cart_nmi => cart_nmi,
+      cart_irq => cart_irq,
+      cart_dma => cart_dma,
+      
+      cart_exrom => cart_exrom,
+      cart_ba => cart_ba,
+      cart_rw => cart_rw,
+      cart_roml => cart_roml,
+      cart_romh => cart_romh,
+      cart_io1 => cart_io1,
+      cart_game => cart_game,
+      cart_io2 => cart_io2,
+      
+      cart_d => cart_d,
+      cart_a => cart_a,
+      
+      ----------------------------------------------------------------------
+      -- CBM floppy  std_logic_vectorerial port
+      ----------------------------------------------------------------------
+      iec_clk_en => iec_clk_en,
+      iec_data_en => iec_data_en,
+      iec_data_o => iec_data_odata_o,
+      iec_reset => iec_reset,
+      iec_clk_o => iec_clk_o,
+      iec_data_i => iec_data_i,
+      iec_clk_i => iec_clk_i,
+      iec_atn => iec_atn,
       
       no_kickstart => '0',
       ddr_counter => ddr_counter,

@@ -97,6 +97,45 @@ entity machine is
          fb_up : in std_logic;
          fb_down : in std_logic;
          fb_fire : in std_logic;
+
+         ----------------------------------------------------------------------
+         -- Expansion/cartridge port
+         ----------------------------------------------------------------------
+         cart_ctrl_dir : out std_logic;
+         cart_haddr_dir : out std_logic;
+         cart_laddr_dir : out std_logic;
+         cart_data_dir : out std_logic;
+         cart_phi2 : out std_logic;
+         cart_dotclock : out std_logic;
+         cart_reset : out std_logic;
+
+         cart_nmi : in std_logic;
+         cart_irq : in std_logic;
+         cart_dma : in std_logic;
+
+         cart_exrom : inout std_logic := 'Z';
+         cart_ba : inout std_logic := 'Z';
+         cart_rw : inout std_logic := 'Z';
+         cart_roml : inout std_logic := 'Z';
+         cart_romh : inout std_logic := 'Z';
+         cart_io1 : inout std_logic := 'Z';
+         cart_game : inout std_logic := 'Z';
+         cart_io2 : inout std_logic := 'Z';
+
+         cart_d : inout std_logic_vector(7 downto 0) := (others => 'Z');
+         cart_a : inout std_logic_vector(15 downto 0) := (others => 'Z');
+         
+         ----------------------------------------------------------------------
+         -- CBM floppy serial port
+         ----------------------------------------------------------------------
+         iec_clk_en : out std_logic;
+         iec_data_en : out std_logic;
+         iec_data_o : out std_logic;
+         iec_reset : out std_logic;
+         iec_clk_o : out std_logic;
+         iec_data_i : in std_logic;
+         iec_clk_i : in std_logic;
+         iec_atn : out std_logic;
          
          -------------------------------------------------------------------------
          -- Lines for the SDcard interface itself

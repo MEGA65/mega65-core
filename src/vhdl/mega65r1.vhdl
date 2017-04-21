@@ -53,6 +53,45 @@ entity container is
          fb_up : in std_logic;
          fb_down : in std_logic;
          fb_fire : in std_logic;
+
+         ----------------------------------------------------------------------
+         -- Expansion/cartridge port
+         ----------------------------------------------------------------------
+         cart_ctrl_dir : out std_logic;
+         cart_haddr_dir : out std_logic;
+         cart_laddr_dir : out std_logic;
+         cart_data_dir : out std_logic;
+         cart_phi2 : out std_logic;
+         cart_dotclock : out std_logic;
+         cart_reset : out std_logic;
+
+         cart_nmi : in std_logic;
+         cart_irq : in std_logic;
+         cart_dma : in std_logic;
+
+         cart_exrom : inout std_logic := 'Z';
+         cart_ba : inout std_logic := 'Z';
+         cart_rw : inout std_logic := 'Z';
+         cart_roml : inout std_logic := 'Z';
+         cart_romh : inout std_logic := 'Z';
+         cart_io1 : inout std_logic := 'Z';
+         cart_game : inout std_logic := 'Z';
+         cart_io2 : inout std_logic := 'Z';
+
+         cart_d : inout std_logic_vector(7 downto 0) := (others => 'Z');
+         cart_a : inout std_logic_vector(15 downto 0) := (others => 'Z');
+         
+         ----------------------------------------------------------------------
+         -- CBM floppy serial port
+         ----------------------------------------------------------------------
+         iec_clk_en : out std_logic;
+         iec_data_en : out std_logic;
+         iec_data_o : out std_logic;
+         iec_reset : out std_logic;
+         iec_clk_o : out std_logic;
+         iec_data_i : in std_logic;
+         iec_clk_i : in std_logic;
+         iec_atn : out std_logic;
          
          ----------------------------------------------------------------------
          -- VGA output
@@ -203,6 +242,45 @@ begin
       vgagreen        => v_green,
       vgablue         => v_blue,
 
+      ----------------------------------------------------------------------
+      -- Expansion/cartridge port
+      ----------------------------------------------------------------------
+      cart_ctrl_dir => cart_ctrl_dir,
+      cart_haddr_dir => cart_haddr_dir,
+      cart_laddr_dir => cart_laddr_dir,
+      cart_data_dir => cart_data_dir,
+      cart_phi2 => cart_phi2,
+      cart_dotclock => cart_dotclock,
+      cart_reset => cart_reset,
+      
+      cart_nmi => cart_nmi,
+      cart_irq => cart_irq,
+      cart_dma => cart_dma,
+      
+      cart_exrom => cart_exrom,
+      cart_ba => cart_ba,
+      cart_rw => cart_rw,
+      cart_roml => cart_roml,
+      cart_romh => cart_romh,
+      cart_io1 => cart_io1,
+      cart_game => cart_game,
+      cart_io2 => cart_io2,
+      
+      cart_d => cart_d,
+      cart_a => cart_a,
+      
+      ----------------------------------------------------------------------
+      -- CBM floppy  std_logic_vectorerial port
+      ----------------------------------------------------------------------
+      iec_clk_en => iec_clk_en,
+      iec_data_en => iec_data_en,
+      iec_data_o => iec_data_odata_o,
+      iec_reset => iec_reset,
+      iec_clk_o => iec_clk_o,
+      iec_data_i => iec_data_i,
+      iec_clk_i => iec_clk_i,
+      iec_atn => iec_atn,
+            
       porta_pins => column(7 downto 0),
       portb_pins => row(7 downto 0),
       keyboard_column8 => column(8),
