@@ -81,7 +81,7 @@ void build_dosbootsector(const uint8_t volume_name[11],
     // values in here.
     0x00, 0x02,  // Sector size = 512 bytes
     0x08 , // Sectors per cluster
-    0x38, 0x02,  // Number of reserved sectors (0x238 = 568)
+    /* 0x0e */ 0x38, 0x02,  // Number of reserved sectors (0x238 = 568)
     /* 0x10 */ 0x02, // Number of FATs
     0x00, 0x00, // Max directory entries for FAT12/16 (0 for FAT32)
     /* offset 0x13 */ 0x00, 0x00, // Total logical sectors (0 for FAT32)
@@ -166,15 +166,14 @@ void build_fs_information_sector(const uint32_t fs_clusters)
   // Last free cluster = (cluster count - 1)
   fprintf(stderr,"Writing fs_clusters (0x%x) as ",fs_clusters);
   for(i=0;i<4;i++) {
-    // Not sure why it should be -2, but it is.  Maybe it is the count of
-    // free clusters?
-    sector_buffer[0x1e8+i]=((fs_clusters-2)>>(i*8))&0xff;
+    // Number of free clusters
+    sector_buffer[0x1e8+i]=((fs_clusters-3)>>(i*8))&0xff;
     fprintf(stderr,"%02x ",sector_buffer[0x1e8+i]);
   }
   fprintf(stderr,"\n");
 
   // First free cluster = 2
-  sector_buffer[0x1ec]=0x02;
+  sector_buffer[0x1ec]=0x02+1;  // OSX newfs/fsck puts 3 here instead?
 
   // Boot sector signature
   sector_buffer[510]=0x55;
@@ -210,7 +209,7 @@ int main(int argc,char **argv)
 
   // Calculate clusters for file system, and FAT size
   uint32_t fs_clusters=0;
-  uint32_t reserved_sectors=576; // not sure why we use this value
+  uint32_t reserved_sectors=568; // not sure why we use this value
   uint32_t rootdir_sector=0;
   uint32_t fat_sectors=0;
   uint32_t fat1_sector=0;
@@ -239,8 +238,8 @@ int main(int argc,char **argv)
     fat_sectors=fs_clusters/(512/4); if (fs_clusters%(512/4)) fat_sectors++;
     sectors_required=2*fat_sectors+((fs_clusters-2)*sectors_per_cluster);
   }
-  fprintf(stderr,"Creating file system with %u (0x%x) clusters, %d sectors per FAT.\n",
-	  fs_clusters,fs_clusters,fat_sectors);
+  fprintf(stderr,"Creating file system with %u (0x%x) clusters, %d sectors per FAT, %d reserved sectors.\n",
+	  fs_clusters,fs_clusters,fat_sectors,reserved_sectors);
 
   fat1_sector=0x0800+reserved_sectors;
   fat2_sector=fat1_sector+fat_sectors;
