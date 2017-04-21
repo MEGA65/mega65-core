@@ -409,15 +409,15 @@ architecture Behavioral of viciv is
   -- 2593 pixels wide, which means that the CPU:VIC clock phase will not be
   -- consistent on all raster lines, and vertical rasters/splits would have a 4
   -- pixel wide saw-tooth effect.
-  constant frame_width : integer := 2592-1; // 1920x1200 @ 60Hz
-  constant frame_width : integer := 2193-1; 
+--  constant frame_width : integer := 2592-1; -- 1920x1200 @ 60Hz
+  constant frame_width : integer := 2193-1;  -- 1920x1080p @ 60Hz
   constant frame_h_front : integer := 128;
   constant frame_h_syncwidth : integer := 208;
 
   -- The real mode says 1242, but we need 1248 so that 1248/312 = 4,
   -- allowing VIC-II PAL raster numbers to be easily calculated.
-  constant frame_height : integer := 1248; // 1920x1200 @ 60Hz
-  constant frame_height : integer := 1132;
+--   constant frame_height : integer := 1248; -- 1920x1200 @ 60Hz
+  constant frame_height : integer := 1132; -- 1920x1080p @ 60Hz
   constant frame_v_front : integer := 1;
   constant frame_v_syncheight : integer := 3;
   
