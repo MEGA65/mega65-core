@@ -42,13 +42,13 @@ void build_mbr(const uint32_t sdcard_sectors,const uint32_t partition_sectors)
 
   // FAT32 Partition entry
   sector_buffer[0x1be]=0x00;  // Not bootable by DOS
-  sector_buffer[0x1bf]=0x20;  // 3 bytes CHS starting point
-  sector_buffer[0x1c0]=0x21;
-  sector_buffer[0x1c1]=0x20;
+  sector_buffer[0x1bf]=0x00;  // 3 bytes CHS starting point
+  sector_buffer[0x1c0]=0x00;
+  sector_buffer[0x1c1]=0x00;
   sector_buffer[0x1c2]=0x0c;  // Partition type (VFAT32)
-  sector_buffer[0x1c3]=0xdd;  // 3 bytes CHS end point - SHOULD CHANGE WITH DISK SIZE
-  sector_buffer[0x1c4]=0x1e;
-  sector_buffer[0x1c5]=0x3f;
+  sector_buffer[0x1c3]=0x00;  // 3 bytes CHS end point - SHOULD CHANGE WITH DISK SIZE
+  sector_buffer[0x1c4]=0x00;
+  sector_buffer[0x1c5]=0x00;
   sector_buffer[0x1c6]=0x00;  // LBA starting sector of partition (0x0800 = sector 2,048)
   sector_buffer[0x1c7]=0x08;
   sector_buffer[0x1c8]=0x00;
