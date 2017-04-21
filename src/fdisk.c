@@ -121,7 +121,7 @@ void build_dosbootsector(const uint8_t volume_name[11],
   
 }
 
-void build_fs_information_sector(const uint8_t fs_clusters)
+void build_fs_information_sector(const uint32_t fs_clusters)
 {
   uint8_t i;
   
@@ -138,10 +138,21 @@ void build_fs_information_sector(const uint8_t fs_clusters)
   sector_buffer[0x1e7]=0x61;
 
   // Last free cluster = (cluster count - 1)
-  for(i=0;i<4;i++) sector_buffer[0x1e8+i]=((fs_clusters-1)>>(i*8))&0xff;
+  fprintf(stderr,"Writing fs_clusters (0x%x) as ",fs_clusters);
+  for(i=0;i<4;i++) {
+    // Not sure why it should be -2, but it is.  Maybe it is the count of
+    // free clusters?
+    sector_buffer[0x1e8+i]=((fs_clusters-2)>>(i*8))&0xff;
+    fprintf(stderr,"%02x ",sector_buffer[0x1e8+i]);
+  }
+  fprintf(stderr,"\n");
 
   // First free cluster = 2
   sector_buffer[0x1ec]=0x02;
+
+  // Boot sector signature
+  sector_buffer[510]=0x55;
+  sector_buffer[511]=0xaa;
 }
 
 
