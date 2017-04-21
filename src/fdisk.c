@@ -104,8 +104,8 @@ void build_dosbootsector(const uint8_t volume_name[11],
     /* 0x41 */ 0x00, // FAT12/16 use only
     /* 0x42 */ 0x29, // 0x29 == Extended Boot Signature
     /* 0x43 */ 0x6d, 0x66, 0x62, 0x61, // Volume ID "mfba"
-    /* 0x47 */ 0x4c, 0x4f, 0x55, 0x44, 0x20, // 11 byte volume label
-               0x20, 0x20 ,0x20, 0x20, 0x20, 0x20,
+    /* 0x47 */ 0x4d, 0x2e, 0x45, 0x2e, 0x47, // 11 byte volume label
+               0x2e, 0x41 ,0x2e, 0x20, 0x36, 0x35,
     /* 0x52 */ 0x46, 0x41, 0x54, 0x33, 0x32, 0x20, 0x20, 0x20, // "FAT32   "
     // Boot loader code starts here
     0x0e, 0x1f, 0xbe, 0x77 ,0x7c, 0xac,
@@ -260,9 +260,10 @@ int main(int argc,char **argv)
   sdcard_writesector(0x0800,sector_buffer);
   sdcard_writesector(0x0806,sector_buffer); // Backup boot sector at partition + 6
 
-  // FAT32 FS Information block
+  // FAT32 FS Information block (and backup)
   build_fs_information_sector(fs_clusters);
   sdcard_writesector(0x0801,sector_buffer);
+  sdcard_writesector(0x0807,sector_buffer);
 
   // FATs
   fprintf(stderr,"Writing FATs at offsets 0x%x and 0x%x\n",
