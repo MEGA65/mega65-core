@@ -65,7 +65,7 @@ void build_mbr(const uint32_t sdcard_sectors,const uint32_t partition_sectors)
 }
 
 void build_dosbootsector(const uint8_t volume_name[11],
-			 uint32_t fs_sectors, uint32_t fs_sectors_per_fat)
+			 uint32_t data_sectors, uint32_t fs_sectors_per_fat)
 {
   uint8_t i;
   
@@ -106,8 +106,8 @@ void build_dosbootsector(const uint8_t volume_name[11],
   // Start with template, and then modify relevant fields */
   for(i=0;i<224;i++) sector_buffer[i]=bytes[i];
 
-  // 0x20-0x23 = 32-bit number of sectors in file system
-  for(i=0;i<4;i++) sector_buffer[0x20+i]=((fs_sectors)>>(i*8))&0xff;
+  // 0x20-0x23 = 32-bit number of data sectors in file system
+  for(i=0;i<4;i++) sector_buffer[0x20+i]=((data_sectors)>>(i*8))&0xff;
 
   // 0x24-0x27 = 32-bit number of sectors per fat
   for(i=0;i<4;i++) sector_buffer[0x24+i]=((fs_sectors_per_fat)>>(i*8))&0xff;
@@ -189,6 +189,7 @@ int main(int argc,char **argv)
   uint32_t fat_sectors=0;
   uint32_t fat1_sector=0;
   uint32_t fat2_sector=0;
+  uint32_t fs_data_sectors=0;
   uint8_t sectors_per_cluster=8;  // 4KB clusters
   uint8_t volume_name[11]="M.E.G.A.65!";
   
@@ -218,6 +219,7 @@ int main(int argc,char **argv)
   fat1_sector=0x0800+reserved_sectors;
   fat2_sector=fat1_sector+fat_sectors;
   rootdir_sector=fat2_sector+fat_sectors;
+  fs_data_sectors=fs_clusters*sectors_per_cluster;
   
   // MBR is always the first sector of a disk
   build_mbr(sdcard_sectors,partition_sectors);
@@ -227,7 +229,9 @@ int main(int argc,char **argv)
   sdcard_erase(0+1,0x0800-1);
   
   // Partition starts at fixed position of sector 2048, i.e., 1MB
-  build_dosbootsector(volume_name,partition_sectors,fat_sectors);
+  build_dosbootsector(volume_name,
+		      partition_sectors,
+		      fat_sectors);
   sdcard_writesector(0x0800,sector_buffer);
   sdcard_writesector(0x0806,sector_buffer); // Backup boot sector at partition + 6
 
@@ -236,7 +240,9 @@ int main(int argc,char **argv)
   sdcard_writesector(0x0801,sector_buffer);
 
   // FATs
-  build_empty_fat();
+  fprintf(stderr,"Writing FATs at offsets 0x%x and 0x%x\n",
+	  fat1_sector*512,fat2_sector*512);
+  build_empty_fat(); 
   sdcard_writesector(fat1_sector,sector_buffer);
   sdcard_writesector(fat2_sector,sector_buffer);
 
