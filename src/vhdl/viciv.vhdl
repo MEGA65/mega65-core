@@ -1706,14 +1706,14 @@ begin
         elsif register_number=118 then  -- $D3076
           fastio_rdata <= "00000" & debug_character_data_from_rom_drive2 & debug_chargen_active_drive2 & debug_chargen_active_soon_drive2;
         elsif register_number=119 then  -- $D3077
-          fastio_rdata <= std_logic_vector(frame_width(7 downto 0);
+          fastio_rdata <= std_logic_vector(frame_width(7 downto 0));
         elsif register_number=120 then  -- $D3078
-          fastio_rdata(3 downto 0) <= std_logic_vector(frame_width(11 downto 8);
+          fastio_rdata(3 downto 0) <= std_logic_vector(frame_width(11 downto 8));
 	  fastio_rdata(7 downto 4) <= x"0";
         elsif register_number=121 then  -- $D3079
-          fastio_rdata <= std_logic_vector(frame_height(7 downto 0);
+          fastio_rdata <= std_logic_vector(frame_height(7 downto 0));
         elsif register_number=122 then  -- $D307A
-          fastio_rdata(3 downto 0) <= std_logic_vector(frame_height(11 downto 8);
+          fastio_rdata(3 downto 0) <= std_logic_vector(frame_height(11 downto 8));
 	  fastio_rdata(7 downto 4) <= x"0";
         elsif register_number=123 then  -- $D307B
           fastio_rdata <= std_logic_vector(xcounter_delay);
@@ -2507,7 +2507,7 @@ begin
       last_vicii_xcounter1280 <= vicii_xcounter_sub(15 downto 5);
       report "VICII: SPRITE: xcounter = " & integer'image(to_integer(last_vicii_xcounter))
         & " (raw = " & to_hstring(vicii_xcounter_sub);
-      if xcounter!=to_integer(frame_width) then
+      if xcounter /= to_integer(frame_width) then
         xcounter <= xcounter + 1;
         vicii_xcounter_sub <= vicii_xcounter_sub + sprite_x_scale;
       else
@@ -2529,7 +2529,7 @@ begin
         raster_buffer_read_address <= (others => '0');
         chargen_active <= '0';
         chargen_active_soon <= '0';        
-        if ycounter!=to_integer(frame_height) then
+        if ycounter /= to_integer(frame_height) then
           ycounter <= ycounter + 1;
           if vicii_ycounter_phase = vicii_ycounter_max_phase then
             vicii_ycounter <= vicii_ycounter + 1;
