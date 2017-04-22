@@ -397,15 +397,23 @@ architecture Behavioral of viciv is
   -- The real mode says 1242, but we need 1248 so that 1248/312 = 4,
   -- allowing VIC-II PAL raster numbers to be easily calculated.
 --   constant frame_height : integer := 1248; -- 1920x1200 @ 60Hz
+  -- 1280x1024 @ 61hz = :FFD3075 80 DD 87 20 30 44 30 07 (imperfectly)
+  -- 1280x1024 @ 57Hz = :FFD3075 80 80 97 20 30 44 32 07
+  
   -- 1920x1080p @ 60Hz
-  signal frame_width : unsigned(11 downto 0) := to_unsigned(2193-1,12);
-  signal frame_height : unsigned(11 downto 0) := to_unsigned(1132,12); 
-  signal display_height : unsigned(11 downto 0) := to_unsigned(1080,12);
-  signal display_width : unsigned(11 downto 0) := to_unsigned(1920,12);
+
+  -- 1280x1024 @ 57Hz
+  signal frame_width : unsigned(11 downto 0) := to_unsigned(2000,12);
+  signal display_width : unsigned(11 downto 0) := to_unsigned(2432,12);
+  signal frame_height : unsigned(11 downto 0) := to_unsigned(1072,12); 
+  signal display_height : unsigned(11 downto 0) := to_unsigned(1056,12);
+  signal vicii_ycounter_scale_minus_two : unsigned(1 downto 0) := to_unsigned(4-2,1);
+  signal xcounter_delay : unsigned(11 downto 0) := to_unsigned(1842,12);
 
   -- Calculated dynamically
   signal vsync_start : unsigned(11 downto 0);
   signal x_end_of_raster : unsigned(11 downto 0);
+  signal vicii_ycounter_scale : unsigned(2 downto 0);
   
   constant frame_v_front : integer := 1;
   
@@ -413,8 +421,6 @@ architecture Behavioral of viciv is
   -- DEBUG: Start frame at a point that will soon trigger a badline
   signal xcounter : unsigned(11 downto 0) := to_unsigned(0,12);
   signal xcounter_delayed : unsigned(11 downto 0) := to_unsigned(0,12);
-  -- 128 + 8 cycles extra for compositer and PAL emulation
-  signal xcounter_delay : unsigned(11 downto 0) := to_unsigned(136,12);
   
   signal xcounter_drive : unsigned(11 downto 0) := (others => '0');
   signal ycounter : unsigned(11 downto 0) := to_unsigned(0,12);
@@ -976,6 +982,8 @@ architecture Behavioral of viciv is
   signal set_hsync : std_logic := '0';
   signal hsync_drive : std_logic := '0';
   signal vsync_drive : std_logic := '0';
+  signal vsync_polarity : std_logic := '1';
+  signal hsync_polarity : std_logic := '0';
 
   signal new_frame : std_logic := '0';
 
@@ -1711,7 +1719,9 @@ begin
           fastio_rdata(7 downto 4) <= ( others => '0');
         elsif register_number=124 then  -- $D307C
           fastio_rdata(3 downto 0) <= std_logic_vector(xcounter_delay(11 downto 8));
-
+          fastio_rdata(4) <= hsync_polarity;
+          fastio_rdata(5) <= vsync_polarity;
+          fastio_rdata(7 downto 6) <= std_logic_vector(vicii_ycounter_scale_minus_one);
         elsif register_number=125 then
           fastio_rdata <=
             std_logic_vector(to_unsigned(vic_paint_fsm'pos(debug_paint_fsm_state_drive2),8));
@@ -2353,7 +2363,12 @@ begin
         elsif register_number=124 then
           -- @IO:GS $D07C.0-3 VIC-IV hsync adjust (MSB)
           xcounter_delay(11 downto 8) <= unsigned(fastio_wdata(3 downto 0));
-
+          -- @IO:GS $D07C.4 VIC-IV hsync polarity
+          hsync_polarity <= fastio_wdata(4);
+          -- @IO:GS $D07C.5 VIC-IV vsync polarity
+          vsync_polarity <= fastio_wdata(5);
+          -- @IO:GS $D07C.6 VIC-IV physical rasters per VIC-II raster (2-5)
+          vicii_ycounter_scale_minus_one <= unsigned(fastio_wdata(7 downto 6));
         elsif register_number=125 then
           -- @IO:GS $D07D VIC-IV debug X position (LSB)
           debug_x(7 downto 0) <= unsigned(fastio_wdata);
@@ -2486,9 +2501,9 @@ begin
         set_hsync <= '0';
       end if;
       if clear_hsync='1' then
-        hsync_drive <= '0';
+        hsync_drive <= '0' xor hsync_polarity;
       elsif set_hsync='1' then
-        hsync_drive <= '1';
+        hsync_drive <= '1' xor hsync_polarity;
       end if;
       hsync <= hsync_drive;      
 
@@ -2545,7 +2560,7 @@ begin
             -- Set number of physical rasters per VIC-II raster based on region
             -- of screen.
             if vicii_ycounter = 50 then
-              vicii_ycounter_max_phase <= to_unsigned(4,3);
+              vicii_ycounter_max_phase <= to_unsigned(vicii_ycounter_scale,3);
             elsif vicii_ycounter = 250 then
               vicii_ycounter_max_phase <= to_unsigned(0,3);
             elsif vicii_ycounter = 312 then
@@ -2726,7 +2741,7 @@ begin
       end if;
       vsync_start <= frame_v_front+display_height;
       if ycounter=vsync_start then
-        vsync_drive <= '1';
+        vsync_drive <= '0' xor vsync_polarity;
         vert_in_frame <= '0';
         -- Send a 1 cycle pulse at the end of each frame for
         -- streaming display module to synchronise on.
@@ -2737,7 +2752,7 @@ begin
         end if;
       end if;
       if ycounter=0 then
-        vsync_drive <= '0';
+        vsync_drive <= '1' xor vsync_polarity;
       end if;
       vsync <= vsync_drive;
 
