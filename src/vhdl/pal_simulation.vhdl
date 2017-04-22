@@ -154,12 +154,15 @@ begin
         end case;       
       end if;
 
-      scaled := to_unsigned(to_integer(red_in) * luma,16);
-      red_out <= scaled(15 downto 8);
-      scaled := to_unsigned(to_integer(green_in) * luma,16);
-      green_out <= scaled(15 downto 8);
-      scaled := to_unsigned(to_integer(blue_in) * luma,16);
-      blue_out <= scaled(15 downto 8);
+--      scaled := to_unsigned(to_integer(red_in) * luma,16);
+--      red_out <= scaled(15 downto 8);
+--      scaled := to_unsigned(to_integer(green_in) * luma,16);
+--      green_out <= scaled(15 downto 8);
+--      scaled := to_unsigned(to_integer(blue_in) * luma,16);
+--      blue_out <= scaled(15 downto 8);
+      red_out <= red_in;
+      green_out <= green_in;
+      blue_out <= blue_in;
       
     end if;
   end process;
