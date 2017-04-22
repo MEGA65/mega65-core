@@ -407,7 +407,7 @@ architecture Behavioral of viciv is
   signal display_width : unsigned(11 downto 0) := to_unsigned(2432,12);
   signal frame_height : unsigned(11 downto 0) := to_unsigned(1072,12); 
   signal display_height : unsigned(11 downto 0) := to_unsigned(1056,12);
-  signal vicii_ycounter_scale_minus_two : unsigned(1 downto 0) := to_unsigned(4-2,2);
+  signal vicii_ycounter_scale_minus_two : unsigned(2 downto 0) := "0"&to_unsigned(4-2,2);
   signal xcounter_delay : unsigned(11 downto 0) := to_unsigned(1842,12);
 
   -- Calculated dynamically
@@ -1721,7 +1721,7 @@ begin
           fastio_rdata(3 downto 0) <= std_logic_vector(xcounter_delay(11 downto 8));
           fastio_rdata(4) <= hsync_polarity;
           fastio_rdata(5) <= vsync_polarity;
-          fastio_rdata(7 downto 6) <= std_logic_vector(vicii_ycounter_scale_minus_two);
+          fastio_rdata(7 downto 6) <= std_logic_vector(vicii_ycounter_scale_minus_two(1 downto 0));
         elsif register_number=125 then
           fastio_rdata <=
             std_logic_vector(to_unsigned(vic_paint_fsm'pos(debug_paint_fsm_state_drive2),8));
@@ -2368,7 +2368,7 @@ begin
           -- @IO:GS $D07C.5 VIC-IV vsync polarity
           vsync_polarity <= fastio_wdata(5);
           -- @IO:GS $D07C.6 VIC-IV physical rasters per VIC-II raster (2-5)
-          vicii_ycounter_scale_minus_two <= unsigned(fastio_wdata(7 downto 6));
+          vicii_ycounter_scale_minus_two(1 downto 0) <= unsigned(fastio_wdata(7 downto 6));
         elsif register_number=125 then
           -- @IO:GS $D07D VIC-IV debug X position (LSB)
           debug_x(7 downto 0) <= unsigned(fastio_wdata);
