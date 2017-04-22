@@ -2340,12 +2340,13 @@ begin
           -- @IO:GS $D079 VIC-IV frame_height (LSB)
           frame_height(7 downto 0) <= unsigned(fastio_wdata);
         elsif register_number=122 then  -- $D307A
-          -- @IO:GS $D07A VIC-IV frame_height (MSB)
+          -- @IO:GS $D07A.0-3 VIC-IV frame_height (MSB)
+          -- @IO:GS $D07A.4-7 VIC-IV hsync adjust (MSB)
           frame_height(11 downto 8) <= unsigned(fastio_wdata(3 downto 0));
           xcounter_delay(11 downto 8) <= unsigned(fastio_wdata(7 downto 4));
         elsif register_number=123 then
           -- @IO:GS $D07B VIC-IV hsync adjust
-          xcounter_delay <= unsigned(fastio_wdata);
+          xcounter_delay(7 downto 0) <= unsigned(fastio_wdata);
         elsif register_number=124 then
           -- @IO:GS $D07C VIC-IV debug X position (LSB)
           debug_x(7 downto 0) <= unsigned(fastio_wdata);
