@@ -426,7 +426,7 @@ architecture Behavioral of viciv is
   signal xcounter : unsigned(11 downto 0) := to_unsigned(frame_h_front+width-50,12);
   signal xcounter_delayed : unsigned(11 downto 0) := to_unsigned(frame_h_front+width-50,12);
   -- 128 + 8 cycles extra for compositer and PAL emulation
-  signal xcounter_delay : unsigned(7 downto 0) := to_unsigned(136,8);
+  signal xcounter_delay : unsigned(11 downto 0) := to_unsigned(136,12);
   
   signal xcounter_drive : unsigned(11 downto 0) := (others => '0');
   signal ycounter : unsigned(10 downto 0) := to_unsigned(frame_v_front+frame_v_syncheight,11);
@@ -1714,7 +1714,7 @@ begin
           fastio_rdata <= std_logic_vector(frame_height(7 downto 0));
         elsif register_number=122 then  -- $D307A
           fastio_rdata(3 downto 0) <= std_logic_vector(frame_height(11 downto 8));
-	  fastio_rdata(7 downto 4) <= x"0";
+	  fastio_rdata(7 downto 4) <= std_logic_vector(xcounter_delay(11 downto 8));
         elsif register_number=123 then  -- $D307B
           fastio_rdata <= std_logic_vector(xcounter_delay);
         elsif register_number=124 then
@@ -2342,6 +2342,7 @@ begin
         elsif register_number=122 then  -- $D307A
           -- @IO:GS $D07A VIC-IV frame_height (MSB)
           frame_height(11 downto 8) <= unsigned(fastio_wdata(3 downto 0));
+          xcounter_delay(11 downto 8) <= unsigned(fastio_wdata(7 downto 4));
         elsif register_number=123 then
           -- @IO:GS $D07B VIC-IV hsync adjust
           xcounter_delay <= unsigned(fastio_wdata);
@@ -2467,12 +2468,12 @@ begin
       -- over 3 cycles, including one pure drive cycle, which should hopefully
       -- fix it once and for all.
       xcounter_delayed <= xcounter - xcounter_delay;
-      if xcounter_delayed=(frame_h_front+width) then
+      if xcounter_delayed=0 then
         clear_hsync <= '1';
       else
         clear_hsync <= '0';
       end if;
-      if xcounter_delayed=(frame_h_front+width+frame_h_syncwidth) then
+      if xcounter_delayed=frame_h_syncwidth then
         set_hsync <= '1';
       else
         set_hsync <= '0';
