@@ -403,8 +403,8 @@ architecture Behavioral of viciv is
   -- 1920x1080p @ 60Hz
 
   -- 1280x1024 @ 57Hz
-  signal frame_width : unsigned(11 downto 0) := to_unsigned(2000,12);
-  signal display_width : unsigned(11 downto 0) := to_unsigned(2432,12);
+  signal frame_width : unsigned(11 downto 0) := to_unsigned(2432,12);
+  signal display_width : unsigned(11 downto 0) := to_unsigned(1920,12);
   signal frame_height : unsigned(11 downto 0) := to_unsigned(1072,12); 
   signal display_height : unsigned(11 downto 0) := to_unsigned(1056,12);
   signal vicii_ycounter_scale_minus_two : unsigned(2 downto 0) := "0"&to_unsigned(4-2,2);
@@ -1305,7 +1305,8 @@ begin
         end if;
         -- set y_chargen_start based on twentyfourlines
         y_chargen_start <= to_unsigned((100-3*5)+to_integer(vicii_y_smoothscroll)*5,12);
-        chargen_y_scale <= x"04";
+        chargen_y_scale(2 downto 0) <= vicii_ycounter_scale_minus_two;
+        chargen_y_scale(7 downto 3) <= (others => '0');
       else
         -- 400px mode
         -- set vertical borders based on twentyfourlines
@@ -1318,7 +1319,9 @@ begin
         end if;
         -- set y_chargen_start based on twentyfourlines
         y_chargen_start <= to_unsigned((0-3*3)+to_integer(vicii_y_smoothscroll)*3,12);
-        chargen_y_scale <= x"02";
+
+        chargen_y_scale(1 downto 0) <= vicii_ycounter_scale_minus_two(2 downto 1);
+        chargen_y_scale(7 downto 2) <= (others => '0');
       end if;
       
       screen_ram_base(13 downto 10) <= reg_d018_screen_addr;
