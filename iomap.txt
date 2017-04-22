@@ -151,7 +151,7 @@ GS $D056 VIC-IV Sprite extended height size (sprite pixels high)
 GS $D057 VIC-IV Sprite extended width enables
 GS $D058 VIC-IV characters per logical text row (LSB)
 GS $D059 VIC-IV characters per logical text row (MSB)
-GS $D05A VIC-IV horizontal hardware scale setting
+GS $D05A VIC-IV horizontal hardware scale setting (pixel 120ths)
 GS $D05B VIC-IV vertical hardware scale setting
 GS $D05C VIC-IV left border position (LSB)
 GS $D05D VIC-IV left border position (MSB)
