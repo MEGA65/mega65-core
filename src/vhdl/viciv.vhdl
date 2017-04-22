@@ -391,46 +391,34 @@ architecture Behavioral of viciv is
   signal pixel_alpha : unsigned(7 downto 0) := x"00";
   
   -- Video mode definition
---  constant width : integer := 1600;
---  constant height : integer := 1200;
---  
---  constant frame_width : integer := 2160;
---  constant frame_h_front : integer := 64;
---  constant frame_h_syncwidth : integer := 192;
---  
---  constant frame_height : integer := 1250;
---  constant frame_v_front : integer := 1;
---  constant frame_v_syncheight : integer := 3;
-
-  constant width : integer := 1920;
-  constant height : integer := 1200;
-
-  -- We compare to this value, thus the minus one.  Otherwise the frame will be
-  -- 2593 pixels wide, which means that the CPU:VIC clock phase will not be
-  -- consistent on all raster lines, and vertical rasters/splits would have a 4
-  -- pixel wide saw-tooth effect.
---  constant frame_width : integer := 2592-1; -- 1920x1200 @ 60Hz
-  signal frame_width : unsigned(11 downto 0) := to_unsigned(2193-1,12);  -- 1920x1080p @ 60Hz
   constant frame_h_front : integer := 128;
   constant frame_h_syncwidth : integer := 208;
 
   -- The real mode says 1242, but we need 1248 so that 1248/312 = 4,
   -- allowing VIC-II PAL raster numbers to be easily calculated.
 --   constant frame_height : integer := 1248; -- 1920x1200 @ 60Hz
-  signal frame_height : unsigned(11 downto 0) := to_unsigned(1132,12); -- 1920x1080p @ 60Hz
+  -- 1920x1080p @ 60Hz
+  signal frame_width : unsigned(11 downto 0) := to_unsigned(2193-1,12);
+  signal frame_height : unsigned(11 downto 0) := to_unsigned(1132,12); 
+  signal display_height : unsigned(11 downto 0) := to_unsigned(1080,12);
+  signal display_width : unsigned(11 downto 0) := to_unsigned(1920,12);
+
+  -- Calculated dynamically
+  signal vsync_start : unsigned(11 downto 0);
+  signal x_end_of_raster : unsigned(11 downto 0);
+  
   constant frame_v_front : integer := 1;
-  constant frame_v_syncheight : integer := 3;
   
   -- Frame generator counters
   -- DEBUG: Start frame at a point that will soon trigger a badline
-  signal xcounter : unsigned(11 downto 0) := to_unsigned(frame_h_front+width-50,12);
-  signal xcounter_delayed : unsigned(11 downto 0) := to_unsigned(frame_h_front+width-50,12);
+  signal xcounter : unsigned(11 downto 0) := to_unsigned(0,12);
+  signal xcounter_delayed : unsigned(11 downto 0) := to_unsigned(0,12);
   -- 128 + 8 cycles extra for compositer and PAL emulation
   signal xcounter_delay : unsigned(11 downto 0) := to_unsigned(136,12);
   
   signal xcounter_drive : unsigned(11 downto 0) := (others => '0');
-  signal ycounter : unsigned(10 downto 0) := to_unsigned(frame_v_front+frame_v_syncheight,11);
-  signal ycounter_drive : unsigned(10 downto 0) := (others => '0');
+  signal ycounter : unsigned(11 downto 0) := to_unsigned(0,12);
+  signal ycounter_drive : unsigned(11 downto 0) := (others => '0');
   -- Virtual raster number for VIC-II
   -- (On powerup set to a PAL only raster so that ROM doesn't need to wait a
   -- whole frame.  This is really just to make testing through simulation quicker
@@ -1701,25 +1689,29 @@ begin
           fastio_rdata <= std_logic_vector(bitplanes_y_start);
         elsif register_number=116 then  -- $D3074
           fastio_rdata <= std_logic_vector(vicii_sprite_sprite_colission_map);
+          
         elsif register_number=117 then  -- $D3075
-          fastio_rdata <= std_logic_vector(debug_cycles_to_next_card_drive2(7 downto 0));
+          fastio_rdata <= std_logic_vector(display_width(7 downto 0));
         elsif register_number=118 then  -- $D3076
-          fastio_rdata <= "00000" & debug_character_data_from_rom_drive2 & debug_chargen_active_drive2 & debug_chargen_active_soon_drive2;
-        elsif register_number=119 then  -- $D3077
           fastio_rdata <= std_logic_vector(frame_width(7 downto 0));
+        elsif register_number=119 then  -- $D3077
+          fastio_rdata(3 downto 0) <= std_logic_vector(display_width(11 downto 8));
+          fastio_rdata(7 downto 4) <= std_logic_vector(frame_width(11 downto 8));
+
         elsif register_number=120 then  -- $D3078
-          fastio_rdata(3 downto 0) <= std_logic_vector(frame_width(11 downto 8));
-	  fastio_rdata(7 downto 4) <= x"0";
+	  fastio_rdata <= std_logic_vector(display_height(7 downto 0));
         elsif register_number=121 then  -- $D3079
           fastio_rdata <= std_logic_vector(frame_height(7 downto 0));
         elsif register_number=122 then  -- $D307A
-          fastio_rdata(3 downto 0) <= std_logic_vector(frame_height(11 downto 8));
-	  fastio_rdata(7 downto 4) <= std_logic_vector(xcounter_delay(11 downto 8));
+          fastio_rdata(3 downto 0) <= std_logic_vector(display_height(11 downto 8));
+	  fastio_rdata(7 downto 4) <= std_logic_vector(frame_height(11 downto 8));
+          
         elsif register_number=123 then  -- $D307B
           fastio_rdata <= std_logic_vector(xcounter_delay(7 downto 0));
-        elsif register_number=124 then
-          fastio_rdata <=
-            std_logic_vector(to_unsigned(vic_chargen_fsm'pos(debug_raster_fetch_state_drive2),8));
+          fastio_rdata(7 downto 4) <= ( others => '0');
+        elsif register_number=124 then  -- $D307C
+          fastio_rdata(3 downto 0) <= std_logic_vector(xcounter_delay(11 downto 8));
+
         elsif register_number=125 then
           fastio_rdata <=
             std_logic_vector(to_unsigned(vic_paint_fsm'pos(debug_paint_fsm_state_drive2),8));
@@ -2330,35 +2322,49 @@ begin
         elsif register_number=115 then  -- $D3073
           -- @IO:GS $D073 VIC-IV bitplanes vertical start (in VIC-II pixels)
           bitplanes_y_start <= unsigned(fastio_wdata);
-        elsif register_number=119 then  -- $D3077
-          -- @IO:GS $D077 VIC-IV frame_width (LSB)
+
+        elsif register_number=117 then
+          -- @IO:GS $D075 VIC-IV display_width (MSB)
+           display_width(7 downto 0) <= unsigned(fastio_wdata);
+        elsif register_number=118 then
+          -- @IO:GS $D076 VIC-IV frame_width (LSB)
           frame_width(7 downto 0) <= unsigned(fastio_wdata);
+        elsif register_number=119 then  -- $D3077
+          -- @IO:GS $D077.0-3 VIC-IV display_width (MSB)
+          display_width(11 downto 8) <= unsigned(fastio_wdata(3 downto 0));
+          -- @IO:GS $D077.4-7 VIC-IV frame_width (MSB)
+          frame_width(11 downto 8) <= unsigned(fastio_wdata(7 downto 4));
+
         elsif register_number=120 then  -- $D3078
-          -- @IO:GS $D078 VIC-IV frame_width (MSB)
-          frame_width(11 downto 8) <= unsigned(fastio_wdata(3 downto 0));
+          -- @IO:GS $D078 VIC-IV display_height (LSB)
+          display_height(7 downto 0) <= unsigned(fastio_wdata);
         elsif register_number=121 then  -- $D3079
           -- @IO:GS $D079 VIC-IV frame_height (LSB)
           frame_height(7 downto 0) <= unsigned(fastio_wdata);
         elsif register_number=122 then  -- $D307A
-          -- @IO:GS $D07A.0-3 VIC-IV frame_height (MSB)
-          -- @IO:GS $D07A.4-7 VIC-IV hsync adjust (MSB)
-          frame_height(11 downto 8) <= unsigned(fastio_wdata(3 downto 0));
-          xcounter_delay(11 downto 8) <= unsigned(fastio_wdata(7 downto 4));
+          -- @IO:GS $D07A.0-3 VIC-IV display_height (MSB)
+          display_height(11 downto 8) <= unsigned(fastio_wdata(3 downto 0));
+          -- @IO:GS $D07A.4-7 VIC-IV frame_height (MSB)
+          frame_height(11 downto 8) <= unsigned(fastio_wdata(7 downto 4));
+
         elsif register_number=123 then
           -- @IO:GS $D07B VIC-IV hsync adjust
           xcounter_delay(7 downto 0) <= unsigned(fastio_wdata);
         elsif register_number=124 then
-          -- @IO:GS $D07C VIC-IV debug X position (LSB)
-          debug_x(7 downto 0) <= unsigned(fastio_wdata);
+          -- @IO:GS $D07C.0-3 VIC-IV hsync adjust (MSB)
+          xcounter_delay(11 downto 8) <= unsigned(fastio_wdata(3 downto 0));
+
         elsif register_number=125 then
-          -- @IO:GS $D07D VIC-IV debug X position (MSB)
-          debug_x(11 downto 8) <= unsigned(fastio_wdata(3 downto 0));
+          -- @IO:GS $D07D VIC-IV debug X position (LSB)
+          debug_x(7 downto 0) <= unsigned(fastio_wdata);
         elsif register_number=126 then
           -- @IO:GS $D07E VIC-IV debug Y position (LSB)
           debug_y(7 downto 0) <= unsigned(fastio_wdata);
         elsif register_number=127 then
-          -- @IO:GS $D07F VIC-IV debug X position (MSB)
-          debug_y(11 downto 8) <= unsigned(fastio_wdata(3 downto 0));
+          -- @IO:GS $D07F.0-3 VIC-IV debug X position (MSB)
+          debug_x(11 downto 8) <= unsigned(fastio_wdata(3 downto 0));
+          -- @IO:GS $D07F.4-7 VIC-IV debug Y position (MSB)
+          debug_y(11 downto 8) <= unsigned(fastio_wdata(7 downto 4));
         elsif register_number<255 then
           -- reserved register, FDC and RAM expansion controller
           null;
@@ -2583,7 +2589,7 @@ begin
       else
         xfrontporch <= '0';
       end if;
-      if xcounter=frame_h_front+width+1 then
+      if xcounter=frame_h_front+display_width+1 then
         -- tell frame grabber about each new raster
         pixel_newraster <= '1';
       else
@@ -2593,7 +2599,7 @@ begin
       -- Work out when the horizonal back porch starts.
       -- The edge is used to trigger drawing of the next raster into the raster
       -- buffer.
-      if xcounter<(frame_h_front+width) then
+      if xcounter<(frame_h_front+display_width) then
         xbackporch <= '0';
         xbackporch_edge <= '0';
       else
@@ -2638,7 +2644,7 @@ begin
         indisplay := '0';
         report "clearing indisplay because of horizontal porch" severity note;
       end if;
-      if (displayy>=height) then
+      if (displayy=display_height) then
         indisplay := '0';
         report "clearing indisplay because of vertical porch";
       end if;
@@ -2718,7 +2724,8 @@ begin
       if ycounter=frame_v_front then
         vert_in_frame <= '1';
       end if;
-      if ycounter=(frame_v_front+height) then
+      vsync_start <= frame_v_front+display_height;
+      if ycounter=vsync_start then
         vsync_drive <= '1';
         vert_in_frame <= '0';
         -- Send a 1 cycle pulse at the end of each frame for
@@ -2729,7 +2736,7 @@ begin
           pixel_newframe <= '0';
         end if;
       end if;
-      if ycounter=(frame_v_front+height+frame_v_syncheight) then
+      if ycounter=0 then
         vsync_drive <= '0';
       end if;
       vsync <= vsync_drive;
@@ -2998,7 +3005,8 @@ begin
       -- the pixel stream.
 
       -- Announce each raster line.  Can also be used to identify start of frame.
-      if xcounter=(frame_h_front+width) then
+      x_end_of_raster <= (frame_h_front+display_width);
+      if xcounter=x_end_of_raster then
         report "FRAMEPACKER: end of raster announcement";
         pixel_newraster <= '1';
         pixel_y <= displayy;
