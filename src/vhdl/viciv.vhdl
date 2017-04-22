@@ -1716,7 +1716,7 @@ begin
           fastio_rdata(3 downto 0) <= std_logic_vector(frame_height(11 downto 8));
 	  fastio_rdata(7 downto 4) <= std_logic_vector(xcounter_delay(11 downto 8));
         elsif register_number=123 then  -- $D307B
-          fastio_rdata <= std_logic_vector(xcounter_delay);
+          fastio_rdata <= std_logic_vector(xcounter_delay(7 downto 0));
         elsif register_number=124 then
           fastio_rdata <=
             std_logic_vector(to_unsigned(vic_chargen_fsm'pos(debug_raster_fetch_state_drive2),8));
