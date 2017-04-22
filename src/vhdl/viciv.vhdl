@@ -407,7 +407,7 @@ architecture Behavioral of viciv is
   signal display_width : unsigned(11 downto 0) := to_unsigned(2432,12);
   signal frame_height : unsigned(11 downto 0) := to_unsigned(1072,12); 
   signal display_height : unsigned(11 downto 0) := to_unsigned(1056,12);
-  signal vicii_ycounter_scale_minus_two : unsigned(1 downto 0) := to_unsigned(4-2,1);
+  signal vicii_ycounter_scale_minus_two : unsigned(1 downto 0) := to_unsigned(4-2,2);
   signal xcounter_delay : unsigned(11 downto 0) := to_unsigned(1842,12);
 
   -- Calculated dynamically
@@ -1721,7 +1721,7 @@ begin
           fastio_rdata(3 downto 0) <= std_logic_vector(xcounter_delay(11 downto 8));
           fastio_rdata(4) <= hsync_polarity;
           fastio_rdata(5) <= vsync_polarity;
-          fastio_rdata(7 downto 6) <= std_logic_vector(vicii_ycounter_scale_minus_one);
+          fastio_rdata(7 downto 6) <= std_logic_vector(vicii_ycounter_scale_minus_two);
         elsif register_number=125 then
           fastio_rdata <=
             std_logic_vector(to_unsigned(vic_paint_fsm'pos(debug_paint_fsm_state_drive2),8));
@@ -2368,7 +2368,7 @@ begin
           -- @IO:GS $D07C.5 VIC-IV vsync polarity
           vsync_polarity <= fastio_wdata(5);
           -- @IO:GS $D07C.6 VIC-IV physical rasters per VIC-II raster (2-5)
-          vicii_ycounter_scale_minus_one <= unsigned(fastio_wdata(7 downto 6));
+          vicii_ycounter_scale_minus_two <= unsigned(fastio_wdata(7 downto 6));
         elsif register_number=125 then
           -- @IO:GS $D07D VIC-IV debug X position (LSB)
           debug_x(7 downto 0) <= unsigned(fastio_wdata);
@@ -2546,7 +2546,8 @@ begin
         -- Thus we need to start the VIC-II horizontal counter at -24*2.9*0x2d
         -- = -3080 = -0x0c08 = 0xf3f8.
         -- However, we need to shift it right a few more pixels to cover the pipeline
-        -- delays, about 0x294 should do it.  
+        -- delays, about 0x294 should do it.
+        vicii_ycounter_scale <= vicii_ycounter_scale_minus_two + 2;
         vicii_xcounter_sub <= x"f154";
         chargen_x_sub <= (others => '0');
         raster_buffer_read_address <= (others => '0');
@@ -2560,7 +2561,7 @@ begin
             -- Set number of physical rasters per VIC-II raster based on region
             -- of screen.
             if vicii_ycounter = 50 then
-              vicii_ycounter_max_phase <= to_unsigned(vicii_ycounter_scale,3);
+              vicii_ycounter_max_phase <= vicii_ycounter_scale;
             elsif vicii_ycounter = 250 then
               vicii_ycounter_max_phase <= to_unsigned(0,3);
             elsif vicii_ycounter = 312 then
