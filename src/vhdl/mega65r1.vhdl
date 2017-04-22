@@ -195,18 +195,18 @@ architecture Behavioral of container is
   
 begin
   
-  dotclock1: entity work.dotclock
+  dotclock1: entity work.dotclock150
     port map ( clk_in1 => CLK_IN,
-               clk_out1 => clock100mhz,
+               clock100 => clock100mhz,
                -- CLK_OUT2 is good for 1920x1200@60Hz, CLK_OUT3___160
                -- for 1600x1200@60Hz
                -- 60Hz works fine, but 50Hz is not well supported by monitors. 
                -- so I guess we will go with an NTSC-style 60Hz display.       
                -- For C64 mode it would be nice to have PAL or NTSC selectable.                    -- Perhaps consider a different video mode for that, or buffering
                -- the generated frames somewhere?
-               clk_out2 => pixelclock,
-               clk_out3 => cpuclock, -- 48MHz
-               PIX2CLOCK => pixelclock2x
+               pixclock=> pixelclock,
+               cpuclock => cpuclock, -- 48MHz
+               PIX2XCLOCK => pixelclock2x
 --               clk_out3 => ioclock -- also 48MHz
                );
 

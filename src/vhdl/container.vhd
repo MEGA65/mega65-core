@@ -172,19 +172,6 @@ end container;
 
 architecture Behavioral of container is
 
-  component dotclock is
-    port (
-      CLK_IN1           : in     std_logic;
-    -- Clock out ports
-    CLK_OUT1          : out    std_logic;
-    CLK_OUT2          : out    std_logic;
-    CLK_OUT3          : out    std_logic;
-    CPUCLOCK          : out    std_logic;
---    IOCLOCK          : out    std_logic;
-    PIX2CLOCK          : out    std_logic
-      );
-  end component;
-
   component fpgatemp is
     Generic ( DELAY_CYCLES : natural := 480 ); -- 10us @ 48 Mhz
     Port ( clk : in  STD_LOGIC;
@@ -314,18 +301,18 @@ architecture Behavioral of container is
   
 begin
   
-  dotclock1: component dotclock
+  dotclock1: entity work.dotclock150
     port map ( clk_in1 => CLK_IN,
-               clk_out1 => clock100mhz,
+               clock100 => clock100mhz,
                -- CLK_OUT2 is good for 1920x1200@60Hz, CLK_OUT3___160
                -- for 1600x1200@60Hz
                -- 60Hz works fine, but 50Hz is not well supported by monitors. 
                -- so I guess we will go with an NTSC-style 60Hz display.       
                -- For C64 mode it would be nice to have PAL or NTSC selectable.                    -- Perhaps consider a different video mode for that, or buffering
                -- the generated frames somewhere?
-               clk_out2 => pixelclock,
-               clk_out3 => cpuclock, -- 48MHz
-               PIX2CLOCK => pixelclock2x
+               pixclock => pixelclock,
+               cpuclock => cpuclock, -- 48MHz
+               pix2xclock => pixelclock2x
 --               clk_out3 => ioclock -- also 48MHz
                );
 
@@ -436,7 +423,7 @@ begin
       ----------------------------------------------------------------------
       iec_clk_en => iec_clk_en,
       iec_data_en => iec_data_en,
-      iec_data_o => iec_data_odata_o,
+      iec_data_o => iec_data_o,
       iec_reset => iec_reset,
       iec_clk_o => iec_clk_o,
       iec_data_i => iec_data_i,
