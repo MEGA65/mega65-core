@@ -410,14 +410,14 @@ architecture Behavioral of viciv is
   -- consistent on all raster lines, and vertical rasters/splits would have a 4
   -- pixel wide saw-tooth effect.
 --  constant frame_width : integer := 2592-1; -- 1920x1200 @ 60Hz
-  constant frame_width : integer := 2193-1;  -- 1920x1080p @ 60Hz
+  signal frame_width : unsigned(11 downto 0) := to_unsigned(2193-1,12);  -- 1920x1080p @ 60Hz
   constant frame_h_front : integer := 128;
   constant frame_h_syncwidth : integer := 208;
 
   -- The real mode says 1242, but we need 1248 so that 1248/312 = 4,
   -- allowing VIC-II PAL raster numbers to be easily calculated.
 --   constant frame_height : integer := 1248; -- 1920x1200 @ 60Hz
-  constant frame_height : integer := 1132; -- 1920x1080p @ 60Hz
+  signal frame_height : unsigned(11 downto 0) := to_unsigned(1132,12); -- 1920x1080p @ 60Hz
   constant frame_v_front : integer := 1;
   constant frame_v_syncheight : integer := 3;
   
@@ -1706,7 +1706,15 @@ begin
         elsif register_number=118 then  -- $D3076
           fastio_rdata <= "00000" & debug_character_data_from_rom_drive2 & debug_chargen_active_drive2 & debug_chargen_active_soon_drive2;
         elsif register_number=119 then  -- $D3077
-          fastio_rdata <= std_logic_vector(debug_screen_ram_buffer_address_drive2(7 downto 0));
+          fastio_rdata <= std_logic_vector(frame_width(7 downto 0);
+        elsif register_number=120 then  -- $D3078
+          fastio_rdata(3 downto 0) <= std_logic_vector(frame_width(11 downto 8);
+	  fastio_rdata(7 downto 4) <= x"0";
+        elsif register_number=121 then  -- $D3079
+          fastio_rdata <= std_logic_vector(frame_height(7 downto 0);
+        elsif register_number=122 then  -- $D307A
+          fastio_rdata(3 downto 0) <= std_logic_vector(frame_height(11 downto 8);
+	  fastio_rdata(7 downto 4) <= x"0";
         elsif register_number=123 then  -- $D307B
           fastio_rdata <= std_logic_vector(xcounter_delay);
         elsif register_number=124 then
@@ -2322,6 +2330,18 @@ begin
         elsif register_number=115 then  -- $D3073
           -- @IO:GS $D073 VIC-IV bitplanes vertical start (in VIC-II pixels)
           bitplanes_y_start <= unsigned(fastio_wdata);
+        elsif register_number=119 then  -- $D3077
+          -- @IO:GS $D077 VIC-IV frame_width (LSB)
+          frame_width(7 downto 0) <= unsigned(fastio_wdata);
+        elsif register_number=120 then  -- $D3078
+          -- @IO:GS $D078 VIC-IV frame_width (MSB)
+          frame_width(11 downto 8) <= unsigned(fastio_wdata(3 downto 0));
+        elsif register_number=121 then  -- $D3079
+          -- @IO:GS $D079 VIC-IV frame_height (LSB)
+          frame_height(7 downto 0) <= unsigned(fastio_wdata);
+        elsif register_number=122 then  -- $D307A
+          -- @IO:GS $D07A VIC-IV frame_height (MSB)
+          frame_height(11 downto 8) <= unsigned(fastio_wdata(3 downto 0));
         elsif register_number=123 then
           -- @IO:GS $D07B VIC-IV hsync adjust
           xcounter_delay <= unsigned(fastio_wdata);
@@ -2487,7 +2507,7 @@ begin
       last_vicii_xcounter1280 <= vicii_xcounter_sub(15 downto 5);
       report "VICII: SPRITE: xcounter = " & integer'image(to_integer(last_vicii_xcounter))
         & " (raw = " & to_hstring(vicii_xcounter_sub);
-      if xcounter<frame_width then
+      if xcounter!=to_integer(frame_width) then
         xcounter <= xcounter + 1;
         vicii_xcounter_sub <= vicii_xcounter_sub + sprite_x_scale;
       else
@@ -2509,7 +2529,7 @@ begin
         raster_buffer_read_address <= (others => '0');
         chargen_active <= '0';
         chargen_active_soon <= '0';        
-        if ycounter<frame_height then
+        if ycounter!=to_integer(frame_height) then
           ycounter <= ycounter + 1;
           if vicii_ycounter_phase = vicii_ycounter_max_phase then
             vicii_ycounter <= vicii_ycounter + 1;

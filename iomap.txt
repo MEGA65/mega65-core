@@ -179,6 +179,10 @@ GS $D070.7-6 VIC-IV palette bank mapped at $D100-$D3FF
 GS $D071 VIC-IV 16-colour bitplane enable flags
 GS $D072 VIC-IV bitplanes horizontal start (in VIC-II pixels)
 GS $D073 VIC-IV bitplanes vertical start (in VIC-II pixels)
+GS $D077 VIC-IV frame_width (LSB)
+GS $D078 VIC-IV frame_width (MSB)
+GS $D079 VIC-IV frame_height (LSB)
+GS $D07A VIC-IV frame_height (MSB)
 GS $D07B VIC-IV hsync adjust
 GS $D07C VIC-IV debug X position (LSB)
 GS $D07D VIC-IV debug X position (MSB)
