@@ -1456,22 +1456,24 @@ begin
       -- $D030 ROM select lines:
       if hypervisor_mode = '0' then
         blocknum := to_integer(short_address(15 downto 12));
-        if (blocknum=14 or blocknum=15) and rom_at_e000='1' then
+        if (blocknum=14 or blocknum=15) and (rom_at_e000='1')
+          and (hypervisor_mode='0') then
           temp_address(27 downto 12) := x"003E";
           if blocknum=15 then temp_address(12):='1'; end if;
         end if;
-        if (blocknum=12) and rom_at_c000='1' then
+        if (blocknum=12) and rom_at_c000='1' and (hypervisor_mode='0') then
           temp_address(27 downto 12) := x"002C";
           if rom_from_colour_ram='1' then temp_address(27 downto 16) := x"FF8"; end if;
         end if;
-        if (blocknum=10 or blocknum=11) and rom_at_a000='1' then
+        if (blocknum=10 or blocknum=11) and (rom_at_a000='1')
+          and (hypervisor_mode='0') then
           temp_address(27 downto 12) := x"003A";
           if blocknum=11 then temp_address(12):='1'; end if;
         end if;
-        if (blocknum=9) and rom_at_8000='1' then
+        if (blocknum=9) and (rom_at_8000='1') and (hypervisor_mode='0') then
           temp_address(27 downto 12) := x"0039";
         end if;
-        if (blocknum=8) and rom_at_8000='1' then
+        if (blocknum=8) and (rom_at_8000='1') and (hypervisor_mode='0') then
           temp_address(27 downto 12) := x"0038";
         end if;
       end if;
