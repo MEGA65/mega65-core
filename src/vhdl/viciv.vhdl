@@ -456,6 +456,8 @@ architecture Behavioral of viciv is
   signal vicii_ycounter_max_phase : unsigned(3 downto 0) := (others => '0');
   signal vicii_ycounter_phase_v400 : unsigned(3 downto 0) := (others => '0');
   signal vicii_ycounter_max_phase_v400 : unsigned(3 downto 0) := (others => '0');
+  signal vicii_ycounter_phase_v400 : unsigned(3 downto 0) := (others => '0');
+  signal vicii_ycounter_max_phase_v400 : unsigned(3 downto 0) := (others => '0');
   -- Is the VIC-II virtual raster number the active one for interrupts, or
   -- are we comparing to physical rasters?  This is decided by which register
   -- gets written to last.
@@ -3070,6 +3072,27 @@ begin
             vicii_ycounter_phase_v400 <= vicii_ycounter_phase_v400 + 1;
           end if;
 
+          if vicii_ycounter_phase_v400 = vicii_ycounter_max_phase_v400 then
+            vicii_ycounter_v400 <= vicii_ycounter_v400 + 1;
+            vicii_ycounter_phase_v400 <= (others => '0');
+            -- Set number of physical rasters per VIC-II raster based on region
+            -- of screen.
+            if vicii_ycounter_v400 >= 50 and vicii_ycounter_v400 < 450 then
+              if vicii_ycounter_v400(0) = '0' then
+                vicii_ycounter_max_phase_v400 <= to_unsigned(2,4);
+              else
+                vicii_ycounter_max_phase_v400 <= to_unsigned(1,4);
+              end if;
+            elsif vicii_ycounter_V400 = 450 then
+              vicii_ycounter_max_phase_v400 <= to_unsigned(0,4);
+            elsif vicii_ycounter_v400 = 314 then
+              vicii_ycounter_max_phase_v400 <= to_unsigned(1,4);
+            end if;
+          else
+            -- In the middle of a VIC-II logical raster, so just increase phase.
+            vicii_ycounter_phase_v400 <= vicii_ycounter_phase_v400 + 1;
+          end if;
+
           -- Make VIC-II triggered raster interrupts edge triggered, since one
           -- emulated VIC-II raster is ~63*48 = ~3,000 cycles, and many C64
           -- raster routines may finish in that time, and might get confused if
@@ -3481,6 +3504,10 @@ begin
       vga_buffer_blue(7 downto 4) <= unsigned(palette_rdata(11 downto 8));
       vga_buffer_blue(3 downto 0) <= unsigned(palette_rdata(15 downto 12));      
       
+      --vga_buffer_red <= unsigned(postsprite_pixel_colour);
+      --vga_buffer_green <= unsigned(postsprite_pixel_colour);
+      --vga_buffer_blue <= unsigned(postsprite_pixel_colour);      
+
       --vga_buffer_red <= unsigned(postsprite_pixel_colour);
       --vga_buffer_green <= unsigned(postsprite_pixel_colour);
       --vga_buffer_blue <= unsigned(postsprite_pixel_colour);      
