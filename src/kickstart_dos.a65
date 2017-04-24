@@ -2075,13 +2075,15 @@ eight31:
 	sty eight3char1+0
 	stx eight3char1+1
 
-	plx	; as the code above clobbers X
+	;
 
 	jsr checkpoint
 	.byte 0," (8.3)+(ATTRIB)+(NAME[0]) = "
 eight3:	.byte "FILENAMEEXT "
 eight3attrib:	.byte "xx "
 eight3char1:	.byte "xx",0
+
+	plx	; as the code above clobbers X
 
 ;	========================
 

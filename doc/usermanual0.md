@@ -1,4 +1,4 @@
-# C65GS<br>FPGA Computer<br>User Manual
+# MEGA65<br>FPGA Computer<br>User Manual
 
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
@@ -9,7 +9,7 @@
   - [1.2 Get Involved](#12-get-involved)
 - [2.0 Overview](#20-overview)
   - [2.1 Processing Cores](#21-processing-cores)
-  - [2.2 Power-on/Reset Via The C65GS Hypervisor](#22-power-onreset-via-the-c65gs-hypervisor)
+  - [2.2 Power-on/Reset Via The MEGA65 Hypervisor](#22-power-onreset-via-the-mega65-hypervisor)
   - [2.3 C65/C64 KERNAL & BASIC](#23-c65c64-kernal-&-basic)
 - [3.0 Getting Started](#30-getting-started)
   - [3.1 Switching Modes, Mounting Disks and Loading Files via Ethernet](#31-switching-modes-mounting-disks-and-loading-files-via-ethernet)
@@ -40,7 +40,7 @@
   - [6.5 Clearing bits in a byte](#65-clearing-bits-in-a-byte)
   - [6.6 32-bit Memory Addresses using 32-bit indirect zero-page indexed addressing](#66-32-bit-memory-addresses-using-32-bit-indirect-zero-page-indexed-addressing)
   - [6.7 Sending an Ethernet Frame](#67-sending-an-ethernet-frame)
-- [7.0 Differences Between the C65’s 4502 and C65GS’s GS4510](#70-differences-between-the-c65%E2%80%99s-4502-and-c65gs%E2%80%99s-gs4510)
+- [7.0 Differences Between the C65’s 4502 and MEGA65’s GS4510](#70-differences-between-the-c65%E2%80%99s-4502-and-MEGA65%E2%80%99s-gs4510)
   - [7.1 Overview](#71-overview)
   - [7.2 Emulated NMOS Read-Modify-Write Behaviour for C64 Compatibility](#72-emulated-nmos-read-modify-write-behaviour-for-c64-compatibility)
   - [7.3 Flat Memory Map Addressing Modes & Access](#73-flat-memory-map-addressing-modes-&-access)
@@ -81,7 +81,7 @@
 
 “...rather a bit of reimagining the C65 for the 21st century with good backward compatibility.” - Paul (1 Feb 2014)
 
-The C65GS is a re-imagination of the C65/C64DX computer using a modern FPGA to implement most functions.  It differs from the C65 in that it aims to offer a near 100% C64-compatible mode by providing a dedicated 6510+VIC-II emulation independent of the additional more capable processor and video chips. That plan is that both functions operate in parallel, and input and output is switched dynamically between the two under programmer control. Dedicated VIC-II is currently unlikely due to space constraints.  6510/6502 emulation, with illegal instructions, however is still planned. This will be implemented by the GS4510 emulating a 6502, using a little dedicated hardware support. 
+The MEGA65 is a re-imagination of the C65/C64DX computer using a modern FPGA to implement most functions.  It differs from the C65 in that it aims to offer a near 100% C64-compatible mode by providing a dedicated 6510+VIC-II emulation independent of the additional more capable processor and video chips. That plan is that both functions operate in parallel, and input and output is switched dynamically between the two under programmer control. Dedicated VIC-II is currently unlikely due to space constraints.  6510/6502 emulation, with illegal instructions, however is still planned. This will be implemented by the GS4510 emulating a 6502, using a little dedicated hardware support. 
  
 The designer, Dr. Paul Gardner-Stephen, intends to create “the most powerful 8-bit computer to date by various measures”:
 
@@ -133,13 +133,13 @@ The new and enhanced features of the VIC-IV will be described more fully in the 
 
 In short, this project aims to preserve most of the fun elements of an 8-bit computer, while providing some 21st century improvements that will make the machine fun to program and use, and who knows, maybe help foster new life in the demo scene.
  
-From a hardware perspective, the C65GS is purposely being implemented using an off-the-shelf FPGA development board designed for university students (Nexys4 FPGA board and a 2 giga-byte SD card) for several reasons. First, the boards are relatively cheap for their performance, and the price will only reduce over time. Second, the Nexys4 board has many built-in peripherals, like ethernet, VGA output, USB keyboard input. Finally, availability of the C65GS will not be based on community production runs.
+From a hardware perspective, the MEGA65 is purposely being implemented using an off-the-shelf FPGA development board designed for university students (Nexys4 FPGA board and a 2 giga-byte SD card) for several reasons. First, the boards are relatively cheap for their performance, and the price will only reduce over time. Second, the Nexys4 board has many built-in peripherals, like ethernet, VGA output, USB keyboard input. Finally, availability of the MEGA65 will not be based on community production runs.
 
 ## 1.2 Get Involved
                    
 You can follow Dr. Paul's blog at: http://c65gs.blogspot.com/, where he posts regular progress reports.
 
-If you're a hardware hacker and into VHDL, you can tinker with the programming itself at: https://github.com/gardners/c65gs. Equipment you need:
+If you're a hardware hacker and into VHDL, you can tinker with the programming itself at: https://github.com/MEGA65/mega65-core. Equipment you need:
 
 A Nexys4 FPGA board, available from Digilent and their distributors. If you have a university or school email address, i.e., *@*.edu.* or *@*.edu, the board is available at half-price.
 
@@ -150,7 +150,7 @@ You can also join the Google Group at: https://groups.google.com/forum/#!forum/c
 
 # 2.0 Overview
 
-The following diagram gives a general, if slightly misleading view of the C65GS architecture.
+The following diagram gives a general, if slightly misleading view of the MEGA65 architecture.
 ```
 KEYS
  + USER PORT
@@ -181,9 +181,9 @@ SERIAL BUS     ||      SPEAKERS
 
 ## 2.1 Processing Cores
 
-The C65GS computer is planned to have several processing cores and video cores that operate in an integrated manner.
+The MEGA65 computer is planned to have several processing cores and video cores that operate in an integrated manner.
 
-For C65GS mode:
+For MEGA65 mode:
 
 - GS4510 (SailFish), a 4502 instruction-compatible processor with integrated MMU capable of addressing 256MB of RAM. This is effectively a 48MHz 4502-compatible CPU, except for the changes that allow access to additional address space.  Some instructions take one or two more cycles than on a real 4502, this being a small trade-off for approximately 15x higher clock speed than the C65’s 4502.
 
@@ -202,21 +202,24 @@ Compatibility cores for 1541 emulation (not yet implemented, likely to be create
 
 * On the prototype Nexys4 FPGA and some other FPGA boards the colour depth of the VIC-IV is limited to 12-bit due to limitations in the VGA interface hardware.
 
-## 2.2 Power-on/Reset Via The C65GS Hypervisor 
+## 2.2 Power-on/Reset Via The MEGA65 Hypervisor 
                    
-On reset C65GS switches the CPU to hypervisor mode, maps the 16KB hypervisor ROM at $8000-$BFFF, and jumps to $8100.  In hypervisor mode all CPU registers, including the normally inaccessible memory mapping registers are exposed at $D640-$D67F, allowing the hypervisor to freely manipulate the state of the computer.  In this mode, it initialises the SD card interface, uses a simple FAT32 implementation to find the 128KB C65 ROM which must be called C65GS.ROM and be located in the root directory, loads it into fastram at $20000-$3FFFF, configures the machine state to act as though it had just reset and loaded the reset vector from the ROM. The hypervisor then exits and transfers control to the loaded rom by writing to $D67F.
+On reset MEGA65 switches the CPU to hypervisor mode, maps the 16KB hypervisor ROM at $8000-$BFFF, and jumps to $8100.  In hypervisor mode all CPU registers, including the normally inaccessible memory mapping registers are exposed at $D640-$D67F, allowing the hypervisor to freely manipulate the state of the computer.  In this mode, it initialises the SD card interface, uses a simple FAT32 implementation to find the 128KB C65 ROM which must be called MEGA65.ROM and be located in the root directory, loads it into fastram at $20000-$3FFFF, configures the machine state to act as though it had just reset and loaded the reset vector from the ROM. The hypervisor then exits and transfers control to the loaded rom by writing to $D67F.
 
-To provide further convenience, the hypervisor code checks if any of the numbers 0 through 9 are held down on reset, and if so, loads C65GSx.ROM instead of C65GS.ROM, where x is the number that was held down.  This allows easy selection between 11 different ROMs.
+To provide further convenience, the hypervisor code checks if any of the numbers 0 through 9 are held down on reset, and if so, loads MEGA65x.ROM instead of MEGA65.ROM, where x is the number that was held down.  This allows easy selection between 11 different ROMs.
 
-The hypervisor also attempts to find a D81 disk image named C65GS.D81 in the root directory of the SD card, and then mount it using the F011 emulation hardware. 
+The hypervisor also attempts to find a D81 disk image named MEGA65.D81 in the root directory of the SD card, and then mount it using the F011 emulation hardware. 
 
-The final convenience that the hypervisor provides is to load two utility programs into memory between $C000 and $CFFF, so that they can be easily accessed from C64 mode.  A D81 image selector is loaded at $C000 (SYS 49152), allowing mounting of any D81 file from the root directory of the SD card.  A simple ethernet loading programme is loaded at $CF80 (SYS 53120) that can be used to execute special UDP packets.  The etherload programme from the C65GS github repository uses this to provide a very fast loader, achieving typical load speeds of around 2,000KB/second.  Typical 40KB C64 programmes appear to load instantaneously.
+The final convenience that the hypervisor provides is to load two utility programs into memory between $C000 and $CFFF, so that they can be easily accessed from C64 mode.  
+A D81 image selector is loaded at $C000 (SYS 49152), allowing mounting of any D81 file from the root directory of the SD card.  A simple ethernet loading programme is loaded 
+at $CF80 (SYS 53120) that can be used to execute special UDP packets.  The etherload programme from the MEGA65 github repository uses this to provide a very fast loader, 
+achieving typical load speeds of around 2,000KB/second.  Typical 40KB C64 programmes appear to load instantaneously.
 
 ## 2.3 C65/C64 KERNAL & BASIC
                    
-The C65GS currently uses a stock C65 ROM (currently version 910111) to operate C65 and C64 mode.  This has several benefits.  First, it provides the most convenient path for C65 compatibility.  Second, it is also convenient for a reasonable level of C64 compatibility, while still providing access to the SD card interface via the C65 internal drive DOS. 
+The MEGA65 currently uses a stock C65 ROM (currently version 910111) to operate C65 and C64 mode.  This has several benefits.  First, it provides the most convenient path for C65 compatibility.  Second, it is also convenient for a reasonable level of C64 compatibility, while still providing access to the SD card interface via the C65 internal drive DOS. 
  
-This is supported by the GS4510 implementing all 4510 instructions and addressing modes, and by the C65GS’s SD card controller providing C65 F011 floppy-controler emulation registers.
+This is supported by the GS4510 implementing all 4510 instructions and addressing modes, and by the MEGA65’s SD card controller providing C65 F011 floppy-controler emulation registers.
 
 For the curious, the differences between the C64 KERNAL and the C65 one is primarily the removal of the cassette routines and putting in sufficient intercepts to allow the C65 DOS to be used from C64 mode. Other smaller changes include making 8 the default device number, and changing the shift-RUN/STOP text so that it loads the first file from disk and runs it. Also, unlike the C128, the C65 boots first into C64 mode, and the CPU’s reset vector is pointed to a small routine at $E4B8 that initialises DOS for the internal drive, and then checks for a C64 cartridge or if the C= key is being held down.  If there is no reason to remain in C64 mode, then it switches to C65 mode.
 
@@ -256,26 +259,25 @@ Holding RESTORE down for 3 - 5 seconds will reset the machine instead of trigger
 
 ## 4.2 Remote Head and Screen-Shotting via VNC
 
-The C65GS is also capable of automatically outputting its 1920x1200 graphical display via its 100mbit ethernet port.  This can be combined with the videoproxy and vncserver programmes for UNIX-like systems (Linux and Mac) in the http://github.com/gardners/c65gs repository to provide remote VNC access to the C65GS -- complete with graphical display and keyboard/joystick input -- and to the serial monitor interface.  By default the VNC server runs on port 5900, and the serial monitor interface is made available on port 4510.
+The MEGA65 is also capable of automatically outputting its 1920x1200 graphical display via its 100mbit ethernet port.  This can be combined with the videoproxy and vncserver programmes for UNIX-like systems (Linux and Mac) in the http://github.com/MEGA65/mega65-core repository to provide remote VNC access to the MEGA65 -- complete with graphical display and keyboard/joystick input -- and to the serial monitor interface.  By default the VNC server runs on port 5900, and the serial monitor interface is made available on port 4510.
 
-To start the VNC server, first make sure that vncserver and videoproxy are compiled.  The videoproxy program currently requires promiscuous mode on the ethernet adapter, so must be run as root.  It takes the name of the ethernet port to which the C65GS is connected as its sole argument.  It may be run in the background. The ethernet adapter must be configured to allow ethernet frames of at least 2048 bytes.  The method for configuring this varies from operating-system to operating-system.  The final step is to run vncserver giving it the full path to the virtual serial port as its sole argument.  This is required because the serial monitor interface is used to deliver key-presses to the C65GS.  Drawing this all together, the following commands are one example of how the VNC server can be started:
+To start the VNC server, first make sure that vncserver and videoproxy are compiled.  The videoproxy program currently requires promiscuous mode on the ethernet adapter, so must be run as root.  It takes the name of the ethernet port to which the MEGA65 is connected as its sole argument.  It may be run in the background. The ethernet adapter must be configured to allow ethernet frames of at least 2048 bytes.  The method for configuring this varies from operating-system to operating-system.  The final step is to run vncserver giving it the full path to the virtual serial port as its sole argument.  This is required because the serial monitor interface is used to deliver key-presses to the MEGA65.  Drawing this all together, the following commands are one example of how the VNC server can be started:
 
 ```
 $ sudo ./videoproxy en0 &
 $ ./vncserver /dev/cu.usbserial-1237B
 ```
+You should now be able to connect to the MEGA65 via VNC on localhost:5900.  Note that on some operating systems you will need to install a VNC client, because the included VNC client may not work with VNC servers that do not require a password. VNC Viewer is a good option for Apple computers.
 
-You should now be able to connect to the C65GS via VNC on localhost:5900.  Note that on some operating systems you will need to install a VNC client, because the included VNC client may not work with VNC servers that do not require a password. VNC Viewer is a good option for Apple computers.
+Note that when connected by VNC, RESTORE is mapped to F9.  Thus to reset the MEGA65 via VNC one must hold the F9 key for approximately 3 seconds.
 
-Note that when connected by VNC, RESTORE is mapped to F9.  Thus to reset the C65GS via VNC one must hold the F9 key for approximately 3 seconds.
-
-Note also that the remote head reflects the display of the single C65GS instance. That is, a local operator and one or more remote operators will all be typing into the same computer.  This can have both entertaining and frustrating effect.
+Note also that the remote head reflects the display of the single MEGA65 instance. That is, a local operator and one or more remote operators will all be typing into the same computer.  This can have both entertaining and frustrating effect.
 
 Finally, the remote video display is quantised to an 8-bit colour cube, and does not display the full data of each raster line due to bandwidth limitations of the 100mbit ethernet interface.  Therefore colour tinting and at times severe artifacts may be visible on the remote display.  Also, the remote display is 1920x1200, and so you may need to manually configure client window scaling in your VNC client so that your “big” computer can handle the display from your “little” one.
 
 ## 4.3 Remote Serial Monitor (handy for debugging)
 
-The USB power cable for the Nexys4 also provides a virtual serial port. This is used to create a debug interface for the C65GS.  By connecting at 230400 bps to the serial port exposed by the cable, one is able to interact with a monitor-like interface that allows dumping, filling and setting of memory, as well as inspecting, single-stepping and issuing breakpoints to the CPU.
+The USB power cable for the Nexys4 also provides a virtual serial port. This is used to create a debug interface for the MEGA65.  By connecting at 230400 bps to the serial port exposed by the cable, one is able to interact with a monitor-like interface that allows dumping, filling and setting of memory, as well as inspecting, single-stepping and issuing breakpoints to the CPU.
 
 Note that you may not put a space between serial monitor commands and their first argument, or you will receive a syntax error. You may, however, leave leading zeroes off of hexadecimal values.  For example “s 0400 08 05 0c 0c 0f” would be invalid, but “s400 8 5 c c f” would be accepted.
 
@@ -367,9 +369,9 @@ The attentive reader will note that nowhere does this address the 4KB data block
 
 ### 4.5.1 Overview 
 
-One of the features I have wanted to include in the C65GS from early on is some sort of task switching and rudimentary multi-tasking.
+One of the features I have wanted to include in the MEGA65 from early on is some sort of task switching and rudimentary multi-tasking.
 
-Given the memory and processor constraints, I don't see the C65GS as running lots of independent processes at the same time.  Rather, I want it to be possible to easily switch between different tasks you have running.
+Given the memory and processor constraints, I don't see the MEGA65 as running lots of independent processes at the same time.  Rather, I want it to be possible to easily switch between different tasks you have running.
 
 For example, you might be using Turbo Assembler to write some code, and decide to take a break playing a game for a few minutes, but don't want to have to reload Turbo Assembler and your source code again.
 
@@ -379,7 +381,7 @@ It would also be nice to be able to have certain types of background processing 
 
 For all these scenarios, it also makes sense to be able to quarantine one task from another, so that they cannot write to one another' memory or IO without permission.  This implies the need for some sort of memory protection, and supervisor mode that can run a small operating system to control the tasks (and their own operating systems) running under it.
 
-Thus, what we really want is something like VirtualBox that can run a hypervisor to virtualise the C65GS, so that it can have C64 or C65 "guest operating systems" beneath, and keep them all separate from each other.
+Thus, what we really want is something like VirtualBox that can run a hypervisor to virtualise the MEGA65, so that it can have C64 or C65 "guest operating systems" beneath, and keep them all separate from each other.
 
 This doesn't actually need much extra hardware to do in a simplistic manner.
 
@@ -397,7 +399,7 @@ Fourth, we need some registers that allow us to control which address lines on t
 
 Fifth, we need to be able to control what events result in a hypervisor trap, so that background processes can run, and also so that the hypervisor can switch tasks.  The NMI line is one signal I definitely want to trap, so that pressing RESTORE can activate the hypervisor.
 
-By finishing these things, and then writing the appropriate software for the hypervisor, it shouldn't be too hard to get task switching running on the C65GS.
+By finishing these things, and then writing the appropriate software for the hypervisor, it shouldn't be too hard to get task switching running on the MEGA65.
 
 ### 4.5.4 Thumbnail                   
 
@@ -421,16 +423,16 @@ On the C64 the colour RAM is a separate 1KB x 4 bit memory.  The C65, however, w
 
 This means that a stock C65 actually has a little bit less RAM available than a C128. Actually, a stock C65 has quite a bit less available RAM, because the DOS eats another 8KB of RAM.
 
-When I began designing the C65GS, I had in mind that it would support much larger text modes than the C64 or C65. With a native resolution of 1920x1200, it is possible to run a 240x150 character text mode. This means we need up to 36,000 (35.2KB) bytes of colour RAM. It seemed bad enough to lose 2KB of precious chip RAM, let alone losing more than 1/4 of all RAM, just for colour data for text mode. Factoring in the actual screen RAM, this would mean that 240x150 text mode would consume more than 1/2 of the total memory. That just wasn't going to fly.
+When I began designing the MEGA65, I had in mind that it would support much larger text modes than the C64 or C65. With a native resolution of 1920x1200, it is possible to run a 240x150 character text mode. This means we need up to 36,000 (35.2KB) bytes of colour RAM. It seemed bad enough to lose 2KB of precious chip RAM, let alone losing more than 1/4 of all RAM, just for colour data for text mode. Factoring in the actual screen RAM, this would mean that 240x150 text mode would consume more than 1/2 of the total memory. That just wasn't going to fly.
 
 
-My preferred solution was to have 256KB or 512KB of chipram, but the FPGA I am using can't combine that much BRAM at a high enough clock speed. However, I was pleasantly surprised to find that I could make a 64KB x 8-bit memory as well as the 128KB chipram (in its 16KB x 64-bit form factor). So I implemented colour RAM that way, mapping it to $D800-$DBFF (or $DFFF when the right bit is set in the VIC-III), as well as at the C65GS extended address $FF80000-$FF8FFFF.  Colour RAM is currently 32KB because I ran out of BRAM.
+My preferred solution was to have 256KB or 512KB of chipram, but the FPGA I am using can't combine that much BRAM at a high enough clock speed. However, I was pleasantly surprised to find that I could make a 64KB x 8-bit memory as well as the 128KB chipram (in its 16KB x 64-bit form factor). So I implemented colour RAM that way, mapping it to $D800-$DBFF (or $DFFF when the right bit is set in the VIC-III), as well as at the MEGA65 extended address $FF80000-$FF8FFFF.  Colour RAM is currently 32KB because I ran out of BRAM.
 
 All was happy until I remembered that the C65 direct maps the colour RAM at $1F800-$1FFFF, as described above.
 
-My solution to this was to tweak the C65GS memory map, so that it also mapped at $1F800-$1FFFF, masking the 2KB of chipram there, a bit like how memory locations $0000 and $0001 are masked on the C64. In fact, like those locations on the C64, there is no way for the CPU (or DMAgic, since DMAgic on the C65GS is just the CPU in drag) to access the last 2KB of chipram on the C65GS. You would have to use some sort of reflective process to even read them, like the sprite trick that can be used to read $0000/$0001 on the C64.
+My solution to this was to tweak the MEGA65 memory map, so that it also mapped at $1F800-$1FFFF, masking the 2KB of chipram there, a bit like how memory locations $0000 and $0001 are masked on the C64. In fact, like those locations on the C64, there is no way for the CPU (or DMAgic, since DMAgic on the MEGA65 is just the CPU in drag) to access the last 2KB of chipram on the MEGA65. You would have to use some sort of reflective process to even read them, like the sprite trick that can be used to read $0000/$0001 on the C64.
 
-This is a bit of a hack architecturally, since it means that you can't actually use those two kilobytes of chipram as real chipram now. However, that is more or less the case on a real C65, as the colour RAM cannot be relocated elsewhere. It is possible to point bitplanes there, which would produce different results on the C65GS. Maybe one day I will have to revisit this, and make some magic that copies writes to $1F800 - $1FFFF through to the colour RAM, so that it has perfect compatibility.
+This is a bit of a hack architecturally, since it means that you can't actually use those two kilobytes of chipram as real chipram now. However, that is more or less the case on a real C65, as the colour RAM cannot be relocated elsewhere. It is possible to point bitplanes there, which would produce different results on the MEGA65. Maybe one day I will have to revisit this, and make some magic that copies writes to $1F800 - $1FFFF through to the colour RAM, so that it has perfect compatibility.
 
 Coming back to the point, it turns out that the logic to write to the colour RAM image at $1F800-$1FFFF was buggy, and would return the CPU to the wrong micro-code state. I had noticed something odd in this regard previously, in that the serial monitor interface would get upset if you tried to write to colour RAM at $1F800 - $1FFFF.
 
@@ -509,7 +511,7 @@ LDA, STA, EOR, AND, ORA, ADC and SBC are all available with this addressing mode
 
 Memory accesses made using 32-bit indirect zero-page indexed addressing require three extra cycles compared to 16-bit indirect zero-page indexed addressing: one for the EOM, and two for the extra pointer value fetches.
 
-This makes it fairly easy to access any byte of memory in the full 28-bit address space.  The upper four bits should be zeroes for now, so that in future we can expand the C65GS to 4GB address space.
+This makes it fairly easy to access any byte of memory in the full 28-bit address space.  The upper four bits should be zeroes for now, so that in future we can expand the MEGA65 to 4GB address space.
 
 Document far-JMP, far-JSR and far-RTS
 
@@ -535,7 +537,6 @@ C64 $DE0C RRNET tx_cmd register (low)
 C64 $DE0E Set RR-NET TX packet size
 C64 $DE0F Set RR-NET TX packet size
 ```
-
 ## 5.5 C65 Locations
 
 ```
@@ -584,7 +585,7 @@ $D022            VIC multicolor 1 (all 8 bits when C65 extended attributes are e
 $D023            VIC multicolor 2 (all 8 bits when C65 extended attributes are enabled)
 $D024            VIC multicolor 3 (all 8 bits when C65 extended attributes are enabled)
 $D025-$D02E        VIC-II compatibility (same as C64)
-$D02F            GS: write $47 then $53 to enable C65GS/VIC-IV registers.
+$D02F            GS: write $47 then $53 to enable MEGA65/VIC-IV registers.
             C65: write $A5 then $96 to enable C65/VIC-III registers.
             C65: write anything else to return to VIC-II map.
 $D030            C65: VIC-III control register A
@@ -614,7 +615,7 @@ GS $D054.0 VIC-IV enable 16-bit character numbers (two screen bytes per characte
 GS $D054.1 VIC-IV enable full-colour mode for character numbers <=$FF
 GS $D054.2 VIC-IV enable full-colour mode for characF
 GS $D054.3 VIC-IV video output smear filter enable
-GS $D054.6 VIC-IV/C65GS FAST mode (48MHz)
+GS $D054.6 VIC-IV/MEGA65 FAST mode (48MHz)
 GS $D060 VIC-IV screen RAM precise base address (bits 0 - 7)
 GS $D061 VIC-IV screen RAM precise base address (bits 15 - 8)
 GS $D062 VIC-IV screen RAM precise base address (bits 23 - 16)
@@ -749,9 +750,6 @@ $FFDE043-4            Ethernet TX frame length
 $FFDE045            Ethernet command register. Write $01 to send frame.
 ```
 
-
-
-
 # 6.0 Code Recipes
 
 ## 6.1 Overview
@@ -760,7 +758,7 @@ $FFDE045            Ethernet command register. Write $01 to send frame.
 
 The 4502 MAP instruction works on 8KB pieces.  It relies on the Accumulator (A)’s upper four bits as flags to indicate whether mapping is done at $0000, $2000, $4000, or $6000.  The lower four bits form bits 8 thru 11 of the mapping offset.  Meanwhile, the X register has bits 12 thru 19.
 
-A good MAP example is when using the Ethernet controller’s read buffer.  This lives at $FFDE800-$FFDEFFF.  We will map it to $6800-$6FFF.  Since the 4502 MAP instruction works on 8KB pieces, we will actually map $6000-$7FFF to $FFDE000-$FFDFFFF.  Since this is above $00FFFFF, we need to set the C65GS-specific 45GS02 mega-byte number to $FF, i.e., to indicate the memory range $FF00000-$FFFFFFF, for the memory mapper before mapping the memory.  We only need to do this for the bottom-half of memory, so we will leave Y and Z zeroed out so that we don't change that one.
+A good MAP example is when using the Ethernet controller’s read buffer.  This lives at $FFDE800-$FFDEFFF.  We will map it to $6800-$6FFF.  Since the 4502 MAP instruction works on 8KB pieces, we will actually map $6000-$7FFF to $FFDE000-$FFDFFFF.  Since this is above $00FFFFF, we need to set the MEGA65-specific 45GS02 mega-byte number to $FF, i.e., to indicate the memory range $FF00000-$FFFFFFF, for the memory mapper before mapping the memory.  We only need to do this for the bottom-half of memory, so we will leave Y and Z zeroed out so that we don't change that one.
 
 ```
 lda #$ff
@@ -814,7 +812,7 @@ LDA, STA, EOR, AND, ORA, ADC and SBC are all available with this addressing mode
 
 Memory accesses made using 32-bit indirect zero-page indexed addressing require three extra cycles compared to 16-bit indirect zero-page indexed addressing: one for the EOM, and two for the extra pointer value fetches.
 
-This makes it fairly easy to access any byte of memory in the full 28-bit address space.  The upper four bits should be zeroes for now, so that in future we can expand the C65GS to 4GB address space.
+This makes it fairly easy to access any byte of memory in the full 28-bit address space.  The upper four bits should be zeroes for now, so that in future we can expand the MEGA65 to 4GB address space.
 
 ## 6.7 Sending an Ethernet Frame     
 
@@ -826,13 +824,13 @@ Note that the TX buffer is mapped to the same address range as the RX buffer. In
 
 Note: The ethernet controller will not load a packet to the buffer that the CPU is watching, so the CPU needs to make sure that it is not watching the buffer that the ethernet controller wants to write to next. It is just a few lines of code to do this.
 
-Because the C65GS ethernet buffer is direct memory mapped, I can use a nice trick, of having the main loading routine actually inside the packets. This means that the ethernet load programme on the C65GS can be <128 bytes, and yet support very flexible features, since the sending side can send whatever code it likes. It is only about 100 lines of 4502 assembler, so I'll just include the whole thing here.
+Because the MEGA65 ethernet buffer is direct memory mapped, I can use a nice trick, of having the main loading routine actually inside the packets. This means that the ethernet load programme on the MEGA65 can be <128 bytes, and yet support very flexible features, since the sending side can send whatever code it likes. It is only about 100 lines of 4502 assembler, so I'll just include the whole thing here.
 
 ```
 .org $CF80
 ```
 
-First, we need to turn on C65GS enhanced IO so that we can access the ethernet controller:
+First, we need to turn on MEGA65 enhanced IO so that we can access the ethernet controller:
 
 ```
 lda #$47
@@ -841,7 +839,7 @@ lda #$53
 sta $D02f
 ```
 
-Then we need to map the ethernet controller's read buffer.  This lives at $FFDE800-$FFDEFFF.  We will map it at $6800-$6FFF.  The 4502 MAP instruction works on 8KB pieces, so we will actually map $6000-$7FFF to $FFDE000-$FFDFFFF.  Since this is above $00FFFFF, we need to set the C65GS mega-byte number to $FF for the memory mapper before mapping the memory.  We only need to do this for the bottom-half of memory, so we will leave Y and Z zeroed out so that we don't change that one.
+Then we need to map the ethernet controller's read buffer.  This lives at $FFDE800-$FFDEFFF.  We will map it at $6800-$6FFF.  The 4502 MAP instruction works on 8KB pieces, so we will actually map $6000-$7FFF to $FFDE000-$FFDFFFF.  Since this is above $00FFFFF, we need to set the MEGA65 mega-byte number to $FF for the memory mapper before mapping the memory.  We only need to do this for the bottom-half of memory, so we will leave Y and Z zeroed out so that we don't change that one.
 
 ```
 lda #$ff
@@ -946,11 +944,11 @@ As you can see, the whole program is really simple, especially once it hits the 
 
 The code in the ethernet frame just executes a DMAgic job to copy the payload into the correct memory location.  Thus the complete processing of a 1024 byte ethernet frame takes somewhere between 2,048 and 4,096 clock cycles -- fast enough that the routine can load at least 12MB/sec, i.e., match the wire speed of 100mbit ethernet.
 
-On the server side, I wrote a little server program that sends out the UDP packets as it reads through a .PRG file.  Due to a bug in the ethernet controller buffer selection on the C65GS it currently has to send every packet twice, effectively halving the maximum speed to a little under 6MB/sec.  That bug should be easy to fix, allowing the load speed to be restored to ~10MB/sec.  (Note that at the moment the protocol is completely unidirectional, but that this could be changed by sending packets that download code that is able to send packets.)
+On the server side, I wrote a little server program that sends out the UDP packets as it reads through a .PRG file.  Due to a bug in the ethernet controller buffer selection on the MEGA65 it currently has to send every packet twice, effectively halving the maximum speed to a little under 6MB/sec.  That bug should be easy to fix, allowing the load speed to be restored to ~10MB/sec.  (Note that at the moment the protocol is completely unidirectional, but that this could be changed by sending packets that download code that is able to send packets.)
 
 When the server reaches the end of the file, the server sends a packet with a little routine that pops the return address from the JSR to the packet from the stack, and then returns, thus effectively returning to BASIC -- although it does seem to mess up sometimes, which I need to look int
 
-# 7.0 Differences Between the C65’s 4502 and C65GS’s GS4510
+# 7.0 Differences Between the C65’s 4502 and MEGA65’s GS4510
 
 ## 7.1 Overview
 
