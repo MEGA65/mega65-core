@@ -27,15 +27,6 @@ architecture behavior of cpu_test is
   signal vgagreen : unsigned(7 downto 0);
   signal vgablue : unsigned(7 downto 0);
 
-  signal slowram_datain : std_logic_vector(7 downto 0);
-  signal slowram_addr : std_logic_vector(26 downto 0);
-  signal slowram_addr_integer : integer range 0 to (1048576*128-1);
-  signal slowram_we : std_logic;
-  signal slowram_request_toggle : std_logic;
-  signal slowram_done_toggle : std_logic;  
-  signal cache_address : std_logic_vector(8 downto 0);
-  signal cache_read_data : std_logic_vector(150 downto 0);
-  
   signal led : std_logic_vector(15 downto 0);
   signal sw : std_logic_vector(15 downto 0) := (others => '0');
   signal btn : std_logic_vector(4 downto 0) := (others => '0');
@@ -107,8 +98,8 @@ architecture behavior of cpu_test is
   signal cart_game : std_logic := 'Z';
   signal cart_io2 : std_logic := 'Z';
 
-  signal cart_d : std_logic_vector(7 downto 0) := (others => 'Z');
-  signal cart_a : std_logic_vector(15 downto 0) := (others => 'Z');
+  signal cart_d : unsigned(7 downto 0) := (others => 'Z');
+  signal cart_a : unsigned(15 downto 0) := (others => 'Z');
          
   ----------------------------------------------------------------------
   -- CBM floppy serial port
@@ -121,21 +112,35 @@ architecture behavior of cpu_test is
   signal iec_data_i : std_logic;
   signal iec_clk_i : std_logic;
   signal iec_atn : std_logic;  
+
+  ----------------------------------------------------------------------
+  -- Slow devices (cartridge port, slow RAM etc)
+  ----------------------------------------------------------------------
+  signal slow_access_request_toggle : std_logic;
+  signal slow_access_ready_toggle : std_logic;
+
+  signal slow_access_address : unsigned(31 downto 0);
+  signal slow_access_wdata : unsigned(7 downto 0);
+  signal slow_access_rdata : unsigned(7 downto 0);
   
 begin
-  slowram0: slowram
-    port map(address => slowram_addr,
-             datain => slowram_datain,
-             we => slowram_we,
-             request_toggle => slowram_request_toggle,
-             done_toggle => slowram_done_toggle,
-             cache_address => cache_address,
-             cache_read_data => cache_read_data
-             );
 
-  fakecartridge0: entity work.fake_expansion_port
+  slow_devices0: entity work.slow_devices
     port map (
-            ----------------------------------------------------------------------
+      cpuclock => cpuclock,
+      pixelclock => pixelclock,
+      
+      qspidb => qspidb,
+      qspicsn => qspicsn,      
+      qspisck => qspisck,
+
+      slow_access_request_toggle => slow_access_request_toggle,
+      slow_access_ready_toggle => slow_access_ready_toggle,
+      slow_access_address => slow_access_address,
+      slow_access_wdata => slow_access_wdata,
+      slow_access_rdata => slow_access_rdata,
+  
+      ----------------------------------------------------------------------
       -- Expansion/cartridge port
       ----------------------------------------------------------------------
       cart_ctrl_dir => cart_ctrl_dir,
@@ -165,8 +170,6 @@ begin
   
   core0: entity work.machine
     port map (
-      ddr_counter => (others => '1'),
-      ddr_state => (others => '1'),
       fpga_temperature => (others => '1'),
       
       pixelclock      => pixelclock,
@@ -201,32 +204,11 @@ begin
       fb_down => '1',
       fb_fire => '1',
 
-      ----------------------------------------------------------------------
-      -- Expansion/cartridge port
-      ----------------------------------------------------------------------
-      cart_ctrl_dir => cart_ctrl_dir,
-      cart_haddr_dir => cart_haddr_dir,
-      cart_laddr_dir => cart_laddr_dir,
-      cart_data_dir => cart_data_dir,
-      cart_phi2 => cart_phi2,
-      cart_dotclock => cart_dotclock,
-      cart_reset => cart_reset,
-      
-      cart_nmi => cart_nmi,
-      cart_irq => cart_irq,
-      cart_dma => cart_dma,
-      
-      cart_exrom => cart_exrom,
-      cart_ba => cart_ba,
-      cart_rw => cart_rw,
-      cart_roml => cart_roml,
-      cart_romh => cart_romh,
-      cart_io1 => cart_io1,
-      cart_game => cart_game,
-      cart_io2 => cart_io2,
-      
-      cart_d => cart_d,
-      cart_a => cart_a,
+      slow_access_request_toggle => slow_access_request_toggle,
+      slow_access_ready_toggle => slow_access_ready_toggle,
+      slow_access_address => slow_access_address,
+      slow_access_wdata => slow_access_wdata,
+      slow_access_rdata => slow_access_rdata,
       
       ----------------------------------------------------------------------
       -- CBM floppy  std_logic_vectorerial port
@@ -251,9 +233,6 @@ begin
 
       miso_i => '1',
 
-      qspidb => qspidb,
-      qspicsn => qspicsn,      
-      qspisck => qspisck,
       aclsck => aclsck,
       aclMISO => '1',
       aclInt1 => '0',
@@ -269,16 +248,6 @@ begin
       eth_rxer => '0',
       eth_interrupt => '0',
 
-      slowram_addr_reflect => slowram_addr,
-      slowram_datain_reflect => slowram_datain,
-      slowram_datain => slowram_datain,
-      slowram_addr => slowram_addr,
-      slowram_we => slowram_we,
-      slowram_request_toggle => slowram_request_toggle,
-      slowram_done_toggle => slowram_done_toggle,
-      cache_address => cache_address,
-      cache_read_data => cache_read_data,
-      
       vsync           => vsync,
       hsync           => hsync,
       vgared          => vgared,

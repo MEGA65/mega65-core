@@ -8,7 +8,7 @@ use work.debugtools.all;
 
 ENTITY expansion_port_controller IS
   generic (
-    cpuclock_frequency : in integer
+    pixelclock_frequency : in integer
     );
   PORT (
     ------------------------------------------------------------------------
@@ -76,6 +76,11 @@ architecture behavioural of expansion_port_controller is
 
   -- Are we already servicing a read?
   signal read_in_progress : std_logic := '0';
+
+  -- Internal state
+  signal cart_dotclock_internal : std_logic := '0';
+  signal cart_phi2_internal : std_logic := '0';
+  
 begin
 
   process (pixelclock)
@@ -83,12 +88,12 @@ begin
     if rising_edge(pixelclock) then
       -- Generate phi2 and dotclock signals at 1Mhz and 8MHz respectively.
       -- We approximate these based on the pixel clock
-      if to_intger(ticker) /= ticks_8mhz_half then
+      if to_integer(ticker) /= ticks_8mhz_half then
         ticker <= ticker + 1;
         cart_read_strobe <= '0';
         cart_access_accept_strobe <= '0';
       else
-        ticker <= 0;
+        ticker <= (others => '0');
         -- Tick dot clock
         cart_dotclock <= not cart_dotclock_internal;
         cart_dotclock_internal <= not cart_dotclock_internal;
@@ -98,7 +103,7 @@ begin
           cart_access_accept_strobe <= '0';
         else
           -- Tick phi2
-          phi2_ticker <= 0;
+          phi2_ticker <= (others => '0');
           cart_phi2 <= not cart_phi2_internal;
           cart_phi2_internal <= not cart_phi2_internal;
 
@@ -119,7 +124,7 @@ begin
               cart_d <= (others => 'Z');
             else
               read_in_progress <= '0';
-              cart_d <= std_logic_vector(cart_access_wdata);
+              cart_d <= cart_access_wdata;
             end if;
           else
             cart_access_accept_strobe <= '0';

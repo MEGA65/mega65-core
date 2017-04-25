@@ -48,7 +48,6 @@ entity uart_monitor is
     monitor_pc : in unsigned(15 downto 0);
     monitor_cpu_state : in unsigned(15 downto 0);
     monitor_hypervisor_mode : in std_logic;
-    monitor_ddr_ram_banking : in std_logic;
     monitor_instruction : in unsigned(7 downto 0);
     monitor_watch : out unsigned(27 downto 0) := x"7FFFFFF";
     monitor_watch_match : in std_logic;
@@ -1476,11 +1475,7 @@ begin
                 try_output_char('-',ShowP20);
               end if;
             when ShowP20 =>
-              if monitor_ddr_ram_banking='1' then
-                try_output_char('B',NextCommand);
-              else
-                try_output_char('-',NextCommand);
-              end if;
+              try_output_char('-',NextCommand);          
               
             when EraseCharacter => try_output_char(' ',EraseCharacter1);
             when EraseCharacter1 => try_output_char(bs,AcceptingInput);

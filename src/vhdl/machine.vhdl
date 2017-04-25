@@ -67,9 +67,13 @@ entity machine is
 
          flopled : out std_logic;
          flopmotor : out std_logic;
-         
-         ddr_counter : in unsigned(7 downto 0);
-         ddr_state : in unsigned(7 downto 0);
+
+         slow_access_request_toggle : in std_logic;
+         slow_access_ready_toggle : out std_logic := '0';
+
+         slow_access_address : in unsigned(31 downto 0);
+         slow_access_wdata : in unsigned(7 downto 0);
+         slow_access_rdata : out unsigned(7 downto 0);
          
          ----------------------------------------------------------------------
          -- VGA output
@@ -97,33 +101,6 @@ entity machine is
          fb_up : in std_logic;
          fb_down : in std_logic;
          fb_fire : in std_logic;
-
-         ----------------------------------------------------------------------
-         -- Expansion/cartridge port
-         ----------------------------------------------------------------------
-         cart_ctrl_dir : out std_logic;
-         cart_haddr_dir : out std_logic;
-         cart_laddr_dir : out std_logic;
-         cart_data_dir : out std_logic;
-         cart_phi2 : out std_logic;
-         cart_dotclock : out std_logic;
-         cart_reset : out std_logic;
-
-         cart_nmi : in std_logic;
-         cart_irq : in std_logic;
-         cart_dma : in std_logic;
-
-         cart_exrom : inout std_logic := 'Z';
-         cart_ba : inout std_logic := 'Z';
-         cart_rw : inout std_logic := 'Z';
-         cart_roml : inout std_logic := 'Z';
-         cart_romh : inout std_logic := 'Z';
-         cart_io1 : inout std_logic := 'Z';
-         cart_game : inout std_logic := 'Z';
-         cart_io2 : inout std_logic := 'Z';
-
-         cart_d : inout std_logic_vector(7 downto 0) := (others => 'Z');
-         cart_a : inout std_logic_vector(15 downto 0) := (others => 'Z');
          
          ----------------------------------------------------------------------
          -- CBM floppy serial port
@@ -182,30 +159,8 @@ entity machine is
          eth_rxer : in std_logic;
          eth_interrupt : in std_logic;
          
-         ----------------------------------------------------------------------
-         -- Flash RAM for holding config
-         ----------------------------------------------------------------------
-         QspiSCK : out std_logic;
-         QspiDB : inout std_logic_vector(3 downto 0);
-         QspiCSn : out std_logic;
-
          fpga_temperature : in std_logic_vector(11 downto 0);
          
-         ---------------------------------------------------------------------------
-         -- Interface to Slow RAM (128MB DDR2 RAM chip)
-         ---------------------------------------------------------------------------
-         slowram_addr_reflect : in std_logic_vector(26 downto 0);
-         slowram_datain_reflect : in std_logic_vector(7 downto 0);
-         slowram_addr : out std_logic_vector(26 downto 0);
-         slowram_we : out std_logic;
-         slowram_request_toggle : out std_logic;
-         slowram_done_toggle : in std_logic;
-         slowram_datain : out std_logic_vector(7 downto 0);
-         -- simple-dual-port cache RAM interface so that CPU doesn't have to read
-         -- data cross-clock
-         cache_address        : out std_logic_vector(8 downto 0);
-         cache_read_data      : in std_logic_vector(150 downto 0);   
-
          ----------------------------------------------------------------------
          -- PS/2 adapted USB keyboard & joystick connector.
          -- (For using a keyrah adapter to connect to the keyboard.)
@@ -316,7 +271,6 @@ architecture Behavioral of machine is
 
   signal monitor_pc : unsigned(15 downto 0);
   signal monitor_hypervisor_mode : std_logic;
-  signal monitor_ddr_ram_banking : std_logic;
   signal monitor_state : unsigned(15 downto 0);
   signal monitor_instruction : unsigned(7 downto 0);
   signal monitor_instructionpc : unsigned(15 downto 0);
@@ -361,7 +315,6 @@ architecture Behavioral of machine is
   signal cpuis6502 : std_logic;
   signal cpuspeed : unsigned(7 downto 0);
 
-  
   signal segled_counter : unsigned(19 downto 0) := (others => '0');
 
   -- Clock running as close as possible to 17.734475 MHz / 18 = 985248Hz
@@ -570,9 +523,6 @@ begin
 
     irq_hypervisor => sw(4 downto 2),    -- JBM
     
-    ddr_state => ddr_state,
-    ddr_counter => ddr_counter,
-
     -- Hypervisor signals: we need to tell kickstart memory whether
     -- to map or not, and we also need to be able to set the VIC-III
     -- IO mode.
@@ -598,7 +548,6 @@ begin
     monitor_waitstates => monitor_waitstates,
     monitor_request_reflected => monitor_request_reflected,
     monitor_hypervisor_mode => monitor_hypervisor_mode,
-    monitor_ddr_ram_banking => monitor_ddr_ram_banking,
     monitor_pc => monitor_pc,
     monitor_watch => monitor_watch,
     monitor_watch_match => monitor_watch_match,
@@ -631,16 +580,12 @@ begin
     monitor_mem_stage_trace_mode => monitor_mem_stage_trace_mode,
     monitor_mem_trace_toggle => monitor_mem_trace_toggle,
 
-    slowram_addr => slowram_addr,
-    slowram_we => slowram_we,
-    slowram_request_toggle => slowram_request_toggle,
-    slowram_done_toggle => slowram_done_toggle,
-    slowram_datain => slowram_datain,
-    slowram_addr_reflect => slowram_addr_reflect,
-    slowram_datain_reflect => slowram_datain_reflect,
-    cache_address => cache_address,
-    cache_read_data => cache_read_data,
-    
+    slow_access_request_toggle => slow_access_request_toggle,
+    slow_access_ready_toggle => slow_access_ready_toggle,
+    slow_access_address => slow_access_address,
+    slow_access_wdata => slow_access_wdata,
+    slow_access_rdata => slow_access_rdata,
+        
     chipram_we => chipram_we,
     chipram_address => chipram_address,
     chipram_datain => chipram_datain,
@@ -815,10 +760,6 @@ begin
     mosi_o => mosi_o,
     miso_i => miso_i,
     
-    QspiSCK => QspiSCK,
-    QspiDB => QspiDB,
-    QspiCSn => QspiCSn,
-    
     aclMISO => aclMISO,
     aclMOSI => aclMOSI,
     aclSS => aclSS,
@@ -885,7 +826,6 @@ begin
     monitor_waitstates => monitor_waitstates,
     monitor_request_reflected => monitor_request_reflected,
     monitor_hypervisor_mode => monitor_hypervisor_mode,
-    monitor_ddr_ram_banking => monitor_ddr_ram_banking,
     monitor_pc => monitor_pc,
     monitor_cpu_state => monitor_state,
     monitor_instruction => monitor_instruction,

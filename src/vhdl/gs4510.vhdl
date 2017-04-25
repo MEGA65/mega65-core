@@ -53,9 +53,6 @@ entity gs4510 is
     irq_hypervisor : in std_logic_vector(2 downto 0) := "000";    -- JBM
 
     no_kickstart : in std_logic;
-
-    ddr_counter : in unsigned(7 downto 0);
-    ddr_state : in unsigned(7 downto 0);   
     
     reg_isr_out : in unsigned(7 downto 0);
     imask_ta_out : in std_logic;
@@ -68,7 +65,6 @@ entity gs4510 is
       monitor_waitstates : out unsigned(7 downto 0);
       monitor_request_reflected : out std_logic;
       monitor_hypervisor_mode : out std_logic;
-      monitor_ddr_ram_banking : out std_logic;
       monitor_pc : out unsigned(15 downto 0);
       monitor_state : out unsigned(15 downto 0);
       monitor_instruction : out unsigned(7 downto 0);
@@ -114,22 +110,6 @@ entity gs4510 is
     chipram_address : OUT unsigned(16 DOWNTO 0) := "00000000000000000";
     chipram_datain : OUT unsigned(7 DOWNTO 0);
 
-    ---------------------------------------------------------------------------
-    -- Interface to Slow RAM (128MB DDR2 RAM (or 16MB cellular RAM chip on
-    -- original non-DDR Nexys4 boards)
-    ---------------------------------------------------------------------------
-    slowram_addr_reflect : in std_logic_vector(26 downto 0);
-    slowram_datain_reflect : in std_logic_vector(7 downto 0);
-    slowram_addr : out std_logic_vector(26 downto 0);
-    slowram_we : out std_logic := '0';
-    slowram_request_toggle : out std_logic := '0';
-    slowram_done_toggle : in std_logic;
-    slowram_datain : out std_logic_vector(7 downto 0);
-    -- simple-dual-port cache RAM interface so that CPU doesn't have to read
-    -- data cross-clock
-    cache_address        : out std_logic_vector(8 downto 0);
-    cache_read_data      : in std_logic_vector(150 downto 0);   
-
     cpu_leds : out std_logic_vector(3 downto 0);
 
     ---------------------------------------------------------------------------
@@ -164,6 +144,13 @@ entity gs4510 is
     colour_ram_cs : out std_logic;
     charrom_write_cs : out std_logic;
 
+    slow_access_request_toggle : in std_logic;
+    slow_access_ready_toggle : out std_logic := '0';
+
+    slow_access_address : in unsigned(31 downto 0);
+    slow_access_wdata : in unsigned(7 downto 0);
+    slow_access_rdata : out unsigned(7 downto 0);
+    
     viciii_iomode : in std_logic_vector(1 downto 0);
 
     colourram_at_dc00 : in std_logic;
@@ -841,14 +828,6 @@ constant mode_lut : mlut9bit := (
   signal rmb_mask : unsigned(7 downto 0);
   signal smb_mask : unsigned(7 downto 0);
 
-  signal ddr_ram_banking : std_logic := '0';
-  signal ddr_ram_bank : std_logic_vector(2 downto 0);
-  signal ddr_reply_counter : unsigned(7 downto 0) := x"00";
-  signal ddr_timeout_counter : unsigned(7 downto 0) := x"00";
-  signal ddr_cache_load_counter : unsigned(7 downto 0) := x"00";
-  signal ddr_write_ready_counter : unsigned(7 downto 0) := x"00";
-  signal ddr_got_reply : std_logic := '0';
-
   signal slowram_addr_drive : std_logic_vector(26 downto 0);
   signal slowram_addr_reflect_drive : std_logic_vector(26 downto 0);
   signal slowram_data_in : std_logic_vector(7 downto 0);
@@ -1276,9 +1255,6 @@ begin
       chipram_datain <= x"c0";    
       slowram_we_drive <= '0';
 
-      ddr_ram_banking <= '0';
-      ddr_ram_bank <= "000";
-
       slowram_request_toggle_drive <= slowram_done_toggle;
       slowram_desired_done_toggle <= slowram_done_toggle;
       
@@ -1522,8 +1498,6 @@ begin
         wait_states_non_zero <= '0';
       end if; 
         
-      ddr_got_reply <= '0';
-
       -- Clear fastio access so that we don't keep reading/writing last IO address
       -- (this is bad when it is $DC0D for example, as it will stop IRQs from
       -- the CIA).
@@ -1716,11 +1690,7 @@ begin
         accessing_rom <= '0';
         accessing_slowram <= '1';
         slowram_data_valid <= '0';
-        if ddr_ram_banking='1' then
-          slowram_addr_drive <= std_logic_vector(long_address(23 downto 1))&ddr_ram_bank&std_logic(long_address(0));
-        else
-          slowram_addr_drive <= std_logic_vector(long_address(26 downto 0));
-        end if;
+        slowram_addr_drive <= std_logic_vector(long_address(26 downto 0));        
         slowram_we_drive <= '0';
         -- With the cache, we only request the cache be updated if we the wrong
         -- cache line is loaded.  This happen while waiting for the memory to load.
@@ -1804,9 +1774,7 @@ begin
             when "010111" => return hyper_dmagic_list_addr(23 downto 16);
             when "011000" =>
               return to_unsigned(0,4)&hyper_dmagic_list_addr(27 downto 24);
-            when "011001" =>
-              return unsigned(ddr_ram_banking&std_logic_vector(to_unsigned(0,4))
-                              &ddr_ram_bank(2 downto 0));
+            -- when "011001" =>
             -- Virtual memory page registers here
             when "011101" =>
               return unsigned(std_logic_vector(reg_pagenumber(1 downto 0))
@@ -1858,24 +1826,6 @@ begin
           case cpuport_num is
             when x"0" => return cpuport_ddr;
             when x"1" => return cpuport_value;
-            when x"4" => return ddr_state;
-            when x"5" => return ddr_counter;
-            when x"6" => return ddr_reply_counter;
-            when x"7" => return ddr_timeout_counter;
-            when x"8" => return ddr_cache_load_counter;
-            when x"9" => return slowram_desired_done_toggle
-                           &slowram_done_toggle
-                           &accessing_slowram
-                           &slowram_we_drive
-                           &slowram_pending_write
-                           &slowram_data_valid
-                           &"00";
-            when x"a" => return ddr_write_ready_counter;
-            when x"b" => return unsigned(slowram_datain_reflect_drive);
-            when x"c" => return unsigned(slowram_addr_reflect_drive(7 downto 0));
-            when x"d" => return unsigned(slowram_addr_reflect_drive(15 downto 8));
-            when x"e" => return unsigned(slowram_addr_reflect_drive(23 downto 16));
-            when x"f" => return "00000"&unsigned(slowram_addr_reflect_drive(26 downto 24));
             when others => return x"ff";
           end case;
         when Shadow =>
@@ -1917,7 +1867,6 @@ begin
       accessing_rom <= '0';
       accessing_slowram <= '0';
       slowram_pending_write <= '0';
-      ddr_got_reply <= '0';
       charrom_write_cs <= '0';
 
       -- Get the shadow RAM or ROM address on the bus fast to improve timing.
@@ -2138,16 +2087,11 @@ begin
       elsif long_address(27) = '1' then
         report "writing to slowram..." severity note;
         accessing_slowram <= '1';
-        ddr_got_reply <= '0';
         shadow_write <= '0';
         rom_write <= '0';
         fastio_write <= '0';
         shadow_write_flags(2) <= '1';
-        if ddr_ram_banking='1' then
-          slowram_addr_drive <= std_logic_vector(long_address(23 downto 1))&ddr_ram_bank&std_logic(long_address(0));
-        else
-          slowram_addr_drive <= std_logic_vector(long_address(26 downto 0));
-        end if;
+        slowram_addr_drive <= std_logic_vector(long_address(26 downto 0));
         slowram_we_drive <= '1';
         slowram_datain <= std_logic_vector(value);
         slowram_datain_expected <= std_logic_vector(value);
@@ -2572,13 +2516,7 @@ begin
         if last_write_address = x"FFD3658" and hypervisor_mode='1' then
           hyper_dmagic_list_addr(27 downto 24) <= last_value(3 downto 0);
         end if;
-        -- @IO:GS $D659 - Hypervisor DDR RAM banking control
-        -- @IO:GS $D659.7 - Enable DDR RAM banking
-        -- @IO:GS $D659.0-2 - Select which 16MB DDR RAM bank to make visible
-        if last_write_address = x"FFD3659" and hypervisor_mode='1' then
-          ddr_ram_banking <= last_value(7);
-          ddr_ram_bank <= std_logic_vector(last_value(2 downto 0));
-        end if;
+        -- @IO:GS $D659 - SPARE (was DDR RAM banking)
 
         -- @IO:GS $D65D - Hypervisor current virtual page number (low byte)
         if last_write_address = x"FFD365D" and hypervisor_mode='1' then
@@ -2721,32 +2659,6 @@ begin
       
       slowram_addr <= slowram_addr_drive;
       slowram_we <= slowram_we_drive;
-      cache_address <= slowram_addr_drive(12 downto 4);
-      if (slowram_addr_drive(26 downto 4) = cache_read_data(150 downto 128)) then
-        slowram_data_valid <= '1';
-        case slowram_addr_drive(3 downto 0) is
-          when "0000" => slowram_data_in <= cache_read_data(7 downto 0);
-          when "0001" => slowram_data_in <= cache_read_data(15 downto 8);
-          when "0010" => slowram_data_in <= cache_read_data(23 downto 16);
-          when "0011" => slowram_data_in <= cache_read_data(31 downto 24);
-          when "0100" => slowram_data_in <= cache_read_data(39 downto 32);
-          when "0101" => slowram_data_in <= cache_read_data(47 downto 40);
-          when "0110" => slowram_data_in <= cache_read_data(55 downto 48);
-          when "0111" => slowram_data_in <= cache_read_data(63 downto 56);
-          when "1000" => slowram_data_in <= cache_read_data(71 downto 64);
-          when "1001" => slowram_data_in <= cache_read_data(79 downto 72);
-          when "1010" => slowram_data_in <= cache_read_data(87 downto 80);
-          when "1011" => slowram_data_in <= cache_read_data(95 downto 88);
-          when "1100" => slowram_data_in <= cache_read_data(103 downto 96);
-          when "1101" => slowram_data_in <= cache_read_data(111 downto 104);
-          when "1110" => slowram_data_in <= cache_read_data(119 downto 112);
-          when "1111" => slowram_data_in <= cache_read_data(127 downto 120);
-          when others => slowram_data_in <= x"dd";
-        end case;
-      else
-        slowram_data_valid <= '0';
-        slowram_data_in <= x"CF";
-      end if;
       
       check_for_interrupts;
       
@@ -2801,7 +2713,6 @@ begin
       monitor_watch_match <= '0';       -- set if writing to watched address
       monitor_state <= to_unsigned(processor_state'pos(state),8)&read_data;
       monitor_hypervisor_mode <= hypervisor_mode;
-      monitor_ddr_ram_banking <= ddr_ram_banking;
       monitor_pc <= reg_pc;
       monitor_a <= reg_a;
       monitor_x <= reg_x;
@@ -2954,9 +2865,7 @@ begin
             -- Next cycle we can do stuff, provided that the serial monitor
             -- isn't asking us to do anything.
             proceed <= '1';
-            -- timeout DDR memory if it isn't responding
-            if (ddr_got_reply = '0') and (accessing_slowram='1') then
-              ddr_timeout_counter <= ddr_timeout_counter + 1;
+            if (accessing_slowram='1') then
               slowram_request_toggle_drive <= slowram_done_toggle;
               slowram_desired_done_toggle <= slowram_done_toggle;
               slowram_pending_write <='0';
@@ -2971,8 +2880,6 @@ begin
           -- cache has the correct memory line.
           if (accessing_slowram='1') and (slowram_we_drive='0')
             and (slowram_data_valid='1') and (proceed='0') then
-            ddr_reply_counter <= ddr_reply_counter + 1;
-            ddr_got_reply <= '1';
             wait_states <= x"00";
             wait_states_non_zero <= '0';
             proceed <= '1';
@@ -2982,24 +2889,19 @@ begin
           if (accessing_slowram='1') and (slowram_we_drive='1')
             and (slowram_data_valid='1') and (proceed='0')
             and (slowram_datain_expected = slowram_data_in) then
-            ddr_write_ready_counter <= ddr_write_ready_counter + 1;
             slowram_pending_write <= '0';
             slowram_we_drive <= '0';
-            ddr_got_reply <= '1';
             wait_states <= x"00";
             wait_states_non_zero <= '0';
             proceed <= '1';
           end if;
           
-          -- If the DDR memory is idle, and he cache has the wrong memory line,
-          -- so ask the DDR controller to load the cache line.
+          -- Ask slow device interface for memory access
           if (accessing_slowram='1') and (slowram_we_drive='0')
-            and (slowram_addr_drive(26 downto 4) /= cache_read_data(150 downto 128))
             and (slowram_desired_done_toggle = slowram_done_toggle) then
             -- The address & WE has already been set in read_long_address()
             slowram_request_toggle_drive <= not slowram_done_toggle;
             slowram_desired_done_toggle <= not slowram_done_toggle;
-            ddr_cache_load_counter <= ddr_cache_load_counter + 1;
           end if;
 
           -- Now that the slowram signals have all been set for a write and
