@@ -64,47 +64,50 @@ architecture behavioural of fake_expansion_port is
 begin
 
   -- Generate bus signals
-  process
-  begin    
-    if cart_data_dir='0' then cart_d <= bus_d; else bus_d <= cart_d; end if;
-    if cart_haddr_dir='0' then
-      cart_a(15 downto 8) <= bus_a(15 downto 8);
-    else
-      bus_a(15 downto 8) <= cart_a(15 downto 8);
-    end if;
-    if cart_laddr_dir='0' then
-      cart_a(7 downto 0) <= bus_a(7 downto 0);
-    else
-      bus_a(7 downto 0) <= cart_a(7 downto 0);
-    end if;
-    if cart_ctrl_dir='0' then
-      cart_exrom <= bus_exrom;
-      cart_ba <= bus_ba;
-      cart_rw <= bus_rw;
-      cart_roml <= bus_roml;
-      cart_romh <= bus_romh;
-      cart_io1 <= bus_io1;
-      cart_game <= bus_game;
-      cart_io2 <= bus_io2;
-    else
-      bus_exrom <= cart_exrom;
-      bus_ba <= cart_ba;
-      bus_rw <= cart_rw;
-      bus_roml <= cart_roml;
-      bus_romh <= cart_romh;
-      bus_io1 <= cart_io1;
-      bus_game <= cart_game;
-      bus_io2 <= cart_io2;      
-    end if;
+  process (cart_dotclock)
+  begin
+    -- XXX We shouldn't need to clock gate this, but have it behave simply as
+    -- combinatorial logic.  But GHDL gets in an infinite loop here if we don't.    
+    if rising_edge(cart_dotclock) then
+      if cart_data_dir='0' then cart_d <= bus_d; else bus_d <= cart_d; end if;
+      if cart_haddr_dir='0' then
+        cart_a(15 downto 8) <= bus_a(15 downto 8);
+      else
+        bus_a(15 downto 8) <= cart_a(15 downto 8);
+      end if;
+      if cart_laddr_dir='0' then
+        cart_a(7 downto 0) <= bus_a(7 downto 0);
+      else
+        bus_a(7 downto 0) <= cart_a(7 downto 0);
+      end if;
+      if cart_ctrl_dir='0' then
+        cart_exrom <= bus_exrom;
+        cart_ba <= bus_ba;
+        cart_rw <= bus_rw;
+        cart_roml <= bus_roml;
+        cart_romh <= bus_romh;
+        cart_io1 <= bus_io1;
+        cart_game <= bus_game;
+        cart_io2 <= bus_io2;
+      else
+        bus_exrom <= cart_exrom;
+        bus_ba <= cart_ba;
+        bus_rw <= cart_rw;
+        bus_roml <= cart_roml;
+        bus_romh <= cart_romh;
+        bus_io1 <= cart_io1;
+        bus_game <= cart_game;
+        bus_io2 <= cart_io2;      
+      end if;
 
-    if bus_rw='1' and bus_roml='0' then
-      -- Expansion port latches values on clock edges.
-      -- Therefore we cannot provide the data too fast
-      bus_d <= bus_d_drive;
-    else
-      bus_d <= (others => 'Z');
+      if bus_rw='1' and bus_roml='0' then
+        -- Expansion port latches values on clock edges.
+        -- Therefore we cannot provide the data too fast
+        bus_d <= bus_d_drive;
+      else
+        bus_d <= (others => 'Z');
+      end if;
     end if;
-    
   end process;
 
   process (cart_dotclock)
