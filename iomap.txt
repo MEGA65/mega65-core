@@ -189,6 +189,9 @@ GS $D07A.0-3 VIC-IV display_height (MSB)
 GS $D07A.4-7 VIC-IV frame_height (MSB)
 GS $D07B VIC-IV hsync adjust
 GS $D07C.0-3 VIC-IV hsync adjust (MSB)
+GS $D07C.4 VIC-IV hsync polarity
+GS $D07C.5 VIC-IV vsync polarity
+GS $D07C.6 VIC-IV physical rasters per VIC-II raster (2-5)
 GS $D07D VIC-IV debug X position (LSB)
 GS $D07E VIC-IV debug Y position (LSB)
 GS $D07F.0-3 VIC-IV debug X position (MSB)
