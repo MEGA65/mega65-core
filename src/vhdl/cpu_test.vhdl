@@ -118,8 +118,8 @@ architecture behavior of cpu_test is
   ----------------------------------------------------------------------
   signal slow_access_request_toggle : std_logic;
   signal slow_access_ready_toggle : std_logic;
-
-  signal slow_access_address : unsigned(31 downto 0);
+  signal slow_access_write : std_logic;
+  signal slow_access_address : unsigned(27 downto 0);
   signal slow_access_wdata : unsigned(7 downto 0);
   signal slow_access_rdata : unsigned(7 downto 0);
   
@@ -136,6 +136,7 @@ begin
 
       slow_access_request_toggle => slow_access_request_toggle,
       slow_access_ready_toggle => slow_access_ready_toggle,
+      slow_access_write => slow_access_write,
       slow_access_address => slow_access_address,
       slow_access_wdata => slow_access_wdata,
       slow_access_rdata => slow_access_rdata,
@@ -207,6 +208,7 @@ begin
       slow_access_request_toggle => slow_access_request_toggle,
       slow_access_ready_toggle => slow_access_ready_toggle,
       slow_access_address => slow_access_address,
+      slow_access_write => slow_access_write,
       slow_access_wdata => slow_access_wdata,
       slow_access_rdata => slow_access_rdata,
       

@@ -68,12 +68,12 @@ entity machine is
          flopled : out std_logic;
          flopmotor : out std_logic;
 
-         slow_access_request_toggle : in std_logic;
-         slow_access_ready_toggle : out std_logic := '0';
-
-         slow_access_address : in unsigned(31 downto 0);
-         slow_access_wdata : in unsigned(7 downto 0);
-         slow_access_rdata : out unsigned(7 downto 0);
+         slow_access_request_toggle : out std_logic;
+         slow_access_ready_toggle : in std_logic := '0';
+         slow_access_write : out std_logic := '0';
+         slow_access_address : out unsigned(27 downto 0);
+         slow_access_wdata : out unsigned(7 downto 0);
+         slow_access_rdata : in unsigned(7 downto 0);
          
          ----------------------------------------------------------------------
          -- VGA output
@@ -581,8 +581,9 @@ begin
     monitor_mem_trace_toggle => monitor_mem_trace_toggle,
 
     slow_access_request_toggle => slow_access_request_toggle,
-    slow_access_ready_toggle => slow_access_ready_toggle,
+    slow_access_ready_toggle => slow_access_ready_toggle,    
     slow_access_address => slow_access_address,
+    slow_access_write => slow_access_write,
     slow_access_wdata => slow_access_wdata,
     slow_access_rdata => slow_access_rdata,
         

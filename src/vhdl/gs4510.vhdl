@@ -144,13 +144,20 @@ entity gs4510 is
     colour_ram_cs : out std_logic;
     charrom_write_cs : out std_logic;
 
-    slow_access_request_toggle : in std_logic;
-    slow_access_ready_toggle : out std_logic := '0';
+    ---------------------------------------------------------------------------
+    -- Slow device access 4GB address space
+    ---------------------------------------------------------------------------
+    slow_access_request_toggle : out std_logic;
+    slow_access_ready_toggle : in std_logic := '0';
 
-    slow_access_address : in unsigned(31 downto 0);
-    slow_access_wdata : in unsigned(7 downto 0);
-    slow_access_rdata : out unsigned(7 downto 0);
+    slow_access_address : out unsigned(27 downto 0);
+    slow_access_write : out std_logic;
+    slow_access_wdata : out unsigned(7 downto 0);
+    slow_access_rdata : in unsigned(7 downto 0);
     
+    ---------------------------------------------------------------------------
+    -- VIC-III memory banking control
+    ---------------------------------------------------------------------------
     viciii_iomode : in std_logic_vector(1 downto 0);
 
     colourram_at_dc00 : in std_logic;
@@ -254,59 +261,45 @@ end component;
   -- monitor to have a serial port tick (which is when it checks on that side)
   signal immediate_monitor_char_busy : std_logic := '0';
 
-  -- On the original Nexys4 board:
-  -- SlowRAM has 70ns access time, so need some wait states.
-  -- At 48MHz we only need 4 cycles.
-  -- (had +2 extra for drive stages)
-  -- On the Nexys4DDR board, the DDR2 ram is annoying MUCH slower,
-  -- requiring $16 = 22 cycles to be reliable!
-  -- We really are going to want to have a slowram cache!
-  -- It will be fairly trivial to read 128 bits (16 bytes) of slowram at a time
-  -- and cache that, since that is exactly how the DDR RAM module wrapper works
-  -- internally.  Thus for sequential memory accesses, we can get 16 bytes every
-  -- 22 cycles, and potentially service memory reads with just one wait-state on
-  -- average (although the CPU state machine would make this a little interesting
-  -- to achieve.  2 wait states on the other hand would be quite achievable, and
-  -- would still be 3x the speed of slowram currently.
-  -- Shadow RAM has 0 wait states by default
   -- IO has one waitstate for reading, 0 for writing
   -- (Reading incurrs an extra waitstate due to read_data_copy)
   -- XXX An extra wait state seems to be necessary when reading from dual-port
   -- memories like colour ram.
-  constant slowram_48mhz : unsigned(7 downto 0) := x"ff";
   constant ioread_48mhz : unsigned(7 downto 0) := x"01";
   constant colourread_48mhz : unsigned(7 downto 0) := x"02";
   constant iowrite_48mhz : unsigned(7 downto 0) := x"00";
   constant shadow_48mhz :  unsigned(7 downto 0) := x"00";
 
-  --constant slowram_3mhz : unsigned(7 downto 0) := x"0d";
   --constant ioread_3mhz : unsigned(7 downto 0) := x"0d";
   --constant colourread_3mhz : unsigned(7 downto 0) := x"0d";
   --constant iowrite_3mhz : unsigned(7 downto 0) := x"0d";
   --constant shadow_3mhz :  unsigned(7 downto 0) := x"0d";
 
-  --constant slowram_2mhz : unsigned(7 downto 0) := x"1b";
   --constant ioread_2mhz : unsigned(7 downto 0) := x"1b";
   --constant colourread_2mhz : unsigned(7 downto 0) := x"1b";
   --constant iowrite_2mhz : unsigned(7 downto 0) := x"1b";
   --constant shadow_2mhz :  unsigned(7 downto 0) := x"1b";
 
-  --constant slowram_1mhz : unsigned(7 downto 0) := x"2f";
   --constant ioread_1mhz : unsigned(7 downto 0) := x"2f";
   --constant colourread_1mhz : unsigned(7 downto 0) := x"2f";
   --constant iowrite_1mhz : unsigned(7 downto 0) := x"2f";
   --constant shadow_1mhz :  unsigned(7 downto 0) := x"2f";
 
-  signal slowram_waitstates : unsigned(7 downto 0) := slowram_48mhz;
   signal shadow_wait_states : unsigned(7 downto 0) := shadow_48mhz;
   signal io_read_wait_states : unsigned(7 downto 0) := ioread_48mhz;
   signal colourram_read_wait_states : unsigned(7 downto 0) := colourread_48mhz;
   signal io_write_wait_states : unsigned(7 downto 0) := iowrite_48mhz;
 
-  signal slowram_request_toggle_drive : std_logic := '0';
-  signal slowram_desired_done_toggle : std_logic := '0';
-  signal slowram_data_valid : std_logic := '0';
-  signal slowram_pending_write : std_logic := '0';
+  -- Interface to slow device address space
+  signal slow_access_request_toggle_drive : std_logic := '0';
+  signal slow_access_write_drive : std_logic := '0';
+  signal slow_access_address_drive : unsigned(27 downto 0) := (others => '1');
+  signal slow_access_wdata_drive : unsigned(7 downto 0) := (others => '1');
+  signal slow_access_desired_ready_toggle : std_logic := '0';
+  signal slow_access_ready_toggle_buffer : std_logic := '0';
+  signal slow_access_pending_write : std_logic := '0';
+  signal slow_access_rdata_buffer : unsigned(7 downto 0);
+  signal slow_access_data_ready : std_logic := '0';
 
   -- Number of pending wait states
   signal wait_states : unsigned(7 downto 0) := x"05";
@@ -828,13 +821,6 @@ constant mode_lut : mlut9bit := (
   signal rmb_mask : unsigned(7 downto 0);
   signal smb_mask : unsigned(7 downto 0);
 
-  signal slowram_addr_drive : std_logic_vector(26 downto 0);
-  signal slowram_addr_reflect_drive : std_logic_vector(26 downto 0);
-  signal slowram_data_in : std_logic_vector(7 downto 0);
-  signal slowram_datain_expected : std_logic_vector(7 downto 0);
-  signal slowram_datain_reflect_drive : std_logic_vector(7 downto 0);
-  signal slowram_we_drive : std_logic;
-
   signal watchdog_reset : std_logic := '0';
   signal watchdog_fed : std_logic := '0';
   signal watchdog_countdown : integer range 0 to 65535;
@@ -1253,10 +1239,12 @@ begin
       fastio_write <= '0';
       chipram_we <= '0';        
       chipram_datain <= x"c0";    
-      slowram_we_drive <= '0';
 
-      slowram_request_toggle_drive <= slowram_done_toggle;
-      slowram_desired_done_toggle <= slowram_done_toggle;
+      slow_access_request_toggle_drive <= slow_access_ready_toggle;
+      slow_access_write_drive <= '0';
+      slow_access_address_drive <= (others => '1');
+      slow_access_wdata_drive <= (others => '1');
+      slow_access_desired_ready_toggle <= slow_access_ready_toggle;
       
       wait_states <= (others => '0');
       wait_states_non_zero <= '0';
@@ -1487,8 +1475,8 @@ begin
       accessing_fastio <= '0'; accessing_vic_fastio <= '0';
       accessing_cpuport <= '0'; accessing_colour_ram_fastio <= '0';
       accessing_slowram <= '0'; accessing_hypervisor <= '0';
-      slowram_pending_write <= '0';
-      slowram_we_drive <= '0';
+      slow_access_pending_write <= '0';
+      slow_access_write_drive <= '0';
       charrom_write_cs <= '0';
 
       wait_states <= io_read_wait_states;
@@ -1680,23 +1668,20 @@ begin
         last_fastio_addr <= std_logic_vector(long_address(19 downto 0));
         fastio_read <= '1';
         proceed <= '0';
-      elsif long_address(27) = '1' then
-        -- @IO:GS $8000000 - $FEFFFFF Slow RAM (127MB)
-        -- Slow RAM maps to $8000000-$FEFFFFF, and also $0020000 - $003FFFF for
-        -- C65 ROM emulation.
+      elsif long_address(27) = '1' or long_address(26)='1' then
+        -- @IO:GS $4000000 - $7FFFFFF Slow Device memory (64MB)
+        -- @IO:GS $8000000 - $FEFFFFF Slow Device memory (127MB)
         report "Preparing to read from SlowRAM";
         read_source <= SlowRAM;
         accessing_shadow <= '0';
         accessing_rom <= '0';
         accessing_slowram <= '1';
-        slowram_data_valid <= '0';
-        slowram_addr_drive <= std_logic_vector(long_address(26 downto 0));        
-        slowram_we_drive <= '0';
-        -- With the cache, we only request the cache be updated if we the wrong
-        -- cache line is loaded.  This happen while waiting for the memory to load.
---        slowram_request_toggle <= not slowram_done_toggle;
---        slowram_desired_done_toggle <= not slowram_done_toggle;        
-        wait_states <= slowram_waitstates;
+        slow_access_data_ready <= '0';
+        slow_access_address_drive <= long_address(27 downto 0);
+        slow_access_write_drive <= '0';
+        slow_access_request_toggle_drive <= not slow_access_request_toggle_drive;
+        slow_access_desired_ready_toggle <= not slow_access_desired_ready_toggle;
+        wait_states <= x"FF";
         wait_states_non_zero <= '1';
         proceed <= '0';
       else
@@ -1844,8 +1829,8 @@ begin
           report "reading normal fastio byte $" & to_hstring(fastio_rdata) severity note;
           return unsigned(fastio_rdata);
         when SlowRAM =>
-          report "reading slow RAM data. Word is $" & to_hstring(slowram_data_in) severity note;
-          return unsigned(slowram_data_in);
+          report "reading slow RAM data. Word is $" & to_hstring(slow_access_rdata_buffer) severity note;
+          return unsigned(slow_access_rdata_buffer);
         when Unmapped =>
           report "accessing unmapped memory" severity note;
           return x"A0";                     -- make unmmapped memory obvious
@@ -1866,7 +1851,7 @@ begin
       accessing_shadow <= '0';
       accessing_rom <= '0';
       accessing_slowram <= '0';
-      slowram_pending_write <= '0';
+      slow_access_write_drive <= '0';
       charrom_write_cs <= '0';
 
       -- Get the shadow RAM or ROM address on the bus fast to improve timing.
@@ -2084,24 +2069,26 @@ begin
         else
           wait_states_non_zero <= '0';
         end if;
-      elsif long_address(27) = '1' then
-        report "writing to slowram..." severity note;
+      elsif long_address(27) = '1' or long_address(26)='1' then
+        report "writing to slow device memory..." severity note;
         accessing_slowram <= '1';
         shadow_write <= '0';
         rom_write <= '0';
         fastio_write <= '0';
         shadow_write_flags(2) <= '1';
-        slowram_addr_drive <= std_logic_vector(long_address(26 downto 0));
-        slowram_we_drive <= '1';
-        slowram_datain <= std_logic_vector(value);
-        slowram_datain_expected <= std_logic_vector(value);
-        slowram_pending_write <= '1';
-        wait_states <= slowram_waitstates;
-        if slowram_waitstates /= x"00" then
-          wait_states_non_zero <= '1';
-        else
-          wait_states_non_zero <= '0';
-        end if;
+        -- We dispatch the write, and then wait for the slow access controller
+        -- to acknowledge the write.  The slow access controller is free to
+        -- buffer the writes as it wishes to hide latency -- we don't need to worry
+        -- about there here, as it only changes the latency for receiving the
+        -- write acknowledgement (a similar process can be used for caching reads
+        -- from appropriate slow devices, e.g., for expansion memory).
+        slow_access_address_drive <= long_address(27 downto 0);
+        slow_access_write_drive <= '1';
+        slow_access_wdata_drive <= value;
+        slow_access_pending_write <= '1';
+        wait_states <= x"FF";
+        -- Tell CPU to wait for response
+        wait_states_non_zero <= '1';
         proceed <= '0';
       else
         -- Don't let unmapped memory jam things up
@@ -2409,11 +2396,6 @@ begin
       if last_write_pending = '1' then
         last_write_pending <= '0';
 
-        -- @IO:GS $FFC00A0 45GS10 slowram wait-states (write-only)
-        if last_write_address = x"FFC00A0" then
-          slowram_waitstates <= last_value;
-        end if;
-
         -- @IO:GS $D640 - Hypervisor A register storage
         if last_write_address = x"FFD3640" and hypervisor_mode='1' then
           hyper_a <= last_value;
@@ -2650,16 +2632,17 @@ begin
         end if;
 
       end if;
-      
-      slowram_request_toggle <= slowram_request_toggle_drive;
-      slowram_addr_reflect_drive <= slowram_addr_reflect;
-      slowram_datain_reflect_drive <= slowram_datain_reflect;
+
+      -- Propagate slow device access interface signals
+      slow_access_request_toggle <= slow_access_request_toggle_drive;
+      slow_access_address <= slow_access_address_drive;
+      slow_access_write <= slow_access_write_drive;
+      slow_access_wdata <= slow_access_wdata_drive;
+      slow_access_rdata_buffer <= slow_access_rdata;
+      slow_access_ready_toggle_buffer <= slow_access_ready_toggle;
       
       cpu_hypervisor_mode <= hypervisor_mode;
-      
-      slowram_addr <= slowram_addr_drive;
-      slowram_we <= slowram_we_drive;
-      
+            
       check_for_interrupts;
       
       if wait_states = x"00" then
@@ -2685,19 +2668,7 @@ begin
       monitor_mem_setpc_drive <= monitor_mem_setpc;
       monitor_mem_address_drive <= monitor_mem_address;
       monitor_mem_wdata_drive <= monitor_mem_wdata;
-      
-      --monitor_debug_memory_access(31) <= accessing_shadow;
-      --monitor_debug_memory_access(30) <= accessing_fastio;
-      --monitor_debug_memory_access(29) <= accessing_slowram;
-      --monitor_debug_memory_access(27) <= accessing_colour_ram_fastio;
-      --monitor_debug_memory_access(26) <= accessing_vic_fastio;
-      --monitor_debug_memory_access(25) <= accessing_cpuport;
-      --monitor_debug_memory_access(24) <= '0';
-
-      --monitor_debug_memory_access(23 downto 16) <= std_logic_vector(read_data_copy);
-      --monitor_debug_memory_access(15 downto 8) <= std_logic_vector(read_data);
-      --monitor_debug_memory_access(7 downto 0) <= std_logic_vector(read_data_complex);
-      
+            
       -- Copy read memory location to simplify reading from memory.
       -- Penalty is +1 wait state for memory other than shadowram.
       read_data_copy <= read_data_complex;
@@ -2860,61 +2831,20 @@ begin
             & ", mem_reading=" & std_logic'image(mem_reading)
             & ", fastio_addr=$" & to_hstring(fastio_addr)
             severity note;
-          wait_states <= wait_states - 1;
-          if wait_states = x"01" then
-            -- Next cycle we can do stuff, provided that the serial monitor
-            -- isn't asking us to do anything.
-            proceed <= '1';
-            if (accessing_slowram='1') then
-              slowram_request_toggle_drive <= slowram_done_toggle;
-              slowram_desired_done_toggle <= slowram_done_toggle;
-              slowram_pending_write <='0';
-              slowram_we_drive <= '0';
-            end if;
-            wait_states_non_zero <= '0';
+          if (accessing_slowram='1') then
+            if slow_access_ready_toggle = slow_access_desired_ready_toggle then
+              -- Next cycle we can do stuff, provided that the serial monitor
+              -- isn't asking us to do anything.
+              proceed <= '1';
+              slow_access_write_drive <= '0';
+            else
+              -- Otherwise keep waiting for slow memory interface
+              null;
+            end if;           
           else
+            wait_states <= wait_states - 1;
             wait_states_non_zero <= '1';            
-          end if;
-          -- Stop waiting on slow ram as soon as we have the result.
-          -- We know we have the result when the RAM is no longer busy, and the
-          -- cache has the correct memory line.
-          if (accessing_slowram='1') and (slowram_we_drive='0')
-            and (slowram_data_valid='1') and (proceed='0') then
-            wait_states <= x"00";
-            wait_states_non_zero <= '0';
-            proceed <= '1';
-          end if;
-          -- Similarly, when writing to slowram, we return only once we have verified
-          -- that the value has been written.
-          if (accessing_slowram='1') and (slowram_we_drive='1')
-            and (slowram_data_valid='1') and (proceed='0')
-            and (slowram_datain_expected = slowram_data_in) then
-            slowram_pending_write <= '0';
-            slowram_we_drive <= '0';
-            wait_states <= x"00";
-            wait_states_non_zero <= '0';
-            proceed <= '1';
-          end if;
-          
-          -- Ask slow device interface for memory access
-          if (accessing_slowram='1') and (slowram_we_drive='0')
-            and (slowram_desired_done_toggle = slowram_done_toggle) then
-            -- The address & WE has already been set in read_long_address()
-            slowram_request_toggle_drive <= not slowram_done_toggle;
-            slowram_desired_done_toggle <= not slowram_done_toggle;
-          end if;
-
-          -- Now that the slowram signals have all been set for a write and
-          -- had a cycle to settle, toggle the request line, so that the DDR
-          -- can get the write request without missing it.
-          if (slowram_pending_write='1')
-            and (slowram_desired_done_toggle = slowram_done_toggle)
-            and (slowram_addr_reflect_drive = slowram_addr_drive)
-            and (slowram_datain_reflect_drive = slowram_datain_expected) then
-            slowram_desired_done_toggle <= not slowram_done_toggle;
-            slowram_request_toggle_drive <= not slowram_done_toggle;
-          end if;
-
+          end if;          
         else
           -- End of wait states, so clear memory writing and reading
 
@@ -2922,7 +2852,7 @@ begin
           fastio_write <= '0';
 --          fastio_read <= '0';
           chipram_we <= '0';
-          slowram_we_drive <= '0';
+          slow_access_write_drive <= '0';
 
           if mem_reading='1' then
 --            report "resetting mem_reading (read $" & to_hstring(memory_read_value) & ")" severity note;

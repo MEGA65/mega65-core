@@ -23,8 +23,8 @@ ENTITY slow_devices IS
 
     slow_access_request_toggle : in std_logic;
     slow_access_ready_toggle : out std_logic := '0';
-
-    slow_access_address : in unsigned(31 downto 0);
+    slow_access_write : in std_logic;
+    slow_access_address : in unsigned(27 downto 0);
     slow_access_wdata : in unsigned(7 downto 0);
     slow_access_rdata : out unsigned(7 downto 0);
 
