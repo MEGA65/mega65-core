@@ -2857,8 +2857,13 @@ begin
               null;
             end if;           
           else
-            wait_states <= wait_states - 1;
-            wait_states_non_zero <= '1';            
+            if wait_states /= x"01" then
+              wait_states <= wait_states - 1;
+              wait_states_non_zero <= '1';
+            else
+              wait_states_non_zero <= '0';
+              proceed <= '1';
+            end if;
           end if;          
         else
           -- End of wait states, so clear memory writing and reading
