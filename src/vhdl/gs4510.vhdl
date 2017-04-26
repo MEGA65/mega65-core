@@ -365,6 +365,9 @@ end component;
   signal reg_offset_low : unsigned(11 downto 0);
   signal reg_offset_high : unsigned(11 downto 0);
 
+  -- Should we use external or internal SIDs?
+  signal reg_external_sids : std_logic := '1';
+
   -- Are we in hypervisor mode?
   signal hypervisor_mode : std_logic := '1';
   signal hypervisor_trap_port : unsigned (6 downto 0);
@@ -409,6 +412,7 @@ end component;
   signal reg_pages_dirty : std_logic_vector(3 downto 0);
   signal reg_pageid : unsigned(1 downto 0);
   signal reg_pageactive : std_logic := '0';
+  
 
   -- Flags to detect interrupts
   signal map_interrupt_inhibit : std_logic := '0';
@@ -1345,7 +1349,7 @@ begin
               -- to $D02F
               temp_address(27 downto 12) := x"FFD3";
               temp_address(13 downto 12) := unsigned(viciii_iomode);          
-          end case;        
+          end case;
         else
           -- READING
           case lhc(2 downto 0) is
@@ -1363,7 +1367,17 @@ begin
               -- to $D02F
               temp_address(27 downto 12) := x"FFD3";
               temp_address(13 downto 12) := unsigned(viciii_iomode);          
-          end case;              end if;
+          end case;
+        end if;
+        -- Map $DE00-$DFFF IO expansion areas to expansion port
+        if (short_address(11 downto 8) = x"E")
+          or (short_address(11 downto 8) = x"F") then
+          temp_address(27 downto 12) := x"7FFD";
+        end if;
+        -- Optionally map SIDs to expansion port
+        if (short_address(11 downto 8) = x"4") and reg_external_sids='1' then
+          temp_address(27 downto 12) := x"7FFD";
+        end if;
       end if;
 
       -- C64 KERNEL
@@ -1788,9 +1802,10 @@ begin
             when "111100" => -- $D640+$3C
               -- @IO:GS $D67C.6 - (read) Hypervisor internal immediate UART monitor busy flag (can write when 0)
               -- @IO:GS $D67C.7 - (read) Hypervisor serial output from UART monitor busy flag (can write when 0)
-              -- the serial monitor interface takes a while to assert its busy flag (one serial bit of time)
               -- so we have an immediate busy flag that we manage separately.
-              return "000000" & immediate_monitor_char_busy & monitor_char_busy;
+              return "000000"
+                & immediate_monitor_char_busy
+                & monitor_char_busy;
 
             when "111101" =>                                                   -- this section
               return "11" & force_4502 & force_fast                            -- was previously
