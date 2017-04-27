@@ -81,6 +81,7 @@ architecture behavioural of slow_devices is
   signal cart_access_rdata : unsigned(7 downto 0);
   signal cart_access_wdata : unsigned(7 downto 0);
   signal cart_access_accept_strobe : std_logic;
+  signal cart_access_read_strobe : std_logic;
 
   signal slow_access_last_request_toggle : std_logic := '0';
 
@@ -107,6 +108,7 @@ begin
     cart_access_rdata => cart_access_rdata,
     cart_access_wdata => cart_access_wdata,
     cart_access_accept_strobe => cart_access_accept_strobe,
+    cart_access_read_strobe => cart_access_read_strobe,
     
     cart_ctrl_dir => cart_ctrl_dir,
     cart_haddr_dir => cart_haddr_dir,
@@ -143,6 +145,7 @@ begin
     case state is
       when Idle =>    
         if slow_access_last_request_toggle /= slow_access_request_toggle then
+          report "Access request for $" & to_hstring(slow_access_address) & ", toggle=" & std_logic'image(slow_access_request_toggle);
           -- XXX do job, and acknowledge when done.
 
           -- CPU maps expansion port access to $7FF0000-$7FFFFFF for
@@ -172,6 +175,7 @@ begin
             state <= ExpansionRAMRequest;
           elsif slow_access_address(26)='1' then
             -- $4000000-$7FFFFFF = cartridge port
+            report "Preparing to read from C64 cartridge port";
             state <= CartridgePortRequest;
           else
             -- Unmapped address space: Content = "Unmapped"
@@ -215,10 +219,22 @@ begin
         cart_access_address(27 downto 0) <= slow_access_address;
         cart_access_address(31 downto 28) <= (others => '0');
         cart_access_wdata <= slow_access_wdata;
-        state <= CartridgePortAcceptWait;
-      when CartridgePortAcceptWait =>
-        cart_access_request <= '0';
-        if cart_access_accept_strobe='1' then
+        if cart_access_accept_strobe = '1' then
+          cart_access_request <= '0';
+          if slow_access_write = '1' then
+            state <= Idle;
+            report "C64 cartridge port write dispatched asynchronously.";
+          else
+            state <= CartridgePortAcceptWait;
+            report "C64 cartridge port read commenced.";
+          end if;
+        else
+          state <= CartridgePortRequest;
+        end if;
+      when CartridgePortAcceptWait =>        
+        if cart_access_read_strobe = '1' then
+          cart_access_request <= '0';
+          report "C64 cartridge port access complete"; 
           slow_access_rdata <= cart_access_rdata;
           slow_access_ready_toggle <= slow_access_request_toggle;
           state <= Idle;

@@ -147,8 +147,8 @@ entity gs4510 is
     ---------------------------------------------------------------------------
     -- Slow device access 4GB address space
     ---------------------------------------------------------------------------
-    slow_access_request_toggle : out std_logic;
-    slow_access_ready_toggle : in std_logic := '0';
+    slow_access_request_toggle : out std_logic := '0';
+    slow_access_ready_toggle : in std_logic;
 
     slow_access_address : out unsigned(27 downto 0);
     slow_access_write : out std_logic;
@@ -1244,7 +1244,7 @@ begin
       chipram_we <= '0';        
       chipram_datain <= x"c0";    
 
-      slow_access_request_toggle_drive <= slow_access_ready_toggle;
+      slow_access_request_toggle_drive <= slow_access_ready_toggle_buffer;
       slow_access_write_drive <= '0';
       slow_access_address_drive <= (others => '1');
       slow_access_wdata_drive <= (others => '1');

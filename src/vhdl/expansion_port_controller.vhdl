@@ -31,12 +31,13 @@ ENTITY expansion_port_controller IS
     cart_access_address : in unsigned(31 downto 0);
     cart_access_wdata : in unsigned(7 downto 0);
     cart_access_accept_strobe : out std_logic;
+    cart_access_read_toggle: out std_logic;
     
     ------------------------------------------------------------------------
     -- Strobe indicates when we have read data in response to a request
     ------------------------------------------------------------------------
     -- Strobe lasts one pixelclock tick only.
-    cart_read_strobe : out std_logic := '0';
+    cart_access_read_strobe : out std_logic := '0';
     cart_access_rdata : out unsigned(7 downto 0) := x"FF";
 
     ------------------------------------------------------------------------
@@ -79,7 +80,8 @@ architecture behavioural of expansion_port_controller is
 
   -- Are we already servicing a read?
   signal read_in_progress : std_logic := '0';
-
+  signal cart_access_read_toggle_internal : std_logic := '0';
+  
   -- Internal state
   signal cart_dotclock_internal : std_logic := '0';
   signal cart_phi2_internal : std_logic := '0';
@@ -93,7 +95,7 @@ begin
       -- We approximate these based on the pixel clock
       if to_integer(ticker) /= ticks_8mhz_half then
         ticker <= ticker + 1;
-        cart_read_strobe <= '0';
+        cart_access_read_strobe <= '0';
         cart_access_accept_strobe <= '0';
       else
         ticker <= (others => '0');
@@ -102,10 +104,11 @@ begin
         cart_dotclock_internal <= not cart_dotclock_internal;
         if phi2_ticker /= 4 then
           phi2_ticker <= phi2_ticker + 1;
-          cart_read_strobe <= '0';
+          cart_access_read_strobe <= '0';
           cart_access_accept_strobe <= '0';
         else
           -- Tick phi2
+          report "phi2 tick";
           phi2_ticker <= (others => '0');
           cart_phi2 <= not cart_phi2_internal;
           cart_phi2_internal <= not cart_phi2_internal;
@@ -113,12 +116,16 @@ begin
           -- Record data from bus if we are waiting on it
           if read_in_progress='1' then
             cart_access_rdata <= unsigned(cart_d);
-            cart_read_strobe <= '1';
+            cart_access_read_strobe <= '1';
+            cart_access_read_toggle <= not cart_access_read_toggle_internal;
+            cart_access_read_toggle_internal <= not cart_access_read_toggle_internal;
+            report "Read data from expansion port data pins = $" & to_hstring(cart_d);
           else
-            cart_read_strobe <= '0';
+            cart_access_read_strobe <= '0';
           end if;         
           -- Present next bus request if we have one
           if cart_access_request='1' then
+            report "Presenting expansion port access request to port";
             cart_access_accept_strobe <= '1';
             cart_a <= cart_access_address(15 downto 0);
             cart_rw <= cart_access_read;
