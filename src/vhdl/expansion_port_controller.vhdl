@@ -1,3 +1,6 @@
+-- XXX - Currently supports only accessing first 64KB of expansion port address
+-- space, and does not set select lines based on address.
+
 use WORK.ALL;
 
 library IEEE;
@@ -25,7 +28,7 @@ ENTITY expansion_port_controller IS
     -- asserting _accept_strobe for one pixelclock tick only.
     cart_access_request : in std_logic;
     cart_access_read : in std_logic;
-    cart_access_address : in unsigned(15 downto 0);
+    cart_access_address : in unsigned(31 downto 0);
     cart_access_wdata : in unsigned(7 downto 0);
     cart_access_accept_strobe : out std_logic;
     
@@ -117,7 +120,7 @@ begin
           -- Present next bus request if we have one
           if cart_access_request='1' then
             cart_access_accept_strobe <= '1';
-            cart_a <= cart_access_address;
+            cart_a <= cart_access_address(15 downto 0);
             cart_rw <= cart_access_read;
             if cart_access_read='1' then
               read_in_progress <= '1';
