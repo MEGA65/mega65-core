@@ -77,10 +77,21 @@ architecture behavioural of slow_devices is
 
   signal cart_access_request : std_logic := '0';
   signal cart_access_read : std_logic;
-  signal cart_access_address : unsigned(15 downto 0);
+  signal cart_access_address : unsigned(31 downto 0);
+  signal cart_access_rdata : unsigned(7 downto 0);
   signal cart_access_wdata : unsigned(7 downto 0);
   signal cart_access_accept_strobe : std_logic;
 
+  signal slow_access_last_request_toggle : std_logic := '0';
+
+  type slow_state is (
+    Idle,
+    ExpansionRAMRequest,
+    CartridgePortRequest,
+    CartridgePortAcceptWait
+    );
+
+  signal state : slow_state := Idle;
   
 begin
   cartport0: entity work.expansion_port_controller
@@ -93,6 +104,7 @@ begin
     cart_access_request => cart_access_request,
     cart_access_read => cart_access_read,
     cart_access_address => cart_access_address,
+    cart_access_rdata => cart_access_rdata,
     cart_access_wdata => cart_access_wdata,
     cart_access_accept_strobe => cart_access_accept_strobe,
     
@@ -128,6 +140,90 @@ begin
   
   process (pixelclock) is
   begin
+    case state is
+      when Idle =>    
+        if slow_access_last_request_toggle /= slow_access_request_toggle then
+          -- XXX do job, and acknowledge when done.
+
+          -- CPU maps expansion port access to $7FF0000-$7FFFFFF for
+          -- C64-compatible addressing.  In particular, I/O areas 1 and 2 map
+          -- to $7FFDE00-$7FFDFFF, and external SIDs, when enabled, are expected
+          -- at $7FFD400-$7FFD4FF.  The I/O expansion areas use the normal
+          -- I/O1&2 select signals.
+          -- $4000000-$7EFFFFF (= 63MB) is mapped by default to MEGAcart content.
+          -- $8000000-$FEFFFFF (=126MB) is mapped by default to expansion RAM.
+          --
+          -- For the external SIDs, we don't have that
+          -- luxury. We would like the external SID cartridge to be safe to use
+          -- in a real C64, so we probably shouldn't just have the external
+          -- SIDs listen to $D400-$D4FF without some kind of signalling.  However,
+          -- if we just present $D4xx and have I/O1 or I/O2 asserted, then normal
+          -- I/O expansion cartridges will map whatever their I/O is there, instead
+          -- of being selective.  That's not a big problem, provided that we
+          -- have a way to definitively detect the SID cartridge. This could be
+          -- done by trying to read some other I/O to confirm that the SIDs are
+          -- only visible at $D4xx, and not $DExx.
+          --
+          -- All we have to do is direct access requests based on whether they
+          -- are handled by the cartridge/expansion port, or by on-board
+          -- expansion RAM of some sort.
+          if slow_access_address(27)='1' then
+            -- $8000000-$FFFFFFF = expansion RAM
+            state <= ExpansionRAMRequest;
+          elsif slow_access_address(26)='1' then
+            -- $4000000-$7FFFFFF = cartridge port
+            state <= CartridgePortRequest;
+          else
+            -- Unmapped address space: Content = "Unmapped"
+            case to_integer(slow_access_address(2 downto 0)) is
+              when 0 => slow_access_rdata <= x"55";
+              when 1 => slow_access_rdata <= x"6e";
+              when 2 => slow_access_rdata <= x"6d";
+              when 3 => slow_access_rdata <= x"61";
+              when 4 => slow_access_rdata <= x"70";
+              when 5 => slow_access_rdata <= x"70";
+              when 6 => slow_access_rdata <= x"65";
+              when 7 => slow_access_rdata <= x"64";
+              when others => slow_access_rdata <= x"55";
+            end case;
+            state <= Idle;
+            slow_access_ready_toggle <= slow_access_request_toggle;
+          end if;        
+        end if;
+          
+        -- Note toggle state
+        slow_access_last_request_toggle <= slow_access_request_toggle;
+      when ExpansionRAMRequest =>
+        -- XXX Currently not implemented.
+        -- Unmapped address space: Content = "ExtraRAM"
+        case to_integer(slow_access_address(2 downto 0)) is
+          when 0 => slow_access_rdata <= x"45";
+          when 1 => slow_access_rdata <= x"78";
+          when 2 => slow_access_rdata <= x"74";
+          when 3 => slow_access_rdata <= x"72";
+          when 4 => slow_access_rdata <= x"61";
+          when 5 => slow_access_rdata <= x"52";
+          when 6 => slow_access_rdata <= x"41";
+          when 7 => slow_access_rdata <= x"4D";
+          when others => slow_access_rdata <= x"45";
+        end case;
+        state <= Idle;
+        slow_access_ready_toggle <= slow_access_request_toggle;
+      when CartridgePortRequest =>
+        cart_access_request <= '1';
+        cart_access_read <= not slow_access_write;
+        cart_access_address(27 downto 0) <= slow_access_address;
+        cart_access_address(31 downto 28) <= (others => '0');
+        cart_access_wdata <= slow_access_wdata;
+        state <= CartridgePortAcceptWait;
+      when CartridgePortAcceptWait =>
+        cart_access_request <= '0';
+        if cart_access_accept_strobe='1' then
+          slow_access_rdata <= cart_access_rdata;
+          slow_access_ready_toggle <= slow_access_request_toggle;
+          state <= Idle;
+        end if;
+    end case; 
   end process;
   
 end behavioural;
