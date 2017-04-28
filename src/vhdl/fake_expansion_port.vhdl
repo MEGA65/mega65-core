@@ -104,7 +104,9 @@ begin
         -- Expansion port latches values on clock edges.
         -- Therefore we cannot provide the data too fast
         bus_d <= bus_d_drive;
+        report "Driving cartridge port data bus with $" & to_hstring(bus_d_drive);
       else
+        report "Tristating cartridge port data bus";
         bus_d <= (others => 'Z');
       end if;
     end if;
