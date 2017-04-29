@@ -43,11 +43,11 @@ entity gs4510 is
     nmi : in std_logic;
     hyper_trap : in std_logic;
 
-    cpu_hypervisor_mode : out std_logic;
+    cpu_hypervisor_mode : out std_logic := '0';
     iomode_set : out std_logic_vector(1 downto 0) := "11";
     iomode_set_toggle : out std_logic := '0';
 
-    cpuis6502 : out std_logic;
+    cpuis6502 : out std_logic := '0';
     cpuspeed : out unsigned(7 downto 0);
 
     irq_hypervisor : in std_logic_vector(2 downto 0) := "000";    -- JBM
@@ -134,15 +134,15 @@ entity gs4510 is
     -- fast IO port (clocked at core clock). 1MB address space
     ---------------------------------------------------------------------------
     fastio_addr : inout std_logic_vector(19 downto 0);
-    fastio_read : out std_logic;
-    fastio_write : out std_logic;
+    fastio_read : out std_logic := '0';
+    fastio_write : out std_logic := '0';
     fastio_wdata : out std_logic_vector(7 downto 0);
     fastio_rdata : in std_logic_vector(7 downto 0);
     sector_buffer_mapped : in std_logic;
     fastio_vic_rdata : in std_logic_vector(7 downto 0);
     fastio_colour_ram_rdata : in std_logic_vector(7 downto 0);
-    colour_ram_cs : out std_logic;
-    charrom_write_cs : out std_logic;
+    colour_ram_cs : out std_logic := '0';
+    charrom_write_cs : out std_logic := '0';
 
     ---------------------------------------------------------------------------
     -- Slow device access 4GB address space
@@ -150,8 +150,8 @@ entity gs4510 is
     slow_access_request_toggle : out std_logic := '0';
     slow_access_ready_toggle : in std_logic;
 
-    slow_access_address : out unsigned(27 downto 0);
-    slow_access_write : out std_logic;
+    slow_access_address : out unsigned(27 downto 0) := (others => '1');
+    slow_access_write : out std_logic := '0';
     slow_access_wdata : out unsigned(7 downto 0);
     slow_access_rdata : in unsigned(7 downto 0);
     

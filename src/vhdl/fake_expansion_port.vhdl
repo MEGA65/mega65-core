@@ -82,15 +82,18 @@ begin
         bus_a(7 downto 0) <= cart_a(7 downto 0);
       end if;
       if cart_ctrl_dir='0' then
+        report "Writing control signals to cartridge pins";
         cart_exrom <= bus_exrom;
         cart_ba <= bus_ba;
-        cart_rw <= bus_rw;
+--        cart_rw <= bus_rw;
         cart_roml <= bus_roml;
         cart_romh <= bus_romh;
         cart_io1 <= bus_io1;
         cart_game <= bus_game;
         cart_io2 <= bus_io2;
       else
+        report "Reading control signals from cartridge pins, rw="
+          & std_logic'image(cart_rw);
         bus_exrom <= cart_exrom;
         bus_ba <= cart_ba;
         bus_rw <= cart_rw;
@@ -101,13 +104,13 @@ begin
         bus_io2 <= cart_io2;      
       end if;
 
-      if bus_rw='1' and (bus_roml='0' or bus_io1='0') then
+      if bus_rw='1' and (bus_roml='0' or bus_io1='0' or bus_roml='0') then
         -- Expansion port latches values on clock edges.
         -- Therefore we cannot provide the data too fast
         bus_d <= bus_d_drive;
         report "Driving cartridge port data bus with $" & to_hstring(bus_d_drive);
       else
-        report "Tristating cartridge port data bus";
+        report "Tristating cartridge port data bus rw=" & std_logic'image(bus_rw);
         bus_d <= (others => 'Z');
       end if;
     end if;

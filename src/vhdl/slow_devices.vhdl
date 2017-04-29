@@ -51,22 +51,22 @@ ENTITY slow_devices IS
     cart_laddr_dir : out std_logic;
     cart_data_dir : out std_logic;
 
-    cart_phi2 : out std_logic;
-    cart_dotclock : out std_logic;
-    cart_reset : out std_logic;
+    cart_phi2 : out std_logic := 'Z';
+    cart_dotclock : out std_logic := 'Z';
+    cart_reset : out std_logic := 'Z';
 
     cart_nmi : in std_logic;
     cart_irq : in std_logic;
     cart_dma : in std_logic;
     
-    cart_exrom : inout std_logic;
-    cart_ba : inout std_logic;
-    cart_rw : inout std_logic;
-    cart_roml : inout std_logic;
-    cart_romh : inout std_logic;
-    cart_io1 : inout std_logic;
-    cart_game : inout std_logic;
-    cart_io2 : inout std_logic;
+    cart_exrom : inout std_logic := 'Z';
+    cart_ba : inout std_logic := 'Z';
+    cart_rw : inout std_logic := 'Z';
+    cart_roml : inout std_logic := 'Z';
+    cart_romh : inout std_logic := 'Z';
+    cart_io1 : inout std_logic := 'Z';
+    cart_game : inout std_logic := 'Z';
+    cart_io2 : inout std_logic := 'Z';
     
     cart_d : inout unsigned(7 downto 0);
     cart_a : inout unsigned(15 downto 0)
@@ -76,14 +76,14 @@ end slow_devices;
 architecture behavioural of slow_devices is
 
   signal cart_access_request : std_logic := '0';
-  signal cart_access_read : std_logic;
-  signal cart_access_address : unsigned(31 downto 0);
+  signal cart_access_read : std_logic := '1';
+  signal cart_access_address : unsigned(31 downto 0) := (others => '1');
   signal cart_access_rdata : unsigned(7 downto 0);
-  signal cart_access_wdata : unsigned(7 downto 0);
+  signal cart_access_wdata : unsigned(7 downto 0) := (others => '1');
   signal cart_access_accept_strobe : std_logic;
   signal cart_access_read_strobe : std_logic;
 
-  signal slow_access_last_request_toggle : std_logic := '0';
+  signal slow_access_last_request_toggle : std_logic := '1';
 
   type slow_state is (
     Idle,
@@ -142,13 +142,15 @@ begin
   
   process (pixelclock) is
   begin
-    case state is
-      when Idle =>    
-        if slow_access_last_request_toggle /= slow_access_request_toggle then
-          report "Access request for $" & to_hstring(slow_access_address) & ", toggle=" & std_logic'image(slow_access_request_toggle);
-          -- XXX do job, and acknowledge when done.
+    if rising_edge(pixelclock) then
 
-          -- CPU maps expansion port access to $7FF0000-$7FFFFFF for
+      case state is
+        when Idle =>    
+          if slow_access_last_request_toggle /= slow_access_request_toggle then
+            report "Access request for $" & to_hstring(slow_access_address) & ", toggle=" & std_logic'image(slow_access_request_toggle);
+            -- XXX do job, and acknowledge when done.
+
+            -- CPU maps expansion port access to $7FF0000-$7FFFFFF for
           -- C64-compatible addressing.  In particular, I/O areas 1 and 2 map
           -- to $7FFDE00-$7FFDFFF, and external SIDs, when enabled, are expected
           -- at $7FFD400-$7FFD4FF.  The I/O expansion areas use the normal
@@ -213,7 +215,9 @@ begin
         end case;
         state <= Idle;
         slow_access_ready_toggle <= slow_access_request_toggle;
-      when CartridgePortRequest =>
+        when CartridgePortRequest =>
+          report "Starting cartridge port access request, w="
+            & std_logic'image(slow_access_write);
         cart_access_request <= '1';
         cart_access_read <= not slow_access_write;
         cart_access_address(27 downto 0) <= slow_access_address;
@@ -239,7 +243,8 @@ begin
           slow_access_ready_toggle <= slow_access_request_toggle;
           state <= Idle;
         end if;
-    end case; 
+      end case;
+    end if;
   end process;
   
 end behavioural;

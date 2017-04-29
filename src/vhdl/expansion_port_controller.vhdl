@@ -50,20 +50,20 @@ ENTITY expansion_port_controller IS
 
     cart_phi2 : out std_logic;
     cart_dotclock : out std_logic;
-    cart_reset : out std_logic;
+    cart_reset : out std_logic := '1';
 
     cart_nmi : in std_logic;
     cart_irq : in std_logic;
     cart_dma : in std_logic;
     
-    cart_exrom : inout std_logic;
-    cart_ba : inout std_logic;
-    cart_rw : inout std_logic;
-    cart_roml : inout std_logic;
-    cart_romh : inout std_logic;
-    cart_io1 : inout std_logic;
-    cart_game : inout std_logic;
-    cart_io2 : inout std_logic;
+    cart_exrom : inout std_logic := 'Z';
+    cart_ba : inout std_logic := 'Z';
+    cart_rw : inout std_logic := 'Z';
+    cart_roml : inout std_logic := 'Z';
+    cart_romh : inout std_logic := 'Z';
+    cart_io1 : inout std_logic := 'Z';
+    cart_game : inout std_logic := 'Z';
+    cart_io2 : inout std_logic := 'Z';
     
     cart_d : inout unsigned(7 downto 0);
     cart_a : inout unsigned(15 downto 0)
@@ -126,7 +126,8 @@ begin
           -- Present next bus request if we have one
           if cart_access_request='1' then
             report "Presenting legacy C64 expansion port access request to port, address=$"
-              & to_hstring(cart_access_address);
+              & to_hstring(cart_access_address)
+              & " rw=" & std_logic'image(cart_access_read);
             cart_access_accept_strobe <= '1';
             cart_a <= cart_access_address(15 downto 0);
             cart_rw <= cart_access_read;
@@ -171,6 +172,7 @@ begin
           else
             cart_access_accept_strobe <= '0';
             cart_a <= (others => 'Z');
+            cart_rw <= '1';
             read_in_progress <= '0';
           end if;      
         end if;
