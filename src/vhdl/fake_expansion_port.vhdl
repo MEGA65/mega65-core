@@ -30,8 +30,8 @@ ENTITY fake_expansion_port IS
     cart_game : inout std_logic;
     cart_io2 : inout std_logic;
     
-    cart_d : inout std_logic_vector(7 downto 0);
-    cart_a : inout std_logic_vector(15 downto 0)
+    cart_d : inout unsigned(7 downto 0);
+    cart_a : inout unsigned(15 downto 0)
 );
 end fake_expansion_port;
 
@@ -58,9 +58,9 @@ architecture behavioural of fake_expansion_port is
   signal bus_game : std_logic := 'Z';
   signal bus_io2 : std_logic := 'Z';
 
-  signal bus_a : std_logic_vector(15 downto 0) := (others => 'Z');
-  signal bus_d : std_logic_vector(7 downto 0) := (others => 'Z');
-  signal bus_d_drive : std_logic_vector(7 downto 0) := (others => 'Z');
+  signal bus_a : unsigned(15 downto 0) := (others => 'Z');
+  signal bus_d : unsigned(7 downto 0) := (others => 'Z');
+  signal bus_d_drive : unsigned(7 downto 0) := (others => 'Z');
 begin
 
   -- Generate bus signals
@@ -69,6 +69,7 @@ begin
     -- XXX We shouldn't need to clock gate this, but have it behave simply as
     -- combinatorial logic.  But GHDL gets in an infinite loop here if we don't.    
     if rising_edge(cart_dotclock) then
+      report "Saw dotclock toggle";
       if cart_data_dir='0' then cart_d <= bus_d; else bus_d <= cart_d; end if;
       if cart_haddr_dir='0' then
         cart_a(15 downto 8) <= bus_a(15 downto 8);
@@ -100,7 +101,7 @@ begin
         bus_io2 <= cart_io2;      
       end if;
 
-      if bus_rw='1' and bus_roml='0' then
+      if bus_rw='1' and (bus_roml='0' or bus_io1='0') then
         -- Expansion port latches values on clock edges.
         -- Therefore we cannot provide the data too fast
         bus_d <= bus_d_drive;
@@ -117,7 +118,7 @@ begin
     if rising_edge(cart_dotclock) then
       -- Map in a pretend C64 cartridge at $8000-$9FFF
       bus_d_drive
-        <= std_logic_vector(fake_rom_value(to_integer(unsigned(bus_a(3 downto 0)))));
+        <= fake_rom_value(to_integer(unsigned(bus_a(3 downto 0))));
     end if;
   end process;
   
