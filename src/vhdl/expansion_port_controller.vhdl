@@ -43,10 +43,10 @@ ENTITY expansion_port_controller IS
     ------------------------------------------------------------------------
     -- Expansion port pins
     ------------------------------------------------------------------------
-    cart_ctrl_dir : out std_logic;
-    cart_haddr_dir : out std_logic;
-    cart_laddr_dir : out std_logic;
-    cart_data_dir : out std_logic;
+    cart_ctrl_dir : out std_logic := '1';
+    cart_haddr_dir : out std_logic := '1';
+    cart_laddr_dir : out std_logic := '1';
+    cart_data_dir : out std_logic := '0';
 
     cart_phi2 : out std_logic;
     cart_dotclock : out std_logic;
@@ -125,10 +125,42 @@ begin
           end if;         
           -- Present next bus request if we have one
           if cart_access_request='1' then
-            report "Presenting expansion port access request to port";
+            report "Presenting legacy C64 expansion port access request to port, address=$"
+              & to_hstring(cart_access_address);
             cart_access_accept_strobe <= '1';
             cart_a <= cart_access_address(15 downto 0);
             cart_rw <= cart_access_read;
+            cart_data_dir <= not cart_access_read;
+            if cart_access_address(15 downto 8) = x"DE" then
+              cart_io1 <= '0';
+            else
+              cart_io1 <= '1';
+            end if;
+            if cart_access_address(15 downto 8) = x"DF" then
+              cart_io2 <= '0';
+            else
+              cart_io2 <= '1';
+            end if;
+
+            -- Drive ROML and ROMH
+            -- (Note here we are operating after the CPU has decided if something
+            -- is mapped, therefore we assert /ROML and /ROMH based on address
+            -- requested).
+            if (cart_access_address(15 downto 12) = x"8")
+              or (cart_access_address(15 downto 12) = x"9")
+              or (cart_access_address(15 downto 12) = x"A")
+              or (cart_access_address(15 downto 12) = x"B") then
+              cart_roml <= '0';
+            else
+              cart_roml <= '1';
+            end if;
+            if (cart_access_address(15 downto 12) = x"E")
+              or (cart_access_address(15 downto 12) = x"F") then
+              cart_romh <= '0';
+            else
+              cart_romh <= '1';
+            end if;
+
             if cart_access_read='1' then
               read_in_progress <= '1';
               cart_d <= (others => 'Z');
