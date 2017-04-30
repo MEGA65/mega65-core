@@ -21,17 +21,17 @@ ENTITY fake_expansion_port IS
     cart_irq : out std_logic;
     cart_dma : out std_logic;
     
-    cart_exrom : inout std_logic;
-    cart_ba : inout std_logic;
-    cart_rw : inout std_logic;
-    cart_roml : inout std_logic;
-    cart_romh : inout std_logic;
-    cart_io1 : inout std_logic;
-    cart_game : inout std_logic;
-    cart_io2 : inout std_logic;
+    cart_exrom : inout std_logic := 'Z';
+    cart_ba : inout std_logic := 'Z';
+    cart_rw : inout std_logic := 'Z';
+    cart_roml : inout std_logic := 'Z';
+    cart_romh : inout std_logic := 'Z';
+    cart_io1 : inout std_logic := 'Z';
+    cart_game : inout std_logic := 'Z';
+    cart_io2 : inout std_logic := 'Z';
     
-    cart_d : inout unsigned(7 downto 0);
-    cart_a : inout unsigned(15 downto 0)
+    cart_d : inout unsigned(7 downto 0) := (others => 'Z');
+    cart_a : inout unsigned(15 downto 0) := (others => 'Z')
 );
 end fake_expansion_port;
 
@@ -70,7 +70,7 @@ begin
     -- combinatorial logic.  But GHDL gets in an infinite loop here if we don't.    
     if rising_edge(cart_dotclock) then
       report "Saw dotclock toggle";
-      if cart_data_dir='0' then cart_d <= bus_d; else bus_d <= cart_d; end if;
+--      if cart_data_dir='0' then cart_d <= bus_d; end if;
       if cart_haddr_dir='0' then
         cart_a(15 downto 8) <= bus_a(15 downto 8);
       else
@@ -81,37 +81,27 @@ begin
       else
         bus_a(7 downto 0) <= cart_a(7 downto 0);
       end if;
-      if cart_ctrl_dir='0' then
-        report "Writing control signals to cartridge pins";
-        cart_exrom <= bus_exrom;
-        cart_ba <= bus_ba;
---        cart_rw <= bus_rw;
-        cart_roml <= bus_roml;
-        cart_romh <= bus_romh;
-        cart_io1 <= bus_io1;
-        cart_game <= bus_game;
-        cart_io2 <= bus_io2;
-      else
-        report "Reading control signals from cartridge pins, rw="
-          & std_logic'image(cart_rw);
-        bus_exrom <= cart_exrom;
-        bus_ba <= cart_ba;
-        bus_rw <= cart_rw;
-        bus_roml <= cart_roml;
-        bus_romh <= cart_romh;
-        bus_io1 <= cart_io1;
-        bus_game <= cart_game;
-        bus_io2 <= cart_io2;      
-      end if;
 
-      if bus_rw='1' and (bus_roml='0' or bus_io1='0' or bus_roml='0') then
+      report "Reading control signals from cartridge pins, rw="
+      & std_logic'image(cart_rw);
+      bus_exrom <= cart_exrom;
+      bus_ba <= cart_ba;
+      bus_rw <= cart_rw;
+      bus_roml <= cart_roml;
+      bus_romh <= cart_romh;
+      bus_io1 <= cart_io1;
+      bus_game <= cart_game;
+      bus_io2 <= cart_io2;      
+    
+
+      if bus_rw='1' and ((bus_roml='0') or (bus_io1='0') or (bus_roml='0')) then
         -- Expansion port latches values on clock edges.
         -- Therefore we cannot provide the data too fast
-        bus_d <= bus_d_drive;
+        cart_d <= bus_d_drive;
         report "Driving cartridge port data bus with $" & to_hstring(bus_d_drive);
       else
         report "Tristating cartridge port data bus rw=" & std_logic'image(bus_rw);
-        bus_d <= (others => 'Z');
+        cart_d <= (others => 'Z');
       end if;
     end if;
   end process;

@@ -298,7 +298,6 @@ end component;
   signal slow_access_desired_ready_toggle : std_logic := '0';
   signal slow_access_ready_toggle_buffer : std_logic := '0';
   signal slow_access_pending_write : std_logic := '0';
-  signal slow_access_rdata_buffer : unsigned(7 downto 0);
   signal slow_access_data_ready : std_logic := '0';
 
   -- Number of pending wait states
@@ -1844,8 +1843,8 @@ begin
           report "reading normal fastio byte $" & to_hstring(fastio_rdata) severity note;
           return unsigned(fastio_rdata);
         when SlowRAM =>
-          report "reading slow RAM data. Word is $" & to_hstring(slow_access_rdata_buffer) severity note;
-          return unsigned(slow_access_rdata_buffer);
+          report "reading slow RAM data. Word is $" & to_hstring(slow_access_rdata) severity note;
+          return unsigned(slow_access_rdata);
         when Unmapped =>
           report "accessing unmapped memory" severity note;
           return x"A0";                     -- make unmmapped memory obvious
@@ -2653,7 +2652,6 @@ begin
       slow_access_address <= slow_access_address_drive;
       slow_access_write <= slow_access_write_drive;
       slow_access_wdata <= slow_access_wdata_drive;
-      slow_access_rdata_buffer <= slow_access_rdata;
       slow_access_ready_toggle_buffer <= slow_access_ready_toggle;
       
       cpu_hypervisor_mode <= hypervisor_mode;
