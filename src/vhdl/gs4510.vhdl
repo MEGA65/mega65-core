@@ -2100,9 +2100,13 @@ begin
         slow_access_write_drive <= '1';
         slow_access_wdata_drive <= value;
         slow_access_pending_write <= '1';
-        wait_states <= x"FF";
+        slow_access_data_ready <= '0';
+
         -- Tell CPU to wait for response
+        slow_access_request_toggle_drive <= not slow_access_request_toggle_drive;
+        slow_access_desired_ready_toggle <= not slow_access_desired_ready_toggle;
         wait_states_non_zero <= '1';
+        wait_states <= x"FF";
         proceed <= '0';
       else
         -- Don't let unmapped memory jam things up

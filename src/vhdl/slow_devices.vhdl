@@ -177,7 +177,7 @@ begin
             state <= ExpansionRAMRequest;
           elsif slow_access_address(26)='1' then
             -- $4000000-$7FFFFFF = cartridge port
-            report "Preparing to read from C64 cartridge port";
+            report "Preparing to access from C64 cartridge port";
             state <= CartridgePortRequest;
           else
             -- Unmapped address space: Content = "Unmapped"
@@ -215,7 +215,7 @@ begin
         end case;
         state <= Idle;
         slow_access_ready_toggle <= slow_access_request_toggle;
-        when CartridgePortRequest =>
+      when CartridgePortRequest =>
           report "Starting cartridge port access request, w="
             & std_logic'image(slow_access_write);
         cart_access_request <= '1';
@@ -226,8 +226,9 @@ begin
         if cart_access_accept_strobe = '1' then
           cart_access_request <= '0';
           if slow_access_write = '1' then
-            state <= Idle;
             report "C64 cartridge port write dispatched asynchronously.";
+            slow_access_ready_toggle <= slow_access_request_toggle;
+            state <= Idle;
           else
             state <= CartridgePortAcceptWait;
             report "C64 cartridge port read commenced.";

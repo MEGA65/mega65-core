@@ -100,6 +100,7 @@ begin
       else
         ticker <= (others => '0');
         -- Tick dot clock
+        report "dotclock tick";
         cart_dotclock <= not cart_dotclock_internal;
         cart_dotclock_internal <= not cart_dotclock_internal;
         if phi2_ticker /= 4 then
@@ -127,7 +128,8 @@ begin
           if cart_access_request='1' then
             report "Presenting legacy C64 expansion port access request to port, address=$"
               & to_hstring(cart_access_address)
-              & " rw=" & std_logic'image(cart_access_read);
+              & " rw=" & std_logic'image(cart_access_read)
+              & " wdata=$" & to_hstring(cart_access_wdata);
             cart_access_accept_strobe <= '1';
             cart_a <= cart_access_address(15 downto 0);
             cart_rw <= cart_access_read;
@@ -165,10 +167,12 @@ begin
             if cart_access_read='1' then
               read_in_progress <= '1';
               -- Tri-state with pull-up
+              report "Tristating cartridge port data lines.";
               cart_d <= (others => 'H');
             else
               read_in_progress <= '0';
               cart_d <= cart_access_wdata;
+              report "Write data is $" & to_hstring(cart_access_wdata);
             end if;
           else
             cart_access_accept_strobe <= '0';
