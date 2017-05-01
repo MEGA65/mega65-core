@@ -73,31 +73,21 @@ begin
     -- XXX We shouldn't need to clock gate this, but have it behave simply as
     -- combinatorial logic.  But GHDL gets in an infinite loop here if we don't.
     if rising_edge(cart_phi2) or falling_edge(cart_phi2) then
-      if bus_rw='1' then
+      if bus_rw='0' then
         -- Write to something
         if (bus_io2='0') and (bus_rw='0') then
-          report "Writing $" & to_hstring(cart_d) & " to tiny RAM @ $"
-            & to_hstring(cart_a(2 downto 0));
-          tiny_ram(to_integer(cart_a(2 downto 0))) <= cart_d;
+          report "Writing $" & to_hstring(bus_d) & " to tiny RAM @ $"
+            & to_hstring(bus_a(3 downto 0));
+          tiny_ram(to_integer(bus_a(3 downto 0))) <= bus_d;
         end if;
       end if;
     end if;
-    if rising_edge(cart_dotclock) then
+    if rising_edge(cart_dotclock) or falling_edge(cart_dotclock) then
       report "Saw dotclock toggle";
---      if cart_data_dir='0' then cart_d <= bus_d; end if;
-      if cart_haddr_dir='0' then
-        cart_a(15 downto 8) <= bus_a(15 downto 8);
-      else
-        bus_a(15 downto 8) <= cart_a(15 downto 8);
-      end if;
-      if cart_laddr_dir='0' then
-        cart_a(7 downto 0) <= bus_a(7 downto 0);
-      else
-        bus_a(7 downto 0) <= cart_a(7 downto 0);
-      end if;
 
       report "Reading control signals from cartridge pins, rw="
-      & std_logic'image(cart_rw);
+        & std_logic'image(cart_rw)
+        & ", wdata=$" & to_hstring(cart_d);
       bus_exrom <= cart_exrom;
       bus_ba <= cart_ba;
       bus_rw <= cart_rw;
@@ -105,8 +95,9 @@ begin
       bus_romh <= cart_romh;
       bus_io1 <= cart_io1;
       bus_game <= cart_game;
-      bus_io2 <= cart_io2;      
-    
+      bus_io2 <= cart_io2;
+      bus_d <= cart_d;
+      bus_a <= cart_a;
 
       if bus_rw='1' and ((bus_roml='0') or (bus_io1='0')
                          or (bus_roml='0') or (bus_io2='0')) then
@@ -123,13 +114,13 @@ begin
 
   process (cart_dotclock)
   begin
-    if rising_edge(cart_dotclock) then
+    if rising_edge(cart_dotclock) or falling_edge(cart_dotclock) then
       -- Map in a pretend C64 cartridge at $8000-$9FFF
       if bus_io1='0' then
         bus_d_drive
           <= fake_rom_value(to_integer(unsigned(bus_a(3 downto 0))));
       elsif bus_io2='0' then
-        report "Reading from tiny_ram";
+        report "Reading from tiny_ram @ $" & to_hstring(bus_a(3 downto 0));
         bus_d_drive
           <= tiny_ram(to_integer(unsigned(bus_a(3 downto 0))));
       else
