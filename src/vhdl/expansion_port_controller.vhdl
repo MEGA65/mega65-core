@@ -164,14 +164,15 @@ begin
 
             if cart_access_read='1' then
               read_in_progress <= '1';
-              cart_d <= (others => 'Z');
+              -- Tri-state with pull-up
+              cart_d <= (others => 'H');
             else
               read_in_progress <= '0';
               cart_d <= cart_access_wdata;
             end if;
           else
             cart_access_accept_strobe <= '0';
-            cart_a <= (others => 'Z');
+            cart_a <= (others => 'H');
             cart_rw <= '1';
             read_in_progress <= '0';
           end if;      

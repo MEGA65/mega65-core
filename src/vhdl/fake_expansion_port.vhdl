@@ -48,6 +48,10 @@ architecture behavioural of fake_expansion_port is
     12 => x"4c", 13 => x"09", 14 => x"80",   -- 800C JMP $8009
     15 => x"00"
     );
+
+  signal tiny_ram : tiny_rom := (
+    others => x"BD"
+    );
   
   signal bus_exrom : std_logic := 'Z';
   signal bus_ba : std_logic := 'Z';
@@ -67,7 +71,17 @@ begin
   process (cart_dotclock)
   begin
     -- XXX We shouldn't need to clock gate this, but have it behave simply as
-    -- combinatorial logic.  But GHDL gets in an infinite loop here if we don't.    
+    -- combinatorial logic.  But GHDL gets in an infinite loop here if we don't.
+    if rising_edge(cart_phi2) or falling_edge(cart_phi2) then
+      if bus_rw='1' then
+        -- Write to something
+        if (bus_io2='0') and (bus_rw='0') then
+          report "Writing $" & to_hstring(cart_d) & " to tiny RAM @ $"
+            & to_hstring(cart_a(2 downto 0));
+          tiny_ram(to_integer(cart_a(2 downto 0))) <= cart_d;
+        end if;
+      end if;
+    end if;
     if rising_edge(cart_dotclock) then
       report "Saw dotclock toggle";
 --      if cart_data_dir='0' then cart_d <= bus_d; end if;
@@ -94,7 +108,8 @@ begin
       bus_io2 <= cart_io2;      
     
 
-      if bus_rw='1' and ((bus_roml='0') or (bus_io1='0') or (bus_roml='0')) then
+      if bus_rw='1' and ((bus_roml='0') or (bus_io1='0')
+                         or (bus_roml='0') or (bus_io2='0')) then
         -- Expansion port latches values on clock edges.
         -- Therefore we cannot provide the data too fast
         cart_d <= bus_d_drive;
@@ -110,8 +125,16 @@ begin
   begin
     if rising_edge(cart_dotclock) then
       -- Map in a pretend C64 cartridge at $8000-$9FFF
-      bus_d_drive
-        <= fake_rom_value(to_integer(unsigned(bus_a(3 downto 0))));
+      if bus_io1='0' then
+        bus_d_drive
+          <= fake_rom_value(to_integer(unsigned(bus_a(3 downto 0))));
+      elsif bus_io2='0' then
+        report "Reading from tiny_ram";
+        bus_d_drive
+          <= tiny_ram(to_integer(unsigned(bus_a(3 downto 0))));
+      else
+        bus_d_drive <= x"EE";
+      end if;                
     end if;
   end process;
   
