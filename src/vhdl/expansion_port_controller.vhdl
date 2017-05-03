@@ -19,6 +19,7 @@ ENTITY expansion_port_controller IS
     ------------------------------------------------------------------------
     pixelclock : in std_logic;
     cpuclock : in std_logic;
+    reset : in std_logic;
 
     ------------------------------------------------------------------------
     -- Access request from CPU
@@ -77,6 +78,7 @@ architecture behavioural of expansion_port_controller is
   constant ticks_8mhz_half : integer := pixelclock_frequency / (8 * 2);
   signal ticker : unsigned(7 downto 0) := to_unsigned(0,8);
   signal phi2_ticker : unsigned(7 downto 0) := to_unsigned(0,8);
+  signal reset_counter : integer range 0 to 15 := 0;  
 
   -- Are we already servicing a read?
   signal read_in_progress : std_logic := '0';
@@ -85,7 +87,7 @@ architecture behavioural of expansion_port_controller is
   -- Internal state
   signal cart_dotclock_internal : std_logic := '0';
   signal cart_phi2_internal : std_logic := '0';
-  
+
 begin
 
   process (pixelclock)
@@ -93,6 +95,11 @@ begin
     if rising_edge(pixelclock) then
       -- Generate phi2 and dotclock signals at 1Mhz and 8MHz respectively.
       -- We approximate these based on the pixel clock
+      if reset = '0' then
+        report "Asserting RESET on cartridge port";
+        cart_reset <= '0';
+        reset_counter <= 15;
+      end if;
       if to_integer(ticker) /= ticks_8mhz_half then
         ticker <= ticker + 1;
         cart_access_read_strobe <= '0';
@@ -110,6 +117,17 @@ begin
         else
           -- Tick phi2
           report "phi2 tick";
+
+          -- We assert reset on cartridge port for 15 phi2 cycles to give
+          -- cartridge time to reset.
+          if (reset_counter = 1) and (reset='1') then
+            reset_counter <= 0;
+            cart_reset <= '1';
+            report "Releasing RESET on cartridge port";
+          elsif reset_counter /= 0 then
+            reset_counter <= reset_counter - 1;
+          end if;
+            
           phi2_ticker <= (others => '0');
           cart_phi2 <= not cart_phi2_internal;
           cart_phi2_internal <= not cart_phi2_internal;
@@ -125,7 +143,7 @@ begin
             cart_access_read_strobe <= '0';
           end if;         
           -- Present next bus request if we have one
-          if cart_access_request='1' then
+          if (cart_access_request='1') and (reset_counter = 0) then
             report "Presenting legacy C64 expansion port access request to port, address=$"
               & to_hstring(cart_access_address)
               & " rw=" & std_logic'image(cart_access_read)

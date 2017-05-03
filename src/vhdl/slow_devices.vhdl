@@ -20,6 +20,7 @@ ENTITY slow_devices IS
     ------------------------------------------------------------------------
     pixelclock : in std_logic;
     cpuclock : in std_logic;
+    reset : in std_logic;
 
     slow_access_request_toggle : in std_logic;
     slow_access_ready_toggle : out std_logic := '0';
@@ -101,6 +102,7 @@ begin
     port map (
     cpuclock => cpuclock,
     pixelclock => pixelclock,
+    reset => reset,
 
     cart_access_request => cart_access_request,
     cart_access_read => cart_access_read,

@@ -160,6 +160,7 @@ begin
     port map (
       cpuclock => cpuclock,
       pixelclock => pixelclock,
+      reset => reset,
       
       qspidb => qspidb,
       qspicsn => qspicsn,      
