@@ -3,7 +3,7 @@
 -- Written by
 --    Paul Gardner-Stephen <hld@c64.org>  2013-2014
 --
--- * ADC/SBC algorithm derived from  6510core.c - WICE MOS6510 emulation core.
+-- * ADC/SBC algorithm derived from  6510core.c - VICE MOS6510 emulation core.
 -- *   Written by
 -- *    Ettore Perazzoli <ettore@comm2000.it>
 -- *    Andreas Boose <viceteam@t-online.de>
