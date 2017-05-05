@@ -21,6 +21,8 @@ ENTITY slow_devices IS
     pixelclock : in std_logic;
     cpuclock : in std_logic;
     reset : in std_logic;
+    cpu_exrom : out std_logic;
+    cpu_game : out std_logic;
 
     slow_access_request_toggle : in std_logic;
     slow_access_ready_toggle : out std_logic := '0';
@@ -103,6 +105,8 @@ begin
     cpuclock => cpuclock,
     pixelclock => pixelclock,
     reset => reset,
+    cpu_game => cpu_game,
+    cpu_exrom => cpu_exrom,
 
     cart_access_request => cart_access_request,
     cart_access_read => cart_access_read,

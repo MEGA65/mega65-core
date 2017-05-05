@@ -62,6 +62,8 @@ entity machine is
          irq : in  STD_LOGIC;
          nmi : in  STD_LOGIC;
          restore_key : in std_logic;
+         cpu_exrom : in std_logic;
+         cpu_game : in std_logic;
 
          no_kickstart : in std_logic;
 
@@ -515,6 +517,8 @@ begin
     reset =>reset_combined,
     irq => combinedirq,
     nmi => combinednmi,
+    exrom => cpu_exrom,
+    game => cpu_game,
     hyper_trap => hyper_trap_combined,
     speed_gate => speed_gate,
     speed_gate_enable => speed_gate_enable,

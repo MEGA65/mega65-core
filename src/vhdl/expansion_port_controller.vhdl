@@ -22,6 +22,12 @@ ENTITY expansion_port_controller IS
     reset : in std_logic;
 
     ------------------------------------------------------------------------
+    -- Tell the CPU what the current cartridge state is
+    ------------------------------------------------------------------------    
+    cpu_exrom : out std_logic := '1';
+    cpu_game : out std_logic := '1';
+    
+    ------------------------------------------------------------------------
     -- Access request from CPU
     ------------------------------------------------------------------------
     -- CPU asserts cart_access_request with _read flag, and _address and
@@ -78,7 +84,13 @@ architecture behavioural of expansion_port_controller is
   constant ticks_8mhz_half : integer := pixelclock_frequency / (8 * 2);
   signal ticker : unsigned(7 downto 0) := to_unsigned(0,8);
   signal phi2_ticker : unsigned(7 downto 0) := to_unsigned(0,8);
-  signal reset_counter : integer range 0 to 15 := 0;  
+  signal reset_counter : integer range 0 to 15 := 0;
+
+  -- Asserted whenever we need to re-probe the EXROM and GAME lines
+  -- We do this on reset, or whenever $DExx or $DFxx is accessed, so that
+  -- cartridges with memory banking can work.
+  signal reprobe_exrom : std_logic := '1';
+  signal probing_exrom : std_logic := '0';
 
   -- Are we already servicing a read?
   signal read_in_progress : std_logic := '0';
@@ -99,6 +111,7 @@ begin
         report "Asserting RESET on cartridge port";
         cart_reset <= '0';
         reset_counter <= 15;
+        reprobe_exrom <= '1';
       end if;
       if to_integer(ticker) /= ticks_8mhz_half then
         ticker <= ticker + 1;
@@ -143,7 +156,27 @@ begin
             cart_access_read_strobe <= '0';
           end if;         
           -- Present next bus request if we have one
-          if (cart_access_request='1') and (reset_counter = 0) then
+          if probing_exrom = '1' and reprobe_exrom='0' then
+            -- Update CPU's view of cartridge config lines
+            probing_exrom <= '0';
+            cpu_exrom <= cart_exrom;
+            cpu_game <= cart_game;
+            cart_ctrl_dir <= '1';
+          end if;
+          if reprobe_exrom = '1' then
+            -- But first, if necessary, re-probe the cartridge control lines
+            -- (Hopefully on rev2 PCB these lines will be input and can be read
+            -- continuously without wasting bus cycles.)
+            -- XXX In the meantime, we could improve on this by switching the
+            -- direction for a fraction of a 1MHz cycle, but we need to better
+            -- understand the performance of the buffers to know what latency
+            -- is required.
+            reprobe_exrom <= '0';
+            cart_ctrl_dir <= '0';
+            cart_exrom <= 'H';
+            cart_game <= 'H';
+            probing_exrom <= '1';
+          elsif (cart_access_request='1') and (reset_counter = 0) then
             report "Presenting legacy C64 expansion port access request to port, address=$"
               & to_hstring(cart_access_address)
               & " rw=" & std_logic'image(cart_access_read)
@@ -154,11 +187,13 @@ begin
             cart_data_dir <= not cart_access_read;
             if cart_access_address(15 downto 8) = x"DE" then
               cart_io1 <= '0';
+              reprobe_exrom <= '1';
             else
               cart_io1 <= '1';
             end if;
             if cart_access_address(15 downto 8) = x"DF" then
               cart_io2 <= '0';
+              reprobe_exrom <= '1';
             else
               cart_io2 <= '1';
             end if;

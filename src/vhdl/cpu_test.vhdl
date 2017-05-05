@@ -20,6 +20,8 @@ architecture behavior of cpu_test is
   signal reset : std_logic := '0';
   signal irq : std_logic := '1';
   signal nmi : std_logic := '1';
+  signal cpu_exrom : std_logic := '1';
+  signal cpu_game : std_logic := '1';
 
   signal vsync : std_logic;
   signal hsync : std_logic;
@@ -127,7 +129,7 @@ begin
 
   fake_expansion_port0: entity work.fake_expansion_port
     port map (
-            ----------------------------------------------------------------------
+      ----------------------------------------------------------------------
       -- Expansion/cartridge port
       ----------------------------------------------------------------------
       cart_ctrl_dir => cart_ctrl_dir,
@@ -161,6 +163,8 @@ begin
       cpuclock => cpuclock,
       pixelclock => pixelclock,
       reset => reset,
+      cpu_exrom => cpu_exrom,
+      cpu_game => cpu_game,
       
       qspidb => qspidb,
       qspicsn => qspicsn,      
@@ -216,6 +220,9 @@ begin
       btnCpuReset      => reset,
       irq => '1',
       nmi => '1',
+      cpu_exrom => cpu_exrom,
+      cpu_game => cpu_game,
+      
       restore_key => '1',
 
       caps_lock_key => '1',

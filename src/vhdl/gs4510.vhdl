@@ -41,6 +41,9 @@ entity gs4510 is
     reset : in std_logic;
     irq : in std_logic;
     nmi : in std_logic;
+    exrom : in std_logic;
+    game : in std_logic;
+    
     hyper_trap : in std_logic;
 
     cpu_hypervisor_mode : out std_logic := '0';
@@ -198,7 +201,6 @@ end component;
   signal speed_gate_enable_internal : std_logic := '1';
 
   signal iomode_set_toggle_internal : std_logic := '0';
-  signal rom_from_colour_ram : std_logic := '0';
   signal rom_writeprotect : std_logic := '0';
 
   -- Instruction log
@@ -1301,13 +1303,15 @@ begin
       return unsigned is 
       variable temp_address : unsigned(27 downto 0);
       variable blocknum : integer;
-      variable lhc : std_logic_vector(2 downto 0);
+      variable lhc : std_logic_vector(4 downto 0);
     begin  -- resolve_long_address
 
       -- Now apply C64-style $01 lines first, because MAP and $D030 take precedence
       blocknum := to_integer(short_address(15 downto 12));
 
-      lhc := std_logic_vector(cpuport_value(2 downto 0));
+      lhc(4) := exrom;
+      lhc(3) := game;
+      lhc(2 downto 0) := std_logic_vector(cpuport_value(2 downto 0));
       lhc(2) := lhc(2) or (not cpuport_ddr(2));
       lhc(1) := lhc(1) or (not cpuport_ddr(1));
       lhc(0) := lhc(0) or (not cpuport_ddr(0));
@@ -1336,37 +1340,46 @@ begin
       if (blocknum=13) then
         temp_address(11 downto 0) := short_address(11 downto 0);
         if writeP then
-          case lhc(2 downto 0) is
-            when "000" => temp_address(27 downto 12) := x"000D";  -- WRITE RAM
-            when "001" => temp_address(27 downto 12) := x"000D";  -- WRITE RAM
-            when "010" => temp_address(27 downto 12) := x"000D";  -- WRITE RAM
-            when "011" => temp_address(27 downto 12) := x"000D";  -- WRITE RAM
-            when "100" => temp_address(27 downto 12) := x"000D";  -- WRITE RAM
-            when others =>
-              -- All else accesses IO
-              -- C64/C65/C65GS I/O is based on which secret knock has been applied
-              -- to $D02F
-              temp_address(27 downto 12) := x"FFD3";
-              temp_address(13 downto 12) := unsigned(viciii_iomode);          
-          end case;
+          -- IO is always visible in ultimax mode
+          if exrom/='1' or game/='0' then
+            case lhc(2 downto 0) is
+              when "000" => temp_address(27 downto 12) := x"000D";  -- WRITE RAM
+              when "001" => temp_address(27 downto 12) := x"000D";  -- WRITE RAM
+              when "010" => temp_address(27 downto 12) := x"000D";  -- WRITE RAM
+              when "011" => temp_address(27 downto 12) := x"000D";  -- WRITE RAM
+              when "100" => temp_address(27 downto 12) := x"000D";  -- WRITE RAM
+              when others =>
+                -- All else accesses IO
+                -- C64/C65/C65GS I/O is based on which secret knock has been applied
+                -- to $D02F
+                temp_address(27 downto 12) := x"FFD3";
+                temp_address(13 downto 12) := unsigned(viciii_iomode);          
+            end case;
+          else
+            temp_address(27 downto 12) := x"FFD3";
+            temp_address(13 downto 12) := unsigned(viciii_iomode);          
+          end if;
         else
           -- READING
-          case lhc(2 downto 0) is
-            when "000" => temp_address(27 downto 12) := x"000D";  -- READ RAM
-            when "001" => temp_address(27 downto 12) := x"002D";  -- CHARROM
-                          if rom_from_colour_ram='1' then temp_address(27 downto 16) := x"001"; end if;
-            when "010" => temp_address(27 downto 12) := x"002D";  -- CHARROM
-                          if rom_from_colour_ram='1' then temp_address(27 downto 16) := x"001"; end if;       
-            when "011" => temp_address(27 downto 12) := x"002D";  -- CHARROM
-                          if rom_from_colour_ram='1' then temp_address(27 downto 16) := x"001"; end if;       
-            when "100" => temp_address(27 downto 12) := x"000D";  -- READ RAM
-            when others =>
-              -- All else accesses IO
-              -- C64/C65/C65GS I/O is based on which secret knock has been applied
-              -- to $D02F
-              temp_address(27 downto 12) := x"FFD3";
-              temp_address(13 downto 12) := unsigned(viciii_iomode);          
-          end case;
+          -- IO is always visible in ultimax mode
+          if exrom/='1' or game/='0' then
+            case lhc(2 downto 0) is
+              when "000" => temp_address(27 downto 12) := x"000D";  -- READ RAM
+              when "001" => temp_address(27 downto 12) := x"002D";  -- CHARROM
+              when "010" => temp_address(27 downto 12) := x"002D";  -- CHARROM
+              when "011" => temp_address(27 downto 12) := x"002D";  -- CHARROM
+              when "100" => temp_address(27 downto 12) := x"000D";  -- READ RAM
+              when others =>
+                -- All else accesses IO
+                -- C64/C65/C65GS I/O is based on which secret knock has been applied
+                -- to $D02F
+                temp_address(27 downto 12) := x"FFD3";
+                temp_address(13 downto 12) := unsigned(viciii_iomode);          
+            end case;
+          else
+            temp_address(27 downto 12) := x"FFD3";
+            temp_address(13 downto 12) := unsigned(viciii_iomode);          
+          end if;
         end if;
         -- Map $DE00-$DFFF IO expansion areas to expansion port
         if (short_address(11 downto 8) = x"E")
@@ -1381,32 +1394,69 @@ begin
 
       -- C64 KERNEL
       if reg_map_high(3)='0' then
-        if (blocknum=14) and (lhc(1)='1') and (writeP=false) then
-          temp_address(27 downto 12) := x"002E";      
-          if rom_from_colour_ram='1' then
-            temp_address(27 downto 12) := x"0018";
+        if ((blocknum=14) or (blocknum=13)) and ((exrom='1') and (game='0')) then
+          -- ULTIMAX mode external ROM
+          temp_address(27 downto 16) := x"7FF";
+        else
+          if (blocknum=14) and (lhc(1)='1') and (writeP=false) then
+            temp_address(27 downto 12) := x"002E";
+          end if;        
+          if (blocknum=15) and (lhc(1)='1') and (writeP=false) then
+            temp_address(27 downto 12) := x"002F";      
           end if;
+        end if;        
+      end if;      
+      -- C64 BASIC or cartridge ROM LO
+      if reg_map_high(0)='0' then
+        if ((blocknum=8) or (blocknum=9)) and
+          (
+            ((exrom='1') and (game='0'))
+            or ((exrom='0') and (lhc(1 downto 0)="11"))
+            )
+        then
+          -- ULTIMAX mode or cartridge external ROM
+          temp_address(27 downto 16) := x"7FF";
         end if;
-        if (blocknum=15) and (lhc(1)='1') and (writeP=false) then
-          temp_address(27 downto 12) := x"002F";      
-          if rom_from_colour_ram='1' then
-            temp_address(27 downto 12) := x"0019";
-          end if;
-        end if;
-      end if;
-      -- C64 BASIC
-      if reg_map_high(1)='0' then
         if (blocknum=10) and (lhc(0)='1') and (lhc(1)='1') and (writeP=false) then
+          
           temp_address(27 downto 12) := x"002A";
-          if rom_from_colour_ram='1' then
-            temp_address(27 downto 12) := x"001A";
-          end if;
         end if;
         if (blocknum=11) and (lhc(0)='1') and (lhc(1)='1') and (writeP=false) then
           temp_address(27 downto 12) := x"002B";      
-          if rom_from_colour_ram='1' then
-            temp_address(27 downto 12) := x"001B";
-          end if;
+        end if;
+      end if;
+      if reg_map_high(1)='0' then
+        if ((blocknum=10) or (blocknum=11))
+          and ((lhc(1)='1')
+               or ((exrom='1') and (game='0'))
+               )
+        then
+          -- ULTIMAX mode or cartridge external ROM
+          temp_address(27 downto 16) := x"7FF";          
+        end if;
+      end if;
+
+      -- Expose remaining address space to cartridge port in ultimax mode
+      if (exrom='1') and (game='0') then
+        if (reg_map_low(0)='0') and  blocknum=1 then
+          -- $1000 - $1FFF Ultimax mode
+          temp_address(27 downto 16) := x"7FF";
+        end if;
+        if (reg_map_low(1)='0') and (blocknum=2 or blocknum=3) then
+          -- $2000 - $3FFF Ultimax mode
+          temp_address(27 downto 16) := x"7FF";
+        end if;
+        if (reg_map_low(2)='0') and (blocknum=4 or blocknum=5) then
+          -- $4000 - $5FFF Ultimax mode
+        temp_address(27 downto 16) := x"7FF";
+        end if;
+        if (reg_map_low(3)='0') and (blocknum=6 or blocknum=7) then
+          -- $6000 - $7FFF Ultimax mode
+          temp_address(27 downto 16) := x"7FF";
+        end if;
+        if (reg_map_high(2)='0') and (blocknum=12) then
+          -- $C000 - $CFFF Ultimax mode
+          temp_address(27 downto 16) := x"7FF";
         end if;
       end if;
 
@@ -1440,7 +1490,6 @@ begin
         end if;
         if (blocknum=12) and rom_at_c000='1' and (hypervisor_mode='0') then
           temp_address(27 downto 12) := x"002C";
-          if rom_from_colour_ram='1' then temp_address(27 downto 16) := x"FF8"; end if;
         end if;
         if (blocknum=10 or blocknum=11) and (rom_at_a000='1')
           and (hypervisor_mode='0') then
@@ -1809,7 +1858,7 @@ begin
             when "111101" =>                                                   -- this section
               return "11" & force_4502 & force_fast                            -- was previously
                 & speed_gate_enable_internal & rom_writeprotect                -- mapped to io-reg
-                & flat32_enabled & rom_from_colour_ram;                        -- D67C / "111100"
+                & flat32_enabled & '0';                        -- D67C / "111100"
             when "111110" =>
               if hypervisor_upgraded='1' then
                 return x"FF";
@@ -2631,7 +2680,6 @@ begin
         
         -- @IO:GS $D67D - Hypervisor watchdog register: writing any value clears the watch dog
         if last_write_address = x"FFD367D" and hypervisor_mode='1' then
-          rom_from_colour_ram <= last_value(0);
           flat32_enabled <= last_value(1);
           rom_writeprotect <= last_value(2);
           speed_gate_enable <= last_value(3);
