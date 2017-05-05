@@ -39,6 +39,7 @@ entity gs4510 is
     Clock : in std_logic;
     ioclock : in std_logic;
     reset : in std_logic;
+    reset_out : out std_logic;
     irq : in std_logic;
     nmi : in std_logic;
     exrom : in std_logic;
@@ -2875,6 +2876,7 @@ begin
       -- report "reset = " & std_logic'image(reset) severity note;
       reset_drive <= reset;
       if reset_drive='0' or watchdog_reset='1' then
+        reset_out <= '0';
         state <= ResetLow;
         proceed <= '0';
         wait_states <= x"00";
@@ -2888,7 +2890,8 @@ begin
         -- Honour wait states on memory accesses
         -- Clear memory access lines unless we are in a memory wait state
         -- XXX replace with single bit test flag for wait_states = 0 to reduce
-        -- logic depth        
+        -- logic depth
+        reset_out <= '1';
         if wait_states_non_zero = '1' then
           report "  $" & to_hstring(wait_states)
             &" memory waitstates remaining.  Fastio_rdata = $"

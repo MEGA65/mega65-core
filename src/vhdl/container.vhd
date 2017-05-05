@@ -181,6 +181,7 @@ architecture Behavioral of container is
   
   signal irq : std_logic := '1';
   signal nmi : std_logic := '1';
+  signal reset_out : std_logic := '1';
   signal cpu_game : std_logic := '1';
   signal cpu_exrom : std_logic := '1';
  
@@ -281,7 +282,7 @@ begin
     port map (
       cpuclock => cpuclock,
       pixelclock => pixelclock,
-      reset => cpu_reset,
+      reset => reset_out,
       cpu_exrom => cpu_exrom,
       cpu_game => cpu_game,
       
@@ -335,6 +336,7 @@ begin
       uartclock         => cpuclock, -- Match CPU clock (48MHz)
       ioclock         => cpuclock, -- Match CPU clock
       btncpureset => btncpureset,
+      reset_out => reset_out,
       irq => irq,
       nmi => nmi,
       restore_key => not btn(1),

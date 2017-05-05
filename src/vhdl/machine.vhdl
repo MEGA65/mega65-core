@@ -59,6 +59,7 @@ entity machine is
          ioclock : std_logic;
          uartclock : std_logic;
          btnCpuReset : in  STD_LOGIC;
+         reset_out : out std_logic;
          irq : in  STD_LOGIC;
          nmi : in  STD_LOGIC;
          restore_key : in std_logic;
@@ -515,6 +516,7 @@ begin
     clock => cpuclock,
     ioclock => ioclock,
     reset =>reset_combined,
+    reset_out => reset_out,
     irq => combinedirq,
     nmi => combinednmi,
     exrom => cpu_exrom,
