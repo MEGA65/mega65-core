@@ -203,21 +203,6 @@ architecture Behavioral of container is
       cache_address        : in std_logic_vector(8 downto 0);
       cache_read_data      : out std_logic_vector(150 downto 0)
       
-      -- DDR2 interface
---      ddr2_addr            : out   std_logic_vector(12 downto 0);
---      ddr2_ba              : out   std_logic_vector(2 downto 0);
---      ddr2_ras_n           : out   std_logic;
---      ddr2_cas_n           : out   std_logic;
---      ddr2_we_n            : out   std_logic;
---      ddr2_ck_p            : out   std_logic_vector(0 downto 0);
---      ddr2_ck_n            : out   std_logic_vector(0 downto 0);
---      ddr2_cke             : out   std_logic_vector(0 downto 0);
---      ddr2_cs_n            : out   std_logic_vector(0 downto 0);
---      ddr2_dm              : out   std_logic_vector(1 downto 0);
---      ddr2_odt             : out   std_logic_vector(0 downto 0);
---      ddr2_dq              : inout std_logic_vector(15 downto 0);
---      ddr2_dqs_p           : inout std_logic_vector(1 downto 0);
---      ddr2_dqs_n           : inout std_logic_vector(1 downto 0)
    );
   end component;
   
@@ -239,17 +224,12 @@ architecture Behavioral of container is
   signal clock100mhz : std_logic := '0';
   signal clock50mhz : std_logic := '0';
 
-  signal slowram_addr :    std_logic_vector(26 downto 0);
-  signal slowram_addr_reflect :    std_logic_vector(26 downto 0);
-  signal slowram_we :      std_logic;
-  signal slowram_request_toggle :      std_logic;
-  signal slowram_done_toggle :      std_logic;
-  signal slowram_datain :  std_logic_vector(7 downto 0);
-  signal slowram_datain_reflect : std_logic_vector(7 downto 0);
-  signal cache_address : std_logic_vector(8 downto 0);
-  signal cache_read_data : std_logic_vector(150 downto 0);
-  signal ddr_state : unsigned(7 downto 0);
-  signal ddr_counter : unsigned(7 downto 0);
+  signal slow_access_request_toggle : std_logic;
+  signal slow_access_ready_toggle : std_logic;
+  signal slow_access_write : std_logic;
+  signal slow_access_address : unsigned(27 downto 0);
+  signal slow_access_wdata : unsigned(7 downto 0);
+  signal slow_access_rdata : unsigned(7 downto 0);
 
   signal vgaredignore : unsigned(3 downto 0);
   signal vgagreenignore : unsigned(3 downto 0);
@@ -322,44 +302,53 @@ begin
       rst => '0',
       clk => cpuclock,
       temp => fpga_temperature);
-  
-  ddrwrapper0: ddrwrapper
+
+    slow_devices0: entity work.slow_devices
     port map (
-      -- Common
       cpuclock => cpuclock,
-      clk_200MHz_i => pixelclock,
-      rst_i => '0',
-      device_temp_i => fpga_temperature,
-      ddr_state => ddr_state,
-      ddr_counter => ddr_counter,
+      pixelclock => pixelclock,
+      reset => reset,
+      cpu_exrom => cpu_exrom,
+      cpu_game => cpu_game,
       
-      -- RAM interface
-      ram_address           => slowram_addr,
-      ram_write_data        => slowram_datain,
-      ram_address_reflect   => slowram_addr_reflect,
-      ram_write_reflect     => slowram_datain_reflect,
-      ram_write_enable      => slowram_we,
-      ram_request_toggle => slowram_request_toggle,
-      ram_done_toggle    => slowram_done_toggle,
-      cache_address => cache_address,
-      cache_read_data => cache_read_data
+      qspidb => qspidb,
+      qspicsn => qspicsn,      
+      qspisck => qspisck,
+
+      slow_access_request_toggle => slow_access_request_toggle,
+      slow_access_ready_toggle => slow_access_ready_toggle,
+      slow_access_write => slow_access_write,
+      slow_access_address => slow_access_address,
+      slow_access_wdata => slow_access_wdata,
+      slow_access_rdata => slow_access_rdata,
+  
+      ----------------------------------------------------------------------
+      -- Expansion/cartridge port
+      ----------------------------------------------------------------------
+      cart_ctrl_dir => cart_ctrl_dir,
+      cart_haddr_dir => cart_haddr_dir,
+      cart_laddr_dir => cart_laddr_dir,
+      cart_data_dir => cart_data_dir,
+      cart_phi2 => cart_phi2,
+      cart_dotclock => cart_dotclock,
+      cart_reset => cart_reset,
       
-      -- DDR2 interface
---      ddr2_addr => ddr2_addr,
---      ddr2_ba => ddr2_ba,
---      ddr2_ras_n => ddr2_ras_n,
---      ddr2_cas_n => ddr2_cas_n,
---      ddr2_we_n  => ddr2_we_n ,
---      ddr2_ck_p  => ddr2_ck_p ,
---      ddr2_ck_n  => ddr2_ck_n ,
---      ddr2_cke   => ddr2_cke  ,
---      ddr2_cs_n  => ddr2_cs_n ,
---      ddr2_dm    => ddr2_dm   ,
---      ddr2_odt   => ddr2_odt  ,
---      ddr2_dq    => ddr2_dq   ,
---      ddr2_dqs_p => ddr2_dqs_p,
---      ddr2_dqs_n => ddr2_dqs_n
-   );
+      cart_nmi => cart_nmi,
+      cart_irq => cart_irq,
+      cart_dma => cart_dma,
+      
+      cart_exrom => cart_exrom,
+      cart_ba => cart_ba,
+      cart_rw => cart_rw,
+      cart_roml => cart_roml,
+      cart_romh => cart_romh,
+      cart_io1 => cart_io1,
+      cart_game => cart_game,
+      cart_io2 => cart_io2,
+      
+      cart_d => cart_d,
+      cart_a => cart_a
+      );
   
   machine0: entity work.machine
     port map (
@@ -500,19 +489,12 @@ begin
       uart_rx => jclo(1),
       uart_tx => jclo(2),
       
-      slowram_we => slowram_we,
-      slowram_request_toggle => slowram_request_toggle,
-      slowram_done_toggle => slowram_done_toggle,
-      slowram_datain => slowram_datain,
-      slowram_addr => slowram_addr,
-      slowram_addr_reflect => slowram_addr_reflect,
-      slowram_datain_reflect => slowram_datain_reflect,
-      cache_read_data => cache_read_data,
-      cache_address => cache_address,
-
---      QspiSCK => QspiSCK,
-      QspiDB => QspiDB,
-      QspiCSn => QspiCSn,
+      slow_access_request_toggle => slow_access_request_toggle,
+      slow_access_ready_toggle => slow_access_ready_toggle,
+      slow_access_address => slow_access_address,
+      slow_access_write => slow_access_write,
+      slow_access_wdata => slow_access_wdata,
+      slow_access_rdata => slow_access_rdata,
 
       fpga_temperature => fpga_temperature,
       
