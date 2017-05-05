@@ -233,7 +233,7 @@ architecture Behavioral of machine is
   
   signal seg_led_data : unsigned(31 downto 0);
 
-  signal reset_out : std_logic;
+  signal reset_io : std_logic;
   signal reset_monitor : std_logic;
   -- Holds reset on for 8 cycles so that reset line entry is used on start up,
   -- instead of implicit startup state.
@@ -347,7 +347,7 @@ begin
   -- device via the IOmapper pull an interrupt line down, then trigger an
   -- interrupt.
   -----------------------------------------------------------------------------
-  process(irq,nmi,restore_nmi,io_irq,vic_irq,io_nmi,sw,reset_out,btnCpuReset,
+  process(irq,nmi,restore_nmi,io_irq,vic_irq,io_nmi,sw,reset_io,btnCpuReset,
           power_on_reset,reset_monitor)
   begin
     -- XXX Allow switch 0 to mask IRQs
@@ -356,8 +356,8 @@ begin
     if btnCpuReset='0' then
       report "reset asserted via btnCpuReset";
       reset_combined <= '0';
-    elsif reset_out='0' then
-      report "reset asserted via reset_out";
+    elsif reset_io='0' then
+      report "reset asserted via reset_io";
       reset_combined <= '0';
     elsif power_on_reset(0)='0' then
       report "reset asserted via power_on_reset(0)";
@@ -371,7 +371,7 @@ begin
 
     hyper_trap_combined <= hyper_trap and monitor_hyper_trap;
     
-    -- report "btnCpuReset = " & std_logic'image(btnCpuReset) & ", reset_out = " & std_logic'image(reset_out) & ", sw(15) = " & std_logic'image(sw(15)) severity note;
+    -- report "btnCpuReset = " & std_logic'image(btnCpuReset) & ", reset_io = " & std_logic'image(reset_io) & ", sw(15) = " & std_logic'image(sw(15)) severity note;
     -- report "reset_combined = " & std_logic'image(reset_combined) severity note;
   end process;
   
@@ -707,7 +707,7 @@ begin
     uartclock => uartclock,
     phi0 => phi0,
     reset => reset_combined,
-    reset_out => reset_out,
+    reset_out => reset_io,
     irq => io_irq, -- (but we might like to AND this with the hardware IRQ button)
     nmi => io_nmi, -- (but we might like to AND this with the hardware IRQ button)
     restore_nmi => restore_nmi,
