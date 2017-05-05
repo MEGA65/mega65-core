@@ -88,7 +88,10 @@ begin
       report "Reading control signals from cartridge pins, rw="
         & std_logic'image(cart_rw)
         & ", wdata=$" & to_hstring(cart_d);
-      bus_exrom <= cart_exrom;
+
+      cart_exrom <= '0';
+      cart_game <= '1';
+      
       bus_ba <= cart_ba;
       bus_rw <= cart_rw;
       bus_roml <= cart_roml;
@@ -100,7 +103,7 @@ begin
       bus_a <= cart_a;
 
       if bus_rw='1' and ((bus_roml='0') or (bus_io1='0')
-                         or (bus_roml='0') or (bus_io2='0')) then
+                         or (bus_romh='0') or (bus_io2='0')) then
         -- Expansion port latches values on clock edges.
         -- Therefore we cannot provide the data too fast
         cart_d <= bus_d_drive;
@@ -123,6 +126,10 @@ begin
         report "Reading from tiny_ram @ $" & to_hstring(bus_a(3 downto 0));
         bus_d_drive
           <= tiny_ram(to_integer(unsigned(bus_a(3 downto 0))));
+      elsif bus_romh='0' or bus_roml='0' then
+        report "Reading from tiny_ram @ $" & to_hstring(bus_a(3 downto 0));
+        bus_d_drive
+          <= fake_rom_value(to_integer(unsigned(bus_a(3 downto 0))));
       else
         bus_d_drive <= x"EE";
       end if;                
