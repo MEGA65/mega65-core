@@ -42,9 +42,9 @@ ENTITY slow_devices IS
     ----------------------------------------------------------------------
     -- Flash RAM for holding FPGA config
     ----------------------------------------------------------------------
-    QspiSCK : out std_logic;
-    QspiDB : inout std_logic_vector(3 downto 0);
-    QspiCSn : out std_logic;
+    QspiSCK : out std_logic := '1';
+    QspiDB : inout std_logic_vector(3 downto 0) := (others => 'Z');
+    QspiCSn : out std_logic := '1';
     
     ------------------------------------------------------------------------
     -- C64-compatible cartridge/expansion port
