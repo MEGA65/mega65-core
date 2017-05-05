@@ -47,7 +47,7 @@
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="8"/>
       <association xil_pn:name="Implementation" xil_pn:seqID="30"/>
     </file>
-    <file xil_pn:name="src/vhdl/container.ucf" xil_pn:type="FILE_UCF">
+    <file xil_pn:name="src/vhdl/container-nonddr.ucf" xil_pn:type="FILE_UCF">
       <association xil_pn:name="Implementation" xil_pn:seqID="0"/>
     </file>
     <file xil_pn:name="src/vhdl/container.vhd" xil_pn:type="FILE_VHDL">
@@ -197,6 +197,22 @@
     <file xil_pn:name="src/vhdl/version.vhdl" xil_pn:type="FILE_VHDL">
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="68"/>
       <association xil_pn:name="Implementation" xil_pn:seqID="32"/>
+    </file>
+    <file xil_pn:name="src/vhdl/ps2_to_uart.vhdl" xil_pn:type="FILE_VHDL">
+      <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="56"/>
+      <association xil_pn:name="Implementation" xil_pn:seqID="56"/>
+    </file>
+    <file xil_pn:name="src/vhdl/compositor.vhdl" xil_pn:type="FILE_VHDL">
+      <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="57"/>
+      <association xil_pn:name="Implementation" xil_pn:seqID="57"/>
+    </file>
+    <file xil_pn:name="src/vhdl/uart_charrom.vhdl" xil_pn:type="FILE_VHDL">
+      <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="58"/>
+      <association xil_pn:name="Implementation" xil_pn:seqID="58"/>
+    </file>
+    <file xil_pn:name="src/vhdl/terminalemulator.vhdl" xil_pn:type="FILE_VHDL">
+      <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="59"/>
+      <association xil_pn:name="Implementation" xil_pn:seqID="59"/>
     </file>
     <file xil_pn:name="ipcore_dir/dotclock.xise" xil_pn:type="FILE_COREGENISE">
       <association xil_pn:name="Implementation" xil_pn:seqID="0"/>

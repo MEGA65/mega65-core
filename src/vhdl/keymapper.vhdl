@@ -14,7 +14,7 @@ entity keymapper is
     
     cpu_hypervisor_mode : in std_logic;
     drive_led_out : in std_logic;
-
+    disableKeyboard : in std_logic;
     last_scan_code : out std_logic_vector(12 downto 0);
 
     nmi : out std_logic := 'Z';
@@ -473,127 +473,128 @@ begin  -- behavioural
                          last_scan_code(11 downto 9) <= std_logic_vector(leftorupcount(2 downto 0));
                          last_scan_code(8 downto 0) <= full_scan_code(8 downto 0);
 
-                         case full_scan_code is
-                           when x"058" =>
-                             -- caps lock key: toggle caps lock state on release
-                             if break='1' then
-                               ps2_capslock <= not ps2_capslock;
-                             end if;
-                           when x"17D" =>
-                              -- Restore key shall do NMI as expected, but also
-                              -- reset
-                             ps2_restore <= break;                             
-                           -- Joysticks
-                           when x"07d" =>  -- JOY1 LEFT
-                             joy1(0) <= break;
-                           when x"07a" =>  -- JOY1 RIGHT
-                             joy1(1) <= break;
-                           when x"06c" =>  -- JOY1 UP
-                             joy1(2) <= break;
-                           when x"069" =>  -- JOY1 DOWN
-                             joy1(3) <= break;
-                           when x"070" =>  -- JOY1 FIRE
-                             joy1(4) <= break;
-                           when x"074" =>  -- JOY2 DOWN
-                             joy2(3) <= break;
+                         if disableKeyboard='0' then -- If keyboard is disabled in matrix mode, dont update matrix.
+                           case full_scan_code is
+                             when x"058" =>
+                               -- caps lock key: toggle caps lock state on release
+                               if break='1' then
+                                 ps2_capslock <= not ps2_capslock;
+                               end if;
+                             when x"17D" =>
+                                -- Restore key shall do NMI as expected, but also
+                                -- reset
+                               restore_state <= break;                             
+                             -- Joysticks
+                             when x"07d" =>  -- JOY1 LEFT
+                               joy1(0) <= break;
+                             when x"07a" =>  -- JOY1 RIGHT
+                               joy1(1) <= break;
+                             when x"06c" =>  -- JOY1 UP
+                               joy1(2) <= break;
+                             when x"069" =>  -- JOY1 DOWN
+                               joy1(3) <= break;
+                             when x"070" =>  -- JOY1 FIRE
+                               joy1(4) <= break;
+                             when x"074" =>  -- JOY2 DOWN
+                               joy2(3) <= break;
 --                           when x"072" =>  -- JOY2 RIGHT
 --                             joy2(3) <= break;
-                           when x"073" =>  -- JOY2 FIRE
-                             joy2(4) <= break;
+                             when x"073" =>  -- JOY2 FIRE
+                               joy2(4) <= break;
                                            
-                           -- DELETE, RETURN, RIGHT, F7, F1, F3, F5, down
-                           when x"066" => matrix(0) <= break;
-                           when x"05A" => matrix(1) <= break;
-                           when x"174" => cursor_right <= break; ps2 <= '1';
-                           when x"083" => matrix(3) <= break;
-                           when x"005" => matrix(4) <= break;
-                           when x"004" => matrix(5) <= break;
-                           when x"003" => matrix(6) <= break;
-                           when x"072" => cursor_down <= break; ps2 <= '1';
-                                          joy2(1) <= break;  -- keyrah
-                                                             -- duplicate scan
-                                                             -- code for down
-                                                             -- key and joy2 right?
-                           when x"075" => -- JOY2 LEFT
-                             joy2(0) <= break;
-                             cursor_up <= break; ps2 <= '1';
-                           when x"06B" => -- JOY2 UP
-                             joy2(2) <= break;
-                             cursor_left <= break; ps2 <= '1';
+                             -- DELETE, RETURN, RIGHT, F7, F1, F3, F5, down
+                             when x"066" => matrix(0) <= break;
+                             when x"05A" => matrix(1) <= break;
+                             when x"174" => cursor_right <= break; ps2 <= '1';
+                             when x"083" => matrix(3) <= break;
+                             when x"005" => matrix(4) <= break;
+                             when x"004" => matrix(5) <= break;
+                             when x"003" => matrix(6) <= break;
+                             when x"072" => cursor_down <= break; ps2 <= '1';
+                                            joy2(1) <= break;  -- keyrah
+                                                               -- duplicate scan
+                                                               -- code for down
+                                                               -- key and joy2 right?
+                             when x"075" => -- JOY2 LEFT
+                               joy2(0) <= break;
+                               cursor_up <= break; ps2 <= '1';
+                             when x"06B" => -- JOY2 UP
+                               joy2(2) <= break;
+                               cursor_left <= break; ps2 <= '1';
 
-                           -- 3, W, A, 4, Z, S, E, left-SHIFT
-                           when x"026" => matrix(8) <= break;
-                           when x"01D" => matrix(9) <= break;
-                           when x"01C" => matrix(10) <= break;
-                           when x"025" => matrix(11) <= break;
-                           when x"01A" => matrix(12) <= break;
-                           when x"01B" => matrix(13) <= break;
-                           when x"024" => matrix(14) <= break;
-                           when x"012" => matrix(15) <= break;
+                             -- 3, W, A, 4, Z, S, E, left-SHIFT
+                             when x"026" => matrix(8) <= break;
+                             when x"01D" => matrix(9) <= break;
+                             when x"01C" => matrix(10) <= break;
+                             when x"025" => matrix(11) <= break;
+                             when x"01A" => matrix(12) <= break;
+                             when x"01B" => matrix(13) <= break;
+                             when x"024" => matrix(14) <= break;
+                             when x"012" => matrix(15) <= break;
 
-                           -- 5, R, D, 6, C, F, T, X
-                           when x"02E" => matrix(16) <= break;
-                           when x"02D" => matrix(17) <= break;
-                           when x"023" => matrix(18) <= break;
-                           when x"036" => matrix(19) <= break;
-                           when x"021" => matrix(20) <= break;
-                           when x"02B" => matrix(21) <= break;
-                           when x"02C" => matrix(22) <= break;
-                           when x"022" => matrix(23) <= break;
+                             -- 5, R, D, 6, C, F, T, X
+                             when x"02E" => matrix(16) <= break;
+                             when x"02D" => matrix(17) <= break;
+                             when x"023" => matrix(18) <= break;
+                             when x"036" => matrix(19) <= break;
+                             when x"021" => matrix(20) <= break;
+                             when x"02B" => matrix(21) <= break;
+                             when x"02C" => matrix(22) <= break;
+                             when x"022" => matrix(23) <= break;
 
-                           -- 7, Y, G, 8, B, H, U, V
-                           when x"03D" => matrix(24) <= break;
-                           when x"035" => matrix(25) <= break;
-                           when x"034" => matrix(26) <= break;
-                           when x"03E" => matrix(27) <= break;
-                           when x"032" => matrix(28) <= break;
-                           when x"033" => matrix(29) <= break;
-                           when x"03C" => matrix(30) <= break;
-                           when x"02A" => matrix(31) <= break;
+                             -- 7, Y, G, 8, B, H, U, V
+                             when x"03D" => matrix(24) <= break;
+                             when x"035" => matrix(25) <= break;
+                             when x"034" => matrix(26) <= break;
+                             when x"03E" => matrix(27) <= break;
+                             when x"032" => matrix(28) <= break;
+                             when x"033" => matrix(29) <= break;
+                             when x"03C" => matrix(30) <= break;
+                             when x"02A" => matrix(31) <= break;
 
-                           -- 9, I, J, 0, M, K, O, N
-                           when x"046" => matrix(32) <= break;
-                           when x"043" => matrix(33) <= break;
-                           when x"03B" => matrix(34) <= break;
-                           when x"045" => matrix(35) <= break;
-                           when x"03A" => matrix(36) <= break;
-                           when x"042" => matrix(37) <= break;
-                           when x"044" => matrix(38) <= break;
-                           when x"031" => matrix(39) <= break;
+                             -- 9, I, J, 0, M, K, O, N
+                             when x"046" => matrix(32) <= break;
+                             when x"043" => matrix(33) <= break;
+                             when x"03B" => matrix(34) <= break;
+                             when x"045" => matrix(35) <= break;
+                             when x"03A" => matrix(36) <= break;
+                             when x"042" => matrix(37) <= break;
+                             when x"044" => matrix(38) <= break;
+                             when x"031" => matrix(39) <= break;
 
-                           -- +, P, L, -, ., :, @, COMMA
-                           when x"04E" => matrix(40) <= break;
-                           when x"04D" => matrix(41) <= break;
-                           when x"04B" => matrix(42) <= break;
-                           when x"055" => matrix(43) <= break;
-                           when x"049" => matrix(44) <= break;
-                           when x"04C" => matrix(45) <= break;
-                           when x"054" => matrix(46) <= break;
-                           when x"041" => matrix(47) <= break;
+                             -- +, P, L, -, ., :, @, COMMA
+                             when x"04E" => matrix(40) <= break;
+                             when x"04D" => matrix(41) <= break;
+                             when x"04B" => matrix(42) <= break;
+                             when x"055" => matrix(43) <= break;
+                             when x"049" => matrix(44) <= break;
+                             when x"04C" => matrix(45) <= break;
+                             when x"054" => matrix(46) <= break;
+                             when x"041" => matrix(47) <= break;
 
-                           -- POUND, *, ;, HOME, right SHIFT, =, UP-ARROW, /
-                           when x"170" => matrix(48) <= break;
-                           when x"05B" => matrix(49) <= break;
-                           when x"052" => matrix(50) <= break;
-                           when x"16C" => matrix(51) <= break;
-                           when x"059" => right_shift <= break; ps2 <= '1';
-                           when x"05D" => matrix(53) <= break;
-                           when x"171" => matrix(54) <= break;
-                           when x"04A" => matrix(55) <= break;
+                             -- POUND, *, ;, HOME, right SHIFT, =, UP-ARROW, /
+                             when x"170" => matrix(48) <= break;
+                             when x"05B" => matrix(49) <= break;
+                             when x"052" => matrix(50) <= break;
+                             when x"16C" => matrix(51) <= break;
+                             when x"059" => right_shift <= break; ps2 <= '1';
+                             when x"05D" => matrix(53) <= break;
+                             when x"171" => matrix(54) <= break;
+                             when x"04A" => matrix(55) <= break;
 
-                           -- 1, LEFT-ARROW, CTRL, 2, SPACE, C=, Q, RUN/STOP
-                           when x"016" => matrix(56) <= break;
-                           when x"00E" => matrix(57) <= break;
-                           when x"00D" => matrix(58) <= break;
-                           when x"01E" => matrix(59) <= break;
-                           when x"029" => matrix(60) <= break;
-                           when x"014" => matrix(61) <= break;
-                           when x"015" => matrix(62) <= break;
-                           when x"076" => matrix(63) <= break;
+                             -- 1, LEFT-ARROW, CTRL, 2, SPACE, C=, Q, RUN/STOP
+                             when x"016" => matrix(56) <= break;
+                             when x"00E" => matrix(57) <= break;
+                             when x"00D" => matrix(58) <= break;
+                             when x"01E" => matrix(59) <= break;
+                             when x"029" => matrix(60) <= break;
+                             when x"014" => matrix(61) <= break;
+                             when x"015" => matrix(62) <= break;
+                             when x"076" => matrix(63) <= break;
                                           
-                           when others => null;
-                         end case;
-                         
+                             when others => null;
+                           end case;
+                         end if;
                        end if;
                                               
           when ParityBit =>  ps2state <= Idle;  -- was StopBit.  See if

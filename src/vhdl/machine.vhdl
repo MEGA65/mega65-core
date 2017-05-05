@@ -200,7 +200,6 @@ end machine;
 
 architecture Behavioral of machine is
 
-  
   signal pmodb_in_buffer : std_logic_vector(5 downto 0);
   signal pmodb_out_buffer : std_logic_vector(1 downto 0);
   
@@ -339,6 +338,25 @@ architecture Behavioral of machine is
   signal farcallstack_addr : std_logic_vector(8 downto 0);
   signal farcallstack_din : std_logic_vector(63 downto 0);
   signal farcallstack_dout : std_logic_vector(63 downto 0);
+  signal uart_tx_buffer : std_logic; 
+  signal uart_rx_buffer : std_logic;
+  signal protected_hardware_sig : unsigned(7 downto 0);
+
+  -- Matrix Mode signals
+  signal scancode_out : std_logic_vector(12 downto 0); 
+  signal mm_displayMode : std_logic_vector(1 downto 0):=b"10"; 
+  signal tx_switch : std_logic; 
+  signal tx_ps2 : std_logic; 
+  signal vgablue_sig : unsigned(3 downto 0);
+  signal vgared_sig : unsigned(3 downto 0);
+  signal vgagreen_sig : unsigned(3 downto 0);
+  signal xcounter : unsigned(11 downto 0);
+  signal ycounter : unsigned(10 downto 0); 
+  signal uart_txd_sig : std_logic;
+  signal display_shift : std_logic_vector(2 downto 0);
+  signal shift_ready : std_logic;
+  signal shift_ack : std_logic; 
+  signal matrix_trap : std_logic;  
 
 begin
 
@@ -513,6 +531,8 @@ begin
   end process;
   
   cpu0: entity work.gs4510 port map(
+    matrix_trap_in=>matrix_trap,
+    protected_hardware => protected_hardware_sig,
     clock => cpuclock,
     ioclock => ioclock,
     reset =>reset_combined,
@@ -630,6 +650,8 @@ begin
 
   viciv0: entity work.viciv
     port map (
+      xcounter_out => xcounter,
+      ycounter_out => ycounter,
       pixelclock      => pixelclock,
       pixelclock2x      => pixelclock2x,
       cpuclock        => cpuclock,
@@ -646,9 +668,9 @@ begin
       
       vsync           => vsync,
       hsync           => hsync,
-      vgared          => vgared,
-      vgagreen        => vgagreen,
-      vgablue         => vgablue,
+      vgared          => vgared_sig,
+      vgagreen        => vgagreen_sig,
+      vgablue         => vgablue_sig,
 
       pixel_stream_out => pixel_stream,
       pixel_y => pixel_y,
@@ -686,6 +708,7 @@ begin
   iomapper0: entity work.iomapper
     port map (
     clk => ioclock,
+	 protected_hardware_in => protected_hardware_sig, 
     hyper_trap => hyper_trap,
     cpuclock => cpuclock,
     pixelclk => pixelclock,
@@ -802,9 +825,43 @@ begin
     eth_interrupt => eth_interrupt,
     
     ps2data => ps2data,
-    ps2clock => ps2clock
+    ps2clock => ps2clock,
+    
+    scancode_out => scancode_out
     );
 
+  ps2_to_uart0 : ps2_to_uart port map(
+    matrix_trap_out=>matrix_trap,
+    display_shift_out => display_shift,
+	 shift_ready_out => shift_ready,
+	 shift_ack_in => shift_ack,
+    clk => uartclock,
+	 mm_displayMode_out=>mm_displayMode,
+    reset => reset_combined,
+    enabled => protected_hardware_sig(6),--sw(5),
+    scan_code => scancode_out,       
+    tx_ps2 => tx_ps2
+    ); 
+
+  compositor0 : compositor port map(
+    display_shift_in=>display_shift,
+	 shift_ready_in => shift_ready,
+	 shift_ack_out => shift_ack,
+    mm_displayMode_in => mm_displayMode,
+    uart_in => uart_txd_sig,
+    xcounter_in => xcounter,
+    ycounter_in => ycounter,	
+    clk => uartclock,
+    pixelclock => pixelclock,
+    matrix_mode_enable => protected_hardware_sig(6),--sw(5), 					
+    vgared_in => vgared_sig,
+    vgagreen_in => vgagreen_sig,
+    vgablue_in => vgablue_sig,
+    vgared_out => vgared,
+    vgagreen_out => vgagreen,
+    vgablue_out => vgablue
+    ); 
+    
   -----------------------------------------------------------------------------
   -- UART interface for monitor debugging and loading data
   -----------------------------------------------------------------------------
@@ -813,9 +870,9 @@ begin
     reset_out => reset_monitor,
     monitor_hyper_trap => monitor_hyper_trap,
     clock => uartclock,
-    tx       => UART_TXD,
-    rx       => RsRx,
-
+    tx       => uart_txd_sig,--uart_txd_sig,
+    rx       => tx_switch,--tx_switch, --RsRx,
+	
     force_single_step => sw(11),
     
     fastio_read => fastio_read,
@@ -879,6 +936,9 @@ begin
       flopmotor <= motor;
     end if;
   end process;
+  
+  UART_TXD<=uart_txd_sig; 
+  tx_switch <= tx_ps2 when protected_hardware_sig(6)='1' else RsRx; --uart monitor: serial input or ps2 keyboard input
   
 end Behavioral;
 
