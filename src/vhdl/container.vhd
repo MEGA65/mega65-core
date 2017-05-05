@@ -379,33 +379,6 @@ begin
       fb_left => jdhi(8),
       fb_down => jdhi(9),
       fb_right => jdhi(10),
-
-      ----------------------------------------------------------------------
-      -- Expansion/cartridge port
-      ----------------------------------------------------------------------
-      cart_ctrl_dir => cart_ctrl_dir,
-      cart_haddr_dir => cart_haddr_dir,
-      cart_laddr_dir => cart_laddr_dir,
-      cart_data_dir => cart_data_dir,
-      cart_phi2 => cart_phi2,
-      cart_dotclock => cart_dotclock,
-      cart_reset => cart_reset,
-      
-      cart_nmi => cart_nmi,
-      cart_irq => cart_irq,
-      cart_dma => cart_dma,
-      
-      cart_exrom => cart_exrom,
-      cart_ba => cart_ba,
-      cart_rw => cart_rw,
-      cart_roml => cart_roml,
-      cart_romh => cart_romh,
-      cart_io1 => cart_io1,
-      cart_game => cart_game,
-      cart_io2 => cart_io2,
-      
-      cart_d => cart_d,
-      cart_a => cart_a,
       
       ----------------------------------------------------------------------
       -- CBM floppy  std_logic_vectorerial port
