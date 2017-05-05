@@ -178,37 +178,11 @@ architecture Behavioral of container is
            rst : in  STD_LOGIC;
            temp : out  STD_LOGIC_VECTOR (11 downto 0));
   end component;
-
-  component ddrwrapper is
-   port (
-     -- Common
-      cpuclock : in std_logic;
-      clk_200MHz_i         : in    std_logic; -- 200 MHz system clock
-      rst_i                : in    std_logic; -- active high system reset
-      device_temp_i        : in    std_logic_vector(11 downto 0);
-      ddr_state : out unsigned(7 downto 0);
-      ddr_counter : out unsigned(7 downto 0);
-
-      -- RAM interface
-      ram_address          : in    std_logic_vector(26 downto 0);
-      ram_write_data       : in    std_logic_vector(7 downto 0);
-      ram_address_reflect  : out    std_logic_vector(26 downto 0);
-      ram_write_reflect    : out    std_logic_vector(7 downto 0);
-      ram_write_enable     : in    std_logic;
-      ram_request_toggle   : in    std_logic;
-      ram_done_toggle      : out   std_logic;
-
-      -- simple-dual-port cache RAM interface so that CPU doesn't have to read
-      -- data cross-clock
-      cache_address        : in std_logic_vector(8 downto 0);
-      cache_read_data      : out std_logic_vector(150 downto 0)
-      
-   );
-  end component;
-  
   
   signal irq : std_logic := '1';
   signal nmi : std_logic := '1';
+  signal cpu_game : std_logic := '1';
+  signal cpu_exrom : std_logic := '1';
  
   signal dummy_vgared : unsigned(3 downto 0);
   signal dummy_vgagreen : unsigned(3 downto 0);
@@ -259,8 +233,8 @@ architecture Behavioral of container is
   signal cart_game : std_logic := 'Z';
   signal cart_io2 : std_logic := 'Z';
 
-  signal cart_d : std_logic_vector(7 downto 0) := (others => 'Z');
-  signal cart_a : std_logic_vector(15 downto 0) := (others => 'Z');
+  signal cart_d : unsigned(7 downto 0) := (others => 'Z');
+  signal cart_a : unsigned(15 downto 0) := (others => 'Z');
          
   ----------------------------------------------------------------------
   -- CBM floppy serial port
@@ -307,13 +281,13 @@ begin
     port map (
       cpuclock => cpuclock,
       pixelclock => pixelclock,
-      reset => reset,
+      reset => cpu_reset,
       cpu_exrom => cpu_exrom,
       cpu_game => cpu_game,
       
       qspidb => qspidb,
       qspicsn => qspicsn,      
-      qspisck => qspisck,
+      qspisck => '1',
 
       slow_access_request_toggle => slow_access_request_toggle,
       slow_access_ready_toggle => slow_access_ready_toggle,
@@ -393,8 +367,6 @@ begin
       iec_atn => iec_atn,
       
       no_kickstart => '0',
-      ddr_counter => ddr_counter,
-      ddr_state => ddr_state,
       
       vsync           => vsync,
       hsync           => hsync,
@@ -468,6 +440,8 @@ begin
       slow_access_write => slow_access_write,
       slow_access_wdata => slow_access_wdata,
       slow_access_rdata => slow_access_rdata,
+      cpu_exrom => cpu_exrom,
+      cpu_game => cpu_game,      
 
       fpga_temperature => fpga_temperature,
       
