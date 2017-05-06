@@ -121,9 +121,9 @@ begin
     end if;
   end process;
 
-  process (cart_dotclock)
+  process (cpuclock)
   begin
-    if rising_edge(cart_dotclock) or falling_edge(cart_dotclock) then
+    if rising_edge(cpuclock) then
       -- Map in a pretend C64 cartridge at $8000-$9FFF
       if bus_io1='0' then
         bus_d_drive
