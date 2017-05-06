@@ -112,7 +112,11 @@ begin
                          or (bus_romh='0') or (bus_io2='0')) then
         -- Expansion port latches values on clock edges.
         -- Therefore we cannot provide the data too fast
-        cart_d <= bus_d_drive;
+        if cart_data_dir = '0' then
+          cart_d <= bus_d_drive;
+        else
+          cart_d <= (others => 'Z');
+        end if;
         report "Driving cartridge port data bus with $" & to_hstring(bus_d_drive);
       else
         report "Tristating cartridge port data bus rw=" & std_logic'image(bus_rw);
