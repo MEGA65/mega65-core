@@ -1629,8 +1629,8 @@ begin
         elsif register_number=82 then
           fastio_rdata <= std_logic_vector(ycounter_drive(7 downto 0));
         elsif register_number=83 then
-          fastio_rdata(7 downto 3) <= "00000";
-          fastio_rdata(2 downto 0) <= std_logic_vector(ycounter_drive(10 downto 8));
+          fastio_rdata(7 downto 4) <= "0000";
+          fastio_rdata(3 downto 0) <= std_logic_vector(ycounter_drive(11 downto 8));
         elsif register_number=84 then
                                         -- $D054 (53332) - New mode control register
           fastio_rdata(7) <= compositer_enable;
@@ -2621,7 +2621,8 @@ begin
           if (vicii_is_raster_source='0') and (ycounter = vicii_raster_compare) then
             irq_raster <= '1';
           end if;
-        else
+        end if;
+        if ycounter = to_integer(frame_height) then
           -- Start of next frame
           ycounter <= (others =>'0');
           chargen_y_sub <= (others => '0');
