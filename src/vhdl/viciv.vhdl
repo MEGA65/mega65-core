@@ -412,6 +412,16 @@ architecture Behavioral of viciv is
   signal vicii_ycounter_scale_minus_two : unsigned(2 downto 0) := "0"&to_unsigned(4-2,2);
   signal xcounter_delay : unsigned(11 downto 0) := to_unsigned(1842,12);
 
+  -- Step through VIC-II raster numbers quickly during the vertical fly-back
+  -- time, so that any raster interrupts based on them will trigger.
+  signal vertical_flyback : std_logic := '0';
+  signal vicii_first_raster : unsigned(8 downto 0) := to_unsigned(20,9);
+  signal fast_raster_counter : unsigned(5 downto 0) := to_unsigned(0,6);
+  constant ntsc_max_raster : unsigned(8 downto 0) := to_unsigned(262,9);
+  constant pal_max_raster : unsigned(8 downto 0) := to_unsigned(312,9);
+  signal vicii_max_raster : unsigned(8 downto 0) := pal_max_raster;
+  signal vicii_ntsc : std_logic := '0';
+  
   -- Calculated dynamically
   signal vsync_start : unsigned(11 downto 0);
   signal x_end_of_raster : unsigned(11 downto 0);
@@ -1690,8 +1700,8 @@ begin
         elsif register_number=110 then
           fastio_rdata <= std_logic_vector(vicii_sprite_pointer_address(23 downto 16));
         elsif register_number=111 then
-          fastio_rdata(7 downto 4) <= x"0";
-          fastio_rdata(3 downto 0) <= std_logic_vector(vicii_sprite_pointer_address(27 downto 24));
+          fastio_rdata(7) <= vicii_ntsc;
+          fastio_rdata(6 downto 0) <= std_logic_vector(vicii_first_raster);
         elsif register_number=112 then -- $D3070
           fastio_rdata <= palette_bank_fastio & palette_bank_chargen & palette_bank_sprites & palette_bank_chargen256;
         elsif register_number=113 then -- $D3071
@@ -2316,8 +2326,10 @@ begin
           -- @IO:GS $D06E VIC-IV sprite pointer address (bits 23 - 16)
           vicii_sprite_pointer_address(23 downto 16) <= unsigned(fastio_wdata);
         elsif register_number=111 then
-          -- @IO:GS $D06F VIC-IV sprite pointer address (bits 31 - 24)
-          vicii_sprite_pointer_address(27 downto 24) <= unsigned(fastio_wdata(3 downto 0));
+          -- @IO:GS $D06F.6-0 VIC-IV first VIC-II raster line
+          vicii_first_raster(6 downto 0) <= unsigned(fastio_wdata(6 downto 0));
+          -- @IO:GS $D06F.7 VIC-IV NTSC emulation mode (max raster = 262)
+          vicii_ntsc <= fastio_wdata(7);
         elsif register_number=112 then
           -- @IO:GS $D070 VIC-IV palette bank selection
           -- @IO:GS $D070.7-6 VIC-IV palette bank mapped at $D100-$D3FF
@@ -2557,21 +2569,35 @@ begin
         chargen_x_sub <= (others => '0');
         raster_buffer_read_address <= (others => '0');
         chargen_active <= '0';
-        chargen_active_soon <= '0';        
-        if ycounter /= to_integer(frame_height) then
+        chargen_active_soon <= '0';
+        if vertical_flyback = '1' then
+          -- During vertical fly-back, step through VIC-II raster lines at a
+          -- rate of 1 per 64 pixel clocks, so that all possible raster interrupts
+          -- or $D011/$D012 polling will work (C65 ROM needs this even!)
+          if fast_raster_counter = "111111" then
+            fast_raster_counter <= "000000";
+            if vicii_ycounter = vicii_first_raster then
+              -- Stop when we reach the first raster of the screen
+              null;
+            elsif vicii_ycounter /= vicii_max_raster then
+              -- Advance raster number if we are not at the end of the frame ...
+              vicii_ycounter <= vicii_ycounter + 1;
+            else
+              -- ... else at end of frame, reset to raster 0 again
+              vicii_ycounter <= (others => '0');
+            end if;
+          else
+            fast_raster_counter <= fast_raster_counter + 1;
+          end if;
+        elsif ycounter /= to_integer(frame_height) then
           ycounter <= ycounter + 1;
           if vicii_ycounter_phase = vicii_ycounter_max_phase then
             vicii_ycounter <= vicii_ycounter + 1;
             vicii_ycounter_phase <= (others => '0');
-            -- Set number of physical rasters per VIC-II raster based on region
-            -- of screen.
-            if vicii_ycounter = 50 then
-              vicii_ycounter_max_phase <= vicii_ycounter_scale;
-            elsif vicii_ycounter = 250 then
-              vicii_ycounter_max_phase <= to_unsigned(0,3);
-            elsif vicii_ycounter = 312 then
-              vicii_ycounter_max_phase <= to_unsigned(1,3);
-            end if;
+            -- All visible rasters are now equal height
+            -- (we take up the slack using vertical_flyback fast raster stepping,
+            -- and allow arbitrary setting of first raster of the VGA frame).
+            vicii_ycounter_max_phase <= vicii_ycounter_scale;
           else
             -- In the middle of a VIC-II logical raster, so just increase phase.
             vicii_ycounter_phase <= vicii_ycounter_phase + 1;
@@ -2598,7 +2624,9 @@ begin
           first_card_of_row <= (others => '0');
 
           -- In top border VIC-II rasters are 2 physical rasters high
-          vicii_ycounter <= (others =>'0');
+          -- vicii_ycounter now gets reset during fast raster stepping in
+          -- vertical_flyback.
+          -- vicii_ycounter <= (others =>'0');
           vicii_ycounter_phase <= (others => '0');
           vicii_ycounter_max_phase <= to_unsigned(1,3);  -- 0 -- 1 = 2 values         
           new_frame <= '1';
@@ -2668,6 +2696,7 @@ begin
       if (displayy=display_height) then
         indisplay := '0';
         report "clearing indisplay because of vertical porch";
+        vertical_flyback <= '1';
       end if;
 
       -- Stop drawing characters when we reach the end of the prepared data
@@ -2769,6 +2798,7 @@ begin
         displaycolumn0 <= '1';
         if vert_in_frame='0' then
           displayy <= (others => '0');
+          vertical_flyback <= '0';
           displayline0 <= '1';
           indisplay := '0';
           report "clearing indisplay because xcounter=0" severity note;
