@@ -1,6 +1,7 @@
 C64 $0000000 6510/45GS10 CPU port DDR
 C64 $0000001 6510/45GS10 CPU port data
-GS $8000000 - $FEFFFFF Slow RAM (127MB)
+GS $4000000 - $7FFFFFF Slow Device memory (64MB)
+GS $8000000 - $FEFFFFF Slow Device memory (127MB)
 C64 $D000 VIC-II sprite 0 horizontal position
 C64 $D001 VIC-II sprite 1 horizontal position
 C64 $D002 VIC-II sprite 2 horizontal position
@@ -170,7 +171,8 @@ GS $D06B VIC-IV character set precise base address (bits 31 - 24)
 GS $D06C VIC-IV sprite pointer address (bits 7 - 0)
 GS $D06D VIC-IV sprite pointer address (bits 15 - 8)
 GS $D06E VIC-IV sprite pointer address (bits 23 - 16)
-GS $D06F VIC-IV sprite pointer address (bits 31 - 24)
+GS $D06F.6-0 VIC-IV first VIC-II raster line
+GS $D06F.7 VIC-IV NTSC emulation mode (max raster = 262)
 GS $D070 VIC-IV palette bank selection
 GS $D070.1-0 VIC-IV bitmap/text palette bank
 GS $D070.3-2 VIC-IV sprite palette bank
@@ -273,9 +275,7 @@ GS $D655 - Hypervisor DMAGic list address bits 0-7
 GS $D656 - Hypervisor DMAGic list address bits 15-8
 GS $D657 - Hypervisor DMAGic list address bits 23-16
 GS $D658 - Hypervisor DMAGic list address bits 27-24
-GS $D659 - Hypervisor DDR RAM banking control
-GS $D659.0-2 - Select which 16MB DDR RAM bank to make visible
-GS $D659.7 - Enable DDR RAM banking
+GS $D659 - SPARE (was DDR RAM banking)
 GS $D65D - Hypervisor current virtual page number (low byte)
 GS $D65E - Hypervisor current virtual page number (mid byte)
 GS $D65F - Hypervisor current virtual page number (high byte)
@@ -297,6 +297,7 @@ GS $D66E - Hypervisor virtual memory page 3 physical page low byte
 GS $D66F - Hypervisor virtual memory page 3 physical page high byte
 GS $D670 - Hypervisor GeoRAM base address (x MB) (write-only for
 GS $D671 - Hypervisor GeoRAM address mask (applied to GeoRAM block
+GS $D672 - Protected Hardware configuration 
 GS $D67C.0-7 - (write) Hypervisor write serial output to UART monitor
 GS $D67C.6 - (read) Hypervisor internal immediate UART monitor busy flag (can write when 0)
 GS $D67C.7 - (read) Hypervisor serial output from UART monitor busy flag (can write when 0)
@@ -378,7 +379,6 @@ C64 $DE0E Set RR-NET TX packet size
 C64 $DE0F Set RR-NET TX packet size
 GS $FF7Exxx VIC-IV CHARROM write area
 GS $FFBF000 - $FFBFFFF - DEBUG allow writing directly to the bitplane data buffer.  Will be removed in production.
-GS $FFC00A0 45GS10 slowram wait-states (write-only)
 GS $FFDE800 - $FFDEFFF Ethernet RX buffer (read only)
 GS $FFDE800 - $FFDEFFF Ethernet TX buffer (write only)
 GS $FFF0000-$FFF0FFF - CPU far call stack (512x8 byte entries)

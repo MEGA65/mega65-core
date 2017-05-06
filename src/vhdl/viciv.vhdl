@@ -409,7 +409,7 @@ architecture Behavioral of viciv is
   signal display_width : unsigned(11 downto 0) := to_unsigned(1920,12);
   signal frame_height : unsigned(11 downto 0) := to_unsigned(1072,12); 
   signal display_height : unsigned(11 downto 0) := to_unsigned(1056,12);
-  signal vicii_ycounter_scale_minus_two : unsigned(2 downto 0) := "0"&to_unsigned(4-2,2);
+  signal vicii_ycounter_scale_minus_two : unsigned(2 downto 0) := "0"&to_unsigned(5-2,2);
   signal xcounter_delay : unsigned(11 downto 0) := to_unsigned(1842,12);
 
   -- Step through VIC-II raster numbers quickly during the vertical fly-back
@@ -652,7 +652,8 @@ architecture Behavioral of viciv is
   signal border_x_left : unsigned(11 downto 0) := to_unsigned(0,12);
   signal border_x_right : unsigned(11 downto 0) := to_unsigned(1920-160,12);
   signal border_y_top : unsigned(11 downto 0) := to_unsigned(0,12);
-  signal border_y_bottom : unsigned(11 downto 0) := to_unsigned(1200-101,12);
+--  signal border_y_bottom : unsigned(11 downto 0) := to_unsigned(1200-101,12);
+  signal border_y_bottom : unsigned(11 downto 0) := x"384";
   signal blank : std_logic := '0';
   -- intermediate calculations for whether we are in the border to improve timing.
   signal upper_border : std_logic := '1';
@@ -1701,7 +1702,7 @@ begin
           fastio_rdata <= std_logic_vector(vicii_sprite_pointer_address(23 downto 16));
         elsif register_number=111 then
           fastio_rdata(7) <= vicii_ntsc;
-          fastio_rdata(6 downto 0) <= std_logic_vector(vicii_first_raster);
+          fastio_rdata(6 downto 0) <= std_logic_vector(vicii_first_raster(6 downto 0));
         elsif register_number=112 then -- $D3070
           fastio_rdata <= palette_bank_fastio & palette_bank_chargen & palette_bank_sprites & palette_bank_chargen256;
         elsif register_number=113 then -- $D3071
