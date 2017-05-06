@@ -8,6 +8,8 @@ use work.debugtools.all;
 
 ENTITY fake_expansion_port IS
   PORT (
+    cpuclock : in std_logic;
+    
     cart_ctrl_dir : in std_logic;
     cart_haddr_dir : in std_logic;
     cart_laddr_dir : in std_logic;
@@ -65,25 +67,29 @@ architecture behavioural of fake_expansion_port is
   signal bus_a : unsigned(15 downto 0) := (others => 'Z');
   signal bus_d : unsigned(7 downto 0) := (others => 'Z');
   signal bus_d_drive : unsigned(7 downto 0) := (others => 'Z');
+
+  signal last_phi2 : std_logic := '1';
+  signal last_dot8 : std_logic := '1';
 begin
 
   -- Generate bus signals
-  process (cart_dotclock)
+  process (cpuclock)
   begin
-    -- XXX We shouldn't need to clock gate this, but have it behave simply as
-    -- combinatorial logic.  But GHDL gets in an infinite loop here if we don't.
-    if rising_edge(cart_phi2) or falling_edge(cart_phi2) then
-      if bus_rw='0' then
-        -- Write to something
-        if (bus_io2='0') and (bus_rw='0') then
-          report "Writing $" & to_hstring(bus_d) & " to tiny RAM @ $"
-            & to_hstring(bus_a(3 downto 0));
-          tiny_ram(to_integer(bus_a(3 downto 0))) <= bus_d;
+
+    if rising_edge(cpuclock) then
+      -- XXX We shouldn't need to clock gate this, but have it behave simply as
+      -- combinatorial logic.  But GHDL gets in an infinite loop here if we don't.
+      if last_phi2 /= cart_phi2 then
+        last_phi2 <= cart_phi2;
+        if bus_rw='0' then
+          -- Write to something
+          if (bus_io2='0') and (bus_rw='0') then
+            report "Writing $" & to_hstring(bus_d) & " to tiny RAM @ $"
+              & to_hstring(bus_a(3 downto 0));
+            tiny_ram(to_integer(bus_a(3 downto 0))) <= bus_d;
+          end if;
         end if;
       end if;
-    end if;
-    if rising_edge(cart_dotclock) or falling_edge(cart_dotclock) then
-      report "Saw dotclock toggle";
 
       report "Reading control signals from cartridge pins, rw="
         & std_logic'image(cart_rw)

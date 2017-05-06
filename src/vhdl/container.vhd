@@ -280,6 +280,7 @@ begin
 
   fake_expansion_port0: entity work.fake_expansion_port
     port map (
+      cpuclock => cpuclock,
       ----------------------------------------------------------------------
       -- Expansion/cartridge port
       ----------------------------------------------------------------------
