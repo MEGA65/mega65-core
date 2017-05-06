@@ -172,7 +172,7 @@ begin
       end if;
       
       --End of Frame, reset counters	
-      if ycounter_in = b"10010110000" then 
+      if ycounter_in = 0 then 
         if doneEndOfFrame='0' then
           mm_displayMode <= mm_displayMode_in; --Only change display mode at end of frame		
           doneEndOfFrame<='1';		
@@ -300,7 +300,7 @@ begin
 
 
 --Calc garbage_end
-      if ycounter_in = b"10010110100" then 
+      if ycounter_in = 0 then 
         if doneEndOfFrame1='0' then
           garbage_end<= startx + garbage_end_offset;
         end if;
