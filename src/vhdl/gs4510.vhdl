@@ -1443,9 +1443,7 @@ begin
       end if;
       if reg_map_high(1)='0' then
         if ((blocknum=10) or (blocknum=11))
-          and ((lhc(1)='1')
-               or ((exrom='1') and (game='0'))
-               )
+          and ((exrom='0') and (game='0'))            
         then
           -- ULTIMAX mode or cartridge external ROM
           temp_address(27 downto 16) := x"7FF";          
