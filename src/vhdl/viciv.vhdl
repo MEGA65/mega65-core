@@ -1311,10 +1311,12 @@ begin
         -- set vertical borders based on twentyfourlines
         if twentyfourlines='0' then
           border_y_top <= to_unsigned(100,12);
-          border_y_bottom <= to_unsigned(1200-101,12);
+--          border_y_bottom <= to_unsigned(1200-101,12);
+          border_y_bottom <= x"384";
         else  
           border_y_top <= to_unsigned(100+(4*5),12);
-          border_y_bottom <= to_unsigned(1200-101-(4*5),12);
+--          border_y_bottom <= to_unsigned(1200-101-(4*5),12);
+          border_y_bottom <= x"370";
         end if;
         -- set y_chargen_start based on twentyfourlines
         y_chargen_start <= to_unsigned((100-3*5)+to_integer(vicii_y_smoothscroll)*5,12);
