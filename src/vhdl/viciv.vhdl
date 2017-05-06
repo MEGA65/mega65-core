@@ -1456,7 +1456,7 @@ begin
         elsif register_number=19 then          -- $D013 lightpen X (coarse rasterX)
           fastio_rdata <= std_logic_vector(displayx_drive(11 downto 4));
         elsif register_number=20 then          -- $D014 lightpen Y (coarse rasterY)
-          fastio_rdata <= std_logic_vector(displayy(11 downto 4));
+          fastio_rdata <= std_logic_vector(displayy(10 downto 3));
         elsif register_number=21 then          -- $D015 compatibility sprite enable
           fastio_rdata <= vicii_sprite_enables;
         elsif register_number=22 then          -- $D016
@@ -1704,7 +1704,9 @@ begin
           fastio_rdata <= std_logic_vector(vicii_sprite_pointer_address(23 downto 16));
         elsif register_number=111 then
           fastio_rdata(7) <= vicii_ntsc;
-          fastio_rdata(6 downto 0) <= std_logic_vector(vicii_first_raster(6 downto 0));
+          fastio_rdata(6 downto 1) <= std_logic_vector(vicii_first_raster(6 downto 1));
+          -- @IO:GS $D06F.0 VIC-IV (when read) vertical fly-back indicator DEBUG, WILL BE REMOVED
+          fastio_rdata(0) <= vertical_flyback;
         elsif register_number=112 then -- $D3070
           fastio_rdata <= palette_bank_fastio & palette_bank_chargen & palette_bank_sprites & palette_bank_chargen256;
         elsif register_number=113 then -- $D3071
@@ -2696,12 +2698,31 @@ begin
         indisplay := '0';
         report "clearing indisplay because of horizontal porch" severity note;
       end if;
-      if (displayy=display_height) then
+
+      -- Calculate vertical flyback and related signals
+      vsync_start <= frame_v_front+display_height;
+      if ycounter=0 then
+        vsync_drive <= '1' xor vsync_polarity;
+      elsif ycounter=frame_v_front then
+        vert_in_frame <= '1';
+      elsif ycounter=vsync_start then
+        -- Start of vertical flyback
         indisplay := '0';
         report "clearing indisplay because of vertical porch";
-        vertical_flyback <= '1';
-      end if;
+        vertical_flyback <= '1';        
 
+        vsync_drive <= '0' xor vsync_polarity;
+        vert_in_frame <= '0';
+        -- Send a 1 cycle pulse at the end of each frame for
+        -- streaming display module to synchronise on.
+        if vert_in_frame = '1' then
+          pixel_newframe <= '1';
+        else
+          pixel_newframe <= '0';
+        end if;
+      end if;
+      vsync <= vsync_drive;
+      
       -- Stop drawing characters when we reach the end of the prepared data
       if raster_buffer_write_address = "111111111111" then
         chargen_active <= '0';
@@ -2772,34 +2793,14 @@ begin
       if displayy=y_chargen_start then
         chargen_y <= (others => '0');
         chargen_y_sub <= (others => '0');
-      end if;
-
-      if ycounter=frame_v_front then
-        vert_in_frame <= '1';
-      end if;
-      vsync_start <= frame_v_front+display_height;
-      if ycounter=vsync_start then
-        vsync_drive <= '0' xor vsync_polarity;
-        vert_in_frame <= '0';
-        -- Send a 1 cycle pulse at the end of each frame for
-        -- streaming display module to synchronise on.
-        if vert_in_frame = '1' then
-          pixel_newframe <= '1';
-        else
-          pixel_newframe <= '0';
-        end if;
-      end if;
-      if ycounter=0 then
-        vsync_drive <= '1' xor vsync_polarity;
-      end if;
-      vsync <= vsync_drive;
+      end if;      
 
       if displayx(5)='1' and displayx(4)='1' then
         displaycolumn0 <= '0';
       end if;
       if xcounter = 0 then
         displaycolumn0 <= '1';
-        if vert_in_frame='0' then
+        if ycounter = to_integer(frame_height) then
           displayy <= (others => '0');
           vertical_flyback <= '0';
           displayline0 <= '1';
