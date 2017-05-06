@@ -315,7 +315,7 @@ begin
       pixelclock => pixelclock,
       reset => reset_out,
       cpu_exrom => cpu_exrom,
-      cpu_game => '1',
+      cpu_game => cpu_game,
       
       qspidb => qspidb,
       qspicsn => qspicsn,      
@@ -473,8 +473,11 @@ begin
       slow_access_write => slow_access_write,
       slow_access_wdata => slow_access_wdata,
       slow_access_rdata => slow_access_rdata,
-      cpu_exrom => sw(8),  -- enable/disable cartridge with sw(8)
-      cpu_game => cpu_game,      
+--      cpu_exrom => cpu_exrom,      
+--      cpu_game => cpu_game,      
+      -- enable/disable cartridge with sw(8)
+      cpu_exrom => sw(8),
+      cpu_game => '1',      
 
       fpga_temperature => fpga_temperature,
       
