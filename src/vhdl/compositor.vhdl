@@ -408,7 +408,7 @@ if xcounter_in >=startx and xcounter_in <= endx  and ycounter_in >= starty and y
         end if; 	
    else 
 	--If its out of visible area, display background
-      if ycounter_in>endy then
+      if ycounter_in=0 then
         lineCounter<=(others=>'0'); 
         charline<=(others=>'0'); 
         charCount<=topOfFrame;
@@ -416,15 +416,15 @@ if xcounter_in >=startx and xcounter_in <= endx  and ycounter_in >= starty and y
         eightCounter<=(others=>'0');	
       end if;
 		
-	   if mm_displayMode=b"10" then
-	     redOutput_all <= b"00"&vgared_in(7 downto 2);--'0'&vgared_in(2 downto 0);--b"00"&vgared_in(1 downto 0);
-		  greenOutput_all <= b"00"&vgagreen_in(7 downto 2);--'0'&vgagreen_in(2 downto 0);--b"00"&vgagreen_in(1 downto 0);
-		  blueOutput_all <= b"00"&vgablue_in(7 downto 2);--'0'&vgablue_in(2 downto 0);--b"00"&vgablue_in(1 downto 0);
-	   else 
-     	  redOutput_all <= vgared_in;
-		  greenOutput_all <= vgagreen_in;
-		  blueOutput_all <= vgablue_in;
-	   end if;		
+      if mm_displayMode=b"10" then
+        redOutput_all <= b"00"&vgared_in(7 downto 2);--'0'&vgared_in(2 downto 0);--b"00"&vgared_in(1 downto 0);
+        greenOutput_all <= b"00"&vgagreen_in(7 downto 2);--'0'&vgagreen_in(2 downto 0);--b"00"&vgagreen_in(1 downto 0);
+        blueOutput_all <= b"00"&vgablue_in(7 downto 2);--'0'&vgablue_in(2 downto 0);--b"00"&vgablue_in(1 downto 0);
+      else 
+        redOutput_all <= vgared_in;
+        greenOutput_all <= vgagreen_in;
+        blueOutput_all <= vgablue_in;
+      end if;		
   end if;  
   
 end if; --end if for rising edge
