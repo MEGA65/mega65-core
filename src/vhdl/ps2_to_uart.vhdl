@@ -226,9 +226,16 @@ end if;
 	 firstPress<='0';
   end if;	 
   
-  --If a key is lefted, no longer an alt-code (keys need to be down at same time)
+  -- If a key is lifted, no longer an alt-code (keys need to be down at same time)
+  -- EXCEPT if the lifted key is 1,2,3 or TAB, so that we can use the various functions
+  -- without having to release and re-press TAB.
   if scan_code(12)='1' then
-  	 altcode<='0';
+    if (scan_code(7 downto 0) /= x"0D")
+      and (scan_code(7 downto 0) /= x"16")
+      and (scan_code(7 downto 0) /= x"1E")
+      and (scan_code(7 downto 0) /= x"26") then
+      altcode <= '0';
+    end if;
   end if;	 
   
   if shift_ack = '1' then
@@ -241,9 +248,17 @@ end if;
   --if inputKey='1' and state/=Output and state/=KeyPress then
   if inputKey='1' then
     inputKey<='0'; --Disable input character.
+    -- Remember ALT status 
+    if scan_code(7 downto 0) /= x"11" then
+      if (scan_code(7 downto 0) /= x"16")
+        and (scan_code(7 downto 0) /= x"1E")
+        and (scan_code(7 downto 0) /= x"26") then
+        altcode <= '0';
+      end if;
+    else
+      altcode <= '1';
+    end if;
     case scan_code(7 downto 0) is	     	 
-		  when x"11" =>
-        altcode<='1';		  
 		  --up / numpad 8 --Don't bother checking for extended code, as numpad isn't implemented
 		  when x"75" =>
           display_shift<=b"001";
