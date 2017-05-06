@@ -142,39 +142,39 @@ vgablue_out  <= vgablue_in  when matrix_mode_enable='0' else blueOutput_all;
 ram_test : process(pixelclock)
 begin
 
- if rising_edge(pixelclock) then 
-  --End of line    2100
-  if xcounter_in = 2400 and  ycounter_in >= starty and ycounter_in < endy then  --124 and ycounter_in < 1084 then  --b"100000110100" and  ycounter_in >= starty and ycounter_in < endy then  --124 and ycounter_in < 1084 then  
-	 if lineCounter=mm_displayMode then	-- 0 (1 px per line), 1 (2 px per line), 2 (3px per line) 
-	   lineCounter<=b"000"; --reset counter
-       if charline = b"0111" then --on the ~7th line (0-7)
-	      charline<=b"0000"; --reset
-			 --Boundary check
-			 if lineStartAddr=CharMemEnd-79 then 
-			   lineStartAddr<=CharMemStart;
-			 else 
-			   lineStartAddr<=lineStartAddr+80;--calculate next linestart
-			 end if;          
-	   else --otherwise
-		    charline<=charline+1; --increment line
-	   end if;			
-	 else --otherwise on every line        
-	     lineCounter<=lineCounter+1; --increment 3 line counter
-	 end if;		 
- end if;
+  if rising_edge(pixelclock) then
+    -- We synchronise to start of line, as the end of line may change with
+    -- different video modes.
+    if xcounter_in = 0 and  ycounter_in >= starty and ycounter_in < endy then
+      if lineCounter=mm_displayMode then	-- 0 (1 px per line), 1 (2 px per line), 2 (3px per line) 
+        lineCounter<=b"000"; --reset counter
+        if charline = b"0111" then --on the ~7th line (0-7)
+          charline<=b"0000"; --reset
+          --Boundary check
+          if lineStartAddr=CharMemEnd-79 then 
+            lineStartAddr<=CharMemStart;
+          else 
+            lineStartAddr<=lineStartAddr+80;--calculate next linestart
+          end if;          
+        else --otherwise
+          charline<=charline+1; --increment line
+        end if;			
+      else --otherwise on every line        
+        lineCounter<=lineCounter+1; --increment 3 line counter
+      end if;		 
+    end if;
   
- --Next Tick --Fixes a weird double line issue
-                --2101
- if xcounter_in = 2401 and ycounter_in < endy then --1084 then--b"100000110101" and ycounter_in < endy then--1084 then
-   charCount<=lineStartAddr;
-	eightCounter<=(others=>'0');
-	bufferCounter<=(others=>'0');
- end if;
+    --Next Tick --Fixes a weird double line issue
+    if xcounter_in = 1 and ycounter_in < endy then
+      charCount<=lineStartAddr;
+      eightCounter<=(others=>'0');
+      bufferCounter<=(others=>'0');
+    end if;
   
    --End of Frame, reset counters	
   if ycounter_in = b"10010110000" then 
     if doneEndOfFrame='0' then
-	   mm_displayMode <= mm_displayMode_in; --Only change display mode at end of frame		
+      mm_displayMode <= mm_displayMode_in; --Only change display mode at end of frame		
       doneEndOfFrame<='1';		
       lineCounter<=(others=>'0'); 
       charline<=(others=>'0'); 
@@ -182,66 +182,66 @@ begin
       lineStartAddr<=topOfFrame;
       eightCounter<=(others=>'0');		
 			
-		if shift_ack = '0' and shift_ready_in = '1' then
-		  case display_shift_in is
-		  when b"001" =>  --up
-		    if starty > 25 then --i.e. if its at 17, dont decrease anymore
-		      yoffset<=yoffset-8;
-			 end if;
-		  when b"010" => --right 
-		   if endx < x"7F8" then
-		    xoffset<=xoffset+8;
-			 end if; 
-		  when b"011" => --down
-		    if endy < 1200 then
-		      yoffset<=yoffset+8;
-			 end if;
-		  when b"100" => --left
-		    if garbage_end > 150 then
-		      xoffset<=xoffset-8;
-			 end if;
-		  when others =>
+      if shift_ack = '0' and shift_ready_in = '1' then
+        case display_shift_in is
+          when b"001" =>  --up
+            if starty > 25 then --i.e. if its at 17, dont decrease anymore
+              yoffset<=yoffset-8;
+            end if;
+          when b"010" => --right 
+            if endx < x"7F8" then
+              xoffset<=xoffset+8;
+            end if; 
+          when b"011" => --down
+            if endy < 1200 then
+              yoffset<=yoffset+8;
+            end if;
+          when b"100" => --left
+            if garbage_end > 150 then
+              xoffset<=xoffset-8;
+            end if;
+          when others =>
         end case;		  		  
-		  shift_ack <='1'; 
-		else
-		  shift_ack <='0'; --reset ack
-	   end if; 
-				
-		--Load display mode settings
-		--Calculates boundaries from mode constants and offset
-		--Seems inefficient, is there a better way?
-		--set a garbage offset here, to avoid doing another mux later.
-		
-		case mm_displayMode_in is		
-		  when b"00" =>
-		    end_of_char <= mode0_end_of_char; 
-			 startx <= mode0_startx+xoffset;
-			 starty <= mode0_starty+yoffset;
-			 endx <= mode0_endx+xoffset;
-			 endy <= mode0_endy+yoffset;
-			 garbage_end_offset <= mode0_garbage_end_offset;
-		  when b"01" =>
-		    end_of_char <= mode1_end_of_char; 
-			 startx <= mode1_startx+xoffset;
-			 starty <= mode1_starty+yoffset;
-			 endx <= mode1_endx+xoffset;
-			 endy <= mode1_endy+yoffset;
-			 garbage_end_offset <= mode1_garbage_end_offset;
-		  when b"10" =>
-		    end_of_char <= mode2_end_of_char; 
-			 startx <= mode2_startx;
-			 starty <= mode2_starty;
-			 endx <= mode2_endx;
-			 endy <= mode2_endy;
-			 garbage_end_offset <= mode2_garbage_end_offset;
-		  when others => 
+        shift_ack <='1'; 
+      else
+        shift_ack <='0'; --reset ack
+      end if; 
+      
+      --Load display mode settings
+      --Calculates boundaries from mode constants and offset
+      --Seems inefficient, is there a better way?
+      --set a garbage offset here, to avoid doing another mux later.
+      
+      case mm_displayMode_in is		
+        when b"00" =>
+          end_of_char <= mode0_end_of_char; 
+          startx <= mode0_startx+xoffset;
+          starty <= mode0_starty+yoffset;
+          endx <= mode0_endx+xoffset;
+          endy <= mode0_endy+yoffset;
+          garbage_end_offset <= mode0_garbage_end_offset;
+        when b"01" =>
+          end_of_char <= mode1_end_of_char; 
+          startx <= mode1_startx+xoffset;
+          starty <= mode1_starty+yoffset;
+          endx <= mode1_endx+xoffset;
+          endy <= mode1_endy+yoffset;
+          garbage_end_offset <= mode1_garbage_end_offset;
+        when b"10" =>
           end_of_char <= mode2_end_of_char; 
-			 startx <= mode2_startx;
-			 starty <= mode2_starty;
-			 endx <= mode2_endx;
-			 endy <= mode2_endy;
-			 garbage_end_offset <= mode2_garbage_end_offset;
-		end case;		
+          startx <= mode2_startx;
+          starty <= mode2_starty;
+          endx <= mode2_endx;
+          endy <= mode2_endy;
+          garbage_end_offset <= mode2_garbage_end_offset;
+        when others => 
+          end_of_char <= mode2_end_of_char; 
+          startx <= mode2_startx;
+          starty <= mode2_starty;
+          endx <= mode2_endx;
+          endy <= mode2_endy;
+          garbage_end_offset <= mode2_garbage_end_offset;
+      end case;		
     end if;
   end if;
 

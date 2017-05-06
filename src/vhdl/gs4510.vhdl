@@ -3477,14 +3477,15 @@ begin
               elsif (hyper_trap_pending = '1' and hypervisor_mode='0') then
                 -- Trap to hypervisor
                 hyper_trap_pending <= '0';					 
-                state <= TrapToHypervisor;
-                -- Trap #66 ($42) = RESTORE key double-tap
-					 if matrix_trap_pending = '1' then
-					   hypervisor_trap_port <= "1000011";                     
-						matrix_trap_pending <= '0';
-					 else
+                state <= TrapToHypervisor;                
+                if matrix_trap_pending = '1' then
+                  -- Trap #67 ($43) = ALT-TAB key press (toggles matrix mode)
+                  hypervisor_trap_port <= "1000011";                     
+                  matrix_trap_pending <= '0';
+                else
+                  -- Trap #66 ($42) = RESTORE key double-tap
                   hypervisor_trap_port <= "1000010";                     
-					 end if;	
+                end if;	
               else
                 -- Normal instruction execution
                 state <= InstructionDecode;
