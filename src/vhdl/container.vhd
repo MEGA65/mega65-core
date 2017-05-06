@@ -296,13 +296,13 @@ begin
       cart_irq => cart_irq,
       cart_dma => cart_dma,
       
-      cart_exrom => cpu_exrom,
+--      cart_exrom => cpu_exrom,
       cart_ba => cart_ba,
       cart_rw => cart_rw,
       cart_roml => cart_roml,
       cart_romh => cart_romh,
       cart_io1 => cart_io1,
-      cart_game => cart_game,
+--      cart_game => cart_game,
       cart_io2 => cart_io2,
       
       cart_d => cart_d,
