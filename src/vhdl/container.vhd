@@ -295,7 +295,7 @@ begin
       cart_irq => cart_irq,
       cart_dma => cart_dma,
       
-      cart_exrom => cart_exrom,
+      cpu_exrom => cpu_exrom,
       cart_ba => cart_ba,
       cart_rw => cart_rw,
       cart_roml => cart_roml,
@@ -313,7 +313,7 @@ begin
       cpuclock => cpuclock,
       pixelclock => pixelclock,
       reset => reset_out,
-      cpu_exrom => sw(8),    -- SW controls CAPS LOCK & fake cartridge enable
+      cpu_exrom => cpu_exrom,
       cpu_game => '1',
       
       qspidb => qspidb,
@@ -472,7 +472,7 @@ begin
       slow_access_write => slow_access_write,
       slow_access_wdata => slow_access_wdata,
       slow_access_rdata => slow_access_rdata,
-      cpu_exrom => cpu_exrom,
+      cpu_exrom => sw(8),  -- enable/disable cartridge with sw(8)
       cpu_game => cpu_game,      
 
       fpga_temperature => fpga_temperature,
