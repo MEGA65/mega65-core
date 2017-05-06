@@ -3,7 +3,7 @@ use IEEE.STD_LOGIC_1164.ALL;
 use ieee.numeric_std.all;
 use work.debugtools.all;
 
-entity compositor is
+entity matrix_compositor is
   Port (
     display_shift_in : in std_logic_vector(2 downto 0);
     shift_ready_in : in std_logic;
@@ -22,9 +22,9 @@ entity compositor is
     vgagreen_out : out  unsigned (7 downto 0);
     vgablue_out : out  unsigned (7 downto 0)
     );
-end compositor;
+end matrix_compositor;
 
-architecture Behavioral of compositor is
+architecture Behavioral of matrix_compositor is
 
 --Location of start of character memory
   constant CharMemStart : unsigned(11 downto 0):=x"302";
@@ -324,9 +324,9 @@ begin
         --Green Outline on modes 0 and 1 Only			
         if xcounter_in>=garbage_end then
           if mm_displayMode/=b"10" and (xcounter_in = garbage_end or xcounter_in = endx or ycounter_in = starty or ycounter_in = endy) then			 
-            redOutput_all <= b"00"&vgared_in(7 downto 2);--'0'&vgared_in(2 downto 0);--b"00"&vgared_in(1 downto 0);
+            redOutput_all <= b"00"&vgared_in(7 downto 2);
             greenOutput_all <= b"111"&vgagreen_in(4 downto 0);
-            blueOutput_all <= b"00"&vgablue_in(7 downto 2);--'0'&vgablue_in(2 downto 0);--b"00"&vgablue_in(1 downto 0);				
+            blueOutput_all <= b"00"&vgablue_in(7 downto 2);
           else			 
             --Shift background down 3, instead of 2 when displaying text. 
             --Less variation in text colour when there's high frequency in the background
@@ -336,17 +336,17 @@ begin
               greenOutput_all <= data_buffer(7)&data_buffer(7)&data_buffer(7)&vgagreen_in(4 downto 0);
               blueOutput_all <=  b"00"&vgablue_in(7 downto 2);			 			      			 
             else
-              redOutput_all <= b"00"&vgared_in(7 downto 2);--'0'&vgared_in(2 downto 0);--b"00"&vgared_in(1 downto 0);
-              greenOutput_all <= data_buffer(7)&data_buffer(7) &vgagreen_in(5 downto 0);--data_buffer(7)&vgagreen_in(2 downto 0);--data_buffer(7)&data_buffer(7) &vgagreen_in(1 downto 0);
-              blueOutput_all <= b"00"&vgablue_in(7 downto 2);--'0'&vgablue_in(2 downto 0);--b"00"&vgablue_in(1 downto 0);			 			      			 
+              redOutput_all <= b"00"&vgared_in(7 downto 2);
+              greenOutput_all <= data_buffer(7)&data_buffer(7) &vgagreen_in(5 downto 0);
+              blueOutput_all <= b"00"&vgablue_in(7 downto 2);			      			 
             end if;
           end if;
           
         else  --If its in garbage display background. 
           if mm_displayMode=b"10" then
-            redOutput_all <= b"00"&vgared_in(7 downto 2);--'0'&vgared_in(2 downto 0);--b"00"&vgared_in(1 downto 0);
-            greenOutput_all <= b"00"&vgagreen_in(7 downto 2);--'0'&vgagreen_in(2 downto 0);--b"00"&vgagreen_in(1 downto 0);
-            blueOutput_all <= b"00"&vgablue_in(7 downto 2);--'0'&vgablue_in(2 downto 0);--b"00"&vgablue_in(1 downto 0);
+            redOutput_all <= b"00"&vgared_in(7 downto 2);
+            greenOutput_all <= b"00"&vgagreen_in(7 downto 2);
+            blueOutput_all <= b"00"&vgablue_in(7 downto 2);
           else 
             redOutput_all <= vgared_in;
             greenOutput_all <= vgagreen_in;
@@ -417,9 +417,9 @@ begin
         end if;
         
         if mm_displayMode=b"10" then
-          redOutput_all <= b"00"&vgared_in(7 downto 2);--'0'&vgared_in(2 downto 0);--b"00"&vgared_in(1 downto 0);
-          greenOutput_all <= b"00"&vgagreen_in(7 downto 2);--'0'&vgagreen_in(2 downto 0);--b"00"&vgagreen_in(1 downto 0);
-          blueOutput_all <= b"00"&vgablue_in(7 downto 2);--'0'&vgablue_in(2 downto 0);--b"00"&vgablue_in(1 downto 0);
+          redOutput_all <= b"00"&vgared_in(7 downto 2);
+          greenOutput_all <= b"00"&vgagreen_in(7 downto 2);
+          blueOutput_all <= b"00"&vgablue_in(7 downto 2);
         else 
           redOutput_all <= vgared_in;
           greenOutput_all <= vgagreen_in;

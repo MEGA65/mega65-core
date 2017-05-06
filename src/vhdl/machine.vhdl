@@ -843,7 +843,7 @@ begin
     tx_ps2 => tx_ps2
     ); 
 
-  compositor0 : entity work.compositor port map(
+  matrix_compositor0 : entity work.matrix_compositor port map(
     display_shift_in=>display_shift,
 	 shift_ready_in => shift_ready,
 	 shift_ack_out => shift_ack,
