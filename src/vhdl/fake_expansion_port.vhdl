@@ -32,7 +32,8 @@ ENTITY fake_expansion_port IS
     cart_game : inout std_logic := 'Z';
     cart_io2 : inout std_logic := 'Z';
     
-    cart_d : inout unsigned(7 downto 0) := (others => 'Z');
+    cart_d : in unsigned(7 downto 0) := (others => 'Z');
+    cart_d_read : out unsigned(7 downto 0) := (others => 'Z');
     cart_a : inout unsigned(15 downto 0) := (others => 'Z')
 );
 end fake_expansion_port;
@@ -113,14 +114,14 @@ begin
         -- Expansion port latches values on clock edges.
         -- Therefore we cannot provide the data too fast
         if cart_data_dir = '0' then
-          cart_d <= bus_d_drive;
+          cart_d_read <= bus_d_drive;
         else
-          cart_d <= (others => 'Z');
+          cart_d_read <= (others => 'Z');
         end if;
         report "Driving cartridge port data bus with $" & to_hstring(bus_d_drive);
       else
         report "Tristating cartridge port data bus rw=" & std_logic'image(bus_rw);
-        cart_d <= (others => 'Z');
+        cart_d_read <= (others => 'Z');
       end if;
     end if;
   end process;

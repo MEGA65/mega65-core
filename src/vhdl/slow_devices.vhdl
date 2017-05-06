@@ -71,7 +71,8 @@ ENTITY slow_devices IS
     cart_game : inout std_logic := 'Z';
     cart_io2 : inout std_logic := 'Z';
     
-    cart_d : inout unsigned(7 downto 0);
+    cart_d_in : in unsigned(7 downto 0);
+    cart_d : out unsigned(7 downto 0);
     cart_a : inout unsigned(15 downto 0)
     );
 end slow_devices;
@@ -138,6 +139,7 @@ begin
     cart_io2 => cart_io2,
     
     cart_d => cart_d,
+    cart_d_in => cart_d_in,
     cart_a => cart_a
     );
 

@@ -235,6 +235,7 @@ architecture Behavioral of container is
   signal cart_io2 : std_logic := 'Z';
 
   signal cart_d : unsigned(7 downto 0) := (others => 'Z');
+  signal cart_d_read : unsigned(7 downto 0) := (others => 'Z');
   signal cart_a : unsigned(15 downto 0) := (others => 'Z');
          
   ----------------------------------------------------------------------
@@ -306,6 +307,7 @@ begin
       cart_io2 => cart_io2,
       
       cart_d => cart_d,
+      cart_d_read => cart_d_read,
       cart_a => cart_a
       );
   
@@ -352,6 +354,7 @@ begin
       cart_game => cart_game,
       cart_io2 => cart_io2,
       
+      cart_d_in => cart_d_read,
       cart_d => cart_d,
       cart_a => cart_a
       );

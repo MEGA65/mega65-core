@@ -72,7 +72,8 @@ ENTITY expansion_port_controller IS
     cart_game : inout std_logic := 'Z';
     cart_io2 : inout std_logic := 'Z';
     
-    cart_d : inout unsigned(7 downto 0);
+    cart_d_in : in unsigned(7 downto 0);
+    cart_d : out unsigned(7 downto 0);
     cart_a : inout unsigned(15 downto 0)
 );
 end expansion_port_controller;
@@ -147,11 +148,11 @@ begin
 
           -- Record data from bus if we are waiting on it
           if read_in_progress='1' then
-            cart_access_rdata <= unsigned(cart_d);
+            cart_access_rdata <= cart_d_in;
             cart_access_read_strobe <= '1';
             cart_access_read_toggle <= not cart_access_read_toggle_internal;
             cart_access_read_toggle_internal <= not cart_access_read_toggle_internal;
-            report "Read data from expansion port data pins = $" & to_hstring(cart_d);
+            report "Read data from expansion port data pins = $" & to_hstring(cart_d_in);
           else
             cart_access_read_strobe <= '0';
           end if;         
