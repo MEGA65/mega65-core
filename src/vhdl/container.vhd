@@ -295,7 +295,7 @@ begin
       cart_irq => cart_irq,
       cart_dma => cart_dma,
       
-      cpu_exrom => cpu_exrom,
+      cart_exrom => cpu_exrom,
       cart_ba => cart_ba,
       cart_rw => cart_rw,
       cart_roml => cart_roml,
