@@ -278,13 +278,43 @@ begin
       clk => cpuclock,
       temp => fpga_temperature);
 
+  fake_expansion_port0: entity work.fake_expansion_port
+    port map (
+      ----------------------------------------------------------------------
+      -- Expansion/cartridge port
+      ----------------------------------------------------------------------
+      cart_ctrl_dir => cart_ctrl_dir,
+      cart_haddr_dir => cart_haddr_dir,
+      cart_laddr_dir => cart_laddr_dir,
+      cart_data_dir => cart_data_dir,
+      cart_phi2 => cart_phi2,
+      cart_dotclock => cart_dotclock,
+      cart_reset => cart_reset,
+      
+      cart_nmi => cart_nmi,
+      cart_irq => cart_irq,
+      cart_dma => cart_dma,
+      
+      cart_exrom => cart_exrom,
+      cart_ba => cart_ba,
+      cart_rw => cart_rw,
+      cart_roml => cart_roml,
+      cart_romh => cart_romh,
+      cart_io1 => cart_io1,
+      cart_game => cart_game,
+      cart_io2 => cart_io2,
+      
+      cart_d => cart_d,
+      cart_a => cart_a
+      );
+  
     slow_devices0: entity work.slow_devices
     port map (
       cpuclock => cpuclock,
       pixelclock => pixelclock,
       reset => reset_out,
-      cpu_exrom => cpu_exrom,
-      cpu_game => cpu_game,
+      cpu_exrom => sw(8),    -- SW controls CAPS LOCK & fake cartridge enable
+      cpu_game => '1',
       
       qspidb => qspidb,
       qspicsn => qspicsn,      
