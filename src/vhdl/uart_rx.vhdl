@@ -6,7 +6,7 @@ use work.debugtools.all;
 entity uart_rx is
     Port ( clk : in  STD_LOGIC;
            UART_RX : in STD_LOGIC;
-           data : out  STD_LOGIC_VECTOR (7 downto 0);
+           data : out  unsigned(7 downto 0);
            data_ready : out std_logic;
            data_acknowledge : in std_logic
            );
@@ -79,7 +79,7 @@ begin  -- behavioural
         else
           -- This was the last bit
           report "Finished receiving byte. Value = $" & to_hstring(rx_data(8 downto 1)) severity note;
-          data <= rx_data(8 downto 1);
+          data <= unsigned(rx_data(8 downto 1));
           data_ready <= '1';
           bit_timer <= "00000001";
           rx_state <= WaitForRise;

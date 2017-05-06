@@ -2,68 +2,43 @@ library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use ieee.numeric_std.all;
 use work.debugtools.all;
-use ieee.std_logic_unsigned.all;
 
 entity compositor is
   Port (
     display_shift_in : in std_logic_vector(2 downto 0);
 	 shift_ready_in : in std_logic;
 	 shift_ack_out : out std_logic;
-  	 mm_displayMode_in : in std_logic_vector(1 downto 0);
+  	 mm_displayMode_in : in unsigned(1 downto 0);
     uart_in : in std_logic;
     xcounter_in : in unsigned(11 downto 0);
-    ycounter_in : in unsigned(10 downto 0);
+    ycounter_in : in unsigned(11 downto 0);
     clk : in std_logic; --48Mhz
     pixelclock : in std_logic; --200Mhz
     matrix_mode_enable : in  STD_LOGIC;
-    vgared_in : in  unsigned (3 downto 0);
-    vgagreen_in : in  unsigned (3 downto 0);
-    vgablue_in : in  unsigned (3 downto 0);
-    vgared_out : out  unsigned (3 downto 0);
-    vgagreen_out : out  unsigned (3 downto 0);
-    vgablue_out : out  unsigned (3 downto 0)
+    vgared_in : in  unsigned (7 downto 0);
+    vgagreen_in : in  unsigned (7 downto 0);
+    vgablue_in : in  unsigned (7 downto 0);
+    vgared_out : out  unsigned (7 downto 0);
+    vgagreen_out : out  unsigned (7 downto 0);
+    vgablue_out : out  unsigned (7 downto 0)
   );
 end compositor;
 
 architecture Behavioral of compositor is
 
-  component uart_charrom is
-    Port(
-      clkl : IN STD_LOGIC;
-      wel : IN STD_LOGIC_VECTOR(0 DOWNTO 0);
-      addrl : IN STD_LOGIC_VECTOR(11 DOWNTO 0);
-      dinl : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
-      clkr : IN STD_LOGIC;
-      addrr : IN STD_LOGIC_VECTOR(11 DOWNTO 0);
-      doutr : OUT STD_LOGIC_VECTOR(7 DOWNTO 0)
-    );
-  end component;
-  
-  component terminalemulator is
-    port (
-      clk : in  STD_LOGIC;
-      uart_clk : in std_logic;
-      uart_in : in  STD_LOGIC;
-      topofframe_out : out std_logic_vector(11 downto 0); 
-      wel_out : out STD_LOGIC_VECTOR(0 DOWNTO 0);
-      addrl_out : out STD_LOGIC_VECTOR(11 DOWNTO 0);
-      dinl_out : out STD_LOGIC_VECTOR(7 DOWNTO 0)
-    );
-  end component;
-
 --Location of start of character memory
-constant CharMemStart : std_logic_vector(11 downto 0):=x"302";
+constant CharMemStart : unsigned(11 downto 0):=x"302";
 --Location of end of character memory
-constant CharMemEnd : std_logic_vector(11 downto 0):=x"F81";
+constant CharMemEnd : unsigned(11 downto 0):=x"F81";
 
 
 --Character Map Memory Interface
 signal writeEnable : std_logic_vector(0 downto 0);
-signal writeAddress : std_logic_vector (11 downto 0);
-signal dataInWrite : std_logic_vector(7 downto 0);
-signal charAddr : std_logic_vector (7 downto 0);
-signal readAddress_rom : std_logic_vector(11 downto 0):=CharMemStart;
-signal dataOutRead_rom : std_logic_vector (7 downto 0);
+signal writeAddress : unsigned (11 downto 0);
+signal dataInWrite : unsigned(7 downto 0);
+signal charAddr : unsigned (7 downto 0);
+signal readAddress_rom : unsigned(11 downto 0):=CharMemStart;
+signal dataOutRead_rom : unsigned (7 downto 0);
 
 
 -- Frame boundaries 
@@ -104,10 +79,10 @@ signal garbage_end : unsigned(11 downto 0):=x"000"; --blank output between start
 signal garbage_end_offset : unsigned(11 downto 0):=x"000"; -- can make this smaller?
 
 --Character signals
-signal charCount : std_logic_vector(11 downto 0):=CharMemStart;
-signal charline : std_logic_vector(3 downto 0); 
-signal eightCounter : std_logic_vector(4 downto 0):=(others=>'0'); 
-signal bufferCounter : std_logic_vector(1 downto 0):=(others=>'0'); 
+signal charCount : unsigned(11 downto 0):=CharMemStart;
+signal charline : unsigned(3 downto 0); 
+signal eightCounter : unsigned(4 downto 0):=(others=>'0'); 
+signal bufferCounter : unsigned(1 downto 0):=(others=>'0'); 
 signal invert : std_logic;
 
 --Outputs
@@ -115,30 +90,30 @@ signal greenOutput : std_logic:='0';
 signal redOutput : std_logic:='0';
 signal blueOutput : std_logic:='0';
 
---4-bit Outputs
-signal greenOutput_all : unsigned(3 downto 0);
-signal redOutput_all : unsigned(3 downto 0);
-signal blueOutput_all : unsigned(3 downto 0);
+--8-bit Outputs
+signal greenOutput_all : unsigned(7 downto 0);
+signal redOutput_all : unsigned(7 downto 0);
+signal blueOutput_all : unsigned(7 downto 0);
 
-signal data_buffer : std_logic_vector(7 downto 0):=x"00"; 
-signal lineStartAddr : std_logic_vector(11 downto 0):=CharMemStart;
-signal lineCounter : std_logic_vector(2 downto 0):=b"000";
-signal topOfFrame : std_logic_vector(11 downto 0):=CharMemStart;
+signal data_buffer : unsigned(7 downto 0):=x"00"; 
+signal lineStartAddr : unsigned(11 downto 0):=CharMemStart;
+signal lineCounter : unsigned(2 downto 0):=b"000";
+signal topOfFrame : unsigned(11 downto 0):=CharMemStart;
 signal doneEndOfFrame : std_logic:='0';
 signal doneEndOfFrame1 : std_logic:='0';
 signal doneEndOfFrame2 : std_logic:='0';
 
 
 --Display Mode signals
-signal mm_displayMode : std_logic_vector(1 downto 0):=b"10";
-signal end_of_char : std_logic_vector(4 downto 0):=b"11000";
-constant mode0_end_of_char : std_logic_vector(4 downto 0):=b"01000"; --8
-constant mode1_end_of_char : std_logic_vector(4 downto 0):=b"10000"; --16
-constant mode2_end_of_char : std_logic_vector(4 downto 0):=b"11000"; --24
+signal mm_displayMode : unsigned(1 downto 0):=b"10";
+signal end_of_char : unsigned(4 downto 0):=b"11000";
+constant mode0_end_of_char : unsigned(4 downto 0):=b"01000"; --8
+constant mode1_end_of_char : unsigned(4 downto 0):=b"10000"; --16
+constant mode2_end_of_char : unsigned(4 downto 0):=b"11000"; --24
 
 begin
 
-  uart_charrom1 : uart_charrom
+  uart_charrom1 : entity work.uart_charrom
     port map(
       clkl => pixelclock,
       clkr => pixelclock,
@@ -149,7 +124,7 @@ begin
       doutr => dataOutRead_rom
     );
 
-  terminalemulator0 : terminalemulator
+  terminalemulator0 : entity work.terminalemulator
     port map(
       clk => pixelclock,
       uart_clk => clk,
@@ -349,29 +324,29 @@ if xcounter_in >=startx and xcounter_in <= endx  and ycounter_in >= starty and y
   --Green Outline on modes 0 and 1 Only			
   if xcounter_in>=garbage_end then
     if mm_displayMode/=b"10" and (xcounter_in = garbage_end or xcounter_in = endx or ycounter_in = starty or ycounter_in = endy) then			 
-      redOutput_all <= b"00"&vgared_in(1 downto 0);--'0'&vgared_in(2 downto 0);--b"00"&vgared_in(1 downto 0);
-      greenOutput_all <= b"111"&vgagreen_in(0);
-      blueOutput_all <= b"00"&vgablue_in(1 downto 0);--'0'&vgablue_in(2 downto 0);--b"00"&vgablue_in(1 downto 0);				
+      redOutput_all <= b"00"&vgared_in(7 downto 2);--'0'&vgared_in(2 downto 0);--b"00"&vgared_in(1 downto 0);
+      greenOutput_all <= b"111"&vgagreen_in(4 downto 0);
+      blueOutput_all <= b"00"&vgablue_in(7 downto 2);--'0'&vgablue_in(2 downto 0);--b"00"&vgablue_in(1 downto 0);				
     else			 
       --Shift background down 3, instead of 2 when displaying text. 
       --Less variation in text colour when there's high frequency in the background
 		--Seems to shift ALL output by 1px? 
       if data_buffer(7) = '1' then 
-        redOutput_all <=   b"00"&vgared_in(1 downto 0);
-        greenOutput_all <= data_buffer(7)&data_buffer(7)&data_buffer(7)&vgagreen_in(0);
-        blueOutput_all <=  b"00"&vgablue_in(1 downto 0);			 			      			 
+        redOutput_all <=   b"00"&vgared_in(7 downto 2);
+        greenOutput_all <= data_buffer(7)&data_buffer(7)&data_buffer(7)&vgagreen_in(4 downto 0);
+        blueOutput_all <=  b"00"&vgablue_in(7 downto 2);			 			      			 
       else
-        redOutput_all <= b"00"&vgared_in(1 downto 0);--'0'&vgared_in(2 downto 0);--b"00"&vgared_in(1 downto 0);
-        greenOutput_all <= data_buffer(7)&data_buffer(7) &vgagreen_in(1 downto 0);--data_buffer(7)&vgagreen_in(2 downto 0);--data_buffer(7)&data_buffer(7) &vgagreen_in(1 downto 0);
-        blueOutput_all <= b"00"&vgablue_in(1 downto 0);--'0'&vgablue_in(2 downto 0);--b"00"&vgablue_in(1 downto 0);			 			      			 
+        redOutput_all <= b"00"&vgared_in(7 downto 2);--'0'&vgared_in(2 downto 0);--b"00"&vgared_in(1 downto 0);
+        greenOutput_all <= data_buffer(7)&data_buffer(7) &vgagreen_in(5 downto 0);--data_buffer(7)&vgagreen_in(2 downto 0);--data_buffer(7)&data_buffer(7) &vgagreen_in(1 downto 0);
+        blueOutput_all <= b"00"&vgablue_in(7 downto 2);--'0'&vgablue_in(2 downto 0);--b"00"&vgablue_in(1 downto 0);			 			      			 
       end if;
     end if;
 	 
   else  --If its in garbage display background. 
 	 if mm_displayMode=b"10" then
-	   redOutput_all <= b"00"&vgared_in(1 downto 0);--'0'&vgared_in(2 downto 0);--b"00"&vgared_in(1 downto 0);
-	   greenOutput_all <= b"00"&vgagreen_in(1 downto 0);--'0'&vgagreen_in(2 downto 0);--b"00"&vgagreen_in(1 downto 0);
-		blueOutput_all <= b"00"&vgablue_in(1 downto 0);--'0'&vgablue_in(2 downto 0);--b"00"&vgablue_in(1 downto 0);
+	   redOutput_all <= b"00"&vgared_in(7 downto 2);--'0'&vgared_in(2 downto 0);--b"00"&vgared_in(1 downto 0);
+	   greenOutput_all <= b"00"&vgagreen_in(7 downto 2);--'0'&vgagreen_in(2 downto 0);--b"00"&vgagreen_in(1 downto 0);
+		blueOutput_all <= b"00"&vgablue_in(7 downto 2);--'0'&vgablue_in(2 downto 0);--b"00"&vgablue_in(1 downto 0);
 	 else 
       redOutput_all <= vgared_in;
 	   greenOutput_all <= vgagreen_in;
@@ -442,9 +417,9 @@ if xcounter_in >=startx and xcounter_in <= endx  and ycounter_in >= starty and y
       end if;
 		
 	   if mm_displayMode=b"10" then
-	     redOutput_all <= b"00"&vgared_in(1 downto 0);--'0'&vgared_in(2 downto 0);--b"00"&vgared_in(1 downto 0);
-		  greenOutput_all <= b"00"&vgagreen_in(1 downto 0);--'0'&vgagreen_in(2 downto 0);--b"00"&vgagreen_in(1 downto 0);
-		  blueOutput_all <= b"00"&vgablue_in(1 downto 0);--'0'&vgablue_in(2 downto 0);--b"00"&vgablue_in(1 downto 0);
+	     redOutput_all <= b"00"&vgared_in(7 downto 2);--'0'&vgared_in(2 downto 0);--b"00"&vgared_in(1 downto 0);
+		  greenOutput_all <= b"00"&vgagreen_in(7 downto 2);--'0'&vgagreen_in(2 downto 0);--b"00"&vgagreen_in(1 downto 0);
+		  blueOutput_all <= b"00"&vgablue_in(7 downto 2);--'0'&vgablue_in(2 downto 0);--b"00"&vgablue_in(1 downto 0);
 	   else 
      	  redOutput_all <= vgared_in;
 		  greenOutput_all <= vgagreen_in;

@@ -21,7 +21,6 @@ library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use ieee.numeric_std.all;
 use work.debugtools.all;
-use ieee.std_logic_unsigned.all;
 
 -- Uncomment the following library declaration if using
 -- arithmetic functions with Signed or Unsigned values
@@ -38,7 +37,7 @@ entity ps2_to_uart is
     reset : in  STD_LOGIC;
     enabled : in std_logic;
     scan_code: in std_logic_vector (12 downto 0);
-	 mm_displayMode_out : out std_logic_vector(1 downto 0); 
+	 mm_displayMode_out : out unsigned(1 downto 0); 
     tx_ps2 : out STD_LOGIC;
 	 display_shift_out : out std_logic_vector(2 downto 0);
 	 shift_ready_out : out std_logic;
@@ -68,7 +67,7 @@ architecture Behavioral of ps2_to_uart is
   -- Determines which display scale mode to use for matrix mode
   -- 0=1:1 (640x320), 1=2:1 (1280x640), 2=3:1 (1920x960) (Fullscreen)
   -- CMD: Alt-1     , Alt-2           , Alt-3
-  signal mm_displayMode : std_logic_vector(1 downto 0):=b"10";
+  signal mm_displayMode : unsigned(1 downto 0):=b"10";
   
   -- Pressing a cursor key will shift the matrix mode display by 8px
   -- Only on modes 0 and 1
@@ -90,10 +89,10 @@ architecture Behavioral of ps2_to_uart is
   signal timer : unsigned(27 downto 0) := (others =>'0');
     
   --Keyboard Timers
-  constant timer200ms : std_logic_vector(23 downto 0):=b"110100100111110010011001";
-  constant timer30ms : std_logic_vector(20 downto 0):=b"111011111100100010111";
-  signal repeatCounter1 : std_logic_vector(23 downto 0):=timer200ms;
-  signal repeatCounter2 : std_logic_vector(20 downto 0):=timer30ms;  
+  constant timer200ms : unsigned(23 downto 0):=b"110100100111110010011001";
+  constant timer30ms : unsigned(20 downto 0):=b"111011111100100010111";
+  signal repeatCounter1 : unsigned(23 downto 0):=timer200ms;
+  signal repeatCounter2 : unsigned(20 downto 0):=timer30ms;  
   --Keyboard signals
   signal caps : std_logic;
   signal previousScanCode : std_logic_vector (12 downto 0);
@@ -113,6 +112,7 @@ architecture Behavioral of ps2_to_uart is
     );
  
   uart_test: process (clk)
+    variable the_scan_code : unsigned(8 downto 0);
   begin
     if rising_edge(CLK) then
 	if enabled='1' then --Input only run when matrix mode is enabled	     
@@ -197,8 +197,10 @@ architecture Behavioral of ps2_to_uart is
 --if previousScanCode(12)&previousScanCode(7 downto 0) = b"000010001" and altcode='1' then
 --if altcode='1' then or something?!
 if previousScanCode(12)&previousScanCode(7 downto 0) = b"000010001" and altcode='1' then
-  --1= x"16", 2=x"1E", 3="26"  
-    case scan_code(12)&scan_code(7 downto 0) is --make sure its a MAKE code. 
+  --1= x"16", 2=x"1E", 3="26"
+  the_scan_code(8) := scan_code(12);
+  the_scan_code(7 downto 0) := unsigned(scan_code(7 downto 0));
+    case the_scan_code is --make sure its a MAKE code. 
 	   when '0'&x"16" => --1
 	     mm_displayMode <= b"00";
 	   when '0'&x"1E" => --2

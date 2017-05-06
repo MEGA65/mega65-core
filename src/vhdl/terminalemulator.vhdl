@@ -21,7 +21,6 @@ library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use ieee.numeric_std.all;
 use work.debugtools.all;
-use ieee.std_logic_unsigned.all;
 -- Uncomment the following library declaration if using
 -- arithmetic functions with Signed or Unsigned values
 --use IEEE.NUMERIC_STD.ALL;
@@ -37,25 +36,15 @@ entity terminalemulator is
     uart_clk : in std_logic; --48MHz
   --reset : in  STD_LOGIC;
     uart_in : in  STD_LOGIC;
-    topofframe_out : out std_logic_vector(11 downto 0); 
+    topofframe_out : out unsigned(11 downto 0); 
   --clkl_out : IN STD_LOGIC;
     wel_out : out STD_LOGIC_VECTOR(0 DOWNTO 0);
-    addrl_out : out STD_LOGIC_VECTOR(11 DOWNTO 0);
-    dinl_out : out STD_LOGIC_VECTOR(7 DOWNTO 0)
+    addrl_out : out unsigned(11 DOWNTO 0);
+    dinl_out : out unsigned(7 DOWNTO 0)
   );
 end terminalemulator;
 
 architecture Behavioral of terminalemulator is
-
-component uart_rx is
-  Port (
-    clk : in std_logic; 
-    UART_RX : in std_logic;
-    data : out std_logic_vector(7 downto 0);
-    data_ready : out std_logic;
-    data_acknowledge : in std_logic
-  );
-end component; 
 
 type terminal_emulator_state is (clearAck,
                                  incChar,
@@ -72,24 +61,24 @@ type terminal_emulator_state is (clearAck,
 signal state : terminal_emulator_state := waitforinput;
 signal next_state : terminal_emulator_state;
 
-constant CharMemStart : std_logic_vector(11 downto 0):=x"302";
-constant CharMemEnd : std_logic_vector(11 downto 0):=x"F81";
+constant CharMemStart : unsigned(11 downto 0):=x"302";
+constant CharMemEnd : unsigned(11 downto 0):=x"F81";
 
-signal rx_data : std_logic_vector(7 downto 0);
+signal rx_data : unsigned(7 downto 0);
 signal rx_ready : std_logic;
 signal rx_acknowledge : std_logic; 
-signal dataToWrite : std_logic_vector(7 downto 0);
-signal charCursor : std_logic_vector(11 downto 0):=CharMemStart; --0 to 3199 char positions
-signal charX : std_logic_vector(7 downto 0):=x"00";--50 --execute on first run
-signal lastLineStart : std_logic_vector(11 downto 0):=CharMemStart; --0 to 3199 char positions
-signal clearLineStart : std_logic_vector(11 downto 0):=CharMemStart;
-signal clearLineEnd : std_logic_vector(11 downto 0):=CharMemStart+80;
-signal topofframe : std_logic_vector(11 downto 0):=CharMemStart;--(others=>'0'); --position of topofframe in memory. Ring buffer
+signal dataToWrite : unsigned(7 downto 0);
+signal charCursor : unsigned(11 downto 0):=CharMemStart; --0 to 3199 char positions
+signal charX : unsigned(7 downto 0):=x"00";--50 --execute on first run
+signal lastLineStart : unsigned(11 downto 0):=CharMemStart; --0 to 3199 char positions
+signal clearLineStart : unsigned(11 downto 0):=CharMemStart;
+signal clearLineEnd : unsigned(11 downto 0):=CharMemStart+80;
+signal topofframe : unsigned(11 downto 0):=CharMemStart;--(others=>'0'); --position of topofframe in memory. Ring buffer
 --has the characters hit the bottom of the frame for the first time? If so always scroll text up on next line.
 signal hasHitEoF : std_logic:='0'; 
 begin
 
-uart_rx0: uart_rx 
+uart_rx0: entity work.uart_rx 
   Port map (
     clk => uart_clk,	            
     UART_RX => uart_in,

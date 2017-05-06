@@ -344,14 +344,14 @@ architecture Behavioral of machine is
 
   -- Matrix Mode signals
   signal scancode_out : std_logic_vector(12 downto 0); 
-  signal mm_displayMode : std_logic_vector(1 downto 0):=b"10"; 
+  signal mm_displayMode : unsigned(1 downto 0):=b"10"; 
   signal tx_switch : std_logic; 
   signal tx_ps2 : std_logic; 
-  signal vgablue_sig : unsigned(3 downto 0);
-  signal vgared_sig : unsigned(3 downto 0);
-  signal vgagreen_sig : unsigned(3 downto 0);
+  signal vgablue_sig : unsigned(7 downto 0);
+  signal vgared_sig : unsigned(7 downto 0);
+  signal vgagreen_sig : unsigned(7 downto 0);
   signal xcounter : unsigned(11 downto 0);
-  signal ycounter : unsigned(10 downto 0); 
+  signal ycounter : unsigned(11 downto 0); 
   signal uart_txd_sig : std_logic;
   signal display_shift : std_logic_vector(2 downto 0);
   signal shift_ready : std_logic;
@@ -830,7 +830,7 @@ begin
     scancode_out => scancode_out
     );
 
-  ps2_to_uart0 : ps2_to_uart port map(
+  ps2_to_uart0 : entity work.ps2_to_uart port map(
     matrix_trap_out=>matrix_trap,
     display_shift_out => display_shift,
 	 shift_ready_out => shift_ready,
@@ -843,7 +843,7 @@ begin
     tx_ps2 => tx_ps2
     ); 
 
-  compositor0 : compositor port map(
+  compositor0 : entity work.compositor port map(
     display_shift_in=>display_shift,
 	 shift_ready_in => shift_ready,
 	 shift_ack_out => shift_ack,

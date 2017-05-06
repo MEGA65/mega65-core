@@ -7,17 +7,17 @@ use work.debugtools.all;
 entity uart_charrom is
 port (clkl : IN STD_LOGIC;
     wel : IN STD_LOGIC_VECTOR(0 DOWNTO 0);
-    addrl : IN STD_LOGIC_VECTOR(11 DOWNTO 0);
-    dinl : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
+    addrl : IN unsigned(11 DOWNTO 0);
+    dinl : IN unsigned(7 DOWNTO 0);
     clkr : IN STD_LOGIC;
-    addrr : IN STD_LOGIC_VECTOR(11 DOWNTO 0);
-    doutr : OUT STD_LOGIC_VECTOR(7 DOWNTO 0)
+    addrr : IN unsigned(11 DOWNTO 0);
+    doutr : OUT unsigned(7 DOWNTO 0)
       );
 end uart_charrom;
 
 architecture Behavioral of uart_charrom is
 
-type ram_t is array (0 to 4095) of std_logic_vector(7 downto 0);
+type ram_t is array (0 to 4095) of unsigned(7 downto 0);
 signal ram : ram_t := (
 x"00", x"00", x"00", x"00", x"00", x"00", x"00", x"00", --(space) d"32" x"20" (0)
 x"18", x"18", x"18", x"18", x"00", x"00", x"18", x"00", --! 1 01
@@ -133,9 +133,9 @@ begin
   begin
     if(rising_edge(Clkl)) then 
       if wel(0)='1' and addrl>x"300" then
-        ram(to_integer(unsigned(addrl))) <= dinl;
+        ram(to_integer(addrl)) <= dinl;
       end if;
-      doutr <= ram(to_integer(unsigned(addrr)));
+      doutr <= ram(to_integer(addrr));
     end if;
   end process;
 
