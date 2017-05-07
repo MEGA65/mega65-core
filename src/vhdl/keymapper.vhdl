@@ -483,7 +483,7 @@ begin  -- behavioural
                              when x"17D" =>
                                 -- Restore key shall do NMI as expected, but also
                                 -- reset
-                               restore_state <= break;                             
+                               ps2_restore <= break;                             
                              -- Joysticks
                              when x"07d" =>  -- JOY1 LEFT
                                joy1(0) <= break;
