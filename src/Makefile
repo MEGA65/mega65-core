@@ -70,6 +70,12 @@ simulate:	$(SIMULATIONFILES)
 	ghdl -m cpu_test
 	./cpu_test || ghdl -r cpu_test
 
+vfsimulate:	vhdl/frame_test.vhdl vhdl/video_frame.vhdl
+	ghdl -i vhdl/frame_test.vhdl vhdl/video_frame.vhdl
+	ghdl -m frame_test
+	./frame_test || ghdl -r frame_test
+
+
 # =======================================================================
 # =======================================================================
 # =======================================================================
