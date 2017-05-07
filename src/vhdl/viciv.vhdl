@@ -2594,7 +2594,8 @@ begin
           else
             fast_raster_counter <= fast_raster_counter + 1;
           end if;
-        elsif ycounter /= to_integer(frame_height) then
+        end if;
+        if ycounter /= to_integer(frame_height) then
           ycounter <= ycounter + 1;
           if vicii_ycounter_phase = vicii_ycounter_max_phase then
             vicii_ycounter <= vicii_ycounter + 1;
@@ -2621,8 +2622,7 @@ begin
           if (vicii_is_raster_source='0') and (ycounter = vicii_raster_compare) then
             irq_raster <= '1';
           end if;
-        end if;
-        if ycounter = to_integer(frame_height) then
+        else
           -- Start of next frame
           ycounter <= (others =>'0');
           chargen_y_sub <= (others => '0');
