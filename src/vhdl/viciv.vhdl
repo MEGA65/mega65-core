@@ -2629,6 +2629,14 @@ begin
           next_card_number <= (others => '0');
           first_card_of_row <= (others => '0');
 
+          displayy <= (others => '0');
+          vertical_flyback <= '0';
+          displayline0 <= '1';
+          indisplay := '0';
+          report "clearing indisplay because xcounter=0" severity note;
+          first_card_of_row <= x"0000";
+          screen_row_address <= screen_ram_base(16 downto 0);
+          
           -- In top border VIC-II rasters are 2 physical rasters high
           -- vicii_ycounter now gets reset during fast raster stepping in
           -- vertical_flyback.
@@ -2801,42 +2809,32 @@ begin
       end if;
       if xcounter = 0 then
         displaycolumn0 <= '1';
-        if ycounter = to_integer(frame_height) then
-          displayy <= (others => '0');
-          vertical_flyback <= '0';
-          displayline0 <= '1';
-          indisplay := '0';
-          report "clearing indisplay because xcounter=0" severity note;
-          first_card_of_row <= x"0000";
-          screen_row_address <= screen_ram_base(16 downto 0);
+        displayy <= displayy + 1;
+        if displayy(4)='1' then
+          displayline0 <= '0';            
+        end if;
+
+        -- Next line of display.  Reset card number and start address of
+        -- screen ram for the row of characters currently being displayed.
+        -- (this gets overriden below if crossing from one character row to
+        -- another.  This also gives us the hope of implementing DMA delay,
+        -- since that is such a common C64 VIC-II trick.)
+        next_card_number <= first_card_of_row;
+        screen_row_current_address <= screen_row_address;
+
+        -- Now check if we have tipped over from one logical pixel row to another. 
+        if chargen_y_sub=chargen_y_scale then
+          chargen_y <= chargen_y + 1;
+          report "bumping chargen_y to " & integer'image(to_integer(chargen_y)) severity note;
+          if chargen_y = "111" then
+            bump_screen_row_address<='1';
+          end if;
+          chargen_y_sub <= (others => '0');
         else
-          displayy <= displayy + 1;
-          if displayy(4)='1' then
-            displayline0 <= '0';            
-          end if;
-
-          -- Next line of display.  Reset card number and start address of
-          -- screen ram for the row of characters currently being displayed.
-          -- (this gets overriden below if crossing from one character row to
-          -- another.  This also gives us the hope of implementing DMA delay,
-          -- since that is such a common C64 VIC-II trick.)
-          next_card_number <= first_card_of_row;
-          screen_row_current_address <= screen_row_address;
-
-          -- Now check if we have tipped over from one logical pixel row to another. 
-          if chargen_y_sub=chargen_y_scale then
-            chargen_y <= chargen_y + 1;
-            report "bumping chargen_y to " & integer'image(to_integer(chargen_y)) severity note;
-            if chargen_y = "111" then
-              bump_screen_row_address<='1';
-            end if;
-            chargen_y_sub <= (others => '0');
-          else
-            chargen_y_sub <= chargen_y_sub + 1;
-          end if;
+          chargen_y_sub <= chargen_y_sub + 1;
         end if;
       end if;
-
+      
       if short_line='1' then
         row_advance <= short_line_length;
       else
