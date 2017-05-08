@@ -562,17 +562,6 @@ end component;
     others => '0'
     );
 
-  -- Pause 1usec per cycle of instruction for 1MHz operation
-  -- This is only approximate, because it doesnt count the time spent
-  -- executing the instruction, or the cycle to setup the delay.
-  -- Offsetting this is the lack of badlines, so the end result is probably
-  -- close enough for now.  It can be improved later to allow for more exact
-  -- timing for demos etc.
-  constant pause_per_cycle : integer := 48;
-  signal pause_cycles : unsigned(8 downto 0) := "000000000";
-  signal pause_cycles_counter : unsigned(8 downto 0) := "000000000";
-  signal cpu_pause_shift : integer range 0 to 2 := 0;
-
   signal vector_read_stage : integer range 0 to 15 := 0;
 
   type memory_source is (
@@ -3700,47 +3689,7 @@ begin
                   else
                     state <= Cycle2;
                   end if;
-                  case mode_lut(to_integer(emu6502&memory_read_value)) is
-                    when M_IMPL =>
-                      pause_cycles <= to_unsigned(pause_per_cycle * 2,9);
-                    when M_nn =>
-                      pause_cycles <= to_unsigned(pause_per_cycle * 3,9);
-                    when M_immnn =>
-                      pause_cycles <= to_unsigned(pause_per_cycle * 2,9);
-                    when M_A =>
-                      pause_cycles <= to_unsigned(pause_per_cycle * 2,9);
-                    when M_nnnn =>
-                      pause_cycles <= to_unsigned(pause_per_cycle * 4,9);
-                    when M_nnrr =>
-                      pause_cycles <= to_unsigned(pause_per_cycle * 4,9);
-                    when M_rr =>
-                      pause_cycles <= to_unsigned(pause_per_cycle * 3,9);
-                    when M_InnY =>
-                      pause_cycles <= to_unsigned(pause_per_cycle * 5,9);
-                    when M_InnZ =>
-                      pause_cycles <= to_unsigned(pause_per_cycle * 5,9);
-                    when M_rrrr =>
-                      pause_cycles <= to_unsigned(pause_per_cycle * 4,9);
-                    when M_nnX =>
-                      pause_cycles <= to_unsigned(pause_per_cycle * 3,9);
-                    when M_nnnnY =>
-                      pause_cycles <= to_unsigned(pause_per_cycle * 4,9);
-                    when M_nnnnX =>
-                      pause_cycles <= to_unsigned(pause_per_cycle * 4,9);
-                    when M_Innnn =>
-                      pause_cycles <= to_unsigned(pause_per_cycle * 5,9);
-                    when M_InnnnX =>
-                      pause_cycles <= to_unsigned(pause_per_cycle * 5,9);
-                    when M_InnSPY =>
-                      pause_cycles <= to_unsigned(pause_per_cycle * 6,9);
-                    when M_nnY =>
-                      pause_cycles <= to_unsigned(pause_per_cycle * 3,9);
-                    when M_immnnnn =>
-                      pause_cycles <= to_unsigned(pause_per_cycle * 7,9);
-                    when others =>
-                  end case;
                 else
-                  pause_cycles <= to_unsigned(pause_per_cycle,9);
                   no_interrupt <= '1';
                   -- Allow monitor to trace through single-cycle instructions
                   if monitor_mem_trace_mode='1' or debugging_single_stepping='1' then
@@ -3895,47 +3844,7 @@ begin
                   else
                     state <= Cycle2;
                   end if;
-                  case mode_lut(to_integer(emu6502&memory_read_value)) is
-                    when M_IMPL =>
-                      pause_cycles <= to_unsigned(pause_per_cycle * 2,9);
-                    when M_nn =>
-                      pause_cycles <= to_unsigned(pause_per_cycle * 3,9);
-                    when M_immnn =>
-                      pause_cycles <= to_unsigned(pause_per_cycle * 2,9);
-                    when M_A =>
-                      pause_cycles <= to_unsigned(pause_per_cycle * 2,9);
-                    when M_nnnn =>
-                      pause_cycles <= to_unsigned(pause_per_cycle * 4,9);
-                    when M_nnrr =>
-                      pause_cycles <= to_unsigned(pause_per_cycle * 4,9);
-                    when M_rr =>
-                      pause_cycles <= to_unsigned(pause_per_cycle * 3,9);
-                    when M_InnY =>
-                      pause_cycles <= to_unsigned(pause_per_cycle * 5,9);
-                    when M_InnZ =>
-                      pause_cycles <= to_unsigned(pause_per_cycle * 5,9);
-                    when M_rrrr =>
-                      pause_cycles <= to_unsigned(pause_per_cycle * 4,9);
-                    when M_nnX =>
-                      pause_cycles <= to_unsigned(pause_per_cycle * 3,9);
-                    when M_nnnnY =>
-                      pause_cycles <= to_unsigned(pause_per_cycle * 4,9);
-                    when M_nnnnX =>
-                      pause_cycles <= to_unsigned(pause_per_cycle * 4,9);
-                    when M_Innnn =>
-                      pause_cycles <= to_unsigned(pause_per_cycle * 5,9);
-                    when M_InnnnX =>
-                      pause_cycles <= to_unsigned(pause_per_cycle * 5,9);
-                    when M_InnSPY =>
-                      pause_cycles <= to_unsigned(pause_per_cycle * 6,9);
-                    when M_nnY =>
-                      pause_cycles <= to_unsigned(pause_per_cycle * 3,9);
-                    when M_immnnnn =>
-                      pause_cycles <= to_unsigned(pause_per_cycle * 7,9);
-                    when others =>
-                  end case;
                 else
-                  pause_cycles <= to_unsigned(pause_per_cycle,9);
                   no_interrupt <= '1';
                   -- Allow monitor to trace through single-cycle instructions
                   if monitor_mem_trace_mode='1' or debugging_single_stepping='1' then
