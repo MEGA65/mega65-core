@@ -747,6 +747,18 @@ begin
     viciii_iomode => viciii_iomode,
     sector_buffer_mapped => sector_buffer_mapped,
 
+    ----------------------------------------------------------------------
+    -- CBM floppy  std_logic_vectorerial port
+    ----------------------------------------------------------------------
+    iec_clk_en => iec_clk_en,
+    iec_data_en => iec_data_en,
+    iec_data_o => iec_data_o,
+    iec_reset => iec_reset,
+    iec_clk_o => iec_clk_o,
+    iec_data_i => iec_data_i,
+    iec_clk_i => iec_clk_i,
+    iec_atn => iec_atn,
+    
     porta_pins => porta_pins,
     portb_pins => portb_pins,
     capslock_key => caps_lock_key,

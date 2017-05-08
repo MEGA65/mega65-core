@@ -57,6 +57,18 @@ entity iomapper is
         fb_up : in std_logic;
         fb_down : in std_logic;
         fb_fire : in std_logic;
+
+        ----------------------------------------------------------------------
+        -- CBM floppy serial port
+        ----------------------------------------------------------------------
+        iec_clk_en : out std_logic := '0';
+        iec_data_en : out std_logic := '0';
+        iec_data_o : out std_logic := 'Z';
+        iec_reset : out std_logic := 'Z';
+        iec_clk_o : out std_logic := 'Z';
+        iec_data_i : in std_logic := 'Z';
+        iec_clk_i : in std_logic := 'Z';
+        iec_atn : out std_logic := 'Z';  
         
         ps2data : in std_logic;
         ps2clock : in std_logic;
@@ -207,7 +219,9 @@ architecture behavioral of iomapper is
   signal eth_keycode : unsigned(15 downto 0);
 
   signal keyboard_column8_select : std_logic;
+
   signal dummy_bits : std_logic_vector(1 downto 0);
+  signal dummy : std_logic_vector(10 downto 0);
   
 begin
 
@@ -288,9 +302,25 @@ begin
     std_logic_vector(fastio_rdata) => data_o,
     fastio_wdata => unsigned(data_i),
 
-    -- CIA ports not connected by default
+    -- CIA port a (VIC-II bank select + IEC serial port)
+    portain(2 downto 0) => (others => '1'),   
+    portain(3) => '1', -- IEC serial ATN
+    portain(4) => iec_clk_i,
+    portain(5) => iec_data_i,
+    portain(6) => iec_clk_i,
+    portain(7) => iec_data_i,
+    portaout(2 downto 0) => dummy(2 downto 0),
+    portaout(3) => iec_atn,
+    portaout(4) => iec_clk_o,
+    portaout(5) => iec_data_o,
+    portaout(7 downto 6) => dummy(4 downto 3),
+    portaddr(3 downto 0) => dummy(8 downto 5),
+    portaddr(4) => iec_clk_en,
+    portaddr(5) => iec_data_en,
+    portaddr(7 downto 6) => dummy(10 downto 9),
+    
+    -- CIA port b (user port) not connected by default
     portbin => x"ff",
-    portain => x"ff",
     flagin => '1',
     spin => '1',
     countin => '1'

@@ -188,6 +188,9 @@ architecture Behavioral of container is
   signal v_green : unsigned(7 downto 0);
   signal v_blue : unsigned(7 downto 0);
   signal v_de : std_logic;
+
+  signal cpu_exrom : std_logic;
+  signal cpu_game : std_logic;
   
   -- XXX We should read the real temperature and feed this to the DDR controller
   -- so that it can update timing whenever the temperature changes too much.
@@ -216,32 +219,26 @@ begin
       rst => '0',
       clk => cpuclock,
       temp => fpga_temperature);
-    
-  machine0: entity work.machine
+
+  slow_devices0: entity work.slow_devices
     port map (
-      pixelclock      => pixelclock,
-      pixelclock2x      => pixelclock2x,
-      cpuclock        => cpuclock,
-      clock50mhz      => clock50mhz,
---      ioclock         => ioclock, -- 32MHz
---      uartclock         => ioclock, -- must be 32MHz
-      uartclock         => cpuclock, -- Match CPU clock (48MHz)
-      ioclock         => cpuclock, -- Match CPU clock
-      btncpureset => btncpureset,
-      irq => irq,
-      nmi => nmi,
-      restore_key => restore_key,
-
-      no_kickstart => '0',
-      ddr_counter => ddr_counter,
-      ddr_state => ddr_state,
+      cpuclock => cpuclock,
+      pixelclock => pixelclock,
+      reset => reset_out,
+      cpu_exrom => cpu_exrom,
+      cpu_game => cpu_game,
       
-      vsync           => v_vsync,
-      hsync           => v_hsync,
-      vgared          => v_red,
-      vgagreen        => v_green,
-      vgablue         => v_blue,
+      qspidb => qspidb,
+      qspicsn => qspicsn,      
+--      qspisck => '1',
 
+      slow_access_request_toggle => slow_access_request_toggle,
+      slow_access_ready_toggle => slow_access_ready_toggle,
+      slow_access_write => slow_access_write,
+      slow_access_address => slow_access_address,
+      slow_access_wdata => slow_access_wdata,
+      slow_access_rdata => slow_access_rdata,
+  
       ----------------------------------------------------------------------
       -- Expansion/cartridge port
       ----------------------------------------------------------------------
@@ -266,8 +263,33 @@ begin
       cart_game => cart_game,
       cart_io2 => cart_io2,
       
+      cart_d_in => cart_d_read,
       cart_d => cart_d,
-      cart_a => cart_a,
+      cart_a => cart_a
+      );
+  
+  machine0: entity work.machine
+    port map (
+      pixelclock      => pixelclock,
+      pixelclock2x      => pixelclock2x,
+      cpuclock        => cpuclock,
+      clock50mhz      => clock50mhz,
+--      ioclock         => ioclock, -- 32MHz
+--      uartclock         => ioclock, -- must be 32MHz
+      uartclock         => cpuclock, -- Match CPU clock (48MHz)
+      ioclock         => cpuclock, -- Match CPU clock
+      btncpureset => btncpureset,
+      irq => irq,
+      nmi => nmi,
+      restore_key => restore_key,
+
+      no_kickstart => '0',
+      
+      vsync           => v_vsync,
+      hsync           => v_hsync,
+      vgared          => v_red,
+      vgagreen        => v_green,
+      vgablue         => v_blue,
       
       ----------------------------------------------------------------------
       -- CBM floppy  std_logic_vectorerial port
@@ -319,6 +341,16 @@ begin
       mosi_o => sdMOSI,
       miso_i => sdMISO,
 
+      slow_access_request_toggle => slow_access_request_toggle,
+      slow_access_ready_toggle => slow_access_ready_toggle,
+      slow_access_address => slow_access_address,
+      slow_access_write => slow_access_write,
+      slow_access_wdata => slow_access_wdata,
+      slow_access_rdata => slow_access_rdata,
+      cpu_exrom => cpu_exrom,      
+      cpu_game => cpu_game,      
+
+
 --      aclMISO => aclMISO,
       aclMISO => '1',
 --      aclMOSI => aclMOSI,
@@ -353,10 +385,6 @@ begin
       -- Ignore widget board interface and other things
       tmpint => '1',
       tmpct => '1',
-      slowram_addr_reflect => (others => '1'),
-      slowram_datain_reflect => (others => '1'),
-      slowram_done_toggle => '1',
-      cache_read_data => (others => '1'),
       pmod_clock => '1',
       pmod_start_of_sequence => '0',
       pmod_data_in => (others => '1'),
