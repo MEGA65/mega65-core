@@ -52,6 +52,7 @@ use Std.TextIO.all;
 --use UNISIM.VComponents.all;
 
 entity machine is
+  generic (cpufrequency : integer := 50);
   Port ( pixelclock : STD_LOGIC;
          pixelclock2x : STD_LOGIC;
          cpuclock : std_logic;
@@ -530,7 +531,10 @@ begin
     end if;
   end process;
   
-  cpu0: entity work.gs4510 port map(
+  cpu0: entity work.gs4510
+    generic map(
+      cpufrequency => cpufrequency)
+    port map(
     matrix_trap_in=>matrix_trap,
     protected_hardware => protected_hardware_sig,
     clock => cpuclock,

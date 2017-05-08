@@ -35,6 +35,8 @@ use work.debugtools.all;
 use work.cputypes.all;
 
 entity gs4510 is
+  generic(
+    cpufrequency : integer := 50 );
   port (
     Clock : in std_logic;
     ioclock : in std_logic;
@@ -274,6 +276,23 @@ end component;
   -- monitor to have a serial port tick (which is when it checks on that side)
   signal immediate_monitor_char_busy : std_logic := '0';
 
+  -- For instruction-accurate CPU timing at 1MHz and 3.5MHz
+  constant pal1mhz_times_65536 : integer := 64569;
+  constant pal2mhz_times_65536 : integer := 64569 * 2;
+  constant pal3point5mhz_times_65536 : integer := 225992;
+  constant phi_fraction_01pal : unsigned(16 downto 0) :=
+    to_unsigned(pal1mhz_times_65536 / cpufrequency,17);
+  constant phi_fraction_02pal : unsigned(16 downto 0) :=
+    to_unsigned(pal2mhz_times_65536 / cpufrequency,17);
+  constant phi_fraction_04pal : unsigned(16 downto 0) :=
+    to_unsigned(pal3point5mhz_times_65536 / cpufrequency,17);
+  signal phi_counter : unsigned(16 downto 0) := (others => '0');
+  signal phi_pause : std_logic := '0';
+  signal phi_backlog : integer range 0 to 127 := 0;
+  signal phi_add_backlog : std_logic := '0';
+  signal phi_new_backlog : integer range 0 to 15 := 0;
+  signal last_phi16 : std_logic := '0';
+
   -- IO has one waitstate for reading, 0 for writing
   -- (Reading incurrs an extra waitstate due to read_data_copy)
   -- XXX An extra wait state seems to be necessary when reading from dual-port
@@ -282,21 +301,6 @@ end component;
   constant colourread_48mhz : unsigned(7 downto 0) := x"02";
   constant iowrite_48mhz : unsigned(7 downto 0) := x"00";
   constant shadow_48mhz :  unsigned(7 downto 0) := x"00";
-
-  --constant ioread_3mhz : unsigned(7 downto 0) := x"0d";
-  --constant colourread_3mhz : unsigned(7 downto 0) := x"0d";
-  --constant iowrite_3mhz : unsigned(7 downto 0) := x"0d";
-  --constant shadow_3mhz :  unsigned(7 downto 0) := x"0d";
-
-  --constant ioread_2mhz : unsigned(7 downto 0) := x"1b";
-  --constant colourread_2mhz : unsigned(7 downto 0) := x"1b";
-  --constant iowrite_2mhz : unsigned(7 downto 0) := x"1b";
-  --constant shadow_2mhz :  unsigned(7 downto 0) := x"1b";
-
-  --constant ioread_1mhz : unsigned(7 downto 0) := x"2f";
-  --constant colourread_1mhz : unsigned(7 downto 0) := x"2f";
-  --constant iowrite_1mhz : unsigned(7 downto 0) := x"2f";
-  --constant shadow_1mhz :  unsigned(7 downto 0) := x"2f";
 
   signal shadow_wait_states : unsigned(7 downto 0) := shadow_48mhz;
   signal io_read_wait_states : unsigned(7 downto 0) := ioread_48mhz;
@@ -606,8 +610,6 @@ end component;
     InstructionWait,                    -- Wait for PC to become available on
                                         -- interrupt/reset
     ProcessorHold,
-    ProcessorPause,
-    ProcessorPausing,
     MonitorMemoryAccess,
     InstructionFetch,
     InstructionDecode,  -- $16
@@ -791,6 +793,44 @@ constant mode_lut : mlut9bit := (
     M_impl,M_immnn,M_impl,M_immnn,M_nnnn,M_nnnn,M_nnnn,M_nnnn,
     M_rr,M_InnY,M_impl,M_InnY,M_nnX,M_nnX,M_nnX,M_nnX,
     M_impl,M_nnnnY,M_impl,M_nnnnY,M_nnnnX,M_nnnnX,M_nnnnX,M_nnnnX);
+
+type clut9bit is array(0 to 511) of integer range 0 to 7;
+constant cycle_count_lut : clut9bit := (
+  7,5,2,2,4,3,4,4,2,2,2,2,5,4,5,4,
+  2,5,5,3,4,3,4,4,2,4,2,2,4,4,5,4,
+  5,5,7,7,3,3,4,4,2,2,2,2,4,4,4,4,
+  2,5,5,3,3,3,3,4,2,4,2,2,4,4,5,4,
+  5,4,2,2,4,3,4,4,2,2,2,2,3,4,5,4,
+  2,5,5,3,4,3,4,4,2,4,2,2,2,4,5,4,
+  4,5,7,5,3,3,4,4,2,2,2,2,5,4,5,4,
+  2,5,5,3,3,3,4,4,2,4,2,2,5,4,5,4,
+  2,5,6,3,3,3,3,4,2,2,2,4,4,4,4,4,
+  2,5,5,3,3,3,3,4,2,4,2,4,4,4,4,4,
+  2,5,2,2,3,3,3,4,2,2,2,4,4,4,4,4,
+  2,5,5,3,3,3,3,4,2,4,2,4,4,4,4,4,
+  2,5,2,6,3,3,4,4,2,2,2,7,4,4,5,4,
+  2,5,5,3,3,3,4,4,2,4,2,2,4,4,5,4,
+  2,5,6,6,3,3,4,4,2,2,2,7,4,4,5,4,
+  2,5,5,3,5,3,4,4,2,4,3,3,7,4,5,5,
+
+  -- XXX Copied from 4502 timings for now
+  7,5,2,2,4,3,4,4,2,2,2,2,5,4,5,4,
+  2,5,5,3,4,3,4,4,2,4,2,2,4,4,5,4,
+  5,5,7,7,3,3,4,4,2,2,2,2,4,4,4,4,
+  2,5,5,3,3,3,3,4,2,4,2,2,4,4,5,4,
+  5,4,2,2,4,3,4,4,2,2,2,2,3,4,5,4,
+  2,5,5,3,4,3,4,4,2,4,2,2,2,4,5,4,
+  4,5,7,5,3,3,4,4,2,2,2,2,5,4,5,4,
+  2,5,5,3,3,3,4,4,2,4,2,2,5,4,5,4,
+  2,5,6,3,3,3,3,4,2,2,2,4,4,4,4,4,
+  2,5,5,3,3,3,3,4,2,4,2,4,4,4,4,4,
+  2,5,2,2,3,3,3,4,2,2,2,4,4,4,4,4,
+  2,5,5,3,3,3,3,4,2,4,2,4,4,4,4,4,
+  2,5,2,6,3,3,4,4,2,2,2,7,4,4,5,4,
+  2,5,5,3,3,3,4,4,2,4,2,2,4,4,5,4,
+  2,5,6,6,3,3,4,4,2,2,2,7,4,4,5,4,
+  2,5,5,3,5,3,4,4,2,4,3,3,7,4,5,5
+  );
 
 
   signal reg_addressingmode : addressingmode;
@@ -2441,6 +2481,60 @@ begin
     -- BEGINNING OF MAIN PROCESS FOR CPU
     if rising_edge(clock) then
 
+      -- Count slow clock ticks for applying instruction-level 6502/4510 timing
+      -- accuracy at 1MHz and 3.5MHz
+      -- XXX Add NTSC speed emulation option as well
+      phi_add_backlog <= '0';
+      phi_new_backlog <= 0;
+      last_phi16 <= phi_counter(16);
+      case cpuspeed_internal is
+        when x"01" =>          
+          phi_counter <= phi_counter + phi_fraction_01pal;
+        when x"02" =>          
+          phi_counter <= phi_counter + phi_fraction_02pal;
+        when x"04" =>
+          phi_counter <= phi_counter + phi_fraction_04pal;
+        when others =>
+          -- Full speed = 1 clock tick per cycle
+          phi_counter(16) <= phi_counter(16) xor '1';
+          phi_backlog <= 0;
+          phi_pause <= '0';
+      end case;
+      if cpuspeed_internal /= x"50" then
+        if last_phi16 /= phi_counter(16) then
+          -- phi2 cycle has passed
+          if phi_backlog = 1 or phi_backlog=0 then
+            if phi_add_backlog = '0' then
+              -- We have just finished our backlog, allow CPU to proceed
+              phi_backlog <= 0;
+              phi_pause <= '0';
+            else
+              -- We would have finished the back log, but we have new backlog
+              -- to process
+              phi_backlog <= phi_new_backlog;
+              phi_pause <= '1';
+            end if;            
+          else
+            if phi_add_backlog = '0' then
+              phi_backlog <= phi_backlog - 1;
+              phi_pause <= '1';
+            else
+              phi_backlog <= phi_backlog - 1 + phi_new_backlog;
+              phi_pause <= '1';
+            end if;
+          end if;
+        else
+          if phi_add_backlog = '1' then
+            phi_backlog <= phi_backlog + phi_new_backlog;
+            phi_pause <= '1';
+          end if;
+        end if;
+      else
+        -- Full speed - never pause
+        phi_backlog <= 0;
+        phi_pause <= '0';
+      end if;
+          
       --Check for system-generated traps (matrix mode, and double tap restore)
       if (hyper_trap = '0' or matrix_trap_in ='1') and hyper_trap_state = '1' then
         hyper_trap_pending <= '1'; 
@@ -2828,53 +2922,38 @@ begin
         if hypervisor_mode='0' and ((speed_gate='1') and (force_fast='0')) then
           case cpu_speed is
             when "100" => -- 1mhz
-              normal_fetch_state <= ProcessorPause;
-              fast_fetch_state <= ProcessorPause;
-              cpu_pause_shift <= 0;
               cpuspeed <= x"01";
               cpuspeed_internal <= x"01";
             when "101" => -- 1mhz
-              normal_fetch_state <= ProcessorPause;
-              fast_fetch_state <= ProcessorPause;          
-              cpu_pause_shift <= 0;
               cpuspeed <= x"01";
               cpuspeed_internal <= x"01";
             when "110" => -- 3.5mhz
-              normal_fetch_state <= ProcessorPause;
-              fast_fetch_state <= ProcessorPause;          
-              cpu_pause_shift <= 2;
               cpuspeed <= x"04";
               cpuspeed_internal <= x"04";
-            when "111" => -- 48mhz
-              cpuspeed <= x"48";
-              cpuspeed_internal <= x"48";
+            when "111" => -- full speed
+              cpuspeed <= x"50";
+              cpuspeed_internal <= x"50";
               null;
             when "000" => -- 2mhz
-              normal_fetch_state <= ProcessorPause;
-              fast_fetch_state <= ProcessorPause;          
-              cpu_pause_shift <= 1;
               cpuspeed <= x"02";
               cpuspeed_internal <= x"02";
-            when "001" => -- 48mhz
-              cpuspeed <= x"48";
-              cpuspeed_internal <= x"48";
+            when "001" => -- full speed
+              cpuspeed <= x"50";
+              cpuspeed_internal <= x"50";
               null;
             when "010" => -- 3.5mhz
-              normal_fetch_state <= ProcessorPause;
-              fast_fetch_state <= ProcessorPause;          
-              cpu_pause_shift <= 2;
               cpuspeed <= x"04";
               cpuspeed_internal <= x"04";
-            when "011" => -- 48mhz
-              cpuspeed <= x"48";
-              cpuspeed_internal <= x"48";
+            when "011" => -- full speed
+              cpuspeed <= x"50";
+              cpuspeed_internal <= x"50";
               null;
             when others =>
               null;
           end case;
         else
-          cpuspeed <= x"48";
-          cpuspeed_internal <= x"48";
+          cpuspeed <= x"50";
+          cpuspeed_internal <= x"50";
         end if;
       else
         normal_fetch_state <= ProcessorHold;
@@ -2918,6 +2997,14 @@ begin
         report "resetting cpu: reset_drive = " & std_logic'image(reset_drive)
           & ", watchdog_reset=" & std_logic'image(watchdog_reset);
         reset_cpu_state;
+      elsif phi_pause = '1' then
+        -- Wait for time to catch up with CPU instructions when running at low
+        -- speed (CPU actually runs at full speed, and just gets held here if it
+        -- gets too far ahead.  This gives us quite accurate timing at an instruction
+        -- level, with a jitter of ~1 instruction at any point in time, which should
+        -- be sufficient even for most fast loaders.
+        report "PHI pause : " & integer'image(phi_backlog) & " CPU cycles remaining.";
+        null;
       else
         -- Honour wait states on memory accesses
         -- Clear memory access lines unless we are in a memory wait state
@@ -3087,25 +3174,6 @@ begin
                 report "Pre-incrementing PC for immediate dispatch" severity note;
               end if;
               state <= fast_fetch_state;
-            when ProcessorPause =>
-              -- Pause CPU before next instruction to simulate 1MHz, 2MHz or 3.5MHz
-              -- operation.
-              pc_inc := '0';
-              if cpu_pause_shift=1 then
-                pause_cycles_counter <= '0'&pause_cycles(8 downto 1);
-              elsif cpu_pause_shift=2 then
-                pause_cycles_counter <= "00"&pause_cycles(8 downto 2);
-              else
-                pause_cycles_counter <= pause_cycles;
-              end if;
-              state <= ProcessorPausing;
-            when ProcessorPausing =>
-              pc_inc := '0';
-              if pause_cycles_counter /=0 then
-                pause_cycles_counter <= pause_cycles_counter - 1;
-              else
-                state <= InstructionFetch;
-              end if;
             when ProcessorHold =>
               -- Hold CPU while blocked by monitor
 
@@ -3503,6 +3571,8 @@ begin
                 microcode_lut(instruction_lut(to_integer(emu6502&memory_read_value)));
               reg_addressingmode <= mode_lut(to_integer(emu6502&memory_read_value));
               reg_instruction <= instruction_lut(to_integer(emu6502&memory_read_value));
+              phi_add_backlog <= '1';
+              phi_new_backlog <= cycle_count_lut(to_integer(emu6502&memory_read_value));
               
               -- 4502 doesn't allow interrupts immediately following a
               -- single-cycle instruction
