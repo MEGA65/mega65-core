@@ -326,7 +326,7 @@ architecture Behavioral of machine is
   -- But dotclock is really 193.75MHz, so adjust accordingly.
   -- Then divide by 2 again, since the loop toggles phi0.
   signal phi0 : std_logic := '0';
-  constant phi0_divisor : integer := 95;
+  constant phi0_divisor : integer := 76; -- For 150MHz dotclock, 50MHz CPU
   signal phi0_counter : integer range 0 to phi0_divisor;
 
   signal pixel_stream : unsigned (7 downto 0);
