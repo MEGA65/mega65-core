@@ -783,7 +783,7 @@ constant mode_lut : mlut9bit := (
     M_rr,M_InnY,M_impl,M_InnY,M_nnX,M_nnX,M_nnX,M_nnX,
     M_impl,M_nnnnY,M_impl,M_nnnnY,M_nnnnX,M_nnnnX,M_nnnnX,M_nnnnX);
 
-type clut9bit is array(0 to 511) of integer range 0 to 7;
+type clut9bit is array(0 to 511) of integer range 0 to 15;
 constant cycle_count_lut : clut9bit := (
   7,5,2,2,4,3,4,4,2,2,2,2,5,4,5,4,
   2,5,5,3,4,3,4,4,2,4,2,2,4,4,5,4,
@@ -802,23 +802,23 @@ constant cycle_count_lut : clut9bit := (
   2,5,6,6,3,3,4,4,2,2,2,7,4,4,5,4,
   2,5,5,3,5,3,4,4,2,4,3,3,7,4,5,5,
 
-  -- XXX Copied from 4502 timings for now
-  7,5,2,2,4,3,4,4,2,2,2,2,5,4,5,4,
-  2,5,5,3,4,3,4,4,2,4,2,2,4,4,5,4,
-  5,5,7,7,3,3,4,4,2,2,2,2,4,4,4,4,
-  2,5,5,3,3,3,3,4,2,4,2,2,4,4,5,4,
-  5,4,2,2,4,3,4,4,2,2,2,2,3,4,5,4,
-  2,5,5,3,4,3,4,4,2,4,2,2,2,4,5,4,
-  4,5,7,5,3,3,4,4,2,2,2,2,5,4,5,4,
-  2,5,5,3,3,3,4,4,2,4,2,2,5,4,5,4,
-  2,5,6,3,3,3,3,4,2,2,2,4,4,4,4,4,
-  2,5,5,3,3,3,3,4,2,4,2,4,4,4,4,4,
-  2,5,2,2,3,3,3,4,2,2,2,4,4,4,4,4,
-  2,5,5,3,3,3,3,4,2,4,2,4,4,4,4,4,
-  2,5,2,6,3,3,4,4,2,2,2,7,4,4,5,4,
-  2,5,5,3,3,3,4,4,2,4,2,2,4,4,5,4,
-  2,5,6,6,3,3,4,4,2,2,2,7,4,4,5,4,
-  2,5,5,3,5,3,4,4,2,4,3,3,7,4,5,5
+  -- 6502 timings from  "Graham's table" (Oxyron)
+  7,6,0,8,3,3,5,5,3,2,2,2,4,4,6,6,
+  2,5,0,8,4,4,6,6,2,4,2,7,4,4,7,7,
+  6,6,0,8,3,3,5,5,4,2,2,2,4,4,6,6,
+  2,5,0,8,4,4,6,6,2,4,2,7,4,4,7,7,
+  6,6,0,8,3,3,5,5,3,2,2,2,3,4,6,6,
+  2,5,0,8,4,4,6,6,2,4,2,7,4,4,7,7,
+  6,6,0,8,3,3,5,5,4,2,2,2,5,4,6,6,
+  2,5,0,8,4,4,6,6,2,4,2,7,4,4,7,7,
+  2,6,2,6,3,3,3,3,2,2,2,2,4,4,4,4,
+  2,6,0,6,4,4,4,4,2,5,2,5,5,5,5,5,
+  2,6,2,6,3,3,3,3,2,2,2,2,4,4,4,4,
+  2,5,0,5,4,4,4,4,2,4,2,4,4,4,4,4,
+  2,6,2,8,3,3,5,5,2,2,2,2,4,4,6,6,
+  2,5,0,8,4,4,6,6,2,4,2,7,4,4,7,7,
+  2,6,2,8,3,3,5,5,2,2,2,2,4,4,6,6,
+  2,5,0,8,4,4,6,6,2,4,2,7,4,4,7,7
   );
 
 
@@ -3740,7 +3740,30 @@ begin
                   when I_STX => is_store <= '1';
                   when I_STY => is_store <= '1';
                   when I_STZ => is_store <= '1';
-                                
+
+                  -- And 6502 illegal opcodes
+                  when I_SLO => is_rmw <= '1';
+                  when I_RLA => is_rmw <= '1';
+                  when I_SRE => is_rmw <= '1';
+                  when I_SAX => is_store <= '1';
+                  when I_LAX => is_load <= '1';
+                  when I_RRA => is_rmw <= '1';
+                  when I_DCP => is_rmw <= '1';
+                  when I_ISC => is_rmw <= '1';
+                  when I_ANC => is_load <= '1';
+                  when I_ALR => null;
+                  when I_ARR => null;
+                  when I_XAA => null;
+                  when I_AXS => null;
+                  when I_AHX => null;
+                  when I_SHY => null;
+                  when I_SHX => null;
+                  when I_TAS => null;
+                  when I_LAS => null;
+                  when I_KIL =>
+                    state <= TrapToHypervisor;
+                    -- Trap $7F = 6502 KIL instruction encountered
+                    hypervisor_trap_port <= "1111111";                     
                   -- Nothing special for other instructions
                   when others => null;
                 end case;
