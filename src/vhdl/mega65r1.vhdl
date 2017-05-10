@@ -166,6 +166,9 @@ architecture Behavioral of container is
   
   signal irq : std_logic := '1';
   signal nmi : std_logic := '1';
+  signal reset_out : std_logic := '1';
+  signal cpu_game : std_logic := '1';
+  signal cpu_exrom : std_logic := '1';
 
   signal halfpixelclock : std_logic := '1';  
   signal pixelclock : std_logic;
@@ -178,9 +181,14 @@ architecture Behavioral of container is
   signal clock100mhz : std_logic := '0';
   signal clock50mhz : std_logic := '0';
 
+  signal slow_access_request_toggle : std_logic;
+  signal slow_access_ready_toggle : std_logic;
+  signal slow_access_write : std_logic;
+  signal slow_access_address : unsigned(27 downto 0);
+  signal slow_access_wdata : unsigned(7 downto 0);
+  signal slow_access_rdata : unsigned(7 downto 0);
+
   signal pmoda_dummy :  std_logic_vector(7 downto 0) := (others => '1');
-  signal ddr_state : unsigned(7 downto 0);
-  signal ddr_counter : unsigned(7 downto 0);
 
   signal v_hsync : std_logic;
   signal v_vsync : std_logic;
@@ -195,6 +203,11 @@ architecture Behavioral of container is
   -- XXX We should read the real temperature and feed this to the DDR controller
   -- so that it can update timing whenever the temperature changes too much.
   signal fpga_temperature : std_logic_vector(11 downto 0) := (others => '0');
+
+  -- XXX Connect to real QSPI flash interface at some point
+  signal QspiDB : std_logic_vector(3 downto 0); := (others => '0');
+  signal QspiCSn : std_logic := '1';
+
   
 begin
   
@@ -263,7 +276,7 @@ begin
       cart_game => cart_game,
       cart_io2 => cart_io2,
       
-      cart_d_in => cart_d_read,
+      cart_d_in => cart_d,
       cart_d => cart_d,
       cart_a => cart_a
       );
@@ -279,6 +292,7 @@ begin
       uartclock         => cpuclock, -- Match CPU clock (48MHz)
       ioclock         => cpuclock, -- Match CPU clock
       btncpureset => btncpureset,
+      reset_out => reset_out,
       irq => irq,
       nmi => nmi,
       restore_key => restore_key,
@@ -296,7 +310,7 @@ begin
       ----------------------------------------------------------------------
       iec_clk_en => iec_clk_en,
       iec_data_en => iec_data_en,
-      iec_data_o => iec_data_odata_o,
+      iec_data_o => iec_data_o,
       iec_reset => iec_reset,
       iec_clk_o => iec_clk_o,
       iec_data_i => iec_data_i,
