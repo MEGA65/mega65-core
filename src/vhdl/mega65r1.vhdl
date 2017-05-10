@@ -420,21 +420,16 @@ begin
   begin
     vdac_sync_n <= '0';  -- no sync on green
     vdac_blank_n <= '1'; -- was: not (v_hsync or v_vsync); 
-    if rising_edge(pixelclock) then
 
-      -- The VGA driver on the first revision M65 PCBs has a 170MHz rated
-      -- VDAC.  Our pixelclock is 193.5MHz, which is too fast. Thus for now
-      -- we will divide the horizontal resolution in two, to give the VDAC a
-      -- more relaxed ~97MHz pixel stream.
-      vdac_clk <= halfpixelclock;
-      halfpixelclock <= not halfpixelclock;
-      if halfpixelclock = '0' then
-        hsync <= v_hsync;
-        vsync <= v_vsync;
-        vgared <= v_red;
-        vgagreen <= v_green;
-        vgablue <= v_blue;
-      end if;
+    -- VGA output at full pixel clock
+    vdac_clk <= pixelclock;
+    hsync <= v_hsync;
+    vsync <= v_vsync;
+    vgared <= v_red;
+    vgagreen <= v_green;
+    vgablue <= v_blue;
+
+    if rising_edge(pixelclock) then
 
       hdmi_hsync <= v_hsync;
       hdmi_vsync <= v_vsync;
