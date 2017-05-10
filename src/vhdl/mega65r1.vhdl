@@ -78,8 +78,8 @@ entity container is
          cart_game : inout std_logic := 'Z';
          cart_io2 : inout std_logic := 'Z';
 
-         cart_d : inout std_logic_vector(7 downto 0) := (others => 'Z');
-         cart_a : inout std_logic_vector(15 downto 0) := (others => 'Z');
+         cart_d : inout unsigned(7 downto 0) := (others => 'Z');
+         cart_a : inout unsigned(15 downto 0) := (others => 'Z');
          
          ----------------------------------------------------------------------
          -- CBM floppy serial port
@@ -196,16 +196,13 @@ architecture Behavioral of container is
   signal v_green : unsigned(7 downto 0);
   signal v_blue : unsigned(7 downto 0);
   signal v_de : std_logic;
-
-  signal cpu_exrom : std_logic;
-  signal cpu_game : std_logic;
   
   -- XXX We should read the real temperature and feed this to the DDR controller
   -- so that it can update timing whenever the temperature changes too much.
   signal fpga_temperature : std_logic_vector(11 downto 0) := (others => '0');
 
   -- XXX Connect to real QSPI flash interface at some point
-  signal QspiDB : std_logic_vector(3 downto 0); := (others => '0');
+  signal QspiDB : std_logic_vector(3 downto 0) := (others => '0');
   signal QspiCSn : std_logic := '1';
 
   
