@@ -422,13 +422,17 @@ begin
     vdac_blank_n <= '1'; -- was: not (v_hsync or v_vsync); 
 
     -- VGA output at full pixel clock
-    vdac_clk <= pixelclock;
-    hsync <= v_hsync;
-    vsync <= v_vsync;
-    vgared <= v_red;
-    vgagreen <= v_green;
-    vgablue <= v_blue;
-
+    if rising_edge(pixelclock2x) then
+      vdac_clk <= pixelclock;
+    end if;
+    if rising_edge(pixelclock) then
+      hsync <= v_hsync;
+      vsync <= v_vsync;
+      vgared <= v_red;
+      vgagreen <= v_green;
+      vgablue <= v_blue;
+    end if;
+    
     if rising_edge(pixelclock) then
 
       hdmi_hsync <= v_hsync;
