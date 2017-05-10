@@ -32,7 +32,7 @@ TOOLS=	tools/etherkick/etherkick \
 	tools/hotpatch/hotpatch \
 	tools/pngprepare/pngprepare
 
-all:	fdisk.native
+all:	fdisk.native  fdisk.prg
 	$(warning ~~~~~~~~~~~~~~~~> The 'all'-target is not implemented in the makefile yet, refer to ./../compile.sh)
 	$(warning You need to explicitly know what to make, else use ./../compile.sh)
 	$(warning Common targets are: generated_vhdl, firmware, tools, utilities)
@@ -133,6 +133,20 @@ megacart.crt:	megacartstub.a65
 fdisk.native:	fdisk.c fdisk_hal_unix.c fdisk_hal.h Makefile
 	gcc -g -Wall -o fdisk.native fdisk.c fdisk_hal_unix.c
 
+fdisk.prg:	fdisk.o fdisk_hal_mega65.o
+	cl65 -o fdisk.prg fdisk.o fdisk_hal_mega65.o
+
+fdisk.o:	fdisk.s 
+	ca65 -o fdisk.o fdisk.s
+
+fdisk_hal_mega65.o:	fdisk_hal_mega65.s
+	ca65 -o fdisk_hal_mega65.o fdisk_hal_mega65.s
+
+fdisk.s:	fdisk.c fdisk_hal.h Makefile
+	cc65 -o fdisk.s fdisk.c
+
+fdisk_hal_mega65.s: fdisk_hal_mega65.c fdisk_hal.h Makefile
+	cc65 -o fdisk_hal_mega65.s fdisk_hal_mega65.c
 
 # ============================ done moved, print-warn, clean-target
 # we do not use this initial version anymore, but remains here for learning from
