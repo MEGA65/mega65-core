@@ -7,6 +7,9 @@ use Std.TextIO.all;
 use work.debugtools.all;
 
 entity cia6526 is
+  generic (
+    has_iec : std_logic := '0'
+    );
   port (
     cpuclock : in std_logic;
     phi0 : in std_logic;
@@ -458,7 +461,14 @@ begin  -- behavioural
       end if;
 
       portbout <= reg_portb_out or (not reg_portb_ddr);
-      portaout <= reg_porta_out or (not reg_porta_ddr);
+      if has_iec = '0' then
+        portaout <= reg_porta_out or (not reg_porta_ddr);
+      else
+        -- Invert IEC serial output lines (but not inputs)
+        portaout(2 downto 0) <= reg_porta_out(2 downto 0) or (not reg_porta_ddr(2 downto 0));
+        portaout(5 downto 3) <= (not reg_porta_out(5 downto 3)) or (not reg_porta_ddr(5 downto 3));
+        portaout(7 downto 6) <= reg_porta_out(7 downto 6) or (not reg_porta_ddr(7 downto 6));
+      end if;
       
       -- Check for register writing
       if fastio_write='1' and cs='1' then

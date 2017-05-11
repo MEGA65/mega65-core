@@ -63,14 +63,14 @@ ENTITY expansion_port_controller IS
     cart_irq : in std_logic;
     cart_dma : in std_logic;
     
-    cart_exrom : inout std_logic := 'Z';
-    cart_ba : inout std_logic := 'Z';
-    cart_rw : inout std_logic := 'Z';
-    cart_roml : inout std_logic := 'Z';
-    cart_romh : inout std_logic := 'Z';
-    cart_io1 : inout std_logic := 'Z';
-    cart_game : inout std_logic := 'Z';
-    cart_io2 : inout std_logic := 'Z';
+    cart_exrom : inout std_logic := 'H';
+    cart_ba : inout std_logic := 'H';
+    cart_rw : inout std_logic := 'H';
+    cart_roml : inout std_logic := 'H';
+    cart_romh : inout std_logic := 'H';
+    cart_io1 : inout std_logic := 'H';
+    cart_game : inout std_logic := 'H';
+    cart_io2 : inout std_logic := 'H';
     
     cart_d_in : in unsigned(7 downto 0);
     cart_d : out unsigned(7 downto 0);

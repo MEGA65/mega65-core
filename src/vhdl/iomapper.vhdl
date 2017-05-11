@@ -63,12 +63,12 @@ entity iomapper is
         ----------------------------------------------------------------------
         iec_clk_en : out std_logic := '0';
         iec_data_en : out std_logic := '0';
-        iec_data_o : out std_logic := 'Z';
-        iec_reset : out std_logic := 'Z';
-        iec_clk_o : out std_logic := 'Z';
+        iec_data_o : out std_logic := '1';
+        iec_reset : out std_logic := '1';
+        iec_clk_o : out std_logic := '1';
         iec_data_i : in std_logic := 'Z';
         iec_clk_i : in std_logic := 'Z';
-        iec_atn : out std_logic := 'Z';  
+        iec_atn : out std_logic := '1';
         
         ps2data : in std_logic;
         ps2clock : in std_logic;
@@ -263,7 +263,11 @@ begin
 
   block3: block
   begin
-  cia1: entity work.cia6526 port map (
+    cia1: entity work.cia6526
+      generic map (
+        has_iec => '0'
+        )
+      port map (
     cpuclock => clk,
     phi0 => phi0,
     todclock => clock50hz,
@@ -290,7 +294,11 @@ begin
 
   block4: block
   begin
-  ciatwo: entity work.cia6526 port map (
+    ciatwo: entity work.cia6526
+      generic map (
+        has_iec => '1'
+        )
+      port map (
     cpuclock => clk,
     phi0 => phi0,
     todclock => clock50hz,
