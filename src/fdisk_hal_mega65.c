@@ -3,10 +3,12 @@
 
 #include "fdisk_hal.h"
 
-uint8_t *sd_sectorbuffer=(uint8_t *)0xde00;
-uint8_t *sd_ctl=(uint8_t *)0xd680;
-uint8_t *sd_addr=(uint8_t *)0xd681;
-uint8_t *key=(uint8_t *)0xd02f;
+#define POKE(X,Y) (*(unsigned char*)(X))=Y
+#define PEEK(X) (*(unsigned char*)(X))
+
+uint16_t sd_sectorbuffer=0xde00L;
+uint16_t sd_ctl=0xd680L;
+uint16_t sd_addr=0xd681L;
 
 uint32_t sdcard_getsize(void)
 {
@@ -23,15 +25,18 @@ uint32_t write_count=0;
 
 void sdcard_map_sector_buffer(void)
 {
-  *key=0x47; *key=0x53;
+  POKE(0xd02f,0x47);
+  POKE(0xd02f,0x53);
   
-  *sd_ctl = 0x81;
+  POKE(sd_ctl,0x81);
 }
 
 void sdcard_unmap_sector_buffer(void)
 {
-  *key=0x47; *key=0x53;
-  *sd_ctl = 0x82;
+  POKE(0xd02f,0x47);
+  POKE(0xd02f,0x53);
+  
+  POKE(sd_ctl,0x82);
 }
 
 void sdcard_writesector(const uint32_t sector_number, const uint8_t *buffer)
@@ -44,17 +49,17 @@ void sdcard_writesector(const uint32_t sector_number, const uint8_t *buffer)
   sdcard_map_sector_buffer();
 
   // Copy the sector to the buffer
-  for(i=0;i<512;i++) sd_sectorbuffer[i]=buffer[i];
+  for(i=0;i<512;i++) POKE(sd_sectorbuffer+i,buffer[i]);
 
   // Set address to read/write
   sector_address=sector_number*512;
-  sd_addr[0]=(sector_address>>0)&0xff;
-  sd_addr[1]=(sector_address>>8)&0xff;
-  sd_addr[2]=(sector_address>>16)&0xff;
-  sd_addr[3]=(sector_address>>24)&0xff;
+  POKE(sd_addr+0,(sector_address>>0)&0xff);
+  POKE(sd_addr+1,(sector_address>>8)&0xff);
+  POKE(sd_addr+2,(sector_address>>16)&0xff);
+  POKE(sd_addr+3,(sector_address>>24)&0xff);
 
   // Give write command
-  *sd_ctl = 0x03;
+  POKE(sd_ctl,0x03);
   
   // Remove SD card sector buffer from memory
   sdcard_unmap_sector_buffer();
