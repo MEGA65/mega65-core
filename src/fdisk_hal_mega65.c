@@ -6,6 +6,7 @@
 uint8_t *sd_sectorbuffer=(uint8_t *)0xde00;
 uint8_t *sd_ctl=(uint8_t *)0xd680;
 uint8_t *sd_addr=(uint8_t *)0xd681;
+uint8_t *key=(uint8_t *)0xd02f;
 
 uint32_t sdcard_getsize(void)
 {
@@ -22,11 +23,14 @@ uint32_t write_count=0;
 
 void sdcard_map_sector_buffer(void)
 {
+  *key=0x47; *key=0x53;
+  
   *sd_ctl = 0x81;
 }
 
 void sdcard_unmap_sector_buffer(void)
 {
+  *key=0x47; *key=0x53;
   *sd_ctl = 0x82;
 }
 
@@ -65,8 +69,11 @@ void sdcard_erase(const uint32_t first_sector,const uint32_t last_sector)
   uint32_t n;
   for(n=0;n<512;n++) z[n]=0;
 
-  fprintf(stderr,"Erasing sectors %d..%d\n",first_sector,last_sector);
+  fprintf(stderr,"ERASING SECTORS %d..%d\r\n",first_sector,last_sector);
   
-  for(n=first_sector;n<=last_sector;n++) sdcard_writesector(n,z);
+  for(n=first_sector;n<=last_sector;n++) {
+    sdcard_writesector(n,z);
+    fprintf(stderr,"."); fflush(stderr);
+  }
   
 }

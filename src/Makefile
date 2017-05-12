@@ -133,8 +133,14 @@ megacart.crt:	megacartstub.a65
 fdisk.native:	fdisk.c fdisk_hal_unix.c fdisk_hal.h Makefile
 	gcc -g -Wall -o fdisk.native fdisk.c fdisk_hal_unix.c
 
+fdisktest:	fdisk.d81
+	../../xemu/build/bin/xmega65.native -8 fdisk.d81 -sdimg fdisktest.img
+
+fdisk.d81:	fdisk.prg
+	cbmconvert -v2 -D8o fdisk.d81 fdisk.prg
+
 fdisk.prg:	fdisk.o fdisk_hal_mega65.o
-	cl65 -o fdisk.prg fdisk.o fdisk_hal_mega65.o
+	cl65 -o fdisk.prg fdisk.o fdisk_hal_mega65.o c64.lib
 
 fdisk.o:	fdisk.s 
 	ca65 -o fdisk.o fdisk.s

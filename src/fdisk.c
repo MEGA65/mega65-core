@@ -240,7 +240,7 @@ int main(int argc,char **argv)
 
   available_sectors=partition_sectors-reserved_sectors;
   
-  fprintf(stderr,"Partition has 0x%x sectors (0x%x available)\n",
+  fprintf(stderr,"PARTITION HAS $%x SECTORS ($%x AVAILABLE)\r\n",
 	  partition_sectors,available_sectors);
   
   fs_clusters=available_sectors/(sectors_per_cluster);
@@ -250,13 +250,13 @@ int main(int argc,char **argv)
     uint32_t excess_sectors=sectors_required-available_sectors;
     uint32_t delta=(excess_sectors/(1+sectors_per_cluster));
     if (delta<1) delta=1;
-    fprintf(stderr,"%d clusters would take %d too many sectors.\n",
+    fprintf(stderr,"%d clusters would take %d too many sectors.\r\n",
 	    fs_clusters,sectors_required-available_sectors);
     fs_clusters-=delta;
     fat_sectors=fs_clusters/(512/4); if (fs_clusters%(512/4)) fat_sectors++;
     sectors_required=2*fat_sectors+((fs_clusters-2)*sectors_per_cluster);
   }
-  fprintf(stderr,"Creating file system with %u (0x%x) clusters, %d sectors per FAT, %d reserved sectors.\n",
+  fprintf(stderr,"CREATING FILE SYSTEM WITH %u (0x%x) CLUSTERS, %d SECTORS PER FAT, %d RESERVED SECTORS.\r\n",
 	  fs_clusters,fs_clusters,fat_sectors,reserved_sectors);
 
   fat1_sector=0x0800+reserved_sectors;
@@ -284,7 +284,7 @@ int main(int argc,char **argv)
   sdcard_writesector(0x0807,sector_buffer);
 
   // FATs
-  fprintf(stderr,"Writing FATs at offsets 0x%x and 0x%x\n",
+  fprintf(stderr,"WRITING FATS AT OFFSETS 0x%x AND 0x%x\r\n",
 	  fat1_sector*512,fat2_sector*512);
   build_empty_fat(); 
   sdcard_writesector(fat1_sector,sector_buffer);
