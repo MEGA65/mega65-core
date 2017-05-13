@@ -97,7 +97,7 @@ void m65_io_enable(void)
 {
   // Gate C65 IO enable
   POKE(0xd02fU,0x47);
-  POKE(0xd02fU,0x75);
+  POKE(0xd02fU,0x73);
   // Force to full speed
   POKE(0,65);
 }
