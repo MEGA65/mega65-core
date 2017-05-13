@@ -10,6 +10,11 @@ uint16_t sd_sectorbuffer=0xde00L;
 uint16_t sd_ctl=0xd680L;
 uint16_t sd_addr=0xd681L;
 
+void mega65_fast(void)
+{
+  POKE(0,65);
+}
+
 uint32_t sdcard_getsize(void)
 {
   // XXX - Just say 1GB for now.

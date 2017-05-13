@@ -230,6 +230,8 @@ uint32_t available_sectors;
 
 int main(int argc,char **argv)
 {
+  mega65_fast();
+  
   sdcard_open();
 
   sdcard_sectors = sdcard_getsize();

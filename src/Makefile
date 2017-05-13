@@ -134,7 +134,7 @@ fdisk.native:	fdisk.c fdisk_hal_unix.c fdisk_hal.h Makefile
 	gcc -g -Wall -o fdisk.native fdisk.c fdisk_hal_unix.c
 
 fdisktest:	fdisk.d81
-	../../xemu/build/bin/xmega65.native -8 fdisk.d81 -sdimg fdisktest.img
+	../../xemu/build/bin/xmega65.native -8 fdisk.d81 -sdimg fdisktest.img -skipunhandledmem
 
 fdisk.d81:	fdisk.prg
 	cbmconvert -v2 -D8o fdisk.d81 fdisk.prg

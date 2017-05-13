@@ -7,6 +7,10 @@
 
 FILE *sdcard=NULL;
 
+void mega65_fast(void)
+{
+}
+
 uint32_t sdcard_getsize(void)
 {
   struct stat s;
