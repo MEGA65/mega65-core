@@ -429,15 +429,23 @@ reset_machine_state:
 		; enhanced ($FFD3xxx) IO page mapped at $D000,
 		; and fast RAM elsewhere.
 
-		; Disable reset watchdog, enable flat 32-bit addressing, don't engage
-		; ROM write protect (yet), do make ASC/DIN / CAPS LOCK control CPU speed.
-		; also force 4502 CPU personality (6502 personality is still incomplete)
-		; and clear any pending IRQ or NMI event.
+		; Disable reset watchdog (this happens simply by writing anything to
+		; this register)
+		; enable flat 32-bit addressing (bit 1)
+		; do not engage ROM write protect (yet) (bit 2)
+		; do make ASC/DIN / CAPS LOCK control CPU speed (bit 3)
+		; do not force CPU to full speed (bit 4)
+		; also force 4502 CPU personality (6502 personality is still incomplete) (bit 5)
+		; and clear any pending IRQ or NMI event (bit 6)
+		; Also disable /EXROM and /GAME from cartridge port (current prototype
+		; PCBs lack pull-ups, so this causes problems for now) (bit 0)
+		;
 		; (The watchdog was added to catch reset problems where the machine
 		; would run off somewhere odd instead of resetting properly. Now it
 		; will auto-reset after 65535 cycles if the watchdog is not cleared).
 		;
-		lda #$6a
+		
+		lda #$6a    ; 01101010
 		sta hypervisor_feature_enables
 
 		jsr resetdisplay

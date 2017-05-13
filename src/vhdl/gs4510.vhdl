@@ -209,6 +209,9 @@ end component;
   signal cpuspeed_internal : unsigned(7 downto 0);
 
   signal reset_drive : std_logic := '0';
+  signal cartridge_enable : std_logic := '0';
+  signal gated_exrom : std_logic := '1'; 
+  signal gated_game : std_logic := '1';
 
   signal force_fast : std_logic := '0';
   signal speed_gate_enable_internal : std_logic := '1';
@@ -1352,8 +1355,8 @@ begin
       -- Now apply C64-style $01 lines first, because MAP and $D030 take precedence
       blocknum := to_integer(short_address(15 downto 12));
 
-      lhc(4) := exrom;
-      lhc(3) := game;
+      lhc(4) := gated_exrom;
+      lhc(3) := gated_game;
       lhc(2 downto 0) := std_logic_vector(cpuport_value(2 downto 0));
       lhc(2) := lhc(2) or (not cpuport_ddr(2));
       lhc(1) := lhc(1) or (not cpuport_ddr(1));
@@ -1384,7 +1387,7 @@ begin
         temp_address(11 downto 0) := short_address(11 downto 0);
         if writeP then
           -- IO is always visible in ultimax mode
-          if exrom/='1' or game/='0' then
+          if gated_exrom/='1' or gated_game/='0' then
             case lhc(2 downto 0) is
               when "000" => temp_address(27 downto 12) := x"000D";  -- WRITE RAM
               when "001" => temp_address(27 downto 12) := x"000D";  -- WRITE RAM
@@ -1405,7 +1408,7 @@ begin
         else
           -- READING
           -- IO is always visible in ultimax mode
-          if exrom/='1' or game/='0' then
+          if gated_exrom/='1' or gated_game/='0' then
             case lhc(2 downto 0) is
               when "000" => temp_address(27 downto 12) := x"000D";  -- READ RAM
               when "001" => temp_address(27 downto 12) := x"002D";  -- CHARROM
@@ -1440,7 +1443,7 @@ begin
 
       -- C64 KERNEL
       if reg_map_high(3)='0' then
-        if ((blocknum=14) or (blocknum=13)) and ((exrom='1') and (game='0')) then
+        if ((blocknum=14) or (blocknum=13)) and ((gated_exrom='1') and (gated_game='0')) then
           -- ULTIMAX mode external ROM
           temp_address(27 downto 16) := x"7FF";
         else
@@ -1456,8 +1459,8 @@ begin
       if reg_map_high(0)='0' then
         if ((blocknum=8) or (blocknum=9)) and
           (
-            ((exrom='1') and (game='0'))
-            or ((exrom='0') and (lhc(1 downto 0)="11"))
+            ((gated_exrom='1') and (gated_game='0'))
+            or ((gated_exrom='0') and (lhc(1 downto 0)="11"))
             )
         then
           -- ULTIMAX mode or cartridge external ROM
@@ -1473,7 +1476,7 @@ begin
       end if;
       if reg_map_high(1)='0' then
         if ((blocknum=10) or (blocknum=11))
-          and ((exrom='0') and (game='0'))            
+          and ((gated_exrom='0') and (gated_game='0'))            
         then
           -- ULTIMAX mode or cartridge external ROM
           temp_address(27 downto 16) := x"7FF";          
@@ -1481,7 +1484,7 @@ begin
       end if;
 
       -- Expose remaining address space to cartridge port in ultimax mode
-      if (exrom='1') and (game='0') then
+      if (gated_exrom='1') and (gated_game='0') then
         if (reg_map_low(0)='0') and  blocknum=1 then
           -- $1000 - $1FFF Ultimax mode
           temp_address(27 downto 16) := x"7FF";
@@ -1906,10 +1909,15 @@ begin
                 & immediate_monitor_char_busy
                 & monitor_char_busy;
 
-            when "111101" =>                                                   -- this section
-              return "11" & force_4502 & force_fast                            -- was previously
-                & speed_gate_enable_internal & rom_writeprotect                -- mapped to io-reg
-                & flat32_enabled & '0';                        -- D67C / "111100"
+            when "111101" =>
+              -- this section
+              return "11"
+                & force_4502
+                & force_fast
+                & speed_gate_enable_internal
+                & rom_writeprotect
+                & flat32_enabled
+                & cartridge_enable;                        
             when "111110" =>
               if hypervisor_upgraded='1' then
                 return x"FF";
@@ -2472,6 +2480,14 @@ begin
     -- BEGINNING OF MAIN PROCESS FOR CPU
     if rising_edge(clock) then
 
+      if cartridge_enable='1' then
+        gated_exrom <= exrom;
+        gated_game <= game;
+      else
+        gated_exrom <= '1';
+        gated_game <= '1';
+      end if;
+      
       -- Count slow clock ticks for applying instruction-level 6502/4510 timing
       -- accuracy at 1MHz and 3.5MHz
       -- XXX Add NTSC speed emulation option as well
@@ -2786,7 +2802,7 @@ begin
           immediate_monitor_char_busy <= '1';
         end if;
 
-        -- @IO:GS $D67D.0 - Hypervisor C64 ROM source select (0=normal,1=colour RAM)
+        -- @IO:GS $D67D.0 - Hypervisor enable /EXROM and /GAME from cartridge
         -- @IO:GS $D67D.1 - Hypervisor enable 32-bit JMP/JSR etc
         -- @IO:GS $D67D.2 - Hypervisor write protect C65 ROM $20000-$3FFFF
         -- @IO:GS $D67D.3 - Hypervisor enable ASC/DIN CAPS LOCK key to enable/disable CPU slow-down in C64/C128/C65 modes
@@ -2797,6 +2813,7 @@ begin
         
         -- @IO:GS $D67D - Hypervisor watchdog register: writing any value clears the watch dog
         if last_write_address = x"FFD367D" and hypervisor_mode='1' then
+          cartridge_enable <= last_value(0);
           flat32_enabled <= last_value(1);
           rom_writeprotect <= last_value(2);
           speed_gate_enable <= last_value(3);
