@@ -31,16 +31,14 @@ uint32_t write_count=0;
 
 void sdcard_map_sector_buffer(void)
 {
-  POKE(0xd02f,0x47);
-  POKE(0xd02f,0x53);
+  m65_io_enable();
   
   POKE(sd_ctl,0x81);
 }
 
 void sdcard_unmap_sector_buffer(void)
 {
-  POKE(0xd02f,0x47);
-  POKE(0xd02f,0x53);
+  m65_io_enable();
   
   POKE(sd_ctl,0x82);
 }
@@ -71,7 +69,7 @@ void sdcard_writesector(const uint32_t sector_number, const uint8_t *buffer)
   
   write_count++;
 
-  POKE(0xD020,write_count&0xff);
+  POKE(0xD021,write_count&0xff);
 }
 
 void sdcard_erase(const uint32_t first_sector,const uint32_t last_sector)
