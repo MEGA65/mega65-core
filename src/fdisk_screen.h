@@ -48,6 +48,9 @@ void screen_hex(unsigned int addr,long value);
 void screen_hex_byte(unsigned int addr,long value);
 void screen_decimal(unsigned int addr,unsigned int value);
 void set_screen_attributes(long p,unsigned char count,unsigned char attr);
+void write_line(char *s,char col);
+  
+extern long screen_line_address;
 
 extern unsigned char ascii_map[256];
 #define ascii_to_screen(X) ascii_map[X]

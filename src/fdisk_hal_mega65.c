@@ -25,7 +25,6 @@ uint32_t sdcard_getsize(void)
   uint32_t sector_number=0x00200000U;
   uint32_t step         =0x00200000U;
 
-  int index=160;
   char result;
   
   // Set address to read/write
@@ -35,7 +34,6 @@ uint32_t sdcard_getsize(void)
     // Work out address of sector
     // XXX - Assumes SD, not SDHC card
     sector_address=sector_number*512;    
-    screen_hex(SCREEN_ADDRESS+index,sector_number); index+=9;
     POKE(sd_addr+0,(sector_address>>0)&0xff);
     POKE(sd_addr+1,(sector_address>>8)&0xff);
     POKE(sd_addr+2,(sector_address>>16)&0xff);
@@ -46,7 +44,6 @@ uint32_t sdcard_getsize(void)
 
     // Note result
     result=PEEK(sd_ctl);
-    screen_hex_byte(SCREEN_ADDRESS+index,result); index+=7;
 
     // If we have a read error, then remove this bit from the mask
     if (result&0x60) {
@@ -59,8 +56,17 @@ uint32_t sdcard_getsize(void)
     
   }
 
-  screen_hex(SCREEN_ADDRESS+(10*80),sector_number);
-
+  // Work out size in MB and tell user
+  {
+    char col=6;
+    int megs=(sector_number+1)/2048;
+    screen_decimal(screen_line_address,(sector_number+1)/2048);
+    if (megs<10000) col=5;
+    if (megs<1000) col=4;
+    if (megs<100) col=3;
+    write_line("MIB SD CARD FOUND.",col);
+  }
+  
   return sector_number;
 }
 

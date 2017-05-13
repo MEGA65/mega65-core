@@ -1,6 +1,9 @@
 #include "fdisk_screen.h"
 #include "fdisk_memory.h"
 
+long screen_line_address=SCREEN_ADDRESS;
+char screen_column=0;
+
 unsigned char *footer_messages[FOOTER_MAX+1]={
   "MEGA65 FDISK+FORMAT V00.01 : (C) COPYRIGHT 2017 PAUL GARDNER-STEPHEN ETC.       ",
   "                                                                                ",
@@ -53,6 +56,15 @@ unsigned char screen_decimal_digits[16][5]={
   {0,6,3,8,4},
   {3,2,7,6,8}
 };
+
+void write_line(char *s,char col)
+{
+  char len=0;
+  while(s[len]) len++;
+  lcopy((long)&s[0],screen_line_address+col,len);
+  screen_line_address+=80;
+}
+
 
 unsigned char ii,j,carry,temp;
 unsigned int value;
@@ -139,6 +151,10 @@ void setup_screen(void)
 
   // Clear colour RAM: white text
   lfill(0x1f800,0x01,2000);
+
+  // Set screen line address and write point
+  screen_line_address=SCREEN_ADDRESS;
+  screen_column=0;
 
   display_footer(FOOTER_COPYRIGHT);    
 }

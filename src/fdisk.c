@@ -268,6 +268,10 @@ int main(int argc,char **argv)
 #ifndef __CC65__
   fprintf(stderr,"PARTITION HAS $%x SECTORS ($%x AVAILABLE)\r\n",
 	  partition_sectors,available_sectors);
+#else
+  // Tell use how many sectors available for partition
+  write_line("$         SECTORS AVAILABLE FOR PARTITION.",0);
+  screen_hex(screen_line_address-79,partition_sectors);
 #endif
   
   fs_clusters=available_sectors/(sectors_per_cluster);
@@ -288,6 +292,12 @@ int main(int argc,char **argv)
 #ifndef __CC65__
   fprintf(stderr,"CREATING FILE SYSTEM WITH %u (0x%x) CLUSTERS, %d SECTORS PER FAT, %d RESERVED SECTORS.\r\n",
 	  fs_clusters,fs_clusters,fat_sectors,reserved_sectors);
+#else
+  write_line("FORMATTING SD CARD WITH NEW PARTITION TABLE AND FAT32 FILE SYSTEM",0);
+  write_line("  $         CLUSTERS,       SECTORS/FAT,       RESERVED SECTORS.",0);
+  screen_hex(screen_line_address-80+3,fs_clusters);
+  screen_decimal(screen_line_address-80+22,fat_sectors);
+  screen_decimal(screen_line_address-80+41,reserved_sectors);
 #endif
   
   fat1_sector=0x0800+reserved_sectors;
@@ -296,12 +306,22 @@ int main(int argc,char **argv)
   fs_data_sectors=fs_clusters*sectors_per_cluster;
   
   // MBR is always the first sector of a disk
+#ifdef __CC65__
+  write_line(" ",0);
+  write_line("WRITING PARTITION TABLE / MASTER BOOT RECORD...",0);
+#endif
   build_mbr(partition_sectors);
   sdcard_writesector(0);
 
+#ifdef __CC65__
+  write_line("ERASING RESERVED SECTORS BEFORE PARTITION...",0);
+#endif
   // Blank intervening sectors
   sdcard_erase(0+1,0x0800-1);
   
+#ifdef __CC65__
+  write_line("WRITING FAT BOOT SECTOR...",0);
+#endif
   // Partition starts at fixed position of sector 2048, i.e., 1MB
   build_dosbootsector(volume_name,
 		      partition_sectors,
@@ -309,6 +329,9 @@ int main(int argc,char **argv)
   sdcard_writesector(0x0800);
   sdcard_writesector(0x0806); // Backup boot sector at partition + 6
 
+#ifdef __CC65__
+  write_line("WRITING FAT INFORMATION BLOCK (AND BACKUP)...",0);
+#endif
   // FAT32 FS Information block (and backup)
   build_fs_information_sector(fs_clusters);
   sdcard_writesector(0x0801);
@@ -318,15 +341,26 @@ int main(int argc,char **argv)
 #ifndef __CC65__
   fprintf(stderr,"WRITING FATS AT OFFSETS 0x%x AND 0x%x\r\n",
 	  fat1_sector*512,fat2_sector*512);
+#else
+  write_line("WRITING FATS AT $         AND $         ...",0);
+  screen_hex(screen_line_address-80+17,fat1_sector*512);
+  screen_hex(screen_line_address-80+31,fat2_sector*512);
 #endif
   build_empty_fat(); 
   sdcard_writesector(fat1_sector);
   sdcard_writesector(fat2_sector);
 
+#ifdef __CC65__
+  write_line("WRITING ROOT DIRECTORY...",0);
+#endif
   // Root directory
   build_root_dir(volume_name);
   sdcard_writesector(rootdir_sector);
 
+#ifdef __CC65__
+  write_line(" ",0);
+  write_line("CLEARING FILE SYSTEM DATA STRUCTURES...",0);
+#endif
   // Make sure all other sectors are empty
   sdcard_erase(0x0801+1,0x0806-1);
   sdcard_erase(0x0806+1,fat1_sector-1);
@@ -334,5 +368,12 @@ int main(int argc,char **argv)
   sdcard_erase(fat2_sector+1,rootdir_sector-1);
   sdcard_erase(rootdir_sector+1,rootdir_sector+1+sectors_per_cluster-1);
 
+#ifdef __CC65__
+  POKE(0xd021U,6);
+  write_line(" ",0);
+  write_line("SD CARD HAS BEEN FORMATTED.  REMOVE, COPY MEGA65.ROM, REINSERT AND REBOOT.",0);
+  while(1) continue;
+#endif
+  
   return 0;
 }
