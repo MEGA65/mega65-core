@@ -25,13 +25,11 @@ void do_dma(void)
 {
   m65_io_enable();
 
-#ifdef MEGA65
   // Now run DMA job (to and from low 1MB, and list is in low 1MB)
   POKE(0xd702U,0);
   POKE(0xd704U,0);
   POKE(0xd705U,0);
   POKE(0xd706U,0);
-#endif
   POKE(0xd701U,((unsigned int)&dmalist)>>8);
   POKE(0xd700U,((unsigned int)&dmalist)&0xff); // triggers DMA
 }
