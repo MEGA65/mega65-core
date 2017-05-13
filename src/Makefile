@@ -139,20 +139,16 @@ fdisktest:	fdisk.d81
 fdisk.d81:	fdisk.prg
 	cbmconvert -v2 -D8o fdisk.d81 fdisk.prg
 
-fdisk.prg:	fdisk.o fdisk_hal_mega65.o
-	cl65 -o fdisk.prg fdisk.o fdisk_hal_mega65.o
+FDISK_HEADERS=	fdisk_screen.h fdisk_memory.h Makefile
+CC65=cc65
+COPTS=-O
 
-fdisk.o:	fdisk.s 
-	ca65 -o fdisk.o fdisk.s
+%.s:	%.c $(FDISK_HEADERS)
+	$(CC65) $(COPTS) -o $@ $<
 
-fdisk_hal_mega65.o:	fdisk_hal_mega65.s
-	ca65 -o fdisk_hal_mega65.o fdisk_hal_mega65.s
+fdisk.prg:	fdisk.s fdisk_hal_mega65.s fdisk_memory.s fdisk_screen.s
+	cl65 -o fdisk.prg fdisk.s fdisk_hal_mega65.s fdisk_memory.s fdisk_screen.s
 
-fdisk.s:	fdisk.c fdisk_hal.h Makefile
-	cc65 -O -Os -o fdisk.s fdisk.c
-
-fdisk_hal_mega65.s: fdisk_hal_mega65.c fdisk_hal.h Makefile
-	cc65 -O -Os -o fdisk_hal_mega65.s fdisk_hal_mega65.c
 
 # ============================ done moved, print-warn, clean-target
 # we do not use this initial version anymore, but remains here for learning from

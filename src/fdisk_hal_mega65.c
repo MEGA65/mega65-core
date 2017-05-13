@@ -2,6 +2,7 @@
 #include <stdlib.h>
 
 #include "fdisk_hal.h"
+#include "fdisk_memory.h"
 
 #define POKE(X,Y) (*(unsigned char*)(X))=Y
 #define PEEK(X) (*(unsigned char*)(X))
@@ -47,14 +48,13 @@ void sdcard_unmap_sector_buffer(void)
 void sdcard_writesector(const uint32_t sector_number, const uint8_t *buffer)
 {
   // Copy buffer into the SD card buffer, and then execute the write job
-  uint16_t i;
   uint32_t sector_address;
   
   // Memory map the SD card sector buffer
   sdcard_map_sector_buffer();
 
   // Copy the sector to the buffer
-  for(i=0;i<512;i++) POKE(sd_sectorbuffer+i,buffer[i]);
+  lcopy((uint32_t)buffer,sd_sectorbuffer,512);
 
   // Set address to read/write
   sector_address=sector_number*512;
@@ -70,19 +70,19 @@ void sdcard_writesector(const uint32_t sector_number, const uint8_t *buffer)
   sdcard_unmap_sector_buffer();
   
   write_count++;
-}
 
-uint8_t z[512];
+  POKE(0xD020,write_count&0xff);
+}
 
 void sdcard_erase(const uint32_t first_sector,const uint32_t last_sector)
 {
   uint32_t n;
-  for(n=0;n<512;n++) z[n]=0;
+  lfill(sd_sectorbuffer,0,512);
 
   //  fprintf(stderr,"ERASING SECTORS %d..%d\r\n",first_sector,last_sector);
-  
+
   for(n=first_sector;n<=last_sector;n++) {
-    sdcard_writesector(n,z);
+    sdcard_writesector(n,(uint8_t *)sd_sectorbuffer);
     //    fprintf(stderr,"."); fflush(stderr);
   }
   

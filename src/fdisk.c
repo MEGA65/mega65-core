@@ -18,20 +18,30 @@
 #include <stdio.h>
 
 #include "fdisk_hal.h"
+#include "fdisk_memory.h"
+#include "fdisk_screen.h"
 
+#ifndef __CC65__
 uint8_t sector_buffer[512];
+#else
+uint8_t *sector_buffer=(uint8_t *)0x4000L;
+#endif
 
 void clear_sector_buffer(void)
 {
+#ifndef __CC65__
   int i;
   for(i=0;i<512;i++) sector_buffer[i]=0;
+#else
+  lfill((uint32_t)sector_buffer,0,512);
+#endif
 }
 
 
 /* Build a master boot record that has the single partition we need in
    the correct place, and with the size of the partition set correctly.
 */
-void build_mbr(const uint32_t sdcard_sectors,const uint32_t partition_sectors)
+void build_mbr(const uint32_t partition_sectors)
 {
   clear_sector_buffer();
 
@@ -236,7 +246,10 @@ uint32_t available_sectors;
 
 int main(int argc,char **argv)
 {
+#ifdef __CC65__
   mega65_fast();
+  setup_screen();
+#endif  
   
   sdcard_open();
 
@@ -279,7 +292,7 @@ int main(int argc,char **argv)
   fs_data_sectors=fs_clusters*sectors_per_cluster;
   
   // MBR is always the first sector of a disk
-  build_mbr(sdcard_sectors,partition_sectors);
+  build_mbr(partition_sectors);
   sdcard_writesector(0,sector_buffer);
 
   // Blank intervening sectors
