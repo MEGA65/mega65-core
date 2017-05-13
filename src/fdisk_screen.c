@@ -17,14 +17,22 @@ unsigned char to_screen_hex(unsigned char c)
   return screen_hex_digits[c&0xf];
 }
 
+void screen_hex_byte(unsigned int addr,long value)
+{
+  POKE(addr+0,to_screen_hex(value>>4));
+  POKE(addr+1,to_screen_hex(value>>0));
+}
+
 void screen_hex(unsigned int addr,long value)
 {
-  POKE(addr+0,to_screen_hex(value>>20));
-  POKE(addr+1,to_screen_hex(value>>16));
-  POKE(addr+2,to_screen_hex(value>>12));
-  POKE(addr+3,to_screen_hex(value>>8));
-  POKE(addr+4,to_screen_hex(value>>4));
-  POKE(addr+5,to_screen_hex(value>>0));
+  POKE(addr+0,to_screen_hex(value>>28));
+  POKE(addr+1,to_screen_hex(value>>24));
+  POKE(addr+2,to_screen_hex(value>>20));
+  POKE(addr+3,to_screen_hex(value>>16));
+  POKE(addr+4,to_screen_hex(value>>12));
+  POKE(addr+5,to_screen_hex(value>>8));
+  POKE(addr+6,to_screen_hex(value>>4));
+  POKE(addr+7,to_screen_hex(value>>0));
 }
 
 unsigned char screen_decimal_digits[16][5]={

@@ -3,6 +3,7 @@
 
 #include "fdisk_hal.h"
 #include "fdisk_memory.h"
+#include "fdisk_screen.h"
 
 #define POKE(X,Y) (*(unsigned char*)(X))=Y
 #define PEEK(X) (*(unsigned char*)(X))
@@ -18,8 +19,49 @@ void mega65_fast(void)
 
 uint32_t sdcard_getsize(void)
 {
-  // XXX - Just say 1GB for now.
-  return (0x40000000/512);
+  // Work out the largest sector number we can read without an error
+  
+  uint32_t sector_address;
+  uint32_t sector_number=0x00200000U;
+  uint32_t step         =0x00200000U;
+
+  int index=160;
+  char result;
+  
+  // Set address to read/write
+  while (step) {
+    // Try to read sector number with bit set
+
+    // Work out address of sector
+    // XXX - Assumes SD, not SDHC card
+    sector_address=sector_number*512;    
+    screen_hex(SCREEN_ADDRESS+index,sector_number); index+=9;
+    POKE(sd_addr+0,(sector_address>>0)&0xff);
+    POKE(sd_addr+1,(sector_address>>8)&0xff);
+    POKE(sd_addr+2,(sector_address>>16)&0xff);
+    POKE(sd_addr+3,(sector_address>>24)&0xff);
+    
+    // Command read
+    POKE(sd_ctl,2);
+
+    // Note result
+    result=PEEK(sd_ctl);
+    screen_hex_byte(SCREEN_ADDRESS+index,result); index+=7;
+
+    // If we have a read error, then remove this bit from the mask
+    if (result&0x60) {
+      // Now mask out bit in sector number, and try again
+      sector_number-=step;
+    }
+    // Advance half step
+    step=step>>1;
+    sector_number+=step;
+    
+  }
+
+  screen_hex(SCREEN_ADDRESS+(10*80),sector_number);
+
+  return sector_number;
 }
 
 void sdcard_open(void)

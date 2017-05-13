@@ -45,6 +45,7 @@ void screen_colour_line(unsigned char line,unsigned char colour);
 #define screen_colour_line_segment(LA,W,C) lfill(LA+(0x1f800-SCREEN_ADDRESS),C,W)
 
 void screen_hex(unsigned int addr,long value);
+void screen_hex_byte(unsigned int addr,long value);
 void screen_decimal(unsigned int addr,unsigned int value);
 void set_screen_attributes(long p,unsigned char count,unsigned char attr);
 
