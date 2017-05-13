@@ -109,17 +109,17 @@ void setup_screen(void)
   *((unsigned char*)0xD031)=0xe0;
 
   // Put screen memory somewhere (2KB required)
-  // We are using $A800-$AFFF for screen
-  // Our custom ASCII charset lives at $A000
+  // We are using $8000-$87FF for screen
+  // Using standard charset @ $9000
   *(unsigned char *)0xD018U=
-    (((CHARSET_ADDRESS-0xC000U)>>11)<<1)
-    +(((SCREEN_ADDRESS-0xC000U)>>10)<<4);
+    (((CHARSET_ADDRESS-0x8000U)>>11)<<1)
+    +(((SCREEN_ADDRESS-0x8000U)>>10)<<4);
   
 
-  // VIC RAM Bank to $C000-$FFFF
+  // VIC RAM Bank to $8000-$BFFF
   v=*(unsigned char *)0xDD00U;
   v&=0xfc;
-  v|=0x010;
+  v|=0x01;
   *(unsigned char *)0xDD00U=v;
 
   // Screen colours
@@ -127,7 +127,7 @@ void setup_screen(void)
   POKE(0xD021U,6);
 
   // Clear screen RAM
-  lfill(SCREEN_ADDRESS,0x21,2000);
+  lfill(SCREEN_ADDRESS,0x20,2000);
 
   // Clear colour RAM: white text
   lfill(0x1f800,0x01,2000);

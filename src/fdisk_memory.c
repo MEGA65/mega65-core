@@ -24,7 +24,7 @@ unsigned char dma_byte;
 void do_dma(void)
 {
   m65_io_enable();
-
+  
   // Now run DMA job (to and from low 1MB, and list is in low 1MB)
   POKE(0xd702U,0);
   POKE(0xd704U,0);
@@ -73,8 +73,12 @@ void lcopy(long source_address, long destination_address,
   dmalist.count=count;
   dmalist.source_addr=source_address&0xffff;
   dmalist.source_bank=(source_address>>16)&0x7f;
+  if (source_address>=0xd000 && source_address<0xe000)
+    dmalist.source_bank|=0x80;  
   dmalist.dest_addr=destination_address&0xffff;
   dmalist.dest_bank=(destination_address>>16)&0x7f;
+  if (destination_address>=0xd000 && destination_address<0xe000)
+    dmalist.dest_bank|=0x80;
 
   do_dma();
   return;
@@ -88,6 +92,8 @@ void lfill(long destination_address, unsigned char value,
   dmalist.source_addr=value;
   dmalist.dest_addr=destination_address&0xffff;
   dmalist.dest_bank=(destination_address>>16)&0x7f;
+  if (destination_address>=0xd000 && destination_address<0xe000)
+    dmalist.dest_bank|=0x80;
 
   do_dma();
   return;

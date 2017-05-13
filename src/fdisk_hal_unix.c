@@ -11,6 +11,10 @@ void mega65_fast(void)
 {
 }
 
+void sdcard_map_sector_buffer(void)
+{
+}
+
 uint32_t sdcard_getsize(void)
 {
   struct stat s;
@@ -37,8 +41,10 @@ void sdcard_open(void)
 
 uint32_t write_count=0;
 
-void sdcard_writesector(const uint32_t sector_number, const uint8_t *buffer)
+void sdcard_writesector(const uint32_t sector_number)
 {
+  const uint8_t *buffer=sector_buffer;
+  
   fseek(sdcard,sector_number*512LL,SEEK_SET);
   fwrite(buffer,512,1,sdcard);
 
@@ -47,12 +53,11 @@ void sdcard_writesector(const uint32_t sector_number, const uint8_t *buffer)
 
 void sdcard_erase(const uint32_t first_sector,const uint32_t last_sector)
 {
-  uint8_t z[512];
-  bzero(z,sizeof(z));
   uint32_t n;
+  bzero(sector_buffer,sizeof(512));
 
   fprintf(stderr,"Erasing sectors %d..%d\n",first_sector,last_sector);
   
-  for(n=first_sector;n<=last_sector;n++) sdcard_writesector(n,z);
+  for(n=first_sector;n<=last_sector;n++) sdcard_writesector(n);
   
 }

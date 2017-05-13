@@ -21,15 +21,16 @@
 #include "fdisk_memory.h"
 #include "fdisk_screen.h"
 
-#ifndef __CC65__
-uint8_t sector_buffer[512];
+#ifdef __CC65__
+// Sector buffer is the physical SD card buffer on M65 to avoid copying
+uint8_t *sector_buffer=(uint8_t *)0xDE00;
 #else
-uint8_t *sector_buffer=(uint8_t *)0x4000L;
+uint8_t sector_buffer[512];
 #endif
 
 void clear_sector_buffer(void)
 {
-#ifndef __CC65__
+#ifndef __CC65__DONTUSE
   int i;
   for(i=0;i<512;i++) sector_buffer[i]=0;
 #else
@@ -253,6 +254,9 @@ int main(int argc,char **argv)
   
   sdcard_open();
 
+  // Memory map the SD card sector buffer on MEGA65
+  sdcard_map_sector_buffer();
+  
   sdcard_sectors = sdcard_getsize();
 
   // Calculate sectors for partition
@@ -293,7 +297,7 @@ int main(int argc,char **argv)
   
   // MBR is always the first sector of a disk
   build_mbr(partition_sectors);
-  sdcard_writesector(0,sector_buffer);
+  sdcard_writesector(0);
 
   // Blank intervening sectors
   sdcard_erase(0+1,0x0800-1);
@@ -302,13 +306,13 @@ int main(int argc,char **argv)
   build_dosbootsector(volume_name,
 		      partition_sectors,
 		      fat_sectors);
-  sdcard_writesector(0x0800,sector_buffer);
-  sdcard_writesector(0x0806,sector_buffer); // Backup boot sector at partition + 6
+  sdcard_writesector(0x0800);
+  sdcard_writesector(0x0806); // Backup boot sector at partition + 6
 
   // FAT32 FS Information block (and backup)
   build_fs_information_sector(fs_clusters);
-  sdcard_writesector(0x0801,sector_buffer);
-  sdcard_writesector(0x0807,sector_buffer);
+  sdcard_writesector(0x0801);
+  sdcard_writesector(0x0807);
 
   // FATs
 #ifndef __CC65__
@@ -316,12 +320,12 @@ int main(int argc,char **argv)
 	  fat1_sector*512,fat2_sector*512);
 #endif
   build_empty_fat(); 
-  sdcard_writesector(fat1_sector,sector_buffer);
-  sdcard_writesector(fat2_sector,sector_buffer);
+  sdcard_writesector(fat1_sector);
+  sdcard_writesector(fat2_sector);
 
   // Root directory
   build_root_dir(volume_name);
-  sdcard_writesector(rootdir_sector,sector_buffer);
+  sdcard_writesector(rootdir_sector);
 
   // Make sure all other sectors are empty
   sdcard_erase(0x0801+1,0x0806-1);
