@@ -173,14 +173,20 @@ void build_fs_information_sector(const uint32_t fs_clusters)
   sector_buffer[0x1e7]=0x61;
 
   // Last free cluster = (cluster count - 1)
+#ifndef __CC65__
   fprintf(stderr,"Writing fs_clusters (0x%x) as ",fs_clusters);
+#endif
   for(i=0;i<4;i++) {
     // Number of free clusters
     sector_buffer[0x1e8+i]=((fs_clusters-3)>>(i*8))&0xff;
+#ifndef __CC65__
     fprintf(stderr,"%02x ",sector_buffer[0x1e8+i]);
+#endif
   }
+#ifndef __CC65__
   fprintf(stderr,"\n");
-
+#endif
+  
   // First free cluster = 2
   sector_buffer[0x1ec]=0x02+1;  // OSX newfs/fsck puts 3 here instead?
 
@@ -241,9 +247,11 @@ int main(int argc,char **argv)
   partition_sectors=sdcard_sectors-0x0800;
 
   available_sectors=partition_sectors-reserved_sectors;
-  
+
+#ifndef __CC65__
   fprintf(stderr,"PARTITION HAS $%x SECTORS ($%x AVAILABLE)\r\n",
 	  partition_sectors,available_sectors);
+#endif
   
   fs_clusters=available_sectors/(sectors_per_cluster);
   fat_sectors=fs_clusters/(512/4); if (fs_clusters%(512/4)) fat_sectors++;
@@ -252,15 +260,19 @@ int main(int argc,char **argv)
     uint32_t excess_sectors=sectors_required-available_sectors;
     uint32_t delta=(excess_sectors/(1+sectors_per_cluster));
     if (delta<1) delta=1;
+#ifndef __CC65__
     fprintf(stderr,"%d clusters would take %d too many sectors.\r\n",
 	    fs_clusters,sectors_required-available_sectors);
+#endif
     fs_clusters-=delta;
     fat_sectors=fs_clusters/(512/4); if (fs_clusters%(512/4)) fat_sectors++;
     sectors_required=2*fat_sectors+((fs_clusters-2)*sectors_per_cluster);
   }
+#ifndef __CC65__
   fprintf(stderr,"CREATING FILE SYSTEM WITH %u (0x%x) CLUSTERS, %d SECTORS PER FAT, %d RESERVED SECTORS.\r\n",
 	  fs_clusters,fs_clusters,fat_sectors,reserved_sectors);
-
+#endif
+  
   fat1_sector=0x0800+reserved_sectors;
   fat2_sector=fat1_sector+fat_sectors;
   rootdir_sector=fat2_sector+fat_sectors;
@@ -286,8 +298,10 @@ int main(int argc,char **argv)
   sdcard_writesector(0x0807,sector_buffer);
 
   // FATs
+#ifndef __CC65__
   fprintf(stderr,"WRITING FATS AT OFFSETS 0x%x AND 0x%x\r\n",
 	  fat1_sector*512,fat2_sector*512);
+#endif
   build_empty_fat(); 
   sdcard_writesector(fat1_sector,sector_buffer);
   sdcard_writesector(fat2_sector,sector_buffer);

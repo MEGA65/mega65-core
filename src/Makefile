@@ -140,7 +140,7 @@ fdisk.d81:	fdisk.prg
 	cbmconvert -v2 -D8o fdisk.d81 fdisk.prg
 
 fdisk.prg:	fdisk.o fdisk_hal_mega65.o
-	cl65 -o fdisk.prg fdisk.o fdisk_hal_mega65.o c64.lib
+	cl65 -o fdisk.prg fdisk.o fdisk_hal_mega65.o
 
 fdisk.o:	fdisk.s 
 	ca65 -o fdisk.o fdisk.s
@@ -149,10 +149,10 @@ fdisk_hal_mega65.o:	fdisk_hal_mega65.s
 	ca65 -o fdisk_hal_mega65.o fdisk_hal_mega65.s
 
 fdisk.s:	fdisk.c fdisk_hal.h Makefile
-	cc65 -o fdisk.s fdisk.c
+	cc65 -O -Os -o fdisk.s fdisk.c
 
 fdisk_hal_mega65.s: fdisk_hal_mega65.c fdisk_hal.h Makefile
-	cc65 -o fdisk_hal_mega65.s fdisk_hal_mega65.c
+	cc65 -O -Os -o fdisk_hal_mega65.s fdisk_hal_mega65.c
 
 # ============================ done moved, print-warn, clean-target
 # we do not use this initial version anymore, but remains here for learning from

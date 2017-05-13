@@ -79,11 +79,11 @@ void sdcard_erase(const uint32_t first_sector,const uint32_t last_sector)
   uint32_t n;
   for(n=0;n<512;n++) z[n]=0;
 
-  fprintf(stderr,"ERASING SECTORS %d..%d\r\n",first_sector,last_sector);
+  //  fprintf(stderr,"ERASING SECTORS %d..%d\r\n",first_sector,last_sector);
   
   for(n=first_sector;n<=last_sector;n++) {
     sdcard_writesector(n,z);
-    fprintf(stderr,"."); fflush(stderr);
+    //    fprintf(stderr,"."); fflush(stderr);
   }
   
 }
