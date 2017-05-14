@@ -135,8 +135,9 @@ megacart.crt:	megacartstub.a65
 fdisk.native:	fdisk.c fdisk_hal_unix.c fdisk_hal.h Makefile
 	gcc -g -Wall -o fdisk.native fdisk.c fdisk_hal_unix.c
 
-fdisktest:	fdisk.d81
-	../../xemu/build/bin/xmega65.native -8 fdisk.d81 -sdimg fdisktest.img -skipunhandledmem -dmarev 0
+fdisktest:	fdisk.d81 COLOURRAM.BIN
+	dd if=/dev/zero of=empty.img bs=1048576 count=200
+	../../xemu/build/bin/xmega65.native -8 fdisk.d81 -sdimg empty.img -skipunhandledmem -dmarev 0 -loadcram COLOURRAM.BIN
 
 fdisk.d81:	fdisk.prg
 	cbmconvert -v2 -D8o fdisk.d81 fdisk.prg
