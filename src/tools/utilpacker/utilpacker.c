@@ -16,19 +16,25 @@ unsigned char header_magic[4]={'M','6','5','U'};
 unsigned char util_body[32*1024];
 
 // XXX - We really should have a checksum or other integrity check
-#define HEADER_LEN 40
+#define HEADER_LEN 44
 struct util_header {
   unsigned char magic[4];
   char name[32];
   unsigned char length_lo,length_hi;
   unsigned char entry_lo,entry_hi;
+  unsigned char self_lo,self_hi;
+  unsigned char next_lo,next_hi;
 };
 
 struct util_header header;
 
-int load_util(char *filename)
+int load_util(char *filename, int ar_offset)
 {
   bzero(&header,sizeof(header));
+
+  header.self_lo=ar_offset&0xff;
+  header.self_hi=(ar_offset>>8)&0xff;
+  
   FILE *f=fopen(filename,"r");
   if (!f) {
     fprintf(stderr,"Could not read utility '%s'\n",filename);
@@ -44,6 +50,10 @@ int load_util(char *filename)
     exit(-1);
   }
 
+  int next_offset=ar_offset+HEADER_LEN+len;
+  header.next_lo=next_offset&0xff;
+  header.next_hi=(next_offset>>8)&0xff;
+
   
   // Search utility for name string
   header.name[0]=0;
@@ -55,7 +65,7 @@ int load_util(char *filename)
 	if (util_body[i+15+j]) {
 	  header.name[j]=util_body[i+15+j];
 	  header.name[j+1]=0;
-	}
+	} else break;
       }
     }
   for(int i=0;i<4;i++) header.magic[i]=header_magic[i];
@@ -108,6 +118,8 @@ int load_util(char *filename)
     fprintf(stderr,"ERROR: Utility contains no entry point.  Add PROP.M65U.ADDR= or BASIC SYS nnnn header.\n");
     exit(-1);
   }
+
+  util_len=(header.length_hi<<8)+header.length_lo;
   
   fclose(f);
   return 0;
@@ -117,6 +129,10 @@ int util_describe(struct util_header *h)
 {
   fprintf(stderr,"Preparing to pack utility '%s'\n",
 	  h->name);
+  fprintf(stderr,"  Offset = $%02x%02x\n",h->self_hi,h->self_lo);
+  fprintf(stderr,"  Length = $%02x%02x\n",h->length_hi,h->length_lo);
+  fprintf(stderr,"   Start = $%02x%02x\n",h->entry_hi,h->entry_lo);
+  fprintf(stderr,"    Next = $%02x%02x\n",h->next_hi,h->next_lo);
   return 0;
 }
 
@@ -143,14 +159,29 @@ int main(int argc,char **argv)
   
   for(int i=2;i<argc;i++)
     {
-      load_util(argv[i]);
+      load_util(argv[i],ar_offset);
+      util_describe(&header);
       if (util_len>(HEADER_LEN+ar_size-ar_offset)) {
 	fprintf(stderr,"Insufficient space to fit utility '%s' (%d bytes required, %d available)\n",
 		header.name,HEADER_LEN+util_len,
 		ar_size-ar_offset);
 	exit(-1);
       }
-      
+      bcopy(&header,&archive[ar_offset],HEADER_LEN);
+      ar_offset+=HEADER_LEN;
+      bcopy(util_body,&archive[ar_offset],util_len);
+      ar_offset+=util_len;      
     }
+
+  if (ar_offset>32*1024) {
+    fprintf(stderr,"FATAL: Output file is size allocated (32KB)n");
+    exit(-1);
+  }
+  // Always output full size
+  ar_offset=32*1024;
+  
+  fwrite(archive,ar_offset,1,o);
+  fclose(o);
+  fprintf(stderr,"%d bytes written\n",ar_offset);
   
 }
