@@ -12,6 +12,9 @@ long sd_sectorbuffer=0xde00L;
 uint16_t sd_ctl=0xd680L;
 uint16_t sd_addr=0xd681L;
 
+// Tell utilpacker what our display name is
+const char *prop_m65u_name="PROP.M65U.NAME=SDCARD FDISK+FORMAT UTILITY";
+
 void mega65_fast(void)
 {
   POKE(0,65);
