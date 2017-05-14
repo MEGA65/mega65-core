@@ -32,7 +32,7 @@ TOOLS=	tools/etherkick/etherkick \
 	tools/hotpatch/hotpatch \
 	tools/pngprepare/pngprepare
 
-all:	fdisk.native  fdisk.prg
+all:	fdisk.native  colourram.bin
 	$(warning ~~~~~~~~~~~~~~~~> The 'all'-target is not implemented in the makefile yet, refer to ./../compile.sh)
 	$(warning You need to explicitly know what to make, else use ./../compile.sh)
 	$(warning Common targets are: generated_vhdl, firmware, tools, utilities)
@@ -299,6 +299,15 @@ tools/pngprepare/pngprepare:	tools/pngprepare/pngprepare.c Makefile
 	# Force consistent ordering of items according to natural byte values
 	export LC_ALL=C
 	egrep "IO:C6|IO:GS" $(VHDLSRCDIR)/*.vhdl | cut -f3- -d: | sort -u -k2 > ../iomap.txt
+
+CRAMUTILS=	fdisk.prg
+colourram.bin:	tools/utilpacker/utilpacker $(CRAMUTILS)
+	tools/utilpacker/utilpacker colourram.bin $(CRAMUTILS)
+
+tools/utilpacker/utilpacker:	tools/utilpacker/utilpacker.c Makefile
+	$(warning =============================================================)
+	$(warning ~~~~~~~~~~~~~~~~> Making: tools/utilpacker/utilpacker)
+	gcc -g -Wall -o tools/utilpacker/utilpacker tools/utilpacker/utilpacker.c
 
 # ============================ done moved, Makefile-dep, print-warn, clean-target
 # script to extract the git-status from the ./.git filesystem, and to embed that string
