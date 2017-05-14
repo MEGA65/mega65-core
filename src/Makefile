@@ -32,7 +32,7 @@ TOOLS=	tools/etherkick/etherkick \
 	tools/hotpatch/hotpatch \
 	tools/pngprepare/pngprepare
 
-all:	fdisk.native  colourram.bin
+all:
 	$(warning ~~~~~~~~~~~~~~~~> The 'all'-target is not implemented in the makefile yet, refer to ./../compile.sh)
 	$(warning You need to explicitly know what to make, else use ./../compile.sh)
 	$(warning Common targets are: generated_vhdl, firmware, tools, utilities)
@@ -45,12 +45,14 @@ fpga:
 
 generated_vhdl:	$(VHDLSRCDIR)/kickstart.vhdl \
 		$(VHDLSRCDIR)/charrom.vhdl \
-		$(VHDLSRCDIR)/version.vhdl
+		$(VHDLSRCDIR)/version.vhdl \
+		$(VHDLSRCDIR)/colourram.vhdl
 
 
 # files destined to go on the SD-card to serve as firmware for the MEGA65
 firmware:	$(SDCARD_DIR)/BOOTLOGO.M65 \
 		KICKUP.M65 \
+		COLOURRAM.BIN \
 		$(SDCARD_DIR)/MEGA65.D81 \
 		$(SDCARD_DIR)/C000UTIL.BIN
 
@@ -64,7 +66,7 @@ tools:	$(TOOLS)
 utilities:	$(UTILITIES)
 
 
-SIMULATIONFILES=	vhdl/UART_TX_CTRL.vhd vhdl/bitplane.vhdl vhdl/bitplanes.vhdl vhdl/c65uart.vhdl vhdl/charrom.vhdl vhdl/cia6526.vhdl vhdl/container.vhd vhdl/cpu_test.vhdl vhdl/cputypes.vhdl vhdl/crc.vhdl vhdl/ddrwrapper.vhdl vhdl/debugtools.vhdl vhdl/ethernet.vhdl vhdl/framepacker.vhdl vhdl/ghdl_alpha_blend.vhdl vhdl/ghdl_chipram8bit.vhdl vhdl/ghdl_farstack.vhdl vhdl/ghdl_ram128x1k.vhdl vhdl/ghdl_ram18x2k.vhdl vhdl/ghdl_ram8x32k.vhdl vhdl/ghdl_ram8x4096.vhdl vhdl/ghdl_ram8x512.vhdl vhdl/ghdl_ram9x4k.vhdl vhdl/ghdl_screen_ram_buffer.vhdl vhdl/ghdl_videobuffer.vhdl vhdl/gs4510.vhdl vhdl/iomapper.vhdl vhdl/keymapper.vhdl vhdl/kickstart.vhdl vhdl/machine.vhdl vhdl/ramlatch64.vhdl vhdl/sd.vhdl vhdl/sdcardio.vhdl vhdl/shadowram.vhdl vhdl/sid_6581.vhd vhdl/sid_coeffs.vhd vhdl/sid_components.vhd vhdl/sid_filters.vhd vhdl/sid_voice.vhd vhdl/slowram.vhdl vhdl/sprite.vhdl vhdl/uart_monitor.vhdl vhdl/uart_rx.vhdl vhdl/version.vhdl vhdl/vicii_sprites.vhdl vhdl/viciv.vhdl vhdl/ghdl_fpgatemp.vhdl vhdl/victypes.vhdl vhdl/pal_simulation.vhdl vhdl/fake_expansion_port.vhdl vhdl/expansion_port_controller.vhdl vhdl/slow_devices.vhdl vhdl/ps2_to_uart.vhdl vhdl/matrix_compositor.vhdl vhdl/terminalemulator.vhdl vhdl/uart_charrom.vhdl vhdl/uart_rx.vhdl
+SIMULATIONFILES=	vhdl/UART_TX_CTRL.vhd vhdl/bitplane.vhdl vhdl/bitplanes.vhdl vhdl/c65uart.vhdl vhdl/charrom.vhdl vhdl/cia6526.vhdl vhdl/container.vhd vhdl/cpu_test.vhdl vhdl/cputypes.vhdl vhdl/crc.vhdl vhdl/ddrwrapper.vhdl vhdl/debugtools.vhdl vhdl/ethernet.vhdl vhdl/framepacker.vhdl vhdl/ghdl_alpha_blend.vhdl vhdl/ghdl_chipram8bit.vhdl vhdl/ghdl_farstack.vhdl vhdl/ghdl_ram128x1k.vhdl vhdl/ghdl_ram18x2k.vhdl vhdl/colourram.vhdl vhdl/ghdl_ram8x4096.vhdl vhdl/ghdl_ram8x512.vhdl vhdl/ghdl_ram9x4k.vhdl vhdl/ghdl_screen_ram_buffer.vhdl vhdl/ghdl_videobuffer.vhdl vhdl/gs4510.vhdl vhdl/iomapper.vhdl vhdl/keymapper.vhdl vhdl/kickstart.vhdl vhdl/machine.vhdl vhdl/ramlatch64.vhdl vhdl/sd.vhdl vhdl/sdcardio.vhdl vhdl/shadowram.vhdl vhdl/sid_6581.vhd vhdl/sid_coeffs.vhd vhdl/sid_components.vhd vhdl/sid_filters.vhd vhdl/sid_voice.vhd vhdl/slowram.vhdl vhdl/sprite.vhdl vhdl/uart_monitor.vhdl vhdl/uart_rx.vhdl vhdl/version.vhdl vhdl/vicii_sprites.vhdl vhdl/viciv.vhdl vhdl/ghdl_fpgatemp.vhdl vhdl/victypes.vhdl vhdl/pal_simulation.vhdl vhdl/fake_expansion_port.vhdl vhdl/expansion_port_controller.vhdl vhdl/slow_devices.vhdl vhdl/ps2_to_uart.vhdl vhdl/matrix_compositor.vhdl vhdl/terminalemulator.vhdl vhdl/uart_charrom.vhdl vhdl/uart_rx.vhdl
 simulate:	$(SIMULATIONFILES)
 	ghdl -i $(SIMULATIONFILES)
 	ghdl -m cpu_test
@@ -241,6 +243,11 @@ $(VHDLSRCDIR)/kickstart.vhdl:	tools/makerom/rom_template.vhdl KICKUP.M65 tools/m
 #       script                arg[1]                          arg[2]     arg[3]                  arg[4]
 	tools/makerom/makerom tools/makerom/rom_template.vhdl KICKUP.M65 $(VHDLSRCDIR)/kickstart kickstart
 
+$(VHDLSRCDIR)/colourram.vhdl:	tools/makerom/colourram_template.vhdl COLOURRAM.BIN tools/makerom/makerom
+	$(warning =============================================================)
+	$(warning ~~~~~~~~~~~~~~~~> Making: $(VHDLSRCDIR)/colourram.vhdl)
+	tools/makerom/makerom tools/makerom/colourram_template.vhdl COLOURRAM.BIN $(VHDLSRCDIR)/colourram ram8x32k
+
 
 # unsure why the below is commented out
 #slowram.vhdl:	c65gs.rom makeslowram slowram_template.vhdl
@@ -301,8 +308,8 @@ tools/pngprepare/pngprepare:	tools/pngprepare/pngprepare.c Makefile
 	egrep "IO:C6|IO:GS" $(VHDLSRCDIR)/*.vhdl | cut -f3- -d: | sort -u -k2 > ../iomap.txt
 
 CRAMUTILS=	fdisk.prg
-colourram.bin:	tools/utilpacker/utilpacker $(CRAMUTILS)
-	tools/utilpacker/utilpacker colourram.bin $(CRAMUTILS)
+COLOURRAM.BIN:	tools/utilpacker/utilpacker $(CRAMUTILS)
+	tools/utilpacker/utilpacker COLOURRAM.BIN $(CRAMUTILS)
 
 tools/utilpacker/utilpacker:	tools/utilpacker/utilpacker.c Makefile
 	$(warning =============================================================)

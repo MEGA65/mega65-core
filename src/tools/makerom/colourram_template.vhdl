@@ -6,7 +6,7 @@ use ieee.numeric_std.all;
 use Std.TextIO.all;
 use work.debugtools.all;
 
-ENTITY ram8x32k IS
+ENTITY THEROM IS
   PORT (
     clka : IN STD_LOGIC;
     ena : IN STD_LOGIC;
@@ -20,14 +20,12 @@ ENTITY ram8x32k IS
     dinb : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
     doutb : OUT STD_LOGIC_VECTOR(7 DOWNTO 0)
     );
-END ram8x32k;
+END THEROM;
 
-architecture behavioural of ram8x32k is
+architecture behavioural of THEROM is
 
   type ram_t is array (0 to 32767) of std_logic_vector(7 downto 0);
-  signal ram : ram_t := (
-    0 => x"02", 1 => x"03", 2 => x"04", 3 => x"06", 4 => x"06", 5 => x"06", 6 => x"06", 7 => x"06", 8 => x"06", 39 => x"06",
-    others => x"07");
+  signal ram : ram_t := (ROMDATA);
 
   signal douta_drive : std_logic_vector(7 downto 0);
   signal doutb_drive : std_logic_vector(7 downto 0);
