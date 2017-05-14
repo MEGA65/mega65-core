@@ -171,6 +171,7 @@ GS $D06B VIC-IV character set precise base address (bits 31 - 24)
 GS $D06C VIC-IV sprite pointer address (bits 7 - 0)
 GS $D06D VIC-IV sprite pointer address (bits 15 - 8)
 GS $D06E VIC-IV sprite pointer address (bits 23 - 16)
+GS $D06F.0 VIC-IV (when read) vertical fly-back indicator DEBUG, WILL BE REMOVED
 GS $D06F.6-0 VIC-IV first VIC-II raster line
 GS $D06F.7 VIC-IV NTSC emulation mode (max raster = 262)
 GS $D070 VIC-IV palette bank selection
@@ -302,7 +303,7 @@ GS $D67C.0-7 - (write) Hypervisor write serial output to UART monitor
 GS $D67C.6 - (read) Hypervisor internal immediate UART monitor busy flag (can write when 0)
 GS $D67C.7 - (read) Hypervisor serial output from UART monitor busy flag (can write when 0)
 GS $D67D - Hypervisor watchdog register: writing any value clears the watch dog
-GS $D67D.0 - Hypervisor C64 ROM source select (0=normal,1=colour RAM)
+GS $D67D.0 - Hypervisor enable /EXROM and /GAME from cartridge
 GS $D67D.1 - Hypervisor enable 32-bit JMP/JSR etc
 GS $D67D.2 - Hypervisor write protect C65 ROM $20000-$3FFFF
 GS $D67D.3 - Hypervisor enable ASC/DIN CAPS LOCK key to enable/disable CPU slow-down in C64/C128/C65 modes
@@ -378,6 +379,7 @@ C64 $DE0C RRNET tx_cmd register (low)
 C64 $DE0E Set RR-NET TX packet size
 C64 $DE0F Set RR-NET TX packet size
 GS $FF7Exxx VIC-IV CHARROM write area
+GS $FF8xxxx - Colour RAM (32KB or 64KB)
 GS $FFBF000 - $FFBFFFF - DEBUG allow writing directly to the bitplane data buffer.  Will be removed in production.
 GS $FFDE800 - $FFDEFFF Ethernet RX buffer (read only)
 GS $FFDE800 - $FFDEFFF Ethernet TX buffer (write only)
