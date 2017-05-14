@@ -2588,7 +2588,7 @@ utility_menu:
 	jsr printmessage
 
 	; First utility will be number 1
-	lda #1
+	lda #$31
 	sta zptempv
 	
 	jsr utillist_rewind
@@ -2609,17 +2609,19 @@ um2:	sta msg_utility_item,y
 	ldz #4
 um4:	nop
 	lda (<zptempv32),z
-	beq um3
 	sta msg_utility_item,y
+	beq um3
 	iny
 	inz
 	bra um4
 um3:
+
 	ldx #<msg_utility_item
 	ldy #>msg_utility_item
 	jsr printmessage
-	
+
 	jsr utillist_next
+
 	bra um1
 	
 
@@ -2637,9 +2639,10 @@ utility_end_of_list:
 	jmp utility_end_of_list
 
 msg_utility_item:
-	.byte "1. 32 CHARACTERS OF UTILITY NAME...",0
+	.byte "1. 32 CHARACTERS OF UTILITY NAME...    ",0
 
 utillist_next:
+
 	; Advance pointer to the next pointer
 	ldz #42
 	nop
@@ -2649,6 +2652,7 @@ utillist_next:
 	nop
 	lda (<zptempv32),z
 	; XXX - Make sure it can't point earlier into the colour RAM here
+
 	sta <zptempv32+1
 	stz <zptempv32
 	rts
@@ -2662,17 +2666,17 @@ utillist_validity_check:
 	lda (<zptempv32),z
 	cmp #'M
 	bne ulvc_fail
-	iny
+	inz
 	nop ; 32-bit pointer access follows
 	lda (<zptempv32),z
 	cmp #'6
 	bne ulvc_fail
-	iny
+	inz
 	nop ; 32-bit pointer access follows
 	lda (<zptempv32),z
 	cmp #'5
 	bne ulvc_fail
-	iny
+	inz
 	nop ; 32-bit pointer access follows
 	lda (<zptempv32),z
 	cmp #'U
