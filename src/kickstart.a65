@@ -2073,15 +2073,14 @@ l1:		; Enable VIC-IV / MEGA65 IO
 
 ;	========================
 
-keyboardread:
-
-; Check for digits 0 - 9 on keyboard, and change which ROM we intend to read
-; based on that.
-
+scankeyboard:
+	; XXX - Overhaul to read full keyboard, and use a matrix table so that
+	; the result is shorter, not longer
 		lda #$ff
 		sta $dc03
 		lda #$00
 		sta $dc02
+		
 		lda #$fe
 		sta $dc01
 		lda #$20
@@ -2120,6 +2119,18 @@ k4:		cpx #$fd
 		bne k2
 		lda #$34
 k2:		
+		rts
+
+keyboardread:
+
+; Check for digits 0 - 9 on keyboard, and change which ROM we intend to read
+; based on that.
+
+		jsr scankeyboard
+		cmp #0
+		bne kr1
+		lda #$20 ; default to space
+kr1:
 		; put character into 6th byte position of ROM file name.
 		; so no key looks for MEGA65.ROM, where as 0-9 will look
 		; for MEGA65x.ROM, where x is the number.
