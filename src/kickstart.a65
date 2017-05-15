@@ -1422,7 +1422,7 @@ resetpalette:
 		; PAL bit in $D030 is set.
 		;
 		lda #$04
-		sta $D030	; enable PAL bit in $D030
+		tsb $D030	; enable PAL bit in $D030
 
 		lda #$ff
 		sta $D070	; select palette bank 3 for display and edit
@@ -2072,54 +2072,7 @@ l1:		; Enable VIC-IV / MEGA65 IO
 
 
 ;	========================
-
-scankeyboard:
-	; XXX - Overhaul to read full keyboard, and use a matrix table so that
-	; the result is shorter, not longer
-		lda #$ff
-		sta $dc03
-		lda #$00
-		sta $dc02
-		
-		lda #$fe
-		sta $dc01
-		lda #$20
-		ldx $dc00
-		cpx #$7f
-		bne k1
-		lda #$31
-k1:		cpx #$ef
-		bne k9
-		lda #$39
-k9:		cpx #$f7
-		bne k7
-		lda #$37
-k7:		cpx #$fb
-		bne k5
-		lda #$35
-k5:		cpx #$fd
-		bne k3
-		lda #$33
-k3:		ldx #$f7
-		stx $dc01
-		ldx $dc00
-		cpx #$7f
-		bne k0
-		lda #$32
-k0:		cpx #$ef
-		bne k8
-		lda #$30
-k8:		cpx #$f7
-		bne k6
-		lda #$38
-k6:		cpx #$fb
-		bne k4
-		lda #$36
-k4:		cpx #$fd
-		bne k2
-		lda #$34
-k2:		
-		rts
+		.include "kickstart_keyboard.a65"
 
 keyboardread:
 
@@ -2127,9 +2080,10 @@ keyboardread:
 ; based on that.
 
 		jsr scankeyboard
-		cmp #0
+		bcs kr2  ; if an error occured
+		cmp #$ff
 		bne kr1
-		lda #$20 ; default to space
+kr2:		lda #$20 ; default to space
 kr1:
 		; put character into 6th byte position of ROM file name.
 		; so no key looks for MEGA65.ROM, where as 0-9 will look
@@ -2637,8 +2591,35 @@ um3:
 	
 
 utility_end_of_list:
-	; XXX Get input from user (number 0 - 9)
+	; XXX Get input from user (accept only numbers 1 - 9)
+	lda #$1
+	sta $0422
+	jsr scankeyboard
+	sta $0424
+	inc $0426
+	cmp #0
+	beq utility_end_of_list
+	cmp #$30
+	bcc utility_end_of_list
+	cmp #$39
+	bcs utility_end_of_list
+
+	inc $d021
+
 	; XXX Based on input, find that utility
+	and #$f
+	tax
+	jsr utillist_rewind
+ueol2:	jsr utillist_validity_check
+	bcc utility_end_of_list
+	dex
+	bmi ueol1
+	jsr utillist_next
+	bra ueol2
+ueol1:	
+
+
+
 	; XXX - Set hardware protection bits based on utility definition
 	;       (and check that utility memory has not been modified. If modified.
 	;        give an error instead of giving privileges, so that there is no
@@ -3030,6 +3011,20 @@ zptempp2:		.word 0
 zptempv32:		.word 0,0
 zptempv32b:		.word 0,0
 dos_file_loadaddress:	.word 0,0
+
+		; Keyboard scan routine
+		
+    ; // ZERO PAGE Varibles
+ScanResult:   	    .byte 0,0,0,0,0,0,0,0
+BufferNew:    	    .byte 0,0,0
+KeyQuantity:  	    .byte 0
+NonAlphaFlagX: 	    .byte 0
+NonAlphaFlagY: 	    .byte 0
+TempZP: 	    .byte 0
+SimultaneousKeys:   .byte 0
+
+    ; // Operational Variables
+   .alias MaxKeyRollover 3
 
 		; Used for checkpoint debug system of hypervisor
 		;
