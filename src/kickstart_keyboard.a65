@@ -185,11 +185,6 @@ kir5:
         bcs kir6
         jsr KeyFound
 kir6:
-        inx
-        asl
-        bcs kir7
-        jsr KeyFound
-kir7:
 ;    }
     rts
 
@@ -294,9 +289,9 @@ foo1:
 ;    .for (var i = 6 ; i > -1 ; i--) {
         rol
         sta $dc00
-        ldy $dc01
+        ldy $dc01	
         sty ScanResult+6
-        rol
+    	rol
         sta $dc00
         ldy $dc01
         sty ScanResult+5
@@ -386,37 +381,37 @@ cp1:
         jsr KeyInRow
 cpk7:
 ;    .for (var i = 6 ; i > -1 ; i--) {
-        ldx #[7-6]*8
+        ldx #8 ; #[7-6]*8
         lda ScanResult+6
         beq cpk6
             jsr KeyInRow
     cpk6:
-        ldx #[7-5]*8
+        ldx #$10 ; #[7-5]*8
         lda ScanResult+5
         beq cpk5
             jsr KeyInRow
     cpk5:
-        ldx #[7-4]*8
+        ldx #$18 ; #[7-4]*8
         lda ScanResult+4
         beq cpk4
             jsr KeyInRow
     cpk4:
-        ldx #[7-3]*8
+        ldx #$20 ; #[7-3]*8
         lda ScanResult+3
         beq cpk3
             jsr KeyInRow
     cpk3:
-        ldx #[7-2]*8
+        ldx #$28 ; #[7-2]*8
         lda ScanResult+2
         beq cpk2
             jsr KeyInRow
     cpk2:
-        ldx #[7-1]*8
+        ldx #$30 ; #[7-1]*8
         lda ScanResult+1
         beq cpk1
             jsr KeyInRow
     cpk1:
-        ldx #[7-0]*8
+        ldx #$38 ; #[7-0]*8
         lda ScanResult+0
         beq cpk0
             jsr KeyInRow
