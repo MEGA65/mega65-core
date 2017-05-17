@@ -2592,25 +2592,21 @@ um3:
 
 utility_end_of_list:
 	; XXX Get input from user (accept only numbers 1 - 9)
-	lda #$1
-	sta $0422
 	jsr scankeyboard
-	sta $0424
-	inc $0426
-	cmp #0
+	cmp #$ff
 	beq utility_end_of_list
-	cmp #$30
+	cmp #$31
 	bcc utility_end_of_list
 	cmp #$39
 	bcs utility_end_of_list
 
-	inc $d021
-
 	; XXX Based on input, find that utility
 	and #$f
 	tax
+	dex ; input is 1-9, so subtract one for list beginning at 0
 	jsr utillist_rewind
 ueol2:	jsr utillist_validity_check
+	; Select again if first choice invalid
 	bcc utility_end_of_list
 	dex
 	bmi ueol1
@@ -2618,7 +2614,7 @@ ueol2:	jsr utillist_validity_check
 	bra ueol2
 ueol1:	
 
-
+	inc $d021
 
 	; XXX - Set hardware protection bits based on utility definition
 	;       (and check that utility memory has not been modified. If modified.
