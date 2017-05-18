@@ -2657,7 +2657,22 @@ ueol1:
 	sta $d701
 	lda #<utility_dmalist
 	sta $d700  ; Trigger DAM
-	
+
+	; clear 16-bit char mode
+	lda #$05	; 0000 0101
+	trb $d054	; VIC-IV Control Register C
+
+	; and 40 bytes (40 8-bit characters) per row.
+	lda #<40
+	sta $d058
+	lda #>40
+	sta $d059
+
+	; screen at $0800 for debug
+	lda #$25
+	sta $d018
+
+
 	; Exit hypervisor, with PC set to entry point of utility
 	ldz #38
 	nop
@@ -2669,6 +2684,11 @@ ueol1:
 	sta hypervisor_pch
 
 	jsr task_set_c64_memorymap
+	lda #$3f
+	sta hypervisor_cpuport00
+	lda #$34 ; IO, but no ROMs
+	sta hypervisor_cpuport01
+
 	; Next instruction exits hypervisor to user mode
 	sta hypervisor_enterexit_trigger
 
@@ -2700,7 +2720,7 @@ utillist_next:
 	; XXX - Make sure it can't point earlier into the colour RAM here
 
 	sta <zptempv32+1
-	stz <zptempv32
+	stx <zptempv32
 	rts
 
 utillist_validity_check:
