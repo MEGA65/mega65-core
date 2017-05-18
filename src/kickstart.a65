@@ -2686,7 +2686,7 @@ ueol1:
 	jsr task_set_c64_memorymap
 	lda #$3f
 	sta hypervisor_cpuport00
-	lda #$34 ; IO, but no ROMs
+	lda #$35 ; IO, but no ROMs
 	sta hypervisor_cpuport01
 
 	; Next instruction exits hypervisor to user mode
