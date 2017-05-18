@@ -2641,7 +2641,7 @@ ueol1:
 	adc #0
 	sta utility_dmalist+4
 		
-	; load address is always $07FE (to skip $0801 header)
+	; load address is always $07FF (to skip $0801 header)
 	; start @ zptempv32 + 44
 	; DMA list is from Hypervisor ROM, so DMA list address MB also = $FF
 	lda #$ff
@@ -2694,13 +2694,13 @@ ueol1:
 	sta hypervisor_enterexit_trigger
 
 utility_dmalist:
-		; copy $FF8xxxx-$FF8yyyy to $00007FE-$000xxxx
+		; copy $FF8xxxx-$FF8yyyy to $00007FF-$000xxxx
 		; (MB offsets get set in routine)
 		.byte $00 ; copy + last request in chain
 		.word $FFFF ; size of copy  (gets overwritten)
 		.word $FFFF ; starting addr (gets overwritten)
 		.byte $08   ; of bank $8
-		.word $07FE ; destination address is $0801 - 2
+		.word $07FF ; destination address is $0801 - 2
 		.byte $00   ; of bank $0
 		.word $0000 ; modulo (unused)
 
