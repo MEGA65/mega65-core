@@ -2552,7 +2552,7 @@ utility_menu:
 	jsr printmessage
 
 	; First utility will be number 1
-	lda #$31
+	lda #$30
 	sta zptempv
 	
 	jsr utillist_rewind
@@ -2568,7 +2568,8 @@ um2:	sta msg_utility_item,y
 	cpy #2
 	bne um2
 	iny
-	lda zptempv
+	inc zptempv
+	lda zptempv	
 	sta msg_utility_item
 	ldz #4
 um4:	nop
