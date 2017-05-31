@@ -320,7 +320,7 @@ COLOURRAM.BIN:	tools/utilpacker/utilpacker $(CRAMUTILS)
 tools/utilpacker/utilpacker:	tools/utilpacker/utilpacker.c Makefile
 	$(warning =============================================================)
 	$(warning ~~~~~~~~~~~~~~~~> Making: tools/utilpacker/utilpacker)
-	gcc -g -Wall -o tools/utilpacker/utilpacker tools/utilpacker/utilpacker.c
+	gcc -g -Wall -std=gnu99 -o tools/utilpacker/utilpacker tools/utilpacker/utilpacker.c
 
 # ============================ done moved, Makefile-dep, print-warn, clean-target
 # script to extract the git-status from the ./.git filesystem, and to embed that string
