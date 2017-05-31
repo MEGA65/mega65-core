@@ -93,7 +93,7 @@ $(SDCARD_DIR)/CHARROM.M65:
 $(SDCARD_DIR)/MEGA65.ROM:
 	$(warning =============================================================)
 	$(warning ~~~~~~~~~~~~~~~~> Making: $(SDCARD_DIR)/MEGA65.ROM)
-	wget -O $(SDCARD_DIR)/MEGA65.ROM http://www.zimmers.net/anonftp/pub/cbm/firmware/computers/c65/910111.bin
+	wget -O $(SDCARD_DIR)/MEGA65.ROM http://www.zimmers.net/anonftp/pub/cbm/firmware/computers/c65/910111-390488-01.bin
 
 # ============================, print-warn, clean target
 # verbose, for 1581 format, overwrite
