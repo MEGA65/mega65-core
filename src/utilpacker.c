@@ -26,6 +26,8 @@ struct util_header header;
 
 int load_util(char *filename)
 {
+  int i,j;
+
   bzero(header,sizeof(header));
   FILE *f=fopen(filename,"r");
   if (!f) {
@@ -45,18 +47,18 @@ int load_util(char *filename)
   
   // Search utility for name string
   header.name[0]=0;
-  for(int i=0;i<len;i++)
+  for(i=0;i<len;i++)
     if (!strncmp("PROP.M65U.NAME=",&util_body[i],15)) {
       // Found utility name
       header.name[0]=0;
-      for(int j=0;j<31;j++) {
+      for(j=0;j<31;j++) {
 	if (util_body[i+15+j]) {
 	  header.name[j]=util_body[i+15+j];
 	  header.name[j+1]=0;
 	}
       }
     }
-  for(int i=0;i<4;i++) header.magic[i]=header_magic[i];
+  for(i=0;i<4;i++) header.magic[i]=header_magic[i];
   header.length_lo=len&0xff;
   header.length_hi=(len>>8)&0xff;
 
@@ -66,13 +68,13 @@ int load_util(char *filename)
   }
   
   // Find entry point low by looking for SYS token
-  for(int i=0;i<256;i++)
+  for(i=0;i<256;i++)
     if ((util_body[i]==0x9e)
 	&&(util_body[i+1]>='0')
 	&&(util_body[i+1]<='9'))
       {
 	char entry[6];
-	for(int j=0;j<6;j++) entry[j]=util_body[i+1+j];
+	for(j=0;j<6;j++) entry[j]=util_body[i+1+j];
 	entry[5]=0;
 	int entry_addr=atoi(entry);
 	header.entry_lo=entry_addr&0xff;
@@ -82,12 +84,12 @@ int load_util(char *filename)
   if (!header.entry_hi) {
     // No SYS nnnn found
     // Look for PROP.M65U.ADDR= string instead
-    for(int i=0;i<len;i++)
+    for(i=0;i<len;i++)
       if (!strncmp("PROP.M65U.ADDR=",&util_body[i],15)) {
 	int entry;
 	char addr[7];
 	addr[0]=0;
-	for(int j=0;j<7;j++) {
+	for(j=0;j<7;j++) {
 	  if (util_body[i+15+j]) {
 	    addr[j]=util_body[i+15+j];
 	    addr[j+1]=0;
@@ -119,6 +121,8 @@ int util_describe(struct util_header *h)
 
 int main(int argc,char **argv)
 {
+  int i,j;
+
   if (argc<3) {
     fprintf(stderr,"usage: utilpacker <output.bin> <file.prg [...]>\n");
     exit(-1);
@@ -138,7 +142,7 @@ int main(int argc,char **argv)
   // us 30KB of available space.
   int ar_offset=2048;
   
-  for(int i=2;i<argc;i++)
+  for(i=2;i<argc;i++)
     {
       load_util(argv[i]);
       if (util_len>(HEADER_LEN+ar_size-ar_offset)) {
