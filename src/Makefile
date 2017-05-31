@@ -150,7 +150,12 @@ COPTS=-O
 	$(CC65) $(COPTS) -o $@ $<
 
 fdisk.prg:	fdisk.s fdisk_hal_mega65.s fdisk_memory.s fdisk_screen.s
-	cl65 -o fdisk.prg fdisk.s fdisk_hal_mega65.s fdisk_memory.s fdisk_screen.s
+	cl65 -t c64 -o fdisk.prg fdisk.s fdisk_hal_mega65.s fdisk_memory.s fdisk_screen.s
+
+border.prg:	border.a65
+	$(warning =============================================================)
+	$(warning ~~~~~~~~~~~~~~~~> Making: border.prg)
+	./../../Ophis/bin/ophis -4 border.a65
 
 
 # ============================ done moved, print-warn, clean-target
@@ -308,7 +313,7 @@ tools/pngprepare/pngprepare:	tools/pngprepare/pngprepare.c Makefile
 	export LC_ALL=C
 	egrep "IO:C6|IO:GS" $(VHDLSRCDIR)/*.vhdl | cut -f3- -d: | sort -u -k2 > ../iomap.txt
 
-CRAMUTILS=	fdisk.prg
+CRAMUTILS=	border.prg fdisk.prg
 COLOURRAM.BIN:	tools/utilpacker/utilpacker $(CRAMUTILS)
 	tools/utilpacker/utilpacker COLOURRAM.BIN $(CRAMUTILS)
 

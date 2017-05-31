@@ -245,7 +245,11 @@ uint32_t sectors_required;
 uint32_t available_sectors;
 
 
+#ifdef __CC65__
+void main(void)
+#else
 int main(int argc,char **argv)
+#endif
 {
 #ifdef __CC65__
   mega65_fast();
@@ -373,7 +377,8 @@ int main(int argc,char **argv)
   write_line(" ",0);
   write_line("SD CARD HAS BEEN FORMATTED.  REMOVE, COPY MEGA65.ROM, REINSERT AND REBOOT.",0);
   while(1) continue;
+#else
+  return 0;
 #endif
   
-  return 0;
 }
