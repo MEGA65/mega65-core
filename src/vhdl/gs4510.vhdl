@@ -215,6 +215,7 @@ end component;
 
   signal force_fast : std_logic := '0';
   signal speed_gate_enable_internal : std_logic := '1';
+  signal speed_gate_drive : std_logic := '1';
 
   signal iomode_set_toggle_internal : std_logic := '0';
   signal rom_writeprotect : std_logic := '0';
@@ -2481,6 +2482,8 @@ begin
     -- BEGINNING OF MAIN PROCESS FOR CPU
     if rising_edge(clock) then
 
+      speed_gate_drive <= speed_gate;
+      
       if cartridge_enable='1' then
         gated_exrom <= exrom;
         gated_game <= game;
@@ -2928,7 +2931,7 @@ begin
         -- But the hypervisor always runs at full speed.
         fast_fetch_state <= InstructionDecode;
               cpu_speed := vicii_2mhz&viciii_fast&viciv_fast;
-        if hypervisor_mode='0' and ((speed_gate='1') and (force_fast='0')) then
+        if hypervisor_mode='0' and ((speed_gate_drive='1') and (force_fast='0')) then
           case cpu_speed is
             when "100" => -- 1mhz
               cpuspeed <= x"01";
@@ -5144,7 +5147,11 @@ begin
         -- the operation is read or write.  ROM accesses are a good example.
         -- We delay the memory write until the next cycle to minimise logic depth
 
-        -- Mark pages dirty as necessary
+        -- Route the bottom 8 bits of the shadow address directly through, as
+        -- the memory manager only adjusts the upper address lines
+        shadow_address(7 downto 0) <= memory_access_address(7 downto 0);
+        
+        -- Mark pages dirty as necessary        
         if memory_access_write='1' then
           if (reg_pageactive = '1' ) then
             if (memory_access_address(15 downto 14) = "01") then
