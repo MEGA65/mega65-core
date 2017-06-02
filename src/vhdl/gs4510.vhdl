@@ -5147,9 +5147,8 @@ begin
         -- the operation is read or write.  ROM accesses are a good example.
         -- We delay the memory write until the next cycle to minimise logic depth
 
-        -- Route the bottom 8 bits of the shadow address directly through, as
-        -- the memory manager only adjusts the upper address lines
-        shadow_address(7 downto 0) <= memory_access_address(7 downto 0);
+        -- XXX - Try to fast-route low address lines to shadowram and other memory
+        -- blocks.
         
         -- Mark pages dirty as necessary        
         if memory_access_write='1' then
