@@ -3541,7 +3541,7 @@ begin
                 memory_access_write := '1';
                 memory_access_wdata := reg_t;
                 memory_access_resolve_address := '0';
-                memory_access_address := dmagic_dest_addr;
+                memory_access_address := dmagic_dest_addr(35 downto 8);
 
                 -- redirect memory write to IO block if required
                 if dmagic_dest_addr(15 downto 12) = x"d" and dmagic_dest_io='1' then
