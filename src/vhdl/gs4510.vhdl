@@ -341,18 +341,26 @@ end component;
   signal dmagic_count : unsigned(15 downto 0);
   signal dmagic_tally : unsigned(15 downto 0);
   signal reg_dmagic_src_mb : unsigned(7 downto 0);
-  signal dmagic_src_addr : unsigned(27 downto 0);
+  signal dmagic_src_addr : unsigned(35 downto 0); -- in 256ths of bytes
   signal dmagic_src_io : std_logic;
   signal dmagic_src_direction : std_logic;
   signal dmagic_src_modulo : std_logic;
   signal dmagic_src_hold : std_logic;
   signal reg_dmagic_dst_mb : unsigned(7 downto 0);
-  signal dmagic_dest_addr : unsigned(27 downto 0);
+  signal dmagic_dest_addr : unsigned(35 downto 0); -- in 256ths of bytes
   signal dmagic_dest_io : std_logic;
   signal dmagic_dest_direction : std_logic;
   signal dmagic_dest_modulo : std_logic;
   signal dmagic_dest_hold : std_logic;
   signal dmagic_modulo : unsigned(15 downto 0);
+
+  -- Allow source and destination address advance to range from 1/256th of a
+  -- byte (i.e., 1 byte every 256 operations) through to 255 + 255/256ths per
+  -- operation. This was added to accelerate texture copying for Doom-style 3D
+  -- drawing.
+  signal reg_dmagic_src_skip : unsigned(15 downto 0) := x"0100";
+  signal reg_dmagic_dst_skip : unsigned(15 downto 0) := x"0100";
+
   -- Temporary registers used while loading DMA list
   signal dmagic_dest_bank_temp : unsigned(7 downto 0);
   signal dmagic_src_bank_temp : unsigned(7 downto 0);
@@ -1840,6 +1848,10 @@ begin
           -- Actually, this is all of $D700-$D7FF decoded by the CPU at present
           case the_read_address(7 downto 0) is
             when x"03" => return reg_dmagic_status(7 downto 1) & support_f018b;
+            when x"08" => return reg_dmagic_src_skip(7 downto 0);
+            when x"09" => return reg_dmagic_src_skip(15 downto 8);
+            when x"0a" => return reg_dmagic_dst_skip(7 downto 0);
+            when x"0b" => return reg_dmagic_dst_skip(15 downto 8);
             when others => return x"ff";
           end case;
         when HypervisorRegister =>
@@ -2100,6 +2112,18 @@ begin
         reg_dmagic_src_mb <= value;
       elsif (long_address = x"FFD3706") or (long_address = x"FFD1706") then
         reg_dmagic_dst_mb <= value;
+      elsif (long_address = x"FFD3708") or (long_address = x"FFD1708") then
+        -- @IO:GS $D708 DMA source skip rate (/256ths of bytes)
+        reg_dmagic_src_skip(7 downto 0) <= value;
+      elsif (long_address = x"FFD3709") or (long_address = x"FFD1709") then
+        -- @IO:GS $D709 DMA source skip rate (whole bytes)
+        reg_dmagic_src_skip(15 downto 8) <= value;
+      elsif (long_address = x"FFD370a") or (long_address = x"FFD170a") then
+        -- @IO:GS $D70a DMA destination skip rate (/256ths of bytes)
+        reg_dmagic_dst_skip(7 downto 0) <= value;
+      elsif (long_address = x"FFD370b") or (long_address = x"FFD170b") then
+        -- @IO:GS $D70b DMA destination skip rate (whole bytes)
+        reg_dmagic_dst_skip(15 downto 8) <= value;
       elsif (long_address = x"FFD37FE") or (long_address = x"FFD17FE") then
         shadow_bank <= value;
       elsif (long_address = x"FFD37ff") or (long_address = x"FFD17ff") then
@@ -3365,12 +3389,12 @@ begin
               else
                 dmagic_dest_bank_temp <= dmagic_modulo(7 downto 0);
               end if;
-              dmagic_dest_addr(15 downto 8) <= dmagic_dest_bank_temp;
-              dmagic_dest_addr(7 downto 0) <= dmagic_dest_addr(15 downto 8);
+              dmagic_dest_addr(23 downto 16) <= dmagic_dest_bank_temp;
+              dmagic_dest_addr(15 downto 8) <= dmagic_dest_addr(23 downto 16);
               dmagic_src_bank_temp <= dmagic_dest_addr(7 downto 0);
-              dmagic_src_addr(15 downto 8) <= dmagic_src_bank_temp;
-              dmagic_src_addr(7 downto 0) <= dmagic_src_addr(15 downto 8);
-              dmagic_count(15 downto 8) <= dmagic_src_addr(7 downto 0);
+              dmagic_src_addr(23 downto 16) <= dmagic_src_bank_temp;
+              dmagic_src_addr(15 downto 8) <= dmagic_src_addr(23 downto 16);
+              dmagic_count(15 downto 8) <= dmagic_src_addr(15 downto 8);
               dmagic_count(7 downto 0) <= dmagic_count(15 downto 8);
               dmagic_cmd <= dmagic_count(7 downto 0);
               if (support_f018b = '0') and (dmagic_list_counter = 10) then
@@ -3386,18 +3410,18 @@ begin
               report "DMAgic: got list: cmd=$"
                 & to_hstring(dmagic_cmd)
                 & "src=$"
-                & to_hstring(dmagic_src_addr(15 downto 0))
-                & "dest=$" & to_hstring(dmagic_dest_addr(15 downto 0));
+                & to_hstring(dmagic_src_addr(23 downto 8))
+                & "dest=$" & to_hstring(dmagic_dest_addr(23 downto 8));
               if (support_f018b = '1') then
-                dmagic_src_addr(27 downto 20) <= reg_dmagic_src_mb + dmagic_src_bank_temp(6 downto 4);
-                dmagic_src_addr(19 downto 16) <= dmagic_src_bank_temp(3 downto 0);
-                dmagic_dest_addr(27 downto 20) <= reg_dmagic_dst_mb + dmagic_dest_bank_temp(6 downto 4);
-                dmagic_dest_addr(19 downto 16) <= dmagic_dest_bank_temp(3 downto 0);
+                dmagic_src_addr(35 downto 28) <= reg_dmagic_src_mb + dmagic_src_bank_temp(6 downto 4);
+                dmagic_src_addr(27 downto 24) <= dmagic_src_bank_temp(3 downto 0);
+                dmagic_dest_addr(35 downto 28) <= reg_dmagic_dst_mb + dmagic_dest_bank_temp(6 downto 4);
+                dmagic_dest_addr(27 downto 24) <= dmagic_dest_bank_temp(3 downto 0);
               else
-                dmagic_src_addr(27 downto 20) <= reg_dmagic_src_mb;
-                dmagic_src_addr(19 downto 16) <= dmagic_src_bank_temp(3 downto 0);
-                dmagic_dest_addr(27 downto 20) <= reg_dmagic_dst_mb;
-                dmagic_dest_addr(19 downto 16) <= dmagic_dest_bank_temp(3 downto 0);
+                dmagic_src_addr(35 downto 28) <= reg_dmagic_src_mb;
+                dmagic_src_addr(27 downto 24) <= dmagic_src_bank_temp(3 downto 0);
+                dmagic_dest_addr(35 downto 28) <= reg_dmagic_dst_mb;
+                dmagic_dest_addr(27 downto 24) <= dmagic_dest_bank_temp(3 downto 0);
               end if;               
               dmagic_src_io <= dmagic_src_bank_temp(7);
               if (support_f018b = '1') then
@@ -3435,12 +3459,12 @@ begin
 
               -- Do memory write
               memory_access_write := '1';
-              memory_access_wdata := dmagic_src_addr(7 downto 0);
+              memory_access_wdata := dmagic_src_addr(15 downto 8);
               memory_access_resolve_address := '0';
-              memory_access_address := dmagic_dest_addr;
+              memory_access_address := dmagic_dest_addr(35 downto 8);
 
               -- redirect memory write to IO block if required
-              if dmagic_dest_addr(15 downto 12) = x"d" and dmagic_dest_io='1' then
+              if dmagic_dest_addr(23 downto 20) = x"d" and dmagic_dest_io='1' then
                 memory_access_address(27 downto 12) := x"FFD3";
               end if;
               
@@ -3449,9 +3473,11 @@ begin
               -- in the C65 specifications document
               if dmagic_dest_hold='0' then
                 if dmagic_dest_direction='0' then
-                  dmagic_dest_addr <= dmagic_dest_addr + 1;
+                  dmagic_dest_addr(23 downto 0)
+                    <= dmagic_dest_addr(23 downto 0) + reg_dmagic_dst_skip;
                 else
-                  dmagic_dest_addr <= dmagic_dest_addr - 1;
+                  dmagic_dest_addr(23 downto 0)
+                    <= dmagic_dest_addr(23 downto 0) - reg_dmagic_dst_skip;
                 end if;
               end if;
               -- XXX we compare count with 1 before decrementing.
@@ -3463,6 +3489,10 @@ begin
                 if dmagic_cmd(2) = '0' then
                   -- Last DMA job in chain, go back to executing instructions
                   state <= normal_fetch_state;
+                  -- Reset DMAgic skip to normal at the end of the last DMA job
+                  -- in a chain.
+                  reg_dmagic_src_skip <= x"0100";
+                  reg_dmagic_dst_skip <= x"0100";
                 else
                   -- Chain to next DMA job
                   state <= DMAgicTrigger;
@@ -3479,10 +3509,10 @@ begin
               -- Do memory read
               memory_access_read := '1';
               memory_access_resolve_address := '0';
-              memory_access_address := dmagic_src_addr;
+              memory_access_address := dmagic_src_addr(35 downto 8);
 
               -- redirect memory write to IO block if required
-              if dmagic_src_addr(15 downto 12) = x"d" and dmagic_src_io='1' then
+              if dmagic_src_addr(23 downto 20) = x"d" and dmagic_src_io='1' then
                 memory_access_address(27 downto 12) := x"FFD3";
               end if;
               
@@ -3491,9 +3521,11 @@ begin
               -- in the C65 specifications document
               if dmagic_src_hold='0' then
                 if dmagic_src_direction='0' then
-                  dmagic_src_addr <= dmagic_src_addr + 1;
+                  dmagic_src_addr(23 downto 0)
+                    <= dmagic_src_addr(23 downto 0) + reg_dmagic_src_skip;
                 else
-                  dmagic_src_addr <= dmagic_src_addr - 1;
+                  dmagic_src_addr(23 downto 0)
+                    <= dmagic_src_addr(23 downto 0) - reg_dmagic_src_skip;
                 end if;
               end if;
               state <= DMAgicCopyWrite;
@@ -3521,9 +3553,11 @@ begin
                 -- in the C65 specifications document
                 if dmagic_dest_hold='0' then
                   if dmagic_dest_direction='0' then
-                    dmagic_dest_addr <= dmagic_dest_addr + 1;
+                    dmagic_dest_addr(23 downto 0)
+                      <= dmagic_dest_addr(23 downto 0) + reg_dmagic_dst_skip;
                   else
-                    dmagic_dest_addr <= dmagic_dest_addr - 1;
+                    dmagic_dest_addr(23 downto 0)
+                      <= dmagic_dest_addr(23 downto 0) - reg_dmagic_dst_skip;
                   end if;
                 end if;
                 -- XXX we compare count with 1 before decrementing.
