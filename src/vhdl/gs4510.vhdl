@@ -3424,6 +3424,8 @@ begin
                 dmagic_dest_addr(35 downto 28) <= reg_dmagic_dst_mb;
                 dmagic_dest_addr(27 downto 24) <= dmagic_dest_bank_temp(3 downto 0);
               end if;               
+              dmagic_src_addr(7 downto 0) <= (others => '0');
+              dmagic_dest_addr(7 downto 0) <= (others => '0');
               dmagic_src_io <= dmagic_src_bank_temp(7);
               if (support_f018b = '1') then
                 dmagic_src_direction <= dmagic_cmd(4);
@@ -3520,6 +3522,9 @@ begin
               -- Update source address.
               -- XXX Ignores modulus, whose behaviour is insufficiently defined
               -- in the C65 specifications document
+              report "dmagic_src_addr=$" & to_hstring(dmagic_src_addr(35 downto 8))
+                &"."&to_hstring(dmagic_src_addr(7 downto 0))
+                & " (reg_dmagic_src_skip=$" & to_hstring(reg_dmagic_src_skip)&")";
               if dmagic_src_hold='0' then
                 if dmagic_src_direction='0' then
                   dmagic_src_addr(23 downto 0)
@@ -3532,6 +3537,9 @@ begin
               state <= DMAgicCopyWrite;
             when DMAgicCopyWrite =>
               -- Remember value just read
+              report "dmagic_src_addr=$" & to_hstring(dmagic_src_addr(35 downto 8))
+                &"."&to_hstring(dmagic_src_addr(7 downto 0))
+                & " (reg_dmagic_src_skip=$" & to_hstring(reg_dmagic_src_skip)&")";
               dmagic_first_read <= '0';
               reg_t <= memory_read_value;
 
