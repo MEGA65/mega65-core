@@ -3391,7 +3391,7 @@ begin
               end if;
               dmagic_dest_addr(23 downto 16) <= dmagic_dest_bank_temp;
               dmagic_dest_addr(15 downto 8) <= dmagic_dest_addr(23 downto 16);
-              dmagic_src_bank_temp <= dmagic_dest_addr(7 downto 0);
+              dmagic_src_bank_temp <= dmagic_dest_addr(15 downto 8);
               dmagic_src_addr(23 downto 16) <= dmagic_src_bank_temp;
               dmagic_src_addr(15 downto 8) <= dmagic_src_addr(23 downto 16);
               dmagic_count(15 downto 8) <= dmagic_src_addr(15 downto 8);
@@ -3409,9 +3409,10 @@ begin
             when DMAgicGetReady =>
               report "DMAgic: got list: cmd=$"
                 & to_hstring(dmagic_cmd)
-                & "src=$"
+                & ", src=$"
                 & to_hstring(dmagic_src_addr(23 downto 8))
-                & "dest=$" & to_hstring(dmagic_dest_addr(23 downto 8));
+                & ", dest=$" & to_hstring(dmagic_dest_addr(23 downto 8))
+                & ", count=$" & to_hstring(dmagic_count);
               if (support_f018b = '1') then
                 dmagic_src_addr(35 downto 28) <= reg_dmagic_src_mb + dmagic_src_bank_temp(6 downto 4);
                 dmagic_src_addr(27 downto 24) <= dmagic_src_bank_temp(3 downto 0);
