@@ -206,7 +206,7 @@ component shadowram is
         );
 end component;
 
-  signal cpuspeed_internal : unsigned(7 downto 0);
+  signal cpuspeed_internal : unsigned(7 downto 0) := (others => '0');
 
   signal reset_drive : std_logic := '0';
   signal cartridge_enable : std_logic := '0';
@@ -222,31 +222,31 @@ end component;
 
   -- Instruction log
   signal last_instruction_pc : unsigned(15 downto 0) := x"FFFF";
-  signal last_opcode : unsigned(7 downto 0);
-  signal last_byte2 : unsigned(7 downto 0);
-  signal last_byte3 : unsigned(7 downto 0);
+  signal last_opcode : unsigned(7 downto 0)  := (others => '0');
+  signal last_byte2 : unsigned(7 downto 0)  := (others => '0');
+  signal last_byte3 : unsigned(7 downto 0)  := (others => '0');
   signal last_bytecount : integer range 0 to 3 := 0;
   signal last_action : character := ' ';
-  signal last_address : unsigned(27 downto 0);
-  signal last_value : unsigned(7 downto 0);
+  signal last_address : unsigned(27 downto 0)  := (others => '0');
+  signal last_value : unsigned(7 downto 0)  := (others => '0');
 
   -- Shadow RAM control
-  signal shadow_bank : unsigned(7 downto 0);
-  signal shadow_address : integer range 0 to 131071;
-  signal shadow_rdata : unsigned(7 downto 0);
-  signal shadow_wdata : unsigned(7 downto 0);
-  signal shadow_write_count : unsigned(7 downto 0);
-  signal shadow_no_write_count : unsigned(7 downto 0);
+  signal shadow_bank : unsigned(7 downto 0)  := (others => '0');
+  signal shadow_address : integer range 0 to 131071 := 0;
+  signal shadow_rdata : unsigned(7 downto 0)  := (others => '0');
+  signal shadow_wdata : unsigned(7 downto 0)  := (others => '0');
+  signal shadow_write_count : unsigned(7 downto 0)  := (others => '0');
+  signal shadow_no_write_count : unsigned(7 downto 0)  := (others => '0');
   signal shadow_try_write_count : unsigned(7 downto 0) := x"00";
   signal shadow_observed_write_count : unsigned(7 downto 0) := x"00";
   signal shadow_write : std_logic := '0';
 
   -- ROM RAM control
-  signal rom_address : integer range 0 to 131071;
-  signal rom_rdata : unsigned(7 downto 0);
-  signal rom_wdata : unsigned(7 downto 0);
-  signal rom_write_count : unsigned(7 downto 0);
-  signal rom_no_write_count : unsigned(7 downto 0);
+  signal rom_address : integer range 0 to 131071 := 0;
+  signal rom_rdata : unsigned(7 downto 0)  := (others => '0');
+  signal rom_wdata : unsigned(7 downto 0)  := (others => '0');
+  signal rom_write_count : unsigned(7 downto 0)  := (others => '0');
+  signal rom_no_write_count : unsigned(7 downto 0)  := (others => '0');
   signal rom_write : std_logic := '0';
 
   -- GeoRAM emulation: by default point it somewhere at the DDR RAM
@@ -268,12 +268,12 @@ end component;
   signal reu_hold_reu_address : std_logic := '0';
   signal reu_ff00_pending : std_logic := '0';
 
-  signal last_fastio_addr : std_logic_vector(19 downto 0);
-  signal last_write_address : unsigned(27 downto 0);
+  signal last_fastio_addr : std_logic_vector(19 downto 0)  := (others => '0');
+  signal last_write_address : unsigned(27 downto 0)  := (others => '0');
   signal shadow_write_flags : unsigned(3 downto 0) := "0000";
   -- Registers to hold delayed write to hypervisor and related CPU registers
   -- to improve CPU timing closure.
-  signal last_write_value : unsigned(7 downto 0);
+  signal last_write_value : unsigned(7 downto 0)  := (others => '0');
   signal last_write_pending : std_logic := '0';
   -- Flag used to ensure monitor serial character out busy flag gets asserted
   -- immediately on writing a character, without having to wait for the uart
@@ -329,30 +329,30 @@ end component;
 
   -- DMAgic registers
   signal dmagic_list_counter : integer range 0 to 12;
-  signal dmagic_first_read : std_logic;
+  signal dmagic_first_read : std_logic := '0';
   signal reg_dmagic_addr : unsigned(27 downto 0) := x"0000000";
-  signal reg_dmagic_withio : std_logic;
+  signal reg_dmagic_withio : std_logic := '0';
   signal reg_dmagic_status : unsigned(7 downto 0) := x"00";
   signal reg_dmacount : unsigned(7 downto 0) := x"00";  -- number of DMA jobs done
   signal dma_pending : std_logic := '0';
   signal dma_checksum : unsigned(23 downto 0) := x"000000";
-  signal dmagic_cmd : unsigned(7 downto 0);
-  signal dmagic_subcmd : unsigned(7 downto 0);	-- F018A/B extention
-  signal dmagic_count : unsigned(15 downto 0);
-  signal dmagic_tally : unsigned(15 downto 0);
-  signal reg_dmagic_src_mb : unsigned(7 downto 0);
-  signal dmagic_src_addr : unsigned(35 downto 0); -- in 256ths of bytes
-  signal dmagic_src_io : std_logic;
-  signal dmagic_src_direction : std_logic;
-  signal dmagic_src_modulo : std_logic;
-  signal dmagic_src_hold : std_logic;
-  signal reg_dmagic_dst_mb : unsigned(7 downto 0);
-  signal dmagic_dest_addr : unsigned(35 downto 0); -- in 256ths of bytes
-  signal dmagic_dest_io : std_logic;
-  signal dmagic_dest_direction : std_logic;
-  signal dmagic_dest_modulo : std_logic;
-  signal dmagic_dest_hold : std_logic;
-  signal dmagic_modulo : unsigned(15 downto 0);
+  signal dmagic_cmd : unsigned(7 downto 0)  := (others => '0');
+  signal dmagic_subcmd : unsigned(7 downto 0)  := (others => '0');	-- F018A/B extention
+  signal dmagic_count : unsigned(15 downto 0)  := (others => '0');
+  signal dmagic_tally : unsigned(15 downto 0)  := (others => '0');
+  signal reg_dmagic_src_mb : unsigned(7 downto 0)  := (others => '0');
+  signal dmagic_src_addr : unsigned(35 downto 0)  := (others => '0'); -- in 256ths of bytes
+  signal dmagic_src_io : std_logic := '0';
+  signal dmagic_src_direction : std_logic := '0';
+  signal dmagic_src_modulo : std_logic := '0';
+  signal dmagic_src_hold : std_logic := '0';
+  signal reg_dmagic_dst_mb : unsigned(7 downto 0)  := (others => '0');
+  signal dmagic_dest_addr : unsigned(35 downto 0)  := (others => '0'); -- in 256ths of bytes
+  signal dmagic_dest_io : std_logic := '0';
+  signal dmagic_dest_direction : std_logic := '0';
+  signal dmagic_dest_modulo : std_logic := '0';
+  signal dmagic_dest_hold : std_logic := '0';
+  signal dmagic_modulo : unsigned(15 downto 0)  := (others => '0');
 
   -- Allow source and destination address advance to range from 1/256th of a
   -- byte (i.e., 1 byte every 256 operations) through to 255 + 255/256ths per
@@ -362,84 +362,84 @@ end component;
   signal reg_dmagic_dst_skip : unsigned(15 downto 0) := x"0100";
 
   -- Temporary registers used while loading DMA list
-  signal dmagic_dest_bank_temp : unsigned(7 downto 0);
-  signal dmagic_src_bank_temp : unsigned(7 downto 0);
+  signal dmagic_dest_bank_temp : unsigned(7 downto 0)  := (others => '0');
+  signal dmagic_src_bank_temp : unsigned(7 downto 0)  := (others => '0');
 
 
   -- CPU internal state
-  signal flag_c : std_logic;        -- carry flag
-  signal flag_z : std_logic;        -- zero flag
-  signal flag_d : std_logic;        -- decimal mode flag
-  signal flag_n : std_logic;        -- negative flag
-  signal flag_v : std_logic;        -- positive flag
-  signal flag_i : std_logic;        -- interrupt disable flag
-  signal flag_e : std_logic;        -- 8-bit stack flag
+  signal flag_c : std_logic := '0';        -- carry flag
+  signal flag_z : std_logic := '0';        -- zero flag
+  signal flag_d : std_logic := '0';        -- decimal mode flag
+  signal flag_n : std_logic := '0';        -- negative flag
+  signal flag_v : std_logic := '0';        -- positive flag
+  signal flag_i : std_logic := '0';        -- interrupt disable flag
+  signal flag_e : std_logic := '0';        -- 8-bit stack flag
 
-  signal reg_a : unsigned(7 downto 0);
-  signal reg_b : unsigned(7 downto 0);
-  signal reg_x : unsigned(7 downto 0);
-  signal reg_y : unsigned(7 downto 0);
-  signal reg_z : unsigned(7 downto 0);
-  signal reg_sp : unsigned(7 downto 0);
-  signal reg_sph : unsigned(7 downto 0);
-  signal reg_pc : unsigned(15 downto 0);
+  signal reg_a : unsigned(7 downto 0)  := (others => '0');
+  signal reg_b : unsigned(7 downto 0)  := (others => '0');
+  signal reg_x : unsigned(7 downto 0)  := (others => '0');
+  signal reg_y : unsigned(7 downto 0)  := (others => '0');
+  signal reg_z : unsigned(7 downto 0)  := (others => '0');
+  signal reg_sp : unsigned(7 downto 0)  := (others => '0');
+  signal reg_sph : unsigned(7 downto 0)  := (others => '0');
+  signal reg_pc : unsigned(15 downto 0)  := (others => '0');
 
   -- CPU RAM bank selection registers.
   -- Now C65 style, but extended by 8 bits to give 256MB address space
-  signal reg_mb_low : unsigned(7 downto 0);
-  signal reg_mb_high : unsigned(7 downto 0);
-  signal reg_map_low : std_logic_vector(3 downto 0);
-  signal reg_map_high : std_logic_vector(3 downto 0);
-  signal reg_offset_low : unsigned(11 downto 0);
-  signal reg_offset_high : unsigned(11 downto 0);
+  signal reg_mb_low : unsigned(7 downto 0)  := (others => '0');
+  signal reg_mb_high : unsigned(7 downto 0)  := (others => '0');
+  signal reg_map_low : std_logic_vector(3 downto 0)  := (others => '0');
+  signal reg_map_high : std_logic_vector(3 downto 0)  := (others => '0');
+  signal reg_offset_low : unsigned(11 downto 0)  := (others => '0');
+  signal reg_offset_high : unsigned(11 downto 0)  := (others => '0');
 
   -- Should we use external or internal SIDs?
   signal reg_external_sids : std_logic := '1';
 
   -- Are we in hypervisor mode?
   signal hypervisor_mode : std_logic := '1';
-  signal hypervisor_trap_port : unsigned (6 downto 0);
+  signal hypervisor_trap_port : unsigned (6 downto 0)  := (others => '0');
   -- Have we ever replaced the hypervisor with another?
   -- (used to allow once-only update of hypervisor by kick-up file)
   signal hypervisor_upgraded : std_logic := '0';
   
   -- Duplicates of all CPU registers to hold user-space contents when trapping
   -- to hypervisor.
-  signal hyper_iomode : unsigned(7 downto 0);
-  signal hyper_dmagic_src_mb : unsigned(7 downto 0);
-  signal hyper_dmagic_dst_mb : unsigned(7 downto 0);
-  signal hyper_dmagic_list_addr : unsigned(27 downto 0);
-  signal hyper_p : unsigned(7 downto 0);
-  signal hyper_a : unsigned(7 downto 0);
-  signal hyper_b : unsigned(7 downto 0);
-  signal hyper_x : unsigned(7 downto 0);
-  signal hyper_y : unsigned(7 downto 0);
-  signal hyper_z : unsigned(7 downto 0);
-  signal hyper_sp : unsigned(7 downto 0);
-  signal hyper_sph : unsigned(7 downto 0);
-  signal hyper_pc : unsigned(15 downto 0);
-  signal hyper_mb_low : unsigned(7 downto 0);
-  signal hyper_mb_high : unsigned(7 downto 0);
-  signal hyper_port_00 : unsigned(7 downto 0);
-  signal hyper_port_01 : unsigned(7 downto 0);
-  signal hyper_map_low : std_logic_vector(3 downto 0);
-  signal hyper_map_high : std_logic_vector(3 downto 0);
-  signal hyper_map_offset_low : unsigned(11 downto 0);
-  signal hyper_map_offset_high : unsigned(11 downto 0);
-  signal hyper_protected_hardware : unsigned(7 downto 0); 
+  signal hyper_iomode : unsigned(7 downto 0)  := (others => '0');
+  signal hyper_dmagic_src_mb : unsigned(7 downto 0)  := (others => '0');
+  signal hyper_dmagic_dst_mb : unsigned(7 downto 0)  := (others => '0');
+  signal hyper_dmagic_list_addr : unsigned(27 downto 0)  := (others => '0');
+  signal hyper_p : unsigned(7 downto 0)  := (others => '0');
+  signal hyper_a : unsigned(7 downto 0)  := (others => '0');
+  signal hyper_b : unsigned(7 downto 0)  := (others => '0');
+  signal hyper_x : unsigned(7 downto 0)  := (others => '0');
+  signal hyper_y : unsigned(7 downto 0)  := (others => '0');
+  signal hyper_z : unsigned(7 downto 0)  := (others => '0');
+  signal hyper_sp : unsigned(7 downto 0)  := (others => '0');
+  signal hyper_sph : unsigned(7 downto 0)  := (others => '0');
+  signal hyper_pc : unsigned(15 downto 0)  := (others => '0');
+  signal hyper_mb_low : unsigned(7 downto 0)  := (others => '0');
+  signal hyper_mb_high : unsigned(7 downto 0)  := (others => '0');
+  signal hyper_port_00 : unsigned(7 downto 0)  := (others => '0');
+  signal hyper_port_01 : unsigned(7 downto 0)  := (others => '0');
+  signal hyper_map_low : std_logic_vector(3 downto 0)  := (others => '0');
+  signal hyper_map_high : std_logic_vector(3 downto 0)  := (others => '0');
+  signal hyper_map_offset_low : unsigned(11 downto 0)  := (others => '0');
+  signal hyper_map_offset_high : unsigned(11 downto 0)  := (others => '0');
+  signal hyper_protected_hardware : unsigned(7 downto 0)  := (others => '0');
   
   -- Page table for virtual memory
-  signal reg_page0_logical : unsigned(15 downto 0);
-  signal reg_page0_physical : unsigned(15 downto 0);
-  signal reg_page1_logical : unsigned(15 downto 0);
-  signal reg_page1_physical : unsigned(15 downto 0);
-  signal reg_page2_logical : unsigned(15 downto 0);
-  signal reg_page2_physical : unsigned(15 downto 0);
-  signal reg_page3_logical : unsigned(15 downto 0);
-  signal reg_page3_physical : unsigned(15 downto 0);
-  signal reg_pagenumber : unsigned(17 downto 0);
-  signal reg_pages_dirty : std_logic_vector(3 downto 0);
-  signal reg_pageid : unsigned(1 downto 0);
+  signal reg_page0_logical : unsigned(15 downto 0)  := (others => '0');
+  signal reg_page0_physical : unsigned(15 downto 0)  := (others => '0');
+  signal reg_page1_logical : unsigned(15 downto 0)  := (others => '0');
+  signal reg_page1_physical : unsigned(15 downto 0)  := (others => '0');
+  signal reg_page2_logical : unsigned(15 downto 0)  := (others => '0');
+  signal reg_page2_physical : unsigned(15 downto 0)  := (others => '0');
+  signal reg_page3_logical : unsigned(15 downto 0)  := (others => '0');
+  signal reg_page3_physical : unsigned(15 downto 0)  := (others => '0');
+  signal reg_pagenumber : unsigned(17 downto 0)  := (others => '0');
+  signal reg_pages_dirty : std_logic_vector(3 downto 0)  := (others => '0');
+  signal reg_pageid : unsigned(1 downto 0)  := (others => '0');
   signal reg_pageactive : std_logic := '0';
   
 
@@ -458,31 +458,31 @@ end component;
   signal irq_defer_active : std_logic := '0';
 
   -- Interrupt/reset vector being used
-  signal vector : unsigned(3 downto 0);
+  signal vector : unsigned(3 downto 0)  := (others => '0');
   
   -- Information about instruction currently being executed
-  signal reg_opcode : unsigned(7 downto 0);
-  signal reg_arg1 : unsigned(7 downto 0);
-  signal reg_arg2 : unsigned(7 downto 0);
+  signal reg_opcode : unsigned(7 downto 0)  := (others => '0');
+  signal reg_arg1 : unsigned(7 downto 0)  := (others => '0');
+  signal reg_arg2 : unsigned(7 downto 0)  := (others => '0');
 
-  signal bbs_or_bbc : std_logic;
-  signal bbs_bit : unsigned(2 downto 0);
+  signal bbs_or_bbc : std_logic := '0';
+  signal bbs_bit : unsigned(2 downto 0)  := (others => '0');
   
   -- PC used for JSR is the value of reg_pc after reading only one of
   -- of the argument bytes.  We could subtract one, but it is less logic to
   -- just remember PC after reading one argument byte.
-  signal reg_pc_jsr : unsigned(15 downto 0);
+  signal reg_pc_jsr : unsigned(15 downto 0)  := (others => '0');
   -- Temporary address register (used for indirect modes)
-  signal reg_addr : unsigned(15 downto 0);
+  signal reg_addr : unsigned(15 downto 0)  := (others => '0');
   -- ... and this one for 32-bit flat addressing modes
-  signal reg_addr32 : unsigned(31 downto 0);
+  signal reg_addr32 : unsigned(31 downto 0)  := (others => '0');
   -- ... and this one for pushing 32bit virtual address onto the stack
-  signal reg_addr32save : unsigned(31 downto 0);
+  signal reg_addr32save : unsigned(31 downto 0)  := (others => '0');
   -- Upper and lower
   -- 16 bits of temporary address register. Used for 32-bit
   -- absolute addresses
-  signal reg_addr_msbs : unsigned(15 downto 0);
-  signal reg_addr_lsbs : unsigned(15 downto 0);
+  signal reg_addr_msbs : unsigned(15 downto 0)  := (others => '0');
+  signal reg_addr_lsbs : unsigned(15 downto 0)  := (others => '0');
   -- Flag that indicates if a ($nn),Z access is using a 32-bit pointer
   signal absolute32_addressing_enabled : std_logic := '0';
   -- Flag that indicates far JMP, JSR or RTS
@@ -491,12 +491,12 @@ end component;
   signal flat32_address_prime : std_logic := '0';
   signal flat32_enabled : std_logic := '1';
   -- flag for progressive carry calculation when loading a 32-bit pointer
-  signal pointer_carry : std_logic;
+  signal pointer_carry : std_logic := '0';
   -- Temporary value holder (used for RMW instructions)
-  signal reg_t : unsigned(7 downto 0);
-  signal reg_t_high : unsigned(7 downto 0);
+  signal reg_t : unsigned(7 downto 0)  := (others => '0');
+  signal reg_t_high : unsigned(7 downto 0)  := (others => '0');
 
-  signal instruction_phase : unsigned(3 downto 0);
+  signal instruction_phase : unsigned(3 downto 0)  := (others => '0');
   
 -- Indicate source of operand for instructions
 -- Note that ROM is actually implemented using
