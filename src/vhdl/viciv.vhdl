@@ -394,7 +394,7 @@ architecture Behavioral of viciv is
   
   -- Video mode definition
   constant frame_h_front : integer := 128;
-  constant frame_h_syncwidth : integer := 208;
+  signal frame_h_syncwidth : unsigned(7 downto 0) := to_unsigned(208,8);
 
   -- The real mode says 1242, but we need 1248 so that 1248/312 = 4,
   -- allowing VIC-II PAL raster numbers to be easily calculated.
@@ -402,7 +402,7 @@ architecture Behavioral of viciv is
   -- 1280x1024 @ 61hz = :FFD3075 80 DD 87 20 30 44 30 07 (imperfectly)
   -- 1280x1024 @ 57Hz = :FFD3075 80 80 97 20 30 44 32 07
   
-  -- 1920x1080p @ 60Hz
+  -- 1920x1200p @ 60Hz (undersampled via 150MHz pixel clock) = :FFD3075 
 
   -- 1280x1024 @ 57Hz
   signal frame_width : unsigned(11 downto 0) := to_unsigned(2432,12);
@@ -1681,12 +1681,10 @@ begin
           fastio_rdata <= std_logic_vector(colour_ram_base(7 downto 0));
         elsif register_number=101 then
           fastio_rdata <= std_logic_vector(colour_ram_base(15 downto 8));
-        elsif register_number=102 then
-          fastio_rdata <= x"00";          -- colour_ram is 64KB block, so no bits
-                                          -- 16 to 23
-        elsif register_number=103 then
-          fastio_rdata <= x"00";          -- colour_ram is 64KB block, so no bits
-                                          -- 24 to 27
+        elsif register_number=102 then -- $D3066
+          fastio_rdata <= std_logic_vector(bitplanes_x_start);
+        elsif register_number=103 then  -- $D3067
+          fastio_rdata <= std_logic_vector(bitplanes_y_start);
         elsif register_number=104 then  -- $D068
           fastio_rdata <= std_logic_vector(character_set_address(7 downto 0));
         elsif register_number=105 then
@@ -1711,13 +1709,12 @@ begin
           fastio_rdata <= palette_bank_fastio & palette_bank_chargen & palette_bank_sprites & palette_bank_chargen256;
         elsif register_number=113 then -- $D3071
           fastio_rdata <= bitplane_sixteen_colour_mode_flags;
-        elsif register_number=114 then -- $D3072
-          fastio_rdata <= std_logic_vector(bitplanes_x_start);
-        elsif register_number=115 then  -- $D3073
-          fastio_rdata <= std_logic_vector(bitplanes_y_start);
+        elsif register_number==114 then -- $D3072
+          null;
+        elsif register_number==115 then -- $D3073
+          null;
         elsif register_number=116 then  -- $D3074
-          fastio_rdata <= std_logic_vector(vicii_sprite_sprite_colission_map);
-          
+          fastio_rdata <= std_logic_vector(frame_h_syncwidth);          
         elsif register_number=117 then  -- $D3075
           fastio_rdata <= std_logic_vector(display_width(7 downto 0));
         elsif register_number=118 then  -- $D3076
@@ -2305,10 +2302,13 @@ begin
         elsif register_number=101 then
           -- @IO:GS $D065 VIC-IV colour RAM base address (bits 15 - 8)
           colour_ram_base(15 downto 8) <= unsigned(fastio_wdata);
-        elsif register_number=102 then
-          null;
-        elsif register_number=103 then
-          null;
+        elsif register_number=102 then -- $D3066
+          -- @IO:GS $D066 VIC-IV bitplanes horizontal start (in VIC-II pixels)
+          bitplanes_x_start <= unsigned(fastio_wdata);
+        elsif register_number=103 then  -- $D3067
+          -- @IO:GS $D067 VIC-IV bitplanes vertical start (in VIC-II pixels)
+          bitplanes_y_start <= unsigned(fastio_wdata);
+          screen_ram_base(27 downto 24) <= unsigned(fastio_wdata(3 downto 0));
         elsif register_number=104 then
           -- @IO:GS $D068 VIC-IV character set precise base address (bits 0 - 7)
           character_set_address(7 downto 0) <= unsigned(fastio_wdata);
@@ -2349,12 +2349,14 @@ begin
           -- @IO:GS $D071 VIC-IV 16-colour bitplane enable flags
           bitplane_sixteen_colour_mode_flags <= fastio_wdata;
         elsif register_number=114 then -- $D3072
-          -- @IO:GS $D072 VIC-IV bitplanes horizontal start (in VIC-II pixels)
-          bitplanes_x_start <= unsigned(fastio_wdata);
-        elsif register_number=115 then  -- $D3073
-          -- @IO:GS $D073 VIC-IV bitplanes vertical start (in VIC-II pixels)
-          bitplanes_y_start <= unsigned(fastio_wdata);
-
+          -- @IO:GS $D072 VIC-IV RESERVED
+          null;
+        elsif register_number=115 then -- $D3073
+          -- @IO:GS $D073 VIC-IV RESERVED
+          null;
+        elsif register_number=116 then -- $D3074
+          -- @IO:GS $D074 VIC-IV HSYNC pulse width
+          frame_h_syncwidth <= unsigned(fastio_wdata);
         elsif register_number=117 then
           -- @IO:GS $D075 VIC-IV display_width (MSB)
            display_width(7 downto 0) <= unsigned(fastio_wdata);
@@ -2517,7 +2519,7 @@ begin
       else
         clear_hsync <= '0';
       end if;
-      if xcounter_delayed=frame_h_syncwidth then
+      if xcounter_delayed=to_integer(frame_h_syncwidth) then
         set_hsync <= '1';
       else
         set_hsync <= '0';

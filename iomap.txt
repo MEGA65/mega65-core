@@ -164,6 +164,8 @@ GS $D062 VIC-IV screen RAM precise base address (bits 23 - 16)
 GS $D063 VIC-IV screen RAM precise base address (bits 31 - 24)
 GS $D064 VIC-IV colour RAM base address (bits 0 - 7)
 GS $D065 VIC-IV colour RAM base address (bits 15 - 8)
+GS $D066 VIC-IV bitplanes horizontal start (in VIC-II pixels)
+GS $D067 VIC-IV bitplanes vertical start (in VIC-II pixels)
 GS $D068 VIC-IV character set precise base address (bits 0 - 7)
 GS $D069 VIC-IV character set precise base address (bits 15 - 8)
 GS $D06A VIC-IV character set precise base address (bits 23 - 16)
@@ -180,8 +182,9 @@ GS $D070.3-2 VIC-IV sprite palette bank
 GS $D070.5-4 VIC-IV bitmap/text palette bank
 GS $D070.7-6 VIC-IV palette bank mapped at $D100-$D3FF
 GS $D071 VIC-IV 16-colour bitplane enable flags
-GS $D072 VIC-IV bitplanes horizontal start (in VIC-II pixels)
-GS $D073 VIC-IV bitplanes vertical start (in VIC-II pixels)
+GS $D072 VIC-IV RESERVED
+GS $D073 VIC-IV RESERVED
+GS $D074 VIC-IV HSYNC pulse width
 GS $D075 VIC-IV display_width (MSB)
 GS $D076 VIC-IV frame_width (LSB)
 GS $D077.0-3 VIC-IV display_width (MSB)
