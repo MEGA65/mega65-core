@@ -2097,20 +2097,27 @@ begin
         -- memory_access_write.
       elsif (long_address = x"FFD370E") or (long_address = x"FFD170E") then
         -- Set low order bits of DMA list address, without starting
+        -- @IO:GS $D702 DMA list address low byte (address bits 0 -- 7). Writing triggers DMA to start.
         reg_dmagic_addr(7 downto 0) <= value;
       elsif (long_address = x"FFD3701") or (long_address = x"FFD1701") then
+        -- @IO:GS $D702 DMA list address high byte (address bits 8 -- 15).
         reg_dmagic_addr(15 downto 8) <= value;
       elsif (long_address = x"FFD3702") or (long_address = x"FFD1702") then
+        -- @IO:GS $D702 DMA list address bank (address bits 16 -- 22). Writing clears $D704.
         reg_dmagic_addr(22 downto 16) <= value(6 downto 0);
         reg_dmagic_addr(27 downto 23) <= (others => '0');
         reg_dmagic_withio <= value(7);
       elsif (long_address = x"FFD3703") or (long_address = x"FFD1703") then
+        -- @IO:GS $D703.0 DMA enable F018B mode (adds sub-command byte)
         support_f018b <= value(0);	-- setable dmagic mode
       elsif (long_address = x"FFD3704") or (long_address = x"FFD1704") then
+        -- @IO:GS $D704 DMA list address mega-byte
         reg_dmagic_addr(27 downto 20) <= value;
       elsif (long_address = x"FFD3705") or (long_address = x"FFD1705") then
+        -- @IO:GS $D705 DMA source address mega-byte
         reg_dmagic_src_mb <= value;
       elsif (long_address = x"FFD3706") or (long_address = x"FFD1706") then
+        -- @IO:GS $D706 DMA destination address mega-byte
         reg_dmagic_dst_mb <= value;
       elsif (long_address = x"FFD3708") or (long_address = x"FFD1708") then
         -- @IO:GS $D708 DMA source skip rate (/256ths of bytes)
