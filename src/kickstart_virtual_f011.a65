@@ -1,0 +1,74 @@
+f011_virtual_read:
+
+	; Read sector from ethernet.
+	; This is a horribly simple and klunky approach, but the code size is small:
+	; We simply read ethernet frames until one arrives with the correct disk image
+	; offset.  The server side keeps sending packets with successive disk sectors
+	; on a continuous basis, so we don't need to even push a request to them.
+
+	; XXX - Not yet implemented
+	inc $D020
+
+	jsr setupethernet
+
+fvr_loop:
+	lda $d6e1
+	and #$20
+	beq fvr_loop
+
+	; we have detected that we have recieved a packet
+	; so, clear eth RX signal, and leave ethernet tranceiver on
+	; and make last used RX buffer visible
+	lda $d6e1
+	and #$04
+	lsr
+	ora #$01
+	sta $d6e1
+
+	inc $d021
+
+	; is it IPv4?
+	;
+	lda $6810
+	cmp #$45
+	bne fvr_loop
+
+	; is it UDP?
+	;
+	lda $6819
+	cmp #$11
+	bne fvr_loop
+
+	; UDP port #$F011
+	;
+	lda $6826
+	cmp #>$F011
+	bne fvr_loop
+	lda $6827
+	cmp #<$F011
+	bne fvr_loop
+
+	; Check sector number by comparing to $D681-$D684 to the
+	; bytes at $682C-$682F
+	ldx #$03
+fvr1:	lda $d681,x
+	cmp $682c,x
+	bne fvr_loop
+	dex
+	bpl fvr1
+
+	; Sector is the one we want, so copy the data into the F011 buffer.
+	; XXX - Not yet done.
+
+
+	; return from hypervisor
+	;
+	sta hypervisor_enterexit_trigger
+
+f011_virtual_write:
+
+	; XXX - We ignore virtualised writes to F011 for now
+
+	; return from hypervisor
+	;
+	sta hypervisor_enterexit_trigger

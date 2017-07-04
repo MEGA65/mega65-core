@@ -241,12 +241,14 @@ trap_entry_points:
 	jmp matrix_mode_toggle          ; Trap #$43 (matrix mode toggle)
 	nop				; refer: kickstart_task
 
+	jmp f011_virtual_read           ; Trap #$44 (virtualised F011 sector read)
+	nop
+
+	jmp f011_virtual_write	        ; Trap #$44 (virtualised F011 sector write)
+	nop
+
 	jmp nosuchtrap			; common-trap (catch all)
 	nop				; refer: below in this file
-	jmp nosuchtrap
-	nop
-	jmp nosuchtrap
-	nop
 	jmp nosuchtrap
 	nop
 	jmp nosuchtrap
@@ -381,6 +383,11 @@ invalid_subfunction:
 ;;; sdcard and fat32 related functions
 ;;; ----------------------------------------------------------------------------
 		.include "kickstart_sdfat.a65"
+
+;;; ----------------------------------------------------------------------------
+;;; Virtualised F011 access (used for disk over ethernet)
+;;; ----------------------------------------------------------------------------
+		.include "kickstart_virtual_f011.a65"
 
 ;;; ----------------------------------------------------------------------------
 ;;; CPU Hypervisor Entry Point on reset

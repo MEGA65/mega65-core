@@ -24,6 +24,9 @@ entity iomapper is
         restore_key : in std_logic;
         restore_nmi : out std_logic;
         cpu_hypervisor_mode : in std_logic;
+        hyper_trap_f011_read : out std_logic;
+        hyper_trap_f011_write : out std_logic;
+
         fpga_temperature : in std_logic_vector(11 downto 0);
         address : in std_logic_vector(19 downto 0);
         r : in std_logic;
@@ -508,6 +511,10 @@ begin
     pixelclk => pixelclk,
     clock => clk,
     reset => reset,
+    hypervisor_mode => cpu_hypervisor_mode,
+    hyper_trap_f011_read => hyper_trap_f011_read,
+    hyper_trap_f011_write => hyper_trap_f011_write,
+    virtualise_f011 => protected_hardware_in(0),
 
     fpga_temperature => fpga_temperature,
 

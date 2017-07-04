@@ -249,6 +249,8 @@ architecture Behavioral of machine is
   signal hyper_trap : std_logic := '1';
   signal hyper_trap_combined : std_logic := '1';
   signal monitor_hyper_trap : std_logic := '1';
+  signal hyper_trap_f011_read : std_logic := '0';
+  signal hyper_trap_f011_write : std_logic := '0';
 
   signal fastio_addr : std_logic_vector(19 downto 0);
   signal fastio_read : std_logic;
@@ -546,6 +548,8 @@ begin
     exrom => cpu_exrom,
     game => cpu_game,
     hyper_trap => hyper_trap_combined,
+    hyper_trap_f011_read => hyper_trap_f011_read,
+    hyper_trap_f011_write => hyper_trap_f011_write,    
     speed_gate => speed_gate,
     speed_gate_enable => speed_gate_enable,
     cpuis6502 => cpuis6502,
@@ -714,6 +718,8 @@ begin
     clk => ioclock,
 	 protected_hardware_in => protected_hardware_sig, 
     hyper_trap => hyper_trap,
+    hyper_trap_f011_read => hyper_trap_f011_read,
+    hyper_trap_f011_write => hyper_trap_f011_write,
     cpuclock => cpuclock,
     pixelclk => pixelclock,
     clock50mhz => clock50mhz,

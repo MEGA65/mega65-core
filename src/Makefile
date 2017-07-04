@@ -8,6 +8,7 @@ KICKSTARTSRCS = kickstart.a65 \
 		kickstart_process_descriptor.a65 \
 		kickstart_dos.a65 \
 		kickstart_task.a65 \
+		kickstart_virtual_f011.a65 \
 		kickstart_mem.a65
 
 # if you want your PRG to appear on "MEGA65.D81", then put your PRG in "./src/utilities/userPRGs"

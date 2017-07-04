@@ -50,6 +50,8 @@ entity gs4510 is
     hyper_trap : in std_logic;
     cpu_hypervisor_mode : out std_logic := '0';
     matrix_trap_in : in std_logic;
+    hyper_trap_f011_read : in std_logic;
+    hyper_trap_f011_write : in std_logic;
     protected_hardware : out unsigned(7 downto 0);	
 	 --Protected Hardware Bits
 	 --Bit 1: TBD
@@ -69,7 +71,7 @@ entity gs4510 is
     irq_hypervisor : in std_logic_vector(2 downto 0) := "000";    -- JBM
 
     no_kickstart : in std_logic;
-    
+
     reg_isr_out : in unsigned(7 downto 0);
     imask_ta_out : in std_logic;
 
@@ -219,6 +221,8 @@ end component;
 
   signal iomode_set_toggle_internal : std_logic := '0';
   signal rom_writeprotect : std_logic := '0';
+
+  signal virtualise_sd : std_logic := '0';
 
   -- Instruction log
   signal last_instruction_pc : unsigned(15 downto 0) := x"FFFF";
@@ -1887,7 +1891,7 @@ begin
             when "010111" => return hyper_dmagic_list_addr(23 downto 16);
             when "011000" =>
               return to_unsigned(0,4)&hyper_dmagic_list_addr(27 downto 24);
-            -- when "011001" =>
+
             -- Virtual memory page registers here
             when "011101" =>
               return unsigned(std_logic_vector(reg_pagenumber(1 downto 0))
@@ -2512,7 +2516,7 @@ begin
     
     -- BEGINNING OF MAIN PROCESS FOR CPU
     if rising_edge(clock) then
-
+      
       speed_gate_drive <= speed_gate;
       
       if cartridge_enable='1' then
@@ -2581,8 +2585,14 @@ begin
       if (hyper_trap = '0' or matrix_trap_in ='1') and hyper_trap_state = '1' then
         hyper_trap_pending <= '1'; 
         if matrix_trap_in='1' then 
-		    matrix_trap_pending <='1';
-		  end if;
+          matrix_trap_pending <='1';
+        end if;
+      end if;
+      if hyper_trap_f011_read = '1' then
+        hyper_trap_pending <= '1';
+      end if;
+      if hyper_trap_f011_write = '1' then
+        hyper_trap_pending <= '1';
       end if;
       hyper_trap_state <= hyper_trap;
               
@@ -2728,8 +2738,11 @@ begin
         if last_write_address = x"FFD3658" and hypervisor_mode='1' then
           hyper_dmagic_list_addr(27 downto 24) <= last_value(3 downto 0);
         end if;
-        -- @IO:GS $D659 - SPARE (was DDR RAM banking)
-
+        -- @IO:GS $D659 - Hypervisor virtualise hardware flags
+        -- @IO:GS $D659.0 - Virtualise SD/Floppy access
+        if last_write_address = x"FFD3659" and hypervisor_mode='1' then
+          virtualise_sd <= last_value(0);
+        end if;
         -- @IO:GS $D65D - Hypervisor current virtual page number (low byte)
         if last_write_address = x"FFD365D" and hypervisor_mode='1' then
           reg_pagenumber(1 downto 0) <= last_value(7 downto 6);
@@ -2821,8 +2834,10 @@ begin
           georam_blockmask <= last_value;
         end if;   
  		  
-		  -- @IO:GS $D672 - Protected Hardware configuration 
-		  if last_write_address = x"FFD3672" and hypervisor_mode='1' then
+        -- @IO:GS $D672 - Protected Hardware configuration
+        -- @IO:GS $D672.0 - Virtualise F011 floppy access via Hypervisor trap
+        -- @IO:GS $D672.6 - Enable composited Matrix Mode, and disable UART access to serial monitor.
+        if last_write_address = x"FFD3672" and hypervisor_mode='1' then
           hyper_protected_hardware(7 downto 0) <= last_value;
         end if; 
 
@@ -2874,8 +2889,12 @@ begin
       slow_access_write <= slow_access_write_drive;
       slow_access_wdata <= slow_access_wdata_drive;
       slow_access_ready_toggle_buffer <= slow_access_ready_toggle;
-      
-      protected_hardware <= hyper_protected_hardware;      
+
+      if hypervisor_mode='0' then
+        protected_hardware <= hyper_protected_hardware;
+      else
+        protected_hardware <= (others => '0');
+      end if;
       cpu_hypervisor_mode <= hypervisor_mode;
             
       check_for_interrupts;
@@ -3611,6 +3630,12 @@ begin
                   -- Trap #67 ($43) = ALT-TAB key press (toggles matrix mode)
                   hypervisor_trap_port <= "1000011";                     
                   matrix_trap_pending <= '0';
+                elsif hyper_trap_f011_read = '1' then
+                  -- Trap #68 ($44) = SD/F011 read sector
+                  hypervisor_trap_port <= "1000100";
+                elsif hyper_trap_f011_read = '1' then
+                  -- Trap #69 ($45) = SD/F011 write sector
+                  hypervisor_trap_port <= "1000101";
                 else
                   -- Trap #66 ($42) = RESTORE key double-tap
                   hypervisor_trap_port <= "1000010";                     

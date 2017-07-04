@@ -55,6 +55,10 @@ entity sdcardio is
     pixelclk : in std_logic;
     reset : in std_logic;
 
+    hypervisor_mode : in std_logic;
+    hyper_trap_f011_read : out std_logic := '0';
+    hyper_trap_f011_write : out std_logic := '0';
+    
     fpga_temperature : in std_logic_vector(11 downto 0);
     
     ---------------------------------------------------------------------------
@@ -66,6 +70,8 @@ entity sdcardio is
     fastio_wdata : in unsigned(7 downto 0);
     fastio_rdata : out unsigned(7 downto 0);
 
+    virtualise_f011 : in std_logic;
+    
     colourram_at_dc00 : in std_logic;
     viciii_iomode : in std_logic_vector(1 downto 0);
     
@@ -237,6 +243,7 @@ architecture behavioural of sdcardio is
   type sd_state_t is (Idle,
                       ReadSector,ReadingSector,ReadingSectorAckByte,DoneReadingSector,
                       WriteSector,WritingSector,WritingSectorAckByte,
+                      HyperTrapRead,HyperTrapWrite,
                       F011WriteSector,F011WriteSectorCopying,DoneWritingSector);
   signal sd_state : sd_state_t := Idle;
 
@@ -965,7 +972,12 @@ begin  -- behavioural
                       sd_sector(31 downto 9) <= diskimage_sector(31 downto 9) +
                                                 diskimage_offset;     
                     end if;
-                    sd_state <= ReadSector;
+                    if virtualise_f011='0' then
+                      sd_state <= ReadSector;
+                    else
+                      sd_state <= HyperTrapRead;
+                      sd_sector <= diskimage_offset;
+                    end if;
                     sdio_error <= '0';
                     sdio_fsm_error <= '0';
                     
@@ -1018,7 +1030,12 @@ begin  -- behavioural
                       sd_sector(31 downto 9) <= diskimage_sector(31 downto 9) +
                                                 diskimage_offset;     
                     end if;   
-                    sd_state <= F011WriteSector;
+                    if virtualise_f011='0' then
+                      sd_state <= F011WriteSector;
+                    else
+                      sd_state <= HyperTrapWrite;
+                      sd_sector <= diskimage_offset;
+                    end if;
                     f011_buffer_address <= (others => '0');
                     sdio_error <= '0';
                     sdio_fsm_error <= '0';
@@ -1289,6 +1306,8 @@ begin  -- behavioural
 
         when Idle =>
           sdio_busy <= '0';
+          hyper_trap_f011_read <= '0';
+          hyper_trap_f011_write <= '0';
           -- Allow CPU to write to sector buffers if we are not talking to the
           -- SD card.
           if fastio_write='1' and sectorbuffercs='1' then
@@ -1300,6 +1319,19 @@ begin  -- behavioural
             sb_w <= '0';
           end if;
 
+          -- Trap to hypervisor when accessing SD card if virtualised.
+          -- Wait until hypervisor kicks in before releasing request.
+        when HyperTrapRead =>
+          hyper_trap_f011_read <= '1';
+          if hypervisor_mode='1' then
+            sd_state <= Idle;
+          end if;
+        when HyperTrapWrite =>
+          hyper_trap_f011_write <= '1';
+          if hypervisor_mode='1' then
+            sd_state <= Idle;
+          end if;
+          
         when ReadSector =>
           -- Begin reading a sector into the buffer
           if sdio_busy='0' then
