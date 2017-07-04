@@ -1709,9 +1709,9 @@ begin
           fastio_rdata <= palette_bank_fastio & palette_bank_chargen & palette_bank_sprites & palette_bank_chargen256;
         elsif register_number=113 then -- $D3071
           fastio_rdata <= bitplane_sixteen_colour_mode_flags;
-        elsif register_number==114 then -- $D3072
+        elsif register_number=114 then -- $D3072
           null;
-        elsif register_number==115 then -- $D3073
+        elsif register_number=115 then -- $D3073
           null;
         elsif register_number=116 then  -- $D3074
           fastio_rdata <= std_logic_vector(frame_h_syncwidth);          
