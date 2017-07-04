@@ -2126,10 +2126,10 @@ begin
         -- @IO:GS $D709 DMA source skip rate (whole bytes)
         reg_dmagic_src_skip(15 downto 8) <= value;
       elsif (long_address = x"FFD370a") or (long_address = x"FFD170a") then
-        -- @IO:GS $D70a DMA destination skip rate (/256ths of bytes)
+        -- @IO:GS $D70A DMA destination skip rate (/256ths of bytes)
         reg_dmagic_dst_skip(7 downto 0) <= value;
       elsif (long_address = x"FFD370b") or (long_address = x"FFD170b") then
-        -- @IO:GS $D70b DMA destination skip rate (whole bytes)
+        -- @IO:GS $D70B DMA destination skip rate (whole bytes)
         reg_dmagic_dst_skip(15 downto 8) <= value;
       elsif (long_address = x"FFD37FE") or (long_address = x"FFD17FE") then
         shadow_bank <= value;

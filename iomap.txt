@@ -367,6 +367,17 @@ GS $D6F9.0 - Enable audio amplifier
 GS $D6FA - 8-bit digital audio out (left)
 GS $D6FB - microphone input (left)
 GS $D6FF - Flash bit-bashing port
+GS $D702 DMA list address bank (address bits 16 -- 22). Writing clears $D704.
+GS $D702 DMA list address high byte (address bits 8 -- 15).
+GS $D702 DMA list address low byte (address bits 0 -- 7). Writing triggers DMA to start.
+GS $D703.0 DMA enable F018B mode (adds sub-command byte)
+GS $D704 DMA list address mega-byte
+GS $D705 DMA source address mega-byte
+GS $D706 DMA destination address mega-byte
+GS $D708 DMA source skip rate (/256ths of bytes)
+GS $D709 DMA source skip rate (whole bytes)
+GS $D70A DMA destination skip rate (/256ths of bytes)
+GS $D70B DMA destination skip rate (whole bytes)
 C64 $DE01.0 Enable RR-NET emulated clock port ethernet interface
 C64 $DE02 RRNET register select register (low)
 C64 $DE03 RRNET register select register (low)

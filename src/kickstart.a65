@@ -730,6 +730,7 @@ allowkickup:	; BG was label nextdirectoryentry3:
 		ldz <zptempv32+0
 		jsr printhex
 
+dokickup:
 		; Use DMAgic to copy $0004000-$0007FFF to $FFF8000-$FFFBFFF
 		; (We have to copy the routine to do this to RAM, since we will
 		; be replacing ourselves)
