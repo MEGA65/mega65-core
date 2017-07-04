@@ -464,6 +464,8 @@ c65-911001-dos-context.bin:	911001.bin Makefile
 	dd if=/dev/zero  bs=4096          count=1 >> c65-911001-dos-context.bin
 	dd if=911001.bin bs=8192  skip=15 count=1 >> c65-911001-dos-context.bin
 
+modeline:	Makefile modeline.c
+	$(CC) $(COPT) -o modeline modeline.c $(LOPT)
 
 clean:
 	rm -f KICKUP.M65 kickstart.list kickstart.map
