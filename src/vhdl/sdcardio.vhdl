@@ -1035,7 +1035,8 @@ begin  -- behavioural
                       sd_state <= F011WriteSector;
                     else
                       sd_state <= HyperTrapWrite;
-                      sd_sector <= diskimage_offset;
+                      sd_sector(10 downto 0) <= diskimage_offset;
+                      sd_sector(31 downto 11) <= (others => '0');
                     end if;
                     f011_buffer_address <= (others => '0');
                     sdio_error <= '0';
