@@ -976,7 +976,8 @@ begin  -- behavioural
                       sd_state <= ReadSector;
                     else
                       sd_state <= HyperTrapRead;
-                      sd_sector <= diskimage_offset;
+                      sd_sector(10 downto 0) <= diskimage_offset;
+                      sd_sector(31 downto 11) <= (others => '0');
                     end if;
                     sdio_error <= '0';
                     sdio_fsm_error <= '0';
