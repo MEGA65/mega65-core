@@ -721,7 +721,8 @@ begin
         tx_trigger<='0';
 
         -- Make sure we don't leave the CPU locked
-        if rx_ready='1' then
+        -- (but not when we are bulk-loading memory)
+        if rx_ready='1' and state /= LoadMemory3 then
           monitor_mem_read <= '0';
           monitor_mem_write <= '0';
           monitor_mem_attention_request <= '0';
@@ -1088,7 +1089,6 @@ begin
 
                   target_address(15 downto 0) <= target_address(15 downto 0) + 1;
                   
-                  timeout <= 65535;
                   cpu_transaction(LoadMemory3);
                 end if;
               else
