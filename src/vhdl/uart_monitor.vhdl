@@ -721,8 +721,7 @@ begin
         tx_trigger<='0';
 
         -- Make sure we don't leave the CPU locked
-        -- (but not when we are bulk-loading memory)
-        if rx_ready='1' and state /= LoadMemory3 then
+        if rx_ready='1' then
           monitor_mem_read <= '0';
           monitor_mem_write <= '0';
           monitor_mem_attention_request <= '0';
@@ -1082,20 +1081,20 @@ begin
                   activity <= blink;
                   rx_acknowledge<='1';
 
-                  monitor_mem_read <= '0';
-                  monitor_mem_write <= '1';
-                  monitor_mem_address <= target_address;
                   monitor_mem_wdata <= rx_data;
-
                   target_address(15 downto 0) <= target_address(15 downto 0) + 1;
+                  state <= LoadMemory4;
                   
-                  cpu_transaction(LoadMemory3);
                 end if;
               else
                 rx_acknowledge <= '0';
                 state <= NextCommand;
               end if;
-              
+            when LoadMemory4 =>
+              monitor_mem_read <= '0';
+              monitor_mem_write <= '1';
+              monitor_mem_address <= target_address;
+              cpu_transaction(LoadMemory3);              
             when SetMemory1 =>
               if cmdbuffer(1) = 'S' then
                 target_address <= x"777"&hex_value(15 downto 0);
