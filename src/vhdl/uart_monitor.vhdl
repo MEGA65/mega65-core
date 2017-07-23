@@ -1091,10 +1091,13 @@ begin
                 state <= NextCommand;
               end if;
             when LoadMemory4 =>
-              monitor_mem_read <= '0';
-              monitor_mem_write <= '1';
-              monitor_mem_address <= target_address;
-              cpu_transaction(LoadMemory3);              
+              if rx_ready = '0' then
+                rx_acknowledge <= '0';
+                monitor_mem_read <= '0';
+                monitor_mem_write <= '1';
+                monitor_mem_address <= target_address;
+                cpu_transaction(LoadMemory3);
+              end if;
             when SetMemory1 =>
               if cmdbuffer(1) = 'S' then
                 target_address <= x"777"&hex_value(15 downto 0);
