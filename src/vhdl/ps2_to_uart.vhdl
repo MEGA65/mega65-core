@@ -1,5 +1,5 @@
 ----------------------------------------------------------------------------------
--- Company: 
+-- company: 
 -- Engineer: 
 -- 
 -- Create Date:    13:20:25 03/17/2017 
@@ -34,6 +34,7 @@ use work.debugtools.all;
 entity ps2_to_uart is
   Port (
     clk : in  STD_LOGIC; --48mhz
+    bit_rate_divisor : in unsigned(13 downto 0);
     reset : in  STD_LOGIC;
     enabled : in std_logic;
     scan_code: in std_logic_vector (12 downto 0);
@@ -54,16 +55,6 @@ end ps2_to_uart;
 
 architecture Behavioral of ps2_to_uart is
 
-  component UART_TX_CTRL is
-    Port (
-      SEND : in  STD_LOGIC;
-      DATA : in  STD_LOGIC_VECTOR (7 downto 0);
-      CLK : in  STD_LOGIC;
-      READY : out  STD_LOGIC;
-      UART_TX : out  STD_LOGIC
-    );
-  end component;
-  
   -- Determines which display scale mode to use for matrix mode
   -- 0=1:1 (640x320), 1=2:1 (1280x640), 2=3:1 (1920x960) (Fullscreen)
   -- CMD: Alt-1     , Alt-2           , Alt-3
@@ -102,9 +93,10 @@ architecture Behavioral of ps2_to_uart is
   signal altcode : std_logic;
   begin
 
-  uart_tx1: UART_TX_CTRL
+  uart_tx1: entity work.UART_TX_CTRL
     port map (
       send    => tx_trigger,
+      bit_tmr_max => bit_rate_divisor,
       clk     => clk,
       data    => tx_data,
       ready   => tx_ready,

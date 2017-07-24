@@ -349,7 +349,8 @@ architecture Behavioral of machine is
   signal scancode_out : std_logic_vector(12 downto 0); 
   signal mm_displayMode : unsigned(1 downto 0):=b"10"; 
   signal tx_switch : std_logic; 
-  signal tx_ps2 : std_logic; 
+  signal tx_ps2 : std_logic;
+  signal bit_rate_divisor : unsigned(13 downto 0);
   signal vgablue_sig : unsigned(7 downto 0);
   signal vgared_sig : unsigned(7 downto 0);
   signal vgagreen_sig : unsigned(7 downto 0);
@@ -360,6 +361,7 @@ architecture Behavioral of machine is
   signal shift_ready : std_logic;
   signal shift_ack : std_logic; 
   signal matrix_trap : std_logic;  
+
 
 begin
 
@@ -857,6 +859,7 @@ begin
     display_shift_out => display_shift,
 	 shift_ready_out => shift_ready,
 	 shift_ack_in => shift_ack,
+    bit_rate_divisor => bit_rate_divisor,
     clk => uartclock,
 	 mm_displayMode_out=>mm_displayMode,
     reset => reset_combined,
@@ -871,6 +874,7 @@ begin
 	 shift_ack_out => shift_ack,
     mm_displayMode_in => mm_displayMode,
     uart_in => uart_txd_sig,
+    bit_rate_divisor => bit_rate_divisor,
     xcounter_in => xcounter,
     ycounter_in => ycounter,	
     clk => uartclock,
@@ -894,7 +898,8 @@ begin
     clock => uartclock,
     tx       => uart_txd_sig,--uart_txd_sig,
     rx       => tx_switch,--tx_switch, --RsRx,
-	
+    bit_rate_divisor => bit_rate_divisor,
+
     force_single_step => sw(11),
     
     fastio_read => fastio_read,

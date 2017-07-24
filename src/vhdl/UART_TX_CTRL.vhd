@@ -40,7 +40,8 @@ use IEEE.STD_LOGIC_1164.ALL;
 use ieee.numeric_std.all;
 
 entity UART_TX_CTRL is
-    Port ( SEND : in  STD_LOGIC;
+  Port ( SEND : in  STD_LOGIC;
+         BIT_TMR_MAX : in unsigned(13 downto 0);
            DATA : in  STD_LOGIC_VECTOR (7 downto 0);
            CLK : in  STD_LOGIC;
            READY : out  STD_LOGIC;
@@ -51,15 +52,6 @@ architecture Behavioral of UART_TX_CTRL is
 
 type TX_STATE_TYPE is (RDY, LOAD_BIT, SEND_BIT);
 
--- Input clock = 64MHz, baudrate = 230400
--- 96MHz/230400 -1 = 420
--- constant BIT_TMR_MAX : unsigned(13 downto 0) := "00000110100100";
--- 48MHz/230400 -1 = 210 clock ticks per bit
-constant BIT_TMR_MAX : unsigned(13 downto 0) := "00000011010010";
--- 32MHz/230400 -1 = 138
--- constant BIT_TMR_MAX : unsigned(13 downto 0) := "00000010001010";
--- 24MHz/230400 -1 = 105 clock ticks per bit
--- constant BIT_TMR_MAX : unsigned(13 downto 0) := "00000001100111";
 constant BIT_INDEX_MAX : natural := 10;
 
 --Counter that keeps track of the number of clock cycles the current bit has been held stable over the

@@ -13,6 +13,7 @@ entity matrix_compositor is
     xcounter_in : in unsigned(11 downto 0);
     ycounter_in : in unsigned(11 downto 0);
     clk : in std_logic; --48Mhz
+    bit_rate_divisor : in unsigned(13 downto 0);
     pixelclock : in std_logic; --200Mhz
     matrix_mode_enable : in  STD_LOGIC;
     vgared_in : in  unsigned (7 downto 0);
@@ -129,6 +130,7 @@ begin
       clk => pixelclock,
       uart_clk => clk,
       uart_in => uart_in,
+      bit_rate_divisor => bit_rate_divisor,
       topofframe_out => topOfFrame,
       wel_out => writeEnable,
       addrl_out => writeAddress,

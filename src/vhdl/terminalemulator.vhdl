@@ -33,6 +33,7 @@ use work.debugtools.all;
 entity terminalemulator is
   Port (
     clk : in  STD_LOGIC; --200Mhz?
+    bit_rate_divisor : in unsigned(13 downto 0);
     uart_clk : in std_logic; --48MHz
   --reset : in  STD_LOGIC;
     uart_in : in  STD_LOGIC;
@@ -80,7 +81,8 @@ begin
 
 uart_rx0: entity work.uart_rx 
   Port map (
-    clk => uart_clk,	            
+    clk => uart_clk,
+    bit_rate_divisor => bit_rate_divisor,
     UART_RX => uart_in,
     data => rx_data,
     data_ready => rx_ready,

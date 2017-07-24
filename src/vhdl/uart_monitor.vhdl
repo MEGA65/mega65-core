@@ -32,6 +32,7 @@ entity uart_monitor is
     clock : in std_logic;
     tx : out std_logic;
     rx : in  std_logic;
+    bit_rate_divisor : out unsigned(13 downto 0);
     activity : out std_logic;
 
     key_scancode : out unsigned(15 downto 0);
@@ -187,7 +188,8 @@ architecture behavioural of uart_monitor is
                          CPUTransaction1,CPUTransaction2,CPUTransaction3,
                          ParseHex,
                          PrintHex,PrintSpaces,
-                         ParseFlagBreak,                         
+                         ParseFlagBreak,
+                         SetBaudRate,
                          Watch1,
                          SetMemory1,SetMemory2,SetMemory3,SetMemory4,SetMemory5,
                          SetMemory6,SetMemory7,SetMemory8,
@@ -275,12 +277,15 @@ architecture behavioural of uart_monitor is
   signal cpu_state_was_hold : std_logic := '0';
 
   signal show_register_delay : integer range 0 to 255;
+
+  signal bit_rate_divisor_internal : unsigned(13 downto 0) := to_unsigned(50000000/230400,14);
   
 begin
 
   uart_tx0: entity work.UART_TX_CTRL
     port map (
       send    => tx_trigger,
+      BIT_TMR_MAX => bit_rate_divisor_internal,
       clk     => clock,
       data    => tx_data,
       ready   => tx_ready,
@@ -288,6 +293,7 @@ begin
 
   uart_rx0: entity work.uart_rx 
     Port map ( clk => clock,
+               bit_rate_divisor => bit_rate_divisor_internal,
                UART_RX => rx,
                data => rx_data,
                data_ready => rx_ready,
@@ -613,6 +619,8 @@ begin
   begin  -- process testclock
     if rising_edge(clock) then
 
+      bit_rate_divisor <= bit_rate_divisor_internal;
+      
       if reset='0' then -- reset is asserted
 
         state <= Reseting;
@@ -974,7 +982,9 @@ begin
                   else
                     -- D prints 32 lines
                     line_number <= 0;
-                  end if;                
+                  end if;
+                elsif cmdbuffer(1) = '+' then
+                  parse_hex(SetBaudRate);
                 elsif cmdbuffer(1) = 'm' or cmdbuffer(1) = 'M' then
                   report "read memory command" severity note;
                   parse_position <= 2;
@@ -1067,6 +1077,9 @@ begin
             when Watch1 => monitor_watch <= hex_value(27 downto 0);
                            state <= NextCommand;
                            
+            when SetBaudRate =>
+              bit_rate_divisor_internal <= hex_value(13 downto 0);
+              state <= NextCommand;
             when LoadMemory1 => target_address <= hex_value(27 downto 0);
                                 skip_space(LoadMemory2);
             when LoadMemory2 => parse_hex(LoadMemory3);
