@@ -31,6 +31,7 @@ UTILITIES=	utilities/ethertest.prg \
 TOOLS=	tools/etherkick/etherkick \
 	tools/etherload/etherload \
 	tools/hotpatch/hotpatch \
+	tools/monitor_load \
 	tools/pngprepare/pngprepare
 
 all:

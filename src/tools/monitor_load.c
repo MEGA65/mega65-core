@@ -112,38 +112,17 @@ int process_line(char *line,int live)
 	load_addr|=fgetc(f)<<8;
 	printf("Load address is $%04x\n",load_addr);
 	usleep(50000);
-	unsigned char buf[1024];
-	int b=fread(buf,1,1024,f);
+	unsigned char buf[16384];
+	int b=fread(buf,1,16384,f);
 	while(b>0) {
 	  int i;
-	  int n;
-	  for(i=0;i<b;i+=16) {
-	    if ((i+16)>b) n=b-i; else n=16;
-	    char cmd[64];
-	    printf("Read to $%04x\r",load_addr);
-	    fflush(stdout);
-	    // XXX - writes 16 bytes even if there are less bytes ready.
-	    sprintf(cmd,"s%x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x\r",
-		    load_addr,
-		    buf[i+0],buf[i+1],buf[i+2],buf[i+3],buf[i+4],buf[i+5],buf[i+6],buf[i+7],
-		    buf[i+8],buf[i+9],buf[i+10],buf[i+11],buf[i+12],buf[i+13],buf[i+14],buf[i+15]);
-
-	    slow_write(fd,cmd,strlen(cmd));
-	    usleep(50000);
-	    load_addr+=n;
-
-	    {
-	      unsigned char read_buff[1024];
-	      int b=read(fd,read_buff,1024);
-	      if (b>0) {
-		int i;
-		for(i=0;i<b;i++) {
-		  process_char(read_buff[i],0);
-		}
-	      }
-	    }
-	  }
-	  b=fread(buf,1,1024,f);
+	  char cmd[64];
+	  printf("Read to $%04x\r",load_addr);
+	  fflush(stdout);
+	  sprintf(cmd,"l%x %x\r",load_addr,load_addr+b);
+	  slow_write(fd,cmd,strlen(cmd));
+	  write(fd,buf,b);
+	  b=fread(buf,1,16384,f);
 	}
 	fclose(f); f=NULL;
 	printf("\n");
@@ -172,22 +151,27 @@ int process_char(unsigned char c, int live)
   return 0;
 }
 
+void usage(void)
+{
+  fprintf(stderr,"usage: monitor_load <serial port>\n");
+  exit(-3);
+}
+
 int main(int argc,char **argv)
 {
-  filename=argv[2];
-  printf("Filename to load is %s\n",filename);
+  if (argc!=2) usage();
   errno=0;
   fd=open(argv[1],O_RDWR);
   perror("A");
-  if (fd==-1) perror("open");
-  perror("B");
+  if (fd==-1) {
+    fprintf(stderr,"Could not open serial port '%s'\n",argv[1]);
+    perror("open");
+    exit(-1);
+  }
   fcntl(fd,F_SETFL,fcntl(fd, F_GETFL, NULL)|O_NONBLOCK);
-  perror("C");
   struct termios t;
   if (cfsetospeed(&t, B230400)) perror("Failed to set output baud rate");
-  perror("D");
   if (cfsetispeed(&t, B230400)) perror("Failed to set input baud rate");
-  perror("E");
   t.c_cflag &= ~PARENB;
   t.c_cflag &= ~CSTOPB;
   t.c_cflag &= ~CSIZE;
