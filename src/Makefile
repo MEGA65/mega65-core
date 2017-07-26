@@ -370,10 +370,10 @@ monitor_drive:	monitor_drive.c Makefile
 # c-code that makes and executable that seems to read a file and transferrs that file
 # via the serial monitor to the fpga
 # currently has warnings upon compile
-monitor_load:	monitor_load.c Makefile
+tools/monitor_load:	tools/monitor_load.c Makefile
 	$(warning =============================================================)
 	$(warning ~~~~~~~~~~~~~~~~> Making: monitor_load)
-	gcc -g -Wall -o monitor_load monitor_load.c
+	gcc -g -Wall -o tools/monitor_load tools/monitor_load.c
 
 
 # ============================ done moved, Makefile-dep, print-warn, clean-target

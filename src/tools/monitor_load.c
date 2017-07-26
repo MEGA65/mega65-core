@@ -1,7 +1,18 @@
 /*
   Load the specified program into memory on the C65GS via the serial monitor.
 
-Copyright (C) 2014 Paul Gardner-Stephen
+  We add some convenience features:
+
+  1. If an optional file name is provided, then we stuff the keyboard buffer
+  with the LOAD command.  We check if we are in C65 mode, and if so, do GO64
+  (look for "THE" at $086d for C65 ROM detection).  Keyboard buffer @ $34A, 
+  buffer length @ $D0 in C65 mode, same as C128.  Then buffer is $277 in C64
+  mode, buffer length @ $C6 in C64 mode.
+  
+  2. If an optional bitstream file is provided, then we use fpgajtag to load
+  the bitstream via JTAG.
+
+Copyright (C) 2014-2017 Paul Gardner-Stephen
 Portions Copyright (C) 2013 Serval Project Inc.
  
 This program is free software; you can redistribute it and/or
@@ -18,6 +29,8 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
+
+#define _GNU_SOURCE
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -44,7 +57,11 @@ int slow_write(int fd,char *d,int l)
   for(i=0;i<l;i++)
     {
       usleep(2000);
-      write(fd,&d[i],1);
+      int w=write(fd,&d[i],1);
+      while (w<1) {
+	usleep(1000);
+	w=write(fd,&d[i],1);
+      }
     }
   return 0;
 }
@@ -73,7 +90,7 @@ int process_line(char *line,int live)
   if (!live) return 0;
   if (sscanf(line,"%04x %02x %02x %02x %02x %02x",
 	     &pc,&a,&x,&y,&sp,&p)==6) {
-    printf("PC=$%04x\n",pc);
+    // printf("PC=$%04x\n",pc);
     if (pc==0xf4a5||pc==0xf4a2) {
       // Intercepted LOAD command
       state=1;
@@ -96,35 +113,110 @@ int process_line(char *line,int live)
     name_addr=(name_hi<<8)+name_lo;
     printf("Filename is %d bytes long, and is stored at $%04x\n",
 	   name_len,name_addr);
+    char filename[16];
     snprintf(filename,16,"m%04x\r",name_addr);
+    usleep(10000);
     slow_write(fd,filename,strlen(filename));
-    state=0;
+    printf("Asking for filename from memory: %s\n",filename);
+    state=3;
   }
-  if (state==0)
- {
+  {
+    int addr;
+    int b[16];
+    if (sscanf(line," :%x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x",
+	       &addr,
+	       &b[0],&b[1],&b[2],&b[3],
+	       &b[4],&b[5],&b[6],&b[7],
+	       &b[8],&b[9],&b[10],&b[11],
+	       &b[12],&b[13],&b[14],&b[15])==17) {
+      char fname[17];
+      // printf("Read memory @ $%04x\n",addr);
+      if (addr==name_addr) {
+	for(int i=0;i<16;i++) fname[i]=b[i]; fname[16]=0;
+	fname[name_len]=0;
+	printf("Request to load '%s'\n",fname);
+	if (!strcmp(fname,"!")) {
+	  state=2; // load specified file
+	} else {
+	  printf("Specific file to load is '%s'\n",fname);
+	  if (filename) free(filename);
+	  filename=strdup(fname);
+	  state=0;
+	}
+      }
+    }
+  }
+  if (!strcmp(line,
+	      " :000086D 14 08 05 20 03 0F 0D 0D 0F 04 0F 12 05 20 03 36")) {
+    // We are in C65 mode - switch to C64 mode
+    char *cmd="s34a 47 4f 36 34 d 59 d\rsd0 7\r";
+    slow_write(fd,cmd,strlen(cmd));
+  }
+  if (!strcmp(line,
+	      " :000042C 2A 2A 2A 2A 20 03 0F 0D 0D 0F 04 0F 12 05 20 36")) {
+    // C64 mode BASIC -- set LOAD trap, and then issue LOAD command
+    char *cmd;
+    cmd="bf4a5\r";
+    slow_write(fd,cmd,strlen(cmd));
+    cmd="s277 4c 6f 22 21 d\rsc6 5\r";
+    slow_write(fd,cmd,strlen(cmd));
+  }  
+  if (state==2)
+    {
       printf("Filename is %s\n",filename);
       f=fopen(filename,"r");
       if (f==NULL) {
 	fprintf(stderr,"Could not find file '%s'\n",filename);
 	exit(-1);
       } else {
+	char cmd[64];
 	int load_addr=fgetc(f);
 	load_addr|=fgetc(f)<<8;
 	printf("Load address is $%04x\n",load_addr);
 	usleep(50000);
 	unsigned char buf[16384];
-	int b=fread(buf,1,16384,f);
+	int max_bytes=4096;
+	int b=fread(buf,1,max_bytes,f);
 	while(b>0) {
 	  int i;
-	  char cmd[64];
-	  printf("Read to $%04x\r",load_addr);
+	  printf("Read to $%04x (%d bytes)\n",load_addr,b);
 	  fflush(stdout);
-	  sprintf(cmd,"l%x %x\r",load_addr,load_addr+b);
+	  // load_addr=0x400;
+	  sprintf(cmd,"l%x %x\r",load_addr-1,load_addr+b-1);
 	  slow_write(fd,cmd,strlen(cmd));
-	  write(fd,buf,b);
-	  b=fread(buf,1,16384,f);
+	  usleep(1000);
+	  int n=b;
+	  unsigned char *p=buf;
+	  while(n>0) {
+	    int w=write(fd,p,n);
+	    if (w>0) { p+=w; n-=w; } else usleep(1000);
+	  }
+	  usleep(10000+50*b);
+	  load_addr+=b;
+	  b=fread(buf,1,max_bytes,f);	  
 	}
 	fclose(f); f=NULL;
+	// set end address, clear input buffer, release break point,
+	// jump to end of load routine, resume CPU at a CLC, RTS
+	usleep(50000);
+
+	slow_write(fd,cmd,strlen(cmd));	usleep(50000);
+	sprintf(cmd,"sc6 0\r");
+	slow_write(fd,cmd,strlen(cmd));	usleep(20000);
+	sprintf(cmd,"b\r");
+	slow_write(fd,cmd,strlen(cmd));	usleep(20000);
+
+	// We need to set X and Y to load address before
+	// returning: LDX #$ll / LDY #$yy / CLC / RTS
+	load_addr+=1;
+	sprintf(cmd,"s380 a2 %x a0 %x 18 60\r",
+		load_addr&0xff,(load_addr>>8)&0xff);
+	slow_write(fd,cmd,strlen(cmd));	usleep(20000);
+	sprintf(cmd,"g0380\r");
+	slow_write(fd,cmd,strlen(cmd));	usleep(20000);
+
+	sprintf(cmd,"t0\r");
+	slow_write(fd,cmd,strlen(cmd));	usleep(20000);
 	printf("\n");
 	// loaded ok.
 	printf("LOADED.\n");
@@ -153,13 +245,24 @@ int process_char(unsigned char c, int live)
 
 void usage(void)
 {
-  fprintf(stderr,"usage: monitor_load <serial port>\n");
+  fprintf(stderr,"usage: monitor_load <serial port> [file] [FPGA bitstream]\n");
   exit(-3);
 }
 
 int main(int argc,char **argv)
 {
-  if (argc!=2) usage();
+  if (argc<2||argc>4) usage();
+
+  if (argc>2) filename=strdup(argv[2]);
+  
+  // Load bitstream if file provided
+  if (argc==4) {
+    char cmd[1024];
+    snprintf(cmd,1024,"fpgajtag -a %s",argv[3]);
+    fprintf(stderr,"%s\n",cmd);
+    system(cmd);
+  }
+  
   errno=0;
   fd=open(argv[1],O_RDWR);
   perror("A");
@@ -185,13 +288,14 @@ int main(int argc,char **argv)
   perror("F");
 
   unsigned long long last_check = gettime_ms();
+  int phase=0;
 
   while(1)
     {
       int b;
       char read_buff[1024];
       switch(state) {
-      case 0: case 99:
+      case 0: case 2: case 3: case 99:
 	errno=0;
 	b=read(fd,read_buff,1024);
 	if (b>0) {
@@ -204,7 +308,13 @@ int main(int argc,char **argv)
 	}
 	if (gettime_ms()>last_check) {
 	  if (state==99) printf("sending R command to sync.\n");
-	  slow_write(fd,"r\r",2);
+	  switch (phase%3) {
+	  case 0: slow_write(fd,"r\r",2); break; // PC check
+	  case 1: slow_write(fd,"m86d\r",5); break; // C65 Mode check
+	  case 2: slow_write(fd,"m42c\r",5); break; // C64 mode check
+	  default: phase=0;
+	  }
+	  phase++;	  
 	  last_check=gettime_ms()+50;
 	}
 	break;
@@ -212,6 +322,8 @@ int main(int argc,char **argv)
 	slow_write(fd,"mb7\r",4);
 	state=0;
 	break;
+      default:
+	usleep(1000);	
       }
     }
 
