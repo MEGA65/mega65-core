@@ -200,7 +200,6 @@ int process_line(char *line,int live)
 	// jump to end of load routine, resume CPU at a CLC, RTS
 	usleep(50000);
 
-	slow_write(fd,cmd,strlen(cmd));	usleep(50000);
 	sprintf(cmd,"sc6 0\r");
 	slow_write(fd,cmd,strlen(cmd));	usleep(20000);
 	sprintf(cmd,"b\r");
@@ -208,10 +207,10 @@ int process_line(char *line,int live)
 
 	// We need to set X and Y to load address before
 	// returning: LDX #$ll / LDY #$yy / CLC / RTS
-	load_addr+=1;
 	sprintf(cmd,"s380 a2 %x a0 %x 18 60\r",
 		load_addr&0xff,(load_addr>>8)&0xff);
 	slow_write(fd,cmd,strlen(cmd));	usleep(20000);
+
 	sprintf(cmd,"g0380\r");
 	slow_write(fd,cmd,strlen(cmd));	usleep(20000);
 
@@ -239,6 +238,20 @@ int process_char(unsigned char c, int live)
     line_len=0;
   } else {
     if (line_len<1023) line[line_len++]=c;
+  }
+  return 0;
+}
+
+int process_waiting(int fd)
+{
+  unsigned char  read_buff[1024];
+  int b=read(fd,read_buff,1024);
+  while (b>0) {
+    int i;
+    for(i=0;i<b;i++) {
+      process_char(read_buff[i],1);
+    }
+    b=read(fd,read_buff,1024);    
   }
   return 0;
 }
