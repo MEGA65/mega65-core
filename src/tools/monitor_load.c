@@ -216,6 +216,10 @@ int process_line(char *line,int live)
 
 	sprintf(cmd,"t0\r");
 	slow_write(fd,cmd,strlen(cmd));	usleep(20000);
+
+	sprintf(cmd,"s277 52 55 4e d\rsc6 4\r");
+	slow_write(fd,cmd,strlen(cmd));
+
 	printf("\n");
 	// loaded ok.
 	printf("LOADED.\n");
