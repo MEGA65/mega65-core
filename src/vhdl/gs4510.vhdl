@@ -3353,6 +3353,12 @@ begin
               reg_map_high <= "0011";
               reg_offset_high <= x"f00"; -- add $F0000
               reg_mb_high <= x"ff";
+              -- Make sure that a naughty person can't trick the hypervisor
+              -- into modifying itself, by having the Hypervisor address space
+              -- mapped in the bottom 32KB of address space.
+              if reg_mb_low = x"ff" then
+                reg_mb_low <= x"00";
+              end if;
               -- IO, but no C64 ROMS
               cpuport_ddr <= x"3f"; cpuport_value <= x"35";
 
