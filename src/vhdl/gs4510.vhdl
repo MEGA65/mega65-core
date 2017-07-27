@@ -3488,6 +3488,28 @@ begin
                   -- swap and mix not yet implemented
                   state <= normal_fetch_state;
               end case;
+              -- XXX Potential security issue: Ideally we should not allow a DMA to
+              -- write to Hypervisor memory, so as to make it harder to overwrite
+              -- hypervisor memory.  However, we currently use it to do exactly
+              -- that in the kickup routine.  Thus before we implement such
+              -- protection, we need to change kickup to use a simple copy
+              -- routine. We then need to get a bit creative about how we
+              -- implement the restriction, as the hypervisor memory doesnt
+              -- exist in its own 1MB off address space, so we can't easily
+              -- quarantine it by blockinig DMA to that section off address
+              -- space. It does live in its own 64KB of address space, however.
+              -- that would involve adding a wrap-around check on the bottom 16
+              -- bits of the address.
+              -- One question is: Does it make sense to try to protect against
+              -- this, since the hypervisor memory is only accessible from
+              -- hypervisor mode, and any exploit via DMA requires another
+              -- exploit first.  Perhaps the only additional issue is if a DMA
+              -- chained request went feral, but even that requires at least a
+              -- significant bug in the hypervisor.  We could just disable
+              -- chained DMA in the hypevisor as a simple safety catch, as this
+              -- will provide the main value, without a burdonsome change. But
+              -- even that gets used in kickstart when clearing the screen on
+              -- boot.
             when DMAgicFill =>
               -- Fill memory at dmagic_dest_addr with dmagic_src_addr(7 downto
               -- 0)
