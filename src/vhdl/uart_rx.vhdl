@@ -24,7 +24,7 @@ signal rx_data : std_logic_vector(9 downto 0);
 
 type uart_rx_state is (Idle,WaitingForMidBit,WaitingForNextBit,WaitForRise);
 signal rx_state : uart_rx_state := Idle;
-signal uart_rx_debounced : std_logic_vector(7 downto 0) := (others =>'1');
+signal uart_rx_debounced : std_logic_vector(3 downto 0) := (others =>'1');
 
 type uart_buffer is array (0 to 63) of std_logic_vector(7 downto 0);
 
@@ -34,17 +34,17 @@ begin  -- behavioural
     -- purpose: based on last 8 samples of uart_rx, decide if the average signal is a 1 or a 0
   begin
     if rising_edge(CLK) then
-      uart_rx_debounced <= uart_rx_debounced(6 downto 0) & uart_rx;
+      uart_rx_debounced <= uart_rx_debounced(3 downto 0) & uart_rx;
       
       -- Update bit clock
       if bit_timer<bit_rate_divisor then
-        bit_timer <= bit_timer + 1;
+        bit_timer <= bit_timer + 1;     
       else
         bit_timer <= (others => '0');
       end if;
       -- Look for start of first bit
       -- XXX Should debounce this!
-      if rx_state = Idle and UART_RX_debounced = x"00" then
+      if rx_state = Idle and UART_RX_debounced = x"0" then
         report "start receiving byte" severity note;
         -- Start receiving next byte
         bit_timer <= (others => '0');
