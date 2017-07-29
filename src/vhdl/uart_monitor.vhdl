@@ -278,7 +278,7 @@ architecture behavioural of uart_monitor is
 
   signal show_register_delay : integer range 0 to 255;
 
-  signal bit_rate_divisor_internal : unsigned(13 downto 0) := to_unsigned(50000000/230400,14);
+  signal bit_rate_divisor_internal : unsigned(13 downto 0) := to_unsigned(50000000/2000000,14);
   
 begin
 
