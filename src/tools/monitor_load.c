@@ -45,6 +45,8 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include <errno.h>
 #include <getopt.h>
 
+time_t start_time=0;
+
 int process_char(unsigned char c,int live);
 
 int slow_write(int fd,char *d,int l)
@@ -87,10 +89,62 @@ unsigned long long gettime_ms()
   return nowtv.tv_sec * 1000LL + nowtv.tv_usec / 1000;
 }
 
+int replace_kickstart(void)
+{
+  char cmd[1024];
+  FILE *f=fopen(kickstart,"r");
+  if (!f) {
+    fprintf(stderr,"Could not open kickstart file '%s'\n",kickstart);
+    exit(-2);
+  }
+  
+  // Stop CPU
+  usleep(50000);
+  slow_write(fd,"t1\r",3);
+
+  // base address of kickstart ROM
+  int load_addr=0xfff8000;
+  usleep(50000);
+  unsigned char buf[16384];
+  int max_bytes=4096;
+  int b=fread(buf,1,max_bytes,f);
+  while(b>0) {
+    printf("Read to $%04x (%d bytes)\n",load_addr,b);
+    fflush(stdout);
+    // load_addr=0x400;
+    sprintf(cmd,"l%x %x\r",load_addr-1,load_addr+b-1);
+    slow_write(fd,cmd,strlen(cmd));
+    usleep(1000);
+    int n=b;
+    unsigned char *p=buf;
+    while(n>0) {
+      int w=write(fd,p,n);
+      if (w>0) { p+=w; n-=w; } else usleep(1000);
+    }
+    usleep(10000+50*b);
+    load_addr+=b;
+    b=fread(buf,1,max_bytes,f);	  
+  }
+  fclose(f);
+
+  // Start executing in new kickstart
+  usleep(50000);
+  slow_write(fd,"g8100\r",6);
+  usleep(10000);
+  slow_write(fd,"t0\r",3);
+  
+  fprintf(stderr,"[T+%lldsec] Custom kickstart loaded.\n",(long long)time(0)-start_time);
+  
+  return 0;
+}
+
+int first_load=1;
+int first_go64=1;
+
 int process_line(char *line,int live)
 {
   int pc,a,x,y,sp,p;
-  printf("[%s]\n",line);
+  //  printf("[%s]\n",line);
   if (!live) return 0;
   if (sscanf(line,"%04x %02x %02x %02x %02x %02x",
 	     &pc,&a,&x,&y,&sp,&p)==6) {
@@ -98,6 +152,10 @@ int process_line(char *line,int live)
     if (pc==0xf4a5||pc==0xf4a2) {
       // Intercepted LOAD command
       state=1;
+    } else if (pc>=0x8000&&pc<0xc000&&kickstart) {
+      fprintf(stderr,"[T+%lldsec] Replacing kickstart...\n",(long long)time(0)-start_time);
+      replace_kickstart();
+      kickstart=NULL;
     } else {
       if (state==99) {
 	// Synchronised with monitor
@@ -155,6 +213,8 @@ int process_line(char *line,int live)
     // We are in C65 mode - switch to C64 mode
     char *cmd="s34a 47 4f 36 34 d 59 d\rsd0 7\r";
     slow_write(fd,cmd,strlen(cmd));
+    if (first_go64) fprintf(stderr,"[T+%lldsec] GO64\nY\n",(long long)time(0)-start_time);
+    first_go64=0;
   }
   if (!strcmp(line,
 	      " :000042C 2A 2A 2A 2A 20 03 0F 0D 0D 0F 04 0F 12 05 20 36")) {
@@ -164,6 +224,8 @@ int process_line(char *line,int live)
     slow_write(fd,cmd,strlen(cmd));
     cmd="s277 4c 6f 22 21 d\rsc6 5\r";
     slow_write(fd,cmd,strlen(cmd));
+    if (first_load) fprintf(stderr,"[T+%lldsec] LOAD\"!\n",(long long)time(0)-start_time);
+    first_load=0;
   }  
   if (state==2)
     {
@@ -222,6 +284,7 @@ int process_line(char *line,int live)
 
 	sprintf(cmd,"s277 52 55 4e d\rsc6 4\r");
 	slow_write(fd,cmd,strlen(cmd));
+	fprintf(stderr,"[T+%lldsec] RUN\n",(long long)time(0)-start_time);
 
 	printf("\n");
 	// loaded ok.
@@ -279,6 +342,8 @@ void usage(void)
 
 int main(int argc,char **argv)
 {
+  start_time=time(0);
+  
   int opt;
   while ((opt = getopt(argc, argv, "l:s:b:k:")) != -1) {
     switch (opt) {
@@ -291,7 +356,6 @@ int main(int argc,char **argv)
       }
       break;
     case 'b':
-      fprintf(stderr,"bitstream arg\n");
       bitstream=strdup(optarg); break;
     case 'k': kickstart=strdup(optarg); break;
     default: /* '?' */
@@ -299,8 +363,6 @@ int main(int argc,char **argv)
     }
   }  
   
-  fprintf(stderr,"argc=%d, optind=%d, argv[i]='%s'\n",argc,optind,argv[optind]?argv[optind]:"NULL");
-
   if (argv[optind]) filename=strdup(argv[optind]);
   if (argc-optind>1) usage();
   
@@ -310,6 +372,7 @@ int main(int argc,char **argv)
     snprintf(cmd,1024,"fpgajtag -a %s",bitstream);
     fprintf(stderr,"%s\n",cmd);
     system(cmd);
+    fprintf(stderr,"[T+%lldsec] Bitstream loaded\n",(long long)time(0)-start_time);
   }
   
   errno=0;
