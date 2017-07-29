@@ -43,6 +43,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include <ctype.h>
 #include <sys/time.h>
 #include <errno.h>
+#include <getopt.h>
 
 int process_char(unsigned char c,int live);
 
@@ -52,7 +53,7 @@ int slow_write(int fd,char *d,int l)
   // characters back, meaning we need a 1 char gap between successive
   // characters.  This means >=1/23040sec delay. We'll allow roughly
   // double that at 100usec.
-  // printf("Writing [%s]\n",d);
+  //  printf("Writing [%s]\n",d);
   int i;
   for(i=0;i<l;i++)
     {
@@ -72,6 +73,10 @@ int name_len,name_lo,name_hi,name_addr=-1;
 char *filename=NULL;
 FILE *f=NULL;
 char *search_path=".";
+char *bitstream=NULL;
+char *kickstart=NULL;
+char serial_port[1024]="/dev/ttyUSB1"; // XXX do a better job auto-detecting this
+int serial_speed=2000000;
 
 unsigned long long gettime_ms()
 {
@@ -85,8 +90,7 @@ unsigned long long gettime_ms()
 int process_line(char *line,int live)
 {
   int pc,a,x,y,sp,p;
-  int addr;
-  // printf("[%s]\n",line);
+  printf("[%s]\n",line);
   if (!live) return 0;
   if (sscanf(line,"%04x %02x %02x %02x %02x %02x",
 	     &pc,&a,&x,&y,&sp,&p)==6) {
@@ -178,7 +182,6 @@ int process_line(char *line,int live)
 	int max_bytes=4096;
 	int b=fread(buf,1,max_bytes,f);
 	while(b>0) {
-	  int i;
 	  printf("Read to $%04x (%d bytes)\n",load_addr,b);
 	  fflush(stdout);
 	  // load_addr=0x400;
@@ -262,36 +265,69 @@ int process_waiting(int fd)
 
 void usage(void)
 {
-  fprintf(stderr,"usage: monitor_load <serial port> [file] [FPGA bitstream]\n");
+  fprintf(stderr,"MEGA65 cross-development tool.\n");
+  fprintf(stderr,"usage: monitor_load [-l <serial port>] [-s <230400|2000000>]  [-b <FPGA bitstream>] [-k <kickstart file>] [filename]\n");
+  fprintf(stderr,"  -l - Name of serial port to use, e.g., /dev/ttyUSB1\n");
+  fprintf(stderr,"  -s - Speed of serial port in bits per second. This must match what your bitstream uses.\n");
+  fprintf(stderr,"       (Older bitstream use 230400, and newer ones 2000000).\n");
+  fprintf(stderr,"  -b - Name of bitstream file to load.\n");
+  fprintf(stderr,"  -k - Name of kickstart file to forcibly use instead of the kickstart in the bitstream.\n");
+  fprintf(stderr,"  filename - The name of the file to be automatically load and run.\n");
+  fprintf(stderr,"\n");
   exit(-3);
 }
 
 int main(int argc,char **argv)
 {
-  if (argc<2||argc>4) usage();
+  int opt;
+  while ((opt = getopt(argc, argv, "l:s:b:k:")) != -1) {
+    switch (opt) {
+    case 'l': strcpy(serial_port,optarg); break;
+    case 's':
+      serial_speed=atoi(optarg);
+      switch(serial_speed) {
+      case 230400: case 2000000: break;
+      default: usage();
+      }
+      break;
+    case 'b':
+      fprintf(stderr,"bitstream arg\n");
+      bitstream=strdup(optarg); break;
+    case 'k': kickstart=strdup(optarg); break;
+    default: /* '?' */
+      usage();
+    }
+  }  
+  
+  fprintf(stderr,"argc=%d, optind=%d, argv[i]='%s'\n",argc,optind,argv[optind]?argv[optind]:"NULL");
 
-  if (argc>2) filename=strdup(argv[2]);
+  if (argv[optind]) filename=strdup(argv[optind]);
+  if (argc-optind>1) usage();
   
   // Load bitstream if file provided
-  if (argc==4) {
+  if (bitstream) {
     char cmd[1024];
-    snprintf(cmd,1024,"fpgajtag -a %s",argv[3]);
+    snprintf(cmd,1024,"fpgajtag -a %s",bitstream);
     fprintf(stderr,"%s\n",cmd);
     system(cmd);
   }
   
   errno=0;
-  fd=open(argv[1],O_RDWR);
-  perror("A");
+  fd=open(serial_port,O_RDWR);
   if (fd==-1) {
-    fprintf(stderr,"Could not open serial port '%s'\n",argv[1]);
+    fprintf(stderr,"Could not open serial port '%s'\n",serial_port);
     perror("open");
     exit(-1);
   }
   fcntl(fd,F_SETFL,fcntl(fd, F_GETFL, NULL)|O_NONBLOCK);
   struct termios t;
-  if (cfsetospeed(&t, B230400)) perror("Failed to set output baud rate");
-  if (cfsetispeed(&t, B230400)) perror("Failed to set input baud rate");
+  if (serial_speed==230400) {
+    if (cfsetospeed(&t, B230400)) perror("Failed to set output baud rate");
+    if (cfsetispeed(&t, B230400)) perror("Failed to set input baud rate");
+  } else {
+    if (cfsetospeed(&t, B2000000)) perror("Failed to set output baud rate");
+    if (cfsetispeed(&t, B2000000)) perror("Failed to set input baud rate");
+  }
   t.c_cflag &= ~PARENB;
   t.c_cflag &= ~CSTOPB;
   t.c_cflag &= ~CSIZE;
@@ -302,7 +338,6 @@ int main(int argc,char **argv)
                  INPCK | ISTRIP | IXON | IXOFF | IXANY | PARMRK);
   t.c_oflag &= ~OPOST;
   if (tcsetattr(fd, TCSANOW, &t)) perror("Failed to set terminal parameters");
-  perror("F");
 
   unsigned long long last_check = gettime_ms();
   int phase=0;
@@ -324,7 +359,7 @@ int main(int argc,char **argv)
 	  usleep(1000);
 	}
 	if (gettime_ms()>last_check) {
-	  if (state==99) printf("sending R command to sync.\n");
+	  if (state==99) printf("sending R command to sync @ %dpbs.\n",serial_speed);
 	  switch (phase%3) {
 	  case 0: slow_write(fd,"r\r",2); break; // PC check
 	  case 1: slow_write(fd,"m86d\r",5); break; // C65 Mode check
