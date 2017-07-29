@@ -34,7 +34,7 @@ begin  -- behavioural
     -- purpose: based on last 8 samples of uart_rx, decide if the average signal is a 1 or a 0
   begin
     if rising_edge(CLK) then
-      uart_rx_debounced <= uart_rx_debounced(3 downto 0) & uart_rx;
+      uart_rx_debounced <= uart_rx_debounced(2 downto 0) & uart_rx;
       
       -- Update bit clock
       if bit_timer<bit_rate_divisor then
