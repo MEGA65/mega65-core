@@ -353,6 +353,12 @@ $(SDCARD_DIR)/BOOTLOGO.M65:	tools/pngprepare/pngprepare mega65_64x64.png
 #       exe          opt  infile           outfile
 	tools/pngprepare/pngprepare logo mega65_64x64.png $(SDCARD_DIR)/BOOTLOGO.M65
 
+$(SDCARD_DIR)/BANNER.M65:	tools/pngprepare/pngprepare mega65_320x64.png
+	$(warning =============================================================)
+	$(warning ~~~~~~~~~~~~~~~~> Making: $(SDCARD_DIR)/BANNER.M65)
+#       exe          opt  infile           outfile
+	tools/pngprepare/pngprepare logo mega65_320x64.png $(SDCARD_DIR)/BANNER.M65
+
 # disk menu program for loading from SD card to $C000 on boot by kickstart
 $(SDCARD_DIR)/C000UTIL.BIN:	diskmenu_c000.bin
 	cp diskmenu_c000.bin $(SDCARD_DIR)/C000UTIL.BIN

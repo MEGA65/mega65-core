@@ -198,8 +198,15 @@ void process_file(int mode, char *outputfilename)
     printf("mode=0 (logo)\n");
     // Logo mode
 
-    if (height!=64||width!=64) {
-      fprintf(stderr,"Logo images must be 64x64\n");
+    int size=-1;
+    #define SIZE_LOGO 1
+    #define SIZE_BANNER 2
+    if (height==64&&width==64) size=SIZE_LOGO;
+    if (height==64&&width==320) size=SIZE_BANNER;
+    
+    if (size==-1) {
+      fprintf(stderr,"Logo images must be 64x64 or 320x64\n");
+      exit(-1);
     }
     for (y=0; y<height; y++) {
       png_byte* row = row_pointers[y];
@@ -215,9 +222,14 @@ void process_file(int mode, char *outputfilename)
 	   by 64, and every 8 pixels down increases pixel count by (64*8), and every
 	   single pixel down increases address by 8.
 	*/
-	int address=(x&7)+(y&7)*8;
+	int address=0;
+	address=(x&7)+(y&7)*8;
 	address+=(x>>3)*64;
-	address+=(y>>3)*64*8;
+	if (size==SIZE_LOGO)
+	  address+=(y>>3)*64*8;
+	else
+	  address+=(y>>3)*64*40;
+
 	fseek(outfile,address,SEEK_SET);
 	int n=fwrite(&c,1,1,outfile);
 	if (n!=1) {
