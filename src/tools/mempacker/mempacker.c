@@ -80,7 +80,7 @@ int main(int argc,char **argv)
 	  "  signal no_write_count : unsigned(7 downto 0) := x\"00\";\n"
 	  "  \n"
 	  "--  type ram_t is array (0 to 262143) of std_logic_vector(7 downto 0);\n"
-	  "  type ramx_t is array (0 to 131071) of unsigned(7 downto 0);\n"
+	  "  type ram_t is array (0 to 131071) of unsigned(7 downto 0);\n"
 	  "  signal ram : ram_t := (\n");
 
   for(int i=0;i<ar_size;i++)
