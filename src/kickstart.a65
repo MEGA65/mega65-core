@@ -541,10 +541,6 @@ normalboot:
 	; check for keyboard input to jump to utility menu
 	jsr scankeyboard
 	bcs nokey1
-	pha
-	taz
-	jsr printhex
-	pla
 	cmp #$20
 	beq utility_menu
 nokey1:
@@ -931,6 +927,14 @@ findrom:
 		jsr checkpoint
 		.byte 0,"JUMPing into ROM-code",0
 
+	; check for keyboard input to jump to utility menu
+	jsr scankeyboard
+	bcs nokey3
+	cmp #$20
+	beq utility_menu
+nokey3:
+
+
 		jmp go64
 
 ;	========================
@@ -1147,6 +1151,12 @@ loaddiskmenu:
 
 	jsr dumpcurrentfd	; debugging to Checkpoint
 
+	; check for keyboard input to jump to utility menu
+	jsr scankeyboard
+	bcs nokey4
+	cmp #$20
+	beq utility_menu
+nokey4:
 
 		jmp go64		
 
