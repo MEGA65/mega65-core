@@ -538,6 +538,17 @@ etherloop:
 
 normalboot:
 
+	; check for keyboard input to jump to utility menu
+	jsr scankeyboard
+	bcs nokey1
+	pha
+	taz
+	jsr printhex
+	pla
+	cmp #$20
+	beq utility_menu
+nokey1:
+
 	jsr dump_disk_count	; debugging to Checkpoint
 	jsr dumpcurrentfd	; debugging to Checkpoint
 
@@ -551,12 +562,24 @@ tryreadmbr:
 		jsr readmbr
 		bcs gotmbr
 
+	; check for keyboard input to jump to utility menu
+	jsr scankeyboard
+	bcs nokey2
+	cmp #$20
+	beq utility_menu
+nokey2:
+
 		; Oops, cant read MBR
 		; display debug message to screen
 		;
 		ldx #<msg_retryreadmbr
 		ldy #>msg_retryreadmbr
 		jsr printmessage
+
+		; put sd card sector buffer back after scanning
+		; keyboard
+		lda #$81
+		tsb $d680
 
 		; display debug message to uart
 		;

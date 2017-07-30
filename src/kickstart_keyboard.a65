@@ -248,6 +248,9 @@ Main:
     ; Make sure 2nd KB of colour RAM isn't overlaying the CIA registers
     lda #$01
     trb $d030
+    ; and SD card sector buffer
+    lda #$82
+    sta $d680
 
     ldx #$ff
     stx $dc02       ; // Port A - Output
