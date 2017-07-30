@@ -492,7 +492,7 @@ reset_entry_common:
 		;
 		ldx #<msg_kickstart
 		ldy #>msg_kickstart
-		jsr printbanner
+		jsr printmessage
 
 		; leave a blank line below kickstart banner
 		;
@@ -624,14 +624,15 @@ gotmbr:
 mountsystemdiskok:
 
 		; Load and display boot logo
-		; Prepare 32-bit pointer for loading boot logo @ $0004000
-		lda #$00
-		sta <dos_file_loadaddress+0
-		lda #$40
+		; Prepare 32-bit pointer for loading boot logo @ $0003D00
+		; (palette is $3D00-$3FFF, logo $4000-$8FFF)
+		lda #$3d
 		sta <dos_file_loadaddress+1
 		lda #$00
+		sta <dos_file_loadaddress+0
+		; lda #$00
 		sta <dos_file_loadaddress+2
-		lda #$00
+		; lda #$00
 		sta <dos_file_loadaddress+3
 
 		ldx #<txt_BOOTLOGOM65
@@ -668,6 +669,18 @@ mountsystemdiskok:
 ;	========================
 
 logook:
+		; Loaded banner, so copy palette into place
+		ldx #$10
+lo1:		lda $3d00,x
+		sta $D100,x
+		lda $3e00,x
+		sta $d200,x
+		lda $3f00,x
+		sta $d300,x
+		inx
+		bne lo1
+
+
 		; iterate through directory entries looking for ordinary file 
 		; KICKUP.M65 to load into hypervisor memory ...
 		; ... but only if we are not running a kick-up'd kickstart now.
@@ -1386,7 +1399,7 @@ resetdisplay:
 
 		; Enable alpha blending and horizontal blending to smooth display
 		; slightly
-		lda #$b8
+		lda #$38  ; XXX alpha blending has problems still
 		sta $D054	;VIC-IV Control Register C
 
 		; We use VIC-II style registers as this resets video frame in
@@ -1652,78 +1665,40 @@ erasescreen:
 		lda #$08
 		sta screenrow
 
-		; draw 8x8 char block for logo
+		; draw 40x8 char block for banner
 		;
-		ldx #$00
 		ldy #$00
-logo1:		txa
-		sta $0400+[80*0],y
-		ora #$08
-		sta $0400+[80*1],y
-		txa
-		ora #$10
-		sta $0400+[80*2],y
-		txa
-		ora #$18
-		sta $0400+[80*3],y
-		txa
-		ora #$20
-		sta $0400+[80*4],y
-		txa
-		ora #$28
-		sta $0400+[80*5],y
-		txa
-		ora #$30
-		sta $0400+[80*6],y
-		txa
-		ora #$38
-		sta $0400+[80*7],y
+		lda #$00
+logo1:		sta $0400,y
+		inc
 		iny
 		iny
-		inx
-		cpx #$08		
-		bne logo1
+		bne logo1		
+logo1a:		sta $0500,y
+		inc
+		iny
+		iny
+		bne logo1a
+logo1b:		sta $0600,y
+		inc
+		iny
+		iny
+		cpy #$80
+		bne logo1b
 
 		; then write the high bytes for these (all $01, so char range will be
 		; $100-$140. $100 x $40 = $4000-$4FFF
 		;
 		ldx #$00
-		lda #$01
-logo2:		sta $0401+[80*0],x
-		sta $0401+[80*1],x
-		sta $0401+[80*2],x
-		sta $0401+[80*3],x
-		sta $0401+[80*4],x
-		sta $0401+[80*5],x
-		sta $0401+[80*6],x
-		sta $0401+[80*7],x
+		lda #$01		
+logo2:		sta $0401,x
+		inc
+		sta $0581,x
+		dec
+		sta $0501,x
 		inx
-		inx
-		cpx #$10
+		inx		
 		bne logo2
-
-		; finally work around the VIC-IV bug where the first normal character
-		; following a full-colour character gets skipped by inserting early
-		; end of line terminator markers on the lines. Without this, the first
-		; character of the next line would show
-		;
-		lda #$ff
-		sta $044e
-		sta $044f
-		sta $049e
-		sta $049f
-		sta $04ee
-		sta $04ef
-		sta $053e
-		sta $053f
-		sta $058e
-		sta $058f
-		sta $05de
-		sta $05df
-		sta $062e
-		sta $062f
-		sta $067e
-		sta $067f
 
 		rts
 
@@ -1965,7 +1940,7 @@ g61:		sta $0800,x
 
 		; reset video mode to normal (but with PAL + compositing enabled)
 		; and return CPU to slow speed for exit
-		lda #$b8
+		lda #$38    ; XXX no compositing for now, as it still has problems
 		sta $d054
 
 		lda #<40
@@ -2852,7 +2827,7 @@ msg_alreadykicked:    .byte "RUNNING KICKED HYPERVISOR",0
 msg_etherkick:	      .byte "BOOTING VIA ETHERKICK: UDP PORT 4511",0
 msg_lookingfornextsector:
 		      .byte "LOOKING FOR NEXT SECTOR OF FILE",0
-msg_nologo:	      .byte "COULD NOT LOAD BOOTLOGO.M65 (ERRNO:$$)",0
+msg_nologo:	      .byte "COULD NOT LOAD BANNER.M65 (ERRNO:$$)",0
 msg_cdrootfailed:     .byte "COULD NOT CHDIR TO / (ERRNO:$$)",0
 
 			; include the GIT-STRING as a message
@@ -2887,7 +2862,7 @@ txt_KICKUPM65:		.byte "KICKUP.M65",0
 
 			; filename containing boot logo
 			;
-txt_BOOTLOGOM65:	.byte "BOOTLOGO.M65",0
+txt_BOOTLOGOM65:	.byte "BANNER.M65",0
 
 ;	========================
 

@@ -168,6 +168,42 @@ void read_png_file(char* file_name)
 
 /* ============================================================= */
 
+struct rgb {
+  int r;
+  int g;
+  int b;
+};
+
+struct rgb palette[256];
+int palette_first=16;
+int palette_index=16; // only use upper half of palette
+
+int palette_lookup(int r,int g, int b)
+{
+  int i;
+
+  // Do we know this colour already?
+  for(i=palette_first;i<palette_index;i++) {
+    if (r==palette[i].r&&g==palette[i].g&&b==palette[i].b) {
+      return i;
+    }
+  }
+  
+  // new colour
+  if (palette_index>255) {
+    fprintf(stderr,"Too many colours in image: Must be <= %d\n",
+	    256-palette_first);
+    exit(-1);
+  }
+
+  // allocate it
+  palette[palette_index].r=r;
+  palette[palette_index].g=g;
+  palette[palette_index].b=b;
+  return palette_index++;
+  
+}
+
 void process_file(int mode, char *outputfilename)
 {
   int multiplier=-1;
@@ -217,13 +253,16 @@ void process_file(int mode, char *outputfilename)
 	// Compute colour cube colour
 	unsigned char c=(r&0xe0)|((g>>5)<<2)|(b>>6);
 
+	c=palette_lookup(r,g,b);
+
 	/* work out where in logo file it must be written.
 	   image is made of 8x8 blocks.  So every 8 pixels across increases address
 	   by 64, and every 8 pixels down increases pixel count by (64*8), and every
 	   single pixel down increases address by 8.
 	*/
 	int address=0;
-	address=(x&7)+(y&7)*8;
+	address+=0x300; // space for palettes
+	address+=(x&7)+(y&7)*8;
 	address+=(x>>3)*64;
 	if (size==SIZE_LOGO)
 	  address+=(y>>3)*64*8;
@@ -243,12 +282,39 @@ void process_file(int mode, char *outputfilename)
       }
     }
 
+    fprintf(stderr,"Writing out palette of %d values\n",palette_index-palette_first);
+    for(int i=0;i<256;i++){
+      int address;
+      unsigned char c;
+      int v;
+      
+      address=i+0x000;
+      v=palette[i].r;
+      c=(v>>4)|((v&0xf)<<4);
+      fseek(outfile,address,SEEK_SET);
+      fwrite(&c,1,1,outfile);
+      
+      address=i+0x100;
+      v=palette[i].g;
+      c=(v>>4)|((v&0xf)<<4);
+      fseek(outfile,address,SEEK_SET);
+      fwrite(&c,1,1,outfile);
+
+      address=i+0x200;
+      v=palette[i].b;
+      c=(v>>4)|((v&0xf)<<4);
+      fseek(outfile,address,SEEK_SET);
+      fwrite(&c,1,1,outfile);
+    }
+    
+    
     if (outfile != NULL) {
       fclose(outfile);
       outfile = NULL;
     }
 
   }
+
 
   /* ============================ */
   if (mode==1) {
