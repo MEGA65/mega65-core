@@ -72,6 +72,7 @@ int slow_write(int fd,char *d,int l)
 int fd=-1;
 int state=99;
 int name_len,name_lo,name_hi,name_addr=-1;
+int do_go64=0;
 char *filename=NULL;
 FILE *f=NULL;
 char *search_path=".";
@@ -204,6 +205,7 @@ int process_line(char *line,int live)
 	  printf("Specific file to load is '%s'\n",fname);
 	  if (filename) free(filename);
 	  filename=strdup(fname);
+	  do_go64=1; // load in C64 mode only
 	  state=0;
 	}
       }
@@ -212,21 +214,31 @@ int process_line(char *line,int live)
   if (!strcmp(line,
 	      " :000086D 14 08 05 20 03 0F 0D 0D 0F 04 0F 12 05 20 03 36")) {
     // We are in C65 mode - switch to C64 mode
-    char *cmd="s34a 47 4f 36 34 d 59 d\rsd0 7\r";
-    slow_write(fd,cmd,strlen(cmd));
-    if (first_go64) fprintf(stderr,"[T+%lldsec] GO64\nY\n",(long long)time(0)-start_time);
-    first_go64=0;
+    if (do_go64) {
+      char *cmd="s34a 47 4f 36 34 d 59 d\rsd0 7\r";
+      slow_write(fd,cmd,strlen(cmd));
+      if (first_go64) fprintf(stderr,"[T+%lldsec] GO64\nY\n",(long long)time(0)-start_time);
+      first_go64=0;
+    } else {
+      fprintf(stderr,"MEGA65 is in C65 mode.\n");
+      exit(0);
+    }    
   }
   if (!strcmp(line,
-	      " :000042C 2A 2A 2A 2A 20 03 0F 0D 0D 0F 04 0F 12 05 20 36")) {
+			 " :000042C 2A 2A 2A 2A 20 03 0F 0D 0D 0F 04 0F 12 05 20 36")) {
     // C64 mode BASIC -- set LOAD trap, and then issue LOAD command
     char *cmd;
-    cmd="bf4a5\r";
-    slow_write(fd,cmd,strlen(cmd));
-    cmd="s277 4c 6f 22 21 d\rsc6 5\r";
-    slow_write(fd,cmd,strlen(cmd));
-    if (first_load) fprintf(stderr,"[T+%lldsec] LOAD\"!\n",(long long)time(0)-start_time);
-    first_load=0;
+    if (filename) {
+      cmd="bf4a5\r";
+      slow_write(fd,cmd,strlen(cmd));
+      cmd="s277 4c 6f 22 21 d\rsc6 5\r";
+      slow_write(fd,cmd,strlen(cmd));
+      if (first_load) fprintf(stderr,"[T+%lldsec] LOAD\"!\n",(long long)time(0)-start_time);
+      first_load=0;
+    } else {
+      fprintf(stderr,"MEGA65 is in C64 mode.\n");
+      exit(0);
+    }
   }  
   if (state==2)
     {
@@ -330,14 +342,15 @@ int process_waiting(int fd)
 
 void usage(void)
 {
-  fprintf(stderr,"MEGA65 cross-development tool.\n");
-  fprintf(stderr,"usage: monitor_load [-l <serial port>] [-s <230400|2000000>]  [-b <FPGA bitstream>] [-k <kickstart file>] [filename]\n");
+  fprintf(stderr,"MEGA65 cross-development tool for booting the MEGA65 using a custom bitstream and/or KICKUP file.\n");
+  fprintf(stderr,"usage: monitor_load [-l <serial port>] [-s <230400|2000000>]  [-b <FPGA bitstream>] [-k <kickup file>] [filename]\n");
   fprintf(stderr,"  -l - Name of serial port to use, e.g., /dev/ttyUSB1\n");
   fprintf(stderr,"  -s - Speed of serial port in bits per second. This must match what your bitstream uses.\n");
   fprintf(stderr,"       (Older bitstream use 230400, and newer ones 2000000).\n");
   fprintf(stderr,"  -b - Name of bitstream file to load.\n");
-  fprintf(stderr,"  -k - Name of kickstart file to forcibly use instead of the kickstart in the bitstream.\n");
-  fprintf(stderr,"  filename - The name of the file to be automatically load and run.\n");
+  fprintf(stderr,"  -k - Name of kickup file to forcibly use instead of the kickstart in the bitstream.\n");
+  fprintf(stderr,"  -4 - Switch to C64 mode before exiting.\n");
+  fprintf(stderr,"  filename - Load and run this file in C64 mode before exiting.\n");
   fprintf(stderr,"\n");
   exit(-3);
 }
@@ -347,8 +360,9 @@ int main(int argc,char **argv)
   start_time=time(0);
   
   int opt;
-  while ((opt = getopt(argc, argv, "l:s:b:k:")) != -1) {
+  while ((opt = getopt(argc, argv, "4l:s:b:k:")) != -1) {
     switch (opt) {
+    case '4': do_go64=1; break;
     case 'l': strcpy(serial_port,optarg); break;
     case 's':
       serial_speed=atoi(optarg);
