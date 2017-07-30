@@ -25,6 +25,7 @@ signal rx_data : std_logic_vector(9 downto 0);
 type uart_rx_state is (Idle,WaitingForMidBit,WaitingForNextBit,WaitForRise);
 signal rx_state : uart_rx_state := Idle;
 signal uart_rx_debounced : std_logic_vector(3 downto 0) := (others =>'1');
+signal uart_rx_bit : std_logic := '1';
 
 type uart_buffer is array (0 to 63) of std_logic_vector(7 downto 0);
 
@@ -35,6 +36,12 @@ begin  -- behavioural
   begin
     if rising_edge(CLK) then
       uart_rx_debounced <= uart_rx_debounced(2 downto 0) & uart_rx;
+      if uart_rx_debounced = x"0" and uart_rx_bit = '1' then
+        uart_rx_bit <= '0';
+      end if;
+      if uart_rx_debounced = x"F" and uart_rx_bit = '0' then
+        uart_rx_bit <= '1';
+      end if;
       
       -- Update bit clock
       if bit_timer<bit_rate_divisor then
@@ -44,14 +51,14 @@ begin  -- behavioural
       end if;
       -- Look for start of first bit
       -- XXX Should debounce this!
-      if rx_state = Idle and UART_RX_debounced = x"0" then
+      if rx_state = Idle and uart_rx_bit='0' then
         report "start receiving byte" severity note;
         -- Start receiving next byte
         bit_timer <= (others => '0');
         bit_position <= 0;
         rx_state <= WaitingForMidBit;
       end if;
-
+        
       -- Check for data_acknowledge before potentially reasserting data_ready
       -- so that we can't miss characters
       if data_acknowledge='1' then
@@ -64,7 +71,7 @@ begin  -- behavioural
         and bit_timer = '0' & bit_rate_divisor(13 downto 1) then
         report "reached mid bit point, bit = " & integer'image(bit_position) severity note;
         -- Reached mid bit
-        rx_data(bit_position) <= uart_rx;
+        rx_data(bit_position) <= uart_rx_bit;
         if bit_position<9 then
           -- More bits to get
           bit_position <= bit_position + 1;
@@ -83,7 +90,7 @@ begin  -- behavioural
       end if;
       -- Wait for most of a bit after receiving a byte before going back
       -- to idle state
-      if (bit_timer = 0 or uart_rx = '1') and rx_state = WaitForRise then
+      if (bit_timer = 0 or uart_rx_bit = '1') and rx_state = WaitForRise then
         rx_state <= Idle;
       end if;
     end if;
