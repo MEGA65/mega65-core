@@ -1754,22 +1754,12 @@ erasescreendmalist:
 
 		; Clear colour RAM
 		;
-		.byte $07 ; fill + chained request
+		.byte $06 ; fill + end of chain
 		.word 2000 ; 40x25x2 = 2000
 		.byte $01 ; fill with white = $01
 		.byte $00,$00 ; rest of source address is ignored in fill
 		.word $d800 ; screen is at $0400
 		.byte $80   ; screen is in IO, so bank IO in to DMA context
-		.word $0000 ; modulo (unused)
-
-		; Clear $4000-$4FFF (for logo display) 
-		;
-		.byte $03 ; fill + last request
-		.word $1000 ; 64x64 = $1000
-		.byte $00 ; fill with black = $00
-		.byte $00,$00 ; rest of source address is ignored in fill
-		.word $4000 ; logo sits at $4000
-		.byte $00   ; ... in bottom half of chipram, so bank $00
 		.word $0000 ; modulo (unused)
 
 ;	========================
