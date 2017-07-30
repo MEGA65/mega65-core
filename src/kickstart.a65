@@ -1579,37 +1579,8 @@ resetpalette:
 	                sta $D20f
 	                sta $D30f
 
-;	========================
 
-		; put a colour cube in other entries
-		;
-		ldx #$10
-paletteloop:
-		; R = upper 3 bits
-		txa
-		lsr
-		lsr
-		lsr
-		and #$0e
-		sta $d100,x
-
-		; G = next 3 bits
-		txa
-		lsr
-		and #$0e
-		sta $d200,x
-		
-		; B = lowest 2 bits
-		txa
-		asl
-		asl
-		and #$0c
-		sta $d300,x
-
-		inx
-		bne paletteloop
-
-		rts
+	rts
 
 ;	========================
 
@@ -1744,22 +1715,32 @@ lo1:		lda $3d00,x
 erasescreendmalist:
 		; Clear screen RAM
 		;
-		.byte $04 ; COPY + chained request
-		.word 1996 ; 40x25x2-4 = 1996
+		.byte $04   ; COPY + chained request
+		.word 1996  ; 40x25x2-4 = 1996
 		.word $0400 ; copy from start of screen at $0400
-		.byte $00 ; source bank 00
+		.byte $00   ; source bank 00
 		.word $0404 ; ... to screen at $0402
 		.byte $00   ; screen is in bank $00
 		.word $0000 ; modulo (unused)
 
 		; Clear colour RAM
 		;
-		.byte $06 ; fill + end of chain
-		.word 2000 ; 40x25x2 = 2000
-		.byte $01 ; fill with white = $01
+		.byte $07     ; FILL + end of chain
+		.word 2000    ; 40x25x2 = 2000
+		.byte $01     ; fill with white = $01
 		.byte $00,$00 ; rest of source address is ignored in fill
-		.word $d800 ; screen is at $0400
-		.byte $80   ; screen is in IO, so bank IO in to DMA context
+		.word $d800   ; screen is at $0400
+		.byte $80     ; screen is in IO, so bank IO in to DMA context
+		.word $0000   ; modulo (unused)
+
+		; Copy shadow RAM logo to chip RAM
+		;
+		.byte $00   ; COPY + end of chain
+		.word $6000 ; 320x64 = $6000
+		.word $4000 ; fill with white = $01
+		.byte $00   ; rest of source address is ignored in fill
+		.word $4000 ; screen is at $0400
+		.byte $00   ; screen is in IO, so bank IO in to DMA context
 		.word $0000 ; modulo (unused)
 
 ;	========================
