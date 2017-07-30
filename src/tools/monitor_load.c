@@ -121,7 +121,8 @@ int replace_kickstart(void)
       int w=write(fd,p,n);
       if (w>0) { p+=w; n-=w; } else usleep(1000);
     }
-    usleep(10000+50*b);
+    if (serial_speed==230400) usleep(10000+50*b);
+    else usleep(10000+6*b);
     load_addr+=b;
     b=fread(buf,1,max_bytes,f);	  
   }
@@ -256,7 +257,8 @@ int process_line(char *line,int live)
 	    int w=write(fd,p,n);
 	    if (w>0) { p+=w; n-=w; } else usleep(1000);
 	  }
-	  usleep(10000+50*b);
+	  if (serial_speed==230400) usleep(10000+50*b);
+	  else usleep(10000+6*b);
 	  load_addr+=b;
 	  b=fread(buf,1,max_bytes,f);	  
 	}
