@@ -1792,6 +1792,12 @@ printmessage:	;HELPER routine
 		sta <zptempp2+1
 
 		ldx screenrow
+
+		; Makesure we can't accidentally write on row zero
+		bne pm22
+		ldx #$08
+pm22:
+
 		; if we have reached the bottom of the screen, start writing again
 		; from the top of the screen (but don't touch the top 8 rows for
 		; logo and banner)
