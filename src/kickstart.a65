@@ -2804,7 +2804,7 @@ msg_checkpoint_eom:
 ; messages all have to be <=40 bytes long
 
 msg_retryreadmbr:     .byte "RE-TRYING TO READ MBR",0
-msg_kickstart:        .byte "MEGA65 MEGAOS V00.11",0
+msg_kickstart:        .byte "MEGA65 MEGAOS HYPERVISOR V00.11",0
 msg_kickstarthelp:    .byte "SW15=HOLD-BOOT, SW12=DEBUG-COMMS",0
 msg_romok:            .byte "ROM CHECKSUM OK - BOOTING",0
 msg_rombad:	      .byte "ROM CHECKSUM FAIL - LOADING ROMS",0
