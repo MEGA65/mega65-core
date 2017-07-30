@@ -689,16 +689,7 @@ mountsystemdiskok:
 
 logook:
 		; Loaded banner, so copy palette into place
-		ldx #$10
-lo1:		lda $3d00,x
-		sta $D100,x
-		lda $3e00,x
-		sta $d200,x
-		lda $3f00,x
-		sta $d300,x
-		inx
-		bne lo1
-
+		jsr setbannerpalette
 
 		; iterate through directory entries looking for ordinary file 
 		; KICKUP.M65 to load into hypervisor memory ...
@@ -1733,7 +1724,20 @@ logo2:		sta $0401,x
 		inx		
 		bne logo2
 
+		; finally set palette for banner using contents of memory at $3D00-$3FFF
+setbannerpalette:
+		ldx #$10
+lo1:		lda $3d00,x
+		sta $D100,x
+		lda $3e00,x
+		sta $d200,x
+		lda $3f00,x
+		sta $d300,x
+		inx
+		bne lo1
+		; put nothing else here, as setbannerpalette also gets called after loading banner file
 		rts
+
 
 ;	========================
 

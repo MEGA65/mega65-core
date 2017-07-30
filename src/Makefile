@@ -53,7 +53,7 @@ generated_vhdl:	$(VHDLSRCDIR)/kickstart.vhdl \
 
 
 # files destined to go on the SD-card to serve as firmware for the MEGA65
-firmware:	$(SDCARD_DIR)/BOOTLOGO.M65 \
+firmware:	$(SDCARD_DIR)/BANNER.M65 \
 		KICKUP.M65 \
 		COLOURRAM.BIN \
 		$(SDCARD_DIR)/MEGA65.D81 \
@@ -346,15 +346,6 @@ $(VHDLSRCDIR)/charrom.vhdl:	tools/pngprepare/pngprepare 8x8font.png
 	$(warning ~~~~~~~~~~~~~~~~> Making: $(VHDLSRCDIR)/charrom.vhdl)
 #       exe          option  infile      outfile
 	tools/pngprepare/pngprepare charrom 8x8font.png $(VHDLSRCDIR)/charrom.vhdl
-
-# ============================ done moved, Makefile-dep, print-warn, clean-target
-# i think the 'logo' is used to put the pngprepare into a special mode that
-# generates the BOOTLOGO.M65 file that is embedded with the contents of the mega65*.png file
-$(SDCARD_DIR)/BOOTLOGO.M65:	tools/pngprepare/pngprepare mega65_64x64.png
-	$(warning =============================================================)
-	$(warning ~~~~~~~~~~~~~~~~> Making: $(SDCARD_DIR)/BOOTLOGO.M65)
-#       exe          opt  infile           outfile
-	tools/pngprepare/pngprepare logo mega65_64x64.png $(SDCARD_DIR)/BOOTLOGO.M65
 
 $(SDCARD_DIR)/BANNER.M65:	tools/pngprepare/pngprepare mega65_320x64.png
 	$(warning =============================================================)
