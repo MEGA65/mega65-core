@@ -48,6 +48,7 @@ fpga:
 generated_vhdl:	$(VHDLSRCDIR)/kickstart.vhdl \
 		$(VHDLSRCDIR)/charrom.vhdl \
 		$(VHDLSRCDIR)/version.vhdl \
+		$(VHDLSRCDIR)/shadowram.vhdl \
 		$(VHDLSRCDIR)/colourram.vhdl
 
 
@@ -256,6 +257,8 @@ $(VHDLSRCDIR)/colourram.vhdl:	tools/makerom/colourram_template.vhdl COLOURRAM.BI
 	$(warning ~~~~~~~~~~~~~~~~> Making: $(VHDLSRCDIR)/colourram.vhdl)
 	tools/makerom/makerom tools/makerom/colourram_template.vhdl COLOURRAM.BIN $(VHDLSRCDIR)/colourram ram8x32k
 
+$(VHDLSRCDIR)/shadowram.vhdl:	tools/mempacker/mempacker $(SDCARD_DIR)/BANNER.M65
+	tools/mempacker/mempacker $(VHDLSRCDIR)/shadowram.vhdl $(SDCARD_DIR)/BANNER.M65@3D00
 
 # unsure why the below is commented out
 #slowram.vhdl:	c65gs.rom makeslowram slowram_template.vhdl
