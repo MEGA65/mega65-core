@@ -183,8 +183,8 @@ GS $D070.7-6 VIC-IV palette bank mapped at $D100-$D3FF
 GS $D070 VIC-IV palette bank selection
 GS $D071 VIC-IV 16-colour bitplane enable flags
 GS $D072 VIC-IV RESERVED
-GS $D073 VIC-IV RESERVED
-GS $D074 VIC-IV HSYNC pulse width
+GS $D073.0-3 VIC-IV hsync end (MSB)
+GS $D074 VIC-IV hsync end (LSB)
 GS $D075 VIC-IV display_width (MSB)
 GS $D076 VIC-IV frame_width (LSB)
 GS $D077.0-3 VIC-IV display_width (MSB)
@@ -193,11 +193,11 @@ GS $D078 VIC-IV display_height (LSB)
 GS $D079 VIC-IV frame_height (LSB)
 GS $D07A.0-3 VIC-IV display_height (MSB)
 GS $D07A.4-7 VIC-IV frame_height (MSB)
-GS $D07B VIC-IV hsync adjust
-GS $D07C.0-3 VIC-IV hsync adjust (MSB)
+GS $D07B VIC-IV hsync start
+GS $D07C.0-3 VIC-IV hsync start (MSB)
 GS $D07C.4 VIC-IV hsync polarity
 GS $D07C.5 VIC-IV vsync polarity
-GS $D07C.6 VIC-IV physical rasters per VIC-II raster (2-5)
+GS $D07C.6-7 VIC-IV physical rasters per VIC-II raster (2-5)
 GS $D07D VIC-IV debug X position (LSB)
 GS $D07E VIC-IV debug Y position (LSB)
 GS $D07F.0-3 VIC-IV debug X position (MSB)

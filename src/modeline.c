@@ -13,43 +13,24 @@ This is almost right, but hsync adjustment needs to go negative
 
 xrandr suggests the following:
 
+1080p HDMI:
+
+1920x1080 (0x2d6) 148.500MHz +HSync +VSync *current +preferred
+        h: width  1920 start 2008 end 2052 total 2200 skew    0 clock  67.50KHz
+        v: height 1080 start 1084 end 1089 total 1125           clock  60.00Hz
+  1920x1080 (0x2d7) 148.500MHz +HSync +VSync
+        h: width  1920 start 2448 end 2492 total 2640 skew    0 clock  56.25KHz
+        v: height 1080 start 1084 end 1089 total 1125           clock  50.00Hz
+
+1200p VGA:
+
 1920x1200 (0x2a1) 154.000MHz +HSync -VSync *current +preferred
         h: width  1920 start 1968 end 2000 total 2080 skew    0 clock  74.04KHz
         v: height 1200 start 1203 end 1209 total 1235           clock  59.95Hz
-  1600x1200 (0x2a2) 162.000MHz +HSync +VSync
-        h: width  1600 start 1664 end 1856 total 2160 skew    0 clock  75.00KHz
-        v: height 1200 start 1201 end 1204 total 1250           clock  60.00Hz
-  1280x1024 (0x2a3) 135.000MHz +HSync +VSync
-        h: width  1280 start 1296 end 1440 total 1688 skew    0 clock  79.98KHz
-        v: height 1024 start 1025 end 1028 total 1066           clock  75.02Hz
-  1280x1024 (0x2a4) 108.000MHz +HSync +VSync
-        h: width  1280 start 1328 end 1440 total 1688 skew    0 clock  63.98KHz
-        v: height 1024 start 1025 end 1028 total 1066           clock  60.02Hz
-  1152x864 (0x2a5) 108.000MHz +HSync +VSync
-        h: width  1152 start 1216 end 1344 total 1600 skew    0 clock  67.50KHz
-        v: height  864 start  865 end  868 total  900           clock  75.00Hz
-  1024x768 (0x2a6) 78.750MHz +HSync +VSync
-        h: width  1024 start 1040 end 1136 total 1312 skew    0 clock  60.02KHz
-        v: height  768 start  769 end  772 total  800           clock  75.03Hz
-  1024x768 (0x4c) 65.000MHz -HSync -VSync
-        h: width  1024 start 1048 end 1184 total 1344 skew    0 clock  48.36KHz
-        v: height  768 start  771 end  777 total  806           clock  60.00Hz
-  800x600 (0x2a7) 49.500MHz +HSync +VSync
-        h: width   800 start  816 end  896 total 1056 skew    0 clock  46.88KHz
-        v: height  600 start  601 end  604 total  625           clock  75.00Hz
-  800x600 (0x53) 40.000MHz +HSync +VSync
-        h: width   800 start  840 end  968 total 1056 skew    0 clock  37.88KHz
-        v: height  600 start  601 end  605 total  628           clock  60.32Hz
-  640x480 (0x2a8) 31.500MHz -HSync -VSync
-        h: width   640 start  656 end  720 total  840 skew    0 clock  37.50KHz
-        v: height  480 start  481 end  484 total  500           clock  75.00Hz
-  640x480 (0x5c) 25.175MHz -HSync -VSync
-        h: width   640 start  656 end  752 total  800 skew    0 clock  31.47KHz
-        v: height  480 start  490 end  492 total  525           clock  59.94Hz
-  720x400 (0x2a9) 28.320MHz -HSync +VSync
-        h: width   720 start  738 end  846 total  900 skew    0 clock  31.47KHz
-        v: height  400 start  412 end  414 total  449           clock  70.08Hz
 
+150MHz/154MHz = 58.4Hz @ 1900x1200
+
+BUT we know that other 1920x1200 @ 150MHz modes are possible on some onitors, too.
 
 
 */
