@@ -394,7 +394,6 @@ architecture Behavioral of viciv is
   
   -- Video mode definition
   constant frame_h_front : integer := 128;
-  signal frame_h_syncwidth : unsigned(7 downto 0) := to_unsigned(208,8);
 
   -- The real mode says 1242, but we need 1248 so that 1248/312 = 4,
   -- allowing VIC-II PAL raster numbers to be easily calculated.
@@ -410,7 +409,8 @@ architecture Behavioral of viciv is
   signal frame_height : unsigned(11 downto 0) := to_unsigned(1072,12); 
   signal display_height : unsigned(11 downto 0) := to_unsigned(1056,12);
   signal vicii_ycounter_scale_minus_two : unsigned(2 downto 0) := "0"&to_unsigned(5-2,2);
-  signal xcounter_delay : unsigned(11 downto 0) := to_unsigned(1842,12);
+  signal hsync_start : unsigned(11 downto 0) := to_unsigned(1842,12);
+  signal hsync_end : unsigned(11 downto 0) := to_unsigned(1882,12);
 
   -- Step through VIC-II raster numbers quickly during the vertical fly-back
   -- time, so that any raster interrupts based on them will trigger.
@@ -1712,9 +1712,9 @@ begin
         elsif register_number=114 then -- $D3072
           null;
         elsif register_number=115 then -- $D3073
-          null;
+          fastio_rdata(3 downto 0) <= std_logic_vector(hsync_end(11 downto 8));          
         elsif register_number=116 then  -- $D3074
-          fastio_rdata <= std_logic_vector(frame_h_syncwidth);          
+          fastio_rdata <= std_logic_vector(hsync_end(7 downto 0));          
         elsif register_number=117 then  -- $D3075
           fastio_rdata <= std_logic_vector(display_width(7 downto 0));
         elsif register_number=118 then  -- $D3076
@@ -1732,10 +1732,10 @@ begin
 	  fastio_rdata(7 downto 4) <= std_logic_vector(frame_height(11 downto 8));
           
         elsif register_number=123 then  -- $D307B
-          fastio_rdata <= std_logic_vector(xcounter_delay(7 downto 0));
+          fastio_rdata <= std_logic_vector(hsync_start(7 downto 0));
           fastio_rdata(7 downto 4) <= ( others => '0');
         elsif register_number=124 then  -- $D307C
-          fastio_rdata(3 downto 0) <= std_logic_vector(xcounter_delay(11 downto 8));
+          fastio_rdata(3 downto 0) <= std_logic_vector(hsync_start(11 downto 8));
           fastio_rdata(4) <= hsync_polarity;
           fastio_rdata(5) <= vsync_polarity;
           fastio_rdata(7 downto 6) <= std_logic_vector(vicii_ycounter_scale_minus_two(1 downto 0));
@@ -2352,11 +2352,11 @@ begin
           -- @IO:GS $D072 VIC-IV RESERVED
           null;
         elsif register_number=115 then -- $D3073
-          -- @IO:GS $D073 VIC-IV RESERVED
+          -- @IO:GS $D073.0-3 VIC-IV hsync end (MSB)
           null;
         elsif register_number=116 then -- $D3074
-          -- @IO:GS $D074 VIC-IV HSYNC pulse width
-          frame_h_syncwidth <= unsigned(fastio_wdata);
+          -- @IO:GS $D074 VIC-IV hsync end (LSB)
+          hsync_end(7 downto 0) <= unsigned(fastio_wdata);
         elsif register_number=117 then
           -- @IO:GS $D075 VIC-IV display_width (MSB)
            display_width(7 downto 0) <= unsigned(fastio_wdata);
@@ -2382,16 +2382,16 @@ begin
           frame_height(11 downto 8) <= unsigned(fastio_wdata(7 downto 4));
 
         elsif register_number=123 then
-          -- @IO:GS $D07B VIC-IV hsync adjust
-          xcounter_delay(7 downto 0) <= unsigned(fastio_wdata);
+          -- @IO:GS $D07B VIC-IV hsync start
+          hsync_start(7 downto 0) <= unsigned(fastio_wdata);
         elsif register_number=124 then
-          -- @IO:GS $D07C.0-3 VIC-IV hsync adjust (MSB)
-          xcounter_delay(11 downto 8) <= unsigned(fastio_wdata(3 downto 0));
+          -- @IO:GS $D07C.0-3 VIC-IV hsync start (MSB)
+          hsync_start(11 downto 8) <= unsigned(fastio_wdata(3 downto 0));
           -- @IO:GS $D07C.4 VIC-IV hsync polarity
           hsync_polarity <= fastio_wdata(4);
           -- @IO:GS $D07C.5 VIC-IV vsync polarity
           vsync_polarity <= fastio_wdata(5);
-          -- @IO:GS $D07C.6 VIC-IV physical rasters per VIC-II raster (2-5)
+          -- @IO:GS $D07C.6-7 VIC-IV physical rasters per VIC-II raster (2-5)
           vicii_ycounter_scale_minus_two(1 downto 0) <= unsigned(fastio_wdata(7 downto 6));
         elsif register_number=125 then
           -- @IO:GS $D07D VIC-IV debug X position (LSB)
@@ -2513,16 +2513,16 @@ begin
       -- Hsync has trouble meeting timing, so I have spread out the control
       -- over 3 cycles, including one pure drive cycle, which should hopefully
       -- fix it once and for all.
-      xcounter_delayed <= xcounter - xcounter_delay;
-      if xcounter_delayed=0 then
-        clear_hsync <= '1';
-      else
-        clear_hsync <= '0';
-      end if;
-      if xcounter_delayed=to_integer(frame_h_syncwidth) then
+      xcounter_delayed <= xcounter;
+      if xcounter_delayed= hsync_start then
         set_hsync <= '1';
       else
         set_hsync <= '0';
+      end if;
+      if xcounter_delayed = hsync_end then
+        clear_hsync <= '1';
+      else
+        clear_hsync <= '0';
       end if;
       if clear_hsync='1' then
         hsync_drive <= '0' xor hsync_polarity;
