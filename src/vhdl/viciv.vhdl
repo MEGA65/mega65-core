@@ -2353,7 +2353,8 @@ begin
           null;
         elsif register_number=115 then -- $D3073
           -- @IO:GS $D073.0-3 VIC-IV hsync end (MSB)
-          null;
+          hsync_end(11 downto 8)
+            <= unsigned(fastio_wdata(3 downto 0));
         elsif register_number=116 then -- $D3074
           -- @IO:GS $D074 VIC-IV hsync end (LSB)
           hsync_end(7 downto 0) <= unsigned(fastio_wdata);
