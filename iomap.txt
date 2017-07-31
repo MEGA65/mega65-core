@@ -182,7 +182,7 @@ GS $D070.5-4 VIC-IV bitmap/text palette bank
 GS $D070.7-6 VIC-IV palette bank mapped at $D100-$D3FF
 GS $D070 VIC-IV palette bank selection
 GS $D071 VIC-IV 16-colour bitplane enable flags
-GS $D072 VIC-IV RESERVED
+GS $D072 VIC-IV front porch width
 GS $D073.0-3 VIC-IV hsync end (MSB)
 GS $D074 VIC-IV hsync end (LSB)
 GS $D075 VIC-IV display_width (MSB)

@@ -625,7 +625,7 @@ architecture Behavioral of viciv is
   signal chargen_y_scale : unsigned(7 downto 0) := x"02";  -- x"04"
   -- smooth scrolling position in natural pixels.
   -- Set in the same way as the border
-  signal x_chargen_start : unsigned(11 downto 0) := to_unsigned(frame_h_front,12);
+  signal x_chargen_start : unsigned(11 downto 0) := to_unsigned(to_integer(frame_h_front),12);
   signal x_chargen_start_minus1 : unsigned(11 downto 0);
 
   -- DEBUG: Start character generator in first raster on power up to make ghdl
