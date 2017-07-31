@@ -2688,6 +2688,11 @@ ueol1:
 	lda #$35 ; IO, but no ROMs
 	sta hypervisor_cpuport01
 
+	; make $FFD2 safe for CC65 compiled programs that call
+	; there to set lower case.
+	lda #$60 ; RTS
+	sta $ffd2
+
 	; Next instruction exits hypervisor to user mode
 	sta hypervisor_enterexit_trigger
 
