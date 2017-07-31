@@ -393,7 +393,7 @@ architecture Behavioral of viciv is
   signal pixel_alpha : unsigned(7 downto 0) := x"00";
   
   -- Video mode definition
-  constant frame_h_front : integer := 128;
+  signal frame_h_front : unsigned(7 downto 0) := to_unsigned(128,8);
 
   -- The real mode says 1242, but we need 1248 so that 1248/312 = 4,
   -- allowing VIC-II PAL raster numbers to be easily calculated.
@@ -1251,7 +1251,7 @@ begin
       if reg_h640='0' and reg_h1280='0' then
         -- 40 column mode (5x pixels, standard side borders)
         x_chargen_start
-          <= to_unsigned(frame_h_front+160+3+(to_integer(vicii_x_smoothscroll)*5),12);
+          <= to_unsigned(to_integer(frame_h_front)+160+3+(to_integer(vicii_x_smoothscroll)*5),12);
         -- set horizontal borders based on 40/38 columns
         if thirtyeightcolumns='0' then
           border_x_left <= to_unsigned(160,12);
@@ -1265,7 +1265,7 @@ begin
       elsif reg_h640='1' and reg_h1280='0' then
         -- 80 column mode (3x pixels, no side border)
         x_chargen_start
-          <= to_unsigned(frame_h_front+22+(to_integer(vicii_x_smoothscroll)*3),12);
+          <= to_unsigned(to_integer(frame_h_front)+22+(to_integer(vicii_x_smoothscroll)*3),12);
         -- set horizontal borders based on 40/38 columns
         if thirtyeightcolumns='0' then
           border_x_left <= to_unsigned(22,12);
@@ -1280,7 +1280,7 @@ begin
       elsif reg_h640='0' and reg_h1280='1' then        
         -- 160 column mode (natural pixels, fat side borders)
         x_chargen_start
-          <= to_unsigned(frame_h_front+320+4
+          <= to_unsigned(to_integer(frame_h_front)+320+4
                          +(to_integer(vicii_x_smoothscroll)*1),12);
         -- set horizontal borders based on 40/38 columns
         if thirtyeightcolumns='0' then
@@ -1295,7 +1295,7 @@ begin
       else
         -- 240 column mode (natural pixels, no side border)
         x_chargen_start
-          <= to_unsigned(frame_h_front+to_integer(vicii_x_smoothscroll)*3,12);
+          <= to_unsigned(to_integer(frame_h_front)+to_integer(vicii_x_smoothscroll)*3,12);
         -- set horizontal borders based on 40/38 columns
         if thirtyeightcolumns='0' then
           border_x_left <= to_unsigned(0,12);
@@ -1710,7 +1710,7 @@ begin
         elsif register_number=113 then -- $D3071
           fastio_rdata <= bitplane_sixteen_colour_mode_flags;
         elsif register_number=114 then -- $D3072
-          null;
+          fastio_rdata(7 downto 0) <= std_logic_vector(frame_h_front);
         elsif register_number=115 then -- $D3073
           fastio_rdata(3 downto 0) <= std_logic_vector(hsync_end(11 downto 8));          
         elsif register_number=116 then  -- $D3074
@@ -2349,8 +2349,8 @@ begin
           -- @IO:GS $D071 VIC-IV 16-colour bitplane enable flags
           bitplane_sixteen_colour_mode_flags <= fastio_wdata;
         elsif register_number=114 then -- $D3072
-          -- @IO:GS $D072 VIC-IV RESERVED
-          null;
+          -- @IO:GS $D072 VIC-IV front porch width
+          frame_h_front <= unsigned(fastio_wdata);
         elsif register_number=115 then -- $D3073
           -- @IO:GS $D073.0-3 VIC-IV hsync end (MSB)
           hsync_end(11 downto 8)
@@ -2655,7 +2655,7 @@ begin
       else
         xfrontporch <= '0';
       end if;
-      if xcounter=frame_h_front+display_width+1 then
+      if xcounter=frame_width then
         -- tell frame grabber about each new raster
         pixel_newraster <= '1';
       else
@@ -2665,7 +2665,7 @@ begin
       -- Work out when the horizonal back porch starts.
       -- The edge is used to trigger drawing of the next raster into the raster
       -- buffer.
-      if xcounter<(frame_h_front+display_width) then
+      if xcounter<(to_integer(frame_h_front)+display_width) then
         xbackporch <= '0';
         xbackporch_edge <= '0';
       else
@@ -3062,7 +3062,7 @@ begin
       -- the pixel stream.
 
       -- Announce each raster line.  Can also be used to identify start of frame.
-      x_end_of_raster <= (frame_h_front+display_width);
+      x_end_of_raster <= (to_integer(frame_h_front)+display_width);
       if xcounter=x_end_of_raster then
         report "FRAMEPACKER: end of raster announcement";
         pixel_newraster <= '1';
