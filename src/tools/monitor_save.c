@@ -258,10 +258,10 @@ int main(int argc,char **argv)
   if (serial_speed==230400) {
     if (cfsetospeed(&t, B230400)) perror("Failed to set output baud rate");
     if (cfsetispeed(&t, B230400)) perror("Failed to set input baud rate");
-  } else if (serial_speed=2000000) {
+  } else if (serial_speed==2000000) {
     if (cfsetospeed(&t, B2000000)) perror("Failed to set output baud rate");
     if (cfsetispeed(&t, B2000000)) perror("Failed to set input baud rate");
-  } else if (serial_speed=4000000) {
+  } else if (serial_speed==4000000) {
     if (cfsetospeed(&t, B4000000)) perror("Failed to set output baud rate");
     if (cfsetispeed(&t, B4000000)) perror("Failed to set input baud rate");
   }
