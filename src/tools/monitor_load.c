@@ -73,8 +73,9 @@ int fd=-1;
 int state=99;
 int name_len,name_lo,name_hi,name_addr=-1;
 int do_go64=0;
+int do_run=0;
 char *filename=NULL;
-FILE *f=NULL;
+xFILE *f=NULL;
 char *search_path=".";
 char *bitstream=NULL;
 char *kickstart=NULL;
@@ -296,9 +297,11 @@ int process_line(char *line,int live)
 	sprintf(cmd,"t0\r");
 	slow_write(fd,cmd,strlen(cmd));	usleep(20000);
 
-	sprintf(cmd,"s277 52 55 4e d\rsc6 4\r");
-	slow_write(fd,cmd,strlen(cmd));
-	fprintf(stderr,"[T+%lldsec] RUN\n",(long long)time(0)-start_time);
+	if (do_run) {
+	  sprintf(cmd,"s277 52 55 4e d\rsc6 4\r");
+	  slow_write(fd,cmd,strlen(cmd));
+	  fprintf(stderr,"[T+%lldsec] RUN\n",(long long)time(0)-start_time);
+	}
 
 	printf("\n");
 	// loaded ok.
@@ -360,9 +363,10 @@ int main(int argc,char **argv)
   start_time=time(0);
   
   int opt;
-  while ((opt = getopt(argc, argv, "4l:s:b:k:")) != -1) {
+  while ((opt = getopt(argc, argv, "4l:s:b:k:r")) != -1) {
     switch (opt) {
     case '4': do_go64=1; break;
+    case 'r': do_run=1; break;
     case 'l': strcpy(serial_port,optarg); break;
     case 's':
       serial_speed=atoi(optarg);
