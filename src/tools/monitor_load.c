@@ -75,7 +75,7 @@ int name_len,name_lo,name_hi,name_addr=-1;
 int do_go64=0;
 int do_run=0;
 char *filename=NULL;
-xFILE *f=NULL;
+FILE *f=NULL;
 char *search_path=".";
 char *bitstream=NULL;
 char *kickstart=NULL;
@@ -353,6 +353,7 @@ void usage(void)
   fprintf(stderr,"  -b - Name of bitstream file to load.\n");
   fprintf(stderr,"  -k - Name of kickup file to forcibly use instead of the kickstart in the bitstream.\n");
   fprintf(stderr,"  -4 - Switch to C64 mode before exiting.\n");
+  fprintf(stderr,"  -r - Automatically RUN programme after loading.\n");
   fprintf(stderr,"  filename - Load and run this file in C64 mode before exiting.\n");
   fprintf(stderr,"\n");
   exit(-3);

@@ -32,6 +32,7 @@ TOOLS=	tools/etherkick/etherkick \
 	tools/etherload/etherload \
 	tools/hotpatch/hotpatch \
 	tools/monitor_load \
+	tools/monitor_save \
 	tools/pngprepare/pngprepare
 
 all:
@@ -371,7 +372,7 @@ tools/monitor_load:	tools/monitor_load.c Makefile
 	$(warning ~~~~~~~~~~~~~~~~> Making: monitor_load)
 	gcc -g -Wall -o tools/monitor_load tools/monitor_load.c
 
-tools/monitor_load:	tools/monitor_save.c Makefile
+tools/monitor_save:	tools/monitor_save.c Makefile
 	$(warning =============================================================)
 	$(warning ~~~~~~~~~~~~~~~~> Making: monitor_save)
 	gcc -g -Wall -o tools/monitor_save tools/monitor_save.c
