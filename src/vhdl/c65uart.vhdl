@@ -23,8 +23,8 @@ entity c65uart is
     fastio_wdata : in unsigned(7 downto 0);
     fastio_rdata : out unsigned(7 downto 0);
 
-    porte_out : out std_logic_vector(1 downto 0);
-    porte_in : in std_logic_vector(1 downto 0);
+    porte_out : out std_logic_vector(7 downto 0);
+    porte_in : in std_logic_vector(7 downto 0);
 
     uart_rx : in std_logic;
     uart_tx : out std_logic;
@@ -115,9 +115,10 @@ architecture behavioural of c65uart is
   signal reg_data_rx : std_logic_vector(7 downto 0) := (others => '0');
 
   -- C65 extra 2-bit port for keyboard column 8 and capslock key state.
-  signal reg_porte_out : std_logic_vector(1 downto 0) := (others => '0');
-  signal reg_porte_ddr : std_logic_vector(1 downto 0) := (others => '0');
-  signal reg_porte_read : unsigned(1 downto 0) := (others => '0');
+  -- (Also used for HDMI SPI control interface)
+  signal reg_porte_out : std_logic_vector(7 downto 0) := (others => '0');
+  signal reg_porte_ddr : std_logic_vector(7 downto 0) := (others => '0');
+  signal reg_porte_read : unsigned(7 downto 0) := (others => '0');
 
   -- MEGA65 PMOD register for debugging and fiddling
   signal reg_portf_out : std_logic_vector(7 downto 0) := (others => '0');
@@ -134,18 +135,18 @@ begin  -- behavioural
           ) is
     -- purpose: use DDR to show either input or output bits
     function ddr_pick (
-      ddr                            : in std_logic_vector(1 downto 0);
-      i                              : in std_logic_vector(1 downto 0);
-      o                              : in std_logic_vector(1 downto 0))
+      ddr                            : in std_logic_vector(7 downto 0);
+      i                              : in std_logic_vector(7 downto 0);
+      o                              : in std_logic_vector(7 downto 0))
     return unsigned is
-    variable result : unsigned(1 downto 0);     
+    variable result : unsigned(7 downto 0);     
   begin  -- ddr_pick
     --report "determining read value for CIA port." &
     --  "  DDR=$" & to_hstring(ddr) &
     --  ", out_value=$" & to_hstring(o) &
     --  ", in_value=$" & to_hstring(i) severity note;
     result := unsigned(i);
-    for b in 0 to 1 loop
+    for b in 0 to 7 loop
       if ddr(b)='1' and i(b)='1' then
         result(b) := std_ulogic(o(b));
       end if;
@@ -219,15 +220,13 @@ begin  -- behavioural
           fastio_rdata <= unsigned(reg_intflag);
         when x"07" =>
           -- @IO:C65 $D607 C65 UART 2-bit port data register (used for C65 keyboard)
-          fastio_rdata(7 downto 2) <= (others => 'Z');
-          fastio_rdata(1 downto 0) <= reg_porte_read;
+          fastio_rdata(7 downto 0) <= reg_porte_read;
         when x"08" =>
           -- @IO:C65 $D607 C65 UART 2-bit port data direction register (used for C65 keyboard)
-          fastio_rdata(7 downto 2) <= (others => 'Z');
-          fastio_rdata(1 downto 0) <= unsigned(reg_porte_ddr);
+          fastio_rdata(7 downto 0) <= unsigned(reg_porte_ddr);
         when x"09" =>
           -- @IO:GS $D609 MEGA65 extended UART control register
-          -- @IO:GS $D609.0 UART BAUD clock source: 1 = 7.09375MHz, 0 = 193.5MHz
+          -- @IO:GS $D609.0 UART BAUD clock source: 1 = 7.09375MHz, 0 = 150MHz
           fastio_rdata(0) <= clock709375;
           fastio_rdata(7 downto 1) <= (others => '1');
         when x"0d" =>
@@ -403,18 +402,7 @@ begin  -- behavioural
 
       -- Calculate read value for porta and portb
       reg_porte_read <= ddr_pick(reg_porte_ddr,porte_in,reg_porte_out);        
-      reg_portf_read(7 downto 6) <= ddr_pick(reg_portf_ddr(7 downto 6),
-                                             portf(7 downto 6),
-                                             reg_portf_out(7 downto 6));
-      reg_portf_read(5 downto 4) <= ddr_pick(reg_portf_ddr(5 downto 4),
-                                             portf(5 downto 4),
-                                             reg_portf_out(5 downto 4));
-      reg_portf_read(3 downto 2) <= ddr_pick(reg_portf_ddr(3 downto 2),
-                                             portf(3 downto 2),
-                                             reg_portf_out(3 downto 2));
-      reg_portf_read(1 downto 0) <= ddr_pick(reg_portf_ddr(1 downto 0),
-                                             portf(1 downto 0),
-                                             reg_portf_out(1 downto 0));
+      reg_portf_read <= ddr_pick(reg_portf_ddr,portf,reg_portf_out);
 
       porte_out <= reg_porte_out or (not reg_porte_ddr);
       -- Support proper tri-stating on port F which connects to FPGA board PMOD
@@ -456,8 +444,8 @@ begin  -- behavioural
             -- Perhaps just reading the data register is enough to clear an RX
             -- IRQ?  What about TX ready IRQ? It seems like writing a character
             -- or disabling the transmitter should clear it.
-          when x"07" => reg_porte_out<=std_logic_vector(fastio_wdata(1 downto 0));
-          when x"08" => reg_porte_ddr<=std_logic_vector(fastio_wdata(1 downto 0));
+          when x"07" => reg_porte_out<=std_logic_vector(fastio_wdata(7 downto 0));
+          when x"08" => reg_porte_ddr<=std_logic_vector(fastio_wdata(7 downto 0));
           when x"0e" => reg_portf_out <= std_logic_vector(fastio_wdata);
           when x"0f" => reg_portf_ddr <= std_logic_vector(fastio_wdata);
           when x"12" =>

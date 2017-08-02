@@ -87,6 +87,8 @@ entity machine is
          vgared : out  UNSIGNED (7 downto 0);
          vgagreen : out  UNSIGNED (7 downto 0);
          vgablue : out  UNSIGNED (7 downto 0);
+         hdmi_scl : out std_logic := '1';
+         hdmi_sda : inout std_logic := 'Z';
 
          -------------------------------------------------------------------------
          -- CIA1 ports for keyboard and joysticks
@@ -800,6 +802,9 @@ begin
     pmod_data_out => pmodb_out_buffer(1 downto 0),
     
     pmoda => pmoda,
+
+    hdmi_sda => hdmi_sda,
+    hdmi_scl => hdmi_scl,    
 
     uart_rx => uart_rx,
     uart_tx => uart_tx,

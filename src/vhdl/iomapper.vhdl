@@ -82,6 +82,9 @@ entity iomapper is
         pmod_data_out : out std_logic_vector(1 downto 0);
         pmoda : inout std_logic_vector(7 downto 0);
 
+        hdmi_scl : out std_logic := '1';
+        hdmi_sda : inout std_logic := 'Z';
+
         uart_rx : in std_logic;
         uart_tx : out std_logic;
 
@@ -223,7 +226,8 @@ architecture behavioral of iomapper is
 
   signal keyboard_column8_select : std_logic;
 
-  signal dummy_bits : std_logic_vector(1 downto 0);
+  signal dummy_bits : std_logic_vector(7 downto 0);
+  signal dummy_bits_62 : std_logic_vector(6 downto 2) := (others => '1');
   signal dummy : std_logic_vector(10 downto 0);
   
 begin
@@ -354,9 +358,13 @@ begin
       -- Port E is used for extra keys on C65 keyboard:
       -- bit0 = caps lock (input only)
       -- bit1 = column 8 select (output only)      
+      porte_in(7) => hdmi_sda,
+      porte_in(6 downto 2) => dummy_bits_62,
       porte_in(1) => keyboard_column8_select,
       porte_in(0) => capslock_from_keymapper,
-      porte_out => dummy_bits,
+      porte_out(7) => hdmi_sda,
+      porte_out(6) => hdmi_scl,
+      porte_out(5 downto 0) => dummy_bits(5 downto 0),
       key_debug => key_debug,
       widget_enable => widget_enable,
       ps2_enable => ps2_enable,

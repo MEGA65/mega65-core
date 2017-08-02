@@ -301,6 +301,8 @@ begin
       vgared          => v_red,
       vgagreen        => v_green,
       vgablue         => v_blue,
+      hdmi_sda        => hdmi_sda,
+      hdmi_scl        => hdmi_scl,      
       
       ----------------------------------------------------------------------
       -- CBM floppy  std_logic_vectorerial port
@@ -447,8 +449,8 @@ begin
       -- HDMI control interface
       -- XXX We need to send some commands via I2C to configure the HDMI
       -- interface, which we don't yet do, so HDMI output will not yet work.
-      hdmi_scl <= 'Z';
-      hdmi_sda <= 'Z';
+      hdmi_scl <= hdmi_scl;
+      hdmi_sda <= hdmi_sda;
     end if;
   end process;    
   
