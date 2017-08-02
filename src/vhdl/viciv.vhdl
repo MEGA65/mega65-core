@@ -404,8 +404,8 @@ architecture Behavioral of viciv is
   signal frame_width : unsigned(11 downto 0) := to_unsigned(2048,12);
   signal display_width : unsigned(11 downto 0) := to_unsigned(1920,12);
   signal frame_height : unsigned(11 downto 0) := to_unsigned(1235,12); 
-  -- >1200 to reduce vsync pulse length to 6 rasters
-  signal display_height : unsigned(11 downto 0) := to_unsigned(1228,12);
+  signal display_height : unsigned(11 downto 0) := to_unsigned(1200,12);
+  signal vsync_delay : unsigned(7 downto 0) := to_unsigned(1235-1200-9,8);
   signal vicii_ycounter_scale_minus_two : unsigned(2 downto 0) := "0"&to_unsigned(5-2,2);
   signal hsync_start : unsigned(11 downto 0) := to_unsigned(40,12);
   signal hsync_end : unsigned(11 downto 0) := to_unsigned(100,12);
@@ -1741,7 +1741,7 @@ begin
         elsif register_number=113 then -- $D3071
           fastio_rdata <= bitplane_sixteen_colour_mode_flags;
         elsif register_number=114 then -- $D3072
-          fastio_rdata(7 downto 0) <= std_logic_vector(frame_h_front);
+          fastio_rdata(7 downto 0) <= std_logic_vector(vsync_delay);
         elsif register_number=115 then -- $D3073
           fastio_rdata(3 downto 0) <= std_logic_vector(hsync_end(11 downto 8));          
         elsif register_number=116 then  -- $D3074
@@ -2373,8 +2373,8 @@ begin
               frame_width <=  to_unsigned(2048,12);
               display_width <= to_unsigned(1920,12);
               frame_height <= to_unsigned(1235,12); 
-              -- >1200 to reduce vsync pulse length to 6 rasters
-              display_height <= to_unsigned(1228,12);
+              display_height <= to_unsigned(1200,12);
+              vsync_delay <= to_unsigned(28,8);
               vicii_ycounter_scale_minus_two <= "0"&to_unsigned(5-2,2);
               hsync_start <= to_unsigned(40,12);
               hsync_end <= to_unsigned(100,12);              
@@ -2385,13 +2385,14 @@ begin
               display_width <= to_unsigned(1920,12);
               frame_height <= to_unsigned(1125,12); 
               display_height <= to_unsigned(1080,12);
+              vsync_delay <= to_unsigned(0,8);
               vicii_ycounter_scale_minus_two <= "0"&to_unsigned(5-2,2);
             when "10" => -- NTSC, 1200p 60Hz
               frame_width <=  to_unsigned(2048,12);
               display_width <= to_unsigned(1920,12);
               frame_height <= to_unsigned(1235,12); 
-              -- >1200 to reduce vsync pulse length to 6 rasters
-              display_height <= to_unsigned(1228,12);
+              display_height <= to_unsigned(1200,12);
+              vsync_delay <= to_unsigned(28,8);
               vicii_ycounter_scale_minus_two <= "0"&to_unsigned(5-2,2);
               hsync_start <= to_unsigned(40,12);
               hsync_end <= to_unsigned(100,12);              
@@ -2402,13 +2403,14 @@ begin
               display_width <= to_unsigned(1920,12);
               frame_height <= to_unsigned(1125,12); 
               display_height <= to_unsigned(1080,12);
+              vsync_delay <= to_unsigned(0,8);
               vicii_ycounter_scale_minus_two <= "0"&to_unsigned(5-2,2);
             when others => -- Default to PAL 1200p 60Hz
               frame_width <=  to_unsigned(2048,12);
               display_width <= to_unsigned(1920,12);
               frame_height <= to_unsigned(1235,12); 
-              -- >1200 to reduce vsync pulse length to 6 rasters
-              display_height <= to_unsigned(1228,12);
+              display_height <= to_unsigned(1200,12);
+              vsync_delay <= to_unsigned(28,8);
               vicii_ycounter_scale_minus_two <= "0"&to_unsigned(5-2,2);
               hsync_start <= to_unsigned(40,12);
               hsync_end <= to_unsigned(100,12);              
@@ -2428,8 +2430,8 @@ begin
           -- @IO:GS $D071 VIC-IV 16-colour bitplane enable flags
           bitplane_sixteen_colour_mode_flags <= fastio_wdata;
         elsif register_number=114 then -- $D3072
-          -- @IO:GS $D072 VIC-IV front porch width
-          frame_h_front <= unsigned(fastio_wdata);
+          -- @IO:GS $D072 VIC-IV VSYNC delay
+          vsync_delay <= unsigned(fastio_wdata);
         elsif register_number=115 then -- $D3073
           -- @IO:GS $D073.0-3 VIC-IV hsync end (MSB)
           hsync_end(11 downto 8)
@@ -2791,7 +2793,7 @@ begin
       end if;
 
       -- Calculate vertical flyback and related signals
-      vsync_start <= frame_v_front+display_height;
+      vsync_start <= frame_v_front+display_height+to_integer(vsync_delay);
       if ycounter=0 then
         vsync_drive <= '1' xor vsync_polarity;
       elsif ycounter=frame_v_front then
