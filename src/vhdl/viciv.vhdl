@@ -391,26 +391,33 @@ architecture Behavioral of viciv is
   signal vga_out_blue : UNSIGNED (7 downto 0) := (others => '0');
   signal pixel_colour : unsigned(7 downto 0) := x"00";
   signal pixel_alpha : unsigned(7 downto 0) := x"00";
-  
-  -- Video mode definition
-  signal frame_h_front : unsigned(7 downto 0) := to_unsigned(128,8);
 
-  -- The real mode says 1242, but we need 1248 so that 1248/312 = 4,
-  -- allowing VIC-II PAL raster numbers to be easily calculated.
---   constant frame_height : integer := 1248; -- 1920x1200 @ 60Hz
-  -- 1280x1024 @ 61hz = :FFD3075 80 DD 87 20 30 44 30 07 (imperfectly)
-  -- 1280x1024 @ 57Hz = :FFD3075 80 80 97 20 30 44 32 07
-  
-  -- 1920x1200p @ 60Hz (undersampled via 150MHz pixel clock) = :FFD3075 
+  -- Select which of the four video modes to use at any point in time.
+  signal vicii_ntsc : std_logic := '0';
+  signal viciv_1080p : std_logic := '0';
+
+  -- Video mode definition
+  -- NOTE: These get overwritten by $D06F PAL/NTSC & 1080p/1200p flags
+  -- The values here are simply those that apply on power up.
+  signal frame_h_front : unsigned(7 downto 0) := to_unsigned(128,8);  
+  -- 1920x1200p @ 60Hz (nominal 154MHz clock, but tweaked for 150MHz)
+  signal frame_width : unsigned(11 downto 0) := to_unsigned(2048,12);
+  signal display_width : unsigned(11 downto 0) := to_unsigned(1920,12);
+  signal frame_height : unsigned(11 downto 0) := to_unsigned(1235,12); 
+  -- >1200 to reduce vsync pulse length to 6 rasters
+  signal display_height : unsigned(11 downto 0) := to_unsigned(1228,12);
+  signal vicii_ycounter_scale_minus_two : unsigned(2 downto 0) := "0"&to_unsigned(5-2,2);
+  signal hsync_start : unsigned(11 downto 0) := to_unsigned(40,12);
+  signal hsync_end : unsigned(11 downto 0) := to_unsigned(100,12);
 
   -- 1280x1024 @ 57Hz
-  signal frame_width : unsigned(11 downto 0) := to_unsigned(2432,12);
-  signal display_width : unsigned(11 downto 0) := to_unsigned(1920,12);
-  signal frame_height : unsigned(11 downto 0) := to_unsigned(1072,12); 
-  signal display_height : unsigned(11 downto 0) := to_unsigned(1056,12);
-  signal vicii_ycounter_scale_minus_two : unsigned(2 downto 0) := "0"&to_unsigned(5-2,2);
-  signal hsync_start : unsigned(11 downto 0) := to_unsigned(1842,12);
-  signal hsync_end : unsigned(11 downto 0) := to_unsigned(1882,12);
+  -- signal frame_width : unsigned(11 downto 0) := to_unsigned(2432,12);
+  -- signal display_width : unsigned(11 downto 0) := to_unsigned(1920,12);
+  -- signal frame_height : unsigned(11 downto 0) := to_unsigned(1072,12); 
+  -- signal display_height : unsigned(11 downto 0) := to_unsigned(1056,12);
+  -- signal vicii_ycounter_scale_minus_two : unsigned(2 downto 0) := "0"&to_unsigned(5-2,2);
+  -- signal hsync_start : unsigned(11 downto 0) := to_unsigned(1842,12);
+  -- signal hsync_end : unsigned(11 downto 0) := to_unsigned(1882,12);
 
   -- Step through VIC-II raster numbers quickly during the vertical fly-back
   -- time, so that any raster interrupts based on them will trigger.
@@ -420,7 +427,6 @@ architecture Behavioral of viciv is
   constant ntsc_max_raster : unsigned(8 downto 0) := to_unsigned(262,9);
   constant pal_max_raster : unsigned(8 downto 0) := to_unsigned(312,9);
   signal vicii_max_raster : unsigned(8 downto 0) := pal_max_raster;
-  signal vicii_ntsc : std_logic := '0';
   
   -- Calculated dynamically
   signal vsync_start : unsigned(11 downto 0);
@@ -1702,9 +1708,8 @@ begin
           fastio_rdata <= std_logic_vector(vicii_sprite_pointer_address(23 downto 16));
         elsif register_number=111 then
           fastio_rdata(7) <= vicii_ntsc;
-          fastio_rdata(6 downto 1) <= std_logic_vector(vicii_first_raster(6 downto 1));
-          -- @IO:GS $D06F.0 VIC-IV (when read) vertical fly-back indicator DEBUG, WILL BE REMOVED
-          fastio_rdata(0) <= vertical_flyback;
+          fastio_rdata(6) <= viciv_1080p;
+          fastio_rdata(5 downto 0) <= std_logic_vector(vicii_first_raster(5 downto 0));
         elsif register_number=112 then -- $D3070
           fastio_rdata <= palette_bank_fastio & palette_bank_chargen & palette_bank_sprites & palette_bank_chargen256;
         elsif register_number=113 then -- $D3071
@@ -2332,9 +2337,57 @@ begin
           vicii_sprite_pointer_address(23 downto 16) <= unsigned(fastio_wdata);
         elsif register_number=111 then
           -- @IO:GS $D06F.6-0 VIC-IV first VIC-II raster line
-          vicii_first_raster(6 downto 0) <= unsigned(fastio_wdata(6 downto 0));
+          vicii_first_raster(5 downto 0) <= unsigned(fastio_wdata(5 downto 0));
           -- @IO:GS $D06F.7 VIC-IV NTSC emulation mode (max raster = 262)
+          viciv_1080p <= fastio_wdata(6);
           vicii_ntsc <= fastio_wdata(7);
+
+          case fastio_wdata(7 downto 6) is
+            when "00" => -- PAL, 1200p 60Hz (because we can't do 50Hz 1200p)
+              frame_width <=  to_unsigned(2048,12);
+              display_width <= to_unsigned(1920,12);
+              frame_height <= to_unsigned(1235,12); 
+              -- >1200 to reduce vsync pulse length to 6 rasters
+              display_height <= to_unsigned(1228,12);
+              vicii_ycounter_scale_minus_two <= "0"&to_unsigned(5-2,2);
+              hsync_start <= to_unsigned(40,12);
+              hsync_end <= to_unsigned(100,12);              
+            when "01" => -- PAL, 1080p 50Hz
+              hsync_start <= to_unsigned(2560,12);
+              hsync_end <= to_unsigned(0,12);              
+              frame_width <=  to_unsigned(2600,12);
+              display_width <= to_unsigned(1920,12);
+              frame_height <= to_unsigned(1125,12); 
+              display_height <= to_unsigned(1080,12);
+              vicii_ycounter_scale_minus_two <= "0"&to_unsigned(5-2,2);
+            when "10" => -- NTSC, 1200p 60Hz
+              frame_width <=  to_unsigned(2048,12);
+              display_width <= to_unsigned(1920,12);
+              frame_height <= to_unsigned(1235,12); 
+              -- >1200 to reduce vsync pulse length to 6 rasters
+              display_height <= to_unsigned(1228,12);
+              vicii_ycounter_scale_minus_two <= "0"&to_unsigned(5-2,2);
+              hsync_start <= to_unsigned(40,12);
+              hsync_end <= to_unsigned(100,12);              
+            when "11" => -- NTSC, 1080p 60Hz
+              hsync_start <= to_unsigned(2162,12);
+              hsync_end <= to_unsigned(0,12);              
+              frame_width <=  to_unsigned(2200,12);
+              display_width <= to_unsigned(1920,12);
+              frame_height <= to_unsigned(1125,12); 
+              display_height <= to_unsigned(1080,12);
+              vicii_ycounter_scale_minus_two <= "0"&to_unsigned(5-2,2);
+            when others => -- Default to PAL 1200p 60Hz
+              frame_width <=  to_unsigned(2048,12);
+              display_width <= to_unsigned(1920,12);
+              frame_height <= to_unsigned(1235,12); 
+              -- >1200 to reduce vsync pulse length to 6 rasters
+              display_height <= to_unsigned(1228,12);
+              vicii_ycounter_scale_minus_two <= "0"&to_unsigned(5-2,2);
+              hsync_start <= to_unsigned(40,12);
+              hsync_end <= to_unsigned(100,12);              
+          end case;
+          
         elsif register_number=112 then
           -- @IO:GS $D070 VIC-IV palette bank selection
           -- @IO:GS $D070.7-6 VIC-IV palette bank mapped at $D100-$D3FF
