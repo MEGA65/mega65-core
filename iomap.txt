@@ -173,7 +173,6 @@ GS $D06B VIC-IV character set precise base address (bits 31 - 24)
 GS $D06C VIC-IV sprite pointer address (bits 7 - 0)
 GS $D06D VIC-IV sprite pointer address (bits 15 - 8)
 GS $D06E VIC-IV sprite pointer address (bits 23 - 16)
-GS $D06F.0 VIC-IV (when read) vertical fly-back indicator DEBUG, WILL BE REMOVED
 GS $D06F.6-0 VIC-IV first VIC-II raster line
 GS $D06F.7 VIC-IV NTSC emulation mode (max raster = 262)
 GS $D070.1-0 VIC-IV bitmap/text palette bank
