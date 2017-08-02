@@ -145,6 +145,18 @@ task_asblankslate:
 
 double_restore_trap:
 
+	; switch video mode
+	lda $d06f
+	clc
+	adc #$40
+	sta $d06f
+
+	; return from hypervisor
+	;
+	sta hypervisor_enterexit_trigger
+
+double_restore_trap_old:
+
 	; For now we just want to toggle the CPU speed between 48MHz and
 	; 1MHz
 
