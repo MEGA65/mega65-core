@@ -233,9 +233,11 @@ C65 $D603 C65 UART baud rate divisor (low byte)
 C65 $D604 C65 UART baud rate divisor (high byte)
 C65 $D605 C65 UART interrupt mask register              
 C65 $D606 C65 UART interrupt flag register              
+GS $D607.6 HDMI SPI control interface SDA data line 
+GS $D607.7 HDMI SPI control interface SCL clock 
 C65 $D607 C65 UART 2-bit port data direction register (used for C65 keyboard)
 C65 $D607 C65 UART 2-bit port data register (used for C65 keyboard)
-GS $D609.0 UART BAUD clock source: 1 = 7.09375MHz, 0 = 193.5MHz
+GS $D609.0 UART BAUD clock source: 1 = 7.09375MHz, 0 = 150MHz
 GS $D609 MEGA65 extended UART control register
 GS $D60D DEBUG - Read hyper_trap_count: will be removed after debugging. XXX - Temporarily reading restore_up_ticks instead
 GS $D60E PMOD port A on FPGA board (data bits)

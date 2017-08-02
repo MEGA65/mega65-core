@@ -220,6 +220,8 @@ begin  -- behavioural
           fastio_rdata <= unsigned(reg_intflag);
         when x"07" =>
           -- @IO:C65 $D607 C65 UART 2-bit port data register (used for C65 keyboard)
+          -- @IO:GS $D607.7 HDMI SPI control interface SCL clock 
+          -- @IO:GS $D607.6 HDMI SPI control interface SDA data line 
           fastio_rdata(7 downto 0) <= reg_porte_read;
         when x"08" =>
           -- @IO:C65 $D607 C65 UART 2-bit port data direction register (used for C65 keyboard)
