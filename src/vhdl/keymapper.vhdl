@@ -7,6 +7,7 @@ use work.debugtools.all;
 entity keymapper is
   port (
     ioclock : in std_logic;
+    reset_in : in std_logic;
 
     widget_enable : in std_logic;
     ps2_enable : in std_logic;
@@ -124,6 +125,9 @@ architecture behavioural of keymapper is
   signal extended : std_logic := '0';
   signal break : std_logic := '0';
 
+  -- Allow inverting of capslock sense, so that we always boot with it off.
+  signal capslock_xor : std_logic := '0';
+  
   signal cursor_left : std_logic := '1';
   signal cursor_up : std_logic := '1';
   signal cursor_right : std_logic := '1';
@@ -175,16 +179,25 @@ begin  -- behavioural
         phyjoy1 <= (others =>'1');
         phyjoy2 <= (others =>'1');
       end if;
+
+      if reset_in = '0' then
+        if capslock_in='0' then
+          -- caps lock down on reset, invert sense
+          capslock_xor <= '1';
+        else
+          capslock_xor <= '0';
+        end if;
+      end if;
       
       keyboard_column8_select_out <= keyboard_column8_select_in;
       if widget_enable='1' and ps2_enable='1' then
-        capslock_out <= capslock_in and (widget_capslock xor ps2_capslock);
+        capslock_out <= (capslock_in xor capslock_xor) and (widget_capslock xor ps2_capslock);
       elsif ps2_enable='1' then
-        capslock_out <= capslock_in xor ps2_capslock;
+        capslock_out <= (capslock_in xor capslock_xor) xor ps2_capslock;
       elsif widget_enable='1' then
-        capslock_out <= capslock_in and widget_capslock;
+        capslock_out <= (capslock_in xor capslock_xor) and widget_capslock;
       else
-        capslock_out <= capslock_in;
+        capslock_out <= (capslock_in xor capslock_xor);
       end if;
 
       -- Debug problems with restore and capslock
