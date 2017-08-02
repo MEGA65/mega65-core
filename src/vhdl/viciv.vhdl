@@ -2414,7 +2414,8 @@ begin
               hsync_start <= to_unsigned(40,12);
               hsync_end <= to_unsigned(100,12);              
           end case;
-          
+          -- Update screen and border positions
+          viciv_legacy_mode_registers_touched <= '1';
         elsif register_number=112 then
           -- @IO:GS $D070 VIC-IV palette bank selection
           -- @IO:GS $D070.7-6 VIC-IV palette bank mapped at $D100-$D3FF
