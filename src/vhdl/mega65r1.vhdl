@@ -112,8 +112,8 @@ entity container is
          hdmiblue : out  UNSIGNED (7 downto 0);
          hdmi_spdif : in std_logic;
          hdmi_spdif_out : out std_logic;
-         hdmi_scl : out std_logic;
-         hdmi_sda : out std_logic;
+         hdmi_scl : inout std_logic;
+         hdmi_sda : inout std_logic;
          hdmi_de : out std_logic; -- high when valid pixels being output
          -- (i.e., when hsync, vsync both low?)
          
