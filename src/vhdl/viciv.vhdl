@@ -406,7 +406,7 @@ architecture Behavioral of viciv is
   signal frame_height : unsigned(11 downto 0) := to_unsigned(1235,12); 
   signal display_height : unsigned(11 downto 0) := to_unsigned(1200,12);
   signal vsync_delay : unsigned(7 downto 0) := to_unsigned(1235-1200-9,8);
-  signal vicii_ycounter_scale_minus_two : unsigned(2 downto 0) := "0"&to_unsigned(5-2,2);
+  signal vicii_ycounter_scale_minus_two : unsigned(2 downto 0) := to_unsigned(5-1,3);
   signal hsync_start : unsigned(11 downto 0) := to_unsigned(40,12);
   signal hsync_end : unsigned(11 downto 0) := to_unsigned(100,12);
 
@@ -1317,8 +1317,8 @@ begin
         -- set vertical borders based on twentyfourlines
         if twentyfourlines='0' then
           if display_height = 1200 then
-            border_y_top <= to_unsigned(160,12);
-            border_y_bottom <= to_unsigned(960,12);
+            border_y_top <= to_unsigned(100,12);
+            border_y_bottom <= to_unsigned(1100,12);
           else
             border_y_top <= to_unsigned(100,12);
             border_y_bottom <= to_unsigned(900,12);
@@ -1334,9 +1334,9 @@ begin
         end if;
         -- set y_chargen_start based on twentyfourlines
         if display_height = 1200 then
-          y_chargen_start <= to_unsigned((160-3*5)+to_integer(vicii_y_smoothscroll)*5,12);
-        else
           y_chargen_start <= to_unsigned((100-3*5)+to_integer(vicii_y_smoothscroll)*5,12);
+        else
+          y_chargen_start <= to_unsigned((100-3*5)+to_integer(vicii_y_smoothscroll)*4,12);
         end if;
         chargen_y_scale(2 downto 0) <= vicii_ycounter_scale_minus_two;
         chargen_y_scale(7 downto 3) <= (others => '0');
@@ -1362,7 +1362,7 @@ begin
         end if;
         -- set y_chargen_start based on twentyfourlines
         if display_height = 1200 then
-          y_chargen_start <= to_unsigned((0-3*3)+to_integer(vicii_y_smoothscroll)*3,12);
+          y_chargen_start <= to_unsigned((0-3*4)+to_integer(vicii_y_smoothscroll)*4,12);
         else
           y_chargen_start <= to_unsigned((140-3*5)+to_integer(vicii_y_smoothscroll)*5,12);
         end if;
@@ -2392,7 +2392,7 @@ begin
               frame_height <= to_unsigned(1235,12); 
               display_height <= to_unsigned(1200,12);
               vsync_delay <= to_unsigned(28,8);
-              vicii_ycounter_scale_minus_two <= "0"&to_unsigned(5-2,2);
+              vicii_ycounter_scale_minus_two <= to_unsigned(5-1,3);
               hsync_start <= to_unsigned(40,12);
               hsync_end <= to_unsigned(100,12);              
             when "11" => -- NTSC, 1080p 60Hz
@@ -2410,7 +2410,7 @@ begin
               frame_height <= to_unsigned(1235,12); 
               display_height <= to_unsigned(1200,12);
               vsync_delay <= to_unsigned(28,8);
-              vicii_ycounter_scale_minus_two <= "0"&to_unsigned(5-2,2);
+              vicii_ycounter_scale_minus_two <= to_unsigned(5-1,3);
               hsync_start <= to_unsigned(40,12);
               hsync_end <= to_unsigned(100,12);              
           end case;
