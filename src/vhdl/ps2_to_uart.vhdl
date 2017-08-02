@@ -33,7 +33,7 @@ use work.debugtools.all;
 
 entity ps2_to_uart is
   Port (
-    clk : in  STD_LOGIC; --48mhz
+    clk : in  STD_LOGIC; --50mhz
     bit_rate_divisor : in unsigned(13 downto 0);
     reset : in  STD_LOGIC;
     enabled : in std_logic;
@@ -130,7 +130,7 @@ architecture Behavioral of ps2_to_uart is
 	 end if;
 	 
   --If the scan code is Left Shift
-  if scan_code(7 downto 0)=x"12" then
+  if scan_code(7 downto 0)=x"12" or scan_code(7 downto 0)=x"59" then
 	if scan_code(12)='0' then --and make code
 	  caps<='1';
 	else --break code
@@ -185,23 +185,30 @@ architecture Behavioral of ps2_to_uart is
        repeatCounter2<=repeatCounter2-1;    
 	  end if;  
   end if;   
-  
---if previousScanCode(12)&previousScanCode(7 downto 0) = b"000010001" and altcode='1' then
---if altcode='1' then or something?!
-if previousScanCode(12)&previousScanCode(7 downto 0) = b"000010001" and altcode='1' then
-  --1= x"16", 2=x"1E", 3="26"
+        
+  -- Check for ALT key combinations
   the_scan_code(8) := scan_code(12);
   the_scan_code(7 downto 0) := unsigned(scan_code(7 downto 0));
-    case the_scan_code is --make sure its a MAKE code. 
-	   when '0'&x"16" => --1
-	     mm_displayMode <= b"00";
-	   when '0'&x"1E" => --2
-  	     mm_displayMode <= b"01";
+    case the_scan_code is --make sure its a MAKE code.
+      when '0'&x"11" => alt_down <= '1';
+      when '1'&x"11" => alt_down <= '0';
+      when '0'&x"16" =>
+        if (alt_down) then
+          mm_displayMode <= b"00";
+        end if;
+      when '0'&x"1E" => --2
+        if (alt_down) then
+          mm_displayMode <= b"01";
+        end if;
 	   when '0'&x"26" => --3
-	     mm_displayMode <= b"10";		  
-   	when '0'&x"0D"=> --Alt-tab, activates matrix mode. These are probably temporary commands
-        matrix_trap_out<='1'; --setup trap.
-		when others => --Alt anything
+        if (alt_down) then
+          mm_displayMode <= b"10";
+        end if;
+      when '0'&x"0D"=> --Alt-tab, activates matrix mode. These are probably temporary commands
+        if (alt_down) then
+          matrix_trap_out<='1'; --setup trap.
+        end if;
+      when others => --Alt anything
         --Do Nothing
       --altcode<='0'; --Why is this here. 
     end case;
