@@ -85,12 +85,13 @@ architecture Behavioral of ps2_to_uart is
   signal repeatCounter1 : unsigned(23 downto 0):=timer200ms;
   signal repeatCounter2 : unsigned(20 downto 0):=timer30ms;  
   --Keyboard signals
-  signal caps : std_logic;
+  signal caps : std_logic := '0';
   signal previousScanCode : std_logic_vector (12 downto 0);
-  signal firstPress : std_logic;
-  signal inputKey : std_logic;
-  signal firstRepeatDone : std_logic;
-  signal altcode : std_logic;
+  signal firstPress : std_logic := '0';
+  signal inputKey : std_logic := '0' ;
+  signal firstRepeatDone : std_logic := '0';
+  signal altcode : std_logic := '0';
+  signal alt_down : std_logic := '0';
 begin
 
   uart_tx1: entity work.UART_TX_CTRL
@@ -193,19 +194,19 @@ begin
         when '0'&x"11" => alt_down <= '1';
         when '1'&x"11" => alt_down <= '0';
         when '0'&x"16" =>
-          if (alt_down) then
+          if (alt_down='1') then
             mm_displayMode <= b"00";
           end if;
         when '0'&x"1E" => --2
-          if (alt_down) then
+          if (alt_down='1') then
             mm_displayMode <= b"01";
           end if;
         when '0'&x"26" => --3
-          if (alt_down) then
+          if (alt_down='1') then
             mm_displayMode <= b"10";
           end if;
         when '0'&x"0D"=> --Alt-tab, activates matrix mode. These are probably temporary commands
-          if (alt_down) then
+          if (alt_down='1') then
             matrix_trap_out<='1'; --setup trap.
           end if;
         when others => --Alt anything
@@ -608,13 +609,12 @@ begin
         when others=> state<=WaitForKey; 
       end case;
     end if;	 
-  end if;	 
-end process uart_test;
+  end process uart_test;
 
-mm_displayMode_out <= mm_displayMode;
-shift_ready_out <= shift_ready;
-shift_ack <= shift_ack_in; 
-display_shift_out <= display_shift;
+  mm_displayMode_out <= mm_displayMode;
+  shift_ready_out <= shift_ready;
+  shift_ack <= shift_ack_in; 
+  display_shift_out <= display_shift;
 end Behavioral;
 
 

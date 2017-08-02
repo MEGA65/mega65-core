@@ -373,7 +373,7 @@ begin
   block5: block
   begin
     keymapper0 : entity work.keymapper port map (
-    reset_in => reset_in,
+    reset_in => reset,
     widget_enable => widget_enable,
     ps2_enable => ps2_enable,
     joy_enable => joy_enable,
