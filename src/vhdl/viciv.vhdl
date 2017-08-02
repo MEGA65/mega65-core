@@ -1316,33 +1316,59 @@ begin
       if reg_v400='0' then
         -- set vertical borders based on twentyfourlines
         if twentyfourlines='0' then
-          border_y_top <= to_unsigned(100,12);
---          border_y_bottom <= to_unsigned(1200-101,12);
-          border_y_bottom <= x"384";
+          if display_height = 1200 then
+            border_y_top <= to_unsigned(160,12);
+            border_y_bottom <= to_unsigned(960,12);
+          else
+            border_y_top <= to_unsigned(100,12);
+            border_y_bottom <= to_unsigned(900,12);
+          end if;
         else  
-          border_y_top <= to_unsigned(100+(4*5),12);
---          border_y_bottom <= to_unsigned(1200-101-(4*5),12);
-          border_y_bottom <= x"370";
+          if display_height = 1200 then
+            border_y_top <= to_unsigned(160+(4*5),12);
+            border_y_bottom <= to_unsigned(960-(4*5),12);
+          else
+            border_y_top <= to_unsigned(100+(4*5),12);
+            border_y_bottom <= to_unsigned(900-(4*5),12);
+          end if;
         end if;
         -- set y_chargen_start based on twentyfourlines
-        y_chargen_start <= to_unsigned((100-3*5)+to_integer(vicii_y_smoothscroll)*5,12);
+        if display_height = 1200 then
+          y_chargen_start <= to_unsigned((160-3*5)+to_integer(vicii_y_smoothscroll)*5,12);
+        else
+          y_chargen_start <= to_unsigned((100-3*5)+to_integer(vicii_y_smoothscroll)*5,12);
+        end if;
         chargen_y_scale(2 downto 0) <= vicii_ycounter_scale_minus_two;
         chargen_y_scale(7 downto 3) <= (others => '0');
       else
         -- 400px mode
         -- set vertical borders based on twentyfourlines
         if twentyfourlines='0' then
-          border_y_top <= to_unsigned(0,12);
-          border_y_bottom <= to_unsigned(1200-1,12);
+          if display_height = 1200 then
+            border_y_top <= to_unsigned(0,12);
+            border_y_bottom <= to_unsigned(1200-1,12);
+          else
+            border_y_top <= to_unsigned(140,12);
+            border_y_bottom <= to_unsigned(1080-141,12);
+          end if;
         else  
-          border_y_top <= to_unsigned(0+(4*3),12);
-          border_y_bottom <= to_unsigned(1200-1-(4*3),12);
+          if display_height = 1200 then
+            border_y_top <= to_unsigned(0+(4*3),12);
+            border_y_bottom <= to_unsigned(1200-1-(4*3),12);
+          else
+            border_y_top <= to_unsigned(140+(4*3),12);
+            border_y_bottom <= to_unsigned(1080-141-(4*3),12);
+          end if;
         end if;
         -- set y_chargen_start based on twentyfourlines
-        y_chargen_start <= to_unsigned((0-3*3)+to_integer(vicii_y_smoothscroll)*3,12);
-
+        if display_height = 1200 then
+          y_chargen_start <= to_unsigned((0-3*3)+to_integer(vicii_y_smoothscroll)*3,12);
+        else
+          y_chargen_start <= to_unsigned((140-3*5)+to_integer(vicii_y_smoothscroll)*5,12);
+        end if;
         chargen_y_scale(1 downto 0) <= vicii_ycounter_scale_minus_two(2 downto 1);
         chargen_y_scale(7 downto 2) <= (others => '0');
+
       end if;
       
       screen_ram_base(13 downto 10) <= reg_d018_screen_addr;
