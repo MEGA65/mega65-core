@@ -168,10 +168,10 @@ int main(void)
 	  r2[0]=r1[0]; r2[1]=0;
 	  r2[0]&=0x1f;  // get control codes
 	}
-	if ((r2[0]>='0')&&(r1[0]<='9')) {
-	  // control-number = colour codes
-	  r2[0]=colour_codes[r2[0]-'0'+0];
-	}
+      }
+      if ((r2[0]>='0')&&(r2[0]<='9')) {
+	// control-number = colour codes
+	r2[0]=colour_codes[r2[0]-'0'+0];
       }
       unsigned int ascii=r2[0];
       if (strlen(r1)>1) ascii=0;
@@ -220,10 +220,10 @@ int main(void)
 	  r2[0]|=0xC0;  // get graphic symbols
 	  r2[0]&=0xDF;
 	}
-	if ((r2[0]>='0')&&(r1[0]<='9')) {
-	  // C=+number = colour codes
-	  r2[0]=colour_codes[r2[0]-'0'+8];
-	}
+      }
+      if ((r2[0]>='0')&&(r2[0]<='9')) {
+	// C=+number = colour codes
+	r2[0]=colour_codes[r2[0]-'0'+8];
       }
       unsigned int ascii=r2[0];
       if (strlen(r1)>1) ascii=0;
@@ -238,7 +238,7 @@ int main(void)
       if (!strcmp("HORZ",r1)) ascii=0x9d;
       if (!strcmp("VERT",r1)) ascii=0x91;
       if (!strcmp("RUN",r1)) ascii=0xa3;  // slightly random assignment
-      if (!strcmp("TAB",r1)) ascii=0x0f;
+      if (!strcmp("TAB",r1)) ascii=0xef;  // C=+TAB = Matrix Mode trap
       
       printf("    %d => x\"%02x\", -- %s/%s\n",key,ascii&0xff,r1,r2);
     }
