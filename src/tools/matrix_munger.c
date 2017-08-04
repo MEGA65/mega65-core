@@ -53,6 +53,10 @@ char *sanitise(char *s)
 
 int main(void)
 {
+  int reverse_matrix[256];
+  for(int i=0;i<256;i++) reverse_matrix[i]=0;
+
+  
   // Unshifted keys
   printf("  signal matrix_normal : key_matrix_t := (\n");
   for(int key=0;key<72;key++)
@@ -96,6 +100,7 @@ int main(void)
       if (!strcmp("RUN",r1)) ascii=0x03;
       if (!strcmp("TAB",r1)) ascii=0x09;
       
+      reverse_matrix[ascii&0xff]=key;
       printf("    %d => x\"%02x\", -- %s/%s\n",key,ascii&0xff,sanitise(r1),sanitise(r2));
     }
   printf("\n    others => x\"00\"\n    );\n");
@@ -144,6 +149,7 @@ int main(void)
       if (!strcmp("RUN",r1)) ascii=0xa3;  // slightly random assignment
       if (!strcmp("TAB",r1)) ascii=0x0f;
       
+      reverse_matrix[ascii&0xff]=key;
       printf("    %d => x\"%02x\", -- %s/%s\n",key,ascii&0xff,sanitise(r1),sanitise(r2));
     }
   printf("\n    others => x\"00\"\n    );\n");
@@ -195,6 +201,7 @@ int main(void)
       if (!strcmp("RUN",r1)) ascii=0xa3;  // slightly random assignment
       if (!strcmp("TAB",r1)) ascii=0x0f;
       
+      reverse_matrix[ascii&0xff]=key;
       printf("    %d => x\"%02x\", -- %s/%s\n",key,ascii&0xff,sanitise(r1),sanitise(r2));
     }
   printf("\n    others => x\"00\"\n    );\n");
@@ -247,9 +254,61 @@ int main(void)
       if (!strcmp("RUN",r1)) ascii=0xa3;  // slightly random assignment
       if (!strcmp("TAB",r1)) ascii=0xef;  // C=+TAB = Matrix Mode trap
       
+      reverse_matrix[ascii&0xff]=key;
       printf("    %d => x\"%02x\", -- %s/%s\n",key,ascii&0xff,sanitise(r1),sanitise(r2));
     }
   printf("\n    others => x\"00\"\n    );\n");
+
+  // Calculate reverse matrix
+  for(int key=0;key<72;key++)
+    {
+      int row=key&7;
+      int column=key/8;
+
+      int trow=1+row*3;
+      int tcol=3+column;
+
+      int x1,x2;
+      for(x1=0;tcol;x1++) if (matrix[trow][x1]=='|') tcol--;
+      tcol=3+column;
+      for(x2=0;tcol;x2++) if (matrix[trow+1][x2]=='|') tcol--;
+      char r1[6],r2[6];
+      for(int o=0;o<6;o++) {
+	r1[o]=matrix[trow][x1+o];
+	r2[o]=matrix[trow+1][x2+o];
+      }
+      r1[5]=0; r2[5]=0;
+      trim(r1); trim(r2);
+      if ((strlen(r1)==1)&&(r2[0]==0)) {
+	if ((r1[0]>='A')&&(r1[0]<='Z')) {
+	  // Alpha -- switch case for ASCII
+	  r2[0]=r1[0]; r2[1]=0;
+	  r2[0]|=0x20;
+	}
+      }
+      unsigned int ascii=r2[0];
+      if (strlen(r1)>1) ascii=0;
+      if ((r1[0]=='F')&&(!ascii)) {
+	// Function key
+	ascii=0xF0+atoi(&r1[1]);
+      }
+      if (!strcmp("SPACE",r1)) ascii=' ';
+      if (!strcmp("CLR",r1)) ascii=0x13;
+      if (!strcmp("ESC",r1)) ascii=0x1b;
+      if (!strcmp("INS",r1)) ascii=0x14;
+      if (!strcmp("HORZ",r1)) ascii=0x1d;
+      if (!strcmp("VERT",r1)) ascii=0x11;
+      if (!strcmp("RUN",r1)) ascii=0x03;
+      if (!strcmp("TAB",r1)) ascii=0x09;
+      
+    }
+
+  printf("\n");
+  if (reverse_matrix[0x0d]) printf("  when '\r' => return %d;\n",reverse_matrix[0x0d]);
+  for(int i=32;i<0x7d;i++) {
+    if (reverse_matrix[i]) printf("  when '%c' => return %d;\n",i,reverse_matrix[i]);
+  }
+
   
   
   return 0;
