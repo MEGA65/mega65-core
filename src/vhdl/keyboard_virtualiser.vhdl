@@ -49,6 +49,8 @@ architecture behavioral of keyboard_virtualiser is
   -- for the keyboard and joystick electronics
   constant count_down : integer := clock_frequency/scan_frequency;
   signal counter : integer := count_down;
+
+  signal bucky_key_internal : std_logic_vector(6 downto 0) := (others => '0');
   
   -- Scanned state of the keyboard and joysticks
   signal joya : std_logic_vector(7 downto 0) := (others => '1');
@@ -371,11 +373,11 @@ begin
     procedure check_ascii_key(first : integer) is
       variable key_matrix : key_matrix_t;
     begin
-      if bucky_key(0)='1' or bucky_key(1)='1' then
+      if bucky_key_internal(0)='1' or bucky_key_internal(1)='1' then
         key_matrix := matrix_shifted;
-      elsif buckey_key(2)='1' then
+      elsif buckey_key_internal(2)='1' then
         keyt_matrix := matrix_control;
-      elsif buckey_key(3)='1' then
+      elsif buckey_key_internal(3)='1' then
         key_matrix := matrix_cbm;
       else
         key_matrix := matrix_normal;
@@ -454,8 +456,10 @@ begin
               -- note state of left-shift
               if portb_pins(7) = '0' then
                 bucky_key(0) <= '1';
+                bucky_key_internal(0) <= '1';
               else
                 bucky_key(0) <= '0';
+                bucky_key_internal(0) <= '0';
               end if;
             end if;
             porta_pins <= ( 2 => '0', others => 'Z');            
@@ -500,8 +504,10 @@ begin
               -- note state of right-shift
               if portb_pins(4) = '0' then
                 bucky_key(1) <= '1';
+                bucky_key_internal(1) <= '1';
               else
                 bucky_key(1) <= '0';
+                bucky_key_internal(1) <= '0';
               end if;
             end if;
             porta_pins <= ( 6 => '0', others => 'Z');            
@@ -526,14 +532,18 @@ begin
               -- note state of CTRL
               if portb_pins(2) = '0' then
                 bucky_key(2) <= '1';
+                bucky_key_internal(2) <= '1';
               else
                 bucky_key(2) <= '0';
+                bucky_key_internal(2) <= '0';
               end if;
               -- note state of C=
               if portb_pins(5) = '0' then
                 bucky_key(3) <= '1';
+                bucky_key_internal(3) <= '1';
               else
                 bucky_key(3) <= '0';
+                bucky_key_internal(3) <= '0';
               end if;
             end if;
             porta_pins <= (others => 'Z');
@@ -548,14 +558,18 @@ begin
               -- note state of NO SCROLL
               if portb_pins(0) = '0' then
                 bucky_key(4) <= '1';
+                bucky_key_internal(4) <= '1';
               else
                 bucky_key(4) <= '0';
+                bucky_key_internal(4) <= '0';
               end if;
               -- note state of ALT
               if portb_pins(2) = '0' then
                 bucky_key(5) <= '1';
+                bucky_key_internal(5) <= '1';
               else
                 bucky_key(5) <= '0';
+                bucky_key_internal(5) <= '0';
               end if;
             end if;
             porta_pins <= (others => 'Z');
