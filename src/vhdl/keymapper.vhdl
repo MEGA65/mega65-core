@@ -34,7 +34,7 @@ entity keymapper is
     capslock_ps2 : in std_logic;
     restore_ps2 : in std_logic;
 
-    matrix_combined : out std_logic_vector(71 downto 0);
+    matrix_combined : out std_logic_vector(71 downto 0) := (others => '1');
     
     -- RESTORE when held or double-tapped does special things
     restore_out : out std_logic := '1';
@@ -127,9 +127,9 @@ begin  -- behavioural
                          and (matrix_ps2(key_num) or ps2_disable);
       -- Update unified view for export
       matrix_combined(key_num) <= '1'
-                         and (matrix_physkey(key_num) or physkey_disable)
-                         and (matrix_widget(key_num) or widget_disable)
-                         and (matrix_ps2(key_num) or ps2_disable);
+                                  and (matrix_physkey(key_num) or physkey_disable)
+                                  and (matrix_widget(key_num) or widget_disable)
+                                  and (matrix_ps2(key_num) or ps2_disable);
 
       -- And joysticks
       for n in 0 to 4 loop

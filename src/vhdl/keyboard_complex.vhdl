@@ -43,7 +43,11 @@ entity keyboard_complex is
     restore_out : out std_logic := '1';
     reset_out : out std_logic := '1';
     hyper_trap_out : out std_logic := '1';
-    
+
+    ascii_key : out unsigned(7 downto 0) := x"00";
+    ascii_key_valid : out std_logic := '0';
+    bucky_key : out std_logic_vector(6 downto 0) := "0000000"; 
+      
     -- USE ASC/DIN / CAPS LOCK key to control CPU speed instead of CAPS LOCK function
     speed_gate : out std_logic := '1';
     speed_gate_enable : in std_logic := '1';
@@ -94,10 +98,6 @@ architecture behavioural of keyboard_complex is
   signal ps2_joyb : std_logic_vector(4 downto 0);
   signal last_scan_code : std_logic_vector(12 downto 0);
 
-  signal ascii_key : unsigned(7 downto 0) := x"00";
-  signal ascii_key_valid : std_logic := '0';
-  signal bucky_key : std_logic_vector(6 downto 0) := "0000000"; 
-  
 begin
 
   phykbd0: entity work.keyboard_to_matrix
