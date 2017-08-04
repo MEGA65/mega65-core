@@ -239,14 +239,15 @@ C65 $D607 C65 UART 2-bit port data direction register (used for C65 keyboard)
 C65 $D607 C65 UART 2-bit port data register (used for C65 keyboard)
 GS $D609.0 UART BAUD clock source: 1 = 7.09375MHz, 0 = 150MHz
 GS $D609 MEGA65 extended UART control register
-GS $D60D DEBUG - Read hyper_trap_count: will be removed after debugging. XXX - Temporarily reading restore_up_ticks instead
+GS $D60D Port G (currently unusued)
 GS $D60E PMOD port A on FPGA board (data bits)
 GS $D60F PMOD port A on FPGA board (DDR)
-GS $D610 DEBUG - Read restore_up_count: will be removed after debugging. XXX - Temporarily reading restore_up_ticks instead
-GS $D611 DEBUG - Read restore_down_count: will be removed after debugging. XXX - Temporarily reading restore_up_ticks instead
+GS $D610 Last key press as ASCII (hardware accelerated keyboard scanner). Write to clear event ready for next.
+GS $D611 Modifier key state (hardware accelerated keyboard scanner).
 GS $D612.0 DEBUG - Enable widget board keyboard/joystick input
 GS $D612.1 DEBUG - Enable ps2 keyboard/joystick input
 GS $D612.2 DEBUG - Enable physical joystick input
+GS $D612.3 DEBUG - Enable physical joystick input
 GS $D613 DEBUG - Keyboard debug flags: will be removed after debugging
 GS $D630.6 - Thumbnail drawing was in progress.
 GS $D630.7 - Thumbnail is valid if 1.  Else there has not been a complete frame since elapsed without a trap to hypervisor mode, in which case the thumbnail may not reflect the current process.
