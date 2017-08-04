@@ -50,6 +50,8 @@ architecture behavioral of keyboard_virtualiser is
   constant count_down : integer := clock_frequency/scan_frequency;
   signal counter : integer := count_down;
 
+  signal scan_phase : integer range 0 to 10 := 10; -- reset entry phase
+
   signal bucky_key_internal : std_logic_vector(6 downto 0) := (others => '0');
   
   -- Scanned state of the keyboard and joysticks
@@ -374,10 +376,10 @@ begin
       variable key_matrix : key_matrix_t;
     begin
       if bucky_key_internal(0)='1' or bucky_key_internal(1)='1' then
-        key_matrix := matrix_shifted;
-      elsif buckey_key_internal(2)='1' then
-        keyt_matrix := matrix_control;
-      elsif buckey_key_internal(3)='1' then
+        key_matrix := matrix_shift;
+      elsif bucky_key_internal(2)='1' then
+        key_matrix := matrix_control;
+      elsif bucky_key_internal(3)='1' then
         key_matrix := matrix_cbm;
       else
         key_matrix := matrix_normal;
@@ -430,6 +432,11 @@ begin
       if counter=0 then
         counter <= count_down;
         -- Read the appropriate matrix row or joysticks state
+        if scan_phase < 9 then
+          scan_phase <= scan_phase + 1;
+        else
+          scan_phase <= 0;
+        end if;
         case scan_phase is
           when 0 =>
             -- Read Joysticks, prepare to read column 0
@@ -572,6 +579,11 @@ begin
                 bucky_key_internal(5) <= '0';
               end if;
             end if;
+            porta_pins <= (others => 'Z');
+            portb_pins <= (others => 'Z');
+            keyboard_column8_out <= '1';
+          when 10 =>
+            -- Get ready for scanning joysticks first on boot
             porta_pins <= (others => 'Z');
             portb_pins <= (others => 'Z');
             keyboard_column8_out <= '1';
