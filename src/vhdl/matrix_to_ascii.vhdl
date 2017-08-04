@@ -262,12 +262,12 @@ architecture behavioral of matrix_to_ascii is
   signal matrix_cbm : key_matrix_t := (
     0 => x"94", -- INS/DEL
     1 => x"00", -- RET/NO KEY
-    2 => x"9d", -- HORZ/CRSR
+    2 => x"ED", -- HORZ/CRSR
     3 => x"f8", -- F8/F7
     4 => x"f2", -- F2/F1
     5 => x"f4", -- F4/F3
     6 => x"f6", -- F6/F5
-    7 => x"91", -- VERT/CRSR
+    7 => x"EE", -- VERT/CRSR
     8 => x"97", -- #/SPECIAL/UNPRINTABLE
     9 => x"d7", -- W/SPECIAL/UNPRINTABLE
     10 => x"c1", -- A/SPECIAL/UNPRINTABLE
@@ -340,7 +340,12 @@ architecture behavioral of matrix_to_ascii is
 
   signal bucky_key_internal : std_logic_vector(6 downto 0) := (others => '0');
   signal matrix_internal : std_logic_vector(71 downto 0) := (others => '1');
-  
+
+  -- Automatic key repeat (just repeats ascii_key_valid strobe periodically)
+  signal repeat_key : integer range 0 to 71 := 0;
+  signal repeat_key_timer : integer := 0;
+  constant repeat_start_timer : integer := 25000000; -- 0.5 sec
+  constant repeat_again_timer : integer := 10000000; -- 0.2 sec
   
 begin
   process(clk)
@@ -348,12 +353,14 @@ begin
   begin
     if rising_edge(clk) then
       -- Which matrix to use, based on modifier key state
-      if bucky_key_internal(0)='1' or bucky_key_internal(1)='1' then
+      -- C= takes precedence over SHIFT, so that we can have C= + cursor keys
+      -- as unique keys
+      if bucky_key_internal(3)='1' then
+        key_matrix := matrix_cbm;
+      elsif bucky_key_internal(0)='1' or bucky_key_internal(1)='1' then
         key_matrix := matrix_shift;
       elsif bucky_key_internal(2)='1' then
         key_matrix := matrix_control;
-      elsif bucky_key_internal(3)='1' then
-        key_matrix := matrix_cbm;
       else
         key_matrix := matrix_normal;
       end if;
@@ -375,14 +382,28 @@ begin
           -- Key press event
           report "key press, ASCII code = " & to_hstring(key_matrix(key_num));
           ascii_key <= key_matrix(key_num);
+          repeat_key <= key_num;
+          repeat_key_timer <= repeat_start_timer;
           ascii_key_valid <= '1';
         else
           ascii_key_valid <= '0';
         end if;
       else
-        ascii_key_valid <= '0';
+        if repeat_key_timer > 0 then
+          repeat_key_timer <= repeat_key_timer - 1;
+          ascii_key_valid <= '0';
+        else
+          repeat_key_timer <= repeat_again_timer;
+          if matrix(repeat_key)='0' then
+            ascii_key_valid <= '1';
+          else
+            ascii_key_valid <= '0';              
+          end if;
+        end if;
       end if;
 
+      
+      
       if key_num /= 71 then
         key_num <= key_num + 1;
       else
