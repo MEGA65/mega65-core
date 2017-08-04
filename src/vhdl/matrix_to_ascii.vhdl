@@ -5,18 +5,9 @@ use IEEE.STD_LOGIC_1164.ALL;
 use ieee.numeric_std.all;
 use work.debugtools.all;
 
-entity keyboard_virtualiser is
-  generic (scan_frequency : integer := 100000;
-           clock_frequency : integer);
-  port (Clk : in std_logic;        
-        porta_pins : inout  std_logic_vector(7 downto 0) := (others => 'Z');
-        portb_pins : inout  std_logic_vector(7 downto 0) := (others => 'Z');
-        keyboard_column8_out : out std_logic := '1';
-        key_left : in std_logic;
-        key_up : in std_logic;
-
-        -- Virtualised keyboard matrix
-        matrix : out std_logic_vector(71 downto 0) := (others => '1');
+entity matrix_to_ascii is
+  port (Clk : in std_logic;
+        matrix : in std_logic_vector(71 downto 0);
 
         -- UART key stream
         ascii_key : out unsigned(7 downto 0) := (others => '0');
@@ -31,23 +22,10 @@ entity keyboard_virtualiser is
         bucky_key : out std_logic_vector(6 downto 0) := (others  => '0');
         ascii_key_valid : out std_logic := '0'
         );
-
-end keyboard_virtualiser;
-
-architecture behavioral of keyboard_virtualiser is
-  -- Scan a row 100K/sec, so that the scanning is slow enough
-  -- for the keyboard and joystick electronics
-  constant count_down : integer := clock_frequency/scan_frequency;
-  signal counter : integer := count_down;
-
-  signal scan_phase : integer range 0 to 10 := 10; -- reset entry phase
-
-  signal bucky_key_internal : std_logic_vector(6 downto 0) := (others => '0');
+end entity matrix_to_ascii;
   
-  -- Scanned state of the keyboard and joysticks
-  signal joya : std_logic_vector(7 downto 0) := (others => '1');
-  signal joyb : std_logic_vector(7 downto 0) := (others => '1');
-  signal matrix_internal : std_logic_vector(71 downto 0) := (others => '1');
+architecture behavioral of matrix_to_ascii is
+  signal matrix_last : std_logic_vector(71 downto 0) := (others => '1');
 
   type key_matrix_t is array(0 to 71) of unsigned(7 downto 0);
   signal matrix_normal : key_matrix_t := (
@@ -358,13 +336,18 @@ architecture behavioral of keyboard_virtualiser is
     others => x"00"
     );
 
+  signal key_num : integer range 0 to 71 := 0;
+
+  signal bucky_key_internal : std_logic_vector(6 downto 0) := (others => '0');
+  signal matrix_internal : std_logic_vector(71 downto 0) := (others => '1');
+  
   
 begin
-  process (clk)
-
-    procedure check_ascii_key(first : integer) is
-      variable key_matrix : key_matrix_t;
-    begin
+  process(clk)
+    variable key_matrix : key_matrix_t;
+  begin
+    if rising_edge(clk) then
+      -- Which matrix to use, based on modifier key state
       if bucky_key_internal(0)='1' or bucky_key_internal(1)='1' then
         key_matrix := matrix_shift;
       elsif bucky_key_internal(2)='1' then
@@ -374,208 +357,41 @@ begin
       else
         key_matrix := matrix_normal;
       end if;
---      report "matrix(" & integer'image(first) & " -- " & integer'image(first+7)
---        & ") = " & to_string(matrix(first+7 downto first))
---        & ", portb_pins = " & to_string(portb_pins);
-                            
-      for b in 0 to 7 loop
-        if (to_UX01(matrix_internal(first + b)) = '1') and (to_UX01(portb_pins(b)) = '0') then
-          -- Key press event
-          ascii_key <= key_matrix(first + b);
-          ascii_key_valid <= '1';
-        end if;
-      end loop;
-    end procedure;
-  begin
-    if rising_edge(clk) then
 
-      ascii_key_valid <= '0';
-      
-      -- Present virtualised keyboard
-      matrix <= matrix_internal;
-      
-      -- Scan physical keyboard
---      report "scan_phase = " & integer'image(scan_phase)
---        & ", portb_pins = " & to_string(portb_pins)
---        & ", porta_pins = " & to_string(porta_pins);
-      if counter=0 then
-        counter <= count_down;
-        -- Read the appropriate matrix row or joysticks state
---        report "matrix = " & to_string(matrix);
-        if scan_phase < 9 then
-          scan_phase <= scan_phase + 1;
+      -- Update modifiers
+      bucky_key_internal(0) <= matrix(15);
+      bucky_key_internal(1) <= matrix(52);
+      bucky_key_internal(2) <= matrix(58);
+      bucky_key_internal(3) <= matrix(61);
+      bucky_key_internal(4) <= matrix(66);
+      bucky_key_internal(5) <= matrix(64);
+      bucky_key <= bucky_key_internal;
+
+      -- Check for key press events
+      matrix_internal(key_num) <= matrix(key_num);
+      if to_UX01(matrix_internal(key_num)) = '1'
+        and to_UX01(matrix(key_num))='0' then
+        if key_matrix(key_num) /= x"00" then
+          -- Key press event
+          ascii_key <= key_matrix(key_num);
+          ascii_key_valid <= '1';
         else
-          scan_phase <= 0;
+          ascii_key_valid <= '0';
         end if;
-        case scan_phase is
-          when 0 =>
-            -- Read Joysticks, prepare to read column 0
-            joya <= porta_pins; joyb <= portb_pins;
-            porta_pins <= ( 0 => '0', others => 'Z');
-            portb_pins <= (others => 'Z');
-            keyboard_column8_out <= '1';
-          when 1 =>
-            -- Read column 0, prepare column 1
---            report "joya = " & to_string(joya)
---              & ", joyb = " & to_string(joyb);
-            if (to_UX01(joya(4 downto 0)) = "11111")
-              and (to_UX01(joyb(4 downto 0)) = "11111") then
-              -- only scan keyboard when joysticks are not interfering
---              report "portb_pins = " & to_string(portb_pins);
-              check_ascii_key(0);
-              matrix_internal(7 downto 0) <= portb_pins(7 downto 0);
-            end if;
-            porta_pins <= ( 1 => '0', others => 'Z');            
-            portb_pins <= (others => 'Z');
-            keyboard_column8_out <= '1';
-          when 2 =>
-            -- Read column 1, prepare column 2
-            if (to_UX01(joya(4 downto 0)) = "11111")
-              and (to_UX01(joyb(4 downto 0)) = "11111") then
-              -- only scan keyboard when joysticks are not interfering
-              check_ascii_key(8);
-              matrix_internal(15 downto 8) <= portb_pins(7 downto 0);
-              -- note state of left-shift
-              if portb_pins(7) = '0' then
-                bucky_key(0) <= '1';
-                bucky_key_internal(0) <= '1';
-              else
-                bucky_key(0) <= '0';
-                bucky_key_internal(0) <= '0';
-              end if;
-            end if;
-            porta_pins <= ( 2 => '0', others => 'Z');            
-            portb_pins <= (others => 'Z');
-            keyboard_column8_out <= '1';
-          when 3 =>
-            -- Read column 2, prepare column 3
-            if (to_UX01(joya(4 downto 0)) = "11111")
-              and (to_UX01(joyb(4 downto 0)) = "11111") then
-              -- only scan keyboard when joysticks are not interfering
-              check_ascii_key(16);
-              matrix_internal(23 downto 16) <= portb_pins(7 downto 0);
-            end if;
-            porta_pins <= ( 3 => '0', others => 'Z');            
-            portb_pins <= (others => 'Z');
-            keyboard_column8_out <= '1';
-          when 4 =>
-            -- Read column 3, prepare column 4
-            if (to_UX01(joya(4 downto 0)) = "11111")
-              and (to_UX01(joyb(4 downto 0)) = "11111") then
-              -- only scan keyboard when joysticks are not interfering
-              check_ascii_key(24);
-              matrix_internal(31 downto 24) <= portb_pins(7 downto 0);
-            end if;
-            porta_pins <= ( 4 => '0', others => 'Z');            
-            portb_pins <= (others => 'Z');
-            keyboard_column8_out <= '1';
-          when 5 =>
-            -- Read column 4, prepare column 5
-            if (to_UX01(joya(4 downto 0)) = "11111")
-              and (to_UX01(joyb(4 downto 0)) = "11111") then
-              -- only scan keyboard when joysticks are not interfering
-              check_ascii_key(32);
-              matrix_internal(39 downto 32) <= portb_pins(7 downto 0);
-            end if;
-            porta_pins <= ( 5 => '0', others => 'Z');            
-            portb_pins <= (others => 'Z');
-            keyboard_column8_out <= '1';
-          when 6 =>
-            -- Read column 5, prepare column 6
-            if (to_UX01(joya(4 downto 0)) = "11111")
-              and (to_UX01(joyb(4 downto 0)) = "11111") then
-              -- only scan keyboard when joysticks are not interfering
-              check_ascii_key(40);
-              matrix_internal(47 downto 40) <= portb_pins(7 downto 0);
-              -- note state of right-shift
-              if portb_pins(4) = '0' then
-                bucky_key(1) <= '1';
-                bucky_key_internal(1) <= '1';
-              else
-                bucky_key(1) <= '0';
-                bucky_key_internal(1) <= '0';
-              end if;
-            end if;
-            porta_pins <= ( 6 => '0', others => 'Z');            
-            portb_pins <= (others => 'Z');
-            keyboard_column8_out <= '1';
-          when 7 =>
-            -- Read column 6, prepare column 7
-            if (to_UX01(joya(4 downto 0)) = "11111")
-              and (to_UX01(joyb(4 downto 0)) = "11111") then
-              -- only scan keyboard when joysticks are not interfering
-              check_ascii_key(48);
-              matrix_internal(55 downto 48) <= portb_pins(7 downto 0);
-            end if;
-            porta_pins <= ( 7 => '0', others => 'Z');            
-            portb_pins <= (others => 'Z');
-            keyboard_column8_out <= '1';
-          when 8 =>
-            -- Read column 7, prepare column 8
-            if (to_UX01(joya(4 downto 0)) = "11111")
-              and (to_UX01(joyb(4 downto 0)) = "11111") then
-              -- only scan keyboard when joysticks are not interfering
-              check_ascii_key(56);
-              matrix_internal(63 downto 56) <= portb_pins(7 downto 0);
-              -- note state of CTRL
-              if portb_pins(2) = '0' then
-                bucky_key(2) <= '1';
-                bucky_key_internal(2) <= '1';
-              else
-                bucky_key(2) <= '0';
-                bucky_key_internal(2) <= '0';
-              end if;
-              -- note state of C=
-              if portb_pins(5) = '0' then
-                bucky_key(3) <= '1';
-                bucky_key_internal(3) <= '1';
-              else
-                bucky_key(3) <= '0';
-                bucky_key_internal(3) <= '0';
-              end if;
-            end if;
-            porta_pins <= (others => 'Z');
-            portb_pins <= (others => 'Z');
-            keyboard_column8_out <= '0';
-          when 9 =>
-            -- Read column 8, prepare joysticks
-            if (to_UX01(joya(4 downto 0)) = "11111")
-              and (to_UX01(joyb(4 downto 0)) = "11111") then
-              -- only scan keyboard when joysticks are not interfering
-              check_ascii_key(64);
-              matrix_internal(71 downto 64) <= portb_pins(7 downto 0);
-              -- note state of NO SCROLL
-              if portb_pins(0) = '0' then
-                bucky_key(4) <= '1';
-                bucky_key_internal(4) <= '1';
-              else
-                bucky_key(4) <= '0';
-                bucky_key_internal(4) <= '0';
-              end if;
-              -- note state of ALT
-              if portb_pins(2) = '0' then
-                bucky_key(5) <= '1';
-                bucky_key_internal(5) <= '1';
-              else
-                bucky_key(5) <= '0';
-                bucky_key_internal(5) <= '0';
-              end if;
-            end if;
-            porta_pins <= (others => 'Z');
-            portb_pins <= (others => 'Z');
-            keyboard_column8_out <= '1';
-          when 10 =>
-            -- Get ready for scanning joysticks first on boot
-            porta_pins <= (others => 'Z');
-            portb_pins <= (others => 'Z');
-            keyboard_column8_out <= '1';
-        end case;
       else
-        counter <= counter - 1;
+        ascii_key_valid <= '0';
       end if;
+
+      if key_num /= 71 then
+        key_num <= key_num + 1;
+      else
+        key_num <= 0;
+      end if;
+      
     end if;
+    
   end process;
 end behavioral;
+  
 
 
-    

@@ -32,9 +32,11 @@ architecture behavioral of test_kv is
   signal pixelclock : std_logic := '0';
   signal cpuclock : std_logic := '0';
   signal ioclock : std_logic := '0';
+
+  signal keyboard_matrix : std_logic_vector(71 downto 0) := (others => '1');
   
 begin
-  kv: entity work.keyboard_virtualiser
+  kv: entity work.keyboard_to_matrix
     generic map (
       clock_frequency => 50000000,
       scan_frequency => 25000000)
@@ -46,6 +48,14 @@ begin
       key_left => key_left,
       key_up => key_up,
 
+      matrix => keyboard_matrix
+      );
+
+  m2a: entity work.matrix_to_ascii
+    port map(
+      clk => cpuclock,
+      matrix => keyboard_matrix,
+      
       ascii_key => ascii_key,
       bucky_key => bucky_key,
       ascii_key_valid => ascii_key_valid
