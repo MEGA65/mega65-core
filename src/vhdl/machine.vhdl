@@ -476,10 +476,10 @@ begin
       elsif segled_counter(17 downto 15)=3 then
         digit := std_logic_vector(seg_led_data(15 downto 12));
       elsif segled_counter(17 downto 15)=4 then
-        digit := uart_char(3 downto 0);
+        digit := std_logic_vector(uart_char(3 downto 0));
       elsif segled_counter(17 downto 15)=5 then
         --digit := std_logic_vector(seg_led_data(23 downto 20));
-        digit := uart_char(7 downto 4);
+        digit := std_logic_vector(uart_char(7 downto 4));
       elsif segled_counter(17 downto 15)=6 then
         digit := std_logic_vector(seg_led_data(27 downto 24));
       elsif segled_counter(17 downto 15)=7 then
