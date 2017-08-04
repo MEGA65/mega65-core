@@ -16,19 +16,6 @@ architecture behavioral of test_kv is
   signal key_left : std_logic;
   signal key_up : std_logic;
 
-  -- Flag to redirect output to UART instead of virtualised keyboard
-  -- matrix 
-  signal matrix_mode : std_logic;
-        
-  -- Virtualised keyboard matrix
-  signal porta_to_cia : std_logic_vector(7 downto 0) := (others => 'Z');
-  signal portb_to_cia : std_logic_vector(7 downto 0) := (others => 'Z');
-  signal porta_from_cia : std_logic_vector(7 downto 0);
-  signal portb_from_cia : std_logic_vector(7 downto 0);
-  signal porta_ddr : std_logic_vector(7 downto 0);
-  signal portb_ddr : std_logic_vector(7 downto 0);
-  signal column8_from_cia : std_logic;
-
   -- UART key stream
   signal ascii_key : unsigned(7 downto 0) := (others => '0');
   -- Bucky key list:
@@ -58,14 +45,7 @@ begin
       keyboard_column8_out => keyboard_column8_out,
       key_left => key_left,
       key_up => key_up,
-      matrix_mode => matrix_mode,
-      porta_to_cia => porta_to_cia,
-      portb_to_cia => portb_to_cia,
-      porta_from_cia => porta_from_cia,
-      portb_from_cia => portb_from_cia,
-      porta_ddr => porta_ddr,
-      portb_ddr => portb_ddr,
-      column8_from_cia => column8_from_cia,
+
       ascii_key => ascii_key,
       bucky_key => bucky_key,
       ascii_key_valid => ascii_key_valid
