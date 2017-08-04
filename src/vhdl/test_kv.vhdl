@@ -10,7 +10,6 @@ end test_kv;
 
 architecture behavioral of test_kv is
 
-  signal clk : std_logic;
   signal porta_pins : std_logic_vector(7 downto 0) := (others => 'Z');
   signal portb_pins : std_logic_vector(7 downto 0) := (others => 'Z');
   signal keyboard_column8_out : std_logic := '1';
@@ -53,7 +52,7 @@ begin
       clock_frequency => 50000000,
       scan_frequency => 25000000)
     port map (
-      clk => clk,
+      clk => cpuclock,
       porta_pins => porta_pins,
       portb_pins => portb_pins,
       keyboard_column8_out => keyboard_column8_out,
@@ -95,5 +94,28 @@ begin
     assert false report "End of simulation" severity failure;
   end process;
 
+  -- Monitor keyboard activity
+  process (cpuclock)
+  begin
+    if rising_edge(cpuclock) then
+      if ascii_key_valid='1' then
+        report "bucky vector = " & to_string(bucky_key)
+          & " ASCII code = 0x" & to_hstring(ascii_key);
+      end if;
+      null;
+    end if;
+  end process;
+
+  -- Induce some fake keyboard activity
+  process (cpuclock)
+  begin
+    if rising_edge(cpuclock) then
+      if porta_pins(0)='0' then
+        portb_pins(3) <= '0';
+      else
+        portb_pins <= (others => 'Z');
+      end if;
+    end if;
+  end process;  
   
 end behavioral;
