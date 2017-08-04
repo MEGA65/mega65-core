@@ -722,6 +722,7 @@ begin
     port map (
       clk => ioclock,
       protected_hardware_in => protected_hardware_sig,
+      matrix_mode_trap => matrix_trap,
       hyper_trap => hyper_trap,
       hyper_trap_f011_read => hyper_trap_f011_read,
       hyper_trap_f011_write => hyper_trap_f011_write,
