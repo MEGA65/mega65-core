@@ -393,7 +393,7 @@ begin
       portg => (others => '1'),
       porth => std_logic_vector(ascii_key_buffered),
       porth_write_strobe => ascii_key_next,
-      porti => std_logic_vector(bucky_key)
+      porti => '0'&std_logic_vector(bucky_key(6 downto 0))
       );
   end block;
   
