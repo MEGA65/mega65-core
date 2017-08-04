@@ -6,7 +6,9 @@ use ieee.numeric_std.all;
 use work.debugtools.all;
 
 entity keyboard_virtualiser is
-  port (Clk : in std_logic;
+  generic (scan_frequency : integer := 100000;
+           clock_frequency : integer);
+  port (Clk : in std_logic;        
         porta_pins : inout  std_logic_vector(7 downto 0) := (others => 'Z');
         portb_pins : inout  std_logic_vector(7 downto 0) := (others => 'Z');
         keyboard_column8_out : out std_logic := '1';
@@ -45,7 +47,7 @@ end keyboard_virtualiser;
 architecture behavioral of iomapper is
   -- Scan a row 100K/sec, so that the scanning is slow enough
   -- for the keyboard and joystick electronics
-  constant count_down := 50000000/100000;
+  constant count_down : integer := clock_frequency/scan_frequency;
   signal counter : integer := count_down;
   
   -- Scanned state of the keyboard and joysticks
@@ -56,7 +58,7 @@ architecture behavioral of iomapper is
   type key_matrix_t is array(0 to 71) of unsigned(7 downto 0);
   signal matrix_normal : key_matix_t := (
     0 => x"14", -- INS/DEL
-    1 => x"00", -- RET/
+    1 => x"00", -- RET/NO KEY
     2 => x"1d", -- HORZ/CRSR
     3 => x"f8", -- F8/F7
     4 => x"f2", -- F2/F1
@@ -95,45 +97,45 @@ architecture behavioral of iomapper is
     37 => x"6b", -- K/k
     38 => x"6f", -- O/o
     39 => x"6e", -- N/n
-    40 => x"2b", -- /+
+    40 => x"2b", -- NO KEY/+
     41 => x"70", -- P/p
     42 => x"6c", -- L/l
-    43 => x"2d", -- /-
+    43 => x"2d", -- NO KEY/-
     44 => x"2e", -- >/.
     45 => x"3a", -- [/:
-    46 => x"40", -- /@
+    46 => x"40", -- NO KEY/@
     47 => x"2c", -- </,
-    48 => x"00", -- ï¿½/
-    49 => x"00", -- */
+    48 => x"00", -- SPECIAL/UNPRINTABLE/NO KEY
+    49 => x"00", -- */NO KEY
     50 => x"3b", -- ]/;
     51 => x"13", -- CLR/HOM
     52 => x"00", -- RIGHT/SHIFT
     53 => x"3d", -- }/=
-    54 => x"00", -- ï¿½/^
+    54 => x"00", -- SPECIAL/UNPRINTABLE/^
     55 => x"2f", -- ?//
     56 => x"31", -- !/1
-    57 => x"5f", -- ~/_
-    58 => x"00", -- CTRL/
+    57 => x"5f", -- SPECIAL/UNPRINTABLE/_
+    58 => x"00", -- CTRL/NO KEY
     59 => x"32", -- "/2
     60 => x"20", -- SPACE/BAR
-    61 => x"00", -- C=/
+    61 => x"00", -- C=/NO KEY
     62 => x"71", -- Q/q
     63 => x"03", -- RUN/STOP
     64 => x"00", -- NO/SCRL
-    65 => x"09", -- TAB/
-    66 => x"00", -- ALT/
-    67 => x"00", -- HELP/
+    65 => x"09", -- TAB/NO KEY
+    66 => x"00", -- ALT/NO KEY
+    67 => x"00", -- HELP/NO KEY
     68 => x"fa", -- F10/F9
     69 => x"fc", -- F12/F11
     70 => x"fe", -- F14/F13
-    71 => x"1b", -- ESC/
+    71 => x"1b", -- ESC/NO KEY
 
     others => x"00"
     );
 
   signal matrix_shift : key_matix_t := (
     0 => x"94", -- INS/DEL
-    1 => x"00", -- RET/
+    1 => x"00", -- RET/NO KEY
     2 => x"9d", -- HORZ/CRSR
     3 => x"f7", -- F8/F7
     4 => x"f1", -- F2/F1
@@ -172,193 +174,192 @@ architecture behavioral of iomapper is
     37 => x"4b", -- K/k
     38 => x"4f", -- O/o
     39 => x"4e", -- N/n
-    40 => x"00", -- /+
+    40 => x"00", -- NO KEY/+
     41 => x"50", -- P/p
     42 => x"4c", -- L/l
-    43 => x"00", -- /-
+    43 => x"00", -- NO KEY/-
     44 => x"3e", -- >/.
     45 => x"5b", -- [/:
-    46 => x"00", -- /@
+    46 => x"00", -- NO KEY/@
     47 => x"3c", -- </,
-    48 => x"00", -- ï¿½/
-    49 => x"2a", -- */
+    48 => x"00", -- SPECIAL/UNPRINTABLE/NO KEY
+    49 => x"2a", -- */NO KEY
     50 => x"5d", -- ]/;
     51 => x"93", -- CLR/HOM
     52 => x"00", -- RIGHT/SHIFT
     53 => x"7d", -- }/=
-    54 => x"00", -- ï¿½/^
+    54 => x"00", -- SPECIAL/UNPRINTABLE/^
     55 => x"3f", -- ?//
     56 => x"21", -- !/1
-    57 => x"7e", -- ~/_
-    58 => x"00", -- CTRL/
+    57 => x"7e", -- SPECIAL/UNPRINTABLE/_
+    58 => x"00", -- CTRL/NO KEY
     59 => x"22", -- "/2
     60 => x"20", -- SPACE/BAR
-    61 => x"00", -- C=/
+    61 => x"00", -- C=/NO KEY
     62 => x"51", -- Q/q
     63 => x"a3", -- RUN/STOP
     64 => x"00", -- NO/SCRL
-    65 => x"0f", -- TAB/
-    66 => x"00", -- ALT/
-    67 => x"00", -- HELP/
+    65 => x"0f", -- TAB/NO KEY
+    66 => x"00", -- ALT/NO KEY
+    67 => x"00", -- HELP/NO KEY
     68 => x"f9", -- F10/F9
     69 => x"fb", -- F12/F11
     70 => x"fd", -- F14/F13
-    71 => x"1b", -- ESC/
+    71 => x"1b", -- ESC/NO KEY
 
     others => x"00"
     );
 
   signal matrix_control : key_matix_t := (
     0 => x"94", -- INS/DEL
-    1 => x"00", -- RET/
+    1 => x"00", -- RET/NO KEY
     2 => x"9d", -- HORZ/CRSR
     3 => x"f8", -- F8/F7
     4 => x"f2", -- F2/F1
     5 => x"f4", -- F4/F3
     6 => x"f6", -- F6/F5
     7 => x"91", -- VERT/CRSR
-    8 => x"9f", -- #/Ÿ
-    9 => x"17", -- W/
-    10 => x"01", -- A/
-    11 => x"9c", -- $/œ
-    12 => x"1a", -- Z/
-    13 => x"13", -- S/
-    14 => x"05", -- E/
+    8 => x"9f", -- #/SPECIAL/UNPRINTABLE
+    9 => x"17", -- W/SPECIAL/UNPRINTABLE
+    10 => x"01", -- A/SPECIAL/UNPRINTABLE
+    11 => x"9c", -- $/SPECIAL/UNPRINTABLE
+    12 => x"1a", -- Z/SPECIAL/UNPRINTABLE
+    13 => x"13", -- S/SPECIAL/UNPRINTABLE
+    14 => x"05", -- E/SPECIAL/UNPRINTABLE
     15 => x"00", -- LEFT/SHIFT
-    16 => x"1e", -- %/
-    17 => x"12", -- R/
-    18 => x"04", -- D/
-    19 => x"1f", -- &/
-    20 => x"03", -- C/
-    21 => x"06", -- F/
-    22 => x"14", -- T/
-    23 => x"18", -- X/
-    24 => x"9e", -- '/ž
-    25 => x"19", -- Y/
-    26 => x"07", -- G/
-    27 => x"81", -- {/
-    28 => x"02", -- B/
-    29 => x"08", -- H/
-    30 => x"15", -- U/
-    31 => x"16", -- V/
-    32 => x"95", -- )/•
-    33 => x"09", -- I/	
-    34 => x"0a", -- J/
-
-    35 => x"00", -- {/
-    36 => x"0d", -- M/
-    37 => x"0b", -- K/
-    38 => x"0f", -- O/
-    39 => x"0e", -- N/
-    40 => x"2b", -- /+
-    41 => x"10", -- P/
-    42 => x"0c", -- L/
-    43 => x"2d", -- /-
+    16 => x"1e", -- %/SPECIAL/UNPRINTABLE
+    17 => x"12", -- R/SPECIAL/UNPRINTABLE
+    18 => x"04", -- D/SPECIAL/UNPRINTABLE
+    19 => x"1f", -- &/SPECIAL/UNPRINTABLE
+    20 => x"03", -- C/SPECIAL/UNPRINTABLE
+    21 => x"06", -- F/SPECIAL/UNPRINTABLE
+    22 => x"14", -- T/SPECIAL/UNPRINTABLE
+    23 => x"18", -- X/SPECIAL/UNPRINTABLE
+    24 => x"9e", -- '/SPECIAL/UNPRINTABLE
+    25 => x"19", -- Y/SPECIAL/UNPRINTABLE
+    26 => x"07", -- G/SPECIAL/UNPRINTABLE
+    27 => x"81", -- {/SPECIAL/UNPRINTABLE
+    28 => x"02", -- B/SPECIAL/UNPRINTABLE
+    29 => x"08", -- H/SPECIAL/UNPRINTABLE
+    30 => x"15", -- U/SPECIAL/UNPRINTABLE
+    31 => x"16", -- V/SPECIAL/UNPRINTABLE
+    32 => x"95", -- )/SPECIAL/UNPRINTABLE
+    33 => x"09", -- I/SPECIAL/UNPRINTABLE
+    34 => x"0a", -- J/SPECIAL/UNPRINTABLE
+    35 => x"00", -- {/NO KEY
+    36 => x"0d", -- M/SPECIAL/UNPRINTABLE
+    37 => x"0b", -- K/SPECIAL/UNPRINTABLE
+    38 => x"0f", -- O/SPECIAL/UNPRINTABLE
+    39 => x"0e", -- N/SPECIAL/UNPRINTABLE
+    40 => x"2b", -- NO KEY/+
+    41 => x"10", -- P/SPECIAL/UNPRINTABLE
+    42 => x"0c", -- L/SPECIAL/UNPRINTABLE
+    43 => x"2d", -- NO KEY/-
     44 => x"2e", -- >/.
     45 => x"3a", -- [/:
-    46 => x"40", -- /@
+    46 => x"40", -- NO KEY/@
     47 => x"2c", -- </,
-    48 => x"00", -- ï¿½/
-    49 => x"00", -- */
+    48 => x"00", -- SPECIAL/UNPRINTABLE/NO KEY
+    49 => x"00", -- */NO KEY
     50 => x"3b", -- ]/;
     51 => x"93", -- CLR/HOM
     52 => x"00", -- RIGHT/SHIFT
     53 => x"3d", -- }/=
-    54 => x"00", -- ï¿½/^
+    54 => x"00", -- SPECIAL/UNPRINTABLE/^
     55 => x"2f", -- ?//
-    56 => x"05", -- !/
-    57 => x"5f", -- ~/_
-    58 => x"00", -- CTRL/
-    59 => x"1c", -- "/
+    56 => x"05", -- !/SPECIAL/UNPRINTABLE
+    57 => x"5f", -- SPECIAL/UNPRINTABLE/_
+    58 => x"00", -- CTRL/NO KEY
+    59 => x"1c", -- "/SPECIAL/UNPRINTABLE
     60 => x"20", -- SPACE/BAR
-    61 => x"00", -- C=/
-    62 => x"11", -- Q/
+    61 => x"00", -- C=/NO KEY
+    62 => x"11", -- Q/SPECIAL/UNPRINTABLE
     63 => x"a3", -- RUN/STOP
     64 => x"00", -- NO/SCRL
-    65 => x"0f", -- TAB/
-    66 => x"00", -- ALT/
-    67 => x"00", -- HELP/
+    65 => x"0f", -- TAB/NO KEY
+    66 => x"00", -- ALT/NO KEY
+    67 => x"00", -- HELP/NO KEY
     68 => x"fa", -- F10/F9
     69 => x"fc", -- F12/F11
     70 => x"fe", -- F14/F13
-    71 => x"1b", -- ESC/
+    71 => x"1b", -- ESC/NO KEY
 
     others => x"00"
     );
 
   signal matrix_cbm : key_matrix_t := (
     0 => x"94", -- INS/DEL
-    1 => x"00", -- RET/
+    1 => x"00", -- RET/NO KEY
     2 => x"9d", -- HORZ/CRSR
     3 => x"f8", -- F8/F7
     4 => x"f2", -- F2/F1
     5 => x"f4", -- F4/F3
     6 => x"f6", -- F6/F5
     7 => x"91", -- VERT/CRSR
-    8 => x"97", -- #/—
-    9 => x"d7", -- W/×
-    10 => x"c1", -- A/Á
-    11 => x"98", -- $/˜
-    12 => x"da", -- Z/Ú
-    13 => x"d3", -- S/Ó
-    14 => x"c5", -- E/Å
+    8 => x"97", -- #/SPECIAL/UNPRINTABLE
+    9 => x"d7", -- W/SPECIAL/UNPRINTABLE
+    10 => x"c1", -- A/SPECIAL/UNPRINTABLE
+    11 => x"98", -- $/SPECIAL/UNPRINTABLE
+    12 => x"da", -- Z/SPECIAL/UNPRINTABLE
+    13 => x"d3", -- S/SPECIAL/UNPRINTABLE
+    14 => x"c5", -- E/SPECIAL/UNPRINTABLE
     15 => x"00", -- LEFT/SHIFT
-    16 => x"9a", -- %/š
-    17 => x"d2", -- R/Ò
-    18 => x"c4", -- D/Ä
-    19 => x"9b", -- &/›
-    20 => x"c3", -- C/Ã
-    21 => x"c6", -- F/Æ
-    22 => x"d4", -- T/Ô
-    23 => x"d8", -- X/Ø
-    24 => x"9c", -- '/œ
-    25 => x"d9", -- Y/Ù
-    26 => x"c7", -- G/Ç
-    27 => x"00", -- {/
-    28 => x"c2", -- B/Â
-    29 => x"c8", -- H/È
-    30 => x"d5", -- U/Õ
-    31 => x"d6", -- V/Ö
-    32 => x"00", -- )/
-    33 => x"c9", -- I/É
-    34 => x"ca", -- J/Ê
-    35 => x"81", -- {/
-    36 => x"cd", -- M/Í
-    37 => x"cb", -- K/Ë
-    38 => x"cf", -- O/Ï
-    39 => x"ce", -- N/Î
-    40 => x"2b", -- /+
-    41 => x"d0", -- P/Ð
-    42 => x"cc", -- L/Ì
-    43 => x"2d", -- /-
+    16 => x"9a", -- %/SPECIAL/UNPRINTABLE
+    17 => x"d2", -- R/SPECIAL/UNPRINTABLE
+    18 => x"c4", -- D/SPECIAL/UNPRINTABLE
+    19 => x"9b", -- &/SPECIAL/UNPRINTABLE
+    20 => x"c3", -- C/SPECIAL/UNPRINTABLE
+    21 => x"c6", -- F/SPECIAL/UNPRINTABLE
+    22 => x"d4", -- T/SPECIAL/UNPRINTABLE
+    23 => x"d8", -- X/SPECIAL/UNPRINTABLE
+    24 => x"9c", -- '/SPECIAL/UNPRINTABLE
+    25 => x"d9", -- Y/SPECIAL/UNPRINTABLE
+    26 => x"c7", -- G/SPECIAL/UNPRINTABLE
+    27 => x"00", -- {/NO KEY
+    28 => x"c2", -- B/SPECIAL/UNPRINTABLE
+    29 => x"c8", -- H/SPECIAL/UNPRINTABLE
+    30 => x"d5", -- U/SPECIAL/UNPRINTABLE
+    31 => x"d6", -- V/SPECIAL/UNPRINTABLE
+    32 => x"00", -- )/NO KEY
+    33 => x"c9", -- I/SPECIAL/UNPRINTABLE
+    34 => x"ca", -- J/SPECIAL/UNPRINTABLE
+    35 => x"81", -- {/SPECIAL/UNPRINTABLE
+    36 => x"cd", -- M/SPECIAL/UNPRINTABLE
+    37 => x"cb", -- K/SPECIAL/UNPRINTABLE
+    38 => x"cf", -- O/SPECIAL/UNPRINTABLE
+    39 => x"ce", -- N/SPECIAL/UNPRINTABLE
+    40 => x"2b", -- NO KEY/+
+    41 => x"d0", -- P/SPECIAL/UNPRINTABLE
+    42 => x"cc", -- L/SPECIAL/UNPRINTABLE
+    43 => x"2d", -- NO KEY/-
     44 => x"2e", -- >/.
     45 => x"3a", -- [/:
-    46 => x"40", -- /@
+    46 => x"40", -- NO KEY/@
     47 => x"2c", -- </,
-    48 => x"00", -- ï¿½/
-    49 => x"00", -- */
+    48 => x"00", -- SPECIAL/UNPRINTABLE/NO KEY
+    49 => x"00", -- */NO KEY
     50 => x"3b", -- ]/;
     51 => x"93", -- CLR/HOM
     52 => x"00", -- RIGHT/SHIFT
     53 => x"3d", -- }/=
-    54 => x"00", -- ï¿½/^
+    54 => x"00", -- SPECIAL/UNPRINTABLE/^
     55 => x"2f", -- ?//
-    56 => x"95", -- !/•
-    57 => x"5f", -- ~/_
-    58 => x"00", -- CTRL/
-    59 => x"96", -- "/–
+    56 => x"95", -- !/SPECIAL/UNPRINTABLE
+    57 => x"5f", -- SPECIAL/UNPRINTABLE/_
+    58 => x"00", -- CTRL/NO KEY
+    59 => x"96", -- "/SPECIAL/UNPRINTABLE
     60 => x"20", -- SPACE/BAR
-    61 => x"00", -- C=/
-    62 => x"d1", -- Q/Ñ
+    61 => x"00", -- C=/NO KEY
+    62 => x"d1", -- Q/SPECIAL/UNPRINTABLE
     63 => x"a3", -- RUN/STOP
     64 => x"00", -- NO/SCRL
-    65 => x"ef", -- TAB/
-    66 => x"00", -- ALT/
-    67 => x"00", -- HELP/
+    65 => x"ef", -- TAB/NO KEY
+    66 => x"00", -- ALT/NO KEY
+    67 => x"00", -- HELP/NO KEY
     68 => x"fa", -- F10/F9
     69 => x"fc", -- F12/F11
     70 => x"fe", -- F14/F13
-    71 => x"1b", -- ESC/
+    71 => x"1b", -- ESC/NO KEY
 
     others => x"00"
     );
@@ -399,10 +400,10 @@ begin
       porta_merge := (others => 'Z');
       -- Apply joystick inputs
       for b in 4 downto 0 loop
-        if joya(b)='0' and porta_ddr(b)='0' or porta_from_cia(b)='0' then
+        if (joya(b)='0' and porta_ddr(b)='0') or porta_from_cia(b)='0' then
           porta_merge(b) := '0';
         end if;
-        if joyb(b)='0' and portb_ddr(b)='0' or portb_from_cia(b)='0' then
+        if (joyb(b)='0' and portb_ddr(b)='0') or portb_from_cia(b)='0' then
           portb_merge(b) := '0';
         end if;
       end loop;

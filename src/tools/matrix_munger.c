@@ -44,6 +44,13 @@ int trim(char *s)
   return 0;
 }
 
+char *sanitise(char *s)
+{
+  if (s[0]>=' '&&s[0]<=0x7d) return s;
+  if (!s[0]) return "NO KEY";
+  else return "SPECIAL/UNPRINTABLE";
+}
+
 int main(void)
 {
   // Unshifted keys
@@ -89,7 +96,7 @@ int main(void)
       if (!strcmp("RUN",r1)) ascii=0x03;
       if (!strcmp("TAB",r1)) ascii=0x09;
       
-      printf("    %d => x\"%02x\", -- %s/%s\n",key,ascii&0xff,r1,r2);
+      printf("    %d => x\"%02x\", -- %s/%s\n",key,ascii&0xff,sanitise(r1),sanitise(r2));
     }
   printf("\n    others => x\"00\"\n    );\n");
 
@@ -137,7 +144,7 @@ int main(void)
       if (!strcmp("RUN",r1)) ascii=0xa3;  // slightly random assignment
       if (!strcmp("TAB",r1)) ascii=0x0f;
       
-      printf("    %d => x\"%02x\", -- %s/%s\n",key,ascii&0xff,r1,r2);
+      printf("    %d => x\"%02x\", -- %s/%s\n",key,ascii&0xff,sanitise(r1),sanitise(r2));
     }
   printf("\n    others => x\"00\"\n    );\n");
 
@@ -188,7 +195,7 @@ int main(void)
       if (!strcmp("RUN",r1)) ascii=0xa3;  // slightly random assignment
       if (!strcmp("TAB",r1)) ascii=0x0f;
       
-      printf("    %d => x\"%02x\", -- %s/%s\n",key,ascii&0xff,r1,r2);
+      printf("    %d => x\"%02x\", -- %s/%s\n",key,ascii&0xff,sanitise(r1),sanitise(r2));
     }
   printf("\n    others => x\"00\"\n    );\n");
   
@@ -240,7 +247,7 @@ int main(void)
       if (!strcmp("RUN",r1)) ascii=0xa3;  // slightly random assignment
       if (!strcmp("TAB",r1)) ascii=0xef;  // C=+TAB = Matrix Mode trap
       
-      printf("    %d => x\"%02x\", -- %s/%s\n",key,ascii&0xff,r1,r2);
+      printf("    %d => x\"%02x\", -- %s/%s\n",key,ascii&0xff,sanitise(r1),sanitise(r2));
     }
   printf("\n    others => x\"00\"\n    );\n");
   

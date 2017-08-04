@@ -76,6 +76,11 @@ simulate:	$(SIMULATIONFILES)
 	ghdl -m cpu_test
 	./cpu_test || ghdl -r cpu_test
 
+kvsimulate:	vhdl/test_kv.vhdl vhdl/keyboard_virtualiser.vhdl
+	ghdl -i vhdl/test_kv.vhdl vhdl/keyboard_virtualiser.vhdl
+	ghdl -m test_kv
+	./test_kv || ghdl -r test_kv
+
 vfsimulate:	vhdl/frame_test.vhdl vhdl/video_frame.vhdl
 	ghdl -i vhdl/frame_test.vhdl vhdl/video_frame.vhdl
 	ghdl -m frame_test
