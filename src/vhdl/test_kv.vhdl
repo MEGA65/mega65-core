@@ -13,8 +13,8 @@ architecture behavioral of test_kv is
   signal porta_pins : std_logic_vector(7 downto 0) := (others => 'Z');
   signal portb_pins : std_logic_vector(7 downto 0) := (others => 'Z');
   signal keyboard_column8_out : std_logic := '1';
-  signal key_left : std_logic;
-  signal key_up : std_logic;
+  signal key_left : std_logic := '1';
+  signal key_up : std_logic := '1';
 
   -- UART key stream
   signal ascii_key : unsigned(7 downto 0) := (others => '0');
@@ -37,19 +37,19 @@ architecture behavioral of test_kv is
 
   signal reset_in : std_logic := '1';
     -- Joysticks
-  signal joya : std_logic_vector(4 downto 0);
-  signal joyb : std_logic_vector(4 downto 0);
+  signal joya : std_logic_vector(4 downto 0) := "11111";
+  signal joyb : std_logic_vector(4 downto 0) := "11111";
     -- Widget board
-  signal pmod_clock : std_logic;
-  signal pmod_start_of_sequence : std_logic;
+  signal pmod_clock : std_logic := '1';
+  signal pmod_start_of_sequence : std_logic := '0';
   signal pmod_data_in : std_logic_vector(3 downto 0);
   signal pmod_data_out : std_logic_vector(1 downto 0) := "ZZ";
     -- PS/2 keyboard
-  signal ps2clock  :  std_logic;
-  signal ps2data   :  std_logic;    
+  signal ps2clock  :  std_logic := '1';
+  signal ps2data   :  std_logic := '1';    
     -- ethernet keyboard input interface for remote head mode
-  signal eth_keycode_toggle : std_logic;
-  signal eth_keycode : unsigned(15 downto 0);
+  signal eth_keycode_toggle : std_logic := '0';
+  signal eth_keycode : unsigned(15 downto 0) := x"1234";
         
     -- Flags to control which inputs are disabled, if any
   signal physkey_disable : std_logic := '0';
