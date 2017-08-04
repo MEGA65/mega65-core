@@ -94,6 +94,10 @@ begin
     assert false report "End of simulation" severity failure;
   end process;
 
+  -- Pull up resisters
+  porta_pins <= (others => 'H');
+  portb_pins <= (others => 'H');
+  
   -- Monitor keyboard activity
   process (cpuclock)
   begin

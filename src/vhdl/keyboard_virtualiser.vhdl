@@ -15,7 +15,7 @@ entity keyboard_virtualiser is
         key_left : in std_logic;
         key_up : in std_logic;
 
-        -- Flag to redirect output to UART instead of virtualised keyboard
+        -- flag to redirect output to UART instead of virtualised keyboard
         -- matrix 
         matrix_mode : in std_logic;
         
@@ -57,7 +57,7 @@ architecture behavioral of keyboard_virtualiser is
   -- Scanned state of the keyboard and joysticks
   signal joya : std_logic_vector(7 downto 0) := (others => '1');
   signal joyb : std_logic_vector(7 downto 0) := (others => '1');
-  signal matrix : std_logic_vector(71 downto 0) := (others => 'Z');
+  signal matrix : std_logic_vector(71 downto 0) := (others => '1');
 
   type key_matrix_t is array(0 to 71) of unsigned(7 downto 0);
   signal matrix_normal : key_matrix_t := (
@@ -432,6 +432,7 @@ begin
       if counter=0 then
         counter <= count_down;
         -- Read the appropriate matrix row or joysticks state
+--        report "matrix = " & to_string(matrix);
         if scan_phase < 9 then
           scan_phase <= scan_phase + 1;
         else
@@ -441,13 +442,17 @@ begin
           when 0 =>
             -- Read Joysticks, prepare to read column 0
             joya <= porta_pins; joyb <= portb_pins;
-            porta_pins <= ( 0 => '0', others => 'Z');            
+            porta_pins <= ( 0 => '0', others => 'Z');
             portb_pins <= (others => 'Z');
             keyboard_column8_out <= '1';
           when 1 =>
             -- Read column 0, prepare column 1
-            if (joya(4 downto 0) = "11111") and (joyb(4 downto 0) = "11111") then
+--            report "joya = " & to_string(joya)
+--              & ", joyb = " & to_string(joyb);
+            if (to_UX01(joya(4 downto 0)) = "11111")
+              and (to_UX01(joyb(4 downto 0)) = "11111") then
               -- only scan keyboard when joysticks are not interfering
+--              report "portb_pins = " & to_string(portb_pins);
               matrix(7 downto 0) <= portb_pins(7 downto 0);
               check_ascii_key(0);
             end if;
@@ -456,7 +461,8 @@ begin
             keyboard_column8_out <= '1';
           when 2 =>
             -- Read column 1, prepare column 2
-            if (joya(4 downto 0) = "11111") and (joyb(4 downto 0) = "11111") then
+            if (to_UX01(joya(4 downto 0)) = "11111")
+              and (to_UX01(joyb(4 downto 0)) = "11111") then
               -- only scan keyboard when joysticks are not interfering
               matrix(15 downto 8) <= portb_pins(7 downto 0);
               check_ascii_key(8);
@@ -474,7 +480,8 @@ begin
             keyboard_column8_out <= '1';
           when 3 =>
             -- Read column 2, prepare column 3
-            if (joya(4 downto 0) = "11111") and (joyb(4 downto 0) = "11111") then
+            if (to_UX01(joya(4 downto 0)) = "11111")
+              and (to_UX01(joyb(4 downto 0)) = "11111") then
               -- only scan keyboard when joysticks are not interfering
               matrix(23 downto 16) <= portb_pins(7 downto 0);
               check_ascii_key(16);
@@ -484,7 +491,8 @@ begin
             keyboard_column8_out <= '1';
           when 4 =>
             -- Read column 3, prepare column 4
-            if (joya(4 downto 0) = "11111") and (joyb(4 downto 0) = "11111") then
+            if (to_UX01(joya(4 downto 0)) = "11111")
+              and (to_UX01(joyb(4 downto 0)) = "11111") then
               -- only scan keyboard when joysticks are not interfering
               matrix(31 downto 24) <= portb_pins(7 downto 0);
               check_ascii_key(24);
@@ -494,7 +502,8 @@ begin
             keyboard_column8_out <= '1';
           when 5 =>
             -- Read column 4, prepare column 5
-            if (joya(4 downto 0) = "11111") and (joyb(4 downto 0) = "11111") then
+            if (to_UX01(joya(4 downto 0)) = "11111")
+              and (to_UX01(joyb(4 downto 0)) = "11111") then
               -- only scan keyboard when joysticks are not interfering
               matrix(39 downto 32) <= portb_pins(7 downto 0);
               check_ascii_key(32);
@@ -504,7 +513,8 @@ begin
             keyboard_column8_out <= '1';
           when 6 =>
             -- Read column 5, prepare column 6
-            if (joya(4 downto 0) = "11111") and (joyb(4 downto 0) = "11111") then
+            if (to_UX01(joya(4 downto 0)) = "11111")
+              and (to_UX01(joyb(4 downto 0)) = "11111") then
               -- only scan keyboard when joysticks are not interfering
               matrix(47 downto 40) <= portb_pins(7 downto 0);
               check_ascii_key(40);
@@ -522,7 +532,8 @@ begin
             keyboard_column8_out <= '1';
           when 7 =>
             -- Read column 6, prepare column 7
-            if (joya(4 downto 0) = "11111") and (joyb(4 downto 0) = "11111") then
+            if (to_UX01(joya(4 downto 0)) = "11111")
+              and (to_UX01(joyb(4 downto 0)) = "11111") then
               -- only scan keyboard when joysticks are not interfering
               matrix(55 downto 48) <= portb_pins(7 downto 0);
               check_ascii_key(48);
@@ -532,7 +543,8 @@ begin
             keyboard_column8_out <= '1';
           when 8 =>
             -- Read column 7, prepare column 8
-            if (joya(4 downto 0) = "11111") and (joyb(4 downto 0) = "11111") then
+            if (to_UX01(joya(4 downto 0)) = "11111")
+              and (to_UX01(joyb(4 downto 0)) = "11111") then
               -- only scan keyboard when joysticks are not interfering
               matrix(63 downto 56) <= portb_pins(7 downto 0);
               check_ascii_key(56);
@@ -558,7 +570,8 @@ begin
             keyboard_column8_out <= '0';
           when 9 =>
             -- Read column 8, prepare joysticks
-            if (joya(4 downto 0) = "11111") and (joyb(4 downto 0) = "11111") then
+            if (to_UX01(joya(4 downto 0)) = "11111")
+              and (to_UX01(joyb(4 downto 0)) = "11111") then
               -- only scan keyboard when joysticks are not interfering
               matrix(71 downto 64) <= portb_pins(7 downto 0);
               check_ascii_key(64);
