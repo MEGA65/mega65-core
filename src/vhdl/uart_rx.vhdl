@@ -9,7 +9,11 @@ entity uart_rx is
            UART_RX : in STD_LOGIC;
            data : out  unsigned(7 downto 0);
            data_ready : out std_logic;
-           data_acknowledge : in std_logic
+           data_acknowledge : in std_logic;
+
+           uart_char_in : in unsigned(7 downto 0);
+           uart_char_valid : in std_logic;
+           local_source : in std_logic
            );
 end uart_rx;
 
@@ -35,6 +39,14 @@ begin  -- behavioural
     -- purpose: based on last 8 samples of uart_rx, decide if the average signal is a 1 or a 0
   begin
     if rising_edge(CLK) then
+
+      -- Accept input from keyboard if we are in matrix mode
+      -- (but ignore 0xEF, the character which indicates matrix mode toggle)
+      if local_source='1' and uart_char_valid='1' and uart_char_in /= x"EF" then
+        data <= uart_char_in;
+        data_ready <= '1';
+      end if;
+      
       uart_rx_debounced <= uart_rx_debounced(2 downto 0) & uart_rx;
       if uart_rx_debounced = x"0" and uart_rx_bit = '1' then
         uart_rx_bit <= '0';
@@ -79,8 +91,11 @@ begin  -- behavioural
         else
           -- This was the last bit
           report "Finished receiving byte. Value = $" & to_hstring(rx_data(8 downto 1)) severity note;
-          data <= unsigned(rx_data(8 downto 1));
-          data_ready <= '1';
+          -- Only pass it on if we are allowing remote data
+          if local_source='0' then
+            data <= unsigned(rx_data(8 downto 1));
+            data_ready <= '1';
+          end if;
           bit_timer <= "00000001";
           rx_state <= WaitForRise;
         end if;        

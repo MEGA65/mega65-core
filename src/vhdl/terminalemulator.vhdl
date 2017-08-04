@@ -37,6 +37,9 @@ entity terminalemulator is
     uart_clk : in std_logic; --48MHz
   --reset : in  STD_LOGIC;
     uart_in : in  STD_LOGIC;
+    uart_char_in : in unsigned(7 downto 0);
+    uart_char_valid : in std_logic;
+    local_source : in std_logic;
     topofframe_out : out unsigned(11 downto 0); 
   --clkl_out : IN STD_LOGIC;
     wel_out : out STD_LOGIC_VECTOR(0 DOWNTO 0);
@@ -84,6 +87,9 @@ uart_rx0: entity work.uart_rx
     clk => uart_clk,
     bit_rate_divisor => bit_rate_divisor,
     UART_RX => uart_in,
+    uart_char_in => uart_char_in,
+    uart_char_valid => uart_char_valid,
+    local_source => local_source,
     data => rx_data,
     data_ready => rx_ready,
     data_acknowledge => rx_acknowledge);

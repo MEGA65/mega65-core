@@ -35,6 +35,10 @@ entity uart_monitor is
     bit_rate_divisor : out unsigned(13 downto 0);
     activity : out std_logic;
 
+    protected_hardware_in : in unsigned(7 downto 0);
+    uart_char : in unsigned(7 downto 0);
+    uart_char_valid : in std_logic;
+    
     key_scancode : out unsigned(15 downto 0);
     key_scancode_toggle : out std_logic;
 
@@ -295,6 +299,13 @@ begin
     Port map ( clk => clock,
                bit_rate_divisor => bit_rate_divisor_internal,
                UART_RX => rx,
+
+               -- Fully formed characters from keyboard_complex for local
+               -- feeding of UART monitor when matrix mode is active.
+               uart_char_in => uart_char,
+               uart_char_valid => uart_char_valid,
+               local_source => protected_hardware_in(6),
+               
                data => rx_data,
                data_ready => rx_ready,
                data_acknowledge => rx_acknowledge);

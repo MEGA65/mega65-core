@@ -139,7 +139,7 @@ entity machine is
          aclSCK : out std_logic;
          aclInt1 : in std_logic;
          aclInt2 : in std_logic;
-    
+         
          ampPWM : out std_logic;
          ampPWM_l : out std_logic;
          ampPWM_r : out std_logic;
@@ -187,7 +187,7 @@ entity machine is
 
          uart_rx : in std_logic;
          uart_tx : out std_logic;
-    
+         
          ----------------------------------------------------------------------
          -- Debug interfaces on Nexys4 board
          ----------------------------------------------------------------------
@@ -365,7 +365,8 @@ architecture Behavioral of machine is
   signal shift_ready : std_logic;
   signal shift_ack : std_logic; 
   signal matrix_trap : std_logic;  
-
+  signal uart_char : unsigned(7 downto 0);
+  signal uart_char_valid : std_logic := '0';
 
 begin
 
@@ -398,8 +399,8 @@ begin
 
     hyper_trap_combined <= hyper_trap and monitor_hyper_trap;
     
-    -- report "btnCpuReset = " & std_logic'image(btnCpuReset) & ", reset_io = " & std_logic'image(reset_io) & ", sw(15) = " & std_logic'image(sw(15)) severity note;
-    -- report "reset_combined = " & std_logic'image(reset_combined) severity note;
+  -- report "btnCpuReset = " & std_logic'image(btnCpuReset) & ", reset_io = " & std_logic'image(reset_io) & ", sw(15) = " & std_logic'image(sw(15)) severity note;
+  -- report "reset_combined = " & std_logic'image(reset_combined) severity note;
   end process;
   
   process(pixelclock,ioclock)
@@ -543,124 +544,124 @@ begin
     generic map(
       cpufrequency => cpufrequency)
     port map(
-    matrix_trap_in=>matrix_trap,
-    protected_hardware => protected_hardware_sig,
-    clock => cpuclock,
-    ioclock => ioclock,
-    reset =>reset_combined,
-    reset_out => reset_out,
-    irq => combinedirq,
-    nmi => combinednmi,
-    exrom => cpu_exrom,
-    game => cpu_game,
-    hyper_trap => hyper_trap_combined,
-    hyper_trap_f011_read => hyper_trap_f011_read,
-    hyper_trap_f011_write => hyper_trap_f011_write,    
-    speed_gate => speed_gate,
-    speed_gate_enable => speed_gate_enable,
-    cpuis6502 => cpuis6502,
-    cpuspeed => cpuspeed,
+      matrix_trap_in=>matrix_trap,
+      protected_hardware => protected_hardware_sig,
+      clock => cpuclock,
+      ioclock => ioclock,
+      reset =>reset_combined,
+      reset_out => reset_out,
+      irq => combinedirq,
+      nmi => combinednmi,
+      exrom => cpu_exrom,
+      game => cpu_game,
+      hyper_trap => hyper_trap_combined,
+      hyper_trap_f011_read => hyper_trap_f011_read,
+      hyper_trap_f011_write => hyper_trap_f011_write,    
+      speed_gate => speed_gate,
+      speed_gate_enable => speed_gate_enable,
+      cpuis6502 => cpuis6502,
+      cpuspeed => cpuspeed,
 
-    irq_hypervisor => sw(4 downto 2),    -- JBM
-    
-    -- Hypervisor signals: we need to tell kickstart memory whether
-    -- to map or not, and we also need to be able to set the VIC-III
-    -- IO mode.
-    cpu_hypervisor_mode => cpu_hypervisor_mode,
-    iomode_set => iomode_set,
-    iomode_set_toggle => iomode_set_toggle,
-    
-    no_kickstart => no_kickstart,
-    
-    reg_isr_out => reg_isr_out,
-    imask_ta_out => imask_ta_out,
-    
-    vicii_2mhz => vicii_2mhz,
-    viciii_fast => viciii_fast,
-    viciv_fast => viciv_fast,
+      irq_hypervisor => sw(4 downto 2),    -- JBM
+      
+      -- Hypervisor signals: we need to tell kickstart memory whether
+      -- to map or not, and we also need to be able to set the VIC-III
+      -- IO mode.
+      cpu_hypervisor_mode => cpu_hypervisor_mode,
+      iomode_set => iomode_set,
+      iomode_set_toggle => iomode_set_toggle,
+      
+      no_kickstart => no_kickstart,
+      
+      reg_isr_out => reg_isr_out,
+      imask_ta_out => imask_ta_out,
+      
+      vicii_2mhz => vicii_2mhz,
+      viciii_fast => viciii_fast,
+      viciv_fast => viciv_fast,
 
-    monitor_char => monitor_char,
-    monitor_char_toggle => monitor_char_toggle,
-    monitor_char_busy => monitor_char_busy,
+      monitor_char => monitor_char,
+      monitor_char_toggle => monitor_char_toggle,
+      monitor_char_busy => monitor_char_busy,
 
-    monitor_proceed => monitor_proceed,
+      monitor_proceed => monitor_proceed,
 --    monitor_debug_memory_access => monitor_debug_memory_access,
-    monitor_waitstates => monitor_waitstates,
-    monitor_request_reflected => monitor_request_reflected,
-    monitor_hypervisor_mode => monitor_hypervisor_mode,
-    monitor_pc => monitor_pc,
-    monitor_watch => monitor_watch,
-    monitor_watch_match => monitor_watch_match,
-    monitor_opcode => monitor_opcode,
-    monitor_ibytes => monitor_ibytes,
-    monitor_arg1 => monitor_arg1,
-    monitor_arg2 => monitor_arg2,
-    monitor_a => monitor_a,
-    monitor_b => monitor_b,
-    monitor_x => monitor_x,
-    monitor_y => monitor_y,
-    monitor_z => monitor_z,
-    monitor_sp => monitor_sp,
-    monitor_p => monitor_p,
-    monitor_state => monitor_state,
-    monitor_map_offset_low => monitor_map_offset_low,
-    monitor_map_offset_high => monitor_map_offset_high,
-    monitor_map_enables_low => monitor_map_enables_low,
-    monitor_map_enables_high => monitor_map_enables_high,
+      monitor_waitstates => monitor_waitstates,
+      monitor_request_reflected => monitor_request_reflected,
+      monitor_hypervisor_mode => monitor_hypervisor_mode,
+      monitor_pc => monitor_pc,
+      monitor_watch => monitor_watch,
+      monitor_watch_match => monitor_watch_match,
+      monitor_opcode => monitor_opcode,
+      monitor_ibytes => monitor_ibytes,
+      monitor_arg1 => monitor_arg1,
+      monitor_arg2 => monitor_arg2,
+      monitor_a => monitor_a,
+      monitor_b => monitor_b,
+      monitor_x => monitor_x,
+      monitor_y => monitor_y,
+      monitor_z => monitor_z,
+      monitor_sp => monitor_sp,
+      monitor_p => monitor_p,
+      monitor_state => monitor_state,
+      monitor_map_offset_low => monitor_map_offset_low,
+      monitor_map_offset_high => monitor_map_offset_high,
+      monitor_map_enables_low => monitor_map_enables_low,
+      monitor_map_enables_high => monitor_map_enables_high,
 
-    monitor_mem_address => monitor_mem_address,
-    monitor_mem_rdata => monitor_mem_rdata,
-    monitor_mem_wdata => monitor_mem_wdata,
-    monitor_mem_read => monitor_mem_read,
-    monitor_mem_write => monitor_mem_write,
-    monitor_mem_setpc => monitor_mem_setpc,
-    monitor_mem_attention_request => monitor_mem_attention_request,
-    monitor_mem_attention_granted => monitor_mem_attention_granted,
-    monitor_mem_trace_mode => monitor_mem_trace_mode,
-    monitor_mem_stage_trace_mode => monitor_mem_stage_trace_mode,
-    monitor_mem_trace_toggle => monitor_mem_trace_toggle,
+      monitor_mem_address => monitor_mem_address,
+      monitor_mem_rdata => monitor_mem_rdata,
+      monitor_mem_wdata => monitor_mem_wdata,
+      monitor_mem_read => monitor_mem_read,
+      monitor_mem_write => monitor_mem_write,
+      monitor_mem_setpc => monitor_mem_setpc,
+      monitor_mem_attention_request => monitor_mem_attention_request,
+      monitor_mem_attention_granted => monitor_mem_attention_granted,
+      monitor_mem_trace_mode => monitor_mem_trace_mode,
+      monitor_mem_stage_trace_mode => monitor_mem_stage_trace_mode,
+      monitor_mem_trace_toggle => monitor_mem_trace_toggle,
 
-    slow_access_request_toggle => slow_access_request_toggle,
-    slow_access_ready_toggle => slow_access_ready_toggle,    
-    slow_access_address => slow_access_address,
-    slow_access_write => slow_access_write,
-    slow_access_wdata => slow_access_wdata,
-    slow_access_rdata => slow_access_rdata,
-        
-    chipram_we => chipram_we,
-    chipram_address => chipram_address,
-    chipram_datain => chipram_datain,
+      slow_access_request_toggle => slow_access_request_toggle,
+      slow_access_ready_toggle => slow_access_ready_toggle,    
+      slow_access_address => slow_access_address,
+      slow_access_write => slow_access_write,
+      slow_access_wdata => slow_access_wdata,
+      slow_access_rdata => slow_access_rdata,
+      
+      chipram_we => chipram_we,
+      chipram_address => chipram_address,
+      chipram_datain => chipram_datain,
 
-    cpu_leds => cpu_leds,
-    
-    fastio_addr => fastio_addr,
-    fastio_read => fastio_read,
-    fastio_write => fastio_write,
-    fastio_wdata => fastio_wdata,
-    fastio_rdata => fastio_rdata,
-    sector_buffer_mapped => sector_buffer_mapped,
-    fastio_vic_rdata => fastio_vic_rdata,
-    fastio_colour_ram_rdata => colour_ram_fastio_rdata,
-    colour_ram_cs => colour_ram_cs,
-    charrom_write_cs => charrom_write_cs,
+      cpu_leds => cpu_leds,
+      
+      fastio_addr => fastio_addr,
+      fastio_read => fastio_read,
+      fastio_write => fastio_write,
+      fastio_wdata => fastio_wdata,
+      fastio_rdata => fastio_rdata,
+      sector_buffer_mapped => sector_buffer_mapped,
+      fastio_vic_rdata => fastio_vic_rdata,
+      fastio_colour_ram_rdata => colour_ram_fastio_rdata,
+      colour_ram_cs => colour_ram_cs,
+      charrom_write_cs => charrom_write_cs,
 
-    viciii_iomode => viciii_iomode,
-  
-    colourram_at_dc00 => colourram_at_dc00,
-    rom_at_e000 => rom_at_e000,
-    rom_at_c000 => rom_at_c000,
-    rom_at_a000 => rom_at_a000,
-    rom_at_8000 => rom_at_8000,
+      viciii_iomode => viciii_iomode,
+      
+      colourram_at_dc00 => colourram_at_dc00,
+      rom_at_e000 => rom_at_e000,
+      rom_at_c000 => rom_at_c000,
+      rom_at_a000 => rom_at_a000,
+      rom_at_8000 => rom_at_8000,
 
-    ---------------------------------------------------------------------------
-    -- IO port to far call stack
-    ---------------------------------------------------------------------------
-    farcallstack_we => farcallstack_we,
-    farcallstack_addr => farcallstack_addr,
-    farcallstack_din => farcallstack_din,
-    farcallstack_dout => farcallstack_dout
+      ---------------------------------------------------------------------------
+      -- IO port to far call stack
+      ---------------------------------------------------------------------------
+      farcallstack_we => farcallstack_we,
+      farcallstack_addr => farcallstack_addr,
+      farcallstack_din => farcallstack_din,
+      farcallstack_dout => farcallstack_dout
 
-    );
+      );
 
   viciv0: entity work.viciv
     port map (
@@ -704,14 +705,14 @@ begin
       fastio_write    => fastio_write,
       fastio_wdata    => fastio_wdata,
       fastio_rdata    => fastio_vic_rdata,
-    
+      
       viciii_iomode => viciii_iomode,
       iomode_set_toggle => iomode_set_toggle,
       iomode_set => iomode_set,
       vicii_2mhz => vicii_2mhz,
       viciii_fast => viciii_fast,
       viciv_fast => viciv_fast,
-    
+      
       colourram_at_dc00 => colourram_at_dc00,
       rom_at_e000 => rom_at_e000,
       rom_at_c000 => rom_at_c000,
@@ -721,156 +722,161 @@ begin
   
   iomapper0: entity work.iomapper
     port map (
-    clk => ioclock,
-	 protected_hardware_in => protected_hardware_sig, 
-    hyper_trap => hyper_trap,
-    hyper_trap_f011_read => hyper_trap_f011_read,
-    hyper_trap_f011_write => hyper_trap_f011_write,
-    cpuclock => cpuclock,
-    pixelclk => pixelclock,
-    clock50mhz => clock50mhz,
-    cpu_hypervisor_mode => cpu_hypervisor_mode,
-    speed_gate => speed_gate,
-    speed_gate_enable => speed_gate_enable,
-    
-    fpga_temperature => fpga_temperature,
+      clk => ioclock,
+      protected_hardware_in => protected_hardware_sig,
+      hyper_trap => hyper_trap,
+      hyper_trap_f011_read => hyper_trap_f011_read,
+      hyper_trap_f011_write => hyper_trap_f011_write,
+      cpuclock => cpuclock,
+      pixelclk => pixelclock,
+      clock50mhz => clock50mhz,
+      cpu_hypervisor_mode => cpu_hypervisor_mode,
+      speed_gate => speed_gate,
+      speed_gate_enable => speed_gate_enable,
 
-    restore_key => restore_key,
-    
-    reg_isr_out => reg_isr_out,
-    imask_ta_out => imask_ta_out,    
+      -- ASCII key from keyboard_complex for feeding UART monitor interface
+      -- when using local keyboard
+      uart_char => uart_char,
+      uart_char_valid => uart_char_valid,
+      
+      fpga_temperature => fpga_temperature,
 
-    key_scancode => key_scancode,
-    key_scancode_toggle => key_scancode_toggle,
-    
-    uartclock => uartclock,
-    phi0 => phi0,
-    reset => reset_combined,
-    reset_out => reset_io,
-    irq => io_irq, -- (but we might like to AND this with the hardware IRQ button)
-    nmi => io_nmi, -- (but we might like to AND this with the hardware IRQ button)
-    restore_nmi => restore_nmi,
-    address => fastio_addr,
-    r => fastio_read, w => fastio_write,
-    data_i => fastio_wdata, data_o => fastio_rdata,
-    colourram_at_dc00 => colourram_at_dc00,
-    drive_led => drive_led,
-    motor => motor,
-    drive_led_out => drive_led_out,
-    sw => sw,
-    btn => btn,
+      restore_key => restore_key,
+      
+      reg_isr_out => reg_isr_out,
+      imask_ta_out => imask_ta_out,    
+
+      key_scancode => key_scancode,
+      key_scancode_toggle => key_scancode_toggle,
+      
+      uartclock => uartclock,
+      phi0 => phi0,
+      reset => reset_combined,
+      reset_out => reset_io,
+      irq => io_irq, -- (but we might like to AND this with the hardware IRQ button)
+      nmi => io_nmi, -- (but we might like to AND this with the hardware IRQ button)
+      restore_nmi => restore_nmi,
+      address => fastio_addr,
+      r => fastio_read, w => fastio_write,
+      data_i => fastio_wdata, data_o => fastio_rdata,
+      colourram_at_dc00 => colourram_at_dc00,
+      drive_led => drive_led,
+      motor => motor,
+      drive_led_out => drive_led_out,
+      sw => sw,
+      btn => btn,
 --    seg_led => seg_led_data,
-    viciii_iomode => viciii_iomode,
-    sector_buffer_mapped => sector_buffer_mapped,
+      viciii_iomode => viciii_iomode,
+      sector_buffer_mapped => sector_buffer_mapped,
 
-    ----------------------------------------------------------------------
-    -- CBM floppy  std_logic_vectorerial port
-    ----------------------------------------------------------------------
-    iec_clk_en => iec_clk_en,
-    iec_data_en => iec_data_en,
-    iec_data_o => iec_data_o,
-    iec_reset => iec_reset,
-    iec_clk_o => iec_clk_o,
-    iec_data_i => iec_data_i,
-    iec_clk_i => iec_clk_i,
-    iec_atn => iec_atn,
-    
-    porta_pins => porta_pins,
-    portb_pins => portb_pins,
-    capslock_key => caps_lock_key,
+      ----------------------------------------------------------------------
+      -- CBM floppy  std_logic_vectorerial port
+      ----------------------------------------------------------------------
+      iec_clk_en => iec_clk_en,
+      iec_data_en => iec_data_en,
+      iec_data_o => iec_data_o,
+      iec_reset => iec_reset,
+      iec_clk_o => iec_clk_o,
+      iec_data_i => iec_data_i,
+      iec_clk_i => iec_clk_i,
+      iec_atn => iec_atn,
+      
+      porta_pins => porta_pins,
+      portb_pins => portb_pins,
+      capslock_key => caps_lock_key,
 --    keyboard_column8_select => keyboard_column8,
-    key_left => keyleft,
-    key_up => keyup,
+      key_left => keyleft,
+      key_up => keyup,
 
-    fa_fire => fa_fire,
-    fa_up => fa_up,
-    fa_left => fa_left,
-    fa_down => fa_down,
-    fa_right => fa_right,
-    
-    fb_fire => fb_fire,
-    fb_up => fb_up,
-    fb_left => fb_left,
-    fb_down => fb_down,
-    fb_right => fb_right,
-    
-    pixel_stream_in => pixel_stream,
-    pixel_y => pixel_y,
-    pixel_valid => pixel_valid,
-    pixel_newframe => pixel_newframe,
-    pixel_newraster => pixel_newraster,
+      fa_fire => fa_fire,
+      fa_up => fa_up,
+      fa_left => fa_left,
+      fa_down => fa_down,
+      fa_right => fa_right,
+      
+      fb_fire => fb_fire,
+      fb_up => fb_up,
+      fb_left => fb_left,
+      fb_down => fb_down,
+      fb_right => fb_right,
+      
+      pixel_stream_in => pixel_stream,
+      pixel_y => pixel_y,
+      pixel_valid => pixel_valid,
+      pixel_newframe => pixel_newframe,
+      pixel_newraster => pixel_newraster,
 
-    pmod_clock => pmodb_in_buffer(0),
-    pmod_start_of_sequence => pmodb_in_buffer(1),
-    pmod_data_in => pmodb_in_buffer(5 downto 2),
-    pmod_data_out => pmodb_out_buffer(1 downto 0),
-    
-    pmoda => pmoda,
+      pmod_clock => pmodb_in_buffer(0),
+      pmod_start_of_sequence => pmodb_in_buffer(1),
+      pmod_data_in => pmodb_in_buffer(5 downto 2),
+      pmod_data_out => pmodb_out_buffer(1 downto 0),
+      
+      pmoda => pmoda,
 
-    hdmi_sda => hdmi_sda,
-    hdmi_scl => hdmi_scl,    
+      hdmi_sda => hdmi_sda,
+      hdmi_scl => hdmi_scl,    
 
-    uart_rx => uart_rx,
-    uart_tx => uart_tx,
-    
-    farcallstack_we => farcallstack_we,
-    farcallstack_addr => farcallstack_addr,
-    farcallstack_din => farcallstack_din,
-    farcallstack_dout => farcallstack_dout,
-    
-    cs_bo => cs_bo,
-    sclk_o => sclk_o,
-    mosi_o => mosi_o,
-    miso_i => miso_i,
-    
-    aclMISO => aclMISO,
-    aclMOSI => aclMOSI,
-    aclSS => aclSS,
-    aclSCK => aclSCK,
-    aclInt1 => aclInt1,
-    aclInt2 => aclInt2,
-    
-    ampPWM => ampPWM,
-    ampPWM_l => ampPWM_l,
-    ampPWM_r => ampPWM_r,
-    ampSD => ampSD,
-    
-    micData => micData,
-    micClk => micClk,
-    micLRSel => micLRSel,
-    
-    tmpSDA => tmpSDA,
-    tmpSCL => tmpSCL,
-    tmpInt => tmpInt,
-    tmpCT => tmpCT,
+      uart_rx => uart_rx,
+      uart_tx => uart_tx,
+      
+      farcallstack_we => farcallstack_we,
+      farcallstack_addr => farcallstack_addr,
+      farcallstack_din => farcallstack_din,
+      farcallstack_dout => farcallstack_dout,
+      
+      cs_bo => cs_bo,
+      sclk_o => sclk_o,
+      mosi_o => mosi_o,
+      miso_i => miso_i,
+      
+      aclMISO => aclMISO,
+      aclMOSI => aclMOSI,
+      aclSS => aclSS,
+      aclSCK => aclSCK,
+      aclInt1 => aclInt1,
+      aclInt2 => aclInt2,
+      
+      ampPWM => ampPWM,
+      ampPWM_l => ampPWM_l,
+      ampPWM_r => ampPWM_r,
+      ampSD => ampSD,
+      
+      micData => micData,
+      micClk => micClk,
+      micLRSel => micLRSel,
+      
+      tmpSDA => tmpSDA,
+      tmpSCL => tmpSCL,
+      tmpInt => tmpInt,
+      tmpCT => tmpCT,
 
-    ---------------------------------------------------------------------------
-    -- IO lines to the ethernet controller
-    ---------------------------------------------------------------------------
-    eth_mdio => eth_mdio,
-    eth_mdc => eth_mdc,
-    eth_reset => eth_reset,
-    eth_rxd => eth_rxd,
-    eth_txd => eth_txd,
-    eth_txen => eth_txen,
-    eth_rxdv => eth_rxdv,
-    eth_rxer => eth_rxer,
-    eth_interrupt => eth_interrupt,
-    
-    ps2data => ps2data,
-    ps2clock => ps2clock,
-    
-    scancode_out => scancode_out
-    );
+      ---------------------------------------------------------------------------
+      -- IO lines to the ethernet controller
+      ---------------------------------------------------------------------------
+      eth_mdio => eth_mdio,
+      eth_mdc => eth_mdc,
+      eth_reset => eth_reset,
+      eth_rxd => eth_rxd,
+      eth_txd => eth_txd,
+      eth_txen => eth_txen,
+      eth_rxdv => eth_rxdv,
+      eth_rxer => eth_rxer,
+      eth_interrupt => eth_interrupt,
+      
+      ps2data => ps2data,
+      ps2clock => ps2clock,
+      
+      scancode_out => scancode_out
+      );
 
   ps2_to_uart0 : entity work.ps2_to_uart port map(
     matrix_trap_out=>matrix_trap,
     display_shift_out => display_shift,
-	 shift_ready_out => shift_ready,
-	 shift_ack_in => shift_ack,
+    shift_ready_out => shift_ready,
+    shift_ack_in => shift_ack,
     bit_rate_divisor => bit_rate_divisor,
     clk => uartclock,
-	 mm_displayMode_out=>mm_displayMode,
+    mm_displayMode_out=>mm_displayMode,
     reset => reset_combined,
     enabled => protected_hardware_sig(6),--sw(5),
     scan_code => scancode_out,       
@@ -879,10 +885,12 @@ begin
 
   matrix_compositor0 : entity work.matrix_compositor port map(
     display_shift_in=>display_shift,
-	 shift_ready_in => shift_ready,
-	 shift_ack_out => shift_ack,
+    shift_ready_in => shift_ready,
+    shift_ack_out => shift_ack,
     mm_displayMode_in => mm_displayMode,
     uart_in => uart_txd_sig,
+    uart_char_in => uart_char,
+    uart_char_valid => uart_char_valid,
     bit_rate_divisor => bit_rate_divisor,
     xcounter_in => xcounter,
     ycounter_in => ycounter,	
@@ -896,7 +904,7 @@ begin
     vgagreen_out => vgagreen,
     vgablue_out => vgablue
     ); 
-    
+  
   -----------------------------------------------------------------------------
   -- UART interface for monitor debugging and loading data
   -----------------------------------------------------------------------------
@@ -909,6 +917,12 @@ begin
     rx       => tx_switch,--tx_switch, --RsRx,
     bit_rate_divisor => bit_rate_divisor,
 
+    protected_hardware_in => protected_hardware_sig,
+    -- ASCII key from keyboard_complex for feeding UART monitor interface
+    -- when using local keyboard
+    uart_char => uart_char,
+    uart_char_valid => uart_char_valid,
+    
     force_single_step => sw(11),
     
     fastio_read => fastio_read,
@@ -959,7 +973,7 @@ begin
     monitor_mem_trace_mode => monitor_mem_trace_mode,
     monitor_mem_stage_trace_mode => monitor_mem_stage_trace_mode,
     monitor_mem_trace_toggle => monitor_mem_trace_toggle
-  );
+    );
 
   process (cpuclock) is
   begin

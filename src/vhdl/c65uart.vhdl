@@ -33,10 +33,12 @@ entity c65uart is
     widget_disable : out std_logic;
     ps2_disable : out std_logic;
     joy_disable : out std_logic;
+    physkey_disable : out std_logic;
     
     portf : inout std_logic_vector(7 downto 0);
     portg : in std_logic_vector(7 downto 0);
     porth : in std_logic_vector(7 downto 0);
+    porth_write_strobe : out std_logic := '0';
     porti : in std_logic_vector(7 downto 0)
     
     );
@@ -128,6 +130,7 @@ architecture behavioural of c65uart is
   signal widget_enable_internal : std_logic := '1';
   signal ps2_enable_internal : std_logic := '1';
   signal joy_enable_internal : std_logic := '1';
+  signal physkey_enable_internal : std_logic := '1';
   
 begin  -- behavioural
   
@@ -165,6 +168,7 @@ begin  -- behavioural
       widget_disable <= not widget_enable_internal;
       ps2_disable <= not ps2_enable_internal;
       joy_disable <= not joy_enable_internal;
+      physkey_disable <= not physkey_enable_internal;
       
       rx_clear_flags <= '0';
       if (fastio_address(19 downto 16) = x"D")
@@ -232,7 +236,7 @@ begin  -- behavioural
           fastio_rdata(0) <= clock709375;
           fastio_rdata(7 downto 1) <= (others => '1');
         when x"0d" =>
-          -- @IO:GS $D60D DEBUG - Read hyper_trap_count: will be removed after debugging. XXX - Temporarily reading restore_up_ticks instead
+          -- @IO:GS $D60D Port G (currently unusued)
           fastio_rdata(7 downto 0) <= unsigned(portg);
         when x"0e" =>
           -- @IO:GS $D60E PMOD port A on FPGA board (data bits)
@@ -241,10 +245,10 @@ begin  -- behavioural
           -- @IO:GS $D60F PMOD port A on FPGA board (DDR)
           fastio_rdata(7 downto 0) <= unsigned(reg_portf_ddr);
         when x"10" =>
-          -- @IO:GS $D610 DEBUG - Read restore_up_count: will be removed after debugging. XXX - Temporarily reading restore_up_ticks instead
+          -- @IO:GS $D610 Last key press as ASCII (hardware accelerated keyboard scanner). Write to clear event ready for next.
           fastio_rdata(7 downto 0) <= unsigned(porth);
         when x"11" =>
-          -- @IO:GS $D611 DEBUG - Read restore_down_count: will be removed after debugging. XXX - Temporarily reading restore_up_ticks instead
+          -- @IO:GS $D611 Modifier key state (hardware accelerated keyboard scanner).
           fastio_rdata(7 downto 0) <= unsigned(porti);
         when x"12" =>
           -- @IO:GS $D612.0 DEBUG - Enable widget board keyboard/joystick input
@@ -253,6 +257,8 @@ begin  -- behavioural
           fastio_rdata(1) <= ps2_enable_internal;
           -- @IO:GS $D612.2 DEBUG - Enable physical joystick input
           fastio_rdata(2) <= joy_enable_internal;
+          -- @IO:GS $D612.3 DEBUG - Enable physical joystick input
+          fastio_rdata(3) <= physkey_enable_internal;
         when x"13" =>
           -- @IO:GS $D613 DEBUG - Keyboard debug flags: will be removed after debugging
           fastio_rdata <= unsigned(key_debug);
@@ -399,6 +405,9 @@ begin  -- behavioural
     end if;
     
     if rising_edge(cpuclock) then
+
+      porth_write_strobe <= '0';
+      
       register_number(7 downto 5) := "000";
       register_number(4 downto 0) := fastio_address(4 downto 0);
 
@@ -450,10 +459,12 @@ begin  -- behavioural
           when x"08" => reg_porte_ddr<=std_logic_vector(fastio_wdata(7 downto 0));
           when x"0e" => reg_portf_out <= std_logic_vector(fastio_wdata);
           when x"0f" => reg_portf_ddr <= std_logic_vector(fastio_wdata);
+          when x"10" => porth_write_strobe <= '1';
           when x"12" =>
             widget_enable_internal <= std_logic(fastio_wdata(0));
             ps2_enable_internal <= std_logic(fastio_wdata(1));
             joy_enable_internal <= std_logic(fastio_wdata(2));
+            physkey_enable_internal <= std_logic(fastio_wdata(3));
           when others => null;
         end case;
       end if;

@@ -21,12 +21,16 @@ entity iomapper is
         speed_gate : out std_logic;
         speed_gate_enable : in std_logic;
         hyper_trap : out std_logic;
+        matrix_mode_trap : out std_logic;
         restore_key : in std_logic;
         restore_nmi : out std_logic;
         cpu_hypervisor_mode : in std_logic;
         hyper_trap_f011_read : out std_logic;
         hyper_trap_f011_write : out std_logic;
 
+        uart_char : out unsigned(7 downto 0);
+        uart_char_valid : out std_logic := '0';
+        
         fpga_temperature : in std_logic_vector(11 downto 0);
         address : in std_logic_vector(19 downto 0);
         r : in std_logic;
@@ -183,6 +187,7 @@ architecture behavioral of iomapper is
   signal widget_disable : std_logic;
   signal ps2_disable : std_logic;
   signal joy_disable : std_logic;
+  signal physkey_disable : std_logic;
 
   signal hyper_trap_count : unsigned(7 downto 0) := x"00";
   signal restore_up_count : unsigned(7 downto 0) := x"00";
@@ -228,6 +233,16 @@ architecture behavioral of iomapper is
 
   signal keyboard_column8_select : std_logic;
 
+  signal ascii_key_valid : std_logic := '0';
+  signal ascii_key : unsigned(7 downto 0) := x"00";
+  signal bucky_key : std_logic_vector(6 downto 0) := (others => '0');
+  signal ascii_key_buffered : unsigned(7 downto 0) := x"00";
+  signal ascii_key_presenting : std_logic := '0';
+  type key_buffer_t is array(0 to 3) of unsigned(7 downto 0);
+  signal ascii_key_buffer : key_buffer_t;
+  signal ascii_key_buffer_count : integer range 0 to 3 := 0;
+  signal ascii_key_next : std_logic := '0';
+  
   signal dummy_bits : std_logic_vector(7 downto 0);
   signal dummy_bits_62 : std_logic_vector(6 downto 2) := (others => '1');
   signal dummy : std_logic_vector(10 downto 0);
@@ -371,12 +386,14 @@ begin
       widget_disable => widget_disable,
       ps2_disable => ps2_disable,
       joy_disable => joy_disable,
+      physkey_disable => physkey_disable,
       uart_rx => uart_rx,
       uart_tx => uart_tx,
       portf => pmoda,
-      portg => std_logic_vector(hyper_trap_count),
-      porth => std_logic_vector(restore_up_count),
-      porti => std_logic_vector(restore_down_count)
+      portg => (others => '1'),
+      porth => std_logic_vector(ascii_key_buffered),
+      porth_write_strobe => ascii_key_next,
+      porti => std_logic_vector(bucky_key)
       );
   end block;
   
@@ -388,7 +405,7 @@ begin
     widget_disable => widget_disable,
     ps2_disable => ps2_disable,
     joy_disable => joy_disable,
-    physkey_disable => '0',
+    physkey_disable => physkey_disable,
     
     ioclock       => clk,
     restore_out => restore_nmi,
@@ -452,7 +469,13 @@ begin
 
     -- remote 
     eth_keycode_toggle => key_scancode_toggle,
-    eth_keycode => key_scancode
+    eth_keycode => key_scancode,
+
+    -- ASCII feed via hardware keyboard scanner
+    ascii_key => ascii_key,
+    ascii_key_valid => ascii_key_valid,
+    bucky_key => bucky_key
+    
     );
   end block;
 
@@ -623,6 +646,41 @@ begin
       seg_led(12) <= eth_keycode_toggle;
       seg_led(11) <= last_scan_code(12);
       seg_led(10 downto 0) <= unsigned(last_scan_code(10 downto 0));
+
+      -- Buffer ASCII keyboard input: Writing to the register causes
+      -- the next key in the queue to be displayed.
+      matrix_mode_trap <= '0';
+      if ascii_key_valid='1' and ascii_key = x"EF" then
+        -- C= + TAB
+        -- This replaces the old ALT+TAB task switch combination
+        matrix_mode_trap <= '1';
+      end if;
+      uart_char_valid <= '0';
+      if ascii_key_valid='1' and protected_hardware_in(7 downto 6)="00" then
+        uart_char <= ascii_key;
+        uart_char_valid <= '1';
+        if ascii_key_presenting = '1' then
+          if ascii_key_buffer_count < 4 then
+            ascii_key_buffer(ascii_key_buffer_count) <= ascii_key;
+            ascii_key_buffer_count <= ascii_key_buffer_count + 1;
+          end if;
+        else
+          ascii_key_buffered <= ascii_key;
+        end if;
+      end if;
+      if ascii_key_next = '1' then
+        if ascii_key_buffer_count > 0 then
+          ascii_key_presenting <= '1';
+          ascii_key_buffered <= ascii_key_buffer(0);
+          ascii_key_buffer_count <= ascii_key_buffer_count - 1;
+          for i in 0 to 2 loop
+            ascii_key_buffer(i) <= ascii_key_buffer(i+1);
+          end loop;
+        else
+          ascii_key_presenting <= '0';
+          ascii_key_buffered <= x"00";
+        end if;
+      end if;
       
     end if;
   end process;

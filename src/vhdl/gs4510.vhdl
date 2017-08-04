@@ -54,12 +54,13 @@ entity gs4510 is
     hyper_trap_f011_write : in std_logic;
     protected_hardware : out unsigned(7 downto 0);	
 	 --Protected Hardware Bits
-	 --Bit 1: TBD
+         --Bit 0: Trap F011 sector read/write
+         --Bit 1: TBD
 	 --Bit 2: TBD
 	 --Bit 3: TBD
 	 --Bit 4: TBD
 	 --Bit 5: TBD
-	 --Bit 6: Matrix Mode enable
+	 --Bit 6: Matrix Mode
 	 --Bit 7: Secure Mode enable 
 	 
     iomode_set : out std_logic_vector(1 downto 0) := "11";
