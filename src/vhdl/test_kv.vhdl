@@ -91,7 +91,7 @@ begin
       pixelclock <= '1'; cpuclock <= '1'; ioclock <= '1';
       wait for 5 ns;
     end loop;  -- i
-    assert false report "End of simulation" severity failure;
+    assert false report "End of simulation" severity note;
   end process;
 
   -- Pull up resisters
@@ -209,6 +209,9 @@ begin
     end function;
     function charisshifted(c : character) return boolean is
     begin
+      if c >= 'A' and c<= 'Z' then
+        return true;
+      end if;
       return false;
     end function;
     procedure type_text(cycles_per_char : integer;
@@ -224,19 +227,38 @@ begin
         a_pin := offset / 8;
         b_pin := offset rem 8;
         for j in 1 to cycles_per_char loop
+--          report "porta_pins = " & to_string(porta_pins)
+--            & ", portb_pins = " & to_string(portb_pins);
           if porta_pins(a_pin)='0' then
             portb_pins(b_pin) <= '0';
+            if (a_pin = 1) and (b_pin /= 7) then
+              if shifted then
+                portb_pins(7) <= '0';
+              else
+                portb_pins(7) <= 'Z';
+              end if;
+            end if;
+            if (a_pin /= 1) and (b_pin /= 7) then
+              portb_pins(7) <= 'Z';
+            end if;
           else
-            portb_pins <= (others => 'Z');
+            if shifted then
+              if porta_pins(1)='0' then
+                portb_pins(7) <= '0';
+              else
+                portb_pins <= (others => 'Z');
+              end if;
+            else
+              portb_pins <= (others => 'Z');
+            end if;
           end if;
           wait for 5 ns;
         end loop;
         portb_pins <= (others => 'Z');
-        report "next char " & integer'image(i);
       end loop;
     end procedure;
   begin
-    type_text(100,"The big fish");
+    type_text(1000,"The big fish");
     wait for 1000 ms;
   end process;  
   
