@@ -15,9 +15,11 @@ entity widget_to_matrix is
     pmod_data_out : out std_logic_vector(1 downto 0) := "ZZ";
 
     matrix : out std_logic_vector(71 downto 0) := (others => '1');
-    restore_out : out std_logic := '1';
-    joya : out std_logic_vector(4 downto 0) := '1';
-    joyb : out std_logic_vector(4 downto 0) := '1'
+    restore : out std_logic := '1';
+    capslock_out : out std_logic := '1';
+    reset_out : out std_logic := '1';
+    joya : out std_logic_vector(4 downto 0) := (others  => '1');
+    joyb : out std_logic_vector(4 downto 0) := (others => '1')
     
     );
 
@@ -30,9 +32,9 @@ architecture behavioural of widget_to_matrix is
   
 begin  -- behavioural
 
-  process (clk)
+  process (ioclock)
   begin
-    if rising_edge(clk) then
+    if rising_edge(ioclock) then
       ------------------------------------------------------------------------
       -- Read from MEGA keyboard/joystick/expansion port PMOD interface
       ------------------------------------------------------------------------
@@ -49,8 +51,8 @@ begin  -- behavioural
           -- First two bits of output from FPGA to input PCB is the status of
           -- the two LEDs: power LED is on when CPU is not in hypervisor mode,
           -- drive LED shows F011 drive status.
-          pmod_data_out(0) <= not cpu_hypervisor_mode;
-          pmod_data_out(1) <= drive_led_out;
+--          pmod_data_out(0) <= not cpu_hypervisor_mode;
+--          pmod_data_out(1) <= drive_led_out;
         else
           -- Clear output bits for bit positions for which we yet have no assignment
           pmod_data_out <= "00";
@@ -70,6 +72,7 @@ begin  -- behavioural
           if matrix_offset = 76 then
             -- restore is active low, like all other keys
             restore <= pmod_data_in(3);
+            capslock_out <= pmod_data_in(2);
             joya(4) <= pmod_data_in(0);
           end if;
           if matrix_offset = 80 then
@@ -78,7 +81,7 @@ begin  -- behavioural
           end if;
           if matrix_offset = 84 then
             reset_out <= pmod_data_in(3);
-            joy2(4) <= pmod_data_in(0);
+            joyb(4) <= pmod_data_in(0);
           end if;
         end if;
       end if;

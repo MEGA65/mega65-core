@@ -34,32 +34,124 @@ architecture behavioral of test_kv is
   signal ioclock : std_logic := '0';
 
   signal keyboard_matrix : std_logic_vector(71 downto 0) := (others => '1');
+
+  signal reset_in : std_logic := '1';
+    -- Joysticks
+  signal joya : std_logic_vector(4 downto 0);
+  signal joyb : std_logic_vector(4 downto 0);
+    -- Widget board
+  signal pmod_clock : std_logic;
+  signal pmod_start_of_sequence : std_logic;
+  signal pmod_data_in : std_logic_vector(3 downto 0);
+  signal pmod_data_out : std_logic_vector(1 downto 0) := "ZZ";
+    -- PS/2 keyboard
+  signal ps2clock  :  std_logic;
+  signal ps2data   :  std_logic;    
+    -- ethernet keyboard input interface for remote head mode
+  signal eth_keycode_toggle : std_logic;
+  signal eth_keycode : unsigned(15 downto 0);
+        
+    -- Flags to control which inputs are disabled, if any
+  signal physkey_disable : std_logic := '0';
+  signal joy_disable : std_logic := '0';
+  signal widget_disable : std_logic := '0';
+  signal ps2_disable : std_logic := '0';
+
+    -- RESTORE when held or double-tapped does special things
+  signal capslock_out : std_logic := '1';
+  signal restore_out : std_logic := '1';
+  signal reset_out : std_logic := '1';
+  signal hyper_trap_out : std_logic := '1';
+    
+    -- USE ASC/DIN / CAPS LOCK key to control CPU speed instead of CAPS LOCK function
+  signal speed_gate : std_logic := '1';
+  signal speed_gate_enable : std_logic := '1';
+    
+    -- Registers for debugging
+  signal key_debug_out : std_logic_vector(7 downto 0);
+  signal hyper_trap_count : unsigned(7 downto 0) := x"00";
+  signal restore_up_count : unsigned(7 downto 0) := x"00";
+  signal restore_down_count : unsigned(7 downto 0) := x"00";
+    
+    -- cia1 ports
+  signal keyboard_column8_select_in : std_logic;
+  signal porta_in  :  std_logic_vector(7 downto 0);
+  signal portb_in  :  std_logic_vector(7 downto 0);
+  signal porta_out : std_logic_vector(7 downto 0);
+  signal portb_out : std_logic_vector(7 downto 0);
+  signal porta_ddr :  std_logic_vector(7 downto 0);
+  signal portb_ddr :  std_logic_vector(7 downto 0);
+
+  signal pota_x : unsigned(7 downto 0) := x"ff";
+  signal pota_y : unsigned(7 downto 0) := x"ff";
+  signal potb_x : unsigned(7 downto 0) := x"ff";    
+  signal potb_y : unsigned(7 downto 0) := x"ff";
   
 begin
-  kv: entity work.keyboard_to_matrix
-    generic map (
-      clock_frequency => 50000000,
-      scan_frequency => 25000000)
-    port map (
-      clk => cpuclock,
-      porta_pins => porta_pins,
-      portb_pins => portb_pins,
-      keyboard_column8_out => keyboard_column8_out,
-      key_left => key_left,
-      key_up => key_up,
+  kc0: entity work.keyboard_complex port map(
+    ioclock => cpuclock,
+    reset_in => reset_in,
 
-      matrix => keyboard_matrix
-      );
+    -- Physical interface pins
 
-  m2a: entity work.matrix_to_ascii
-    port map(
-      clk => cpuclock,
-      matrix => keyboard_matrix,
-      
-      ascii_key => ascii_key,
-      bucky_key => bucky_key,
-      ascii_key_valid => ascii_key_valid
-      );
+    -- Keyboard
+    porta_pins => porta_pins,
+    portb_pins => portb_pins,
+    keyboard_column8_out => keyboard_column8_out,
+    key_left => key_left,
+    key_up => key_up,
+    -- Joysticks
+    joya => joya,
+    joyb => joyb,
+    -- Widget board
+    pmod_clock => pmod_clock,
+    pmod_start_of_sequence => pmod_start_of_sequence,
+    pmod_data_in => pmod_data_in,
+    pmod_data_out => pmod_data_out,
+    -- PS/2 keyboard
+    ps2clock  => ps2clock ,
+    ps2data   => ps2data  ,
+    -- ethernet keyboard input interface for remote head mode
+    eth_keycode_toggle => eth_keycode_toggle,
+    eth_keycode => eth_keycode,
+        
+    -- Flags to control which inputs are disabled, if any
+    physkey_disable => physkey_disable,
+    joy_disable => joy_disable,
+    widget_disable => widget_disable,
+    ps2_disable => ps2_disable,
+
+    -- RESTORE when held or double-tapped does special things
+    capslock_out => capslock_out,
+    restore_out => restore_out,
+    reset_out => reset_out,
+    hyper_trap_out => hyper_trap_out,
+    
+    -- USE ASC/DIN / CAPS LOCK key to control CPU speed instead of CAPS LOCK function
+    speed_gate => speed_gate,
+    speed_gate_enable => speed_gate_enable,
+    
+    -- Registers for debugging
+    key_debug_out => key_debug_out,
+    hyper_trap_count => hyper_trap_count,
+    restore_up_count => restore_up_count,
+    restore_down_count => restore_down_count,
+    
+    -- cia1 ports
+    keyboard_column8_select_in => keyboard_column8_select_in,
+    porta_in  => porta_in ,
+    portb_in  => portb_in ,
+    porta_out => porta_out,
+    portb_out => portb_out,
+    porta_ddr => porta_ddr,
+    portb_ddr => portb_ddr,
+
+    pota_x => pota_x,
+    pota_y => pota_y,
+    potb_x => potb_x,
+    potb_y => potb_y
+
+    );
 
   process
   begin

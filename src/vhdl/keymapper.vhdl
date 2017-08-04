@@ -34,6 +34,8 @@ entity keymapper is
     capslock_ps2 : in std_logic;
     restore_ps2 : in std_logic;
 
+    matrix_combined : out std_logic_vector(71 downto 0);
+    
     -- RESTORE when held or double-tapped does special things
     restore_out : out std_logic := '1';
     reset_out : out std_logic := '1';
@@ -84,8 +86,8 @@ architecture behavioural of keymapper is
   signal matrix : std_logic_vector(71 downto 0) := (others =>'1');
 
   -- PS2 keyboard emulated joystick
-  signal joya : std_logic_vector(4 downto 0) := (others =>'1');
-  signal joyb : std_logic_vector(4 downto 0) := (others =>'1');
+  signal joya : std_logic_vector(7 downto 0) := (others =>'1');
+  signal joyb : std_logic_vector(7 downto 0) := (others =>'1');
   
   signal restore_state : std_logic := '1';
   signal last_restore_state : std_logic := '1';
@@ -98,6 +100,10 @@ architecture behavioural of keymapper is
   signal ethernet_keyevent : std_logic := '0';
 
   signal key_num : integer range 0 to 71 := 0;
+  signal hyper_trap : std_logic := '1';
+
+  signal porta_pins : std_logic_vector(7 downto 0);
+  signal portb_pins : std_logic_vector(7 downto 0);
   
 begin  -- behavioural
 
@@ -107,14 +113,20 @@ begin  -- behavioural
   begin  -- process keyread
     if rising_edge(ioclock) then      
       reset_out <= reset_drive;
+      hyper_trap_out <= hyper_trap;
 
       -- Update keyboard matrix as combination of the various inputs
       if key_num < 71 then
         key_num <= key_num + 1;
       else
-        key_num <= '0';
+        key_num <= 0;
       end if;
       matrix(key_num) <= '1'
+                         and (matrix_physkey(key_num) or physkey_disable)
+                         and (matrix_widget(key_num) or widget_disable)
+                         and (matrix_ps2(key_num) or ps2_disable);
+      -- Update unified view for export
+      matrix_combined(key_num) <= '1'
                          and (matrix_physkey(key_num) or physkey_disable)
                          and (matrix_widget(key_num) or widget_disable)
                          and (matrix_ps2(key_num) or ps2_disable);
@@ -142,12 +154,15 @@ begin  -- behavioural
 
 
       -- Debug problems with restore and capslock
-      key_debug_out(0) <= capslock_in;
-      key_debug_out(1) <= widget_capslock;
-      key_debug_out(2) <= ps2_capslock;
-      key_debug_out(3) <= restore_key;
-      key_debug_out(4) <= widget_restore;
-      key_debug_out(5) <= ps2_restore;
+      key_debug_out(0) <= capslock_xor
+                          xor (capslock_ps2 or ps2_disable)
+                          xor (capslock_physkey or physkey_disable)
+                          xor (capslock_widget or widget_disable);
+      key_debug_out(1) <= capslock_widget;
+      key_debug_out(2) <= capslock_ps2;
+      key_debug_out(3) <= restore_state;
+      key_debug_out(4) <= restore_widget;
+      key_debug_out(5) <= restore_ps2;
       key_debug_out(6) <= restore_state;
       key_debug_out(7) <= last_restore_state;
       
@@ -189,8 +204,6 @@ begin  -- behavioural
           hyper_trap <= '1';
           restore_out <= '1';
           reset_drive <= '1';
-          report "setting reset=" & std_logic'image(resetbutton_state)
-            & " via FPGA board reset button";
         end if;
         
         if restore_state='0' then
@@ -317,13 +330,13 @@ begin  -- behavioural
           -- CIA should read bit as low
           porta_out(b) <= '0';
         else
-          porta_out(b) <= porta_value(b) and joya(b) and phyjoya(b);
+          porta_out(b) <= porta_value(b) and joya(b);
         end if;
         if (portb_ddr(b) = '0') and (portb_pins(b) = '0') then
           -- CIA should read bit as low
           portb_out(b) <= '0';
         else
-          portb_out(b) <= portb_value(b) and joyb(b) and phyjoyb(b);
+          portb_out(b) <= portb_value(b) and joyb(b);
         end if;
       end loop;
       
