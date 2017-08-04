@@ -14,9 +14,12 @@ entity keyboard_complex is
     -- Keyboard
     porta_pins : inout  std_logic_vector(7 downto 0) := (others => 'Z');
     portb_pins : inout  std_logic_vector(7 downto 0) := (others => 'Z');
+    keyboard_restore : in std_logic := '1';
     keyboard_column8_out : out std_logic := '1';
     key_left : in std_logic;
     key_up : in std_logic;
+    keyboard_capslock : in std_logic;
+    
     -- Joysticks
     joya : in std_logic_vector(4 downto 0);
     joyb : in std_logic_vector(4 downto 0);
@@ -57,6 +60,7 @@ entity keyboard_complex is
     hyper_trap_count : out unsigned(7 downto 0) := x"00";
     restore_up_count : out unsigned(7 downto 0) := x"00";
     restore_down_count : out unsigned(7 downto 0) := x"00";
+    last_scan_code : out std_logic_vector(12 downto 0);
     
     -- cia1 ports
     keyboard_column8_select_in : in std_logic;
@@ -80,8 +84,6 @@ architecture behavioural of keyboard_complex is
   signal matrix_combined : std_logic_vector(71 downto 0);
 
   signal keyboard_matrix : std_logic_vector(71 downto 0);
-  signal keyboard_capslock : std_logic := '1';
-  signal keyboard_restore : std_logic := '1';
   signal keyboard_joya : std_logic_vector(4 downto 0) := (others => '1');
   signal keyboard_joyb : std_logic_vector(4 downto 0) := (others => '1');
   
@@ -96,7 +98,6 @@ architecture behavioural of keyboard_complex is
   signal ps2_capslock : std_logic;
   signal ps2_joya : std_logic_vector(4 downto 0);
   signal ps2_joyb : std_logic_vector(4 downto 0);
-  signal last_scan_code : std_logic_vector(12 downto 0);
 
 begin
 

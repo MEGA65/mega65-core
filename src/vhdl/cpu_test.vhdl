@@ -236,6 +236,9 @@ begin
       ps2data => '1',
       ps2clock => '1',
 
+      keyleft => '1',
+      keyup => '1',
+    
       fa_left => '1',
       fa_right => '1',
       fa_up => '1',
@@ -313,28 +316,6 @@ begin
   process
   begin  -- process tb
     report "beginning simulation" severity note;
-
-    for i in 1 to 2000000 loop
-      pixelclock <= '0'; cpuclock <= '0'; ioclock <= '0';
-      wait for 5 ns;     
-      pixelclock <= '1'; cpuclock <= '0'; ioclock <= '0';
-      wait for 5 ns;     
-      pixelclock <= '0'; cpuclock <= '0'; ioclock <= '0';
-      wait for 5 ns;     
-      pixelclock <= '1'; cpuclock <= '0'; ioclock <= '0';
-      wait for 5 ns;     
-      pixelclock <= '0'; cpuclock <= '1'; ioclock <= '1';
-      wait for 5 ns;     
-      pixelclock <= '1'; cpuclock <= '1'; ioclock <= '1';
-      wait for 5 ns;     
-      pixelclock <= '0'; cpuclock <= '1'; ioclock <= '1';
-      wait for 5 ns;     
-      pixelclock <= '1'; cpuclock <= '1'; ioclock <= '1';
-      wait for 5 ns;
-      report "releasing reset" severity note;
-      reset <= '1';
-    end loop;  -- i
-    assert false report "End of simulation" severity failure;
   end process;
 
   -- Deliver dummy ethernet frames

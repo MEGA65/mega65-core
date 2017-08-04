@@ -415,6 +415,8 @@ begin
 
       porta_pins => porta_pins,
       portb_pins => portb_pins,
+      keyleft => '1',
+      keyup => '1',
       
       ---------------------------------------------------------------------------
       -- IO lines to the ethernet controller

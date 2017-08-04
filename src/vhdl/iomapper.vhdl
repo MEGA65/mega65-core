@@ -49,6 +49,8 @@ entity iomapper is
         porta_pins : inout  std_logic_vector(7 downto 0);
         portb_pins : inout  std_logic_vector(7 downto 0);
         keyboard_column8_out : out std_logic;
+        key_left : in std_logic;
+        key_up : in std_logic;
 
         fa_left : in std_logic;
         fa_right : in std_logic;
@@ -178,9 +180,9 @@ architecture behavioral of iomapper is
 
   signal capslock_from_keymapper : std_logic := '1';
   signal key_debug : std_logic_vector(7 downto 0);
-  signal widget_enable : std_logic;
-  signal ps2_enable : std_logic;
-  signal joy_enable : std_logic;
+  signal widget_disable : std_logic;
+  signal ps2_disable : std_logic;
+  signal joy_disable : std_logic;
 
   signal hyper_trap_count : unsigned(7 downto 0) := x"00";
   signal restore_up_count : unsigned(7 downto 0) := x"00";
@@ -366,9 +368,9 @@ begin
       porte_out(6) => hdmi_scl,
       porte_out(5 downto 0) => dummy_bits(5 downto 0),
       key_debug => key_debug,
-      widget_enable => widget_enable,
-      ps2_enable => ps2_enable,
-      joy_enable => joy_enable,
+      widget_disable => widget_disable,
+      ps2_disable => ps2_disable,
+      joy_disable => joy_disable,
       uart_rx => uart_rx,
       uart_tx => uart_tx,
       portf => pmoda,
@@ -380,22 +382,26 @@ begin
   
   block5: block
   begin
-    keymapper0 : entity work.keymapper port map (
+    kc0 : entity work.keyboard_complex port map (
     reset_in => reset,
-    widget_enable => widget_enable,
-    ps2_enable => ps2_enable,
-    joy_enable => joy_enable,
-    disableKeyboard => protected_hardware_in(6),
+
+    widget_disable => widget_disable,
+    ps2_disable => ps2_disable,
+    joy_disable => joy_disable,
+    physkey_disable => '0',
+    
     ioclock       => clk,
-    cpu_hypervisor_mode => cpu_hypervisor_mode,
-    drive_led_out => drive_led_out,
-    nmi => restore_nmi,
-    restore_key => restore_key,
-    hyper_trap => hyper_trap,
+    restore_out => restore_nmi,
+    keyboard_restore => restore_key,
+    keyboard_capslock => capslock_key,
+    key_left => key_left,
+    key_up => key_up,
+
+    hyper_trap_out => hyper_trap,
     hyper_trap_count => hyper_trap_count,
     restore_up_count => restore_up_count,
     restore_down_count => restore_down_count,
-    reset => reset_out,
+    reset_out => reset_out,
     ps2clock       => ps2clock,
     ps2data        => ps2data,
     last_scan_code => last_scan_code,
@@ -407,17 +413,17 @@ begin
     porta_ddr      => cia1porta_ddr,
     portb_ddr      => cia1portb_ddr,
 
-    fa_fire => fa_fire,
-    fa_up => fa_up,
-    fa_left => fa_left,
-    fa_down => fa_down,
-    fa_right => fa_right,
+    joya(4) => fa_fire,
+    joya(0) => fa_up,
+    joya(2) => fa_left,
+    joya(1) => fa_down,
+    joya(3) => fa_right,
     
-    fb_fire => fb_fire,
-    fb_up => fb_up,
-    fb_left => fb_left,
-    fb_down => fb_down,
-    fb_right => fb_right,  
+    joyb(4) => fb_fire,
+    joyb(0) => fb_up,
+    joyb(2) => fb_left,
+    joyb(1) => fb_down,
+    joyb(3) => fb_right,
     
     key_debug_out => key_debug,
   
@@ -432,9 +438,8 @@ begin
     speed_gate => speed_gate,
     speed_gate_enable => speed_gate_enable,
 
-    capslock_in => capslock_key,
     capslock_out => capslock_from_keymapper,
-    keyboard_column8_select_out => keyboard_column8_out,
+    keyboard_column8_out => keyboard_column8_out,
     keyboard_column8_select_in => keyboard_column8_select,
     pmod_clock => pmod_clock,
     pmod_start_of_sequence => pmod_start_of_sequence,

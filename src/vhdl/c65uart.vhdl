@@ -30,9 +30,9 @@ entity c65uart is
     uart_tx : out std_logic;
 
     key_debug : in std_logic_vector(7 downto 0);
-    widget_enable : out std_logic;
-    ps2_enable : out std_logic;
-    joy_enable : out std_logic;
+    widget_disable : out std_logic;
+    ps2_disable : out std_logic;
+    joy_disable : out std_logic;
     
     portf : inout std_logic_vector(7 downto 0);
     portg : in std_logic_vector(7 downto 0);
@@ -162,9 +162,9 @@ begin  -- behavioural
     
     if rising_edge(cpuclock) then
 
-      widget_enable <= widget_enable_internal;
-      ps2_enable <= ps2_enable_internal;
-      joy_enable <= joy_enable_internal;
+      widget_disable <= not widget_enable_internal;
+      ps2_disable <= not ps2_enable_internal;
+      joy_disable <= not joy_enable_internal;
       
       rx_clear_flags <= '0';
       if (fastio_address(19 downto 16) = x"D")

@@ -43,6 +43,8 @@ entity container is
          restore_key : in std_logic;
          column : inout  std_logic_vector(8 downto 0);
          row : inout  std_logic_vector(8 downto 0);
+         keyleft : in std_logic;
+         keyup : in std_logic;
          fa_left : in std_logic;
          fa_right : in std_logic;
          fa_up : in std_logic;
@@ -320,6 +322,8 @@ begin
       portb_pins => row(7 downto 0),
       keyboard_column8 => column(8),
       caps_lock_key => row(8),
+      keyleft => keyleft,
+      keyup => keyup,
 
       fa_fire => fa_fire,
       fa_up => fa_up,
