@@ -54,7 +54,7 @@ char *sanitise(char *s)
 int main(void)
 {
   // Unshifted keys
-  printf("  signal matrix_normal : key_matix_t := (\n");
+  printf("  signal matrix_normal : key_matrix_t := (\n");
   for(int key=0;key<72;key++)
     {
       int row=key&7;
@@ -102,7 +102,7 @@ int main(void)
 
 
   // shifted
-  printf("\n  signal matrix_shift : key_matix_t := (\n");
+  printf("\n  signal matrix_shift : key_matrix_t := (\n");
   for(int key=0;key<72;key++)
     {
       int row=key&7;
@@ -149,7 +149,7 @@ int main(void)
   printf("\n    others => x\"00\"\n    );\n");
 
   // control
-  printf("\n  signal matrix_control : key_matix_t := (\n");
+  printf("\n  signal matrix_control : key_matrix_t := (\n");
   for(int key=0;key<72;key++)
     {
       int row=key&7;

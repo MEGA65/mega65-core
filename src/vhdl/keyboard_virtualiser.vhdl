@@ -44,7 +44,7 @@ entity keyboard_virtualiser is
 
 end keyboard_virtualiser;
 
-architecture behavioral of iomapper is
+architecture behavioral of keyboard_virtualiser is
   -- Scan a row 100K/sec, so that the scanning is slow enough
   -- for the keyboard and joystick electronics
   constant count_down : integer := clock_frequency/scan_frequency;
@@ -56,7 +56,7 @@ architecture behavioral of iomapper is
   signal matrix : std_logic_vector(71 downto 0) := (others => 'Z');
 
   type key_matrix_t is array(0 to 71) of unsigned(7 downto 0);
-  signal matrix_normal : key_matix_t := (
+  signal matrix_normal : key_matrix_t := (
     0 => x"14", -- INS/DEL
     1 => x"00", -- RET/NO KEY
     2 => x"1d", -- HORZ/CRSR
@@ -133,7 +133,7 @@ architecture behavioral of iomapper is
     others => x"00"
     );
 
-  signal matrix_shift : key_matix_t := (
+  signal matrix_shift : key_matrix_t := (
     0 => x"94", -- INS/DEL
     1 => x"00", -- RET/NO KEY
     2 => x"9d", -- HORZ/CRSR
@@ -210,7 +210,7 @@ architecture behavioral of iomapper is
     others => x"00"
     );
 
-  signal matrix_control : key_matix_t := (
+  signal matrix_control : key_matrix_t := (
     0 => x"94", -- INS/DEL
     1 => x"00", -- RET/NO KEY
     2 => x"9d", -- HORZ/CRSR
