@@ -76,7 +76,8 @@ simulate:	$(SIMULATIONFILES)
 	ghdl -m cpu_test
 	./cpu_test || ghdl -r cpu_test
 
-KVFILES=vhdl/test_kv.vhdl vhdl/keyboard_to_matrix.vhdl vhdl/matrix_to_ascii.vhdl
+KVFILES=vhdl/test_kv.vhdl vhdl/keyboard_to_matrix.vhdl vhdl/matrix_to_ascii.vhdl \
+	vhdl/widget_to_matrix.vhdl
 kvsimulate:	$(KVFILES)
 	ghdl -i $(KVFILES)
 	ghdl -m test_kv
