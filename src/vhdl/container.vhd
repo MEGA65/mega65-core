@@ -181,6 +181,7 @@ architecture Behavioral of container is
   
   signal irq : std_logic := '1';
   signal nmi : std_logic := '1';
+  signal restore_key : std_logic := '1';
   signal reset_out : std_logic := '1';
   signal cpu_game : std_logic := '1';
   signal cpu_exrom : std_logic := '1';
@@ -373,7 +374,7 @@ begin
       reset_out => reset_out,
       irq => irq,
       nmi => nmi,
-      restore_key => not btn(1),
+      restore_key => restore_key,
 
       -- Wire up a dummy caps_lock key on switch 8
       caps_lock_key => sw(8),
@@ -501,7 +502,8 @@ begin
   -- Hardware buttons for triggering IRQ & NMI
   irq <= not btn(0);
   nmi <= not btn(4);
-
+  restore_key <= not btn(1);
+  
   -- Generate 50MHz clock for ethernet
   process (clock100mhz) is
   begin
