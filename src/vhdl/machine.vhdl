@@ -352,8 +352,6 @@ architecture Behavioral of machine is
   -- Matrix Mode signals
   signal scancode_out : std_logic_vector(12 downto 0); 
   signal mm_displayMode : unsigned(1 downto 0):=b"10"; 
-  signal tx_switch : std_logic; 
-  signal tx_ps2 : std_logic;
   signal bit_rate_divisor : unsigned(13 downto 0);
   signal vgablue_sig : unsigned(7 downto 0);
   signal vgared_sig : unsigned(7 downto 0);
@@ -869,8 +867,10 @@ begin
       scancode_out => scancode_out
       );
 
+  -- XXX - Only used now for ALT-1,2,3 and cursor key movement
+  -- 
   ps2_to_uart0 : entity work.ps2_to_uart port map(
-    matrix_trap_out=>matrix_trap,
+--    matrix_trap_out=>matrix_trap,
     display_shift_out => display_shift,
     shift_ready_out => shift_ready,
     shift_ack_in => shift_ack,
@@ -879,8 +879,8 @@ begin
     mm_displayMode_out=>mm_displayMode,
     reset => reset_combined,
     enabled => protected_hardware_sig(6),--sw(5),
-    scan_code => scancode_out,       
-    tx_ps2 => tx_ps2
+    scan_code => scancode_out
+--    tx_ps2 => tx_ps2
     ); 
 
   matrix_compositor0 : entity work.matrix_compositor port map(
@@ -914,7 +914,7 @@ begin
     monitor_hyper_trap => monitor_hyper_trap,
     clock => uartclock,
     tx       => uart_txd_sig,--uart_txd_sig,
-    rx       => tx_switch,--tx_switch, --RsRx,
+    rx       => RsRx,
     bit_rate_divisor => bit_rate_divisor,
 
     protected_hardware_in => protected_hardware_sig,
@@ -988,7 +988,6 @@ begin
   end process;
   
   UART_TXD<=uart_txd_sig; 
-  tx_switch <= tx_ps2 when protected_hardware_sig(6)='1' else RsRx; --uart monitor: serial input or ps2 keyboard input
   
 end Behavioral;
 
