@@ -2892,11 +2892,8 @@ begin
       slow_access_wdata <= slow_access_wdata_drive;
       slow_access_ready_toggle_buffer <= slow_access_ready_toggle;
 
-      if hypervisor_mode='0' then
-        protected_hardware <= hyper_protected_hardware;
-      else
-        protected_hardware <= (others => '0');
-      end if;
+      -- Allow matrix mode in hypervisor
+      protected_hardware <= hyper_protected_hardware;
       cpu_hypervisor_mode <= hypervisor_mode;
             
       check_for_interrupts;
@@ -3645,6 +3642,11 @@ begin
             when InstructionWait =>
               state <= InstructionFetch;
             when InstructionFetch =>
+              -- Allow toggling of matrix mode in the hypervisor
+              if matrix_trap_pending = '1' and hypervisor_mode='1' then
+                hyper_protected_hardware(6) <= hyper_protected_hardware(6) xor '1';
+                hyper_trap_pending <= '0';
+              end if;
               if (hypervisor_mode='0')
                 and ((irq_pending='1' and flag_i='0') or nmi_pending='1') then
                 -- An interrupt has occurred
