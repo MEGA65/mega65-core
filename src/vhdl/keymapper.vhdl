@@ -125,12 +125,13 @@ begin  -- behavioural
       if matrix_mode_in = '0' then
         -- Keyboard matrix as seen by user land doesn't change while we are in
         -- matrix mode.
-        -- XXX This will leave any down key potentially repeating, however
-        -- XXX Should we therefore clear it instead?
         matrix(key_num) <= '1'    
                            and (matrix_physkey(key_num) or physkey_disable)
                            and (matrix_widget(key_num) or widget_disable)
                            and (matrix_ps2(key_num) or ps2_disable);
+      else
+        -- In matrix mode, it is as though no keys are pressed
+        matrix(key_num) <= '1';
       end if;
       -- Update unified view for export
       matrix_combined(key_num) <= '1'
