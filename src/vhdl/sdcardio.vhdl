@@ -139,29 +139,6 @@ end sdcardio;
 
 architecture behavioural of sdcardio is
   
-  component sd_controller is
-    port (
-        cs : out std_logic;
-        mosi : out std_logic;
-        miso : in std_logic;
-        sclk : out std_logic;
-
-        sector_number : in std_logic_vector(31 downto 0);  -- sector number requested
-        sdhc_mode : in std_logic;
-        half_speed : in std_logic;
-        rd : in std_logic;
-        wr : in std_logic;
-        dm_in : in std_logic;   -- data mode, 0 = write continuously, 1 = write single block
-        reset : in std_logic;
-        data_ready : out std_logic;     -- 1= data written, or data accepted,
-                                        -- 0= wait for data, or pre-load data
-                                        -- for writing
-        din : in std_logic_vector(7 downto 0);
-        dout : out std_logic_vector(7 downto 0);
-        clk : in std_logic    -- twice the SPI clk
-        );
-  end component;
-
   component ram8x512 IS
   PORT (
     clk : IN STD_LOGIC;
@@ -247,6 +224,9 @@ architecture behavioural of sdcardio is
                       F011WriteSector,F011WriteSectorCopying,DoneWritingSector);
   signal sd_state : sd_state_t := Idle;
 
+  -- Diagnostic register for determining SD/SDHC card state.
+  signal last_sd_state : unsigned(7 downto 0);
+  
   -- F011 FDC emulation registers and flags
   signal diskimage_sector : unsigned(31 downto 0) := x"ffffffff";
   signal diskimage2_sector : unsigned(31 downto 0) := x"ffffffff";
@@ -305,13 +285,15 @@ begin  -- behavioural
   -- SD card controller module.
   --**********************************************************************
   
-  sd0: sd_controller 
+  sd0: entity work.sd_controller 
     port map (
 	cs => cs_bo,
 	mosi => mosi_o,
 	miso => miso_i,
 	sclk => sclk_o,
 
+        last_state => last_sd_state,
+        
         sector_number => std_logic_vector(sd_sector),
         sdhc_mode => sdhc_mode,
         half_speed => half_speed,
@@ -503,6 +485,8 @@ begin  -- behavioural
          when "01010" =>
             -- P CODE  |  P7   |  P6   |  P5   |  P4   |  P3   |  P2   |  P1   |  P0   | A R
             fastio_rdata <= (others => 'Z');
+          when "11011" => -- @IO:GS $D09B - Most recent SD card command sent
+            fastio_rdata <= last_sd_state;
           when "11100" => -- @IO:GS $D09C - FDC read buffer pointer low bits (DEBUG)
             fastio_rdata <= f011_buffer_address(7 downto 0);
           when "11101" => -- @IO:GS $D09D - FDC read buffer pointer high bit (DEBUG)
