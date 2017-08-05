@@ -744,6 +744,10 @@ begin
       -- when using local keyboard
       uart_monitor_char => uart_monitor_char,
       uart_monitor_char_valid => uart_monitor_char_valid,
+      mm_displayMode_out => mm_displayMode,
+      display_shift_out => display_shift,
+      shift_ready_out => shift_ready,
+      shift_ack_in => shift_ack,     
       
       fpga_temperature => fpga_temperature,
 

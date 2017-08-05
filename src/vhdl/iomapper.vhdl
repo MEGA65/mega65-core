@@ -32,6 +32,11 @@ entity iomapper is
         uart_char_valid : out std_logic := '0';
         uart_monitor_char : out unsigned(7 downto 0);
         uart_monitor_char_valid : out std_logic := '0';
+
+        display_shift_out : out std_logic_vector(2 downto 0) := "000";
+        shift_ready_out : out std_logic := '0';
+        shift_ack_in : in std_logic;        
+        mm_displayMode_out : out unsigned(1 downto 0) := "10";
         
         fpga_temperature : in std_logic_vector(11 downto 0);
         address : in std_logic_vector(19 downto 0);
@@ -252,8 +257,7 @@ architecture behavioral of iomapper is
   signal sd_bitbash_miso_i : std_logic;
   signal cs_bo_sd : std_logic;
   signal sclk_o_sd : std_logic;
-  signal mosi_o_sd : std_logic;
-  
+  signal mosi_o_sd : std_logic;  
   
   signal dummy_bits : std_logic_vector(7 downto 0);
   signal dummy_bits_62 : std_logic_vector(6 downto 2) := (others => '1');
@@ -689,8 +693,28 @@ begin
       if ascii_key_valid='1' and protected_hardware_in(6)='1' then
         uart_monitor_char <= ascii_key;
         uart_monitor_char_valid <= '1';
+        case ascii_key is
+          -- C= + 1,2,3 to set display size
+          when x"95" => mm_displayMode_out <= "00";
+          when x"96" => mm_displayMode_out <= "01";
+          when x"97" => mm_displayMode_out <= "10";
+          -- Cursor keys to move matrix mode display
+          when x"1d" => display_shift_out <= "010"; --right
+                        shift_ready_out <= '1';
+          when x"9d" => display_shift_out <= "100"; --left
+                        shift_ready_out <= '1';
+          when x"91" => display_shift_out <= "001"; --up
+                        shift_ready_out <= '1';
+          when x"11" => display_shift_out <= "011"; --down
+                        shift_ready_out <= '1';
+          when others =>  null;
+        end case;
+    
       else
-        uart_monitor_char_valid <= '0';
+        uart_monitor_char_valid <= '0';      
+      end if;
+      if shift_ack_in='1' then
+        shift_ready_out <= '0';
       end if;
       
       -- UART char for user mode
