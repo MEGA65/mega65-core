@@ -38,6 +38,10 @@ entity uart_monitor is
     protected_hardware_in : in unsigned(7 downto 0);
     uart_char : in unsigned(7 downto 0);
     uart_char_valid : in std_logic;
+
+    monitor_char_out : out unsigned(7 downto 0);
+    monitor_char_valid : out std_logic;
+    terminal_emulator_ready : in std_logic;
     
     key_scancode : out unsigned(15 downto 0);
     key_scancode_toggle : out std_logic;
@@ -337,6 +341,19 @@ begin
     begin  -- to_character
       return character'val(to_integer(v));   
     end to_character;
+
+    procedure output_char(char : in character) is
+    begin
+      if (protected_hardware_in(6)='0') then
+        -- UART output
+        tx_data <= to_std_logic_vector(char);
+        tx_trigger <= '1';
+      else
+        -- matrix mode terminal emulator output
+        monitor_char_out <= unsigned(to_std_logic_vector(char));
+        monitor_char_valid <= '1';
+      end if;
+    end output_char;
     
     -- purpose: Process a character typed by the user.
     procedure character_received (char : in character) is
@@ -344,15 +361,13 @@ begin
       if ((char >= ' ' and char < del) or (char > c159)) and (key_state=0) then
         if cmdlen<65 then
           -- Echo character back to user
-          tx_data <= to_std_logic_vector(char);
-          tx_trigger <= '1';
+          output_char(char);
           -- Append to input buffer
           cmdbuffer(cmdlen) <= char;
           cmdlen <= cmdlen + 1;
         else
           -- Input buffer full, so ring bell.
-          tx_data <= to_std_logic_vector(bel);
-          tx_trigger <= '1';
+          output_char(bel);
         end if;
       else
         -- Non-printable character, for now print ?
@@ -419,19 +434,24 @@ begin
               when bs =>
                 if cmdlen>1 then
                   -- Delete character from end of line
-                  tx_data <= to_std_logic_vector(bs);
-                  tx_trigger <= '1';
+                  output_char(bs);
                   cmdlen <= cmdlen - 1;          
                   state <= EraseCharacter;
                 end if;
               when del =>
                 if cmdlen>1 then
                   -- Delete character from end of line
-                  tx_data <= to_std_logic_vector(bs);
-                  tx_trigger <= '1';                    
+                  output_char(bs);
                   cmdlen <= cmdlen - 1;          
                   state <= EraseCharacter;
                 end if;
+              when character'val(20) => -- PETSCII delete
+                if cmdlen>1 then
+                  -- Delete character from end of line
+                  output_char(bs);
+                  cmdlen <= cmdlen - 1;          
+                  state <= EraseCharacter;
+                end if;                
               when ack =>
               -- ^F move forward one character
               -- XXX not implemented
@@ -441,8 +461,8 @@ begin
               when cr => state <= EnterPressed;
               when lf => state <= EnterPressed;
               when others =>
-                tx_data <= to_std_logic_vector(bel);
-                tx_trigger <= '1';                    
+                -- Ring bell
+                output_char(bel);
             end case;
           when others =>
             null;
@@ -455,9 +475,12 @@ begin
       char       : in character;
       next_state : in monitor_state) is
     begin  -- try_output_char
-      if tx_ready='1' then
-        tx_data <= to_std_logic_vector(char);
-        tx_trigger <= '1';
+      if tx_ready='1' and protected_hardware_in(6)='0' then
+        output_char(char);
+        state <= next_state;
+      end if;
+      if protected_hardware_in(6)='1' and terminal_emulator_ready='1' then
+        output_char(char);
         state <= next_state;
       end if;
     end try_output_char;
@@ -737,7 +760,8 @@ begin
         -- Update counter and clear outputs
         counter <= counter + 1;
         rx_acknowledge <= '0';
-        tx_trigger<='0';
+        tx_trigger <= '0';
+        monitor_char_valid <= '0';
 
         -- Make sure we don't leave the CPU locked
         if rx_ready='1' then
@@ -746,8 +770,8 @@ begin
           monitor_mem_attention_request <= '0';
         end if;
         
-        -- 1 cycle delay after sending characters
-        if tx_trigger/='1' then      
+        -- Maintain 1 cycle delay after sending characters
+        if tx_trigger/='1' and terminal_emulator_ready='1' then      
           -- General state machine
           case state is
             when Reseting =>
@@ -755,9 +779,8 @@ begin
               state <= PrintBanner;
               
             when PrintBanner =>
-              if tx_ready='1' then
-                tx_data <= to_std_logic_vector(bannerMessage(banner_position));
-                tx_trigger <= '1';
+              if tx_ready='1' and terminal_emulator_ready='1' then                
+                output_char(bannerMessage(banner_position));
                 if banner_position<bannerMessage'length then
                   banner_position <= banner_position + 1;
                 else
@@ -767,9 +790,8 @@ begin
               end if;
               
             when PrintError =>
-              if tx_ready='1' then
-                tx_data <= to_std_logic_vector(errorMessage(banner_position));
-                tx_trigger <= '1';
+              if tx_ready='1' and terminal_emulator_ready='1' then                
+                output_char(errorMessage(banner_position));
                 if banner_position<errorMessage'length then
                   banner_position <= banner_position + 1;
                 else
@@ -791,9 +813,8 @@ begin
               
             when PrintRequestTimeoutError =>
               monitor_mem_attention_request <= '0';
-              if tx_ready='1' then
-                tx_data <= to_std_logic_vector(requestTimeoutMessage(banner_position));
-                tx_trigger <= '1';
+              if tx_ready='1' and terminal_emulator_ready='1' then
+                output_char(requestTimeoutMessage(banner_position));
                 if banner_position<requestTimeoutMessage'length then
                   banner_position <= banner_position + 1;
                 else
@@ -803,9 +824,8 @@ begin
               
             when PrintReplyTimeoutError =>
               monitor_mem_attention_request <= '0';
-              if tx_ready='1' then
-                tx_data <= to_std_logic_vector(replyTimeoutMessage(banner_position));
-                tx_trigger <= '1';
+              if tx_ready='1' and terminal_emulator_ready='1' then
+                output_char(replyTimeoutMessage(banner_position));
                 if banner_position<replyTimeoutMessage'length then
                   banner_position <= banner_position + 1;
                 else
@@ -1279,9 +1299,8 @@ begin
               monitor_mem_setpc <= '0';
               
             when ShowRegisters1 =>
-              if tx_ready='1' then
-                tx_data <= to_std_logic_vector(registerMessage(banner_position));
-                tx_trigger <= '1';
+              if tx_ready='1' and terminal_emulator_ready='1' then
+                output_char(registerMessage(banner_position));
                 if banner_position<registerMessage'length then
                   banner_position <= banner_position + 1;
                 else

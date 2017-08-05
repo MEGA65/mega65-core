@@ -367,6 +367,9 @@ architecture Behavioral of machine is
   signal uart_char_valid : std_logic := '0';
   signal uart_monitor_char : unsigned(7 downto 0);
   signal uart_monitor_char_valid : std_logic := '0';
+  signal monitor_char_out : unsigned(7 downto 0);
+  signal monitor_char_out_valid : std_logic := '0';
+  signal terminal_emulator_ready : std_logic := '0';
 
 begin
 
@@ -884,10 +887,9 @@ begin
     shift_ready_in => shift_ready,
     shift_ack_out => shift_ack,
     mm_displayMode_in => mm_displayMode,
-    uart_in => uart_txd_sig,
-    uart_char_in => uart_monitor_char,
-    uart_char_valid => uart_monitor_char_valid,
-    bit_rate_divisor => bit_rate_divisor,
+    monitor_char_in => monitor_char_out,
+    monitor_char_valid => monitor_char_out_valid,
+    terminal_emulator_ready => terminal_emulator_ready,
     xcounter_in => xcounter,
     ycounter_in => ycounter,	
     clk => uartclock,
@@ -918,6 +920,11 @@ begin
     -- when using local keyboard
     uart_char => uart_monitor_char,
     uart_char_valid => uart_monitor_char_valid,
+
+    -- output for matrix mode
+    monitor_char_out => monitor_char_out,
+    monitor_char_valid => monitor_char_out_valid,
+    terminal_emulator_ready => terminal_emulator_ready,
     
     force_single_step => sw(11),
     
