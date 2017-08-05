@@ -366,12 +366,12 @@ begin
       end if;
 
       -- Update modifiers
-      bucky_key_internal(0) <= matrix(15);
-      bucky_key_internal(1) <= matrix(52);
-      bucky_key_internal(2) <= matrix(58);
-      bucky_key_internal(3) <= matrix(61);
-      bucky_key_internal(4) <= matrix(66);
-      bucky_key_internal(5) <= matrix(64);
+      bucky_key_internal(0) <= not matrix(15);
+      bucky_key_internal(1) <= not matrix(52);
+      bucky_key_internal(2) <= not matrix(58);
+      bucky_key_internal(3) <= not matrix(61);
+      bucky_key_internal(4) <= not matrix(66);
+      bucky_key_internal(5) <= not matrix(64);
       bucky_key <= bucky_key_internal;
 
       -- Check for key press events
