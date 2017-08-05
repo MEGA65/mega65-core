@@ -235,7 +235,7 @@ architecture behavioral of iomapper is
 
   signal ascii_key_valid : std_logic := '0';
   signal ascii_key : unsigned(7 downto 0) := x"00";
-  signal bucky_key : std_logic_vector(6 downto 0) := (others => '0');
+  signal bucky_key : std_logic_vector(7 downto 0) := (others => '0');
   signal ascii_key_buffered : unsigned(7 downto 0) := x"00";
   signal ascii_key_presenting : std_logic := '0';
   type key_buffer_t is array(0 to 3) of unsigned(7 downto 0);
@@ -393,7 +393,7 @@ begin
       portg => (others => '1'),
       porth => std_logic_vector(ascii_key_buffered),
       porth_write_strobe => ascii_key_next,
-      porti => '0'&std_logic_vector(bucky_key(6 downto 0))
+      porti => std_logic_vector(bucky_key(7 downto 0))
       );
   end block;
   
@@ -474,7 +474,7 @@ begin
     -- ASCII feed via hardware keyboard scanner
     ascii_key => ascii_key,
     ascii_key_valid => ascii_key_valid,
-    bucky_key => bucky_key
+    bucky_key => bucky_key(6 downto 0)
     
     );
   end block;
