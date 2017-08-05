@@ -245,15 +245,14 @@ architecture behavioral of iomapper is
   signal ascii_key_buffer_count : integer range 0 to 3 := 0;
   signal ascii_key_next : std_logic := '0';
 
-  signal sd_bitbash_cs_bo : std_logic;
+  signal sd_bitbash : std_logic;
   signal sd_bitbash_cs_bo : std_logic;
   signal sd_bitbash_sclk_o : std_logic;
   signal sd_bitbash_mosi_o : std_logic;
   signal sd_bitbash_miso_i : std_logic;
-  signal cs_bo_pick : std_logic;
-  signal sclk_o_pick : std_logic;
-  signal mosi_o_pick : std_logic;
-  signal miso_i_pick : std_logic;  
+  signal cs_bo_sd : std_logic;
+  signal sclk_o_sd : std_logic;
+  signal mosi_o_sd : std_logic;
   
   
   signal dummy_bits : std_logic_vector(7 downto 0);
@@ -596,10 +595,10 @@ begin
     btn => btn,
 
     -- SD card interface
-    cs_bo => cs_bo_pick,
-    sclk_o => sclk_o_pick,
-    mosi_o => mosi_o_pick,
-    miso_i => miso_i_pick,
+    cs_bo => cs_bo_sd,
+    sclk_o => sclk_o_sd,
+    mosi_o => mosi_o_sd,
+    miso_i => miso_i,
 
     aclMISO => aclMISO,
     aclMOSI => aclMOSI,
@@ -653,10 +652,9 @@ begin
   end process;
 
   -- Allow taking over of SD interface for bitbashing and debugging
-  cs_bo_pick <= cs_bo when sd_bitbash='0' else sd_bitbash_cs_bo;
-  sclk_o_pick <= sclk_o when sd_bitbash='0' else sd_bitbash_sclk_o;
-  mosi_o_pick <= mosi_o when sd_bitbash='0' else sd_bitbash_mosi_o;
-  miso_i_pick <= miso_i when sd_bitbash='0' else sd_bitbash_miso_i;
+  cs_bo <= cs_bo_sd when sd_bitbash='0' else sd_bitbash_cs_bo;
+  sclk_o <= sclk_o_sd when sd_bitbash='0' else sd_bitbash_sclk_o;
+  mosi_o <= mosi_o_sd when sd_bitbash='0' else sd_bitbash_mosi_o;
   
   scancode_out<=last_scan_code;
   process(clk)
