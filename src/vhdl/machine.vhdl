@@ -493,6 +493,8 @@ begin
       else
         seg_led_data(23 downto 16) <= x"45";
       end if;
+      -- XXX temporary debug
+      seg_led_data(23 downto 16) <= protected_hardware_sig;
       seg_led_data(15 downto 8) <= uart_char;
       seg_led_data(7 downto 0) <= uart_monitor_char;
       
