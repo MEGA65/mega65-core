@@ -359,12 +359,14 @@ architecture Behavioral of machine is
   signal xcounter : unsigned(11 downto 0);
   signal ycounter : unsigned(11 downto 0); 
   signal uart_txd_sig : std_logic;
-  signal display_shift : std_logic_vector(2 downto 0);
-  signal shift_ready : std_logic;
-  signal shift_ack : std_logic; 
+  signal display_shift : std_logic_vector(2 downto 0) := "000";
+  signal shift_ready : std_logic := '0';
+  signal shift_ack : std_logic := '0'; 
   signal matrix_trap : std_logic;  
   signal uart_char : unsigned(7 downto 0);
   signal uart_char_valid : std_logic := '0';
+  signal uart_monitor_char : unsigned(7 downto 0);
+  signal uart_monitor_char_valid : std_logic := '0';
 
 begin
 
@@ -732,10 +734,13 @@ begin
       speed_gate => speed_gate,
       speed_gate_enable => speed_gate_enable,
 
-      -- ASCII key from keyboard_complex for feeding UART monitor interface
-      -- when using local keyboard
       uart_char => uart_char,
       uart_char_valid => uart_char_valid,
+      
+      -- ASCII key from keyboard_complex for feeding UART monitor interface
+      -- when using local keyboard
+      uart_monitor_char => uart_monitor_char,
+      uart_monitor_char_valid => uart_monitor_char_valid,
       
       fpga_temperature => fpga_temperature,
 
@@ -867,30 +872,14 @@ begin
       scancode_out => scancode_out
       );
 
-  -- XXX - Only used now for ALT-1,2,3 and cursor key movement
-  -- 
-  ps2_to_uart0 : entity work.ps2_to_uart port map(
---    matrix_trap_out=>matrix_trap,
-    display_shift_out => display_shift,
-    shift_ready_out => shift_ready,
-    shift_ack_in => shift_ack,
-    bit_rate_divisor => bit_rate_divisor,
-    clk => uartclock,
-    mm_displayMode_out=>mm_displayMode,
-    reset => reset_combined,
-    enabled => protected_hardware_sig(6),--sw(5),
-    scan_code => scancode_out
---    tx_ps2 => tx_ps2
-    ); 
-
   matrix_compositor0 : entity work.matrix_compositor port map(
     display_shift_in=>display_shift,
     shift_ready_in => shift_ready,
     shift_ack_out => shift_ack,
     mm_displayMode_in => mm_displayMode,
     uart_in => uart_txd_sig,
-    uart_char_in => uart_char,
-    uart_char_valid => uart_char_valid,
+    uart_char_in => uart_monitor_char,
+    uart_char_valid => uart_monitor_char_valid,
     bit_rate_divisor => bit_rate_divisor,
     xcounter_in => xcounter,
     ycounter_in => ycounter,	
@@ -920,8 +909,8 @@ begin
     protected_hardware_in => protected_hardware_sig,
     -- ASCII key from keyboard_complex for feeding UART monitor interface
     -- when using local keyboard
-    uart_char => uart_char,
-    uart_char_valid => uart_char_valid,
+    uart_char => uart_monitor_char,
+    uart_char_valid => uart_monitor_char_valid,
     
     force_single_step => sw(11),
     

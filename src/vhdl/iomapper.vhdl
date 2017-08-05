@@ -30,6 +30,8 @@ entity iomapper is
 
         uart_char : out unsigned(7 downto 0);
         uart_char_valid : out std_logic := '0';
+        uart_monitor_char : out unsigned(7 downto 0);
+        uart_monitor_char_valid : out std_logic := '0';
         
         fpga_temperature : in std_logic_vector(11 downto 0);
         address : in std_logic_vector(19 downto 0);
@@ -400,7 +402,8 @@ begin
   block5: block
   begin
     kc0 : entity work.keyboard_complex port map (
-    reset_in => reset,
+      reset_in => reset,
+      matrix_mode_in => protected_hardware_in(6),
 
     widget_disable => widget_disable,
     ps2_disable => ps2_disable,
@@ -655,8 +658,18 @@ begin
         -- This replaces the old ALT+TAB task switch combination
         matrix_mode_trap <= '1';
       end if;
+
+      -- UART char for monitor/matrix mode
+      if ascii_key_valid='1' and protected_hardware_in(6)='1' then
+        uart_monitor_char <= ascii_key;
+        uart_monitor_char_valid <= '1';
+      else
+        uart_monitor_char_valid <= '0';
+      end if;
+      
+      -- UART char for user mode
       uart_char_valid <= '0';
-      if ascii_key_valid='1' and protected_hardware_in(7 downto 6)="00" then
+      if ascii_key_valid='1' and protected_hardware_in(6)='0' then
         uart_char <= ascii_key;
         uart_char_valid <= '1';
         if ascii_key_presenting = '1' then
