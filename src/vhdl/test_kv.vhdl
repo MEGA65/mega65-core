@@ -301,19 +301,18 @@ begin
       end if;
       return false;
     end function;
-    procedure type_text(cycles_per_char : integer;
-                        text : string) is
+    procedure type_char(cycles_per_char : integer;
+                        char : character) is
       variable offset : integer;
       variable shifted : boolean;
       variable a_pin : integer;
       variable b_pin : integer;
     begin
-      for i in text'range loop
-        offset := char2matrix(text(i));
-        shifted := charisshifted(text(i));
+        offset := char2matrix(char);
+        shifted := charisshifted(char);
         a_pin := offset / 8;
         b_pin := offset rem 8;
-        report "Typing  " & character'image(text(i));
+        report "Typing  " & character'image(char);
         for j in 1 to cycles_per_char loop
 --          report "porta_pins = " & to_string(porta_pins)
 --            & ", portb_pins = " & to_string(portb_pins);
@@ -343,15 +342,25 @@ begin
           wait for 5 ns;
         end loop;
         portb_pins <= (others => 'Z');
+    end procedure;      
+    procedure type_text(cycles_per_char : integer;
+                        text : string) is
+    begin
+      for i in text'range loop
+        type_char(cycles_per_char,text(i));
       end loop;
     end procedure;
+
   begin
     report "Turning matrix mode off";
     matrix_mode <= '0';
     type_text(1000,"The big fish");
+    type_char(1000,cr);
+    wait for 1000 ms;
     report "Turning matrix mode on";
     matrix_mode <= '1';
     type_text(1000,"The big fish");
+    type_char(1000,cr);
     wait for 1000 ms;
   end process;  
   
