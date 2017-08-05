@@ -862,11 +862,14 @@ architecture Behavioral of viciv is
   -- Character drawing info
   signal background_colour_select : unsigned(1 downto 0);
   signal glyph_number : unsigned(12 downto 0) := to_unsigned(0,13);
+  signal glyph_colour_drive : unsigned(7 downto 0);
   signal glyph_colour : unsigned(7 downto 0);
   signal glyph_attributes : unsigned(3 downto 0);
   signal glyph_visible_drive : std_logic;
   signal glyph_visible : std_logic;
   signal glyph_bold : std_logic;
+  signal glyph_bold_drive : std_logic;
+  signal glyph_underline_drive : std_logic;
   signal glyph_underline : std_logic;
   signal glyph_reverse : std_logic;
   signal glyph_reverse_drive : std_logic;
@@ -877,7 +880,9 @@ architecture Behavioral of viciv is
   signal glyph_width : integer range 0 to 8;
   signal paint_glyph_width : integer range 0 to 8;
   signal glyph_blink : std_logic;
+  signal glyph_blink_drive : std_logic;
   signal paint_blink : std_logic;
+  signal glyph_with_alpha_drive : std_logic;
   signal glyph_with_alpha : std_logic;
   signal paint_with_alpha : std_logic;
   signal glyph_trim_top : integer range 0 to 7;
@@ -3511,13 +3516,19 @@ begin
 
           if viciii_extended_attributes='1' then
             -- 8-bit colour RAM in VIC-III/IV mode
-            glyph_colour <= colourramdata;
+            glyph_colour_drive <= colourramdata;
           else
             -- 16 colours only in VIC-II mode
-            glyph_colour(7 downto 4) <= x"0";
-            glyph_colour(3 downto 0) <= colourramdata(3 downto 0);
+            glyph_colour_drive(7 downto 4) <= x"0";
+            glyph_colour_drive(3 downto 0) <= colourramdata(3 downto 0);
           end if;
           
+          glyph_visible_drive <= glyph_visible;
+          glyph_reverse_drive <= glyph_reverse;
+          glyph_underline_drive <= glyph_underline;
+          glyph_bold_drive <= glyph_bold;
+          glyph_with_alpha_drive <= glyph_with_alpha;
+
           raster_fetch_state <= PaintMemWait;
         when FetchTextCellColourAndSource =>
           -- Finally determine whether source is from RAM or CHARROM
@@ -3533,29 +3544,29 @@ begin
           end if;
           -- Record colour and attribute information from colour RAM
           -- XXX We do this even in bitmap mode!
-          glyph_colour(7 downto 4) <= "0000";
-          glyph_colour(3 downto 0) <= colourramdata(3 downto 0);
-          glyph_bold <= '0';
-          glyph_underline <= '0';
+          glyph_colour_drive(7 downto 4) <= "0000";
+          glyph_colour_drive(3 downto 0) <= colourramdata(3 downto 0);
+          glyph_bold_drive <= '0';
+          glyph_underline_drive <= '0';
           glyph_reverse_drive <= '0';
           glyph_visible_drive <= '1';
-          glyph_blink <= '0';
-          glyph_with_alpha <= '0';
+          glyph_blink_drive <= '0';
+          glyph_with_alpha_drive <= '0';
           report "Reading high-byte of colour RAM (value $" & to_hstring(colourramdata)&")";
           if viciii_extended_attributes='1' then
             if colourramdata(4)='1' then
               -- Blinking glyph
-              glyph_blink <= '1';
+              glyph_blink_drive <= '1';
               if colourramdata(5)='1'
                 or colourramdata(6)='1'
                 or colourramdata(7)='1' then
                 -- Blinking attributes
                 if viciii_blink_phase='1' then
                   glyph_reverse_drive <= colourramdata(5);
-                  glyph_bold <= colourramdata(6);
-                  glyph_colour(4) <= colourramdata(6);
+                  glyph_bold_drive <= colourramdata(6);
+                  glyph_colour_drive(4) <= colourramdata(6);
                   if chargen_y_hold="111" then
-                    glyph_underline <= colourramdata(7);
+                    glyph_underline_drive <= colourramdata(7);
                   end if;
                 end if;
               else
@@ -3566,10 +3577,10 @@ begin
               -- Non-blinking attributes
               glyph_visible_drive <= '1';
               glyph_reverse_drive <= colourramdata(5);
-              glyph_bold <= colourramdata(6);
-              glyph_colour(4) <= colourramdata(6);
+              glyph_bold_drive <= colourramdata(6);
+              glyph_colour_drive(4) <= colourramdata(6);
               if chargen_y_hold="111" then
-                glyph_underline <= colourramdata(7);
+                glyph_underline_drive <= colourramdata(7);
               end if;
             end if;
           end if;
@@ -3594,6 +3605,10 @@ begin
           -- In this cycle chardata and ramdata will have the requested value
           glyph_visible <= glyph_visible_drive;
           glyph_reverse <= glyph_reverse_drive;
+          glyph_underline <= glyph_underline_drive;
+          glyph_bold <= glyph_bold_drive;
+          glyph_colour <= glyph_colour_drive;
+          glyph_with_alpha <= glyph_with_alpha_drive;
           if glyph_full_colour = '1' then
             report "setting ramaddress to $x" & to_hstring(glyph_data_address(15 downto 0)) & " for full-colour glyph drawing";
             ramaddress <= glyph_data_address;
