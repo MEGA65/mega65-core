@@ -1411,7 +1411,7 @@ begin
   begin
     fastio_rdata <= (others => 'Z');    
 
-    chargen_x_scale <= chargen_x_scale_drive;
+    chargen_x_scale_drive <= chargen_x_scale;
     
     if true then
       -- Calculate register number asynchronously
@@ -2806,7 +2806,7 @@ begin
       end if;
 
       -- Calculate vertical flyback and related signals
-      display_height_drive <= display_height_drive;
+      display_height_drive <= display_height;
       vsync_delay_drive <= vsync_delay;
       vsync_start <= frame_v_front+display_height_drive+to_integer(vsync_delay_drive);
       if ycounter=0 then
