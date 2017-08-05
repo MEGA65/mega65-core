@@ -30,7 +30,7 @@ architecture behavioral of matrix_to_ascii is
   type key_matrix_t is array(0 to 71) of unsigned(7 downto 0);
   signal matrix_normal : key_matrix_t := (
     0 => x"14", -- INS/DEL
-    1 => x"00", -- RET/NO KEY
+    1 => x"0D", -- RET/NO KEY
     2 => x"1d", -- HORZ/CRSR
     3 => x"f8", -- F8/F7
     4 => x"f2", -- F2/F1
@@ -107,7 +107,7 @@ architecture behavioral of matrix_to_ascii is
 
   signal matrix_shift : key_matrix_t := (
     0 => x"94", -- INS/DEL
-    1 => x"00", -- RET/NO KEY
+    1 => x"0D", -- RET/NO KEY
     2 => x"9d", -- HORZ/CRSR
     3 => x"f7", -- F8/F7
     4 => x"f1", -- F2/F1
@@ -184,7 +184,7 @@ architecture behavioral of matrix_to_ascii is
 
   signal matrix_control : key_matrix_t := (
     0 => x"94", -- INS/DEL
-    1 => x"00", -- RET/NO KEY
+    1 => x"0D", -- RET/NO KEY
     2 => x"9d", -- HORZ/CRSR
     3 => x"f8", -- F8/F7
     4 => x"f2", -- F2/F1
@@ -261,7 +261,7 @@ architecture behavioral of matrix_to_ascii is
 
   signal matrix_cbm : key_matrix_t := (
     0 => x"94", -- INS/DEL
-    1 => x"00", -- RET/NO KEY
+    1 => x"0D", -- RET/NO KEY
     2 => x"ED", -- HORZ/CRSR
     3 => x"f8", -- F8/F7
     4 => x"f2", -- F2/F1
