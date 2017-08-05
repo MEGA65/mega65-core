@@ -478,22 +478,23 @@ begin
       elsif segled_counter(17 downto 15)=3 then
         digit := std_logic_vector(seg_led_data(15 downto 12));
       elsif segled_counter(17 downto 15)=4 then
-        digit := std_logic_vector(uart_char(3 downto 0));
+        digit := std_logic_vector(seg_led_data(19 downto 16));
       elsif segled_counter(17 downto 15)=5 then
-        --digit := std_logic_vector(seg_led_data(23 downto 20));
-        digit := std_logic_vector(uart_char(7 downto 4));
+        digit := std_logic_vector(seg_led_data(23 downto 20));
       elsif segled_counter(17 downto 15)=6 then
         digit := std_logic_vector(seg_led_data(27 downto 24));
       elsif segled_counter(17 downto 15)=7 then
         digit := std_logic_vector(seg_led_data(31 downto 28));
       end if;
       
-      if cpuis6502 = '1' then
-        seg_led_data(15 downto 0) <= x"6510";
-      else
-        seg_led_data(15 downto 0) <= x"4502";
-      end if;
       seg_led_data(31 downto 24) <= cpuspeed;
+      if cpuis6502 = '1' then
+        seg_led_data(23 downto 16) <= x"65";
+      else
+        seg_led_data(23 downto 16) <= x"45";
+      end if;
+      seg_led_data(15 downto 8) <= uart_char;
+      seg_led_data(7 downto 0) <= uart_monitor_char;
       
       -- segments are:
       -- 7 - decimal point
