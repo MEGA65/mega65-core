@@ -238,7 +238,7 @@ trap_entry_points:
 	jmp double_restore_trap		; Trap #$42 (double-tap RESTORE key)
 	nop				; refer: kickstart_task "1000010" x"42"
 
-	jmp matrix_mode_toggle          ; Trap #$43 (matrix mode toggle)
+	jmp matrix_mode_toggle          ; Trap #$43 (C= + TAB combination)
 	nop				; refer: kickstart_task
 
 	jmp f011_virtual_read           ; Trap #$44 (virtualised F011 sector read)
