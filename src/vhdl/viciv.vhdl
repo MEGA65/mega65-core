@@ -405,7 +405,9 @@ architecture Behavioral of viciv is
   signal display_width : unsigned(11 downto 0) := to_unsigned(1920,12);
   signal frame_height : unsigned(11 downto 0) := to_unsigned(1235,12); 
   signal display_height : unsigned(11 downto 0) := to_unsigned(1200,12);
+  signal display_height_drive : unsigned(11 downto 0);
   signal vsync_delay : unsigned(7 downto 0) := to_unsigned(1235-1200-9,8);
+  signal vsync_delay_drive : unsigned(7 downto 0);
   signal vicii_ycounter_scale_minus_two : unsigned(2 downto 0) := to_unsigned(5-1,3);
   signal hsync_start : unsigned(11 downto 0) := to_unsigned(40,12);
   signal hsync_end : unsigned(11 downto 0) := to_unsigned(100,12);
@@ -626,6 +628,7 @@ architecture Behavioral of viciv is
   -- 40 columns needs 120/5=24 (=$18)
   -- 80 columns needs 120/3=40 (=$2c)
   signal chargen_x_scale : unsigned(7 downto 0) := x"19";  
+  signal chargen_x_scale_drive : unsigned(7 downto 0);  
   signal sprite_x_scale : unsigned(7 downto 0) := x"19";  
   -- Each character pixel will be (n+1) pixels high
   signal chargen_y_scale : unsigned(7 downto 0) := x"02";  -- x"04"
@@ -1408,6 +1411,8 @@ begin
   begin
     fastio_rdata <= (others => 'Z');    
 
+    chargen_x_scale <= chargen_x_scale_drive;
+    
     if true then
       -- Calculate register number asynchronously
       register_number := x"FFF";
@@ -1629,7 +1634,7 @@ begin
         elsif register_number=65 then
           fastio_rdata <= std_logic_vector(virtual_row_width(15 downto 8));
         elsif register_number=66 then
-          fastio_rdata <= std_logic_vector(chargen_x_scale);
+          fastio_rdata <= std_logic_vector(chargen_x_scale_drive);
         elsif register_number=67 then
           fastio_rdata <= std_logic_vector(chargen_y_scale);
         elsif register_number=68 then
@@ -1692,7 +1697,7 @@ begin
         elsif register_number=89 then
           fastio_rdata <= std_logic_vector(virtual_row_width(15 downto 8));
         elsif register_number=90 then
-          fastio_rdata <= std_logic_vector(chargen_x_scale);
+          fastio_rdata <= std_logic_vector(chargen_x_scale_drive);
         elsif register_number=91 then
           fastio_rdata <= std_logic_vector(chargen_y_scale);
         elsif register_number=92 then
@@ -2801,7 +2806,9 @@ begin
       end if;
 
       -- Calculate vertical flyback and related signals
-      vsync_start <= frame_v_front+display_height+to_integer(vsync_delay);
+      display_height_drive <= display_height_drive;
+      vsync_delay_drive <= vsync_delay;
+      vsync_start <= frame_v_front+display_height_drive+to_integer(vsync_delay_drive);
       if ycounter=0 then
         vsync_drive <= '1' xor vsync_polarity;
       elsif ycounter=frame_v_front then
@@ -2840,13 +2847,13 @@ begin
       -- Work out if a new logical pixel starts on the next physical pixel
       -- (overrides general advance).
       if raster_buffer_read_address_sub >= 240 then
-        raster_buffer_read_address_sub <= raster_buffer_read_address_sub - 240 + chargen_x_scale;
+        raster_buffer_read_address_sub <= raster_buffer_read_address_sub - 240 + chargen_x_scale_drive;
         raster_buffer_read_address <= raster_buffer_read_address + 2;
       elsif raster_buffer_read_address_sub >= 120 then
-        raster_buffer_read_address_sub <= raster_buffer_read_address_sub - 120 + chargen_x_scale;
+        raster_buffer_read_address_sub <= raster_buffer_read_address_sub - 120 + chargen_x_scale_drive;
         raster_buffer_read_address <= raster_buffer_read_address + 1;
       else
-        raster_buffer_read_address_sub <= raster_buffer_read_address_sub + chargen_x_scale;
+        raster_buffer_read_address_sub <= raster_buffer_read_address_sub + chargen_x_scale_drive;
       end if;    
 
       report "chargen_active=" & std_logic'image(chargen_active)
