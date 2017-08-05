@@ -313,7 +313,8 @@ begin  -- behavioural
                            when x"014" => matrix_internal(58) <= break; -- CTRL
                            when x"01E" => matrix_internal(59) <= break;
                            when x"029" => matrix_internal(60) <= break;
-                           when x"01F" => matrix_internal(61) <= break; -- META/WIN for C=
+                           when x"11F" => matrix_internal(61) <= break; -- META/WIN for C=
+                           when x"127" => matrix_internal(61) <= break; -- META/WIN for C=
                            when x"015" => matrix_internal(62) <= break;
                            when x"076" => matrix_internal(63) <= break;
 
@@ -321,6 +322,7 @@ begin  -- behavioural
                            when x"07E" => matrix_internal(64) <= break; -- NO SCRL
                            when x"00D" => matrix_internal(65) <= break; -- TAB
                            when x"011" => matrix_internal(66) <= break; -- ALT
+                           when x"111" => matrix_internal(66) <= break; -- ALTGr
                            when x"077" => matrix_internal(67) <= break; --HELP (Pause)
                            when x"001" => matrix_internal(68) <= break; -- F9/10
                            when x"078" => matrix_internal(69) <= break; -- F11/F12
