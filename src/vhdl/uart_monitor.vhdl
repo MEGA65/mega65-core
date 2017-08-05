@@ -850,13 +850,18 @@ begin
                   monitor_char_count <= x"0000";
                 end if;
               elsif rx_ready = '1' and rx_acknowledge='0' then
+                -- Serial port input
                 blink <= not blink;
                 activity <= blink;
                 rx_acknowledge<='1';
                 trace_continuous <= '0';
                 character_received(to_character(rx_data));
+              elsif uart_char_valid = '1' then
+                -- Matrix mode input
+                character_received(to_character(uart_char));                
               end if;
-
+              
+              
               if trace_continuous='1' then
                 state <= EnterPressed;
               end if;
