@@ -863,6 +863,7 @@ architecture Behavioral of viciv is
   signal background_colour_select : unsigned(1 downto 0);
   signal glyph_number : unsigned(12 downto 0) := to_unsigned(0,13);
   signal glyph_colour_drive : unsigned(7 downto 0);
+  signal glyph_colour_drive2 : unsigned(7 downto 0);
   signal glyph_colour : unsigned(7 downto 0);
   signal glyph_attributes : unsigned(3 downto 0);
   signal glyph_visible_drive : std_logic;
@@ -3607,7 +3608,7 @@ begin
           glyph_reverse <= glyph_reverse_drive;
           glyph_underline <= glyph_underline_drive;
           glyph_bold <= glyph_bold_drive;
-          glyph_colour <= glyph_colour_drive;
+          glyph_colour_drive2 <= glyph_colour_drive;
           glyph_with_alpha <= glyph_with_alpha_drive;
           if glyph_full_colour = '1' then
             report "setting ramaddress to $x" & to_hstring(glyph_data_address(15 downto 0)) & " for full-colour glyph drawing";
@@ -3615,6 +3616,7 @@ begin
           end if;
           raster_fetch_state <= PaintMemWait2;
         when PaintMemWait2 =>
+          glyph_colour <= glyph_colour_drive2;
           glyph_width <= 8 - to_integer(glyph_width_deduct);
 
           if glyph_full_colour = '1' then
