@@ -265,7 +265,8 @@ architecture behavioural of uart_monitor is
   signal key_state : integer range 0 to 5 := 0;
 
   signal key_scancode_toggle_internal : std_logic := '0';
-
+  signal uart_char_processed : std_logic := '0';
+  
   -- Processor break point
   signal break_address : unsigned(15 downto 0) := x"0000";
   signal break_enabled : std_logic := '0';
@@ -856,9 +857,12 @@ begin
                 rx_acknowledge<='1';
                 trace_continuous <= '0';
                 character_received(to_character(rx_data));
-              elsif uart_char_valid = '1' then
+              elsif uart_char_valid = '1' and uart_char_processed='0' then
                 -- Matrix mode input
-                character_received(to_character(uart_char));                
+                character_received(to_character(uart_char));
+                uart_char_processed <= '1';
+              elsif uart_char_valid = '0' then
+                uart_char_processed <= '0';
               end if;
               
               
