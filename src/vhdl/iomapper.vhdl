@@ -244,6 +244,17 @@ architecture behavioral of iomapper is
   signal ascii_key_buffer : key_buffer_t;
   signal ascii_key_buffer_count : integer range 0 to 3 := 0;
   signal ascii_key_next : std_logic := '0';
+
+  signal sd_bitbash_cs_bo : std_logic;
+  signal sd_bitbash_cs_bo : std_logic;
+  signal sd_bitbash_sclk_o : std_logic;
+  signal sd_bitbash_mosi_o : std_logic;
+  signal sd_bitbash_miso_i : std_logic;
+  signal cs_bo_pick : std_logic;
+  signal sclk_o_pick : std_logic;
+  signal mosi_o_pick : std_logic;
+  signal miso_i_pick : std_logic;  
+  
   
   signal dummy_bits : std_logic_vector(7 downto 0);
   signal dummy_bits_62 : std_logic_vector(6 downto 2) := (others => '1');
@@ -378,12 +389,20 @@ begin
       -- bit0 = caps lock (input only)
       -- bit1 = column 8 select (output only)      
       porte_in(7) => hdmi_sda,
-      porte_in(6 downto 2) => dummy_bits_62,
+      porte_in(6) => dummy_bits_62(6),
+      porte_in(5) => sd_bitbash,
+      porte_in(4) => sd_bitbash_cs_bo,
+      porte_in(3) => sd_bitbash_sclk_o,
+      porte_in(2) => sd_bitbash_miso_i,
       porte_in(1) => keyboard_column8_select,
       porte_in(0) => capslock_from_keymapper,
       porte_out(7) => hdmi_sda,
       porte_out(6) => hdmi_scl,
-      porte_out(5 downto 0) => dummy_bits(5 downto 0),
+      porte_out(5) => sd_bitbash,
+      porte_out(4) => sd_bitbash_cs_bo,
+      porte_out(3) => sd_bitbash_sclk_o,
+      porte_out(2) => sd_bitbash_mosi_o,
+      porte_out(0) => dummy_bits(0),
       key_debug => key_debug,
       widget_disable => widget_disable,
       ps2_disable => ps2_disable,
@@ -574,10 +593,12 @@ begin
 
     sw => sw,
     btn => btn,
-    cs_bo => cs_bo,
-    sclk_o => sclk_o,
-    mosi_o => mosi_o,
-    miso_i => miso_i,
+
+    -- SD card interface
+    cs_bo => cs_bo_pick,
+    sclk_o => sclk_o_pick,
+    mosi_o => mosi_o_pick,
+    miso_i => miso_i_pick,
 
     aclMISO => aclMISO,
     aclMOSI => aclMOSI,
@@ -630,6 +651,12 @@ begin
     reset_high <= not reset;
   end process;
 
+  -- Allow taking over of SD interface for bitbashing and debugging
+  cs_bo_pick <= cs_bo when sd_bitbash='0' else sd_bitbash_cs_bo;
+  sclk_o_pick <= sclk_o when sd_bitbash='0' else sd_bitbash_sclk_o;
+  mosi_o_pick <= mosi_o when sd_bitbash='0' else sd_bitbash_mosi_o;
+  miso_i_pick <= miso_i when sd_bitbash='0' else sd_bitbash_miso_i;
+  
   scancode_out<=last_scan_code;
   process(clk)
   begin

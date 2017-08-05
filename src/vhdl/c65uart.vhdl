@@ -117,7 +117,7 @@ architecture behavioural of c65uart is
   signal reg_data_rx : std_logic_vector(7 downto 0) := (others => '0');
 
   -- C65 extra 2-bit port for keyboard column 8 and capslock key state.
-  -- (Also used for HDMI SPI control interface)
+  -- (Also used for HDMI SPI control interface and SD SPI bitbashing debug interface)
   signal reg_porte_out : std_logic_vector(7 downto 0) := (others => '0');
   signal reg_porte_ddr : std_logic_vector(7 downto 0) := (others => '0');
   signal reg_porte_read : unsigned(7 downto 0) := (others => '0');
