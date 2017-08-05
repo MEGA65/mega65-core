@@ -402,6 +402,7 @@ begin
       porte_out(4) => sd_bitbash_cs_bo,
       porte_out(3) => sd_bitbash_sclk_o,
       porte_out(2) => sd_bitbash_mosi_o,
+      porte_out(1) => keyboard_column8_select,
       porte_out(0) => dummy_bits(0),
       key_debug => key_debug,
       widget_disable => widget_disable,
