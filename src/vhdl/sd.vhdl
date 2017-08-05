@@ -116,6 +116,8 @@ begin
       if (reset='1') then
         state <= RST;
         sclk_sig <= '0';
+        -- Show when we are reseting
+        last_state <= x"99";
       else
         case state is
           
@@ -179,7 +181,7 @@ begin
               return_state <= CMD7A;
               state <= SEND_CMD;
             else
-              state <= CMD0;
+              state <= CMD7A; -- proceed anyway
             end if;
 
           when CMD7A =>
@@ -192,7 +194,7 @@ begin
               return_state <= CMD55;
               state <= SEND_CMD;
             else
-              state <= CMD0;
+              state <= CMD55; -- proceed anyway
             end if;            
             
           when CMD55 =>
