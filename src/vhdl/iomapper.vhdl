@@ -259,8 +259,8 @@ architecture behavioral of iomapper is
   signal sclk_o_sd : std_logic;
   signal mosi_o_sd : std_logic;  
   
-  signal dummy_bits : std_logic_vector(7 downto 0);
-  signal dummy_bits_62 : std_logic_vector(6 downto 2) := (others => '1');
+  signal dummy_e : std_logic_vector(7 downto 0);
+  signal dummy_g : std_logic_vector(7 downto 0);
   signal dummy : std_logic_vector(10 downto 0);
   
 begin
@@ -391,22 +391,27 @@ begin
       -- Port E is used for extra keys on C65 keyboard:
       -- bit0 = caps lock (input only)
       -- bit1 = column 8 select (output only)      
-      porte_in(7) => hdmi_sda,
-      porte_in(6) => dummy_bits_62(6),
-      porte_in(5) => sd_bitbash,
-      porte_in(4) => sd_bitbash_cs_bo,
-      porte_in(3) => sd_bitbash_sclk_o,
-      porte_in(2) => sd_bitbash_miso_i,
+      porte_in(7 downto 2) => (others => '1'),
       porte_in(1) => keyboard_column8_select,
       porte_in(0) => capslock_from_keymapper,
-      porte_out(7) => hdmi_sda,
-      porte_out(6) => hdmi_scl,
-      porte_out(5) => sd_bitbash,
-      porte_out(4) => sd_bitbash_cs_bo,
-      porte_out(3) => sd_bitbash_sclk_o,
-      porte_out(2) => sd_bitbash_mosi_o,
+      porte_out(7 downto 2) => dummy_e(7 downto 2),
       porte_out(1) => keyboard_column8_select,
-      porte_out(0) => dummy_bits(0),
+      porte_out(0) => dummy_e(0),
+      -- Port G is M65 only, and has bit-bash interfaces
+      portg_in(7) => hdmi_sda,
+      portg_in(6) => dummy_g(6),
+      portg_in(5) => sd_bitbash,
+      portg_in(4) => sd_bitbash_cs_bo,
+      portg_in(3) => sd_bitbash_sclk_o,
+      portg_in(2) => sd_bitbash_miso_i,
+      portg_in(1 downto 0) => "11",
+      portg_out(7) => hdmi_sda,
+      portg_out(6) => hdmi_scl,
+      portg_out(5) => sd_bitbash,
+      portg_out(4) => sd_bitbash_cs_bo,
+      portg_out(3) => sd_bitbash_sclk_o,
+      portg_out(2) => sd_bitbash_mosi_o,
+      portg_out(1 downto 0) => dummy_g(1 downto 0),
       key_debug => key_debug,
       widget_disable => widget_disable,
       ps2_disable => ps2_disable,
@@ -415,7 +420,6 @@ begin
       uart_rx => uart_rx,
       uart_tx => uart_tx,
       portf => pmoda,
-      portg => (others => '1'),
       porth => std_logic_vector(ascii_key_buffered),
       porth_write_strobe => ascii_key_next,
       porti => std_logic_vector(bucky_key(7 downto 0))

@@ -26,6 +26,9 @@ entity c65uart is
     porte_out : out std_logic_vector(7 downto 0);
     porte_in : in std_logic_vector(7 downto 0);
 
+    portg_out : out std_logic_vector(7 downto 0);
+    portg_in : in std_logic_vector(7 downto 0);
+
     uart_rx : in std_logic;
     uart_tx : out std_logic;
 
@@ -36,7 +39,6 @@ entity c65uart is
     physkey_disable : out std_logic;
     
     portf : inout std_logic_vector(7 downto 0);
-    portg : in std_logic_vector(7 downto 0);
     porth : in std_logic_vector(7 downto 0);
     porth_write_strobe : out std_logic := '0';
     porti : in std_logic_vector(7 downto 0)
@@ -117,10 +119,13 @@ architecture behavioural of c65uart is
   signal reg_data_rx : std_logic_vector(7 downto 0) := (others => '0');
 
   -- C65 extra 2-bit port for keyboard column 8 and capslock key state.
-  -- (Also used for HDMI SPI control interface and SD SPI bitbashing debug interface)
   signal reg_porte_out : std_logic_vector(7 downto 0) := (others => '0');
-  signal reg_porte_ddr : std_logic_vector(7 downto 0) := (others => '0');
+  signal reg_porte_ddr : std_logic_vector(7 downto 0) := "00000010";
   signal reg_porte_read : unsigned(7 downto 0) := (others => '0');
+  -- Used for HDMI SPI control interface and SD SPI bitbashing debug interface)
+  signal reg_portg_out : std_logic_vector(7 downto 0) := (others => '0');
+  signal reg_portg_ddr : std_logic_vector(7 downto 0) := "00111111";
+  signal reg_portg_read : unsigned(7 downto 0) := (others => '0');
 
   -- MEGA65 PMOD register for debugging and fiddling
   signal reg_portf_out : std_logic_vector(7 downto 0) := (others => '0');
@@ -224,11 +229,11 @@ begin  -- behavioural
           fastio_rdata <= unsigned(reg_intflag);
         when x"07" =>
           -- @IO:C65 $D607 C65 UART 2-bit port data register (used for C65 keyboard)
-          -- @IO:GS $D607.7 HDMI SPI control interface SCL clock 
-          -- @IO:GS $D607.6 HDMI SPI control interface SDA data line 
+          -- @IO:GS $D607.1 C65 keyboard column 8 select
+          -- @IO:GS $D607.0 C65 capslock key sense
           fastio_rdata(7 downto 0) <= reg_porte_read;
         when x"08" =>
-          -- @IO:C65 $D607 C65 UART 2-bit port data direction register (used for C65 keyboard)
+          -- @IO:C65 $D607 C65 UART data direction register (used for C65 keyboard, HDMI and SD card I2C/SPI)
           fastio_rdata(7 downto 0) <= unsigned(reg_porte_ddr);
         when x"09" =>
           -- @IO:GS $D609 MEGA65 extended UART control register
@@ -236,11 +241,17 @@ begin  -- behavioural
           fastio_rdata(0) <= clock709375;
           fastio_rdata(7 downto 1) <= (others => '1');
         when x"0d" =>
-          -- @IO:GS $D60D Port G (currently unusued)
-          fastio_rdata(7 downto 0) <= unsigned(portg);
+          -- @IO:GS $D60D Bit bashing port
+          -- @IO:GS $D60D.7 HDMI SPI control interface SCL clock 
+          -- @IO:GS $D60D.6 HDMI SPI control interface SDA data line 
+          -- @IO:GS $D60D.5 Enable SD card bitbash mode
+          -- @IO:GS $D60D.4 SD card CS_BO
+          -- @IO:GS $D60D.3 SD card SCLK
+          -- @IO:GS $D60D.2 SD card MOSI/MISO
+          fastio_rdata(7 downto 0) <= reg_portg_read;
         when x"0e" =>
-          -- @IO:GS $D60E PMOD port A on FPGA board (data bits)
-          fastio_rdata(7 downto 0) <= reg_portf_read;
+          -- @IO:GS $D60E Bit bashing port DDR
+          fastio_rdata(7 downto 0) <= unsigned(reg_portg_ddr);
         when x"0f" =>
           -- @IO:GS $D60F PMOD port A on FPGA board (DDR)
           fastio_rdata(7 downto 0) <= unsigned(reg_portf_ddr);
@@ -414,6 +425,7 @@ begin  -- behavioural
       -- Calculate read value for porta and portb
       reg_porte_read <= ddr_pick(reg_porte_ddr,porte_in,reg_porte_out);        
       reg_portf_read <= ddr_pick(reg_portf_ddr,portf,reg_portf_out);
+      reg_portg_read <= ddr_pick(reg_portg_ddr,portg_in,reg_portg_out);        
 
       porte_out <= reg_porte_out or (not reg_porte_ddr);
       -- Support proper tri-stating on port F which connects to FPGA board PMOD
