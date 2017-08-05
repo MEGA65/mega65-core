@@ -33,6 +33,8 @@ architecture behavioral of test_kv is
   signal cpuclock : std_logic := '0';
   signal ioclock : std_logic := '0';
 
+  signal matrix_mode : std_logic := '0';
+  
   signal keyboard_matrix : std_logic_vector(71 downto 0) := (others => '1');
 
   signal reset_in : std_logic := '1';
@@ -92,12 +94,15 @@ begin
     ioclock => cpuclock,
     reset_in => reset_in,
 
+    matrix_mode_in => '0',
+
     -- Physical interface pins
 
     -- Keyboard
     porta_pins => porta_pins,
     portb_pins => portb_pins,
     keyboard_column8_out => keyboard_column8_out,
+    keyboard_capslock => '0',
     key_left => key_left,
     key_up => key_up,
     -- Joysticks
@@ -308,6 +313,7 @@ begin
         shifted := charisshifted(text(i));
         a_pin := offset / 8;
         b_pin := offset rem 8;
+        report "Typing  " & character'image(text(i));
         for j in 1 to cycles_per_char loop
 --          report "porta_pins = " & to_string(porta_pins)
 --            & ", portb_pins = " & to_string(portb_pins);
@@ -340,6 +346,11 @@ begin
       end loop;
     end procedure;
   begin
+    report "Turning matrix mode off";
+    matrix_mode <= '0';
+    type_text(1000,"The big fish");
+    report "Turning matrix mode on";
+    matrix_mode <= '1';
     type_text(1000,"The big fish");
     wait for 1000 ms;
   end process;  

@@ -8,7 +8,8 @@ entity keymapper is
   port (
     ioclock : in std_logic;
     reset_in : in std_logic;
-
+    matrix_mode_in : std_logic;
+    
     -- Which inputs shall we incorporate
 
     physkey_disable : in std_logic;
@@ -121,10 +122,16 @@ begin  -- behavioural
       else
         key_num <= 0;
       end if;
-      matrix(key_num) <= '1'
-                         and (matrix_physkey(key_num) or physkey_disable)
-                         and (matrix_widget(key_num) or widget_disable)
-                         and (matrix_ps2(key_num) or ps2_disable);
+      if matrix_mode_in = '0' then
+        -- Keyboard matrix as seen by user land doesn't change while we are in
+        -- matrix mode.
+        -- XXX This will leave any down key potentially repeating, however
+        -- XXX Should we therefore clear it instead?
+        matrix(key_num) <= '1'    
+                           and (matrix_physkey(key_num) or physkey_disable)
+                           and (matrix_widget(key_num) or widget_disable)
+                           and (matrix_ps2(key_num) or ps2_disable);
+      end if;
       -- Update unified view for export
       matrix_combined(key_num) <= '1'
                                   and (matrix_physkey(key_num) or physkey_disable)
@@ -294,7 +301,7 @@ begin  -- behavioural
       end if;
 
       -- We should also do it the otherway around as well
-      porta_value := x"FF";
+
       for i in 0 to 7 loop
         if portb_in(i)='0' then
           for j in 0 to 7 loop

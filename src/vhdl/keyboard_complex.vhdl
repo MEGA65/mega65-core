@@ -82,8 +82,7 @@ entity keyboard_complex is
 end entity keyboard_complex;
 
 architecture behavioural of keyboard_complex is
-  signal matrix_combined : std_logic_vector(71 downto 0);
-  signal matrix_current : std_logic_vector(71 downto 0);
+  signal matrix_combined : std_logic_vector(71 downto 0) := (others => '1');
 
   signal keyboard_matrix : std_logic_vector(71 downto 0);
   signal keyboard_joya : std_logic_vector(4 downto 0) := (others => '1');
@@ -160,6 +159,7 @@ begin
   keymapper0:   entity work.keymapper port map(
     ioclock => ioclock,
     reset_in => reset_in,
+    matrix_mode_in => matrix_mode_in,
 
     -- Which inputs shall we incorporate
 
@@ -186,7 +186,7 @@ begin
     capslock_ps2 => ps2_capslock,
     restore_ps2 => ps2_restore,
 
-    matrix_combined => matrix_current,
+    matrix_combined => matrix_combined,
     
     -- RESTORE when held or double-tapped does special things
     restore_out => restore_out,
@@ -224,10 +224,6 @@ begin
     
     );
 
-  -- Disable keyboard input during matrix mode
-  -- XXX This will retype any keys held down when matrix mode is exited.
-  matrix_current <= (others => '1') when matrix_mode_in='1' else matrix_combined;
-  
   ascii0: entity work.matrix_to_ascii port map(
     Clk => ioclock,
     matrix => matrix_combined,
