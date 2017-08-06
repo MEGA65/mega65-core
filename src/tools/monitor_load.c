@@ -75,8 +75,8 @@ int name_len,name_lo,name_hi,name_addr=-1;
 int do_go64=0;
 int do_run=0;
 char *filename=NULL;
-char *romname=NULL;
-char *charromname=NULL;
+char *romfile=NULL;
+char *charromfile=NULL;
 FILE *f=NULL;
 char *search_path=".";
 char *bitstream=NULL;
@@ -93,21 +93,24 @@ unsigned long long gettime_ms()
   return nowtv.tv_sec * 1000LL + nowtv.tv_usec / 1000;
 }
 
-int replace_kickstart(void)
+int stop_cpu(void)
 {
-  char cmd[1024];
-  FILE *f=fopen(kickstart,"r");
-  if (!f) {
-    fprintf(stderr,"Could not open kickstart file '%s'\n",kickstart);
-    exit(-2);
-  }
-  
   // Stop CPU
   usleep(50000);
   slow_write(fd,"t1\r",3);
+  return 0;
+}
 
-  // base address of kickstart ROM
-  int load_addr=0xfff8000;
+int load_file(char *filename,int load_addr)
+{
+  char cmd[1024];
+
+  FILE *f=fopen(filename,"r");
+  if (!f) {
+    fprintf(stderr,"Could not open file '%s'\n",filename);
+    exit(-2);
+  }
+  
   usleep(50000);
   unsigned char buf[16384];
   int max_bytes=4096;
@@ -131,12 +134,24 @@ int replace_kickstart(void)
     b=fread(buf,1,max_bytes,f);	  
   }
   fclose(f);
+  return 0;
+}
 
+int restart_kickstart(void)
+{
   // Start executing in new kickstart
   usleep(50000);
   slow_write(fd,"g8100\r",6);
   usleep(10000);
   slow_write(fd,"t0\r",3);
+  return 0;
+}
+
+int replace_kickstart(void)
+{
+  stop_cpu();
+  load_file(kickstart,0xfff8000);
+  restart_kickstart();
   
   fprintf(stderr,"[T+%lldsec] Custom kickstart loaded.\n",(long long)time(0)-start_time);
   
