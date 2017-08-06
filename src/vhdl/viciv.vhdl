@@ -2733,14 +2733,12 @@ begin
           report "clearing indisplay because xcounter=0" severity note;
           first_card_of_row <= x"0000";
           screen_row_address <= screen_ram_base(16 downto 0);
-          
-          -- In top border VIC-II rasters are 2 physical rasters high
-          -- vicii_ycounter now gets reset during fast raster stepping in
-          -- vertical_flyback.
-          -- vicii_ycounter <= (others =>'0');
+
+          -- Reset VIC-II raster counter to first raster for top of frame
+          -- (the preceeding rasters occur during vertical flyback, in case they
+          -- have interrupts triggered on them).
           vicii_ycounter_phase <= (others => '0');
-          vicii_ycounter_max_phase <= to_unsigned(1,3);  -- 0 -- 1 = 2 values         
-          new_frame <= '1';
+          vicii_ycounter <= vicii_first_raster;
         end if;	
       end if;
       if xcounter<frame_h_front then
