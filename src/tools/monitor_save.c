@@ -203,10 +203,10 @@ int process_waiting(int fd)
 void usage(void)
 {
   fprintf(stderr,"MEGA65 cross-development tool for saving from a running MEGA65.\n");
-  fprintf(stderr,"usage: monitor_load [-l <serial port>] [-s <230400|2000000>]  filename\n");
+  fprintf(stderr,"usage: monitor_load [-l <serial port>] [-s <230400|2000000|4000000>]  filename\n");
   fprintf(stderr,"  -l - Name of serial port to use, e.g., /dev/ttyUSB1\n");
   fprintf(stderr,"  -s - Speed of serial port in bits per second. This must match what your bitstream uses.\n");
-  fprintf(stderr,"       (Older bitstream use 230400, and newer ones 2000000).\n");
+  fprintf(stderr,"       (Older bitstream use 230400, and newer ones 2000000 or 4000000).\n");
   fprintf(stderr,"  filename - Name of file to save memory into.\n");
   fprintf(stderr,"\n");
   exit(-3);

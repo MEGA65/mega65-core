@@ -82,7 +82,7 @@ char *search_path=".";
 char *bitstream=NULL;
 char *kickstart=NULL;
 char serial_port[1024]="/dev/ttyUSB1"; // XXX do a better job auto-detecting this
-int serial_speed=2000000;
+int serial_speed=4000000;
 
 unsigned long long gettime_ms()
 {
@@ -134,7 +134,7 @@ int load_file(char *filename,int load_addr,int patchKickstart)
 	  }
 	}
     }
-    printf("Read to $%04x (%d bytes)\n",load_addr);
+    printf("Read to $%04x (%d bytes)\n",load_addr,b);
     fflush(stdout);
     // load_addr=0x400;
     // XXX - The l command requires the address-1, and doesn't cross 64KB boundaries.
@@ -392,10 +392,10 @@ int process_waiting(int fd)
 void usage(void)
 {
   fprintf(stderr,"MEGA65 cross-development tool for booting the MEGA65 using a custom bitstream and/or KICKUP file.\n");
-  fprintf(stderr,"usage: monitor_load [-l <serial port>] [-s <230400|2000000>]  [-b <FPGA bitstream>] [[-k <kickup file>] [-R romfile] [-C charromfile]] [filename]\n");
+  fprintf(stderr,"usage: monitor_load [-l <serial port>] [-s <230400|2000000|4000000>]  [-b <FPGA bitstream>] [[-k <kickup file>] [-R romfile] [-C charromfile]] [filename]\n");
   fprintf(stderr,"  -l - Name of serial port to use, e.g., /dev/ttyUSB1\n");
   fprintf(stderr,"  -s - Speed of serial port in bits per second. This must match what your bitstream uses.\n");
-  fprintf(stderr,"       (Older bitstream use 230400, and newer ones 2000000).\n");
+  fprintf(stderr,"       (Older bitstream use 230400, and newer ones 2000000 or 4000000).\n");
   fprintf(stderr,"  -b - Name of bitstream file to load.\n");
   fprintf(stderr,"  -k - Name of kickup file to forcibly use instead of the kickstart in the bitstream.\n");
   fprintf(stderr,"  -R - ROM file to preload at $20000-$3FFFF.\n");
@@ -422,7 +422,7 @@ int main(int argc,char **argv)
     case 's':
       serial_speed=atoi(optarg);
       switch(serial_speed) {
-      case 230400: case 2000000: break;
+      case 230400: case 2000000: break; case 4000000:
       default: usage();
       }
       break;
@@ -463,9 +463,12 @@ int main(int argc,char **argv)
   if (serial_speed==230400) {
     if (cfsetospeed(&t, B230400)) perror("Failed to set output baud rate");
     if (cfsetispeed(&t, B230400)) perror("Failed to set input baud rate");
-  } else {
+  } else if (serial_speed==2000000) {
     if (cfsetospeed(&t, B2000000)) perror("Failed to set output baud rate");
     if (cfsetispeed(&t, B2000000)) perror("Failed to set input baud rate");
+  } else {
+    if (cfsetospeed(&t, B4000000)) perror("Failed to set output baud rate");
+    if (cfsetispeed(&t, B4000000)) perror("Failed to set input baud rate");
   }
   t.c_cflag &= ~PARENB;
   t.c_cflag &= ~CSTOPB;
