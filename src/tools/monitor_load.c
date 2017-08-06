@@ -134,6 +134,8 @@ int load_file(char *filename,int load_addr)
     b=fread(buf,1,max_bytes,f);	  
   }
   fclose(f);
+  fprintf(stderr,"[T+%lldsec] '%s' loaded.\n",(long long)time(0)-start_time,filename);
+  
   return 0;
 }
 
@@ -149,11 +151,7 @@ int restart_kickstart(void)
 
 int replace_kickstart(void)
 {
-  stop_cpu();
   load_file(kickstart,0xfff8000);
-  restart_kickstart();
-  
-  fprintf(stderr,"[T+%lldsec] Custom kickstart loaded.\n",(long long)time(0)-start_time);
   
   return 0;
 }
@@ -172,10 +170,15 @@ int process_line(char *line,int live)
     if (pc==0xf4a5||pc==0xf4a2) {
       // Intercepted LOAD command
       state=1;
-    } else if (pc>=0x8000&&pc<0xc000&&kickstart) {
+    } else if (pc>=0x8000&&pc<0xc000
+	       &&(kickstart||romfile||charromfile)) {
       fprintf(stderr,"[T+%lldsec] Replacing kickstart...\n",(long long)time(0)-start_time);
-      replace_kickstart();
-      kickstart=NULL;
+      stop_cpu();
+      if (kickstart) replace_kickstart(); kickstart=NULL;
+      if (romfile) load_file(romfile,0x20000); romfile=NULL;
+      if (charromfile) load_file(charromfile,0x20000);
+      charromfile=NULL;
+      restart_kickstart();
     } else {
       if (state==99) {
 	// Synchronised with monitor
