@@ -84,11 +84,8 @@ begin  -- behavioural
         else
           -- This was the last bit
           report "Finished receiving byte. Value = $" & to_hstring(rx_data(8 downto 1)) severity note;
-          -- Only pass it on if we are allowing remote data
-          if local_source='0' then
-            data <= unsigned(rx_data(8 downto 1));
-            data_ready <= '1';
-          end if;
+          data <= unsigned(rx_data(8 downto 1));
+          data_ready <= '1';
           bit_timer <= "00000001";
           rx_state <= WaitForRise;
         end if;        
