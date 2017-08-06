@@ -44,7 +44,7 @@ architecture Behavioral of matrix_compositor is
 
 
 -- Frame boundaries 
-  signal startx : unsigned(11 downto 0):=x"079"; --x078 d120  should actually be 121
+  signal startx : unsigned(11 downto 0):=x"0a0"; --x078 d120  should actually be 121
   signal endx  : unsigned(11 downto 0):=x"814"; --x814 d2068
   signal starty : unsigned(11 downto 0):=x"07C"; --x07C d124
   signal endy : unsigned(11 downto 0):=x"43C"; --x43C d1084
@@ -68,7 +68,7 @@ architecture Behavioral of matrix_compositor is
 
 --Mode2 Frame
 --1920x960
-  constant mode2_startx  : unsigned(11 downto 0):=x"079"; --120+1 = 121 x079
+  constant mode2_startx  : unsigned(11 downto 0):=x"0a0"; --120+1 = 121 x079
   constant mode2_starty : unsigned(11 downto 0):=x"07C"; --x814 d2068 
   constant mode2_endx  : unsigned(11 downto 0):=x"813"; --x814 d2068 -1
   constant mode2_endy : unsigned(11 downto 0):=x"43B"; --x43C d1084 -1
