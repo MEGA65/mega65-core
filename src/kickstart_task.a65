@@ -43,6 +43,14 @@ task_set_c64_memorymap:
 	lda #$00
 	sta hypervisor_iomode    ; C64 IO map
 
+	; Unmap SD sector buffer
+	lda #$82
+	sta $D680
+	
+	; Unmap 2nd KB colour RAM
+	lda #$01
+	trb $d030
+
 	; XXX - disable C65 ROM maps
 	rts
 	
