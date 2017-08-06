@@ -101,7 +101,7 @@ int stop_cpu(void)
   return 0;
 }
 
-int load_file(char *filename,int load_addr)
+int load_file(char *filename,int load_addr,int patchKickstart)
 {
   char cmd[1024];
 
@@ -113,9 +113,25 @@ int load_file(char *filename,int load_addr)
   
   usleep(50000);
   unsigned char buf[16384];
-  int max_bytes=4096;
+  int max_bytes=16384;
   int b=fread(buf,1,max_bytes,f);
   while(b>0) {
+    if (patchKickstart) {
+      printf("patching...\n");
+      // Look for BIT $nnnn / BIT $1234, and change to JMP $nnnn to skip
+      // all SD card activities
+      for(int i=0;i<(b-5);i++)
+	{
+	  if ((buf[i]==0x2c)
+	      &&(buf[i+3]==0x2c)
+	      &&(buf[i+4]==0x34)
+	      &&(buf[i+5]==0x12)) {
+	    fprintf(stderr,"Patching Kickstart @ $%04x to skip SD card and ROM checks.\n",
+		    0x8000+i);
+	    buf[i]=0x4c;
+	  }
+	}
+    }
     printf("Read to $%04x (%d bytes)\n",load_addr,b);
     fflush(stdout);
     // load_addr=0x400;
@@ -149,13 +165,6 @@ int restart_kickstart(void)
   return 0;
 }
 
-int replace_kickstart(void)
-{
-  load_file(kickstart,0xfff8000);
-  
-  return 0;
-}
-
 int first_load=1;
 int first_go64=1;
 
@@ -171,12 +180,16 @@ int process_line(char *line,int live)
       // Intercepted LOAD command
       state=1;
     } else if (pc>=0x8000&&pc<0xc000
-	       &&(kickstart||romfile||charromfile)) {
-      fprintf(stderr,"[T+%lldsec] Replacing kickstart...\n",(long long)time(0)-start_time);
+	       &&(kickstart)) {
+      int patchKS=0;
+      if (romfile||charromfile) patchKS=1;
+      fprintf(stderr,"[T+%lldsec] Replacing %skickstart...\n",
+	      (long long)time(0)-start_time,
+	      patchKS?"and patching ":"");
       stop_cpu();
-      if (kickstart) replace_kickstart(); kickstart=NULL;
-      if (romfile) load_file(romfile,0x20000); romfile=NULL;
-      if (charromfile) load_file(charromfile,0x20000);
+      if (kickstart) load_file(kickstart,0xfff8000,patchKS); kickstart=NULL;
+      if (romfile) load_file(romfile,0x20000,0); romfile=NULL;
+      if (charromfile) load_file(charromfile,0x20000,0);
       charromfile=NULL;
       restart_kickstart();
     } else {
@@ -366,7 +379,7 @@ int process_waiting(int fd)
 void usage(void)
 {
   fprintf(stderr,"MEGA65 cross-development tool for booting the MEGA65 using a custom bitstream and/or KICKUP file.\n");
-  fprintf(stderr,"usage: monitor_load [-l <serial port>] [-s <230400|2000000>]  [-b <FPGA bitstream>] [-k <kickup file>] [-R romfile] [-C charromfile] [filename]\n");
+  fprintf(stderr,"usage: monitor_load [-l <serial port>] [-s <230400|2000000>]  [-b <FPGA bitstream>] [[-k <kickup file>] [-R romfile] [-C charromfile]] [filename]\n");
   fprintf(stderr,"  -l - Name of serial port to use, e.g., /dev/ttyUSB1\n");
   fprintf(stderr,"  -s - Speed of serial port in bits per second. This must match what your bitstream uses.\n");
   fprintf(stderr,"       (Older bitstream use 230400, and newer ones 2000000).\n");
@@ -407,6 +420,11 @@ int main(int argc,char **argv)
       usage();
     }
   }  
+
+  if ((romfile||charromfile)&&(!kickstart)) {
+    fprintf(stderr,"-k is required with -R or -C\n");
+    usage();
+  }
   
   if (argv[optind]) filename=strdup(argv[optind]);
   if (argc-optind>1) usage();

@@ -516,6 +516,12 @@ reset_entry_common:
 		;
 		jsr keyboardread
 
+		; Magic instruction used by monitor_load to work out where
+		; to patch. Monitor_load changes bit to JMP when patching for
+		; SD-cardless operation
+		bit go64
+		bit $1234
+
 		; If switch 8 and 9 are set, and etherkick mode is not disabled
 		; then wait forever for ethernet packets
 		;
@@ -543,12 +549,6 @@ normalboot:
 	bcs nokey1
 	cmp #$20
 	beq utility_menu
-
-	; Magic instruction used by monitor_load to work out where
-	; to patch. Monitor_load changes bit to JMP when patching for
-	; SD-cardless operation
-	bit go64
-	bit $1234
 
 nokey1:
 
