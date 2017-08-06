@@ -82,7 +82,7 @@ char *search_path=".";
 char *bitstream=NULL;
 char *kickstart=NULL;
 char serial_port[1024]="/dev/ttyUSB1"; // XXX do a better job auto-detecting this
-int serial_speed=4000000;
+int serial_speed=2000000;
 
 unsigned long long gettime_ms()
 {
@@ -114,8 +114,9 @@ int load_file(char *filename,int load_addr,int patchKickstart)
   usleep(50000);
   unsigned char buf[16384];
   int max_bytes;
+  int byte_limit=1024;
   max_bytes=0x10000-(load_addr&0xffff);
-  if (max_bytes>16384) max_bytes=16384;
+  if (max_bytes>byte_limit) max_bytes=byte_limit;
   int b=fread(buf,1,max_bytes,f);
   while(b>0) {
     if (patchKickstart) {
@@ -153,13 +154,17 @@ int load_file(char *filename,int load_addr,int patchKickstart)
       if (w>0) { p+=w; n-=w; } else usleep(1000);
     }
     if (serial_speed==230400) usleep(10000+50*b);
-    else
+    else if (serial_speed==2000000)
       // 2mbit/sec / 11bits/char (inc space) = ~5.5usec per char
       usleep(5.1*b);
+    else
+      // 4mbit/sec / 11bits/char (inc space) = ~2.6usec per char
+      usleep(2.6*b);
+      
     load_addr+=b;
 
     max_bytes=0x10000-(load_addr&0xffff);
-    if (max_bytes>16384) max_bytes=16384;
+    if (max_bytes>byte_limit) max_bytes=byte_limit;
     b=fread(buf,1,max_bytes,f);	  
   }
   fclose(f);

@@ -287,7 +287,7 @@ architecture behavioural of uart_monitor is
 
   signal show_register_delay : integer range 0 to 255;
 
-  signal bit_rate_divisor_internal : unsigned(13 downto 0) := to_unsigned(50000000/4000000,14);
+  signal bit_rate_divisor_internal : unsigned(13 downto 0) := to_unsigned(50000000/2000000,14);
 
   signal in_matrix_mode : std_logic := '0';
   
@@ -842,6 +842,7 @@ begin
               end if;
               if protected_hardware_in(6)='1' and in_matrix_mode = '0' then
                 state <= PrintBanner;
+                in_matrix_mode <= '1';
               elsif monitor_char_toggle /= monitor_char_toggle_last then
                 monitor_char_toggle_last <= monitor_char_toggle;
                 try_output_char(character'val(to_integer(monitor_char)),
