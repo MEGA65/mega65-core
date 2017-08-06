@@ -75,6 +75,8 @@ int name_len,name_lo,name_hi,name_addr=-1;
 int do_go64=0;
 int do_run=0;
 char *filename=NULL;
+char *romname=NULL;
+char *charromname=NULL;
 FILE *f=NULL;
 char *search_path=".";
 char *bitstream=NULL;
@@ -346,12 +348,14 @@ int process_waiting(int fd)
 void usage(void)
 {
   fprintf(stderr,"MEGA65 cross-development tool for booting the MEGA65 using a custom bitstream and/or KICKUP file.\n");
-  fprintf(stderr,"usage: monitor_load [-l <serial port>] [-s <230400|2000000>]  [-b <FPGA bitstream>] [-k <kickup file>] [filename]\n");
+  fprintf(stderr,"usage: monitor_load [-l <serial port>] [-s <230400|2000000>]  [-b <FPGA bitstream>] [-k <kickup file>] [-R romfile] [-C charromfile] [filename]\n");
   fprintf(stderr,"  -l - Name of serial port to use, e.g., /dev/ttyUSB1\n");
   fprintf(stderr,"  -s - Speed of serial port in bits per second. This must match what your bitstream uses.\n");
   fprintf(stderr,"       (Older bitstream use 230400, and newer ones 2000000).\n");
   fprintf(stderr,"  -b - Name of bitstream file to load.\n");
   fprintf(stderr,"  -k - Name of kickup file to forcibly use instead of the kickstart in the bitstream.\n");
+  fprintf(stderr,"  -R - ROM file to preload at $20000-$3FFFF.\n");
+  fprintf(stderr,"  -C - Character ROM file to preload.\n");
   fprintf(stderr,"  -4 - Switch to C64 mode before exiting.\n");
   fprintf(stderr,"  -r - Automatically RUN programme after loading.\n");
   fprintf(stderr,"  filename - Load and run this file in C64 mode before exiting.\n");
@@ -364,8 +368,10 @@ int main(int argc,char **argv)
   start_time=time(0);
   
   int opt;
-  while ((opt = getopt(argc, argv, "4l:s:b:k:r")) != -1) {
+  while ((opt = getopt(argc, argv, "4l:s:b:k:rR:C:")) != -1) {
     switch (opt) {
+    case 'R': romfile=strdup(optarg); break;
+    case 'C': charromfile=strdup(optarg); break;      
     case '4': do_go64=1; break;
     case 'r': do_run=1; break;
     case 'l': strcpy(serial_port,optarg); break;
