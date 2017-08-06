@@ -839,8 +839,9 @@ begin
               -- If there is a character waiting
               if protected_hardware_in(6)='0' then
                 in_matrix_mode <= '0';
-                if protected_hardware_in(6)='1' and in_matrix_mode = '0' then
-                  state <= PrintBanner;
+              end if;
+              if protected_hardware_in(6)='1' and in_matrix_mode = '0' then
+                state <= PrintBanner;
               elsif monitor_char_toggle /= monitor_char_toggle_last then
                 monitor_char_toggle_last <= monitor_char_toggle;
                 try_output_char(character'val(to_integer(monitor_char)),
