@@ -305,12 +305,6 @@ begin
                bit_rate_divisor => bit_rate_divisor_internal,
                UART_RX => rx,
 
-               -- Fully formed characters from keyboard_complex for local
-               -- feeding of UART monitor when matrix mode is active.
-               uart_char_in => uart_char,
-               uart_char_valid => uart_char_valid,
-               local_source => protected_hardware_in(6),
-               
                data => rx_data,
                data_ready => rx_ready,
                data_acknowledge => rx_acknowledge);
@@ -856,7 +850,9 @@ begin
                 activity <= blink;
                 rx_acknowledge<='1';
                 trace_continuous <= '0';
-                character_received(to_character(rx_data));
+                if protected_hardware_in(6) = '0' then
+                  character_received(to_character(rx_data));
+                end if;
               elsif uart_char_valid = '1' and uart_char_processed='0' then
                 -- Matrix mode input
                 character_received(to_character(uart_char));
