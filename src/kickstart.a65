@@ -543,6 +543,13 @@ normalboot:
 	bcs nokey1
 	cmp #$20
 	beq utility_menu
+
+	; Magic instruction used by monitor_load to work out where
+	; to patch. Monitor_load changes bit to JMP when patching for
+	; SD-cardless operation
+	bit go64
+	bit $1234
+
 nokey1:
 
 	jsr dump_disk_count	; debugging to Checkpoint
