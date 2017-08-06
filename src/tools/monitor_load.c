@@ -113,7 +113,9 @@ int load_file(char *filename,int load_addr,int patchKickstart)
   
   usleep(50000);
   unsigned char buf[16384];
-  int max_bytes=16384;
+  int max_bytes;
+  max_bytes=0x10000-(load_addr&0xffff);
+  if (max_bytes>16384) max_bytes=16384;
   int b=fread(buf,1,max_bytes,f);
   while(b>0) {
     if (patchKickstart) {
@@ -132,10 +134,16 @@ int load_file(char *filename,int load_addr,int patchKickstart)
 	  }
 	}
     }
-    printf("Read to $%04x (%d bytes)\n",load_addr,b);
+    printf("Read to $%04x (%d bytes)\n",load_addr);
     fflush(stdout);
     // load_addr=0x400;
-    sprintf(cmd,"l%x %x\r",load_addr-1,load_addr+b-1);
+    // XXX - The l command requires the address-1, and doesn't cross 64KB boundaries.
+    // Thus writing to $xxx0000 requires adding 64K to fix the actual load address
+    int munged_load_addr=load_addr;
+    if ((load_addr&0xffff)==0x0000) {
+      munged_load_addr+=0x10000;
+    }
+    sprintf(cmd,"l%x %x\r",munged_load_addr-1,munged_load_addr+b-1);
     slow_write(fd,cmd,strlen(cmd));
     usleep(1000);
     int n=b;
@@ -145,8 +153,13 @@ int load_file(char *filename,int load_addr,int patchKickstart)
       if (w>0) { p+=w; n-=w; } else usleep(1000);
     }
     if (serial_speed==230400) usleep(10000+50*b);
-    else usleep(10000+6*b);
+    else
+      // 2mbit/sec / 11bits/char (inc space) = ~5.5usec per char
+      usleep(5.1*b);
     load_addr+=b;
+
+    max_bytes=0x10000-(load_addr&0xffff);
+    if (max_bytes>16384) max_bytes=16384;
     b=fread(buf,1,max_bytes,f);	  
   }
   fclose(f);
@@ -189,7 +202,7 @@ int process_line(char *line,int live)
       stop_cpu();
       if (kickstart) load_file(kickstart,0xfff8000,patchKS); kickstart=NULL;
       if (romfile) load_file(romfile,0x20000,0); romfile=NULL;
-      if (charromfile) load_file(charromfile,0x20000,0);
+      if (charromfile) load_file(charromfile,0xFF7E000,0);
       charromfile=NULL;
       restart_kickstart();
     } else {
