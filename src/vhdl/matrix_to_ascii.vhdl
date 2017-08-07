@@ -6,6 +6,8 @@ use ieee.numeric_std.all;
 use work.debugtools.all;
 
 entity matrix_to_ascii is
+  generic (scan_frequency : integer := 100;
+           clock_frequency : integer);
   port (Clk : in std_logic;
         matrix : in std_logic_vector(71 downto 0);
 
@@ -25,6 +27,10 @@ entity matrix_to_ascii is
 end entity matrix_to_ascii;
   
 architecture behavioral of matrix_to_ascii is
+  signal keyscan_counter : integer := 0;
+  -- Multiple by 11, as there are 11 scan phases
+  constant keyscan_delay : integer := 11*clock_frequency/scan_frequency;
+
   signal matrix_last : std_logic_vector(71 downto 0) := (others => '1');
 
   type key_matrix_t is array(0 to 71) of unsigned(7 downto 0);
@@ -375,39 +381,42 @@ begin
       bucky_key <= bucky_key_internal;
 
       -- Check for key press events
-      matrix_internal(key_num) <= matrix(key_num);
-      if to_UX01(matrix_internal(key_num)) = '1'
-        and to_UX01(matrix(key_num))='0' then
-        if key_matrix(key_num) /= x"00" then
-          -- Key press event
-          report "key press, ASCII code = " & to_hstring(key_matrix(key_num));
-          ascii_key <= key_matrix(key_num);
-          repeat_key <= key_num;
-          repeat_key_timer <= repeat_start_timer;
-          ascii_key_valid <= '1';
-        else
-          ascii_key_valid <= '0';
-        end if;
+      if keyscan_counter /= 0 then
+        keyscan_counter <= keyscan_counter - 1;
       else
-        if repeat_key_timer > 0 then
-          repeat_key_timer <= repeat_key_timer - 1;
-          ascii_key_valid <= '0';
-        else
-          repeat_key_timer <= repeat_again_timer;
-          if matrix(repeat_key)='0' then
+        keyscan_counter <= keyscan_delay;
+        matrix_internal(key_num) <= matrix(key_num);
+        if to_UX01(matrix_internal(key_num)) = '1'
+          and to_UX01(matrix(key_num))='0' then
+          if key_matrix(key_num) /= x"00" then
+            -- Key press event
+            report "key press, ASCII code = " & to_hstring(key_matrix(key_num));
+            ascii_key <= key_matrix(key_num);
+            repeat_key <= key_num;
+            repeat_key_timer <= repeat_start_timer;
             ascii_key_valid <= '1';
           else
-            ascii_key_valid <= '0';              
+            ascii_key_valid <= '0';
+          end if;
+        else
+          if repeat_key_timer > 0 then
+            repeat_key_timer <= repeat_key_timer - 1;
+            ascii_key_valid <= '0';
+          else
+            repeat_key_timer <= repeat_again_timer;
+            if matrix(repeat_key)='0' then
+              ascii_key_valid <= '1';
+            else
+              ascii_key_valid <= '0';              
+            end if;
           end if;
         end if;
-      end if;
-
-      
-      
-      if key_num /= 71 then
-        key_num <= key_num + 1;
-      else
-        key_num <= 0;
+        
+        if key_num /= 71 then
+          key_num <= key_num + 1;
+        else
+          key_num <= 0;
+        end if;
       end if;
       
     end if;

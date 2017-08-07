@@ -248,7 +248,11 @@ begin
     
     );
 
-  ascii0: entity work.matrix_to_ascii port map(
+  ascii0: entity work.matrix_to_ascii
+    generic map(
+      clock_frequency => 50000000
+      )
+    port map(
     Clk => ioclock,
     matrix => matrix_combined,
 
