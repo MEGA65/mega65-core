@@ -41,7 +41,9 @@ entity c65uart is
     portf : inout std_logic_vector(7 downto 0);
     porth : in std_logic_vector(7 downto 0);
     porth_write_strobe : out std_logic := '0';
-    porti : in std_logic_vector(7 downto 0)
+    porti : in std_logic_vector(7 downto 0);
+    portj_in : in std_logic_vector(7 downto 0);
+    portj_out : out std_logic_vector(7 downto 0)
     
     );
 end c65uart;
@@ -271,8 +273,9 @@ begin  -- behavioural
           -- @IO:GS $D612.3 DEBUG - Enable physical joystick input
           fastio_rdata(3) <= physkey_enable_internal;
         when x"13" =>
-          -- @IO:GS $D613 DEBUG - Keyboard debug flags: will be removed after debugging
-          fastio_rdata <= unsigned(key_debug);
+          -- @IO:GS $D613 DEBUG: 8-bit segment of combined keyboard matrix (READ)
+          -- @IO:GS $D613 DEBUG: Which segment of keyboard matrix to read (0--9) (WRITE)
+          fastio_rdata <= unsigned(portj_in);
         when others => fastio_rdata <= (others => 'Z');
       end case;
     else
@@ -477,6 +480,7 @@ begin  -- behavioural
             ps2_enable_internal <= std_logic(fastio_wdata(1));
             joy_enable_internal <= std_logic(fastio_wdata(2));
             physkey_enable_internal <= std_logic(fastio_wdata(3));
+          when x"13" => portj_out <= std_logic_vector(fastio_wdata);
           when others => null;
         end case;
       end if;

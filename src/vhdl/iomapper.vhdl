@@ -258,6 +258,9 @@ architecture behavioral of iomapper is
   signal cs_bo_sd : std_logic;
   signal sclk_o_sd : std_logic;
   signal mosi_o_sd : std_logic;  
+
+  signal matrix_segment_num : std_logic_vector(7 downto 0) := (others => '0');
+  signal matrix_segment_out : std_logic_vector(7 downto 0);
   
   signal dummy_e : std_logic_vector(7 downto 0);
   signal dummy_g : std_logic_vector(7 downto 0);
@@ -422,7 +425,9 @@ begin
       portf => pmoda,
       porth => std_logic_vector(ascii_key_buffered),
       porth_write_strobe => ascii_key_next,
-      porti => std_logic_vector(bucky_key(7 downto 0))
+      porti => std_logic_vector(bucky_key(7 downto 0)),
+      portj_out => matrix_segment_num,
+      portj_in => matrix_segment_out
       );
   end block;
   
@@ -432,6 +437,9 @@ begin
       reset_in => reset,
       matrix_mode_in => protected_hardware_in(6),
 
+      matrix_segment_num => matrix_segment_num,
+      matrix_segment_out => matrix_segment_out,
+      
     widget_disable => widget_disable,
     ps2_disable => ps2_disable,
     joy_disable => joy_disable,

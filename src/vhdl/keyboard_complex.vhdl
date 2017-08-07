@@ -62,6 +62,9 @@ entity keyboard_complex is
     restore_up_count : out unsigned(7 downto 0) := x"00";
     restore_down_count : out unsigned(7 downto 0) := x"00";
     last_scan_code : out std_logic_vector(12 downto 0);
+
+    matrix_segment_num : in std_logic_vector(7 downto 0);
+    matrix_segment_out : out std_logic_vector(7 downto 0);
     
     -- cia1 ports
     keyboard_column8_select_in : in std_logic;
@@ -233,5 +236,18 @@ begin
     bucky_key => bucky_key,
     ascii_key_valid => ascii_key_valid
     );
+
+  process (ioclock)
+    variable num : integer;
+  begin
+    if rising_edge(ioclock) then
+      num := to_integer(unsigned(matrix_segment_num));
+      if num < 10 then
+        matrix_segment_out <= matrix_combined((num*8+7) downto (num*8));
+      else
+        matrix_segment_out <= (others => '1');
+      end if;
+    end if;
+  end process;
   
 end behavioural;
