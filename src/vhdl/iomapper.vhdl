@@ -194,6 +194,7 @@ architecture behavioral of iomapper is
   signal widget_disable : std_logic;
   signal ps2_disable : std_logic;
   signal joy_disable : std_logic;
+  signal virtual_disable : std_logic;
   signal physkey_disable : std_logic;
 
   signal hyper_trap_count : unsigned(7 downto 0) := x"00";
@@ -261,6 +262,9 @@ architecture behavioral of iomapper is
 
   signal matrix_segment_num : std_logic_vector(7 downto 0) := (others => '0');
   signal matrix_segment_out : std_logic_vector(7 downto 0);
+  signal virtual_key1 : std_logic_vector(7 downto 0);
+  signal virtual_key2 : std_logic_vector(7 downto 0);
+  signal virtual_key3 : std_logic_vector(7 downto 0);
   
   signal dummy_e : std_logic_vector(7 downto 0);
   signal dummy_g : std_logic_vector(7 downto 0);
@@ -419,6 +423,7 @@ begin
       widget_disable => widget_disable,
       ps2_disable => ps2_disable,
       joy_disable => joy_disable,
+      virtual_disable => virtual_disable,
       physkey_disable => physkey_disable,
       uart_rx => uart_rx,
       uart_tx => uart_tx,
@@ -427,7 +432,10 @@ begin
       porth_write_strobe => ascii_key_next,
       porti => std_logic_vector(bucky_key(7 downto 0)),
       portj_out => matrix_segment_num,
-      portj_in => matrix_segment_out
+      portj_in => matrix_segment_out,
+      portk_out => virtual_key1,
+      portl_out => virtual_key2,
+      portm_out => virtual_key3
       );
   end block;
   
@@ -444,6 +452,7 @@ begin
     ps2_disable => ps2_disable,
     joy_disable => joy_disable,
     physkey_disable => physkey_disable,
+    virtual_disable => virtual_disable,
     
     ioclock       => clk,
     restore_out => restore_nmi,
@@ -452,6 +461,10 @@ begin
     key_left => key_left,
     key_up => key_up,
 
+    key1 => unsigned(virtual_key1),
+    key2 => unsigned(virtual_key2),
+    key3 => unsigned(virtual_key3),
+      
     hyper_trap_out => hyper_trap,
     hyper_trap_count => hyper_trap_count,
     restore_up_count => restore_up_count,

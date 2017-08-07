@@ -96,8 +96,14 @@ begin
 
     matrix_mode_in => '0',
 
+    matrix_segment_num => x"00",
+    
     -- Physical interface pins
-
+    virtual_disable => '0',
+    key1 => x"FF",
+    key2 => x"FF",
+    key3 => x"FF",
+    
     -- Keyboard
     porta_pins => porta_pins,
     portb_pins => portb_pins,

@@ -35,8 +35,14 @@ entity keyboard_complex is
     -- ethernet keyboard input interface for remote head mode
     eth_keycode_toggle : in std_logic;
     eth_keycode : in unsigned(15 downto 0);
-        
+
+    -- Synthetic keys for the virtual keyboard
+    key1 : in unsigned(7 downto 0);
+    key2 : in unsigned(7 downto 0);
+    key3 : in unsigned(7 downto 0);
+    
     -- Flags to control which inputs are disabled, if any
+    virtual_disable : in std_logic;
     physkey_disable : in std_logic;
     joy_disable : in std_logic;
     widget_disable : in std_logic;
@@ -65,7 +71,7 @@ entity keyboard_complex is
 
     matrix_segment_num : in std_logic_vector(7 downto 0);
     matrix_segment_out : out std_logic_vector(7 downto 0);
-    
+
     -- cia1 ports
     keyboard_column8_select_in : in std_logic;
     porta_in  : in  std_logic_vector(7 downto 0);
@@ -87,6 +93,8 @@ end entity keyboard_complex;
 architecture behavioural of keyboard_complex is
   signal matrix_combined : std_logic_vector(71 downto 0) := (others => '1');
 
+  signal virtual_matrix : std_logic_vector(71 downto 0);
+
   signal keyboard_matrix : std_logic_vector(71 downto 0);
   signal keyboard_joya : std_logic_vector(4 downto 0) := (others => '1');
   signal keyboard_joyb : std_logic_vector(4 downto 0) := (others => '1');
@@ -105,6 +113,16 @@ architecture behavioural of keyboard_complex is
 
 begin
 
+  v2m: entity work.virtual_to_matrix
+    port map (
+      clk => ioclock,
+      key1 => key1,
+      key2 => key2,
+      key3 => key3,
+      
+      matrix => virtual_matrix
+    );
+  
   phykbd0: entity work.keyboard_to_matrix
     generic map (
       clock_frequency => 50000000,
@@ -166,6 +184,7 @@ begin
 
     -- Which inputs shall we incorporate
 
+    virtual_disable => virtual_disable,
     physkey_disable => physkey_disable,
     matrix_physkey => keyboard_matrix,
     capslock_physkey => keyboard_capslock,
@@ -189,6 +208,8 @@ begin
     capslock_ps2 => ps2_capslock,
     restore_ps2 => ps2_restore,
 
+    matrix_virtual => virtual_matrix,
+    
     matrix_combined => matrix_combined,
     
     -- RESTORE when held or double-tapped does special things

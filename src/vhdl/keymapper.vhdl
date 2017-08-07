@@ -11,7 +11,9 @@ entity keymapper is
     matrix_mode_in : std_logic;
     
     -- Which inputs shall we incorporate
-
+    virtual_disable : in std_logic;
+    matrix_virtual : in std_logic_vector(71 downto 0);
+    
     physkey_disable : in std_logic;
     matrix_physkey : in std_logic_vector(71 downto 0);
     capslock_physkey : in std_logic;
@@ -137,6 +139,7 @@ begin  -- behavioural
       matrix_combined(key_num) <= '1'
                                   and (matrix_physkey(key_num) or physkey_disable)
                                   and (matrix_widget(key_num) or widget_disable)
+                                  and (matrix_virtual(key_num) or virtual_disable)
                                   and (matrix_ps2(key_num) or ps2_disable);
 
       -- And joysticks

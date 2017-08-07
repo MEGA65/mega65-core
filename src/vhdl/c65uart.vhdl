@@ -37,13 +37,17 @@ entity c65uart is
     ps2_disable : out std_logic;
     joy_disable : out std_logic;
     physkey_disable : out std_logic;
+    virtual_disable : out std_logic;
     
     portf : inout std_logic_vector(7 downto 0);
     porth : in std_logic_vector(7 downto 0);
     porth_write_strobe : out std_logic := '0';
     porti : in std_logic_vector(7 downto 0);
     portj_in : in std_logic_vector(7 downto 0);
-    portj_out : out std_logic_vector(7 downto 0)
+    portj_out : out std_logic_vector(7 downto 0);
+    portk_out : out  std_logic_vector(7 downto 0);
+    portl_out : out  std_logic_vector(7 downto 0);
+    portm_out : out  std_logic_vector(7 downto 0)
     
     );
 end c65uart;
@@ -138,6 +142,11 @@ architecture behavioural of c65uart is
   signal ps2_enable_internal : std_logic := '1';
   signal joy_enable_internal : std_logic := '1';
   signal physkey_enable_internal : std_logic := '1';
+  signal virtual_enable_internal : std_logic := '1';
+
+  signal portk_internal : std_logic_vector(7 downto 0) := x"FF";
+  signal portl_internal : std_logic_vector(7 downto 0) := x"FF";
+  signal portm_internal : std_logic_vector(7 downto 0) := x"FF";
   
 begin  -- behavioural
   
@@ -176,6 +185,11 @@ begin  -- behavioural
       ps2_disable <= not ps2_enable_internal;
       joy_disable <= not joy_enable_internal;
       physkey_disable <= not physkey_enable_internal;
+      virtual_disable <= not virtual_enable_internal;
+
+      portk_out <= portk_internal;
+      portl_out <= portl_internal;
+      portm_out <= portm_internal;
       
       rx_clear_flags <= '0';
       if (fastio_address(19 downto 16) = x"D")
@@ -264,18 +278,29 @@ begin  -- behavioural
           -- @IO:GS $D611 Modifier key state (hardware accelerated keyboard scanner).
           fastio_rdata(7 downto 0) <= unsigned(porti);
         when x"12" =>
-          -- @IO:GS $D612.0 DEBUG - Enable widget board keyboard/joystick input
+          -- @IO:GS $D612.0 Enable widget board keyboard/joystick input
           fastio_rdata(0) <= widget_enable_internal;
-          -- @IO:GS $D612.1 DEBUG - Enable ps2 keyboard/joystick input
+          -- @IO:GS $D612.1 Enable ps2 keyboard/joystick input
           fastio_rdata(1) <= ps2_enable_internal;
-          -- @IO:GS $D612.2 DEBUG - Enable physical joystick input
-          fastio_rdata(2) <= joy_enable_internal;
-          -- @IO:GS $D612.3 DEBUG - Enable physical joystick input
-          fastio_rdata(3) <= physkey_enable_internal;
+          -- @IO:GS $D612.4 Enable physical joystick input
+          fastio_rdata(2) <= physkey_enable_internal;
+          -- @IO:GS $D612.3 Enable virtual keyboard input
+          fastio_rdata(3) <= virtual_enable_internal;
+          -- @IO:GS $D612.2 Enable physical joystick input
+          fastio_rdata(4) <= joy_enable_internal;
         when x"13" =>
           -- @IO:GS $D613 DEBUG: 8-bit segment of combined keyboard matrix (READ)
           -- @IO:GS $D613 DEBUG: Which segment of keyboard matrix to read (0--9) (WRITE)
           fastio_rdata <= unsigned(portj_in);
+        when x"14" =>
+          -- @IO:GS $D614 DEBUG: ID of key #1 held down on virtual keyboard
+          fastio_rdata <= unsigned(portk_internal);
+        when x"15" =>
+          -- @IO:GS $D615 DEBUG: ID of key #2 held down on virtual keyboard
+          fastio_rdata <= unsigned(portl_internal);
+        when x"16" =>
+          -- @IO:GS $D616 DEBUG: ID of key #3 held down on virtual keyboard
+          fastio_rdata <= unsigned(portm_internal);
         when others => fastio_rdata <= (others => 'Z');
       end case;
     else
@@ -478,9 +503,16 @@ begin  -- behavioural
           when x"12" =>
             widget_enable_internal <= std_logic(fastio_wdata(0));
             ps2_enable_internal <= std_logic(fastio_wdata(1));
-            joy_enable_internal <= std_logic(fastio_wdata(2));
-            physkey_enable_internal <= std_logic(fastio_wdata(3));
+            physkey_enable_internal <= std_logic(fastio_wdata(2));
+            virtual_enable_internal <= std_logic(fastio_wdata(3));
+            joy_enable_internal <= std_logic(fastio_wdata(4));
           when x"13" => portj_out <= std_logic_vector(fastio_wdata);
+          when x"14" =>
+            portk_internal <= std_logic_vector(fastio_wdata);
+          when x"15" =>
+            portl_internal <= std_logic_vector(fastio_wdata);
+          when x"16" =>
+            portm_internal <= std_logic_vector(fastio_wdata);
           when others => null;
         end case;
       end if;
