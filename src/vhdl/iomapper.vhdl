@@ -265,6 +265,9 @@ architecture behavioral of iomapper is
   signal virtual_key1 : std_logic_vector(7 downto 0);
   signal virtual_key2 : std_logic_vector(7 downto 0);
   signal virtual_key3 : std_logic_vector(7 downto 0);
+
+  signal high_one : std_logic;
+  signal passive_z : std_logic;
   
   signal dummy_e : std_logic_vector(7 downto 0);
   signal dummy_g : std_logic_vector(7 downto 0);
@@ -411,14 +414,16 @@ begin
       portg_in(4) => sd_bitbash_cs_bo,
       portg_in(3) => sd_bitbash_sclk_o,
       portg_in(2) => sd_bitbash_miso_i,
-      portg_in(1 downto 0) => "11",
+      portg_in(1) => high_one,
+      portg_in(0) => passive_z,      
       portg_out(7) => hdmi_sda,
       portg_out(6) => hdmi_scl,
       portg_out(5) => sd_bitbash,
       portg_out(4) => sd_bitbash_cs_bo,
       portg_out(3) => sd_bitbash_sclk_o,
       portg_out(2) => sd_bitbash_mosi_o,
-      portg_out(1 downto 0) => dummy_g(1 downto 0),
+      portg_out(1) => high_one,
+      portg_out(0) => passive_z,      
       key_debug => key_debug,
       widget_disable => widget_disable,
       ps2_disable => ps2_disable,
@@ -447,6 +452,9 @@ begin
 
       matrix_segment_num => matrix_segment_num,
       matrix_segment_out => matrix_segment_out,
+
+      high_one => high_one,
+      passive_z => passive_z,
       
     widget_disable => widget_disable,
     ps2_disable => ps2_disable,

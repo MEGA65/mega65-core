@@ -15,6 +15,8 @@ entity keyboard_complex is
     -- Keyboard
     porta_pins : inout  std_logic_vector(7 downto 0) := (others => 'Z');
     portb_pins : inout  std_logic_vector(7 downto 0) := (others => 'Z');
+    high_one : in std_logic;
+    passive_z : in std_logic;
     keyboard_restore : in std_logic := '1';
     keyboard_column8_out : out std_logic := '1';
     key_left : in std_logic;
@@ -111,6 +113,9 @@ architecture behavioural of keyboard_complex is
   signal ps2_joya : std_logic_vector(4 downto 0);
   signal ps2_joyb : std_logic_vector(4 downto 0);
 
+  signal drive_one : std_logic;
+  signal passive_high : std_logic;
+  
 begin
 
   v2m: entity work.virtual_to_matrix
@@ -134,6 +139,8 @@ begin
       keyboard_column8_out => keyboard_column8_out,
       key_left => key_left,
       key_up => key_up,
+      drive_one => drive_one,
+      passive_high => passive_high,
 
       matrix => keyboard_matrix
     );
@@ -271,6 +278,17 @@ begin
         matrix_segment_out <= matrix_combined((num*8+7) downto (num*8));
       else
         matrix_segment_out <= (others => '1');
+      end if;
+
+      if high_one='1' then
+        drive_one <= '1';
+      else
+        drive_one <= 'H';
+      end if;
+      if passive_z='1' then
+        passive_high <= 'Z';
+      else
+        passive_high <= 'H';
       end if;
     end if;
   end process;

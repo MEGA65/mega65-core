@@ -96,6 +96,9 @@ begin
 
     matrix_mode_in => '0',
 
+    high_one => '1',
+    passive_z => '1',
+    
     matrix_segment_num => x"00",
     
     -- Physical interface pins

@@ -15,6 +15,9 @@ entity keyboard_to_matrix is
         key_left : in std_logic;
         key_up : in std_logic;
 
+        drive_one : in std_logic;
+        passive_high : in std_logic;
+        
         -- Virtualised keyboard matrix
         matrix : out std_logic_vector(71 downto 0) := (others => '1');
         joya : out std_logic_vector(7 downto 0);
@@ -72,9 +75,9 @@ begin
           when 0 =>
             -- Read Joysticks, prepare to read column 0
             joya <= porta_pins; joyb <= portb_pins;
-            porta_pins <= ( 0 => '0', others => '1');
-            portb_pins <= (others => 'Z');
-            keyboard_column8_out <= '1';
+            porta_pins <= ( 0 => '0', others => drive_one);
+            portb_pins <= (others => passive_high);
+            keyboard_column8_out <= drive_one;
           when 1 =>
             -- Read column 0, prepare column 1
             if (to_UX01(joya_internal(4 downto 0)) = "11111")
@@ -82,9 +85,9 @@ begin
               -- only scan keyboard when joysticks are not interfering
               matrix_internal(7 downto 0) <= portb_pins(7 downto 0);
             end if;
-            porta_pins <= ( 1 => '0', others => '1');            
-            portb_pins <= (others => 'Z');
-            keyboard_column8_out <= '1';
+            porta_pins <= ( 1 => '0', others => drive_one);
+            portb_pins <= (others => passive_high);
+            keyboard_column8_out <= drive_one;
           when 2 =>
             -- Read column 1, prepare column 2
             if (to_UX01(joya_internal(4 downto 0)) = "11111")
@@ -92,9 +95,9 @@ begin
               -- only scan keyboard when joysticks are not interfering
               matrix_internal(15 downto 8) <= portb_pins(7 downto 0);
             end if;
-            porta_pins <= ( 2 => '0', others => '1');            
-            portb_pins <= (others => 'Z');
-            keyboard_column8_out <= '1';
+            porta_pins <= ( 2 => '0', others => drive_one);
+            portb_pins <= (others => passive_high);
+            keyboard_column8_out <= drive_one;
           when 3 =>
             -- Read column 2, prepare column 3
             if (to_UX01(joya_internal(4 downto 0)) = "11111")
@@ -102,9 +105,9 @@ begin
               -- only scan keyboard when joysticks are not interfering
               matrix_internal(23 downto 16) <= portb_pins(7 downto 0);
             end if;
-            porta_pins <= ( 3 => '0', others => '1');            
-            portb_pins <= (others => 'Z');
-            keyboard_column8_out <= '1';
+            porta_pins <= ( 3 => '0', others => drive_one);
+            portb_pins <= (others => passive_high);
+            keyboard_column8_out <= drive_one;
           when 4 =>
             -- Read column 3, prepare column 4
             if (to_UX01(joya_internal(4 downto 0)) = "11111")
@@ -112,9 +115,9 @@ begin
               -- only scan keyboard when joysticks are not interfering
               matrix_internal(31 downto 24) <= portb_pins(7 downto 0);
             end if;
-            porta_pins <= ( 4 => '0', others => '1');            
-            portb_pins <= (others => 'Z');
-            keyboard_column8_out <= '1';
+            porta_pins <= ( 4 => '0', others => drive_one);
+            portb_pins <= (others => passive_high);
+            keyboard_column8_out <= drive_one;
           when 5 =>
             -- Read column 4, prepare column 5
             if (to_UX01(joya_internal(4 downto 0)) = "11111")
@@ -122,9 +125,9 @@ begin
               -- only scan keyboard when joysticks are not interfering
               matrix_internal(39 downto 32) <= portb_pins(7 downto 0);
             end if;
-            porta_pins <= ( 5 => '0', others => '1');
-            portb_pins <= (others => 'Z');
-            keyboard_column8_out <= '1';
+            porta_pins <= ( 5 => '0', others => drive_one);
+            portb_pins <= (others => passive_high);
+            keyboard_column8_out <= drive_one;
           when 6 =>
             -- Read column 5, prepare column 6
             if (to_UX01(joya_internal(4 downto 0)) = "11111")
@@ -132,9 +135,9 @@ begin
               -- only scan keyboard when joysticks are not interfering
               matrix_internal(47 downto 40) <= portb_pins(7 downto 0);
             end if;
-            porta_pins <= ( 6 => '0', others => '1');
-            portb_pins <= (others => 'Z');
-            keyboard_column8_out <= '1';
+            porta_pins <= ( 6 => '0', others => drive_one);
+            portb_pins <= (others => passive_high);
+            keyboard_column8_out <= drive_one;
           when 7 =>
             -- Read column 6, prepare column 7
             if (to_UX01(joya_internal(4 downto 0)) = "11111")
@@ -142,9 +145,9 @@ begin
               -- only scan keyboard when joysticks are not interfering
               matrix_internal(55 downto 48) <= portb_pins(7 downto 0);
             end if;
-            porta_pins <= ( 7 => '0', others => '1');
-            portb_pins <= (others => 'Z');
-            keyboard_column8_out <= '1';
+            porta_pins <= ( 7 => '0', others => drive_one);
+            portb_pins <= (others => passive_high);
+            keyboard_column8_out <= drive_one;
           when 8 =>
             -- Read column 7, prepare column 8
             if (to_UX01(joya_internal(4 downto 0)) = "11111")
@@ -152,8 +155,8 @@ begin
               -- only scan keyboard when joysticks are not interfering
               matrix_internal(63 downto 56) <= portb_pins(7 downto 0);
             end if;
-            porta_pins <= (others => '1');
-            portb_pins <= (others => 'Z');
+            porta_pins <= (others => drive_one);
+            portb_pins <= (others => passive_high);
             keyboard_column8_out <= '0';
           when 9 =>
             -- Read column 8, prepare joysticks
@@ -162,14 +165,14 @@ begin
               -- only scan keyboard when joysticks are not interfering
               matrix_internal(71 downto 64) <= portb_pins(7 downto 0);
             end if;
-            porta_pins <= (others => 'Z');
-            portb_pins <= (others => 'Z');
+            porta_pins <= (others => passive_high);
+            portb_pins <= (others => passive_high);
             keyboard_column8_out <= '1';
           when 10 =>
             -- Get ready for scanning joysticks first on boot
-            porta_pins <= (others => 'Z');
-            portb_pins <= (others => 'Z');
-            keyboard_column8_out <= '1';
+            porta_pins <= (others => passive_high);
+            portb_pins <= (others => passive_high);
+            keyboard_column8_out <= drive_one;
         end case;
       else
         counter <= counter - 1;
