@@ -2667,7 +2667,9 @@ begin
         -- = -3080 = -0x0c08 = 0xf3f8.
         -- However, we need to shift it right a few more pixels to cover the pipeline
         -- delays, about 0x294 should do it.
-        vicii_ycounter_scale <= vicii_ycounter_scale_minus_two + 2;
+        -- XXX - Why were we adding 2 here? Have removed this, as VIC-II
+        -- rasters were too tall. PGS.
+        vicii_ycounter_scale <= vicii_ycounter_scale_minus_two;                                                                 -
         vicii_xcounter_sub <= x"f154";
         chargen_x_sub <= (others => '0');
         raster_buffer_read_address <= (others => '0');
