@@ -1748,7 +1748,8 @@ begin
         elsif register_number=111 then
           fastio_rdata(7) <= vicii_ntsc;
           fastio_rdata(6) <= viciv_1080p;
-          fastio_rdata(5 downto 0) <= std_logic_vector(vicii_first_raster(5 downto 0));
+          fastio_rdata(5 downto 1) <= std_logic_vector(vicii_first_raster(5 downto 1));
+          fastio_rdata(0) <= vertical_flyback;
         elsif register_number=112 then -- $D3070
           fastio_rdata <= palette_bank_fastio & palette_bank_chargen & palette_bank_sprites & palette_bank_chargen256;
         elsif register_number=113 then -- $D3071
