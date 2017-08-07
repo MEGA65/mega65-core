@@ -513,19 +513,21 @@ dump_disk_count:
 	.byte 0,"dos_disk_count = "
 ddc:	.byte "xx",0
 
+	rts
+
 ;	========================
-
-
 
 
 delay1sec:
 
 		ldy #$32	; 50dec (frames per sec)
 d1s1:
-		ldx $d012	; raster y-value
-		dex
-d1s2:		cpx $d012
-		bne d1s2
+		lda $d012	; raster y-value
+		cmp #$40
+		bne d1s1
+		
+d1s2:		cmp $d012
+		beq d1s2
 
 		dey		; do this loop 50 times
 		bne d1s1
