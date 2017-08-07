@@ -2673,26 +2673,6 @@ begin
         raster_buffer_read_address <= (others => '0');
         chargen_active <= '0';
         chargen_active_soon <= '0';
-        if vertical_flyback = '1' then
-          -- During vertical fly-back, step through VIC-II raster lines at a
-          -- rate of 1 per 64 pixel clocks, so that all possible raster interrupts
-          -- or $D011/$D012 polling will work (C65 ROM needs this even!)
-          if fast_raster_counter = "111111" then
-            fast_raster_counter <= "000000";
-            if vicii_ycounter = vicii_first_raster then
-              -- Stop when we reach the first raster of the screen
-              null;
-            elsif vicii_ycounter /= vicii_max_raster then
-              -- Advance raster number if we are not at the end of the frame ...
-              vicii_ycounter <= vicii_ycounter + 1;
-            else
-              -- ... else at end of frame, reset to raster 0 again
-              vicii_ycounter <= (others => '0');
-            end if;
-          else
-            fast_raster_counter <= fast_raster_counter + 1;
-          end if;
-        end if;
         if ycounter /= to_integer(frame_height) then
           ycounter <= ycounter + 1;
           if vicii_ycounter_phase = vicii_ycounter_max_phase then
@@ -2742,6 +2722,27 @@ begin
           vicii_ycounter <= vicii_first_raster;
         end if;	
       end if;
+      if vertical_flyback = '1' then
+        -- During vertical fly-back, step through VIC-II raster lines at a
+        -- rate of 1 per 64 pixel clocks, so that all possible raster interrupts
+        -- or $D011/$D012 polling will work (C65 ROM needs this even!)
+        if fast_raster_counter = "111111" then
+          fast_raster_counter <= "000000";
+          if vicii_ycounter = vicii_first_raster then
+            -- Stop when we reach the first raster of the screen
+            null;
+          elsif vicii_ycounter /= vicii_max_raster then
+            -- Advance raster number if we are not at the end of the frame ...
+            vicii_ycounter <= vicii_ycounter + 1;
+          else
+            -- ... else at end of frame, reset to raster 0 again
+            vicii_ycounter <= (others => '0');
+          end if;
+        else
+          fast_raster_counter <= fast_raster_counter + 1;
+        end if;
+      end if;
+      
       if xcounter<frame_h_front then
         xfrontporch <= '1';
         displayx <= (others => '0');
