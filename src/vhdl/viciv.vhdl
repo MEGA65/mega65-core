@@ -2669,7 +2669,7 @@ begin
         -- delays, about 0x294 should do it.
         -- XXX - Why were we adding 2 here? Have removed this, as VIC-II
         -- rasters were too tall. PGS.
-        vicii_ycounter_scale <= vicii_ycounter_scale_minus_two;                                                                 -
+        vicii_ycounter_scale <= vicii_ycounter_scale_minus_two;
         vicii_xcounter_sub <= x"f154";
         chargen_x_sub <= (others => '0');
         raster_buffer_read_address <= (others => '0');
