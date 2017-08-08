@@ -130,6 +130,7 @@ begin  -- behavioural
         matrix(key_num) <= '1'    
                            and (matrix_physkey(key_num) or physkey_disable)
                            and (matrix_widget(key_num) or widget_disable)
+                           and (matrix_virtual(key_num) or virtual_disable)
                            and (matrix_ps2(key_num) or ps2_disable);
       else
         -- In matrix mode, it is as though no keys are pressed
