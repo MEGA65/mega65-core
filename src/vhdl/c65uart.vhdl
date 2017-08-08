@@ -134,6 +134,8 @@ architecture behavioural of c65uart is
   signal reg_portf_ddr : std_logic_vector(7 downto 0) := (others => '0');
   signal reg_portf_read : unsigned(7 downto 0) := (others => '0');
 
+  signal portj_internal : std_logic_vector(7 downto 0) := x"FF";
+  
   signal widget_enable_internal : std_logic := '1';
   signal ps2_enable_internal : std_logic := '1';
   signal joy_enable_internal : std_logic := '1';
@@ -290,18 +292,21 @@ begin  -- behavioural
           -- @IO:GS $D612.2 Enable physical joystick input
           fastio_rdata(4) <= joy_enable_internal;
         when x"13" =>
-          -- @IO:GS $D613 DEBUG: 8-bit segment of combined keyboard matrix (READ)
-          -- @IO:GS $D613 DEBUG: Which segment of keyboard matrix to read (0--9) (WRITE)
+          -- @IO:GS $D613 DEBUG: Which segment of keyboard matrix to read (0--9)
           fastio_rdata <= unsigned(portj_in);
         when x"14" =>
+          -- @IO:GS $D613 DEBUG: 8-bit segment of combined keyboard matrix (READ)
+          fastio_rdata <= unsigned(portj_internal);
+        when x"15" =>
           -- @IO:GS $D614 DEBUG: ID of key #1 held down on virtual keyboard
           fastio_rdata <= unsigned(portk_internal);
-        when x"15" =>
+        when x"16" =>
           -- @IO:GS $D615 DEBUG: ID of key #2 held down on virtual keyboard
           fastio_rdata <= unsigned(portl_internal);
-        when x"16" =>
+        when x"17" =>
           -- @IO:GS $D616 DEBUG: ID of key #3 held down on virtual keyboard
           fastio_rdata <= unsigned(portm_internal);
+          
         when others => fastio_rdata <= (others => 'Z');
       end case;
     else
@@ -513,11 +518,12 @@ begin  -- behavioural
             virtual_enable_internal <= std_logic(fastio_wdata(3));
             joy_enable_internal <= std_logic(fastio_wdata(4));
           when x"13" => portj_out <= std_logic_vector(fastio_wdata);
-          when x"14" =>
-            portk_internal <= std_logic_vector(fastio_wdata);
+                        portj_internal <= std_logic_vector(fastio_wdata);
           when x"15" =>
-            portl_internal <= std_logic_vector(fastio_wdata);
+            portk_internal <= std_logic_vector(fastio_wdata);
           when x"16" =>
+            portl_internal <= std_logic_vector(fastio_wdata);
+          when x"17" =>
             portm_internal <= std_logic_vector(fastio_wdata);
           when others => null;
         end case;

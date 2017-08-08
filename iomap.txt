@@ -260,7 +260,7 @@ GS $D612.2 Enable physical joystick input
 GS $D612.3 Enable virtual keyboard input
 GS $D612.4 Enable physical joystick input
 GS $D613 DEBUG: 8-bit segment of combined keyboard matrix (READ)
-GS $D613 DEBUG: Which segment of keyboard matrix to read (0--9) (WRITE)
+GS $D613 DEBUG: Which segment of keyboard matrix to read (0--9)
 GS $D614 DEBUG: ID of key #1 held down on virtual keyboard
 GS $D615 DEBUG: ID of key #2 held down on virtual keyboard
 GS $D616 DEBUG: ID of key #3 held down on virtual keyboard
