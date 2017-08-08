@@ -29,7 +29,7 @@ end entity matrix_to_ascii;
 architecture behavioral of matrix_to_ascii is
   signal keyscan_counter : integer := 0;
   -- Multiple by 11, as there are 11 scan phases
-  constant keyscan_delay : integer := 11*clock_frequency/scan_frequency;
+  constant keyscan_delay : integer := clock_frequency/(72*scan_frequency);
 
   signal matrix_last : std_logic_vector(71 downto 0) := (others => '1');
 
