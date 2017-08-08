@@ -268,6 +268,8 @@ architecture behavioral of iomapper is
 
   signal high_one : std_logic := '1';
   signal passive_z : std_logic := '1';
+
+  signal ef_latch : std_logic := '0';
   
   signal dummy_e : std_logic_vector(7 downto 0);
   signal dummy_g : std_logic_vector(7 downto 0);
@@ -705,11 +707,15 @@ begin
       -- Buffer ASCII keyboard input: Writing to the register causes
       -- the next key in the queue to be displayed.
       matrix_mode_trap <= '0';
-      if ascii_key_valid='1' and ascii_key = x"EF" then
+      if ascii_key_valid='1' and ascii_key = x"EF" and  ef_latch='0' then
         -- C= + TAB
         -- This replaces the old ALT+TAB task switch combination
         matrix_mode_trap <= '1';
+        ef_latch <= '1';
       end if;
+      if ascii_key /= x"ef" then
+        ef_latch <= '0';
+      end if; 
 
       -- UART char for monitor/matrix mode
       if ascii_key_valid='1' and protected_hardware_in(6)='1' then
