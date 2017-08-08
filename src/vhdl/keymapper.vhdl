@@ -137,11 +137,7 @@ begin  -- behavioural
         matrix(key_num) <= '1';
       end if;
       -- Update unified view for export
-      matrix_combined(key_num) <= '1'
-                                  and (matrix_physkey(key_num) or physkey_disable)
-                                  and (matrix_widget(key_num) or widget_disable)
-                                  and (matrix_virtual(key_num) or virtual_disable)
-                                  and (matrix_ps2(key_num) or ps2_disable);
+      matrix_combined(key_num) <= matrix(key_num);
 
       -- And joysticks
       for n in 0 to 4 loop
