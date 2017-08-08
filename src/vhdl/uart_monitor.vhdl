@@ -861,7 +861,7 @@ begin
                 if protected_hardware_in(6) = '0' then
                   character_received(to_character(rx_data));
                 end if;
-              elsif uart_char_valid = '1' and uart_char_processed='0' then
+              elsif uart_char_valid = '1' and uart_char_processed='0' and uart_char /= x"ef" then
                 -- Matrix mode input
                 character_received(to_character(uart_char));
                 uart_char_processed <= '1';
