@@ -154,14 +154,10 @@ task_asblankslate:
 double_restore_trap:
 
 	; switch video mode
-;	lda $d06f
-;	clc
-;	adc #$40
-;	sta $d06f
-
-	lda $d672
-	eor #$40
-	sta $d672
+	lda $d06f
+	clc
+	adc #$40
+	sta $d06f
 
 	; return from hypervisor
 	;
