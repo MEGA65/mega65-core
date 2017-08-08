@@ -124,18 +124,13 @@ begin  -- behavioural
       else
         key_num <= 0;
       end if;
-      if matrix_mode_in = '0' then
-        -- Keyboard matrix as seen by user land doesn't change while we are in
-        -- matrix mode.
-        matrix(key_num) <= '1'    
-                           and (matrix_physkey(key_num) or physkey_disable)
-                           and (matrix_widget(key_num) or widget_disable)
-                           and (matrix_virtual(key_num) or virtual_disable)
-                           and (matrix_ps2(key_num) or ps2_disable);
-      else
-        -- In matrix mode, it is as though no keys are pressed
-        matrix(key_num) <= '1';
-      end if;
+
+      matrix(key_num) <= '1'    
+                         and (matrix_physkey(key_num) or physkey_disable)
+                         and (matrix_widget(key_num) or widget_disable)
+                         and (matrix_virtual(key_num) or virtual_disable)
+                         and (matrix_ps2(key_num) or ps2_disable);
+
       -- Update unified view for export
       matrix_combined(key_num) <= matrix(key_num);
 
@@ -291,13 +286,13 @@ begin  -- behavioural
       for i in 0 to 7 loop
         if porta_in(i)='0' then
           for j in 0 to 7 loop
-            portb_value(j) := portb_value(j) and matrix((i*8)+j);
+            portb_value(j) := portb_value(j) and (matrix((i*8)+j) or matrix_mode_in);
           end loop;  -- j
         end if;        
       end loop;
       if keyboard_column8_select_in='0' then
         for j in 0 to 7 loop
-          portb_value(j) := portb_value(j) and matrix(64+j);
+          portb_value(j) := portb_value(j) and (matrix(64+j) or matrix_mode_in);
         end loop;  -- j
       end if;
 
@@ -306,7 +301,7 @@ begin  -- behavioural
       for i in 0 to 7 loop
         if portb_in(i)='0' then
           for j in 0 to 7 loop
-            porta_value(j) := porta_value(j) and matrix((j*8)+i);
+            porta_value(j) := porta_value(j) and (matrix((j*8)+i) or matrix_mode_in);
           end loop;  -- j
         end if;        
       end loop;      
