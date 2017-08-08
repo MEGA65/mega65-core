@@ -95,7 +95,7 @@ entity iomapper is
         pmod_data_out : out std_logic_vector(1 downto 0);
         pmoda : inout std_logic_vector(7 downto 0);
 
-        hdmi_scl : out std_logic := '1';
+        hdmi_scl : inout std_logic := '1';
         hdmi_sda : inout std_logic := 'Z';
 
         uart_rx : in std_logic;
@@ -266,8 +266,8 @@ architecture behavioral of iomapper is
   signal virtual_key2 : std_logic_vector(7 downto 0);
   signal virtual_key3 : std_logic_vector(7 downto 0);
 
-  signal high_one : std_logic;
-  signal passive_z : std_logic;
+  signal high_one : std_logic := '1';
+  signal passive_z : std_logic := '1';
   
   signal dummy_e : std_logic_vector(7 downto 0);
   signal dummy_g : std_logic_vector(7 downto 0);
@@ -400,30 +400,19 @@ begin
       fastio_wdata => unsigned(data_i),
       -- Port E is used for extra keys on C65 keyboard:
       -- bit0 = caps lock (input only)
-      -- bit1 = column 8 select (output only)      
-      porte_in(7 downto 2) => (others => '1'),
-      porte_in(1) => keyboard_column8_select,
-      porte_in(0) => capslock_from_keymapper,
-      porte_out(7 downto 2) => dummy_e(7 downto 2),
-      porte_out(1) => keyboard_column8_select,
-      porte_out(0) => dummy_e(0),
+      -- bit1 = column 8 select (output only)
+      porte(7 downto 2) => dummy_e(7 downto 2),
+      porte(1) => keyboard_column8_select,
+      porte(0) => capslock_from_keymapper,
       -- Port G is M65 only, and has bit-bash interfaces
-      portg_in(7) => hdmi_sda,
-      portg_in(6) => dummy_g(6),
-      portg_in(5) => sd_bitbash,
-      portg_in(4) => sd_bitbash_cs_bo,
-      portg_in(3) => sd_bitbash_sclk_o,
-      portg_in(2) => sd_bitbash_miso_i,
-      portg_in(1) => high_one,
-      portg_in(0) => passive_z,      
-      portg_out(7) => hdmi_sda,
-      portg_out(6) => hdmi_scl,
-      portg_out(5) => sd_bitbash,
-      portg_out(4) => sd_bitbash_cs_bo,
-      portg_out(3) => sd_bitbash_sclk_o,
-      portg_out(2) => sd_bitbash_mosi_o,
-      portg_out(1) => high_one,
-      portg_out(0) => passive_z,      
+      portg(7) => hdmi_sda,
+      portg(6) => hdmi_scl,
+      portg(5) => sd_bitbash,
+      portg(4) => sd_bitbash_cs_bo,
+      portg(3) => sd_bitbash_sclk_o,
+      portg(2) => sd_bitbash_mosi_o,
+      portg(1) => high_one,
+      portg(0) => passive_z,      
       key_debug => key_debug,
       widget_disable => widget_disable,
       ps2_disable => ps2_disable,

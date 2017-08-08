@@ -23,12 +23,6 @@ entity c65uart is
     fastio_wdata : in unsigned(7 downto 0);
     fastio_rdata : out unsigned(7 downto 0);
 
-    porte_out : out std_logic_vector(7 downto 0);
-    porte_in : in std_logic_vector(7 downto 0);
-
-    portg_out : out std_logic_vector(7 downto 0);
-    portg_in : in std_logic_vector(7 downto 0);
-
     uart_rx : in std_logic;
     uart_tx : out std_logic;
 
@@ -39,7 +33,9 @@ entity c65uart is
     physkey_disable : out std_logic;
     virtual_disable : out std_logic;
     
+    porte : inout std_logic_vector(7 downto 0);
     portf : inout std_logic_vector(7 downto 0);
+    portg : inout std_logic_vector(7 downto 0);    
     porth : in std_logic_vector(7 downto 0);
     porth_write_strobe : out std_logic := '0';
     porti : in std_logic_vector(7 downto 0);
@@ -455,12 +451,11 @@ begin  -- behavioural
       register_number(7 downto 5) := "000";
       register_number(4 downto 0) := fastio_address(4 downto 0);
 
-      -- Calculate read value for porta and portb
-      reg_porte_read <= ddr_pick(reg_porte_ddr,porte_in,reg_porte_out);        
+      -- Calculate read value for various ports
+      reg_porte_read <= ddr_pick(reg_porte_ddr,porte,reg_porte_out);        
       reg_portf_read <= ddr_pick(reg_portf_ddr,portf,reg_portf_out);
-      reg_portg_read <= ddr_pick(reg_portg_ddr,portg_in,reg_portg_out);        
+      reg_portg_read <= ddr_pick(reg_portg_ddr,portg,reg_portg_out);        
 
-      porte_out <= reg_porte_out or (not reg_porte_ddr);
       -- Support proper tri-stating on port F which connects to FPGA board PMOD
       -- connector.
       for bit in 0 to 7 loop

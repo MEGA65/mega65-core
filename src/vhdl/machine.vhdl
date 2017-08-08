@@ -87,7 +87,7 @@ entity machine is
          vgared : out  UNSIGNED (7 downto 0);
          vgagreen : out  UNSIGNED (7 downto 0);
          vgablue : out  UNSIGNED (7 downto 0);
-         hdmi_scl : out std_logic := '1';
+         hdmi_scl : inout std_logic := '1';
          hdmi_sda : inout std_logic := 'Z';
 
          -------------------------------------------------------------------------
