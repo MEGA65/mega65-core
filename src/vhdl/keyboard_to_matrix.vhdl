@@ -84,6 +84,7 @@ begin
           end if;
         end loop;
         if next_phase = 8 then
+          porta_pins <= (others => drive_one);
           keyboard_column8_out <= '0';
         else
           keyboard_column8_out <= '1';
