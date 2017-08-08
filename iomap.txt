@@ -240,6 +240,10 @@ C65 $D607 C65 UART 2-bit port data register (used for C65 keyboard)
 C65 $D607 C65 UART data direction register (used for C65 keyboard, HDMI and SD card I2C/SPI)
 GS $D609.0 UART BAUD clock source: 1 = 7.09375MHz, 0 = 150MHz
 GS $D609 MEGA65 extended UART control register
+GS $D60B PMOD port A on FPGA board (data)
+GS $D60C PMOD port A on FPGA board (DDR)
+GS $D60D.0 Physical keyboard scanning: Passive lines 'Z' or 'H'
+GS $D60D.1 Physical keyboard scanning: Float to '1' or 'Z'
 GS $D60D.2 SD card MOSI/MISO
 GS $D60D.3 SD card SCLK
 GS $D60D.4 SD card CS_BO
@@ -248,7 +252,6 @@ GS $D60D.6 HDMI SPI control interface SDA data line
 GS $D60D.7 HDMI SPI control interface SCL clock 
 GS $D60D Bit bashing port
 GS $D60E Bit bashing port DDR
-GS $D60F PMOD port A on FPGA board (DDR)
 GS $D610 Last key press as ASCII (hardware accelerated keyboard scanner). Write to clear event ready for next.
 GS $D611 Modifier key state (hardware accelerated keyboard scanner).
 GS $D612.0 Enable widget board keyboard/joystick input

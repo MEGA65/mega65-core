@@ -256,6 +256,12 @@ begin  -- behavioural
           -- @IO:GS $D609.0 UART BAUD clock source: 1 = 7.09375MHz, 0 = 150MHz
           fastio_rdata(0) <= clock709375;
           fastio_rdata(7 downto 1) <= (others => '1');
+        when x"0b" =>
+          -- @IO:GS $D60B PMOD port A on FPGA board (data)
+          fastio_rdata(7 downto 0) <= unsigned(reg_portf_read);
+        when x"0c" =>
+          -- @IO:GS $D60C PMOD port A on FPGA board (DDR)
+          fastio_rdata(7 downto 0) <= unsigned(reg_portf_ddr);
         when x"0d" =>
           -- @IO:GS $D60D Bit bashing port
           -- @IO:GS $D60D.7 HDMI SPI control interface SCL clock 
@@ -264,13 +270,12 @@ begin  -- behavioural
           -- @IO:GS $D60D.4 SD card CS_BO
           -- @IO:GS $D60D.3 SD card SCLK
           -- @IO:GS $D60D.2 SD card MOSI/MISO
+          -- @IO:GS $D60D.1 Physical keyboard scanning: Float to '1' or 'Z'
+          -- @IO:GS $D60D.0 Physical keyboard scanning: Passive lines 'Z' or 'H'
           fastio_rdata(7 downto 0) <= reg_portg_read;
         when x"0e" =>
           -- @IO:GS $D60E Bit bashing port DDR
           fastio_rdata(7 downto 0) <= unsigned(reg_portg_ddr);
-        when x"0f" =>
-          -- @IO:GS $D60F PMOD port A on FPGA board (DDR)
-          fastio_rdata(7 downto 0) <= unsigned(reg_portf_ddr);
         when x"10" =>
           -- @IO:GS $D610 Last key press as ASCII (hardware accelerated keyboard scanner). Write to clear event ready for next.
           fastio_rdata(7 downto 0) <= unsigned(porth);
@@ -497,9 +502,15 @@ begin  -- behavioural
             -- or disabling the transmitter should clear it.
           when x"07" => reg_porte_out<=std_logic_vector(fastio_wdata(7 downto 0));
           when x"08" => reg_porte_ddr<=std_logic_vector(fastio_wdata(7 downto 0));
-          when x"0e" => reg_portf_out <= std_logic_vector(fastio_wdata);
-          when x"0f" => reg_portf_ddr <= std_logic_vector(fastio_wdata);
+
+          when x"09" =>
+            clock709375 <= fastio_wdata(0);
+          when x"0b" => reg_portf_out <= std_logic_vector(fastio_wdata);
+          when x"0c" => reg_portf_ddr <= std_logic_vector(fastio_wdata);
+          when x"0d" => reg_portg_out <= std_logic_vector(fastio_wdata);
+          when x"0e" => reg_portg_ddr <= std_logic_vector(fastio_wdata);
           when x"10" => porth_write_strobe <= '1';
+          when x"11" => null; -- bucky keys readonly
           when x"12" =>
             widget_enable_internal <= std_logic(fastio_wdata(0));
             ps2_enable_internal <= std_logic(fastio_wdata(1));
