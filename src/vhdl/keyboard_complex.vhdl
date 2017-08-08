@@ -130,8 +130,7 @@ begin
   
   phykbd0: entity work.keyboard_to_matrix
     generic map (
-      clock_frequency => 50000000,
-      scan_frequency => 25000000)
+      clock_frequency => 50000000)
     port map (
       clk => ioclock,
       porta_pins => porta_pins,
