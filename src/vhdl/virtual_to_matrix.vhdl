@@ -50,6 +50,12 @@ begin
       else
         matrix_internal(scan_phase) <= '1';
       end if;
+
+      if scan_phase /= 71 then
+        scan_phase <= scan_phase + 1;
+      else
+        scan_phase <= 0;
+      end if;
       
     end if;
   end process;
