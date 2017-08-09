@@ -67,8 +67,18 @@ begin
         end if;
 
         -- Scan the keyboard
+        -- Resistance of keyboard is ~175ohms internally (on shift-lock)
+        -- and then there is a 100ohm resistor on both the row and column
+        -- lines. 
+        -- As a result, pressing a key only drags a high-impedence input
+        -- line down to ~2.6v, which is not low enough to trigger a logic
+        -- low.
+        -- This is weird, however, as there should still be enough
+        -- resistance on the interal pullup of the FPGA (>13K apparently),
+        -- that we should still be able to pull the line low enough to sense.
+        
         portb_pins <= (others => passive_high);
-        matrix_internal((scan_phase*8)+ 7 downto (scan_phase*8)) <= portb_pins(7 downto 0);
+        matrix_internal((scan_phase*8)+ 7 downto (scan_phase*8)) <= portb_pins(7 downto 0) xor "11111111";
 
         -- Select lines for next column
         if scan_phase < 8 then
@@ -78,16 +88,16 @@ begin
         end if;
         for i in 0 to 7 loop
           if next_phase = i then
-            porta_pins(i) <= '0';
+            porta_pins(i) <= '1';
           else
-            porta_pins(i) <= drive_one;
+            porta_pins(i) <= '0';
           end if;
         end loop;
         if next_phase = 8 then
-          porta_pins <= (others => drive_one);
-          keyboard_column8_out <= '0';
-        else
+          porta_pins <= (others => '0');
           keyboard_column8_out <= '1';
+        else
+          keyboard_column8_out <= '0';
         end if;
       else
         -- Keep counting down to next scan event
