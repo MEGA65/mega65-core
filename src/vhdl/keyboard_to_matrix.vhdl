@@ -77,7 +77,7 @@ begin
         -- resistance on the interal pullup of the FPGA (>13K apparently),
         -- that we should still be able to pull the line low enough to sense.
         
-        portb_pins <= (others => passive_high);
+        portb_pins <= (others => 'L');
         matrix_internal((scan_phase*8)+ 7 downto (scan_phase*8)) <= portb_pins(7 downto 0) xor "11111111";
 
         -- Select lines for next column
