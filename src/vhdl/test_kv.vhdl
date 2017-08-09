@@ -100,8 +100,7 @@ begin
 
     matrix_mode_in => '0',
 
-    high_one => '1',
-    passive_z => '1',
+    scan_mode => "01",
     
     matrix_segment_num => x"00",
     

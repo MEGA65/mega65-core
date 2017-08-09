@@ -15,8 +15,7 @@ entity keyboard_to_matrix is
         key_left : in std_logic;
         key_up : in std_logic;
 
-        drive_one : in std_logic;
-        passive_high : in std_logic;
+        scan_mode : in std_logic_vector(1 downto 0);
         
         -- Virtualised keyboard matrix
         matrix : out std_logic_vector(71 downto 0) := (others => '1')
@@ -85,8 +84,15 @@ begin
         -- Driving columns low works just fine, however. What it seems like is
         -- that the row pins (portb_pins) is being driven high, instead of
         -- tristates, i.e., '1' instead of 'H' or 'Z'.
+
+        case scan_mode is
+          when "00" =>  portb_pins <= (others => '0');
+          when "01" =>  portb_pins <= (others => 'L');
+          when "10" =>  portb_pins <= (others => 'H');
+          when "11" =>  portb_pins <= (others => '1');
+          when others => portb_pins <= (others => '1');
+        end case;
         
-        portb_pins <= (others => 'L');
         matrix_internal((scan_phase*8)+ 7 downto (scan_phase*8)) <= portb_pins(7 downto 0) xor "11111111";
 
         -- Select lines for next column

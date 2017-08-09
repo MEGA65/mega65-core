@@ -268,8 +268,8 @@ begin  -- behavioural
           -- @IO:GS $D60D.4 SD card CS_BO
           -- @IO:GS $D60D.3 SD card SCLK
           -- @IO:GS $D60D.2 SD card MOSI/MISO
-          -- @IO:GS $D60D.1 Physical keyboard scanning: Float to '1' or 'Z'
-          -- @IO:GS $D60D.0 Physical keyboard scanning: Passive lines 'Z' or 'H'
+          -- @IO:GS $D60D.1-0 Physical keyboard scanning: Float inputs to 0/L/H/1
+          
           fastio_rdata(7 downto 0) <= reg_portg_read;
         when x"0e" =>
           -- @IO:GS $D60E Bit bashing port DDR

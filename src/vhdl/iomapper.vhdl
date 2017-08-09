@@ -266,8 +266,7 @@ architecture behavioral of iomapper is
   signal virtual_key2 : std_logic_vector(7 downto 0);
   signal virtual_key3 : std_logic_vector(7 downto 0);
 
-  signal high_one : std_logic := '1';
-  signal passive_z : std_logic := '1';
+  signal keyboard_scan_mode : std_logic_vector(1 downto 0);
 
   signal ef_latch : std_logic := '0';
   
@@ -413,8 +412,7 @@ begin
       portg(4) => sd_bitbash_cs_bo,
       portg(3) => sd_bitbash_sclk_o,
       portg(2) => sd_bitbash_mosi_o,
-      portg(1) => high_one,
-      portg(0) => passive_z,      
+      portg(1 downto 0) => keyboard_scan_mode,
       key_debug => key_debug,
       widget_disable => widget_disable,
       ps2_disable => ps2_disable,
@@ -437,15 +435,18 @@ begin
   
   block5: block
   begin
-    kc0 : entity work.keyboard_complex port map (
+    kc0 : entity work.keyboard_complex
+      generic map (
+        scan_rate => 100000
+        )
+      port map (
       reset_in => reset,
       matrix_mode_in => protected_hardware_in(6),
 
       matrix_segment_num => matrix_segment_num,
       matrix_segment_out => matrix_segment_out,
 
-      high_one => high_one,
-      passive_z => passive_z,
+      scan_mode => keyboard_scan_mode,
       
     widget_disable => widget_disable,
     ps2_disable => ps2_disable,
