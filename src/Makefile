@@ -33,6 +33,7 @@ TOOLS=	tools/etherkick/etherkick \
 	tools/hotpatch/hotpatch \
 	tools/monitor_load \
 	tools/monitor_save \
+	tools/on_screen_keyboard_gen \
 	tools/pngprepare/pngprepare
 
 all:
@@ -403,6 +404,11 @@ tools/monitor_save:	tools/monitor_save.c Makefile
 	$(warning =============================================================)
 	$(warning ~~~~~~~~~~~~~~~~> Making: monitor_save)
 	gcc -g -Wall -o tools/monitor_save tools/monitor_save.c
+
+tools/on_screen_keyboard_gen:	tools/on_screen_keyboard_gen.c Makefile
+	$(warning =============================================================)
+	$(warning ~~~~~~~~~~~~~~~~> Making: on_screen_keyboard_gen)
+	gcc -g -Wall -o tools/on_screen_keyboard_gen tools/on_screen_keyboard_gen.c
 
 
 # ============================ done moved, Makefile-dep, print-warn, clean-target

@@ -1,0 +1,40 @@
+----+    +----+----+----+----+    +----+----+----+----+    +----+----+----+----
+RUN |    |ESC |ALT |ASC | NO |    | F1 | F3 | F5 | F7 |    | F9 | F11| F13|HELP
+STOP|    |    |    |DIN |SCRL|    | F2 | F4 | F6 | F8 |    | F10| F12| F14|    
+----+    +----+----+----+----+    +----+----+----+----+    +----+----+----+----
+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----
+ ~  | !  | "  | #  | $  | %  | &  | '  | (  | )  | {  |    |    |    |CLR |INST
+ _  | 1  | 2  | 3  | 4  | 5  | 6  | 7  | 8  | 9  | 0  | +  | -  |GBP |HOME|DEL 
+----+--+-+--+-+--+-+--+-+--+-+--+-+--+-+--+-+--+-+--+-+--+-+--+-+--+-+--+-+----
+  TAB  |    |    |    |    |    |    |    |    |    |    |    |    | PI | RSTR 
+       | Q  | W  | E  | R  | T  | Y  | U  | I  | O  | P  | @  | *  | ^  |      
+----+--+-+--+-+--+-+--+-+--+-+--+-+--+-+--+-+--+-+--+-+--+-+--+-+--+-+--+------
+CTRL|SHFT|    |    |    |    |    |    |    |    |    | [  | ]  | }  |  RETURN 
+    |LOCK| A  | S  | D  | F  | G  | H  | J  | K  | L  | :  | ;  | =  |         
+----+----+--+-+--+-+--+-+--+-+--+-+--+-+--+-+--+-+--+-+--+-+--+-+----+----+----
+ C= | SHIFT |    |    |    |    |    |    |    | <  | >  | ?  | SHIFT|CRSR|
+    |       | Z  | X  | C  | V  | B  | N  | M  | ,  | .  | /  |      | UP |
+----+-------+-+--+----+----+----+----+----+----+----+----+-+--+-+----+----+----
+              |                   SPACE                    |    |CRSR|CRSR|CRSR
+              |                                            |    |LEFT|DOWN|RGHT
+              +--------------------------------------------+    +----+----+----
+
+Simple table for working out which keys go where for the above pattern for
+on-screen keyboard of 6 rows x 16 characters + 3 width flag bits
+* N indicates normal width char in position #1,#2 or #13. All other keys are single
+width (RETURN and RESTORE are two single-width chars for boundary determination)
+* W indicates 150% width character in position #1, #2 or #13.
+* When drawing on screen, the list of down keys can be used with this table to draw
+active key regions in reverse video, even though the boundaries are all in the middle
+of characters.
+* Table is also used to decode an X,Y position relative to start of keyboard, measured
+in 1/2 key widths and whole key heights into the correct matrix entry.
+
+N3F,N7F,47,41,50,40,7F,04,05,06,03,7F,N45,46,47,43
+N39,N38,3B,08,0B,10,13,18,1B,20,23,28,N2B,38,3B,00+
+W41,N3E,09,0E,11,16,19,1E,21,26,29,2E,N31,36,51
+N3A,N0F,0A,0D,12,15,1A,1D,22,25,2A,2D,N32,35,01,01
+N3D,W0F,0C,17,14,1F,1C,27,24,2F,2C,37,W34,52,
+N7F,N7F,7F,3C,3C,3C,3C,3C,3C,3C,3C,3C,N7F,53,07,02
+
+Sticky/modifier keys: 0F, 07, 3D, 40, 42
