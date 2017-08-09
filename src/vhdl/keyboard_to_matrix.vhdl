@@ -53,13 +53,13 @@ begin
       end if;
       
       -- Scan physical keyboard
---      report "scan_phase = " & integer'image(scan_phase)
---        & ", portb_pins = " & to_string(portb_pins)
---        & ", porta_pins = " & to_string(porta_pins);
       if counter=0 then
         counter <= count_down;
+--        report "scan_phase = " & integer'image(scan_phase)
+--          & ", portb_pins = " & to_string(portb_pins)
+--          & ", porta_pins = " & to_string(porta_pins);
         -- Read the appropriate matrix row or joysticks state
---        report "matrix = " & to_string(matrix);
+--        report "matrix = " & to_string(matrix_internal);
         if scan_phase < 8 then
           scan_phase <= scan_phase + 1;
         else

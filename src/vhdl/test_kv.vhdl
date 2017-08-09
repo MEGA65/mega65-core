@@ -90,7 +90,11 @@ architecture behavioral of test_kv is
   signal potb_y : unsigned(7 downto 0) := x"ff";
   
 begin
-  kc0: entity work.keyboard_complex port map(
+  kc0: entity work.keyboard_complex
+    generic map(
+      scan_rate => 100000
+      )
+    port map(
     ioclock => cpuclock,
     reset_in => reset_in,
 
@@ -171,29 +175,13 @@ begin
   begin
     for i in 1 to 2000000 loop
       pixelclock <= '0'; cpuclock <= '0'; ioclock <= '0';
-      wait for 5 ns;     
-      pixelclock <= '1'; cpuclock <= '0'; ioclock <= '0';
-      wait for 5 ns;     
-      pixelclock <= '0'; cpuclock <= '0'; ioclock <= '0';
-      wait for 5 ns;     
-      pixelclock <= '1'; cpuclock <= '0'; ioclock <= '0';
-      wait for 5 ns;     
+      wait for 10 ns;
       pixelclock <= '0'; cpuclock <= '1'; ioclock <= '1';
-      wait for 5 ns;     
-      pixelclock <= '1'; cpuclock <= '1'; ioclock <= '1';
-      wait for 5 ns;     
-      pixelclock <= '0'; cpuclock <= '1'; ioclock <= '1';
-      wait for 5 ns;     
-      pixelclock <= '1'; cpuclock <= '1'; ioclock <= '1';
-      wait for 5 ns;
+      wait for 10 ns;
     end loop;  -- i
     assert false report "End of simulation" severity note;
   end process;
 
-  -- Pull up resisters
-  porta_pins <= (others => 'H');
-  portb_pins <= (others => 'H');
-  
   -- Monitor keyboard activity
   process (cpuclock)
   begin
@@ -325,22 +313,22 @@ begin
         for j in 1 to cycles_per_char loop
 --          report "porta_pins = " & to_string(porta_pins)
 --            & ", portb_pins = " & to_string(portb_pins);
-          if porta_pins(a_pin)='0' then
-            portb_pins(b_pin) <= '0';
+          if porta_pins(a_pin)='1' then
+            portb_pins(b_pin) <= '1';
             if (a_pin = 1) and (b_pin /= 7) then
               if shifted then
-                portb_pins(7) <= '0';
+                portb_pins(7) <= '1';
               else
-                portb_pins(7) <= 'Z';
+                portb_pins(7) <= '0';
               end if;
             end if;
             if (a_pin /= 1) and (b_pin /= 7) then
-              portb_pins(7) <= 'Z';
+              portb_pins(7) <= '0';
             end if;
           else
             if shifted then
-              if porta_pins(1)='0' then
-                portb_pins(7) <= '0';
+              if porta_pins(1)='1' then
+                portb_pins(7) <= '1';
               else
                 portb_pins <= (others => 'Z');
               end if;
@@ -363,13 +351,13 @@ begin
   begin
     report "Turning matrix mode off";
     matrix_mode <= '0';
-    type_text(1000,"The big fish");
-    type_char(1000,cr);
+    type_text(1000000,"The big fish");
+    type_char(1000000,cr);
     wait for 1000 ms;
     report "Turning matrix mode on";
     matrix_mode <= '1';
-    type_text(1000,"The big fish");
-    type_char(1000,cr);
+    type_text(1000000,"The big fish");
+    type_char(1000000,cr);
     wait for 1000 ms;
   end process;  
   

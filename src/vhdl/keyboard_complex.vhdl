@@ -5,6 +5,9 @@ use Std.TextIO.all;
 use work.debugtools.all;
 
 entity keyboard_complex is
+  generic (
+    scan_rate : in integer
+    );
   port (
     ioclock : in std_logic;
     reset_in : in std_logic;
@@ -130,6 +133,7 @@ begin
   
   phykbd0: entity work.keyboard_to_matrix
     generic map (
+      scan_frequency => scan_rate,
       clock_frequency => 50000000)
     port map (
       clk => ioclock,
