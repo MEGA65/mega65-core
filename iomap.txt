@@ -242,8 +242,7 @@ GS $D609.0 UART BAUD clock source: 1 = 7.09375MHz, 0 = 150MHz
 GS $D609 MEGA65 extended UART control register
 GS $D60B PMOD port A on FPGA board (data)
 GS $D60C PMOD port A on FPGA board (DDR)
-GS $D60D.0 Physical keyboard scanning: Passive lines 'Z' or 'H'
-GS $D60D.1 Physical keyboard scanning: Float to '1' or 'Z'
+GS $D60D.1-0 Physical keyboard scanning: Float inputs to 0/L/H/1
 GS $D60D.2 SD card MOSI/MISO
 GS $D60D.3 SD card SCLK
 GS $D60D.4 SD card CS_BO
