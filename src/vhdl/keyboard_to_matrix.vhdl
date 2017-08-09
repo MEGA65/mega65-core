@@ -73,9 +73,18 @@ begin
         -- As a result, pressing a key only drags a high-impedence input
         -- line down to ~2.6v, which is not low enough to trigger a logic
         -- low.
+        -- Even shorting the keyboard pins isn't enough to make the difference,
+        -- as the voltage drops to only ~2v, which is still too high to be
+        -- a 3.3V LVCMOS logic low.
         -- This is weird, however, as there should still be enough
         -- resistance on the interal pullup of the FPGA (>13K apparently),
         -- that we should still be able to pull the line low enough to sense.
+        -- Further, pressing multiple keys on the same column results in the
+        -- voltage not pulling down as low, suggesting that each row line
+        -- has a pull-up on it.
+        -- Driving columns low works just fine, however. What it seems like is
+        -- that the row pins (portb_pins) is being driven high, instead of
+        -- tristates, i.e., '1' instead of 'H' or 'Z'.
         
         portb_pins <= (others => 'L');
         matrix_internal((scan_phase*8)+ 7 downto (scan_phase*8)) <= portb_pins(7 downto 0) xor "11111111";
