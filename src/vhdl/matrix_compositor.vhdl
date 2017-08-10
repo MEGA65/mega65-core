@@ -337,11 +337,11 @@ begin
             --Seems to shift ALL output by 1px? 
             if data_buffer(7) = '1' then 
               redOutput_all <=   b"00"&vgared_in(7 downto 2);
-              greenOutput_all <= data_buffer(7)&data_buffer(7)&data_buffer(7)&vgagreen_in(4 downto 0);
+              greenOutput_all <= data_buffer(7)&data_buffer(7)&data_buffer(7)&vgagreen_in(7 downto 3);
               blueOutput_all <=  b"00"&vgablue_in(7 downto 2);			 			      			 
             else
               redOutput_all <= b"00"&vgared_in(7 downto 2);
-              greenOutput_all <= data_buffer(7)&data_buffer(7) &vgagreen_in(5 downto 0);
+              greenOutput_all <= data_buffer(7)&data_buffer(7) &vgagreen_in(7 downto 2);
               blueOutput_all <= b"00"&vgablue_in(7 downto 2);			      			 
             end if;
           end if;
