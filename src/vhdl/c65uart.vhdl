@@ -459,15 +459,20 @@ begin  -- behavioural
       -- Calculate read value for various ports
       reg_porte_read <= ddr_pick(reg_porte_ddr,porte,reg_porte_out);        
       reg_portf_read <= ddr_pick(reg_portf_ddr,portf,reg_portf_out);
-      reg_portg_read <= ddr_pick(reg_portg_ddr,portg,reg_portg_out);        
+      reg_portg_read <= ddr_pick(reg_portg_ddr,portg,reg_portg_out);
 
-      -- Support proper tri-stating on port F which connects to FPGA board PMOD
+      -- Support proper tri-stating on port F and port G which connects to FPGA board PMOD
       -- connector.
       for bit in 0 to 7 loop
         if reg_portf_ddr(bit)='1' then
           portf(bit) <= reg_portf_out(bit) or (not reg_portf_ddr(bit));
         else
           portf(bit) <= 'Z';
+        end if;
+        if reg_portg_ddr(bit)='1' then
+          portg(bit) <= reg_portg_out(bit) or (not reg_portg_ddr(bit));
+        else
+          portg(bit) <= 'Z';
         end if;
       end loop;
       
