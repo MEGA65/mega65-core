@@ -43,7 +43,8 @@ entity c65uart is
     portj_out : out std_logic_vector(7 downto 0);
     portk_out : out  std_logic_vector(7 downto 0);
     portl_out : out  std_logic_vector(7 downto 0);
-    portm_out : out  std_logic_vector(7 downto 0)
+    portm_out : out  std_logic_vector(7 downto 0);
+    portn_out : out unsigned(7 downto 0)
     
     );
 end c65uart;
@@ -145,6 +146,7 @@ architecture behavioural of c65uart is
   signal portk_internal : std_logic_vector(7 downto 0) := x"FF";
   signal portl_internal : std_logic_vector(7 downto 0) := x"FF";
   signal portm_internal : std_logic_vector(7 downto 0) := x"FF";
+  signal portn_internal : std_logic_vector(7 downto 0) := x"FF";
   
 begin  -- behavioural
   
@@ -188,6 +190,7 @@ begin  -- behavioural
       portk_out <= portk_internal;
       portl_out <= portl_internal;
       portm_out <= portm_internal;
+      portn_out <= unsigned(portn_internal);
       
       rx_clear_flags <= '0';
       if (fastio_address(19 downto 16) = x"D")
@@ -295,17 +298,20 @@ begin  -- behavioural
           -- @IO:GS $D613 DEBUG: Which segment of keyboard matrix to read (0--9)
           fastio_rdata <= unsigned(portj_in);
         when x"14" =>
-          -- @IO:GS $D613 DEBUG: 8-bit segment of combined keyboard matrix (READ)
+          -- @IO:GS $D614 DEBUG: 8-bit segment of combined keyboard matrix (READ)
           fastio_rdata <= unsigned(portj_internal);
         when x"15" =>
-          -- @IO:GS $D614 DEBUG: ID of key #1 held down on virtual keyboard
+          -- @IO:GS $D615 ID of key #1 held down on virtual keyboard
           fastio_rdata <= unsigned(portk_internal);
         when x"16" =>
-          -- @IO:GS $D615 DEBUG: ID of key #2 held down on virtual keyboard
+          -- @IO:GS $D616 ID of key #2 held down on virtual keyboard
           fastio_rdata <= unsigned(portl_internal);
         when x"17" =>
-          -- @IO:GS $D616 DEBUG: ID of key #3 held down on virtual keyboard
+          -- @IO:GS $D617 ID of key #3 held down on virtual keyboard
           fastio_rdata <= unsigned(portm_internal);
+        when x"18" =>
+          -- @IO:GS $D618 Keyboard scan rate ($00=50MHz, $FF=~200KHz)
+          fastio_rdata <= unsigned(portn_internal);
           
         when others => fastio_rdata <= (others => 'Z');
       end case;
@@ -530,6 +536,8 @@ begin  -- behavioural
             portl_internal <= std_logic_vector(fastio_wdata);
           when x"17" =>
             portm_internal <= std_logic_vector(fastio_wdata);
+          when x"18" =>
+            portn_internal <= std_logic_vector(fastio_wdata);
           when others => null;
         end case;
       end if;

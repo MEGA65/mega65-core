@@ -5,9 +5,6 @@ use Std.TextIO.all;
 use work.debugtools.all;
 
 entity keyboard_complex is
-  generic (
-    scan_rate : in integer
-    );
   port (
     ioclock : in std_logic;
     reset_in : in std_logic;
@@ -19,6 +16,7 @@ entity keyboard_complex is
     porta_pins : inout  std_logic_vector(7 downto 0) := (others => 'Z');
     portb_pins : inout  std_logic_vector(7 downto 0) := (others => 'Z');
     scan_mode : in std_logic_vector(1 downto 0);
+    scan_rate : in unsigned(7 downto 0);
     keyboard_restore : in std_logic := '1';
     keyboard_column8_out : out std_logic := '1';
     key_left : in std_logic;
@@ -128,9 +126,6 @@ begin
     );
   
   phykbd0: entity work.keyboard_to_matrix
-    generic map (
-      scan_frequency => scan_rate,
-      clock_frequency => 50000000)
     port map (
       clk => ioclock,
       porta_pins => porta_pins,
@@ -138,7 +133,9 @@ begin
       keyboard_column8_out => keyboard_column8_out,
       key_left => key_left,
       key_up => key_up,
+
       scan_mode => scan_mode,
+      scan_rate => scan_rate,
 
       matrix => keyboard_matrix
     );

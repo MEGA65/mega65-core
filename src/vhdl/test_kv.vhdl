@@ -91,9 +91,6 @@ architecture behavioral of test_kv is
   
 begin
   kc0: entity work.keyboard_complex
-    generic map(
-      scan_rate => 100000
-      )
     port map(
     ioclock => cpuclock,
     reset_in => reset_in,
@@ -101,6 +98,7 @@ begin
     matrix_mode_in => '0',
 
     scan_mode => "01",
+    scan_rate => x"01",
     
     matrix_segment_num => x"00",
     

@@ -267,6 +267,7 @@ architecture behavioral of iomapper is
   signal virtual_key3 : std_logic_vector(7 downto 0);
 
   signal keyboard_scan_mode : std_logic_vector(1 downto 0);
+  signal keyboard_scan_rate : unsigned(7 downto 0);
 
   signal ef_latch : std_logic := '0';
   
@@ -429,16 +430,14 @@ begin
       portj_in => matrix_segment_out,
       portk_out => virtual_key1,
       portl_out => virtual_key2,
-      portm_out => virtual_key3
+      portm_out => virtual_key3,
+      portn_out => keyboard_scan_rate
       );
   end block;
   
   block5: block
   begin
     kc0 : entity work.keyboard_complex
-      generic map (
-        scan_rate => 100000
-        )
       port map (
       reset_in => reset,
       matrix_mode_in => protected_hardware_in(6),
@@ -447,6 +446,7 @@ begin
       matrix_segment_out => matrix_segment_out,
 
       scan_mode => keyboard_scan_mode,
+      scan_rate => keyboard_scan_rate,
       
     widget_disable => widget_disable,
     ps2_disable => ps2_disable,

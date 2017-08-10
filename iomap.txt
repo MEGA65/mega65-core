@@ -258,11 +258,12 @@ GS $D612.1 Enable ps2 keyboard/joystick input
 GS $D612.2 Enable physical joystick input
 GS $D612.3 Enable virtual keyboard input
 GS $D612.4 Enable physical joystick input
-GS $D613 DEBUG: 8-bit segment of combined keyboard matrix (READ)
 GS $D613 DEBUG: Which segment of keyboard matrix to read (0--9)
-GS $D614 DEBUG: ID of key #1 held down on virtual keyboard
-GS $D615 DEBUG: ID of key #2 held down on virtual keyboard
-GS $D616 DEBUG: ID of key #3 held down on virtual keyboard
+GS $D614 DEBUG: 8-bit segment of combined keyboard matrix (READ)
+GS $D615 ID of key #1 held down on virtual keyboard
+GS $D616 ID of key #2 held down on virtual keyboard
+GS $D617 ID of key #3 held down on virtual keyboard
+GS $D618 Keyboard scan rate ($00=50MHz, $FF=~200KHz)
 GS $D630.6 - Thumbnail drawing was in progress.
 GS $D630.7 - Thumbnail is valid if 1.  Else there has not been a complete frame since elapsed without a trap to hypervisor mode, in which case the thumbnail may not reflect the current process.
 GS $D630-$D631 - Read-only hardware-generated thumbnail of display (accessible only in hypervisor mode)

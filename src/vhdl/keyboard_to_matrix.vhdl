@@ -6,8 +6,6 @@ use ieee.numeric_std.all;
 use work.debugtools.all;
 
 entity keyboard_to_matrix is
-  generic (scan_frequency : integer := 100000;
-           clock_frequency : integer);
   port (Clk : in std_logic;        
         porta_pins : inout  std_logic_vector(7 downto 0) := (others => 'Z');
         portb_pins : inout  std_logic_vector(7 downto 0) := (others => 'Z');
@@ -16,6 +14,8 @@ entity keyboard_to_matrix is
         key_up : in std_logic;
 
         scan_mode : in std_logic_vector(1 downto 0);
+
+        scan_rate : in unsigned(7 downto 0);
         
         -- Virtualised keyboard matrix
         matrix : out std_logic_vector(71 downto 0) := (others => '1')
@@ -24,10 +24,9 @@ entity keyboard_to_matrix is
 end keyboard_to_matrix;
 
 architecture behavioral of keyboard_to_matrix is
-  -- Scan a row 100K/sec, so that the scanning is slow enough
-  -- for the keyboard 
-  constant count_down : integer := clock_frequency/scan_frequency;
-  signal counter : integer := count_down;
+  -- Scan slow enough for the keyboard (rate is set via scan_rate)
+  -- Actual scan rate = CPU clock / scan_rate.
+  signal counter : integer := 0;
 
   signal scan_phase : integer range 0 to 8 := 0; -- reset entry phase
 
@@ -53,7 +52,7 @@ begin
       
       -- Scan physical keyboard
       if counter=0 then
-        counter <= count_down;
+        counter <= to_integer(scan_rate);
 --        report "scan_phase = " & integer'image(scan_phase)
 --          & ", portb_pins = " & to_string(portb_pins)
 --          & ", porta_pins = " & to_string(porta_pins);
