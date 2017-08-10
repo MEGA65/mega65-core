@@ -74,7 +74,7 @@ outfile6="${LOGDIR}/compile-${datetime2}_6-bit.log"
 
 ISE_COMMON_OPTS="-intstyle ise"
 ISE_NGDBUILD_OPTS="-p xc7a200t-fbg484-2 -dd _ngo -sd ipcore_dir -nt timestamp"
-ISE_MAP_OPTS="-p xc7a200t-fbg484-2 -w -logic_opt on -ol high -t 1 -xt 0 -register_duplication on -r 4 -mt off -ir off -ignore_keep_hierarchy -pr b -lc off -power off"
+ISE_MAP_OPTS="-p xc7a200t-fbg484-2 -w -logic_opt on -ol high -t 1 -xt 0 -register_duplication on -r 4 -mt 2 -ir off -ignore_keep_hierarchy -pr b -lc off -power off"
 ISE_PAR_OPTS="-w -ol std -mt off"
 ISE_TRCE_OPTS="-v 3 -s 1 -n 3 -fastpaths -xml"
 
