@@ -383,6 +383,7 @@ begin
       -- Check for key press events
       if keyscan_counter /= 0 then
         keyscan_counter <= keyscan_counter - 1;
+        ascii_key_valid <= '0';
       else
         keyscan_counter <= keyscan_delay;
         matrix_internal(key_num) <= matrix(key_num);
