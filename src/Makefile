@@ -1,5 +1,5 @@
 
-COPT=	-Wall -g -std=g99
+COPT=	-Wall -g -std=c99
 CC=	gcc
 
 VHDLSRCDIR=	vhdl
