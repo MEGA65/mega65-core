@@ -14,6 +14,8 @@ entity matrix_compositor is
     terminal_emulator_ready : out std_logic;
     xcounter_in : in unsigned(11 downto 0);
     ycounter_in : in unsigned(11 downto 0);
+    xcounter_out : out unsigned(11 downto 0);
+    ycounter_out : out unsigned(11 downto 0);
     clk : in std_logic; --48Mhz
     pixelclock : in std_logic; --200Mhz
     matrix_mode_enable : in  STD_LOGIC;
@@ -147,6 +149,10 @@ begin
   begin
 
     if rising_edge(pixelclock) then
+
+      xcounter_out <= xcounter_in;
+      ycounter_out <= ycounter_in;
+      
       -- We synchronise to start of line, as the end of line may change with
       -- different video modes.
       if xcounter_in = 0 and  ycounter_in >= starty and ycounter_in < endy then
