@@ -1,4 +1,7 @@
 
+COPT=	-Wall -g -std=g99
+CC=	gcc
+
 VHDLSRCDIR=	vhdl
 
 SDCARD_DIR=	../sdcard-files
@@ -165,7 +168,7 @@ megacart.crt:	megacartstub.a65
 	./../../Ophis/bin/ophis -4 megacartstub.a65 -l megacart.list -m megacart.map
 
 fdisk.native:	fdisk.c fdisk_hal_unix.c fdisk_hal.h Makefile
-	gcc -g -Wall -o fdisk.native fdisk.c fdisk_hal_unix.c
+	$(CC) $(COPT) -o fdisk.native fdisk.c fdisk_hal_unix.c
 
 fdisktest:	fdisk.d81 COLOURRAM.BIN
 	dd if=/dev/zero of=empty.img bs=1048576 count=200
@@ -176,10 +179,10 @@ fdisk.d81:	fdisk.prg
 
 FDISK_HEADERS=	fdisk_screen.h fdisk_memory.h Makefile
 CC65=cc65
-COPTS=-O
+CC65OPTS=-O
 
 %.s:	%.c $(FDISK_HEADERS)
-	$(CC65) $(COPTS) -o $@ $<
+	$(CC65) $(CC65OPTS) -o $@ $<
 
 fdisk.prg:	fdisk.s fdisk_hal_mega65.s fdisk_memory.s fdisk_screen.s
 	cl65 -t c64 -o fdisk.prg fdisk.s fdisk_hal_mega65.s fdisk_memory.s fdisk_screen.s
@@ -301,7 +304,7 @@ $(VHDLSRCDIR)/shadowram.vhdl:	tools/mempacker/mempacker $(SDCARD_DIR)/BANNER.M65
 videoproxy:	videoproxy.c
 	$(warning =============================================================)
 	$(warning ~~~~~~~~~~~~~~~~> Making: videoproxy)
-	gcc -Wall -g -o videoproxy videoproxy.c -lpcap
+	$(CC) $(COPT) -o videoproxy videoproxy.c -lpcap
 
 
 # ============================ done moved, print-warn, clean-target
@@ -310,7 +313,7 @@ videoproxy:	videoproxy.c
 tools/etherload/etherload:	tools/etherload/etherload.c Makefile
 	$(warning =============================================================)
 	$(warning ~~~~~~~~~~~~~~~~> Making: tools/etherload/etherload)
-	gcc -Wall -g -o tools/etherload/etherload tools/etherload/etherload.c $(SOCKLIBS)
+	$(CC) $(COPT) -o tools/etherload/etherload tools/etherload/etherload.c $(SOCKLIBS)
 
 
 # ============================ done moved, print-warn, clean-target
@@ -319,21 +322,21 @@ tools/etherload/etherload:	tools/etherload/etherload.c Makefile
 tools/etherkick/etherkick:	tools/etherkick/etherkick.c Makefile
 	$(warning =============================================================)
 	$(warning ~~~~~~~~~~~~~~~~> Making: tools/etherkick/etherkick)
-	gcc -Wall -g -o tools/etherkick/etherkick ./tools/etherkick/etherkick.c $(SOCKLIBS)
+	$(CC) $(COPT) -o tools/etherkick/etherkick ./tools/etherkick/etherkick.c $(SOCKLIBS)
 
 
 # ============================ print-warn, clean-target
 tools/hotpatch/hotpatch:	tools/hotpatch/hotpatch.c Makefile
 	$(warning =============================================================)
 	$(warning ~~~~~~~~~~~~~~~~> Making: tools/hotpatch/hotpatch)
-	gcc -Wall -g -o tools/hotpatch/hotpatch tools/hotpatch/hotpatch.c
+	$(CC) $(COPT) -o tools/hotpatch/hotpatch tools/hotpatch/hotpatch.c
 
 # ============================ done moved, Makefile-dep, print-warn, clean-target
 # c-code that makes an executable that processes images, and can make a vhdl file
 tools/pngprepare/pngprepare:	tools/pngprepare/pngprepare.c Makefile
 	$(warning =============================================================)
 	$(warning ~~~~~~~~~~~~~~~~> Making: tools/pngprepare/pngprepare)
-	gcc -g -Wall -std=gnu99 -I/usr/local/include -L/usr/local/lib -o tools/pngprepare/pngprepare tools/pngprepare/pngprepare.c -lpng
+	$(CC) $(COPT) -I/usr/local/include -L/usr/local/lib -o tools/pngprepare/pngprepare tools/pngprepare/pngprepare.c -lpng
 
 # ============================ done *deleted*, Makefile-dep, print-warn, clean-target
 # unix command to generate the 'iomap.txt' file that represents the registers
@@ -354,7 +357,7 @@ COLOURRAM.BIN:	tools/utilpacker/utilpacker $(CRAMUTILS)
 tools/utilpacker/utilpacker:	tools/utilpacker/utilpacker.c Makefile
 	$(warning =============================================================)
 	$(warning ~~~~~~~~~~~~~~~~> Making: tools/utilpacker/utilpacker)
-	gcc -g -Wall -std=gnu99 -o tools/utilpacker/utilpacker tools/utilpacker/utilpacker.c
+	$(CC) $(COPT) -o tools/utilpacker/utilpacker tools/utilpacker/utilpacker.c
 
 # ============================ done moved, Makefile-dep, print-warn, clean-target
 # script to extract the git-status from the ./.git filesystem, and to embed that string
@@ -393,22 +396,22 @@ $(SDCARD_DIR)/C000UTIL.BIN:	diskmenu_c000.bin
 monitor_drive:	monitor_drive.c Makefile
 	$(warning =============================================================)
 	$(warning ~~~~~~~~~~~~~~~~> Making: monitor_drive)
-	gcc -g -Wall -o monitor_drive monitor_drive.c
+	$(CC) $(COPT) -o monitor_drive monitor_drive.c
 
 tools/monitor_load:	tools/monitor_load.c Makefile
 	$(warning =============================================================)
 	$(warning ~~~~~~~~~~~~~~~~> Making: monitor_load)
-	gcc -g -Wall -o tools/monitor_load tools/monitor_load.c
+	$(CC) $(COPT) -o tools/monitor_load tools/monitor_load.c
 
 tools/monitor_save:	tools/monitor_save.c Makefile
 	$(warning =============================================================)
 	$(warning ~~~~~~~~~~~~~~~~> Making: monitor_save)
-	gcc -g -Wall -o tools/monitor_save tools/monitor_save.c
+	$(CC) $(COPT) -o tools/monitor_save tools/monitor_save.c
 
 tools/on_screen_keyboard_gen:	tools/on_screen_keyboard_gen.c Makefile
 	$(warning =============================================================)
 	$(warning ~~~~~~~~~~~~~~~~> Making: on_screen_keyboard_gen)
-	gcc -g -Wall -o tools/on_screen_keyboard_gen tools/on_screen_keyboard_gen.c
+	$(CC) $(COPT) -o tools/on_screen_keyboard_gen tools/on_screen_keyboard_gen.c
 
 
 # ============================ done moved, Makefile-dep, print-warn, clean-target
@@ -418,7 +421,7 @@ tools/on_screen_keyboard_gen:	tools/on_screen_keyboard_gen.c Makefile
 read_mem:	read_mem.c Makefile
 	$(warning =============================================================)
 	$(warning ~~~~~~~~~~~~~~~~> Making: read_mem)
-	gcc -g -Wall -o read_mem read_mem.c
+	$(CC) $(COPT) -o read_mem read_mem.c
 
 # ============================ done moved, Makefile-dep, print-warn, clean-target
 # c-code that makes and executable that seems to read serial commands from serial-port
@@ -433,7 +436,7 @@ chargen_debug:	chargen_debug.c Makefile
 dis4510:	dis4510.c Makefile
 	$(warning =============================================================)
 	$(warning ~~~~~~~~~~~~~~~~> Making: dis4510)
-	gcc -g -Wall -o dis4510 dis4510.c
+	$(CC) $(COPT) -o dis4510 dis4510.c
 
 
 # ============================ done moved, Makefile-dep, print-warn, clean-target
@@ -442,7 +445,7 @@ dis4510:	dis4510.c Makefile
 em4510:	em4510.c Makefile
 	$(warning =============================================================)
 	$(warning ~~~~~~~~~~~~~~~~> Making: em4510)
-	gcc -g -Wall -o em4510 em4510.c
+	$(CC) $(COPT) -o em4510 em4510.c
 
 
 # ============================ done moved, Makefile-dep, print-warn, clean-target
@@ -450,7 +453,7 @@ em4510:	em4510.c Makefile
 4510tables:	4510tables.c Makefile
 	$(warning =============================================================)
 	$(warning ~~~~~~~~~~~~~~~~> Making: 4510tables)
-	gcc -g -Wall -o 4510tables 4510tables.c
+	$(CC) $(COPT) -o 4510tables 4510tables.c
 
 
 # ============================ done moved, Makefile-dep, print-warn, clean-target
