@@ -84,15 +84,9 @@ begin
         -- that the row pins (portb_pins) is being driven high, instead of
         -- tristates, i.e., '1' instead of 'H' or 'Z'.
 
-        case scan_mode is
-          when "00" =>  portb_pins <= (others => '0');
-          when "01" =>  portb_pins <= (others => 'L');
-          when "10" =>  portb_pins <= (others => 'Z');
-          when "11" =>  portb_pins <= (others => 'H');
-          when others => portb_pins <= (others => '1');
-        end case;
+        portb_pins <= (others => 'Z');
         
-        matrix_internal((scan_phase*8)+ 7 downto (scan_phase*8)) <= portb_pins(7 downto 0) xor "11111111";
+        matrix_internal((scan_phase*8)+ 7 downto (scan_phase*8)) <= portb_pins(7 downto 0);
 
         -- Select lines for next column
         if scan_phase < 8 then
@@ -102,16 +96,16 @@ begin
         end if;
         for i in 0 to 7 loop
           if next_phase = i then
-            porta_pins(i) <= '1';
-          else
             porta_pins(i) <= '0';
+          else
+            porta_pins(i) <= '1';
           end if;
         end loop;
         if next_phase = 8 then
-          porta_pins <= (others => '0');
-          keyboard_column8_out <= '1';
-        else
+          porta_pins <= (others => '1');
           keyboard_column8_out <= '0';
+        else
+          keyboard_column8_out <= '1';
         end if;
       else
         -- Keep counting down to next scan event

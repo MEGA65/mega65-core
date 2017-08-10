@@ -390,6 +390,7 @@ begin
           and to_UX01(matrix(key_num))='0' then
           if key_matrix(key_num) /= x"00" then
             -- Key press event
+            report "matrix = " & to_string(matrix);
             report "key press, ASCII code = " & to_hstring(key_matrix(key_num));
             ascii_key <= key_matrix(key_num);
             repeat_key <= key_num;

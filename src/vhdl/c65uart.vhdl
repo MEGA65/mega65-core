@@ -528,7 +528,7 @@ begin  -- behavioural
             physkey_enable_internal <= std_logic(fastio_wdata(2));
             virtual_enable_internal <= std_logic(fastio_wdata(3));
             joy_enable_internal <= std_logic(fastio_wdata(4));
-          when x"13" => portj_out <= std_logic_vector(fastio_wdata);
+          when x"14" => portj_out <= std_logic_vector(fastio_wdata);
                         portj_internal <= std_logic_vector(fastio_wdata);
           when x"15" =>
             portk_internal <= std_logic_vector(fastio_wdata);
