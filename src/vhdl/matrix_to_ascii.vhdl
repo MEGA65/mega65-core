@@ -350,8 +350,8 @@ architecture behavioral of matrix_to_ascii is
   -- Automatic key repeat (just repeats ascii_key_valid strobe periodically)
   signal repeat_key : integer range 0 to 71 := 0;
   signal repeat_key_timer : integer := 0;
-  constant repeat_start_timer : integer := 25000000; -- 0.5 sec
-  constant repeat_again_timer : integer := 5000000; -- 0.1 sec
+  constant repeat_start_timer : integer := 25000000/(scan_frequency*72); -- 0.5 sec
+  constant repeat_again_timer : integer := 5000000/(scan_frequency*72); -- 0.1 sec
   
 begin
   process(clk)
