@@ -87,8 +87,8 @@ begin
         case scan_mode is
           when "00" =>  portb_pins <= (others => '0');
           when "01" =>  portb_pins <= (others => 'L');
-          when "10" =>  portb_pins <= (others => 'H');
-          when "11" =>  portb_pins <= (others => '1');
+          when "10" =>  portb_pins <= (others => 'Z');
+          when "11" =>  portb_pins <= (others => 'H');
           when others => portb_pins <= (others => '1');
         end case;
         
