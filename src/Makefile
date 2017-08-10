@@ -333,7 +333,7 @@ tools/hotpatch/hotpatch:	tools/hotpatch/hotpatch.c Makefile
 tools/pngprepare/pngprepare:	tools/pngprepare/pngprepare.c Makefile
 	$(warning =============================================================)
 	$(warning ~~~~~~~~~~~~~~~~> Making: tools/pngprepare/pngprepare)
-	gcc -g -Wall -I/usr/local/include -L/usr/local/lib -o tools/pngprepare/pngprepare tools/pngprepare/pngprepare.c -lpng
+	gcc -g -Wall -std=gnu99 -I/usr/local/include -L/usr/local/lib -o tools/pngprepare/pngprepare tools/pngprepare/pngprepare.c -lpng
 
 # ============================ done *deleted*, Makefile-dep, print-warn, clean-target
 # unix command to generate the 'iomap.txt' file that represents the registers
