@@ -48,7 +48,8 @@ int main(int argc,char **argv)
   // Start with empty memory
   bzero(archive,ar_size);
 
-  for(int i=2;i<argc;i++) {
+  int i;
+  for(i=2;i<argc;i++) {
     load_block(argv[i],archive,ar_size);
   }  
   
@@ -83,7 +84,7 @@ int main(int argc,char **argv)
 	  "  type ram_t is array (0 to 131071) of unsigned(7 downto 0);\n"
 	  "  signal ram : ram_t := (\n");
 
-  for(int i=0;i<ar_size;i++)
+  for(i=0;i<ar_size;i++)
     if (archive[i]) fprintf(o,"          %d => x\"%02x\", -- $%05x\n",i,archive[i],i);
   
   fprintf(o,"          others => x\"00\");\n" 
