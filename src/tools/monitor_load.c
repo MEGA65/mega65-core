@@ -423,6 +423,7 @@ int process_waiting(int fd)
 }
 
 int assemble_modeline( int *b,
+		       int pixel_clock,
 		       int hpixels,int hwidth,
 		       int vpixels,int vheight,
 		       int hsync_polarity,int vsync_polarity,
@@ -437,9 +438,11 @@ int assemble_modeline( int *b,
   // for which we don't currently have a register)
   int vsync_rasters=vsync_end-vsync_start+1;
   int vsync_delay=vheight-vpixels-vsync_rasters;
+
+  // Adjust raster length for difference in pixel clock
+  float factor=pixel_clock/150000000.0;
+  hwidth/=factor;
   
-  // Pixel data starts at 0x10 always on M65, so have to adjust
-  // hsync_start and hsync_end accordingly.
   int hsync_start=hsync_start_in+0x10;
   int hsync_end=hsync_end_in+0x10;
   if (hsync_start>=hwidth) hsync_start-=hwidth;
@@ -534,7 +537,7 @@ int prepare_modeline(char *modeline)
       if (!strcasecmp("-vsync",opt1)) vsync_polarity=1;
       if (!strcasecmp("-vsync",opt2)) vsync_polarity=1;
       
-      assemble_modeline(b,hpixels,hwidth,vpixels,vheight,
+      assemble_modeline(b,pixel_clock,hpixels,hwidth,vpixels,vheight,
 			hsync_polarity,vsync_polarity,
 			vsync_start,vsync_end,
 			hsync_start,hsync_end,
