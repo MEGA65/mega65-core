@@ -27,6 +27,9 @@ entity c65uart is
     uart_tx : out std_logic;
 
     key_debug : in std_logic_vector(7 downto 0);
+    key_left : in std_logic;
+    key_up : in std_logic;
+    
     widget_disable : out std_logic;
     ps2_disable : out std_logic;
     joy_disable : out std_logic;
