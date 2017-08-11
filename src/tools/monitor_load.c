@@ -522,6 +522,8 @@ int prepare_modeline(char *modeline)
   int vsync_polarity=0;
 
   fprintf(stderr,"Parsing [%s] as modeline\n",modeline);
+  if (modeline[0]=='m') modeline[4]='M';
+  if (modeline[4]=='L') modeline[4]='l';
   if (sscanf(modeline,"Modeline \"%*dx%*d\" %f %d %d %d %d %d %d %d %d %s %s",
 	     &pixel_clock_mhz,
 	     &hpixels,&hsync_start,&hsync_end,&hwidth,
