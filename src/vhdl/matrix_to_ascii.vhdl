@@ -408,6 +408,10 @@ begin
             repeat_key_timer <= repeat_again_timer;
             if matrix(repeat_key)='0' then
               ascii_key_valid <= '1';
+              -- Republish the key, so that modifiers can change during repeat,
+              -- e.g., to allow cursor direction changing without stopping the
+              -- repeat.
+              ascii_key <= key_matrix(repeat_key);
             else
               ascii_key_valid <= '0';              
             end if;
