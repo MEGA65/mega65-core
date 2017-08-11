@@ -438,10 +438,10 @@ int assemble_modeline( int *b,
   int vsync_rasters=vsync_end-vsync_start+1;
   int vsync_delay=vheight-vpixels-vsync_rasters;
   
-  // Pixel data starts at 0x80 always on M65, so have to adjust
+  // Pixel data starts at 0x10 always on M65, so have to adjust
   // hsync_start and hsync_end accordingly.
-  int hsync_start=hsync_start_in+0x80;
-  int hsync_end=hsync_end_in+0x80;
+  int hsync_start=hsync_start_in+0x10;
+  int hsync_end=hsync_end_in+0x10;
   if (hsync_start>=hwidth) hsync_start-=hwidth;
   if (hsync_end>=hwidth) hsync_end-=hwidth;
   

@@ -399,7 +399,7 @@ architecture Behavioral of viciv is
   -- Video mode definition
   -- NOTE: These get overwritten by $D06F PAL/NTSC & 1080p/1200p flags
   -- The values here are simply those that apply on power up.
-  signal frame_h_front : unsigned(7 downto 0) := to_unsigned(128,8);  
+  signal frame_h_front : unsigned(7 downto 0) := to_unsigned(16,8);  
   -- 1920x1200p @ 60Hz (nominal 154MHz clock, but tweaked for 150MHz)
   signal frame_width : unsigned(11 downto 0) := to_unsigned(2048,12);
   signal display_width : unsigned(11 downto 0) := to_unsigned(1920,12);
