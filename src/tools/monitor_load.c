@@ -251,9 +251,9 @@ int process_line(char *line,int live)
 	for(int i=0;i<16;i++) fname[i]=b[i]; fname[16]=0;
 	fname[name_len]=0;
 	printf("Request to load '%s'\n",fname);
-	if (!strcmp(fname,"!")) {
+	if (fname[0]=='!') // we use this form in case junk gets typed while we are doing it
 	  state=2; // load specified file
-	} else {
+	else {
 	  printf("Specific file to load is '%s'\n",fname);
 	  if (filename) free(filename);
 	  filename=strdup(fname);
