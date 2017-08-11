@@ -433,7 +433,7 @@ architecture Behavioral of viciv is
   -- Calculated dynamically
   signal vsync_start : unsigned(11 downto 0);
   signal x_end_of_raster : unsigned(11 downto 0);
-  signal vicii_ycounter_scale : unsigned(2 downto 0);
+  signal vicii_ycounter_scale : unsigned(3 downto 0);
   
   constant frame_v_front : integer := 1;
   
