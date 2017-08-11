@@ -451,8 +451,8 @@ architecture Behavioral of viciv is
   -- since a whole frame takes ~20 minutes to simulate).
   signal vicii_ycounter : unsigned(8 downto 0) := to_unsigned(0,9); -- 263+1
   signal last_vicii_ycounter : unsigned(8 downto 0) := to_unsigned(0,9);
-  signal vicii_ycounter_phase : unsigned(2 downto 0) := (others => '0');
-  signal vicii_ycounter_max_phase : unsigned(2 downto 0) := (others => '0');
+  signal vicii_ycounter_phase : unsigned(3 downto 0) := (others => '0');
+  signal vicii_ycounter_max_phase : unsigned(3 downto 0) := (others => '0');
   -- Is the VIC-II virtual raster number the active one for interrupts, or
   -- are we comparing to physical rasters?  This is decided by which register
   -- gets written to last.
