@@ -408,7 +408,7 @@ architecture Behavioral of viciv is
   signal display_height_drive : unsigned(11 downto 0);
   signal vsync_delay : unsigned(7 downto 0) := to_unsigned(1235-1200-9,8);
   signal vsync_delay_drive : unsigned(7 downto 0);
-  signal vicii_ycounter_scale_minus_two : unsigned(2 downto 0) := to_unsigned(5-1,3);
+  signal vicii_ycounter_scale_minus_zero : unsigned(3 downto 0) := to_unsigned(5-1,4);
   signal hsync_start : unsigned(11 downto 0) := to_unsigned(40,12);
   signal hsync_end : unsigned(11 downto 0) := to_unsigned(100,12);
 
@@ -1349,8 +1349,8 @@ begin
         else
           y_chargen_start <= to_unsigned((100-3*5)+to_integer(vicii_y_smoothscroll)*4,12);
         end if;
-        chargen_y_scale(2 downto 0) <= vicii_ycounter_scale_minus_two;
-        chargen_y_scale(7 downto 3) <= (others => '0');
+        chargen_y_scale(3 downto 0) <= vicii_ycounter_scale_minus_zero;
+        chargen_y_scale(7 downto 4) <= (others => '0');
       else
         -- 400px mode
         -- set vertical borders based on twentyfourlines
@@ -1377,8 +1377,8 @@ begin
         else
           y_chargen_start <= to_unsigned((140-3*5)+to_integer(vicii_y_smoothscroll)*5,12);
         end if;
-        chargen_y_scale(1 downto 0) <= vicii_ycounter_scale_minus_two(2 downto 1);
-        chargen_y_scale(7 downto 2) <= (others => '0');
+        chargen_y_scale(2 downto 0) <= vicii_ycounter_scale_minus_zero(3 downto 1);
+        chargen_y_scale(7 downto 3) <= (others => '0');
 
       end if;
       
@@ -1757,7 +1757,8 @@ begin
         elsif register_number=114 then -- $D3072
           fastio_rdata(7 downto 0) <= std_logic_vector(vsync_delay);
         elsif register_number=115 then -- $D3073
-          fastio_rdata(3 downto 0) <= std_logic_vector(hsync_end(11 downto 8));          
+          fastio_rdata(3 downto 0) <= std_logic_vector(hsync_end(11 downto 8));
+          fastio_rdata(7 downto 4) <= std_logic_vector(vicii_ycounter_scale_minus_zero(3 downto 0));
         elsif register_number=116 then  -- $D3074
           fastio_rdata <= std_logic_vector(hsync_end(7 downto 0));          
         elsif register_number=117 then  -- $D3075
@@ -1781,8 +1782,7 @@ begin
         elsif register_number=124 then  -- $D307C
           fastio_rdata(3 downto 0) <= std_logic_vector(hsync_start(11 downto 8));
           fastio_rdata(4) <= hsync_polarity;
-          fastio_rdata(5) <= vsync_polarity;
-          fastio_rdata(7 downto 6) <= std_logic_vector(vicii_ycounter_scale_minus_two(1 downto 0));
+          fastio_rdata(5) <= vsync_polarity;          
         elsif register_number=125 then
           fastio_rdata <=
             std_logic_vector(to_unsigned(vic_paint_fsm'pos(debug_paint_fsm_state_drive2),8));
@@ -2388,7 +2388,7 @@ begin
               frame_height <= to_unsigned(1235,12); 
               display_height <= to_unsigned(1200,12);
               vsync_delay <= to_unsigned(28,8);
-              vicii_ycounter_scale_minus_two <= "0"&to_unsigned(5-2,2);
+              vicii_ycounter_scale_minus_zero <= to_unsigned(5-1,4);
               hsync_start <= to_unsigned(40,12);
               hsync_end <= to_unsigned(100,12);              
             when "01" => -- PAL, 1080p 50Hz
@@ -2399,14 +2399,14 @@ begin
               frame_height <= to_unsigned(1125,12); 
               display_height <= to_unsigned(1080,12);
               vsync_delay <= to_unsigned(0,8);
-              vicii_ycounter_scale_minus_two <= "0"&to_unsigned(5-2,2);
+              vicii_ycounter_scale_minus_zero <= to_unsigned(5-1,4);
             when "10" => -- NTSC, 1200p 60Hz
               frame_width <=  to_unsigned(2048,12);
               display_width <= to_unsigned(1920,12);
               frame_height <= to_unsigned(1235,12); 
               display_height <= to_unsigned(1200,12);
               vsync_delay <= to_unsigned(28,8);
-              vicii_ycounter_scale_minus_two <= to_unsigned(5-1,3);
+              vicii_ycounter_scale_minus_zero <= to_unsigned(5-1,4);
               hsync_start <= to_unsigned(40,12);
               hsync_end <= to_unsigned(100,12);              
             when "11" => -- NTSC, 1080p 60Hz
@@ -2417,14 +2417,14 @@ begin
               frame_height <= to_unsigned(1125,12); 
               display_height <= to_unsigned(1080,12);
               vsync_delay <= to_unsigned(0,8);
-              vicii_ycounter_scale_minus_two <= "0"&to_unsigned(5-2,2);
+              vicii_ycounter_scale_minus_zero <= to_unsigned(5-1,4);
             when others => -- Default to PAL 1200p 60Hz
               frame_width <=  to_unsigned(2048,12);
               display_width <= to_unsigned(1920,12);
               frame_height <= to_unsigned(1235,12); 
               display_height <= to_unsigned(1200,12);
               vsync_delay <= to_unsigned(28,8);
-              vicii_ycounter_scale_minus_two <= to_unsigned(5-1,3);
+              vicii_ycounter_scale_minus_zero <= to_unsigned(5-1,4);
               hsync_start <= to_unsigned(40,12);
               hsync_end <= to_unsigned(100,12);              
           end case;
@@ -2450,6 +2450,8 @@ begin
           -- @IO:GS $D073.0-3 VIC-IV hsync end (MSB)
           hsync_end(11 downto 8)
             <= unsigned(fastio_wdata(3 downto 0));
+          -- @IO:GS $D073.4-7 VIC-IV physical rasters per VIC-II raster (1 to 16)
+          vicii_ycounter_scale_minus_zero(3 downto 0) <= unsigned(fastio_wdata(7 downto 4));
         elsif register_number=116 then -- $D3074
           -- @IO:GS $D074 VIC-IV hsync end (LSB)
           hsync_end(7 downto 0) <= unsigned(fastio_wdata);
@@ -2487,8 +2489,6 @@ begin
           hsync_polarity <= fastio_wdata(4);
           -- @IO:GS $D07C.5 VIC-IV vsync polarity
           vsync_polarity <= fastio_wdata(5);
-          -- @IO:GS $D07C.6-7 VIC-IV physical rasters per VIC-II raster (2-5)
-          vicii_ycounter_scale_minus_two(1 downto 0) <= unsigned(fastio_wdata(7 downto 6));
         elsif register_number=125 then
           -- @IO:GS $D07D VIC-IV debug X position (LSB)
           debug_x(7 downto 0) <= unsigned(fastio_wdata);
@@ -2669,7 +2669,7 @@ begin
         -- delays, about 0x294 should do it.
         -- XXX - Why were we adding 2 here? Have removed this, as VIC-II
         -- rasters were too tall. PGS.
-        vicii_ycounter_scale <= vicii_ycounter_scale_minus_two;
+        vicii_ycounter_scale <= vicii_ycounter_scale_minus_zero;
         vicii_xcounter_sub <= x"f154";
         chargen_x_sub <= (others => '0');
         raster_buffer_read_address <= (others => '0');

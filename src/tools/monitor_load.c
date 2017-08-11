@@ -447,10 +447,12 @@ int assemble_modeline( int *b,
   int hsync_end=hsync_end_in+0x10;
   if (hsync_start>=hwidth) hsync_start-=hwidth;
   if (hsync_end>=hwidth) hsync_end-=hwidth;
+
+  int yscale=rasters_per_vicii_raster-1;
   
   b[2]=/* $D072 */       vsync_delay; 
-  b[3]=/* $D072 */       (hsync_end>>8)&0xf;
-  b[4]=/* $D072 */       hsync_end&0xff;
+  b[3]=/* $D073 */       ((hsync_end>>8)&0xf)+(yscale<<4);
+  b[4]=/* $D074 */       hsync_end&0xff;
   b[5]=/* $D075 */	 hpixels&0xff;
   b[6]=/* $D076 */	 hwidth&0xff;
   b[7]=/* $D077 */	 ((hpixels>>8)&0xf) + ((hwidth>>4)&0xf0);
@@ -460,12 +462,11 @@ int assemble_modeline( int *b,
   b[0xb]=/* $D07B */	 hsync_start&0xff;
   b[0xc]=/* $D07C */	 ((hsync_start>>8)&0xf)
     + (hsync_polarity?0x10:0)
-    + (vsync_polarity?0x20:0)
-    + (((rasters_per_vicii_raster-1)&0x3) <<6);
+    + (vsync_polarity?0x20:0);
 
-  fprintf(stderr,"Assembled mode with hfreq=%.2fKHz, vfreq=%.2fHz, vsync=%d rasters.\n",
+  fprintf(stderr,"Assembled mode with hfreq=%.2fKHz, vfreq=%.2fHz, vsync=%d rasters, %dx vertical scale.\n",
 	  150000000.0/hwidth,150000000.0/hwidth/vheight,
-	  vheight-vpixels-vsync_delay);
+	  vheight-vpixels-vsync_delay,rasters_per_vicii_raster);
   
   return 0;
 }
@@ -481,13 +482,13 @@ void parse_video_mode(int b[16+5])
   int hsync_start=b[0xb]+((b[0xc]&0xf)<<8);
   int hsync_polarity=b[0xc]&0x10;
   int vsync_polarity=b[0xc]&0x20;
-  int rasters_per_vicii_raster=((b[0xc]&0xc0)>>6);
+  int rasters_per_vicii_raster=((b[0x3]&0xf0)>>4)+1;
   
   float pixelclock=150000000;
   float frame_hertz=pixelclock/(hwidth*vheight);
   float hfreq=pixelclock/hwidth/1000.0;
   
-  fprintf(stderr,"Video mode is %dx%d pixels, %dx%d frame, sync=%c/%c, vertical stretch=2+%d, frame rate=%.1fHz, hfreq=%.3fKHz.\n",
+  fprintf(stderr,"Video mode is %dx%d pixels, %dx%d frame, sync=%c/%c, vertical scale=%dx, frame rate=%.1fHz, hfreq=%.3fKHz.\n",
 	  hpixels,vpixels,hwidth,vheight,
 	  hsync_polarity ? '-' : '+',
 	  vsync_polarity ? '-' : '+',
