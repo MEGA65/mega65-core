@@ -49,6 +49,26 @@ time_t start_time=0;
 
 int process_char(unsigned char c,int live);
 
+
+void usage(void)
+{
+  fprintf(stderr,"MEGA65 cross-development tool for booting the MEGA65 using a custom bitstream and/or KICKUP file.\n");
+  fprintf(stderr,"usage: monitor_load [-l <serial port>] [-s <230400|2000000|4000000>]  [-b <FPGA bitstream>] [[-k <kickup file>] [-R romfile] [-C charromfile]] [-m modeline] [filename]\n");
+  fprintf(stderr,"  -l - Name of serial port to use, e.g., /dev/ttyUSB1\n");
+  fprintf(stderr,"  -s - Speed of serial port in bits per second. This must match what your bitstream uses.\n");
+  fprintf(stderr,"       (Older bitstream use 230400, and newer ones 2000000 or 4000000).\n");
+  fprintf(stderr,"  -b - Name of bitstream file to load.\n");
+  fprintf(stderr,"  -k - Name of kickup file to forcibly use instead of the kickstart in the bitstream.\n");
+  fprintf(stderr,"  -R - ROM file to preload at $20000-$3FFFF.\n");
+  fprintf(stderr,"  -C - Character ROM file to preload.\n");
+  fprintf(stderr,"  -4 - Switch to C64 mode before exiting.\n");
+  fprintf(stderr,"  -r - Automatically RUN programme after loading.\n");
+  fprintf(stderr,"  -m - Set video mode to Xorg style modeline.\n");
+  fprintf(stderr,"  filename - Load and run this file in C64 mode before exiting.\n");
+  fprintf(stderr,"\n");
+  exit(-3);
+}
+
 int slow_write(int fd,char *d,int l)
 {
   // UART is at 230400bps, but reading commands has no FIFO, and echos
@@ -83,6 +103,8 @@ char *bitstream=NULL;
 char *kickstart=NULL;
 char serial_port[1024]="/dev/ttyUSB1"; // XXX do a better job auto-detecting this
 int serial_speed=2000000;
+char modeline_cmd[1024]="";
+
 
 unsigned long long gettime_ms()
 {
@@ -265,6 +287,12 @@ int process_line(char *line,int live)
   }
   if (!strcmp(line,
 	      " :000086D 14 08 05 20 03 0F 0D 0D 0F 04 0F 12 05 20 03 36")) {
+
+    if (modeline_cmd[0]) {
+      fprintf(stderr,"[T+%lldsec] Setting video modeline\n",(long long)time(0)-start_time);
+      slow_write(fd,modeline_cmd,strlen(modeline_cmd));
+    }
+
     // We are in C65 mode - switch to C64 mode
     if (do_go64) {
       char *cmd="s34a 47 4f 36 34 d 59 d\rsd0 7\r";
@@ -394,22 +422,137 @@ int process_waiting(int fd)
   return 0;
 }
 
-void usage(void)
+int assemble_modeline( int *b,
+		       int hpixels,int hwidth,
+		       int vpixels,int vheight,
+		       int hsync_polarity,int vsync_polarity,
+		       int vsync_start,int vsync_end,
+		       int hsync_start_in,int hsync_end_in,
+		       int rasters_per_vicii_raster)
 {
-  fprintf(stderr,"MEGA65 cross-development tool for booting the MEGA65 using a custom bitstream and/or KICKUP file.\n");
-  fprintf(stderr,"usage: monitor_load [-l <serial port>] [-s <230400|2000000|4000000>]  [-b <FPGA bitstream>] [[-k <kickup file>] [-R romfile] [-C charromfile]] [filename]\n");
-  fprintf(stderr,"  -l - Name of serial port to use, e.g., /dev/ttyUSB1\n");
-  fprintf(stderr,"  -s - Speed of serial port in bits per second. This must match what your bitstream uses.\n");
-  fprintf(stderr,"       (Older bitstream use 230400, and newer ones 2000000 or 4000000).\n");
-  fprintf(stderr,"  -b - Name of bitstream file to load.\n");
-  fprintf(stderr,"  -k - Name of kickup file to forcibly use instead of the kickstart in the bitstream.\n");
-  fprintf(stderr,"  -R - ROM file to preload at $20000-$3FFFF.\n");
-  fprintf(stderr,"  -C - Character ROM file to preload.\n");
-  fprintf(stderr,"  -4 - Switch to C64 mode before exiting.\n");
-  fprintf(stderr,"  -r - Automatically RUN programme after loading.\n");
-  fprintf(stderr,"  filename - Load and run this file in C64 mode before exiting.\n");
-  fprintf(stderr,"\n");
-  exit(-3);
+
+  // VSYNC pulse ends at end of frame. vsync_delay says how many
+  // rasters after vpixels the vsync starts
+  // (This means that we need to adjust the start of the frame vertically,
+  // for which we don't currently have a register)
+  int vsync_rasters=vsync_end-vsync_start+1;
+  int vsync_delay=vheight-vpixels-vsync_rasters;
+  
+  // Pixel data starts at 0x80 always on M65, so have to adjust
+  // hsync_start and hsync_end accordingly.
+  int hsync_start=hsync_start_in+0x80;
+  int hsync_end=hsync_end_in+0x80;
+  if (hsync_start>=hwidth) hsync_start-=hwidth;
+  if (hsync_end>=hwidth) hsync_end-=hwidth;
+  
+  b[2]=/* $D072 */       vsync_delay; 
+  b[3]=/* $D072 */       (hsync_end>>8)&0xf;
+  b[4]=/* $D072 */       hsync_end&0xff;
+  b[5]=/* $D075 */	 hpixels&0xff;
+  b[6]=/* $D076 */	 hwidth&0xff;
+  b[7]=/* $D077 */	 ((hpixels>>8)&0xf) + ((hwidth>>4)&0xf0);
+  b[8]=/* $D078 */	 vpixels&0xff;
+  b[9]=/* $D079 */	 vheight&0xff;
+  b[0xa]=/* $D07A */	 ((vpixels>>8)&0xf) + ((vheight>>4)&0xf0);
+  b[0xb]=/* $D07B */	 0x80; // hsync adjust LSB
+  b[0xc]=/* $D07C */	 0x0   // hsync adjust MSB
+    + (hsync_polarity<<4)
+    + (vsync_polarity<<5)
+    + (rasters_per_vicii_raster <<6);
+
+  fprintf(stderr,"Assembled mode with hfreq=%.2fKHz, vfreq=%.2fHz, vsync=%d rasters.\n",
+	  150000000.0/hwidth,150000000.0/hwidth/vheight,
+	  vheight-vpixels-vsync_delay);
+  
+  return 0;
+}
+
+void parse_video_mode(int b[16+5])
+{
+  int vsync_delay=b[2];
+  int hsync_end=((b[3]&0xf)<<8)+b[4];
+  int hpixels=b[5]+((b[7]&0xf)<<8);
+  int hwidth=b[6]+((b[7]&0xf0)<<4);
+  int vpixels=b[8]+((b[0xa]&0xf)<<8);
+  int vheight=b[9]+((b[0xa]&0xf0)<<4);
+  int hsync_start=b[0xb]+((b[0xc]&0xf)<<8);
+  int hsync_polarity=b[0xc]&0x10;
+  int vsync_polarity=b[0xc]&0x20;
+  int rasters_per_vicii_raster=((b[0xc]&0xc0)>>6);
+  
+  float pixelclock=150000000;
+  float frame_hertz=pixelclock/(hwidth*vheight);
+  float hfreq=pixelclock/hwidth/1000.0;
+  
+  fprintf(stderr,"Video mode is %dx%d pixels, %dx%d frame, sync=%c/%c, vertical stretch=2+%d, frame rate=%.1fHz, hfreq=%.3fKHz.\n",
+	  hpixels,vpixels,hwidth,vheight,
+	  hsync_polarity ? '-' : '+',
+	  vsync_polarity ? '-' : '+',
+	  rasters_per_vicii_raster,
+	  frame_hertz,hfreq);
+  fprintf(stderr,"   hpixels=$%04x (%d) $D075,$D077.0-3\n",
+	  hpixels,hpixels);
+  fprintf(stderr,"   hwidth=$%04x (%d) $D076,$D077.7-4\n",
+	  hwidth,hwidth);
+  fprintf(stderr,"   vpixels=$%04x (%d) $D078,$D07A.0-3\n",
+	  vpixels,vpixels);
+  fprintf(stderr,"   vsync=$%04x (%d) - $%04x (%d)\n",
+	  vpixels+vsync_delay,vpixels+vsync_delay,
+	  vheight,vheight);
+  fprintf(stderr,"   hsync=$%04x (%d) -- $%04x (%d)\n",
+	  hsync_start,hsync_start,
+	  hsync_end,hsync_end);
+  
+  return;
+}
+
+int prepare_modeline(char *modeline)
+{
+  // Parse something like:
+  // Modeline "1920x1200" 151.138 1920 1960 1992 2040 1200 1201 1204 1232 -hsync
+
+  char opt1[1024],opt2[1024];
+  float pixel_clock_mhz;
+  int hpixels,hsync_start,hsync_end,hwidth;
+  int vpixels,vsync_start,vsync_end,vheight;
+  int hsync_polarity=0;
+  int vsync_polarity=0;
+
+  fprintf(stderr,"Parsing [%s] as modeline\n",modeline);
+  if (sscanf(modeline,"Modeline \"%*dx%*d\" %f %d %d %d %d %d %d %d %d %s %s",
+	     &pixel_clock_mhz,
+	     &hpixels,&hsync_start,&hsync_end,&hwidth,
+	     &vpixels,&vsync_start,&vsync_end,&vheight,
+	     opt1,opt2)>=9)
+    {
+      int pixel_clock=pixel_clock_mhz*1000000;
+      int rasters_per_vicii_raster=(vpixels-80)/200;
+      int b[16+5];
+
+      if (!strcasecmp("-hsync",opt1)) hsync_polarity=1;
+      if (!strcasecmp("-hsync",opt2)) hsync_polarity=1;
+      if (!strcasecmp("-vsync",opt1)) vsync_polarity=1;
+      if (!strcasecmp("-vsync",opt2)) vsync_polarity=1;
+      
+      assemble_modeline(b,hpixels,hwidth,vpixels,vheight,
+			hsync_polarity,vsync_polarity,
+			vsync_start,vsync_end,
+			hsync_start,hsync_end,
+			rasters_per_vicii_raster);
+
+      snprintf(modeline_cmd,1024,
+	       "\nsffd3072 %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x\n",
+	       b[2],b[3],b[4],b[5],b[6],b[7],b[8],b[9],b[0xa],b[0xb],b[0xc]);
+
+      parse_video_mode(b);
+      
+    }
+  else {
+    fprintf(stderr,"modeline is badly formatted.\n");
+    usage();
+  }
+
+  return 0;
 }
 
 int main(int argc,char **argv)
@@ -417,13 +560,14 @@ int main(int argc,char **argv)
   start_time=time(0);
   
   int opt;
-  while ((opt = getopt(argc, argv, "4l:s:b:k:rR:C:")) != -1) {
+  while ((opt = getopt(argc, argv, "4l:s:b:k:rR:C:m:")) != -1) {
     switch (opt) {
     case 'R': romfile=strdup(optarg); break;
     case 'C': charromfile=strdup(optarg); break;      
     case '4': do_go64=1; break;
     case 'r': do_run=1; break;
     case 'l': strcpy(serial_port,optarg); break;
+    case 'm': prepare_modeline(optarg); break;
     case 's':
       serial_speed=atoi(optarg);
       switch(serial_speed) {
