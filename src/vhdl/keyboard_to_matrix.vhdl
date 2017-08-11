@@ -41,11 +41,11 @@ begin
 
       -- Present virtualised keyboard
       matrix <= matrix_internal;     
-      if key_left = '0' then
+      if key_left = '1' then
         matrix(2) <= '0'; -- cursor right
         matrix(52) <= '0'; -- right shift
       end if;
-      if key_up='0' then
+      if key_up='1' then
         matrix(7) <= '0'; -- cursor down
         matrix(52) <= '0'; -- right shift
       end if;

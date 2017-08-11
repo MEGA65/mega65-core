@@ -420,6 +420,8 @@ begin
       joy_disable => joy_disable,
       virtual_disable => virtual_disable,
       physkey_disable => physkey_disable,
+      key_left => key_left,
+      key_up => key_up,
       uart_rx => uart_rx,
       uart_tx => uart_tx,
       portf => pmoda,

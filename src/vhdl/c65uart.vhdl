@@ -277,6 +277,11 @@ begin  -- behavioural
         when x"0e" =>
           -- @IO:GS $D60E Bit bashing port DDR
           fastio_rdata(7 downto 0) <= unsigned(reg_portg_ddr);
+        when x"0f" =>
+          -- @IO:GS $D60F.0 C65 Cursor left key
+          -- @IO:GS $D60F.0 C65 Cursor up key
+          fastio_rdata(0) <= key_left;
+          fastio_rdata(1) <= key_up;
         when x"10" =>
           -- @IO:GS $D610 Last key press as ASCII (hardware accelerated keyboard scanner). Write to clear event ready for next.
           fastio_rdata(7 downto 0) <= unsigned(porth);

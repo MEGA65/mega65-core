@@ -251,6 +251,8 @@ GS $D60D.6 HDMI SPI control interface SDA data line
 GS $D60D.7 HDMI SPI control interface SCL clock 
 GS $D60D Bit bashing port
 GS $D60E Bit bashing port DDR
+GS $D60F.0 C65 Cursor left key
+GS $D60F.0 C65 Cursor up key
 GS $D610 Last key press as ASCII (hardware accelerated keyboard scanner). Write to clear event ready for next.
 GS $D611 Modifier key state (hardware accelerated keyboard scanner).
 GS $D612.0 Enable widget board keyboard/joystick input
