@@ -454,11 +454,11 @@ int assemble_modeline( int *b,
   b[8]=/* $D078 */	 vpixels&0xff;
   b[9]=/* $D079 */	 vheight&0xff;
   b[0xa]=/* $D07A */	 ((vpixels>>8)&0xf) + ((vheight>>4)&0xf0);
-  b[0xb]=/* $D07B */	 0x80; // hsync adjust LSB
-  b[0xc]=/* $D07C */	 0x0   // hsync adjust MSB
-    + (hsync_polarity<<4)
-    + (vsync_polarity<<5)
-    + (rasters_per_vicii_raster <<6);
+  b[0xb]=/* $D07B */	 hsync_start&0xff;
+  b[0xc]=/* $D07C */	 ((hsync_start>>8)&0xf)
+    + (hsync_polarity?0x10:0)
+    + (vsync_polarity?0x20:0)
+    + (((rasters_per_vicii_raster-1)&0x3) <<6);
 
   fprintf(stderr,"Assembled mode with hfreq=%.2fKHz, vfreq=%.2fHz, vsync=%d rasters.\n",
 	  150000000.0/hwidth,150000000.0/hwidth/vheight,
@@ -541,7 +541,7 @@ int prepare_modeline(char *modeline)
 			rasters_per_vicii_raster);
 
       snprintf(modeline_cmd,1024,
-	       "\nsffd3072 %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x\n",
+	       "\nsffd3072 %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x\nsffd3011 1b\n",
 	       b[2],b[3],b[4],b[5],b[6],b[7],b[8],b[9],b[0xa],b[0xb],b[0xc]);
 
       parse_video_mode(b);
