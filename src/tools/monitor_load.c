@@ -442,9 +442,12 @@ int assemble_modeline( int *b,
   // Adjust raster length for difference in pixel clock
   float factor=pixel_clock/150000000.0;
   hwidth/=factor;
+  if (factor<1) hpixels/=factor;
   
   int hsync_start=hsync_start_in+0x10;
   int hsync_end=hsync_end_in+0x10;
+  hsync_start/=factor;
+  hsync_end/=factor;
   if (hsync_start>=hwidth) hsync_start-=hwidth;
   if (hsync_end>=hwidth) hsync_end-=hwidth;
 
@@ -515,8 +518,22 @@ typedef struct {
   char *line;
 } modeline_t;
 
+// Modeline table "Modeline" word must have correct case, because these strings can't be mutated.
 modeline_t modelines[]={
+  // The primary modes we expect for HD out
   {"1920x1200@60","Modeline \"1920x1200\" 151.138 1920 1960 1992 2040 1200 1201 1204 1232 -hsync"},
+  {"1920x1080@50","Modeline \"1920x1080\" 148.50 1920 2448 2492 2640 1080 1084 1089 1125 +HSync +VSync"},
+  {"1920x1080@60","Modeline \"1920x1080\" 148.35 1920 2008 2052 2200 1080 1084 1089 1125 +HSync +VSync"},
+
+  // Need modes for 800x480 50Hz and 60Hz for MEGAphone. LCD panel limit is 50MHz
+  // Totally untested on any monitor
+  {"800x480@50","Modeline \"800x480\" 24.13 800 832 920 952 480 490 494 505 +hsync"},
+  {"800x480@60","Modeline \"800x480\" 29.59 800 832 944 976 480 490 495 505 +hsync"},
+  
+  // Some lower resolution modes
+  {"800x600@50","Modeline \"800x600\" 30 800 814 884 960 600 601 606 625 +hsync +vsync"},
+  {"800x600@60","Modeline \"800x600\" 40.00 800 840 968 1056 600 601 605 628 +HSync +VSync "},
+  
   {NULL,NULL}
 };
 
@@ -525,7 +542,7 @@ int prepare_modeline(char *modeline)
   // Parse something like:
   // Modeline "1920x1200" 151.138 1920 1960 1992 2040 1200 1201 1204 1232 -hsync  
   
-  char opt1[1024],opt2[1024];
+  char opt1[1024]="",opt2[1024]="";
   float pixel_clock_mhz;
   int hpixels,hsync_start,hsync_end,hwidth;
   int vpixels,vsync_start,vsync_end,vheight;
