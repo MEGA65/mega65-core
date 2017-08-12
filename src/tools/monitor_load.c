@@ -453,14 +453,14 @@ int assemble_modeline( int *b,
   b[2]=/* $D072 */       vsync_delay; 
   b[3]=/* $D073 */       ((hsync_end>>8)&0xf)+(yscale<<4);
   b[4]=/* $D074 */       hsync_end&0xff;
-  b[5]=/* $D075 */	 hpixels&0xff;
-  b[6]=/* $D076 */	 hwidth&0xff;
+  b[5]=/* $D075 */	 (hpixels>>2)&0xff;
+  b[6]=/* $D076 */	 (hwidth>>2)&0xff;
   b[7]=/* $D077 */	 ((hpixels>>8)&0xf) + ((hwidth>>4)&0xf0);
   b[8]=/* $D078 */	 vpixels&0xff;
   b[9]=/* $D079 */	 vheight&0xff;
   b[0xa]=/* $D07A */	 ((vpixels>>8)&0xf) + ((vheight>>4)&0xf0);
-  b[0xb]=/* $D07B */	 hsync_start&0xff;
-  b[0xc]=/* $D07C */	 ((hsync_start>>8)&0xf)
+  b[0xb]=/* $D07B */	 (hsync_start>>2)&0xff;
+  b[0xc]=/* $D07C */	 ((hsync_start>>10)&0xf)
     + (hsync_polarity?0x10:0)
     + (vsync_polarity?0x20:0);
 
@@ -474,12 +474,12 @@ int assemble_modeline( int *b,
 void parse_video_mode(int b[16+5])
 {
   int vsync_delay=b[2];
-  int hsync_end=((b[3]&0xf)<<8)+b[4];
-  int hpixels=b[5]+((b[7]&0xf)<<8);
-  int hwidth=b[6]+((b[7]&0xf0)<<4);
+  int hsync_end=(((b[3]&0xf)<<8)+b[4])<<2;
+  int hpixels=(b[5]+((b[7]&0xf)<<8))<<2;
+  int hwidth=(b[6]+((b[7]&0xf0)<<4))<<2;
   int vpixels=b[8]+((b[0xa]&0xf)<<8);
   int vheight=b[9]+((b[0xa]&0xf0)<<4);
-  int hsync_start=b[0xb]+((b[0xc]&0xf)<<8);
+  int hsync_start=(b[0xb]+((b[0xc]&0xf)<<8))<<2;
   int hsync_polarity=b[0xc]&0x10;
   int vsync_polarity=b[0xc]&0x20;
   int rasters_per_vicii_raster=((b[0x3]&0xf0)>>4)+1;

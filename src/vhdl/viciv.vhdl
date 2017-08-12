@@ -1298,41 +1298,59 @@ begin
     procedure viciv_calculate_modeline_dimensions is
     begin
       -- Work out how wide we can make the main video area
-      if display_width >= (8*320) then
+      -- Where possible, we want to keep some sensible amount of side border
+      -- in the 320 pixel widee modes. For H640 and H1280, we don't care about
+      -- having side borders
+      if display_width > (8*320) then
         chargen_x_scale_320  <= x"10";
         chargen_x_pixels_320 <= 8;
+      elsif display_width > (7*320) then
+        chargen_x_scale_320  <= x"11";
+        chargen_x_pixels_320 <= 7;
+      elsif display_width > (6*320) then
+        chargen_x_scale_320  <= x"14";
+        chargen_x_pixels_320 <= 6;
+      elsif display_width > (5*320) then
+        chargen_x_scale_320  <= x"18";
+        chargen_x_pixels_320 <= 5;
+      elsif display_width > (4*320) then
+        chargen_x_scale_320  <= x"1e";
+        chargen_x_pixels_320 <= 4;
+      elsif display_width > (3*320) then
+        chargen_x_scale_320  <= x"1e";
+        chargen_x_pixels_320 <= 3;
+      elsif display_width > (2*320) then
+        chargen_x_scale_320  <= x"3c";
+        chargen_x_pixels_320 <= 2;
+      else
+        chargen_x_scale_320  <= x"78";
+        chargen_x_pixels_320 <= 1;
+      end if;  
+      if display_width >= (8*320) then
         chargen_x_scale_640  <= x"20";
         chargen_x_pixels_640 <= 4;
         chargen_x_scale_320  <= x"40";
         chargen_x_pixels_1280 <= 2;
         text_width <= 8*320;
       elsif display_width >= (7*320) then
-        chargen_x_scale_320  <= x"11";
-        chargen_x_pixels_320 <= 7;
         chargen_x_scale_640  <= x"34";
         chargen_x_pixels_640 <= 3;
         chargen_x_scale_1280  <= x"78";
         chargen_x_pixels_1280 <= 1;
         text_width <= 7*320;
       elsif display_width >= (6*320) then
-        chargen_x_scale_320  <= x"14";
-        chargen_x_pixels_320 <= 6;
         chargen_x_scale_640  <= x"28";
         chargen_x_pixels_640 <= 3;
         chargen_x_scale_1280  <= x"78";
         chargen_x_pixels_1280 <= 1;
         text_width <= 6*320;
       elsif display_width >= (5*320) then
-        chargen_x_scale_320  <= x"18";
-        chargen_x_pixels_320 <= 5;
         chargen_x_scale_640  <= x"28";
         chargen_x_pixels_640 <= 3;
         chargen_x_scale_1280  <= x"78";
         chargen_x_pixels_1280 <= 1;
         text_width <= 5*320;
       elsif display_width >= (4*320) then
-        chargen_x_scale_320  <= x"1e";
-        chargen_x_pixels_320 <= 4;
         chargen_x_scale_640  <= x"3c";
         chargen_x_pixels_640 <= 2;
         chargen_x_scale_1280  <= x"78";
@@ -1347,16 +1365,12 @@ begin
         chargen_x_pixels_1280 <= 1;
         text_width <= 3*320;
       elsif display_width >= (2*320) then
-        chargen_x_scale_320  <= x"3c";
-        chargen_x_pixels_320 <= 2;
         chargen_x_scale_640  <= x"78";
         chargen_x_pixels_640 <= 1;
         chargen_x_scale_1280  <= x"78";
         chargen_x_pixels_1280 <= 1;
         text_width <= 2*320;
       elsif display_width >= (1*320) then
-        chargen_x_scale_320  <= x"78";
-        chargen_x_pixels_320 <= 1;
         chargen_x_scale_640  <= x"78";
         chargen_x_pixels_640 <= 1;
         chargen_x_scale_1280  <= x"78";
@@ -1510,8 +1524,7 @@ begin
         y_chargen_start <= to_unsigned(to_integer(single_top_border_200)
                                        -ssy_table_200(3)
                                        +ssy_table_200(to_integer(vicii_y_smoothscroll)),12);
-        chargen_y_scale(3 downto 0) <= chargen_y_scale_200(3 downto 0);
-        chargen_y_scale(7 downto 4) <= (others => '0');
+        chargen_y_scale <= to_unsigned(to_integer(chargen_y_scale_200)-1,8);
       else
         if twentyfourlines='0' then
           border_y_top <= to_unsigned(to_integer(single_top_border_400),12);
@@ -1528,8 +1541,7 @@ begin
         y_chargen_start <= to_unsigned(to_integer(single_top_border_400)
                                        -ssy_table_400(3)
                                        +ssy_table_400(to_integer(vicii_y_smoothscroll)),12);
-        chargen_y_scale(3 downto 0) <= chargen_y_scale_400(3 downto 0);
-        chargen_y_scale(7 downto 4) <= (others => '0');
+        chargen_y_scale <= to_unsigned(to_integer(chargen_y_scale_400)-1,8);
       end if;
       
       screen_ram_base(13 downto 10) <= reg_d018_screen_addr;
