@@ -528,7 +528,7 @@ modeline_t modelines[]={
   // Need modes for 800x480 50Hz and 60Hz for MEGAphone. LCD panel limit is 50MHz
   // Totally untested on any monitor
   {"800x480@50","Modeline \"800x480\" 24.13 800 832 920 952 480 490 494 505 +hsync"},
-  {"800x480@60","Modeline \"800x480\" 29.59 800 832 944 976 480 490 495 505 +hsync"},
+  {"800x480@60","Modeline \"800x480\" 29.59 800 870 0 962 480 490 495 505 +hsync"},
   
   // Some lower resolution modes
   {"800x600@50","Modeline \"800x600\" 30 800 814 884 960 600 601 606 625 +hsync +vsync"},
