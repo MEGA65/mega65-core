@@ -1012,12 +1012,12 @@ architecture Behavioral of viciv is
   signal chargen_x_scale_640 : unsigned(7 downto 0);
   signal chargen_x_scale_1280 : unsigned(7 downto 0);
   signal chargen_x_pixels : integer;
-  signal side_borders_width_320 : unsigned(14 downto 0);
-  signal side_borders_width_640 : unsigned(14 downto 0);
-  signal side_borders_width_1280 : unsigned(14 downto 0);
-  signal single_side_border_320 : unsigned(14 downto 0);
-  signal single_side_border_640 : unsigned(14 downto 0);
-  signal single_side_border_1280 : unsigned(14 downto 0);
+  signal side_borders_width_320 : unsigned(13 downto 0);
+  signal side_borders_width_640 : unsigned(13 downto 0);
+  signal side_borders_width_1280 : unsigned(13 downto 0);
+  signal single_side_border_320 : unsigned(13 downto 0);
+  signal single_side_border_640 : unsigned(13 downto 0);
+  signal single_side_border_1280 : unsigned(13 downto 0);
   type ss_table is array(0 to 9) of integer range 0 to 255;
   signal text_height_200 : integer;
   signal text_height_400 : integer;
