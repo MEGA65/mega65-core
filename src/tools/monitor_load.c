@@ -451,11 +451,11 @@ int assemble_modeline( int *b,
   int yscale=rasters_per_vicii_raster-1;
   
   b[2]=/* $D072 */       vsync_delay; 
-  b[3]=/* $D073 */       ((hsync_end>>8)&0xf)+(yscale<<4);
-  b[4]=/* $D074 */       hsync_end&0xff;
+  b[3]=/* $D073 */       ((hsync_end>>10)&0xf)+(yscale<<4);
+  b[4]=/* $D074 */       (hsync_end>>2)&0xff;
   b[5]=/* $D075 */	 (hpixels>>2)&0xff;
   b[6]=/* $D076 */	 (hwidth>>2)&0xff;
-  b[7]=/* $D077 */	 ((hpixels>>8)&0xf) + ((hwidth>>4)&0xf0);
+  b[7]=/* $D077 */	 ((hpixels>>10)&0xf) + ((hwidth>>6)&0xf0);
   b[8]=/* $D078 */	 vpixels&0xff;
   b[9]=/* $D079 */	 vheight&0xff;
   b[0xa]=/* $D07A */	 ((vpixels>>8)&0xf) + ((vheight>>4)&0xf0);
@@ -464,8 +464,8 @@ int assemble_modeline( int *b,
     + (hsync_polarity?0x10:0)
     + (vsync_polarity?0x20:0);
 
-  fprintf(stderr,"Assembled mode with hfreq=%.2fKHz, vfreq=%.2fHz, vsync=%d rasters, %dx vertical scale.\n",
-	  150000000.0/hwidth,150000000.0/hwidth/vheight,
+  fprintf(stderr,"Assembled mode with hfreq=%.2fKHz, vfreq=%.2fHz (hwidth=%d), vsync=%d rasters, %dx vertical scale.\n",
+	  150000000.0/hwidth,150000000.0/hwidth/vheight,hwidth,
 	  vheight-vpixels-vsync_delay,rasters_per_vicii_raster);
   
   return 0;
