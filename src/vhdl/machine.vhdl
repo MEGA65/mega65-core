@@ -356,7 +356,7 @@ architecture Behavioral of machine is
   signal vgablue_sig : unsigned(7 downto 0);
   signal vgared_sig : unsigned(7 downto 0);
   signal vgagreen_sig : unsigned(7 downto 0);
-  signal xcounter : unsigned(11 downto 0);
+  signal xcounter : unsigned(13 downto 0);
   signal ycounter : unsigned(11 downto 0); 
   signal uart_txd_sig : std_logic;
   signal display_shift : std_logic_vector(2 downto 0) := "000";

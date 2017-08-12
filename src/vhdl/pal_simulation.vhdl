@@ -17,7 +17,7 @@ entity pal_simulation is
     red_out : out unsigned(7 downto 0);
     green_out : out unsigned(7 downto 0);
     blue_out : out unsigned(7 downto 0);
-    x_position : in unsigned(11 downto 0);
+    x_position : in unsigned(13 downto 0);
     y_position : in unsigned(11 downto 0)
     );
 end pal_simulation;

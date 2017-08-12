@@ -12,9 +12,9 @@ entity matrix_compositor is
     monitor_char_in : in unsigned(7 downto 0);
     monitor_char_valid : in std_logic;
     terminal_emulator_ready : out std_logic;
-    xcounter_in : in unsigned(11 downto 0);
+    xcounter_in : in unsigned(13 downto 0);
     ycounter_in : in unsigned(11 downto 0);
-    xcounter_out : out unsigned(11 downto 0);
+    xcounter_out : out unsigned(13 downto 0);
     ycounter_out : out unsigned(11 downto 0);
     clk : in std_logic; --48Mhz
     pixelclock : in std_logic; --200Mhz
@@ -46,8 +46,8 @@ architecture Behavioral of matrix_compositor is
 
 
 -- Frame boundaries 
-  signal startx : unsigned(11 downto 0):=x"0a0"; --x078 d120  should actually be 121
-  signal endx  : unsigned(11 downto 0):=x"814"; --x814 d2068
+  signal startx : unsigned(13 downto 0):= to_unsigned(160,14);
+  signal endx  : unsigned(13 downto 0):=to_unsigned(2068,14);
   signal starty : unsigned(11 downto 0):=x"07C"; --x07C d124
   signal endy : unsigned(11 downto 0):=x"43C"; --x43C d1084
 
@@ -55,28 +55,28 @@ architecture Behavioral of matrix_compositor is
 
 --Mode0 Frame
 --640x320
-  constant mode0_startx  : unsigned(11 downto 0):=x"096";--x"280";--x"08C"; -- 120+20 = 140 x08C
+  constant mode0_startx  : unsigned(13 downto 0):= to_unsigned(160,14);
   constant mode0_starty : unsigned(11 downto 0):=x"07C";--x"1B8";--x"07C"; --x07C 124
-  constant mode0_endx  : unsigned(11 downto 0):=mode0_startx+647;--x"313";--x"507";--x"313"; --x814 d780  -1 +8
+  constant mode0_endx  : unsigned(13 downto 0):=mode0_startx+647;--x"313";--x"507";--x"313"; --x814 d780  -1 +8
   constant mode0_endy : unsigned(11 downto 0):=x"1BB";--x"2F8";--x"1BB"; --124+320 = 444, x1BC -1 
   constant mode0_garbage_end_offset : unsigned(11 downto 0):=x"008";  --8
 --Mode1 Frame
 --1280x640
-  constant mode1_startx  : unsigned(11 downto 0):=x"096";--x"081";--x"140";--x"081"; -- 120+9 = 129 x081
+  constant mode1_startx  : unsigned(13 downto 0):=to_unsigned(160,14);
   constant mode1_starty : unsigned(11 downto 0):=x"07C";--x"118";--x"07C"; --07C 124 
-  constant mode1_endx  : unsigned(11 downto 0):=mode1_startx+1295;--x"590";--x"64F";--x"590"; --x581 d1409 -1
+  constant mode1_endx  : unsigned(13 downto 0):=mode1_startx+1295;--x"590";--x"64F";--x"590"; --x581 d1409 -1
   constant mode1_endy : unsigned(11 downto 0):=mode1_starty+640;--x"2FB";--x"398";--x"2FB"; --x2FC d764 -1
   constant mode1_garbage_end_offset : unsigned(11 downto 0):=x"00F"; 
 
 --Mode2 Frame
 --1920x960
-  constant mode2_startx  : unsigned(11 downto 0):=x"0a0"; --120+1 = 121 x079
+  constant mode2_startx  : unsigned(13 downto 0):=to_unsigned(160,14);
   constant mode2_starty : unsigned(11 downto 0):=x"07C"; --x814 d2068 
-  constant mode2_endx  : unsigned(11 downto 0):=x"813"; --x814 d2068 -1
+  constant mode2_endx  : unsigned(13 downto 0):=to_unsigned(2068,14); -- x"813"; --x814 d2068 -1
   constant mode2_endy : unsigned(11 downto 0):=x"43B"; --x43C d1084 -1
   constant mode2_garbage_end_offset : unsigned(11 downto 0):=x"01D"; 
 
-  signal xOffset : unsigned(11 downto 0):=x"000";
+  signal xOffset : unsigned(13 downto 0):= (others => '0');
   signal yOffset : unsigned(11 downto 0):=x"000";
   signal shift_ack : std_logic:='0';
   signal garbage_end : unsigned(11 downto 0):=x"000"; --blank output between starting, and actually displaying.
