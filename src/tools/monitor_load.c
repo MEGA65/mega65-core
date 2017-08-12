@@ -510,17 +510,42 @@ void parse_video_mode(int b[16+5])
   return;
 }
 
+typedef struct {
+  char *name;
+  char *line;
+} modeline_t;
+
+modeline_t modelines[]={
+  {"1920x1200@60","Modeline \"1920x1200\" 151.138 1920 1960 1992 2040 1200 1201 1204 1232 -hsync"},
+  {NULL,NULL}
+};
+
 int prepare_modeline(char *modeline)
 {
   // Parse something like:
-  // Modeline "1920x1200" 151.138 1920 1960 1992 2040 1200 1201 1204 1232 -hsync
-
+  // Modeline "1920x1200" 151.138 1920 1960 1992 2040 1200 1201 1204 1232 -hsync  
+  
   char opt1[1024],opt2[1024];
   float pixel_clock_mhz;
   int hpixels,hsync_start,hsync_end,hwidth;
   int vpixels,vsync_start,vsync_end,vheight;
   int hsync_polarity=0;
   int vsync_polarity=0;
+
+  // Add some modeline short cuts
+  if (strncasecmp(modeline,"modeline ",9)) {
+    int i;
+    for(i=0;modelines[i].name;i++)
+      if (!strcasecmp(modelines[i].name,modeline)) break;
+    if (!modelines[i].name) {
+      fprintf(stderr,"Modeline must be a valid Xorg style modeline, or one of the following short-cuts:\n");
+      for(i=0;modelines[i].name;i++)
+	fprintf(stderr,"  %s = '%s'\n",modelines[i].name,modelines[i].line);
+      usage();
+    } else
+      modeline=modelines[i].line;
+  }
+  
 
   fprintf(stderr,"Parsing [%s] as modeline\n",modeline);
   if (modeline[0]=='m') modeline[4]='M';
