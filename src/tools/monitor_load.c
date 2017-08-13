@@ -310,6 +310,10 @@ int process_line(char *line,int live)
       fprintf(stderr,"[T+%lldsec] Setting video modeline\n",(long long)time(0)-start_time);
       slow_write(fd,modeline_cmd,strlen(modeline_cmd));
 
+      // Force mode change to take effect, after first giving time for VICIV to recalc parameters
+      usleep(50000);
+      slow_write(fd,"sffd3011 1b\n",12);
+      
       // Then ask for current mode information via VIC-IV registers, but first give a little time
       // for the mode change to take effect
       usleep(100000);
@@ -551,15 +555,15 @@ int viciv_mode_report(unsigned char *r)
   int top_border=(r[0x48]+((r[0x49]&0xf)<<8))&0xfff;
   int bottom_border=(r[0x4a]+((r[0x4b]&0xf)<<8))&0xfff;
   int chargen_start=(r[0x4c]+((r[0x4d]&0xf)<<8))&0xfff;
-  int left_border=(r[0x5c]+(r[0x5d]<<8))&0xfff;
-  int right_border=(r[0x5e]+(r[0x5f]<<8))&0xfff;
+  int left_border=((r[0x5c]+(r[0x5d]<<8))&0xfff);
+  int right_border=((r[0x5e]+(r[0x5f]<<8))&0xfff);
   int hscale=r[0x5a];
   int vscale=r[0x5b]+1;
   int xpixels=(r[0x75]+((r[0x77]&0xf)<<8))<<2;
   int ypixels=(r[0x78]+((r[0x7a]&0xf)<<8));
 
   fprintf(stderr,"Display is %dx%d pixels\n",xpixels,ypixels);
-  fprintf(stderr,"  Side borders are %d and %d pixels wide @ %d and %d\n",
+  fprintf(stderr,"  Side borders are %d and %d pixels wide @ $%x and $%x\n",
 	  left_border,xpixels-right_border,left_border,right_border);
   fprintf(stderr,"  Top borders are %d and %d pixels high\n",
 	  top_border,ypixels-bottom_border);
@@ -648,7 +652,7 @@ int prepare_modeline(char *modeline)
 			rasters_per_vicii_raster);
 
       snprintf(modeline_cmd,1024,
-	       "\nsffd3072 %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x\nsffd3011 1b\n",
+	       "\nsffd3072 %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x\n",
 	       b[2],b[3],b[4],b[5],b[6],b[7],b[8],b[9],b[0xa],b[0xb],b[0xc]);
 
       parse_video_mode(b);
