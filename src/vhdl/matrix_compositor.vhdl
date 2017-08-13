@@ -106,6 +106,8 @@ architecture Behavioral of matrix_compositor is
   constant mode0_end_of_char : unsigned(4 downto 0):=b"01000"; --8
   constant mode1_end_of_char : unsigned(4 downto 0):=b"10000"; --16
 
+  signal last_pixel_x_640 : integer;
+  
 begin
 
   uart_charrom1 : entity work.uart_charrom
@@ -318,27 +320,30 @@ begin
         --do nothing;
         end case;
 
-        --If it hasnt just loaded new data, 
-        if eightCounter/=end_of_char then
-          eightCounter<=eightCounter+1; --increment counter		    			 
-          if bufferCounter=mm_displayMode then			 
-            data_buffer<=data_buffer(6 downto 0)&'0';				
-            bufferCounter<=b"00";
-          else 
-            bufferCounter<=bufferCounter+1;
+        --If it hasnt just loaded new data,
+        if pixel_x_640 /= last_pixel_x_640 then
+          last_pixel_x_640 <= pixel_x_640;
+          if eightCounter/=end_of_char then
+            eightCounter<=eightCounter+1; --increment counter		    			 
+            if bufferCounter=mm_displayMode then			 
+              data_buffer<=data_buffer(6 downto 0)&'0';				
+              bufferCounter<=b"00";
+            else 
+              bufferCounter<=bufferCounter+1;
+            end if;
+          elsif eightCounter=end_of_char then
+            --clear end of frame flags anywhere before end of frame
+            doneEndOfFrame<='0'; 
+            doneEndOfFrame1<='0';
+            doneEndOfFrame2<='0'; 
+            eightCounter<=b"00001"; --Reset counter
+            if invert='1' then --invert flag, negate data. 
+              data_buffer<= not dataOutRead_rom; -- grab new data 	
+            else 
+              data_buffer<= dataOutRead_rom; -- grab new data 	
+            end if;
           end if;
-        elsif eightCounter=end_of_char then
-          --clear end of frame flags anywhere before end of frame
-          doneEndOfFrame<='0'; 
-          doneEndOfFrame1<='0';
-          doneEndOfFrame2<='0'; 
-          eightCounter<=b"00001"; --Reset counter
-          if invert='1' then --invert flag, negate data. 
-            data_buffer<= not dataOutRead_rom; -- grab new data 	
-          else 
-            data_buffer<= dataOutRead_rom; -- grab new data 	
-          end if;
-        end if; 	
+        end if;
       else 
 	--If its out of visible area, display background
         if ycounter_in=0 then
