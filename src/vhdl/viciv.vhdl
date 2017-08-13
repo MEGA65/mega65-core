@@ -1964,7 +1964,7 @@ begin
           fastio_rdata <= "0000"
                           & std_logic_vector(debug_charaddress_drive2(11 downto 8));
         elsif register_number=127 then
-          fastio_rdata <= debug_charrow_drive2;
+          fastio_rdata <= std_logic_vector(to_unsigned(ssx_table_640(to_integer(debug_x(3 downto 0))),8));
         elsif register_number<256 then
                                         -- Fill in unused register space
           fastio_rdata <= (others => 'Z');
@@ -1988,6 +1988,8 @@ begin
     end if;
     
     if rising_edge(ioclock) then
+
+      viciv_calculate_modeline_dimensions;            
 
       -- Set IO mode when CPU tells us to.  This is done when entering/exiting
       -- hypervisor mode.
@@ -2706,8 +2708,6 @@ begin
     variable next_glyph_colour_temp : std_logic_vector(7 downto 0) := (others => '0');
   begin    
     if rising_edge(pixelclock) then
-
-      viciv_calculate_modeline_dimensions;
 
       -- Output the logical pixel number assuming H640 output
       -- (Used for Matrix Mode and visual keyboard compositers, so that
