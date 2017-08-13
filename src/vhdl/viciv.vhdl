@@ -1989,27 +1989,6 @@ begin
     
     if rising_edge(ioclock) then
 
-      viciv_calculate_modeline_dimensions;
-
-      -- Output the logical pixel number assuming H640 output
-      -- (Used for Matrix Mode and visual keyboard compositers, so that
-      -- they know how the actual mode is laid out).
-      if xcounter = 0 then
-        xpixel_640_sub <= (others => '0');
-        xpixel_640 <= (others => '0');
-      else
-        if xpixel_640_sub >= 240 then
-          xpixel_640_sub <= xpixel_640_sub - 240 + chargen_x_scale_640;
-          xpixel_640 <= xpixel_640 + 2;
-        elsif raster_buffer_read_address_sub >= 120 then
-          xpixel_640_sub <= xpixel_640_sub - 120 + chargen_x_scale_640;
-          xpixel_640 <= xpixel_640 + 1;
-        else
-          xpixel_640_sub <= xpixel_640_sub + chargen_x_scale_640;
-        end if;
-      end if;
-      pixel_x_640 <= to_integer(xpixel_640);
-      
       -- Set IO mode when CPU tells us to.  This is done when entering/exiting
       -- hypervisor mode.
       if iomode_set_toggle /= iomode_set_toggle_last then
@@ -2728,6 +2707,27 @@ begin
   begin    
     if rising_edge(pixelclock) then
 
+      viciv_calculate_modeline_dimensions;
+
+      -- Output the logical pixel number assuming H640 output
+      -- (Used for Matrix Mode and visual keyboard compositers, so that
+      -- they know how the actual mode is laid out).
+      if xcounter = 0 then
+        xpixel_640_sub <= (others => '0');
+        xpixel_640 <= (others => '0');
+      else
+        if xpixel_640_sub >= 240 then
+          xpixel_640_sub <= xpixel_640_sub - 240 + chargen_x_scale_640;
+          xpixel_640 <= xpixel_640 + 2;
+        elsif raster_buffer_read_address_sub >= 120 then
+          xpixel_640_sub <= xpixel_640_sub - 120 + chargen_x_scale_640;
+          xpixel_640 <= xpixel_640 + 1;
+        else
+          xpixel_640_sub <= xpixel_640_sub + chargen_x_scale_640;
+        end if;
+      end if;
+      pixel_x_640 <= to_integer(xpixel_640);     
+      
       --chardata_drive <= unsigned(chardata);
       --paint_chardata <= chardata_drive;
       paint_chardata <= unsigned(chardata);
