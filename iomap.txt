@@ -20,8 +20,8 @@ C64 $D00E VIC-II sprite 6 vertical position
 C64 $D00F VIC-II sprite 7 vertical position
 C64 $D010 VIC-II sprite horizontal position MSBs
 C64 $D011.2-0 VIC-II 24/25 vertical smooth scroll
-C64 $D011.5 VIC-II 24/25 row select
-C64 $D011.5 VIC-II disable display
+C64 $D011.3 VIC-II 24/25 row select
+C64 $D011.4 VIC-II disable display
 C64 $D011.5 VIC-II text mode
 C64 $D011.6 VIC-II extended background mode
 C64 $D011.7 VIC-II raster compare bit 8

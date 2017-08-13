@@ -100,6 +100,7 @@ entity viciv is
     pixel_valid : out std_logic;
     pixel_newframe : out std_logic;
     pixel_newraster : out std_logic;
+    pixel_x_640 : out integer;
     
     ---------------------------------------------------------------------------
     -- CPU Interface to ChipRAM in video controller (just 128KB for now)
@@ -970,6 +971,10 @@ architecture Behavioral of viciv is
   signal raster_buffer_write_data : unsigned(17 downto 0);
   signal raster_buffer_write : std_logic;  
 
+  signal xpixel_640 : unsigned(10 downto 0);
+  signal xpixel_640_sub : unsigned(9 downto 0);
+
+  
   -- Colour RAM access for video controller
   signal colourramaddress : unsigned(15 downto 0);
   signal colourramdata : unsigned(7 downto 0);
@@ -1408,8 +1413,8 @@ begin
         ssx_table_counter_320 <= ssx_table_counter_320 + chargen_x_pixels_320;
         ssx_table_counter_640 <= ssx_table_counter_640 + chargen_x_pixels_640;
         ssx_table_counter_1280 <= ssx_table_counter_1280 + chargen_x_pixels_1280;
-        ssy_table_counter_200 <= ssy_table_counter_200 + chargen_y_scale_200;
-        ssy_table_counter_400 <= ssy_table_counter_400 + chargen_y_scale_400;
+        ssy_table_counter_200 <= ssy_table_counter_200 + to_integer(chargen_y_scale_200);
+        ssy_table_counter_400 <= ssy_table_counter_400 + to_integer(chargen_y_scale_400);
       end if;
 
       if display_height>1000 then
@@ -1985,6 +1990,25 @@ begin
     if rising_edge(ioclock) then
 
       viciv_calculate_modeline_dimensions;
+
+      -- Output the logical pixel number assuming H640 output
+      -- (Used for Matrix Mode and visual keyboard compositers, so that
+      -- they know how the actual mode is laid out).
+      if xcounter = 0 then
+        xpixel_640_sub <= (others => '0');
+        xpixel_640 <= (others => '0');
+      else
+        if xpixel_640_sub >= 240 then
+          xpixel_640_sub <= xpixel_640_sub - 240 + chargen_x_scale_640;
+          xpixel_640 <= xpixel_640 + 2;
+        elsif raster_buffer_read_address_sub >= 120 then
+          xpixel_640_sub <= xpixel_640_sub - 120 + chargen_x_scale_640;
+          xpixel_640 <= xpixel_640 + 1;
+        else
+          xpixel_640_sub <= xpixel_640_sub + chargen_x_scale_640;
+        end if;
+      end if;
+      pixel_x_640 <= to_integer(xpixel_640);
       
       -- Set IO mode when CPU tells us to.  This is done when entering/exiting
       -- hypervisor mode.
