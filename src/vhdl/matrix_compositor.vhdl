@@ -12,9 +12,9 @@ entity matrix_compositor is
     monitor_char_in : in unsigned(7 downto 0);
     monitor_char_valid : in std_logic;
     terminal_emulator_ready : out std_logic;
-    xcounter_in : in unsigned(13 downto 0);
+    pixel_x_640 : in integer;
     ycounter_in : in unsigned(11 downto 0);
-    xcounter_out : out unsigned(13 downto 0);
+    pixel_x_640_out : out integer;
     ycounter_out : out unsigned(11 downto 0);
     clk : in std_logic; --48Mhz
     pixelclock : in std_logic; --200Mhz
@@ -150,12 +150,12 @@ begin
 
     if rising_edge(pixelclock) then
 
-      xcounter_out <= xcounter_in;
+      pixel_x_640_out <= pixel_x_640;
       ycounter_out <= ycounter_in;
       
       -- We synchronise to start of line, as the end of line may change with
       -- different video modes.
-      if xcounter_in = 0 and  ycounter_in >= starty and ycounter_in < endy then
+      if pixel_x_640 = 0 and  ycounter_in >= starty and ycounter_in < endy then
         if lineCounter=mm_displayMode then	-- 0 (1 px per line), 1 (2 px per line), 2 (3px per line) 
           lineCounter<=b"000"; --reset counter
           if charline = b"0111" then --on the ~7th line (0-7)
@@ -175,7 +175,7 @@ begin
       end if;
       
       --Next Tick --Fixes a weird double line issue
-      if xcounter_in = 1 and ycounter_in < endy then
+      if pixel_x_640 = 1 and ycounter_in < endy then
         charCount<=lineStartAddr;
         eightCounter<=(others=>'0');
         bufferCounter<=(others=>'0');
@@ -325,15 +325,15 @@ begin
 --  greenOutput<='1';
 --end if;
 
-      if xcounter_in >=startx and xcounter_in <= endx  and ycounter_in >= starty and ycounter_in <= endy then		   
+      if pixel_x_640 >=startx and pixel_x_640 <= endx  and ycounter_in >= starty and ycounter_in <= endy then		   
 
 --====================
 -- Generate Outputs:
 --====================
 
         --Green Outline on modes 0 and 1 Only			
-        if xcounter_in>=garbage_end then
-          if mm_displayMode/=b"10" and (xcounter_in = garbage_end or xcounter_in = endx or ycounter_in = starty or ycounter_in = endy) then			 
+        if pixel_x_640>=garbage_end then
+          if mm_displayMode/=b"10" and (pixel_x_640 = garbage_end or pixel_x_640 = endx or ycounter_in = starty or ycounter_in = endy) then			 
             redOutput_all <= b"00"&vgared_in(7 downto 2);
             greenOutput_all <= b"111"&vgagreen_in(4 downto 0);
             blueOutput_all <= b"00"&vgablue_in(7 downto 2);

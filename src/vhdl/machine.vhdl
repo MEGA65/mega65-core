@@ -340,6 +340,7 @@ architecture Behavioral of machine is
   signal pixel_valid : std_logic;
   signal pixel_newframe : std_logic;
   signal pixel_newraster : std_logic;
+  signal pixel_x_640 : integer;
 
   signal farcallstack_we : std_logic;
   signal farcallstack_addr : std_logic_vector(8 downto 0);
@@ -697,6 +698,7 @@ begin
       pixel_valid => pixel_valid,
       pixel_newframe => pixel_newframe,
       pixel_newraster => pixel_newraster,
+      pixel_x_640 => pixel_x_640,
       
       chipram_we => chipram_we,
       chipram_address => chipram_address,
@@ -818,6 +820,7 @@ begin
       pixel_valid => pixel_valid,
       pixel_newframe => pixel_newframe,
       pixel_newraster => pixel_newraster,
+      pixel_x_640 => pixel_x_640,
 
       pmod_clock => pmodb_in_buffer(0),
       pmod_start_of_sequence => pmodb_in_buffer(1),
@@ -890,7 +893,7 @@ begin
     monitor_char_in => monitor_char_out,
     monitor_char_valid => monitor_char_out_valid,
     terminal_emulator_ready => terminal_emulator_ready,
-    xcounter_in => xcounter,
+    pixel_x_640 => pixel_x_640,
     ycounter_in => ycounter,	
     clk => uartclock,
     pixelclock => pixelclock,
