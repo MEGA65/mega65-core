@@ -49,6 +49,11 @@ entity iomapper is
 
         key_scancode : in unsigned(15 downto 0);
         key_scancode_toggle : in std_logic;
+
+        visual_keyboard_enable : out std_logic;
+        key1 : out unsigned(7 downto 0);
+        key2 : out unsigned(7 downto 0);
+        key3 : out unsigned(7 downto 0);
         
         reg_isr_out : out unsigned(7 downto 0);
         imask_ta_out : out std_logic;
@@ -431,7 +436,8 @@ begin
       porti => std_logic_vector(bucky_key(7 downto 0)),
       portj_out => matrix_segment_num,
       portj_in => matrix_segment_out,
-      portk_out => virtual_key1,
+      portk_out(6 downto 0) => virtual_key1(6 downto 0),
+      portk_out(7) => visual_keyboard_enable,
       portl_out => virtual_key2,
       portm_out => virtual_key3,
       portn_out => keyboard_scan_rate
@@ -719,7 +725,11 @@ begin
       end if;
       if ascii_key /= x"ef" then
         ef_latch <= '0';
-      end if; 
+      end if;
+
+      key1 <= unsigned(virtual_key1);
+      key2 <= unsigned(virtual_key2);
+      key3 <= unsigned(virtual_key3);
 
       -- UART char for monitor/matrix mode
       if ascii_key_valid='1' and protected_hardware_in(6)='1' then

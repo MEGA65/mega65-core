@@ -309,7 +309,8 @@ begin  -- behavioural
           -- @IO:GS $D614 DEBUG: 8-bit segment of combined keyboard matrix (READ)
           fastio_rdata <= unsigned(portj_internal);
         when x"15" =>
-          -- @IO:GS $D615 ID of key #1 held down on virtual keyboard
+          -- @IO:GS $D615.0-6 ID of key #1 held down on virtual keyboard
+          -- @IO:GS $D615.7 Enable visual keyboard composited overlay
           fastio_rdata <= unsigned(portk_internal);
         when x"16" =>
           -- @IO:GS $D616 ID of key #2 held down on virtual keyboard

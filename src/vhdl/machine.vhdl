@@ -357,6 +357,9 @@ architecture Behavioral of machine is
   signal vgablue_sig : unsigned(7 downto 0);
   signal vgared_sig : unsigned(7 downto 0);
   signal vgagreen_sig : unsigned(7 downto 0);
+  signal vgablue_kbd : unsigned(7 downto 0);
+  signal vgared_kbd : unsigned(7 downto 0);
+  signal vgagreen_kbd : unsigned(7 downto 0);
   signal xcounter : unsigned(13 downto 0);
   signal ycounter : unsigned(11 downto 0); 
   signal uart_txd_sig : std_logic;
@@ -372,6 +375,11 @@ architecture Behavioral of machine is
   signal monitor_char_out_valid : std_logic := '0';
   signal terminal_emulator_ready : std_logic := '0';
 
+  signal visual_keyboard_enable : std_logic;
+  signal key1 : unsigned(7 downto 0);
+  signal key2 : unsigned(7 downto 0);
+  signal key3 : unsigned(7 downto 0);
+  
 begin
 
   ----------------------------------------------------------------------------
@@ -742,6 +750,11 @@ begin
       speed_gate => speed_gate,
       speed_gate_enable => speed_gate_enable,
 
+      visual_keyboard_enable => visual_keyboard_enable,
+      key1 => key1,
+      key2 => key2,
+      key3 => key3,
+            
       uart_char => uart_char,
       uart_char_valid => uart_char_valid,
       
@@ -901,10 +914,26 @@ begin
     vgared_in => vgared_sig,
     vgagreen_in => vgagreen_sig,
     vgablue_in => vgablue_sig,
+    vgared_out => vgared_kbd,
+    vgagreen_out => vgagreen_kbd,
+    vgablue_out => vgablue_kbd
+    );
+
+    visual_keyboard0 : entity work.visual_keyboard port map(
+    pixel_x_640 => pixel_x_640,
+    ycounter_in => ycounter,	
+    pixelclock => pixelclock,
+    vgared_in => vgared_kbd,
+    vgagreen_in => vgagreen_kbd,
+    visual_keyboard_enable => visual_keyboard_enable,
+    key1 => key1,
+    key2 => key2,
+    key3 => key3,
+    vgablue_in => vgablue_kbd,
     vgared_out => vgared,
     vgagreen_out => vgagreen,
     vgablue_out => vgablue
-    ); 
+    );
   
   -----------------------------------------------------------------------------
   -- UART interface for monitor debugging and loading data
