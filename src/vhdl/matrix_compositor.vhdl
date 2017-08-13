@@ -68,14 +68,6 @@ architecture Behavioral of matrix_compositor is
   constant mode1_endy : unsigned(11 downto 0):=mode1_starty+640;--x"2FB";--x"398";--x"2FB"; --x2FC d764 -1
   constant mode1_garbage_end_offset : unsigned(13 downto 0):=to_unsigned(16,14);
 
---Mode2 Frame
---1920x960
-  constant mode2_startx  : unsigned(13 downto 0):=to_unsigned(160,14);
-  constant mode2_starty : unsigned(11 downto 0):=x"07C"; --x814 d2068 
-  constant mode2_endx  : unsigned(13 downto 0):=to_unsigned(2068,14); -- x"813"; --x814 d2068 -1
-  constant mode2_endy : unsigned(11 downto 0):=x"43B"; --x43C d1084 -1
-  constant mode2_garbage_end_offset : unsigned(13 downto 0):=to_unsigned(29,14);
-
   signal xOffset : unsigned(13 downto 0):= (others => '0');
   signal yOffset : unsigned(11 downto 0):=x"000";
   signal shift_ack : std_logic:='0';
@@ -113,7 +105,6 @@ architecture Behavioral of matrix_compositor is
   signal end_of_char : unsigned(4 downto 0):=b"11000";
   constant mode0_end_of_char : unsigned(4 downto 0):=b"01000"; --8
   constant mode1_end_of_char : unsigned(4 downto 0):=b"10000"; --16
-  constant mode2_end_of_char : unsigned(4 downto 0):=b"11000"; --24
 
 begin
 
@@ -230,84 +221,16 @@ begin
               endx <= mode0_endx+xoffset;
               endy <= mode0_endy+yoffset;
               garbage_end_offset <= mode0_garbage_end_offset;
-            when b"01" =>
+            when others =>
               end_of_char <= mode1_end_of_char; 
               startx <= mode1_startx+xoffset;
               starty <= mode1_starty+yoffset;
               endx <= mode1_endx+xoffset;
               endy <= mode1_endy+yoffset;
               garbage_end_offset <= mode1_garbage_end_offset;
-            when b"10" =>
-              end_of_char <= mode2_end_of_char; 
-              startx <= mode2_startx;
-              starty <= mode2_starty;
-              endx <= mode2_endx;
-              endy <= mode2_endy;
-              garbage_end_offset <= mode2_garbage_end_offset;
-            when others => 
-              end_of_char <= mode2_end_of_char; 
-              startx <= mode2_startx;
-              starty <= mode2_starty;
-              endx <= mode2_endx;
-              endy <= mode2_endy;
-              garbage_end_offset <= mode2_garbage_end_offset;
           end case;		
         end if;
       end if;
-
---Check boundaries
-
---When a boundary is hit, it will 'rubber band' because the startx/y are already set for the next frame with the offset in the previous step
---Fixed this.
-
---Issue when matrix mode is switched between mode0 and mode1 at a boundary close to location 0. (right side and 
---causes startx to wrap, which will make it stuck between >x"7F8" and < mode2_startx+8
---This completely breaks matrix mode. 
-
---This is caused by large offset of x/y between mode0/1 constants.
---Maybe don't have them centered to start, keep the the same/similar
-
---For piece of mind add an addition condition which slightly less than the wrap around of the 12 bit address
---say b4000 / xFA0
-
---if ycounter_in = b"10010110010" then 
---    if doneEndOfFrame2='0' then
---	   doneEndOfFrame2<='1';
---	   --If the start of x is less than it ought to be. undo the offset change, and set startx to known good value		
---		--Are these additions really bad for space?
---		--Only in Mode0/1
---		
---		
---		--DO CHECKS WHEN SETTING OFFSETS, but offset the checks to.
---		--Results in no rubber banding, and no out of bounds at all. rt
---		
---		
---		if mm_displayMode < b"10" then
---
----- Move the window position back		
---		
-----	     if startx<=(mode2_startx+8) or > slightly_less_than_the_wrap_around_of_12-bit_address then
-----		    xoffset<=xoffset+8;
-----		    --startx<=mode2_startx;
-----        els
---		  if endx>x"7F8" then
---          xoffset<=xoffset-8;	
---        end if; 
---		
-----		  if starty < 50 or > slightly_less_than_the_wrap_around_of_12-bit_address then 
-----		    yoffset<=yoffset+8;
-----		    --starty<=(others=>'0'); 
-----		  els
---		  
---		  if endy > x"4B0" then --Should be slightly less than 4B0--This should work, idk why it isnt. 		  
---		    yoffset<=yoffset-8;		  
---		  end if;
---		  
---		end if;
---	 end if;
---	 	
---end if;
-
 
 --Calc garbage_end
       if ycounter_in = 0 then 
