@@ -211,11 +211,12 @@ int first_load=1;
 int first_go64=1;
 
 unsigned char viciv_regs[0x100];
+int mode_report=0;
 
 int process_line(char *line,int live)
 {
   int pc,a,x,y,sp,p;
-  //  printf("[%s]\n",line);
+  // printf("[%s]\n",line);
   if (!live) return 0;
   if (sscanf(line,"%04x %02x %02x %02x %02x %02x",
 	     &pc,&a,&x,&y,&sp,&p)==6) {
@@ -287,15 +288,18 @@ int process_line(char *line,int live)
 	  state=0;
 	}
       }
-      if (addr>=0xfffd000U&&addr<=0xfffd100) {
+      if (addr>=0xffd3000U&&addr<=0xffd3100) {
 	// copy bytes to VIC-IV register buffer
-	int offset=addr-0xfffd000;
-	if (offset<0x80) {
+	int offset=addr-0xffd3000;
+	if (offset<0x80&&offset>=0) {
 	  int i;
 	  for(i=0;i<16;i++)
 	    viciv_regs[offset+i]=b[i];
 	}
-	if (offset==0x80) viciv_mode_report(viciv_regs);
+	if (offset==0x80) {
+	  viciv_mode_report(viciv_regs);
+	  mode_report=0;
+	}
       }
     }
   }
@@ -309,7 +313,8 @@ int process_line(char *line,int live)
       // Then ask for current mode information via VIC-IV registers, but first give a little time
       // for the mode change to take effect
       usleep(100000);
-      slow_write(fd,"Mffd3000\n",9);
+      slow_write(fd,"Mffd3040\n",9);
+      
     }
 
     // We are in C65 mode - switch to C64 mode
@@ -320,7 +325,7 @@ int process_line(char *line,int live)
       first_go64=0;
     } else {
       fprintf(stderr,"MEGA65 is in C65 mode.\n");
-      exit(0);
+      if (!mode_report) exit(0);
     }    
   }
   if (!strcmp(line,
@@ -543,24 +548,24 @@ int viciv_mode_report(unsigned char *r)
   parse_video_mode(b);
 
   // Get border positions
-  int top_border=r[0x48]+((r[0x49]&0xf)<<8);
-  int bottom_border=r[0x4a]+((r[0x4b]&0xf)<<8);
-  int chargen_start=r[0x4c]+((r[0x4d]&0xf)<<8);
-  int left_border=r[0x5c]+(r[0x5d]<<8);
-  int right_border=r[0x5e]+(r[0x5f]<<8);
+  int top_border=(r[0x48]+((r[0x49]&0xf)<<8))&0xfff;
+  int bottom_border=(r[0x4a]+((r[0x4b]&0xf)<<8))&0xfff;
+  int chargen_start=(r[0x4c]+((r[0x4d]&0xf)<<8))&0xfff;
+  int left_border=(r[0x5c]+(r[0x5d]<<8))&0xfff;
+  int right_border=(r[0x5e]+(r[0x5f]<<8))&0xfff;
   int hscale=r[0x5a];
   int vscale=r[0x5b]+1;
   int xpixels=(r[0x75]+((r[0x77]&0xf)<<8))<<2;
-  int ypixels=(r[0x78]+((r[0x7a]&0xf)<<8))<<2;
+  int ypixels=(r[0x78]+((r[0x7a]&0xf)<<8));
 
   fprintf(stderr,"Display is %dx%d pixels\n",xpixels,ypixels);
-  fprintf(stderr,"Side borders are %d and %d pixels wide\n",
-	  left_border,xpixels-right_border);
-  fprintf(stderr,"Top borders are %d and %d pixels high\n",
+  fprintf(stderr,"  Side borders are %d and %d pixels wide @ %d and %d\n",
+	  left_border,xpixels-right_border,left_border,right_border);
+  fprintf(stderr,"  Top borders are %d and %d pixels high\n",
 	  top_border,ypixels-bottom_border);
-  fprintf(stderr,"Character generator begins at postion %d\n",
+  fprintf(stderr,"  Character generator begins at postion %d\n",
 	  chargen_start);
-  fprintf(stderr,"Scale = %d/120ths (%.2f per pixel) horizontally and %dx vertically\n",hscale,120.0/hscale,vscale);
+  fprintf(stderr,"  Scale = %d/120ths (%.2f per pixel) horizontally and %dx vertically\n",hscale,120.0/hscale,vscale);
 	  
   
   return 0;
@@ -669,7 +674,7 @@ int main(int argc,char **argv)
     case '4': do_go64=1; break;
     case 'r': do_run=1; break;
     case 'l': strcpy(serial_port,optarg); break;
-    case 'm': prepare_modeline(optarg); break;
+    case 'm': prepare_modeline(optarg); mode_report=1; break;
     case 's':
       serial_speed=atoi(optarg);
       switch(serial_speed) {
