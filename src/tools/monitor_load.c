@@ -47,6 +47,8 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 time_t start_time=0;
 
+int viciv_mode_report(unsigned char *viciv_regs);
+
 int process_char(unsigned char c,int live);
 
 
@@ -208,6 +210,8 @@ int restart_kickstart(void)
 int first_load=1;
 int first_go64=1;
 
+unsigned char viciv_regs[0x100];
+
 int process_line(char *line,int live)
 {
   int pc,a,x,y,sp,p;
@@ -283,6 +287,16 @@ int process_line(char *line,int live)
 	  state=0;
 	}
       }
+      if (addr>=0xfffd000U&&addr<=0xfffd100) {
+	// copy bytes to VIC-IV register buffer
+	int offset=addr-0xfffd000;
+	if (offset<0x80) {
+	  int i;
+	  for(i=0;i<16;i++)
+	    viciv_regs[offset+i]=b[i];
+	}
+	if (offset==0x80) viciv_mode_report(viciv_regs);
+      }
     }
   }
   if (!strcmp(line,
@@ -291,6 +305,11 @@ int process_line(char *line,int live)
     if (modeline_cmd[0]) {
       fprintf(stderr,"[T+%lldsec] Setting video modeline\n",(long long)time(0)-start_time);
       slow_write(fd,modeline_cmd,strlen(modeline_cmd));
+
+      // Then ask for current mode information via VIC-IV registers, but first give a little time
+      // for the mode change to take effect
+      usleep(100000);
+      slow_write(fd,"Mffd3000\n",9);
     }
 
     // We are in C65 mode - switch to C64 mode
@@ -512,6 +531,41 @@ void parse_video_mode(int b[16+5])
   
   return;
 }
+
+int viciv_mode_report(unsigned char *r)
+{
+  fprintf(stderr,"VIC-IV set the video mode to:\n");
+  
+  // First report on $D072-$D07C modeline
+  int b[16+5];
+  int i;
+  for(i=0;i<16;i++) b[i]=r[0x70+i];
+  parse_video_mode(b);
+
+  // Get border positions
+  int top_border=r[0x48]+((r[0x49]&0xf)<<8);
+  int bottom_border=r[0x4a]+((r[0x4b]&0xf)<<8);
+  int chargen_start=r[0x4c]+((r[0x4d]&0xf)<<8);
+  int left_border=r[0x5c]+(r[0x5d]<<8);
+  int right_border=r[0x5e]+(r[0x5f]<<8);
+  int hscale=r[0x5a];
+  int vscale=r[0x5b]+1;
+  int xpixels=(r[0x75]+((r[0x77]&0xf)<<8))<<2;
+  int ypixels=(r[0x78]+((r[0x7a]&0xf)<<8))<<2;
+
+  fprintf(stderr,"Display is %dx%d pixels\n",xpixels,ypixels);
+  fprintf(stderr,"Side borders are %d and %d pixels wide\n",
+	  left_border,xpixels-right_border);
+  fprintf(stderr,"Top borders are %d and %d pixels high\n",
+	  top_border,ypixels-bottom_border);
+  fprintf(stderr,"Character generator begins at postion %d\n",
+	  chargen_start);
+  fprintf(stderr,"Scale = %d/120ths (%.2f per pixel) horizontally and %dx vertically\n",hscale,120.0/hscale,vscale);
+	  
+  
+  return 0;
+}
+
 
 typedef struct {
   char *name;
