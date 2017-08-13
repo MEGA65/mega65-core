@@ -1394,16 +1394,22 @@ begin
       ssx_table_320(ssx_table_phase) <= ssx_table_counter_320;
       ssx_table_640(ssx_table_phase) <= ssx_table_counter_640;
       ssx_table_1280(ssx_table_phase) <= ssx_table_counter_1280;
+      ssy_table_200(ssx_table_phase) <= ssy_table_counter_200;
+      ssy_table_400(ssx_table_phase) <= ssy_table_counter_400;
       if ssx_table_phase = 10 then
         ssx_table_phase <= 0; 
         ssx_table_counter_320 <= 0;
         ssx_table_counter_640 <= 0;
         ssx_table_counter_1280 <= 0;
+        ssy_table_counter_200 <= 0;
+        ssy_table_counter_400 <= 0;
      else
         ssx_table_phase <= ssx_table_phase + 1;
         ssx_table_counter_320 <= ssx_table_counter_320 + chargen_x_pixels_320;
         ssx_table_counter_640 <= ssx_table_counter_640 + chargen_x_pixels_640;
         ssx_table_counter_1280 <= ssx_table_counter_1280 + chargen_x_pixels_1280;
+        ssy_table_counter_200 <= ssy_table_counter_200 + chargen_y_scale_200;
+        ssy_table_counter_400 <= ssy_table_counter_400 + chargen_y_scale_400;
       end if;
 
       if display_height>1000 then
@@ -1530,12 +1536,12 @@ begin
           border_y_top <= to_unsigned(to_integer(single_top_border_400),12);
           border_y_bottom <= to_unsigned(to_integer(display_height)
                                          -to_integer(single_top_border_400),12);
-        else  
+        else
           border_y_top <= to_unsigned(to_integer(single_top_border_400)
-                                      +ssy_table_400(4),12);
+                                      +ssy_table_200(4),12);
           border_y_bottom <= to_unsigned(to_integer(display_height)
                                          -to_integer(single_top_border_400)
-                                         -ssy_table_400(4),12);
+                                         -ssy_table_200(4),12);
         end if;
         -- set y_chargen_start based on twentyfourlines
         y_chargen_start <= to_unsigned(to_integer(single_top_border_400)
@@ -2135,9 +2141,9 @@ begin
           extended_background_mode <= fastio_wdata(6);
           -- @IO:C64 $D011.5 VIC-II text mode
           text_mode <= not fastio_wdata(5);
-          -- @IO:C64 $D011.5 VIC-II disable display
+          -- @IO:C64 $D011.4 VIC-II disable display
           blank <= not fastio_wdata(4);
-          -- @IO:C64 $D011.5 VIC-II 24/25 row select
+          -- @IO:C64 $D011.3 VIC-II 24/25 row select
           twentyfourlines <= not fastio_wdata(3);
           -- @IO:C64 $D011.2-0 VIC-II 24/25 vertical smooth scroll
           vicii_y_smoothscroll <= unsigned(fastio_wdata(2 downto 0));
