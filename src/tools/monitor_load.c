@@ -213,6 +213,15 @@ int first_go64=1;
 unsigned char viciv_regs[0x100];
 int mode_report=0;
 
+int read_and_print(int fd)
+{
+  char buff[8192];
+  int r=read(fd,buff,8192);
+  buff[r]=0;
+  printf("%s\n",buff);
+  return 0;
+}
+
 int process_line(char *line,int live)
 {
   int pc,a,x,y,sp,p;
@@ -317,17 +326,22 @@ int process_line(char *line,int live)
       
       // Force mode change to take effect, after first giving time for VICIV to recalc parameters
       usleep(50000);
-      slow_write(fd,"sffd3016 c9\n",12);
       slow_write(fd,"sffd3011 1b\n",12);
-      usleep(50000);
-      slow_write(fd,"sffd3016 c9\n",12);
-      slow_write(fd,"sffd3011 1b\n",12);
-      usleep(50000);
-      slow_write(fd,"sffd3016 c9\n",12);
-      slow_write(fd,"sffd3011 1b\n",12);
-      usleep(50000);
-      slow_write(fd,"sffd3016 c9\n",12);
-      slow_write(fd,"sffd3011 1b\n",12);
+
+      #if 0
+      // Check X smooth-scroll values
+      int i;
+      for(i=0;i<10;i++)
+	{
+	  char cmd[1024];
+	  snprintf(cmd,1024,"sffd307d %x\n",i);
+	  slow_write(fd,cmd,strlen(cmd));
+	  snprintf(cmd,1024,"mffd307d\n");
+	  slow_write(fd,cmd,strlen(cmd));
+	  usleep(50000);
+	  read_and_print(fd);
+	}
+      #endif
       
       // Then ask for current mode information via VIC-IV registers, but first give a little time
       // for the mode change to take effect
