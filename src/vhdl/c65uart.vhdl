@@ -146,7 +146,9 @@ architecture behavioural of c65uart is
   signal physkey_enable_internal : std_logic := '1';
   signal virtual_enable_internal : std_logic := '1';
 
-  signal portk_internal : std_logic_vector(7 downto 0) := x"FF";
+  signal portk_internal : std_logic_vector(7 downto 0) := x"7F"; -- visual
+                                                                 -- keyboard
+                                                                 -- off by default
   signal portl_internal : std_logic_vector(7 downto 0) := x"FF";
   signal portm_internal : std_logic_vector(7 downto 0) := x"FF";
   signal portn_internal : std_logic_vector(7 downto 0) := x"FF";
