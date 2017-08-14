@@ -30,11 +30,17 @@ of characters.
 * Table is also used to decode an X,Y position relative to start of keyboard, measured
 in 1/2 key widths and whole key heights into the correct matrix entry.
 
-N3F,N7F,47,41,50,40,7F,04,05,06,03,7F,N45,46,47,43
-N39,N38,3B,08,0B,10,13,18,1B,20,23,28,N2B,38,3B,00+
-W41,N3E,09,0E,11,16,19,1E,21,26,29,2E,N31,36,51
-N3A,N0F,0A,0D,12,15,1A,1D,22,25,2A,2D,N32,35,01,01
-N3D,W0F,0C,17,14,1F,1C,27,24,2F,2C,37,W34,52,
-N7F,N7F,7F,3C,3C,3C,3C,3C,3C,3C,3C,3C,N7F,53,07,02
+Matrix Layout:
+3F,7F,47,41,50,40,7F,04,05,06,03,7F,45,46,47,43
+39,38,3B,08,0B,10,13,18,1B,20,23,28,2B,38,3B,00
+C1,3E,09,0E,11,16,19,1E,21,26,29,2E,31,36,D1,51
+3A,0F,0A,0D,12,15,1A,1D,22,25,2A,2D,32,35,01,01
+3D,8F,0C,17,14,1F,1C,27,24,2F,2C,37,B4,52,7F,7F
+7F,7F,7F,3C,3C,3C,3C,3C,3C,3C,3C,3C,7F,53,07,02
 
-Sticky/modifier keys: 0F, 07, 3D, 40, 42
+Sticky/modifier keys:
+0F
+07
+3D
+40
+42
