@@ -109,7 +109,7 @@ int main(int argc,char **argv)
 	  "  signal ram : ram_t := (\n",
 	  name,bytes,name,bytes);
 
-  for(i=0;i<ar_size;i++)
+  for(i=0;i<bytes;i++)
     if (archive[i]) fprintf(o,"          %d => x\"%02x\", -- $%05x\n",i,archive[i],i);
   
   fprintf(o,"          others => x\"00\");\n" 
@@ -136,6 +136,6 @@ int main(int argc,char **argv)
 	  );
   
   fclose(o);
-  fprintf(stderr,"%d bytes written\n",ar_size);
+  fprintf(stderr,"%d bytes written\n",bytes);
   
 }

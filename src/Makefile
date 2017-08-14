@@ -94,7 +94,7 @@ SIMULATIONFILES=	vhdl/UART_TX_CTRL.vhd vhdl/bitplane.vhdl vhdl/bitplanes.vhdl \
 	vhdl/keyboard_to_matrix.vhdl vhdl/matrix_to_ascii.vhdl \
 	vhdl/widget_to_matrix.vhdl vhdl/ps2_to_matrix.vhdl vhdl/keymapper.vhdl \
 	vhdl/keyboard_complex.vhdl vhdl/virtual_to_matrix.vhdl \
-	vhdl/visual_keyboard.vhdl
+	vhdl/visual_keyboard.vhdl vhdl/oskmem.vhdl
 simulate:	$(SIMULATIONFILES)
 	ghdl -i $(SIMULATIONFILES)
 	ghdl -m cpu_test
@@ -292,6 +292,16 @@ $(VHDLSRCDIR)/colourram.vhdl:	tools/makerom/colourram_template.vhdl COLOURRAM.BI
 
 $(VHDLSRCDIR)/shadowram.vhdl:	tools/mempacker/mempacker $(SDCARD_DIR)/BANNER.M65
 	tools/mempacker/mempacker -n shadowram -s 131072 -f $(VHDLSRCDIR)/shadowram.vhdl $(SDCARD_DIR)/BANNER.M65@3D00
+
+$(VHDLSRCDIR)/oskmem.vhdl:	tools/mempacker/mempacker asciifont.bin
+	tools/mempacker/mempacker -n oskmem -s 4096 -f $(VHDLSRCDIR)/oskmem.vhdl asciifont.bin@0000
+
+asciifont.bin:	tools/pngprepare/pngprepare ascii00-7f.png
+	$(warning =============================================================)
+	$(warning ~~~~~~~~~~~~~~~~> Making: asciifont.bin)
+#       exe          option  infile      outfile
+	tools/pngprepare/pngprepare charrom ascii00-7f.png asciifont.bin
+
 
 # unsure why the below is commented out
 #slowram.vhdl:	c65gs.rom makeslowram slowram_template.vhdl

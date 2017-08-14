@@ -13,6 +13,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <strings.h>
 #include <stdarg.h>
 
 #define PNG_DEBUG 3
@@ -321,8 +322,11 @@ void process_file(int mode, char *outputfilename)
     printf("mode=1 (charrom)\n");
     // charrom mode
 
+    int vhdl_mode=1;
+    if (!strstr(outputfilename,".vhdl")) vhdl_mode=0;
+    
     int bytes=0;
-    fprintf(outfile,"%s",vhdl_prefix);
+    if (vhdl_mode) fprintf(outfile,"%s",vhdl_prefix);
     if (width!=8) {
       fprintf(stderr,"Fonts must be 8 pixels wide\n");
     }
@@ -348,17 +352,20 @@ void process_file(int mode, char *outputfilename)
       fflush(stdout);
       char comma = ',';
       if (y==height-1) comma=' ';
-      fprintf(outfile,"x\"%02x\"%c",byte,comma);
+      if (vhdl_mode) fprintf(outfile,"x\"%02x\"%c",byte,comma);
+      else fputc(byte,outfile);
       bytes++;
-      if ((y&7)==7) {
-	fprintf(outfile,"\n");
-	int yy;
-	for(yy=0;yy<8;yy++) {
-	  fprintf(outfile,"-- [");
-	  for(x=0;x<8;x++) {
-	    if (spots[yy][x]) fprintf(outfile,"*"); else fprintf(outfile," ");
+      if (vhdl_mode) {
+	if ((y&7)==7) {
+	  fprintf(outfile,"\n");
+	  int yy;
+	  for(yy=0;yy<8;yy++) {
+	    fprintf(outfile,"-- [");
+	    for(x=0;x<8;x++) {
+	      if (spots[yy][x]) fprintf(outfile,"*"); else fprintf(outfile," ");
+	    }
+	    fprintf(outfile,"]\n");
 	  }
-	  fprintf(outfile,"]\n");
 	}
       }
     }
@@ -367,13 +374,17 @@ void process_file(int mode, char *outputfilename)
 
       printf("Padding output file to 4096\n");
 
-      fprintf(outfile,",\n");
-      for(;bytes<4096;bytes+=8) {
-	fprintf(outfile,"x\"00\",x\"00\",x\"00\",x\"00\",x\"00\",x\"00\",x\"00\",x\"00\"%c\n",
-		bytes<(4096-8)?',':' ');
+      if (vhdl_mode) {
+	fprintf(outfile,",\n");
+	for(;bytes<4096;bytes+=8) {
+	  fprintf(outfile,"x\"00\",x\"00\",x\"00\",x\"00\",x\"00\",x\"00\",x\"00\",x\"00\"%c\n",
+		  bytes<(4096-8)?',':' ');
+	}
+      } else {
+	// In raw mode, don't pad
       }
     }
-    fprintf(outfile,"%s",vhdl_suffix);
+    if (vhdl_mode) fprintf(outfile,"%s",vhdl_suffix);
 
     if (outfile != NULL) {
       fclose(outfile);
