@@ -192,7 +192,7 @@ begin
                   yoffset<=yoffset-8;
                 end if;
               when b"010" => --right 
-                if endx < x"7F8" then
+                if endx < 4096 then
                   xoffset<=xoffset+8;
                 end if; 
               when b"011" => --down
@@ -200,7 +200,7 @@ begin
                   yoffset<=yoffset+8;
                 end if;
               when b"100" => --left
-                if garbage_end > 150 then
+                if xoffset > 7 then
                   xoffset<=xoffset-8;
                 end if;
               when others =>
@@ -302,27 +302,32 @@ begin
         -- Case for first ~8 counts of eightCounter
         -- End of character count dependent on display mode
         
-        case eightCounter is		            
-          when b"00001" =>
-            readAddress_rom<=charCount; 		  
-          when b"00011" =>
-            charAddr<=dataOutRead_rom; 
-            invert<=dataOutRead_rom(7); --bit 7 is whether to invert or not. 
-          when b"00101" =>
-            readAddress_rom<=(b"00" & charAddr(6 downto 0) & b"000")+charline;
-          when b"00111" =>
-            if charCount=CharMemEnd then
-              charCount<=CharMemStart;
-            else --otherwise increase
-              charCount<=charCount+1;					 
-            end if;				  				
-          when others =>
-        --do nothing;
-        end case;
-
         --If it hasnt just loaded new data,
         if pixel_x_640 /= last_pixel_x_640 then
           last_pixel_x_640 <= pixel_x_640;
+
+          case eightCounter is		            
+            when b"00001" =>
+              -- Read the character number from terminal emulator screen memory
+              readAddress_rom<=charCount; 		  
+            when b"00011" =>
+              charAddr<=dataOutRead_rom;
+              -- Invert read character if required
+              invert<=dataOutRead_rom(7); --bit 7 is whether to invert or not. 
+            when b"00101" =>
+              -- Request character data for the current character
+              readAddress_rom<=(b"00" & charAddr(6 downto 0) & b"000")+charline;
+            when b"00111" =>
+              -- Advance to next character
+              if charCount=CharMemEnd then
+                charCount<=CharMemStart;
+              else --otherwise increase
+                charCount<=charCount+1;					 
+              end if;				  				
+            when others =>
+          --do nothing;
+          end case;
+
           if eightCounter/=end_of_char then
             eightCounter<=eightCounter+1; --increment counter		    			 
             if bufferCounter=mm_displayMode then			 
