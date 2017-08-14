@@ -24,9 +24,21 @@ end visual_keyboard;
 architecture behavioural of visual_keyboard is
 
   signal vk_pixel : unsigned(1 downto 0) := "00";
-  
+
+  signal memaddr : integer range 0 to 4095 := 0;
+  signal rdata : unsigned(7 downto 0);
+    
 begin
 
+  km0: entity work.oskmem
+    port map (
+      clk => pixelclock,
+      address => memaddr,
+      we => '0',
+      data_i => (others => '1'),
+      data_o => rdata
+      );
+  
   process (pixelclock)
     variable p640 : unsigned(13 downto 0);
   begin

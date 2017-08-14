@@ -98,7 +98,7 @@ int main(int argc,char **argv)
 	  "        writes : out unsigned(7 downto 0);\n"
 	  "        no_writes : out unsigned(7 downto 0)\n"
 	  "        );\n"
-	  "end shadowram;\n"
+	  "end %s;\n"
 	  "\n"
 	  "architecture Behavioral of %s is\n"
 	  "\n"
@@ -107,7 +107,7 @@ int main(int argc,char **argv)
 	  "  \n"
 	  "  type ram_t is array (0 to %d) of unsigned(7 downto 0);\n"
 	  "  signal ram : ram_t := (\n",
-	  name,bytes,name,bytes);
+	  name,bytes,name,name,bytes);
 
   for(i=0;i<bytes;i++)
     if (archive[i]) fprintf(o,"          %d => x\"%02x\", -- $%05x\n",i,archive[i],i);
@@ -125,7 +125,6 @@ int main(int argc,char **argv)
 	  "      if we /= '0' then\n"
 	  "        write_count <= write_count + 1;        \n"
 	  "        ram(address) <= data_i;\n"
-	  "        report \"wrote to shadow ram\" severity note;\n"
 	  "      else\n"
 	  "        no_write_count <= no_write_count + 1;        \n"
 	  "      end if;\n"
