@@ -128,7 +128,7 @@ begin
         last_was_640 <= '0';
       end if;
 
-      if pixel_x_640 /= last_pixel_x_640 then
+      if pixel_x_640 /= last_pixel_x_640 and active='1' then
         last_pixel_x_640 <= pixel_x_640;
 
         -- Is this box for a key that is currently being pressed?
