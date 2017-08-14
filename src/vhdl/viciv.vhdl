@@ -1306,7 +1306,31 @@ begin
       -- Where possible, we want to keep some sensible amount of side border
       -- in the 320 pixel widee modes. For H640 and H1280, we don't care about
       -- having side borders
-      if display_width > (8*320) then
+      if display_width > (16*320) then
+        chargen_x_scale_320  <= x"08";
+        chargen_x_pixels_320 <= 16;
+      elsif display_width > (15*320) then
+        chargen_x_scale_320  <= x"08";
+        chargen_x_pixels_320 <= 15;
+      elsif display_width > (14*320) then
+        chargen_x_scale_320  <= x"09";
+        chargen_x_pixels_320 <= 14;
+      elsif display_width > (13*320) then
+        chargen_x_scale_320  <= x"09";
+        chargen_x_pixels_320 <= 13;
+      elsif display_width > (12*320) then
+        chargen_x_scale_320  <= x"0a";
+        chargen_x_pixels_320 <= 12;
+      elsif display_width > (11*320) then
+        chargen_x_scale_320  <= x"0b";
+        chargen_x_pixels_320 <= 11;
+      elsif display_width > (10*320) then
+        chargen_x_scale_320  <= x"0c";
+        chargen_x_pixels_320 <= 10;
+      elsif display_width > (9*320) then
+        chargen_x_scale_320  <= x"0e";
+        chargen_x_pixels_320 <= 9;
+      elsif display_width > (8*320) then
         chargen_x_scale_320  <= x"10";
         chargen_x_pixels_320 <= 8;
       elsif display_width > (7*320) then
@@ -1331,10 +1355,22 @@ begin
         chargen_x_scale_320  <= x"78";
         chargen_x_pixels_320 <= 1;
       end if;  
-      if display_width >= (8*320) then
+      if display_width >= (16*320) then
+        chargen_x_scale_640  <= x"10";
+        chargen_x_pixels_640 <= 4;
+        chargen_x_scale_1280  <= x"40";
+        chargen_x_pixels_1280 <= 2;
+        text_width <= 8*320;
+      elsif display_width >= (15*320) then
+        chargen_x_scale_640  <= x"11";
+        chargen_x_pixels_640 <= 4;
+        chargen_x_scale_1280  <= x"40";
+        chargen_x_pixels_1280 <= 2;
+        text_width <= 8*320;
+      elsif display_width >= (8*320) then
         chargen_x_scale_640  <= x"20";
         chargen_x_pixels_640 <= 4;
-        chargen_x_scale_320  <= x"40";
+        chargen_x_scale_1280  <= x"40";
         chargen_x_pixels_1280 <= 2;
         text_width <= 8*320;
       elsif display_width >= (7*320) then
@@ -1362,8 +1398,6 @@ begin
         chargen_x_pixels_1280 <= 1;
         text_width <= 4*320;
       elsif display_width >= (3*320) then
-        chargen_x_scale_320  <= x"28";
-        chargen_x_pixels_320 <= 3;
         chargen_x_scale_640  <= x"78";
         chargen_x_pixels_640 <= 1;
         chargen_x_scale_1280  <= x"78";
