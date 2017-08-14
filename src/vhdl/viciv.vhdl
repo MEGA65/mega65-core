@@ -2781,7 +2781,7 @@ begin
         if xpixel_640_sub >= 240 then
           xpixel_640_sub <= xpixel_640_sub - 240 + chargen_x_scale_640;
           xpixel_640 <= xpixel_640 + 2;
-        elsif raster_buffer_read_address_sub >= 120 then
+        elsif xpixel_640_sub >= 120 then
           xpixel_640_sub <= xpixel_640_sub - 120 + chargen_x_scale_640;
           xpixel_640 <= xpixel_640 + 1;
         else
