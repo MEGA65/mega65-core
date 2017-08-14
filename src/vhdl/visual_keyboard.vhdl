@@ -52,9 +52,14 @@ architecture behavioural of visual_keyboard is
   signal active : std_logic := '0';
   signal last_pixel_x_640 : integer := 0;
   signal key_box_counter : integer := 0;
+
+  signal next_char : unsigned(7 downto 0) := x"00";
+  signal next_char_ready : std_logic := '0';
+  signal space_repeat : integer range 0 to 16 := 0;
   
   type fetch_state_t is (
     FetchIdle,
+    CharFetch,
     FetchMapRowColumn0,
     FetchMapRowColumn1,
     GotMapRowColumn1,
@@ -99,12 +104,15 @@ begin
           elsif active='1' then
             if y_phase /= y_stretch then
               y_phase <= y_phase + 1;
+              current_address <= last_row_address;
             else
               y_phase <= 0;
               if y_pixel_counter /=7 then
-                y_pixel_counter <= y_pixel_counter + 1;
+                y_pixel_counter <= y_pixel_counter + 1;                
+                current_address <= last_row_address;
               else
                 y_pixel_counter <= 0;
+                last_row_address <= current_address;
                 if y_char_in_row /= 2 then
                   y_char_in_row <= y_char_in_row + 1;
                 else
@@ -177,43 +185,66 @@ begin
         
       end if;
       
-      if active='1' then
-        case fetch_state is
-          when FetchMapRowColumn0 =>
-            address <= 128 + y_row*16;
-            fetch_state <= FetchMapRowColumn1;
-          when FetchMapRowColumn1 =>
-            current_matrix_id <= rdata;
-            address <= 128 + y_row*16 + 1;
-            fetch_state <= GotMapRowColumn1;
-          when GotMapRowColumn1 =>
-            next_matrix_id <= rdata;
-            -- Work out width of first key box of row
-            if rdata(7)='1' then
-              key_box_counter <= 8*8;
+      case fetch_state is
+        when FetchIdle =>
+          -- Get the next character to display, if we
+          -- don't already have one
+          if next_char_ready = '0' then
+            if space_repeat /= 0 then
+              space_repeat <= space_repeat - 1;
+              next_char <= x"20";
             else
-              key_box_counter <= 5*8;
+              address <= current_address;
+              current_address <= current_address + 1;
+              fetch_state <= CharFetch;
             end if;
-            matrix_pos <= 0;
-            fetch_state <= FetchIdle;
-          when FetchNextMatrix =>
-            if matrix_pos < 16 then
-              address <= 128 + y_row*16 + matrix_pos + 2;
-            else
-              -- Else read a blank character (we know one is at location 1)
-              -- (this ensures we draw the right edge of the last key on each
-              -- row correctly).
-              address <= 1;
-            end if;
-            fetch_state <= GotNextMatrix;
-          when GotNextMatrix =>
-            current_matrix_id <= next_matrix_id;
-            next_matrix_id <= rdata;
-            fetch_state <= FetchIdle;
-          when others =>
-            null;
-        end case;
-      end if;
+          end if;
+        when CharFetch =>
+          next_char_ready <= '1';
+          if rdata(7 downto 4) = x"9" then
+            -- RLE encoded spaces
+            space_repeat <= to_integer(rdata(3 downto 0));
+            next_char <= x"20";
+          else
+            -- Natural char
+            next_char <= rdata;
+          end if;
+          fetch_state <= FetchIdle;
+        when FetchMapRowColumn0 =>
+          address <= 128 + y_row*16;
+          fetch_state <= FetchMapRowColumn1;
+        when FetchMapRowColumn1 =>
+          current_matrix_id <= rdata;
+          address <= 128 + y_row*16 + 1;
+          fetch_state <= GotMapRowColumn1;
+        when GotMapRowColumn1 =>
+          next_matrix_id <= rdata;
+          -- Work out width of first key box of row
+          if rdata(7)='1' then
+            key_box_counter <= 8*8;
+          else
+            key_box_counter <= 5*8;
+          end if;
+          matrix_pos <= 0;
+          fetch_state <= FetchIdle;
+        when FetchNextMatrix =>
+          if matrix_pos < 16 then
+            address <= 128 + y_row*16 + matrix_pos + 2;
+          else
+            -- Else read a blank character (we know one is at location 1)
+            -- (this ensures we draw the right edge of the last key on each
+            -- row correctly).
+            address <= 1;
+          end if;
+          fetch_state <= GotNextMatrix;
+        when GotNextMatrix =>
+          current_matrix_id <= next_matrix_id;
+          next_matrix_id <= rdata;
+          fetch_state <= FetchIdle;
+        when others =>
+          null;
+      end case;
+
 
       -- Draw keyboard matrix boxes
       vk_pixel(1) <= box_pixel or box_inverse;
