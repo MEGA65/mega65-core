@@ -28,13 +28,15 @@ architecture behavioural of visual_keyboard is
 begin
 
   process (pixelclock)
+    variable p640 : unsigned(13 downto 0);
   begin
     if rising_edge(pixelclock) then
       -- Draw checker pattern to debug pixel_x_640 generation
-      if pixel_x_640 and 1 then
+      p640 := to_unsigned(pixel_x_640,14);
+      if p640(0)='0' then
         vk_pixel(1) <= ycounter_in(0);
       else
-        vk_pixel(1) <= ycounter_in(0) xor 1;
+        vk_pixel(1) <= ycounter_in(0) xor '1';
       end if;
       if visual_keyboard_enable='1' then
         vgared_out <= vk_pixel&vgared_in(7 downto 2);
