@@ -310,8 +310,23 @@ int process_line(char *line,int live)
       fprintf(stderr,"[T+%lldsec] Setting video modeline\n",(long long)time(0)-start_time);
       slow_write(fd,modeline_cmd,strlen(modeline_cmd));
 
+      // Disable on-screen keyboard to be sure
+      usleep(50000);
+      slow_write(fd,"sffd3615 7f\n",12);
+      
+      
       // Force mode change to take effect, after first giving time for VICIV to recalc parameters
       usleep(50000);
+      slow_write(fd,"sffd3016 c9\n",12);
+      slow_write(fd,"sffd3011 1b\n",12);
+      usleep(50000);
+      slow_write(fd,"sffd3016 c9\n",12);
+      slow_write(fd,"sffd3011 1b\n",12);
+      usleep(50000);
+      slow_write(fd,"sffd3016 c9\n",12);
+      slow_write(fd,"sffd3011 1b\n",12);
+      usleep(50000);
+      slow_write(fd,"sffd3016 c9\n",12);
       slow_write(fd,"sffd3011 1b\n",12);
       
       // Then ask for current mode information via VIC-IV registers, but first give a little time
