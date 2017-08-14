@@ -2023,8 +2023,9 @@ begin
             std_logic_vector(to_unsigned(vic_paint_fsm'pos(debug_paint_fsm_state_drive2),8));
           -- fastio_rdata <= std_logic_vector(debug_charaddress_drive2(7 downto 0));
         elsif register_number=126 then
-          fastio_rdata <= "0000"
-                          & std_logic_vector(debug_charaddress_drive2(11 downto 8));
+          -- fastio_rdata <= "0000"
+          -- & std_logic_vector(debug_charaddress_drive2(11 downto 8));
+          fastio_rdata <= std_logic_vector(to_unsigned(ssx_table_phase,8));
         elsif register_number=127 then
           fastio_rdata <= std_logic_vector(to_unsigned(ssx_table_640(to_integer(debug_x(3 downto 0))),8));
         elsif register_number<256 then
