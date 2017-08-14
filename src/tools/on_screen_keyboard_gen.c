@@ -30,7 +30,7 @@ int main(int argc,char **argv)
       }
       fprintf(stderr,"Found sticky/modifier key section.\n");
       parse_mode=2;
-      offset=6*32;
+      offset=8*16;
     }
     if (parse_mode==1)
       if (sscanf(line,"%x,%x,%x,%x,%x,%x,%x,%x,%x,%x,%x,%x,%x,%x,%x,%x",
