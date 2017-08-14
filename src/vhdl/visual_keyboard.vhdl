@@ -55,7 +55,7 @@ architecture behavioural of visual_keyboard is
 
   signal next_char : unsigned(7 downto 0) := x"00";
   signal next_char_ready : std_logic := '0';
-  signal space_repeat : integer range 0 to 16 := 0;
+  signal space_repeat : integer range 0 to 127 := 0;
   
   type fetch_state_t is (
     FetchIdle,
@@ -94,8 +94,9 @@ begin
           elsif ycounter_in = y_start then
             active <= '1';
 
-            current_address <= 0;
-            last_row_address <= 0;
+            -- Packed text starts at $0900 in OSKmem
+            current_address <= 2048 + 256;
+            last_row_address <= 2048 + 256;
 
             y_row <= 0;
             y_char_in_row <= 0;
@@ -201,7 +202,12 @@ begin
           end if;
         when CharFetch =>
           next_char_ready <= '1';
-          if rdata(7 downto 4) = x"9" then
+          if rdata(7 downto 0) = x"0a" then
+            -- new line -- nothing more new this line,
+            -- just fill with spaces
+            next_char <= x"20";
+            space_repeat <= 99;
+          elsif rdata(7 downto 4) = x"9" then
             -- RLE encoded spaces
             space_repeat <= to_integer(rdata(3 downto 0));
             next_char <= x"20";
@@ -211,11 +217,11 @@ begin
           end if;
           fetch_state <= FetchIdle;
         when FetchMapRowColumn0 =>
-          address <= 128 + y_row*16;
+          address <= 2048 + 128 + y_row*16;
           fetch_state <= FetchMapRowColumn1;
         when FetchMapRowColumn1 =>
           current_matrix_id <= rdata;
-          address <= 128 + y_row*16 + 1;
+          address <= 2048 + 128 + y_row*16 + 1;
           fetch_state <= GotMapRowColumn1;
         when GotMapRowColumn1 =>
           next_matrix_id <= rdata;
@@ -229,12 +235,12 @@ begin
           fetch_state <= FetchIdle;
         when FetchNextMatrix =>
           if matrix_pos < 16 then
-            address <= 128 + y_row*16 + matrix_pos + 2;
+            address <= 2048 + 128 + y_row*16 + matrix_pos + 2;
           else
             -- Else read a blank character (we know one is at location 1)
             -- (this ensures we draw the right edge of the last key on each
             -- row correctly).
-            address <= 1;
+            address <= 2048 + 1;
           end if;
           fetch_state <= GotNextMatrix;
         when GotNextMatrix =>
