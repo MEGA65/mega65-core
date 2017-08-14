@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <strings.h>
 #include <string.h>
+#include <getopt.h>
 
 int load_block(char *arg,unsigned char *archive,int ar_size)
 {
@@ -35,12 +36,24 @@ int load_block(char *arg,unsigned char *archive,int ar_size)
   return 0;
 }
 
+int usage(void)
+{
+  fprintf(stderr,
+	  "usage: mempacker [-f output.vhdl] [-s size of memory]"
+	  "                 [-n name of VHDL entity] <file.prg@offset [...]>\n");
+  exit(-1);
+}
+
 int main(int argc,char **argv)
 {
   if (argc<3) {
-    fprintf(stderr,"usage: mempacker <output.vhdl> <file.prg@offset [...]>\n");
-    exit(-1);
+    usage();
   }
+
+  char *outfile=NULL;
+  
+  int bytes=128*1024-1;
+  char name[1024]="shadowram";
   
   int ar_size=128*1024;
   unsigned char archive[ar_size];
@@ -48,14 +61,26 @@ int main(int argc,char **argv)
   // Start with empty memory
   bzero(archive,ar_size);
 
+  int opt;
+  while ((opt = getopt(argc, argv, "f:n:s:")) != -1) {
+    switch (opt) {
+    case 'f': outfile=strdup(optarg); break;
+    case 'n': strcpy(name,optarg); break;
+    case 's': bytes=atoi(optarg); break;
+    default:
+      usage();
+    }
+  }
+  if (!outfile) usage();
+
   int i;
-  for(i=2;i<argc;i++) {
+  for(i=optind;i<argc;i++) {
     load_block(argv[i],archive,ar_size);
   }  
   
-  FILE *o=fopen(argv[1],"w");
+  FILE *o=fopen(outfile,"w");
   if (!o) {
-    fprintf(stderr,"Could not open '%s' to write VHDL source file.\n",argv[1]);
+    fprintf(stderr,"Could not open '%s' to write VHDL source file.\n",outfile);
     exit(-1);
   }
 
@@ -64,9 +89,9 @@ int main(int argc,char **argv)
 	  "use ieee.numeric_std.all;\n"
 	  "\n"
 	  "--\n"
-	  "entity shadowram is\n"
+	  "entity %s is\n"
 	  "  port (Clk : in std_logic;\n"
-	  "        address : in integer range 0 to 131071;\n"
+	  "        address : in integer range 0 to %d;\n"
 	  "        we : in std_logic;\n"
 	  "        data_i : in unsigned(7 downto 0);\n"
 	  "        data_o : out unsigned(7 downto 0);\n"
@@ -75,14 +100,14 @@ int main(int argc,char **argv)
 	  "        );\n"
 	  "end shadowram;\n"
 	  "\n"
-	  "architecture Behavioral of shadowram is\n"
+	  "architecture Behavioral of %s is\n"
 	  "\n"
 	  "  signal write_count : unsigned(7 downto 0) := x\"00\";\n"
 	  "  signal no_write_count : unsigned(7 downto 0) := x\"00\";\n"
 	  "  \n"
-	  "--  type ram_t is array (0 to 262143) of std_logic_vector(7 downto 0);\n"
-	  "  type ram_t is array (0 to 131071) of unsigned(7 downto 0);\n"
-	  "  signal ram : ram_t := (\n");
+	  "  type ram_t is array (0 to %d) of unsigned(7 downto 0);\n"
+	  "  signal ram : ram_t := (\n",
+	  name,bytes,name,bytes);
 
   for(i=0;i<ar_size;i++)
     if (archive[i]) fprintf(o,"          %d => x\"%02x\", -- $%05x\n",i,archive[i],i);
