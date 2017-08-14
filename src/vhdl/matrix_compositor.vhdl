@@ -157,7 +157,9 @@ begin
             if lineStartAddr=CharMemEnd-79 then 
               lineStartAddr<=CharMemStart;
             else 
-              lineStartAddr<=lineStartAddr+80;--calculate next linestart
+              if pixel_x_640 /= last_pixel_x_640 then
+                lineStartAddr<=lineStartAddr+80;--calculate next linestart
+              end if;
             end if;          
           else --otherwise
             charline<=charline+1; --increment line
@@ -330,7 +332,7 @@ begin
 
           if eightCounter/=end_of_char then
             eightCounter<=eightCounter+1; --increment counter		    			 
-            if bufferCounter=mm_displayMode then			 
+            if bufferCounter=mm_displayMode then
               data_buffer<=data_buffer(6 downto 0)&'0';				
               bufferCounter<=b"00";
             else 
@@ -338,7 +340,7 @@ begin
             end if;
           elsif eightCounter=end_of_char then
             --clear end of frame flags anywhere before end of frame
-            doneEndOfFrame<='0'; 
+            doneEndOfFrame<='0';
             doneEndOfFrame1<='0';
             doneEndOfFrame2<='0'; 
             eightCounter<=b"00001"; --Reset counter
