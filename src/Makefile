@@ -291,10 +291,10 @@ $(VHDLSRCDIR)/colourram.vhdl:	tools/makerom/colourram_template.vhdl COLOURRAM.BI
 	tools/makerom/makerom tools/makerom/colourram_template.vhdl COLOURRAM.BIN $(VHDLSRCDIR)/colourram ram8x32k
 
 $(VHDLSRCDIR)/shadowram.vhdl:	tools/mempacker/mempacker $(SDCARD_DIR)/BANNER.M65
-	tools/mempacker/mempacker -n shadowram -s 131072 -f $(VHDLSRCDIR)/shadowram.vhdl $(SDCARD_DIR)/BANNER.M65@3D00
+	tools/mempacker/mempacker -n shadowram -s 131071 -f $(VHDLSRCDIR)/shadowram.vhdl $(SDCARD_DIR)/BANNER.M65@3D00
 
 $(VHDLSRCDIR)/oskmem.vhdl:	tools/mempacker/mempacker asciifont.bin osdmap.bin
-	tools/mempacker/mempacker -n oskmem -s 4096 -f $(VHDLSRCDIR)/oskmem.vhdl asciifont.bin@0000 osdmap.bin@0800
+	tools/mempacker/mempacker -n oskmem -s 4095 -f $(VHDLSRCDIR)/oskmem.vhdl asciifont.bin@0000 osdmap.bin@0800
 
 osdmap.bin:	tools/on_screen_keyboard_gen keyboard.txt
 	 tools/on_screen_keyboard_gen >osdmap.bin
