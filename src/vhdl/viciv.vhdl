@@ -1037,7 +1037,7 @@ architecture Behavioral of viciv is
   signal chargen_x_pixels_320 : integer;
   signal chargen_x_pixels_640 : integer;
   signal chargen_x_pixels_1280 : integer;
-  signal ssx_table_phase : integer;
+  signal ssx_table_phase : integer range 0 to 9 := 0;
   
   signal text_height : integer;
   signal chargen_y_scale_200 : unsigned(7 downto 0);
@@ -1463,7 +1463,7 @@ begin
       ssx_table_1280(ssx_table_phase) <= ssx_table_counter_1280;
       ssy_table_200(ssx_table_phase) <= ssy_table_counter_200;
       ssy_table_400(ssx_table_phase) <= ssy_table_counter_400;
-      if ssx_table_phase = 10 then
+      if ssx_table_phase > 9 then
         ssx_table_phase <= 0; 
         ssx_table_counter_320 <= 0;
         ssx_table_counter_640 <= 0;
