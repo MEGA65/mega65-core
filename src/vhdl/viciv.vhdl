@@ -1034,9 +1034,9 @@ architecture Behavioral of viciv is
   signal ssx_table_counter_320 : integer;
   signal ssx_table_counter_640 : integer;
   signal ssx_table_counter_1280 : integer;
-  signal chargen_x_pixels_320 : integer;
-  signal chargen_x_pixels_640 : integer;
-  signal chargen_x_pixels_1280 : integer;
+  signal chargen_x_pixels_320 : integer := 1;
+  signal chargen_x_pixels_640 : integer := 1;
+  signal chargen_x_pixels_1280 : integer := 1;
   signal ssx_table_phase : integer range 0 to 9 := 0;
   
   signal text_height : integer;
@@ -2019,9 +2019,10 @@ begin
           fastio_rdata(4) <= hsync_polarity;
           fastio_rdata(5) <= vsync_polarity;          
         elsif register_number=125 then
-          fastio_rdata <=
-            std_logic_vector(to_unsigned(vic_paint_fsm'pos(debug_paint_fsm_state_drive2),8));
+          -- fastio_rdata <=
+          --  std_logic_vector(to_unsigned(vic_paint_fsm'pos(debug_paint_fsm_state_drive2),8));
           -- fastio_rdata <= std_logic_vector(debug_charaddress_drive2(7 downto 0));
+          fastio_rdata <= std_logic_vector(to_unsigned(chargen_x_pixels_640,8));
         elsif register_number=126 then
           -- fastio_rdata <= "0000"
           -- & std_logic_vector(debug_charaddress_drive2(11 downto 8));
