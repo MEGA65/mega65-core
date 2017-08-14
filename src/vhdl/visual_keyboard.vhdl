@@ -30,6 +30,12 @@ begin
   process (pixelclock)
   begin
     if rising_edge(pixelclock) then
+      -- Draw checker pattern to debug pixel_x_640 generation
+      if pixel_x_640 and 1 then
+        vk_pixel(1) <= ycounter_in(0);
+      else
+        vk_pixel(1) <= ycounter_in(0) xor 1;
+      end if;
       if visual_keyboard_enable='1' then
         vgared_out <= vk_pixel&vgared_in(7 downto 2);
         vgagreen_out <= vk_pixel&vgagreen_in(7 downto 2);
