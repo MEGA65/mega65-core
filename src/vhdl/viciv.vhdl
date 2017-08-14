@@ -1012,7 +1012,9 @@ architecture Behavioral of viciv is
   signal hsync_polarity : std_logic := '0';
 
   -- Mode line calculations
-  signal text_width : integer;
+  signal text_width_320 : integer;
+  signal text_width_640 : integer;
+  signal text_width_1280 : integer;
   signal chargen_x_scale_320 : unsigned(7 downto 0);
   signal chargen_x_scale_640 : unsigned(7 downto 0);
   signal chargen_x_scale_1280 : unsigned(7 downto 0);
@@ -1309,122 +1311,148 @@ begin
       if display_width > (16*320) then
         chargen_x_scale_320  <= x"08";
         chargen_x_pixels_320 <= 16;
+        text_width_320 <= 16*320;
       elsif display_width > (15*320) then
         chargen_x_scale_320  <= x"08";
         chargen_x_pixels_320 <= 15;
+        text_width_320 <= 15*320;
       elsif display_width > (14*320) then
         chargen_x_scale_320  <= x"09";
         chargen_x_pixels_320 <= 14;
+        text_width_320 <= 14*320;
       elsif display_width > (13*320) then
         chargen_x_scale_320  <= x"09";
         chargen_x_pixels_320 <= 13;
+        text_width_320 <= 13*320;
       elsif display_width > (12*320) then
         chargen_x_scale_320  <= x"0a";
         chargen_x_pixels_320 <= 12;
+        text_width_320 <= 12*320;
       elsif display_width > (11*320) then
         chargen_x_scale_320  <= x"0b";
         chargen_x_pixels_320 <= 11;
+        text_width_320 <= 11*320;
       elsif display_width > (10*320) then
         chargen_x_scale_320  <= x"0c";
         chargen_x_pixels_320 <= 10;
+        text_width_320 <= 10*320;
       elsif display_width > (9*320) then
         chargen_x_scale_320  <= x"0e";
         chargen_x_pixels_320 <= 9;
+        text_width_320 <= 9*320;
       elsif display_width > (8*320) then
         chargen_x_scale_320  <= x"10";
         chargen_x_pixels_320 <= 8;
+        text_width_320 <= 8*320;
       elsif display_width > (7*320) then
         chargen_x_scale_320  <= x"11";
         chargen_x_pixels_320 <= 7;
+        text_width_320 <= 7*320;
       elsif display_width > (6*320) then
         chargen_x_scale_320  <= x"14";
         chargen_x_pixels_320 <= 6;
+        text_width_320 <= 6*320;
       elsif display_width > (5*320) then
         chargen_x_scale_320  <= x"18";
         chargen_x_pixels_320 <= 5;
+        text_width_320 <= 5*320;
       elsif display_width > (4*320) then
         chargen_x_scale_320  <= x"1e";
         chargen_x_pixels_320 <= 4;
+        text_width_320 <= 4*320;
       elsif display_width > (3*320) then
         chargen_x_scale_320  <= x"1e";
         chargen_x_pixels_320 <= 3;
+        text_width_320 <= 3*320;
       elsif display_width > (2*320) then
         chargen_x_scale_320  <= x"3c";
         chargen_x_pixels_320 <= 2;
+        text_width_320 <= 2*320;
       else
         chargen_x_scale_320  <= x"78";
         chargen_x_pixels_320 <= 1;
+        text_width_320 <= 1*320;
       end if;  
       if display_width >= (16*320) then
         chargen_x_scale_640  <= x"10";
         chargen_x_pixels_640 <= 4;
         chargen_x_scale_1280  <= x"40";
         chargen_x_pixels_1280 <= 2;
-        text_width <= 8*320;
+        text_width_640 <= 4*640;
+        text_width_1280 <= 2*1280;
       elsif display_width >= (15*320) then
         chargen_x_scale_640  <= x"11";
         chargen_x_pixels_640 <= 4;
         chargen_x_scale_1280  <= x"40";
         chargen_x_pixels_1280 <= 2;
-        text_width <= 8*320;
+        text_width_640 <= 4*640;
+        text_width_1280 <= 2*1280;
       elsif display_width >= (8*320) then
         chargen_x_scale_640  <= x"20";
         chargen_x_pixels_640 <= 4;
         chargen_x_scale_1280  <= x"40";
         chargen_x_pixels_1280 <= 2;
-        text_width <= 8*320;
+        text_width_640 <= 4*640;
+        text_width_1280 <= 2*1280;
       elsif display_width >= (7*320) then
         chargen_x_scale_640  <= x"34";
         chargen_x_pixels_640 <= 3;
         chargen_x_scale_1280  <= x"78";
         chargen_x_pixels_1280 <= 1;
-        text_width <= 7*320;
+        text_width_640 <= 3*640;
+        text_width_1280 <= 1*1280;
       elsif display_width >= (6*320) then
         chargen_x_scale_640  <= x"28";
         chargen_x_pixels_640 <= 3;
         chargen_x_scale_1280  <= x"78";
         chargen_x_pixels_1280 <= 1;
-        text_width <= 6*320;
+        text_width_640 <= 3*640;
+        text_width_1280 <= 1*1280;
       elsif display_width >= (5*320) then
         chargen_x_scale_640  <= x"28";
         chargen_x_pixels_640 <= 3;
         chargen_x_scale_1280  <= x"78";
         chargen_x_pixels_1280 <= 1;
-        text_width <= 5*320;
+        text_width_640 <= 2*640;
+        text_width_1280 <= 1*1280;
       elsif display_width >= (4*320) then
         chargen_x_scale_640  <= x"3c";
         chargen_x_pixels_640 <= 2;
         chargen_x_scale_1280  <= x"78";
         chargen_x_pixels_1280 <= 1;
-        text_width <= 4*320;
+        text_width_640 <= 2*640;
+        text_width_1280 <= 1*1280;
       elsif display_width >= (3*320) then
         chargen_x_scale_640  <= x"78";
         chargen_x_pixels_640 <= 1;
         chargen_x_scale_1280  <= x"78";
         chargen_x_pixels_1280 <= 1;
-        text_width <= 3*320;
+        text_width_640 <= 1*640;
+        text_width_1280 <= 1*1280;
       elsif display_width >= (2*320) then
         chargen_x_scale_640  <= x"78";
         chargen_x_pixels_640 <= 1;
         chargen_x_scale_1280  <= x"78";
         chargen_x_pixels_1280 <= 1;
-        text_width <= 2*320;
+        text_width_640 <= 1*640;
+        text_width_1280 <= 1*1280;
       elsif display_width >= (1*320) then
         chargen_x_scale_640  <= x"78";
         chargen_x_pixels_640 <= 1;
         chargen_x_scale_1280  <= x"78";
         chargen_x_pixels_1280 <= 1;
-        text_width <= 1*320;
+        text_width_640 <= 1*640;
+        text_width_1280 <= 1*1280;
       end if;
 
       -- Calculate width of side borders
-      side_borders_width_320 <= to_unsigned(to_integer(display_width) - text_width,14);
+      side_borders_width_320 <= to_unsigned(to_integer(display_width) - text_width_320,14);
       single_side_border_320(12 downto 0) <= side_borders_width_320(13 downto 1);
       single_side_border_320(13) <= '0';
-      side_borders_width_640 <= to_unsigned(to_integer(display_width) - text_width,14);
+      side_borders_width_640 <= to_unsigned(to_integer(display_width) - text_width_640,14);
       single_side_border_640(12 downto 0) <= side_borders_width_640(13 downto 1);
       single_side_border_640(13) <= '0';
-      side_borders_width_1280 <= to_unsigned(to_integer(display_width) - text_width,14);
+      side_borders_width_1280 <= to_unsigned(to_integer(display_width) - text_width_1280,14);
       single_side_border_1280(12 downto 0) <= side_borders_width_1280(13 downto 1);
       single_side_border_1280(13) <= '0';
 
