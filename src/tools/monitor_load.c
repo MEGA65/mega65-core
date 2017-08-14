@@ -138,7 +138,7 @@ int load_file(char *filename,int load_addr,int patchKickstart)
   usleep(50000);
   unsigned char buf[16384];
   int max_bytes;
-  int byte_limit=1024;
+  int byte_limit=16384;
   max_bytes=0x10000-(load_addr&0xffff);
   if (max_bytes>byte_limit) max_bytes=byte_limit;
   int b=fread(buf,1,max_bytes,f);
