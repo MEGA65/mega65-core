@@ -53,7 +53,11 @@ begin
         pixel_x_640 <= pixel_x_640 + 1;
       else
         pixel_x_640 <= 0;
-        ycounter_in <= ycounter_in + 1;
+        if ycounter_in < 480 then
+          ycounter_in <= ycounter_in + 1;
+        else
+          ycounter_in <= to_unsigned(0,12);
+        end if;
       end if;
     end loop;  -- i
     assert false report "End of simulation" severity note;

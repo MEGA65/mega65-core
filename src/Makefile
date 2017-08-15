@@ -111,10 +111,13 @@ kvsimulate:	$(KVFILES)
 OSKFILES=vhdl/test_osk.vhdl \
 	vhdl/visual_keyboard.vhdl \
 	vhdl/oskmem.vhdl
-osksimulate:	$(OSKFILES)
+osksimulate:	$(OSKFILES) tools/osk_image
 	ghdl -i $(OSKFILES)
 	ghdl -m test_osk
-	./test_osk || ghdl -r test_osk
+	( ./test_osk || ghdl -r test_osk ) 2>&1 | tools/osk_image
+
+tools/osk_image:	tools/osk_image.c
+	$(CC) $(COPT) -I/usr/local/include -L/usr/local/lib -o tools/osk_image tools/osk_image.c -lpng
 
 vfsimulate:	vhdl/frame_test.vhdl vhdl/video_frame.vhdl
 	ghdl -i vhdl/frame_test.vhdl vhdl/video_frame.vhdl
