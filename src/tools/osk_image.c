@@ -19,10 +19,11 @@ int main(int argc,char **argv)
   line [0]=0; fgets(line,1024,stdin);
   while(line[0]) {
     if (sscanf(line,"vhdl/visual_keyboard.vhdl:%*[^:]:%*d:%*[^:]:(report note): PIXEL:%d:%d:'%d'",
-	       &x,&y,&p)==3)
+	       &x,&y,&p)==3) {
       if (x>=0&&x<640&&y>=0&&y<480) {
 	frame[x][y]=p;
       }
+    } else printf("%s",line);      
 
     if (x==640&&y==480) break;
     
