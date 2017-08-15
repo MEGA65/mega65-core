@@ -159,8 +159,8 @@ begin
         -- Is this box for a key that is currently being pressed?
         -- If so, set inverse video flag for box content
         if (key1(6 downto 0) = current_matrix_id(6 downto 0))
-          and (key2(6 downto 0) = current_matrix_id(6 downto 0))
-          and (key3(6 downto 0) = current_matrix_id(6 downto 0)) then
+          or (key2(6 downto 0) = current_matrix_id(6 downto 0))
+          or (key3(6 downto 0) = current_matrix_id(6 downto 0)) then
           box_inverse <= '1';
         else
           box_inverse <= '0';
