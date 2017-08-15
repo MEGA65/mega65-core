@@ -23,7 +23,7 @@ end visual_keyboard;
 
 architecture behavioural of visual_keyboard is
 
-  signal y_start : unsigned(11 downto 0) := to_unsigned(100,12);
+  signal y_start : unsigned(11 downto 0) := to_unsigned(10,12);
   signal x_start : integer := 1;
   signal y_stretch : integer range 0 to 2 := 1;
 
@@ -32,7 +32,7 @@ architecture behavioural of visual_keyboard is
   signal y_pixel_counter : integer range 0 to 7 := 0;
   signal y_char_in_row : integer range 0 to chars_per_row := 0;
   signal y_phase : integer range 0 to 2 := 0;
-  signal y_row : integer range 0 to 6 := 0;
+  signal y_row : integer range 0 to 7 := 0;
   
   signal vk_pixel : unsigned(1 downto 0) := "00";
   signal box_pixel : std_logic := '0';
@@ -88,6 +88,7 @@ begin
 
         if last_was_640 = '0' then
           -- End of line, prepare for next
+          report "end of line, preparing for next";
           fetch_state <= FetchMapRowColumn0;
           if ycounter_in = 0 then
             active <= '0';
@@ -140,6 +141,15 @@ begin
       if pixel_x_640 /= last_pixel_x_640 and active='1' then
         last_pixel_x_640 <= pixel_x_640;
 
+        if ycounter_in = 16 then
+          report "x = " & integer'image(pixel_x_640)
+            & ", y=" & integer'image(to_integer(ycounter_in));
+          report "   current_matrix_id = $"
+            & to_hstring(current_matrix_id);
+          report "   next_matrix_id = $"
+            & to_hstring(next_matrix_id);
+        end if;
+        
         -- Is this box for a key that is currently being pressed?
         -- If so, set inverse video flag for box content
         if (key1(6 downto 0) = current_matrix_id(6 downto 0))
@@ -185,7 +195,10 @@ begin
         end if;
         
       end if;
-      
+
+      if fetch_state /= FetchIdle then
+        report "   fetch_state = " & fetch_state_t'image(fetch_state);
+      end if;
       case fetch_state is
         when FetchIdle =>
           -- Get the next character to display, if we
@@ -217,13 +230,19 @@ begin
           end if;
           fetch_state <= FetchIdle;
         when FetchMapRowColumn0 =>
-          address <= 2048 + 128 + y_row*16;
+          address <= 2048 + y_row*16;
           fetch_state <= FetchMapRowColumn1;
         when FetchMapRowColumn1 =>
+          report "current_matrix_id <= $" & to_hstring(rdata)
+            & " from $"
+            & to_hstring(to_unsigned(address,12));
           current_matrix_id <= rdata;
-          address <= 2048 + 128 + y_row*16 + 1;
+          address <= 2048 + y_row*16 + 1;
           fetch_state <= GotMapRowColumn1;
         when GotMapRowColumn1 =>
+          report "next_matrix_id <= $" & to_hstring(rdata)
+            & " from $"
+            & to_hstring(to_unsigned(address,12));
           next_matrix_id <= rdata;
           -- Work out width of first key box of row
           if rdata(7)='1' then
@@ -235,7 +254,7 @@ begin
           fetch_state <= FetchIdle;
         when FetchNextMatrix =>
           if matrix_pos < 16 then
-            address <= 2048 + 128 + y_row*16 + matrix_pos + 2;
+            address <= 2048 + y_row*16 + matrix_pos + 2;
           else
             -- Else read a blank character (we know one is at location 1)
             -- (this ensures we draw the right edge of the last key on each
