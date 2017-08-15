@@ -46,7 +46,7 @@ architecture Behavioral of matrix_compositor is
 
 
 -- Frame boundaries 
-  signal startx : unsigned(13 downto 0):= to_unsigned(160,14);
+  signal startx : unsigned(13 downto 0):= to_unsigned(0,14);
   signal endx  : unsigned(13 downto 0):=to_unsigned(2068,14);
   signal starty : unsigned(11 downto 0):=x"07C"; --x07C d124
   signal endy : unsigned(11 downto 0):=x"43C"; --x43C d1084
@@ -55,14 +55,14 @@ architecture Behavioral of matrix_compositor is
 
 --Mode0 Frame
 --640x320
-  constant mode0_startx  : unsigned(13 downto 0):= to_unsigned(160,14);
+  constant mode0_startx  : unsigned(13 downto 0):= to_unsigned(0,14);
   constant mode0_starty : unsigned(11 downto 0):=x"07C";--x"1B8";--x"07C"; --x07C 124
   constant mode0_endx  : unsigned(13 downto 0):=mode0_startx+647;--x"313";--x"507";--x"313"; --x814 d780  -1 +8
   constant mode0_endy : unsigned(11 downto 0):=x"1BB";--x"2F8";--x"1BB"; --124+320 = 444, x1BC -1 
   constant mode0_garbage_end_offset : unsigned(13 downto 0):=to_unsigned(8,14);
 --Mode1 Frame
 --1280x640
-  constant mode1_startx  : unsigned(13 downto 0):=to_unsigned(160,14);
+  constant mode1_startx  : unsigned(13 downto 0):=to_unsigned(0,14);
   constant mode1_starty : unsigned(11 downto 0):=x"07C";--x"118";--x"07C"; --07C 124 
   constant mode1_endx  : unsigned(13 downto 0):=mode1_startx+1295;--x"590";--x"64F";--x"590"; --x581 d1409 -1
   constant mode1_endy : unsigned(11 downto 0):=mode1_starty+640;--x"2FB";--x"398";--x"2FB"; --x2FC d764 -1
@@ -331,7 +331,6 @@ begin
           if eightCounter/=end_of_char then
             eightCounter<=eightCounter+1; --increment counter		    			 
             if bufferCounter=mm_displayMode then
-              report "shifting data buffer @ x=" & integer'image(pixel_x_640);
               data_buffer<=data_buffer(6 downto 0)&'0';				
               bufferCounter<=b"00";
             else 
