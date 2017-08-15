@@ -154,8 +154,10 @@ architecture behavioural of c65uart is
   signal portl_internal : std_logic_vector(7 downto 0) := x"FF";
   signal portm_internal : std_logic_vector(7 downto 0) := x"FF";
   signal portn_internal : std_logic_vector(7 downto 0) := x"FF";
-  signal porto_internal : std_logic_vector(7 downto 0) := x"FF";
-  signal portp_internal : std_logic_vector(7 downto 0) := x"FF";
+
+  -- Visual keyboard X and Y start positions (x4).
+  signal porto_internal : std_logic_vector(7 downto 0) := x"00";
+  signal portp_internal : std_logic_vector(7 downto 0) := x"34";
   
 begin  -- behavioural
   
@@ -335,7 +337,6 @@ begin  -- behavioural
         when x"1a" =>
           -- @IO:GS $D61A On-screen keyboard Y position (x4 physical pixels)
           fastio_rdata <= unsigned(portp_internal);
-          
         when others => fastio_rdata <= (others => 'Z');
       end case;
     else
