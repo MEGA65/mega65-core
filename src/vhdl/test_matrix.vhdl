@@ -53,7 +53,30 @@ begin
     );
 
   process
+    procedure type_char(char : character) is
+    begin
+        report "Typing  " & character'image(char);
+        wait for 40 ns;
+        char_in <= to_unsigned(character'pos(char),8);
+        char_valid <= '1';
+        wait for 40 ns;
+        char_valid <= '0';
+        wait for 1 us;
+    end procedure;      
+    procedure type_text(text : string) is
+    begin
+      for i in text'range loop
+        type_char(text(i));
+      end loop;
+    end procedure;
   begin
+    wait for 1 us;
+    type_text("Moose cheese");
+    wait for 1 sec;
+  end process;
+
+  process
+  begin    
     for i in 1 to 20000000 loop
       pixelclock <= '1';
       wait for 10 ns;
