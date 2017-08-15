@@ -167,81 +167,81 @@ begin
             lineCounter<=lineCounter+1; --increment 3 line counter
           end if;		 
         end if;			
-      
+        
         --Next Tick --Fixes a weird double line issue
         if pixel_x_640 = 1 and ycounter_in < endy then
           charCount<=lineStartAddr;
           eightCounter<=(others=>'0');
           bufferCounter<=(others=>'0');
         end if;
-      
+        
         --End of Frame, reset counters	
         if ycounter_in = 0 then 
           if doneEndOfFrame='0' then
-          mm_displayMode <= mm_displayMode_in; --Only change display mode at end of frame		
-          doneEndOfFrame<='1';		
-          lineCounter<=(others=>'0'); 
-          charline<=(others=>'0'); 
-          charCount<=topOfFrame;
-          lineStartAddr<=topOfFrame;
-          eightCounter<=(others=>'0');		
-          
-          if shift_ack = '0' and shift_ready_in = '1' then
-            case display_shift_in is
-              when b"001" =>  --up
-                if starty > 25 then --i.e. if its at 17, dont decrease anymore
-                  yoffset<=yoffset-8;
-                end if;
-              when b"010" => --right 
-                if endx < 4096 then
-                  xoffset<=xoffset+8;
-                end if; 
-              when b"011" => --down
-                if endy < 1200 then
-                  yoffset<=yoffset+8;
-                end if;
-              when b"100" => --left
-                if xoffset > 7 then
-                  xoffset<=xoffset-8;
-                end if;
+            mm_displayMode <= mm_displayMode_in; --Only change display mode at end of frame		
+            doneEndOfFrame<='1';		
+            lineCounter<=(others=>'0'); 
+            charline<=(others=>'0'); 
+            charCount<=topOfFrame;
+            lineStartAddr<=topOfFrame;
+            eightCounter<=(others=>'0');		
+            
+            if shift_ack = '0' and shift_ready_in = '1' then
+              case display_shift_in is
+                when b"001" =>  --up
+                  if starty > 25 then --i.e. if its at 17, dont decrease anymore
+                    yoffset<=yoffset-8;
+                  end if;
+                when b"010" => --right 
+                  if endx < 4096 then
+                    xoffset<=xoffset+8;
+                  end if; 
+                when b"011" => --down
+                  if endy < 1200 then
+                    yoffset<=yoffset+8;
+                  end if;
+                when b"100" => --left
+                  if xoffset > 7 then
+                    xoffset<=xoffset-8;
+                  end if;
+                when others =>
+              end case;		  		  
+              shift_ack <='1'; 
+            else
+              shift_ack <='0'; --reset ack
+            end if; 
+            
+            --Load display mode settings
+            --Calculates boundaries from mode constants and offset
+            --Seems inefficient, is there a better way?
+            --set a garbage offset here, to avoid doing another mux later.
+            
+            case mm_displayMode_in is		
+              when b"00" =>
+                end_of_char <= mode0_end_of_char; 
+                startx <= mode0_startx+xoffset;
+                starty <= mode0_starty+yoffset;
+                endx <= mode0_endx+xoffset;
+                endy <= mode0_endy+yoffset;
+                garbage_end_offset <= mode0_garbage_end_offset;
               when others =>
-            end case;		  		  
-            shift_ack <='1'; 
-          else
-            shift_ack <='0'; --reset ack
-          end if; 
-          
-          --Load display mode settings
-          --Calculates boundaries from mode constants and offset
-          --Seems inefficient, is there a better way?
-          --set a garbage offset here, to avoid doing another mux later.
-          
-          case mm_displayMode_in is		
-            when b"00" =>
-              end_of_char <= mode0_end_of_char; 
-              startx <= mode0_startx+xoffset;
-              starty <= mode0_starty+yoffset;
-              endx <= mode0_endx+xoffset;
-              endy <= mode0_endy+yoffset;
-              garbage_end_offset <= mode0_garbage_end_offset;
-            when others =>
-              end_of_char <= mode1_end_of_char; 
-              startx <= mode1_startx+xoffset;
-              starty <= mode1_starty+yoffset;
-              endx <= mode1_endx+xoffset;
-              endy <= mode1_endy+yoffset;
-              garbage_end_offset <= mode1_garbage_end_offset;
-          end case;		
+                end_of_char <= mode1_end_of_char; 
+                startx <= mode1_startx+xoffset;
+                starty <= mode1_starty+yoffset;
+                endx <= mode1_endx+xoffset;
+                endy <= mode1_endy+yoffset;
+                garbage_end_offset <= mode1_garbage_end_offset;
+            end case;		
+          end if;
         end if;
-      end if;
 
 --Calc garbage_end
-      if ycounter_in = 0 then 
-        if doneEndOfFrame1='0' then
-          garbage_end<= startx + garbage_end_offset;
+        if ycounter_in = 0 then 
+          if doneEndOfFrame1='0' then
+            garbage_end<= startx + garbage_end_offset;
+          end if;
         end if;
-      end if;
-      
+        
 --Main draw loop. 1 state, 1 tick for each output pixel
 
 --Tick 1: Updates the actual green output, gets the next character address ready
@@ -251,59 +251,59 @@ begin
 --  greenOutput<='1';
 --end if;
 
-      if pixel_x_640 >=startx and pixel_x_640 <= endx  and ycounter_in >= starty and ycounter_in <= endy then		   
+        if pixel_x_640 >=startx and pixel_x_640 <= endx  and ycounter_in >= starty and ycounter_in <= endy then		   
 
 --====================
 -- Generate Outputs:
 --====================
 
-        --Green Outline on modes 0 and 1 Only			
-        if pixel_x_640>=garbage_end then
-          if mm_displayMode/=b"10" and (pixel_x_640 = garbage_end or pixel_x_640 = endx or ycounter_in = starty or ycounter_in = endy) then			 
-            redOutput_all <= b"00"&vgared_in(7 downto 2);
-            greenOutput_all <= b"111"&vgagreen_in(4 downto 0);
-            blueOutput_all <= b"00"&vgablue_in(7 downto 2);
-          else			 
-            --Shift background down 3, instead of 2 when displaying text. 
-            --Less variation in text colour when there's high frequency in the background
-            --Seems to shift ALL output by 1px? 
-            if data_buffer(7) = '1' then 
-              redOutput_all <=   b"00"&vgared_in(7 downto 2);
-              greenOutput_all <= data_buffer(7)&data_buffer(7)&data_buffer(7)&vgagreen_in(7 downto 3);
-              blueOutput_all <=  b"00"&vgablue_in(7 downto 2);			 			      			 
-            else
+          --Green Outline on modes 0 and 1 Only			
+          if pixel_x_640>=garbage_end then
+            if mm_displayMode/=b"10" and (pixel_x_640 = garbage_end or pixel_x_640 = endx or ycounter_in = starty or ycounter_in = endy) then			 
               redOutput_all <= b"00"&vgared_in(7 downto 2);
-              greenOutput_all <= data_buffer(7)&data_buffer(7) &vgagreen_in(7 downto 2);
-              blueOutput_all <= b"00"&vgablue_in(7 downto 2);			      			 
+              greenOutput_all <= b"111"&vgagreen_in(4 downto 0);
+              blueOutput_all <= b"00"&vgablue_in(7 downto 2);
+            else			 
+              --Shift background down 3, instead of 2 when displaying text. 
+              --Less variation in text colour when there's high frequency in the background
+              --Seems to shift ALL output by 1px? 
+              if data_buffer(7) = '1' then 
+                redOutput_all <=   b"00"&vgared_in(7 downto 2);
+                greenOutput_all <= data_buffer(7)&data_buffer(7)&data_buffer(7)&vgagreen_in(7 downto 3);
+                blueOutput_all <=  b"00"&vgablue_in(7 downto 2);			 			      			 
+              else
+                redOutput_all <= b"00"&vgared_in(7 downto 2);
+                greenOutput_all <= data_buffer(7)&data_buffer(7) &vgagreen_in(7 downto 2);
+                blueOutput_all <= b"00"&vgablue_in(7 downto 2);			      			 
+              end if;
             end if;
+            
+          else  --If its in garbage display background. 
+            if mm_displayMode=b"10" then
+              redOutput_all <= b"00"&vgared_in(7 downto 2);
+              greenOutput_all <= b"00"&vgagreen_in(7 downto 2);
+              blueOutput_all <= b"00"&vgablue_in(7 downto 2);
+            else 
+              redOutput_all <= vgared_in;
+              greenOutput_all <= vgagreen_in;
+              blueOutput_all <= vgablue_in;
+            end if;		    		
           end if;
           
-        else  --If its in garbage display background. 
-          if mm_displayMode=b"10" then
-            redOutput_all <= b"00"&vgared_in(7 downto 2);
-            greenOutput_all <= b"00"&vgagreen_in(7 downto 2);
-            blueOutput_all <= b"00"&vgablue_in(7 downto 2);
-          else 
-            redOutput_all <= vgared_in;
-            greenOutput_all <= vgagreen_in;
-            blueOutput_all <= vgablue_in;
-          end if;		    		
-        end if;
-        
 --======================
 --Timing and memory
 --======================
-        
-        -- We've got 8 clocks to:		  
-        -- Load read address for next screen Memory
-        -- Save the output into CharAddr 
-        -- Load the address of the character in charrom
-        -- Increment charCount
-        -- Save new data into buffer			 			 			 
-        -- Case for first ~8 counts of eightCounter
-        -- End of character count dependent on display mode
-        
-        --If it hasnt just loaded new data,
+          
+          -- We've got 8 clocks to:		  
+          -- Load read address for next screen Memory
+          -- Save the output into CharAddr 
+          -- Load the address of the character in charrom
+          -- Increment charCount
+          -- Save new data into buffer			 			 			 
+          -- Case for first ~8 counts of eightCounter
+          -- End of character count dependent on display mode
+          
+          --If it hasnt just loaded new data,
 
           case eightCounter is		            
             when b"00001" =>
@@ -347,29 +347,29 @@ begin
               data_buffer<= dataOutRead_rom; -- grab new data 	
             end if;
           end if;
-    
-      else 
-	--If its out of visible area, display background
-        if ycounter_in=0 then
-          lineCounter<=(others=>'0'); 
-          charline<=(others=>'0'); 
-          charCount<=topOfFrame;
-          lineStartAddr<=topOfFrame;
-          eightCounter<=(others=>'0');	
-        end if;
-        
-        if mm_displayMode=b"10" then
-          redOutput_all <= b"00"&vgared_in(7 downto 2);
-          greenOutput_all <= b"00"&vgagreen_in(7 downto 2);
-          blueOutput_all <= b"00"&vgablue_in(7 downto 2);
+          
         else 
-          redOutput_all <= vgared_in;
-          greenOutput_all <= vgagreen_in;
-          blueOutput_all <= vgablue_in;
-        end if;		
-      end if;  
+          --If its out of visible area, display background
+          if ycounter_in=0 then
+            lineCounter<=(others=>'0'); 
+            charline<=(others=>'0'); 
+            charCount<=topOfFrame;
+            lineStartAddr<=topOfFrame;
+            eightCounter<=(others=>'0');	
+          end if;
+          
+          if mm_displayMode=b"10" then
+            redOutput_all <= b"00"&vgared_in(7 downto 2);
+            greenOutput_all <= b"00"&vgagreen_in(7 downto 2);
+            blueOutput_all <= b"00"&vgablue_in(7 downto 2);
+          else 
+            redOutput_all <= vgared_in;
+            greenOutput_all <= vgagreen_in;
+            blueOutput_all <= vgablue_in;
+          end if;		
+        end if;  
 
-    end if; -- end if for pixel_x_640 has changed
+      end if; -- end if for pixel_x_640 has changed
     end if; --end if for rising edge
 
   end process;

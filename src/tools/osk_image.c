@@ -47,7 +47,7 @@ int main(int argc,char **argv)
 
   if (setjmp(png_jmpbuf(png))) abort();
 
-  FILE *f=fopen("oskimage.png","wb");
+  FILE *f=fopen(argv[1]?argv[1]:"oskimage.png","wb");
   if (!f) abort();
 
   png_init_io(png,f);

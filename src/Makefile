@@ -116,6 +116,15 @@ osksimulate:	$(OSKFILES) tools/osk_image
 	ghdl -m test_osk
 	( ./test_osk || ghdl -r test_osk ) 2>&1 | tools/osk_image
 
+MMFILES=vhdl/test_matrix.vhdl \
+	vhdl/matrix_compositor.vhdl \
+	vhdl/uart_charrom.vhdl \
+	vhdl/terminalemulator.vhdl
+mmsimulate:	$(MMFILES) tools/osk_image
+	ghdl -i $(MMFILES)
+	ghdl -m test_matrix
+	( ./test_matrix || ghdl -r test_matrix ) 2>&1 | tools/osk_image matrix.png
+
 tools/osk_image:	tools/osk_image.c
 	$(CC) $(COPT) -I/usr/local/include -L/usr/local/lib -o tools/osk_image tools/osk_image.c -lpng
 
