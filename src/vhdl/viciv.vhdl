@@ -1463,7 +1463,7 @@ begin
       ssx_table_1280(ssx_table_phase) <= ssx_table_counter_1280;
       ssy_table_200(ssx_table_phase) <= ssy_table_counter_200;
       ssy_table_400(ssx_table_phase) <= ssy_table_counter_400;
-      if ssx_table_phase > 9 then
+      if ssx_table_phase = 10 then
         ssx_table_phase <= 0; 
         ssx_table_counter_320 <= 0;
         ssx_table_counter_640 <= 0;
