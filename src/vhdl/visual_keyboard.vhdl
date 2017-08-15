@@ -97,6 +97,7 @@ begin
       if pixel_x_640 = 640 then
         last_was_640 <= '1';
         space_repeat <= 0;
+        char_pixels_remaining <= 0;
 
         if last_was_640 = '0' then
           -- End of line, prepare for next
@@ -165,8 +166,14 @@ begin
           char_pixels_remaining <= char_pixels_remaining - 1;
           report "char_pixels_remaining = " & integer'image(char_pixels_remaining);
         else
-          char_pixels_remaining <= 7;
-          char_data <= next_char_data;
+          if text_delay = 0 then
+            char_pixels_remaining <= 7;
+            char_data <= next_char_data;
+          else
+            char_pixels_remaining <= 3;
+            char_data(7 downto 4) <= next_char_data(3 downto 0);
+          end if;
+          text_delay <= 0;
           next_char_ready <= '0';
           if next_char_data /= x"00" then
             report "clearing next_char_ready, char_data=$" & to_hstring(next_char_data);
