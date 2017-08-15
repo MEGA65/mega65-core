@@ -148,25 +148,25 @@ begin
       
       -- We synchronise to start of line, as the end of line may change with
       -- different video modes.
-      if pixel_x_640 = 0 and  ycounter_in >= starty and ycounter_in < endy then
-        if lineCounter=mm_displayMode then	-- 0 (1 px per line), 1 (2 px per line), 2 (3px per line) 
-          lineCounter<=b"000"; --reset counter
-          if charline = b"0111" then --on the ~7th line (0-7)
-            charline<=b"0000"; --reset
-            --Boundary check
-            if lineStartAddr=CharMemEnd-79 then 
-              lineStartAddr<=CharMemStart;
-            else 
-              if pixel_x_640 /= last_pixel_x_640 then
+      if pixel_x_640 /= last_pixel_x_640 then
+        if pixel_x_640 = 0 and  ycounter_in >= starty and ycounter_in < endy then
+          if lineCounter=mm_displayMode then	-- 0 (1 px per line), 1 (2 px per line), 2 (3px per line) 
+            lineCounter<=b"000"; --reset counter
+            if charline = b"0111" then --on the ~7th line (0-7)
+              charline<=b"0000"; --reset
+              --Boundary check
+              if lineStartAddr=CharMemEnd-79 then 
+                lineStartAddr<=CharMemStart;
+              else 
                 lineStartAddr<=lineStartAddr+80;--calculate next linestart
-              end if;
-            end if;          
-          else --otherwise
-            charline<=charline+1; --increment line
-          end if;			
-        else --otherwise on every line        
-          lineCounter<=lineCounter+1; --increment 3 line counter
-        end if;		 
+              end if;          
+            else --otherwise
+              charline<=charline+1; --increment line
+            end if;
+          else --otherwise on every line        
+            lineCounter<=lineCounter+1; --increment 3 line counter
+          end if;		 
+        end if;			
       end if;
       
       --Next Tick --Fixes a weird double line issue

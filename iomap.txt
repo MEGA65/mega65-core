@@ -267,6 +267,8 @@ GS $D615.7 Enable visual keyboard composited overlay
 GS $D616 ID of key #2 held down on virtual keyboard
 GS $D617 ID of key #3 held down on virtual keyboard
 GS $D618 Keyboard scan rate ($00=50MHz, $FF=~200KHz)
+GS $D619 On-screen keyboard X position (x4 640H pixels)
+GS $D61A On-screen keyboard Y position (x4 physical pixels)
 GS $D630.6 - Thumbnail drawing was in progress.
 GS $D630.7 - Thumbnail is valid if 1.  Else there has not been a complete frame since elapsed without a trap to hypervisor mode, in which case the thumbnail may not reflect the current process.
 GS $D630-$D631 - Read-only hardware-generated thumbnail of display (accessible only in hypervisor mode)
