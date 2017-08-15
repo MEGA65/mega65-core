@@ -108,6 +108,14 @@ kvsimulate:	$(KVFILES)
 	ghdl -m test_kv
 	./test_kv || ghdl -r test_kv
 
+OSKFILES=vhdl/test_osk.vhdl \
+	vhdl/visual_keyboard.vhdl \
+	vhdl/oskmem.vhdl
+osksimulate:	$(OSKFILES)
+	ghdl -i $(OSKFILES)
+	ghdl -m test_osk
+	./test_osk || ghdl -r test_osk
+
 vfsimulate:	vhdl/frame_test.vhdl vhdl/video_frame.vhdl
 	ghdl -i vhdl/frame_test.vhdl vhdl/video_frame.vhdl
 	ghdl -m frame_test
