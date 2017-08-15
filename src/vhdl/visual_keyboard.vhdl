@@ -377,7 +377,7 @@ begin
         vk_pixel <= "00";
       end if;
 
-      if visual_keyboard_enable='1' and active='1' then
+      if visual_keyboard_enable='1' and active='1' and pixel_x_640_in < 640 then
         vgared_out <= vk_pixel&vgared_in(7 downto 2);
         vgagreen_out <= vk_pixel&vgagreen_in(7 downto 2);
         vgablue_out <= vk_pixel&vgablue_in(7 downto 2);
