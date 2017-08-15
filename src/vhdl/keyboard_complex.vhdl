@@ -307,9 +307,10 @@ begin
         keydown1 <= kd1;
         keydown2 <= kd2;
         keydown3 <= kd3;
-        kd1 <= x"7F";
-        kd2 <= x"7F";
-        kd3 <= x"7F";
+        -- $7D = no key ($7E and $7F have special meanings)
+        kd1 <= x"7D";
+        kd2 <= x"7D";
+        kd3 <= x"7D";
         kd_count <= 0;
       end if;
       
