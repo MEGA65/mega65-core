@@ -107,6 +107,8 @@ begin
         space_repeat <= 0;
         char_pixels_remaining <= 0;
         first_column <= '0';
+        char_pixel <= '0';
+        box_pixel <= '0';
 
         if last_was_640 = '0' then
           -- End of line, prepare for next
@@ -175,6 +177,7 @@ begin
         -- Calculate character pixel
         char_pixel <= char_data(7);
         char_data(7 downto 1) <= char_data(6 downto 0);
+        char_data(0) <= '0';
         if char_pixels_remaining /= 0 then
           char_pixels_remaining <= char_pixels_remaining - 1;
           report "char_pixels_remaining = " & integer'image(char_pixels_remaining);
@@ -233,7 +236,11 @@ begin
           -- matrix ID. Thus don't draw vertical bar if next key ID is the same
           -- as the current
           if current_matrix_id(6 downto 0) /= next_matrix_id(6 downto 0) then
-            box_pixel <= '1';
+            if pixel_x_640 < 640 then
+              box_pixel <= '1';
+            else
+              box_pixel <= '0';
+            end if;
           end if;
           if next_matrix_id(7) = '1' then
             -- Next key is 1.5 times width, so set counter accordingly
