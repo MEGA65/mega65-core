@@ -109,6 +109,11 @@ begin
               current_address <= last_row_address;
             else
               y_phase <= 0;
+              if y_row = 6 then
+                -- We draw only the top line for row 6 to cap
+                -- off row 5
+                active <= '0';
+              end if;
               if y_pixel_counter /=7 then
                 y_pixel_counter <= y_pixel_counter + 1;                
                 current_address <= last_row_address;
@@ -119,7 +124,7 @@ begin
                   y_char_in_row <= y_char_in_row + 1;
                 else
                   y_char_in_row <= 0;
-                  if y_row /= 7 then
+                  if y_row /= 6 then
                     y_row <= y_row + 1;
                   else
                     active <= '0';
@@ -274,9 +279,13 @@ begin
 
 
       -- Draw keyboard matrix boxes
-      vk_pixel(1) <= box_pixel or box_inverse;
-      vk_pixel(0) <= box_pixel or box_inverse;
-      -- XXX draw keyboard layout characters
+      if active='1' then
+        vk_pixel(1) <= box_pixel or box_inverse;
+        vk_pixel(0) <= box_pixel or box_inverse;
+        -- XXX draw keyboard layout characters
+      else
+        vk_pixel <= "00";
+      end if;
 
 --      if ycounter_in = 16 then
         report "PIXEL:"
