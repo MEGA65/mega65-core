@@ -52,7 +52,8 @@ architecture behavioural of visual_keyboard is
   signal active : std_logic := '0';
   signal last_pixel_x_640 : integer := 0;
   signal key_box_counter : integer := 0;
-
+  signal key_same_as_last : std_logic := '0';
+  
   signal next_char : unsigned(7 downto 0) := x"00";
   signal next_char_ready : std_logic := '0';
   signal space_repeat : integer range 0 to 127 := 0;
@@ -67,6 +68,7 @@ architecture behavioural of visual_keyboard is
     GotNextMatrix
     );
   signal fetch_state : fetch_state_t := FetchIdle;
+
   
 begin
 
@@ -161,7 +163,21 @@ begin
         if (key1(6 downto 0) = current_matrix_id(6 downto 0))
           or (key2(6 downto 0) = current_matrix_id(6 downto 0))
           or (key3(6 downto 0) = current_matrix_id(6 downto 0)) then
-          box_inverse <= '1';
+          if (y_pixel_counter /= 1 or y_char_in_row /= 0)
+            and (y_pixel_counter /= 7 or y_char_in_row /=2)
+            and (key_box_counter /= 2
+                 or (current_matrix_id(6 downto 0)
+                     = next_matrix_id(6 downto 0)))
+            and (key_box_counter /= 60) -- wide keys begin earlier
+            and (key_box_counter /= 40
+                 or (key_same_as_last='1') -- repeated key, like SPACE
+                 or (current_matrix_id(7) = '1') -- wide key
+                 )
+          then
+            box_inverse <= '1';
+          else
+            box_inverse <= '0';
+          end if;
         else
           box_inverse <= '0';
         end if;
@@ -245,6 +261,7 @@ begin
 --            & " from $"
 --            & to_hstring(to_unsigned(address,12));
           current_matrix_id <= rdata;
+          key_same_as_last <= '0';
           address <= 2048 + y_row*16 + 1;
           fetch_state <= GotMapRowColumn1;
         when GotMapRowColumn1 =>
@@ -275,6 +292,11 @@ begin
           report "next_matrix_id <= $" & to_hstring(rdata)
             & " from $"
             & to_hstring(to_unsigned(address,12));
+          if current_matrix_id = next_matrix_id then
+            key_same_as_last <= '1';
+          else
+            key_same_as_last <= '0';
+          end if;
           current_matrix_id <= next_matrix_id;
           next_matrix_id <= rdata;
           fetch_state <= FetchIdle;
