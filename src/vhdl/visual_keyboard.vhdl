@@ -62,7 +62,7 @@ architecture behavioural of visual_keyboard is
   signal next_char_data : std_logic_vector(7 downto 0);
   signal char_pixel : std_logic := '0';
   signal char_pixels_remaining : integer range 0 to 8 := 0;
-
+  signal first_column : std_logic := '0';
   
   type fetch_state_t is (
     FetchIdle,
@@ -98,6 +98,7 @@ begin
         last_was_640 <= '1';
         space_repeat <= 0;
         char_pixels_remaining <= 0;
+        first_column <= '0';
 
         if last_was_640 = '0' then
           -- End of line, prepare for next
@@ -127,12 +128,16 @@ begin
                 -- off row 5
                 active <= '0';
               end if;
-              if y_pixel_counter /=7 then
-                y_pixel_counter <= y_pixel_counter + 1;                
+              -- Offset text to boxes by 4 pixels
+              if y_pixel_counter /=3 then
                 current_address <= last_row_address;
               else
-                y_pixel_counter <= 0;
                 last_row_address <= current_address;
+              end if;
+              if y_pixel_counter /=7 then
+                y_pixel_counter <= y_pixel_counter + 1;                
+              else
+                y_pixel_counter <= 0;
                 if y_char_in_row /= 2 then
                   y_char_in_row <= y_char_in_row + 1;
                 else
@@ -166,7 +171,7 @@ begin
           char_pixels_remaining <= char_pixels_remaining - 1;
           report "char_pixels_remaining = " & integer'image(char_pixels_remaining);
         else
-          if text_delay = 0 then
+          if (text_delay = 0) and (pixel_x_640 > 3) then
             char_pixels_remaining <= 7;
             char_data <= next_char_data;
           else
@@ -175,15 +180,21 @@ begin
           end if;
           text_delay <= 0;
           next_char_ready <= '0';
+          first_column <= '0';
+          
           if next_char_data /= x"00" then
             report "clearing next_char_ready, char_data=$" & to_hstring(next_char_data);
           else
             report "clearing next_char_ready";
           end if;
         end if;
+
+        -- We want the boxes drawn 4 character pixels lower than
+        -- the text.  This is not so easy, as we need to know
+        -- things from the previous or next row.
         
         -- Is this box for a key that is currently being pressed?
-        -- If so, set inverse video flag for box content
+        -- If so, set inverse video flag for box content        
         if (key1(6 downto 0) = current_matrix_id(6 downto 0))
           or (key2(6 downto 0) = current_matrix_id(6 downto 0))
           or (key3(6 downto 0) = current_matrix_id(6 downto 0)) then
@@ -282,6 +293,7 @@ begin
         when FetchCharData =>
           char_addr(10 downto 3) := next_char;
           char_addr(2 downto 0) := to_unsigned(y_pixel_counter,3);
+          char_addr(2) := not char_addr(2);
           address <= to_integer(char_addr);
           fetch_state <= GotCharData;
         when GotCharData =>
