@@ -58,7 +58,6 @@ int main(int argc,char **argv)
   for(y=0;y<480;y++) {
     unsigned char buffer[640*4];
     for(x=0;x<640;x++) {
-      if (frame[x][y]) printf("x=%d,y=%d\n",x,y);
       buffer[4*x+0]=frame[x][y]?0xff:0; // red
       buffer[4*x+1]=frame[x][y]?0xff:0; // green
       buffer[4*x+2]=frame[x][y]?0xff:0; // blue
