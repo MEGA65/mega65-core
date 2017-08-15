@@ -167,18 +167,17 @@ begin
             lineCounter<=lineCounter+1; --increment 3 line counter
           end if;		 
         end if;			
-      end if;
       
-      --Next Tick --Fixes a weird double line issue
-      if pixel_x_640 = 1 and ycounter_in < endy then
-        charCount<=lineStartAddr;
-        eightCounter<=(others=>'0');
-        bufferCounter<=(others=>'0');
-      end if;
+        --Next Tick --Fixes a weird double line issue
+        if pixel_x_640 = 1 and ycounter_in < endy then
+          charCount<=lineStartAddr;
+          eightCounter<=(others=>'0');
+          bufferCounter<=(others=>'0');
+        end if;
       
-      --End of Frame, reset counters	
-      if ycounter_in = 0 then 
-        if doneEndOfFrame='0' then
+        --End of Frame, reset counters	
+        if ycounter_in = 0 then 
+          if doneEndOfFrame='0' then
           mm_displayMode <= mm_displayMode_in; --Only change display mode at end of frame		
           doneEndOfFrame<='1';		
           lineCounter<=(others=>'0'); 
@@ -305,8 +304,6 @@ begin
         -- End of character count dependent on display mode
         
         --If it hasnt just loaded new data,
-        if pixel_x_640 /= last_pixel_x_640 then
-          last_pixel_x_640 <= pixel_x_640;
 
           case eightCounter is		            
             when b"00001" =>
@@ -350,7 +347,7 @@ begin
               data_buffer<= dataOutRead_rom; -- grab new data 	
             end if;
           end if;
-        end if;
+    
       else 
 	--If its out of visible area, display background
         if ycounter_in=0 then
@@ -371,7 +368,8 @@ begin
           blueOutput_all <= vgablue_in;
         end if;		
       end if;  
-      
+
+    end if; -- end if for pixel_x_640 has changed
     end if; --end if for rising edge
 
   end process;
