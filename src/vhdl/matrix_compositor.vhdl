@@ -149,6 +149,7 @@ begin
       -- We synchronise to start of line, as the end of line may change with
       -- different video modes.
       if pixel_x_640 /= last_pixel_x_640 then
+        last_pixel_x_640 <= pixel_x_640;
         if pixel_x_640 = 0 and  ycounter_in >= starty and ycounter_in < endy then
           if lineCounter=mm_displayMode then	-- 0 (1 px per line), 1 (2 px per line), 2 (3px per line) 
             lineCounter<=b"000"; --reset counter
@@ -330,6 +331,7 @@ begin
           if eightCounter/=end_of_char then
             eightCounter<=eightCounter+1; --increment counter		    			 
             if bufferCounter=mm_displayMode then
+              report "shifting data buffer @ x=" & integer'image(pixel_x_640);
               data_buffer<=data_buffer(6 downto 0)&'0';				
               bufferCounter<=b"00";
             else 
