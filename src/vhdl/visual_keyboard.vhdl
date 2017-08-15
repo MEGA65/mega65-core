@@ -138,7 +138,7 @@ begin
         last_was_640 <= '0';
       end if;
 
-      if pixel_x_640 /= last_pixel_x_640 and active='1' then
+      if pixel_x_640 /= last_pixel_x_640 and active='1' and pixel_x_640 < 640 then
         last_pixel_x_640 <= pixel_x_640;
 
         if ycounter_in = 16 then
