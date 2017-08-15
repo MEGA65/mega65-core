@@ -59,6 +59,10 @@ architecture behavioural of visual_keyboard is
   signal next_char_ready : std_logic := '0';
   signal space_repeat : integer range 0 to 127 := 0;
   signal char_data : std_logic_vector(7 downto 0);
+  signal next_char_data : std_logic_vector(7 downto 0);
+  signal char_pixel : std_logic := '0';
+  signal char_pixels_remaining : integer range 0 to 8 := 0;
+
   
   type fetch_state_t is (
     FetchIdle,
@@ -153,14 +157,21 @@ begin
       if pixel_x_640 /= last_pixel_x_640 and active='1' and pixel_x_640 < 640 then
         last_pixel_x_640 <= pixel_x_640;
 
-        if ycounter_in = 16 then
-          report "x = " & integer'image(pixel_x_640)
-            & ", y=" & integer'image(to_integer(ycounter_in));
-          report "   current_matrix_id = $"
-            & to_hstring(current_matrix_id)
-            & ", next_matrix_id = $"
-            & to_hstring(next_matrix_id);
-          report "   key_box_counter = " & integer'image(key_box_counter);
+        -- Calculate character pixel
+        char_pixel <= char_data(7);
+        char_data(7 downto 1) <= char_data(6 downto 0);
+        if char_pixels_remaining /= 0 then
+          char_pixels_remaining <= char_pixels_remaining - 1;
+          report "char_pixels_remaining = " & integer'image(char_pixels_remaining);
+        else
+          char_pixels_remaining <= 7;
+          char_data <= next_char_data;
+          next_char_ready <= '0';
+          if next_char_data /= x"00" then
+            report "clearing next_char_ready, char_data=$" & to_hstring(next_char_data);
+          else
+            report "clearing next_char_ready";
+          end if;
         end if;
         
         -- Is this box for a key that is currently being pressed?
@@ -244,7 +255,6 @@ begin
             end if;
           end if;
         when CharFetch =>
-          next_char_ready <= '1';
           if rdata(7 downto 0) = x"0a" then
             -- new line -- nothing more new this line,
             -- just fill with spaces
@@ -265,23 +275,24 @@ begin
           address <= to_integer(char_addr);
           fetch_state <= GotCharData;
         when GotCharData =>
-          char_data <= std_logic_vector(rdata);
+          next_char_ready <= '1';
+          next_char_data <= std_logic_vector(rdata);
           fetch_state <= FetchIdle;
         when FetchMapRowColumn0 =>
           address <= 2048 + y_row*16;
           fetch_state <= FetchMapRowColumn1;
         when FetchMapRowColumn1 =>
---          report "current_matrix_id <= $" & to_hstring(rdata)
---            & " from $"
---            & to_hstring(to_unsigned(address,12));
+          report "current_matrix_id <= $" & to_hstring(rdata)
+            & " from $"
+            & to_hstring(to_unsigned(address,12));
           current_matrix_id <= rdata;
           key_same_as_last <= '0';
           address <= 2048 + y_row*16 + 1;
           fetch_state <= GotMapRowColumn1;
         when GotMapRowColumn1 =>
---          report "next_matrix_id <= $" & to_hstring(rdata)
---            & " from $"
---            & to_hstring(to_unsigned(address,12));
+          report "next_matrix_id <= $" & to_hstring(rdata)
+            & " from $"
+            & to_hstring(to_unsigned(address,12));
           next_matrix_id <= rdata;
           -- Work out width of first key box of row
           if current_matrix_id(7)='1' then
@@ -322,21 +333,19 @@ begin
 
       -- Draw keyboard matrix boxes
       if active='1' then
-        vk_pixel(1) <= box_pixel or box_inverse;
-        vk_pixel(0) <= box_pixel or box_inverse;
+        vk_pixel(1) <= box_pixel or (box_inverse xor char_pixel);
+        vk_pixel(0) <= box_pixel or (box_inverse xor char_pixel);
         -- XXX draw keyboard layout characters
       else
         vk_pixel <= "00";
       end if;
 
---      if ycounter_in = 16 then
-        report "PIXEL:"
-          & integer'image(pixel_x_640)
-          & ":"
-          & integer'image(to_integer(ycounter_in))
-          & ":"
-          & std_logic'image(vk_pixel(1));
---      end if;
+      report "PIXEL:"
+        & integer'image(pixel_x_640)
+        & ":"
+        & integer'image(to_integer(ycounter_in))
+        & ":"
+        & std_logic'image(vk_pixel(1));
       
       if visual_keyboard_enable='1' and active='1' then
         vgared_out <= vk_pixel&vgared_in(7 downto 2);
