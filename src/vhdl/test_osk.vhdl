@@ -44,8 +44,8 @@ begin
 
   process
   begin
-    for i in 1 to 2000000 loop
-      pixelclock <= '0';
+    for i in 1 to 20000000 loop
+      pixelclock <= '1';
       wait for 10 ns;
       pixelclock <= '0';
       wait for 10 ns;
