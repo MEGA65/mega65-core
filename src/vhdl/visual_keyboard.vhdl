@@ -112,9 +112,7 @@ begin
           -- End of line, prepare for next
           report "end of line, preparing for next";
           fetch_state <= FetchMapRowColumn0;
-          if ycounter_in = 0 then
-            active <= '0';
-          elsif ycounter_in = y_start then
+          if ycounter_in = y_start then
             active <= '1';
 
             -- Packed text starts at $0900 in OSKmem
@@ -125,6 +123,8 @@ begin
             y_char_in_row <= 0;
             y_pixel_counter <= 0;
             y_phase <= 0;
+          elsif ycounter_in = 0 then
+            active <= '0';
           elsif active='1' then
             if y_phase /= y_stretch then
               y_phase <= y_phase + 1;
