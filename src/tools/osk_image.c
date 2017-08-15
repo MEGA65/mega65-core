@@ -4,25 +4,31 @@
 #define PNG_DEBUG 3
 #include <png.h>
 
-unsigned char frame[640][480];
+unsigned char frame[480][640*4];
 
 int main(int argc,char **argv)
 {
-  int x,y,p;
+  int x,y,r,g,b;
 
   char line[1024];
+
+  printf("Clear frame...\n");
   
-  for(x=0;x<640;x++)
-    for(y=0;y<480;y++)
-      frame[x][y]=0;
-  
+  for(y=0;y<480;y++)
+    for(x=0;x<640*4;x++)
+      frame[y][x]=0;
+
+  printf("Read pixels...\n");
 
   line [0]=0; fgets(line,1024,stdin);
   while(line[0]) {
-    if (sscanf(line,"vhdl/visual_keyboard.vhdl:%*[^:]:%*d:%*[^:]:(report note): PIXEL:%d:%d:'%d'",
-	       &x,&y,&p)==3) {
+    if (sscanf(line,"%*[^\\.].vhdl:%*[^:]:%*d:%*[^:]:(report note): PIXEL:%d:%d:%x:%x:%x",
+	       &x,&y,&r,&g,&b)==5) {
       if (x>=0&&x<640&&y>=0&&y<480) {
-	frame[x][y]=p;
+	frame[y][x*4+0]=r;
+	frame[y][x*4+1]=g;
+	frame[y][x*4+2]=b;
+	frame[y][x*4+3]=0xff;
       }
       if (x==640&&y==480) {
 	printf("Stopping on %s",line);
@@ -60,14 +66,7 @@ int main(int argc,char **argv)
   png_write_info(png,info);
 
   for(y=0;y<480;y++) {
-    unsigned char buffer[640*4];
-    for(x=0;x<640;x++) {
-      buffer[4*x+0]=frame[x][y]?0xff:0; // red
-      buffer[4*x+1]=frame[x][y]?0xff:0; // green
-      buffer[4*x+2]=frame[x][y]?0xff:0; // blue
-      buffer[4*x+3]=0xff; // alpha
-    }
-    png_write_row(png,buffer);
+    png_write_row(png,frame[y]);
   }
 
   png_write_end(png,info);

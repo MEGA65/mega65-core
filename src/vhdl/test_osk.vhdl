@@ -71,6 +71,11 @@ begin
           ycounter_in <= to_unsigned(0,12);
         end if;
       end if;
+      report "PIXEL:" & integer'image(pixel_x_640)
+        & ":" & integer'image(to_integer(ycounter_in))
+        & ":" & to_hstring(vgared_out)
+        & ":" & to_hstring(vgagreen_out)
+        & ":" & to_hstring(vgablue_out);
     end loop;  -- i
     assert false report "End of simulation" severity note;
   end process;

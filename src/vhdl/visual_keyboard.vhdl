@@ -377,13 +377,6 @@ begin
         vk_pixel <= "00";
       end if;
 
-      report "PIXEL:"
-        & integer'image(pixel_x_640)
-        & ":"
-        & integer'image(to_integer(ycounter_in))
-        & ":"
-        & std_logic'image(vk_pixel(1));
-      
       if visual_keyboard_enable='1' and active='1' then
         vgared_out <= vk_pixel&vgared_in(7 downto 2);
         vgagreen_out <= vk_pixel&vgagreen_in(7 downto 2);
