@@ -5,8 +5,10 @@ use work.debugtools.all;
 
 entity visual_keyboard is
   port (
-    pixel_x_640 : in integer;
+    pixel_x_640_in : in integer;
     ycounter_in : in unsigned(11 downto 0);
+    y_start : in unsigned(11 downto 0);
+    x_start : in unsigned(11 downto 0);
     pixelclock : in std_logic;
     visual_keyboard_enable : in std_logic;
     key1 : in unsigned(7 downto 0);
@@ -23,8 +25,6 @@ end visual_keyboard;
 
 architecture behavioural of visual_keyboard is
 
-  signal y_start : unsigned(11 downto 0) := to_unsigned(10,12);
-  signal x_start : integer := 1;
   signal y_stretch : integer range 0 to 2 := 1;
 
   constant chars_per_row : integer := 3;
@@ -63,6 +63,8 @@ architecture behavioural of visual_keyboard is
   signal char_pixel : std_logic := '0';
   signal char_pixels_remaining : integer range 0 to 8 := 0;
   signal first_column : std_logic := '0';
+
+  signal pixel_x_640 : integer := 0;
   
   type fetch_state_t is (
     FetchIdle,
@@ -94,6 +96,12 @@ begin
   begin
     if rising_edge(pixelclock) then
 
+      if pixel_x_640_in < x_start then
+        pixel_x_640 <= 640;
+      else
+        pixel_x_640 <= pixel_x_640_in - to_integer(x_start);
+      end if;
+      
       if pixel_x_640 = 640 then
         last_was_640 <= '1';
         space_repeat <= 0;

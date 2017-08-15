@@ -12,6 +12,8 @@ architecture behavioral of test_osk is
 
   signal pixel_x_640 : integer := 0;
   signal ycounter_in : unsigned(11 downto 0) := (others => '0');
+  signal x_start : unsigned(11 downto 0) := to_unsigned(0,12);
+  signal y_start : unsigned(11 downto 0) := to_unsigned(100,12);
   signal pixelclock : std_logic := '1';
   signal visual_keyboard_enable : std_logic := '1';
   signal key1 : unsigned(7 downto 0) := x"0f";
@@ -27,7 +29,9 @@ architecture behavioral of test_osk is
 begin
   kc0: entity work.visual_keyboard
     port map(
-      pixel_x_640 => pixel_x_640,
+      pixel_x_640_in => pixel_x_640,
+      x_start => x_start,
+      y_start => y_start,
       ycounter_in => ycounter_in,
       pixelclock => pixelclock,
       visual_keyboard_enable => visual_keyboard_enable,

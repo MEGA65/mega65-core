@@ -15,6 +15,7 @@ int main(int argc,char **argv)
   for(x=0;x<640;x++)
     for(y=0;y<480;y++)
       frame[x][y]=0;
+  
 
   line [0]=0; fgets(line,1024,stdin);
   while(line[0]) {
@@ -23,10 +24,12 @@ int main(int argc,char **argv)
       if (x>=0&&x<640&&y>=0&&y<480) {
 	frame[x][y]=p;
       }
+      if (x==640&&y==480) {
+	printf("Stopping on %s",line);
+	break;
+      }
     } else printf("%s",line);      
 
-    if (x==640&&y==480) break;
-    
     line [0]=0; fgets(line,1024,stdin);
   }
   
