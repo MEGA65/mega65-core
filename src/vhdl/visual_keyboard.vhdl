@@ -54,13 +54,17 @@ architecture behavioural of visual_keyboard is
   signal key_box_counter : integer := 0;
   signal key_same_as_last : std_logic := '0';
   
+  signal text_delay : integer range 0 to 4 := 0;
   signal next_char : unsigned(7 downto 0) := x"00";
   signal next_char_ready : std_logic := '0';
   signal space_repeat : integer range 0 to 127 := 0;
+  signal char_data : std_logic_vector(7 downto 0);
   
   type fetch_state_t is (
     FetchIdle,
     CharFetch,
+    FetchCharData,
+    GotCharData,
     FetchMapRowColumn0,
     FetchMapRowColumn1,
     GotMapRowColumn1,
@@ -82,6 +86,7 @@ begin
       );
   
   process (pixelclock)
+    variable char_addr : unsigned(10 downto 0);
   begin
     if rising_edge(pixelclock) then
 
@@ -195,6 +200,7 @@ begin
           if next_matrix_id(7) = '1' then
             -- Next key is 1.5 times width, so set counter accordingly
             key_box_counter <= 7*8+4;
+            text_delay <= 4;
           else
             -- Next key is normal width
             key_box_counter <= 5*8;
@@ -252,6 +258,14 @@ begin
             -- Natural char
             next_char <= rdata;
           end if;
+          fetch_state <= FetchCharData;
+        when FetchCharData =>
+          char_addr(10 downto 3) := next_char;
+          char_addr(2 downto 0) := to_unsigned(y_pixel_counter,3);
+          address <= to_integer(char_addr);
+          fetch_state <= GotCharData;
+        when GotCharData =>
+          char_data <= std_logic_vector(rdata);
           fetch_state <= FetchIdle;
         when FetchMapRowColumn0 =>
           address <= 2048 + y_row*16;
@@ -272,6 +286,7 @@ begin
           -- Work out width of first key box of row
           if current_matrix_id(7)='1' then
             key_box_counter <= 7*8+4;
+            text_delay <= 4;
           else
             key_box_counter <= 5*8;
           end if;
