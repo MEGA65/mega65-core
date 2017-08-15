@@ -178,7 +178,7 @@ begin
           end if;
           if next_matrix_id(7) = '1' then
             -- Next key is 1.5 times width, so set counter accordingly
-            key_box_counter <= 8*8;
+            key_box_counter <= 7*8+4;
           else
             -- Next key is normal width
             key_box_counter <= 5*8;
@@ -186,7 +186,12 @@ begin
           -- Pre-fetch the next key matrix id
           fetch_state <= FetchNextMatrix;
         else
-          box_pixel <= '0';
+          -- Draw left edge of keyboard as requird (all rows except SPACE bar row)
+          if pixel_x_640=0 and y_row /= 5 and active='1' then
+            box_pixel <= '1';
+          else
+            box_pixel <= '0';
+          end if;
           key_box_counter <= key_box_counter - 1;
         end if;
         -- Horizontal lines:
@@ -249,7 +254,7 @@ begin
           next_matrix_id <= rdata;
           -- Work out width of first key box of row
           if current_matrix_id(7)='1' then
-            key_box_counter <= 8*8;
+            key_box_counter <= 7*8+4;
           else
             key_box_counter <= 5*8;
           end if;
