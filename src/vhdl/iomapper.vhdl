@@ -51,10 +51,12 @@ entity iomapper is
         key_scancode_toggle : in std_logic;
 
         visual_keyboard_enable : out std_logic;
-        key1 : out unsigned(7 downto 0);
-        key2 : out unsigned(7 downto 0);
-        key3 : out unsigned(7 downto 0);
-        
+        osk_x : out unsigned(11 downto 0);
+        osk_y : out unsigned(11 downto 0);
+        osk_key1 : out unsigned(7 downto 0);
+        osk_key2 : out unsigned(7 downto 0);
+        osk_key3 : out unsigned(7 downto 0);
+
         reg_isr_out : out unsigned(7 downto 0);
         imask_ta_out : out std_logic;
 
@@ -440,7 +442,9 @@ begin
       portk_out(7) => visual_keyboard_enable,
       portl_out => virtual_key2,
       portm_out => virtual_key3,
-      portn_out => keyboard_scan_rate
+      portn_out => keyboard_scan_rate,
+      porto_out => osk_x(11 downto 4),
+      portp_out => osk_y(11 downto 4)
       );
   end block;
   
@@ -473,6 +477,10 @@ begin
     key1 => unsigned(virtual_key1),
     key2 => unsigned(virtual_key2),
     key3 => unsigned(virtual_key3),
+
+    keydown1 => osk_key1,
+    keydown2 => osk_key2,
+    keydown3 => osk_key3,
       
     hyper_trap_out => hyper_trap,
     hyper_trap_count => hyper_trap_count,
@@ -726,10 +734,6 @@ begin
       if ascii_key /= x"ef" then
         ef_latch <= '0';
       end if;
-
-      key1 <= unsigned(virtual_key1);
-      key2 <= unsigned(virtual_key2);
-      key3 <= unsigned(virtual_key3);
 
       -- UART char for monitor/matrix mode
       if ascii_key_valid='1' and protected_hardware_in(6)='1' then

@@ -376,9 +376,11 @@ architecture Behavioral of machine is
   signal terminal_emulator_ready : std_logic := '0';
 
   signal visual_keyboard_enable : std_logic;
-  signal key1 : unsigned(7 downto 0);
-  signal key2 : unsigned(7 downto 0);
-  signal key3 : unsigned(7 downto 0);
+  signal osk_x : unsigned(11 downto 0);
+  signal osk_y : unsigned(11 downto 0);
+  signal osk_key1 : unsigned(7 downto 0);
+  signal osk_key2 : unsigned(7 downto 0);
+  signal osk_key3 : unsigned(7 downto 0);
   
 begin
 
@@ -751,9 +753,11 @@ begin
       speed_gate_enable => speed_gate_enable,
 
       visual_keyboard_enable => visual_keyboard_enable,
-      key1 => key1,
-      key2 => key2,
-      key3 => key3,
+      osk_x => osk_x,
+      osk_y => osk_y,
+      osk_key1 => osk_key1,
+      osk_key2 => osk_key2,
+      osk_key3 => osk_key3,
             
       uart_char => uart_char,
       uart_char_valid => uart_char_valid,
@@ -920,15 +924,17 @@ begin
     );
 
     visual_keyboard0 : entity work.visual_keyboard port map(
-    pixel_x_640 => pixel_x_640,
-    ycounter_in => ycounter,	
+    pixel_x_640_in => pixel_x_640,
+    ycounter_in => ycounter,
+    y_start => osk_y,
+    x_start => osk_x,
     pixelclock => pixelclock,
     vgared_in => vgared_kbd,
     vgagreen_in => vgagreen_kbd,
     visual_keyboard_enable => visual_keyboard_enable,
-    key1 => key1,
-    key2 => key2,
-    key3 => key3,
+    key1 => osk_key1,
+    key2 => osk_key2,
+    key3 => osk_key3,
     vgablue_in => vgablue_kbd,
     vgared_out => vgared,
     vgagreen_out => vgagreen,

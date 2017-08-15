@@ -42,6 +42,11 @@ entity keyboard_complex is
     key1 : in unsigned(7 downto 0);
     key2 : in unsigned(7 downto 0);
     key3 : in unsigned(7 downto 0);
+
+    -- Summary of currently pressed keys for the on-screen keyboard
+    keydown1 : out unsigned(7 downto 0);
+    keydown2 : out unsigned(7 downto 0);
+    keydown3 : out unsigned(7 downto 0);
     
     -- Flags to control which inputs are disabled, if any
     virtual_disable : in std_logic;
@@ -113,6 +118,12 @@ architecture behavioural of keyboard_complex is
   signal ps2_joya : std_logic_vector(4 downto 0);
   signal ps2_joyb : std_logic_vector(4 downto 0);
 
+  signal kd1 : unsigned(7 downto 0);
+  signal kd2 : unsigned(7 downto 0);
+  signal kd3 : unsigned(7 downto 0);
+  signal kd_count : integer := 0;
+  signal kd_phase : integer := 0;
+    
 begin
 
   v2m: entity work.virtual_to_matrix
@@ -275,6 +286,33 @@ begin
         matrix_segment_out <= (others => '1');
       end if;
 
+      -- Work out the summary of keys down for showing on the On-screen keyboard
+      -- (so that the OSK shws all currently down keys)
+      -- XXX Dedicated keys won't show (RESTORE and CAPS LOCK)
+      -- XXX Left and Up will show as RIGHT SHIFT + RIGHT/DOWN
+      if kd_phase /= 72 then
+        kd_phase <= kd_phase + 1;
+        if (matrix_combined(kd_phase) = '0') then
+          if kd_count = 0 then
+            kd1 <= to_unsigned(kd_phase,8);
+          elsif kd_count = 1 then
+            kd2 <= to_unsigned(kd_phase,8);
+          elsif kd_count = 2 then
+            kd3 <= to_unsigned(kd_phase,8);
+          end if;
+          kd_count <= kd_count + 1;
+        end if;
+      else
+        kd_phase <= 0;
+        keydown1 <= kd1;
+        keydown2 <= kd2;
+        keydown3 <= kd3;
+        kd1 <= x"7F";
+        kd2 <= x"7F";
+        kd3 <= x"7F";
+        kd_count <= 0;
+      end if;
+      
     end if;
   end process;
   

@@ -47,7 +47,9 @@ entity c65uart is
     portk_out : out  std_logic_vector(7 downto 0);
     portl_out : out  std_logic_vector(7 downto 0);
     portm_out : out  std_logic_vector(7 downto 0);
-    portn_out : out unsigned(7 downto 0)
+    portn_out : out unsigned(7 downto 0);
+    porto_out : out unsigned(7 downto 0);
+    portp_out : out unsigned(7 downto 0)
     
     );
 end c65uart;
@@ -152,6 +154,8 @@ architecture behavioural of c65uart is
   signal portl_internal : std_logic_vector(7 downto 0) := x"FF";
   signal portm_internal : std_logic_vector(7 downto 0) := x"FF";
   signal portn_internal : std_logic_vector(7 downto 0) := x"FF";
+  signal porto_internal : std_logic_vector(7 downto 0) := x"FF";
+  signal portp_internal : std_logic_vector(7 downto 0) := x"FF";
   
 begin  -- behavioural
   
@@ -196,6 +200,8 @@ begin  -- behavioural
       portl_out <= portl_internal;
       portm_out <= portm_internal;
       portn_out <= unsigned(portn_internal);
+      porto_out <= unsigned(porto_internal);
+      portp_out <= unsigned(portp_internal);
       
       rx_clear_flags <= '0';
       if (fastio_address(19 downto 16) = x"D")
@@ -323,6 +329,12 @@ begin  -- behavioural
         when x"18" =>
           -- @IO:GS $D618 Keyboard scan rate ($00=50MHz, $FF=~200KHz)
           fastio_rdata <= unsigned(portn_internal);
+        when x"19" =>
+          -- @IO:GS $D619 On-screen keyboard X position (x4 640H pixels)
+          fastio_rdata <= unsigned(porto_internal);
+        when x"1a" =>
+          -- @IO:GS $D61A On-screen keyboard Y position (x4 physical pixels)
+          fastio_rdata <= unsigned(portp_internal);
           
         when others => fastio_rdata <= (others => 'Z');
       end case;
@@ -549,6 +561,10 @@ begin  -- behavioural
             portm_internal <= std_logic_vector(fastio_wdata);
           when x"18" =>
             portn_internal <= std_logic_vector(fastio_wdata);
+          when x"19" =>
+            porto_internal <= std_logic_vector(fastio_wdata);
+          when x"1A" =>
+            portp_internal <= std_logic_vector(fastio_wdata);
           when others => null;
         end case;
       end if;
