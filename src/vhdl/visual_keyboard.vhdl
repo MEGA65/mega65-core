@@ -243,7 +243,7 @@ begin
 --            & to_hstring(to_unsigned(address,12));
           next_matrix_id <= rdata;
           -- Work out width of first key box of row
-          if rdata(7)='1' then
+          if current_matrix_id(7)='1' then
             key_box_counter <= 8*8;
           else
             key_box_counter <= 5*8;
