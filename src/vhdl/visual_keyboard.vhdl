@@ -96,6 +96,7 @@ begin
 
       if pixel_x_640 = 640 then
         last_was_640 <= '1';
+        space_repeat <= 0;
 
         if last_was_640 = '0' then
           -- End of line, prepare for next
@@ -248,6 +249,7 @@ begin
             if space_repeat /= 0 then
               space_repeat <= space_repeat - 1;
               next_char <= x"20";
+              next_char_ready <= '1';
             else
               address <= current_address;
               current_address <= current_address + 1;
@@ -260,9 +262,10 @@ begin
             -- just fill with spaces
             next_char <= x"20";
             space_repeat <= 99;
+            next_char_ready <= '1';
           elsif rdata(7 downto 4) = x"9" then
             -- RLE encoded spaces
-            space_repeat <= to_integer(rdata(3 downto 0));
+            space_repeat <= 1+to_integer(rdata(3 downto 0));
             next_char <= x"20";
           else
             -- Natural char
