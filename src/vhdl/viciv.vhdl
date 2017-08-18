@@ -54,6 +54,8 @@ use work.all;
 
 entity viciv is
   Port (
+    all_pause : in std_logic;
+    
     xcounter_out : out unsigned(13 downto 0);
     ycounter_out : out unsigned(11 downto 0);
     ----------------------------------------------------------------------
@@ -2772,7 +2774,7 @@ begin
     variable next_glyph_number_temp : std_logic_vector(12 downto 0) := (others => '0');
     variable next_glyph_colour_temp : std_logic_vector(7 downto 0) := (others => '0');
   begin    
-    if rising_edge(pixelclock) then
+    if rising_edge(pixelclock) and all_pause='0' then
 
       -- Output the logical pixel number assuming H640 output
       -- (Used for Matrix Mode and visual keyboard compositers, so that

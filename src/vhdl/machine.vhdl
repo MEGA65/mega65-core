@@ -389,6 +389,8 @@ architecture Behavioral of machine is
   signal osk_key1 : unsigned(7 downto 0);
   signal osk_key2 : unsigned(7 downto 0);
   signal osk_key3 : unsigned(7 downto 0);
+
+  signal all_pause : std_logic := '0';
   
 begin
 
@@ -568,6 +570,7 @@ begin
     generic map(
       cpufrequency => cpufrequency)
     port map(
+      all_pause => all_pause,
       matrix_trap_in=>matrix_trap,
       protected_hardware => protected_hardware_sig,
       clock => cpuclock,
@@ -689,6 +692,9 @@ begin
 
   viciv0: entity work.viciv
     port map (
+
+      all_pause => all_pause,
+      
       xcounter_out => xcounter,
       ycounter_out => ycounter,
       pixelclock      => pixelclock,
@@ -956,6 +962,7 @@ begin
   monitor0 : entity work.uart_monitor port map (
     reset => reset_combined,
     reset_out => reset_monitor,
+
     monitor_hyper_trap => monitor_hyper_trap,
     clock => uartclock,
     tx       => uart_txd_sig,--uart_txd_sig,

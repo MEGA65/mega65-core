@@ -46,6 +46,8 @@ entity gs4510 is
     nmi : in std_logic;
     exrom : in std_logic;
     game : in std_logic;
+
+    all_pause : in std_logic;
     
     hyper_trap : in std_logic;
     cpu_hypervisor_mode : out std_logic := '0';
@@ -2517,7 +2519,7 @@ begin
     z_decremented <= reg_z - 1;
     
     -- BEGINNING OF MAIN PROCESS FOR CPU
-    if rising_edge(clock) then
+    if rising_edge(clock) and all_pause='0' then
       
       speed_gate_drive <= speed_gate;
       
