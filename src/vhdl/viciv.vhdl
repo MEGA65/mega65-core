@@ -94,6 +94,7 @@ entity viciv is
     vgared : out  UNSIGNED (7 downto 0);
     vgagreen : out  UNSIGNED (7 downto 0);
     vgablue : out  UNSIGNED (7 downto 0);
+    viciv_outofframe : out std_logic := '0';
 
     pixel_stream_out : out unsigned (7 downto 0);
     pixel_y : out unsigned (11 downto 0);
@@ -3214,6 +3215,7 @@ begin
       end if;
       
       display_active <= indisplay;
+      viciv_outofframe <= indisplay;
       
       if indisplay_t3='1' then
         if inborder_t2='1' or blank='1' then

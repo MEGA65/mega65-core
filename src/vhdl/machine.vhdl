@@ -360,6 +360,14 @@ architecture Behavioral of machine is
   signal vgablue_kbd : unsigned(7 downto 0);
   signal vgared_kbd : unsigned(7 downto 0);
   signal vgagreen_kbd : unsigned(7 downto 0);
+  signal vgablue_out : unsigned(7 downto 0);
+  signal vgared_out : unsigned(7 downto 0);
+  signal vgagreen_out : unsigned(7 downto 0);
+  signal viciv_outofframe : std_logic := '0';
+  signal viciv_outofframe_1 : std_logic := '0';
+  signal viciv_outofframe_2 : std_logic := '0';
+  signal viciv_outofframe_3 : std_logic := '0';
+  
   signal xcounter : unsigned(13 downto 0);
   signal ycounter : unsigned(11 downto 0); 
   signal uart_txd_sig : std_logic;
@@ -702,6 +710,7 @@ begin
       vgared          => vgared_sig,
       vgagreen        => vgagreen_sig,
       vgablue         => vgablue_sig,
+      viciv_outofframe => viciv_outofframe,
 
       pixel_stream_out => pixel_stream,
       pixel_y => pixel_y,
@@ -936,9 +945,9 @@ begin
     key2 => osk_key2,
     key3 => osk_key3,
     vgablue_in => vgablue_kbd,
-    vgared_out => vgared,
-    vgagreen_out => vgagreen,
-    vgablue_out => vgablue
+    vgared_out => vgared_out,
+    vgagreen_out => vgagreen_out,
+    vgablue_out => vgablue_out
     );
   
   -----------------------------------------------------------------------------
@@ -1025,6 +1034,26 @@ begin
       pmod_data_out <= pmodb_out_buffer;
       flopled <= drive_led_out;
       flopmotor <= motor;
+    end if;
+  end process;
+
+  process (pixelclock) is
+  begin
+    if rising_edge(pixelclock) then
+      -- Enforce black output outside of frame, so that
+      -- compositors can't mess the frame up
+      viciv_outofframe_3 <= viciv_outofframe_2;
+      viciv_outofframe_2 <= viciv_outofframe_1;
+      viciv_outofframe_1 <= viciv_outofframe;
+      if viciv_outofframe_3 = '1' then
+        vgared <= (others => '0');
+        vgagreen <= (others => '0');
+        vgablue <= (others => '0');
+      else
+        vgared <= vgared_out;
+        vgagreen <= vgagreen_out;
+        vgablue <= vgablue_out;
+      end if;
     end if;
   end process;
   
