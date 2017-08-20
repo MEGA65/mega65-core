@@ -30,6 +30,8 @@ begin
   kc0: entity work.visual_keyboard
     port map(
       pixel_x_640_in => pixel_x_640,
+      pixel_y_scale_200 => to_unsigned(2,4),
+      pixel_y_scale_400 => to_unsigned(1,4),
       x_start => x_start,
       y_start => y_start,
       ycounter_in => ycounter_in,

@@ -27,7 +27,10 @@ end visual_keyboard;
 
 architecture behavioural of visual_keyboard is
 
-  signal y_stretch : integer range 0 to 2 := 1;
+  signal y_start_current : unsigned(11 downto 0) :=
+    to_unsigned(0,12);
+  
+  signal y_stretch : integer range 0 to 7 := 1;
 
   constant chars_per_row : integer := 3;
 
@@ -67,6 +70,10 @@ architecture behavioural of visual_keyboard is
   signal first_column : std_logic := '0';
 
   signal pixel_x_640 : integer := 0;
+  signal osk_in_position : std_logic := '1';
+  signal last_visual_keyboard_enable : std_logic := '0';
+  signal max_y : unsigned(11 downto 0) := (others => '0');
+  signal ycounter_last : unsigned(11 downto 0) := (others => '0');
   
   type fetch_state_t is (
     FetchIdle,
@@ -80,7 +87,7 @@ architecture behavioural of visual_keyboard is
     GotNextMatrix
     );
   signal fetch_state : fetch_state_t := FetchIdle;
-
+  
   
 begin
 
@@ -98,6 +105,9 @@ begin
   begin
     if rising_edge(pixelclock) then
 
+      -- Update vertical scale factor to fit video mode
+      y_stretch <= to_integer(pixel_y_scale_200);
+      
       if pixel_x_640_in < x_start then
         pixel_x_640 <= 640;
       else
@@ -114,9 +124,9 @@ begin
 
         if last_was_640 = '0' then
           -- End of line, prepare for next
-          report "end of line, preparing for next";
+--          report "end of line, preparing for next";
           fetch_state <= FetchMapRowColumn0;
-          if ycounter_in = y_start then
+          if ycounter_in = y_start_current then
             active <= '1';
 
             -- Packed text starts at $0900 in OSKmem
@@ -139,6 +149,13 @@ begin
                 -- We draw only the top line for row 6 to cap
                 -- off row 5
                 active <= '0';
+                if ycounter_in < max_y then
+                  -- Bottom of visual keyboard is on-screen,
+                  -- so no need to keep moving it up
+                  osk_in_position <= '1';
+                else
+                  osk_in_position <= '0';
+                end if;
               end if;
               -- Offset text to boxes by 4 pixels
               if y_pixel_counter /=3 then
@@ -182,7 +199,7 @@ begin
         char_data(0) <= '0';
         if char_pixels_remaining /= 0 then
           char_pixels_remaining <= char_pixels_remaining - 1;
-          report "char_pixels_remaining = " & integer'image(char_pixels_remaining);
+--          report "char_pixels_remaining = " & integer'image(char_pixels_remaining);
         else
           if (text_delay = 0) and (pixel_x_640 > 3) then
             char_pixels_remaining <= 7;
@@ -196,9 +213,9 @@ begin
           first_column <= '0';
           
           if next_char_data /= x"00" then
-            report "clearing next_char_ready, char_data=$" & to_hstring(next_char_data);
+--            report "clearing next_char_ready, char_data=$" & to_hstring(next_char_data);
           else
-            report "clearing next_char_ready";
+--            report "clearing next_char_ready";
           end if;
         end if;
 
@@ -321,17 +338,17 @@ begin
           address <= 2048 + y_row*16;
           fetch_state <= FetchMapRowColumn1;
         when FetchMapRowColumn1 =>
-          report "current_matrix_id <= $" & to_hstring(rdata)
-            & " from $"
-            & to_hstring(to_unsigned(address,12));
+--          report "current_matrix_id <= $" & to_hstring(rdata)
+--            & " from $"
+--            & to_hstring(to_unsigned(address,12));
           current_matrix_id <= rdata;
           key_same_as_last <= '0';
           address <= 2048 + y_row*16 + 1;
           fetch_state <= GotMapRowColumn1;
         when GotMapRowColumn1 =>
-          report "next_matrix_id <= $" & to_hstring(rdata)
-            & " from $"
-            & to_hstring(to_unsigned(address,12));
+--          report "next_matrix_id <= $" & to_hstring(rdata)
+--            & " from $"
+--            & to_hstring(to_unsigned(address,12));
           next_matrix_id <= rdata;
           -- Work out width of first key box of row
           if current_matrix_id(7)='1' then
@@ -354,9 +371,9 @@ begin
           end if;
           fetch_state <= GotNextMatrix;
         when GotNextMatrix =>
-          report "next_matrix_id <= $" & to_hstring(rdata)
-            & " from $"
-            & to_hstring(to_unsigned(address,12));
+--          report "next_matrix_id <= $" & to_hstring(rdata)
+--            & " from $"
+--            & to_hstring(to_unsigned(address,12));
           if current_matrix_id = next_matrix_id then
             key_same_as_last <= '1';
           else
@@ -387,7 +404,29 @@ begin
         vgared_out <= vgared_in;
         vgagreen_out <= vgagreen_in;
         vgablue_out <= vgablue_in;
+
+        -- visual keyboard disabled, so push it back off the bottom
+        -- of the screen
+        y_start_current <= max_y;
       end if;
+      if ycounter_in = 0 and ycounter_last /= 0 then
+        max_y <= ycounter_last;
+        -- Move visual keyboard up one a bit each frame
+        if osk_in_position = '0' then
+          y_start_current <= y_start_current - pixel_y_scale_200;
+        end if;
+      end if;
+      ycounter_last <= ycounter_in;
+      if visual_keyboard_enable='1'
+        and last_visual_keyboard_enable='0' then
+        -- Visual keyboard has just been enabled, so start it
+        -- off the bottom of the screen, and allow it to
+        -- move up over several frames
+        osk_in_position <= '0';
+        y_start_current <= max_y;
+      end if;
+      last_visual_keyboard_enable <= visual_keyboard_enable;
+      
     end if;
   end process;
   
