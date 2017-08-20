@@ -188,25 +188,8 @@ megacart.crt:	megacartstub.a65
 	$(warning ~~~~~~~~~~~~~~~~> Making: diskmenu.prg and diskmenuprg.list)
 	./../../Ophis/bin/ophis -4 megacartstub.a65 -l megacart.list -m megacart.map
 
-fdisk.native:	fdisk.c fdisk_hal_unix.c fdisk_hal.h Makefile
-	$(CC) $(COPT) -o fdisk.native fdisk.c fdisk_hal_unix.c
-
-fdisktest:	fdisk.d81 COLOURRAM.BIN
-	dd if=/dev/zero of=empty.img bs=1048576 count=200
-	../../xemu/build/bin/xmega65.native -8 fdisk.d81 -sdimg empty.img -skipunhandledmem -dmarev 0 -loadcram COLOURRAM.BIN
-
-fdisk.d81:	fdisk.prg
-	cbmconvert -v2 -D8o fdisk.d81 fdisk.prg
-
-FDISK_HEADERS=	fdisk_screen.h fdisk_memory.h Makefile
-CC65=cc65
-CC65OPTS=-O
-
-%.s:	%.c $(FDISK_HEADERS)
-	$(CC65) $(CC65OPTS) -o $@ $<
-
-fdisk.prg:	fdisk.s fdisk_hal_mega65.s fdisk_memory.s fdisk_screen.s
-	cl65 -t c64 -o fdisk.prg fdisk.s fdisk_hal_mega65.s fdisk_memory.s fdisk_screen.s
+mega65-fdisk/m65fdisk.prg:	
+	( cd mega65-fdisk ; make )
 
 border.prg:	border.a65
 	$(warning =============================================================)
@@ -384,7 +367,7 @@ tools/pngprepare/pngprepare:	tools/pngprepare/pngprepare.c Makefile
 	export LC_ALL=C
 	egrep "IO:C6|IO:GS" $(VHDLSRCDIR)/*.vhdl | cut -f3- -d: | sort -u -k2 > ../iomap.txt
 
-CRAMUTILS=	border.prg fdisk.prg
+CRAMUTILS=	border.prg mega65-fdisk/m65fdisk.prg
 COLOURRAM.BIN:	tools/utilpacker/utilpacker $(CRAMUTILS)
 	tools/utilpacker/utilpacker COLOURRAM.BIN $(CRAMUTILS)
 
