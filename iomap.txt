@@ -199,8 +199,9 @@ GS $D07C.4 VIC-IV hsync polarity
 GS $D07C.5 VIC-IV vsync polarity
 GS $D07D VIC-IV debug X position (LSB)
 GS $D07E VIC-IV debug Y position (LSB)
-GS $D07F.0-3 VIC-IV debug X position (MSB)
+GS $D07F.0-5 VIC-IV debug X position (MSB)
 GS $D07F.4-7 VIC-IV debug Y position (MSB)
+GS $D07F.7 VIC-IV debug out-of-frame signal enable
 C65 $D080 - F011 FDC control
 C65 $D081 - F011 FDC command
 C65 $D082 - F011 FDC Status A port (read only)

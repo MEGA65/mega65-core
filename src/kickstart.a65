@@ -1732,7 +1732,7 @@ erasescreendmalist:
 
 		; Clear colour RAM
 		;
-		.byte $07     ; FILL + end of chain
+		.byte $07     ; FILL + chained request
 		.word 2000    ; 40x25x2 = 2000
 		.byte $01     ; fill with white = $01
 		.byte $00,$00 ; rest of source address is ignored in fill
@@ -2026,6 +2026,51 @@ longpeekdmalist:
 		.word kickstart_scratchbyte0
 		.byte $0F 
 		.byte $00,00 ; Modulo
+
+longpoke:
+		; Use DMAgic to write any byte of RAM in C65 1MB address space.
+		; A = value
+		; X = Address LSB
+		; Y = Address MidB
+		; Z = Address Bank
+
+		; Patch DMA list
+		;
+		sta longpokevalue
+		stx longpokeaddress+0
+		sty longpokeaddress+1
+		stz longpokeaddress+2
+		lda #$00
+		sta $d706 ; DMAgic destination MB
+
+		; Set DMA list address
+		;
+		lda #>longpokedmalist
+		sta $d701
+		lda #$0f
+		sta $d702 ; DMA list address is $xxFxxxx
+		lda #$ff
+		sta $d704 ; DMA list address is $FFxxxxx
+
+		; set bottom bits of DMA list address and trigger DMA
+		;
+		lda #<longpokedmalist
+		sta $d700
+		rts
+
+longpokedmalist:
+		.byte $03 ; FILL, no chain
+		; 1 byte
+		.word $0001
+		; source address (LSB = fill value)
+longpokevalue:	.byte $00
+		.word $0000
+		; destination address
+longpokeaddress:
+		.word $0000
+		.byte $0F 
+		.byte $00,00 ; Modulo
+
 
 ;	========================
 		
@@ -2692,13 +2737,17 @@ ueol1:
 	jsr task_set_c64_memorymap
 	lda #$3f
 	sta hypervisor_cpuport00
-	lda #$35 ; IO, but no ROMs
+	lda #$35 ; IO + Kernel ROM @ $E000 (although Kernel is blank)
 	sta hypervisor_cpuport01
 
 	; make $FFD2 safe for CC65 compiled programs that call
-	; there to set lower case.
+	; there to set lower case during initialisation.
+	; We need to write $60 to $2FFD2
 	lda #$60 ; RTS
-	sta $ffd2
+	ldx #$d2
+	ldy #$ff
+	ldz #$02
+	jsr longpoke
 
 	; Next instruction exits hypervisor to user mode
 	sta hypervisor_enterexit_trigger
