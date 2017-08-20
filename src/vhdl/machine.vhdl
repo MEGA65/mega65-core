@@ -341,6 +341,8 @@ architecture Behavioral of machine is
   signal pixel_newframe : std_logic;
   signal pixel_newraster : std_logic;
   signal pixel_x_640 : integer;
+  signal pixel_y_scale_200 : unsigned(3 downto 0);
+  signal pixel_y_scale_400 : unsigned(3 downto 0);
 
   signal farcallstack_we : std_logic;
   signal farcallstack_addr : std_logic_vector(8 downto 0);
@@ -724,6 +726,8 @@ begin
       pixel_newframe => pixel_newframe,
       pixel_newraster => pixel_newraster,
       pixel_x_640 => pixel_x_640,
+      pixel_y_scale_200 => pixel_y_scale_200,
+      pixel_y_scale_400 => pixel_y_scale_400,
       
       chipram_we => chipram_we,
       chipram_address => chipram_address,
@@ -926,6 +930,8 @@ begin
     monitor_char_valid => monitor_char_out_valid,
     terminal_emulator_ready => terminal_emulator_ready,
     pixel_x_640 => pixel_x_640,
+    pixel_y_scale_200 => pixel_y_scale_200,
+    pixel_y_scale_400 => pixel_y_scale_400,
     ycounter_in => ycounter,	
     clk => uartclock,
     pixelclock => pixelclock,
@@ -940,6 +946,8 @@ begin
 
     visual_keyboard0 : entity work.visual_keyboard port map(
     pixel_x_640_in => pixel_x_640,
+    pixel_y_scale_200 => pixel_y_scale_200,
+    pixel_y_scale_400 => pixel_y_scale_400,
     ycounter_in => ycounter,
     y_start => osk_y,
     x_start => osk_x,

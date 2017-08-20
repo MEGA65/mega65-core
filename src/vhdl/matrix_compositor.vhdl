@@ -13,6 +13,8 @@ entity matrix_compositor is
     monitor_char_valid : in std_logic;
     terminal_emulator_ready : out std_logic;
     pixel_x_640 : in integer;
+    pixel_y_scale_200 : in unsigned(3 downto 0);
+    pixel_y_scale_400 : in unsigned(3 downto 0);
     ycounter_in : in unsigned(11 downto 0);
     pixel_x_640_out : out integer;
     ycounter_out : out unsigned(11 downto 0);

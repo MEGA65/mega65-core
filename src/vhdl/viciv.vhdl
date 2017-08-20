@@ -103,7 +103,11 @@ entity viciv is
     pixel_valid : out std_logic;
     pixel_newframe : out std_logic;
     pixel_newraster : out std_logic;
+    -- Pixel x counter scaled to count to about 640
     pixel_x_640 : out integer;
+    -- Scale for 200 and 400px high modes (used by compositors)
+    pixel_y_scale_400 : out unsigned(3 downto 0);
+    pixel_y_scale_200 : out unsigned(3 downto 0);
     
     ---------------------------------------------------------------------------
     -- CPU Interface to ChipRAM in video controller (just 128KB for now)
@@ -2834,6 +2838,7 @@ begin
         end if;
       end if;
 
+      -- Update counters for X and Y position for compositers
       if xcounter = 0 then
         xpixel_fw640_sub <= (others => '0');
         xpixel_fw640 <= (others => '0');
@@ -2849,6 +2854,8 @@ begin
         end if;
       end if;
       pixel_x_640 <= to_integer(xpixel_fw640);
+      pixel_y_scale_400 <= chargen_y_scale_400(3 downto 0);
+      pixel_y_scale_200 <= chargen_y_scale_200(3 downto 0);
       
       --chardata_drive <= unsigned(chardata);
       --paint_chardata <= chardata_drive;
