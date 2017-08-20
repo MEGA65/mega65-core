@@ -29,6 +29,11 @@ architecture behavioural of visual_keyboard is
 
   signal y_start_current : unsigned(11 downto 0) :=
     to_unsigned(0,12);
+  signal x_start_current : unsigned(13 downto 0) :=
+    to_unsigned(0,14);
+  signal x_surplus : unsigned(13 downto 0) :=
+    to_unsigned(0,14);
+  signal max_x : integer := 0;
   
   signal y_stretch : integer range 0 to 15 := 1;
 
@@ -408,6 +413,7 @@ begin
       end if;
       if ycounter_in = 0 and ycounter_last /= 0 then
         max_y <= ycounter_last;
+        max_x <= 0;
         report "setting max_y to "
           & integer'image(to_integer(ycounter_last));
         -- Move visual keyboard up one a bit each frame
@@ -438,7 +444,11 @@ begin
           end if;
         end if;
         report "y_start_current = " &
-          integer'image(to_integer(y_start_current));
+          integer'image(to_integer(y_start_current))
+          & ", x_start_current = " &
+          integer'image(to_integer(x_start_current))
+          & ", max_x = " &
+          integer'image(max_x);
       end if;
       ycounter_last <= ycounter_in;
       if visual_keyboard_enable='1'
@@ -455,7 +465,18 @@ begin
         report "Setting visual keyboard to max_y as it has just been enabled";
       end if;
       last_visual_keyboard_enable <= visual_keyboard_enable;
-      
+
+      -- Work out where to place keyboard to centre it
+      if pixel_x_640 > max_x then
+        max_x <= pixel_x_640;
+      end if;
+      x_start_current(12 downto 0) <= x_surplus(13 downto 1);
+      x_start_current(13) <= '0';
+      if max_x >= 640 then
+        x_surplus <= to_unsigned(max_x - 640,14);
+      else
+        x_surplus <= (others => '0');
+      end if;      
     end if;
   end process;
   
