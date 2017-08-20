@@ -111,7 +111,7 @@ void sdcard_writesector(const uint32_t sector_number)
     
   write_count++;
 
-  POKE(0xD021,write_count&0xff);
+  POKE(0xD020,write_count&0xff);
 }
 
 void sdcard_erase(const uint32_t first_sector,const uint32_t last_sector)
