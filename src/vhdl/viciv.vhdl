@@ -3221,7 +3221,7 @@ begin
       end if;
       
       display_active <= indisplay;
-      viciv_outofframe <= indisplay_t3 and viciv_outofframe_enable;
+      viciv_outofframe <= (not indisplay_t3) and viciv_outofframe_enable;
       
       if indisplay_t3='1' then
         if inborder_t2='1' or blank='1' then
