@@ -1513,11 +1513,11 @@ begin
       end if;
 
       -- Calculate height of top borders
-      top_borders_height_200 <= to_unsigned(to_integer(frame_height)
+      top_borders_height_200 <= to_unsigned(to_integer(display_height)
                                             - text_height_200,12);
       single_top_border_200(10 downto 0) <= top_borders_height_200(11 downto 1);
       single_top_border_200(11) <= '0';
-      top_borders_height_400 <= to_unsigned(to_integer(frame_height)
+      top_borders_height_400 <= to_unsigned(to_integer(display_height)
                                             - text_height_400,12);
       single_top_border_400(10 downto 0) <= top_borders_height_400(11 downto 1);
       single_top_border_400(11) <= '0';      
