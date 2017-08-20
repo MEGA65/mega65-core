@@ -977,6 +977,10 @@ architecture Behavioral of viciv is
   signal xpixel_640 : unsigned(10 downto 0);
   signal xpixel_640_sub : unsigned(9 downto 0);
 
+
+  signal xpixel_fw640 : unsigned(10 downto 0);
+  signal xpixel_fw640_sub : unsigned(9 downto 0);
+  signal chargen_x_scale_fw640 : unsigned(7 downto 0);
   
   -- Colour RAM access for video controller
   signal colourramaddress : unsigned(15 downto 0);
@@ -1450,6 +1454,38 @@ begin
         text_width_1280 <= 1*1280;
       end if;
 
+      -- Width of 80 column composited overlays
+      -- (uses fractional pixel counts, so that on-screen keyboard
+      -- can span full width when required)
+      if display_width>=(11*640) then
+        -- 3 pixels per pixel
+        chargen_x_scale_fw640 <= to_unsigned(120/11,8);
+      elsif display_width>=(10*640) then
+        chargen_x_scale_fw640 <= to_unsigned(120/10,8);
+      elsif display_width>=(9*640) then
+        chargen_x_scale_fw640 <= to_unsigned(120/9,8);
+      elsif display_width>=(8*640) then
+        chargen_x_scale_fw640 <= to_unsigned(120/8,8);
+      elsif display_width>=(7*640) then
+        chargen_x_scale_fw640 <= to_unsigned(120/7,8);
+      elsif display_width>=(6*640) then
+        chargen_x_scale_fw640 <= to_unsigned(120/6,8);
+      elsif display_width>=(5*640) then
+        chargen_x_scale_fw640 <= to_unsigned(120/5,8);
+      elsif display_width>=(4*640) then
+        chargen_x_scale_fw640 <= to_unsigned(120/4,8);
+      elsif display_width>=(3*640) then
+        chargen_x_scale_fw640 <= to_unsigned(120/3,8);
+      elsif display_width>=(2*640) then
+        chargen_x_scale_fw640 <= to_unsigned(120/2,8);
+      elsif display_width >= 800 then
+        -- 1.25 natural pixels per pixel
+        chargen_x_scale_fw640 <= x"60";
+      else
+        -- <800 use natural pixels
+        chargen_x_scale_fw640 <= x"78";
+      end if;
+      
       -- Calculate width of side borders
       side_borders_width_320 <= to_unsigned(to_integer(display_width) - text_width_320,14);
       single_side_border_320(12 downto 0) <= side_borders_width_320(13 downto 1);
@@ -2797,7 +2833,22 @@ begin
           xpixel_640_sub <= xpixel_640_sub + chargen_x_scale_640;
         end if;
       end if;
-      pixel_x_640 <= to_integer(xpixel_640);     
+
+      if xcounter = 0 then
+        xpixel_fw640_sub <= (others => '0');
+        xpixel_fw640 <= (others => '0');
+      else
+        if xpixel_fw640_sub >= 240 then
+          xpixel_fw640_sub <= xpixel_fw640_sub - 240 + chargen_x_scale_fw640;
+          xpixel_fw640 <= xpixel_fw640 + 2;
+        elsif xpixel_fw640_sub >= 120 then
+          xpixel_fw640_sub <= xpixel_fw640_sub - 120 + chargen_x_scale_fw640;
+          xpixel_fw640 <= xpixel_fw640 + 1;
+        else
+          xpixel_fw640_sub <= xpixel_fw640_sub + chargen_x_scale_fw640;
+        end if;
+      end if;
+      pixel_x_640 <= to_integer(xpixel_fw640);
       
       --chardata_drive <= unsigned(chardata);
       --paint_chardata <= chardata_drive;
