@@ -6,6 +6,10 @@
 
 unsigned char frame[480][640*4];
 
+int image_number=0;
+
+void write_image(int image_number);
+
 int main(int argc,char **argv)
 {
   int x,y,r,g,b;
@@ -31,14 +35,19 @@ int main(int argc,char **argv)
 	frame[y][x*4+3]=0xff;
       }
       if (x==640&&y==480) {
-	printf("Stopping on %s",line);
-	break;
+	printf("Writing image %d",++image_number);
+	write_image(image_number);
       }
     } else printf("%s",line);      
 
     line [0]=0; fgets(line,1024,stdin);
   }
+  return 0;
+}
   
+void write_image(int image_number)
+{
+  int y;
   png_structp png = png_create_write_struct(PNG_LIBPNG_VER_STRING,NULL,NULL,NULL);
   if (!png) abort();
 
@@ -47,7 +56,9 @@ int main(int argc,char **argv)
 
   if (setjmp(png_jmpbuf(png))) abort();
 
-  FILE *f=fopen(argv[1]?argv[1]:"oskimage.png","wb");
+  char filename[1024];
+  snprintf(filename,1024,"oskimage-%04d.png",image_number);
+  FILE *f=fopen(filename,"wb");
   if (!f) abort();
 
   png_init_io(png,f);
@@ -70,6 +81,7 @@ int main(int argc,char **argv)
   }
 
   png_write_end(png,info);
+  fclose(f);
   
-  return 0;
+  return;
 }
