@@ -150,7 +150,7 @@ begin
       -- different video modes.
       if pixel_x_640 /= last_pixel_x_640 then
         last_pixel_x_640 <= pixel_x_640;
-        if pixel_x_640 = 0 and  ycounter_in >= starty and ycounter_in < endy then
+        if pixel_x_640 = 640 and  ycounter_in >= starty and ycounter_in < endy then
           if lineCounter=mm_displayMode then	-- 0 (1 px per line), 1 (2 px per line), 2 (3px per line) 
             lineCounter<=b"000"; --reset counter
             if charline = b"0111" then --on the ~7th line (0-7)
