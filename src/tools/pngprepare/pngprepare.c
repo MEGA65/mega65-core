@@ -332,42 +332,65 @@ void process_file(int mode, char *outputfilename)
     }
 
     int spots[8][8];
+    int charsets;
 
-    for (y=0; y<height; y++) {
-      png_byte* row = row_pointers[y];
-      int byte=0;
-      int yy=y&7;
 
-      for (x=0; x<width; x++) {
-	png_byte* ptr = &(row[x*multiplier]);
-	int r=ptr[0]; // g=ptr[1],b=ptr[2], a=ptr[3];
-
-	if (x<8) {
-	  if (r>0x7f) {
-	    byte|=(1<<(7-x));
-	    spots[yy][x]=1;
-	  } else spots[yy][x]=0;
+    // 4KB = 2x 256 char = 2KB charsets
+    for(charsets = 0 ; charsets<2 ; charsets++) {
+      for (y=0; y<height; y++) {
+	png_byte* row = row_pointers[y];
+	int byte=0;
+	int yy=y&7;
+	
+	for (x=0; x<width; x++) {
+	  png_byte* ptr = &(row[x*multiplier]);
+	  int r=ptr[0]; // g=ptr[1],b=ptr[2], a=ptr[3];
+	  
+	  if (x<8) {
+	    if (r>0x7f) {
+	      byte|=(1<<(7-x));
+	      spots[yy][x]=1;
+	    } else spots[yy][x]=0;
+	  }
 	}
-      }
-      fflush(stdout);
-      char comma = ',';
-      if (y==height-1) comma=' ';
-      if (vhdl_mode) fprintf(outfile,"x\"%02x\"%c",byte,comma);
-      else fputc(byte,outfile);
-      bytes++;
-      if (vhdl_mode) {
-	if ((y&7)==7) {
-	  fprintf(outfile,"\n");
-	  int yy;
-	  for(yy=0;yy<8;yy++) {
-	    fprintf(outfile,"-- [");
-	    for(x=0;x<8;x++) {
-	      if (spots[yy][x]) fprintf(outfile,"*"); else fprintf(outfile," ");
+	fflush(stdout);
+	char comma = ',';
+	if (y==height-1) comma=' ';
+	if (vhdl_mode) fprintf(outfile,"x\"%02x\"%c",byte,comma);
+	else fputc(byte,outfile);
+	bytes++;
+	if (vhdl_mode) {
+	  if ((y&7)==7) {
+	    fprintf(outfile,"\n");
+	    int yy;
+	    for(yy=0;yy<8;yy++) {
+	      fprintf(outfile,"-- [");
+	      for(x=0;x<8;x++) {
+		if (spots[yy][x]) fprintf(outfile,"*"); else fprintf(outfile," ");
+	      }
+	      fprintf(outfile,"]\n");
 	    }
-	    fprintf(outfile,"]\n");
 	  }
 	}
       }
+
+      // Fill in any missing bytes
+      if (bytes<2048) {
+
+      printf("Padding output file to 2048 after first charset\n");
+
+      if (vhdl_mode) {
+	fprintf(outfile,",\n");
+	for(;bytes<2048;bytes+=8) {
+	  fprintf(outfile,"x\"00\",x\"00\",x\"00\",x\"00\",x\"00\",x\"00\",x\"00\",x\"00\",\n");
+	}
+      } else {
+	// In raw mode, don't pad, or write charset twice
+	break;
+      }
+
+    }
+
     }
     // Fill in any missing bytes
     if (bytes<4096) {
