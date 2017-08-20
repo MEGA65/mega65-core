@@ -55,7 +55,7 @@ int process_char(unsigned char c,int live);
 void usage(void)
 {
   fprintf(stderr,"MEGA65 cross-development tool for booting the MEGA65 using a custom bitstream and/or KICKUP file.\n");
-  fprintf(stderr,"usage: monitor_load [-l <serial port>] [-s <230400|2000000|4000000>]  [-b <FPGA bitstream>] [[-k <kickup file>] [-R romfile] [-C charromfile]] [-m modeline] [filename]\n");
+  fprintf(stderr,"usage: monitor_load [-l <serial port>] [-s <230400|2000000|4000000>]  [-b <FPGA bitstream>] [[-k <kickup file>] [-R romfile] [-C charromfile]] [-c COLOURRAM.BIN] [-m modeline] [filename]\n");
   fprintf(stderr,"  -l - Name of serial port to use, e.g., /dev/ttyUSB1\n");
   fprintf(stderr,"  -s - Speed of serial port in bits per second. This must match what your bitstream uses.\n");
   fprintf(stderr,"       (Older bitstream use 230400, and newer ones 2000000 or 4000000).\n");
@@ -63,6 +63,7 @@ void usage(void)
   fprintf(stderr,"  -k - Name of kickup file to forcibly use instead of the kickstart in the bitstream.\n");
   fprintf(stderr,"  -R - ROM file to preload at $20000-$3FFFF.\n");
   fprintf(stderr,"  -C - Character ROM file to preload.\n");
+  fprintf(stderr,"  -c - Colour RAM contents to preload.\n");
   fprintf(stderr,"  -4 - Switch to C64 mode before exiting.\n");
   fprintf(stderr,"  -r - Automatically RUN programme after loading.\n");
   fprintf(stderr,"  -m - Set video mode to Xorg style modeline.\n");
@@ -99,6 +100,7 @@ int do_run=0;
 char *filename=NULL;
 char *romfile=NULL;
 char *charromfile=NULL;
+char *colourramfile=NULL;
 FILE *f=NULL;
 char *search_path=".";
 char *bitstream=NULL;
@@ -244,7 +246,9 @@ int process_line(char *line,int live)
       if (kickstart) load_file(kickstart,0xfff8000,patchKS); kickstart=NULL;
       if (romfile) load_file(romfile,0x20000,0); romfile=NULL;
       if (charromfile) load_file(charromfile,0xFF7E000,0);
+      if (colourramfile) load_file(colourramfile,0xFF80000,0);
       charromfile=NULL;
+      colourramfile=NULL;
       restart_kickstart();
     } else {
       if (state==99) {
@@ -700,10 +704,11 @@ int main(int argc,char **argv)
   start_time=time(0);
   
   int opt;
-  while ((opt = getopt(argc, argv, "4l:s:b:k:rR:C:m:")) != -1) {
+  while ((opt = getopt(argc, argv, "4l:s:b:c:k:rR:C:m:")) != -1) {
     switch (opt) {
     case 'R': romfile=strdup(optarg); break;
-    case 'C': charromfile=strdup(optarg); break;      
+    case 'C': charromfile=strdup(optarg); break;
+    case 'c': colourramfile=strdup(optarg); break;
     case '4': do_go64=1; break;
     case 'r': do_run=1; break;
     case 'l': strcpy(serial_port,optarg); break;
