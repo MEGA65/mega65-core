@@ -30,13 +30,13 @@ architecture behavioural of visual_keyboard is
   signal y_start_current : unsigned(11 downto 0) :=
     to_unsigned(0,12);
   
-  signal y_stretch : integer range 0 to 7 := 1;
+  signal y_stretch : integer range 0 to 15 := 1;
 
   constant chars_per_row : integer := 3;
 
   signal y_pixel_counter : integer range 0 to 7 := 0;
   signal y_char_in_row : integer range 0 to chars_per_row := 0;
-  signal y_phase : integer range 0 to 2 := 0;
+  signal y_phase : integer range 0 to 16 := 0;
   signal y_row : integer range 0 to 7 := 0;
   
   signal vk_pixel : unsigned(1 downto 0) := "00";
@@ -106,7 +106,7 @@ begin
     if rising_edge(pixelclock) then
 
       -- Update vertical scale factor to fit video mode
-      y_stretch <= to_integer(pixel_y_scale_200);
+      y_stretch <= to_integer(pixel_y_scale_200) - 1;
       
       if pixel_x_640_in < x_start then
         pixel_x_640 <= 640;
@@ -405,16 +405,40 @@ begin
         vgagreen_out <= vgagreen_in;
         vgablue_out <= vgablue_in;
 
-        -- visual keyboard disabled, so push it back off the bottom
-        -- of the screen
-        y_start_current <= max_y;
       end if;
       if ycounter_in = 0 and ycounter_last /= 0 then
         max_y <= ycounter_last;
+        report "setting max_y to "
+          & integer'image(to_integer(ycounter_last));
         -- Move visual keyboard up one a bit each frame
-        if osk_in_position = '0' then
-          y_start_current <= y_start_current - pixel_y_scale_200;
+        -- visual keyboard disabled, so push it back off the bottom
+        -- of the screen
+        if visual_keyboard_enable = '0' then
+          if max_y /= 0 then
+            report "Visual keyboard disabled -- pushin to bottom of screen";
+            if ycounter_last > max_y then
+              y_start_current <= ycounter_last;
+            else
+              y_start_current <= max_y;
+            end if;
+          else
+            report "Visual keyboard disabled: guessing end of screen";
+            y_start_current <= (others => '1');
+          end if;
+        elsif osk_in_position = '0'
+          and visual_keyboard_enable='1'
+          and last_visual_keyboard_enable='1' then
+          report "Sliding visual keyboard up a bit";
+          y_start_current(11 downto 1)
+            <= y_start_current(11 downto 1)
+            - pixel_y_scale_200;
+          if y_start_current > max_y then
+            report "Resetting visual keyboard to bottom edge";
+            y_start_current <= max_y;
+          end if;
         end if;
+        report "y_start_current = " &
+          integer'image(to_integer(y_start_current));
       end if;
       ycounter_last <= ycounter_in;
       if visual_keyboard_enable='1'
@@ -423,7 +447,12 @@ begin
         -- off the bottom of the screen, and allow it to
         -- move up over several frames
         osk_in_position <= '0';
-        y_start_current <= max_y;
+        if ycounter_last > max_y then
+          y_start_current <= ycounter_last;
+        else
+          y_start_current <= max_y;
+        end if;
+        report "Setting visual keyboard to max_y as it has just been enabled";
       end if;
       last_visual_keyboard_enable <= visual_keyboard_enable;
       
