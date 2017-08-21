@@ -113,10 +113,10 @@ begin
       -- Update vertical scale factor to fit video mode
       y_stretch <= to_integer(pixel_y_scale_200) - 1;
       
-      if pixel_x_640_in < x_start then
+      if pixel_x_640_in < x_start_current then
         pixel_x_640 <= 640;
       else
-        pixel_x_640 <= pixel_x_640_in - to_integer(x_start);
+        pixel_x_640 <= pixel_x_640_in - to_integer(x_start_current);
       end if;
       
       if pixel_x_640 = 640 then
@@ -126,6 +126,7 @@ begin
         first_column <= '0';
         char_pixel <= '0';
         box_pixel <= '0';
+        box_inverse <= '0';
 
         if last_was_640 = '0' then
           -- End of line, prepare for next
@@ -372,7 +373,7 @@ begin
             -- Else read a blank character (we know one is at location 1)
             -- (this ensures we draw the right edge of the last key on each
             -- row correctly).
-            address <= 2048 + 1;
+            address <= 2048 + 1;            
           end if;
           fetch_state <= GotNextMatrix;
         when GotNextMatrix =>
@@ -476,7 +477,7 @@ begin
         x_surplus <= to_unsigned(max_x - 640,14);
       else
         x_surplus <= (others => '0');
-      end if;      
+      end if;
     end if;
   end process;
   

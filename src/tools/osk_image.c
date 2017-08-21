@@ -4,7 +4,7 @@
 #define PNG_DEBUG 3
 #include <png.h>
 
-unsigned char frame[480][640*4];
+unsigned char frame[480][800*4];
 
 int image_number=0;
 
@@ -19,7 +19,7 @@ int main(int argc,char **argv)
   printf("Clear frame...\n");
   
   for(y=0;y<480;y++)
-    for(x=0;x<640*4;x++)
+    for(x=0;x<800*4;x++)
       frame[y][x]=0;
 
   printf("Read pixels...\n");
@@ -28,13 +28,13 @@ int main(int argc,char **argv)
   while(line[0]) {
     if (sscanf(line,"%*[^\\.].vhdl:%*[^:]:%*d:%*[^:]:(report note): PIXEL:%d:%d:%x:%x:%x",
 	       &x,&y,&r,&g,&b)==5) {
-      if (x>=0&&x<640&&y>=0&&y<480) {
+      if (x>=0&&x<800&&y>=0&&y<480) {
 	frame[y][x*4+0]=r;
 	frame[y][x*4+1]=g;
 	frame[y][x*4+2]=b;
 	frame[y][x*4+3]=0xff;
       }
-      if (x==640&&y==480) {
+      if (x==800&&y==480) {
 	printf("Writing image %d",++image_number);
 	write_image(image_number);
       }
@@ -66,7 +66,7 @@ void write_image(int image_number)
   png_set_IHDR(
 	       png,
 	       info,
-	       640,480,
+	       800,480,
 	       8,
 	       PNG_COLOR_TYPE_RGBA,
 	       PNG_INTERLACE_NONE,
