@@ -131,7 +131,8 @@ architecture behavioural of c65uart is
   signal reg_porte_ddr : std_logic_vector(7 downto 0) := "00000010";
   signal reg_porte_read : unsigned(7 downto 0) := (others => '0');
   -- Used for HDMI SPI control interface and SD SPI bitbashing debug interface)
-  signal reg_portg_out : std_logic_vector(7 downto 0) := (others => '0');
+  -- Bits 0 and 1 are invert sense for left and up keys
+  signal reg_portg_out : std_logic_vector(7 downto 0) := "00000011"; 
   signal reg_portg_ddr : std_logic_vector(7 downto 0) := "00111111";
   signal reg_portg_read : unsigned(7 downto 0) := (others => '0');
 
