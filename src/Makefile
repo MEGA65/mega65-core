@@ -94,7 +94,7 @@ SIMULATIONFILES=	vhdl/UART_TX_CTRL.vhd vhdl/bitplane.vhdl vhdl/bitplanes.vhdl \
 	vhdl/keyboard_to_matrix.vhdl vhdl/matrix_to_ascii.vhdl \
 	vhdl/widget_to_matrix.vhdl vhdl/ps2_to_matrix.vhdl vhdl/keymapper.vhdl \
 	vhdl/keyboard_complex.vhdl vhdl/virtual_to_matrix.vhdl \
-	vhdl/visual_keyboard.vhdl vhdl/oskmem.vhdl
+	vhdl/visual_keyboard.vhdl vhdl/oskmem.vhdl vhdl/ghdl_ram36x1k.vhdl
 simulate:	$(SIMULATIONFILES)
 	ghdl -i $(SIMULATIONFILES)
 	ghdl -m cpu_test

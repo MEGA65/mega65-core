@@ -897,6 +897,16 @@ constant cycle_count_lut : clut9bit := (
 
   signal monitor_char_toggle_internal : std_logic := '1';
 
+  -- ZP/stack cache
+  signal cache_we : std_logic := '0';
+  signal cache_waddr : unsigned(9 downto 0);
+  signal cache_raddr : unsigned(9 downto 0);
+  signal cache_rdata : unsigned(35 downto 0);
+  signal cache_wdata : unsigned(35 downto 0);
+  signal cache_read_valid : std_logic := '0';
+  signal cache_flushing : std_logic := '1';
+  signal cache_flush_counter : unsigned(9 downto 0) := (others => '0');
+
   type microcode_lut_t is array (instruction)
     of microcodeops;
   signal microcode_lut : microcode_lut_t := (
@@ -1076,6 +1086,16 @@ begin
     data_o  => rom_rdata,
     no_writes => rom_no_write_count,
     writes => rom_write_count);
+
+  zpcache0: entity work.ram36x1k port map (
+    clkl => clock,
+    clkr => clock,
+    wel(0) => cache_we,
+    addrl => std_logic_vector(cache_waddr),
+    addrr => std_logic_vector(cache_raddr),
+    unsigned(doutr) => cache_rdata,
+    dinl => std_logic_vector(cache_wdata)
+    );    
   
   process(clock,reset,reg_a,reg_x,reg_y,reg_z,flag_c)
     procedure disassemble_last_instruction is
@@ -2094,9 +2114,15 @@ begin
         else
           cpuport_ddr <= value;
         end if;
+        report "ZPCACHE: Flushing cache due to write to $01";
+        cache_flushing <= '1';
+        cache_flush_counter <= (others => '0');
       elsif (long_address = x"0000001") then
         report "MEMORY: Writing to CPU PORT register" severity note;
         cpuport_value <= value;
+        report "ZPCACHE: Flushing cache due to write to $01";
+        cache_flushing <= '1';
+        cache_flush_counter <= (others => '0');
       -- Write to DMAgic registers if required
       elsif (long_address = x"FFD3700") or (long_address = x"FFD1700") then        
         -- Set low order bits of DMA list address
@@ -2338,6 +2364,11 @@ begin
       -- Inhibit all interrupts until EOM (opcode $EA, which used to be NOP)
       -- is executed.
       map_interrupt_inhibit <= '1';
+
+      -- Flush ZP/stack cache because memory map may have changed
+      cache_flushing <= '1';
+      cache_flush_counter <= (others => '0');      
+      
     end c65_map_instruction;
 
     procedure alu_op_cmp (
@@ -2520,6 +2551,17 @@ begin
     
     -- BEGINNING OF MAIN PROCESS FOR CPU
     if rising_edge(clock) and all_pause='0' then
+
+      if cache_flushing = '1' then
+        cache_waddr <= cache_flush_counter;
+        cache_wdata <= (others => '1');
+        if cache_flush_counter /= "1111111111" then
+          cache_flush_counter <= cache_flush_counter + 1;
+        else
+          cache_flushing <= '0';
+          report "ZPCACHE: Flush complete.";
+        end if;
+      end if;
       
       speed_gate_drive <= speed_gate;
       
@@ -3319,6 +3361,10 @@ begin
               hyper_port_00 <= cpuport_ddr; hyper_port_01 <= cpuport_value;
               hyper_p <= unsigned(virtual_reg_p);
 
+              report "ZPCACHE: Flushing cache due to trap to hypervisor";
+              cache_flushing <= '1';
+              cache_flush_counter <= (others => '0');
+              
               -- NEVER leave the @#$%! decimal flag set when entering the hypervisor
               -- (This took MONTHS to realise as the source of a MYRIAD of hypervisor
               -- problems.  Anyone removing this without asking Paul first will
@@ -3388,6 +3434,10 @@ begin
               flag_e <= hyper_p(5); flag_d <= hyper_p(3);
               flag_i <= hyper_p(2); flag_z <= hyper_p(1);
               flag_c <= hyper_p(0);
+
+              report "ZPCACHE: Flushing cache due to return from hypervisor";
+              cache_flushing <= '1';
+              cache_flush_counter <= (others => '0');
               
               -- clear hypervisor mode flag
               hypervisor_mode <= '0';
@@ -3729,14 +3779,22 @@ begin
                 flat32_address_prime <= '0';
                 
                 case memory_read_value is
-                  when x"03" => flag_e <= '1'; -- SEE
+                  when x"03" =>
+                    flag_e <= '1'; -- SEE
+                    report "ZPCACHE: Flushing cache due to setting E flag";
+                    cache_flushing <= '1';
+                    cache_flush_counter <= (others => '0');
                   when x"0A" => reg_a <= a_asl; set_nz(a_asl); flag_c <= reg_a(7); -- ASL A
                   when x"0B" => reg_y <= reg_sph; set_nz(reg_sph); -- TSY
                   when x"18" => flag_c <= '0';  -- CLC
                   when x"1A" => reg_a <= a_incremented; set_nz(a_incremented); -- INC A
                   when x"1B" => reg_z <= z_incremented; set_nz(z_incremented); -- INZ
                   when x"2A" => reg_a <= a_rol; set_nz(a_rol); flag_c <= reg_a(7); -- ROL A
-                  when x"2B" => reg_sph <= reg_y; -- TYS
+                  when x"2B" =>
+                    reg_sph <= reg_y; -- TYS
+                    report "ZPCACHE: Flushing cache due to setting SPH";
+                    cache_flushing <= '1';
+                    cache_flush_counter <= (others => '0');                    
                   when x"38" => flag_c <= '1';  -- SEC
                   when x"3A" => reg_a <= a_decremented; set_nz(a_decremented); -- DEC A
                   when x"3B" => reg_z <= z_decremented; set_nz(z_decremented); -- DEZ
@@ -3744,7 +3802,11 @@ begin
                   when x"43" => reg_a <= a_asr; set_nz(a_asr); -- ASR A
                   when x"4A" => reg_a <= a_lsr; set_nz(a_lsr); flag_c <= reg_a(0); -- LSR A
                   when x"4B" => reg_z <= reg_a; set_nz(reg_a); -- TAZ
-                  when x"5B" => reg_b <= reg_a; -- TAB
+                  when x"5B" =>
+                    reg_b <= reg_a; -- TAB
+                    report "ZPCACHE: Flushing cache due to moving ZP";
+                    cache_flushing <= '1';
+                    cache_flush_counter <= (others => '0');
                   when x"6A" => reg_a <= a_ror; set_nz(a_ror); flag_c <= reg_a(0); -- ROR A
                   when x"6B" => reg_a <= reg_z; set_nz(reg_z); -- TZA
                   when x"78" => flag_i <= '1';  -- SEI
@@ -4074,6 +4136,27 @@ begin
               monitor_ibytes(1) <= '1';
               reg_arg1 <= memory_read_value;
               reg_addr(7 downto 0) <= memory_read_value;
+
+              -- Request ZP/stack cache read
+              -- Cache lines are 4 bytes wide
+              -- ZP cache is bottom 64 lines
+              cache_raddr(9 downto 6) <= "0000";
+              if reg_addressingmode = M_InnX then
+                -- Pre-increment address ZP by X
+                temp_value := memory_read_value + reg_x;
+                cache_raddr(5 downto 0) <= temp_value(7 downto 2);
+              else
+                cache_raddr(5 downto 0) <= memory_read_value(7 downto 2);
+              end if;
+              if cache_flushing = '1' or reg_addressingmode = M_InnSPY then
+                -- Don't use cache if flushing or for the stack-relative instructions
+                -- (at least until we work out the correct formula for the
+                -- InnSPY access -- it should be quite possibe)
+                cache_read_valid <= '0';
+              else
+                cache_read_valid <= '1';
+                report "ZPCACHE: Reading ZP cache entry $" & to_hstring(memory_read_value(7 downto 2));
+              end if;
               
               -- Work out relevant bit mask for RMB/SMB
               case reg_opcode(6 downto 4) is
@@ -5021,7 +5104,12 @@ begin
                 reg_t <= memory_read_value or smb_mask;
               end if;
               
-              if reg_microcode.mcClearE='1' then flag_e <= '0'; end if;
+              if reg_microcode.mcClearE='1' then
+                flag_e <= '0';
+                report "ZPCACHE: Flushing cache due to clearing E flag";
+                cache_flushing <= '1';
+                cache_flush_counter <= (others => '0');
+              end if;
               if reg_microcode.mcClearI='1' then flag_i <= '0'; end if;
               if reg_microcode.mcMap='1' then c65_map_instruction; end if;
 
