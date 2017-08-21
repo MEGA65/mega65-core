@@ -1067,7 +1067,6 @@ architecture Behavioral of viciv is
   signal new_frame : std_logic := '0';
 
   signal viciv_flyback : std_logic := '0';
-  signal viciv_outofframe_enable : std_logic := '0';
   
 begin
       
@@ -2784,7 +2783,6 @@ begin
           -- @IO:GS $D07F.0-5 VIC-IV debug X position (MSB)
           -- @IO:GS $D07F.7 VIC-IV debug out-of-frame signal enable
           debug_x(13 downto 8) <= unsigned(fastio_wdata(5 downto 0));
-          viciv_outofframe_enable <= fastio_wdata(7);
           -- @IO:GS $D07F.4-7 VIC-IV debug Y position (MSB)
           debug_y(11 downto 8) <= unsigned(fastio_wdata(7 downto 4));
         elsif register_number<255 then
@@ -3279,7 +3277,7 @@ begin
       end if;
       
       display_active <= indisplay;
-      viciv_outofframe <= (not indisplay_t3) and viciv_outofframe_enable;
+      viciv_outofframe <= (not indisplay_t3);
       
       if indisplay_t3='1' then
         if inborder_t2='1' or blank='1' then
