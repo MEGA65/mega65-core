@@ -2821,7 +2821,7 @@ begin
       -- Output the logical pixel number assuming H640 output
       -- (Used for Matrix Mode and visual keyboard compositers, so that
       -- they know how the actual mode is laid out).
-      if xcounter = 0 then
+      if displayx_drive = 0 then
         xpixel_640_sub <= (others => '0');
         xpixel_640 <= (others => '0');
       else
