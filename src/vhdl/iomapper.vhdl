@@ -800,7 +800,14 @@ begin
 
     if (r or w) = '1' then
       -- @IO:GS $FFF8000-$FFFBFFF 16KB Kickstart/hypervisor ROM
-      -- @IO:GS $FFF8000 Hypervisor entry point when $D67F is written
+      -- @IO:GS $FFF8000-$FFF80FC Hypervisor entry point when $D640-$D67F is written
+      -- @IO:GS $FFF8100 Hypervisor entry point on reset (trap $40)
+      -- @IO:GS $FFF8104 Hypervisor entry point on page fault (trap $41)
+      -- @IO:GS $FFF8108 Hypervisor entry point on RESTORE double-tap (trap $42)
+      -- @IO:GS $FFF810C Hypervisor entry point on ALT-TAB (trap $43)
+      -- @IO:GS $FFF8110 Hypervisor entry point on FDC read (when virtualised) (trap $44)
+      -- @IO:GS $FFF8114 Hypervisor entry point on FDC write (when virtualised) (trap $45)
+      
       if address(19 downto 14)&"00" = x"F8" then
         kickstartcs <= cpu_hypervisor_mode;
       else

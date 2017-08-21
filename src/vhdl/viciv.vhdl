@@ -2563,7 +2563,7 @@ begin
           vicii_is_raster_source <= '0';
         elsif register_number=84 then
           -- @IO:GS $D054 VIC-IV Control register C
-          -- @IO:GD $D054.7 VIC-IV/C65GS Alpha compositor enable
+          -- @IO:GS $D054.7 VIC-IV/C65GS Alpha compositor enable
           compositer_enable <= fastio_wdata(7);
           -- @IO:GS $D054.6 VIC-IV/C65GS FAST mode (48MHz)
           viciv_fast_internal <= fastio_wdata(6);
