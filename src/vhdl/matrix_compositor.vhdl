@@ -46,9 +46,10 @@ architecture Behavioral of matrix_compositor is
   signal readAddress_rom : unsigned(11 downto 0):=CharMemStart;
   signal dataOutRead_rom : unsigned (7 downto 0);
 
+  -- XXX startx MUST be >=1, or text field does not display correctly
 
 -- Frame boundaries 
-  signal startx : unsigned(13 downto 0):= to_unsigned(0,14);
+  signal startx : unsigned(13 downto 0):= to_unsigned(1,14);
   signal endx  : unsigned(13 downto 0):=to_unsigned(2068,14);
   signal starty : unsigned(11 downto 0):=x"07C"; --x07C d124
   signal endy : unsigned(11 downto 0):=x"43C"; --x43C d1084
@@ -57,14 +58,14 @@ architecture Behavioral of matrix_compositor is
 
 --Mode0 Frame
 --640x320
-  constant mode0_startx  : unsigned(13 downto 0):= to_unsigned(0,14);
+  constant mode0_startx  : unsigned(13 downto 0):= to_unsigned(1,14);
   constant mode0_starty : unsigned(11 downto 0):=x"07C";--x"1B8";--x"07C"; --x07C 124
   constant mode0_endx  : unsigned(13 downto 0):=mode0_startx+647;--x"313";--x"507";--x"313"; --x814 d780  -1 +8
   constant mode0_endy : unsigned(11 downto 0):=x"1BB";--x"2F8";--x"1BB"; --124+320 = 444, x1BC -1 
   constant mode0_garbage_end_offset : unsigned(13 downto 0):=to_unsigned(8,14);
 --Mode1 Frame
 --1280x640
-  constant mode1_startx  : unsigned(13 downto 0):=to_unsigned(0,14);
+  constant mode1_startx  : unsigned(13 downto 0):=to_unsigned(1,14);
   constant mode1_starty : unsigned(11 downto 0):=x"07C";--x"118";--x"07C"; --07C 124 
   constant mode1_endx  : unsigned(13 downto 0):=mode1_startx+1295;--x"590";--x"64F";--x"590"; --x581 d1409 -1
   constant mode1_endy : unsigned(11 downto 0):=mode1_starty+640;--x"2FB";--x"398";--x"2FB"; --x2FC d764 -1
@@ -254,7 +255,7 @@ begin
 --  greenOutput<='1';
 --end if;
 
-        if pixel_x_640 >=startx and pixel_x_640 <= endx  and ycounter_in >= starty and ycounter_in <= endy then		   
+        if pixel_x_640 >startx and pixel_x_640 <= endx  and ycounter_in >= starty and ycounter_in <= endy then		   
 
 --====================
 -- Generate Outputs:

@@ -38,6 +38,8 @@ begin
       mm_displayMode_in => "00",
       monitor_char_in => char_in,
       monitor_char_valid => char_valid,
+      pixel_y_scale_200 => to_unsigned(2,4),
+      pixel_y_scale_400 => to_unsigned(1,4),
       terminal_emulator_ready => term_ready,
       pixel_x_640 => pixel_x_640,
       ycounter_in => ycounter_in,
@@ -90,7 +92,7 @@ begin
       wait for 10 ns;
       pixelclock <= '0';
       wait for 10 ns;
-      if pixel_x_640 < 650 then
+      if pixel_x_640 < 810 then
         pixel_x_640 <= pixel_x_640 + 1;
       else
         pixel_x_640 <= 0;

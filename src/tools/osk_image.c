@@ -35,7 +35,7 @@ int main(int argc,char **argv)
 	frame[y][x*4+3]=0xff;
       }
       if (x==800&&y==480) {
-	printf("Writing image %d",++image_number);
+	printf("Writing image %d\n",++image_number);
 	write_image(image_number);
       }
     } else printf("%s",line);      
