@@ -435,8 +435,8 @@ begin
           and visual_keyboard_enable='1'
           and last_visual_keyboard_enable='1' then
           report "Sliding visual keyboard up a bit";
-          y_start_current(11 downto 1)
-            <= y_start_current(11 downto 1)
+          y_start_current(11 downto 2)
+            <= y_start_current(11 downto 2)
             - pixel_y_scale_200;
           if y_start_current > max_y then
             report "Resetting visual keyboard to bottom edge";
