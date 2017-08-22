@@ -203,7 +203,7 @@ begin
                   & integer'image(row_first)
                   & "( offset=" & integer'image(row_offset) & ").";
                 rows_per_frame <= 0;
-                if (rows_per_frame + row_first) < NumRows then
+                if (rows_per_frame + row_first) < (NumRows-1) then
                   row_offset <= row_offset + CharsPerRow;
                   row_first <= row_first + 1;
                 end if;
@@ -264,14 +264,14 @@ begin
                 startx <= mode0_startx+xoffset;
                 starty <= mode0_starty+yoffset;
                 endx <= mode0_endx+xoffset;
-                endy <= mode0_endy+yoffset;
+                endy <= mode1_endy+yoffset;
                 garbage_end_offset <= mode0_garbage_end_offset;
               when others =>
                 end_of_char <= mode1_end_of_char; 
                 startx <= to_unsigned(16,14)+xoffset;
-                starty <= to_unsigned(0,12);
-                endx <= to_unsigned(640,14);
-                endy <= to_unsigned(640,12);
+                starty <= to_unsigned(0,12)+yoffset;
+                endx <= to_unsigned(1920,14);
+                endy <= to_unsigned(1200,12);
                 garbage_end_offset <= mode1_garbage_end_offset;
             end case;		
           end if;
