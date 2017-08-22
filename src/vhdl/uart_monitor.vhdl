@@ -136,6 +136,25 @@ architecture behavioural of uart_monitor is
   constant bannerMessage : String :=
     crlf &
     crlf &
+    crlf &
+    crlf &
+    crlf &
+    crlf &
+    crlf &
+    crlf &
+    crlf &
+    crlf &
+    crlf &
+    crlf &
+    crlf &
+    crlf &
+    crlf &
+    crlf &
+    crlf &
+    crlf &
+    crlf &
+    crlf &
+    crlf &
     "MEGA65 Serial Monitor" & crlf &
     "build " & gitcommit & crlf &
     "--------------------------------" & crlf &
