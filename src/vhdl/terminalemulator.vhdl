@@ -87,7 +87,7 @@ begin
           terminal_emulator_ready <= '1';
           if char_in_valid = '1' then
             terminal_emulator_ready <= '0';
-            if char_in < x"20" and char_in /=x"0A" then --ASCII < x"20" is a command											              				     			  
+            if char_in < x"20" and char_in /=x"0A" then --ASCII < x"20" is a command
               state<=clearCursor;
               next_state<=processCommand;
             elsif char_in =x"0A" then

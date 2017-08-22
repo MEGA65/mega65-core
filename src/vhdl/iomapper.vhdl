@@ -36,7 +36,7 @@ entity iomapper is
         display_shift_out : out std_logic_vector(2 downto 0) := "000";
         shift_ready_out : out std_logic := '0';
         shift_ack_in : in std_logic;        
-        mm_displayMode_out : out unsigned(1 downto 0) := "10";
+        mm_displayMode_out : out unsigned(1 downto 0) := "00";
         
         fpga_temperature : in std_logic_vector(11 downto 0);
         address : in std_logic_vector(19 downto 0);

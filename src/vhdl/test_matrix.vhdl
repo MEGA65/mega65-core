@@ -35,7 +35,7 @@ begin
     port map(
       display_shift_in => "000",
       shift_ready_in => '0',
-      mm_displayMode_in => "00",
+      mm_displayMode_in => "10",
       monitor_char_in => char_in,
       monitor_char_valid => char_valid,
       pixel_y_scale_200 => to_unsigned(2,4),
@@ -73,7 +73,47 @@ begin
     end procedure;
   begin
     wait for 1 us;
-    type_text("Moose cheese");
+    type_text("line 0" & lf & cr);
+    type_text("1" & lf & cr);
+    type_text("2" & lf & cr);
+    type_text("3" & lf & cr);
+    type_text("4" & lf & cr);
+    type_text("5" & lf & cr);
+    type_text("6" & lf & cr);
+    type_text("7" & lf & cr);
+    type_text("8" & lf & cr);
+    type_text("9" & lf & cr);
+    type_text("line 10" & lf & cr);
+    type_text("1" & lf & cr);
+    type_text("2" & lf & cr);
+    type_text("3" & lf & cr);
+    type_text("4" & lf & cr);
+    type_text("5" & lf & cr);
+    type_text("6" & lf & cr);
+    type_text("7" & lf & cr);
+    type_text("8" & lf & cr);
+    type_text("9" & lf & cr);
+    type_text("line 20" & lf & cr);
+    type_text("1" & lf & cr);
+    type_text("2" & lf & cr);
+    type_text("3" & lf & cr);
+    type_text("4" & lf & cr);
+    type_text("5" & lf & cr);
+    type_text("6" & lf & cr);
+    type_text("7" & lf & cr);
+    type_text("8" & lf & cr);
+    type_text("9" & lf & cr);
+    type_text("line 30" & lf & cr);
+    type_text("1" & lf & cr);
+    type_text("2" & lf & cr);
+    type_text("3" & lf & cr);
+    type_text("4" & lf & cr);
+    type_text("5" & lf & cr);
+    type_text("6" & lf & cr);
+    type_text("7" & lf & cr);
+    type_text("8" & lf & cr);
+    type_text("9" & lf & cr);
+
     wait for 1 sec;
   end process;
 

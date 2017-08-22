@@ -36,6 +36,9 @@ architecture Behavioral of matrix_compositor is
   constant CharMemStart : unsigned(11 downto 0):=x"302";
 --Location of end of character memory
   constant CharMemEnd : unsigned(11 downto 0):=x"F81";
+  constant CharsPerRow : integer := 80;
+  constant NumRows : integer
+    := (to_integer(CharMemEnd)-to_integer(CharMemStart)+1)/CharsPerRow;
 
 
 --Character Map Memory Interface
@@ -109,7 +112,10 @@ architecture Behavioral of matrix_compositor is
   constant mode0_end_of_char : unsigned(4 downto 0):=b"01000"; --8
   constant mode1_end_of_char : unsigned(4 downto 0):=b"10000"; --16
 
-  signal last_pixel_x_640 : integer;
+  signal last_pixel_x_640 : integer := 640;
+  signal rows_per_frame : integer := 0;
+  signal row_offset : integer := 0;
+  signal row_first : integer := 0;
   
 begin
 
@@ -159,10 +165,14 @@ begin
             if charline = b"0111" then --on the ~7th line (0-7)
               charline<=b"0000"; --reset
               --Boundary check
-              if lineStartAddr=CharMemEnd-79 then 
-                lineStartAddr<=CharMemStart;
+              rows_per_frame <= rows_per_frame + 1;
+              if rows_per_frame = 0 then
+                report "lineStartAddr for row 1 = $" & to_hstring(lineStartAddr) & " (row_offset = " & integer'image(row_offset);
+              end if;
+              if lineStartAddr=CharMemEnd-(CharsPerRow-1) then 
+                lineStartAddr<=CharMemStart+row_offset;
               else 
-                lineStartAddr<=lineStartAddr+80;--calculate next linestart
+                lineStartAddr<=lineStartAddr+CharsPerRow;--calculate next linestart
               end if;          
             else --otherwise
               charline<=charline+1; --increment line
@@ -180,14 +190,35 @@ begin
         end if;
         
         --End of Frame, reset counters	
-        if ycounter_in = 0 then 
+        if ycounter_in = 0 then
+          
           if doneEndOfFrame='0' then
-            mm_displayMode <= mm_displayMode_in; --Only change display mode at end of frame		
+            mm_displayMode <= mm_displayMode_in; --Only change display mode at end of frame
+            if mm_displayMode_in = mm_displayMode then
+              -- Mode hasn't changed since last frame, so adjust start of
+              -- buffer so that we always show the last n rows we can fit
+              if rows_per_frame /= 0 then
+                report "Displayed " & integer'image(rows_per_frame)
+                  & " rows of text, beginning at row "
+                  & integer'image(row_first)
+                  & "( offset=" & integer'image(row_offset) & ").";
+                rows_per_frame <= 0;
+                if (rows_per_frame + row_first) < NumRows then
+                  row_offset <= row_offset + CharsPerRow;
+                  row_first <= row_first + 1;
+                end if;
+              end if;
+            else
+              -- When changing mode, default always to showing whole screen
+              row_offset <= 0;
+              row_first <= 0;
+            end if;
+            
             doneEndOfFrame<='1';		
             lineCounter<=(others=>'0'); 
             charline<=(others=>'0'); 
             charCount<=topOfFrame;
-            lineStartAddr<=topOfFrame;
+            lineStartAddr<=topOfFrame+row_offset;
             eightCounter<=(others=>'0');		
             
             if shift_ack = '0' and shift_ready_in = '1' then
@@ -228,12 +259,19 @@ begin
                 endx <= mode0_endx+xoffset;
                 endy <= mode0_endy+yoffset;
                 garbage_end_offset <= mode0_garbage_end_offset;
+              when b"01" =>
+                end_of_char <= mode0_end_of_char; 
+                startx <= mode0_startx+xoffset;
+                starty <= mode0_starty+yoffset;
+                endx <= mode0_endx+xoffset;
+                endy <= mode0_endy+yoffset;
+                garbage_end_offset <= mode0_garbage_end_offset;
               when others =>
                 end_of_char <= mode1_end_of_char; 
-                startx <= mode1_startx+xoffset;
-                starty <= mode1_starty+yoffset;
-                endx <= mode1_endx+xoffset;
-                endy <= mode1_endy+yoffset;
+                startx <= to_unsigned(16,14)+xoffset;
+                starty <= to_unsigned(0,12);
+                endx <= to_unsigned(640,14);
+                endy <= to_unsigned(640,12);
                 garbage_end_offset <= mode1_garbage_end_offset;
             end case;		
           end if;
@@ -323,7 +361,7 @@ begin
             when b"00111" =>
               -- Advance to next character
               if charCount=CharMemEnd then
-                charCount<=CharMemStart;
+                charCount<=CharMemStart+row_offset;
               else --otherwise increase
                 charCount<=charCount+1;					 
               end if;				  				
@@ -332,8 +370,9 @@ begin
           end case;
 
           if eightCounter/=end_of_char then
-            eightCounter<=eightCounter+1; --increment counter		    			 
-            if bufferCounter=mm_displayMode then
+            eightCounter<=eightCounter+1; --increment counter
+            -- Mode 0 and mode 1 = 80 columns, mode 3 = 40 columns
+            if mm_displayMode /= "10" or bufferCounter="01" then
               data_buffer<=data_buffer(6 downto 0)&'0';				
               bufferCounter<=b"00";
             else 
@@ -358,7 +397,7 @@ begin
             lineCounter<=(others=>'0'); 
             charline<=(others=>'0'); 
             charCount<=topOfFrame;
-            lineStartAddr<=topOfFrame;
+            lineStartAddr<=topOfFrame+row_offset;
             eightCounter<=(others=>'0');	
           end if;
           
