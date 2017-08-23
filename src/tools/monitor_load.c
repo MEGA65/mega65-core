@@ -47,6 +47,8 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 time_t start_time=0;
 
+int osk_enable=0;
+
 int viciv_mode_report(unsigned char *viciv_regs);
 
 int process_char(unsigned char c,int live);
@@ -55,7 +57,7 @@ int process_char(unsigned char c,int live);
 void usage(void)
 {
   fprintf(stderr,"MEGA65 cross-development tool for booting the MEGA65 using a custom bitstream and/or KICKUP file.\n");
-  fprintf(stderr,"usage: monitor_load [-l <serial port>] [-s <230400|2000000|4000000>]  [-b <FPGA bitstream>] [[-k <kickup file>] [-R romfile] [-C charromfile]] [-c COLOURRAM.BIN] [-m modeline] [filename]\n");
+  fprintf(stderr,"usage: monitor_load [-l <serial port>] [-s <230400|2000000|4000000>]  [-b <FPGA bitstream>] [[-k <kickup file>] [-R romfile] [-C charromfile]] [-c COLOURRAM.BIN] [-m modeline] [-o] [filename]\n");
   fprintf(stderr,"  -l - Name of serial port to use, e.g., /dev/ttyUSB1\n");
   fprintf(stderr,"  -s - Speed of serial port in bits per second. This must match what your bitstream uses.\n");
   fprintf(stderr,"       (Older bitstream use 230400, and newer ones 2000000 or 4000000).\n");
@@ -67,6 +69,7 @@ void usage(void)
   fprintf(stderr,"  -4 - Switch to C64 mode before exiting.\n");
   fprintf(stderr,"  -r - Automatically RUN programme after loading.\n");
   fprintf(stderr,"  -m - Set video mode to Xorg style modeline.\n");
+  fprintf(stderr,"  -m - Enable on-screen keyboard\n");
   fprintf(stderr,"  filename - Load and run this file in C64 mode before exiting.\n");
   fprintf(stderr,"\n");
   exit(-3);
@@ -355,6 +358,10 @@ int process_line(char *line,int live)
     }
 
     // We are in C65 mode - switch to C64 mode
+    if (osk_enable) {
+      char *cmd="sffd3615 ff\r";
+      slow_write(fd,cmd,strlen(cmd));      
+    }
     if (do_go64) {
       char *cmd="s34a 47 4f 36 34 d 59 d\rsd0 7\r";
       slow_write(fd,cmd,strlen(cmd));
@@ -704,7 +711,7 @@ int main(int argc,char **argv)
   start_time=time(0);
   
   int opt;
-  while ((opt = getopt(argc, argv, "4l:s:b:c:k:rR:C:m:")) != -1) {
+  while ((opt = getopt(argc, argv, "4l:s:b:c:k:rR:C:m:o")) != -1) {
     switch (opt) {
     case 'R': romfile=strdup(optarg); break;
     case 'C': charromfile=strdup(optarg); break;
@@ -713,6 +720,7 @@ int main(int argc,char **argv)
     case 'r': do_run=1; break;
     case 'l': strcpy(serial_port,optarg); break;
     case 'm': prepare_modeline(optarg); mode_report=1; break;
+    case 'o': osk_enable=1; break;
     case 's':
       serial_speed=atoi(optarg);
       switch(serial_speed) {
