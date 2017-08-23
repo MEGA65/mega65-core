@@ -178,7 +178,7 @@ begin  -- behavioural
     --  ", in_value=$" & to_hstring(i) severity note;
     result := unsigned(i);
     for b in 0 to 7 loop
-      if ddr(b)='1' and o(b)='1' then
+      if ddr(b)='1' and i(b)='1' then
         result(b) := std_ulogic(o(b));
       end if;
     end loop;  -- b
