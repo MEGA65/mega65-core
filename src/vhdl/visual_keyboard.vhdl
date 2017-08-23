@@ -403,15 +403,14 @@ begin
       if active='1' then
         vk_pixel(1) <= box_pixel or (box_inverse xor char_pixel);
         vk_pixel(0) <= box_pixel or (box_inverse xor char_pixel);
-        -- XXX draw keyboard layout characters
       else
         vk_pixel <= "00";
       end if;
 
       if visual_keyboard_enable='1' and active='1' then
-        vgared_out <= vk_pixel&vgared_in(7 downto 2);
-        vgagreen_out <= vk_pixel&vgagreen_in(7 downto 2);
-        vgablue_out <= vk_pixel&vgablue_in(7 downto 2);
+        vgared_out <= vk_pixel(1)&vgared_in(7 downto 1);
+        vgagreen_out <= vk_pixel(1)&vgagreen_in(7 downto 1);
+        vgablue_out <= vk_pixel(1)&vgablue_in(7 downto 1);
       else
         vgared_out <= vgared_in;
         vgagreen_out <= vgagreen_in;
