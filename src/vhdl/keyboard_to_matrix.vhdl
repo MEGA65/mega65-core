@@ -28,14 +28,14 @@ architecture behavioral of keyboard_to_matrix is
   -- Actual scan rate = CPU clock / scan_rate.
   signal counter : integer := 0;
 
-  signal scan_phase : integer range 0 to 8 := 0; -- reset entry phase
+  signal scan_phase : integer range 0 to 15 := 0; -- reset entry phase
 
   -- Scanned state of the keyboard
   signal matrix_internal : std_logic_vector(71 downto 0) := (others => '1');
 
 begin
   process (clk)
-    variable next_phase : integer range 0 to 8;
+    variable next_phase : integer range 0 to 15;
   begin
     if rising_edge(clk) then
 
@@ -58,11 +58,6 @@ begin
 --          & ", porta_pins = " & to_string(porta_pins);
         -- Read the appropriate matrix row or joysticks state
 --        report "matrix = " & to_string(matrix_internal);
-        if scan_phase < 8 then
-          scan_phase <= scan_phase + 1;
-        else
-          scan_phase <= 0;
-        end if;
 
         -- Scan the keyboard
         -- Resistance of keyboard is ~175ohms internally (on shift-lock)
@@ -94,6 +89,9 @@ begin
         else
           next_phase := 0;
         end if;
+        scan_phase <= next_phase;
+        report "scan_phase = " & integer'image(scan_phase)
+          &  ", next_phase = " & integer'image(next_phase);
         for i in 0 to 7 loop
           if next_phase = i then
             porta_pins(i) <= '0';
@@ -101,9 +99,10 @@ begin
             porta_pins(i) <= '1';
           end if;
         end loop;
-        if next_phase = 8 then
+        if scan_phase = 7 then
           porta_pins <= (others => '1');
           keyboard_column8_out <= '0';
+          report "probing column 8";
         else
           keyboard_column8_out <= '1';
         end if;
