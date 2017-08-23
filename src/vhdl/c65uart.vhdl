@@ -494,12 +494,15 @@ begin  -- behavioural
 
       -- Support proper tri-stating on port F and port G which connects to FPGA board PMOD
       -- connector.
-      for bit in 0 to 7 loop
+      for bit in 1 to 7 loop
+        -- Bit 0 of porte is the capslock key, which is input only
         if reg_porte_ddr(bit)='1' then
           porte(bit) <= reg_porte_out(bit) or (not reg_porte_ddr(bit));
         else
           porte(bit) <= 'Z';
         end if;
+      end loop;
+      for bit in 0 to 7 loop
         if reg_portf_ddr(bit)='1' then
           portf(bit) <= reg_portf_out(bit) or (not reg_portf_ddr(bit));
         else
