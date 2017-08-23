@@ -99,15 +99,15 @@ entity viciv is
     viciv_outofframe : out std_logic := '0';
 
     pixel_stream_out : out unsigned (7 downto 0);
-    pixel_y : out unsigned (11 downto 0);
+    pixel_y : out unsigned (11 downto 0) := (others => '0');
     pixel_valid : out std_logic;
     pixel_newframe : out std_logic;
     pixel_newraster : out std_logic;
     -- Pixel x counter scaled to count to about 640
-    pixel_x_640 : out integer;
+    pixel_x_640 : out integer := 0;
     -- Scale for 200 and 400px high modes (used by compositors)
-    pixel_y_scale_400 : out unsigned(3 downto 0);
-    pixel_y_scale_200 : out unsigned(3 downto 0);
+    pixel_y_scale_400 : out unsigned(3 downto 0) := (others => '0');
+    pixel_y_scale_200 : out unsigned(3 downto 0) := (others => '0');
     
     ---------------------------------------------------------------------------
     -- CPU Interface to ChipRAM in video controller (just 128KB for now)
@@ -1023,46 +1023,46 @@ architecture Behavioral of viciv is
   signal hsync_polarity : std_logic := '0';
 
   -- Mode line calculations
-  signal text_width_320 : integer;
-  signal text_width_640 : integer;
-  signal text_width_1280 : integer;
-  signal chargen_x_scale_320 : unsigned(7 downto 0);
-  signal chargen_x_scale_640 : unsigned(7 downto 0);
-  signal chargen_x_scale_1280 : unsigned(7 downto 0);
-  signal chargen_x_pixels : integer;
-  signal side_borders_width_320 : unsigned(13 downto 0);
-  signal side_borders_width_640 : unsigned(13 downto 0);
-  signal side_borders_width_1280 : unsigned(13 downto 0);
-  signal single_side_border_320 : unsigned(13 downto 0);
-  signal single_side_border_640 : unsigned(13 downto 0);
-  signal single_side_border_1280 : unsigned(13 downto 0);
-  type ss_table is array(0 to 9) of integer range 0 to 255;
-  signal text_height_200 : integer;
-  signal text_height_400 : integer;
+  signal text_width_320 : integer := 0;
+  signal text_width_640 : integer := 0;
+  signal text_width_1280 : integer := 0;
+  signal chargen_x_scale_320 : unsigned(7 downto 0) := (others => '0');
+  signal chargen_x_scale_640 : unsigned(7 downto 0) := (others => '0');
+  signal chargen_x_scale_1280 : unsigned(7 downto 0) := (others => '0');
+  signal chargen_x_pixels : integer := 0;
+  signal side_borders_width_320 : unsigned(13 downto 0) := (others => '0');
+  signal side_borders_width_640 : unsigned(13 downto 0) := (others => '0');
+  signal side_borders_width_1280 : unsigned(13 downto 0) := (others => '0');
+  signal single_side_border_320 : unsigned(13 downto 0) := (others => '0');
+  signal single_side_border_640 : unsigned(13 downto 0) := (others => '0');
+  signal single_side_border_1280 : unsigned(13 downto 0) := (others => '0');
+  type ss_table is array(0 to 10) of integer range 0 to 255;
+  signal text_height_200 : integer := 0;
+  signal text_height_400 : integer := 0;
   signal ssx_table_320 : ss_table;
   signal ssx_table_640 : ss_table;
   signal ssx_table_1280 : ss_table;
-  signal ssx_table_counter_320 : integer;
-  signal ssx_table_counter_640 : integer;
-  signal ssx_table_counter_1280 : integer;
+  signal ssx_table_counter_320 : integer := 0;
+  signal ssx_table_counter_640 : integer := 0;
+  signal ssx_table_counter_1280 : integer := 0;
   signal chargen_x_pixels_320 : integer := 1;
   signal chargen_x_pixels_640 : integer := 1;
   signal chargen_x_pixels_1280 : integer := 1;
-  signal ssx_table_phase : integer range 0 to 9 := 0;
+  signal ssx_table_phase : integer range 0 to 10 := 0;
   
   signal text_height : integer;
-  signal chargen_y_scale_200 : unsigned(7 downto 0);
-  signal chargen_y_scale_400 : unsigned(7 downto 0);
-  signal chargen_y_pixels : integer;
-  signal top_borders_height_200 : unsigned(11 downto 0);
-  signal top_borders_height_400 : unsigned(11 downto 0);
-  signal single_top_border_200 : unsigned(11 downto 0);
-  signal single_top_border_400 : unsigned(11 downto 0);
+  signal chargen_y_scale_200 : unsigned(7 downto 0) := (others => '0');
+  signal chargen_y_scale_400 : unsigned(7 downto 0) := (others => '0');
+  signal chargen_y_pixels : integer := 0;
+  signal top_borders_height_200 : unsigned(11 downto 0) := (others => '0');
+  signal top_borders_height_400 : unsigned(11 downto 0) := (others => '0');
+  signal single_top_border_200 : unsigned(11 downto 0) := (others => '0');
+  signal single_top_border_400 : unsigned(11 downto 0) := (others => '0');
   signal ssy_table_200 : ss_table;
   signal ssy_table_400 : ss_table;
-  signal ssy_table_counter_200 : integer;
-  signal ssy_table_counter_400 : integer;
-  signal ssy_table_phase : integer;
+  signal ssy_table_counter_200 : integer := 0;
+  signal ssy_table_counter_400 : integer := 0;
+  signal ssy_table_phase : integer := 0;
   
   signal new_frame : std_logic := '0';
 

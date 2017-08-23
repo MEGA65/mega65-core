@@ -111,7 +111,11 @@ begin
     if rising_edge(pixelclock) then
 
       -- Update vertical scale factor to fit video mode
-      y_stretch <= to_integer(pixel_y_scale_200) - 1;
+      if pixel_y_scale_200 /= x"0" then
+        y_stretch <= to_integer(pixel_y_scale_200) - 1;
+      else
+        y_stretch <= 0;
+      end if;
       
       if pixel_x_640_in < x_start_current then
         pixel_x_640 <= 640;
