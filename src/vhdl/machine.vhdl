@@ -97,7 +97,7 @@ entity machine is
          portb_pins : inout  std_logic_vector(7 downto 0);
          keyleft : in std_logic;
          keyup : in std_logic;
-         keyboard_column8 : inout std_logic;
+         keyboard_column8 : out std_logic;
          caps_lock_key : in std_logic;
          fa_left : in std_logic;
          fa_right : in std_logic;
@@ -835,7 +835,7 @@ begin
       porta_pins => porta_pins,
       portb_pins => portb_pins,
       capslock_key => caps_lock_key,
---    keyboard_column8_select => keyboard_column8,
+      keyboard_column8_out => keyboard_column8,
       key_left => keyleft,
       key_up => keyup,
 
