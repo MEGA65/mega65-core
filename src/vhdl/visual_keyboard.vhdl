@@ -15,7 +15,8 @@ entity visual_keyboard is
     visual_keyboard_enable : in std_logic;
     key1 : in unsigned(7 downto 0);
     key2 : in unsigned(7 downto 0);
-    key3 : in unsigned(7 downto 0);
+    key3 : in unsigned(7 downto 0);    
+    key4 : in unsigned(7 downto 0);    
     vgared_in : in  unsigned (7 downto 0);
     vgagreen_in : in  unsigned (7 downto 0);
     vgablue_in : in  unsigned (7 downto 0);
@@ -237,7 +238,8 @@ begin
         -- If so, set inverse video flag for box content        
         if (key1(6 downto 0) = current_matrix_id(6 downto 0))
           or (key2(6 downto 0) = current_matrix_id(6 downto 0))
-          or (key3(6 downto 0) = current_matrix_id(6 downto 0)) then
+          or (key3(6 downto 0) = current_matrix_id(6 downto 0))
+          or (key4(6 downto 0) = current_matrix_id(6 downto 0)) then
           if (y_pixel_counter /= 1 or y_char_in_row /= 0)
             and (y_pixel_counter /= 7 or y_char_in_row /=2)
             and (key_box_counter /= 2

@@ -958,6 +958,7 @@ begin
     key1 => osk_key1,
     key2 => osk_key2,
     key3 => osk_key3,
+    key4 => osk_key4,
     vgablue_in => vgablue_kbd,
     vgared_out => vgared_out,
     vgagreen_out => vgagreen_out,

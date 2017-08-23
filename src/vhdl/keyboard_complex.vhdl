@@ -47,6 +47,7 @@ entity keyboard_complex is
     keydown1 : out unsigned(7 downto 0);
     keydown2 : out unsigned(7 downto 0);
     keydown3 : out unsigned(7 downto 0);
+    keydown4 : out unsigned(7 downto 0);
     
     -- Flags to control which inputs are disabled, if any
     virtual_disable : in std_logic;
@@ -121,9 +122,13 @@ architecture behavioural of keyboard_complex is
   signal kd1 : unsigned(7 downto 0);
   signal kd2 : unsigned(7 downto 0);
   signal kd3 : unsigned(7 downto 0);
+  signal kd4 : unsigned(7 downto 0);
   signal kd_count : integer := 0;
   signal kd_phase : integer := 0;
-    
+
+  signal restore_combined : std_logic := '1';
+  signal capslock_combined : std_logic := '1';
+
 begin
 
   v2m: entity work.virtual_to_matrix
@@ -226,7 +231,7 @@ begin
     matrix_combined => matrix_combined,
     
     -- RESTORE when held or double-tapped does special things
-    restore_out => restore_out,
+    restore_out => restore_combined,
     reset_out => reset_out,
     hyper_trap_out => hyper_trap_out,
     
@@ -235,7 +240,7 @@ begin
     speed_gate_enable => speed_gate_enable,
     
     -- appears as bit0 of $D607 (see C65 keyboard scan routine at $E406)
-    capslock_out => capslock_out,
+    capslock_out => capslock_combined,
 
     -- Registers for debugging
     key_debug_out => key_debug_out,
@@ -279,6 +284,10 @@ begin
     variable num : integer;
   begin
     if rising_edge(ioclock) then
+
+      capslock_out <= capslock_combined;
+      restore_out <= restore_combined;
+      
       num := to_integer(unsigned(matrix_segment_num));
       if num < 10 then
         matrix_segment_out <= matrix_combined((num*8+7) downto (num*8));
@@ -288,17 +297,45 @@ begin
 
       -- Work out the summary of keys down for showing on the On-screen keyboard
       -- (so that the OSK shws all currently down keys)
-      -- XXX Dedicated keys won't show (RESTORE and CAPS LOCK)
-      -- XXX Left and Up will show as RIGHT SHIFT + RIGHT/DOWN
       if kd_phase /= 72 then
         kd_phase <= kd_phase + 1;
-        if (matrix_combined(kd_phase) = '0') then
+        if kd_phase = 2 and matrix_combined(52)='0' then
+          -- Left (or shift right)
+          if (matrix_combined(kd_phase) = '0') then
+            if kd_count = 0 then
+              kd1 <= x"53"; -- left key
+            elsif kd_count = 1 then
+              kd2 <= x"53"; -- left key
+            elsif kd_count = 2 then
+              kd3 <= x"53"; -- left key
+            elsif kd_count = 3 then
+              kd4 <= x"53"; -- left key
+            end if;
+            kd_count <= kd_count + 1;
+          end if;
+        elsif kd_phase = 7 and matrix_combined(52)='0' then
+          -- Up (or shift down)
+          if (matrix_combined(kd_phase) = '0') then
+            if kd_count = 0 then
+              kd1 <= x"52"; -- up key
+            elsif kd_count = 1 then
+              kd2 <= x"52"; -- up key
+            elsif kd_count = 2 then
+              kd3 <= x"52"; -- up key
+            elsif kd_count = 3 then
+              kd4 <= x"52"; -- up key
+            end if;
+            kd_count <= kd_count + 1;
+          end if;
+        elsif (matrix_combined(kd_phase) = '0') then
           if kd_count = 0 then
             kd1 <= to_unsigned(kd_phase,8);
           elsif kd_count = 1 then
             kd2 <= to_unsigned(kd_phase,8);
           elsif kd_count = 2 then
             kd3 <= to_unsigned(kd_phase,8);
+          elsif kd_count = 3 then
+            kd4 <= to_unsigned(kd_phase,8);
           end if;
           kd_count <= kd_count + 1;
         end if;
@@ -307,11 +344,28 @@ begin
         keydown1 <= kd1;
         keydown2 <= kd2;
         keydown3 <= kd3;
+        keydown4 <= kd4;
         -- $7D = no key ($7E and $7F have special meanings)
         kd1 <= x"7D";
         kd2 <= x"7D";
         kd3 <= x"7D";
+        kd4 <= x"7D";
         kd_count <= 0;
+
+        -- Show RESTORE and CAPSLOCK dedicated keys
+        if capslock_combined = '1' then
+          kd1 <= x"50";
+          if restore_combined = '1' then
+            kd2 <= x"51";
+            kd_count <= 2;
+          else
+            kd_count <= 1;
+          end if;
+        elsif restore_combined = '1' then
+          kd1 <= x"51";
+          kd_count <= 1;
+        end if;
+          
       end if;
       
     end if;

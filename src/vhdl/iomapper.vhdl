@@ -56,6 +56,7 @@ entity iomapper is
         osk_key1 : out unsigned(7 downto 0);
         osk_key2 : out unsigned(7 downto 0);
         osk_key3 : out unsigned(7 downto 0);
+        osk_key4 : out unsigned(7 downto 0);
 
         reg_isr_out : out unsigned(7 downto 0);
         imask_ta_out : out std_logic;
@@ -481,6 +482,7 @@ begin
     keydown1 => osk_key1,
     keydown2 => osk_key2,
     keydown3 => osk_key3,
+    keydown4 => osk_key4,
       
     hyper_trap_out => hyper_trap,
     hyper_trap_count => hyper_trap_count,

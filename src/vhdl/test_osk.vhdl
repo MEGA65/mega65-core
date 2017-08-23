@@ -16,9 +16,10 @@ architecture behavioral of test_osk is
   signal y_start : unsigned(11 downto 0) := to_unsigned(479-290,12);
   signal pixelclock : std_logic := '1';
   signal visual_keyboard_enable : std_logic := '0';
-  signal key1 : unsigned(7 downto 0) := x"0f";
-  signal key2 : unsigned(7 downto 0) := x"3c";
-  signal key3 : unsigned(7 downto 0) := x"01";
+  signal key1 : unsigned(7 downto 0) := x"53";
+  signal key2 : unsigned(7 downto 0) := x"52";
+  signal key3 : unsigned(7 downto 0) := x"51";
+  signal key4 : unsigned(7 downto 0) := x"50";
   signal vgared_in : unsigned (7 downto 0) := x"00";
   signal vgagreen_in : unsigned (7 downto 0) := x"FF";
   signal vgablue_in : unsigned (7 downto 0) := x"00";
@@ -40,6 +41,7 @@ begin
       key1 => key1,
       key2 => key2,
       key3 => key3,
+      key4 => key4,
       vgared_in => vgared_in,
       vgagreen_in => vgagreen_in,
       vgablue_in => vgablue_in,
