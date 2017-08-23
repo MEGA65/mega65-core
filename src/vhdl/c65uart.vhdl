@@ -127,7 +127,7 @@ architecture behavioural of c65uart is
   signal reg_data_rx : std_logic_vector(7 downto 0) := (others => '0');
 
   -- C65 extra 2-bit port for keyboard column 8 and capslock key state.
-  signal reg_porte_out : std_logic_vector(7 downto 0) := (others => '0');
+  signal reg_porte_out : std_logic_vector(7 downto 0) := "00000011";
   signal reg_porte_ddr : std_logic_vector(7 downto 0) := "00000010";
   signal reg_porte_read : unsigned(7 downto 0) := (others => '0');
   -- Used for HDMI SPI control interface and SD SPI bitbashing debug interface)
@@ -178,7 +178,7 @@ begin  -- behavioural
     --  ", in_value=$" & to_hstring(i) severity note;
     result := unsigned(i);
     for b in 0 to 7 loop
-      if ddr(b)='1' and i(b)='1' then
+      if ddr(b)='1' and o(b)='1' then
         result(b) := std_ulogic(o(b));
       end if;
     end loop;  -- b
@@ -495,6 +495,11 @@ begin  -- behavioural
       -- Support proper tri-stating on port F and port G which connects to FPGA board PMOD
       -- connector.
       for bit in 0 to 7 loop
+        if reg_porte_ddr(bit)='1' then
+          porte(bit) <= reg_porte_out(bit) or (not reg_porte_ddr(bit));
+        else
+          porte(bit) <= 'Z';
+        end if;
         if reg_portf_ddr(bit)='1' then
           portf(bit) <= reg_portf_out(bit) or (not reg_portf_ddr(bit));
         else
