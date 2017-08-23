@@ -391,6 +391,7 @@ architecture Behavioral of machine is
   signal osk_key1 : unsigned(7 downto 0);
   signal osk_key2 : unsigned(7 downto 0);
   signal osk_key3 : unsigned(7 downto 0);
+  signal osk_key4 : unsigned(7 downto 0);
 
   signal all_pause : std_logic := '0';
   
