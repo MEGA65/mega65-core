@@ -110,9 +110,12 @@ int main(int argc,char **argv)
 	  name,bytes,name,name,bytes);
 
   for(i=0;i<bytes;i++)
-    if (archive[i]) fprintf(o,"          %d => x\"%02x\", -- $%05x\n",i,archive[i],i);
+//    if (archive[i])
+    fprintf(o,"          %d => x\"%02x\", -- $%05x\n",i,archive[i],i);
+  fprintf(o,"          %d => x\"%02x\"); -- $%05x\n",i,archive[i],i);
   
-  fprintf(o,"          others => x\"00\");\n" 
+  // fprintf(o,"          others => x\"00\");\n" 
+  fprintf(o,
 	  "begin\n"
 	  "\n"
 	  "--process for read and write operation.\n"
