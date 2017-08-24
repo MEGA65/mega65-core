@@ -54,6 +54,7 @@ generated_vhdl:	$(VHDLSRCDIR)/kickstart.vhdl \
 		$(VHDLSRCDIR)/charrom.vhdl \
 		$(VHDLSRCDIR)/version.vhdl \
 		$(VHDLSRCDIR)/shadowram.vhdl \
+		$(VHDLSRCDIR)/oskmem.vhdl \
 		$(VHDLSRCDIR)/colourram.vhdl
 
 
