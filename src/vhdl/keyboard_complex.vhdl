@@ -353,15 +353,15 @@ begin
         kd_count <= 0;
 
         -- Show RESTORE and CAPSLOCK dedicated keys
-        if capslock_combined = '1' then
+        if capslock_combined = '0' then
           kd1 <= x"50";
-          if restore_combined = '1' then
+          if restore_combined = '0' then
             kd2 <= x"51";
             kd_count <= 2;
           else
             kd_count <= 1;
           end if;
-        elsif restore_combined = '1' then
+        elsif restore_combined = '0' then
           kd1 <= x"51";
           kd_count <= 1;
         end if;
