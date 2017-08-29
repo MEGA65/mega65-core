@@ -78,6 +78,8 @@ entity machine is
          slow_access_address : out unsigned(27 downto 0);
          slow_access_wdata : out unsigned(7 downto 0);
          slow_access_rdata : in unsigned(7 downto 0);
+
+         sector_buffer_mapped : inout std_logic;
          
          ----------------------------------------------------------------------
          -- VGA output
@@ -263,7 +265,6 @@ architecture Behavioral of machine is
   signal fastio_rdata : std_logic_vector(7 downto 0);
   signal fastio_vic_rdata : std_logic_vector(7 downto 0);
   signal colour_ram_fastio_rdata : std_logic_vector(7 downto 0);
-  signal sector_buffer_mapped : std_logic;
 
   signal chipram_we : STD_LOGIC;
   signal chipram_address : unsigned(16 DOWNTO 0);

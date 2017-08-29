@@ -189,6 +189,7 @@ architecture Behavioral of container is
   signal slow_access_address : unsigned(27 downto 0);
   signal slow_access_wdata : unsigned(7 downto 0);
   signal slow_access_rdata : unsigned(7 downto 0);
+  signal sector_buffer_mapped : std_logic;  
 
   signal pmoda_dummy :  std_logic_vector(7 downto 0) := (others => '1');
 
@@ -239,6 +240,7 @@ begin
       reset => reset_out,
       cpu_exrom => cpu_exrom,
       cpu_game => cpu_game,
+      sector_buffer_mapped => sector_buffer_mapped,
       
       qspidb => qspidb,
       qspicsn => qspicsn,      
@@ -295,6 +297,7 @@ begin
       irq => irq,
       nmi => nmi,
       restore_key => restore_key,
+      sector_buffer_mapped => sector_buffer_mapped,
 
       no_kickstart => '0',
       

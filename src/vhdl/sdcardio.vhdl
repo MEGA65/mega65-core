@@ -545,6 +545,11 @@ begin  -- behavioural
             fastio_rdata(0) <= sector_offset(8);
             fastio_rdata(1) <= sector_offset(9);
 
+          when x"8a" =>
+            -- @IO:GS $D68A - DEBUG check signals that can inhibit sector buffer mapping
+            fastio_rdata(0) <= colourram_at_dc00;
+            fastio_rdata(1) <= viciii_iomode(1);
+            
           when x"8b" =>
 	-- BG the description seems in conflict with the assignment in the write section (below)
             -- @IO:GS $D68B - Diskimage control flags

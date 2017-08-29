@@ -26,6 +26,12 @@ ENTITY expansion_port_controller IS
     ------------------------------------------------------------------------    
     cpu_exrom : out std_logic := '1';
     cpu_game : out std_logic := '1';
+
+    ------------------------------------------------------------------------
+    -- Suppress mapping of IO at $DE00-$DFFF if sector buffer mapped
+    ------------------------------------------------------------------------
+    sector_buffer_mapped : in std_logic;
+    
     
     ------------------------------------------------------------------------
     -- Access request from CPU
@@ -186,13 +192,13 @@ begin
             cart_a <= cart_access_address(15 downto 0);
             cart_rw <= cart_access_read;
             cart_data_dir <= not cart_access_read;
-            if cart_access_address(15 downto 8) = x"DE" then
+            if cart_access_address(15 downto 8) = x"DE" and sector_buffer_mapped='0' then
               cart_io1 <= '0';
               reprobe_exrom <= '1';
             else
               cart_io1 <= '1';
             end if;
-            if cart_access_address(15 downto 8) = x"DF" then
+            if cart_access_address(15 downto 8) = x"DF" and sector_buffer_mapped='0' then
               cart_io2 <= '0';
               reprobe_exrom <= '1';
             else

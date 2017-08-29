@@ -23,14 +23,15 @@ ENTITY slow_devices IS
     reset : in std_logic;
     cpu_exrom : out std_logic;
     cpu_game : out std_logic;
+    sector_buffer_mapped : in std_logic;
 
     slow_access_request_toggle : in std_logic;
     slow_access_ready_toggle : out std_logic := '0';
     slow_access_write : in std_logic;
     slow_access_address : in unsigned(27 downto 0);
     slow_access_wdata : in unsigned(7 downto 0);
-    slow_access_rdata : out unsigned(7 downto 0);
-
+    slow_access_rdata : out unsigned(7 downto 0);    
+    
     ------------------------------------------------------------------------
     -- PSRAM (Nexys4 "slowram")
     ------------------------------------------------------------------------
@@ -108,6 +109,7 @@ begin
     reset => reset,
     cpu_game => cpu_game,
     cpu_exrom => cpu_exrom,
+    sector_buffer_mapped => sector_buffer_mapped,
 
     cart_access_request => cart_access_request,
     cart_access_read => cart_access_read,
