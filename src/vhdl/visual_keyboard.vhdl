@@ -83,6 +83,11 @@ architecture behavioural of visual_keyboard is
   signal ycounter_last : unsigned(11 downto 0) := (others => '0');
   signal y_lower_start : unsigned(11 downto 0) :=
     to_unsigned(0,12);
+
+  signal double_width : std_logic := '0';
+  signal double_width_phase : std_logic := '0';
+  signal double_height : std_logic := '0';
+  signal double_height_phase : std_logic := '0';
   
   type fetch_state_t is (
     FetchIdle,
@@ -124,6 +129,8 @@ begin
       
       if pixel_x_640_in < x_start_current then
         pixel_x_640 <= 640;
+        double_height <= '0';
+        double_width <= '0';
       else
         pixel_x_640 <= pixel_x_640_in - to_integer(x_start_current);
       end if;
@@ -156,7 +163,12 @@ begin
             active <= '0';
           elsif active='1' then
             if y_phase /= y_stretch then
-              y_phase <= y_phase + 1;
+              if double_height='0' or double_height_phase='1' then
+                y_phase <= y_phase + 1;
+                double_height_phase <= '0';
+              elsif double_height='1' then
+                double_height_phase <= '1';
+              end if;
               current_address <= last_row_address;
             else
               y_phase <= 0;
@@ -214,15 +226,26 @@ begin
 
         -- Calculate character pixel
         char_pixel <= char_data(7);
-        char_data(7 downto 1) <= char_data(6 downto 0);
-        char_data(0) <= '0';
         if char_pixels_remaining /= 0 then
-          char_pixels_remaining <= char_pixels_remaining - 1;
+          if double_width='0' or double_width_phase='1' then
+            char_data(7 downto 1) <= char_data(6 downto 0);
+            char_data(0) <= '0';
+            char_pixels_remaining <= char_pixels_remaining - 1;
+            double_width_phase <= '0';
 --          report "char_pixels_remaining = " & integer'image(char_pixels_remaining);
+          else
+            if double_width='1' then
+              double_width_phase <= '1';
+            end if;
+          end if;
         else
           if (text_delay = 0) and (pixel_x_640 > 3) then
             char_pixels_remaining <= 7;
             char_data <= next_char_data;
+            if next_char_data = x"FF" then
+              double_height <= '1';
+              double_width <= '1';
+            end if;
           else
             char_pixels_remaining <= 3;
             char_data(7 downto 4) <= next_char_data(3 downto 0);
