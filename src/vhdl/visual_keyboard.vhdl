@@ -111,6 +111,7 @@ begin
   
   process (pixelclock)
     variable char_addr : unsigned(10 downto 0);
+    variable y_gap : unsigned(11 downto 0);
   begin
     if rising_edge(pixelclock) then
 
@@ -163,11 +164,11 @@ begin
                 -- We draw only the top line for row 6 to cap
                 -- off row 5
                 active <= '0';
-                if ycounter_in < max_y then
+                -- We have reached the bottom of the OSD, so check if it fits
+                -- entirely on screen or not.
+                if ycounter_in <= max_y then
                   -- Bottom of visual keyboard is on-screen,
-                  -- so no need to keep moving it up
-                  osk_in_position_lower <= '1';
-                  if osk_in_position_lower = '0' then
+                  if y_start_current > y_lower_start then
                     y_lower_start <= y_start_current;
                     report "Setting y_lower_start to " & integer'image(to_integer(y_start_current));
                   end if;
@@ -432,6 +433,12 @@ begin
         -- Move visual keyboard up one a bit each frame
         -- visual keyboard disabled, so push it back off the bottom
         -- of the screen
+
+        report "osk_in_position_lower = " & std_logic'image(osk_in_position_lower) &
+          ", visual_keyboard_enable = " & std_logic'image(visual_keyboard_enable) &
+          ", keyboard_at_top = " & std_logic'image(keyboard_at_top) &
+          ", last_visual_keyboard_enable = " & std_logic'image(last_visual_keyboard_enable);
+        
         if visual_keyboard_enable = '0' then
           if max_y /= 0 then
             report "Visual keyboard disabled -- pushin to bottom of screen";
@@ -440,7 +447,7 @@ begin
               y_lower_start <= ycounter_last;
             else
               y_start_current <= max_y;
-              y_lower_start <= max_y;
+              y_lower_start <= to_unsigned(0,12);
             end if;
           else
             report "Visual keyboard disabled: guessing end of screen";
@@ -478,8 +485,8 @@ begin
             -- Thus we want to mirror the motion that we used to move from
             -- bottom to top (a 1/8th + 2 pixel Xeno step function)
             if y_start_current < y_lower_start then
-              y_start_current <= y_start_current
-                                 + (y_lower_start - y_start_current(11 downto 3)) + 2;
+              y_gap := y_lower_start - y_start_current;
+              y_start_current <= y_start_current + y_gap(11 downto 3) + 2;
             else
               y_start_current <= y_lower_start;
               osk_in_position_lower <= '1';
