@@ -76,7 +76,9 @@ begin
           ycounter_in <= ycounter_in + 1;
         else
           ycounter_in <= to_unsigned(0,12);
-          visual_keyboard_enable <= '1';
+          if frames = 1 then
+            visual_keyboard_enable <= '1';
+          end if;
           frames <= frames + 1;
           if frames = 24 then
             keyboard_at_top <= '1';
