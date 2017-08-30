@@ -55,7 +55,7 @@ begin
 
   process
   begin
-    for i in 1 to 20000000 loop
+    for i in 1 to 200000000 loop
       pixelclock <= '1';
       wait for 10 ns;
       pixelclock <= '0';
@@ -78,13 +78,13 @@ begin
           ycounter_in <= to_unsigned(0,12);
           visual_keyboard_enable <= '1';
           frames <= frames + 1;
-          if frames = 16 then
+          if frames = 24 then
             keyboard_at_top <= '1';
           end if;
-          if frames = 50 then
+          if frames = 55 then
             keyboard_at_top <= '0';
           end if;
-          if frames = 80 then
+          if frames = 90 then
             visual_keyboard_enable <= '0';
           end if;
         end if;
