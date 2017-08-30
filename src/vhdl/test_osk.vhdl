@@ -78,7 +78,7 @@ begin
           ycounter_in <= to_unsigned(0,12);
           visual_keyboard_enable <= '1';
           frames <= frames + 1;
-          if frames = 20 then
+          if frames = 16 then
             keyboard_at_top <= '1';
           end if;
           if frames = 50 then

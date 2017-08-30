@@ -169,6 +169,7 @@ begin
                   osk_in_position_lower <= '1';
                   if osk_in_position_lower = '0' then
                     y_lower_start <= y_start_current;
+                    report "Setting y_lower_start to " & integer'image(to_integer(y_start_current));
                   end if;
                 else
                   osk_in_position_lower <= '0';
@@ -449,8 +450,9 @@ begin
           -- Keyboard at the top: If it were down low, bring it up 1/8th of
           -- the remaining distance, plus one pixel.  Thus we follow a Xeno's Paradox
           -- like curve to spring the keyboard to the top
-          if y_start_current > 0 then
-            y_start_current <= y_start_current - y_start_current(11 downto 3) - 1;
+          if y_start_current > 2 then
+            report "Xeno-walking keyboard to top a bit";            
+            y_start_current <= y_start_current - y_start_current(11 downto 3) - 2;
           else
             y_start_current <= to_unsigned(0,12);
           end if;
@@ -460,6 +462,7 @@ begin
         elsif osk_in_position_lower = '0'
           and visual_keyboard_enable='1'
           and last_visual_keyboard_enable='1' then
+          report "y_lower_start = " & integer'image(to_integer(y_lower_start));
           if y_start_current > y_lower_start then
             report "Sliding visual keyboard up a bit";
             -- We slide in with linear speed fairly quickly, as this is the
@@ -469,14 +472,14 @@ begin
               <= y_start_current(11 downto 3)
               - pixel_y_scale_200;
           else
-            report "Sliding visual keyboard down a bit";
+            report "Xeno-Walking visual keyboard back down a bit";
             -- When sliding from top to bottom, this is always returning after
             -- the OSK has been moved to the top for some reason.
             -- Thus we want to mirror the motion that we used to move from
-            -- bottom to top (a 1/8th + 1 pixel Xeno step function)
+            -- bottom to top (a 1/8th + 2 pixel Xeno step function)
             if y_start_current < y_lower_start then
               y_start_current <= y_start_current
-                                 + (y_lower_start - y_start_current(11 downto 3)) + 1;
+                                 + (y_lower_start - y_start_current(11 downto 3)) + 2;
             else
               y_start_current <= y_lower_start;
               osk_in_position_lower <= '1';
