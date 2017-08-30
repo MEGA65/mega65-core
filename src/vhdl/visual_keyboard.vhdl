@@ -13,6 +13,7 @@ entity visual_keyboard is
     x_start : in unsigned(11 downto 0);
     pixelclock : in std_logic;
     visual_keyboard_enable : in std_logic;
+    keyboard_at_top : in std_logic;
     key1 : in unsigned(7 downto 0);
     key2 : in unsigned(7 downto 0);
     key3 : in unsigned(7 downto 0);    
@@ -76,10 +77,12 @@ architecture behavioural of visual_keyboard is
   signal first_column : std_logic := '0';
 
   signal pixel_x_640 : integer := 0;
-  signal osk_in_position : std_logic := '1';
+  signal osk_in_position_lower : std_logic := '1';
   signal last_visual_keyboard_enable : std_logic := '0';
   signal max_y : unsigned(11 downto 0) := (others => '0');
   signal ycounter_last : unsigned(11 downto 0) := (others => '0');
+  signal y_lower_start : unsigned(11 downto 0) :=
+    to_unsigned(0,12);
   
   type fetch_state_t is (
     FetchIdle,
@@ -163,9 +166,12 @@ begin
                 if ycounter_in < max_y then
                   -- Bottom of visual keyboard is on-screen,
                   -- so no need to keep moving it up
-                  osk_in_position <= '1';
+                  osk_in_position_lower <= '1';
+                  if osk_in_position_lower = '0' then
+                    y_lower_start <= y_start_current;
+                  end if;
                 else
-                  osk_in_position <= '0';
+                  osk_in_position_lower <= '0';
                 end if;
               end if;
               -- Offset text to boxes by 4 pixels
@@ -430,20 +436,52 @@ begin
             report "Visual keyboard disabled -- pushin to bottom of screen";
             if ycounter_last > max_y then
               y_start_current <= ycounter_last;
+              y_lower_start <= ycounter_last;
             else
               y_start_current <= max_y;
+              y_lower_start <= max_y;
             end if;
           else
             report "Visual keyboard disabled: guessing end of screen";
             y_start_current <= (others => '1');
           end if;
-        elsif osk_in_position = '0'
+        elsif keyboard_at_top='1' then
+          -- Keyboard at the top: If it were down low, bring it up 1/8th of
+          -- the remaining distance, plus one pixel.  Thus we follow a Xeno's Paradox
+          -- like curve to spring the keyboard to the top
+          if y_start_current > 0 then
+            y_start_current <= y_start_current - y_start_current(11 downto 3) - 1;
+          else
+            y_start_current <= to_unsigned(0,12);
+          end if;
+          -- OSK is no longer in the correct position for at the bottom of the
+          -- screen
+          osk_in_position_lower <= '0';
+        elsif osk_in_position_lower = '0'
           and visual_keyboard_enable='1'
           and last_visual_keyboard_enable='1' then
-          report "Sliding visual keyboard up a bit";
-          y_start_current(11 downto 3)
-            <= y_start_current(11 downto 3)
-            - pixel_y_scale_200;
+          if y_start_current > y_lower_start then
+            report "Sliding visual keyboard up a bit";
+            -- We slide in with linear speed fairly quickly, as this is the
+            -- default position for the OSK, so we want a non-annoying entrance
+            -- animation.
+            y_start_current(11 downto 3)
+              <= y_start_current(11 downto 3)
+              - pixel_y_scale_200;
+          else
+            report "Sliding visual keyboard down a bit";
+            -- When sliding from top to bottom, this is always returning after
+            -- the OSK has been moved to the top for some reason.
+            -- Thus we want to mirror the motion that we used to move from
+            -- bottom to top (a 1/8th + 1 pixel Xeno step function)
+            if y_start_current < y_lower_start then
+              y_start_current <= y_start_current
+                                 + (y_lower_start - y_start_current(11 downto 3)) + 1;
+            else
+              y_start_current <= y_lower_start;
+              osk_in_position_lower <= '1';
+            end if;            
+          end if;
           if y_start_current > max_y then
             report "Resetting visual keyboard to bottom edge";
             y_start_current <= max_y;
@@ -462,7 +500,7 @@ begin
         -- Visual keyboard has just been enabled, so start it
         -- off the bottom of the screen, and allow it to
         -- move up over several frames
-        osk_in_position <= '0';
+        osk_in_position_lower <= '0';
         if ycounter_last > max_y then
           y_start_current <= ycounter_last;
         else
