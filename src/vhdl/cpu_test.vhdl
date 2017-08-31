@@ -125,6 +125,8 @@ architecture behavior of cpu_test is
   signal slow_access_address : unsigned(27 downto 0);
   signal slow_access_wdata : unsigned(7 downto 0);
   signal slow_access_rdata : unsigned(7 downto 0);
+
+  signal sector_buffer_mapped : std_logic;
   
 begin
 
@@ -168,6 +170,8 @@ begin
       reset => reset,
       cpu_exrom => cpu_exrom,
       cpu_game => cpu_game,
+
+      sector_buffer_mapped => sector_buffer_mapped,
       
       qspidb => qspidb,
       qspicsn => qspicsn,      
@@ -226,6 +230,8 @@ begin
       nmi => '1',
       cpu_exrom => cpu_exrom,
       cpu_game => cpu_game,
+
+      sector_buffer_mapped => sector_buffer_mapped,
       
       restore_key => '1',
 

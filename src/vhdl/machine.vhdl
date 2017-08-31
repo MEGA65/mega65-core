@@ -387,6 +387,7 @@ architecture Behavioral of machine is
   signal terminal_emulator_ready : std_logic := '0';
 
   signal visual_keyboard_enable : std_logic;
+  signal keyboard_at_top : std_logic;
   signal osk_x : unsigned(11 downto 0);
   signal osk_y : unsigned(11 downto 0);
   signal osk_key1 : unsigned(7 downto 0);
@@ -774,6 +775,7 @@ begin
       speed_gate_enable => speed_gate_enable,
 
       visual_keyboard_enable => visual_keyboard_enable,
+      keyboard_at_top => keyboard_at_top,
       osk_x => osk_x,
       osk_y => osk_y,
       osk_key1 => osk_key1,
@@ -957,6 +959,7 @@ begin
     vgared_in => vgared_kbd,
     vgagreen_in => vgagreen_kbd,
     visual_keyboard_enable => visual_keyboard_enable,
+    keyboard_at_top => keyboard_at_top,
     key1 => osk_key1,
     key2 => osk_key2,
     key3 => osk_key3,

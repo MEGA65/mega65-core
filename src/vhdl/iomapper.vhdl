@@ -51,6 +51,7 @@ entity iomapper is
         key_scancode_toggle : in std_logic;
 
         visual_keyboard_enable : out std_logic;
+        keyboard_at_top : out std_logic;
         osk_x : out unsigned(11 downto 0) := (others => '0');
         osk_y : out unsigned(11 downto 0);
         osk_key1 : out unsigned(7 downto 0);
@@ -441,7 +442,8 @@ begin
       portj_in => matrix_segment_out,
       portk_out(6 downto 0) => virtual_key1(6 downto 0),
       portk_out(7) => visual_keyboard_enable,
-      portl_out => virtual_key2,
+      portl_out(6 downto 0) => virtual_key2(6 downto 0),
+      portl_out(7) => keyboard_at_top,
       portm_out => virtual_key3,
       portn_out => keyboard_scan_rate,
       porto_out => osk_x(7 downto 0),
