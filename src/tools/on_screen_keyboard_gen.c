@@ -30,7 +30,7 @@ int main(int argc,char **argv)
       }
       fprintf(stderr,"Found sticky/modifier key section.\n");
       parse_mode=2;
-      offset=8*16;
+      offset=15*16;
     }
     if (parse_mode==1)
       if (sscanf(line,"%x,%x,%x,%x,%x,%x,%x,%x,%x,%x,%x,%x,%x,%x,%x,%x",
@@ -47,7 +47,8 @@ int main(int argc,char **argv)
       }
     if (parse_mode==2) {
       if (sscanf(line,"%x",&b[0])==1) {
-	map[8*16+b[0]]=0x01; // mark key as sticky
+	// XXX - We are not doing this here any more
+	//	map[8*16+b[0]]=0x01; // mark key as sticky
 	fprintf(stderr,"Key %d is sticky.\n",b[0]);
       }
     }
@@ -86,12 +87,14 @@ int main(int argc,char **argv)
       else
 	out[x]=line[x];
     }
-
+    out[strlen(line)]=0;
+    
     // Trim CR/LF from end
-    out[strlen(out)-1]=0;
+    if (out[0]) out[strlen(out)-1]=0;
 
     // Trim spaces from end
     while(out[0]&&out[strlen(out)-1]==' ') out[strlen(out)-1]=0;
+    fprintf(stderr,"line [%s]\n",out);
   
     // Replace runs of spaces
     int pl=0;
@@ -121,11 +124,11 @@ int main(int argc,char **argv)
   }
 
   fprintf(stderr,"Packed len = $%04x\n",packed_len);
-  while(packed_len<1022) {
+  while(packed_len<(4095-2-2048-256)) {
     putc(0,stdout); packed_len++;
   }
   putc(alternate_keyboard_offset&0xff,stdout);
-  putc(1+(alternate_keyboard_offset>>8),stdout);
+  putc(9+(alternate_keyboard_offset>>8),stdout);
     
 
   fclose(f);

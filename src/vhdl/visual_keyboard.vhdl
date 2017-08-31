@@ -14,6 +14,7 @@ entity visual_keyboard is
     pixelclock : in std_logic;
     visual_keyboard_enable : in std_logic;
     keyboard_at_top : in std_logic;
+    alternate_keyboard : in std_logic;
     key1 : in unsigned(7 downto 0);
     key2 : in unsigned(7 downto 0);
     key3 : in unsigned(7 downto 0);    
@@ -88,8 +89,15 @@ architecture behavioural of visual_keyboard is
   signal double_width_phase : std_logic := '0';
   signal double_height : std_logic := '0';
   signal double_height_phase : std_logic := '0';
+
+  signal keyboard_text_start : unsigned(11 downto 0) := to_unsigned(2048+256,12);
+  signal alt_keyboard_text_start : unsigned(11 downto 0) := to_unsigned(2048+256,12);
+  signal alt_offset : integer := 0;
   
   type fetch_state_t is (
+    FetchInitial,
+    FetchAltStartLow,
+    FetchAltStartHigh,
     FetchIdle,
     CharFetch,
     FetchCharData,
@@ -100,7 +108,7 @@ architecture behavioural of visual_keyboard is
     FetchNextMatrix,
     GotNextMatrix
     );
-  signal fetch_state : fetch_state_t := FetchIdle;
+  signal fetch_state : fetch_state_t := FetchInitial;
   
   
 begin
@@ -120,6 +128,18 @@ begin
   begin
     if rising_edge(pixelclock) then
 
+      if alternate_keyboard='1' then
+        double_width <= '1';
+        double_height <= '1';
+        keyboard_text_start <= alt_keyboard_text_start;
+        alt_offset <= 7*16;
+      else
+        double_width <= '0';
+        double_height <= '0';
+        keyboard_text_start <= to_unsigned(2048+256,12);
+        alt_offset <= 0;
+      end if;
+      
       -- XXX Force OSK to be visible at top of frame for debugging
       y_start_current <= to_unsigned(0,12);
       
@@ -153,8 +173,8 @@ begin
             active <= '1';
 
             -- Packed text starts at $0900 in OSKmem
-            current_address <= 2048 + 256;
-            last_row_address <= 2048 + 256;
+            current_address <= to_integer(keyboard_text_start);
+            last_row_address <= to_integer(keyboard_text_start);
 
             y_row <= 0;
             y_char_in_row <= 0;
@@ -293,8 +313,12 @@ begin
           -- Draw vertical bar between keys on same row
           -- Wide keys may be drawn as several consecutive keys with same
           -- matrix ID. Thus don't draw vertical bar if next key ID is the same
-          -- as the current
-          if current_matrix_id(6 downto 0) /= next_matrix_id(6 downto 0) then
+          -- as the current (or between 7E/7F variants of blank spaces)
+          if (current_matrix_id(6 downto 0) = next_matrix_id(6 downto 0))
+            or ((current_matrix_id(6 downto 1) = "111111") 
+                and (next_matrix_id(6 downto 1) = "111111")) then
+            null;
+          else
             if pixel_x_640 < 640 then
               box_pixel <= '1';
             else
@@ -313,7 +337,7 @@ begin
           fetch_state <= FetchNextMatrix;
         else
           -- Draw left edge of keyboard as requird (all rows except SPACE bar row)
-          if pixel_x_640=0 and y_row /= 5 and active='1' then
+          if pixel_x_640=0 and y_row /= 5 and active='1' and alternate_keyboard='0' then
             box_pixel <= '1';
           else
             box_pixel <= '0';
@@ -336,6 +360,18 @@ begin
       end if;
 
       case fetch_state is
+        when FetchInitial =>
+          address <= 4093;
+          fetch_state <= FetchAltStartLow;
+        when FetchAltStartLow =>
+          address <= 4094;
+          alt_keyboard_text_start(7 downto 0) <= rdata;
+          fetch_state <= FetchAltStartHigh;
+          report "Alt fetch lo = $" & to_hstring(rdata);
+        when FetchAltStartHigh =>
+          alt_keyboard_text_start(11 downto 8) <= rdata(3 downto 0);
+          fetch_state <= FetchIdle;
+          report "Alt fetch hi = $" & to_hstring(rdata);
         when FetchIdle =>
           -- Get the next character to display, if we
           -- don't already have one
@@ -348,7 +384,7 @@ begin
               address <= current_address;
               current_address <= current_address + 1;
               fetch_state <= CharFetch;
-            end if;
+            end if;          
           end if;
         when CharFetch =>
           if rdata(7 downto 0) = x"0a" then
@@ -377,7 +413,7 @@ begin
           next_char_data <= std_logic_vector(rdata);
           fetch_state <= FetchIdle;
         when FetchMapRowColumn0 =>
-          address <= 2048 + y_row*16;
+          address <= 2048 + alt_offset + y_row*16;
           fetch_state <= FetchMapRowColumn1;
         when FetchMapRowColumn1 =>
 --          report "current_matrix_id <= $" & to_hstring(rdata)
@@ -385,7 +421,7 @@ begin
 --            & to_hstring(to_unsigned(address,12));
           current_matrix_id <= rdata;
           key_same_as_last <= '0';
-          address <= 2048 + y_row*16 + 1;
+          address <= 2048 + alt_offset + y_row*16 + 1;
           fetch_state <= GotMapRowColumn1;
         when GotMapRowColumn1 =>
 --          report "next_matrix_id <= $" & to_hstring(rdata)
@@ -403,7 +439,7 @@ begin
           fetch_state <= FetchIdle;
         when FetchNextMatrix =>
           if matrix_pos < 16 then
-            address <= 2048 + y_row*16 + matrix_pos + 2;
+            address <= 2048 + alt_offset + y_row*16 + matrix_pos + 2;
             matrix_pos <= matrix_pos + 1;
           else
             -- Else read a blank character (we know one is at location 1)

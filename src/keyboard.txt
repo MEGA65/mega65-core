@@ -20,20 +20,20 @@ CTRL|SHFT|    |    |    |    |    |    |    |    |    | [  | ]  | }  |
 
     INFORMATIONAL-TEXT-GOES-HERE......
     INFORMATIONAL-TEXT-GOES-HERE......
-    
-    +-------+-------+-------+    +----+
-    |   1   |   2   |   3   |    |    |
-    |       |       |       |    | Y  |
-    +-------+-------+-------+    +----+
-    |   4   |   5   |   6   |
-    |       |       |       |
-    +-------+-------+-------+
-    |   7   |   8   |   9   |
-    |       |       |       |
-    +-------+-------+-------+    +----+
-    |   #   |   0   |   *   |    | N  |
-    |       |       |       |    |    |
-    +-------+-------+-------+    +----+
+
+
+       1    2    3        Y
+
+
+       4    5    6
+
+
+       7    8    9
+
+
+       #    0    *        N
+
+
        
 Simple table for working out which keys go where for the above pattern for
 on-screen keyboard of 6 rows x 16 characters + 3 width flag bits
@@ -54,6 +54,13 @@ C1,3E,09,0E,11,16,19,1E,21,26,29,2E,31,36,D1,7F
 3D,8F,0C,17,14,1F,1C,27,24,2F,2C,37,B4,52,7E,7E
 7E,7E,7E,3C,3C,3C,3C,3C,3C,3C,3C,3C,7E,53,07,02
 7F,7F,7F,7E,7E,7E,7E,7E,7E,7E,7E,7E,7F,7E,7E,7E
+7F,7F,7F,7F,7F,7F,7F,7F,7F,7F,7F,7F,7F,7F,7F,7F
+7F,41,42,43,7F,44,7F,45,7F,7F,7F,7F,7F,7F,7F,7F
+7F,41,42,43,7F,7E,7F,45,7F,7F,7F,7F,7F,7F,7F,7F
+7F,41,42,43,7F,7F,7F,45,7F,7F,7F,7F,7F,7F,7F,7F
+7F,41,42,43,7F,44,7F,45,7F,7F,7F,7F,7F,7F,7F,7F
+7F,7E,7E,7E,7F,7E,7F,7E,7F,7F,7F,7F,7F,7F,7F,7F
+7F,7F,7F,7F,7F,7F,7F,7F,7F,7F,7F,7F,7F,7F,7F,7F
 
 Sticky/modifier keys:
 0F

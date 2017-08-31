@@ -18,6 +18,7 @@ architecture behavioral of test_osk is
   signal pixelclock : std_logic := '1';
   signal visual_keyboard_enable : std_logic := '0';
   signal keyboard_at_top : std_logic := '0';
+  signal alternate_keyboard : std_logic := '1';
   signal key1 : unsigned(7 downto 0) := x"53";
   signal key2 : unsigned(7 downto 0) := x"52";
   signal key3 : unsigned(7 downto 0) := x"51";
@@ -41,6 +42,7 @@ begin
       pixelclock => pixelclock,
       visual_keyboard_enable => visual_keyboard_enable,
       keyboard_at_top => keyboard_at_top,
+      alternate_keyboard => alternate_keyboard,
       key1 => key1,
       key2 => key2,
       key3 => key3,
