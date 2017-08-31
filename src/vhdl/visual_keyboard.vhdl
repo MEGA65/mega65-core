@@ -321,7 +321,9 @@ begin
           else
             box_pixel <= '0';
           end if;
-          key_box_counter <= key_box_counter - 1;
+          if double_width='0' or double_width_phase='0' then
+            key_box_counter <= key_box_counter - 1;
+          end if;
         end if;
         -- Horizontal lines:
         -- These are a bit trickier, because we need to know the key above and
