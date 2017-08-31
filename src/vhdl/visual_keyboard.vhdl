@@ -120,6 +120,9 @@ begin
   begin
     if rising_edge(pixelclock) then
 
+      -- XXX Force OSK to be visible at top of frame for debugging
+      y_start_current <= to_unsigned(0,12);
+      
       -- Update vertical scale factor to fit video mode
       if pixel_y_scale_200 /= x"0" then
         y_stretch <= to_integer(pixel_y_scale_200) - 1;
@@ -129,8 +132,6 @@ begin
       
       if pixel_x_640_in < x_start_current then
         pixel_x_640 <= 640;
-        double_height <= '0';
-        double_width <= '0';
       else
         pixel_x_640 <= pixel_x_640_in - to_integer(x_start_current);
       end if;
@@ -242,10 +243,6 @@ begin
           if (text_delay = 0) and (pixel_x_640 > 3) then
             char_pixels_remaining <= 7;
             char_data <= next_char_data;
-            if next_char_data = x"FF" then
-              double_height <= '1';
-              double_width <= '1';
-            end if;
           else
             char_pixels_remaining <= 3;
             char_data(7 downto 4) <= next_char_data(3 downto 0);

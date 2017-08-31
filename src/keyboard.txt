@@ -18,6 +18,23 @@ CTRL|SHFT|    |    |    |    |    |    |    |    |    | [  | ]  | }  |
               |                                            |    |LEFT|DOWN|RGHT
               +--------------------------------------------+    +----+----+----
 
+    INFORMATIONAL-TEXT-GOES-HERE......
+    INFORMATIONAL-TEXT-GOES-HERE......
+    
+    +-------+-------+-------+    +----+
+    |   1   |   2   |   3   |    |    |
+    |       |       |       |    | Y  |
+    +-------+-------+-------+    +----+
+    |   4   |   5   |   6   |
+    |       |       |       |
+    +-------+-------+-------+
+    |   7   |   8   |   9   |
+    |       |       |       |
+    +-------+-------+-------+    +----+
+    |   #   |   0   |   *   |    | N  |
+    |       |       |       |    |    |
+    +-------+-------+-------+    +----+
+       
 Simple table for working out which keys go where for the above pattern for
 on-screen keyboard of 6 rows x 16 characters + 3 width flag bits
 * N indicates normal width char in position #1,#2 or #13. All other keys are single

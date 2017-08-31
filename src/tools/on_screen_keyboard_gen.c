@@ -68,9 +68,14 @@ int main(int argc,char **argv)
 
   char out[1024];
   char packed[1024];
-  for(n=0;n<19;n++) {
+  int alternate_keyboard_offset=0;
+  int packed_len=0;
+  
+  for(n=0;n<(19+17);n++) {
     line[0]=0; fgets(line,1024,f);
 
+    if (n==19) alternate_keyboard_offset=packed_len;
+    
     // Remove boxes around characters
     for(int x=0;line[x];x++) {
       if (line[x]=='|'
@@ -87,7 +92,7 @@ int main(int argc,char **argv)
 
     // Trim spaces from end
     while(out[0]&&out[strlen(out)-1]==' ') out[strlen(out)-1]=0;
-
+  
     // Replace runs of spaces
     int pl=0;
     int space_count=0;
@@ -108,11 +113,20 @@ int main(int argc,char **argv)
       }
     }
     // Ignore any banked up spaces, as we trim spaces at end of line
-
+    
     packed[pl]=0;
+    packed_len+=pl+1;
     
     printf("%s\n",packed);
   }
+
+  fprintf(stderr,"Packed len = $%04x\n",packed_len);
+  while(packed_len<1022) {
+    putc(0,stdout); packed_len++;
+  }
+  putc(alternate_keyboard_offset&0xff,stdout);
+  putc(1+(alternate_keyboard_offset>>8),stdout);
+    
 
   fclose(f);
   
