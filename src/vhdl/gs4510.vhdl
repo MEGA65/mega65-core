@@ -4562,6 +4562,16 @@ begin
                                               reg_arg1(7)&reg_arg1(7)&reg_arg1(7)&reg_arg1(7)&
                                               reg_arg1);
                       report "Setting PC (8-bit branch)";
+                      
+                      -- Charge one cycle for branches that are taken
+                      if temp_addr(15 downto 8) = reg_pc(15 downto 8) then
+                        -- 1 cycle for branch taken, + 1 cycle extra for page crossing
+                        phi_new_backlog <= 2;
+                      else
+                        phi_new_backlog <= 1;
+                      end if;
+                      phi_add_backlog <= '1';                      
+                      
                       reg_pc <= temp_addr;
                       -- Take an extra cycle when taking a branch.  This avoids
                       -- poor timing due to memory-to-memory activity in a
@@ -4755,6 +4765,9 @@ begin
             when B16TakeBranch =>
               report "Setting PC: 16-bit branch will be taken";
               reg_pc <= reg_pc + to_integer(reg_addr) - 1;
+              -- Charge one cycle for branches that are taken
+              phi_new_backlog <= 1;
+              phi_add_backlog <= '1';                      
               state <= normal_fetch_state;
             when InnXReadVectorLow =>
               reg_addr(7 downto 0) <= memory_read_value;
