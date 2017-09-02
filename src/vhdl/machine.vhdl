@@ -388,6 +388,7 @@ architecture Behavioral of machine is
 
   signal visual_keyboard_enable : std_logic;
   signal keyboard_at_top : std_logic;
+  signal alternate_keyboard : std_logic;
   signal osk_x : unsigned(11 downto 0);
   signal osk_y : unsigned(11 downto 0);
   signal osk_key1 : unsigned(7 downto 0);
@@ -776,6 +777,7 @@ begin
 
       visual_keyboard_enable => visual_keyboard_enable,
       keyboard_at_top => keyboard_at_top,
+      alternate_keyboard => alternate_keyboard,
       osk_x => osk_x,
       osk_y => osk_y,
       osk_key1 => osk_key1,
@@ -960,6 +962,7 @@ begin
     vgagreen_in => vgagreen_kbd,
     visual_keyboard_enable => visual_keyboard_enable,
     keyboard_at_top => keyboard_at_top,
+    alternate_keyboard => alternate_keyboard,
     key1 => osk_key1,
     key2 => osk_key2,
     key3 => osk_key3,
