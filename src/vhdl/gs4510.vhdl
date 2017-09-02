@@ -4544,6 +4544,10 @@ begin
                     reg_addr <= temp_addr + 1;
                     state <= InnZReadVectorLow;
                   when M_rr =>
+                    temp_addr := reg_pc +
+                                 to_integer(reg_arg1(7)&reg_arg1(7)&reg_arg1(7)&reg_arg1(7)&
+                                            reg_arg1(7)&reg_arg1(7)&reg_arg1(7)&reg_arg1(7)&
+                                            reg_arg1);
                     if (reg_instruction=I_BRA) or
                       (reg_instruction=I_BSR) or
                       (reg_instruction=I_BEQ and flag_z='1') or
@@ -4557,10 +4561,6 @@ begin
                       -- Branch will be taken. Calculate destination address by
                       -- sign-extending the 8-bit offset.
                       report "Taking 8-bit branch" severity note;
-                      temp_addr := reg_pc +
-                                   to_integer(reg_arg1(7)&reg_arg1(7)&reg_arg1(7)&reg_arg1(7)&
-                                              reg_arg1(7)&reg_arg1(7)&reg_arg1(7)&reg_arg1(7)&
-                                              reg_arg1);
                       report "Setting PC (8-bit branch)";
                       
                       -- Charge one cycle for branches that are taken
