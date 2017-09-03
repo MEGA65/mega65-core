@@ -235,6 +235,11 @@ int process_line(char *line,int live)
   int pc,a,x,y,sp,p;
   // printf("[%s]\n",line);
   if (!live) return 0;
+  if (sscanf(line,"F011READ")) {
+    fprintf(stderr,"[T+%lldsec] Servicing hypervisor request for F011 FDC sector read.\n",
+	    (long long)time(0)-start_time);
+    fprintf(stderr,"   XXX Not implemented.\n");
+  }
   if (sscanf(line,"%04x %02x %02x %02x %02x %02x",
 	     &pc,&a,&x,&y,&sp,&p)==6) {
     // printf("PC=$%04x\n",pc);
