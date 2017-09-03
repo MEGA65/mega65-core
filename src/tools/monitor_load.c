@@ -57,7 +57,7 @@ int process_char(unsigned char c,int live);
 void usage(void)
 {
   fprintf(stderr,"MEGA65 cross-development tool for booting the MEGA65 using a custom bitstream and/or KICKUP file.\n");
-  fprintf(stderr,"usage: monitor_load [-l <serial port>] [-s <230400|2000000|4000000>]  [-b <FPGA bitstream>] [[-k <kickup file>] [-R romfile] [-C charromfile]] [-c COLOURRAM.BIN] [-m modeline] [-o] [filename]\n");
+  fprintf(stderr,"usage: monitor_load [-l <serial port>] [-s <230400|2000000|4000000>]  [-b <FPGA bitstream>] [[-k <kickup file>] [-R romfile] [-C charromfile]] [-c COLOURRAM.BIN] [-m modeline] [-o] [filename] [-d diskimage.d81]\n");
   fprintf(stderr,"  -l - Name of serial port to use, e.g., /dev/ttyUSB1\n");
   fprintf(stderr,"  -s - Speed of serial port in bits per second. This must match what your bitstream uses.\n");
   fprintf(stderr,"       (Older bitstream use 230400, and newer ones 2000000 or 4000000).\n");
@@ -69,7 +69,8 @@ void usage(void)
   fprintf(stderr,"  -4 - Switch to C64 mode before exiting.\n");
   fprintf(stderr,"  -r - Automatically RUN programme after loading.\n");
   fprintf(stderr,"  -m - Set video mode to Xorg style modeline.\n");
-  fprintf(stderr,"  -m - Enable on-screen keyboard\n");
+  fprintf(stderr,"  -o - Enable on-screen keyboard\n");
+  fprintf(stderr,"  -d - Enable virtual D81 access\n");
   fprintf(stderr,"  filename - Load and run this file in C64 mode before exiting.\n");
   fprintf(stderr,"\n");
   exit(-3);
@@ -100,6 +101,8 @@ int state=99;
 int name_len,name_lo,name_hi,name_addr=-1;
 int do_go64=0;
 int do_run=0;
+int virtual_f011=0;
+char *d81file=NULL;
 char *filename=NULL;
 char *romfile=NULL;
 char *charromfile=NULL;
@@ -250,6 +253,13 @@ int process_line(char *line,int live)
       if (romfile) load_file(romfile,0x20000,0); romfile=NULL;
       if (charromfile) load_file(charromfile,0xFF7E000,0);
       if (colourramfile) load_file(colourramfile,0xFF80000,0);
+      if (virtual_f011) {
+	char cmd[64];
+	fprintf(stderr,"[T+%lldsec] Virtualising F011 FDC access.\n",
+		(long long)time(0)-start_time);
+	snprintf(cmd,1024,"sffd3672 01\r");
+	slow_write(fd,cmd,strlen(cmd));
+      }
       charromfile=NULL;
       colourramfile=NULL;
       restart_kickstart();
@@ -369,7 +379,7 @@ int process_line(char *line,int live)
       first_go64=0;
     } else {
       fprintf(stderr,"MEGA65 is in C65 mode.\n");
-      if (!mode_report) exit(0);
+      if ((!mode_report)&&(!virtual_f011)) exit(0);
     }    
   }
   if (!strcmp(line,
@@ -385,7 +395,8 @@ int process_line(char *line,int live)
       first_load=0;
     } else {
       fprintf(stderr,"MEGA65 is in C64 mode.\n");
-      exit(0);
+      if (!virtual_f011)
+	exit(0);
     }
   }  
   if (state==2)
@@ -453,7 +464,8 @@ int process_line(char *line,int live)
 	printf("\n");
 	// loaded ok.
 	printf("LOADED.\n");
-	exit(0);
+	if (!virtual_f011)
+	  exit(0);
       }
     }
   return 0;
@@ -711,7 +723,7 @@ int main(int argc,char **argv)
   start_time=time(0);
   
   int opt;
-  while ((opt = getopt(argc, argv, "4l:s:b:c:k:rR:C:m:o")) != -1) {
+  while ((opt = getopt(argc, argv, "4l:s:b:c:k:rR:C:m:od:")) != -1) {
     switch (opt) {
     case 'R': romfile=strdup(optarg); break;
     case 'C': charromfile=strdup(optarg); break;
@@ -721,6 +733,7 @@ int main(int argc,char **argv)
     case 'l': strcpy(serial_port,optarg); break;
     case 'm': prepare_modeline(optarg); mode_report=1; break;
     case 'o': osk_enable=1; break;
+    case 'd': virtual_f011=1; d81file=strdup(optarg); break;
     case 's':
       serial_speed=atoi(optarg);
       switch(serial_speed) {
