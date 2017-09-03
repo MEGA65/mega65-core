@@ -18,7 +18,16 @@ entity visual_keyboard is
     key1 : in unsigned(7 downto 0);
     key2 : in unsigned(7 downto 0);
     key3 : in unsigned(7 downto 0);    
-    key4 : in unsigned(7 downto 0);    
+    key4 : in unsigned(7 downto 0);
+
+    -- Touch interface
+    touch1_valid : in std_logic;
+    touch1_x : in unsigned(13 downto 0);
+    touch1_y : in unsigned(11 downto 0);
+    touch2_valid : in std_logic;
+    touch2_x : in unsigned(13 downto 0);
+    touch2_y : in unsigned(11 downto 0);
+    
     vgared_in : in  unsigned (7 downto 0);
     vgagreen_in : in  unsigned (7 downto 0);
     vgablue_in : in  unsigned (7 downto 0);

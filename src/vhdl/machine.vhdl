@@ -396,6 +396,13 @@ architecture Behavioral of machine is
   signal osk_key3 : unsigned(7 downto 0);
   signal osk_key4 : unsigned(7 downto 0);
 
+  signal osk_touch1_valid : std_logic := '0';
+  signal osk_touch1_x : unsigned(13 downto 0) := to_unsigned(0,14);
+  signal osk_touch1_y : unsigned(11 downto 0) := to_unsigned(0,14);
+  signal osk_touch2_valid : std_logic := '0';
+  signal osk_touch2_x : unsigned(13 downto 0) := to_unsigned(0,14);
+  signal osk_touch2_y : unsigned(11 downto 0) := to_unsigned(0,14);
+
   signal all_pause : std_logic := '0';
   
 begin
@@ -967,6 +974,12 @@ begin
     key2 => osk_key2,
     key3 => osk_key3,
     key4 => osk_key4,
+    touch1_valid => osk_touch1_valid,
+    touch1_x => osk_touch1_x,    
+    touch1_y => osk_touch1_y,    
+    touch2_valid => osk_touch2_valid,
+    touch2_x => osk_touch2_x,    
+    touch2_y => osk_touch2_y,    
     vgablue_in => vgablue_kbd,
     vgared_out => vgared_out,
     vgagreen_out => vgagreen_out,
