@@ -326,6 +326,7 @@ int process_line(char *line,int live)
       if (addr==0xffd3672) {
 	fprintf(stderr,"Hypervisor virtualisation flags = $%02x\n",b[0]);
 	if (virtual_f011&&hypervisor_paused) restart_kickstart();
+	hypervisor_paused=0;
       }
       if (addr>=0xffd3000U&&addr<=0xffd3100) {
 	// copy bytes to VIC-IV register buffer
