@@ -117,7 +117,7 @@ char modeline_cmd[1024]="";
 
 int saw_c64_mode=0;
 int saw_c65_mode=0;
-
+int hypervisor_paused=0;
 
 unsigned long long gettime_ms()
 {
@@ -271,6 +271,7 @@ int process_line(char *line,int live)
       charromfile=NULL;
       colourramfile=NULL;
       if (!virtual_f011) restart_kickstart();
+      else hypervisor_paused=1;
     } else {
       if (state==99) {
 	// Synchronised with monitor
@@ -324,7 +325,7 @@ int process_line(char *line,int live)
       }
       if (addr==0xffd3672) {
 	fprintf(stderr,"Hypervisor virtualisation flags = $%02x\n",b[0]);
-	if (virtual_f011) restart_kickstart();
+	if (virtual_f011&&hypervisor_paused) restart_kickstart();
       }
       if (addr>=0xffd3000U&&addr<=0xffd3100) {
 	// copy bytes to VIC-IV register buffer
@@ -831,7 +832,7 @@ int main(int argc,char **argv)
 	}
 	if (gettime_ms()>last_check) {
 	  if (state==99) printf("sending R command to sync @ %dpbs.\n",serial_speed);
-	  switch (phase%4) {
+	  switch (phase%(3+hypervisor_paused)) {
 	  case 0: slow_write(fd,"r\r",2); break; // PC check
 	  case 1: slow_write(fd,"m86d\r",5); break; // C65 Mode check
 	  case 2: slow_write(fd,"m42c\r",5); break; // C64 mode check
