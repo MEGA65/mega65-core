@@ -1915,7 +1915,9 @@ begin
             when "010111" => return hyper_dmagic_list_addr(23 downto 16);
             when "011000" =>
               return to_unsigned(0,4)&hyper_dmagic_list_addr(27 downto 24);
-
+            when "011001" =>
+              return "0000000"&virtualise_sd;
+              
             -- Virtual memory page registers here
             when "011101" =>
               return unsigned(std_logic_vector(reg_pagenumber(1 downto 0))
@@ -2881,7 +2883,6 @@ begin
         end if;   
  		  
         -- @IO:GS $D672 - Protected Hardware configuration
-        -- @IO:GS $D672.0 - Virtualise F011 floppy access via Hypervisor trap
         -- @IO:GS $D672.6 - Enable composited Matrix Mode, and disable UART access to serial monitor.
         if last_write_address = x"FFD3672" and hypervisor_mode='1' then
           hyper_protected_hardware(7 downto 0) <= last_value;

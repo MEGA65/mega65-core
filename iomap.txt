@@ -326,7 +326,6 @@ GS $D66E - Hypervisor virtual memory page 3 physical page low byte
 GS $D66F - Hypervisor virtual memory page 3 physical page high byte
 GS $D670 - Hypervisor GeoRAM base address (x MB) (write-only for
 GS $D671 - Hypervisor GeoRAM address mask (applied to GeoRAM block
-GS $D672.0 - Virtualise F011 floppy access via Hypervisor trap
 GS $D672.6 - Enable composited Matrix Mode, and disable UART access to serial monitor.
 GS $D672 - Protected Hardware configuration
 GS $D67C.0-7 - (write) Hypervisor write serial output to UART monitor

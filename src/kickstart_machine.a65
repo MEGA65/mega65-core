@@ -29,7 +29,7 @@
 	.alias hypervisor_dmagic_list1 $d656
 	.alias hypervisor_dmagic_list2 $d657
 	.alias hypervisor_dmagic_list3 $d658
-	.alias hypervisor_ddr_banking $d659
+	.alias hypervisor_hardware_virtualisation $d659
 
 	; d65a
 	; d65b
