@@ -61,7 +61,7 @@
 	.alias hypervsior_georam_block_mask $d671
 
 	; d672 110 010
-	.alias secure_mode $d672
+	.alias hypervisor_secure_mode_flags $d672
 	
 	; d673
 	; d674

@@ -197,7 +197,7 @@ protected_hardware_config:
 
         ; store config info passed from register a 
         lda hypervisor_a
-	sta $D672
+	sta hypervisor_secure_mode_flags
 
 	; bump border colour so that we know something has happened
 	;
@@ -213,21 +213,21 @@ protected_hardware_config:
 
 matrix_mode_toggle:
 
-	lda $D672
+	lda hypervisor_secure_mode_flags
 	; We want to toggle bit 6 only.
 	and #$40 ; mask bit 6
 	bne clearmm ;if its not zero
 	
 	;If its not enabled, we want to set bit 6
-	lda $D672
+	lda hypervisor_secure_mode_flags
         ora #$40 
 	jmp exitmm
        ;If its enabled, we want to clear bit 6
 clearmm:
-        lda $D672
+        lda hypervisor_secure_mode_flags
         and #$BF
 exitmm:
-        sta $D672
+        sta hypervisor_secure_mode_flags
 
         ;;;Dont need this any more
 	;; bump border colour so that we know something has happened	
