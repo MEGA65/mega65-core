@@ -115,6 +115,9 @@ char serial_port[1024]="/dev/ttyUSB1"; // XXX do a better job auto-detecting thi
 int serial_speed=2000000;
 char modeline_cmd[1024]="";
 
+int saw_c64_mode=0;
+int saw_c65_mode=0;
+
 
 unsigned long long gettime_ms()
 {
@@ -383,7 +386,8 @@ int process_line(char *line,int live)
       if (first_go64) fprintf(stderr,"[T+%lldsec] GO64\nY\n",(long long)time(0)-start_time);
       first_go64=0;
     } else {
-      fprintf(stderr,"MEGA65 is in C65 mode.\n");
+      if (!saw_c65_mode) fprintf(stderr,"MEGA65 is in C65 mode.\n");
+      saw_c65_mode=1;
       if ((!mode_report)&&(!virtual_f011)) exit(0);
     }    
   }
@@ -399,7 +403,8 @@ int process_line(char *line,int live)
       if (first_load) fprintf(stderr,"[T+%lldsec] LOAD\"!\n",(long long)time(0)-start_time);
       first_load=0;
     } else {
-      fprintf(stderr,"MEGA65 is in C64 mode.\n");
+      if (!saw_c64_mode) fprintf(stderr,"MEGA65 is in C64 mode.\n");
+      saw_c64_mode=1;
       if (!virtual_f011)
 	exit(0);
     }
