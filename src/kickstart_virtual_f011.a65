@@ -8,7 +8,22 @@ f011_virtual_read:
 
 	; XXX - Not yet implemented
 	inc $D020
+
+	ldx #$00
+fvr1:
+	lda hypervisor_write_char_to_serial_monitor
+	and #$c0
+	bne fvr1
+	lda f011_virtual_read_magic,x
+	sta hypervisor_write_char_to_serial_monitor
+	inx
+	cpx #9
+	bne fvr1
+
 	jmp f011_virtual_read
+
+f011_virtual_read_magic:
+	.byte "F011READ",13
 
 f011_virtual_write:
 
