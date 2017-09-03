@@ -270,7 +270,7 @@ int process_line(char *line,int live)
       }
       charromfile=NULL;
       colourramfile=NULL;
-      restart_kickstart();
+      if (!virtual_f011) restart_kickstart();
     } else {
       if (state==99) {
 	// Synchronised with monitor
@@ -321,6 +321,10 @@ int process_line(char *line,int live)
 	  do_go64=1; // load in C64 mode only
 	  state=0;
 	}
+      }
+      if (addr==0xffd3672) {
+	fprintf(stderr,"Hypervisor virtualisation flags = $%02x\n",b[0]);
+	if (virtual_f011) restart_kickstart();
       }
       if (addr>=0xffd3000U&&addr<=0xffd3100) {
 	// copy bytes to VIC-IV register buffer
@@ -827,10 +831,11 @@ int main(int argc,char **argv)
 	}
 	if (gettime_ms()>last_check) {
 	  if (state==99) printf("sending R command to sync @ %dpbs.\n",serial_speed);
-	  switch (phase%3) {
+	  switch (phase%4) {
 	  case 0: slow_write(fd,"r\r",2); break; // PC check
 	  case 1: slow_write(fd,"m86d\r",5); break; // C65 Mode check
 	  case 2: slow_write(fd,"m42c\r",5); break; // C64 mode check
+	  case 3: slow_write(fd,"mffd3672\r",9); break; // Hypervisor virtualisation/security mode flag check
 	  default: phase=0;
 	  }
 	  phase++;	  
