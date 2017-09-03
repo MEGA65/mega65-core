@@ -265,7 +265,7 @@ int process_line(char *line,int live)
 	char cmd[64];
 	fprintf(stderr,"[T+%lldsec] Virtualising F011 FDC access.\n",
 		(long long)time(0)-start_time);
-	snprintf(cmd,1024,"sffd3672 01\r");
+	snprintf(cmd,1024,"sffd3659 01\r");
 	slow_write(fd,cmd,strlen(cmd));
       }
       charromfile=NULL;
@@ -323,7 +323,7 @@ int process_line(char *line,int live)
 	  state=0;
 	}
       }
-      if (addr==0xffd3672) {
+      if (addr==0xffd3659) {
 	fprintf(stderr,"Hypervisor virtualisation flags = $%02x\n",b[0]);
 	if (virtual_f011&&hypervisor_paused) restart_kickstart();
 	hypervisor_paused=0;
@@ -837,7 +837,7 @@ int main(int argc,char **argv)
 	  case 0: slow_write(fd,"r\r",2); break; // PC check
 	  case 1: slow_write(fd,"m86d\r",5); break; // C65 Mode check
 	  case 2: slow_write(fd,"m42c\r",5); break; // C64 mode check
-	  case 3: slow_write(fd,"mffd3672\r",9); break; // Hypervisor virtualisation/security mode flag check
+	  case 3: slow_write(fd,"mffd3659\r",9); break; // Hypervisor virtualisation/security mode flag check
 	  default: phase=0;
 	  }
 	  phase++;	  
