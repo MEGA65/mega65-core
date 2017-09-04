@@ -24,9 +24,11 @@ entity visual_keyboard is
     touch1_valid : in std_logic;
     touch1_x : in unsigned(13 downto 0);
     touch1_y : in unsigned(11 downto 0);
+    touch1_key : out unsigned(7 downto 0);
     touch2_valid : in std_logic;
     touch2_x : in unsigned(13 downto 0);
     touch2_y : in unsigned(11 downto 0);
+    touch2_key : out unsigned(7 downto 0);
     
     vgared_in : in  unsigned (7 downto 0);
     vgagreen_in : in  unsigned (7 downto 0);
@@ -102,6 +104,9 @@ architecture behavioural of visual_keyboard is
   signal keyboard_text_start : unsigned(11 downto 0) := to_unsigned(2048+256,12);
   signal alt_keyboard_text_start : unsigned(11 downto 0) := to_unsigned(2048+256,12);
   signal alt_offset : integer := 0;
+
+  signal touch1_key_internal : unsigned(7 downto 0) := (others => '1');
+  signal touch2_key_internal : unsigned(7 downto 0) := (others => '1');
   
   type fetch_state_t is (
     FetchInitial,
@@ -158,6 +163,16 @@ begin
       else
         y_stretch <= 0;
       end if;
+
+      -- Check if current touch events correspond to any key
+      if pixel_x_640 = touch1_x and ycounter_in = touch1_y and touch1_valid='1' then
+        touch1_key_internal <= current_matrix_id;
+        report "touch1 key = $" & to_hstring(current_matrix_id);
+      end if;
+      if pixel_x_640 = touch2_x and ycounter_in = touch2_y and touch2_valid='1' then
+        touch2_key_internal <= current_matrix_id;
+        report "touch2 key = $" & to_hstring(current_matrix_id);
+      end if;
       
       if pixel_x_640_in < x_start_current then
         pixel_x_640 <= 640;
@@ -191,6 +206,10 @@ begin
             y_phase <= 0;
           elsif ycounter_in = 0 then
             active <= '0';
+            touch1_key <= touch1_key_internal;
+            touch2_key <= touch2_key_internal;
+            touch1_key_internal <= (others => '1');
+            touch2_key_internal <= (others => '1');
           elsif active='1' then
             if y_phase /= y_stretch then
               if double_height='0' or double_height_phase='1' then
@@ -292,7 +311,7 @@ begin
         -- things from the previous or next row.
         
         -- Is this box for a key that is currently being pressed?
-        -- If so, set inverse video flag for box content        
+        -- If so, set inverse video flag for box content
         if (key1(6 downto 0) = current_matrix_id(6 downto 0))
           or (key2(6 downto 0) = current_matrix_id(6 downto 0))
           or (key3(6 downto 0) = current_matrix_id(6 downto 0))
