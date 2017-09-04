@@ -24,11 +24,11 @@ entity visual_keyboard is
     touch1_valid : in std_logic;
     touch1_x : in unsigned(13 downto 0);
     touch1_y : in unsigned(11 downto 0);
-    touch1_key : out unsigned(7 downto 0);
+    touch1_key : out unsigned(7 downto 0) := x"FF";
     touch2_valid : in std_logic;
     touch2_x : in unsigned(13 downto 0);
     touch2_y : in unsigned(11 downto 0);
-    touch2_key : out unsigned(7 downto 0);
+    touch2_key : out unsigned(7 downto 0) := x"FF";
     
     vgared_in : in  unsigned (7 downto 0);
     vgagreen_in : in  unsigned (7 downto 0);

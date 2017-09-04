@@ -19,16 +19,18 @@ architecture behavioral of test_osk is
   signal visual_keyboard_enable : std_logic := '0';
   signal keyboard_at_top : std_logic := '0';
   signal alternate_keyboard : std_logic := '1';
-  signal key1 : unsigned(7 downto 0) := x"53";
-  signal key2 : unsigned(7 downto 0) := x"52";
-  signal key3 : unsigned(7 downto 0) := x"51";
-  signal key4 : unsigned(7 downto 0) := x"50";
+  signal key1 : unsigned(7 downto 0) := x"FF";
+  signal key2 : unsigned(7 downto 0) := x"FF";
+  signal key3 : unsigned(7 downto 0) := x"FF";
+  signal key4 : unsigned(7 downto 0) := x"FF";
   signal touch1_valid : std_logic := '1';
   signal touch1_x : unsigned(13 downto 0) := to_unsigned(200,14);
   signal touch1_y : unsigned(11 downto 0) := to_unsigned(400,12);
+  signal touch1_key : unsigned(7 downto 0) := (others => '1');
   signal touch2_valid : std_logic := '1';
   signal touch2_x : unsigned(13 downto 0) := to_unsigned(100,14);
   signal touch2_y : unsigned(11 downto 0) := to_unsigned(40,12);
+  signal touch2_key : unsigned(7 downto 0) := (others => '1');
   
   signal vgared_in : unsigned (7 downto 0) := x"00";
   signal vgagreen_in : unsigned (7 downto 0) := x"FF";
@@ -57,9 +59,11 @@ begin
       touch1_valid => touch1_valid,
       touch1_x => touch1_x,
       touch1_y => touch1_y,
+      touch1_key => touch1_key,
       touch2_valid => touch2_valid,
       touch2_x => touch2_x,
       touch2_y => touch2_y,
+      touch2_key => touch2_key,
       vgared_in => vgared_in,
       vgagreen_in => vgagreen_in,
       vgablue_in => vgablue_in,
@@ -111,6 +115,8 @@ begin
         & ":" & to_hstring(vgared_out)
         & ":" & to_hstring(vgagreen_out)
         & ":" & to_hstring(vgablue_out);
+      key1 <= touch1_key;
+      key2 <= touch2_key;
     end loop;  -- i
     assert false report "End of simulation" severity note;
   end process;
