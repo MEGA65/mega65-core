@@ -188,6 +188,7 @@ begin
         char_pixel <= '0';
         box_pixel <= '0';
         box_inverse <= '0';
+        current_matrix_id <= (others => '1');
 
         if last_was_640 = '0' then
           -- End of line, prepare for next
@@ -210,6 +211,8 @@ begin
             touch2_key <= touch2_key_internal;
             touch1_key_internal <= (others => '1');
             touch2_key_internal <= (others => '1');
+            current_matrix_id <= (others => '1');
+            
           elsif active='1' then
             if y_phase /= y_stretch then
               if double_height='0' or double_height_phase='1' then
