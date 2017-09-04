@@ -336,6 +336,10 @@ begin
         else
           box_inverse <= '0';
         end if;
+        -- Don't ever try to draw non-keys reverse
+        if current_matrix_id(6 downto 5) = "11" then
+          box_inverse <= '0';
+        end if;
         
         -- Generate border around each key
         -- Vertical lines:
