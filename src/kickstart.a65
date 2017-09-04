@@ -269,13 +269,16 @@ trap_entry_points:
 	nop
 
 
-	; Leave room for traps to $7E (BG: why 7E ?)
+	; Leave room for relocated cpu vectors below
 	;
 	.checkpc $81F8
 	.advance $81F8
 
-	; Then we have relocated CPU vectors
-	;
+	; Then we have relocated CPU vectors at $81F8-$81FF
+	; (which are 2-byte vectors for interrupts, not 4-byte
+	; trap addresses).
+	; These are used to catch interrupts in hypervisor mode
+	; (although the need for them may have since been removed)
 	.word reset_entry_allow_etherkick ; unused vector
 	.word hypervisor_nmi ; NMI
 	.word reset_entry_allow_etherkick ; RESET
