@@ -352,6 +352,7 @@ architecture Behavioral of machine is
   signal uart_tx_buffer : std_logic; 
   signal uart_rx_buffer : std_logic;
   signal protected_hardware_sig : unsigned(7 downto 0);
+  signal virtualised_hardware_sig : unsigned(7 downto 0);
 
   -- Matrix Mode signals
   signal scancode_out : std_logic_vector(12 downto 0); 
@@ -586,6 +587,7 @@ begin
       all_pause => all_pause,
       matrix_trap_in=>matrix_trap,
       protected_hardware => protected_hardware_sig,
+      virtualised_hardware => virtualised_hardware_sig,
       clock => cpuclock,
       ioclock => ioclock,
       reset =>reset_combined,
@@ -771,6 +773,7 @@ begin
     port map (
       clk => ioclock,
       protected_hardware_in => protected_hardware_sig,
+      virtualised_hardware_in => virtualised_hardware_sig,
       matrix_mode_trap => matrix_trap,
       hyper_trap => hyper_trap,
       hyper_trap_f011_read => hyper_trap_f011_read,

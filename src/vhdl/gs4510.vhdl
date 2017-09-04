@@ -56,7 +56,7 @@ entity gs4510 is
     hyper_trap_f011_write : in std_logic;
     protected_hardware : out unsigned(7 downto 0);	
 	 --Protected Hardware Bits
-         --Bit 0: Trap F011 sector read/write
+         --Bit 0: TBD
          --Bit 1: TBD
 	 --Bit 2: TBD
 	 --Bit 3: TBD
@@ -64,6 +64,8 @@ entity gs4510 is
 	 --Bit 5: TBD
 	 --Bit 6: Matrix Mode
 	 --Bit 7: Secure Mode enable 
+    virtualised_hardware : out unsigned(7 downto 0);
+         --Bit 0: Trap on F011 FDC read/write
 	 
     iomode_set : out std_logic_vector(1 downto 0) := "11";
     iomode_set_toggle : out std_logic := '0';
@@ -2939,6 +2941,8 @@ begin
 
       -- Allow matrix mode in hypervisor
       protected_hardware <= hyper_protected_hardware;
+      virtualised_hardware(0) <= virtualise_sd;
+      virtualised_hardware(7 downto 1) <= (others => '0');
       cpu_hypervisor_mode <= hypervisor_mode;
             
       check_for_interrupts;

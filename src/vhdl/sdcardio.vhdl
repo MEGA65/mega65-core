@@ -1292,7 +1292,8 @@ begin  -- behavioural
 
 
       sb_w <= '0';
-      report "SD interface state = " & sd_state_t'image(sd_state);
+      report "SD interface state = " & sd_state_t'image(sd_state)
+        & ", virtualise_f011 = " & std_logic'image(virtualise_f011);
 
       case sd_state is
 

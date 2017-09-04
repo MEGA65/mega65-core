@@ -8,6 +8,7 @@ use work.debugtools.all;
 entity iomapper is
   port (Clk : in std_logic;
         protected_hardware_in : in unsigned(7 downto 0);
+        virtualised_hardware_in : in unsigned(7 downto 0);
         cpuclock : in std_logic;
         pixelclk : in std_logic;
         uartclock : in std_logic;
@@ -625,7 +626,7 @@ begin
     hypervisor_mode => cpu_hypervisor_mode,
     hyper_trap_f011_read => hyper_trap_f011_read,
     hyper_trap_f011_write => hyper_trap_f011_write,
-    virtualise_f011 => protected_hardware_in(0),
+    virtualise_f011 => virtualised_hardware_in(0),
 
     fpga_temperature => fpga_temperature,
 
