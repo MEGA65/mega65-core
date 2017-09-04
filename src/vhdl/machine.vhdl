@@ -398,10 +398,10 @@ architecture Behavioral of machine is
 
   signal osk_touch1_valid : std_logic := '0';
   signal osk_touch1_x : unsigned(13 downto 0) := to_unsigned(0,14);
-  signal osk_touch1_y : unsigned(11 downto 0) := to_unsigned(0,14);
+  signal osk_touch1_y : unsigned(11 downto 0) := to_unsigned(0,12);
   signal osk_touch2_valid : std_logic := '0';
   signal osk_touch2_x : unsigned(13 downto 0) := to_unsigned(0,14);
-  signal osk_touch2_y : unsigned(11 downto 0) := to_unsigned(0,14);
+  signal osk_touch2_y : unsigned(11 downto 0) := to_unsigned(0,12);
 
   signal all_pause : std_logic := '0';
   
