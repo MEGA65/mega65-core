@@ -162,13 +162,15 @@ begin
       end if;
 
       -- Check if current touch events correspond to any key
-      if pixel_x_640 = touch1_x and ycounter_in = touch1_y and touch1_valid='1' then
-        touch1_key_internal <= current_matrix_id;
-        report "touch1 key = $" & to_hstring(current_matrix_id);
-      end if;
-      if pixel_x_640 = touch2_x and ycounter_in = touch2_y and touch2_valid='1' then
-        touch2_key_internal <= current_matrix_id;
-        report "touch2 key = $" & to_hstring(current_matrix_id);
+      if visual_keyboard_enable='1' then
+        if pixel_x_640 = touch1_x and ycounter_in = touch1_y and touch1_valid='1' then
+          touch1_key_internal <= current_matrix_id;
+          report "touch1 key = $" & to_hstring(current_matrix_id);
+        end if;
+        if pixel_x_640 = touch2_x and ycounter_in = touch2_y and touch2_valid='1' then
+          touch2_key_internal <= current_matrix_id;
+          report "touch2 key = $" & to_hstring(current_matrix_id);
+        end if;
       end if;
       
       if pixel_x_640_in < x_start_current then
