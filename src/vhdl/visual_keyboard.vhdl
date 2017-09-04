@@ -154,9 +154,6 @@ begin
         alt_offset <= 0;
       end if;
       
-      -- XXX Force OSK to be visible at top of frame for debugging
-      y_start_current <= to_unsigned(0,12);
-      
       -- Update vertical scale factor to fit video mode
       if pixel_y_scale_200 /= x"0" then
         y_stretch <= to_integer(pixel_y_scale_200) - 1;
@@ -530,7 +527,7 @@ begin
         
         if visual_keyboard_enable = '0' then
           if max_y /= 0 then
-            report "Visual keyboard disabled -- pushin to bottom of screen";
+            report "Visual keyboard disabled -- pushing to bottom of screen";
             if ycounter_last > max_y then
               y_start_current <= ycounter_last;
               y_lower_start <= ycounter_last;
@@ -602,10 +599,13 @@ begin
         osk_in_position_lower <= '0';
         if ycounter_last > max_y then
           y_start_current <= ycounter_last;
+          report "Setting visual keyboard to ycounter_last as it has just been enabled (=$"
+            & to_hstring(ycounter_last) & ")";
         else
           y_start_current <= max_y;
+          report "Setting visual keyboard to max_y as it has just been enabled (=$"
+            & to_hstring(max_y) & ")";
         end if;
-        report "Setting visual keyboard to max_y as it has just been enabled";
       end if;
       last_visual_keyboard_enable <= visual_keyboard_enable;
 
