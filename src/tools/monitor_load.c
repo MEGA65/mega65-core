@@ -265,7 +265,12 @@ int process_line(char *line,int live)
 	char cmd[64];
 	fprintf(stderr,"[T+%lldsec] Virtualising F011 FDC access.\n",
 		(long long)time(0)-start_time);
+	// Enable FDC virtualisation
 	snprintf(cmd,1024,"sffd3659 01\r");
+	slow_write(fd,cmd,strlen(cmd));
+	usleep(20000);
+	// Enable disk 0
+	snprintf(cmd,1024,"sffd8b 03\r");
 	slow_write(fd,cmd,strlen(cmd));
       }
       charromfile=NULL;
