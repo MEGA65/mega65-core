@@ -74,9 +74,9 @@ trap_entry_points:
 	; Traps $00-$07 (user callable)
 	;
 	jmp dos_and_process_trap	; Trap #$00 (unsure what to call it)
-	nop				; refer: kickstart_dos
-	jmp nosuchtrap
-	nop
+	nop				; refer: kickstart_dos.a65
+	jmp memory_trap                 ; Trap #$01
+	nop                             ; refer: kickstart_mem.a65
 	jmp nosuchtrap
 	nop
 	jmp nosuchtrap

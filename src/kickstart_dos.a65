@@ -104,11 +104,6 @@ dos_and_process_trap:
 	; Mask out bit 0 so that indirect jmp's are valid.
 	;
 	and #$FE
-
-	; to save memory we only allow this table to be 128 bytes long,
-	; thus we have to check that bit 7 is clear.
-	;
-	bmi invalid_subfunction		; defined in kickstart
 	tax
 	jmp (dos_and_process_trap_table,x)
 
