@@ -193,6 +193,17 @@ dos_and_process_trap_table:
 	.word trap_dos_switch_to_task		; not currently implememted
 	.word trap_dos_exit_task		; not currently implememted
 
+	; $70 - $7E
+	;
+	.word invalid_subfunction
+	.word invalid_subfunction
+	.word invalid_subfunction
+	.word invalid_subfunction
+	.word invalid_subfunction
+	.word invalid_subfunction
+	.word invalid_subfunction
+	.word invalid_subfunction
+
 ;	========================
 
 trap_dos_getversion:
