@@ -15,6 +15,7 @@ entity visual_keyboard is
     visual_keyboard_enable : in std_logic;
     keyboard_at_top : in std_logic;
     alternate_keyboard : in std_logic;
+    instant_at_top : in std_logic;
     key1 : in unsigned(7 downto 0);
     key2 : in unsigned(7 downto 0);
     key3 : in unsigned(7 downto 0);    
@@ -60,6 +61,7 @@ architecture behavioural of visual_keyboard is
   
   signal vk_pixel : unsigned(1 downto 0) := "00";
   signal box_pixel : std_logic := '0';
+  signal box_pixel_h : std_logic := '0';
   signal box_inverse : std_logic := '0';
   
   signal address : integer range 0 to 4095 := 0;
@@ -186,12 +188,14 @@ begin
         first_column <= '0';
         char_pixel <= '0';
         box_pixel <= '0';
+        box_pixel_h <= '0';
         box_inverse <= '0';
-        current_matrix_id <= (others => '1');
 
         if last_was_640 = '0' then
           -- End of line, prepare for next
 --          report "end of line, preparing for next";
+          current_matrix_id <= (others => '1');
+--          report "current_matrix_id <= $FF from end of raster.";
           fetch_state <= FetchMapRowColumn0;
           if ycounter_in = y_start_current then
             active <= '1';
@@ -211,6 +215,7 @@ begin
             touch1_key_internal <= (others => '1');
             touch2_key_internal <= (others => '1');
             current_matrix_id <= (others => '1');
+--            report "current_matrix_id <= $FF from start of frame.";
             
           elsif active='1' then
             if y_phase /= y_stretch then
@@ -380,19 +385,27 @@ begin
             key_box_counter <= key_box_counter - 1;
           end if;
         end if;
+
         -- Horizontal lines:
         -- These are a bit trickier, because we need to know the key above and
         -- below to do this completely cleanly.
         -- We do this by having two blank key types: 7F = no line above,
         -- 7E = with line above
-        if (current_matrix_id(6 downto 0) /= x"7f")
-          and (y_char_in_row = 0)
-          and (y_pixel_counter = 0) then
-          box_pixel <= '1';
+        if (y_char_in_row = 0)  and (y_pixel_counter = 0) then
+          if (current_matrix_id(6 downto 0) /= x"7f") then
+--            report "box_pixel set x = " & integer'image(pixel_x_640);
+            box_pixel_h <= '1';
+          else
+--            report "box_pixel not set: x = " & integer'image(pixel_x_640)
+--              & ", y = " & integer'image(to_integer(ycounter_in))
+--              & ", current_matrix_id=$" & to_hstring(current_matrix_id);
+            box_pixel_h <= '0';
+          end if;
+        else
+          box_pixel_h <= '0';
         end if;
-        
       end if;
-
+        
       case fetch_state is
         when FetchInitial =>
           address <= 4093;
@@ -492,6 +505,8 @@ begin
             key_same_as_last <= '0';
           end if;
           current_matrix_id <= next_matrix_id;
+--          report "current_matrix_id <= $" & to_hstring(next_matrix_id)
+--            & " from next_matrix_id";
           next_matrix_id <= rdata;
           fetch_state <= FetchIdle;
         when others =>
@@ -501,8 +516,8 @@ begin
 
       -- Draw keyboard matrix boxes
       if active='1' then
-        vk_pixel(1) <= box_pixel or (box_inverse xor char_pixel);
-        vk_pixel(0) <= box_pixel or (box_inverse xor char_pixel);
+        vk_pixel(1) <= box_pixel or box_pixel_h or (box_inverse xor char_pixel);
+        vk_pixel(0) <= box_pixel or box_pixel_h or (box_inverse xor char_pixel);
       else
         vk_pixel <= "00";
       end if;
@@ -549,7 +564,7 @@ begin
           -- Keyboard at the top: If it were down low, bring it up 1/8th of
           -- the remaining distance, plus one pixel.  Thus we follow a Xeno's Paradox
           -- like curve to spring the keyboard to the top
-          if y_start_current > 2 then
+          if y_start_current > 2 and instant_at_top='0' then
             report "Xeno-walking keyboard to top a bit";            
             y_start_current <= y_start_current - y_start_current(11 downto 3) - 2;
           else

@@ -973,6 +973,7 @@ begin
     visual_keyboard_enable => visual_keyboard_enable,
     keyboard_at_top => keyboard_at_top,
     alternate_keyboard => alternate_keyboard,
+    instant_at_top => '0',
     key1 => osk_key1,
     key2 => osk_key2,
     key3 => osk_key3,
