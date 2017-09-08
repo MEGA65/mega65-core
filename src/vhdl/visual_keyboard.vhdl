@@ -70,8 +70,8 @@ architecture behavioural of visual_keyboard is
   signal current_address : integer range 0 to 4095 := 0;
   signal last_row_address : integer range 0 to 4095 := 0;
 
-  signal current_matrix_id : unsigned(7 downto 0);
-  signal next_matrix_id : unsigned(7 downto 0);
+  signal current_matrix_id : unsigned(7 downto 0) := x"7F";
+  signal next_matrix_id : unsigned(7 downto 0) := x"7F";
   signal matrix_pos : integer;
 
   signal last_was_640 : std_logic := '0';
@@ -199,6 +199,8 @@ begin
           fetch_state <= FetchMapRowColumn0;
           if ycounter_in = y_start_current then
             active <= '1';
+
+            report "x_start_current = " & integer'image(to_integer(x_start_current));
 
             -- Packed text starts at $0900 in OSKmem
             current_address <= to_integer(keyboard_text_start);
@@ -537,6 +539,10 @@ begin
         max_x <= 0;
         box_pixel_h <= '0';
         box_pixel <= '0';
+        text_delay <= 0;
+        key_box_counter <= 0;
+        double_width <= '0';
+        double_width_phase <= '0';
                              
         report "setting max_y to "
           & integer'image(to_integer(ycounter_last));
