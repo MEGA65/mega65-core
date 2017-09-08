@@ -535,6 +535,9 @@ begin
       if ycounter_in = 0 and ycounter_last /= 0 then
         max_y <= ycounter_last;
         max_x <= 0;
+        box_pixel_h <= '0';
+        box_pixel <= '0';
+                             
         report "setting max_y to "
           & integer'image(to_integer(ycounter_last));
         -- Move visual keyboard up one a bit each frame
