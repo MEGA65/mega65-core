@@ -113,10 +113,10 @@ memory_trap_table:
 
 rom_writeenable:
 	lda #$02
-	trb hypervisor_hardware_virtualisation
+	trb hypervisor_feature_enables
 	jmp return_from_trap_with_success
 
 rom_writeprotect:
 	lda #$02
-	tsb hypervisor_hardware_virtualisation
+	tsb hypervisor_feature_enables
 	jmp return_from_trap_with_success	

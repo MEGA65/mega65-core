@@ -16,8 +16,8 @@ architecture behavioral of test_osk is
   signal x_start : unsigned(11 downto 0) := to_unsigned(0,12);
   signal y_start : unsigned(11 downto 0) := to_unsigned(479-290,12);
   signal pixelclock : std_logic := '1';
-  signal visual_keyboard_enable : std_logic := '1';
-  signal keyboard_at_top : std_logic := '1';
+  signal visual_keyboard_enable : std_logic := '0';
+  signal keyboard_at_top : std_logic := '0';
   signal alternate_keyboard : std_logic := '0';
   signal instant_at_top : std_logic := '1';
   signal key1 : unsigned(7 downto 0) := x"FF";
