@@ -167,11 +167,11 @@ begin
       if visual_keyboard_enable='1' then
         if pixel_x_640 = touch1_x and ycounter_in = touch1_y and touch1_valid='1' then
           touch1_key_internal <= current_matrix_id;
-          report "touch1 key = $" & to_hstring(current_matrix_id);
+--          report "touch1 key = $" & to_hstring(current_matrix_id);
         end if;
         if pixel_x_640 = touch2_x and ycounter_in = touch2_y and touch2_valid='1' then
           touch2_key_internal <= current_matrix_id;
-          report "touch2 key = $" & to_hstring(current_matrix_id);
+--          report "touch2 key = $" & to_hstring(current_matrix_id);
         end if;
       end if;
       
@@ -193,14 +193,13 @@ begin
 
         if last_was_640 = '0' then
           -- End of line, prepare for next
---          report "end of line, preparing for next";
           current_matrix_id <= (others => '1');
---          report "current_matrix_id <= $FF from end of raster.";
           fetch_state <= FetchMapRowColumn0;
+
           if ycounter_in = y_start_current then
             active <= '1';
-
-            report "x_start_current = " & integer'image(to_integer(x_start_current));
+            
+--            report "x_start_current = " & integer'image(to_integer(x_start_current));
 
             -- Packed text starts at $0900 in OSKmem
             current_address <= to_integer(keyboard_text_start);
@@ -212,13 +211,7 @@ begin
             y_phase <= 0;
           elsif ycounter_in = 0 then
             active <= '0';
-            touch1_key <= touch1_key_internal;
-            touch2_key <= touch2_key_internal;
-            touch1_key_internal <= (others => '1');
-            touch2_key_internal <= (others => '1');
-            current_matrix_id <= (others => '1');
---            report "current_matrix_id <= $FF from start of frame.";
-            
+            current_matrix_id <= (others => '1');            
           elsif active='1' then
             if y_phase /= y_stretch then
               if double_height='0' or double_height_phase='1' then
@@ -325,6 +318,9 @@ begin
           or (key2(6 downto 0) = current_matrix_id(6 downto 0))
           or (key3(6 downto 0) = current_matrix_id(6 downto 0))
           or (key4(6 downto 0) = current_matrix_id(6 downto 0)) then
+          if current_matrix_id(6 downto 0) /= "1111111" then
+--            report "Key $"& to_hstring(current_matrix_id(6 downto 0))  &" down";
+          end if;
           if (y_pixel_counter /= 1 or y_char_in_row /= 0)
             and (y_pixel_counter /= 7 or y_char_in_row /=2)
             and (key_box_counter /= 2
@@ -416,11 +412,11 @@ begin
           address <= 4094;
           alt_keyboard_text_start(7 downto 0) <= rdata;
           fetch_state <= FetchAltStartHigh;
-          report "Alt fetch lo = $" & to_hstring(rdata);
+--          report "Alt fetch lo = $" & to_hstring(rdata);
         when FetchAltStartHigh =>
           alt_keyboard_text_start(11 downto 8) <= rdata(3 downto 0);
           fetch_state <= FetchIdle;
-          report "Alt fetch hi = $" & to_hstring(rdata);
+--          report "Alt fetch hi = $" & to_hstring(rdata);
         when FetchIdle =>
           -- Get the next character to display, if we
           -- don't already have one
@@ -524,7 +520,19 @@ begin
         vk_pixel <= "00";
       end if;
 
-      if visual_keyboard_enable='1' and active='1' then
+      if touch1_y = ycounter_in and touch1_x = pixel_x_640 then
+--        report "touch1 @ " & integer'image(to_integer(touch1_x))
+--          & "," & integer'image(to_integer(touch1_y));
+        vgared_out <= x"00";
+        vgagreen_out <= x"00";
+        vgablue_out <= x"00";
+      elsif touch2_y = ycounter_in and touch2_x = pixel_x_640 then
+--        report "touch2 @ " & integer'image(to_integer(touch2_x))
+--          & "," & integer'image(to_integer(touch2_y));
+        vgared_out <= x"FF";
+        vgagreen_out <= x"FF";
+        vgablue_out <= x"FF";
+        elsif visual_keyboard_enable='1' and active='1' then
         vgared_out <= vk_pixel(1)&vgared_in(7 downto 1);
         vgagreen_out <= vk_pixel(1)&vgagreen_in(7 downto 1);
         vgablue_out <= vk_pixel(1)&vgablue_in(7 downto 1);
@@ -532,8 +540,8 @@ begin
         vgared_out <= vgared_in;
         vgagreen_out <= vgagreen_in;
         vgablue_out <= vgablue_in;
-
       end if;
+      
       if ycounter_in = 0 and ycounter_last /= 0 then
         max_y <= ycounter_last;
         max_x <= 0;
@@ -543,7 +551,14 @@ begin
         key_box_counter <= 0;
         double_width <= '0';
         double_width_phase <= '0';
-                             
+
+        touch1_key <= touch1_key_internal;
+        touch2_key <= touch2_key_internal;
+        report "Exporting touch keys $" & to_hstring(touch1_key_internal)
+          & " & $" & to_hstring(touch2_key_internal);
+        touch1_key_internal <= (others => '1');
+        touch2_key_internal <= (others => '1');
+        
         report "setting max_y to "
           & integer'image(to_integer(ycounter_last));
         -- Move visual keyboard up one a bit each frame
