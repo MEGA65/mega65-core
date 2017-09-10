@@ -57,7 +57,7 @@ int process_char(unsigned char c,int live);
 void usage(void)
 {
   fprintf(stderr,"MEGA65 cross-development tool for booting the MEGA65 using a custom bitstream and/or KICKUP file.\n");
-  fprintf(stderr,"usage: monitor_load [-l <serial port>] [-s <230400|2000000|4000000>]  [-b <FPGA bitstream>] [[-k <kickup file>] [-R romfile] [-C charromfile]] [-c COLOURRAM.BIN] [-m modeline] [-o] [filename] [-d diskimage.d81]\n");
+  fprintf(stderr,"usage: monitor_load [-l <serial port>] [-s <230400|2000000|4000000>]  [-b <FPGA bitstream>] [[-k <kickup file>] [-R romfile] [-C charromfile]] [-c COLOURRAM.BIN] [-m modeline] [-o] [-d diskimage.d81] [[-1] [filename]]\n");
   fprintf(stderr,"  -l - Name of serial port to use, e.g., /dev/ttyUSB1\n");
   fprintf(stderr,"  -s - Speed of serial port in bits per second. This must match what your bitstream uses.\n");
   fprintf(stderr,"       (Older bitstream use 230400, and newer ones 2000000 or 4000000).\n");
@@ -67,6 +67,7 @@ void usage(void)
   fprintf(stderr,"  -C - Character ROM file to preload.\n");
   fprintf(stderr,"  -c - Colour RAM contents to preload.\n");
   fprintf(stderr,"  -4 - Switch to C64 mode before exiting.\n");
+  fprintf(stderr,"  -1 - Load as with ,8,1 taking the load address from the program, instead of assuming $0801\n");
   fprintf(stderr,"  -r - Automatically RUN programme after loading.\n");
   fprintf(stderr,"  -m - Set video mode to Xorg style modeline.\n");
   fprintf(stderr,"  -o - Enable on-screen keyboard\n");
@@ -101,6 +102,7 @@ int state=99;
 int name_len,name_lo,name_hi,name_addr=-1;
 int do_go64=0;
 int do_run=0;
+int comma_eight_comma_one=0;
 int virtual_f011=0;
 char *d81file=NULL;
 char *filename=NULL;
@@ -431,7 +433,12 @@ int process_line(char *line,int live)
 	char cmd[64];
 	int load_addr=fgetc(f);
 	load_addr|=fgetc(f)<<8;
-	printf("Load address is $%04x\n",load_addr);
+	if (!comma_eight_comma_one) {
+	  load_addr=0x0801;
+	  printf("Forcing load address to $0801\n");
+	}
+	else
+	  printf("Load address is $%04x\n",load_addr);	
 	usleep(50000);
 	unsigned char buf[16384];
 	int max_bytes=4096;
@@ -744,12 +751,13 @@ int main(int argc,char **argv)
   start_time=time(0);
   
   int opt;
-  while ((opt = getopt(argc, argv, "4l:s:b:c:k:rR:C:m:od:")) != -1) {
+  while ((opt = getopt(argc, argv, "14l:s:b:c:k:rR:C:m:od:")) != -1) {
     switch (opt) {
     case 'R': romfile=strdup(optarg); break;
     case 'C': charromfile=strdup(optarg); break;
     case 'c': colourramfile=strdup(optarg); break;
     case '4': do_go64=1; break;
+    case '1': comma_eight_comma_one=1; break;
     case 'r': do_run=1; break;
     case 'l': strcpy(serial_port,optarg); break;
     case 'm': prepare_modeline(optarg); mode_report=1; break;
