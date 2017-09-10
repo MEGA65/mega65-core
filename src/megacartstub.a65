@@ -56,4 +56,4 @@ not_mega65:
 	.checkpc $A000
 	.advance $A000,$FF
 
-	.outfile "megacart.crt"
+	.outfile "bin/megacart.crt"

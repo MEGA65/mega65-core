@@ -1,4 +1,4 @@
- .outfile "border.prg"
+ .outfile "bin/border.prg"
 
          .word $0801
          .org $0801

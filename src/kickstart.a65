@@ -3188,5 +3188,5 @@ sdcounter:		.byte 0,0,0
 			.checkpc $C000
 			.advance $C000, $3f
 
-			.outfile "KICKUP.M65"
+			.outfile "bin/KICKUP.M65"
 

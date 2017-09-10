@@ -2,7 +2,7 @@
     ; Disk menu built to run at $C000 for building into kickstart ROM
     ;
 
-    .outfile "diskmenu_c000.bin"
+    .outfile "bin/diskmenu_c000.bin"
 
     .org $c000
 	 

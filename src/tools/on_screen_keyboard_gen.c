@@ -6,7 +6,7 @@
 
 int main(int argc,char **argv)
 {
-  FILE *f=fopen("keyboard.txt","r");
+  FILE *f=fopen(argv[1]?argv[1]:"keyboard.txt","r");
 
   char line[1024];
   int b[32];
@@ -65,8 +65,8 @@ int main(int argc,char **argv)
   
   int n=0;
 
-  fclose(f); f=fopen("keyboard.txt","r");
-
+  fclose(f); f=fopen(argv[1]?argv[1]:"keyboard.txt","r");
+  
   char out[1024];
   char packed[1024];
   int alternate_keyboard_offset=0;
