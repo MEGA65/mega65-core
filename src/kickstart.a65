@@ -1974,8 +1974,8 @@ g61:		sta $0800,x
 		sta $d059
 
 		; write protect ROM RAM
-		lda #$02
-		tsb hypervisor_hardware_virtualisation
+		lda #$04
+		tsb hypervisor_feature_enables
 
 		jsr task_set_c64_memorymap
 		jsr task_set_pc_to_reset_vector

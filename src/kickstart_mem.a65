@@ -112,11 +112,12 @@ memory_trap_table:
 	.word invalid_subfunction
 
 rom_writeenable:
-	lda #$02
+	lda #$04
 	trb hypervisor_feature_enables
 	jmp return_from_trap_with_success
 
 rom_writeprotect:
-	lda #$02
+	lda #$04
 	tsb hypervisor_feature_enables
-	jmp return_from_trap_with_success	
+	jmp return_from_trap_with_success
+
