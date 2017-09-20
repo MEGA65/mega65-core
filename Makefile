@@ -44,6 +44,22 @@ TOOLS=	$(TOOLDIR)/etherkick/etherkick \
 	$(TOOLDIR)/on_screen_keyboard_gen \
 	$(TOOLDIR)/pngprepare/pngprepare
 
+%.bit: %.ncd
+	@rm -f $@
+	@echo "---------------------------------------------------------"
+	@echo "Checking design for timing errors and unroutes..."
+	@grep -i "all signals are completely routed" $(filter %.unroutes,$^) 
+	@grep -iq "timing errors:" $(filter %.twr,$^); \
+	if [ $$? -eq 0 ]; then \
+		grep -i "timing errors: 0" $(filter %.twr,$^); \
+#		exit $$?; \
+	fi
+	@echo "Design looks good. Generating bitfile."
+	@echo "---------------------------------------------------------"
+	./run_ise $* bitgen
+
+
+
 all:	$(SDCARD_DIR)/MEGA65.D81 $(BINDIR)/mega65r1.bit $(BINDIR)/nexys4.bit $(BINDIR)/nexys4ddr.bit $(BINDIR)/test_touch.bit
 
 generated_vhdl:	$(SIMULATIONVHDL)
@@ -331,6 +347,33 @@ tools/monitor_save:	tools/monitor_save.c Makefile
 
 tools/on_screen_keyboard_gen:	tools/on_screen_keyboard_gen.c Makefile
 	$(CC) $(COPT) -o $(TOOLDIR)/on_screen_keyboard_gen $(TOOLDIR)/on_screen_keyboard_gen.c
+
+%.ngc %.srp:	$(VHDLSRCDIR)/container.vhd
+	echo $(subst $(VHDLSRCDIR),%,$*.vhdl)
+	@rm -f $*.ngc $*.srp
+	mkdir -p xst/projnav.tmp
+	./run_ise $* xst
+
+#-----------------------------------------------------------------------------
+
+%.ngd %.bld: %.ngc
+	@rm -f $*.ngd $*.bld
+	./run_ise $* ngdbuild
+
+#-----------------------------------------------------------------------------
+
+%_map.ncd %.pcf: %.ngd
+	@rm -f $*_map.ncd $*.pcf
+	./run_ise $* map
+
+#-----------------------------------------------------------------------------
+
+%.ncd %.unroutes %.par %.twr: %_map.ncd
+	@rm -f $*.ncd $*.unroutes $*.par $*.twr
+	./run_ise $* par
+
+#-----------------------------------------------------------------------------
+
 
 clean:
 	rm -f KICKUP.M65 kickstart.list kickstart.map
