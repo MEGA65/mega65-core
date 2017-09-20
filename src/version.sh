@@ -6,8 +6,8 @@ branch=`git status -b -s | head -n 1`
 branch2=${branch:3:6}
 version=`git describe --always --abbrev=7 --dirty=+DIRTY`
 
-datetime=`date +%m%d-%H%M`
-stringout="${branch2},${version},${datetime}"
+#datetime=`date +%m%d-%H%M`
+stringout="${branch2},${version}" # ,${datetime}"
 echo $stringout
 cat > vhdl/version.vhdl <<ENDTEMPLATE
 library ieee;
