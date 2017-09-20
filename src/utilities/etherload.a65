@@ -202,4 +202,4 @@ arptemplate:
 	.checkpc $CFFF
 	.scend
 
-	.outfile "utilities/etherload.prg"
+	.outfile "bin/etherload.prg"

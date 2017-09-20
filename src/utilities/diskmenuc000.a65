@@ -24,4 +24,4 @@
     ;
     .checkpc $CF06
     .advance $CF06
-    .incbin "utilities/etherload.prg"
+    .incbin "../../bin/etherload.prg"

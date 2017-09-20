@@ -5,6 +5,7 @@ OPHIS=	../Ophis/bin/ophis -4
 
 ASSETS=		assets
 SRCDIR=		src
+BINDIR=		bin
 UTILDIR=	$(SRCDIR)/utilities
 VHDLSRCDIR=	$(SRCDIR)/vhdl
 
@@ -43,15 +44,15 @@ TOOLS=	$(TOOLDIR)/etherkick/etherkick \
 	$(TOOLDIR)/on_screen_keyboard_gen \
 	$(TOOLDIR)/pngprepare/pngprepare
 
-all:	$(SDCARD_DIR)/MEGA65.D81 bin/mega65r1.bit bin/nexys4.bit bin/nexys4ddr.bit bin/test_touch.bit
+all:	$(SDCARD_DIR)/MEGA65.D81 $(BINDIR)/mega65r1.bit $(BINDIR)/nexys4.bit $(BINDIR)/nexys4ddr.bit $(BINDIR)/test_touch.bit
 
 generated_vhdl:	$(SIMULATIONVHDL)
 
 
 # files destined to go on the SD-card to serve as firmware for the MEGA65
 firmware:	$(SDCARD_DIR)/BANNER.M65 \
-		bin/KICKUP.M65 \
-		bin/COLOURRAM.BIN \
+		$(BINDIR)/KICKUP.M65 \
+		$(BINDIR)/COLOURRAM.BIN \
 		$(SDCARD_DIR)/MEGA65.D81 \
 		$(SDCARD_DIR)/C000UTIL.BIN
 
@@ -237,93 +238,43 @@ $(SRCDIR)/mega65-fdisk/m65fdisk.prg:
 
 # ============================ done moved, print-warn, clean-target
 #??? diskmenu_c000.bin yet b0rken
-bin/KICKUP.M65:	$(KICKSTARTSRCS) bin/diskmenu_c000.bin $(SRCDIR)/version.a65
-	$(warning =============================================================)
-	$(warning ~~~~~~~~~~~~~~~~> Making: KICKUP.M65 and kickstart.list)
-	$(OPHIS) $(SRCDIR)/kickstart.a65 -l kickstart.list -m kickstart.map
+$(BINDIR)/KICKUP.M65:	$(KICKSTARTSRCS) $(BINDIR)/diskmenu_c000.bin $(SRCDIR)/version.a65
+	$(OPHIS) $< -l $*.list -m $*.map
 
 # ============================ done moved, print-warn, clean-target
-bin/diskmenu_c000.bin:	$(SRCDIR)/diskmenuc000.a65 $(SRCDIR)/diskmenu.a65 $(SRCDIR)/utilities/etherload.prg
-	$(warning =============================================================)
-	$(warning ~~~~~~~~~~~~~~~~> Making: diskmenu_c000.bin and diskmenuc000.list)
-	$(OPHIS) $(SRCDIR)/diskmenuc000.a65 -l diskmenuc000.list -m diskmenuc000.map
+$(BINDIR)/diskmenu_c000.bin:	$(UTILDIR)/diskmenuc000.a65 $(UTILDIR)/diskmenu.a65 $(BINDIR)/etherload.prg
+	$(OPHIS) $< -l $*.list -m $*.map
+
+ $(BINDIR)/etherload.prg:	$(UTILDIR)/etherload.a65
+	$(OPHIS) $< -l $*.list -m $*.map
 
 
 # ============================ done moved, print-warn, clean-target
 # makerom is a python script that reads two files (arg[1,2]) and generates one (arg[3]).
 # the line below would generate the kickstart.vhdl file, (note no file extention on arg[3])
 # two files are read (arg[1] and arg[2]) and somehow compared, looking for THEROM and ROMDATA
-$(VHDLSRCDIR)/kickstart.vhdl:	$(TOOLDIR)/makerom/rom_template.vhdl bin/KICKUP.M65 $(TOOLDIR)/makerom/makerom
-	$(warning =============================================================)
-	$(warning ~~~~~~~~~~~~~~~~> Making: $(VHDLSRCDIR)/kickstart.vhdl)
+$(VHDLSRCDIR)/kickstart.vhdl:	$(TOOLDIR)/makerom/rom_template.vhdl $(BINDIR)/KICKUP.M65 $(TOOLDIR)/makerom/makerom
 #       script                arg[1]                          arg[2]     arg[3]                  arg[4]
-	$(TOOLDIR)/makerom/makerom $(TOOLDIR)/makerom/rom_template.vhdl bin/KICKUP.M65 $(VHDLSRCDIR)/kickstart kickstart
+	$(TOOLDIR)/makerom/makerom $(TOOLDIR)/makerom/rom_template.vhdl $(BINDIR)/KICKUP.M65 $(VHDLSRCDIR)/kickstart kickstart
 
 $(VHDLSRCDIR)/colourram.vhdl:	$(TOOLDIR)/makerom/colourram_template.vhdl COLOURRAM.BIN $(TOOLDIR)/makerom/makerom
-	$(warning =============================================================)
-	$(warning ~~~~~~~~~~~~~~~~> Making: $(VHDLSRCDIR)/colourram.vhdl)
 	$(TOOLDIR)/makerom/makerom $(TOOLDIR)/makerom/colourram_template.vhdl COLOURRAM.BIN $(VHDLSRCDIR)/colourram ram8x32k
 
 $(VHDLSRCDIR)/shadowram.vhdl:	$(TOOLDIR)/mempacker/mempacker $(SDCARD_DIR)/BANNER.M65
 	$(TOOLDIR)/mempacker/mempacker -n shadowram -s 131071 -f $(VHDLSRCDIR)/shadowram.vhdl $(SDCARD_DIR)/BANNER.M65@3D00
 
-$(VHDLSRCDIR)/oskmem.vhdl:	$(TOOLDIR)/mempacker/mempacker bin/asciifont.bin bin/osdmap.bin
-	$(TOOLDIR)/mempacker/mempacker -n oskmem -s 4095 -f $(VHDLSRCDIR)/oskmem.vhdl bin/asciifont.bin@0000 bin/osdmap.bin@0800
+$(VHDLSRCDIR)/oskmem.vhdl:	$(TOOLDIR)/mempacker/mempacker $(BINDIR)/asciifont.bin $(BINDIR)/osdmap.bin
+	$(TOOLDIR)/mempacker/mempacker -n oskmem -s 4095 -f $(VHDLSRCDIR)/oskmem.vhdl $(BINDIR)/asciifont.bin@0000 $(BINDIR)/osdmap.bin@0800
 
-bin/osdmap.bin:	$(TOOLDIR)/on_screen_keyboard_gen $(SRCDIR)/keyboard.txt
-	 $(TOOLDIR)/on_screen_keyboard_gen $(SRCDIR)/keyboard.txt > bin/osdmap.bin
+$(BINDIR)/osdmap.bin:	$(TOOLDIR)/on_screen_keyboard_gen $(SRCDIR)/keyboard.txt
+	 $(TOOLDIR)/on_screen_keyboard_gen $(SRCDIR)/keyboard.txt > $(BINDIR)/osdmap.bin
 
-bin/asciifont.bin:	$(TOOLDIR)/pngprepare/pngprepare $(ASSETS)/ascii00-7f.png
-	$(warning =============================================================)
-	$(warning ~~~~~~~~~~~~~~~~> Making: asciifont.bin)
-#       exe          option  infile      outfile
-	$(TOOLDIR)/pngprepare/pngprepare charrom $(ASSETS)/ascii00-7f.png bin/asciifont.bin
-
-
-# unsure why the below is commented out
-#slowram.vhdl:	c65gs.rom makeslowram slowram_template.vhdl
-#	./makeslowram slowram_template.vhdl c65gs.rom slowram
-
-
-# ============================ done moved, print-warn, clean-target
-# c-code that makes an executable that seems to extract images from the c65gs via lan
-# and displays the images on the users screen using vncserver
-# does not currently compile
-videoproxy:	videoproxy.c
-	$(warning =============================================================)
-	$(warning ~~~~~~~~~~~~~~~~> Making: videoproxy)
-	$(CC) $(COPT) -o videoproxy videoproxy.c -lpcap
-
-
-# ============================ done moved, print-warn, clean-target
-# c-code that makes and executable that seems to read a file and transferrs that file
-# to the fpga via ethernet
-tools/etherload/etherload:	tools/etherload/etherload.c Makefile
-	$(warning =============================================================)
-	$(warning ~~~~~~~~~~~~~~~~> Making: $(TOOLDIR)/etherload/etherload)
-	$(CC) $(COPT) -o $(TOOLDIR)/etherload/etherload $(TOOLDIR)/etherload/etherload.c $(SOCKLIBS)
-
-
-# ============================ done moved, print-warn, clean-target
-# c-code that makes and executable that seems to read a file and transferrs that file
-# to the fpga via ethernet
-tools/etherkick/etherkick:	tools/etherkick/etherkick.c Makefile
-	$(warning =============================================================)
-	$(warning ~~~~~~~~~~~~~~~~> Making: $(TOOLDIR)/etherkick/etherkick)
-	$(CC) $(COPT) -o $(TOOLDIR)/etherkick/etherkick ./tools/etherkick/etherkick.c $(SOCKLIBS)
-
-
-# ============================ print-warn, clean-target
-tools/hotpatch/hotpatch:	tools/hotpatch/hotpatch.c Makefile
-	$(warning =============================================================)
-	$(warning ~~~~~~~~~~~~~~~~> Making: $(TOOLDIR)/hotpatch/hotpatch)
-	$(CC) $(COPT) -o $(TOOLDIR)/hotpatch/hotpatch $(TOOLDIR)/hotpatch/hotpatch.c
+$(BINDIR)/asciifont.bin:	$(TOOLDIR)/pngprepare/pngprepare $(ASSETS)/ascii00-7f.png
+	$(TOOLDIR)/pngprepare/pngprepare charrom $(ASSETS)/ascii00-7f.png $(BINDIR)/asciifont.bin
 
 # ============================ done moved, Makefile-dep, print-warn, clean-target
 # c-code that makes an executable that processes images, and can make a vhdl file
 $(TOOLDIR)/pngprepare/pngprepare:	$(TOOLDIR)/pngprepare/pngprepare.c Makefile
-	$(warning =============================================================)
-	$(warning ~~~~~~~~~~~~~~~~> Making: $(TOOLDIR)/pngprepare/pngprepare)
 	$(CC) $(COPT) -I/usr/local/include -L/usr/local/lib -o $(TOOLDIR)/pngprepare/pngprepare $(TOOLDIR)/pngprepare/pngprepare.c -lpng
 
 # ============================ done *deleted*, Makefile-dep, print-warn, clean-target
@@ -332,19 +283,14 @@ $(TOOLDIR)/pngprepare/pngprepare:	$(TOOLDIR)/pngprepare/pngprepare.c Makefile
 # note that the iomap.txt file already comes from github.
 # note that the iomap.txt file is often recreated because version.vhdl is updated.
 iomap.txt:	$(VHDLSRCDIR)/*.vhdl 
-	$(warning =============================================================)
-	$(warning ~~~~~~~~~~~~~~~~> Making: ../iomap.txt)
 	# Force consistent ordering of items according to natural byte values
-	export LC_ALL=C
-	egrep "IO:C6|IO:GS" $(VHDLSRCDIR)/*.vhdl | cut -f3- -d: | sort -u -k2 > iomap.txt
+	export LC_ALL=C egrep "IO:C6|IO:GS" $(VHDLSRCDIR)/*.vhdl | cut -f3- -d: | sort -u -k2 > iomap.txt
 
-CRAMUTILS=	bin/border.prg $(SRCDIR)/mega65-fdisk/m65fdisk.prg
+CRAMUTILS=	$(BINDIR)/border.prg $(SRCDIR)/mega65-fdisk/m65fdisk.prg
 COLOURRAM.BIN:	$(TOOLDIR)/utilpacker/utilpacker $(CRAMUTILS)
 	$(TOOLDIR)/utilpacker/utilpacker COLOURRAM.BIN $(CRAMUTILS)
 
 tools/utilpacker/utilpacker:	$(TOOLDIR)/utilpacker/utilpacker.c Makefile
-	$(warning =============================================================)
-	$(warning ~~~~~~~~~~~~~~~~> Making: $(TOOLDIR)/utilpacker/utilpacker)
 	$(CC) $(COPT) -o $(TOOLDIR)/utilpacker/utilpacker $(TOOLDIR)/utilpacker/utilpacker.c
 
 # ============================ done moved, Makefile-dep, print-warn, clean-target
@@ -355,24 +301,17 @@ tools/utilpacker/utilpacker:	$(TOOLDIR)/utilpacker/utilpacker.c Makefile
 # for now we will always update the version info whenever we do a make.
 .PHONY: version.vhdl version.a65
 $(VHDLSRCDIR)/version.vhdl version.a65:
-	$(warning =============================================================)
-	$(warning ~~~~~~~~~~~~~~~~> Making: $(VHDLSRCDIR)/version.vhdl and version.a65)
 	./version.sh
 
 # i think 'charrom' is used to put the pngprepare file into a special mode that
 # generates the charrom.vhdl file that is embedded with the contents of the 8x8font.png file
 $(VHDLSRCDIR)/charrom.vhdl:	$(TOOLDIR)/pngprepare/pngprepare $(ASSETS)/8x8font.png
-	$(warning =============================================================)
-	$(warning ~~~~~~~~~~~~~~~~> Making: $(VHDLSRCDIR)/charrom.vhdl)
 #       exe          option  infile      outfile
 	$(TOOLDIR)/pngprepare/pngprepare charrom $(ASSETS)/8x8font.png $(VHDLSRCDIR)/charrom.vhdl
 
 $(SDCARD_DIR)/BANNER.M65:	$(TOOLDIR)/pngprepare/pngprepare assets/mega65_320x64.png
-	$(warning =============================================================)
-	$(warning ~~~~~~~~~~~~~~~~> Making: $(SDCARD_DIR)/BANNER.M65)
-
-	/usr/bin/convert -colors 128 -depth 8 +dither assets/mega65_320x64.png bin/mega65_320x64_128colour.png
-	$(TOOLDIR)/pngprepare/pngprepare logo bin/mega65_320x64_128colour.png $(SDCARD_DIR)/BANNER.M65
+	/usr/$(BINDIR)/convert -colors 128 -depth 8 +dither assets/mega65_320x64.png $(BINDIR)/mega65_320x64_128colour.png
+	$(TOOLDIR)/pngprepare/pngprepare logo $(BINDIR)/mega65_320x64_128colour.png $(SDCARD_DIR)/BANNER.M65
 
 # disk menu program for loading from SD card to $C000 on boot by kickstart
 $(SDCARD_DIR)/C000UTIL.BIN:	$(SRCDIR)/diskmenu_c000.bin
@@ -382,118 +321,16 @@ $(SDCARD_DIR)/C000UTIL.BIN:	$(SRCDIR)/diskmenu_c000.bin
 # c-code that makes and executable that seems to be the 'load-wedge'
 # for the serial-monitor
 monitor_drive:	monitor_drive.c Makefile
-	$(warning =============================================================)
-	$(warning ~~~~~~~~~~~~~~~~> Making: monitor_drive)
 	$(CC) $(COPT) -o monitor_drive monitor_drive.c
 
 tools/monitor_load:	tools/monitor_load.c Makefile
-	$(warning =============================================================)
-	$(warning ~~~~~~~~~~~~~~~~> Making: monitor_load)
 	$(CC) $(COPT) -o $(TOOLDIR)/monitor_load $(TOOLDIR)/monitor_load.c
 
 tools/monitor_save:	tools/monitor_save.c Makefile
-	$(warning =============================================================)
-	$(warning ~~~~~~~~~~~~~~~~> Making: monitor_save)
 	$(CC) $(COPT) -o $(TOOLDIR)/monitor_save $(TOOLDIR)/monitor_save.c
 
 tools/on_screen_keyboard_gen:	tools/on_screen_keyboard_gen.c Makefile
-	$(warning =============================================================)
-	$(warning ~~~~~~~~~~~~~~~~> Making: on_screen_keyboard_gen)
 	$(CC) $(COPT) -o $(TOOLDIR)/on_screen_keyboard_gen $(TOOLDIR)/on_screen_keyboard_gen.c
-
-
-# ============================ done moved, Makefile-dep, print-warn, clean-target
-# c-code that makes and executable that seems to read from the serial port, and
-# dump that to a file.
-# makes use of the serial monitor within the fpga
-read_mem:	read_mem.c Makefile
-	$(warning =============================================================)
-	$(warning ~~~~~~~~~~~~~~~~> Making: read_mem)
-	$(CC) $(COPT) -o read_mem read_mem.c
-
-# ============================ done moved, Makefile-dep, print-warn, clean-target
-# c-code that makes and executable that seems to read serial commands from serial-port
-chargen_debug:	chargen_debug.c Makefile
-	$(warning =============================================================)
-	$(warning ~~~~~~~~~~~~~~~~> Making: chargen_debug)
-	gcc -Wall -o chargen_debug chargen_debug.c
-
-
-# ============================ done moved, Makefile-dep, print-warn, clean-target
-# c-code that makes and executable that seems to disassemble assembly code
-dis4510:	dis4510.c Makefile
-	$(warning =============================================================)
-	$(warning ~~~~~~~~~~~~~~~~> Making: dis4510)
-	$(CC) $(COPT) -o dis4510 dis4510.c
-
-
-# ============================ done moved, Makefile-dep, print-warn, clean-target
-# c-code that makes an executable that seems to emulate assembly code
-# currently does not compile
-em4510:	em4510.c Makefile
-	$(warning =============================================================)
-	$(warning ~~~~~~~~~~~~~~~~> Making: em4510)
-	$(CC) $(COPT) -o em4510 em4510.c
-
-
-# ============================ done moved, Makefile-dep, print-warn, clean-target
-# Generate VHDL instruction and addressing mode tables for 4510 CPU
-4510tables:	4510tables.c Makefile
-	$(warning =============================================================)
-	$(warning ~~~~~~~~~~~~~~~~> Making: 4510tables)
-	$(CC) $(COPT) -o 4510tables 4510tables.c
-
-
-# ============================ done moved, Makefile-dep, print-warn, clean-target
-# i think this one needs 64net.opc
-c65-rom-disassembly.txt:	dis4510 c65-dos-context.bin c65-rom-annotations.txt
-	$(warning =============================================================)
-	$(warning ~~~~~~~~~~~~~~~~> Making: c65-rom-disassembly.txt)
-	./dis4510 c65-dos-context.bin 2000 c65-rom-annotations.txt > c65-rom-disassembly.txt
-
-
-# ============================ done moved, Makefile-dep, print-warn, clean-target
-# BG added this because the file "c65-911001-rom-annotations.txt" is missing
-c65-911001-rom-annotations.txt:	c65-rom-annotations.txt
-	$(warning =============================================================)
-	$(warning ~~~~~~~~~~~~~~~~> Making: c65-911001-rom-annotations.txt)
-	cp c65-rom-annotations.txt c65-911001-rom-annotations.txt
-
-
-# ============================ done moved, Makefile-dep, print-warn, clean-target
-# i think this one needs 64net.opc
-c65-rom-911001.txt:	dis4510 c65-911001-dos-context.bin c65-911001-rom-annotations.txt
-	$(warning =============================================================)
-	$(warning ~~~~~~~~~~~~~~~~> Making: c65-rom-911001.txt)
-	./dis4510 c65-911001-dos-context.bin 2000 c65-911001rom-annotations.txt > c65-rom-911001.txt
-
-
-# unsure, but see 'man dd',
-# reads c65-rom-910111.bin and generates c65-dos*.bin
-# needed to create c65-rom-910111.bin for this to work, need to ask PGS where is the correct file
-c65-dos-context.bin:	c65-rom-910111.bin
-	$(warning =============================================================)
-	$(warning ~~~~~~~~~~~~~~~~> Making: c65-dos-context.bin)
-	dd if=c65-rom-910111.bin bs=8192  skip=9  count=3 >  c65-dos-context.bin
-	dd if=c65-rom-910111.bin bs=16384 skip=0  count=1 >> c65-dos-context.bin
-	dd if=c65-rom-910111.bin bs=4096  skip=12 count=1 >> c65-dos-context.bin
-	dd if=/dev/zero          bs=4096          count=1 >> c65-dos-context.bin
-	dd if=c65-rom-910111.bin bs=8192  skip=15 count=1 >> c65-dos-context.bin
-
-# unsure, but see 'man dd',
-# reads 911001.bin and outputs c65-911001*.bin
-# needed to create 911001.bin for this to work, need to ask PGS where is the correct file
-c65-911001-dos-context.bin:	911001.bin Makefile
-	$(warning =============================================================)
-	$(warning ~~~~~~~~~~~~~~~~> Making: c65-911001-dos-context.bin)
-	dd if=911001.bin bs=8192  skip=9  count=3 >  c65-911001-dos-context.bin
-	dd if=911001.bin bs=16384 skip=0  count=1 >> c65-911001-dos-context.bin
-	dd if=911001.bin bs=4096  skip=12 count=1 >> c65-911001-dos-context.bin
-	dd if=/dev/zero  bs=4096          count=1 >> c65-911001-dos-context.bin
-	dd if=911001.bin bs=8192  skip=15 count=1 >> c65-911001-dos-context.bin
-
-modeline:	Makefile modeline.c
-	$(CC) $(COPT) -o modeline modeline.c $(LOPT)
 
 clean:
 	rm -f KICKUP.M65 kickstart.list kickstart.map
