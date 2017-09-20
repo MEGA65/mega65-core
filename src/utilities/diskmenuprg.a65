@@ -1,5 +1,5 @@
 
-	.outfile "diskmenu.prg"
+	.outfile "src/utilities/diskmenu.prg"
 
 	 .word $0801
 	 .org $0801

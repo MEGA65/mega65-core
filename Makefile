@@ -5,6 +5,7 @@ OPHIS=	../Ophis/bin/ophis -4
 
 ASSETS=		assets
 SRCDIR=		src
+UTILDIR=	$(SRCDIR)/utilities
 VHDLSRCDIR=	$(SRCDIR)/vhdl
 
 SDCARD_DIR=	sdcard-files
@@ -25,13 +26,13 @@ KICKSTARTSRCS = $(SRCDIR)/kickstart.a65 \
 #
 # NOTE: that all files listed below will be embedded within the "MEGA65.D81".
 #
-UTILITIES=	$(SRCDIR)/utilities/ethertest.prg \
-		$(SRCDIR)/utilities/etherload.prg \
-		$(SRCDIR)/utilities/test01prg.prg \
-		$(SRCDIR)/utilities/c65test02prg.prg \
-		$(SRCDIR)/utilities/c65-rom-910111-fastload-patch.prg \
+UTILITIES=	$(UTILDIR)/ethertest.prg \
+		$(UTILDIR)/etherload.prg \
+		$(UTILDIR)/test01prg.prg \
+		$(UTILDIR)/c65test02prg.prg \
+		$(UTILDIR)/c65-rom-910111-fastload-patch.prg \
 		d81-files/* \
-		$(SRCDIR)/utilities/diskmenu.prg
+		$(UTILDIR)/diskmenu.prg
 
 TOOLDIR=	$(SRCDIR)/tools
 TOOLS=	$(TOOLDIR)/etherkick/etherkick \
@@ -42,7 +43,7 @@ TOOLS=	$(TOOLDIR)/etherkick/etherkick \
 	$(TOOLDIR)/on_screen_keyboard_gen \
 	$(TOOLDIR)/pngprepare/pngprepare
 
-all:	sdcard-files/utility.d81 bin/mega65r1.bit bin/nexys4.bit bin/nexys4ddr.bit bin/test_touch.bit
+all:	$(SDCARD_DIR)/MEGA65.D81 bin/mega65r1.bit bin/nexys4.bit bin/nexys4ddr.bit bin/test_touch.bit
 
 generated_vhdl:	$(SIMULATIONVHDL)
 
@@ -217,51 +218,22 @@ $(SDCARD_DIR)/MEGA65.D81:	$(UTILITIES)
 	cbmconvert -v2 -D8o $(SDCARD_DIR)/MEGA65.D81 $(UTILITIES)
 
 # ============================ done moved, print-warn, clean-target
-# PGS program for testing the F011 floppy write, etc.
-tests/test_fdc_equal_flag.prg:	tests/test_fdc_equal_flag.a65
-	$(warning =============================================================)
-	$(warning ~~~~~~~~~~~~~~~~> Making: tests/test_fdc_equal_flag.a65)
-	$(OPHIS) tests/test_fdc_equal_flag.a65 -l tests/test_fdc_equal_flag.list -m tests/test_fdc_equal_flag.map
-
-
-# ============================ done moved, print-warn, clean-target
 # ophis converts the *.a65 file (assembly text) to *.prg (assembly bytes)
-utilities/ethertest.prg:	utilities/ethertest.a65
+%.prg:	%.a65
 	$(warning =============================================================)
-	$(warning ~~~~~~~~~~~~~~~~> Making: utilities/ethertest.prg)
-	$(OPHIS) utilities/ethertest.a65 -l utilities/ethertest.list -m utilities/ethertest.map
+	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
+	$(OPHIS) $< -l $*.list -m $*.map
 
-
-# ============================ done moved, print-warn, clean-target
-# ophis converts the (two) *.a65 file (assembly text) to *.prg (assembly bytes)
-# the "l" option created a verbose listing of the output
-# NOTE that to get to compile i needed to comment out the ".scope" in the "diskmenu.a65" file
-diskmenu.prg:	diskmenuprg.a65 diskmenu.a65 utilities/etherload.prg
+%.bin:	%.a65
 	$(warning =============================================================)
-	$(warning ~~~~~~~~~~~~~~~~> Making: diskmenu.prg and diskmenuprg.list)
-	$(OPHIS) diskmenuprg.a65 -l diskmenuprg.list -m diskmenuprg.map
+	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
+	$(OPHIS) $< -l $*.list -m $*.map
 
-bin/megacart.crt:	$(SRCDIR)/megacartstub.a65
-	$(warning =============================================================)
-	$(warning ~~~~~~~~~~~~~~~~> Making: diskmenu.prg and diskmenuprg.list)
-	$(OPHIS) $(SRCDIR)/megacartstub.a65 -l megacart.list -m megacart.map
+$(UTILDIR)/diskmenu.prg:	$(UTILDIR)/diskmenuprg.a65 $(UTILDIR)/diskmenu.a65 $(UTILDIR)/etherload.prg
+	$(OPHIS) $< -l $*.list -m $*.map	
 
 $(SRCDIR)/mega65-fdisk/m65fdisk.prg:	
 	( cd $(SRCDIR)/mega65-fdisk ; make )
-
-bin/border.prg:	$(SRCDIR)/border.a65
-	$(warning =============================================================)
-	$(warning ~~~~~~~~~~~~~~~~> Making: border.prg)
-	$(OPHIS) $(SRCDIR)/border.a65
-
-
-# ============================ done moved, print-warn, clean-target
-# we do not use this initial version anymore, but remains here for learning from
-diskchooser:	diskchooser.a65
-	$(warning =============================================================)
-	$(warning ~~~~~~~~~~~~~~~~> Making: diskchooser)
-	$(OPHIS) diskchooser.a65
-
 
 # ============================ done moved, print-warn, clean-target
 #??? diskmenu_c000.bin yet b0rken
@@ -270,70 +242,11 @@ bin/KICKUP.M65:	$(KICKSTARTSRCS) bin/diskmenu_c000.bin $(SRCDIR)/version.a65
 	$(warning ~~~~~~~~~~~~~~~~> Making: KICKUP.M65 and kickstart.list)
 	$(OPHIS) $(SRCDIR)/kickstart.a65 -l kickstart.list -m kickstart.map
 
-
 # ============================ done moved, print-warn, clean-target
 bin/diskmenu_c000.bin:	$(SRCDIR)/diskmenuc000.a65 $(SRCDIR)/diskmenu.a65 $(SRCDIR)/utilities/etherload.prg
 	$(warning =============================================================)
 	$(warning ~~~~~~~~~~~~~~~~> Making: diskmenu_c000.bin and diskmenuc000.list)
 	$(OPHIS) $(SRCDIR)/diskmenuc000.a65 -l diskmenuc000.list -m diskmenuc000.map
-
-
-# ============================ done moved, print-warn, clean-target
-thumbnail.prg:	showthumbnail.a65
-	$(warning =============================================================)
-	$(warning ~~~~~~~~~~~~~~~~> Making: thumbnail.prg)
-	$(OPHIS) showthumbnail.a65 -m showthumbnail.map -l showthumbnail.list
-
-
-# ============================ done moved, print-warn, clean-target
-utilities/etherload.prg:	utilities/etherload.a65
-	$(warning =============================================================)
-	$(warning ~~~~~~~~~~~~~~~~> Making: utilities/etherload.prg)
-	$(OPHIS) utilities/etherload.a65 -l utilities/etherload.list -m utilities/etherload.map
-
-
-# ============================ done moved, print-warn, clean-target
-utilities/test01prg.prg:	utilities/test01prg.a65
-	$(warning =============================================================)
-	$(warning ~~~~~~~~~~~~~~~~> Making: utilities/test01prg.prg)
-	$(OPHIS) utilities/test01prg.a65 -l utilities/test01prg.list -m utilities/test01prg.map
-
-
-# ============================ done moved, print-warn, clean-target
-utilities/c65test02prg.prg:	utilities/c65test02prg.a65
-	$(warning =============================================================)
-	$(warning ~~~~~~~~~~~~~~~~> Making: utilities/c65test02prg.prg)
-	$(OPHIS) utilities/c65test02prg.a65 -l utilities/c65test02prg.list -m utilities/c65test02prg.map
-
-
-utilities/c65-rom-910111-fastload-patch.prg:	utilities/c65-rom-910111-fastload-patch.a65
-	$(warning =============================================================)
-	$(warning ~~~~~~~~~~~~~~~~> Making: utilities/c65-rom-910111-fastload-patch.prg)
-	$(OPHIS) utilities/c65-rom-910111-fastload-patch.a65 -l utilities/c65-rom-910111-fastload-patch.list -m utilities/c65-rom-910111-fastload-patch.map
-
-
-# ============================ done moved, print-warn, clean-target
-# keep this in _unused for time being
-etherload_stub.bin:	etherload_stub.a65
-	$(warning =============================================================)
-	$(warning ~~~~~~~~~~~~~~~~> Making: etherload_stub.bin)
-	$(OPHIS) etherload_stub.a65
-
-
-# ============================ done moved, print-warn, clean-target
-# keep this in _unused for time being
-etherload_done.bin:	etherload_done.a65
-	$(warning =============================================================)
-	$(warning ~~~~~~~~~~~~~~~~> Making: etherload_done.bin)
-	$(OPHIS) etherload_done.a65
-
-
-# ============================ done moved, print-warn, clean-target
-# dejavus.f65 seems to be a font tile
-textmodetest.prg:	textmodetest.a65 textmodetest-dejavus.f65
-	$(warning =============================================================)
-	$(warning ~~~~~~~~~~~~~~~~> Making: textmodetest.prg)
-	$(OPHIS) textmodetest.a65 -l textmodetest.list
 
 
 # ============================ done moved, print-warn, clean-target
@@ -584,18 +497,18 @@ modeline:	Makefile modeline.c
 
 clean:
 	rm -f KICKUP.M65 kickstart.list kickstart.map
-	rm -f diskmenu.prg diskmenuprg.list diskmenuprg.map
+	rm -f $(UTILDIR)/diskmenu.prg diskmenuprg.list diskmenuprg.map
 	rm -f diskmenu_c000.bin diskmenuc000.list diskmenuc000.map
 	rm -f $(TOOLDIR)/etherkick/etherkick
 	rm -f $(TOOLDIR)/etherload/etherload
 	rm -f $(TOOLDIR)/hotpatch/hotpatch
 	rm -f $(TOOLDIR)/pngprepare/pngprepare
-	rm -f utilities/etherload.prg utilities/etherload.list utilities/etherload.map
-	rm -f utilities/ethertest.prg utilities/ethertest.list utilities/ethertest.map
-	rm -f utilities/test01prg.prg utilities/test01prg.list utilities/test01prg.map
-	rm -f utilities/c65test02prg.prg utilities/c65test02prg.list utilities/c65test02prg.map
+	rm -f $(UTILDIR)/etherload.prg $(UTILDIR)/etherload.list $(UTILDIR)/etherload.map
+	rm -f $(UTILDIR)/ethertest.prg $(UTILDIR)/ethertest.list $(UTILDIR)/ethertest.map
+	rm -f $(UTILDIR)/test01prg.prg $(UTILDIR)/test01prg.list $(UTILDIR)/test01prg.map
+	rm -f $(UTILDIR)/c65test02prg.prg $(UTILDIR)/c65test02prg.list $(UTILDIR)/c65test02prg.map
 	rm -f iomap.txt
-	rm -f utility.d81
+	rm -f $(SDCARD_DIR)/utility.d81
 	rm -f tests/test_fdc_equal_flag.prg tests/test_fdc_equal_flag.list tests/test_fdc_equal_flag.map
 	rm -rf $(SDCARD_DIR)
 	rm -f $(VHDLSRCDIR)/kickstart.vhdl $(VHDLSRCDIR)/charrom.vhdl $(VHDLSRCDIR)/version.vhdl version.a65
