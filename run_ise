@@ -1,0 +1,168 @@
+#!/bin/bash
+
+TARGET=$1
+TASK=$2
+
+if [ "x$TARGET" = "x" ]; then
+    echo "ERROR: Target missing."
+    echo "usage: run_ise <target> <task>"
+    exit 3
+fi
+
+if [ "x$TASK" = "x" ]; then
+    echo "ERROR: Task missing."
+    echo "usage: run_ise <target> <task>"
+    exit 3
+fi
+
+# first things first, make the ISE-project-script-file Read-Only for all groups.
+# this is done to stop the ISE-GUI from overwriting the file, which may be
+# causing the compile-script to fail due to invalid relative addresses.
+# a possible fix is to move the mega65.gise (ISE project file) into ./isework
+# BG: these commands are likely to be removed once I get around to implementing my 'cleaner' branch
+ls -al    isework/${TARGET}.xst
+chmod a-w isework/${TARGET}.xst
+ls -al    isework/${TARGET}.xst
+
+# ensure these directory exists, if not, make them
+LOGDIR="build-logs"
+if test ! -e    "./${LOGDIR}"; then
+  echo "Creating ./${LOGDIR}"
+  mkdir          ./${LOGDIR}
+fi
+if test ! -e    "./sdcard-files"; then
+  echo "Creating ./sdcard-files"
+  mkdir          ./sdcard-files
+fi
+if test ! -e    "./sdcard-files/old-bitfiles"; then
+  echo "Creating ./sdcard-files/old-bitfiles"
+  mkdir          ./sdcard-files/old-bitfiles
+fi
+
+# here we need to detect if you have 64 or 32 bit machine
+# on a 64-bit installation, both 32 and 64 bit settings files exist.
+# on a 32-bit installation, only the settings32 exists.
+# -> so first check for the 64-bit settings file.
+#       special case/path for Colossus Supercomputer
+if [ -e /usr/local/Xilinx/14.7/ISE_DS/settings64.sh ]; then
+  echo "Detected 64-bit Xilinx installation on Colossus"
+  source /usr/local/Xilinx/14.7/ISE_DS/settings64.sh
+#       standard install location for 32/64 bit Xilinx installation
+elif [ -e /opt/Xilinx/14.7/ISE_DS/settings64.sh ]; then
+  echo "Detected 64-bit Xilinx installation"
+  source /opt/Xilinx/14.7/ISE_DS/settings64.sh
+#       standard install location for 32/64 bit Xilinx installation
+elif [ -e /opt/Xilinx/14.7/ISE_DS/settings32.sh ]; then
+  echo "Detected 32-bit Xilinx installation"
+  source /opt/Xilinx/14.7/ISE_DS/settings32.sh
+else
+  echo "Cannot detect a Xilinx installation"
+  exit 0;
+fi
+
+datetime=`date +%Y%m%d_%H:%M:%S`
+# time for the output filenames
+datetime2=`date +%m%d%H%M`
+# gitstring for the output filenames, results in '10bef97' or similar
+gitstring=`git describe --always --abbrev=7 --dirty=~`
+# git status of 'B'ranch in 'S'hort format, for the output filename
+branch=`git status -b -s | head -n 1`
+# get from charpos3, for 6 chars
+branch2=${branch:3:6}
+
+
+outfile0="${LOGDIR}/compile-${TARGET}-${gitstring}_0.log"
+outfile1="${LOGDIR}/compile-${TARGET}-${gitstring}_1-xst.log"
+outfile2="${LOGDIR}/compile-${TARGET}-${gitstring}_2-ngd.log"
+outfile3="${LOGDIR}/compile-${TARGET}-${gitstring}_3-map.log"
+outfile4="${LOGDIR}/compile-${TARGET}-${gitstring}_4-par.log"
+outfile5="${LOGDIR}/compile-${TARGET}-${gitstring}_5-trc.log"
+outfile6="${LOGDIR}/compile-${TARGET}-${gitstring}_6-bit.log"
+
+ISE_COMMON_OPTS="-intstyle ise"
+ISE_NGDBUILD_OPTS="-p xc7a100t-csg324-1 -dd _ngo -sd ipcore_dir -nt timestamp"
+ISE_MAP_OPTS="-p xc7a100t-csg324-1 -w -logic_opt on -ol high -t 1 -xt 0 -register_duplication on -r 4 -mt 2 -ir off -ignore_keep_hierarchy -pr b -lc off -power off"
+ISE_PAR_OPTS="-w -ol std -mt off"
+ISE_TRCE_OPTS="-v 3 -s 1 -n 3 -fastpaths -xml"
+
+# ensure these directory exists, if not, make them
+if test ! -e    "./isework/xst/"; then
+  echo "Creating ./isework/xst/"
+  mkdir          ./isework/xst/
+fi
+if test ! -e    "./isework/xst/projnav.tmp/"; then
+  echo "Creating ./isework/xst/projnav.tmp/"
+  mkdir          ./isework/xst/projnav.tmp
+fi
+
+# begin the ISE build:
+echo "Beginning the ISE build."
+echo " "
+echo "Check ./${LOGDIR}/compile-<target>-<git commit>-X*.log for the log files, X={1,2,3,4,5,6}"
+echo " "
+
+# first, put the git-commit-ID in the first log file.
+echo ${gitstring} > $outfile0
+# put the git-branch-ID in the log file.
+echo ${branch}  >> $outfile0
+echo ${branch2} >> $outfile0
+
+UCF_TARGET_FPGA="./src/vhdl/${TARGET}.ucf"
+
+echo " "
+cat ./src/version.a65
+pwd
+echo " "
+
+if [ $TASK = xst ]; then
+    #
+    # ISE: synthesize
+    #
+    echo "==> $datetime Starting: xst, see ${TARGET}.syr"
+    xst ${ISE_COMMON_OPTS} -ifn "./isework/${TARGET}.xst" -ofn "./isework/${TARGET}.syr" >> $outfile1
+    exit $?
+fi
+
+if [ $TASK = ngd ]; then
+    #
+    # ISE: ngdbuild
+    #
+    echo "==> $datetime Starting: ngdbuild, see ${TARGET}.bld"
+    ngdbuild ${ISE_COMMON_OPTS} ${ISE_NGDBUILD_OPTS} -uc ${UCF_TARGET_FPGA} ./isework/${TARGET}.ngc ./isework/${TARGET}.ngd > $outfile2
+    exit $?
+fi
+
+if [ $TASK = map ]; then
+    #
+    # ISE: map
+    #
+    echo "==> $datetime Starting: map, see ${TARGET}.mrp"
+    map ${ISE_COMMON_OPTS} ${ISE_MAP_OPTS} -o ./isework/${TARGET}_map.ncd ./isework/${TARGET}.ngd ./isework/${TARGET}.pcf > $outfile3
+    exit $?
+fi
+
+if [ $TASK  = par ]; then
+    #
+    # ISE: place and route
+    #
+    echo "==> $datetime Starting: par, see ${TARGET}.par"
+    par ${ISE_COMMON_OPTS} ${ISE_PAR_OPTS} ./isework/${TARGET}_map.ncd ./isework/${TARGET}.ncd ./isework/${TARGET}.pcf > $outfile4
+    exit $?
+fi
+
+if [ $TASK = trce ]; then
+    #
+    # ISE: trace
+    #
+    trce ${ISE_COMMON_OPTS} ${ISE_TRCE_OPTS} ./isework/${TARGET}.twx ./isework/${TARGET}.ncd -o ./isework/${TARGET}.twr ./isework/${TARGET}.pcf -ucf ./src/${TARGET}.ucf > $outfile5
+    exit $?
+fi
+
+if [ $TASK = bitgen ]; then
+    #
+    # ISE: bitgen
+    #
+    echo "==> $datetime Starting: bitgen, see ${TARGET}.bgn"
+    bitgen ${ISE_COMMON_OPTS} -g SPI_buswidth:4 -g ConfigRate:33 -f ./isework/${TARGET}.ut ./isework/${TARGET}.ncd > $outfile6
+    exit $?
+fi
