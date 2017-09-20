@@ -24,7 +24,7 @@ if test ! -e    "./sdcard-files/old-bitfiles"; then
   mkdir          ./sdcard-files/old-bitfiles
 fi
 
-( cd src ; make generated_vhdl firmware ../iomap.txt tools utilities roms)
+( make generated_vhdl firmware ../iomap.txt tools utilities roms)
 retcode=$?
 
 if [ $retcode -ne 0 ] ; then
