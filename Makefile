@@ -245,7 +245,7 @@ $(BINDIR)/KICKUP.M65:	$(KICKSTARTSRCS) $(BINDIR)/diskmenu_c000.bin $(SRCDIR)/ver
 $(BINDIR)/diskmenu_c000.bin:	$(UTILDIR)/diskmenuc000.a65 $(UTILDIR)/diskmenu.a65 $(BINDIR)/etherload.prg
 	$(OPHIS) $< -l $*.list -m $*.map
 
- $(BINDIR)/etherload.prg:	$(UTILDIR)/etherload.a65
+$(BINDIR)/etherload.prg:	$(UTILDIR)/etherload.a65
 	$(OPHIS) $< -l $*.list -m $*.map
 
 
