@@ -124,7 +124,7 @@ if [ $TASK = xst ]; then
     # ISE: synthesize
     #
     echo "==> $datetime Starting: xst, see ${TARGET}.syr"
-    echo xst ${ISE_COMMON_OPTS} -ifn "isework/${TARGETNAME}.xst" -ofn "isework/${TARGETNAME}.syr" >> $outfile1
+    echo xst ${ISE_COMMON_OPTS} -ifn "isework/${TARGETNAME}.xst" -ofn "isework/${TARGETNAME}.syr"
     xst ${ISE_COMMON_OPTS} -ifn "isework/${TARGETNAME}.xst" -ofn "isework/${TARGETNAME}.syr" >> $outfile1
     exit $?
 fi
@@ -134,6 +134,7 @@ if [ $TASK = ngdbuild ]; then
     # ISE: ngdbuild
     #
     echo "==> $datetime Starting: ngdbuild, see ${TARGET}.bld"
+    else ngdbuild ${ISE_COMMON_OPTS} ${ISE_NGDBUILD_OPTS} -uc ${UCF_TARGET_FPGA} ./isework/${TARGET}.ngc ./isework/${TARGET}.ngd
     ngdbuild ${ISE_COMMON_OPTS} ${ISE_NGDBUILD_OPTS} -uc ${UCF_TARGET_FPGA} ./isework/${TARGET}.ngc ./isework/${TARGET}.ngd > $outfile2
     exit $?
 fi
