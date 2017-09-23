@@ -134,8 +134,8 @@ if [ $TASK = ngdbuild ]; then
     # ISE: ngdbuild
     #
     echo "==> $datetime Starting: ngdbuild, see ${TARGET}.bld"
-    else ngdbuild ${ISE_COMMON_OPTS} ${ISE_NGDBUILD_OPTS} -uc ${UCF_TARGET_FPGA} ./isework/${TARGET}.ngc ./isework/${TARGET}.ngd
-    ngdbuild ${ISE_COMMON_OPTS} ${ISE_NGDBUILD_OPTS} -uc ${UCF_TARGET_FPGA} ./isework/${TARGET}.ngc ./isework/${TARGET}.ngd > $outfile2
+    else ngdbuild ${ISE_COMMON_OPTS} ${ISE_NGDBUILD_OPTS} -uc ${UCF_TARGET_FPGA} ./isework/${TARGETNAME}.ngc ./isework/${TARGETNAME}.ngd
+    ngdbuild ${ISE_COMMON_OPTS} ${ISE_NGDBUILD_OPTS} -uc ${UCF_TARGET_FPGA} ./isework/${TARGETNAME}.ngc ./isework/${TARGETNAME}.ngd > $outfile2
     exit $?
 fi
 
@@ -144,7 +144,7 @@ if [ $TASK = map ]; then
     # ISE: map
     #
     echo "==> $datetime Starting: map, see ${TARGET}.mrp"
-    map ${ISE_COMMON_OPTS} ${ISE_MAP_OPTS} -o ${TARGET}_map.ncd ${TARGET}.ngd ${TARGET}.pcf > $outfile3
+    map ${ISE_COMMON_OPTS} ${ISE_MAP_OPTS} -o ./isework/${TARGETNAME}_map.ncd ./isework/${TARGETNAME}.ngd ./isework/${TARGETNAME}.pcf > $outfile3
     exit $?
 fi
 
@@ -153,7 +153,7 @@ if [ $TASK  = par ]; then
     # ISE: place and route
     #
     echo "==> $datetime Starting: par, see ${TARGET}.par"
-    par ${ISE_COMMON_OPTS} ${ISE_PAR_OPTS} ./isework/${TARGET}_map.ncd ./isework/${TARGET}.ncd ./isework/${TARGET}.pcf > $outfile4
+    par ${ISE_COMMON_OPTS} ${ISE_PAR_OPTS} ./isework/${TARGETNAME}_map.ncd ./isework/${TARGETNAME}.ncd ./isework/${TARGETNAME}.pcf > $outfile4
     exit $?
 fi
 
@@ -161,7 +161,7 @@ if [ $TASK = trce ]; then
     #
     # ISE: trace
     #
-    trce ${ISE_COMMON_OPTS} ${ISE_TRCE_OPTS} ./isework/${TARGET}.twx ./isework/${TARGET}.ncd -o ./isework/${TARGET}.twr ./isework/${TARGET}.pcf -ucf ./src/${TARGET}.ucf > $outfile5
+    trce ${ISE_COMMON_OPTS} ${ISE_TRCE_OPTS} ./isework/${TARGETNAME}.twx ./isework/${TARGETNAME}.ncd -o ./isework/${TARGETNAME}.twr ./isework/${TARGETNAME}.pcf -ucf ./src/vhdl/${TARGETNAME}.ucf > $outfile5
     exit $?
 fi
 
@@ -170,6 +170,6 @@ if [ $TASK = bitgen ]; then
     # ISE: bitgen
     #
     echo "==> $datetime Starting: bitgen, see ${TARGET}.bgn"
-    bitgen ${ISE_COMMON_OPTS} -g SPI_buswidth:4 -g ConfigRate:33 -f ./isework/${TARGET}.ut ./isework/${TARGET}.ncd > $outfile6
+    bitgen ${ISE_COMMON_OPTS} -g SPI_buswidth:4 -g ConfigRate:33 -f ./isework/${TARGETNAME}.ut ./isework/${TARGETNAME}.ncd > $outfile6
     exit $?
 fi
