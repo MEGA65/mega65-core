@@ -331,7 +331,7 @@ tools/monitor_save:	tools/monitor_save.c Makefile
 tools/on_screen_keyboard_gen:	tools/on_screen_keyboard_gen.c Makefile
 	$(CC) $(COPT) -o $(TOOLDIR)/on_screen_keyboard_gen $(TOOLDIR)/on_screen_keyboard_gen.c
 
-%.ngc %.syr:	$(VHDLSRCDIR)/*.vhdl generated_vhdl
+%.ngc %.syr:	$(VHDLSRCDIR)/*.vhdl $(SIMULATIONVHDL)
 	@rm -f $*.ngc $*.syr $*.ngr
 	mkdir -p xst/projnav.tmp
 	./run_ise $* xst
