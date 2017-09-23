@@ -1,8 +1,8 @@
 set -tmpdir "./isework/xst/projnav.tmp"
 set -xsthdpdir "./isework/xst"
 run
--ifn ./isework/container.prj
--ofn ./isework/container
+-ifn ./isework/nexys4ddr.prj
+-ofn ./isework/nexys4ddr
 -ofmt NGC
 -p xc7a100t-1-csg324
 -top container
