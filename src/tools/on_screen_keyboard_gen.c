@@ -78,16 +78,26 @@ int main(int argc,char **argv)
     if (n==19) alternate_keyboard_offset=packed_len;
     
     // Remove boxes around characters
+    int y=0;
     for(int x=0;line[x];x++) {
       if (line[x]=='|'
 	  ||(line[x]=='+'&&(line[x-1]=='-'||line[x+1]=='-'))
 	  ||(line[x]=='-'&&(line[x-1]=='-'||line[x+1]=='-'))
 	  ||(line[x]=='-'&&(line[x-1]=='+'||line[x+1]=='+')))
-	out[x]=' ';
+	out[y++]=' ';
       else
-	out[x]=line[x];
+	if (line[x]=='\\') {
+	  // Hex escaped byte
+	  char hex[3];
+	  hex[0]=line[x+1];
+	  hex[1]=line[x+2];
+	  hex[2]=0;
+	  out[y++]=strtoll(hex,NULL,16);
+	  x+=2;
+	} else
+	  out[y++]=line[x];
     }
-    out[strlen(line)]=0;
+    out[y]=0;
     
     // Trim CR/LF from end
     if (out[0]) out[strlen(out)-1]=0;
