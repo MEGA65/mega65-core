@@ -44,7 +44,7 @@ TOOLS=	$(TOOLDIR)/etherkick/etherkick \
 	$(TOOLDIR)/on_screen_keyboard_gen \
 	$(TOOLDIR)/pngprepare/pngprepare
 
-all:	$(SDCARD_DIR)/MEGA65.D81 $(BINDIR)/mega65r1.bit $(BINDIR)/nexys4.bit $(BINDIR)/nexys4ddr.bit $(BINDIR)/test_touch.bit
+all:	$(SDCARD_DIR)/MEGA65.D81 $(BINDIR)/mega65r1.bit $(BINDIR)/nexys4.bit $(BINDIR)/nexys4ddr.bit
 
 generated_vhdl:	$(SIMULATIONVHDL)
 
@@ -184,7 +184,7 @@ mmsimulate:	$(MMFILES) $(TOOLDIR)/osk_image
 	ghdl -m test_matrix
 	( ./test_matrix || ghdl -r test_matrix ) 2>&1 | $(TOOLDIR)/osk_image matrix.png
 
-tools/osk_image:	tools/osk_image.c
+$(TOOLDIR)/osk_image:	$(TOOLDIR)/osk_image.c
 	$(CC) $(COPT) -I/usr/local/include -L/usr/local/lib -o $(TOOLDIR)/osk_image $(TOOLDIR)/osk_image.c -lpng
 
 vfsimulate:	$(VHDLSRCDIR)/frame_test.vhdl $(VHDLSRCDIR)/video_frame.vhdl
