@@ -124,8 +124,8 @@ if [ $TASK = xst ]; then
     # ISE: synthesize
     #
     echo "==> $datetime Starting: xst, see ${TARGET}.syr"
-    echo xst ${ISE_COMMON_OPTS} -ifn "${TARGET}.xst" -ofn "${TARGET}.syr" >> $outfile1
-    xst ${ISE_COMMON_OPTS} -ifn "${TARGET}.xst" -ofn "${TARGET}.syr" >> $outfile1
+    echo xst ${ISE_COMMON_OPTS} -ifn "isework/${TARGETNAME}.xst" -ofn "isework/${TARGETNAME}.syr" >> $outfile1
+    xst ${ISE_COMMON_OPTS} -ifn "isework/${TARGETNAME}.xst" -ofn "isework/${TARGETNAME}.syr" >> $outfile1
     exit $?
 fi
 
