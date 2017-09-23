@@ -20,9 +20,9 @@ fi
 # causing the compile-script to fail due to invalid relative addresses.
 # a possible fix is to move the mega65.gise (ISE project file) into ./isework
 # BG: these commands are likely to be removed once I get around to implementing my 'cleaner' branch
-ls -al    isework/${TARGET}.xst
-chmod a-w isework/${TARGET}.xst
-ls -al    isework/${TARGET}.xst
+ls -al    ${TARGET}.xst
+chmod a-w ${TARGET}.xst
+ls -al    ${TARGET}.xst
 
 # ensure these directory exists, if not, make them
 LOGDIR="build-logs"
@@ -46,19 +46,23 @@ fi
 #       special case/path for Colossus Supercomputer
 if [ -e /usr/local/Xilinx/14.7/ISE_DS/settings64.sh ]; then
   echo "Detected 64-bit Xilinx installation on Colossus"
-  source /usr/local/Xilinx/14.7/ISE_DS/settings64.sh
+  echo . /usr/local/Xilinx/14.7/ISE_DS/settings64.sh
+  . /usr/local/Xilinx/14.7/ISE_DS/settings64.sh
 #       standard install location for 32/64 bit Xilinx installation
 elif [ -e /opt/Xilinx/14.7/ISE_DS/settings64.sh ]; then
   echo "Detected 64-bit Xilinx installation"
-  source /opt/Xilinx/14.7/ISE_DS/settings64.sh
+  echo . /opt/Xilinx/14.7/ISE_DS/settings64.sh
+  . /opt/Xilinx/14.7/ISE_DS/settings64.sh
 #       standard install location for 32/64 bit Xilinx installation
 elif [ -e /opt/Xilinx/14.7/ISE_DS/settings32.sh ]; then
   echo "Detected 32-bit Xilinx installation"
+  echo source /opt/Xilinx/14.7/ISE_DS/settings32.sh
   source /opt/Xilinx/14.7/ISE_DS/settings32.sh
 else
   echo "Cannot detect a Xilinx installation"
   exit 0;
 fi
+which xst
 
 datetime=`date +%Y%m%d_%H:%M:%S`
 # time for the output filenames
@@ -70,14 +74,15 @@ branch=`git status -b -s | head -n 1`
 # get from charpos3, for 6 chars
 branch2=${branch:3:6}
 
+TARGETNAME=`echo $TARGET | sed -e 's,^.*/,,'`
 
-outfile0="${LOGDIR}/compile-${TARGET}-${gitstring}_0.log"
-outfile1="${LOGDIR}/compile-${TARGET}-${gitstring}_1-xst.log"
-outfile2="${LOGDIR}/compile-${TARGET}-${gitstring}_2-ngd.log"
-outfile3="${LOGDIR}/compile-${TARGET}-${gitstring}_3-map.log"
-outfile4="${LOGDIR}/compile-${TARGET}-${gitstring}_4-par.log"
-outfile5="${LOGDIR}/compile-${TARGET}-${gitstring}_5-trc.log"
-outfile6="${LOGDIR}/compile-${TARGET}-${gitstring}_6-bit.log"
+outfile0="${LOGDIR}/compile-${TARGETNAME}-${gitstring}_0.log"
+outfile1="${LOGDIR}/compile-${TARGETNAME}-${gitstring}_1-xst.log"
+outfile2="${LOGDIR}/compile-${TARGETNAME}-${gitstring}_2-ngd.log"
+outfile3="${LOGDIR}/compile-${TARGETNAME}-${gitstring}_3-map.log"
+outfile4="${LOGDIR}/compile-${TARGETNAME}-${gitstring}_4-par.log"
+outfile5="${LOGDIR}/compile-${TARGETNAME}-${gitstring}_5-trc.log"
+outfile6="${LOGDIR}/compile-${TARGETNAME}-${gitstring}_6-bit.log"
 
 ISE_COMMON_OPTS="-intstyle ise"
 ISE_NGDBUILD_OPTS="-p xc7a100t-csg324-1 -dd _ngo -sd ipcore_dir -nt timestamp"
@@ -107,7 +112,7 @@ echo ${gitstring} > $outfile0
 echo ${branch}  >> $outfile0
 echo ${branch2} >> $outfile0
 
-UCF_TARGET_FPGA="./src/vhdl/${TARGET}.ucf"
+UCF_TARGET_FPGA="./src/vhdl/${TARGETNAME}.ucf"
 
 echo " "
 cat ./src/version.a65
@@ -119,7 +124,8 @@ if [ $TASK = xst ]; then
     # ISE: synthesize
     #
     echo "==> $datetime Starting: xst, see ${TARGET}.syr"
-    xst ${ISE_COMMON_OPTS} -ifn "./isework/${TARGET}.xst" -ofn "./isework/${TARGET}.syr" >> $outfile1
+    echo xst ${ISE_COMMON_OPTS} -ifn "${TARGET}.xst" -ofn "${TARGET}.syr" >> $outfile1
+    xst ${ISE_COMMON_OPTS} -ifn "${TARGET}.xst" -ofn "${TARGET}.syr" >> $outfile1
     exit $?
 fi
 
@@ -137,7 +143,7 @@ if [ $TASK = map ]; then
     # ISE: map
     #
     echo "==> $datetime Starting: map, see ${TARGET}.mrp"
-    map ${ISE_COMMON_OPTS} ${ISE_MAP_OPTS} -o ./isework/${TARGET}_map.ncd ./isework/${TARGET}.ngd ./isework/${TARGET}.pcf > $outfile3
+    map ${ISE_COMMON_OPTS} ${ISE_MAP_OPTS} -o ${TARGET}_map.ncd ${TARGET}.ngd ${TARGET}.pcf > $outfile3
     exit $?
 fi
 
