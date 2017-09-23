@@ -21,8 +21,8 @@ CTRL|SHFT|    |    |    |    |    |    |    |    |    | [  | ]  | }  |
     INFORMATIONAL-TEXT-GOES-HERE......
     INFORMATIONAL-TEXT-GOES-HERE......
 
-
-       1    2    3        Y
+                         \FA\F8
+       1    2    3       \FB\F9
 
 
        4    5    6
