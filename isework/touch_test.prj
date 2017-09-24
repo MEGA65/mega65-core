@@ -1,0 +1,3 @@
+vhdl work "../ipcore_dir/dotclock150.vhd"
+vhdl work "../src/vhdl/debugtools.vhdl"
+vhdl work "../src/vhdl/touch_test.vhdl"
