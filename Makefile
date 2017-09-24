@@ -332,32 +332,37 @@ tools/on_screen_keyboard_gen:	tools/on_screen_keyboard_gen.c Makefile
 	$(CC) $(COPT) -o $(TOOLDIR)/on_screen_keyboard_gen $(TOOLDIR)/on_screen_keyboard_gen.c
 
 %.ngc %.syr:	$(VHDLSRCDIR)/*.vhdl $(SIMULATIONVHDL)
-	@rm -f $*.ngc $*.syr $*.ngr
+	echo MOOSE $@ from $<
+#	@rm -f $*.ngc $*.syr $*.ngr
 	mkdir -p xst/projnav.tmp
 	./run_ise $* xst
 
 #-----------------------------------------------------------------------------
 
 %.ngd %.bld: %.ngc
-	@rm -f $*.ngd $*.bld
+	echo MOOSE $@ from $<
+#	@rm -f $*.ngd $*.bld
 	./run_ise $* ngdbuild
 
 #-----------------------------------------------------------------------------
 
 %_map.ncd %.pcf: %.ngd
-	@rm -f $*_map.ncd $*.pcf
+	echo MOOSE $@ from $<
+#	@rm -f $*_map.ncd $*.pcf
 	./run_ise $* map
 
 #-----------------------------------------------------------------------------
 
 %.ncd %.unroutes %.par %.twr: %_map.ncd
-	@rm -f $*.ncd $*.unroutes $*.par $*.twr
+	echo MOOSE $@ from $<
+#	@rm -f $*.ncd $*.unroutes $*.par $*.twr
 	./run_ise $* par
 
 #-----------------------------------------------------------------------------
 
-%.bit: $(subst bin/,isework/,%.ncd)
-	@rm -f $@
+bin/%.bit:	isework/%.ncd
+	echo MOOSE $@ from $<
+#	@rm -f $@
 #	@echo "---------------------------------------------------------"
 #	@echo "Checking design for timing errors and unroutes..."
 #	@grep -i "all signals are completely routed" $(filter %.unroutes,$^) 
