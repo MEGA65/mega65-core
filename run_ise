@@ -15,15 +15,6 @@ if [ "x$TASK" = "x" ]; then
     exit 3
 fi
 
-# first things first, make the ISE-project-script-file Read-Only for all groups.
-# this is done to stop the ISE-GUI from overwriting the file, which may be
-# causing the compile-script to fail due to invalid relative addresses.
-# a possible fix is to move the mega65.gise (ISE project file) into ./isework
-# BG: these commands are likely to be removed once I get around to implementing my 'cleaner' branch
-ls -al    ${TARGET}.xst
-chmod a-w ${TARGET}.xst
-ls -al    ${TARGET}.xst
-
 # ensure these directory exists, if not, make them
 LOGDIR="build-logs"
 if test ! -e    "./${LOGDIR}"; then
@@ -148,7 +139,7 @@ if [ $TASK = map ]; then
     exit $?
 fi
 
-if [ $TASK  = par ]; then
+if [ $TASK = par ]; then
     #
     # ISE: place and route
     #
@@ -161,6 +152,7 @@ if [ $TASK = trce ]; then
     #
     # ISE: trace
     #
+    echo "==> $datetime Starting: trace"
     trce ${ISE_COMMON_OPTS} ${ISE_TRCE_OPTS} ./isework/${TARGETNAME}.twx ./isework/${TARGETNAME}.ncd -o ./isework/${TARGETNAME}.twr ./isework/${TARGETNAME}.pcf -ucf ./src/vhdl/${TARGETNAME}.ucf > $outfile5
     exit $?
 fi
@@ -170,6 +162,7 @@ if [ $TASK = bitgen ]; then
     # ISE: bitgen
     #
     echo "==> $datetime Starting: bitgen, see ${TARGET}.bgn"
+    echo bitgen ${ISE_COMMON_OPTS} -g SPI_buswidth:4 -g ConfigRate:33 -f ./isework/${TARGETNAME}.ut ./isework/${TARGETNAME}.ncd
     bitgen ${ISE_COMMON_OPTS} -g SPI_buswidth:4 -g ConfigRate:33 -f ./isework/${TARGETNAME}.ut ./isework/${TARGETNAME}.ncd > $outfile6
     exit $?
 fi
