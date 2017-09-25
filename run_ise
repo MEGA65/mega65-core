@@ -37,12 +37,12 @@ fi
 #       special case/path for Colossus Supercomputer
 if [ -e /usr/local/Xilinx/14.7/ISE_DS/settings64.sh ]; then
   echo "Detected 64-bit Xilinx installation on Colossus"
-  echo . /usr/local/Xilinx/14.7/ISE_DS/settings64.sh
+#  echo . /usr/local/Xilinx/14.7/ISE_DS/settings64.sh
   . /usr/local/Xilinx/14.7/ISE_DS/settings64.sh
 #       standard install location for 32/64 bit Xilinx installation
 elif [ -e /opt/Xilinx/14.7/ISE_DS/settings64.sh ]; then
   echo "Detected 64-bit Xilinx installation"
-  echo . /opt/Xilinx/14.7/ISE_DS/settings64.sh
+#  echo . /opt/Xilinx/14.7/ISE_DS/settings64.sh
   . /opt/Xilinx/14.7/ISE_DS/settings64.sh
 #       standard install location for 32/64 bit Xilinx installation
 elif [ -e /opt/Xilinx/14.7/ISE_DS/settings32.sh ]; then
@@ -53,7 +53,6 @@ else
   echo "Cannot detect a Xilinx installation"
   exit 0;
 fi
-which xst
 
 datetime=`date +%Y%m%d_%H:%M:%S`
 # time for the output filenames
@@ -75,9 +74,11 @@ outfile4="${LOGDIR}/compile-${TARGETNAME}-${gitstring}_4-par.log"
 outfile5="${LOGDIR}/compile-${TARGETNAME}-${gitstring}_5-trc.log"
 outfile6="${LOGDIR}/compile-${TARGETNAME}-${gitstring}_6-bit.log"
 
+PART=`grep "^-p" ./isework/${TARGETNAME}.xst`
+
 ISE_COMMON_OPTS="-intstyle ise"
-ISE_NGDBUILD_OPTS="-p xc7a100t-csg324-1 -dd _ngo -sd ipcore_dir -nt timestamp"
-ISE_MAP_OPTS="-p xc7a100t-csg324-1 -w -logic_opt on -ol high -t 1 -xt 0 -register_duplication on -r 4 -mt 2 -ir off -ignore_keep_hierarchy -pr b -lc off -power off"
+ISE_NGDBUILD_OPTS="$PART -dd _ngo -sd ipcore_dir -nt timestamp"
+ISE_MAP_OPTS="$PART -w -logic_opt on -ol high -t 1 -xt 0 -register_duplication on -r 4 -mt 2 -ir off -ignore_keep_hierarchy -pr b -lc off -power off"
 ISE_PAR_OPTS="-w -ol std -mt off"
 ISE_TRCE_OPTS="-v 3 -s 1 -n 3 -fastpaths -xml"
 
@@ -110,7 +111,7 @@ cat ./src/version.a65
 pwd
 echo " "
 
-if [ $TASK = xst ]; then
+if [ $TASK == xst ]; then
     #
     # ISE: synthesize
     #
@@ -120,35 +121,40 @@ if [ $TASK = xst ]; then
     exit $?
 fi
 
-if [ $TASK = ngdbuild ]; then
+if [ "$TASK" == "ngdbuild" ];
+then
     #
     # ISE: ngdbuild
     #
     echo "==> $datetime Starting: ngdbuild, see ${TARGET}.bld"
-    else ngdbuild ${ISE_COMMON_OPTS} ${ISE_NGDBUILD_OPTS} -uc ${UCF_TARGET_FPGA} ./isework/${TARGETNAME}.ngc ./isework/${TARGETNAME}.ngd
+    echo ngdbuild ${ISE_COMMON_OPTS} ${ISE_NGDBUILD_OPTS} -uc ${UCF_TARGET_FPGA} ./isework/${TARGETNAME}.ngc ./isework/${TARGETNAME}.ngd
     ngdbuild ${ISE_COMMON_OPTS} ${ISE_NGDBUILD_OPTS} -uc ${UCF_TARGET_FPGA} ./isework/${TARGETNAME}.ngc ./isework/${TARGETNAME}.ngd > $outfile2
-    exit $?
+    exit $?   
+	
 fi
 
-if [ $TASK = map ]; then
+if [ $TASK == map ]; then
     #
     # ISE: map
     #
     echo "==> $datetime Starting: map, see ${TARGET}.mrp"
     map ${ISE_COMMON_OPTS} ${ISE_MAP_OPTS} -o ./isework/${TARGETNAME}_map.ncd ./isework/${TARGETNAME}.ngd ./isework/${TARGETNAME}.pcf > $outfile3
+    mv ./isework/${TARGETNAME}_map.ncd ./isework/${TARGETNAME}.mapncd
     exit $?
 fi
 
-if [ $TASK = par ]; then
+if [ $TASK == par ]; then
     #
     # ISE: place and route
     #
     echo "==> $datetime Starting: par, see ${TARGET}.par"
+    rm  ./isework/${TARGETNAME}_map.ncd
+    ln -s ${TARGETNAME}.mapncd  ./isework/${TARGETNAME}_map.ncd 
     par ${ISE_COMMON_OPTS} ${ISE_PAR_OPTS} ./isework/${TARGETNAME}_map.ncd ./isework/${TARGETNAME}.ncd ./isework/${TARGETNAME}.pcf > $outfile4
     exit $?
 fi
 
-if [ $TASK = trce ]; then
+if [ $TASK == trce ]; then
     #
     # ISE: trace
     #
@@ -157,7 +163,7 @@ if [ $TASK = trce ]; then
     exit $?
 fi
 
-if [ $TASK = bitgen ]; then
+if [ $TASK == bitgen ]; then
     #
     # ISE: bitgen
     #
