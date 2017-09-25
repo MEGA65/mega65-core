@@ -346,14 +346,14 @@ tools/on_screen_keyboard_gen:	tools/on_screen_keyboard_gen.c Makefile
 
 #-----------------------------------------------------------------------------
 
-%_map.ncd %.pcf: %.ngd
+%.mapncd %.pcf: %.ngd
 	echo MOOSE $@ from $<
-#	@rm -f $*_map.ncd $*.pcf
+#	@rm -f $*.mapncd $*.pcf
 	./run_ise $* map
 
 #-----------------------------------------------------------------------------
 
-%.ncd %.unroutes %.par %.twr: %_map.ncd
+%.ncd %.unroutes %.par %.twr: %.mapncd
 	echo MOOSE $@ from $<
 #	@rm -f $*.ncd $*.unroutes $*.par $*.twr
 	./run_ise $* par
