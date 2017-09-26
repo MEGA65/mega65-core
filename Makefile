@@ -44,7 +44,7 @@ TOOLS=	$(TOOLDIR)/etherkick/etherkick \
 	$(TOOLDIR)/on_screen_keyboard_gen \
 	$(TOOLDIR)/pngprepare/pngprepare
 
-all:	$(SDCARD_DIR)/MEGA65.D81 $(BINDIR)/mega65r1.bit $(BINDIR)/nexys4.bit $(BINDIR)/nexys4ddr.bit
+all:	$(SDCARD_DIR)/MEGA65.D81 $(BINDIR)/mega65r1.mcs $(BINDIR)/nexys4.mcs $(BINDIR)/nexys4ddr.mcs $(BINDIR)/touch_test.mcs
 
 generated_vhdl:	$(SIMULATIONVHDL)
 
