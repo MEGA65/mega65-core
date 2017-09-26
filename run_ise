@@ -175,7 +175,7 @@ if [ $TASK == bitgen ]; then
     echo bitgen ${ISE_COMMON_OPTS} -g SPI_buswidth:4 -g ConfigRate:33 -f ./isework/${TARGETNAME}.ut ./isework/${TARGETNAME}.ncd
     bitgen ${ISE_COMMON_OPTS} -g SPI_buswidth:4 -g ConfigRate:33 -f ./isework/${TARGETNAME}.ut ./isework/${TARGETNAME}.ncd > $outfile6
     mkdir -p old-bitfiles
-    cp isework/${TARGETNAME}.bit old-bitfiles/${TARGETNAME}-${gitstring}.bit
+    cp isework/${TARGETNAME}.bit old-bitfiles/${TARGETNAME}-`date +%Y%m%d.%H:%M`-${gitstring}.bit
     mv isework/${TARGETNAME}.bit bin/${TARGETNAME}.bit
     exit $?
 fi
