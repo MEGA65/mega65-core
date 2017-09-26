@@ -18,20 +18,20 @@ CTRL|SHFT|    |    |    |    |    |    |    |    |    | [  | ]  | }  |
               |                                            |    |LEFT|DOWN|RGHT
               +--------------------------------------------+    +----+----+----
 
-    INFORMATIONAL-TEXT-GOES-HERE......
-    INFORMATIONAL-TEXT-GOES-HERE......
+  INFORMATIONAL-TEXT-GOES-HERE......
+  INFORMATIONAL-TEXT-GOES-HERE......
 
-                         \FA\F8
-       1    2    3       \FB\F9
-
-
-       4    5    6
+                       \FA\F8
+     1    2    3       \FB\F9
 
 
-       7    8    9
+     4    5    6
 
-                         \FC\FE
-       #    0    *       \FD\FF
+
+     7    8    9
+
+                       \FC\FE
+     #    0    *       \FD\FF
 
 
        
