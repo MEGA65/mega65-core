@@ -84,6 +84,11 @@ begin
     if rising_edge(clock100mhz) then
       report "50MHz tick";
       clock50mhz <= not clock50mhz;
+      hsync <= '1';
+      vsync <= '1';
+      vgared <= (others => '1');
+      vgagreen <= (others => '1');
+      vgablue <= (others => '1');
     end if;
   end process;
   
