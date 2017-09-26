@@ -588,11 +588,11 @@ begin
           -- Keyboard at the top: If it were down low, bring it up 1/8th of
           -- the remaining distance, plus one pixel.  Thus we follow a Xeno's Paradox
           -- like curve to spring the keyboard to the top
-          if y_start_current > 2 and instant_at_top='0' then
+          if y_start_current > 3 and instant_at_top='0' then
             report "Xeno-walking keyboard to top a bit";            
             y_start_current <= y_start_current - y_start_current(11 downto 3) - 2;
           else
-            y_start_current <= to_unsigned(0,12);
+            y_start_current <= to_unsigned(1,12);
           end if;
           -- OSK is no longer in the correct position for at the bottom of the
           -- screen
