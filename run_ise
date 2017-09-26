@@ -175,7 +175,19 @@ if [ $TASK == bitgen ]; then
     echo bitgen ${ISE_COMMON_OPTS} -g SPI_buswidth:4 -g ConfigRate:33 -f ./isework/${TARGETNAME}.ut ./isework/${TARGETNAME}.ncd
     bitgen ${ISE_COMMON_OPTS} -g SPI_buswidth:4 -g ConfigRate:33 -f ./isework/${TARGETNAME}.ut ./isework/${TARGETNAME}.ncd > $outfile6
     mkdir -p old-bitfiles
-    cp isework/${TARGETNAME}.bit old-bitfiles/${TARGETNAME}-`date +%Y%m%d.%H:%M`-${gitstring}.bit
+    cp isework/${TARGETNAME}.bit old-bitfiles/${TARGETNAME}-`date +%Y%m%d`-${gitstring}.bit
     mv isework/${TARGETNAME}.bit bin/${TARGETNAME}.bit
     exit $?
 fi
+
+if [ $TASK == promgen ]; then
+    #
+    # ISE: Promgen
+    #
+    echo "===> $datetime Starting: promgen, set ${TARGET}.mcs"
+    echo promgen -spi -p mcs -w -o bin/${TARGETNAME}.mcs -s 16384 -u 0 bin/${TARGETNAME}.bit
+    promgen -spi -p mcs -w -o bin/${TARGETNAME}.mcs -s 16384 -u 0 bin/${TARGETNAME}.bit
+    mkdir -p old-bitfiles
+    cp bin/${TARGETNAME}.mcs old-bitfiles/${TARGETNAME}-`date +%Y%m%d`-${gitstring}.mcs
+fi
+

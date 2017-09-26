@@ -375,7 +375,8 @@ bin/%.bit:	isework/%.ncd
 #	@echo "---------------------------------------------------------"
 	./run_ise $(subst bin/,,$*) bitgen
 
-
+%.mcs:	%.bit
+	./run_ise $* promgen
 
 
 
