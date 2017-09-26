@@ -2,6 +2,9 @@
 
 TARGET=$1
 TASK=$2
+# Required because Xilinx settings scripts require $# = 0 to work
+# correctly
+shift 2
 
 if [ "x$TARGET" = "x" ]; then
     echo "ERROR: Target missing."
@@ -42,17 +45,18 @@ if [ -e /usr/local/Xilinx/14.7/ISE_DS/settings64.sh ]; then
 #       standard install location for 32/64 bit Xilinx installation
 elif [ -e /opt/Xilinx/14.7/ISE_DS/settings64.sh ]; then
   echo "Detected 64-bit Xilinx installation"
-#  echo . /opt/Xilinx/14.7/ISE_DS/settings64.sh
-  . /opt/Xilinx/14.7/ISE_DS/settings64.sh
+  echo source /opt/Xilinx/14.7/ISE_DS/settings64.sh
+  source /opt/Xilinx/14.7/ISE_DS/settings64.sh
 #       standard install location for 32/64 bit Xilinx installation
 elif [ -e /opt/Xilinx/14.7/ISE_DS/settings32.sh ]; then
   echo "Detected 32-bit Xilinx installation"
-  echo source /opt/Xilinx/14.7/ISE_DS/settings32.sh
-  source /opt/Xilinx/14.7/ISE_DS/settings32.sh
+  echo . /opt/Xilinx/14.7/ISE_DS/settings32.sh
+  . /opt/Xilinx/14.7/ISE_DS/settings32.sh
 else
   echo "Cannot detect a Xilinx installation"
   exit 0;
 fi
+echo "PATH = $PATH"
 
 datetime=`date +%Y%m%d_%H:%M:%S`
 # time for the output filenames
@@ -74,7 +78,7 @@ outfile4="${LOGDIR}/compile-${TARGETNAME}-${gitstring}_4-par.log"
 outfile5="${LOGDIR}/compile-${TARGETNAME}-${gitstring}_5-trc.log"
 outfile6="${LOGDIR}/compile-${TARGETNAME}-${gitstring}_6-bit.log"
 
-PART=`grep "^-p" ./isework/${TARGETNAME}.xst`
+PART=`grep "^-p " ./isework/${TARGETNAME}.xst`
 
 ISE_COMMON_OPTS="-intstyle ise"
 ISE_NGDBUILD_OPTS="$PART -dd _ngo -sd ipcore_dir -nt timestamp"
@@ -170,5 +174,6 @@ if [ $TASK == bitgen ]; then
     echo "==> $datetime Starting: bitgen, see ${TARGET}.bgn"
     echo bitgen ${ISE_COMMON_OPTS} -g SPI_buswidth:4 -g ConfigRate:33 -f ./isework/${TARGETNAME}.ut ./isework/${TARGETNAME}.ncd
     bitgen ${ISE_COMMON_OPTS} -g SPI_buswidth:4 -g ConfigRate:33 -f ./isework/${TARGETNAME}.ut ./isework/${TARGETNAME}.ncd > $outfile6
+    mv isework/${TARGETNAME}.bit bin/${TARGETNAME}.bit
     exit $?
 fi
