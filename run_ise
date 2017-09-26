@@ -174,6 +174,8 @@ if [ $TASK == bitgen ]; then
     echo "==> $datetime Starting: bitgen, see ${TARGET}.bgn"
     echo bitgen ${ISE_COMMON_OPTS} -g SPI_buswidth:4 -g ConfigRate:33 -f ./isework/${TARGETNAME}.ut ./isework/${TARGETNAME}.ncd
     bitgen ${ISE_COMMON_OPTS} -g SPI_buswidth:4 -g ConfigRate:33 -f ./isework/${TARGETNAME}.ut ./isework/${TARGETNAME}.ncd > $outfile6
+    mkdir -p old-bitfiles
+    cp isework/${TARGETNAME}.bit old-bitfiles/${TARGETNAME}-${gitstring}.bit
     mv isework/${TARGETNAME}.bit bin/${TARGETNAME}.bit
     exit $?
 fi
