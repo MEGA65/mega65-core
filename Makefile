@@ -1,3 +1,4 @@
+.SUFFIXES: .bin .prg 
 
 COPT=	-Wall -g -std=c99
 CC=	gcc
@@ -222,18 +223,21 @@ $(SDCARD_DIR)/MEGA65.D81:	$(UTILITIES)
 %.prg:	%.a65
 	$(warning =============================================================)
 	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
-	$(OPHIS) $< -l $*.list -m $*.map
+	$(OPHIS) $< -l $*.list -m $*.map -o $*.prg
 
 %.bin:	%.a65
 	$(warning =============================================================)
 	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
-	$(OPHIS) $< -l $*.list -m $*.map
+	$(OPHIS) $< -l $*.list -m $*.map -o $*.prg
 
 $(UTILDIR)/diskmenu.prg:	$(UTILDIR)/diskmenuprg.a65 $(UTILDIR)/diskmenu.a65 $(UTILDIR)/etherload.prg
 	$(OPHIS) $< -l $*.list -m $*.map	
 
 $(SRCDIR)/mega65-fdisk/m65fdisk.prg:	
 	( cd $(SRCDIR)/mega65-fdisk ; make )
+
+$(BINDIR)/border.prg: 	$(SRCDIR)/border.a65
+	$(OPHIS) $< -l $(BINDIR)/border.list -m $*.map -o $(BINDIR)/border.prg
 
 # ============================ done moved, print-warn, clean-target
 #??? diskmenu_c000.bin yet b0rken
@@ -242,10 +246,10 @@ $(BINDIR)/KICKUP.M65:	$(KICKSTARTSRCS) $(BINDIR)/diskmenu_c000.bin $(SRCDIR)/ver
 
 # ============================ done moved, print-warn, clean-target
 $(BINDIR)/diskmenu_c000.bin:	$(UTILDIR)/diskmenuc000.a65 $(UTILDIR)/diskmenu.a65 $(BINDIR)/etherload.prg
-	$(OPHIS) $< -l $*.list -m $*.map
+	$(OPHIS) $< -l $*.list -m $*.map -o $*.prg
 
 $(BINDIR)/etherload.prg:	$(UTILDIR)/etherload.a65
-	$(OPHIS) $< -l $*.list -m $*.map
+	$(OPHIS) $< -l $*.list -m $*.map -o $*.prg
 
 
 # ============================ done moved, print-warn, clean-target
@@ -289,7 +293,7 @@ CRAMUTILS=	$(BINDIR)/border.prg $(SRCDIR)/mega65-fdisk/m65fdisk.prg
 COLOURRAM.BIN:	$(TOOLDIR)/utilpacker/utilpacker $(CRAMUTILS)
 	$(TOOLDIR)/utilpacker/utilpacker COLOURRAM.BIN $(CRAMUTILS)
 
-tools/utilpacker/utilpacker:	$(TOOLDIR)/utilpacker/utilpacker.c Makefile
+$(TOOLDIR)/utilpacker/utilpacker:	$(TOOLDIR)/utilpacker/utilpacker.c Makefile
 	$(CC) $(COPT) -o $(TOOLDIR)/utilpacker/utilpacker $(TOOLDIR)/utilpacker/utilpacker.c
 
 # ============================ done moved, Makefile-dep, print-warn, clean-target
@@ -299,8 +303,8 @@ tools/utilpacker/utilpacker:	$(TOOLDIR)/utilpacker/utilpacker.c Makefile
 # version information is updated.
 # for now we will always update the version info whenever we do a make.
 .PHONY: version.vhdl version.a65
-$(VHDLSRCDIR)/version.vhdl version.a65:
-	./version.sh
+$(VHDLSRCDIR)/version.vhdl src/version.a65:
+	./src/version.sh
 
 # i think 'charrom' is used to put the pngprepare file into a special mode that
 # generates the charrom.vhdl file that is embedded with the contents of the 8x8font.png file
@@ -322,13 +326,13 @@ $(SDCARD_DIR)/C000UTIL.BIN:	$(SRCDIR)/diskmenu_c000.bin
 monitor_drive:	monitor_drive.c Makefile
 	$(CC) $(COPT) -o monitor_drive monitor_drive.c
 
-tools/monitor_load:	tools/monitor_load.c Makefile
+$(TOOLDIR)/monitor_load:	$(TOOLDIR)/monitor_load.c Makefile
 	$(CC) $(COPT) -o $(TOOLDIR)/monitor_load $(TOOLDIR)/monitor_load.c
 
-tools/monitor_save:	tools/monitor_save.c Makefile
+$(TOOLDIR)/monitor_save:	$(TOOLDIR)/monitor_save.c Makefile
 	$(CC) $(COPT) -o $(TOOLDIR)/monitor_save $(TOOLDIR)/monitor_save.c
 
-tools/on_screen_keyboard_gen:	tools/on_screen_keyboard_gen.c Makefile
+$(TOOLDIR)/on_screen_keyboard_gen:	$(TOOLDIR)/on_screen_keyboard_gen.c Makefile
 	$(CC) $(COPT) -o $(TOOLDIR)/on_screen_keyboard_gen $(TOOLDIR)/on_screen_keyboard_gen.c
 
 %.ngc %.syr:	$(VHDLSRCDIR)/*.vhdl $(SIMULATIONVHDL)

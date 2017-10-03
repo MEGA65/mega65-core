@@ -139,5 +139,6 @@ int main(int argc,char **argv)
   
   fclose(o);
   fprintf(stderr,"%d bytes written\n",bytes);
-  
+
+  return 0;  
 }
