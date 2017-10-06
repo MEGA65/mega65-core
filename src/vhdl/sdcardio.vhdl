@@ -237,7 +237,6 @@ architecture behavioural of sdcardio is
   signal f011_sector : unsigned(7 downto 0) := x"00";
   signal physical_sector : unsigned(7 downto 0) := x"00";
   signal f011_side : unsigned(7 downto 0) := x"00";
-  signal f011_head_side : unsigned(7 downto 0) := x"00";
   signal f011_sector_fetch : std_logic := '0';
 
   signal f011_buffer_address : unsigned(8 downto 0) := (others => '0');
@@ -410,7 +409,8 @@ begin  -- behavioural
             --        output will go true (low).
             fastio_rdata <=
               f011_irqenable & f011_led & f011_motor & f011_swap &
-              f011_head_side(0) & f011_ds;
+              f011_side(0) & f011_ds;
+
           when "00001" =>
             -- COMMAND | WRITE | READ  | FREE  | STEP  |  DIR  | ALGO  |  ALT  | NOBUF | 1 RW
             --WRITE   must be set to perform write operations.
@@ -797,7 +797,7 @@ begin  -- behavioural
       -- update diskimage offset
       -- add 1/2 track amount for sectors on the rear
       -- and subtract one since sectors are relative to 1, not 0
-      if f011_side=x"00" then
+      if f011_side/=x"00" then
         physical_sector <= f011_sector - 1;  -- 0 minus 1
       else
         physical_sector <= f011_sector + 9;  -- +10 minus 1
@@ -862,7 +862,7 @@ begin  -- behavioural
                 -- switch halves of buffer if swap bit changes
                 f011_buffer_next_read(8) <= not f011_buffer_next_read(8);
               end if;
-              f011_head_side(0) <= fastio_wdata(3);
+              f011_side(0) <= fastio_wdata(3);
               f011_ds <= fastio_wdata(2 downto 0);
               if fastio_wdata(2 downto 0) /= f011_ds then
                 f011_disk_changed <= '0';
