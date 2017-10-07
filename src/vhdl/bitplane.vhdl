@@ -31,8 +31,6 @@ entity bitplane is
     ----------------------------------------------------------------------
     pixelclock : in  STD_LOGIC;
 
-    reset : in std_logic;
-
     advance_pixel : in std_logic;
     sixteen_colour_mode : in std_logic;
 
@@ -60,14 +58,6 @@ architecture behavioural of bitplane is
 begin
 
   process (pixelclock)
-    variable v_bb_valid_h : std_logic := '0';
-    variable v_bb_valid_2 : std_logic := '0';
-    variable v_bb_valid_3 : std_logic := '0';
-    variable v_byte_bits_available : integer range 0 to 8 := 0;
-    variable v_byte_buffer_head : std_logic_vector(7 downto 0);
-    variable v_byte_buffer_2 : std_logic_vector(7 downto 0);
-    variable v_byte_buffer_3 : std_logic_vector(7 downto 0);
-
   begin
     if pixelclock'event and pixelclock = '1' then
 
@@ -76,91 +66,58 @@ begin
       -- pixels are required on successive clocks.  This keeps the logic
       -- somewhat simpler.
       
-      if reset='1' then
-          bb_valid_h <= '0';
-          bb_valid_2 <= '0';
-          bb_valid_3 <= '0';
-      else
-
       -- Request more data if our buffer is not full.
-      if (bb_valid_h='0' or bb_valid_2='0' or bb_valid_3='0') then
+      if (bb_valid_h='0' or bb_valid_2='0' or bb_valid_3='0')
+        and (data_in_valid='0') then
         data_request <= '1';
       else
         data_request <= '0';
       end if;
 
-      v_bb_valid_h := bb_valid_h;
-      v_bb_valid_2 := bb_valid_2;
-      v_bb_valid_3 := bb_valid_3;
-      v_byte_bits_available := byte_bits_available;
-      v_byte_buffer_head := byte_buffer_head;
-      v_byte_buffer_2 := byte_buffer_2;
-      v_byte_buffer_3 := byte_buffer_3;
-
       -- Accept new data if available
       if data_in_valid='1' then
-          if bb_valid_h='0' then
-              v_byte_buffer_head := std_logic_vector(data_in);
-              v_bb_valid_h := '1';
-              v_byte_bits_available := 8;
-          elsif bb_valid_2='0' then
-              v_byte_buffer_2 := std_logic_vector(data_in);
-              v_bb_valid_2 := '1';
-          elsif bb_valid_3='0' then
-              v_byte_buffer_3 := std_logic_vector(data_in);
-              v_bb_valid_3 := '1';
-          end if;        
+        byte_buffer_3 <= std_logic_vector(data_in);
+        bb_valid_3 <= '1';
       end if;
 
+      -- Shuffle buffer down as required
+      if bb_valid_h='0' and bb_valid_2='1' then
+        byte_buffer_head <= byte_buffer_2;
+        byte_bits_available <= 8;
+        bb_valid_h <= '1';
+        if bb_valid_3='1' then
+          byte_buffer_head <= byte_buffer_2;
+          bb_valid_2 <= '1';
+          bb_valid_3 <= '0';
+        else
+          bb_valid_2 <= '0';
+        end if;
+      end if;
+
+      -- Supply pixels as required
       if advance_pixel='1' then
         if sixteen_colour_mode='0' then
-            if v_byte_bits_available > 0 then   
-	      v_byte_bits_available := v_byte_bits_available - 1;
-	      pixel_out <= v_byte_buffer_head(7);
-	      v_byte_buffer_head(7 downto 1) := v_byte_buffer_head(6 downto 0);
-	      v_byte_buffer_head(0) := '0';
-	      --pixel_out <= '1';
-	      if v_byte_bits_available = 0 then
-	        -- We are using the last bit, so mark byte as empty.
-	        v_bb_valid_h := '0';
-	        if v_bb_valid_2='1' then
-	          -- Shuffle buffer down as required
-		  v_byte_buffer_head := byte_buffer_2;
-	  	  v_byte_bits_available := 8;
-		  v_bb_valid_h := '1';
-		  if v_bb_valid_3='1' then
-		    v_byte_buffer_2 := byte_buffer_3;
-		    v_bb_valid_2 := '1';
-		    v_bb_valid_3 := '0';
-		  else
-		    v_bb_valid_2 := '0';
-		  end if;
-	      end if;
-            end if;
+          byte_bits_available <= byte_bits_available - 1;
+          byte_buffer_head(7 downto 1) <= byte_buffer_head(6 downto 0);
+          byte_buffer_head(0) <= '0';
+          pixel_out <= byte_buffer_head(7);
+          if byte_bits_available = 1 then
+            -- We are using the last bit, so mark byte as empty.
+            bb_valid_h <= '0';
           end if;
         else
-          v_byte_bits_available := v_byte_bits_available - 4;
-          v_byte_buffer_head(7 downto 4) := v_byte_buffer_head(3 downto 0);
-          v_byte_buffer_head(3 downto 0) := x"0";
-          if v_byte_bits_available < 4 then
+          byte_bits_available <= byte_bits_available - 4;
+          byte_buffer_head(7 downto 4) <= byte_buffer_head(3 downto 0);
+          byte_buffer_head(3 downto 0) <= x"0";
+          if byte_bits_available < 4 then
             -- We are using the last bit, so mark byte as empty.
-            v_bb_valid_h := '0';
+            bb_valid_h <= '0';
           end if;
-          pixel16_out <= unsigned(v_byte_buffer_head(7 downto 4));
+          pixel16_out <= unsigned(byte_buffer_head(7 downto 4));
         end if;
-
-      end if;
-      bb_valid_h <= v_bb_valid_h;
-      bb_valid_2 <= v_bb_valid_2;
-      bb_valid_3 <= v_bb_valid_3;
-      byte_bits_available <= v_byte_bits_available;
-      byte_buffer_head <= v_byte_buffer_head;
-      byte_buffer_2 <= v_byte_buffer_2;
-      byte_buffer_3 <= v_byte_buffer_3;
       end if;
       
     end if;
-
   end process;
 
 end behavioural;
