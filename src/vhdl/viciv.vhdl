@@ -356,6 +356,7 @@ architecture Behavioral of viciv is
   signal vicii_2mhz_internal : std_logic := '1';
   signal viciii_fast_internal : std_logic := '1';
   signal viciv_fast_internal : std_logic := '1';
+  signal viciv_bitplane_chargen_on : std_logic := '0';
   
   -- last value written to key register
   signal reg_key : unsigned(7 downto 0) := x"00";
@@ -449,9 +450,14 @@ architecture Behavioral of viciv is
   -- whole frame.  This is really just to make testing through simulation quicker
   -- since a whole frame takes ~20 minutes to simulate).
   signal vicii_ycounter : unsigned(8 downto 0) := to_unsigned(0,9); -- 263+1
+  signal vicii_ycounter_v400 : unsigned(9 downto 0) := to_unsigned(0,10);
   signal last_vicii_ycounter : unsigned(8 downto 0) := to_unsigned(0,9);
   signal vicii_ycounter_phase : unsigned(3 downto 0) := (others => '0');
   signal vicii_ycounter_max_phase : unsigned(3 downto 0) := (others => '0');
+  signal vicii_ycounter_phase_v400 : unsigned(3 downto 0) := (others => '0');
+  signal vicii_ycounter_max_phase_v400 : unsigned(3 downto 0) := (others => '0');
+  signal vicii_ycounter_phase_v400 : unsigned(3 downto 0) := (others => '0');
+  signal vicii_ycounter_max_phase_v400 : unsigned(3 downto 0) := (others => '0');
   -- Is the VIC-II virtual raster number the active one for interrupts, or
   -- are we comparing to physical rasters?  This is decided by which register
   -- gets written to last.
@@ -629,8 +635,9 @@ architecture Behavioral of viciv is
   signal chargen_x_scale : unsigned(7 downto 0) := x"19";  
   signal chargen_x_scale_drive : unsigned(7 downto 0);  
   signal sprite_x_scale : unsigned(7 downto 0) := x"19";  
+  signal sprite_x_scale_640 : unsigned(7 downto 0) := x"16";		-- 640 mode sprite scale  
   -- Each character pixel will be (n+1) pixels high
-  signal chargen_y_scale : unsigned(7 downto 0) := x"02";  -- x"04"
+  signal chargen_y_scale : unsigned(7 downto 0) := x"01";  -- x"04"
   -- smooth scrolling position in natural pixels.
   -- Set in the same way as the border
   signal x_chargen_start : unsigned(13 downto 0) := to_unsigned(to_integer(frame_h_front),14);
@@ -686,8 +693,8 @@ architecture Behavioral of viciv is
   signal bitplane_enables : std_logic_vector(7 downto 0) := "00000000";
   signal bitplane_complements : std_logic_vector(7 downto 0) := "00000000";
   signal bitplane_sixteen_colour_mode_flags : std_logic_vector(7 downto 0) := "00000000";
-  signal bitplanes_x_start : unsigned(7 downto 0) := to_unsigned(30,8);
-  signal bitplanes_y_start : unsigned(7 downto 0) := to_unsigned(30,8);
+  signal bitplanes_x_start : unsigned(7 downto 0) := to_unsigned(0,8);
+  signal bitplanes_y_start : unsigned(7 downto 0) := to_unsigned(0,8);
   signal dat_x : unsigned(7 downto 0) := x"00";
   signal dat_y : unsigned(7 downto 0) := x"00";
   signal bitplane_addresses : sprite_vector_8;
@@ -1624,7 +1631,6 @@ begin
         chargen_x_scale <= chargen_x_scale_1280;
         virtual_row_width <= to_unsigned(160,16);
       end if;
-      if reg_v400='0' then
         -- set vertical borders based on twentyfourlines
         if twentyfourlines='0' then
           border_y_top <= to_unsigned(to_integer(single_top_border_200),12);
@@ -1641,6 +1647,7 @@ begin
         y_chargen_start <= to_unsigned(to_integer(single_top_border_200)
                                        -ssy_table_200(3)
                                        +ssy_table_200(to_integer(vicii_y_smoothscroll)),12);
+      if reg_v400='0' then
         chargen_y_scale <= to_unsigned(to_integer(chargen_y_scale_200)-1,8);
       else
         if twentyfourlines='0' then
@@ -1661,8 +1668,13 @@ begin
         chargen_y_scale <= to_unsigned(to_integer(chargen_y_scale_400)-1,8);
       end if;
       
-      screen_ram_base(13 downto 10) <= reg_d018_screen_addr;
-      screen_ram_base(9 downto 0) <= (others => '0');
+      if reg_h640='1' then
+        screen_ram_base(13 downto 11) <= reg_d018_screen_addr(3 downto 1);
+        screen_ram_base(10 downto 0) <= (others => '0');
+      else
+        screen_ram_base(13 downto 10) <= reg_d018_screen_addr;
+        screen_ram_base(9 downto 0) <= (others => '0');
+      end if;
       -- Sprites fetch from screen ram base + $3F8 (or +$7F8 in VIC-III 80
       -- column mode).
       -- In 80 column mode the screen base must be on a 2K boundary on the
@@ -1891,7 +1903,7 @@ begin
           -- @IO:C65 $D03A - Bitplane 7 address
         elsif register_number >= 51 and register_number <= 58 then
           -- @IO:C65 $D033-$D03A - VIC-III Bitplane addresses
-          bitplane_number := to_integer(register_number(3 downto 0)-"001");
+          bitplane_number := to_integer(register_number(3 downto 0)) - 3;
           fastio_rdata <= std_logic_vector(bitplane_addresses(bitplane_number));
           -- @IO:C65 $D03B - Set bits to NOT bitplane contents
         elsif register_number=59 then
@@ -1902,8 +1914,12 @@ begin
           -- @IO:C65 $D03D - Bitplane Y
         elsif register_number=61 then
           fastio_rdata <= std_logic_vector(dat_y);
-          -- $D03E - Horizontal position (screen verniers?)
-          -- $D03F - Vertical position (screen verniers?)
+          -- @IO:C65 $D03E - Horizontal position (screen verniers?)
+        elsif register_number=62 then
+          fastio_rdata <= std_logic_vector(bitplanes_x_start);
+          -- @IO:C65 $D03F - Vertical position (screen verniers?)
+        elsif register_number=63 then
+          fastio_rdata <= std_logic_vector(bitplanes_y_start);
           
           -- $D040 - $D047 DAT memory ports for bitplanes 0 through 7
           -- XXX: Deprecated old addresses for some VIC-IV features currently occupy
@@ -2171,15 +2187,15 @@ begin
       report "SPRITE: VIC-II sprite "
         & integer'image(sprite_number_for_data_rx)
         & " = " & integer'image(sprite_data_offset_rx);
-      sprite_data_offsets(sprite_number_for_data_rx) <= sprite_data_offset_rx;
-      -- Ask for the next one (8 sprites + 8 C65 bitplanes)
-      if sprite_number_counter = 15 then
-        sprite_number_counter <= 0;
-        sprite_number_for_data_tx <= 0;
-      else
-        sprite_number_counter <= sprite_number_counter + 1;
-        sprite_number_for_data_tx <= sprite_number_for_data_tx + 1;
-      end if;
+--      sprite_data_offsets(sprite_number_for_data_rx) <= sprite_data_offset_rx;
+--      -- Ask for the next one (8 sprites + 8 C65 bitplanes)
+--      if sprite_number_counter = 15 then
+--        sprite_number_counter <= 0;
+--        sprite_number_for_data_tx <= 0;
+--      else
+--        sprite_number_counter <= sprite_number_counter + 1;
+--        sprite_number_for_data_tx <= sprite_number_for_data_tx + 1;
+--      end if;
       
       -- $DD00 video bank bits
       if fastio_write='1'
@@ -2476,8 +2492,8 @@ begin
           -- @IO:C65 $D03A - Bitplane 7 address
         elsif register_number >= 51 and register_number <= 58 then
           -- @IO:C65 $D033-$D03A - VIC-III Bitplane addresses
-          bitplane_number := to_integer(register_number(3 downto 0)-"001");
-          bitplane_addresses(bitplane_number) <= unsigned(fastio_wdata);
+          --bitplane_number := to_integer(register_number(3 downto 0)) - 3;
+          bitplane_addresses(to_integer(register_number)-51) <= unsigned(fastio_wdata);
           -- @IO:C65 $D03B - Set bits to NOT bitplane contents
         elsif register_number=59 then
           bitplane_complements <= fastio_wdata;
@@ -2487,6 +2503,13 @@ begin
           -- @IO:C65 $D03D - Bitplane Y
         elsif register_number=61 then
           dat_y <= unsigned(fastio_wdata);        elsif register_number=64 then
+          -- @IO:C65 $D03E - Bitplane X Offset
+        elsif register_number=62 then
+          bitplanes_x_start <= unsigned(fastio_wdata);
+          -- @IO:C65 $D03F - Bitplane Y Offset
+        elsif register_number=63 then
+          bitplanes_y_start <= unsigned(fastio_wdata);
+        elsif register_number=64 then
           -- @IO:GS $D040 DEPRECATED - VIC-IV characters per logical text row (LSB)
           virtual_row_width(7 downto 0) <= unsigned(fastio_wdata);
         elsif register_number=65 then
@@ -2818,6 +2841,15 @@ begin
   begin    
     if rising_edge(pixelclock) and all_pause='0' then
 
+      sprite_data_offsets(sprite_number_for_data_rx) <= sprite_data_offset_rx;
+      -- Ask for the next one (8 sprites + 8 C65 bitplanes)
+      if sprite_number_counter = 15 then
+        sprite_number_counter <= 0;
+        sprite_number_for_data_tx <= 0;
+      else
+        sprite_number_counter <= sprite_number_counter + 1;
+        sprite_number_for_data_tx <= sprite_number_for_data_tx + 1;
+
       -- Output the logical pixel number assuming H640 output
       -- (Used for Matrix Mode and visual keyboard compositers, so that
       -- they know how the actual mode is laid out).
@@ -2974,7 +3006,11 @@ begin
         & " (raw = " & to_hstring(vicii_xcounter_sub);
       if xcounter /= to_integer(frame_width) then
         xcounter <= xcounter + 1;
-        vicii_xcounter_sub <= vicii_xcounter_sub + sprite_x_scale;
+        if reg_h640 = '0' then
+          vicii_xcounter_sub <= vicii_xcounter_sub + sprite_x_scale;
+        else
+          vicii_xcounter_sub <= vicii_xcounter_sub + sprite_x_scale_640;
+        end if;
       else
         -- End of raster reached.
         -- Bump raster number and start next raster.
@@ -2992,7 +3028,11 @@ begin
         -- XXX - Why were we adding 2 here? Have removed this, as VIC-II
         -- rasters were too tall. PGS.
         vicii_ycounter_scale <= vicii_ycounter_scale_minus_zero;
-        vicii_xcounter_sub <= x"f154";
+        if reg_h640 = '0' then
+          vicii_xcounter_sub <= x"f153";
+        else
+          vicii_xcounter_sub <= x"ff30";
+        end if;
         chargen_x_sub <= (others => '0');
         raster_buffer_read_address <= (others => '0');
         chargen_active <= '0';
@@ -3011,6 +3051,48 @@ begin
             vicii_ycounter_phase <= vicii_ycounter_phase + 1;
           end if;
           
+          if vicii_ycounter_phase_v400 = vicii_ycounter_max_phase_v400 then
+            vicii_ycounter_v400 <= vicii_ycounter_v400 + 1;
+            vicii_ycounter_phase_v400 <= (others => '0');
+            -- Set number of physical rasters per VIC-II raster based on region
+            -- of screen.
+            if vicii_ycounter_v400 >= 50 and vicii_ycounter_v400 < 450 then
+              if vicii_ycounter_v400(0) = '0' then
+                vicii_ycounter_max_phase_v400 <= to_unsigned(2,4);
+              else
+                vicii_ycounter_max_phase_v400 <= to_unsigned(1,4);
+              end if;
+            elsif vicii_ycounter_V400 = 450 then
+              vicii_ycounter_max_phase_v400 <= to_unsigned(0,4);
+            elsif vicii_ycounter_v400 = 314 then
+              vicii_ycounter_max_phase_v400 <= to_unsigned(1,4);
+            end if;
+          else
+            -- In the middle of a VIC-II logical raster, so just increase phase.
+            vicii_ycounter_phase_v400 <= vicii_ycounter_phase_v400 + 1;
+          end if;
+
+          if vicii_ycounter_phase_v400 = vicii_ycounter_max_phase_v400 then
+            vicii_ycounter_v400 <= vicii_ycounter_v400 + 1;
+            vicii_ycounter_phase_v400 <= (others => '0');
+            -- Set number of physical rasters per VIC-II raster based on region
+            -- of screen.
+            if vicii_ycounter_v400 >= 50 and vicii_ycounter_v400 < 450 then
+              if vicii_ycounter_v400(0) = '0' then
+                vicii_ycounter_max_phase_v400 <= to_unsigned(2,4);
+              else
+                vicii_ycounter_max_phase_v400 <= to_unsigned(1,4);
+              end if;
+            elsif vicii_ycounter_V400 = 450 then
+              vicii_ycounter_max_phase_v400 <= to_unsigned(0,4);
+            elsif vicii_ycounter_v400 = 314 then
+              vicii_ycounter_max_phase_v400 <= to_unsigned(1,4);
+            end if;
+          else
+            -- In the middle of a VIC-II logical raster, so just increase phase.
+            vicii_ycounter_phase_v400 <= vicii_ycounter_phase_v400 + 1;
+          end if;
+
           -- Make VIC-II triggered raster interrupts edge triggered, since one
           -- emulated VIC-II raster is ~63*48 = ~3,000 cycles, and many C64
           -- raster routines may finish in that time, and might get confused if
@@ -3042,8 +3124,11 @@ begin
           -- Reset VIC-II raster counter to first raster for top of frame
           -- (the preceeding rasters occur during vertical flyback, in case they
           -- have interrupts triggered on them).
-          vicii_ycounter_phase <= (others => '0');
+          vicii_ycounter_phase <= to_unsigned(1,3);
           vicii_ycounter <= vicii_first_raster;
+          vicii_ycounter_v400 <= (others =>'0');
+          vicii_ycounter_phase_v400 <= to_unsigned(1,4);
+
         end if;	
       end if;
       if vertical_flyback = '1' then
@@ -3245,12 +3330,20 @@ begin
         next_card_number <= first_card_of_row;
         screen_row_current_address <= screen_row_address;
 
-        -- Now check if we have tipped over from one logical pixel row to another. 
-        if chargen_y_sub=chargen_y_scale then
-          chargen_y <= chargen_y + 1;
-          report "bumping chargen_y to " & integer'image(to_integer(chargen_y)) severity note;
-          if chargen_y = "111" then
-            bump_screen_row_address<='1';
+          -- Now check if we have tipped over from one logical pixel row to another. 
+          if chargen_y_sub=chargen_y_scale then
+            chargen_y <= chargen_y + 1;
+            report "bumping chargen_y to " & integer'image(to_integer(chargen_y)) severity note;
+            if chargen_y = "111" then
+              bump_screen_row_address<='1';
+            end if;
+            if (chargen_y_scale=x"02") and (chargen_y(0)='1') then
+              chargen_y_sub <= "00001";
+            else
+              chargen_y_sub <= (others => '0');
+            end if;
+          else
+            chargen_y_sub <= chargen_y_sub + 1;
           end if;
           chargen_y_sub <= (others => '0');
         else
@@ -3280,7 +3373,7 @@ begin
       viciv_outofframe <= (not indisplay_t3);
       
       if indisplay_t3='1' then
-        if inborder_t2='1' or blank='1' then
+        if inborder_t2='1' or blank='1' or (bitplane_mode='1' and viciv_bitplane_chargen_on='0') then
           pixel_colour <= border_colour;
           report "VICIV: Drawing border" severity note;
         elsif chargen_active='0' then
@@ -3375,7 +3468,7 @@ begin
       
       -- Use palette bank 3 for "palette ROM" colours (C64 default colours
       -- should be placed there for C65 compatibility).
-      if postsprite_pixel_colour(7 downto 4) = x"0" and reg_palrom='1' then
+      if postsprite_pixel_colour(7 downto 4) = x"0" and reg_palrom='0' then
         palette_address <= "11" & std_logic_vector(postsprite_pixel_colour);
       else
         palette_address(7 downto 0) <= std_logic_vector(postsprite_pixel_colour);
@@ -3411,6 +3504,14 @@ begin
       vga_buffer_blue(7 downto 4) <= unsigned(palette_rdata(11 downto 8));
       vga_buffer_blue(3 downto 0) <= unsigned(palette_rdata(15 downto 12));      
       
+      --vga_buffer_red <= unsigned(postsprite_pixel_colour);
+      --vga_buffer_green <= unsigned(postsprite_pixel_colour);
+      --vga_buffer_blue <= unsigned(postsprite_pixel_colour);      
+
+      --vga_buffer_red <= unsigned(postsprite_pixel_colour);
+      --vga_buffer_green <= unsigned(postsprite_pixel_colour);
+      --vga_buffer_blue <= unsigned(postsprite_pixel_colour);      
+
       rgb_is_background2 <= rgb_is_background;
 
       composite_bg_red <= unsigned(alias_palette_rdata(31 downto 24));
@@ -3566,9 +3667,15 @@ begin
       end if;
 
       -- Pre-calculate some expressions to flatten logic in critical path
-      bitmap_glyph_data_address
-        <= (character_set_address(16 downto 13)&"0"&x"000")
-        + (to_integer(screen_ram_buffer_read_address)+to_integer(first_card_of_row))*8+to_integer(chargen_y);
+      if reg_h640='1' then
+        bitmap_glyph_data_address
+          <= (character_set_address(16)&character_set_address(14 downto 13)&"0"&"0"&x"000")
+          + (to_integer(screen_ram_buffer_read_address)+to_integer(first_card_of_row))*8+to_integer(chargen_y);
+      else
+        bitmap_glyph_data_address
+          <= (character_set_address(16 downto 13)&"0"&x"000")
+          + (to_integer(screen_ram_buffer_read_address)+to_integer(first_card_of_row))*8+to_integer(chargen_y);
+      end if;
       virtual_row_width_minus1 <= virtual_row_width - 1;
 
       report "raster_fetch_state = " & vic_chargen_fsm'image(raster_fetch_state);
@@ -3645,7 +3752,11 @@ begin
           
           character_number <= (others => '0');
           card_of_row <= (others => '0');
-          raster_fetch_state <= FetchNextCharacter;         
+          if bitplane_mode='0' or viciv_bitplane_chargen_on='1' then
+            raster_fetch_state <= FetchNextCharacter;         
+          else
+            raster_fetch_state <= EndOfCharGen;
+          end if;
         when FetchNextCharacter =>
           -- Fetch next character
           -- All we can expect here is that character_number is correctly set.
@@ -4162,7 +4273,7 @@ begin
             end if;
             -- Interlacing selects which of two bitplane address register
             -- fields to use
-            if (reg_v400='1') and (vicii_ycounter(0)='1') then
+            if (reg_v400='1') and (vicii_ycounter_v400(0)='0') then
               -- Use odd scan set
               sprite_pointer_address(15 downto 13)
                 <= bitplane_addresses(sprite_fetch_sprite_number mod 8)
@@ -4182,7 +4293,11 @@ begin
               sprite_fetch_sprite_number <= sprite_fetch_sprite_number + 1;
               raster_fetch_state <= SpritePointerFetch;
             else
-              raster_fetch_state <= SpriteDataFetch2;
+              --sprite_data_address <= sprite_pointer_address;
+              --sprite_data_address(12 downto 0) <= to_unsigned(sprite_data_offsets(sprite_fetch_sprite_number),13);
+              
+              raster_fetch_state <= SpritePointerCompute;
+              --raster_fetch_state <= SpritePointerFetch2;
             end if;
           end if;
         when SpritePointerFetch2 =>
@@ -4200,15 +4315,27 @@ begin
           -- sprite_data_offsets() value for the sprite
           if sprite_fetch_sprite_number < 8 then
             sprite_data_address(16) <= '0';
-            sprite_data_address(15) <= screen_ram_base(15);
-            sprite_data_address(14) <= screen_ram_base(14);
+            sprite_data_address(15) <= sprite_pointer_address(15);
+            sprite_data_address(14) <= sprite_pointer_address(14);
             sprite_data_address(13 downto 0) <= (ramdata_drive&"000000") + to_unsigned(sprite_data_offsets(sprite_fetch_sprite_number),14);
             -- sprite_data_address(5 downto 0) <= to_unsigned(sprite_data_offsets(sprite_fetch_sprite_number),6);
             report "SPRITE: sprite #"
               & integer'image(sprite_fetch_sprite_number)
               & " pointer value = $" & to_hstring(ramdata_drive);
           else
-            sprite_data_address <= sprite_pointer_address;
+            --sprite_data_address <= sprite_pointer_address;
+            --sprite_data_address(12 downto 0) <= to_unsigned(sprite_data_offsets(sprite_fetch_sprite_number),13);
+          --  sprite_data_address(16) <= '0';
+          --  sprite_data_address(15) <= sprite_pointer_address(15);
+          --  sprite_data_address(14) <= sprite_pointer_address(14);
+          --  sprite_data_address(13 downto 0) <= (ramdata_drive&"000000") + to_unsigned(sprite_data_offsets(sprite_fetch_sprite_number),14);
+            if (reg_h640='1' or reg_h1280='1') then
+            	sprite_data_address(16 downto 14) <= sprite_pointer_address(16 downto 14);
+            	sprite_data_address(13 downto 0) <= to_unsigned(sprite_data_offsets(sprite_fetch_sprite_number),14);
+            else
+            	sprite_data_address(16 downto 13) <= sprite_pointer_address(16 downto 13);
+            	sprite_data_address(12 downto 0) <= to_unsigned(sprite_data_offsets(sprite_fetch_sprite_number),13);
+            end if;
           end if;
           raster_fetch_state <= SpriteDataFetch;          
         when SpriteDataFetch =>
@@ -4217,7 +4344,11 @@ begin
             & " data from $" & to_hstring("000"&sprite_data_address(16 downto 0));
           
           ramaddress <= sprite_data_address;
-          sprite_data_address(16 downto 0) <= sprite_data_address(16 downto 0) + 1;
+          if sprite_fetch_sprite_number < 8 then
+            sprite_data_address(16 downto 0) <= sprite_data_address(16 downto 0) + 1;
+          else
+            sprite_data_address(16 downto 0) <= sprite_data_address(16 downto 0) + 8;
+          end if;
           raster_fetch_state <= SpriteDataFetch2;
         when SpriteDataFetch2 =>
           report "SPRITE: fetching sprite #"
@@ -4226,23 +4357,30 @@ begin
             to_hstring(ramdata)
             & " from $" & to_hstring("000"&sprite_data_address(16 downto 0))
             & " for byte number " & integer'image(sprite_fetch_byte_number);
-          sprite_data_address(16 downto 0) <= sprite_data_address(16 downto 0) + 1;
+          if sprite_fetch_sprite_number < 8 then
+            sprite_data_address(16 downto 0) <= sprite_data_address(16 downto 0) + 1;
+          else
+            sprite_data_address(16 downto 0) <= sprite_data_address(16 downto 0) + 8;
+          end if;
           ramaddress <= sprite_data_address;
-          sprite_fetch_byte_number <= sprite_fetch_byte_number + 1;
 
           -- Schedule pushing fetched sprite/bitplane byte to next cycle when
           -- the data will be available in ramdata_drive
           sprite_fetch_drive <= '1';
+
           sprite_fetch_byte_number_drive <= sprite_fetch_byte_number;
           sprite_fetch_sprite_number_drive <= sprite_fetch_sprite_number;
           
+          sprite_fetch_byte_number <= sprite_fetch_byte_number + 1;
+
+
           -- XXX - always fetches 8 bytes of sprite data instead of 3, even if
           -- sprite is not set to 64 pixels wide mode. This wastes a little
           -- raster time.
           -- Bitplanes are also fetched using the sprite fetch pipeline, so we fetch
           -- more bytes for those, according to the bitplane width.
-          if ((sprite_fetch_byte_number = 7) and (sprite_fetch_sprite_number < 8))
-            or (sprite_fetch_byte_number = max_sprite_fetch_byte_number)
+          --if ((sprite_fetch_byte_number = 7) and (sprite_fetch_sprite_number < 8))
+            if (sprite_fetch_byte_number = max_sprite_fetch_byte_number)
           then
             sprite_fetch_byte_number <= 0;
             sprite_fetch_sprite_number <= sprite_fetch_sprite_number + 1;
