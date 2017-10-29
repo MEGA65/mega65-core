@@ -3122,7 +3122,7 @@ begin
           -- Reset VIC-II raster counter to first raster for top of frame
           -- (the preceeding rasters occur during vertical flyback, in case they
           -- have interrupts triggered on them).
-          vicii_ycounter_phase <= to_unsigned(1,3);
+          vicii_ycounter_phase <= to_unsigned(1,4);
           vicii_ycounter <= vicii_first_raster;
           vicii_ycounter_v400 <= (others =>'0');
           vicii_ycounter_phase_v400 <= to_unsigned(1,4);
