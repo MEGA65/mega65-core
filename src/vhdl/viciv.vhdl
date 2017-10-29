@@ -2847,6 +2847,7 @@ begin
       else
         sprite_number_counter <= sprite_number_counter + 1;
         sprite_number_for_data_tx <= sprite_number_for_data_tx + 1;
+      end if;
 
       -- Output the logical pixel number assuming H640 output
       -- (Used for Matrix Mode and visual keyboard compositers, so that
@@ -3328,22 +3329,18 @@ begin
         next_card_number <= first_card_of_row;
         screen_row_current_address <= screen_row_address;
 
-          -- Now check if we have tipped over from one logical pixel row to another. 
-          if chargen_y_sub=chargen_y_scale then
-            chargen_y <= chargen_y + 1;
-            report "bumping chargen_y to " & integer'image(to_integer(chargen_y)) severity note;
-            if chargen_y = "111" then
-              bump_screen_row_address<='1';
-            end if;
-            if (chargen_y_scale=x"02") and (chargen_y(0)='1') then
-              chargen_y_sub <= "00001";
-            else
-              chargen_y_sub <= (others => '0');
-            end if;
-          else
-            chargen_y_sub <= chargen_y_sub + 1;
+        -- Now check if we have tipped over from one logical pixel row to another.
+        if chargen_y_sub=chargen_y_scale then
+          chargen_y <= chargen_y + 1;
+          report "bumping chargen_y to " & integer'image(to_integer(chargen_y)) severity note;
+          if chargen_y = "111" then
+            bump_screen_row_address<='1';
           end if;
-          chargen_y_sub <= (others => '0');
+          if (chargen_y_scale=x"02") and (chargen_y(0)='1') then
+            chargen_y_sub <= "00001";
+          else
+            chargen_y_sub <= (others => '0');
+          end if;
         else
           chargen_y_sub <= chargen_y_sub + 1;
         end if;
