@@ -3040,6 +3040,7 @@ begin
           ycounter <= ycounter + 1;
           if vicii_ycounter_phase = vicii_ycounter_max_phase then
             vicii_ycounter <= vicii_ycounter + 1;
+            vicii_ycounter_v400 <= vicii_ycounter_v400 + 1;
             vicii_ycounter_phase <= (others => '0');
             -- All visible rasters are now equal height
             -- (we take up the slack using vertical_flyback fast raster stepping,
@@ -3048,48 +3049,9 @@ begin
           else
             -- In the middle of a VIC-II logical raster, so just increase phase.
             vicii_ycounter_phase <= vicii_ycounter_phase + 1;
-          end if;
-          
-          if vicii_ycounter_phase_v400 = vicii_ycounter_max_phase_v400 then
-            vicii_ycounter_v400 <= vicii_ycounter_v400 + 1;
-            vicii_ycounter_phase_v400 <= (others => '0');
-            -- Set number of physical rasters per VIC-II raster based on region
-            -- of screen.
-            if vicii_ycounter_v400 >= 50 and vicii_ycounter_v400 < 450 then
-              if vicii_ycounter_v400(0) = '0' then
-                vicii_ycounter_max_phase_v400 <= to_unsigned(2,4);
-              else
-                vicii_ycounter_max_phase_v400 <= to_unsigned(1,4);
-              end if;
-            elsif vicii_ycounter_V400 = 450 then
-              vicii_ycounter_max_phase_v400 <= to_unsigned(0,4);
-            elsif vicii_ycounter_v400 = 314 then
-              vicii_ycounter_max_phase_v400 <= to_unsigned(1,4);
+            if to_integer(vicii_ycounter_phase) >=  to_integer(vicii_ycounter_max_phase(3 downto 1)) the
+                vicii_ycounter_v400 <= vicii_ycounter_v400 + 1;
             end if;
-          else
-            -- In the middle of a VIC-II logical raster, so just increase phase.
-            vicii_ycounter_phase_v400 <= vicii_ycounter_phase_v400 + 1;
-          end if;
-
-          if vicii_ycounter_phase_v400 = vicii_ycounter_max_phase_v400 then
-            vicii_ycounter_v400 <= vicii_ycounter_v400 + 1;
-            vicii_ycounter_phase_v400 <= (others => '0');
-            -- Set number of physical rasters per VIC-II raster based on region
-            -- of screen.
-            if vicii_ycounter_v400 >= 50 and vicii_ycounter_v400 < 450 then
-              if vicii_ycounter_v400(0) = '0' then
-                vicii_ycounter_max_phase_v400 <= to_unsigned(2,4);
-              else
-                vicii_ycounter_max_phase_v400 <= to_unsigned(1,4);
-              end if;
-            elsif vicii_ycounter_V400 = 450 then
-              vicii_ycounter_max_phase_v400 <= to_unsigned(0,4);
-            elsif vicii_ycounter_v400 = 314 then
-              vicii_ycounter_max_phase_v400 <= to_unsigned(1,4);
-            end if;
-          else
-            -- In the middle of a VIC-II logical raster, so just increase phase.
-            vicii_ycounter_phase_v400 <= vicii_ycounter_phase_v400 + 1;
           end if;
 
           -- Make VIC-II triggered raster interrupts edge triggered, since one
