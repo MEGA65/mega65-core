@@ -3049,7 +3049,7 @@ begin
           else
             -- In the middle of a VIC-II logical raster, so just increase phase.
             vicii_ycounter_phase <= vicii_ycounter_phase + 1;
-            if to_integer(vicii_ycounter_phase) >=  to_integer(vicii_ycounter_max_phase(3 downto 1)) the
+            if to_integer(vicii_ycounter_phase) ==  to_integer(vicii_ycounter_max_phase(3 downto 1)) then
                 vicii_ycounter_v400 <= vicii_ycounter_v400 + 1;
             end if;
           end if;
@@ -3107,6 +3107,7 @@ begin
           else
             -- ... else at end of frame, reset to raster 0 again
             vicii_ycounter <= (others => '0');
+            vicii_ycounter_v400 = (others => '0');
           end if;
         else
           fast_raster_counter <= fast_raster_counter + 1;
@@ -4230,7 +4231,7 @@ begin
             end if;
             -- Interlacing selects which of two bitplane address register
             -- fields to use
-            if (reg_v400='1') and (vicii_ycounter_v400(0)='0') then
+            if (reg_v400='1') and (vicii_ycounter_v400(0)='1') then
               -- Use odd scan set
               sprite_pointer_address(15 downto 13)
                 <= bitplane_addresses(sprite_fetch_sprite_number mod 8)
