@@ -3049,7 +3049,7 @@ begin
           else
             -- In the middle of a VIC-II logical raster, so just increase phase.
             vicii_ycounter_phase <= vicii_ycounter_phase + 1;
-            if to_integer(vicii_ycounter_phase) ==  to_integer(vicii_ycounter_max_phase(3 downto 1)) then
+            if to_integer(vicii_ycounter_phase) =  to_integer(vicii_ycounter_max_phase(3 downto 1)) then
                 vicii_ycounter_v400 <= vicii_ycounter_v400 + 1;
             end if;
           end if;
@@ -3107,7 +3107,7 @@ begin
           else
             -- ... else at end of frame, reset to raster 0 again
             vicii_ycounter <= (others => '0');
-            vicii_ycounter_v400 = (others => '0');
+            vicii_ycounter_v400 <= (others => '0');
           end if;
         else
           fast_raster_counter <= fast_raster_counter + 1;
