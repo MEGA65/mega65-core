@@ -402,9 +402,6 @@ end component;
   signal reg_offset_low : unsigned(11 downto 0)  := (others => '0');
   signal reg_offset_high : unsigned(11 downto 0)  := (others => '0');
 
-  -- Should we use external or internal SIDs?
-  signal reg_external_sids : std_logic := '1';
-
   -- Are we in hypervisor mode?
   signal hypervisor_mode : std_logic := '1';
   signal hypervisor_trap_port : unsigned (6 downto 0)  := (others => '0');
@@ -1439,7 +1436,7 @@ begin
                 temp_address(27 downto 12) := x"FFD3";
                 temp_address(13 downto 12) := unsigned(viciii_iomode);          
                 -- Optionally map SIDs to expansion port
-                if (short_address(11 downto 8) = x"4") and reg_external_sids='1' then
+                if (short_address(11 downto 8) = x"4") and hyper_iomode(2)='1' then
                   temp_address(27 downto 12) := x"7FFD";
                 end if;
             end case;
@@ -1464,7 +1461,7 @@ begin
                 temp_address(27 downto 12) := x"FFD3";
                 temp_address(13 downto 12) := unsigned(viciii_iomode);          
                 -- Optionally map SIDs to expansion port
-                if (short_address(11 downto 8) = x"4") and reg_external_sids='1' then
+                if (short_address(11 downto 8) = x"4") and hyper_iomode(2)='1' then
                   temp_address(27 downto 12) := x"7FFD";
                 end if;
             end case;
@@ -2765,6 +2762,8 @@ begin
           hyper_port_01 <= last_value;
         end if;
         -- @IO:GS $D652 - Hypervisor VIC-IV IO mode
+        -- @IO:GS $D652.0-1 - VIC-II/VIC-III/VIC-IV mode select
+        -- @IO:GS $D652.2 - Use internal(0) or external(1) SIDs
         if last_write_address = x"FFD3652" and hypervisor_mode='1' then
           hyper_iomode <= last_value;
         end if;
