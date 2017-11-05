@@ -1439,6 +1439,15 @@ begin
                 if (short_address(11 downto 8) = x"4") and hyper_iomode(2)='1' then
                   temp_address(27 downto 12) := x"7FFD";
                 end if;
+                if sector_buffer_mapped='0' and colourram_at_dc00='0' then
+                  -- Map $DE00-$DFFF IO expansion areas to expansion port
+                  -- (but only if SD card sector buffer is not mapped, and
+                  -- 2nd KB of colour RAM is not mapped).
+                  if (short_address(11 downto 8) = x"E")
+                    or (short_address(11 downto 8) = x"F") then
+                    temp_address(27 downto 12) := x"7FFD";
+                  end if;
+                end if;
             end case;
           else
             temp_address(27 downto 12) := x"FFD3";
@@ -1464,19 +1473,19 @@ begin
                 if (short_address(11 downto 8) = x"4") and hyper_iomode(2)='1' then
                   temp_address(27 downto 12) := x"7FFD";
                 end if;
+                if sector_buffer_mapped='0' and colourram_at_dc00='0' then
+                  -- Map $DE00-$DFFF IO expansion areas to expansion port
+                  -- (but only if SD card sector buffer is not mapped, and
+                  -- 2nd KB of colour RAM is not mapped).
+                  if (short_address(11 downto 8) = x"E")
+                    or (short_address(11 downto 8) = x"F") then
+                    temp_address(27 downto 12) := x"7FFD";
+                  end if;
+                end if;
             end case;
           else
             temp_address(27 downto 12) := x"FFD3";
             temp_address(13 downto 12) := unsigned(viciii_iomode);          
-          end if;
-        end if;
-        if sector_buffer_mapped='0' and colourram_at_dc00='0' then
-          -- Map $DE00-$DFFF IO expansion areas to expansion port
-          -- (but only if SD card sector buffer is not mapped, and
-          -- 2nd KB of colour RAM is not mapped).
-          if (short_address(11 downto 8) = x"E")
-            or (short_address(11 downto 8) = x"F") then
-            temp_address(27 downto 12) := x"7FFD";
           end if;
         end if;
       end if;
