@@ -402,9 +402,6 @@ end component;
   signal reg_offset_low : unsigned(11 downto 0)  := (others => '0');
   signal reg_offset_high : unsigned(11 downto 0)  := (others => '0');
 
-  -- Should we use external or internal SIDs?
-  signal reg_external_sids : std_logic := '1';
-
   -- Are we in hypervisor mode?
   signal hypervisor_mode : std_logic := '1';
   signal hypervisor_trap_port : unsigned (6 downto 0)  := (others => '0');
@@ -1438,6 +1435,19 @@ begin
                 -- to $D02F
                 temp_address(27 downto 12) := x"FFD3";
                 temp_address(13 downto 12) := unsigned(viciii_iomode);          
+                -- Optionally map SIDs to expansion port
+                if (short_address(11 downto 8) = x"4") and hyper_iomode(2)='1' then
+                  temp_address(27 downto 12) := x"7FFD";
+                end if;
+                if sector_buffer_mapped='0' and colourram_at_dc00='0' then
+                  -- Map $DE00-$DFFF IO expansion areas to expansion port
+                  -- (but only if SD card sector buffer is not mapped, and
+                  -- 2nd KB of colour RAM is not mapped).
+                  if (short_address(11 downto 8) = x"E")
+                    or (short_address(11 downto 8) = x"F") then
+                    temp_address(27 downto 12) := x"7FFD";
+                  end if;
+                end if;
             end case;
           else
             temp_address(27 downto 12) := x"FFD3";
@@ -1459,24 +1469,24 @@ begin
                 -- to $D02F
                 temp_address(27 downto 12) := x"FFD3";
                 temp_address(13 downto 12) := unsigned(viciii_iomode);          
+                -- Optionally map SIDs to expansion port
+                if (short_address(11 downto 8) = x"4") and hyper_iomode(2)='1' then
+                  temp_address(27 downto 12) := x"7FFD";
+                end if;
+                if sector_buffer_mapped='0' and colourram_at_dc00='0' then
+                  -- Map $DE00-$DFFF IO expansion areas to expansion port
+                  -- (but only if SD card sector buffer is not mapped, and
+                  -- 2nd KB of colour RAM is not mapped).
+                  if (short_address(11 downto 8) = x"E")
+                    or (short_address(11 downto 8) = x"F") then
+                    temp_address(27 downto 12) := x"7FFD";
+                  end if;
+                end if;
             end case;
           else
             temp_address(27 downto 12) := x"FFD3";
             temp_address(13 downto 12) := unsigned(viciii_iomode);          
           end if;
-        end if;
-        if sector_buffer_mapped='0' and colourram_at_dc00='0' then
-          -- Map $DE00-$DFFF IO expansion areas to expansion port
-          -- (but only if SD card sector buffer is not mapped, and
-          -- 2nd KB of colour RAM is not mapped).
-          if (short_address(11 downto 8) = x"E")
-            or (short_address(11 downto 8) = x"F") then
-            temp_address(27 downto 12) := x"7FFD";
-          end if;
-        end if;
-        -- Optionally map SIDs to expansion port
-        if (short_address(11 downto 8) = x"4") and reg_external_sids='1' then
-          temp_address(27 downto 12) := x"7FFD";
         end if;
       end if;
 
@@ -2761,6 +2771,8 @@ begin
           hyper_port_01 <= last_value;
         end if;
         -- @IO:GS $D652 - Hypervisor VIC-IV IO mode
+        -- @IO:GS $D652.0-1 - VIC-II/VIC-III/VIC-IV mode select
+        -- @IO:GS $D652.2 - Use internal(0) or external(1) SIDs
         if last_write_address = x"FFD3652" and hypervisor_mode='1' then
           hyper_iomode <= last_value;
         end if;
