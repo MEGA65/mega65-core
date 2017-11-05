@@ -1438,6 +1438,10 @@ begin
                 -- to $D02F
                 temp_address(27 downto 12) := x"FFD3";
                 temp_address(13 downto 12) := unsigned(viciii_iomode);          
+                -- Optionally map SIDs to expansion port
+                if (short_address(11 downto 8) = x"4") and reg_external_sids='1' then
+                  temp_address(27 downto 12) := x"7FFD";
+                end if;
             end case;
           else
             temp_address(27 downto 12) := x"FFD3";
@@ -1459,6 +1463,10 @@ begin
                 -- to $D02F
                 temp_address(27 downto 12) := x"FFD3";
                 temp_address(13 downto 12) := unsigned(viciii_iomode);          
+                -- Optionally map SIDs to expansion port
+                if (short_address(11 downto 8) = x"4") and reg_external_sids='1' then
+                  temp_address(27 downto 12) := x"7FFD";
+                end if;
             end case;
           else
             temp_address(27 downto 12) := x"FFD3";
@@ -1473,10 +1481,6 @@ begin
             or (short_address(11 downto 8) = x"F") then
             temp_address(27 downto 12) := x"7FFD";
           end if;
-        end if;
-        -- Optionally map SIDs to expansion port
-        if (short_address(11 downto 8) = x"4") and reg_external_sids='1' then
-          temp_address(27 downto 12) := x"7FFD";
         end if;
       end if;
 
