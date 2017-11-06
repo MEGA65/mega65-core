@@ -11,6 +11,8 @@ end test_matrix;
 architecture behavioral of test_matrix is
 
   signal pixel_x_640 : integer := 0;
+  signal hsync : std_logic := '0';
+  signal vsync : std_logic := '0';
   signal ycounter_in : unsigned(11 downto 0) := (others => '0');
   signal x_start : unsigned(11 downto 0) := to_unsigned(0,12);
   signal y_start : unsigned(11 downto 0) := to_unsigned(479-290,12);
@@ -31,8 +33,9 @@ architecture behavioral of test_matrix is
   signal term_ready : std_logic;
   
 begin
-  kc0: entity work.matrix_compositor
+  kc0: entity work.matrix_rain_compositor
     port map(
+      seed => to_unsigned(0,16),
       display_shift_in => "000",
       shift_ready_in => '0',
       mm_displayMode_in => "10",
@@ -43,9 +46,11 @@ begin
       terminal_emulator_ready => term_ready,
       pixel_x_640 => pixel_x_640,
       ycounter_in => ycounter_in,
+      hsync_in => hsync,
+      vsync_in => vsync,
       clk => pixelclock,
       pixelclock => pixelclock,
-      matrix_mode_enable => '1',
+      matrix_mode_enable => '1',      
       vgared_in => vgared_in,
       vgagreen_in => vgagreen_in,
       vgablue_in => vgablue_in,
@@ -134,12 +139,20 @@ begin
       wait for 10 ns;
       if pixel_x_640 < 810 then
         pixel_x_640 <= pixel_x_640 + 1;
+        if pixel_x_640 = 700 then
+          hsync <= '1';
+        end if;
       else
         pixel_x_640 <= 0;
-        if ycounter_in < 480 then
+        hsync <= '0';
+        if ycounter_in < 485 then
           ycounter_in <= ycounter_in + 1;
+          if ycounter_in = 479 then
+            vsync <= '1';
+          end if;
         else
           ycounter_in <= to_unsigned(0,12);
+          vsync <= '0';
         end if;
       end if;
       report "PIXEL:" & integer'image(pixel_x_640)
