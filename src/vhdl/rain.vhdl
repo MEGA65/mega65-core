@@ -100,6 +100,13 @@ architecture rtl of matrix_rain_compositor is
   signal glyph_bits : std_logic_vector(7 downto 0) := x"FF";
   
 begin  -- rtl
+
+  lfsr0: entity work.lfsr16 port map (
+    clock => pixelclock,
+    reset => lfsr_reset(0),
+    seed => lfsr_seed0,
+    step => lfsr_advance(0),
+    output => lfsr_out(0));
   
   process(pixelclock)
   begin

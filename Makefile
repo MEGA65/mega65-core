@@ -178,6 +178,7 @@ osksimulate:	$(OSKFILES) $(TOOLDIR)/osk_image
 
 MMFILES=$(VHDLSRCDIR)/test_matrix.vhdl \
 	$(VHDLSRCDIR)/rain.vhdl \
+	$(VHDLSRCDIR)/lfsr16.vhdl \
 	$(VHDLSRCDIR)/uart_charrom.vhdl \
 	$(VHDLSRCDIR)/terminalemulator.vhdl
 mmsimulate:	$(MMFILES) $(TOOLDIR)/osk_image
