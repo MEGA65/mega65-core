@@ -242,8 +242,8 @@ begin  -- rtl
                 vgablue_out <= x"C0";
               when others =>
                 vgared_out <= (others => '0');
-                vgagreen_out(7 downto 3) <= drop_distance_to_end(4 downto 0);
-                vgagreen_out(2 downto 0) <= (others => '1');
+                vgagreen_out(7 downto 2) <= drop_distance_to_end(5 downto 0);
+                vgagreen_out(1 downto 0) <= (others => '1');
                 vgablue_out <= (others => '0');
             end case;
 --            vgared_out <= (others => '1');
