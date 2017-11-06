@@ -97,6 +97,7 @@ architecture rtl of matrix_rain_compositor is
   signal next_start : unsigned(7 downto 0) := x"00";
   signal next_end : unsigned(7 downto 0) := x"00";
 
+  signal glyph_bit_count : integer range 0 to 8 := 0;
   signal glyph_bits : std_logic_vector(7 downto 0) := x"FF";
   
 begin  -- rtl
@@ -107,6 +108,24 @@ begin  -- rtl
     seed => lfsr_seed0,
     step => lfsr_advance(0),
     output => lfsr_out(0));
+  lfsr1: entity work.lfsr16 port map (
+    clock => pixelclock,
+    reset => lfsr_reset(1),
+    seed => lfsr_seed1,
+    step => lfsr_advance(1),
+    output => lfsr_out(1));
+  lfsr2: entity work.lfsr16 port map (
+    clock => pixelclock,
+    reset => lfsr_reset(2),
+    seed => lfsr_seed2,
+    step => lfsr_advance(2),
+    output => lfsr_out(2));
+  lfsr3: entity work.lfsr16 port map (
+    clock => pixelclock,
+    reset => lfsr_reset(3),
+    seed => lfsr_seed0,
+    step => lfsr_advance(3),
+    output => lfsr_out(3));
   
   process(pixelclock)
   begin
@@ -116,6 +135,24 @@ begin  -- rtl
       last_hsync <= hsync_in;
       last_vsync <= vsync_in;
 
+      if pixel_x_640 /= last_pixel_x_640 then
+        if glyph_bit_count < 2 then
+          -- Request next glyph
+          --
+          -- Update start/end of drop
+          drop_start <= to_integer(next_start(4 downto 0));
+          drop_end <= to_integer(next_end(4 downto 0));
+          glyph_bit_count <= 8;
+        else
+          -- Shift bits down for rain chargen
+          glyph_bits(6 downto 0) <= glyph_bits(7 downto 1);
+          -- XXX for now keep filling with 1s for testing
+          glyph_bits(7) <= '1';
+
+          glyph_bit_count <= glyph_bit_count - 1;
+        end if;
+      end if;
+      
       -- Work out where drops stop and start
       -- Add 1, so that a start of 0 doesn't appear until 2nd
       -- frame, so that there is no drip heads hanging around
@@ -126,7 +163,7 @@ begin  -- rtl
       drop_start_plus_row <= drop_start + drop_row + 1;
       drop_start_plus_end_plus_row
         <= drop_start + drop_end + drop_row + 1;
-
+      
       -- Now based on whether we are above, in or below a rain drop,
       -- decide what to display.
       if frame_number < drop_start_plus_row then
@@ -165,12 +202,6 @@ begin  -- rtl
             vgablue_out <= (others => '0');
           end if;
       end case;
-      if pixel_x_640 /= last_pixel_x_640 then
-        -- Shift bits down for rain chargen
-        glyph_bits(6 downto 0) <= glyph_bits(7 downto 1);
-        -- XXX for now keep filling with 1s for testing
-        glyph_bits(7) <= '1';
-      end if;
       
       if last_hsync = '1' and hsync_in = '0' then
         -- Horizontal fly-back
@@ -208,9 +239,10 @@ begin  -- rtl
         lfsr_advance(1 downto 0) <= "11";
         lfsr_advance_counter <= 31;
       else
+        lfsr_reset(3 downto 0) <= "0000";
         if lfsr_advance_counter /= 0 then
           lfsr_advance_counter <= lfsr_advance_counter - 1;
-        elsif pixel_x_640 = 639 then
+        elsif pixel_x_640 >= 639 then
           lfsr_advance(3 downto 0) <= "0000";
         else
           -- Collect bits to form start and end of rain and glyph
