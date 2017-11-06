@@ -75,14 +75,21 @@ architecture rtl of matrix_rain_compositor is
   
   signal drop_start : integer range 0 to 63 := 1;
   signal drop_end : integer range 0 to 63 := 1;
+  signal drop_start_drive : integer range 0 to 63 := 1;
+  signal drop_end_drive : integer range 0 to 63 := 1;
   signal drop_row : integer range 0 to 63 := 1;
   signal fade_shift : integer range 0 to 4 := 0;
   
+  signal drop_start_plus_row_drive : integer range 0 to 127 := 0;
+  signal drop_start_plus_end_plus_row_drive
+    : integer range 0 to 255 := 0;
   signal drop_start_plus_row : integer range 0 to 127 := 0;
   signal drop_start_plus_end_plus_row
     : integer range 0 to 255 := 0;
   signal drop_distance_to_end : unsigned(7 downto 0) := x"00";
   signal drop_distance_to_start : unsigned(7 downto 0) := x"00";
+  signal drop_distance_to_end_drive : unsigned(7 downto 0) := x"00";
+  signal drop_distance_to_start_drive : unsigned(7 downto 0) := x"00";
   
   signal vgared_matrix : unsigned(7 downto 0) := x"7f";
   signal vgagreen_matrix : unsigned(7 downto 0) := x"7f";
@@ -102,6 +109,7 @@ architecture rtl of matrix_rain_compositor is
 
   signal glyph_bit_count : integer range 0 to 8 := 0;
   signal glyph_bits : std_logic_vector(7 downto 0) := x"FF";
+  signal glyph_pixel : std_logic := '0';
 
   
 begin  -- rtl
@@ -143,15 +151,38 @@ begin  -- rtl
       last_hsync <= hsync_in;
       last_vsync <= vsync_in;
 
+      drop_row <= to_integer(ycounter_in(10 downto 3));
+      
       if pixel_x_640 /= last_pixel_x_640 then
+        drop_start_plus_row <= drop_start_plus_row_drive;
+        drop_start_plus_end_plus_row <= drop_start_plus_end_plus_row_drive;
+        drop_start <= drop_start_drive;
+        drop_end <= drop_end_drive;
+        drop_distance_to_start <= drop_distance_to_start_drive;
+        drop_distance_to_end <= drop_distance_to_end_drive;
+        glyph_pixel <= glyph_bits(0);
+        
         if hsync_in = '1' then
           glyph_bit_count <= 0;
         elsif glyph_bit_count < 2 then
           -- Request next glyph
           --
           -- Update start/end of drop
-          drop_start <= to_integer(next_start(4 downto 0));
-          drop_end <= to_integer(next_end(4 downto 0));
+          drop_start_drive <= to_integer(next_start(4 downto 0));
+          drop_end_drive <= to_integer(next_end(4 downto 0));
+          drop_distance_to_end_drive <= to_unsigned(129 + drop_row - (frame_number - to_integer(next_start(4 downto 0)))
+                                                                - to_integer(next_end(4 downto 0)),8);  
+          drop_distance_to_start_drive <= to_unsigned(129 + drop_row - (frame_number - to_integer(next_start(4 downto 0))),8);
+          
+          -- Work out where drops stop and start
+          -- Add 1, so that a start of 0 doesn't appear until 2nd
+          -- frame, so that there is no drip heads hanging around
+          -- at the top of frame after rain has retracted (it never
+          -- actually disappears, just retracts, as the rain actually
+          -- forms a transition between normal and matrix mode displays).
+          drop_start_plus_row_drive <= to_integer(next_start(4 downto 0)) + drop_row + 1;
+          drop_start_plus_end_plus_row_drive
+            <= to_integer(next_start(4 downto 0)) + to_integer(next_end(4 downto 0)) + drop_row + 1;
           
           -- Calculate the colour fade based on distance to end of tail
           if next_end(4) = '1' then
@@ -177,19 +208,6 @@ begin  -- rtl
           glyph_bit_count <= glyph_bit_count - 1;
         end if;
       end if;
-      
-      -- Work out where drops stop and start
-      -- Add 1, so that a start of 0 doesn't appear until 2nd
-      -- frame, so that there is no drip heads hanging around
-      -- at the top of frame after rain has retracted (it never
-      -- actually disappears, just retracts, as the rain actually
-      -- forms a transition between normal and matrix mode displays).
-      drop_row <= to_integer(ycounter_in(10 downto 3));
-      drop_start_plus_row <= drop_start + drop_row + 1;
-      drop_start_plus_end_plus_row
-        <= drop_start + drop_end + drop_row + 1;
-      drop_distance_to_end <= to_unsigned(129 + drop_row - (frame_number - drop_start - drop_end),8);
-      drop_distance_to_start <= to_unsigned(129 + drop_row - (frame_number - drop_start),8);
       
       -- Now based on whether we are above, in or below a rain drop,
       -- decide what to display.
@@ -217,7 +235,7 @@ begin  -- rtl
         when Rain =>
           -- Matrix rain drop, so display a random character in green on
           -- black.
-          if glyph_bits(0)='1' then
+          if glyph_pixel='1' then
             -- XXX make head of column whiter
             -- XXX make brightness decrease with position
 --            report "distance_to_start = $" & to_hstring(drop_distance_to_start);
