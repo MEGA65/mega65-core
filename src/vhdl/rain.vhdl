@@ -1,7 +1,7 @@
 library IEEE;
 use IEEE.std_logic_1164.all;
 use ieee.numeric_std.all;
-use work.all;
+use work.debugtools.all;
 
 entity matrix_rain_compositor is
   
@@ -67,7 +67,7 @@ architecture rtl of matrix_rain_compositor is
   signal state : unsigned(15 downto 0) := (others => '1');
   type feed_t is (Normal,Rain,Matrix);
   signal feed : feed_t := Normal;
-  signal frame_number : integer range 0 to 127 := 0;
+  signal frame_number : integer range 0 to 127 := 30;
   signal lfsr_advance_counter : integer range 0 to 31 := 0;
   signal last_hsync : std_logic := '1';
   signal last_vsync : std_logic := '1';
@@ -76,11 +76,14 @@ architecture rtl of matrix_rain_compositor is
   signal drop_start : integer range 0 to 63 := 1;
   signal drop_end : integer range 0 to 63 := 1;
   signal drop_row : integer range 0 to 63 := 1;
-
+  signal fade_shift : integer range 0 to 4 := 0;
+  
   signal drop_start_plus_row : integer range 0 to 127 := 0;
   signal drop_start_plus_end_plus_row
     : integer range 0 to 255 := 0;
-
+  signal drop_distance_to_end : unsigned(7 downto 0) := x"00";
+  signal drop_distance_to_start : unsigned(7 downto 0) := x"00";
+  
   signal vgared_matrix : unsigned(7 downto 0) := x"7f";
   signal vgagreen_matrix : unsigned(7 downto 0) := x"7f";
   signal vgablue_matrix : unsigned(7 downto 0) := x"7f";
@@ -99,6 +102,7 @@ architecture rtl of matrix_rain_compositor is
 
   signal glyph_bit_count : integer range 0 to 8 := 0;
   signal glyph_bits : std_logic_vector(7 downto 0) := x"FF";
+
   
 begin  -- rtl
 
@@ -148,6 +152,18 @@ begin  -- rtl
           -- Update start/end of drop
           drop_start <= to_integer(next_start(4 downto 0));
           drop_end <= to_integer(next_end(4 downto 0));
+          
+          -- Calculate the colour fade based on distance to end of tail
+          if next_end(4) = '1' then
+            fade_shift <= 3;
+          elsif next_end(3) = '1' then
+            fade_shift <= 2;
+          elsif next_end(2) = '1' then
+            fade_shift <= 1;
+          else
+            fade_shift <= 0;
+          end if;
+          
 --          report "new drop start,end = "
 --            & integer'image(to_integer(next_start(4 downto 0))) & ","
 --            & integer'image(to_integer(next_end(4 downto 0)));
@@ -172,6 +188,8 @@ begin  -- rtl
       drop_start_plus_row <= drop_start + drop_row + 1;
       drop_start_plus_end_plus_row
         <= drop_start + drop_end + drop_row + 1;
+      drop_distance_to_end <= to_unsigned(129 + drop_row - (frame_number - drop_start - drop_end),8);
+      drop_distance_to_start <= to_unsigned(129 + drop_row - (frame_number - drop_start),8);
       
       -- Now based on whether we are above, in or below a rain drop,
       -- decide what to display.
@@ -202,9 +220,34 @@ begin  -- rtl
           if glyph_bits(0)='1' then
             -- XXX make head of column whiter
             -- XXX make brightness decrease with position
-            vgared_out <= (others => '0');
-            vgagreen_out <= (others => '1');
-            vgablue_out <= (others => '0');
+--            report "distance_to_start = $" & to_hstring(drop_distance_to_start);
+            case drop_distance_to_start(6 downto 0) is
+              when "0000000" =>
+                vgared_out <= x"FF";
+                vgagreen_out <= x"FF";
+                vgablue_out <= x"FF";
+              when "1111111" =>
+                vgared_out <= x"C0";
+                vgagreen_out <= x"F0";
+                vgablue_out <= x"C0";
+              when others =>
+                vgared_out <= (others => '0');
+                if drop_distance_to_end(6 downto fade_shift) > 8 then
+                  vgagreen_out <= (others => '1');
+                elsif drop_distance_to_end(6 downto fade_shift) > 4 then
+                  vgagreen_out(7) <= '0';
+                  vgagreen_out(6 downto 0) <= (others => '1');
+                elsif drop_distance_to_end(6 downto fade_shift) > 2 then
+                  vgagreen_out(7 downto 6) <= "00";
+                  vgagreen_out(5 downto 0) <= (others => '1');
+                else
+                  vgagreen_out(7 downto 5) <= "000";
+                  vgagreen_out(4 downto 0) <= (others => '1');
+                end if;
+                vgagreen_out(7 downto 3) <= drop_distance_to_end(4 downto 0);
+                vgagreen_out(2 downto 0) <= (others => '1');
+                vgablue_out <= (others => '0');
+            end case;
           else
             vgared_out <= (others => '0');
             vgagreen_out <= (others => '0');
