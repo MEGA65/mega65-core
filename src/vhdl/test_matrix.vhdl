@@ -119,12 +119,12 @@ begin
     type_text("8" & lf & cr);
     type_text("9" & lf & cr);
 
-    wait for 1 sec;
+    wait for 2 sec;
   end process;
 
   process
   begin    
-    for i in 1 to 30000000 loop
+    for i in 1 to 40000000 loop
       pixelclock <= '1';
       wait for 10 ns;
       pixelclock <= '0';

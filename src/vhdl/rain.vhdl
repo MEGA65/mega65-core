@@ -89,8 +89,8 @@ architecture rtl of matrix_rain_compositor is
   signal drop_distance_to_start : unsigned(7 downto 0) := x"00";
   signal drop_distance_to_end_drive : unsigned(7 downto 0) := x"00";
   signal drop_distance_to_start_drive : unsigned(7 downto 0) := x"00";
-  signal drop_distance_to_end_drive2 : unsigned(7 downto 0) := x"00";
-  signal drop_distance_to_start_drive2 : unsigned(7 downto 0) := x"00";
+  signal drop_distance_to_end_drive2 : unsigned(8 downto 0) := "000000000";
+  signal drop_distance_to_start_drive2 : unsigned(8 downto 0) := "000000000";
   
   signal vgared_matrix : unsigned(7 downto 0) := x"00";
   signal vgagreen_matrix : unsigned(7 downto 0) := x"00";
@@ -161,8 +161,8 @@ begin  -- rtl
         drop_end <= drop_end_drive;
         drop_distance_to_start <= drop_distance_to_start_drive;
         drop_distance_to_end <= drop_distance_to_end_drive;
-        drop_distance_to_start_drive <= drop_distance_to_start_drive2;
-        drop_distance_to_end_drive <= drop_distance_to_end_drive2;
+        drop_distance_to_start_drive <= drop_distance_to_start_drive2(7 downto 0);
+        drop_distance_to_end_drive <= drop_distance_to_end_drive2(7 downto 0);
         glyph_pixel <= glyph_bits(0);
         
         if hsync_in = '1' then
@@ -173,9 +173,9 @@ begin  -- rtl
           -- Update start/end of drop
           drop_start_drive <= to_integer(next_start(4 downto 0));
           drop_end_drive <= to_integer(next_end(4 downto 0));
-          drop_distance_to_end_drive2 <= to_unsigned(129 + drop_row - (frame_number - to_integer(next_start(4 downto 0)))
-                                                                - to_integer(next_end(4 downto 0)),8);  
-          drop_distance_to_start_drive2 <= to_unsigned(129 + drop_row - (frame_number - to_integer(next_start(4 downto 0))),8);
+          drop_distance_to_end_drive2 <= to_unsigned(257 + drop_row - (frame_number - to_integer(next_start(4 downto 0)))
+                                                                - to_integer(next_end(4 downto 0)),9);  
+          drop_distance_to_start_drive2 <= to_unsigned(257 + drop_row - (frame_number - to_integer(next_start(4 downto 0))),9);
           
           -- Work out where drops stop and start
           -- Add 2, so that a start of 0 doesn't appear until 2nd
