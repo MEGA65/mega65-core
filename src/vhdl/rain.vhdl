@@ -78,7 +78,6 @@ architecture rtl of matrix_rain_compositor is
   signal drop_start_drive : integer range 0 to 63 := 1;
   signal drop_end_drive : integer range 0 to 63 := 1;
   signal drop_row : integer range 0 to 63 := 1;
-  signal fade_shift : integer range 0 to 4 := 0;
   
   signal drop_start_plus_row_drive : integer range 0 to 127 := 0;
   signal drop_start_plus_end_plus_row_drive
@@ -90,6 +89,8 @@ architecture rtl of matrix_rain_compositor is
   signal drop_distance_to_start : unsigned(7 downto 0) := x"00";
   signal drop_distance_to_end_drive : unsigned(7 downto 0) := x"00";
   signal drop_distance_to_start_drive : unsigned(7 downto 0) := x"00";
+  signal drop_distance_to_end_drive2 : unsigned(7 downto 0) := x"00";
+  signal drop_distance_to_start_drive2 : unsigned(7 downto 0) := x"00";
   
   signal vgared_matrix : unsigned(7 downto 0) := x"7f";
   signal vgagreen_matrix : unsigned(7 downto 0) := x"7f";
@@ -160,6 +161,8 @@ begin  -- rtl
         drop_end <= drop_end_drive;
         drop_distance_to_start <= drop_distance_to_start_drive;
         drop_distance_to_end <= drop_distance_to_end_drive;
+        drop_distance_to_start_drive <= drop_distance_to_start_drive2;
+        drop_distance_to_end_drive <= drop_distance_to_end_drive2;
         glyph_pixel <= glyph_bits(0);
         
         if hsync_in = '1' then
@@ -170,9 +173,9 @@ begin  -- rtl
           -- Update start/end of drop
           drop_start_drive <= to_integer(next_start(4 downto 0));
           drop_end_drive <= to_integer(next_end(4 downto 0));
-          drop_distance_to_end_drive <= to_unsigned(129 + drop_row - (frame_number - to_integer(next_start(4 downto 0)))
+          drop_distance_to_end_drive2 <= to_unsigned(129 + drop_row - (frame_number - to_integer(next_start(4 downto 0)))
                                                                 - to_integer(next_end(4 downto 0)),8);  
-          drop_distance_to_start_drive <= to_unsigned(129 + drop_row - (frame_number - to_integer(next_start(4 downto 0))),8);
+          drop_distance_to_start_drive2 <= to_unsigned(129 + drop_row - (frame_number - to_integer(next_start(4 downto 0))),8);
           
           -- Work out where drops stop and start
           -- Add 1, so that a start of 0 doesn't appear until 2nd
@@ -183,17 +186,6 @@ begin  -- rtl
           drop_start_plus_row_drive <= to_integer(next_start(4 downto 0)) + drop_row + 1;
           drop_start_plus_end_plus_row_drive
             <= to_integer(next_start(4 downto 0)) + to_integer(next_end(4 downto 0)) + drop_row + 1;
-          
-          -- Calculate the colour fade based on distance to end of tail
-          if next_end(4) = '1' then
-            fade_shift <= 3;
-          elsif next_end(3) = '1' then
-            fade_shift <= 2;
-          elsif next_end(2) = '1' then
-            fade_shift <= 1;
-          else
-            fade_shift <= 0;
-          end if;
           
 --          report "new drop start,end = "
 --            & integer'image(to_integer(next_start(4 downto 0))) & ","
@@ -250,22 +242,11 @@ begin  -- rtl
                 vgablue_out <= x"C0";
               when others =>
                 vgared_out <= (others => '0');
-                if drop_distance_to_end(6 downto fade_shift) > 8 then
-                  vgagreen_out <= (others => '1');
-                elsif drop_distance_to_end(6 downto fade_shift) > 4 then
-                  vgagreen_out(7) <= '0';
-                  vgagreen_out(6 downto 0) <= (others => '1');
-                elsif drop_distance_to_end(6 downto fade_shift) > 2 then
-                  vgagreen_out(7 downto 6) <= "00";
-                  vgagreen_out(5 downto 0) <= (others => '1');
-                else
-                  vgagreen_out(7 downto 5) <= "000";
-                  vgagreen_out(4 downto 0) <= (others => '1');
-                end if;
                 vgagreen_out(7 downto 3) <= drop_distance_to_end(4 downto 0);
                 vgagreen_out(2 downto 0) <= (others => '1');
                 vgablue_out <= (others => '0');
             end case;
+--            vgared_out <= (others => '1');
           else
             vgared_out <= (others => '0');
             vgagreen_out <= (others => '0');
