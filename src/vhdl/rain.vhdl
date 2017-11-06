@@ -203,10 +203,21 @@ begin  -- rtl
           end if;
       end case;
       
+      lfsr_reset(3 downto 0) <= "0000";
       if last_hsync = '1' and hsync_in = '0' then
         -- Horizontal fly-back
+        -- Reset LFSRs that generate the start/end values
+        if seed(15 downto 0) /= "00000000000000" then
+          lfsr_seed0(15 downto 2) <= seed(15 downto 2);
+        else
+          lfsr_seed0(15 downto 2) <= (others => '1');
+        end if;
+        lfsr_seed1(15 downto 2) <= seed(15 downto 2);
+        lfsr_seed0(1 downto 0) <= "00";
+        lfsr_seed1(1 downto 0) <= "01";
+        lfsr_reset(1 downto 0) <= "11";
         lfsr_advance_counter <= 31;
-        lfsr_advance(1 downto 0) <= "11";
+        lfsr_advance(1 downto 0) <= "11";        
       end if;
       if last_vsync = '1' and vsync_in = '0' then
         -- Vertical flyback = start of next frame
@@ -239,7 +250,6 @@ begin  -- rtl
         lfsr_advance(1 downto 0) <= "11";
         lfsr_advance_counter <= 31;
       else
-        lfsr_reset(3 downto 0) <= "0000";
         if lfsr_advance_counter /= 0 then
           lfsr_advance_counter <= lfsr_advance_counter - 1;
         elsif pixel_x_640 >= 639 then
