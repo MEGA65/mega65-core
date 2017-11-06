@@ -178,14 +178,14 @@ begin  -- rtl
           drop_distance_to_start_drive2 <= to_unsigned(129 + drop_row - (frame_number - to_integer(next_start(4 downto 0))),8);
           
           -- Work out where drops stop and start
-          -- Add 1, so that a start of 0 doesn't appear until 2nd
+          -- Add 2, so that a start of 0 doesn't appear until 2nd
           -- frame, so that there is no drip heads hanging around
           -- at the top of frame after rain has retracted (it never
           -- actually disappears, just retracts, as the rain actually
           -- forms a transition between normal and matrix mode displays).
-          drop_start_plus_row_drive <= to_integer(next_start(4 downto 0)) + drop_row + 1;
+          drop_start_plus_row_drive <= to_integer(next_start(4 downto 0)) + drop_row + 2;
           drop_start_plus_end_plus_row_drive
-            <= to_integer(next_start(4 downto 0)) + to_integer(next_end(4 downto 0)) + drop_row + 1;
+            <= to_integer(next_start(4 downto 0)) + to_integer(next_end(4 downto 0)) + drop_row + 2;
           
 --          report "new drop start,end = "
 --            & integer'image(to_integer(next_start(4 downto 0))) & ","
@@ -232,11 +232,11 @@ begin  -- rtl
             -- XXX make brightness decrease with position
 --            report "distance_to_start = $" & to_hstring(drop_distance_to_start);
             case drop_distance_to_start(6 downto 0) is
-              when "0000000" =>
+              when "1111111" =>
                 vgared_out <= x"FF";
                 vgagreen_out <= x"FF";
                 vgablue_out <= x"FF";
-              when "1111111" =>
+              when "1111110" =>
                 vgared_out <= x"C0";
                 vgagreen_out <= x"F0";
                 vgablue_out <= x"C0";
