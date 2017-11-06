@@ -103,24 +103,28 @@ architecture rtl of matrix_rain_compositor is
 begin  -- rtl
 
   lfsr0: entity work.lfsr16 port map (
+    name => "lfsr0",
     clock => pixelclock,
     reset => lfsr_reset(0),
     seed => lfsr_seed0,
     step => lfsr_advance(0),
     output => lfsr_out(0));
   lfsr1: entity work.lfsr16 port map (
+    name => "lfsr1",
     clock => pixelclock,
     reset => lfsr_reset(1),
     seed => lfsr_seed1,
     step => lfsr_advance(1),
     output => lfsr_out(1));
   lfsr2: entity work.lfsr16 port map (
+    name => "lfsr2",
     clock => pixelclock,
     reset => lfsr_reset(2),
     seed => lfsr_seed2,
     step => lfsr_advance(2),
     output => lfsr_out(2));
   lfsr3: entity work.lfsr16 port map (
+    name => "lfsr3",
     clock => pixelclock,
     reset => lfsr_reset(3),
     seed => lfsr_seed0,
@@ -136,12 +140,17 @@ begin  -- rtl
       last_vsync <= vsync_in;
 
       if pixel_x_640 /= last_pixel_x_640 then
-        if glyph_bit_count < 2 then
+        if hsync_in = '1' then
+          glyph_bit_count <= 0;
+        elsif glyph_bit_count < 2 then
           -- Request next glyph
           --
           -- Update start/end of drop
           drop_start <= to_integer(next_start(4 downto 0));
           drop_end <= to_integer(next_end(4 downto 0));
+--          report "new drop start,end = "
+--            & integer'image(to_integer(next_start(4 downto 0))) & ","
+--            & integer'image(to_integer(next_end(4 downto 0)));
           glyph_bit_count <= 8;
         else
           -- Shift bits down for rain chargen
@@ -204,7 +213,7 @@ begin  -- rtl
       end case;
       
       lfsr_reset(3 downto 0) <= "0000";
-      if last_hsync = '1' and hsync_in = '0' then
+      if last_hsync = '0' and hsync_in = '1' then
         -- Horizontal fly-back
         -- Reset LFSRs that generate the start/end values
         if seed(15 downto 0) /= "00000000000000" then
@@ -252,7 +261,7 @@ begin  -- rtl
       else
         if lfsr_advance_counter /= 0 then
           lfsr_advance_counter <= lfsr_advance_counter - 1;
-        elsif pixel_x_640 >= 639 then
+        elsif hsync_in = '1' then
           lfsr_advance(3 downto 0) <= "0000";
         else
           -- Collect bits to form start and end of rain and glyph
