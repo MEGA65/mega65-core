@@ -67,7 +67,7 @@ architecture rtl of matrix_rain_compositor is
   signal state : unsigned(15 downto 0) := (others => '1');
   type feed_t is (Normal,Rain,Matrix);
   signal feed : feed_t := Normal;
-  signal frame_number : integer range 0 to 127 := 30;
+  signal frame_number : integer range 0 to 127 := 0;
   signal lfsr_advance_counter : integer range 0 to 31 := 0;
   signal last_hsync : std_logic := '1';
   signal last_vsync : std_logic := '1';
@@ -92,9 +92,9 @@ architecture rtl of matrix_rain_compositor is
   signal drop_distance_to_end_drive2 : unsigned(7 downto 0) := x"00";
   signal drop_distance_to_start_drive2 : unsigned(7 downto 0) := x"00";
   
-  signal vgared_matrix : unsigned(7 downto 0) := x"7f";
-  signal vgagreen_matrix : unsigned(7 downto 0) := x"7f";
-  signal vgablue_matrix : unsigned(7 downto 0) := x"7f";
+  signal vgared_matrix : unsigned(7 downto 0) := x"00";
+  signal vgagreen_matrix : unsigned(7 downto 0) := x"00";
+  signal vgablue_matrix : unsigned(7 downto 0) := x"00";
 
   signal lfsr_reset : std_logic_vector(3 downto 0) := "0000";
   signal lfsr_out : std_logic_vector(3 downto 0) := "0000";
