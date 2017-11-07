@@ -344,10 +344,10 @@ void process_file(int mode, char *outputfilename)
 	
 	for (x=0; x<width; x++) {
 	  png_byte* ptr = &(row[x*multiplier]);
-	  int r=ptr[0]; // g=ptr[1],b=ptr[2], a=ptr[3];
+	  int r=ptr[0],g=ptr[1],b=ptr[2]; //, a=ptr[3];
 	  
 	  if (x<8) {
-	    if (r>0x7f) {
+	    if (r>0x7f||g>0x7f||b>0x7f) {
 	      byte|=(1<<(7-x));
 	      spots[yy][x]=1;
 	    } else spots[yy][x]=0;
