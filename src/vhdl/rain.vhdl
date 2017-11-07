@@ -167,13 +167,35 @@ begin  -- rtl
         drop_distance_to_end <= drop_distance_to_end_drive;
         drop_distance_to_start_drive <= drop_distance_to_start_drive2(7 downto 0);
         drop_distance_to_end_drive <= drop_distance_to_end_drive2(7 downto 0);
-        glyph_pixel <= glyph_bits(0);
+        glyph_pixel <= glyph_bits(7);
         
         if hsync_in = '1' then
           glyph_bit_count <= 0;
         elsif glyph_bit_count < 2 then
           -- Request next glyph
-          --
+
+          -- Copy out pixels from last glyph read
+ --         if next_glyph(9)='1' then
+            -- horizontal flip
+            for i in 0 to 7 loop
+              glyph_bits(i) <= std_logic(matrix_rdata(7-i));
+            end loop;      
+--          else
+--            glyph_bits <= std_logic_vector(matrix_rdata);
+--          end if;
+
+          -- Request next glyph to be read
+          matrix_fetch_address(10 downto 3) <= x"41";
+--            <= next_glyph(7 downto 0);
+--          if next_glyph(8)='1' then
+--            -- vertical flip
+--            matrix_fetch_address(2 downto 0)
+--              <= not ycounter_in(2 downto 0);
+--          else
+            matrix_fetch_address(2 downto 0)
+              <= ycounter_in(2 downto 0);
+--          end if;                            
+          
           -- Update start/end of drop
           drop_start_drive <= to_integer(next_start(4 downto 0));
           drop_end_drive <= to_integer(next_end(4 downto 0));
@@ -196,10 +218,9 @@ begin  -- rtl
 --            & integer'image(to_integer(next_end(4 downto 0)));
           glyph_bit_count <= 8;
         else
-          -- Shift bits down for rain chargen
+          -- rotate bits for rain chargen
           glyph_bits(6 downto 0) <= glyph_bits(7 downto 1);
-          -- XXX for now keep filling with 1s for testing
-          glyph_bits(7) <= '1';
+          glyph_bits(7) <= glyph_bits(0);
 
           glyph_bit_count <= glyph_bit_count - 1;
         end if;
