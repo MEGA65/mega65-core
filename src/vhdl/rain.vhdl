@@ -16,6 +16,9 @@ entity matrix_rain_compositor is
 
     -- Whether matrix mode should be displayed or not
     matrix_mode_enable : in std_logic;
+
+    -- Green matrix mode or lava secure mode
+    secure_mode_flag : in std_logic;
     
     -- Matrix mode resolution selection:
     -- For 800x480, these are:
@@ -278,14 +281,27 @@ begin  -- rtl
                 vgagreen_out <= x"FF";
                 vgablue_out <= x"FF";
               when "1111110" =>
-                vgared_out <= x"C0";
-                vgagreen_out <= x"F0";
-                vgablue_out <= x"C0";
+                if secure_mode_flag = '0' then
+                  vgared_out <= x"C0";
+                  vgagreen_out <= x"F0";
+                  vgablue_out <= x"C0";
+                else
+                  vgared_out <= x"F0";
+                  vgagreen_out <= x"F0";
+                  vgablue_out <= x"C0";
+                end if;
               when others =>
-                vgared_out <= (others => '0');
-                vgagreen_out(7 downto 2) <= drop_distance_to_end(5 downto 0);
-                vgagreen_out(1 downto 0) <= (others => '1');
-                vgablue_out <= (others => '0');
+                if secure_mode_flag = '0' then
+                  vgared_out <= (others => '0');
+                  vgagreen_out(7 downto 2) <= drop_distance_to_end(5 downto 0);
+                  vgagreen_out(1 downto 0) <= (others => '1');
+                  vgablue_out <= (others => '0');
+                else
+                  vgared_out <= (others => '1');
+                  vgagreen_out(7 downto 2) <= drop_distance_to_end(5 downto 0);
+                  vgagreen_out(1 downto 0) <= (others => '1');
+                  vgablue_out <= (others => '0');
+                end if;
             end case;
 --            vgared_out <= (others => '1');
           else

@@ -54,6 +54,7 @@ begin
       clk => pixelclock,
       pixelclock => pixelclock,
       matrix_mode_enable => '1',
+      secure_mode_flag => '1',
 
       matrix_fetch_address => matrix_fetch_address,
       matrix_rdata => matrix_rdata,
