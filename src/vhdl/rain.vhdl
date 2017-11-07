@@ -180,10 +180,10 @@ begin  -- rtl
           -- Copy out pixels from last glyph read
           if xflip='0' then
             -- horizontal flip
-            for i in 1 to 7 loop
-              glyph_bits(i) <= std_logic(matrix_rdata(8-i));
+            for i in 0 to 7 loop
+              glyph_bits(i) <= std_logic(matrix_rdata(7-i));
             end loop;
-            glyph_bits(0) <= std_logic(matrix_rdata(0));
+--            glyph_bits(0) <= std_logic(matrix_rdata(0));
           else
             glyph_bits <= std_logic_vector(matrix_rdata);
           end if;
