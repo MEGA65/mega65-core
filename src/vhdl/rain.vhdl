@@ -185,8 +185,10 @@ begin  -- rtl
           end if;
 
           -- Request next glyph to be read
-          matrix_fetch_address(10 downto 3)
-            <= next_glyph(7 downto 0);
+          matrix_fetch_address(11 downto 10) <= "00"; -- First 128 chars only,
+                                                      -- since font lacks others
+          matrix_fetch_address(9 downto 3)
+            <= next_glyph(6 downto 0);
           if next_glyph(8)='1' then
             -- vertical flip
             matrix_fetch_address(2 downto 0)
