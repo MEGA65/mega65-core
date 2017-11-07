@@ -71,7 +71,7 @@ architecture rtl of matrix_rain_compositor is
   signal state : unsigned(15 downto 0) := (others => '1');
   type feed_t is (Normal,Rain,Matrix);
   signal feed : feed_t := Normal;
-  signal frame_number : integer range 0 to 127 := 0;
+  signal frame_number : integer range 0 to 127 := 50;
   signal lfsr_advance_counter : integer range 0 to 31 := 0;
   signal last_hsync : std_logic := '1';
   signal last_vsync : std_logic := '1';
@@ -115,7 +115,7 @@ architecture rtl of matrix_rain_compositor is
   signal glyph_bit_count : integer range 0 to 8 := 0;
   signal glyph_bits : std_logic_vector(7 downto 0) := x"FF";
   signal glyph_pixel : std_logic := '0';
-
+  signal xflip : std_logic := '0';
   
 begin  -- rtl
 
@@ -175,28 +175,42 @@ begin  -- rtl
           -- Request next glyph
 
           -- Copy out pixels from last glyph read
-          if next_glyph(9)='1' then
+          if xflip='0' then
             -- horizontal flip
-            for i in 0 to 7 loop
-              glyph_bits(i) <= std_logic(matrix_rdata(7-i));
-            end loop;      
+            for i in 1 to 7 loop
+              glyph_bits(i) <= std_logic(matrix_rdata(8-i));
+            end loop;
+            glyph_bits(0) <= std_logic(matrix_rdata(0));
           else
             glyph_bits <= std_logic_vector(matrix_rdata);
           end if;
 
           -- Request next glyph to be read
-          matrix_fetch_address(11 downto 10) <= "00"; -- First 128 chars only,
-                                                      -- since font lacks others
-          matrix_fetch_address(9 downto 3)
-            <= next_glyph(6 downto 0);
-          if next_glyph(8)='1' then
-            -- vertical flip
-            matrix_fetch_address(2 downto 0)
-              <= not ycounter_in(2 downto 0);
+          -- Matrix glyphs are at $0E00-$0EFF
+          -- Digits are at $30 x $08 = $180-$1DF
+          -- We want circa 1/10th digits, and 9/10s matrix glyphs
+          -- Digits have 10, which is not a power of two, and so is a bit
+          -- annoying.  We can break it down into 8 + 2 digits, however,
+          -- where the 8 digits should get picked 4x more often than the other
+          -- 2.
+          if next_glyph(9 downto 7) = "001" then
+            -- Digits 0 - 7
+            xflip <= '1';
+            matrix_fetch_address(11 downto 6) <= "000110";
+            matrix_fetch_address(5 downto 3) <= next_glyph(2 downto 0);
+          elsif next_glyph(9 downto 5) = "00001" then
+            -- Digits 8 - 9 @ char $38-$39 = 
+            xflip <= '1';
+            matrix_fetch_address(11 downto 5) <= "0001110";
+            matrix_fetch_address(4 downto 3) <= next_glyph(1 downto 0);
           else
-            matrix_fetch_address(2 downto 0)
-              <= ycounter_in(2 downto 0);
-          end if;                            
+            -- Matrix glyph
+            xflip <= '0';
+            matrix_fetch_address(11 downto 8) <= x"E";
+            matrix_fetch_address(7 downto 3) <= next_glyph(4 downto 0);
+          end if;
+          -- Position within glyph
+          matrix_fetch_address(2 downto 0) <= ycounter_in(2 downto 0);
           
           -- Update start/end of drop
           drop_start_drive <= to_integer(next_start(4 downto 0));
