@@ -175,26 +175,26 @@ begin  -- rtl
           -- Request next glyph
 
           -- Copy out pixels from last glyph read
- --         if next_glyph(9)='1' then
+          if next_glyph(9)='1' then
             -- horizontal flip
             for i in 0 to 7 loop
               glyph_bits(i) <= std_logic(matrix_rdata(7-i));
             end loop;      
---          else
---            glyph_bits <= std_logic_vector(matrix_rdata);
---          end if;
+          else
+            glyph_bits <= std_logic_vector(matrix_rdata);
+          end if;
 
           -- Request next glyph to be read
-          matrix_fetch_address(10 downto 3) <= x"41";
---            <= next_glyph(7 downto 0);
---          if next_glyph(8)='1' then
---            -- vertical flip
---            matrix_fetch_address(2 downto 0)
---              <= not ycounter_in(2 downto 0);
---          else
+          matrix_fetch_address(10 downto 3)
+            <= next_glyph(7 downto 0);
+          if next_glyph(8)='1' then
+            -- vertical flip
+            matrix_fetch_address(2 downto 0)
+              <= not ycounter_in(2 downto 0);
+          else
             matrix_fetch_address(2 downto 0)
               <= ycounter_in(2 downto 0);
---          end if;                            
+          end if;                            
           
           -- Update start/end of drop
           drop_start_drive <= to_integer(next_start(4 downto 0));
@@ -292,8 +292,10 @@ begin  -- rtl
         lfsr_seed0(1 downto 0) <= "00";
         lfsr_seed1(1 downto 0) <= "01";
         lfsr_reset(1 downto 0) <= "11";
+--        lfsr_reset(3 downto 0) <= "1111";
         lfsr_advance_counter <= 31;
         lfsr_advance(1 downto 0) <= "11";        
+--        lfsr_advance(3 downto 0) <= "1111";        
       end if;
       if last_vsync = '1' and vsync_in = '0' then
         -- Vertical flyback = start of next frame
@@ -322,9 +324,9 @@ begin  -- rtl
         lfsr_seed1(1 downto 0) <= "01";
         lfsr_seed2(1 downto 0) <= "10";
         lfsr_seed3(1 downto 0) <= "11";
-        lfsr_reset(1 downto 0) <= "11";
-        lfsr_advance(1 downto 0) <= "11";
-        lfsr_advance_counter <= 31;
+        lfsr_reset(3 downto 0) <= "1111";
+        lfsr_advance(3 downto 2) <= "11";
+        lfsr_advance_counter <= frame_number;
       else
         if lfsr_advance_counter /= 0 then
           lfsr_advance_counter <= lfsr_advance_counter - 1;
