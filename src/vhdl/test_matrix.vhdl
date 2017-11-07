@@ -28,6 +28,9 @@ architecture behavioral of test_matrix is
   signal vgagreen_out : unsigned (7 downto 0);
   signal vgablue_out : unsigned (7 downto 0);
 
+  signal matrix_fetch_address : unsigned(11 downto 0);
+  signal matrix_rdata : unsigned(7 downto 0);
+  
   signal char_in : unsigned(7 downto 0) := x"00";
   signal char_valid : std_logic := '0';
   signal term_ready : std_logic;
@@ -50,7 +53,11 @@ begin
       vsync_in => vsync,
       clk => pixelclock,
       pixelclock => pixelclock,
-      matrix_mode_enable => '1',      
+      matrix_mode_enable => '1',
+
+      matrix_fetch_address => matrix_fetch_address,
+      matrix_rdata => matrix_rdata,
+      
       vgared_in => vgared_in,
       vgagreen_in => vgagreen_in,
       vgablue_in => vgablue_in,
@@ -67,6 +74,10 @@ begin
     y_start => to_unsigned(0,12),
     x_start => to_unsigned(0,12),
     pixelclock => pixelclock,
+
+    matrix_fetch_address => matrix_fetch_address,
+    matrix_rdata => matrix_rdata,  
+
     visual_keyboard_enable => '0',
     keyboard_at_top => '0',
     alternate_keyboard => '0',

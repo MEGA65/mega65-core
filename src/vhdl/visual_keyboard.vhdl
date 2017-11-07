@@ -21,6 +21,10 @@ entity visual_keyboard is
     key3 : in unsigned(7 downto 0);    
     key4 : in unsigned(7 downto 0);
 
+    -- memory access interface for matrix mode to read charrom
+    matrix_fetch_address : in unsigned(11 downto 0);
+    matrix_rdata : out unsigned(7 downto 0);
+    
     -- Touch interface
     touch1_valid : in std_logic;
     touch1_x : in unsigned(13 downto 0);
@@ -115,6 +119,7 @@ architecture behavioural of visual_keyboard is
     FetchAltStartLow,
     FetchAltStartHigh,
     FetchIdle,
+    MatrixFetch,
     CharFetch,
     FetchCharData,
     GotCharData,
@@ -429,8 +434,17 @@ begin
               address <= current_address;
               current_address <= current_address + 1;
               fetch_state <= CharFetch;
-            end if;          
+            end if;
+          else
+            -- Otherwise, if nothing else to do, service any
+            -- requests from the Matrix Mode compositor
+            -- (it uses our character set memory)
+            address <= to_integer(matrix_fetch_address);
+            fetch_state <= MatrixFetch;
           end if;
+        when MatrixFetch =>
+          matrix_rdata <= rdata;
+          fetch_state <= FetchIdle;
         when CharFetch =>
           if rdata(7 downto 0) = x"0a" then
             -- new line -- nothing more new this line,

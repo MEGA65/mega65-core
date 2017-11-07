@@ -41,7 +41,11 @@ entity matrix_rain_compositor is
     pixel_x_640 : in integer;
     pixel_x_640_out : out integer;
     
-
+    -- Remote memory access interface to visual keyboard for
+    -- character set.
+    matrix_fetch_address : out unsigned(11 downto 0) := x"000";
+    matrix_rdata : in unsigned(7 downto 0);
+    
     -- Seed for matrix rain randomisation
     seed   : in  unsigned(15 downto 0);
 
