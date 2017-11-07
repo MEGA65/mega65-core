@@ -291,11 +291,13 @@ begin  -- rtl
         lfsr_seed1(15 downto 2) <= seed(15 downto 2);
         lfsr_seed0(1 downto 0) <= "00";
         lfsr_seed1(1 downto 0) <= "01";
+        lfsr_seed2(15 downto 2) <= to_unsigned(128+to_integer(seed(15 downto 2))+drop_row-frame_number,14);
+        lfsr_seed3(15 downto 2) <= to_unsigned(128+to_integer(seed(15 downto 2))+drop_row-frame_number,14);
         lfsr_reset(1 downto 0) <= "11";
---        lfsr_reset(3 downto 0) <= "1111";
+        lfsr_reset(3 downto 0) <= "1111";
         lfsr_advance_counter <= 31;
         lfsr_advance(1 downto 0) <= "11";        
---        lfsr_advance(3 downto 0) <= "1111";        
+        lfsr_advance(3 downto 0) <= "1111";        
       end if;
       if last_vsync = '1' and vsync_in = '0' then
         -- Vertical flyback = start of next frame
@@ -325,8 +327,9 @@ begin  -- rtl
         lfsr_seed2(1 downto 0) <= "10";
         lfsr_seed3(1 downto 0) <= "11";
         lfsr_reset(3 downto 0) <= "1111";
-        lfsr_advance(3 downto 2) <= "11";
-        lfsr_advance_counter <= frame_number;
+--        lfsr_advance(3 downto 2) <= "11";
+--        lfsr_advance_counter <= frame_number;
+        lfsr_advance_counter <= 0;
       else
         if lfsr_advance_counter /= 0 then
           lfsr_advance_counter <= lfsr_advance_counter - 1;
