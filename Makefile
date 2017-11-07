@@ -180,7 +180,11 @@ MMFILES=$(VHDLSRCDIR)/test_matrix.vhdl \
 	$(VHDLSRCDIR)/rain.vhdl \
 	$(VHDLSRCDIR)/lfsr16.vhdl \
 	$(VHDLSRCDIR)/uart_charrom.vhdl \
-	$(VHDLSRCDIR)/terminalemulator.vhdl
+	$(VHDLSRCDIR)/terminalemulator.vhdl \
+	$(VHDLSRCDIR)/test_osk.vhdl \
+	$(VHDLSRCDIR)/visual_keyboard.vhdl \
+	$(VHDLSRCDIR)/oskmem.vhdl
+
 mmsimulate:	$(MMFILES) $(TOOLDIR)/osk_image
 	ghdl -i $(MMFILES)
 	ghdl -m test_matrix

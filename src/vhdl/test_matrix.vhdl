@@ -58,7 +58,35 @@ begin
       vgagreen_out => vgagreen_out,
       vgablue_out => vgablue_out
     );
+  
+  vk0: entity work.visual_keyboard port map (
+    pixel_x_640_in => pixel_x_640,
+    pixel_y_scale_200 => to_unsigned(2,4),
+    pixel_y_scale_400 => to_unsigned(1,4),
+    ycounter_in => ycounter_in,
+    y_start => to_unsigned(0,12),
+    x_start => to_unsigned(0,12),
+    pixelclock => pixelclock,
+    visual_keyboard_enable => '0',
+    keyboard_at_top => '0',
+    alternate_keyboard => '0',
+    instant_at_top => '0',
+    key1 => x"00",
+    key2 => x"00",
+    key3 => x"00",
+    key4 => x"00",
+    touch1_valid => '0',
+    touch1_x => to_unsigned(0,14),
+    touch1_y => to_unsigned(0,12),
+    touch2_valid => '0',
+    touch2_x => to_unsigned(0,14),
+    touch2_y => to_unsigned(0,12),
 
+    vgared_in => vgared_out,
+    vgagreen_in => vgagreen_out,
+    vgablue_in => vgablue_out
+    );
+  
   process
     procedure type_char(char : character) is
     begin
