@@ -761,6 +761,7 @@ architecture Behavioral of viciv is
   signal pixel_is_sprite : std_logic;
 
   signal sprite_fetch_drive : std_logic := '0';
+  signal sprite_fetch_col_drive : std_logic := '0';
   signal sprite_fetch_sprite_number : integer range 0 to 31;
   signal sprite_fetch_byte_number : integer range 0 to 319;
   signal sprite_fetch_sprite_number_drive : integer range 0 to 31;
@@ -4326,6 +4327,13 @@ begin
           -- the data will be available in ramdata_drive
           sprite_fetch_drive <= '1';
 
+          -- is 1f800
+          if sprite_data_address(16 downto 11) = "111111"  then
+            sprite_fetch_col_drive <= '1';
+          else
+            sprite_fetch_col_drive <= '0';
+          end if;
+
           sprite_fetch_byte_number_drive <= sprite_fetch_byte_number;
           sprite_fetch_sprite_number_drive <= sprite_fetch_sprite_number;
           
@@ -4352,7 +4360,11 @@ begin
         sprite_datavalid <= '1';
         sprite_spritenumber <= sprite_fetch_sprite_number_drive;
         sprite_bytenumber <= sprite_fetch_byte_number_drive;
-        sprite_data_byte <= ramdata_drive;
+        if sprite_fetch_col_drive = '1' then
+            sprite_data_byte <= 0;
+        else
+            sprite_data_byte <= ramdata_drive;
+        end if;
       end if;
       
       raster_buffer_write <= '0';
