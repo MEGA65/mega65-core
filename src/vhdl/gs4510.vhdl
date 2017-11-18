@@ -2107,9 +2107,23 @@ begin
 
       
       if real_long_address(27 downto 12) = x"001F" and real_long_address(11)='1' then
-        -- colour ram access: remap to $FF80000 - $FF807FF
+	-- Colour RAM writing is complex! we have to write also to chip and
+        -- shadow RAM.
+
+	-- Write to shadow RAM
+        shadow_write <= '1';
+        rom_write <= '0';
+        shadow_write_flags(3) <= '1';
+
+        -- Write to CHIP RAM
+        chipram_address <= long_address(16 downto 0);
+        chipram_we <= '1';
+        chipram_datain <= value;
+        report "writing to chipram..." severity note;
+        
+        -- Then remap to colour ram access: remap to $FF80000 - $FF807FF
         long_address := x"FF80"&'0'&real_long_address(10 downto 0);
-		  
+
       elsif real_long_address(27 downto 16) = x"7F4" then
 		  long_address := x"FF80"&'0'&real_long_address(10 downto 0);
       else
