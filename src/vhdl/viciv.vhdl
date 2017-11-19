@@ -2890,10 +2890,15 @@ begin
       --chardata_drive <= unsigned(chardata);
       --paint_chardata <= chardata_drive;
       paint_chardata <= unsigned(chardata);
-      ramdata_drive <= ramdata;
+      if sprite_fetch_col_drive = '1' then
+          ramdata_drive <= colourramdata;
+      else
+          ramdata_drive <= ramdata;
+      end if;
       paint_ramdata <= ramdata_drive;
 
       sprite_fetch_drive <= '0';
+      sprite_fetch_col_drive <= '0';
       
       -- Add new sprite colission bits to the bitmap
       case vicii_sprite_sprite_colission_map is
@@ -4330,6 +4335,7 @@ begin
           -- is 1f800
           if sprite_data_address(16 downto 11) = "111111"  then
             sprite_fetch_col_drive <= '1';
+            colourramaddress <= sprite_data_address(15 downto 0);
           else
             sprite_fetch_col_drive <= '0';
           end if;
@@ -4360,12 +4366,7 @@ begin
         sprite_datavalid <= '1';
         sprite_spritenumber <= sprite_fetch_sprite_number_drive;
         sprite_bytenumber <= sprite_fetch_byte_number_drive;
-        if sprite_fetch_col_drive = '1' then
-            --sprite_data_byte <= 0;
-            sprite_data_byte <= ramdata_drive;
-        else
-            sprite_data_byte <= ramdata_drive;
-        end if;
+        sprite_data_byte <= ramdata_drive;
       end if;
       
       raster_buffer_write <= '0';
