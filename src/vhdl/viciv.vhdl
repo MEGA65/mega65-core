@@ -4361,7 +4361,8 @@ begin
         sprite_spritenumber <= sprite_fetch_sprite_number_drive;
         sprite_bytenumber <= sprite_fetch_byte_number_drive;
         if sprite_fetch_col_drive = '1' then
-            sprite_data_byte <= 0;
+            --sprite_data_byte <= 0;
+            sprite_data_byte <= ramdata_drive;
         else
             sprite_data_byte <= ramdata_drive;
         end if;
