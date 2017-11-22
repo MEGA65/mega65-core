@@ -130,6 +130,7 @@ architecture rtl of matrix_rain_compositor is
 
   signal fetch_next_char : std_logic := '0';
   signal char_screen_address : unsigned(11 downto 0) := to_unsigned(0,12);
+  signal line_screen_address : unsigned(11 downto 0) := to_unsigned(0,12);
   signal char_ycounter : unsigned(11 downto 0) := to_unsigned(0,12);
   
 begin  -- rtl
@@ -181,47 +182,32 @@ begin  -- rtl
         -- char to display, and then also fetch the row of char
         -- data.  A complication is that we have to deal with
         -- contention on the BRAM interface, so we ideally need to
-        -- sequence the requests a little carefully. 
+        -- sequence the requests a little carefully.
+        fetch_next_char <= '0';
         if hsync_in = '1' then
           char_bit_count <= 0;
+          -- reset fetch address to start of line, unless
+          -- we are advancing to next line
+          -- XXX doesn't yet support double-high chars
+          if char_ycounter /= 7 then
+            char_screen_address <= line_screen_address - 1;
+            char_ycounter <= char_ycounter + 1;
+          else
+            char_screen_address <= line_screen_address + 80;
+            char_ycounter <= to_unsigned(0,12);
+          end if;
         elsif char_bit_count < 2 then
           -- Request next character
           char_bits <= std_logic_vector(next_char_bits);
+          char_screen_address <= char_screen_address + 1;
+          fetch_next_char <= '1';
+          char_bit_count <= 8;
+        else
+          -- rotate bits for terminal chargen
+          char_bits(6 downto 0) <= char_bits(7 downto 1);
+          char_bits(7) <= char_bits(0);
+          char_bit_count <= char_bit_count - 1;
         end if; 
-
-        if matrix_fetch_chardata = '1' then
-          next_char_bits <= std_logic_vector(matrix_rdata);
-        end if;
-        if matrix_fetch_glyphdata = '1' then
-          next_glyph_bits <= std_logic_vector(matrix_rdata);
-        end if;
-
-        -- Matrix Rain display
-        drop_start_plus_row <= drop_start_plus_row_drive;
-        drop_start_plus_end_plus_row <= drop_start_plus_end_plus_row_drive;
-        drop_start <= drop_start_drive;
-        drop_end <= drop_end_drive;
-        drop_distance_to_start <= drop_distance_to_start_drive;
-        drop_distance_to_end <= drop_distance_to_end_drive;
-        drop_distance_to_start_drive <= drop_distance_to_start_drive2(7 downto 0);
-        drop_distance_to_end_drive <= drop_distance_to_end_drive2(7 downto 0);
-        glyph_pixel <= glyph_bits(7);
-        
-        if hsync_in = '1' then
-          glyph_bit_count <= 0;
-        elsif glyph_bit_count < 2 then
-          -- Request next glyph
-
-          -- Copy out pixels from last glyph read
-          if xflip='0' then
-            -- horizontal flip
-            for i in 0 to 7 loop
-              glyph_bits(i) <= std_logic(matrix_rdata(7-i));
-            end loop;
---            glyph_bits(0) <= std_logic(matrix_rdata(0));
-          else
-            glyph_bits <= std_logic_vector(next_glyph_bits);
-          end if;
 
           -- Request next glyph to be read
           -- Matrix glyphs are at $0E00-$0EFF
@@ -238,6 +224,7 @@ begin  -- rtl
             matrix_fetch_chardata <= '0';
 
             matrix_fetch_address <= char_screen_address;
+--            report "Fetching character at address $" & to_hstring(char_screen_address);
             
           elsif matrix_fetch_screendata = '1' then
             -- Read byte of character to display
@@ -273,6 +260,41 @@ begin  -- rtl
             matrix_fetch_address(2 downto 0) <= ycounter_in(2 downto 0);
           end if;
           
+        if matrix_fetch_chardata = '1' then
+          next_char_bits <= std_logic_vector(matrix_rdata);
+--          report "next char bits = $" & to_hstring(matrix_rdata);
+        end if;
+        if matrix_fetch_glyphdata = '1' then
+          next_glyph_bits <= std_logic_vector(matrix_rdata);
+        end if;
+
+        -- Matrix Rain display
+        drop_start_plus_row <= drop_start_plus_row_drive;
+        drop_start_plus_end_plus_row <= drop_start_plus_end_plus_row_drive;
+        drop_start <= drop_start_drive;
+        drop_end <= drop_end_drive;
+        drop_distance_to_start <= drop_distance_to_start_drive;
+        drop_distance_to_end <= drop_distance_to_end_drive;
+        drop_distance_to_start_drive <= drop_distance_to_start_drive2(7 downto 0);
+        drop_distance_to_end_drive <= drop_distance_to_end_drive2(7 downto 0);
+        glyph_pixel <= glyph_bits(7);
+        
+        if hsync_in = '1' then
+          glyph_bit_count <= 0;
+        elsif glyph_bit_count < 2 then
+          -- Request next glyph
+
+          -- Copy out pixels from last glyph read
+          if xflip='0' then
+            -- horizontal flip
+            for i in 0 to 7 loop
+              glyph_bits(i) <= std_logic(matrix_rdata(7-i));
+            end loop;
+--            glyph_bits(0) <= std_logic(matrix_rdata(0));
+          else
+            glyph_bits <= std_logic_vector(next_glyph_bits);
+          end if;
+
           -- Update start/end of drop
           drop_start_drive <= to_integer(next_start(4 downto 0));
           drop_end_drive <= to_integer(next_end(4 downto 0));
@@ -323,9 +345,18 @@ begin  -- rtl
         when Matrix =>
           -- Matrix mode, so display the matrix mode text mode that we
           -- generate here.
-          vgared_out <= vgared_matrix;
-          vgagreen_out <= vgagreen_matrix;
-          vgablue_out <= vgablue_matrix;
+--          vgared_out <= vgared_matrix;
+--          vgagreen_out <= vgagreen_matrix;
+--          vgablue_out <= vgablue_matrix;
+          if char_bits(7) = '1' then
+            vgared_out <= (others => '0');
+            vgagreen_out <= (others => '1');
+            vgablue_out <= (others => '0');
+          else
+            vgared_out <= (others => '0');
+            vgagreen_out <= (others => '0');
+            vgablue_out <= (others => '0');
+          end if;
         when Rain =>
           -- Matrix rain drop, so display a random character in green on
           -- black.
@@ -391,6 +422,8 @@ begin  -- rtl
       end if;
       if last_vsync = '1' and vsync_in = '0' then
         -- Vertical flyback = start of next frame
+        line_screen_address <= to_unsigned(0,12);
+        char_screen_address <= to_unsigned(0,12);
         if matrix_mode_enable = '1' and frame_number < 127 then
           frame_number <= frame_number + 1;
           report "frame_number incrementing to "
