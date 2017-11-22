@@ -117,8 +117,20 @@ architecture rtl of matrix_rain_compositor is
 
   signal glyph_bit_count : integer range 0 to 8 := 0;
   signal glyph_bits : std_logic_vector(7 downto 0) := x"FF";
+  signal next_glyph_bits : std_logic_vector(7 downto 0) := x"FF";
   signal glyph_pixel : std_logic := '0';
   signal xflip : std_logic := '0';
+
+  signal char_bit_count : integer range 0 to 8 := 0;
+  signal char_bits : std_logic_vector(7 downto 0) := x"FF";
+  signal next_char_bits : std_logic_vector(7 downto 0) := x"FF";
+  signal matrix_fetch_screendata : std_logic := '0';
+  signal matrix_fetch_chardata : std_logic := '0';
+  signal matrix_fetch_glyphdata : std_logic := '0';
+
+  signal fetch_next_char : std_logic := '0';
+  signal char_screen_address : unsigned(11 downto 0) := to_unsigned(0,12);
+  signal char_ycounter : unsigned(11 downto 0) := to_unsigned(0,12);
   
 begin  -- rtl
 
@@ -160,8 +172,31 @@ begin  -- rtl
       last_vsync <= vsync_in;
 
       drop_row <= to_integer(ycounter_in(10 downto 3));
-      
+
+      -- This module must draw the matrix rain, as well as the matrix mode text
+      -- mode terminal interface.
       if pixel_x_640 /= last_pixel_x_640 then
+        -- Text terminal display
+        -- We need to read the current char cell to know which
+        -- char to display, and then also fetch the row of char
+        -- data.  A complication is that we have to deal with
+        -- contention on the BRAM interface, so we ideally need to
+        -- sequence the requests a little carefully. 
+        if hsync_in = '1' then
+          char_bit_count <= 0;
+        elsif char_bit_count < 2 then
+          -- Request next character
+          char_bits <= std_logic_vector(next_char_bits);
+        end if; 
+
+        if matrix_fetch_chardata = '1' then
+          next_char_bits <= std_logic_vector(matrix_rdata);
+        end if;
+        if matrix_fetch_glyphdata = '1' then
+          next_glyph_bits <= std_logic_vector(matrix_rdata);
+        end if;
+
+        -- Matrix Rain display
         drop_start_plus_row <= drop_start_plus_row_drive;
         drop_start_plus_end_plus_row <= drop_start_plus_end_plus_row_drive;
         drop_start <= drop_start_drive;
@@ -185,7 +220,7 @@ begin  -- rtl
             end loop;
 --            glyph_bits(0) <= std_logic(matrix_rdata(0));
           else
-            glyph_bits <= std_logic_vector(matrix_rdata);
+            glyph_bits <= std_logic_vector(next_glyph_bits);
           end if;
 
           -- Request next glyph to be read
@@ -196,24 +231,47 @@ begin  -- rtl
           -- annoying.  We can break it down into 8 + 2 digits, however,
           -- where the 8 digits should get picked 4x more often than the other
           -- 2.
-          if next_glyph(9 downto 7) = "001" then
-            -- Digits 0 - 7
-            xflip <= '1';
-            matrix_fetch_address(11 downto 6) <= "000110";
-            matrix_fetch_address(5 downto 3) <= next_glyph(2 downto 0);
-          elsif next_glyph(9 downto 5) = "00001" then
-            -- Digits 8 - 9 @ char $38-$39 = 
-            xflip <= '1';
-            matrix_fetch_address(11 downto 5) <= "0001110";
-            matrix_fetch_address(4 downto 3) <= next_glyph(1 downto 0);
+          if fetch_next_char = '1' then
+            -- Read screen data byte so we know which char to display
+            matrix_fetch_glyphdata <= '0';
+            matrix_fetch_screendata <= '1';
+            matrix_fetch_chardata <= '0';
+
+            matrix_fetch_address <= char_screen_address;
+            
+          elsif matrix_fetch_screendata = '1' then
+            -- Read byte of character to display
+            matrix_fetch_glyphdata <= '0';
+            matrix_fetch_screendata <= '0';
+            matrix_fetch_chardata <= '1';
+            matrix_fetch_address(11) <= '0';
+            matrix_fetch_address(10 downto 3) <= matrix_rdata;
+            matrix_fetch_address(2 downto 0) <= char_ycounter(2 downto 0);
           else
-            -- Matrix glyph
-            xflip <= '0';
-            matrix_fetch_address(11 downto 8) <= x"E";
-            matrix_fetch_address(7 downto 3) <= next_glyph(4 downto 0);
+            -- Read byte of matrix rain glyph
+            matrix_fetch_glyphdata <= '1';
+            matrix_fetch_screendata <= '0';
+            matrix_fetch_chardata <= '0';
+            
+            if next_glyph(9 downto 7) = "001" then
+              -- Digits 0 - 7
+              xflip <= '1';
+              matrix_fetch_address(11 downto 6) <= "000110";
+              matrix_fetch_address(5 downto 3) <= next_glyph(2 downto 0);
+            elsif next_glyph(9 downto 5) = "00001" then
+              -- Digits 8 - 9 @ char $38-$39 = 
+              xflip <= '1';
+              matrix_fetch_address(11 downto 5) <= "0001110";
+              matrix_fetch_address(4 downto 3) <= next_glyph(1 downto 0);
+            else
+              -- Matrix glyph
+              xflip <= '0';
+              matrix_fetch_address(11 downto 8) <= x"E";
+              matrix_fetch_address(7 downto 3) <= next_glyph(4 downto 0);
+            end if;
+            -- Position within glyph
+            matrix_fetch_address(2 downto 0) <= ycounter_in(2 downto 0);
           end if;
-          -- Position within glyph
-          matrix_fetch_address(2 downto 0) <= ycounter_in(2 downto 0);
           
           -- Update start/end of drop
           drop_start_drive <= to_integer(next_start(4 downto 0));
