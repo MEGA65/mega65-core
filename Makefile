@@ -183,7 +183,8 @@ MMFILES=$(VHDLSRCDIR)/test_matrix.vhdl \
 	$(VHDLSRCDIR)/terminalemulator.vhdl \
 	$(VHDLSRCDIR)/test_osk.vhdl \
 	$(VHDLSRCDIR)/visual_keyboard.vhdl \
-	$(VHDLSRCDIR)/oskmem.vhdl
+	$(VHDLSRCDIR)/oskmem.vhdl \
+	$(VHDLSRCDIR)/ghdl_ram8x4096.vhdl
 
 mmsimulate:	$(MMFILES) $(TOOLDIR)/osk_image
 	ghdl -i $(MMFILES)
