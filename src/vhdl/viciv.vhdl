@@ -4335,7 +4335,8 @@ begin
           -- is 1f800
           if sprite_data_address(16 downto 11) = "111111"  then
             sprite_fetch_col_drive <= '1';
-            colourramaddress <= sprite_data_address(15 downto 0);
+            colourramaddress(10 downto 0) <= sprite_data_address(10 downto 0);
+            colourramaddress(15 downto 11) <= "00000";
           else
             sprite_fetch_col_drive <= '0';
           end if;
