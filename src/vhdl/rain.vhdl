@@ -132,6 +132,9 @@ architecture rtl of matrix_rain_compositor is
   signal next_char_bits : std_logic_vector(7 downto 0) := x"FF";
   signal matrix_fetch_screendata : std_logic := '0';
   signal matrix_fetch_chardata : std_logic := '0';
+  signal matrix_fetch_chardata1 : std_logic := '0';
+  signal matrix_fetch_chardata2 : std_logic := '0';
+  signal matrix_fetch_chardata3 : std_logic := '0';
   signal matrix_fetch_glyphdata : std_logic := '0';
 
   signal fetch_next_char : std_logic := '0';
@@ -190,14 +193,17 @@ begin  -- rtl
 
       drop_row <= to_integer(ycounter_in(10 downto 3));
 
-      if matrix_fetch_chardata = '1' then
+      matrix_fetch_chardata1 <= matrix_fetch_chardata;
+      matrix_fetch_chardata2 <= matrix_fetch_chardata1;
+      matrix_fetch_chardata3 <= matrix_fetch_chardata2;
+      if matrix_fetch_chardata3 = '1' then
         next_char_bits <= std_logic_vector(matrix_rdata);
-          report "next char bits = $" & to_hstring(matrix_rdata);
+--          report "next char bits = $" & to_hstring(matrix_rdata);
       elsif matrix_fetch_glyphdata = '1' then
         next_glyph_bits <= std_logic_vector(matrix_rdata);
-          report "next glyph bits = $" & to_hstring(matrix_rdata);
+--          report "next glyph bits = $" & to_hstring(matrix_rdata);
       else
-          report "memory read data = $" & to_hstring(matrix_rdata);
+--          report "memory read data = $" & to_hstring(matrix_rdata);
       end if;
       
       -- This module must draw the matrix rain, as well as the matrix mode text
@@ -249,8 +255,8 @@ begin  -- rtl
             matrix_fetch_screendata <= '1';
             matrix_fetch_chardata <= '0';
 
-            matrix_fetch_address <= char_screen_address;
-            report "Fetching character at address $" & to_hstring(char_screen_address);
+            screenram_raddr <= to_integer(char_screen_address);
+--            report "Fetching character at address $" & to_hstring(char_screen_address);
             
           elsif matrix_fetch_screendata = '1' then
             -- Read byte of character to display
@@ -258,11 +264,9 @@ begin  -- rtl
             matrix_fetch_screendata <= '0';
             matrix_fetch_chardata <= '1';
             matrix_fetch_address(11) <= '0';
-            report "Reading char data";
+--            report "Reading char data = $" & to_hstring(screenram_rdata);
             -- For now map to ordinal char, instead of read byte
-            -- matrix_fetch_address(10 downto 3) <= matrix_rdata;
---            matrix_fetch_address(10 downto 3) <= char_screen_address(7 downto 0);
-            matrix_fetch_address(10 downto 3) <= (others => '0');
+            matrix_fetch_address(10 downto 3) <= screenram_rdata;
             matrix_fetch_address(2 downto 0) <= char_ycounter(2 downto 0);
           else
             -- Read byte of matrix rain glyph
