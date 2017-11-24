@@ -96,15 +96,15 @@ begin
           if next_phase = i then
             porta_pins(i) <= '0';
           else
-            porta_pins(i) <= '1';
+            porta_pins(i) <= 'Z';
           end if;
         end loop;
         if scan_phase = 7 then
-          porta_pins <= (others => '1');
+          porta_pins <= (others => 'Z');
           keyboard_column8_out <= '0';
           report "probing column 8";
         else
-          keyboard_column8_out <= '1';
+          keyboard_column8_out <= 'Z';
         end if;
       else
         -- Keep counting down to next scan event
