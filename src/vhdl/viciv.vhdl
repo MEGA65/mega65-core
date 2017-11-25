@@ -2890,11 +2890,11 @@ begin
       --chardata_drive <= unsigned(chardata);
       --paint_chardata <= chardata_drive;
       paint_chardata <= unsigned(chardata);
-      if sprite_fetch_col_drive = '1' then
-          ramdata_drive <= colourramdata;
-      else
+      --if sprite_fetch_col_drive = '1' then
+      --    ramdata_drive <= colourramdata;
+      --else
           ramdata_drive <= ramdata;
-      end if;
+      --end if;
       paint_ramdata <= ramdata_drive;
 
       sprite_fetch_drive <= '0';
