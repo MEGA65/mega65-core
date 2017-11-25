@@ -2105,25 +2105,29 @@ begin
         end if;        
       end if;
 
-      
-      if real_long_address(27 downto 12) = x"001F" and real_long_address(11)='1' then
-	-- Colour RAM writing is complex! we have to write also to chip and
-        -- shadow RAM.
 
+      report "real_long_address for write = $" & to_hstring(real_long_address);
+      if
+        -- FF80000-FF807FF = 2KB colour RAM at times, which overlaps chip RAM
+        -- XXX - We don't handle the 2nd KB colour RAM at $DC00 when mapped
+        (real_long_address(27 downto 12) = x"FF80" and real_long_address(11) = '0')
+        or
+        -- FFD[0-3]800-BFF
+        (real_long_address(27 downto 16) = x"FFD"
+         and real_long_address(15 downto 14) = "11"
+         and real_long_address(11 downto 10) = "10")        
+      then
+        report "Writing to colour RAM";
 	-- Write to shadow RAM
-        shadow_write <= '1';
+        shadow_write <= '0';
         rom_write <= '0';
-        shadow_write_flags(3) <= '1';
 
-        -- Write to CHIP RAM
-        chipram_address <= long_address(16 downto 0);
-        chipram_we <= '1';
-        chipram_datain <= value;
-        report "writing to chipram..." severity note;
-        
         -- Then remap to colour ram access: remap to $FF80000 - $FF807FF
         long_address := x"FF80"&'0'&real_long_address(10 downto 0);
 
+        -- XXX What the heck is this remapping of $7F4xxxx -> colour RAM for?
+        -- Is this for creating a linear memory map for quick task swapping, or
+        -- something else? (PGS)
       elsif real_long_address(27 downto 16) = x"7F4" then
 		  long_address := x"FF80"&'0'&real_long_address(10 downto 0);
       else
@@ -2238,7 +2242,25 @@ begin
           wait_states_non_zero <= '1';
         else
           wait_states_non_zero <= '0';
-        end if;                                                       --Also mapped to 7F20000-7F3FFFF
+        end if;
+
+        -- C65 uses $1F800-FFF as colour RAM, so we need to write there, too,
+        -- when writing here.
+        if long_address(27 downto 12) = x"001F" and long_address(11) = '1' then
+          report "writing to colour RAM via $001F8xx" severity note;
+
+          -- And also to colour RAM
+          colour_ram_cs <= '1';
+          fastio_write <= '1';
+          fastio_wdata <= std_logic_vector(value);
+          fastio_addr(19 downto 16) <= x"8";
+          fastio_addr(15 downto 11) <= (others => '0');
+          fastio_addr(10 downto 0) <= std_logic_vector(long_address(10 downto 0));
+        end if;
+
+
+      --Also mapped to 7F20000-7F3FFFF (is this for 1MB linear address space
+      --for task switching?)
       elsif long_address(27 downto 17)="00000000001" or long_address(27 downto 17)="01111111001" then
         report "writing to ROM. addr=$" & to_hstring(long_address) severity note;
         shadow_write <= '0';
@@ -2279,10 +2301,20 @@ begin
               if (long_address(10)='0') or (colourram_at_dc00='1') then
                 report "D800-DBFF/DC00-DFFF colour ram access from VIC fastio" severity note;
                 colour_ram_cs <= '1';
+
+                -- Write also to CHIP RAM, so that $1F800-FFF works as chipRAM
+                -- as well as colour RAM, when accessed via $D800+ portal
+                chipram_address(15 downto 11) <= (others => '0');
+                chipram_address(10 downto 0) <= long_address(10 downto 0);
+                chipram_we <= '1';
+                chipram_datain <= value;
+                report "writing to chipram..." severity note;
+                
               end if;
             end if;
           end if;                         -- $D{0,1,2,3}XXX
         end if;                           -- $DXXXX
+        
         wait_states <= io_write_wait_states;
         if io_write_wait_states /= x"00" then
           wait_states_non_zero <= '1';
