@@ -2106,14 +2106,14 @@ begin
       end if;
 
       
-      if real_long_address(27 downto 12) = x"001F" and real_long_address(11)='1' then
+      if real_long_address(27 downto 12) = x"FFD3" and real_long_address(11)='1' then
 	-- Colour RAM writing is complex! we have to write also to chip and
         -- shadow RAM.
 
+        report "Writing to colour RAM (and also to chip RAM)";
 	-- Write to shadow RAM
-        shadow_write <= '1';
+        shadow_write <= '0';
         rom_write <= '0';
-        shadow_write_flags(3) <= '1';
 
         -- Write to CHIP RAM
         chipram_address <= long_address(16 downto 0);
