@@ -2036,6 +2036,7 @@ longpeekdmalist:
 
 longpoke:
 		; Use DMAgic to write any byte of RAM in C65 1MB address space.
+		; XXX - Which version of DMAgic does this assume!!?? 
 		; A = value
 		; X = Address LSB
 		; Y = Address MidB
@@ -2049,6 +2050,8 @@ longpoke:
 		stz longpokeaddress+2
 		lda #$00
 		sta $d706 ; DMAgic destination MB
+		; and disable F108B enhanced mode
+		sta $d703
 
 		; Set DMA list address
 		;
