@@ -2304,7 +2304,7 @@ begin
 
                 -- Write also to CHIP RAM, so that $1F800-FFF works as chipRAM
                 -- as well as colour RAM, when accessed via $D800+ portal
-                chipram_address(15 downto 11) <= (others => '0');
+                chipram_address(16 downto 11) <= "111111"; -- $1F8xx
                 chipram_address(10 downto 0) <= long_address(10 downto 0);
                 chipram_we <= '1';
                 chipram_datain <= value;
