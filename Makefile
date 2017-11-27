@@ -260,8 +260,8 @@ $(VHDLSRCDIR)/kickstart.vhdl:	$(TOOLDIR)/makerom/rom_template.vhdl $(BINDIR)/KIC
 #       script                arg[1]                          arg[2]     arg[3]                  arg[4]
 	$(TOOLDIR)/makerom/makerom $(TOOLDIR)/makerom/rom_template.vhdl $(BINDIR)/KICKUP.M65 $(VHDLSRCDIR)/kickstart kickstart
 
-$(VHDLSRCDIR)/colourram.vhdl:	$(TOOLDIR)/makerom/colourram_template.vhdl COLOURRAM.BIN $(TOOLDIR)/makerom/makerom
-	$(TOOLDIR)/makerom/makerom $(TOOLDIR)/makerom/colourram_template.vhdl COLOURRAM.BIN $(VHDLSRCDIR)/colourram ram8x32k
+$(VHDLSRCDIR)/colourram.vhdl:	$(TOOLDIR)/makerom/colourram_template.vhdl $(BINDIR)/COLOURRAM.BIN $(TOOLDIR)/makerom/makerom
+	$(TOOLDIR)/makerom/makerom $(TOOLDIR)/makerom/colourram_template.vhdl $(BINDIR)/COLOURRAM.BIN $(VHDLSRCDIR)/colourram ram8x32k
 
 $(VHDLSRCDIR)/shadowram.vhdl:	$(TOOLDIR)/mempacker/mempacker $(SDCARD_DIR)/BANNER.M65
 	$(TOOLDIR)/mempacker/mempacker -n shadowram -s 131071 -f $(VHDLSRCDIR)/shadowram.vhdl $(SDCARD_DIR)/BANNER.M65@3D00
@@ -290,8 +290,8 @@ iomap.txt:	$(VHDLSRCDIR)/*.vhdl
 	export LC_ALL=C egrep "IO:C6|IO:GS" $(VHDLSRCDIR)/*.vhdl | cut -f3- -d: | sort -u -k2 > iomap.txt
 
 CRAMUTILS=	$(BINDIR)/border.prg $(SRCDIR)/mega65-fdisk/m65fdisk.prg
-COLOURRAM.BIN:	$(TOOLDIR)/utilpacker/utilpacker $(CRAMUTILS)
-	$(TOOLDIR)/utilpacker/utilpacker COLOURRAM.BIN $(CRAMUTILS)
+$(BINDIR)/COLOURRAM.BIN:	$(TOOLDIR)/utilpacker/utilpacker $(CRAMUTILS)
+	$(TOOLDIR)/utilpacker/utilpacker $(BINDIR)/COLOURRAM.BIN $(CRAMUTILS)
 
 $(TOOLDIR)/utilpacker/utilpacker:	$(TOOLDIR)/utilpacker/utilpacker.c Makefile
 	$(CC) $(COPT) -o $(TOOLDIR)/utilpacker/utilpacker $(TOOLDIR)/utilpacker/utilpacker.c
