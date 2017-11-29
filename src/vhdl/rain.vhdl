@@ -136,8 +136,8 @@ architecture rtl of matrix_rain_compositor is
   signal matrix_fetch_glyphdata : std_logic := '0';
 
   signal fetch_next_char : std_logic := '0';
-  signal char_screen_address : unsigned(11 downto 0) := to_unsigned(0,12);
-  signal line_screen_address : unsigned(11 downto 0) := to_unsigned(0,12);
+  signal char_screen_address : unsigned(11 downto 0) := to_unsigned(1,12);
+  signal line_screen_address : unsigned(11 downto 0) := to_unsigned(1,12);
   signal char_ycounter : unsigned(11 downto 0) := to_unsigned(0,12);
   
 begin  -- rtl
@@ -213,6 +213,43 @@ begin  -- rtl
           & ", char_ycounter = " & integer'image(to_integer(char_ycounter))
           & ", char_bit_count = " & integer'image(char_bit_count);
       end if;
+      if fetch_next_char = '1' then
+        -- Read screen data byte so we know which char to display
+        matrix_fetch_glyphdata <= '0';
+        matrix_fetch_screendata <= '1';
+        matrix_fetch_chardata <= '0';
+        fetch_next_char <= '0';
+
+        -- XXX For now, display same char, over and over.
+        screenram_addr <= 0 + to_integer(char_screen_address);
+        if pixel_x_640 >= debug_x and pixel_x_640 < (debug_x+10) then
+          report
+            "x=" & integer'image(pixel_x_640) & ": " &
+            "Fetching character from address $"
+            & to_hstring(char_screen_address);
+        end if;
+      elsif matrix_fetch_screendata = '1' then
+        -- For now map to ordinal char, instead of read byte
+        matrix_fetch_screendata <= '0';
+        matrix_fetch_chardata <= '1';
+        screenram_addr <= 2048
+                          +(to_integer(screenram_rdata)*8)
+                          +to_integer(char_ycounter(2 downto 0));
+        if pixel_x_640 >= debug_x and pixel_x_640 < (debug_x+10) then
+          report
+            "x=" & integer'image(pixel_x_640) & ": " &
+            "Reading char #$" & to_hstring(screenram_rdata);
+        end if;
+      elsif matrix_fetch_chardata = '1' then
+        matrix_fetch_chardata <= '0';
+        if pixel_x_640 >= debug_x and pixel_x_640 < (debug_x+10) then
+          report
+            "x=" & integer'image(pixel_x_640) & ": " &
+            "Reading next_char_bits = $"
+            & to_hstring(screenram_rdata);
+        end if;
+
+      end if;
       if pixel_x_640 /= last_pixel_x_640 then
         -- Text terminal display
         -- We need to read the current char cell to know which
@@ -220,21 +257,27 @@ begin  -- rtl
         -- data.  A complication is that we have to deal with
         -- contention on the BRAM interface, so we ideally need to
         -- sequence the requests a little carefully.
-        fetch_next_char <= '0';
         if hsync_in = '1' then
           char_bit_count <= 0;
+          if last_hsync = '0' then
+            fetch_next_char <= '1';
+          end if;
           -- reset fetch address to start of line, unless
           -- we are advancing to next line
           -- XXX doesn't yet support double-high chars
           if last_hsync = '0' then
             if char_ycounter /= 7 then
-              char_screen_address <= line_screen_address - 1;
+              char_screen_address <= line_screen_address;
               char_ycounter <= char_ycounter + 1;
             else
-              char_screen_address <= line_screen_address + 80 - 1;
-              line_screen_address <= line_screen_address + 80;
+              -- 800 / 8 pixels = 100 chars
+              char_screen_address <= line_screen_address + 100;
+              line_screen_address <= line_screen_address + 100;
               char_ycounter <= to_unsigned(0,12);
             end if;
+            report
+              "x=" & integer'image(pixel_x_640) & ": " &
+              "Reseting char_screen_address";
           end if;
         elsif char_bit_count = 0 then
           -- Request next character
@@ -261,41 +304,15 @@ begin  -- rtl
           -- Digits have 10, which is not a power of two, and so is a bit
           -- annoying.  We can break it down into 8 + 2 digits, however,
           -- where the 8 digits should get picked 4x more often than the other
-          -- 2.
-          if fetch_next_char = '1' then
-            -- Read screen data byte so we know which char to display
+        -- 2.
+        if fetch_next_char = '1' then
+          -- handled elsewhere
+        elsif matrix_fetch_screendata = '1' then
+          -- Read byte of character to display
             matrix_fetch_glyphdata <= '0';
-            matrix_fetch_screendata <= '1';
-            matrix_fetch_chardata <= '0';
-
-            -- XXX For now, display same char, over and over.
-            screenram_addr <= 0 + to_integer(char_screen_address);
-            if pixel_x_640 >= debug_x and pixel_x_640 < (debug_x+10) then
-              report
-                "x=" & integer'image(pixel_x_640) & ": " &
-                "Fetching character from address $"
-                & to_hstring(char_screen_address);
-            end if;
-          elsif matrix_fetch_screendata = '1' then
-            -- Read byte of character to display
-            matrix_fetch_glyphdata <= '0';
-            matrix_fetch_screendata <= '0';
-            matrix_fetch_chardata <= '1';
             matrix_fetch_address(11) <= '0';
-          if pixel_x_640 >= debug_x and pixel_x_640 < (debug_x+10) then
-              report
-                "x=" & integer'image(pixel_x_640) & ": " &
-                "Reading char #$" & to_hstring(screenram_rdata);
-            end if;
-            -- For now map to ordinal char, instead of read byte
-            screenram_addr <= 2048
-                              +(to_integer(screenram_rdata)*8)
-                              +to_integer(char_ycounter(2 downto 0));
-          else
             -- Read byte of matrix rain glyph
             matrix_fetch_glyphdata <= '1';
-            matrix_fetch_screendata <= '0';
-            matrix_fetch_chardata <= '0';
             
             if next_glyph(9 downto 7) = "001" then
               -- Digits 0 - 7
@@ -482,8 +499,10 @@ begin  -- rtl
       end if;
       if last_vsync = '1' and vsync_in = '0' then
         -- Vertical flyback = start of next frame
+        report "Resetting at end of flyback";
         line_screen_address <= to_unsigned(0,12);
         char_screen_address <= to_unsigned(0,12);
+        fetch_next_char <= '1';
         if matrix_mode_enable = '1' and frame_number < 127 then
           frame_number <= frame_number + 1;
           report "frame_number incrementing to "
