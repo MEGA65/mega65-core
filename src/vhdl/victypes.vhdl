@@ -7,7 +7,7 @@ package victypes is
 
   subtype spritebytenumber is integer range 0 to 319;
   subtype spritenumber is integer range 0 to 15;
-  subtype spritedatabytenumber is integer range 0 to 1023;
+  subtype spritedatabytenumber is integer range 0 to 65535;
   
   subtype xposition is integer range 0 to 4095;
   subtype yposition is integer range 0 to 4095;

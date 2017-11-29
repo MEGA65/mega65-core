@@ -986,6 +986,7 @@ begin
              sprite_bytenumber_in => sprite_bytenumber_0_bp,
              sprite_spritenumber_in => sprite_spritenumber_0_bp,
              sprite_data_in => sprite_data_0_bp,
+
              -- and to pass it out to the next sprite
              sprite_datavalid_out => sprite_datavalid_out,
              sprite_bytenumber_out => sprite_bytenumber_out,
