@@ -71,6 +71,8 @@ entity matrix_rain_compositor is
 end matrix_rain_compositor;
 
 architecture rtl of matrix_rain_compositor is
+  constant debug_x : integer := 56;
+
   signal screenram_we : std_logic := '0';
   signal screenram_addr : integer range 0 to 4095 := 0;
   signal screenram_wdata : unsigned(7 downto 0) := x"FF";
@@ -188,8 +190,12 @@ begin  -- rtl
       drop_row <= to_integer(ycounter_in(10 downto 3));
 
       if matrix_fetch_chardata = '1' then
+        if pixel_x_640 >= debug_x and pixel_x_640 < (debug_x+10) then
+          report
+            "x=" & integer'image(pixel_x_640) & ": " &
+            "Reading char data = $" & to_hstring(screenram_rdata); 
+        end if;
         next_char_bits <= std_logic_vector(screenram_rdata);
-        report "next char bits = $" & to_hstring(screenram_rdata);
       elsif matrix_fetch_glyphdata = '1' then
         next_glyph_bits <= std_logic_vector(matrix_rdata);
 --          report "next glyph bits = $" & to_hstring(matrix_rdata);
@@ -199,6 +205,14 @@ begin  -- rtl
       
       -- This module must draw the matrix rain, as well as the matrix mode text
       -- mode terminal interface.
+
+      if pixel_x_640 >= debug_x and pixel_x_640 < (debug_x+10) then
+        report
+          "x=" & integer'image(pixel_x_640) & ": " &
+          "ycounter_in = " & integer'image(to_integer(ycounter_in))
+          & ", char_ycounter = " & integer'image(to_integer(char_ycounter))
+          & ", char_bit_count = " & integer'image(char_bit_count);
+      end if;
       if pixel_x_640 /= last_pixel_x_640 then
         -- Text terminal display
         -- We need to read the current char cell to know which
@@ -212,23 +226,31 @@ begin  -- rtl
           -- reset fetch address to start of line, unless
           -- we are advancing to next line
           -- XXX doesn't yet support double-high chars
-          if char_ycounter /= 7 then
-            char_screen_address <= line_screen_address - 1;
-            char_ycounter <= char_ycounter + 1;
-          else
-            char_screen_address <= line_screen_address + 80;
-            char_ycounter <= to_unsigned(0,12);
+          if last_hsync = '0' then
+            if char_ycounter /= 7 then
+              char_screen_address <= line_screen_address - 1;
+              char_ycounter <= char_ycounter + 1;
+            else
+              char_screen_address <= line_screen_address + 80 - 1;
+              line_screen_address <= line_screen_address + 80;
+              char_ycounter <= to_unsigned(0,12);
+            end if;
           end if;
-        elsif char_bit_count < 2 then
+        elsif char_bit_count = 0 then
           -- Request next character
+          if pixel_x_640 >= debug_x and pixel_x_640 < (debug_x+10) then
+            report
+              "x=" & integer'image(pixel_x_640) & ": " &
+              "char_bits becomes $" & to_hstring(next_char_bits);
+          end if;
           char_bits <= std_logic_vector(next_char_bits);
           char_screen_address <= char_screen_address + 1;
           fetch_next_char <= '1';
-          char_bit_count <= 8;
+          char_bit_count <= 7;
         else
           -- rotate bits for terminal chargen
-          char_bits(6 downto 0) <= char_bits(7 downto 1);
-          char_bits(7) <= char_bits(0);
+          char_bits(7 downto 1) <= char_bits(6 downto 0);
+          char_bits(0) <= char_bits(7);
           char_bit_count <= char_bit_count - 1;
         end if; 
 
@@ -246,18 +268,27 @@ begin  -- rtl
             matrix_fetch_screendata <= '1';
             matrix_fetch_chardata <= '0';
 
-            screenram_addr <= 2048 + to_integer(char_screen_address);
---            report "Fetching character at address $" & to_hstring(char_screen_address);
-            
+            -- XXX For now, display same char, over and over.
+            screenram_addr <= 0 + to_integer(char_screen_address);
+            if pixel_x_640 >= debug_x and pixel_x_640 < (debug_x+10) then
+              report
+                "x=" & integer'image(pixel_x_640) & ": " &
+                "Fetching character from address $"
+                & to_hstring(char_screen_address);
+            end if;
           elsif matrix_fetch_screendata = '1' then
             -- Read byte of character to display
             matrix_fetch_glyphdata <= '0';
             matrix_fetch_screendata <= '0';
             matrix_fetch_chardata <= '1';
             matrix_fetch_address(11) <= '0';
---            report "Reading char data = $" & to_hstring(screenram_rdata);
+          if pixel_x_640 >= debug_x and pixel_x_640 < (debug_x+10) then
+              report
+                "x=" & integer'image(pixel_x_640) & ": " &
+                "Reading char #$" & to_hstring(screenram_rdata);
+            end if;
             -- For now map to ordinal char, instead of read byte
-            screenram_addr <= 0
+            screenram_addr <= 2048
                               +(to_integer(screenram_rdata)*8)
                               +to_integer(char_ycounter(2 downto 0));
           else
@@ -354,6 +385,11 @@ begin  -- rtl
       end if;
 
       -- Now that we know what we want to display, actually display it.
+      if pixel_x_640 >= debug_x and pixel_x_640 < (debug_x+10) then
+        report
+          "x=" & integer'image(pixel_x_640) & ": " &
+          "source = " & feed_t'image(feed);
+      end if;
       case feed is
         when Normal =>
           -- Normal display, so show pixels from input video stream
@@ -366,6 +402,12 @@ begin  -- rtl
 --          vgared_out <= vgared_matrix;
 --          vgagreen_out <= vgagreen_matrix;
 --          vgablue_out <= vgablue_matrix;
+          if pixel_x_640 >= debug_x and pixel_x_640 < (debug_x+10) then
+            report
+              "x=" & integer'image(pixel_x_640) & ": " &
+              "  pixel_out = " & std_logic'image(char_bits(7))
+              & ", char_bits=%" & to_string(char_bits);
+          end if;
           if char_bits(7) = '1' then
             vgared_out <= (others => '0');
             vgagreen_out <= (others => '1');
