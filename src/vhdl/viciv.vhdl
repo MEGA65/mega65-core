@@ -761,7 +761,6 @@ architecture Behavioral of viciv is
   signal pixel_is_sprite : std_logic;
 
   signal sprite_fetch_drive : std_logic := '0';
-  signal sprite_fetch_col_drive : std_logic := '0';
   signal sprite_fetch_sprite_number : integer range 0 to 31;
   signal sprite_fetch_byte_number : integer range 0 to 319;
   signal sprite_fetch_sprite_number_drive : integer range 0 to 31;
@@ -2890,16 +2889,11 @@ begin
       --chardata_drive <= unsigned(chardata);
       --paint_chardata <= chardata_drive;
       paint_chardata <= unsigned(chardata);
-      --if sprite_fetch_col_drive = '1' then
-      --    ramdata_drive <= colourramdata;
-      --else
-          ramdata_drive <= ramdata;
-      --end if;
+      ramdata_drive <= ramdata;
       paint_ramdata <= ramdata_drive;
 
       sprite_fetch_drive <= '0';
-      sprite_fetch_col_drive <= '0';
-      
+
       -- Add new sprite colission bits to the bitmap
       case vicii_sprite_sprite_colission_map is
         when "00000000" => null;
@@ -4331,15 +4325,6 @@ begin
           -- Schedule pushing fetched sprite/bitplane byte to next cycle when
           -- the data will be available in ramdata_drive
           sprite_fetch_drive <= '1';
-
-          -- is 1f800
-          if sprite_data_address(16 downto 11) = "111111"  then
-            sprite_fetch_col_drive <= '1';
-            colourramaddress(10 downto 0) <= sprite_data_address(10 downto 0);
-            colourramaddress(15 downto 11) <= "00000";
-          else
-            sprite_fetch_col_drive <= '0';
-          end if;
 
           sprite_fetch_byte_number_drive <= sprite_fetch_byte_number;
           sprite_fetch_sprite_number_drive <= sprite_fetch_sprite_number;
