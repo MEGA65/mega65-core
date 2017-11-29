@@ -72,7 +72,7 @@ end matrix_rain_compositor;
 
 architecture rtl of matrix_rain_compositor is
   signal screenram_we : std_logic := '0';
-  signal screenram_raddr : integer range 0 to 4095 := 0;
+  signal screenram_addr : integer range 0 to 4095 := 0;
   signal screenram_wdata : unsigned(7 downto 0) := x"FF";
   signal screenram_rdata : unsigned(7 downto 0);  
 
@@ -131,9 +131,6 @@ architecture rtl of matrix_rain_compositor is
   signal next_char_bits : std_logic_vector(7 downto 0) := x"FF";
   signal matrix_fetch_screendata : std_logic := '0';
   signal matrix_fetch_chardata : std_logic := '0';
-  signal matrix_fetch_chardata1 : std_logic := '0';
-  signal matrix_fetch_chardata2 : std_logic := '0';
-  signal matrix_fetch_chardata3 : std_logic := '0';
   signal matrix_fetch_glyphdata : std_logic := '0';
 
   signal fetch_next_char : std_logic := '0';
@@ -147,7 +144,7 @@ begin  -- rtl
     clk => pixelclock,
     we => screenram_we,
     data_i => screenram_wdata,
-    address => screenram_raddr,
+    address => screenram_addr,
     data_o => screenram_rdata
     );
   
@@ -190,13 +187,9 @@ begin  -- rtl
 
       drop_row <= to_integer(ycounter_in(10 downto 3));
 
-      matrix_fetch_chardata1 <= matrix_fetch_chardata;
-      matrix_fetch_chardata2 <= matrix_fetch_chardata1;
-      matrix_fetch_chardata3 <= matrix_fetch_chardata2;
-      if matrix_fetch_chardata3 = '1' then
---        next_char_bits <= std_logic_vector(matrix_rdata);
-        next_char_bits <= x"01";
---          report "next char bits = $" & to_hstring(matrix_rdata);
+      if matrix_fetch_chardata = '1' then
+        next_char_bits <= std_logic_vector(screenram_rdata);
+        report "next char bits = $" & to_hstring(screenram_rdata);
       elsif matrix_fetch_glyphdata = '1' then
         next_glyph_bits <= std_logic_vector(matrix_rdata);
 --          report "next glyph bits = $" & to_hstring(matrix_rdata);
@@ -253,7 +246,7 @@ begin  -- rtl
             matrix_fetch_screendata <= '1';
             matrix_fetch_chardata <= '0';
 
-            screenram_raddr <= to_integer(char_screen_address);
+            screenram_addr <= 2048 + to_integer(char_screen_address);
 --            report "Fetching character at address $" & to_hstring(char_screen_address);
             
           elsif matrix_fetch_screendata = '1' then
@@ -264,8 +257,9 @@ begin  -- rtl
             matrix_fetch_address(11) <= '0';
 --            report "Reading char data = $" & to_hstring(screenram_rdata);
             -- For now map to ordinal char, instead of read byte
-            matrix_fetch_address(10 downto 3) <= screenram_rdata;
-            matrix_fetch_address(2 downto 0) <= char_ycounter(2 downto 0);
+            screenram_addr <= 0
+                              +(to_integer(screenram_rdata)*8)
+                              +to_integer(char_ycounter(2 downto 0));
           else
             -- Read byte of matrix rain glyph
             matrix_fetch_glyphdata <= '1';
