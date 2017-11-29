@@ -72,7 +72,6 @@ end matrix_rain_compositor;
 
 architecture rtl of matrix_rain_compositor is
   signal screenram_we : std_logic := '0';
-  signal screenram_waddr : integer range 0 to 4095 := 0;
   signal screenram_raddr : integer range 0 to 4095 := 0;
   signal screenram_wdata : unsigned(7 downto 0) := x"FF";
   signal screenram_rdata : unsigned(7 downto 0);  
@@ -144,14 +143,12 @@ architecture rtl of matrix_rain_compositor is
   
 begin  -- rtl
 
-  screenram0:   entity work.ram8x4096 port map (
+  screenram0:   entity work.termmem port map (
     clk => pixelclock,
-    cs => '1',
-    w => screenram_we,
-    write_address => screenram_waddr,
-    wdata => screenram_wdata,
+    we => screenram_we,
+    data_i => screenram_wdata,
     address => screenram_raddr,
-    rdata => screenram_rdata
+    data_o => screenram_rdata
     );
   
   lfsr0: entity work.lfsr16 port map (
@@ -197,7 +194,8 @@ begin  -- rtl
       matrix_fetch_chardata2 <= matrix_fetch_chardata1;
       matrix_fetch_chardata3 <= matrix_fetch_chardata2;
       if matrix_fetch_chardata3 = '1' then
-        next_char_bits <= std_logic_vector(matrix_rdata);
+--        next_char_bits <= std_logic_vector(matrix_rdata);
+        next_char_bits <= x"01";
 --          report "next char bits = $" & to_hstring(matrix_rdata);
       elsif matrix_fetch_glyphdata = '1' then
         next_glyph_bits <= std_logic_vector(matrix_rdata);

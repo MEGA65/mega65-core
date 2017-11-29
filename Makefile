@@ -112,6 +112,7 @@ OVERLAYVHDL=		$(VHDLSRCDIR)/matrix_compositor.vhdl \
 			$(VHDLSRCDIR)/visual_keyboard.vhdl \
 			$(VHDLSRCDIR)/uart_charrom.vhdl \
 			$(VHDLSRCDIR)/oskmem.vhdl \
+			$(VHDLSRCDIR)/termmem.vhdl \
 
 SERMONVHDL=		$(VHDLSRCDIR)/ps2_to_uart.vhdl \
 			$(VHDLSRCDIR)/uart_monitor.vhdl \
@@ -184,7 +185,7 @@ MMFILES=$(VHDLSRCDIR)/test_matrix.vhdl \
 	$(VHDLSRCDIR)/test_osk.vhdl \
 	$(VHDLSRCDIR)/visual_keyboard.vhdl \
 	$(VHDLSRCDIR)/oskmem.vhdl \
-	$(VHDLSRCDIR)/ghdl_ram8x4096.vhdl
+	$(VHDLSRCDIR)/termmem.vhdl
 
 mmsimulate:	$(MMFILES) $(TOOLDIR)/osk_image
 	ghdl -i $(MMFILES)
@@ -274,6 +275,9 @@ $(VHDLSRCDIR)/shadowram.vhdl:	$(TOOLDIR)/mempacker/mempacker $(SDCARD_DIR)/BANNE
 
 $(VHDLSRCDIR)/oskmem.vhdl:	$(TOOLDIR)/mempacker/mempacker $(BINDIR)/asciifont.bin $(BINDIR)/osdmap.bin $(BINDIR)/matrixfont.bin
 	$(TOOLDIR)/mempacker/mempacker -n oskmem -s 4095 -f $(VHDLSRCDIR)/oskmem.vhdl $(BINDIR)/asciifont.bin@0000 $(BINDIR)/osdmap.bin@0800 $(BINDIR)/matrixfont.bin@0E00
+
+$(VHDLSRCDIR)/termmem.vhdl:	$(TOOLDIR)/mempacker/mempacker $(BINDIR)/asciifont.bin
+	$(TOOLDIR)/mempacker/mempacker -n termmem -s 4095 -f $(VHDLSRCDIR)/termmem.vhdl $(BINDIR)/asciifont.bin@0000
 
 $(BINDIR)/osdmap.bin:	$(TOOLDIR)/on_screen_keyboard_gen $(SRCDIR)/keyboard.txt
 	 $(TOOLDIR)/on_screen_keyboard_gen $(SRCDIR)/keyboard.txt > $(BINDIR)/osdmap.bin
