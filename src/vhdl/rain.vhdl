@@ -27,10 +27,10 @@ entity matrix_rain_compositor is
     -- 10 = 40x25
     mm_displayMode_in : in unsigned(1 downto 0);
 
-    -- Character input from virtualised keyboard
+    -- Character output produced by serial monitor
     monitor_char_in : in unsigned(7 downto 0);
     monitor_char_valid : in std_logic;
-    terminal_emulator_ready : out std_logic;
+    terminal_emulator_ready : out std_logic := '1';
     
     -- Pixel clock and scale factors according to video mode
     pixelclock  : in  std_logic;
@@ -78,6 +78,14 @@ architecture rtl of matrix_rain_compositor is
   signal screenram_wdata : unsigned(7 downto 0) := x"FF";
   signal screenram_rdata : unsigned(7 downto 0);  
 
+  -- Terminal emulator state
+  -- Cursor position and blink status
+  signal te_cursor_x : integer range 0 to 127 := 0;
+  signal te_cursor_y : integer range 0 to 127 := 0;
+  signal te_blink_state : std_logic := '1';
+  signal te_blink_counter : integer range 0 to 50 := 0;
+  signal te_cursor_address : integer := 0;
+  
   signal state : unsigned(15 downto 0) := (others => '1');
   type feed_t is (Normal,Rain,Matrix);
   signal feed : feed_t := Normal;
@@ -242,7 +250,8 @@ begin  -- rtl
             "x=" & integer'image(pixel_x_640) & ": " &
             "Reading char #$" & to_hstring(screenram_rdata);
         end if;
-      elsif matrix_fetch_chardata = '1' then
+      else
+        if matrix_fetch_chardata = '1' then
         matrix_fetch_chardata <= '0';
         if pixel_x_640 >= debug_x and pixel_x_640 < (debug_x+10) then
           report
@@ -250,6 +259,113 @@ begin  -- rtl
             "Reading next_char_bits = $"
             & to_hstring(screenram_rdata);
         end if;
+      if monitor_char_valid = '1' then
+        case monitor_char_valid is
+          when x"13" =>
+            -- Home
+            te_cursor_y <= 0;
+            te_cursor_x <= 0;
+            te_cursor_address <= 0;
+          when x"93" =>
+            -- Clear home
+            terminal_emulator_ready <= '0';
+            erase_terminal_memory <= '1';
+            erase_address <= 2048;
+            te_cursor_y <= 0;
+            te_cursor_x <= 0;
+            te_cursor_address <= 0;
+          when x"0a" =>
+            -- Line feed
+            if te_cursor_y < te_y_max then
+              te_cursor_y <= te_cursor_y + 1;
+              te_cursor_address <= te_cursor_address +
+                                   te_line_length;
+            else
+              terminal_emulator_ready <= '0';
+              scroll_terminal_up <= '1';
+              erase_address <= 2048;
+            end if;
+          when x"0d" =>
+            -- Carriage return
+            te_cursor_x <= 0;
+          when x"11" =>
+            -- C64 cursor down (can scroll)
+            if te_cursor_y < te_y_max then
+              te_cursor_y <= te_cursor_y + 1;
+              te_cursor_address <= te_cursor_address +
+                                   te_line_length;
+            else
+              terminal_emulator_ready <= '0';
+              scroll_terminal_up <= '1';
+              erase_address <= 2048;
+            end if;            
+          when x"91" =>
+            -- C64 cursor up (doesn't scroll)
+            if te_cursor_y > 0 then
+              te_cursor_y <= te_cursor_y - 1;
+              te_cursor_address <= te_cursor_address -
+                                   te_line_length;
+            end if;
+          when x"1d" =>
+            -- C64 cursor right
+            if te_cursor_x < te_x_max then
+              -- stay on same line
+              te_cursor_x <= te_cursor_x + 1;
+              te_cursor_address <= te_cursor_address + 1;
+            else
+              -- advance to next line (and possibly scroll)
+              te_cursor_x <= 0;
+              if te_cursor_y < te_y_max then
+                te_cursor_y <= te_cursor_y + 1;
+                te_cursor_address <= te_cursor_address + 1;
+              else
+                terminal_emulator_ready <= '0';
+                scroll_terminal_up <= '1';
+                erase_address <= 2048;
+              end if;
+            end if;
+          when x"9d" =>
+            -- C64 cursor left
+            if te_cursor_x > 0 then
+              -- stay on same line
+              te_cursor_x <= te_cursor_x - 1;
+              te_cursor_address <= te_cursor_address - 1;
+            else
+              -- to end of previous line
+              te_cursor_x <= te_x_max;
+              if te_cursor_y > 0 then
+                -- if not on first line, to go previous line
+                te_cursor_address <= te_cursor_address - 1;
+                te_cursor_y <= te_cursor_y - 1;
+              else
+                -- trying to go left from home position does
+                -- nothing
+              end if;
+            end if;
+          when others =>
+            -- Simply put character into place, and advance cursor
+            -- as for cursor right
+            screenram_address <= 2048 + te_cursor_address;
+            screenram_wdata <= monitor_char_in;
+            if te_cursor_x < te_x_max then
+              -- stay on same line
+              te_cursor_x <= te_cursor_x + 1;
+              te_cursor_address <= te_cursor_address + 1;
+            else
+              -- advance to next line (and possibly scroll)
+              te_cursor_x <= 0;
+              if te_cursor_y < te_y_max then
+                te_cursor_y <= te_cursor_y + 1;
+                te_cursor_address <= te_cursor_address + 1;
+              else
+                terminal_emulator_ready <= '0';
+                scroll_terminal_up <= '1';
+                erase_address <= 2048;
+              end if;
+            end if;
+        end case;
+      end if;
+      
 
       end if;
       if pixel_x_640 /= last_pixel_x_640 then
