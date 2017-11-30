@@ -71,7 +71,7 @@ entity matrix_rain_compositor is
 end matrix_rain_compositor;
 
 architecture rtl of matrix_rain_compositor is
-  constant debug_x : integer := 56;
+  constant debug_x : integer := 9999 + 56;
 
   signal screenram_we : std_logic := '0';
   signal screenram_addr : integer range 0 to 4095 := 0;
@@ -81,7 +81,7 @@ architecture rtl of matrix_rain_compositor is
   signal state : unsigned(15 downto 0) := (others => '1');
   type feed_t is (Normal,Rain,Matrix);
   signal feed : feed_t := Normal;
-  signal frame_number : integer range 0 to 127 := 50;
+  signal frame_number : integer range 0 to 127 := 0;
   signal lfsr_advance_counter : integer range 0 to 31 := 0;
   signal last_hsync : std_logic := '1';
   signal last_vsync : std_logic := '1';
@@ -229,7 +229,9 @@ begin  -- rtl
             & to_hstring(char_screen_address);
         end if;
       elsif matrix_fetch_screendata = '1' then
-        -- For now map to ordinal char, instead of read byte
+        -- Got character at the relevant screen location, so we can now 
+        -- calculate which byte of th charrom to read. High oder bits come
+        -- from the character, low bits from the y-counter
         matrix_fetch_screendata <= '0';
         matrix_fetch_chardata <= '1';
         screenram_addr <= 2048
@@ -275,9 +277,6 @@ begin  -- rtl
               line_screen_address <= line_screen_address + 100;
               char_ycounter <= to_unsigned(0,12);
             end if;
-            report
-              "x=" & integer'image(pixel_x_640) & ": " &
-              "Reseting char_screen_address";
           end if;
         elsif char_bit_count = 0 then
           -- Request next character
@@ -502,6 +501,7 @@ begin  -- rtl
         report "Resetting at end of flyback";
         line_screen_address <= to_unsigned(0,12);
         char_screen_address <= to_unsigned(0,12);
+        char_ycounter <= to_unsigned(0,12);
         fetch_next_char <= '1';
         if matrix_mode_enable = '1' and frame_number < 127 then
           frame_number <= frame_number + 1;
