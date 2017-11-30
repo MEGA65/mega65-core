@@ -490,9 +490,8 @@ begin  -- rtl
         lfsr_seed1(1 downto 0) <= "01";
         lfsr_seed2(15 downto 2) <= to_unsigned(128+to_integer(seed(15 downto 2))+drop_row-frame_number,14);
         lfsr_seed3(15 downto 2) <= to_unsigned(128+to_integer(seed(15 downto 2))+drop_row-frame_number,14);
-        lfsr_reset(1 downto 0) <= "11";
         lfsr_reset(3 downto 0) <= "1111";
-        lfsr_advance_counter <= 31;
+        lfsr_advance_counter <= 15;
         lfsr_advance(1 downto 0) <= "11";        
         lfsr_advance(3 downto 0) <= "1111";        
       end if;
@@ -515,24 +514,8 @@ begin  -- rtl
           report "frame_number stays "
             & integer'image(frame_number);            
         end if;
-        -- Reset LFSRs
-        if seed(15 downto 0) /= "00000000000000" then
-          lfsr_seed0(15 downto 2) <= seed(15 downto 2);
-        else
-          lfsr_seed0(15 downto 2) <= (others => '1');
-        end if;
-        lfsr_seed1(15 downto 2) <= seed(15 downto 2);
-        lfsr_seed2(15 downto 2) <= seed(15 downto 2);
-        lfsr_seed3(15 downto 2) <= seed(15 downto 2);
-        lfsr_seed0(1 downto 0) <= "00";
-        lfsr_seed1(1 downto 0) <= "01";
-        lfsr_seed2(1 downto 0) <= "10";
-        lfsr_seed3(1 downto 0) <= "11";
-        lfsr_reset(3 downto 0) <= "1111";
---        lfsr_advance(3 downto 2) <= "11";
---        lfsr_advance_counter <= frame_number;
         lfsr_advance_counter <= 0;
-      else
+      end if;
         if lfsr_advance_counter /= 0 then
           lfsr_advance_counter <= lfsr_advance_counter - 1;
         elsif hsync_in = '1' then
@@ -550,7 +533,6 @@ begin  -- rtl
           next_end(0) <= lfsr_out(1);
           lfsr_advance(3 downto 0) <= "1111";
         end if;
-      end if;      
     end if;
   end process;
 
