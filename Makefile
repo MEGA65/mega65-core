@@ -287,7 +287,7 @@ $(TOOLDIR)/pngprepare/pngprepare:	$(TOOLDIR)/pngprepare/pngprepare.c Makefile
 # note that the iomap.txt file is often recreated because version.vhdl is updated.
 iomap.txt:	$(VHDLSRCDIR)/*.vhdl 
 	# Force consistent ordering of items according to natural byte values
-	export LC_ALL=C egrep "IO:C6|IO:GS" $(VHDLSRCDIR)/*.vhdl | cut -f3- -d: | sort -u -k2 > iomap.txt
+	LC_ALL=C egrep "IO:C6|IO:GS" $(VHDLSRCDIR)/*.vhdl | cut -f3- -d: | sort -u -k2 > iomap.txt
 
 CRAMUTILS=	$(BINDIR)/border.prg $(SRCDIR)/mega65-fdisk/m65fdisk.prg
 $(BINDIR)/COLOURRAM.BIN:	$(TOOLDIR)/utilpacker/utilpacker $(CRAMUTILS)
