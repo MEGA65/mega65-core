@@ -3,6 +3,23 @@ use IEEE.std_logic_1164.all;
 use ieee.numeric_std.all;
 use work.debugtools.all;
 
+-- TODO list for new matrix mode controller:
+--
+-- XXX Based on matrix mode and secure mode flags, we should copy
+-- appropriate banner text into place.
+-- 1. Matrix mode -- simple welcome message with commit ID and
+--    basic help.
+-- 2. Secure mode entry -- display info about call, hash of memory
+--    and total size of memory to investigate, plus hot key list.
+-- 3. Secure mode exit -- similar to above, but amount of XFER mem
+--    that is being handed back.
+--
+-- XXX Add automatic parsing of hex and display of ASCII bytes to
+-- right of hex dump, to save serial monitor having to do it for
+-- us, and having trouble with special characters. Or should we have
+-- and escape code that allows a literal to be displayed, and then
+-- just have serial monitor use that?
+
 entity matrix_rain_compositor is
   
   port (
