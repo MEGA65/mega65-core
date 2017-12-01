@@ -104,14 +104,16 @@ begin
     begin
         report "Typing  " & character'image(char);
         while term_ready = '0' loop
-          report "Waiting for terminal emulator to be ready.";
-          wait for 40 ns;
+--          report "Waiting for terminal emulator to be ready.";
+          wait for 10 ns;
         end loop;    
         char_in <= to_unsigned(character'pos(char),8);
         char_valid <= '1';
-        wait for 40 ns;
+        while term_ready = '1' loop
+          wait for 10 ns;
+        end loop;
         char_valid <= '0';
-        wait for 1 us;
+        wait for 40 ns;
     end procedure;      
     procedure type_text(text : string) is
     begin

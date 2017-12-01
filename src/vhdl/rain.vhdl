@@ -98,11 +98,15 @@ architecture rtl of matrix_rain_compositor is
     := te_screen_start - te_line_length;
   -- Cursor starts at top of normal screen
   signal te_cursor_address : integer := te_screen_start;
-
+  signal monitor_char_primed : std_logic := '0';
+  signal terminal_emulator_fast : std_logic := '1';
+  
   signal erase_terminal_memory : std_logic := '0';
   signal scroll_terminal_up : std_logic := '0';
   signal erase_address : integer := 0;
-  signal scroll_phase : std_logic := '0';
+  signal scroll_read : std_logic := '0';
+  signal scroll_write_ready : std_logic := '0';
+  signal scroll_byte : unsigned(7 downto 0) := x"00";
   
   signal state : unsigned(15 downto 0) := (others => '1');
   type feed_t is (Normal,Rain,Matrix);
@@ -162,8 +166,8 @@ architecture rtl of matrix_rain_compositor is
   signal matrix_fetch_glyphdata : std_logic := '0';
 
   signal fetch_next_char : std_logic := '0';
-  signal char_screen_address : unsigned(11 downto 0) := to_unsigned(1,12);
-  signal line_screen_address : unsigned(11 downto 0) := to_unsigned(1,12);
+  signal char_screen_address : unsigned(11 downto 0) := to_unsigned(te_screen_start,12);
+  signal line_screen_address : unsigned(11 downto 0) := to_unsigned(te_screen_start,12);
   signal char_ycounter : unsigned(11 downto 0) := to_unsigned(0,12);
   
 begin  -- rtl
@@ -206,8 +210,12 @@ begin  -- rtl
     output => lfsr_out(3));
   
   process(pixelclock)
+    variable screenram_busy : std_logic := '0';
   begin
     if rising_edge(pixelclock) then
+
+      screenram_busy := '0';
+      
       hsync_out <= hsync_in;
       vsync_out <= vsync_in;
       last_hsync <= hsync_in;
@@ -246,8 +254,8 @@ begin  -- rtl
         matrix_fetch_chardata <= '0';
         fetch_next_char <= '0';
 
-        -- XXX For now, display same char, over and over.
-        screenram_addr <= 0 + to_integer(char_screen_address);
+        screenram_addr <= to_integer(char_screen_address);
+        screenram_busy := '1';
         if pixel_x_640 >= debug_x and pixel_x_640 < (debug_x+10) then
           report
             "x=" & integer'image(pixel_x_640) & ": " &
@@ -260,9 +268,10 @@ begin  -- rtl
         -- from the character, low bits from the y-counter
         matrix_fetch_screendata <= '0';
         matrix_fetch_chardata <= '1';
-        screenram_addr <= 2048
+        screenram_addr <= 0
                           +(to_integer(screenram_rdata)*8)
                           +to_integer(char_ycounter(2 downto 0));
+        screenram_busy := '1';
         if pixel_x_640 >= debug_x and pixel_x_640 < (debug_x+10) then
           report
             "x=" & integer'image(pixel_x_640) & ": " &
@@ -278,127 +287,209 @@ begin  -- rtl
               & to_hstring(screenram_rdata);
           end if;
         end if;
-        if monitor_char_valid = '1' then
-          report "Terminal emulator processing character $"
-            & to_hstring(monitor_char_in);
-          case monitor_char_in is
-            when x"13" =>
-              -- Home
-              te_cursor_y <= 0;
-              te_cursor_x <= 0;
-              te_cursor_address <= te_screen_start;
-            when x"93" =>
-              -- Clear home
+      end if;
+
+      if monitor_char_valid = '0' then
+        monitor_char_primed <= '1';
+      end if;
+      if terminal_emulator_fast = '1' then
+        terminal_emulator_ready <= '1';
+        terminal_emulator_fast <= '0';
+      elsif monitor_char_valid = '1' and screenram_busy = '0'
+        and monitor_char_primed = '1' then
+        terminal_emulator_ready <= '0';
+        monitor_char_primed <= '0';
+        report "Terminal emulator processing character $"
+          & to_hstring(monitor_char_in);
+        case monitor_char_in is
+          when x"13" =>
+            -- Home
+            te_cursor_y <= 0;
+            te_cursor_x <= 0;
+            te_cursor_address <= te_screen_start;
+            terminal_emulator_fast <= '1';
+          when x"93" =>
+            -- Clear home
+            erase_terminal_memory <= '1';
+            terminal_emulator_fast <= '0';
+            erase_address
+              <= 4096 - (te_y_max+1) * te_line_length;
+            te_cursor_y <= 0;
+            te_cursor_x <= 0;
+            te_cursor_address <= te_screen_start;
+          when x"0a" =>
+            -- Line feed
+            if te_cursor_y < te_y_max then
+              te_cursor_y <= te_cursor_y + 1;
+              te_cursor_address <= te_cursor_address +
+                                   te_line_length;
+              terminal_emulator_fast <= '1';
+            else
               terminal_emulator_ready <= '0';
-              erase_terminal_memory <= '1';
+              scroll_terminal_up <= '1';
               erase_address
                 <= 4096 - (te_y_max+1) * te_line_length;
-              te_cursor_y <= 0;
+              terminal_emulator_fast <= '0';
+            end if;
+          when x"0d" =>
+            -- Carriage return
+            te_cursor_address <= te_cursor_address - te_cursor_x;
+            te_cursor_x <= 0;
+            terminal_emulator_fast <= '1';
+          when x"11" =>
+            -- C64 cursor down (can scroll)
+            if te_cursor_y < te_y_max then
+              te_cursor_y <= te_cursor_y + 1;
+              te_cursor_address <= te_cursor_address +
+                                   te_line_length;
+              terminal_emulator_fast <= '1';
+            else
+              terminal_emulator_ready <= '0';
+              scroll_terminal_up <= '1';
+              erase_address
+                <= 4096 - (te_y_max+1) * te_line_length;
+              terminal_emulator_fast <= '0';
+            end if;            
+          when x"91" =>
+            -- C64 cursor up (doesn't scroll)
+            if te_cursor_y > 0 then
+              te_cursor_y <= te_cursor_y - 1;
+              te_cursor_address <= te_cursor_address -
+                                   te_line_length;
+            end if;
+            terminal_emulator_fast <= '1';
+          when x"1d" =>
+            -- C64 cursor right
+            if te_cursor_x < te_x_max then
+              -- stay on same line
+              te_cursor_x <= te_cursor_x + 1;
+              te_cursor_address <= te_cursor_address + 1;
+              terminal_emulator_fast <= '1';
+            else
+              -- advance to next line (and possibly scroll)
               te_cursor_x <= 0;
-              te_cursor_address <= te_screen_start;
-            when x"0a" =>
-              -- Line feed
               if te_cursor_y < te_y_max then
                 te_cursor_y <= te_cursor_y + 1;
-                te_cursor_address <= te_cursor_address +
-                                     te_line_length;
+                te_cursor_address <= te_cursor_address + 1;
+                terminal_emulator_fast <= '1';
               else
                 terminal_emulator_ready <= '0';
                 scroll_terminal_up <= '1';
                 erase_address
                   <= 4096 - (te_y_max+1) * te_line_length;
+                terminal_emulator_fast <= '0';
               end if;
-            when x"0d" =>
-              -- Carriage return
-              te_cursor_address <= te_cursor_address - te_cursor_x;
-              te_cursor_x <= 0;
-            when x"11" =>
-              -- C64 cursor down (can scroll)
-              if te_cursor_y < te_y_max then
-                te_cursor_y <= te_cursor_y + 1;
-                te_cursor_address <= te_cursor_address +
-                                     te_line_length;
-              else
-                terminal_emulator_ready <= '0';
-                scroll_terminal_up <= '1';
-                erase_address
-                  <= 4096 - (te_y_max+1) * te_line_length;
-              end if;            
-            when x"91" =>
-              -- C64 cursor up (doesn't scroll)
+            end if;
+          when x"9d" =>
+            -- C64 cursor left
+            if te_cursor_x > 0 then
+              -- stay on same line
+              te_cursor_x <= te_cursor_x - 1;
+              te_cursor_address <= te_cursor_address - 1;
+            else
+              -- to end of previous line
+              te_cursor_x <= te_x_max;
               if te_cursor_y > 0 then
-                te_cursor_y <= te_cursor_y - 1;
-                te_cursor_address <= te_cursor_address -
-                                     te_line_length;
-              end if;
-            when x"1d" =>
-              -- C64 cursor right
-              if te_cursor_x < te_x_max then
-                -- stay on same line
-                te_cursor_x <= te_cursor_x + 1;
-                te_cursor_address <= te_cursor_address + 1;
-              else
-                -- advance to next line (and possibly scroll)
-                te_cursor_x <= 0;
-                if te_cursor_y < te_y_max then
-                  te_cursor_y <= te_cursor_y + 1;
-                  te_cursor_address <= te_cursor_address + 1;
-                else
-                  terminal_emulator_ready <= '0';
-                  scroll_terminal_up <= '1';
-                  erase_address
-                    <= 4096 - (te_y_max+1) * te_line_length;
-                end if;
-              end if;
-            when x"9d" =>
-              -- C64 cursor left
-              if te_cursor_x > 0 then
-                -- stay on same line
-                te_cursor_x <= te_cursor_x - 1;
+                -- if not on first line, to go previous line
                 te_cursor_address <= te_cursor_address - 1;
+                te_cursor_y <= te_cursor_y - 1;
               else
-                -- to end of previous line
-                te_cursor_x <= te_x_max;
-                if te_cursor_y > 0 then
-                  -- if not on first line, to go previous line
-                  te_cursor_address <= te_cursor_address - 1;
-                  te_cursor_y <= te_cursor_y - 1;
-                else
-                -- trying to go left from home position does
-                -- nothing
-                end if;
+              -- trying to go left from home position does
+              -- nothing
               end if;
-            when others =>
-              -- Simply put character into place, and advance cursor
-              -- as for cursor right
-              report "te_cursor_address = "
-                & integer'image(te_cursor_address)
-                & ", te_cursor_x = " & integer'image(te_cursor_x)
-                & ", te_cursor_y = " & integer'image(te_cursor_y)
-                & ", te_screen_start = "
-                & integer'image(te_screen_start);
-              screenram_addr <= te_cursor_address;
-              screenram_wdata <= monitor_char_in;
-              if te_cursor_x < te_x_max then
-                -- stay on same line
-                te_cursor_x <= te_cursor_x + 1;
+            end if;
+            terminal_emulator_fast <= '1';
+          when others =>
+            -- Simply put character into place, and advance cursor
+            -- as for cursor right
+            report "te_cursor_address = "
+              & integer'image(te_cursor_address)
+              & ", te_cursor_x = " & integer'image(te_cursor_x)
+              & ", te_cursor_y = " & integer'image(te_cursor_y)
+              & ", te_screen_start = "
+              & integer'image(te_screen_start);
+            screenram_addr <= te_cursor_address;
+            screenram_busy := '1';
+            screenram_wdata <= monitor_char_in;
+            if te_cursor_x < te_x_max then
+              -- stay on same line
+              te_cursor_x <= te_cursor_x + 1;
+              te_cursor_address <= te_cursor_address + 1;
+              terminal_emulator_fast <= '1';
+            else
+              -- advance to next line (and possibly scroll)
+              te_cursor_x <= 0;
+              if te_cursor_y < te_y_max then
+                te_cursor_y <= te_cursor_y + 1;
                 te_cursor_address <= te_cursor_address + 1;
+                terminal_emulator_fast <= '1';
               else
-                -- advance to next line (and possibly scroll)
-                te_cursor_x <= 0;
-                if te_cursor_y < te_y_max then
-                  te_cursor_y <= te_cursor_y + 1;
-                  te_cursor_address <= te_cursor_address + 1;
-                else
-                  terminal_emulator_ready <= '0';
-                  scroll_terminal_up <= '1';
-                  erase_address
-                    <= 4096 - (te_y_max+1) * te_line_length;
-                end if;
+                terminal_emulator_ready <= '0';
+                scroll_terminal_up <= '1';
+                erase_address
+                  <= 4096 - (te_y_max+1) * te_line_length;
+                terminal_emulator_fast <= '0';
               end if;
-          end case;
-        end if;                
+            end if;
+        end case;
+      end if;                
+
+      
+      if screenram_busy = '1' then
+        -- Terminal emulator display is using memory to read something
+        -- so make sure we aren't writing
+        screenram_we <= '0';
+      else
+        -- Terminal emulator display generator isn't using the memory --
+        -- so scroll or erase if required
+        if erase_terminal_memory = '1' then
+          if erase_address /= 4096 then
+            erase_address <= erase_address + 1;
+            screenram_addr <= erase_address;
+            screenram_we <= '1';
+            screenram_wdata <= x"20";
+          else
+            screenram_we <= '0';
+            erase_terminal_memory <= '0';
+            terminal_emulator_ready <= '1';
+          end if;
+        elsif scroll_terminal_up = '1' then
+          -- Copy screen memory up one row, and erase bottom
+          -- row.
+          -- Only scrolling during vertical flyback
+          -- to avoid visual artifacts. This could limit scroll
+          -- speed to only a couple of lines per frame. Not ideal.
+          -- so we won't restrict it for now.
+          if erase_address /= 4096 - te_line_length then
+            if scroll_write_ready = '0' and scroll_read = '0' then
+              -- Read from line below
+--              report "Reading from "
+--                & integer'image(erase_address + te_line_length)
+--                & " for scrolling.";
+              screenram_addr <= erase_address + te_line_length;
+              screenram_we <= '0';
+              scroll_read <= '1';
+            elsif scroll_write_ready = '1' then
+              -- Write to current row
+--              report "scrolling @ address "
+--                & integer'image(erase_address)
+--                & " writing $"
+--                & to_hstring(scroll_byte);
+              erase_address <= erase_address + 1;
+              screenram_addr <= erase_address;
+              screenram_we <= '1';
+              screenram_wdata <= scroll_byte;
+              scroll_read <= '0';
+              scroll_write_ready <= '0';
+            end if;
+          else
+            -- Use screen clear logic to create blank new line
+            erase_terminal_memory <= '1';              
+            scroll_terminal_up <= '0';
+          end if;
+        end if;
       end if;
+      
       if pixel_x_640 /= last_pixel_x_640 then
         -- Text terminal display
         -- We need to read the current char cell to know which
@@ -477,48 +568,15 @@ begin  -- rtl
           end if;
           -- Position within glyph
           matrix_fetch_address(2 downto 0) <= ycounter_in(2 downto 0);
-        else
-          if erase_terminal_memory = '1' then
-            if erase_address /= 4096 then
-              erase_address <= erase_address + 1;
-              screenram_addr <= erase_address;
-              screenram_we <= '1';
-              screenram_wdata <= x"20";
-            else
-              screenram_we <= '0';
-              erase_terminal_memory <= '0';
-              terminal_emulator_ready <= '1';
-            end if;
-          elsif scroll_terminal_up = '1' then
-            -- Copy screen memory up one row, and erase bottom
-            -- row.
-            -- Only scrolling during vertical flyback
-            -- to avoid visual artifacts. This could limit scroll
-            -- speed to only a couple of lines per frame. Not ideal.
-            -- so we won't restrict it for now.            
-            if erase_address /= 4096 - te_line_length then
-              if scroll_phase = '0' then
-                -- Read from line below
-                screenram_addr <= erase_address + te_line_length;
-                screenram_we <= '0';
-                scroll_phase <= '1';
-              else
-                -- Write to current row
-                erase_address <= erase_address + 1;
-                screenram_addr <= erase_address;
-                screenram_we <= '1';
-                screenram_wdata <= screenram_rdata;
-                scroll_phase <= '0';
-              end if;
-              screenram_addr <= erase_address;
-              screenram_we <= '1';
-              screenram_wdata <= x"20";
-            else
-              -- Use screen clear logic to create blank new line
-              erase_terminal_memory <= '1';              
-              scroll_terminal_up <= '0';
-            end if;
-          end if;
+        end if;
+        -- Copy byte read for scrolling if ready.
+        -- This is because scrolling happens around the memory accesses
+        -- needed to draw the display.
+        if scroll_read = '1' then
+--          report "Storing scroll byte $" & to_hstring(screenram_rdata);
+          scroll_byte <= screenram_rdata;
+          scroll_write_ready <= '1';
+          scroll_read <= '0';
         end if;
 
         -- Matrix Rain display
@@ -686,8 +744,8 @@ begin  -- rtl
       if last_vsync = '1' and vsync_in = '0' then
         -- Vertical flyback = start of next frame
         report "Resetting at end of flyback";
-        line_screen_address <= to_unsigned(0,12);
-        char_screen_address <= to_unsigned(0,12);
+        line_screen_address <= to_unsigned(te_screen_start,12);
+        char_screen_address <= to_unsigned(te_screen_start,12);
         char_ycounter <= to_unsigned(0,12);
         fetch_next_char <= '1';
         if matrix_mode_enable = '1' and frame_number < 127 then
