@@ -713,8 +713,8 @@ begin  -- rtl
           end if;
           if row_counter >= te_header_line_count then
             -- In normal text area
-            if char_bits(7) = '1' then
-              if is_cursor='1' and te_blink_phase='1' then
+            if char_bits(0) = '1' then
+              if is_cursor='1' and te_blink_state='1' then
                 vgared_out <= (others => '0');
                 vgagreen_out <= (others => '0');
                 vgablue_out <= (others => '0');
@@ -724,7 +724,7 @@ begin  -- rtl
                 vgablue_out <= (others => '0');
               end if;
             else
-              if is_cursor='1' and te_blink_phase='1' then
+              if is_cursor='1' and te_blink_state='1' then
                 vgared_out <= "11111111";
                 vgagreen_out <= "11111111";
                 vgablue_out <= "00000000";
@@ -737,7 +737,7 @@ begin  -- rtl
           else
             -- In header of matrix mode
             -- Note that cursor is not visible in header area
-            if char_bits(7) = '1' then
+            if char_bits(0) = '1' then
               -- White text for header of matrix mode
               vgared_out <= (others => '0');
               vgagreen_out <= (others => '0');
