@@ -255,6 +255,7 @@ begin  -- rtl
         fetch_next_char <= '0';
 
         screenram_addr <= to_integer(char_screen_address);
+        screenram_we <= '0';
         screenram_busy := '1';
         if pixel_x_640 >= debug_x and pixel_x_640 < (debug_x+10) then
           report
@@ -271,6 +272,7 @@ begin  -- rtl
         screenram_addr <= 0
                           +(to_integer(screenram_rdata)*8)
                           +to_integer(char_ycounter(2 downto 0));
+        screenram_we <= '0';
         screenram_busy := '1';
         if pixel_x_640 >= debug_x and pixel_x_640 < (debug_x+10) then
           report
@@ -295,6 +297,7 @@ begin  -- rtl
       if terminal_emulator_fast = '1' then
         terminal_emulator_ready <= '1';
         terminal_emulator_fast <= '0';
+        screenram_we <= '0';
       elsif monitor_char_valid = '1' and screenram_busy = '0'
         and monitor_char_primed = '1' then
         terminal_emulator_ready <= '0';
@@ -409,8 +412,9 @@ begin  -- rtl
               & ", te_screen_start = "
               & integer'image(te_screen_start);
             screenram_addr <= te_cursor_address;
-            screenram_busy := '1';
             screenram_wdata <= monitor_char_in;
+            screenram_we <= '1';
+            screenram_busy := '1';
             if te_cursor_x < te_x_max then
               -- stay on same line
               te_cursor_x <= te_cursor_x + 1;
@@ -437,8 +441,7 @@ begin  -- rtl
       
       if screenram_busy = '1' then
         -- Terminal emulator display is using memory to read something
-        -- so make sure we aren't writing
-        screenram_we <= '0';
+        -- so don't try to do anything
       else
         -- Terminal emulator display generator isn't using the memory --
         -- so scroll or erase if required
