@@ -158,7 +158,7 @@ architecture rtl of matrix_rain_compositor is
   signal glyph_pixel : std_logic := '0';
   signal xflip : std_logic := '0';
 
-  signal char_bit_count : integer range 0 to 8 := 0;
+  signal char_bit_count : integer range 0 to 16 := 0;
   signal char_bits : std_logic_vector(7 downto 0) := x"FF";
   signal next_char_bits : std_logic_vector(7 downto 0) := x"FF";
   signal matrix_fetch_screendata : std_logic := '0';
@@ -518,8 +518,7 @@ begin  -- rtl
               char_ycounter <= to_unsigned(0,12);
             end if;
           end if;
-        elsif char_bit_count = 0
-         and (pixel_x_640 mod 2) = 1 then
+        elsif char_bit_count = 0 then
           -- Request next character
           if pixel_x_640 >= debug_x and pixel_x_640 < (debug_x+10) then
             report
@@ -529,14 +528,14 @@ begin  -- rtl
           char_bits <= std_logic_vector(next_char_bits);
           char_screen_address <= char_screen_address + 1;
           fetch_next_char <= '1';
-          char_bit_count <= 7;
+          char_bit_count <= 15;
         else
-          -- rotate bits for terminal chargen
-          if (pixel_x_640 mod 2) = 0 then
+          -- rotate bits for terminal chargen every 2 640H pixels
+          if (pixel_x_640 mod 2) = 0 and char_bit_count /= 1 then
             char_bits(7 downto 1) <= char_bits(6 downto 0);
             char_bits(0) <= char_bits(7);
-            char_bit_count <= char_bit_count - 1;
           end if;
+          char_bit_count <= char_bit_count - 1;
         end if; 
 
         -- Request next glyph to be read
