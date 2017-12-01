@@ -84,18 +84,21 @@ architecture rtl of matrix_rain_compositor is
   signal te_cursor_y : integer range 0 to 127 := 0;
   signal te_blink_state : std_logic := '1';
   signal te_blink_counter : integer range 0 to 50 := 0;
+  signal te_in_header : std_logic := '0';
   -- te_screen_height * te_line_length must be <2048
   -- Screen RAM sits at end of 4KB BRAM.
-  -- We have one extra header line that can be set using only
-  -- special writing sequences.  It persists 
-  constant te_screen_height : integer := 40;
+  -- We have two extra header line that can be set using only
+  -- special writing sequences.  It persists, even when screen
+  -- is cleared.
+  constant te_header_line_count : integer := 5;
+  constant te_screen_height : integer := 30 - te_header_line_count;
   constant te_y_max : integer := te_screen_height - 1;
   constant te_line_length : integer := 50;
   constant te_x_max : integer := te_line_length - 1;
   constant te_screen_start : integer
     := 4096 - te_screen_height * te_line_length;
   constant te_header_start : integer
-    := te_screen_start - te_line_length;
+    := te_screen_start - te_line_length * te_header_line_count;
   -- Cursor starts at top of normal screen
   signal te_cursor_address : integer := te_screen_start;
   signal monitor_char_primed : std_logic := '0';
@@ -271,7 +274,7 @@ begin  -- rtl
         matrix_fetch_chardata <= '1';
         screenram_addr <= 0
                           +(to_integer(screenram_rdata)*8)
-                          +to_integer(char_ycounter(2 downto 0));
+                          +to_integer(char_ycounter(3 downto 1));
         screenram_we <= '0';
         screenram_busy := '1';
         if pixel_x_640 >= debug_x and pixel_x_640 < (debug_x+10) then
@@ -311,12 +314,32 @@ begin  -- rtl
             te_cursor_x <= 0;
             te_cursor_address <= te_screen_start;
             terminal_emulator_fast <= '1';
+          when x"0e" =>
+            -- Control-N - move to header area
+            te_in_header <= '1';
+            te_cursor_y <= 0;
+            te_cursor_x <= 0;
+            te_cursor_address <= te_header_start;
+            terminal_emulator_fast <= '1';
+          when x"8e" =>
+            -- Control-SHIFT-N - exit header area
+            te_in_header <= '0';
+            te_cursor_y <= 0;
+            te_cursor_x <= 0;
+            te_cursor_address <= te_screen_start;
+            terminal_emulator_fast <= '1';
           when x"93" =>
             -- Clear home
             erase_terminal_memory <= '1';
             terminal_emulator_fast <= '0';
-            erase_address
-              <= 4096 - (te_y_max+1) * te_line_length;
+            if te_in_header = '0' then
+              erase_address
+                <= 4096 - (te_screen_height) * te_line_length;
+            else
+              erase_address
+                <= 4096 - (te_screen_height + te_header_line_count)
+                * te_line_length;
+            end if;
             te_cursor_y <= 0;
             te_cursor_x <= 0;
             te_cursor_address <= te_screen_start;
@@ -509,7 +532,7 @@ begin  -- rtl
           -- we are advancing to next line
           -- XXX doesn't yet support double-high chars
           if last_hsync = '0' then
-            if char_ycounter /= 7 then
+            if char_ycounter /= 15 then
               char_screen_address <= line_screen_address;
               char_ycounter <= char_ycounter + 1;
             else

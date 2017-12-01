@@ -123,9 +123,12 @@ begin
     end procedure;
   begin
     wait for 1 us;
-    -- Clear terminal screen
+    -- Enter header
+    type_char(character'val(14));
+    -- Clear terminal screen, including header
     type_char(character'val(147));
-    -- Then write some stuff
+    -- Exit header, and continue writing
+    type_char(character'val(128+14));
     type_text("line 0" & lf & cr);
     type_text("1" & lf & cr);
     type_text(" 2" & lf & cr);
@@ -166,6 +169,14 @@ begin
     type_text("7" & lf & cr);
     type_text("8" & lf & cr);
     type_text("9" & lf & cr);
+    -- Back in header again and write some stuff there
+    type_char(character'val(14));
+    type_text("in the header" & lf & cr
+              & "  header 2" & lf & cr
+              & "  header 3" & lf & cr
+              & "  header 4" & lf & cr
+              & "  header 5" & lf & cr
+              & character'val(128+14));
 
     wait for 2 sec;
   end process;
