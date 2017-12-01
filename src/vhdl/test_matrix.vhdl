@@ -103,7 +103,10 @@ begin
     procedure type_char(char : character) is
     begin
         report "Typing  " & character'image(char);
-        wait for 40 ns;
+        while term_ready = '0' loop
+          report "Waiting for terminal emulator to be ready.";
+          wait for 40 ns;
+        end loop;    
         char_in <= to_unsigned(character'pos(char),8);
         char_valid <= '1';
         wait for 40 ns;
@@ -118,6 +121,9 @@ begin
     end procedure;
   begin
     wait for 1 us;
+    -- Clear terminal screen
+    type_char(character'val(147));
+    -- Then write some stuff
     type_text("line 0" & lf & cr);
     type_text("1" & lf & cr);
     type_text("2" & lf & cr);
