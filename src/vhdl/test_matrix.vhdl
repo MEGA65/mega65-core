@@ -128,14 +128,14 @@ begin
     -- Then write some stuff
     type_text("line 0" & lf & cr);
     type_text("1" & lf & cr);
-    type_text("2" & lf & cr);
-    type_text("3" & lf & cr);
-    type_text("4" & lf & cr);
-    type_text("5" & lf & cr);
-    type_text("6" & lf & cr);
-    type_text("7" & lf & cr);
-    type_text("8" & lf & cr);
-    type_text("9" & lf & cr);
+    type_text(" 2" & lf & cr);
+    type_text("  3" & lf & cr);
+    type_text("   4" & lf & cr);
+    type_text("    5" & lf & cr);
+    type_text("     6" & lf & cr);
+    type_text("      7" & lf & cr);
+    type_text("       8" & lf & cr);
+    type_text("        9" & lf & cr);
     type_text("line 10" & lf & cr);
     type_text("1" & lf & cr);
     type_text("2" & lf & cr);
