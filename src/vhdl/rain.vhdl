@@ -85,6 +85,13 @@ architecture rtl of matrix_rain_compositor is
   signal te_blink_state : std_logic := '1';
   signal te_blink_counter : integer range 0 to 50 := 0;
   signal te_cursor_address : integer := 0;
+  constant te_y_max : integer := 39;
+  constant te_line_length : integer := 50;
+  constant te_x_max : integer := te_line_length - 1;
+
+  signal erase_terminal_memory : std_logic := '0';
+  signal scroll_terminal_up : std_logic := '0';
+  signal erase_address : integer := 0;
   
   signal state : unsigned(15 downto 0) := (others => '1');
   type feed_t is (Normal,Rain,Matrix);
@@ -252,121 +259,120 @@ begin  -- rtl
         end if;
       else
         if matrix_fetch_chardata = '1' then
-        matrix_fetch_chardata <= '0';
-        if pixel_x_640 >= debug_x and pixel_x_640 < (debug_x+10) then
-          report
-            "x=" & integer'image(pixel_x_640) & ": " &
-            "Reading next_char_bits = $"
-            & to_hstring(screenram_rdata);
+          matrix_fetch_chardata <= '0';
+          if pixel_x_640 >= debug_x and pixel_x_640 < (debug_x+10) then
+            report
+              "x=" & integer'image(pixel_x_640) & ": " &
+              "Reading next_char_bits = $"
+              & to_hstring(screenram_rdata);
+          end if;
+          if monitor_char_valid = '1' then
+            case monitor_char_in is
+              when x"13" =>
+                -- Home
+                te_cursor_y <= 0;
+                te_cursor_x <= 0;
+                te_cursor_address <= 0;
+              when x"93" =>
+                -- Clear home
+                terminal_emulator_ready <= '0';
+                erase_terminal_memory <= '1';
+                erase_address <= 2048;
+                te_cursor_y <= 0;
+                te_cursor_x <= 0;
+                te_cursor_address <= 0;
+              when x"0a" =>
+                -- Line feed
+                if te_cursor_y < te_y_max then
+                  te_cursor_y <= te_cursor_y + 1;
+                  te_cursor_address <= te_cursor_address +
+                                       te_line_length;
+                else
+                  terminal_emulator_ready <= '0';
+                  scroll_terminal_up <= '1';
+                  erase_address <= 2048;
+                end if;
+              when x"0d" =>
+                -- Carriage return
+                te_cursor_x <= 0;
+              when x"11" =>
+                -- C64 cursor down (can scroll)
+                if te_cursor_y < te_y_max then
+                  te_cursor_y <= te_cursor_y + 1;
+                  te_cursor_address <= te_cursor_address +
+                                       te_line_length;
+                else
+                  terminal_emulator_ready <= '0';
+                  scroll_terminal_up <= '1';
+                  erase_address <= 2048;
+                end if;            
+              when x"91" =>
+                -- C64 cursor up (doesn't scroll)
+                if te_cursor_y > 0 then
+                  te_cursor_y <= te_cursor_y - 1;
+                  te_cursor_address <= te_cursor_address -
+                                       te_line_length;
+                end if;
+              when x"1d" =>
+                -- C64 cursor right
+                if te_cursor_x < te_x_max then
+                  -- stay on same line
+                  te_cursor_x <= te_cursor_x + 1;
+                  te_cursor_address <= te_cursor_address + 1;
+                else
+                  -- advance to next line (and possibly scroll)
+                  te_cursor_x <= 0;
+                  if te_cursor_y < te_y_max then
+                    te_cursor_y <= te_cursor_y + 1;
+                    te_cursor_address <= te_cursor_address + 1;
+                  else
+                    terminal_emulator_ready <= '0';
+                    scroll_terminal_up <= '1';
+                    erase_address <= 2048;
+                  end if;
+                end if;
+              when x"9d" =>
+                -- C64 cursor left
+                if te_cursor_x > 0 then
+                  -- stay on same line
+                  te_cursor_x <= te_cursor_x - 1;
+                  te_cursor_address <= te_cursor_address - 1;
+                else
+                  -- to end of previous line
+                  te_cursor_x <= te_x_max;
+                  if te_cursor_y > 0 then
+                    -- if not on first line, to go previous line
+                    te_cursor_address <= te_cursor_address - 1;
+                    te_cursor_y <= te_cursor_y - 1;
+                  else
+                  -- trying to go left from home position does
+                  -- nothing
+                  end if;
+                end if;
+              when others =>
+                -- Simply put character into place, and advance cursor
+                -- as for cursor right
+                screenram_addr <= 2048 + te_cursor_address;
+                screenram_wdata <= monitor_char_in;
+                if te_cursor_x < te_x_max then
+                  -- stay on same line
+                  te_cursor_x <= te_cursor_x + 1;
+                  te_cursor_address <= te_cursor_address + 1;
+                else
+                  -- advance to next line (and possibly scroll)
+                  te_cursor_x <= 0;
+                  if te_cursor_y < te_y_max then
+                    te_cursor_y <= te_cursor_y + 1;
+                    te_cursor_address <= te_cursor_address + 1;
+                  else
+                    terminal_emulator_ready <= '0';
+                    scroll_terminal_up <= '1';
+                    erase_address <= 2048;
+                  end if;
+                end if;
+            end case;
+          end if;          
         end if;
-      if monitor_char_valid = '1' then
-        case monitor_char_valid is
-          when x"13" =>
-            -- Home
-            te_cursor_y <= 0;
-            te_cursor_x <= 0;
-            te_cursor_address <= 0;
-          when x"93" =>
-            -- Clear home
-            terminal_emulator_ready <= '0';
-            erase_terminal_memory <= '1';
-            erase_address <= 2048;
-            te_cursor_y <= 0;
-            te_cursor_x <= 0;
-            te_cursor_address <= 0;
-          when x"0a" =>
-            -- Line feed
-            if te_cursor_y < te_y_max then
-              te_cursor_y <= te_cursor_y + 1;
-              te_cursor_address <= te_cursor_address +
-                                   te_line_length;
-            else
-              terminal_emulator_ready <= '0';
-              scroll_terminal_up <= '1';
-              erase_address <= 2048;
-            end if;
-          when x"0d" =>
-            -- Carriage return
-            te_cursor_x <= 0;
-          when x"11" =>
-            -- C64 cursor down (can scroll)
-            if te_cursor_y < te_y_max then
-              te_cursor_y <= te_cursor_y + 1;
-              te_cursor_address <= te_cursor_address +
-                                   te_line_length;
-            else
-              terminal_emulator_ready <= '0';
-              scroll_terminal_up <= '1';
-              erase_address <= 2048;
-            end if;            
-          when x"91" =>
-            -- C64 cursor up (doesn't scroll)
-            if te_cursor_y > 0 then
-              te_cursor_y <= te_cursor_y - 1;
-              te_cursor_address <= te_cursor_address -
-                                   te_line_length;
-            end if;
-          when x"1d" =>
-            -- C64 cursor right
-            if te_cursor_x < te_x_max then
-              -- stay on same line
-              te_cursor_x <= te_cursor_x + 1;
-              te_cursor_address <= te_cursor_address + 1;
-            else
-              -- advance to next line (and possibly scroll)
-              te_cursor_x <= 0;
-              if te_cursor_y < te_y_max then
-                te_cursor_y <= te_cursor_y + 1;
-                te_cursor_address <= te_cursor_address + 1;
-              else
-                terminal_emulator_ready <= '0';
-                scroll_terminal_up <= '1';
-                erase_address <= 2048;
-              end if;
-            end if;
-          when x"9d" =>
-            -- C64 cursor left
-            if te_cursor_x > 0 then
-              -- stay on same line
-              te_cursor_x <= te_cursor_x - 1;
-              te_cursor_address <= te_cursor_address - 1;
-            else
-              -- to end of previous line
-              te_cursor_x <= te_x_max;
-              if te_cursor_y > 0 then
-                -- if not on first line, to go previous line
-                te_cursor_address <= te_cursor_address - 1;
-                te_cursor_y <= te_cursor_y - 1;
-              else
-                -- trying to go left from home position does
-                -- nothing
-              end if;
-            end if;
-          when others =>
-            -- Simply put character into place, and advance cursor
-            -- as for cursor right
-            screenram_address <= 2048 + te_cursor_address;
-            screenram_wdata <= monitor_char_in;
-            if te_cursor_x < te_x_max then
-              -- stay on same line
-              te_cursor_x <= te_cursor_x + 1;
-              te_cursor_address <= te_cursor_address + 1;
-            else
-              -- advance to next line (and possibly scroll)
-              te_cursor_x <= 0;
-              if te_cursor_y < te_y_max then
-                te_cursor_y <= te_cursor_y + 1;
-                te_cursor_address <= te_cursor_address + 1;
-              else
-                terminal_emulator_ready <= '0';
-                scroll_terminal_up <= '1';
-                erase_address <= 2048;
-              end if;
-            end if;
-        end case;
-      end if;
-      
-
       end if;
       if pixel_x_640 /= last_pixel_x_640 then
         -- Text terminal display
@@ -412,42 +418,42 @@ begin  -- rtl
           char_bit_count <= char_bit_count - 1;
         end if; 
 
-          -- Request next glyph to be read
-          -- Matrix glyphs are at $0E00-$0EFF
-          -- Digits are at $30 x $08 = $180-$1DF
-          -- We want circa 1/10th digits, and 9/10s matrix glyphs
-          -- Digits have 10, which is not a power of two, and so is a bit
-          -- annoying.  We can break it down into 8 + 2 digits, however,
-          -- where the 8 digits should get picked 4x more often than the other
+        -- Request next glyph to be read
+        -- Matrix glyphs are at $0E00-$0EFF
+        -- Digits are at $30 x $08 = $180-$1DF
+        -- We want circa 1/10th digits, and 9/10s matrix glyphs
+        -- Digits have 10, which is not a power of two, and so is a bit
+        -- annoying.  We can break it down into 8 + 2 digits, however,
+        -- where the 8 digits should get picked 4x more often than the other
         -- 2.
         if fetch_next_char = '1' then
-          -- handled elsewhere
+        -- handled elsewhere
         elsif matrix_fetch_screendata = '1' then
           -- Read byte of character to display
-            matrix_fetch_glyphdata <= '0';
-            matrix_fetch_address(11) <= '0';
-            -- Read byte of matrix rain glyph
-            matrix_fetch_glyphdata <= '1';
-            
-            if next_glyph(9 downto 7) = "001" then
-              -- Digits 0 - 7
-              xflip <= '1';
-              matrix_fetch_address(11 downto 6) <= "000110";
-              matrix_fetch_address(5 downto 3) <= next_glyph(2 downto 0);
-            elsif next_glyph(9 downto 5) = "00001" then
-              -- Digits 8 - 9 @ char $38-$39 = 
-              xflip <= '1';
-              matrix_fetch_address(11 downto 5) <= "0001110";
-              matrix_fetch_address(4 downto 3) <= next_glyph(1 downto 0);
-            else
-              -- Matrix glyph
-              xflip <= '0';
-              matrix_fetch_address(11 downto 8) <= x"E";
-              matrix_fetch_address(7 downto 3) <= next_glyph(4 downto 0);
-            end if;
-            -- Position within glyph
-            matrix_fetch_address(2 downto 0) <= ycounter_in(2 downto 0);
+          matrix_fetch_glyphdata <= '0';
+          matrix_fetch_address(11) <= '0';
+          -- Read byte of matrix rain glyph
+          matrix_fetch_glyphdata <= '1';
+          
+          if next_glyph(9 downto 7) = "001" then
+            -- Digits 0 - 7
+            xflip <= '1';
+            matrix_fetch_address(11 downto 6) <= "000110";
+            matrix_fetch_address(5 downto 3) <= next_glyph(2 downto 0);
+          elsif next_glyph(9 downto 5) = "00001" then
+            -- Digits 8 - 9 @ char $38-$39 = 
+            xflip <= '1';
+            matrix_fetch_address(11 downto 5) <= "0001110";
+            matrix_fetch_address(4 downto 3) <= next_glyph(1 downto 0);
+          else
+            -- Matrix glyph
+            xflip <= '0';
+            matrix_fetch_address(11 downto 8) <= x"E";
+            matrix_fetch_address(7 downto 3) <= next_glyph(4 downto 0);
           end if;
+          -- Position within glyph
+          matrix_fetch_address(2 downto 0) <= ycounter_in(2 downto 0);
+        end if;
 
         -- Matrix Rain display
         drop_start_plus_row <= drop_start_plus_row_drive;
@@ -480,7 +486,7 @@ begin  -- rtl
           drop_start_drive <= to_integer(next_start(4 downto 0));
           drop_end_drive <= to_integer(next_end(4 downto 0));
           drop_distance_to_end_drive2 <= to_unsigned(257 + drop_row - (frame_number - to_integer(next_start(4 downto 0)))
-                                                                - to_integer(next_end(4 downto 0)),9);  
+                                                     - to_integer(next_end(4 downto 0)),9);  
           drop_distance_to_start_drive2 <= to_unsigned(257 + drop_row - (frame_number - to_integer(next_start(4 downto 0))),9);
           
           -- Work out where drops stop and start
@@ -632,23 +638,23 @@ begin  -- rtl
         end if;
         lfsr_advance_counter <= 0;
       end if;
-        if lfsr_advance_counter /= 0 then
-          lfsr_advance_counter <= lfsr_advance_counter - 1;
-        elsif hsync_in = '1' then
-          lfsr_advance(3 downto 0) <= "0000";
-        else
-          -- Collect bits to form start and end of rain and glyph
-          -- to show.  We collect 8 bits of data, since it is simpler,
-          -- but we use only a subset of the collected bits.
-          next_glyph(15 downto 2) <= next_glyph(13 downto 0);
-          next_glyph(1) <= lfsr_out(3);
-          next_glyph(0) <= lfsr_out(2);
-          next_start(7 downto 1) <= next_start(6 downto 0);
-          next_start(0) <= lfsr_out(0);
-          next_end(7 downto 1) <= next_end(6 downto 0);
-          next_end(0) <= lfsr_out(1);
-          lfsr_advance(3 downto 0) <= "1111";
-        end if;
+      if lfsr_advance_counter /= 0 then
+        lfsr_advance_counter <= lfsr_advance_counter - 1;
+      elsif hsync_in = '1' then
+        lfsr_advance(3 downto 0) <= "0000";
+      else
+        -- Collect bits to form start and end of rain and glyph
+        -- to show.  We collect 8 bits of data, since it is simpler,
+        -- but we use only a subset of the collected bits.
+        next_glyph(15 downto 2) <= next_glyph(13 downto 0);
+        next_glyph(1) <= lfsr_out(3);
+        next_glyph(0) <= lfsr_out(2);
+        next_start(7 downto 1) <= next_start(6 downto 0);
+        next_start(0) <= lfsr_out(0);
+        next_end(7 downto 1) <= next_end(6 downto 0);
+        next_end(0) <= lfsr_out(1);
+        lfsr_advance(3 downto 0) <= "1111";
+      end if;
     end if;
   end process;
 
