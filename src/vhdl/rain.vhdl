@@ -518,7 +518,8 @@ begin  -- rtl
               char_ycounter <= to_unsigned(0,12);
             end if;
           end if;
-        elsif char_bit_count = 0 then
+        elsif char_bit_count = 0
+         and (pixel_x_640 mod 2) = 1 then
           -- Request next character
           if pixel_x_640 >= debug_x and pixel_x_640 < (debug_x+10) then
             report
@@ -531,9 +532,11 @@ begin  -- rtl
           char_bit_count <= 7;
         else
           -- rotate bits for terminal chargen
-          char_bits(7 downto 1) <= char_bits(6 downto 0);
-          char_bits(0) <= char_bits(7);
-          char_bit_count <= char_bit_count - 1;
+          if (pixel_x_640 mod 2) = 0 then
+            char_bits(7 downto 1) <= char_bits(6 downto 0);
+            char_bits(0) <= char_bits(7);
+            char_bit_count <= char_bit_count - 1;
+          end if;
         end if; 
 
         -- Request next glyph to be read
@@ -747,8 +750,8 @@ begin  -- rtl
       if last_vsync = '1' and vsync_in = '0' then
         -- Vertical flyback = start of next frame
         report "Resetting at end of flyback";
-        line_screen_address <= to_unsigned(te_screen_start,12);
-        char_screen_address <= to_unsigned(te_screen_start,12);
+        line_screen_address <= to_unsigned(te_header_start,12);
+        char_screen_address <= to_unsigned(te_header_start,12);
         char_ycounter <= to_unsigned(0,12);
         fetch_next_char <= '1';
         if matrix_mode_enable = '1' and frame_number < 127 then
