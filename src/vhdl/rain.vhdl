@@ -172,6 +172,9 @@ architecture rtl of matrix_rain_compositor is
   signal char_screen_address : unsigned(11 downto 0) := to_unsigned(te_screen_start,12);
   signal line_screen_address : unsigned(11 downto 0) := to_unsigned(te_screen_start,12);
   signal char_ycounter : unsigned(11 downto 0) := to_unsigned(0,12);
+  signal row_counter : integer := 0;
+  signal next_is_cursor : std_logic := '0';
+  signal is_cursor : std_logic := '0';  
   
 begin  -- rtl
 
@@ -258,6 +261,14 @@ begin  -- rtl
         fetch_next_char <= '0';
 
         screenram_addr <= to_integer(char_screen_address);
+        if char_screen_address = te_cursor_address then
+          next_is_cursor <= '1';
+          report "Found cursor @ "
+            & integer'image(te_cursor_x)
+            & "," & integer'image(te_cursor_y);
+        else
+          next_is_cursor <= '0';
+        end if;
         screenram_we <= '0';
         screenram_busy := '1';
         if pixel_x_640 >= debug_x and pixel_x_640 < (debug_x+10) then
@@ -539,6 +550,7 @@ begin  -- rtl
               char_screen_address <= line_screen_address + te_line_length;
               line_screen_address <= line_screen_address + te_line_length;
               char_ycounter <= to_unsigned(0,12);
+              row_counter <= row_counter + 1;
             end if;
           end if;
         elsif char_bit_count = 0 then
@@ -549,6 +561,7 @@ begin  -- rtl
               "char_bits becomes $" & to_hstring(next_char_bits);
           end if;
           char_bits <= std_logic_vector(next_char_bits);
+          is_cursor <= next_is_cursor;
           char_screen_address <= char_screen_address + 1;
           fetch_next_char <= '1';
           char_bit_count <= 15;
@@ -698,14 +711,43 @@ begin  -- rtl
               "  pixel_out = " & std_logic'image(char_bits(7))
               & ", char_bits=%" & to_string(char_bits);
           end if;
-          if char_bits(7) = '1' then
-            vgared_out <= (others => '0');
-            vgagreen_out <= (others => '1');
-            vgablue_out <= (others => '0');
+          if row_counter >= te_header_line_count then
+            -- In normal text area
+            if char_bits(7) = '1' then
+              if is_cursor='1' and te_blink_phase='1' then
+                vgared_out <= (others => '0');
+                vgagreen_out <= (others => '0');
+                vgablue_out <= (others => '0');
+              else
+                vgared_out <= (others => '0');
+                vgagreen_out <= (others => '1');
+                vgablue_out <= (others => '0');
+              end if;
+            else
+              if is_cursor='1' and te_blink_phase='1' then
+                vgared_out <= "11111111";
+                vgagreen_out <= "11111111";
+                vgablue_out <= "00000000";
+              else
+                vgared_out <= (others => '0');
+                vgagreen_out <= (others => '0');
+                vgablue_out <= (others => '0');
+              end if;
+            end if;
           else
-            vgared_out <= (others => '0');
-            vgagreen_out <= (others => '0');
-            vgablue_out <= (others => '0');
+            -- In header of matrix mode
+            -- Note that cursor is not visible in header area
+            if char_bits(7) = '1' then
+              -- White text for header of matrix mode
+              vgared_out <= (others => '0');
+              vgagreen_out <= (others => '0');
+              vgablue_out <= (others => '0');
+            else
+              -- Header of matrix mode terminal has background highlight
+              vgared_out <= "01111111";
+              vgagreen_out <= "11111111";
+              vgablue_out <= "01111111";
+            end if;
           end if;
         when Rain =>
           -- Matrix rain drop, so display a random character in green on
@@ -772,9 +814,18 @@ begin  -- rtl
       if last_vsync = '1' and vsync_in = '0' then
         -- Vertical flyback = start of next frame
         report "Resetting at end of flyback";
+
+        if te_blink_counter < 25 then
+          te_blink_counter <= te_blink_counter + 1;
+        else
+          te_blink_counter <= 0;
+          te_blink_state <= not te_blink_state;
+        end if;
+        
         line_screen_address <= to_unsigned(te_header_start,12);
         char_screen_address <= to_unsigned(te_header_start,12);
         char_ycounter <= to_unsigned(0,12);
+        row_counter <= 0;
         fetch_next_char <= '1';
         if matrix_mode_enable = '1' and frame_number < 127 then
           frame_number <= frame_number + 1;
