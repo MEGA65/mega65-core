@@ -131,7 +131,7 @@ architecture rtl of matrix_rain_compositor is
   signal state : unsigned(15 downto 0) := (others => '1');
   type feed_t is (Normal,Rain,Matrix);
   signal feed : feed_t := Normal;
-  signal frame_number : integer range 0 to 127 := 0;
+  signal frame_number : integer range 0 to 127 := 70;
   signal in_transition : std_logic := '0';
   signal lfsr_advance_counter : integer range 0 to 31 := 0;
   signal last_hsync : std_logic := '1';
@@ -173,7 +173,7 @@ architecture rtl of matrix_rain_compositor is
   signal next_start : unsigned(7 downto 0) := x"00";
   signal next_end : unsigned(7 downto 0) := x"00";
 
-  signal glyph_bit_count : integer range 0 to 8 := 0;
+  signal glyph_bit_count : integer range 0 to 15 := 0;
   signal glyph_bits : std_logic_vector(7 downto 0) := x"FF";
   signal next_glyph_bits : std_logic_vector(7 downto 0) := x"FF";
   signal glyph_pixel : std_logic := '0';
@@ -544,7 +544,8 @@ begin  -- rtl
           end if;
         end if;
       end if;
-      
+
+      last_pixel_x_640 <= pixel_x_640;
       if pixel_x_640 /= last_pixel_x_640 then
         -- Text terminal display
         -- We need to read the current char cell to know which
@@ -589,7 +590,9 @@ begin  -- rtl
             char_bits(7 downto 1) <= char_bits(6 downto 0);
             char_bits(0) <= char_bits(7);
           end if;
-          char_bit_count <= char_bit_count - 1;
+          if pixel_x_640 /= last_pixel_x_640 then
+            char_bit_count <= char_bit_count - 1;
+          end if;
         end if; 
 
         -- Request next glyph to be read
@@ -685,13 +688,16 @@ begin  -- rtl
 --          report "new drop start,end = "
 --            & integer'image(to_integer(next_start(4 downto 0))) & ","
 --            & integer'image(to_integer(next_end(4 downto 0)));
-          glyph_bit_count <= 8;
+          glyph_bit_count <= 15;
         else
           -- rotate bits for rain chargen
-          glyph_bits(6 downto 0) <= glyph_bits(7 downto 1);
-          glyph_bits(7) <= glyph_bits(0);
-
-          glyph_bit_count <= glyph_bit_count - 1;
+          if (pixel_x_640 mod 2) = 0 and char_bit_count /= 1 then
+            glyph_bits(6 downto 0) <= glyph_bits(7 downto 1);
+            glyph_bits(7) <= glyph_bits(0);
+          end if;
+          if pixel_x_640 /= last_pixel_x_640 then
+            glyph_bit_count <= glyph_bit_count - 1;
+          end if;
         end if;
       end if;
       
