@@ -188,6 +188,14 @@ begin
       wait for 10 ns;
       pixelclock <= '0';
       wait for 10 ns;
+      pixelclock <= '1';
+      wait for 10 ns;
+      pixelclock <= '0';
+      wait for 10 ns;
+      pixelclock <= '1';
+      wait for 10 ns;
+      pixelclock <= '0';
+      wait for 10 ns;
       if pixel_x_640 < 810 then
         pixel_x_640 <= pixel_x_640 + 1;
         if pixel_x_640 = 800 then
