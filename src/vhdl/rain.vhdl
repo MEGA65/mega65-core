@@ -649,7 +649,7 @@ begin  -- rtl
         drop_distance_to_end <= drop_distance_to_end_drive;
         drop_distance_to_start_drive <= drop_distance_to_start_drive2(7 downto 0);
         drop_distance_to_end_drive <= drop_distance_to_end_drive2(7 downto 0);
-        glyph_pixel <= glyph_bits(7);
+        glyph_pixel <= glyph_bits(0);
         
         if hsync_in = '1' then
           glyph_bit_count <= 0;
