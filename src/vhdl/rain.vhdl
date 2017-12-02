@@ -281,9 +281,9 @@ begin  -- rtl
         screenram_addr <= to_integer(char_screen_address);
         if char_screen_address = te_cursor_address then
           next_is_cursor <= '1';
-          report "Found cursor @ "
-            & integer'image(te_cursor_x)
-            & "," & integer'image(te_cursor_y);
+--          report "Found cursor @ "
+--            & integer'image(te_cursor_x)
+--            & "," & integer'image(te_cursor_y);
         else
           next_is_cursor <= '0';
         end if;
