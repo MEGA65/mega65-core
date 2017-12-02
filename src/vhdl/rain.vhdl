@@ -256,7 +256,6 @@ begin  -- rtl
         next_char_bits <= std_logic_vector(screenram_rdata);
       elsif matrix_fetch_glyphdata = '1' then
         next_glyph_bits <= std_logic_vector(matrix_rdata);
---          report "next glyph bits = $" & to_hstring(matrix_rdata);
       else
 --          report "memory read data = $" & to_hstring(matrix_rdata);
       end if;
@@ -546,7 +545,7 @@ begin  -- rtl
       end if;
 
       last_pixel_x_640 <= pixel_x_640;
-      if pixel_x_640 /= last_pixel_x_640 then
+      if true then
         -- Text terminal display
         -- We need to read the current char cell to know which
         -- char to display, and then also fetch the row of char
@@ -586,11 +585,13 @@ begin  -- rtl
           char_bit_count <= 15;
         else
           -- rotate bits for terminal chargen every 2 640H pixels
-          if (pixel_x_640 mod 2) = 0 and char_bit_count /= 1 then
+          if (pixel_x_640 mod 2) = 0 and char_bit_count /= 1
+            and pixel_x_640 /= last_pixel_x_640 then
             char_bits(7 downto 1) <= char_bits(6 downto 0);
             char_bits(0) <= char_bits(7);
           end if;
-          if pixel_x_640 /= last_pixel_x_640 then
+          if pixel_x_640 /= last_pixel_x_640 
+            and pixel_x_640 /= last_pixel_x_640 then
             char_bit_count <= char_bit_count - 1;
           end if;
         end if; 
@@ -604,10 +605,8 @@ begin  -- rtl
         -- where the 8 digits should get picked 4x more often than the other
         -- 2.
         if fetch_next_char = '1' then
-        -- handled elsewhere
+          -- handled elsewhere
         elsif matrix_fetch_screendata = '1' then
-          -- Read byte of character to display
-          matrix_fetch_glyphdata <= '0';
           matrix_fetch_address(11) <= '0';
           -- Read byte of matrix rain glyph
           matrix_fetch_glyphdata <= '1';
@@ -691,11 +690,13 @@ begin  -- rtl
           glyph_bit_count <= 15;
         else
           -- rotate bits for rain chargen
-          if (pixel_x_640 mod 2) = 0 and char_bit_count /= 1 then
+          if (pixel_x_640 mod 2) = 0 and char_bit_count /= 1
+            and pixel_x_640 /= last_pixel_x_640 then
             glyph_bits(6 downto 0) <= glyph_bits(7 downto 1);
             glyph_bits(7) <= glyph_bits(0);
           end if;
-          if pixel_x_640 /= last_pixel_x_640 then
+          if pixel_x_640 /= last_pixel_x_640 
+            and pixel_x_640 /= last_pixel_x_640 then
             glyph_bit_count <= glyph_bit_count - 1;
           end if;
         end if;
