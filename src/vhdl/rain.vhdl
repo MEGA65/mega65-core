@@ -131,7 +131,8 @@ architecture rtl of matrix_rain_compositor is
   signal state : unsigned(15 downto 0) := (others => '1');
   type feed_t is (Normal,Rain,Matrix);
   signal feed : feed_t := Normal;
-  signal frame_number : integer range 0 to 127 := 100;
+  signal frame_number : integer range 0 to 127 := 0;
+  signal in_transition : std_logic := '0';
   signal lfsr_advance_counter : integer range 0 to 31 := 0;
   signal last_hsync : std_logic := '1';
   signal last_vsync : std_logic := '1';
@@ -702,6 +703,7 @@ begin  -- rtl
         feed <= Matrix;
       else
         feed <= Rain;
+        in_transition <= '1';
       end if;
 
       -- Now that we know what we want to display, actually display it.
@@ -853,8 +855,14 @@ begin  -- rtl
         char_ycounter <= to_unsigned(0,12);
         row_counter <= 0;
         fetch_next_char <= '1';
+        in_transition <= '0';
         if matrix_mode_enable = '1' and frame_number < 127 then
-          frame_number <= frame_number + 1;
+          -- Stop frame counter once transition to matrix display
+          -- is complete, so that reverse transition begins
+          -- immediately
+          if frame_number < 10 or in_transition = '1' then        
+            frame_number <= frame_number + 1;
+          end if;
           report "frame_number incrementing to "
             & integer'image(frame_number + 1);
         elsif matrix_mode_enable = '0' and frame_number > 0 then
