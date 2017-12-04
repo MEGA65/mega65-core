@@ -162,9 +162,9 @@ architecture behavioural of bitplanes is
   signal bitplanedatabuffer_cs : std_logic := '1';
   signal bitplanedatabuffer_write : std_logic := '0';
   signal bitplanedatabuffer_wdata : unsigned(7 downto 0);
-  signal bitplanedatabuffer_waddress : unsigned(11 downto 0);
+  signal bitplanedatabuffer_waddress : integer range 0 to 4095 := 0;
   signal bitplanedatabuffer_rdata : unsigned(7 downto 0);
-  signal bitplanedatabuffer_address : unsigned(11 downto 0);
+  signal bitplanedatabuffer_address : integer range 0 to 4095 := 0;
 
   -- Signals into and out of bitplane pixel engines
   signal bitplanes_reset : std_logic_vector(7 downto 0) := "00000000";
@@ -200,10 +200,10 @@ begin  -- behavioural
     port map (clk => pixelclock,
               w => bitplanedatabuffer_write,
               wdata => bitplanedatabuffer_wdata,
-              write_address => to_integer(bitplanedatabuffer_waddress),
+              write_address => bitplanedatabuffer_waddress,
 
               cs => bitplanedatabuffer_cs,
-              address => to_integer(bitplanedatabuffer_address),
+              address => bitplanedatabuffer_address,
               rdata => bitplanedatabuffer_rdata
               );
 
@@ -285,10 +285,8 @@ begin  -- behavioural
           & " border_in=" & std_logic'image(border_in)
           & " bitplane_mode_in=" & std_logic'image(bitplane_mode_in)
           & " bitplane_drawing=" & std_logic'image(bitplane_drawing);
-        bitplanedatabuffer_waddress(11 downto 9)
-          <= to_unsigned(sprite_spritenumber_in mod 8, 3);
-        bitplanedatabuffer_waddress(8 downto 0)
-          <= to_unsigned(sprite_bytenumber_in, 9);
+        bitplanedatabuffer_waddress
+          <= (sprite_spritenumber_in mod 8)*512 + sprite_bytenumber_in;
         bitplanedatabuffer_wdata(7 downto 0) <= sprite_data_in;
         bitplanedatabuffer_write <= '1';
       end if;      
@@ -316,8 +314,7 @@ begin  -- behavioural
 
         bitplanedata_fetching <= '1';
         bitplanedata_fetch_bitplane <= current_data_fetch - 1;
-        bitplanedatabuffer_address(11 downto 9) <= to_unsigned(current_data_fetch - 1,3);
-  	bitplanedatabuffer_address(8 downto 0) <= to_unsigned(bitplanes_byte_number,9);
+        bitplanedatabuffer_address <= (current_data_fetch - 1)*512 + bitplanes_byte_number;
         bitplanedata_fetch_column <= bitplanes_byte_number;
 	current_data_fetch <= current_data_fetch - 1;
 
@@ -332,8 +329,7 @@ begin  -- behavioural
 
         bitplanedata_fetching <= '1';
         bitplanedata_fetch_bitplane <= 7;
-        bitplanedatabuffer_address(11 downto 9) <= to_unsigned(7,3);
-  	bitplanedatabuffer_address(8 downto 0) <= to_unsigned(bitplanes_byte_numbers(0),9);
+        bitplanedatabuffer_address <= (7)*512 + bitplanes_byte_number;
         bitplanedata_fetch_column <= bitplanes_byte_number;
 	current_data_fetch <= 7;
 
