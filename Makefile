@@ -72,12 +72,15 @@ SIDVHDL=		$(VHDLSRCDIR)/sid_6581.vhd \
 			$(VHDLSRCDIR)/sid_filters.vhd \
 			$(VHDLSRCDIR)/sid_voice.vhd \
 
+CPUVHDL=		$(VHDLSRCDIR)/gs4510.vhdl
+
+NOCPUVHDL=		$(VHDLSRCDIR)/nocpu.vhdl
+
 C65VHDL=		$(SIDVHDL) \
 			$(VHDLSRCDIR)/iomapper.vhdl \
 			$(VHDLSRCDIR)/cia6526.vhdl \
 			$(VHDLSRCDIR)/c65uart.vhdl \
 			$(VHDLSRCDIR)/UART_TX_CTRL.vhd \
-			$(VHDLSRCDIR)/gs4510.vhdl \
 			$(VHDLSRCDIR)/cputypes.vhdl \
 
 VICIVVHDL=		$(VHDLSRCDIR)/viciv.vhdl \
@@ -148,11 +151,18 @@ MEMVHDL=		$(VHDLSRCDIR)/ghdl_chipram8bit.vhdl \
 			$(VHDLSRCDIR)/ghdl_ram36x1k.vhdl
 
 NEXYSVHDL=		$(VHDLSRCDIR)/slowram.vhdl \
+			$(CPUVHDL) \
 			$(M65VHDL)
 
 
 SIMULATIONVHDL=		$(VHDLSRCDIR)/cpu_test.vhdl \
 			$(VHDLSRCDIR)/fake_expansion_port.vhdl \
+			$(CPUVHDL) \
+			$(M65VHDL)
+
+NOCPUSIMULATIONVHDL=	$(VHDLSRCDIR)/cpu_test.vhdl \
+			$(VHDLSRCDIR)/fake_expansion_port.vhdl \
+			$(NOCPUVHDL) \
 			$(M65VHDL)
 
 
@@ -160,6 +170,12 @@ simulate:	$(SIMULATIONVHDL)
 	ghdl -i $(SIMULATIONVHDL)
 	ghdl -m cpu_test
 	./cpu_test || ghdl -r cpu_test
+
+nocpu:	$(NOCPUSIMULATIONVHDL)
+	ghdl -i $(NOCPUSIMULATIONVHDL)
+	ghdl -m cpu_test
+	./cpu_test || ghdl -r cpu_test
+
 
 KVFILES=$(VHDLSRCDIR)/test_kv.vhdl $(VHDLSRCDIR)/keyboard_to_matrix.vhdl $(VHDLSRCDIR)/matrix_to_ascii.vhdl \
 	$(VHDLSRCDIR)/widget_to_matrix.vhdl $(VHDLSRCDIR)/ps2_to_matrix.vhdl $(VHDLSRCDIR)/keymapper.vhdl \
