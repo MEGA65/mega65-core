@@ -358,6 +358,10 @@ architecture Behavioral of machine is
   signal scancode_out : std_logic_vector(12 downto 0); 
   signal mm_displayMode : unsigned(1 downto 0):=b"10"; 
   signal bit_rate_divisor : unsigned(13 downto 0);
+
+  signal matrix_fetch_address : unsigned(11 downto 0) := to_unsigned(0,12);
+  signal matrix_rdata : unsigned(7 downto 0);
+  
   signal vgablue_sig : unsigned(7 downto 0);
   signal vgared_sig : unsigned(7 downto 0);
   signal vgagreen_sig : unsigned(7 downto 0);
@@ -983,7 +987,11 @@ begin
     touch1_y => osk_touch1_y,    
     touch2_valid => osk_touch2_valid,
     touch2_x => osk_touch2_x,    
-    touch2_y => osk_touch2_y,    
+    touch2_y => osk_touch2_y,
+
+    matrix_fetch_address => matrix_fetch_address,
+    matrix_rdata => matrix_rdata,
+    
     vgablue_in => vgablue_kbd,
     vgared_out => vgared_out,
     vgagreen_out => vgagreen_out,
