@@ -173,7 +173,7 @@ architecture rtl of matrix_rain_compositor is
   signal next_start : unsigned(7 downto 0) := x"00";
   signal next_end : unsigned(7 downto 0) := x"00";
 
-  signal glyph_bit_count : integer range 0 to 15 := 0;
+  signal glyph_bit_count : integer range 0 to 16 := 0;
   signal glyph_bits : std_logic_vector(7 downto 0) := x"FF";
   signal next_glyph_bits : std_logic_vector(7 downto 0) := x"FF";
   signal glyph_pixel : std_logic := '0';
@@ -235,6 +235,7 @@ begin  -- rtl
   
   process(pixelclock)
     variable screenram_busy : std_logic := '0';
+    variable yoffset : integer := 0;
   begin
     if rising_edge(pixelclock) then
 
@@ -245,7 +246,7 @@ begin  -- rtl
       last_hsync <= hsync_in;
       last_vsync <= vsync_in;
 
-      drop_row <= to_integer(ycounter_in(10 downto 3));
+      drop_row <= (to_integer(ycounter_in)+0)/16;
 
       if matrix_fetch_chardata = '1' then
         if pixel_x_640 >= debug_x and pixel_x_640 < (debug_x+10) then
@@ -582,7 +583,7 @@ begin  -- rtl
           is_cursor <= next_is_cursor;
           char_screen_address <= char_screen_address + 1;
           fetch_next_char <= '1';
-          char_bit_count <= 15;
+          char_bit_count <= 16;
         else
           -- rotate bits for terminal chargen every 2 640H pixels
           if (pixel_x_640 mod 2) = 0 and char_bit_count /= 1
@@ -628,7 +629,13 @@ begin  -- rtl
             matrix_fetch_address(7 downto 3) <= next_glyph(4 downto 0);
           end if;
           -- Position within glyph
-          matrix_fetch_address(2 downto 0) <= ycounter_in(2 downto 0);
+          yoffset := (to_integer(ycounter_in(3 downto 0))-1) / 2;
+          if yoffset < 0 then
+            yoffset := yoffset + 8;
+          end if;
+--          yoffset := 1;
+          matrix_fetch_address(2 downto 0)
+            <= to_unsigned(yoffset,3);
         end if;
         -- Copy byte read for scrolling if ready.
         -- This is because scrolling happens around the memory accesses
@@ -687,7 +694,7 @@ begin  -- rtl
 --          report "new drop start,end = "
 --            & integer'image(to_integer(next_start(4 downto 0))) & ","
 --            & integer'image(to_integer(next_end(4 downto 0)));
-          glyph_bit_count <= 15;
+          glyph_bit_count <= 16;
         else
           -- rotate bits for rain chargen
           if (pixel_x_640 mod 2) = 0 and char_bit_count /= 1
