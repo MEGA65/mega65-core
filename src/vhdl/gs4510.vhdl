@@ -187,15 +187,7 @@ entity gs4510 is
     rom_at_e000 : in std_logic;
     rom_at_c000 : in std_logic;
     rom_at_a000 : in std_logic;
-    rom_at_8000 : in std_logic;
-
-    ---------------------------------------------------------------------------
-    -- IO port to far call stack
-    ---------------------------------------------------------------------------
-    farcallstack_we : out std_logic := '0';
-    farcallstack_addr : out std_logic_vector(8 downto 0) := (others => '0');
-    farcallstack_din : out std_logic_vector(63 downto 0) := (others => '0');
-    farcallstack_dout : in std_logic_vector(63 downto 0) := (others => '0')
+    rom_at_8000 : in std_logic
 
     );
 end entity gs4510;

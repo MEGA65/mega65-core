@@ -345,10 +345,6 @@ architecture Behavioral of machine is
   signal pixel_y_scale_200 : unsigned(3 downto 0);
   signal pixel_y_scale_400 : unsigned(3 downto 0);
 
-  signal farcallstack_we : std_logic;
-  signal farcallstack_addr : std_logic_vector(8 downto 0);
-  signal farcallstack_din : std_logic_vector(63 downto 0);
-  signal farcallstack_dout : std_logic_vector(63 downto 0);
   signal uart_tx_buffer : std_logic; 
   signal uart_rx_buffer : std_logic;
   signal protected_hardware_sig : unsigned(7 downto 0);
@@ -697,15 +693,7 @@ begin
       rom_at_e000 => rom_at_e000,
       rom_at_c000 => rom_at_c000,
       rom_at_a000 => rom_at_a000,
-      rom_at_8000 => rom_at_8000,
-
-      ---------------------------------------------------------------------------
-      -- IO port to far call stack
-      ---------------------------------------------------------------------------
-      farcallstack_we => farcallstack_we,
-      farcallstack_addr => farcallstack_addr,
-      farcallstack_din => farcallstack_din,
-      farcallstack_dout => farcallstack_dout
+      rom_at_8000 => rom_at_8000
 
       );
 
@@ -890,11 +878,6 @@ begin
 
       uart_rx => uart_rx,
       uart_tx => uart_tx,
-      
-      farcallstack_we => farcallstack_we,
-      farcallstack_addr => farcallstack_addr,
-      farcallstack_din => farcallstack_din,
-      farcallstack_dout => farcallstack_dout,
       
       cs_bo => cs_bo,
       sclk_o => sclk_o,

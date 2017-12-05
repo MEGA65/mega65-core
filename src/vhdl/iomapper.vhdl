@@ -177,16 +177,8 @@ entity iomapper is
 
         viciii_iomode : in std_logic_vector(1 downto 0);
         
-        colourram_at_dc00 : in std_logic;
+        colourram_at_dc00 : in std_logic
        
-        ---------------------------------------------------------------------------
-        -- IO port to far call stack
-        ---------------------------------------------------------------------------
-        farcallstack_we : in std_logic;
-        farcallstack_addr : in std_logic_vector(8 downto 0);
-        farcallstack_din : in std_logic_vector(63 downto 0);
-        farcallstack_dout : out std_logic_vector(63 downto 0)
-
         );
 end iomapper;
 
@@ -223,11 +215,6 @@ architecture behavioral of iomapper is
   signal sectorbuffercs : std_logic;
   signal sector_buffer_mapped_read : std_logic;
 
-  signal farcallstackcs : std_logic;
-  signal farcallstack_w : std_logic;
-  signal farcallstack_wdata : std_logic_vector(63 downto 0);
-  signal farcallstack_rdata : std_logic_vector(63 downto 0);
-                        
   signal last_scan_code : std_logic_vector(12 downto 0);
   
   signal cia1porta_ddr : std_logic_vector(7 downto 0);
@@ -685,20 +672,6 @@ begin
 
     );
 
-  farcallstack0: entity work.farcallstack port map (
-    clka => clk,
-    ena => farcallstackcs,
-    wea(0) => w,
-    addra => address(11 downto 0),
-    dina => data_i,
-    douta => data_o,
-    clkb => cpuclock,
-    web(0) => farcallstack_w,
-    addrb => farcallstack_addr,
-    dinb => farcallstack_wdata,
-    doutb => farcallstack_rdata
-    );
-  
   process(reset)
   begin
     reset_high <= not reset;
@@ -821,13 +794,6 @@ begin
         kickstartcs <='0';
       end if;
 
-      -- @IO:GS $FFF0000-$FFF0FFF - CPU far call stack (512x8 byte entries)
-      if address(19 downto 12) = x"F0" then
-        farcallstackcs <= '1';
-      else
-        farcallstackcs <= '0';
-      end if;
-      
       -- sdcard sector buffer: only mapped if no colour ram @ $DC00, and if
       -- the sectorbuffer mapping flag is set
       sectorbuffercs <= '0';
@@ -905,7 +871,6 @@ begin
       sectorbuffercs <= '0';
       leftsid_cs <= '0';
       rightsid_cs <= '0';
-      farcallstackcs <= '0';
     end if;
   end process;
 
