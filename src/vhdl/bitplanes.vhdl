@@ -158,6 +158,7 @@ architecture behavioural of bitplanes is
 
   type bdo is array(0 to 7) of spritedatabytenumber;
   signal bitplane_data_offsets : bdo;
+  signal bitplane_data_offsets_next : bdo;
 
   signal bitplanedatabuffer_cs : std_logic := '1';
   signal bitplanedatabuffer_write : std_logic := '0';
@@ -237,7 +238,9 @@ begin  -- behavioural
   begin  -- process main
     if pixelclock'event and pixelclock = '1' then  -- rising clock edge
 
+      -- Process delayed signals for improving timing closure
       bitplanes_y_start_drive <= bitplanes_y_start;
+      bitplane_data_offsets <= bitplane_data_offsets_next;
       
       -- Copy sprite colission status out
       sprite_map_out <= sprite_map_in;
@@ -392,17 +395,17 @@ begin  -- behavioural
         for i in 7 downto 0 loop
           bitplanes_byte_numbers(i) <= 0; 
           if y_in <= (v_bitplane_y_start + to_integer(signed(std_logic_vector(bitplanes_y_start)))) then
-            bitplane_data_offsets(i) <= 0;
+            bitplane_data_offsets_next(i) <= 0;
           else
 
             if bitplane_h640 = '1' then
-                bitplane_data_offsets(i) <= integer((y_in - (v_bitplane_y_start + to_integer(signed(std_logic_vector(bitplanes_y_start_drive))))) mod 8) + 
+                bitplane_data_offsets_next(i) <= integer((y_in - (v_bitplane_y_start + to_integer(signed(std_logic_vector(bitplanes_y_start_drive))))) mod 8) + 
 	  				integer(((y_in - (v_bitplane_y_start + to_integer(signed(std_logic_vector(bitplanes_y_start_drive))))) / 8)) * 640;
             elsif bitplane_h1280 = '1' then
-                bitplane_data_offsets(i) <= integer((y_in - (v_bitplane_y_start + to_integer(signed(std_logic_vector(bitplanes_y_start_drive))))) mod 8) + 
+                bitplane_data_offsets_next(i) <= integer((y_in - (v_bitplane_y_start + to_integer(signed(std_logic_vector(bitplanes_y_start_drive))))) mod 8) + 
 	  				integer(((y_in - (v_bitplane_y_start + to_integer(signed(std_logic_vector(bitplanes_y_start_drive))))) / 8)) * 1280;
             else
-                bitplane_data_offsets(i) <= integer((y_in - (v_bitplane_y_start + to_integer(signed(std_logic_vector(bitplanes_y_start_drive))))) mod 8) + 
+                bitplane_data_offsets_next(i) <= integer((y_in - (v_bitplane_y_start + to_integer(signed(std_logic_vector(bitplanes_y_start_drive))))) mod 8) + 
 					integer(((y_in - (v_bitplane_y_start + to_integer(signed(std_logic_vector(bitplanes_y_start_drive))))) / 8)) * 320;
             end if;
           end if;
