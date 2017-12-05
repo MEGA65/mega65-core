@@ -125,6 +125,7 @@ architecture behavioural of c65uart is
   signal reg_intflag : std_logic_vector(7 downto 0) := (others => '0');
   signal reg_data_tx : std_logic_vector(7 downto 0) := (others => '0');
   signal reg_data_rx : std_logic_vector(7 downto 0) := (others => '0');
+  signal reg_data_rx_drive : std_logic_vector(7 downto 0) := (others => '0');
 
   -- C65 extra 2-bit port for keyboard column 8 and capslock key state.
   signal reg_porte_out : std_logic_vector(7 downto 0) := "00000011";
@@ -193,6 +194,8 @@ begin  -- behavioural
     
     if rising_edge(cpuclock) then
 
+      reg_data_rx_drive <= reg_data_rx;
+      
       widget_disable <= not widget_enable_internal;
       ps2_disable <= not ps2_enable_internal;
       joy_disable <= not joy_enable_internal;
@@ -223,7 +226,7 @@ begin  -- behavioural
       case register_number is
         when x"00" =>
           -- @IO:C65 $D600 C65 UART data register (read or write)
-          fastio_rdata <= unsigned(reg_data_rx);            
+          fastio_rdata <= unsigned(reg_data_rx_drive);            
         when x"01" =>
           -- @IO:C65 $D601 C65 UART status register
           -- @IO:C65 $D601.0 C65 UART RX byte ready flag (clear by reading $D600)
