@@ -143,210 +143,6 @@ end viciv;
 
 architecture Behavioral of viciv is
   
-  component alpha_blend_top is
-    port(
-      clk1x:       in  std_logic;
-      clk2x:       in  std_logic;
-      reset:       in  std_logic;
-      hsync_strm0: in  std_logic;
-      vsync_strm0: in  std_logic;
-      de_strm0:    in  std_logic;
-      r_strm0:     in  std_logic_vector(9 downto 0);
-      g_strm0:     in  std_logic_vector(9 downto 0);              
-      b_strm0:     in  std_logic_vector(9 downto 0);
-      de_strm1:    in  std_logic;
-      r_strm1:     in  std_logic_vector(9 downto 0);
-      g_strm1:     in  std_logic_vector(9 downto 0);
-      b_strm1:     in  std_logic_vector(9 downto 0);
-      de_alpha:    in  std_logic;
-      alpha_strm:  in  std_logic_vector(9 downto 0);
-      
-      pixclk_out: out std_logic;
-      hsync_blnd: out std_logic;
-      vsync_blnd: out std_logic;
-      de_blnd:    out std_logic;
-      r_blnd:     out std_logic_vector(9 downto 0);
-      g_blnd:     out std_logic_vector(9 downto 0);
-      b_blnd:     out std_logic_vector(9 downto 0);
-      dcm_locked:  out std_logic
-      ); 
-  end component;
-      
-  component ram9x4k IS
-    PORT (
-      clka : IN STD_LOGIC;
-      wea : IN STD_LOGIC_VECTOR(0 DOWNTO 0);
-      addraa : IN STD_LOGIC_VECTOR(11 DOWNTO 0);
-      dina : IN STD_LOGIC_VECTOR(8 DOWNTO 0);
-      clkb : IN STD_LOGIC;
-      addrb : IN STD_LOGIC_VECTOR(11 DOWNTO 0);
-      doutb : OUT STD_LOGIC_VECTOR(8 DOWNTO 0)
-      );
-  END component;
-
-  component ram18x2k IS
-    PORT (
-      clkl : IN STD_LOGIC;
-      wel : IN STD_LOGIC_VECTOR(0 DOWNTO 0);
-      addrl : IN STD_LOGIC_VECTOR(10 DOWNTO 0);
-      dinl : IN STD_LOGIC_VECTOR(17 DOWNTO 0);
-      clkr : IN STD_LOGIC;
-      addrr : IN STD_LOGIC_VECTOR(10 DOWNTO 0);
-      doutr : OUT STD_LOGIC_VECTOR(17 DOWNTO 0)
-      );
-  END component;
-
-  component screen_ram_buffer IS
-    PORT (
-      clka : IN STD_LOGIC;
-      wea : IN STD_LOGIC_VECTOR(0 DOWNTO 0);
-      addra : IN STD_LOGIC_VECTOR(8 DOWNTO 0);
-      dina : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
-      clkb : IN STD_LOGIC;
-      addrb : IN STD_LOGIC_VECTOR(8 DOWNTO 0);
-      doutb : OUT STD_LOGIC_VECTOR(7 DOWNTO 0)
-      );
-  END component;
-  
-  component charrom is
-    port (Clk : in std_logic;
-        address : in integer range 0 to 4095;
-        -- chip select, active low       
-        cs : in std_logic;
-        data_o : out std_logic_vector(7 downto 0);
-
-        writeclk : in std_logic;
-        -- Yes, we do have a write enable, because we allow modification of ROMs
-        -- in the running machine, unless purposely disabled.  This gives us
-        -- something like the WOM that the Amiga had.
-        writecs : in std_logic;
-        we : in std_logic;
-        writeaddress : in unsigned(11 downto 0);
-        data_i : in std_logic_vector(7 downto 0)
-      );
-  end component charrom;
-
-  -- 32KB internal colour RAM
-  component ram8x32k IS
-    PORT (
-      clka : IN STD_LOGIC;
-      ena : IN STD_LOGIC;
-      wea : IN STD_LOGIC_VECTOR(0 DOWNTO 0);
-      addra : IN STD_LOGIC_VECTOR(14 DOWNTO 0);
-      dina : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
-      douta : OUT STD_LOGIC_VECTOR(7 DOWNTO 0);
-      clkb : IN STD_LOGIC;
-      web : IN STD_LOGIC_VECTOR(0 DOWNTO 0);
-      addrb : IN STD_LOGIC_VECTOR(14 DOWNTO 0);
-      dinb : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
-      doutb : OUT STD_LOGIC_VECTOR(7 DOWNTO 0)
-      );
-  END component;
-  
-  -- 128KB internal chip RAM
-  component chipram8bit IS
-    PORT (
-      clka : IN STD_LOGIC;
-      wea : IN STD_LOGIC_VECTOR(0 DOWNTO 0);
-      addra : IN STD_LOGIC_VECTOR(16 DOWNTO 0);
-      dina : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
-      clkb : IN STD_LOGIC;
-      addrb : IN STD_LOGIC_VECTOR(16 DOWNTO 0);
-      doutb : OUT STD_LOGIC_VECTOR(7 DOWNTO 0)
-      );
-  END component;
-  
-  -- 1K x 32bit ram for palette
-  component ram32x1024 IS
-    PORT (
-      clka : IN STD_LOGIC;
-      ena : IN STD_LOGIC;
-      wea : IN STD_LOGIC_VECTOR(3 DOWNTO 0);
-      addra : IN STD_LOGIC_VECTOR(9 DOWNTO 0);
-      dina : IN STD_LOGIC_VECTOR(31 DOWNTO 0);
-      douta : OUT STD_LOGIC_VECTOR(31 DOWNTO 0);
-      clkb : IN STD_LOGIC;
-      web : IN STD_LOGIC_VECTOR(3 DOWNTO 0);
-      addrb : IN STD_LOGIC_VECTOR(9 DOWNTO 0);
-      dinb : IN STD_LOGIC_VECTOR(31 DOWNTO 0);
-      doutb : OUT STD_LOGIC_VECTOR(31 DOWNTO 0)
-      );
-  END component;
-
-  component vicii_sprites is
-    Port (
-      ----------------------------------------------------------------------
-      -- dot clock & io clock
-      ----------------------------------------------------------------------
-      pixelclock : in  STD_LOGIC;
-      ioclock : in std_logic;
-      
-      signal bitplane_h640 : in std_logic;
-      signal bitplane_h1280 : in std_logic;
-      signal bitplanes_x_start : in unsigned(7 downto 0);
-      signal bitplanes_y_start : in unsigned(7 downto 0);
-      signal bitplane_mode_in : in std_logic;
-      signal bitplane_enables_in : in std_logic_vector(7 downto 0);
-      signal bitplane_complements_in : in std_logic_vector(7 downto 0);
-      signal bitplane_sixteen_colour_mode_flags_in : in std_logic_vector(7 downto 0);
-           
-      -- Pull sprite data in along the chain from the previous sprite (or VIC-IV)
-      signal sprite_datavalid_in : in std_logic;
-      signal sprite_bytenumber_in : in spritebytenumber;
-      signal sprite_spritenumber_in : in spritenumber;
-      signal sprite_data_in : in unsigned(7 downto 0);
-
-      signal sprite_horizontal_tile_enables : in std_logic_vector(7 downto 0);
-      signal sprite_bitplane_enables : in std_logic_vector(7 downto 0);
-      signal sprite_extended_height_enables : in std_logic_vector(7 downto 0);
-      signal sprite_extended_height_size : in unsigned(7 downto 0);
-      signal sprite_extended_width_enables : in std_logic_vector(7 downto 0);
-      
-      -- which base offset for the VIC-II sprite data are we showing this raster line?
-      -- VIC-IV clocks sprite_number_for_data and each sprite replaces
-      -- sprite_data_offset with the appropriate value if the sprite number is itself
-      signal sprite_number_for_data_in : in integer range 0 to 15;
-      signal sprite_data_offset_out : out integer range 0 to 65535;    
-      signal sprite_number_for_data_out : out integer range 0 to 15;
-      
-      -- Is the pixel just passed in a foreground pixel?
-      -- Similarly, is the pixel a sprite pixel from another sprite?
-      signal is_foreground_in : in std_logic;
-      signal is_background_in : in std_logic;
-      -- and what is the colour of the bitmap pixel?
-      signal x_in : in xposition;
-      signal x640_in : in xposition;
-      signal x1280_in : in xposition;
-      signal y_in : in yposition;
-      signal border_in : in std_logic;
-      signal pixel_in : in unsigned(7 downto 0);
-      signal alpha_in : in unsigned(7 downto 0);
-
-      -- Pass pixel information back out
-      signal x_out : out xposition;
-      signal y_out : out yposition;
-      signal border_out : out std_logic;
-      signal pixel_out : out unsigned(7 downto 0);
-      signal alpha_out : out unsigned(7 downto 0);
-      signal sprite_colour_out : out unsigned(7 downto 0);
-      signal is_sprite_out : out std_logic;
-      signal is_background_out : out std_logic;
-      signal is_foreground_out : out std_logic;
-      signal sprite_fg_map_final : out std_logic_vector(7 downto 0);
-      signal sprite_map_final : out std_logic_vector(7 downto 0);
-
-      -- We need the registers that describe the various sprites.
-      -- We could pull these in from the VIC-IV, but that would mean that they
-      -- would have to propogate within one pixelclock, which will be very
-      -- difficult to achieve.  A better way is to snoop the fastio bus, and read
-      -- them directly on the much slower ioclock, and provide them to each sprite.
-      fastio_addr : in std_logic_vector(19 downto 0);
-      fastio_write : in std_logic;
-      fastio_wdata : in std_logic_vector(7 downto 0)
-
-      );
-  end component;
-
   signal reset_drive : std_logic;
   
   signal iomode_set_toggle_last : std_logic := '0';    
@@ -1075,7 +871,7 @@ architecture Behavioral of viciv is
   
 begin
       
-  rasterbuffer1: component ram18x2k
+  rasterbuffer1: entity work.ram18x2k
     port map (
       clkl => pixelclock,
       clkr => pixelclock,
@@ -1086,7 +882,7 @@ begin
       addrr => std_logic_vector(raster_buffer_read_address)
       );
   
-  buffer1: component screen_ram_buffer
+  buffer1: entity work.screen_ram_buffer
     port map (
       clka => pixelclock,
       clkb => pixelclock,
@@ -1097,7 +893,7 @@ begin
       addrb  => std_logic_vector(screen_ram_buffer_read_address(8 downto 0))
       );
 
-  chipram0: component chipram8bit
+  chipram0: entity work.chipram8bit
     port map (
       -- CPU side port (write)
       clka => cpuclock,
@@ -1112,7 +908,7 @@ begin
 
   colourram: block
   begin
-  colourram1 : component ram8x32k
+  colourram1 : entity work.ram8x32k
     PORT MAP (
       clka => cpuclock,
       ena => colour_ram_cs,
@@ -1131,7 +927,7 @@ begin
   end block;
 
   -- Used for main pixel pipeline colour lookup
-  paletteram0: component ram32x1024
+  paletteram0: entity work.ram32x1024
     port map (
       clka => cpuclock,
       ena => '1',
@@ -1150,7 +946,7 @@ begin
       );
 
   -- Used for anti-aliased text colour lookup
-  paletteram1: component ram32x1024
+  paletteram1: entity work.ram32x1024
     port map (
       clka => cpuclock,
       ena => '1',
@@ -1169,7 +965,7 @@ begin
       );
 
   
-  charrom1 : charrom
+  charrom1 : entity work.charrom
     port map (Clk => pixelclock,
               address => charaddress,
               cs => '1',  -- active
@@ -1182,7 +978,7 @@ begin
               data_i => fastio_wdata
               );
 
-  compositeblender: component alpha_blend_top
+  compositeblender: entity work.alpha_blend_top
     port map (clk1x => pixelclock,
               clk2x => pixelclock2x,
               reset => '0',
@@ -1230,7 +1026,7 @@ begin
       );  
       
   
-  vicii_sprites0: component vicii_sprites
+  vicii_sprites0: entity work.vicii_sprites
     port map (pixelclock => pixelclock,
               ioclock => ioclock,
 
