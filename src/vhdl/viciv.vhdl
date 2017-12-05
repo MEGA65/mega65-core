@@ -489,6 +489,8 @@ architecture Behavioral of viciv is
   signal bitplane_sixteen_colour_mode_flags : std_logic_vector(7 downto 0) := "00000000";
   signal bitplanes_x_start : unsigned(7 downto 0) := to_unsigned(0,8);
   signal bitplanes_y_start : unsigned(7 downto 0) := to_unsigned(0,8);
+  signal bitplanes_x_start_drive : unsigned(7 downto 0) := to_unsigned(0,8);
+  signal bitplanes_y_start_drive : unsigned(7 downto 0) := to_unsigned(0,8);
   signal dat_x : unsigned(7 downto 0) := x"00";
   signal dat_y : unsigned(7 downto 0) := x"00";
   signal bitplane_addresses : sprite_vector_8;
@@ -1035,8 +1037,8 @@ begin
               bitplane_mode_in => bitplane_mode,
               bitplane_enables_in => bitplane_enables,
               bitplane_complements_in => bitplane_complements,
-              bitplanes_y_start => bitplanes_y_start,
-              bitplanes_x_start => bitplanes_x_start,
+              bitplanes_y_start => bitplanes_y_start_drive,
+              bitplanes_x_start => bitplanes_x_start_drive,
               bitplane_sixteen_colour_mode_flags_in =>
                 bitplane_sixteen_colour_mode_flags,
               
@@ -1497,6 +1499,9 @@ begin
     fastio_rdata <= (others => 'Z');    
 
     chargen_x_scale_drive <= chargen_x_scale;
+
+    bitplanes_x_start_drive <= bitplanes_x_start;
+    bitplanes_y_start_drive <= bitplanes_y_start;
     
     if true then
       -- Calculate register number asynchronously
