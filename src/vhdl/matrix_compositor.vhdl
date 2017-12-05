@@ -116,6 +116,8 @@ architecture Behavioral of matrix_compositor is
   signal rows_per_frame : integer := 0;
   signal row_offset : integer := 0;
   signal row_first : integer := 0;
+
+  signal terminal_emulator_ready_next : std_logic := '0';
   
 begin
 
@@ -135,7 +137,7 @@ begin
       clk => pixelclock,
       char_in => monitor_char_in,
       char_in_valid => monitor_char_valid,
-      terminal_emulator_ready => terminal_emulator_ready,
+      terminal_emulator_ready => terminal_emulator_ready_next,
 
       topofframe_out => topOfFrame,
       wel_out => writeEnable,
@@ -150,8 +152,13 @@ begin
   ram_test : process(pixelclock)
   begin
 
+    if rising_edge(clk) then
+      terminal_emulator_ready <= terminal_emulator_ready_next;
+    end if;
+      
     if rising_edge(pixelclock) then
 
+      
       pixel_x_640_out <= pixel_x_640;
       ycounter_out <= ycounter_in;
       
