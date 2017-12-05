@@ -190,6 +190,8 @@ architecture behavioural of bitplanes is
 
   signal pixel_out_count : integer range 0 to 255 := 0;
 
+  signal bitplanes_y_start_drive : in integer range 0 to 255 := 0;
+  
 begin  -- behavioural
 
   -- 4K buffer for holding buffered bitplane data for rendering.
@@ -235,6 +237,8 @@ begin  -- behavioural
   begin  -- process main
     if pixelclock'event and pixelclock = '1' then  -- rising clock edge
 
+      bitplanes_y_start_drive <= bitplanes_y_start;
+      
       -- Copy sprite colission status out
       sprite_map_out <= sprite_map_in;
       sprite_fg_map_out <= sprite_fg_map_in;
@@ -392,14 +396,14 @@ begin  -- behavioural
           else
 
             if bitplane_h640 = '1' then
-                bitplane_data_offsets(i) <= integer((y_in - (v_bitplane_y_start + to_integer(signed(std_logic_vector(bitplanes_y_start))))) mod 8) + 
-	  				integer(((y_in - (v_bitplane_y_start + to_integer(signed(std_logic_vector(bitplanes_y_start))))) / 8)) * 640;
+                bitplane_data_offsets(i) <= integer((y_in - (v_bitplane_y_start + to_integer(signed(std_logic_vector(bitplanes_y_start_drive))))) mod 8) + 
+	  				integer(((y_in - (v_bitplane_y_start + to_integer(signed(std_logic_vector(bitplanes_y_start_drive))))) / 8)) * 640;
             elsif bitplane_h1280 = '1' then
-                bitplane_data_offsets(i) <= integer((y_in - (v_bitplane_y_start + to_integer(signed(std_logic_vector(bitplanes_y_start))))) mod 8) + 
-	  				integer(((y_in - (v_bitplane_y_start + to_integer(signed(std_logic_vector(bitplanes_y_start))))) / 8)) * 1280;
+                bitplane_data_offsets(i) <= integer((y_in - (v_bitplane_y_start + to_integer(signed(std_logic_vector(bitplanes_y_start_drive))))) mod 8) + 
+	  				integer(((y_in - (v_bitplane_y_start + to_integer(signed(std_logic_vector(bitplanes_y_start_drive))))) / 8)) * 1280;
             else
-                bitplane_data_offsets(i) <= integer((y_in - (v_bitplane_y_start + to_integer(signed(std_logic_vector(bitplanes_y_start))))) mod 8) + 
-					integer(((y_in - (v_bitplane_y_start + to_integer(signed(std_logic_vector(bitplanes_y_start))))) / 8)) * 320;
+                bitplane_data_offsets(i) <= integer((y_in - (v_bitplane_y_start + to_integer(signed(std_logic_vector(bitplanes_y_start_drive))))) mod 8) + 
+					integer(((y_in - (v_bitplane_y_start + to_integer(signed(std_logic_vector(bitplanes_y_start_drive))))) / 8)) * 320;
             end if;
           end if;
         end loop;
