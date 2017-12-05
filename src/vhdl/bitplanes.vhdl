@@ -190,7 +190,7 @@ architecture behavioural of bitplanes is
 
   signal pixel_out_count : integer range 0 to 255 := 0;
 
-  signal bitplanes_y_start_drive : integer range 0 to 255 := 0;
+  signal bitplanes_y_start_drive : unsigned(7 downto 0) := to_unsigned(0,8);
   
 begin  -- behavioural
 
