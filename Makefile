@@ -1,4 +1,5 @@
 .SUFFIXES: .bin .prg 
+.PRECIOUS:	%.ngd %.ncd %.twx
 
 COPT=	-Wall -g -std=c99
 CC=	gcc
