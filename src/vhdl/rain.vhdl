@@ -875,12 +875,12 @@ begin  -- rtl
           -- is complete, so that reverse transition begins
           -- immediately
           if frame_number < 10 or in_transition = '1' then        
-            frame_number <= frame_number + 1;
+            frame_number <= frame_number + 3;
           end if;
           report "frame_number incrementing to "
             & integer'image(frame_number + 1);
         elsif matrix_mode_enable = '0' and frame_number > 0 then
-          frame_number <= frame_number - 1;
+          frame_number <= frame_number - 3;
           report "frame_number decrementing to "
             & integer'image(frame_number - 1);
         else
