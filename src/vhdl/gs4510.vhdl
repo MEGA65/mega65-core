@@ -75,6 +75,11 @@ entity gs4510 is
 
     irq_hypervisor : in std_logic_vector(2 downto 0) := "000";    -- JBM
 
+    -- Asserted when CPU is in secure mode: Activates secure mode matrix mode interface
+    secure_mode_out : out std_logic := '0';
+
+    matrix_rain_seed : out unsigned(15 downto 0) := (others => '0');
+    
     no_kickstart : in std_logic;
 
     reg_isr_out : in unsigned(7 downto 0);
@@ -897,6 +902,8 @@ constant cycle_count_lut : clut9bit := (
   signal cache_read_valid : std_logic := '0';
   signal cache_flushing : std_logic := '1';
   signal cache_flush_counter : unsigned(9 downto 0) := (others => '0');
+
+  signal cycle_counter : unsigned(15 downto 0) := (others => '0');
 
   type microcode_lut_t is array (instruction)
     of microcodeops;
@@ -2604,6 +2611,8 @@ begin
     -- BEGINNING OF MAIN PROCESS FOR CPU
     if rising_edge(clock) and all_pause='0' then
 
+      cycle_counter <= cycle_counter + 1;
+      
       if cache_flushing = '1' then
         cache_waddr <= cache_flush_counter;
         cache_wdata <= (others => '1');
@@ -2938,6 +2947,9 @@ begin
         -- @IO:GS $D672.6 - Enable composited Matrix Mode, and disable UART access to serial monitor.
         if last_write_address = x"FFD3672" and hypervisor_mode='1' then
           hyper_protected_hardware(7 downto 0) <= last_value;
+          if last_value(6)='1' then
+            matrix_rain_seed <= cycle_counter(15 downto 0);
+          end if;
         end if; 
 
         -- @IO:GS $D67C.0-7 - (write) Hypervisor write serial output to UART monitor

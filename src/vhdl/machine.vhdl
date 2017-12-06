@@ -404,6 +404,11 @@ architecture Behavioral of machine is
   signal osk_touch2_x : unsigned(13 downto 0) := to_unsigned(0,14);
   signal osk_touch2_y : unsigned(11 downto 0) := to_unsigned(0,12);
 
+  signal secure_mode_flag : std_logic := '0';
+  signal matrix_rain_seed : unsigned(15 downto 0);
+  signal hsync_drive : std_logic := '0';
+  signal vsync_drive : std_logic := '0';
+  
   signal all_pause : std_logic := '0';
   
 begin
@@ -603,6 +608,8 @@ begin
       speed_gate_enable => speed_gate_enable,
       cpuis6502 => cpuis6502,
       cpuspeed => cpuspeed,
+      secure_mode_out => secure_mode_flag,
+      matrix_rain_seed => matrix_rain_seed,
 
       irq_hypervisor => sw(4 downto 2),    -- JBM
       
@@ -718,8 +725,8 @@ begin
 
       xray_mode => xray_mode,
       
-      vsync           => vsync,
-      hsync           => hsync,
+      vsync           => vsync_drive,
+      hsync           => hsync_drive,
       vgared          => vgared_sig,
       vgagreen        => vgagreen_sig,
       vgablue         => vgablue_sig,
@@ -924,7 +931,7 @@ begin
       scancode_out => scancode_out
       );
 
-  matrix_compositor0 : entity work.matrix_compositor port map(
+  matrix_compositor0 : entity work.matrix_rain_compositor port map(
     display_shift_in=>display_shift,
     shift_ready_in => shift_ready,
     shift_ack_out => shift_ack,
@@ -932,13 +939,21 @@ begin
     monitor_char_in => monitor_char_out,
     monitor_char_valid => monitor_char_out_valid,
     terminal_emulator_ready => terminal_emulator_ready,
+
+    matrix_rdata => matrix_rdata,
+    matrix_fetch_address => matrix_fetch_address,
+    seed => matrix_rain_seed,
+
+    hsync_in => hsync_drive,
+    vsync_in => vsync_drive,
     pixel_x_640 => pixel_x_640,
     pixel_y_scale_200 => pixel_y_scale_200,
     pixel_y_scale_400 => pixel_y_scale_400,
     ycounter_in => ycounter,	
     clk => uartclock,
     pixelclock => pixelclock,
-    matrix_mode_enable => protected_hardware_sig(6),--sw(5), 					
+    matrix_mode_enable => protected_hardware_sig(6),--sw(5),
+    secure_mode_flag =>  secure_mode_flag,
     vgared_in => vgared_sig,
     vgagreen_in => vgagreen_sig,
     vgablue_in => vgablue_sig,
@@ -1074,6 +1089,8 @@ begin
     if rising_edge(pixelclock) then
       -- Enforce black output outside of frame, so that
       -- compositors can't mess the frame up
+      hsync <= hsync_drive;
+      vsync <= vsync_drive;
       viciv_outofframe_3 <= viciv_outofframe_2;
       viciv_outofframe_2 <= viciv_outofframe_1;
       viciv_outofframe_1 <= viciv_outofframe;
