@@ -748,19 +748,19 @@ begin  -- rtl
             -- In normal text area
             if char_bits(0) = '1' then
               if is_cursor='1' and te_blink_state='1' then
-                vgared_out(7) <= '0';
-                vgagreen_out(7) <= '0';
-                vgablue_out(7) <= '0';
-                vgared_out(6 downto 0) <= vgared_in(7 downto 1);
-                vgagreen_out(6 downto 0) <= vgagreen_in(7 downto 1);
-                vgablue_out(6 downto 0) <= vgablue_in(7 downto 1);
+                vgared_out(7 downto 6) <= "00";
+                vgagreen_out(7 downto 6) <= "00";
+                vgablue_out(7 downto 6) <= "00";
+                vgared_out(5 downto 0) <= vgared_in(7 downto 2);
+                vgagreen_out(5 downto 0) <= vgagreen_in(7 downto 2);
+                vgablue_out(5 downto 0) <= vgablue_in(7 downto 2);
               else
-                vgared_out(7) <= '0';
-                vgagreen_out(7) <= '1';
-                vgablue_out(7) <= '0';
-                vgared_out(6 downto 0) <= vgared_in(7 downto 1);
-                vgagreen_out(6 downto 0) <= vgagreen_in(7 downto 1);
-                vgablue_out(6 downto 0) <= vgablue_in(7 downto 1);
+                vgared_out(7 downto 6) <= "00";
+                vgagreen_out(7 downto 6) <= "11";
+                vgablue_out(7 downto 6) <= "00";
+                vgared_out(5 downto 0) <= vgared_in(7 downto 2);
+                vgagreen_out(5 downto 0) <= vgagreen_in(7 downto 2);
+                vgablue_out(5 downto 0) <= vgablue_in(7 downto 2);
               end if;
             else
               if is_cursor='1' and te_blink_state='1' then
