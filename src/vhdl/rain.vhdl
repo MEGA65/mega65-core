@@ -303,7 +303,7 @@ begin  -- rtl
         matrix_fetch_chardata <= '1';
         screenram_addr <= 0
                           +(to_integer(screenram_rdata)*8)
-                          +to_integer(char_ycounter(3 downto 1));
+                          +to_integer(char_ycounter(4 downto 2));
         screenram_we <= '0';
         screenram_busy := '1';
         if pixel_x_640 >= debug_x and pixel_x_640 < (debug_x+10) then
@@ -562,7 +562,7 @@ begin  -- rtl
           -- we are advancing to next line
           -- XXX doesn't yet support double-high chars
           if last_hsync = '0' then
-            if char_ycounter /= 15 then
+            if char_ycounter /= 31 then
               char_screen_address <= line_screen_address;
               char_ycounter <= char_ycounter + 1;
             else
@@ -875,12 +875,12 @@ begin  -- rtl
           -- is complete, so that reverse transition begins
           -- immediately
           if frame_number < 10 or in_transition = '1' then        
-            frame_number <= frame_number + 3;
+            frame_number <= frame_number + 2;
           end if;
           report "frame_number incrementing to "
             & integer'image(frame_number + 1);
         elsif matrix_mode_enable = '0' and frame_number > 0 then
-          frame_number <= frame_number - 3;
+          frame_number <= frame_number - 2;
           report "frame_number decrementing to "
             & integer'image(frame_number - 1);
         else
