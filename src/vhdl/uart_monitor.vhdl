@@ -309,6 +309,9 @@ architecture behavioural of uart_monitor is
   signal bit_rate_divisor_internal : unsigned(13 downto 0) := to_unsigned(50000000/2000000,14);
 
   signal in_matrix_mode : std_logic := '0';
+
+  signal terminal_emulator_ready_computed : std_logic := '1';
+  signal terminal_emulator_ready_counter : integer range 0 to 15 := 0;
   
 begin
 
@@ -368,6 +371,14 @@ begin
         -- matrix mode terminal emulator output
         monitor_char_out <= unsigned(to_std_logic_vector(char));
         monitor_char_valid <= '1';
+
+        -- Then mark terminal emulator busy long enough for it to
+        -- accept the character, and clear the ready flag, if required.
+        -- (this is required because the terminal emulator might be busy
+        -- drawing pixels at the time).
+        terminal_emulator_just_sent <= '1';
+        terminal_emulator_ready_counter <= 15;
+        
       end if;
     end output_char;
     
@@ -495,7 +506,7 @@ begin
         output_char(char);
         state <= next_state;
       end if;
-      if protected_hardware_in(6)='1' and terminal_emulator_ready='1' then
+      if protected_hardware_in(6)='1' and terminal_emulator_ready_computed='1' then
         output_char(char);
         state <= next_state;
       end if;
@@ -669,6 +680,13 @@ begin
   begin  -- process testclock
     if rising_edge(clock) then
 
+      if terminal_emulator_ready_counter = 0 then
+        terminal_emulator_ready_computed <= terminal_emulator_ready and terminal_emulator_just_sent;
+      else
+        terminal_emulator_ready_computed <= '0';
+      end if;
+      terminal_emulator_just_sent <= '0';
+      
       bit_rate_divisor <= bit_rate_divisor_internal;
       
       if reset='0' then -- reset is asserted
@@ -787,7 +805,7 @@ begin
         end if;
         
         -- Maintain 1 cycle delay after sending characters
-        if tx_trigger/='1' and terminal_emulator_ready='1' then      
+        if tx_trigger/='1' and terminal_emulator_ready_computed='1' then      
           -- General state machine
           case state is
             when Reseting =>
@@ -795,7 +813,7 @@ begin
               state <= PrintBanner;
               
             when PrintBanner =>
-              if tx_ready='1' and terminal_emulator_ready='1' then                
+              if tx_ready='1' then                
                 output_char(bannerMessage(banner_position));
                 if banner_position<bannerMessage'length then
                   banner_position <= banner_position + 1;
@@ -806,7 +824,7 @@ begin
               end if;
               
             when PrintError =>
-              if tx_ready='1' and terminal_emulator_ready='1' then                
+              if tx_ready='1' then                
                 output_char(errorMessage(banner_position));
                 if banner_position<errorMessage'length then
                   banner_position <= banner_position + 1;
@@ -829,7 +847,7 @@ begin
               
             when PrintRequestTimeoutError =>
               monitor_mem_attention_request <= '0';
-              if tx_ready='1' and terminal_emulator_ready='1' then
+              if tx_ready='1' then
                 output_char(requestTimeoutMessage(banner_position));
                 if banner_position<requestTimeoutMessage'length then
                   banner_position <= banner_position + 1;
@@ -840,7 +858,7 @@ begin
               
             when PrintReplyTimeoutError =>
               monitor_mem_attention_request <= '0';
-              if tx_ready='1' and terminal_emulator_ready='1' then
+              if tx_ready='1' then
                 output_char(replyTimeoutMessage(banner_position));
                 if banner_position<replyTimeoutMessage'length then
                   banner_position <= banner_position + 1;
@@ -1331,7 +1349,7 @@ begin
               monitor_mem_setpc <= '0';
               
             when ShowRegisters1 =>
-              if tx_ready='1' and terminal_emulator_ready='1' then
+              if tx_ready='1' then
                 output_char(registerMessage(banner_position));
                 if banner_position<registerMessage'length then
                   banner_position <= banner_position + 1;
