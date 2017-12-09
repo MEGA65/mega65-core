@@ -54,7 +54,6 @@ use Std.TextIO.all;
 entity machine is
   generic (cpufrequency : integer := 50);
   Port ( pixelclock : STD_LOGIC;
-         pixelclock2x : STD_LOGIC;
          cpuclock : std_logic;
          clock50mhz : in std_logic;
          ioclock : std_logic;
@@ -712,7 +711,6 @@ begin
       xcounter_out => xcounter,
       ycounter_out => ycounter,
       pixelclock      => pixelclock,
-      pixelclock2x      => pixelclock2x,
       cpuclock        => cpuclock,
       ioclock        => ioclock,
 

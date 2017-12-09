@@ -191,14 +191,9 @@ architecture Behavioral of container is
   signal dummy_vgablue : unsigned(3 downto 0);
 
   signal pixelclock : std_logic;
-  signal pixelclock2x : std_logic;
   signal cpuclock : std_logic;
---  signal ioclock : std_logic;
   
   signal segled_counter : unsigned(31 downto 0) := (others => '0');
-
-  signal clock100mhz : std_logic := '0';
-  signal clock50mhz : std_logic := '0';
 
   signal slow_access_request_toggle : std_logic;
   signal slow_access_ready_toggle : std_logic;
@@ -261,19 +256,11 @@ architecture Behavioral of container is
   
 begin
   
-  dotclock1: entity work.dotclock150
+  dotclock1: entity work.dotclock100
     port map ( clk_in1 => CLK_IN,
-               clock100 => clock100mhz,
-               -- CLK_OUT2 is good for 1920x1200@60Hz, CLK_OUT3___160
-               -- for 1600x1200@60Hz
-               -- 60Hz works fine, but 50Hz is not well supported by monitors. 
-               -- so I guess we will go with an NTSC-style 60Hz display.       
-               -- For C64 mode it would be nice to have PAL or NTSC selectable.                    -- Perhaps consider a different video mode for that, or buffering
-               -- the generated frames somewhere?
-               pixclock => pixelclock,
-               cpuclock => cpuclock, -- 48MHz
-               pix2xclock => pixelclock2x
---               clk_out3 => ioclock -- also 48MHz
+               reset => '0',
+               clock100mhz => pixelclock, -- 100MHz
+               clock50mhz => cpuclock -- 50MHz
                );
 
   fpgatemp0: fpgatemp
@@ -367,9 +354,8 @@ begin
   machine0: entity work.machine
     port map (
       pixelclock      => pixelclock,
-      pixelclock2x      => pixelclock2x,
       cpuclock        => cpuclock,
-      clock50mhz      => clock50mhz,
+      clock50mhz      => cpuclock,
 --      ioclock         => ioclock, -- 32MHz
 --      uartclock         => ioclock, -- must be 32MHz
       uartclock         => cpuclock, -- Match CPU clock (48MHz)
@@ -508,15 +494,5 @@ begin
   irq <= not btn(0);
   nmi <= not btn(4);
   restore_key <= not btn(1);
-  
-  -- Generate 50MHz clock for ethernet
-  process (clock100mhz) is
-  begin
-    if rising_edge(clock100mhz) then
-      report "50MHz tick";
-      clock50mhz <= not clock50mhz;
-      eth_clock <= not clock50mhz;
-    end if;
-  end process;
   
 end Behavioral;

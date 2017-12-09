@@ -62,7 +62,6 @@ entity viciv is
     -- dot clock
     ----------------------------------------------------------------------
     pixelclock : in  STD_LOGIC;
-    pixelclock2x : in std_logic;
     ----------------------------------------------------------------------
     -- CPU clock (used for chipram and fastio interfaces)
     ----------------------------------------------------------------------
@@ -982,7 +981,6 @@ begin
 
   compositeblender: entity work.alpha_blend_top
     port map (clk1x => pixelclock,
-              clk2x => pixelclock2x,
               reset => '0',
               hsync_strm0 => '0',
               vsync_strm0 => '0',

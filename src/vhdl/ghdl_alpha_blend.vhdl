@@ -7,7 +7,6 @@ use work.debugtools.all;
 entity alpha_blend_top is
   port(
     clk1x:       in  std_logic;
-    clk2x:       in  std_logic;
     reset:       in  std_logic;
     hsync_strm0: in  std_logic;
     vsync_strm0: in  std_logic;
