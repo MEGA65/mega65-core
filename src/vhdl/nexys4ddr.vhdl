@@ -494,5 +494,8 @@ begin
   irq <= not btn(0);
   nmi <= not btn(4);
   restore_key <= not btn(1);
+
+  -- Ethernet clock is now just the CPU clock, since both are on 50MHz
+  eth_clock <= cpuclock;
   
 end Behavioral;
