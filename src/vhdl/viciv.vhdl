@@ -204,17 +204,17 @@ architecture Behavioral of viciv is
   -- NOTE: These get overwritten by $D06F PAL/NTSC & 1080p/1200p flags
   -- The values here are simply those that apply on power up.
   signal frame_h_front : unsigned(7 downto 0) := to_unsigned(16,8);  
-  -- 1920x1200p @ 60Hz (nominal 154MHz clock, but tweaked for 150MHz)
-  signal frame_width : unsigned(13 downto 0) := to_unsigned(2024,14);
-  signal display_width : unsigned(13 downto 0) := to_unsigned(1920,14);
-  signal frame_height : unsigned(11 downto 0) := to_unsigned(1232,12); 
-  signal display_height : unsigned(11 downto 0) := to_unsigned(1200,12);
+  -- 800x480 @ 50Hz for 100MHz pixelclock
+  signal frame_width : unsigned(13 downto 0) := to_unsigned(3248,14);
+  signal display_width : unsigned(13 downto 0) := to_unsigned(2700,14);
+  signal frame_height : unsigned(11 downto 0) := to_unsigned(505,12); 
+  signal display_height : unsigned(11 downto 0) := to_unsigned(480,12);
   signal display_height_drive : unsigned(11 downto 0);
-  signal vsync_delay : unsigned(7 downto 0) := to_unsigned(1228-1200,8);
+  signal vsync_delay : unsigned(7 downto 0) := to_unsigned(499-480,8);
   signal vsync_delay_drive : unsigned(7 downto 0);
-  signal vicii_ycounter_scale_minus_zero : unsigned(3 downto 0) := to_unsigned(5-1,4);
-  signal hsync_start : unsigned(13 downto 0) := to_unsigned(1960,14);
-  signal hsync_end : unsigned(13 downto 0) := to_unsigned(1992,14);
+  signal vicii_ycounter_scale_minus_zero : unsigned(3 downto 0) := to_unsigned(2-1,4);
+  signal hsync_start : unsigned(13 downto 0) := to_unsigned(2992,14);
+  signal hsync_end : unsigned(13 downto 0) := to_unsigned(52,14);
 
   -- Step through VIC-II raster numbers quickly during the vertical fly-back
   -- time, so that any raster interrupts based on them will trigger.
@@ -2485,52 +2485,51 @@ begin
           vicii_ntsc <= fastio_wdata(7);
 
           case fastio_wdata(7 downto 6) is
-            when "00" => -- PAL, 1200p 60Hz (because we can't do 50Hz 1200p)
-              frame_width <=  to_unsigned(2024,14);
-              display_width <= to_unsigned(1920,14);
-              frame_height <= to_unsigned(1232,12); 
-              display_height <= to_unsigned(1200,12);
-              vsync_delay <= to_unsigned(1228-1200,8);
-              vicii_ycounter_scale_minus_zero <= to_unsigned(5-1,4);
-              hsync_start <= to_unsigned(1960,14);
-              hsync_end <= to_unsigned(1992,14);              
+            when "00" => -- PAL, 800x480 @ 50Hz
+              frame_width <=  to_unsigned(3944,14);
+              display_width <= to_unsigned(3312,14);
+              frame_height <= to_unsigned(505,12);
+              display_height <= to_unsigned(480,12);
+              vsync_delay <= to_unsigned(500-480,8);
+              vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
+              hsync_start <= to_unsigned(3512,14);
+              hsync_end <= to_unsigned(3876,14);              
             when "01" => -- PAL, 1080p 50Hz
-              hsync_start <= to_unsigned(2560,14);
-              hsync_end <= to_unsigned(0,14);              
-              frame_width <=  to_unsigned(2600,14);
-              display_width <= to_unsigned(1920,14);
-              frame_height <= to_unsigned(1125,12); 
-              display_height <= to_unsigned(1080,12);
-              vsync_delay <= to_unsigned(0,8);
-              vicii_ycounter_scale_minus_zero <= to_unsigned(5-1,4);
-            when "10" => -- NTSC, not 1200p we use for 800x480 MEGAphone mode
-              -- XXX mode is wrong
-              frame_width <=  to_unsigned(2048,14);
-              display_width <= to_unsigned(1920,14);
-              frame_height <= to_unsigned(1235,12); 
-              display_height <= to_unsigned(1200,12);
-              vsync_delay <= to_unsigned(28,8);
-              vicii_ycounter_scale_minus_zero <= to_unsigned(5-1,4);
-              hsync_start <= to_unsigned(40,14);
-              hsync_end <= to_unsigned(100,14);              
+              frame_width <=  to_unsigned(3944,14);
+              display_width <= to_unsigned(3312,14);
+              frame_height <= to_unsigned(505,12);
+              display_height <= to_unsigned(480,12);
+              vsync_delay <= to_unsigned(500-480,8);
+              vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
+              hsync_start <= to_unsigned(3512,14);
+              hsync_end <= to_unsigned(3876,14);              
+            when "10" => -- NTSC, 800x480 @ 60Hz
+              frame_width <=  to_unsigned(3248,14);
+              display_width <= to_unsigned(2700,14);
+              frame_height <= to_unsigned(480,12); 
+              display_height <= to_unsigned(505,12);
+              vsync_delay <= to_unsigned(499-480,8);
+              vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
+              hsync_start <= to_unsigned(2992,14);
+              hsync_end <= to_unsigned(52,14);              
             when "11" => -- NTSC, 1080p 60Hz
+              frame_width <=  to_unsigned(3248,14);
+              display_width <= to_unsigned(2700,14);
+              frame_height <= to_unsigned(480,12); 
+              display_height <= to_unsigned(505,12);
+              vsync_delay <= to_unsigned(499-480,8);
+              vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
+              hsync_start <= to_unsigned(2992,14);
+              hsync_end <= to_unsigned(52,14);              
+            when others => -- Default to NTSC 800x480 60Hz
               hsync_start <= to_unsigned(2162,14);
               hsync_end <= to_unsigned(0,14);              
               frame_width <=  to_unsigned(2200,14);
               display_width <= to_unsigned(1920,14);
               frame_height <= to_unsigned(1125,12); 
               display_height <= to_unsigned(1080,12);
-              vsync_delay <= to_unsigned(0,8);
+              vsync_delay <= to_unsigned(499-480,8);
               vicii_ycounter_scale_minus_zero <= to_unsigned(5-1,4);
-            when others => -- Default to PAL 1200p 60Hz
-              frame_width <=  to_unsigned(2048,14);
-              display_width <= to_unsigned(1920,14);
-              frame_height <= to_unsigned(1235,12); 
-              display_height <= to_unsigned(1200,12);
-              vsync_delay <= to_unsigned(28,8);
-              vicii_ycounter_scale_minus_zero <= to_unsigned(5-1,4);
-              hsync_start <= to_unsigned(40,14);
-              hsync_end <= to_unsigned(100,14);              
           end case;
           -- Update screen and border positions
           viciv_legacy_mode_registers_touched <= '1';
