@@ -258,9 +258,8 @@ begin
   
   dotclock1: entity work.dotclock100
     port map ( clk_in1 => CLK_IN,
-               reset => '1',
-               clock100mhz => pixelclock, -- 100MHz
-               clock50mhz => cpuclock -- 50MHz
+               clock100 => pixelclock, -- 100MHz
+               clock50 => cpuclock -- 50MHz
                );
 
   fpgatemp0: fpgatemp
