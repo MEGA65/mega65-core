@@ -686,6 +686,7 @@ begin
           <= terminal_emulator_ready and (not terminal_emulator_just_sent);
       else
         terminal_emulator_ready_computed <= '0';
+        terminal_emulator_ready_counter <= terminal_emulator_ready_counter - 1;
       end if;
       terminal_emulator_just_sent <= '0';
 
