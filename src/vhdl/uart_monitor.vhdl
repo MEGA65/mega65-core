@@ -682,12 +682,13 @@ begin
     if rising_edge(clock) then
 
       if terminal_emulator_ready_counter = 0 then
-        terminal_emulator_ready_computed <= terminal_emulator_ready and terminal_emulator_just_sent;
+        terminal_emulator_ready_computed
+          <= terminal_emulator_ready and (not terminal_emulator_just_sent);
       else
         terminal_emulator_ready_computed <= '0';
       end if;
       terminal_emulator_just_sent <= '0';
-      
+
       bit_rate_divisor <= bit_rate_divisor_internal;
       
       if reset='0' then -- reset is asserted
