@@ -548,7 +548,7 @@ int assemble_modeline( int *b,
   int vsync_delay=vheight-vpixels-vsync_rasters;
 
   // Adjust raster length for difference in pixel clock
-  float factor=pixel_clock/150000000.0;
+  float factor=pixel_clock/100000000.0;
   hwidth/=factor;
   if (factor<1) hpixels/=factor;
   
@@ -576,7 +576,7 @@ int assemble_modeline( int *b,
     + (vsync_polarity?0x20:0);
 
   fprintf(stderr,"Assembled mode with hfreq=%.2fKHz, vfreq=%.2fHz (hwidth=%d), vsync=%d rasters, %dx vertical scale.\n",
-	  150000000.0/hwidth,150000000.0/hwidth/vheight,hwidth,
+	  100000000.0/hwidth,100000000.0/hwidth/vheight,hwidth,
 	  vheight-vpixels-vsync_delay,rasters_per_vicii_raster);
   
   return 0;
@@ -595,7 +595,7 @@ void parse_video_mode(int b[16+5])
   int vsync_polarity=b[0xc]&0x20;
   int rasters_per_vicii_raster=((b[0x3]&0xf0)>>4)+1;
   
-  float pixelclock=150000000;
+  float pixelclock=100000000;
   float frame_hertz=pixelclock/(hwidth*vheight);
   float hfreq=pixelclock/hwidth/1000.0;
   
