@@ -258,7 +258,7 @@ begin
   
   dotclock1: entity work.dotclock100
     port map ( clk_in1 => CLK_IN,
-               reset => '0',
+               reset => '1',
                clock100mhz => pixelclock, -- 100MHz
                clock50mhz => cpuclock -- 50MHz
                );
