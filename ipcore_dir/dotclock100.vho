@@ -54,8 +54,11 @@
 -- "Output    Output      Phase     Duty      Pk-to-Pk        Phase"
 -- "Clock    Freq (MHz) (degrees) Cycle (%) Jitter (ps)  Error (ps)"
 ------------------------------------------------------------------------------
--- CLK_OUT1___100.000______0.000______50.0______130.958_____98.575
--- CLK_OUT2____50.000______0.000______50.0______151.636_____98.575
+-- CLK_OUT1___100.000______0.000______50.0______115.831_____87.180
+-- CLK_OUT2____50.000______0.000______50.0______132.683_____87.180
+-- CLK_OUT3___100.000______0.000______50.0______115.831_____87.180
+-- CLK_OUT4___150.000______0.000______50.0______107.567_____87.180
+-- CLK_OUT5___200.000______0.000______50.0______102.086_____87.180
 --
 ------------------------------------------------------------------------------
 -- "Input Clock   Freq (MHz)    Input Jitter (UI)"
@@ -70,11 +73,11 @@ port
  (-- Clock in ports
   CLK_IN1           : in     std_logic;
   -- Clock out ports
-  clock100mhz          : out    std_logic;
-  clock50mhz          : out    std_logic;
-  -- Status and control signals
-  RESET             : in     std_logic;
-  LOCKED            : out    std_logic
+  clock100          : out    std_logic;
+  clock50          : out    std_logic;
+  clock100b          : out    std_logic;
+  clock150          : out    std_logic;
+  clock200          : out    std_logic
  );
 end component;
 
@@ -87,9 +90,9 @@ your_instance_name : dotclock100
    (-- Clock in ports
     CLK_IN1 => CLK_IN1,
     -- Clock out ports
-    clock100mhz => clock100mhz,
-    clock50mhz => clock50mhz,
-    -- Status and control signals
-    RESET  => RESET,
-    LOCKED => LOCKED);
+    clock100 => clock100,
+    clock50 => clock50,
+    clock100b => clock100b,
+    clock150 => clock150,
+    clock200 => clock200);
 -- INST_TAG_END ------ End INSTANTIATION Template ------------
