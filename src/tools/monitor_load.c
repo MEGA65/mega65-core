@@ -766,7 +766,10 @@ int main(int argc,char **argv)
     case 's':
       serial_speed=atoi(optarg);
       switch(serial_speed) {
-      case 230400: case 2000000: break; case 4000000:
+      case 1000000:
+      case 1500000:
+      case 4000000:
+      case 230400: case 2000000: break;
       default: usage();
       }
       break;
@@ -810,6 +813,12 @@ int main(int argc,char **argv)
   } else if (serial_speed==2000000) {
     if (cfsetospeed(&t, B2000000)) perror("Failed to set output baud rate");
     if (cfsetispeed(&t, B2000000)) perror("Failed to set input baud rate");
+  } else if (serial_speed==1000000) {
+    if (cfsetospeed(&t, B1000000)) perror("Failed to set output baud rate");
+    if (cfsetispeed(&t, B1000000)) perror("Failed to set input baud rate");
+  } else if (serial_speed==1500000) {
+    if (cfsetospeed(&t, B1500000)) perror("Failed to set output baud rate");
+    if (cfsetispeed(&t, B1500000)) perror("Failed to set input baud rate");
   } else {
     if (cfsetospeed(&t, B4000000)) perror("Failed to set output baud rate");
     if (cfsetispeed(&t, B4000000)) perror("Failed to set input baud rate");
