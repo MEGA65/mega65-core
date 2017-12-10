@@ -2506,8 +2506,8 @@ begin
             when "10" => -- NTSC, 800x480 @ 60Hz
               frame_width <=  to_unsigned(3248,14);
               display_width <= to_unsigned(2700,14);
-              frame_height <= to_unsigned(480,12); 
-              display_height <= to_unsigned(505,12);
+              frame_height <= to_unsigned(505,12); 
+              display_height <= to_unsigned(480,12);
               vsync_delay <= to_unsigned(499-480,8);
               vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
               hsync_start <= to_unsigned(2992,14);
@@ -2515,8 +2515,8 @@ begin
             when "11" => -- NTSC, 1080p 60Hz
               frame_width <=  to_unsigned(3248,14);
               display_width <= to_unsigned(2700,14);
-              frame_height <= to_unsigned(480,12); 
-              display_height <= to_unsigned(505,12);
+              frame_height <= to_unsigned(505,12); 
+              display_height <= to_unsigned(480,12);
               vsync_delay <= to_unsigned(499-480,8);
               vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
               hsync_start <= to_unsigned(2992,14);
