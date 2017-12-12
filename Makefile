@@ -19,6 +19,7 @@ KICKSTARTSRCS = $(SRCDIR)/kickstart.a65 \
 		$(SRCDIR)/kickstart_dos.a65 \
 		$(SRCDIR)/kickstart_task.a65 \
 		$(SRCDIR)/kickstart_virtual_f011.a65 \
+		$(SRCDIR)/kickstart_debug.a65 \
 		$(SRCDIR)/kickstart_mem.a65
 
 # if you want your PRG to appear on "MEGA65.D81", then put your PRG in "./d81-files"

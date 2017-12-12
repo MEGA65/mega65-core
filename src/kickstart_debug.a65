@@ -538,5 +538,63 @@ d1s2:		cmp $d012
 
 
 
+debug_show_cluster_number:
+	
+	; work out where the cluster number should be
+	jsr dos_get_file_descriptor_offset
+	phx
+	jsr checkpoint_bytetohex
+	stx dfanc_fd
+	plx
+	txa
+	clc
+	adc #dos_filedescriptor_offset_currentcluster
+	tay
+	
 
+	lda dos_file_descriptors+3,y
+	phy
+	tax
+	jsr checkpoint_bytetohex
+	sty dfanc_hex+0
+	stx dfanc_hex+1
+
+	ply
+	phy
+
+	ldy dos_scratch_byte_2
+	lda dos_file_descriptors+2,y	
+	tax
+	jsr checkpoint_bytetohex
+	sty dfanc_hex+2
+	stx dfanc_hex+3
+
+	ply
+	phy
+	
+	ldy dos_scratch_byte_2
+	lda dos_file_descriptors+1,y
+	tax
+	jsr checkpoint_bytetohex
+	sty dfanc_hex+4
+	stx dfanc_hex+5
+
+	ply
+
+	ldy dos_scratch_byte_2
+	lda dos_file_descriptors+0,y
+	tax
+	jsr checkpoint_bytetohex
+	sty dfanc_hex+6
+	stx dfanc_hex+7
+
+
+	jsr checkpoint
+	.byte 0,"File Desc #"
+dfanc_fd:
+	.byte "$: curr_cluster=$"
+dfanc_hex:
+	.BYTE "$$$$$$$$",0
+
+	rts
 
