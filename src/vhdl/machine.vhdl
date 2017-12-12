@@ -52,7 +52,8 @@ use Std.TextIO.all;
 --use UNISIM.VComponents.all;
 
 entity machine is
-  generic (cpufrequency : integer := 50);
+  generic (cpufrequency : integer := 50;
+           pixel_clock_frequency_hz : integer := 150000000);
   Port ( pixelclock : STD_LOGIC;
          cpuclock : std_logic;
          clock50mhz : in std_logic;
@@ -326,14 +327,10 @@ architecture Behavioral of machine is
 
   signal segled_counter : unsigned(19 downto 0) := (others => '0');
 
-  -- Clock running as close as possible to 17.734475 MHz / 18 = 985248Hz
-  -- Our pixel clock is 192MHz.  195 ticks gives 984615Hz for NTSC.
-  -- 188 ticks at 192MHz gives 1021276Hz, which is pretty close for PAL.
-  -- But dotclock is really 193.75MHz, so adjust accordingly.
-  -- Then divide by 2 again, since the loop toggles phi0.
   signal phi0 : std_logic := '0';
-  constant phi0_divisor : integer := 76; -- For 150MHz dotclock, 50MHz CPU
-  signal phi0_counter : integer range 0 to phi0_divisor;
+  signal phi0_frequency_pal : integer := 985248;
+  signal phi0_frequency_ntsc : integer := 1022727;
+  signal phi0_counter : integer := 0;
 
   signal pixel_stream : unsigned (7 downto 0);
   signal pixel_y : unsigned (11 downto 0);
@@ -574,11 +571,12 @@ begin
     if rising_edge(pixelclock) then
       
       -- Work out phi0 frequency for CIA timers
-      if phi0_counter=phi0_divisor then
-        phi0 <= not phi0;
-        phi0_counter <= 0;
+      -- XXX Doesn't switch between PAL and NTSL
+      if phi0_counter < (pixel_clock_frequency_hz/2) then
+        phi0_counter <= phi0_counter + phi0_frequency_pal;
       else
-        phi0_counter <= phi0_counter + 1;
+        phi0_counter <= phi0_counter + phi0_frequency_pal - (pixel_clock_frequency_hz/2);
+        phi0 <= not phi0;
       end if;
       
     end if;
