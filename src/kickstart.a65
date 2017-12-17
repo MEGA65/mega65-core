@@ -1071,8 +1071,7 @@ loadedok:
 		sta file_pagesread+1
 
 		; check the size of the loaded file
-		;
-		; BG need to ascertain which is HB and which is LB
+		; i.e., that we have loaded $0200 x $100 = $20000 = 128KiB
 		lda file_pagesread
 		bne romfiletooshort
 		lda file_pagesread+1
@@ -1082,9 +1081,36 @@ loadedok:
 		bne romfiletoolong
 
 		; the loaded ROM was OK in size
-		; need to store checksum
+
+		; Store checksum of ROM
 		;
 		jsr storeromsum
+
+		; copy character ROM portion into place
+		; i.e., copy $2Dxxx to $FF7Exxx
+
+		lda #$ff
+		sta $d702
+		sta $d704
+		sta $d706
+		lda #$00
+		sta $d705
+		lda #>charromdmalist
+		sta $d701
+		lda #<charromdmalist
+		sta $d700
+
+		jmp loadedmegaromok
+
+charromdmalist:
+		.byte $00
+		.word $1000
+		.word $D000
+		.byte $02
+		.word $E000
+		.byte $07
+		.word $0000
+		
 
 loadedmegaromok:
 		; print debug message
