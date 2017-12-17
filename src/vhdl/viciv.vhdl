@@ -1874,7 +1874,8 @@ begin
         elsif register_number=124 then  -- $D307C
           fastio_rdata(3 downto 0) <= std_logic_vector(hsync_start(13 downto 10));
           fastio_rdata(4) <= hsync_polarity;
-          fastio_rdata(5) <= vsync_polarity;          
+          fastio_rdata(5) <= vsync_polarity;
+          fastio_rdata(7 downto 6) <= '0';
         elsif register_number=125 then
           -- fastio_rdata <=
           --  std_logic_vector(to_unsigned(vic_paint_fsm'pos(debug_paint_fsm_state_drive2),8));
