@@ -551,6 +551,12 @@ int assemble_modeline( int *b,
   float factor=pixel_clock/100000000.0;
   hwidth/=factor;
   if (factor<1) hpixels/=factor;
+
+  if (0) 
+    if (hpixels%800) {
+      fprintf(stderr,"Adjusting hpixels to %d (modulo was %d)\n",hpixels-hpixels%800,hpixels%800);
+      hpixels-=hpixels%800;
+    }     
   
   int hsync_start=hsync_start_in+0x10;
   int hsync_end=hsync_end_in+0x10;
@@ -617,6 +623,34 @@ void parse_video_mode(int b[16+5])
   fprintf(stderr,"   hsync=$%04x (%d) -- $%04x (%d)\n",
 	  hsync_start,hsync_start,
 	  hsync_end,hsync_end);
+
+  fprintf(stderr,
+	  "constant modeline this_mode :=\n"
+	  "  (frame_h_front => to_unsigned(%d,7),\n"
+	  "   frame_width => to_unsigned(%d,13),\n"
+	  "   display_width => to_unsigned(%d,13),\n"
+	  "   hsync_start => to_unsigned(%d,13),\n"
+	  "   hsync_end => to_unsigned(%d,13),\n"
+	  "   hsync_polarity => '%d',\n"
+	  "\n"
+	  "   frame_v_front => to_unsigned(%d,7),\n"
+	  "   frame_height => to_unsigned(%d,11),\n"
+	  "   display_height => to_unsigned(%d,11),\n"
+	  "   vsync_delay => to_unsigned(%d,7),\n"
+	  "   vsync_polarity => '%d');\n",
+	  16,
+	  hwidth,hpixels,hsync_start,hsync_end,
+	  hsync_polarity ? 1 : 0,
+
+	  0,
+	  vheight,vpixels,vsync_delay,
+	  vsync_polarity ? 1 : 0
+	  );
+
+	  
+	  
+
+  
   
   return;
 }
@@ -706,15 +740,22 @@ int prepare_modeline(char *modeline)
       modeline=modelines[i].line;
   }
   
-
   fprintf(stderr,"Parsing [%s] as modeline\n",modeline);
   if (modeline[0]=='m') modeline[4]='M';
   if (modeline[4]=='L') modeline[4]='l';
-  if (sscanf(modeline,"Modeline \"%*dx%*d\" %f %d %d %d %d %d %d %d %d %s %s",
-	     &pixel_clock_mhz,
-	     &hpixels,&hsync_start,&hsync_end,&hwidth,
-	     &vpixels,&vsync_start,&vsync_end,&vheight,
-	     opt1,opt2)>=9)
+  int fields=sscanf(modeline,"Modeline %*[^ ] %f %d %d %d %d %d %d %d %d %s %s",
+		    &pixel_clock_mhz,
+		    &hpixels,&hsync_start,&hsync_end,&hwidth,
+		    &vpixels,&vsync_start,&vsync_end,&vheight,
+		    opt1,opt2);
+
+  if (fields<9)
+    {
+      fprintf(stderr,"ERROR: Could only parse %d of 9 fields.\n",fields);
+      usage();
+      return -1;
+    }
+  else
     {
       int pixel_clock=pixel_clock_mhz*1000000;
       int rasters_per_vicii_raster=(vpixels-80)/200;
@@ -738,10 +779,6 @@ int prepare_modeline(char *modeline)
       parse_video_mode(b);
       
     }
-  else {
-    fprintf(stderr,"modeline is badly formatted.\n");
-    usage();
-  }
 
   return 0;
 }
