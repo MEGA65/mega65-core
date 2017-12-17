@@ -158,6 +158,10 @@ double_restore_trap:
 	clc
 	adc #$40
 	sta $d06f
+	; update X scaling
+	; XXX can mess up raster interrupts
+	lda $d011
+	sta $d011
 
 	; return from hypervisor
 	;
