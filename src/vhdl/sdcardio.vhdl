@@ -532,7 +532,8 @@ begin  -- behavioural
           when x"83" => fastio_rdata <= sd_sector(23 downto 16); -- SD-controll
           when x"84" => fastio_rdata <= sd_sector(31 downto 24); -- SD-control, MSByte of address
 
-		-- maybe these next four are for debugging
+                        -- maybe these next four are for debugging
+                        -- @IO:GS $D685 - DEBUG Show current state ID of SD card interface
           when x"85" => fastio_rdata <= to_unsigned(sd_state_t'pos(sd_state),8);
           when x"86" => fastio_rdata <= sd_datatoken;
           when x"87" => fastio_rdata <= unsigned(sd_rdata);                        
