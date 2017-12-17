@@ -387,6 +387,9 @@ int process_line(char *line,int live)
       slow_write(fd,"Mffd3040\n",9);
       
     }
+    else if (mode_report) {
+      slow_write(fd,"Mffd3040\n",9);
+    }
 
     // We are in C65 mode - switch to C64 mode
     if (osk_enable) {
@@ -401,7 +404,10 @@ int process_line(char *line,int live)
     } else {
       if (!saw_c65_mode) fprintf(stderr,"MEGA65 is in C65 mode.\n");
       saw_c65_mode=1;
-      if ((!mode_report)&&(!virtual_f011)) exit(0);
+      if ((!mode_report)&&(!virtual_f011)) {
+	fprintf(stderr,"Exiting now that we are in C65 mode.\n");
+	exit(0);
+      }
     }    
   }
   if (!strcmp(line,
@@ -708,8 +714,8 @@ modeline_t modelines[]={
   {"800x480@60","Modeline \"800x480\" 29.59 800 870 0 962 480 490 495 505 +hsync"},
   
   // Some lower resolution modes
-  {"800x600@50","Modeline \"800x600\" 30 800 814 884 960 600 601 606 625 +hsync +vsync"},
-  {"800x600@60","Modeline \"800x600\" 40.00 800 840 968 1056 600 601 605 628 +HSync +VSync "},
+  {"800x600@50","Modeline \"800x600\" 30 800 814 0 960 600 601 606 625 +hsync +vsync"},
+  {"800x600@60","Modeline \"800x600\" 40 800 840 0 1056 600 601 605 628 +HSync +VSync "},
   
   {NULL,NULL}
 };
@@ -788,7 +794,7 @@ int main(int argc,char **argv)
   start_time=time(0);
   
   int opt;
-  while ((opt = getopt(argc, argv, "14l:s:b:c:k:rR:C:m:od:")) != -1) {
+  while ((opt = getopt(argc, argv, "14l:s:b:c:k:rR:C:m:Mod:")) != -1) {
     switch (opt) {
     case 'R': romfile=strdup(optarg); break;
     case 'C': charromfile=strdup(optarg); break;
@@ -798,6 +804,7 @@ int main(int argc,char **argv)
     case 'r': do_run=1; break;
     case 'l': strcpy(serial_port,optarg); break;
     case 'm': prepare_modeline(optarg); mode_report=1; break;
+    case 'M': mode_report=1; break;
     case 'o': osk_enable=1; break;
     case 'd': virtual_f011=1; d81file=strdup(optarg); break;
     case 's':
