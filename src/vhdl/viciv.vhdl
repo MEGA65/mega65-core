@@ -205,7 +205,7 @@ architecture Behavioral of viciv is
   -- The values here are simply those that apply on power up.
   signal frame_h_front : unsigned(7 downto 0) := to_unsigned(16,8);  
   -- 800x480 @ 50Hz for 100MHz pixelclock
-  signal frame_width : unsigned(13 downto 0) := to_unsigned(2460,14);
+  signal frame_width : unsigned(13 downto 0) := to_unsigned(2640,14);
   signal display_width : unsigned(13 downto 0) := to_unsigned(2000,14);
   signal frame_height : unsigned(11 downto 0) := to_unsigned(628,12); 
   signal display_height : unsigned(11 downto 0) := to_unsigned(600,12);
@@ -2514,7 +2514,7 @@ begin
               hsync_start <= to_unsigned(2140,14);
               hsync_end <= to_unsigned(40,14);
             when "11" => -- NTSC 800x600 60Hz
-              frame_width <=  to_unsigned(2460,14);
+              frame_width <=  to_unsigned(2640,14);
               display_width <= to_unsigned(2000,14);
               frame_height <= to_unsigned(628,12); 
               display_height <= to_unsigned(600,12);
@@ -2523,7 +2523,7 @@ begin
               hsync_start <= to_unsigned(2140,14);
               hsync_end <= to_unsigned(40,14);              
             when others => -- Default to NTSC 800x600 60Hz
-              frame_width <=  to_unsigned(2460,14);
+              frame_width <=  to_unsigned(2640,14);
               display_width <= to_unsigned(2000,14);
               frame_height <= to_unsigned(628,12); 
               display_height <= to_unsigned(600,12);
