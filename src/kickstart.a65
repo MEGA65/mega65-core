@@ -2135,12 +2135,14 @@ l1:		; Enable VIC-IV / MEGA65 IO
 
 keyboardread:
 
-; Check for digits 0 - 9 on keyboard, and change which ROM we intend to read
-; based on that.
+; Check for keyboard activity, and change which ROM we intend to read
+; based on that, i.e., holding any key down during boot will load MEGA65<that character>.ROM instead of MEGA65.ROM
 
-		jsr scankeyboard
+		jsr scankeyboard		
 		bcs kr2  ; if an error occured
-		cmp #$ff
+		cmp #$20
+		beq utility_menu
+		cmp #$00
 		bne kr1
 kr2:		lda #$20 ; default to space
 kr1:
