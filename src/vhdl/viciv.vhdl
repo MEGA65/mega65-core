@@ -2495,6 +2495,8 @@ begin
               vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
               hsync_start <= to_unsigned(2764,14);
               hsync_end <= to_unsigned(52,14);
+              hsync_polarity <= '0';
+              vsync_polarity <= '0';
             when "01" => -- PAL, 800x600 50Hz
               frame_width <=  to_unsigned(3196,14);
               display_width <= to_unsigned(2664,14);
@@ -2504,8 +2506,10 @@ begin
               vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
               hsync_start <= to_unsigned(2764,14);
               hsync_end <= to_unsigned(52,14);
+              hsync_polarity <= '0';
+              vsync_polarity <= '0';
             when "10" => -- NTSC, 800x600 @ 60Hz
-              frame_width <=  to_unsigned(2460,14);
+              frame_width <=  to_unsigned(2640,14);
               display_width <= to_unsigned(2000,14);
               frame_height <= to_unsigned(628,12); 
               display_height <= to_unsigned(600,12);
@@ -2513,6 +2517,8 @@ begin
               vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
               hsync_start <= to_unsigned(2140,14);
               hsync_end <= to_unsigned(40,14);
+              hsync_polarity <= '0';
+              vsync_polarity <= '0';
             when "11" => -- NTSC 800x600 60Hz
               frame_width <=  to_unsigned(2640,14);
               display_width <= to_unsigned(2000,14);
@@ -2522,6 +2528,8 @@ begin
               vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
               hsync_start <= to_unsigned(2140,14);
               hsync_end <= to_unsigned(40,14);              
+              hsync_polarity <= '0';
+              vsync_polarity <= '0';
             when others => -- Default to NTSC 800x600 60Hz
               frame_width <=  to_unsigned(2640,14);
               display_width <= to_unsigned(2000,14);
@@ -2531,6 +2539,8 @@ begin
               vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
               hsync_start <= to_unsigned(2140,14);
               hsync_end <= to_unsigned(40,14);              
+              hsync_polarity <= '0';
+              vsync_polarity <= '0';
           end case;
           -- Update screen and border positions
           viciv_legacy_mode_registers_touched <= '1';
