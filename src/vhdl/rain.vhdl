@@ -435,6 +435,14 @@ begin  -- rtl
                 terminal_emulator_fast <= '0';
               end if;
             end if;
+          when x"08" =>
+            -- Backspace (limited to same line)
+            if te_cursor_x > 0 then
+              -- stay on same line
+              te_cursor_x <= te_cursor_x - 1;
+              te_cursor_address <= te_cursor_address - 1;
+            end if;
+            terminal_emulator_fast <= '1';
           when x"9d" =>
             -- C64 cursor left
             if te_cursor_x > 0 then
@@ -465,7 +473,13 @@ begin  -- rtl
               & integer'image(te_screen_start);
             screenram_addr <= te_cursor_address;
             screenram_wdata <= monitor_char_in;
-            screenram_we <= '1';
+            -- Prevent overwriting font
+            if te_cursor_address >= te_header_start
+              and te_cursor_address < 4096 then 
+              screenram_we <= '1';
+            else
+              screenram_we <= '0';
+            end if;
             screenram_busy := '1';
             if te_cursor_x < te_x_max then
               -- stay on same line
@@ -482,8 +496,7 @@ begin  -- rtl
               else
                 terminal_emulator_ready <= '0';
                 scroll_terminal_up <= '1';
-                erase_address
-                  <= 4096 - (te_y_max+1) * te_line_length;
+                erase_address <= te_screen_start;
                 terminal_emulator_fast <= '0';
               end if;
             end if;
@@ -629,7 +642,7 @@ begin  -- rtl
             matrix_fetch_address(7 downto 3) <= next_glyph(4 downto 0);
           end if;
           -- Position within glyph
-          yoffset := (to_integer(ycounter_in(3 downto 0))-1) / 2;
+          yoffset := (to_integer(ycounter_in(2 downto 0))-1);
           if yoffset < 0 then
             yoffset := yoffset + 8;
           end if;
@@ -779,16 +792,15 @@ begin  -- rtl
           else
             -- In header of matrix mode
             -- Note that cursor is not visible in header area
-            if char_bits(0) = '1' then
-              -- White text for header of matrix mode
+            if char_bits(0) = '0' then
               vgared_out <= (others => '0');
               vgagreen_out <= (others => '0');
               vgablue_out <= (others => '0');
             else
               -- Header of matrix mode terminal has background highlight
-              vgared_out <= "01111111";
+              vgared_out <= "10111111";
               vgagreen_out <= "11111111";
-              vgablue_out <= "01111111";
+              vgablue_out <= "10111111";
             end if;
           end if;
         when Rain =>
