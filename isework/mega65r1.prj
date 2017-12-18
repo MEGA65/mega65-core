@@ -1,4 +1,4 @@
-vhdl work "../ipcore_dir/dotclock150.vhd"
+vhdl work "../ipcore_dir/dotclock100.vhd"
 vhdl work "../ipcore_dir/ram32x1024.vhd"
 vhdl work "../src/vhdl/debugtools.vhdl"
 vhdl work "../src/vhdl/cputypes.vhdl"
