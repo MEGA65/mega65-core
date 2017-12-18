@@ -1187,70 +1187,70 @@ begin
         chargen_x_pixels_320 <= 1;
         text_width_320 <= 1*320;
       end if;  
-      if display_width >= (16*w) then
+      if display_width > (16*w) then
         chargen_x_scale_640  <= x"10";
         chargen_x_pixels_640 <= 4;
         chargen_x_scale_1280  <= x"40";
         chargen_x_pixels_1280 <= 2;
         text_width_640 <= 4*640;
         text_width_1280 <= 2*1280;
-      elsif display_width >= (15*w) then
+      elsif display_width > (15*w) then
         chargen_x_scale_640  <= x"11";
         chargen_x_pixels_640 <= 4;
         chargen_x_scale_1280  <= x"40";
         chargen_x_pixels_1280 <= 2;
         text_width_640 <= 4*640;
         text_width_1280 <= 2*1280;
-      elsif display_width >= (8*w) then
+      elsif display_width > (8*w) then
         chargen_x_scale_640  <= x"20";
         chargen_x_pixels_640 <= 4;
         chargen_x_scale_1280  <= x"40";
         chargen_x_pixels_1280 <= 2;
         text_width_640 <= 4*640;
         text_width_1280 <= 2*1280;
-      elsif display_width >= (7*w) then
+      elsif display_width > (7*w) then
         chargen_x_scale_640  <= x"34";
         chargen_x_pixels_640 <= 3;
         chargen_x_scale_1280  <= x"78";
         chargen_x_pixels_1280 <= 1;
         text_width_640 <= 3*640;
         text_width_1280 <= 1*1280;
-      elsif display_width >= (6*w) then
+      elsif display_width > (6*w) then
         chargen_x_scale_640  <= x"28";
         chargen_x_pixels_640 <= 3;
         chargen_x_scale_1280  <= x"78";
         chargen_x_pixels_1280 <= 1;
         text_width_640 <= 3*640;
         text_width_1280 <= 1*1280;
-      elsif display_width >= (5*w) then
+      elsif display_width > (5*w) then
         chargen_x_scale_640  <= x"28";
         chargen_x_pixels_640 <= 3;
         chargen_x_scale_1280  <= x"78";
         chargen_x_pixels_1280 <= 1;
         text_width_640 <= 2*640;
         text_width_1280 <= 1*1280;
-      elsif display_width >= (4*w) then
+      elsif display_width > (4*w) then
         chargen_x_scale_640  <= x"3c";
         chargen_x_pixels_640 <= 2;
         chargen_x_scale_1280  <= x"78";
         chargen_x_pixels_1280 <= 1;
         text_width_640 <= 2*640;
         text_width_1280 <= 1*1280;
-      elsif display_width >= (3*w) then
+      elsif display_width > (3*w) then
         chargen_x_scale_640  <= x"78";
         chargen_x_pixels_640 <= 1;
         chargen_x_scale_1280  <= x"78";
         chargen_x_pixels_1280 <= 1;
         text_width_640 <= 1*640;
         text_width_1280 <= 1*1280;
-      elsif display_width >= (2*w) then
+      elsif display_width > (2*w) then
         chargen_x_scale_640  <= x"78";
         chargen_x_pixels_640 <= 1;
         chargen_x_scale_1280  <= x"78";
         chargen_x_pixels_1280 <= 1;
         text_width_640 <= 1*640;
         text_width_1280 <= 1*1280;
-      elsif display_width >= (1*w) then
+      elsif display_width > (1*w) then
         chargen_x_scale_640  <= x"78";
         chargen_x_pixels_640 <= 1;
         chargen_x_scale_1280  <= x"78";
