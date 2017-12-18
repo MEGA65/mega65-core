@@ -180,7 +180,6 @@ architecture Behavioral of container is
   signal segled_counter : unsigned(31 downto 0) := (others => '0');
 
   signal clock100mhz : std_logic := '0';
-  signal clock50mhz : std_logic := '0';
 
   signal slow_access_request_toggle : std_logic;
   signal slow_access_ready_toggle : std_logic;
@@ -279,7 +278,7 @@ begin
     port map (
       pixelclock      => pixelclock,
       cpuclock        => cpuclock,
-      clock50mhz      => clock50mhz,
+      clock50mhz      => cpuclock,
 --      ioclock         => ioclock, -- 32MHz
 --      uartclock         => ioclock, -- must be 32MHz
       uartclock         => cpuclock, -- Match CPU clock (48MHz)
@@ -407,16 +406,6 @@ begin
          
       );
 
-  -- Generate 50MHz clock for ethernet
-  process (clock100mhz) is
-  begin
-    if rising_edge(clock100mhz) then
-      report "50MHz tick";
-      clock50mhz <= not clock50mhz;
-      eth_clock <= not clock50mhz;
-    end if;
-  end process;
-  
   process (pixelclock) is
   begin
     vdac_sync_n <= '0';  -- no sync on green
@@ -424,6 +413,7 @@ begin
 
     -- VGA output at full pixel clock
     vdac_clk <= pixelclock;
+    eth_clock <= cpuclock;
 
     if rising_edge(pixelclock) then
       hsync <= v_hsync;
