@@ -303,7 +303,7 @@ begin  -- rtl
         matrix_fetch_chardata <= '1';
         screenram_addr <= 0
                           +(to_integer(screenram_rdata)*8)
-                          +to_integer(char_ycounter(4 downto 2));
+                          +to_integer(char_ycounter(3 downto 1));
         screenram_we <= '0';
         screenram_busy := '1';
         if pixel_x_640 >= debug_x and pixel_x_640 < (debug_x+10) then
@@ -575,7 +575,7 @@ begin  -- rtl
           -- we are advancing to next line
           -- XXX doesn't yet support double-high chars
           if last_hsync = '0' then
-            if char_ycounter /= 31 then
+            if char_ycounter /= 15 then
               char_screen_address <= line_screen_address;
               char_ycounter <= char_ycounter + 1;
             else
@@ -641,8 +641,8 @@ begin  -- rtl
             matrix_fetch_address(11 downto 8) <= x"E";
             matrix_fetch_address(7 downto 3) <= next_glyph(4 downto 0);
           end if;
-          -- Position within glyph
-          yoffset := (to_integer(ycounter_in(2 downto 0))-1);
+          -- Position within glyph (matrix rain)
+          yoffset := (to_integer(ycounter_in(3 downto 1))-1) / 2;
           if yoffset < 0 then
             yoffset := yoffset + 8;
           end if;
