@@ -1116,68 +1116,69 @@ begin
     variable bitplane_number : integer;
 
     procedure viciv_calculate_modeline_dimensions is
+      constant w : integer := 400; -- was 320
     begin
       -- Work out how wide we can make the main video area
       -- Where possible, we want to keep some sensible amount of side border
       -- in the 320 pixel widee modes. For H640 and H1280, we don't care about
       -- having side borders
-      if display_width > (16*320) then
+      if display_width > (16*w) then
         chargen_x_scale_320  <= x"08";
         chargen_x_pixels_320 <= 16;
         text_width_320 <= 16*320;
-      elsif display_width > (15*320) then
+      elsif display_width > (15*w) then
         chargen_x_scale_320  <= x"08";
         chargen_x_pixels_320 <= 15;
         text_width_320 <= 15*320;
-      elsif display_width > (14*320) then
+      elsif display_width > (14*w) then
         chargen_x_scale_320  <= x"09";
         chargen_x_pixels_320 <= 14;
         text_width_320 <= 14*320;
-      elsif display_width > (13*320) then
+      elsif display_width > (13*w) then
         chargen_x_scale_320  <= x"09";
         chargen_x_pixels_320 <= 13;
         text_width_320 <= 13*320;
-      elsif display_width > (12*320) then
+      elsif display_width > (12*w) then
         chargen_x_scale_320  <= x"0a";
         chargen_x_pixels_320 <= 12;
         text_width_320 <= 12*320;
-      elsif display_width > (11*320) then
+      elsif display_width > (11*w) then
         chargen_x_scale_320  <= x"0b";
         chargen_x_pixels_320 <= 11;
         text_width_320 <= 11*320;
-      elsif display_width > (10*320) then
+      elsif display_width > (10*w) then
         chargen_x_scale_320  <= x"0c";
         chargen_x_pixels_320 <= 10;
         text_width_320 <= 10*320;
-      elsif display_width > (9*320) then
+      elsif display_width > (9*w) then
         chargen_x_scale_320  <= x"0e";
         chargen_x_pixels_320 <= 9;
         text_width_320 <= 9*320;
-      elsif display_width > (8*320) then
+      elsif display_width > (8*w) then
         chargen_x_scale_320  <= x"10";
         chargen_x_pixels_320 <= 8;
         text_width_320 <= 8*320;
-      elsif display_width > (7*320) then
+      elsif display_width > (7*w) then
         chargen_x_scale_320  <= x"11";
         chargen_x_pixels_320 <= 7;
         text_width_320 <= 7*320;
-      elsif display_width > (6*320) then
+      elsif display_width > (6*w) then
         chargen_x_scale_320  <= x"14";
         chargen_x_pixels_320 <= 6;
         text_width_320 <= 6*320;
-      elsif display_width > (5*320) then
+      elsif display_width > (5*w) then
         chargen_x_scale_320  <= x"18";
         chargen_x_pixels_320 <= 5;
         text_width_320 <= 5*320;
-      elsif display_width > (4*320) then
+      elsif display_width > (4*w) then
         chargen_x_scale_320  <= x"1e";
         chargen_x_pixels_320 <= 4;
         text_width_320 <= 4*320;
-      elsif display_width > (3*320) then
+      elsif display_width > (3*w) then
         chargen_x_scale_320  <= x"1e";
         chargen_x_pixels_320 <= 3;
         text_width_320 <= 3*320;
-      elsif display_width > (2*320) then
+      elsif display_width > (2*w) then
         chargen_x_scale_320  <= x"3c";
         chargen_x_pixels_320 <= 2;
         text_width_320 <= 2*320;
@@ -1186,70 +1187,70 @@ begin
         chargen_x_pixels_320 <= 1;
         text_width_320 <= 1*320;
       end if;  
-      if display_width >= (16*320) then
+      if display_width >= (16*w) then
         chargen_x_scale_640  <= x"10";
         chargen_x_pixels_640 <= 4;
         chargen_x_scale_1280  <= x"40";
         chargen_x_pixels_1280 <= 2;
         text_width_640 <= 4*640;
         text_width_1280 <= 2*1280;
-      elsif display_width >= (15*320) then
+      elsif display_width >= (15*w) then
         chargen_x_scale_640  <= x"11";
         chargen_x_pixels_640 <= 4;
         chargen_x_scale_1280  <= x"40";
         chargen_x_pixels_1280 <= 2;
         text_width_640 <= 4*640;
         text_width_1280 <= 2*1280;
-      elsif display_width >= (8*320) then
+      elsif display_width >= (8*w) then
         chargen_x_scale_640  <= x"20";
         chargen_x_pixels_640 <= 4;
         chargen_x_scale_1280  <= x"40";
         chargen_x_pixels_1280 <= 2;
         text_width_640 <= 4*640;
         text_width_1280 <= 2*1280;
-      elsif display_width >= (7*320) then
+      elsif display_width >= (7*w) then
         chargen_x_scale_640  <= x"34";
         chargen_x_pixels_640 <= 3;
         chargen_x_scale_1280  <= x"78";
         chargen_x_pixels_1280 <= 1;
         text_width_640 <= 3*640;
         text_width_1280 <= 1*1280;
-      elsif display_width >= (6*320) then
+      elsif display_width >= (6*w) then
         chargen_x_scale_640  <= x"28";
         chargen_x_pixels_640 <= 3;
         chargen_x_scale_1280  <= x"78";
         chargen_x_pixels_1280 <= 1;
         text_width_640 <= 3*640;
         text_width_1280 <= 1*1280;
-      elsif display_width >= (5*320) then
+      elsif display_width >= (5*w) then
         chargen_x_scale_640  <= x"28";
         chargen_x_pixels_640 <= 3;
         chargen_x_scale_1280  <= x"78";
         chargen_x_pixels_1280 <= 1;
         text_width_640 <= 2*640;
         text_width_1280 <= 1*1280;
-      elsif display_width >= (4*320) then
+      elsif display_width >= (4*w) then
         chargen_x_scale_640  <= x"3c";
         chargen_x_pixels_640 <= 2;
         chargen_x_scale_1280  <= x"78";
         chargen_x_pixels_1280 <= 1;
         text_width_640 <= 2*640;
         text_width_1280 <= 1*1280;
-      elsif display_width >= (3*320) then
+      elsif display_width >= (3*w) then
         chargen_x_scale_640  <= x"78";
         chargen_x_pixels_640 <= 1;
         chargen_x_scale_1280  <= x"78";
         chargen_x_pixels_1280 <= 1;
         text_width_640 <= 1*640;
         text_width_1280 <= 1*1280;
-      elsif display_width >= (2*320) then
+      elsif display_width >= (2*w) then
         chargen_x_scale_640  <= x"78";
         chargen_x_pixels_640 <= 1;
         chargen_x_scale_1280  <= x"78";
         chargen_x_pixels_1280 <= 1;
         text_width_640 <= 1*640;
         text_width_1280 <= 1*1280;
-      elsif display_width >= (1*320) then
+      elsif display_width >= (1*w) then
         chargen_x_scale_640  <= x"78";
         chargen_x_pixels_640 <= 1;
         chargen_x_scale_1280  <= x"78";
