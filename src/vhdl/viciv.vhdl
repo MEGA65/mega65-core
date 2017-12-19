@@ -215,6 +215,10 @@ architecture Behavioral of viciv is
   signal vicii_ycounter_scale_minus_zero : unsigned(3 downto 0) := to_unsigned(2-1,4);
   signal hsync_start : unsigned(13 downto 0) := to_unsigned(2140,14);
   signal hsync_end : unsigned(13 downto 0) := to_unsigned(40,14);
+  -- Each logical pixel will be 120/n physical pixels wide
+  -- It must be an integer for everything to work properly.
+  signal chargen_x_pixels : integer := 2;
+  signal chargen_x_scale : unsigned(7 downto 0) := to_unsigned(120/2,8); -- 120/chargen_x_pixels
 
   -- Step through VIC-II raster numbers quickly during the vertical fly-back
   -- time, so that any raster interrupts based on them will trigger.
@@ -420,12 +424,6 @@ architecture Behavioral of viciv is
   signal virtual_row_width_minus1 : unsigned(15 downto 0) := to_unsigned(40,16);
   signal end_of_row_16 : std_logic := '0';
   signal end_of_row : std_logic := '0';
-  -- Each logical pixel will be 120/n physical pixels wide
-  -- (it must be a multiple of both 3 and 5 to allow integer scaling for 40 and
-  -- 80 column modes)
-  -- 40 columns needs 120/5=24 (=$18)
-  -- 80 columns needs 120/3=40 (=$2c)
-  signal chargen_x_scale : unsigned(7 downto 0) := x"19";  
   signal chargen_x_scale_drive : unsigned(7 downto 0);  
   signal sprite_x_scale : unsigned(7 downto 0) := x"19";  
   signal sprite_x_scale_640 : unsigned(7 downto 0) := x"16";		-- 640 mode sprite scale  
@@ -825,7 +823,6 @@ architecture Behavioral of viciv is
   signal hsync_polarity : std_logic := '0';
 
   -- Mode line calculations
-  signal chargen_x_pixels : integer := 0;
   signal single_side_border : unsigned(13 downto 0) := (others => '0');
   type ss_table is array(0 to 10) of integer range 0 to 255;
   signal text_height_200 : integer := 0;
@@ -1592,7 +1589,7 @@ begin
           fastio_rdata(7 downto 6) <= "00";
           fastio_rdata(5 downto 0) <= std_logic_vector(single_side_border(13 downto 8));
         elsif register_number=94 then
-          fastio_rdata <= x"FF";          
+          fastio_rdata <= std_logic_vector(to_unsigned(chargen_x_pixels,8));
         elsif register_number=95 then
           fastio_rdata <= x"FF";          
         elsif register_number=96 then
@@ -1670,7 +1667,6 @@ begin
           -- fastio_rdata <=
           --  std_logic_vector(to_unsigned(vic_paint_fsm'pos(debug_paint_fsm_state_drive2),8));
           -- fastio_rdata <= std_logic_vector(debug_charaddress_drive2(7 downto 0));
-          fastio_rdata <= std_logic_vector(to_unsigned(chargen_x_pixels,8));
         elsif register_number=126 then
           -- fastio_rdata <= "0000"
           -- & std_logic_vector(debug_charaddress_drive2(11 downto 8));
@@ -2206,10 +2202,11 @@ begin
           -- @IO:GS $D05C VIC-IV side border width (LSB)
           single_side_border(7 downto 0) <= unsigned(fastio_wdata);
         elsif register_number=93 then
-          -- @IO:GS $D05D VIC-IV left border position (MSB)
+          -- @IO:GS $D05D VIC-IV side border width (MSB)
           single_side_border(13 downto 8) <= unsigned(fastio_wdata(5 downto 0));
         elsif register_number=94 then
-          -- @IO:GS $D05E VIC-IV RESERVED
+          -- @IO:GS $D05E VIC-IV Physical pixels per H640 VIC-III pixel (should = 120/PEEK($D05A).
+          chargen_x_pixels <= unsigned(fastio_wdata);
         elsif register_number=95 then
           -- @IO:GS $D05F VIC-IV RESERVED
         elsif register_number=96 then
