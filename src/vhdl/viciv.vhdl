@@ -2206,7 +2206,7 @@ begin
           single_side_border(13 downto 8) <= unsigned(fastio_wdata(5 downto 0));
         elsif register_number=94 then
           -- @IO:GS $D05E VIC-IV Physical pixels per H640 VIC-III pixel (should = 120/PEEK($D05A).
-          chargen_x_pixels <= unsigned(fastio_wdata);
+          chargen_x_pixels <= to_integer(unsigned(fastio_wdata));
         elsif register_number=95 then
           -- @IO:GS $D05F VIC-IV RESERVED
         elsif register_number=96 then
