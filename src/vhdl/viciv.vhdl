@@ -2806,15 +2806,30 @@ begin
       -- Update current horizontal sub-pixel and pixel position
       -- Work out if a new logical pixel starts on the next physical pixel
       -- (overrides general advance).
-      if raster_buffer_read_address_sub >= 240 then
-        raster_buffer_read_address_sub <= raster_buffer_read_address_sub - 240 + chargen_x_scale_drive;
-        raster_buffer_read_address <= raster_buffer_read_address + 2;
-      elsif raster_buffer_read_address_sub >= 120 then
-        raster_buffer_read_address_sub <= raster_buffer_read_address_sub - 120 + chargen_x_scale_drive;
-        raster_buffer_read_address <= raster_buffer_read_address + 1;
+      if reg_h640='1' then
+        -- 640 wide characters use x scale directly
+        if raster_buffer_read_address_sub >= 240 then
+          raster_buffer_read_address_sub <= raster_buffer_read_address_sub - 240 + chargen_x_scale_drive;
+          raster_buffer_read_address <= raster_buffer_read_address + 2;
+        elsif raster_buffer_read_address_sub >= 120 then
+          raster_buffer_read_address_sub <= raster_buffer_read_address_sub - 120 + chargen_x_scale_drive;
+          raster_buffer_read_address <= raster_buffer_read_address + 1;
+        else
+          raster_buffer_read_address_sub <= raster_buffer_read_address_sub + chargen_x_scale_drive;
+        end if;
       else
-        raster_buffer_read_address_sub <= raster_buffer_read_address_sub + chargen_x_scale_drive;
-      end if;    
+        -- 320 wide / 40 column text is 2x as wide, i.e., we halve the x scale
+        -- factor.
+        if raster_buffer_read_address_sub >= 240 then
+          raster_buffer_read_address_sub <= raster_buffer_read_address_sub - 240 + chargen_x_scale_drive(7 downto 1);
+          raster_buffer_read_address <= raster_buffer_read_address + 2;
+        elsif raster_buffer_read_address_sub >= 120 then
+          raster_buffer_read_address_sub <= raster_buffer_read_address_sub - 120 + chargen_x_scale_drive(7 downto 1);
+          raster_buffer_read_address <= raster_buffer_read_address + 1;
+        else
+          raster_buffer_read_address_sub <= raster_buffer_read_address_sub + chargen_x_scale_drive(7 downto 1);
+        end if;
+      end if;
 
       report "chargen_active=" & std_logic'image(chargen_active)
         & ", xcounter = " & to_string(std_logic_vector(xcounter))
