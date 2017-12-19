@@ -588,7 +588,7 @@ int assemble_modeline( int *b,
     + (vsync_polarity?0x20:0);
 
   // Horizontal and vertical scaling
-  int xscale=hpixels/800;
+  float xscale=hpixels/(640.0+80+80);
   int xscale_120=120/xscale;
 
   // Side and top-border sizes 
@@ -603,7 +603,7 @@ int assemble_modeline( int *b,
   fprintf(stderr,"Assembled mode with hfreq=%.2fKHz, vfreq=%.2fHz (hwidth=%d), vsync=%d rasters, %dx vertical scale.\n",
 	  100000000.0/hwidth,100000000.0/hwidth/vheight,hwidth,
 	  vheight-vpixels-vsync_delay,rasters_per_vicii_raster);
-  fprintf(stderr,"  xscale=%dx (%d/120), side borders %d pixels each.\n",
+  fprintf(stderr,"  xscale=%.2fx (%d/120), side borders %d pixels each.\n",
 	  xscale,xscale_120,side_border_width);
   
   return 0;
