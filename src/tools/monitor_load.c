@@ -79,10 +79,8 @@ void usage(void)
 
 int slow_write(int fd,char *d,int l)
 {
-  // UART is at 230400bps, but reading commands has no FIFO, and echos
-  // characters back, meaning we need a 1 char gap between successive
-  // characters.  This means >=1/23040sec delay. We'll allow roughly
-  // double that at 100usec.
+  // UART is at 2Mbps, but we need to allow enough time for a whole line of
+  // writing. 100 chars x 0.5usec = 500usec. So 1ms between chars should be ok.
   //  printf("Writing [%s]\n",d);
   int i;
   for(i=0;i<l;i++)
@@ -355,6 +353,7 @@ int process_line(char *line,int live)
 
     if (modeline_cmd[0]) {
       fprintf(stderr,"[T+%lldsec] Setting video modeline\n",(long long)time(0)-start_time);
+      fprintf(stderr,"Commands:\n%s\n",modeline_cmd);
       slow_write(fd,modeline_cmd,strlen(modeline_cmd));
 
       // Disable on-screen keyboard to be sure
@@ -595,6 +594,10 @@ int assemble_modeline( int *b,
   // Side and top-border sizes 
   int screen_width=xscale*640;
   int side_border_width=(hpixels-screen_width)/2;
+
+  b[0x5a]=xscale_120;
+  b[0x5c]=side_border_width & 0xff;
+  b[0x5d]=(side_border_width >> 8)&0x3f;
   
   fprintf(stderr,"Assembled mode with hfreq=%.2fKHz, vfreq=%.2fHz (hwidth=%d), vsync=%d rasters, %dx vertical scale.\n",
 	  100000000.0/hwidth,100000000.0/hwidth/vheight,hwidth,
@@ -764,9 +767,18 @@ int prepare_modeline(char *modeline)
 			rasters_per_vicii_raster);
 
       snprintf(modeline_cmd,1024,
-	       "\nsffd3072 %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x\n",
+	       // Main modeline parameters
+	       "\nsffd3072 %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x\n"
+	       // X pixel scaling
+	       "sffd305a %02x\n"
+	       // Side border width
+	       "sffd305c %02x %02x\n"
+	       ,
 	       b[0x72],b[0x73],b[0x74],b[0x75],b[0x76],
-	       b[0x77],b[0x78],b[0x79],b[0x7a],b[0x7b],b[0x7c]);
+	       b[0x77],b[0x78],b[0x79],b[0x7a],b[0x7b],b[0x7c],
+	       b[0x5a],
+	       b[0x5c],b[0x5d]
+	       );
 
       parse_video_mode(b);
       
