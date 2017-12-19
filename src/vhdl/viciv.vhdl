@@ -1721,22 +1721,29 @@ begin
           -- XXX: Deprecated old addresses for some VIC-IV features currently occupy
           -- these addresses
         elsif register_number=64 then
-          fastio_rdata <= std_logic_vector(virtual_row_width(7 downto 0));
+          -- Unimplemented VIC-III DAC
+          fastio_rdata <= x"FF";
         elsif register_number=65 then
-          fastio_rdata <= std_logic_vector(virtual_row_width(15 downto 8));
+          -- Unimplemented VIC-III DAC
+          fastio_rdata <= x"FF";
         elsif register_number=66 then
-          fastio_rdata <= std_logic_vector(chargen_x_scale_drive);
+          -- Unimplemented VIC-III DAC
+          fastio_rdata <= x"FF";
         elsif register_number=67 then
-          fastio_rdata <= std_logic_vector(chargen_y_scale);
+          -- Unimplemented VIC-III DAC
+          fastio_rdata <= x"FF";
         elsif register_number=68 then
-          fastio_rdata <= std_logic_vector(border_x_left(7 downto 0));
+          -- Unimplemented VIC-III DAC
+          fastio_rdata <= x"FF";
         elsif register_number=69 then
-          fastio_rdata(7 downto 6) <= "00";
-          fastio_rdata(5 downto 0) <= std_logic_vector(border_x_left(13 downto 8));
+          -- Unimplemented VIC-III DAC
+          fastio_rdata <= x"FF";
         elsif register_number=70 then
-          fastio_rdata <= std_logic_vector(border_x_right(7 downto 0));
+          -- Unimplemented VIC-III DAC
+          fastio_rdata <= x"FF";
         elsif register_number=71 then
-          fastio_rdata(5 downto 0) <= std_logic_vector(border_x_right(13 downto 8));
+          -- Unimplemented VIC-III DAC
+          fastio_rdata <= x"FF";
         elsif register_number=72 then
           fastio_rdata <= std_logic_vector(border_y_top(7 downto 0));
         elsif register_number=73 then
@@ -2307,29 +2314,21 @@ begin
         elsif register_number=63 then
           bitplanes_y_start <= unsigned(fastio_wdata);
         elsif register_number=64 then
-          -- @IO:GS $D040 DEPRECATED - VIC-IV characters per logical text row (LSB)
-          virtual_row_width(7 downto 0) <= unsigned(fastio_wdata);
+          -- @IO:65 $D040 VIC-III DAT (unimplemented)
         elsif register_number=65 then
-          -- @IO:GS $D041 DEPRECATED - VIC-IV characters per logical text row (MSB)
-          virtual_row_width(15 downto 8) <= unsigned(fastio_wdata);
+          -- @IO:65 $D041 VIC-III DAT (unimplemented)
         elsif register_number=66 then
-          -- @IO:GS $D042 DEPRECATED - VIC-IV horizontal hardware scale setting
-          chargen_x_scale <= unsigned(fastio_wdata);
+          -- @IO:65 $D042 VIC-III DAT (unimplemented)
         elsif register_number=67 then
-          -- @IO:GS $D043 DEPRECATED - VIC-IV vertical hardware scale setting
-          chargen_y_scale <= unsigned(fastio_wdata);
+          -- @IO:65 $D043 VIC-III DAT (unimplemented)
         elsif register_number=68 then
-          -- @IO:GS $D044 DEPRECATED - VIC-IV left border position (LSB)
-          border_x_left(7 downto 0) <= unsigned(fastio_wdata);
+          -- @IO:65 $D044 VIC-III DAT (unimplemented)
         elsif register_number=69 then
-          -- @IO:GS $D045 DEPRECATED - VIC-IV left border position (MSB)
-          border_x_left(13 downto 8) <= unsigned(fastio_wdata(5 downto 0));
+          -- @IO:65 $D045 VIC-III DAT (unimplemented)
         elsif register_number=70 then
-          -- @IO:GS $D046 DEPRECATED - VIC-IV right border position (LSB)
-          border_x_right(7 downto 0) <= unsigned(fastio_wdata);
+          -- @IO:65 $D046 VIC-III DAT (unimplemented)
         elsif register_number=71 then
-          -- @IO:GS $D047 DEPRECATED - VIC-IV right border position (MSB)
-          border_x_right(13 downto 8) <= unsigned(fastio_wdata(5 downto 0)); 
+          -- @IO:65 $D047 VIC-III DAT (unimplemented)
         elsif register_number=72 then
           -- @IO:GS $D048 VIC-IV top border position (LSB)
           border_y_top(7 downto 0) <= unsigned(fastio_wdata);
@@ -2496,6 +2495,9 @@ begin
               hsync_end <= to_unsigned(52,14);
               hsync_polarity <= '0';
               vsync_polarity <= '0';
+
+
+              
             when "01" => -- PAL, 800x600 50Hz
               frame_width <=  to_unsigned(3196,14);
               display_width <= to_unsigned(2664,14);
