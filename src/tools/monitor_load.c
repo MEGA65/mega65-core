@@ -361,11 +361,11 @@ int process_line(char *line,int live)
       slow_write(fd,"sffd3615 7f\n",12);
       
       
-      // Force mode change to take effect, after first giving time for VICIV to recalc parameters
+      // Force mode change to take effect, after first giving time for VICIV to recalc parameters      
       usleep(50000);
       slow_write(fd,"sffd3011 1b\n",12);
 
-      #if 0
+#if 0
       // Check X smooth-scroll values
       int i;
       for(i=0;i<10;i++)
@@ -378,7 +378,7 @@ int process_line(char *line,int live)
 	  usleep(50000);
 	  read_and_print(fd);
 	}
-      #endif
+#endif
       
       // Then ask for current mode information via VIC-IV registers, but first give a little time
       // for the mode change to take effect
@@ -598,6 +598,7 @@ int assemble_modeline( int *b,
   b[0x5a]=xscale_120;
   b[0x5c]=side_border_width & 0xff;
   b[0x5d]=(side_border_width >> 8)&0x3f;
+  b[0x5e]=xscale;
   
   fprintf(stderr,"Assembled mode with hfreq=%.2fKHz, vfreq=%.2fHz (hwidth=%d), vsync=%d rasters, %dx vertical scale.\n",
 	  100000000.0/hwidth,100000000.0/hwidth/vheight,hwidth,
@@ -772,12 +773,12 @@ int prepare_modeline(char *modeline)
 	       // X pixel scaling
 	       "sffd305a %02x\n"
 	       // Side border width
-	       "sffd305c %02x %02x\n"
+	       "sffd305c %02x %02x %02x\n"
 	       ,
 	       b[0x72],b[0x73],b[0x74],b[0x75],b[0x76],
 	       b[0x77],b[0x78],b[0x79],b[0x7a],b[0x7b],b[0x7c],
 	       b[0x5a],
-	       b[0x5c],b[0x5d]
+	       b[0x5c],b[0x5d],b[0x5e]
 	       );
 
       parse_video_mode(b);
