@@ -572,40 +572,51 @@ int assemble_modeline( int *b,
   if (hsync_end>=hwidth) hsync_end-=hwidth;
 
   int yscale=rasters_per_vicii_raster-1;
-  
-  b[2]=/* $D072 */       vsync_delay; 
-  b[3]=/* $D073 */       ((hsync_end>>10)&0xf)+(yscale<<4);
-  b[4]=/* $D074 */       (hsync_end>>2)&0xff;
-  b[5]=/* $D075 */	 (hpixels>>2)&0xff;
-  b[6]=/* $D076 */	 (hwidth>>2)&0xff;
-  b[7]=/* $D077 */	 ((hpixels>>10)&0xf) + ((hwidth>>6)&0xf0);
-  b[8]=/* $D078 */	 vpixels&0xff;
-  b[9]=/* $D079 */	 vheight&0xff;
-  b[0xa]=/* $D07A */	 ((vpixels>>8)&0xf) + ((vheight>>4)&0xf0);
-  b[0xb]=/* $D07B */	 (hsync_start>>2)&0xff;
-  b[0xc]=/* $D07C */	 ((hsync_start>>10)&0xf)
+
+  // Primary mode register set
+  b[0x72]=/* $D072 */       vsync_delay; 
+  b[0x73]=/* $D073 */       ((hsync_end>>10)&0xf)+(yscale<<4);
+  b[0x74]=/* $D074 */       (hsync_end>>2)&0xff;
+  b[0x75]=/* $D075 */	 (hpixels>>2)&0xff;
+  b[0x76]=/* $D076 */	 (hwidth>>2)&0xff;
+  b[0x77]=/* $D077 */	 ((hpixels>>10)&0xf) + ((hwidth>>6)&0xf0);
+  b[0x78]=/* $D078 */	 vpixels&0xff;
+  b[0x79]=/* $D079 */	 vheight&0xff;
+  b[0x7a]=/* $D07A */	 ((vpixels>>8)&0xf) + ((vheight>>4)&0xf0);
+  b[0x7b]=/* $D07B */	 (hsync_start>>2)&0xff;
+  b[0x7c]=/* $D07C */	 ((hsync_start>>10)&0xf)
     + (hsync_polarity?0x10:0)
     + (vsync_polarity?0x20:0);
 
+  // Horizontal and vertical scaling
+  int xscale=hpixels/800;
+  int xscale_120=120/xscale;
+
+  // Side and top-border sizes 
+  int screen_width=xscale*640;
+  int side_border_width=(hpixels-screen_width)/2;
+  
   fprintf(stderr,"Assembled mode with hfreq=%.2fKHz, vfreq=%.2fHz (hwidth=%d), vsync=%d rasters, %dx vertical scale.\n",
 	  100000000.0/hwidth,100000000.0/hwidth/vheight,hwidth,
 	  vheight-vpixels-vsync_delay,rasters_per_vicii_raster);
+  fprintf(stderr,"  xscale=%dx (%d/120), side borders %d pixels each.\n",
+	  xscale,xscale_120,side_border_width);
   
   return 0;
 }
 
-void parse_video_mode(int b[16+5])
+void parse_video_mode(int b[0x80])
 {
-  int vsync_delay=b[2];
-  int hsync_end=(((b[3]&0xf)<<8)+b[4])<<2;
-  int hpixels=(b[5]+((b[7]&0xf)<<8))<<2;
-  int hwidth=(b[6]+((b[7]&0xf0)<<4))<<2;
-  int vpixels=b[8]+((b[0xa]&0xf)<<8);
-  int vheight=b[9]+((b[0xa]&0xf0)<<4);
-  int hsync_start=(b[0xb]+((b[0xc]&0xf)<<8))<<2;
-  int hsync_polarity=b[0xc]&0x10;
-  int vsync_polarity=b[0xc]&0x20;
-  int rasters_per_vicii_raster=((b[0x3]&0xf0)>>4)+1;
+  int vsync_delay=b[0x72];
+  int hsync_end=(((b[0x73]&0xf)<<8)+b[4])<<2;
+  int hpixels=(b[0x75]+((b[0x77]&0xf)<<8))<<2;
+  int hwidth=(b[0x76]+((b[0x77]&0xf0)<<4))<<2;
+  int vpixels=b[0x78]+((b[0x7a]&0xf)<<8);
+  int vheight=b[0x79]+((b[0x7a]&0xf0)<<4);
+  int hsync_start=(b[0x7b]+((b[0x7c]&0xf)<<8))<<2;
+  int hsync_polarity=b[0x7c]&0x10;
+  int vsync_polarity=b[0x7c]&0x20;
+  int rasters_per_vicii_raster=((b[0x73]&0xf0)>>4)+1;
   
   float pixelclock=100000000;
   float frame_hertz=pixelclock/(hwidth*vheight);
@@ -630,32 +641,6 @@ void parse_video_mode(int b[16+5])
 	  hsync_start,hsync_start,
 	  hsync_end,hsync_end);
 
-  fprintf(stderr,
-	  "constant modeline this_mode :=\n"
-	  "  (frame_h_front => to_unsigned(%d,7),\n"
-	  "   frame_width => to_unsigned(%d,13),\n"
-	  "   display_width => to_unsigned(%d,13),\n"
-	  "   hsync_start => to_unsigned(%d,13),\n"
-	  "   hsync_end => to_unsigned(%d,13),\n"
-	  "   hsync_polarity => '%d',\n"
-	  "\n"
-	  "   frame_v_front => to_unsigned(%d,7),\n"
-	  "   frame_height => to_unsigned(%d,11),\n"
-	  "   display_height => to_unsigned(%d,11),\n"
-	  "   vsync_delay => to_unsigned(%d,7),\n"
-	  "   vsync_polarity => '%d');\n",
-	  16,
-	  hwidth,hpixels,hsync_start,hsync_end,
-	  hsync_polarity ? 1 : 0,
-
-	  0,
-	  vheight,vpixels,vsync_delay,
-	  vsync_polarity ? 1 : 0
-	  );
-
-	  
-	  
-
   
   
   return;
@@ -666,9 +651,9 @@ int viciv_mode_report(unsigned char *r)
   fprintf(stderr,"VIC-IV set the video mode to:\n");
   
   // First report on $D072-$D07C modeline
-  int b[16+5];
+  int b[128];
   int i;
-  for(i=0;i<16;i++) b[i]=r[0x70+i];
+  for(i=0;i<128;i++) b[i]=r[i];
   parse_video_mode(b);
 
   // Get border positions
@@ -765,7 +750,7 @@ int prepare_modeline(char *modeline)
     {
       int pixel_clock=pixel_clock_mhz*1000000;
       int rasters_per_vicii_raster=(vpixels-80)/200;
-      int b[16+5];
+      int b[128];
 
       if (!strcasecmp("-hsync",opt1)) hsync_polarity=1;
       if (!strcasecmp("-hsync",opt2)) hsync_polarity=1;
@@ -780,7 +765,8 @@ int prepare_modeline(char *modeline)
 
       snprintf(modeline_cmd,1024,
 	       "\nsffd3072 %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x\n",
-	       b[2],b[3],b[4],b[5],b[6],b[7],b[8],b[9],b[0xa],b[0xb],b[0xc]);
+	       b[0x72],b[0x73],b[0x74],b[0x75],b[0x76],
+	       b[0x77],b[0x78],b[0x79],b[0x7a],b[0x7b],b[0x7c]);
 
       parse_video_mode(b);
       
