@@ -2168,8 +2168,10 @@ keyboardread:
 		bcs kr2  ; if an error occured
 		cmp #$20
 		beq utility_menu
-		cmp #$00
-		bne kr1
+		cmp #$30
+		bcc kr2
+		cmp #$39
+		bcs kr2
 kr2:		lda #$20 ; default to space
 kr1:
 		; put character into 6th byte position of ROM file name.
