@@ -1143,7 +1143,7 @@ begin
         ssy_table_counter_400 <= 0;
      else
         ssx_table_phase <= ssx_table_phase + 1;
-        ssx_table_counter <= ssx_table_counter_320 + chargen_x_pixels;
+        ssx_table_counter <= ssx_table_counter + chargen_x_pixels;
         ssy_table_counter_200 <= ssy_table_counter_200 + to_integer(chargen_y_scale_200);
         ssy_table_counter_400 <= ssy_table_counter_400 + to_integer(chargen_y_scale_400);
       end if;
@@ -1195,10 +1195,10 @@ begin
                                       -to_integer(single_side_border)-1,14);
       else  
         border_x_left <= to_unsigned(to_integer(single_side_border)
-                                     +ssx_table_320(7),14);
+                                     +ssx_table(7),14);
         border_x_right <= to_unsigned(to_integer(display_width)
                                       -to_integer(single_side_border)
-                                      -1-ssx_table_320(9),14);
+                                      -1-ssx_table(9),14);
       end if;
       x_chargen_start
         <= to_unsigned(to_integer(frame_h_front)
@@ -1676,7 +1676,7 @@ begin
           -- & std_logic_vector(debug_charaddress_drive2(11 downto 8));
           fastio_rdata <= std_logic_vector(to_unsigned(ssx_table_phase,8));
         elsif register_number=127 then
-          fastio_rdata <= std_logic_vector(to_unsigned(ssx_table_640(to_integer(debug_x(3 downto 0))),8));
+          fastio_rdata <= x"FF";
         elsif register_number<256 then
                                         -- Fill in unused register space
           fastio_rdata <= (others => 'Z');
