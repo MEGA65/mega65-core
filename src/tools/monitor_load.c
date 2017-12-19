@@ -660,8 +660,8 @@ int viciv_mode_report(unsigned char *r)
   int top_border=(r[0x48]+((r[0x49]&0xf)<<8))&0xfff;
   int bottom_border=(r[0x4a]+((r[0x4b]&0xf)<<8))&0xfff;
   int chargen_start=(r[0x4c]+((r[0x4d]&0xf)<<8))&0xfff;
-  int left_border=((r[0x5c]+(r[0x5d]<<8))&0xfff);
-  int right_border=((r[0x5e]+(r[0x5f]<<8))&0xfff);
+  int left_border=((r[0x5c]+(r[0x5d]<<8))&0x1fff);
+  int right_border=((r[0x5e]+(r[0x5f]<<8))&0x1fff);
   int hscale=r[0x5a];
   int vscale=r[0x5b]+1;
   int xpixels=(r[0x75]+((r[0x77]&0xf)<<8))<<2;
@@ -669,7 +669,7 @@ int viciv_mode_report(unsigned char *r)
 
   fprintf(stderr,"Display is %dx%d pixels\n",xpixels,ypixels);
   fprintf(stderr,"  Side borders are %d and %d pixels wide @ $%x and $%x\n",
-	  left_border,xpixels-right_border,left_border,right_border);
+	  left_border,right_border,left_border,right_border);
   fprintf(stderr,"  Top borders are %d and %d pixels high\n",
 	  top_border,ypixels-bottom_border);
   fprintf(stderr,"  Character generator begins at postion %d\n",
