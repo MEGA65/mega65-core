@@ -207,6 +207,7 @@ architecture Behavioral of viciv is
   -- 800x480 @ 50Hz for 100MHz pixelclock
   signal frame_width : unsigned(13 downto 0) := to_unsigned(2640,14);
   signal display_width : unsigned(13 downto 0) := to_unsigned(2000,14);
+  signal single_side_border : unsigned(13 downto 0) := to_unsigned(360,14);
   signal frame_height : unsigned(11 downto 0) := to_unsigned(628,12); 
   signal display_height : unsigned(11 downto 0) := to_unsigned(600,12);
   signal display_height_drive : unsigned(11 downto 0);
@@ -219,6 +220,13 @@ architecture Behavioral of viciv is
   -- It must be an integer for everything to work properly.
   signal chargen_x_pixels : integer := 2;
   signal chargen_x_scale : unsigned(7 downto 0) := to_unsigned(120/2,8); -- 120/chargen_x_pixels
+  signal sprite_x_scale : unsigned(7 downto 0) := to_unsigned(120/4,8);  
+  signal sprite_x_scale_640 : unsigned(7 downto 0) := to_unsigned(120/2,8);		-- 640 mode sprite scale  
+  -- Each character pixel will be (n+1) pixels high
+  signal chargen_y_scale : unsigned(7 downto 0) := x"01";  -- x"04"
+  -- smooth scrolling position in natural pixels.
+  -- Set in the same way as the border
+  signal x_chargen_start : unsigned(13 downto 0) := to_unsigned(to_integer(frame_h_front),14);
 
   -- Step through VIC-II raster numbers quickly during the vertical fly-back
   -- time, so that any raster interrupts based on them will trigger.
@@ -425,13 +433,6 @@ architecture Behavioral of viciv is
   signal end_of_row_16 : std_logic := '0';
   signal end_of_row : std_logic := '0';
   signal chargen_x_scale_drive : unsigned(7 downto 0);  
-  signal sprite_x_scale : unsigned(7 downto 0) := x"19";  
-  signal sprite_x_scale_640 : unsigned(7 downto 0) := x"16";		-- 640 mode sprite scale  
-  -- Each character pixel will be (n+1) pixels high
-  signal chargen_y_scale : unsigned(7 downto 0) := x"01";  -- x"04"
-  -- smooth scrolling position in natural pixels.
-  -- Set in the same way as the border
-  signal x_chargen_start : unsigned(13 downto 0) := to_unsigned(to_integer(frame_h_front),14);
   signal x_chargen_start_minus1 : unsigned(13 downto 0);
 
   -- DEBUG: Start character generator in first raster on power up to make ghdl
@@ -823,7 +824,6 @@ architecture Behavioral of viciv is
   signal hsync_polarity : std_logic := '0';
 
   -- Mode line calculations
-  signal single_side_border : unsigned(13 downto 0) := (others => '0');
   type ss_table is array(0 to 10) of integer range 0 to 255;
   signal text_height_200 : integer := 0;
   signal text_height_400 : integer := 0;
