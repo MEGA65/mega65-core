@@ -54,6 +54,7 @@ begin
       keyboard_at_top => keyboard_at_top,
       alternate_keyboard => alternate_keyboard,
       instant_at_top => instant_at_top,
+      matrix_fetch_address => (others => '0'),
       key1 => key1,
       key2 => key2,
       key3 => key3,
@@ -99,16 +100,20 @@ begin
           ycounter_in <= to_unsigned(0,12);
           if frames = 1 then
             visual_keyboard_enable <= '1';
+            report "Setting visual_keyboard_enable";
           end if;
           frames <= frames + 1;
           if frames = 24 then
             keyboard_at_top <= '1';
+            report "Setting keyboard_at_top";
           end if;
           if frames = 55 then
             keyboard_at_top <= '0';
+            report "resetting keyboard_at_top";
           end if;
           if frames = 90 then
             visual_keyboard_enable <= '0';
+            report "resetting visual_keyboard_enable";
           end if;
         end if;
       end if;
