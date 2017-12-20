@@ -54,7 +54,7 @@ architecture behavioural of visual_keyboard is
     to_unsigned(0,14);
   signal max_x : integer := 0;
   
-  signal y_stretch : integer range 0 to 15 := 1;
+  signal y_stretch : integer range 0 to 15 := 0;
 
   constant chars_per_row : integer := 3;
 
@@ -167,11 +167,12 @@ begin
       end if;
       
       -- Update vertical scale factor to fit video mode
-      if pixel_y_scale_200 /= x"0" then
-        y_stretch <= to_integer(pixel_y_scale_200) - 1;
-      else
-        y_stretch <= 0;
-      end if;
+      -- XXX Currently fixed for 400ish pixels high
+--      if pixel_y_scale_200 /= x"0" then
+--        y_stretch <= to_integer(pixel_y_scale_200) - 1;
+--      else
+--        y_stretch <= 0;
+--      end if;
 
       -- Check if current touch events correspond to any key
       if visual_keyboard_enable='1' then
