@@ -215,7 +215,7 @@ architecture Behavioral of viciv is
   signal vsync_delay_drive : unsigned(7 downto 0);
   signal vicii_ycounter_scale_minus_zero : unsigned(3 downto 0) := to_unsigned(2-1,4);
   signal hsync_start : unsigned(13 downto 0) := to_unsigned(2140,14);
-  signal hsync_end : unsigned(13 downto 0) := to_unsigned(2600,14);
+  signal hsync_end : unsigned(13 downto 0) := to_unsigned(2540,14);
   -- Each logical pixel will be 120/n physical pixels wide
   -- It must be an integer for everything to work properly.
   signal chargen_x_pixels : integer := 2;
@@ -2274,7 +2274,7 @@ begin
               vsync_delay <= to_unsigned(19,8);
               vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
               hsync_start <= to_unsigned(2764,14);
-              hsync_end <= to_unsigned(3190,14);
+              hsync_end <= to_unsigned(3166,14);
               hsync_polarity <= '0';
               vsync_polarity <= '0';
 
@@ -2293,7 +2293,7 @@ begin
               vsync_delay <= to_unsigned(19,8);
               vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
               hsync_start <= to_unsigned(2764,14);
-              hsync_end <= to_unsigned(3190,14);
+              hsync_end <= to_unsigned(3166,14);
               hsync_polarity <= '0';
               vsync_polarity <= '0';
 
@@ -2312,7 +2312,7 @@ begin
               vsync_delay <= to_unsigned(23,8);
               vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
               hsync_start <= to_unsigned(2140,14);
-              hsync_end <= to_unsigned(2600,14);
+              hsync_end <= to_unsigned(2540,14);
               hsync_polarity <= '0';
               vsync_polarity <= '0';
 
@@ -2331,7 +2331,7 @@ begin
               vsync_delay <= to_unsigned(23,8);
               vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
               hsync_start <= to_unsigned(2140,14);
-              hsync_end <= to_unsigned(2240,14);              
+              hsync_end <= to_unsigned(2540,14);
               hsync_polarity <= '0';
               vsync_polarity <= '0';
 
@@ -2350,7 +2350,7 @@ begin
               vsync_delay <= to_unsigned(23,8);
               vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
               hsync_start <= to_unsigned(2140,14);
-              hsync_end <= to_unsigned(2600,14);              
+              hsync_end <= to_unsigned(2540,14);
               hsync_polarity <= '0';
               vsync_polarity <= '0';
 
