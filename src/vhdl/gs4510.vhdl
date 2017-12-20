@@ -889,6 +889,7 @@ constant cycle_count_lut : clut9bit := (
   signal watchdog_countdown : integer range 0 to 65535;
 
   signal emu6502 : std_logic := '0';
+  signal timing6502 : std_logic := '0';
   signal force_4502 : std_logic := '1';
 
   signal monitor_char_toggle_internal : std_logic := '1';
@@ -2725,6 +2726,16 @@ begin
         emu6502 <= '0';
       end if;
       cpuis6502 <= emu6502;
+
+      -- Instruction cycle times are 6502 whenever we are at 1 or 2
+      -- MHz, for C64 compatibility, and 4502 at 3.5MHz and when
+      -- full speed.
+      if cpuspeed_internal = x"01"
+        or cpuspeed_internal = x"02" then
+        timing6502 <= not force_4502;
+      else
+        timings6502 <= '0';
+      end if;
       
       -- Work out actual georam page
       georam_page(5 downto 0) <= georam_blockpage(5 downto 0);
@@ -3809,7 +3820,7 @@ begin
               reg_addressingmode <= mode_lut(to_integer(emu6502&memory_read_value));
               reg_instruction <= instruction_lut(to_integer(emu6502&memory_read_value));
               phi_add_backlog <= '1';
-              phi_new_backlog <= cycle_count_lut(to_integer(emu6502&memory_read_value));
+              phi_new_backlog <= cycle_count_lut(to_integer(timing6502&memory_read_value));
               
               -- 4502 doesn't allow interrupts immediately following a
               -- single-cycle instruction
