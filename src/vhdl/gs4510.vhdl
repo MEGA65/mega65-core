@@ -4642,7 +4642,7 @@ begin
                       report "Setting PC (8-bit branch)";
                       
                       -- Charge one cycle for branches that are taken
-                      if temp_addr(15 downto 8) = reg_pc(15 downto 8) then
+                      if temp_addr(15 downto 8) /= reg_pc(15 downto 8) then
                         -- 1 cycle for branch taken, + 1 cycle extra for page crossing
                         phi_new_backlog <= 2;
                       else
