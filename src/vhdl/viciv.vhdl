@@ -1102,26 +1102,26 @@ begin
       -- (uses fractional pixel counts, so that on-screen keyboard
       -- can span full width when required)
       -- XXX Actually, we want 800px wide, not 640
-      if display_width>=(11*800) then
+      if display_width>=(11*640) then
         -- 3 pixels per pixel
         chargen_x_scale_fw640 <= to_unsigned(120/11,8);
-      elsif display_width>=(10*800) then
+      elsif display_width>=(10*640) then
         chargen_x_scale_fw640 <= to_unsigned(120/10,8);
-      elsif display_width>=(9*800) then
+      elsif display_width>=(9*640) then
         chargen_x_scale_fw640 <= to_unsigned(120/9,8);
-      elsif display_width>=(8*800) then
+      elsif display_width>=(8*640) then
         chargen_x_scale_fw640 <= to_unsigned(120/8,8);
-      elsif display_width>=(7*800) then
+      elsif display_width>=(7*640) then
         chargen_x_scale_fw640 <= to_unsigned(120/7,8);
-      elsif display_width>=(6*800) then
+      elsif display_width>=(6*640) then
         chargen_x_scale_fw640 <= to_unsigned(120/6,8);
-      elsif display_width>=(5*800) then
+      elsif display_width>=(5*640) then
         chargen_x_scale_fw640 <= to_unsigned(120/5,8);
-      elsif display_width>=(4*800) then
+      elsif display_width>=(4*640) then
         chargen_x_scale_fw640 <= to_unsigned(120/4,8);
-      elsif display_width>=(3*800) then
+      elsif display_width>=(3*640) then
         chargen_x_scale_fw640 <= to_unsigned(120/3,8);
-      elsif display_width>=(2*800) then
+      elsif display_width>=(2*640) then
         chargen_x_scale_fw640 <= to_unsigned(120/2,8);
       else
         -- <800 use natural pixels
