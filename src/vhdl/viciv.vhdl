@@ -207,7 +207,7 @@ architecture Behavioral of viciv is
   -- 800x480 @ 50Hz for 100MHz pixelclock
   signal frame_width : unsigned(13 downto 0) := to_unsigned(2640,14);
   signal display_width : unsigned(13 downto 0) := to_unsigned(2000,14);
-  signal single_side_border : unsigned(13 downto 0) := to_unsigned(360,14);
+  signal single_side_border : unsigned(13 downto 0) := to_unsigned(200,14);
   signal frame_height : unsigned(11 downto 0) := to_unsigned(628,12); 
   signal display_height : unsigned(11 downto 0) := to_unsigned(600,12);
   signal display_height_drive : unsigned(11 downto 0);
@@ -2282,7 +2282,8 @@ begin
               chargen_x_scale <= to_unsigned(36,8);
               sprite_x_scale <= to_unsigned(18,8);
               sprite_x_scale_640 <= to_unsigned(36,8);
-              chargen_y_scale <= x"01";                
+              chargen_y_scale <= x"01";
+              single_side_border <= to_unsigned(267,14);
               
             when "01" => -- PAL, 800x600 50Hz
               frame_width <=  to_unsigned(3196,14);
@@ -2301,6 +2302,8 @@ begin
               sprite_x_scale <= to_unsigned(18,8);
               sprite_x_scale_640 <= to_unsigned(36,8);
               chargen_y_scale <= x"01";
+              single_side_border <= to_unsigned(267,14);
+
             when "10" => -- NTSC, 800x600 @ 60Hz
               frame_width <=  to_unsigned(2640,14);
               display_width <= to_unsigned(2000,14);
@@ -2318,6 +2321,8 @@ begin
               sprite_x_scale <= to_unsigned(24,8);
               sprite_x_scale_640 <= to_unsigned(48,8);
               chargen_y_scale <= x"01";                
+              single_side_border <= to_unsigned(200,14);
+
             when "11" => -- NTSC 800x600 60Hz
               frame_width <=  to_unsigned(2640,14);
               display_width <= to_unsigned(2000,14);
@@ -2335,6 +2340,8 @@ begin
               sprite_x_scale <= to_unsigned(24,8);
               sprite_x_scale_640 <= to_unsigned(48,8);
               chargen_y_scale <= x"01";                
+              single_side_border <= to_unsigned(200,14);
+
             when others => -- Default to NTSC 800x600 60Hz
               frame_width <=  to_unsigned(2640,14);
               display_width <= to_unsigned(2000,14);
@@ -2346,6 +2353,14 @@ begin
               hsync_end <= to_unsigned(2240,14);              
               hsync_polarity <= '0';
               vsync_polarity <= '0';
+
+              chargen_x_pixels <= 2;
+              chargen_x_scale <= to_unsigned(48,8);
+              sprite_x_scale <= to_unsigned(24,8);
+              sprite_x_scale_640 <= to_unsigned(48,8);
+              chargen_y_scale <= x"01";                
+              single_side_border <= to_unsigned(200,14);
+
           end case;
           -- Update screen and border positions
           viciv_legacy_mode_registers_touched <= '1';
