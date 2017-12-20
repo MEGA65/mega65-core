@@ -12,7 +12,7 @@ entity visual_keyboard is
     y_start : in unsigned(11 downto 0);
     x_start : in unsigned(11 downto 0);
     pixelclock : in std_logic;
-    visual_keyboard_enable : in std_logic;
+    visual_keyboard_enable : in std_logic := '0';
     keyboard_at_top : in std_logic;
     alternate_keyboard : in std_logic;
     instant_at_top : in std_logic;
@@ -77,11 +77,12 @@ architecture behavioural of visual_keyboard is
   signal current_matrix_id : unsigned(7 downto 0) := x"7F";
   signal next_matrix_id : unsigned(7 downto 0) := x"7F";
   signal matrix_pos : integer;
+  signal matrix_fetching : std_logic := '0';
 
   signal last_was_640 : std_logic := '0';
   signal active : std_logic := '0';
   signal last_pixel_x_640 : integer := 0;
-  signal key_box_counter : integer := 0;
+  signal key_box_counter : integer := 1;
   signal key_same_as_last : std_logic := '0';
   
   signal text_delay : integer range 0 to 4 := 0;
@@ -113,6 +114,9 @@ architecture behavioural of visual_keyboard is
 
   signal touch1_key_internal : unsigned(7 downto 0) := (others => '1');
   signal touch2_key_internal : unsigned(7 downto 0) := (others => '1');
+
+  -- Keep OSK in region that fits on 800x480 LCD panel
+  constant y_start_minimum : integer := (600-480)/2;
   
   type fetch_state_t is (
     FetchInitial,
@@ -199,6 +203,7 @@ begin
         if last_was_640 = '0' then
           -- End of line, prepare for next
           current_matrix_id <= (others => '1');
+--          report "column0: fetch_state = " & fetch_state_t'image(fetch_state);
           fetch_state <= FetchMapRowColumn0;
 
           if ycounter_in = y_start_current then
@@ -323,9 +328,9 @@ begin
           or (key2(6 downto 0) = current_matrix_id(6 downto 0))
           or (key3(6 downto 0) = current_matrix_id(6 downto 0))
           or (key4(6 downto 0) = current_matrix_id(6 downto 0)) then
-          if current_matrix_id(6 downto 0) /= "1111111" then
+--          if current_matrix_id(6 downto 0) /= "1111111" then
 --            report "Key $"& to_hstring(current_matrix_id(6 downto 0))  &" down";
-          end if;
+--          end if;
           if (y_pixel_counter /= 1 or y_char_in_row /= 0)
             and (y_pixel_counter /= 7 or y_char_in_row /=2)
             and (key_box_counter /= 2
@@ -385,7 +390,9 @@ begin
             box_pixel <= '0';
           end if;
           if double_width='0' or double_width_phase='0' then
-            key_box_counter <= key_box_counter - 1;
+            if key_box_counter /= 0 then
+              key_box_counter <= key_box_counter - 1;
+            end if;
           end if;
         end if;
 
@@ -408,7 +415,14 @@ begin
           box_pixel_h <= '0';
         end if;
       end if;
-        
+
+--      if fetch_state /= FetchIdle and fetch_state /= MatrixFetch then
+--        report "fetch_state = " & fetch_state_t'image(fetch_state);
+--      end if;
+      matrix_fetching <= '0';
+      if matrix_fetching = '1' then
+        matrix_rdata <= rdata;
+      end if;
       case fetch_state is
         when FetchInitial =>
           address <= 4093;
@@ -440,11 +454,8 @@ begin
             -- requests from the Matrix Mode compositor
             -- (it uses our character set memory)
             address <= to_integer(matrix_fetch_address);
-            fetch_state <= MatrixFetch;
+            matrix_fetching <= '1';
           end if;
-        when MatrixFetch =>
-          matrix_rdata <= rdata;
-          fetch_state <= FetchIdle;
         when CharFetch =>
           if rdata(7 downto 0) = x"0a" then
             -- new line -- nothing more new this line,
@@ -602,11 +613,11 @@ begin
           -- Keyboard at the top: If it were down low, bring it up 1/8th of
           -- the remaining distance, plus one pixel.  Thus we follow a Xeno's Paradox
           -- like curve to spring the keyboard to the top
-          if y_start_current > 3 and instant_at_top='0' then
+          if y_start_current > (y_start_minimum+3) and instant_at_top='0' then
             report "Xeno-walking keyboard to top a bit";            
-            y_start_current <= y_start_current - y_start_current(11 downto 3) - 2;
+            y_start_current <= y_start_current - y_start_current(11 downto 3) - y_start_minimum - 2;
           else
-            y_start_current <= to_unsigned(1,12);
+            y_start_current <= to_unsigned(y_start_minimum,12);
           end if;
           -- OSK is no longer in the correct position for at the bottom of the
           -- screen
