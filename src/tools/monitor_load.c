@@ -568,9 +568,10 @@ int assemble_modeline( int *b,
   hsync_start/=factor;
   hsync_end/=factor;
   if (hsync_start>=hwidth) hsync_start-=hwidth;
-  if (hsync_end>=hwidth) hsync_end=hsync_start + 100;
-  if (hsync_end<hsync_start) hsync_end=hsync_start + 100;
+  if (hsync_end>=hwidth) hsync_end=hsync_start + 400;
+  if (hsync_end<hsync_start) hsync_end=hsync_start + 400;
   if (hsync_end>=hwidth) hsync_end=hwidth-200;
+  fprintf(stderr,"After HSYNC tweak: hsync_start=%d, hsync_end=%d\n",hsync_start,hsync_end);
 
   int yscale=rasters_per_vicii_raster-1;
 
