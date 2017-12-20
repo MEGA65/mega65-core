@@ -117,6 +117,7 @@ architecture behavioural of visual_keyboard is
 
   -- Keep OSK in region that fits on 800x480 LCD panel
   constant y_start_minimum : integer := (600-480)/2;
+  constant y_end_maximum : integer := 600 - y_start_minimum;
   
   type fetch_state_t is (
     FetchInitial,
@@ -239,7 +240,7 @@ begin
                 active <= '0';
                 -- We have reached the bottom of the OSD, so check if it fits
                 -- entirely on screen or not.
-                if ycounter_in <= max_y then
+                if ycounter_in <= y_end_maximum then
                   -- Bottom of visual keyboard is on-screen,
                   if y_start_current > y_lower_start then
                     y_lower_start <= y_start_current;
