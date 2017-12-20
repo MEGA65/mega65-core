@@ -2734,7 +2734,7 @@ begin
         or cpuspeed_internal = x"02" then
         timing6502 <= not force_4502;
       else
-        timings6502 <= '0';
+        timing6502 <= '0';
       end if;
       
       -- Work out actual georam page
