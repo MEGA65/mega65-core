@@ -846,6 +846,8 @@ architecture Behavioral of viciv is
   signal ssy_table_phase : integer := 0;
   
   signal viciv_flyback : std_logic := '0';
+
+  signal pixel_newframe_internal : std_logic := '0';
   
 begin
       
@@ -2607,7 +2609,7 @@ begin
       end if;
       hsync <= hsync_drive;      
 
-      if pixel_newframe='1' then
+      if pixel_newframe_internal='1' then
         -- C65/VIC-III style 1Hz blink attribute clock
         viciii_blink_phase_counter <= viciii_blink_phase_counter + 1;
         if viciii_blink_phase_counter = 30 then
@@ -2822,8 +2824,10 @@ begin
         -- streaming display module to synchronise on.
         if vert_in_frame = '1' then
           pixel_newframe <= '1';
+          pixel_newframe_internal <= '1';
         else
           pixel_newframe <= '0';
+          pixel_newframe_internal <= '0';
         end if;
 
       end if;
