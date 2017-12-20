@@ -788,6 +788,7 @@ begin
       osk_key1 => osk_key1,
       osk_key2 => osk_key2,
       osk_key3 => osk_key3,
+      osk_key4 => osk_key4,
             
       uart_char => uart_char,
       uart_char_valid => uart_char_valid,
