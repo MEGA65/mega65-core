@@ -68,7 +68,10 @@ entity gs4510 is
 	 --Bit 7: Secure Mode enable 
     virtualised_hardware : out unsigned(7 downto 0) := "00000000";
          --Bit 0: Trap on F011 FDC read/write
-	 
+
+    secure_mode_out : out std_logic := '0';
+    matrix_rain_seed : out unsigned(15 downto 0) := (others => '0');
+    
     iomode_set : out std_logic_vector(1 downto 0) := "11";
     iomode_set_toggle : out std_logic := '0';
 
