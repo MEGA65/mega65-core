@@ -219,9 +219,9 @@ architecture Behavioral of viciv is
   -- Each logical pixel will be 120/n physical pixels wide
   -- It must be an integer for everything to work properly.
   signal chargen_x_pixels : integer := 2;
-  signal chargen_x_scale : unsigned(7 downto 0) := to_unsigned(120/2,8); -- 120/chargen_x_pixels
-  signal sprite_x_scale : unsigned(7 downto 0) := to_unsigned(120/4,8);  
-  signal sprite_x_scale_640 : unsigned(7 downto 0) := to_unsigned(120/2,8);		-- 640 mode sprite scale  
+  signal chargen_x_scale : unsigned(7 downto 0) := to_unsigned(48,8); 
+  signal sprite_x_scale : unsigned(7 downto 0) := to_unsigned(48/2,8);  
+  signal sprite_x_scale_640 : unsigned(7 downto 0) := to_unsigned(48,8);		-- 640 mode sprite scale  
   -- Each character pixel will be (n+1) pixels high
   signal chargen_y_scale : unsigned(7 downto 0) := x"01";  -- x"04"
   -- smooth scrolling position in natural pixels.
@@ -2262,6 +2262,9 @@ begin
           viciv_1080p <= fastio_wdata(6);
           vicii_ntsc <= fastio_wdata(7);
 
+          -- Recompute screen and border positions
+          viciv_legacy_mode_registers_touched <= '1';
+          
           case fastio_wdata(7 downto 6) is
             when "00" => -- PAL, 800x600 @ 50Hz
               frame_width <=  to_unsigned(3196,14);
@@ -2275,7 +2278,11 @@ begin
               hsync_polarity <= '0';
               vsync_polarity <= '0';
 
-
+              chargen_x_pixels <= 3;
+              chargen_x_scale <= to_unsigned(36,8);
+              sprite_x_scale <= to_unsigned(18,8);
+              sprite_x_scale_640 <= to_unsigned(36,8);
+              chargen_y_scale <= x"01";                
               
             when "01" => -- PAL, 800x600 50Hz
               frame_width <=  to_unsigned(3196,14);
@@ -2288,6 +2295,12 @@ begin
               hsync_end <= to_unsigned(2864,14);
               hsync_polarity <= '0';
               vsync_polarity <= '0';
+
+              chargen_x_pixels <= 3;
+              chargen_x_scale <= to_unsigned(36,8);
+              sprite_x_scale <= to_unsigned(18,8);
+              sprite_x_scale_640 <= to_unsigned(36,8);
+              chargen_y_scale <= x"01";
             when "10" => -- NTSC, 800x600 @ 60Hz
               frame_width <=  to_unsigned(2640,14);
               display_width <= to_unsigned(2000,14);
@@ -2299,6 +2312,12 @@ begin
               hsync_end <= to_unsigned(2240,14);
               hsync_polarity <= '0';
               vsync_polarity <= '0';
+
+              chargen_x_pixels <= 2;
+              chargen_x_scale <= to_unsigned(48,8);
+              sprite_x_scale <= to_unsigned(24,8);
+              sprite_x_scale_640 <= to_unsigned(48,8);
+              chargen_y_scale <= x"01";                
             when "11" => -- NTSC 800x600 60Hz
               frame_width <=  to_unsigned(2640,14);
               display_width <= to_unsigned(2000,14);
@@ -2310,6 +2329,12 @@ begin
               hsync_end <= to_unsigned(2240,14);              
               hsync_polarity <= '0';
               vsync_polarity <= '0';
+
+              chargen_x_pixels <= 2;
+              chargen_x_scale <= to_unsigned(48,8);
+              sprite_x_scale <= to_unsigned(24,8);
+              sprite_x_scale_640 <= to_unsigned(48,8);
+              chargen_y_scale <= x"01";                
             when others => -- Default to NTSC 800x600 60Hz
               frame_width <=  to_unsigned(2640,14);
               display_width <= to_unsigned(2000,14);
