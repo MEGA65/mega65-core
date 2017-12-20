@@ -2729,10 +2729,10 @@ begin
 
       -- Instruction cycle times are 6502 whenever we are at 1 or 2
       -- MHz, for C64 compatibility, and 4502 at 3.5MHz and when
-      -- full speed.
+      -- full speed. This is even if the CPU is forced to 4502 mode.
       if cpuspeed_internal = x"01"
         or cpuspeed_internal = x"02" then
-        timing6502 <= not force_4502;
+        timing6502 <= '1';
       else
         timing6502 <= '0';
       end if;
