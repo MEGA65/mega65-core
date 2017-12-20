@@ -685,8 +685,8 @@ begin
       end if;
       x_start_current(12 downto 0) <= x_surplus(13 downto 1);
       x_start_current(13) <= '0';
-      if max_x >= 640 then
-        x_surplus <= to_unsigned(max_x - 640,14);
+      if max_x >= 800 then
+        x_surplus <= to_unsigned(max_x - 800,14);
       else
         x_surplus <= (others => '0');
       end if;
