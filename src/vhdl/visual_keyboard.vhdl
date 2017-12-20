@@ -615,9 +615,11 @@ begin
           -- the remaining distance, plus one pixel.  Thus we follow a Xeno's Paradox
           -- like curve to spring the keyboard to the top
           if y_start_current > (y_start_minimum+3) and instant_at_top='0' then
-            report "Xeno-walking keyboard to top a bit";            
+            report "Xeno-walking keyboard to top a bit. new position = "
+              & integer'image(to_integer(y_start_current) - to_integer(y_start_current(11 downto 3)) - y_start_minimum - 2);
             y_start_current <= y_start_current - y_start_current(11 downto 3) - y_start_minimum - 2;
           else
+            report "Jumping keyboard to y_start_minimum = " & integer'image(y_start_minimum);
             y_start_current <= to_unsigned(y_start_minimum,12);
           end if;
           -- OSK is no longer in the correct position for at the bottom of the
@@ -627,7 +629,7 @@ begin
           and visual_keyboard_enable='1'
           and last_visual_keyboard_enable='1' then
           report "y_lower_start = " & integer'image(to_integer(y_lower_start));
-          if y_start_current > y_lower_start then
+          if y_start_current > y_lower_start and y_start_current > y_start_minimum then
             report "Sliding visual keyboard up a bit";
             -- We slide in with linear speed fairly quickly, as this is the
             -- default position for the OSK, so we want a non-annoying entrance
@@ -649,9 +651,9 @@ begin
               osk_in_position_lower <= '1';
             end if;            
           end if;
-          if y_start_current > max_y then
+          if y_start_current > y_end_maximum then
             report "Resetting visual keyboard to bottom edge";
-            y_start_current <= max_y;
+            y_start_current <= to_unsigned(y_end_maximum,12);
           end if;
         end if;
         report "y_start_current = " &
