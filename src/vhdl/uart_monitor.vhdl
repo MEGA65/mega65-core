@@ -312,7 +312,7 @@ architecture behavioural of uart_monitor is
 
   signal terminal_emulator_ready_computed : std_logic := '1';
   signal terminal_emulator_just_sent : std_logic := '0';
-  signal terminal_emulator_ready_counter : integer range 0 to 31 := 0;
+  signal terminal_emulator_ready_counter : integer range 0 to 511 := 0;
   
 begin
 
