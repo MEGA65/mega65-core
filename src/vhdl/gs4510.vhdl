@@ -5200,6 +5200,7 @@ begin
               if reg_microcode.mcStoreP='1' then
                  memory_access_wdata := unsigned(virtual_reg_p);
                  memory_access_wdata(4) := '1';  -- B always set when pushed
+                 memory_access_wdata(5) := '1';  -- E always set when pushed
               end if;              
               if reg_microcode.mcWriteRegAddr='1' then
                 memory_access_address := x"000"&reg_addr;
