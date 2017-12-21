@@ -2274,7 +2274,7 @@ begin
               vsync_delay <= to_unsigned(19,8);
               vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
               hsync_start <= to_unsigned(2764,14);
-              hsync_end <= to_unsigned(3166,14);
+              hsync_end <= to_unsigned(3100,14);
               hsync_polarity <= '0';
               vsync_polarity <= '0';
 
@@ -2293,7 +2293,7 @@ begin
               vsync_delay <= to_unsigned(19,8);
               vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
               hsync_start <= to_unsigned(2764,14);
-              hsync_end <= to_unsigned(3166,14);
+              hsync_end <= to_unsigned(3100,14);
               hsync_polarity <= '0';
               vsync_polarity <= '0';
 
