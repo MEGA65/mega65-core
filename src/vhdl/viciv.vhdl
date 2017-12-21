@@ -1212,7 +1212,7 @@ begin
       if twentyfourlines='0' then
         border_y_top <= to_unsigned(to_integer(single_top_border_200)+to_integer(vsync_delay_drive),12);
         border_y_bottom <= to_unsigned(to_integer(display_height)
-                                       -to_integer(single_top_border_200)+to_integer(vysnc_delay_drive),12);
+                                       -to_integer(single_top_border_200)+to_integer(vsync_delay_drive),12);
       else  
         border_y_top <= to_unsigned(to_integer(single_top_border_200)
                                     +to_integer(vsync_delay_drive)
@@ -2674,7 +2674,7 @@ begin
         if ycounter /= to_integer(frame_height) then
           ycounter <= ycounter + 1;
           if vicii_ycounter_phase = vicii_ycounter_max_phase then
-            if vicii_ycounter / vicii_max_raster then
+            if to_integer(vicii_ycounter) /= vicii_max_raster then
               vicii_ycounter <= vicii_ycounter + 1;
               vicii_ycounter_v400 <= vicii_ycounter_v400 + 1;
             end if;
