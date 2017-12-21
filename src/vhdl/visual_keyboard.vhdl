@@ -54,7 +54,7 @@ architecture behavioural of visual_keyboard is
     to_unsigned(0,14);
   signal max_x : integer := 0;
   
-  signal y_stretch : integer range 0 to 15 := 0;
+  signal y_stretch : integer range 0 to 15 := 1;
 
   constant chars_per_row : integer := 3;
 
