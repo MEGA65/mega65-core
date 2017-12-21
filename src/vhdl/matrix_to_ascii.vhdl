@@ -9,6 +9,7 @@ entity matrix_to_ascii is
   generic (scan_frequency : integer := 100;
            clock_frequency : integer);
   port (Clk : in std_logic;
+        reset_in : in std_logic;
         matrix : in std_logic_vector(71 downto 0);
 
         -- UART key stream
@@ -358,6 +359,11 @@ begin
     variable key_matrix : key_matrix_t;
   begin
     if rising_edge(clk) then
+
+      if reset_in = '1' then
+        matrix_internal <= (others => '1');
+      end if;
+      
       -- Which matrix to use, based on modifier key state
       -- C= takes precedence over SHIFT, so that we can have C= + cursor keys
       -- as unique keys

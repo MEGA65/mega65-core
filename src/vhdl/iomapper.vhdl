@@ -757,7 +757,11 @@ begin
           ascii_key_buffered <= ascii_key;
         end if;
       end if;
-      if ascii_key_next = '1' then
+      if reset_high = '1' then
+        ascii_key_presenting <= '0';
+        ascii_key_buffered <= x"00";
+        ascii_key_buffer_count <= 0;
+      elsif ascii_key_next = '1' then
         if ascii_key_buffer_count > 0 then
           ascii_key_presenting <= '1';
           ascii_key_buffered <= ascii_key_buffer(0);
