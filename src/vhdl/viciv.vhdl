@@ -231,8 +231,7 @@ architecture Behavioral of viciv is
   -- Step through VIC-II raster numbers quickly during the vertical fly-back
   -- time, so that any raster interrupts based on them will trigger.
   signal vertical_flyback : std_logic := '0';
-  signal vicii_first_raster : unsigned(8 downto 0) := to_unsigned(20,9);
-  signal fast_raster_counter : unsigned(5 downto 0) := to_unsigned(0,6);
+  signal vicii_first_raster : unsigned(8 downto 0) := to_unsigned(0,9);
   constant ntsc_max_raster : unsigned(8 downto 0) := to_unsigned(262,9);
   constant pal_max_raster : unsigned(8 downto 0) := to_unsigned(312,9);
   signal vicii_max_raster : unsigned(8 downto 0) := pal_max_raster;
@@ -1211,18 +1210,21 @@ begin
 
       -- set vertical borders based on twentyfourlines
       if twentyfourlines='0' then
-        border_y_top <= to_unsigned(to_integer(single_top_border_200),12);
+        border_y_top <= to_unsigned(to_integer(single_top_border_200)+to_integer(vsync_delay_drive),12);
         border_y_bottom <= to_unsigned(to_integer(display_height)
-                                       -to_integer(single_top_border_200),12);
+                                       -to_integer(single_top_border_200)+to_integer(vysnc_delay_drive),12);
       else  
         border_y_top <= to_unsigned(to_integer(single_top_border_200)
+                                    +to_integer(vsync_delay_drive)
                                     +ssy_table_200(4),12);
         border_y_bottom <= to_unsigned(to_integer(display_height)
+                                       +to_integer(vsync_delay_drive)
                                        -to_integer(single_top_border_200)
                                        -ssy_table_200(4),12);
       end if;
       -- set y_chargen_start based on twentyfourlines
       y_chargen_start <= to_unsigned(to_integer(single_top_border_200)
+                                     +to_integer(vsync_delay_drive)
                                      -ssy_table_200(3)
                                      +ssy_table_200(to_integer(vicii_y_smoothscroll)),12);
       if reg_v400='0' then
@@ -2275,6 +2277,7 @@ begin
               vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
               hsync_start <= to_unsigned(2764,14);
               hsync_end <= to_unsigned(3100,14);
+              vicii_max_raster <= pal_max_raster;
               hsync_polarity <= '0';
               vsync_polarity <= '0';
 
@@ -2285,7 +2288,7 @@ begin
               chargen_y_scale <= x"01";
               single_side_border <= to_unsigned(267,14);
               
-            when "01" => -- PAL, 800x600 50Hz
+            when "01" => -- PAL, 800x600 50Hz, NTSC max raster
               frame_width <=  to_unsigned(3196,14);
               display_width <= to_unsigned(2664,14);
               frame_height <= to_unsigned(625,12);
@@ -2294,6 +2297,7 @@ begin
               vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
               hsync_start <= to_unsigned(2764,14);
               hsync_end <= to_unsigned(3100,14);
+              vicii_max_raster <= ntsc_max_raster;
               hsync_polarity <= '0';
               vsync_polarity <= '0';
 
@@ -2311,6 +2315,7 @@ begin
               display_height <= to_unsigned(600,12);
               vsync_delay <= to_unsigned(23,8);
               vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
+              vicii_max_raster <= ntsc_max_raster;
               hsync_start <= to_unsigned(2140,14);
               hsync_end <= to_unsigned(2540,14);
               hsync_polarity <= '0';
@@ -2330,6 +2335,8 @@ begin
               display_height <= to_unsigned(600,12);
               vsync_delay <= to_unsigned(23,8);
               vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
+              -- NTSC but with PAL max raster
+              vicii_max_raster <= pal_max_raster;
               hsync_start <= to_unsigned(2140,14);
               hsync_end <= to_unsigned(2540,14);
               hsync_polarity <= '0';
@@ -2667,8 +2674,10 @@ begin
         if ycounter /= to_integer(frame_height) then
           ycounter <= ycounter + 1;
           if vicii_ycounter_phase = vicii_ycounter_max_phase then
-            vicii_ycounter <= vicii_ycounter + 1;
-            vicii_ycounter_v400 <= vicii_ycounter_v400 + 1;
+            if vicii_ycounter / vicii_max_raster then
+              vicii_ycounter <= vicii_ycounter + 1;
+              vicii_ycounter_v400 <= vicii_ycounter_v400 + 1;
+            end if;
             vicii_ycounter_phase <= (others => '0');
             -- All visible rasters are now equal height
             -- (we take up the slack using vertical_flyback fast raster stepping,
@@ -2719,27 +2728,6 @@ begin
           vicii_ycounter_phase_v400 <= to_unsigned(1,4);
 
         end if;	
-      end if;
-      if vertical_flyback = '1' then
-        -- During vertical fly-back, step through VIC-II raster lines at a
-        -- rate of 1 per 64 pixel clocks, so that all possible raster interrupts
-        -- or $D011/$D012 polling will work (C65 ROM needs this even!)
-        if fast_raster_counter = "111111" then
-          fast_raster_counter <= "000000";
-          if vicii_ycounter = vicii_first_raster then
-            -- Stop when we reach the first raster of the screen
-            null;
-          elsif vicii_ycounter /= vicii_max_raster then
-            -- Advance raster number if we are not at the end of the frame ...
-            vicii_ycounter <= vicii_ycounter + 1;
-          else
-            -- ... else at end of frame, reset to raster 0 again
-            vicii_ycounter <= (others => '0');
-            vicii_ycounter_v400 <= (others => '0');
-          end if;
-        else
-          fast_raster_counter <= fast_raster_counter + 1;
-        end if;
       end if;
       
       if xcounter<frame_h_front then
