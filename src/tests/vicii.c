@@ -198,16 +198,18 @@ int main(int argc,char **argv)
     printf("\nFAIL: Collisions detected with sprites separated by 256 pixels ($D01E=$%x)\n",v);
     fatal();
   }
-  printf("     Sprites collide in side-border");
-  // Far left in side border, not quite poking out into the screen
-  sprite_setxy(0,0,100);
-  sprite_setxy(1,0,100);
+  printf("     Sprites don't collide in side-border");
+  // Consider scanning across to the right, to see if right border / sprite positioning
+  // is accurate?
+  // But for now, just place fixed in side border
+  sprite_setxy(0,24+320+10,100);
+  sprite_setxy(1,24+320+10,100);
   wait_for_vsync();
   v=PEEK(0xD01E);
   wait_for_vsync();
-  if (v==3) ok();
+  if (!v) ok();
   else {
-    printf("\nFAIL: *$D01E != $03 (sprite 0 and 1 collision in side border). Instead saw $%x\n",v);
+    printf("\nFAIL: *$D01E != $00: Saw $%x\n",v);
     fatal();
   }
 
