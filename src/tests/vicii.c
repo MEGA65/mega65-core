@@ -198,7 +198,7 @@ int main(int argc,char **argv)
     printf("\nFAIL: Collisions detected with sprites separated by 256 pixels ($D01E=$%x)\n",v);
     fatal();
   }
-  printf("     Sprites don't collide in side-border");
+  printf("     Sprites don't collide in border");
   // Consider scanning across to the right, to see if right border / sprite positioning
   // is accurate?
   // But for now, just place fixed in side border
