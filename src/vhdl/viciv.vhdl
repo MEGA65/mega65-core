@@ -219,7 +219,7 @@ architecture Behavioral of viciv is
   -- Each logical pixel will be 120/n physical pixels wide
   -- It must be an integer for everything to work properly.
   signal chargen_x_pixels : integer := 2;
-  signal sprite_first_x : unsigned(13 downto 0) := to_unsigned(200-2*24,16);
+  signal sprite_first_x : unsigned(13 downto 0) := to_unsigned(200-2*24,14);
   signal sprite_x_counting : std_logic := '0';
   signal chargen_x_scale : unsigned(7 downto 0) := to_unsigned(48,8); 
   signal sprite_x_scale : unsigned(7 downto 0) := to_unsigned(48/2,8);  
