@@ -106,9 +106,39 @@ void ok(void)
 	 0x91,30,5);
 }
 
+uint8_t screen_buffer[1024];
+uint8_t colour_buffer[1024];
+void stash_screen(void)
+{
+  uint16_t i;
+  for(i=0;i<1000;i++) {
+    screen_buffer[i]=PEEK(0x0400+i);
+    colour_buffer[i]=PEEK(0xD800+i);
+  }
+}
+
+void restore_screen(void)
+{
+  uint16_t i;
+  for(i=0;i<1000;i++) {
+    POKE(0x0400+i,screen_buffer[i]);
+    POKE(0xD800+i,colour_buffer[i]);
+  }
+}
+
+void clear_screen(void)
+{
+  uint16_t i;
+  for(i=0;i<1000;i++) {
+    POKE(0x0400+i,0x20);
+    POKE(0xD800+i,1);
+  }
+}
+
 int main(int argc,char **argv)
 {
   uint8_t v;
+  uint16_t x,y,first_contact,last_contact;
   
   printf("%c%c"
 	 "M.E.G.A.65 VIC-II Test Programme\n"
@@ -169,7 +199,9 @@ int main(int argc,char **argv)
     fatal();
   }
   printf("     Sprites collide in side-border");
-  sprite_setxy(0,90+256,100);
+  // Far left in side border, not quite poking out into the screen
+  sprite_setxy(0,0,100);
+  sprite_setxy(1,0,100);
   wait_for_vsync();
   v=PEEK(0xD01E);
   wait_for_vsync();
@@ -178,5 +210,57 @@ int main(int argc,char **argv)
     printf("\nFAIL: *$D01E != $03 (sprite 0 and 1 collision in side border). Instead saw $%x\n",v);
     fatal();
   }
+
+  /* At this point, we know that sprite collisions work to some basic degree.
+     What we don't know is if the sprites are displayed at the correct location, or 
+     are rendered the correct size.
+     These two are somewhat interrelated.
+     We begin by testing sprite:background collision, and from there drawing particular things
+     on the screen and in the sprites to determine exactly where a sprite is drawn, and if 
+     it is drawn at the correct size.
+
+     As we are using the C64 character set by default, we are limited in the shapes we can try
+     to collide with. Char $65 is a vertical bar 2 pixels wide on the left edge of a character.
+     
+  */
+
+  printf("     Sprite X position");
+  // Draw vertical bar 2 pixels wide on left edge of the screen
+  stash_screen();
+  clear_screen();  
+  for(v=0;v<25;v++) POKE(0x0400+40*v,0x65);
+  // With sprite 0 as a single pixel wide vertical line, sweep it from the right of the screen until it touches
+  // our vertical bar
+  sprite_erase(0);
+  for(y=0;y<21;y++) POKE(0x380+y*3,0x80);
+  sprites_on(1);
+  first_contact=999;
+  last_contact=999;
+  for(x=100;x>0;x--) {
+    sprite_setxy(0,x,100);
+    wait_for_vsync();
+    v=PEEK(0xD01F);
+    wait_for_vsync();
+    v=PEEK(0xD01F);
+    if (v==1) {
+      if (first_contact==999) first_contact=x;
+      last_contact=x;
+    }
+  }
+  restore_screen();
+  if (first_contact!=0x19||last_contact!=0x18) {
+    printf("\nFAIL: Sprite X positioning is wrong.\n");
+    if (first_contact!=0x19) {
+      printf("* X=$18 should be 1st screen pixel.\n"
+	     "  On this machine it is at X=$%x\n",last_contact);
+    }
+    if (first_contact-last_contact!=1) {
+      printf("* Sprite pixels wrong width.\n");
+      printf("  On this machine are $%x-$%x wide.\n",
+	     first_contact-last_contact-1,
+	     first_contact-last_contact);
+    }
+    fatal();
+  }    
   
 }
