@@ -219,6 +219,8 @@ architecture Behavioral of viciv is
   -- Each logical pixel will be 120/n physical pixels wide
   -- It must be an integer for everything to work properly.
   signal chargen_x_pixels : integer := 2;
+  signal sprite_first_x : unsigned(13 downto 0) := to_unsigned(200-2*24,16);
+  signal sprite_x_counting : std_logic := '0';
   signal chargen_x_scale : unsigned(7 downto 0) := to_unsigned(48,8); 
   signal sprite_x_scale : unsigned(7 downto 0) := to_unsigned(48/2,8);  
   signal sprite_x_scale_640 : unsigned(7 downto 0) := to_unsigned(48,8);		-- 640 mode sprite scale  
@@ -740,6 +742,10 @@ architecture Behavioral of viciv is
   signal reg_h640 : std_logic := '0';
   signal reg_h1280 : std_logic := '0';
   signal reg_v400 : std_logic := '0';
+  -- XXX No way to set this at the moment
+  signal sprite_h640 : std_logic := '0';
+  -- XXX No way to set this, nor is it currently used at the moment
+  signal sprite_v400 : std_logic := '0';
   
   type rgb is
   record
@@ -2282,11 +2288,12 @@ begin
               vsync_polarity <= '0';
 
               chargen_x_pixels <= 3;
+              single_side_border <= to_unsigned(267,14);
+              sprite_first_x <= to_unsigned(267-24*3,14);
               chargen_x_scale <= to_unsigned(36,8);
               sprite_x_scale <= to_unsigned(18,8);
               sprite_x_scale_640 <= to_unsigned(36,8);
               chargen_y_scale <= x"01";
-              single_side_border <= to_unsigned(267,14);
               
             when "01" => -- PAL, 800x600 50Hz, NTSC max raster
               frame_width <=  to_unsigned(3196,14);
@@ -2302,6 +2309,7 @@ begin
               vsync_polarity <= '0';
 
               chargen_x_pixels <= 3;
+              sprite_first_x <= to_unsigned(267-24*3,14);
               chargen_x_scale <= to_unsigned(36,8);
               sprite_x_scale <= to_unsigned(18,8);
               sprite_x_scale_640 <= to_unsigned(36,8);
@@ -2322,6 +2330,7 @@ begin
               vsync_polarity <= '0';
 
               chargen_x_pixels <= 2;
+              sprite_first_x <= to_unsigned(200-24*2,14);
               chargen_x_scale <= to_unsigned(48,8);
               sprite_x_scale <= to_unsigned(24,8);
               sprite_x_scale_640 <= to_unsigned(48,8);
@@ -2343,6 +2352,7 @@ begin
               vsync_polarity <= '0';
 
               chargen_x_pixels <= 2;
+              sprite_first_x <= to_unsigned(200-24*2,14);
               chargen_x_scale <= to_unsigned(48,8);
               sprite_x_scale <= to_unsigned(24,8);
               sprite_x_scale_640 <= to_unsigned(48,8);
@@ -2640,33 +2650,23 @@ begin
         & " (raw = " & to_hstring(vicii_xcounter_sub);
       if xcounter /= to_integer(frame_width) then
         xcounter <= xcounter + 1;
-        if reg_h640 = '0' then
-          vicii_xcounter_sub <= vicii_xcounter_sub + sprite_x_scale;
-        else
-          vicii_xcounter_sub <= vicii_xcounter_sub + sprite_x_scale_640;
+        if xcounter = sprite_first_x then
+          sprite_x_counting <= '1';
+        end if;
+        if sprite_x_counting = '1' then
+          if sprite_h640 = '0' then
+            vicii_xcounter_sub <= vicii_xcounter_sub + sprite_x_scale;
+          else
+            vicii_xcounter_sub <= vicii_xcounter_sub + sprite_x_scale_640;
+          end if;
         end if;
       else
         -- End of raster reached.
         -- Bump raster number and start next raster.
         xcounter <= (others => '0');
-        -- To adjust the horizontal position of sprites we simply start the VIC-II
-        -- horizontal position counter at a non-zero value at the start of each
-        -- raster.  Left border ends at physical pixel 140, which should
-        -- correspond to sprite coordinate 24. Logical pixes are ~2.9 pixels wide
-        -- (horizontal scale factor of 0x29/0x78)
-        -- so 140 physical pixels is roughly equivalent to 48 physical pixels.
-        -- Thus we need to start the VIC-II horizontal counter at -24*2.9*0x2d
-        -- = -3080 = -0x0c08 = 0xf3f8.
-        -- However, we need to shift it right a few more pixels to cover the pipeline
-        -- delays, about 0x294 should do it.
-        -- XXX - Why were we adding 2 here? Have removed this, as VIC-II
-        -- rasters were too tall. PGS.
+        sprite_x_counting <= '0';
         vicii_ycounter_scale <= vicii_ycounter_scale_minus_zero;
-        if reg_h640 = '0' then
-          vicii_xcounter_sub <= x"f153";
-        else
-          vicii_xcounter_sub <= x"ff30";
-        end if;
+        vicii_xcounter_sub <= x"0000";
         chargen_x_sub <= (others => '0');
         raster_buffer_read_address <= (others => '0');
         chargen_active <= '0';
