@@ -218,15 +218,12 @@ begin
       fpga_temperature => (others => '1'),
       
       pixelclock      => pixelclock,
-      pixelclock2x    => pixelclock, -- XXX we don't need the 2x clock in
-                                     -- simulation. as it is only used for the
-                                     -- alpha blender.
       cpuclock      => cpuclock,
       clock50mhz   => clock50mhz,
       ioclock      => cpuclock,
       uartclock    => ioclock,
       btnCpuReset      => reset,
-      irq => '1',
+      irq => irq,
       nmi => '1',
       cpu_exrom => cpu_exrom,
       cpu_game => cpu_game,
@@ -428,6 +425,20 @@ begin
     end loop;
   end process;
 
+  -- Trigger an IRQ to test branch bug
+  process
+  begin
+    wait for 38180 ns;
+    for i in 1 to 2000 loop
+      irq <= '0';
+      report "triggering IRQ for gs4510";
+      wait for 200 ns;
+      irq <= '1';
+      report "releasing IRQ for gs4510";
+      wait for 190 ns;
+    end loop;
+  end process;
+  
   process
     variable txbyte : unsigned(7 downto 0) := x"00";
     variable txbits : integer range 0 to 7 := 0;
