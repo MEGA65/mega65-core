@@ -2675,8 +2675,10 @@ begin
           ycounter <= ycounter + 1;
           if vicii_ycounter_phase = vicii_ycounter_max_phase then
             if to_integer(vicii_ycounter) /= vicii_max_raster then
-              vicii_ycounter <= vicii_ycounter + 1;
-              vicii_ycounter_v400 <= vicii_ycounter_v400 + 1;
+              if ycounter > vsync_delay_drive then
+                vicii_ycounter <= vicii_ycounter + 1;
+                vicii_ycounter_v400 <= vicii_ycounter_v400 + 1;
+              end if;
             end if;
             vicii_ycounter_phase <= (others => '0');
             -- All visible rasters are now equal height
