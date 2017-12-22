@@ -780,6 +780,11 @@ begin
         if break_enabled='1' and break_address = unsigned(monitor_pc) then
           monitor_mem_trace_mode <= '1';
         end if;
+        -- Stop CPU on BRK instructin if break address set to $0000
+        if break_enabled='1' and break_address = to_unsigned(0,16)
+          and monitor_opcode = x"00" then
+          monitor_mem_trace_mode <= '1';
+        end if;          
         -- Stop CPU when specified memory location is written to
         if monitor_watch_match='1' then
           monitor_mem_trace_mode <= '1';
