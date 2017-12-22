@@ -96,46 +96,87 @@ void wait_for_vsync(void)
 
 void fatal(void)
 {
-  
+  sprites_on(0);
   while(1) continue;
+}
+
+void ok(void)
+{
+  printf("\n%c%cPASS %c\n",
+	 0x91,30,5);
 }
 
 int main(int argc,char **argv)
 {
   uint8_t v;
   
-  printf("%c"
+  printf("%c%c"
 	 "M.E.G.A.65 VIC-II Test Programme\n"
 	 "(C)Copyright Paul Gardner-Stephen, 2017.\n"
 	 "GNU General Public License v3 or newer.\n"
-	 "\n",0x93);
+	 "\n",0x93,5);
 
   // Prepare sprites
   setup();  
 
-  printf("Testing sprite-sprite collision");
+  printf("     No S:S collide when no sprites");
   v=PEEK(0xD01E); // clear existing collisions
   // Wait a couple of frames to make sure
   wait_for_vsync();
   wait_for_vsync();
   // Check that there is no collision yet
   v=PEEK(0xD01E);
-  if (!v) printf(".");
+  if (!v) ok();
   else {
-    printf("FAIL: Collisions detected with no sprites active.\n");
+    printf("\nFAIL: Collisions detected with no sprites active.\n");
     fatal();
   }
 
+  printf("     Detect simple S:S collisions");
   sprite_setxy(0,100,100);
   sprite_setxy(1,102,102);
   sprites_on(0x03);
   wait_for_vsync();
   wait_for_vsync();
   v=PEEK(0xD01E);
-  if (v==3) printf(".");
+  if (v==3) {
+    // Read result for next test first, as it is timing sensitive
+    v=PEEK(0xD01E);
+    ok();
+  }
   else {
-    printf("FAIL: *$D01E != $03 (sprite 0 and 1 collision). Instead saw $%x\n",v);
+    printf("\nFAIL: *$D01E != $03 (sprite 0 and 1 collision). Instead saw $%x\n",v);
     fatal();
   }
-
+  printf("     Reading $D01E clears collisions");
+  if (!v) ok();
+  else {
+    printf("\nFAIL: Reading $D01E does not clear sprite:sprite collisions.\n");
+    fatal();
+  }  
+  printf("     X MSB separates sprites");
+  sprite_setxy(0,90,100);
+  sprite_setxy(1,90+256,100);
+  wait_for_vsync();
+  v=PEEK(0xD01E);
+  wait_for_vsync();
+  wait_for_vsync();
+  v=PEEK(0xD01E);
+  
+  if (!v) ok();
+  else {
+    printf("\nFAIL: Collisions detected with sprites separated by 256 pixels ($D01E=$%x)\n",v);
+    fatal();
+  }
+  printf("     Sprites collide in side-border");
+  sprite_setxy(0,90+256,100);
+  wait_for_vsync();
+  v=PEEK(0xD01E);
+  wait_for_vsync();
+  if (v==3) ok();
+  else {
+    printf("\nFAIL: *$D01E != $03 (sprite 0 and 1 collision in side border). Instead saw $%x\n",v);
+    fatal();
+  }
+  
 }
