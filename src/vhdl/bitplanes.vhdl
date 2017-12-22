@@ -235,8 +235,8 @@ begin  -- behavioural
   -- outputs: colour, is_sprite_out
   main: process (pixelclock) is
     variable v_x_in : integer;
-    variable v_bitplane_y_start : integer;
-    variable v_bitplane_x_start : integer;
+    variable v_bitplane_y_start : integer := 0;
+    variable v_bitplane_x_start : integer := 0;
   begin  -- process main
     if pixelclock'event and pixelclock = '1' then  -- rising clock edge
 
@@ -245,10 +245,18 @@ begin  -- behavioural
       bitplane_data_offsets <= bitplane_data_offsets_next;
 
       -- Pre-calculate some things to improve timing
-      bitplane_y_card_position
-        <= integer((y_in - (v_bitplane_y_start + to_integer(signed(std_logic_vector(bitplanes_y_start_drive))))) mod 8);
-      bitplane_y_card_number
-        <= integer(((y_in - (v_bitplane_y_start + to_integer(signed(std_logic_vector(bitplanes_y_start_drive))))) / 8));            
+      if y_in >= (v_bitplane_y_start + to_integer(signed(std_logic_vector(bitplanes_y_start_drive)))) then
+--        report "y_in = " & integer'image(y_in);
+--        report "v_bitplane_y_start = " & integer'image(v_bitplane_y_start);
+--        report "bitplane_y_start_drive = " & integer'image(to_integer(signed(std_logic_vector(bitplanes_y_start_drive))));
+        bitplane_y_card_position
+          <= integer((y_in - (v_bitplane_y_start + to_integer(signed(std_logic_vector(bitplanes_y_start_drive))))) mod 8);
+        bitplane_y_card_number
+          <= integer(((y_in - (v_bitplane_y_start + to_integer(signed(std_logic_vector(bitplanes_y_start_drive))))) / 8));
+      else
+        bitplane_y_card_position <= integer(y_in mod 8);
+        bitplane_y_card_number <= 0;
+      end if;
       
       -- Copy sprite colission status out
       sprite_map_out <= sprite_map_in;
