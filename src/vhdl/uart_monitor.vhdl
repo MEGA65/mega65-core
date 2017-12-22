@@ -378,7 +378,7 @@ begin
         -- (this is required because the terminal emulator might be busy
         -- drawing pixels at the time).
         terminal_emulator_just_sent <= '1';
-        terminal_emulator_ready_counter <= 31;
+        terminal_emulator_ready_counter <= 511;
         
       end if;
     end output_char;
