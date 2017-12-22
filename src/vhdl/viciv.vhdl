@@ -582,28 +582,28 @@ architecture Behavioral of viciv is
 
   -- Here are the signals received from the sprites, which get ored onto
   -- the following signals.
-  signal vicii_sprite_sprite_colission_map : std_logic_vector(7 downto 0);
-  signal vicii_sprite_bitmap_colission_map : std_logic_vector(7 downto 0);
+  signal vicii_sprite_sprite_collision_map : std_logic_vector(7 downto 0);
+  signal vicii_sprite_bitmap_collision_map : std_logic_vector(7 downto 0);
 
   -- HEre is what gets read from the VIC-II register (and then zeroed in the process)
   -- and which also get checked for interrupt generation
-  signal vicii_sprite_sprite_colissions : std_logic_vector(7 downto 0);
-  signal vicii_sprite_bitmap_colissions : std_logic_vector(7 downto 0);
+  signal vicii_sprite_sprite_collisions : std_logic_vector(7 downto 0);
+  signal vicii_sprite_bitmap_collisions : std_logic_vector(7 downto 0);
   
   signal viciii_extended_attributes : std_logic := '1';
-  signal irq_colissionspritesprite : std_logic := '0';
-  signal irq_colissionspritebitmap : std_logic := '0';
+  signal irq_collisionspritesprite : std_logic := '0';
+  signal irq_collisionspritebitmap : std_logic := '0';
   signal irq_raster : std_logic := '0';
-  signal ack_colissionspritesprite : std_logic := '0';
-  signal ack_colissionspritebitmap : std_logic := '0';
+  signal ack_collisionspritesprite : std_logic := '0';
+  signal ack_collisionspritebitmap : std_logic := '0';
   signal ack_raster : std_logic := '0';
-  signal mask_colissionspritesprite : std_logic := '0';
-  signal mask_colissionspritebitmap : std_logic := '0';
+  signal mask_collisionspritesprite : std_logic := '0';
+  signal mask_collisionspritebitmap : std_logic := '0';
   signal mask_raster : std_logic := '0';
-  signal clear_colissionspritebitmap : std_logic := '0';
-  signal clear_colissionspritebitmap_1 : std_logic := '0';
-  signal clear_colissionspritesprite : std_logic := '0';
-  signal clear_colissionspritesprite_1 : std_logic := '0';
+  signal clear_collisionspritebitmap : std_logic := '0';
+  signal clear_collisionspritebitmap_1 : std_logic := '0';
+  signal clear_collisionspritesprite : std_logic := '0';
+  signal clear_collisionspritesprite_1 : std_logic := '0';
   
   -- Used for hardware character blinking ala C65
   signal viciii_blink_phase : std_logic := '0';
@@ -1060,9 +1060,9 @@ begin
               is_background_out => pixel_is_background_out,
               is_foreground_out => pixel_is_foreground_out,
 
-              -- Get sprite colission info
-              sprite_fg_map_final => vicii_sprite_bitmap_colission_map,
-              sprite_map_final => vicii_sprite_sprite_colission_map,
+              -- Get sprite collision info
+              sprite_fg_map_final => vicii_sprite_bitmap_collision_map,
+              sprite_map_final => vicii_sprite_sprite_collision_map,
 
               fastio_addr => fastio_addr,
               fastio_write => fastio_write,
@@ -1074,10 +1074,10 @@ begin
           text_mode,blank,twentyfourlines,vicii_y_smoothscroll,displayx,displayy,
           vicii_sprite_enables,multicolour_mode,thirtyeightcolumns,
           vicii_x_smoothscroll,vicii_sprite_y_expand,screen_ram_base,
-          character_set_address,irq_colissionspritebitmap,irq_colissionspritesprite,
-          irq_raster,mask_colissionspritebitmap,mask_colissionspritesprite,
+          character_set_address,irq_collisionspritebitmap,irq_collisionspritesprite,
+          irq_raster,mask_collisionspritebitmap,mask_collisionspritesprite,
           mask_raster,vicii_sprite_priority_bits,vicii_sprite_multicolour_bits,
-          vicii_sprite_sprite_colissions,vicii_sprite_bitmap_colissions,
+          vicii_sprite_sprite_collisions,vicii_sprite_bitmap_collisions,
           border_colour,screen_colour,multi1_colour,multi2_colour,multi3_colour,
           border_x_left,border_x_right,border_y_top,border_y_bottom,
           x_chargen_start,y_chargen_start,fullcolour_8bitchars,
@@ -1403,8 +1403,8 @@ begin
           fastio_rdata(5) <= '1';       -- NC
           fastio_rdata(4) <= '1';       -- NC
           fastio_rdata(3) <= '0';       -- lightpen
-          fastio_rdata(2) <= irq_colissionspritesprite;
-          fastio_rdata(1) <= irq_colissionspritebitmap;
+          fastio_rdata(2) <= irq_collisionspritesprite;
+          fastio_rdata(1) <= irq_collisionspritebitmap;
           fastio_rdata(0) <= irq_raster;
         elsif register_number=26 then          -- $D01A compatibility IRQ mask bits
           fastio_rdata(7) <= '1';       -- NC
@@ -1412,8 +1412,8 @@ begin
           fastio_rdata(5) <= '1';       -- NC
           fastio_rdata(4) <= '1';       -- NC
           fastio_rdata(3) <= '1';       -- lightpen
-          fastio_rdata(2) <= mask_colissionspritesprite;
-          fastio_rdata(1) <= mask_colissionspritebitmap;
+          fastio_rdata(2) <= mask_collisionspritesprite;
+          fastio_rdata(1) <= mask_collisionspritebitmap;
           fastio_rdata(0) <= mask_raster;
         elsif register_number=27 then          -- $D01B sprite background priority
           fastio_rdata <= vicii_sprite_priority_bits;
@@ -1422,9 +1422,9 @@ begin
         elsif register_number=29 then          -- $D01D compatibility sprite enable
           fastio_rdata <= vicii_sprite_x_expand;
         elsif register_number=30 then          -- $D01E sprite/sprite collissions
-          fastio_rdata <= vicii_sprite_sprite_colissions;
+          fastio_rdata <= vicii_sprite_sprite_collisions;
         elsif register_number=31 then          -- $D01F sprite/foreground collissions
-          fastio_rdata <= vicii_sprite_bitmap_colissions;
+          fastio_rdata <= vicii_sprite_bitmap_collisions;
         elsif register_number=32 then
           fastio_rdata <= std_logic_vector(border_colour);
         elsif register_number=33 then
@@ -1729,8 +1729,8 @@ begin
         vicii_2mhz_internal <= '0';
 
         -- Clear all VIC-II/III/IV interrupts on reset
-        mask_colissionspritebitmap <= '0';
-        mask_colissionspritesprite <= '0';
+        mask_collisionspritebitmap <= '0';
+        mask_collisionspritesprite <= '0';
         mask_raster <= '0';
 
         -- Also turn sprites off on reset
@@ -1766,8 +1766,8 @@ begin
         viciv_legacy_mode_registers_touched <= '0';
       end if;
       
-      ack_colissionspritesprite <= '0';
-      ack_colissionspritebitmap <= '0';
+      ack_collisionspritesprite <= '0';
+      ack_collisionspritebitmap <= '0';
       ack_raster <= '0';
       
       palette_we <= (others => '0');
@@ -1808,22 +1808,22 @@ begin
       end if;
 
       -- Reading some registers clears IRQ flags
-      clear_colissionspritebitmap_1 <= '0';
-      clear_colissionspritesprite_1 <= '0';
+      clear_collisionspritebitmap_1 <= '0';
+      clear_collisionspritesprite_1 <= '0';
       if fastio_read='1' then
         if register_number=30 then
           -- @IO:C64 $D01E sprite/sprite collissions
-          clear_colissionspritesprite_1 <= '1';
+          clear_collisionspritesprite_1 <= '1';
         elsif register_number=31 then
           -- @IO:C64 $D01F sprite/sprite collissions
-          clear_colissionspritebitmap_1 <= '1';
+          clear_collisionspritebitmap_1 <= '1';
         end if;
       end if;
       -- One cycle delay so that CPU can read these registers with 1 cycle
-      -- wait-state without the colission bits disappearing before the CPU
+      -- wait-state without the collision bits disappearing before the CPU
       -- latches the value.
-      clear_colissionspritebitmap <= clear_colissionspritebitmap_1;
-      clear_colissionspritesprite <= clear_colissionspritesprite_1;
+      clear_collisionspritebitmap <= clear_collisionspritebitmap_1;
+      clear_collisionspritesprite <= clear_collisionspritesprite_1;
       
       -- $D000 registers
       if fastio_write='1'
@@ -1911,18 +1911,18 @@ begin
           -- Acknowledge IRQs
           -- (we need to pass this to the dotclock side to avoide multiple drivers)
           -- @IO:C64 $D019.2 VIC-II sprite:sprite collision indicate or acknowledge
-          ack_colissionspritesprite <= fastio_wdata(2);
+          ack_collisionspritesprite <= fastio_wdata(2);
           -- @IO:C64 $D019.1 VIC-II sprite:bitmap collision indicate or acknowledge
-          ack_colissionspritebitmap <= fastio_wdata(1);
+          ack_collisionspritebitmap <= fastio_wdata(1);
           -- @IO:C64 $D019.0 VIC-II raster compare indicate or acknowledge
           ack_raster <= fastio_wdata(0);
         elsif register_number=26 then
           -- @IO:C64 $D01A compatibility IRQ mask bits
           -- XXX Enable/disable IRQs
-          -- @IO:C64 $D01A.2 VIC-II mask sprite:sprite colission IRQ
-          mask_colissionspritesprite <= fastio_wdata(2);
-          -- @IO:C64 $D01A.2 VIC-II mask sprite:bitmap colission IRQ
-          mask_colissionspritebitmap <= fastio_wdata(1);
+          -- @IO:C64 $D01A.2 VIC-II mask sprite:sprite collision IRQ
+          mask_collisionspritesprite <= fastio_wdata(2);
+          -- @IO:C64 $D01A.2 VIC-II mask sprite:bitmap collision IRQ
+          mask_collisionspritebitmap <= fastio_wdata(1);
           -- @IO:C64 $D01A.2 VIC-II mask raster IRQ
           mask_raster <= fastio_wdata(0);
         elsif register_number=27 then
@@ -1936,10 +1936,10 @@ begin
           vicii_sprite_x_expand <= fastio_wdata;
         elsif register_number=30 then
           -- @IO:C64 $D01E VIC-II sprite/sprite collision indicate bits
-          -- vicii_sprite_sprite_colissions <= fastio_wdata;
+          -- vicii_sprite_sprite_collisions <= fastio_wdata;
         elsif register_number=31 then
           -- @IO:C64 $D01F VIC-II sprite/sprite collision indicate bits
-          -- vicii_sprite_bitmap_colissions <= fastio_wdata;
+          -- vicii_sprite_bitmap_collisions <= fastio_wdata;
         elsif register_number=32 then
           -- @IO:C64 $D020 Border colour
           -- @IO:C64 $D020.3-0 VIC-II display border colour (16 colour)
@@ -2540,8 +2540,8 @@ begin
 
       sprite_fetch_drive <= '0';
 
-      -- Add new sprite colission bits to the bitmap
-      case vicii_sprite_sprite_colission_map is
+      -- Add new sprite collision bits to the bitmap
+      case vicii_sprite_sprite_collision_map is
         when "00000000" => null;
         when "10000000" => null;
         when "01000000" => null;
@@ -2552,16 +2552,20 @@ begin
         when "00000010" => null;
         when "00000001" => null;
         when others =>
-          -- Sprite colission, so add it to the existing map
-          vicii_sprite_sprite_colissions
-            <= vicii_sprite_sprite_colissions or vicii_sprite_sprite_colission_map;
+          -- Sprite collision, so add it to the existing map
+          if postsprite_inborder='0' then
+            vicii_sprite_sprite_collisions
+              <= vicii_sprite_sprite_collisions or vicii_sprite_sprite_collision_map;
+          end if;
       end case;
-      -- Sprite foreground colission is easier: always add it on.
-      vicii_sprite_bitmap_colissions
-        <= vicii_sprite_bitmap_colissions or vicii_sprite_bitmap_colission_map;
+      -- Sprite foreground collision is easier: always add it on.
+      if postsprite_inborder='0' then
+        vicii_sprite_bitmap_collisions
+          <= vicii_sprite_bitmap_collisions or vicii_sprite_bitmap_collision_map;
+        end if;
       
-      -- Now check if we need to trigger an IRQ due to sprite colissions:
-      case vicii_sprite_sprite_colissions is
+      -- Now check if we need to trigger an IRQ due to sprite collisions:
+      case vicii_sprite_sprite_collisions is
         when "00000000" => null;
         when "10000000" => null;
         when "01000000" => null;
@@ -2572,30 +2576,30 @@ begin
         when "00000010" => null;
         when "00000001" => null;
         when others =>
-          irq_colissionspritesprite <= '1';
+          irq_collisionspritesprite <= '1';
       end case;
-      if vicii_sprite_bitmap_colissions /= "00000000" then
-        irq_colissionspritebitmap <= '1';
+      if vicii_sprite_bitmap_collisions /= "00000000" then
+        irq_collisionspritebitmap <= '1';
       end if;
 
-      -- Reading $D01E/$D01F clears the previous colission bits.
+      -- Reading $D01E/$D01F clears the previous collision bits.
       -- Note that this doesn't clear the IRQ, just the visible bits
-      if clear_colissionspritesprite='1' then
-        vicii_sprite_sprite_colissions <= vicii_sprite_sprite_colission_map;
+      if clear_collisionspritesprite='1' then
+        vicii_sprite_sprite_collisions <= vicii_sprite_sprite_collision_map;
       end if;
 
-      if clear_colissionspritebitmap='1' then
-        vicii_sprite_bitmap_colissions <= vicii_sprite_bitmap_colission_map;
+      if clear_collisionspritebitmap='1' then
+        vicii_sprite_bitmap_collisions <= vicii_sprite_bitmap_collision_map;
       end if;
       
       -- Acknowledge IRQs after reading $D019     
       irq_raster <= irq_raster and (not ack_raster);
-      irq_colissionspritebitmap <= irq_colissionspritebitmap and (not ack_colissionspritebitmap);
-      irq_colissionspritesprite <= irq_colissionspritesprite and (not ack_colissionspritesprite);
+      irq_collisionspritebitmap <= irq_collisionspritebitmap and (not ack_collisionspritebitmap);
+      irq_collisionspritesprite <= irq_collisionspritesprite and (not ack_collisionspritesprite);
       -- Set IRQ line status to CPU
       irq_drive <= not ((irq_raster and mask_raster)
-                        or (irq_colissionspritebitmap and mask_colissionspritebitmap)
-                        or (irq_colissionspritesprite and mask_colissionspritesprite));
+                        or (irq_collisionspritebitmap and mask_collisionspritebitmap)
+                        or (irq_collisionspritesprite and mask_collisionspritesprite));
 
       -- reset masks IRQs immediately
       if irq_drive = '0' then
