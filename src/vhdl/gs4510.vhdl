@@ -4654,7 +4654,8 @@ begin
                         phi_new_backlog <= 1;
                       end if;
                       phi_add_backlog <= '1';                      
-                      
+
+                      pc_inc := '0';
                       reg_pc <= temp_addr;
                       -- Take an extra cycle when taking a branch.  This avoids
                       -- poor timing due to memory-to-memory activity in a
