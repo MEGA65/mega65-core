@@ -1907,9 +1907,9 @@ begin
             when "000010" => return hyper_y;
             when "000011" => return hyper_z;
             when "000100" => return hyper_b;
-            when "000101" => return hyper_p;
-            when "000110" => return hyper_sp;
-            when "000111" => return hyper_sph;
+            when "000101" => return hyper_sp;
+            when "000110" => return hyper_sph;
+            when "000111" => return hyper_p;
             when "001000" => return hyper_pc(7 downto 0);
             when "001001" => return hyper_pc(15 downto 8);                           
             when "001010" =>
