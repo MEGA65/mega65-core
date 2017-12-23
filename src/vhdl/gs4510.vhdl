@@ -4674,7 +4674,7 @@ begin
                       -- XXX we can charge this extra cycle only when an
                       -- interrupt might happen, once we know if it solves
                       -- the bug.
-                      state <= BranchPCSettle;
+                      state <= InstructionWait;
                       -- state <= normal_fetch_state;
 
                     else
