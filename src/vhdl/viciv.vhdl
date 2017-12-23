@@ -2650,7 +2650,7 @@ begin
       
       indisplay :='1';
       report "VICII: SPRITE: xcounter(320) = " & integer'image(to_integer(vicii_xcounter_320))
-        & " (640) = " & to_hstring(vicii_xcounter_640);
+        & " (sub) = " & integer'image(vicii_xcounter_sub320);
       if xcounter /= to_integer(frame_width) then
         xcounter <= xcounter + 1;
         if xcounter = sprite_first_x then
@@ -2667,7 +2667,7 @@ begin
             vicii_xcounter_320 <= vicii_xcounter_320 + 1;
           else
             vicii_xcounter_sub320
-              <= vicii_xcounter_sub320 + to_integer(sprite_x_scale_320) - 120;
+              <= vicii_xcounter_sub320 + to_integer(sprite_x_scale_320);
           end if;
           if vicii_xcounter_sub640 >= 240 then
             vicii_xcounter_sub640
@@ -2679,7 +2679,7 @@ begin
             vicii_xcounter_640 <= vicii_xcounter_640 + 1;
           else
             vicii_xcounter_sub640
-              <= vicii_xcounter_sub640 + to_integer(sprite_x_scale_640) - 120;
+              <= vicii_xcounter_sub640 + to_integer(sprite_x_scale_640);
           end if;
         end if;
       else
@@ -2690,6 +2690,8 @@ begin
         vicii_ycounter_scale <= vicii_ycounter_scale_minus_zero;
         vicii_xcounter_320 <= to_unsigned(0,9);
         vicii_xcounter_640 <= to_unsigned(0,10);
+        vicii_xcounter_sub320 <= 0;
+        vicii_xcounter_sub640 <= 0;
         chargen_x_sub <= (others => '0');
         raster_buffer_read_address <= (others => '0');
         chargen_active <= '0';
