@@ -319,6 +319,18 @@ notninekey:
 	jmp $FE66
 
 notrunstopkey:
+	cmp #$35
+	bne notfivekey
+
+	; Allow CPU to go slow again
+	lda #$40
+	sta $00
+
+	; Exit to C65 mode
+	ldz #$00
+	jmp $e4b8 
+
+notfivekey:
 	cmp #$0d
 	bne notreturnkey
 
@@ -926,4 +938,4 @@ filedescriptor:	     .byte 0
 topbanner:
 		.byte "MEGA65 Disk Image Chooser V00.01        "		
 bottombanner:
-		.byte ">> Arrows to navigate, ENTER to mount <<"
+		.byte ">>  RUN/STOP exits to C64, 5 to C65   <<"
