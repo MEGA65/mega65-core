@@ -617,7 +617,7 @@ begin
              is_foreground_out => is_foreground_3_2,
              is_background_out => is_background_3_2,
              x320_out => x320_3_2,
-             x640_out => x320_3_2,
+             x640_out => x640_3_2,
              y_out => y_3_2,
              border_out => border_3_2,
              pixel_out => pixel_3_2,
