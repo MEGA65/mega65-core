@@ -3541,10 +3541,12 @@ begin
               memory_access_read := '1';
               state <= DMAgicReadList;
               dmagic_list_counter <= 0;
+              phi_add_backlog <= '1'; phi_new_backlog <= 1;
             when DMAgicReadList =>
               report "DMAgic: Reading DMA list (setting dmagic_cmd to $" & to_hstring(dmagic_count(7 downto 0))
                 &", memory_read_value = $"&to_hstring(memory_read_value)&")";
               -- ask for next byte from DMA list
+              phi_add_backlog <= '1'; phi_new_backlog <= 1;
               memory_access_address := reg_dmagic_addr;
               memory_access_resolve_address := '0';
               memory_access_read := '1';
@@ -3581,6 +3583,7 @@ begin
                 & to_hstring(dmagic_src_addr(23 downto 8))
                 & ", dest=$" & to_hstring(dmagic_dest_addr(23 downto 8))
                 & ", count=$" & to_hstring(dmagic_count);
+              phi_add_backlog <= '1'; phi_new_backlog <= 1;
               if (support_f018b = '1') then
                 dmagic_src_addr(35 downto 28) <= reg_dmagic_src_mb + dmagic_src_bank_temp(6 downto 4);
                 dmagic_src_addr(27 downto 24) <= dmagic_src_bank_temp(3 downto 0);
@@ -3651,6 +3654,7 @@ begin
               -- 0)
 
               -- Do memory write
+              phi_add_backlog <= '1'; phi_new_backlog <= 1;
               memory_access_write := '1';
               memory_access_wdata := dmagic_src_addr(15 downto 8);
               memory_access_resolve_address := '0';
@@ -3700,6 +3704,7 @@ begin
               -- so we need to read the first byte now.
 
               -- Do memory read
+              phi_add_backlog <= '1'; phi_new_backlog <= 1;
               memory_access_read := '1';
               memory_access_resolve_address := '0';
               memory_access_address := dmagic_src_addr(35 downto 8);
@@ -3735,6 +3740,8 @@ begin
 
               state <= DMAgicCopyRead;
 
+              phi_add_backlog <= '1'; phi_new_backlog <= 1;
+              
               if dmagic_first_read = '0' then
                 -- Do memory write
                 memory_access_write := '1';
@@ -5475,6 +5482,8 @@ begin
             dma_pending <= '1';
             state <= DMAgicTrigger;
 
+            phi_add_backlog <= '1'; phi_new_backlog <= 1;
+            
             -- Don't increment PC if we were otherwise going to shortcut to
             -- InstructionDecode next cycle
             report "Setting PC to self (DMAgic entry)";
