@@ -288,6 +288,8 @@ begin  -- behavioural
           for j in 0 to 7 loop
             portb_value(j) := portb_value(j) and (matrix((i*8)+j) or matrix_mode_in);
           end loop;  -- j
+        else
+          portb_value := (others => '1');
         end if;        
       end loop;
       if keyboard_column8_select_in='0' then
@@ -302,19 +304,34 @@ begin  -- behavioural
         if portb_in(i)='0' then
           for j in 0 to 7 loop
             porta_value(j) := porta_value(j) and (matrix((j*8)+i) or matrix_mode_in);
+            report "updating porta_value(" & integer'image(j)
+              & ") = " & std_logic'image(porta_value(j))
+              & " & ("
+              & std_logic'image(matrix((j*8)+i))
+              & " | "
+              & std_logic'image(matrix_mode_in)
+              & ")";
           end loop;  -- j
+        else
+          -- keyboard not being scanned on this bit
+          porta_value := (others => '1');
+          report "porta_value = "
+            & to_string(porta_value) & " as not being keyboard scanned.";
         end if;        
       end loop;      
-
+      
       -- Update physical pins to reflect what the CIA is asking for
       for b in 0 to 7 loop
         if porta_ddr(b)='1' then
           -- Pin is output
+          report "porta copying porta_in(" & integer'image(b) & ") due to ddr=1. Copied value = " & std_logic'image(porta_in(b));
           porta_pins(b) <= porta_in(b);
         else
           -- Pin is input, i.e., tri-stated
-          porta_pins(b) <= 'Z';
+          report "porta tristating porta_in(" & integer'image(b) & ") due to ddr=0.";
+          porta_pins(b) <= '1'; -- Tri-state emulated by having line high
         end if;
+        report "porta_pins = " & to_string(porta_pins);
         if portb_ddr(b)='1' then
           -- Pin is output
           portb_pins(b) <= portb_in(b);
@@ -332,8 +349,13 @@ begin  -- behavioural
         if (porta_ddr(b) = '0') and (porta_pins(b) = '0') then
           -- CIA should read bit as low
           porta_out(b) <= '0';
+          report "porta_out(" & integer'image(b) & ") = 0, due to ddr=0 and drive=0";
         else
           porta_out(b) <= porta_value(b) and joya(b);
+          report "porta_out(" & integer'image(b) & ") = " &
+            std_logic'image(porta_value(b)) & " & "
+            & std_logic'image(joya(b))
+            & ", due to ddr=0 and drive=0";
         end if;
         if (portb_ddr(b) = '0') and (portb_pins(b) = '0') then
           -- CIA should read bit as low
@@ -342,8 +364,8 @@ begin  -- behavioural
           portb_out(b) <= portb_value(b) and joyb(b);
         end if;
       end loop;
-      
     end if;
+
   end process keyread;
 
 end behavioural;

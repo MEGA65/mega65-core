@@ -155,6 +155,9 @@ begin  -- behavioural
           ) is
     variable register_number : unsigned(7 downto 0);
   begin
+    if has_iec='0' then
+      report "portain = " & to_string(portain);
+    end if;
     if cs='0' then
       -- Tri-state read lines if not selected
       fastio_rdata <= (others => 'Z');
@@ -255,6 +258,7 @@ begin  -- behavioural
   begin
     if rising_edge(cpuclock) then
 
+      
       if reset='0' then
         -- Clear interrupt flags on reset
         imask_flag <= '0';
