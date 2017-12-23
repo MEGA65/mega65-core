@@ -313,6 +313,8 @@ notninekey:
 	; Allow CPU to go slow again
 	lda #$40
 	sta $00
+	; and return to VIC-II mode
+	sta $d02f
 
 	; Exit nicely to basic.
 	ldz #$00
