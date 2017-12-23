@@ -39,6 +39,7 @@ entity gs4510 is
     cpufrequency : integer := 50 );
   port (
     Clock : in std_logic;
+    phi0 : out std_logic;
     ioclock : in std_logic;
     reset : in std_logic;
     reset_out : out std_logic;
@@ -211,6 +212,7 @@ component shadowram is
 end component;
 
   signal cpuspeed_internal : unsigned(7 downto 0) := (others => '0');
+  signal cpuspeed_external : unsigned(7 downto 0) := (others => '0');
 
   signal reset_drive : std_logic := '0';
   signal cartridge_enable : std_logic := '0';
@@ -296,12 +298,14 @@ end component;
     to_unsigned(pal2mhz_times_65536 / cpufrequency,17);
   constant phi_fraction_04pal : unsigned(16 downto 0) :=
     to_unsigned(pal3point5mhz_times_65536 / cpufrequency,17);
+  signal phi_export_counter : unsigned(16 downto 0) := (others => '0');
   signal phi_counter : unsigned(16 downto 0) := (others => '0');
   signal phi_pause : std_logic := '0';
   signal phi_backlog : integer range 0 to 127 := 0;
   signal phi_add_backlog : std_logic := '0';
   signal phi_new_backlog : integer range 0 to 15 := 0;
   signal last_phi16 : std_logic := '0';
+  signal phi0_export : std_logic := '0';
 
   -- IO has one waitstate for reading, 0 for writing
   -- (Reading incurrs an extra waitstate due to read_data_copy)
@@ -2586,6 +2590,9 @@ begin
     variable cpu_speed : std_logic_vector(2 downto 0);
     
   begin
+
+    -- Export phi0 for the rest of the machine (scales with CPU speed)
+    phi0 <= phi0_export;
     
     -- Begin calculating results for operations immediately to help timing.
     -- The trade-off is consuming a bit of extra silicon.
@@ -2639,6 +2646,18 @@ begin
         gated_exrom <= '1';
         gated_game <= '1';
       end if;
+
+      -- Count slow clock ticks for CIAs and other peripherals (never goes >3.5MHz)
+      case cpuspeed_external is
+        when x"01" =>          
+          phi_export_counter <= phi_export_counter + phi_fraction_01pal;
+        when x"02" =>          
+          phi_export_counter <= phi_export_counter + phi_fraction_02pal;
+        when others =>
+          phi_export_counter <= phi_export_counter + phi_fraction_04pal;
+      end case;
+      phi0_export <= phi_export_counter(16);
+      
       
       -- Count slow clock ticks for applying instruction-level 6502/4510 timing
       -- accuracy at 1MHz and 3.5MHz
@@ -3106,7 +3125,19 @@ begin
         -- Test goes here so that it doesn't break the monitor interface.
         -- But the hypervisor always runs at full speed.
         fast_fetch_state <= InstructionDecode;
-              cpu_speed := vicii_2mhz&viciii_fast&viciv_fast;
+        cpu_speed := vicii_2mhz&viciii_fast&viciv_fast;
+        case cpu_speed is
+          when "100" => -- 1mhz
+            cpuspeed_external <= x"01";
+          when "101" =>
+            cpuspeed_external <= x"01";
+          when "000" =>
+            cpuspeed_external <= x"02";
+          when "001" =>
+            cpuspeed_external <= x"02";
+          when others =>
+            cpuspeed_external <= x"04";
+        end case;
         if hypervisor_mode='0' and ((speed_gate_drive='1') and (force_fast='0')) then
           case cpu_speed is
             when "100" => -- 1mhz
@@ -3121,21 +3152,18 @@ begin
             when "111" => -- full speed
               cpuspeed <= x"50";
               cpuspeed_internal <= x"50";
-              null;
             when "000" => -- 2mhz
               cpuspeed <= x"02";
               cpuspeed_internal <= x"02";
             when "001" => -- full speed
               cpuspeed <= x"50";
               cpuspeed_internal <= x"50";
-              null;
             when "010" => -- 3.5mhz
               cpuspeed <= x"04";
               cpuspeed_internal <= x"04";
             when "011" => -- full speed
               cpuspeed <= x"50";
               cpuspeed_internal <= x"50";
-              null;
             when others =>
               null;
           end case;

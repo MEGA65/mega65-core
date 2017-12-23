@@ -328,9 +328,6 @@ architecture Behavioral of machine is
   signal segled_counter : unsigned(19 downto 0) := (others => '0');
 
   signal phi0 : std_logic := '0';
-  signal phi0_frequency_pal : integer := 985248;
-  signal phi0_frequency_ntsc : integer := 1022727;
-  signal phi0_counter : integer := 0;
 
   signal pixel_stream : unsigned (7 downto 0);
   signal pixel_y : unsigned (11 downto 0);
@@ -570,14 +567,7 @@ begin
     end if;
     if rising_edge(pixelclock) then
       
-      -- Work out phi0 frequency for CIA timers
-      -- XXX Doesn't switch between PAL and NTSL
-      if phi0_counter < (pixel_clock_frequency_hz/2) then
-        phi0_counter <= phi0_counter + phi0_frequency_pal;
-      else
-        phi0_counter <= phi0_counter + phi0_frequency_pal - (pixel_clock_frequency_hz/2);
-        phi0 <= not phi0;
-      end if;
+      null;
       
     end if;
   end process;
@@ -586,6 +576,7 @@ begin
     generic map(
       cpufrequency => cpufrequency)
     port map(
+      phi0 => phi0,
       all_pause => all_pause,
       matrix_trap_in=>matrix_trap,
       protected_hardware => protected_hardware_sig,
