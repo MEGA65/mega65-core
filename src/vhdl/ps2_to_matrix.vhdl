@@ -84,6 +84,9 @@ begin  -- behavioural
   begin  -- process keyread
     if rising_edge(ioclock) then      
 
+      joya <= joy1;
+      joyb <= joy2;
+      
       capslock_out <= ps2_capslock;
 
       matrix <= matrix_internal;
