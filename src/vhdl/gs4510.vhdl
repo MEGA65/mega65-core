@@ -4665,20 +4665,18 @@ begin
                       -- Take an extra cycle when taking a branch.  This avoids
                       -- poor timing due to memory-to-memory activity in a
                       -- single cycle.
-                      -- XXX consider using the disabled faster (fewer cycles) option
-                      -- below, if the timing will tolerate it.  But disabled
-                      -- for now, since it increases synthesis time.
-                      state <= normal_fetch_state;
 
-                      -- memory_access_read := '1';
-                      -- memory_access_address := x"000"&temp_addr;
-                      -- memory_access_resolve_address := '1';
-                      -- -- Read next instruction now to save a cycle, i.e.,
-                      -- -- 8-bit branches will take 2 cycles, whether taken or not.
-                      -- state <= fast_fetch_state;
-                      -- if fast_fetch_state = InstructionDecode then
-                      --  reg_pc <= temp_addr + 1;
-                      -- end if;
+                      -- XXX Except that he above simulates fine, but on real FPGAs
+                      -- it somehow ends up with PC=PC+2 if an interrupt happens
+                      -- immediately after the branch. So we will try adding a
+                      -- cycle delay in that case
+
+                      -- XXX we can charge this extra cycle only when an
+                      -- interrupt might happen, once we know if it solves
+                      -- the bug.
+                      state <= BranchPCSettle;
+                      -- state <= normal_fetch_state;
+
                     else
                       report "NOT Taking 8-bit branch" severity note;
                       -- Branch will not be taken.
