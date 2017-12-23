@@ -381,8 +381,8 @@ architecture Behavioral of viciv is
   signal paint_ramdata : unsigned(7 downto 0);
 
   signal horizontal_filter : std_logic := '1';
-  signal pal_simulate : std_logic := '1';
-  signal shadow_mask_enable : std_logic := '1';
+  signal pal_simulate : std_logic := '0';
+  signal shadow_mask_enable : std_logic := '0';
   
   signal debug_x : unsigned(13 downto 0) := "11111111111110";
   signal debug_y : unsigned(11 downto 0) := "111111111110";
@@ -564,6 +564,7 @@ architecture Behavioral of viciv is
   signal sprite_fetch_byte_number_drive : integer range 0 to 319;
   signal sprite_pointer_address : unsigned(16 downto 0);
   signal sprite_data_address : unsigned(16 downto 0);
+  signal sprite_h640_msbs : std_logic_vector(7 downto 0);
 
   -- Compatibility registers
   signal twentyfourlines : std_logic := '0';
@@ -744,8 +745,6 @@ architecture Behavioral of viciv is
   signal reg_v400 : std_logic := '0';
   -- XXX No way to set this at the moment
   signal sprite_h640 : std_logic := '0';
-  -- XXX No way to set this, nor is it currently used at the moment
-  signal sprite_v400 : std_logic := '0';
   
   type rgb is
   record
@@ -1014,6 +1013,7 @@ begin
     port map (pixelclock => pixelclock,
               ioclock => ioclock,
 
+              sprite_h640 => sprite_h640,
               bitplane_h640 => reg_h640,
               bitplane_h1280 => reg_h1280,
               bitplane_mode_in => bitplane_mode,
@@ -1046,7 +1046,7 @@ begin
               -- VIC-II sprites care only about VIC-II coordinates
               -- XXX 40 and 80 column displays should have the same aspect
               -- ratio for this to really work.
-              x_in => to_xposition(vicii_xcounter_320),
+              x320_in => to_xposition(vicii_xcounter_320),
               x640_in => to_xposition(vicii_xcounter_640),
               -- x1280 mode is deprecated
               x1280_in => to_xposition(vicii_xcounter_640),
@@ -1573,7 +1573,7 @@ begin
           fastio_rdata(7) <= compositer_enable;
           fastio_rdata(6) <= viciv_fast_internal;
           fastio_rdata(5) <= pal_simulate;
-          fastio_rdata(4) <= shadow_mask_enable;
+          fastio_rdata(4) <= sprite_h640;
           fastio_rdata(3) <= horizontal_filter;
           fastio_rdata(2) <= fullcolour_extendedchars;
           fastio_rdata(1) <= fullcolour_8bitchars;
@@ -2176,8 +2176,8 @@ begin
           viciv_fast_internal <= fastio_wdata(6);
           -- @IO:GS $D054.3 VIC-IV video output pal simulation
           pal_simulate <= fastio_wdata(5);
-          -- @IO:GS $D054.4 VIC-IV video output pal simulation shadow mask enable
-          shadow_mask_enable <= fastio_wdata(4);
+          -- @IO:GS $D054.4 VIC-IV Sprite H640 enable;
+          sprite_h640 <= fastio_wdata(4);
           -- @IO:GS $D054.3 VIC-IV video output horizontal smoothing enable
           horizontal_filter <= fastio_wdata(3);
           -- @IO:GS $D054.2 VIC-IV enable full-colour mode for character numbers >$FF
@@ -2217,7 +2217,8 @@ begin
           -- @IO:GS $D05E VIC-IV Physical pixels per H640 VIC-III pixel (should = 120/PEEK($D05A).
           chargen_x_pixels <= to_integer(unsigned(fastio_wdata));
         elsif register_number=95 then
-          -- @IO:GS $D05F VIC-IV RESERVED
+          -- @IO:GS $D05F VIC-IV Sprite H640 X Super-MSBs
+          sprite_h640_msbs <= fastio_wdata;
         elsif register_number=96 then
           -- @IO:GS $D060 VIC-IV screen RAM precise base address (bits 0 - 7)
           screen_ram_base(7 downto 0) <= unsigned(fastio_wdata);

@@ -43,8 +43,8 @@ C64 $D019.1 VIC-II sprite:bitmap collision indicate or acknowledge
 C64 $D019.2 VIC-II sprite:sprite collision indicate or acknowledge
 C64 $D019 VIC-II IRQ control
 C64 $D01A.2 VIC-II mask raster IRQ
-C64 $D01A.2 VIC-II mask sprite:bitmap colission IRQ
-C64 $D01A.2 VIC-II mask sprite:sprite colission IRQ
+C64 $D01A.2 VIC-II mask sprite:bitmap collision IRQ
+C64 $D01A.2 VIC-II mask sprite:sprite collision IRQ
 C64 $D01A compatibility IRQ mask bits
 C64 $D01B VIC-II sprite background priority bits
 C64 $D01C VIC-II sprite multicolour enable bits
@@ -115,14 +115,10 @@ C65 $D03A - Bitplane 7 address
 C65 $D03B - Set bits to NOT bitplane contents
 C65 $D03C - Bitplane X
 C65 $D03D - Bitplane Y
-GS $D040 DEPRECATED - VIC-IV characters per logical text row (LSB)
-GS $D041 DEPRECATED - VIC-IV characters per logical text row (MSB)
-GS $D042 DEPRECATED - VIC-IV horizontal hardware scale setting
-GS $D043 DEPRECATED - VIC-IV vertical hardware scale setting
-GS $D044 DEPRECATED - VIC-IV left border position (LSB)
-GS $D045 DEPRECATED - VIC-IV left border position (MSB)
-GS $D046 DEPRECATED - VIC-IV right border position (LSB)
-GS $D047 DEPRECATED - VIC-IV right border position (MSB)
+C65 $D03E - Bitplane X Offset
+C65 $D03E - Horizontal position (screen verniers?)
+C65 $D03F - Bitplane Y Offset
+C65 $D03F - Vertical position (screen verniers?)
 GS $D048 VIC-IV top border position (LSB)
 GS $D049.3-0 VIC-IV top border position (MSB)
 GS $D049.7-4 VIC-IV sprite 3-0 bitplane-modify-mode enables
@@ -144,7 +140,7 @@ GS $D054.1 VIC-IV enable full-colour mode for character numbers <=$FF
 GS $D054.2 VIC-IV enable full-colour mode for character numbers >$FF
 GS $D054.3 VIC-IV video output horizontal smoothing enable
 GS $D054.3 VIC-IV video output pal simulation
-GS $D054.4 VIC-IV video output pal simulation shadow mask enable
+GS $D054.4 VIC-IV Sprite H640 enable;
 GS $D054.6 VIC-IV/C65GS FAST mode (48MHz)
 GS $D054.7 VIC-IV/C65GS Alpha compositor enable
 GS $D054 VIC-IV Control register C
@@ -155,10 +151,10 @@ GS $D058 VIC-IV characters per logical text row (LSB)
 GS $D059 VIC-IV characters per logical text row (MSB)
 GS $D05A VIC-IV horizontal hardware scale setting (pixel 120ths)
 GS $D05B VIC-IV vertical hardware scale setting
-GS $D05C VIC-IV left border position (LSB)
-GS $D05D VIC-IV left border position (MSB)
-GS $D05E VIC-IV right border position (LSB)
-GS $D05F VIC-IV right border position (MSB)
+GS $D05C VIC-IV side border width (LSB)
+GS $D05D VIC-IV side border width (MSB)
+GS $D05E VIC-IV Physical pixels per H640 VIC-III pixel (should = 120/PEEK($D05A).
+GS $D05F VIC-IV Sprite H640 X Super-MSBs
 GS $D060 VIC-IV screen RAM precise base address (bits 0 - 7)
 GS $D061 VIC-IV screen RAM precise base address (bits 15 - 8)
 GS $D062 VIC-IV screen RAM precise base address (bits 23 - 16)
@@ -346,6 +342,7 @@ GS $D67E - Hypervisor already-upgraded bit (sets permanently)
 GS $D67F - Trigger trap to hypervisor
 GS $D680 - SD controller status/command
 GS $D681-$D684 - SD controller SD sector address
+GS $D685 - DEBUG Show current state ID of SD card interface
 GS $D68A - DEBUG check signals that can inhibit sector buffer mapping
 GS $D68B.0 - F011 disk 1 disk image enable
 GS $D68B.1 - F011 disk 1 present
@@ -423,10 +420,8 @@ C64 $DE0E Set RR-NET TX packet size
 C64 $DE0F Set RR-NET TX packet size
 GS $FF7Exxx VIC-IV CHARROM write area
 GS $FF8xxxx - Colour RAM (32KB or 64KB)
-GS $FFBF000 - $FFBFFFF - DEBUG allow writing directly to the bitplane data buffer.  Will be removed in production.
 GS $FFDE800 - $FFDEFFF Ethernet RX buffer (read only)
 GS $FFDE800 - $FFDEFFF Ethernet TX buffer (write only)
-GS $FFF0000-$FFF0FFF - CPU far call stack (512x8 byte entries)
 GS $FFF8000-$FFF80FC Hypervisor entry point when $D640-$D67F is written
 GS $FFF8000-$FFFBFFF 16KB Kickstart/hypervisor ROM
 GS $FFF8100 Hypervisor entry point on reset (trap $40)

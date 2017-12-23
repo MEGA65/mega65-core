@@ -34,6 +34,8 @@ entity sprite is
 
     signal sprite_number : in spritenumber;
 
+    signal sprite_h640 : in std_logic;
+    
     signal sprite_horizontal_tile_enable : in std_logic;
     signal sprite_bitplane_enable : in std_logic;
     signal sprite_extended_height_enable : in std_logic;
@@ -64,7 +66,8 @@ entity sprite is
     signal is_foreground_in : in std_logic;
     signal is_background_in : in std_logic;
     -- and what is the colour of the bitmap pixel?
-    signal x_in : in xposition;
+    signal x320_in : in xposition;
+    signal x640_in : in xposition;
     signal y_in : in yposition;
     signal border_in : in std_logic;
     signal pixel_in : in unsigned(7 downto 0);
@@ -78,7 +81,8 @@ entity sprite is
     -- Pass pixel information back out, as well as the sprite colour information
     signal is_foreground_out : out std_logic;
     signal is_background_out : out std_logic;
-    signal x_out : out xposition;
+    signal x320_out : out xposition;
+    signal x640_out : out xposition;
     signal y_out : out yposition;
     signal border_out : out std_logic;
     signal pixel_out : out unsigned(7 downto 0);
@@ -89,7 +93,7 @@ entity sprite is
     signal sprite_fg_map_out : out std_logic_vector(7 downto 0);
     
     signal sprite_enable : in std_logic;
-    signal sprite_x : in unsigned(8 downto 0);
+    signal sprite_x : in unsigned(9 downto 0);
     signal sprite_y : in unsigned(7 downto 0);
     signal sprite_colour : in unsigned(7 downto 0);
     signal sprite_multi0_colour : in unsigned(7 downto 0);
@@ -122,6 +126,8 @@ architecture behavioural of sprite is
   signal sprite_pixel_bits : std_logic_vector(127 downto 0) := (others => '1');
   signal sprite_data_64bits : unsigned(63 downto 0);
   signal check_colissions : std_logic := '0';
+
+  signal x_in : xposition;
   
 begin  -- behavioural
   
@@ -132,6 +138,11 @@ begin  -- behavioural
   main: process (pixelclock)
     variable sprite_number_mod_4 : integer range 0 to 7 := (sprite_number mod 4) * 2;
   begin  -- process main
+    if sprite_h640='1' then
+      x_in <= x640_in;
+    else
+      x_in <= x320_in;
+    end if;
     if pixelclock'event and pixelclock = '1' then  -- rising clock edge
 --      report "SPRITE: entering VIC-II sprite #" & integer'image(sprite_number);
       -- copy sprite data chain from input side to output side      
@@ -194,7 +205,8 @@ begin  -- behavioural
 
       -- copy pixel data chain from input side to output side
       alpha_out <= alpha_in;
-      x_out <= x_in;
+      x320_out <= x320_in;
+      x640_out <= x640_in;
       y_out <= y_in;
       border_out <= border_in;
       is_foreground_out <= is_foreground_in;
