@@ -3293,6 +3293,7 @@ begin
             when Interrupt =>
               -- BRK or IRQ
               -- Push P and PC
+              pc_inc := '0';
               if nmi_pending='1' then
                 vector <= x"a";
                 nmi_pending <= '0';
@@ -3312,6 +3313,7 @@ begin
               memory_access_wdata := reg_pc(15 downto 8);
               state <= InterruptPushPCL;
             when InterruptPushPCL =>
+              pc_inc := '0';
               stack_push := '1';
               memory_access_wdata := reg_pc(7 downto 0);
               state <= InterruptPushP;    
@@ -3784,6 +3786,7 @@ begin
               if (hypervisor_mode='0')
                 and ((irq_pending='1' and flag_i='0') or nmi_pending='1') then
                 -- An interrupt has occurred
+                pc_inc := '0';
                 state <= Interrupt;
                 -- Make sure reg_instruction /= I_BRK, so that B flag is not
                 -- erroneously set.
@@ -3836,6 +3839,7 @@ begin
                 report "Interrupt detected, decrementing PC";
                 state <= Interrupt;
                 reg_pc <= reg_pc - 1;
+                pc_inc := '0';
               else
                 reg_opcode <= memory_read_value;
                 -- Present instruction to serial monitor;
@@ -4064,6 +4068,7 @@ begin
                 report "Interrupt detected in 6502 mode, decrementing PC";
                 state <= Interrupt;
                 reg_pc <= reg_pc - 1;
+                pc_inc := '0';
               else
                 reg_opcode <= memory_read_value;
                 -- Present instruction to serial monitor;
