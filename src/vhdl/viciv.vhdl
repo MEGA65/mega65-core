@@ -219,7 +219,7 @@ architecture Behavioral of viciv is
   -- Each logical pixel will be 120/n physical pixels wide
   -- It must be an integer for everything to work properly.
   signal chargen_x_pixels : integer := 2;
-  signal sprite_first_x : unsigned(13 downto 0) := to_unsigned(200-(24-1)*(120/24),14);
+  signal sprite_first_x : unsigned(13 downto 0) := to_unsigned(200-(24-3)*(120/24),14);
   signal sprite_x_counting : std_logic := '0';
   signal chargen_x_scale : unsigned(7 downto 0) := to_unsigned(48,8); 
   signal sprite_x_scale_320 : unsigned(7 downto 0) := to_unsigned(48/2,8);  
@@ -2290,7 +2290,7 @@ begin
 
               chargen_x_pixels <= 3;
               single_side_border <= to_unsigned(267,14);
-              sprite_first_x <= to_unsigned(267-(24+2)*(120/18),14);
+              sprite_first_x <= to_unsigned(267-(24)*(120/18),14);
               chargen_x_scale <= to_unsigned(36,8);
               sprite_x_scale_320 <= to_unsigned(18,8);
               sprite_x_scale_640 <= to_unsigned(36,8);
@@ -2310,7 +2310,7 @@ begin
               vsync_polarity <= '0';
 
               chargen_x_pixels <= 3;
-              sprite_first_x <= to_unsigned(267-(24+2)*(120/18),14);
+              sprite_first_x <= to_unsigned(267-(24)*(120/18),14);
               chargen_x_scale <= to_unsigned(36,8);
               sprite_x_scale_320 <= to_unsigned(18,8);
               sprite_x_scale_640 <= to_unsigned(36,8);
@@ -2331,7 +2331,7 @@ begin
               vsync_polarity <= '0';
 
               chargen_x_pixels <= 2;
-              sprite_first_x <= to_unsigned(200-(24-1)*(120/24),14);
+              sprite_first_x <= to_unsigned(200-(24-3)*(120/24),14);
               chargen_x_scale <= to_unsigned(48,8);
               sprite_x_scale_320 <= to_unsigned(24,8);
               sprite_x_scale_640 <= to_unsigned(48,8);
@@ -2353,7 +2353,7 @@ begin
               vsync_polarity <= '0';
 
               chargen_x_pixels <= 2;
-              sprite_first_x <= to_unsigned(200-(24-1)*(120/24),14);
+              sprite_first_x <= to_unsigned(200-(24-3)*(120/24),14);
               chargen_x_scale <= to_unsigned(48,8);
               sprite_x_scale_320 <= to_unsigned(24,8);
               sprite_x_scale_640 <= to_unsigned(48,8);
