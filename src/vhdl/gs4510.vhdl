@@ -3297,7 +3297,7 @@ begin
               if nmi_pending='1' then
                 vector <= x"a";
                 nmi_pending <= '0';
-              else
+              else      
                 vector <= x"e";
               end if;
               flag_i <= '1';
@@ -3840,6 +3840,9 @@ begin
                 state <= Interrupt;
                 reg_pc <= reg_pc - 1;
                 pc_inc := '0';
+                -- Make sure reg_instruction /= I_BRK, so that B flag is not
+                -- erroneously set.
+                reg_instruction <= I_SEI;
               else
                 reg_opcode <= memory_read_value;
                 -- Present instruction to serial monitor;
@@ -4069,6 +4072,9 @@ begin
                 state <= Interrupt;
                 reg_pc <= reg_pc - 1;
                 pc_inc := '0';
+                -- Make sure reg_instruction /= I_BRK, so that B flag is not
+                -- erroneously set.
+                reg_instruction <= I_SEI;
               else
                 reg_opcode <= memory_read_value;
                 -- Present instruction to serial monitor;
@@ -4665,10 +4671,6 @@ begin
                       -- Take an extra cycle when taking a branch.  This avoids
                       -- poor timing due to memory-to-memory activity in a
                       -- single cycle.
-
-                      -- XXX Except that he above simulates fine, but on real FPGAs
-                      -- it somehow ends up with PC=PC+2 if an interrupt happens
-                      -- immediately after the branch. 
 
                       state <= normal_fetch_state;
 
