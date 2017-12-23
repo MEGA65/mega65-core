@@ -4668,14 +4668,9 @@ begin
 
                       -- XXX Except that he above simulates fine, but on real FPGAs
                       -- it somehow ends up with PC=PC+2 if an interrupt happens
-                      -- immediately after the branch. So we will try adding a
-                      -- cycle delay in that case
+                      -- immediately after the branch. 
 
-                      -- XXX we can charge this extra cycle only when an
-                      -- interrupt might happen, once we know if it solves
-                      -- the bug.
-                      state <= InstructionWait;
-                      -- state <= normal_fetch_state;
+                      state <= normal_fetch_state;
 
                     else
                       report "NOT Taking 8-bit branch" severity note;
