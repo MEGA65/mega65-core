@@ -1459,7 +1459,7 @@ resetdisplay:
 
 		; Enable alpha blending and horizontal blending to smooth display
 		; slightly
-		lda #$38  ; XXX alpha blending has problems still
+		lda #$28  ; XXX alpha blending has problems still
 		sta $D054	;VIC-IV Control Register C
 
 		; We use VIC-II style registers as this resets video frame in
@@ -1991,7 +1991,7 @@ g61:		sta $0800,x
 
 		; reset video mode to normal (but with PAL + compositing enabled)
 		; and return CPU to slow speed for exit
-		lda #$38    ; XXX no compositing for now, as it still has problems
+		lda #$28    ; XXX no compositing for now, as it still has problems
 		sta $d054
 
 		lda #<40
