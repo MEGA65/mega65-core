@@ -743,7 +743,6 @@ architecture Behavioral of viciv is
   signal reg_h640 : std_logic := '0';
   signal reg_h1280 : std_logic := '0';
   signal reg_v400 : std_logic := '0';
-  -- XXX No way to set this at the moment
   signal sprite_h640 : std_logic := '0';
   
   type rgb is
