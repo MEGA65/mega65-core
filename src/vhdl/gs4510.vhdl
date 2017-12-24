@@ -1612,7 +1612,21 @@ begin
           temp_address(27 downto 12) := x"0038";
         end if;
       end if;
-            
+
+      -- C65 DAT
+      if temp_address(27 downto 4) & "000" = x"FFD1040"
+        or temp_address(27 downto 4) & "000" = x"FFD3040" then
+        temp_address(27 downto 17) := (others => '0');
+        temp_address(16) := temp_address(0); -- odd/even bitplane bank select
+        -- Bit plane address
+        -- XXX only uses the address from upper nybl -- doesn't pick based on
+        -- odd/even line/frame.
+        temp_address(15 downto 13) :=
+          dat_bitplane_addresses(to_integer(temp_address(2 downto 0)))(7 downto 5);
+        -- Bitplane offset
+        temp_address(12 downto 0) := dat_offset(12 downto 0);
+      end if;
+      
       return temp_address;
     end resolve_address_to_long;
 
