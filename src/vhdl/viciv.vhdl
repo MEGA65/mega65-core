@@ -86,6 +86,9 @@ entity viciv is
     viciv_fast : out std_logic;     
 
     xray_mode : in std_logic;
+
+    dat_offset : out unsigned(15 downto 0);
+    dat_bitplane_addresses : out sprite_vector_8;
     
     ----------------------------------------------------------------------
     -- VGA output
@@ -476,7 +479,6 @@ architecture Behavioral of viciv is
   -- XXX move reading of sprite registers to vicii_sprites module
   signal sprite_multi0_colour : unsigned(7 downto 0) := x"04";
   signal sprite_multi1_colour : unsigned(7 downto 0) := x"05";
-  type sprite_vector_8 is array(0 to 7) of unsigned(7 downto 0);
   signal sprite_x : sprite_vector_8;
   signal sprite_y : sprite_vector_8;
   signal sprite_colours : sprite_vector_8;
@@ -1308,7 +1310,10 @@ begin
         + ("0000" & dat_y(7 downto 3) & "0000000")
         + ("0000000000000" & dat_y(2 downto 0))
         + ("00000" & dat_x & "000");
-    end if;        
+    end if;
+    -- Export this and bitplane addresses to the CPU
+    dat_offset <= dat_bitplane_offset;
+    dat_bitplane_addresses <= bitplane_addresses;
     
     if true then
       -- Calculate register number asynchronously

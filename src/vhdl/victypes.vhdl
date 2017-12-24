@@ -5,6 +5,8 @@ use ieee.numeric_std.all;
 
 package victypes is
 
+  type sprite_vector_8 is array(0 to 7) of unsigned(7 downto 0);
+  
   subtype spritebytenumber is integer range 0 to 319;
   subtype spritenumber is integer range 0 to 15;
   subtype spritedatabytenumber is integer range 0 to 65535;

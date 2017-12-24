@@ -121,6 +121,8 @@ end vicii_sprites;
 
 architecture behavioural of vicii_sprites is
 
+  type sprite_vector_8 is array(0 to 7) of unsigned(7 downto 0);
+
   signal viciii_iomode : std_logic_vector(1 downto 0) := "11";
   signal reg_key : unsigned(7 downto 0) := x"00";
   

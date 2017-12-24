@@ -33,6 +33,7 @@ use ieee.numeric_std.all;
 use Std.TextIO.all;
 use work.debugtools.all;
 use work.cputypes.all;
+use work.victypes.all;
 
 entity gs4510 is
   generic(
