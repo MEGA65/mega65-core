@@ -234,7 +234,12 @@ begin  -- behavioural
                            -- DELETE, RETURN, RIGHT, F7, F1, F3, F5, down
                            when x"066" => matrix_internal(0) <= break;
                            when x"05A" => matrix_internal(1) <= break;
-                           when x"174" => cursor_right <= break; ps2 <= '1';
+                           when x"174" =>
+                             if joylock='0' then
+                               cursor_right <= break; ps2 <= '1';
+                             else
+                               joy2(1) <= break;
+                             end if;
                            when x"083" => matrix_internal(3) <= break;
                            when x"005" => matrix_internal(4) <= break;
                            when x"004" => matrix_internal(5) <= break;
