@@ -161,8 +161,8 @@ GS $D062 VIC-IV screen RAM precise base address (bits 23 - 16)
 GS $D063 VIC-IV screen RAM precise base address (bits 31 - 24)
 GS $D064 VIC-IV colour RAM base address (bits 0 - 7)
 GS $D065 VIC-IV colour RAM base address (bits 15 - 8)
-GS $D066 VIC-IV bitplanes horizontal start (in VIC-II pixels)
-GS $D067 VIC-IV bitplanes vertical start (in VIC-II pixels)
+GS $D066 VIC-IV RESERVED
+GS $D067 VIC-IV RESERVED
 GS $D068 VIC-IV character set precise base address (bits 0 - 7)
 GS $D069 VIC-IV character set precise base address (bits 15 - 8)
 GS $D06A VIC-IV character set precise base address (bits 23 - 16)
