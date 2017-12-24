@@ -1614,9 +1614,9 @@ begin
         elsif register_number=101 then
           fastio_rdata <= std_logic_vector(colour_ram_base(15 downto 8));
         elsif register_number=102 then -- $D3066
-          fastio_rdata <= std_logic_vector(bitplanes_x_start);
+          fastio_rdata <= (others => 'Z');
         elsif register_number=103 then  -- $D3067
-          fastio_rdata <= std_logic_vector(bitplanes_y_start);
+          fastio_rdata <= (others => 'Z');
         elsif register_number=104 then  -- $D068
           fastio_rdata <= std_logic_vector(character_set_address(7 downto 0));
         elsif register_number=105 then
@@ -2237,11 +2237,9 @@ begin
           -- @IO:GS $D065 VIC-IV colour RAM base address (bits 15 - 8)
           colour_ram_base(15 downto 8) <= unsigned(fastio_wdata);
         elsif register_number=102 then -- $D3066
-          -- @IO:GS $D066 VIC-IV bitplanes horizontal start (in VIC-II pixels)
-          bitplanes_x_start <= unsigned(fastio_wdata);
+          -- @IO:GS $D066 VIC-IV RESERVED
         elsif register_number=103 then  -- $D3067
-          -- @IO:GS $D067 VIC-IV bitplanes vertical start (in VIC-II pixels)
-          bitplanes_y_start <= unsigned(fastio_wdata);
+          -- @IO:GS $D067 VIC-IV RESERVED
           screen_ram_base(27 downto 24) <= unsigned(fastio_wdata(3 downto 0));
         elsif register_number=104 then
           -- @IO:GS $D068 VIC-IV character set precise base address (bits 0 - 7)
