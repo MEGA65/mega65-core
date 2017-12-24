@@ -349,17 +349,17 @@ begin  -- behavioural
           porta_out(b) <= '0';
           report "porta_out(" & integer'image(b) & ") = 0, due to ddr=0 and drive=0";
         else
-          porta_out(b) <= porta_value(b) and joya(b);
+          porta_out(b) <= porta_value(b) and joyb(b);
           report "porta_out(" & integer'image(b) & ") = " &
             std_logic'image(porta_value(b)) & " & "
-            & std_logic'image(joya(b))
+            & std_logic'image(joyb(b))
             & ", due to ddr=0 and drive=0";
         end if;
         if (portb_ddr(b) = '0') and (portb_pins(b) = '0') then
           -- CIA should read bit as low
           portb_out(b) <= '0';
         else
-          portb_out(b) <= portb_value(b) and joyb(b);
+          portb_out(b) <= portb_value(b) and joya(b);
         end if;
       end loop;
     end if;
