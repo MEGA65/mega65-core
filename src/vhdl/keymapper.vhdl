@@ -329,7 +329,7 @@ begin  -- behavioural
         else
           -- Pin is input, i.e., tri-stated
           report "porta tristating porta_in(" & integer'image(b) & ") due to ddr=0.";
-          porta_pins(b) <= '1'; -- Tri-state emulated by having line high
+          porta_pins(b) <= 'Z';
         end if;
         report "porta_pins = " & to_string(porta_pins);
         if portb_ddr(b)='1' then
