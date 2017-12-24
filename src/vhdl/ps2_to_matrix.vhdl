@@ -68,6 +68,7 @@ architecture behavioural of ps2_to_matrix is
   -- PS2 joystick keys
   signal joy1 : std_logic_vector(7 downto 0) := (others =>'1');
   signal joy2 : std_logic_vector(7 downto 0) := (others =>'1');
+  signal joylock : std_logic := '0';
 
   signal ps2_capslock : std_logic := '1';
   
@@ -75,7 +76,7 @@ architecture behavioural of ps2_to_matrix is
 
   signal eth_keycode_toggle_last : std_logic := '0';
   signal ethernet_keyevent : std_logic := '0';
-  
+
 begin  -- behavioural
 
 -- purpose: read from ps2 keyboard interface
@@ -238,18 +239,27 @@ begin  -- behavioural
                            when x"005" => matrix_internal(4) <= break;
                            when x"004" => matrix_internal(5) <= break;
                            when x"003" => matrix_internal(6) <= break;
-                           when x"072" => cursor_down <= break; ps2 <= '1';
-                                          joy2(1) <= break;  -- keyrah
-                                                             -- duplicate scan
-                                                             -- code for down
-                                                             -- key and joy2 right?
+                           when x"072" =>
+                             if joylock='0' then
+                               cursor_down <= break; ps2 <= '1';
+                             else
+                               joy2(1) <= break;  -- keyrah / PS2
+                                                  -- duplicate scan
+                                                  -- code for down
+                                                  -- key and joy2 right?
+                             end if;
                            when x"075" => -- JOY2 LEFT
-                             joy2(0) <= break;
-                             cursor_up <= break; ps2 <= '1';
+                             if joylock='1' then
+                               joy2(0) <= break;
+                             else
+                               cursor_up <= break; ps2 <= '1';
+                             end if;
                            when x"06B" => -- JOY2 UP
-                             joy2(2) <= break;
-                             cursor_left <= break; ps2 <= '1';
-
+                             if joylock='1' then
+                               joy2(2) <= break;
+                             else
+                               cursor_left <= break; ps2 <= '1';
+                             end if;
                            -- 3, W, A, 4, Z, S, E, left-SHIFT
                            when x"026" => matrix_internal(8) <= break;
                            when x"01D" => matrix_internal(9) <= break;
@@ -326,7 +336,12 @@ begin  -- behavioural
                            when x"00D" => matrix_internal(65) <= break; -- TAB
                            when x"011" => matrix_internal(66) <= break; -- ALT
                            when x"111" => matrix_internal(66) <= break; -- ALTGr
-                           when x"077" => matrix_internal(67) <= break; --HELP (Pause)
+                           when x"077" =>
+                             --HELP (Pause) and joylock (number lock key)
+                             matrix_internal(67) <= break;
+                             if break='1' then
+                               joylock <= not joylock;
+                             end if;
                            when x"001" => matrix_internal(68) <= break; -- F9/10
                            when x"078" => matrix_internal(69) <= break; -- F11/F12
                            when x"007" => matrix_internal(70) <= break; --F13/F14 (F12)

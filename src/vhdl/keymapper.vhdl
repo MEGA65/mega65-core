@@ -288,8 +288,6 @@ begin  -- behavioural
           for j in 0 to 7 loop
             portb_value(j) := portb_value(j) and (matrix((i*8)+j) or matrix_mode_in);
           end loop;  -- j
-        else
-          portb_value := (others => '1');
         end if;        
       end loop;
       if keyboard_column8_select_in='0' then
@@ -329,7 +327,7 @@ begin  -- behavioural
         else
           -- Pin is input, i.e., tri-stated
           report "porta tristating porta_in(" & integer'image(b) & ") due to ddr=0.";
-          porta_pins(b) <= 'Z';
+          porta_pins(b) <= '1'; -- was 'Z'
         end if;
         report "porta_pins = " & to_string(porta_pins);
         if portb_ddr(b)='1' then
