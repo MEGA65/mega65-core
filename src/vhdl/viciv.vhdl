@@ -1614,7 +1614,7 @@ begin
         elsif register_number=101 then
           fastio_rdata <= std_logic_vector(colour_ram_base(15 downto 8));
         elsif register_number=102 then -- $D3066
-          fastio_rdata <= (others => 'Z');
+          fastio_rdata <= std_logic_vector(sprite_x_scale_640);
         elsif register_number=103 then  -- $D3067
           fastio_rdata <= (others => 'Z');
         elsif register_number=104 then  -- $D068
@@ -2237,7 +2237,10 @@ begin
           -- @IO:GS $D065 VIC-IV colour RAM base address (bits 15 - 8)
           colour_ram_base(15 downto 8) <= unsigned(fastio_wdata);
         elsif register_number=102 then -- $D3066
-          -- @IO:GS $D066 VIC-IV RESERVED
+          -- @IO:GS $D066 VIC-IV Sprite/bitplane horizontal scaling
+          sprite_x_scale_640 <= unsigned(fastio_wdata);
+          sprite_x_scale_320(7) <= '0';
+          sprite_x_scale_320(6 downto 0) <= unsigned(fastio_wdata(7 downto 1));
         elsif register_number=103 then  -- $D3067
           -- @IO:GS $D067 VIC-IV RESERVED
           screen_ram_base(27 downto 24) <= unsigned(fastio_wdata(3 downto 0));
