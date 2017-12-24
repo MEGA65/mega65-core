@@ -492,6 +492,7 @@ architecture Behavioral of viciv is
   signal bitplanes_y_start_drive : unsigned(7 downto 0) := to_unsigned(0,8);
   signal dat_x : unsigned(7 downto 0) := x"00";
   signal dat_y : unsigned(7 downto 0) := x"00";
+  signal dat_bitplane_offset : unsigned(15 downto 0) := x"0000";
   signal bitplane_addresses : sprite_vector_8;
   signal max_sprite_fetch_byte_number : integer range 0 to 319 := 0;
   
@@ -1292,6 +1293,22 @@ begin
 
     bitplanes_x_start_drive <= bitplanes_x_start;
     bitplanes_y_start_drive <= bitplanes_y_start;
+
+    -- Calculate DAT bitplane offset
+    -- XXX currently ignores V400 mode
+    if reg_h640 = '0' then
+      dat_bitplane_offset <=
+        ("000" & dat_y(7 downto 3) & "00000000")
+        + ("00000" & dat_y(7 downto 3) & "000000")
+        + ("0000000000000" & dat_y(2 downto 0))
+        + ("00000" & dat_x & "000");
+    else
+      dat_bitplane_offset <=
+        ("00" & dat_y(7 downto 3) & "000000000")
+        + ("0000" & dat_y(7 downto 3) & "0000000")
+        + ("0000000000000" & dat_y(2 downto 0))
+        + ("00000" & dat_x & "000");
+    end if;        
     
     if true then
       -- Calculate register number asynchronously
