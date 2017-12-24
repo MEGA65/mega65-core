@@ -72,6 +72,9 @@ entity gs4510 is
     iomode_set : out std_logic_vector(1 downto 0) := "11";
     iomode_set_toggle : out std_logic := '0';
 
+    dat_offset : in unsigned(15 downto 0);
+    dat_bitplane_addresses : in sprite_vector_eight;
+    
     cpuis6502 : out std_logic := '0';
     cpuspeed : out unsigned(7 downto 0);
 

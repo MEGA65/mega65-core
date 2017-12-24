@@ -40,7 +40,7 @@ library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use ieee.numeric_std.all;
 use Std.TextIO.all;
-
+use work.victypes.all;
 
 -- Uncomment the following library declaration if using
 -- arithmetic functions with Signed or Unsigned values
@@ -403,6 +403,9 @@ architecture Behavioral of machine is
   signal vsync_drive : std_logic := '0';
   
   signal all_pause : std_logic := '0';
+
+  signal dat_offset : unsigned(15 downto 0);
+  signal dat_bitplane_addresses : sprite_vector_eight;
   
 begin
 
@@ -598,6 +601,8 @@ begin
       cpuspeed => cpuspeed,
       secure_mode_out => secure_mode_flag,
       matrix_rain_seed => matrix_rain_seed,
+      dat_offset => dat_offset,
+      dat_bitplane_addresses => dat_bitplane_addresses,
 
       irq_hypervisor => sw(4 downto 2),    -- JBM
       
@@ -711,6 +716,9 @@ begin
       drive_led_out => drive_led_out,
 
       xray_mode => xray_mode,
+
+      dat_offset => dat_offset,
+      dat_bitplane_addresses => dat_bitplane_addresses,
       
       vsync           => vsync_drive,
       hsync           => hsync_drive,

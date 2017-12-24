@@ -88,7 +88,7 @@ entity viciv is
     xray_mode : in std_logic;
 
     dat_offset : out unsigned(15 downto 0);
-    dat_bitplane_addresses : out sprite_vector_8;
+    dat_bitplane_addresses : out sprite_vector_eight;
     
     ----------------------------------------------------------------------
     -- VGA output
@@ -495,7 +495,7 @@ architecture Behavioral of viciv is
   signal dat_x : unsigned(7 downto 0) := x"00";
   signal dat_y : unsigned(7 downto 0) := x"00";
   signal dat_bitplane_offset : unsigned(15 downto 0) := x"0000";
-  signal bitplane_addresses : sprite_vector_8;
+  signal bitplane_addresses : sprite_vector_eight;
   signal max_sprite_fetch_byte_number : integer range 0 to 319 := 0;
   
   -- Extended sprite features
