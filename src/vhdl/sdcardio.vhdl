@@ -165,16 +165,12 @@ architecture behavioural of sdcardio is
   -- Combined 10-bit left/right audio
   signal pwm_value_new_left : unsigned(7 downto 0) := x"00";
   signal pwm_value_new_right : unsigned(7 downto 0) := x"00";
-  signal pwm_value_combined : unsigned(9 downto 0) := "0000000000";
-  signal pwm_value : unsigned(9 downto 0) := "0000000000";
-  signal pwm_phase : unsigned(9 downto 0) := "0000000000";
-  -- Separate left and right channels (9-bit)
-  signal pwm_value_left : unsigned(8 downto 0) := "000000000";
-  signal pwm_value_right : unsigned(8 downto 0) := "000000000";
-  signal l_pwm_value : unsigned(8 downto 0) := "000000000";
-  signal l_pwm_phase : unsigned(8 downto 0) := "000000000";
-  signal r_pwm_value : unsigned(8 downto 0) := "000000000";
-  signal r_pwm_phase : unsigned(8 downto 0) := "000000000";
+  signal pwm_value_combined : integer range 0 to 65535 := 0;
+  signal pwm_value_left : integer range 0 to 65535 := 0;
+  signal pwm_value_right : integer range 0 to 65535 := 0;
+  signal pwm_combined_accumulator : integer range 0 to 131071 := 0;
+  signal pwm_left_accumulator : integer range 0 to 131071 := 0;
+  signal pwm_right_accumulator : integer range 0 to 131071 := 0;
 
   signal mic_divider : unsigned(4 downto 0) := "00000";
   signal mic_counter : unsigned(7 downto 0) := "00000000";
@@ -666,64 +662,41 @@ begin  -- behavioural
       end if;
           
       -- Generate combined audio from stereo sids plus 2 8-bit digital channels
-      pwm_value_combined <= to_unsigned(to_integer(leftsid_audio(17 downto 10))
-                                        + to_integer(rightsid_audio(17 downto 10))
-                                        + to_integer(pwm_value_new_left)
-                                        + to_integer(pwm_value_new_right),10);
-      pwm_value_left <= to_unsigned(to_integer(leftsid_audio(17 downto 10))
-                                        + to_integer(pwm_value_new_left),9);
-      pwm_value_right <= to_unsigned(to_integer(leftsid_audio(17 downto 10))
-                                        + to_integer(pwm_value_new_right),9);
+      -- (4x14 bit values = 16 bit level)
+      pwm_value_combined <= to_integer(leftsid_audio(17 downto 4))
+                            + to_integer(rightsid_audio(17 downto 4))
+                            + to_integer(pwm_value_new_left & "000000")
+                            + to_integer(pwm_value_new_right & "000000");
+      -- 2x15 bit values = 16 bit levels
+      pwm_value_left <= to_integer(leftsid_audio(17 downto 3))
+                        + to_integer(pwm_value_new_left&"0000000");
+      pwm_value_right <= to_integer(leftsid_audio(17 downto 3))
+                         + to_integer(pwm_value_new_right&"0000000");
 
       
       -- Implement 10-bit digital combined audio output
-      pwm_phase <= pwm_phase + 1;
-      if pwm_phase = "0000000000" then
-        if pwm_value = "0000000000" then
-          ampPWM <= '0';
-        else
-          ampPWM <= '1';
-        end if;
+      if pwm_combined_accumulator < 65536 then
+        pwm_combined_accumulator <= pwm_combined_accumulator + pwm_value_combined;
+        ampPWM <= '1';
       else
-        if pwm_value=pwm_phase then
-          ampPWM <= '0';
-        end if;
-        if pwm_phase = "1111111111" then
-          pwm_value <= pwm_value_combined;
-        end if;
+        pwm_combined_accumulator <= pwm_combined_accumulator + pwm_value_combined - 65536;
+        ampPWM <= '0';
       end if;
-
-      -- Implement 9-bit digital left and right audio outputs
-      l_pwm_phase <= l_pwm_phase + 1;
-      if l_pwm_phase = "000000000" then
-        if l_pwm_value = "000000000" then
-          ampPWM_l <= '0';
-        else
-          ampPWM_l <= '1';
-        end if;
+      if pwm_left_accumulator < 65536 then
+        pwm_left_accumulator <= pwm_left_accumulator + pwm_value_left;
+        ampPWM <= '1';
       else
-        if l_pwm_value=l_pwm_phase then
-          ampPWM_l <= '0';
-        end if;
-        if l_pwm_phase = "111111111" then
-          l_pwm_value <= pwm_value_left;
-        end if;
-      end if;      
-      r_pwm_phase <= r_pwm_phase + 1;
-      if r_pwm_phase = "000000000" then
-        if r_pwm_value = "000000000" then
-          ampPWM_r <= '0';
-        else
-          ampPWM_r <= '1';
-        end if;
+        pwm_left_accumulator <= pwm_left_accumulator + pwm_value_left - 65536;
+        ampPWM <= '0';
+      end if;
+      if pwm_right_accumulator < 65536 then
+        pwm_right_accumulator <= pwm_right_accumulator + pwm_value_right;
+        ampPWM <= '1';
       else
-        if r_pwm_value=r_pwm_phase then
-          ampPWM_r <= '0';
-        end if;
-        if r_pwm_phase = "111111111" then
-          r_pwm_value <= pwm_value_right;
-        end if;
-      end if;      
+        pwm_right_accumulator <= pwm_right_accumulator + pwm_value_right - 65536;
+        ampPWM <= '0';
+      end if;
+        
 
 
       -- microphone sampling process
