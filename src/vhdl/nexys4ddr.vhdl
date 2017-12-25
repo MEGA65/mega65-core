@@ -84,7 +84,7 @@ entity container is
          aclSCK : out std_logic;
          aclInt1 : in std_logic;
          aclInt2 : in std_logic;
-    
+         
          micData : in std_logic;
          micClk : out std_logic;
          micLRSel : out std_logic;
@@ -185,7 +185,7 @@ architecture Behavioral of container is
   signal reset_out : std_logic := '1';
   signal cpu_game : std_logic := '1';
   signal cpu_exrom : std_logic := '1';
- 
+  
   signal dummy_vgared : unsigned(3 downto 0);
   signal dummy_vgagreen : unsigned(3 downto 0);
   signal dummy_vgablue : unsigned(3 downto 0);
@@ -236,7 +236,7 @@ architecture Behavioral of container is
   signal cart_d : unsigned(7 downto 0) := (others => 'Z');
   signal cart_d_read : unsigned(7 downto 0) := (others => 'Z');
   signal cart_a : unsigned(15 downto 0) := (others => 'Z');
-         
+  
   ----------------------------------------------------------------------
   -- CBM floppy serial port
   ----------------------------------------------------------------------
@@ -256,6 +256,9 @@ architecture Behavioral of container is
 
   signal ampPWM_internal : std_logic;
   signal dummy : std_logic_vector(2 downto 0);
+  signal sawtooth_phase : integer := 0;
+  signal sawtooth_counter : integer := 0;
+  signal sawtooth_level : integer := 0;
   
 begin
   
@@ -304,7 +307,7 @@ begin
       cart_a => cart_a
       );
   
-    slow_devices0: entity work.slow_devices
+  slow_devices0: entity work.slow_devices
     port map (
       cpuclock => cpuclock,
       pixelclock => pixelclock,
@@ -323,7 +326,7 @@ begin
       slow_access_address => slow_access_address,
       slow_access_wdata => slow_access_wdata,
       slow_access_rdata => slow_access_rdata,
-  
+      
       ----------------------------------------------------------------------
       -- Expansion/cartridge port
       ----------------------------------------------------------------------
@@ -440,7 +443,7 @@ begin
       aclSCK => aclSCK,
       aclInt1 => aclInt1,
       aclInt2 => aclInt2,
-    
+      
       micData => micData,
       micClk => micClk,
       micLRSel => micLRSel,
@@ -449,7 +452,7 @@ begin
       ampPWM_l => led(13),
       ampPWM_r => led(14),
       ampSD => ampSD,
-    
+      
       tmpSDA => tmpSDA,
       tmpSCL => tmpSCL,
       tmpInt => tmpInt,
@@ -490,7 +493,7 @@ begin
 
       UART_TXD => UART_TXD,
       RsRx => RsRx,
-         
+      
       sseg_ca => sseg_ca,
       sseg_an => sseg_an
       );
@@ -501,33 +504,38 @@ begin
   nmi <= not btn(4);
   restore_key <= not btn(1);
 
-  -- Debug audio output
-  if sw(7) = '1' then
-    ampPWM <= ampPWM_internal;
-    led(15) <= ampPWM_internal;
-  else
-    -- 1KHz sawtooth
-    if sawtooth_phase < 50000 then
-      sawtooth_phase <= sawtooth_phase + 1;
-      if sawtooth_counter < 256 then
-        sawtooth_counter <= sawtooth_counter + sawtooth_level;
-        apmPWM <= '0';
-        led(15) <= '0';
+  process (cpuclock)
+  begin
+    if rising_edge(cpuclock) then
+      -- Debug audio output
+      if sw(7) = '1' then
+        ampPWM <= ampPWM_internal;
+        led(15) <= ampPWM_internal;
       else
-        sawtooth_counter <= sawtooth_counter + sawtooth_level - 256;
-        apmPWM <= '1';
-        led(15) <= '1';
-      end if;
-    else
-      sawtooth_phase <= 0;
-      if sawtooth_level < 255 then
-        sawtooth_level <= sawtooth_level + 1;
-      else
-        sawtooth_level <= 0;
+        -- 1KHz sawtooth
+        if sawtooth_phase < 50000 then
+          sawtooth_phase <= sawtooth_phase + 1;
+          if sawtooth_counter < 256 then
+            sawtooth_counter <= sawtooth_counter + sawtooth_level;
+            ampPWM <= '0';
+            led(15) <= '0';
+          else
+            sawtooth_counter <= sawtooth_counter + sawtooth_level - 256;
+            ampPWM <= '1';
+            led(15) <= '1';
+          end if;
+        else
+          sawtooth_phase <= 0;
+          if sawtooth_level < 255 then
+            sawtooth_level <= sawtooth_level + 1;
+          else
+            sawtooth_level <= 0;
+          end if;
+        end if;
       end if;
     end if;
-  end if;
-  
+  end process;
+
   -- Ethernet clock is now just the CPU clock, since both are on 50MHz
   eth_clock <= cpuclock;
   
