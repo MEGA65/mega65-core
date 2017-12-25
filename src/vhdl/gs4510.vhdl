@@ -1614,8 +1614,9 @@ begin
       end if;
 
       -- C65 DAT
-      if temp_address(27 downto 4) & "000" = x"FFD1040"
-        or temp_address(27 downto 4) & "000" = x"FFD3040" then
+      report "C65 VIC-III DAT: Address before translation is $" & to_hstring(temp_address);
+      if temp_address(27 downto 3) & "000" = x"FFD1040"
+        or temp_address(27 downto 3) & "000" = x"FFD3040" then
         temp_address(27 downto 17) := (others => '0');
         temp_address(16) := temp_address(0); -- odd/even bitplane bank select
         -- Bit plane address
@@ -1625,6 +1626,7 @@ begin
           dat_bitplane_addresses(to_integer(temp_address(2 downto 0)))(7 downto 5);
         -- Bitplane offset
         temp_address(12 downto 0) := dat_offset(12 downto 0);
+        report "C65 VIC-III DAT: Address translated to $" & to_hstring(temp_address);
       end if;
       
       return temp_address;
