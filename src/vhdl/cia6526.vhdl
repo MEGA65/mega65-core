@@ -377,7 +377,8 @@ begin  -- behavioural
         case reg_timera_tick_source is
           when '0' =>
             -- phi2 pulses
-            if phi0='0' and prev_phi0='1' then
+            -- NOTE: MEGA65 clocks phi transitions, not pulses
+            if phi0 /= prev_phi0 then
               report "CIA timera ticked down to $" & to_hstring(reg_timera);
               reg_timera <= reg_timera - 1;
               reg_timera_has_ticked <= '1';
@@ -406,7 +407,8 @@ begin  -- behavioural
           when '0' =>
             -- phi2 pulses
             if reg_timera_underflow='1' or reg_timerb_tick_source(1)='0' then
-              if phi0='0' and prev_phi0='1' then
+              -- NOTE: MEGA65 clocks phi on transitions, not pulses
+              if phi0 /= prev_phi0 then
                 reg_timerb <= reg_timerb - 1;
                 reg_timerb_has_ticked <= '0';
               end if;                
