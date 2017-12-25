@@ -238,7 +238,7 @@ begin  -- behavioural
                              if joylock='0' then
                                cursor_right <= break; ps2 <= '1';
                              else
-                               joy2(1) <= break;
+                               joy2(3) <= break;
                              end if;
                            when x"083" => matrix_internal(3) <= break;
                            when x"005" => matrix_internal(4) <= break;
