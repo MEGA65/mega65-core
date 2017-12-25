@@ -253,6 +253,9 @@ architecture Behavioral of container is
   -- XXX We should read the real temperature and feed this to the DDR controller
   -- so that it can update timing whenever the temperature changes too much.
   signal fpga_temperature : std_logic_vector(11 downto 0) := (others => '0');
+
+  signal ampPWM_internal : std_logic;
+  signal dummy : std_logic_vector(2 downto 0);
   
 begin
   
@@ -358,9 +361,7 @@ begin
       pixelclock      => pixelclock,
       cpuclock        => cpuclock,
       clock50mhz      => cpuclock,
---      ioclock         => ioclock, -- 32MHz
---      uartclock         => ioclock, -- must be 32MHz
-      uartclock         => cpuclock, -- Match CPU clock (48MHz)
+      uartclock       => cpuclock, -- Match CPU clock
       ioclock         => cpuclock, -- Match CPU clock
       btncpureset => btncpureset,
       reset_out => reset_out,
@@ -444,7 +445,9 @@ begin
       micClk => micClk,
       micLRSel => micLRSel,
 
-      ampPWM => ampPWM,
+      ampPWM => ampPWM_internal,
+      ampPWM_l => led(13),
+      ampPWM_r => led(14),
       ampSD => ampSD,
     
       tmpSDA => tmpSDA,
@@ -479,8 +482,9 @@ begin
       cpu_game => '1',      
 
       fpga_temperature => fpga_temperature,
-      
-      led => led,
+
+      led(12 downto 0) => led(12 downto 0),
+      led(15 downto 13) => dummy,
       sw => sw,
       btn => btn,
 
@@ -497,6 +501,33 @@ begin
   nmi <= not btn(4);
   restore_key <= not btn(1);
 
+  -- Debug audio output
+  if sw(7) = '1' then
+    ampPWM <= ampPWM_internal;
+    led(15) <= ampPWM_internal;
+  else
+    -- 1KHz sawtooth
+    if sawtooth_phase < 50000 then
+      sawtooth_phase <= sawtooth_phase + 1;
+      if sawtooth_counter < 256 then
+        sawtooth_counter <= sawtooth_counter + sawtooth_level;
+        apmPWM <= '0';
+        led(15) <= '0';
+      else
+        sawtooth_counter <= sawtooth_counter + sawtooth_level - 256;
+        apmPWM <= '1';
+        led(15) <= '1';
+      end if;
+    else
+      sawtooth_phase <= 0;
+      if sawtooth_level < 255 then
+        sawtooth_level <= sawtooth_level + 1;
+      else
+        sawtooth_level <= 0;
+      end if;
+    end if;
+  end if;
+  
   -- Ethernet clock is now just the CPU clock, since both are on 50MHz
   eth_clock <= cpuclock;
   
