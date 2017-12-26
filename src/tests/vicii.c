@@ -159,6 +159,9 @@ void sweep_sprite_from_right_to_left(uint16_t x_high,uint16_t x_low)
       }
       last_contact=x;
       sprite_setxy(4,x,100+21);      
+    } else {
+      // Stop as soon as we have found it
+      if (last_contact!=999) return;
     }
   }
   return;
@@ -293,5 +296,17 @@ int main(int argc,char **argv)
   sweep_sprite_from_right_to_left(200,0);
   restore_screen();
   check_sprite_contact(0x59,0x58);
+
+  printf("     Sprite X position @ column 38");
+  stash_screen();
+  clear_screen();
+  // Draw a vertical bar in 8th column.
+  // First contact should be 24+8*8, last contact at 1+24+8*8
+  for(v=0;v<25;v++) POKE(0x0400+38+40*v,0x65);
+  sprites_on(1);
+  sweep_sprite_from_right_to_left(400,0);
+  restore_screen();
+  check_sprite_contact(0x149,0x148);
+  
   
 }
