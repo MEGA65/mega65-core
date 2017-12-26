@@ -2995,10 +2995,6 @@ begin
         report "Masking chargen_active based on displayy<y_chargen_start" severity note;
         
       end if;
-      if displayy=y_chargen_start then
-        chargen_y <= (others => '0');
-        chargen_y_sub <= (others => '0');
-      end if;      
 
       if displayx(5)='1' and displayx(4)='1' then
         displaycolumn0 <= '0';
