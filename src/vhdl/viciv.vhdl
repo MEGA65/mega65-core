@@ -220,8 +220,10 @@ architecture Behavioral of viciv is
   signal hsync_start : unsigned(13 downto 0) := to_unsigned(2140,14);
   signal hsync_end : unsigned(13 downto 0) := to_unsigned(2540,14);
   -- Each logical pixel will be 120/n physical pixels wide
-  -- It must be an integer for everything to work properly.
+  -- For non-integer multiples, the fraction is represented as n/(2*2*2*3*3*3)
+  -- to allow sufficient precision.
   signal chargen_x_pixels : integer := 2;
+  signal chargen_x_pixels_sub : integer := 216/2;
   signal sprite_first_x : unsigned(13 downto 0) := to_unsigned(1+200-(24-3)*(120/24),14);
   signal sprite_x_counting : std_logic := '0';
   signal chargen_x_scale : unsigned(7 downto 0) := to_unsigned(48,8); 
@@ -835,6 +837,8 @@ architecture Behavioral of viciv is
   signal text_height_400 : integer := 0;
   signal ssx_table : ss_table;
   signal ssx_table_counter : integer := 0;
+  signal ssx_table_counter_sub : integer range 0 to (216*2) := 0;
+  signal ssx_table_leap_pixel : integer range 0 to 1 := 0;
   signal ssx_table_phase : integer range 0 to 10 := 0;
   
   signal text_height : integer;
@@ -1144,13 +1148,26 @@ begin
       if ssx_table_phase = 10 then
         ssx_table_phase <= 0; 
         ssx_table_counter <= 0;
+        ssx_table_counter_sub <= 0;
+        ssx_table_leap_pixel <= 0;
         ssy_table_counter_200 <= 0;
         ssy_table_counter_400 <= 0;
       else
         ssx_table_phase <= ssx_table_phase + 1;
-        
-        ssx_table_counter <= ssx_table_counter + chargen_x_pixels;
-        ssy_table_counter_200 <= ssy_table_counter_200 + to_integer(chargen_y_scale_200);
+        if reg_h640='1' then
+          ssx_table_counter <= ssx_table_counter + chargen_x_pixels + ssx_table_leap_pixel;
+        else
+          ssx_table_counter <= ssx_table_counter + chargen_x_pixels + chargen_x_pixels + ssx_table_leap_pixel + ssx_table_leap_pixel;
+        end if;
+        if ssx_table_counter_sub < 216 then 
+          ssx_table_counter_sub <= ssx_table_counter_sub + chargen_x_pixels_sub;
+          ssx_table_leap_pixel <= 0;
+        else
+          ssx_table_counter_sub <= ssx_table_counter_sub + chargen_x_pixels_sub - 216;
+          ssx_table_leap_pixel <= 1;
+        end if;
+
+          ssy_table_counter_200 <= ssy_table_counter_200 + to_integer(chargen_y_scale_200);
         ssy_table_counter_400 <= ssy_table_counter_400 + to_integer(chargen_y_scale_400);
       end if;
 
@@ -2312,7 +2329,11 @@ begin
                                                         hsync_polarity <= '0';
                                                         vsync_polarity <= '0';
 
+                                                        -- 3 1/3 physical
+                                                        -- pixels per actual
                                                         chargen_x_pixels <= 3;
+                                                        chargen_x_pixels <= 216/3;
+                                                        
                                                         single_side_border <= to_unsigned(267,14);
                                                         sprite_first_x <= to_unsigned(1+267-(24)*(120/18),14);
                                                         chargen_x_scale <= to_unsigned(36,8);
@@ -2334,6 +2355,8 @@ begin
                                                         vsync_polarity <= '0';
 
                                                         chargen_x_pixels <= 3;
+                                                        chargen_x_pixels <= 216/3;
+                                                        
                                                         sprite_first_x <= to_unsigned(1+267-(24)*(120/18),14);
                                                         chargen_x_scale <= to_unsigned(36,8);
                                                         sprite_x_scale_320 <= to_unsigned(18,8);
@@ -2355,6 +2378,8 @@ begin
                                                         vsync_polarity <= '0';
 
                                                         chargen_x_pixels <= 2;
+                                                        chargen_x_pixels <= 216/2;
+                                                        
                                                         sprite_first_x <= to_unsigned(1+200-(24-3)*(120/24),14);
                                                         chargen_x_scale <= to_unsigned(48,8);
                                                         sprite_x_scale_320 <= to_unsigned(24,8);
@@ -2377,6 +2402,8 @@ begin
                                                         vsync_polarity <= '0';
 
                                                         chargen_x_pixels <= 2;
+                                                        chargen_x_pixels <= 216/2;
+
                                                         sprite_first_x <= to_unsigned(1+200-(24-3)*(120/24),14);
                                                         chargen_x_scale <= to_unsigned(48,8);
                                                         sprite_x_scale_320 <= to_unsigned(24,8);
@@ -2397,6 +2424,8 @@ begin
                                                         vsync_polarity <= '0';
 
                                                         chargen_x_pixels <= 2;
+                                                        chargen_x_pixels <= 216/2;
+
                                                         chargen_x_scale <= to_unsigned(48,8);
                                                         sprite_x_scale_320 <= to_unsigned(24,8);
                                                         sprite_x_scale_640 <= to_unsigned(48,8);
