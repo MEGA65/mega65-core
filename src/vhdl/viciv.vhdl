@@ -1216,14 +1216,25 @@ begin
       -- set horizontal borders based on 40/38 columns
       if thirtyeightcolumns='0' then
         border_x_left <= to_unsigned(to_integer(single_side_border),14);
-        border_x_right <= to_unsigned(to_integer(display_width)
-                                      -to_integer(single_side_border)-1,14);
+        if reg_h640='0' then
+          border_x_right <= to_unsigned(to_integer(display_width)
+                                        -to_integer(single_side_border)-2,14);
+        else
+          border_x_right <= to_unsigned(to_integer(display_width)
+                                        -to_integer(single_side_border)-0,14);
+        end if;
       else  
         border_x_left <= to_unsigned(to_integer(single_side_border)
                                      +ssx_table(7),14);
-        border_x_right <= to_unsigned(to_integer(display_width)
-                                      -to_integer(single_side_border)
-                                      -1-ssx_table(9),14);
+        if reg_h640='0' then
+          border_x_right <= to_unsigned(to_integer(display_width)
+                                        -to_integer(single_side_border)
+                                        -2-ssx_table(9),14);
+        else
+          border_x_right <= to_unsigned(to_integer(display_width)
+                                        -to_integer(single_side_border)
+                                        -0-ssx_table(9),14);
+        end if;
       end if;
       x_chargen_start
         <= to_unsigned(to_integer(frame_h_front)
@@ -2993,6 +3004,10 @@ begin
         displaycolumn0 <= '0';
       end if;
       if xcounter = 0 then
+        report "ycounter = " & integer'image(to_integer(ycounter))
+          & ", before_y_chargen_start = " & std_logic'image(before_y_chargen_start)
+          & ", chargen_y = " & integer'image(to_integer(chargen_y))
+          & ", chargen_y_sub = " & integer'image(to_integer(chargen_y_sub));          
         displaycolumn0 <= '1';
         displayy <= displayy + 1;
         if displayy(4)='1' then
