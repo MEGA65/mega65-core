@@ -135,10 +135,56 @@ void clear_screen(void)
   }
 }
 
+uint8_t v;
+uint16_t x,y,first_contact,last_contact;
+
+void sweep_sprite_from_right_to_left(uint16_t x_high,uint16_t x_low)
+{
+  sprite_erase(0);
+  for(y=0;y<21;y++) POKE(0x380+y*3,0x80);
+  sprites_on(1+4+16);
+
+  first_contact=999;
+  last_contact=999;
+  for(x=x_high;x>x_low;x--) {
+    sprite_setxy(0,x,100);
+    wait_for_vsync();
+    v=PEEK(0xD01F);
+    wait_for_vsync();
+    v=PEEK(0xD01F);
+    if ((v&1)==1) {
+      if (first_contact==999) {
+	first_contact=x;
+	sprite_setxy(2,x,100-21);
+      }
+      last_contact=x;
+      sprite_setxy(4,x,100+21);      
+    }
+  }
+  return;
+}
+
+void check_sprite_contact(uint16_t expected_first,uint16_t expected_last)
+{
+  if (first_contact!=expected_first||last_contact!=expected_last) {
+    printf("\nFAIL: Wrong sprite position/dimensions.\n");
+    if (first_contact!=expected_first) {
+      printf("* First contact should be at $%x.\n"
+	     "  On this machine it is at $%x\n",
+	     expected_first,first_contact);
+    }
+    if (last_contact!=expected_last) {
+      printf("* Last contact should be at $%x.\n"
+	     "  On this machine it is at $%x\n",
+	     expected_last,last_contact);
+    }
+    //    fatal();
+  } else ok();
+  return;
+}
+
 int main(int argc,char **argv)
 {
-  uint8_t v;
-  uint16_t x,y,first_contact,last_contact;
   
   printf("%c%c"
 	 "M.E.G.A.65 VIC-II Test Programme\n"
@@ -226,43 +272,26 @@ int main(int argc,char **argv)
      
   */
 
-  printf("     Sprite X position");
+  printf("     Sprite X position @ left edge");
   // Draw vertical bar 2 pixels wide on left edge of the screen
   stash_screen();
   clear_screen();  
   for(v=0;v<25;v++) POKE(0x0400+40*v,0x65);
   // With sprite 0 as a single pixel wide vertical line, sweep it from the right of the screen until it touches
   // our vertical bar
-  sprite_erase(0);
-  for(y=0;y<21;y++) POKE(0x380+y*3,0x80);
-  sprites_on(1);
-  first_contact=999;
-  last_contact=999;
-  for(x=100;x>0;x--) {
-    sprite_setxy(0,x,100);
-    wait_for_vsync();
-    v=PEEK(0xD01F);
-    wait_for_vsync();
-    v=PEEK(0xD01F);
-    if (v==1) {
-      if (first_contact==999) first_contact=x;
-      last_contact=x;
-    }
-  }
+  sweep_sprite_from_right_to_left(100,0);
   restore_screen();
-  if (first_contact!=0x19||last_contact!=0x18) {
-    printf("\nFAIL: Sprite X positioning is wrong.\n");
-    if (first_contact!=0x19) {
-      printf("* X=$18 should be 1st screen pixel.\n"
-	     "  On this machine it is at X=$%x\n",last_contact);
-    }
-    if (first_contact-last_contact!=1) {
-      printf("* Sprite pixels wrong width.\n");
-      printf("  On this machine are $%x-$%x wide.\n",
-	     first_contact-last_contact-1,
-	     first_contact-last_contact);
-    }
-    fatal();
-  }    
+  check_sprite_contact(0x19,0x18);
+
+  printf("     Sprite X position @ column 8");
+  stash_screen();
+  clear_screen();
+  // Draw a vertical bar in 8th column.
+  // First contact should be 24+8*8, last contact at 1+24+8*8
+  for(v=0;v<25;v++) POKE(0x0408+40*v,0x65);
+  sprites_on(1);
+  sweep_sprite_from_right_to_left(200,0);
+  restore_screen();
+  check_sprite_contact(0x59,0x58);
   
 }
