@@ -2866,7 +2866,7 @@ begin
         upper_border <= '0';
       end if;
 
-      if displayx<border_x_left or displayx>border_x_right or
+      if displayx<border_x_left or displayx>=border_x_right or
         upper_border='1' or lower_border='1' then
         inborder<='1';
         viciv_flyback <= '1';
