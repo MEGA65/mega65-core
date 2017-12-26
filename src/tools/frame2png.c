@@ -41,7 +41,7 @@ int main(int argc,char **argv)
       r=(rgba>>24)&0xff;
       g=(rgba>>16)&0xff;
       b=(rgba>>8)&0xff;
-      if (rgb==0&&p) {
+      if (rgba==0&&p) {
 	// Palettised colour other than black, but with a black pixel
 	// so paint a different colour
  	// (this is because palette RAMs may not be functional in GHDL simulation)
@@ -49,6 +49,7 @@ int main(int argc,char **argv)
 	if (p&2) g=0xff;
 	if (p&4) b=0xff;
 	if (!(p&7)) { r=0x7f; g=0x7f; b=0x7f; }
+	printf("Colour patched to $%02x%02x%02x00\n",r,g,b);
       }
       //      printf("x=%d,y=%d, max=%d,%d\n",x,y,maxx,maxy);
       if (y<maxy) {
