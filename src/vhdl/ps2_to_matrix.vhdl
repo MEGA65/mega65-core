@@ -271,13 +271,13 @@ begin  -- behavioural
                              if joylock='0' then
                                matrix_internal(9) <= break;
                              else
-                               joy1(2) <= break;
+                               joy1(0) <= break;
                              end if;
                            when x"01C" => -- A
                              if joylock='0' then
                                matrix_internal(10) <= break;
                              else
-                               joy1(0) <= break;
+                               joy1(2) <= break;
                              end if;
                            when x"025" => matrix_internal(11) <= break; -- 4
                            when x"01A" => matrix_internal(12) <= break; -- Z
@@ -285,7 +285,7 @@ begin  -- behavioural
                              if joylock='0' then  -- S
                                matrix_internal(13) <= break;
                              else
-                               joy1(3) <= break;
+                               joy1(1) <= break;
                              end if;
                            when x"024" => matrix_internal(14) <= break; -- E
                            when x"012" => -- Left shift
@@ -301,7 +301,7 @@ begin  -- behavioural
                              if joylock='0' then
                                matrix_internal(18) <= break;
                              else
-                               joy1(1) <= break;
+                               joy1(3) <= break;
                              end if;
                            when x"036" => matrix_internal(19) <= break;
                            when x"021" => matrix_internal(20) <= break;
