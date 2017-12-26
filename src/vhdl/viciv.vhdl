@@ -208,27 +208,27 @@ architecture Behavioral of viciv is
   -- The values here are simply those that apply on power up.
   signal frame_h_front : unsigned(7 downto 0) := to_unsigned(16,8);  
   -- 800x480 @ 50Hz for 100MHz pixelclock
-  signal frame_width : unsigned(13 downto 0) := to_unsigned(2640,14);
-  signal display_width : unsigned(13 downto 0) := to_unsigned(2000,14);
-  signal single_side_border : unsigned(13 downto 0) := to_unsigned(200,14);
-  signal frame_height : unsigned(11 downto 0) := to_unsigned(628,12); 
+  signal frame_width : unsigned(13 downto 0) := to_unsigned(3196,14);
+  signal display_width : unsigned(13 downto 0) := to_unsigned(2664,14);
+  signal single_side_border : unsigned(13 downto 0) := to_unsigned(267,14);
+  signal frame_height : unsigned(11 downto 0) := to_unsigned(625,12); 
   signal display_height : unsigned(11 downto 0) := to_unsigned(600,12);
   signal display_height_drive : unsigned(11 downto 0);
-  signal vsync_delay : unsigned(7 downto 0) := to_unsigned(23,8);
+  signal vsync_delay : unsigned(7 downto 0) := to_unsigned(19,8);
   signal vsync_delay_drive : unsigned(7 downto 0);
   signal vicii_ycounter_scale_minus_zero : unsigned(3 downto 0) := to_unsigned(2-1,4);
-  signal hsync_start : unsigned(13 downto 0) := to_unsigned(2140,14);
-  signal hsync_end : unsigned(13 downto 0) := to_unsigned(2540,14);
+  signal hsync_start : unsigned(13 downto 0) := to_unsigned(2764,14);
+  signal hsync_end : unsigned(13 downto 0) := to_unsigned(3100,14);
   -- Each logical pixel will be 120/n physical pixels wide
   -- For non-integer multiples, the fraction is represented as n/(2*2*2*3*3*3)
   -- to allow sufficient precision.
-  signal chargen_x_pixels : integer := 2;
-  signal chargen_x_pixels_sub : integer := 216/2;
-  signal sprite_first_x : unsigned(13 downto 0) := to_unsigned(1+200-(24-3)*(120/24),14);
+  signal chargen_x_pixels : integer := 3;
+  signal chargen_x_pixels_sub : integer := 216/3;
+  signal sprite_first_x : unsigned(13 downto 0) := to_unsigned(1+267-(24)*(120/18),14);
   signal sprite_x_counting : std_logic := '0';
-  signal chargen_x_scale : unsigned(7 downto 0) := to_unsigned(48,8); 
-  signal sprite_x_scale_320 : unsigned(7 downto 0) := to_unsigned(48/2,8);  
-  signal sprite_x_scale_640 : unsigned(7 downto 0) := to_unsigned(48,8);		-- 640 mode sprite scale  
+  signal chargen_x_scale : unsigned(7 downto 0) := to_unsigned(36,8); 
+  signal sprite_x_scale_320 : unsigned(7 downto 0) := to_unsigned(16/2,8);  
+  signal sprite_x_scale_640 : unsigned(7 downto 0) := to_unsigned(18,8);		-- 640 mode sprite scale  
   -- Each character pixel will be (n+1) pixels high
   signal chargen_y_scale : unsigned(7 downto 0) := x"01";  -- x"04"
   -- smooth scrolling position in natural pixels.
@@ -3003,7 +3003,10 @@ begin
         report "ycounter = " & integer'image(to_integer(ycounter))
           & ", before_y_chargen_start = " & std_logic'image(before_y_chargen_start)
           & ", chargen_y = " & integer'image(to_integer(chargen_y))
-          & ", chargen_y_sub = " & integer'image(to_integer(chargen_y_sub));          
+          & ", chargen_y_sub = " & integer'image(to_integer(chargen_y_sub))
+          & ", chargen_active = " & std_logic'image(chargen_active)
+          ;
+        
         displaycolumn0 <= '1';
         displayy <= displayy + 1;
         if displayy(4)='1' then
