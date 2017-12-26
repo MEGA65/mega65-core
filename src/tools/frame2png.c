@@ -19,6 +19,8 @@ void write_image(int image_number);
 
 int main(int argc,char **argv)
 {
+
+  int count=0;
   int x,y,r,g,b;
 
   char line[1024];
@@ -39,6 +41,15 @@ int main(int argc,char **argv)
       r=(rgba>>24)&0xff;
       g=(rgba>>16)&0xff;
       b=(rgba>>8)&0xff;
+      if (rgb==0&&p) {
+	// Palettised colour other than black, but with a black pixel
+	// so paint a different colour
+ 	// (this is because palette RAMs may not be functional in GHDL simulation)
+	if (p&1) r=0xff;
+	if (p&2) g=0xff;
+	if (p&4) b=0xff;
+	if (!(p&7)) { r=0x7f; g=0x7f; b=0x7f; }
+      }
       //      printf("x=%d,y=%d, max=%d,%d\n",x,y,maxx,maxy);
       if (y<maxy) {
 	printf("Writing image %d\n",++image_number);
@@ -50,6 +61,7 @@ int main(int argc,char **argv)
 	    frame[y][x]=0;	
       }
       if (x>=0&&x<MAXX&&y>=0&&y<MAXY) {
+	printf("%s",line);
 	frame[y][x*4+0]=r;
 	frame[y][x*4+1]=g;
 	frame[y][x*4+2]=b;
@@ -57,11 +69,16 @@ int main(int argc,char **argv)
 	if (x>maxx) maxx=x;
 	if (y>maxy) maxy=y;
       }
-      if (x==20&&(maxy>1)) {
+      //      if (x==20&&(maxy>1)) {
 	// Save image progressively as each line written
-	printf("  Writing raster %d\n",y-1);
-	write_image(image_number);
-      }
+	//	printf("  Got raster %d\n",y-1);
+	//	count++;
+	//	if (count==32) {
+	//	  printf("  Writing raster %d\n",y-1);
+	//	  write_image(image_number);
+	//	  count=0;
+      //	}
+      // }
     } // else printf("%s",line);      
 
     line [0]=0; fgets(line,1024,stdin);
