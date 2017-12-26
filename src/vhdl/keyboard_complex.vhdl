@@ -296,7 +296,7 @@ begin
         matrix_segment_out <= (others => '1');
       end if;
 
-      if reset_in = '1' then
+      if reset_in = '0' then
         -- $7D = no key ($7E and $7F have special meanings)
         kd1 <= x"7D";
         kd2 <= x"7D";
