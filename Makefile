@@ -212,6 +212,9 @@ mmsimulate:	$(MMFILES) $(TOOLDIR)/osk_image
 $(TOOLDIR)/osk_image:	$(TOOLDIR)/osk_image.c
 	$(CC) $(COPT) -I/usr/local/include -L/usr/local/lib -o $(TOOLDIR)/osk_image $(TOOLDIR)/osk_image.c -lpng
 
+$(TOOLDIR)/frame2png:	$(TOOLDIR)/frame2png.c
+	$(CC) $(COPT) -I/usr/local/include -L/usr/local/lib -o $(TOOLDIR)/frame2png $(TOOLDIR)/frame2png.c -lpng
+
 vfsimulate:	$(VHDLSRCDIR)/frame_test.vhdl $(VHDLSRCDIR)/video_frame.vhdl
 	ghdl -i $(VHDLSRCDIR)/frame_test.vhdl $(VHDLSRCDIR)/video_frame.vhdl
 	ghdl -m frame_test
