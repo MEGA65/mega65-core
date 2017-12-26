@@ -865,6 +865,22 @@ postkickup:
 		jsr dos_cdroot
 		bcc sdcarderror
 
+		; Select PAL/NTSC mode based on presence of file called NTSC
+		ldx #<txt_NTSC
+		ldy #>txt_NTSC
+		jsr dos_setname
+		jsr dos_findfile
+		bcc setpal
+setntsc:
+		lda #$80
+		tsb $d06f
+		jmp setpalntsc
+setpal:
+		lda #$80
+		trb $d06f		
+
+setpalntsc:
+
 		; set name of file we are looking for
 		;
 		ldx #<txt_MEGA65D81
@@ -2979,6 +2995,12 @@ txt_KICKUPM65:		.byte "KICKUP.M65",0
 			; filename containing boot logo
 			;
 txt_BOOTLOGOM65:	.byte "BANNER.M65",0
+
+			; If this file is present, then machine starts up with video
+			; mode set to NTSC (60Hz), else as PAL (50Hz).
+			; This is to allow us to boot in PAL by default, except for
+			; those who have a monitor that cannot do 50Hz.
+txt_NTSC:		.byte "NTSC",0
 
 ;	========================
 
