@@ -684,30 +684,30 @@ begin  -- behavioural
       audio_reflect(0) <= not audio_reflect(0);
       if pwm_combined_accumulator < 65536 then
         pwm_combined_accumulator <= pwm_combined_accumulator + pwm_value_combined;
-        ampPWM <= '1';
-        audio_reflect(1) <= '1';
-      else
-        pwm_combined_accumulator <= pwm_combined_accumulator + pwm_value_combined - 65536;
         ampPWM <= '0';
         audio_reflect(1) <= '0';
+      else
+        pwm_combined_accumulator <= pwm_combined_accumulator + pwm_value_combined - 65536;
+        ampPWM <= '1';
+        audio_reflect(1) <= '1';
       end if;
       if pwm_left_accumulator < 65536 then
         pwm_left_accumulator <= pwm_left_accumulator + pwm_value_left;
-        ampPWM_l <= '1';
-        audio_reflect(2) <= '1';
-      else
-        pwm_left_accumulator <= pwm_left_accumulator + pwm_value_left - 65536;
         ampPWM_l <= '0';
         audio_reflect(2) <= '0';
+      else
+        pwm_left_accumulator <= pwm_left_accumulator + pwm_value_left - 65536;
+        ampPWM_l <= '1';
+        audio_reflect(2) <= '1';
       end if;
       if pwm_right_accumulator < 65536 then
         pwm_right_accumulator <= pwm_right_accumulator + pwm_value_right;
-        ampPWM_r <= '1';
-        audio_reflect(3) <= '1';
-      else
-        pwm_right_accumulator <= pwm_right_accumulator + pwm_value_right - 65536;
         ampPWM_r <= '0';
         audio_reflect(3) <= '0';
+      else
+        pwm_right_accumulator <= pwm_right_accumulator + pwm_value_right - 65536;
+        ampPWM_r <= '1';
+        audio_reflect(3) <= '1';
       end if;
         
 
