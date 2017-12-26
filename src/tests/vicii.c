@@ -85,7 +85,7 @@ void setup(void)
 {
   sprite_setup();
   sprites_on(0);
-  POKE(0xD020,1);
+  POKE(0xD020,11);
 }
 
 void wait_for_vsync(void)
@@ -138,10 +138,11 @@ void clear_screen(void)
 uint8_t v;
 uint16_t x,y,first_contact,last_contact;
 
-void sweep_sprite_from_right_to_left(uint16_t x_high,uint16_t x_low)
+void sweep_sprite_from_right_to_left(uint16_t x_high,uint16_t x_low,uint8_t blockP)
 {
   sprite_erase(0);
-  for(y=0;y<21;y++) POKE(0x380+y*3,0x80);
+  if (blockP) sprite_reverse(0);
+  else for(y=0;y<21;y++) POKE(0x380+y*3,0x80);
   sprites_on(1+4+16);
 
   first_contact=999;
@@ -167,6 +168,38 @@ void sweep_sprite_from_right_to_left(uint16_t x_high,uint16_t x_low)
   return;
 }
 
+void sweep_sprite_from_bottom_to_top(uint16_t y_high,uint16_t y_low, uint8_t blockP)
+{
+  // Sprite is horizontal line 1 pixel high
+  sprite_erase(0);
+  if (blockP) sprite_reverse(0);
+  else for(y=0;y<3;y++) POKE(0x380+y,0xFF);
+  sprites_on(1+4+16);
+
+  first_contact=999;
+  last_contact=999;
+  for(y=y_high;y>y_low;y--) {
+    sprite_setxy(0,100,y);
+    wait_for_vsync();
+    v=PEEK(0xD01F);
+    wait_for_vsync();
+    v=PEEK(0xD01F);
+    if ((v&1)==1) {
+      if (first_contact==999) {
+	first_contact=y;
+	sprite_setxy(2,100-24,y);
+      }
+      last_contact=y;
+      sprite_setxy(4,100+24,y);      
+    } else {
+      // Stop as soon as we have found it
+      if (last_contact!=999) return;
+    }
+  }
+  return;
+}
+
+
 void check_sprite_contact(uint16_t expected_first,uint16_t expected_last)
 {
   if (first_contact!=expected_first||last_contact!=expected_last) {
@@ -183,6 +216,94 @@ void check_sprite_contact(uint16_t expected_first,uint16_t expected_last)
     }
     fatal();
   } else ok();
+  return;
+}
+
+void sprite_x_tests(void)
+{
+  printf("     Sprite X position @ left edge");
+  stash_screen();
+  clear_screen();  
+  // Draw vertical bar 2 pixels wide on left edge of the screen
+  for(v=0;v<25;v++) POKE(0x0400+40*v,0x65);
+  sweep_sprite_from_right_to_left(100,0,0);
+  restore_screen();
+  check_sprite_contact(0x19,0x18);
+
+  printf("     Sprite X position @ column 8");
+  stash_screen();
+  clear_screen();
+  // Draw a vertical bar in 8th column.
+  for(v=0;v<25;v++) POKE(0x0408+40*v,0x65);
+  sweep_sprite_from_right_to_left(200,0,0);
+  restore_screen();
+  check_sprite_contact(0x59,0x58);
+
+  printf("     Sprite X position @ column 38");
+  stash_screen();
+  clear_screen();
+  // Draw a vertical bar in 38th column.
+  for(v=0;v<25;v++) POKE(0x0400+38+40*v,0x65);
+  sweep_sprite_from_right_to_left(400,0,0);
+  restore_screen();
+  check_sprite_contact(0x149,0x148);
+
+  printf("     Sprite X position @ right edge");
+  stash_screen(); clear_screen();
+  // Draw a vertical bar on right edge of column 39
+  for(v=0;v<25;v++) POKE(0x0400+39+40*v,0x67);
+  sweep_sprite_from_right_to_left(400,0,0);
+  restore_screen();
+  check_sprite_contact(0x157,0x156);
+
+  printf("     Sprite X scale is correct");
+  stash_screen();
+  clear_screen();
+  // Draw a vertical bar in 8th column.
+  for(v=0;v<25;v++) POKE(0x0408+40*v,0x65);
+  sweep_sprite_from_right_to_left(200,0,1);
+  restore_screen(); sprites_on(0);
+  check_sprite_contact(0x59,0x58-24+1);
+
+  return;
+}
+
+void sprite_y_tests(void)
+{
+  printf("     Sprite Y position at top edge");
+  stash_screen(); clear_screen();
+  // Draw a horizontal bar at top of screen
+  for(v=0;v<40;v++) POKE(0x0400+0*40+v,0x63);
+  sweep_sprite_from_bottom_to_top(100,0,0);
+  restore_screen();
+  check_sprite_contact(0x32,0x32);
+
+  printf("     Sprite Y position at row 10");
+  stash_screen(); clear_screen();
+  // Draw a horizontal bar at top of screen
+  for(v=0;v<40;v++) POKE(0x0400+10*40+v,0x63);
+  sweep_sprite_from_bottom_to_top(200,0,0);
+  restore_screen();
+  check_sprite_contact(0x82,0x82);
+
+  printf("     Sprite Y position at bottom edge");
+  stash_screen(); clear_screen();
+  // Draw a horizontal bar at top of screen
+  for(v=0;v<40;v++) POKE(0x0400+24*40+v,0x64);
+  sweep_sprite_from_bottom_to_top(255,0,0);
+  restore_screen();
+  check_sprite_contact(0xf9,0xf9);
+
+  printf("     Sprite Y scale correct");
+  sprite_erase(0);
+  sprite_reverse(0);
+  stash_screen(); clear_screen();
+  // Draw a horizontal bar at top of screen
+  for(v=0;v<40;v++) POKE(0x0400+10*40+v,0x63);
+  sweep_sprite_from_bottom_to_top(200,0,1);
+  restore_screen(); sprites_on(0);
+  check_sprite_contact(0x82,0x82-21+1);
+  
   return;
 }
 
@@ -274,42 +395,7 @@ int main(int argc,char **argv)
      to collide with. Char $65 is a vertical bar 2 pixels wide on the left edge of a character.
      
   */
+  sprite_x_tests();
+  sprite_y_tests();
 
-  printf("     Sprite X position @ left edge");
-  stash_screen();
-  clear_screen();  
-  // Draw vertical bar 2 pixels wide on left edge of the screen
-  for(v=0;v<25;v++) POKE(0x0400+40*v,0x65);
-  sweep_sprite_from_right_to_left(100,0);
-  restore_screen();
-  check_sprite_contact(0x19,0x18);
-
-  printf("     Sprite X position @ column 8");
-  stash_screen();
-  clear_screen();
-  // Draw a vertical bar in 8th column.
-  for(v=0;v<25;v++) POKE(0x0408+40*v,0x65);
-  sweep_sprite_from_right_to_left(200,0);
-  restore_screen();
-  check_sprite_contact(0x59,0x58);
-
-  printf("     Sprite X position @ column 38");
-  stash_screen();
-  clear_screen();
-  // Draw a vertical bar in 38th column.
-  for(v=0;v<25;v++) POKE(0x0400+38+40*v,0x65);
-  sweep_sprite_from_right_to_left(400,0);
-  restore_screen();
-  check_sprite_contact(0x149,0x148);
-
-  printf("     Sprite X position @ right edge");
-  stash_screen();
-  clear_screen();
-  // Draw a vertical bar on right edge of column 39
-  for(v=0;v<25;v++) POKE(0x0400+39+40*v,0x67);
-  sweep_sprite_from_right_to_left(400,0);
-  restore_screen();
-  check_sprite_contact(0x157,0x156);
-  
-  
 }
