@@ -2668,13 +2668,14 @@ begin
       end if;
 
       -- Count slow clock ticks for CIAs and other peripherals (never goes >3.5MHz)
+      -- Actually, the C65 always counts timers etc at 1MHz, which simplifies
+      -- things a little. We only deviate for C128 2MHz mode emulation, where we
+      -- do double it.
       case cpuspeed_external is
-        when x"01" =>          
-          phi_export_counter <= phi_export_counter + phi_fraction_01pal;
         when x"02" =>          
           phi_export_counter <= phi_export_counter + phi_fraction_02pal;
-        when others =>
-          phi_export_counter <= phi_export_counter + phi_fraction_04pal;
+        when others =>          
+          phi_export_counter <= phi_export_counter + phi_fraction_01pal;
       end case;
       phi0_export <= phi_export_counter(16);
       
