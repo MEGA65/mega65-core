@@ -266,19 +266,43 @@ begin  -- behavioural
                                cursor_left <= break; ps2 <= '1';
                              end if;
                            -- 3, W, A, 4, Z, S, E, left-SHIFT
-                           when x"026" => matrix_internal(8) <= break;
-                           when x"01D" => matrix_internal(9) <= break;
-                           when x"01C" => matrix_internal(10) <= break;
-                           when x"025" => matrix_internal(11) <= break;
-                           when x"01A" => matrix_internal(12) <= break;
-                           when x"01B" => matrix_internal(13) <= break;
-                           when x"024" => matrix_internal(14) <= break;
-                           when x"012" => matrix_internal(15) <= break;
-
+                           when x"026" => matrix_internal(8) <= break; -- 3
+                           when x"01D" => -- W
+                             if joylock='0' then
+                               matrix_internal(9) <= break;
+                             else
+                               joy1(2) <= break;
+                             end if;
+                           when x"01C" => -- A
+                             if joylock='0' then
+                               matrix_internal(10) <= break;
+                             else
+                               joy1(0) <= break;
+                             end if;
+                           when x"025" => matrix_internal(11) <= break; -- 4
+                           when x"01A" => matrix_internal(12) <= break; -- Z
+                           when x"01B" =>
+                             if joylock='0' then  -- S
+                               matrix_internal(13) <= break;
+                             else
+                               joy1(3) <= break;
+                             end if;
+                           when x"024" => matrix_internal(14) <= break; -- E
+                           when x"012" => -- Left shift
+                             if joylock='0' then
+                               matrix_internal(15) <= break;
+                             else
+                               joy1(4) <= break;
+                             end if;
                            -- 5, R, D, 6, C, F, T, X
-                           when x"02E" => matrix_internal(16) <= break;
-                           when x"02D" => matrix_internal(17) <= break;
-                           when x"023" => matrix_internal(18) <= break;
+                           when x"02E" => matrix_internal(16) <= break; -- 5
+                           when x"02D" => matrix_internal(17) <= break; -- R 
+                           when x"023" => -- D
+                             if joylock='0' then
+                               matrix_internal(18) <= break;
+                             else
+                               joy1(1) <= break;
+                             end if;
                            when x"036" => matrix_internal(19) <= break;
                            when x"021" => matrix_internal(20) <= break;
                            when x"02B" => matrix_internal(21) <= break;
@@ -330,7 +354,13 @@ begin  -- behavioural
                            when x"00E" => matrix_internal(57) <= break;
                            when x"014" => matrix_internal(58) <= break; -- CTRL
                            when x"01E" => matrix_internal(59) <= break;
-                           when x"029" => matrix_internal(60) <= break;
+                           when x"029" =>
+                             -- SPACE (or fire when using joylock mode)
+                             if joylock = '0' then
+                               matrix_internal(60) <= break;
+                             else
+                               joy2(4) <= break;
+                             end if;                             
                            when x"11F" => matrix_internal(61) <= break; -- META/WIN for C=
                            when x"127" => matrix_internal(61) <= break; -- META/WIN for C=
                            when x"015" => matrix_internal(62) <= break;
