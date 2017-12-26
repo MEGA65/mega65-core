@@ -438,7 +438,7 @@ reset_machine_state:
 		sta $D01A
 
 		; enable audio amplifier
-		sta #$01
+		lda #$01
 		sta $d6f9
 
 		; We DO NOT need to mess with $01, because
