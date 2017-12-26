@@ -1638,7 +1638,7 @@ begin
         elsif register_number=102 then -- $D3066
           fastio_rdata <= std_logic_vector(sprite_x_scale_640);
         elsif register_number=103 then  -- $D3067
-          fastio_rdata <= (others => 'Z');
+          fastio_rdata <= std_logic_vector(sprite_first_x(7 downto 0));
         elsif register_number=104 then  -- $D068
           fastio_rdata <= std_logic_vector(character_set_address(7 downto 0));
         elsif register_number=105 then
@@ -2264,8 +2264,8 @@ begin
           sprite_x_scale_320(7) <= '0';
           sprite_x_scale_320(6 downto 0) <= unsigned(fastio_wdata(7 downto 1));
         elsif register_number=103 then  -- $D3067
-          -- @IO:GS $D067 VIC-IV RESERVED
-          screen_ram_base(27 downto 24) <= unsigned(fastio_wdata(3 downto 0));
+          -- @IO:GS $D067 VIC-IV Sprite/bitplane first X DEBUG WILL BE REMOVED
+          sprite_first_x(7 downto 0) <= unsigned(fastio_wdata);
         elsif register_number=104 then
           -- @IO:GS $D068 VIC-IV character set precise base address (bits 0 - 7)
           character_set_address(7 downto 0) <= unsigned(fastio_wdata);
