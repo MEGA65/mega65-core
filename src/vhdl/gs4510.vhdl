@@ -232,6 +232,9 @@ end component;
 
   signal virtualise_sd : std_logic := '0';
 
+  signal dat_bitplane_addresses_drive : sprite_vector_eight;
+  signal dat_offset_drive : unsigned(15 downto 0); := to_unsigned(0,16);
+
   -- Instruction log
   signal last_instruction_pc : unsigned(15 downto 0) := x"FFFF";
   signal last_opcode : unsigned(7 downto 0)  := (others => '0');
@@ -1625,7 +1628,7 @@ begin
         temp_address(15 downto 13) :=
           dat_bitplane_addresses(to_integer(temp_address(2 downto 0)))(7 downto 5);
         -- Bitplane offset
-        temp_address(12 downto 0) := dat_offset(12 downto 0);
+        temp_address(12 downto 0) := dat_offset_drive(12 downto 0);
         report "C65 VIC-III DAT: Address translated to $" & to_hstring(temp_address);
       end if;
       
@@ -2644,6 +2647,9 @@ begin
     -- BEGINNING OF MAIN PROCESS FOR CPU
     if rising_edge(clock) and all_pause='0' then
 
+      dat_bitplane_addresses_drive <= dat_bitplane_addresses;
+      dat_offset_drive <= dat_offset;
+      
       cycle_counter <= cycle_counter + 1;
       
       if cache_flushing = '1' then
