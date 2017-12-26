@@ -233,7 +233,7 @@ end component;
   signal virtualise_sd : std_logic := '0';
 
   signal dat_bitplane_addresses_drive : sprite_vector_eight;
-  signal dat_offset_drive : unsigned(15 downto 0); := to_unsigned(0,16);
+  signal dat_offset_drive : unsigned(15 downto 0) := to_unsigned(0,16);
 
   -- Instruction log
   signal last_instruction_pc : unsigned(15 downto 0) := x"FFFF";
