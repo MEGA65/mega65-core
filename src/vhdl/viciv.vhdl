@@ -1157,7 +1157,9 @@ begin
         if reg_h640='1' then
           ssx_table_counter <= ssx_table_counter + chargen_x_pixels + ssx_table_leap_pixel;
         else
-          ssx_table_counter <= ssx_table_counter + chargen_x_pixels + chargen_x_pixels + ssx_table_leap_pixel + ssx_table_leap_pixel;
+          ssx_table_counter <= ssx_table_counter
+                               + chargen_x_pixels + chargen_x_pixels
+                               + ssx_table_leap_pixel + ssx_table_leap_pixel;
         end if;
         if ssx_table_counter_sub < 216 then 
           ssx_table_counter_sub <= ssx_table_counter_sub + chargen_x_pixels_sub;
@@ -2332,7 +2334,7 @@ begin
                                                         -- 3 1/3 physical
                                                         -- pixels per actual
                                                         chargen_x_pixels <= 3;
-                                                        chargen_x_pixels <= 216/3;
+                                                        chargen_x_pixels_sub <= 216/3;
                                                         
                                                         single_side_border <= to_unsigned(267,14);
                                                         sprite_first_x <= to_unsigned(1+267-(24)*(120/18),14);
@@ -2355,7 +2357,7 @@ begin
                                                         vsync_polarity <= '0';
 
                                                         chargen_x_pixels <= 3;
-                                                        chargen_x_pixels <= 216/3;
+                                                        chargen_x_pixels_sub <= 216/3;
                                                         
                                                         sprite_first_x <= to_unsigned(1+267-(24)*(120/18),14);
                                                         chargen_x_scale <= to_unsigned(36,8);
@@ -2378,7 +2380,7 @@ begin
                                                         vsync_polarity <= '0';
 
                                                         chargen_x_pixels <= 2;
-                                                        chargen_x_pixels <= 216/2;
+                                                        chargen_x_pixels_sub <= 216/2;
                                                         
                                                         sprite_first_x <= to_unsigned(1+200-(24-3)*(120/24),14);
                                                         chargen_x_scale <= to_unsigned(48,8);
@@ -2402,7 +2404,7 @@ begin
                                                         vsync_polarity <= '0';
 
                                                         chargen_x_pixels <= 2;
-                                                        chargen_x_pixels <= 216/2;
+                                                        chargen_x_pixels_sub <= 216/2;
 
                                                         sprite_first_x <= to_unsigned(1+200-(24-3)*(120/24),14);
                                                         chargen_x_scale <= to_unsigned(48,8);
@@ -2424,7 +2426,7 @@ begin
                                                         vsync_polarity <= '0';
 
                                                         chargen_x_pixels <= 2;
-                                                        chargen_x_pixels <= 216/2;
+                                                        chargen_x_pixels_sub <= 216/2;
 
                                                         chargen_x_scale <= to_unsigned(48,8);
                                                         sprite_x_scale_320 <= to_unsigned(24,8);
