@@ -426,13 +426,20 @@ reset_machine_state:
 
 		; sprites off
 		lda #$00
-		sta $d017
+		sta $d015
 
+		; disable CIA interrupts		
 		lda #$7f
 		sta $DC0D
 		sta $DD0D
+
+		; disable video interrupts
 		lda #$00
 		sta $D01A
+
+		; enable audio amplifier
+		sta #$01
+		sta $d6f9
 
 		; We DO NOT need to mess with $01, because
 		; the 4510 starts up with kickstart mapped at $8000-$BFFF 
