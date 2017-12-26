@@ -741,28 +741,28 @@ begin  -- behavioural
       -- Normal PWM
       if pwm_counter < 1024 then
         pwm_counter <= pwm_counter + 1;
-        if to_integer(to_unsigned(pwm_value_combined,16)(15 downto 9)) = pwm_counter then
+        if to_integer(to_unsigned(pwm_value_combined,16)(15 downto 8)) = pwm_counter then
           ampPwm_pwm <= '0';
         end if;
-        if to_integer(to_unsigned(pwm_value_left,16)(15 downto 9)) = pwm_counter then
+        if to_integer(to_unsigned(pwm_value_left,16)(15 downto 8)) = pwm_counter then
           ampPwm_pwm_l <= '0';
         end if;
-        if to_integer(to_unsigned(pwm_value_right,16)(15 downto 9)) = pwm_counter then
+        if to_integer(to_unsigned(pwm_value_right,16)(15 downto 8)) = pwm_counter then
           ampPwm_pwm_r <= '0';
         end if;
       else
         pwm_counter <= 0;
-        if to_integer(to_unsigned(pwm_value_combined,16)(15 downto 9)) = 0 then
+        if to_integer(to_unsigned(pwm_value_combined,16)(15 downto 8)) = 0 then
           ampPWM_pwm <= '0';
         else
           ampPWM_pwm <= '1';
         end if;
-        if to_integer(to_unsigned(pwm_value_left,16)(15 downto 9)) = 0 then
+        if to_integer(to_unsigned(pwm_value_left,16)(15 downto 8)) = 0 then
           ampPWM_pwm_l <= '0';
         else
           ampPWM_pwm_l <= '1';
         end if;
-        if to_integer(to_unsigned(pwm_value_right,16)(15 downto 9)) = 0 then
+        if to_integer(to_unsigned(pwm_value_right,16)(15 downto 8)) = 0 then
           ampPWM_pwm_r <= '0';
         else
           ampPWM_pwm_r <= '1';
