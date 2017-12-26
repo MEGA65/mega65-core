@@ -616,7 +616,7 @@ begin  -- behavioural
             fastio_rdata <= pwm_value_new_left;
           when x"F9" =>
             -- Debug interface to see what audio output is doing
-            fastio_rdata(3 downto 0) <= audio_reflect;
+            fastio_rdata(3 downto 0) <= unsigned(audio_reflect);
             fastio_rdata(7 downto 4) <= (others => '1');
           when x"FA" =>
             -- PWM output
