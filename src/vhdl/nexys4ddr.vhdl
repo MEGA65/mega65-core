@@ -508,7 +508,7 @@ begin
   begin
     if rising_edge(cpuclock) then
       -- Debug audio output
-      if sw(7) = '1' then
+      if sw(7) = '0' then
         ampPWM <= ampPWM_internal;
         led(15) <= ampPWM_internal;
       else
