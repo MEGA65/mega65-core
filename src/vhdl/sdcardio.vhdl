@@ -276,6 +276,8 @@ architecture behavioural of sdcardio is
   signal f011_led : std_logic := '0';
   signal f011_motor : std_logic := '0';
 
+  signal audio_reflect : std_logic_vector(3 downto 0) := "0000";
+
 begin  -- behavioural
 
   --**********************************************************************
@@ -612,6 +614,10 @@ begin  -- behavioural
           when x"F8" =>
             -- PWM output
             fastio_rdata <= pwm_value_new_left;
+          when x"F9" =>
+            -- Debug interface to see what audio output is doing
+            fastio_rdata(3 downto 0) <= audio_reflect;
+            fastio_rdata(7 downto 4) <= (others => '1');
           when x"FA" =>
             -- PWM output
             fastio_rdata <= pwm_value_new_left;
@@ -675,26 +681,33 @@ begin  -- behavioural
 
       
       -- Implement 10-bit digital combined audio output
+      audio_reflect(0) <= not audio_reflect(0);
       if pwm_combined_accumulator < 65536 then
         pwm_combined_accumulator <= pwm_combined_accumulator + pwm_value_combined;
         ampPWM <= '1';
+        audio_reflect(1) <= '1';
       else
         pwm_combined_accumulator <= pwm_combined_accumulator + pwm_value_combined - 65536;
         ampPWM <= '0';
+        audio_reflect(1) <= '0';
       end if;
       if pwm_left_accumulator < 65536 then
         pwm_left_accumulator <= pwm_left_accumulator + pwm_value_left;
-        ampPWM <= '1';
+        ampPWM_l <= '1';
+        audio_reflect(2) <= '1';
       else
         pwm_left_accumulator <= pwm_left_accumulator + pwm_value_left - 65536;
-        ampPWM <= '0';
+        ampPWM_l <= '0';
+        audio_reflect(2) <= '0';
       end if;
       if pwm_right_accumulator < 65536 then
         pwm_right_accumulator <= pwm_right_accumulator + pwm_value_right;
-        ampPWM <= '1';
+        ampPWM_r <= '1';
+        audio_reflect(3) <= '1';
       else
         pwm_right_accumulator <= pwm_right_accumulator + pwm_value_right - 65536;
-        ampPWM <= '0';
+        ampPWM_r <= '0';
+        audio_reflect(3) <= '0';
       end if;
         
 
