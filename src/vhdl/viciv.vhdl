@@ -1218,7 +1218,7 @@ begin
         border_x_left <= to_unsigned(to_integer(single_side_border),14);
         if reg_h640='0' then
           border_x_right <= to_unsigned(to_integer(display_width)
-                                        -to_integer(single_side_border)-2,14);
+                                        -to_integer(single_side_border)-0,14);
         else
           border_x_right <= to_unsigned(to_integer(display_width)
                                         -to_integer(single_side_border)-0,14);
@@ -1229,7 +1229,7 @@ begin
         if reg_h640='0' then
           border_x_right <= to_unsigned(to_integer(display_width)
                                         -to_integer(single_side_border)
-                                        -2-ssx_table(9),14);
+                                        -0-ssx_table(9),14);
         else
           border_x_right <= to_unsigned(to_integer(display_width)
                                         -to_integer(single_side_border)
