@@ -2677,9 +2677,11 @@ begin
       -- Actually, the C65 always counts timers etc at 1MHz, which simplifies
       -- things a little. We only deviate for C128 2MHz mode emulation, where we
       -- do double it.
+      -- Actually, CIAs must run at 1MHz still in 2MHz mode, because SynthMark
+      -- depends  on it.
       case cpuspeed_external is
-        when x"02" =>          
-          phi_export_counter <= phi_export_counter + phi_fraction_02pal;
+--        when x"02" =>          
+--          phi_export_counter <= phi_export_counter + phi_fraction_02pal;
         when others =>          
           phi_export_counter <= phi_export_counter + phi_fraction_01pal;
       end case;
@@ -3247,7 +3249,7 @@ begin
         -- level, with a jitter of ~1 instruction at any point in time, which should
         -- be sufficient even for most fast loaders.
         report "PHI pause : " & integer'image(phi_backlog) & " CPU cycles remaining.";
-        null;
+        proceed <= '0';
       else
         -- Honour wait states on memory accesses
         -- Clear memory access lines unless we are in a memory wait state
