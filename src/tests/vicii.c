@@ -181,7 +181,7 @@ void check_sprite_contact(uint16_t expected_first,uint16_t expected_last)
 	     "  On this machine it is at $%x\n",
 	     expected_last,last_contact);
     }
-    //    fatal();
+    fatal();
   } else ok();
   return;
 }
@@ -276,12 +276,10 @@ int main(int argc,char **argv)
   */
 
   printf("     Sprite X position @ left edge");
-  // Draw vertical bar 2 pixels wide on left edge of the screen
   stash_screen();
   clear_screen();  
+  // Draw vertical bar 2 pixels wide on left edge of the screen
   for(v=0;v<25;v++) POKE(0x0400+40*v,0x65);
-  // With sprite 0 as a single pixel wide vertical line, sweep it from the right of the screen until it touches
-  // our vertical bar
   sweep_sprite_from_right_to_left(100,0);
   restore_screen();
   check_sprite_contact(0x19,0x18);
@@ -290,9 +288,7 @@ int main(int argc,char **argv)
   stash_screen();
   clear_screen();
   // Draw a vertical bar in 8th column.
-  // First contact should be 24+8*8, last contact at 1+24+8*8
   for(v=0;v<25;v++) POKE(0x0408+40*v,0x65);
-  sprites_on(1);
   sweep_sprite_from_right_to_left(200,0);
   restore_screen();
   check_sprite_contact(0x59,0x58);
@@ -300,13 +296,20 @@ int main(int argc,char **argv)
   printf("     Sprite X position @ column 38");
   stash_screen();
   clear_screen();
-  // Draw a vertical bar in 8th column.
-  // First contact should be 24+8*8, last contact at 1+24+8*8
+  // Draw a vertical bar in 38th column.
   for(v=0;v<25;v++) POKE(0x0400+38+40*v,0x65);
-  sprites_on(1);
   sweep_sprite_from_right_to_left(400,0);
   restore_screen();
   check_sprite_contact(0x149,0x148);
+
+  printf("     Sprite X position @ right edge");
+  stash_screen();
+  clear_screen();
+  // Draw a vertical bar on right edge of column 39
+  for(v=0;v<25;v++) POKE(0x0400+39+40*v,0x67);
+  sweep_sprite_from_right_to_left(400,0);
+  restore_screen();
+  check_sprite_contact(0x157,0x156);
   
   
 }
