@@ -168,10 +168,21 @@ architecture behavioural of sdcardio is
   signal pwm_value_combined : integer range 0 to 65535 := 0;
   signal pwm_value_left : integer range 0 to 65535 := 0;
   signal pwm_value_right : integer range 0 to 65535 := 0;
-  signal pwm_combined_accumulator : integer range 0 to 131071 := 0;
-  signal pwm_left_accumulator : integer range 0 to 131071 := 0;
-  signal pwm_right_accumulator : integer range 0 to 131071 := 0;
 
+  signal pdm_combined_accumulator : integer range 0 to 131071 := 0;
+  signal pdm_left_accumulator : integer range 0 to 131071 := 0;
+  signal pdm_right_accumulator : integer range 0 to 131071 := 0;
+  signal ampPWM_pdm : std_logic := '0';
+  signal ampPWM_pdm_l : std_logic := '0';
+  signal ampPWM_pdm_r : std_logic := '0';
+
+  signal pwm_counter : integer range 0 to 1024 := 0;
+  signal ampPWM_pwm : std_logic := '0';
+  signal ampPWM_pwm_l : std_logic := '0';
+  signal ampPWM_pwm_r : std_logic := '0';
+
+  signal audio_mode : std_logic := '0';
+  
   signal mic_divider : unsigned(4 downto 0) := "00000";
   signal mic_counter : unsigned(7 downto 0) := "00000000";
   signal mic_onecount : unsigned(7 downto 0) := "00000000";
@@ -617,7 +628,8 @@ begin  -- behavioural
           when x"F9" =>
             -- Debug interface to see what audio output is doing
             fastio_rdata(3 downto 0) <= unsigned(audio_reflect);
-            fastio_rdata(7 downto 4) <= (others => '1');
+            fastio_rdata(6 downto 4) <= (others => '1');
+            fastio_rdata(7) <= audio_mode;
           when x"FA" =>
             -- PWM output
             fastio_rdata <= pwm_value_new_left;
@@ -682,34 +694,80 @@ begin  -- behavioural
       
       -- Implement 10-bit digital combined audio output
       audio_reflect(0) <= not audio_reflect(0);
-      if pwm_combined_accumulator < 65536 then
-        pwm_combined_accumulator <= pwm_combined_accumulator + pwm_value_combined;
-        ampPWM <= '0';
+      -- We have three versions of audio output:
+      -- 1. Delta-Sigma (aka PDM), which should be most accurate, but requires
+      -- good low-pass output filters
+      -- 2. PWM, similar to what we used to use.
+      -- 3. Balanced PWM, where the pulse is centered in the time domain,
+      -- which apparently is "better". I have a wooden ear, so can't tell.
+
+      if audio_mode = '0' then
+        ampPWM <= ampPWM_pdm;
+        ampPWM_l <= ampPWM_pdm_l;
+        ampPWM_r <= ampPWM_pdm_r;
+      else
+        ampPWM <= ampPWM_pwm;
+        ampPWM_l <= ampPWM_pwm_l;
+        ampPWM_r <= ampPWM_pwm_r;
+      end if;
+      if pdm_combined_accumulator < 65536 then
+        pdm_combined_accumulator <= pdm_combined_accumulator + pwm_value_combined;
+        ampPWM_pdm <= '0';
         audio_reflect(1) <= '0';
       else
-        pwm_combined_accumulator <= pwm_combined_accumulator + pwm_value_combined - 65536;
-        ampPWM <= '1';
+        pdm_combined_accumulator <= pdm_combined_accumulator + pwm_value_combined - 65536;
+        ampPWM_pdm <= '1';
         audio_reflect(1) <= '1';
       end if;
-      if pwm_left_accumulator < 65536 then
-        pwm_left_accumulator <= pwm_left_accumulator + pwm_value_left;
-        ampPWM_l <= '0';
+      if pdm_left_accumulator < 65536 then
+        pdm_left_accumulator <= pdm_left_accumulator + pwm_value_left;
+        ampPWM_pdm_l <= '0';
         audio_reflect(2) <= '0';
       else
-        pwm_left_accumulator <= pwm_left_accumulator + pwm_value_left - 65536;
-        ampPWM_l <= '1';
+        pdm_left_accumulator <= pdm_left_accumulator + pwm_value_left - 65536;
+        ampPWM_pdm_l <= '1';
         audio_reflect(2) <= '1';
       end if;
-      if pwm_right_accumulator < 65536 then
-        pwm_right_accumulator <= pwm_right_accumulator + pwm_value_right;
-        ampPWM_r <= '0';
+      if pdm_right_accumulator < 65536 then
+        pdm_right_accumulator <= pdm_right_accumulator + pwm_value_right;
+        ampPWM_pdm_r <= '0';
         audio_reflect(3) <= '0';
       else
-        pwm_right_accumulator <= pwm_right_accumulator + pwm_value_right - 65536;
-        ampPWM_r <= '1';
+        pdm_right_accumulator <= pdm_right_accumulator + pwm_value_right - 65536;
+        ampPWM_pdm_r <= '1';
         audio_reflect(3) <= '1';
       end if;
-        
+
+      -- Normal PWM
+      if pwm_counter < 1024 then
+        pwm_counter <= pwm_counter + 1;
+        if to_integer(to_unsigned(pwm_value_combined,16)(15 downto 9)) = pwm_counter then
+          ampPwm_pwm <= '0';
+        end if;
+        if to_integer(to_unsigned(pwm_value_left,16)(15 downto 9)) = pwm_counter then
+          ampPwm_pwm_l <= '0';
+        end if;
+        if to_integer(to_unsigned(pwm_value_right,16)(15 downto 9)) = pwm_counter then
+          ampPwm_pwm_r <= '0';
+        end if;
+      else
+        pwm_counter <= 0;
+        if to_integer(to_unsigned(pwm_value_combined,16)(15 downto 9)) = 0 then
+          ampPWM_pwm <= '0';
+        else
+          ampPWM_pwm <= '1';
+        end if;
+        if to_integer(to_unsigned(pwm_value_left,16)(15 downto 9)) = 0 then
+          ampPWM_pwm_l <= '0';
+        else
+          ampPWM_pwm_l <= '1';
+        end if;
+        if to_integer(to_unsigned(pwm_value_right,16)(15 downto 9)) = 0 then
+          ampPWM_pwm_r <= '0';
+        else
+          ampPWM_pwm_r <= '1';
+        end if;
+      end if;
 
 
       -- microphone sampling process
@@ -1225,8 +1283,10 @@ begin  -- behavioural
 
             when x"F9" =>
               -- @IO:GS $D6F9.0 - Enable audio amplifier
+              -- @IO:GS $D6F9.7 - Select PDM or PWM audio output mode
               -- enable/disable audio amplifiers
               ampSD <= fastio_wdata(0);
+              audio_mode <= fastio_wdata(7);
 
             when x"FA" =>
               -- @IO:GS $D6FA - 8-bit digital audio out (left)

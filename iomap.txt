@@ -161,8 +161,8 @@ GS $D062 VIC-IV screen RAM precise base address (bits 23 - 16)
 GS $D063 VIC-IV screen RAM precise base address (bits 31 - 24)
 GS $D064 VIC-IV colour RAM base address (bits 0 - 7)
 GS $D065 VIC-IV colour RAM base address (bits 15 - 8)
-GS $D066 VIC-IV RESERVED
-GS $D067 VIC-IV RESERVED
+GS $D066 VIC-IV Sprite/bitplane horizontal scaling
+GS $D067 VIC-IV Sprite/bitplane first X DEBUG WILL BE REMOVED
 GS $D068 VIC-IV character set precise base address (bits 0 - 7)
 GS $D069 VIC-IV character set precise base address (bits 15 - 8)
 GS $D06A VIC-IV character set precise base address (bits 23 - 16)
@@ -393,6 +393,7 @@ GS $D6F7 - Keyboard scan code reader (upper nybl)
 GS $D6F7 - microphone input (right)
 GS $D6F8 - 8-bit digital audio out (left)
 GS $D6F9.0 - Enable audio amplifier
+GS $D6F9.7 - Select PDM or PWM audio output mode
 GS $D6FA - 8-bit digital audio out (left)
 GS $D6FB - microphone input (left)
 GS $D6FF - Flash bit-bashing port
