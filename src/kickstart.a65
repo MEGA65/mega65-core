@@ -887,6 +887,9 @@ setpal:
 		trb $d06f		
 
 setpalntsc:
+		; Re-set virtual screen row length after touching $D06F
+		lda #80
+		sta $d058
 
 		; set name of file we are looking for
 		;
