@@ -686,8 +686,8 @@ begin
       -- Work out where to place keyboard to centre it
       if pixel_x_640 > max_x then
         max_x <= pixel_x_640;
-      end if;
-      x_start_current(12 downto 0) <= x_surplus(13 downto 1);
+      end if;      
+      x_start_current(12 downto 0) <= x_surplus(13 downto 1) + x_start;
       x_start_current(13) <= '0';
       if max_x >= 800 then
         x_surplus <= to_unsigned(max_x - 800,14);
