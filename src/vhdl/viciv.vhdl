@@ -652,6 +652,7 @@ architecture Behavioral of viciv is
   -- coordinates after applying the above scaling factors
   signal chargen_x : unsigned(2 downto 0) := (others => '0');
   signal chargen_y : unsigned(2 downto 0) := (others => '0');
+  signal chargen_y_next : unsigned(2 downto 0) := (others => '0');
   signal chargen_y_hold : unsigned(2 downto 0) := (others => '0');
   -- fractional pixel position for scaling
   signal chargen_y_sub : unsigned(4 downto 0);
@@ -4367,7 +4368,8 @@ begin
       if xbackporch_edge='1' then
         -- Now check if we have tipped over from one logical pixel row to another.
         if chargen_y_sub=chargen_y_scale then
-          chargen_y <= chargen_y + 1;
+          chargen_y_next <= chargen_y_next + 1;
+          chargen_y <= chargen_y_next;
           report "bumping chargen_y to " & integer'image(to_integer(chargen_y)) severity note;
           if chargen_y = "111" then
             bump_screen_row_address<='1';
