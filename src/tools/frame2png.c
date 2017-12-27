@@ -48,8 +48,8 @@ int main(int argc,char **argv)
 	if (p&1) r=0xff;
 	if (p&2) g=0xff;
 	if (p&4) b=0xff;
-	if (!(p&7)) { r=0x7f; g=0x7f; b=0x7f; }
-	printf("Colour patched to $%02x%02x%02x00\n",r,g,b);
+	if (!(p&7)) { r=0x7f; g=0x7f; b=p; }
+	// printf("Colour patched to $%02x%02x%02x00\n",r,g,b);
       }
       //      printf("x=%d,y=%d, max=%d,%d\n",x,y,maxx,maxy);
       if (y<maxy) {
@@ -70,17 +70,24 @@ int main(int argc,char **argv)
 	if (x>maxx) maxx=x;
 	if (y>maxy) maxy=y;
       }
-      //      if (x==20&&(maxy>1)) {
-	// Save image progressively as each line written
-	//	printf("  Got raster %d\n",y-1);
-	//	count++;
-	//	if (count==32) {
-	//	  printf("  Writing raster %d\n",y-1);
-	//	  write_image(image_number);
-	//	  count=0;
-      //	}
-      // }
-    } // else printf("%s",line);      
+            if (x==20&&(maxy>1)) {
+	      // Save image progressively as each line written
+	      printf("  Got raster %d\n",y-1);
+	      count++;
+	      if (count==16) {
+		printf("  Writing raster %d\n",y-1);
+		write_image(image_number);
+		count=0;
+	      }
+	    }
+    }
+    else {
+      if (
+	  //	  (strstr(line,"MAP"))||
+	  (strstr(line,"LEGACY")))
+	printf("%s",line);
+      ;
+    }
 
     line [0]=0; fgets(line,1024,stdin);
   }
@@ -130,6 +137,8 @@ void write_image(int image_number)
   }
 
   png_write_end(png,info);
+  png_destroy_write_struct(&png, &info);
+  
   fclose(f);
   
   return;
