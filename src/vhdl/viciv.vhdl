@@ -443,17 +443,17 @@ architecture Behavioral of viciv is
 
   -- DEBUG: Start character generator in first raster on power up to make ghdl
   -- simulation much quicker
-  signal y_chargen_start : unsigned(11 downto 0) := to_unsigned(0,12);  -- 0
+  signal y_chargen_start : unsigned(11 downto 0) := to_unsigned(3,12);  -- 0
   -- Charset is 16bit (2 bytes per char) when this mode is enabled.
   signal sixteenbit_charset : std_logic := '0';
   -- Characters >255 are full-colour blocks when enabled.
   signal fullcolour_extendedchars : std_logic := '0';
   -- Characters <256 are full-colour blocks when enabled
-  signal fullcolour_8bitchars : std_logic := '1';
+  signal fullcolour_8bitchars : std_logic := '0';
   
   -- VIC-II style Mode control bits (correspond to bits in $D016 etc)
   -- -- Text/graphics mode select
-  signal text_mode : std_logic := '1';
+  signal text_mode : std_logic := '0';
   -- -- Basic multicolour mode bit
   signal multicolour_mode : std_logic := '0';
   -- -- Extended background colour mode (reduces charset to 64 entries)
@@ -463,10 +463,9 @@ architecture Behavioral of viciv is
   -- DEBUG: No top or left borders on power up to make ghdl simulation of frame
   -- drawing much quicker.
   signal border_x_left : unsigned(13 downto 0) := to_unsigned(0,14);
-  signal border_x_right : unsigned(13 downto 0) := to_unsigned(1920-160,14);
-  signal border_y_top : unsigned(11 downto 0) := to_unsigned(0,12);
---  signal border_y_bottom : unsigned(11 downto 0) := to_unsigned(1200-101,12);
-  signal border_y_bottom : unsigned(11 downto 0) := x"384";
+  signal border_x_right : unsigned(13 downto 0) := to_unsigned(2000,14);
+  signal border_y_top : unsigned(11 downto 0) := to_unsigned(3,12);
+  signal border_y_bottom : unsigned(11 downto 0) := to_unsigned(600,12);
   signal blank : std_logic := '0';
   -- intermediate calculations for whether we are in the border to improve timing.
   signal upper_border : std_logic := '1';
@@ -629,7 +628,7 @@ architecture Behavioral of viciv is
   signal colour_ram_base : unsigned(15 downto 0) := x"0000";
   -- Screen RAM offset ( @ $1000 on boot for debug purposes)
   -- (bits 17-27 are ignored with 128KB chipram)
-  signal screen_ram_base : unsigned(27 downto 0) := x"0001000";
+  signal screen_ram_base : unsigned(27 downto 0) := x"0000400";
   -- Pointer to the VIC-II compatibility sprite source vector, usually
   -- screen+$3F8 in 40 column mode, or +$7F8 in VIC-III 80 column mode
   signal vicii_sprite_pointer_address : unsigned(27 downto 0) := x"00013F8";
@@ -637,7 +636,7 @@ architecture Behavioral of viciv is
   -- Character set address.
   -- Size of character set depends on resolution of characters, and whether
   -- full-colour characters are enabled.
-  signal character_set_address : unsigned(27 downto 0) := x"0001000";
+  signal character_set_address : unsigned(27 downto 0) := x"0000000";
   signal character_data_from_rom : std_logic := '1';
   -----------------------------------------------------------------------------
   
@@ -768,6 +767,7 @@ architecture Behavioral of viciv is
   signal xfrontporch_drive : std_logic;
   signal xbackporch : std_logic;
   signal xbackporch_edge : std_logic;
+  signal last_xbackporch_edge : std_logic;
 
   signal last_ramaddress : unsigned(16 downto 0);
   signal ramaddress : unsigned(16 downto 0);
@@ -1214,6 +1214,7 @@ begin
     procedure viciv_interpret_legacy_mode_registers is
     begin      
       -- set horizontal borders based on 40/38 columns
+      report "LEGACY register update";
       if thirtyeightcolumns='0' then
         border_x_left <= to_unsigned(to_integer(single_side_border),14);
         if reg_h640='0' then
@@ -2325,6 +2326,8 @@ begin
                                                     viciv_1080p <= fastio_wdata(6);
                                                     vicii_ntsc <= fastio_wdata(7);
 
+                                                    report "LEGACY register update & PAL/NTSC mode select";
+                                                    
                                                     -- Recompute screen and border positions
                                                     viciv_legacy_mode_registers_touched <= '1';
                                                     
@@ -2753,6 +2756,16 @@ begin
         xcounter <= (others => '0');
         sprite_x_counting <= '0';
         vicii_ycounter_scale <= vicii_ycounter_scale_minus_zero;
+        report "LEGACY vicii_ycounter_scale = " & integer'image(to_integer(vicii_ycounter_scale))
+          & ", vicii_ycounter_max_phase = " & integer'image(to_integer(vicii_ycounter_max_phase))
+          & ", text_mode=" & std_logic'image(text_mode)
+          & ", screen_ram_base=$" & to_hstring(screen_ram_base)
+          & ", character_set_base=$" & to_hstring(character_set_address)
+          & ", screen_ram_buffer_read_address=" & integer'image(to_integer(screen_ram_buffer_read_address))
+          & ", first_card_of_row=" & integer'image(to_integer(first_card_of_row))
+          & ", chargen_y=" & integer'image(to_integer(chargen_y))
+          & ", chargen_y_sub = " & integer'image(to_integer(chargen_y_sub))
+          ;
         vicii_xcounter_320 <= to_unsigned(0,9);
         vicii_xcounter_640 <= to_unsigned(0,10);
         vicii_xcounter_sub320 <= 0;
@@ -2799,6 +2812,7 @@ begin
         else
           -- Start of next frame
           ycounter <= (others =>'0');
+          report "LEGACY: chargen_y_sub = 0 due to start of frame";
           chargen_y_sub <= (others => '0');
           next_card_number <= (others => '0');
           first_card_of_row <= (others => '0');
@@ -3021,21 +3035,6 @@ begin
         next_card_number <= first_card_of_row;
         screen_row_current_address <= screen_row_address;
 
-        -- Now check if we have tipped over from one logical pixel row to another.
-        if chargen_y_sub=chargen_y_scale then
-          chargen_y <= chargen_y + 1;
-          report "bumping chargen_y to " & integer'image(to_integer(chargen_y)) severity note;
-          if chargen_y = "111" then
-            bump_screen_row_address<='1';
-          end if;
-          if (chargen_y_scale=x"02") and (chargen_y(0)='1') then
-            chargen_y_sub <= "00001";
-          else
-            chargen_y_sub <= (others => '0');
-          end if;
-        else
-          chargen_y_sub <= chargen_y_sub + 1;
-        end if;
       end if;
       
       if short_line='1' then
@@ -4362,7 +4361,27 @@ begin
 
       -- Do end-of-raster detection last in the process so that the state
       -- machine cannot get stuck.
-      if xbackporch_edge='1' then
+      last_xbackporch_edge <= xbackporch_edge;
+      if xbackporch_edge='1' and last_xbackporch_edge='0' then
+        -- Now check if we have tipped over from one logical pixel row to another.
+        if chargen_y_sub=chargen_y_scale then
+          chargen_y <= chargen_y + 1;
+          report "bumping chargen_y to " & integer'image(to_integer(chargen_y)) severity note;
+          if chargen_y = "111" then
+            bump_screen_row_address<='1';
+          end if;
+          if (chargen_y_scale=x"02") and (chargen_y(0)='1') then
+            chargen_y_sub <= "00001";
+          else
+            report "LEGACY: chargen_y_sub = 0 due increment of chargen_y";
+            chargen_y_sub <= (others => '0');
+          end if;
+        else
+          report "LEGACY: chargen_y_sub incremented";
+          chargen_y_sub <= chargen_y_sub + 1;
+        end if;
+      end if;
+      if xbackporch_edge='1' and last_xbackporch_edge='1' then
         -- Start of filling raster buffer.
         -- We don't need to double-buffer, as we start filling from the back
         -- porch of the previous line, hundreds of cycles before the start of
