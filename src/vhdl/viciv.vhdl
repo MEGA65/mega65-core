@@ -1241,12 +1241,15 @@ begin
         <= to_unsigned(to_integer(frame_h_front)
                        +to_integer(single_side_border)
                        +ssx_table(to_integer(vicii_x_smoothscroll)),14);
-      if reg_h640='0' then
-        -- 40 column mode
-        virtual_row_width <= to_unsigned(40,16);
-      elsif reg_h640='1' then
-        -- 80 column mode
-        virtual_row_width <= to_unsigned(80,16);        
+
+      if sixteenbit_charset='0' and fullcolour_8bitchars='0' and fullcolour_extendedchars='0' then
+        if reg_h640='0' then
+          -- 40 column mode
+          virtual_row_width <= to_unsigned(40,16);
+        elsif reg_h640='1' then
+          -- 80 column mode
+          virtual_row_width <= to_unsigned(80,16);        
+        end if;
       end if;
 
       -- set vertical borders based on twentyfourlines
@@ -1289,30 +1292,33 @@ begin
         chargen_y_scale <= to_unsigned(to_integer(chargen_y_scale_400)-1,8);
       end if;
       
-      if reg_h640='1' then
-        screen_ram_base(13 downto 11) <= reg_d018_screen_addr(3 downto 1);
-        screen_ram_base(10 downto 0) <= (others => '0');
-      else
-        screen_ram_base(13 downto 10) <= reg_d018_screen_addr;
-        screen_ram_base(9 downto 0) <= (others => '0');
-      end if;
-      -- Sprites fetch from screen ram base + $3F8 (or +$7F8 in VIC-III 80
-      -- column mode).
-      -- In 80 column mode the screen base must be on a 2K boundary on the
-      -- C65, which changes the interpretation of the screen_ram_base.
-      -- Behaviour for 160 and 240 column modes is undefined.
-      -- Note that our interpretation of V400 to double the number of text
-      -- rows breaks strict C65 compatibility.
-      vicii_sprite_pointer_address(13 downto 10)
-        <= reg_d018_screen_addr;
-      if reg_h640='1' or reg_v400='1' then
-        vicii_sprite_pointer_address(10) <= '1';
-      end if;
-      vicii_sprite_pointer_address(9 downto 0) <= "1111111000";
+      if sixteenbit_charset='0' and fullcolour_8bitchars='0' and fullcolour_extendedchars='0' then
+        if reg_h640='1' then
+          screen_ram_base(13 downto 11) <= reg_d018_screen_addr(3 downto 1);
+          screen_ram_base(10 downto 0) <= (others => '0');
+        else
+          screen_ram_base(13 downto 10) <= reg_d018_screen_addr;
+          screen_ram_base(9 downto 0) <= (others => '0');
+        end if;
+        
+        -- Sprites fetch from screen ram base + $3F8 (or +$7F8 in VIC-III 80
+        -- column mode).
+        -- In 80 column mode the screen base must be on a 2K boundary on the
+        -- C65, which changes the interpretation of the screen_ram_base.
+        -- Behaviour for 160 and 240 column modes is undefined.
+        -- Note that our interpretation of V400 to double the number of text
+        -- rows breaks strict C65 compatibility.
+        vicii_sprite_pointer_address(13 downto 10)
+          <= reg_d018_screen_addr;
+        if reg_h640='1' or reg_v400='1' then
+          vicii_sprite_pointer_address(10) <= '1';
+        end if;
+        vicii_sprite_pointer_address(9 downto 0) <= "1111111000";
 
-      -- All VIC-II/VIC-III compatibility modes use the first part of the
-      -- colour RAM.
-      colour_ram_base <= (others => '0');
+        -- All VIC-II/VIC-III compatibility modes use the first part of the
+        -- colour RAM.
+        colour_ram_base <= (others => '0');
+      end if;
       
     end procedure viciv_interpret_legacy_mode_registers;
     
