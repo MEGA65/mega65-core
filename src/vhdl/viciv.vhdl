@@ -3003,6 +3003,7 @@ begin
       end if;
       if before_y_chargen_start = '1' then
         chargen_y <= (others => '0');
+        chargen_y_next <= (others => '0');
         chargen_y_sub <= (others => '0');
         chargen_active <= '0';
         chargen_active_soon <= '0';
