@@ -4364,7 +4364,7 @@ begin
       -- Do end-of-raster detection last in the process so that the state
       -- machine cannot get stuck.
       last_xbackporch_edge <= xbackporch_edge;
-      if xbackporch_edge='1' and last_xbackporch_edge='0' then
+      if xbackporch_edge='1' then
         -- Now check if we have tipped over from one logical pixel row to another.
         if chargen_y_sub=chargen_y_scale then
           chargen_y <= chargen_y + 1;
@@ -4383,7 +4383,7 @@ begin
           chargen_y_sub <= chargen_y_sub + 1;
         end if;
       end if;
-      if xbackporch_edge='1' and last_xbackporch_edge='1' then
+      if last_xbackporch_edge='1' then
         -- Start of filling raster buffer.
         -- We don't need to double-buffer, as we start filling from the back
         -- porch of the previous line, hundreds of cycles before the start of
