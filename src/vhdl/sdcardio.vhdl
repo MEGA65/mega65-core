@@ -168,6 +168,9 @@ architecture behavioural of sdcardio is
   signal pwm_value_combined : integer range 0 to 65535 := 0;
   signal pwm_value_left : integer range 0 to 65535 := 0;
   signal pwm_value_right : integer range 0 to 65535 := 0;
+  signal pwm_value_combined_hold : integer range 0 to 65535 := 0;
+  signal pwm_value_left_hold : integer range 0 to 65535 := 0;
+  signal pwm_value_right_hold : integer range 0 to 65535 := 0;
 
   signal pdm_combined_accumulator : integer range 0 to 131071 := 0;
   signal pdm_left_accumulator : integer range 0 to 131071 := 0;
@@ -742,17 +745,20 @@ begin  -- behavioural
       -- Normal PWM
       if pwm_counter < 1024 then
         pwm_counter <= pwm_counter + 1;
-        if to_integer(to_unsigned(pwm_value_combined,16)(15 downto 6)) = pwm_counter then
+        if to_integer(to_unsigned(pwm_value_combined_hold,16)(15 downto 6)) = pwm_counter then
           ampPwm_pwm <= '0';
         end if;
-        if to_integer(to_unsigned(pwm_value_left,16)(15 downto 6)) = pwm_counter then
+        if to_integer(to_unsigned(pwm_value_left_hold,16)(15 downto 6)) = pwm_counter then
           ampPwm_pwm_l <= '0';
         end if;
-        if to_integer(to_unsigned(pwm_value_right,16)(15 downto 6)) = pwm_counter then
+        if to_integer(to_unsigned(pwm_value_right_hold,16)(15 downto 6)) = pwm_counter then
           ampPwm_pwm_r <= '0';
         end if;
       else
         pwm_counter <= 0;
+        pwm_value_combined_hold <= pwm_value_combined_hold;
+        pwm_value_left_hold <= pwm_value_left_hold;
+        pwm_value_right_hold <= pwm_value_right_hold;
         if to_integer(to_unsigned(pwm_value_combined,16)(15 downto 6)) = 0 then
           ampPWM_pwm <= '0';
         else
