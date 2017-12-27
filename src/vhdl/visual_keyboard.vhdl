@@ -76,7 +76,7 @@ architecture behavioural of visual_keyboard is
 
   signal current_matrix_id : unsigned(7 downto 0) := x"7F";
   signal next_matrix_id : unsigned(7 downto 0) := x"7F";
-  signal matrix_pos : integer;
+  signal matrix_pos : integer := 0;
   signal matrix_fetching : std_logic := '0';
 
   signal last_was_640 : std_logic := '0';
@@ -510,7 +510,7 @@ begin
           matrix_pos <= 0;
           fetch_state <= FetchIdle;
         when FetchNextMatrix =>
-          if matrix_pos < 16 then
+          if (matrix_pos < 16) and (y_row < 30) then
             address <= 2048 + alt_offset + y_row*16 + matrix_pos + 2;
             matrix_pos <= matrix_pos + 1;
           else
@@ -686,8 +686,10 @@ begin
       -- Work out where to place keyboard to centre it
       if pixel_x_640 > max_x then
         max_x <= pixel_x_640;
-      end if;      
-      x_start_current(12 downto 0) <= x_surplus(13 downto 1) + x_start;
+      end if;
+      -- Must start at atleast 1, because starting at 0 causes the display to
+      -- be double height.
+      x_start_current(12 downto 0) <= x_surplus(13 downto 1) + x_start + 1;
       x_start_current(13) <= '0';
       if max_x >= 800 then
         x_surplus <= to_unsigned(max_x - 800,14);
