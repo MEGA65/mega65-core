@@ -444,7 +444,7 @@ architecture Behavioral of viciv is
 
   -- DEBUG: Start character generator in first raster on power up to make ghdl
   -- simulation much quicker
-  signal y_chargen_start : unsigned(11 downto 0) := to_unsigned(3,12);  -- 0
+  signal y_chargen_start : unsigned(11 downto 0) := to_unsigned(4,12);  -- 0
   signal y_chargen_start_minus_one : unsigned(11 downto 0) := to_unsigned(0,12);  --
                                                                                   --auto-calculated signal
   -- Charset is 16bit (2 bytes per char) when this mode is enabled.
@@ -467,7 +467,7 @@ architecture Behavioral of viciv is
   -- drawing much quicker.
   signal border_x_left : unsigned(13 downto 0) := to_unsigned(0,14);
   signal border_x_right : unsigned(13 downto 0) := to_unsigned(2000,14);
-  signal border_y_top : unsigned(11 downto 0) := to_unsigned(3,12);
+  signal border_y_top : unsigned(11 downto 0) := to_unsigned(4,12);
   signal border_y_bottom : unsigned(11 downto 0) := to_unsigned(600,12);
   signal blank : std_logic := '0';
   -- intermediate calculations for whether we are in the border to improve timing.
@@ -3087,6 +3087,9 @@ begin
           report "VICIV: no character pixel data as chargen_active=0" severity note;
         else
           -- Otherwise read pixel data from raster buffer
+          if raster_buffer_read_address = to_unsigned(0,11) then
+            report "LEGACY: Painting pixels from raster buffer";
+          end if;
           report "VICIV: rb_read_address = $" & to_hstring(raster_buffer_read_address)
             & ", data = $" & to_hstring(raster_buffer_read_data(7 downto 0)) severity note;
           pixel_colour <= raster_buffer_read_data(7 downto 0);
@@ -3412,6 +3415,10 @@ begin
             next_screen_row_fetch_address <= screen_row_current_address;
             
             report "BADLINE, colour_ram_base=$" & to_hstring(colour_ram_base) severity note;
+
+            report "LEGACY: Badline fetch: "
+              & "screen_row_current_address = $" & to_hstring(screen_row_current_address)
+              ;
           end if;
         when FetchScreenRamLine2 =>
           -- Ask for the next byte.  We indicate all details of this
@@ -3483,6 +3490,13 @@ begin
 
           -- Work out exactly what mode we are in so that we can be a bit more
           -- efficient in the next cycle
+          if screen_ram_buffer_read_address = to_unsigned(0,9) then
+            report "LEGACY: Char/bitmap data fetch: "
+              & "chargen_y_hold = $" & to_hstring(chargen_y_hold)
+              & ", chargen_y = $" & to_hstring(chargen_y)
+              & ", chargen_y_next = $" & to_hstring(chargen_y_next)
+              ;
+          end if;
           if text_mode='1' then
             -- Read 8 or 16 bit screen RAM data for character number information
             -- (the address was put on the bus for us already).
@@ -4384,9 +4398,9 @@ begin
       last_xbackporch_edge <= xbackporch_edge;
       if xbackporch_edge='1' then
         -- Now check if we have tipped over from one logical pixel row to another.
+        chargen_y <= chargen_y_next;
         if chargen_y_sub=chargen_y_scale then
           chargen_y_next <= chargen_y_next + 1;
-          chargen_y <= chargen_y_next;
           report "bumping chargen_y to " & integer'image(to_integer(chargen_y)) severity note;
           if chargen_y = "111" then
             bump_screen_row_address<='1';
