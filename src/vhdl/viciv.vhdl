@@ -150,6 +150,7 @@ architecture Behavioral of viciv is
   signal iomode_set_toggle_last : std_logic := '0';    
 
   signal before_y_chargen_start : std_logic := '1';
+  signal justbefore_y_chargen_start : std_logic := '0';
 
   signal vicii_2mhz_internal : std_logic := '1';
   signal viciii_fast_internal : std_logic := '1';
@@ -444,6 +445,8 @@ architecture Behavioral of viciv is
   -- DEBUG: Start character generator in first raster on power up to make ghdl
   -- simulation much quicker
   signal y_chargen_start : unsigned(11 downto 0) := to_unsigned(3,12);  -- 0
+  signal y_chargen_start_minus_one : unsigned(11 downto 0) := to_unsigned(0,12);  --
+                                                                                  --auto-calculated signal
   -- Charset is 16bit (2 bytes per char) when this mode is enabled.
   signal sixteenbit_charset : std_logic := '0';
   -- Characters >255 are full-colour blocks when enabled.
@@ -2995,18 +2998,24 @@ begin
         report "Setting chargen_active based on xcounter = x_chargen_start" severity note;
         chargen_active_soon <= '0';
       end if;
-      if displayy = "000000000000" then
+      y_chargen_start_minus_one <= y_chargen_start-1;
+      if displayy = (y_chargen_start_minus_one) then
+        justbefore_y_chargen_start <= '1';
+      else
+        justbefore_y_chargen_start <= '0';
+      end if;
+      if displayy = "000000000000" then        
         before_y_chargen_start <= '1';
       elsif displayy = y_chargen_start then
         before_y_chargen_start <= '0';
       end if;
-      if before_y_chargen_start = '1' then
-        chargen_y <= "111";
+      if before_y_chargen_start = '1' and justbefore_y_chargen_start='0' then
+        chargen_y <= "000";
         chargen_y_next <= "000";
-        if chargen_y_sub /= chargen_y_scale then
-          report "LEGACY: Reseting chargen_y_sub to " & integer'image(to_integer(chargen_y_scale));
+        if chargen_y_sub /= 0 then
+          report "LEGACY: Reseting chargen_y_sub";
         end if;
-        chargen_y_sub <= chargen_y_scale(4 downto 0);
+        chargen_y_sub <= to_unsigned(0,5);
         chargen_active <= '0';
         chargen_active_soon <= '0';
         -- Force badline so that moving chargen down results in fresh loading
