@@ -256,7 +256,7 @@ architecture Behavioral of viciv is
   signal xcounter_delayed : unsigned(13 downto 0) := to_unsigned(0,14);
   
   signal xcounter_drive : unsigned(13 downto 0) := (others => '0');
-  signal ycounter : unsigned(11 downto 0) := to_unsigned(0,12);
+  signal ycounter : unsigned(11 downto 0) := to_unsigned(625,12);
   signal ycounter_drive : unsigned(11 downto 0) := (others => '0');
   -- Virtual raster number for VIC-II
   -- (On powerup set to a PAL only raster so that ROM doesn't need to wait a
@@ -2815,7 +2815,7 @@ begin
         else
           -- Start of next frame
           ycounter <= (others =>'0');
-          report "LEGACY: chargen_y_sub = 0 due to start of frame";
+          report "LEGACY: chargen_y_sub = 0, first_card_of_row = 0 due to start of frame";
           chargen_y_sub <= (others => '0');
           next_card_number <= (others => '0');
           first_card_of_row <= (others => '0');
@@ -2825,7 +2825,6 @@ begin
           displayline0 <= '1';
           indisplay := '0';
           report "clearing indisplay because xcounter=0" severity note;
-          first_card_of_row <= x"0000";
           screen_row_address <= screen_ram_base(16 downto 0);
 
           -- Reset VIC-II raster counter to first raster for top of frame
@@ -3002,9 +3001,12 @@ begin
         before_y_chargen_start <= '0';
       end if;
       if before_y_chargen_start = '1' then
-        chargen_y <= (others => '0');
-        chargen_y_next <= (others => '0');
-        chargen_y_sub <= (others => '0');
+        chargen_y <= "111";
+        chargen_y_next <= "000";
+        if chargen_y_sub /= chargen_y_scale then
+          report "LEGACY: Reseting chargen_y_sub to " & integer'image(to_integer(chargen_y_scale));
+        end if;
+        chargen_y_sub <= chargen_y_scale(4 downto 0);
         chargen_active <= '0';
         chargen_active_soon <= '0';
         -- Force badline so that moving chargen down results in fresh loading
@@ -3053,10 +3055,15 @@ begin
         -- Compute the address for the screen row.
         screen_row_address <= screen_ram_base(16 downto 0) + first_card_of_row;
 
-        -- Increment card number every "bad line"
-        first_card_of_row <= to_unsigned(to_integer(first_card_of_row) + row_advance,16);
-        -- Similarly update the colour ram fetch address
-        colourramaddress <= to_unsigned(to_integer(colour_ram_base) + row_advance,16);
+        if before_y_chargen_start='0' then
+          -- Increment card number every "bad line"
+          report "LEGACY: Advancing first_card_of_row due to end of character";
+          first_card_of_row <= to_unsigned(to_integer(first_card_of_row) + row_advance,16);
+          -- Similarly update the colour ram fetch address
+          colourramaddress <= to_unsigned(to_integer(colour_ram_base) + row_advance,16);
+        else
+          report "LEGACY: NOT advancing first_card_of_row due to end of character (before_y_chargen_start=1)";
+        end if;
       end if;
       
       display_active <= indisplay;
