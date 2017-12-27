@@ -324,7 +324,7 @@ architecture behavioral of matrix_to_ascii is
     54 => x"00", -- SPECIAL/UNPRINTABLE/^
     55 => x"2f", -- ?//
     56 => x"95", -- !/SPECIAL/UNPRINTABLE
-    57 => x"5f", -- SPECIAL/UNPRINTABLE/_
+    57 => x"ef", -- SPECIAL/UNPRINTABLE/_    C= + <- = matrix mode (for C64 keyboards)
     58 => x"00", -- CTRL/NO KEY
     59 => x"96", -- "/SPECIAL/UNPRINTABLE
     60 => x"20", -- SPACE/BAR
@@ -332,7 +332,7 @@ architecture behavioral of matrix_to_ascii is
     62 => x"d1", -- Q/SPECIAL/UNPRINTABLE
     63 => x"a3", -- RUN/STOP
     64 => x"00", -- NO/SCRL
-    65 => x"ef", -- TAB/NO KEY
+    65 => x"ef", -- TAB/NO KEY               C= + TAB = matrix mode toggle
     66 => x"00", -- ALT/NO KEY
     67 => x"00", -- HELP/NO KEY
     68 => x"fa", -- F10/F9
