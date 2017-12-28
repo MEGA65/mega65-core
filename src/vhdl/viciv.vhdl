@@ -2874,7 +2874,7 @@ begin
       -- Work out if the border is active
       inborder_t1 <= inborder;
       inborder_t2 <= inborder_t1;
-      if displayy>border_y_bottom then
+      if displayy>=border_y_bottom then
         lower_border <= '1';
       else
         lower_border <= '0';
