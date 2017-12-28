@@ -636,7 +636,7 @@ begin  -- behavioural
             fastio_rdata(0) <= ampSD_internal;
             fastio_rdata(4 downto 1) <= unsigned(audio_reflect);
             fastio_rdata(5) <= stereo_swap;
-            fastio_rdara(6) <= force_mono;
+            fastio_rdata(6) <= force_mono;
             fastio_rdata(7) <= audio_mode;
           when x"FA" =>
             -- PWM output
