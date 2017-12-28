@@ -316,9 +316,6 @@ begin
   block3: block
   begin
     cia1: entity work.cia6526
-      generic map (
-        has_iec => '0'
-        )
       port map (
     cpuclock => clk,
     phi0 => phi0,
@@ -347,9 +344,6 @@ begin
   block4: block
   begin
     ciatwo: entity work.cia6526
-      generic map (
-        has_iec => '1'
-        )
       port map (
     cpuclock => clk,
     phi0 => phi0,

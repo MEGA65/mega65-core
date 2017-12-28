@@ -455,14 +455,31 @@ begin
       fb_down_drive <= fb_down;
       fb_fire_drive <= fb_fire;  
 
+      -- The CIAs drive these lines naively, so we need to apply the inverters
+      -- on the outputs here, and also deal with the particulars of how the
+      -- MEGA65 PCB drives these lines.
+      -- Note that the MEGA65 PCB lacks pull-ups on these lines, and relies on
+      -- the connected disk drive(s) having pull-ups of their own.
+      -- Here is the truth table for behaviour with a pull-up on the pin:
+      -- +----+-----++----+
+      -- | _o | _en || _i |
+      -- +----+-----++----+
+      -- |  0 |   X || 0  |
+      -- |  1 |   0 || 1* |
+      -- |  1 |   1 || 1  |
+      -- +----+-----++----+
+      -- * Value provided by pin up, or equivalently device on the bus
+      --
+      -- End result is simple: Invert output bit, and copy output enable
+      
       iec_clk_en <= iec_clk_en_drive;
-      iec_data_en <= iec_data_en_drive;
-      iec_data_o <= iec_data_o_drive;
-      iec_reset <= iec_reset_drive;
-      iec_clk_o <= iec_clk_o_drive;
-      iec_data_i_drive <= iec_data_i;
+      iec_clk_o <= not iec_clk_o_drive;
       iec_clk_i_drive <= iec_clk_i;
-      iec_atn <= iec_atn_drive;
+      iec_data_en <= iec_data_en_drive;
+      iec_data_o <= not iec_data_o_drive;
+      iec_data_i_drive <= iec_data_i;
+      iec_reset <= iec_reset_drive;
+      iec_atn <= not iec_atn_drive;
 
       pwm_l <= pwm_l_drive;
       pwm_r <= pwm_r_drive;

@@ -7,9 +7,6 @@ use Std.TextIO.all;
 use work.debugtools.all;
 
 entity cia6526 is
-  generic (
-    has_iec : std_logic := '0'
-    );
   port (
     cpuclock : in std_logic;
     phi0 : in std_logic;
@@ -31,7 +28,7 @@ entity cia6526 is
     fastio_wdata : in unsigned(7 downto 0);
     fastio_rdata : out unsigned(7 downto 0);
 
-    portaout : out std_logic_vector(7 downto 0);
+/    portaout : out std_logic_vector(7 downto 0);
     portain : in std_logic_vector(7 downto 0);
     portaddr : out std_logic_vector(7 downto 0);
     
@@ -155,9 +152,6 @@ begin  -- behavioural
           ) is
     variable register_number : unsigned(7 downto 0);
   begin
-    if has_iec='0' then
-      report "portain = " & to_string(portain);
-    end if;
     if cs='0' then
       -- Tri-state read lines if not selected
       fastio_rdata <= (others => 'Z');
@@ -466,26 +460,8 @@ begin  -- behavioural
       end if;
 
       portbout <= reg_portb_out or (not reg_portb_ddr);
-      if has_iec = '0' then
-        portaddr <= reg_porta_ddr;
-        portaout <= reg_porta_out or (not reg_porta_ddr);
-      else
-        -- Invert IEC serial output lines (but not inputs)
-        portaout(2 downto 0) <= reg_porta_out(2 downto 0) or (not reg_porta_ddr(2 downto 0));
-        portaout(5 downto 3) <= (not reg_porta_out(5 downto 3)) or (not reg_porta_ddr(5 downto 3));
-        portaout(7 downto 6) <= reg_porta_out(7 downto 6) or (not reg_porta_ddr(7 downto 6));
-        -- DDR actually drives the OE lines on the output buffer
-        -- The output buffer tri-states with OE=0, and is otherwise push-pull.
-        -- Thus when outputting a 1, we actually want OE=0, and when outputting
-        -- a 0, with DDR set to output, we want OE=1, output_bit=1 (because it
-        -- is inverted)
-        -- In other words, we should set portaddr bits to the same as the
-        -- output bits
-        portaddr(2 downto 0) <= reg_porta_out(2 downto 0) or (not reg_porta_ddr(2 downto 0));
-        portaddr(5 downto 3) <= (not reg_porta_out(5 downto 3)) or (not reg_porta_ddr(5 downto 3));
-        portaddr(7 downto 6) <= reg_porta_out(7 downto 6) or (not reg_porta_ddr(7 downto 6));
-        
-      end if;
+      portaddr <= reg_porta_ddr;
+      portaout <= reg_porta_out or (not reg_porta_ddr);
       
       -- Check for register writing
       if fastio_write='1' and cs='1' then
