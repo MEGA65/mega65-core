@@ -32,7 +32,8 @@ entity c65uart is
     
     widget_disable : out std_logic;
     ps2_disable : out std_logic;
-    joy_disable : out std_logic;
+    joykey_disable : out std_logic;
+    joyreal_disable : out std_logic;
     physkey_disable : out std_logic;
     virtual_disable : out std_logic;
     
@@ -146,7 +147,8 @@ architecture behavioural of c65uart is
   
   signal widget_enable_internal : std_logic := '1';
   signal ps2_enable_internal : std_logic := '1';
-  signal joy_enable_internal : std_logic := '1';
+  signal joykey_enable_internal : std_logic := '1';
+  signal joyreal_enable_internal : std_logic := '1';
   signal physkey_enable_internal : std_logic := '1';
   signal virtual_enable_internal : std_logic := '1';
 
@@ -198,7 +200,8 @@ begin  -- behavioural
       
       widget_disable <= not widget_enable_internal;
       ps2_disable <= not ps2_enable_internal;
-      joy_disable <= not joy_enable_internal;
+      joykey_disable <= not joykey_enable_internal;
+      joyreal_disable <= not joykey_enable_internal;
       physkey_disable <= not physkey_enable_internal;
       virtual_disable <= not virtual_enable_internal;
 
@@ -310,12 +313,14 @@ begin  -- behavioural
           fastio_rdata(0) <= widget_enable_internal;
           -- @IO:GS $D612.1 Enable ps2 keyboard/joystick input
           fastio_rdata(1) <= ps2_enable_internal;
-          -- @IO:GS $D612.4 Enable physical joystick input
+          -- @IO:GS $D612.2 Enable physical keyboard input
           fastio_rdata(2) <= physkey_enable_internal;
           -- @IO:GS $D612.3 Enable virtual keyboard input
           fastio_rdata(3) <= virtual_enable_internal;
-          -- @IO:GS $D612.2 Enable physical joystick input
-          fastio_rdata(4) <= joy_enable_internal;
+          -- @IO:GS $D612.4 Enable PS/2 / USB keyboard simulated joystick input
+          fastio_rdata(4) <= joykey_enable_internal;
+          -- @IO:GS $D612.5 Enable physical joystick input
+          fastio_rdata(5) <= joyreal_enable_internal;
         when x"13" =>
           -- @IO:GS $D613 DEBUG: Which segment of keyboard matrix to read (0--9)
           fastio_rdata <= unsigned(portj_in);
@@ -563,7 +568,8 @@ begin  -- behavioural
             ps2_enable_internal <= std_logic(fastio_wdata(1));
             physkey_enable_internal <= std_logic(fastio_wdata(2));
             virtual_enable_internal <= std_logic(fastio_wdata(3));
-            joy_enable_internal <= std_logic(fastio_wdata(4));
+            joykey_enable_internal <= std_logic(fastio_wdata(4));
+            joyreal_enable_internal <= std_logic(fastio_wdata(5));
           when x"14" => portj_out <= std_logic_vector(fastio_wdata);
                         portj_internal <= std_logic_vector(fastio_wdata);
           when x"15" =>

@@ -197,7 +197,8 @@ architecture behavioral of iomapper is
   signal key_debug : std_logic_vector(7 downto 0);
   signal widget_disable : std_logic;
   signal ps2_disable : std_logic;
-  signal joy_disable : std_logic;
+  signal joykey_disable : std_logic;
+  signal joyreal_disable : std_logic;
   signal virtual_disable : std_logic;
   signal physkey_disable : std_logic;
 
@@ -416,7 +417,8 @@ begin
       key_debug => key_debug,
       widget_disable => widget_disable,
       ps2_disable => ps2_disable,
-      joy_disable => joy_disable,
+      joykey_disable => joykey_disable,
+      joyreal_disable => joyreal_disable,
       virtual_disable => virtual_disable,
       physkey_disable => physkey_disable,
       key_left => key_left,
@@ -456,7 +458,8 @@ begin
       
     widget_disable => widget_disable,
     ps2_disable => ps2_disable,
-    joy_disable => joy_disable,
+    joyreal_disable => joyreal_disable,
+    joykey_disable => joykey_disable,
     physkey_disable => physkey_disable,
     virtual_disable => virtual_disable,
     

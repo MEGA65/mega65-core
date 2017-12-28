@@ -19,10 +19,14 @@ entity keymapper is
     capslock_physkey : in std_logic;
     restore_physkey : in std_logic;
 
-    joy_disable : in std_logic;
+    joykey_disable : in std_logic;
     joya_physkey : in std_logic_vector(4 downto 0);
     joyb_physkey : in std_logic_vector(4 downto 0);
 
+    joyreal_disable : in std_logic;
+    joya_real : in std_logic_vector(4 downto 0);
+    joyb_real : in std_logic_vector(4 downto 0);
+    
     widget_disable : in std_logic;
     matrix_widget : in std_logic_vector(71 downto 0);
     joya_widget : in std_logic_vector(4 downto 0);
@@ -136,11 +140,13 @@ begin  -- behavioural
 
       -- And joysticks
       for n in 0 to 4 loop
-        joya(n) <= '1' and (joya_physkey(n) or joy_disable)
+        joya(n) <= '1' and (joya_physkey(n) or joykey_disable)
                    and (joya_widget(n) or widget_disable)
+                   and (joya_real(n) or joyreal_disable)
                    and (joya_ps2(n) or ps2_disable);
-        joyb(n) <= '1' and (joyb_physkey(n) or joy_disable)
+        joyb(n) <= '1' and (joyb_physkey(n) or joykey_disable)
                    and (joyb_widget(n) or widget_disable)
+                   and (joyb_real(n) or joyreal_disable)
                    and (joyb_ps2(n) or ps2_disable);
       end loop;
       

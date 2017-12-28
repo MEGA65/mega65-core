@@ -376,17 +376,17 @@ begin
       -- Wire up a dummy caps_lock key on switch 8
       caps_lock_key => sw(8),
 
-      fa_fire => jc(9),
-      fa_up =>  jdlo(1),
-      fa_left => jdlo(2),
-      fa_down => jdlo(3),
-      fa_right => jdlo(4),
+      fa_fire => '1',
+      fa_up =>  '1',
+      fa_left => '1',
+      fa_down => '1',
+      fa_right => '1',
 
-      fb_fire => jc(10),
-      fb_up => jdhi(7),
-      fb_left => jdhi(8),
-      fb_down => jdhi(9),
-      fb_right => jdhi(10),
+      fb_fire => '1',
+      fb_up => '1',
+      fb_left => '1',
+      fb_down => '1',
+      fb_right => '1',
       
       ----------------------------------------------------------------------
       -- CBM floppy  std_logic_vectorerial port

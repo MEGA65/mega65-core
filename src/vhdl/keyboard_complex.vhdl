@@ -52,7 +52,8 @@ entity keyboard_complex is
     -- Flags to control which inputs are disabled, if any
     virtual_disable : in std_logic;
     physkey_disable : in std_logic;
-    joy_disable : in std_logic;
+    joykey_disable : in std_logic;
+    joyreal_disable : in std_logic;
     widget_disable : in std_logic;
     ps2_disable : in std_logic;
 
@@ -208,9 +209,13 @@ begin
     capslock_physkey => keyboard_capslock,
     restore_physkey => keyboard_restore,
 
-    joy_disable => joy_disable,
+    joykey_disable => joykey_disable,
     joya_physkey => keyboard_joya,
     joyb_physkey => keyboard_joyb,
+
+    joyreal_disable => joyreal_disable,
+    joya_real => joya,
+    joyb_real => joyb,
 
     widget_disable => widget_disable,
     matrix_widget => widget_matrix,
