@@ -206,6 +206,32 @@ architecture Behavioral of container is
   signal QspiDB : std_logic_vector(3 downto 0) := (others => '0');
   signal QspiCSn : std_logic := '1';
 
+  signal fa_left_drive : std_logic;
+  signal fa_right_drive : std_logic;
+  signal fa_up_drive : std_logic;
+  signal fa_down_drive : std_logic;
+  signal fa_fire_drive : std_logic;
+  
+  signal fb_left_drive : std_logic;
+  signal fb_right_drive : std_logic;
+  signal fb_up_drive : std_logic;
+  signal fb_down_drive : std_logic;
+  signal fb_fire_drive : std_logic;
+  
+  signal iec_clk_en_drive : std_logic;
+  signal iec_data_en_drive : std_logic;
+  signal iec_data_o_drive : std_logic;
+  signal iec_reset_drive : std_logic;
+  signal iec_clk_o_drive : std_logic;
+  signal iec_data_i_drive : std_logic;
+  signal iec_clk_i_drive : std_logic;
+  signal iec_atn_drive : std_logic;
+
+  signal pwm_l_drive : std_logic;
+  signal pwm_r_drive : std_logic;
+
+  signal flopled_drive : std_logic;
+  signal flopmotor_drive : std_logic;
   
 begin
 
@@ -303,14 +329,14 @@ begin
       ----------------------------------------------------------------------
       -- CBM floppy  std_logic_vectorerial port
       ----------------------------------------------------------------------
-      iec_clk_en => iec_clk_en,
-      iec_data_en => iec_data_en,
-      iec_data_o => iec_data_o,
-      iec_reset => iec_reset,
-      iec_clk_o => iec_clk_o,
-      iec_data_i => iec_data_i,
-      iec_clk_i => iec_clk_i,
-      iec_atn => iec_atn,
+      iec_clk_en => iec_clk_en_drive,
+      iec_data_en => iec_data_en_drive,
+      iec_data_o => iec_data_o_drive,
+      iec_reset => iec_reset_drive,
+      iec_clk_o => iec_clk_o_drive,
+      iec_data_i => iec_data_i_drive,
+      iec_clk_i => iec_clk_i_drive,
+      iec_atn => iec_atn_drive,
             
       porta_pins => column(7 downto 0),
       portb_pins => row(7 downto 0),
@@ -319,17 +345,17 @@ begin
       keyleft => keyleft,
       keyup => keyup,
 
-      fa_fire => fa_fire,
-      fa_up => fa_up,
-      fa_left => fa_left,
-      fa_down => fa_down,
-      fa_right => fa_right,
+      fa_fire => fa_fire_drive,
+      fa_up => fa_up_drive,
+      fa_left => fa_left_drive,
+      fa_down => fa_down_drive,
+      fa_right => fa_right_drive,
 
-      fb_fire => fb_fire,
-      fb_up => fb_up,
-      fb_left => fb_left,
-      fb_down => fb_down,
-      fb_right => fb_right,
+      fb_fire => fb_fire_drive,
+      fb_up => fb_up_drive,
+      fb_left => fb_left_drive,
+      fb_down => fb_down_drive,
+      fb_right => fb_right_drive,
       
       ---------------------------------------------------------------------------
       -- IO lines to the ethernet controller
@@ -377,8 +403,8 @@ begin
 --      micClk => micClk,
 --      micLRSel => micLRSel,
 
-      flopled => flopled,
---      flopmotor => flopmotor,
+      flopled => flopled_drive,
+      flopmotor => flopmotor_drive,
       ampPWM_l => pwm_l,
       ampPWM_r => pwm_r,
 
@@ -415,6 +441,36 @@ begin
     vdac_clk <= pixelclock;
     eth_clock <= cpuclock;
 
+    -- Drive most ports, to relax timing
+    if rising_edge(cpuclock) then
+      
+      fa_left_drive <= fa_left;
+      fa_right_drive <= fa_right;
+      fa_up_drive <= fa_up;
+      fa_down_drive <= fa_down;
+      fa_fire_drive <= fa_fire;  
+      fb_left_drive <= fb_left;
+      fb_right_drive <= fb_right;
+      fb_up_drive <= fb_up;
+      fb_down_drive <= fb_down;
+      fb_fire_drive <= fb_fire;  
+
+      iec_clk_en <= iec_clk_en_drive;
+      iec_data_en <= iec_data_en_drive;
+      iec_data_o <= iec_data_o_drive;
+      iec_reset <= iec_reset_drive;
+      iec_clk_o <= iec_clk_o_drive;
+      iec_data_i_drive <= iec_data_i;
+      iec_clk_i_drive <= iec_clk_i;
+      iec_atn_drive <= iec_atn;
+
+      pwm_l <= pwm_l_drive;
+      pwm_r <= pwm_r_drive;
+
+      flopled <= flopled_drive;
+      flopmotor <= flopmotor_drive;
+    end if;
+    
     if rising_edge(pixelclock) then
       hsync <= v_hsync;
       vsync <= v_vsync;
