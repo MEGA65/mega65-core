@@ -756,9 +756,9 @@ begin  -- behavioural
         end if;
       else
         pwm_counter <= 0;
-        pwm_value_combined_hold <= pwm_value_combined_hold;
-        pwm_value_left_hold <= pwm_value_left_hold;
-        pwm_value_right_hold <= pwm_value_right_hold;
+        pwm_value_combined_hold <= pwm_value_combined;
+        pwm_value_left_hold <= pwm_value_left;
+        pwm_value_right_hold <= pwm_value_right;
         if to_integer(to_unsigned(pwm_value_combined,16)(15 downto 6)) = 0 then
           ampPWM_pwm <= '0';
         else
