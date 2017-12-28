@@ -630,8 +630,10 @@ begin  -- behavioural
             fastio_rdata <= pwm_value_new_left;
           when x"F9" =>
             -- Debug interface to see what audio output is doing
-            fastio_rdata(3 downto 0) <= unsigned(audio_reflect);
-            fastio_rdata(6 downto 4) <= (others => '1');
+            fastio_rdata(0) <= ampSD_internal;
+            fastio_rdata(4 downto 1) <= unsigned(audio_reflect);
+            fastio_rdata(5) <= stereo_swap;
+            fastio_rdara(6) <= force_mono;
             fastio_rdata(7) <= audio_mode;
           when x"FA" =>
             -- PWM output
@@ -706,12 +708,36 @@ begin  -- behavioural
 
       if audio_mode = '0' then
         ampPWM <= ampPWM_pdm;
-        ampPWM_l <= ampPWM_pdm_l;
-        ampPWM_r <= ampPWM_pdm_r;
+        if force_mono = '1' then
+          -- Play combined audio through both left and right channels
+          ampPWM_l <= ampPWM_pdm;
+          ampPWM_r <= ampPWM_pdm;
+        elsif stereo_swap='0' then
+          -- Don't swap stereo channels
+          ampPWM_l <= ampPWM_pdm_l;
+          ampPWM_r <= ampPWM_pdm_r;
+        else
+          -- Swap stereo channels
+          ampPWM_r <= ampPWM_pdm_l;
+          ampPWM_l <= ampPWM_pdm_r;
+        end if;
       else
         ampPWM <= ampPWM_pwm;
         ampPWM_l <= ampPWM_pwm_l;
         ampPWM_r <= ampPWM_pwm_r;
+        if force_mono = '1' then
+          -- Play combined audio through both left and right channels
+          ampPWM_l <= ampPWM_pwm;
+          ampPWM_r <= ampPWM_pwm;
+        elsif stereo_swap='0' then
+          -- Don't swap stereo channels
+          ampPWM_l <= ampPWM_pwm_l;
+          ampPWM_r <= ampPWM_pwm_r;
+        else
+          -- Swap stereo channels
+          ampPWM_r <= ampPWM_pwm_l;
+          ampPWM_l <= ampPWM_pwm_r;
+        end if;
       end if;
       -- 40000 is to reduce range
       if pdm_combined_accumulator < 65536 +40000 then
@@ -1290,9 +1316,15 @@ begin  -- behavioural
 
             when x"F9" =>
               -- @IO:GS $D6F9.0 - Enable audio amplifier
+              -- @IO:GS $D6F9.1-4 - Raw PCM/PDM audio debug interface WILL BE REMOVED
+              -- @IO:GS $D6F9.5 - Swap stereo channels
+              -- @IO:GS $D6F9.6 - Play mono audio through both channels
               -- @IO:GS $D6F9.7 - Select PDM or PWM audio output mode
               -- enable/disable audio amplifiers
               ampSD <= fastio_wdata(0);
+              ampSD_internal <= fastio_wdata(0);
+              stereo_swap <= fastio_wdata(5);
+              force_mono <= fastio_wdata(6);
               audio_mode <= fastio_wdata(7);
 
             when x"FA" =>
