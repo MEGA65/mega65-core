@@ -185,6 +185,9 @@ architecture behavioural of sdcardio is
   signal ampPWM_pwm_r : std_logic := '0';
 
   signal audio_mode : std_logic := '0';
+  signal stereo_swap : std_logic := '0';
+  signal force_mono : std_logic := '0';
+  signal ampSD_internal : std_logic := '1';
   
   signal mic_divider : unsigned(4 downto 0) := "00000";
   signal mic_counter : unsigned(7 downto 0) := "00000000";
