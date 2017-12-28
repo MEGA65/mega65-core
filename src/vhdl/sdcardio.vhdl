@@ -726,8 +726,6 @@ begin  -- behavioural
         end if;
       else
         ampPWM <= ampPWM_pwm;
-        ampPWM_l <= ampPWM_pwm_l;
-        ampPWM_r <= ampPWM_pwm_r;
         if force_mono = '1' then
           -- Play combined audio through both left and right channels
           ampPWM_l <= ampPWM_pwm;
