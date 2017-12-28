@@ -9,6 +9,9 @@ entity keymapper is
     ioclock : in std_logic;
     reset_in : in std_logic;
     matrix_mode_in : std_logic;
+
+    joya_rotate : in integer range 0 to 1;
+    joyb_rotate : in integer range 0 to 1;
     
     -- Which inputs shall we incorporate
     virtual_disable : in std_logic;
@@ -138,17 +141,28 @@ begin  -- behavioural
       -- Update unified view for export
       matrix_combined(key_num) <= matrix(key_num);
 
-      -- And joysticks
-      for n in 0 to 4 loop
-        joya(n) <= '1' and (joya_physkey(n) or joykey_disable)
-                   and (joya_widget(n) or widget_disable)
-                   and (joya_real(n) or joyreal_disable)
-                   and (joya_ps2(n) or ps2_disable);
-        joyb(n) <= '1' and (joyb_physkey(n) or joykey_disable)
-                   and (joyb_widget(n) or widget_disable)
-                   and (joyb_real(n) or joyreal_disable)
-                   and (joyb_ps2(n) or ps2_disable);
+      -- And joysticks (with optional 180 degree rotation for swapping between
+      -- left and right handed operation of sticks with only a single button
+      -- on the base.
+      for n in 0 to 3 loop
+        joya(n) <= '1' and (joya_physkey(n xor joya_rotate) or joykey_disable)
+                   and (joya_widget(n xor joya_rotate) or widget_disable)
+                   and (joya_real(n xor joya_rotate) or joyreal_disable)
+                   and (joya_ps2(n xor joya_rotate) or ps2_disable);
+        joyb(n) <= '1' and (joyb_physkey(n xor joyb_rotate) or joykey_disable)
+                   and (joyb_widget(n xor joyb_rotate) or widget_disable)
+                   and (joyb_real(n xor joyb_rotate) or joyreal_disable)
+                   and (joyb_ps2(n xor joyb_rotate) or ps2_disable);
       end loop;
+      joya(4) <= '1' and (joya_physkey(4) or joykey_disable)
+                 and (joya_widget(4) or widget_disable)
+                 and (joya_real(4) or joyreal_disable)
+                 and (joya_ps2(4) or ps2_disable);
+      joyb(4) <= '1' and (joyb_physkey(4) or joykey_disable)
+                 and (joyb_widget(4) or widget_disable)
+                 and (joyb_real(4) or joyreal_disable)
+                 and (joyb_ps2(4) or ps2_disable);
+
       
       if reset_in = '0' then
         -- if caps lock down on reset, invert sense

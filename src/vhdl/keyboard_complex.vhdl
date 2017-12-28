@@ -22,6 +22,9 @@ entity keyboard_complex is
     key_left : in std_logic;
     key_up : in std_logic;
     keyboard_capslock : in std_logic;
+
+    joya_rotate : in integer range 0 to 1;
+    joyb_rotate : in integer range 0 to 1;
     
     -- Joysticks
     joya : in std_logic_vector(4 downto 0);
@@ -203,6 +206,9 @@ begin
 
     -- Which inputs shall we incorporate
 
+    joya_rotate => joya_rotate,
+    joyb_rotate => joyb_rotate,
+    
     virtual_disable => virtual_disable,
     physkey_disable => physkey_disable,
     matrix_physkey => keyboard_matrix,

@@ -274,6 +274,9 @@ architecture behavioral of iomapper is
   signal dummy_e : std_logic_vector(7 downto 0);
   signal dummy_g : std_logic_vector(7 downto 0);
   signal dummy : std_logic_vector(10 downto 0);
+
+  signal joya_rotate : integer range 0 to 1;
+  signal joyb_rotate : integer range 0 to 1;
   
 begin
 
@@ -433,7 +436,9 @@ begin
       portm_out(7) => alternate_keyboard,
       portn_out => keyboard_scan_rate,
       porto_out => osk_x(7 downto 0),
-      portp_out => osk_y(11 downto 4)
+      portp_out => osk_y(11 downto 4),
+      joya_rotate => joya_rotate,
+      joyb_rotate => joyb_rotate
       );
   end block;
   
@@ -456,7 +461,10 @@ begin
     joykey_disable => joykey_disable,
     physkey_disable => physkey_disable,
     virtual_disable => virtual_disable,
-    
+
+      joya_rotate => joya_rotate,
+      joyb_rotate => joyb_rotate,
+      
     ioclock       => clk,
     restore_out => restore_nmi,
     keyboard_restore => restore_key,
