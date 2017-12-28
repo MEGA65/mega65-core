@@ -28,7 +28,7 @@ entity cia6526 is
     fastio_wdata : in unsigned(7 downto 0);
     fastio_rdata : out unsigned(7 downto 0);
 
-/    portaout : out std_logic_vector(7 downto 0);
+    portaout : out std_logic_vector(7 downto 0);
     portain : in std_logic_vector(7 downto 0);
     portaddr : out std_logic_vector(7 downto 0);
     
