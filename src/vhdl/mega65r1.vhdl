@@ -462,7 +462,7 @@ begin
       iec_clk_o <= iec_clk_o_drive;
       iec_data_i_drive <= iec_data_i;
       iec_clk_i_drive <= iec_clk_i;
-      iec_atn_drive <= iec_atn;
+      iec_atn <= iec_atn_drive;
 
       pwm_l <= pwm_l_drive;
       pwm_r <= pwm_r_drive;
