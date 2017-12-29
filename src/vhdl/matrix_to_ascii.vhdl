@@ -360,9 +360,9 @@ begin
   begin
     if rising_edge(clk) then
 
-      if reset_in = '1' then
-        matrix_internal <= (others => '1');
-      end if;
+--      if reset_in = '1' then
+--        matrix_internal <= (others => '1');
+--      end if;
       
       -- Which matrix to use, based on modifier key state
       -- C= takes precedence over SHIFT, so that we can have C= + cursor keys
