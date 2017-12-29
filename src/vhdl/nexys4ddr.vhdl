@@ -245,8 +245,8 @@ architecture Behavioral of container is
   signal iec_data_o : std_logic := 'Z';
   signal iec_reset : std_logic := 'Z';
   signal iec_clk_o : std_logic := 'Z';
-  signal iec_data_i : std_logic := 'Z';
-  signal iec_clk_i : std_logic := 'Z';
+  signal iec_data_i : std_logic := '1';
+  signal iec_clk_i : std_logic := '1';
   signal iec_atn : std_logic := 'Z';  
 
   
