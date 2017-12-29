@@ -695,9 +695,9 @@ begin  -- behavioural
                             + to_integer(pwm_value_new_right & "000000");
       -- 2x15 bit values = 16 bit levels
       pwm_value_left <= to_integer(leftsid_audio(17 downto 3))
-                        + to_integer(pwm_value_new_left&"0000000");
-      pwm_value_right <= to_integer(leftsid_audio(17 downto 3))
-                         + to_integer(pwm_value_new_right&"0000000");
+                        + to_integer(pwm_value_new_left &"0000000");
+      pwm_value_right <= to_integer(rightsid_audio(17 downto 3))
+                        + to_integer(pwm_value_new_right&"0000000");
 
       
       -- Implement 10-bit digital combined audio output
