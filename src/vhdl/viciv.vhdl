@@ -215,8 +215,8 @@ architecture Behavioral of viciv is
   signal frame_height : unsigned(11 downto 0) := to_unsigned(625,12); 
   signal display_height : unsigned(11 downto 0) := to_unsigned(600,12);
   signal display_height_drive : unsigned(11 downto 0) := to_unsigned(600,12);
-  signal vsync_delay : unsigned(7 downto 0) := to_unsigned(19,8);
-  signal vsync_delay_drive : unsigned(7 downto 0) := to_unsigned(19,8);
+  signal vsync_delay : unsigned(7 downto 0) := to_unsigned(18,8);
+  signal vsync_delay_drive : unsigned(7 downto 0) := to_unsigned(18,8);
   signal vicii_ycounter_scale_minus_zero : unsigned(3 downto 0) := to_unsigned(2-1,4);
   signal hsync_start : unsigned(13 downto 0) := to_unsigned(2764,14);
   signal hsync_end : unsigned(13 downto 0) := to_unsigned(3100,14);
@@ -2348,7 +2348,7 @@ begin
                                                         display_width <= to_unsigned(2664,14);
                                                         frame_height <= to_unsigned(625,12);
                                                         display_height <= to_unsigned(600,12);
-                                                        vsync_delay <= to_unsigned(19,8);
+                                                        vsync_delay <= to_unsigned(18,8);
                                                         vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
                                                         hsync_start <= to_unsigned(2764,14);
                                                         hsync_end <= to_unsigned(3100,14);
@@ -2373,7 +2373,7 @@ begin
                                                         display_width <= to_unsigned(2664,14);
                                                         frame_height <= to_unsigned(625,12);
                                                         display_height <= to_unsigned(600,12);
-                                                        vsync_delay <= to_unsigned(19,8);
+                                                        vsync_delay <= to_unsigned(18,8);
                                                         vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
                                                         hsync_start <= to_unsigned(2764,14);
                                                         hsync_end <= to_unsigned(3100,14);
@@ -2396,7 +2396,7 @@ begin
                                                         display_width <= to_unsigned(2000,14);
                                                         frame_height <= to_unsigned(628,12); 
                                                         display_height <= to_unsigned(600,12);
-                                                        vsync_delay <= to_unsigned(23,8);
+                                                        vsync_delay <= to_unsigned(22,8);
                                                         vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
                                                         vicii_max_raster <= ntsc_max_raster;
                                                         hsync_start <= to_unsigned(2140,14);
@@ -2419,7 +2419,7 @@ begin
                                                         display_width <= to_unsigned(2000,14);
                                                         frame_height <= to_unsigned(628,12); 
                                                         display_height <= to_unsigned(600,12);
-                                                        vsync_delay <= to_unsigned(23,8);
+                                                        vsync_delay <= to_unsigned(22,8);
                                                         vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
                                                         -- NTSC but with PAL max raster
                                                         vicii_max_raster <= pal_max_raster;
@@ -2443,7 +2443,7 @@ begin
                                                         display_width <= to_unsigned(2000,14);
                                                         frame_height <= to_unsigned(628,12); 
                                                         display_height <= to_unsigned(600,12);
-                                                        vsync_delay <= to_unsigned(23,8);
+                                                        vsync_delay <= to_unsigned(22,8);
                                                         vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
                                                         hsync_start <= to_unsigned(2140,14);
                                                         hsync_end <= to_unsigned(2540,14);
