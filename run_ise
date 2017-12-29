@@ -82,7 +82,9 @@ PART=`grep "^-p " ./isework/${TARGETNAME}.xst`
 
 ISE_COMMON_OPTS="-intstyle ise"
 ISE_NGDBUILD_OPTS="$PART -dd _ngo -sd ipcore_dir -nt timestamp"
-ISE_MAP_OPTS="$PART -w -logic_opt on -ol high -t 1 -xt 0 -register_duplication on -r 4 -mt 2 -ir off -ignore_keep_hierarchy -pr b -lc off -power off"
+# For now favour faster syngthesis over better timing results
+#ISE_MAP_OPTS="$PART -w -logic_opt on -ol high -t 1 -xt 0 -register_duplication on -r 4 -mt 2 -ir off -ignore_keep_hierarchy -pr b -lc off -power off"
+ISE_MAP_OPTS="$PART -w -logic_opt on -ol std -t 1 -xt 0 -register_duplication on -r 4 -mt 2 -ir off -ignore_keep_hierarchy -pr b -lc off -power off"
 ISE_PAR_OPTS="-w -ol std -mt off"
 ISE_TRCE_OPTS="-v 3 -s 1 -n 3 -fastpaths -xml"
 
