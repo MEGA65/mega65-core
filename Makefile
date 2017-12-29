@@ -230,12 +230,14 @@ vfsimulate:	$(VHDLSRCDIR)/frame_test.vhdl $(VHDLSRCDIR)/video_frame.vhdl
 $(SDCARD_DIR)/CHARROM.M65:
 	$(warning =============================================================)
 	$(warning ~~~~~~~~~~~~~~~~> Making: $(SDCARD_DIR)/CHARROM.M65)
+	mkdir -p $(SDCARD_DIR)
 	wget -O $(SDCARD_DIR)/CHARROM.M65 http://www.zimmers.net/anonftp/pub/cbm/firmware/characters/c65-caff.bin
 
 # ============================
 $(SDCARD_DIR)/MEGA65.ROM:
 	$(warning =============================================================)
 	$(warning ~~~~~~~~~~~~~~~~> Making: $(SDCARD_DIR)/MEGA65.ROM)
+	mkdir -p $(SDCARD_DIR)
 	wget -O $(SDCARD_DIR)/MEGA65.ROM http://www.zimmers.net/anonftp/pub/cbm/firmware/computers/c65/910111-390488-01.bin
 
 # ============================, print-warn, clean target
@@ -243,6 +245,7 @@ $(SDCARD_DIR)/MEGA65.ROM:
 $(SDCARD_DIR)/MEGA65.D81:	$(UTILITIES)
 	$(warning =============================================================)
 	$(warning ~~~~~~~~~~~~~~~~> Making: $(SDCARD_DIR)/MEGA65.D81)
+	mkdir -p $(SDCARD_DIR)
 	cbmconvert -v2 -D8o $(SDCARD_DIR)/MEGA65.D81 $(UTILITIES)
 
 # ============================ done moved, print-warn, clean-target
@@ -291,6 +294,7 @@ $(VHDLSRCDIR)/colourram.vhdl:	$(TOOLDIR)/makerom/colourram_template.vhdl $(BINDI
 	$(TOOLDIR)/makerom/makerom $(TOOLDIR)/makerom/colourram_template.vhdl $(BINDIR)/COLOURRAM.BIN $(VHDLSRCDIR)/colourram ram8x32k
 
 $(VHDLSRCDIR)/shadowram.vhdl:	$(TOOLDIR)/mempacker/mempacker $(SDCARD_DIR)/BANNER.M65
+	mkdir -p $(SDCARD_DIR)
 	$(TOOLDIR)/mempacker/mempacker -n shadowram -s 131071 -f $(VHDLSRCDIR)/shadowram.vhdl $(SDCARD_DIR)/BANNER.M65@3D00
 
 $(VHDLSRCDIR)/oskmem.vhdl:	$(TOOLDIR)/mempacker/mempacker $(BINDIR)/asciifont.bin $(BINDIR)/osdmap.bin $(BINDIR)/matrixfont.bin
@@ -346,11 +350,13 @@ $(VHDLSRCDIR)/charrom.vhdl:	$(TOOLDIR)/pngprepare/pngprepare $(ASSETS)/8x8font.p
 	$(TOOLDIR)/pngprepare/pngprepare charrom $(ASSETS)/8x8font.png $(VHDLSRCDIR)/charrom.vhdl
 
 $(SDCARD_DIR)/BANNER.M65:	$(TOOLDIR)/pngprepare/pngprepare assets/mega65_320x64.png
+	mkdir -p $(SDCARD_DIR)
 	/usr/$(BINDIR)/convert -colors 128 -depth 8 +dither assets/mega65_320x64.png $(BINDIR)/mega65_320x64_128colour.png
 	$(TOOLDIR)/pngprepare/pngprepare logo $(BINDIR)/mega65_320x64_128colour.png $(SDCARD_DIR)/BANNER.M65
 
 # disk menu program for loading from SD card to $C000 on boot by kickstart
 $(SDCARD_DIR)/C000UTIL.BIN:	$(SRCDIR)/diskmenu_c000.bin
+	mkdir -p $(SDCARD_DIR)
 	cp $(SRCDIR)/diskmenu_c000.bin $(SDCARD_DIR)/C000UTIL.BIN
 
 # ============================ done moved, Makefile-dep, print-warn, clean-target
@@ -410,9 +416,13 @@ bin/%.bit:	isework/%.ncd
 #	fi
 #	@echo "Design looks good. Generating bitfile."
 #	@echo "---------------------------------------------------------"
+
+	mkdir -p $(SDCARD_DIR)
+
 	./run_ise $(subst bin/,,$*) bitgen
 
 %.mcs:	%.bit
+	mkdir -p $(SDCARD_DIR)
 	./run_ise $* promgen
 
 
