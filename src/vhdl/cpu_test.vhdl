@@ -112,9 +112,10 @@ architecture behavior of cpu_test is
   signal iec_data_o : std_logic;
   signal iec_reset : std_logic;
   signal iec_clk_o : std_logic;
-  signal iec_data_i : std_logic;
-  signal iec_clk_i : std_logic;
-  signal iec_atn : std_logic;  
+  signal iec_atn_o : std_logic;
+
+  signal iec_data_external : std_logic := '0';
+  signal iec_clk_external : std_logic := '1';
 
   ----------------------------------------------------------------------
   -- Slow devices (cartridge port, slow RAM etc)
@@ -269,10 +270,9 @@ begin
       iec_data_o => iec_data_o,
       iec_reset => iec_reset,
       iec_clk_o => iec_clk_o,
-      iec_data_i => iec_data_i,
-      iec_clk_i => iec_clk_i,
-      iec_atn => iec_atn,
-
+      iec_atn_o => iec_atn_o,
+      iec_data_external => iec_data_external,
+      iec_clk_external => iec_clk_external,
       
       pmod_clock => '0',
       pmod_start_of_sequence => '1',
@@ -319,7 +319,7 @@ begin
   process
   begin  -- process tb
     report "beginning simulation" severity note;
-
+    
     for i in 1 to 2000000 loop
       pixelclock <= '0'; cpuclock <= '0'; ioclock <= '0';
       wait for 5 ns;     
@@ -345,7 +345,6 @@ begin
     assert false report "End of simulation" severity failure;
   end process;
 
-  
   -- Deliver dummy ethernet frames
   process
   begin

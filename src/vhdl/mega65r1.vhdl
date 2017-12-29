@@ -334,10 +334,10 @@ begin
       iec_data_o => iec_data_o_drive,
       iec_reset => iec_reset_drive,
       iec_clk_o => iec_clk_o_drive,
-      iec_data_i => iec_data_i_drive,
-      iec_clk_i => iec_clk_i_drive,
-      iec_atn => iec_atn_drive,
-            
+      iec_data_external => iec_data_i_drive,
+      iec_clk_external => iec_clk_i_drive,
+      iec_atn_o => iec_atn_drive,
+
       porta_pins => column(7 downto 0),
       portb_pins => row(7 downto 0),
       keyboard_column8 => column(8),

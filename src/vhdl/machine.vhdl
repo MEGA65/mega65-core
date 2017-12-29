@@ -120,9 +120,9 @@ entity machine is
          iec_data_o : out std_logic;
          iec_reset : out std_logic;
          iec_clk_o : out std_logic;
-         iec_data_i : in std_logic;
-         iec_clk_i : in std_logic;
-         iec_atn : out std_logic;
+         iec_atn_o : out std_logic;
+         iec_data_external : in std_logic;
+         iec_clk_external : in std_logic;
          
          -------------------------------------------------------------------------
          -- Lines for the SDcard interface itself
@@ -839,9 +839,9 @@ begin
       iec_data_o => iec_data_o,
       iec_reset => iec_reset,
       iec_clk_o => iec_clk_o,
-      iec_data_i => iec_data_i,
-      iec_clk_i => iec_clk_i,
-      iec_atn => iec_atn,
+      iec_atn_o => iec_atn_o,
+      iec_data_external => iec_data_external,
+      iec_clk_external => iec_clk_external,
       
       porta_pins => porta_pins,
       portb_pins => portb_pins,

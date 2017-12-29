@@ -404,8 +404,8 @@ begin
       iec_data_o => iec_data_o,
       iec_reset => iec_reset,
       iec_clk_o => iec_clk_o,
-      iec_data_i => iec_data_i,
-      iec_clk_i => iec_clk_i,
+      iec_data_external => iec_data_i,
+      iec_clk_external => iec_clk_i,
       iec_atn => iec_atn,
       
       no_kickstart => '0',

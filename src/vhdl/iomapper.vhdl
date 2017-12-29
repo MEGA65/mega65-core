@@ -93,9 +93,9 @@ entity iomapper is
         iec_data_o : out std_logic := '1';
         iec_reset : out std_logic := '1';
         iec_clk_o : out std_logic := '1';
-        iec_data_i : in std_logic := 'Z';
-        iec_clk_i : in std_logic := 'Z';
-        iec_atn : out std_logic := '1';
+        iec_atn_o : out std_logic := '1';
+        iec_data_external : in std_logic := 'Z';
+        iec_clk_external : in std_logic := 'Z';
         
         ps2data : in std_logic;
         ps2clock : in std_logic;
@@ -277,6 +277,13 @@ architecture behavioral of iomapper is
 
   signal joya_rotate : std_logic;
   signal joyb_rotate : std_logic;
+
+  signal iec_atn_reflect : std_logic := '1';
+  signal iec_clk_reflect : std_logic := '1';
+  signal iec_data_reflect : std_logic := '1';
+  signal iec_atn_fromcia : std_logic := '1';
+  signal iec_clk_fromcia : std_logic := '1';
+  signal iec_data_fromcia : std_logic := '1';
   
 begin
 
@@ -361,17 +368,17 @@ begin
 
     -- CIA port a (VIC-II bank select + IEC serial port)
     portain(2 downto 0) => (others => '1'),   
-    portain(3) => iec_atn, -- IEC serial ATN
+    portain(3) => iec_atn_reflect, -- IEC serial ATN
     -- We reflect the output values for CLK and DATA straight back in,
     -- as they are needed to be visible for the DOS routines to work.
-    portain(4) => iec_clk_o,
-    portain(5) => iec_data_o,
-    portain(6) => iec_clk_i,
-    portain(7) => iec_data_i,
+    portain(4) => iec_clk_reflect,
+    portain(5) => iec_data_reflect,
+    portain(6) => iec_clk_external,
+    portain(7) => iec_data_external,
     portaout(2 downto 0) => dummy(2 downto 0),
-    portaout(3) => iec_atn,
-    portaout(4) => iec_clk_o,
-    portaout(5) => iec_data_o,
+    portaout(3) => iec_atn_fromcia,
+    portaout(4) => iec_clk_fromcia,
+    portaout(5) => iec_data_fromcia,
     portaout(7 downto 6) => dummy(4 downto 3),
     portaddr(3 downto 0) => dummy(8 downto 5),
     portaddr(4) => iec_clk_en,
@@ -693,6 +700,31 @@ begin
   process(clk)
   begin
     if rising_edge(clk) then
+
+      -- Reflect CIA lines for IEC bus driverse so that they
+      -- can be read by the CIA
+      if iec_clk_reflect /= iec_clk_fromcia then
+        report "MAP: copying iec_clk_fromcia = "
+          & std_logic'image(iec_clk_fromcia)
+          & " to iec_clk_reflect.";
+      end if;
+      if iec_data_reflect /= iec_data_fromcia then
+        report "MAP: copying iec_data_fromcia = "
+          & std_logic'image(iec_data_fromcia)
+          & " to iec_data_reflect.";
+      end if;
+      if iec_atn_reflect /= iec_atn_fromcia then
+        report "MAP: copying iec_atn_fromcia = "
+          & std_logic'image(iec_atn_fromcia)
+          & " to iec_atn_reflect.";
+      end if;
+      iec_clk_reflect <= iec_clk_fromcia;
+      iec_data_reflect <= iec_data_fromcia;
+      iec_atn_reflect <= iec_atn_fromcia;
+      iec_clk_o <= iec_clk_fromcia;
+      iec_data_o <= iec_data_fromcia;
+      iec_atn_o <= iec_atn_fromcia;
+      
       -- Generate 50Hz signal for TOD clock
       -- (Note that we are a bit conflicted here, as our video mode is PALx4,
       --  but at 60Hz.  We will make our CIAs take 50Hz like in most PAL countries
