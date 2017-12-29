@@ -471,11 +471,15 @@ begin
       -- * Value provided by pin up, or equivalently device on the bus
       --
       -- End result is simple: Invert output bit, and copy output enable
-      
-      iec_clk_en <= iec_clk_en_drive;
+      -- Except, that the CIA always thinks it is driving the line, so
+      -- we need to ignore the _en lines, and instead use the _o lines
+      -- (before inversion) to indicate when we should be driving the pin
+      -- to ground.
+
+      iec_clk_en <= iec_clk_o_drive;
       iec_clk_o <= not iec_clk_o_drive;
       iec_clk_i_drive <= iec_clk_i;
-      iec_data_en <= iec_data_en_drive;
+      iec_data_en <= iec_data_o_drive;
       iec_data_o <= not iec_data_o_drive;
       iec_data_i_drive <= iec_data_i;
       iec_reset <= iec_reset_drive;
