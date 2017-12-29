@@ -313,7 +313,22 @@ int process_line(char *line,int live)
 	        case ')': c='9'; c2=0x0f; break;
 	        case '?': c='/'; c2=0x0f; break;
 	      }
-	      switch (c) {
+	      switch (c)
+		{
+		case '~':
+		  // control sequences
+		  switch (type_text[i+1])
+		    {
+		    case 'C': c1=0x3f; break;
+		    case 'D': c1=0x07; break;
+		    case 'U': c1=0x07; c2=0x0f; break;
+		    case 'L': c1=0x02; break;
+		    case 'R': c1=0x02; c2=0x0f; break;
+		    case 'M': c1=0x01; break;
+		    case 'T': c1=0x00; break;
+		    }
+		  i++;
+		  break;
 		case '3': c1=0x08; break;
 		case 'w': c1=0x09; break;
 		case 'a': c1=0x0a; break;
@@ -375,6 +390,7 @@ int process_line(char *line,int live)
 	     // case '': c1=0x3d; break; C=
 		case 'q': c1=0x3e; break;
 		case 0x0c: c1=0x3f; break;
+
 	      default: c1=0x7f;
 	      }
 	      char cmd[1024];
