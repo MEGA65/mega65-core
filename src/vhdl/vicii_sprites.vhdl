@@ -127,27 +127,27 @@ architecture behavioural of vicii_sprites is
   signal reg_key : unsigned(7 downto 0) := x"00";
   
   -- Description of VIC-II sprites
-  signal sprite_x : sprite_vector_8;
+  signal sprite_x : sprite_vector_8  := (others => x"00");
   signal vicii_sprite_enables : std_logic_vector(7 downto 0) := (others => '1');
-  signal vicii_sprite_xmsbs : std_logic_vector(7 downto 0);
-  signal sprite_h640_msbs : std_logic_vector(7 downto 0);
-  signal sprite_y : sprite_vector_8;
-  signal sprite_colours : sprite_vector_8;
-  signal vicii_sprite_priority_bits : std_logic_vector(7 downto 0);
+  signal vicii_sprite_xmsbs : std_logic_vector(7 downto 0) := (others => '0');
+  signal sprite_h640_msbs : std_logic_vector(7 downto 0) := (others => '0');
+  signal sprite_y : sprite_vector_8 := (others => x"00");
+  signal sprite_colours : sprite_vector_8 := (others => x"00");
+  signal vicii_sprite_priority_bits : std_logic_vector(7 downto 0) := (others => '0');
   signal sprite_multi0_colour : unsigned(7 downto 0) := x"04";
   signal sprite_multi1_colour : unsigned(7 downto 0) := x"05";
-  signal vicii_sprite_multicolour_bits : std_logic_vector(7 downto 0);
-  signal vicii_sprite_x_expand : std_logic_vector(7 downto 0);
-  signal vicii_sprite_y_expand : std_logic_vector(7 downto 0);
+  signal vicii_sprite_multicolour_bits : std_logic_vector(7 downto 0) := (others => '0');
+  signal vicii_sprite_x_expand : std_logic_vector(7 downto 0) := (others => '0');
+  signal vicii_sprite_y_expand : std_logic_vector(7 downto 0) := (others => '0');
 
   -- if set, then upper nybl of colours are used, else only lower nybls, ala VIC-II
   signal viciii_extended_attributes : std_logic := '1';
 
   -- Pass sprite data out along the chain and out the end 
-  signal sprite_datavalid_out : std_logic;
-  signal sprite_bytenumber_out : spritebytenumber;
-  signal sprite_spritenumber_out : spritenumber;
-  signal sprite_data_out : unsigned(7 downto 0);
+  signal sprite_datavalid_out : std_logic := '0';
+  signal sprite_bytenumber_out : spritebytenumber := 0;
+  signal sprite_spritenumber_out : spritenumber := 0;
+  signal sprite_data_out : unsigned(7 downto 0) := x"00";
 
   -- And between the sprites
   signal sprite_datavalid_7_6 : std_logic;
@@ -921,10 +921,10 @@ begin
 
   
   process(ioclock) is
-    variable register_bank : unsigned(7 downto 0);
-    variable register_page : unsigned(3 downto 0);
-    variable register_num : unsigned(7 downto 0);
-    variable register_number : unsigned(11 downto 0);
+    variable register_bank : unsigned(7 downto 0) := x"00";
+    variable register_page : unsigned(3 downto 0) := "0000";
+    variable register_num : unsigned(7 downto 0) := x"00";
+    variable register_number : unsigned(11 downto 0) := x"000";
   begin
     -- Duplicate of the same logic from VIC-IV
     if true then
