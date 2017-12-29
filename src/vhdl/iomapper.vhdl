@@ -361,7 +361,7 @@ begin
 
     -- CIA port a (VIC-II bank select + IEC serial port)
     portain(2 downto 0) => (others => '1'),   
-    portain(3) => '1', -- IEC serial ATN
+    portain(3) => iec_atn, -- IEC serial ATN
     -- We reflect the output values for CLK and DATA straight back in,
     -- as they are needed to be visible for the DOS routines to work.
     portain(4) => iec_clk_o,
