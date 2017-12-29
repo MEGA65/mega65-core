@@ -145,7 +145,7 @@ end viciv;
 
 architecture Behavioral of viciv is
   
-  signal reset_drive : std_logic;
+  signal reset_drive : std_logic := '0';
   
   signal iomode_set_toggle_last : std_logic := '0';    
 
@@ -166,7 +166,7 @@ architecture Behavioral of viciv is
   signal bump_screen_row_address : std_logic := '0';
   
   -- Drive stage for IRQ signal in attempt to allieviate timing problems.
-  signal irq_drive : std_logic;
+  signal irq_drive : std_logic := '1';
   
   -- Buffer VGA signal to save some time. Similarly pipeline
   -- palette lookup.
@@ -214,9 +214,9 @@ architecture Behavioral of viciv is
   signal single_side_border : unsigned(13 downto 0) := to_unsigned(267,14);
   signal frame_height : unsigned(11 downto 0) := to_unsigned(625,12); 
   signal display_height : unsigned(11 downto 0) := to_unsigned(600,12);
-  signal display_height_drive : unsigned(11 downto 0);
+  signal display_height_drive : unsigned(11 downto 0) := to_unsigned(600,12);
   signal vsync_delay : unsigned(7 downto 0) := to_unsigned(19,8);
-  signal vsync_delay_drive : unsigned(7 downto 0);
+  signal vsync_delay_drive : unsigned(7 downto 0) := to_unsigned(19,8);
   signal vicii_ycounter_scale_minus_zero : unsigned(3 downto 0) := to_unsigned(2-1,4);
   signal hsync_start : unsigned(13 downto 0) := to_unsigned(2764,14);
   signal hsync_end : unsigned(13 downto 0) := to_unsigned(3100,14);
@@ -245,9 +245,9 @@ architecture Behavioral of viciv is
   signal vicii_max_raster : unsigned(8 downto 0) := pal_max_raster;
   
   -- Calculated dynamically
-  signal vsync_start : unsigned(11 downto 0);
-  signal x_end_of_raster : unsigned(13 downto 0);
-  signal vicii_ycounter_scale : unsigned(3 downto 0);
+  signal vsync_start : unsigned(11 downto 0) := to_unsigned(0,12);
+  signal x_end_of_raster : unsigned(13 downto 0) := to_unsigned(0,14);
+  signal vicii_ycounter_scale : unsigned(3 downto 0) := to_unsigned(0,4);
   
   constant frame_v_front : integer := 1;
   
@@ -295,26 +295,26 @@ architecture Behavioral of viciv is
   signal vert_in_frame : std_logic := '1';
 
   -- Used for counting down cycles while waiting for RAM to respond
-  signal delay : std_logic_vector(1 downto 0);
+  signal delay : std_logic_vector(1 downto 0) := "00";
 
   -- Interface to buffer for screen ram (converts 64 bits wide to 8 bits
   -- wide for us)
   signal screen_ram_buffer_write  : std_logic := '0';
-  signal screen_ram_buffer_read_address : unsigned(8 downto 0);
-  signal screen_ram_buffer_write_address : unsigned(8 downto 0);
-  signal screen_ram_buffer_din : unsigned(7 downto 0);
-  signal screen_ram_buffer_dout : unsigned(7 downto 0);
+  signal screen_ram_buffer_read_address : unsigned(8 downto 0) := to_unsigned(0,9);
+  signal screen_ram_buffer_write_address : unsigned(8 downto 0) := to_unsigned(0,9); 
+  signal screen_ram_buffer_din : unsigned(7 downto 0) := x"00";
+  signal screen_ram_buffer_dout : unsigned(7 downto 0) := x"00";
   
   -- Internal registers used to keep track of the screen ram for the current row
-  signal screen_row_address : unsigned(16 downto 0);
-  signal screen_row_current_address : unsigned(16 downto 0);
+  signal screen_row_address : unsigned(16 downto 0) := to_unsigned(0,17);
+  signal screen_row_current_address : unsigned(16 downto 0) := to_unsigned(0,17);
 
-  signal full_colour_fetch_count : integer range 0 to 8;
-  signal full_colour_data : unsigned(63 downto 0);
-  signal paint_full_colour_data : unsigned(63 downto 0);
+  signal full_colour_fetch_count : integer range 0 to 8 := 0;
+  signal full_colour_data : unsigned(63 downto 0) := (others => '0');
+  signal paint_full_colour_data : unsigned(63 downto 0) := (others => '0');
 
   -- chipram access management registers
-  signal next_ramaddress : unsigned(16 downto 0);
+  signal next_ramaddress : unsigned(16 downto 0) := to_unsigned(0,17);
   signal next_ramaccess_is_screen_row_fetch : std_logic := '0';
   signal this_ramaccess_is_screen_row_fetch : std_logic := '0';
   signal last_ramaccess_is_screen_row_fetch : std_logic := '0';
@@ -327,19 +327,19 @@ architecture Behavioral of viciv is
   signal this_ramaccess_is_sprite_data_fetch : std_logic := '0';
   signal last_ramaccess_is_sprite_data_fetch : std_logic := '0';
   signal final_ramaccess_is_sprite_data_fetch : std_logic := '0';
-  signal this_ramaccess_screen_row_buffer_address : unsigned(8 downto 0);
-  signal next_ramaccess_screen_row_buffer_address : unsigned(8 downto 0);
-  signal last_ramaccess_screen_row_buffer_address : unsigned(8 downto 0);
-  signal final_ramaccess_screen_row_buffer_address : unsigned(8 downto 0);
-  signal next_screen_row_fetch_address : unsigned(16 downto 0);
-  signal this_screen_row_fetch_address : unsigned(16 downto 0);
-  signal last_screen_row_fetch_address : unsigned(16 downto 0);
-  signal final_screen_row_fetch_address : unsigned(16 downto 0);
-  signal final_ramdata : unsigned(7 downto 0);
+  signal this_ramaccess_screen_row_buffer_address : unsigned(8 downto 0) := to_unsigned(0,9);
+  signal next_ramaccess_screen_row_buffer_address : unsigned(8 downto 0) := to_unsigned(0,9);
+  signal last_ramaccess_screen_row_buffer_address : unsigned(8 downto 0) := to_unsigned(0,9);
+  signal final_ramaccess_screen_row_buffer_address : unsigned(8 downto 0) := to_unsigned(0,9);
+  signal next_screen_row_fetch_address : unsigned(16 downto 0) := to_unsigned(0,17);
+  signal this_screen_row_fetch_address : unsigned(16 downto 0) := to_unsigned(0,17);
+  signal last_screen_row_fetch_address : unsigned(16 downto 0) := to_unsigned(0,17);
+  signal final_screen_row_fetch_address : unsigned(16 downto 0) := to_unsigned(0,17);
+  signal final_ramdata : unsigned(7 downto 0) := to_unsigned(0,8);
 
   -- Internal registers for drawing a single raster of character data to the
   -- raster buffer.
-  signal character_number : unsigned(8 downto 0);
+  signal character_number : unsigned(8 downto 0) := to_unsigned(0,9);
   type vic_chargen_fsm is (Idle,
                            FetchScreenRamLine,
                            FetchScreenRamLine2,
@@ -371,20 +371,20 @@ architecture Behavioral of viciv is
                          PaintMultiColourBits,PaintMultiColourHold);
   signal paint_fsm_state : vic_paint_fsm := Idle;
   signal paint_ready : std_logic := '0';
-  signal paint_from_charrom : std_logic;
-  signal paint_flip_horizontal : std_logic;
-  signal paint_foreground : unsigned(7 downto 0);
-  signal paint_background : unsigned(7 downto 0);
-  signal paint_mc1 : unsigned(7 downto 0);
-  signal paint_mc2 : unsigned(7 downto 0);
-  signal paint_buffer_hflip_chardata : unsigned(7 downto 0);
-  signal paint_buffer_noflip_chardata : unsigned(7 downto 0);
-  signal paint_buffer_hflip_ramdata : unsigned(7 downto 0);
-  signal paint_buffer_noflip_ramdata : unsigned(7 downto 0);
-  signal paint_buffer : unsigned(7 downto 0);
-  signal paint_bits_remaining : integer range 0 to 8;
-  signal paint_chardata : unsigned(7 downto 0);
-  signal paint_ramdata : unsigned(7 downto 0);
+  signal paint_from_charrom : std_logic := '0';
+  signal paint_flip_horizontal : std_logic := '0';
+  signal paint_foreground : unsigned(7 downto 0) := to_unsigned(0,8);
+  signal paint_background : unsigned(7 downto 0) := to_unsigned(0,8);
+  signal paint_mc1 : unsigned(7 downto 0) := to_unsigned(0,8);
+  signal paint_mc2 : unsigned(7 downto 0) := to_unsigned(0,8);
+  signal paint_buffer_hflip_chardata : unsigned(7 downto 0) := to_unsigned(0,8);
+  signal paint_buffer_noflip_chardata : unsigned(7 downto 0) := to_unsigned(0,8);
+  signal paint_buffer_hflip_ramdata : unsigned(7 downto 0) := to_unsigned(0,8);
+  signal paint_buffer_noflip_ramdata : unsigned(7 downto 0) := to_unsigned(0,8);
+  signal paint_buffer : unsigned(7 downto 0) := to_unsigned(0,8);
+  signal paint_bits_remaining : integer range 0 to 8 := 0;
+  signal paint_chardata : unsigned(7 downto 0) := to_unsigned(0,8);
+  signal paint_ramdata : unsigned(7 downto 0) := to_unsigned(0,8);
 
   signal horizontal_filter : std_logic := '1';
   signal pal_simulate : std_logic := '0';
@@ -392,41 +392,41 @@ architecture Behavioral of viciv is
   
   signal debug_x : unsigned(13 downto 0) := "11111111111110";
   signal debug_y : unsigned(11 downto 0) := "111111111110";
-  signal debug_screen_ram_buffer_address : unsigned(8 downto 0);
-  signal debug_raster_buffer_read_address : unsigned(7 downto 0);
-  signal debug_raster_buffer_write_address : unsigned(7 downto 0);
-  signal debug_cycles_to_next_card : unsigned(7 downto 0);
-  signal debug_raster_fetch_state : vic_chargen_fsm;
-  signal debug_paint_fsm_state : vic_paint_fsm;
-  signal debug_chargen_active : std_logic;
-  signal debug_chargen_active_soon : std_logic;
-  signal debug_character_data_from_rom : std_logic;
-  signal debug_charaddress : unsigned(11 downto 0);
-  signal debug_charrow : std_logic_vector(7 downto 0);
+  signal debug_screen_ram_buffer_address : unsigned(8 downto 0) := to_unsigned(0,9);
+  signal debug_raster_buffer_read_address : unsigned(7 downto 0) := to_unsigned(0,8);
+  signal debug_raster_buffer_write_address : unsigned(7 downto 0) := to_unsigned(0,8);
+  signal debug_cycles_to_next_card : unsigned(7 downto 0) := to_unsigned(0,8);
+  signal debug_raster_fetch_state : vic_chargen_fsm := Idle;
+  signal debug_paint_fsm_state : vic_paint_fsm := Idle;
+  signal debug_chargen_active : std_logic := '0';
+  signal debug_chargen_active_soon : std_logic := '0';
+  signal debug_character_data_from_rom : std_logic := '0';
+  signal debug_charaddress : unsigned(11 downto 0) := to_unsigned(0,12);
+  signal debug_charrow : std_logic_vector(7 downto 0) := x"00";
 
-  signal debug_screen_ram_buffer_address_drive : unsigned(8 downto 0);
-  signal debug_cycles_to_next_card_drive : unsigned(7 downto 0);
-  signal debug_raster_fetch_state_drive : vic_chargen_fsm;
-  signal debug_paint_fsm_state_drive : vic_paint_fsm;
-  signal debug_chargen_active_drive : std_logic;
-  signal debug_chargen_active_soon_drive : std_logic;
-  signal debug_character_data_from_rom_drive : std_logic;
-  signal debug_charaddress_drive : unsigned(11 downto 0);
-  signal debug_charrow_drive : std_logic_vector(7 downto 0);
-  signal debug_raster_buffer_read_address_drive : unsigned(7 downto 0);
-  signal debug_raster_buffer_write_address_drive : unsigned(7 downto 0);
+  signal debug_screen_ram_buffer_address_drive : unsigned(8 downto 0) := to_unsigned(0,9);
+  signal debug_cycles_to_next_card_drive : unsigned(7 downto 0) := to_unsigned(0,8);
+  signal debug_raster_fetch_state_drive : vic_chargen_fsm := Idle;
+  signal debug_paint_fsm_state_drive : vic_paint_fsm := Idle;
+  signal debug_chargen_active_drive : std_logic := '0';
+  signal debug_chargen_active_soon_drive : std_logic := '0';
+  signal debug_character_data_from_rom_drive : std_logic := '0';
+  signal debug_charaddress_drive : unsigned(11 downto 0) := to_unsigned(0,12);
+  signal debug_charrow_drive : std_logic_vector(7 downto 0)  := x"00";
+  signal debug_raster_buffer_read_address_drive : unsigned(7 downto 0) := to_unsigned(0,8);
+  signal debug_raster_buffer_write_address_drive : unsigned(7 downto 0) := to_unsigned(0,8);
 
-  signal debug_screen_ram_buffer_address_drive2 : unsigned(8 downto 0);
-  signal debug_raster_buffer_read_address_drive2 : unsigned(7 downto 0);
-  signal debug_raster_buffer_write_address_drive2 : unsigned(7 downto 0);
-  signal debug_cycles_to_next_card_drive2 : unsigned(7 downto 0);
-  signal debug_raster_fetch_state_drive2 : vic_chargen_fsm;
-  signal debug_paint_fsm_state_drive2 : vic_paint_fsm;
-  signal debug_chargen_active_drive2 : std_logic;
-  signal debug_chargen_active_soon_drive2 : std_logic;
-  signal debug_character_data_from_rom_drive2 : std_logic;
-  signal debug_charaddress_drive2 : unsigned(11 downto 0);
-  signal debug_charrow_drive2 : std_logic_vector(7 downto 0);
+  signal debug_screen_ram_buffer_address_drive2 : unsigned(8 downto 0) := to_unsigned(0,9);
+  signal debug_raster_buffer_read_address_drive2 : unsigned(7 downto 0) := to_unsigned(0,8);
+  signal debug_raster_buffer_write_address_drive2 : unsigned(7 downto 0) := to_unsigned(0,8);
+  signal debug_cycles_to_next_card_drive2 : unsigned(7 downto 0) := to_unsigned(0,8);
+  signal debug_raster_fetch_state_drive2 : vic_chargen_fsm := Idle;
+  signal debug_paint_fsm_state_drive2 : vic_paint_fsm := Idle;
+  signal debug_chargen_active_drive2 : std_logic := '0';
+  signal debug_chargen_active_soon_drive2 : std_logic := '0';
+  signal debug_character_data_from_rom_drive2 : std_logic := '0';
+  signal debug_charaddress_drive2 : unsigned(11 downto 0) := to_unsigned(0,12);
+  signal debug_charrow_drive2 : std_logic_vector(7 downto 0) := x"00";
 
   -----------------------------------------------------------------------------
   -- Video controller registers
@@ -439,8 +439,8 @@ architecture Behavioral of viciv is
   signal virtual_row_width_minus1 : unsigned(15 downto 0) := to_unsigned(40,16);
   signal end_of_row_16 : std_logic := '0';
   signal end_of_row : std_logic := '0';
-  signal chargen_x_scale_drive : unsigned(7 downto 0);  
-  signal x_chargen_start_minus1 : unsigned(13 downto 0);
+  signal chargen_x_scale_drive : unsigned(7 downto 0) := to_unsigned(0,8);
+  signal x_chargen_start_minus1 : unsigned(13 downto 0) := to_unsigned(0,14);
 
   -- DEBUG: Start character generator in first raster on power up to make ghdl
   -- simulation much quicker
