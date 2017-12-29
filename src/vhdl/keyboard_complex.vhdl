@@ -23,8 +23,8 @@ entity keyboard_complex is
     key_up : in std_logic;
     keyboard_capslock : in std_logic;
 
-    joya_rotate : in integer range 0 to 1;
-    joyb_rotate : in integer range 0 to 1;
+    joya_rotate : in std_logic;
+    joyb_rotate : in std_logic;
     
     -- Joysticks
     joya : in std_logic_vector(4 downto 0);

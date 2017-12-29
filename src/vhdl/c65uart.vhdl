@@ -36,8 +36,8 @@ entity c65uart is
     joyreal_disable : out std_logic;
     physkey_disable : out std_logic;
     virtual_disable : out std_logic;
-    joya_rotate : out integer range 0 to 1 := '0';
-    joyb_rotate : out integer range 0 to 1 := '0';
+    joya_rotate : out std_logic := '0';
+    joyb_rotate : out std_logic := '0';
     
     porte : inout std_logic_vector(7 downto 0);
     portf : inout std_logic_vector(7 downto 0);
@@ -165,8 +165,8 @@ architecture behavioural of c65uart is
   signal porto_internal : std_logic_vector(7 downto 0) := x"00";
   signal portp_internal : std_logic_vector(7 downto 0) := x"34";
 
-  signal joya_rotate_internal : integer range 0 to 1 := 0;
-  signal joyb_rotate_internal : integer range 0 to 1 := 0;
+  signal joya_rotate_internal : std_logic := '0';
+  signal joyb_rotate_internal : std_logic := '0';
   
 begin  -- behavioural
   
@@ -327,9 +327,9 @@ begin  -- behavioural
           -- @IO:GS $D612.5 Enable physical joystick input
           fastio_rdata(5) <= joyreal_enable_internal;
           -- @IO:GS $D612.6 Rotate inputs of joystick A by 180 degrees
-          fastio_rdata(6) <= to_unsigned(joya_rotate,1);
+          fastio_rdata(6) <= joya_rotate_internal;
           -- @IO:GS $D612.7 Rotate inputs of joystick B by 180 degrees
-          fastio_rdata(7) <= to_unsigned(joyb_rotate,1);
+          fastio_rdata(7) <= joyb_rotate_internal;
         when x"13" =>
           -- @IO:GS $D613 DEBUG: Which segment of keyboard matrix to read (0--9)
           fastio_rdata <= unsigned(portj_in);
@@ -579,10 +579,10 @@ begin  -- behavioural
             virtual_enable_internal <= std_logic(fastio_wdata(3));
             joykey_enable_internal <= std_logic(fastio_wdata(4));
             joyreal_enable_internal <= std_logic(fastio_wdata(5));
-            joya_rotate <= to_integer(fastio_wdata(6));
-            joya_rotate_internal <= to_integer(fastio_wdata(6));
-            joyb_rotate <= to_integer(fastio_wdata(7));
-            joyb_rotate_internal <= to_integer(fastio_wdata(7));
+            joya_rotate <= fastio_wdata(6);
+            joya_rotate_internal <= fastio_wdata(6);
+            joyb_rotate <= fastio_wdata(7);
+            joyb_rotate_internal <= fastio_wdata(7);
           when x"14" => portj_out <= std_logic_vector(fastio_wdata);
                         portj_internal <= std_logic_vector(fastio_wdata);
           when x"15" =>

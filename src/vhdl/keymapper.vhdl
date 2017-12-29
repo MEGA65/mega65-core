@@ -10,8 +10,8 @@ entity keymapper is
     reset_in : in std_logic;
     matrix_mode_in : std_logic;
 
-    joya_rotate : in integer range 0 to 1;
-    joyb_rotate : in integer range 0 to 1;
+    joya_rotate : in std_logic;
+    joyb_rotate : in std_logic;
     
     -- Which inputs shall we incorporate
     virtual_disable : in std_logic;
@@ -120,6 +120,7 @@ begin  -- behavioural
   keyread: process (ioclock)
     variable portb_value : std_logic_vector(7 downto 0);
     variable porta_value : std_logic_vector(7 downto 0);
+    variable n2 : integer;
   begin  -- process keyread
     if rising_edge(ioclock) then      
       reset_out <= reset_drive;
@@ -143,16 +144,42 @@ begin  -- behavioural
 
       -- And joysticks (with optional 180 degree rotation for swapping between
       -- left and right handed operation of sticks with only a single button
-      -- on the base.
+      -- on the base.      
       for n in 0 to 3 loop
-        joya(n) <= '1' and (joya_physkey(n xor joya_rotate) or joykey_disable)
-                   and (joya_widget(n xor joya_rotate) or widget_disable)
-                   and (joya_real(n xor joya_rotate) or joyreal_disable)
-                   and (joya_ps2(n xor joya_rotate) or ps2_disable);
-        joyb(n) <= '1' and (joyb_physkey(n xor joyb_rotate) or joykey_disable)
-                   and (joyb_widget(n xor joyb_rotate) or widget_disable)
-                   and (joyb_real(n xor joyb_rotate) or joyreal_disable)
-                   and (joyb_ps2(n xor joyb_rotate) or ps2_disable);
+        if joya_rotate = '1' then
+          if n = 0 then
+            n2 := 1;
+          elsif n = 1 then
+            n2 := 0;
+          elsif n = 2 then
+            n2 := 3;
+          elsif n = 3 then
+            n2 := 2;
+          end if;
+        else
+          n2 := n;
+        end if;
+        joya(n) <= '1' and (joya_physkey(n2) or joykey_disable)
+                   and (joya_widget(n2) or widget_disable)
+                   and (joya_real(n2) or joyreal_disable)
+                   and (joya_ps2(n2) or ps2_disable);
+        if joyb_rotate = '1' then
+          if n = 0 then
+            n2 := 1;
+          elsif n = 1 then
+            n2 := 0;
+          elsif n = 2 then
+            n2 := 3;
+          elsif n = 3 then
+            n2 := 2;
+          end if;
+        else
+          n2 := n;
+        end if;
+        joyb(n) <= '1' and (joyb_physkey(n2) or joykey_disable)
+                   and (joyb_widget(n2) or widget_disable)
+                   and (joyb_real(n2) or joyreal_disable)
+                   and (joyb_ps2(n2) or ps2_disable);
       end loop;
       joya(4) <= '1' and (joya_physkey(4) or joykey_disable)
                  and (joya_widget(4) or widget_disable)

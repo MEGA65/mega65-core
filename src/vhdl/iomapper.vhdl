@@ -275,8 +275,8 @@ architecture behavioral of iomapper is
   signal dummy_g : std_logic_vector(7 downto 0);
   signal dummy : std_logic_vector(10 downto 0);
 
-  signal joya_rotate : integer range 0 to 1;
-  signal joyb_rotate : integer range 0 to 1;
+  signal joya_rotate : std_logic;
+  signal joyb_rotate : std_logic;
   
 begin
 
