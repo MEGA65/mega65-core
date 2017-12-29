@@ -237,6 +237,10 @@ begin
           else
             cart_access_accept_strobe <= '0';
             cart_a <= (others => 'H');
+            cart_roml <= '1';
+            cart_romh <= '1';
+            cart_io1 <= '1';
+            cart_io2 <= '1';
             cart_rw <= '1';
             read_in_progress <= '0';
           end if;      
