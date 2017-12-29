@@ -57,7 +57,7 @@ int process_char(unsigned char c,int live);
 void usage(void)
 {
   fprintf(stderr,"MEGA65 cross-development tool for booting the MEGA65 using a custom bitstream and/or KICKUP file.\n");
-  fprintf(stderr,"usage: monitor_load [-l <serial port>] [-s <230400|2000000|4000000>]  [-b <FPGA bitstream>] [[-k <kickup file>] [-R romfile] [-C charromfile]] [-c COLOURRAM.BIN] [-m modeline] [-o] [-d diskimage.d81] [[-1] [filename]]\n");
+  fprintf(stderr,"usage: monitor_load [-l <serial port>] [-s <230400|2000000|4000000>]  [-b <FPGA bitstream>] [[-k <kickup file>] [-R romfile] [-C charromfile]] [-c COLOURRAM.BIN] [-m modeline] [-o] [-d diskimage.d81] [[-1] [<-t|-T> <text>] [filename]]\n");
   fprintf(stderr,"  -l - Name of serial port to use, e.g., /dev/ttyUSB1\n");
   fprintf(stderr,"  -s - Speed of serial port in bits per second. This must match what your bitstream uses.\n");
   fprintf(stderr,"       (Older bitstream use 230400, and newer ones 2000000 or 4000000).\n");
@@ -72,6 +72,8 @@ void usage(void)
   fprintf(stderr,"  -m - Set video mode to Xorg style modeline.\n");
   fprintf(stderr,"  -o - Enable on-screen keyboard\n");
   fprintf(stderr,"  -d - Enable virtual D81 access\n");
+  fprintf(stderr,"  -t - Type text via keyboard virtualisation.\n");
+  fprintf(stderr,"  -T - As above, but also provide carriage return\n");
   fprintf(stderr,"  filename - Load and run this file in C64 mode before exiting.\n");
   fprintf(stderr,"\n");
   exit(-3);
@@ -118,6 +120,9 @@ char modeline_cmd[1024]="";
 int saw_c64_mode=0;
 int saw_c65_mode=0;
 int hypervisor_paused=0;
+
+char *type_text=NULL;
+int type_text_cr=0;
 
 unsigned long long gettime_ms()
 {
@@ -288,6 +293,105 @@ int process_line(char *line,int live)
 	slow_write(fd,"t0\r",3); // and set CPU going
 	usleep(20000);
 	printf("Synchronised with monitor.\n");
+
+	if (type_text) {
+	  fprintf(stderr,"Typing text via virtual keyboard...\n");
+	  {
+	    int i;
+	    for(i=0;type_text[i];i++) {
+	      int c1=0x7f;
+	      int c2=0x7f;
+	      int c=tolower(type_text[i]);
+	      if (c!=type_text[i]) c2=0x0f; // left shift for upper case letters
+	      // Punctuation that requires shifts
+	      switch (c) {
+	        case '!': c='1'; c2=0x0f; break;
+	        case '\"': c='2'; c2=0x0f; break;
+	        case '$': c='4'; c2=0x0f; break;
+	        case '%': c='5'; c2=0x0f; break;
+	        case '(': c='8'; c2=0x0f; break;
+	        case ')': c='9'; c2=0x0f; break;
+	        case '?': c='/'; c2=0x0f; break;
+	      }
+	      switch (c) {
+		case '3': c1=0x08; break;
+		case 'w': c1=0x09; break;
+		case 'a': c1=0x0a; break;
+		case '4': c1=0x0b; break;
+		case 'z': c1=0x0c; break;
+		case 's': c1=0x0d; break;
+		case 'e': c1=0x0e; break;
+
+		case '5': c1=0x10; break;
+		case 'r': c1=0x11; break;
+		case 'd': c1=0x12; break;
+		case '6': c1=0x13; break;
+		case 'c': c1=0x14; break;
+		case 'f': c1=0x15; break;
+		case 't': c1=0x16; break;
+		case 'x': c1=0x17; break;
+
+		case '7': c1=0x18; break;
+		case 'y': c1=0x19; break;
+		case 'g': c1=0x1a; break;
+		case '8': c1=0x1b; break;
+		case 'b': c1=0x1c; break;
+		case 'h': c1=0x1d; break;
+		case 'u': c1=0x1e; break;
+		case 'v': c1=0x1f; break;
+
+		case '9': c1=0x20; break;
+		case 'i': c1=0x21; break;
+		case 'j': c1=0x22; break;
+		case '0': c1=0x23; break;
+		case 'm': c1=0x24; break;
+		case 'k': c1=0x25; break;
+		case 'o': c1=0x26; break;
+		case 'n': c1=0x27; break;
+
+		case '+': c1=0x28; break;
+		case 'p': c1=0x29; break;
+		case 'l': c1=0x2a; break;
+		case '-': c1=0x2b; break;
+		case '.': c1=0x2c; break;
+		case ':': c1=0x2d; break;
+		case '@': c1=0x2e; break;
+		case ',': c1=0x2f; break;
+
+		case '#': c1=0x30; break;
+		case '*': c1=0x31; break;
+		case ';': c1=0x32; break;
+  	        case 0x13: c1=0x33; break; // home
+	     // case '': c1=0x34; break; right shift
+		case '=': c1=0x35; break;
+		case 0x91: c1=0x36; break;
+		case '/': c1=0x37; break;
+
+		case '1': c1=0x38; break;
+		case '_': c1=0x39; break;
+	     // case '': c1=0x3a; break; control
+		case '2': c1=0x3b; break;
+		case ' ': c1=0x3c; break;
+	     // case '': c1=0x3d; break; C=
+		case 'q': c1=0x3e; break;
+		case 0x0c: c1=0x3f; break;
+	      default: c1=0x7f;
+	      }
+	      char cmd[1024];
+	      snprintf(cmd,1024,"sffd3615 %02x %02x\n",c1,c2);
+	      slow_write(fd,cmd,strlen(cmd));
+	      // Stop pressing keys
+	      slow_write(fd,"sffd3615 7f 7f 7f \n",19);
+	    }
+	    // RETURN at end if requested
+	    if (type_text_cr)
+	      slow_write(fd,"sffd3615 01 7f 7f \n",19);
+	    // Stop pressing keys
+	    slow_write(fd,"sffd3615 7f 7f 7f \n",19);
+	    // Typing mode does only typing
+	    exit(0);
+	  }
+	}
       }
     }
   }
@@ -403,7 +507,7 @@ int process_line(char *line,int live)
     } else {
       if (!saw_c65_mode) fprintf(stderr,"MEGA65 is in C65 mode.\n");
       saw_c65_mode=1;
-      if ((!mode_report)&&(!virtual_f011)) {
+      if ((!mode_report)&&(!virtual_f011)&&(!type_text)) {
 	fprintf(stderr,"Exiting now that we are in C65 mode.\n");
 	exit(0);
       }
@@ -796,7 +900,7 @@ int main(int argc,char **argv)
   start_time=time(0);
   
   int opt;
-  while ((opt = getopt(argc, argv, "14l:s:b:c:k:rR:C:m:Mod:")) != -1) {
+  while ((opt = getopt(argc, argv, "14l:s:b:c:k:rR:C:m:Mod:t:T:")) != -1) {
     switch (opt) {
     case 'R': romfile=strdup(optarg); break;
     case 'C': charromfile=strdup(optarg); break;
@@ -822,6 +926,10 @@ int main(int argc,char **argv)
     case 'b':
       bitstream=strdup(optarg); break;
     case 'k': kickstart=strdup(optarg); break;
+    case 't': case 'T':
+      type_text=strdup(optarg);
+      if (opt=='T') type_text_cr=1;
+      break;
     default: /* '?' */
       usage();
     }
