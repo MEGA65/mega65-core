@@ -3379,11 +3379,11 @@ begin
       if reg_h640='1' then
         bitmap_glyph_data_address
           <= (character_set_address(16)&character_set_address(14 downto 13)&"0"&"0"&x"000")
-          + (to_integer(screen_ram_buffer_read_address)+to_integer(first_card_of_row))*8+to_integer(chargen_y);
+          + (to_integer(screen_ram_buffer_read_address)+to_integer(first_card_of_row))*8+to_integer(chargen_y_hold);
       else
         bitmap_glyph_data_address
           <= (character_set_address(16 downto 13)&"0"&x"000")
-          + (to_integer(screen_ram_buffer_read_address)+to_integer(first_card_of_row))*8+to_integer(chargen_y);
+          + (to_integer(screen_ram_buffer_read_address)+to_integer(first_card_of_row))*8+to_integer(chargen_y_hold);
       end if;
       virtual_row_width_minus1 <= virtual_row_width - 1;
 
