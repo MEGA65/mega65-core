@@ -1375,6 +1375,11 @@ begin
         if fastio_addr(11 downto 0) = x"030" then
           -- C128 $D030
           register_number := x"0FF"; -- = 255
+        elsif fastio_addr(11 downto 4) = x"03" then
+          -- $D030-$D03F are otherwise unmapped in VIC-II mode, so that the C65
+          -- VIC-III registers there cannot be messed with.
+          -- So we set it to a non-existent register
+          register_number := x"0FE";
         end if;
         report "IO access resolves to video register number "
           & integer'image(to_integer(register_number)) severity note;        
