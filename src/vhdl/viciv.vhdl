@@ -228,8 +228,8 @@ architecture Behavioral of viciv is
   signal sprite_first_x : unsigned(13 downto 0) := to_unsigned(1+267-(24)*(120/18),14);
   signal sprite_x_counting : std_logic := '0';
   signal chargen_x_scale : unsigned(7 downto 0) := to_unsigned(36,8); 
-  signal sprite_x_scale_320 : unsigned(7 downto 0) := to_unsigned(16/2,8);  
-  signal sprite_x_scale_640 : unsigned(7 downto 0) := to_unsigned(18,8);		-- 640 mode sprite scale  
+  signal sprite_x_scale_320 : unsigned(7 downto 0) := to_unsigned(18,8);  
+  signal sprite_x_scale_640 : unsigned(7 downto 0) := to_unsigned(36,8);		-- 640 mode sprite scale  
   -- Each character pixel will be (n+1) pixels high
   signal chargen_y_scale : unsigned(7 downto 0) := x"01";  -- x"04"
   -- smooth scrolling position in natural pixels.
