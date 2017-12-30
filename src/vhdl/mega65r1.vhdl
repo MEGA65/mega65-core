@@ -154,6 +154,8 @@ entity container is
 
          flopled : out std_logic;
          flopmotor : out std_logic;
+
+         led : out std_logic;
          
          ----------------------------------------------------------------------
          -- Debug interfaces on Nexys4 board
@@ -261,6 +263,8 @@ begin
       qspicsn => qspicsn,      
 --      qspisck => '1',
 
+      cart_busy => led,
+      
       slow_access_request_toggle => slow_access_request_toggle,
       slow_access_ready_toggle => slow_access_ready_toggle,
       slow_access_write => slow_access_write,

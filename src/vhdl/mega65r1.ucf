@@ -12,6 +12,9 @@ TIMESPEC TS_sys_clk_pin = PERIOD sys_clk_pin 100 MHz HIGH 50%;
 # XXX - Currently resets FPGA, rather than CPU
 NET "btnCpuReset"     LOC=AA18 | IOSTANDARD=LVCMOS33; #
 
+# General purpose LED on mother board
+net "LED" LOC=U22 | IOSTANDARD=LVCMOS33;
+
 # Floppy drive LED
 NET "FLOPLED" LOC=J16 | IOSTANDARD=LVCMOS33;
 NET "FLOPMOTOR" LOC=M5  | IOSTANDARD=LVCMOS33;

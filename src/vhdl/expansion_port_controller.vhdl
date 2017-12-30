@@ -31,7 +31,8 @@ ENTITY expansion_port_controller IS
     -- Suppress mapping of IO at $DE00-$DFFF if sector buffer mapped
     ------------------------------------------------------------------------
     sector_buffer_mapped : in std_logic;
-    
+
+    cart_busy : out std_logic := '0';
     
     ------------------------------------------------------------------------
     -- Access request from CPU
@@ -188,10 +189,15 @@ begin
               & to_hstring(cart_access_address)
               & " rw=" & std_logic'image(cart_access_read)
               & " wdata=$" & to_hstring(cart_access_wdata);
+
+            cart_busy <= '1';
+            
             cart_access_accept_strobe <= '1';
             cart_a <= cart_access_address(15 downto 0);
             cart_rw <= cart_access_read;
             cart_data_dir <= not cart_access_read;
+            -- Reprobe /EXROM and /GAME lines after accesses to IO areas, in
+            -- case the cartridge has banked things in response to IO access
             if cart_access_address(15 downto 8) = x"DE" and sector_buffer_mapped='0' then
               cart_io1 <= '0';
               reprobe_exrom <= '1';
@@ -243,6 +249,7 @@ begin
             cart_io2 <= '1';
             cart_rw <= '1';
             read_in_progress <= '0';
+            cart_busy <= '0';            
           end if;      
         end if;
       end if;
