@@ -255,9 +255,12 @@ GS $D610 Last key press as ASCII (hardware accelerated keyboard scanner). Write 
 GS $D611 Modifier key state (hardware accelerated keyboard scanner).
 GS $D612.0 Enable widget board keyboard/joystick input
 GS $D612.1 Enable ps2 keyboard/joystick input
-GS $D612.2 Enable physical joystick input
+GS $D612.2 Enable physical keyboard input
 GS $D612.3 Enable virtual keyboard input
-GS $D612.4 Enable physical joystick input
+GS $D612.4 Enable PS/2 / USB keyboard simulated joystick input
+GS $D612.5 Enable physical joystick input
+GS $D612.6 Rotate inputs of joystick A by 180 degrees
+GS $D612.7 Rotate inputs of joystick B by 180 degrees
 GS $D613 DEBUG: Which segment of keyboard matrix to read (0--9)
 GS $D614 DEBUG: 8-bit segment of combined keyboard matrix (READ)
 GS $D615.0-6 ID of key #1 held down on virtual keyboard
@@ -393,6 +396,9 @@ GS $D6F7 - Keyboard scan code reader (upper nybl)
 GS $D6F7 - microphone input (right)
 GS $D6F8 - 8-bit digital audio out (left)
 GS $D6F9.0 - Enable audio amplifier
+GS $D6F9.1-4 - Raw PCM/PDM audio debug interface WILL BE REMOVED
+GS $D6F9.5 - Swap stereo channels
+GS $D6F9.6 - Play mono audio through both channels
 GS $D6F9.7 - Select PDM or PWM audio output mode
 GS $D6FA - 8-bit digital audio out (left)
 GS $D6FB - microphone input (left)
