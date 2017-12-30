@@ -7,6 +7,9 @@ use Std.TextIO.all;
 use work.debugtools.all;
 
 entity cia6526 is
+  generic (    
+    unit : in unsigned(3 downto 0) := x"0"
+    );
   port (
     cpuclock : in std_logic;
     phi0 : in std_logic;
@@ -58,8 +61,8 @@ architecture behavioural of cia6526 is
 
   signal reg_timera : unsigned(15 downto 0) := x"0001";
   signal reg_timera_latch : unsigned(15 downto 0) := x"0001";
-  signal reg_timerb : unsigned(15 downto 0);
-  signal reg_timerb_latch : unsigned(15 downto 0);
+  signal reg_timerb : unsigned(15 downto 0) := x"0000";
+  signal reg_timerb_latch : unsigned(15 downto 0) := x"0000";
 
   signal reg_timera_tick_source : std_logic := '0'; 
   signal reg_timera_oneshot : std_logic := '0';
@@ -110,7 +113,7 @@ architecture behavioural of cia6526 is
 
   signal last_flag : std_logic := '0';
   signal reg_isr : unsigned(7 downto 0) := x"00";
-  signal strobe_pc : std_logic;
+  signal strobe_pc : std_logic := '0';
   signal imask_flag : std_logic := '0';
   signal imask_serialport : std_logic := '0';
   signal imask_alarm : std_logic := '0';
@@ -119,19 +122,21 @@ architecture behavioural of cia6526 is
 
   signal reg_serialport_direction : std_logic := '0';
   signal reg_sdr : std_logic_vector(7 downto 0);
-  signal reg_sdr_data : std_logic_vector(7 downto 0);
+  signal reg_sdr_data : std_logic_vector(7 downto 0) := x"00";
   signal reg_read_sdr : std_logic_vector(7 downto 0) := x"FF";
   signal sdr_loaded : std_logic := '0';
 
-  signal prev_phi0 : std_logic;
-  signal prev_countin : std_logic;
+  signal prev_phi0 : std_logic := '0';
+  signal prev_countin : std_logic := '0';
 
-  signal prev_todclock : std_logic;
+  signal prev_todclock : std_logic := '0';
 
   signal clear_isr : std_logic := '0';  -- flag to clear ISR after reading
   signal clear_isr_count : unsigned(4 downto 0) := "00000";
+  signal clear_isr_bits : unsigned(7 downto 0) := x"00";
   
   signal todcounter : integer := 0;
+  
 
 begin  -- behavioural
   
@@ -252,7 +257,6 @@ begin  -- behavioural
   begin
     if rising_edge(cpuclock) then
 
-      
       if reset='0' then
         -- Clear interrupt flags on reset
         imask_flag <= '0';
@@ -276,11 +280,21 @@ begin  -- behavioural
       -- XXX We clear ISR one cycle after the register is read so that
       -- if fastio has a one cycle wait state, the isr can still be read on
       -- the second cycle.
+      -- This can create a race condition, if any new events happen while waiting
+      -- for it to clear.  So we only clear the bits that were set last time.
       if clear_isr='1' then
         -- lie any say serial port done to placate C65 ROM for now
-        reg_isr <= x"08";
+        -- by keeping bit 3 always set.
+        -- XXX This might not be needed any more, and might make the C65 KERNAL think
+        -- every disk drive supports fast serial.
+        for i in 0 to 7 loop
+          if i /= 3 and clear_isr_bits(i)='1' then
+            reg_isr(i) <= '0';
+          end if;
+        end loop;
         clear_isr <= '0';
-        -- report "clearing ISR" severity note;
+        report "CIA" & to_hstring(unit) & " clearing reg_isr (was $" & to_hstring(reg_isr) & ", bits to clear = $"
+          & to_hstring(clear_isr_bits) & ")";
       end if;
       
       -- Set IRQ line status
@@ -387,12 +401,16 @@ begin  -- behavioural
         end case;
       end if;
       if reg_timerb_start='1' then
+        report "CIA" & to_hstring(unit) & " timerb running. reg_timerb = $" & to_hstring(reg_timerb);
         if reg_timerb = x"FFFF" and reg_timerb_has_ticked='1' then
           -- underflow
+          report "CIA" & to_hstring(unit) & " timerb underflow";
           reg_isr(1) <= '1';
           if reg_timerb_oneshot='0' then
+            report "CIA" & to_hstring(unit) & " timerb set from latch";
             reg_timerb <= reg_timerb_latch;
           else
+            report "CIA" & to_hstring(unit) & " setting reg_timerb_start to " & std_logic'image(fastio_wdata(0));
             reg_timerb_start <= '0';
           end if;
           reg_timerb_has_ticked <= '0';
@@ -403,16 +421,25 @@ begin  -- behavioural
             if reg_timera_underflow='1' or reg_timerb_tick_source(1)='0' then
               -- NOTE: MEGA65 clocks phi on transitions, not pulses
               if phi0 /= prev_phi0 then
-                reg_timerb <= reg_timerb - 1;
-                reg_timerb_has_ticked <= '0';
+                if reg_timerb /= x"0000" then
+                  report "CIA" & to_hstring(unit) & " timerb ticking down to $" & to_hstring(to_unsigned(to_integer(reg_timerb) - 1,16))
+                    & " from $" & to_hstring(reg_timerb);
+                  reg_timerb <= to_unsigned(to_integer(reg_timerb) - 1,16);
+                else
+                  report "CIA" & to_hstring(unit) & " timerb ticking down to -1"
+                    & " from $" & to_hstring(reg_timerb);
+                  reg_timerb <= (others => '1');
+                end if;
+                reg_timerb_has_ticked <= '1';
               end if;                
             end if;
           when '1' =>
             -- positive CNT transitions
             if reg_timera_underflow='1' or reg_timerb_tick_source(1)='0' then
               if countin='1' and prev_countin='0' then
+                report "CIA" & to_hstring(unit) & " timerb ticking down to $" & to_hstring(reg_timerb);
                 reg_timerb <= reg_timerb - 1;
-                reg_timerb_has_ticked <= '0';
+                reg_timerb_has_ticked <= '1';
               end if;
             end if; 
           when others => null;
@@ -454,6 +481,7 @@ begin  -- behavioural
           when x"d" =>
             -- Reading ICR/ISR clears all interrupts
             clear_isr <= '1';
+            clear_isr_bits <= reg_isr;
             clear_isr_count <= clear_isr_count + 1;
           when others => null;
         end case;
@@ -484,9 +512,10 @@ begin  -- behavioural
                        end if;
           when x"6" => reg_timerb_latch(7 downto 0) <= fastio_wdata;
           when x"7" => reg_timerb_latch(15 downto 8) <= fastio_wdata;
-                       if reg_timera_start='0' then
+                       if reg_timerb_start='0' then
                          -- load timer value now (CIA datasheet, page 6)
                          reg_timerb <= fastio_wdata & reg_timerb_latch(7 downto 0);
+                         report "timerb high byte set via $Dx07";
                        end if;
           when x"8" =>
             if reg_tod_alarm_edit ='0' then
@@ -553,14 +582,16 @@ begin  -- behavioural
             reg_tod_alarm_edit <= std_logic(fastio_wdata(7));
             reg_timerb_tick_source <= std_logic_vector(fastio_wdata(6 downto 5));
             if fastio_wdata(4)='1' then
-              -- Force loading of timer A now from latch
+              -- Force loading of timer B now from latch
               reg_timerb <= reg_timerb_latch;
               reg_timerb_has_ticked <= '0';
+              report "loading reg_timerb=$" & to_hstring(reg_timerb_latch);
             end if;
             reg_timerb_oneshot <= std_logic(fastio_wdata(3));
             reg_timerb_toggle_or_pulse <= std_logic(fastio_wdata(2));
             reg_timerb_pb7_out <= std_logic(fastio_wdata(1));
-            reg_timerb_start <= std_logic(fastio_wdata(0));                  
+            reg_timerb_start <= std_logic(fastio_wdata(0));
+            report "setting reg_timerb_start to " & std_logic'image(fastio_wdata(0));
           when others => null;
         end case;
       end if;

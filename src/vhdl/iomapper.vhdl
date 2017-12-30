@@ -326,6 +326,7 @@ begin
   block3: block
   begin
     cia1: entity work.cia6526
+      generic map ( unit => x"1")
       port map (
     cpuclock => clk,
     phi0 => phi0,
@@ -354,6 +355,7 @@ begin
   block4: block
   begin
     ciatwo: entity work.cia6526
+      generic map ( unit => x"2")
       port map (
     cpuclock => clk,
     phi0 => phi0,
