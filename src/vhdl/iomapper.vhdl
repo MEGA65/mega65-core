@@ -440,7 +440,7 @@ begin
       porth_write_strobe => ascii_key_next,
       porti => std_logic_vector(bucky_key(7 downto 0)),
       portj_out => matrix_segment_num,
-      portj_in => cart_access_count,
+      portj_in => std_logic_vector(cart_access_count),
       portk_out(6 downto 0) => virtual_key1(6 downto 0),
       portk_out(7) => visual_keyboard_enable,
       portl_out(6 downto 0) => virtual_key2(6 downto 0),
