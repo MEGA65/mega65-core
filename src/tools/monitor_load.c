@@ -304,14 +304,18 @@ int process_line(char *line,int live)
 	      int c=tolower(type_text[i]);
 	      if (c!=type_text[i]) c2=0x0f; // left shift for upper case letters
 	      // Punctuation that requires shifts
-	      switch (c) {
+	      switch (c)
+		{
 	        case '!': c='1'; c2=0x0f; break;
 	        case '\"': c='2'; c2=0x0f; break;
+	        case '#': c='3'; c2=0x0f; break;
 	        case '$': c='4'; c2=0x0f; break;
 	        case '%': c='5'; c2=0x0f; break;
 	        case '(': c='8'; c2=0x0f; break;
 	        case ')': c='9'; c2=0x0f; break;
 	        case '?': c='/'; c2=0x0f; break;
+		case '<': c=','; c2=0x0f; break;
+		case '>': c='.'; c2=0x0f; break;
 	      }
 	      switch (c)
 		{
@@ -323,6 +327,7 @@ int process_line(char *line,int live)
 		    case 'D': c1=0x07; break;
 		    case 'U': c1=0x07; c2=0x0f; break;
 		    case 'L': c1=0x02; break;
+		    case 'H': c1=0x33; break;
 		    case 'R': c1=0x02; c2=0x0f; break;
 		    case 'M': c1=0x01; break;
 		    case 'T': c1=0x00; break;
@@ -373,7 +378,7 @@ int process_line(char *line,int live)
 		case '@': c1=0x2e; break;
 		case ',': c1=0x2f; break;
 
-		case '#': c1=0x30; break;
+		case '}': c1=0x30; break;  // British pound symbol
 		case '*': c1=0x31; break;
 		case ';': c1=0x32; break;
   	        case 0x13: c1=0x33; break; // home
