@@ -283,12 +283,8 @@ begin  -- behavioural
       -- This can create a race condition, if any new events happen while waiting
       -- for it to clear.  So we only clear the bits that were set last time.
       if clear_isr='1' then
-        -- lie any say serial port done to placate C65 ROM for now
-        -- by keeping bit 3 always set.
-        -- XXX This might not be needed any more, and might make the C65 KERNAL think
-        -- every disk drive supports fast serial.
         for i in 0 to 7 loop
-          if i /= 3 and clear_isr_bits(i)='1' then
+          if clear_isr_bits(i)='1' then
             reg_isr(i) <= '0';
           end if;
         end loop;
