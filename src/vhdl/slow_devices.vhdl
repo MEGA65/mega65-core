@@ -34,6 +34,7 @@ ENTITY slow_devices IS
 
     -- Indicate if expansion port is busy with access
     cart_busy : out std_logic;
+    cart_access_count : out unsigned(7 downto 0);
     
     ------------------------------------------------------------------------
     -- PSRAM (Nexys4 "slowram")
@@ -131,6 +132,7 @@ begin
     cart_reset => cart_reset,
 
     cart_busy => cart_busy,
+    cart_access_count => cart_access_count,
     
     cart_nmi => cart_nmi,
     cart_irq => cart_irq,

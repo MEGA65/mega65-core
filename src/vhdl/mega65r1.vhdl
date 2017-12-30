@@ -234,6 +234,9 @@ architecture Behavioral of container is
 
   signal flopled_drive : std_logic;
   signal flopmotor_drive : std_logic;
+
+
+  signal cart_access_count : unsigned(7 downto 0);
   
 begin
 
@@ -264,6 +267,7 @@ begin
 --      qspisck => '1',
 
       cart_busy => led,
+      cart_access_count => cart_access_count,
       
       slow_access_request_toggle => slow_access_request_toggle,
       slow_access_ready_toggle => slow_access_ready_toggle,
@@ -389,8 +393,8 @@ begin
       slow_access_wdata => slow_access_wdata,
       slow_access_rdata => slow_access_rdata,
       cpu_exrom => cpu_exrom,      
-      cpu_game => cpu_game,      
-
+      cpu_game => cpu_game,
+      cart_access_count => cart_access_count,
 
 --      aclMISO => aclMISO,
       aclMISO => '1',

@@ -331,7 +331,7 @@ begin  -- behavioural
           -- @IO:GS $D612.7 Rotate inputs of joystick B by 180 degrees
           fastio_rdata(7) <= joyb_rotate_internal;
         when x"13" =>
-          -- @IO:GS $D613 DEBUG: Which segment of keyboard matrix to read (0--9)
+          -- @IO:GS $D613 DEBUG: Count of cartridge port memory accesses (read only)
           fastio_rdata <= unsigned(portj_in);
         when x"14" =>
           -- @IO:GS $D614 DEBUG: 8-bit segment of combined keyboard matrix (READ)

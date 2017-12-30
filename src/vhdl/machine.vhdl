@@ -78,6 +78,7 @@ entity machine is
          slow_access_address : out unsigned(27 downto 0);
          slow_access_wdata : out unsigned(7 downto 0);
          slow_access_rdata : in unsigned(7 downto 0);
+         cart_access_count : in unsigned(7 downto 0) := x"00";
 
          sector_buffer_mapped : inout std_logic;
          
@@ -810,6 +811,8 @@ begin
 
       key_scancode => key_scancode,
       key_scancode_toggle => key_scancode_toggle,
+
+      cart_access_count => cart_access_count,
       
       uartclock => uartclock,
       phi0 => phi0,

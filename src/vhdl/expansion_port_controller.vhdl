@@ -33,6 +33,7 @@ ENTITY expansion_port_controller IS
     sector_buffer_mapped : in std_logic;
 
     cart_busy : out std_logic := '0';
+    cart_access_count : out unsigned(7 downto 0);
     
     ------------------------------------------------------------------------
     -- Access request from CPU
@@ -103,6 +104,7 @@ architecture behavioural of expansion_port_controller is
   -- Are we already servicing a read?
   signal read_in_progress : std_logic := '0';
   signal cart_access_read_toggle_internal : std_logic := '0';
+  signal cart_access_count_internal : unsigned(7 downto 0) := x"00";
   
   -- Internal state
   signal cart_dotclock_internal : std_logic := '0';
@@ -191,6 +193,10 @@ begin
               & " wdata=$" & to_hstring(cart_access_wdata);
 
             cart_busy <= '1';
+
+            -- Count number of cartridge accesses to aid debugging
+            cart_access_count <= cart_access_count_internal + 1;
+            cart_access_count_internal <= cart_access_count_internal + 1;
             
             cart_access_accept_strobe <= '1';
             cart_a <= cart_access_address(15 downto 0);
