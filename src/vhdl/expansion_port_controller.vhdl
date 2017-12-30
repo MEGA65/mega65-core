@@ -88,7 +88,7 @@ architecture behavioural of expansion_port_controller is
   -- Ticks is per half clock
   -- XXX - Allow varying the bus speed if we know we have a fast
   -- peripheral
-  constant ticks_8mhz_half : integer := pixelclock_frequency / (8 * 2);
+  constant ticks_8mhz_half : integer := pixelclock_frequency / (8 * 2) + 1;
   signal ticker : unsigned(7 downto 0) := to_unsigned(0,8);
   signal phi2_ticker : unsigned(7 downto 0) := to_unsigned(0,8);
   signal reset_counter : integer range 0 to 15 := 0;
