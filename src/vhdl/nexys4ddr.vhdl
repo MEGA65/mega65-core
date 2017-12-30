@@ -482,7 +482,8 @@ begin
 --      cpu_game => cpu_game,      
       -- enable/disable cartridge with sw(8)
       cpu_exrom => sw(8),
-      cpu_game => '1',      
+      cpu_game => '1',
+      cart_access_count => x"00",
 
       fpga_temperature => fpga_temperature,
 
