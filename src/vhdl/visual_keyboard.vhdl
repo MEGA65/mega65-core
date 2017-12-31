@@ -53,6 +53,9 @@ architecture behavioural of visual_keyboard is
   signal x_surplus : unsigned(13 downto 0) :=
     to_unsigned(0,14);
   signal max_x : integer := 0;
+
+  signal y_start_current_upabit : unsigned(11 downto 0) :=
+    to_unsigned(0,12);
   
   signal y_stretch : integer range 0 to 15 := 1;
 
@@ -568,7 +571,9 @@ begin
         vgagreen_out <= vgagreen_in;
         vgablue_out <= vgablue_in;
       end if;
-      
+
+      y_start_current_upabit <= y_start_current - y_start_current(11 downto 3) - y_start_minimum - 2;
+        
       if ycounter_in = 0 and ycounter_last /= 0 then
         max_y <= ycounter_last;
         max_x <= 0;
@@ -618,7 +623,7 @@ begin
           if y_start_current > (y_start_minimum+3) and instant_at_top='0' then
             report "Xeno-walking keyboard to top a bit. new position = "
               & integer'image(to_integer(y_start_current) - to_integer(y_start_current(11 downto 3)) - y_start_minimum - 2);
-            y_start_current <= y_start_current - y_start_current(11 downto 3) - y_start_minimum - 2;
+            y_start_current <= y_start_current_upabit;
           else
             report "Jumping keyboard to y_start_minimum = " & integer'image(y_start_minimum);
             y_start_current <= to_unsigned(y_start_minimum,12);
