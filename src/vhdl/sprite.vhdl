@@ -125,7 +125,7 @@ architecture behavioural of sprite is
   signal sprite_pixel_bits_mc : std_logic_vector(127 downto 0) := (others => '1');
   signal sprite_pixel_bits : std_logic_vector(127 downto 0) := (others => '1');
   signal sprite_data_64bits : unsigned(63 downto 0);
-  signal check_colissions : std_logic := '0';
+  signal check_collisions : std_logic := '0';
 
   signal x_in : xposition;
   
@@ -280,10 +280,10 @@ begin  -- behavioural
             end if;
           end if;
           y_expand_toggle <= not y_expand_toggle;
-          -- Check colissions whenever we start a new logical sprite pixel row, even
+          -- Check collisions whenever we start a new logical sprite pixel row, even
           -- if it is just a VIC-II stretch of the above one, since it could collide
           -- with a non-expanded sprite that starts here.
-          check_colissions <= '1';
+          check_collisions <= '1';
         end if;
       end if;
       -- Advance X position of sprite
@@ -301,14 +301,14 @@ begin  -- behavioural
           else
             report "SPRITE: right edge of sprite encountered. stopping drawing.";
             x_in_sprite <= '0';
-            -- Only check colissions on first raster of each sprite pixel
-            -- so that we don't trigger colission interrupts on each physical raster
+            -- Only check collisions on first raster of each sprite pixel
+            -- so that we don't trigger collision interrupts on each physical raster
             -- of a single pixel row of a sprite, which might cause some games
-            -- to get confused and trigger the colission routine 5x for each colission
+            -- to get confused and trigger the collision routine 5x for each collision
             -- instead of just once -- especially since there are ~640 CPU
             -- cycles per physical raster = ~ 3,000 CPU cycles per sprite pixel
             -- row.
-            check_colissions <= '0';
+            check_collisions <= '0';
           end if;
           -- shift along to next pixel
           report "SPRITE: shifting pixel vector along (was "&
@@ -324,14 +324,14 @@ begin  -- behavioural
       -- decide whether we are visible or not, and update sprite colour
       -- accordingly.
       -- XXX - foreground priority is not implemented.
-      -- XXX - sprite colission map generation is not implemented
+      -- XXX - sprite collision map generation is not implemented
       -- XXX - sprites draw on top of the border?
-      -- check for sprite/foreground colission
+      -- check for sprite/foreground collision
       sprite_fg_map_out <= sprite_fg_map_in;
       if (x_in_sprite='1') and (border_in='0') and (is_foreground_in='1') and
         (sprite_pixel_bits(127 downto 126) /= "00") then
-        -- Sprite and foreground colission
-        if check_colissions='1' then
+        -- Sprite and foreground collision
+        if check_collisions='1' then
           sprite_fg_map_out(sprite_number) <= '1';
         end if;
       end if;
@@ -377,17 +377,17 @@ begin  -- behavioural
           report "SPRITE: Painting pixel using bits " & to_string(sprite_pixel_bits(127 downto 126));
           case sprite_pixel_bits(127 downto 126) is
             when "01" =>
-              -- Set this sprite in the colission map        
+              -- Set this sprite in the collision map        
               sprite_map_out <= sprite_map_in;
-              if check_colissions='1' then
+              if check_collisions='1' then
                 sprite_map_out(sprite_number) <= '1';
               end if;
               is_sprite_out <= not border_in;
               sprite_colour_out <= sprite_multi0_colour;
             when "10" =>
-              -- Set this sprite in the colission map        
+              -- Set this sprite in the collision map        
               sprite_map_out <= sprite_map_in;
-              if check_colissions='1' then
+              if check_collisions='1' then
                 sprite_map_out(sprite_number) <= '1';
               end if;
               is_sprite_out <= not border_in;
@@ -395,9 +395,9 @@ begin  -- behavioural
             when "11" =>
               is_sprite_out <= not border_in;
               sprite_colour_out <= sprite_multi1_colour;
-              -- Set this sprite in the colission map        
+              -- Set this sprite in the collision map        
               sprite_map_out <= sprite_map_in;
-              if check_colissions='1' then
+              if check_collisions='1' then
                 sprite_map_out(sprite_number) <= '1';
               end if;
             when others =>
