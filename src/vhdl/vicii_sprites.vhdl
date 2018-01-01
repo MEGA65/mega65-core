@@ -127,11 +127,11 @@ architecture behavioural of vicii_sprites is
   signal reg_key : unsigned(7 downto 0) := x"00";
   
   -- Description of VIC-II sprites
-  signal sprite_x : sprite_vector_8  := (others => x"00");
+  signal sprite_x : sprite_vector_8  := (others => x"02");
   signal vicii_sprite_enables : std_logic_vector(7 downto 0) := (others => '1');
   signal vicii_sprite_xmsbs : std_logic_vector(7 downto 0) := (others => '0');
   signal sprite_h640_msbs : std_logic_vector(7 downto 0) := (others => '0');
-  signal sprite_y : sprite_vector_8 := (others => x"00");
+  signal sprite_y : sprite_vector_8 := (others => x"02");
   signal sprite_colours : sprite_vector_8 := (others => x"00");
   signal vicii_sprite_priority_bits : std_logic_vector(7 downto 0) := (others => '0');
   signal sprite_multi0_colour : unsigned(7 downto 0) := x"04";

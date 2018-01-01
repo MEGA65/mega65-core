@@ -483,8 +483,8 @@ architecture Behavioral of viciv is
   -- XXX move reading of sprite registers to vicii_sprites module
   signal sprite_multi0_colour : unsigned(7 downto 0) := x"04";
   signal sprite_multi1_colour : unsigned(7 downto 0) := x"05";
-  signal sprite_x : sprite_vector_eight := (others => x"00");
-  signal sprite_y : sprite_vector_eight := (others => x"00");
+  signal sprite_x : sprite_vector_eight := (others => x"02");
+  signal sprite_y : sprite_vector_eight := (others => x"02");
   signal sprite_colours : sprite_vector_eight := (others => x"00");
 
   -- VIC-III bitplane registers
@@ -1377,10 +1377,13 @@ begin
         if fastio_addr(11 downto 0) = x"030" then
           -- C128 $D030
           register_number := x"0FF"; -- = 255
-        elsif fastio_addr(11 downto 4) = x"03" then
+        elsif (fastio_addr(11 downto 4) = x"03")
+          or (fastio_addr(11 downto 4) = x"07")
+        then
           -- $D030-$D03F are otherwise unmapped in VIC-II mode, so that the C65
           -- VIC-III registers there cannot be messed with.
           -- So we set it to a non-existent register
+          -- We also have to do the same for $D070-$D07F
           register_number := x"0FE";
         end if;
         report "IO access resolves to video register number "
@@ -1844,9 +1847,9 @@ begin
       -- (this can happen on ioclock, since it should still allow ample time
       --  to synchronise with the sprites before we fetch the data for them).
       -- Save offset delivered by chain
-      report "SPRITE: VIC-II sprite "
-        & integer'image(sprite_number_for_data_rx)
-        & " = " & integer'image(sprite_data_offset_rx);
+--      report "SPRITE: VIC-II sprite "
+--        & integer'image(sprite_number_for_data_rx)
+--        & " = " & integer'image(sprite_data_offset_rx);
 --      sprite_data_offsets(sprite_number_for_data_rx) <= sprite_data_offset_rx;
 --      -- Ask for the next one (8 sprites + 8 C65 bitplanes)
 --      if sprite_number_counter = 15 then
