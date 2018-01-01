@@ -62,6 +62,8 @@ ENTITY expansion_port_controller IS
     cart_haddr_dir : out std_logic := '1';
     cart_laddr_dir : out std_logic := '1';
     cart_addr_en : out std_logic := '0';
+
+    -- These signals have inverted sense
     cart_data_dir : out std_logic := '0';
     cart_data_en : out std_logic := '0';
 
@@ -168,8 +170,8 @@ begin
             cart_access_read_strobe <= '0';
           end if;         
           -- Tri-state the bus when not active
-          cart_data_en <= '0';
-          cart_addr_en <= '0';
+          cart_data_en <= '1';
+          cart_addr_en <= '1';
 
           -- Present next bus request if we have one
           if probing_exrom = '1' and reprobe_exrom='0' then
@@ -208,8 +210,8 @@ begin
             cart_a <= cart_access_address(15 downto 0);
             cart_rw <= cart_access_read;
             cart_data_dir <= not cart_access_read;
-            cart_data_en <= '1';
-            cart_addr_en <= '1';
+            cart_data_en <= '0';
+            cart_addr_en <= '0';
             -- Reprobe /EXROM and /GAME lines after accesses to IO areas, in
             -- case the cartridge has banked things in response to IO access
             if cart_access_address(15 downto 8) = x"DE" and sector_buffer_mapped='0' then
