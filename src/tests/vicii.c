@@ -221,6 +221,19 @@ void check_sprite_contact(uint16_t expected_first,uint16_t expected_last)
 
 void sprite_x_tests(void)
 {
+  
+  printf("     Expanded Sprite @ column 8");
+  stash_screen();
+  clear_screen();
+  // Draw a vertical bar in 8th column.
+  for(v=0;v<25;v++) POKE(0x0408+40*v,0x65);
+  POKE(0xD01D,0xff);
+  sweep_sprite_from_right_to_left(200,0,0);
+  while(1) continue;
+  restore_screen();
+  check_sprite_contact(0x59,0x57);
+  POKE(0xD01D,0);
+
   printf("     Sprite X position @ left edge");
   stash_screen();
   clear_screen();  
