@@ -114,6 +114,9 @@ architecture behavioural of expansion_port_controller is
   signal cart_dotclock_internal : std_logic := '0';
   signal cart_phi2_internal : std_logic := '0';
 
+  signal cart_probe_count : unsigned(5 downto 0) := "000000";
+  signal cart_flags : std_logic_vector(1 downto 0) := "00";
+  
 begin
 
   process (pixelclock)
@@ -161,7 +164,13 @@ begin
 
           -- Record data from bus if we are waiting on it
           if read_in_progress='1' then
-            cart_access_rdata <= cart_d_in;
+            -- XXX Debug: show stats on probing cartridge flags
+            if cart_access_address(15 downto 0) = x"0000" then
+              cart_access_rdata(7 downto 6) <= unsigned(cart_flags);
+              cart_access_rdata(5 downto 0) <= cart_probe_count;
+            else
+              cart_access_rdata <= cart_d_in;
+            end if;
             cart_access_read_strobe <= '1';
             cart_access_read_toggle <= not cart_access_read_toggle_internal;
             cart_access_read_toggle_internal <= not cart_access_read_toggle_internal;
@@ -176,9 +185,19 @@ begin
           -- Present next bus request if we have one
           if probing_exrom = '1' and reprobe_exrom='0' then
             -- Update CPU's view of cartridge config lines
+            report "EXROM: Read exrom as " & std_logic'image(cart_exrom)
+              & " and game as " & std_logic'image(cart_game)
+              & " (cart_ctrl_dir=" & std_logic'image(cart_ctrl_dir) & ").";
             probing_exrom <= '0';
             cpu_exrom <= cart_exrom;
             cpu_game <= cart_game;
+            -- XXX Debug, keep track of cartridge flag probing etc
+            if cart_probe_count /= x"3f" then
+              cart_probe_count <= cart_probe_count + 1;
+            else
+              cart_probe_count <= (others => '0');
+            end if;
+            cart_flags <= cart_exrom & cart_game;
             cart_ctrl_dir <= '1';
           end if;
           if reprobe_exrom = '1' then
@@ -189,10 +208,11 @@ begin
             -- direction for a fraction of a 1MHz cycle, but we need to better
             -- understand the performance of the buffers to know what latency
             -- is required.
+            report "EXROM: Tri-stating cart_exrom,game, setting cart_ctrl_dir=0";
             reprobe_exrom <= '0';
             cart_ctrl_dir <= '0';
-            cart_exrom <= 'H';
-            cart_game <= 'H';
+            cart_exrom <= 'Z';
+            cart_game <= 'Z';
             probing_exrom <= '1';
           elsif (cart_access_request='1') and (reset_counter = 0) then
             report "Presenting legacy C64 expansion port access request to port, address=$"
