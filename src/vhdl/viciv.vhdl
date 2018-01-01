@@ -483,9 +483,9 @@ architecture Behavioral of viciv is
   -- XXX move reading of sprite registers to vicii_sprites module
   signal sprite_multi0_colour : unsigned(7 downto 0) := x"04";
   signal sprite_multi1_colour : unsigned(7 downto 0) := x"05";
-  signal sprite_x : sprite_vector_8 := (others => x"00");
-  signal sprite_y : sprite_vector_8 := (others => x"00");
-  signal sprite_colours : sprite_vector_8 := (others => x"00");
+  signal sprite_x : sprite_vector_eight := (others => x"00");
+  signal sprite_y : sprite_vector_eight := (others => x"00");
+  signal sprite_colours : sprite_vector_eight := (others => x"00");
 
   -- VIC-III bitplane registers
   signal bitplane_mode : std_logic := '0';
@@ -1456,7 +1456,8 @@ begin
           fastio_rdata(4) <= multicolour_mode;
           fastio_rdata(3) <= not thirtyeightcolumns;
           fastio_rdata(2 downto 0) <= std_logic_vector(vicii_x_smoothscroll);
-        elsif register_number=23 then          -- $D017 compatibility sprite enable
+        elsif register_number=23 then          -- $D017 compatibility sprite Y
+                                               -- expand enable
           fastio_rdata <= vicii_sprite_y_expand;
         elsif register_number=24 then          -- $D018 compatibility RAM addresses
           fastio_rdata <=
@@ -1955,7 +1956,7 @@ begin
           vicii_x_smoothscroll <= unsigned(fastio_wdata(2 downto 0));
           viciv_legacy_mode_registers_touched <= '1';
         elsif register_number=23 then
-          -- @IO:C64 $D017 VIC-II sprite enable bits
+          -- @IO:C64 $D017 VIC-II sprite vertical expansion enable bits
           vicii_sprite_y_expand <= fastio_wdata;
         elsif register_number=24 then
           -- @IO:C64 $D018 VIC-II RAM addresses
@@ -3389,6 +3390,16 @@ begin
         bitmap_glyph_data_address
           <= (character_set_address(16 downto 13)&"0"&x"000")
           + (to_integer(screen_ram_buffer_read_address)+to_integer(first_card_of_row))*8+to_integer(chargen_y_hold);
+      end if;
+      if xcounter = 0 then
+        report "LEGACY: bitmap_glyph_data_address = $"
+          & to_hstring(
+            to_unsigned(to_integer(character_set_address(16 downto 13))*8192
+                        + to_integer(screen_ram_buffer_read_address)
+                        +to_integer(first_card_of_row)*8
+                        +to_integer(chargen_y_hold)
+                        ,17)
+            );
       end if;
       virtual_row_width_minus1 <= virtual_row_width - 1;
 

@@ -74,7 +74,7 @@ int main(int argc,char **argv)
 	      // Save image progressively as each line written
 	      printf("  Got raster %d\n",y-1);
 	      count++;
-	      if (count==16) {
+	      if (count==160) {
 		printf("  Writing raster %d\n",y-1);
 		write_image(image_number);
 		count=0;
