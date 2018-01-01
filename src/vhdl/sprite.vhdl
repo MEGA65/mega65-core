@@ -116,7 +116,6 @@ architecture behavioural of sprite is
   signal y_top : std_logic := '0';
   signal y_offset : integer range 0 to 255;
   signal x_offset : integer range 0 to 64;
-  signal x_is_odd : std_logic := '0';
   signal x_in_sprite : std_logic := '0';
   signal sprite_drawing : std_logic := '0';
   signal x_expand_toggle : std_logic := '0';
@@ -244,7 +243,6 @@ begin  -- behavioural
           & " of sprite " & integer'image(sprite_number)
           & " using data bits %" & to_string(std_logic_vector(sprite_data_64bits));
         x_offset <= 0;
-        x_is_odd <= '0';
         if sprite_is_multicolour = '1' then
           report "SPRITE: using multi-colour pixel vector";
           sprite_pixel_bits <= sprite_pixel_bits_mc;
@@ -296,7 +294,6 @@ begin  -- behavioural
             or (sprite_horizontal_tile_enable='1')
               then
             x_offset <= x_offset + 1;
-            x_is_odd <= not x_is_odd;
           else
             report "SPRITE: right edge of sprite encountered. stopping drawing.";
             x_in_sprite <= '0';
@@ -371,6 +368,7 @@ begin  -- behavioural
           sprite_colour_out(sprite_number_mod_4) <= sprite_pixel_bits(126) xor sprite_colour_in(sprite_number_mod_4);
         end if;
       else
+        -- Non-bitplane sprites
         pixel_out <= pixel_in;
         if ((is_foreground_in='0') or (sprite_priority='0')) and (x_in_sprite='1') then
           report "SPRITE: Painting pixel using bits " & to_string(sprite_pixel_bits(127 downto 126));
