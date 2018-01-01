@@ -239,6 +239,7 @@ begin  -- behavioural
       if x_in = to_integer(sprite_x) and sprite_enable='1' and (y_top='1' or sprite_drawing = '1') then
         x_left <= '1';
         x_in_sprite <= '1';
+        x_expand_toggle <= '0';
         report "SPRITE: drawing row " & integer'image(y_offset)
           & " of sprite " & integer'image(sprite_number)
           & " using data bits %" & to_string(std_logic_vector(sprite_data_64bits));
@@ -266,18 +267,16 @@ begin  -- behavioural
         x_in_sprite <= '0';
         if sprite_drawing = '1' then
           -- Y position has advanced while drawing a sprite
-          if y_expand_toggle = '1' or sprite_stretch_y/='1' then
-            if ((sprite_extended_height_enable = '0')
-                and (y_offset /= 20))
-              or
-              ((sprite_extended_height_enable = '1')
-               and (y_offset /= sprite_extended_height_size)) then
-              y_offset <= y_offset + 1;
-            else
-              report "SPRITE: end of sprite y reached. no longer drawing";
-              sprite_drawing <= '0';
-              y_offset <= 0;
-            end if;
+          if ((sprite_extended_height_enable = '0')
+              and (y_offset /= 21))
+            or
+            ((sprite_extended_height_enable = '1')
+             and (y_offset /= sprite_extended_height_size)) then
+            y_offset <= y_offset + 1;
+          else
+            report "SPRITE: end of sprite y reached. no longer drawing";        
+            sprite_drawing <= '0';
+            y_offset <= 0;
           end if;
           y_expand_toggle <= not y_expand_toggle;
           -- Check collisions whenever we start a new logical sprite pixel row, even

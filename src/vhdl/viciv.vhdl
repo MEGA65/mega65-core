@@ -651,6 +651,8 @@ architecture Behavioral of viciv is
   signal first_card_of_row : unsigned(15 downto 0);
   -- DEBUG: Set previous first card of row to all high so that a badline gets
   -- triggered on the first raster being drawn.
+  -- Also used so that last pixel row in bitmap char cards doesn't show data
+  -- from the next char card down the screen.
   signal prev_first_card_of_row : unsigned(15 downto 0) := (others => '1');
   -- coordinates after applying the above scaling factors
   signal chargen_x : unsigned(2 downto 0) := (others => '0');
@@ -3382,14 +3384,16 @@ begin
       end if;
 
       -- Pre-calculate some expressions to flatten logic in critical path
+      -- Note we use prev_first_card_of_row, so that we don't show the last pixel      
+      -- row from the next char card row down the screen.
       if reg_h640='1' then
         bitmap_glyph_data_address
           <= (character_set_address(16)&character_set_address(14 downto 13)&"0"&"0"&x"000")
-          + (to_integer(screen_ram_buffer_read_address)+to_integer(first_card_of_row))*8+to_integer(chargen_y_hold);
+          + (to_integer(screen_ram_buffer_read_address)+to_integer(prev_first_card_of_row))*8+to_integer(chargen_y_hold);
       else
         bitmap_glyph_data_address
           <= (character_set_address(16 downto 13)&"0"&x"000")
-          + (to_integer(screen_ram_buffer_read_address)+to_integer(first_card_of_row))*8+to_integer(chargen_y_hold);
+          + (to_integer(screen_ram_buffer_read_address)+to_integer(prev_first_card_of_row))*8+to_integer(chargen_y_hold);
       end if;
       if xcounter = 0 then
         report "LEGACY: bitmap_glyph_data_address = $"
