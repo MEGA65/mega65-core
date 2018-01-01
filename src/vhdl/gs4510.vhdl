@@ -1527,7 +1527,7 @@ begin
         if ((blocknum=8) or (blocknum=9)) and
           (
             (((gated_exrom='1') and (gated_game='0'))
-             or ((gated_exrom='0') and (lhc(1 downto 0)="11"))) and (writeP='0')
+             or ((gated_exrom='0') and (lhc(1 downto 0)="11"))) and (writeP=false)
             )
         then
           -- ULTIMAX mode or cartridge external ROM
@@ -1543,7 +1543,7 @@ begin
       end if;
       if reg_map_high(1)='0' then
         if (((blocknum=10) or (blocknum=11)) -- $A000-$BFFF cartridge ROM
-          and ((gated_exrom='0') and (gated_game='0'))) and (writeP='0')
+          and ((gated_exrom='0') and (gated_game='0'))) and (writeP=false)
         then
           -- ULTIMAX mode or cartridge external ROM
           temp_address(27 downto 16) := x"7FF";          
