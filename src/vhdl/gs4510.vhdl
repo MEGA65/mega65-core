@@ -222,6 +222,8 @@ end component;
   signal cartridge_enable : std_logic := '0';
   signal gated_exrom : std_logic := '1'; 
   signal gated_game : std_logic := '1';
+  signal force_exrom : std_logic := '1'; 
+  signal force_game : std_logic := '1';
 
   signal force_fast : std_logic := '0';
   signal speed_gate_enable_internal : std_logic := '1';
@@ -2231,6 +2233,11 @@ begin
       elsif (long_address = x"FFD370b") or (long_address = x"FFD170b") then
         -- @IO:GS $D70B DMA destination skip rate (whole bytes)
         reg_dmagic_dst_skip(15 downto 8) <= value;
+      elsif (long_address = x"FFD37FD") or (long_address = x"FFD17FD") then
+        -- @IO:GS $D7FD.7 Override for /EXROM : set to 0 to enable
+        -- @IO:GS $D7FD.6 Override for /GAME : set to 0 to enable
+        force_exrom <= value(7);
+        force_game <= value(6);
       elsif (long_address = x"FFD37FE") or (long_address = x"FFD17FE") then
         shadow_bank <= value;
       elsif (long_address = x"FFD37ff") or (long_address = x"FFD17ff") then
@@ -2668,11 +2675,11 @@ begin
       speed_gate_drive <= speed_gate;
       
       if cartridge_enable='1' then
-        gated_exrom <= exrom;
-        gated_game <= game;
+        gated_exrom <= exrom and force_exrom;
+        gated_game <= game and force_game;
       else
-        gated_exrom <= '1';
-        gated_game <= '1';
+        gated_exrom <= force_exrom;
+        gated_game <= force_game;
       end if;
 
       -- Count slow clock ticks for CIAs and other peripherals (never goes >3.5MHz)
@@ -2808,7 +2815,7 @@ begin
       -- and thus help achieve timing closure.)
       if last_write_pending = '1' then
         last_write_pending <= '0';
-
+        
         -- @IO:GS $D640 - Hypervisor A register storage
         if last_write_address = x"FFD3640" and hypervisor_mode='1' then
           hyper_a <= last_value;
