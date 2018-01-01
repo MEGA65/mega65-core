@@ -258,7 +258,9 @@ begin
               cart_roml <= '1';
             end if;
             if (cart_access_address(15 downto 12) = x"A")
-              or (cart_access_address(15 downto 12) = x"B") then
+              or (cart_access_address(15 downto 12) = x"B") 
+              or (cart_access_address(15 downto 12) = x"E")
+              or (cart_access_address(15 downto 12) = x"F") then
               cart_romh <= '0';
             else
               cart_romh <= '1';
