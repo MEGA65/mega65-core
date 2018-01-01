@@ -117,8 +117,11 @@ int process_line(char *line,int live)
 	usleep(50000);
 	slow_write(fd,"t0\r",3); // and set CPU going
 	usleep(20000);
-	slow_write(fd,"m2b\r",4); // and ask for BASIC memory pointers
-	usleep(20000);	
+	// Save memory pointed to by BASIC, unless we have been given an address range
+	if (start_addr==-1) {
+	  slow_write(fd,"m2b\r",4); // and ask for BASIC memory pointers
+	  usleep(20000);
+	} else state=1;
 	printf("Synchronised with monitor.\n");
       }
     }
@@ -131,6 +134,8 @@ int process_line(char *line,int live)
       end_addr=be_low+(be_high<<8)-1;
       fprintf(stderr,"BASIC program occupies $%04x -- $%04x\n",
 	      start_addr,end_addr);
+      // C64 BASIC header
+      fputc(start_addr&0xff,o); fputc((start_addr>>8)&0xff,o);      
       state=1;
     }
   }
@@ -151,8 +156,8 @@ int process_line(char *line,int live)
 	start_addr+=0x10;
 	if (start_addr>end_addr) {
 	  // All done
-	  fprintf(stderr,"[T+%lldsec] Finished saving $0801 -- $%04x.\n",
-		  (long long)time(0)-start_time,end_addr);
+	  fprintf(stderr,"[T+%lldsec] Finished saving $%04x -- $%04x.\n",
+		  (long long)time(0)-start_time,start_addr,end_addr);
 	  fclose(o);
 	  exit(0);
 	}
@@ -207,6 +212,7 @@ void usage(void)
   fprintf(stderr,"  -l - Name of serial port to use, e.g., /dev/ttyUSB1\n");
   fprintf(stderr,"  -s - Speed of serial port in bits per second. This must match what your bitstream uses.\n");
   fprintf(stderr,"       (Older bitstream use 230400, and newer ones 2000000 or 4000000).\n");
+  fprintf(stderr,"  -a - Specify address range to save as start:end in hex.\n");
   fprintf(stderr,"  filename - Name of file to save memory into.\n");
   fprintf(stderr,"\n");
   exit(-3);
@@ -218,7 +224,7 @@ int main(int argc,char **argv)
   last_check = gettime_ms();
   
   int opt;
-  while ((opt = getopt(argc, argv, "l:s:")) != -1) {
+  while ((opt = getopt(argc, argv, "l:s:a:")) != -1) {
     switch (opt) {
     case 'l': strcpy(serial_port,optarg); break;
     case 's':
@@ -227,6 +233,12 @@ int main(int argc,char **argv)
       case 230400: case 2000000: case 4000000: break;
       default: usage();
       }
+      break;
+    case 'a':
+      if (sscanf(optarg,"%x:%x",&start_addr,&end_addr)!=2) {
+	fprintf(stderr,"Could not parse start:end from '%s'\n",optarg);
+	usage();
+      } else fprintf(stderr,"Will save from $%x to $%x\n",start_addr,end_addr);
       break;
     default: /* '?' */
       usage();
@@ -243,8 +255,6 @@ int main(int argc,char **argv)
     perror("Could not open output file.");
     exit(-3);
   }
-  // C64 BASIC header
-  fputc(1,o); fputc(8,o);
   
   errno=0;
   fd=open(serial_port,O_RDWR);
