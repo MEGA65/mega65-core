@@ -185,9 +185,9 @@ begin
           -- Present next bus request if we have one
           if probing_exrom = '1' and reprobe_exrom='0' then
             -- Update CPU's view of cartridge config lines
-            report "EXROM: Read exrom as " & std_logic'image(cart_exrom)
-              & " and game as " & std_logic'image(cart_game)
-              & " (cart_ctrl_dir=" & std_logic'image(cart_ctrl_dir) & ").";
+--            report "EXROM: Read exrom as " & std_logic'image(cart_exrom)
+--              & " and game as " & std_logic'image(cart_game)
+--              & " (cart_ctrl_dir=" & std_logic'image(cart_ctrl_dir) & ").";
             probing_exrom <= '0';
             cpu_exrom <= cart_exrom;
             cpu_game <= cart_game;
