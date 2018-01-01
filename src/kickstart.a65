@@ -461,8 +461,11 @@ reset_machine_state:
 		; will auto-reset after 65535 cycles if the watchdog is not cleared).
 		;
 		
-		lda #$6a    ; 01101011
+		lda #$6b    ; 01101011
 		sta hypervisor_feature_enables
+
+		; Access cartridge IO area to force EXROM probe on R1 PCBs
+		lda $de00
 
 		jsr resetdisplay
 		jsr erasescreen
