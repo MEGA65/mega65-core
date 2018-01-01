@@ -1526,8 +1526,8 @@ begin
       if reg_map_high(0)='0' then
         if ((blocknum=8) or (blocknum=9)) and
           (
-            ((gated_exrom='1') and (gated_game='0'))
-            or ((gated_exrom='0') and (lhc(1 downto 0)="11"))
+            (((gated_exrom='1') and (gated_game='0'))
+             or ((gated_exrom='0') and (lhc(1 downto 0)="11"))) and (writeP='0')
             )
         then
           -- ULTIMAX mode or cartridge external ROM
@@ -1542,8 +1542,8 @@ begin
         end if;
       end if;
       if reg_map_high(1)='0' then
-        if ((blocknum=10) or (blocknum=11))
-          and ((gated_exrom='0') and (gated_game='0'))            
+        if (((blocknum=10) or (blocknum=11)) -- $A000-$BFFF cartridge ROM
+          and ((gated_exrom='0') and (gated_game='0'))) and (writeP='0')
         then
           -- ULTIMAX mode or cartridge external ROM
           temp_address(27 downto 16) := x"7FF";          
@@ -1556,8 +1556,11 @@ begin
           -- $1000 - $1FFF Ultimax mode
           temp_address(27 downto 16) := x"7FF";
         end if;
-        if (reg_map_low(1)='0') and (blocknum=2 or blocknum=3) then
-          -- $2000 - $3FFF Ultimax mode
+        if (reg_map_low(1)='0') and (blocknum=2 ) then
+          -- $2000 - $2FFF Ultimax mode
+          -- XXX $3000-$3FFf is a copy of $F000-$FFFF from the cartridge so
+          -- that the VIC-II can see it. On the M65, the Hypervisor has to copy
+          -- it down. Not yet implemented, and won't be perfectly compatible.
           temp_address(27 downto 16) := x"7FF";
         end if;
         if (reg_map_low(2)='0') and (blocknum=4 or blocknum=5) then
