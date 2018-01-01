@@ -61,7 +61,9 @@ ENTITY expansion_port_controller IS
     cart_ctrl_dir : out std_logic := '1';
     cart_haddr_dir : out std_logic := '1';
     cart_laddr_dir : out std_logic := '1';
+    cart_addr_en : out std_logic := '0';
     cart_data_dir : out std_logic := '0';
+    cart_data_en : out std_logic := '0';
 
     cart_phi2 : out std_logic;
     cart_dotclock : out std_logic;
@@ -165,6 +167,10 @@ begin
           else
             cart_access_read_strobe <= '0';
           end if;         
+          -- Tri-state the bus when not active
+          cart_data_en <= '0';
+          cart_addr_en <= '0';
+
           -- Present next bus request if we have one
           if probing_exrom = '1' and reprobe_exrom='0' then
             -- Update CPU's view of cartridge config lines
@@ -202,6 +208,8 @@ begin
             cart_a <= cart_access_address(15 downto 0);
             cart_rw <= cart_access_read;
             cart_data_dir <= not cart_access_read;
+            cart_data_en <= '1';
+            cart_addr_en <= '1';
             -- Reprobe /EXROM and /GAME lines after accesses to IO areas, in
             -- case the cartridge has banked things in response to IO access
             if cart_access_address(15 downto 8) = x"DE" and sector_buffer_mapped='0' then
@@ -240,7 +248,7 @@ begin
               read_in_progress <= '1';
               -- Tri-state with pull-up
               report "Tristating cartridge port data lines.";
-              cart_d <= (others => 'H');
+              cart_d <= (others => 'Z');
             else
               read_in_progress <= '0';
               cart_d <= cart_access_wdata;

@@ -62,6 +62,8 @@ entity container is
          cart_ctrl_dir : out std_logic;
          cart_haddr_dir : out std_logic;
          cart_laddr_dir : out std_logic;
+         cart_data_en : out std_logic;
+         cart_addr_en : out std_logic;
          cart_data_dir : out std_logic;
          cart_phi2 : out std_logic;
          cart_dotclock : out std_logic;
@@ -283,6 +285,8 @@ begin
       cart_haddr_dir => cart_haddr_dir,
       cart_laddr_dir => cart_laddr_dir,
       cart_data_dir => cart_data_dir,
+      cart_data_en => cart_data_en,
+      cart_addr_en => cart_addr_en,
       cart_phi2 => cart_phi2,
       cart_dotclock => cart_dotclock,
       cart_reset => cart_reset,
