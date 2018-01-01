@@ -252,7 +252,7 @@ begin
             -- is mapped, therefore we assert /ROML and /ROMH based on address
             -- requested).
             if (cart_access_address(15 downto 12) = x"8")
-              or (cart_access_address(15 downto 12) = x"9")
+              or (cart_access_address(15 downto 12) = x"9") then
               cart_roml <= '0';
             else
               cart_roml <= '1';
