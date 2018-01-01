@@ -713,7 +713,7 @@ logook:
 		; ... but only if we are not running a kick-up'd kickstart now.
 		;
 		lda hypervisor_kickedup_flag	;$d67e = register for kickup-state (00=virgin, else already-kicked)
-		beq allowkickup
+		bpl allowkickup
 
 		; already kicked
 		;

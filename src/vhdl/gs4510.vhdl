@@ -2007,11 +2007,13 @@ begin
                 & flat32_enabled
                 & cartridge_enable;                        
             when "111110" =>
-              if hypervisor_upgraded='1' then
-                return x"FF";
-              else
-                return x"00";
-              end if;
+              -- @IO:GS $D67E.7 (read) Hypervisor upgraded flag. Writing any value here sets this bit until next power on (i.e., it surives reset).
+              -- @IO:GS $D67E.6 (read) Hypervisor read /EXROM signal from cartridge.
+              -- @IO:GS $D67E.5 (read) Hypervisor read /GAME signal from cartridge.
+              return hypervisor_upgraded
+                & exrom
+                & game
+                & "00000";
             when "111111" => return x"48"; -- 'H' for Hypermode
             when others => return x"FF";
           end case;
