@@ -2494,8 +2494,6 @@ checkpoint:
 	and #$10
 	beq cp9
 
-	inc $d020
-
 	; Write checkpoint byte values out as hex into message template
 	ldx checkpoint_a
 	jsr checkpoint_bytetohex
