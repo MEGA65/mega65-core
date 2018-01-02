@@ -57,7 +57,7 @@ int process_char(unsigned char c,int live);
 void usage(void)
 {
   fprintf(stderr,"MEGA65 cross-development tool for booting the MEGA65 using a custom bitstream and/or KICKUP file.\n");
-  fprintf(stderr,"usage: monitor_load [-l <serial port>] [-s <230400|2000000|4000000>]  [-b <FPGA bitstream>] [[-k <kickup file>] [-R romfile] [-C charromfile]] [-c COLOURRAM.BIN] [-m modeline] [-o] [-d diskimage.d81] [[-1] [<-t|-T> <text>] [filename]]\n");
+  fprintf(stderr,"usage: monitor_load [-l <serial port>] [-s <230400|2000000|4000000>]  [-b <FPGA bitstream>] [[-k <kickup file>] [-R romfile] [-C charromfile]] [-c COLOURRAM.BIN] [-B breakpoint] [-m modeline] [-o] [-d diskimage.d81] [[-1] [<-t|-T> <text>] [filename]]\n");
   fprintf(stderr,"  -l - Name of serial port to use, e.g., /dev/ttyUSB1\n");
   fprintf(stderr,"  -s - Speed of serial port in bits per second. This must match what your bitstream uses.\n");
   fprintf(stderr,"       (Older bitstream use 230400, and newer ones 2000000 or 4000000).\n");
@@ -74,6 +74,7 @@ void usage(void)
   fprintf(stderr,"  -d - Enable virtual D81 access\n");
   fprintf(stderr,"  -t - Type text via keyboard virtualisation.\n");
   fprintf(stderr,"  -T - As above, but also provide carriage return\n");
+  fprintf(stderr,"  -B - Set a breakpoint on synchronising, and then immediately exit.\n");
   fprintf(stderr,"  filename - Load and run this file in C64 mode before exiting.\n");
   fprintf(stderr,"\n");
   exit(-3);
@@ -116,6 +117,7 @@ char *kickstart=NULL;
 char serial_port[1024]="/dev/ttyUSB1"; // XXX do a better job auto-detecting this
 int serial_speed=2000000;
 char modeline_cmd[1024]="";
+int break_point=-1;
 
 int saw_c64_mode=0;
 int saw_c65_mode=0;
@@ -294,6 +296,15 @@ int process_line(char *line,int live)
 	usleep(20000);
 	printf("Synchronised with monitor.\n");
 
+	if (break_point!=-1) {
+	  fprintf(stderr,"Setting CPU breakpoint at $%04x\n",break_point);
+	  char cmd[1024];
+	  sprintf(cmd,"b%x\r",break_point);
+	  usleep(20000);
+	  slow_write(fd,cmd,strlen(cmd));
+	  exit(0);
+	}
+	
 	if (type_text) {
 	  fprintf(stderr,"Typing text via virtual keyboard...\n");
 	  {
@@ -921,8 +932,9 @@ int main(int argc,char **argv)
   start_time=time(0);
   
   int opt;
-  while ((opt = getopt(argc, argv, "14l:s:b:c:k:rR:C:m:Mod:t:T:")) != -1) {
+  while ((opt = getopt(argc, argv, "14l:s:B:b:c:k:rR:C:m:Mod:t:T:")) != -1) {
     switch (opt) {
+    case 'B': sscanf(optarg,"%x",&break_point); break;
     case 'R': romfile=strdup(optarg); break;
     case 'C': charromfile=strdup(optarg); break;
     case 'c': colourramfile=strdup(optarg); break;
