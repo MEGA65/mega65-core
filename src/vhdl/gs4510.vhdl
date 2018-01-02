@@ -1440,7 +1440,7 @@ begin
         temp_address(11 downto 0) := short_address(11 downto 0);
         if writeP then
           -- IO is always visible in ultimax mode
-          if gated_exrom/='1' or gated_game/='0' then
+          if gated_exrom/='1' or gated_game/='0' or hypervisor_mode='1' then
             case lhc(2 downto 0) is
               when "000" => temp_address(27 downto 12) := x"000D";  -- WRITE RAM
               when "001" => temp_address(27 downto 12) := x"000D";  -- WRITE RAM
@@ -1470,11 +1470,20 @@ begin
           else
             temp_address(27 downto 12) := x"FFD3";
             temp_address(13 downto 12) := unsigned(viciii_iomode);          
+            if sector_buffer_mapped='0' and colourram_at_dc00='0' then
+              -- Map $DE00-$DFFF IO expansion areas to expansion port
+              -- (but only if SD card sector buffer is not mapped, and
+              -- 2nd KB of colour RAM is not mapped).
+              if (short_address(11 downto 8) = x"E")
+                or (short_address(11 downto 8) = x"F") then
+                temp_address(27 downto 12) := x"7FFD";
+              end if;
+            end if;
           end if;
         else
           -- READING
           -- IO is always visible in ultimax mode
-          if gated_exrom/='1' or gated_game/='0' then
+          if gated_exrom/='1' or gated_game/='0' or hypervisor_mode='1' then
             case lhc(2 downto 0) is
               when "000" => temp_address(27 downto 12) := x"000D";  -- READ RAM
               when "001" => temp_address(27 downto 12) := x"002D";  -- CHARROM
@@ -1504,13 +1513,22 @@ begin
           else
             temp_address(27 downto 12) := x"FFD3";
             temp_address(13 downto 12) := unsigned(viciii_iomode);          
+            if sector_buffer_mapped='0' and colourram_at_dc00='0' then
+              -- Map $DE00-$DFFF IO expansion areas to expansion port
+              -- (but only if SD card sector buffer is not mapped, and
+              -- 2nd KB of colour RAM is not mapped).
+              if (short_address(11 downto 8) = x"E")
+                or (short_address(11 downto 8) = x"F") then
+                temp_address(27 downto 12) := x"7FFD";
+              end if;
+            end if;
           end if;
         end if;
       end if;
 
       -- C64 KERNEL
       if reg_map_high(3)='0' then
-        if ((blocknum=14) or (blocknum=13)) and ((gated_exrom='1') and (gated_game='0')) then
+        if ((blocknum=14) or (blocknum=15)) and ((gated_exrom='1') and (gated_game='0')) then
           -- ULTIMAX mode external ROM
           temp_address(27 downto 16) := x"7FF";
         else
