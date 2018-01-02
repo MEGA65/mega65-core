@@ -20,6 +20,7 @@ KICKSTARTSRCS = $(SRCDIR)/kickstart.a65 \
 		$(SRCDIR)/kickstart_task.a65 \
 		$(SRCDIR)/kickstart_virtual_f011.a65 \
 		$(SRCDIR)/kickstart_debug.a65 \
+		$(SRCDIR)/kickstart_ultimax.a65 \
 		$(SRCDIR)/kickstart_mem.a65
 
 # if you want your PRG to appear on "MEGA65.D81", then put your PRG in "./d81-files"
@@ -272,7 +273,7 @@ $(BINDIR)/border.prg: 	$(SRCDIR)/border.a65
 # ============================ done moved, print-warn, clean-target
 #??? diskmenu_c000.bin yet b0rken
 $(BINDIR)/KICKUP.M65:	$(KICKSTARTSRCS) $(BINDIR)/diskmenu_c000.bin $(SRCDIR)/version.a65
-	$(OPHIS) $< -l $*.list -m $*.map
+	$(OPHIS) $< -l kickstart.list -m kickstart.map
 
 # ============================ done moved, print-warn, clean-target
 $(BINDIR)/diskmenu_c000.bin:	$(UTILDIR)/diskmenuc000.a65 $(UTILDIR)/diskmenu.a65 $(BINDIR)/etherload.prg

@@ -77,6 +77,7 @@
 
 	.alias hypervisor_feature_enables $d67d
 	.alias hypervisor_kickedup_flag $d67e
+	.alias hypervisor_cartridge_flags $d67e
 	.alias hypervisor_enterexit_trigger $d67f
 
 	; Where sector buffer maps (over $DE00-$DFFF IO expansion space)

@@ -59,7 +59,6 @@ task_set_c64_memorymap:
 task_set_pc_to_reset_vector:
 
 	; Set PC from $FFFC in ROM, i.e., $802FFFC
-	;
 	ldx #<reset_vector
 	ldy #>reset_vector
 	ldz #$02

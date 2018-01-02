@@ -2035,11 +2035,14 @@ g61:		sta $0800,x
 		jsr task_set_pc_to_reset_vector
 		jsr task_dummy_nmi_vector
 
-		; Exit hypervisor and transfer control to ROM
-		; (This causes the CPU to exit hypervisor mode, so execution of
-		; this routine ends here.)
+		; This must happen last, so that the ultimax cartridge
+		; reset vector is used, instead of the one in the loaded ROM
+		jsr setup_for_ultimax_cartridge
+
+		; exit from hypervisor to start machine
 		sta hypervisor_enterexit_trigger
 
+		.include "kickstart_ultimax.a65"		
 
 ;	========================
 
