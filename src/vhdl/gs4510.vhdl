@@ -69,7 +69,7 @@ entity gs4510 is
     --Bit 0: Trap on F011 FDC read/write
     virtualised_hardware : out unsigned(7 downto 0);
     -- Enable disabling of various IO devices to help debug bus collisions
-    chipselect_enables : out std_logic_vector(7 downto 0) := x"FF";
+    chipselect_enables : out std_logic_vector(7 downto 0) := x"EF";
 	 
     iomode_set : out std_logic_vector(1 downto 0) := "11";
     iomode_set_toggle : out std_logic := '0';
@@ -1279,6 +1279,9 @@ begin
     begin
       -- Set microcode state for reset
 
+      -- Enable chipselect for all peripherals and memories
+      chipselect_enables <= x"EF";              
+      
       -- CPU starts in hypervisor
       hypervisor_mode <= '1';
       
