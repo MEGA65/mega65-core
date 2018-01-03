@@ -1569,8 +1569,8 @@ begin
       end if;
 
       -- Expose remaining address space to cartridge port in ultimax mode
-      if (gated_exrom='1') and (gated_game='0') then
-        if (reg_map_low(0)='0') and  blocknum=1 then
+      if (gated_exrom='1') and (gated_game='0') and (hypervisor_mode='0') then
+        if (reg_map_low(0)='0') and  (blocknum=1) then
           -- $1000 - $1FFF Ultimax mode
           temp_address(27 downto 16) := x"7FF";
         end if;
@@ -1581,11 +1581,11 @@ begin
           -- it down. Not yet implemented, and won't be perfectly compatible.
           temp_address(27 downto 16) := x"7FF";
         end if;
-        if (reg_map_low(2)='0') and (blocknum=4 or blocknum=5) then
+        if (reg_map_low(2)='0') and ((blocknum=4) or (blocknum=5)) then
           -- $4000 - $5FFF Ultimax mode
         temp_address(27 downto 16) := x"7FF";
         end if;
-        if (reg_map_low(3)='0') and (blocknum=6 or blocknum=7) then
+        if (reg_map_low(3)='0') and ((blocknum=6) or (blocknum=7)) then
           -- $6000 - $7FFF Ultimax mode
           temp_address(27 downto 16) := x"7FF";
         end if;
