@@ -214,7 +214,10 @@ begin
             cart_exrom <= 'Z';
             cart_game <= 'Z';
             probing_exrom <= '1';
-          elsif (cart_access_request='1') and (reset_counter = 0) then
+          elsif (cart_access_request='1') and (reset_counter = 0)
+            -- Check that clock will be high during this request, i.e.,
+            -- currently low.
+            and (cart_phi2_internal='0') then            
             report "Presenting legacy C64 expansion port access request to port, address=$"
               & to_hstring(cart_access_address)
               & " rw=" & std_logic'image(cart_access_read)
