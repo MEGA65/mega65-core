@@ -9,6 +9,9 @@ entity iomapper is
   port (Clk : in std_logic;
         protected_hardware_in : in unsigned(7 downto 0);
         virtualised_hardware_in : in unsigned(7 downto 0);
+        -- Enables for the various chip select lines
+        chipselect_enables : in std_logic_vector(7 downto 0) := x"FF";
+
         cpuclock : in std_logic;
         pixelclk : in std_logic;
         uartclock : in std_logic;
@@ -186,6 +189,16 @@ end iomapper;
 
 architecture behavioral of iomapper is
 
+  -- Enables for each of the chip select lines,
+  -- used for disabling IO devices for debugging
+  signal cia1cs_en : std_logic := '1';
+  signal cia2cs_en : std_logic := '1';
+  signal lscs_en : std_logic := '1';
+  signal rscs_en : std_logic := '1';
+  signal kscs_en : std_logic := '1';
+  signal sbcs_en : std_logic := '1';        
+
+  
   signal pota_x : unsigned(7 downto 0);
   signal pota_y : unsigned(7 downto 0);
   signal potb_x : unsigned(7 downto 0);
@@ -705,6 +718,14 @@ begin
   begin
     if rising_edge(clk) then
 
+      cia1cs_en <= chipselect_enables(0);
+      cia2cs_en <= chipselect_enables(1);
+      lscs_en <= chipselect_enables(2);
+      rscs_en <= chipselect_enables(3);
+      kscs_en <= chipselect_enables(4);
+      sbcs_en <= chipselect_enables(5);
+
+      
       -- Reflect CIA lines for IEC bus driverse so that they
       -- can be read by the CIA
       if iec_clk_reflect /= iec_clk_fromcia then
@@ -836,7 +857,7 @@ begin
       -- @IO:GS $FFF8114 Hypervisor entry point on FDC write (when virtualised) (trap $45)
       
       if address(19 downto 14)&"00" = x"F8" then
-        kickstartcs <= cpu_hypervisor_mode;
+        kickstartcs <= cpu_hypervisor_mode and kscs_en;
       else
         kickstartcs <='0';
       end if;
@@ -850,13 +871,13 @@ begin
         and address(15 downto 14) = "00"
         and address(11 downto 9)&'0' = x"E"
         and sector_buffer_mapped_read = '1' and colourram_at_dc00 = '0' then
-        sectorbuffercs <= '1';
+        sectorbuffercs <= sbcs_en;
         report "selecting SD card sector buffer" severity note;
       end if;
       -- Also map SD card sector buffer at $FFD6000 - $FFD61FF regardless of
       -- VIC-IV IO mode and mapping of colour RAM
       if address(19 downto 8) = x"D60" or address(19 downto 8) = x"D61" then
-        sectorbuffercs <= '1';
+        sectorbuffercs <= sbcs_en;
       end if;
 
       -- Now map the SIDs
@@ -866,14 +887,14 @@ begin
       -- Presumably repeated through to $D5FF.  But we will repeat to $D4FF only
       -- so that we can use $D500-$D5FF for other stuff.
       case address(19 downto 8) is
-        when x"D04" => leftsid_cs <= address(6); rightsid_cs <= not address(6);
-        when x"D14" => leftsid_cs <= address(6); rightsid_cs <= not address(6);
-        when x"D24" => leftsid_cs <= address(6); rightsid_cs <= not address(6);
-        when x"D34" => leftsid_cs <= address(6); rightsid_cs <= not address(6);
+        when x"D04" => leftsid_cs <= address(6) and lscs_en; rightsid_cs <= not address(6) and rscs_en;
+        when x"D14" => leftsid_cs <= address(6) and lscs_en; rightsid_cs <= not address(6) and rscs_en;
+        when x"D24" => leftsid_cs <= address(6) and lscs_en; rightsid_cs <= not address(6) and rscs_en;
+        when x"D34" => leftsid_cs <= address(6) and lscs_en; rightsid_cs <= not address(6) and rscs_en;
         -- Some C64 dual-sid programs expect the 2nd sid to be at $D500, so
         -- we will make the SIDs visible at $D500 in c64 io context, and switched
         -- sides.
-        when x"D05" => leftsid_cs <= not address(6); rightsid_cs <= address(6);
+        when x"D05" => leftsid_cs <= not address(6) and lscs_en; rightsid_cs <= address(6) and rscs_en;
         when others => leftsid_cs <= '0'; rightsid_cs <= '0';
       end case;
 
@@ -900,14 +921,14 @@ begin
       cia2cs <='0';
       if colourram_at_dc00='0' and sector_buffer_mapped_read='0' then
         case address(19 downto 8) is
-          when x"D0C" => cia1cs <='1';
-          when x"D1C" => cia1cs <='1';
-          when x"D2C" => cia1cs <='1';
-          when x"D3C" => cia1cs <='1';
-          when x"D0D" => cia2cs <='1';
-          when x"D1D" => cia2cs <='1';
-          when x"D2D" => cia2cs <='1';
-          when x"D3D" => cia2cs <='1';
+          when x"D0C" => cia1cs <=cia1cs_en;
+          when x"D1C" => cia1cs <=cia1cs_en;
+          when x"D2C" => cia1cs <=cia1cs_en;
+          when x"D3C" => cia1cs <=cia1cs_en;
+          when x"D0D" => cia2cs <=cia2cs_en;
+          when x"D1D" => cia2cs <=cia2cs_en;
+          when x"D2D" => cia2cs <=cia2cs_en;
+          when x"D3D" => cia2cs <=cia2cs_en;
           when others => null;
         end case;
       end if;

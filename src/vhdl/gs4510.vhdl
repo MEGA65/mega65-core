@@ -56,18 +56,20 @@ entity gs4510 is
     matrix_trap_in : in std_logic;
     hyper_trap_f011_read : in std_logic;
     hyper_trap_f011_write : in std_logic;
+    --Protected Hardware Bits
+    --Bit 0: TBD
+    --Bit 1: TBD
+    --Bit 2: TBD
+    --Bit 3: TBD
+    --Bit 4: TBD
+    --Bit 5: TBD
+    --Bit 6: Matrix Mode
+    --Bit 7: Secure Mode enable 
     protected_hardware : out unsigned(7 downto 0);	
-	 --Protected Hardware Bits
-         --Bit 0: TBD
-         --Bit 1: TBD
-	 --Bit 2: TBD
-	 --Bit 3: TBD
-	 --Bit 4: TBD
-	 --Bit 5: TBD
-	 --Bit 6: Matrix Mode
-	 --Bit 7: Secure Mode enable 
+    --Bit 0: Trap on F011 FDC read/write
     virtualised_hardware : out unsigned(7 downto 0);
-         --Bit 0: Trap on F011 FDC read/write
+    -- Enable disabling of various IO devices to help debug bus collisions
+    chipselect_enables : out std_logic_vector(7 downto 0) := x"FF";
 	 
     iomode_set : out std_logic_vector(1 downto 0) := "11";
     iomode_set_toggle : out std_logic := '0';
@@ -2254,7 +2256,10 @@ begin
       elsif (long_address = x"FFD370b") or (long_address = x"FFD170b") then
         -- @IO:GS $D70B DMA destination skip rate (whole bytes)
         reg_dmagic_dst_skip(15 downto 8) <= value;
-      elsif (long_address = x"FFD37FD") or (long_address = x"FFD17FD") then
+      elsif (long_address = x"FFD37FC") then
+        -- @IO:GS $D7FC DEBUG chip-select enables for various devices
+        chipselect_enables <= std_logic_vector(value);
+      elsif (long_address = x"FFD37FD") then
         -- @IO:GS $D7FD.7 Override for /EXROM : set to 0 to enable
         -- @IO:GS $D7FD.6 Override for /GAME : set to 0 to enable
         force_exrom <= value(7);

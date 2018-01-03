@@ -343,6 +343,7 @@ architecture Behavioral of machine is
   signal uart_rx_buffer : std_logic;
   signal protected_hardware_sig : unsigned(7 downto 0);
   signal virtualised_hardware_sig : unsigned(7 downto 0);
+  signal chipselect_enables : std_logic_vector(7 downto 0);
 
   -- Matrix Mode signals
   signal scancode_out : std_logic_vector(12 downto 0); 
@@ -406,7 +407,7 @@ architecture Behavioral of machine is
   signal all_pause : std_logic := '0';
 
   signal dat_offset : unsigned(15 downto 0);
-  signal dat_bitplane_addresses : sprite_vector_eight;
+  signal dat_bitplane_addresses : sprite_vector_eight;  
   
 begin
 
@@ -585,6 +586,7 @@ begin
       matrix_trap_in=>matrix_trap,
       protected_hardware => protected_hardware_sig,
       virtualised_hardware => virtualised_hardware_sig,
+      chipselect_enables => chipselect_enables,
       clock => cpuclock,
       ioclock => ioclock,
       reset =>reset_combined,
@@ -769,6 +771,7 @@ begin
       clk => ioclock,
       protected_hardware_in => protected_hardware_sig,
       virtualised_hardware_in => virtualised_hardware_sig,
+      chipselect_enables => chipselect_enables,
       matrix_mode_trap => matrix_trap,
       hyper_trap => hyper_trap,
       hyper_trap_f011_read => hyper_trap_f011_read,
