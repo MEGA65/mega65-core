@@ -424,7 +424,7 @@ begin
 --      micLRSel => micLRSel,
 
       flopled => flopled_drive,
-      flopmotor => not flopmotor_drive,
+      flopmotor => flopmotor_drive,
       ampPWM_l => pwm_l_drive,
       ampPWM_r => pwm_r_drive,
 
