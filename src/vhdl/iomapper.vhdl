@@ -857,7 +857,7 @@ begin
       -- @IO:GS $FFF8114 Hypervisor entry point on FDC write (when virtualised) (trap $45)
       
       if address(19 downto 14)&"00" = x"F8" then
-        kickstartcs <= cpu_hypervisor_mode and (not kscs_en);
+        kickstartcs <= cpu_hypervisor_mode; -- and (not kscs_en);
       else
         kickstartcs <='0';
       end if;
