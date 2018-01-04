@@ -149,13 +149,21 @@ entity container is
          pwm_r : out std_logic;
          
          ----------------------------------------------------------------------
-         -- PS/2 keyboard interface
+         -- Floppy drive interface
          ----------------------------------------------------------------------
-         -- ps2clk : in std_logic;
-         -- ps2data : in std_logic;
-
-         flopled : out std_logic;
-         flopmotor : out std_logic;
+         f_density : buffer std_logic := '1';
+         f_motor : buffer std_logic := '1';
+         f_select : buffer std_logic := '1';
+         f_stepdir : buffer std_logic := '1';
+         f_step : buffer std_logic := '1';
+         f_wdata : buffer std_logic := '1';
+         f_wgate : buffer std_logic := '1';
+         f_side1 : buffer std_logic := '1';
+         f_index : in std_logic;
+         f_track0 : in std_logic;
+         f_writeprotect : in std_logic;
+         f_rdata : in std_logic;
+         f_diskchanged : in std_logic;
 
          led : out std_logic;
          
@@ -415,14 +423,12 @@ begin
 --      micClk => micClk,
 --      micLRSel => micLRSel,
 
-      flopled => flopled_drive,
-      flopmotor => flopmotor_drive,
+      f_select => not flopled_drive,
+      f_motor => not flopmotor_drive,
       ampPWM_l => pwm_l_drive,
       ampPWM_r => pwm_r_drive,
 
-      -- XXX no PS/2 keyboard for now
---      ps2data =>      ps2data,
---      ps2clock =>     ps2clk,      
+      -- No PS/2 keyboard for now
       ps2data =>      '1',
       ps2clock =>     '1',
 
