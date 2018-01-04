@@ -69,7 +69,7 @@ entity gs4510 is
     --Bit 0: Trap on F011 FDC read/write
     virtualised_hardware : out unsigned(7 downto 0);
     -- Enable disabling of various IO devices to help debug bus collisions
-    chipselect_enables : out std_logic_vector(7 downto 0) := x"EF";
+    chipselect_enables : buffer std_logic_vector(7 downto 0) := x"EF";
 	 
     iomode_set : out std_logic_vector(1 downto 0) := "11";
     iomode_set_toggle : out std_logic := '0';
@@ -1952,6 +1952,7 @@ begin
             when x"09" => return reg_dmagic_src_skip(15 downto 8);
             when x"0a" => return reg_dmagic_dst_skip(7 downto 0);
             when x"0b" => return reg_dmagic_dst_skip(15 downto 8);
+            when x"fc" => return chipselect_enables;
             when others => return x"ff";
           end case;
         when HypervisorRegister =>
