@@ -46,6 +46,7 @@ entity ethernet is
     clock50mhz : in std_logic;
     reset : in std_logic;
     irq : out std_logic := 'Z';
+    ethernet_cs : in std_logic;
 
     ---------------------------------------------------------------------------
     -- IO lines to the ethernet controller
@@ -750,7 +751,7 @@ begin  -- behavioural
     if fastio_read='1' then
       report "MEMORY: Reading from fastio";
 
-      if (fastio_addr(19 downto 4) = x"D36E") then
+      if ethernet_cs='1' then
         report "MEMORY: Reading from ethernet register block";
         case fastio_addr(3 downto 0) is
           -- @IO:GS $D6E0 Ethernet control
@@ -879,7 +880,7 @@ begin  -- behavioural
           txbuffer_write <= '1';
           txbuffer_wdata <= fastio_wdata;
         end if;
-        if (fastio_addr(19 downto 4) = x"D36E") then
+        if ethernet_cs='1' then
           case fastio_addr(3 downto 0) is
             when x"0" =>
               -- @IO:GS $D6E0.0 Clear to reset ethernet PHY

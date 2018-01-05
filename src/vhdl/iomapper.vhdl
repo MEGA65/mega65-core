@@ -210,6 +210,7 @@ architecture behavioral of iomapper is
   signal sbcs_en : std_logic := '1';
   signal c65uart_en : std_logic := '1';
   signal sdcardio_en : std_logic := '1';
+  signal ethenetcs_en : std_logic := '1';
 
   
   signal potl_x : unsigned(7 downto 0);
@@ -263,6 +264,7 @@ architecture behavioral of iomapper is
   signal f011_cs : std_logic := '0';
   signal cpuregs_cs : std_logic := '0';
   signal thumbnail_cs : std_logic := '0';
+  signal ethernet_cs : std_logic := '0';
   
   signal spare_bits : unsigned(4 downto 0);
 
@@ -638,6 +640,7 @@ begin
     clock => clk,
     reset => reset,
     irq => irq,
+    ethernet_cs => ethernet_cs,
 
     ---------------------------------------------------------------------------
     -- IO lines to the ethernet controller
@@ -752,7 +755,8 @@ begin
       cia1cs_en <= chipselect_enables(0);
       cia2cs_en <= chipselect_enables(1);
       lscs_en <= chipselect_enables(2);
-      rscs_en <= chipselect_enables(3);
+      rscs_en <= chipselect_enables(2);
+      ethernetcs_en <= chipselect_enables(3);
       kscs_en <= chipselect_enables(4);
       sbcs_en <= chipselect_enables(5);
       c65uart_en <= chipselect_enables(6);
@@ -970,7 +974,12 @@ begin
         else
           thumbnail_cs <= '0';
         end if;
-      end if;      
+      end if;
+      if address(19 downto 4) = x"D36E" then
+        ethernet_cs <= ethernetcs_en;
+      else
+        ethernet_cs <= '0';
+      end if;
 
       -- Hypervisor control (only visible from hypervisor mode) $D640 - $D67F
       -- The hypervisor is a CPU provided function.
