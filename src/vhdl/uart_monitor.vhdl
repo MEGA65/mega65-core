@@ -688,7 +688,11 @@ begin
         terminal_emulator_ready_computed <= '0';
         terminal_emulator_ready_counter <= terminal_emulator_ready_counter - 1;
       end if;
-      terminal_emulator_just_sent <= '0';
+      -- Clear just-sent flag only when the terminal emulator has accepted the
+      -- character by marking not-ready
+      if terminal_emulator_ready = '0' then
+        terminal_emulator_just_sent <= '0';
+      end if;
 
       bit_rate_divisor <= bit_rate_divisor_internal;
       
