@@ -208,7 +208,9 @@ architecture behavioral of iomapper is
   signal lscs_en : std_logic := '1';
   signal rscs_en : std_logic := '1';
   signal kscs_en : std_logic := '1';
-  signal sbcs_en : std_logic := '1';        
+  signal sbcs_en : std_logic := '1';
+  signal c65uart_en : std_logic := '1';
+  signal sdcardio_en : std_logic := '1';
 
   
   signal potl_x : unsigned(7 downto 0);
@@ -751,6 +753,8 @@ begin
       rscs_en <= chipselect_enables(3);
       kscs_en <= chipselect_enables(4);
       sbcs_en <= chipselect_enables(5);
+      c65uart_en <= chipselect_enables(6);
+      sdcardio_en <= chipselect_enables(7);
 
       -- Switch POTs between the two SIDs, based on the CIA port A upper
       -- bits.
@@ -954,9 +958,9 @@ begin
       temp(15 downto 2) := unsigned(address(19 downto 6));
       temp(1 downto 0) := "00";
       case temp(15 downto 0) is
-        when x"D160" => c65uart_cs <= '1';
-        when x"D260" => c65uart_cs <= '1';
-        when x"D360" => c65uart_cs <= '1';
+        when x"D160" => c65uart_cs <= c65uart_en;
+        when x"D260" => c65uart_cs <= c65uart_en;
+        when x"D360" => c65uart_cs <= c65uart_en;
         when others => c65uart_cs <= '0';
       end case;
 
@@ -968,9 +972,9 @@ begin
       temp(15 downto 3) := unsigned(address(19 downto 7));
       temp(2 downto 0) := "000";
       case temp(15 downto 0) is
-        when x"D168" => sdcardio_cs <= '1';
-        when x"D268" => sdcardio_cs <= '1';
-        when x"D368" => sdcardio_cs <= '1';
+        when x"D168" => sdcardio_cs <= sdcardio_en;
+        when x"D268" => sdcardio_cs <= sdcardio_en;
+        when x"D368" => sdcardio_cs <= sdcardio_en;
         when others => sdcardio_cs <= '0';
       end case;
 
@@ -978,9 +982,9 @@ begin
       temp(15 downto 1) := unsigned(address(19 downto 5));
       temp(0) := '0';
       case temp(15 downto 0) is
-        when x"D108" => f011_cs <= '1';
-        when x"D208" => f011_cs <= '1';
-        when x"D308" => f011_cs <= '1';
+        when x"D108" => f011_cs <= sdcardio_en;
+        when x"D208" => f011_cs <= sdcardio_en;
+        when x"D308" => f011_cs <= sdcardio_en;
         when others => f011_cs <= '0';
       end case;
             
