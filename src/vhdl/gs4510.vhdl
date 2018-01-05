@@ -1718,10 +1718,6 @@ begin
       fastio_addr <= x"FFFFF"; fastio_write <= '0'; fastio_read <= '0';
       
       the_read_address <= long_address;
-      if (long_address(27 downto 8) = x"FFD17") or (long_address(27 downto 8) = x"FFD37") then
-        report "Preparing to read from a DMAgicRegister";
-        read_source <= DMAgicRegister;
-      end if;      
 
       -- Get the shadow RAM or ROM address on the bus fast to improve timing.
       shadow_write <= '0';
@@ -1928,6 +1924,10 @@ begin
         end if;
         proceed <= '1';
       end if;
+      if (long_address(27 downto 8) = x"FFD17") or (long_address(27 downto 8) = x"FFD37") then
+        report "Preparing to read from a DMAgicRegister";
+        read_source <= DMAgicRegister;
+      end if;      
 
     end read_long_address;
     
@@ -1949,9 +1949,11 @@ begin
       variable value : unsigned(7 downto 0);
     begin  -- read_data
       -- CPU hosted IO registers
+      report "Read source is " & memory_source'image(read_source);
       case read_source is
         when DMAgicRegister =>
           -- Actually, this is all of $D700-$D7FF decoded by the CPU at present
+          report "Reading CPU register (DMAgicRegister path)";
           case the_read_address(7 downto 0) is
             when x"03" => return reg_dmagic_status(7 downto 1) & support_f018b;
             when x"08" => return reg_dmagic_src_skip(7 downto 0);
@@ -1960,6 +1962,7 @@ begin
             when x"0b" => return reg_dmagic_dst_skip(15 downto 8);
             when x"fc" => return unsigned(chipselect_enables);
             when x"fd" =>
+              report "Reading $D7FD";
               value(7) := force_exrom;
               value(6) := force_game;
               value(5) := gated_exrom;
