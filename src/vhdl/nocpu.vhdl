@@ -60,7 +60,7 @@ entity gs4510 is
     matrix_trap_in : in std_logic;
     hyper_trap_f011_read : in std_logic;
     hyper_trap_f011_write : in std_logic;
-    protected_hardware : out unsigned(7 downto 0) := "11000000"; -- matrix mode
+    protected_hardware : out unsigned(7 downto 0) := "00000000"; -- matrix mode
                                                                  -- + secure
                                                                  -- mode enabled
 	 --Protected Hardware Bits
