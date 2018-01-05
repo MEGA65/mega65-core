@@ -1967,8 +1967,10 @@ begin
               value(6) := force_game;
               value(5) := gated_exrom;
               value(4) := gated_game;
-              value(3) := cartridge_enable;
-              value(2 downto 0) := "000";
+              value(3) := exrom;
+              value(2) := game;
+              value(1) := cartridge_enable;              
+              value(0) := "0";
               return value;
             when others => return x"ff";
           end case;
