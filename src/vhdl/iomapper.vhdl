@@ -210,7 +210,7 @@ architecture behavioral of iomapper is
   signal sbcs_en : std_logic := '1';
   signal c65uart_en : std_logic := '1';
   signal sdcardio_en : std_logic := '1';
-  signal ethenetcs_en : std_logic := '1';
+  signal ethernetcs_en : std_logic := '1';
 
   
   signal potl_x : unsigned(7 downto 0);
