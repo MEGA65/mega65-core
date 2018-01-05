@@ -460,7 +460,7 @@ begin
 --      cpu_exrom => cpu_exrom,      
 --      cpu_game => cpu_game,      
       -- enable/disable cartridge with sw(8)
-      cpu_exrom => sw(8),
+      cpu_exrom => '1',
       cpu_game => '1',      
       cart_access_count => x"00",
 
