@@ -91,11 +91,11 @@ ENTITY expansion_port_controller IS
 end expansion_port_controller;
 
 architecture behavioural of expansion_port_controller is
-  -- Ticks is per half clock
   -- XXX - Allow varying the bus speed if we know we have a fast
   -- peripheral
-  constant ticks_8mhz_half : integer := pixelclock_frequency / (8 * 2) + 1;
-  signal ticker : unsigned(7 downto 0) := to_unsigned(0,8);
+  -- Workout
+  constant dotclock_increment : unsigned(16 downto 0) := to_unsigned(65536*8*2/pixelclock_frequency,17);
+  signal ticker : unsigned(16 downto 0) := to_unsigned(0,17);
   signal phi2_ticker : unsigned(7 downto 0) := to_unsigned(0,8);
   signal reset_counter : integer range 0 to 15 := 0;
 
@@ -130,12 +130,11 @@ begin
         reset_counter <= 15;
         reprobe_exrom <= '1';
       end if;
-      if to_integer(ticker) /= ticks_8mhz_half then
-        ticker <= ticker + 1;
+      ticker <= ('0'&ticker(15 downto 0)) + dotclock_increment;
+      if ticker(16) = '0' then
         cart_access_read_strobe <= '0';
         cart_access_accept_strobe <= '0';
       else
-        ticker <= (others => '0');
         -- Tick dot clock
         report "dotclock tick";
         cart_dotclock <= not cart_dotclock_internal;
