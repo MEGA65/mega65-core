@@ -1549,9 +1549,14 @@ begin
       if reg_map_high(0)='0' then
         if ((blocknum=8) or (blocknum=9)) and
           (
-            (((gated_exrom='1') and (gated_game='0'))
-             or ((gated_exrom='0') and (lhc(1 downto 0)="11"))) and (writeP=false)
+            (
+              ((gated_exrom='1') and (gated_game='0'))
+              or
+              ((gated_exrom='0') and (lhc(1 downto 0)="11"))
             )
+            and
+            (writeP=false)
+          )
         then
           -- ULTIMAX mode or cartridge external ROM
           temp_address(27 downto 16) := x"7FF";
@@ -1941,6 +1946,7 @@ begin
     -- purpose: obtain the byte of memory that has been read
     impure function read_data_complex
       return unsigned is
+      variable value : unsigned(7 downto 0);
     begin  -- read_data
       -- CPU hosted IO registers
       case read_source is
@@ -1953,7 +1959,14 @@ begin
             when x"0a" => return reg_dmagic_dst_skip(7 downto 0);
             when x"0b" => return reg_dmagic_dst_skip(15 downto 8);
             when x"fc" => return unsigned(chipselect_enables);
-            when x"fd" => return unsigned(force_exrom & force_game & "111111");
+            when x"fd" =>
+              value(7) := force_exrom;
+              value(6) := force_game;
+              value(5) := gated_exrom;
+              value(4) := gated_game;
+              value(3) := cartridge_enable;
+              value(2 downto 0) := "000";
+              return value;
             when others => return x"ff";
           end case;
         when HypervisorRegister =>
