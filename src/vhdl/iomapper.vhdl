@@ -90,6 +90,11 @@ entity iomapper is
         fb_down : in std_logic;
         fb_fire : in std_logic;
 
+        pota_x : in unsigned(7 downto 0);
+        pota_y : in unsigned(7 downto 0);
+        potb_x : in unsigned(7 downto 0);
+        potb_y : in unsigned(7 downto 0);
+        
         ----------------------------------------------------------------------
         -- CBM floppy serial port
         ----------------------------------------------------------------------
@@ -199,10 +204,10 @@ architecture behavioral of iomapper is
   signal sbcs_en : std_logic := '1';        
 
   
-  signal pota_x : unsigned(7 downto 0);
-  signal pota_y : unsigned(7 downto 0);
-  signal potb_x : unsigned(7 downto 0);
-  signal potb_y : unsigned(7 downto 0);
+  signal potl_x : unsigned(7 downto 0);
+  signal potl_y : unsigned(7 downto 0);
+  signal potr_x : unsigned(7 downto 0);
+  signal potr_y : unsigned(7 downto 0);
   
   signal kickstartcs : std_logic;
 
@@ -578,8 +583,8 @@ begin
     addr => unsigned(address(4 downto 0)),
     di => unsigned(data_i),
     std_logic_vector(do) => data_o,
-    pot_x => pota_x,
-    pot_y => pota_y,
+    pot_x => potl_x,
+    pot_y => potl_y,
     audio_data => leftsid_audio);
   end block;
 
@@ -594,8 +599,8 @@ begin
     addr => unsigned(address(4 downto 0)),
     di => unsigned(data_i),
     std_logic_vector(do) => data_o,
-    pot_x => potb_x,
-    pot_y => potb_y,
+    pot_x => potr_x,
+    pot_y => potr_y,
     audio_data => rightsid_audio);
   end block;
 
@@ -720,6 +725,25 @@ begin
       kscs_en <= chipselect_enables(4);
       sbcs_en <= chipselect_enables(5);
 
+      -- Switch POTs between the two SIDs, based on the CIA port A upper
+      -- bits.
+      case cia1portb_out(7 downto 6) is
+        when "01" =>
+          potl_x <= pota_x;
+          potl_y <= pota_y;
+          potr_x <= potb_x;
+          potr_y <= potb_y;
+        when "10" =>
+          potr_x <= pota_x;
+          potr_y <= pota_y;
+          potl_x <= potb_x;
+          potl_y <= potb_y;
+        when others =>
+          potl_x <= (others => '1');
+          potl_y <= (others => '1');
+          potr_x <= (others => '1');
+          potr_y <= (others => '1');
+      end case;
       
       -- Reflect CIA lines for IEC bus driverse so that they
       -- can be read by the CIA

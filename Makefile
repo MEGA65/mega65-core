@@ -81,6 +81,7 @@ NOCPUVHDL=		$(VHDLSRCDIR)/nocpu.vhdl
 
 C65VHDL=		$(SIDVHDL) \
 			$(VHDLSRCDIR)/iomapper.vhdl \
+			$(VHDLSRCDIR)/mouse_input.vhdl \
 			$(VHDLSRCDIR)/cia6526.vhdl \
 			$(VHDLSRCDIR)/c65uart.vhdl \
 			$(VHDLSRCDIR)/UART_TX_CTRL.vhd \

@@ -112,6 +112,11 @@ entity machine is
          fb_up : in std_logic;
          fb_down : in std_logic;
          fb_fire : in std_logic;
+         fa_potx : in std_logic;
+         fa_poty : in std_logic;
+         fb_potx : in std_logic;
+         fb_poty : in std_logic;
+         pot_drain : out std_logic;
          
          ----------------------------------------------------------------------
          -- CBM floppy serial port
@@ -408,6 +413,11 @@ architecture Behavioral of machine is
 
   signal dat_offset : unsigned(15 downto 0);
   signal dat_bitplane_addresses : sprite_vector_eight;  
+
+  signal pota_x : unsigned(7 downto 0);
+  signal pota_y : unsigned(7 downto 0);
+  signal potb_x : unsigned(7 downto 0);
+  signal potb_y : unsigned(7 downto 0);
   
 begin
 
@@ -765,6 +775,37 @@ begin
       rom_at_a000 => rom_at_a000,
       rom_at_8000 => rom_at_8000      
       );
+
+  mouse0: entity work.mouse_input
+    port map (
+      clk => ioclock,
+
+      -- These are the 1351 mouse / C64 paddle inputs and drain control
+      pot_drain => pot_drain,
+      fa_potx => fa_potx,
+      fa_poty => fa_poty,
+      fb_potx => fb_potx,
+      fb_poty => fb_poty,
+
+      -- To allow auto-detection of Amiga mouses, we need to know what the
+      -- rest of the joystick pins are doing
+      fa_fire => fa_fire,
+      fa_left => fa_left,
+      fa_right => fa_right,
+      fa_up => fa_up,
+      fa_down => fa_down,
+      fb_fire => fb_fire.
+      fb_left => fb_left,
+      fb_right => fb_right,
+      fb_up => fb_up,
+      fb_down => fb_down,
+
+      -- We output the four sampled pot values
+      pota_x => pota_x,
+      pota_y => pota_y,
+      potb_x => potb_x,
+      potb_y => potb_y
+      );
   
   iomapper0: entity work.iomapper
     port map (
@@ -867,6 +908,11 @@ begin
       fb_left => fb_left,
       fb_down => fb_down,
       fb_right => fb_right,
+
+      pota_x => pota_x,
+      pota_y => pota_y,
+      potb_x => potb_x,
+      potb_y => potb_y,
       
       pixel_stream_in => pixel_stream,
       pixel_y => pixel_y,
