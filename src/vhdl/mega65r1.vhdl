@@ -386,10 +386,10 @@ begin
       fb_down => fb_down_drive,
       fb_right => fb_right_drive,
 
-      fa_potx => fa_potx;
-      fa_poty => fa_poty;
-      fb_potx => fb_potx;
-      fb_poty => fb_poty;
+      fa_potx => fa_potx,
+      fa_poty => fa_poty,
+      fb_potx => fb_potx,
+      fb_poty => fb_poty,
       pot_drain => pot_drain,
       pot_via_iec => pot_via_iec,
 
