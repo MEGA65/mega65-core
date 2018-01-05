@@ -72,8 +72,8 @@ begin
             if fb_potx='0' then
               potb_x_counter <= potb_x_counter + 1;
             end if;
-            if fb_potx='0' then
-              potb_x_counter <= potb_x_counter + 1;
+            if fb_poty='0' then
+              potb_y_counter <= potb_y_counter + 1;
             end if;
           end if;
         else
