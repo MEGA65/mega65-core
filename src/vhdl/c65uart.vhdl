@@ -237,8 +237,8 @@ begin  -- behavioural
       end if;
     end if;
 
-    register_number(7 downto 5) := "000";
-    register_number(4 downto 0) := fastio_address(4 downto 0);
+    register_number(7 downto 6) := "00";
+    register_number(5 downto 0) := fastio_address(5 downto 0);
     
     if rising_edge(cpuclock) then
 
@@ -273,7 +273,7 @@ begin  -- behavioural
       end loop;
       
       -- Check for register writing
-      if (fastio_write='1') and c65uart_cs='1' then
+      if (fastio_write='1') and (c65uart_cs='1') then
         case register_number is
           when x"00" =>
             reg_data_tx <= std_logic_vector(fastio_wdata);
@@ -343,7 +343,7 @@ begin  -- behavioural
     end if;
     
     -- Reading of registers
-    if (fastio_read='1') and c65uart_cs='1' then
+    if (fastio_read='1') and (c65uart_cs='1') then
       report "Reading C65 UART controller register";
       case register_number is
         when x"00" =>
