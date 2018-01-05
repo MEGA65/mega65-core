@@ -894,7 +894,7 @@ begin
     variable temp : unsigned(19 downto 0);
   begin  -- process
 
-    data_o <= (others => 'H');
+--    data_o <= (others => 'H');
     
       -- @IO:GS $FFF8000-$FFFBFFF 16KB Kickstart/hypervisor ROM
       -- @IO:GS $FFF8000-$FFF80FC Hypervisor entry point when $D640-$D67F is written
