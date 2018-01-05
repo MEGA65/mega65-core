@@ -33,6 +33,7 @@ use ieee.numeric_std.all;
 use Std.TextIO.all;
 use work.debugtools.all;
 use work.cputypes.all;
+use work.victypes.all;
 
 entity gs4510 is
   generic(
@@ -49,6 +50,10 @@ entity gs4510 is
     game : in std_logic;
 
     all_pause : in std_logic;
+
+    chipselect_enables : out std_logic_vector(7 downto 0) := (others => '1');
+    dat_offset : in unsigned(15 downto 0);
+    dat_bitplane_addresses : in sprite_vector_eight;    
     
     hyper_trap : in std_logic;
     cpu_hypervisor_mode : out std_logic := '0';
