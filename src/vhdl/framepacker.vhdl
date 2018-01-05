@@ -30,6 +30,7 @@ entity framepacker is
     pixelclock : in std_logic;
     ioclock : in std_logic;
     hypervisor_mode : in std_logic;
+    thumbnail_cs : in std_logic;
     
     -- Signals from VIC-IV
     pixel_stream_in : in unsigned (7 downto 0);
@@ -171,14 +172,14 @@ begin  -- behavioural
     -- last read of the reset register.  This will allow the hypervisor to
     -- detect if the thumbnail is valid, or if it is still showing data from
     -- another process.
-    if fastio_read='1' then
-      if fastio_addr = x"D3632" then
+    if fastio_read='1' and (thumbnail_cs='1') then
+      if fastio_addr(3 downto 0) = x"2" then
         -- @IO:GS $D632 - Lower 8 bits of thumbnail buffer read address (TEMPORARY DEBUG REGISTER)
         fastio_rdata <= thumbnail_read_address(7 downto 0);
-      elsif fastio_addr = x"D3631" then
+      elsif fastio_addr(3 downto 0) = x"1" then
         -- @IO:GS $D631 - Read port for thumbnail generator
         fastio_rdata <= thumbnail_rdata;
-      elsif fastio_addr = x"D3630" then
+      elsif fastio_addr(3 downto 0) = x"0" then
         -- @IO:GS $D630-$D631 - Read-only hardware-generated thumbnail of display (accessible only in hypervisor mode)
         -- @IO:GS $D630 - Write to reset port address for thumbnail generator
         -- @IO:GS $D630 - Read to obtain status of thumbnail generator.
@@ -203,8 +204,8 @@ begin  -- behavioural
       buffer_moby_toggle <= output_address_internal(11);
 
       -- Logic to control port address for thumbnail buffer
-      if fastio_read='1' then
-        if fastio_addr = x"D3631" then
+      if (fastio_read='1') and (thumbnail_cs='1') then
+        if fastio_addr(3 downto 0) = x"1" then
           last_access_is_thumbnail <= '1';
           if last_access_is_thumbnail = '0' then
             thumbnail_read_address <= thumbnail_read_address + 1;

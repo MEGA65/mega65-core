@@ -50,7 +50,6 @@ entity iomapper is
         w : in std_logic;
         data_i : in std_logic_vector(7 downto 0);
         data_o : out std_logic_vector(7 downto 0);
-        sd_data_o : out std_logic_vector(7 downto 0);
         sector_buffer_mapped : out std_logic;
 
         key_scancode : in unsigned(15 downto 0);
@@ -263,6 +262,7 @@ architecture behavioral of iomapper is
   signal sdcardio_cs : std_logic := '0';
   signal f011_cs : std_logic := '0';
   signal cpuregs_cs : std_logic := '0';
+  signal thumbnail_cs : std_logic := '0';
   
   signal spare_bits : unsigned(4 downto 0);
 
@@ -328,8 +328,9 @@ begin
     address => address(13 downto 0),
     we      => w,
     cs      => kickstartcs,
-    data_i  => data_i,
-    data_o  => data_o);
+    data_o  => data_o,
+    data_i  => data_i
+    );
   end block;
 
   block2: block
@@ -338,6 +339,7 @@ begin
     ioclock => clk,
     pixelclock => pixelclk,
     hypervisor_mode => cpu_hypervisor_mode,
+    thumbnail_cs => thumbnail_cs,
 
     pixel_stream_in => pixel_stream_in,
     pixel_y => pixel_y,
@@ -660,8 +662,8 @@ begin
     fastio_addr => unsigned(address),
     fastio_write => w,
     fastio_read => r,
-    fastio_wdata => unsigned(data_i),
-    std_logic_vector(fastio_rdata) => data_o
+    std_logic_vector(fastio_rdata) => data_o,
+    fastio_wdata => unsigned(data_i)
     );
   
   sdcard0 : entity work.sdcardio port map (
@@ -897,7 +899,8 @@ begin
     variable temp : unsigned(19 downto 0);
   begin  -- process
 
-    if (r or w) = '1' then
+    data_o <= (others => 'H');
+    
       -- @IO:GS $FFF8000-$FFFBFFF 16KB Kickstart/hypervisor ROM
       -- @IO:GS $FFF8000-$FFF80FC Hypervisor entry point when $D640-$D67F is written
       -- @IO:GS $FFF8100 Hypervisor entry point on reset (trap $40)
@@ -951,18 +954,28 @@ begin
 
       -- $D500 - $D5FF is not currently used.  Probably use some for FPU.
       
-      -- $D600 - $D63F is reserved for C65 serial UART emulation for C65
+      -- $D600 - $D62F is reserved for C65 serial UART emulation for C65
       -- compatibility (C65 UART actually only has 7 registers).
       -- 6551 is not currently implemented, so this is just unmapped for now,
       -- except for any read values required to allow the C65 ROM to function.
       temp(15 downto 2) := unsigned(address(19 downto 6));
       temp(1 downto 0) := "00";
-      case temp(15 downto 0) is
-        when x"D160" => c65uart_cs <= c65uart_en;
-        when x"D260" => c65uart_cs <= c65uart_en;
-        when x"D360" => c65uart_cs <= c65uart_en;
-        when others => c65uart_cs <= '0';
-      end case;
+      if address(7 downto 4) /= x"3" then
+        case temp(15 downto 0) is
+          when x"D160" => c65uart_cs <= c65uart_en;
+          when x"D260" => c65uart_cs <= c65uart_en;
+          when x"D360" => c65uart_cs <= c65uart_en;
+          when others => c65uart_cs <= '0';
+        end case;
+      else
+        c65uart_cs <= '0';
+        -- $D630-$D63F is thumbnail generator
+        if address(19 downto 8) = x"D363" then
+          thumbnail_cs <= c65uart_en;
+        else
+          thumbnail_cs <= '0';
+        end if;
+      end if;      
 
       -- Hypervisor control (only visible from hypervisor mode) $D640 - $D67F
       -- The hypervisor is a CPU provided function.
@@ -1015,16 +1028,9 @@ begin
           when others => null;
         end case;
       end if;
-    else
-      cia1cs <= '0';
-      cia2cs <= '0';
-      kickstartcs <= '0';
-      sectorbuffercs <= '0';
-      leftsid_cs <= '0';
-      rightsid_cs <= '0';
-      c65uart_cs <= '0';
-      sdcardio_cs <= '0';
-    end if;
+
+    report "CS lines: "
+      & to_string(cia1cs&cia2cs&kickstartcs&sectorbuffercs&leftsid_cs&rightsid_cs&c65uart_cs&sdcardio_cs&thumbnail_cs);
   end process;
 
 end behavioral;

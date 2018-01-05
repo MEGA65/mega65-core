@@ -493,7 +493,9 @@ begin  -- behavioural
           fastio_rdata(5) <= fa_poty;
           fastio_rdata(6) <= fb_potx;
           fastio_rdata(7) <= fb_poty;                        
-        when others => fastio_rdata <= (others => 'Z');
+        when others =>
+          report "Reading untied register, result = Z";
+          fastio_rdata <= (others => 'Z');
       end case;
     else
       fastio_rdata <= (others => 'Z');
