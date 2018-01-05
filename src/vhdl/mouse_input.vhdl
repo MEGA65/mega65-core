@@ -28,10 +28,10 @@ entity mouse_input is
     fb_up : in std_logic;
     fb_down : in std_logic;
 
-    pota_x : out unsigned(7 downto 0);
-    pota_y : out unsigned(7 downto 0);
-    potb_x : out unsigned(7 downto 0);
-    potb_y : out unsigned(7 downto 0)
+    pota_x : out unsigned(7 downto 0) := x"33";
+    pota_y : out unsigned(7 downto 0) := x"44";
+    potb_x : out unsigned(7 downto 0) := x"55";
+    potb_y : out unsigned(7 downto 0) := x"66"
     );
 end mouse_input;
 
