@@ -89,13 +89,18 @@ entity iomapper is
         fb_up : in std_logic;
         fb_down : in std_logic;
         fb_fire : in std_logic;
-
+        fa_potx : in std_logic;
+        fa_poty : in std_logic;
+        fb_potx : in std_logic;
+        fb_poty : in std_logic;
+        
         pota_x : in unsigned(7 downto 0);
         pota_y : in unsigned(7 downto 0);
         potb_x : in unsigned(7 downto 0);
         potb_y : in unsigned(7 downto 0);
 
-        pot_via_iec : out std_logic;
+        pot_drain : in std_logic;
+        pot_via_iec : buffer std_logic;
         
         ----------------------------------------------------------------------
         -- CBM floppy serial port
@@ -472,7 +477,18 @@ begin
       portp_out => osk_y(11 downto 4),
       joya_rotate => joya_rotate,
       joyb_rotate => joyb_rotate,
-      pot_via_iec => pot_via_iec
+
+      pot_via_iec => pot_via_iec,
+      pot_drain => pot_drain,
+      cia1portb_out => cia1portb_out(7 downto 6),
+      fa_potx => fa_potx,
+      fa_poty => fa_poty,
+      fb_potx => fb_potx,
+      fb_poty => fb_poty,
+      pota_x => pota_x,
+      pota_y => pota_y,
+      potb_x => potb_x,
+      potb_y => potb_y
       );
   end block;
   

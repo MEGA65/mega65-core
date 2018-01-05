@@ -10,7 +10,7 @@ entity mouse_input is
   port (
     clk : in std_logic;
 
-    pot_drain : out std_logic;
+    pot_drain : buffer std_logic;
     fa_potx : in std_logic;
     fa_poty : in std_logic;
     fb_potx : in std_logic;

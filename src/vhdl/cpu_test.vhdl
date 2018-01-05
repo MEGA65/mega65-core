@@ -128,6 +128,8 @@ architecture behavior of cpu_test is
   signal slow_access_rdata : unsigned(7 downto 0);
 
   signal sector_buffer_mapped : std_logic;
+
+  signal pot_drain : std_logic := '0';
   
 begin
 
@@ -259,6 +261,8 @@ begin
       fa_poty => '0',
       fb_potx => '0',
       fb_poty => '0',
+
+      pot_drain => pot_drain,
     
       slow_access_request_toggle => slow_access_request_toggle,
       slow_access_ready_toggle => slow_access_ready_toggle,

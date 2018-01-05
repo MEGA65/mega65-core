@@ -39,7 +39,18 @@ entity c65uart is
     joya_rotate : out std_logic := '0';
     joyb_rotate : out std_logic := '0';
 
-    pot_via_iec : out std_logic := '0';
+    -- Paddle/analog mouse inputs and debugging
+    cia1portb_out : in std_logic_vector(7 downto 6);
+    fa_potx : in std_logic;
+    fa_poty : in std_logic;
+    fb_potx : in std_logic;
+    fb_poty : in std_logic;
+    pot_drain : in std_logic;
+    pota_x : in unsigned(7 downto 0);
+    pota_y : in unsigned(7 downto 0);
+    potb_x : in unsigned(7 downto 0);
+    potb_y : in unsigned(7 downto 0);    
+    pot_via_iec : buffer std_logic := '0';
     
     porte : inout std_logic_vector(7 downto 0);
     portf : inout std_logic_vector(7 downto 0);
@@ -357,6 +368,30 @@ begin  -- behavioural
         when x"1a" =>
           -- @IO:GS $D61A On-screen keyboard Y position (x4 physical pixels)
           fastio_rdata <= unsigned(portp_internal);
+          -- @IO:GS $D620 Read Port A paddle X
+          -- @IO:GS $D621 Read Port A paddle Y
+          -- @IO:GS $D622 Read Port B paddle X
+          -- @IO:GS $D623 Read Port B paddle Y
+        when x"20" => fastio_rdata <= pota_x;
+        when x"21" => fastio_rdata <= pota_y;
+        when x"22" => fastio_rdata <= potb_x;
+        when x"23" => fastio_rdata <= potb_y;
+        when x"24" =>
+          -- @IO:GS $D624 READ ONLY
+          -- @IO:GS $D624.0 Paddles connected via IEC port (rev1 PCB debug)
+          -- @IO:GS $D624.1 pot_drain signal
+          -- @IO:GS $D624.3-2 CIA porta bits 7-6 for POT multiplexor
+          -- @IO:GS $D624.4 fa_potx line
+          -- @IO:GS $D624.5 fa_poty line
+          -- @IO:GS $D624.6 fb_potx line
+          -- @IO:GS $D624.7 fb_poty line          
+          fastio_rdata(0) <= pot_via_iec;
+          fastio_rdata(1) <= pot_drain;
+          fastio_rdata(3 downto 2) <= unsigned(cia1portb_out(7 downto 6));
+          fastio_rdata(4) <= fa_potx;
+          fastio_rdata(5) <= fa_poty;
+          fastio_rdata(6) <= fb_potx;
+          fastio_rdata(7) <= fb_poty;                        
         when others => fastio_rdata <= (others => 'Z');
       end case;
     else
