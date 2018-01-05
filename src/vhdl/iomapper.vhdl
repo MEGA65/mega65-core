@@ -94,6 +94,8 @@ entity iomapper is
         pota_y : in unsigned(7 downto 0);
         potb_x : in unsigned(7 downto 0);
         potb_y : in unsigned(7 downto 0);
+
+        pot_via_iec : out std_logic;
         
         ----------------------------------------------------------------------
         -- CBM floppy serial port
@@ -469,7 +471,8 @@ begin
       porto_out => osk_x(7 downto 0),
       portp_out => osk_y(11 downto 4),
       joya_rotate => joya_rotate,
-      joyb_rotate => joyb_rotate
+      joyb_rotate => joyb_rotate,
+      pot_via_iec => pot_via_iec
       );
   end block;
   

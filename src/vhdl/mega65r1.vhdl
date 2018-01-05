@@ -229,6 +229,14 @@ architecture Behavioral of container is
   signal fb_up_drive : std_logic;
   signal fb_down_drive : std_logic;
   signal fb_fire_drive : std_logic;
+
+  signal fa_potx : std_logic;
+  signal fa_poty : std_logic;
+  signal fb_potx : std_logic;
+  signal fb_poty : std_logic;
+  signal pot_drain : std_logic;
+
+  signal pot_via_iec : std_logic;
   
   signal iec_clk_en_drive : std_logic;
   signal iec_data_en_drive : std_logic;
@@ -357,6 +365,7 @@ begin
       iec_data_external => iec_data_i_drive,
       iec_clk_external => iec_clk_i_drive,
       iec_atn_o => iec_atn_drive,
+        
 
       porta_pins => column(7 downto 0),
       portb_pins => row(7 downto 0),
@@ -376,7 +385,14 @@ begin
       fb_left => fb_left_drive,
       fb_down => fb_down_drive,
       fb_right => fb_right_drive,
-      
+
+      fa_potx => fa_potx;
+      fa_poty => fa_poty;
+      fb_potx => fb_potx;
+      fb_poty => fb_poty;
+      pot_drain => pot_drain,
+      pot_via_iec => pot_via_iec,
+
       ---------------------------------------------------------------------------
       -- IO lines to the ethernet controller
       ---------------------------------------------------------------------------
@@ -494,14 +510,45 @@ begin
       -- (before inversion) to indicate when we should be driving the pin
       -- to ground.
 
-      iec_clk_en <= iec_clk_o_drive;
-      iec_clk_o <= not iec_clk_o_drive;
-      iec_clk_i_drive <= iec_clk_i;
-      iec_data_en <= iec_data_o_drive;
-      iec_data_o <= not iec_data_o_drive;
-      iec_data_i_drive <= iec_data_i;
       iec_reset <= iec_reset_drive;
       iec_atn <= not iec_atn_drive;
+
+      if pot_via_iec = '0' then
+        -- Normal IEC port operation
+        iec_clk_en <= iec_clk_o_drive;
+        iec_clk_o <= not iec_clk_o_drive;
+        iec_clk_i_drive <= iec_clk_i;
+        iec_data_en <= iec_data_o_drive;
+        iec_data_o <= not iec_data_o_drive;
+        iec_data_i_drive <= iec_data_i;
+        -- So pots act like infinite resistance
+        fa_potx <= '0';
+        fa_poty <= '0';
+        fb_potx <= '0';
+        fb_poty <= '0';
+      else
+        -- IEC lines being used as POT inputs
+        iec_clk_i_drive <= '1';
+        iec_data_i_drive <= '1';
+        if pot_drain = '1' then
+          -- IEC lines being used to drain pots
+          iec_clk_en <= '1';
+          iec_clk_o <= '0';
+          iec_data_en <= '1';
+          iec_data_o <= '0';
+        else
+          -- Stop draining
+          iec_clk_en <= '0';
+          iec_clk_o <= '0';
+          iec_data_en <= '0';
+          iec_data_o <= '0';
+        end if;
+        -- Copy IEC input values to POT inputs
+        fa_potx <= iec_data_i;
+        fa_poty <= iec_clk_i;
+        fb_potx <= iec_data_i;
+        fb_poty <= iec_clk_i;
+      end if;
 
       pwm_l <= pwm_l_drive;
       pwm_r <= pwm_r_drive;

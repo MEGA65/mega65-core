@@ -254,7 +254,12 @@ begin
       fb_up => '1',
       fb_down => '1',
       fb_fire => '1',
-
+      
+      fa_potx => '0',
+      fa_poty => '0',
+      fb_potx => '0',
+      fb_poty => '0',
+    
       slow_access_request_toggle => slow_access_request_toggle,
       slow_access_ready_toggle => slow_access_ready_toggle,
       slow_access_address => slow_access_address,

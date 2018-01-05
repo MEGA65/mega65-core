@@ -363,6 +363,11 @@ begin
       fb_left => '1',
       fb_down => '1',
       fb_right => '1',
+
+      fa_potx => '0';
+      fa_poty => '0';
+      fb_potx => '0';
+      fb_poty => '0';
       
       ----------------------------------------------------------------------
       -- CBM floppy  std_logic_vectorerial port

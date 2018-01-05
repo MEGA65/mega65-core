@@ -117,6 +117,7 @@ entity machine is
          fb_potx : in std_logic;
          fb_poty : in std_logic;
          pot_drain : out std_logic;
+         pot_via_iec : out std_logic;
          
          ----------------------------------------------------------------------
          -- CBM floppy serial port
@@ -794,7 +795,7 @@ begin
       fa_right => fa_right,
       fa_up => fa_up,
       fa_down => fa_down,
-      fb_fire => fb_fire.
+      fb_fire => fb_fire,
       fb_left => fb_left,
       fb_right => fb_right,
       fb_up => fb_up,
@@ -913,6 +914,8 @@ begin
       pota_y => pota_y,
       potb_x => potb_x,
       potb_y => potb_y,
+
+      pot_via_iec => pot_via_iec,
       
       pixel_stream_in => pixel_stream,
       pixel_y => pixel_y,

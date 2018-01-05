@@ -38,6 +38,8 @@ entity c65uart is
     virtual_disable : out std_logic;
     joya_rotate : out std_logic := '0';
     joyb_rotate : out std_logic := '0';
+
+    pot_via_iec : out std_logic := '0';
     
     porte : inout std_logic_vector(7 downto 0);
     portf : inout std_logic_vector(7 downto 0);
@@ -571,7 +573,10 @@ begin  -- behavioural
           when x"0d" => reg_portg_out <= std_logic_vector(fastio_wdata);
           when x"0e" => reg_portg_ddr <= std_logic_vector(fastio_wdata);
           when x"10" => porth_write_strobe <= '1';
-          when x"11" => null; -- bucky keys readonly
+          when x"11" =>
+            -- bucky keys readonly
+            -- IO:GS $D611.0 WRITE ONLY Connect POT lines to IEC port (for r1 PCB only)
+            pot_via_iec <= fastio_wdata(0);
           when x"12" =>
             widget_enable_internal <= std_logic(fastio_wdata(0));
             ps2_enable_internal <= std_logic(fastio_wdata(1));

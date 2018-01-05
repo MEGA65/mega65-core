@@ -29,9 +29,9 @@ entity mouse_input is
     fb_down : in std_logic;
 
     pota_x : out unsigned(7 downto 0);
-    pota_x : out unsigned(7 downto 0);
-    pota_x : out unsigned(7 downto 0);
-    pota_x : out unsigned(7 downto 0)
+    pota_y : out unsigned(7 downto 0);
+    potb_x : out unsigned(7 downto 0);
+    potb_y : out unsigned(7 downto 0)
     );
 end mouse_input;
 
@@ -78,10 +78,10 @@ begin
           end if;
         else
           pot_counter <= 0;
-          pota_x <= pota_x_counter;
-          pota_y <= pota_y_counter;
-          potb_x <= potb_x_counter;
-          potb_y <= potb_y_counter;
+          pota_x <= to_unsigned(pota_x_counter,8);
+          pota_y <= to_unsigned(pota_y_counter,8);
+          potb_x <= to_unsigned(potb_x_counter,8);
+          potb_y <= to_unsigned(potb_y_counter,8);
           pota_x_counter <= 0;
           pota_y_counter <= 0;
           potb_x_counter <= 0;
