@@ -1953,6 +1953,7 @@ begin
             when x"0a" => return reg_dmagic_dst_skip(7 downto 0);
             when x"0b" => return reg_dmagic_dst_skip(15 downto 8);
             when x"fc" => return unsigned(chipselect_enables);
+            when x"fd" => return unsigned(force_exrom & force_game & "111111");
             when others => return x"ff";
           end case;
         when HypervisorRegister =>
