@@ -54,6 +54,8 @@ entity sdcardio is
     clock : in std_logic;
     pixelclk : in std_logic;
     reset : in std_logic;
+    sdcardio_cs : in std_logic;
+    f011_cs : in std_logic;
 
     hypervisor_mode : in std_logic;
     hyper_trap_f011_read : out std_logic := '0';
@@ -404,9 +406,9 @@ begin  -- behavioural
 
     if fastio_read='1' and sectorbuffercs='0' then
 
-      if (fastio_addr(19 downto 5)&'0' = x"D108")
-      or (fastio_addr(19 downto 5)&'0' = x"D308") then
+      if f011_cs='1' then
         -- F011 FDC emulation registers
+        report "Preparing to read F011 emulation register";
 
         case fastio_addr(4 downto 0) is
           when "00000" =>
@@ -524,8 +526,7 @@ begin  -- behavioural
 
   -- ==================================================================
 
-      elsif (fastio_addr(19 downto 8) = x"D16")
-         or (fastio_addr(19 downto 8) = x"D36") then
+      elsif sdcardio_cs='1' then
         -- microSD controller registers
         report "reading SDCARD registers" severity note;
         case fastio_addr(7 downto 0) is
@@ -906,9 +907,7 @@ begin  -- behavioural
       end if;
             
       if fastio_write='1' then
-        if   (fastio_addr(19 downto 5)&'0' = x"D108")
-          or (fastio_addr(19 downto 5)&'0' = x"D308") then
-
+        if f011_cs='1' then
           -- ================================================================== START
           -- the section below is for the F011
           -- ==================================================================
@@ -1166,9 +1165,7 @@ begin  -- behavioural
           -- ==================================================================
 
 
-        elsif (fastio_addr(19 downto 8) = x"D16"
-            or fastio_addr(19 downto 8) = x"D36") then
-
+        elsif sdcardio_cs='1' then
           -- ================================================================== START
           -- the section below is for the SDcard
           -- ==================================================================

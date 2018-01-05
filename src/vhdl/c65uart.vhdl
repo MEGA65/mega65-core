@@ -13,6 +13,7 @@ entity c65uart is
     phi0 : in std_logic;
     reset : in std_logic;
     irq : out std_logic := 'Z';
+    c65uart_cs : in std_logic;
     
     ---------------------------------------------------------------------------
     -- fast IO port (clocked at core clock). 1MB address space
@@ -240,9 +241,7 @@ begin  -- behavioural
     end if;
     
     -- Reading of registers
-    if (fastio_read='1')
-      and (fastio_address(19 downto 16) = x"D")
-      and (fastio_address(11 downto 5) = "0110000") then
+    if (fastio_read='1') and c65uart_cs='1' then
       report "Reading C65 UART controller register";
       case register_number is
         when x"00" =>
@@ -570,10 +569,9 @@ begin  -- behavioural
       end loop;
       
       -- Check for register writing
-      if (fastio_write='1') and (fastio_address(19 downto 16) = x"D")
-         and (fastio_address(11 downto 5) = "0110000") then
-        register_number(7 downto 5) := "000";
-        register_number(4 downto 0) := fastio_address(4 downto 0);
+      if (fastio_write='1') and c65uart_cs='1' then
+        register_number(7 downto 6) := "00";
+        register_number(4 downto 0) := fastio_address(5 downto 0);
         case register_number is
           when x"00" =>
             reg_data_tx <= std_logic_vector(fastio_wdata);

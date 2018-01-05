@@ -257,6 +257,11 @@ architecture behavioral of iomapper is
   signal rightsid_cs : std_logic;
   signal rightsid_audio : unsigned(17 downto 0);
 
+  signal c65uart_cs : std_logic := '0';
+  signal sdcardio_cs : std_logic := '0';
+  signal f011_cs : std_logic := '0';
+  signal cpuregs_cs : std_logic := '0';
+  
   signal spare_bits : unsigned(4 downto 0);
 
   signal buffer_moby_toggle : std_logic;
@@ -427,6 +432,7 @@ begin
     c65uart0: entity work.c65uart port map (
       pixelclock => pixelclk,
       cpuclock => clk,
+      c65uart_cs => c65uart_cs,
       phi0 => phi0,
       reset => reset,
 --      irq => nmi,
@@ -660,6 +666,8 @@ begin
     pixelclk => pixelclk,
     clock => clk,
     reset => reset,
+    sdcardio_cs => sdcardio_cs,
+    f011_cs => f011_cs,
     hypervisor_mode => cpu_hypervisor_mode,
     hyper_trap_f011_read => hyper_trap_f011_read,
     hyper_trap_f011_write => hyper_trap_f011_write,
@@ -882,6 +890,7 @@ begin
   
   process (r,w,address,cia1portb_in,cia1porta_out,colourram_at_dc00,
            sector_buffer_mapped_read)
+    variable temp : unsigned(19 downto 0);
   begin  -- process
 
     if (r or w) = '1' then
@@ -938,18 +947,50 @@ begin
 
       -- $D500 - $D5FF is not currently used.  Probably use some for FPU.
       
-      -- $D600 - $D60F is reserved for C65 serial UART emulation for C65
+      -- $D600 - $D63F is reserved for C65 serial UART emulation for C65
       -- compatibility (C65 UART actually only has 7 registers).
       -- 6551 is not currently implemented, so this is just unmapped for now,
       -- except for any read values required to allow the C65 ROM to function.
+      temp(15 downto 2) := unsigned(address(19 downto 6));
+      temp(1 downto 0) := "00";
+      case temp(15 downto 0) is
+        when x"D160" => c65uart_cs <= '1';
+        when x"D260" => c65uart_cs <= '1';
+        when x"D360" => c65uart_cs <= '1';
+        when others => c65uart_cs <= '0';
+      end case;
 
       -- Hypervisor control (only visible from hypervisor mode) $D640 - $D67F
       -- The hypervisor is a CPU provided function.
       
       -- SD controller and miscellaneous hardware (microphone, accelerometer etc)
       -- uses $D680 - $D6FF
-      
+      temp(15 downto 3) := unsigned(address(19 downto 7));
+      temp(2 downto 0) := "000";
+      case temp(15 downto 0) is
+        when x"D168" => sdcardio_cs <= '1';
+        when x"D268" => sdcardio_cs <= '1';
+        when x"D368" => sdcardio_cs <= '1';
+        when others => sdcardio_cs <= '0';
+      end case;
+
+      -- F011 emulation registers
+      temp(15 downto 1) := unsigned(address(19 downto 5));
+      temp(0) := '0';
+      case temp(15 downto 0) is
+        when x"D108" => f011_cs <= '1';
+        when x"D208" => f011_cs <= '1';
+        when x"D308" => f011_cs <= '1';
+        when others => f011_cs <= '0';
+      end case;
+            
       -- CPU uses $FFD{0,1,2,3}700 for DMAgic and other CPU-hosted IO registers.
+      case address(19 downto 8) is
+        when x"D17" => cpuregs_cs <= '1';
+        when x"D27" => cpuregs_cs <= '1';
+        when x"D37" => cpuregs_cs <= '1';
+        when others => cpuregs_cs <= '0';
+      end case;
       
       -- Now map the CIAs.
 
@@ -977,6 +1018,8 @@ begin
       sectorbuffercs <= '0';
       leftsid_cs <= '0';
       rightsid_cs <= '0';
+      c65uart_cs <= '0';
+      sdcardio_cs <= '0';
     end if;
   end process;
 
