@@ -270,7 +270,9 @@ begin  -- behavioural
             or
             ((sprite_extended_height_enable = '1')
              and (y_offset /= sprite_extended_height_size)) then
-            y_offset <= y_offset + 1;
+            if (y_expand_toggle = '1') or (sprite_stretch_y='0') then
+              y_offset <= y_offset + 1;
+            end if;
           else
             report "SPRITE: end of sprite y reached. no longer drawing";        
             sprite_drawing <= '0';
