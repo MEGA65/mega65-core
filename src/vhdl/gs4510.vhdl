@@ -1970,7 +1970,7 @@ begin
               value(3) := exrom;
               value(2) := game;
               value(1) := cartridge_enable;              
-              value(0) := "0";
+              value(0) := '0';
               return value;
             when others => return x"ff";
           end case;
