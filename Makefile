@@ -115,6 +115,7 @@ KBDVHDL=		$(VHDLSRCDIR)/keymapper.vhdl \
 			$(VHDLSRCDIR)/virtual_to_matrix.vhdl \
 
 OVERLAYVHDL=		$(VHDLSRCDIR)/rain.vhdl \
+			$(VHDLSRCDIR)/lfsr16.vhdl \
 			$(VHDLSRCDIR)/visual_keyboard.vhdl \
 			$(VHDLSRCDIR)/uart_charrom.vhdl \
 			$(VHDLSRCDIR)/oskmem.vhdl \
