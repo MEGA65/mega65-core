@@ -91,13 +91,7 @@ entity keyboard_complex is
     porta_out : out std_logic_vector(7 downto 0);
     portb_out : out std_logic_vector(7 downto 0);
     porta_ddr : in  std_logic_vector(7 downto 0);
-    portb_ddr : in  std_logic_vector(7 downto 0);
-
-    pota_x : out unsigned(7 downto 0) := x"ff";
-    pota_y : out unsigned(7 downto 0) := x"ff";
-    potb_x : out unsigned(7 downto 0) := x"ff";    
-    potb_y : out unsigned(7 downto 0) := x"ff"
-    
+    portb_ddr : in  std_logic_vector(7 downto 0)    
     );
 
 end entity keyboard_complex;
@@ -267,11 +261,6 @@ begin
     porta_ddr => porta_ddr,
     portb_ddr => portb_ddr,
 
-    pota_x => pota_x,
-    pota_y => pota_y,
-    potb_x => potb_x,
-    potb_y => potb_y,
-    
     -- read from bit1 of $D607 (see C65 keyboard scan routine at $E406)?
     keyboard_column8_select_in => keyboard_column8_select_in
     

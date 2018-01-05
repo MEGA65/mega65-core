@@ -540,11 +540,6 @@ begin
     porta_pins => porta_pins,
     portb_pins => portb_pins,
 
-    pota_x => pota_x,
-    pota_y => pota_y,
-    potb_x => potb_x,
-    potb_y => potb_y,
-    
     speed_gate => speed_gate,
     speed_gate_enable => speed_gate_enable,
 

@@ -72,11 +72,6 @@ entity keymapper is
     porta_ddr : in  std_logic_vector(7 downto 0);
     portb_ddr : in  std_logic_vector(7 downto 0);
 
-    pota_x : out unsigned(7 downto 0) := x"ff";
-    pota_y : out unsigned(7 downto 0) := x"ff";
-    potb_x : out unsigned(7 downto 0) := x"ff";    
-    potb_y : out unsigned(7 downto 0) := x"ff";
-    
     -- read from bit1 of $D607 (see C65 keyboard scan routine at $E406)?
     keyboard_column8_select_in : in std_logic
 
