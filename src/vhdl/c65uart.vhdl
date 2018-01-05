@@ -210,9 +210,6 @@ begin  -- behavioural
     variable register_number : unsigned(7 downto 0);
   begin
 
-    register_number(7 downto 5) := "000";
-    register_number(4 downto 0) := fastio_address(4 downto 0);
-    
     if rising_edge(cpuclock) then
 
       reg_data_rx_drive <= reg_data_rx;
@@ -237,6 +234,111 @@ begin  -- behavioural
         if fastio_read='1' and register_number = x"0" then
           rx_clear_flags <= '1';
         end if;
+      end if;
+    end if;
+
+    register_number(7 downto 5) := "000";
+    register_number(4 downto 0) := fastio_address(4 downto 0);
+    
+    if rising_edge(cpuclock) then
+
+      porth_write_strobe <= '0';
+      
+      -- Calculate read value for various ports
+      reg_porte_read <= ddr_pick(reg_porte_ddr,porte,reg_porte_out);        
+      reg_portf_read <= ddr_pick(reg_portf_ddr,portf,reg_portf_out);
+      reg_portg_read <= ddr_pick(reg_portg_ddr,portg,reg_portg_out);
+
+      -- Support proper tri-stating on port F and port G which connects to FPGA board PMOD
+      -- connector.
+      for bit in 1 to 7 loop
+        -- Bit 0 of porte is the capslock key, which is input only
+        if reg_porte_ddr(bit)='1' then
+          porte(bit) <= reg_porte_out(bit) or (not reg_porte_ddr(bit));
+        else
+          porte(bit) <= 'Z';
+        end if;
+      end loop;
+      for bit in 0 to 7 loop
+        if reg_portf_ddr(bit)='1' then
+          portf(bit) <= reg_portf_out(bit) or (not reg_portf_ddr(bit));
+        else
+          portf(bit) <= 'Z';
+        end if;
+        if reg_portg_ddr(bit)='1' then
+          portg(bit) <= reg_portg_out(bit) or (not reg_portg_ddr(bit));
+        else
+          portg(bit) <= 'Z';
+        end if;
+      end loop;
+      
+      -- Check for register writing
+      if (fastio_write='1') and c65uart_cs='1' then
+        case register_number is
+          when x"00" =>
+            reg_data_tx <= std_logic_vector(fastio_wdata);
+            reg_status5_tx_eot <= '0';
+            reg_status6_tx_empty <= '0';
+          when x"01" => null;
+          when x"02" =>
+            reg_ctrl0_parity_even <= fastio_wdata(0);
+            reg_ctrl1_parity_enable <= fastio_wdata(1);
+            reg_ctrl23_char_length_deduct  <= fastio_wdata(3 downto 2);
+            reg_ctrl45_sync_mode_flags <= std_logic_vector(fastio_wdata(5 downto 4));
+            reg_ctrl6_rx_enable <= fastio_wdata(6);
+            reg_ctrl7_tx_enable <= fastio_wdata(7);
+          when x"03" => reg_divisor(7 downto 0) <= fastio_wdata;
+          when x"04" => reg_divisor(15 downto 8) <= fastio_wdata;
+          when x"05" => reg_intmask <= std_logic_vector(fastio_wdata);
+          when x"06" =>
+            -- reg_intflag
+            -- This register is not used in the C65 ROM, so we don't know how it
+            -- should behave.  What is clear, is that there is some other mechanism
+            -- besides reading this register that actually clears the IRQ.
+            -- Perhaps just reading the data register is enough to clear an RX
+            -- IRQ?  What about TX ready IRQ? It seems like writing a character
+            -- or disabling the transmitter should clear it.
+          when x"07" => reg_porte_out<=std_logic_vector(fastio_wdata(7 downto 0));
+          when x"08" => reg_porte_ddr<=std_logic_vector(fastio_wdata(7 downto 0));
+
+          when x"09" =>
+            clock709375 <= fastio_wdata(0);
+          when x"0b" => reg_portf_out <= std_logic_vector(fastio_wdata);
+          when x"0c" => reg_portf_ddr <= std_logic_vector(fastio_wdata);
+          when x"0d" => reg_portg_out <= std_logic_vector(fastio_wdata);
+          when x"0e" => reg_portg_ddr <= std_logic_vector(fastio_wdata);
+          when x"10" => porth_write_strobe <= '1';
+          when x"11" =>
+            -- bucky keys readonly
+            -- IO:GS $D611.0 WRITE ONLY Connect POT lines to IEC port (for r1 PCB only)
+            pot_via_iec <= fastio_wdata(0);
+          when x"12" =>
+            widget_enable_internal <= std_logic(fastio_wdata(0));
+            ps2_enable_internal <= std_logic(fastio_wdata(1));
+            physkey_enable_internal <= std_logic(fastio_wdata(2));
+            virtual_enable_internal <= std_logic(fastio_wdata(3));
+            joykey_enable_internal <= std_logic(fastio_wdata(4));
+            joyreal_enable_internal <= std_logic(fastio_wdata(5));
+            joya_rotate <= fastio_wdata(6);
+            joya_rotate_internal <= fastio_wdata(6);
+            joyb_rotate <= fastio_wdata(7);
+            joyb_rotate_internal <= fastio_wdata(7);
+          when x"14" => portj_out <= std_logic_vector(fastio_wdata);
+                        portj_internal <= std_logic_vector(fastio_wdata);
+          when x"15" =>
+            portk_internal <= std_logic_vector(fastio_wdata);
+          when x"16" =>
+            portl_internal <= std_logic_vector(fastio_wdata);
+          when x"17" =>
+            portm_internal <= std_logic_vector(fastio_wdata);
+          when x"18" =>
+            portn_internal <= std_logic_vector(fastio_wdata);
+          when x"19" =>
+            porto_internal <= std_logic_vector(fastio_wdata);
+          when x"1A" =>
+            portp_internal <= std_logic_vector(fastio_wdata);
+          when others => null;
+        end case;
       end if;
     end if;
     
@@ -530,113 +632,6 @@ begin  -- behavioural
             -- XXX Assert IRQ and/or NMI according to RX interrupt masks
           end if;
         end if;
-      end if;
-    end if;
-    
-    if rising_edge(cpuclock) then
-
-      porth_write_strobe <= '0';
-      
-      register_number(7 downto 5) := "000";
-      register_number(4 downto 0) := fastio_address(4 downto 0);
-
-      -- Calculate read value for various ports
-      reg_porte_read <= ddr_pick(reg_porte_ddr,porte,reg_porte_out);        
-      reg_portf_read <= ddr_pick(reg_portf_ddr,portf,reg_portf_out);
-      reg_portg_read <= ddr_pick(reg_portg_ddr,portg,reg_portg_out);
-
-      -- Support proper tri-stating on port F and port G which connects to FPGA board PMOD
-      -- connector.
-      for bit in 1 to 7 loop
-        -- Bit 0 of porte is the capslock key, which is input only
-        if reg_porte_ddr(bit)='1' then
-          porte(bit) <= reg_porte_out(bit) or (not reg_porte_ddr(bit));
-        else
-          porte(bit) <= 'Z';
-        end if;
-      end loop;
-      for bit in 0 to 7 loop
-        if reg_portf_ddr(bit)='1' then
-          portf(bit) <= reg_portf_out(bit) or (not reg_portf_ddr(bit));
-        else
-          portf(bit) <= 'Z';
-        end if;
-        if reg_portg_ddr(bit)='1' then
-          portg(bit) <= reg_portg_out(bit) or (not reg_portg_ddr(bit));
-        else
-          portg(bit) <= 'Z';
-        end if;
-      end loop;
-      
-      -- Check for register writing
-      if (fastio_write='1') and c65uart_cs='1' then
-        register_number(7 downto 6) := "00";
-        register_number(4 downto 0) := fastio_address(5 downto 0);
-        case register_number is
-          when x"00" =>
-            reg_data_tx <= std_logic_vector(fastio_wdata);
-            reg_status5_tx_eot <= '0';
-            reg_status6_tx_empty <= '0';
-          when x"01" => null;
-          when x"02" =>
-            reg_ctrl0_parity_even <= fastio_wdata(0);
-            reg_ctrl1_parity_enable <= fastio_wdata(1);
-            reg_ctrl23_char_length_deduct  <= fastio_wdata(3 downto 2);
-            reg_ctrl45_sync_mode_flags <= std_logic_vector(fastio_wdata(5 downto 4));
-            reg_ctrl6_rx_enable <= fastio_wdata(6);
-            reg_ctrl7_tx_enable <= fastio_wdata(7);
-          when x"03" => reg_divisor(7 downto 0) <= fastio_wdata;
-          when x"04" => reg_divisor(15 downto 8) <= fastio_wdata;
-          when x"05" => reg_intmask <= std_logic_vector(fastio_wdata);
-          when x"06" =>
-            -- reg_intflag
-            -- This register is not used in the C65 ROM, so we don't know how it
-            -- should behave.  What is clear, is that there is some other mechanism
-            -- besides reading this register that actually clears the IRQ.
-            -- Perhaps just reading the data register is enough to clear an RX
-            -- IRQ?  What about TX ready IRQ? It seems like writing a character
-            -- or disabling the transmitter should clear it.
-          when x"07" => reg_porte_out<=std_logic_vector(fastio_wdata(7 downto 0));
-          when x"08" => reg_porte_ddr<=std_logic_vector(fastio_wdata(7 downto 0));
-
-          when x"09" =>
-            clock709375 <= fastio_wdata(0);
-          when x"0b" => reg_portf_out <= std_logic_vector(fastio_wdata);
-          when x"0c" => reg_portf_ddr <= std_logic_vector(fastio_wdata);
-          when x"0d" => reg_portg_out <= std_logic_vector(fastio_wdata);
-          when x"0e" => reg_portg_ddr <= std_logic_vector(fastio_wdata);
-          when x"10" => porth_write_strobe <= '1';
-          when x"11" =>
-            -- bucky keys readonly
-            -- IO:GS $D611.0 WRITE ONLY Connect POT lines to IEC port (for r1 PCB only)
-            pot_via_iec <= fastio_wdata(0);
-          when x"12" =>
-            widget_enable_internal <= std_logic(fastio_wdata(0));
-            ps2_enable_internal <= std_logic(fastio_wdata(1));
-            physkey_enable_internal <= std_logic(fastio_wdata(2));
-            virtual_enable_internal <= std_logic(fastio_wdata(3));
-            joykey_enable_internal <= std_logic(fastio_wdata(4));
-            joyreal_enable_internal <= std_logic(fastio_wdata(5));
-            joya_rotate <= fastio_wdata(6);
-            joya_rotate_internal <= fastio_wdata(6);
-            joyb_rotate <= fastio_wdata(7);
-            joyb_rotate_internal <= fastio_wdata(7);
-          when x"14" => portj_out <= std_logic_vector(fastio_wdata);
-                        portj_internal <= std_logic_vector(fastio_wdata);
-          when x"15" =>
-            portk_internal <= std_logic_vector(fastio_wdata);
-          when x"16" =>
-            portl_internal <= std_logic_vector(fastio_wdata);
-          when x"17" =>
-            portm_internal <= std_logic_vector(fastio_wdata);
-          when x"18" =>
-            portn_internal <= std_logic_vector(fastio_wdata);
-          when x"19" =>
-            porto_internal <= std_logic_vector(fastio_wdata);
-          when x"1A" =>
-            portp_internal <= std_logic_vector(fastio_wdata);
-          when others => null;
-        end case;
       end if;
     end if;
   end process;
