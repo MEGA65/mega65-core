@@ -172,32 +172,6 @@ architecture behavioural of ethernet is
 
   signal eth_mac : unsigned(47 downto 0) := x"024753656565";
 
-  type cs8900aTXstate is (Idle,CommandSet,Buffering);
-  signal rrnet_tx_state : cs8900aTXstate := Idle;
-  signal rrnet_reading_bus_status : std_logic;
-  signal rrnet_debug : unsigned(7 downto 0) := x"00";
-  signal rrnet_tx_toggle : std_logic := '0';
-  signal rrnet_enable : std_logic := '0';
-  signal rrnet_dup_read : std_logic := '0';
-  signal rrnet_buffer_write_pending : std_logic := '0';
-  signal rrnet_buffer_odd_written : std_logic := '0';
-  signal rrnet_buffer_even_written : std_logic := '0';
-  signal rrnet_buffer_addr_bump : std_logic := '0';
-  signal rrnet_buffer_data : unsigned(7 downto 0) := x"00";
-  signal rrnet_buffer_odd : std_logic := '0';
-  signal rrnet_notice_data_read : std_logic := '0';
-  signal rrnet_addr : unsigned(15 downto 0) := (others => '0');
-  signal rrnet_data : unsigned(15 downto 0) := (others => '0');
-  signal rrnet_eeprom_data : unsigned(15 downto 0) := (others => '0');
-  signal rrnet_readaddress : integer range 0 to 4095 := 0;
-  signal rrnet_txbuffer_addr : unsigned(15 downto 0) := (others => '0');
-  signal rrnet_advance_buffer : std_logic := '0';
-  signal rrnet_buffer_rdata : unsigned(7 downto 0);
-  signal rrnet_data_odd : unsigned(7 downto 0);
-  signal rrnet_data_even : unsigned(7 downto 0);
-  signal rrnet_read_odd : std_logic := '0';
-  signal rrnet_read_even : std_logic := '0';
- 
   signal rx_keyinput : std_logic := '0';
   signal eth_keycode_toggle_internal : std_logic := '0';
  
@@ -318,15 +292,6 @@ begin  -- behavioural
     address => rxbuffer_readaddress,
     rdata => fastio_rdata);  
 
-  rrnet_rxbuffer: ram8x4096 port map (
-    clk => clock50mhz,
-    cs => '1',
-    w => rxbuffer_write,
-    write_address => rxbuffer_writeaddress,
-    wdata => rxbuffer_wdata,
-    address => rrnet_readaddress,
-    rdata => rrnet_buffer_rdata);
-  
   txbuffer0: ram8x4096 port map (
     clk => clock50mhz,
     cs => '1',
@@ -780,75 +745,16 @@ begin  -- behavioural
            ) is
     variable temp_cmd : unsigned(7 downto 0);
 
-    procedure rrnet_txcmd_set is
-    begin
-      -- According to the cs8900a data sheet:
-      -- When the TX CMD has been set, we just clear the buffer pointers ready
-      -- to receive the frame.  The user must then set the tx length, and then
-      -- read from the bus status register before transmission is primed.
-      -- Once primed, the bytes must then be written.  As soon as enough bytes
-      -- are written, the frame will then start to be sent.
-
-      -- We will implement this as clearing things when the tx cmd is seen, not
-      -- buffer bytes until the bus status has been read, and then only transmit
-      -- the frame once the right number of bytes have been buffered.  We will
-      -- use the existing ethernet TX buffer.
-      
-      rrnet_txbuffer_addr <= (others => '0');
-      rrnet_tx_state <= CommandSet;
-      report "ETHBUFFERING: State moving to CommandSet";
-    end procedure;
-    
   begin
 
     if fastio_read='1' then
       report "MEMORY: Reading from fastio";
 
-      -- RR-NET emulation
-      if fastio_addr = x"D0E02" and rrnet_enable='1' then
-        fastio_rdata <= rrnet_addr(7 downto 0);        
-      elsif fastio_addr = x"D0E03" and rrnet_enable='1' then
-        fastio_rdata <= rrnet_addr(15 downto 8);
-      elsif rrnet_enable='1' and fastio_addr=x"D0E04" then
-        -- @IO:GS RR-NET emulation: cs_packet_data low
-        fastio_rdata <= rrnet_data(7 downto 0);
-        if rrnet_reading_bus_status = '1' then
-          if rrnet_tx_state = CommandSet then
-            report "ETHBUFFERING: Switching from CommandSet to Buffering";
-            rrnet_tx_state <= Buffering;
-          end if;
-        end if;
-      elsif rrnet_enable='1' and fastio_addr=x"D0E05" then
-        -- @IO:GS RR-NET emulation: cs_packet_data high
-        report "MEMORY: Reading RR-NET reg high = $" & to_hstring(rrnet_data(15 downto 8));
-        fastio_rdata <= rrnet_data(15 downto 8);
-        if rrnet_reading_bus_status = '1' then
-          if rrnet_tx_state = CommandSet then
-            report "ETHBUFFERING: Switching from CommandSet to Buffering";
-            rrnet_tx_state <= Buffering;
-          end if;
-        end if;
-      elsif rrnet_enable='1' and fastio_addr=x"D0E08" then
-        -- cs_rxtx_data low
-        fastio_rdata <= rrnet_data_even;
-      elsif rrnet_enable='1' and fastio_addr=x"D0E09" then
-        -- cs_rxtx_data high
-        fastio_rdata <= rrnet_data_odd;
-      elsif rrnet_enable='1' and fastio_addr=x"D0E0C" then
-        -- cs_tx_cmd low
-      elsif rrnet_enable='1' and fastio_addr=x"D0E0D" then
-        -- cs_tx_cmd high
-      elsif rrnet_enable='1' and fastio_addr=x"D0E0E" then
-        -- cs_tx_len low
-      elsif rrnet_enable='1' and fastio_addr=x"D0E0F" then
-        -- cs_tx_len high
-        
-      elsif (fastio_addr(19 downto 4) = x"D36E") then
+      if (fastio_addr(19 downto 4) = x"D36E") then
         report "MEMORY: Reading from ethernet register block";
         case fastio_addr(3 downto 0) is
           -- @IO:GS $D6E0 Ethernet control
           when x"0" =>
-            fastio_rdata(7 downto 5) <= to_unsigned(cs8900aTXstate'pos(rrnet_tx_state),3);
           -- @IO:GS $D6E0.4 Allow remote keyboard input via magic ethernet frames
             fastio_rdata(4) <= eth_keycode_toggle_internal;
           -- @IO:GS $D6E0.3 Read ethernet RX data valid
@@ -891,16 +797,12 @@ begin  -- behavioural
             fastio_rdata(3) <= eth_txen_int;
             fastio_rdata(5 downto 4) <= eth_txd_int(1 downto 0);
             fastio_rdata(6) <= eth_tx_viciv;
-            fastio_rdata(7) <= rrnet_tx_toggle;
+            fastio_rdata(7) <= '0';
           when x"b" =>
             fastio_rdata <= eth_tx_size(7 downto 0);
           when x"c" =>
             fastio_rdata(7 downto 4) <= x"0";
             fastio_rdata(3 downto 0) <= eth_tx_size(11 downto 8);
-          when x"d" =>
-            fastio_rdata <= rrnet_debug(7 downto 0);
-          when x"e" =>
-            fastio_rdata <= rrnet_txbuffer_addr(7 downto 0);
           when x"f" =>
             fastio_rdata <= to_unsigned(ethernet_state'pos(eth_tx_state),8);
           when others =>
@@ -918,56 +820,6 @@ begin  -- behavioural
       fastio_rdata <= (others => 'Z');
     end if;
 
-    -- RR-NET emulation read registers.
-    -- XXX These have a 1 - 2 cycle delay before the values are available for
-    -- reading after the address has been set because of the way that these are
-    -- set here.  However, it does simplify things quite a bit.
-    -- The main implication is that you can't DMA read from the data port,
-    -- which hopefully noone ever bothers to do.  Fast ethernet reception
-    -- should be using the native ethernet interface.
-
-    -- set cs_packet_data based on cs_packet_page
-    if rising_edge(clock) then
---      report "ETHRX: RR-NET: rrnet_addr = $" & to_hstring(rrnet_addr);
-      rrnet_reading_bus_status <= '0';
-      case rrnet_addr is
-        when x"0000" =>
-          -- Detect register: magic value that udpslave looks for
-          rrnet_data <= x"630e";
-        when x"0042" =>
-          -- EEPROM Data Register
-          -- 64net/2 RR-NET uses this as a scratch pad
-          rrnet_data <= rrnet_eeprom_data;
-        when x"0124" =>
-          -- RX status
-          -- otherwise, set register based on current state
---          report "ETHRX: Presenting RR-NET RX status register. Last value = $" & to_hstring(rrnet_data);
-          rrnet_data <= x"0000";
-          -- bit8 = received a packet
-          rrnet_data(8) <=  eth_irq_rx;
-          -- bit10 = received a unicast
-          rrnet_data(10) <= eth_irq_rx;  -- lie and say always unicast if we
-                                         -- have a packet
-          -- bit11 = received a broadcast
-          -- bit12 = CRC error
-          -- bit13 = runt
-          -- bit14 = jumbo frame            
-        when x"0138" =>
-          -- bus status: bit8 = ready for transmission
-          rrnet_data <= x"0000";
-          report "RR-NET: Reading bus status. rrnet_tx_state = "
-            & cs8900aTXstate'image(rrnet_tx_state);
-          if eth_tx_state = Idle then
-            rrnet_data(8) <=  '1';
-            -- allow buffering of bytes
-            rrnet_reading_bus_status <= '1';
-          end if;
-        when others =>
-          rrnet_data <= x"ffff";
-      end case;
-
-    end if;
-    
     if rising_edge(clock) then
 
       -- Automatically de-assert transmit trigger once the FSM has caught the signal.
@@ -984,16 +836,6 @@ begin  -- behavioural
       eth_tx_toggle_int2 <= eth_tx_toggle_int1;
       eth_tx_toggle_int1 <= eth_tx_toggle_50mhz;
 
-      -- Set RR-NET RX buffer pointer when we notice a packet has been received.
-      if eth_rx_buffer_last_used_int2 /= eth_rx_buffer_last_used_48mhz then
-        report "ETHRX: Resetting RR-NET read address.";
-        if eth_rx_buffer_moby='1' then
-          rrnet_readaddress <= 2048;
-        else
-          rrnet_readaddress <= 0;
-        end if;
-      end if;
-      
       -- Update module status based on register reads
       if fastio_read='1' then
         if fastio_addr(19 downto 0) = x"DE000" then
@@ -1003,16 +845,9 @@ begin  -- behavioural
 
       -- Assert IRQ if a frame has been received
       if eth_rx_buffer_last_used_int2 /= eth_rx_buffer_last_used_48mhz then
-        report "ETHRX: Asserting IRQ (also affects RR-NET)";
+        report "ETHRX: Asserting IRQ";
         eth_irq_rx <= '1';
         eth_rx_buffer_last_used_48mhz <= eth_rx_buffer_last_used_int2;
-        -- Tell RR-NET to start fetching first two bytes of buffer data
-        rrnet_read_odd <= '0';
-        rrnet_read_even <= '0';
-        -- RR-NET packet status bytes
-        rrnet_data_even <= x"33";
-        rrnet_data_odd <= x"44";
-        report "ETHRX: RR-NET Preloading status bytes";
       else
         report "ETHRX: int2="&std_logic'image(eth_rx_buffer_last_used_int2)
           & ", 48mhz=" &std_logic'image(eth_rx_buffer_last_used_48mhz);
@@ -1032,218 +867,7 @@ begin  -- behavioural
         irq <= 'Z';
       end if;
 
-      if rrnet_buffer_write_pending = '1' and rrnet_tx_state = Buffering then
-        -- Put byte into ethernet TX buffer
-        if rrnet_buffer_odd='0' then
-          txbuffer_writeaddress <= to_integer(rrnet_txbuffer_addr(10 downto 0));
-          report "ETHBUFFER: Writing byte $" & to_hstring(rrnet_buffer_data) & " to buffer offset $"
-            & to_hstring(to_unsigned(to_integer(rrnet_txbuffer_addr(10 downto 0))+0,12));
-        else
-          txbuffer_writeaddress <= to_integer(rrnet_txbuffer_addr(10 downto 0)) + 1;
-          report "ETHBUFFER: Writing byte $" & to_hstring(rrnet_buffer_data) & " to buffer offset $"
-          & to_hstring(to_unsigned(to_integer(rrnet_txbuffer_addr(10 downto 0))+1,12));
-        end if;
-        txbuffer_write <= '1';                
-        txbuffer_wdata <= rrnet_buffer_data;
-        rrnet_buffer_write_pending <= '0';
-      end if;      
-      if rrnet_buffer_addr_bump = '1' then
-        report "ETHBUFFERING: RR-NET bumping buffer pointer from "
-          & integer'image(to_integer(rrnet_txbuffer_addr));
-        if (to_integer(eth_tx_size)
-            = (to_integer(rrnet_txbuffer_addr(10 downto 0))+2))
-           and rrnet_tx_state <= Buffering then
-          -- we have buffered all the bytes for this frame - so initiate
-          -- transmission.
-          rrnet_debug <= x"ed";
-          eth_tx_trigger <= '1';
-          rrnet_tx_state <= Idle;
-          rrnet_tx_toggle <= not rrnet_tx_toggle;
-          report "ETHBUFFERING: RR-NET: Dispatching frame: Toggling rrnet_tx_toggle: was "
-            & std_logic'image(rrnet_tx_toggle);
-        else
-          report "ETHBUFFERING: RR-NET: "
-            &integer'image(to_integer(eth_tx_size))
-            &" != "
-            &integer'image(to_integer(rrnet_txbuffer_addr(10 downto 0))+2);
-        end if;
-        rrnet_txbuffer_addr <= rrnet_txbuffer_addr + 2;
-        rrnet_buffer_addr_bump <= '0';
-      end if;
-
-      rrnet_dup_read <= '0';
-      if fastio_read='1' and rrnet_enable='1' and
-          (fastio_addr=x"D0E08" or fastio_addr=x"D0E09") then
-        report "ETHRX: RR-NET read flags:"
-          & " even=" & std_logic'image(rrnet_read_even)
-          & ", odd=" & std_logic'image(rrnet_read_odd)
-          & ", even_byte=$" & to_hstring(rrnet_data_even)
-          & ", odd_byte=$" & to_hstring(rrnet_data_odd);
-        rrnet_dup_read <= '1';
-        if fastio_addr = x"D0E08" and (rrnet_dup_read='0') then
-          if rrnet_read_odd='0' then
-            report "ETHRX: RR-NET read even byte";
-            rrnet_read_even <= '1';
-          else
-            report "ETHRX: RR-NET read word - advancing buffer pointer, even data will be $" & to_hstring(rrnet_buffer_rdata)
-              & " from " & integer'image(rrnet_readaddress);
-            rrnet_read_odd <= '0';
-            rrnet_read_even <= '0';
-            rrnet_advance_buffer <= '1';
-            rrnet_data_even <= rrnet_buffer_rdata;
-            if rrnet_readaddress < 4095 then
-              rrnet_readaddress <= rrnet_readaddress + 1;
-            else
-              rrnet_readaddress <= 0;
-            end if;
-          end if;
-        elsif fastio_addr = x"D0E09" and (rrnet_dup_read='0') then
-          if rrnet_read_even='0' then
-            report "ETHRX: RR-NET read odd byte";
-            rrnet_read_odd <= '1';
-          else
-            report "ETHRX: RR-NET read word - advancing buffer pointer, even data will be $" & to_hstring(rrnet_buffer_rdata)
-              & " from " & integer'image(rrnet_readaddress);
-            rrnet_read_odd <= '0';
-            rrnet_read_even <= '0';
-            rrnet_advance_buffer <= '1';
-            rrnet_data_even <= rrnet_buffer_rdata;
-            if rrnet_readaddress < 4095 then
-              rrnet_readaddress <= rrnet_readaddress + 1;
-            else
-              rrnet_readaddress <= 0;
-            end if;
-          end if;
-        end if;
-        if rrnet_advance_buffer = '1' then
-          report "ETHRX: Bumping RR-NET read address to " & integer'image(rrnet_readaddress) & " + 1, odd data will be $" & to_hstring(rrnet_buffer_rdata);
-          rrnet_data_odd <= rrnet_buffer_rdata;
-          rrnet_advance_buffer <= '0';
-          if rrnet_readaddress < 4095 then
-            rrnet_readaddress <= rrnet_readaddress + 1;
-          else
-            rrnet_readaddress <= 0;
-          end if;
-        end if;
-
-        -- Also clear the ethernet IRQ flag once we start reading the packet.
-        -- This doesn't exactly match how the RR-NET really works, but it is
-        -- close enough for now.
-        report "ETHRX: Clearing IRQ";
-        eth_irq_rx <= '0';
-      end if;
-      
-      -- Write to registers
       if fastio_write='1' then
-        -- RR-NET emulation
-        if fastio_addr = x"D0E01" then
-          -- @IO:C64 $DE01.0 Enable RR-NET emulated clock port ethernet interface
-          -- bit 0 enables clock port according to
-          -- http://ar.c64.org/wiki/Inside_Replay.txt
-          rrnet_enable <= fastio_wdata(0);
-        end if;
-        if fastio_addr = x"D0E02" and rrnet_enable='1' then
-          -- @IO:C64 $DE02 RRNET register select register (low)
-          rrnet_addr(7 downto 0) <= fastio_wdata;
-        end if;
-        if fastio_addr = x"D0E03" and rrnet_enable='1' then
-          -- @IO:C64 $DE03 RRNET register select register (low)
-          rrnet_addr(15 downto 8) <= fastio_wdata;
-        end if;
-        if rrnet_enable='1' and rrnet_addr = x"0042" then
-          if fastio_addr = x"D0E04" then
-            rrnet_eeprom_data(7 downto 0) <= fastio_wdata;
-          end if;
-          if fastio_addr = x"D0E05" then
-            rrnet_eeprom_data(15 downto 8) <= fastio_wdata;
-          end if;
-        end if;
-        if fastio_addr = x"D0E06" and rrnet_enable='1' then
-          -- @IO:C64 $DE06 write to even numbered RR-NET register
-          case rrnet_addr is
-            when x"0144" =>
-              -- TX transmit command (also on dedicated $DE0C)
-              -- $C9 = transmit when entire frame buffered, and don't retransmit
-              -- if something goes wrong.
-              -- Transmission is not actually started until
-              rrnet_debug <= x"44";
-              rrnet_txcmd_set;            
-            when x"0146" =>
-              -- TX len (low byte) (also on dedicated $DE0E)
-              eth_tx_size(7 downto 0) <= fastio_wdata;
-            -- MAC address            
-            when x"0158" => eth_mac(47 downto 40) <= fastio_wdata;
-            when x"015A" => eth_mac(31 downto 24) <= fastio_wdata;
-            when x"015C" => eth_mac(15 downto 8) <= fastio_wdata;
-            when others => null;
-          end case;
-        end if;
-        if fastio_addr = x"D0E07" and rrnet_enable='1' then
-          -- @IO:C64 $DE06 write to odd numbered RR-NET register
-          case rrnet_addr is
-            -- TX len (low byte) (also on dedicated $DE0F)
-            when x"0147" => eth_tx_size(10 downto 8) <= fastio_wdata(2 downto 0);
-            -- MAC address
-            when x"0159" => eth_mac(39 downto 32) <= fastio_wdata;
-            when x"015B" => eth_mac(23 downto 16) <= fastio_wdata;
-            when x"015D" => eth_mac(7 downto 0) <= fastio_wdata;
-            when others => null;
-          end case;
-        end if;
-        -- @IO:C64 $DE08 RR-NET buffer port (even byte)
-        if fastio_addr = x"D0E08" and rrnet_enable='1' then
-          if rrnet_tx_state = Buffering then
-            -- write even numbered address
-            rrnet_buffer_even_written <= not rrnet_buffer_odd_written;
-            rrnet_buffer_addr_bump <= rrnet_buffer_odd_written;
-            if rrnet_buffer_odd_written = '1' then
-              report "ETHBUFFERING: Buffering RR-NET TX byte and bumping pointer.";
-              rrnet_buffer_odd_written <= '0';
-            end if;
-            
-            rrnet_buffer_write_pending <= '1';
-            rrnet_buffer_data <= fastio_wdata;
-            rrnet_buffer_odd <= fastio_addr(0);
-          end if;
-        end if;
-        -- @IO:C64 $DE09 RR-NET buffer port (even byte)
-        if fastio_addr = x"D0E09" and rrnet_enable='1' then
-          -- write odd numbered address and advance offset
-          -- XXX why do writes to odd addresses advance the pointer,
-          -- but is it the even address that does it for reads? Or have
-          -- I totally misunderstood something?
-          if rrnet_tx_state = Buffering then
-            rrnet_buffer_odd_written <= not rrnet_buffer_even_written;
-            rrnet_buffer_addr_bump <= rrnet_buffer_even_written;
-            if rrnet_buffer_even_written = '1' then
-              report "ETHBUFFERING: Buffering RR-NET TX byte and bumping pointer.";
-              rrnet_buffer_even_written <= '0';
-            end if;
-            
-            rrnet_buffer_write_pending <= '1';
-            rrnet_buffer_data <= fastio_wdata;
-            rrnet_buffer_odd <= fastio_addr(0);
-          end if;
-        end if;
-        if fastio_addr = x"D0E0C" and rrnet_enable='1' then
-          -- @IO:C64 $DE0C RRNET tx_cmd register (low)
-          rrnet_debug <= x"0C";
-          rrnet_txcmd_set;
-        end if;
-        if fastio_addr = x"D0E0D" and rrnet_enable='1' then
-          -- @IO:C64 $DE0C RRNET tx_cmd register (high)
-        end if;
-        if fastio_addr = x"D0E0E" and rrnet_enable='1' then
-          -- @IO:C64 $DE0E Set RR-NET TX packet size
-          eth_tx_size(7 downto 0) <= fastio_wdata;
-        end if;
-        if fastio_addr = x"D0E0F" and rrnet_enable='1' then
-          -- @IO:C64 $DE0F Set RR-NET TX packet size
-          eth_tx_size(10 downto 8) <= fastio_wdata(2 downto 0);
-        end if;
-        if fastio_addr = x"D0E10" and rrnet_enable='1' then
-          rrnet_debug <= fastio_wdata;
-        end if;
         if fastio_addr(19 downto 10)&"00" = x"DE8" then
           -- Writing to TX buffer
           -- (we don't need toclear the write lines, as noone else can write to
