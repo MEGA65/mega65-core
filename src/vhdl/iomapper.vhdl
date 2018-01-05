@@ -766,16 +766,11 @@ begin
           potl_y <= pota_y;
           potr_x <= potb_x;
           potr_y <= potb_y;
-        when "10" =>
+        when others =>
           potr_x <= pota_x;
           potr_y <= pota_y;
           potl_x <= potb_x;
           potl_y <= potb_y;
-        when others =>
-          potl_x <= (others => '1');
-          potl_y <= (others => '1');
-          potr_x <= (others => '1');
-          potr_y <= (others => '1');
       end case;
       
       -- Reflect CIA lines for IEC bus driverse so that they
