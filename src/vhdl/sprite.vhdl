@@ -125,6 +125,7 @@ architecture behavioural of sprite is
   signal sprite_pixel_bits_mono : std_logic_vector(127 downto 0) := (others => '1');
   signal sprite_pixel_bits_mc : std_logic_vector(127 downto 0) := (others => '1');
   signal sprite_pixel_bits : std_logic_vector(127 downto 0) := (others => '1');
+  signal sprite_pixel_bits_last : std_logic_vector(127 downto 0) := (others => '1');
   signal sprite_data_64bits : unsigned(63 downto 0) := (others => '0');
   signal check_collisions : std_logic := '0';
 
@@ -245,10 +246,12 @@ begin  -- behavioural
           if sprite_is_multicolour = '1' then
             report "SPRITE: using multi-colour pixel vector";
             sprite_pixel_bits <= sprite_pixel_bits_mc;
+            sprite_pixel_bits_last <= sprite_pixel_bits_mc;
           else
             report "SPRITE: using mono pixel vector";
             sprite_pixel_bits <= sprite_pixel_bits_mono;
-          end if;            
+            sprite_pixel_bits_last <= sprite_pixel_bits_mono;
+          end if;
         end if;
         if y_top='0' then
           y_offset <= 0;
@@ -325,10 +328,14 @@ begin  -- behavioural
             if sprite_is_multicolour = '1' then
               report "SPRITE: using multi-colour pixel vector";
               sprite_pixel_bits <= sprite_pixel_bits_mc;
+              sprite_pixel_bits_last <= sprite_pixel_bits_mc;
             else
               report "SPRITE: using mono pixel vector";
               sprite_pixel_bits <= sprite_pixel_bits_mono;
-            end if;            
+              sprite_pixel_bits_last <= sprite_pixel_bits_mono;
+            end if;
+          else
+            sprite_pixel_bits <= sprite_pixel_bits_last;
           end if;
           y_expand_toggle <= not y_expand_toggle;
         else
@@ -367,11 +374,6 @@ begin  -- behavioural
             -- cycles per physical raster = ~ 3,000 CPU cycles per sprite pixel
             -- row.
             check_collisions <= '0';
-            if x_offset = 23 then
-              -- Rotate sprite_pixel_bits all the way around again so that it
-              -- is ready for next raster.
-              sprite_pixel_bits <= sprite_pixel_bits(47 downto 0)&sprite_pixel_bits(127 downto 48);              
-            end if;
           else
             report "x_offset <= " & integer'image(x_offset) & " + 1";
             x_offset <= x_offset + 1;
@@ -385,15 +387,6 @@ begin  -- behavioural
           else
             sprite_pixel_bits <= sprite_pixel_bits(125 downto 0)&sprite_pixel_bits(127 downto 126);            
           end if;
-        else
-          if ((x_offset = 23)
-              and (sprite_extended_width_enable='0')
-              and (sprite_horizontal_tile_enable='0')
-              ) then
-            -- Rotate sprite_pixel_bits all the way around again so that it
-            -- is ready for next raster.
-            sprite_pixel_bits <= sprite_pixel_bits(47 downto 0)&sprite_pixel_bits(127 downto 48);              
-          end if;          
         end if;
         report "SPRITE: toggling x_expand_toggle";
         x_expand_toggle <= not x_expand_toggle;
