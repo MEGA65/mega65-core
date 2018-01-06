@@ -236,13 +236,15 @@ architecture Behavioral of viciv is
   -- Set in the same way as the border
   signal x_chargen_start : unsigned(13 downto 0) := to_unsigned(to_integer(frame_h_front),14);
 
-  -- Step through VIC-II raster numbers quickly during the vertical fly-back
-  -- time, so that any raster interrupts based on them will trigger.
+  -- PAL/NTSC raster layout
   signal vertical_flyback : std_logic := '0';
   signal vicii_first_raster : unsigned(8 downto 0) := to_unsigned(0,9);
   constant ntsc_max_raster : unsigned(8 downto 0) := to_unsigned(262,9);
   constant pal_max_raster : unsigned(8 downto 0) := to_unsigned(312,9);
   signal vicii_max_raster : unsigned(8 downto 0) := pal_max_raster;
+  -- Setting this value positive causes the chargen and screen to move down the
+  -- screen relative to the VIC-II raster counter.
+  constant raster_correction : integer := 2;
   
   -- Calculated dynamically
   signal vsync_start : unsigned(11 downto 0) := to_unsigned(0,12);
@@ -1115,7 +1117,7 @@ begin
     variable bitplane_number : integer;
 
     procedure viciv_calculate_modeline_dimensions is
-      constant w : integer := 400; -- was 320
+      constant w : integer := 400; -- was 320     
     begin
 
       -- Width of 80 column composited overlays
@@ -1260,20 +1262,27 @@ begin
 
       -- set vertical borders based on twentyfourlines
       if twentyfourlines='0' then
-        border_y_top <= to_unsigned(to_integer(single_top_border_200)+to_integer(vsync_delay_drive),12);
-        border_y_bottom <= to_unsigned(to_integer(display_height)
-                                       -to_integer(single_top_border_200)+to_integer(vsync_delay_drive),12);
+        border_y_top <= to_unsigned(
+          raster_correction+
+          to_integer(single_top_border_200)+to_integer(vsync_delay_drive),12);
+        border_y_bottom <= to_unsigned(
+          raster_correction+
+          to_integer(display_height)
+          -to_integer(single_top_border_200)+to_integer(vsync_delay_drive),12);
       else  
-        border_y_top <= to_unsigned(to_integer(single_top_border_200)
+        border_y_top <= to_unsigned(raster_correction
+                                    +to_integer(single_top_border_200)
                                     +to_integer(vsync_delay_drive)
                                     +ssy_table_200(4),12);
-        border_y_bottom <= to_unsigned(to_integer(display_height)
+        border_y_bottom <= to_unsigned(raster_correction
+                                       +to_integer(display_height)
                                        +to_integer(vsync_delay_drive)
                                        -to_integer(single_top_border_200)
                                        -ssy_table_200(4),12);
       end if;
       -- set y_chargen_start based on twentyfourlines
-      y_chargen_start <= to_unsigned(to_integer(single_top_border_200)
+      y_chargen_start <= to_unsigned(raster_correction
+                                     +to_integer(single_top_border_200)
                                      +to_integer(vsync_delay_drive)
                                      -ssy_table_200(3)
                                      +ssy_table_200(to_integer(vicii_y_smoothscroll)),12);
@@ -1281,18 +1290,22 @@ begin
         chargen_y_scale <= to_unsigned(to_integer(chargen_y_scale_200)-1,8);
       else
         if twentyfourlines='0' then
-          border_y_top <= to_unsigned(to_integer(single_top_border_400),12);
+          border_y_top <= to_unsigned(raster_correction
+                                      +to_integer(single_top_border_400),12);
           border_y_bottom <= to_unsigned(to_integer(display_height)
                                          -to_integer(single_top_border_400),12);
         else
-          border_y_top <= to_unsigned(to_integer(single_top_border_400)
+          border_y_top <= to_unsigned(raster_correction
+                                      +to_integer(single_top_border_400)
                                       +ssy_table_200(4),12);
-          border_y_bottom <= to_unsigned(to_integer(display_height)
+          border_y_bottom <= to_unsigned(raster_correction
+                                         +to_integer(display_height)
                                          -to_integer(single_top_border_400)
                                          -ssy_table_200(4),12);
         end if;
         -- set y_chargen_start based on twentyfourlines
-        y_chargen_start <= to_unsigned(to_integer(single_top_border_400)
+        y_chargen_start <= to_unsigned(raster_correction
+                                       +to_integer(single_top_border_400)
                                        -ssy_table_400(3)
                                        +ssy_table_400(to_integer(vicii_y_smoothscroll)),12);
         chargen_y_scale <= to_unsigned(to_integer(chargen_y_scale_400)-1,8);
@@ -2338,7 +2351,7 @@ begin
                                                     -- @IO:GS $D06E VIC-IV sprite pointer address (bits 23 - 16)
                                                     vicii_sprite_pointer_address(23 downto 16) <= unsigned(fastio_wdata);
                                                   elsif register_number=111 then
-                                                    -- @IO:GS $D06F.6-0 VIC-IV first VIC-II raster line
+                                                    -- @IO:GS $D06F.5-0 VIC-IV first VIC-II raster line
                                                     vicii_first_raster(5 downto 0) <= unsigned(fastio_wdata(5 downto 0));
                                                     -- @IO:GS $D06F.7 VIC-IV NTSC emulation mode (max raster = 262)
                                                     viciv_1080p <= fastio_wdata(6);
