@@ -21,9 +21,9 @@ architecture behavioral of test_sprite is
   signal vgared_in : unsigned (7 downto 0) := x"a0";
   signal vgagreen_in : unsigned (7 downto 0) := x"a0";
   signal vgablue_in : unsigned (7 downto 0) := x"e0";
-  signal vgared_out : unsigned (7 downto 0);
-  signal vgagreen_out : unsigned (7 downto 0);
-  signal vgablue_out : unsigned (7 downto 0);
+  signal vgared_out : unsigned (7 downto 0) := x"FF";
+  signal vgagreen_out : unsigned (7 downto 0) := x"FF";
+  signal vgablue_out : unsigned (7 downto 0) := x"FF";
 
   signal sprite_h640 : std_logic := '0';
   signal sprite_sixteen_colour_mode : std_logic := '0';
@@ -166,6 +166,11 @@ begin
           vsync <= '0';
         end if;
       end if;
+
+      vgared_out <= (others => pixel_out(0));
+      vgagreen_out <= (others => pixel_out(1));
+      vgablue_out <= (others => pixel_out(2));
+      
       report "PIXEL:" & integer'image(pixel_x_640)
         & ":" & integer'image(to_integer(ycounter_in))
         & ":" & to_hstring(vgared_out)

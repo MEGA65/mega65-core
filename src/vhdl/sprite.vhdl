@@ -111,13 +111,13 @@ end sprite;
 
 architecture behavioural of sprite is
 
-  signal sprite_data_offset : integer range 0 to 1023;    
-  signal y_last : integer range 0 to 4095;
-  signal x_last : integer range 0 to 4095;
+  signal sprite_data_offset : integer range 0 to 1023 := 0;    
+  signal y_last : integer range 0 to 4095 := 0; 
+  signal x_last : integer range 0 to 4095 := 0;
   signal x_left : std_logic := '0';
   signal y_top : std_logic := '0';
-  signal y_offset : integer range 0 to 255;
-  signal x_offset : integer range 0 to 64;
+  signal y_offset : integer range 0 to 255 := 0;
+  signal x_offset : integer range 0 to 64 := 0;
   signal x_in_sprite : std_logic := '0';
   signal sprite_drawing : std_logic := '0';
   signal x_expand_toggle : std_logic := '0';
@@ -125,10 +125,10 @@ architecture behavioural of sprite is
   signal sprite_pixel_bits_mono : std_logic_vector(127 downto 0) := (others => '1');
   signal sprite_pixel_bits_mc : std_logic_vector(127 downto 0) := (others => '1');
   signal sprite_pixel_bits : std_logic_vector(127 downto 0) := (others => '1');
-  signal sprite_data_64bits : unsigned(63 downto 0);
+  signal sprite_data_64bits : unsigned(63 downto 0) := (others => '0');
   signal check_collisions : std_logic := '0';
 
-  signal x_in : xposition;
+  signal x_in : xposition := 0;
 
   signal extra_pixel_shift : std_logic_vector(2 downto 0) := "000";
   
