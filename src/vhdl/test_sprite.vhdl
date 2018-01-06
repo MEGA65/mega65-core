@@ -64,7 +64,7 @@ architecture behavioral of test_sprite is
   signal sprite_fg_map_out : std_logic_vector(7 downto 0) := x"00";
   
   signal sprite_enable : std_logic := '0';
-  signal sprite_x : unsigned(9 downto 0);
+  signal sprite_x : unsigned(9 downto 0) := (others => '0');
   signal sprite_y : unsigned(7 downto 0) := x"00";
   signal sprite_colour : unsigned(7 downto 0) := x"00";
   signal sprite_multi0_colour : unsigned(7 downto 0) := x"00";
