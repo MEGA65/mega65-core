@@ -221,7 +221,7 @@ begin  -- behavioural
       else
         sprite_data_offset <= (y_offset * 8);
       end if;
-      if (y_in = sprite_y) and (x_in = 0) then
+      if (y_in = sprite_y) and (y_top = 0) then
         --report "SPRITE: y_top set";
         y_top <= '1';
         y_offset <= 0;
