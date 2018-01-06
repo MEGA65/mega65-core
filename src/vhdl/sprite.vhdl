@@ -221,10 +221,16 @@ begin  -- behavioural
 
       -- Work out when we start drawing the sprite
       -- sprite data offset = y_offset * 3
-      if sprite_extended_width_enable='0' then
-        sprite_data_offset <= (y_offset * 2) + y_offset;
+      if sprite_drawing='0' then
+        sprite_data_offset <= 0;
       else
-        sprite_data_offset <= (y_offset * 8);
+        -- When drawing, we ask for the next row of data, so that we can
+        -- latch it.
+        if sprite_extended_width_enable='0' then
+          sprite_data_offset <= 3 + (y_offset * 2) + y_offset;
+        else
+          sprite_data_offset <= 8 + (y_offset * 8);
+        end if;
       end if;
       if (y_in = sprite_y) then
         if y_top='0' then
