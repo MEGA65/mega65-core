@@ -367,6 +367,11 @@ begin  -- behavioural
             -- cycles per physical raster = ~ 3,000 CPU cycles per sprite pixel
             -- row.
             check_collisions <= '0';
+            if x_offset = 23 then
+              -- Rotate sprite_pixel_bits all the way around again so that it
+              -- is ready for next raster.
+              sprite_pixel_bits <= sprite_pixel_bits(47 downto 0)&sprite_pixel_bits(127 downto 48);              
+            end if;
           else
             report "x_offset <= " & integer'image(x_offset) & " + 1";
             x_offset <= x_offset + 1;
