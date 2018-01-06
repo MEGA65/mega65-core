@@ -47,7 +47,7 @@ architecture behavioral of test_sprite is
   signal pixel_in : unsigned(7 downto 0) := x"00";
   signal alpha_in : unsigned(7 downto 0) := x"00";
   signal is_sprite_in : std_logic := '0';
-  signal sprite_colour_in : unsigned(7 downto 0) := x"00";
+  signal sprite_colour_in : unsigned(7 downto 0) := x"02";
   signal sprite_map_in : std_logic_vector(7 downto 0) := x"00";
   signal sprite_fg_map_in : std_logic_vector(7 downto 0) := x"00";
 
@@ -208,9 +208,15 @@ begin
         end if;
       end if;
 
-      vgared_out <= (others => pixel_out(0));
-      vgagreen_out <= (others => pixel_out(1));
-      vgablue_out <= (others => pixel_out(2));
+      if is_sprite_out='0' then
+        vgared_out <= (others => pixel_out(0));
+        vgagreen_out <= (others => pixel_out(1));
+        vgablue_out <= (others => pixel_out(2));
+      else
+        vgared_out <= (others => sprite_colour_out(0));
+        vgagreen_out <= (others => sprite_colour_out(1));
+        vgablue_out <= (others => sprite_colour_out(2));
+      end if;
       
       report "PIXEL:" & integer'image(pixel_x_640)
         & ":" & integer'image(to_integer(ycounter_in))
