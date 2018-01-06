@@ -21,16 +21,13 @@ architecture behavioral of test_sprite is
   signal vgared_in : unsigned (7 downto 0) := x"a0";
   signal vgagreen_in : unsigned (7 downto 0) := x"a0";
   signal vgablue_in : unsigned (7 downto 0) := x"e0";
-  signal vgared_out : unsigned (7 downto 0) := x"FF";
-  signal vgagreen_out : unsigned (7 downto 0) := x"FF";
-  signal vgablue_out : unsigned (7 downto 0) := x"FF";
 
   signal sprite_h640 : std_logic := '0';
-  signal sprite_sixteen_colour_mode : std_logic := '0';
+  signal sprite_sixteen_colour_mode : std_logic := '1';
   signal sprite_horizontal_tile_enable : std_logic := '0';
   signal sprite_bitplane_enable : std_logic := '0';
   signal sprite_extended_height_enable : std_logic := '0';
-  signal sprite_extended_width_enable : std_logic := '0';
+  signal sprite_extended_width_enable : std_logic := '1';
   signal sprite_extended_height_size : unsigned(7 downto 0) := x"00";  
   signal sprite_datavalid_in : std_logic := '0';
   signal sprite_bytenumber_in : spritebytenumber := 0;
@@ -175,6 +172,10 @@ begin
   end process;
   
   process
+    variable vgared_out : unsigned (7 downto 0) := x"FF";
+    variable vgagreen_out : unsigned (7 downto 0) := x"FF";
+    variable vgablue_out : unsigned (7 downto 0) := x"FF";
+    variable colour : unsigned(7 downto 0);
   begin    
     for i in 1 to 40000000 loop
       pixelclock <= '1';
@@ -209,23 +210,38 @@ begin
       end if;
 
       if is_sprite_out='0' then
-        vgared_out <= (others => pixel_out(0));
-        vgagreen_out <= (others => pixel_out(1));
-        vgablue_out <= (others => pixel_out(2));
+        colour := pixel_out;
       else
-        vgared_out <= (others => sprite_colour_out(0));
-        vgagreen_out <= (others => sprite_colour_out(1));
-        vgablue_out <= (others => sprite_colour_out(2));
+        colour := sprite_colour_out;
+      end if;
+      if colour(0)/='0' then
+        vgared_out := x"FF";
+      else
+        vgared_out := x"00";
+      end if;
+      if colour(1)/='0' then
+        vgagreen_out := x"FF";
+      else
+        vgagreen_out := x"00";
+      end if;
+      if colour(2)/='0' then
+        vgablue_out := x"FF";
+      else
+        vgablue_out := x"00";
+      end if;
+      if colour(3)/='0' then
+        vgablue_out(5 downto 0) := not vgablue_out(5 downto 0);
       end if;
       
       report "PIXEL (" & integer'image(pixel_x_640)
         & "," & integer'image(to_integer(ycounter_in))
         & ") = $"
-        & to_hstring(sprite_colour_out)
+        & to_hstring(colour)
         & ", RGBA = $00"
         & to_hstring(vgared_out)
         & to_hstring(vgagreen_out)
-        & to_hstring(vgablue_out);
+        & to_hstring(vgablue_out)
+        & " (is_sprite_out=" & std_logic'image(is_sprite_out) & ")";
     end loop;  -- i
     assert false report "End of simulation" severity note;
   end process;
