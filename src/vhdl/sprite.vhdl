@@ -230,7 +230,7 @@ begin  -- behavioural
         if (sprite_data_offset = 0) then
           report "drawing row fetch from row 1 + " & integer'image(y_offset);
         end if;
-        if sprite_extended_width_enable='0' then
+        if (sprite_extended_width_enable='0') and (sprite_sixteen_colour_mode='0') then
           sprite_data_offset <= 3 + (y_offset * 2) + y_offset;
         else
           sprite_data_offset <= 8 + (y_offset * 8);
