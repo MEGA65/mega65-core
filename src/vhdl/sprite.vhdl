@@ -237,6 +237,15 @@ begin  -- behavioural
           report "SPRITE: y_top set";
         end if;
         y_top <= '1';
+        if y_last /= y_in then
+          if sprite_is_multicolour = '1' then
+            report "SPRITE: using multi-colour pixel vector";
+            sprite_pixel_bits <= sprite_pixel_bits_mc;
+          else
+            report "SPRITE: using mono pixel vector";
+            sprite_pixel_bits <= sprite_pixel_bits_mono;
+          end if;            
+        end if;
         if y_top='0' then
           y_offset <= 0;
           y_expand_toggle <= '0';
@@ -270,15 +279,8 @@ begin  -- behavioural
         x_expand_toggle <= '0';
         report "SPRITE: drawing row " & integer'image(y_offset)
           & " of sprite " & integer'image(sprite_number)
-          & " using data bits %" & to_string(std_logic_vector(sprite_data_64bits));
+          & " using data bits %" & to_string(std_logic_vector(sprite_pixel_bits));
         x_offset <= 0;
-        if sprite_is_multicolour = '1' then
-          report "SPRITE: using multi-colour pixel vector";
-          sprite_pixel_bits <= sprite_pixel_bits_mc;
-        else
-          report "SPRITE: using mono pixel vector";
-          sprite_pixel_bits <= sprite_pixel_bits_mono;
-        end if;
       else
 --        report "SPRITE: not drawing a row: xcompare=" & boolean'image(x_in=sprite_x)
 --          & ", sprite_x=" & integer'image(to_integer(sprite_x));
@@ -303,9 +305,24 @@ begin  -- behavioural
         end if;
 
         -- Y position has advanced while drawing a sprite
-        if sprite_drawing = '1' then
-          if (y_expand_toggle = '1') or (sprite_stretch_y='0') then
+        if (sprite_drawing = '1') or (y_top='1') then
+          if ((y_expand_toggle = '1') or (sprite_stretch_y='0')) then
             y_offset <= y_offset + 1;
+            report "drawing row increasing"
+              & ": y_last=" & integer'image(y_last)
+              & ", y_in=" & integer'image(y_in)
+              & ", y_expand_toggle=" & std_logic'image(y_expand_toggle)
+              & ", sprite_stretch_y=" & std_logic'image(sprite_stretch_y)
+              & ", y_top=" & std_logic'image(y_top)
+              & ", old y_offset=" & integer'image(y_offset);
+
+            if sprite_is_multicolour = '1' then
+              report "SPRITE: using multi-colour pixel vector";
+              sprite_pixel_bits <= sprite_pixel_bits_mc;
+            else
+              report "SPRITE: using mono pixel vector";
+              sprite_pixel_bits <= sprite_pixel_bits_mono;
+            end if;            
           end if;
           y_expand_toggle <= not y_expand_toggle;
         else
