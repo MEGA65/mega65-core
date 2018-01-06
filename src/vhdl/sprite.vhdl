@@ -223,9 +223,15 @@ begin  -- behavioural
       -- sprite data offset = y_offset * 3
       if sprite_drawing='0' then
         sprite_data_offset <= 0;
+        if (sprite_data_offset /= 0) then
+          report "drawing row fetch from row 0 (hard wire)";
+        end if;
       else
         -- When drawing, we ask for the next row of data, so that we can
         -- latch it.
+        if (sprite_data_offset = 0) then
+          report "drawing row fetch from row 1 + " & integer'image(y_offset);
+        end if;
         if sprite_extended_width_enable='0' then
           sprite_data_offset <= 3 + (y_offset * 2) + y_offset;
         else
@@ -286,10 +292,12 @@ begin  -- behavioural
 --          & ", sprite_x=" & integer'image(to_integer(sprite_x));
         x_left <= '0';
       end if;
-      if x_left = '1' and y_top = '1' and sprite_enable = '1' then
-        report "SPRITE: sprite start hit and enabled: drawing xoffset="
-          & integer'image(x_offset);
-        sprite_drawing <= '1';
+      if y_top = '1' and sprite_enable = '1' then
+        if sprite_drawing='0' then
+          report "SPRITE: sprite start hit and enabled: drawing xoffset="
+            & integer'image(x_offset);
+          sprite_drawing <= '1';
+        end if;
       end if;
       -- Advance Y position of sprite
       if y_last /= y_in then
