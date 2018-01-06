@@ -73,7 +73,8 @@ entity vicii_sprites is
     signal sprite_extended_height_enables : in std_logic_vector(7 downto 0);
     signal sprite_extended_height_size : in unsigned(7 downto 0);
     signal sprite_extended_width_enables : in std_logic_vector(7 downto 0);
-
+    signal sprite_sixteen_colour_enables : in std_logic_vector(7 downto 0);
+    
     -- which base offset for the VIC-II sprite data are we showing this raster line?
     -- VIC-IV clocks sprite_number_for_data and each sprite replaces
     -- sprite_data_offset with the appropriate value if the sprite number is itself
@@ -332,6 +333,7 @@ begin
              sprite_extended_width_enable => sprite_extended_width_enables(7),
              sprite_horizontal_tile_enable => sprite_horizontal_tile_enables(7),
              sprite_bitplane_enable => sprite_bitplane_enables(7),
+             sprite_sixteen_colour_mode => sprite_sixteen_colour_enables(7),
 
              -- pixel data
              is_foreground_in => is_foreground_in,
@@ -399,6 +401,7 @@ begin
              sprite_extended_width_enable => sprite_extended_width_enables(6),
              sprite_horizontal_tile_enable => sprite_horizontal_tile_enables(6),
              sprite_bitplane_enable => sprite_bitplane_enables(6),
+             sprite_sixteen_colour_mode => sprite_sixteen_colour_enables(6),
 
              -- pixel data
              is_foreground_in => is_foreground_7_6,
@@ -467,6 +470,7 @@ begin
              sprite_extended_width_enable => sprite_extended_width_enables(5),
              sprite_horizontal_tile_enable => sprite_horizontal_tile_enables(5),
              sprite_bitplane_enable => sprite_bitplane_enables(5),
+             sprite_sixteen_colour_mode => sprite_sixteen_colour_enables(5),
 
              -- pixel data
              is_foreground_in => is_foreground_6_5,
@@ -529,6 +533,7 @@ begin
              sprite_extended_width_enable => sprite_extended_width_enables(4),
              sprite_horizontal_tile_enable => sprite_horizontal_tile_enables(4),
              sprite_bitplane_enable => sprite_bitplane_enables(4),
+             sprite_sixteen_colour_mode => sprite_sixteen_colour_enables(4),
 
              -- Sprite offset data chain for VIC-IV
              sprite_number_for_data_in => sprite_number_for_data_5_4,
@@ -597,6 +602,7 @@ begin
              sprite_extended_width_enable => sprite_extended_width_enables(3),
              sprite_horizontal_tile_enable => sprite_horizontal_tile_enables(3),
              sprite_bitplane_enable => sprite_bitplane_enables(3),
+             sprite_sixteen_colour_mode => sprite_sixteen_colour_enables(3),
 
              -- Sprite offset data chain for VIC-IV
              sprite_number_for_data_in => sprite_number_for_data_4_3,
@@ -665,6 +671,7 @@ begin
              sprite_extended_width_enable => sprite_extended_width_enables(2),
              sprite_horizontal_tile_enable => sprite_horizontal_tile_enables(2),
              sprite_bitplane_enable => sprite_bitplane_enables(2),
+             sprite_sixteen_colour_mode => sprite_sixteen_colour_enables(2),
              
              -- Sprite offset data chain for VIC-IV
              sprite_number_for_data_in => sprite_number_for_data_3_2,
@@ -733,6 +740,7 @@ begin
              sprite_extended_width_enable => sprite_extended_width_enables(1),
              sprite_horizontal_tile_enable => sprite_horizontal_tile_enables(1),
              sprite_bitplane_enable => sprite_bitplane_enables(1),
+             sprite_sixteen_colour_mode => sprite_sixteen_colour_enables(1),
              
              -- Sprite offset data chain for VIC-IV
              sprite_number_for_data_in => sprite_number_for_data_2_1,
@@ -801,6 +809,7 @@ begin
              sprite_extended_width_enable => sprite_extended_width_enables(0),
              sprite_horizontal_tile_enable => sprite_horizontal_tile_enables(0),
              sprite_bitplane_enable => sprite_bitplane_enables(0),
+             sprite_sixteen_colour_mode => sprite_sixteen_colour_enables(0),
 
              -- Sprite offset data chain for VIC-IV
              sprite_number_for_data_in => sprite_number_for_data_1_0,

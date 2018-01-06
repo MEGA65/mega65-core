@@ -35,6 +35,8 @@ entity sprite is
     signal sprite_number : in spritenumber;
 
     signal sprite_h640 : in std_logic;
+
+    signal sprite_sixteen_colour_mode : in std_logic;
     
     signal sprite_horizontal_tile_enable : in std_logic;
     signal sprite_bitplane_enable : in std_logic;
@@ -103,7 +105,7 @@ entity sprite is
     signal sprite_stretch_y : in std_logic;
     signal sprite_priority : in std_logic
 
-);
+    );
 
 end sprite;
 
@@ -127,6 +129,8 @@ architecture behavioural of sprite is
   signal check_collisions : std_logic := '0';
 
   signal x_in : xposition;
+
+  signal extra_pixel_shift : std_logic_vector(2 downto 0) := "000";
   
 begin  -- behavioural
   
@@ -136,6 +140,7 @@ begin  -- behavioural
   -- outputs: colour, is_sprite_out
   main: process (pixelclock)
     variable sprite_number_mod_4 : integer range 0 to 7 := (sprite_number mod 4) * 2;
+    variable pixel_16 : std_logic_vector(3 downto 0);
   begin  -- process main
     if sprite_h640='1' then
       x_in <= x640_in;
@@ -278,9 +283,9 @@ begin  -- behavioural
       end if;
       if ((sprite_extended_height_enable = '0')
           and (y_offset = 21))
-          or
-          ((sprite_extended_height_enable = '1')
-           and (y_offset = sprite_extended_height_size)) then
+        or
+        ((sprite_extended_height_enable = '1')
+         and (y_offset = sprite_extended_height_size)) then
         report "SPRITE: end of sprite y reached. no longer drawing";        
         sprite_drawing <= '0';      
         y_offset <= 0;
@@ -294,8 +299,10 @@ begin  -- behavioural
         if (x_expand_toggle = '1') or (sprite_stretch_x/='1') then
           if ((x_offset /= 23) and (sprite_extended_width_enable='0'))
             or ((x_offset /= 63) and (sprite_extended_width_enable='1'))
+            -- 16 colour sprites are always 16 pixels wide
+            or ((x_offset /= 15) and (sprite_sixteen_colour_mode='1'))
             or (sprite_horizontal_tile_enable='1')
-              then
+          then
             x_offset <= x_offset + 1;
           else
             report "SPRITE: right edge of sprite encountered. stopping drawing.";
@@ -314,11 +321,21 @@ begin  -- behavioural
             to_string(sprite_pixel_bits)
             &")";
           sprite_pixel_bits <= sprite_pixel_bits(125 downto 0)&sprite_pixel_bits(127 downto 126);
+          -- We shift four pixels at a time in 16 colour sprite mode
+          if sprite_sixteen_colour_mode = '1' then
+            extra_pixel_shift <= "111";
+          else
+            extra_pixel_shift <= "000";
+          end if;
         end if;
         report "SPRITE: toggling x_expand_toggle";
         x_expand_toggle <= not x_expand_toggle;
-      end if;      
-      
+      end if;
+      -- Do extra pixel shifts for 16-colour sprite mode
+      if extra_pixel_shift /= "000" then
+        sprite_pixel_bits <= sprite_pixel_bits(125 downto 0)&sprite_pixel_bits(127 downto 126);
+        extra_pixel_shift <= '0'&extra_pixel_shift(2 downto 1);
+      end if;
       
       -- decide whether we are visible or not, and update sprite colour
       -- accordingly.
@@ -327,21 +344,37 @@ begin  -- behavioural
       -- XXX - sprites draw on top of the border?
       -- check for sprite/foreground collision
       sprite_fg_map_out <= sprite_fg_map_in;
-      if (x_in_sprite='1') and (border_in='0') and (is_foreground_in='1') and
-        (sprite_pixel_bits(127 downto 126) /= "00") then
-        -- Sprite and foreground collision
-        if check_collisions='1' then
-          sprite_fg_map_out(sprite_number) <= '1';
+      if (x_in_sprite='1') and (border_in='0') and (is_foreground_in='1') then
+        if (sprite_sixteen_colour_mode='0') and (sprite_pixel_bits(127 downto 126) /= "00") then
+          -- Sprite and foreground collision
+          if check_collisions='1' then
+            sprite_fg_map_out(sprite_number) <= '1';
+          end if;
+        end if;
+        if (sprite_sixteen_colour_mode='1')
+          and ((sprite_pixel_bits(127)
+                or sprite_pixel_bits(125)
+                or sprite_pixel_bits(123)
+                or sprite_pixel_bits(121)) /= '0') then
+          -- Sprite and foreground collision
+          if check_collisions='1' then
+            sprite_fg_map_out(sprite_number) <= '1';
+          end if;
         end if;
       end if;
       
       -- Stop drawing sprites in right fly-back, to prevent glitches with
       -- horizontally tiled sprites.
-      if x_in > 416 then
+      -- (but allow non-tiled sprites to wrap around into left border, as on the
+      -- C64.)
+      if (sprite_h640='0') and (x_in > 416) and (sprite_horizontal_tile_enable='1') then
+        x_in_sprite <= '0';
+      end if;
+      if (sprite_h640='1') and (x_in > 832) and (sprite_horizontal_tile_enable='1') then
         x_in_sprite <= '0';
       end if;
       
-      if (sprite_bitplane_enable='1') and (x_in_sprite='1') then
+      if (sprite_bitplane_enable='1') and (sprite_sixteen_colour_mode='0') and (x_in_sprite='1') then
         -- Bitmap mode of sprites modifies the palette entry of the
         -- sprite/graphics instead of drawing a sprite. Thus multiple
         -- sprites can be combined to get more colours, like on the Amiga,
@@ -360,7 +393,7 @@ begin  -- behavioural
         else
           for bit in 0 to 7 loop
             if (bit /= sprite_number_mod_4)
-               and (bit /= (sprite_number_mod_4 +1)) then
+              and (bit /= (sprite_number_mod_4 +1)) then
               sprite_colour_out(bit) <= sprite_colour_in(bit);
               pixel_out(bit) <= pixel_in(bit);
             end if;
@@ -374,37 +407,58 @@ begin  -- behavioural
         -- Non-bitplane sprites
         pixel_out <= pixel_in;
         if ((is_foreground_in='0') or (sprite_priority='0')) and (x_in_sprite='1') then
-          report "SPRITE: Painting pixel using bits " & to_string(sprite_pixel_bits(127 downto 126));
-          case sprite_pixel_bits(127 downto 126) is
-            when "01" =>
-              -- Set this sprite in the collision map        
+          if sprite_sixteen_colour_mode='1' then
+            pixel_16(3) := sprite_pixel_bits(127);
+            pixel_16(2) := sprite_pixel_bits(125);
+            pixel_16(1) := sprite_pixel_bits(123);
+            pixel_16(0) := sprite_pixel_bits(121);
+            report "SPRITE: Painting 16-colour pixel using bits "
+              & to_string(pixel_16);
+            if pixel_16 /= "0000" then
               sprite_map_out <= sprite_map_in;
               if check_collisions='1' then
                 sprite_map_out(sprite_number) <= '1';
               end if;
               is_sprite_out <= not border_in;
-              sprite_colour_out <= sprite_multi0_colour;
-            when "10" =>
-              -- Set this sprite in the collision map        
-              sprite_map_out <= sprite_map_in;
-              if check_collisions='1' then
-                sprite_map_out(sprite_number) <= '1';
-              end if;
-              is_sprite_out <= not border_in;
-              sprite_colour_out <= sprite_colour;
-            when "11" =>
-              is_sprite_out <= not border_in;
-              sprite_colour_out <= sprite_multi1_colour;
-              -- Set this sprite in the collision map        
-              sprite_map_out <= sprite_map_in;
-              if check_collisions='1' then
-                sprite_map_out(sprite_number) <= '1';
-              end if;
-            when others =>
-              -- background shows through
-              is_sprite_out <= is_sprite_in;
-              sprite_colour_out <= sprite_colour_in;
-          end case;
+              sprite_colour_out(3 downto 0) <= unsigned(pixel_16);
+              -- Setting bitplane mode and 16-colour mode allows setting the
+              -- upper bits of the sprite colour
+              sprite_colour_out(6 downto 4) <= to_unsigned(sprite_number,3);
+              sprite_colour_out(7) <= sprite_bitplane_enable;
+            end if;
+          else
+            report "SPRITE: Painting pixel using bits " & to_string(sprite_pixel_bits(127 downto 126));        
+            case sprite_pixel_bits(127 downto 126) is
+              when "01" =>
+                -- Set this sprite in the collision map        
+                sprite_map_out <= sprite_map_in;
+                if check_collisions='1' then
+                  sprite_map_out(sprite_number) <= '1';
+                end if;
+                is_sprite_out <= not border_in;
+                sprite_colour_out <= sprite_multi0_colour;
+              when "10" =>
+                -- Set this sprite in the collision map        
+                sprite_map_out <= sprite_map_in;
+                if check_collisions='1' then
+                  sprite_map_out(sprite_number) <= '1';
+                end if;
+                is_sprite_out <= not border_in;
+                sprite_colour_out <= sprite_colour;
+              when "11" =>
+                is_sprite_out <= not border_in;
+                sprite_colour_out <= sprite_multi1_colour;
+                -- Set this sprite in the collision map        
+                sprite_map_out <= sprite_map_in;
+                if check_collisions='1' then
+                  sprite_map_out(sprite_number) <= '1';
+                end if;
+              when others =>
+                -- background shows through
+                is_sprite_out <= is_sprite_in;
+                sprite_colour_out <= sprite_colour_in;
+            end case;
+          end if;
         else
           is_sprite_out <= is_sprite_in;
           sprite_colour_out <= sprite_colour_in;

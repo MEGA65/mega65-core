@@ -508,6 +508,7 @@ architecture Behavioral of viciv is
   signal sprite_extended_width_enables : std_logic_vector(7 downto 0) := "00000000";
   signal sprite_horizontal_tile_enables : std_logic_vector(7 downto 0) := "00000000";
   signal sprite_bitplane_enables : std_logic_vector(7 downto 0) := "00000000";
+  signal sprite_sixteen_colour_enables : std_logic_vector(7 downto 0) := "00000000";
 
   -- VIC-II sprites are in a separate module as a chain.  To avoid the need to
   -- route to all sprites from the main VIC-IV section, they are arranged as a
@@ -1046,6 +1047,7 @@ begin
               sprite_extended_width_enables => sprite_extended_width_enables,
               sprite_extended_height_enables => sprite_extended_height_enables,
               sprite_extended_height_size => sprite_extended_height_size,
+              sprite_sixteen_colour_enables => sprite_sixteen_colour_enables,
 
               sprite_number_for_data_in => sprite_number_for_data_tx,
               sprite_data_offset_out => sprite_data_offset_rx,
@@ -1695,8 +1697,7 @@ begin
         elsif register_number=106 then
           fastio_rdata <= std_logic_vector(character_set_address(23 downto 16));
         elsif register_number=107 then
-          fastio_rdata(7 downto 4) <= x"0";
-          fastio_rdata(3 downto 0) <= std_logic_vector(character_set_address(27 downto 24));
+          fastio_rdata <= std_logic_vector(sprite_sixteen_colour_enables);
         elsif register_number=108 then
           fastio_rdata <= std_logic_vector(vicii_sprite_pointer_address(7 downto 0));
         elsif register_number=109 then
@@ -2325,8 +2326,8 @@ begin
                                                     -- @IO:GS $D06A VIC-IV character set precise base address (bits 23 - 16)
                                                     character_set_address(23 downto 16) <= unsigned(fastio_wdata);
                                                   elsif register_number=107 then
-                                                    -- @IO:GS $D06B VIC-IV character set precise base address (bits 31 - 24)
-                                                    character_set_address(27 downto 24) <= unsigned(fastio_wdata(3 downto 0));
+                                                    -- @IO:GS $D06B VIC-IV sprite 16-colour mode enables
+                                                    sprite_sixteen_colour_enables <= fastio_wdata;
                                                   elsif register_number=108 then
                                                     -- @IO:GS $D06C VIC-IV sprite pointer address (bits 7 - 0)
                                                     vicii_sprite_pointer_address(7 downto 0) <= unsigned(fastio_wdata);
