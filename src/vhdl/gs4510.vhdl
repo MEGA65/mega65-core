@@ -300,7 +300,7 @@ end component;
   signal immediate_monitor_char_busy : std_logic := '0';
 
   -- For instruction-accurate CPU timing at 1MHz and 3.5MHz
-  constant pal1mhz_times_65536 : integer := 64569;
+  constant pal1mhz_times_65536 : integer := 64593;
   constant pal2mhz_times_65536 : integer := 64569 * 2;
   constant pal3point5mhz_times_65536 : integer := 225992;
   constant phi_fraction_01pal : unsigned(16 downto 0) :=
