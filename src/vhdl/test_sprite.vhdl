@@ -71,8 +71,8 @@ architecture behavioral of test_sprite is
   signal sprite_multi0_colour : unsigned(7 downto 0) := x"02";
   signal sprite_multi1_colour : unsigned(7 downto 0) := x"02";
   signal sprite_is_multicolour : std_logic := '0';
-  signal sprite_stretch_x : std_logic := '0';
-  signal sprite_stretch_y : std_logic := '0';
+  signal sprite_stretch_x : std_logic := '1';
+  signal sprite_stretch_y : std_logic := '1';
   signal sprite_priority : std_logic := '0';
 
   signal last_sprite_data_offset_out : spritedatabytenumber := 0;
@@ -197,9 +197,9 @@ begin
       else
         pixel_x_640 <= 0;
         hsync <= '0';
-        if ycounter_in < 485 then
+        if ycounter_in < 160 then
           ycounter_in <= ycounter_in + 1;
-          if ycounter_in = 479 then
+          if ycounter_in = 149 then
             vsync <= '1';
           end if;
         else
@@ -218,11 +218,14 @@ begin
         vgablue_out <= (others => sprite_colour_out(2));
       end if;
       
-      report "PIXEL:" & integer'image(pixel_x_640)
-        & ":" & integer'image(to_integer(ycounter_in))
-        & ":" & to_hstring(vgared_out)
-        & ":" & to_hstring(vgagreen_out)
-        & ":" & to_hstring(vgablue_out);
+      report "PIXEL (" & integer'image(pixel_x_640)
+        & "," & integer'image(to_integer(ycounter_in))
+        & ") = $"
+        & to_hstring(sprite_colour_out)
+        & ", RGBA = $00"
+        & to_hstring(vgared_out)
+        & to_hstring(vgagreen_out)
+        & to_hstring(vgablue_out);
     end loop;  -- i
     assert false report "End of simulation" severity note;
   end process;
