@@ -6,8 +6,8 @@
 #define PNG_DEBUG 3
 #include <png.h>
 
-#define MAXX 800
-#define MAXY 600
+#define MAXX 250
+#define MAXY 150
 unsigned char frame[MAXY][MAXX*4];
 
 int maxx=0;
@@ -72,13 +72,13 @@ int main(int argc,char **argv)
       }
             if (x==20&&(maxy>1)) {
 	      // Save image progressively as each line written
-	      printf("  Got raster %d\n",y-1);
-	      count++;
-	      if (count==160) {
-		printf("  Writing raster %d\n",y-1);
-		write_image(image_number);
-		count=0;
-	      }
+	      //	      printf("  Got raster %d\n",y-1);
+	      //	      count++;
+	      //	      if (count==160) {
+	      //	printf("  Writing raster %d\n",y-1);
+	      //	write_image(image_number);
+	      //	count=0;
+	      //      }
 	    }
     }
     else {
@@ -126,13 +126,13 @@ void write_image(int image_number)
   png_write_info(png,info);
 
   for(y=0;y<maxy;y++) {
-    //    printf("  writing y=%d\n",y);
+    printf("  writing y=%d\n",y);
     fflush(stdout);
     png_write_row(png,frame[y]);
   }
   unsigned char empty_row[MAXX*4];
   bzero(empty_row,sizeof(empty_row));
-  for(;y<1024;y++) {
+  for(;y<MAXY;y++) {
     png_write_row(png,empty_row);
   }
 
