@@ -273,6 +273,8 @@ begin  -- behavioural
           -- if it is just a VIC-II stretch of the above one, since it could collide
           -- with a non-expanded sprite that starts here.
           check_collisions <= '1';
+        else
+          check_collisions <= '0';
         end if;
 
         -- Y position has advanced while drawing a sprite
