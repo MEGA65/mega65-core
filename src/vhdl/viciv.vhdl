@@ -244,7 +244,7 @@ architecture Behavioral of viciv is
   signal vicii_max_raster : unsigned(8 downto 0) := pal_max_raster;
   -- Setting this value positive causes the chargen and screen to move down the
   -- screen relative to the VIC-II raster counter.
-  constant raster_correction : integer := 2;
+  constant raster_correction : integer := 4;
   
   -- Calculated dynamically
   signal vsync_start : unsigned(11 downto 0) := to_unsigned(0,12);
