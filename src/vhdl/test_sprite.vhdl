@@ -37,6 +37,7 @@ architecture behavioral of test_sprite is
   signal sprite_spritenumber_in : spritenumber := 0;
   signal sprite_data_in : unsigned(7 downto 0) := x"00";
   signal sprite_data_offset_in : spritedatabytenumber := 0;    
+  signal sprite_data_offset_out : spritedatabytenumber := 0;    
   signal is_foreground_in : std_logic := '0';
   signal is_background_in : std_logic := '0';
   signal x320_in : xposition := 0;
@@ -73,6 +74,10 @@ architecture behavioral of test_sprite is
   signal sprite_stretch_x : std_logic := '0';
   signal sprite_stretch_y : std_logic := '0';
   signal sprite_priority : std_logic := '0';
+
+  signal last_sprite_data_offset_out : spritedatabytenumber := 0;
+  signal byte_number : integer:= 0;
+  signal sprite_fetching : std_logic := '0';
   
 begin
 
@@ -94,6 +99,7 @@ begin
       sprite_spritenumber_in => sprite_spritenumber_in,
       sprite_data_in => sprite_data_in,
       sprite_data_offset_in => sprite_data_offset_in,
+      sprite_data_offset_out => sprite_data_offset_out,
       is_foreground_in => is_foreground_in,
       is_background_in => is_background_in,
       x320_in => x320_in,
@@ -134,12 +140,37 @@ begin
       );
 
   process(pixelclock)
+
   begin
     if rising_edge(pixelclock) then
       x640_in <= pixel_x_640;
       x320_in <= pixel_x_640 /2;
       -- Two physical rasters per raster
       y_in <= to_integer(ycounter_in /2);
+
+      if y_in /= to_integer(ycounter_in /2) then
+        sprite_fetching <= '1';
+        byte_number <= 0;
+      end if;
+      
+      last_sprite_data_offset_out <= sprite_data_offset_out;
+      if last_sprite_data_offset_out /= sprite_data_offset_out then
+        report "sprite_data_offset_out = " & integer'image(sprite_data_offset_out);
+      end if;
+      sprite_datavalid_in <= sprite_fetching;
+      if sprite_fetching = '1' then
+        sprite_bytenumber_in <= byte_number;
+        if byte_number < 7 then
+          byte_number <= byte_number + 1;
+        else
+          byte_number <= 0;
+          sprite_fetching <= '0';
+        end if;
+        sprite_data_in <= to_unsigned(128 + (sprite_data_offset_out/3),8);
+      else
+        sprite_data_in <= x"FF";
+      end if;
+      
     end if;
   end process;
   
