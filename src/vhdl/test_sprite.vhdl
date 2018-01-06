@@ -71,8 +71,8 @@ architecture behavioral of test_sprite is
   signal sprite_multi0_colour : unsigned(7 downto 0) := x"02";
   signal sprite_multi1_colour : unsigned(7 downto 0) := x"02";
   signal sprite_is_multicolour : std_logic := '0';
-  signal sprite_stretch_x : std_logic := '1';
-  signal sprite_stretch_y : std_logic := '1';
+  signal sprite_stretch_x : std_logic := '0';
+  signal sprite_stretch_y : std_logic := '0';
   signal sprite_priority : std_logic := '0';
 
   signal last_sprite_data_offset_out : spritedatabytenumber := 0;
@@ -148,7 +148,7 @@ begin
       -- Two physical rasters per raster
       y_in <= to_integer(ycounter_in /2);
 
-      if y_in /= to_integer(ycounter_in /2) then
+      if pixel_x_640 = 0 and x640_in /= 0 then
         sprite_fetching <= '1';
         byte_number <= 0;
       end if;
