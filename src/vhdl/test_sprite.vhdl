@@ -138,7 +138,8 @@ begin
     if rising_edge(pixelclock) then
       x640_in <= pixel_x_640;
       x320_in <= pixel_x_640 /2;
-      y_in <= to_integer(ycounter_in);
+      -- Two physical rasters per raster
+      y_in <= to_integer(ycounter_in /2);
     end if;
   end process;
   
