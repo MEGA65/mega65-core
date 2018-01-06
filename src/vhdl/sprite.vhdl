@@ -221,7 +221,7 @@ begin  -- behavioural
       else
         sprite_data_offset <= (y_offset * 8);
       end if;
-      if (y_in = sprite_y) and (y_top = 0) then
+      if (y_in = sprite_y) and (y_top = '0') then
         --report "SPRITE: y_top set";
         y_top <= '1';
         y_offset <= 0;
@@ -264,27 +264,28 @@ begin  -- behavioural
         y_last <= y_in;
         x_in_sprite <= '0';
         if sprite_drawing = '1' then
-          -- Y position has advanced while drawing a sprite
-          if ((sprite_extended_height_enable = '0')
-              and (y_offset /= 21))
-            or
-            ((sprite_extended_height_enable = '1')
-             and (y_offset /= sprite_extended_height_size)) then
-            if (y_expand_toggle = '1') or (sprite_stretch_y='0') then
-              y_offset <= y_offset + 1;
-            end if;
-          else
-            report "SPRITE: end of sprite y reached. no longer drawing";        
-            sprite_drawing <= '0';      
-            y_offset <= 0;
-          end if;
-          y_expand_toggle <= not y_expand_toggle;
           -- Check collisions whenever we start a new logical sprite pixel row, even
           -- if it is just a VIC-II stretch of the above one, since it could collide
           -- with a non-expanded sprite that starts here.
           check_collisions <= '1';
         end if;
+
+        -- Y position has advanced while drawing a sprite
+        if (y_expand_toggle = '1') or (sprite_stretch_y='0') then
+          y_offset <= y_offset + 1;
+        end if;
+        y_expand_toggle <= not y_expand_toggle;
       end if;
+      if ((sprite_extended_height_enable = '0')
+          and (y_offset = 21))
+          or
+          ((sprite_extended_height_enable = '1')
+           and (y_offset = sprite_extended_height_size)) then
+        report "SPRITE: end of sprite y reached. no longer drawing";        
+        sprite_drawing <= '0';      
+        y_offset <= 0;
+      end if;
+      
       -- Advance X position of sprite
       if (x_last /= x_in) and (x_in_sprite = '1') then
         -- X position has advanced while drawing a sprite
