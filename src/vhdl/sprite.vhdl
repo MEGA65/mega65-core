@@ -130,8 +130,6 @@ architecture behavioural of sprite is
 
   signal x_in : xposition := 0;
 
-  signal extra_pixel_shift : std_logic_vector(2 downto 0) := "000";
-  
 begin  -- behavioural
   
   -- purpose: sprite drawing
@@ -352,14 +350,13 @@ begin  -- behavioural
         -- X position has advanced while drawing a sprite
         report "SPRITE: drawing next pixel";
         if (x_expand_toggle = '1') or (sprite_stretch_x/='1') then
-          if ((x_offset /= 23) and (sprite_extended_width_enable='0'))
-            or ((x_offset /= 63) and (sprite_extended_width_enable='1'))
-            -- 16 colour sprites are always 16 pixels wide
-            or ((x_offset /= 15) and (sprite_sixteen_colour_mode='1'))
-            or (sprite_horizontal_tile_enable='1')
+          if (
+              ((x_offset = 23) and (sprite_extended_width_enable='0'))
+              or ((x_offset = 63) and (sprite_extended_width_enable='1'))
+              -- 16 colour sprites are always 16 pixels wide
+              or ((x_offset = 15) and (sprite_sixteen_colour_mode='1')))            
+            and (sprite_horizontal_tile_enable='0')
           then
-            x_offset <= x_offset + 1;
-          else
             report "SPRITE: right edge of sprite encountered. stopping drawing.";
             x_in_sprite <= '0';
             -- Only check collisions on first raster of each sprite pixel
@@ -370,26 +367,22 @@ begin  -- behavioural
             -- cycles per physical raster = ~ 3,000 CPU cycles per sprite pixel
             -- row.
             check_collisions <= '0';
+          else
+            report "x_offset <= " & integer'image(x_offset) & " + 1";
+            x_offset <= x_offset + 1;
           end if;
           -- shift along to next pixel
           report "SPRITE: shifting pixel vector along (was "&
             to_string(sprite_pixel_bits)
             &")";
-          sprite_pixel_bits <= sprite_pixel_bits(125 downto 0)&sprite_pixel_bits(127 downto 126);
-          -- We shift four pixels at a time in 16 colour sprite mode
           if sprite_sixteen_colour_mode = '1' then
-            extra_pixel_shift <= "111";
+            sprite_pixel_bits <= sprite_pixel_bits(119 downto 0)&sprite_pixel_bits(127 downto 120);
           else
-            extra_pixel_shift <= "000";
+            sprite_pixel_bits <= sprite_pixel_bits(125 downto 0)&sprite_pixel_bits(127 downto 126);            
           end if;
         end if;
         report "SPRITE: toggling x_expand_toggle";
         x_expand_toggle <= not x_expand_toggle;
-      end if;
-      -- Do extra pixel shifts for 16-colour sprite mode
-      if extra_pixel_shift /= "000" then
-        sprite_pixel_bits <= sprite_pixel_bits(125 downto 0)&sprite_pixel_bits(127 downto 126);
-        extra_pixel_shift <= '0'&extra_pixel_shift(2 downto 1);
       end if;
       
       -- decide whether we are visible or not, and update sprite colour
