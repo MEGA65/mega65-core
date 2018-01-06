@@ -221,7 +221,7 @@ begin  -- behavioural
       else
         sprite_data_offset <= (y_offset * 8);
       end if;
-      if y_in = sprite_y then
+      if (y_in = sprite_y) and (x_in = 0) then
         --report "SPRITE: y_top set";
         y_top <= '1';
         y_offset <= 0;
@@ -275,7 +275,7 @@ begin  -- behavioural
             end if;
           else
             report "SPRITE: end of sprite y reached. no longer drawing";        
-            sprite_drawing <= '0';
+            sprite_drawing <= '0';      
             y_offset <= 0;
           end if;
           y_expand_toggle <= not y_expand_toggle;
