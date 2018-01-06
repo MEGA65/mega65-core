@@ -156,6 +156,9 @@ begin  -- behavioural
       sprite_data_out <= sprite_data_in;
       sprite_number_for_data_out <= sprite_number_for_data_in;
 
+      y_last <= y_in;
+      x_last <= x_in;
+      
       if sprite_datavalid_in='1' then
         report "SPRITE: fetching sprite #"
           & integer'image(sprite_spritenumber_in)
@@ -217,30 +220,45 @@ begin  -- behavioural
       is_background_out <= is_background_in;
 
       -- Work out when we start drawing the sprite
-      y_last <= y_in;
-      x_left <= '0';
-      y_top <= '0';
       -- sprite data offset = y_offset * 3
       if sprite_extended_width_enable='0' then
         sprite_data_offset <= (y_offset * 2) + y_offset;
       else
         sprite_data_offset <= (y_offset * 8);
       end if;
-      if (y_in = sprite_y) and (y_top = '0') then
-        --report "SPRITE: y_top set";
+      if (y_in = sprite_y) then
+        if y_top='0' then
+          report "SPRITE: y_top set";
+        end if;
         y_top <= '1';
-        y_offset <= 0;
-        y_expand_toggle <= '0';
+        if y_top='0' then
+          y_offset <= 0;
+          y_expand_toggle <= '0';
+        end if;
+      else
+        if y_top='1' then
+          report "SPRITE: y_top cleared";
+        end if;
+        y_top <= '0';
       end if;
-      --report "SPRITE: #" & integer'image(sprite_number) & ": "
-      --  & "x_in=" & integer'image(x_in)
-      --  & ", y_in=" & integer'image(y_in)
-      --  & ", enable=" & std_logic'image(sprite_enable)
-      --  & ", drawing=" & std_logic'image(sprite_drawing)
-      --  & ", in_sprite=" & std_logic'image(x_in_sprite)
-      --  & ", sprite_x,y=" & to_hstring("000"&sprite_x) & "," &
-      --  to_hstring(sprite_y);
-      if x_in = to_integer(sprite_x) and sprite_enable='1' and (y_top='1' or sprite_drawing = '1') then
+      report "SPRITE: #" & integer'image(sprite_number) & ": "
+        & "x_in=" & integer'image(x_in)
+        & ", y_in=" & integer'image(y_in)
+--        & ", y_top=" & std_logic'image(y_top)
+        & ", enable=" & std_logic'image(sprite_enable)
+        & ", drawing=" & std_logic'image(sprite_drawing)
+        & ", in_sprite=" & std_logic'image(x_in_sprite)
+        & ", sprite_x,y=" & to_hstring("000"&sprite_x) & "," &
+        to_hstring(sprite_y);
+--      if (x_in = to_integer(sprite_x)) then
+--        report "x_in = sprite_x";
+--      else
+--        report "x_in = " & integer'image(x_in) & ", != sprite_x = " & integer'image(to_integer(sprite_x));
+--      end if;
+      if (x_in = to_integer(sprite_x))
+        and (x_in /= x_last)
+        and (sprite_enable='1')
+        and ((y_top='1') or (sprite_drawing = '1')) then
         x_left <= '1';
         x_in_sprite <= '1';
         x_expand_toggle <= '0';
@@ -258,6 +276,7 @@ begin  -- behavioural
       else
 --        report "SPRITE: not drawing a row: xcompare=" & boolean'image(x_in=sprite_x)
 --          & ", sprite_x=" & integer'image(to_integer(sprite_x));
+        x_left <= '0';
       end if;
       if x_left = '1' and y_top = '1' and sprite_enable = '1' then
         report "SPRITE: sprite start hit and enabled: drawing xoffset="
@@ -278,10 +297,14 @@ begin  -- behavioural
         end if;
 
         -- Y position has advanced while drawing a sprite
-        if (y_expand_toggle = '1') or (sprite_stretch_y='0') then
-          y_offset <= y_offset + 1;
+        if sprite_drawing = '1' then
+          if (y_expand_toggle = '1') or (sprite_stretch_y='0') then
+            y_offset <= y_offset + 1;
+          end if;
+          y_expand_toggle <= not y_expand_toggle;
+        else
+          y_offset <= 0;
         end if;
-        y_expand_toggle <= not y_expand_toggle;
       end if;
       if ((sprite_extended_height_enable = '0')
           and (y_offset = 21))
@@ -296,7 +319,6 @@ begin  -- behavioural
       -- Advance X position of sprite
       if (x_last /= x_in) and (x_in_sprite = '1') then
         -- X position has advanced while drawing a sprite
-        x_last <= x_in;
         report "SPRITE: drawing next pixel";
         if (x_expand_toggle = '1') or (sprite_stretch_x/='1') then
           if ((x_offset /= 23) and (sprite_extended_width_enable='0'))
