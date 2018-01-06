@@ -212,6 +212,12 @@ mmsimulate:	$(MMFILES) $(TOOLDIR)/osk_image
 	ghdl -m test_matrix
 	( ./test_matrix || ghdl -r test_matrix ) 2>&1 | $(TOOLDIR)/osk_image matrix.png
 
+SPRITEFILES=$(VHDLSRCDIR)/sprite.vhdl $(VHDLSRCDIR)/test_sprite.vhdl $(VHDLSRCDIR)/victypes.vhdl
+spritesimulate:	$(SPRITEFILES)
+	ghdl -i $(SPRITEFILES)
+	ghdl -m test_sprite
+	./test_sprite || ghdl -r test_sprite
+
 $(TOOLDIR)/osk_image:	$(TOOLDIR)/osk_image.c
 	$(CC) $(COPT) -I/usr/local/include -L/usr/local/lib -o $(TOOLDIR)/osk_image $(TOOLDIR)/osk_image.c -lpng
 
