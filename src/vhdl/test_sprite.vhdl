@@ -63,12 +63,12 @@ architecture behavioral of test_sprite is
   signal sprite_map_out : std_logic_vector(7 downto 0) := x"00";
   signal sprite_fg_map_out : std_logic_vector(7 downto 0) := x"00";
   
-  signal sprite_enable : std_logic := '0';
-  signal sprite_x : unsigned(9 downto 0) := (others => '0');
-  signal sprite_y : unsigned(7 downto 0) := x"00";
-  signal sprite_colour : unsigned(7 downto 0) := x"00";
-  signal sprite_multi0_colour : unsigned(7 downto 0) := x"00";
-  signal sprite_multi1_colour : unsigned(7 downto 0) := x"00";
+  signal sprite_enable : std_logic := '1';
+  signal sprite_x : unsigned(9 downto 0) := to_unsigned(50,10);
+  signal sprite_y : unsigned(7 downto 0) := to_unsigned(6,8);
+  signal sprite_colour : unsigned(7 downto 0) := x"02";
+  signal sprite_multi0_colour : unsigned(7 downto 0) := x"02";
+  signal sprite_multi1_colour : unsigned(7 downto 0) := x"02";
   signal sprite_is_multicolour : std_logic := '0';
   signal sprite_stretch_x : std_logic := '0';
   signal sprite_stretch_y : std_logic := '0';
@@ -132,6 +132,15 @@ begin
       sprite_priority => sprite_priority
       
       );
+
+  process(pixelclock)
+  begin
+    if rising_edge(pixelclock) then
+      x640_in <= pixel_x_640;
+      x320_in <= pixel_x_640 /2;
+      y_in <= to_integer(ycounter_in);
+    end if;
+  end process;
   
   process
   begin    
