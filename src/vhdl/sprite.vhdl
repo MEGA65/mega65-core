@@ -385,6 +385,15 @@ begin  -- behavioural
           else
             sprite_pixel_bits <= sprite_pixel_bits(125 downto 0)&sprite_pixel_bits(127 downto 126);            
           end if;
+        else
+          if ((x_offset = 23)
+              and (sprite_extended_width_enable='0')
+              and (sprite_horizontal_tile_enable='0')
+              ) then
+            -- Rotate sprite_pixel_bits all the way around again so that it
+            -- is ready for next raster.
+            sprite_pixel_bits <= sprite_pixel_bits(47 downto 0)&sprite_pixel_bits(127 downto 48);              
+          end if;          
         end if;
         report "SPRITE: toggling x_expand_toggle";
         x_expand_toggle <= not x_expand_toggle;
