@@ -552,7 +552,7 @@ int process_line(char *line,int live)
     if (filename) {
       cmd="bf4a5\r";
       slow_write(fd,cmd,strlen(cmd));
-      cmd="s277 4c 6f 22 21 d\rsc6 5\r";
+      cmd="s277 4c 6f 22 21 22 2c 38 2c 31 d\rsc6 10\r";
       slow_write(fd,cmd,strlen(cmd));
       if (first_load) fprintf(stderr,"[T+%lldsec] LOAD\"!\n",(long long)time(0)-start_time);
       first_load=0;
