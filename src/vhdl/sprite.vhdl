@@ -305,7 +305,7 @@ begin  -- behavioural
       if y_last /= y_in then
         y_last <= y_in;
         x_in_sprite <= '0';
-        if sprite_drawing = '1' then
+        if (sprite_drawing = '1') or (y_top='1') then
           -- Check collisions whenever we start a new logical sprite pixel row, even
           -- if it is just a VIC-II stretch of the above one, since it could collide
           -- with a non-expanded sprite that starts here.
