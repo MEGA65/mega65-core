@@ -1794,10 +1794,10 @@ begin
       -- Calculate raster number for sprites.
       -- The -1 is an adjustment factor to make the sprites line up correctly
       -- on the screen.
-      if vicii_ycounter < 1 then
+      if vicii_ycounter < 2 then
         vicii_sprite_ycounter <= to_unsigned(0,9);
       else
-        vicii_sprite_ycounter <= vicii_ycounter - 1;
+        vicii_sprite_ycounter <= vicii_ycounter - 2;
       end if;
       
       viciv_calculate_modeline_dimensions;            
@@ -1910,7 +1910,7 @@ begin
           -- @IO:C64 $D01E sprite/sprite collissions
           clear_collisionspritesprite_1 <= '1';
         elsif register_number=31 then
-          -- @IO:C64 $D01F sprite/sprite collissions
+          -- @IO:C64 $D01F sprite/foreground collissions
           clear_collisionspritebitmap_1 <= '1';
         end if;
       end if;
@@ -2033,7 +2033,7 @@ begin
         -- @IO:C64 $D01E VIC-II sprite/sprite collision indicate bits
         -- vicii_sprite_sprite_collisions <= fastio_wdata;
         elsif register_number=31 then
-        -- @IO:C64 $D01F VIC-II sprite/sprite collision indicate bits
+        -- @IO:C64 $D01F VIC-II sprite/foreground collision indicate bits
         -- vicii_sprite_bitmap_collisions <= fastio_wdata;
         elsif register_number=32 then
           -- @IO:C64 $D020 Border colour
