@@ -408,9 +408,7 @@ begin  -- behavioural
       if (x_in_sprite='1') and (border_in='0') and (is_foreground_in='1') then
         if (sprite_sixteen_colour_mode='0') and (sprite_pixel_bits(127 downto 126) /= "00") then
           -- Sprite and foreground collision
-          if check_collisions='1' then
-            sprite_fg_map_out(sprite_number) <= '1';
-          end if;
+          sprite_fg_map_out(sprite_number) <= check_collisions;
         end if;
         if (sprite_sixteen_colour_mode='1')
           and ((sprite_pixel_bits(127)
@@ -418,19 +416,15 @@ begin  -- behavioural
                 or sprite_pixel_bits(123)
                 or sprite_pixel_bits(121)) /= '0') then
           -- Sprite and foreground collision
-          if check_collisions='1' then
-            sprite_fg_map_out(sprite_number) <= '1';
-          end if;
+          sprite_fg_map_out(sprite_number) <= check_collisions;
         end if;
       end if;
       -- check for sprite/sprite collision
       sprite_map_out <= sprite_map_in;
-      if (x_in_sprite='1') and (border_in='0') and (is_sprite_in='1') then
+      if (x_in_sprite='1') and (border_in='0') then
         if (sprite_sixteen_colour_mode='0') and (sprite_pixel_bits(127 downto 126) /= "00") then
           -- Sprite and foreground collision
-          if check_collisions='1' then
-            sprite_map_out(sprite_number) <= '1';
-          end if;
+          sprite_map_out(sprite_number) <= check_collisions;
         end if;
         if (sprite_sixteen_colour_mode='1')
           and ((sprite_pixel_bits(127)
@@ -438,9 +432,7 @@ begin  -- behavioural
                 or sprite_pixel_bits(123)
                 or sprite_pixel_bits(121)) /= '0') then
           -- Sprite and foreground collision
-          if check_collisions='1' then
-            sprite_map_out(sprite_number) <= '1';
-          end if;
+          sprite_map_out(sprite_number) <= check_collisions;
         end if;
       end if;      
       
