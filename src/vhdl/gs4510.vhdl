@@ -314,6 +314,7 @@ end component;
   signal phi_pause : std_logic := '0';
   signal phi_backlog : integer range 0 to 127 := 0;
   signal phi_add_backlog : std_logic := '0';
+  signal charge_for_branches_taken : std_logic := '1';
   signal phi_new_backlog : integer range 0 to 15 := 0;
   signal last_phi16 : std_logic := '0';
   signal phi0_export : std_logic := '0';
@@ -2279,6 +2280,9 @@ begin
       elsif (long_address = x"FFD370b") or (long_address = x"FFD170b") then
         -- @IO:GS $D70B DMA destination skip rate (whole bytes)
         reg_dmagic_dst_skip(15 downto 8) <= value;
+      elsif (long_address = x"FFD37FB") then
+        -- @IO:GS $D7FB.0 DEBUG 1=charge extra cycle(s) for branches taken
+        chipselect_enables <= std_logic_vector(value);
       elsif (long_address = x"FFD37FC") then
         -- @IO:GS $D7FC DEBUG chip-select enables for various devices
         chipselect_enables <= std_logic_vector(value);
@@ -4786,7 +4790,7 @@ begin
                       else
                         phi_new_backlog <= 1;
                       end if;
-                      phi_add_backlog <= '1';                      
+                      phi_add_backlog <= charge_for_branches_taken;
 
                       pc_inc := '0';
                       reg_pc <= temp_addr;
@@ -4973,7 +4977,7 @@ begin
               reg_pc <= reg_pc + to_integer(reg_addr) - 1;
               -- Charge one cycle for branches that are taken
               phi_new_backlog <= 1;
-              phi_add_backlog <= '1';                      
+              phi_add_backlog <= charge_for_branches_taken;
               state <= normal_fetch_state;
             when InnXReadVectorLow =>
               reg_addr(7 downto 0) <= memory_read_value;
