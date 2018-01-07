@@ -300,7 +300,8 @@ end component;
   signal immediate_monitor_char_busy : std_logic := '0';
 
   -- For instruction-accurate CPU timing at 1MHz and 3.5MHz
-  constant pal1mhz_times_65536 : integer := 64593;
+  -- XXX Doesn't differentiate between PAL and NTSC
+  constant pal1mhz_times_65536 : integer := 64569;
   constant pal2mhz_times_65536 : integer := 64569 * 2;
   constant pal3point5mhz_times_65536 : integer := 225992;
   constant phi_fraction_01pal : unsigned(16 downto 0) :=
@@ -926,6 +927,8 @@ constant cycle_count_lut : clut9bit := (
   signal cache_flush_counter : unsigned(9 downto 0) := (others => '0');
 
   signal cycle_counter : unsigned(15 downto 0) := (others => '0');
+
+  signal cpu_speed_bias : unsigned(7 downto 0) := x"80";
 
   type microcode_lut_t is array (instruction)
     of microcodeops;
@@ -2281,6 +2284,9 @@ begin
         -- @IO:GS $D70B DMA destination skip rate (whole bytes)
         reg_dmagic_dst_skip(15 downto 8) <= value;
       elsif (long_address = x"FFD37FB") then
+        -- @IO:GS $D7FA.0 DEBUG 1/2/3.5MHz CPU speed fine adjustment
+        cpu_speed_bias <= value(0);
+      elsif (long_address = x"FFD37FB") then
         -- @IO:GS $D7FB.0 DEBUG 1=charge extra cycle(s) for branches taken
         charge_for_branches_taken <= value(0);
       elsif (long_address = x"FFD37FC") then
@@ -2758,11 +2764,11 @@ begin
       last_phi16 <= phi_counter(16);
       case cpuspeed_internal is
         when x"01" =>          
-          phi_counter <= phi_counter + phi_fraction_01pal;
+          phi_counter <= phi_counter + phi_fraction_01pal + cpu_speed_bias*16 - (128*16);
         when x"02" =>          
-          phi_counter <= phi_counter + phi_fraction_02pal;
+          phi_counter <= phi_counter + phi_fraction_02pal + cpu_speed_bias*16 - (128*16);
         when x"04" =>
-          phi_counter <= phi_counter + phi_fraction_04pal;
+          phi_counter <= phi_counter + phi_fraction_04pal + cpu_speed_bias*16 - (128*16);
         when others =>
           -- Full speed = 1 clock tick per cycle
           phi_counter(16) <= phi_counter(16) xor '1';
