@@ -928,7 +928,7 @@ constant cycle_count_lut : clut9bit := (
 
   signal cycle_counter : unsigned(15 downto 0) := (others => '0');
 
-  signal cpu_speed_bias : unsigned(7 downto 0) := x"80";
+  signal cpu_speed_bias : integer := 128;
 
   type microcode_lut_t is array (instruction)
     of microcodeops;
@@ -2285,7 +2285,7 @@ begin
         reg_dmagic_dst_skip(15 downto 8) <= value;
       elsif (long_address = x"FFD37FB") then
         -- @IO:GS $D7FA.0 DEBUG 1/2/3.5MHz CPU speed fine adjustment
-        cpu_speed_bias <= value(0);
+        cpu_speed_bias <= to_integer(value(0));
       elsif (long_address = x"FFD37FB") then
         -- @IO:GS $D7FB.0 DEBUG 1=charge extra cycle(s) for branches taken
         charge_for_branches_taken <= value(0);

@@ -319,18 +319,8 @@ void sprite_y_tests(void)
   return;
 }
 
-int main(int argc,char **argv)
+void sprite_sprite_collide_tests(void)
 {
-  
-  printf("%c%c"
-	 "M.E.G.A.65 VIC-II Test Programme\n"
-	 "(C)Copyright Paul Gardner-Stephen, 2017.\n"
-	 "GNU General Public License v3 or newer.\n"
-	 "\n",0x93,5);
-
-  // Prepare sprites
-  setup();  
-
   printf("     No S:S collide when no sprites");
   v=PEEK(0xD01E); // clear existing collisions
   // Wait a couple of frames to make sure
@@ -394,7 +384,22 @@ int main(int argc,char **argv)
     printf("\nFAIL: *$D01E != $00: Saw $%x\n",v);
     fatal();
   }
+}
 
+int main(int argc,char **argv)
+{
+  
+  printf("%c%c"
+	 "M.E.G.A.65 VIC-II Test Programme\n"
+	 "(C)Copyright Paul Gardner-Stephen, 2017.\n"
+	 "GNU General Public License v3 or newer.\n"
+	 "\n",0x93,5);
+
+  // Prepare sprites
+  setup();  
+
+  sprite_sprite_collide_tests();
+  
   /* At this point, we know that sprite collisions work to some basic degree.
      What we don't know is if the sprites are displayed at the correct location, or 
      are rendered the correct size.
@@ -407,7 +412,7 @@ int main(int argc,char **argv)
      to collide with. Char $65 is a vertical bar 2 pixels wide on the left edge of a character.
      
   */
-  sprite_x_tests();
   sprite_y_tests();
+  sprite_x_tests();
 
 }

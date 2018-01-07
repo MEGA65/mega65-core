@@ -27,7 +27,7 @@ architecture behavioral of test_sprite is
   signal sprite_horizontal_tile_enable : std_logic := '0';
   signal sprite_bitplane_enable : std_logic := '0';
   signal sprite_extended_height_enable : std_logic := '0';
-  signal sprite_extended_width_enable : std_logic := '1';
+  signal sprite_extended_width_enable : std_logic := '0';
   signal sprite_extended_height_size : unsigned(7 downto 0) := x"00";  
   signal sprite_datavalid_in : std_logic := '0';
   signal sprite_bytenumber_in : spritebytenumber := 0;
@@ -145,7 +145,9 @@ begin
       -- Two physical rasters per raster
       y_in <= to_integer(ycounter_in /2);
 
-      if pixel_x_640 = 0 and x640_in /= 0 then
+--       if pixel_x_640 = 200 and x640_in /= 200 then
+      if sprite_fetching = '0' then
+--      if y_in /= to_integer(ycounter_in/2) then
         sprite_fetching <= '1';
         byte_number <= 0;
       end if;
@@ -163,7 +165,7 @@ begin
           byte_number <= 0;
           sprite_fetching <= '0';
         end if;
-        sprite_data_in <= to_unsigned(128 + (sprite_data_offset_out/3),8);
+        sprite_data_in <= to_unsigned(128 + (byte_number*16) + (sprite_data_offset_out/3),8);
       else
         sprite_data_in <= x"FF";
       end if;
