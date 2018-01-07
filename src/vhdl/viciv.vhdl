@@ -1792,12 +1792,12 @@ begin
     if rising_edge(ioclock) then
 
       -- Calculate raster number for sprites.
-      -- The -2 is an adjustment factor to make the sprites line up correctly
+      -- The -1 is an adjustment factor to make the sprites line up correctly
       -- on the screen.
-      if vicii_ycounter < 2 then
+      if vicii_ycounter < 1 then
         vicii_sprite_ycounter <= to_unsigned(0,9);
       else
-        vicii_sprite_ycounter <= vicii_ycounter - 2;
+        vicii_sprite_ycounter <= vicii_ycounter - 1;
       end if;
       
       viciv_calculate_modeline_dimensions;            
