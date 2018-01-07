@@ -170,7 +170,7 @@ GS $D06B VIC-IV sprite 16-colour mode enables
 GS $D06C VIC-IV sprite pointer address (bits 7 - 0)
 GS $D06D VIC-IV sprite pointer address (bits 15 - 8)
 GS $D06E VIC-IV sprite pointer address (bits 23 - 16)
-GS $D06F.6-0 VIC-IV first VIC-II raster line
+GS $D06F.5-0 VIC-IV first VIC-II raster line
 GS $D06F.7 VIC-IV NTSC emulation mode (max raster = 262)
 GS $D070.1-0 VIC-IV bitmap/text palette bank
 GS $D070.3-2 VIC-IV sprite palette bank
@@ -381,6 +381,10 @@ GS $D6E0.0 Clear to reset ethernet PHY
 GS $D6E0.1-2 Read ethernet TX bits currently on the wire
 GS $D6E0.3 Read ethernet RX data valid
 GS $D6E0.4 Allow remote keyboard input via magic ethernet frames
+GS $D6E0.6 ETH_MDC (write only)
+GS $D6E0.6 ETH_MDIO data direction register
+GS $D6E0.7 ETH_MDIO
+GS $D6E0.7 ETH_MDIO read/write
 GS $D6E0 Ethernet control
 GS $D6E1.0 reset ethernet PHY
 GS $D6E1.1 - Set which RX buffer is memory mapped

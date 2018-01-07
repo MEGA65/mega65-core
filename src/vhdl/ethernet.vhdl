@@ -756,6 +756,8 @@ begin  -- behavioural
         case fastio_addr(3 downto 0) is
           -- @IO:GS $D6E0 Ethernet control
           when x"0" =>
+            -- @IO:GS $D6E0.7 ETH_MDIO
+            fastio_rdata(7) <= eth_mdio;
           -- @IO:GS $D6E0.4 Allow remote keyboard input via magic ethernet frames
             fastio_rdata(4) <= eth_keycode_toggle_internal;
           -- @IO:GS $D6E0.3 Read ethernet RX data valid
@@ -886,6 +888,16 @@ begin  -- behavioural
               -- @IO:GS $D6E0.0 Clear to reset ethernet PHY
               eth_reset <= fastio_wdata(0);
               eth_reset_int <= fastio_wdata(0);
+              -- @IO:GS $D6E0.7 ETH_MDIO read/write
+              -- @IO:GS $D6E0.6 ETH_MDIO data direction register
+              if fastio_wdata(6)='1' then
+                eth_mdio <= fastio_wdata(7);
+              else
+                eth_mdio <= 'Z';
+              end if;
+              -- @IO:GS $D6E0.6 ETH_MDC (write only)
+              eth_mdc <= fastio_wdata(5);
+              
             when x"1" =>
               -- $D6E1 100mbit ethernet irq mask
               -- $D6E1.7 100mbit ethernet enable RX IRQ
