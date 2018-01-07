@@ -2283,7 +2283,7 @@ begin
       elsif (long_address = x"FFD370b") or (long_address = x"FFD170b") then
         -- @IO:GS $D70B DMA destination skip rate (whole bytes)
         reg_dmagic_dst_skip(15 downto 8) <= value;
-      elsif (long_address = x"FFD37FB") then
+      elsif (long_address = x"FFD37FA") then
         -- @IO:GS $D7FA.0 DEBUG 1/2/3.5MHz CPU speed fine adjustment
         cpu_speed_bias <= to_integer(value);
       elsif (long_address = x"FFD37FB") then

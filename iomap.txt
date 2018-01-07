@@ -51,8 +51,8 @@ C64 $D01C VIC-II sprite multicolour enable bits
 C64 $D01D VIC-II sprite horizontal expansion enable bits
 C64 $D01E sprite/sprite collissions
 C64 $D01E VIC-II sprite/sprite collision indicate bits
-C64 $D01F sprite/sprite collissions
-C64 $D01F VIC-II sprite/sprite collision indicate bits
+C64 $D01F sprite/foreground collissions
+C64 $D01F VIC-II sprite/foreground collision indicate bits
 C64 $D020.3-0 VIC-II display border colour (16 colour)
 C65 $D020.7-0 VIC-III/IV display border colour (256 colour)
 C64 $D020 Border colour
@@ -434,6 +434,8 @@ GS $D708 DMA source skip rate (/256ths of bytes)
 GS $D709 DMA source skip rate (whole bytes)
 GS $D70A DMA destination skip rate (/256ths of bytes)
 GS $D70B DMA destination skip rate (whole bytes)
+GS $D7FA.0 DEBUG 1/2/3.5MHz CPU speed fine adjustment
+GS $D7FB.0 DEBUG 1=charge extra cycle(s) for branches taken
 GS $D7FC DEBUG chip-select enables for various devices
 GS $D7FD.6 Override for /GAME : set to 0 to enable
 GS $D7FD.7 Override for /EXROM : set to 0 to enable
