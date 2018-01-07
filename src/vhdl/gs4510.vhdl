@@ -2285,7 +2285,7 @@ begin
         reg_dmagic_dst_skip(15 downto 8) <= value;
       elsif (long_address = x"FFD37FB") then
         -- @IO:GS $D7FA.0 DEBUG 1/2/3.5MHz CPU speed fine adjustment
-        cpu_speed_bias <= to_integer(value(0));
+        cpu_speed_bias <= to_integer(value);
       elsif (long_address = x"FFD37FB") then
         -- @IO:GS $D7FB.0 DEBUG 1=charge extra cycle(s) for branches taken
         charge_for_branches_taken <= value(0);
