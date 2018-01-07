@@ -242,6 +242,7 @@ begin  -- behavioural
           report "SPRITE: y_top set";
         end if;
         y_top <= '1';
+        check_collisions <= '1';
         if y_last /= y_in then
           report "sprite_pixel_bits (from _mc/_mono)";
           if sprite_is_multicolour = '1' then
