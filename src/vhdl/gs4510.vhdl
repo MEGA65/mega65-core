@@ -2282,7 +2282,7 @@ begin
         reg_dmagic_dst_skip(15 downto 8) <= value;
       elsif (long_address = x"FFD37FB") then
         -- @IO:GS $D7FB.0 DEBUG 1=charge extra cycle(s) for branches taken
-        charge_for_branches_taken <= std_logic_vector(value);
+        charge_for_branches_taken <= value(0);
       elsif (long_address = x"FFD37FC") then
         -- @IO:GS $D7FC DEBUG chip-select enables for various devices
         chipselect_enables <= std_logic_vector(value);
