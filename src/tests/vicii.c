@@ -229,7 +229,6 @@ void sprite_x_tests(void)
   for(v=0;v<25;v++) POKE(0x0408+40*v,0x65);
   POKE(0xD01D,0xff);
   sweep_sprite_from_right_to_left(200,0,0);
-  while(1) continue;
   restore_screen();
   check_sprite_contact(0x59,0x57);
   POKE(0xD01D,0);
