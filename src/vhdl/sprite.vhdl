@@ -243,12 +243,13 @@ begin  -- behavioural
         end if;
         y_top <= '1';
         if y_last /= y_in then
+          report "sprite_pixel_bits (from _mc/_mono)";
           if sprite_is_multicolour = '1' then
-            report "SPRITE: using multi-colour pixel vector";
+            report "SPRITE: sprite_pixel_bits{,_last} <= bits_mc";
             sprite_pixel_bits <= sprite_pixel_bits_mc;
             sprite_pixel_bits_last <= sprite_pixel_bits_mc;
           else
-            report "SPRITE: using mono pixel vector";
+            report "SPRITE: sprite_pixel_bits{,_last} <= bits_mono";
             sprite_pixel_bits <= sprite_pixel_bits_mono;
             sprite_pixel_bits_last <= sprite_pixel_bits_mono;
           end if;
@@ -325,22 +326,29 @@ begin  -- behavioural
               & ", y_top=" & std_logic'image(y_top)
               & ", old y_offset=" & integer'image(y_offset);
 
+            report "sprite_pixel_bits (from _mc/_mono)";
             if sprite_is_multicolour = '1' then
-              report "SPRITE: using multi-colour pixel vector";
+              report "SPRITE: sprite_pixel_bits{,_last} <= bits_mc";
               sprite_pixel_bits <= sprite_pixel_bits_mc;
               sprite_pixel_bits_last <= sprite_pixel_bits_mc;
             else
-              report "SPRITE: using mono pixel vector";
+              report "SPRITE: sprite_pixel_bits{,_last} <= bits_mono";
               sprite_pixel_bits <= sprite_pixel_bits_mono;
               sprite_pixel_bits_last <= sprite_pixel_bits_mono;
             end if;
           else
+            report "sprite_pixel_bits (from _last)";
             sprite_pixel_bits <= sprite_pixel_bits_last;
           end if;
           y_expand_toggle <= not y_expand_toggle;
         else
           y_offset <= 0;
         end if;
+      elsif x_in < x_last then
+        -- Start of new VGA raster
+        report "sprite_pixel_bits (from _last)";
+        sprite_pixel_bits <= sprite_pixel_bits_last;
+        x_in_sprite <= '0';
       end if;
       if ((sprite_extended_height_enable = '0')
           and (y_offset = 21))
@@ -382,6 +390,7 @@ begin  -- behavioural
           report "SPRITE: shifting pixel vector along (was "&
             to_string(sprite_pixel_bits)
             &")";
+--          report "sprite_pixel_bits (rotate)";
           if sprite_sixteen_colour_mode = '1' then
             sprite_pixel_bits <= sprite_pixel_bits(119 downto 0)&sprite_pixel_bits(127 downto 120);
           else
