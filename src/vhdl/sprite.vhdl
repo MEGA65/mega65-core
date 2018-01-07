@@ -403,9 +403,6 @@ begin  -- behavioural
       
       -- decide whether we are visible or not, and update sprite colour
       -- accordingly.
-      -- XXX - foreground priority is not implemented.
-      -- XXX - sprite collision map generation is not implemented
-      -- XXX - sprites draw on top of the border?
       -- check for sprite/foreground collision
       sprite_fg_map_out <= sprite_fg_map_in;
       if (x_in_sprite='1') and (border_in='0') and (is_foreground_in='1') then
@@ -426,6 +423,26 @@ begin  -- behavioural
           end if;
         end if;
       end if;
+      -- check for sprite/sprite collision
+      sprite_map_out <= sprite_map_in;
+      if (x_in_sprite='1') and (border_in='0') and (is_sprite_in='1') then
+        if (sprite_sixteen_colour_mode='0') and (sprite_pixel_bits(127 downto 126) /= "00") then
+          -- Sprite and foreground collision
+          if check_collisions='1' then
+            sprite_map_out(sprite_number) <= '1';
+          end if;
+        end if;
+        if (sprite_sixteen_colour_mode='1')
+          and ((sprite_pixel_bits(127)
+                or sprite_pixel_bits(125)
+                or sprite_pixel_bits(123)
+                or sprite_pixel_bits(121)) /= '0') then
+          -- Sprite and foreground collision
+          if check_collisions='1' then
+            sprite_map_out(sprite_number) <= '1';
+          end if;
+        end if;
+      end if;      
       
       -- Stop drawing sprites in right fly-back, to prevent glitches with
       -- horizontally tiled sprites.
@@ -479,10 +496,6 @@ begin  -- behavioural
             report "SPRITE: Painting 16-colour pixel using bits "
               & to_string(pixel_16);
             if pixel_16 /= "0000" then
-              sprite_map_out <= sprite_map_in;
-              if check_collisions='1' then
-                sprite_map_out(sprite_number) <= '1';
-              end if;
               is_sprite_out <= not border_in;
               sprite_colour_out(3 downto 0) <= unsigned(pixel_16);
               -- Setting bitplane mode and 16-colour mode allows setting the
@@ -494,29 +507,14 @@ begin  -- behavioural
             report "SPRITE: Painting pixel using bits " & to_string(sprite_pixel_bits(127 downto 126));        
             case sprite_pixel_bits(127 downto 126) is
               when "01" =>
-                -- Set this sprite in the collision map        
-                sprite_map_out <= sprite_map_in;
-                if check_collisions='1' then
-                  sprite_map_out(sprite_number) <= '1';
-                end if;
                 is_sprite_out <= not border_in;
                 sprite_colour_out <= sprite_multi0_colour;
               when "10" =>
-                -- Set this sprite in the collision map        
-                sprite_map_out <= sprite_map_in;
-                if check_collisions='1' then
-                  sprite_map_out(sprite_number) <= '1';
-                end if;
                 is_sprite_out <= not border_in;
                 sprite_colour_out <= sprite_colour;
               when "11" =>
                 is_sprite_out <= not border_in;
                 sprite_colour_out <= sprite_multi1_colour;
-                -- Set this sprite in the collision map        
-                sprite_map_out <= sprite_map_in;
-                if check_collisions='1' then
-                  sprite_map_out(sprite_number) <= '1';
-                end if;
               when others =>
                 -- background shows through
                 is_sprite_out <= is_sprite_in;
@@ -526,7 +524,6 @@ begin  -- behavioural
         else
           is_sprite_out <= is_sprite_in;
           sprite_colour_out <= sprite_colour_in;
-          sprite_map_out <= sprite_map_in;
         end if;
       end if;
 --      report "SPRITE: leaving VIC-II sprite #" & integer'image(sprite_number);
