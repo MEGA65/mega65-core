@@ -266,6 +266,7 @@ architecture Behavioral of viciv is
   -- whole frame.  This is really just to make testing through simulation quicker
   -- since a whole frame takes ~20 minutes to simulate).
   signal vicii_ycounter : unsigned(8 downto 0) := to_unsigned(0,9); -- 263+1
+  signal vicii_sprite_ycounter : unsigned(8 downto 0) := to_unsigned(0,9); -- 263+1
   signal vicii_ycounter_v400 : unsigned(9 downto 0) := to_unsigned(0,10);
   signal last_vicii_ycounter : unsigned(8 downto 0) := to_unsigned(0,9);
   signal vicii_ycounter_phase : unsigned(3 downto 0) := (others => '0');
@@ -1066,7 +1067,7 @@ begin
               x640_in => to_xposition(vicii_xcounter_640),
               -- x1280 mode is deprecated
               x1280_in => to_xposition(vicii_xcounter_640),
-              y_in => to_yposition(vicii_ycounter),
+              y_in => to_yposition(vicii_sprite_ycounter),
               border_in => inborder,
               pixel_in => chargen_pixel_colour,
               alpha_in => chargen_alpha_value,
@@ -1790,6 +1791,15 @@ begin
     
     if rising_edge(ioclock) then
 
+      -- Calculate raster number for sprites.
+      -- The -2 is an adjustment factor to make the sprites line up correctly
+      -- on the screen.
+      if vicii_ycounter < 2 then
+        vicii_sprite_ycounter <= to_unsigned(0,9);
+      else
+        vicii_sprite_ycounter <= vicii_ycounter - 2;
+      end if;
+      
       viciv_calculate_modeline_dimensions;            
 
       -- Set IO mode when CPU tells us to.  This is done when entering/exiting
