@@ -54,10 +54,10 @@ entity ethernet is
     eth_mdio : inout std_logic := '1';
     eth_mdc : out std_logic := '1';
     eth_reset : out std_logic := '1';
-    eth_rxd : in unsigned(1 downto 0);
+    eth_rxd_in : in unsigned(1 downto 0);
     eth_txd : out unsigned(1 downto 0) := "11";
     eth_txen : out std_logic := '0';
-    eth_rxdv : in std_logic;
+    eth_rxdv_in : in std_logic;
     eth_rxer : in std_logic;
     eth_interrupt : in std_logic;
     
@@ -258,6 +258,8 @@ architecture behavioural of ethernet is
  signal eth_key_debug : unsigned(7 downto 0) := x"00";
  signal eth_byte_fail : unsigned(7 downto 0) := x"00";
  signal eth_offset_fail : unsigned(7 downto 0) := x"00";
+
+ signal eth_swap_rx : std_logic := '0';
  
  -- Reverse the input vector.
  function reversed(slv: std_logic_vector) return std_logic_vector is
@@ -345,6 +347,14 @@ begin  -- behavioural
   begin
     if rising_edge(clock50mhz) then
 
+      if eth_swap_rx='1' then
+        eth_rxd(1) <= eth_rxd_in(0);
+        eth_rxd(0) <= eth_rxd_in(1);
+      else
+        eth_rxd <= eth_rxd_in;
+      end if;
+      eth_rxdv <= eth_rxdv_in;
+      
       -- Register ethernet data lines and data valid signal
       eth_txd <= eth_txd_int;
       eth_txen <= eth_txen_int;
@@ -801,6 +811,9 @@ begin  -- behavioural
             fastio_rdata(5 downto 4) <= eth_txd_int(1 downto 0);
             fastio_rdata(6) <= eth_tx_viciv;
             fastio_rdata(7) <= '0';
+          when x"5" =>
+            fastio_rdata(0) <= eth_swap_rx;
+            fastio_rdata(7 downto 1) <= (others => '0');
           when x"b" =>
             fastio_rdata <= eth_tx_size(7 downto 0);
           when x"c" =>
@@ -941,6 +954,9 @@ begin  -- behavioural
                 when others =>
                   null;
               end case;
+            when x"5" =>
+              -- @IO:GS $D6E5.1 Swap RMII RX bit order
+              eth_swap_rx <= fastio_wdata(0);
             when others =>
               -- Other registers do nothing
               null;
