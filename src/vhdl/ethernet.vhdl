@@ -262,6 +262,7 @@ architecture behavioural of ethernet is
  signal eth_swap_rx : std_logic := '0';
  signal eth_rxdv : std_logic := '0';
  signal eth_rxd : unsigned(1 downto 0) := "00";
+ signal eth_disable_crc_check : std_logic := '0';
  
  
  -- Reverse the input vector.
@@ -741,7 +742,7 @@ begin  -- behavioural
           rxbuffer_wdata(7) <= not rx_crc_valid;
           rxbuffer_wdata(6 downto 3) <= "0000";
           rxbuffer_wdata(2 downto 0) <= frame_length(10 downto 8);
-          if rx_crc_valid='1' then
+          if rx_crc_valid='1' or eth_disable_crc_check='1' then
             -- record that we have received a frame, but only if there was no
             -- CRC error.
             report "ETHRX: Toggling eth_rx_buffer_last_used_50mhz";
@@ -816,7 +817,8 @@ begin  -- behavioural
             fastio_rdata(7) <= '0';
           when x"5" =>
             fastio_rdata(0) <= eth_swap_rx;
-            fastio_rdata(7 downto 1) <= (others => '0');
+            fastio_rdata(1) <= eth_disable_crc_check;
+            fastio_rdata(7 downto 2) <= (others => '0');
           when x"b" =>
             fastio_rdata <= eth_tx_size(7 downto 0);
           when x"c" =>
@@ -958,8 +960,10 @@ begin  -- behavioural
                   null;
               end case;
             when x"5" =>
-              -- @IO:GS $D6E5.1 Swap RMII RX bit order
+              -- @IO:GS $D6E5.0 Swap RMII RX bit order
               eth_swap_rx <= fastio_wdata(0);
+              -- @IO:GS $D6E5.1 Disable CRC check for received packets
+              eth_disable_crc_check <= fastio_wdata(1);
             when others =>
               -- Other registers do nothing
               null;
