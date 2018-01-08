@@ -261,7 +261,7 @@ architecture behavioural of ethernet is
 
  signal eth_swap_rx : std_logic := '0';
  signal eth_rxdv : std_logic := '0';
- signal eth_rxd : std_logic_vector(1 downto 0) := "00";
+ signal eth_rxd : unsigned(1 downto 0) := "00";
  
  
  -- Reverse the input vector.

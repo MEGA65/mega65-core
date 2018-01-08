@@ -648,10 +648,10 @@ begin
     eth_mdio => eth_mdio,
     eth_mdc => eth_mdc,
     eth_reset => eth_reset,
-    eth_rxd => eth_rxd,
+    eth_rxd_in => eth_rxd,
     eth_txd => eth_txd,
     eth_txen => eth_txen,
-    eth_rxdv => eth_rxdv,
+    eth_rxdv_in => eth_rxdv,
     eth_rxer => eth_rxer,
     eth_interrupt => eth_interrupt,
 
