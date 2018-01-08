@@ -91,6 +91,7 @@ loop1:	lda $6800,x
 
 	; Print length of packet
 	lda $6801
+	and #$7f
 	ldx $6800
 	jsr $BDCD   
 	lda #$20
