@@ -730,7 +730,7 @@ begin  -- behavioural
             rxbuffer_writeaddress <= 0;
           end if;
           rxbuffer_write <= '1';
-          rxbuffer_wdata <= frame_length(7 downto 0);
+          rxbuffer_wdata <= to_unsigned(eth_frame_len,8);
           report "ETHRX: writing frame_length(7 downto 0) = $" & to_hstring(frame_length);
           eth_state <= ReceivedFrame2;
         when ReceivedFrame2 =>
