@@ -2200,7 +2200,7 @@ begin
         or
         -- FFD[0-3]800-BFF
         (real_long_address(27 downto 16) = x"FFD"
-         and real_long_address(15 downto 14) = "11"
+         and real_long_address(15 downto 14) = "00"
          and real_long_address(11 downto 10) = "10")        
       then
         report "Writing to colour RAM";
