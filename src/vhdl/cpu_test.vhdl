@@ -17,6 +17,7 @@ architecture behavior of cpu_test is
   signal cpuclock : std_logic := '0';
   signal ioclock : std_logic := '0';
   signal clock50mhz : std_logic := '0';
+  signal clock200 : std_logic := '0';
   signal reset : std_logic := '0';
   signal irq : std_logic := '1';
   signal nmi : std_logic := '1';
@@ -224,6 +225,7 @@ begin
       cpuclock      => cpuclock,
       clock50mhz   => clock50mhz,
       ioclock      => cpuclock,
+      clock200 => clock200,
       uartclock    => ioclock,
       btnCpuReset      => reset,
       irq => irq,
@@ -356,79 +358,69 @@ begin
 
   -- Deliver dummy ethernet frames
   process
+    procedure eth_clock_tick is
+    begin
+        clock50mhz <= '0';
+        clock200 <= '0';
+        wait for 2.5 ns;
+        clock200 <= '1';
+        wait for 2.5 ns;
+        clock200 <= '0';
+        wait for 2.5 ns;
+        clock200 <= '1';
+        wait for 2.5 ns;
+
+        clock50mhz <= '1';
+        clock200 <= '0';
+        wait for 2.5 ns;
+        clock200 <= '1';
+        wait for 2.5 ns;
+        clock200 <= '0';
+        wait for 2.5 ns;
+        clock200 <= '1';
+        wait for 2.5 ns;
+    end procedure;
   begin
     for i in 1 to 20 loop
       eth_rxdv <= '0'; eth_rxd <= "00";
       -- Wait a few cycles before feeding frame
       for j in 1 to 50 loop
-        clock50mhz <= '0';
-        wait for 10 ns;
-        clock50mhz <= '1';
-        wait for 10 ns;
+        eth_clock_tick;
       end loop;
 
       -- Announce RX carrier
       eth_rxdv <= '1'; eth_rxd <= "00";
-      wait for 10 ns;
-      clock50mhz <= '1';
-      wait for 10 ns;
-      clock50mhz <= '0';
-      wait for 10 ns;
-      clock50mhz <= '1';
-      wait for 10 ns;
+      eth_clock_tick;
+      eth_clock_tick;
       -- Send preamble
       report "CRC: Starting to send preamble";
       for j in 1 to 31 loop
         eth_rxd <= "01";
-        clock50mhz <= '0';
-        wait for 10 ns;
-        clock50mhz <= '1';
-        wait for 10 ns;
+        eth_clock_tick;
       end loop;
       -- Send end of preamble
       eth_rxd <= "11";
-      clock50mhz <= '0';
-      wait for 10 ns;
-      clock50mhz <= '1';
-      wait for 10 ns;
+      eth_clock_tick;
       -- Feed bytes
       report "CRC: Starting to send frame";
       for j in 0 to 101 loop
         report "ETHRXINJECT: Injecting $" & to_hstring(frame(j));
         eth_rxd <= frame(j)(1 downto 0);
-        clock50mhz <= '0';
-        wait for 10 ns;
-        clock50mhz <= '1';
-        wait for 10 ns;
+        eth_clock_tick;
         eth_rxd <= frame(j)(3 downto 2);
-        clock50mhz <= '0';
-        wait for 10 ns;
-        clock50mhz <= '1';
-        wait for 10 ns;
+        eth_clock_tick;
         eth_rxd <= frame(j)(5 downto 4);
-        clock50mhz <= '0';
-        wait for 10 ns;
-        clock50mhz <= '1';
-        wait for 10 ns;
+        eth_clock_tick;
         eth_rxd <= frame(j)(7 downto 6);
-        clock50mhz <= '0';
-        wait for 10 ns;
-        clock50mhz <= '1';
-        wait for 10 ns;        
+        eth_clock_tick;
       end loop;
       -- Disassert carrier
       eth_rxdv <= '0';
-      clock50mhz <= '0';
-      wait for 10 ns;
-      clock50mhz <= '1';
-      wait for 10 ns;
-
+      eth_clock_tick;
+      
       -- Wait a few cycles before feeding next frame
       for j in 1 to 10000 loop
-        clock50mhz <= '0';
-        wait for 10 ns;
-        clock50mhz <= '1';
-        wait for 10 ns;
+        eth_clock_tick;
       end loop;
     end loop;
   end process;

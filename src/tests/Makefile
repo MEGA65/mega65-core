@@ -12,3 +12,6 @@ all:	vicii.prg
 
 vicii.prg:	Makefile vicii.s
 	$(CL65) $(COPTS) $(LOPTS) -o vicii.prg vicii.s
+
+eth_mdio.prg:	Makefile eth_mdio.s
+	$(CL65) $(COPTS) $(LOPTS) -o eth_mdio.prg eth_mdio.s

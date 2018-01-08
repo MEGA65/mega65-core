@@ -44,6 +44,7 @@ entity ethernet is
   port (
     clock : in std_logic;
     clock50mhz : in std_logic;
+    clock200 : in std_logic;
     reset : in std_logic;
     irq : out std_logic := 'Z';
     ethernet_cs : in std_logic;
@@ -55,8 +56,8 @@ entity ethernet is
     eth_mdc : out std_logic := '1';
     eth_reset : out std_logic := '1';
     eth_rxd_in : in unsigned(1 downto 0);
-    eth_txd : out unsigned(1 downto 0) := "11";
-    eth_txen : out std_logic := '0';
+    eth_txd_out : out unsigned(1 downto 0) := "11";
+    eth_txen_out : out std_logic := '0';
     eth_rxdv_in : in std_logic;
     eth_rxer : in std_logic;
     eth_interrupt : in std_logic;
@@ -263,7 +264,13 @@ architecture behavioural of ethernet is
  signal eth_rxdv : std_logic := '0';
  signal eth_rxd : unsigned(1 downto 0) := "00";
  signal eth_disable_crc_check : std_logic := '0';
- 
+
+ signal eth_txd : unsigned(1 downto 0) := "11";
+ signal eth_txen : std_logic := '0';
+ signal eth_txd_delayed : unsigned(7 downto 0) := "11111111";
+ signal eth_txen_delayed : std_logic_vector(3 downto 0) := "0000";
+ signal eth_txd_phase : unsigned(1 downto 0) := "00";
+ signal eth_txd_phase_drive : unsigned(1 downto 0) := "00";
  
  -- Reverse the input vector.
  function reversed(slv: std_logic_vector) return std_logic_vector is
@@ -345,12 +352,40 @@ begin  -- behavioural
       rxbuffer_cs <= '0';
     end if;
   end process;
+
+  -- Present TX data bits and TX en lines at variable phase to
+  -- 50MHz clock
+  process(clock200) is
+  begin
+    if rising_edge(clock200) then
+      eth_txd_out <= eth_txd_delayed(7 downto 6);
+      eth_txen_out <= eth_txen_delayed(3);
+
+      eth_txd_delayed(7 downto 2) <= eth_txd_delayed(5 downto 0);
+      eth_txen_delayed(3 downto 1) <= eth_txen_delayed(2 downto 0);
+      case eth_txd_phase_drive is
+        when "00" =>
+          eth_txd_delayed(7 downto 6) <= eth_txd;
+          eth_txen_delayed(3) <= eth_txen;
+        when "01" =>
+          eth_txd_delayed(5 downto 4) <= eth_txd;
+          eth_txen_delayed(2) <= eth_txen;
+        when "10" =>
+          eth_txd_delayed(3 downto 2) <= eth_txd;
+          eth_txen_delayed(1) <= eth_txen;
+        when others =>
+          eth_txd_delayed(1 downto 0) <= eth_txd;
+          eth_txen_delayed(0) <= eth_txen;
+      end case;
+    end if;
+  end process;
   
   process(clock50mhz) is
     variable frame_length : unsigned(11 downto 0);
   begin
     if rising_edge(clock50mhz) then
-
+      eth_txd_phase_drive <= eth_txd_phase;
+      
       if eth_swap_rx='1' then
         eth_rxd(1) <= eth_rxd_in(0);
         eth_rxd(0) <= eth_rxd_in(1);
@@ -818,7 +853,8 @@ begin  -- behavioural
           when x"5" =>
             fastio_rdata(0) <= eth_swap_rx;
             fastio_rdata(1) <= eth_disable_crc_check;
-            fastio_rdata(7 downto 2) <= (others => '0');
+            fastio_rdata(3 downto 2) <= eth_txd_phase;
+            fastio_rdata(7 downto 4) <= (others => '0');
           when x"b" =>
             fastio_rdata <= eth_tx_size(7 downto 0);
           when x"c" =>
@@ -960,6 +996,8 @@ begin  -- behavioural
                   null;
               end case;
             when x"5" =>
+              -- @IO:GS $D6E5.2-3 Ethernet TX clock phase adjust
+              eth_txd_phase <= fastio_wdata(3 downto 2);
               -- @IO:GS $D6E5.0 Swap RMII RX bit order
               eth_swap_rx <= fastio_wdata(0);
               -- @IO:GS $D6E5.1 Disable CRC check for received packets

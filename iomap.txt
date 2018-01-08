@@ -402,7 +402,9 @@ GS $D6E3 - TX Packet size (high byte)
 GS $D6E4 = $00 = Clear ethernet TX trigger (debug)
 GS $D6E4 = $01 = Transmit packet
 GS $D6E4 Ethernet command
-GS $D6E5.1 Swap RMII RX bit order
+GS $D6E5.0 Swap RMII RX bit order
+GS $D6E5.1 Disable CRC check for received packets
+GS $D6E5.2-3 Ethernet TX clock phase adjust
 GS $D6EE - Temperature sensor (lower byte)
 GS $D6EF - Temperature sensor (upper byte)
 GS $D6F0 - Read FPGA switches 0-7

@@ -187,7 +187,7 @@ architecture Behavioral of container is
   signal halfpixelclock : std_logic := '1';  
   signal pixelclock : std_logic;
   signal cpuclock : std_logic;
---  signal ioclock : std_logic;
+  signal clock200 : std_logic;
   
   signal segled_counter : unsigned(31 downto 0) := (others => '0');
 
@@ -261,7 +261,8 @@ begin
   dotclock1: entity work.dotclock100
     port map ( clk_in1 => CLK_IN,
                clock100 => pixelclock, -- 100MHz
-               clock50 => cpuclock -- 50MHz
+               clock50 => cpuclock, -- 50MHz
+               clock200 => clock200
                );
 
   fpgatemp0: entity work.fpgatemp
@@ -337,6 +338,7 @@ begin
 --      uartclock         => ioclock, -- must be 32MHz
       uartclock         => cpuclock, -- Match CPU clock (48MHz)
       ioclock         => cpuclock, -- Match CPU clock
+      clock200 => clock200,
       btncpureset => btncpureset,
       reset_out => reset_out,
       irq => irq,
