@@ -260,6 +260,9 @@ architecture behavioural of ethernet is
  signal eth_offset_fail : unsigned(7 downto 0) := x"00";
 
  signal eth_swap_rx : std_logic := '0';
+ signal eth_rxdv : std_logic := '0';
+ signal eth_rxd : std_logic_vector(1 downto 0) := "00";
+ 
  
  -- Reverse the input vector.
  function reversed(slv: std_logic_vector) return std_logic_vector is
