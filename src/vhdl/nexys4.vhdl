@@ -199,6 +199,7 @@ architecture Behavioral of container is
 
   signal clock100mhz : std_logic := '0';
   signal clock50mhz : std_logic := '0';
+  signal clock200 : std_logic := '0';
 
   signal slow_access_request_toggle : std_logic;
   signal slow_access_ready_toggle : std_logic;
@@ -260,20 +261,12 @@ architecture Behavioral of container is
   signal fpga_temperature : std_logic_vector(11 downto 0) := (others => '0');
   
 begin
-  
-  dotclock1: entity work.dotclock150
+
+  dotclock1: entity work.dotclock100
     port map ( clk_in1 => CLK_IN,
-               clock100 => clock100mhz,
-               -- CLK_OUT2 is good for 1920x1200@60Hz, CLK_OUT3___160
-               -- for 1600x1200@60Hz
-               -- 60Hz works fine, but 50Hz is not well supported by monitors. 
-               -- so I guess we will go with an NTSC-style 60Hz display.       
-               -- For C64 mode it would be nice to have PAL or NTSC selectable.                    -- Perhaps consider a different video mode for that, or buffering
-               -- the generated frames somewhere?
-               pixclock => pixelclock,
-               cpuclock => cpuclock, -- 48MHz
-               pix2xclock => pixelclock2x
---               clk_out3 => ioclock -- also 48MHz
+               clock100 => pixelclock, -- 100MHz
+               clock50 => cpuclock, -- 50MHz
+               clock200 => clock200
                );
 
   fpgatemp0: fpgatemp
@@ -335,9 +328,9 @@ begin
   machine0: entity work.machine
     port map (
       pixelclock      => pixelclock,
-      pixelclock2x      => pixelclock2x,
       cpuclock        => cpuclock,
       clock50mhz      => clock50mhz,
+      clock200 => clock200,
 --      ioclock         => ioclock, -- 32MHz
 --      uartclock         => ioclock, -- must be 32MHz
       uartclock         => cpuclock, -- Match CPU clock (48MHz)
