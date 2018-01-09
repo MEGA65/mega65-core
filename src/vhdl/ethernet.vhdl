@@ -244,7 +244,6 @@ architecture behavioural of ethernet is
  signal eth_txen_delayed : std_logic_vector(3 downto 0) := "0000";
  signal eth_txd_phase : unsigned(1 downto 0) := "00";
  signal eth_txd_phase_drive : unsigned(1 downto 0) := "00";
- signal eth_txd_fcs_twiddle : std_logic := '0';
  
  -- Reverse the input vector.
  function reversed(slv: std_logic_vector) return std_logic_vector is
@@ -558,14 +557,8 @@ begin  -- behavioural
         when SendFCS =>
           report "ETHTX: writing FCS";
           if eth_tx_crc_count /= 0 then
-            -- di-bits were swapped around
-            if eth_txd_fcs_twiddle='1' then
-              eth_txd_int(0) <= eth_tx_crc_bits(31);
-              eth_txd_int(1) <= eth_tx_crc_bits(30);
-            else
-              eth_txd_int(0) <= eth_tx_crc_bits(30);
-              eth_txd_int(1) <= eth_tx_crc_bits(31);
-            end if;
+            eth_txd_int(0) <= eth_tx_crc_bits(31);
+            eth_txd_int(1) <= eth_tx_crc_bits(30);
             eth_tx_crc_bits(31 downto 2) <= eth_tx_crc_bits(29 downto 0);
             eth_tx_crc_count <= eth_tx_crc_count - 1;
           else
@@ -851,7 +844,6 @@ begin  -- behavioural
             fastio_rdata(0) <= eth_swap_rx;
             fastio_rdata(1) <= eth_disable_crc_check;
             fastio_rdata(3 downto 2) <= eth_txd_phase;
-            fastio_rdata(4) <= eth_txd_fcs_twiddle;
             fastio_rdata(7 downto 5) <= (others => '0');
           when x"b" =>
             fastio_rdata <= eth_tx_size(7 downto 0);
@@ -994,8 +986,6 @@ begin  -- behavioural
                   null;
               end case;
             when x"5" =>
-              -- @IO:GS $D6E5.4 Swap bit order for TX FCS output
-              eth_txd_fcs_twiddle <= fastio_wdata(4);
               -- @IO:GS $D6E5.2-3 Ethernet TX clock phase adjust
               eth_txd_phase <= fastio_wdata(3 downto 2);
               -- @IO:GS $D6E5.0 Swap RMII RX bit order
