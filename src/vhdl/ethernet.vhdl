@@ -125,33 +125,6 @@ architecture behavioural of ethernet is
    x"00",x"00",x"65",x"65",x"65",x"65",x"65",x"65"
    );
   
- component CRC is
-    Port 
-    (  
-      CLOCK               :   in  std_logic;
-      RESET               :   in  std_logic;
-      DATA                :   in  std_logic_vector(7 downto 0);
-      LOAD_INIT           :   in  std_logic;
-      CALC                :   in  std_logic;
-      D_VALID             :   in  std_logic;
-      CRC                 :   out std_logic_vector(7 downto 0);
-      CRC_REG             :   out std_logic_vector(31 downto 0);
-      CRC_VALID           :   out std_logic
-    );
-  end component CRC;
-  
-  component ram8x4096 IS
-    PORT (
-      clk : IN STD_LOGIC;
-      cs : IN STD_LOGIC;
-      w : IN std_logic;
-      write_address : IN integer range 0 to 4095;
-      wdata : IN unsigned(7 DOWNTO 0);
-      address : IN integer range 0 to 4095;
-      rdata : OUT unsigned(7 DOWNTO 0)
-      );
-  END component;
-
   type ethernet_state is (Idle,
                           DebugRxFrameWait,DebugRxFrame,DebugRxFrameDone,
                           SkippingFrame,
@@ -297,7 +270,7 @@ begin  -- behavioural
   -- RX buffer is written from ethernet side, so use 50MHz clock.
   -- reads are fully asynchronous, so no need for a read-side clock for the CPU
   -- side.
-  rxbuffer0: ram8x4096 port map (
+  rxbuffer0: entity work.ram8x4096 port map (
     clk => clock50mhz,
     cs => rxbuffer_cs,
     w => rxbuffer_write,
@@ -306,7 +279,7 @@ begin  -- behavioural
     address => rxbuffer_readaddress,
     rdata => fastio_rdata);  
 
-  txbuffer0: ram8x4096 port map (
+  txbuffer0: entity work.ram8x4096 port map (
     clk => clock50mhz,
     cs => '1',
     w => txbuffer_write,
@@ -315,7 +288,7 @@ begin  -- behavioural
     address => txbuffer_readaddress,
     rdata => txbuffer_rdata);  
 
-  rx_CRC : CRC
+  rx_CRC : entity work.CRC
     port map(
       CLOCK           => clock50mhz,
       RESET           => '0',
@@ -328,7 +301,8 @@ begin  -- behavioural
       CRC_VALID       => rx_crc_valid
       );
   
-  tx_CRC : CRC
+  tx_CRC : entity work.CRC
+    generic map ( debug => true )
     port map(
       CLOCK           => clock50mhz,
       RESET           => '0',
@@ -465,7 +439,11 @@ begin  -- behavioural
         when WaitBeforeTX =>
           txbuffer_readaddress <= 0;
           eth_tx_state <= SendingPreamble;
+          report "Reseting TX CRC";
           tx_fcs_crc_load_init <= '1';
+          report "TX CRC init not announcing data";
+          tx_fcs_crc_d_valid <= '0';
+          tx_fcs_crc_calc_en <= '0';
         when SendingPreamble =>
           if tx_preamble_count = 0 then
             eth_txd_int <= "11";
@@ -473,11 +451,14 @@ begin  -- behavioural
             eth_tx_bit_count <= 0;
             txbuffer_readaddress <= txbuffer_readaddress + 1;
             tx_fcs_crc_load_init <= '0';
+            report "Releasing TX CRC init";
             tx_fcs_crc_d_valid <= '1';
             tx_fcs_crc_calc_en <= '1';
+            report "TX CRC announcing input";
             if eth_tx_viciv='0' then
               eth_tx_bits <= txbuffer_rdata;
               tx_fcs_crc_data_in <= std_logic_vector(txbuffer_rdata);
+              report "Feeding TX CRC $" & to_hstring(txbuffer_rdata);
             else
               eth_tx_bits <= x"ff";
               tx_fcs_crc_data_in <= x"ff";
@@ -493,23 +474,25 @@ begin  -- behavioural
         when SendingFrame =>
           tx_fcs_crc_d_valid <= '0';
           tx_fcs_crc_calc_en <= '0';
+          report "TX CRC no input";
           eth_txd_int <= eth_tx_bits(1 downto 0);
           if eth_tx_bit_count = 6 then
             -- Prepare to send from next byte
             eth_tx_bit_count <= 0;
             tx_fcs_crc_d_valid <= '1';
             tx_fcs_crc_calc_en <= '1';
+            report "TX CRC announcing input";
             if eth_tx_viciv='0' then
               if eth_tx_padding = '1' then
                report "PADDING: writing padding byte @ "
-                 & integer'image(txbuffer_readaddress);
+                 & integer'image(txbuffer_readaddress) & " (and adding to CRC)";
                 tx_fcs_crc_data_in <= x"00";
                 eth_tx_bits <= x"00";
               else
                 report "PADDING: writing actual byte $"
                   & to_hstring(txbuffer_rdata) & 
                   " @ "
-                  & integer'image(txbuffer_readaddress);
+                  & integer'image(txbuffer_readaddress) & " (and adding to CRC)";
                 eth_tx_bits <= txbuffer_rdata;
                 tx_fcs_crc_data_in <= std_logic_vector(txbuffer_rdata);
               end if;
@@ -556,6 +539,9 @@ begin  -- behavioural
               -- high-order bytes first (but low-order bits first).
               -- This requires some bit munging.
               eth_tx_state <= SendFCS;
+              report "TX CRC not announcing data";
+              tx_fcs_crc_d_valid <= '0';
+              tx_fcs_crc_calc_en <= '0';
               eth_tx_crc_bits <= not (tx_crc_reg(31 downto 24)
                                       & tx_crc_reg(23 downto 16)
                                       & tx_crc_reg(15 downto 8)
@@ -801,7 +787,7 @@ begin  -- behavioural
   begin
 
     if fastio_read='1' then
-      report "MEMORY: Reading from fastio";
+--      report "MEMORY: Reading from fastio";
 
       if ethernet_cs='1' then
         report "MEMORY: Reading from ethernet register block";
@@ -909,8 +895,8 @@ begin  -- behavioural
         eth_irq_rx <= '1';
         eth_rx_buffer_last_used_48mhz <= eth_rx_buffer_last_used_int2;
       else
-        report "ETHRX: int2="&std_logic'image(eth_rx_buffer_last_used_int2)
-          & ", 48mhz=" &std_logic'image(eth_rx_buffer_last_used_48mhz);
+--        report "ETHRX: int2="&std_logic'image(eth_rx_buffer_last_used_int2)
+--          & ", 48mhz=" &std_logic'image(eth_rx_buffer_last_used_48mhz);
       end if;
       -- Assert IRQ if a frame has been transmitted
       if eth_tx_toggle_48mhz /= eth_tx_toggle_int2 then
